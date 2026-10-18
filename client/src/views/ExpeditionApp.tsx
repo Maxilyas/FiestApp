@@ -162,6 +162,18 @@ type Ecran =
   | { e: 'inconnu'; vue: VueDeLExpedition; tombe?: Fin }
   | { e: 'fin'; vue: VueDeLExpedition; tombe: Fin; correction: CorrectionDeCampagne[] | null }
 
+/**
+ * L'écran qu'ouvre la page lue : à l'arrivée, l'expédition en route reprend
+ * où elle en est ; en partant (« ← Partir »), le départ la garde, avec
+ * « Reprendre ». Partir la montrait comme à l'arrivée : elle se rouvrait sur
+ * l'écran même qu'on quittait, et l'on n'en sortait que par le navigateur (le
+ * retour du propriétaire du 18 octobre 2026, « Je ne peux pas partir de
+ * l'expédition »).
+ */
+export function ecranDeLaPage(page: PageDeLExpedition, enPartant = false): Extract<Ecran, { e: 'route' | 'depart' }> {
+  return page.expedition && !enPartant ? { e: 'route', vue: page.expedition } : { e: 'depart', page }
+}
+
 /** La marche d'une question, accordée à elle : « facile », « moyenne », « difficile ». */
 const MARCHE: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
 
@@ -456,12 +468,12 @@ export function ExpeditionApp() {
     window.scrollTo(0, 0)
   }
 
-  /** L'expédition en route reprend où elle en est ; sans elle, le départ. */
-  const montrer = (page: PageDeLExpedition) => setEcran(page.expedition ? { e: 'route', vue: page.expedition } : { e: 'depart', page })
+  /** L'expédition en route reprend où elle en est ; sans elle — ou en partant —, le départ. */
+  const montrer = (page: PageDeLExpedition, enPartant = false) => setEcran(ecranDeLaPage(page, enPartant))
 
-  const relire = async () => {
+  const relire = async (enPartant = false) => {
     try {
-      montrer(await api.expedition.page())
+      montrer(await api.expedition.page(), enPartant)
     } catch (e) {
       if (e instanceof UnauthorizedError) setEcran({ e: 'anonyme' })
       else if (e instanceof ApiError && e.statut === 404) setEcran({ e: 'bientot', motif: e.message })
@@ -657,7 +669,7 @@ export function ExpeditionApp() {
   }
 
   /** « ← Partir » : l'expédition attend, rien ne se perd — on revient au départ, qui la reprend. */
-  const quitter = () => void relire().then(() => showToast({ kind: 'info', message: 'Ton expédition t’attend : reprends-la quand tu veux' }))
+  const quitter = () => void relire(true).then(() => showToast({ kind: 'info', message: 'Ton expédition t’attend : reprends-la quand tu veux' }))
 
   const signaler = async (serie: string, index: number) => {
     const texte = await promptDialog({
