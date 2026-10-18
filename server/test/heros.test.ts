@@ -30,6 +30,8 @@ test('la campagne s’ouvre sur son défi : le record, l’échelle et les règl
   assert.match(grille, /const toutes = !sujet && categories\.length === 0/)
   assert.match(grille, /aria-pressed=\{toutes\} onClick=\{\(\) => onCategories\(\[\]\)\}/)
   assert.match(grille, /const choisie = !sujet && categories\.includes\(c\)/)
+  // Sauf la catégorie d'une rubrique (le 17 octobre 2026) : elle en est un morceau, et se dit pressée avec elle.
+  assert.match(grille, /const pressee = choisie \|\| rubrique\?\.categorie === c/)
   assert.match(source('components/Ecusson.tsx'), /export const EMBLEME: Record<string, IconName>/)
 })
 

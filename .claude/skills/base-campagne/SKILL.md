@@ -112,7 +112,9 @@ moins qu'une réécriture.
    Pour étoffer un thème, une époque ou un fil rouge déjà là (les surnoms,
    les années 50) : `--sujet=<clé>[,<clé>…] --questions=<n>`, n de plus
    chacun, là où il vit déjà et aux difficultés qui lui manquent — hors de
-   ses sous-thèmes, chaque ligne dit son étiquette ou ses années. Un gros
+   ses sous-thèmes, chaque ligne dit son étiquette ou ses années ; ou chacun
+   le sien après ses deux-points (`--sujet=harry-potter:40,james-bond:75`),
+   ce qui lui manque pour ses cent questions. Un gros
    morceau d'un seul sous-thème (les mythes, six questions sur dix du
    thème) s'écrit sur plusieurs vagues.
 2. **L'écriture** : un agent `redacteur-campagne` par mission, sa mission telle

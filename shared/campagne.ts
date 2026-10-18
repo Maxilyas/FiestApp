@@ -470,7 +470,7 @@ export interface EtatDeCampagne {
   enCours: SerieDeCampagne | null
   /** Les catégories qui ont des questions à jouer, et combien. */
   categories: { categorie: string; questions: number }[]
-  /** Les sujets qui ont de quoi faire une série, et combien de questions ; absents : un serveur d'avant. */
+  /** Les sujets et les rubriques (`SUJETS_ET_RUBRIQUES`) qui ont de quoi faire une série, et combien de questions ; absents : un serveur d'avant. */
   sujets?: { sujet: string; questions: number }[]
   /** Toutes catégories, les questions que la campagne peut poser : sous dix, elle attend. */
   questions: number

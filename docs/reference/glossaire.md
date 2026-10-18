@@ -186,6 +186,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Famille (de faits) | Une sorte de faits tirés de Wikidata (tableaux, films, prix Goncourt…), dont un script fait des fiches à rédiger | `FAMILLES`, `server/scripts/faits-wikidata.ts` |
 | Famille (d'une question) | Les questions de la campagne d'une même catégorie et d'une même difficulté estimée ; ou, pour une réponse qui est une année, un autre nombre ou un vrai ou faux, toutes celles de cette forme et de cette difficulté. De la 1 à la 3, une question part de la part que sa famille trouve | `familleDeQuestion`, `mesuresEnFamille` |
 | Faute de trop | La faute qui franchit la ligne d'or et rate l'épreuve : la septième, la huitième au maître | `issueDe` |
+| Fête (un sujet) | Noël, le Nouvel An, Halloween, l'amour ou les anniversaires : un sujet qui ouvre l'onglet « Thèmes », la plus proche d'abord, sans parcours | `fetesDansLOrdre` |
 | Feuille du choix | La feuille « Sur quoi ? » où l'on choisit les catégories ou le sujet d'une série | `FeuilleDuChoix` |
 | Fiche | Un invité de la soirée : son prénom, son avatar, son équipe, son profil éventuel et son jeton | `PlayerRec` (`server/src/core/party.ts`) |
 | Fiche d'un quiz | L'écran d'un quiz dans « Mes quiz » : ce qu'il contient, « Lancer » et « Modifier les questions » en grand, les gestes rares sous « Plus » | `FicheDeQuiz` |
@@ -337,6 +338,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Partie | Un quiz joué dans un espace, du choix du quiz à son podium — une seule à la fois par espace | `GameEngine` |
 | Partie du jour | Ce qu'un profil a joué un jour donné : commencée, ses questions servies une à une, finie ou laissée | `jour_parties` |
 | Pastille d'environnement | La marque de chaque page servie hors production : une pastille en bas à gauche, le nom de l'environnement devant le titre de l'onglet | `APP_ENV`, `<meta name="app-env">` (`server/src/server.ts`, `client/src/main.tsx`) |
+| Pays (un sujet) | L'Italie, le Japon, les pays nordiques… : un sujet lu sur son étiquette, posée sur chaque question qui parle de lui — pas sa mythologie, ni sa langue seule | `ETIQUETTES` « Les pays » (`shared/etiquettes.ts`) |
 | PC de secours | Un PC qui reprend une soirée depuis la base de production quand l'hébergeur ne revient pas, sur une base locale neuve | `DB_PATH` |
 | Personnage | La fiche d'un invité ou d'une animatrice de la tablée : qui, quel appareil, quelle arrivée, quel scénario, ce qu'il regarde | `.claude/skills/tablee/personas/` |
 | Phase | L'étape où en est une partie : choix du quiz, compte à rebours, intertitre, photo à mémoriser, question, mesure, révélation, podium | `QuizState.phase` |
@@ -426,6 +428,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Réveil | Le démarrage d'un service endormi, sur un disque effacé ; la page « Le serveur » le distingue d'une mise en ligne, d'une relance et d'un redémarrage après un arrêt net | `sorteDuDemarrage` |
 | Révision | Une partie sans vies de dix questions au plus, tirées du carnet, les plus en retard d'abord | `commencerRevision` |
 | Routine du matin | La routine Claude Code qui remplit chaque matin la réserve du quiz du jour et la base de la campagne, et réveille la production au passage | `RESERVE_TOKEN` |
+| Rubrique | Un sous-thème seul, choisi sous sa catégorie (« Sport », puis « Football ») : une partie le joue comme un sujet, sans parcours, dès cent questions. Un sujet qui ne lit qu'un sous-thème en tient la rubrique : « Les jeux vidéo », à la place de « Jeux vidéo » | `RUBRIQUES`, `rubriquesDeLaCategorie` (`shared/sujets.ts`) |
 
 ## S
 
@@ -499,6 +502,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | `uid` | L'identifiant d'un gain ou d'une réponse, tiré à l'écriture locale, qui rend une recopie rejouée sans doublon | `server/src/core/scores.ts` |
+| Univers (un sujet) | Une saga qui traverse les livres, les films et les chansons — Harry Potter, Star Wars, Disney et Pixar… — : un sujet lu sur son étiquette, en tuile après les thèmes | `ETIQUETTES` « Les univers » (`shared/etiquettes.ts`) |
 
 ## V
 

@@ -1,160 +1,20 @@
 // Le catalogue des métadonnées d'une question : ses sous-thèmes, une liste
-// fermée par catégorie, et ses étiquettes, rangées en familles. Une seule
-// source pour la consigne qu'on donne à une IA pour étiqueter la réserve
-// (`server/src/core/etiquetage.ts`) et pour la relecture de ce qu'elle rend
-// (`lireEtiquetage`) : une clé que la consigne ne propose pas est refusée.
+// fermée par catégorie (`shared/sousThemes.ts`, à part : la feuille du choix
+// les nomme sans télécharger le reste), et ses étiquettes, rangées en
+// familles. Une seule source pour la consigne qu'on donne à une IA pour
+// étiqueter la réserve (`server/src/core/etiquetage.ts`) et pour la relecture
+// de ce qu'elle rend (`lireEtiquetage`) : une clé que la consigne ne propose
+// pas est refusée.
 //
 // Les listes ont été essayées sur les questions du dépôt et sur des
 // questions neuves (le 3 octobre 2026) : chaque sous-thème a ses questions,
 // et une étiquette ne dit rien qu'un autre champ dise déjà.
-//
-// La danse et la santé (le 15 octobre 2026) n'ont qu'un sous-thème par
-// catégorie, là où leur savoir vivait déjà — ballet, danses et bal ; sante et
-// medecine : chaque sous-thème prend sa part des séries de sa catégorie, et
-// six de danse en musique l'auraient faite à moitié dansée. Leurs familles —
-// la salsa, les orishas, la rééducation — vivent dans leur inventaire
-// (`server/src/core/inventaires.ts`).
-//
-// La langue française (le 17 octobre 2026) a pris son sous-thème à langue,
-// qui mêlait les accords du participe et l'alphabet coréen : langue garde
-// les autres langues, les écritures et les codes, francais tout ce qui dit
-// le français — son orthographe, sa grammaire, ses mots et leur origine.
-// L'anglais et l'espagnol ont pris chacun le leur le même jour : une série
-// de Culture générale y gagne des questions de langue, quatre sous-thèmes
-// sur douze, et une série de toutes les catégories presque rien.
 
 import { CATEGORIES } from './categories'
 import { tronquer } from './avatars'
+import { SOUS_THEMES } from './sousThemes'
 
-export interface SousTheme {
-  cle: string
-  nom: string
-}
-
-/** Les sous-thèmes de chaque catégorie : une clé n'existe que dans la sienne. */
-export const SOUS_THEMES: Record<(typeof CATEGORIES)[number], readonly SousTheme[]> = {
-  "Culture générale": [
-    { cle: "francais", nom: "Langue française" },
-    { cle: "anglais", nom: "Langue anglaise" },
-    { cle: "espagnol", nom: "Langue espagnole" },
-    { cle: "langue", nom: "Langues et écritures du monde" },
-    { cle: "symboles", nom: "Symboles et institutions" },
-    { cle: "quotidien", nom: "Objets et vie quotidienne" },
-    { cle: "transports", nom: "Transports" },
-    { cle: "mythes", nom: "Mythes et religions" },
-    { cle: "societe", nom: "Société, métiers et argent" },
-    { cle: "sante", nom: "Métiers de la santé" },
-    { cle: "mesures", nom: "Mesures et calendrier" },
-    { cle: "records", nom: "Records et superlatifs" },
-  ],
-  "Histoire": [
-    { cle: "civilisations", nom: "Civilisations anciennes" },
-    { cle: "pouvoirs", nom: "Rois, présidents et régimes" },
-    { cle: "guerres", nom: "Guerres et batailles" },
-    { cle: "explorations", nom: "Explorations et conquêtes" },
-    { cle: "personnages", nom: "Grands personnages" },
-    { cle: "vie-autrefois", nom: "Vie d’autrefois" },
-    { cle: "faits-divers", nom: "Grands événements et faits marquants" },
-  ],
-  "Géographie": [
-    { cle: "capitales", nom: "Capitales et villes" },
-    { cle: "pays", nom: "Pays et frontières" },
-    { cle: "drapeaux", nom: "Drapeaux" },
-    { cle: "reliefs", nom: "Montagnes, volcans et déserts" },
-    { cle: "eaux", nom: "Fleuves, lacs, mers et océans" },
-    { cle: "france", nom: "Régions et départements français" },
-    { cle: "sites", nom: "Sites et monuments" },
-    { cle: "peuples", nom: "Peuples, langues et cultures" },
-  ],
-  "Sciences": [
-    { cle: "espace", nom: "Espace et astronomie" },
-    { cle: "terre", nom: "Planète Terre" },
-    { cle: "corps", nom: "Corps humain" },
-    { cle: "medecine", nom: "Maladies, examens et traitements" },
-    { cle: "physique-chimie", nom: "Physique et chimie" },
-    { cle: "maths", nom: "Mathématiques et logique" },
-    { cle: "techno", nom: "Technologies et informatique" },
-    { cle: "savants", nom: "Inventions et savants" },
-  ],
-  "Nature": [
-    { cle: "mammiferes", nom: "Mammifères" },
-    { cle: "oiseaux", nom: "Oiseaux" },
-    { cle: "aquatique", nom: "Poissons et vie aquatique" },
-    { cle: "petites-betes", nom: "Insectes, reptiles et petites bêtes" },
-    { cle: "plantes", nom: "Plantes, arbres et champignons" },
-    { cle: "disparus", nom: "Dinosaures et espèces disparues" },
-    { cle: "ecologie", nom: "Écologie et environnement" },
-  ],
-  "Cinéma & séries": [
-    { cle: "cinema-fr", nom: "Cinéma français" },
-    { cle: "cinema-monde", nom: "Cinéma du monde" },
-    { cle: "animation", nom: "Animation" },
-    { cle: "sagas", nom: "Sagas et super-héros" },
-    { cle: "series", nom: "Séries" },
-    { cle: "repliques", nom: "Répliques cultes" },
-    { cle: "coulisses", nom: "Récompenses et coulisses" },
-  ],
-  "Musique": [
-    { cle: "chanson-fr", nom: "Chanson française" },
-    { cle: "pop-rock", nom: "Pop et rock" },
-    { cle: "rap-electro", nom: "Rap, R&B et électro" },
-    { cle: "classique", nom: "Classique et opéra" },
-    { cle: "jazz-monde", nom: "Jazz, blues et musiques du monde" },
-    { cle: "danses", nom: "Danses de couple, de rue et du monde" },
-    { cle: "ecrans", nom: "Musiques de films et comédies musicales" },
-    { cle: "instruments", nom: "Instruments et théorie" },
-  ],
-  "Arts & lettres": [
-    { cle: "litterature-fr", nom: "Littérature française" },
-    { cle: "litterature-monde", nom: "Littérature du monde" },
-    { cle: "poesie-theatre", nom: "Poésie et théâtre" },
-    { cle: "ballet", nom: "Ballet et danse de scène" },
-    { cle: "bd", nom: "Bande dessinée et manga" },
-    { cle: "peinture", nom: "Peinture et dessin" },
-    { cle: "sculpture-archi", nom: "Sculpture et architecture" },
-    { cle: "philo", nom: "Philosophie et idées" },
-  ],
-  "Sport": [
-    { cle: "football", nom: "Football" },
-    { cle: "rugby", nom: "Rugby" },
-    { cle: "tennis", nom: "Tennis" },
-    { cle: "cyclisme", nom: "Cyclisme" },
-    { cle: "olympisme", nom: "Jeux olympiques et athlétisme" },
-    { cle: "equipes", nom: "Basket, hand, volley et hockey" },
-    { cle: "mecaniques", nom: "Sports mécaniques" },
-    { cle: "glisse", nom: "Montagne, glisse et voile" },
-    { cle: "combat", nom: "Sports de combat" },
-  ],
-  "Cuisine": [
-    { cle: "france", nom: "Spécialités françaises" },
-    { cle: "monde", nom: "Cuisines du monde" },
-    { cle: "terroir", nom: "Fromages et produits du terroir" },
-    { cle: "desserts", nom: "Desserts et pâtisserie" },
-    { cle: "ingredients", nom: "Ingrédients et produits bruts" },
-    { cle: "boissons", nom: "Vins et boissons" },
-    { cle: "techniques", nom: "Techniques et vocabulaire" },
-    { cle: "chefs", nom: "Chefs et gastronomie" },
-  ],
-  "Jeux & pop culture": [
-    { cle: "jeux-video", nom: "Jeux vidéo" },
-    { cle: "jeux-societe", nom: "Jeux de société et de cartes" },
-    { cle: "jouets", nom: "Jouets et enfance" },
-    { cle: "tele", nom: "Télévision et émissions" },
-    { cle: "internet", nom: "Internet et réseaux sociaux" },
-    { cle: "celebrites", nom: "Célébrités" },
-    { cle: "mode", nom: "Mode et style" },
-  ],
-  "Autour de la fête": [
-    { cle: "anniversaires", nom: "Anniversaires" },
-    { cle: "amour", nom: "Mariage et amour" },
-    { cle: "noel", nom: "Noël" },
-    { cle: "nouvel-an", nom: "Nouvel An" },
-    { cle: "halloween", nom: "Halloween" },
-    { cle: "traditions", nom: "Fêtes du monde et traditions" },
-    { cle: "bal", nom: "Bals et soirées dansantes" },
-    { cle: "cocktails", nom: "Cocktails et apéritifs" },
-  ],
-}
+export { SOUS_THEMES, type SousTheme } from './sousThemes'
 
 export interface Etiquette {
   cle: string
@@ -201,6 +61,17 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "francais", nom: "La langue française", definition: "la langue française elle-même est au cœur d'une question rangée hors du sous-thème francais : le sens d'une expression, d'un mot familier ou d'argot, le mot recommandé à la place d'un anglicisme, l'histoire du français (ouvrir le bal, le toubib, courriel, l'ordonnance de Villers-Cotterêts). Pas pour le vocabulaire d'un métier ou d'un art (émincer, crescendo), ni pour la seule origine d'un mot : etymologie le dit" },
       { cle: "anglais", nom: "La langue anglaise", definition: "le sens d'un mot ou d'une expression anglaise est au cœur d'une question rangée hors du sous-thème anglais (happy hour, black tie, love au tennis, LOL). Pas pour un sigle technique (USB, GPS), un titre de film ou de chanson, ni pour la seule origine d'un mot : etymologie le dit" },
       { cle: "espagnol", nom: "La langue espagnole", definition: "le sens d'un mot ou d'une expression espagnole est au cœur d'une question rangée hors du sous-thème espagnol (piña colada, paso doble, Feliz Navidad). Pas pour un titre de film ou de chanson, ni pour la seule origine d'un mot : etymologie le dit" },
+      // Le 17 octobre 2026, au soir : trois fils rouges de plus, posés sur la base question par question.
+      { cle: "paris", nom: "Paris", definition: "Paris est au cœur de la question — ses monuments, ses musées, ses quartiers, son histoire, ses institutions, ses clubs et ses grands rendez-vous —, ou Paris est la réponse. Pas ce qui s'y passe par hasard (un roman qui s'y déroule, un tableau conservé au Louvre, un traité signé à Paris), ni un nom qui le contient (le Paris-Brest)" },
+      { cle: "rois-de-france", nom: "Les rois et reines de France", definition: "un roi ou une reine de France, des Mérovingiens à Louis-Philippe, est au cœur de la question — son règne, sa cour, ses favorites, ses grands ministres, ses châteaux royaux —, ou il est la réponse. Pas les empereurs (Napoléon), ni les rois d'ailleurs, ni un roi cité pour dater autre chose" },
+      { cle: "mer", nom: "La mer et les marins", definition: "les navires et la navigation, les marins et les navigateurs, les pirates et les corsaires, les batailles navales, les naufrages, les phares et les ports, la voile et les courses au large. Pas la faune marine (animaux), ni la seule géographie des mers et des océans" },
+      // Puis six de plus, dont les dinosaures, partis des animaux pour leur thème : leur étiquette les porte hors de leur sous-thème.
+      { cle: "revolution-empire", nom: "La Révolution et l'Empire", definition: "la Révolution française ou le Premier Empire (1789-1815) est au cœur de la question — ses journées, ses figures, ses lois, Napoléon et ses batailles —, ou l'un d'eux est la réponse. Pas Napoléon III, ni les autres révolutions" },
+      { cle: "presidents", nom: "Les présidents de la République", definition: "un président de la République française est au cœur de la question — son élection, son mandat, ses mots, l'Élysée —, ou il est la réponse. Pas les présidents d'autres pays, ni un lieu qui porte son nom (l'aéroport Charles-de-Gaulle)" },
+      { cle: "aviation", nom: "L'aviation", definition: "les avions et les hélicoptères, les pionniers et les pilotes, les compagnies et les aéroports, les records et les accidents d'avion. Pas l'espace et les fusées (astronomie), ni un avion qui n'est qu'un décor" },
+      { cle: "polar", nom: "Le polar et les détectives", definition: "le roman policier et ses enquêteurs, de livre, de film ou de série (Sherlock Holmes, Poirot, Maigret, Columbo), leurs auteurs et leurs énigmes. Pas les vraies affaires criminelles (mysteres), ni les espions" },
+      { cle: "marques", nom: "Les marques", definition: "une marque ou une entreprise célèbre est au cœur de la question — son logo, son slogan, son fondateur, l'origine de son nom, ses produits phares —, ou une marque est la réponse. Pas un club de sport ni un média, ni une marque qui n'est qu'un décor" },
+      { cle: "dinosaures", nom: "Les dinosaures", definition: "un dinosaure ou une espèce disparue (le mammouth, le dodo) est au cœur d'une question rangée hors du sous-thème disparus (un film, un nom, une expression)" },
     ],
   },
   {
@@ -232,6 +103,60 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "tour-de-france", nom: "Tour de France", definition: "" },
       { cle: "eurovision", nom: "Eurovision", definition: "" },
       { cle: "cannes", nom: "Festival de Cannes", definition: "" },
+    ],
+  },
+  // Les pays (le 17 octobre 2026, « apporter beaucoup de choix ») : chacun
+  // un sujet de la campagne (`shared/sujets.ts`). Pas la France — sa portée
+  // le dit déjà —, ni la Belgique ou la Suisse : la francophonie. Le soir
+  // même, le Canada, Québec compris, et deux continents, l'Afrique sans
+  // l'Égypte et l'Amérique du Sud : un pays qui a son sujet n'entre pas dans
+  // celui de son continent, deux sujets ne se recoupent pas.
+  {
+    famille: "Les pays",
+    regle:
+      "la question parle de ce pays : ses villes et ses paysages, son histoire (l'antique comprise), ses dirigeants, sa cuisine, ses traditions, ses sports — ou de ce qui en vient quand elle le dit (« écrivain japonais ») ou que le pays est la réponse. Pas sa mythologie, ni sa langue seule, ni ce qui s'y passe par hasard (un film américain tourné à Rome)",
+    etiquettes: [
+      { cle: "afrique", nom: "Afrique (tous ses pays, sauf l'Égypte, qui a la sienne)", definition: "" },
+      { cle: "allemagne", nom: "Allemagne", definition: "" },
+      { cle: "amerique-du-sud", nom: "Amérique du Sud (Brésil, Argentine, Chili, Pérou, Colombie… : ni le Mexique, ni les Caraïbes, ni la Guyane française)", definition: "" },
+      { cle: "asie-du-sud-est", nom: "Asie du Sud-Est (Thaïlande, Viêt Nam, Cambodge, Indonésie, Philippines… : ni la Chine, ni l'Inde)", definition: "" },
+      { cle: "australie", nom: "Australie", definition: "" },
+      { cle: "autriche", nom: "Autriche", definition: "" },
+      { cle: "canada", nom: "Canada (le Québec compris)", definition: "" },
+      { cle: "chine", nom: "Chine", definition: "" },
+      { cle: "coree", nom: "Corée (du Sud et du Nord)", definition: "" },
+      { cle: "egypte", nom: "Égypte", definition: "" },
+      { cle: "espagne", nom: "Espagne", definition: "" },
+      { cle: "etats-unis", nom: "États-Unis", definition: "" },
+      { cle: "grece", nom: "Grèce", definition: "" },
+      { cle: "inde", nom: "Inde", definition: "" },
+      { cle: "irlande", nom: "Irlande (l'île entière)", definition: "" },
+      { cle: "italie", nom: "Italie", definition: "" },
+      { cle: "japon", nom: "Japon", definition: "" },
+      { cle: "mexique", nom: "Mexique", definition: "" },
+      { cle: "pays-bas", nom: "Pays-Bas", definition: "" },
+      { cle: "pays-nordiques", nom: "Pays nordiques (Suède, Norvège, Danemark, Finlande, Islande)", definition: "" },
+      { cle: "pologne", nom: "Pologne", definition: "" },
+      { cle: "portugal", nom: "Portugal", definition: "" },
+      { cle: "royaume-uni", nom: "Royaume-Uni", definition: "" },
+      { cle: "russie", nom: "Russie", definition: "" },
+      { cle: "turquie", nom: "Turquie", definition: "" },
+    ],
+  },
+  // Les univers (le même jour) : les sagas qui traversent les livres, les
+  // films, les jeux et les chansons. Pas Astérix, Tintin, Nintendo ni
+  // Pokémon : trois quarts et plus de leurs questions vivaient dans un thème
+  // déjà là — la BD, les jeux vidéo —, et le propriétaire ne voulait plus de
+  // thèmes qui se recoupent.
+  {
+    famille: "Les univers",
+    etiquettes: [
+      { cle: "disney", nom: "Disney et Pixar", definition: "leurs films, leurs personnages, leurs chansons et leurs parcs. Pas Star Wars ni Marvel, qui ont le leur, ni un conte avant que Disney ne l'adapte (Perrault, Grimm, Collodi)" },
+      { cle: "harry-potter", nom: "Harry Potter", definition: "les livres de J. K. Rowling, leurs films et leurs suites, leurs personnages et leurs lieux (Poudlard)" },
+      { cle: "james-bond", nom: "James Bond", definition: "les romans de Ian Fleming et les films de 007 : leurs acteurs dans le rôle, leurs chansons, leurs méchants, leurs gadgets" },
+      { cle: "marvel", nom: "Marvel", definition: "ses super-héros en bande dessinée et au cinéma (les Avengers, Spider-Man, les X-Men). Pas DC (Batman, Superman), ni Thor le dieu nordique" },
+      { cle: "seigneur-des-anneaux", nom: "Le Seigneur des anneaux", definition: "la Terre du Milieu de Tolkien — Le Hobbit compris — et ses films" },
+      { cle: "star-wars", nom: "Star Wars", definition: "ses films, ses séries, ses personnages, ses planètes et ceux qui l'ont fait (George Lucas, la musique de John Williams pour la saga)" },
     ],
   },
 ]
