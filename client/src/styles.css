@@ -9725,6 +9725,26 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-codex { list-style: none; margin: 0; padding: 8px 0 0 7px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 10px; }
 .exp-codex-carte { display: block; width: 100%; padding: 0; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; cursor: pointer; }
 .exp-codex-carte .exp-vc-rangee { width: 100%; }
+/* Une carte que son codex n'a pas encore : éteinte, et comment l'ouvrir dessous — un niveau, ou le légendaire qui la donne. */
+.exp-codex-fermee .exp-vc { filter: grayscale(1) brightness(0.7); }
+.exp-codex-ouverture { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 6px; color: var(--muted); font-size: var(--t-label); font-weight: 700; line-height: 1.2; text-align: center; }
+.exp-codex-ouverture .icon { flex: none; width: 12px; height: 12px; }
+/* Son niveau d'explorateur : « Niveau 3 d'explorateur », sa renommée vers le suivant au bout, la jauge dessous. */
+.exp-niveau { display: flex; flex-direction: column; gap: 6px; }
+.exp-niveau-tete { display: flex; align-items: baseline; gap: 4px; margin: 0; }
+.exp-niveau-tete b { font-size: 1.05rem; }
+.exp-niveau-compte { margin-left: auto; color: var(--accent-text); font-size: 0.85rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.exp-niveau .jauge-fine { height: 6px; }
+.exp-ouverture { display: flex; align-items: center; gap: 6px; margin: 0; color: #f3ece4; font-weight: 600; text-align: center; }
+.exp-ouverture .icon { flex: none; width: 16px; height: 16px; }
+/* La fin : la renommée gagnée en grand, le niveau qu'elle fait passer, ses cartes neuves en vraies cartes. */
+.exp-renommee { display: flex; flex-direction: column; gap: 10px; }
+.exp-renommee p { margin: 0; }
+.exp-renommee-gain { color: var(--accent-text); font-weight: 600; }
+.exp-renommee-gain b { font-size: 1.6rem; font-variant-numeric: lining-nums tabular-nums; }
+.exp-renommee-niveau { font-family: var(--serif); font-size: 1.35rem; }
+.exp-renommee-regle { display: flex; align-items: center; gap: 8px; }
+.exp-renommee-regle .icon { flex: none; width: 18px; height: 18px; color: var(--accent-text); }
 .exp-a-prendre-carte.exp-choisi { translate: 0 -6px; }
 .exp-a-prendre-carte.exp-choisi .exp-vc { box-shadow: inset 0 0 0 2px var(--bg-raised), 0 0 0 3px var(--accent), 0 10px 24px color-mix(in srgb, var(--accent) 35%, transparent); }
 .exp-a-prendre-dit { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-height: 4.6em; margin: 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); line-height: 1.35; }

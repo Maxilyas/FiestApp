@@ -31,14 +31,12 @@ import {
   MULTIPLICATEUR_DU_SIX_CHOIX,
   MULTIPLICATEUR_DU_VRAI_OU_FAUX,
   PAQUET_DES_RENCONTRES,
-  RARETES_D_UNE_ELITE,
   RENCONTRES_EN_PRODUCTION,
   SAVOIR_DES_MARCHES,
   SCEAUX_DES_RENCONTRES,
-  offreDeCartes,
   paquetDesRencontres,
-  type FamilleDeCartes,
 } from '../../shared/rencontres'
+import { NIVEAU_MAX, codexDuNiveau } from '../../shared/codex'
 
 /** Une question d'essai — 2 facile, 3 moyenne, 4 difficile —, ses mauvaises réponses et trois leurres de plus : Corser s'y joue. */
 function question(i: number, categorie: Categorie, difficulte: number): QuestionDeLaBase {
@@ -192,24 +190,29 @@ test('les rencontres ne s’ouvrent pas en production tant que leur drapeau ne l
   assert.equal(rencontresOuvertes({ online: false, env: 'production' }), true, '`npm run dev`, les tests')
 })
 
-test('la page propose les rencontres ; le départ les prend — son courage, ses écus, le paquet des rencontres, sa catégorie fétiche', async () => {
+test('la page propose les rencontres ; le départ les prend — son courage, ses écus, le paquet des rencontres et la carte de l’invité, son codex ; au niveau 1, ni catégorie fétiche ni pari', async () => {
   const c = await inscrireProfil(banc.url, 'depart5', 'Départ')
-  assert.equal((await lire(c, '/api/expedition')).corps.prochaine.rencontres, true, 'hors de la production, le départ les propose')
+  const page = (await lire(c, '/api/expedition')).corps
+  assert.equal(page.prochaine.rencontres, true, 'hors de la production, le départ les propose')
   const r = await poster(c, '/api/expedition', { rencontres: true, fetiche: 'Histoire' })
   assert.equal(r.status, 200, r.corps.error)
   const v = r.corps as VueDeLExpedition
   assert.equal(v.courage, COURAGE_MAX)
   assert.equal(v.ecus, ECUS_AU_DEPART)
-  assert.equal(v.fetiche, 'Histoire')
-  assert.deepEqual(v.cartes?.paquet, paquetDesRencontres([]))
-  assert.deepEqual(v.cartes?.route, [], 'aucune carte de route sans légendaire')
+  // Le codex (v7) : plus d'équipe à choisir, l'invité du jour prête sa carte ; sa catégorie fétiche attend le niveau 5.
+  assert.deepEqual(v.equipee, [page.prochaine.invite])
+  assert.deepEqual(v.cartes?.paquet, paquetDesRencontres([page.prochaine.invite]))
+  assert.equal(v.fetiche, undefined, 'au niveau 1, sa catégorie fétiche ne part pas')
   assert.equal(v.jokers, undefined, 'des cartes à la place des jokers')
   assert.equal(v.rencontre, undefined, 'aucune rencontre avant le premier pas')
   const depart = departDe(v.id)
-  // La version 6 (la revue du 18 octobre 2026) : la main qui grandit avec les actes, les rares qui attendent l'acte 2, plus d'adversaires.
-  assert.equal(depart.v, 6)
+  // La version 7 (le codex, le 18 octobre 2026) : la version 6 — la main qui grandit avec les actes, les rares qui attendent l'acte 2, plus
+  // d'adversaires —, et le codex de son niveau, figé au départ.
+  assert.equal(depart.v, 7)
   assert.deepEqual(v.cartes?.parQuestion, [3, 4, 5], 'les règles disent ce que tire chaque acte : la page n’en recopie rien')
-  assert.equal(depart.fetiche, 'Histoire')
+  assert.deepEqual(depart.codex, { ...codexDuNiveau(1, []), renommee: 0 })
+  assert.deepEqual(v.cartes?.codex, { niveau: 1, regles: [], renommee: 0 })
+  assert.equal(depart.fetiche, undefined)
 })
 
 test('une catégorie fétiche hors des douze ne part pas ; sans rencontres demandées, le départ reste aux jokers', async () => {
@@ -229,6 +232,8 @@ test('une escale à question est une rencontre : l’annonce et la main d’abor
   const c = await inscrireProfil(banc.url, 'rencontre', 'Rencontre')
   let premiere = ''
   let v = await partirEt(c, { rencontres: true, fetiche: 'Histoire' }, depart => {
+    // Un explorateur au codex entier : le pari est ouvert (le codex, v7).
+    depart.codex = codexDuNiveau(NIVEAU_MAX, [])
     premiere = premierEtage(depart, 'quatre')
     // Concentration et Coup d'œil à la première main, Prudence à la deuxième.
     const q0: QuestionPosee = { escale: premiere, acte: 0, reponses: 4, tiree: 'quatre', six: true, niveau: 'facile', categorie: 'Histoire' }
@@ -251,7 +256,8 @@ test('une escale à question est une rencontre : l’annonce et la main d’abor
   assert.deepEqual([r.phase, r.position, r.inspiration], ['preparation', 0, INSPIRATION_PAR_QUESTION])
   // La version 6 : trois cartes à l'acte 1 (« ça fait beaucoup de bonus en main en même temps »).
   assert.equal(r.main.length, CARTES_DES_ACTES[0])
-  assert.equal(r.pioche, PAQUET_DES_RENCONTRES.length - CARTES_DES_ACTES[0])
+  assert.equal(r.pioche, paquetDesRencontres(departDe(v.id).equipee ?? []).length - CARTES_DES_ACTES[0], 'son paquet, la carte de l’invité du jour comprise, moins sa main')
+  assert.equal(paquetDesRencontres(departDe(v.id).equipee ?? []).length, PAQUET_DES_RENCONTRES.length + 1)
   assert.equal(v.question, undefined, 'en préparation, la question ne part pas (invariant 1)')
   assert.equal(questionsDe(v.id).length, 1, 'tirée au même lot que le pas, gardée au serveur')
   const annonce = r.annonce!
@@ -343,12 +349,13 @@ test('un dévoilement en rencontre ne court qu’une fois la question vue : ses 
 })
 
 /**
- * Une carte de famille en main à la première rencontre : l'équipée lui donne
- * sa famille, le coffre du premier pas la propose, il la prend, et la main de
- * l'escale d'après la tire.
+ * Une carte de famille en main à la première rencontre : un codex entier qui
+ * l'a ouverte, le coffre du premier pas la propose, il la prend, et la main
+ * de l'escale d'après la tire.
  */
-function forcerEnMain(depart: DepartDExpedition, cle: string, legendaire: string, famille: FamilleDeCartes): { coffre: string; question: string } {
+function forcerEnMain(depart: DepartDExpedition, cle: string, legendaire: string): { coffre: string; question: string } {
   depart.equipee = [legendaire]
+  depart.codex = codexDuNiveau(NIVEAU_MAX, [])
   const carte = depart.cartes[0]
   const parId = new Map(carte.escales.map(e => [e.id, e]))
   const coffre = parId.get(carte.depart[0])!
@@ -366,7 +373,8 @@ function forcerEnMain(depart: DepartDExpedition, cle: string, legendaire: string
     { quoi: 'prendre', jokers: [cle] },
     { quoi: 'avancer', vers: question.id },
   ]
-  graineOu(depart, cle, d => offreDeCartes(d.graine, 0, [famille], RARETES_D_UNE_ELITE).includes(cle) && !!pliDeLExpedition(d, gestes, [], new Map()).rencontre?.main.includes(cle))
+  // Le coffre la propose — la règle du pli, celle de sa version — et la main d'après la tire.
+  graineOu(depart, cle, d => !!pliDeLExpedition(d, gestes.slice(0, 1), [], new Map()).offre?.jokers.includes(cle) && !!pliDeLExpedition(d, gestes, [], new Map()).rencontre?.main.includes(cle))
   return { coffre: coffre.id, question: question.id }
 }
 
@@ -374,10 +382,10 @@ function forcerEnMain(depart: DepartDExpedition, cle: string, legendaire: string
 async function jusquALaCarte(c: string, cle: string): Promise<VueDeLExpedition> {
   let chemin = { coffre: '', question: '' }
   let v = await partirEt(c, { rencontres: true }, depart => {
-    chemin = forcerEnMain(depart, cle, 'lg:janus', 'metamorphe')
+    chemin = forcerEnMain(depart, cle, 'lg:janus')
   })
   v = await avancer(c, v, chemin.coffre)
-  assert.ok(v.offre?.jokers.includes(cle), 'le coffre la propose : l’équipée apporte sa famille')
+  assert.ok(v.offre?.jokers.includes(cle), 'le coffre la propose : son codex l’a ouverte')
   const pris = await geste(c, v, { quoi: 'prendre', jokers: [cle] })
   assert.equal(pris.status, 200, pris.corps.error)
   v = await avancer(c, pris.corps.expedition, chemin.question)

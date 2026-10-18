@@ -86,6 +86,8 @@ import {
   COURAGE_D_UNE_SOURCE,
   COURAGE_MAX,
   FAMILLES_DE_CARTES,
+  VERSION_DU_CODEX,
+  carteALaVersion,
   carteDeRencontre,
   carteDuLegendaire,
   estDeRoute,
@@ -108,8 +110,11 @@ import {
   LigneDeCarte,
   RangeeDeCartes,
   MainDeRencontre,
+  NiveauDExplorateur,
+  RenommeeGagnee,
   PreparationDeLaRencontre,
   ToutesLesCartes,
+  VersionDesCartes,
   VisageDeLaCarte,
   ceQueLaCarteAFait,
   changementDeLaCarte,
@@ -417,6 +422,7 @@ export function Barre({
         <FeuilleDesRegles
           rencontres={vue.courage !== undefined}
           parQuestion={vue.cartes?.parQuestion}
+          codex={vue.cartes?.codex}
           // Sur le plan, le plan d'abord ; en rencontre, l'ordre où l'on joue.
           debut={vue.rencontre ? undefined : vue.carte ? 'plan' : undefined}
           onFermer={() => setRegles(false)}
@@ -799,9 +805,11 @@ export function ExpeditionApp() {
   }
 
   const { vue } = ecran
+  // Ses cartes se lisent à la version de son départ : une expédition partie avant le codex garde ses chiffres.
+  const aSaVersion = (x: ReactNode) => <VersionDesCartes.Provider value={vue.cartes?.v ?? VERSION_DU_CODEX}>{x}</VersionDesCartes.Provider>
   const surLaMain = { onJouer: (cle: string, plus?: { categorie?: string; montre?: number }) => void jouer(vue, cle, plus) }
   if (ecran.reponse && ecran.question) {
-    return (
+    return aSaVersion(
       <Escale
         vue={vue}
         avant={ecran.avant ?? null}
@@ -819,12 +827,12 @@ export function ExpeditionApp() {
     )
   }
   if (vue.issue === 'au-bout') return <ChoixDuLegendaire vue={vue} busy={busy} erreur={erreur} onGarder={cle => void garder(vue, cle)} />
-  if (vue.offre) return <Offre vue={vue} offre={vue.offre} busy={busy} erreur={erreur} onPrendre={(jokers, talisman) => void prendre(vue, jokers, talisman)} onPartir={quitter} />
-  if (vue.campement) return <Campement vue={vue} busy={busy} erreur={erreur} onCamper={retirer => void camper(vue, retirer)} onPartir={quitter} />
+  if (vue.offre) return aSaVersion(<Offre vue={vue} offre={vue.offre} busy={busy} erreur={erreur} onPrendre={(jokers, talisman) => void prendre(vue, jokers, talisman)} onPartir={quitter} />)
+  if (vue.campement) return aSaVersion(<Campement vue={vue} busy={busy} erreur={erreur} onCamper={retirer => void camper(vue, retirer)} onPartir={quitter} />)
   // L'échoppe où il est, tant qu'il ne l'a pas laissée : elle se rouvre de la carte.
   const ouEstLEchoppe = `${vue.id}:${vue.acte}:${vue.ici}`
   if (vue.echoppe && echoppeLaissee !== ouEstLEchoppe) {
-    return (
+    return aSaVersion(
       <Echoppe
         // Un achat fait, l'étal se relit sans rien de choisi : l'article acheté restait sous le bouton.
         key={`${vue.id}:${vue.rang}`}
@@ -840,7 +848,7 @@ export function ExpeditionApp() {
   }
   // En rencontre, la question qui attend se prépare avant de se voir : l'annonce, l'aperçu, la mise, la main.
   if (vue.rencontre && vue.rencontre.phase === 'preparation') {
-    return (
+    return aSaVersion(
       <PreparationDeLaRencontre
         // Une question neuve repart d'une mise nulle ; une carte jouée la garde.
         key={`${vue.id}:${vue.rencontre.position}`}
@@ -855,7 +863,7 @@ export function ExpeditionApp() {
     )
   }
   if (vue.question) {
-    return (
+    return aSaVersion(
       <Escale
         // Une autre question — Échange, La mue — repart de zéro : rien de choisi, rien de montré.
         key={`${vue.id}:${vue.question.index}`}
@@ -875,7 +883,7 @@ export function ExpeditionApp() {
     )
   }
   if (!vue.carte) return null
-  return (
+  return aSaVersion(
     <CarteDeLActe
       key={`${vue.id}:${vue.acte}`}
       vue={vue}
@@ -1007,18 +1015,23 @@ export function Depart({
   const [passeport, setPasseport] = useState(false)
   const [regles, setRegles] = useState(false)
   const [paquet, setPaquet] = useState(false)
-  const [codex, setCodex] = useState(false)
+  const [voirLeCodex, setCodex] = useState(false)
   // Le prototype des rencontres, là où il s'ouvre : d'office, sauf s'il l'a coupé la dernière fois ; sa catégorie fétiche, retenue.
   const ouvertes = !vue && !!page.prochaine.rencontres
   const [aux, setAux] = useState(rencontresRetenues)
   const [fetiche, setFetiche] = useState(feticheRetenue)
   const enRencontres = vue ? vue.courage !== undefined : ouvertes && aux
-  // Celle qui l'attend dit l'équipée qu'elle a emmenée ; une expédition de l'étape 1 n'en avait pas.
-  const montree = vue ? (vue.jokers || vue.cartes ? vue.equipee : null) : equipee
+  // Le codex (v7) : celui qu'elle a figé en route, celui qui partirait avant ; aux règles d'avant, aucun.
+  const codex = page.prochaine.codex
+  const auCodex = vue ? !!vue.cartes?.codex : enRencontres && !!codex
+  const feticheOuverte = !codex || codex.regles.includes('fetiche')
+  // Celle qui l'attend dit l'équipée qu'elle a emmenée ; une expédition de l'étape 1 n'en avait pas. Au codex, l'invité du jour seul.
+  const montree = vue ? (vue.jokers || vue.cartes ? vue.equipee : null) : auCodex ? [page.prochaine.invite] : equipee
   // Sans légendaire à lui, rien à choisir : l'invité du jour part d'office, et une ligne le dit. Deux places, dont une libre,
   // demandaient de choisir ce qu'il n'avait pas (« c'est pas clair de devoir mettre des légendaires sur la première page, surtout
-  // qu'au début on n'a pas forcément ça », le 18 octobre 2026).
-  const invite = !vue && page.prochaine.equipables.length === 0 ? page.prochaine.invite : undefined
+  // qu'au début on n'a pas forcément ça », le 18 octobre 2026). Au codex, plus d'équipe à choisir pour personne : ses légendaires
+  // ouvrent leur carte au codex, et l'invité du jour prête la sienne.
+  const invite = auCodex ? (vue ? vue.invite : page.prochaine.invite) : !vue && page.prochaine.equipables.length === 0 ? page.prochaine.invite : undefined
   // La saison de son départ — celle qu'elle a eue, en route ; celle d'aujourd'hui, avant de partir.
   const s = laSaison(vue ? vue.saison : page.prochaine.saison)
   const tampons = page.passeport.length
@@ -1088,7 +1101,7 @@ export function Depart({
         </button>
       )}
       {ouvertes && (
-        <AuDepart actif={aux} fetiche={fetiche} onActif={setAux} onFetiche={setFetiche} />
+        <AuDepart actif={aux} fetiche={fetiche} feticheOuverte={feticheOuverte} onActif={setAux} onFetiche={setFetiche} />
       )}
       <section className="card exp-passeport" aria-labelledby="exp-passeport-titre">
         <div className="exp-section-tete">
@@ -1106,7 +1119,7 @@ export function Depart({
           {` tampon${tampons > 1 ? 's' : ''} sur ${formatNumber(TAMPONS_DU_PASSEPORT)}`}
         </p>
       </section>
-      {/* Le codex des cartes, aux rencontres : toutes les cartes de l'expédition, de la commune à la légendaire. */}
+      {/* Le codex des cartes, aux rencontres : toutes les cartes de l'expédition, de la commune à la légendaire ; son niveau d'explorateur et ce qu'il en a. */}
       {enRencontres && (
         <section className="card exp-codex-du-depart" aria-labelledby="exp-codex-titre">
           <div className="exp-section-tete">
@@ -1118,10 +1131,11 @@ export function Depart({
               <Icon name="chevron-right" />
             </button>
           </div>
+          {codex && <NiveauDExplorateur renommee={codex.renommee} />}
           <p className="exp-passeport-compte">
             <Icon name="book" />
-            <b>{formatNumber(CARTES_DES_RENCONTRES.length)}</b>
-            {' cartes'}
+            <b>{formatNumber(codex ? codex.cartes.length : CARTES_DES_RENCONTRES.length)}</b>
+            {codex ? ` cartes sur ${formatNumber(CARTES_DES_RENCONTRES.length)}` : ' cartes'}
           </p>
         </section>
       )}
@@ -1153,7 +1167,8 @@ export function Depart({
               aria-disabled={busy || undefined}
               onClick={() => {
                 if (ouvertes) retenirLesRencontres(aux, fetiche)
-                onPartir(equipee, enRencontres ? { fetiche } : null)
+                // Sa catégorie fétiche attend son niveau : avant lui, elle ne part pas.
+                onPartir(equipee, enRencontres ? { fetiche: feticheOuverte ? fetiche : null } : null)
               }}
             >
               <Icon name="flag" />
@@ -1165,11 +1180,12 @@ export function Depart({
       {choisir && <FeuilleDeLEquipee prochaine={page.prochaine} equipee={equipee} rencontres={enRencontres} onChoisir={setEquipee} onFermer={() => setChoisir(false)} />}
       {passeport && <FeuilleDuPasseport tampons={page.passeport} onFermer={() => setPasseport(false)} />}
       {paquet && sonPaquet && <FeuilleDesCartes paquet={sonPaquet} onFermer={() => setPaquet(false)} />}
-      {codex && <FeuilleDuCodex onFermer={() => setCodex(false)} />}
+      {voirLeCodex && <FeuilleDuCodex codex={codex} onFermer={() => setCodex(false)} />}
       {regles && (
         <FeuilleDesRegles
           rencontres={enRencontres}
           parQuestion={vue?.cartes?.parQuestion ?? (enRencontres ? CARTES_DES_ACTES : undefined)}
+          codex={vue ? vue.cartes?.codex : enRencontres ? codex : undefined}
           debut="expedition"
           onFermer={() => setRegles(false)}
         />
@@ -2927,7 +2943,16 @@ function Offre({
       <div className="player-shell expedition exp-offre">
         <Barre vue={vue} onPartir={onPartir} />
         <header className="exp-tete">
-          <span className="label exp-surtitre">{ici?.sorte === 'coffre' ? 'Un coffre' : ici?.sorte === 'elite' ? 'L’élite est tombée' : 'L’adversaire est tombé'}</span>
+          <span className="label exp-surtitre">
+            {/* Le trésor d'un gardien vaincu (le codex) : une carte légendaire de son codex parmi les trois — l'acte d'après est déjà ouvert. */}
+            {offre.gardien
+              ? `Le trésor ${duGardien(vue.gardiens[vue.acte - 1]?.cle ?? '')}`
+              : ici?.sorte === 'coffre'
+                ? 'Un coffre'
+                : ici?.sorte === 'elite'
+                  ? 'L’élite est tombée'
+                  : 'L’adversaire est tombé'}
+          </span>
           <h1>{vide ? 'La récompense est vide' : 'Choisis une carte'}</h1>
           {/* Ce que devient la carte prise est dans les règles ; seule la récompense vide se dit, qui surprend. */}
           {vide && <p className="muted">{espacesFines('L’horizon l’a vidée : c’était le prix de ton courage rendu.')}</p>}
@@ -3252,7 +3277,7 @@ function Echoppe({
       : { cle: 'vie', article: { article: 'vie' }, nom: 'Une vie', detail: `Tu en as ${vue.vies} sur ${VIES}`, visage: <Icon name="heart" /> },
     ...echoppe.jokers.flatMap((cle): LigneDeLEtal[] => {
       if (v5) {
-        const c = carteDeRencontre(cle)
+        const c = carteALaVersion(cle, vue.cartes?.v ?? VERSION_DU_CODEX)
         return c ? [{ cle, article: { article: 'joker', joker: cle }, nom: c.nom, detail: c.effet, visage: null, carte: c }] : []
       }
       const j = jokerDeCle(cle)
@@ -3525,6 +3550,8 @@ export function FinDeLExpedition({
       {(tombe.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}
+      {/* Le codex (v7) : la renommée qu'elle rapporte, perdue aussi, et le niveau qu'elle fait passer. */}
+      {vue.cartes?.codex && vue.renommee !== undefined && <RenommeeGagnee avant={vue.cartes.codex.renommee ?? 0} gagnee={vue.renommee} />}
       <CeQueTuGagnes
         parts={partsDeLXp([
           { nom: 'tes bonnes réponses', xp: gains.xp },
