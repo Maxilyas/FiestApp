@@ -1,5 +1,5 @@
 import { createClient, LibsqlError, type Client, type IntMode } from '@libsql/client'
-import { noterLaReponse, noterUnEchec, suivreLaBase, unAllerRetourPart } from './connexions'
+import { noterLaReponse, noterUnEchec, refermerLesAttardees, suivreLaBase, unAllerRetourPart } from './connexions'
 import { pouls, releve } from './pouls'
 
 export type { Client }
@@ -113,6 +113,10 @@ export async function ajouterColonne(client: Client, table: string, colonne: str
 
 export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {}) {
   return async (requete: Request): Promise<Response> => {
+    // Une connexion que la boucle gelée a gardée au-delà de la garde de Node
+    // ne porte plus rien : Turso l'a peut-être fermée pendant le gel
+    // (`connexions.ts`).
+    refermerLesAttardees()
     const debut = performance.now()
     // Un battement de l'entretien (`connexions.ts`) n'est pas un aller-retour
     // qu'on attend : ses trente millisecondes feraient passer Turso pour plus

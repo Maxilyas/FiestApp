@@ -44,7 +44,9 @@ export const TURSO_LENT_MS = 1000
  * dit pas, et chaque connexion rouverte repayait sa poignée de main — 225 ms
  * l'aller-retour contre 29 sur une connexion gardée, en production, le 14
  * octobre 2026. Une garde plus longue n'y pouvait rien : Turso referme
- * lui-même à 5 s (`server/src/core/connexions.ts`).
+ * lui-même à 5 s (`server/src/core/connexions.ts`). Une connexion que la
+ * boucle gelée a gardée au-delà se referme avant le prochain aller-retour
+ * (`refermerLesAttardees`) : Turso l'a peut-être fermée entre-temps.
  */
 export const GARDE_DE_NODE_MS = 4_000
 /** Un 95ᵉ centile ne se juge pas sur trois allers-retours : ceux du réveil, plus lents, le feraient mentir. */

@@ -1,6 +1,7 @@
 import { subscribe } from 'node:diagnostics_channel'
 import type { Socket } from 'node:net'
 import { performance } from 'node:perf_hooks'
+import { GARDE_DE_NODE_MS } from '../../../shared/santeDuServeur'
 import { pouls, releve } from './pouls'
 
 // Les connexions vers la base permanente (la revue du 14 octobre 2026,
@@ -16,7 +17,8 @@ import { pouls, releve } from './pouls'
 // s'ouvrent, celles que la base referme d'elle-même, les allers-retours
 // tombés en route — `/healthz` à la minute, le relevé de l'heure pour la page
 // « Le serveur ». Et garder les connexions chaudes tant que des joueurs jouent
-// (`QUIZ_DB_KEEPWARM`, plus bas).
+// (`QUIZ_DB_KEEPWARM`, plus bas). Et une troisième, venue après : refermer à
+// l'heure de Node une connexion que la boucle gelée a laissée passer.
 //
 // Pas une garde plus longue : on l'a posée à 30 s en production le même jour
 // (`QUIZ_DB_KEEPALIVE_MS`, retirée depuis), et les comptes ont dit le délai de
@@ -44,26 +46,46 @@ export function suivreLaBase(url: string) {
   }
 }
 
-/** Les connexions ouvertes vers la base en ce moment : celles que l'entretien garde chaudes. */
+/** Les connexions ouvertes vers la base en ce moment : celles que l'entretien garde chaudes, et que `refermerLesAttardees` referme à l'heure. */
 const ouvertes = new Set<Socket>()
 
 /**
- * Quand chacune a servi pour la dernière fois : sa dernière requête partie,
- * sa dernière réponse reçue. Node la referme 4 s après — chacune à son
- * heure : les réponses d'un joueur n'empruntent que les premières, et les
- * autres vieillissent pendant qu'il joue.
+ * Si chacune est libre, et depuis quand : sa dernière réponse lue en entier,
+ * ou tombée. Node la referme 4 s après — chacune à son heure : les réponses
+ * d'un joueur n'empruntent que les premières, et les autres vieillissent
+ * pendant qu'il joue.
  */
-const servies = new WeakMap<Socket, { envoi: number; reponse: number }>()
+const servies = new WeakMap<Socket, { libre: boolean; rendue: number }>()
+
+/** La connexion qu'emprunte chaque requête partie vers la base : sa fin la rend. */
+const empruntees = new WeakMap<object, Socket>()
 
 /** Les vrais allers-retours en vol — pas les battements de l'entretien. */
 let enVol = 0
 
 // Une requête part sur une connexion : le `fetch` de Node le dit sur ce canal.
 subscribe('undici:client:sendHeaders', message => {
-  const socket = (message as { socket?: Socket }).socket
+  const { request, socket } = message as { request?: object; socket?: Socket }
   const servie = socket && servies.get(socket)
-  if (servie) servie.envoi = performance.now()
+  if (!servie) return
+  servie.libre = false
+  if (request) empruntees.set(request, socket)
 })
+
+// Sa réponse lue en entier — ou tombée —, la connexion est rendue. Comptée
+// depuis le dernier morceau reçu, elle paraissait libre au milieu d'une
+// longue réponse — les bibliothèques du réveil arrivent en un
+// demi-mégaoctet —, et `refermerLesAttardees` l'aurait coupée sous elle.
+function rendre(message: unknown) {
+  const { request } = message as { request?: object }
+  const socket = request && empruntees.get(request)
+  const servie = socket && servies.get(socket)
+  if (!servie) return
+  servie.libre = true
+  servie.rendue = performance.now()
+}
+subscribe('undici:request:trailers', rendre)
+subscribe('undici:request:error', rendre)
 
 // Le `fetch` de Node (undici, embarqué) annonce chaque connexion qu'il ouvre
 // sur ce canal : rien à ajouter pour l'entendre. Derrière un proxy, elle
@@ -84,9 +106,7 @@ subscribe('undici:client:connected', message => {
   const ouverte = performance.now()
   if (socket) {
     ouvertes.add(socket)
-    const servie = { envoi: ouverte, reponse: ouverte }
-    servies.set(socket, servie)
-    socket.on('data', () => (servie.reponse = performance.now()))
+    servies.set(socket, { libre: true, rendue: ouverte })
     socket.once('close', () => ouvertes.delete(socket))
   }
   // Refermée par la base, la connexion reçoit sa fin ; refermée par nous — la
@@ -136,6 +156,45 @@ export function noterLaReponse(entetes: Headers) {
 
 export function gardeAnnoncee(): number | null {
   return annonceeMs
+}
+
+// ── Refermer à l'heure ────────────────────────────────────────────────────
+//
+// Turso referme à 5 s, Node à 4 : la seconde d'écart ne protège que si la
+// boucle tourne. Gelée par un calcul — au dixième de cœur de l'hébergeur,
+// l'accueil de quatre joueurs la figeait deux secondes (`retours/2026-10-16/`)
+// —, la garde de Node ne sonne qu'après, et ce qui reprend la main d'abord
+// envoie sa requête sur une connexion que Turso a fermée pendant le gel :
+// « fetch failed ← other side closed », sous `GET /api/joueur/missions`, en
+// production le 18 octobre 2026. Une écriture ne se rejoue pas : rien ne dit
+// que la base ne l'a pas reçue.
+//
+// Avant chaque aller-retour, une connexion libre depuis plus longtemps que la
+// garde de Node se referme donc d'abord — ce qu'il aurait fait sans le gel :
+// la requête en ouvre une neuve, et paie la poignée de main qu'elle aurait
+// payée de toute façon.
+
+/** Ce qu'undici retranche au délai que la base annonce, avant d'en faire sa garde (`keepAliveTimeoutThreshold`, deux secondes sous Node 22). */
+const MARGE_SUR_L_ANNONCE_MS = 2_000
+
+/**
+ * Referme les connexions vers la base que Node aurait déjà refermées — libres
+ * depuis plus longtemps que sa garde — et que la boucle gelée lui a fait
+ * manquer. `avecDelai` l'appelle avant chaque aller-retour : détruite
+ * d'avance, la connexion ne reçoit plus rien (undici n'écrit jamais sur un
+ * socket `destroyed`), et la requête en ouvre une autre. Une connexion qui
+ * attend sa réponse, ou la lit encore, ne se touche pas.
+ */
+export function refermerLesAttardees() {
+  // La garde d'undici : le délai annoncé moins sa marge, qu'il préfère à la sienne.
+  const garde = annonceeMs === null ? GARDE_DE_NODE_MS : annonceeMs - MARGE_SUR_L_ANNONCE_MS
+  const t = performance.now()
+  for (const socket of ouvertes) {
+    const servie = servies.get(socket)
+    if (!servie?.libre || t - servie.rendue < garde) continue
+    ouvertes.delete(socket)
+    socket.destroy()
+  }
 }
 
 // ── Garder chaudes ────────────────────────────────────────────────────────
@@ -233,7 +292,7 @@ class Entretien {
     const libres: number[] = []
     for (const socket of ouvertes) {
       const servie = servies.get(socket)
-      if (servie && servie.envoi <= servie.reponse) libres.push(servie.reponse)
+      if (servie?.libre) libres.push(servie.rendue)
     }
     libres.sort((a, b) => b - a)
     const gardees = libres.slice(0, this.auPlus)

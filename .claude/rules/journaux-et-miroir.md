@@ -13,8 +13,8 @@ paths:
 - `core/scores.ts` — journal des gains, en ajout seul
 - `core/answers.ts` — une ligne par invité et par question posée, y compris sans réponse
 - `core/backup.ts` — le miroir de la soirée dans Turso (les sept tables `party_*`) : une file par espace, ordonnée, qui insiste ; la resynchronisation après une panne ; sa santé
-- `core/distante.ts` — le client libsql, avec un délai : une base muette se dit en dix secondes, pas en cinq minutes ; et `ajouterColonne()`, qui lit le schéma avant de migrer — une fois par table — et laisse toute panne arrêter le démarrage
-- `core/connexions.ts` — les connexions vers la base (la revue du 14 octobre 2026, `retours/2026-10-14/` : en production, 225 ms l'aller-retour sur une connexion à rouvrir, 29 sur une connexion gardée) : celles qui s'ouvrent — le canal `undici:client:connected` du `fetch` de Node, filtré sur les hôtes que `clientDistant` suit —, celles que la base referme d'elle-même et leur âge, les allers-retours tombés en route, le délai qu'elle annonce (`Keep-Alive: timeout=…`), tout cela à `/healthz` (`base.connexions`) et au relevé de l'heure ; et l'entretien qui les garde chaudes tant que des joueurs jouent (`QUIZ_DB_KEEPWARM`, perf-turso-13) : chaque route d'API hors de `/api/admin` dit qu'un joueur est là (`noterUneDemande`, le minutage de `server.ts`), et une minute durant (`CHAUDES_MS`), avant que la plus anciennement servie des connexions qu'il garde ait trois secondes de calme (`BATTEMENT_MS` — compté connexion par connexion, par le canal `undici:client:sendHeaders` et les réponses reçues), un `SELECT 1` part sur chaque connexion libre, six au plus (`CHAUDES_AU_PLUS`), par un client à lui (`clientDistant(…, { battement: true })`) : ses battements ne comptent ni dans le temps de Turso, ni dans ses échecs, ni parmi les connexions neuves d'un joueur — à part, avec ceux qui tombent et les connexions qu'ils ouvrent (`connexions-de-la-base.test.ts`). Une base en fichier n'en a pas
+- `core/distante.ts` — le client libsql, avec un délai : une base muette se dit en dix secondes, pas en cinq minutes — et chaque aller-retour referme d'abord les connexions attardées (`refermerLesAttardees`, plus bas) ; et `ajouterColonne()`, qui lit le schéma avant de migrer — une fois par table — et laisse toute panne arrêter le démarrage
+- `core/connexions.ts` — les connexions vers la base (la revue du 14 octobre 2026, `retours/2026-10-14/` : en production, 225 ms l'aller-retour sur une connexion à rouvrir, 29 sur une connexion gardée) : celles qui s'ouvrent — le canal `undici:client:connected` du `fetch` de Node, filtré sur les hôtes que `clientDistant` suit —, celles que la base referme d'elle-même et leur âge, les allers-retours tombés en route, le délai qu'elle annonce (`Keep-Alive: timeout=…`), tout cela à `/healthz` (`base.connexions`) et au relevé de l'heure ; et l'entretien qui les garde chaudes tant que des joueurs jouent (`QUIZ_DB_KEEPWARM`, perf-turso-13) : chaque route d'API hors de `/api/admin` dit qu'un joueur est là (`noterUneDemande`, le minutage de `server.ts`), et une minute durant (`CHAUDES_MS`), avant que la plus anciennement servie des connexions qu'il garde ait trois secondes de calme (`BATTEMENT_MS` — compté connexion par connexion, de la fin de sa dernière réponse : les canaux `undici:client:sendHeaders`, `undici:request:trailers` et `undici:request:error`), un `SELECT 1` part sur chaque connexion libre, six au plus (`CHAUDES_AU_PLUS`), par un client à lui (`clientDistant(…, { battement: true })`) : ses battements ne comptent ni dans le temps de Turso, ni dans ses échecs, ni parmi les connexions neuves d'un joueur — à part, avec ceux qui tombent et les connexions qu'ils ouvrent (`connexions-de-la-base.test.ts`). Une base en fichier n'en a pas
 - `server/src/server.ts` — le démarrage dans l'ordre (les comptes, puis tout le reste de front, puis ce qui relie les magasins) et l'arrêt (`close`)
 
 ## Les pièges
@@ -65,6 +65,21 @@ paths:
   Turso annoncerait passerait avant tout : undici le préfère, et c'est lui
   que `/healthz` dirait (`gardeAnnonceeMs`) ; des connexions refermées par
   Turso diraient qu'il referme plus tôt qu'à 5 s.
+- **Une boucle gelée fait manquer sa garde à Node** : la seconde entre ses
+  4 s et les 5 de Turso ne protège que si la boucle tourne. Gelée par un
+  calcul, la garde de Node ne sonnait qu'après, et la première requête
+  partie reprenait la connexion que Turso avait fermée pendant le gel —
+  « fetch failed ← other side closed », sous `GET /api/joueur/missions`, en
+  production le 18 octobre 2026 (sans doute aussi `GET /api/admin/espaces`
+  la veille, règle `qg.md`). Avant chaque aller-retour, `avecDelai` referme
+  donc les connexions libres depuis plus longtemps que la garde d'undici
+  (`refermerLesAttardees` : 4 s, ou le délai annoncé moins deux) : la
+  requête en ouvre une neuve, comme sans le gel. Libre se lit à la fin de
+  la réponse (`undici:request:trailers`, `undici:request:error`), jamais à
+  son dernier morceau reçu : une longue réponse lue par morceaux — les
+  bibliothèques du réveil — aurait été coupée sous elle. Un test qui gèle la
+  boucle met son faux Turso dans un autre fil (`Worker`) : dans le même, sa
+  minuterie gèlerait avec le serveur (`connexions-de-la-base.test.ts`).
 - **Le calme se compte connexion par connexion** : compté sur toutes à la
   fois, une réponse toutes les deux secondes ne laissait jamais trois
   secondes de calme, et les connexions qu'elle n'empruntait pas se
