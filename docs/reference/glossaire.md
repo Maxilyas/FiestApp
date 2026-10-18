@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 435 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 436 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -169,6 +169,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Épreuve en jeu | Une épreuve ni validée ni rejouée : ratée, elle coûte une vie, et tant qu'elle attend, aucune autre ne commence | `commencerEpreuve` |
 | Équipée | Les deux légendaires qu'on emmène en expédition — les siens qui ont leur joker, ou l'invité du jour —, chacun son joker dans le paquet | `PLACES_DE_L_EQUIPEE`, `refusDeLEquipee` |
 | Escale | Une étape d'une carte de l'expédition : une question, une élite, une source, un coffre, une échoppe, l'inconnu, un campement, le gardien | `EscaleDeLaCarte`, `SorteDEscale` |
+| Escale proposée | Une escale où l'on peut aller au pas suivant — reliée à la sienne, ou ouverte par un joker de route —, entourée sur la carte, son nom dessous, sa chance au-dessus ; seule l'escale où l'on est brille | `VueDeLExpedition.permises`, `exp-a-portee` |
 | Espace | Tout ce qui appartient à un animateur — quiz, photos, soirée en cours, historique, réglages —, désigné par son adresse | `space_id` |
 | Espace fine | L'espace insécable étroite posée à l'affichage devant ? ! ; et à l'intérieur des guillemets « » | `shared/typographie.ts` |
 | Espace par défaut | Celui de l'administrateur, où mènent les anciennes adresses ; il ne se supprime pas | `default_space` (`meta`) |
@@ -514,7 +515,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Tournée | Le passage du rappel du soir, une fois par jour entre 18 h et 22 h, chaque téléphone réservé en base avant l'envoi ; son bilan du soir se garde pour le QG | `jour_rappels_tournees` |
 | Tout revoir | Une révision qui repasse aussi les questions en attente de leur rendez-vous et celles déjà apprises | `commencerRevision` (`tout`) |
 | Toute la catégorie | La règle des paliers 9 à 13 : chaque sous-thème de la catégorie a sa question avant qu'un autre en ait deux | `touteLaCategorie` |
-| Tracé | La route qu'on dessine sur la carte d'un acte, jusqu'au campement : la page propose le plus sûr et dit la chance d'arriver au gardien, puis de le vaincre ; seul le pas suivant engage | `traceLePlusSur`, `chancesDuTrace` |
+| Tracé | Une route d'ici au campement de la carte d'un acte : la page compte le plus sûr — la meilleure chance de vaincre le gardien, arriver compris — sans le dessiner, et n'en dit que le premier pas, la plus sûre des escales proposées (depuis le 18 octobre 2026) | `traceLePlusSur`, `chancesDuTrace` |
 | Trois gros boutons | Le premier écran de l'entrée d'une soirée et de l'accueil sans profil : « Jouer sans compte » d'abord, puis « Me connecter » et « Créer un profil », de même taille | `client/src/components/Entree.tsx`, `client/src/components/ProfilForm.tsx` |
 | Trophée | Tout ce qui se gagne par un exploit : les hauts faits, les pistes, les prix du palmarès, les maîtres des sentiers, les ligues des duels ; l'album de « Ma collection » les range par mode | `shared/trophees.ts` |
 | Trou | Ce qui reste à écrire dans un modèle de fête — une réponse marquée ✏️, un « [Prénom] » — : la question n'est pas prête tant qu'il reste | `trouDeLaQuestion` |

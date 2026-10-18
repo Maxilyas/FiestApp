@@ -1,6 +1,6 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 143 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : 144 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
@@ -1393,6 +1393,15 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 **Conséquence** : partie à temps, l'expédition se finit quand on veut. Le banc et le smoke ferment le calendrier des expéditions comme celui des soirées : sans quoi chaque test d'expédition aurait sa Citrouille à l'acte 3 une semaine par an. Ce qu'une voie neuve change aux Divins se vérifie dans `core/divins.ts`, et ne s'écrit nulle part ailleurs (invariant 21).
 
 *Fichiers : `shared/expedition.ts`, `shared/legendaires.ts`, `shared/album.ts`, `server/src/core/saisons.ts`, `server/src/core/campagne.ts`, `server/test/expedition-saison.test.ts`*
+
+### La carte n'éclaire que l'escale où l'on est, et propose celles de devant
+**Contexte** : la carte d'un acte dessinait le tracé le plus sûr jusqu'au campement — une dizaine d'escales et leurs liens dorés, l'escale où l'on était perdue parmi elles —, et chaque escale portait son nom et sa chance. Le propriétaire, le 18 octobre 2026 : « il faudrait uniquement illuminer la node sur laquelle on est et pas tout le chemin. Une fois vaincu ça nous proposerait uniquement les nodes de devant que l'on peut atteindre », et « le système de carte un peu fouillon et pas trop compréhensible. C'est pas très pratique non plus ».
+
+**Décision** : seule l'escale où l'on est s'éclaire — le départ, au début. Les escales permises (`VueDeLExpedition.permises` : la suite de la sienne, ou ce qu'un joker de route ouvre) sont proposées, entourées, leur nom dessous et leur chance au-dessus ; le reste de la carte attend en retrait, plus petit, son emblème sans un mot, et dit dans le panneau ce qu'il cache quand on le touche. On touche une proposée — son trait se dore —, puis « Y aller » ; seule, elle l'est d'office (le gardien, au campement). Le tracé le plus sûr se compte encore, sans se dessiner : le panneau nomme la plus sûre des proposées, et son nom, touché, la choisit — deux proposées portent souvent le même. La légende passe dans une feuille, « La carte », qui dit aussi comment la lire ; le panneau dit l'escale touchée, sans les chances d'un tracé.
+
+**Conséquence** : rien ne change au serveur ni au pli — ils ne vérifiaient déjà que le pas suivant. Un pas coûte deux touchers au lieu d'un : on choisit ce qu'on fait, au lieu de suivre ce qui s'allume. La chance d'arriver au gardien et le butin d'un tracé ne se lisent plus sur la carte ; le calibrage suit toujours le plus sûr, que le panneau conseille pas à pas.
+
+*Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/styles.css`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-carte-ecran.test.ts`*
 
 ## L'outillage
 

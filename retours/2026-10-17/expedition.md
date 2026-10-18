@@ -780,6 +780,17 @@ signale ceux qui manquent, et Le Globe-trotter pour les compter ; **la
 saison des fêtes**, leur fête plus souvent sur les cartes et leur légendaire
 en gardien de l'acte 3. Le détail : `docs/produit/l-expedition.md`.
 
+Le même jour, **la carte revue** à la demande du propriétaire : « il faudrait
+uniquement illuminer la node sur laquelle on est et pas tout le chemin. Une
+fois vaincu ça nous proposerait uniquement les nodes de devant que l'on peut
+atteindre », et la carte « un peu fouillon et pas trop compréhensible ». Le
+tracé de la maquette 3 ne se dessine plus : seule l'escale où l'on est
+s'éclaire, les escales de devant qu'on peut atteindre sont proposées —
+entourées, leur nom et leur chance en clair —, le reste attend en retrait
+sans un mot ; on en touche une, puis « Y aller ». Le tracé le plus sûr se
+compte encore : le panneau nomme la plus sûre des proposées, et ce nom,
+touché, la choisit. La légende passe dans une feuille, « La carte ».
+
 ### Plus tard
 
 L'Ascension ; la règle propre de chaque gardien ; les compagnons et les

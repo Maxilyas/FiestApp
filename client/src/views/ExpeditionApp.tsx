@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ApiError, UnauthorizedError, api, motifDe } from '../api'
 import { Icon, type IconName } from '../components/Icon'
 import { Shape } from '../components/Shape'
@@ -48,7 +48,6 @@ import {
   chanceDeVaincre,
   chanceDuJoueurMoyen,
   chancesDuTrace,
-  ecusEsperes,
   escalesAtteignables,
   gardienAuFeminin,
   leGardien,
@@ -79,14 +78,15 @@ import {
 // actes, chacun une carte tirée au sort, un gardien au bout de chacun, et
 // l'un des trois à garder au bout du troisième. Le serveur tire, juge et
 // replie (`shared/expedition.ts`) ; la page dessine la carte, et calcule
-// dans le téléphone, sur les chances que le serveur a déjà montrées, le
-// tracé le plus sûr et la chance d'arriver.
+// dans le téléphone, sur les chances que le serveur a déjà montrées, la plus
+// sûre des escales qu'elle propose.
 //
 // Les écrans suivent les maquettes : le départ et ses trois gardiens (1),
 // l'équipée (2, en feuille, comme le choix des catégories : rien ne change
-// avant « Choisir »), la carte d'un acte et son tracé (3), une escale et la
-// main (4), le gardien (7), le gardien vaincu (8), le choix du légendaire
-// (9), un joker pour son paquet (12), le dévoilement (11), un talisman (6) ;
+// avant « Choisir »), la carte d'un acte (3, revue le 18 octobre 2026 : seule
+// l'escale où l'on est s'y éclaire), une escale et la main (4), le gardien
+// (7), le gardien vaincu (8), le choix du légendaire (9), un joker pour son
+// paquet (12), le dévoilement (11), un talisman (6) ;
 // puis l'écran des gains de tous les modes (`Gains.tsx`). Le campement, que
 // les maquettes n'avaient pas, suit l'offre ; l'échoppe et l'inconnu (l'étape
 // 4), aussi.
@@ -1155,13 +1155,15 @@ function TousLesJokers({ siens, invite }: { siens: ReadonlySet<string>; invite: 
 // Six étages de quatre colonnes, deux campements, le gardien en haut ; on
 // part d'en bas. Les colonnes se placent en pour cent de la largeur — la
 // carte tient tout écran de téléphone —, les étages en pixels : elle défile,
-// et la page la fait défiler jusqu'à l'escale où l'on est.
+// et la page la fait défiler jusqu'à l'escale où l'on est et à celles qu'elle
+// propose. Seules celles-ci disent leur nom (le 18 octobre 2026) : les étages
+// se sont resserrés.
 
 const COLONNES_X = [12.5, 37.5, 62.5, 87.5]
 const Y_GARDIEN = 48
-const Y_CAMPEMENT = 176
-const Y_HAUT = 262
-const PAS_D_ETAGE = 82
+const Y_CAMPEMENT = 160
+const Y_HAUT = 240
+const PAS_D_ETAGE = 76
 const yEtage = (f: number) => Y_HAUT + (ETAGES - 1 - f) * PAS_D_ETAGE
 const Y_DEPART = yEtage(0) + 76
 const HAUTEUR = Y_DEPART + 34
@@ -1178,38 +1180,42 @@ function position(e: EscaleDeLaCarte): { x: number; y: number } {
 const pas = (chemin: readonly string[]) => new Set(chemin.slice(1).map((id, i) => `${chemin[i]}→${id}`))
 
 /**
- * Le tracé le plus sûr d'ici, s'il part d'une escale où il peut aller : sous
- * Le détour ou Le raccourci, le pas suivant ne suit plus les liens — le tracé
- * part de chacune des escales permises, et la meilleure l'emporte. `par` : il
- * passe par celle-ci ; `debut` : il garde ce début, s'il part d'une permise.
+ * La plus sûre des escales proposées : le premier pas du tracé le plus sûr
+ * d'ici au campement, que la carte ne dessine plus (le 18 octobre 2026). Sous
+ * Le détour ou Le raccourci, le pas suivant ne suit plus les liens : le tracé
+ * part de chacune des escales permises, et la meilleure l'emporte.
  */
-function lePlusSurDepuis(
-  carte: CarteDUnActe,
-  vue: Pick<VueDeLExpedition, 'ici' | 'vies' | 'acte' | 'permises' | 'route'>,
-  { debut = [], par }: { debut?: readonly string[]; par?: string } = {},
-): string[] {
-  const libre = !!(vue.route?.detour || vue.route?.raccourci)
-  if (!libre) return traceLePlusSur(carte, vue.ici, vue.vies, vue.acte, { debut, par })
-  // Le début d'un tracé ne se relit pas aux liens : il part d'une escale permise, d'où les liens reprennent.
-  const departs = debut.length > 0 ? (vue.permises.includes(debut[0]) ? [debut] : []) : vue.permises.filter(id => id !== GARDIEN).map(id => [id])
-  let meilleur: { trace: string[]; vaincre: number } | null = null
-  for (const d of departs) {
-    const t = traceLePlusSur(carte, vue.ici, vue.vies, vue.acte, { debut: d, par })
+function laPlusSureDesProposees(carte: CarteDUnActe, vue: Pick<VueDeLExpedition, 'ici' | 'vies' | 'acte' | 'permises' | 'route'>): string | null {
+  if (!vue.route?.detour && !vue.route?.raccourci) return traceLePlusSur(carte, vue.ici, vue.vies, vue.acte)[0] ?? null
+  let meilleur: { id: string; vaincre: number } | null = null
+  for (const id of vue.permises) {
+    if (id === GARDIEN) continue
+    // Le premier pas ne se relit pas aux liens : il part d'une escale permise, d'où les liens reprennent.
+    const t = traceLePlusSur(carte, vue.ici, vue.vies, vue.acte, { debut: [id] })
     if (t.length === 0) continue
     const { vaincre } = chancesDuTrace(carte, t, vue.vies, vue.acte)
-    if (!meilleur || vaincre > meilleur.vaincre + 1e-9) meilleur = { trace: t, vaincre }
+    if (!meilleur || vaincre > meilleur.vaincre + 1e-9) meilleur = { id, vaincre }
   }
-  return meilleur?.trace ?? []
+  return meilleur?.id ?? null
 }
 
+/** Une escale touchée hors des proposées, au rang de son toucher : le panneau dit ce qu'elle est, jusqu'au geste suivant. */
+type EscaleVue = { rang: number; id: string }
+
 /**
- * La carte d'un acte (la maquette 3) : les escales et leurs liens, la chance
- * sur chacune en piste, et le tracé — le plus sûr d'abord ; une escale
- * touchée le redessine par elle, en gardant le début choisi. Seul le pas
- * suivant engage : le serveur ne vérifie que lui, vers une escale permise.
- * Sous le panneau du tracé, sa main : les jokers de carte s'y jouent.
+ * La carte d'un acte (la maquette 3, revue le 18 octobre 2026 à la demande du
+ * propriétaire : « uniquement illuminer la node sur laquelle on est et pas
+ * tout le chemin », puis ne proposer « que les nodes de devant que l'on peut
+ * atteindre »). Seule l'escale où il est s'éclaire. Celles où il peut aller
+ * ensuite — sa suite, ou ce qu'un joker de route ouvre (`permises`) — sont
+ * proposées : entourées, leur nom dessous, leur chance au-dessus. Le reste de
+ * la carte attend en retrait, son emblème sans un mot ; touchée, une escale
+ * dit ce qu'elle cache. Il touche une proposée, puis « Y aller » : seul ce
+ * pas engage, et le serveur ne vérifie que lui. Le tracé allumé d'ici au
+ * campement faisait douter de l'escale où l'on était : la plus sûre ne se dit
+ * plus qu'en mots. Dans le panneau, sa main : les jokers de carte s'y jouent.
  */
-function CarteDeLActe({
+export function CarteDeLActe({
   vue,
   carte,
   busy,
@@ -1241,52 +1247,79 @@ function CarteDeLActe({
     }
     return a
   }, [carte, vue.ici, vue.permises])
-  const lePlusSur = useMemo(() => lePlusSurDepuis(carte, vue), [carte, vue])
-  // Le tracé qu'il a dessiné, qui part d'où il est ; null : le plus sûr. Après un pas, il garde la suite du sien.
-  const [sien, setSien] = useState<{ depuis: string | null; trace: string[] } | null>(null)
-  const garde = sien && sien.depuis === vue.ici ? sien.trace : sien && sien.trace[0] === vue.ici ? sien.trace.slice(1) : null
-  // Un tracé dont le premier pas n'est plus permis — un joker de route joué, ou fini — laisse la place au plus sûr.
-  const trace = garde && (garde.length === 0 || vue.permises.length === 0 || vue.permises.includes(garde[0])) ? garde : lePlusSur
-  const [vu, setVu] = useState<string | null>(null)
-  const [avis, setAvis] = useState('')
+  const proposees = vue.permises.filter(id => parId.has(id))
   const gardien = vue.gardiens[vue.acte]?.cle ?? ''
   const ici = vue.ici ? parId.get(vue.ici) : undefined
   const auCampement = ici?.sorte === 'campement'
-  const prochaine = auCampement ? GARDIEN : trace[0]
   const m = MARCHES_DES_ACTES[Math.min(vue.acte, ACTES - 1)]
   const pGardien = carte.chanceDuGardien ?? chanceDuJoueurMoyen(m.gardien)
-  // L'écholocation : la carte ne dit plus sa chance, ni le panneau celle d'arriver.
+  // L'écholocation : la carte ne dit plus sa chance, ni le panneau la plus sûre.
   const aveugle = !!vue.sansChances
-  const chances = trace.length > 0 && !aveugle ? chancesDuTrace(carte, trace, vue.vies, vue.acte) : null
-  // Le butin du tracé (l'étape 4) : ses écus en moyenne, sur les chances que la carte dit.
-  const butin = chances && vue.ecus !== undefined ? ecusEsperes(carte, trace) : 0
-  const estLePlusSur = trace.length === lePlusSur.length && trace.every((id, i) => id === lePlusSur[i])
+  const laPlusSure = useMemo(() => (aveugle || proposees.length < 2 ? null : laPlusSureDesProposees(carte, vue)), [carte, vue, aveugle, proposees.length])
+  const [choisie, setChoisie] = useState<string | null>(null)
+  // Celle qu'il a touchée, tant qu'il peut y aller — un joker de route joué la retire ; seule proposée, elle l'est d'office.
+  const retenue = choisie !== null && proposees.includes(choisie) ? choisie : proposees.length === 1 ? proposees[0] : null
+  const [touchee, setTouchee] = useState<EscaleVue | null>(null)
+  const regardee = touchee && touchee.rang === vue.rang ? parId.get(touchee.id) : undefined
+  const [legende, setLegende] = useState(false)
+  const carteRef = useRef<HTMLDivElement>(null)
+  const panneauRef = useRef<HTMLElement>(null)
 
-  // L'escale où il est, sinon le départ, à l'écran : la carte monte d'acte en acte, et le bas défile hors de vue.
-  // À chaque geste aussi (`rang`) : un joker joué sur la carte remontait la page en haut, loin de lui.
+  // L'escale où il est et celles qu'il peut prendre, à l'écran, au-dessus du panneau collé en bas : la carte monte
+  // d'acte en acte, et le bas défile hors de vue. À chaque geste aussi (`rang`) : un joker joué sur la carte
+  // remontait la page en haut, loin de lui. Centrée sur l'escale seule, la carte cachait sous le panneau celles
+  // qu'elle proposait au-dessus.
   useEffect(() => {
-    document.getElementById(vue.ici ? `escale-${vue.ici}` : 'exp-depart')?.scrollIntoView({ block: 'center' })
+    const el = carteRef.current
+    if (!el) return
+    const ys = [ici ? position(ici).y : Y_DEPART, ...proposees.map(id => position(parId.get(id)!).y)]
+    // Leur chance, au-dessus d'elles ; leur nom, dessous.
+    const haut = Math.min(...ys) - 40
+    const bas = Math.max(...ys) + 56
+    const visible = window.innerHeight - (panneauRef.current?.offsetHeight ?? 0)
+    const debut = el.getBoundingClientRect().top + window.scrollY
+    window.scrollTo(0, Math.max(0, debut + (haut + bas) / 2 - visible / 2))
   }, [vue.ici, vue.rang])
 
   const toucherEscale = (id: string) => {
-    setVu(id)
-    setAvis('')
-    if (trace.includes(id) || id === GARDIEN) return
-    if (!atteignables.has(id)) return setAvis(vue.trace.includes(id) ? 'Tu y es déjà passé.' : 'Cette escale n’est plus sur ta route.')
-    // Le plus long début de son tracé d'où l'escale s'atteint encore, puis le plus sûr par elle.
-    for (let k = trace.length; k >= 0; k--) {
-      const t = lePlusSurDepuis(carte, vue, { debut: trace.slice(0, k), par: id })
-      if (t.length > 0) return setSien({ depuis: vue.ici, trace: t })
-    }
+    if (proposees.includes(id)) {
+      setChoisie(id)
+      setTouchee(null)
+    } else setTouchee({ rang: vue.rang, id })
   }
 
   const faits = pas([DEPART, ...vue.trace])
-  const prevus = pas([vue.ici ?? DEPART, ...trace])
-  const liens: { de: { x: number; y: number }; a: { x: number; y: number }; cle: string }[] = []
-  for (const id of carte.depart) liens.push({ de: { x: 50, y: Y_DEPART }, a: position(parId.get(id)!), cle: `${DEPART}→${id}` })
-  for (const e of carte.escales) for (const id of e.suite) if (parId.has(id)) liens.push({ de: position(e), a: position(parId.get(id)!), cle: `${e.id}→${id}` })
-  const vueDe = vu ? parId.get(vu) : prochaine ? parId.get(prochaine) : undefined
-  const s = trace.length > 1 ? 's' : ''
+  const depuis = vue.ici ?? DEPART
+  const positionDe = (id: string) => (id === DEPART ? { x: 50, y: Y_DEPART } : position(parId.get(id)!))
+  // Les liens de la carte : faits, en vie — ils mènent encore quelque part —, ou morts, presque effacés. D'ici vers
+  // une escale proposée, ils se tracent à part, par-dessus : sous Le détour ou Le raccourci, le pas suivant ne suit
+  // plus les liens, et le seul trait qui s'éclaire est celui du pas choisi.
+  const liens: { de: { x: number; y: number }; a: { x: number; y: number }; cle: string; sorte?: string }[] = []
+  const lier = (de: string, a: string) => {
+    const cle = `${de}→${a}`
+    if (de === depuis && proposees.includes(a)) return
+    const enVie = (de === depuis || atteignables.has(de)) && atteignables.has(a)
+    liens.push({ de: positionDe(de), a: positionDe(a), cle, sorte: faits.has(cle) ? 'lien-fait' : enVie ? undefined : 'lien-mort' })
+  }
+  for (const id of carte.depart) lier(DEPART, id)
+  for (const e of carte.escales) for (const id of e.suite) if (parId.has(id)) lier(e.id, id)
+  for (const id of proposees) liens.push({ de: positionDe(depuis), a: positionDe(id), cle: `${depuis}⇢${id}`, sorte: id === retenue ? 'lien-propose lien-choisi' : 'lien-propose' })
+
+  // Ce que dit le panneau : l'escale touchée hors des proposées, sinon celle qu'il a choisie, sinon comment choisir —
+  // et la plus sûre, qu'un toucher choisit : deux proposées portent souvent le même nom, et « Histoire » ne disait
+  // pas laquelle.
+  const panneau = ((): { titre: string; texte: string; sure?: string } => {
+    if (regardee) {
+      if (regardee.id === vue.ici) return { titre: 'Tu es ici', texte: decrire(regardee, vue, carte) }
+      if (vue.trace.includes(regardee.id)) return { titre: 'Derrière toi', texte: 'Tu y es déjà passé.' }
+      if (regardee.sorte === 'gardien') return { titre: 'Au bout de l’acte', texte: decrire(regardee, vue, carte) }
+      if (!atteignables.has(regardee.id)) return { titre: 'Hors de ta route', texte: 'Ta route ne passe plus par cette escale.' }
+      return { titre: 'Plus loin sur ta route', texte: decrire(regardee, vue, carte) }
+    }
+    if (retenue) return { titre: 'Ta prochaine escale', texte: decrire(parId.get(retenue)!, vue, carte) }
+    if (proposees.length === 0) return { titre: 'Ta prochaine escale', texte: 'Aucune escale ne t’attend : recharge la page.' }
+    return { titre: 'Ta prochaine escale', texte: 'Touche l’une des escales entourées, puis « Y aller ».', ...(laPlusSure && { sure: laPlusSure }) }
+  })()
 
   return (
     <div className="player-shell expedition exp-carte-page">
@@ -1295,50 +1328,48 @@ function CarteDeLActe({
         <h1>{`Acte ${vue.acte + 1} · Vers ${leGardien(gardien)}`}</h1>
         <p className="muted small">
           {`Carte n° ${formatNumber(vue.numero)}. `}
-          {vue.moyen ? 'Les chances sont celles d’un joueur moyen, le temps que tes réponses disent les tiennes.' : 'Sur chaque escale, ta chance de trouver.'}
+          {vue.moyen ? 'Les chances sont celles d’un joueur moyen, le temps que tes réponses disent les tiennes.' : 'Au-dessus des escales proposées, ta chance de les trouver.'}
         </p>
       </header>
 
-      <div className="exp-carte" style={{ height: HAUTEUR }}>
+      <div className="exp-carte" style={{ height: HAUTEUR }} ref={carteRef}>
         <svg className="exp-liens" viewBox={`0 0 100 ${HAUTEUR}`} preserveAspectRatio="none" aria-hidden="true">
           {liens.map(l => (
-            <line
-              key={l.cle}
-              className={faits.has(l.cle) ? 'lien-fait' : prevus.has(l.cle) ? 'lien-prevu' : undefined}
-              x1={l.de.x}
-              y1={l.de.y}
-              x2={l.a.x}
-              y2={l.a.y}
-              vectorEffect="non-scaling-stroke"
-            />
+            <line key={l.cle} className={l.sorte} x1={l.de.x} y1={l.de.y} x2={l.a.x} y2={l.a.y} vectorEffect="non-scaling-stroke" />
           ))}
         </svg>
         <span id="exp-dit-passee" hidden>
           Tu y es déjà passé
         </span>
-        <span id="exp-depart" className={'exp-depart' + (vue.ici === null ? ' exp-ici' : '')} style={{ top: Y_DEPART }}>
-          <Icon name="flag" />
-          Départ
+        <span id="exp-dit-proposee" hidden>
+          Tu peux y aller
+        </span>
+        <span id="exp-depart" className={'exp-depart' + (vue.ici === null ? ' exp-ici' : '')} style={{ top: Y_DEPART }} aria-current={vue.ici === null ? 'location' : undefined}>
+          <span className="exp-depart-nom">
+            <Icon name="flag" />
+            Départ
+          </span>
         </span>
         {carte.escales.map(e => {
           const { x, y } = position(e)
           const estIci = e.id === vue.ici
           const passee = vue.trace.includes(e.id) && !estIci
-          const tracee = trace.includes(e.id) || (auCampement && e.id === GARDIEN)
-          const loin = !estIci && !passee && !atteignables.has(e.id)
+          const proposee = proposees.includes(e.id)
+          const loin = !estIci && !passee && !proposee && !atteignables.has(e.id)
+          // Une seule s'éclaire, celle où il est ; les proposées s'entourent ; le reste attend en retrait — sauf le gardien, le but de l'acte.
           const classes = ['exp-escale', `exp-${e.sorte}`]
           if (estIci) classes.push('exp-ici')
-          if (passee) classes.push('exp-passee')
-          if (tracee) classes.push('exp-tracee')
-          if (loin) classes.push('exp-loin')
+          else if (passee) classes.push('exp-passee')
+          // Pas `exp-proposee` : c'est la réponse proposée d'un vrai ou faux, et sa règle faisait des escales des cartes carrées.
+          else if (proposee) classes.push('exp-a-portee')
+          else if (loin) classes.push('exp-loin')
+          else if (e.sorte !== 'gardien') classes.push('exp-plus-loin')
+          if (e.id === retenue) classes.push('exp-choisie')
+          // Celle que le panneau décrit, touchée hors des proposées : sur la carte aussi, on voit laquelle.
+          if (e.id === regardee?.id) classes.push('exp-regardee')
           if (e.contenu === 'piege') classes.push('exp-piege')
-          if (vue.permises.includes(e.id)) classes.push('exp-ouverte')
-          const chance =
-            e.sorte === 'question' || e.sorte === 'elite' || e.sorte === 'source'
-              ? e.chance
-              : e.sorte === 'gardien' && !aveugle
-                ? chanceDeVaincre(pGardien, m.aTrouver, vue.vies)
-                : undefined
+          // Sa chance, au-dessus des proposées seulement : sur chaque escale, elle se lisait sans qu'on sache où aller.
+          const chance = !proposee || aveugle ? undefined : e.sorte === 'gardien' ? chanceDeVaincre(pGardien, m.aTrouver, vue.vies) : e.chance
           return (
             <button
               key={e.id}
@@ -1346,31 +1377,38 @@ function CarteDeLActe({
               type="button"
               className={classes.join(' ')}
               style={{ left: `${x}%`, top: y }}
-              // Son nom ne bouge pas : « sur ton tracé » passe par aria-pressed, « tu es ici » par aria-current,
-              // « déjà passée » par la description — dans le nom, l'état se lisait deux fois (`design.test.ts`).
+              // Son nom ne bouge pas : « choisie » passe par aria-pressed, « tu es ici » par aria-current, « déjà
+              // passée » et « tu peux y aller » par la description — dans le nom, l'état se lisait deux fois (`design.test.ts`).
               aria-label={decrire(e, vue, carte)}
-              aria-pressed={tracee}
+              aria-pressed={proposee ? e.id === retenue : undefined}
               aria-current={estIci ? 'location' : undefined}
-              aria-describedby={passee ? 'exp-dit-passee' : undefined}
+              aria-describedby={passee ? 'exp-dit-passee' : proposee ? 'exp-dit-proposee' : undefined}
               onClick={() => toucherEscale(e.id)}
             >
               {e.sorte === 'gardien' ? <Medaillon cle={gardien} className="exp-medaillon" /> : <Icon name={passee ? 'check' : iconeDe(e)} />}
-              {chance !== undefined && !passee && !loin && <Balise couleur={couleurDePiste(chance)} />}
+              {chance !== undefined && (
+                <span className="exp-sa-chance" aria-hidden="true">
+                  <Balise couleur={couleurDePiste(chance)} />
+                  {pourcents(chance)}
+                </span>
+              )}
               {/* Un thème pointu que son passeport n'a pas : son tampon l'attend (le 18 octobre 2026). */}
-              {e.aTamponner && !loin && (
+              {e.aTamponner && !loin && !passee && (
                 <span className="exp-a-tamponner" aria-hidden="true">
                   <Icon name="tampon" />
                 </span>
               )}
-              <span className="exp-etiquette" aria-hidden="true">
-                {etiquette(e, vue.acte, vue.gardiens)}
-              </span>
+              {(estIci || proposee || e.sorte === 'gardien') && (
+                <span className="exp-etiquette" aria-hidden="true">
+                  {etiquette(e, vue.acte, vue.gardiens)}
+                </span>
+              )}
             </button>
           )
         })}
       </div>
 
-      <section className="exp-panneau" aria-label="Ton tracé">
+      <section className="exp-panneau" aria-label="Ta prochaine escale" ref={panneauRef}>
         {auCampement ? (
           <>
             <p className="exp-panneau-titre">{espacesFines(`${nomDuGardien(gardien)} t’attend : ${regleDuGardien(vue.acte).toLowerCase()}. Chaque erreur te coûte une vie.`)}</p>
@@ -1385,48 +1423,32 @@ function CarteDeLActe({
         ) : (
           <>
             <div className="exp-panneau-tete">
-              <span className="label">{`${estLePlusSur && !aveugle ? 'Le tracé le plus sûr' : 'Ton tracé'} · ${trace.length} escale${s}`}</span>
-              {!estLePlusSur && (
-                <button
-                  type="button"
-                  className="link-inline small"
-                  onClick={() => {
-                    setSien(null)
-                    setVu(null)
-                    setAvis('')
-                  }}
-                >
-                  Le plus sûr
+              <span className="label">{panneau.titre}</span>
+              <span className="exp-panneau-liens">
+                {/* L'échoppe laissée sans avancer : un lien, pas un bouton de plus — le panneau reste bas. */}
+                {onEchoppe && (
+                  <button type="button" className="link-inline small" onClick={onEchoppe}>
+                    {vue.inconnu?.contenu === 'marchand' ? 'Le marchand' : 'L’échoppe'}
+                  </button>
+                )}
+                <button type="button" className="link-inline small exp-ouvrir" aria-haspopup="dialog" onClick={() => setLegende(true)}>
+                  <Icon name="help" />
+                  La carte
                 </button>
-              )}
-              {/* L'échoppe laissée sans avancer : un lien, pas un bouton de plus — le panneau reste bas. */}
-              {onEchoppe && (
-                <button type="button" className="link-inline small" onClick={onEchoppe}>
-                  {vue.inconnu?.contenu === 'marchand' ? 'Le marchand' : 'L’échoppe'}
-                </button>
-              )}
+              </span>
             </div>
             <p className="exp-vu" role="status">
-              {espacesFines(avis || (vueDe ? decrire(vueDe, vue, carte) : 'Touche les escales pour tracer ta route.'))}
+              {espacesFines(panneau.texte)}
+              {panneau.sure && (
+                <>
+                  {espacesFines(' La plus sûre :')}{' '}
+                  <button type="button" className="link-inline exp-la-plus-sure" onClick={() => toucherEscale(panneau.sure!)}>
+                    {etiquette(parId.get(panneau.sure)!, vue.acte, vue.gardiens)}
+                  </button>
+                  .
+                </>
+              )}
             </p>
-            {chances && (
-              <p className="exp-chances">
-                <Balise couleur={couleurDePiste(chances.arriver)} />
-                <span>
-                  <b>{pourcents(chances.arriver)}</b>
-                  {` d’arriver ${auGardien(gardien)} · `}
-                  <b>{pourcents(chances.vaincre)}</b>
-                  {` de ${gardienAuFeminin(gardien) ? 'la' : 'le'} vaincre`}
-                  {butin > 0 && (
-                    <>
-                      {' · '}
-                      <b>{`≈ ${butin}`}</b>
-                      {' écus'}
-                    </>
-                  )}
-                </span>
-              </p>
-            )}
             {aveugle && <p className="muted small">{espacesFines('L’écholocation est posée : la carte ne dit plus ta chance.')}</p>}
             {vue.route && <p className="exp-route small">{espacesFines(routeEnCours(vue.route))}</p>}
           </>
@@ -1440,14 +1462,37 @@ function CarteDeLActe({
         <button
           type="button"
           className="btn btn-primary btn-big btn-block"
-          aria-disabled={busy || !prochaine || undefined}
-          onClick={() => prochaine && onAvancer(prochaine)}
+          aria-disabled={busy || !retenue || undefined}
+          onClick={() => retenue && onAvancer(retenue)}
         >
-          {auCampement ? `Affronter ${leGardien(gardien)}` : prochaine ? `Avancer : ${etiquette(parId.get(prochaine)!, vue.acte, vue.gardiens)}` : 'Touche une escale'}
+          {auCampement ? `Affronter ${leGardien(gardien)}` : retenue ? `Y aller : ${etiquette(parId.get(retenue)!, vue.acte, vue.gardiens)}` : 'Choisis ton escale'}
           <Icon name="chevron-right" />
         </button>
       </section>
 
+      <GesteDuBas icone="x" danger busy={busy} onClick={onAbandonner}>
+        Abandonner l’expédition
+      </GesteDuBas>
+      {legende && <FeuilleDeLaCarte vue={vue} carte={carte} onFermer={() => setLegende(false)} />}
+    </div>
+  )
+}
+
+/**
+ * Comment se lit la carte (le 18 octobre 2026) : où l'on est, où l'on peut
+ * aller, et ce que dit chaque emblème. La légende vivait sous la carte, neuf
+ * lignes que personne ne lisait ; elle s'ouvre maintenant à la demande, avec
+ * la règle du pas.
+ */
+function FeuilleDeLaCarte({ vue, carte, onFermer }: { vue: VueDeLExpedition; carte: CarteDUnActe; onFermer: () => void }) {
+  return (
+    <Feuille titre="La carte" className="feuille-carte" onFermer={onFermer}>
+      <p>
+        {espacesFines(
+          'Tu montes vers le gardien, étage par étage. L’escale où tu es brille ; celles où tu peux aller ensuite sont entourées, avec ta chance de les trouver. Touches-en une, puis « Y aller » : une escale passée ne se rejoue pas.',
+        )}
+      </p>
+      <p className="muted small">{espacesFines('Le reste de la carte attend plus loin : touche une escale pour savoir ce qu’elle cache.')}</p>
       <ul className="exp-legende" aria-label="La légende de la carte">
         <li>
           <Icon name="source" />
@@ -1503,10 +1548,7 @@ function CarteDeLActe({
           Ta chance : verte, bleue, rouge, noire
         </li>
       </ul>
-      <GesteDuBas icone="x" danger busy={busy} onClick={onAbandonner}>
-        Abandonner l’expédition
-      </GesteDuBas>
-    </div>
+    </Feuille>
   )
 }
 

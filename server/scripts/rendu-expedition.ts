@@ -1,7 +1,10 @@
 // Les écrans de l'Expédition, photographiés au téléphone (360 × 640) sur un
 // serveur jetable : la page d'un invité sans profil ; le départ, son équipée
-// et sa feuille — les trente-deux jokers dépliés — ; la carte d'un acte, la
-// main en une ligne et sa feuille ; une escale et sa main, puis ce que fait
+// et sa feuille — les trente-deux jokers dépliés — ; la carte d'un acte — le
+// départ qui brille et les escales proposées, la plus sûre choisie depuis le
+// panneau, une autre touchée, une plus loin, la feuille qui dit comment la
+// lire —, la main en une ligne et sa feuille ; une escale et sa main, puis ce
+// que fait
 // chaque joker qui passe — les réponses effacées, Double chance, Deux
 // visages, l'Oracle, l'Énigme, Sursis… — ; une élite et ce qu'elle offre, un
 // coffre, le campement — une vie, ou un joker retiré — ; le gardien, vaincu,
@@ -190,18 +193,35 @@ try {
   await choisirLEquipee(['Oracle', 'Janus'], { feuille: '1b-equipee', tous: '1c-tous-les-jokers' })
   await photo('1d-depart-equipee')
 
-  // La carte de l'acte 1 : le tracé le plus sûr d'abord ; la main encore vide.
+  /** Sur la carte : une escale proposée — la première, s'il n'en a touché aucune —, puis « Y aller ». */
+  const allerAUneProposee = async () => {
+    await page.waitForSelector('.exp-carte')
+    if (!(await page.locator('.exp-escale.exp-choisie').count())) await page.locator('.exp-escale.exp-a-portee').first().click()
+    await page.locator('.exp-panneau .btn-primary').click()
+  }
+
+  // La carte de l'acte 1 : le départ brille, les escales du bas sont proposées ; la main encore vide.
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-carte')
   await photo('2-carte')
   await photo('2-carte-entiere', true)
 
-  // Une escale touchée hors du tracé : il se redessine par elle.
-  const horsDuTrace = page.locator('.exp-escale:not(.exp-tracee):not(.exp-loin):not(.exp-gardien):not(.exp-campement)').first()
-  if (await horsDuTrace.count()) {
-    await horsDuTrace.click()
-    await photo('3-trace-retouche')
+  // La plus sûre, touchée dans le panneau : elle se choisit. Puis une autre proposée : le panneau la dit, son trait
+  // se dore. Puis une escale plus loin : ce qu'elle cache.
+  await page.locator('.exp-la-plus-sure').click()
+  await photo('3-la-plus-sure')
+  await page.locator('.exp-escale.exp-a-portee').last().click()
+  await photo('3-escale-choisie')
+  const plusLoin = page.locator('.exp-escale.exp-plus-loin').first()
+  if (await plusLoin.count()) {
+    await plusLoin.click()
+    await photo('3b-plus-loin')
   }
+  // La carte, dans sa feuille : comment elle se lit, et ses emblèmes.
+  await page.locator('.exp-panneau-liens .exp-ouvrir').click()
+  await page.waitForSelector('.feuille-carte')
+  await photo('3c-la-carte')
+  await page.locator('.feuille-carte .carte-fermer').click()
 
   const ici = async (): Promise<string> => {
     if (await page.locator('.exp-carte').count()) return 'carte'
@@ -291,16 +311,16 @@ try {
         if (await page.locator('.exp-panneau-titre').count()) {
           await unePhoto('6-avant-le-gardien')
         } else {
-          // Une élite ou un coffre qu'il n'a pas encore vus, s'il peut y aller : touchés, le tracé passe par eux.
+          // Une élite ou un coffre qu'il n'a pas encore vus, s'il peut y aller : touchés, c'est là qu'il va.
           for (const sorte of ['coffre', 'elite']) {
-            const la = page.locator(`.exp-escale.exp-ouverte.exp-${sorte}`).first()
+            const la = page.locator(`.exp-escale.exp-a-portee.exp-${sorte}`).first()
             if (!fait.has(`offre-${sorte}`) && (await la.count())) {
               await la.click()
               break
             }
           }
         }
-        await page.locator('.exp-panneau .btn-primary').click()
+        await allerAUneProposee()
         await page.waitForTimeout(250)
         continue
       }
@@ -448,19 +468,18 @@ try {
   }
   await banc.redemarrer()
   await page.goto(`${banc.url}/expedition`)
-  /** Le pas suivant du tracé, depuis la carte : chaque étage n'a plus qu'une forme. */
-  const avancerSurLeTrace = async () => {
-    await page.waitForSelector('.exp-carte')
-    await page.locator('.exp-panneau .btn-primary').click()
+  /** Un pas, depuis la carte : chaque étage n'a plus qu'une forme. */
+  const unPasDePlus = async () => {
+    await allerAUneProposee()
     await page.waitForSelector('.ans-btn')
   }
-  await avancerSurLeTrace()
+  await unPasDePlus()
   await photo('f1-vrai-faux')
   await page.locator('.ans-btn').first().click()
   await page.waitForSelector('.result-banner')
   await photo('f1b-vrai-faux-revele')
   await suite()
-  await avancerSurLeTrace()
+  await unPasDePlus()
   await photo('f2-six-choix')
   await photo('f2-six-choix-entier', true)
   // Six réponses tiennent dans leur grille : à la hauteur de la fenêtre, elle débordait, et la sixième passait sous le bouton de Double chance.
@@ -470,7 +489,7 @@ try {
   await page.waitForSelector('.result-banner')
   await photo('f2b-six-choix-revele')
   await suite()
-  await avancerSurLeTrace()
+  await unPasDePlus()
   await page.waitForTimeout(1200)
   await photo('f3-devoilement')
   await page.waitForFunction(() => !(globalThis as any).document.querySelector('.exp-curseur'), undefined, { timeout: 20_000 })
@@ -520,10 +539,9 @@ try {
   }
   await banc.redemarrer()
   await page.goto(`${banc.url}/expedition`)
-  /** Le pas suivant du tracé, depuis la carte, et ce qu'il ouvre. */
+  /** Un pas, depuis la carte, et ce qu'il ouvre. */
   const pasVers = async (attendu: string) => {
-    await page.waitForSelector('.exp-carte')
-    await page.locator('.exp-panneau .btn-primary').click()
+    await allerAUneProposee()
     await page.waitForSelector(attendu)
   }
   await pasVers('.ans-btn')
@@ -534,7 +552,7 @@ try {
   await page.waitForSelector('.exp-offre')
   await page.locator('.exp-depart-pied .btn-ghost').click()
   await page.waitForSelector('.exp-carte')
-  await page.locator('.exp-escale.exp-ouverte').first().click()
+  await page.locator('.exp-escale.exp-a-portee').first().click()
   await photo('e2-carte-ecus')
   await pasVers('.exp-echoppe-page')
   await photo('e3-echoppe')
