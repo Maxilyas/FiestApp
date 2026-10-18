@@ -45,12 +45,9 @@ import {
   COURAGE_DES_ABYSSES,
   COURAGE_MAX,
   COUT_DES_ABYSSES,
-  CARTES_PAR_QUESTION,
   ECUS_AU_DEPART,
   INSPIRATION_PAR_QUESTION,
   MISES,
-  RARETES_D_UNE_ELITE,
-  RARETES_D_UNE_RENCONTRE,
   SAVOIR_DES_MARCHES,
   SEUIL_DES_ABYSSES,
   adversaireDe,
@@ -59,6 +56,7 @@ import {
   carteDeRencontre,
   carteDuLegendaire,
   cartesDeCombat,
+  cartesParQuestion,
   chiffresApresLaCarte,
   enJeu,
   estDeRoute,
@@ -70,6 +68,7 @@ import {
   multiplicateurDeLaForme,
   offreDeCartes,
   paquetDesRencontres,
+  raretesDeLOffre,
   refusDeLaCarte,
   sceauxDe,
   type AnnonceDuTour,
@@ -169,13 +168,30 @@ const ETAGES_DU_BAS = 3
  * questions —, et ce qu'un acte en tient au plus. Ce qu'un plafond refuse, et
  * le reste, devient une question. Des choix de produit.
  */
-export const POIDS_DES_ESCALES: readonly { sorte: SorteDEscale; part: number; auPlus?: number; desLEtage?: number }[] = [
+export type PoidsDesEscales = readonly { sorte: SorteDEscale; part: number; auPlus?: number; desLEtage?: number }[]
+export const POIDS_DES_ESCALES: PoidsDesEscales = [
   { sorte: 'question', part: 0.46 },
   { sorte: 'elite', part: 0.12, auPlus: 2, desLEtage: 2 },
   { sorte: 'source', part: 0.1 },
   { sorte: 'coffre', part: 0.12 },
   { sorte: 'inconnu', part: 0.08, auPlus: 2 },
   { sorte: 'echoppe', part: 0.05, auPlus: 1 },
+]
+/**
+ * Les cartes d'un départ en rencontres (la version 6) : plus d'adversaires,
+ * une source et un coffre moins souvent — « peut-être plus de monstres à
+ * battre, car ça reste simple avec tous les bonus en main » (la revue du
+ * 18 octobre 2026). Mesuré par `calibrage-rencontres.ts`. Les cartes d'un
+ * départ aux règles d'avant gardent `POIDS_DES_ESCALES`, et une carte tirée
+ * reste telle quelle (`DepartDExpedition.cartes`).
+ */
+export const POIDS_DES_ESCALES_DES_RENCONTRES: PoidsDesEscales = [
+  { sorte: 'question', part: 0.58 },
+  { sorte: 'elite', part: 0.16, auPlus: 3, desLEtage: 2 },
+  { sorte: 'source', part: 0.07 },
+  { sorte: 'coffre', part: 0.08 },
+  { sorte: 'inconnu', part: 0.04, auPlus: 2 },
+  { sorte: 'echoppe', part: 0.04, auPlus: 1 },
 ]
 
 /** La part des mélanges de deux ou trois catégories, puis des thèmes pointus, parmi les questions des étages 2 à 6. */
@@ -215,8 +231,11 @@ const idDe = (etage: number, colonne: number) => `e${etage}${colonne}`
  * peut tirer, ceux qui ont assez de questions ; `fete` : celui de la saison du
  * départ, qui en tient la moitié (`PART_DE_LA_FETE`). Sans fête, pas un tirage
  * de plus : hors saison, une graine redonne la carte d'avant les saisons.
+ * `poids` : la part de chaque sorte — celle d'un départ en rencontres a plus
+ * d'adversaires ; le hasard tiré reste le même, seule la sorte qu'il désigne
+ * change.
  */
-export function carteDUnActe(graine: string, acte: number, sujets: readonly string[], fete?: string): CarteDUnActe {
+export function carteDUnActe(graine: string, acte: number, sujets: readonly string[], fete?: string, poids: PoidsDesEscales = POIDS_DES_ESCALES): CarteDUnActe {
   const r = hasardDe(`${graine}:carte:${acte}`)
   const entier = (n: number) => Math.floor(r() * n)
   const liens = new Map<string, number[]>()
@@ -251,7 +270,7 @@ export function carteDUnActe(graine: string, acte: number, sujets: readonly stri
       if (f > 0) {
         const t = r()
         let cumul = 0
-        for (const p of POIDS_DES_ESCALES) {
+        for (const p of poids) {
           cumul += p.part
           if (t < cumul) {
             const refusee = (p.auPlus !== undefined && (comptes.get(p.sorte) ?? 0) >= p.auPlus) || (p.desLEtage !== undefined && f < p.desLEtage)
@@ -394,7 +413,8 @@ export function inviteDuJour(jour: string): string {
  * chacun avec son joker, à lui — ou l'invité du jour. Null : elle part.
  */
 export function refusDeLEquipee(equipee: readonly string[], possedes: ReadonlySet<string>, invite: string): string | null {
-  if (equipee.length > PLACES_DE_L_EQUIPEE) return `Ton équipée tient ${PLACES_DE_L_EQUIPEE} légendaires : laisses-en un`
+  // « Ton équipe », à l'écran : « équipée » se lisait comme une faute (la revue du 18 octobre 2026) ; le code garde `equipee`.
+  if (equipee.length > PLACES_DE_L_EQUIPEE) return `Ton équipe tient ${PLACES_DE_L_EQUIPEE} légendaires : laisses-en un`
   if (new Set(equipee).size !== equipee.length) return 'Un légendaire ne part qu’une fois'
   for (const cle of equipee) {
     if (!LEGENDAIRES_A_JOKER.includes(cle)) return 'Ce légendaire n’a pas encore de joker : choisis-en un autre'
@@ -752,8 +772,12 @@ export interface DepartDExpedition {
    * (`shared/rencontres.ts`, le 18 octobre 2026) — le courage au lieu des
    * vies, une rencontre à chaque escale à question, des cartes à la place des
    * jokers ; hors de la production seulement (`RENCONTRES_EN_PRODUCTION`).
+   * 6 : les rencontres revues le même soir — la main grandit avec les actes
+   * (`CARTES_DES_ACTES`), et l'acte 1 n'offre ni rare en rencontre ni
+   * maudite (`raretesDeLOffre`) ; une expédition partie en version 5 se
+   * rejoue telle qu'elle s'est jouée.
    */
-  v: 1 | 2 | 3 | 4 | 5
+  v: 1 | 2 | 3 | 4 | 5 | 6
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -1100,7 +1124,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     r.tour = { phase: 'preparation', inspiration: INSPIRATION_PAR_QUESTION + r.suivant.inspiration, charge: r.suivant.charge, garde: 0, mise: 0, jouees: [], surLaQuestion: [] }
     const deplus = r.suivant.cartes + (r.pouvoirs.includes('trois-tetes') ? 2 : 0)
     r.suivant = { cartes: 0, inspiration: 0, charge: 0 }
-    piocher(CARTES_PAR_QUESTION + deplus)
+    piocher(cartesParQuestion(depart.v, e.acte) + deplus)
     // La boucle : l'erreur revient à cette question-ci.
     if (r.boucle && r.boucle.position === null) r.boucle.position = e.enAttente
   }
@@ -1138,7 +1162,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const rang = e.offres++
     const talisman = quelle !== 'rencontre' ? talismanDeLOffre(depart.graine, rang, e.talismans, false) : null
     e.offre = {
-      jokers: offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), quelle === 'rencontre' ? RARETES_D_UNE_RENCONTRE : RARETES_D_UNE_ELITE),
+      jokers: offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), raretesDeLOffre(depart.v, e.acte, quelle === 'rencontre' ? 'rencontre' : 'elite'), depart.v >= 6),
       aPrendre: 1,
       ...(quelle === 'coffre' && { coffre: true as const }),
       ...(talisman && { talisman }),
@@ -1346,7 +1370,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   /** Une échoppe — ou le marchand de l'inconnu — : trois jokers, un talisman s'il en reste, du hasard de son rang d'offre. */
   const ouvrirLEchoppe = () => {
     const rang = e.offres++
-    const jokers = avecRencontres ? offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), RARETES_D_UNE_ELITE) : offreDeJokers(depart.graine, rang, depart.v)
+    const jokers = avecRencontres
+      ? offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), raretesDeLOffre(depart.v, e.acte, 'elite'), depart.v >= 6)
+      : offreDeJokers(depart.graine, rang, depart.v)
     e.echoppe = { jokers, talisman: talismanDeLOffre(depart.graine, rang, e.talismans, true), achats: [] }
   }
   /** Une vie de moins hors d'une question — un piège — : Renaissance relève, sinon l'expédition s'arrête là. */
@@ -2241,6 +2267,8 @@ export interface CartesEnJeu {
   route: string[]
   /** Pour chacune d'elles, pourquoi elle ne se joue pas maintenant — null : elle se joue. */
   refus: Record<string, string | null>
+  /** Les cartes que chaque question tire, acte par acte (`cartesDesActes`) : les règles le disent, la page n'en recopie rien. */
+  parQuestion: number[]
 }
 
 /** Ce que la page de l'expédition lit en arrivant. */

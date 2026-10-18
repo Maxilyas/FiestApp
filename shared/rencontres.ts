@@ -35,10 +35,24 @@ export const RENCONTRES_EN_PRODUCTION = false
 
 /** Le courage, au départ et au plus : ce qui remplace les trois vies. */
 export const COURAGE_MAX = 50
-/** L'inspiration de chaque question : de quoi jouer deux ou trois cartes. */
+/** L'inspiration de chaque question : de quoi jouer deux ou trois cartes. L'écran l'appelle « énergie », le mot de tous les jeux. */
 export const INSPIRATION_PAR_QUESTION = 3
-/** Les cartes tirées à chaque question ; ce qu'il n'en joue pas part à la défausse. */
+/** Les cartes tirées à chaque question (v5) ; ce qu'il n'en joue pas part à la défausse. */
 export const CARTES_PAR_QUESTION = 5
+/**
+ * Depuis la version 6, la main grandit avec les actes : trois cartes à
+ * l'acte 1, aux questions faciles, quatre à l'acte 2, cinq à l'acte 3. Cinq
+ * d'emblée, on ne savait plus laquelle jouer (« ça fait bcp de bonus en main
+ * en même temps, on s'y perd. En tous cas en mettre moins quand c'est le mode
+ * facile », la revue du propriétaire du 18 octobre 2026).
+ */
+export const CARTES_DES_ACTES: readonly number[] = [3, 4, 5]
+
+/** Les cartes que chaque question tire, acte par acte, à la version d'un départ. */
+export const cartesDesActes = (v: number): number[] => (v >= 6 ? [...CARTES_DES_ACTES] : CARTES_DES_ACTES.map(() => CARTES_PAR_QUESTION))
+
+/** Celles d'une question de cet acte. */
+export const cartesParQuestion = (v: number, acte: number) => cartesDesActes(v)[Math.min(Math.max(0, acte), CARTES_DES_ACTES.length - 1)]
 /** Ses écus au départ : de quoi miser dès la première rencontre. */
 export const ECUS_AU_DEPART = 25
 /** Ce qu'il peut miser avant de voir la question. */
@@ -101,8 +115,26 @@ export const COURAGE_DES_ABYSSES = 4
 export const CARTES_PAR_OFFRE = 3
 export const PART_D_UNE_FAMILLE = 0.4
 /** Les raretés d'une offre : après une rencontre, et — rare plus souvent — après une élite, dans un coffre ou à l'échoppe. */
-export const RARETES_D_UNE_RENCONTRE: Readonly<Record<'commun' | 'rare' | 'maudit', number>> = { commun: 0.6, rare: 0.3, maudit: 0.1 }
-export const RARETES_D_UNE_ELITE: Readonly<Record<'commun' | 'rare' | 'maudit', number>> = { commun: 0.3, rare: 0.6, maudit: 0.1 }
+export type PoidsDesRaretes = Readonly<Record<'commun' | 'rare' | 'maudit', number>>
+export const RARETES_D_UNE_RENCONTRE: PoidsDesRaretes = { commun: 0.6, rare: 0.3, maudit: 0.1 }
+export const RARETES_D_UNE_ELITE: PoidsDesRaretes = { commun: 0.3, rare: 0.6, maudit: 0.1 }
+/**
+ * Depuis la version 6, les rares attendent : à l'acte 1, une rencontre ne
+ * propose que des communes, une élite, un coffre ou l'échoppe des communes et
+ * quelques rares, et aucune maudite — « mettre des basiques seulement et
+ * obtenir des rares plus tard » (la revue du 18 octobre 2026). Les actes 2 et
+ * 3 gardent les poids de la version 5.
+ */
+export const RARETES_DE_L_ACTE_1: Readonly<Record<'rencontre' | 'elite', PoidsDesRaretes>> = {
+  rencontre: { commun: 1, rare: 0, maudit: 0 },
+  elite: { commun: 0.6, rare: 0.4, maudit: 0 },
+}
+
+/** Les raretés d'une offre — d'une rencontre, sinon d'une élite, d'un coffre, de l'échoppe —, à cet acte et à la version d'un départ. */
+export function raretesDeLOffre(v: number, acte: number, quelle: 'rencontre' | 'elite'): PoidsDesRaretes {
+  if (v >= 6 && acte <= 0) return RARETES_DE_L_ACTE_1[quelle]
+  return quelle === 'rencontre' ? RARETES_D_UNE_RENCONTRE : RARETES_D_UNE_ELITE
+}
 
 // ── Les cartes ─────────────────────────────────────────────────────────────
 
@@ -138,6 +170,15 @@ export interface CarteDeRencontre {
    * d'une carte sur cinq en 360 pixels.
    */
   resume: string
+  /**
+   * Son chiffre, sur sa face dans la main — « +4 », « 5 », « ×2 » : ce qu'on
+   * compare d'un coup d'œil. Rien quand son dessin suffit. La main ne montre
+   * plus de mots : « Y'a trop de détails écrits en dessous de chaque icône,
+   * ne pas les mettre direct mais les faire apparaître si on clique dessus »
+   * (la revue du propriétaire, le 18 octobre 2026) — touchée, elle se lève et
+   * dit tout.
+   */
+  valeur?: string
   /** Jouée, elle quitte la rencontre ; elle revient à la suivante. */
   epuisement?: true
   /** Un indice : la réponse qu'elle aide ne mesure rien de son savoir (`JOKERS_QUI_AIDENT`). */
@@ -149,8 +190,8 @@ export interface CarteDeRencontre {
 
 /** Le paquet de tous, et les neutres que les offres proposent. */
 const NEUTRES: readonly CarteDeRencontre[] = [
-  { cle: 'concentration', nom: 'Concentration', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: 'Si tu réponds juste, l’adversaire perd 4 de plus.', resume: '+4 si juste' },
-  { cle: 'prudence', nom: 'Prudence', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: 'Bouclier 5 : si tu te trompes, il pare 5 de l’attaque.', resume: 'Bouclier 5' },
+  { cle: 'concentration', nom: 'Concentration', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: 'Si tu réponds juste, l’adversaire perd 4 de plus.', resume: '+4 si juste', valeur: '+4' },
+  { cle: 'prudence', nom: 'Prudence', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: 'Bouclier 5 : si tu te trompes, il pare 5 de l’attaque.', resume: 'Bouclier 5', valeur: '5' },
   { cle: 'coup-d-oeil', nom: 'Coup d’œil', cout: 1, moment: 'reflexe', famille: 'neutre', rarete: 'commun', indice: true, effet: 'Efface une mauvaise réponse.', resume: 'Efface 1 réponse' },
   {
     cle: 'echange',
@@ -163,7 +204,7 @@ const NEUTRES: readonly CarteDeRencontre[] = [
     effet: 'Change de question : une autre, posée par le même adversaire.',
     resume: 'Autre question',
   },
-  { cle: 'pioche', nom: 'La pioche', cout: 0, moment: 'preparation', famille: 'neutre', rarete: 'commun', epuisement: true, effet: 'Tire deux cartes de plus.', resume: '+2 cartes' },
+  { cle: 'pioche', nom: 'La pioche', cout: 0, moment: 'preparation', famille: 'neutre', rarete: 'commun', epuisement: true, effet: 'Tire deux cartes de plus.', resume: '+2 cartes', valeur: '+2' },
   {
     cle: 'arret-sur-image',
     nom: 'Arrêt sur image',
@@ -173,6 +214,7 @@ const NEUTRES: readonly CarteDeRencontre[] = [
     rarete: 'commun',
     effet: 'Sur une question mot à mot : le texte s’arrête cinq secondes, et ton gain avec lui.',
     resume: 'Pause 5 s',
+    valeur: '5 s',
   },
   { cle: 'detour', nom: 'Le détour', cout: 0, moment: 'route', famille: 'neutre', rarete: 'commun', effet: 'Ton pas suivant peut aller à n’importe quelle escale de l’étage du dessus.', resume: 'Va où tu veux' },
   {
@@ -210,6 +252,7 @@ const NEUTRES: readonly CarteDeRencontre[] = [
     maudit: true,
     effet: 'Si tu as juste, l’adversaire perd le double et ton pari rapporte triple. Si tu te trompes, son attaque double.',
     resume: 'Tout ×2',
+    valeur: '×2',
   },
 ]
 
@@ -228,6 +271,7 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     rarete: 'commun',
     effet: 'Si la question est de ta catégorie fétiche et que tu réponds juste, l’adversaire perd 5 de plus.',
     resume: '+5 si fétiche',
+    valeur: '+5',
   },
   {
     cle: 'bibliotheque',
@@ -238,8 +282,9 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     rarete: 'rare',
     effet: 'Pour toute la rencontre : tes bonnes réponses de ta catégorie fétiche lui font perdre 3 de plus.',
     resume: 'Fétiche +3',
+    valeur: '+3',
   },
-  { cle: 'doubler-la-mise', nom: 'Doubler la mise', cout: 0, moment: 'preparation', famille: 'flambeur', rarete: 'commun', effet: 'Ton pari compte double, gain comme perte.', resume: 'Pari ×2' },
+  { cle: 'doubler-la-mise', nom: 'Doubler la mise', cout: 0, moment: 'preparation', famille: 'flambeur', rarete: 'commun', effet: 'Ton pari compte double, gain comme perte.', resume: 'Pari ×2', valeur: '×2' },
   {
     cle: 'banco',
     nom: 'Banco',
@@ -259,6 +304,7 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     rarete: 'commun',
     effet: 'La question passe à six choix : plus dure, mais l’adversaire perd une fois et demie plus.',
     resume: '6 choix ×1,5',
+    valeur: '×1,5',
   },
   {
     cle: 'simplifier',
@@ -270,7 +316,7 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     effet: 'La question passe en vrai ou faux : plus facile, mais l’adversaire perd moitié moins. Et bouclier 3.',
     resume: 'Vrai ou faux',
   },
-  { cle: 'echauffement', nom: 'Échauffement', cout: 0, moment: 'preparation', famille: 'elan', rarete: 'commun', effet: 'Ajoute 1 à ta série de bonnes réponses d’affilée.', resume: 'Série +1' },
+  { cle: 'echauffement', nom: 'Échauffement', cout: 0, moment: 'preparation', famille: 'elan', rarete: 'commun', effet: 'Ajoute 1 à ta série de bonnes réponses d’affilée.', resume: 'Série +1', valeur: '+1' },
   {
     cle: 'lancee',
     nom: 'Lancée',
@@ -280,8 +326,19 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     rarete: 'commun',
     effet: 'Si tu réponds juste, l’adversaire perd 2 de plus par bonne réponse de ta série.',
     resume: '+2 par série',
+    valeur: '+2',
   },
-  { cle: 'parade', nom: 'Parade', cout: 2, moment: 'reflexe', famille: 'rempart', rarete: 'commun', effet: 'Bouclier 6, une fois la question vue : si tu te trompes, il pare 6 de l’attaque.', resume: 'Bouclier 6' },
+  {
+    cle: 'parade',
+    nom: 'Parade',
+    cout: 2,
+    moment: 'reflexe',
+    famille: 'rempart',
+    rarete: 'commun',
+    effet: 'Bouclier 6, une fois la question vue : si tu te trompes, il pare 6 de l’attaque.',
+    resume: 'Bouclier 6',
+    valeur: '6',
+  },
   {
     cle: 'contre-attaque',
     nom: 'Contre-attaque',
@@ -301,6 +358,7 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     rarete: 'commun',
     effet: 'Si une réponse est effacée et que tu réponds juste, l’adversaire perd 5 de plus.',
     resume: '+5 si effacée',
+    valeur: '+5',
   },
   {
     cle: 'troisieme-oeil',
@@ -311,6 +369,7 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     rarete: 'rare',
     effet: 'Pour toute la rencontre : chaque indice que tu joues lui fait perdre 3 de plus, si tu réponds juste.',
     resume: 'Indices +3',
+    valeur: '+3',
   },
 ]
 
@@ -342,6 +401,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     rarete: 'legendaire',
     effet: 'Bouclier 8. S’il pare toute l’attaque, ta bonne réponse suivante lui fera perdre 4 de plus.',
     resume: 'Bouclier 8',
+    valeur: '8',
   },
   {
     cle: 'aube',
@@ -353,8 +413,21 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     rarete: 'legendaire',
     effet: 'Quand l’adversaire tombe, tu reprends 3 de courage par bonne réponse de la rencontre.',
     resume: 'Soin à la fin',
+    valeur: '+3',
   },
-  { cle: 'reveil', nom: 'Le réveil', legendaire: 'lg:coq', cout: 0, moment: 'preparation', famille: 'elan', rarete: 'legendaire', epuisement: true, effet: '+2 d’inspiration pour cette question.', resume: '+2 ✦' },
+  {
+    cle: 'reveil',
+    nom: 'Le réveil',
+    legendaire: 'lg:coq',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'elan',
+    rarete: 'legendaire',
+    epuisement: true,
+    effet: '+2 d’énergie pour cette question.',
+    resume: '+2 énergie',
+    valeur: '+2',
+  },
   {
     cle: 'boucle',
     nom: 'La boucle',
@@ -434,7 +507,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     moment: 'pouvoir',
     famille: 'elan',
     rarete: 'legendaire',
-    effet: 'Pour toute la rencontre : toutes les trois bonnes réponses d’affilée, deux cartes et une inspiration de plus à la question suivante.',
+    effet: 'Pour toute la rencontre : toutes les trois bonnes réponses d’affilée, deux cartes et 1 d’énergie de plus à la question suivante.',
     resume: 'Série = cartes',
   },
   {
@@ -447,6 +520,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     rarete: 'legendaire',
     effet: 'Pour toute la rencontre : tu tires deux cartes de plus à chaque question.',
     resume: '+2 cartes',
+    valeur: '+2',
   },
   { cle: 'raccourci', nom: 'Le raccourci', legendaire: 'lg:comete', cout: 0, moment: 'route', famille: 'elan', rarete: 'legendaire', effet: 'Tu sautes une escale.', resume: 'Saute 1 escale' },
   {
@@ -460,7 +534,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     effet: 'Une source ou un coffre s’ouvre à l’étage du dessus, relié à toi.',
     resume: 'Coffre ou source',
   },
-  { cle: 'tresor', nom: 'Le trésor', legendaire: 'lg:dragon', cout: 1, moment: 'pouvoir', famille: 'flambeur', rarete: 'legendaire', effet: 'Pour toute la rencontre : tes paris gagnés rapportent triple.', resume: 'Pari gagné ×3' },
+  { cle: 'tresor', nom: 'Le trésor', legendaire: 'lg:dragon', cout: 1, moment: 'pouvoir', famille: 'flambeur', rarete: 'legendaire', effet: 'Pour toute la rencontre : tes paris gagnés rapportent triple.', resume: 'Pari gagné ×3', valeur: '×3' },
   {
     cle: 'feu-d-artifice',
     nom: 'Le feu d’artifice',
@@ -472,6 +546,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     epuisement: true,
     effet: 'Ta défausse revient dans ta pioche, et tu tires trois cartes.',
     resume: '+3 cartes',
+    valeur: '+3',
   },
   {
     cle: 'lanterne',
@@ -494,6 +569,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     rarete: 'legendaire',
     effet: 'Un coffre de plus s’ouvre à l’étage du dessus, relié à toi.',
     resume: '+1 coffre',
+    valeur: '+1',
   },
   {
     cle: 'abysses',
@@ -506,6 +582,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     maudit: true,
     effet: 'La poser coûte 6 de courage. Pour toute la rencontre, sous 20 de courage, chaque bonne réponse t’en rend 4.',
     resume: 'Soin si bas',
+    valeur: '+4',
   },
   {
     cle: 'passe-muraille',
@@ -611,9 +688,13 @@ const NEUTRES_DES_OFFRES = NEUTRES.filter(c => c.cle !== 'concentration' && c.cl
  * équipée (`PART_D_UNE_FAMILLE` chacune), sinon des neutres, à une rareté
  * tirée à ses poids. Du hasard de la graine et du rang de l'offre : recharger
  * ne la change pas. Une famille ou une rareté qui n'a plus rien à proposer
- * cède la place aux neutres.
+ * cède la place aux neutres. `stricte` (v6) : une famille épuisée à sa rareté
+ * passe aux neutres de la même rareté avant ses autres cartes — sans quoi la
+ * rare de l'Érudit revenait par la bande à l'acte 1, où les rares attendent.
+ * Le hasard tiré reste le même : une offre de la version 5 se rejoue telle
+ * qu'elle s'est jouée.
  */
-export function offreDeCartes(graine: string, rang: number, familles: readonly FamilleDeCartes[], poids: Readonly<Record<'commun' | 'rare' | 'maudit', number>> = RARETES_D_UNE_RENCONTRE): string[] {
+export function offreDeCartes(graine: string, rang: number, familles: readonly FamilleDeCartes[], poids: PoidsDesRaretes = RARETES_D_UNE_RENCONTRE, stricte = false): string[] {
   const r = hasardDe(`${graine}:offre:${rang}`)
   const prises: string[] = []
   const raretes = Object.entries(poids) as ['commun' | 'rare' | 'maudit', number][]
@@ -633,7 +714,9 @@ export function offreDeCartes(graine: string, rang: number, familles: readonly F
     const tas = famille ? DES_FAMILLES.filter(c => c.famille === famille).map(c => c.cle) : NEUTRES_DES_OFFRES
     const libres = tas.filter(cle => !prises.includes(cle))
     const aSaRarete = libres.filter(cle => PAR_CLE.get(cle)?.rarete === rarete)
-    const candidates = aSaRarete.length > 0 ? aSaRarete : libres.length > 0 ? libres : NEUTRES_DES_OFFRES.filter(cle => !prises.includes(cle))
+    const neutresASaRarete = stricte ? NEUTRES_DES_OFFRES.filter(cle => !prises.includes(cle) && PAR_CLE.get(cle)?.rarete === rarete) : []
+    const candidates =
+      aSaRarete.length > 0 ? aSaRarete : neutresASaRarete.length > 0 ? neutresASaRarete : libres.length > 0 ? libres : NEUTRES_DES_OFFRES.filter(cle => !prises.includes(cle))
     if (candidates.length > 0) prises.push(candidates[Math.floor(r() * candidates.length)])
   }
   return prises
@@ -907,7 +990,8 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
   if (avant && c.tour.phase !== 'preparation') return 'Elle se joue avant de voir la question'
   if (carte.moment === 'reflexe' && c.tour.phase !== 'question') return 'Elle se joue pendant la question : vois-la d’abord'
   if (carte.moment === 'pouvoir' && c.pouvoirs.includes(cle)) return 'Elle agit déjà dans cette rencontre'
-  if (carte.cout > c.tour.inspiration) return `Il lui faut ${carte.cout} d’inspiration : il t’en reste ${c.tour.inspiration}`
+  // L'inspiration du code se dit « énergie » à l'écran (le 18 octobre 2026 : « l'histoire de l'inspiration n'est pas du tout claire »).
+  if (carte.cout > c.tour.inspiration) return `Il lui faut ${carte.cout} d’énergie : il t’en reste ${c.tour.inspiration}`
   const q = c.question
   if (!q) return 'Elle se joue sur une question'
   const changee = aJoueSurLaQuestion(c, 'corser') || aJoueSurLaQuestion(c, 'simplifier')

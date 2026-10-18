@@ -11,6 +11,8 @@ import {
   ETAGES,
   GARDIEN,
   MARCHES_DES_ACTES,
+  POIDS_DES_ESCALES,
+  POIDS_DES_ESCALES_DES_RENCONTRES,
   auGardien,
   carteDUnActe,
   chanceDeVaincre,
@@ -153,6 +155,32 @@ test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale 
   // Quatre choix 40 % : avant les écus, l'échoppe et l'inconnu, devenus des questions à quatre choix, l'emportaient au-dessus.
   const quatre = part(formesDuHaut.get('quatre') ?? 0, sur(formesDuHaut))
   assert.ok(quatre > 0.35 && quatre < 0.45, `quatre choix au-dessus : ${quatre}`)
+})
+
+test('en rencontres, des cartes à plus d’adversaires — la même graine, le même tracé ; aux règles d’avant, la carte de toujours', () => {
+  // « Peut-être plus de monstres à battre, car ça reste simple avec tous les bonus en main » (la revue du 18 octobre 2026).
+  const combats = (c: CarteDUnActe) => c.escales.filter(e => e.etage > 0 && e.etage < ETAGES && (e.sorte === 'question' || e.sorte === 'elite')).length
+  const au = (c: CarteDUnActe) => c.escales.filter(e => e.etage > 0 && e.etage < ETAGES).length
+  let avant = 0
+  let apres = 0
+  let escales = 0
+  for (let i = 0; i < 1000; i++) {
+    const graine = `adversaires:${i}`
+    const toujours = carteDUnActe(graine, i % ACTES, SUJETS)
+    // Aux règles d'avant, rien ne bouge : une graine redonne la carte d'avant.
+    assert.deepEqual(carteDUnActe(graine, i % ACTES, SUJETS, undefined, POIDS_DES_ESCALES), toujours)
+    const enRencontres = carteDUnActe(graine, i % ACTES, SUJETS, undefined, POIDS_DES_ESCALES_DES_RENCONTRES)
+    // Le même hasard : les mêmes escales, les mêmes liens — seule la sorte d'une escale change.
+    assert.deepEqual(
+      enRencontres.escales.map(e => `${e.id}>${e.suite.join(',')}`),
+      toujours.escales.map(e => `${e.id}>${e.suite.join(',')}`),
+    )
+    assert.ok(enRencontres.escales.some(e => e.sorte === 'source') && enRencontres.escales.some(e => e.sorte === 'coffre'), `carte ${i} : une source et un coffre au moins`)
+    avant += combats(toujours)
+    apres += combats(enRencontres)
+    escales += au(toujours)
+  }
+  assert.ok(apres / escales > avant / escales + 0.08, `plus d’adversaires au-dessus du premier étage : ${(avant / escales).toFixed(2)} → ${(apres / escales).toFixed(2)}`)
 })
 
 test('sans thème pointu à tirer, la carte n’en pose aucun', () => {

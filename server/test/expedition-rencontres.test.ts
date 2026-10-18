@@ -42,11 +42,13 @@ import {
   brisesDUneBonneReponse,
   carteDeRencontre,
   carteDuLegendaire,
+  cartesDesActes,
   famillesDeLEquipee,
   frappeDUneErreur,
   multiplicateurDeLaForme,
   offreDeCartes,
   paquetDesRencontres,
+  raretesDeLOffre,
   refusDeLaCarte,
   type ContexteDUneCarte,
 } from '../../shared/rencontres'
@@ -104,7 +106,7 @@ test('pourquoi une carte ne se joue pas : son moment, son inspiration, la questi
   const enQuestion = contexte({ tour: { phase: 'question', inspiration: 1, jouees: [], surLaQuestion: [] } })
   assert.equal(refusDeLaCarte(enQuestion, 'prudence'), 'Elle se joue avant de voir la question')
   assert.equal(refusDeLaCarte(enQuestion, 'coup-d-oeil'), null)
-  assert.equal(refusDeLaCarte(enQuestion, 'parade'), 'Il lui faut 2 d’inspiration : il t’en reste 1')
+  assert.equal(refusDeLaCarte(enQuestion, 'parade'), 'Il lui faut 2 d’énergie : il t’en reste 1')
   assert.equal(refusDeLaCarte(contexte({ pouvoirs: ['bibliotheque'] }), 'bibliotheque'), 'Elle agit déjà dans cette rencontre')
   assert.equal(refusDeLaCarte(contexte(), 'detour'), 'Elle se joue sur la carte, entre deux escales')
   // La forme : Corser veut deux leurres, Simplifier une question à quatre choix ; une fois changée, elle ne change plus.
@@ -394,6 +396,61 @@ test('le gardien est une rencontre : vaincu, sa carte rejoint le paquet, l’act
   assert.deepEqual([e.acte, e.rencontre, e.vaincus], [1, null, 1])
   assert.ok(e.paquet.includes('abysses'), 'la carte du Kraken vaincu')
   assert.ok(e.coup?.victoire, 'sa victoire se dit')
+})
+
+// ── La version 6 : la revue du 18 octobre 2026 ─────────────────────────────
+// « Les bonus sont intéressants, peut-être qu'on en a trop au début, mettre des basiques seulement et obtenir des rares plus
+// tard ? Ça fait beaucoup de bonus en main en même temps […] En tous cas en mettre moins quand c'est le mode facile. »
+
+test('version 6 : la main grandit avec les actes — trois cartes à l’acte 1, quatre à l’acte 2 ; une expédition partie en version 5 en tire cinq', () => {
+  assert.deepEqual(cartesDesActes(6), [3, 4, 5])
+  assert.deepEqual(cartesDesActes(5), [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION])
+  const j = new Journal({ ...depart('main-des-actes'), v: 6 })
+  let e = j.avancer('e00')
+  assert.deepEqual([e.rencontre!.main.length, e.rencontre!.pioche.length], [3, PAQUET_DES_RENCONTRES.length - 3])
+  // Rejouée en version 5, la même graine tire cinq cartes : une expédition se rejoue telle qu'elle s'est jouée.
+  assert.equal(new Journal(depart('main-des-actes')).avancer('e00').rencontre!.main.length, CARTES_PAR_QUESTION)
+  // Jusqu'au gardien, vaincu ; l'acte 2 tire quatre cartes.
+  for (let n = 0; n < 12 && (e.rencontre || e.enAttente !== null); n++) e = j.repondre(true)
+  if (e.offre) j.prendre()
+  for (const vers of ['e10', 'e20', 'e30']) {
+    e = j.avancer(vers)
+    for (let n = 0; n < 12 && (e.rencontre || e.enAttente !== null); n++) e = j.repondre(true)
+    if (e.offre) j.prendre()
+  }
+  j.avancer('cg')
+  j.geste({ quoi: 'camper' })
+  e = j.avancer(GARDIEN)
+  assert.equal(e.rencontre!.main.length, 3, 'le gardien de l’acte 1 aussi')
+  for (let n = 0; n < 20 && e.rencontre; n++) e = j.repondre(true)
+  assert.equal(e.acte, 1)
+  e = j.avancer('e00')
+  assert.equal(e.rencontre!.main.length, 4)
+})
+
+test('version 6 : les rares attendent l’acte 2 — une rencontre de l’acte 1 n’offre que des communes, une élite ou un coffre aucune maudite', () => {
+  assert.deepEqual(raretesDeLOffre(6, 0, 'rencontre'), { commun: 1, rare: 0, maudit: 0 })
+  assert.equal(raretesDeLOffre(6, 0, 'elite').maudit, 0)
+  // Les actes 2 et 3, et toute expédition de la version 5, gardent les poids d'avant.
+  for (const [v, acte] of [[6, 1], [6, 2], [5, 0]] as const) {
+    assert.deepEqual(raretesDeLOffre(v, acte, 'rencontre'), { commun: 0.6, rare: 0.3, maudit: 0.1 })
+  }
+  for (let n = 0; n < 300; n++) {
+    // Même une famille dont la commune est déjà prise passe aux neutres de sa rareté : sa rare ne revient pas par la bande.
+    for (const cle of offreDeCartes(`acte-1:${n}`, n % 5, ['erudit', 'rempart'], raretesDeLOffre(6, 0, 'rencontre'), true)) {
+      assert.equal(carteDeRencontre(cle)!.rarete, 'commun', cle)
+    }
+    for (const cle of offreDeCartes(`elite-1:${n}`, n % 5, ['flambeur', 'devin'], raretesDeLOffre(6, 0, 'elite'), true)) {
+      assert.notEqual(carteDeRencontre(cle)!.rarete, 'maudit', cle)
+    }
+  }
+  // Par le pli : la rencontre gagnée de l'acte 1, en version 6, n'offre que des communes.
+  for (let n = 0; n < 40; n++) {
+    const j = new Journal({ ...depart(`offre-v6:${n}`, ['lg:lion', 'lg:dragon']), v: 6 })
+    let e = j.avancer('e00')
+    for (let k = 0; k < 12 && e.rencontre; k++) e = j.repondre(true)
+    for (const cle of e.offre?.jokers ?? []) assert.equal(carteDeRencontre(cle)!.rarete, 'commun', `${n} : ${cle}`)
+  }
 })
 
 test('le courage à zéro : l’expédition est perdue — sauf sous Renaissance, qui relève à 15 une fois par expédition', () => {

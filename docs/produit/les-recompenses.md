@@ -11,7 +11,7 @@ Tout se joue sans compte : un invité anonyme joue la même partie, aux mêmes p
 
 ## Les principes
 
-**Un profil ne donne aucun avantage de jeu face aux autres.** Ni points, ni temps, ni question plus facile : un niveau 30 et un invité arrivé ce soir jouent la même partie — en soirée, au quiz du jour, au défi, en duel. Ce que tu gagnes se voit ; rien ne s'y joue. Seule [l'Expédition](l-expedition.md), qu'on joue seul et sans classement, fait servir ce qu'on a gagné : chaque légendaire qui a son joker y part dans l'équipée, et son joker n'en sort jamais.
+**Un profil ne donne aucun avantage de jeu face aux autres.** Ni points, ni temps, ni question plus facile : un niveau 30 et un invité arrivé ce soir jouent la même partie — en soirée, au quiz du jour, au défi, en duel. Ce que tu gagnes se voit ; rien ne s'y joue. Seule [l'Expédition](l-expedition.md), qu'on joue seul et sans classement, fait servir ce qu'on a gagné : chaque légendaire qui a son joker y part dans l'équipe, et son joker n'en sort jamais.
 
 **L'invité anonyme n'affiche rien** — ni « Niv. 0 », ni pastille grise, ni finition : l'absence, pas l'infériorité. Ses hauts faits de soirée sont annoncés à la clôture comme ceux des autres, sur son téléphone et à la salle, mais rien ne se garde ; le profil qu'il crée ensuite commence à la soirée suivante.
 

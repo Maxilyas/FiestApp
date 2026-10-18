@@ -262,6 +262,8 @@ import {
   ACTES,
   MARCHES_DES_ACTES,
   MOTS_DU_DEVOILEMENT,
+  POIDS_DES_ESCALES,
+  POIDS_DES_ESCALES_DES_RENCONTRES,
   arrondiDeChance,
   carteDUnActe,
   carteEnJeu,
@@ -308,7 +310,7 @@ import {
 } from '../../../shared/expedition'
 import { EFFACE, JOKERS_QUI_AIDENT, LEGENDAIRES_A_JOKER } from '../../../shared/jokers'
 import { cleDeLExpedition } from '../../../shared/legendaires'
-import { carteDeRencontre, effaceesDuTour } from '../../../shared/rencontres'
+import { carteDeRencontre, cartesDesActes, effaceesDuTour } from '../../../shared/rencontres'
 
 /** Une question de la série, telle que le serveur la garde : la bonne réponse avec. */
 interface QuestionDeSerie {
@@ -6719,7 +6721,7 @@ export class CampagneStore {
    */
   partirEnExpedition(profileId: string, equipeeBrute: unknown = [], { rencontres = false, fetiche }: { rencontres?: boolean; fetiche?: unknown } = {}): Promise<VueDeLExpedition> {
     const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
-    if (!equipee) return Promise.reject(new Error('Ton équipée ne se lit pas : recharge la page'))
+    if (!equipee) return Promise.reject(new Error('Ton équipe ne se lit pas : recharge la page'))
     if (rencontres && fetiche !== undefined && !(CATEGORIES as readonly unknown[]).includes(fetiche)) return Promise.reject(new Error('Choisis ta catégorie fétiche parmi les douze'))
     return this.avecVerrou(profileId, async () => {
       // Ce qu'il a vu, dans le même lot : ses chances en lisent ses premières
@@ -6753,11 +6755,13 @@ export class CampagneStore {
       // Sa saison : sa fête — si une carte peut la tirer — tient la moitié des thèmes pointus, son légendaire garde l'acte 3.
       const saison = this.saisonDuDepart()
       const fete = saison && sujets.includes(saison.key) ? saison.key : undefined
-      const cartes = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, fete))
+      // En rencontres, des cartes à plus d'adversaires (`POIDS_DES_ESCALES_DES_RENCONTRES`) ; aux règles d'avant, celles de toujours.
+      const cartes = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, fete, rencontres ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES))
       const vues = lireLesVues(lues.rows)
       const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
       const depart: DepartDExpedition = {
-        v: rencontres ? 5 : 4,
+        // Les rencontres partent en version 6 : la main qui grandit avec les actes, les rares qui attendent l'acte 2.
+        v: rencontres ? 6 : 4,
         graine,
         numero: numeroDeLaCarte(graine),
         gardiens: gardiensDe(graine, siens, invite, saison?.legendaire),
@@ -7839,7 +7843,7 @@ function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
   try {
     const lu = JSON.parse(brut) as DepartDExpedition
     // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus, la 4 sans rencontres ; une version inconnue ne se lit pas.
-    return lu && (lu.v === 1 || lu.v === 2 || lu.v === 3 || lu.v === 4 || lu.v === 5) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
+    return lu && (lu.v === 1 || lu.v === 2 || lu.v === 3 || lu.v === 4 || lu.v === 5 || lu.v === 6) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
   } catch {
     return null
   }
@@ -8209,7 +8213,12 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
     ...(v5 && {
       courage: e.courage ?? 0,
       ...(d.fetiche && { fetiche: d.fetiche }),
-      cartes: { paquet: e.paquet, route: deRoute, refus: Object.fromEntries([...new Set(deRoute)].map(cle => [cle, refusDuJoker(d, e, cle, posees)])) },
+      cartes: {
+        paquet: e.paquet,
+        route: deRoute,
+        refus: Object.fromEntries([...new Set(deRoute)].map(cle => [cle, refusDuJoker(d, e, cle, posees)])),
+        parQuestion: cartesDesActes(d.v),
+      },
     }),
     ...(r && { rencontre: vueDeLaRencontre(d, e, posees) }),
   }

@@ -9141,20 +9141,47 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-surtitre { color: var(--accent-text); }
 .exp-barre { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
 .exp-barre .vies { margin-left: auto; }
+/* Le « ? » des règles, en haut de chaque page de l'expédition (la revue du 18 octobre 2026 : « un onglet règles qu'on peut
+   consulter de n'importe quelle page ») : rond dans la barre, où la place est comptée ; son mot au départ, où il y en a. */
+.exp-regles { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 32px; height: 32px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--surface); color: var(--accent-text); font: inherit; font-size: 0.86rem; font-weight: 700; cursor: pointer; }
+.exp-regles .icon { width: 17px; height: 17px; }
+.exp-barre .exp-regles-mot { display: none; }
+.exp-haut-du-depart { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.exp-haut-du-depart .exp-regles { padding: 0 12px 0 9px; }
+/* Ses cartes posées pour toute la rencontre, en petit dans la barre, comme ses talismans ; touchée, une carte se lève. */
+.exp-posees { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+.exp-posees .exp-pose { width: 26px; height: 34px; padding: 0; cursor: pointer; }
+.exp-posees .exp-pose > .icon { width: 16px; height: 16px; }
+.exp-posees .exp-pose .exp-visage-joker { font-size: 24px; }
+.exp-barre .exp-posees + .exp-talismans, .exp-barre .exp-posees + .exp-ecus, .exp-barre .exp-posees + .exp-courage { margin-left: 8px; }
+.feuille-regles .carte-corps { display: flex; flex-direction: column; gap: 18px; }
+.exp-regles-section { display: flex; flex-direction: column; gap: 10px; }
+.exp-regles-section h3 { margin: 0; }
 .exp-medaillon { flex: none; display: inline-grid; place-items: center; font-size: 44px; line-height: 0; }
 .exp-pastille { flex: none; display: inline-flex; align-items: center; min-height: 22px; padding: 0 9px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--muted); font-family: var(--sans); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.02em; }
 .exp-pastille-or { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
-/* Le départ : un gardien par acte, sa règle dessous, puis le geste. */
+/* Le départ : les trois gardiens côte à côte, un par acte, sans leur règle — elle est au « ? » —, puis le geste. */
 .exp-gardiens { display: flex; flex-direction: column; gap: 10px; }
 .exp-gardiens h2, .exp-gardiens p { margin: 0; }
-.exp-gardiens ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.exp-gardien-ligne { display: flex; align-items: center; gap: 12px; }
+.exp-trois-gardiens { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.exp-gardien-col { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; text-align: center; }
+.exp-gardien-col .exp-medaillon { font-size: 56px; margin-bottom: 4px; }
+.exp-gardien-col .exp-gardien-nom { font-size: 1.02rem; overflow-wrap: anywhere; }
+.exp-gardien-col .exp-pastille { margin-top: 3px; }
 .exp-gardien-texte { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .exp-gardien-nom { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
 .exp-vaincu-ligne .exp-gardien-nom { color: var(--accent-text); }
 /* Le geste du bas — partir, prendre, camper —, collé au bas de l'écran : l'équipée a poussé « Partir » sous le pli en 360 × 640. Le fond du thème y monte en fondu, sans bande. */
 .exp-depart-pied { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding: 18px 0 max(4px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 18px); }
 .exp-depart-pied p { margin: 0; }
+/* Sans légendaire à soi, l'invité du jour en une ligne, à la place de l'équipe à choisir. */
+.exp-invite-seul { display: flex; align-items: center; gap: 12px; margin: 0; font-size: 0.9rem; line-height: 1.4; }
+.exp-invite-seul .exp-medaillon { font-size: 44px; }
+/* Son paquet au départ, en un lien : il s'ouvre en vraies cartes (une ligne de noms, de plus, sur le départ). */
+.exp-voir-le-paquet { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; margin-top: -6px; font-variant-numeric: lining-nums; }
+.exp-voir-le-paquet .icon { width: 14px; height: 14px; }
+/* Abandonner, sous « Reprendre » : un lien discret, au rouge de ce qui coûte. */
+.exp-abandonner { align-self: center; padding: 4px 8px; color: var(--alert); }
 /* L'écran de la carte (revu deux fois le 18 octobre 2026) : il tient en un
    écran — l'acte en petit en haut prend ce que le panneau, collé en bas,
    lui laisse ; le panneau porte les escales proposées en cartes, « Y aller »
@@ -9332,8 +9359,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-changer, .exp-ouvrir { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; text-decoration: none; }
 .exp-changer .icon, .exp-ouvrir .icon { width: 16px; height: 16px; }
 .exp-places { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.exp-place { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 64px; padding: 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface-strong); }
-.exp-place .exp-medaillon { font-size: 40px; }
+/* Le médaillon un peu plus petit : « Renaissance », la carte du Phénix, se coupait « Renaissanc / e » en 360 pixels (le 18 octobre 2026). */
+.exp-place { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 64px; padding: 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface-strong); }
+.exp-place .exp-medaillon { font-size: 36px; }
 .exp-place-libre { justify-content: center; border-style: dashed; background: none; color: var(--muted); font-size: 0.85rem; }
 /* « Dragon d'Or », « Le trésor » : deux lignes s'il le faut, plutôt que des points de suspension — et « Renais-sance » coupé à la syllabe. */
 .exp-place-texte { display: flex; flex-direction: column; min-width: 0; font-size: 0.9rem; line-height: 1.2; overflow-wrap: break-word; hyphens: auto; }
@@ -9485,7 +9513,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-rarete-maudit { border-color: transparent; background: rgba(var(--alert-rgb), 0.16); color: var(--alert); }
 .exp-rarete-legendaire { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .exp-paquet { display: flex; flex-direction: column; gap: 6px; }
-.exp-paquet h2 { margin: 0; }
+/* « Ton paquet · 12 » : des chiffres alignés, que Cormorant écrirait à l'ancienne. */
+.exp-paquet h2 { margin: 0; font-variant-numeric: lining-nums; }
 /* Le campement : une vie, ou un joker de moins — deux lignes comme le choix au bout, puis les jokers à retirer. */
 .exp-choix-icone { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-strong); color: var(--accent-text); }
 .exp-choix-icone .icon { width: 22px; height: 22px; }
@@ -9596,57 +9625,99 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-changement li > .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent-text); }
 .exp-changement li span .icon { width: 13px; height: 13px; margin: 0 2px; vertical-align: -2px; color: var(--muted); }
 .exp-changement b { color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
-/* Son inspiration, en étincelles : allumées, ce qui lui reste ; éteintes, ce qu'il a dépensé. Le coût d'une carte se dit des mêmes. */
-.exp-inspiration { display: inline-flex; align-items: center; gap: 1px; color: var(--accent-text); }
-.exp-inspiration .icon { width: 17px; height: 17px; }
-.exp-inspiration .exp-eteinte { color: var(--muted); opacity: 0.4; }
-.exp-gratuite { color: var(--muted); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+/* L'énergie (l'inspiration du code) : un orbe cyan et son chiffre, le même au-dessus de la main et au coin de chaque carte —
+   en étincelles, on ne voyait ni ce qu'elles comptaient ni ce qu'une carte en prenait. Une convention, écrite en dur : ni l'or des
+   écus, ni le rouge du courage, ni le bleu des rares ; rouge, le coût qu'il ne peut pas payer. */
+.exp-vc-cout { display: grid; place-items: center; width: 22px; height: 22px; border: 2px solid var(--bg-raised); border-radius: 50%; background: radial-gradient(circle at 35% 30%, #d2f8fc, #3cc4d4 55%, #127887); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4); color: #06262b; font-size: 0.82rem; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; line-height: 1; }
+.exp-vc-cout.exp-vc-manque { background: radial-gradient(circle at 35% 30%, #ffd9d2, #e8735f 55%, #8f2f22); color: #2b0906; }
+.exp-vc-cout.exp-vc-route { background: radial-gradient(circle at 35% 30%, #f3ead9, #b8a27a 60%, #6f5d3c); color: #241b0c; }
+.exp-vc-cout .icon { width: 12px; height: 12px; }
+.exp-energie { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 0.82rem; font-weight: 700; }
+.exp-energie .exp-vc-cout { width: 28px; height: 28px; border-color: transparent; font-size: 1rem; }
+.exp-energie-vide .exp-vc-cout { filter: grayscale(1) brightness(0.85); }
 /* La main : ses cartes entières en une rangée — celles qui se jouent maintenant, puis, à part et éteintes, celles qui attendent la question. */
 .exp-cartes { display: flex; flex-direction: column; gap: 6px; }
 .exp-cartes-tete { display: flex; align-items: center; gap: 10px; }
 .exp-cartes-tete .label { margin: 0; }
 .exp-cartes-tas { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; white-space: nowrap; }
 .exp-cartes-tas .icon { width: 14px; height: 14px; }
-.exp-cartes-posees { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.exp-cartes-posees li { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 10px 0 4px; border: 1.5px solid var(--gemme); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--gemme) 14%, var(--bg-raised)); color: var(--ink); font-size: 0.78rem; font-weight: 700; }
-.exp-cartes-posee-visage { display: inline-grid; place-items: center; width: 20px; height: 20px; color: color-mix(in srgb, var(--gemme) 55%, var(--ink)); }
-.exp-cartes-posee-visage .icon { width: 14px; height: 14px; }
-.exp-cartes-posee-visage .exp-visage-joker { font-size: 20px; }
 .exp-cartes-rangs { display: flex; align-items: flex-end; gap: 8px; }
 .exp-cartes-groupe { flex: 1 1 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .exp-cartes-plus-tard { padding-left: 7px; border-left: 1px dashed var(--edge-strong); }
 /* Seules dans la main, elles n'ont rien à quoi se séparer. */
 .exp-cartes-plus-tard:first-child { padding-left: 0; border-left: 0; }
 .exp-cartes-quand { color: var(--muted); font-size: var(--t-label); font-weight: 700; line-height: 1.15; }
-.exp-cartes-main { display: flex; gap: 5px; }
-/* Une carte de la main : son coût en haut, son dessin, ce qu'elle fait en deux lignes. Le cadre dit sa rareté (`--gemme`) ; opaque, comme toute carte (le voile). */
-.exp-face { --gemme: #a8b3bf; flex: 1 1 0; min-width: 0; max-width: 78px; height: 100px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 3px 7px; border: 2px solid var(--gemme); border-radius: 10px; background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--gemme) 24%, transparent), transparent 75%), linear-gradient(var(--surface-strong), var(--surface-strong)), var(--bg-raised); box-shadow: inset 0 0 0 2px var(--bg-raised); color: var(--ink); font: inherit; text-align: center; cursor: pointer; transition: translate 0.15s ease, opacity 0.15s ease; }
-.exp-face:hover, .exp-face:active { translate: 0 -3px; }
-.exp-face-eteinte { opacity: 0.45; }
-.exp-face-cout { display: inline-flex; align-items: center; justify-content: center; gap: 0; min-height: 14px; color: var(--accent-text); line-height: 1; }
-.exp-face-cout .icon { width: 13px; height: 13px; }
-.exp-face-dessin { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid color-mix(in srgb, var(--gemme) 60%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--gemme) 18%, var(--bg-raised)); color: color-mix(in srgb, var(--gemme) 55%, var(--ink)); }
-.exp-face-dessin > .icon { width: 17px; height: 17px; }
-.exp-face-dessin .exp-visage-joker { font-size: 32px; }
-.exp-face-dit { display: -webkit-box; max-width: 100%; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 0.72rem; font-weight: 700; line-height: 1.15; overflow-wrap: break-word; }
-.exp-face-dit .icon { width: 11px; height: 11px; vertical-align: -1px; color: var(--accent-text); }
-/* Une carte levée, en grand : son coût et sa rareté aux coins, son dessin, son nom, ce qu'elle fait en une phrase, quand elle se joue. */
-.exp-grande { --gemme: #a8b3bf; position: relative; flex: none; width: 232px; display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 14px 14px 12px; border: 3px solid var(--gemme); border-radius: 14px; background: radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--gemme) 24%, transparent), transparent 75%), linear-gradient(var(--surface-strong), var(--surface-strong)), var(--bg-raised); box-shadow: inset 0 0 0 2px var(--bg-raised), 0 0 0 1px rgba(0, 0, 0, 0.3), 0 12px 32px color-mix(in srgb, var(--gemme) 30%, rgba(0, 0, 0, 0.45)); color: var(--ink); text-align: center; }
-.exp-grande-cout { position: absolute; top: 9px; left: 11px; display: inline-flex; align-items: center; color: var(--accent-text); }
-.exp-grande-cout .icon { width: 16px; height: 16px; }
-.exp-grande-rarete { position: absolute; top: 10px; right: 11px; color: color-mix(in srgb, var(--gemme) 60%, var(--ink)); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.exp-grande-dessin { flex: none; display: grid; place-items: center; width: 72px; height: 72px; margin-top: 8px; border: 1px solid color-mix(in srgb, var(--gemme) 60%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--gemme) 18%, var(--bg-raised)); color: color-mix(in srgb, var(--gemme) 55%, var(--ink)); }
-.exp-grande-dessin > .icon { width: 36px; height: 36px; }
-.exp-grande-dessin .exp-visage-joker { font-size: 72px; }
-.exp-grande-nom { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1.1; }
-.exp-grande-effet { align-self: stretch; margin: 0; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--gemme) 40%, transparent); font-size: 0.94rem; line-height: 1.38; }
-.exp-grande-quand { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-size: 0.78rem; font-weight: 700; }
-.exp-grande-quand .icon { width: 14px; height: 14px; color: var(--accent-text); }
-.exp-grande-plus { color: var(--muted); font-size: 0.74rem; line-height: 1.35; }
+/* L'orbe du coût dépasse du coin de chaque carte : la rangée lui garde sa place au-dessus. */
+.exp-cartes-main { display: flex; gap: 6px; padding-top: 6px; }
+/* Une vraie carte (`CarteDessinee`, « les cartes c'est des rectangles pas très jolis », le 18 octobre 2026) : le cadre à la
+   couleur de sa rareté (`--gemme`) et son filet intérieur, l'orbe de son coût au coin, une fenêtre d'illustration sur la teinte de
+   sa famille (`--famille`), son nom dans un bandeau, ce qu'elle fait, la gemme de sa rareté au pied. Opaque : levée, elle passe
+   sur le voile, et les surfaces des thèmes sont translucides. */
+.exp-vc { --gemme: #a8b3bf; --famille: #8a95a3; position: relative; display: flex; flex-direction: column; align-items: center; border: 2px solid var(--gemme); border-radius: 10px; background: linear-gradient(155deg, rgba(255, 255, 255, 0.08), transparent 36%), linear-gradient(color-mix(in srgb, var(--famille) 9%, transparent), color-mix(in srgb, var(--famille) 9%, transparent)), linear-gradient(var(--surface-strong), var(--surface-strong)), var(--bg-raised); box-shadow: inset 0 0 0 2px var(--bg-raised), inset 0 0 0 3px color-mix(in srgb, var(--gemme) 45%, transparent), 0 4px 10px rgba(0, 0, 0, 0.3); color: var(--ink); text-align: center; }
+.exp-vc > .exp-vc-cout { position: absolute; top: -7px; left: -7px; z-index: 1; }
+/* L'illustration : un halo de la couleur de sa famille, des rayons de lumière, et le dessin qui y brille — en rayures grises,
+   ses cartes neutres restaient « des rectangles pas très jolis ». */
+.exp-vc-art { flex: none; display: grid; place-items: center; align-self: stretch; margin: 5px 5px 0; overflow: hidden; border: 1px solid color-mix(in srgb, var(--gemme) 55%, transparent); border-radius: 6px 6px 3px 3px; background: radial-gradient(58% 55% at 50% 46%, color-mix(in srgb, var(--famille) 70%, transparent), transparent 76%), repeating-conic-gradient(from 0deg at 50% 46%, rgba(255, 255, 255, 0.06) 0deg 7deg, transparent 7deg 15deg), linear-gradient(color-mix(in srgb, var(--famille) 30%, var(--bg-raised)), color-mix(in srgb, var(--famille) 6%, var(--bg-raised))); color: color-mix(in srgb, var(--famille) 20%, var(--ink)); }
+.exp-vc-art > .icon { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--famille) 85%, transparent)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5)); }
+.exp-vc-du-legendaire .exp-vc-art { background: radial-gradient(62% 62% at 50% 46%, color-mix(in srgb, var(--gemme) 55%, transparent), transparent 74%), repeating-conic-gradient(from 0deg at 50% 46%, rgba(255, 255, 255, 0.07) 0deg 7deg, transparent 7deg 15deg), linear-gradient(color-mix(in srgb, var(--famille) 30%, var(--bg-raised)), color-mix(in srgb, var(--famille) 6%, var(--bg-raised))); }
+/* Son chiffre en médaillon, à cheval sur le bas de l'illustration — « +4 », « 5 », « ×2 » : ce qu'on compare d'un coup d'œil, sans
+   un mot (« trop de détails écrits en dessous de chaque icône », la revue du 18 octobre 2026). */
+.exp-vc-valeur { position: relative; z-index: 1; margin-top: -11px; min-width: 28px; padding: 1px 7px; border: 1.5px solid var(--gemme); border-radius: var(--radius-pill); background: var(--bg-raised); color: var(--ink); font-size: 0.86rem; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; line-height: 1.25; white-space: nowrap; }
+.exp-vc-nom { align-self: stretch; margin: 6px 3px 0; padding: 3px 9px; background: linear-gradient(color-mix(in srgb, var(--gemme) 32%, var(--bg-raised)), color-mix(in srgb, var(--gemme) 16%, var(--bg-raised))); clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 50%, 100% 100%, 0 100%, 6px 50%); font-family: var(--serif); font-weight: 600; line-height: 1.1; }
+.exp-vc-valeur + .exp-vc-nom { margin-top: 4px; }
+/* Sa phrase entière ne se lit que levée. */
+.exp-vc-texte { margin-top: 8px; padding: 0 14px; font-size: 0.94rem; line-height: 1.38; }
+.exp-vc-gemme { flex: none; width: 7px; height: 7px; margin: auto 0 6px; rotate: 45deg; background: var(--gemme); box-shadow: 0 0 6px var(--gemme); }
+.exp-vc-nombre { position: absolute; top: -7px; right: -7px; z-index: 1; min-width: 22px; height: 22px; padding: 0 5px; border: 2px solid var(--bg-raised); border-radius: var(--radius-pill); background: var(--ink); color: var(--bg); font-size: 0.75rem; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; line-height: 18px; }
+/* Dans la main : cinq au plus en 360 pixels, sans un mot — son dessin, son coût, son chiffre. */
+.exp-vc-main { width: 100%; height: 88px; }
+.exp-vc-main .exp-vc-art { height: 58px; }
+.exp-vc-main .exp-vc-art > .icon { width: 28px; height: 28px; }
+.exp-vc-main .exp-vc-art .exp-visage-joker { font-size: 50px; }
+/* Dans une rangée — un tas qui défile, une offre : son nom aussi. */
+.exp-vc-rangee { width: 104px; height: 132px; }
+.exp-vc-rangee .exp-vc-art { height: 64px; }
+.exp-vc-rangee .exp-vc-art > .icon { width: 32px; height: 32px; }
+.exp-vc-rangee .exp-vc-art .exp-visage-joker { font-size: 58px; }
+.exp-vc-rangee .exp-vc-nom { font-size: 0.86rem; }
+/* Levée, en grand : sa phrase entière, quand elle se joue, d'où elle vient. */
+.exp-vc-levee { flex: none; width: 252px; border-width: 3px; border-radius: 14px; box-shadow: inset 0 0 0 2px var(--bg-raised), inset 0 0 0 3px color-mix(in srgb, var(--gemme) 45%, transparent), 0 0 0 1px rgba(0, 0, 0, 0.3), 0 12px 32px color-mix(in srgb, var(--gemme) 30%, rgba(0, 0, 0, 0.45)); }
+.exp-vc-levee > .exp-vc-cout { top: -9px; left: -9px; width: 32px; height: 32px; font-size: 1.15rem; }
+.exp-vc-levee .exp-vc-art { height: 128px; margin: 10px 10px 0; border-radius: 9px 9px 4px 4px; }
+.exp-vc-levee .exp-vc-art > .icon { width: 56px; height: 56px; }
+.exp-vc-levee .exp-vc-art .exp-visage-joker { font-size: 112px; }
+.exp-vc-levee .exp-vc-nom { margin: 8px 6px 0; padding: 4px 14px; font-size: 1.35rem; }
+.exp-vc-levee .exp-vc-gemme { width: 9px; height: 9px; margin: 10px 0 10px; }
+.exp-vc-rarete-dite { position: absolute; top: 14px; right: 14px; z-index: 1; padding: 1px 7px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg-raised) 75%, transparent); color: color-mix(in srgb, var(--gemme) 65%, var(--ink)); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.exp-vc-quand { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; padding: 3px 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-size: 0.78rem; font-weight: 700; }
+.exp-vc-quand .icon { width: 14px; height: 14px; color: var(--accent-text); }
+.exp-vc-plus { padding: 6px 14px 0; color: var(--muted); font-size: 0.74rem; line-height: 1.35; }
 /* Le Commandement : ses douze catégories sous la carte, qui se fait plus petite pour leur laisser l'écran. */
-.exp-leve-avec-choix .exp-grande-dessin { width: 48px; height: 48px; margin-top: 4px; }
-.exp-leve-avec-choix .exp-grande-dessin .exp-visage-joker { font-size: 48px; }
-.exp-leve-avec-choix .exp-grande-nom { font-size: 1.2rem; }
+.exp-leve-avec-choix .exp-vc-levee .exp-vc-art { height: 64px; }
+.exp-leve-avec-choix .exp-vc-levee .exp-vc-art .exp-visage-joker { font-size: 56px; }
+.exp-leve-avec-choix .exp-vc-levee .exp-vc-nom { font-size: 1.15rem; }
+/* La main : chaque carte, un bouton qui la porte, sans rien dessiner lui-même. */
+.exp-face { flex: 1 1 0; min-width: 0; max-width: 76px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; transition: translate 0.15s ease; }
+.exp-face:hover, .exp-face:active { translate: 0 -3px; }
+.exp-face-eteinte .exp-vc { opacity: 0.45; filter: saturate(0.6); }
+/* Un tas qui défile de côté : ses cartes s'arrêtent au bord, la marge garde l'orbe et le compte qui dépassent du coin. */
+/* `position: relative` : ce qui se dit à l'oreille (`.sr-only`, en position absolue) prenait son cadre plus haut que la rangée, qui
+   ne le coupait plus — le paquet de l'offre élargissait la page à 672 pixels, puis à 1144 avec un paquet plus long. Et sa largeur
+   de contenu, toutes ses cartes bout à bout, ne compte pour personne (`width: 0; min-width: 100%`). */
+.exp-rangee { position: relative; list-style: none; width: 0; min-width: 100%; margin: 0; padding: 9px 4px 8px 9px; display: flex; gap: 14px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.exp-rangee > li { flex: none; scroll-snap-align: start; }
+.exp-rangee-carte, .exp-a-prendre-carte { display: block; padding: 0; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; cursor: pointer; }
+/* L'offre : trois cartes côte à côte ; la touchée se lève, cerclée d'or, et sa phrase se lit dessous. */
+.exp-a-prendre { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 8px 2px 0 6px; }
+.exp-a-prendre-carte { transition: translate 0.15s ease; }
+.exp-a-prendre-carte .exp-vc-rangee { width: 100%; }
+/* La carte choisie dans une rangée qui défile — celle qu'on retire au campement : l'anneau seul, sans halo, que la rangée couperait net. */
+.exp-rangee-carte.exp-choisi { translate: 0 -4px; }
+.exp-rangee-carte.exp-choisi .exp-vc { box-shadow: inset 0 0 0 2px var(--bg-raised), 0 0 0 3px var(--accent); }
+.exp-a-prendre-carte.exp-choisi { translate: 0 -6px; }
+.exp-a-prendre-carte.exp-choisi .exp-vc { box-shadow: inset 0 0 0 2px var(--bg-raised), 0 0 0 3px var(--accent), 0 10px 24px color-mix(in srgb, var(--accent) 35%, transparent); }
+.exp-a-prendre-dit { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-height: 4.6em; margin: 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); line-height: 1.35; }
+.exp-a-prendre-dit > span:not(.exp-rarete) { flex-basis: 100%; }
 /* La mise : quatre pastilles ; celle qu'il ne peut pas payer s'éteint, et dit pourquoi au toucher. */
 .exp-mises { display: flex; align-items: center; gap: 6px; }
 /* « Parier ? » sur une ligne : les pastilles se partagent ce qui reste — à cinquante-deux pixels chacune, le point d'interrogation passait dessous. */
@@ -9655,14 +9726,12 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-mise .icon { width: 15px; height: 15px; color: var(--accent-text); }
 .exp-mise.exp-choisi { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
 .exp-mise.exp-refuse { opacity: 0.45; }
-/* « Voir la question », au bout de ce qu'il faut faire avant ; le guide à la demande, dessous. */
-.exp-comment { align-self: center; display: inline-flex; align-items: center; gap: 5px; }
-.exp-comment .icon { width: 15px; height: 15px; }
-.feuille-guide .carte-corps { display: flex; flex-direction: column; gap: 12px; }
+/* Les règles, une ligne chacune : un dessin, une phrase. */
 .exp-guide { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
 .exp-guide li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.94rem; line-height: 1.4; }
 .exp-guide-icone { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); }
 .exp-guide-icone .icon { width: 18px; height: 18px; }
+.exp-guide-icone .exp-vc-cout { width: 28px; height: 28px; border-color: transparent; font-size: 1rem; }
 /* La question sous les yeux, l'adversaire se fait petit : la question et ses réponses d'abord, la main encore en vue. */
 .exp-adversaire-compact { padding: 6px 10px; }
 .exp-adversaire-compact .exp-adversaire-haut { gap: 10px; }
@@ -9690,7 +9759,7 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-catalogue section { display: flex; flex-direction: column; gap: 8px; }
 @media (prefers-reduced-motion: reduce) {
   .exp-escale.exp-ici::after, .exp-medaillon-grand, .exp-apercu-chiffre { animation: none; }
-  .exp-interrupteur i, .exp-sceaux-jauge i, .exp-courage-jauge i, .exp-face { transition: none; }
+  .exp-interrupteur i, .exp-sceaux-jauge i, .exp-courage-jauge i, .exp-face, .exp-a-prendre-carte { transition: none; }
 }
 
 /* ── L'atlas ─────────────────────────────────────────────────────────────

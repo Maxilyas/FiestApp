@@ -30,6 +30,8 @@ import {
   ACTES,
   GARDIEN,
   MARCHES_DES_ACTES,
+  POIDS_DES_ESCALES,
+  POIDS_DES_ESCALES_DES_RENCONTRES,
   carteDUnActe,
   chanceSelonLaForme,
   chancesDuTrace,
@@ -61,6 +63,8 @@ function option(nom: string, defaut: number): number {
   return i >= 0 ? Number(process.argv[i + 1]) : defaut
 }
 const EXPEDITIONS = option('expeditions', 1000)
+/** La version des règles mesurée : 6 d'office, celle des départs d'aujourd'hui — `--version 5` remesure la main de cinq cartes d'emblée. */
+const VERSION = option('version', 6) === 5 ? 5 : 6
 
 const logit = (p: number) => Math.log(p / (1 - p))
 const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
@@ -156,7 +160,8 @@ const TALISMANS_UTILES = ['loupe', 'boussole']
 
 function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
   const sujets = SUJETS.map(s => s.cle).sort()
-  const cartes: CarteDUnActe[] = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets))
+  // Les cartes du départ, comme le serveur les tire : à plus d'adversaires dès la version 6.
+  const cartes: CarteDUnActe[] = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, undefined, VERSION >= 6 ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES))
   cartes.forEach((carte, acte) => {
     for (const e of carte.escales) if (e.sorte === 'question' || e.sorte === 'elite' || e.sorte === 'source') e.chance = chanceAnnoncee(j, acte, e)
     carte.chanceDuGardien = CATEGORIES.reduce((s, c) => s + chanceSur(j, MARCHES_DES_ACTES[acte].gardien, c), 0) / CATEGORIES.length
@@ -165,7 +170,7 @@ function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
   // Sa catégorie fétiche : sa meilleure.
   const fetiche = [...CATEGORIES].sort((a, b) => (j.categories.get(b) ?? 0) - (j.categories.get(a) ?? 0))[0]
   const depart: DepartDExpedition = {
-    v: 5,
+    v: VERSION,
     graine,
     numero: 0,
     gardiens: gardiensDe(graine, new Set(equipee)),
@@ -453,7 +458,7 @@ const CAS: [string, string[]][] = [
 ]
 // `--cas 0` : une seule équipée, le temps d'essayer un réglage.
 const UN_CAS = process.argv.includes('--cas') ? option('cas', 0) : null
-console.log(`Les rencontres (v5) — ${EXPEDITIONS} expéditions par joueur et par équipée. Courage ${COURAGE_MAX}, ${VIES} vies d'avant en reflet.\n`)
+console.log(`Les rencontres (v${VERSION}) — ${EXPEDITIONS} expéditions par joueur et par équipée. Courage ${COURAGE_MAX}, ${VIES} vies d'avant en reflet.\n`)
 for (const [nomDuCas, equipee] of UN_CAS === null ? CAS : [CAS[UN_CAS]]) {
   console.log(nomDuCas)
   console.log('  joueur   au bout   arrêté à l’acte 1 · 2 · 3   questions   rencontres   cartes jouées   écus   courage au bout')
