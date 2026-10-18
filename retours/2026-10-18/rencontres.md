@@ -153,6 +153,41 @@ devoir mettre des légendaire[s] sur la première page. »
     légendaires, d'autres objets à gagner — est devenu une proposition, à
     trancher avant d'écrire.
 
+Puis sa revue de la préproduction, le même soir : « Trop d'infos écrites
+sur la page on s'y perd : sur chaque page beaucoup de trucs. Y'a trop de
+détails écrits en dessous de chaque icône, ne pas les mettre direct mais
+les faire apparaître si on clique dessus pour les détails. Pas besoin
+d'explication pour tout, il faudrait juste un onglet règles qu'on peut
+consulter de n'importe quelle page. Corriger orthographe : Ton équipée :
+ton équipe. Les bonus sont intéressants, peut-être qu'on en a trop au
+début, mettre des basiques seulement et obtenir des rares plus tard ? […]
+En tous cas en mettre moins quand c'est le mode facile. J'aime bien le
+côté barre de courage et barre de vie. À garder. Le chemin tracé est bien,
+y'a des trucs différents, peut-être plus de monstres à battre car ça reste
+simple avec tous les bonus en main. Les cartes en mode avant / pendant la
+game sont bien. Pour les cartes qui restent toute la manche, peut-être
+qu'il faudrait un icône en haut pour montrer qu'on l'a tout le long (ex :
+comme un talisman visible). »
+
+11. **Les règles au « ? »** : en haut de chaque page de l'expédition, une
+    feuille, une ligne par règle — ouverte d'elle-même à la première
+    rencontre, à la place du guide en cinq lignes. Le départ, la carte, le
+    campement et l'offre ne disent plus leurs règles en paragraphes.
+12. **La main sans un mot** : le dessin d'une carte, son coût et son chiffre
+    (« +4 », « 5 ») ; son nom dans une rangée, sa phrase levée. Le détail
+    d'une carte à prendre n'apparaît qu'au toucher.
+13. **Les cartes posées en haut**, dans la barre, comme les talismans :
+    touchées, elles se lèvent.
+14. **« Ton équipe »** partout à l'écran ; le code garde `equipee`.
+15. **La version 6** : trois cartes en main à l'acte 1, quatre à l'acte 2,
+    cinq à l'acte 3 ; à l'acte 1, une rencontre n'offre que des communes,
+    et rien de maudit ; des cartes à plus d'adversaires. Mesuré : la main
+    plus courte, seule, ne change presque rien — l'énergie bornait déjà ce
+    qu'on joue — ; les adversaires de plus ramènent le moyen à une fois sur
+    trois, le fort à huit sur dix.
+16. **Gardés** : la barre de courage, la jauge des points de l'adversaire,
+    le chemin, « Maintenant » et « Pendant la question ».
+
 ## La règle du prototype
 
 ### Partir

@@ -150,8 +150,8 @@ test('l’équipée : les siens ou l’invité du jour, deux au plus ; son joker
     assert.ok(!page.prochaine.gardiens.includes('lg:janus'), 'l’invité du jour ne garde aucun acte')
     const autre = LEGENDAIRES_A_JOKER.find(cle => cle !== 'lg:janus')!
     assert.equal((await poster(banc, lea, '/api/expedition', { equipee: [autre] })).corps.error, 'Ce légendaire n’est pas à toi : seul l’invité du jour part sans être à toi')
-    assert.equal((await poster(banc, lea, '/api/expedition', { equipee: ['lg:janus', 'lg:janus', 'lg:phenix'] })).corps.error, 'Ton équipée tient 2 légendaires : laisses-en un')
-    assert.equal((await poster(banc, lea, '/api/expedition', { equipee: 'lg:janus' })).corps.error, 'Ton équipée ne se lit pas : recharge la page')
+    assert.equal((await poster(banc, lea, '/api/expedition', { equipee: ['lg:janus', 'lg:janus', 'lg:phenix'] })).corps.error, 'Ton équipe tient 2 légendaires : laisses-en un')
+    assert.equal((await poster(banc, lea, '/api/expedition', { equipee: 'lg:janus' })).corps.error, 'Ton équipe ne se lit pas : recharge la page')
     const v: VueDeLExpedition = (await poster(banc, lea, '/api/expedition', { equipee: ['lg:janus'] })).corps
     assert.deepEqual([v.equipee, v.invite], [['lg:janus'], 'lg:janus'])
     assert.deepEqual([...v.jokers!.paquet].sort(), ['coup-d-oeil', 'coup-d-oeil', 'coup-d-oeil', 'deux-visages', 'echange'], 'le paquet de départ, et Deux visages')

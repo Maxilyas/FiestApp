@@ -22,7 +22,7 @@ import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { pliDeLExpedition, type DepartDExpedition, type FormeDEscale, type GesteDExpedition, type QuestionPosee, type VueDeLExpedition } from '../../shared/expedition'
 import {
   CARTES_PAR_OFFRE,
-  CARTES_PAR_QUESTION,
+  CARTES_DES_ACTES,
   COURAGE_MAX,
   ECUS_AU_DEPART,
   FRAPPE_DES_RENCONTRES,
@@ -206,7 +206,9 @@ test('la page propose les rencontres ; le départ les prend — son courage, ses
   assert.equal(v.jokers, undefined, 'des cartes à la place des jokers')
   assert.equal(v.rencontre, undefined, 'aucune rencontre avant le premier pas')
   const depart = departDe(v.id)
-  assert.equal(depart.v, 5)
+  // La version 6 (la revue du 18 octobre 2026) : la main qui grandit avec les actes, les rares qui attendent l'acte 2, plus d'adversaires.
+  assert.equal(depart.v, 6)
+  assert.deepEqual(v.cartes?.parQuestion, [3, 4, 5], 'les règles disent ce que tire chaque acte : la page n’en recopie rien')
   assert.equal(depart.fetiche, 'Histoire')
 })
 
@@ -247,8 +249,9 @@ test('une escale à question est une rencontre : l’annonce et la main d’abor
   const sceaux = SCEAUX_DES_RENCONTRES.question[0]
   assert.deepEqual([r.sceaux, r.max, r.frappe], [sceaux, sceaux, FRAPPE_DES_RENCONTRES.question[0]])
   assert.deepEqual([r.phase, r.position, r.inspiration], ['preparation', 0, INSPIRATION_PAR_QUESTION])
-  assert.equal(r.main.length, CARTES_PAR_QUESTION)
-  assert.equal(r.pioche, PAQUET_DES_RENCONTRES.length - CARTES_PAR_QUESTION)
+  // La version 6 : trois cartes à l'acte 1 (« ça fait beaucoup de bonus en main en même temps »).
+  assert.equal(r.main.length, CARTES_DES_ACTES[0])
+  assert.equal(r.pioche, PAQUET_DES_RENCONTRES.length - CARTES_DES_ACTES[0])
   assert.equal(v.question, undefined, 'en préparation, la question ne part pas (invariant 1)')
   assert.equal(questionsDe(v.id).length, 1, 'tirée au même lot que le pas, gardée au serveur')
   const annonce = r.annonce!

@@ -572,7 +572,7 @@ test('l’invité du jour, le même pour tous ; l’équipée : deux des siens a
   const siens = new Set(['lg:phenix', 'lg:chouette', 'lg:lion'])
   assert.equal(refusDeLEquipee(['lg:phenix', 'lg:chouette'], siens, 'lg:janus'), null)
   assert.equal(refusDeLEquipee(['lg:phenix', 'lg:janus'], siens, 'lg:janus'), null, 'l’invité part sans être à lui')
-  assert.equal(refusDeLEquipee(['lg:phenix', 'lg:chouette', 'lg:lion'], siens, 'lg:janus'), 'Ton équipée tient 2 légendaires : laisses-en un')
+  assert.equal(refusDeLEquipee(['lg:phenix', 'lg:chouette', 'lg:lion'], siens, 'lg:janus'), 'Ton équipe tient 2 légendaires : laisses-en un')
   assert.equal(refusDeLEquipee(['lg:dragon'], siens, 'lg:janus'), 'Ce légendaire n’est pas à toi : seul l’invité du jour part sans être à toi')
   assert.equal(refusDeLEquipee(['lg:phenix', 'lg:phenix'], siens, 'lg:janus'), 'Un légendaire ne part qu’une fois')
   for (let n = 0; n < 50; n++) {

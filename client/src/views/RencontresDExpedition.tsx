@@ -13,10 +13,12 @@ import { sujetParCle } from '../../../shared/sujets'
 import { CATEGORIES } from '../../../shared/categories'
 import type { Niveau } from '../../../shared/campagne'
 import type { RareteDeTheme } from '../../../shared/themes'
-import { duGardien, nomDuGardien, type FormeDEscale, type VueDeLExpedition } from '../../../shared/expedition'
+import { MARCHES_DES_ACTES, duGardien, nomDuGardien, type FormeDEscale, type VueDeLExpedition } from '../../../shared/expedition'
 import {
   CARTES_DES_RENCONTRES,
   CARTES_PAR_QUESTION,
+  COURAGE_D_UN_CAMPEMENT,
+  COURAGE_D_UNE_SOURCE,
   COURAGE_DE_LA_RENAISSANCE,
   COURAGE_MAX,
   FAMILLES_DE_CARTES,
@@ -26,7 +28,6 @@ import {
   carteDeRencontre,
   cartesDeCombat,
   chiffresApresLaCarte,
-  famillesDeLEquipee,
   formeApresLaCarte,
   type AnnonceDuTour,
   type ApercuDuTour,
@@ -193,11 +194,14 @@ export type TailleDeCarte = 'main' | 'rangee' | 'levee'
  * rajouterait à l'immersion », le 18 octobre 2026) : son cadre à la couleur
  * de sa rareté, l'orbe de son coût au coin, son illustration sur la teinte
  * de sa famille — le portrait du légendaire qui la donne, sinon son
- * dessin —, son nom dans un bandeau, ce qu'elle fait, et la gemme de sa
- * rareté. Dans la main, ses deux ou trois mots (`resume`) tiennent lieu de
- * nom ; levée, sa phrase entière, et ce que `children` ajoute. Dessinée
- * seulement : le bouton qui la porte dit ce qu'elle est, à l'oreille — sauf
- * levée, où elle est le contenu même de la fenêtre.
+ * dessin —, son chiffre en médaillon sous l'illustration (`valeur`), son nom
+ * dans un bandeau, et la gemme de sa rareté. Aucun mot dans la main, son nom
+ * seul dans une rangée — « Y'a trop de détails écrits en dessous de chaque
+ * icône, ne pas les mettre direct mais les faire apparaître si on clique
+ * dessus » (la revue du même soir) — ; levée, sa phrase entière, et ce que
+ * `children` ajoute. Dessinée seulement : le bouton qui la porte dit ce
+ * qu'elle est, à l'oreille — sauf levée, où elle est le contenu même de la
+ * fenêtre.
  */
 export function CarteDessinee({
   c,
@@ -222,8 +226,9 @@ export function CarteDessinee({
       <span className="exp-vc-art">
         <VisageDeLaCarte c={c} />
       </span>
+      {taille !== 'levee' && c.valeur && <b className="exp-vc-valeur">{c.valeur}</b>}
       {taille !== 'main' && <b className="exp-vc-nom">{c.nom}</b>}
-      <span className="exp-vc-texte">{taille === 'levee' ? espacesFines(c.effet) : c.resume}</span>
+      {taille === 'levee' && <span className="exp-vc-texte">{espacesFines(c.effet)}</span>}
       {children}
       <span className="exp-vc-gemme" />
       {nombre !== undefined && nombre > 1 && <b className="exp-vc-nombre">{`×${nombre}`}</b>}
@@ -242,8 +247,6 @@ export function comptesDesCartes(cles: readonly string[]): { cle: string; nom: s
     .map(([cle, x]) => ({ cle, nom: carteDeRencontre(cle)?.nom ?? cle, n: x }))
     .sort((a, b) => (RANG_AU_CATALOGUE.get(a.cle) ?? 99) - (RANG_AU_CATALOGUE.get(b.cle) ?? 99))
 }
-
-export const ditDesCartes = (cles: readonly string[]) => comptesDesCartes(cles).map(c => (c.n > 1 ? `${c.nom} ×${c.n}` : c.nom))
 
 /** Ce qui reste d'un tas quand on en ôte d'autres, chaque carte autant de fois qu'elle y est. */
 function sans(tas: readonly string[], otees: readonly string[]): string[] {
@@ -477,7 +480,6 @@ export function MainDeRencontre({
   pile,
   inspiration,
   phase = 'preparation',
-  poses = [],
   apercuDeLaCarte,
   onJouer,
   onMontrer,
@@ -492,8 +494,6 @@ export function MainDeRencontre({
   inspiration?: number
   /** Avant la question, ou pendant. */
   phase?: 'preparation' | 'question'
-  /** Les cartes posées pour toute la rencontre. */
-  poses?: readonly string[]
   /** Ce qu'une carte levée changerait, avant qu'on la joue. */
   apercuDeLaCarte?: (cle: string) => ChangementDeLaCarte | null
   onJouer: JouerUneCarte
@@ -510,8 +510,7 @@ export function MainDeRencontre({
   const pendant = indexees.filter(x => x.c.moment === 'reflexe')
   const maintenant = phase === 'question' ? pendant : indexees.filter(x => x.c.moment !== 'reflexe')
   const plusTard = phase === 'question' ? [] : pendant
-  const posees = poses.map(k => carteDeRencontre(k)).filter((c): c is CarteDeRencontre => !!c)
-  const face = (x: { k: string; i: number; c: CarteDeRencontre }) => (
+  const face =(x: { k: string; i: number; c: CarteDeRencontre }) => (
     <FaceDeLaCarte key={`${x.k}:${x.i}`} c={x.c} refus={refus[x.k] ?? null} energie={inspiration} onToucher={() => setLevee(x.i)} />
   )
   const leveeDessus = cle && (
@@ -552,8 +551,8 @@ export function MainDeRencontre({
       </>
     )
   }
-  // La question vue, sans carte à jouer pendant ni pouvoir posé : rien à montrer, la question d'abord.
-  if (phase === 'question' && maintenant.length === 0 && posees.length === 0) return null
+  // La question vue, sans carte à jouer pendant : rien à montrer, la question d'abord — ce qui est posé pour toute la rencontre est dans la barre.
+  if (phase === 'question' && maintenant.length === 0) return null
   return (
     <>
       <section className="exp-cartes" aria-labelledby="exp-cartes-titre">
@@ -568,20 +567,8 @@ export function MainDeRencontre({
             <span className="sr-only">{pile.dit}</span>
           </button>
         </div>
-        {posees.length > 0 && (
-          <ul className="exp-cartes-posees" aria-label="Posées pour toute la rencontre">
-            {posees.map(c => (
-              <li key={c.cle} style={gemmeDeLaCarte(c)}>
-                <span className="exp-cartes-posee-visage" aria-hidden="true">
-                  <VisageDeLaCarte c={c} />
-                </span>
-                {c.nom}
-              </li>
-            ))}
-          </ul>
-        )}
         {cles.length === 0 ? (
-          <p className="exp-main-vide">{espacesFines('Ta main est vide : la question suivante en tire cinq.')}</p>
+          <p className="exp-main-vide">{espacesFines('Ta main est vide : la question suivante en tire de nouvelles.')}</p>
         ) : (
           (maintenant.length > 0 || plusTard.length > 0) && (
             <div className="exp-cartes-rangs">
@@ -700,11 +687,26 @@ const REGLE_DU_CYCLE = `À chaque question, tu tires ${CARTES_PAR_QUESTION} cart
  * uniquement des noms, ça serait pas possible de voir les vraies cartes, de
  * pouvoir les faire défiler ? », le 18 octobre 2026) : une carte par sorte,
  * « ×4 » quand il en a plusieurs, dans l'ordre du catalogue. Touchée, elle se
- * montre en grand (`onRegarder`).
+ * montre en grand (`onRegarder`) — ou, là où l'on en choisit une (`choisie` :
+ * la carte à retirer au campement), elle se choisit.
  */
-export function RangeeDeCartes({ cles, vide, nom, onRegarder }: { cles: readonly string[]; vide: string; nom: string; onRegarder: (cle: string) => void }) {
+export function RangeeDeCartes({
+  cles,
+  vide,
+  nom,
+  choisie,
+  onRegarder,
+}: {
+  cles: readonly string[]
+  vide: string
+  nom: string
+  /** Là où l'on en choisit une : celle qui l'est, null avant. */
+  choisie?: string | null
+  onRegarder: (cle: string) => void
+}) {
   const comptes = comptesDesCartes(cles)
   if (comptes.length === 0) return <p className="muted small">{espacesFines(vide)}</p>
+  const aChoisir = choisie !== undefined
   return (
     <ul className="exp-rangee" aria-label={nom}>
       {comptes.map(x => {
@@ -712,7 +714,13 @@ export function RangeeDeCartes({ cles, vide, nom, onRegarder }: { cles: readonly
         if (!c) return null
         return (
           <li key={x.cle}>
-            <button type="button" className="exp-rangee-carte" data-carte={x.cle} aria-haspopup="dialog" onClick={() => onRegarder(x.cle)}>
+            <button
+              type="button"
+              className={'exp-rangee-carte' + (aChoisir && choisie === x.cle ? ' exp-choisi' : '')}
+              data-carte={x.cle}
+              {...(aChoisir ? { 'aria-pressed': choisie === x.cle } : { 'aria-haspopup': 'dialog' as const })}
+              onClick={() => onRegarder(x.cle)}
+            >
               <CarteDessinee c={c} taille="rangee" nombre={x.n} />
               <span className="sr-only">{`${c.nom}${x.n > 1 ? `, ${x.n} fois` : ''} : ${c.resume}`}</span>
             </button>
@@ -727,7 +735,9 @@ export function RangeeDeCartes({ cles, vide, nom, onRegarder }: { cles: readonly
  * Ce qu'offre un adversaire tombé, une élite, un coffre : trois vraies cartes
  * côte à côte, comme la récompense de Slay the Spire — en lignes de texte, on
  * n'y voyait pas des cartes. La touchée s'éclaire, et sa phrase entière se
- * lit dessous, avec sa rareté, son coût et son moment.
+ * lit dessous, avec sa rareté, son coût et son moment ; rien ne s'y lit
+ * avant (« les faire apparaître si on clique dessus », la revue du
+ * 18 octobre 2026).
  */
 export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly string[]; prises: readonly string[]; onToucher: (cle: string) => void }) {
   const cartes = cles.map(k => carteDeRencontre(k)).filter((c): c is CarteDeRencontre => !!c)
@@ -749,18 +759,14 @@ export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly str
           </button>
         ))}
       </div>
-      <p className="exp-a-prendre-dit" aria-hidden="true">
-        {choisie ? (
-          <>
-            <b>{choisie.nom}</b>
-            <span className={`exp-rarete exp-rarete-${choisie.rarete}`}>{RARETE_DE_LA_CARTE[choisie.rarete]}</span>
-            <span>{espacesFines(choisie.effet)}</span>
-            <span className="muted small">{espacesFines(`${coutDit(choisie)} · ${MOMENT[choisie.moment]}`)}</span>
-          </>
-        ) : (
-          <span className="muted">Touche une carte : elle se lit ici en entier.</span>
-        )}
-      </p>
+      {choisie && (
+        <p className="exp-a-prendre-dit" aria-hidden="true">
+          <b>{choisie.nom}</b>
+          <span className={`exp-rarete exp-rarete-${choisie.rarete}`}>{RARETE_DE_LA_CARTE[choisie.rarete]}</span>
+          <span>{espacesFines(choisie.effet)}</span>
+          <span className="muted small">{espacesFines(`${coutDit(choisie)} · ${MOMENT[choisie.moment]}`)}</span>
+        </p>
+      )}
     </>
   )
 }
@@ -918,7 +924,7 @@ function Paris({ mises, choisie, onChoisir }: { mises: Readonly<Record<number, s
   )
 }
 
-/** Le guide d'une rencontre, vu une fois : retenu sur le téléphone, sous try/catch — un stockage refusé le remontre, sans rien bloquer. */
+/** Les règles, vues une fois à la première rencontre : retenu sur le téléphone, sous try/catch — un stockage refusé les remontre, sans rien bloquer. */
 const CLE_DU_GUIDE = 'quizz.expedition.guide-rencontres'
 
 function guideVu(): boolean {
@@ -937,45 +943,197 @@ function retenirLeGuide() {
   }
 }
 
-/** Une rencontre, en cinq lignes : ce qu'il faut savoir pour jouer la première. */
-const COMMENT_CA_MARCHE: readonly { icone: IconName; texte: string }[] = [
-  { icone: 'check', texte: 'Réponds juste : l’adversaire perd des points. À zéro, il tombe.' },
-  { icone: 'heart', texte: 'Si tu te trompes, il t’attaque : tu perds du courage.' },
-  { icone: 'zap', texte: `Avant de voir la question, joue des cartes pour frapper plus fort ou te protéger. Chacune coûte de l’énergie — le chiffre dans son coin —, et tu en as ${INSPIRATION_PAR_QUESTION} à chaque question.` },
-  { icone: 'eye', texte: 'Touche une carte : elle dit ce qu’elle fait, et ce qu’elle changerait.' },
-  { icone: 'ecu', texte: 'Sûr de toi ? Parie des écus : juste, ton pari rapporte ; faux, tu le perds.' },
-]
+// ── Les règles ──────────────────────────────────────────────────────────────
+
+/** Une section des règles : de quoi elle parle, son titre, une ligne par règle — un dessin, une phrase. */
+interface SectionDesRegles {
+  cle: 'rencontre' | 'cartes' | 'pari' | 'expedition' | 'carte' | 'recompenses' | 'equipe' | 'passeport' | 'questions' | 'jokers'
+  titre: string
+  /** `energie` : l'orbe de l'énergie, tel que la main le montre. */
+  lignes: { icone: IconName | 'energie'; texte: string }[]
+}
+
+export type DebutDesRegles = SectionDesRegles['cle']
 
 /**
- * Comment se joue une rencontre, en feuille : ouverte d'elle-même à la
- * première — l'écran reste celui qu'on joue, dessous —, puis à la demande.
- * Fermée d'une façon ou d'une autre, elle est vue : revenue à chaque
- * rencontre, elle lasserait.
+ * Les règles d'une expédition en rencontres, ce que les pages ne disent plus
+ * (« Pas besoin d'explication pour tout, il faudrait juste un onglet règles
+ * qu'on peut consulter de n'importe quelle page », la revue du 18 octobre
+ * 2026). `parQuestion` : les cartes que chaque question tire, acte par acte,
+ * telles que le serveur les dit.
  */
-function CommentCaMarche({ onFermer }: { onFermer: () => void }) {
+function reglesDesRencontres(parQuestion: readonly number[]): SectionDesRegles[] {
+  const [a1, a2, a3] = parQuestion
+  return [
+    {
+      cle: 'rencontre',
+      titre: 'Une rencontre',
+      lignes: [
+        { icone: 'check', texte: 'Réponds juste : l’adversaire perd des points. À zéro, il tombe.' },
+        { icone: 'heart', texte: 'Trompe-toi : il t’attaque, et tu perds du courage. Son attaque grandit à chaque question.' },
+        { icone: 'x', texte: 'Plus de courage : l’expédition s’arrête là.' },
+      ],
+    },
+    {
+      cle: 'cartes',
+      titre: 'Tes cartes',
+      lignes: [
+        { icone: 'energie', texte: `Chaque carte coûte de l’énergie — le chiffre dans son coin. Tu en as ${INSPIRATION_PAR_QUESTION} à chaque question.` },
+        { icone: 'list', texte: a1 === a3 ? `Tu tires ${a1} cartes à chaque question.` : `Tu tires ${a1} cartes à chaque question de l’acte 1, ${a2} à l’acte 2, ${a3} à l’acte 3.` },
+        { icone: 'eye-off', texte: '« Maintenant » : avant de voir la question. « Pendant la question » : une fois qu’elle est sous tes yeux.' },
+        { icone: 'eye', texte: 'Touche une carte : elle dit ce qu’elle fait, et ce qu’elle changerait.' },
+        { icone: 'infinity', texte: 'Une carte posée pour toute la rencontre se montre en haut de l’écran : touche-la pour la relire.' },
+        { icone: 'rotate', texte: 'Celles que tu ne joues pas vont à la défausse ; ta pioche vide, ta défausse y revient. Chaque rencontre remélange tout ton paquet.' },
+        { icone: 'flag', texte: 'Une carte de route se joue sur la carte, une fois par acte.' },
+      ],
+    },
+    {
+      cle: 'pari',
+      titre: 'Le pari',
+      lignes: [
+        { icone: 'ecu', texte: 'Avant de voir la question, parie des écus : juste, tu gagnes la moitié de ta mise ; faux, tu la perds.' },
+        { icone: 'echoppe', texte: 'Tes écus se gagnent en battant tes adversaires et se dépensent à l’échoppe. Ils restent dans l’expédition.' },
+      ],
+    },
+    {
+      cle: 'expedition',
+      titre: 'L’expédition',
+      lignes: [
+        { icone: 'crown', texte: 'Trois actes, un gardien au bout de chacun. Bats le troisième : tu repars avec l’un des trois.' },
+        { icone: 'star', texte: 'Les questions sont faciles à l’acte 1, moyennes à l’acte 2, difficiles à l’acte 3.' },
+        { icone: 'arrow-left', texte: '« ← Partir » ne perd rien : du départ, tu reprends ton expédition, ou tu l’abandonnes.' },
+      ],
+    },
+    {
+      cle: 'carte',
+      titre: 'La carte',
+      lignes: [
+        { icone: 'flag', texte: 'À chaque pas, choisis ton escale. Son pourcentage : tes chances sur ses questions — celles d’un joueur moyen, tant que tu n’as pas assez joué.' },
+        { icone: 'swords', texte: 'Une rencontre : un adversaire de sa catégorie. Une élite : plus coriace, mieux payée.' },
+        { icone: 'source', texte: `Une source : une question de ton carnet, ${COURAGE_D_UNE_SOURCE} de courage si tu la retrouves.` },
+        { icone: 'coffre', texte: 'Un coffre : une carte au choix — ou des écus, si tu n’en prends aucune.' },
+        { icone: 'campement', texte: `Un campement, avant le gardien : ${COURAGE_D_UN_CAMPEMENT} de courage, ou une carte de moins — un paquet plus court tire plus souvent tes meilleures.` },
+        { icone: 'help', texte: 'L’inconnu : un marchand, un piège, ou un légendaire de passage.' },
+      ],
+    },
+    {
+      cle: 'recompenses',
+      titre: 'Tes récompenses',
+      lignes: [{ icone: 'plus-square', texte: 'Un adversaire tombé : une carte à choisir parmi trois, pour ton paquet — plus souvent rare après une élite ou dans un coffre.' }],
+    },
+    {
+      cle: 'equipe',
+      titre: 'Ton équipe',
+      lignes: [
+        { icone: 'users', texte: 'Les légendaires que tu emmènes : la carte de chacun rejoint ton paquet, et sa famille choisit les cartes de tes récompenses.' },
+        { icone: 'sparkles', texte: 'Sans légendaire à toi, l’invité du jour part avec toi. Va au bout d’une expédition : le gardien que tu choisis sera de la suivante.' },
+        { icone: 'book', texte: 'Ta catégorie fétiche : Plume et Bibliothèque frappent plus fort sur ses questions.' },
+      ],
+    },
+    { cle: 'passeport', titre: 'Ton passeport', lignes: [{ icone: 'tampon', texte: 'Chaque thème pointu trouvé en expédition y met son tampon.' }] },
+  ]
+}
+
+/** Les règles d'une expédition d'avant les rencontres — trois vies, des jokers : celle de la production. */
+function reglesDesJokers(): SectionDesRegles[] {
+  const [premier, ...suivants] = MARCHES_DES_ACTES
+  return [
+    {
+      cle: 'questions',
+      titre: 'Les questions',
+      lignes: [
+        { icone: 'heart', texte: 'Trois vies : chaque erreur en coûte une.' },
+        { icone: 'crown', texte: `Le gardien tombe à ta ${premier.aTrouver === 4 ? 'quatrième' : 'troisième'} bonne réponse à l’acte 1, à ta ${suivants[0]?.aTrouver === 4 ? 'quatrième' : 'troisième'} ensuite.` },
+      ],
+    },
+    {
+      cle: 'jokers',
+      titre: 'Tes jokers',
+      lignes: [
+        { icone: 'plus-square', texte: 'À chaque question, ta main tire un joker, trois au plus. Un seul se joue par question.' },
+        { icone: 'eye', texte: 'Touche un joker : il dit ce qu’il fait.' },
+        { icone: 'rotate', texte: 'Joué, il revient à l’acte suivant.' },
+      ],
+    },
+    {
+      cle: 'expedition',
+      titre: 'L’expédition',
+      lignes: [
+        { icone: 'crown', texte: 'Trois actes, un gardien au bout de chacun. Bats le troisième : tu repars avec l’un des trois.' },
+        { icone: 'arrow-left', texte: '« ← Partir » ne perd rien : du départ, tu reprends ton expédition, ou tu l’abandonnes.' },
+      ],
+    },
+    {
+      cle: 'carte',
+      titre: 'La carte',
+      lignes: [
+        { icone: 'flag', texte: 'À chaque pas, choisis ton escale. Son pourcentage : tes chances sur sa question — celles d’un joueur moyen, tant que tu n’as pas assez joué.' },
+        { icone: 'source', texte: 'Une source : une question de ton carnet, une vie si tu la retrouves.' },
+        { icone: 'coffre', texte: 'Un coffre : un joker au choix.' },
+        { icone: 'campement', texte: 'Un campement, avant le gardien : une vie, ou un joker de moins.' },
+      ],
+    },
+    { cle: 'equipe', titre: 'Ton équipe', lignes: [{ icone: 'users', texte: 'Les légendaires que tu emmènes : le joker de chacun rejoint ton paquet.' }] },
+    { cle: 'passeport', titre: 'Ton passeport', lignes: [{ icone: 'tampon', texte: 'Chaque thème pointu trouvé en expédition y met son tampon.' }] },
+  ]
+}
+
+/**
+ * Les règles, en feuille, de n'importe quelle page de l'expédition : ce que
+ * les pages disaient en paragraphes, en une ligne par règle. `debut` : la
+ * section à lire d'abord — la carte sur la carte, l'expédition au départ ;
+ * en rencontre, l'ordre où l'on joue. Ouvertes d'elles-mêmes à la première
+ * rencontre, avec « Compris » (`pied`).
+ */
+export function FeuilleDesRegles({
+  rencontres,
+  parQuestion,
+  debut,
+  pied,
+  onFermer,
+}: {
+  rencontres: boolean
+  /** Les cartes que chaque question tire, acte par acte (`CartesEnJeu.parQuestion`). */
+  parQuestion?: readonly number[]
+  debut?: DebutDesRegles
+  pied?: ReactNode
+  onFermer: () => void
+}) {
+  const sections = rencontres ? reglesDesRencontres(parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION]) : reglesDesJokers()
+  const ordre = debut ? [...sections.filter(s => s.cle === debut), ...sections.filter(s => s.cle !== debut)] : sections
   return (
-    <Feuille
-      titre="Comment ça marche ?"
-      className="feuille-guide"
-      onFermer={onFermer}
-      pied={
-        <button type="button" className="btn btn-primary btn-block" onClick={onFermer}>
-          Compris
-        </button>
-      }
-    >
-      <ol className="exp-guide">
-        {COMMENT_CA_MARCHE.map(l => (
-          <li key={l.icone}>
-            <span className="exp-guide-icone" aria-hidden="true">
-              {/* L'énergie se montre telle que la main la montre : son orbe et son chiffre. */}
-              {l.icone === 'zap' ? <b className="exp-vc-cout">{INSPIRATION_PAR_QUESTION}</b> : <Icon name={l.icone} />}
-            </span>
-            <span>{espacesFines(l.texte)}</span>
-          </li>
-        ))}
-      </ol>
+    <Feuille titre="Les règles" className="feuille-regles" onFermer={onFermer} pied={pied}>
+      {ordre.map(s => (
+        <section key={s.cle} className="exp-regles-section" aria-labelledby={`exp-regles-${s.cle}`}>
+          <h3 className="label" id={`exp-regles-${s.cle}`}>
+            {s.titre}
+          </h3>
+          <ul className="exp-guide">
+            {s.lignes.map(l => (
+              <li key={l.texte}>
+                <span className="exp-guide-icone" aria-hidden="true">
+                  {/* L'énergie se montre telle que la main la montre : son orbe et son chiffre. */}
+                  {l.icone === 'energie' ? <b className="exp-vc-cout">{INSPIRATION_PAR_QUESTION}</b> : <Icon name={l.icone} />}
+                </span>
+                <span>{espacesFines(l.texte)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </Feuille>
+  )
+}
+
+/** Le bouton des règles, en haut de chaque page de l'expédition : un point d'interrogation, et son mot là où la place le permet. */
+export function BoutonDesRegles({ onOuvrir }: { onOuvrir: () => void }) {
+  return (
+    <button type="button" className="exp-regles" aria-haspopup="dialog" aria-label="Les règles" onClick={onOuvrir}>
+      <Icon name="help" />
+      <span className="exp-regles-mot" aria-hidden="true">
+        Règles
+      </span>
+    </button>
   )
 }
 
@@ -984,8 +1142,8 @@ function CommentCaMarche({ onFermer }: { onFermer: () => void }) {
  * joue : l'adversaire et la question qu'il pose, ce que la réponse fera, les
  * cartes à jouer, le pari, puis « Voir la question » — le bouton au bout, plus
  * au-dessus des cartes qu'il fallait jouer avant lui. À la première
- * rencontre, le guide par-dessus. La question, tirée au serveur, n'arrive
- * qu'au geste qui la voit (invariant 1).
+ * rencontre, les règles par-dessus ; ensuite, le « ? » de la barre. La
+ * question, tirée au serveur, n'arrive qu'au geste qui la voit (invariant 1).
  */
 export function PreparationDeLaRencontre({
   vue,
@@ -1008,7 +1166,12 @@ export function PreparationDeLaRencontre({
   const [mise, setMise] = useState(0)
   const [dit, setDit] = useState<string | null>(null)
   const [tas, setTas] = useState(false)
+  // Fermées d'une façon ou d'une autre, les règles sont vues : revenues à chaque rencontre, elles lasseraient.
   const [aide, setAide] = useState(() => !guideVu())
+  const vu = () => {
+    retenirLeGuide()
+    setAide(false)
+  }
   const gardien = vue.gardiens[Math.min(vue.acte, vue.gardiens.length - 1)]?.cle ?? ''
   const refus = r.mises?.[mise] ?? null
   // L'aperçu à la mise choisie, par la règle du serveur : celui de la vue est à mise nulle, la mise n'étant dite qu'en voyant la question.
@@ -1026,7 +1189,6 @@ export function PreparationDeLaRencontre({
         refus={r.refus}
         busy={busy}
         inspiration={r.inspiration}
-        poses={r.pouvoirs}
         pile={{ compte: r.pioche, mot: 'pioche', dit: `Ta pioche : ${r.pioche} carte${r.pioche > 1 ? 's' : ''}, ta défausse : ${r.defausse.length}`, onOuvrir: () => setTas(true) }}
         apercuDeLaCarte={cle => changementDeLaCarte(r, mise, vue.fetiche, cle)}
         onJouer={onJouer}
@@ -1053,17 +1215,17 @@ export function PreparationDeLaRencontre({
         <Icon name="eye" />
         Voir la question
       </button>
-      <button type="button" className="link-inline small exp-comment" aria-haspopup="dialog" onClick={() => setAide(true)}>
-        <Icon name="help" />
-        Comment ça marche ?
-      </button>
       {tas && <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={r} onFermer={() => setTas(false)} />}
       {aide && (
-        <CommentCaMarche
-          onFermer={() => {
-            retenirLeGuide()
-            setAide(false)
-          }}
+        <FeuilleDesRegles
+          rencontres
+          parQuestion={vue.cartes?.parQuestion}
+          onFermer={vu}
+          pied={
+            <button type="button" className="btn btn-primary btn-block" onClick={vu}>
+              Compris
+            </button>
+          }
         />
       )}
     </div>
@@ -1156,27 +1318,23 @@ export function retenirLesRencontres(oui: boolean, fetiche: string | null) {
 
 /**
  * Au départ, là où le prototype s'ouvre (la préproduction) : partir aux
- * rencontres — d'office —, sa catégorie fétiche, que l'Érudit fait vivre, et
- * les familles que son équipée apporte aux récompenses.
+ * rencontres — d'office — et sa catégorie fétiche, que l'Érudit fait vivre.
+ * Ce que sont les rencontres, et les familles de son équipe, se lisent dans
+ * les règles : deux paragraphes de plus sur le départ, « on s'y perd » (la
+ * revue du 18 octobre 2026).
  */
 export function AuDepart({
   actif,
   fetiche,
-  equipee,
-  debutant,
   onActif,
   onFetiche,
 }: {
   actif: boolean
   fetiche: string | null
-  equipee: readonly string[]
-  /** Sans légendaire à lui : ses familles ne se disent pas — elles viennent des légendaires, qu'il ne connaît pas encore. */
-  debutant?: boolean
   onActif: (oui: boolean) => void
   onFetiche: (categorie: string | null) => void
 }) {
   const [choisir, setChoisir] = useState(false)
-  const familles = famillesDeLEquipee(equipee)
   return (
     <section className="card exp-prototype" aria-labelledby="exp-prototype-titre">
       <div className="exp-section-tete">
@@ -1188,35 +1346,19 @@ export function AuDepart({
           <i aria-hidden="true" />
         </button>
       </div>
-      <p className="small">
-        {espacesFines(
-          actif
-            ? 'Chaque escale à question est un adversaire à faire tomber, question après question. Avant de voir chaque question, tu joues tes cartes et tu paries ; ton courage remplace tes trois vies.'
-            : 'Coupées : l’expédition part aux règles d’avant, trois vies et des jokers.',
-        )}
-      </p>
-      {actif && (
-        <>
-          <div className="exp-section-tete">
-            <span className="small">
-              {'Ta catégorie fétiche : '}
-              <b>{fetiche ?? 'aucune'}</b>
-            </span>
-            <button type="button" className="link-inline small exp-changer" aria-haspopup="dialog" onClick={() => setChoisir(true)}>
-              {fetiche ? 'Changer' : 'Choisir'}
-              <Icon name="chevron-right" />
-            </button>
-          </div>
-          {!debutant && (
-            <p className="muted small">
-              {espacesFines(
-                familles.length > 0
-                  ? `Tes familles : ${familles.map(f => FAMILLES_DE_CARTES[f].nom).join(' et ')} — tes récompenses en proposent les cartes.`
-                  : 'Sans légendaire dans ton équipée, tes récompenses ne proposent que des cartes neutres.',
-              )}
-            </p>
-          )}
-        </>
+      {actif ? (
+        <div className="exp-section-tete">
+          <span className="small">
+            {'Ta catégorie fétiche : '}
+            <b>{fetiche ?? 'aucune'}</b>
+          </span>
+          <button type="button" className="link-inline small exp-changer" aria-haspopup="dialog" onClick={() => setChoisir(true)}>
+            {fetiche ? 'Changer' : 'Choisir'}
+            <Icon name="chevron-right" />
+          </button>
+        </div>
+      ) : (
+        <p className="small">{espacesFines('Coupées : l’expédition part aux règles d’avant, trois vies et des jokers.')}</p>
       )}
       {choisir && <FeuilleDeLaFetiche fetiche={fetiche} onChoisir={onFetiche} onFermer={() => setChoisir(false)} />}
     </section>

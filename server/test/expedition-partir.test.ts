@@ -61,11 +61,24 @@ test('du départ, l’expédition en route se reprend — ou s’abandonne', asy
 test('le départ d’un débutant ne lui demande pas de légendaires : l’invité du jour part d’office', async () => {
   // « C'est pas clair de devoir mettre des légendaires sur la première page, surtout qu'au début on n'a pas forcément ça. »
   const html = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true }, passeport: [] })
-  assert.doesNotMatch(html, /exp-equipee|Ton équipée|Une place libre|Tes familles/)
+  assert.doesNotMatch(html, /exp-equipee|Ton équipe|Une place libre|Tes familles/)
   assert.match(html, /<p class="card exp-invite-seul">/)
   assert.match(html.replace(/<[^>]+>/g, ''), /Le Lion Couronné, l’invité du jour, part avec toi\s*: sa carte rejoint ton paquet\./)
-  // Avec un légendaire à lui, l'équipée se choisit, comme avant.
+  // Avec un légendaire à lui, l'équipe se choisit, comme avant — « Ton équipe » : « équipée » se lisait comme une faute.
   const sien = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, equipables: ['lg:dragon'] }, passeport: [] })
   assert.match(sien, /exp-equipee/)
-  assert.doesNotMatch(sien, /exp-invite-seul/)
+  assert.match(sien, /<h2 class="label" id="exp-equipee-titre">Ton équipe<\/h2>/)
+  assert.doesNotMatch(sien, /exp-invite-seul|équipée/)
+})
+
+test('le départ sans paragraphes : les gardiens côte à côte, le paquet en un lien, les règles au « ? »', async () => {
+  // « Trop d'infos écrites sur la page on s'y perd : sur chaque page beaucoup de trucs. […] Pas besoin d'explication pour tout,
+  // il faudrait juste un onglet règles qu'on peut consulter de n'importe quelle page » (la revue du 18 octobre 2026).
+  const html = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, equipables: ['lg:dragon'] }, passeport: [] })
+  const lu = html.replace(/<[^>]+>/g, ' ')
+  // Ce que les règles disent ne se redit plus sur le départ.
+  assert.doesNotMatch(lu, /points à lui faire perdre|quarantaine de questions|garde ta place|Chaque thème pointu|Tes familles|Chaque escale à question|Ton paquet au départ/)
+  assert.match(html, /<div class="exp-haut-du-depart"><a[^>]*>[\s\S]*?<\/a><button type="button" class="exp-regles" aria-haspopup="dialog" aria-label="Les règles">/)
+  assert.equal(/<ol class="exp-trois-gardiens">([\s\S]*?)<\/ol>/.exec(html)?.[1].match(/<li class="exp-gardien-col">/g)?.length, 3)
+  assert.match(html, /<button type="button" class="link-inline small exp-voir-le-paquet" aria-haspopup="dialog">Ton paquet · 12 cartes/)
 })

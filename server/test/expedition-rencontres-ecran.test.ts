@@ -5,9 +5,10 @@
 // cartes avant la question […] mais je veux que ce soit bien compréhensible
 // pour des novices. » Des mots de tous les jours — l'adversaire perd des
 // points, un bouclier, un pari —, jamais « sceaux », « Charge » ni « Garde » ;
-// chaque carte de la main dit ce qu'elle fait sans qu'on la lève ; levée, ce
-// qu'elle changerait — et ce qu'elle annonce, le serveur le fait. Rendu ici
-// tel que la page le sert (`renderToStaticMarkup`).
+// levée, une carte dit ce qu'elle changerait — et ce qu'elle annonce, le
+// serveur le fait. Puis la revue du même soir : « Trop d'infos écrites sur la
+// page on s'y perd » — la main sans un mot, les règles au « ? », les cartes
+// posées en haut. Rendu ici tel que la page le sert (`renderToStaticMarkup`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import React from 'react'
@@ -91,6 +92,8 @@ interface Pieces {
   Apercu: Composant
   FeuilleDesCartes: Composant
   CartesAPrendre: Composant
+  FeuilleDesRegles: Composant
+  RangeeDeCartes: Composant
   apercuALaMise: (r: VueDeLaRencontre, mise: number, fetiche: string | undefined, avec?: string) => ApercuDuTour | undefined
   changementDeLaCarte: (r: VueDeLaRencontre, mise: number, fetiche: string | undefined, cle: string) => { avant: ApercuDuTour; apres: ApercuDuTour } | null
 }
@@ -140,11 +143,13 @@ function lignes(phrase: string, n: number): string[] {
   return out
 }
 
-test('chaque carte dit ce qu’elle fait en deux lignes de neuf signes : on la lit dans la main, sans la lever', () => {
-  // « 2 questions » ne tenait pas : « questions » coupé, la carte disait « 2 questio… ».
+test('chaque carte se résume en deux lignes de neuf signes, et son chiffre tient dans son médaillon', () => {
+  // « 2 questions » ne tenait pas : « questions » coupé, la carte disait « 2 questio… ». Le résumé se dit à l'oreille, et dans les lignes d'une offre.
   for (const c of CARTES_DES_RENCONTRES) {
     const l = lignes(c.resume, 9)
     assert.ok(l.length <= 2 && l.every(x => x.length <= 9), `${c.cle} : « ${c.resume} » se coupe en ${l.map(x => `« ${x} »`).join(', ')}`)
+    // Le chiffre de la main : quelques signes, sans un mot (« trop de détails écrits en dessous de chaque icône »).
+    if (c.valeur !== undefined) assert.match(c.valeur, /^[+×]?\d+(,\d)?( s)?$/, `${c.cle} : « ${c.valeur} »`)
   }
 })
 
@@ -195,31 +200,53 @@ test('la préparation, dans l’ordre où l’on joue : l’adversaire et sa que
   // Ce que la réponse fera, en deux tuiles : les chiffres du serveur.
   assert.match(lu, new RegExp(`Si tu as juste Il perd ${r.apercu!.juste.brises} `))
   assert.match(lu, new RegExp(`Si tu te trompes Tu perds ${r.apercu!.faux.perdu} de courage`))
-  // La main : chaque carte, dessinée, dit ce qu'elle fait ; celles de pendant la question à part, éteintes.
-  assert.match(html, /data-carte="concentration"[^>]*><span class="exp-vc exp-vc-main"[^>]*>[\s\S]*?<span class="exp-vc-texte">\+4 si juste<\/span>/)
+  // La main : chaque carte dessinée, sans un mot — son dessin, son coût, son chiffre (« trop de détails écrits en dessous de
+  // chaque icône, ne pas les mettre direct mais les faire apparaître si on clique dessus ») ; ce qu'elle fait se dit à l'oreille,
+  // et levée. Celles de pendant la question à part, éteintes.
+  assert.match(html, /data-carte="concentration"[^>]*><span class="exp-vc exp-vc-main"[^>]*><span class="exp-vc-cout">1<\/span><span class="exp-vc-art">[\s\S]*?<\/span><b class="exp-vc-valeur">\+4<\/b><span class="exp-vc-gemme"><\/span><\/span><span class="sr-only">Concentration : \+4 si juste, 1 d’énergie<\/span>/)
+  assert.doesNotMatch(html.slice(html.indexOf('class="exp-cartes"')), /exp-vc-texte|exp-vc-nom/, 'aucun mot sur les cartes de la main')
   assert.match(html, /class="exp-cartes-groupe exp-cartes-plus-tard"[^>]*><span class="exp-cartes-quand">Pendant la question<\/span><div class="exp-cartes-main"><button type="button" class="exp-face exp-face-eteinte"[^>]*data-carte="coup-d-oeil"/)
   assert.doesNotMatch(html, /exp-cartes-plus-tard[\s\S]*data-carte="concentration"/, 'une carte d’avant la question n’attend pas la question')
   // L'énergie : son orbe, son chiffre, son mot.
   assert.match(html, /<span class="exp-energie" role="img" aria-label="3 d’énergie pour jouer tes cartes"><b class="exp-vc-cout" aria-hidden="true">3<\/b><span aria-hidden="true">d’énergie<\/span><\/span>/)
   assert.match(lu, /Parier \? Non/)
-  // Le guide, déjà vu : à la demande seulement.
-  assert.doesNotMatch(html, /feuille-guide/)
-  assert.match(html, /class="link-inline small exp-comment"/)
+  // Les règles, déjà vues : au « ? » de la barre, plus sous le bouton (« Comment ça marche ? »).
+  assert.doesNotMatch(html, /feuille-regles|exp-comment|Comment ça marche/)
 })
 
-test('à la première rencontre, le guide s’ouvre de lui-même : cinq lignes, « Compris »', async () => {
+test('à la première rencontre, les règles s’ouvrent d’elles-mêmes, la rencontre d’abord, « Compris »', async () => {
+  // « Pas besoin d'explication pour tout, il faudrait juste un onglet règles qu'on peut consulter de n'importe quelle page. »
   stockage(false)
   const html = await preparation(rencontreAvec(['concentration']))
-  assert.match(html, /class="carte-feuille feuille-guide"/)
-  const guide = texte(html.slice(html.indexOf('feuille-guide')))
-  assert.match(guide, /Réponds juste : l’adversaire perd des points\. À zéro, il tombe\./)
-  assert.match(guide, /Si tu te trompes, il t’attaque : tu perds du courage\./)
-  assert.match(guide, /Avant de voir la question, joue des cartes/)
-  assert.match(guide, /Compris/)
-  assert.equal((html.match(/class="exp-guide-icone"/g) ?? []).length, 5)
+  assert.match(html, /class="carte-feuille feuille-regles" role="dialog" aria-modal="true" aria-label="Les règles"/)
+  const regles = html.slice(html.indexOf('feuille-regles'))
+  assert.deepEqual(
+    [...regles.matchAll(/<h3 class="label" id="exp-regles-[^"]+">([^<]*)<\/h3>/g)].map(m => m[1]),
+    ['Une rencontre', 'Tes cartes', 'Le pari', 'L’expédition', 'La carte', 'Tes récompenses', 'Ton équipe', 'Ton passeport'],
+  )
+  const lu = texte(regles)
+  assert.match(lu, /Réponds juste : l’adversaire perd des points\. À zéro, il tombe\./)
+  assert.match(lu, /Trompe-toi : il t’attaque, et tu perds du courage\./)
+  assert.match(lu, /Chaque carte coûte de l’énergie — le chiffre dans son coin\. Tu en as 3 à chaque question\./)
+  assert.match(lu, /Une carte posée pour toute la rencontre se montre en haut de l’écran/)
+  assert.match(lu, /Compris/)
+  assert.doesNotMatch(lu, JARGON)
   // Pas même à la place du jeu : l'écran reste dessous, entier.
   assert.match(html, /exp-voir/)
   stockage(true)
+})
+
+test('les règles disent les cartes que tire chaque acte, telles que le serveur les donne', async () => {
+  const { FeuilleDesRegles } = await pieces()
+  const v6 = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], onFermer: rien }))
+  assert.match(v6, /Tu tires 3 cartes à chaque question de l’acte 1, 4 à l’acte 2, 5 à l’acte 3\./)
+  // Une expédition partie avant la main qui grandit : cinq partout.
+  assert.match(texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [5, 5, 5], onFermer: rien })), /Tu tires 5 cartes à chaque question\./)
+  // Aux règles d'avant — la production —, trois vies et des jokers ; `debut` met sa section en tête.
+  const jokers = await rendre(FeuilleDesRegles, { rencontres: false, debut: 'carte', onFermer: rien })
+  assert.equal(/<h3 class="label" id="exp-regles-([^"]+)">/.exec(jokers)?.[1], 'carte')
+  assert.match(texte(jokers), /Trois vies : chaque erreur en coûte une\./)
+  assert.doesNotMatch(texte(jokers), /énergie|courage/)
 })
 
 test('la carte levée : ce qu’elle fait en une phrase, quand elle se joue, ce qu’elle changerait ; refusée, pourquoi', async () => {
@@ -264,10 +291,28 @@ test('la question vue, la main ne montre que les cartes qui se jouent pendant �
   assert.match(html, /data-carte="coup-d-oeil"/)
   assert.doesNotMatch(html, /data-carte="concentration"|exp-cartes-quand/)
   assert.equal(await rendre(MainDeRencontre, { cles: ['concentration'], refus, busy: false, inspiration: 2, phase: 'question', pile, onJouer: rien }), '')
-  // Un pouvoir posé, lui, reste en vue : il agit sur la question à l'écran.
-  const pose = await rendre(MainDeRencontre, { cles: ['concentration'], refus, busy: false, inspiration: 2, phase: 'question', poses: ['tresor'], pile, onJouer: rien })
-  assert.match(texte(pose), /Le trésor/)
-  assert.doesNotMatch(pose, /data-carte=|exp-cartes-rangs/)
+})
+
+test('les cartes posées pour toute la rencontre se montrent en haut, comme un talisman ; touchée, elle se lève — à côté du « ? » des règles', async () => {
+  // « Pour les cartes qui restent toute la manche, peut-être qu'il faudrait un icône en haut pour montrer qu'on l'a tout le long
+  // (ex : comme un talisman visible). Parce que des trucs écrits partout c'est trop d'infos. » Elles se disaient en toutes lettres sous la main.
+  const { Barre } = (await import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)) as { Barre: Composant }
+  const j = rencontreAvec(['tresor'])
+  j.jouer('tresor')
+  const r = j.vue()
+  assert.deepEqual(r.pouvoirs, ['tresor'])
+  const html = await rendre(Barre, { vue: { ecus: 25, vies: 3, talismans: [], courage: 50, rencontre: r, cartes: { paquet: j.etat().paquet, route: [], refus: {}, parQuestion: [3, 4, 5] } }, onPartir: rien })
+  assert.match(
+    html,
+    /<span class="exp-posees" role="group" aria-label="Posées pour toute la rencontre"><button type="button" class="exp-pose" style="--gemme:#[0-9a-f]{6}" data-carte="tresor" aria-haspopup="dialog" aria-label="Le trésor">/,
+  )
+  // Le « ? » des règles, juste après « ← Partir » : de n'importe quelle page.
+  assert.match(html, /<button type="button" class="exp-regles" aria-haspopup="dialog" aria-label="Les règles">/)
+  assert.ok(html.indexOf('exp-regles') < html.indexOf('exp-posees'))
+  // La main, elle, ne les redit plus.
+  const { MainDeRencontre } = await pieces()
+  const main = await rendre(MainDeRencontre, { cles: r.main, refus: r.refus, busy: false, inspiration: r.inspiration, pile: { compte: 0, mot: 'pioche', dit: '', onOuvrir: rien }, onJouer: rien })
+  assert.doesNotMatch(main, /exp-cartes-posees|Le trésor/)
 })
 
 // ── L'énergie et les vraies cartes ──────────────────────────────────────────
@@ -321,6 +366,23 @@ test('l’offre : trois vraies cartes côte à côte ; la touchée s’éclaire,
   assert.equal((html.match(/class="exp-vc exp-vc-rangee"/g) ?? []).length, 3)
   const dit = texte(html.slice(html.indexOf('exp-a-prendre-dit')))
   assert.match(dit, /Banco rare Si tu as juste, ton pari frappe aussi : l’adversaire perd 1 de plus par tranche de cinq écus pariés\. 1 d’énergie · Avant de voir la question/)
-  // Rien de touché : dessous, ce qu'il faut faire.
-  assert.match(texte(await rendre(CartesAPrendre, { cles: ['corser', 'banco', 'sursis'], prises: [], onToucher: rien })), /Touche une carte : elle se lit ici en entier\./)
+  // Sur la carte, son nom et son chiffre — sa phrase ne se lit que touchée.
+  assert.match(html, /data-carte="corser">[\s\S]*?<b class="exp-vc-valeur">×1,5<\/b><b class="exp-vc-nom">Corser<\/b><span class="exp-vc-gemme">/)
+  assert.doesNotMatch(html.slice(0, html.indexOf('exp-a-prendre-dit')), /exp-vc-texte/)
+  // Rien de touché, rien dessous : le détail apparaît au toucher.
+  assert.doesNotMatch(await rendre(CartesAPrendre, { cles: ['corser', 'banco', 'sursis'], prises: [], onToucher: rien }), /exp-a-prendre-dit|Touche une carte/)
+})
+
+test('au campement, la carte à retirer se choisit parmi ses vraies cartes', async () => {
+  const { RangeeDeCartes } = await pieces()
+  const html = await rendre(RangeeDeCartes, { cles: ['concentration', 'concentration', 'prudence', 'echange'], vide: '', nom: 'La carte à retirer', choisie: 'prudence', onRegarder: rien })
+  assert.deepEqual(
+    [...html.matchAll(/class="(exp-rangee-carte[^"]*)" data-carte="([^"]+)" aria-pressed="(true|false)"/g)].map(m => [m[2], m[3], m[1]]),
+    [
+      ['concentration', 'false', 'exp-rangee-carte'],
+      ['prudence', 'true', 'exp-rangee-carte exp-choisi'],
+      ['echange', 'false', 'exp-rangee-carte'],
+    ],
+  )
+  assert.doesNotMatch(html, /aria-haspopup/, 'touchée, elle se choisit : rien ne se lève')
 })

@@ -1,15 +1,16 @@
-// Le prototype des rencontres (la version 5 du départ d'une expédition, le
-// 18 octobre 2026), photographié au téléphone (360 × 640) sur un serveur
-// jetable : le départ et son interrupteur, la catégorie fétiche et sa feuille,
-// l'équipée et les cartes des rencontres dépliées ; la carte de l'acte et ses
-// cartes de route en petit ; une rencontre — le guide qui s'ouvre à la
-// première, l'adversaire et la question qu'il pose, ce que la réponse fera,
-// la main de cinq cartes, une carte levée et ce qu'elle changerait, ses tas,
-// le pari —, puis la question vue et ses cartes de pendant, une bonne réponse
-// qui fait perdre des points, une erreur que le bouclier pare, l'adversaire
-// qui tombe et sa carte à prendre ; un
-// coffre, le campement, l'échoppe s'il s'en trouve une ; le gardien, vaincu,
-// et l'acte suivant. Il joue juste deux fois sur trois.
+// Le prototype des rencontres (les versions 5 et 6 du départ d'une
+// expédition, le 18 octobre 2026), photographié au téléphone (360 × 640) sur
+// un serveur jetable : le départ et son interrupteur, ses règles au « ? », la
+// catégorie fétiche et sa feuille, l'équipe et les cartes des rencontres
+// dépliées ; la carte de l'acte et ses cartes de route en petit ; une
+// rencontre — les règles qui s'ouvrent à la première, l'adversaire et la
+// question qu'il pose, ce que la réponse fera, la main sans un mot, une carte
+// levée et ce qu'elle changerait, ses tas, une carte posée pour toute la
+// rencontre, en haut, et levée, le pari —, puis la question vue et ses cartes
+// de pendant, une bonne réponse qui fait perdre des points, une erreur que le
+// bouclier pare, l'adversaire qui tombe et sa carte à prendre ; un coffre, le
+// campement et la carte qu'on y retire, l'échoppe s'il s'en trouve une ; le
+// gardien, vaincu, et l'acte suivant. Il joue juste deux fois sur trois.
 // Le client construit d'abord (`npm run build -w client`).
 //
 // Léa a quatre légendaires, rangés comme gardés au bout d'expéditions
@@ -103,6 +104,11 @@ try {
   await page.waitForSelector('.exp-prototype')
   await photo('1-depart')
   await photo('1-depart-entier', true)
+  // Les règles, au « ? » d'en haut : ce que le départ ne redit plus.
+  await page.locator('.exp-haut-du-depart .exp-regles').click()
+  await page.waitForSelector('.feuille-regles')
+  await photo('1a-regles')
+  await page.locator('.feuille-regles .carte-fermer').click()
   await page.locator('.exp-prototype .exp-changer').click()
   await page.waitForSelector('.feuille-fetiche')
   await photo('1b-fetiche')
@@ -205,10 +211,10 @@ try {
       continue
     }
     if (ou === 'preparation') {
-      // Le guide, ouvert de lui-même à la première rencontre : lu, puis « Compris » — il ne revient plus.
-      if (await page.locator('.feuille-guide').count()) {
-        await unePhoto('3-guide')
-        await page.locator('.feuille-guide .carte-pied .btn-primary').click()
+      // Les règles, ouvertes d'elles-mêmes à la première rencontre : lues, puis « Compris » — elles ne reviennent qu'au « ? ».
+      if (await page.locator('.feuille-regles').count()) {
+        await unePhoto('3-regles')
+        await page.locator('.feuille-regles .carte-pied .btn-primary').click()
         await page.waitForTimeout(250)
       }
       await largeur('la préparation')
@@ -237,9 +243,17 @@ try {
       }
       // Ses cartes d'avant la question, une par une, tant qu'il en a : frapper plus fort, le bouclier, la forme, le pari.
       for (let k = 0; k < 3; k++) {
-        if (!(await jouerUneCarte(['corser', 'simplifier', 'concentration', 'prudence', 'tresor', 'doubler-la-mise'], '3c-carte-levee'))) break
+        if (!(await jouerUneCarte(['tresor', 'corser', 'simplifier', 'concentration', 'prudence', 'doubler-la-mise'], '3c-carte-levee'))) break
       }
       await unePhoto('3d-preparee')
+      // Une carte posée pour toute la rencontre : en haut, comme un talisman ; touchée, elle se lève.
+      if (!fait.has('3f-posee-levee') && (await page.locator('.exp-barre .exp-posees .exp-pose').count())) {
+        await unePhoto('3f-posee')
+        await page.locator('.exp-barre .exp-posees .exp-pose').first().click()
+        await page.waitForSelector('.exp-leve')
+        await unePhoto('3f-posee-levee')
+        await page.locator('.exp-leve .exp-reposer').click()
+      }
       // Il mise dix écus quand il le peut : l'aperçu le dit.
       const dix = page.locator('.exp-mise:not(.exp-refuse)', { hasText: '10' })
       if (await dix.count()) {
@@ -280,7 +294,11 @@ try {
     }
     if (ou === 'campement') {
       await unePhoto('6b-campement')
-      // Le courage au plus haut, le campement propose d'office de retirer une carte : il en choisit une.
+      // Le courage au plus haut, le campement propose d'office de retirer une carte : il en choisit une, parmi ses vraies cartes.
+      if (await page.locator('.exp-camper .exp-rangee-carte').count()) {
+        await page.locator('.exp-camper .exp-rangee-carte').first().click()
+        await unePhoto('6c-campement-retirer')
+      }
       if (await page.locator('.exp-a-retirer').count()) await page.locator('.exp-a-retirer .pill-btn').first().click()
       await page.locator('.exp-camper .exp-depart-pied .btn-primary').click()
       await page.waitForTimeout(300)

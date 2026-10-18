@@ -169,7 +169,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Épreuve (d'un sentier) | La partie de seize questions qui valide un palier : une série de la campagne d'un autre mode | `campagne_series.mode = 'sentier'` |
 | Épreuve (d'un test) | Un `test(…)` de `node:test` dans un fichier de `server/test/` : ce qu'il vérifie, dit par son titre | `server/test/` |
 | Épreuve en jeu | Une épreuve ni validée ni rejouée : ratée, elle coûte une vie, et tant qu'elle attend, aucune autre ne commence | `commencerEpreuve` |
-| Équipée | Les deux légendaires qu'on emmène en expédition — les siens qui ont leur joker, ou l'invité du jour —, chacun son joker dans le paquet | `PLACES_DE_L_EQUIPEE`, `refusDeLEquipee` |
+| Équipe (d'expédition) | Les deux légendaires qu'on emmène en expédition — les siens qui ont leur joker, ou l'invité du jour —, chacun son joker, ou sa carte, dans le paquet. « L'équipée » jusqu'au 18 octobre 2026 : la revue du propriétaire y lisait une faute ; le code garde son nom | `PLACES_DE_L_EQUIPEE`, `refusDeLEquipee` |
 | Escale | Une étape d'une carte de l'expédition : une question, une élite, une source, un coffre, une échoppe, l'inconnu, un campement, le gardien | `EscaleDeLaCarte`, `SorteDEscale` |
 | Escale proposée | Une escale où l'on peut aller au pas suivant — reliée à la sienne, ou ouverte par un joker de route —, entourée sur l'acte en petit, et en carte au bas de l'écran : sa sorte, son nom, sa chance, ce qu'elle rapporte ; seule l'escale où l'on est brille | `VueDeLExpedition.permises`, `CarteDEscale`, `exp-a-portee` |
 | Espace | Tout ce qui appartient à un animateur — quiz, photos, soirée en cours, historique, réglages —, désigné par son adresse | `space_id` |
@@ -254,7 +254,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Instantané (d'un partage) | La copie d'un quiz prise au moment d'un partage — code ou catalogue —, que les retouches d'après ne suivent pas | `Instantane` |
 | Instantané (de la salle) | L'état de la salle — invités, équipes, prix, partie en cours, code —, diffusé en deux versions, dédoublonné et regroupé | `party:snapshot`, `PartySnapshot` |
 | Intertitre | Une diapo sans réponse ni points avant une question (« Manche 2 : le cinéma ») | `intertitre` |
-| Invité du jour | Le légendaire du jour de Paris, le même pour tous, qui part dans l'équipée même chez qui ne l'a pas — jamais un gardien ce jour-là | `inviteDuJour` |
+| Invité du jour | Le légendaire du jour de Paris, le même pour tous, qui part dans l'équipe même chez qui ne l'a pas — jamais un gardien ce jour-là | `inviteDuJour` |
 | Invité fantôme | Un invité simulé qui rejoint une soirée et répond au hasard, faute de second téléphone | `server/scripts/fake-player.mjs` |
 | Ivoire | Le Velours passé sur papier crème, pour un vidéoprojecteur qui délave les noirs ; l'écran commun y passe par « Fond clair », et il est offert aux profils | `client/src/theme.ts` |
 
@@ -353,7 +353,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Palier de maître | Le palier facultatif d'après le sommet : seize expertes, neuf pour valider, un titre au bout | `PALIER_DU_MAITRE` |
 | Palmarès | Les prix que les chiffres désignent, un lauréat chacun, remis ou non : vingt individuels, deux d'équipe | `computeStats`, `SPECS` (`server/src/core/stats.ts`) |
 | Paquet | Le serveur construit en un seul fichier, que Render démarre sans traduire de TypeScript | `server/scripts/empaqueter.ts` |
-| Paquet (de jokers) | Les jokers d'une expédition qu'on n'a pas encore tirés : Coup d'œil trois fois, Échange, ceux de l'équipée, puis ce qu'on prend en route ; on y pioche au hasard de la graine | `EtatDeLExpedition.paquet`, `PAQUET_DE_DEPART` |
+| Paquet (de jokers) | Les jokers d'une expédition qu'on n'a pas encore tirés : Coup d'œil trois fois, Échange, ceux de l'équipe, puis ce qu'on prend en route ; on y pioche au hasard de la graine | `EtatDeLExpedition.paquet`, `PAQUET_DE_DEPART` |
 | Parcours de thème | Un sujet de la campagne monté en six étapes de dix questions, sans vies, dans l'onglet « Apprendre » ; un « sentier à thème » dans le code | `shared/sentiersDeSujets.ts` |
 | Partie | Un quiz joué dans un espace, du choix du quiz à son podium — une seule à la fois par espace | `GameEngine` |
 | Partie du jour | Ce qu'un profil a joué un jour donné : commencée, ses questions servies une à une, finie ou laissée | `jour_parties` |
