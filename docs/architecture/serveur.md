@@ -354,7 +354,7 @@ redémarrer l'instance, disque et file du miroir perdus
 | | Commande | Ce qu'elle lance |
 |---|---|---|
 | Construire | `npm run build` | `vite build`, puis `server/scripts/empaqueter.ts` : esbuild, de `server/src/index.ts` à `server/dist/index.mjs`, ESM, Node 20, `shared/` compris |
-| Démarrer en ligne | `cd server && exec node dist/index.mjs` (`render.yaml`) | le paquet, sans tsx |
+| Démarrer en ligne | `cd server && exec node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 dist/index.mjs` (`render.yaml`) | le paquet, sans tsx, le ramasse-miettes réglé pour le dixième de cœur |
 | Démarrer chez soi | `npm start` | `tsx src/index.ts` : les sources, pas le paquet |
 
 - **Pourquoi** : chaque réveil de l'offre gratuite est un démarrage, et tsx y

@@ -2,7 +2,7 @@ import path from 'node:path'
 import { createQuizServer, DemarrageRefuse, MOT_DE_PASSE_PAR_DEFAUT } from './server'
 import { chaudesDemandees } from './core/connexions'
 import { choisirLeTransport, DELAI_DISTANT_MS, pourquoiInjoignable, transportDemande } from './core/distante'
-import { releve } from './core/pouls'
+import { ramasseMiettes, releve } from './core/pouls'
 import { SERVEUR } from './racine'
 
 const port = Number(process.env.PORT ?? 3001)
@@ -67,6 +67,15 @@ else {
   choisirLeTransport(transport.transport)
   if (transport.transport === 'leger') console.log('[base] allers-retours vers la base par le transport léger (QUIZ_DB_TRANSPORT=leger)')
 }
+// Le ramasse-miettes, réglé par la commande de démarrage (le banc du 19
+// octobre 2026) : en parallèle et avec son réducteur de mémoire, il figeait
+// le serveur 1,9 s au dixième de cœur. Dit au démarrage pour voir qu'elle a
+// pris — en ligne, ce que la commande devrait dire, s'il manque le seul fil.
+const ramasse = ramasseMiettes()
+console.log(
+  `[serveur] ramasse-miettes ${ramasse.unFil ? 'sur un seul fil' : 'en parallèle'}, ${ramasse.reducteur ? 'avec' : 'sans'} réducteur de mémoire, tas jusqu’à ${ramasse.tasMaxMo} Mo` +
+    (online && !ramasse.unFil ? ' — au dixième de cœur, la commande de démarrage gagne --single-threaded-gc (docs/exploitation/mise-en-ligne.md)' : ''),
+)
 // L'ancienne garde, retirée : Turso referme lui-même à 5 s, et la garde de
 // 30 s posée en production le 14 octobre 2026 faisait tomber des requêtes.
 // Restée dans les variables d'un service, elle ne ferait plus rien — sans un

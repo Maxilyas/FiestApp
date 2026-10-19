@@ -47,6 +47,15 @@
 # plus, sur un dixième de cœur. L'ancienne commande marche toujours — c'est le
 # repli si le paquet refusait de démarrer.
 #
+# Les trois drapeaux de V8 règlent le ramasse-miettes (le banc du 19 octobre
+# 2026, `DRAPEAUX_DU_RAMASSE_MIETTES`, `server/src/core/pouls.ts`) : au
+# dixième de cœur, ses fils d'aide se disputaient le quota sans finir plus
+# tôt, et son réducteur de mémoire recompactait au repos un tas que V8 croit
+# de huit gigaoctets — 1,9 s de serveur figé. Un seul fil, pas de réducteur,
+# et le tas plafonné à 320 Mo, sous les 512 du conteneur. `NODE_OPTIONS` les
+# refuse : ils vivent dans la commande. Préprod d'abord : `/healthz` dit
+# `memoire.ramasseMiettes` et `rssMo` ; les retirer rend le réglage de V8.
+#
 # ⚠️ Si les services ont été créés à la main (voir docs/exploitation/mise-en-ligne.md, étape 8),
 # ce fichier ne les pilote pas : ces deux commandes se recopient dans le
 # tableau de bord de chacun (Settings, rubrique Build pour la première,
@@ -68,7 +77,7 @@ services:
     # préprod tourner. C'est un clic contre une soirée ratée.
     autoDeploy: false
     buildCommand: npm ci && npm run build
-    startCommand: cd server && exec node dist/index.mjs
+    startCommand: cd server && exec node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 dist/index.mjs
     # Render s'en sert pour savoir si le service répond, mais ses sondes ne
     # tiennent pas l'application éveillée : l'offre gratuite l'endort après
     # 15 minutes sans trafic. Une tâche de cron-job.org appelle donc cette
@@ -137,7 +146,7 @@ services:
     # Elle, oui : chaque fusion sur `main` part en préprod.
     autoDeploy: true
     buildCommand: npm ci && npm run build
-    startCommand: cd server && exec node dist/index.mjs
+    startCommand: cd server && exec node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 dist/index.mjs
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION
