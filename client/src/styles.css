@@ -10826,6 +10826,49 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
 .niche-fiche-jauge { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 2.75em; }
 .niche-fiche-gestes { display: flex; gap: 10px; }
 .niche-fiche-gestes .btn { flex: 1; justify-content: center; min-height: 48px; }
+/* Sa gestion (le 19 octobre 2026) : son nom, qu'on lui donne d'ici ; la forme
+   qu'il montre et celui des siens qui y vit, en petites niches — celle qui y
+   vit pressée, d'un anneau d'or. */
+.niche-renommer { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin-top: 2px; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; font-size: 0.875rem; cursor: pointer; }
+.niche-renommer:hover { color: var(--accent-text-hover); }
+.niche-renommer svg { width: 15px; height: 15px; }
+.niche-nommer { display: flex; flex-direction: column; gap: 6px; }
+.niche-nommer .label { margin: 0; }
+.niche-nommer-ligne { display: flex; gap: 8px; }
+.niche-nommer-ligne input { flex: 1; min-width: 0; }
+.niche-nommer-ligne .btn { flex: none; }
+.niche-nommer-annuler { align-self: flex-start; }
+.niche-fiche-section { display: flex; flex-direction: column; gap: 8px; }
+.niche-fiche-section .label { margin: 0; }
+.niche-fiche-section-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.niche-fiche-section-tete .link-inline { font-size: 0.875rem; }
+.niche-choix-rangee { display: flex; flex-wrap: wrap; gap: 8px; }
+.niche-choix {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 74px;
+  padding: 8px 2px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.niche-choix[aria-pressed='true'] { border-color: var(--edge); background: var(--accent-soft); cursor: default; }
+.niche-choix[aria-pressed='true'] .niche-cadre { border-color: rgb(244, 213, 141); box-shadow: 0 0 0 1px rgba(244, 213, 141, 0.45), 0 0 12px rgba(244, 213, 141, 0.5); }
+.niche-choix:disabled { opacity: 0.7; cursor: progress; }
+.niche-choix:not([aria-pressed='true']):hover .niche-cadre { border-color: rgba(244, 213, 141, 0.95); }
+.niche-mini { --l: 54px; position: relative; flex: none; width: var(--l); height: calc(var(--l) * 62 / 54); }
+.niche-choix-nom { max-width: 100%; font-size: var(--t-label); line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
+.niche-choix[aria-pressed='true'] .niche-choix-nom { color: var(--accent-text); font-weight: 600; }
+.niche-mini-vide { display: grid; place-items: center; border: 1px dashed var(--edge-strong); border-radius: calc(var(--l) / 2) calc(var(--l) / 2) 12px 12px; color: var(--accent-text); }
+.niche-mini-vide svg { width: 22px; height: 22px; }
+.niche-choix-aide { margin: 0; }
 /* Ses cœurs s'envolent dans la feuille : moins haut qu'à la boutique, qui a toute sa scène. */
 .niche-envols i { top: 36%; }
 .niche-envols i:nth-child(1) { --x: -52px; --y: -54px; }

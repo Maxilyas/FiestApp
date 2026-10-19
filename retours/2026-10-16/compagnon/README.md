@@ -20,6 +20,19 @@ Tout se regarde sur la planche Design, privée : <https://claude.ai/artifact/Uq6
 Les films et les images n'existent que là (et dans `export/`, qui ne se
 committe pas).
 
+## Le 19 octobre, le soir : « Ma niche », sa gestion
+
+« Dans la boutique quand on fait porter, ça le met sur notre avatar et dans
+la niche. Ça serait mieux que dans la niche du coup ? Aussi, il n'y a pas
+d'interface de gestion de compagnon quand on clique dessus ? » (le
+propriétaire). L'adoption l'installe dans la niche, et rien de plus — un
+second, s'il le veut, attend son tour ; « Le porter en avatar » ouvre la loge
+avec lui à l'essai. Toucher la niche ouvre « Ma niche » : lui donner un nom
+(à lui seul), choisir la forme qu'il y montre parmi celles qu'il a atteintes,
+y installer un autre des siens d'un toucher, le caresser. Changer d'avatar
+ne déplace plus la niche : celles jamais choisies se sont figées une fois.
+Les photos : `server/scripts/rendu-niche.ts` (`02-fiche`, `03-…`).
+
 ## Le 19 octobre : ses humeurs, et ses réactions à la révélation
 
 Le point 2 du principe (`principe.md`, § 10) : la niche réagit pour de vrai,

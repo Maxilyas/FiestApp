@@ -298,10 +298,10 @@ export function ProfilApp() {
   }, [chargement, profil?.gerbe])
   // Et la niche de son compagnon : adopté ou installé à la boutique, il y entre tout de suite.
   const niche = profil?.niche
-  const rangDeLaNiche = profil?.compagnons?.find(c => c.compagnon === niche)?.rang
+  const sienDeLaNiche = profil?.compagnons?.find(c => c.compagnon === niche)
   useEffect(() => {
-    if (!chargement) porterNiche(niche && rangDeLaNiche !== undefined ? { niche, compagnons: [{ compagnon: niche, rang: rangDeLaNiche }] } : null)
-  }, [chargement, niche, rangDeLaNiche])
+    if (!chargement) porterNiche(niche && sienDeLaNiche ? { niche, compagnons: [sienDeLaNiche] } : null)
+  }, [chargement, niche, sienDeLaNiche?.rang, sienDeLaNiche?.montree, sienDeLaNiche?.nom]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // L'accueil affiché, le code du quiz du jour, de la campagne et des duels
   // vient en fond : toucher leur bouton ouvre la page sans le télécharger d'abord.
@@ -384,16 +384,15 @@ export function ProfilApp() {
     }
   }
 
-  /** Acheter un compagnon : comme un thème, le serveur compte, achète, et le fait porter si on le veut. */
-  const acheterCompagnon = async (cle: string, porter: boolean): Promise<string | null> => {
+  /** Adopter un compagnon : le serveur compte, adopte, et l'installe dans sa niche si on le veut — la boutique le dit, là où l'on a touché. */
+  const acheterCompagnon = async (cle: string, installer: boolean): Promise<string | null> => {
     if (enregistrement.current) return null
     enregistrement.current = true
     setBusy(true)
     setAnnonce('')
     try {
-      const { profile, boutique } = await api.joueur.acheterCompagnon(cle, porter)
+      const { profile, boutique } = await api.joueur.acheterCompagnon(cle, installer)
       setProfil(p => (p ? { ...p, ...profile, boutique } : p))
-      if (porter && profile.legendaire) setAnnonce(annonceDuChoix({ legendaire: profile.legendaire }))
       return null
     } catch (e) {
       return motifDe(e)
