@@ -41,6 +41,7 @@ import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
+import { porterNiche } from '../niche'
 import { useGardeRetour } from '../retour'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { chefIci, entreeDemandee, oublierEntree } from '../chef'
@@ -306,6 +307,14 @@ function SalleDuJoueur() {
   useEffect(() => {
     if (presente) porterGerbe(profil?.gerbe)
   }, [presente, profil?.gerbe])
+  // La niche de son compagnon, au coin du téléphone : rien sans profil
+  // (invariant 8), et rien qu'il n'ait pas — le profil relu après un quiz la
+  // fait grandir sous ses yeux.
+  const niche = profil?.niche
+  const rangDeLaNiche = profil?.compagnons?.find(c => c.compagnon === niche)?.rang
+  useEffect(() => {
+    if (presente) porterNiche(niche && rangDeLaNiche !== undefined ? { niche, compagnons: [{ compagnon: niche, rang: rangDeLaNiche }] } : null)
+  }, [presente, niche, rangDeLaNiche])
 
   // L'expérience créditée en fin de quiz : le serveur renvoie le profil à
   // jour, et le niveau affiché sur ce téléphone monte pendant la fête — pas

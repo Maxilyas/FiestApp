@@ -13,12 +13,16 @@
 //    assemblée (512 pixels pour les 100 unités du disque), la petite réduite
 //    de moitié dans Chromium ; les fichiers qu'ils remplacent partent ;
 // 2. `client/src/components/compagnons-peints.ts` est réécrit : les fichiers
-//    de chaque forme, et ceux du monde vivant de sa forme ultime.
+//    de chaque forme — ses humeurs comprises —, et ceux du monde vivant de sa
+//    forme ultime.
 //
-// Seule l'expression neutre part : les réactions et les métamorphoses
-// attendent leur tour (le choix du 13 octobre 2026 : l'achat, le port et la
-// croissance d'abord). Un compagnon incomplet n'est pas livré, et garde ce
-// qu'il avait.
+// L'expression neutre est partie la première (le choix du 13 octobre 2026 :
+// l'achat, le port et la croissance d'abord) ; ses trois humeurs — ravi,
+// dépité, triomphe — l'ont rejointe le 19 octobre 2026, avec les réactions
+// de la niche à la révélation (`retours/2026-10-16/compagnon/principe.md`,
+// § 10). Les métamorphoses attendent encore leur tour. Un compagnon
+// incomplet n'est pas livré, et garde ce qu'il avait : sans ses humeurs, sa
+// niche ne saurait plus réagir.
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -47,6 +51,12 @@ mkdirSync(publics, { recursive: true })
  * sous ces noms (`ultime-neutre.webp`).
  */
 const idDansLaChaine = (cle: string) => cle.slice(cle.indexOf('-') + 1)
+
+/**
+ * Les humeurs de chaque forme, repeintes sur sa découpe : le corps ne bouge
+ * pas (`recouvrement`, `compagnons.ts`), et la niche les échange en place.
+ */
+const HUMEURS = ['ravi', 'depite', 'triomphe'] as const
 
 const empreinte = (donnees: Buffer) => createHash('sha256').update(donnees).digest('hex').slice(0, 10)
 
@@ -108,6 +118,7 @@ async function couche(src, cote, qualite) {
 interface Livree {
   disque?: [string, string]
   perso: [string, string]
+  humeurs?: Record<(typeof HUMEURS)[number], [string, string]>
   vivant?: Record<string, [string, string]>
 }
 
@@ -150,7 +161,7 @@ try {
     const fichier = (nom: string) => path.join(app, `${nom}.webp`)
     const manque = c.formes.flatMap(f => {
       const id = idDansLaChaine(f.key)
-      return [`${id}-neutre`, ...(f.rang > 0 ? [`${id}-disque`] : [])].filter(n => !existsSync(fichier(n)))
+      return [`${id}-neutre`, ...HUMEURS.map(h => `${id}-${h}`), ...(f.rang > 0 ? [`${id}-disque`] : [])].filter(n => !existsSync(fichier(n)))
     })
     if (manque.length) {
       console.log(`${c.key} : pas livré, il manque ${manque.join(', ')}`)
@@ -161,6 +172,9 @@ try {
       const nom = `${c.key}-${id}`
       const livree: Livree = { perso: await paire(readFileSync(fichier(`${id}-neutre`)), `${nom}-perso`) }
       if (f.rang > 0) livree.disque = await paire(readFileSync(fichier(`${id}-disque`)), `${nom}-disque`)
+      const humeurs = {} as NonNullable<Livree['humeurs']>
+      for (const h of HUMEURS) humeurs[h] = await paire(readFileSync(fichier(`${id}-${h}`)), `${nom}-${h}`)
+      livree.humeurs = humeurs
       // Le monde vivant de la forme ultime : chaque couche peinte à part.
       const couches = readdirSync(app)
         .filter(n => n.startsWith(`${id}-vivant-`) && n.endsWith('.webp'))
@@ -186,18 +200,27 @@ const lignes = COMPAGNONS.flatMap(c => c.formes)
   .filter(f => livrees[f.key])
   .map(f => {
     const l = livrees[f.key]
-    const vivant = l.vivant
-      ? `    vivant: {\n${Object.entries(l.vivant)
-          .map(([cle, p]) => `      ${cle}: ${liste(p)},\n`)
-          .join('')}    },\n`
-      : ''
-    return `  '${f.key}': {\n` + (l.disque ? `    disque: ${liste(l.disque)},\n` : '') + `    perso: ${liste(l.perso)},\n` + vivant + `  },`
+    const bloc = (nom: string, paires: Record<string, [string, string]> | undefined) =>
+      paires
+        ? `    ${nom}: {\n${Object.entries(paires)
+            .map(([cle, p]) => `      ${cle}: ${liste(p)},\n`)
+            .join('')}    },\n`
+        : ''
+    return (
+      `  '${f.key}': {\n` +
+      (l.disque ? `    disque: ${liste(l.disque)},\n` : '') +
+      `    perso: ${liste(l.perso)},\n` +
+      bloc('humeurs', l.humeurs) +
+      bloc('vivant', l.vivant) +
+      `  },`
+    )
   })
 
 writeFileSync(
   module_,
-  `// Les compagnons peints : les fichiers de chaque forme, et le monde vivant de
-// leur forme ultime.
+  `// Les compagnons peints : les fichiers de chaque forme — ses humeurs, que la
+// niche échange en place à la révélation —, et le monde vivant de leur forme
+// ultime.
 //
 // Peints en images par \`server/scripts/anime/compagnons.ts\`, dans un seul
 // style — la peinture lumineuse : une collection.
@@ -219,7 +242,9 @@ inscrireDessin({ Compagnon, compagnons: DESSINS })
 )
 // Ce que plus personne ne cite part : un compagnon retiré du catalogue, une couche vivante renommée.
 const cites = new Set(
-  Object.values(livrees).flatMap(l => [...(l.disque ?? []), ...l.perso, ...Object.values(l.vivant ?? {}).flat()].map(a => a.slice('/compagnons/'.length))),
+  Object.values(livrees).flatMap(l =>
+    [...(l.disque ?? []), ...l.perso, ...Object.values(l.humeurs ?? {}).flat(), ...Object.values(l.vivant ?? {}).flat()].map(a => a.slice('/compagnons/'.length)),
+  ),
 )
 for (const f of readdirSync(publics)) if (!cites.has(f)) rmSync(path.join(publics, f))
 console.log(`${nouveaux} compagnon(s) livré(s) dans ${path.relative(DEPOT, publics)}`)

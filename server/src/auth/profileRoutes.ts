@@ -440,6 +440,22 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     }),
   )
 
+  // Le compagnon de sa niche et où il en est — sa plus haute forme, ses bonnes
+  // réponses données avec lui depuis l'adoption (`compagnonsDe`, relues dans
+  // ses journaux) — : la fiche que la niche ouvre au toucher, sur toutes les
+  // pages. Pas le profil entier : la page du profil seule lit sa boutique.
+  // Sans profil ou sans compagnon, null.
+  app.get(
+    '/api/joueur/niche',
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      const cle = me && profiles.compagnonDeLaNiche(me)
+      if (!me || !cle) return res.json({ niche: null })
+      res.json({ niche: (await profiles.compagnonsDe(me)).find(a => a.compagnon === cle) ?? null })
+    }),
+  )
+
   // Le thème qu'il porte, et rien d'autre : les pages qui ne lisent pas son
   // profil — ses quiz, son compte, le souvenir et le bilan d'une soirée — s'en
   // habillent (`client/src/themeJoueur.ts`). Sans profil, null : un invité,
@@ -658,6 +674,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         gerbe: req.body?.gerbe,
         eclat: req.body?.eclat,
         bordure: req.body?.bordure,
+        niche: req.body?.niche,
       })
       // Sa finition et son légendaire se lisent en mémoire à chaque
       // instantané, mais rien ne le renvoyait : c'était la veille suivante
@@ -688,9 +705,10 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   )
 
   /**
-   * Acheter un compagnon, en confettis, à sa première forme — et le porter
-   * aussitôt, ou le garder pour plus tard (`porter: false`), comme un thème.
-   * Porté, la salle où il joue le voit : il remplace son avatar.
+   * Acheter un compagnon, en confettis, à sa première forme : il s'installe
+   * dans sa niche, et se porte aussitôt en avatar, ou pas (`porter: false`),
+   * comme un thème. Porté, la salle où il joue le voit : il remplace son
+   * avatar.
    */
   app.post(
     '/api/joueur/compagnons',

@@ -438,7 +438,7 @@ export class PartyBackup {
     // restauration sur disque effacé rendait le verdict des équipes à la
     // composition du moment.
     await ajouterColonne(this.client, 'party_answers', 'team_id', 'TEXT')
-    // Le compagnon porté à chaque réponse (`AnswerRow.compagnon`) : sans lui,
+    // Le compagnon de sa niche à chaque réponse (`AnswerRow.compagnon`) : sans lui,
     // une restauration sur disque effacé oubliait ce qui l'avait fait grandir.
     await ajouterColonne(this.client, 'party_answers', 'compagnon', 'TEXT')
     await this.client.batch(

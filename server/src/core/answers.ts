@@ -46,9 +46,10 @@ export interface AnswerRow {
    */
   teamId?: string | null
   /**
-   * Le compagnon qu'il portait quand la ligne s'est écrite (`loup`), s'il en
-   * portait un (`shared/compagnons.ts`) : ses bonnes réponses le font
-   * grandir. Absent sans compagnon, et des lignes d'avant.
+   * Le compagnon de sa niche quand la ligne s'est écrite (`loup`) — avant le
+   * 18 octobre 2026, celui qu'il portait (`shared/compagnons.ts`) : ses
+   * bonnes réponses le font grandir. Absent sans compagnon, et des lignes
+   * d'avant.
    */
   compagnon?: string
   createdAt: number

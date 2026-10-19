@@ -360,7 +360,7 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
     'La Chimère, légendaire, à gagner en soirée, au quiz du jour et en campagne, ou en expédition',
     'La Citrouille, légendaire, à gagner pour Halloween',
     'L’Éléphant, légendaire, à gagner en campagne',
-    'Le loup des étoiles, légendaire, à gagner en boutique, puis à 500 bonnes réponses en le portant',
+    'Le loup des étoiles, légendaire, à gagner en boutique, puis à 500 bonnes réponses avec lui',
   ])
     assert.ok(cases.some(c => c.nom === nom), nom)
   // Une pastille sur chaque case qui reste, et leur légende sous la grille.

@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 450 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 451 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -99,7 +99,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Coffre (d'une escale) | Une escale de l'expédition qui offre un joker au choix parmi trois — deux sous Le trésor, aucun après L'horizon | `sorte: 'coffre'`, `offreDeJokers` |
 | Collection de prix | Les prix du palmarès qu'un profil a remportés, sur vingt | `PRIX_INDIVIDUELS`, `CATALOGUE_DES_PRIX` (`server/src/core/stats.ts`) |
 | Commande du jour | Ce que la routine doit écrire aujourd'hui pour chaque catégorie : combien de questions, quels sous-thèmes et quelles difficultés | `commandeDuJour` |
-| Compagnon | Un avatar peint acheté en boutique, qui grandit avec les bonnes réponses données en le portant | `COMPAGNONS` |
+| Compagnon | Un animal peint adopté en boutique, qui vit dans sa niche et grandit avec les bonnes réponses données avec lui ; chacune de ses formes atteintes se porte aussi en avatar | `COMPAGNONS` |
 | Compte | Un espace, vu du serveur : son identifiant cloisonne ses quiz, sa soirée et son historique ; il ne bouge jamais | `accounts`, `AuthStore` |
 | Compte d'avant | Un espace à identifiant et mot de passe, d'avant les salons ouverts par les profils — celui de l'administrateur en est un | `AccountRec.passwordHash` |
 | Confetti | La monnaie des profils : une bonne réponse, un confetti — en soirée qui compte, au quiz du jour, en campagne —, plus les étoiles des sentiers, les ligues des duels et les dons de l'administrateur | `confettisDeSoiree` |
@@ -338,6 +338,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | Ne plus l'attendre | Le geste de l'animateur qui dispense un téléphone mort d'être attendu à chaque question | `dispenses` |
+| Niche | La petite fenêtre en arche, en haut à droite de chaque page du téléphone, où vit le compagnon qui grandit ; il y réagit à la révélation — souffle retenu, ravi, dépité, des cœurs —, en sort au podium, et la toucher ouvre sa fiche — sans compagnon, pas de niche | `compagnonDeLaNiche`, `profiles.niche`, `components/Niche.tsx`, `shared/niche.ts` |
 | Niveau | Ce que l'expérience donne sur la courbe 60 × (n − 1)², ou celui qu'une courbe d'avant avait donné, s'il est plus haut et qu'elle le donne encore | `niveauDuProfil` |
 | Niveau d'Automate | Le score qu'Automate vise sur une série : le niveau de campagne du joueur pendant son placement, puis celui de sa cote | `niveauPourLeDuel` |
 | Niveau de campagne | Le score qu'un joueur ferait en moyenne sur une série tirée pour lui, d'après ses réponses de campagne | `scoreDeReference` |

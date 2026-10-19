@@ -1,13 +1,18 @@
-// Les compagnons : des avatars peints qu'on achète en boutique, et qui
-// grandissent avec celui qui les porte (le choix du 13 octobre 2026).
+// Les compagnons : des animaux peints qu'on adopte en boutique, et qui
+// grandissent avec soi (le choix du 13 octobre 2026).
 //
 // Un légendaire se décroche par un exploit, un portrait en sachant ; un
 // compagnon s'achète à sa première forme, puis grandit avec les bonnes
-// réponses données en le portant — dans tous les modes de jeu : soirées, quiz
-// du jour, campagne, duels. Quatre formes du même individu, chacune plus
-// riche que la précédente, et plus rare : un avatar payé cher récompense
+// réponses données avec lui — dans tous les modes de jeu : soirées, quiz du
+// jour, campagne, duels. Quatre formes du même individu, chacune plus riche
+// que la précédente, et plus rare : un compagnon payé cher récompense
 // l'assiduité, et il doit être beau (le propriétaire). Une forme atteinte ne
-// se perd jamais, et l'on peut toujours porter une forme d'avant.
+// se perd jamais, et chacune se porte aussi en avatar.
+//
+// Il vit dans sa niche, en haut de chaque page du téléphone (le choix du 18
+// octobre 2026, `retours/2026-10-16/compagnon/principe.md`), et c'est celui
+// de la niche qui grandit : jusque-là, celui qu'on portait — et porter un
+// médaillon ne fait plus grandir personne.
 //
 // Comme tout ce qui se porte, un compagnon ne donne AUCUN avantage de jeu.
 //
@@ -22,7 +27,7 @@ import type { Rarete } from './badges'
 export const PRIX_D_UN_COMPAGNON = 1000
 
 /**
- * Les bonnes réponses données en le portant qu'il faut pour atteindre chaque
+ * Les bonnes réponses données avec lui qu'il faut pour atteindre chaque
  * forme : la première à l'achat, puis 100, 300 et 500, comptées depuis
  * l'achat. Un choix de produit, pas une constante technique.
  */
@@ -55,9 +60,9 @@ export interface Compagnon {
   /** « Le Loup », comme la boutique le vend. */
   nom: string
   /**
-   * Ce qui le reprend : « en la portant », pour la tortue. Toutes ses formes
-   * ont son genre — « La jeune tortue arrive à 100 bonnes réponses données en
-   * le portant » se lisait de travers.
+   * Ce qui le reprend : « avec elle », pour la tortue. Toutes ses formes ont
+   * son genre — « La jeune tortue arrive à 100 bonnes réponses données en le
+   * portant » se lisait de travers.
    */
   le: 'le' | 'la'
   /** L'emoji qui le dit là où rien ne se peint : une ligne, un compte. */
@@ -148,10 +153,10 @@ export function compagnonDe(f: FormeDeCompagnon): Compagnon {
   return COMPAGNON_PAR_CLE.get(f.compagnon)!
 }
 
-/** Ce qui le fait grandir, dit à son genre : « en le portant », « en la portant ». */
-export const enLePortant = (c: Compagnon) => `en ${c.le} portant`
+/** Ce qui le fait grandir, dit à son genre : « avec lui », « avec elle ». */
+export const avecLui = (c: Compagnon) => (c.le === 'la' ? 'avec elle' : 'avec lui')
 
-/** Le rang de la plus haute forme que ces bonnes réponses, données en le portant, font atteindre. */
+/** Le rang de la plus haute forme que ces bonnes réponses, données avec lui, font atteindre. */
 export function rangAtteint(justes: number): number {
   let rang = 0
   JUSTES_DES_FORMES.forEach((seuil, r) => {
@@ -171,7 +176,7 @@ export interface CompagnonPossede {
   rang: number
 }
 
-/** Et les bonnes réponses données en le portant depuis l'achat, relues dans ses journaux : la jauge de la forme suivante. */
+/** Et les bonnes réponses données avec lui depuis l'achat, relues dans ses journaux : la jauge de la forme suivante. */
 export interface CompagnonAcquis extends CompagnonPossede {
   justes: number
 }
@@ -192,4 +197,22 @@ export function formesOuvertes(possedes: readonly CompagnonPossede[]): string[] 
 /** La plus haute forme qu'il a de ce compagnon. */
 export function formeLaPlusHaute(a: CompagnonPossede): FormeDeCompagnon | undefined {
   return compagnon(a.compagnon)?.formes[a.rang]
+}
+
+/**
+ * Le compagnon de sa niche — celui que ses bonnes réponses font grandir — ;
+ * null sans compagnon. Celui qu'il y a installé (`choisi`), sinon celui qu'il
+ * porte (`porte`, une forme) : jusqu'au 18 octobre 2026, c'était le seul qui
+ * grandissait, et qui n'a jamais choisi ne voit pas le sien changer de
+ * maison. Sinon le plus grand des siens, le premier du catalogue à égalité.
+ * Rien qu'il n'ait pas : un nom inconnu, un compagnon qu'il n'a pas adopté.
+ */
+export function compagnonDeLaNiche(choisi: unknown, porte: unknown, possedes: readonly CompagnonPossede[]): CleDeCompagnon | null {
+  const sien = (c: unknown) => possedes.find(a => a.compagnon === c)
+  let plusGrand: CompagnonPossede | undefined
+  for (const c of COMPAGNONS) {
+    const a = sien(c.key)
+    if (a && (!plusGrand || a.rang > plusGrand.rang)) plusGrand = a
+  }
+  return (sien(choisi) ?? sien(formeDeCompagnon(porte)?.compagnon) ?? plusGrand)?.compagnon ?? null
 }

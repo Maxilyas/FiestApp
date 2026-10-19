@@ -6,7 +6,6 @@ import type { Finition } from '../../../shared/profil'
 import type { LaurierPorte } from '../../../shared/jour'
 import type { BordureDeLigue } from '../../../shared/duels'
 import { DEFAULT_AVATAR, cleanAvatar, cleanName, niveauRequis } from '../../../shared/avatars'
-import { formeDeCompagnon } from '../../../shared/compagnons'
 import { nomsAffiches, visageDe } from '../../../shared/homonymes'
 
 export interface PlayerRec {
@@ -93,6 +92,8 @@ export class Party {
     private spaceId: string,
     private backup?: PartyMirror,
     private badgeOf?: BadgeLookup,
+    /** Le compagnon de sa niche (`ProfileStore.compagnonDeLaNiche`), de mémoire : la salle n'en voit rien. */
+    private nicheOf?: (profileId: string) => string | null,
   ) {
     for (const row of db.prepare('SELECT * FROM players WHERE space_id = ?').all(spaceId) as any[]) {
       this.players.set(row.id, {
@@ -421,14 +422,14 @@ export class Party {
   }
 
   /**
-   * Le compagnon qu'il porte en ce moment (`loup`), s'il en porte un : la
-   * ligne de sa réponse le retient, et ses bonnes réponses le font grandir.
-   * Lu comme l'instantané le lit (`badgeOf`), de mémoire.
+   * Le compagnon de sa niche (`loup`), s'il en a un : la ligne de sa réponse
+   * le retient, et ses bonnes réponses le font grandir — qu'il le porte ou
+   * non (le choix du 18 octobre 2026). Lu de mémoire, comme l'instantané.
    */
   compagnonDe(playerId: string): string | undefined {
     const p = this.players.get(playerId)
     if (!p?.profileId) return undefined
-    return formeDeCompagnon(this.badgeDe(p)?.legendaire)?.compagnon
+    return this.nicheOf?.(p.profileId) ?? undefined
   }
 
   publicPlayers(totals: Map<string, number>): PublicPlayer[] {

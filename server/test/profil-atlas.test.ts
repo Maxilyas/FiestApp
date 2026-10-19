@@ -88,11 +88,11 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
   const epique = casesDeLAlbum(await album('epique'))
   assert.equal(epique.length, BRANCHES.length + COMPAGNONS.length)
   assert.equal(epique.filter(c => !c.aLui && c.nom.endsWith(', épique, à gagner sur les sentiers')).length, BRANCHES.length)
-  // Chacun à son genre : « en la portant », pour la tortue.
+  // Chacun à son genre : « avec elle », pour la tortue.
   for (const c of COMPAGNONS) {
-    assert.equal(epique.filter(x => !x.aLui && x.nom === `${c.formes[2].nom}, épique, à gagner en boutique, puis à 300 bonnes réponses en ${c.le} portant`).length, 1, c.key)
+    assert.equal(epique.filter(x => !x.aLui && x.nom === `${c.formes[2].nom}, épique, à gagner en boutique, puis à 300 bonnes réponses ${c.le === 'la' ? 'avec elle' : 'avec lui'}`).length, 1, c.key)
   }
-  assert.ok(epique.some(x => x.nom === 'La tortue-bosquet, épique, à gagner en boutique, puis à 300 bonnes réponses en la portant'))
+  assert.ok(epique.some(x => x.nom === 'La tortue-bosquet, épique, à gagner en boutique, puis à 300 bonnes réponses avec elle'))
   // Chaque gemme dit où il en est, en chiffres : la couleur seule ne se lit pas.
   // Les compagnons y ont aussi leur forme, une par page : trois de plus.
   const html = await album('commune')

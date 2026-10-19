@@ -29,6 +29,7 @@ import { Installer } from '../components/Installer'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
+import { porterNiche } from '../niche'
 import { relireLesMissions } from '../missions'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
@@ -294,6 +295,12 @@ export function ProfilApp() {
   useEffect(() => {
     if (!chargement) porterGerbe(profil?.gerbe)
   }, [chargement, profil?.gerbe])
+  // Et la niche de son compagnon : adopté ou installé à la boutique, il y entre tout de suite.
+  const niche = profil?.niche
+  const rangDeLaNiche = profil?.compagnons?.find(c => c.compagnon === niche)?.rang
+  useEffect(() => {
+    if (!chargement) porterNiche(niche && rangDeLaNiche !== undefined ? { niche, compagnons: [{ compagnon: niche, rang: rangDeLaNiche }] } : null)
+  }, [chargement, niche, rangDeLaNiche])
 
   // L'accueil affiché, le code du quiz du jour, de la campagne et des duels
   // vient en fond : toucher leur bouton ouvre la page sans le télécharger d'abord.

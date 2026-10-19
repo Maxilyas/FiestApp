@@ -1,9 +1,10 @@
 // Les compagnons de la boutique (le choix du 13 octobre 2026) : achetés
 // 1000 confettis à leur première forme, ils grandissent avec les bonnes
-// réponses données en les portant — celles qui rapportent un confetti, en
-// soirée, au quiz du jour, en campagne —, à 100, 300 et 500. Une forme
-// atteinte ne se perd jamais, l'on peut porter une forme d'avant, et qui
-// portait sa plus haute porte la nouvelle.
+// réponses données avec eux — celles qui rapportent un confetti, en soirée,
+// au quiz du jour, en campagne —, à 100, 300 et 500. Une forme atteinte ne
+// se perd jamais, l'on peut porter une forme d'avant, et qui portait sa plus
+// haute porte la nouvelle. Celui qui grandit est celui de sa niche, qu'il le
+// porte ou non (le 18 octobre 2026) : `niche.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -154,7 +155,7 @@ test('la boutique : trois compagnons, leurs quatre formes et ce qu’elles deman
   // Le loup grandi d'une forme, porté ; trop peu de confettis pour les autres.
   const avecLeLoup = await rayon({ legendaire: 'cp:loup-jeune', boutique: boutique(50, [{ compagnon: 'loup', rang: 1, justes: 162 }]) })
   assert.match(avecLeLoup, /À toi · Le jeune loup, deuxième forme/)
-  assert.match(avecLeLoup, /162 sur 300 bonnes réponses en le portant\s: le loup adulte/)
+  assert.match(avecLeLoup, /162 sur 300 bonnes réponses avec lui\s: le loup adulte/)
   assert.match(avecLeLoup, /<a class="link-inline" href="\/profil#avatar">Tu le portes · en changer<\/a>/)
   // Ses formes atteintes cochées ; la sienne montrée en grand.
   assert.equal(avecLeLoup.match(/class="compagnon-forme compagnon-atteinte"/g)?.length, 2)
@@ -167,7 +168,7 @@ test('la boutique : trois compagnons, leurs quatre formes et ce qu’elles deman
   assert.match(await rayon({ legendaire: null, boutique: boutique(0, [{ compagnon: 'tortue', rang: 3, justes: 620 }]) }), /Sa forme ultime\s: son monde prend vie\./)
   // La tortue se dit au féminin : « Tu le portes » se lisait de travers sous elle.
   const avecLaTortue = await rayon({ legendaire: 'cp:tortue-jeune', boutique: boutique(0, [{ compagnon: 'tortue', rang: 1, justes: 120 }]) })
-  assert.match(avecLaTortue, /120 sur 300 bonnes réponses en la portant\s: la tortue-bosquet/)
+  assert.match(avecLaTortue, /120 sur 300 bonnes réponses avec elle\s: la tortue-bosquet/)
   assert.match(avecLaTortue, /<a class="link-inline" href="\/profil#avatar">Tu la portes · en changer<\/a>/)
   assert.match(avecLaTortue, /aria-label="Les formes de la Tortue-île"/)
 })
@@ -260,7 +261,7 @@ test('un compagnon s’achète 1000 confettis à sa première forme, et se porte
     // Ce qu'il n'a pas ne se porte pas : une forme pas encore atteinte, un compagnon pas acheté.
     const tropTot = await porter(banc, cookie, { legendaire: 'cp:loup-jeune' })
     assert.equal(tropTot.status, 400)
-    assert.equal(tropTot.corps.error, 'Le jeune loup arrive à 100 bonnes réponses données en le portant')
+    assert.equal(tropTot.corps.error, 'Le jeune loup arrive à 100 bonnes réponses données avec lui')
     assert.equal((await porter(banc, cookie, { legendaire: 'cp:tortue-bebe' })).corps.error, 'La Tortue-île s’achète d’abord, à la boutique')
 
     // Un emoji l'ôte ; il se reporte d'un geste.
@@ -280,7 +281,7 @@ test('un compagnon s’achète 1000 confettis à sa première forme, et se porte
     // La tortue se dit au féminin, jusque dans le refus.
     confettis(banc, alice, '2026-09-22', 1000)
     assert.equal((await acheter(banc, cookie, 'tortue', false)).status, 200)
-    assert.equal((await porter(banc, cookie, { legendaire: 'cp:tortue-jeune' })).corps.error, 'La jeune tortue arrive à 100 bonnes réponses données en la portant')
+    assert.equal((await porter(banc, cookie, { legendaire: 'cp:tortue-jeune' })).corps.error, 'La jeune tortue arrive à 100 bonnes réponses données avec elle')
 
     // La salle le voit : il remplace son emoji à l'instantané.
     assert.equal(
@@ -289,14 +290,14 @@ test('un compagnon s’achète 1000 confettis à sa première forme, et se porte
     )
   }))
 
-test('il grandit avec les bonnes réponses données en le portant ; qui le portait à sa plus haute forme porte la nouvelle ; une forme atteinte ne se perd jamais', () =>
+test('il grandit avec les bonnes réponses données avec lui ; qui le portait à sa plus haute forme porte la nouvelle ; une forme atteinte ne se perd jamais', () =>
   avecBanc(async banc => {
     const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     const alice = idDe(banc, 'alice')
     confettis(banc, alice, '2026-09-20', 1000)
     assert.equal((await acheter(banc, cookie, 'loup')).status, 200)
 
-    // 99 bonnes réponses en le portant, et une sans lui : pas encore.
+    // 99 bonnes réponses avec lui, et une sans lui : pas encore.
     serieEnPortant(banc, alice, 's1', 99, 'loup')
     serieEnPortant(banc, alice, 's2', 1, null)
     let moi = await lire(banc, cookie)
@@ -326,7 +327,7 @@ test('il grandit avec les bonnes réponses données en le portant ; qui le porta
     assert.equal((await porter(banc, cookie, { legendaire: 'cp:loup-jeune' })).status, 200, 'une forme d’avant se porte toujours')
     assert.equal(
       (await porter(banc, cookie, { legendaire: 'cp:loup-ultime' })).corps.error,
-      'Le loup des étoiles arrive à 500 bonnes réponses données en le portant',
+      'Le loup des étoiles arrive à 500 bonnes réponses données avec lui',
     )
   }))
 
@@ -338,7 +339,7 @@ function bonnes(banc: Banc, serie: string): number[] {
   })
 }
 
-test('en campagne et au quiz du jour, chaque réponse retient le compagnon qu’il porte', () =>
+test('en campagne et au quiz du jour, chaque réponse retient le compagnon de sa niche — porté ou non', () =>
   avecBanc(async banc => {
     const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     const alice = idDe(banc, 'alice')
@@ -363,7 +364,8 @@ test('en campagne et au quiz du jour, chaque réponse retient le compagnon qu’
       ],
     )
 
-    // Le quiz du jour : toute la partie, sans compagnon d'abord pour la première.
+    // Le quiz du jour : toute la partie, la tortue ôtée de son avatar pour la
+    // première — elle reste dans sa niche.
     assert.equal((await porter(banc, cookie, { avatar: '🦊' })).status, 200)
     let etat = (await (await ecrire(banc.url, '/api/jour/commencer', {}, cookie)).json()) as any
     const questions = enBase(banc, db =>
@@ -381,13 +383,13 @@ test('en campagne et au quiz du jour, chaque réponse retient le compagnon qu’
       compagnon: string | null
     }[]
     assert.equal(lignes.length, 10)
-    assert.equal(lignes[0].compagnon, null, 'sans compagnon, rien à retenir')
+    assert.equal(lignes[0].compagnon, 'tortue', 'pas portée, mais dans sa niche : elle grandit')
     assert.ok(
       lignes.slice(1).every(l => l.compagnon === 'tortue'),
-      'portée dès la deuxième question',
+      'portée, de même',
     )
-    // Deux justes en campagne, neuf au quiz du jour.
-    assert.deepEqual((await lire(banc, cookie)).boutique.compagnons, [{ compagnon: 'tortue', rang: 0, justes: 11 }])
+    // Deux justes en campagne, dix au quiz du jour.
+    assert.deepEqual((await lire(banc, cookie)).boutique.compagnons, [{ compagnon: 'tortue', rang: 0, justes: 12 }])
   }))
 
 // ── Une vraie soirée ──────────────────────────────────────────────────────

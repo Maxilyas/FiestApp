@@ -248,7 +248,16 @@ export class SpaceRuntime {
     this.mirror = deps.backup.forSpace(spaceId)
     // La décoration se lit en mémoire : elle sert à chaque diffusion à toute
     // la salle, et un profil est déjà chargé quand son joueur s'est inscrit.
-    this.party = new Party(deps.db, spaceId, this.mirror, (profileId, avatar) => deps.profiles.badgeDe(profileId, avatar))
+    this.party = new Party(
+      deps.db,
+      spaceId,
+      this.mirror,
+      (profileId, avatar) => deps.profiles.badgeDe(profileId, avatar),
+      profileId => {
+        const p = deps.profiles.cached(profileId)
+        return p ? deps.profiles.compagnonDeLaNiche(p) : null
+      },
+    )
     this.teams = new Teams(deps.db, spaceId, this.mirror)
     this.ledger = new ScoreLedger(deps.db, spaceId, this.mirror)
     this.answers = new AnswerLog(deps.db, spaceId, this.mirror)

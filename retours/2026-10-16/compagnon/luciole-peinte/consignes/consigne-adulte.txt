@@ -1,0 +1,13 @@
+Square avatar illustration for a party quiz game: a collectible companion that a player buys and raises, shown at one of its four forms, each richer than the one before. It must read instantly even as a tiny round icon: a strong silhouette, big clear shapes, the face well lit. No text, no letters, no numbers, no signature, no watermark, no frame, no border, no round badge, no drawn circle, no vignette. Output one square image (1:1 aspect ratio).
+
+The attached image is this companion’s model sheet: the same individual at four ages, from left to right. Paint exactly this individual, in exactly the style of the sheet — its coat colors and markings, its eyes, its proportions at this age.
+
+Style: a luminous painterly digital illustration — visible soft brush strokes, glowing magical light, a dreamy atmosphere with floating motes of light, a refined jewel-tone palette (deep blues, silver, soft teal).
+
+An original character design: imitate no existing film, studio, game or character. No gold leaf, no gilding.
+
+Its identity never changes from one age to the next: a round, soft, plush-like body of warm amber and honey-brown fuzz; a glowing lantern-like belly that shines a soft golden-green light; big gentle dark eyes with tiny star-shaped highlights; rosy cheeks; two long curling antennae ending in tiny glowing tips. A cute, round, cuddly design, never a realistic insect: no mandibles, no hairy legs — only six tiny stubby legs. It must look nothing like a bee or a ladybird.
+
+Subject: its third form — the adult firefly, graceful and bright: delicate translucent wings veined with amber spread open, its lantern belly shining warm light, a ribbon of light trailing behind it (the third from the left on the model sheet), calm and attentive, looking at the viewer, in a three-quarter view.
+
+Setting: a winding path through an old forest at night, mossy roots and ferns, the path lit by the firefly’s glow and the trail of light behind it. The setting fills the whole canvas edge to edge behind it. Framing: the animal large and centered, in the lower part of the canvas; its raised antennae and the tips of its open wings rise high, up into the top band of the canvas close to the top edge — that is what this form is about. Its body stays well inside the canvas.

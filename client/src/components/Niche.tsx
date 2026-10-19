@@ -1,0 +1,759 @@
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { Icon } from './Icon'
+import { DESSINS } from './compagnons-peints'
+import type { DessinDeCompagnon, HumeurPeinte } from './Compagnon'
+import { useModale } from '../modale'
+import { api } from '../api'
+import { espacesFines, formatNumber } from '../format'
+import {
+  JUSTES_DES_FORMES,
+  NOM_DE_LA_FORME,
+  avecLui,
+  compagnon as leCompagnon,
+  prochaineForme,
+  type CompagnonAcquis,
+  type FormeDeCompagnon,
+} from '../../../shared/compagnons'
+import { NOM_RARETE } from '../../../shared/badges'
+import { ecouterLaNiche, porterNiche, type MomentDeLaNiche, type NicheVue } from '../niche'
+
+// La niche du compagnon (le choix du 18 octobre 2026,
+// `retours/2026-10-16/compagnon/principe.md`) : une petite fenêtre en arche,
+// toujours au même coin — en haut à droite de la colonne du téléphone —, sur
+// toutes les pages qui lisent le profil. Son fond est le décor peint de sa
+// forme, celui de son avatar (« la déco », le propriétaire : le médaillon qui
+// suivait a été écarté pour « trop de variation ») ; il y est en buste, grand
+// visage. Calme : il ne bouge pas de lui-même — seulement à la révélation, où
+// ses humeurs peintes s'échangent en place (le principe, § 2 : ravi d'une
+// bonne réponse, qui le nourrit ; dépité avec toi d'une ratée ; une bulle de
+// cœurs quand peu l'ont trouvée ; au podium ou à une forme atteinte, il sort
+// de sa niche). Elle se fait petite quand la page défile, et la toucher ouvre
+// sa fiche — sa forme, sa jauge, « Le caresser », qui ne rapporte rien
+// (invariant 8 : aucun avantage). Chaque page lui laisse son coin
+// (`body.avec-niche`, `styles.css`).
+
+/**
+ * Le cadrage en buste de chaque forme, en largeurs de niche : le côté du
+ * dessin « perso » livré (`DessinDeCompagnon.perso`, un carré), où poser son
+ * coin haut-gauche, et s'il se retourne pour regarder la page — la tortue la
+ * regarde déjà. Rapporté du cadrage de la maquette, posé à l'œil sur ses
+ * humeurs rognées, au carré du dessin de l'application, au pixel près
+ * (`retours/2026-10-16/compagnon/`) : un compagnon livré de plus prend sa
+ * ligne, sinon sa niche le montre entier, sans buste.
+ */
+const CADRAGES: Readonly<Record<string, { taille: number; gauche: number; haut: number; miroir: boolean }>> = {
+  'cp:loup-louveteau': { taille: 1.5328, gauche: -0.2159, haut: -0.0027, miroir: true },
+  'cp:loup-jeune': { taille: 1.806, gauche: -0.3386, haut: -0.0141, miroir: true },
+  'cp:loup-adulte': { taille: 2.0493, gauche: -0.3743, haut: -0.0631, miroir: true },
+  'cp:loup-ultime': { taille: 2.5241, gauche: -0.692, haut: -0.3528, miroir: true },
+  'cp:chat-chaton': { taille: 1.4407, gauche: -0.2799, haut: 0.0492, miroir: true },
+  'cp:chat-jeune': { taille: 1.8963, gauche: -0.4222, haut: -0.063, miroir: true },
+  'cp:chat-adulte': { taille: 1.996, gauche: -0.4413, haut: -0.2191, miroir: true },
+  'cp:chat-esprit': { taille: 1.6296, gauche: -0.2593, haut: 0.1111, miroir: true },
+  'cp:tortue-bebe': { taille: 1.0956, gauche: -0.04, haut: 0.0434, miroir: false },
+  'cp:tortue-jeune': { taille: 1.2953, gauche: -0.0944, haut: -0.0854, miroir: false },
+  'cp:tortue-adulte': { taille: 1.4343, gauche: -0.1811, haut: -0.1256, miroir: false },
+  'cp:tortue-ile': { taille: 1.369, gauche: -0.1558, haut: -0.1558, miroir: false },
+}
+
+/** Sans cadrage : le dessin entier, au fond de la niche. */
+const ENTIER = { taille: 1, gauche: 0, haut: 0.15, miroir: false }
+
+/**
+ * Où est l'animal entier dans son dessin « perso » (gauche, haut, droite, bas,
+ * en fractions du carré) : là où il se pose quand il sort de sa niche, ses
+ * pattes au bas de l'écran. Mesuré sur ses humeurs neutre, ravie et
+ * triomphante réunies — la queue levée élargit son cadre. Sans mesure, le
+ * dessin entier.
+ */
+const SILHOUETTES: Readonly<Record<string, readonly [number, number, number, number]>> = {
+  'cp:loup-louveteau': [0, 0.086, 0.92, 0.906],
+  'cp:loup-jeune': [0.035, 0.061, 0.818, 0.98],
+  'cp:loup-adulte': [0.127, 0.078, 0.812, 0.922],
+  'cp:loup-ultime': [0.155, 0.174, 0.743, 0.854],
+  'cp:chat-chaton': [0.031, 0.055, 0.871, 0.898],
+  'cp:chat-jeune': [0.168, 0.074, 0.756, 0.988],
+  'cp:chat-adulte': [0.063, 0.141, 0.859, 0.969],
+  'cp:chat-esprit': [0.004, 0.004, 0.996, 0.996],
+  'cp:tortue-bebe': [0.082, 0.057, 0.904, 0.912],
+  'cp:tortue-jeune': [0.07, 0.178, 0.865, 0.869],
+  'cp:tortue-adulte': [0.113, 0.061, 0.868, 0.888],
+  'cp:tortue-ile': [0.072, 0.072, 0.915, 0.94],
+}
+
+/** Ce qui s'envole quand on le caresse : des cœurs et des étincelles, comme à la boutique — des emojis d'avant Unicode 13. */
+const ENVOLS = ['💛', '✨', '💖', '✨', '💛']
+
+/** La page a défilé de plus que cela : la niche se fait petite. */
+const REPLI_PX = 40
+
+/** Ce que montre la niche : l'expression neutre, ou l'une de ses humeurs peintes. */
+type Humeur = 'neutre' | HumeurPeinte
+
+/** Les humeurs de la révélation, chargées d'avance au coin de la page ; le triomphe ne vient qu'à son heure. */
+const HUMEURS_DE_LA_REVELATION: readonly HumeurPeinte[] = ['ravi', 'depite']
+
+/** Le temps du repas : sa jauge paraît, puis se cache. */
+const REPAS_MS = 1600
+/** Le vol des étincelles, de ce que la réponse rapporte jusqu'à sa niche. */
+const VOL_MS = 820
+/** Il sort après l'expérience : la page la montre d'abord (`Celebration`, en soirée), il attend qu'elle s'en aille. */
+const AVANT_LA_SORTIE_MS = 1200
+const CELEBRATION_MAX_MS = 8000
+/** Dehors, combien de temps il reste — chaque caresse le retient un peu, jamais plus que `DEHORS_MAX_MS`. */
+const DEHORS_MS = 4200
+const RETENU_MS = 2200
+const DEHORS_MAX_MS = 9000
+/** Sans le mouvement qu'il fait pour sortir, il triomphe dans sa niche, ce temps-là. */
+const TRIOMPHE_SUR_PLACE_MS = 2800
+/** Un souffle retenu sans verdict — un quiz arrêté, une page quittée — se relâche de lui-même. */
+const SOUFFLE_MAX_MS = 120_000
+
+const sansMouvement = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+const attendre = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+
+/** Une image chargée et décodée avant qu'on la montre : il ne sort pas sans visage. */
+function precharger(src: string): Promise<void> {
+  const img = new Image()
+  img.src = src
+  return img.decode().catch(() => {})
+}
+
+/** Un cœur, dessiné : la bulle et ce qui monte quand on le caresse dehors. */
+function Coeur() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 21.5C5 16 1.5 12.4 1.5 8.2 1.5 5.1 3.9 2.8 6.9 2.8c2.1 0 3.9 1.1 5.1 2.9 1.2-1.8 3-2.9 5.1-2.9 3 0 5.4 2.3 5.4 5.4 0 4.2-3.5 7.8-10.5 13.3Z" fill="#e8739a" />
+    </svg>
+  )
+}
+
+/** Une étincelle : ce qu'une bonne réponse lui apporte. */
+function Etincelle() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 0C12.8 7.6 16.4 11.2 24 12C16.4 12.8 12.8 16.4 12 24C11.2 16.4 7.6 12.8 0 12C7.6 11.2 11.2 7.6 12 0Z" fill="#ffe7a3" />
+    </svg>
+  )
+}
+
+/** Il pleut chez lui, dépité avec toi : rien ne sort vers la page. */
+function Pluie() {
+  return (
+    <span className="niche-pluie">
+      <svg viewBox="0 0 40 30" aria-hidden="true">
+        <path d="M10 20h20a8 8 0 0 0 1-15.9A10 10 0 0 0 12.2 3 7.5 7.5 0 0 0 10 20Z" fill="#8a93a3" />
+        <g stroke="#9cc8f5" strokeWidth="2" strokeLinecap="round">
+          <path className="niche-goutte" d="M14 22l-1 4" />
+          <path className="niche-goutte" d="M21 22l-1 4" />
+          <path className="niche-goutte" d="M28 22l-1 4" />
+        </g>
+      </svg>
+    </span>
+  )
+}
+
+/** Un geste qui se rejoue à chaque fois : sautiller de joie, s'abattre. */
+interface Geste {
+  sorte: 'saute' | 'abat'
+  n: number
+}
+
+/**
+ * Ses gestes, joués sur lui sans le remonter : remonté, son dessin se
+ * redécodait, et l'animal pouvait manquer le temps d'une image. Abattu, il le
+ * reste jusqu'au calme.
+ */
+const GESTES: Record<Geste['sorte'], { images: Keyframe[]; options: KeyframeAnimationOptions }> = {
+  saute: {
+    images: [
+      { transform: 'translateY(0) scale(1, 1)' },
+      { offset: 0.18, transform: 'translateY(2%) scale(1.05, 0.94)' },
+      { offset: 0.45, transform: 'translateY(-9%) scale(0.97, 1.05)' },
+      { offset: 0.7, transform: 'translateY(0) scale(1.04, 0.96)' },
+      { transform: 'translateY(0) scale(1, 1)' },
+    ],
+    options: { duration: 800, easing: 'cubic-bezier(0.3, 0.6, 0.35, 1)' },
+  },
+  abat: {
+    images: [{ transform: 'translateY(0)' }, { offset: 0.4, transform: 'translateY(3%) scale(1.02, 0.96)' }, { transform: 'translateY(2%) scale(1.01, 0.97)' }],
+    options: { duration: 900, easing: 'ease-out', fill: 'forwards' },
+  },
+}
+
+/**
+ * L'arche : son cadre, le décor peint de sa forme — un ciel teinté à la
+ * première, qui n'en a pas —, lui en buste, son rebord et la jauge qu'il y
+ * montre le temps d'un repas. Ses humeurs se posent sur l'expression neutre,
+ * le même dessin repeint : une seule se voit, échangée en fondu, et jamais
+ * avant d'être chargée — l'animal ne disparaît pas le temps de l'image.
+ * `humeurs` : celles à charger dès maintenant.
+ */
+function Arche({
+  forme,
+  dessin,
+  humeur = 'neutre',
+  humeurs = [],
+  geste = null,
+  jauge = null,
+}: {
+  forme: FormeDeCompagnon
+  dessin: DessinDeCompagnon
+  humeur?: Humeur
+  humeurs?: readonly HumeurPeinte[]
+  geste?: Geste | null
+  jauge?: number | null
+}) {
+  const c = CADRAGES[forme.key] ?? ENTIER
+  const decor = dessin.disque?.[1]
+  const [chargees, setChargees] = useState<ReadonlySet<string>>(() => new Set())
+  const montree = humeur !== 'neutre' && dessin.humeurs && chargees.has(dessin.humeurs[humeur][0]) ? humeur : 'neutre'
+  const aCharger = humeur !== 'neutre' && !humeurs.includes(humeur) ? [...humeurs, humeur] : humeurs
+  const bete: CSSProperties = {
+    left: `calc(var(--l) * ${c.gauche})`,
+    top: `calc(var(--l) * ${c.haut})`,
+    width: `calc(var(--l) * ${c.taille})`,
+    height: `calc(var(--l) * ${c.taille})`,
+  }
+  const corps = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const el = corps.current
+    if (!geste || !el?.animate || sansMouvement()) return
+    const a = el.animate(GESTES[geste.sorte].images, GESTES[geste.sorte].options)
+    return () => a.cancel()
+  }, [geste?.sorte, geste?.n]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <span className="niche-cadre" aria-hidden="true">
+      <span className={'niche-decor' + (decor ? '' : ` niche-ciel niche-ciel-${forme.compagnon}`)} style={decor ? { backgroundImage: `url(${decor})` } : undefined} />
+      <span ref={corps} className={'niche-bete' + (c.miroir ? ' miroir' : '')} style={bete}>
+        <img className={montree === 'neutre' ? 'on' : undefined} src={dessin.perso[0]} alt="" decoding="async" draggable={false} />
+        {dessin.humeurs &&
+          aCharger.map(h => {
+            const src = dessin.humeurs![h][0]
+            return (
+              <img
+                key={h}
+                className={montree === h ? 'on' : undefined}
+                src={src}
+                alt=""
+                decoding="async"
+                draggable={false}
+                onLoad={() => setChargees(s => (s.has(src) ? s : new Set(s).add(src)))}
+              />
+            )
+          })}
+      </span>
+      {humeur === 'depite' && <Pluie />}
+      <span className="niche-rebord">
+        {jauge !== null && (
+          <span className="niche-jauge">
+            <span style={{ width: `${Math.round(jauge * 100)}%` }} />
+          </span>
+        )}
+      </span>
+    </span>
+  )
+}
+
+/** La part de sa forme suivante qu'il a déjà : rien à sa forme ultime (ses paliers viendront). */
+function partDeLaJauge(justes: number, rang: number): number | null {
+  const seuil = JUSTES_DES_FORMES[rang + 1]
+  return seuil === undefined ? null : Math.min(1, justes / seuil)
+}
+
+/** Des étincelles, de ce que la réponse rapporte jusqu'à sa niche : il mange. */
+function Etincelles({ de, vers }: { de: DOMRect; vers: DOMRect }) {
+  const traits = useRef<(HTMLSpanElement | null)[]>([])
+  // Avant la première image : posées au coin de l'écran, elles y paraîtraient le temps d'une image.
+  useLayoutEffect(() => {
+    const x0 = de.left + de.width / 2
+    const y0 = de.top + de.height / 2
+    const x1 = vers.left + vers.width / 2
+    const y1 = vers.bottom - 6
+    const vols = traits.current.map((s, k) => {
+      if (!s?.animate) return null
+      const taille = k === 0 ? 18 : 11
+      // Une courbe qui monte avant de redescendre sur lui, chacune la sienne.
+      const images: Keyframe[] = []
+      for (let i = 0; i <= 24; i++) {
+        const t = i / 24
+        const x = x0 + (x1 - x0) * t - Math.sin(t * Math.PI) * (60 - k * 22)
+        const y = y0 + (y1 - y0) * t - Math.sin(t * Math.PI) * (40 + k * 18)
+        images.push({ transform: `translate(${x - taille / 2}px, ${y - taille / 2}px) rotate(${t * 220}deg) scale(${1 - t * 0.35})`, opacity: i === 24 ? 0.3 : 1 })
+      }
+      // `both` : celles qui partent après la première attendent à son point de départ.
+      return s.animate(images, { duration: VOL_MS, delay: k * 120, easing: 'cubic-bezier(0.45, 0.05, 0.4, 1)', fill: 'both' })
+    })
+    return () => vols.forEach(v => v?.cancel())
+  }, [de, vers])
+  return (
+    <span className="niche-etincelles" aria-hidden="true">
+      {[0, 1, 2].map(k => (
+        <span key={k} ref={e => void (traits.current[k] = e)} className={'niche-etincelle' + (k ? ' petite' : '')}>
+          <Etincelle />
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** Dehors, le saut d'une caresse : plus haut que dans la niche, il a la place. */
+const SAUT_DEHORS: Keyframe[] = [
+  { transform: 'translateY(0) scale(1, 1)' },
+  { offset: 0.18, transform: 'translateY(2%) scale(1.05, 0.94)' },
+  { offset: 0.45, transform: 'translateY(-14%) scale(0.97, 1.05)' },
+  { offset: 0.7, transform: 'translateY(0) scale(1.04, 0.96)' },
+  { transform: 'translateY(0) scale(1, 1)' },
+]
+
+/**
+ * Il sort de sa niche (le principe, § 2 : « Podium, forme atteinte ») : du
+ * buste qu'on voyait, il grandit en volant jusqu'en bas de l'écran, près du
+ * pouce, entier, triomphant ; on peut le caresser — il sautille, des cœurs
+ * montent —, puis il rentre. La scène couvre l'écran sans rien en prendre :
+ * seul lui se touche, et rien de lui ne déborde de côté (css.md).
+ */
+function Dehors({ forme, dessin, depart, onRentre }: { forme: FormeDeCompagnon; dessin: DessinDeCompagnon; depart: DOMRect; onRentre: () => void }) {
+  const lui = useRef<HTMLButtonElement>(null)
+  const [pose, setPose] = useState(false)
+  const [rentre, setRentre] = useState(false)
+  const [caresses, setCaresses] = useState(0)
+  const rentrerA = useRef(0)
+  const poseLe = useRef(0)
+  const monte = useRef(true)
+  useEffect(() => {
+    monte.current = true
+    return () => {
+      monte.current = false
+    }
+  }, [])
+  const miroir = (CADRAGES[forme.key] ?? ENTIER).miroir
+  const [g0, h0, d0, b0] = SILHOUETTES[forme.key] ?? [0, 0, 1, 1]
+  // Retourné pour regarder la page, son cadre se retourne avec lui.
+  const [gauche, droite] = miroir ? [1 - d0, 1 - g0] : [g0, d0]
+  // Sa taille et sa place, une fois pour toute la sortie : ses pattes au bas
+  // de l'écran — au-dessus de la barre du menu, ou de celle du chef.
+  const [place] = useState(() => {
+    const hauteur = Math.min(150, Math.max(110, window.innerHeight * 0.2))
+    const cote = hauteur / (b0 - h0)
+    const colonne = document.querySelector('.player-shell')?.getBoundingClientRect()
+    const centre = colonne && colonne.width > 0 ? colonne.left + colonne.width / 2 : window.innerWidth / 2
+    const barre = document.querySelector('.menu-barre, .barre-chef')?.getBoundingClientRect()
+    const sol = Math.min(window.innerHeight - 24, barre && barre.height > 0 ? barre.top - 12 : Infinity)
+    return { cote, gauche: centre - (cote * (gauche + droite)) / 2, haut: sol - cote * b0 }
+  })
+  const vol = useRef<Keyframe[]>([])
+  // Avant la première image : posé à sa place sans son vol, il y paraîtrait un instant.
+  useLayoutEffect(() => {
+    const el = lui.current
+    if (!el?.animate) return onRentre()
+    // De la niche à sa place : au départ, il couvre exactement le buste
+    // qu'on y voyait, puis grandit en suivant une courbe.
+    const s0 = depart.width / place.cote
+    vol.current = Array.from({ length: 29 }, (_, i) => {
+      const t = i / 28
+      const s = s0 + (1 - s0) * t
+      const x = (depart.left - place.gauche) * (1 - t)
+      const y = (depart.top - place.haut) * (1 - t) - Math.sin(t * Math.PI) * 70
+      return { transform: `translate(${x}px, ${y}px) scale(${s})`, opacity: Math.min(1, 0.4 + t * 4) }
+    })
+    let vivant = true
+    const sortie = el.animate(vol.current, { duration: 620, easing: 'cubic-bezier(0.4, 0.1, 0.3, 1)', fill: 'forwards' })
+    void sortie.finished.then(
+      () => {
+        if (!vivant) return
+        poseLe.current = Date.now()
+        rentrerA.current = poseLe.current + DEHORS_MS
+        setPose(true)
+      },
+      () => {},
+    )
+    return () => {
+      vivant = false
+      sortie.cancel()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Posé : il rentre à son heure, que chaque caresse repousse un peu. Son
+  // retour ne dépend que de lui : l'état qui éteint ses rayons ne l'arrête pas.
+  useEffect(() => {
+    if (!pose) return
+    const veiller = setInterval(() => {
+      if (Date.now() < rentrerA.current) return
+      clearInterval(veiller)
+      setRentre(true)
+      const retour = lui.current?.animate([...vol.current].reverse(), { duration: 560, easing: 'cubic-bezier(0.6, 0, 0.6, 1)', fill: 'forwards' })
+      if (!retour) return onRentre()
+      void retour.finished.then(() => monte.current && onRentre(), () => {})
+    }, 200)
+    return () => clearInterval(veiller)
+  }, [pose]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Chaque caresse, il sautille — joué sur lui, sans le remonter : son image ne se redécode pas.
+  const corps = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (caresses === 0 || !corps.current?.animate) return
+    const a = corps.current.animate(SAUT_DEHORS, { duration: 800, easing: 'cubic-bezier(0.3, 0.6, 0.35, 1)' })
+    return () => a.cancel()
+  }, [caresses])
+  const caresser = () => {
+    if (!pose || rentre) return
+    setCaresses(n => n + 1)
+    rentrerA.current = Math.min(poseLe.current + DEHORS_MAX_MS, Math.max(rentrerA.current, Date.now() + RETENU_MS))
+  }
+  const humeurs = dessin.humeurs!
+  const nom = leCompagnon(forme.compagnon)
+  return (
+    <div className="niche-dehors-scene">
+      <button
+        ref={lui}
+        type="button"
+        className={'niche-dehors' + (miroir ? ' miroir' : '') + (pose && !rentre ? ' pose' : '')}
+        // Invisible tant que son vol ne le montre pas : c'est lui qui le pose.
+        style={{ left: place.gauche, top: place.haut, width: place.cote, height: place.cote, opacity: 0 }}
+        aria-label={`${nom?.le === 'la' ? 'La' : 'Le'} caresser`}
+        onClick={caresser}
+      >
+        <span className="niche-dehors-rayons" style={{ left: `${((gauche + droite) / 2) * 100}%`, top: `${((h0 + b0) / 2) * 100}%`, width: `${(b0 - h0) * 170}%` }} />
+        <span className="niche-dehors-ombre" style={{ left: `${gauche * 100 + 8}%`, width: `${(droite - gauche) * 100 - 16}%`, top: `${b0 * 100 - 3}%` }} />
+        <span ref={corps} className="niche-dehors-corps" style={{ transformOrigin: `${((gauche + droite) / 2) * 100}% ${b0 * 100}%` }}>
+          <img src={caresses > 0 ? humeurs.ravi[0] : humeurs.triomphe[0]} alt="" draggable={false} />
+        </span>
+        {caresses > 0 && (
+          <span key={`c${caresses}`} className="niche-dehors-coeurs" style={{ left: `${((gauche + droite) / 2) * 100}%`, top: `${(h0 + 0.12) * 100}%` }} aria-hidden="true">
+            {[
+              [-70, -60, -16, 22],
+              [40, -90, 14, 26],
+              [-40, -110, -8, 18],
+              [80, -50, 18, 20],
+              [-10, -130, 6, 16],
+            ].map(([x, y, r, t], k) => (
+              <i key={k} style={{ '--x': `${x}px`, '--y': `${y}px`, '--r': `${r}deg`, '--t': `${t}px`, '--d': `${k * 0.12}s` } as CSSProperties}>
+                <Coeur />
+              </i>
+            ))}
+          </span>
+        )}
+      </button>
+    </div>
+  )
+}
+
+/** La niche, au coin de la page, et sa fiche au toucher. Rien tant que son dessin n'est pas livré. */
+export function Niche({ compagnon, rang }: NicheVue) {
+  const forme = leCompagnon(compagnon)?.formes[rang]
+  const dessin = forme && DESSINS[forme.key]
+  const [repliee, setRepliee] = useState(false)
+  const [fiche, setFiche] = useState(false)
+  // Ce qu'il vit à la révélation (`client/src/niche.ts`).
+  const [humeur, setHumeur] = useState<Humeur>('neutre')
+  const [souffle, setSouffle] = useState(false)
+  const [geste, setGeste] = useState<Geste | null>(null)
+  const [avecHumeurs, setAvecHumeurs] = useState(false)
+  const [repas, setRepas] = useState<{ n: number; part: number | null; vue: boolean } | null>(null)
+  const [bulle, setBulle] = useState(0)
+  const [vol, setVol] = useState<{ n: number; de: DOMRect; vers: DOMRect } | null>(null)
+  const [dehors, setDehors] = useState<{ n: number; depart: DOMRect; forme: FormeDeCompagnon; dessin: DessinDeCompagnon } | null>(null)
+  const ici = useRef<HTMLButtonElement>(null)
+  // Ce que lisent ses moments, qui l'écoutent une fois pour toutes : sa forme
+  // d'à présent, et ses bonnes réponses — lues à la première réponse de la
+  // page, puis comptées à chaque repas.
+  const courant = useRef({ forme, dessin, rang })
+  courant.current = { forme, dessin, rang }
+  const jauge = useRef<{ compagnon: string; justes: number; rang: number } | null>(null)
+  const jaugeDemandee = useRef(false)
+  const minuteurs = useRef(new Set<ReturnType<typeof setTimeout>>())
+  const plusTard = (f: () => void, ms: number) => {
+    const t = setTimeout(() => {
+      minuteurs.current.delete(t)
+      f()
+    }, ms)
+    minuteurs.current.add(t)
+    return t
+  }
+  // Elle se fait petite dès que la page défile, et revient en haut de page :
+  // posée sur la colonne, elle couvrirait le coin de ce qui passe dessous.
+  useEffect(() => {
+    const suivre = () => setRepliee(window.scrollY > REPLI_PX)
+    suivre()
+    window.addEventListener('scroll', suivre, { passive: true })
+    return () => window.removeEventListener('scroll', suivre)
+  }, [])
+  useEffect(() => {
+    let vivant = true
+    let souffleMax: ReturnType<typeof setTimeout> | null = null
+    const calmer = () => {
+      if (souffleMax) clearTimeout(souffleMax)
+      souffleMax = null
+      setSouffle(false)
+    }
+    /** Ses bonnes réponses, lues une fois, à la première réponse de la page : sa jauge en part. */
+    const lireSaJauge = () => {
+      if (jaugeDemandee.current) return
+      jaugeDemandee.current = true
+      api.joueur.niche().then(
+        r => {
+          if (vivant && r.niche) jauge.current = { compagnon: r.niche.compagnon, justes: r.niche.justes, rang: r.niche.rang }
+        },
+        () => {},
+      )
+    }
+    /** Une bonne réponse : ravi, il sautille ; nourri, « +1 » et sa jauge ; rare, une bulle de cœurs. */
+    const servir = (rare: boolean, nourri: boolean) => {
+      setHumeur('ravi')
+      setGeste(g => ({ sorte: 'saute', n: (g?.n ?? 0) + 1 }))
+      if (nourri) {
+        const j = jauge.current
+        const { forme: f, rang: r } = courant.current
+        let part: number | null = null
+        if (j && f && j.compagnon === f.compagnon) {
+          j.justes++
+          part = partDeLaJauge(j.justes, Math.max(j.rang, r))
+        }
+        const n = Date.now()
+        setRepas({ n, part, vue: part !== null })
+        plusTard(() => setRepas(p => (p && p.n === n ? { ...p, vue: false } : p)), REPAS_MS)
+        plusTard(() => setRepas(p => (p && p.n === n ? null : p)), REPAS_MS + 600)
+      }
+      // La bulle attend que « +1 » s'efface : elle se poserait dessus.
+      if (rare) {
+        const apres = nourri ? 1250 : 200
+        plusTard(() => setBulle(b => b + 1), apres)
+        plusTard(() => setBulle(0), apres + 2300)
+      }
+    }
+    /** Il sort, après l'expérience — que la soirée montre d'abord (`Celebration`). */
+    const sortir = async () => {
+      await attendre(AVANT_LA_SORTIE_MS)
+      for (let t = 0; t < CELEBRATION_MAX_MS && document.querySelector('.celebration'); t += 250) await attendre(250)
+      const { dessin: d } = courant.current
+      if (!vivant || !d?.humeurs) return
+      if (sansMouvement()) {
+        setHumeur('triomphe')
+        plusTard(() => setHumeur(h => (h === 'triomphe' ? 'neutre' : h)), TRIOMPHE_SUR_PLACE_MS)
+        return
+      }
+      setAvecHumeurs(true)
+      await Promise.all([precharger(d.humeurs.triomphe[0]), precharger(d.humeurs.ravi[0])])
+      const bete = ici.current?.querySelector('.niche-bete')?.getBoundingClientRect()
+      const { forme: f } = courant.current
+      if (!vivant || !bete || bete.width === 0 || !f) return
+      calmer()
+      setHumeur('neutre')
+      // La forme qu'il montre dehors reste celle qui est sortie : une forme atteinte pendant ce temps l'attend au retour.
+      setDehors({ n: Date.now(), depart: bete, forme: f, dessin: d })
+    }
+    const vivre = (m: MomentDeLaNiche) => {
+      switch (m.sorte) {
+        case 'souffle':
+          // Ses humeurs viennent à la première réponse de la page : l'accueil,
+          // le profil, la boutique n'en téléchargent rien. Chargées pendant la
+          // question, elles sont là au verdict ; une révélation qui les devance
+          // garde l'expression neutre jusqu'à leur arrivée.
+          setAvecHumeurs(true)
+          lireSaJauge()
+          setSouffle(true)
+          if (souffleMax) clearTimeout(souffleMax)
+          souffleMax = setTimeout(calmer, SOUFFLE_MAX_MS)
+          return
+        case 'calme':
+          calmer()
+          setHumeur(h => (h === 'triomphe' ? h : 'neutre'))
+          setGeste(null)
+          return
+        case 'ratee':
+          calmer()
+          setHumeur('depite')
+          setGeste(g => ({ sorte: 'abat', n: (g?.n ?? 0) + 1 }))
+          return
+        case 'juste': {
+          calmer()
+          const vers = ici.current?.getBoundingClientRect()
+          const de = m.depuis?.getBoundingClientRect()
+          // Nourri, il mange d'abord : les étincelles volent jusqu'à lui, puis il est ravi.
+          if (m.nourri && de && vers && de.width > 0 && vers.width > 0 && !sansMouvement()) {
+            setVol({ n: Date.now(), de, vers })
+            plusTard(() => setVol(null), VOL_MS + 2 * 120 + 60)
+            plusTard(() => servir(m.rare, m.nourri), VOL_MS + 40)
+          } else servir(m.rare, m.nourri)
+          return
+        }
+        case 'sortie':
+          void sortir()
+          return
+      }
+    }
+    const fin = ecouterLaNiche(vivre)
+    const lesMinuteurs = minuteurs.current
+    return () => {
+      vivant = false
+      fin()
+      if (souffleMax) clearTimeout(souffleMax)
+      for (const t of lesMinuteurs) clearTimeout(t)
+      lesMinuteurs.clear()
+    }
+  }, [])
+  if (!forme || !dessin) return null
+  return (
+    <>
+      <button
+        ref={ici}
+        type="button"
+        className={
+          `niche niche-${forme.compagnon}` +
+          (repliee ? ' repliee' : '') +
+          (souffle ? ' retient' : '') +
+          (humeur !== 'neutre' ? ` ${humeur}` : '') +
+          (repas ? ' nourrie' : '') +
+          (repas?.vue ? ' jauge-vue' : '') +
+          (dehors ? ' vide' : '')
+        }
+        aria-label={`${forme.nom}, dans ta niche : sa fiche`}
+        aria-haspopup="dialog"
+        onClick={() => setFiche(true)}
+      >
+        <Arche forme={forme} dessin={dessin} humeur={humeur} humeurs={avecHumeurs ? HUMEURS_DE_LA_REVELATION : []} geste={geste} jauge={repas ? repas.part : null} />
+        {repas && (
+          <span key={repas.n} className="niche-plus" aria-hidden="true">
+            +1
+          </span>
+        )}
+        {bulle > 0 && (
+          <span key={bulle} className="niche-bulle" aria-hidden="true">
+            <Coeur />
+            <Coeur />
+          </span>
+        )}
+      </button>
+      {vol && <Etincelles key={vol.n} de={vol.de} vers={vol.vers} />}
+      {dehors && (
+        <Dehors
+          key={dehors.n}
+          forme={dehors.forme}
+          dessin={dehors.dessin}
+          depart={dehors.depart}
+          onRentre={() => {
+            setDehors(null)
+            // Rentré, il est encore content un instant.
+            setHumeur('ravi')
+            plusTard(() => setHumeur(h => (h === 'ravi' ? 'neutre' : h)), 1400)
+          }}
+        />
+      )}
+      {fiche && <FicheDeLaNiche forme={forme} dessin={dessin} onFermer={() => setFiche(false)} />}
+    </>
+  )
+}
+
+/**
+ * Sa fiche : lui en grand, dans sa niche ; sa forme et sa légende ; où il en
+ * est — ses bonnes réponses vers la forme suivante, lues à l'ouverture
+ * (`GET /api/joueur/niche`) — ; « Le caresser », pour le plaisir — il en est
+ * ravi — ; et ses formes, à la boutique, où l'on installe un autre compagnon
+ * dans la niche.
+ */
+export function FicheDeLaNiche({ forme, dessin, onFermer }: { forme: FormeDeCompagnon; dessin: DessinDeCompagnon; onFermer: () => void }) {
+  const boite = useRef<HTMLDivElement>(null)
+  useModale(boite, onFermer)
+  const [caresses, setCaresses] = useState(0)
+  const [ravi, setRavi] = useState(false)
+  const [calme] = useState(sansMouvement)
+  // `undefined` : en chemin ; `null` : rien à dire (une panne, un serveur d'avant).
+  const [acquis, setAcquis] = useState<CompagnonAcquis | null | undefined>(undefined)
+  useEffect(() => {
+    let vivant = true
+    api.joueur.niche().then(
+      r => {
+        if (!vivant) return
+        setAcquis(r.niche)
+        // Une forme atteinte depuis que la page a lu le profil : la niche la prend tout de suite.
+        if (r.niche && r.niche.rang > forme.rang) porterNiche({ niche: r.niche.compagnon, compagnons: [r.niche] })
+      },
+      () => vivant && setAcquis(null),
+    )
+    return () => {
+      vivant = false
+    }
+    // Une lecture par ouverture : la forme qu'elle fait prendre ne la relance pas.
+  }, [])
+  // Caressé, il en est ravi un instant.
+  useEffect(() => {
+    if (caresses === 0) return
+    setRavi(true)
+    const t = setTimeout(() => setRavi(false), 1600)
+    return () => clearTimeout(t)
+  }, [caresses])
+  const c = leCompagnon(forme.compagnon)!
+  const sien = acquis && acquis.compagnon === forme.compagnon ? acquis : null
+  const suite = sien ? prochaineForme(sien) : null
+  const il = c.le === 'la' ? 'elle' : 'il'
+  return (
+    <div className="carte-voile" onClick={onFermer}>
+      <div ref={boite} className="carte-feuille niche-fiche" role="dialog" aria-modal="true" aria-label={c.nom} tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <header className="carte-barre">
+          <b className="feuille-titre">{c.nom}</b>
+          <button type="button" className="carte-fermer" onClick={onFermer}>
+            <Icon name="x" />
+            Fermer
+          </button>
+        </header>
+        <div className="carte-corps">
+          <div className="niche-fiche-tete">
+            <span className={`niche-grande niche-${forme.compagnon}` + (ravi ? ' ravi' : '')}>
+              <Arche
+                forme={forme}
+                dessin={dessin}
+                humeur={ravi ? 'ravi' : 'neutre'}
+                humeurs={['ravi']}
+                geste={caresses > 0 && !calme ? { sorte: 'saute', n: caresses } : null}
+              />
+              {caresses > 0 && !calme && (
+                <span key={`envol-${caresses}`} className="compagnon-envols niche-envols" aria-hidden="true">
+                  {ENVOLS.map((e, i) => (
+                    <i key={i}>{e}</i>
+                  ))}
+                </span>
+              )}
+            </span>
+            <div className="niche-fiche-texte">
+              <span className="label">Dans ta niche</span>
+              <b className="niche-fiche-nom">{forme.nom}</b>
+              <span className="muted small">{`${NOM_DE_LA_FORME[forme.rang]} · ${NOM_RARETE[forme.rarete].toLowerCase()}`}</span>
+            </div>
+          </div>
+          <p className="niche-fiche-legende">{espacesFines(forme.legende)}</p>
+          {/* Sa place gardée pendant la lecture : la feuille ne saute pas quand elle arrive. */}
+          <div className="niche-fiche-jauge" aria-live="polite">
+            {acquis === undefined ? (
+              <span className="muted small">…</span>
+            ) : suite ? (
+              <>
+                <span className="jauge-fine" aria-hidden="true">
+                  <span style={{ width: `${Math.round(Math.min(1, sien!.justes / JUSTES_DES_FORMES[suite.forme.rang]) * 100)}%` }} />
+                </span>
+                <span className="muted small">
+                  {espacesFines(
+                    `${formatNumber(sien!.justes)} sur ${formatNumber(JUSTES_DES_FORMES[suite.forme.rang])} bonnes réponses ${avecLui(c)} : ${suite.forme.nom.charAt(0).toLowerCase()}${suite.forme.nom.slice(1)}`,
+                  )}
+                </span>
+              </>
+            ) : forme.rang === 3 ? (
+              <span className="muted small">{espacesFines('Sa forme ultime : son monde prend vie.')}</span>
+            ) : null}
+          </div>
+          <p className="muted small niche-fiche-regle">
+            {espacesFines(`${il === 'elle' ? 'Elle' : 'Il'} grandit avec tes bonnes réponses, en soirée, au quiz du jour et en campagne — sans jamais te donner d’avantage.`)}
+          </p>
+          <div className="niche-fiche-gestes">
+            <button type="button" className="btn btn-primary" onClick={() => setCaresses(n => n + 1)}>
+              <Icon name="sparkles" />
+              {`${c.le === 'la' ? 'La' : 'Le'} caresser`}
+            </button>
+            <a className="btn" href={`/boutique#compagnon-${forme.compagnon}`}>
+              Ses formes
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

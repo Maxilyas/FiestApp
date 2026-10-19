@@ -25,6 +25,7 @@ import { deNom, espacesFines } from '../format'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
+import { nicheRetientSonSouffle, porterNiche } from '../niche'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
@@ -59,6 +60,8 @@ import {
 import { INTERVALLES_DE_REVISION, QUESTIONS_PAR_REVISION, partVisee, type EtatDuCarnet, type ViseeDuCarnet } from '../../../shared/revision'
 import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees, type Tombe } from '../../../shared/gains'
 import { ligueDe, type CoteApresLeDuel, type DuelOuvert, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
+import { rareEnCampagne, reactionDuSolo } from '../../../shared/niche'
+import { NicheALaRevelation } from '../components/NicheReagit'
 
 type Ecran =
   | { e: 'chargement' }
@@ -425,6 +428,7 @@ export function CampagneApp() {
       // Le thème de son profil habille sa page, comme le quiz du jour.
       void porterTheme(moi.profile?.theme)
       porterGerbe(moi.profile?.gerbe)
+      porterNiche(moi.profile)
       if (!moi.profile) return setEcran({ e: 'anonyme' })
       setProfil(moi.profile)
       // Le point de départ des montées de niveau que la fin d'une série dira.
@@ -548,6 +552,8 @@ export function CampagneApp() {
 
   const repondre = async (choix: number) => {
     if (ecran.e !== 'jeu' || ecran.reponse || busy) return
+    // Sa niche retient son souffle jusqu'au verdict du serveur.
+    nicheRetientSonSouffle()
     setBusy(true)
     setErreur('')
     try {
@@ -1468,6 +1474,7 @@ export function CampagneApp() {
         ) : (
           <>
             <div className={'card result-banner ' + (r.juste ? 'result-ok' : 'result-ko')} role="status">
+              <NicheALaRevelation cle={`campagne:${ecran.serie}:${q.index}`} reaction={reactionDuSolo(r.juste, rareEnCampagne(q.niveau))} />
               {r.juste ? (
                 <>
                   <span className="big">🎊 +1</span>
