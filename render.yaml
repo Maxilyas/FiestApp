@@ -173,6 +173,14 @@ services:
       # à 5 s, une garde de 30 s faisait tomber des requêtes.)
       - key: QUIZ_DB_KEEPWARM
         sync: false
+      # Le transport léger vers Turso (leger ; le banc du 19 octobre 2026) :
+      # deux fois moins de processeur par aller-retour que le fetch de Node,
+      # au dixième de cœur de l'offre gratuite. À essayer ici d'abord, la page
+      # « Le serveur » du QG ouverte : aucune erreur de plus, aucun aller-retour
+      # tombé en route ; /healthz dit `base.connexions.transport`. En
+      # production ensuite.
+      - key: QUIZ_DB_TRANSPORT
+        sync: false
       # Pour essayer la routine de la réserve avant la production : un jeton
       # à elle, jamais celui de la prod (docs/exploitation/mise-en-ligne.md, étape 9).
       - key: RESERVE_TOKEN

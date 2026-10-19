@@ -40,7 +40,16 @@ paths:
   serveur, règle `journaux-et-miroir.md`. Les bornes
   de temps qui restent sont larges : un calcul (`protocole.test.ts`, le
   podium au meilleur de trois essais ; `temps-reel.test.ts`) ou un délai qui
-  doit tomber (`liaison-morte.test.ts`, `miroir.test.ts`).
+  doit tomber (`liaison-morte.test.ts`, `miroir.test.ts`). Et ce qu'un faux
+  serveur fait à son heure s'attend (`quand`, `garde-des-connexions.ts`),
+  jamais derrière une pause fixe : il tourne dans la boucle du test, et
+  gelée une demi-seconde — une CI chargée —, sa minuterie et la pause
+  sonnent au même tour ; le test conclut avant d'avoir lu ce qu'il vient
+  d'envoyer (reproduit le 19 octobre 2026, en gelant la boucle). Et une
+  épreuve qui ne rougit qu'en CI se rejoue d'abord sous la version de Node
+  de la CI — la dernière 22.x, quand on en a une plus ancienne : la garde de
+  l'agent de Node 22.23 n'existait pas en 22.22 (règle
+  `journaux-et-miroir.md`).
 - **Le serveur envoie l'instantané juste derrière l'accusé** de `host:hello`
   ou de `party:watch`, souvent dans le même paquet : un écouteur posé après
   avoir attendu l'accusé le rate. `banc.ts` retient le dernier pour ça

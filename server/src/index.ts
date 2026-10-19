@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { createQuizServer, DemarrageRefuse, MOT_DE_PASSE_PAR_DEFAUT } from './server'
 import { chaudesDemandees } from './core/connexions'
-import { DELAI_DISTANT_MS, pourquoiInjoignable } from './core/distante'
+import { choisirLeTransport, DELAI_DISTANT_MS, pourquoiInjoignable, transportDemande } from './core/distante'
 import { releve } from './core/pouls'
 import { SERVEUR } from './racine'
 
@@ -58,6 +58,15 @@ const chaudes = chaudesDemandees(process.env.QUIZ_DB_KEEPWARM)
 if ('refus' in chaudes) console.warn(`[base] ${chaudes.refus}`)
 else if (chaudes.chaudes) console.log('[base] connexions vers la base gardées chaudes tant que des joueurs jouent (QUIZ_DB_KEEPWARM)')
 const connexionsChaudes = 'chaudes' in chaudes && chaudes.chaudes
+// Le transport léger vers la base (le banc du 19 octobre 2026) : deux fois
+// moins de processeur par aller-retour que le `fetch` de Node, au dixième de
+// cœur de l'hébergeur. Il s'essaie en préproduction, comme l'entretien.
+const transport = transportDemande(process.env.QUIZ_DB_TRANSPORT)
+if ('refus' in transport) console.warn(`[base] ${transport.refus}`)
+else {
+  choisirLeTransport(transport.transport)
+  if (transport.transport === 'leger') console.log('[base] allers-retours vers la base par le transport léger (QUIZ_DB_TRANSPORT=leger)')
+}
 // L'ancienne garde, retirée : Turso referme lui-même à 5 s, et la garde de
 // 30 s posée en production le 14 octobre 2026 faisait tomber des requêtes.
 // Restée dans les variables d'un service, elle ne ferait plus rien — sans un

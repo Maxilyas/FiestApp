@@ -31,9 +31,18 @@ test('/healthz dit le temps de chaque route d’API, sous son modèle, jamais so
     assert.ok(sante.routes['POST /api/campagne/serie/:id/reponse'], 'une adresse à identifiant se range sous son modèle')
     assert.ok(!brut.includes(secret), 'l’identifiant de l’adresse ne sort pas par /healthz')
     // Une base `file:` ne passe pas par le réseau : rien à mesurer, mais le bloc est là —
-    // ses connexions aussi, la garde de Node, et pas d'entretien, faute de l'avoir demandé (`QUIZ_DB_KEEPWARM`).
+    // ses connexions aussi, la garde de Node, le transport — le `fetch` de Node, faute d'en
+    // demander un autre (`QUIZ_DB_TRANSPORT`) — et pas d'entretien, faute de l'avoir demandé (`QUIZ_DB_KEEPWARM`).
     assert.deepEqual(Object.keys(sante.base).sort(), ['allersRetoursParMin', 'connexions', 'maxMs', 'p50Ms', 'p95Ms'])
-    assert.deepEqual(sante.base.connexions, { ouvertesParMin: 0, refermeesParLaBaseParMin: 0, echecsParMin: 0, gardeMs: 4_000, gardeAnnonceeMs: null, chaudes: null })
+    assert.deepEqual(sante.base.connexions, {
+      ouvertesParMin: 0,
+      refermeesParLaBaseParMin: 0,
+      echecsParMin: 0,
+      gardeMs: 4_000,
+      gardeAnnonceeMs: null,
+      transport: 'fetch',
+      chaudes: null,
+    })
   } finally {
     await banc.close()
   }

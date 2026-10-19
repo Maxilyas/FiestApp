@@ -60,39 +60,30 @@ const servies = new WeakMap<Socket, { libre: boolean; rendue: number }>()
 /** La connexion qu'emprunte chaque requête partie vers la base : sa fin la rend. */
 const empruntees = new WeakMap<object, Socket>()
 
+/**
+ * Les connexions que le serveur referme lui-même — sa garde écoulée, une
+ * attardée (`refermerLesAttardees`) — : leur fermeture n'est pas celle de la
+ * base.
+ */
+const refermeesParNous = new WeakSet<Socket>()
+
 /** Les vrais allers-retours en vol — pas les battements de l'entretien. */
 let enVol = 0
 
-// Une requête part sur une connexion : le `fetch` de Node le dit sur ce canal.
-subscribe('undici:client:sendHeaders', message => {
-  const { request, socket } = message as { request?: object; socket?: Socket }
-  const servie = socket && servies.get(socket)
-  if (!servie) return
-  servie.libre = false
-  if (request) empruntees.set(request, socket)
-})
+// Les trois moments d'une connexion vers la base — ouverte, empruntée par une
+// requête, rendue —, que le transport annonce : le `fetch` de Node par ses
+// canaux de diagnostic (plus bas), le transport léger en les appelant
+// lui-même (`core/transportLeger.ts`). Le reste — les comptes, la garde,
+// l'entretien — ne sait pas lequel tourne.
 
-// Sa réponse lue en entier — ou tombée —, la connexion est rendue. Comptée
-// depuis le dernier morceau reçu, elle paraissait libre au milieu d'une
-// longue réponse — les bibliothèques du réveil arrivent en un
-// demi-mégaoctet —, et `refermerLesAttardees` l'aurait coupée sous elle.
-function rendre(message: unknown) {
-  const { request } = message as { request?: object }
-  const socket = request && empruntees.get(request)
-  const servie = socket && servies.get(socket)
-  if (!servie) return
-  servie.libre = true
-  servie.rendue = performance.now()
-}
-subscribe('undici:request:trailers', rendre)
-subscribe('undici:request:error', rendre)
-
-// Le `fetch` de Node (undici, embarqué) annonce chaque connexion qu'il ouvre
-// sur ce canal : rien à ajouter pour l'entendre. Derrière un proxy, elle
-// s'ouvre vers lui et ne se compte pas — sur l'hébergeur, il n'y en a pas.
-subscribe('undici:client:connected', message => {
-  const { connectParams, socket } = message as { connectParams?: { hostname?: string }; socket?: Socket }
-  if (!connectParams?.hostname || !hotes.has(connectParams.hostname)) return
+/**
+ * Une connexion vers la base s'ouvre. Celle d'un autre hôte — un proxy, un
+ * service de notifications — ne se compte pas : sur l'hébergeur, il n'y a
+ * pas de proxy. `finPeutManquer` : le transport peut la détruire libre sans
+ * qu'elle ait reçu sa fin (l'agent de `http`, plus bas).
+ */
+export function connexionOuverte(socket: Socket | undefined, hote: string | undefined, { finPeutManquer = false }: { finPeutManquer?: boolean } = {}) {
+  if (!hote || !hotes.has(hote)) return
   // Ouverte pendant un battement, aucun vrai aller-retour en vol : c'est
   // l'entretien qui l'a payée, pas un joueur — la part des connexions neuves
   // ne compte que les siennes.
@@ -110,13 +101,73 @@ subscribe('undici:client:connected', message => {
     socket.once('close', () => ouvertes.delete(socket))
   }
   // Refermée par la base, la connexion reçoit sa fin ; refermée par nous — la
-  // garde écoulée —, elle se détruit sans. Undici écoute la même fin et
+  // garde écoulée —, elle se détruit sans. Le transport écoute la même fin et
   // n'emprunte plus la connexion.
-  socket?.once('end', () => {
+  let comptee = false
+  const refermeeParLaBase = () => {
+    if (comptee) return
+    comptee = true
     const age = performance.now() - ouverte
     pouls.refermeesParLaBase.noter(age)
     releve.refermeeParLaBase(age)
-  })
+  }
+  socket?.once('end', refermeeParLaBase)
+  // Depuis Node 22.23, l'agent de `http` détruit une connexion libre dès
+  // qu'elle reçoit quoi que ce soit — la fin de la base comprise —, sans
+  // émettre `end` : sa garde contre l'empoisonnement de la file des réponses.
+  // Le transport léger ne comptait plus rien (la CI du 19 octobre 2026). Une
+  // connexion libre qui se ferme sans que nous l'ayons refermée, c'est la
+  // base qui l'a fermée.
+  if (finPeutManquer) {
+    socket?.once('close', () => {
+      if (servies.get(socket)?.libre && !refermeesParNous.has(socket)) refermeeParLaBase()
+    })
+  }
+}
+
+/** Le transport referme cette connexion lui-même (`core/transportLeger.ts` : sa garde écoulée) : sa fermeture n'est pas celle de la base. */
+export function connexionRefermeeParNous(socket: Socket) {
+  refermeesParNous.add(socket)
+}
+
+/** Une requête part sur cette connexion : elle n'est plus libre, et ne vieillit plus. */
+export function connexionEmpruntee(socket: Socket) {
+  const servie = servies.get(socket)
+  if (servie) servie.libre = false
+}
+
+/**
+ * Sa réponse lue en entier — ou tombée —, la connexion est rendue. Comptée
+ * depuis le dernier morceau reçu, elle paraissait libre au milieu d'une
+ * longue réponse — les bibliothèques du réveil arrivent en un
+ * demi-mégaoctet —, et `refermerLesAttardees` l'aurait coupée sous elle.
+ */
+export function connexionRendue(socket: Socket) {
+  const servie = servies.get(socket)
+  if (!servie) return
+  servie.libre = true
+  servie.rendue = performance.now()
+}
+
+// Le `fetch` de Node (undici, embarqué) annonce chaque connexion qu'il ouvre,
+// chaque requête qui part et chaque réponse finie sur ses canaux : rien à
+// ajouter pour l'entendre.
+subscribe('undici:client:sendHeaders', message => {
+  const { request, socket } = message as { request?: object; socket?: Socket }
+  if (!socket || !servies.has(socket)) return
+  connexionEmpruntee(socket)
+  if (request) empruntees.set(request, socket)
+})
+function rendre(message: unknown) {
+  const { request } = message as { request?: object }
+  const socket = request && empruntees.get(request)
+  if (socket) connexionRendue(socket)
+}
+subscribe('undici:request:trailers', rendre)
+subscribe('undici:request:error', rendre)
+subscribe('undici:client:connected', message => {
+  const { connectParams, socket } = message as { connectParams?: { hostname?: string }; socket?: Socket }
+  connexionOuverte(socket, connectParams?.hostname)
 })
 
 /**
@@ -148,7 +199,7 @@ export function noterUnEchec() {
  */
 let annonceeMs: number | null = null
 
-export function noterLaReponse(entetes: Headers) {
+export function noterLaReponse(entetes: { get(nom: string): string | null }) {
   const lu = /(?:^|[\s,;])timeout\s*=\s*(\d+)/i.exec(entetes.get('keep-alive') ?? '')
   annonceeMs = lu ? Number(lu[1]) * 1000 : null
   if (annonceeMs !== null) releve.annonceDeLaBase(annonceeMs)
@@ -178,21 +229,30 @@ export function gardeAnnoncee(): number | null {
 const MARGE_SUR_L_ANNONCE_MS = 2_000
 
 /**
+ * Combien de temps une connexion libre se garde : la garde d'undici — le
+ * délai annoncé moins sa marge, qu'il préfère à la sienne —, que le
+ * transport léger reprend telle quelle (`core/transportLeger.ts`).
+ */
+export function gardeDesConnexions(): number {
+  return annonceeMs === null ? GARDE_DE_NODE_MS : Math.max(0, annonceeMs - MARGE_SUR_L_ANNONCE_MS)
+}
+
+/**
  * Referme les connexions vers la base que Node aurait déjà refermées — libres
  * depuis plus longtemps que sa garde — et que la boucle gelée lui a fait
  * manquer. `avecDelai` l'appelle avant chaque aller-retour : détruite
- * d'avance, la connexion ne reçoit plus rien (undici n'écrit jamais sur un
- * socket `destroyed`), et la requête en ouvre une autre. Une connexion qui
- * attend sa réponse, ou la lit encore, ne se touche pas.
+ * d'avance, la connexion ne reçoit plus rien (aucun des deux transports
+ * n'écrit sur un socket `destroyed`), et la requête en ouvre une autre. Une
+ * connexion qui attend sa réponse, ou la lit encore, ne se touche pas.
  */
 export function refermerLesAttardees() {
-  // La garde d'undici : le délai annoncé moins sa marge, qu'il préfère à la sienne.
-  const garde = annonceeMs === null ? GARDE_DE_NODE_MS : annonceeMs - MARGE_SUR_L_ANNONCE_MS
+  const garde = gardeDesConnexions()
   const t = performance.now()
   for (const socket of ouvertes) {
     const servie = servies.get(socket)
     if (!servie?.libre || t - servie.rendue < garde) continue
     ouvertes.delete(socket)
+    refermeesParNous.add(socket)
     socket.destroy()
   }
 }
