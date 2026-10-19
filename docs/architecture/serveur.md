@@ -334,10 +334,22 @@ change les deux. → [Les questions](../produit/les-questions.md),
 | La mesure de charge | `Charge` (`server/src/core/pouls.ts`) | 10 s | processeur, boucle (sonde à 100 ms), mémoire, invités connectés |
 | La santé du serveur | `SanteDuServeur` | 10 min (`RELEVE_MS`) | le relevé de l'heure et un signe de vie, gardés huit jours |
 | Le rappel du soir | `RappelStore` | chaque minute | la tournée part dès 18 h, jamais à partir de 22 h |
-| La base de la campagne | `CampagneStore.prechauffer` | une fois, 20 s après l'ouverture | vérifiée au build et relue telle quelle par le paquet, par morceaux de 64 Ko (`lireLaBasePreparee`) — sous tsx, relue et vérifiée par tranches de 200 questions ; chaque tranche rend la main ; puis les sujets de chaque question, par tranches de mille, et la préparation des tirages (`preparerEnFond`) : la première ouverture de la campagne et le premier tirage les trouvent faits |
-| La mesure des difficultés | `CampagneStore.mesures` | demandée dans ses deux dernières minutes (`MESURE_EN_AVANCE_MS`) | la suivante relue en fond, puis ses familles et la préparation des tirages (`relireLaMesureEnFond`) : la requête qui l'aurait trouvée périmée la trouve prête ; une fois par mesure, même ratée — elle se relit alors à son heure, sur le chemin de la requête |
+| La base de la campagne | `CampagneStore.prechauffer` | une fois, 20 s après l'ouverture | vérifiée au build et relue telle quelle par le paquet, par morceaux de 64 Ko (`lireLaBasePreparee`) — sous tsx, relue et vérifiée par tranches de 200 questions ; chaque tranche rend la main ; puis ses index, les sujets de chaque question, par tranches de mille, les familles de la mesure, la préparation des tirages (`preparerEnFond`) et le modèle du savoir, chaque étape à son tour de boucle (`rendreLaMain`, plus bas) : la première ouverture de la campagne et le premier tirage les trouvent faits |
+| La mesure des difficultés | `CampagneStore.mesures` | demandée dans ses deux dernières minutes (`MESURE_EN_AVANCE_MS`) | la suivante relue en fond, puis ses familles et la préparation des tirages (`relireLaMesureEnFond`), chacune à son tour de boucle : la requête qui l'aurait trouvée périmée la trouve prête ; une fois par mesure, même ratée — elle se relit alors à son heure, sur le chemin de la requête |
 | La réserve du jour pour `/healthz` | `server/src/server.ts` | 10 min au plus | relue en arrière-plan ; `/healthz` répond avec ce qu'il a |
 | La fin d'une télé branchée | `server/src/sockets.ts` | à l'heure dite | sa connexion tombe, même sans un geste |
+
+**Une étape de fond par tour de boucle** (`rendreLaMain`,
+`server/src/core/tourniquet.ts`). Les calculs de fond de la campagne rendent
+la main entre leurs étapes, mais plusieurs qui attendent la même chose — la
+base au réveil, une mesure neuve — repartaient ensemble, dans la même phase
+de la boucle : les index de la base, ses familles, la préparation des tirages
+et la série de référence faisaient un seul bloc de 130 ms, 1,3 s de serveur
+figé au dixième de cœur de l'hébergeur. Le tourniquet n'en laisse repartir
+qu'une par tour, dans l'ordre où elles l'ont demandé : les requêtes arrivées
+entre deux sont lues, et le plus long gel n'est plus que la plus longue étape
+— vingt à trente millisecondes : les index de la base, ou la première
+préparation d'un tirage (`travail-de-fond.test.ts`).
 
 **Rien ne tourne la nuit** : l'hébergeur gratuit dort. La journée d'hier du
 quiz du jour se clôt à la première demande d'aujourd'hui (`clorePasses`), les
@@ -354,7 +366,7 @@ redémarrer l'instance, disque et file du miroir perdus
 | | Commande | Ce qu'elle lance |
 |---|---|---|
 | Construire | `npm run build` | `vite build`, puis `server/scripts/empaqueter.ts` : esbuild, de `server/src/index.ts` à `server/dist/index.mjs`, ESM, Node 20, `shared/` compris |
-| Démarrer en ligne | `cd server && exec node dist/index.mjs` (`render.yaml`) | le paquet, sans tsx |
+| Démarrer en ligne | `cd server && exec node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 dist/index.mjs` (`render.yaml`) | le paquet, sans tsx, le ramasse-miettes réglé pour le dixième de cœur |
 | Démarrer chez soi | `npm start` | `tsx src/index.ts` : les sources, pas le paquet |
 
 - **Pourquoi** : chaque réveil de l'offre gratuite est un démarrage, et tsx y

@@ -1,5 +1,6 @@
 import { sansAccent } from '../../../shared/homonymes'
 import { QUESTIONS_PAR_TRANCHE, type QuestionDeLaBase } from './baseCampagne'
+import { rendreLaMain } from './tourniquet'
 
 // Deux questions qui posent le même fait sous deux intitulés : l'empreinte
 // (l'intitulé exact, `empreinteDe`) les laissait passer, et rien ne les
@@ -232,7 +233,7 @@ export class IndexDesFaits<Q extends AvecUnFait> {
 export async function indexSansBloquer<Q extends AvecUnFait>(questions: readonly Q[]): Promise<IndexDesFaits<Q>> {
   const index = new IndexDesFaits<Q>()
   for (let i = 0; i < questions.length; i++) {
-    if (i > 0 && i % QUESTIONS_PAR_TRANCHE === 0) await new Promise<void>(rendre => setImmediate(rendre))
+    if (i > 0 && i % QUESTIONS_PAR_TRANCHE === 0) await rendreLaMain()
     index.ajouter(questions[i])
   }
   return index

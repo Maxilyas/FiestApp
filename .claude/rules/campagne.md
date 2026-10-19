@@ -76,6 +76,23 @@ paths:
   (`referencePour`, `PreparationDuTirage.marche`) et trie ses groupes en
   tableaux de nombres (`serieDeReference`) — `campagne-mesure.test.ts` les
   compare au code d'avant, gardé dans le test.
+- **Une étape de fond par tour de boucle** (`rendreLaMain`,
+  `core/tourniquet.ts`) : rendre la main par `setImmediate` ne suffit pas.
+  Plusieurs calculs qui attendent la même promesse — la base au réveil, une
+  mesure neuve — repartent dans la même phase, l'un derrière l'autre : les
+  index de la base, ses familles (`mettreEnFamille`), la préparation des
+  tirages et la série de référence faisaient un bloc de 130 ms au réveil,
+  70 ms pour un dé tombé sur une mesure périmée — dix fois plus au dixième
+  de cœur (le banc du gel compilé comme en production, le 19 octobre 2026).
+  Une étape lourde passe donc son tour avant de calculer, relit ce qu'une
+  autre a pu faire pendant qu'elle attendait, puis calcule d'une traite,
+  sans `await` au milieu ; qui attendait une mesure neuve repart à son tour
+  (`mesures`). Toute boucle de fond par tranches passe par lui : deux
+  tranches de deux calculs dans le même tour, c'est encore un bloc.
+  `travail-de-fond.test.ts` compte les tours de boucle — jamais deux étapes
+  lourdes dans le même. Restent d'une traite, vingt à trente millisecondes
+  chacune : les index d'une base (`BaseDeLaCampagne`) et la première
+  préparation d'un tirage (`PreparationDuTirage`).
 - **L'en-tête d'une partie passe à la ligne au téléphone** : en 360 de
   large, à côté des cœurs, « Contre Automate · question 1 » laissait le
   « 1 » seul sur sa seconde ligne (contre Tom, il tenait sur une). « question

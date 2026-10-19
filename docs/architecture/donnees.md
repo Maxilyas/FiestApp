@@ -373,7 +373,9 @@ serveur s'éteint une fois, dans l'ordre inverse de ce qui en dépend
 Le processus sort de lui-même, et douze secondes après le signal quoi qu'il
 arrive ; l'hébergeur, lui, coupe net trente secondes après avoir prévenu. Ce
 signal n'arrive au serveur que s'il est lancé par `node` lui-même — d'où la
-commande de démarrage de Render, `cd server && exec node dist/index.mjs`. Un
+commande de démarrage de Render, `cd server && exec node … dist/index.mjs`
+(ses drapeaux règlent le ramasse-miettes : [La mise en
+ligne](../exploitation/mise-en-ligne.md)). Un
 arrêt net (le processus tué, la mémoire épuisée) perd toute la file : « rien
 ne se perd en route vers le miroir » vaut tant que le processus vit
 (invariant 13).
