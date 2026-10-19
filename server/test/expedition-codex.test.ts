@@ -3,8 +3,8 @@
 // aussi —, la renommée relue des bilans de toutes ses expéditions finies —
 // rattrapée du pli pour celles qui n'en ont pas, une fois —, le niveau qu'elle
 // fait et ce qu'il ouvre, figés au départ ; la carte de ses légendaires au
-// codex, et l'invité du jour qui prête la sienne. Les règles et le pli :
-// `codex.test.ts`.
+// codex, et l'invité du jour qui prête la sienne ; le dos de son paquet, pris
+// au départ parmi les siens. Les règles et le pli : `codex.test.ts`.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -101,23 +101,48 @@ test('la fin d’une expédition écrit son bilan — abandonnée aussi : un jou
 test('la renommée se relit de toutes ses expéditions finies : son niveau, ses cartes, ses règles, figés au départ — sa catégorie fétiche part au niveau 5', async () => {
   const c = await inscrireProfil(banc.url, 'aguerri', 'Aguerri')
   const finie = await unPasPuisAbandon(c)
-  // Le niveau 5, juste : le pari, les talismans et la catégorie fétiche ouverts.
+  // Le niveau 5, juste : le pari, les fioles, les talismans et la catégorie fétiche ouverts.
   ecrireLeBilanEnBase(finie, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[4] }))
   const codex = (await page(c)).prochaine.codex!
   assert.deepEqual(codex, { renommee: NIVEAUX[4], ...codexDuNiveau(5, []) })
-  assert.deepEqual(codex.regles, ['pari', 'talismans', 'fetiche'])
+  assert.deepEqual(codex.regles, ['pari', 'fioles', 'talismans', 'fetiche'])
   const parti = await poster(c, '/api/expedition', { rencontres: true, fetiche: 'Histoire' })
   assert.equal(parti.status, 200, parti.corps.error)
   const v = parti.corps as VueDeLExpedition
   assert.equal(v.fetiche, 'Histoire', 'au niveau 5, sa catégorie fétiche part avec lui')
-  assert.deepEqual(departDe(v.id).codex, { ...codexDuNiveau(5, []), renommee: NIVEAUX[4] })
-  assert.deepEqual(v.cartes?.codex, { niveau: 5, regles: ['pari', 'talismans', 'fetiche'], renommee: NIVEAUX[4], exploits: [] })
+  // Le départ fige ce que le codex ouvre ; ses dos, il en prend un (`DepartDExpedition.dos`).
+  const { dos: _dos, ...ouvert } = codexDuNiveau(5, [])
+  assert.deepEqual(departDe(v.id).codex, { ...ouvert, renommee: NIVEAUX[4] })
+  assert.deepEqual(v.cartes?.codex, { niveau: 5, regles: ['pari', 'fioles', 'talismans', 'fetiche'], renommee: NIVEAUX[4], exploits: [] })
   assert.deepEqual(v.exploits, [], 'aucun exploit au départ')
   // La renommée qui monte en route ne change rien à l'expédition partie : son codex est figé.
   ecrireLeBilanEnBase(finie, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[8] }))
   const relue = await page(c)
   assert.equal(relue.prochaine.codex?.niveau, 9, 'la prochaine partira au niveau 9')
   assert.equal(relue.expedition?.cartes?.codex?.niveau, 5, 'celle en route reste au 5')
+})
+
+test('le dos de son paquet : choisi au départ parmi les siens, sinon le plus rare — un dos qu’il n’a pas ne refuse pas le départ', async () => {
+  const c = await inscrireProfil(banc.url, 'dos', 'Dos')
+  const finie = await unPasPuisAbandon(c)
+  // Le niveau 6 : l'étoilé s'ouvre.
+  ecrireLeBilanEnBase(finie, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[5] }))
+  assert.deepEqual((await page(c)).prochaine.codex?.dos, ['ordinaire', 'etoile'])
+  // Le doré, qu'un autre profil du même téléphone a fait retenir : il ne l'a pas — le plus rare des siens, sans un refus pour un habit.
+  let parti = await poster(c, '/api/expedition', { rencontres: true, dos: 'dore' })
+  assert.equal(parti.status, 200, parti.corps.error)
+  let v = parti.corps as VueDeLExpedition
+  assert.equal(departDe(v.id).dos, 'etoile')
+  assert.equal(v.cartes?.dos, 'etoile', 'la page en habille sa pioche')
+  assert.equal((await poster(c, `/api/expedition/${v.id}/abandon`)).status, 200)
+  parti = await poster(c, '/api/expedition', { rencontres: true, dos: 'ordinaire' })
+  assert.equal(parti.status, 200, parti.corps.error)
+  v = parti.corps as VueDeLExpedition
+  assert.equal(departDe(v.id).dos, 'ordinaire', 'son choix')
+  // Aux règles d'avant, pas de codex : pas de dos.
+  assert.equal((await poster(c, `/api/expedition/${v.id}/abandon`)).status, 200)
+  const avant = (await poster(c, '/api/expedition', { dos: 'etoile' })).corps as VueDeLExpedition
+  assert.equal(departDe(avant.id).dos, undefined)
 })
 
 test('une expédition finie sans bilan — d’avant le codex, d’avant les exploits, ou qui ne se lit pas — se relit de son pli, et son bilan s’écrit', async () => {

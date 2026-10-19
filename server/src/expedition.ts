@@ -71,7 +71,7 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
   )
 
   // Partir, avec son équipée : deux légendaires au plus, les siens ou l'invité du jour —
-  // et, là où elles s'ouvrent, aux rencontres, sa catégorie fétiche avec.
+  // et, là où elles s'ouvrent, aux rencontres, sa catégorie fétiche et le dos de son paquet avec.
   app.post(
     '/api/expedition',
     petit,
@@ -81,7 +81,14 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
       // Demandées où elles ne s'ouvrent pas, elles se taisent : le départ reste celui des jokers, sans un refus pour une page d'avance.
       const rencontres = deps.rencontres === true && req.body?.rencontres === true
       const fetiche = typeof req.body?.fetiche === 'string' ? req.body.fetiche : undefined
-      res.json(await deps.campagne.partirEnExpedition(profil.id, req.body?.equipee ?? [], { rencontres, ...(rencontres && fetiche !== undefined && { fetiche }) }))
+      const dos = typeof req.body?.dos === 'string' ? req.body.dos : undefined
+      res.json(
+        await deps.campagne.partirEnExpedition(profil.id, req.body?.equipee ?? [], {
+          rencontres,
+          ...(rencontres && fetiche !== undefined && { fetiche }),
+          ...(rencontres && dos !== undefined && { dos }),
+        }),
+      )
     }),
   )
 

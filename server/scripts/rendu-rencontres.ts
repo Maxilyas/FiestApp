@@ -14,14 +14,16 @@
 // l'échoppe s'il s'en trouve une ; le gardien, vaincu, son trésor, et l'acte
 // suivant ; la fin et la renommée qu'elle rapporte. Il joue juste ses
 // vingt-deux premières questions — vingt d'affilée : un exploit, dit à la
-// révélation et à la fin —, puis deux fois sur trois. Le client construit
-// d'abord (`npm run build -w client`).
+// révélation et à la fin —, puis deux fois sur trois. Les objets (le codex) :
+// le dos de son paquet choisi au départ, ses dos au codex ; la fiole d'une
+// échoppe achetée, celle d'un coffre prise, puis levée dans la barre et bue.
+// Le client construit d'abord (`npm run build -w client`).
 //
 // Léa a quatre légendaires, rangés comme gardés au bout d'expéditions
 // passées — le Dragon d'Or, Janus, le Lion, le Phénix : leurs cartes sont à
-// son codex — et une expédition finie, de quoi la mettre au niveau 5, avec
-// deux exploits : un pari de 40 écus gagné (Banco s'ouvre) et un gardien
-// vaincu sans perdre de courage (le dos doré de son paquet).
+// son codex — et une expédition finie, de quoi la mettre au niveau 6 — le dos
+// étoilé, qu'elle choisit —, avec deux exploits : un pari de 40 écus gagné
+// (Banco s'ouvre) et un gardien vaincu sans perdre de courage (le dos doré).
 //
 //   npx tsx scripts/rendu-rencontres.ts [dossier] [ivoire]
 import { createRequire } from 'node:module'
@@ -87,7 +89,8 @@ try {
     await saPhoto('0b-carte-fermee')
     await sien.close()
   }
-  // Léa a déjà joué : une expédition partie et abandonnée, sa renommée portée au niveau 5 — le pari, les talismans, sa catégorie fétiche.
+  // Léa a déjà joué : une expédition partie et abandonnée, sa renommée portée au niveau 6 — le pari, les fioles, les talismans, sa
+  // catégorie fétiche, le dos étoilé.
   {
     const partie = (await (await ecrire(banc.url, '/api/expedition', { rencontres: true }, cookie)).json()) as { id: string }
     await ecrire(banc.url, `/api/expedition/${partie.id}/abandon`, {}, cookie)
@@ -95,7 +98,7 @@ try {
     try {
       base
         .prepare('UPDATE campagne_series SET bilan = ? WHERE id = ?')
-        .run(ecrireLeBilan({ escales: 70, adversaires: 46, elites: 12, gardiens: 9, auBout: true, exploits: ['pari-de-40', 'gardien-intact'] }), partie.id)
+        .run(ecrireLeBilan({ escales: 120, adversaires: 46, elites: 12, gardiens: 9, auBout: true, exploits: ['pari-de-40', 'gardien-intact'] }), partie.id)
     } finally {
       base.close()
     }
@@ -156,15 +159,21 @@ try {
   await page.waitForTimeout(300)
   await photo('1a-codex-levee')
   await page.locator('.exp-leve .exp-reposer').click()
-  // Au pied du codex, ses exploits : deux faits, deux à faire, le dos doré tel que la pioche le porte.
-  await page.locator('.feuille-codex .exp-exploits').scrollIntoViewIfNeeded()
+  // Au pied du codex, ses exploits : deux faits, deux à faire ; puis ses dos, tels que la pioche les porte.
+  await page.locator('.feuille-codex .exp-exploits').first().scrollIntoViewIfNeeded()
   await photo('1a-codex-exploits')
+  await page.locator('.feuille-codex .exp-un-dos').last().scrollIntoViewIfNeeded()
+  await photo('1a-codex-dos')
   await page.locator('.feuille-codex .carte-fermer').click()
   await page.locator('.exp-prototype .exp-changer').click()
   await page.waitForSelector('.feuille-fetiche')
   await photo('1b-fetiche')
   await page.locator('.exp-fetiche', { hasText: 'Histoire' }).click()
   await page.locator('.feuille-fetiche .carte-pied .btn-primary').click()
+  // Le dos de son paquet : elle en a trois — le plus rare d'office, le doré ; elle prend l'étoilé, que le plan portera.
+  await page.locator('.exp-choix-du-dos').scrollIntoViewIfNeeded()
+  await page.locator('.exp-choix-du-dos [role="radio"][aria-label="le dos étoilé"]').click()
+  await photo('1d-dos')
   // Plus d'équipe à choisir (le codex) : l'invité du jour part avec elle, ses légendaires ont ouvert leur carte à son codex.
   await page.waitForTimeout(200)
   await photo('1e-depart-pret', true)
@@ -273,6 +282,19 @@ try {
       await largeur('la préparation')
       const gardien = (await page.locator('.exp-adversaire-gardien').count()) > 0
       await unePhoto(gardien ? '7-gardien-preparation' : '3-preparation')
+      // Une fiole dans la barre : levée, ce qu'elle fait — bue, si elle se boit maintenant ; sinon, pourquoi.
+      if (!fait.has('4d-fiole-levee') && (await page.locator('.exp-barre .exp-fiole').count())) {
+        await unePhoto('4d-fiole-barre')
+        await page.locator('.exp-barre .exp-fiole').first().click()
+        await page.waitForSelector('.feuille-fiole')
+        await unePhoto('4d-fiole-levee')
+        const boire = page.locator('.feuille-fiole .btn-primary')
+        if (await boire.count()) {
+          await boire.click()
+          await page.waitForTimeout(400)
+          await unePhoto('4e-fiole-bue')
+        } else await page.locator('.feuille-fiole .carte-fermer').click()
+      }
       // « ← Partir » : le départ la garde, « Reprendre » la rouvre où elle en était — partir la rouvrait sur place.
       if (!fait.has('3a-partir')) {
         await page.click('a.jour-sortie')
@@ -320,6 +342,17 @@ try {
     if (ou === 'question') {
       await largeur('la question')
       await unePhoto(questions === 0 ? '4-question' : '4-question-suivante')
+      // Une fiole qui se boit la question sous les yeux — la clairvoyance : une mauvaise réponse s'efface.
+      if (!fait.has('4f-fiole-question') && (await page.locator('.exp-barre .exp-fiole').count())) {
+        await page.locator('.exp-barre .exp-fiole').first().click()
+        await page.waitForSelector('.feuille-fiole')
+        const boire = page.locator('.feuille-fiole .btn-primary')
+        if (await boire.count()) {
+          await boire.click()
+          await page.waitForTimeout(400)
+          await unePhoto('4f-fiole-question')
+        } else await page.locator('.feuille-fiole .carte-fermer').click()
+      }
       await jouerUneCarte(['coup-d-oeil', 'deux-visages', 'echange'], '4b-reflexe-leve')
       if (await page.locator('.exp-visages').count()) await page.locator('.exp-visages .pill-btn').first().click()
       await unePhoto('4c-reflexe-joue')
@@ -344,7 +377,10 @@ try {
       // Le trésor d'un gardien vaincu (le codex) : une carte légendaire de son codex parmi les trois.
       const tresor = (await page.locator('.exp-offre .exp-surtitre', { hasText: 'trésor' }).count()) > 0
       await unePhoto(tresor ? '7c-tresor' : coffre ? '8-coffre' : '5d-carte-a-prendre', true)
-      await page.locator('.exp-a-prendre-carte, .exp-offre-ligne').first().click()
+      // La fiole d'un coffre, à la place d'une carte, s'il lui reste une place pour elle.
+      const fiole = page.locator('.exp-offre-fiole:not([aria-disabled="true"])')
+      if (await fiole.count()) await fiole.click()
+      else await page.locator('.exp-a-prendre-carte, .exp-offre-ligne').first().click()
       await unePhoto(tresor ? '7c-tresor-choisie' : coffre ? '8-coffre-choisie' : '5e-carte-choisie', true)
       await page.locator('.exp-offre .exp-depart-pied .btn-primary').click()
       await page.waitForTimeout(300)
@@ -364,6 +400,17 @@ try {
     }
     if (ou === 'echoppe') {
       await unePhoto('8b-echoppe', true)
+      // Sa fiole, achetée si elle se vend et qu'elle a de quoi la payer : la barre la porte.
+      const fiole = page.locator('.exp-echoppe-page .exp-offre-ligne', { hasText: 'Fiole' })
+      if (!fait.has('8d-fiole-achetee') && (await fiole.count())) {
+        await fiole.first().click()
+        const acheter = page.locator('.exp-echoppe-page .exp-depart-pied .btn-primary')
+        if ((await acheter.getAttribute('aria-disabled')) !== 'true') {
+          await acheter.click()
+          await page.waitForTimeout(400)
+          await unePhoto('8d-fiole-achetee')
+        }
+      }
       await page.locator('.exp-echoppe-page .btn-ghost').click()
       await page.waitForTimeout(300)
       continue

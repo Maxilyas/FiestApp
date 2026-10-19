@@ -4,8 +4,9 @@
 // la mise, le verdict qui brise ou qui frappe, la victoire et sa carte à
 // prendre ; un dévoilement qui ne court qu'une fois la question vue
 // (invariant 6), et les deux cartes qui changent la forme de la question —
-// Corser, Simplifier —, reposée de sa question de la base. Les règles seules
-// et le pli : `expedition-rencontres.test.ts`.
+// Corser, Simplifier —, reposée de sa question de la base ; une fiole (le
+// codex) achetée à l'échoppe et bue la question sous les yeux. Les règles
+// seules et le pli : `expedition-rencontres.test.ts`, `codex.test.ts`.
 //
 // La carte et la main se tirent au hasard de la graine : chaque essai force
 // les escales dans le départ gardé en base, et une graine où le pli tire ce
@@ -19,10 +20,20 @@ import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '.
 import { rencontresOuvertes } from '../src/expedition'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
-import { pliDeLExpedition, type DepartDExpedition, type FormeDEscale, type GesteDExpedition, type QuestionPosee, type VueDeLExpedition } from '../../shared/expedition'
+import {
+  PRIX_DE_L_ECHOPPE,
+  fioleDeLOffre,
+  pliDeLExpedition,
+  type DepartDExpedition,
+  type FormeDEscale,
+  type GesteDExpedition,
+  type QuestionPosee,
+  type VueDeLExpedition,
+} from '../../shared/expedition'
 import {
   CARTES_PAR_OFFRE,
   CARTES_DES_ACTES,
+  CLAIRVOYANCE_SUR_LA_QUESTION,
   COURAGE_MAX,
   ECUS_AU_DEPART,
   FRAPPE_DES_RENCONTRES,
@@ -36,7 +47,7 @@ import {
   SCEAUX_DES_RENCONTRES,
   paquetDesRencontres,
 } from '../../shared/rencontres'
-import { NIVEAU_MAX, codexDuNiveau } from '../../shared/codex'
+import { NIVEAUX, NIVEAU_MAX, codexDuNiveau } from '../../shared/codex'
 
 /** Une question d'essai — 2 facile, 3 moyenne, 4 difficile —, ses mauvaises réponses et trois leurres de plus : Corser s'y joue. */
 function question(i: number, categorie: Categorie, difficulte: number): QuestionDeLaBase {
@@ -210,7 +221,10 @@ test('la page propose les rencontres ; le départ les prend — son courage, ses
   // d'adversaires —, et le codex de son niveau, figé au départ.
   assert.equal(depart.v, 7)
   assert.deepEqual(v.cartes?.parQuestion, [3, 4, 5], 'les règles disent ce que tire chaque acte : la page n’en recopie rien')
-  assert.deepEqual(depart.codex, { ...codexDuNiveau(1, []), renommee: 0 })
+  // Le départ fige ce que le codex ouvre ; de ses dos, il en prend un — au niveau 1, l'ordinaire.
+  const { dos: _dos, ...ouvert } = codexDuNiveau(1, [])
+  assert.deepEqual(depart.codex, { ...ouvert, renommee: 0 })
+  assert.equal(depart.dos, 'ordinaire')
   assert.deepEqual(v.cartes?.codex, { niveau: 1, regles: [], renommee: 0, exploits: [] })
   assert.equal(depart.fetiche, undefined)
 })
@@ -436,4 +450,54 @@ test('Simplifier la repose en vrai ou faux : Garde 3, moitié moins brisée ; fa
   const frappe = FRAPPE_DES_RENCONTRES.question[0]
   assert.deepEqual(r.coup, { juste: false, brises: 0, frappe, absorbee: 3, perdu: frappe - 3, mise: 0 })
   assert.equal(r.expedition.courage, COURAGE_MAX - (frappe - 3))
+})
+
+test('une fiole (le codex) : l’échoppe en vend une, une fois ; la clairvoyance se boit la question sous les yeux — une mauvaise réponse effacée, jamais la bonne, et la réponse est aidée', async () => {
+  const c = await inscrireProfil(banc.url, 'fioles', 'Fioles')
+  let v = await partirEt(c, { rencontres: true }, d => {
+    // Au niveau 3, les fioles s'ouvrent. En bas, des échoppes — la première fiole qu'elles tirent, la clairvoyance — ; au-dessus, des questions d'Histoire.
+    d.codex = { ...codexDuNiveau(3, []), renommee: NIVEAUX[2] }
+    for (const e of d.cartes[0].escales) {
+      if (e.etage === 0) {
+        e.sorte = 'echoppe'
+        delete e.theme
+        delete e.forme
+        delete e.chance
+      } else if (e.etage === 1) {
+        e.sorte = 'question'
+        e.theme = { categories: ['Histoire'] }
+        e.forme = 'quatre'
+        e.chance = 0.7
+      }
+    }
+    graineOu(d, 'fiole', x => fioleDeLOffre(x.graine, 0) === 'clairvoyance')
+  })
+  assert.deepEqual(v.fioles, { tenues: [], refus: {} }, 'à son niveau, la barre a de quoi les porter')
+  v = await avancer(c, v, v.permises[0])
+  assert.equal(v.echoppe?.fiole, 'clairvoyance')
+  let r = await geste(c, v, { quoi: 'acheter', article: 'fiole', prix: 1 })
+  assert.equal(r.status, 200, r.corps.error)
+  v = r.corps.expedition
+  assert.deepEqual(v.fioles?.tenues, ['clairvoyance'])
+  assert.equal(v.ecus, ECUS_AU_DEPART - PRIX_DE_L_ECHOPPE.fiole, 'au prix du barème, pas à celui que la page écrirait')
+  assert.equal(v.fioles?.refus.clairvoyance, 'Elle se boit la question sous les yeux')
+  r = await geste(c, v, { quoi: 'acheter', article: 'fiole' })
+  assert.deepEqual([r.status, r.corps.error], [400, 'Déjà achetée'])
+  // La rencontre d'au-dessus : préparée, la fiole attend — la question n'est pas encore sous ses yeux.
+  v = await avancer(c, v, v.permises[0])
+  r = await geste(c, v, { quoi: 'boire', fiole: 'clairvoyance', position: v.rencontre!.position })
+  assert.deepEqual([r.status, r.corps.error], [400, 'Elle se boit la question sous les yeux'])
+  v = await voir(c, v, 0)
+  assert.equal(v.fioles?.refus.clairvoyance, null)
+  assert.equal(v.question?.effacees, undefined)
+  r = await geste(c, v, { quoi: 'boire', fiole: 'clairvoyance', position: v.question!.index })
+  assert.equal(r.status, 200, r.corps.error)
+  v = r.corps.expedition
+  assert.deepEqual(v.fioles?.tenues, [])
+  const position = v.question!.index
+  const effacees = v.question?.effacees ?? []
+  assert.equal(effacees.length, 1, 'une mauvaise réponse effacée')
+  assert.ok(!effacees.includes(questionsDe(v.id)[position].bonne), 'jamais la bonne : le serveur seul la sait')
+  await repondre(c, v, true)
+  assert.equal(reponseEnBase(v.id, position).joker, CLAIRVOYANCE_SUR_LA_QUESTION, 'une réponse aidée : la mesure ne la compte pas')
 })

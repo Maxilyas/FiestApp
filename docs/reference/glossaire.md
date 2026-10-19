@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 444 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 449 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -137,7 +137,8 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Divin | Un des six avatars à part, dont les règles et les récits sont secrets : les règles ne quittent jamais le serveur, et le récit n'est dit qu'à son porteur | `server/src/core/divins.ts` |
 | Don (de confettis) | Des confettis que l'administrateur offre depuis la fiche d'un joueur, avec un mot, annoncés une fois sur son accueil et jamais repris | `offrirDesConfettis` |
 | Données de départ | Ce qu'une page demande dès son code arrivé, et que le serveur fait précharger avec la page, à la même adresse | `donneesDeDepart`, `DEPART` (`shared/depart.ts`) |
-| Dos doré | Le paquet d'une expédition en or sur le plan, une fois l'exploit du gardien de l'acte 3 vaincu sans perdre de courage fait ; l'or ne change rien au jeu | `dosDuPaquet`, `.exp-dos-dore` |
+| Dos de cartes | L'habit de son paquet d'expédition, sur le plan et au codex : l'ordinaire d'office, l'étoilé au niveau 6, le doré par un exploit ; choisi au départ parmi les siens — sinon le plus rare —, il ne change rien au jeu | `DOS_DES_CARTES`, `DepartDExpedition.dos`, `ChoixDuDos` |
+| Dos doré | Le dos de cartes en or, ouvert par l'exploit du gardien de l'acte 3 vaincu sans perdre de courage ; l'or ne change rien au jeu | `dosDuPaquet`, `.exp-dos-dore` |
 | Duel | Une série de la campagne que deux adversaires jouent sur les mêmes questions, chacun à son heure ; le plus de bonnes réponses gagne | `shared/duels.ts` |
 | Duel au dé | Le duel tout de suite contre Automate, à chances égales sur la cote qu'on voit, sur toutes les catégories ou sur ce qu'on choisit ; une série de mode `rencontre` (« rencontre » dans le code) | `commencerUneRencontre`, `enjeuDuDe` |
 | Duel classé | À l'écran, le duel contre quelqu'un ; dans le code, tout duel qui compte pour la cote, celui du dé compris | `lectureDesDuels` |
@@ -218,6 +219,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Fin de soirée | Ce que chaque téléphone reçoit à la clôture : sa place, ses points, ce qu'il a gagné, ses liens | `soiree:fin`, `FinDeSoiree` (`shared/fin.ts`) |
 | Fin gardée | La fin de soirée rangée sur le téléphone : elle se rouvre quand on revient sur la page (douze heures), jamais quand on y arrive | `SoireeGardee` (`client/src/state.ts`), `estUnRetour` |
 | Finition | L'habillage de l'avatar d'un profil, de Mat à Constellation, ouvert par le niveau ; « Auto » porte la plus belle | `NIVEAU_FINITION` |
+| Fiole | Ce qui ne sert qu'une fois en expédition, au codex dès le niveau 3 : du courage, de l'énergie pour la question, ou une mauvaise réponse effacée ; deux au plus, à boire de la barre quand on veut ; l'échoppe en vend, les coffres en cachent | `FIOLES`, `refusDeLaFiole`, `SesFioles` |
 | Fond de carte | Ce qu'on voit derrière la carte d'un joueur quand on touche son nom ; il se gagne, sort du coffre de la semaine (le trésor), ou s'achète — seuls les fonds des savoirs | `shared/fonds.ts` |
 | Fonds des savoirs | Les douze fonds de carte peints, un par catégorie de questions, les seuls que la boutique vend, tous au même prix | `FONDS_EN_BOUTIQUE`, `PRIX_D_UN_FOND` |
 | Force d'en face | Ce contre quoi la cote bouge : la cote du score d'Automate au dé, la cote figée de l'adversaire contre quelqu'un | `DuelJoue.coteAdverse` |

@@ -41,7 +41,7 @@
 // fort presque toujours, le faible une ou deux fois sur dix ; le gros pari
 // tombe à la deuxième ou la troisième pour tous, dès que le pari s'ouvre.
 //
-//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3]
+//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3] [--sans-fioles]
 import { CATEGORIES } from '../../shared/categories'
 import { SUJETS } from '../../shared/sujets'
 import { TAUX_DU_CALIBRAGE } from '../../shared/sentiers'
@@ -67,6 +67,7 @@ import {
   pliDeLExpedition,
   prixDeLArticle,
   refusDeLAchat,
+  refusDeLaFiole,
   refusDuJoker,
   traceLePlusSur,
   type ArticleDeLEchoppe,
@@ -79,7 +80,7 @@ import {
   type GesteDExpedition,
   type QuestionPosee,
 } from '../../shared/expedition'
-import { COURAGE_MAX, carteDeRencontre, effaceesDuTour } from '../../shared/rencontres'
+import { COURAGE_MAX, FIOLES_MAX, INSPIRATION_PAR_QUESTION, carteDeRencontre, effaceesDuTour, type CleDeFiole } from '../../shared/rencontres'
 import { EXPLOITS, NIVEAUX, codexDuNiveau, niveauDe, renommeeDe, type CleDExploit } from '../../shared/codex'
 
 function option(nom: string, defaut: number): number {
@@ -165,6 +166,8 @@ interface Issue {
   exploits: CleDExploit[]
   /** Ses trois gardiens : au bout, la carrière en garde un. */
   gardiens: string[]
+  /** Les fioles qu'il a bues (le codex). */
+  bues: number
 }
 
 /** Ce qu'il prend dans une offre aux règles d'avant le codex (v5, v6), du meilleur au moins bon ; ce qu'il n'y nomme pas, il le laisse. */
@@ -224,6 +227,17 @@ const PREFERENCE_DU_CODEX = [
 const EXEMPLAIRES_DU_CODEX = 2
 const A_RETIRER_DU_CODEX = ['troisieme-oeil', 'tout-ou-rien', 'arret-sur-image', 'banco', 'doubler-la-mise', 'lancee']
 const TALISMANS_UTILES = ['loupe', 'boussole']
+/**
+ * Les fioles (le codex), comme les boirait un joueur qui a appris : le
+ * courage sous ce seuil — même la question sous les yeux —, l'énergie contre
+ * une élite ou un gardien, la clairvoyance sur une question qu'il ne sait pas.
+ * Au coffre, il la prend quand aucune des meilleures cartes n'y est, ou quand
+ * le courage lui manque ; à l'échoppe, après le courage, avant une carte.
+ */
+const COURAGE_POUR_BOIRE = 20
+const MEILLEURES_DU_CODEX = PREFERENCE_DU_CODEX.slice(0, 6)
+/** `--sans-fioles` : les mêmes départs sans leur règle — ce qu'elles changent. */
+const SANS_FIOLES = process.argv.includes('--sans-fioles')
 
 /**
  * Une équipée mesurée : aux règles d'avant (v5, v6), les légendaires qu'il
@@ -251,7 +265,8 @@ function jouer(j: Joueur, graine: string, cas: Cas): Issue {
   const fetiche = [...CATEGORIES].sort((a, b) => (j.categories.get(b) ?? 0) - (j.categories.get(a) ?? 0))[0]
   // Au codex, l'invité du jour d'un jour tiré de la graine ; ses légendaires gardés ouvrent leur carte, et ne gardent plus d'acte.
   const invite = inviteDuJour(graine)
-  const codex = VERSION >= 7 ? codexDuNiveau(cas.niveau ?? 1, cas.equipee, cas.exploits ?? []) : undefined
+  const ouvert = VERSION >= 7 ? codexDuNiveau(cas.niveau ?? 1, cas.equipee, cas.exploits ?? []) : undefined
+  const codex = ouvert && SANS_FIOLES ? { ...ouvert, regles: ouvert.regles.filter(r => r !== 'fioles') } : ouvert
   const depart: DepartDExpedition = {
     v: VERSION,
     graine,
@@ -462,12 +477,25 @@ function jouer(j: Joueur, graine: string, cas: Cas): Issue {
     const etal = e.echoppe!
     const voulus: { article: ArticleDeLEchoppe; joker?: string }[] = [
       ...((e.courage ?? 0) <= COURAGE_MAX - 15 ? [{ article: 'vie' as const }] : []),
+      ...(etal.fiole ? [{ article: 'fiole' as const }] : []),
       ...aPrendre(e, etal.jokers)
         .slice(0, 1)
         .map(cle => ({ article: 'joker' as const, joker: cle })),
       ...(etal.talisman && TALISMANS_UTILES.includes(etal.talisman) ? [{ article: 'talisman' as const }] : []),
     ]
     return voulus.find(a => refusDeLAchat(e, a) === null) ?? null
+  }
+
+  /** La fiole qu'il boirait maintenant — `i` : la question qui attend, que le geste vise —, ou null. */
+  const aBoire = (e: EtatDeLExpedition, i: number | null): GesteDExpedition | null => {
+    const boire = (fiole: CleDeFiole): GesteDExpedition | null =>
+      e.fioles.includes(fiole) && refusDeLaFiole(e, fiole, posees) === null ? { quoi: 'boire', fiole, ...(i !== null && { position: i }) } : null
+    const rc = e.rencontre
+    return (
+      ((e.courage ?? COURAGE_MAX) <= COURAGE_POUR_BOIRE ? boire('courage') : null) ??
+      (rc?.tour.phase === 'preparation' && rc.sorte !== 'question' && rc.tour.inspiration <= INSPIRATION_PAR_QUESTION ? boire('energie') : null) ??
+      (rc?.tour.phase === 'question' && i !== null && !posees[i].sait ? boire('clairvoyance') : null)
+    )
   }
 
   for (let pas = 0; pas < 3000; pas++) {
@@ -489,6 +517,7 @@ function jouer(j: Joueur, graine: string, cas: Cas): Issue {
         renommee: renommeeDe(bilanDuPli(e)),
         exploits: e.exploits,
         gardiens: depart.gardiens,
+        bues: gestes.filter(g => g.quoi === 'boire').length,
       }
     }
     if (e.offre) {
@@ -497,7 +526,12 @@ function jouer(j: Joueur, graine: string, cas: Cas): Issue {
       const legendaires = offre.jokers.filter(c => carteDeRencontre(c)?.rarete === 'legendaire')
       const voulus = [...legendaires, ...aPrendre(e, offre.jokers)]
       const talisman = offre.talisman && TALISMANS_UTILES.includes(offre.talisman) && !voulus.some(c => c === 'double-chance' || c === 'bibliotheque') ? offre.talisman : undefined
-      gestes.push({ quoi: 'prendre', jokers: talisman ? [] : voulus.slice(0, 1), ...(talisman && { talisman }) })
+      // La fiole d'un coffre, à la place d'une carte : s'il n'y voit pas l'une des meilleures, ou si le courage lui manque.
+      const fiole =
+        !talisman && offre.fiole && e.fioles.length < FIOLES_MAX && (!voulus.some(c => MEILLEURES_DU_CODEX.includes(c)) || ((e.courage ?? 0) <= 30 && offre.fiole === 'courage'))
+          ? offre.fiole
+          : undefined
+      gestes.push({ quoi: 'prendre', jokers: talisman || fiole ? [] : voulus.slice(0, 1), ...(talisman && { talisman }), ...(fiole && { fiole }) })
       continue
     }
     if (e.echoppe && e.enAttente === null) {
@@ -516,6 +550,11 @@ function jouer(j: Joueur, graine: string, cas: Cas): Issue {
     if (e.enAttente !== null) {
       const i = e.enAttente
       const rc = e.rencontre
+      const bue = aBoire(e, i)
+      if (bue) {
+        gestes.push(bue)
+        continue
+      }
       if (rc && rc.tour.phase === 'preparation') {
         const g = enPreparation(e, i)
         if (g) {
@@ -551,6 +590,12 @@ function jouer(j: Joueur, graine: string, cas: Cas): Issue {
       reponses.set(cible, juger(cible, e))
       continue
     }
+    // Sur le plan, son courage au plus bas : la fiole avant le pas suivant.
+    const bue = aBoire(e, null)
+    if (bue) {
+      gestes.push(bue)
+      continue
+    }
     const permises = escalesPermises(depart, e)
     if (permises.includes(GARDIEN)) {
       gestes.push({ quoi: 'avancer', vers: GARDIEN })
@@ -573,7 +618,7 @@ const CAS: Cas[] =
   VERSION >= 7
     ? [
         { nom: 'Niveau 1 — sa première expédition, sans légendaire', equipee: [], niveau: 1 },
-        { nom: 'Niveau 3 — le pari ouvert', equipee: [], niveau: 3 },
+        { nom: 'Niveau 3 — le pari et les fioles ouverts', equipee: [], niveau: 3 },
         { nom: 'Niveau 6 — les talismans et la fétiche ouverts, la Chouette et le Phénix gardés', equipee: ['lg:chouette', 'lg:phenix'], niveau: 6 },
         {
           nom: 'Niveau 10 — le codex entier, ses exploits faits, quatre légendaires gardés',
@@ -594,13 +639,13 @@ console.log(`Les rencontres (v${VERSION}) — ${EXPEDITIONS} expéditions par jo
 const moyenne = (liste: Issue[], f: (i: Issue) => number) => (liste.length === 0 ? 0 : liste.reduce((s, i) => s + f(i), 0) / liste.length)
 for (const cas of UN_NIVEAU ? [UN_NIVEAU] : UN_CAS === null ? CAS : [CAS[UN_CAS]]) {
   console.log(cas.nom)
-  console.log('  joueur   au bout   arrêté à l’acte 1 · 2 · 3   questions   rencontres   cartes jouées   écus   courage au bout   renommée')
+  console.log('  joueur   au bout   arrêté à l’acte 1 · 2 · 3   questions   rencontres   cartes jouées   écus   courage au bout   renommée   fioles bues')
   for (const [nom, theta] of JOUEURS) {
     const issues = Array.from({ length: EXPEDITIONS }, (_, k) => jouer(unJoueur(theta, `calibrage:${nom}:${k}`), `calibrage:${k}`, cas))
     const auBout = issues.filter(i => i.auBout)
     const arrets = [0, 1, 2].map(a => issues.filter(i => !i.auBout && i.acte === a).length / EXPEDITIONS)
     console.log(
-      `  ${nom.padEnd(8)} ${pc(auBout.length / EXPEDITIONS).padStart(7)}   ${arrets.map(pc).join(' · ').padStart(24)}   ${virgule(moyenne(issues, i => i.questions)).padStart(9)}   ${virgule(moyenne(issues, i => i.rencontres)).padStart(10)}   ${virgule(moyenne(issues, i => i.cartes)).padStart(13)}   ${String(Math.round(moyenne(issues, i => i.ecus))).padStart(4)}   ${virgule(moyenne(auBout, i => i.courage)).padStart(15)}   ${String(Math.round(moyenne(issues, i => i.renommee))).padStart(8)}`,
+      `  ${nom.padEnd(8)} ${pc(auBout.length / EXPEDITIONS).padStart(7)}   ${arrets.map(pc).join(' · ').padStart(24)}   ${virgule(moyenne(issues, i => i.questions)).padStart(9)}   ${virgule(moyenne(issues, i => i.rencontres)).padStart(10)}   ${virgule(moyenne(issues, i => i.cartes)).padStart(13)}   ${String(Math.round(moyenne(issues, i => i.ecus))).padStart(4)}   ${virgule(moyenne(auBout, i => i.courage)).padStart(15)}   ${String(Math.round(moyenne(issues, i => i.renommee))).padStart(8)}   ${virgule(moyenne(issues, i => i.bues)).padStart(11)}`,
     )
   }
   console.log('')

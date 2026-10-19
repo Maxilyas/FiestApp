@@ -19,6 +19,7 @@ import type {
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, Melange, ReponseDEpreuve } from '../../shared/sentiers'
 import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
 import type { ApresUnGeste, ArticleDeLEchoppe, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
+import type { CleDeFiole } from '../../shared/rencontres'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
@@ -560,8 +561,8 @@ export const api = {
    */
   expedition: {
     page: () => req<PageDeLExpedition>(DEPART.expedition),
-    /** Partir avec son équipée — et, là où le prototype s'ouvre, aux rencontres, avec sa catégorie fétiche. */
-    partir: (equipee: readonly string[], plus: { rencontres?: true; fetiche?: string } = {}) =>
+    /** Partir avec son équipée — et, là où le prototype s'ouvre, aux rencontres, avec sa catégorie fétiche et le dos de son paquet. */
+    partir: (equipee: readonly string[], plus: { rencontres?: true; fetiche?: string; dos?: string } = {}) =>
       req<VueDeLExpedition>('/api/expedition', { method: 'POST', body: JSON.stringify({ equipee, ...plus }) }),
     avancer: (id: string, rang: number, vers: string) => gesteDExpedition(id, rang, { quoi: 'avancer', vers }),
     /** En rencontre : sa mise dite, il voit la question qui attend (`position`). */
@@ -569,9 +570,11 @@ export const api = {
     /** Un joker : sur la question qui attend (`position` : un joker périmé est refusé), sur la carte, ou posé. */
     jouer: (id: string, rang: number, joker: string, plus: { position?: number; categorie?: string; montre?: number } = {}) =>
       gesteDExpedition(id, rang, { quoi: 'jouer', joker, ...plus }),
-    /** Ce qu'il prend d'une offre : ses jokers, et le talisman qui en prend la place. */
-    prendre: (id: string, rang: number, jokers: readonly string[], talisman?: string) =>
-      gesteDExpedition(id, rang, { quoi: 'prendre', jokers: [...jokers], ...(talisman !== undefined && { talisman }) }),
+    /** Ce qu'il prend d'une offre : ses jokers, et le talisman ou la fiole qui en prend la place. */
+    prendre: (id: string, rang: number, jokers: readonly string[], talisman?: string, fiole?: CleDeFiole) =>
+      gesteDExpedition(id, rang, { quoi: 'prendre', jokers: [...jokers], ...(talisman !== undefined && { talisman }), ...(fiole !== undefined && { fiole }) }),
+    /** Une fiole bue — pendant une question, sur celle qui attend (`position`), comme une carte jouée sur elle. */
+    boire: (id: string, rang: number, fiole: CleDeFiole, position?: number) => gesteDExpedition(id, rang, { quoi: 'boire', fiole, ...(position !== undefined && { position }) }),
     /** Au campement : une vie — ou, `retirer`, ce joker ôté de son paquet. */
     camper: (id: string, rang: number, retirer?: string) => gesteDExpedition(id, rang, { quoi: 'camper', ...(retirer !== undefined && { retirer }) }),
     /** À l'échoppe : un article contre des écus — le joker de l'étal, ou celui qu'on retire. */

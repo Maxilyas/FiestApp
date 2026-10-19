@@ -9139,8 +9139,13 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-tete h1 { margin: 0; font-size: 1.9rem; line-height: 1.1; text-wrap: balance; font-variant-numeric: lining-nums; }
 .exp-tete p { margin: 0; }
 .exp-surtitre { color: var(--accent-text); }
-.exp-barre { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
-.exp-barre .vies { margin-left: auto; }
+/* La barre : « ← Partir » et le « ? » à gauche ; à droite les écus, le courage — ou les vies —, puis ce qu'il porte (`exp-sac` :
+   ses cartes posées, ses talismans, ses fioles), qui passe à la ligne d'un bloc, sous les écus, quand il ne tient plus. Posé entre
+   le « ? » et les écus, sans retour à la ligne, il poussait le courage hors de l'écran : trois cartes posées, trois talismans et
+   deux fioles faisaient la page large de 509 pixels sur 360, deux fioles seules débordaient déjà (le 19 octobre 2026). */
+.exp-barre { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 8px; min-height: 32px; }
+.exp-barre .exp-regles { margin-right: auto; }
+.exp-sac { display: inline-flex; align-items: center; gap: 8px; }
 /* Le « ? » des règles, en haut de chaque page de l'expédition (la revue du 18 octobre 2026 : « un onglet règles qu'on peut
    consulter de n'importe quelle page ») : rond dans la barre, où la place est comptée ; son mot au départ, où il y en a. */
 .exp-regles { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 32px; height: 32px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--surface); color: var(--accent-text); font: inherit; font-size: 0.86rem; font-weight: 700; cursor: pointer; }
@@ -9149,11 +9154,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-haut-du-depart { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .exp-haut-du-depart .exp-regles { padding: 0 12px 0 9px; }
 /* Ses cartes posées pour toute la rencontre, en petit dans la barre, comme ses talismans ; touchée, une carte se lève. */
-.exp-posees { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+.exp-posees { display: inline-flex; align-items: center; gap: 5px; }
 .exp-posees .exp-pose { width: 26px; height: 34px; padding: 0; cursor: pointer; }
 .exp-posees .exp-pose > .icon { width: 16px; height: 16px; }
 .exp-posees .exp-pose .exp-visage-joker { font-size: 24px; }
-.exp-barre .exp-posees + .exp-talismans, .exp-barre .exp-posees + .exp-ecus, .exp-barre .exp-posees + .exp-courage { margin-left: 8px; }
 .feuille-regles .carte-corps { display: flex; flex-direction: column; gap: 18px; }
 .exp-regles-section { display: flex; flex-direction: column; gap: 10px; }
 .exp-regles-section h3 { margin: 0; }
@@ -9523,13 +9527,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Les écus (l'étape 4) : une pièce et son nombre, à gauche des vies ; un chiffre qu'on lit seul — à la ligne, pas à l'ancienne. */
 .exp-ecus { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-weight: 800; font-variant-numeric: lining-nums tabular-nums; }
 .exp-ecus .icon { width: 20px; height: 20px; }
-.exp-barre .exp-ecus { margin-left: auto; }
-.exp-barre .exp-ecus + .vies { margin-left: 6px; }
 /* Ses talismans, en petit dans la barre : sous le tracé, une ligne de plus montait le panneau jusqu'à la moitié de l'écran. */
 .exp-talismans { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); }
 .exp-talismans .icon { width: 18px; height: 18px; }
-.exp-barre .exp-talismans { margin-left: auto; }
-.exp-barre .exp-talismans + .exp-ecus { margin-left: 8px; }
 .exp-gain-ecus { display: inline-flex; align-items: center; justify-content: center; gap: 5px; margin: 0; color: var(--accent-text); font-weight: 800; font-variant-numeric: lining-nums; }
 .exp-gain-ecus .icon { width: 18px; height: 18px; }
 .exp-rarete-talisman { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
@@ -9578,8 +9578,7 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-courage-jauge { display: block; width: 34px; height: 5px; border-radius: var(--radius-pill); background: var(--track); overflow: hidden; }
 .exp-courage-jauge i { display: block; height: 100%; border-radius: inherit; background: var(--alert); transition: width 0.4s ease; }
 .exp-courage-bas b { color: var(--alert); }
-.exp-barre .exp-courage { margin-left: auto; }
-.exp-barre .exp-ecus + .exp-courage { margin-left: 10px; }
+.exp-barre .exp-ecus + .exp-courage { margin-left: 2px; }
 /* L'adversaire : l'emblème de sa catégorie dans un médaillon — le portrait d'un gardien —, ses points en jauge ; dessous, en pointillé, la question qu'il pose. */
 .exp-adversaire { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius); background: radial-gradient(90% 120% at 0% 30%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%), var(--surface); }
 .exp-adversaire-haut { display: flex; align-items: center; gap: 12px; }
@@ -9752,10 +9751,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Ses exploits, au pied du codex : faits, une coche ; à faire, leur médaille — et le dos doré tel que la pioche le portera. */
 .exp-exploits { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; border-top: 1px solid var(--edge); }
 .exp-exploits ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.exp-exploit { display: flex; align-items: center; gap: 10px; }
+.exp-exploit, .exp-un-dos { display: flex; align-items: center; gap: 10px; }
 .exp-exploit > .icon { flex: none; width: 20px; height: 20px; color: var(--muted); }
 .exp-exploit-fait > .icon { color: var(--or-text); }
-.exp-exploit > span:not(.exp-pioche) { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 1.3; }
+.exp-exploit > span:not(.exp-pioche), .exp-un-dos > span:not(.exp-pioche) { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 1.3; }
 /* « gagner un pari… » suit « Exploit : » ailleurs ; seul en tête de ligne, il prend sa majuscule. */
 .exp-exploit-but { display: block; }
 .exp-exploit-but::first-letter { text-transform: uppercase; }
@@ -9763,8 +9762,33 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    convention, comme les couleurs de piste. */
 .exp-pioche.exp-dos-dore { border-color: #b8860b; background: repeating-linear-gradient(45deg, rgba(255, 248, 214, 0.35) 0 4px, transparent 4px 9px), linear-gradient(135deg, #f7e08a, #d4a017 48%, #f3d36b 62%, #b8860b); box-shadow: inset 0 0 0 1.5px #fff3c4, 0 0 10px rgba(212, 160, 23, 0.45); color: #3a2a05; }
 .exp-pioche.exp-dos-dore span { color: #3a2a05; }
+/* Le dos étoilé (le niveau 6) : la nuit et ses étoiles d'or — une convention aussi, comme l'or du doré. */
+.exp-pioche.exp-dos-etoile { border-color: #4a5bc4; background: radial-gradient(circle, #ffe9a0 0 1px, transparent 1.6px) 0 0 / 14px 14px, radial-gradient(circle, rgba(255, 255, 255, 0.85) 0 0.7px, transparent 1.2px) 7px 7px / 14px 14px, linear-gradient(160deg, #1d2763, #33459e 55%, #161d4a); box-shadow: inset 0 0 0 1.5px rgba(160, 176, 255, 0.35), 0 0 8px rgba(80, 100, 220, 0.35); color: #f6e7ad; }
+.exp-pioche.exp-dos-etoile span { color: #f6e7ad; }
 .exp-dos-miniature { flex: none; width: 24px; height: 34px; padding: 0; border-width: 1.5px; border-radius: 5px; cursor: default; }
-.exp-dos-miniature:not(.exp-dos-dore) { opacity: 0.5; }
+/* Au codex, un dos qu'il n'a pas encore s'éteint, tel que la pioche le portera. */
+.exp-dos-ferme .exp-dos-miniature { opacity: 0.45; }
+/* Le dos à choisir au départ, parmi les siens : celui qui partira, souligné de l'accent. */
+.exp-choix-du-dos { display: flex; align-items: center; gap: 10px; }
+.exp-choix-du-dos .label { margin-right: auto; }
+.exp-choix-du-dos .exp-dos-miniature { position: relative; width: 30px; height: 42px; cursor: pointer; }
+/* Son cadre est un pseudo-élément : un `outline` recopierait l'anneau du focus (`design.test.ts`), une ombre effacerait celles du dos. */
+.exp-choix-du-dos .exp-dos-miniature[aria-checked='true']::after { content: ''; position: absolute; inset: -6px; border: 2px solid var(--accent); border-radius: 9px; }
+/* Les fioles (le codex) : un verre rond à sa teinte — rouge du courage, bleu de l'énergie, violet de la clairvoyance —, une
+   convention écrite en dur dans la page (`TEINTE_DE_LA_FIOLE`) comme celle des familles. Dans la barre, après les écus et le courage. */
+.exp-fiole-verre { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--fiole) 30%, #fff), var(--fiole) 60%, color-mix(in srgb, var(--fiole) 65%, #000)); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35); color: #15121d; }
+.exp-fiole-verre .icon { width: 16px; height: 16px; }
+.exp-fioles { display: inline-flex; align-items: center; gap: 4px; }
+.exp-fiole { display: grid; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.exp-fiole-levee { display: flex; align-items: center; gap: 12px; }
+.exp-fiole-levee .exp-fiole-verre { width: 48px; height: 48px; }
+.exp-fiole-levee .exp-fiole-verre .icon { width: 28px; height: 28px; }
+.exp-fiole-effet { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.exp-fiole-effet::first-letter { text-transform: uppercase; }
+/* Au cadre d'une carte, le verre reste rond : à 100 % du cadre, plus haut que large, il se lisait comme un œuf. */
+.exp-offre-visage .exp-fiole-verre { width: 34px; height: 34px; }
+.exp-offre-visage .exp-fiole-verre .icon { width: 20px; height: 20px; }
+.exp-rarete-fiole { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
 .exp-a-prendre-carte.exp-choisi { translate: 0 -6px; }
 .exp-a-prendre-carte.exp-choisi .exp-vc { box-shadow: inset 0 0 0 2px var(--bg-raised), 0 0 0 3px var(--accent), 0 10px 24px color-mix(in srgb, var(--accent) 35%, transparent); }
 .exp-a-prendre-dit { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-height: 4.6em; margin: 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); line-height: 1.35; }
