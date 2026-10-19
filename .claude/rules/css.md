@@ -99,6 +99,18 @@ paths:
   (`Input.dispatchTouchEvent` — `synthesizeScrollGesture` n'y fait rien
   défiler), et filme l'ouverture (`Page.startScreencast`) pour la
   luminosité de chaque image.
+- **Ce qui se pose sur la page a un sol plein, sous tous les thèmes.**
+  Chaque thème repeint `.card` d'un verre fait pour laisser voir son décor —
+  translucide sous vingt-cinq d'entre eux, de 82 à 95 % —, d'un sélecteur
+  (0,3,0) plus fort que celui d'un dialogue (`.dialog`, 0,1,0) ou de la carte
+  d'un joueur (0,2,0) : ouverte depuis la liste des amis, la carte d'un ami
+  laissait lire toute la liste au travers d'elle (« une histoire de
+  transparence avec le thème qui passe par-dessus », le 19 octobre 2026). Leur
+  sol se reprend, plus fort que le thème et sa couleur seule
+  (`:root .card.dialog:not(.carte-fond)`, `--bg-raised`) : le dégradé, la
+  bordure et l'ombre du thème restent. Une surface de plus posée sur un voile
+  prend un sol plein qu'aucun thème ne repeint — une feuille n'a pas `.card`,
+  elle pose `--bg` ; `feuilles.test.ts` lit chaque thème.
 - **Une classe assemblée couvre tout son préfixe** : la garde des classes
   mortes (S7, `design.test.ts`) tient pour vivante toute classe qui commence
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`

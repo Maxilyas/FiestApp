@@ -3452,6 +3452,17 @@ h3 > .icon {
   border-color: var(--edge-strong);
   box-shadow: var(--shadow-dialog);
 }
+/* Un dialogue, la carte d'un joueur : leur sol reste plein sous tous les
+   thèmes. Chaque thème repeint `.card` d'un sélecteur plus fort que le leur
+   (0,3,0), d'un verre fait pour laisser voir son décor sous une carte de la
+   page — translucide sous vingt-cinq d'entre eux, de 82 à 95 %. Posés sur la
+   page, ils laissaient lire ce qu'ils couvraient : la carte d'un ami, touchée
+   dans la liste des amis, toute la liste (« une histoire de transparence
+   avec le thème qui passe par-dessus », le propriétaire, le 19 octobre 2026).
+   Leur sol se reprend, plus fort que le thème (0,4,0), et lui seul : ses
+   dégradés, sa bordure et son ombre restent, posés sur du plein. Une carte à
+   fond a le sien, que les thèmes ne touchent pas. */
+:root .card.dialog:not(.carte-fond) { background-color: var(--bg-raised); }
 
 .dialog h3 { font-size: 1.5rem; }
 .dialog-message { white-space: pre-line; line-height: 1.45; }

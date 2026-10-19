@@ -51,7 +51,11 @@ paths:
   `:where(:not(.carte-fond, .carte-fond *))` (sans rien changer à sa
   force) : le décor d'un fond reste nocturne, et `fonds.test.ts` relit
   chaque feuille. Ivoire, lui, vit dans `styles.css` : l'écran commun le
-  porte aussi.
+  porte aussi. Le `.card` d'un thème habille aussi un dialogue et la carte
+  d'un joueur sans fond — bordure, ombre, dégradé —, jamais leur sol :
+  posés sur la page, ils le reprennent plein, plus fort que lui
+  (`--bg-raised`, règle `css.md`, `feuilles.test.ts`) — translucide, la carte
+  d'un ami laissait lire la liste des amis au travers d'elle.
 - **Un thème peint** cite ses images dans le bloc que `decors.ts --livrer`
   réécrit entre ses deux repères (`--decor-…`), jamais ailleurs. Ses
   surfaces sont presque opaques, et ce qui se pose en or (la réponse
