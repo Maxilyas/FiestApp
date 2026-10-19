@@ -3,7 +3,9 @@
 // s'ouvraient plus en production) : un bandeau rouge que l'administrateur pose
 // pour prévenir les joueurs, et des pages qu'il ferme le temps d'une
 // réparation — « pour pas que les gens tentent d'accéder à quelque chose qui
-// ne marche pas ».
+// ne marche pas ». Puis, le même jour, des pages bientôt disponibles —
+// l'Expédition, qu'il essayait encore —, ouvertes à leurs seuls testeurs :
+// « autoriser l'accès à des personnes si je veux qu'ils testent ».
 //
 // Le serveur écrit l'un et l'autre dans chaque page qu'il sert ; ces épreuves
 // lisent donc les pages d'un client minimal, qui tient lieu de construit
@@ -23,15 +25,18 @@ import { parseRoute } from '../../shared/adresses'
 import {
   BANDEAU_MAX,
   PAGES_EN_MAINTENANCE,
+  boutonDeLaPage,
   ceQuiEstPose,
   ecrireLesFermees,
+  fermeePour,
   lireLesFermees,
   montreLeBandeau,
   pageDeLAdresse,
   type EtatDeLaMaintenance,
+  type VuDuService,
 } from '../../shared/maintenance'
 import { ecrireLeService } from '../src/core/page'
-import { lireLeBandeau } from '../src/core/maintenance'
+import { Maintenance, lireLeBandeau } from '../src/core/maintenance'
 import { PORTES_DES_PAGES } from '../src/maintenance'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
@@ -73,8 +78,14 @@ async function bancAvecPages(opts: Parameters<typeof demarrer>[0] = {}) {
 
 const bandeau = (banc: Banc, admin: string, texte: string | null) =>
   ecrire(banc.url, '/api/admin/maintenance/bandeau', { texte }, admin, 'PUT').then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+// `{ fermee }`, le corps d'une page du QG d'avant les pages bientôt disponibles : il vaut toujours.
 const fermer = (banc: Banc, admin: string, page: string, fermee = true) =>
   ecrire(banc.url, `/api/admin/maintenance/pages/${page}`, { fermee }, admin, 'PUT').then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+const changer = (banc: Banc, admin: string, page: string, etat: string) =>
+  ecrire(banc.url, `/api/admin/maintenance/pages/${page}`, { etat }, admin, 'PUT').then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+const testeur = (banc: Banc, admin: string, page: string, id: string, methode: 'PUT' | 'DELETE' = 'PUT') =>
+  ecrire(banc.url, `/api/admin/maintenance/pages/${page}/testeurs/${id}`, undefined, admin, methode).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+const idDe = async (banc: Banc, cookie: string) => ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: cookie } })).json()) as any).profile.id as string
 
 /** Le texte du bandeau rouge d'une page servie, s'il y en a un. */
 const leBandeau = (html: string) => /<div class="bandeau-du-service" role="status">([^<]*)<\/div>/.exec(html)?.[1] ?? null
@@ -108,19 +119,54 @@ test('un bandeau se lit resserré, et trop long se refuse plutôt que de se coup
 })
 
 test('le bandeau s’écrit au-dessus de la racine, échappé : l’administrateur l’écrit, tout le monde le lit', () => {
-  const page = ecrireLeService(PAGE, { bandeau: '<script>alert(1)</script> & « $& »', fermees: [], admin: false, ici: null })
+  const page = ecrireLeService(PAGE, { bandeau: '<script>alert(1)</script> & « $& »', fermees: [], bientot: [], admin: false, avantPremiere: [], ici: null })
   assert.ok(!page.includes('<script>'), page)
   assert.match(page, /<div class="bandeau-du-service" role="status">&lt;script&gt;alert\(1\)&lt;\/script&gt; &amp; « \$&amp; »<\/div><div id="root"><\/div>/)
   assert.doesNotMatch(page, /name="maintenance/, 'rien de fermé : pas de balise')
   // Une page fermée : la balise pour tous, et pour l'administrateur qui y entre, sa ligne à lui.
-  const fermee = ecrireLeService(PAGE, { bandeau: null, fermees: ['jour', 'defi'], admin: true, ici: 'jour' })
+  const fermee = ecrireLeService(PAGE, { bandeau: null, fermees: ['jour', 'defi'], bientot: [], admin: true, avantPremiere: [], ici: 'jour' })
   assert.match(fermee, /<meta name="maintenance" content="jour defi">/)
   assert.match(fermee, /<meta name="maintenance-passe" content="oui">/)
   assert.match(fermee, /class="bandeau-du-service bandeau-administrateur"[^>]*>Le quiz du jour est en maintenance pour les joueurs : toi seul y entres/)
   assert.ok(fermee.indexOf('name="maintenance"') < fermee.indexOf('</head>'))
   assert.equal(leBandeau(fermee), null, 'le bandeau rouge reste à l’administrateur : sans lui, rien de rouge')
-  const pourUnJoueur = ecrireLeService(PAGE, { bandeau: null, fermees: ['jour'], admin: false, ici: 'jour' })
+  const pourUnJoueur = ecrireLeService(PAGE, { bandeau: null, fermees: ['jour'], bientot: [], admin: false, avantPremiere: [], ici: 'jour' })
   assert.doesNotMatch(pourUnJoueur, /maintenance-passe|bandeau-administrateur/)
+
+  // Bientôt disponible : sa balise pour tous, celle d'un testeur pour lui seul — jamais la liste des testeurs.
+  const bientot = ecrireLeService(PAGE, { bandeau: null, fermees: [], bientot: ['expedition', 'duels'], admin: false, avantPremiere: [], ici: null })
+  assert.match(bientot, /<meta name="bientot" content="duels expedition">/, 'dans l’ordre du QG')
+  assert.doesNotMatch(bientot, /name="maintenance"|avant-premiere|bandeau-administrateur/)
+  const pourSonTesteur = ecrireLeService(PAGE, { bandeau: null, fermees: [], bientot: ['expedition'], admin: false, avantPremiere: ['expedition'], ici: null })
+  assert.match(pourSonTesteur, /<meta name="avant-premiere" content="expedition">/)
+  assert.doesNotMatch(pourSonTesteur, /maintenance-passe/)
+  // L'administrateur y entre, sans ligne à lire : rien n'y est cassé, et le QG lui dit ce qu'il a posé.
+  const pourLui = ecrireLeService(PAGE, { bandeau: null, fermees: [], bientot: ['expedition'], admin: true, avantPremiere: [], ici: null })
+  assert.match(pourLui, /<meta name="maintenance-passe" content="oui">/)
+  assert.doesNotMatch(pourLui, /bandeau-du-service/)
+})
+
+test('une page bientôt disponible n’est fermée qu’à qui attend : ses testeurs et l’administrateur y entrent', () => {
+  const vu = (v: Partial<VuDuService>): VuDuService => ({ fermees: ['jour'], bientot: ['expedition'], admin: false, avantPremiere: [], ...v })
+  const joueur = vu({})
+  assert.deepEqual(
+    PAGES_EN_MAINTENANCE.map(p => [fermeePour(joueur, p), boutonDeLaPage(joueur, p)]),
+    [['maintenance', 'maintenance'], [null, null], [null, null], [null, null], ['bientot', 'bientot'], [null, null]],
+  )
+  // Son testeur y entre, et son bouton le lui dit ; la page en maintenance lui reste fermée.
+  const testeur = vu({ avantPremiere: ['expedition'] })
+  assert.deepEqual([fermeePour(testeur, 'expedition'), boutonDeLaPage(testeur, 'expedition')], [null, 'avant-premiere'])
+  assert.deepEqual([fermeePour(testeur, 'jour'), boutonDeLaPage(testeur, 'jour')], ['maintenance', 'maintenance'])
+  // L'administrateur entre partout ; sur l'accueil, ce qui ne marche pas reste éteint, même pour lui.
+  const admin = vu({ admin: true })
+  assert.deepEqual(
+    PAGES_EN_MAINTENANCE.map(p => fermeePour(admin, p)),
+    PAGES_EN_MAINTENANCE.map(() => null),
+  )
+  assert.deepEqual([boutonDeLaPage(admin, 'jour'), boutonDeLaPage(admin, 'expedition')], ['maintenance', 'avant-premiere'])
+  // La pastille rouge du QG ne compte que ce qui ne marche pas : une page bientôt disponible peut attendre des semaines.
+  const aucune = Object.fromEntries(PAGES_EN_MAINTENANCE.map(p => [p, null])) as EtatDeLaMaintenance['pages']
+  assert.equal(ceQuiEstPose({ bandeau: null, pages: aucune, bientot: { ...aucune, expedition: 1 } } as Pick<EtatDeLaMaintenance, 'bandeau' | 'pages'>), 0)
 })
 
 // ── 2. Les pages servies ──────────────────────────────────────────────────
@@ -201,6 +247,105 @@ test('une page fermée se sert sans rien précharger, et l’administrateur y en
   }
 })
 
+test('une page bientôt disponible se sert fermée à qui attend, ouverte à ses testeurs et à l’administrateur — et le reste après un réveil', async () => {
+  const { banc, page, fermer: eteindre } = await bancAvecPages()
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐸')
+    const tomId = await idDe(banc, tom)
+    assert.match(await page('/expedition'), /rel="preload" as="fetch"/, 'ouverte, elle précharge son départ')
+
+    const pose = await changer(banc, admin, 'expedition', 'bientot')
+    assert.equal(pose.status, 200)
+    assert.equal(typeof (pose.corps as EtatDeLaMaintenance).bientot.expedition, 'number')
+    assert.equal((pose.corps as EtatDeLaMaintenance).pages.expedition, null, 'pas en maintenance : rien n’y est cassé')
+    // Sans profil, ou d'un profil qui attend : fermée, et rien de préchargé.
+    for (const cookie of [undefined, lea]) {
+      const html = await page('/expedition', cookie)
+      assert.match(html, /<meta name="bientot" content="expedition">/)
+      assert.doesNotMatch(html, /avant-premiere|maintenance-passe|rel="preload" as="fetch"/)
+    }
+
+    // Son testeur, par sa session de joueur : la page s'ouvre, préchargée, et l'accueil le sait.
+    const ajout = await testeur(banc, admin, 'expedition', tomId)
+    assert.equal(ajout.status, 200)
+    assert.deepEqual(
+      (ajout.corps as EtatDeLaMaintenance).testeurs.expedition.map(t => [t.nom, t.login]),
+      [['Tom', 'tom']],
+    )
+    const pourTom = await page('/expedition', tom)
+    assert.match(pourTom, /<meta name="avant-premiere" content="expedition">/)
+    assert.match(pourTom, /rel="preload" as="fetch"/)
+    assert.match(await page('/', tom), /<meta name="avant-premiere" content="expedition">/)
+    assert.doesNotMatch(await page('/', lea), /avant-premiere/, 'chacun ne sait que ce qui le regarde')
+    // L'administrateur, par sa console : il y entre, sans ligne à lire — rien n'y est cassé.
+    const pourLui = await page('/expedition', admin)
+    assert.match(pourLui, /<meta name="maintenance-passe" content="oui">/)
+    assert.match(pourLui, /rel="preload" as="fetch"/)
+    assert.doesNotMatch(pourLui, /bandeau-administrateur/)
+
+    // Ce qui ne changerait rien, ou ne se comprend pas, se refuse.
+    assert.equal((await changer(banc, admin, 'expedition', 'bientot')).status, 400)
+    assert.equal((await changer(banc, admin, 'expedition', 'peut-etre')).status, 400)
+    assert.equal((await testeur(banc, admin, 'expedition', tomId)).status, 400, 'déjà testeur')
+    assert.equal((await testeur(banc, admin, 'expedition', await idDe(banc, lea), 'DELETE')).status, 400, 'elle ne teste rien')
+    assert.equal((await testeur(banc, admin, 'expedition', 'personne')).status, 404)
+    assert.equal((await testeur(banc, admin, 'soirees', tomId)).status, 400)
+
+    // La base permanente garde l'état et ses testeurs : le disque effacé d'un réveil ne l'ouvre à personne de plus.
+    await banc.redemarrer({ disqueEfface: true })
+    assert.match(await page('/expedition', lea), /<meta name="bientot" content="expedition">/)
+    assert.match(await page('/expedition', tom), /<meta name="avant-premiere" content="expedition">/)
+
+    // Ouverte à tous, plus rien ne se pose — et elle garde ses testeurs pour une prochaine fois.
+    const ouverte = await changer(banc, await connexionAnimateur(banc.url), 'expedition', 'ouverte')
+    assert.equal(ouverte.status, 200)
+    assert.equal((ouverte.corps as EtatDeLaMaintenance).bientot.expedition, null)
+    assert.deepEqual(
+      (ouverte.corps as EtatDeLaMaintenance).testeurs.expedition.map(t => t.login),
+      ['tom'],
+    )
+    assert.doesNotMatch(await page('/expedition', lea), /name="bientot"/)
+  } finally {
+    await eteindre()
+  }
+})
+
+test('le magasin : une page bientôt disponible est fermée pour le rappel du soir, et un profil oublié ne teste plus rien', async () => {
+  const dossier = mkdtempSync(path.join(tmpdir(), 'quizz-maintenance-'))
+  const url = `file:${path.join(dossier, 'permanente.db')}`
+  const magasin = new Maintenance(url)
+  try {
+    await magasin.init()
+    await magasin.changerLEtat('jour', 'bientot')
+    // « Ton quiz du jour t'attend » vers une page fermée : la tournée attend (`RappelStore`, `enPause`).
+    assert.equal(magasin.estFermee('jour'), true)
+    await magasin.ajouterUnTesteur('jour', 'p1')
+    assert.equal(magasin.laisseEntrer('jour', { admin: false, profil: 'p1' }), true)
+    assert.equal(magasin.laisseEntrer('jour', { admin: false, profil: 'p2' }), false)
+    assert.equal(magasin.laisseEntrer('jour', { admin: true, profil: null }), true)
+    // En maintenance, ses testeurs attendent avec les autres : ce qui ne marche pas ne s'essaie pas.
+    await magasin.changerLEtat('jour', 'maintenance')
+    assert.equal(magasin.laisseEntrer('jour', { admin: false, profil: 'p1' }), false)
+    await magasin.changerLEtat('jour', 'bientot')
+    // Un profil supprimé (`supprimerProfil`) ne teste plus rien, en mémoire comme en base.
+    await magasin.oublierProfil('p1')
+    assert.equal(magasin.laisseEntrer('jour', { admin: false, profil: 'p1' }), false)
+    const relue = new Maintenance(url)
+    try {
+      await relue.init()
+      assert.equal(relue.etatDe('jour'), 'bientot')
+      assert.deepEqual(relue.etat().testeurs.jour, [])
+    } finally {
+      relue.close()
+    }
+  } finally {
+    magasin.close()
+    rmSync(dossier, { recursive: true, force: true })
+  }
+})
+
 // ── 3. Les portes ─────────────────────────────────────────────────────────
 
 test('une page fermée ferme ce qui y commence — 423 et son motif, jamais 503 —, laisse finir ce qui est commencé, et l’administrateur passe', async () => {
@@ -239,6 +384,40 @@ test('une page fermée ferme ce qui y commence — 423 et son motif, jamais 503 
     // Tout rouvert, plus rien ne ferme.
     for (const p of ['jour', 'defi', 'duels']) assert.equal((await fermer(banc, admin, p, false)).status, 200, p)
     assert.notEqual((await ecrire(banc.url, '/api/campagne/defi', {}, lea)).status, 423)
+  } finally {
+    await banc.close()
+  }
+})
+
+test('une page bientôt disponible ferme ses portes à qui attend, ses testeurs passent — et une page en maintenance les arrête quand même', async () => {
+  const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40) })
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐸')
+    const tomId = await idDe(banc, tom)
+    assert.equal((await changer(banc, admin, 'expedition', 'bientot')).status, 200)
+    assert.equal((await testeur(banc, admin, 'expedition', tomId)).status, 200)
+
+    const refus = await ecrire(banc.url, '/api/expedition', {}, lea)
+    assert.equal(refus.status, 423)
+    assert.deepEqual(await refus.json(), { error: 'L’Expédition arrive bientôt : reviens dans quelques jours', bientot: 'expedition' })
+    assert.notEqual((await ecrire(banc.url, '/api/expedition', {}, tom)).status, 423, 'son testeur part')
+    assert.notEqual((await ecrire(banc.url, '/api/expedition', {}, admin)).status, 423, 'l’administrateur passe la porte')
+    // Retiré, il attend avec les autres.
+    assert.equal((await testeur(banc, admin, 'expedition', tomId, 'DELETE')).status, 200)
+    assert.equal((await ecrire(banc.url, '/api/expedition', {}, tom)).status, 423)
+
+    // Le défi bientôt disponible, Tom pour l'essayer ; puis la campagne en maintenance : sa porte est aussi celle du
+    // défi, et ce qui ne marche pas ne s'essaie pas.
+    assert.equal((await changer(banc, admin, 'defi', 'bientot')).status, 200)
+    assert.equal((await testeur(banc, admin, 'defi', tomId)).status, 200)
+    assert.equal((await ecrire(banc.url, '/api/campagne/defi', {}, lea)).status, 423)
+    assert.notEqual((await ecrire(banc.url, '/api/campagne/defi', {}, tom)).status, 423)
+    assert.equal((await changer(banc, admin, 'campagne', 'maintenance')).status, 200)
+    const arrete = await ecrire(banc.url, '/api/campagne/defi', {}, tom)
+    assert.equal(arrete.status, 423)
+    assert.equal(((await arrete.json()) as { maintenance?: string }).maintenance, 'campagne')
   } finally {
     await banc.close()
   }
@@ -329,7 +508,7 @@ test('à l’accueil, une page en maintenance éteint son bouton et le dit ; le 
         campagne,
         jour: { serie: 3, jours: [] },
         duels: { joues: 0, defisRecus: { n: 2, de: 'Léa' } },
-        fermees: new Set(fermees),
+        etats: Object.fromEntries(fermees.map(p => [p, 'maintenance'])),
       }),
     )
   const bouton = (html: string, titre: string) => html.split('<a ').find(x => x.includes(`<b>${titre}</b>`))!
@@ -353,4 +532,35 @@ test('à l’accueil, une page en maintenance éteint son bouton et le dit ; le 
   assert.doesNotMatch(sansLeDefi, /#defi|défi de la semaine/)
   assert.doesNotMatch(sansLeDefi, /gros-ferme/, 'le reste de la campagne reste ouvert')
   assert.match(bouton(accueil(['campagne']), 'La campagne'), /class="gros-bouton gros-ferme" href="\/campagne"/)
+})
+
+test('à l’accueil, une page bientôt disponible s’éteint pour qui attend, et dit « En test » à son testeur ; son écran ne parle pas de panne', async () => {
+  Object.assign(globalThis, { window: { location: { pathname: '/', search: '', hash: '', origin: 'http://banc' }, opener: null } })
+  const module = await import(new URL('../../client/src/components/AccueilDesRoles.tsx', import.meta.url).href)
+  const { MaintenanceApp } = await import(new URL('../../client/src/views/MaintenanceApp.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const campagne = { vies: 11, avance: null, defi: { joueurs: 12, neuf: true } }
+  const accueil = (etats: Record<string, string>) =>
+    renderToStaticMarkup(React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, campagne, jour: { serie: 0, jours: [] }, etats }))
+  const bouton = (html: string, titre: string) => html.split('<a ').find(x => x.includes(`<b>${titre}</b>`))!
+
+  // Qui attend : le bouton s'éteint, sans rouge — rien n'y est cassé —, et le défi bientôt disponible quitte celui de la campagne.
+  const attend = accueil({ expedition: 'bientot', defi: 'bientot' })
+  const expedition = bouton(attend, 'L’Expédition')
+  assert.match(expedition, /^class="gros-bouton gros-ferme gros-bientot" href="\/expedition"/)
+  assert.match(expedition, /<span class="gros-detail">Bientôt disponible<\/span>/)
+  assert.doesNotMatch(bouton(attend, 'La campagne'), /#defi|défi de la semaine/)
+  // Son testeur : ouvert, et il le sait.
+  const essaie = bouton(accueil({ expedition: 'avant-premiere' }), 'L’Expédition')
+  assert.match(essaie, /^class="gros-bouton" href="\/expedition"/)
+  assert.match(essaie, /<span class="pastille-attente">En test<\/span>/)
+  // Ce qu'il attend d'abord passe devant : « À jouer » reste au quiz du jour qu'il essaie.
+  assert.match(bouton(accueil({ jour: 'avant-premiere' }), 'Le quiz du jour'), /<span class="pastille-attente">À jouer<\/span>/)
+
+  // Son écran : ce qui arrive, sans « réparation » ni « Réessayer » — réessayer n'y changerait rien avant des jours.
+  const ecran = (pourquoi: string) => renderToStaticMarkup(React.createElement(MaintenanceApp, { page: 'expedition', pourquoi }))
+  assert.match(ecran('bientot'), /<h1 id="en-maintenance-titre">L’Expédition arrive bientôt<\/h1>/)
+  assert.doesNotMatch(ecran('bientot'), /Réessayer|réparation/)
+  assert.match(ecran('maintenance'), /<h1 id="en-maintenance-titre">L’Expédition est en maintenance<\/h1>/)
+  assert.match(ecran('maintenance'), /Réessayer/)
 })

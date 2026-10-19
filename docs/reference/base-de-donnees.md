@@ -888,13 +888,23 @@ Chaque démarrage du serveur, et son extinction propre.
 
 ### `qg_maintenance`
 
-Ce que l'administrateur pose au QG (`/admin#maintenance`) : le bandeau rouge, et les pages en maintenance — une ligne par chose posée, la table vide sinon.
+Ce que l'administrateur pose au QG (`/admin#maintenance`) : le bandeau rouge, les pages en maintenance et celles bientôt disponibles — une ligne par chose posée, la table vide sinon.
 
-- **Colonnes clés** : `cle` (la clé : `bandeau`, ou la page fermée — `jour`, `campagne`, `defi`, `duels`, `expedition`, `boutique`), `texte` (celui du bandeau ; vide pour une page), `depuis`.
+- **Colonnes clés** : `cle` (la clé : `bandeau`, ou la page fermée — `jour`, `campagne`, `defi`, `duels`, `expedition`, `boutique`), `texte` (celui du bandeau ; pour une page, `bientot` si elle est bientôt disponible, vide en maintenance — ce qu'une version d'après y écrirait se lit fermé), `depuis`.
 - **Espace** : non — elles valent pour tout le serveur.
 - **Écrite par** : `Maintenance` (`server/src/core/maintenance.ts`), à chaque geste de la page du QG, l'un après l'autre.
 - **Lue par** : `Maintenance`, une fois au démarrage, puis tenue en mémoire : chaque page servie et chaque route qui commence une partie la lisent sans un aller-retour.
-- **Effacée par** : le geste contraire — retirer le bandeau, rouvrir la page — efface sa ligne.
+- **Effacée par** : le geste contraire — retirer le bandeau, rouvrir la page à tous — efface sa ligne.
+
+### `qg_testeurs`
+
+Les testeurs d'une page bientôt disponible : un profil par ligne, qui y entre avant tout le monde — rien ne les montre aux autres joueurs.
+
+- **Colonnes clés** : `page`, `profile_id` (la clé, ensemble), `depuis`.
+- **Espace** : non — un profil va d'un espace à l'autre, et la page vaut pour tout le serveur.
+- **Écrite par** : `Maintenance` (`ajouterUnTesteur`), depuis la page du QG.
+- **Lue par** : `Maintenance`, une fois au démarrage, puis tenue en mémoire avec l'état des pages.
+- **Effacée par** : le testeur retiré au QG ; un profil supprimé emporte les siennes (`oublierProfil`, dans `supprimerProfil`). La page rouverte à tous les garde, pour une prochaine fois.
 
 ## Pour aller plus loin
 

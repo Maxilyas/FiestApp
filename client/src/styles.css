@@ -4588,31 +4588,40 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .en-maintenance-icone { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: rgba(217, 48, 37, 0.14); color: #d93025; }
 .en-maintenance-icone .icon { width: 30px; height: 30px; }
 .en-maintenance-gestes { display: grid; gap: 10px; width: 100%; margin-top: 8px; }
+/* Bientôt disponible : rien n'y est cassé — ni rouge, ni alerte. */
+.en-bientot .en-maintenance-icone { background: var(--surface-strong); color: var(--accent-text); }
 /* Le bouton de l'accueil d'une page fermée : éteint, sa ligne dit pourquoi — il mène encore à la page qui l'explique. */
 .gros-bouton.gros-ferme { border-style: dashed; background: none; }
 .gros-ferme .gros-icone { opacity: 0.5; filter: grayscale(1); }
 .gros-ferme .gros-texte b { color: var(--muted); }
 .gros-ferme .gros-detail { color: var(--alert); }
+.gros-bientot .gros-detail { color: var(--accent-text); }
 /* L'onglet du défi, ouvert à l'administrateur seul. */
 .avis-administrateur { margin: 0; padding: 10px 14px; border-radius: var(--radius-xs); background: #7a4f00; color: #ffffff; font-size: 0.875rem; font-weight: 600; line-height: 1.35; }
 /* La page du QG : ce qui est posé, en rouge, et un geste par page. Deux classes : `.etiquette`, plus bas, l'emportait — rouge sur rouge sous l'Ivoire. */
 .etiquette.etiquette-alerte { border-color: #d93025; background: #d93025; color: #ffffff; }
 .maintenance-compte { margin: -6px 0 0; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+.maintenance-etiquettes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .maintenance-gestes .salon-geste[aria-disabled='true'] { opacity: 0.5; cursor: default; }
-.maintenance-page { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--edge); }
+/* Une page par ligne : ce qu'elle ferme, ce qu'elle est, puis ses gestes dessous — à côté, au téléphone, « Rouvrir »
+   laissait au texte un mot par ligne —, et ses testeurs quand elle est bientôt disponible. */
+.maintenance-page { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--edge); }
 .maintenance-page:first-child { border-top: 0; }
 .maintenance-page-icone { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--surface-strong); }
 .maintenance-page-icone .icon { width: 18px; height: 18px; }
 .maintenance-fermee .maintenance-page-icone { background: #d93025; color: #ffffff; }
-.maintenance-page-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.maintenance-bientot .maintenance-page-icone { background: var(--accent); color: var(--on-accent); }
+.maintenance-page-corps { flex: 1; min-width: 0; display: grid; gap: 10px; }
+.maintenance-page-texte { display: flex; flex-direction: column; gap: 2px; }
 .maintenance-depuis { color: var(--alert); font-size: 0.85rem; font-weight: 600; }
-.maintenance-page .salon-geste { flex: none; }
-@media (max-width: 480px) {
-  /* Au téléphone, le geste passe sous ce qu'il ferme : à côté, « Rouvrir » laissait au texte un mot par ligne. */
-  .maintenance-page { flex-wrap: wrap; }
-  .maintenance-page-texte { flex-basis: calc(100% - 48px); }
-  .maintenance-page .salon-geste { margin-left: 48px; }
-}
+.maintenance-bientot-depuis { color: var(--accent-text); font-size: 0.85rem; font-weight: 600; }
+.maintenance-page-gestes { display: flex; flex-wrap: wrap; gap: 8px; }
+.maintenance-testeurs { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--radius-xs); background: var(--surface-strong); }
+.maintenance-testeurs .champ-recherche { margin: 0; }
+.maintenance-testeurs-liste { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.maintenance-testeurs-liste li { display: flex; align-items: center; gap: 10px; }
+.maintenance-testeur { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.maintenance-testeurs-liste .salon-geste { flex: none; }
 
 /* ── Aperçu de l'import : les estimations lues ──────────────────────────
 
