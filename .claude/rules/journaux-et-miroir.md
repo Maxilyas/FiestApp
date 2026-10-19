@@ -32,10 +32,11 @@ paths:
   `ajouterColonne` dans `jour.ts` et `campagne.ts` (`compagnons.test.ts`,
   `niche.test.ts`).
 - **Le démarrage ouvre ses magasins de front** (`deFront`, `server.ts`) :
-  après les comptes, douze branches partent ensemble — le miroir et sa
+  après les comptes, treize branches partent ensemble — le miroir et sa
   restauration, les profils, le quiz du jour, le rappel du soir, la
   bibliothèque et ses quiz livrés, les programmes, les partages, les salons,
-  la campagne, le journal des gestes, la santé du serveur et l'historique —
+  la campagne, le journal des gestes, la santé du serveur, la maintenance et
+  l'historique —
   soixante allers-retours en série faisaient trois secondes à chaque réveil.
   Un magasin qui aurait besoin d'un autre s'ouvre après lui, dans la même
   branche ; ce qui les relie (`profiles.statsDuJour`, le laurier) se branche

@@ -615,6 +615,7 @@ Les sessions, les essais, les codes, et ce que le QG surveille : [administrer](.
 | `LEGENDAIRES_AU_QG` | 6 | `shared/qgEconomie.ts` | Les légendaires les plus portés que la page de l'économie nomme | Affichage seul : « Légendaires portés » compte les porteurs de tous |
 | `CONFETTIS_PAR_DON_MAX` | 500 | `shared/profil.ts` | Un don de confettis du QG, au plus (au moins 1) | Un choix de produit, à dire : un don ne se reprend pas, et il s'ajoute au solde à chaque lecture |
 | `MOT_D_UN_DON_MAX` | 140 | `shared/profil.ts` | Le mot d'un don, en caractères | Affiché sur l'accueil du joueur |
+| `BANDEAU_MAX` | 140 | `shared/maintenance.ts` | Le bandeau rouge de la page « Maintenance » du QG, en caractères | Il se lit au-dessus de chaque page hors d'une soirée : plus long, il repousse les gros boutons de l'accueil sous le pli d'un téléphone ; un texte trop long se refuse, il ne se coupe pas |
 | `SIGNALEMENTS_MONTRES_AU_QG` | 50 | `shared/qgSignalements.ts` | Les questions à relire que la page des signalements lit de chaque mode, les plus récemment signalées d'abord | Affichage seul : à ce compte, la page dit que d'autres attendent, et elles paraissent à mesure |
 | `JOURS_DES_RELUS` | 30 | `shared/qgSignalements.ts` | Les jours que l'onglet « Relues » de la page des signalements remonte | Affichage seul : chaque signalement garde son issue en base |
 | `RELUS_MONTRES` | 100 | `shared/qgSignalements.ts` | Les questions relues que l'onglet « Relues » montre, les plus récentes d'abord | Affichage seul |

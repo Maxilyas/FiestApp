@@ -5,6 +5,8 @@ import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './camp
 import { expeditionOuverte, mountExpedition, rencontresOuvertes } from './expedition'
 import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
+import { fermerLesPortes, mountMaintenance } from './maintenance'
+import type { Maintenance } from './core/maintenance'
 import { journaliser, type JournalDesGestes } from './core/journalDesGestes'
 import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
@@ -88,6 +90,8 @@ interface ApiDeps {
   qg: Pick<QgDeps, 'db' | 'registry' | 'io' | 'backup' | 'charge' | 'sante' | 'env' | 'version' | 'clore'>
   /** Le journal des gestes de l'administrateur : chaque route de `/api/admin` qui change quelque chose s'y note. */
   gestes: JournalDesGestes
+  /** Le bandeau rouge et les pages en maintenance : le QG les pose, et une page fermée ferme ses portes. */
+  maintenance: Maintenance
 }
 
 /**
@@ -112,6 +116,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // Derrière la porte, avant toute route : chaque geste qui change quelque
   // chose se note au journal du QG, celui d'une route à venir compris.
   app.use('/api/admin', journaliser(deps.gestes))
+  // Devant les routes des joueurs : une page en maintenance ferme celles qui y
+  // commencent une partie, un départ, un achat (`PORTES_DES_PAGES`).
+  app.use('/api', fermerLesPortes({ maintenance: deps.maintenance, auth: deps.auth }))
   mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount, espaceChange: deps.espaceChange })
   // La télé qu'on branche depuis son téléphone, sans rien taper à la télécommande.
   mountAppairage(app, { auth: deps.auth, online: deps.online })
@@ -193,6 +200,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
     rappels: deps.rappels,
     maintenant: deps.maintenant,
   })
+  // Le bandeau rouge et les pages en maintenance : l'administrateur seul.
+  mountMaintenance(app, { maintenance: deps.maintenance })
 
   /**
    * Le ménage des photos de l'espace. Celles qu'une partie encore sur le

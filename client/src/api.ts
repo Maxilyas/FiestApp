@@ -42,6 +42,7 @@ import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
+import type { EtatDeLaMaintenance, PageEnMaintenance } from '../../shared/maintenance'
 import type { SuiviDuJour } from '../../shared/qgDuJour'
 import type { SuiviDeLaCampagne } from '../../shared/qgCampagne'
 import type { SuiviDesDuels } from '../../shared/qgDuels'
@@ -668,6 +669,13 @@ export const api = {
     /** Clore une soirée laissée en plan, comme son animateur l'aurait close : rangée, ses invités crédités. */
     cloreLaSoiree: (spaceId: string) =>
       req<{ close: true; rangee: boolean }>(`/api/admin/soirees/${encodeURIComponent(spaceId)}/clore`, { method: 'POST' }),
+    /** Le bandeau rouge et les pages en maintenance, tels qu'ils sont posés. */
+    maintenance: () => req<EtatDeLaMaintenance>('/api/admin/maintenance'),
+    /** Poser le bandeau, ou le retirer (`null`) ; rend l'état d'après. */
+    poserLeBandeau: (texte: string | null) => req<EtatDeLaMaintenance>('/api/admin/maintenance/bandeau', { method: 'PUT', body: JSON.stringify({ texte }) }),
+    /** Mettre une page en maintenance, ou la rouvrir ; rend l'état d'après. */
+    mettreEnMaintenance: (page: PageEnMaintenance, fermee: boolean) =>
+      req<EtatDeLaMaintenance>(`/api/admin/maintenance/pages/${page}`, { method: 'PUT', body: JSON.stringify({ fermee }) }),
     /** Tous les espaces, chacun avec son titulaire : les salons des profils, les comptes à mot de passe. */
     espaces: () => req<EspaceDAdministration[]>('/api/admin/espaces'),
     /** Fusionner deux identités d'avant : l'espace prend ce profil pour titulaire, ses quiz d'ailleurs le rejoignent. */

@@ -15,6 +15,9 @@
 // son code, puis ses données (`retours/2026-10-05/affichage-des-pages.md`).
 
 import { RESERVED_SLUGS, SLUG, type PublicSpace } from '../../../shared/space'
+import { CLASSE_DU_BANDEAU, CLASSE_POUR_L_ADMINISTRATEUR, ecrireLesFermees, pourLAdministrateur } from '../../../shared/maintenance'
+import { espacesFines } from '../../../shared/typographie'
+import type { ServiceDeLaPage } from './maintenance'
 
 /** L'espace qu'ouvre l'adresse d'un téléphone d'invité (`/<espace>`), s'il y en a un. */
 export function espaceDeLEntree(chemin: string): string | null {
@@ -52,6 +55,34 @@ export function prechargerDonnees(html: string, adresses: string[]): string {
   if (adresses.length === 0) return html
   const liens = adresses.map(a => `<link rel="preload" as="fetch" href="${echapper(a)}" crossorigin>`).join('\n    ')
   return html.replace('</head>', () => `  ${liens}\n  </head>`)
+}
+
+/**
+ * Le bandeau et la maintenance (`shared/maintenance.ts`), posés par le
+ * serveur dans la page même : le bandeau en clair au-dessus de la racine —
+ * là dès la première image, sans un script ni une requête de plus, et sans
+ * que rien ne saute quand la page arrive dessous ; React ne touche qu'à
+ * `#root`, il reste —, et les pages fermées dans une balise que le client lit
+ * (`client/src/maintenance.ts`). Sur une page fermée, l'administrateur, qui y
+ * entre encore, lit qu'elle l'est pour les joueurs : sans un mot, il ne
+ * verrait pas qu'il l'a laissée fermée. Le texte passe par `echapper` :
+ * l'administrateur l'écrit, mais tout le monde le lit.
+ */
+export function ecrireLeService(html: string, service: ServiceDeLaPage): string {
+  const metas = [
+    service.fermees.length > 0 && `<meta name="maintenance" content="${ecrireLesFermees(service.fermees)}">`,
+    service.fermees.length > 0 && service.admin && '<meta name="maintenance-passe" content="oui">',
+  ].filter(Boolean)
+  const bandeaux = [
+    service.bandeau && `<div class="${CLASSE_DU_BANDEAU}" role="status">${echapper(espacesFines(service.bandeau))}</div>`,
+    service.ici &&
+      service.admin &&
+      `<div class="${CLASSE_DU_BANDEAU} ${CLASSE_POUR_L_ADMINISTRATEUR}" role="status">${echapper(espacesFines(pourLAdministrateur(service.ici)))}</div>`,
+  ].filter(Boolean)
+  let page = html
+  if (metas.length > 0) page = page.replace('</head>', () => `  ${metas.join('\n    ')}\n  </head>`)
+  if (bandeaux.length > 0) page = page.replace('<div id="root">', () => `${bandeaux.join('')}<div id="root">`)
+  return page
 }
 
 /**

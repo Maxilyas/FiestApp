@@ -15,6 +15,9 @@ import { formatNumber } from '../../../shared/typographie'
 import { EXPEDITION_EN_PRODUCTION } from '../../../shared/jokers'
 // Déjà sur l'accueil par son en-tête (`Identite.tsx`) : le merci n'y ajoute rien à télécharger.
 import { phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/profil'
+// Ils n'importent rien : le premier script de chaque page les lit déjà (`main.tsx`).
+import { BOUTON_EN_MAINTENANCE, type PageEnMaintenance } from '../../../shared/maintenance'
+import { pagesEnMaintenance } from '../maintenance'
 import { BlasonDeLigue } from './Blason'
 
 // L'accueil, selon qui le tient.
@@ -179,6 +182,9 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; 
   }
 }
 
+/** Rien en maintenance. */
+const AUCUNE: ReadonlySet<PageEnMaintenance> = new Set()
+
 /**
  * L'accueil d'un profil : ce qu'on vient faire, en gros boutons — une soirée
  * où l'on joue déjà passe devant tout (« Revenir chez Hugo »), puis le quiz
@@ -189,6 +195,10 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; 
  * Il remplace « Je joue » et « Ce soir », dont les boutons changeaient de
  * place et de taille selon l'heure et les rôles. Tout le monde a son salon :
  * il n'y a plus de porte d'animateur à chercher.
+ *
+ * Une page en maintenance éteint son bouton, et sa ligne le dit : on ne
+ * l'apprenait qu'en touchant. Le défi fermé seul ne se propose plus sur le
+ * bouton de la campagne, qui dit le reste.
  */
 export function AccueilJouer({
   enCours,
@@ -198,6 +208,7 @@ export function AccueilJouer({
   aujourdhui,
   campagne,
   duels,
+  fermees = AUCUNE,
 }: {
   enCours: { nom: string; slug: string }[]
   onRejoindre: () => void
@@ -210,6 +221,8 @@ export function AccueilJouer({
   campagne?: SentiersDAccueil
   /** Ses duels : sa ligue, sa cote, sa semaine — et qui le défie. */
   duels?: DuelsDAccueil
+  /** Les pages en maintenance (`client/src/maintenance.ts`) : leur bouton le dit. */
+  fermees?: ReadonlySet<PageEnMaintenance>
 }) {
   // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
   // Le jour vient du serveur : calculé ici, son `Intl` chargeait les données
@@ -217,8 +230,9 @@ export function AccueilJouer({
   const dernier = jour?.jours[0]?.jour
   const joueAujourdhui = !!dernier && dernier === (aujourdhui ?? jourDe(Date.now()))
   const serie = jour && jour.serie > 1 ? ` · série de ${jour.serie} jours` : ''
-  const laCampagne = boutonDeLaCampagne(campagne)
+  const laCampagne = boutonDeLaCampagne(campagne && fermees.has('defi') ? { ...campagne, defi: undefined } : campagne)
   const lesDuels = boutonDesDuels(duels)
+  const enMaintenance = espacesFines(BOUTON_EN_MAINTENANCE)
   return (
     <div className="accueil-gestes">
       {/* Il joue déjà quelque part : on y revient d'un toucher, avant tout. */}
@@ -231,33 +245,50 @@ export function AccueilJouer({
         <span className="label" id="jouer-seul">
           Seul
         </span>
-        <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={laCampagne.detail} pastille={laCampagne.pastille} href={laCampagne.href} />
+        {fermees.has('campagne') ? (
+          <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={enMaintenance} ferme href="/campagne" />
+        ) : (
+          <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={laCampagne.detail} pastille={laCampagne.pastille} href={laCampagne.href} />
+        )}
         <GrosBouton
           icone={<Icon name="sun" />}
           titre="Le quiz du jour"
-          detail={joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
-          pastille={jour && !joueAujourdhui ? 'À jouer' : undefined}
+          detail={fermees.has('jour') ? enMaintenance : joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
+          pastille={jour && !joueAujourdhui && !fermees.has('jour') ? 'À jouer' : undefined}
+          ferme={fermees.has('jour')}
           href="/jour"
         />
         {/* Sous le quiz du jour : un joueur à la fois, chacun sur son téléphone, à son heure. Son blason dès son premier duel. */}
-        <GrosBouton
-          icone={duels && duels.joues > 0 ? <BlasonDeLigue ligue={duels.ligue} taille={26} decoratif /> : <Icon name="swords" />}
-          titre="Les duels"
-          detail={lesDuels.detail}
-          pastille={
-            lesDuels.allume && (
-              <span className="pastille-resultat">
-                <Icon name="spark" />
-                Résultat
-              </span>
-            )
-          }
-          compteur={lesDuels.compteur}
-          allume={lesDuels.allume}
-          href="/duels"
-        />
+        {fermees.has('duels') ? (
+          <GrosBouton icone={<Icon name="swords" />} titre="Les duels" detail={enMaintenance} ferme href="/duels" />
+        ) : (
+          <GrosBouton
+            icone={duels && duels.joues > 0 ? <BlasonDeLigue ligue={duels.ligue} taille={26} decoratif /> : <Icon name="swords" />}
+            titre="Les duels"
+            detail={lesDuels.detail}
+            pastille={
+              lesDuels.allume && (
+                <span className="pastille-resultat">
+                  <Icon name="spark" />
+                  Résultat
+                </span>
+              )
+            }
+            compteur={lesDuels.compteur}
+            allume={lesDuels.allume}
+            href="/duels"
+          />
+        )}
         {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec. */}
-        {EXPEDITION_EN_PRODUCTION && <GrosBouton icone={<Icon name="flag" />} titre="L’Expédition" detail="Trois gardiens à vaincre, un légendaire au bout" href="/expedition" />}
+        {EXPEDITION_EN_PRODUCTION && (
+          <GrosBouton
+            icone={<Icon name="flag" />}
+            titre="L’Expédition"
+            detail={fermees.has('expedition') ? enMaintenance : 'Trois gardiens à vaincre, un légendaire au bout'}
+            ferme={fermees.has('expedition')}
+            href="/expedition"
+          />
+        )}
       </section>
       <section className="jouer-section" aria-labelledby="jouer-amis">
         <span className="label" id="jouer-amis">
@@ -378,7 +409,9 @@ function retenirLAnnonce(code: string) {
  */
 export function BanniereDuResultat({ resultats }: { resultats?: DuelsDAccueil['resultats'] }) {
   const [etat, setEtat] = useState<'cachee' | 'montree' | 'repart'>('cachee')
-  const code = resultats && resultats.n > 0 ? resultats.code : null
+  // Les duels en maintenance, elle se tait sans passer son tour : son « Voir »
+  // mènerait à leur page fermée, et elle tombe une fois qu'ils rouvrent.
+  const code = resultats && resultats.n > 0 && !pagesEnMaintenance().has('duels') ? resultats.code : null
   useEffect(() => {
     if (!code || dejaAnnonce(code)) return
     retenirLAnnonce(code)
