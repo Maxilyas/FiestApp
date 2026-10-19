@@ -142,10 +142,10 @@ export function testerLesConnexions(transport: TransportDeLaBase, coupee: (e: un
       const debut = performance.now()
       await allerRetour(turso.adresse)
       // Attendre qu'elle se compte, pas une pause fixe : le faux Turso tourne
-      // dans la boucle du test. Gelée une demi-seconde — la CI chargée du
-      // 19 octobre 2026 —, sa minuterie et celle d'une pause de 800 ms
-      // sonnaient au même tour, et le test concluait avant d'avoir lu la fin
-      // que la base venait d'envoyer (« 0 !== 1 »), quel que soit le transport.
+      // dans la boucle du test. Gelée une demi-seconde, sa minuterie et celle
+      // d'une pause de 800 ms sonnaient au même tour, et le test concluait
+      // avant d'avoir lu la fin que la base venait d'envoyer, quel que soit le
+      // transport (reproduit en gelant la boucle de 100 à 850 ms).
       await quand(() => comptes().refermees - avant.refermees >= 1, 'la base a refermé la connexion gardée')
       assert.equal(comptes().refermees - avant.refermees, 1, 'une seule connexion refermée')
       const age = releve.lignes('banc').at(-1)!.connexions!.plusJeuneRefermeeMs

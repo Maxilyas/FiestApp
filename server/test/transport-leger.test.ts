@@ -6,9 +6,11 @@
 // ce qui lui est propre.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import type { AddressInfo } from 'node:net'
+import type { AddressInfo, Socket } from 'node:net'
 import { gzipSync } from 'node:zlib'
+import { connexionEmpruntee, connexionOuverte, connexionRefermeeParNous, suivreLaBase } from '../src/core/connexions'
 import { clientDistant, pourquoiInjoignable, transportDemande } from '../src/core/distante'
 import { CONNEXIONS_AU_PLUS } from '../src/core/transportLeger'
 import { demarrer } from './banc'
@@ -168,6 +170,36 @@ test('leger · jamais plus de connexions à la fois que CONNEXIONS_AU_PLUS : les
     client.close()
     await turso.fermer()
   }
+})
+
+test('leger · une connexion libre détruite sans sa fin se compte refermée par la base ; refermée par nous, ou en route, non', () => {
+  // Depuis Node 22.23, l'agent de `http` détruit une connexion libre qui reçoit
+  // quoi que ce soit — la fin de la base comprise — sans émettre `end` : le
+  // transport léger ne comptait plus une seule fermeture de la base (la CI du
+  // 19 octobre 2026, sur Node 22.23.3 ; rien ici, sur 22.22). Des connexions
+  // fermées à la main, pour que l'épreuve vaille sur toute version de Node.
+  suivreLaBase('http://base-du-test.invalid')
+  const neuve = (): Socket => {
+    const s = new EventEmitter() as unknown as Socket
+    connexionOuverte(s, 'base-du-test.invalid', { finPeutManquer: true })
+    return s
+  }
+  const avant = comptes().refermees
+  neuve().emit('close', false)
+  assert.equal(comptes().refermees - avant, 1, 'libre, détruite sans sa fin : la base l’a fermée')
+  const gardee = neuve()
+  connexionRefermeeParNous(gardee)
+  gardee.emit('close', false)
+  assert.equal(comptes().refermees - avant, 1, 'sa garde écoulée, c’est nous qui la refermons')
+  // Empruntée par une requête : l'aller-retour tombé avec elle se compte ailleurs (`avecDelai`).
+  const enRoute = neuve()
+  connexionEmpruntee(enRoute)
+  enRoute.emit('close', true)
+  assert.equal(comptes().refermees - avant, 1, 'celle qui servait ne se compte pas ici')
+  const finie = neuve()
+  finie.emit('end')
+  finie.emit('close', false)
+  assert.equal(comptes().refermees - avant, 2, 'sa fin, puis sa fermeture : une seule fois')
 })
 
 test('QUIZ_DB_TRANSPORT se lit comme un humain l’écrit, et se refuse en disant quoi écrire', () => {

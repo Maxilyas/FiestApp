@@ -2,7 +2,7 @@ import http from 'node:http'
 import https from 'node:https'
 import type { Socket } from 'node:net'
 import { gunzipSync, inflateSync, brotliDecompressSync } from 'node:zlib'
-import { connexionEmpruntee, connexionOuverte, connexionRendue, gardeDesConnexions } from './connexions'
+import { connexionEmpruntee, connexionOuverte, connexionRefermeeParNous, connexionRendue, gardeDesConnexions } from './connexions'
 
 // Le transport léger vers la base permanente (`QUIZ_DB_TRANSPORT=leger`) : les
 // allers-retours du client libsql sur `http.request` / `https.request` de
@@ -57,8 +57,11 @@ export interface ReponseLegere {
 function garderSelonLaBase<A extends http.Agent>(agent: A): A {
   agent.keepSocketAlive = (socket: Socket) => {
     const garde = gardeDesConnexions()
-    // Une base qui n'accorde pas de quoi garder une connexion : elle se referme aussitôt.
-    if (garde <= 0) return false
+    // Une base qui n'accorde pas de quoi garder une connexion : elle se referme aussitôt — par nous.
+    if (garde <= 0) {
+      connexionRefermeeParNous(socket)
+      return false
+    }
     socket.setKeepAlive(true, 1_000)
     socket.unref()
     // Libre plus longtemps que la garde, l'agent la détruit (son écouteur de
@@ -187,7 +190,11 @@ export async function fetchLeger(
       // est empruntée — et ne vieillit plus le temps de la requête.
       if (!vues.has(s)) {
         vues.add(s)
-        connexionOuverte(s, url.hostname)
+        // Libre, l'agent la détruit sans sa fin quand la base la ferme
+        // (Node 22.23, `connexions.ts`) — et à sa garde écoulée, que seule
+        // une connexion libre attend : celle-là, c'est nous qui la refermons.
+        connexionOuverte(s, url.hostname, { finPeutManquer: true })
+        s.on('timeout', () => connexionRefermeeParNous(s))
       }
       connexionEmpruntee(s)
       s.setTimeout(0)

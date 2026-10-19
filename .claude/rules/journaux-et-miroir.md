@@ -59,9 +59,18 @@ paths:
   connexion rendue à une requête en attente ne pose pas `reusedSocket`, et
   elle se serait comptée neuve. Sa garde est celle de `connexions.ts`
   (`gardeDesConnexions`, dans `keepSocketAlive`) : celle de l'agent la
-  garderait jusqu'à ce que Turso la ferme sous une requête. Il ne s'essaie
-  qu'en préproduction d'abord, comme l'entretien (règle `exploitation.md`) ;
-  par défaut, le `fetch` de Node.
+  garderait jusqu'à ce que Turso la ferme sous une requête. Depuis Node
+  22.23, l'agent détruit une connexion libre dès qu'elle reçoit quoi que ce
+  soit — la fin de la base comprise — sans émettre `end` (sa garde contre
+  l'empoisonnement de la file des réponses) : compter sur `end`, le
+  transport léger ne voyait plus une seule fermeture de la base, et la CI —
+  la dernière 22.x — rougissait quand la 22.22 d'ici passait (le 19 octobre
+  2026). Une connexion libre qui se ferme sans que nous l'ayons refermée se
+  compte donc à la base (`finPeutManquer`) ; celles que nous refermons le
+  disent (`connexionRefermeeParNous` : la garde écoulée, une attardée,
+  `transport-leger.test.ts`). Il ne s'essaie qu'en préproduction d'abord,
+  comme l'entretien (règle `exploitation.md`) ; par défaut, le `fetch` de
+  Node.
 - **Une colonne de plus au journal des réponses** se pose dans trois
   fichiers : `addColumn` dans `db.ts` (la locale) ; `COLUMNS`, l'insertion
   et `toRow` dans `answers.ts` ; `ajouterColonne` (le miroir), l'écriture

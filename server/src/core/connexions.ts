@@ -60,6 +60,13 @@ const servies = new WeakMap<Socket, { libre: boolean; rendue: number }>()
 /** La connexion qu'emprunte chaque requête partie vers la base : sa fin la rend. */
 const empruntees = new WeakMap<object, Socket>()
 
+/**
+ * Les connexions que le serveur referme lui-même — sa garde écoulée, une
+ * attardée (`refermerLesAttardees`) — : leur fermeture n'est pas celle de la
+ * base.
+ */
+const refermeesParNous = new WeakSet<Socket>()
+
 /** Les vrais allers-retours en vol — pas les battements de l'entretien. */
 let enVol = 0
 
@@ -72,9 +79,10 @@ let enVol = 0
 /**
  * Une connexion vers la base s'ouvre. Celle d'un autre hôte — un proxy, un
  * service de notifications — ne se compte pas : sur l'hébergeur, il n'y a
- * pas de proxy.
+ * pas de proxy. `finPeutManquer` : le transport peut la détruire libre sans
+ * qu'elle ait reçu sa fin (l'agent de `http`, plus bas).
  */
-export function connexionOuverte(socket: Socket | undefined, hote: string | undefined) {
+export function connexionOuverte(socket: Socket | undefined, hote: string | undefined, { finPeutManquer = false }: { finPeutManquer?: boolean } = {}) {
   if (!hote || !hotes.has(hote)) return
   // Ouverte pendant un battement, aucun vrai aller-retour en vol : c'est
   // l'entretien qui l'a payée, pas un joueur — la part des connexions neuves
@@ -95,11 +103,31 @@ export function connexionOuverte(socket: Socket | undefined, hote: string | unde
   // Refermée par la base, la connexion reçoit sa fin ; refermée par nous — la
   // garde écoulée —, elle se détruit sans. Le transport écoute la même fin et
   // n'emprunte plus la connexion.
-  socket?.once('end', () => {
+  let comptee = false
+  const refermeeParLaBase = () => {
+    if (comptee) return
+    comptee = true
     const age = performance.now() - ouverte
     pouls.refermeesParLaBase.noter(age)
     releve.refermeeParLaBase(age)
-  })
+  }
+  socket?.once('end', refermeeParLaBase)
+  // Depuis Node 22.23, l'agent de `http` détruit une connexion libre dès
+  // qu'elle reçoit quoi que ce soit — la fin de la base comprise —, sans
+  // émettre `end` : sa garde contre l'empoisonnement de la file des réponses.
+  // Le transport léger ne comptait plus rien (la CI du 19 octobre 2026). Une
+  // connexion libre qui se ferme sans que nous l'ayons refermée, c'est la
+  // base qui l'a fermée.
+  if (finPeutManquer) {
+    socket?.once('close', () => {
+      if (servies.get(socket)?.libre && !refermeesParNous.has(socket)) refermeeParLaBase()
+    })
+  }
+}
+
+/** Le transport referme cette connexion lui-même (`core/transportLeger.ts` : sa garde écoulée) : sa fermeture n'est pas celle de la base. */
+export function connexionRefermeeParNous(socket: Socket) {
+  refermeesParNous.add(socket)
 }
 
 /** Une requête part sur cette connexion : elle n'est plus libre, et ne vieillit plus. */
@@ -224,6 +252,7 @@ export function refermerLesAttardees() {
     const servie = servies.get(socket)
     if (!servie?.libre || t - servie.rendue < garde) continue
     ouvertes.delete(socket)
+    refermeesParNous.add(socket)
     socket.destroy()
   }
 }
