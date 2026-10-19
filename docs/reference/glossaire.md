@@ -335,7 +335,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | Ne plus l'attendre | Le geste de l'animateur qui dispense un téléphone mort d'être attendu à chaque question | `dispenses` |
-| Niche | La petite fenêtre en arche, en haut à droite de chaque page du téléphone, où vit le compagnon qui grandit ; il y réagit à la révélation — souffle retenu, ravi, dépité, des cœurs —, en sort au podium, et la toucher ouvre sa fiche — sans compagnon, pas de niche | `compagnonDeLaNiche`, `profiles.niche`, `components/Niche.tsx`, `shared/niche.ts` |
+| Niche | La petite fenêtre en arche, en haut à droite de chaque page du téléphone, où vit le compagnon qui grandit ; il y réagit à la révélation — souffle retenu, ravi, dépité, des cœurs —, en sort au podium, et la toucher ouvre « Ma niche », sa gestion : son nom, la forme qu'il y montre, celui des siens qui y vit — sans compagnon, pas de niche | `compagnonDeLaNiche`, `profiles.niche`, `profile_compagnons.nom`, `components/Niche.tsx`, `shared/niche.ts` |
 | Niveau | Ce que l'expérience donne sur la courbe 60 × (n − 1)², ou celui qu'une courbe d'avant avait donné, s'il est plus haut et qu'elle le donne encore | `niveauDuProfil` |
 | Niveau d'Automate | Le score qu'Automate vise sur une série : le niveau de campagne du joueur pendant son placement, puis celui de sa cote | `niveauPourLeDuel` |
 | Niveau de campagne | Le score qu'un joueur ferait en moyenne sur une série tirée pour lui, d'après ses réponses de campagne | `scoreDeReference` |

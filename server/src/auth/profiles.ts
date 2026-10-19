@@ -94,6 +94,7 @@ import { brancheDe, deLaBranche, nomDansLaPhrase, portrait, portraitsOuverts, ty
 import {
   COMPAGNONS,
   JUSTES_DES_FORMES,
+  NOM_D_UN_COMPAGNON_MAX,
   PRIX_D_UN_COMPAGNON,
   compagnon as compagnonDuCatalogue,
   compagnonDe,
@@ -366,6 +367,9 @@ const COURBES_D_AVANT: { drapeau: string; pas: number }[] = [
   { drapeau: 'courbe_durcie', pas: 25 },
 ]
 
+/** Le drapeau, dans `meta`, qui dit que les niches jamais choisies sont figées (`installerLesNiches`). */
+const NICHES_INSTALLEES = 'niches_installees'
+
 /** Une règle relue en base, si elle en est une. */
 function lireCondition(brut: unknown): Condition | null {
   try {
@@ -405,10 +409,31 @@ function lireLigneDeMission(r: Record<string, unknown>): LigneDeMission {
   return { jour: String(r.jour), rang: Number(r.rang), mission, faiteLe: r.faite_le == null ? null : Number(r.faite_le) }
 }
 
+/** Ce que la mémoire garde de chacun de ses compagnons : sa plus haute forme, et ce qu'il a réglé de sa niche. */
+interface SienEnMemoire {
+  rang: number
+  nom: string | null
+  /** La forme qu'il montre dans sa niche, d'avant sa plus haute ; null : la plus haute. */
+  montree: number | null
+}
+
 /** Une ligne de `profile_compagnons`, rangée avec ses compagnons : un compagnon que le catalogue ne connaît plus ne se garde pas. */
-function lireCompagnon(siens: Map<CleDeCompagnon, number> | undefined, r: Record<string, unknown>) {
+function lireCompagnon(siens: Map<CleDeCompagnon, SienEnMemoire> | undefined, r: Record<string, unknown>) {
   const c = compagnonDuCatalogue(String(r.compagnon))
-  if (siens && c) siens.set(c.key, Math.max(0, Math.min(c.formes.length - 1, Number(r.rang) || 0)))
+  if (!siens || !c) return
+  const rang = Math.max(0, Math.min(c.formes.length - 1, Number(r.rang) || 0))
+  const montree = r.montree == null ? null : Number(r.montree)
+  siens.set(c.key, {
+    rang,
+    nom: typeof r.nom === 'string' && r.nom ? r.nom : null,
+    // Sa plus haute, ou une forme qu'il n'a pas : ce n'est plus un choix.
+    montree: montree !== null && Number.isInteger(montree) && montree >= 0 && montree < rang ? montree : null,
+  })
+}
+
+/** Le nom qu'il donne à un compagnon : nettoyé comme un prénom, plus court ; vide, il n'en a plus. */
+function nomDeCompagnon(brut: unknown): string | null {
+  return tronquer(cleanName(brut), NOM_D_UN_COMPAGNON_MAX).trim() || null
 }
 
 /** Les prénoms qu'une recherche parcourt (`chercher`), relus au plus une fois la minute. */
@@ -599,11 +624,12 @@ export class ProfileStore {
    */
   private recompenses = new Map<string, Map<string, number>>()
   /**
-   * Ses compagnons achetés, et le rang de la plus haute forme atteinte par
-   * chacun — jamais perdue. Chargés avec le profil : l'instantané de la salle
-   * lit la forme qu'il porte sans aller-retour (`legendairePorte`).
+   * Ses compagnons achetés, le rang de la plus haute forme atteinte par
+   * chacun — jamais perdue —, son nom et la forme qu'il montre dans sa niche.
+   * Chargés avec le profil : l'instantané de la salle lit la forme qu'il porte
+   * sans aller-retour (`legendairePorte`).
    */
-  private compagnons = new Map<string, Map<CleDeCompagnon, number>>()
+  private compagnons = new Map<string, Map<CleDeCompagnon, SienEnMemoire>>()
   /**
    * Ce que ses coffres de la semaine lui ont donné (`fond:dragon`,
    * `gerbe:papillons`, `theme:jungle`…), par profil. Chargé avec le profil :
@@ -932,7 +958,8 @@ export class ProfileStore {
         // un thème. Et le rang de la plus haute forme qu'il a atteinte : ses
         // bonnes réponses se relisent dans les journaux, mais une forme
         // atteinte ne se perd jamais, même quand une soirée retirée en
-        // reprend (`compagnonsDe`).
+        // reprend (`compagnonsDe`). Son nom et la forme qu'il montre dans sa
+        // niche viennent après coup (`nom`, `montree` : plus bas).
         `CREATE TABLE IF NOT EXISTS profile_compagnons (
            profile_id TEXT NOT NULL,
            compagnon  TEXT NOT NULL,
@@ -1028,6 +1055,11 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'bordure', 'TEXT')
     // Le compagnon qu'il installe dans sa niche, parmi ceux qu'il a adoptés.
     await ajouterColonne(this.client, 'profiles', 'niche', 'TEXT')
+    // Ce qu'il règle de chacun, dans sa niche : son nom, et la forme qu'il y
+    // montre quand ce n'est pas la plus haute (null : la plus haute, qui suit
+    // sa croissance).
+    await ajouterColonne(this.client, 'profile_compagnons', 'nom', 'TEXT')
+    await ajouterColonne(this.client, 'profile_compagnons', 'montree', 'INTEGER')
     // Quand l'administrateur l'a renommé : son accueil le lui dit, une fois.
     await ajouterColonne(this.client, 'profiles', 'renomme_le', 'INTEGER')
     // L'Éclat qu'il a éteint, pour porter la version d'origine de son avatar.
@@ -1038,6 +1070,7 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profile_xp', 'joueur_id', 'TEXT')
     await this.garderLesLegendairesAcquis()
     await this.garderLesNiveauxAtteints()
+    await this.installerLesNiches()
     for (const r of (await this.client.execute('SELECT profile_id, pas, niveau FROM profile_niveaux')).rows) {
       const garde = { pas: Number(r.pas), niveau: Number(r.niveau) }
       if (!(garde.pas > 0) || !(garde.niveau > 1)) continue
@@ -1107,7 +1140,7 @@ export class ProfileStore {
             sql: `SELECT profile_id, badge, COUNT(*) AS n FROM profile_badges WHERE profile_id IN (${marques}) GROUP BY profile_id, badge`,
             args: paquet,
           },
-          { sql: `SELECT profile_id, compagnon, rang FROM profile_compagnons WHERE profile_id IN (${marques})`, args: paquet },
+          { sql: `SELECT profile_id, compagnon, rang, nom, montree FROM profile_compagnons WHERE profile_id IN (${marques})`, args: paquet },
           // Dans le même lot : le trésor de ses coffres n'ajoute pas un aller-retour à son premier passage.
           { sql: `SELECT profile_id, objet FROM profile_coffres WHERE profile_id IN (${marques})`, args: paquet },
           { sql: `SELECT profile_id, fond FROM profile_fonds WHERE profile_id IN (${marques})`, args: paquet },
@@ -1122,7 +1155,7 @@ export class ProfileStore {
       }
       const recompensesDe = new Map<string, Map<string, number>>(paquet.map(id => [id, new Map()]))
       for (const r of badges.rows) recompensesDe.get(String(r.profile_id))?.set(String(r.badge), Number(r.n))
-      const compagnonsDe = new Map<string, Map<CleDeCompagnon, number>>(paquet.map(id => [id, new Map()]))
+      const compagnonsDe = new Map<string, Map<CleDeCompagnon, SienEnMemoire>>(paquet.map(id => [id, new Map()]))
       for (const r of compagnons.rows) lireCompagnon(compagnonsDe.get(String(r.profile_id)), r)
       const tresorsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
       for (const r of coffres.rows) tresorsDe.get(String(r.profile_id))?.add(String(r.objet))
@@ -1602,8 +1635,10 @@ export class ProfileStore {
    * ce qu'il a donné —, puis ce qu'il donne, dans le même lot : un thème ou
    * un compagnon dans sa table, à prix nul — offert, il se porte et grandit
    * comme acheté, et la boutique ne le propose plus —, un fond ou une gerbe
-   * du trésor ici seulement. Un achat à la fois (`unAchatALaFois`) : un thème
-   * acheté pendant l'ouverture serait sinon tiré une seconde fois.
+   * du trésor ici seulement. Un compagnon s'installe dans une niche vide,
+   * jamais à la place de celui qui y vit. Un achat à la fois
+   * (`unAchatALaFois`) : un thème acheté pendant l'ouverture serait sinon
+   * tiré une seconde fois.
    */
   ouvrirUnCoffre(
     profileId: string,
@@ -1616,7 +1651,7 @@ export class ProfileStore {
       if (deja) return deja
       const rang = rangDuCoffre(tampons)
       if (!rang) throw new Error('Pas de coffre cette semaine-là : aucun tampon.')
-      await this.require(profileId)
+      const rec = await this.require(profileId)
       const achetes = await this.client.execute({ sql: 'SELECT theme FROM profile_achats WHERE profile_id = ?', args: [profileId] })
       const themes = new Set(achetes.rows.map(r => String(r.theme)))
       const tresors = this.tresorsOf(profileId)
@@ -1624,6 +1659,10 @@ export class ProfileStore {
       const possede = (o: ObjetDuTresor) =>
         o.sorte === 'theme' ? themes.has(o.cle) : o.sorte === 'compagnon' ? !!compagnons?.has(o.cle as CleDeCompagnon) : o.sorte !== 'confettis' && tresors.has(cleDeLObjet(o))
       const { objet, rarete } = tirerLeCoffre(rang, { possede, hasard, jour })
+      // Une niche vide s'écrit : celui qui y vit déjà — le seul, ou le plus
+      // grand —, sinon celui qu'il donne. Laissée vide, un second compagnon
+      // premier du catalogue l'aurait prise à forme égale.
+      const niche = objet.sorte === 'compagnon' && !rec.niche ? (this.compagnonDeLaNiche(rec) ?? (objet.cle as CleDeCompagnon)) : null
       await this.client.batch(
         [
           {
@@ -1641,6 +1680,7 @@ export class ProfileStore {
                 },
               ]
             : []),
+          ...(niche ? [{ sql: 'UPDATE profiles SET niche = ? WHERE id = ? AND niche IS NULL', args: [niche, profileId] }] : []),
         ],
         'write',
       )
@@ -1650,8 +1690,9 @@ export class ProfileStore {
       if (objet.sorte === 'compagnon') {
         let ses = this.compagnons.get(profileId)
         if (!ses) this.compagnons.set(profileId, (ses = new Map()))
-        if (!ses.has(objet.cle as CleDeCompagnon)) ses.set(objet.cle as CleDeCompagnon, 0)
+        if (!ses.has(objet.cle as CleDeCompagnon)) ses.set(objet.cle as CleDeCompagnon, { rang: 0, nom: null, montree: null })
       }
+      if (niche && !rec.niche) rec.niche = niche
       return { semaine, tampons, rang, rarete, objet, nom: nomDeLObjet(objet), detail: phraseDeLObjet(objet), ouvertLe: quand }
     })
   }
@@ -1690,11 +1731,14 @@ export class ProfileStore {
     return [...annonces, ...mercis].sort((a, b) => b.le - a.le)
   }
 
-  /** Ses compagnons achetés, et la plus haute forme de chacun : de mémoire, dans l'ordre du catalogue. */
+  /** Ses compagnons achetés, la plus haute forme de chacun, son nom et la forme qu'il montre : de mémoire, dans l'ordre du catalogue. */
   compagnonsOf(id: string): CompagnonPossede[] {
     const siens = this.compagnons.get(id)
     if (!siens?.size) return []
-    return COMPAGNONS.flatMap(c => (siens.has(c.key) ? [{ compagnon: c.key, rang: siens.get(c.key)! }] : []))
+    return COMPAGNONS.flatMap(c => {
+      const s = siens.get(c.key)
+      return s ? [{ compagnon: c.key, rang: s.rang, ...(s.nom && { nom: s.nom }), ...(s.montree !== null && { montree: s.montree }) }] : []
+    })
   }
 
   /**
@@ -1729,9 +1773,11 @@ export class ProfileStore {
     ])
     const justesDe = (c: CleDeCompagnon) =>
       lues.reduce((n, s) => n + (soireeQuiCompte(s.gain) ? (s.releve.compagnons?.[c] ?? 0) : 0), 0) + (duJour[c] ?? 0) + (deCampagne[c] ?? 0)
-    const acquis = possedes.map(a => {
+    const acquis = possedes.map(({ montree, ...a }) => {
       const justes = justesDe(a.compagnon)
-      return { compagnon: a.compagnon, rang: Math.max(a.rang, rangAtteint(justes)), justes }
+      const rang = Math.max(a.rang, rangAtteint(justes))
+      // Une forme atteinte reprend la place de celle qu'il montrait (`grandir`).
+      return { ...a, rang, justes, ...(montree !== undefined && rang === a.rang && { montree }) }
     })
     const grandis = acquis.filter((a, i) => a.rang > possedes[i].rang)
     if (grandis.length > 0) await this.grandir(p, grandis, possedes)
@@ -1757,7 +1803,8 @@ export class ProfileStore {
    * Retient les formes que ses compagnons viennent d'atteindre, et fait
    * porter la nouvelle à qui portait la plus haute d'avant. Une seule
    * écriture : le rang ne fait que monter (`MAX`), même si deux lectures se
-   * croisent.
+   * croisent. La forme qu'il montrait dans sa niche laisse la place à la
+   * nouvelle : il grandit sous ses yeux, et la reprend s'il préfère.
    */
   private async grandir(p: ProfileRec, grandis: readonly CompagnonPossede[], avant: readonly CompagnonPossede[]): Promise<void> {
     const lu = p.legendaire
@@ -1767,7 +1814,7 @@ export class ProfileStore {
     await this.client.batch(
       [
         ...grandis.map(g => ({
-          sql: 'UPDATE profile_compagnons SET rang = MAX(rang, ?) WHERE profile_id = ? AND compagnon = ?',
+          sql: 'UPDATE profile_compagnons SET rang = MAX(rang, ?), montree = NULL WHERE profile_id = ? AND compagnon = ?',
           args: [g.rang, p.id, g.compagnon],
         })),
         ...(nouvelle ? [{ sql: 'UPDATE profiles SET legendaire = ? WHERE id = ? AND legendaire = ?', args: [nouvelle.key, p.id, lu] }] : []),
@@ -1775,7 +1822,12 @@ export class ProfileStore {
       'write',
     )
     const siens = this.compagnons.get(p.id)
-    for (const g of grandis) siens?.set(g.compagnon, Math.max(siens.get(g.compagnon) ?? 0, g.rang))
+    for (const g of grandis) {
+      const s = siens?.get(g.compagnon)
+      if (!s) continue
+      s.rang = Math.max(s.rang, g.rang)
+      s.montree = null
+    }
     // Un avatar choisi pendant l'écriture l'emporte, en base comme ici : la
     // condition de l'`UPDATE` l'a déjà gardé.
     if (nouvelle && p.legendaire === lu) p.legendaire = nouvelle.key
@@ -1783,11 +1835,14 @@ export class ProfileStore {
 
   /**
    * Achète un compagnon, à sa première forme (`PRIX_D_UN_COMPAGNON`) : il
-   * s'installe dans sa niche — c'est lui qui grandira —, et se porte en
-   * avatar, ou pas, comme un thème. Refusé en clair : déjà à lui, pas assez de
-   * confettis — un autre onglet a pu dépenser entre-temps.
+   * s'installe dans sa niche — c'est lui qui grandira —, ou attend son tour
+   * (`installer: false`) et celui qui y vit la garde. Il ne devient jamais
+   * son avatar d'ici (le 19 octobre 2026 : « ça le met sur notre avatar et
+   * dans la niche ») : on le porte en le choisissant, dans la loge. Refusé en
+   * clair : déjà à lui, pas assez de confettis — un autre onglet a pu
+   * dépenser entre-temps.
    */
-  acheterCompagnon(id: string, cle: unknown, jour: string, { porter = true }: { porter?: boolean } = {}): Promise<ProfileRec> {
+  acheterCompagnon(id: string, cle: unknown, jour: string, { installer = true }: { installer?: boolean } = {}): Promise<ProfileRec> {
     return this.unAchatALaFois(id, async () => {
       const rec = await this.require(id)
       const c = compagnonDuCatalogue(cle)
@@ -1795,26 +1850,61 @@ export class ProfileStore {
       if (this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} est déjà à toi`)
       const manque = PRIX_D_UN_COMPAGNON - (await this.boutiqueDe(rec, jour)).confettis.solde
       if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${nomDansLaPhrase(c.nom)}`)
-      const premiere = c.formes[0]
+      // Celui qui y vit la garde en toutes lettres : laissée à la règle, la
+      // niche irait au plus grand, qui n'est pas forcément lui.
+      const niche = installer ? c.key : (this.compagnonDeLaNiche(rec) ?? c.key)
       await this.client.batch(
         [
           {
             sql: 'INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, ?, 0, ?)',
             args: [id, c.key, PRIX_D_UN_COMPAGNON, Date.now()],
           },
-          porter
-            ? { sql: 'UPDATE profiles SET niche = ?, legendaire = ? WHERE id = ?', args: [c.key, premiere.key, id] }
-            : { sql: 'UPDATE profiles SET niche = ? WHERE id = ?', args: [c.key, id] },
+          { sql: 'UPDATE profiles SET niche = ? WHERE id = ?', args: [niche, id] },
         ],
         'write',
       )
       let siens = this.compagnons.get(id)
       if (!siens) this.compagnons.set(id, (siens = new Map()))
-      siens.set(c.key, 0)
-      rec.niche = c.key
-      if (porter) rec.legendaire = premiere.key
+      siens.set(c.key, { rang: 0, nom: null, montree: null })
+      rec.niche = niche
       return rec
     })
+  }
+
+  /**
+   * Ce qu'il règle d'un de ses compagnons, dans sa niche : son nom — à lui
+   * seul, la salle ne le voit jamais — et la forme qu'il y montre, parmi
+   * celles qu'il a atteintes ; sa plus haute, ou null, la rend à sa
+   * croissance. Refusé en clair : un compagnon qu'il n'a pas, une forme pas
+   * encore atteinte.
+   */
+  async reglerCompagnon(id: string, cle: unknown, patch: { nom?: unknown; montree?: unknown }): Promise<ProfileRec> {
+    const rec = await this.require(id)
+    const c = compagnonDuCatalogue(cle)
+    if (!c) throw new Error('Ce compagnon n’existe pas')
+    if (!this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} s’achète d’abord, à la boutique`)
+    const champs: Partial<Pick<SienEnMemoire, 'nom' | 'montree'>> = {}
+    if (patch.nom !== undefined) champs.nom = nomDeCompagnon(patch.nom)
+    if (patch.montree === null) champs.montree = null
+    else if (patch.montree !== undefined) {
+      const f = typeof patch.montree === 'number' && Number.isInteger(patch.montree) ? c.formes[patch.montree] : undefined
+      if (!f) throw new Error('Cette forme n’existe pas')
+      // Vérifiée sur ses bonnes réponses du moment, comme une forme qu'on
+      // porte : celle qu'il vient d'atteindre se montre sans attendre.
+      const sien = (await this.compagnonsDe(rec)).find(a => a.compagnon === c.key)
+      if (!sien || f.rang > sien.rang) throw new Error(`${f.nom} arrive à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses données ${avecLui(c)}`)
+      // Sa plus haute n'est pas un choix : elle suivra sa croissance.
+      champs.montree = f.rang < sien.rang ? f.rang : null
+    }
+    const colonnes = (['nom', 'montree'] as const).filter(k => k in champs)
+    if (colonnes.length === 0) return rec
+    await this.client.execute({
+      sql: `UPDATE profile_compagnons SET ${colonnes.map(k => `${k} = ?`).join(', ')} WHERE profile_id = ? AND compagnon = ?`,
+      args: [...colonnes.map(k => champs[k] ?? null), id, c.key],
+    })
+    const s = this.compagnons.get(id)?.get(c.key)
+    if (s) Object.assign(s, champs)
+    return rec
   }
 
   /**
@@ -2281,7 +2371,7 @@ export class ProfileStore {
     if (!p.legendaire) return null
     if (portrait(p.legendaire)) return p.legendaire
     const forme = formeDeCompagnon(p.legendaire)
-    if (forme) return (this.compagnons.get(p.id)?.get(forme.compagnon) ?? -1) >= forme.rang ? forme.key : null
+    if (forme) return (this.compagnons.get(p.id)?.get(forme.compagnon)?.rang ?? -1) >= forme.rang ? forme.key : null
     const a = divin(p.legendaire) ? this.divinsOf(p.id) : this.legendairesOf(p.id)
     return a.includes(p.legendaire) ? p.legendaire : null
   }
@@ -2292,7 +2382,42 @@ export class ProfileStore {
    * porte ou non. Lu de mémoire : la salle le demande à chaque réponse.
    */
   compagnonDeLaNiche(p: ProfileRec): CleDeCompagnon | null {
-    return compagnonDeLaNiche(p.niche, this.legendairePorte(p), this.compagnonsOf(p.id))
+    return compagnonDeLaNiche(p.niche, this.compagnonsOf(p.id))
+  }
+
+  /**
+   * Les niches jamais choisies, figées une fois (le 19 octobre 2026) : la
+   * règle donnait à qui n'avait rien choisi le compagnon qu'il portait, et
+   * ôter son avatar faisait déménager son compagnon — et grandir un autre.
+   * Chacun garde ce qu'elle lui donnait : celui qu'il portait, s'il en a
+   * atteint la forme, sinon le plus grand des siens. Ce qui vient ensuite —
+   * une adoption, un coffre — écrit sa niche ; seul un `niche: null` envoyé
+   * la rend à la règle, qui ne lit plus l'avatar. Une transaction, avec son
+   * drapeau : un démarrage interrompu recommence, le suivant ne refait rien.
+   */
+  private async installerLesNiches(): Promise<void> {
+    if (await this.drapeau(NICHES_INSTALLEES)) return
+    const lignes = await this.client.execute(
+      'SELECT p.id, p.legendaire, c.compagnon, c.rang FROM profiles p JOIN profile_compagnons c ON c.profile_id = p.id WHERE p.niche IS NULL',
+    )
+    const parProfil = new Map<string, { portait: unknown; siens: Map<CleDeCompagnon, SienEnMemoire> }>()
+    for (const r of lignes.rows) {
+      const id = String(r.id)
+      let lui = parProfil.get(id)
+      if (!lui) parProfil.set(id, (lui = { portait: r.legendaire, siens: new Map() }))
+      lireCompagnon(lui.siens, r)
+    }
+    const installees = [...parProfil].flatMap(([id, { portait, siens }]) => {
+      const forme = formeDeCompagnon(portait)
+      const porte = forme && (siens.get(forme.compagnon)?.rang ?? -1) >= forme.rang ? forme.compagnon : null
+      const niche = compagnonDeLaNiche(porte, [...siens].map(([compagnon, s]) => ({ compagnon, rang: s.rang })))
+      return niche ? [{ sql: 'UPDATE profiles SET niche = ? WHERE id = ? AND niche IS NULL', args: [niche, id] }] : []
+    })
+    await this.client.batch(
+      [...installees, { sql: 'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING', args: [NICHES_INSTALLEES, String(Date.now())] }],
+      'write',
+    )
+    if (installees.length > 0) console.log(`[profils] ${installees.length} niche(s) jamais choisie(s), figée(s) sur ce qu'elle(s) montrai(en)t`)
   }
 
   /**
@@ -4400,8 +4525,8 @@ export class ProfileStore {
       await this.recompterRecompenses([rec.id])
     }
     if (!this.compagnons.has(rec.id)) {
-      const siens = new Map<CleDeCompagnon, number>()
-      const res = await this.client.execute({ sql: 'SELECT compagnon, rang FROM profile_compagnons WHERE profile_id = ?', args: [rec.id] })
+      const siens = new Map<CleDeCompagnon, SienEnMemoire>()
+      const res = await this.client.execute({ sql: 'SELECT compagnon, rang, nom, montree FROM profile_compagnons WHERE profile_id = ?', args: [rec.id] })
       for (const r of res.rows) lireCompagnon(siens, r)
       this.compagnons.set(rec.id, siens)
     }

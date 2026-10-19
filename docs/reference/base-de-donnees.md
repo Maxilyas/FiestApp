@@ -185,7 +185,7 @@ Les liens d'activation d'un compte à mot de passe : sept jours, un seul usage.
 Les drapeaux de la base : une migration faite une fois pour toutes, et
 quelques réglages du serveur. Une table que partagent trois magasins.
 
-- **Colonnes clés** : `key`, `value`. Clés : `default_space` (l'espace de l'administrateur, `AuthStore`), `sessions_profil` (`AuthStore`), `seeded` (les quiz d'amorce copiés, `QuizStore`), et les drapeaux des reprises et des durcissements, que pose `ProfileStore` : `profil-unique-2026-10-03`, `sentiers-du-savoir-2026-10-05`, `bareme-du-solo-2026-10-06`, `legendaires_durcis`, `courbe_durcie`.
+- **Colonnes clés** : `key`, `value`. Clés : `default_space` (l'espace de l'administrateur, `AuthStore`), `sessions_profil` (`AuthStore`), `seeded` (les quiz d'amorce copiés, `QuizStore`), et les drapeaux des reprises et des durcissements, que pose `ProfileStore` : `profil-unique-2026-10-03`, `sentiers-du-savoir-2026-10-05`, `bareme-du-solo-2026-10-06`, `legendaires_durcis`, `courbe_durcie`, `niches_installees` (les niches jamais choisies, figées sur ce qu'elles montraient : `ProfileStore.installerLesNiches`).
 - **Espace** : non.
 - **Écrite par** : `AuthStore`, `QuizStore` (`server/src/core/quizStore.ts`), `ProfileStore` (`server/src/auth/profiles.ts`) ; `npm run migrate` pose `seeded` à destination.
 - **Lue par** : les mêmes ; `server/src/core/export.ts`.
@@ -199,7 +199,7 @@ mémoire ce qu'il a lu.
 
 Les profils de joueur.
 
-- **Colonnes clés** : `id`, `login` (unique), `name`, `avatar`, `finition`, `password_hash`, `recovery_hash` (le code de secours, haché), `xp` (le total), `created_at`, `last_seen_at`, `disabled_at` (suspendu), et ce qu'il porte : `legendaire`, `titre`, `vitrine` (JSON), `fond`, `theme`, `gerbe`, `bordure` ; `niche`, le compagnon qu'il a installé dans sa niche (NULL : celui que la règle désigne, `compagnonDeLaNiche` — celui qu'il porte, sinon le plus grand des siens) ; ainsi que `renomme_le`.
+- **Colonnes clés** : `id`, `login` (unique), `name`, `avatar`, `finition`, `password_hash`, `recovery_hash` (le code de secours, haché), `xp` (le total), `created_at`, `last_seen_at`, `disabled_at` (suspendu), et ce qu'il porte : `legendaire`, `titre`, `vitrine` (JSON), `fond`, `theme`, `gerbe`, `bordure` ; `niche`, le compagnon qu'il a installé dans sa niche (NULL : celui que la règle désigne, `compagnonDeLaNiche` — le plus grand des siens ; les niches jamais choisies se sont figées une fois, le 19 octobre 2026, sur ce qu'elles montraient, drapeau `niches_installees`, et une adoption ou un coffre écrit la sienne) ; ainsi que `renomme_le`.
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` — l'inscription, l'adoption d'un compte d'avant, la loge, les mots de passe, les crédits, l'administration.
 - **Lue par** : `ProfileStore` ; `JourStore` (`server/src/core/jour.ts` : les classements, qui écartent les profils suspendus).
@@ -306,11 +306,11 @@ Les sabliers qui protègent la série du quiz du jour, une ligne par sablier.
 
 ### `profile_compagnons`
 
-Les compagnons achetés, et la plus haute forme que chacun a atteinte.
+Les compagnons achetés, la plus haute forme que chacun a atteinte, et ce qu'il en a réglé depuis sa niche.
 
-- **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date).
+- **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date) ; `nom`, le nom qu'il lui a donné (NULL : aucun ; à lui seul, rien ne le montre à la salle), et `montree`, le rang de la forme qu'il montre dans sa niche quand ce n'est pas la plus haute (NULL : la plus haute, qui suit sa croissance — une forme atteinte la remet à NULL).
 - **Espace** : non.
-- **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche` —, la croissance).
+- **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche`, sauf `installer: false` —, la croissance, `reglerCompagnon` pour `nom` et `montree`).
 - **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`).
 - **Effacée par** : la suppression du profil.
 

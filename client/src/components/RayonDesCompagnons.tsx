@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { Icon } from './Icon'
-import { choixDialog } from './Dialog'
+import { choixDialog, confirmDialog } from './Dialog'
 import { JaugeFine } from './LigneDeCollection'
 import { gemme } from './Boutique'
 import { Compagnon, teintesDuCompagnon } from './Compagnon'
@@ -13,6 +13,7 @@ import {
   NOM_DE_LA_FORME,
   PRIX_D_UN_COMPAGNON,
   avecLui,
+  compagnon as leCompagnon,
   prochaineForme,
   type Compagnon as LeCompagnon,
   type CompagnonAcquis,
@@ -20,6 +21,7 @@ import {
 import { CONFETTIS_D_UNE_MISSION, CONFETTIS_DES_TROIS, MISSIONS_PAR_JOUR } from '../../../shared/missions'
 import { NOM_RARETE } from '../../../shared/badges'
 import type { PublicProfileDetail } from '../../../shared/profil'
+import { abonnerNiche, nicheActuelle } from '../niche'
 
 // La vitrine des compagnons, dans la boutique (`/boutique#compagnons`) : un
 // compagnon par écran, qu'on fait glisser — le suivant dépasse au bord, pour
@@ -32,10 +34,12 @@ import type { PublicProfileDetail } from '../../../shared/profil'
 // 14 octobre 2026 : « les mettre vraiment en avant, super mignon et avoir
 // envie de les acheter » ; les silhouettes dorées d'avant cachaient
 // justement ce qu'il devient. Adopté, il s'installe dans sa niche, en haut de
-// chaque page (le 18 octobre 2026), et la carte dit où il en est — sa forme,
-// la jauge de la suivante —, s'il est dans sa niche — sinon, de quoi l'y
-// installer : c'est celui de la niche qui grandit — et où le porter ; on ne
-// le porte pas d'ici, la loge le fait.
+// chaque page (le 18 octobre 2026) — et rien de plus : il ne devient pas son
+// avatar (le 19 octobre 2026, le propriétaire : « ça le met sur notre avatar
+// et dans la niche. Ça serait mieux que dans la niche »). La carte dit où il
+// en est — sa forme, la jauge de la suivante —, s'il est dans sa niche —
+// sinon, de quoi l'y installer : c'est celui de la niche qui grandit — et
+// « Le porter en avatar », qui ouvre la loge avec lui à l'essai.
 
 const enConfettis = (n: number) => `🎊 ${formatNumber(n)}`
 
@@ -169,8 +173,9 @@ function SceneDuCompagnon({
             </div>
           )}
           {!suite && <p className="muted small">{espacesFines('Sa forme ultime : son monde prend vie.')}</p>}
-          <a className="link-inline" href="/profil#avatar">
-            {lePorte ? `Tu ${c.le} portes · en changer` : `${c.le === 'la' ? 'La' : 'Le'} porter`}
+          {/* L'avatar est une autre affaire que la niche : la loge, sa forme la plus haute à l'essai. */}
+          <a className="link-inline" href={lePorte ? '/profil#avatar' : `/profil?essayer=${montree.key}#avatar`}>
+            {lePorte ? `Tu ${c.le} portes en avatar · en changer` : `${c.le === 'la' ? 'La' : 'Le'} porter en avatar`}
           </a>
         </div>
       ) : (
@@ -210,7 +215,8 @@ function SceneDuCompagnon({
 /**
  * La vitrine des compagnons : une scène par compagnon, qu'on fait glisser,
  * des points dessous pour sauter de l'un à l'autre. L'adopter l'installe
- * dans sa niche, et le porte tout de suite, ou pas, comme un thème
+ * dans sa niche ; s'il y en a déjà un, il choisit : l'y installer, ou
+ * l'adopter seulement — celui qui y vit la garde, et continue de grandir
  * (`choixDialog`).
  */
 export function RayonDesCompagnons({
@@ -221,14 +227,16 @@ export function RayonDesCompagnons({
 }: {
   profil: PublicProfileDetail
   busy: boolean
-  /** Achète — et porte, ou garde pour plus tard : rend le motif d'un refus, ou null. */
-  acheter: (cle: string, porter: boolean) => Promise<string | null>
+  /** Adopte — et l'installe dans sa niche, ou pas : rend le motif d'un refus, ou null. */
+  acheter: (cle: string, installer: boolean) => Promise<string | null>
   /** Installe dans sa niche un compagnon qu'il a déjà. */
   installer?: (cle: string) => void
 }) {
   const [ici, setIci] = useState(() => (typeof window === 'undefined' ? 0 : (compagnonDeLAdresse(window.location.hash) ?? 0)))
   const [erreur, setErreur] = useState<{ cle: string; motif: string } | null>(null)
-  const [adopte, setAdopte] = useState<{ c: LeCompagnon; porte: boolean } | null>(null)
+  const [adopte, setAdopte] = useState<{ c: LeCompagnon; installe: boolean; resteLa: string | null } | null>(null)
+  // Celui de sa niche, que sa fiche peut changer sans que la page ne relise le profil.
+  const nicheIci = useSyncExternalStore(abonnerNiche, nicheActuelle, () => null)
   const piste = useRef<HTMLDivElement>(null)
 
   /** Amène la scène d'un compagnon au milieu de la piste. */
@@ -239,9 +247,19 @@ export function RayonDesCompagnons({
     el.scrollTo({ left: scene.offsetLeft - (el.clientWidth - scene.offsetWidth) / 2, behavior: doux && !sansMouvement() ? 'smooth' : 'auto' })
   }
   // Ouverte sur un compagnon (`#compagnon-chat`) : la piste y est déjà, sans
-  // glisser. Une seule fois, à l'ouverture : ensuite, c'est le doigt qui mène.
+  // glisser. Une fois à l'ouverture, ensuite c'est le doigt qui mène — sauf
+  // une adresse suivie d'ici même (« Ses formes », dans la fiche de la niche) :
+  // la page ne se recharge pas, la piste y va.
   useEffect(() => {
     if (ici > 0) allerA(ici, false)
+    const suivre = () => {
+      const i = compagnonDeLAdresse(window.location.hash)
+      if (i === null) return
+      setIci(i)
+      allerA(i)
+    }
+    window.addEventListener('hashchange', suivre)
+    return () => window.removeEventListener('hashchange', suivre)
   }, [])
   /** La scène la plus près du milieu : celle que les points allument. */
   const surLaPiste = () => {
@@ -264,23 +282,39 @@ export function RayonDesCompagnons({
   const boutique = profil.boutique
   if (!boutique) return null
   const solde = boutique.confettis.solde
+  const dansLaNiche = nicheIci?.compagnon ?? profil.niche
   const adopter = async (c: LeCompagnon) => {
     if (busy) return
     setErreur(null)
     setAdopte(null)
     const il = c.le === 'la' ? 'Elle' : 'Il'
-    const choix = await choixDialog({
-      title: c.nom,
-      message: `${il} coûte ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis : il t’en restera ${formatNumber(solde - PRIX_D_UN_COMPAGNON)}. ${il} s’installera dans ta niche, en haut de chaque page, et grandira avec tes bonnes réponses.`,
-      confirmLabel: `L’adopter et ${c.le} porter · ${enConfettis(PRIX_D_UN_COMPAGNON)}`,
-      alternative: { label: 'L’adopter seulement' },
-      cancelLabel: 'Plus tard',
-    })
-    if (!choix) return
-    const porter = choix.geste === 'confirmer'
-    const refus = await acheter(c.key, porter)
+    const prix = `${il} coûte ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis : il t’en restera ${formatNumber(solde - PRIX_D_UN_COMPAGNON)}.`
+    // Un compagnon vit déjà dans sa niche : il choisit qui y grandit.
+    const sien = dansLaNiche && dansLaNiche !== c.key ? profil.compagnons?.find(a => a.compagnon === dansLaNiche) : undefined
+    const resteLa = sien ? (nicheIci?.compagnon === sien.compagnon ? nicheIci.nom : sien.nom) ?? dansLaPhrase(leCompagnon(sien.compagnon)!) : null
+    let installe = true
+    if (!resteLa) {
+      const oui = await confirmDialog({
+        title: c.nom,
+        message: `${prix} ${il} s’installera dans ta niche, en haut de chaque page, et grandira avec tes bonnes réponses.`,
+        confirmLabel: `L’adopter · ${enConfettis(PRIX_D_UN_COMPAGNON)}`,
+        cancelLabel: 'Plus tard',
+      })
+      if (!oui) return
+    } else {
+      const choix = await choixDialog({
+        title: c.nom,
+        message: `${prix} ${il} peut prendre la place de ${resteLa} dans ta niche — c’est celui de ta niche qui grandit. Tu pourras changer quand tu veux, en touchant ta niche.`,
+        confirmLabel: `L’adopter et l’installer · ${enConfettis(PRIX_D_UN_COMPAGNON)}`,
+        alternative: { label: 'L’adopter seulement' },
+        cancelLabel: 'Plus tard',
+      })
+      if (!choix) return
+      installe = choix.geste === 'confirmer'
+    }
+    const refus = await acheter(c.key, installe)
     if (refus) return setErreur({ cle: c.key, motif: refus })
-    setAdopte({ c, porte: porter })
+    setAdopte({ c, installe, resteLa })
   }
   return (
     <section className="rayon-compagnons">
@@ -291,16 +325,10 @@ export function RayonDesCompagnons({
       </p>
       {adopte && (
         <p className="card theme-achete" role="status">
-          {adopte.porte ? (
-            `${adopte.c.nom} est à toi : ${adopte.c.le === 'la' ? 'elle' : 'il'} s’installe dans ta niche, et tu ${adopte.c.le} portes.`
-          ) : (
-            <>
-              {`${adopte.c.nom} est à toi : ${adopte.c.le === 'la' ? 'elle' : 'il'} s’installe dans ta niche. `}
-              <a className="link-inline" href="/profil#avatar">
-                {`${adopte.c.le === 'la' ? 'La' : 'Le'} porter`}
-              </a>
-              {' quand tu veux.'}
-            </>
+          {espacesFines(
+            adopte.installe
+              ? `${adopte.c.nom} est à toi : ${adopte.c.le === 'la' ? 'elle' : 'il'} s’installe dans ta niche. Touche-la pour lui donner un nom.`
+              : `${adopte.c.nom} est à toi. ${adopte.resteLa ? `${adopte.resteLa.charAt(0).toUpperCase()}${adopte.resteLa.slice(1)} garde ta niche` : 'Ta niche ne change pas'} : touche-la pour changer quand tu veux.`,
           )}
         </p>
       )}
@@ -311,7 +339,7 @@ export function RayonDesCompagnons({
             c={c}
             sien={boutique.compagnons?.find(a => a.compagnon === c.key)}
             porte={profil.legendaire}
-            dansLaNiche={profil.niche === c.key}
+            dansLaNiche={dansLaNiche === c.key}
             solde={solde}
             busy={busy}
             erreur={erreur?.cle === c.key ? erreur.motif : null}

@@ -13,10 +13,16 @@
 // (`components/NicheHost.tsx`).
 import type { ReactionALaRevelation } from '../../shared/niche'
 
-/** Ce que la niche montre : son compagnon (`loup`), et le rang de sa plus haute forme. */
+/**
+ * Ce que la niche montre : son compagnon (`loup`), le rang de sa plus haute
+ * forme — sa croissance —, et ce qu'il en a réglé : la forme qu'il y montre
+ * (`montree`, d'avant la plus haute) et son nom, qui n'est qu'à lui.
+ */
 export interface NicheVue {
   compagnon: string
   rang: number
+  montree?: number
+  nom?: string
 }
 
 const CLE = 'quizz.niche'
@@ -26,15 +32,24 @@ const CLASSE = 'avec-niche'
 let actuelle: NicheVue | null = null
 const abonnes = new Set<() => void>()
 
+/** Ce qu'une niche venue d'ailleurs — le stockage, un profil — a de lisible : une forme pas atteinte, un nom vide ne passent pas. */
 function lue(brut: unknown): NicheVue | null {
   const v = brut as Partial<NicheVue> | null
   if (!v || typeof v.compagnon !== 'string' || !v.compagnon) return null
   const rang = Number(v.rang)
-  return Number.isInteger(rang) && rang >= 0 && rang <= 3 ? { compagnon: v.compagnon, rang } : null
+  if (!Number.isInteger(rang) || rang < 0 || rang > 3) return null
+  const montree = v.montree
+  return {
+    compagnon: v.compagnon,
+    rang,
+    ...(typeof montree === 'number' && Number.isInteger(montree) && montree >= 0 && montree < rang && { montree }),
+    ...(typeof v.nom === 'string' && v.nom && { nom: v.nom }),
+  }
 }
 
 function poser(niche: NicheVue | null): void {
-  const meme = niche?.compagnon === actuelle?.compagnon && niche?.rang === actuelle?.rang
+  const meme =
+    niche?.compagnon === actuelle?.compagnon && niche?.rang === actuelle?.rang && niche?.montree === actuelle?.montree && niche?.nom === actuelle?.nom
   // Une forme atteinte pendant la partie — le profil relu après un quiz, une
   // partie du jour, une série — : il sort de sa niche pour la montrer.
   const grandi = !!niche && !!actuelle && niche.compagnon === actuelle.compagnon && niche.rang > actuelle.rang
@@ -44,14 +59,18 @@ function poser(niche: NicheVue | null): void {
   if (grandi && enJeu) sortir()
 }
 
+/** Un compagnon tel que le profil le dit (`CompagnonPossede`). */
+type CompagnonDuProfil = { compagnon: string; rang: number; montree?: number; nom?: string }
+
 /**
  * Le compagnon que le serveur met dans sa niche (`PublicProfile.niche`), à
- * la forme qu'il a atteinte ; rien sans profil ou sans compagnon. Retenu sur
- * ce téléphone pour le prochain démarrage.
+ * la forme qu'il a atteinte, avec son nom et la forme qu'il y montre ; rien
+ * sans profil ou sans compagnon. Retenu sur ce téléphone pour le prochain
+ * démarrage.
  */
-export function porterNiche(profil: { niche?: string; compagnons?: readonly { compagnon: string; rang: number }[] } | null | undefined): void {
+export function porterNiche(profil: { niche?: string; compagnons?: readonly CompagnonDuProfil[] } | null | undefined): void {
   const sien = profil?.niche ? profil.compagnons?.find(c => c.compagnon === profil.niche) : undefined
-  const niche = sien ? { compagnon: sien.compagnon, rang: sien.rang } : null
+  const niche = sien ? lue(sien) : null
   poser(niche)
   try {
     if (niche) localStorage.setItem(CLE, JSON.stringify(niche))

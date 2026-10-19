@@ -2,8 +2,8 @@
 // `retours/2026-10-16/compagnon/principe.md`) : il vit dans sa niche, en haut
 // de chaque page du téléphone, et c'est lui qui grandit — qu'on le porte en
 // avatar ou non : « porter un médaillon ne fait grandir personne ». Adopté, il
-// s'y installe ; on l'y change d'un geste ; une niche jamais choisie suit ce
-// qu'il porte, comme avant elle.
+// s'y installe ; on l'y change d'un geste ; ce qu'on porte ne la fait plus
+// bouger (le 19 octobre 2026 : sa gestion, `ma-niche.test.ts`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -32,19 +32,17 @@ ProfileStore.tirageEclat = () => false
 
 // ── La règle, pure ────────────────────────────────────────────────────────
 
-test('le compagnon de la niche : celui qu’on y a installé, sinon celui qu’on porte, sinon le plus grand', () => {
-  assert.equal(compagnonDeLaNiche(null, null, []), null, 'sans compagnon, pas de niche')
+test('le compagnon de la niche : celui qu’on y a installé, sinon le plus grand — jamais ce qu’on porte', () => {
+  assert.equal(compagnonDeLaNiche(null, []), null, 'sans compagnon, pas de niche')
   const possedes = [
     { compagnon: 'loup', rang: 1 },
     { compagnon: 'chat', rang: 3 },
     { compagnon: 'tortue', rang: 3 },
   ] as const
-  assert.equal(compagnonDeLaNiche('loup', 'cp:chat-esprit', possedes), 'loup', 'installé, il y reste, quoi qu’il porte')
-  assert.equal(compagnonDeLaNiche(null, 'cp:loup-jeune', possedes), 'loup', 'jamais choisie, elle suit ce qu’il porte — comme avant elle')
-  assert.equal(compagnonDeLaNiche(null, 'lg:phenix', possedes), 'chat', 'sinon le plus grand, le premier du catalogue à égalité')
-  assert.equal(compagnonDeLaNiche('dragon', null, possedes), 'chat', 'un nom inconnu ne compte pas')
-  assert.equal(compagnonDeLaNiche('loup', null, [{ compagnon: 'tortue', rang: 0 }]), 'tortue', 'ni un compagnon qu’il n’a pas')
-  assert.equal(compagnonDeLaNiche(null, 'cp:chat-chaton', [{ compagnon: 'tortue', rang: 0 }]), 'tortue', 'ni la forme d’un compagnon qu’il n’a pas')
+  assert.equal(compagnonDeLaNiche('loup', possedes), 'loup', 'installé, il y reste')
+  assert.equal(compagnonDeLaNiche(null, possedes), 'chat', 'sinon le plus grand, le premier du catalogue à égalité')
+  assert.equal(compagnonDeLaNiche('dragon', possedes), 'chat', 'un nom inconnu ne compte pas')
+  assert.equal(compagnonDeLaNiche('loup', [{ compagnon: 'tortue', rang: 0 }]), 'tortue', 'ni un compagnon qu’il n’a pas')
   // Ce qui le fait grandir se dit à son genre.
   assert.equal(avecLui(compagnon('loup')!), 'avec lui')
   assert.equal(avecLui(compagnon('tortue')!), 'avec elle')
@@ -112,14 +110,13 @@ test('la niche : son décor peint, lui en buste tourné vers la page — sa fich
   // Une forme que le catalogue ne connaît pas : rien plutôt qu'un cadre vide.
   assert.equal(await niche('Niche', { compagnon: 'dragon', rang: 1 }), '')
 
-  const { formeDeCompagnon } = await import('../../shared/compagnons')
-  const fiche = await niche('FicheDeLaNiche', { forme: formeDeCompagnon('cp:loup-adulte'), dessin: DESSINS['cp:loup-adulte'], onFermer: () => {} })
-  assert.match(fiche, /role="dialog" aria-modal="true" aria-label="Le Loup"/)
+  const fiche = await niche('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 2 }, onFermer: () => {} })
+  assert.match(fiche, /role="dialog" aria-modal="true" aria-label="Ma niche"/)
   assert.match(fiche, /<b class="niche-fiche-nom">Le loup adulte<\/b>/)
   assert.match(fiche, /Troisième forme · épique/)
-  assert.match(fiche, /Il grandit avec tes bonnes réponses, en soirée, au quiz du jour et en campagne — sans jamais te donner d’avantage\./)
+  assert.match(fiche, /Celui de ta niche grandit avec tes bonnes réponses, en soirée, au quiz du jour et en campagne — sans jamais te donner d’avantage\./)
   assert.match(fiche, />Le caresser<\/button>/)
-  assert.match(fiche, /<a class="btn" href="\/boutique#compagnon-loup">Ses formes<\/a>/)
+  assert.match(fiche, /<a class="link-inline" href="\/boutique#compagnon-loup">Ses formes<\/a>/)
   // Sa jauge se lit à l'ouverture : sa place est gardée en attendant.
   assert.match(fiche, /<div class="niche-fiche-jauge" aria-live="polite"><span class="muted small">…<\/span><\/div>/)
 })
@@ -192,8 +189,8 @@ function confettis(banc: Banc, profileId: string, jour: string, justes: number) 
 const lire = async (banc: Banc, cookie: string) => ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any).profile
 const lireLeger = async (banc: Banc, cookie: string) =>
   ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: cookie } })).json()) as any).profile
-const acheter = (banc: Banc, cookie: string, compagnon: string, porter?: boolean) =>
-  ecrire(banc.url, '/api/joueur/compagnons', { compagnon, ...(porter === false && { porter }) }, cookie).then(async r => ({
+const acheter = (banc: Banc, cookie: string, compagnon: string) =>
+  ecrire(banc.url, '/api/joueur/compagnons', { compagnon }, cookie).then(async r => ({
     status: r.status,
     corps: (await r.json()) as any,
   }))
@@ -218,8 +215,10 @@ test('adopté, il s’installe dans la niche ; on l’y change d’un geste — 
     const loup = await acheter(banc, cookie, 'loup')
     assert.equal(loup.status, 200, loup.corps.error)
     assert.equal(loup.corps.profile.niche, 'loup', 'adopté, il s’installe')
-    // Le chat, adopté sans le porter : il s'installe à son tour, le loup reste sur lui.
-    const chat = await acheter(banc, cookie, 'chat', false)
+    // Il le porte en avatar, de lui-même : l'adoption ne le fait plus (`ma-niche.test.ts`).
+    assert.equal((await changer(banc, cookie, { legendaire: 'cp:loup-louveteau' })).status, 200)
+    // Le chat, adopté : il s'installe à son tour, le loup reste sur lui.
+    const chat = await acheter(banc, cookie, 'chat')
     assert.equal(chat.corps.profile.niche, 'chat')
     assert.equal(chat.corps.profile.legendaire, 'cp:loup-louveteau')
 
@@ -241,8 +240,8 @@ test('adopté, il s’installe dans la niche ; on l’y change d’un geste — 
     // Les pages de jeu le lisent dans le profil léger.
     assert.equal((await lireLeger(banc, cookie)).niche, 'loup')
 
-    // Rendue à la règle : celui qu'il porte.
-    assert.equal((await changer(banc, cookie, { niche: null })).corps.profile.niche, 'chat')
+    // Rendue à la règle : le plus grand des siens, le premier du catalogue à égalité — pas le chat qu'il porte.
+    assert.equal((await changer(banc, cookie, { niche: null })).corps.profile.niche, 'loup')
     assert.equal(enBase(banc, db => (db.prepare('SELECT niche FROM profiles WHERE id = ?').get(alice) as { niche: string | null }).niche), null)
 
     // Ce qu'il choisit s'écrit en base : un réveil le garde.
@@ -251,21 +250,8 @@ test('adopté, il s’installe dans la niche ; on l’y change d’un geste — 
     assert.equal((await lire(banc, cookie)).niche, 'loup')
   }))
 
-test('une niche jamais choisie suit ce qu’il porte, comme avant elle ; sinon le plus grand des siens', () =>
-  avecBanc(async banc => {
-    const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
-    const alice = idDe(banc, 'alice')
-    // Deux compagnons d'avant la niche : la tortue grandie, le loup porté.
-    enBase(banc, db => {
-      const ligne = db.prepare('INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, 1000, ?, 1)')
-      ligne.run(alice, 'tortue', 2)
-      ligne.run(alice, 'loup', 0)
-      db.prepare(`UPDATE profiles SET legendaire = 'cp:loup-louveteau' WHERE id = ?`).run(alice)
-    })
-    await banc.redemarrer()
-    assert.equal((await lire(banc, cookie)).niche, 'loup', 'celui qu’il porte : c’était le seul qui grandissait')
-    assert.equal((await changer(banc, cookie, { avatar: '🦊' })).corps.profile.niche, 'tortue', 'sans compagnon porté, le plus grand des siens')
-  }))
+// Une niche jamais choisie, d'avant le 19 octobre 2026 : figée au démarrage sur
+// ce qu'il portait (`ma-niche.test.ts`) — changer d'avatar ne la déplace plus.
 
 test('c’est le compagnon de sa niche qui grandit, qu’il le porte ou non — en campagne et au quiz du jour', () =>
   avecBanc(async banc => {
@@ -273,7 +259,8 @@ test('c’est le compagnon de sa niche qui grandit, qu’il le porte ou non — 
     const alice = idDe(banc, 'alice')
     confettis(banc, alice, '2026-09-20', 2000)
     assert.equal((await acheter(banc, cookie, 'loup')).status, 200)
-    assert.equal((await acheter(banc, cookie, 'chat', false)).status, 200)
+    assert.equal((await changer(banc, cookie, { legendaire: 'cp:loup-louveteau' })).status, 200)
+    assert.equal((await acheter(banc, cookie, 'chat')).status, 200)
     // Il porte le loup ; le chat est dans sa niche.
 
     // Une série : deux justes, une fausse.
@@ -318,9 +305,10 @@ test('en soirée aussi : la ligne de sa réponse retient le compagnon de sa nich
     const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     const alice = idDe(banc, 'alice')
     confettis(banc, alice, '2026-09-20', 1000)
-    assert.equal((await acheter(banc, aliceCookie, 'tortue')).status, 200)
-    // Elle ôte la tortue de son avatar : la tortue reste dans sa niche.
-    assert.equal((await changer(banc, aliceCookie, { avatar: '🦊' })).corps.profile.legendaire, null)
+    // Adoptée, la tortue vit dans sa niche ; Alice ne la porte pas.
+    const tortue = await acheter(banc, aliceCookie, 'tortue')
+    assert.equal(tortue.status, 200)
+    assert.equal(tortue.corps.profile.legendaire, null)
 
     const host = await ecranCommun(banc.url, cookie)
     const aliceTel = await invite(banc.url, 'Alice', '', { cookie: aliceCookie })

@@ -442,17 +442,20 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
 
   // Le compagnon de sa niche et où il en est — sa plus haute forme, ses bonnes
   // réponses données avec lui depuis l'adoption (`compagnonsDe`, relues dans
-  // ses journaux) — : la fiche que la niche ouvre au toucher, sur toutes les
-  // pages. Pas le profil entier : la page du profil seule lit sa boutique.
-  // Sans profil ou sans compagnon, null.
+  // ses journaux), son nom, la forme qu'il montre —, et tous les siens : la
+  // fiche que la niche ouvre au toucher, sur toutes les pages, où il les
+  // gère. Pas le profil entier : la page du profil seule lit sa boutique.
+  // Sans profil ou sans compagnon, null et rien.
   app.get(
     '/api/joueur/niche',
     wrap(async (req, res) => {
       noStore(res)
       const me = await current(req)
-      const cle = me && profiles.compagnonDeLaNiche(me)
-      if (!me || !cle) return res.json({ niche: null })
-      res.json({ niche: (await profiles.compagnonsDe(me)).find(a => a.compagnon === cle) ?? null })
+      if (!me) return res.json({ niche: null, compagnons: [] })
+      const compagnons = await profiles.compagnonsDe(me)
+      // Après la relecture : une niche laissée à la règle suit le plus grand des siens.
+      const cle = profiles.compagnonDeLaNiche(me)
+      res.json({ niche: compagnons.find(a => a.compagnon === cle) ?? null, compagnons })
     }),
   )
 
@@ -705,10 +708,10 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   )
 
   /**
-   * Acheter un compagnon, en confettis, à sa première forme : il s'installe
-   * dans sa niche, et se porte aussitôt en avatar, ou pas (`porter: false`),
-   * comme un thème. Porté, la salle où il joue le voit : il remplace son
-   * avatar.
+   * Adopter un compagnon, en confettis, à sa première forme : il s'installe
+   * dans sa niche, ou attend son tour (`installer: false`). Il ne devient
+   * jamais son avatar d'ici : le `porter` d'une page d'avant ne fait plus
+   * rien — la salle ne voit donc rien changer.
    */
   app.post(
     '/api/joueur/compagnons',
@@ -718,10 +721,26 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       const me = await current(req)
       if (!me) return res.status(401).json({ error: 'Connexion requise' })
       const jour = jourDe(deps.maintenant())
-      const porter = req.body?.porter !== false
-      const achete = await profiles.acheterCompagnon(me.id, req.body?.compagnon, jour, { porter })
-      if (porter) deps.profilChange(achete.id)
+      const achete = await profiles.acheterCompagnon(me.id, req.body?.compagnon, jour, { installer: req.body?.installer !== false })
       res.json({ profile: profiles.toPublic(achete), boutique: await profiles.boutiqueDe(achete, jour) })
+    }),
+  )
+
+  /**
+   * Ce qu'il règle d'un de ses compagnons, depuis sa niche : son nom (`nom`,
+   * vide pour l'ôter), la forme qu'il y montre (`montree`, un rang atteint ;
+   * null, sa plus haute). Rien de cela ne part à la salle : son nom n'est qu'à
+   * lui, et ce qu'il porte n'a pas bougé.
+   */
+  app.put(
+    '/api/joueur/compagnons/:cle',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const regle = await profiles.reglerCompagnon(me.id, req.params.cle, { nom: req.body?.nom, montree: req.body?.montree })
+      res.json({ profile: profiles.toPublic(regle) })
     }),
   )
 

@@ -13,5 +13,5 @@ export function NicheHost() {
   const niche = useSyncExternalStore(abonnerNiche, nicheActuelle, () => null)
   const module = useALaDemande(laNiche, !!niche)
   if (!niche || !module || module === 'perdu') return null
-  return <module.Niche compagnon={niche.compagnon} rang={niche.rang} />
+  return <module.Niche {...niche} />
 }
