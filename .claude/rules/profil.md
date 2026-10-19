@@ -35,7 +35,14 @@ paths:
   Un bouton s'arrête avant elle boîte comprise (`margin-right`, pas
   `padding-right`) : sa boîte passait dessous. Et une page qui colle sa tête
   en haut rejoint `body:has(.loge-collante, .sentier-tete)` : repliée, la
-  niche couvrait le coin de la carte de la loge.
+  niche couvrait le coin de la carte de la loge. **Le script ne voit que ce
+  qu'il visite** : un écran qu'on n'atteint qu'en jouant y entre avec sa
+  photo. Les fins d'un duel n'y étaient pas, et la croix du verdict, posée en
+  absolu au coin, dormait sous la niche — la toucher ouvrait « Ma niche » (un
+  retour du 19 octobre 2026). Une croix seule au coin passe au coin d'en face
+  (`.duels-fermer`) : collée à la niche, on la prenait pour la sienne. Et
+  l'encoche se regarde (`ENCOCHE=47`) : la niche descend avec elle, une page
+  pas toujours d'autant.
 - **Un écran de révélation de plus le dit à la niche** : `NicheALaRevelation`
   dans son bandeau, `nicheRetientSonSouffle()` dans le geste qui envoie la
   réponse, et sa règle (`reactionDuSolo`, sa part rare s'il en a une) ; le

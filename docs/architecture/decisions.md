@@ -1468,6 +1468,15 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 *Fichiers : `shared/rencontres.ts`, `server/src/server.ts`, `server/src/api.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-rencontres-routes.test.ts`, `server/test/expedition-codex.test.ts`*
 
+### Un style choisi au départ, et l'échelle qui ouvre la variété d'abord
+**Contexte** : « Pour les cartes il faut vraiment plus de gameplay différents. Quitte à rajouter des communes aussi. Là aujourd'hui j'ai l'impression de piocher tout le temps la même chose et de pas avoir à choisir de style de jeu » (le propriétaire, le 19 octobre 2026). Au niveau 1, les offres tiraient parmi huit cartes, presque toutes neutres ; les familles n'arrivaient qu'aux niveaux 5 à 10 ; le paquet de départ, huit cartes de base sur dix, était le même pour tous ; et seul le poids des familles dans les offres laissait deviner, après coup, quelle façon de gagner on jouait.
+
+**Décision** : un style se choisit au départ — une famille parmi celles que son niveau ouvre, retenue sur le téléphone. Ses deux cartes prennent la place de deux cartes de base de même nature — une attaque d'une Concentration, une protection d'une Prudence —, et chaque offre en propose une, une que le paquet n'a pas encore s'il en reste ; les deux autres viennent de partout, au même poids : le poids des familles du paquet s'efface avec le style. L'échelle ouvre la variété d'abord : trois styles entiers à leurs communes au niveau 1, un de plus avec sa règle à chacun des trois suivants ; la catégorie fétiche va avec l'Érudit, dès le niveau 1. Lancée et Échauffement partent avec l'Élan : leurs exploits ouvrent Génie et Inarrêtable. Le style est un champ neuf du départ, sans version : un départ d'avant lui se rejoue tel qu'il s'est joué, ses offres tirant leur hasard dans le même ordre.
+
+**Conséquence** : mesuré (`calibrage-rencontres.ts --styles`), le style ne pèse rien sur qui choisit ses cartes — à dix points près du départ sans style —, mais suivi à la lettre, il sépare les familles : au niveau 10, le joueur moyen va au bout 94 fois sur cent avec le Rempart, 35 avec le Flambeur, 80 sans style. Les cartes qui ne font qu'attaquer valent moins que les boucliers ; les règles le disent (« un paquet qui ne fait qu'attaquer tombe vite »), et les aiguiser — une retouche de leurs chiffres, sous une version neuve du départ — attend la semaine de jeu. Le paquet d'un style se relit à chaque pli : changer ses cartes de départ changerait celui d'une expédition en route, et monte donc la version.
+
+*Fichiers : `shared/rencontres.ts`, `shared/codex.ts`, `shared/expedition.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/test/expedition-styles.test.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

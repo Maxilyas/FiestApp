@@ -140,9 +140,10 @@ try {
     console.error(`[déborde] ${ou} : ${l} pixels de large — ${fautifs}`)
   }
 
-  // Le départ : les rencontres sans rien demander — c'est le jeu —, sa catégorie fétiche à choisir.
+  // Le départ : les rencontres sans rien demander — c'est le jeu —, son style à choisir parmi les six de son niveau.
   await page.goto(`${banc.url}/expedition`)
-  await page.waitForSelector('.exp-fetiche-du-depart')
+  await page.waitForSelector('.exp-style')
+  await largeur('le départ')
   await photo('1-depart')
   await photo('1-depart-entier', true)
   // Les règles, au « ? » d'en haut : ce que le départ ne redit plus.
@@ -188,11 +189,26 @@ try {
   await page.locator('.feuille-codex .exp-un-dos').last().scrollIntoViewIfNeeded()
   await photo('1a-codex-dos')
   await page.locator('.feuille-codex .carte-fermer').click()
-  await page.locator('.exp-fetiche-du-depart .exp-changer').click()
+  // Son style (le 19 octobre 2026) : rien de retenu, le Rempart, le premier des siens ; elle prend l'Érudit, et sa catégorie
+  // fétiche se choisit avec lui.
+  await page.locator('.exp-style').scrollIntoViewIfNeeded()
+  await photo('1b-style')
+  await page.locator('.exp-un-style', { hasText: 'Érudit' }).click()
+  await largeur('son style')
+  // Un nom qui ne tient pas sur sa tuile, à trois par ligne en 360 : « Méta… », tant que le dessin était à côté.
+  const stylesCoupes = await page.evaluate(`[...document.querySelectorAll('.exp-un-style span')].filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent).join(', ')`)
+  if (stylesCoupes) console.error(`[coupé] les styles : ${stylesCoupes}`)
+  await photo('1b-style-erudit')
+  await page.locator('.exp-style .exp-changer').click()
   await page.waitForSelector('.feuille-fetiche')
   await photo('1b-fetiche')
   await page.locator('.exp-fetiche', { hasText: 'Histoire' }).click()
   await page.locator('.feuille-fetiche .carte-pied .btn-primary').click()
+  // Le paquet qui partira : Plume et Savoir-faire à la place d'une Concentration et d'une Prudence.
+  await page.locator('.exp-voir-le-paquet').click()
+  await page.waitForSelector('.feuille-paquet')
+  await photo('1b-paquet-erudit')
+  await page.locator('.feuille-paquet .carte-fermer').click()
   // Le dos de son paquet : elle en a trois — le plus rare d'office, le doré ; elle prend l'étoilé, que le plan portera.
   await page.locator('.exp-choix-du-dos').scrollIntoViewIfNeeded()
   await page.locator('.exp-choix-du-dos [role="radio"][aria-label="le dos étoilé"]').click()

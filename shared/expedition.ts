@@ -97,6 +97,7 @@ import {
   enPlusApresLaForme,
   enPlusDesPouvoirs,
   estDeRoute,
+  estUnStyle,
   famillesDeLEquipee,
   fioleDe,
   frappeDUneErreur,
@@ -122,6 +123,7 @@ import {
   type QuestionDuTour,
   type RencontreEnCours,
   type SorteDeRencontre,
+  type StyleDeJeu,
   type VueDeLaRencontre,
 } from './rencontres'
 
@@ -909,6 +911,14 @@ export interface DepartDExpedition {
    * (`ascensionDuDepart`).
    */
   ascension?: number
+  /**
+   * Son style (le 19 octobre 2026) : une famille, choisie au départ parmi
+   * celles que son codex ouvre — ses deux cartes de départ dans le paquet,
+   * une de ses cartes dans chaque offre. Un champ neuf, sans version : un
+   * départ d'avant lui se lit sans style, et rejoue son paquet et ses offres
+   * tels quels. Le pli ne le lit qu'au codex (`styleDuDepart`).
+   */
+  style?: StyleDeJeu
 }
 
 /**
@@ -1145,6 +1155,10 @@ export function bilanDuPli(e: Pick<EtatDeLExpedition, 'bilan' | 'vaincus' | 'iss
 export const ascensionDuDepart = (depart: Pick<DepartDExpedition, 'v' | 'codex' | 'ascension'>) =>
   depart.v >= VERSION_DU_CODEX && depart.codex ? Math.min(Math.max(0, depart.ascension ?? 0), ASCENSION_MAX) : 0
 
+/** Le style d'un départ : celui qu'il a figé, au codex seulement, et s'il en est un — rien pour un départ d'avant lui. */
+export const styleDuDepart = (depart: Pick<DepartDExpedition, 'v' | 'codex' | 'style'>): StyleDeJeu | undefined =>
+  depart.v >= VERSION_DU_CODEX && depart.codex && estUnStyle(depart.style) ? depart.style : undefined
+
 /**
  * L'état d'une expédition, replié de son départ, de ses gestes et de ses
  * réponses — rien d'autre. Une escale à question consomme la question tirée
@@ -1175,6 +1189,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   const avecRencontres = depart.v >= 5
   // L'Ascension (le codex) : ses crans durcissent le courage du départ, les adversaires et le repos.
   const ascension = ascensionDuDepart(depart)
+  // Son style (le 19 octobre 2026) : ses deux cartes dans le paquet de départ, une des siennes dans chaque offre.
+  const style = styleDuDepart(depart)
   const e: EtatDeLExpedition = {
     acte: 0,
     ici: null,
@@ -1188,7 +1204,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     vaincus: 0,
     issue: 'en-route',
     garde: null,
-    paquet: avecRencontres ? paquetDesRencontres(depart.equipee ?? []) : avecJokers ? paquetDeDepart(depart.equipee ?? []) : [],
+    paquet: avecRencontres ? paquetDesRencontres(depart.equipee ?? [], style) : avecJokers ? paquetDeDepart(depart.equipee ?? []) : [],
     main: [],
     defausse: [],
     poses: [],
@@ -1372,7 +1388,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const talisman = quelle !== 'rencontre' && talismans ? talismanDeLOffre(depart.graine, rang, e.talismans, false) : null
     const poids = raretesDeLOffre(depart.v, e.acte, quelle === 'rencontre' ? 'rencontre' : 'elite')
     const cartes = avecLeCodex
-      ? offreDuCodex(depart.graine, rang, depart.codex!.cartes, e.paquet, poids, quelle === 'gardien')
+      ? offreDuCodex(depart.graine, rang, depart.codex!.cartes, e.paquet, poids, quelle === 'gardien', style)
       : offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), poids, depart.v >= 6)
     e.offre = {
       jokers: ameliorees(cartes, rang),
@@ -1652,7 +1668,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const rang = e.offres++
     const poids = raretesDeLOffre(depart.v, e.acte, 'elite')
     const jokers = avecLeCodex
-      ? offreDuCodex(depart.graine, rang, depart.codex!.cartes, e.paquet, poids)
+      ? offreDuCodex(depart.graine, rang, depart.codex!.cartes, e.paquet, poids, false, style)
       : avecRencontres
         ? offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), poids, depart.v >= 6)
         : offreDeJokers(depart.graine, rang, depart.v)
@@ -2644,6 +2660,8 @@ export interface VueDeLExpedition {
   courage?: number
   /** Sa catégorie fétiche (v5). */
   fetiche?: string
+  /** Son style, choisi au départ (le 19 octobre 2026) ; absent d'une expédition d'avant lui. */
+  style?: StyleDeJeu
   /** La rencontre en cours (v5) : l'adversaire, le tour, l'annonce et l'aperçu — la question n'arrive qu'une fois préparée. */
   rencontre?: VueDeLaRencontre
   /** Ses cartes (v5) : tout son paquet, et celles de route qu'il peut jouer sur la carte. */
@@ -2719,6 +2737,12 @@ export interface CodexDeLaPage {
   regles: RegleDuCodex[]
   exploits: CleDExploit[]
   dos: DosDuPaquet[]
+  /**
+   * Les styles qu'il peut choisir (le 19 octobre 2026), dans l'ordre où le
+   * codex les ouvre (`stylesDuNiveau`) : trois au niveau 1. Absents d'un
+   * serveur d'avant eux.
+   */
+  styles?: StyleDeJeu[]
   /** Le plus haut cran de l'Ascension qu'il a ouvert (`ascensionOuverte`) — 0 tant qu'aucune expédition n'est allée au bout. */
   ascension: number
 }
@@ -2740,7 +2764,7 @@ export interface PageDeLExpedition {
     invite: string
     equipables: string[]
     saison?: CleDeSaison
-    /** Le prototype des rencontres s'offre au départ : hors de la production (`RENCONTRES_EN_PRODUCTION`). */
+    /** Les rencontres partent : partout, depuis qu'elles sont le jeu (`RENCONTRES_EN_PRODUCTION`). */
     rencontres?: true
     /** Son codex (le 18 octobre 2026), là où les rencontres s'offrent. */
     codex?: CodexDeLaPage

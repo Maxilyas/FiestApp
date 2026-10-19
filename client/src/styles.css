@@ -9916,6 +9916,17 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-coup { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.86rem; line-height: 1.35; }
 /* Sa catégorie fétiche au départ, une ligne — l'interrupteur des rencontres parti avec le « prototype » ; sa feuille, les douze en deux colonnes. */
 .exp-fetiche-du-depart { display: flex; flex-direction: column; gap: 8px; }
+/* « Ton style » (le 19 octobre 2026) : une tuile par style ouvert, à la teinte de sa famille — celle du fond de ses cartes —,
+   trois par ligne en 360, le dessin au-dessus du nom : côte à côte, « Métamorphe » se coupait en « Méta… » ; la choisie, pleine.
+   Dessous, sa devise, sa façon de gagner, ses deux cartes de départ. */
+.exp-style { display: flex; flex-direction: column; gap: 8px; }
+.exp-style p { margin: 0; line-height: 1.4; }
+.exp-styles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.exp-un-style { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 56px; padding: 6px 4px; border: 1.5px solid color-mix(in srgb, var(--famille) 55%, var(--edge)); border-radius: var(--radius-xs); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.8rem; font-weight: 600; line-height: 1.15; cursor: pointer; }
+.exp-un-style span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-un-style .icon { flex: none; width: 20px; height: 20px; color: var(--famille); }
+.exp-un-style[aria-checked='true'] { border-color: var(--famille); background: color-mix(in srgb, var(--famille) 22%, var(--surface)); }
+.exp-style-dit b { font-weight: 700; }
 .feuille-fetiche .carte-corps { display: flex; flex-direction: column; gap: 12px; }
 .feuille-fetiche .carte-corps p { margin: 0; }
 .exp-fetiches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
@@ -10933,6 +10944,12 @@ body.avec-niche .tete-sous-la-niche { display: flex; }
 /* Au podium d'un quiz, la place va à la ligne plutôt que de passer sous elle, et « Quiz terminé » garde sa largeur. */
 body.avec-niche .fin-quiz-ligne { flex-wrap: wrap; row-gap: 2px; margin-right: var(--niche-place); border-radius: 20px; }
 body.avec-niche .fin-quiz-quoi { flex: 1 0 auto; overflow: visible; text-overflow: clip; }
+/* Les écrans d'un duel : leur surtitre, centré sur toute la largeur, passait sous elle — « Toutes les catégories » y perdait sa fin. Il se pose sous son bas (max(82px, encoche + 58px)), à dix pixels. */
+body.avec-niche .player-shell.duels-verdict,
+body.avec-niche .player-shell.duels-envoye { padding-top: max(92px, calc(env(safe-area-inset-top) + 68px)); }
+body.avec-niche .duels-defi > .duels-surtitre { margin-top: 30px; }
+/* La croix du verdict était sous elle : la toucher ouvrait « Ma niche ». Elle prend le coin d'en face, où les autres écrans d'un duel ont leur sortie (« ← Les duels ») : collée à sa gauche, on la prenait pour celle du compagnon. */
+body.avec-niche .duels-fermer { right: auto; left: 12px; }
 /* Le rayon des objets : une case par objet — son dessin dans un rond de sa
    couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
    au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on

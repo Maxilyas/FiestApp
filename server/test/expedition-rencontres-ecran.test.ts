@@ -485,23 +485,23 @@ test('la fin dit la renommée qu’elle rapporte, et le niveau qu’elle fait pa
 
 test('les règles au codex : la renommée et ce que chaque niveau ouvre ; une règle fermée dit le niveau qui l’ouvre ; plus d’équipe', async () => {
   const { FeuilleDesRegles } = await pieces()
-  const fermees = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: [] }, onFermer: rien }))
+  // Au niveau 1, la catégorie fétiche seule (« Ton style », le 19 octobre 2026 : l'Érudit en vit dès le départ).
+  const fermees = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: ['fetiche'] }, onFermer: rien }))
   assert.match(fermees, /Ton codex/)
   assert.match(fermees, /Chaque expédition, même perdue, te rapporte de la renommée : \+1 par escale, \+3 par adversaire tombé, \+6 par élite, \+12 par gardien, \+25 au bout\./)
-  for (const r of [
-    /Il s’ouvre au niveau 2 d’explorateur\./,
-    /Elles s’ouvrent au niveau 3 d’explorateur\./,
-    /Les talismans s’ouvrent au niveau 4 d’explorateur\./,
-    /Ta catégorie fétiche s’ouvre au niveau 5 d’explorateur\./,
-  ]) {
+  for (const r of [/Il s’ouvre au niveau 2 d’explorateur\./, /Elles s’ouvrent au niveau 3 d’explorateur\./, /Les talismans s’ouvrent au niveau 4 d’explorateur\./]) {
     assert.match(fermees, r)
   }
+  assert.match(fermees, /Ta catégorie fétiche, que choisit l’Érudit : Plume, Bibliothèque et Génie frappent plus fort sur ses questions\./)
   assert.match(fermees, /Un gardien vaincu, aux actes 1 et 2 : son trésor propose une carte légendaire de ton codex\./)
   assert.doesNotMatch(fermees, /Ton équipe|Les légendaires que tu emmènes/, 'au codex, plus d’équipe à choisir')
-  const ouvertes = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: ['pari', 'fioles', 'talismans', 'fetiche'] }, onFermer: rien }))
-  assert.doesNotMatch(ouvertes, /s’ouvrent? au niveau/)
-  assert.match(ouvertes, /Ta catégorie fétiche : Plume et Bibliothèque frappent plus fort sur ses questions\./)
-  for (const t of [fermees, ouvertes]) assert.doesNotMatch(t, JARGON)
+  // Une expédition partie avant, son codex figé sans elle : elle s'ouvre à la prochaine — « au niveau 1 » se lirait comme une erreur.
+  const avant = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: [] }, onFermer: rien }))
+  assert.match(avant, /Ta catégorie fétiche s’ouvre dès ta prochaine expédition\./)
+  assert.doesNotMatch(avant, /au niveau 1 d’explorateur/)
+  const ouvertes = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: ['fetiche', 'pari', 'fioles', 'talismans'] }, onFermer: rien }))
+  assert.doesNotMatch(ouvertes, /s’ouvrent? (au niveau|dès)/)
+  for (const t of [fermees, avant, ouvertes]) assert.doesNotMatch(t, JARGON)
 })
 
 test('les exploits : une carte qu’un exploit ouvre le dit dessous ; au pied du codex, les quatre — faits ou à faire —, le dos doré ; la fin et les règles les disent', async () => {
@@ -525,9 +525,9 @@ test('les exploits : une carte qu’un exploit ouvre le dit dessous ; au pied du
   // La fin : chaque exploit neuf, ce qu'il ouvre ; ses cartes avec celles du niveau.
   const fin = await rendre(RenommeeGagnee, { avant: NIVEAUX[1], gagnee: 5, exploits: ['une-seule-reponse', 'gardien-intact'] })
   const tf = texte(fin)
-  assert.match(tf, /Exploit : faire tomber une élite d’une seule réponse — Lancée rejoint ton codex\./)
+  assert.match(tf, /Exploit : faire tomber une élite d’une seule réponse — Génie rejoint ton codex\./)
   assert.match(tf, /Exploit : vaincre le gardien de l’acte 3 sans perdre de courage — le dos doré est à toi\./)
-  assert.deepEqual([...fin.matchAll(/class="exp-codex-carte" data-carte="([^"]+)"/g)].map(m => m[1]), ['lancee'])
+  assert.deepEqual([...fin.matchAll(/class="exp-codex-carte" data-carte="([^"]+)"/g)].map(m => m[1]), ['genie'])
   assert.match(tf, /Elle rejoint ton codex : tes récompenses la proposeront dès ta prochaine expédition\./)
   // Les règles : une ligne par exploit, au codex seulement.
   const regles = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: [] }, onFermer: rien }))
@@ -535,8 +535,8 @@ test('les exploits : une carte qu’un exploit ouvre le dit dessous ; au pied du
     /Les exploits/,
     /Un exploit se fait une fois, dans n’importe quelle expédition — même perdue ensuite\./,
     /Exploit : gagner un pari de 40 écus — Banco rejoint ton codex\./,
-    /Exploit : faire tomber une élite d’une seule réponse — Lancée rejoint ton codex\./,
-    /Exploit : répondre juste 20 fois d’affilée — Échauffement rejoint ton codex\./,
+    /Exploit : faire tomber une élite d’une seule réponse — Génie rejoint ton codex\./,
+    /Exploit : répondre juste 20 fois d’affilée — Inarrêtable rejoint ton codex\./,
     /Exploit : vaincre le gardien de l’acte 3 sans perdre de courage — le dos doré est à toi\./,
   ]) {
     assert.match(regles, r)

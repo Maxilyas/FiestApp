@@ -206,7 +206,7 @@ test('les rencontres sont le jeu : leur drapeau les ouvre partout, la production
   assert.equal(rencontresOuvertes({ online: false, env: 'production' }), true, '`npm run dev`, les tests')
 })
 
-test('la page propose les rencontres ; le départ les prend — son courage, ses écus, le paquet des rencontres et la carte de l’invité, son codex ; au niveau 1, ni catégorie fétiche ni pari', async () => {
+test('la page propose les rencontres ; le départ les prend — son courage, ses écus, le paquet des rencontres et la carte de l’invité, son codex ; au niveau 1, sa catégorie fétiche, pas le pari', async () => {
   const c = await inscrireProfil(banc.url, 'depart5', 'Départ')
   const page = (await lire(c, '/api/expedition')).corps
   assert.equal(page.prochaine.rencontres, true, 'le départ les prend')
@@ -215,10 +215,12 @@ test('la page propose les rencontres ; le départ les prend — son courage, ses
   const v = r.corps as VueDeLExpedition
   assert.equal(v.courage, COURAGE_MAX)
   assert.equal(v.ecus, ECUS_AU_DEPART)
-  // Le codex (v7) : plus d'équipe à choisir, l'invité du jour prête sa carte ; sa catégorie fétiche attend le niveau 5.
+  // Le codex (v7) : plus d'équipe à choisir, l'invité du jour prête sa carte. Sa catégorie fétiche part dès le niveau 1 (« Ton style »,
+  // le 19 octobre 2026) ; sans style demandé — une page d'avant lui —, le paquet de toujours.
   assert.deepEqual(v.equipee, [page.prochaine.invite])
   assert.deepEqual(v.cartes?.paquet, paquetDesRencontres([page.prochaine.invite]))
-  assert.equal(v.fetiche, undefined, 'au niveau 1, sa catégorie fétiche ne part pas')
+  assert.equal(v.fetiche, 'Histoire', 'au niveau 1, sa catégorie fétiche part')
+  assert.equal(v.style, undefined, 'aucun style demandé, aucun')
   assert.equal(v.jokers, undefined, 'des cartes à la place des jokers')
   assert.equal(v.rencontre, undefined, 'aucune rencontre avant le premier pas')
   const depart = departDe(v.id)
@@ -229,12 +231,14 @@ test('la page propose les rencontres ; le départ les prend — son courage, ses
   assert.deepEqual(v.cartes?.energie, [...ENERGIE_DES_ACTES], 'et l’énergie de chaque acte : deux à l’acte 1')
   // Le départ fige ce que le codex ouvre ; de ses dos, il en prend un — au niveau 1, l'ordinaire. Sans victoire, aucun cran de
   // l'Ascension ouvert : la fin dira celui qu'une première victoire ouvre.
-  const { dos: _dos, ...ouvert } = codexDuNiveau(1, [])
+  // Ses styles se choisissent au départ : le codex figé ne les garde pas, le style choisi si.
+  const { dos: _dos, styles: _styles, ...ouvert } = codexDuNiveau(1, [])
   assert.deepEqual(depart.codex, { ...ouvert, renommee: 0, ascensionOuverte: 0 })
   assert.equal(depart.dos, 'ordinaire')
   assert.equal(depart.ascension, undefined)
-  assert.deepEqual(v.cartes?.codex, { niveau: 1, regles: [], renommee: 0, exploits: [], ascensionOuverte: 0 })
-  assert.equal(depart.fetiche, undefined)
+  assert.deepEqual(v.cartes?.codex, { niveau: 1, regles: ['fetiche'], renommee: 0, exploits: [], ascensionOuverte: 0 })
+  assert.equal(depart.fetiche, 'Histoire')
+  assert.equal(depart.style, undefined)
 })
 
 test('une catégorie fétiche hors des douze ne part pas ; sans rencontres demandées, le départ reste aux jokers', async () => {
