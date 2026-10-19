@@ -1685,15 +1685,26 @@ function reglesDesRencontres(
       cle: 'plan',
       titre: 'Le plan',
       lignes: [
-        { icone: 'flag', texte: 'À chaque pas, choisis ton escale. Son pourcentage : tes chances sur ses questions — celles d’un joueur moyen, tant que tu n’as pas assez joué.' },
+        {
+          icone: 'flag',
+          texte:
+            'À chaque pas, choisis ton escale. Son pourcentage, à la couleur d’une piste — verte, bleue, rouge, noire : tes chances sur ses questions, celles d’un joueur moyen tant que tu n’as pas assez joué.',
+        },
+        // La légende de la feuille du plan, qui n'existe plus (le 19 octobre 2026) : le plan se touche sur place.
+        { icone: 'eye', texte: 'Touche une escale, sur le plan ou en carte : ce qu’elle cache se lit sous les cartes.' },
         { icone: 'swords', texte: 'Une rencontre : un adversaire de sa catégorie. Une élite : plus coriace, mieux payée.' },
+        { icone: 'shuffle', texte: 'Un mélange : chaque question tirée dans l’une de ses catégories, que sa carte montre en emblèmes.' },
         { icone: 'source', texte: `Une source : une question de ton carnet, ${reposALAscension(COURAGE_D_UNE_SOURCE, ascension)} de courage si tu la retrouves.` },
         { icone: 'coffre', texte: 'Un coffre : une carte au choix — ou des écus, si tu n’en prends aucune.' },
         {
           icone: 'campement',
-          texte: `Un campement, avant le gardien : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, ascension)} de courage, ou une carte de moins — un paquet plus court tire plus souvent tes meilleures.`,
+          texte: ameliorees
+            ? `Un campement, avant le gardien : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, ascension)} de courage, une carte de moins — un paquet plus court tire plus souvent tes meilleures — ou une carte améliorée.`
+            : `Un campement, avant le gardien : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, ascension)} de courage, ou une carte de moins — un paquet plus court tire plus souvent tes meilleures.`,
         },
+        { icone: 'echoppe', texte: 'Une échoppe : du courage et des cartes, contre tes écus.' },
         { icone: 'help', texte: 'L’inconnu : un marchand, un piège, ou un légendaire de passage.' },
+        { icone: 'tampon', texte: 'Un point d’or sur une escale : un thème pointu dont ton passeport attend le tampon.' },
       ],
     },
     codex
@@ -1807,7 +1818,13 @@ function reglesDesJokers(): SectionDesRegles[] {
       cle: 'plan',
       titre: 'Le plan',
       lignes: [
-        { icone: 'flag', texte: 'À chaque pas, choisis ton escale. Son pourcentage : tes chances sur sa question — celles d’un joueur moyen, tant que tu n’as pas assez joué.' },
+        {
+          icone: 'flag',
+          texte:
+            'À chaque pas, choisis ton escale. Son pourcentage, à la couleur d’une piste — verte, bleue, rouge, noire : tes chances sur sa question, celles d’un joueur moyen tant que tu n’as pas assez joué.',
+        },
+        { icone: 'eye', texte: 'Touche une escale, sur le plan ou en carte : ce qu’elle cache se lit sous les cartes.' },
+        { icone: 'shuffle', texte: 'Un mélange : sa question tirée dans l’une de ses catégories, que sa carte montre en emblèmes.' },
         { icone: 'source', texte: 'Une source : une question de ton carnet, une vie si tu la retrouves.' },
         { icone: 'coffre', texte: 'Un coffre : un joker au choix.' },
         { icone: 'campement', texte: 'Un campement, avant le gardien : une vie, ou un joker de moins.' },

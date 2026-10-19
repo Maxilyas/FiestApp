@@ -32,6 +32,7 @@ import { saison as laSaison, type Saison } from '../../../shared/saisons'
 import type { RareteDeTheme } from '../../../shared/themes'
 import { hautFait } from '../../../shared/hautsfaits'
 import { CATEGORIES } from '../../../shared/categories'
+import { enumerer } from '../../../shared/classement'
 import {
   JOKERS_DES_LEGENDAIRES,
   JOKERS_SANS_LEGENDAIRE,
@@ -212,19 +213,22 @@ export function ecranDeLaPage(page: PageDeLExpedition, enPartant = false): Extra
 /** La marche d'une question, accordée à elle : « facile », « moyenne », « difficile ». */
 const MARCHE: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
 
-/** Ce qu'une escale pose : « Histoire », « Histoire, Sport », « Les années 80 ». */
+/** Ce qu'une escale pose : « Histoire », « Histoire et Sport », « Histoire, Sport et Cinéma », « Les années 80 ». */
 function nomDuTheme(theme: ThemeDEscale | undefined): string {
   if (!theme) return ''
   if ('sujet' in theme) return sujetParCle(theme.sujet)?.nom ?? 'Un thème pointu'
-  return theme.categories.join(', ')
+  return enumerer(theme.categories)
 }
 
-/** Le nom court d'un thème sous une escale : « Histoire », « Mélange ×2 », « Les années 80 ». */
+/** Le nom court d'un thème sous une escale : « Histoire », « Mélange », « Les années 80 » — un mélange montre ses catégories en emblèmes, et sa ligne les nomme. */
 function nomCourtDuTheme(t: ThemeDEscale | undefined): string {
   if (!t) return 'Question'
   if ('sujet' in t) return sujetParCle(t.sujet)?.nom ?? 'Thème pointu'
-  return t.categories.length > 1 ? `Mélange ×${t.categories.length}` : (COURT[t.categories[0]] ?? t.categories[0])
+  return t.categories.length > 1 ? 'Mélange' : (COURT[t.categories[0]] ?? t.categories[0])
 }
+
+/** Les catégories d'un mélange — aucune pour une catégorie seule, un thème pointu ou une escale sans question. */
+const categoriesDuMelange = (e: EscaleDeLaCarte): readonly string[] => (e.theme && !('sujet' in e.theme) && e.theme.categories.length > 1 ? e.theme.categories : [])
 
 /** Ce que cache l'inconnu, en un mot sous l'escale. */
 const CONTENU: Record<ContenuDeLInconnu, string> = { marchand: 'Marchand', piege: 'Piège', passage: 'De passage' }
@@ -265,14 +269,15 @@ function iconeDe(e: EscaleDeLaCarte): IconName {
 /**
  * Ce qu'une escale cache, en une phrase : ce qu'on lit en la touchant, et au
  * lecteur d'écran. Sous L'écholocation, la carte ne dit plus sa chance : la
- * phrase non plus.
+ * phrase non plus. `court` : sans sa chance ni ses écus — la ligne sous les
+ * cartes, où sa carte les montre déjà.
  */
-function decrire(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardiens' | 'moyen' | 'vies' | 'jokers' | 'ecus' | 'cartes'>, carte: CarteDUnActe): string {
-  if (vue.cartes) return decrireEnRencontres(e, vue, carte)
+function decrire(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardiens' | 'moyen' | 'vies' | 'jokers' | 'ecus' | 'cartes'>, carte: CarteDUnActe, court = false): string {
+  if (vue.cartes) return decrireEnRencontres(e, vue, carte, court)
   const qui = vue.moyen ? 'pour un joueur moyen' : 'pour toi'
   // Ce qu'elle paie, trouvée (l'étape 4) : sa chance dite, la carte peut le dire — sous L'écholocation, ni l'une ni l'autre.
   const prix = vue.ecus !== undefined && e.chance !== undefined && (e.sorte === 'question' || e.sorte === 'elite') ? ` · ${prixDeLEscale(e)} écus` : ''
-  const chance = e.chance === undefined ? '' : ` · ${pourcents(e.chance)} ${qui}${prix}`
+  const chance = e.chance === undefined || court ? '' : ` · ${pourcents(e.chance)} ${qui}${prix}`
   if (e.sorte === 'source') return `Une source : une question de ton carnet. Retrouvée, elle te rend une vie ; ratée, elle ne coûte rien${chance}`
   if (e.sorte === 'campement') return vue.jokers ? 'Un campement : une vie, jusqu’à trois — ou un joker retiré de ton paquet' : 'Un campement : il te rend une vie, jusqu’à trois'
   if (e.sorte === 'coffre') {
@@ -291,7 +296,7 @@ function decrire(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardi
     const g = vue.gardiens[vue.acte]?.cle ?? ''
     const m = MARCHES_DES_ACTES[Math.min(vue.acte, ACTES - 1)]
     const regle = `${nomDuGardien(g)}, gardien de l’acte : ${m.aTrouver} bonnes réponses à trouver, en questions ${MARCHE[m.gardien]}s`
-    if (vue.jokers && carte.chanceDuGardien === undefined) return regle
+    if (court || (vue.jokers && carte.chanceDuGardien === undefined)) return regle
     const p = carte.chanceDuGardien ?? chanceDuJoueurMoyen(m.gardien)
     return `${regle} · ${pourcents(chanceDeVaincre(p, m.aTrouver, vue.vies))} de le vaincre avec ${vue.vies} vie${vue.vies > 1 ? 's' : ''}`
   }
@@ -307,14 +312,17 @@ function decrire(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardi
  * est un adversaire — les points à lui faire perdre, sa chance par question —, le courage
  * remplace les vies, une carte les jokers.
  */
-function decrireEnRencontres(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardiens' | 'moyen' | 'ecus' | 'cartes'>, carte: CarteDUnActe): string {
+function decrireEnRencontres(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardiens' | 'moyen' | 'ecus' | 'cartes'>, carte: CarteDUnActe, court = false): string {
   const qui = vue.moyen ? 'pour un joueur moyen' : 'pour toi'
   const prix = e.chance !== undefined && (e.sorte === 'question' || e.sorte === 'elite') ? ` · ${prixDeLEscale(e)} écus à la victoire` : ''
-  const chance = e.chance === undefined ? '' : ` · ${pourcents(e.chance)} par question ${qui}${prix}`
+  const chance = e.chance === undefined || court ? '' : ` · ${pourcents(e.chance)} par question ${qui}${prix}`
   // Son cran de l'Ascension : les points des adversaires et ce que rend un repos s'y lisent, comme le pli les compte.
   const cran = vue.cartes?.ascension ?? 0
   if (e.sorte === 'source') return `Une source : une question de ton carnet. Retrouvée, elle te rend ${reposALAscension(COURAGE_D_UNE_SOURCE, cran)} de courage ; ratée, elle ne coûte rien${chance}`
-  if (e.sorte === 'campement') return `Un campement : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, cran)} de courage — ou une carte retirée de ton paquet`
+  if (e.sorte === 'campement') {
+    const repos = `Un campement : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, cran)} de courage`
+    return (vue.cartes?.v ?? 0) >= VERSION_DU_JEU_COMPLET ? `${repos}, une carte retirée de ton paquet ou une carte améliorée` : `${repos} — ou une carte retirée de ton paquet`
+  }
   if (e.sorte === 'coffre') return `Un coffre : une carte au choix parmi trois, pour ton paquet — ou ${ECUS_D_UN_COFFRE_LAISSE} écus, si tu n’en prends aucune`
   if (e.sorte === 'echoppe') return 'Une échoppe : du courage, des cartes, un talisman, contre tes écus'
   if (e.sorte === 'inconnu') {
@@ -328,7 +336,7 @@ function decrireEnRencontres(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'ac
     const g = vue.gardiens[vue.acte]?.cle ?? ''
     const m = MARCHES_DES_ACTES[acte]
     const p = carte.chanceDuGardien
-    return `${nomDuGardien(g)}, gardien de l’acte : ${pointsDeLAdversaire('gardien', acte, cran)} points à lui faire perdre, en questions ${MARCHE[m.gardien]}s${p === undefined ? '' : ` · ${pourcents(p)} par question ${qui}`}`
+    return `${nomDuGardien(g)}, gardien de l’acte : ${pointsDeLAdversaire('gardien', acte, cran)} points à lui faire perdre, en questions ${MARCHE[m.gardien]}s${p === undefined || court ? '' : ` · ${pourcents(p)} par question ${qui}`}`
   }
   const t = e.theme
   const quoi = !t ? 'Une question' : 'sujet' in t ? `Thème pointu : ${nomDuTheme(t)}` : t.categories.length > 1 ? `Mélange : ${nomDuTheme(t)}` : nomDuTheme(t)
@@ -961,7 +969,6 @@ export function ExpeditionApp() {
       busy={busy}
       erreur={erreur}
       onAvancer={vers => void avancer(vue, vers)}
-      onAbandonner={() => void abandonner(vue)}
       onPartir={quitter}
       onEchoppe={vue.echoppe ? () => setEchoppeLaissee(null) : undefined}
       {...surLaMain}
@@ -1540,31 +1547,18 @@ function TousLesJokers({ siens, invite }: { siens: ReadonlySet<string>; invite: 
 // part d'en bas. L'écran de la carte (revu le 18 octobre 2026, « ça serait
 // possible que ce soit de vrais cartes en bas ? ») : l'acte en petit en haut,
 // tout entier, pour voir où l'on est (`PetitPlan`) ; en bas, les escales où
-// l'on peut aller, en cartes (`CarteDEscale`), puis « Y aller ». Touché, le
-// plan s'ouvre en grand dans sa feuille (`GrandPlan`) : les colonnes en pour
-// cent de la largeur — il tient tout écran de téléphone —, les étages en
-// pixels — il défile —, et chaque escale y dit, touchée, ce qu'elle cache.
+// l'on peut aller, en cartes (`CarteDEscale`), puis « Y aller ». Le plan
+// s'ouvrait en grand dans sa feuille ; depuis le 19 octobre 2026, ses escales
+// se touchent sur place, et ce qu'elles cachent se lit sous les cartes.
 
+/** Les colonnes en pour cent de la largeur : le plan tient tout écran de téléphone. */
 const COLONNES_X = [12.5, 37.5, 62.5, 87.5]
-const Y_GARDIEN = 48
-const Y_CAMPEMENT = 160
-const Y_HAUT = 240
-const PAS_D_ETAGE = 76
-const yEtage = (f: number) => Y_HAUT + (ETAGES - 1 - f) * PAS_D_ETAGE
-const Y_DEPART = yEtage(0) + 76
-const HAUTEUR = Y_DEPART + 34
 /** Le point de départ, en bas de la carte : pas une escale, d'où partent les liens du premier étage. */
 const DEPART = '·'
 
-function position(e: EscaleDeLaCarte): { x: number; y: number } {
-  if (e.sorte === 'gardien') return { x: 50, y: Y_GARDIEN }
-  if (e.sorte === 'campement') return { x: e.colonne === 0 ? 25 : 75, y: Y_CAMPEMENT }
-  return { x: COLONNES_X[e.colonne] ?? 50, y: yEtage(e.etage) }
-}
-
 /**
  * L'acte en petit : ses rangées en pour cent de la hauteur du plan, qu'il
- * prend de ce que le panneau lui laisse — l'acte entier tient en 170 pixels
+ * prend de ce que le panneau lui laisse — l'acte entier tient en 180 pixels
  * en 360 × 640, et grandit sur un écran plus haut.
  */
 const EN_PETIT = { gardien: 9, campement: 22, haut: 33, pas: 10.6, depart: 95 }
@@ -1614,7 +1608,7 @@ function lireLaCarte(carte: CarteDUnActe, vue: Pick<VueDeLExpedition, 'ici' | 'p
     atteignables.add(id)
     for (const x of escalesAtteignables(carte, id)) atteignables.add(x)
   }
-  const ou = (id: string) => position(parId.get(id)!)
+  const ou = (id: string) => enPetit(parId.get(id)!)
   const proposees = vue.permises.filter(id => parId.has(id)).sort((a, b) => ou(a).x - ou(b).x || ou(b).y - ou(a).y)
   return { parId, atteignables, proposees }
 }
@@ -1748,6 +1742,8 @@ function CarteDEscale({
   const sansAdversaire = e.sorte !== 'question' && e.sorte !== 'elite' && e.sorte !== 'gardien'
   const sorte = !v5 || (!sansAdversaire && e.sorte !== 'question') ? face.sorte : null
   const nom = !v5 || !sansAdversaire ? face.nom : e.sorte === 'inconnu' ? (e.contenu ? face.nom : 'Inconnu') : face.sorte
+  // Un mélange montre ses catégories, chacune son emblème (le 19 octobre 2026 : « on ne peut pas voir le mélange » sans ouvrir le plan).
+  const melange = categoriesDuMelange(e)
   return (
     <button
       type="button"
@@ -1769,8 +1765,14 @@ function CarteDEscale({
           {sorte}
         </span>
       )}
-      <span className="exp-carte-embleme" aria-hidden="true">
-        {e.sorte === 'gardien' ? <Medaillon cle={gardien} className="exp-medaillon" /> : <Icon name={iconeDe(e)} />}
+      <span className={'exp-carte-embleme' + (melange.length > 0 ? ' exp-embleme-melange' : '')} aria-hidden="true">
+        {e.sorte === 'gardien' ? (
+          <Medaillon cle={gardien} className="exp-medaillon" />
+        ) : melange.length > 0 ? (
+          melange.map(c => <Icon key={c} name={EMBLEME[c] ?? 'help'} />)
+        ) : (
+          <Icon name={iconeDe(e)} />
+        )}
       </span>
       <b className="exp-carte-nom" aria-hidden="true">
         {nom}
@@ -1796,40 +1798,112 @@ function CarteDEscale({
 }
 
 /**
- * L'acte en petit, en haut de l'écran (le 18 octobre 2026, « la carte reste
+ * Le plan de l'acte, en haut de l'écran (le 18 octobre 2026, « la carte reste
  * en haut, en petit et épurée, pour voir où tu es ») : tout l'acte d'un coup
- * d'œil, sans un mot — l'escale où il est, qui brille ; celles qu'il peut
- * prendre, entourées, la touchée en or ; le gardien au bout. Il ne se touche
- * pas escale par escale — elles y font vingt pixels — : touché, il s'ouvre
- * en grand.
+ * d'œil — l'escale où il est, qui brille ; celles qu'il peut prendre,
+ * entourées, la touchée en or ; le gardien au bout. Chaque escale s'y touche
+ * (le 19 octobre 2026, « une fusion entre carte et l'interface, car là le zoom
+ * est séparé ») : ce qu'elle cache se lit sous les cartes, et une escale
+ * permise se choisit comme sa carte. Plus de feuille où l'ouvrir en grand.
  */
-function PetitPlan({ vue, carte, lecture, retenue }: { vue: VueDeLExpedition; carte: CarteDUnActe; lecture: LectureDeLaCarte; retenue: string | null }) {
+function PetitPlan({
+  vue,
+  carte,
+  lecture,
+  retenue,
+  regardee,
+  onToucher,
+}: {
+  vue: VueDeLExpedition
+  carte: CarteDUnActe
+  lecture: LectureDeLaCarte
+  retenue: string | null
+  regardee: string | null
+  onToucher: (id: string) => void
+}) {
   const gardien = vue.gardiens[vue.acte]?.cle ?? ''
   const ou = (id: string) => (id === DEPART ? { x: 50, y: EN_PETIT.depart } : enPetit(lecture.parId.get(id)!))
   return (
-    <span className="exp-petit-plan" aria-hidden="true">
-      <svg className="exp-liens" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <div className="exp-petit-plan">
+      <svg className="exp-liens" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         {liensDuPlan(carte, vue, lecture, retenue, ou).map(l => (
           <line key={l.cle} className={l.sorte} x1={l.de.x} y1={l.de.y} x2={l.a.x} y2={l.a.y} vectorEffect="non-scaling-stroke" />
         ))}
       </svg>
-      <span className={'exp-petit-depart' + (vue.ici === null ? ' exp-ici' : '')} style={{ top: `${EN_PETIT.depart}%` }}>
+      <span className={'exp-petit-depart' + (vue.ici === null ? ' exp-ici' : '')} style={{ top: `${EN_PETIT.depart}%` }} aria-hidden="true">
         <Icon name="flag" />
         Départ
+      </span>
+      <span id="exp-dit-passee" hidden>
+        Tu y es déjà passé
+      </span>
+      <span id="exp-dit-proposee" hidden>
+        Tu peux y aller
       </span>
       {carte.escales.map(e => {
         const { x, y } = enPetit(e)
         const etat = etatDeLEscale(e, vue, lecture, retenue)
+        const classes = ['exp-point', ...etat.classes]
+        // Celle que la ligne du dessous décrit, touchée hors des proposées : sur le plan aussi, on voit laquelle.
+        if (e.id === regardee && !etat.proposee && !etat.ici) classes.push('exp-regardee')
         return (
-          <span key={e.id} className={['exp-point', ...etat.classes].join(' ')} data-escale={e.id} style={{ left: `${x}%`, top: `${y}%` }}>
+          <button
+            key={e.id}
+            type="button"
+            className={classes.join(' ')}
+            data-escale={e.id}
+            style={{ left: `${x}%`, top: `${y}%` }}
+            // Son nom ne bouge pas : « choisie » passe par aria-pressed, « tu es ici » par aria-current, « déjà
+            // passée » et « tu peux y aller » par la description — dans le nom, l'état se lisait deux fois (`design.test.ts`).
+            aria-label={decrire(e, vue, carte)}
+            aria-pressed={etat.proposee ? e.id === retenue : undefined}
+            aria-current={etat.ici ? 'location' : undefined}
+            aria-describedby={etat.passee ? 'exp-dit-passee' : etat.proposee ? 'exp-dit-proposee' : undefined}
+            onClick={() => onToucher(e.id)}
+          >
             {e.sorte === 'gardien' ? <Medaillon cle={gardien} className="exp-medaillon" /> : <Icon name={etat.passee ? 'check' : iconeDe(e)} />}
             {/* Un thème pointu que son passeport n'a pas : un point d'or, son tampon l'attend. */}
             {e.aTamponner && !etat.loin && !etat.passee && <i className="exp-point-tampon" />}
-          </span>
+          </button>
         )
       })}
-    </span>
+    </div>
   )
+}
+
+/**
+ * Une escale en une ligne, sous les cartes : ce que sa carte ne dit pas. Une
+ * question, son thème entier — un mélange, ses catégories, en noms courts —,
+ * sa marche et, en rencontres, les points à faire perdre ; sa chance, ses
+ * écus et sa récompense sont sur sa carte. Plus longue, elle prenait au plan
+ * sa dernière place : sous une élite, en 360 × 640, ses escales se
+ * chevauchaient. Les autres escales, leur phrase, sans chance.
+ */
+function enUneLigne(e: EscaleDeLaCarte, vue: VueDeLExpedition, carte: CarteDUnActe): string {
+  if (e.sorte !== 'question' && e.sorte !== 'elite') return decrire(e, vue, carte, true)
+  const t = e.theme
+  const theme = !t ? 'Une question' : 'sujet' in t ? `Thème pointu : ${nomDuTheme(t)}` : t.categories.length > 1 ? `Mélange : ${enumerer(t.categories.map(c => COURT[c] ?? c))}` : nomDuTheme(t)
+  const points = vue.cartes ? ` : ${pointsDeLAdversaire(e.sorte, Math.min(vue.acte, ACTES - 1), vue.cartes.ascension ?? 0)} points à lui faire perdre` : ''
+  // Plus loin, son tampon n'est qu'un point d'or sur le plan : la ligne le dit.
+  const tampon = e.aTamponner ? ' · un tampon neuf' : ''
+  return `${e.sorte === 'elite' ? 'Élite · ' : ''}${theme} · ${MARCHE[marcheDe(vue.acte, e)]}${points}${tampon}`
+}
+
+/**
+ * Ce que dit l'escale touchée — sur le plan ou en carte —, sous les cartes :
+ * ce que disait le pied de la feuille du plan, dans la page. Un mélange y
+ * nomme ses catégories.
+ */
+function ceQueDitLEscale(x: EscaleDeLaCarte | undefined, vue: VueDeLExpedition, carte: CarteDUnActe, lecture: LectureDeLaCarte): { titre: string; texte: string } {
+  if (!x) return { titre: 'Touche une escale', texte: 'sur le plan ou en carte, pour savoir ce qu’elle cache.' }
+  // Une proposée se dit sans titre — le panneau s'appelle « Ta prochaine escale ».
+  const dit = enUneLigne(x, vue, carte)
+  if (x.id === vue.ici) return { titre: 'Tu es ici', texte: dit }
+  if (vue.trace.includes(x.id)) return { titre: 'Derrière toi', texte: 'Tu y es déjà passé.' }
+  if (lecture.proposees.includes(x.id)) return { titre: '', texte: dit }
+  if (x.sorte === 'gardien') return { titre: 'Au bout de l’acte', texte: dit }
+  if (!lecture.atteignables.has(x.id)) return { titre: 'Hors de ta route', texte: 'Ta route ne passe plus par cette escale.' }
+  return { titre: 'Plus loin sur ta route', texte: dit }
 }
 
 /**
@@ -1843,7 +1917,10 @@ function PetitPlan({ vue, carte, lecture, retenue }: { vue: VueDeLExpedition; ca
  * `permises`), en cartes, la plus sûre à son ruban ; « Y aller », qui ne
  * s'allume qu'une carte touchée ; et sa main, posée au bas de l'écran — les
  * jokers de carte s'y jouent. Seul le pas engage, et le serveur ne vérifie
- * que lui.
+ * que lui. Puis, le 19 octobre 2026, le plan fondu dans l'écran : ses
+ * escales se touchent comme leurs cartes, et l'escale touchée, d'un côté ou
+ * de l'autre, se dit sous les cartes — le plan ne s'ouvre plus en grand dans
+ * une feuille à part.
  */
 export function CarteDeLActe({
   vue,
@@ -1851,7 +1928,6 @@ export function CarteDeLActe({
   busy,
   erreur,
   onAvancer,
-  onAbandonner,
   onPartir,
   onJouer,
   onEchoppe,
@@ -1861,7 +1937,6 @@ export function CarteDeLActe({
   busy: boolean
   erreur: string
   onAvancer: (vers: string) => void
-  onAbandonner: () => void
   onPartir: () => void
   onJouer: (cle: string, plus?: { categorie?: string; montre?: number }) => void
   /** Il est à une échoppe qu'il a laissée sans avancer : elle se rouvre. */
@@ -1880,7 +1955,13 @@ export function CarteDeLActe({
   const [choisie, setChoisie] = useState<string | null>(null)
   // Celle qu'il a touchée, tant qu'il peut y aller — un joker de route joué la retire ; seule proposée, elle l'est d'office.
   const retenue = choisie !== null && proposees.includes(choisie) ? choisie : proposees.length === 1 ? proposees[0] : null
-  const [grande, setGrande] = useState(false)
+  // La dernière escale touchée, sur le plan ou en carte : la ligne sous les cartes la décrit — sinon celle qu'il a choisie.
+  const [regardee, setRegardee] = useState<string | null>(null)
+  const toucher = (id: string) => {
+    setRegardee(id)
+    if (proposees.includes(id)) setChoisie(id)
+  }
+  const dit = ceQueDitLEscale(parId.get(regardee ?? retenue ?? ''), vue, carte, lecture)
   const [paquet, setPaquet] = useState(false)
   // Au prototype des rencontres, le gardien ne se compte plus en vies : sa chance est celle de chaque question.
   const chanceDe = (e: EscaleDeLaCarte) => (aveugle ? undefined : e.sorte === 'gardien' ? (vue.cartes ? carte.chanceDuGardien : chanceDeVaincre(pGardien, m.aTrouver, vue.vies)) : e.chance)
@@ -1893,14 +1974,9 @@ export function CarteDeLActe({
         {/* Son cran de l'Ascension, à chaque pas : ce qu'il ajoute est au « ? » d'en haut. */}
         {vue.cartes?.ascension ? <span className="exp-pastille exp-pastille-or exp-pastille-cran">{`Ascension ${vue.cartes.ascension}`}</span> : null}
       </h1>
-      <button type="button" className="exp-plan" aria-haspopup="dialog" onClick={() => setGrande(true)}>
-        <PetitPlan vue={vue} carte={carte} lecture={lecture} retenue={retenue} />
-        <span className="exp-plan-ouvrir">
-          <Icon name="maximize" />
-          Le plan
-        </span>
-        <span className="sr-only">{ici ? `, tu es à l’escale ${etiquette(ici, vue.acte, vue.gardiens)}` : ', tu es au départ'}</span>
-      </button>
+      <div className="exp-plan" role="group" aria-label={`Le plan de l’acte ${vue.acte + 1}`}>
+        <PetitPlan vue={vue} carte={carte} lecture={lecture} retenue={retenue} regardee={regardee} onToucher={toucher} />
+      </div>
 
       <section className="exp-panneau" aria-labelledby="exp-panneau-titre">
         <div className="exp-panneau-tete">
@@ -1941,15 +2017,19 @@ export function CarteDeLActe({
           <div className="exp-cartes-escale">
             {proposees.map(id => {
               const e = parId.get(id)!
-              return <CarteDEscale key={id} e={e} vue={vue} carte={carte} chance={chanceDe(e)} choisie={id === retenue} sure={id === laPlusSure} onToucher={() => setChoisie(id)} />
+              return <CarteDEscale key={id} e={e} vue={vue} carte={carte} chance={chanceDe(e)} choisie={id === retenue} sure={id === laPlusSure} onToucher={() => toucher(id)} />
             })}
           </div>
         )}
         <span id="exp-dit-sure" hidden>
           La plus sûre des escales proposées
         </span>
-        {/* Une ligne : la feuille de la carte dit le reste — le temps que ses réponses disent les siennes. */}
-        {/* En rencontres, les règles le disent : une ligne de moins sous les cartes. */}
+        {/* Ce que cache l'escale touchée — un mélange y nomme ses catégories ; ses deux lignes gardées, le plan ne saute pas d'un toucher à l'autre. */}
+        <p className="exp-vu" role="status">
+          {dit.titre && <b>{dit.titre} </b>}
+          {espacesFines(dit.texte)}
+        </p>
+        {/* Une ligne : à qui sont les chances, le temps que ses réponses disent les siennes. En rencontres, les règles le disent. */}
         {vue.moyen && !aveugle && !vue.cartes && <p className="exp-note small">{espacesFines('Les chances d’un joueur moyen, pour l’instant.')}</p>}
         {aveugle && <p className="exp-note small">{espacesFines('L’écholocation est posée : les cartes ne disent plus ta chance.')}</p>}
         {vue.route && <p className="exp-route small">{espacesFines(routeEnCours(vue.route))}</p>}
@@ -1968,268 +2048,8 @@ export function CarteDeLActe({
           <Icon name="chevron-right" />
         </button>
       </section>
-      {grande && (
-        <FeuilleDeLaCarte
-          vue={vue}
-          carte={carte}
-          lecture={lecture}
-          retenue={retenue}
-          busy={busy}
-          onChoisir={setChoisie}
-          onAbandonner={onAbandonner}
-          onFermer={() => setGrande(false)}
-        />
-      )}
       {paquet && vue.cartes && <FeuilleDesCartes paquet={vue.cartes.paquet} ascension={vue.cartes.ascension} energie={vue.cartes.energie} onFermer={() => setPaquet(false)} />}
     </div>
-  )
-}
-
-/**
- * L'acte en grand, dans la feuille « La carte » : chaque escale y dit, touchée,
- * ce qu'elle cache ; les proposées, leur nom dessous et leur chance au-dessus,
- * et touchées, elles se choisissent comme leur carte. La feuille s'ouvre sur
- * l'escale où il est, et sur celles qu'il peut prendre au-dessus.
- */
-function GrandPlan({
-  vue,
-  carte,
-  lecture,
-  retenue,
-  regardee,
-  onToucher,
-}: {
-  vue: VueDeLExpedition
-  carte: CarteDUnActe
-  lecture: LectureDeLaCarte
-  retenue: string | null
-  regardee: string | null
-  onToucher: (id: string) => void
-}) {
-  const plan = useRef<HTMLDivElement>(null)
-  const gardien = vue.gardiens[vue.acte]?.cle ?? ''
-  const ici = vue.ici ? lecture.parId.get(vue.ici) : undefined
-  const m = MARCHES_DES_ACTES[Math.min(vue.acte, ACTES - 1)]
-  const pGardien = carte.chanceDuGardien ?? chanceDuJoueurMoyen(m.gardien)
-  const aveugle = !!vue.sansChances
-
-  // L'acte monte, le départ est tout en bas : la feuille défile jusqu'à l'escale où il est et à celles qu'elle
-  // propose — leur chance au-dessus d'elles, leur nom dessous. Par le cadre qui défile, jamais la page de dessous.
-  useEffect(() => {
-    const el = plan.current
-    const corps = el?.closest('.carte-corps')
-    if (!el || !corps) return
-    const ys = [ici ? position(ici).y : Y_DEPART, ...lecture.proposees.map(id => position(lecture.parId.get(id)!).y)]
-    const milieu = (Math.min(...ys) - 40 + Math.max(...ys) + 56) / 2
-    corps.scrollTop += el.getBoundingClientRect().top - corps.getBoundingClientRect().top + milieu - corps.clientHeight / 2
-  }, [])
-
-  const ou = (id: string) => (id === DEPART ? { x: 50, y: Y_DEPART } : position(lecture.parId.get(id)!))
-  return (
-    <div className="exp-carte" style={{ height: HAUTEUR }} ref={plan}>
-      <svg className="exp-liens" viewBox={`0 0 100 ${HAUTEUR}`} preserveAspectRatio="none" aria-hidden="true">
-        {liensDuPlan(carte, vue, lecture, retenue, ou).map(l => (
-          <line key={l.cle} className={l.sorte} x1={l.de.x} y1={l.de.y} x2={l.a.x} y2={l.a.y} vectorEffect="non-scaling-stroke" />
-        ))}
-      </svg>
-      <span id="exp-dit-passee" hidden>
-        Tu y es déjà passé
-      </span>
-      <span id="exp-dit-proposee" hidden>
-        Tu peux y aller
-      </span>
-      <span id="exp-depart" className={'exp-depart' + (vue.ici === null ? ' exp-ici' : '')} style={{ top: Y_DEPART }} aria-current={vue.ici === null ? 'location' : undefined}>
-        <span className="exp-depart-nom">
-          <Icon name="flag" />
-          Départ
-        </span>
-      </span>
-      {carte.escales.map(e => {
-        const { x, y } = position(e)
-        const etat = etatDeLEscale(e, vue, lecture, retenue)
-        const classes = ['exp-escale', ...etat.classes]
-        // Celle que le pied de la feuille décrit, touchée hors des proposées : sur la carte aussi, on voit laquelle.
-        if (e.id === regardee && !etat.proposee) classes.push('exp-regardee')
-        // Sa chance, au-dessus des proposées seulement : sur chaque escale, elle se lisait sans qu'on sache où aller.
-        const chance = !etat.proposee || aveugle ? undefined : e.sorte === 'gardien' ? (vue.cartes ? carte.chanceDuGardien : chanceDeVaincre(pGardien, m.aTrouver, vue.vies)) : e.chance
-        return (
-          <button
-            key={e.id}
-            id={`escale-${e.id}`}
-            type="button"
-            className={classes.join(' ')}
-            style={{ left: `${x}%`, top: y }}
-            // Son nom ne bouge pas : « choisie » passe par aria-pressed, « tu es ici » par aria-current, « déjà
-            // passée » et « tu peux y aller » par la description — dans le nom, l'état se lisait deux fois (`design.test.ts`).
-            aria-label={decrire(e, vue, carte)}
-            aria-pressed={etat.proposee ? e.id === retenue : undefined}
-            aria-current={etat.ici ? 'location' : undefined}
-            aria-describedby={etat.passee ? 'exp-dit-passee' : etat.proposee ? 'exp-dit-proposee' : undefined}
-            onClick={() => onToucher(e.id)}
-          >
-            {e.sorte === 'gardien' ? <Medaillon cle={gardien} className="exp-medaillon" /> : <Icon name={etat.passee ? 'check' : iconeDe(e)} />}
-            {chance !== undefined && (
-              <span className="exp-sa-chance" aria-hidden="true">
-                <Balise couleur={couleurDePiste(chance)} />
-                {pourcents(chance)}
-              </span>
-            )}
-            {/* Un thème pointu que son passeport n'a pas : son tampon l'attend (le 18 octobre 2026). */}
-            {e.aTamponner && !etat.loin && !etat.passee && (
-              <span className="exp-a-tamponner" aria-hidden="true">
-                <Icon name="tampon" />
-              </span>
-            )}
-            {(etat.ici || etat.proposee || e.sorte === 'gardien') && (
-              <span className="exp-etiquette" aria-hidden="true">
-                {etiquette(e, vue.acte, vue.gardiens)}
-              </span>
-            )}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-/**
- * « La carte », la feuille (le plan touché, le 18 octobre 2026) : l'acte en
- * grand, où chaque escale dit, touchée, ce qu'elle cache — son pied le
- * redit —, la légende, et « Abandonner l'expédition », qui vivait sous le
- * panneau : l'écran de la carte tient maintenant en un écran. La légende
- * vivait sous la carte, neuf lignes que personne ne lisait.
- */
-function FeuilleDeLaCarte({
-  vue,
-  carte,
-  lecture,
-  retenue,
-  busy,
-  onChoisir,
-  onAbandonner,
-  onFermer,
-}: {
-  vue: VueDeLExpedition
-  carte: CarteDUnActe
-  lecture: LectureDeLaCarte
-  retenue: string | null
-  busy: boolean
-  onChoisir: (id: string) => void
-  onAbandonner: () => void
-  onFermer: () => void
-}) {
-  const [touchee, setTouchee] = useState<string | null>(null)
-  const x = lecture.parId.get(touchee ?? retenue ?? '')
-  const dit = ((): { titre: string; texte: string } => {
-    if (!x) return { titre: 'Touche une escale', texte: 'pour savoir ce qu’elle cache.' }
-    if (x.id === vue.ici) return { titre: 'Tu es ici', texte: decrire(x, vue, carte) }
-    if (vue.trace.includes(x.id)) return { titre: 'Derrière toi', texte: 'Tu y es déjà passé.' }
-    if (lecture.proposees.includes(x.id)) return { titre: 'Ta prochaine escale', texte: decrire(x, vue, carte) }
-    if (x.sorte === 'gardien') return { titre: 'Au bout de l’acte', texte: decrire(x, vue, carte) }
-    if (!lecture.atteignables.has(x.id)) return { titre: 'Hors de ta route', texte: 'Ta route ne passe plus par cette escale.' }
-    return { titre: 'Plus loin sur ta route', texte: decrire(x, vue, carte) }
-  })()
-  return (
-    <Feuille
-      titre={`Le plan · acte ${vue.acte + 1}`}
-      className="feuille-carte"
-      onFermer={onFermer}
-      pied={
-        <p className="exp-vu" role="status">
-          <b>{dit.titre}</b> {espacesFines(dit.texte)}
-        </p>
-      }
-    >
-      <p>
-        {espacesFines(
-          `Expédition n° ${formatNumber(vue.numero)}. Tu montes vers ${leGardien(vue.gardiens[vue.acte]?.cle ?? '')}, étage par étage. L’escale où tu es brille ; celles où tu peux aller ensuite sont entourées, avec ta chance de les trouver. Une escale passée ne se rejoue pas.`,
-        )}
-      </p>
-      {vue.moyen && <p className="muted small">{espacesFines('Les chances sont celles d’un joueur moyen, le temps que tes réponses disent les tiennes.')}</p>}
-      <GrandPlan
-        vue={vue}
-        carte={carte}
-        lecture={lecture}
-        retenue={retenue}
-        regardee={touchee}
-        onToucher={id => {
-          setTouchee(id)
-          if (lecture.proposees.includes(id)) onChoisir(id)
-        }}
-      />
-      <ul className="exp-legende" aria-label="La légende du plan">
-        {vue.cartes && (
-          <li>
-            <Icon name="target" />
-            {espacesFines('Question : un adversaire, à qui chaque bonne réponse fait perdre des points')}
-          </li>
-        )}
-        <li>
-          <Icon name="source" />
-          {espacesFines(
-            vue.cartes
-              ? `Source : une question de ton carnet, qui rend ${reposALAscension(COURAGE_D_UNE_SOURCE, vue.cartes.ascension ?? 0)} de courage`
-              : 'Source : une question de ton carnet, qui rend une vie',
-          )}
-        </li>
-        <li>
-          <Icon name="campement" />
-          {vue.cartes
-            ? `Campement : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, vue.cartes.ascension ?? 0)} de courage, ${vue.cartes.v >= VERSION_DU_JEU_COMPLET ? 'une carte de moins ou une carte améliorée' : 'ou une carte de moins'}`
-            : vue.jokers
-              ? 'Campement : une vie, ou un joker de moins'
-              : 'Campement : une vie de plus'}
-        </li>
-        {(vue.jokers || vue.cartes) && (
-          <>
-            <li>
-              <Icon name="swords" />
-              {espacesFines(vue.cartes ? 'Élite : plus de points à lui faire perdre ; tombée, une carte plus souvent rare' : 'Élite : plus dure ; trouvée, un joker')}
-            </li>
-            <li>
-              <Icon name="coffre" />
-              {vue.cartes ? 'Coffre : une carte au choix' : 'Coffre : un joker au choix'}
-            </li>
-          </>
-        )}
-        {vue.ecus !== undefined && (
-          <>
-            <li>
-              <Icon name="echoppe" />
-              {espacesFines('Échoppe : contre tes écus')}
-            </li>
-            <li>
-              <Icon name="help" />
-              {espacesFines('Inconnu : un marchand, un piège, un légendaire')}
-            </li>
-          </>
-        )}
-        <li>
-          <Icon name="shuffle" />
-          {espacesFines('Mélange : l’une de ses catégories')}
-        </li>
-        {carte.escales.some(e => e.aTamponner) && (
-          <li>
-            <span className="exp-a-tamponner" aria-hidden="true">
-              <Icon name="tampon" />
-            </span>
-            {espacesFines('Un tampon neuf pour ton passeport')}
-          </li>
-        )}
-        <li>
-          <span className="exp-legende-pistes" aria-hidden="true">
-            <Balise couleur="verte" />
-            <Balise couleur="bleue" />
-            <Balise couleur="rouge" />
-            <Balise couleur="noire" />
-          </span>
-          Ta chance : verte, bleue, rouge, noire
-        </li>
-      </ul>
-      <GesteDuBas icone="x" danger busy={busy} onClick={onAbandonner}>
-        Abandonner l’expédition
-      </GesteDuBas>
-    </Feuille>
   )
 }
 

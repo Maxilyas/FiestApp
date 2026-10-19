@@ -2,8 +2,8 @@
 // serveur jetable : la page d'un invité sans profil ; le départ, son équipée
 // et sa feuille — les trente-deux jokers dépliés — ; la carte d'un acte — l'acte
 // en petit, le départ qui brille, les escales proposées en cartes, la plus sûre
-// à son ruban, choisie, puis une autre ; la carte en grand dans sa feuille, une
-// escale plus loin touchée, la légende —, la main posée au bas de l'écran ; une
+// à son ruban, choisie, puis une autre ; une escale plus loin touchée sur le
+// plan, qui se dit sous les cartes, la légende au « ? » —, la main posée au bas de l'écran ; une
 // escale et sa main, une carte levée, puis ce que fait
 // chaque joker qui passe — les réponses effacées, Double chance, Deux
 // visages, l'Oracle, l'Énigme, Sursis… — ; une élite et ce qu'elle offre, un
@@ -199,6 +199,18 @@ try {
   await choisirLEquipee(['Oracle', 'Janus'], { feuille: '1b-equipee', tous: '1c-tous-les-jokers' })
   await photo('1d-depart-equipee')
 
+  /**
+   * « Abandonner l'expédition » vit au départ, derrière « ← Partir » — la feuille du plan, qui le portait aussi, n'est plus
+   * (le 19 octobre 2026) : le geste confirmé, la fin.
+   */
+  const abandonnerDuDepart = async () => {
+    await page.click('a.jour-sortie')
+    await page.waitForSelector('.exp-depart-pied')
+    await page.locator('.exp-abandonner').click()
+    await page.locator('.dialog-backdrop .btn-danger').click()
+    await page.waitForSelector('.exp-fin-tete')
+  }
+
   /** Sur la carte : une escale proposée — la première carte, s'il n'en a touché aucune —, puis « Y aller ». */
   const allerAUneProposee = async () => {
     await page.waitForSelector('.exp-plan')
@@ -218,19 +230,18 @@ try {
   await photo('3-la-plus-sure')
   await page.locator('.exp-carte-escale').last().click()
   await photo('3-escale-choisie')
-  // Le plan touché : la carte en grand, dans sa feuille, sur l'escale où il est ; une escale plus loin y dit ce qu'elle cache.
-  await page.locator('.exp-plan').click()
-  await page.waitForSelector('.feuille-carte')
-  await page.waitForTimeout(300)
-  await photo('3c-la-carte')
-  const plusLoin = page.locator('.feuille-carte .exp-escale.exp-plus-loin').first()
+  // Le plan fondu dans l'écran (le 19 octobre 2026) : une escale plus loin, touchée sur le plan, se dit sous les cartes —
+  // le plan ne s'ouvre plus en grand dans une feuille ; sa légende est au « ? ».
+  const plusLoin = page.locator('.exp-plan .exp-point.exp-plus-loin').first()
   if (await plusLoin.count()) {
     await plusLoin.click()
     await photo('3b-plus-loin')
   }
-  await page.locator('.feuille-carte .exp-legende').scrollIntoViewIfNeeded()
+  await page.locator('.exp-barre .exp-regles').click()
+  await page.waitForSelector('.feuille-regles')
+  await page.locator('#exp-regles-plan').scrollIntoViewIfNeeded()
   await photo('3d-la-legende')
-  await page.locator('.feuille-carte .carte-fermer').click()
+  await page.locator('.feuille-regles .carte-fermer').click()
 
   const ici = async (): Promise<string> => {
     if (await page.locator('.exp-plan').count()) return 'carte'
@@ -587,11 +598,7 @@ try {
   await page.locator('.exp-inconnu .btn-primary').click()
   await page.waitForSelector('.exp-plan')
   // Abandonnée : la fin dit que ses écus restent dans l'expédition.
-  // « Abandonner l'expédition » vit dans la feuille de la carte : l'écran de la carte tient en un écran.
-  await page.locator('.exp-plan').click()
-  await page.locator('.feuille-carte .geste-du-bas', { hasText: 'Abandonner' }).click()
-  await page.locator('.dialog-backdrop .btn-danger').click()
-  await page.waitForSelector('.exp-fin-tete')
+  await abandonnerDuDepart()
   await photo('e9-fin-ecus', true)
 
   // Le passeport et la saison des fêtes (le 18 octobre 2026) : l'horloge saute à Halloween, le calendrier des
@@ -641,11 +648,7 @@ try {
   await suite()
   await page.waitForSelector('.exp-plan')
   await photo('s6-carte-tamponnee')
-  // « Abandonner l'expédition » vit dans la feuille de la carte : l'écran de la carte tient en un écran.
-  await page.locator('.exp-plan').click()
-  await page.locator('.feuille-carte .geste-du-bas', { hasText: 'Abandonner' }).click()
-  await page.locator('.dialog-backdrop .btn-danger').click()
-  await page.waitForSelector('.exp-fin-tete')
+  await abandonnerDuDepart()
   await photo('s7-fin-tampon', true)
   await page.locator('.fin-actions .btn-primary').click()
   await page.waitForSelector('.exp-passeport')
