@@ -1,0 +1,114 @@
+{
+ "loup-louveteau": {
+  "ratio": 1.1016,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "loup-jeune": {
+  "ratio": 0.8799,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "loup-adulte": {
+  "ratio": 0.8312,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "loup-ultime": {
+  "ratio": 0.8911,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "chat-chaton": {
+  "ratio": 0.9076,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "chat-jeune": {
+  "ratio": 0.7354,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "chat-adulte": {
+  "ratio": 0.9624,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "chat-esprit": {
+  "ratio": 1.0,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "tortue-bebe": {
+  "ratio": 0.9622,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "tortue-jeune": {
+  "ratio": 1.1448,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "tortue-adulte": {
+  "ratio": 0.9149,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "tortue-ile": {
+  "ratio": 0.9711,
+  "humeurs": [
+   "depite",
+   "neutre",
+   "ravi",
+   "triomphe"
+  ]
+ },
+ "loup-bond": {
+  "ratio": 1.4263,
+  "humeurs": []
+ }
+}

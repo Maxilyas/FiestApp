@@ -7,6 +7,7 @@ import { FeuilleDEquipe } from '../components/FeuilleDEquipe'
 import { chefIci, demanderEntree, retenirChef } from '../chef'
 import { spacePath } from '../routes'
 import { porterTheme } from '../themeJoueur'
+import { porterNiche } from '../niche'
 import { ecrireDuree, type QuizSummary } from '../../../shared/library'
 import { PALIERS_ENCHAINEMENT } from '../../../shared/console'
 import { EQUIPES_PROPOSEES, MAX_EQUIPES, equipeSuivante, type EquipePreparee } from '../../../shared/teams'
@@ -89,10 +90,13 @@ export function SalonApp() {
     document.title = 'Nouveau salon · FiestApp'
     let vivant = true
     ;(async () => {
-      // Le profil léger : la page ne demande que s'il y en a un, et son
-      // thème, qui l'habille comme ses autres pages.
+      // Le profil léger : la page ne demande que s'il y en a un, son thème,
+      // qui l'habille comme ses autres pages, et son compagnon, dans sa niche.
       const moi = await api.joueur.moiLeger()
-      if (vivant) void porterTheme(moi.profile?.theme)
+      if (vivant) {
+        void porterTheme(moi.profile?.theme)
+        porterNiche(moi.profile)
+      }
       // Sans profil, mais la console ouverte : un compte d'animateur d'avant
       // les profils, ou créé par l'administrateur. « Lancer », dans « Mes
       // quiz », l'envoyait se connecter alors qu'il l'était — et la connexion

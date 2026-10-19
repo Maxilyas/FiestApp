@@ -503,8 +503,9 @@ export class JourStore {
     // Le bonus de série d'une partie (`xpDeSerie`), venu le 6 octobre 2026 :
     // écrit quand elle commence, à côté de l'expérience de ses points.
     await ajouterColonne(this.client, 'jour_parties', 'xp_serie', 'INTEGER NOT NULL DEFAULT 0')
-    // Le compagnon porté à chaque réponse (`compagnonsDe`), venu le 13
-    // octobre 2026 : ses bonnes réponses le font grandir.
+    // Le compagnon de sa niche à chaque réponse (`compagnonsDe`) — venu le 13
+    // octobre 2026, celui qu'il portait jusqu'au 18 : ses bonnes réponses le
+    // font grandir.
     await ajouterColonne(this.client, 'jour_reponses', 'compagnon', 'TEXT')
     // Ce qu'un geste du QG a fait d'une question signalée, et comment
     // (`IssueDUnSignalement`), venus le 14 octobre 2026 avec la page des
@@ -1153,7 +1154,7 @@ export class JourStore {
       const ms = maintenant - partie.servieLe
       const aTemps = ms <= q.duree * 1000 + GRACE_MS
       const retenu = typeof choix === 'number' && Number.isInteger(choix) && choix >= 0 && choix < q.reponses.length ? choix : null
-      const { revelation } = await this.enregistrer(partie, tirage, aTemps ? retenu : null, ms, this.deps.profiles.compagnonPorte(profil))
+      const { revelation } = await this.enregistrer(partie, tirage, aTemps ? retenu : null, ms, this.deps.profiles.compagnonDeLaNiche(profil))
       return !aTemps && retenu !== null ? { ...revelation, tropTard: true } : revelation
     })
   }
@@ -1169,7 +1170,7 @@ export class JourStore {
     const ms = this.maintenant() - partie.servieLe
     if (ms <= q.duree * 1000 + GRACE_MS) return null
     const profil = this.deps.profiles.cached(partie.profileId)
-    const { revelation, suite } = await this.enregistrer(partie, tirage, null, null, profil ? this.deps.profiles.compagnonPorte(profil) : null)
+    const { revelation, suite } = await this.enregistrer(partie, tirage, null, null, profil ? this.deps.profiles.compagnonDeLaNiche(profil) : null)
     return suite ? [suite, revelation] : null
   }
 
@@ -1178,7 +1179,7 @@ export class JourStore {
    * expérience compris. Rend ce que la réponse révèle et la partie d'après,
    * lues dans le même lot que l'écriture : chaque lecture attendait la
    * précédente, six allers-retours en série sous les doigts du joueur.
-   * `compagnon` : celui qu'il porte, que la ligne retient (`compagnonsDe`).
+   * `compagnon` : celui de sa niche, que la ligne retient (`compagnonsDe`).
    */
   private async enregistrer(
     partie: Partie,
@@ -1740,7 +1741,7 @@ export class JourStore {
   }
 
   /**
-   * Ses bonnes réponses au quiz du jour données en portant chaque compagnon
+   * Ses bonnes réponses au quiz du jour données avec chaque compagnon
    * (`loup` → 42) : elles le font grandir (`shared/compagnons.ts`), comme
    * elles paient ses confettis. Une question annulée pour tous ne compte pas.
    */

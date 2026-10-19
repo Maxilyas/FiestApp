@@ -78,8 +78,8 @@ function lireRayon(): { rayon: RayonDeLaBoutique; objet?: CleDObjet } {
 
 /**
  * La boutique, en quatre rayons sous une barre fine : les thèmes — ce qui
- * reste à prendre, une rareté à la fois —, les compagnons — qui grandissent
- * avec celui qui les porte —, les fonds des savoirs, un par catégorie, et les
+ * reste à prendre, une rareté à la fois —, les compagnons — qui vivent dans
+ * sa niche et grandissent avec lui —, les fonds des savoirs, un par catégorie, et les
  * objets — les vies des sentiers, le sablier de la série, et ce qui viendra.
  * Posées sous la vitrine, les vies ne se trouvaient qu'en la faisant défiler
  * toute (la remarque du propriétaire du 5 octobre 2026). Changer de rayon
@@ -88,6 +88,7 @@ function lireRayon(): { rayon: RayonDeLaBoutique; objet?: CleDObjet } {
 export function PanneauBoutique({
   profil,
   busy,
+  enregistrer,
   acheter,
   acheterCompagnon,
   acheterFond,
@@ -121,7 +122,7 @@ export function PanneauBoutique({
         {rayon === 'themes' ? (
           <RayonDesThemes profil={profil} busy={busy} acheter={acheter} />
         ) : rayon === 'compagnons' ? (
-          <RayonDesCompagnons profil={profil} busy={busy} acheter={acheterCompagnon} />
+          <RayonDesCompagnons profil={profil} busy={busy} acheter={acheterCompagnon} installer={cle => enregistrer({ niche: cle })} />
         ) : rayon === 'fonds' ? (
           <RayonDesFonds profil={profil} busy={busy} acheter={acheterFond} />
         ) : (

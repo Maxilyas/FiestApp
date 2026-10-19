@@ -97,7 +97,8 @@ import {
   PRIX_D_UN_COMPAGNON,
   compagnon as compagnonDuCatalogue,
   compagnonDe,
-  enLePortant,
+  avecLui,
+  compagnonDeLaNiche,
   formeDeCompagnon,
   rangAtteint,
   type CleDeCompagnon,
@@ -193,6 +194,12 @@ export interface ProfileRec {
    * `AUCUNE_BORDURE` : aucune. Ses crans se relisent dans ses duels.
    */
   bordure: string | null
+  /**
+   * Le compagnon qu'il a installé dans sa niche (`loup`), s'il en a choisi un
+   * — null : celui que la règle désigne (`compagnonDeLaNiche`). C'est lui qui
+   * grandit de ses bonnes réponses.
+   */
+  niche: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -1019,6 +1026,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'gerbe', 'TEXT')
     // La bordure de ligue qu'il porte, parmi celles de ses duels.
     await ajouterColonne(this.client, 'profiles', 'bordure', 'TEXT')
+    // Le compagnon qu'il installe dans sa niche, parmi ceux qu'il a adoptés.
+    await ajouterColonne(this.client, 'profiles', 'niche', 'TEXT')
     // Quand l'administrateur l'a renommé : son accueil le lui dit, une fois.
     await ajouterColonne(this.client, 'profiles', 'renomme_le', 'INTEGER')
     // L'Éclat qu'il a éteint, pour porter la version d'origine de son avatar.
@@ -1730,14 +1739,15 @@ export class ProfileStore {
   }
 
   /**
-   * Fait grandir le compagnon qu'il porte, si ses bonnes réponses l'ont mené
+   * Fait grandir le compagnon de sa niche, si ses bonnes réponses l'ont mené
    * à sa forme suivante : à la fin d'un quiz, d'une partie du quiz du jour,
    * d'une série — jamais pendant une question. Rend vrai s'il a grandi : la
-   * salle où il joue le voit alors. Sans compagnon porté, rien ne se lit.
+   * salle où il joue le voit alors, s'il le porte. Sans compagnon, rien ne se
+   * lit.
    */
   async faireGrandir(profileId: string): Promise<boolean> {
     const p = this.profiles.get(profileId)
-    if (!p || !this.compagnonPorte(p)) return false
+    if (!p || !this.compagnonDeLaNiche(p)) return false
     const avant = this.compagnonsOf(profileId)
     const apres = await this.compagnonsDe(p)
     return apres.some(a => a.rang > (avant.find(x => x.compagnon === a.compagnon)?.rang ?? 0))
@@ -1772,10 +1782,10 @@ export class ProfileStore {
   }
 
   /**
-   * Achète un compagnon, à sa première forme (`PRIX_D_UN_COMPAGNON`) — et
-   * le porte, ou le garde pour plus tard, comme un thème. Refusé en clair :
-   * déjà à lui, pas assez de confettis — un autre onglet a pu dépenser
-   * entre-temps.
+   * Achète un compagnon, à sa première forme (`PRIX_D_UN_COMPAGNON`) : il
+   * s'installe dans sa niche — c'est lui qui grandira —, et se porte en
+   * avatar, ou pas, comme un thème. Refusé en clair : déjà à lui, pas assez de
+   * confettis — un autre onglet a pu dépenser entre-temps.
    */
   acheterCompagnon(id: string, cle: unknown, jour: string, { porter = true }: { porter?: boolean } = {}): Promise<ProfileRec> {
     return this.unAchatALaFois(id, async () => {
@@ -1792,13 +1802,16 @@ export class ProfileStore {
             sql: 'INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, ?, 0, ?)',
             args: [id, c.key, PRIX_D_UN_COMPAGNON, Date.now()],
           },
-          ...(porter ? [{ sql: 'UPDATE profiles SET legendaire = ? WHERE id = ?', args: [premiere.key, id] }] : []),
+          porter
+            ? { sql: 'UPDATE profiles SET niche = ?, legendaire = ? WHERE id = ?', args: [c.key, premiere.key, id] }
+            : { sql: 'UPDATE profiles SET niche = ? WHERE id = ?', args: [c.key, id] },
         ],
         'write',
       )
       let siens = this.compagnons.get(id)
       if (!siens) this.compagnons.set(id, (siens = new Map()))
       siens.set(c.key, 0)
+      rec.niche = c.key
       if (porter) rec.legendaire = premiere.key
       return rec
     })
@@ -2273,9 +2286,13 @@ export class ProfileStore {
     return a.includes(p.legendaire) ? p.legendaire : null
   }
 
-  /** Le compagnon qu'il porte (`loup`), s'il en porte un : la ligne de chacune de ses réponses le retient, et ses bonnes réponses le font grandir. */
-  compagnonPorte(p: ProfileRec): string | null {
-    return formeDeCompagnon(this.legendairePorte(p))?.compagnon ?? null
+  /**
+   * Le compagnon de sa niche (`loup`), s'il en a un : la ligne de chacune de
+   * ses réponses le retient, et ses bonnes réponses le font grandir — qu'il le
+   * porte ou non. Lu de mémoire : la salle le demande à chaque réponse.
+   */
+  compagnonDeLaNiche(p: ProfileRec): CleDeCompagnon | null {
+    return compagnonDeLaNiche(p.niche, this.legendairePorte(p), this.compagnonsOf(p.id))
   }
 
   /**
@@ -2373,6 +2390,7 @@ export class ProfileStore {
     const laurier = this.laurierPorte(p.id)
     const champion = this.championDe?.(p.id)
     const compagnons = this.compagnonsOf(p.id)
+    const niche = this.compagnonDeLaNiche(p)
     return {
       id: p.id,
       login: p.login,
@@ -2401,6 +2419,7 @@ export class ProfileStore {
       divins: raconter(this.divinsOf(p.id)),
       // Absents sans compagnon, comme le laurier : rien de plus à lire pour qui n'en a pas.
       ...(compagnons.length > 0 && { compagnons }),
+      ...(niche && { niche }),
       titre: this.titrePorte(p),
       vitrineChoisie: this.vitrineChoisie(p),
       ...(laurier && { laurier }),
@@ -2649,6 +2668,7 @@ export class ProfileStore {
       theme: null,
       gerbe: null,
       bordure: null,
+      niche: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -2710,6 +2730,7 @@ export class ProfileStore {
       theme: null,
       gerbe: null,
       bordure: null,
+      niche: null,
       passwordHash: compte.passwordHash,
       recoveryHash: await hashPassword(normalizeRecovery(newRecoveryCode())),
       xp: 0,
@@ -2826,13 +2847,14 @@ export class ProfileStore {
       gerbe?: unknown
       eclat?: unknown
       bordure?: unknown
+      niche?: unknown
     },
   ): Promise<ProfileRec> {
     const rec = await this.require(id)
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure' | 'niche'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -2866,9 +2888,20 @@ export class ProfileStore {
         const c = compagnonDe(f)
         const sien = (await this.compagnonsDe(rec)).find(a => a.compagnon === f.compagnon)
         if (!sien) throw new Error(`${c.nom} s’achète d’abord, à la boutique`)
-        if (sien.rang < f.rang) throw new Error(`${f.nom} arrive à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses données ${enLePortant(c)}`)
+        if (sien.rang < f.rang) throw new Error(`${f.nom} arrive à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses données ${avecLui(c)}`)
         champs.legendaire = f.key
       } else throw new Error('Cet avatar légendaire n’est pas encore à toi')
+    }
+    // Le compagnon de sa niche : l'un de ceux qu'il a adoptés ; null le rend
+    // à la règle (`compagnonDeLaNiche`).
+    if (patch.niche !== undefined) {
+      if (patch.niche === null || patch.niche === '') champs.niche = null
+      else {
+        const c = compagnonDuCatalogue(patch.niche)
+        if (!c) throw new Error('Ce compagnon n’existe pas')
+        if (!this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} s’achète d’abord, à la boutique`)
+        champs.niche = c.key
+      }
     }
     // Un titre, une vitrine : seulement ce qu'il a gagné. La page ne propose
     // rien d'autre ; seul un appel forgé l'enverrait.
@@ -4403,6 +4436,7 @@ export class ProfileStore {
       theme: typeof r.theme === 'string' && r.theme ? r.theme : null,
       gerbe: typeof r.gerbe === 'string' && r.gerbe ? r.gerbe : null,
       bordure: typeof r.bordure === 'string' && r.bordure ? r.bordure : null,
+      niche: typeof r.niche === 'string' && r.niche ? r.niche : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),

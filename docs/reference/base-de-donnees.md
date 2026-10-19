@@ -103,7 +103,7 @@ Le journal des réponses : une ligne par invité et par question posée, **y
 compris sans réponse**. Le souvenir, le bilan, les statistiques, les hauts
 faits et l'expérience s'en dérivent.
 
-- **Colonnes clés** : `id` (auto-incrément), `uid` (unique, tiré à l'écriture locale : l'identifiant de la ligne au miroir), `session_id`, `quiz_title`, `q_index`, `kind`, `player_id`, `answered`, `correct`, `choice`, `value`, `target`, `ms`, `changes`, `points`, `duration_ms`, `observed`, `created_at`, `category`, `team_id` (l'équipe au moment de la réponse ; `''` sans équipe, vide pour une ligne d'avant la colonne), `compagnon` (celui que portait l'invité).
+- **Colonnes clés** : `id` (auto-incrément), `uid` (unique, tiré à l'écriture locale : l'identifiant de la ligne au miroir), `session_id`, `quiz_title`, `q_index`, `kind`, `player_id`, `answered`, `correct`, `choice`, `value`, `target`, `ms`, `changes`, `points`, `duration_ms`, `observed`, `created_at`, `category`, `team_id` (l'équipe au moment de la réponse ; `''` sans équipe, vide pour une ligne d'avant la colonne), `compagnon` (celui de sa niche — jusqu'au 18 octobre 2026, celui qu'il portait).
 - **Espace** : oui.
 - **Écrite par** : `AnswerLog` (`server/src/core/answers.ts`), à la révélation de chaque question ; la restauration.
 - **Lue par** : `AnswerLog` (et toutes les dérivations de la soirée) ; le QG ; la resynchronisation.
@@ -199,7 +199,7 @@ mémoire ce qu'il a lu.
 
 Les profils de joueur.
 
-- **Colonnes clés** : `id`, `login` (unique), `name`, `avatar`, `finition`, `password_hash`, `recovery_hash` (le code de secours, haché), `xp` (le total), `created_at`, `last_seen_at`, `disabled_at` (suspendu), et ce qu'il porte : `legendaire`, `titre`, `vitrine` (JSON), `fond`, `theme`, `gerbe`, `bordure`, ainsi que `renomme_le`.
+- **Colonnes clés** : `id`, `login` (unique), `name`, `avatar`, `finition`, `password_hash`, `recovery_hash` (le code de secours, haché), `xp` (le total), `created_at`, `last_seen_at`, `disabled_at` (suspendu), et ce qu'il porte : `legendaire`, `titre`, `vitrine` (JSON), `fond`, `theme`, `gerbe`, `bordure` ; `niche`, le compagnon qu'il a installé dans sa niche (NULL : celui que la règle désigne, `compagnonDeLaNiche` — celui qu'il porte, sinon le plus grand des siens) ; ainsi que `renomme_le`.
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` — l'inscription, l'adoption d'un compte d'avant, la loge, les mots de passe, les crédits, l'administration.
 - **Lue par** : `ProfileStore` ; `JourStore` (`server/src/core/jour.ts` : les classements, qui écartent les profils suspendus).
@@ -310,7 +310,7 @@ Les compagnons achetés, et la plus haute forme que chacun a atteinte.
 
 - **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date).
 - **Espace** : non.
-- **Écrite par** : `ProfileStore` (l'achat, la croissance).
+- **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche` —, la croissance).
 - **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`).
 - **Effacée par** : la suppression du profil.
 

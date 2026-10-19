@@ -1,0 +1,41 @@
+{
+ "ver": {
+  "cadrage": {
+   "h": 44,
+   "x": 2,
+   "y": 16,
+   "droit": true
+  },
+  "ratio": 1.11
+ },
+ "jeune": {
+  "cadrage": {
+   "h": 54,
+   "x": 2,
+   "y": 6,
+   "droit": true
+  },
+  "ratio": 0.9237,
+  "fond": "/mq-humeurs/luciole-jeune-disque.webp"
+ },
+ "adulte": {
+  "cadrage": {
+   "h": 60,
+   "x": 1,
+   "y": 0,
+   "droit": true
+  },
+  "ratio": 0.9318,
+  "fond": "/mq-humeurs/luciole-adulte-disque.webp"
+ },
+ "constellation": {
+  "cadrage": {
+   "h": 64,
+   "x": -2,
+   "y": -4,
+   "droit": true
+  },
+  "ratio": 0.904,
+  "fond": "/mq-humeurs/luciole-constellation-disque.webp"
+ }
+}

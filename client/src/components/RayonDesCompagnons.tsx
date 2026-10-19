@@ -12,7 +12,7 @@ import {
   JUSTES_DES_FORMES,
   NOM_DE_LA_FORME,
   PRIX_D_UN_COMPAGNON,
-  enLePortant,
+  avecLui,
   prochaineForme,
   type Compagnon as LeCompagnon,
   type CompagnonAcquis,
@@ -27,13 +27,15 @@ import type { PublicProfileDetail } from '../../../shared/profil'
 // en grand : il flotte, et sautille quand on le touche. Ses quatre formes en
 // couleur dessous — celle qu'on adopte, puis celles qu'il prendra en
 // grandissant (le choix du 13 octobre 2026 : 1000 confettis, puis 100, 300
-// et 500 bonnes réponses données en le portant) — : en toucher une la montre
-// en grand, jusqu'à sa forme ultime et son monde vivant. Le propriétaire, le
+// et 500 bonnes réponses données avec lui) — : en toucher une la montre en
+// grand, jusqu'à sa forme ultime et son monde vivant. Le propriétaire, le
 // 14 octobre 2026 : « les mettre vraiment en avant, super mignon et avoir
 // envie de les acheter » ; les silhouettes dorées d'avant cachaient
-// justement ce qu'il devient. Adopté, la carte dit où il en est — sa forme,
-// la jauge de la suivante — et où le porter ; on ne le porte pas d'ici, la
-// loge le fait.
+// justement ce qu'il devient. Adopté, il s'installe dans sa niche, en haut de
+// chaque page (le 18 octobre 2026), et la carte dit où il en est — sa forme,
+// la jauge de la suivante —, s'il est dans sa niche — sinon, de quoi l'y
+// installer : c'est celui de la niche qui grandit — et où le porter ; on ne
+// le porte pas d'ici, la loge le fait.
 
 const enConfettis = (n: number) => `🎊 ${formatNumber(n)}`
 
@@ -60,18 +62,24 @@ function SceneDuCompagnon({
   c,
   sien,
   porte,
+  dansLaNiche,
   solde,
   busy,
   erreur,
   onAdopter,
+  onInstaller,
 }: {
   c: LeCompagnon
   sien: CompagnonAcquis | undefined
   porte: string | null
+  /** C'est lui qui vit dans sa niche, et qui grandit. */
+  dansLaNiche: boolean
   solde: number
   busy: boolean
   erreur: string | null
   onAdopter: () => void
+  /** L'installer dans sa niche ; absent d'une page qui ne sait pas l'enregistrer. */
+  onInstaller?: () => void
 }) {
   // La forme montrée en grand : la sienne, ou celle qu'on adopte — puis celle qu'on touche.
   const [vue, setVue] = useState(sien?.rang ?? 0)
@@ -139,11 +147,24 @@ function SceneDuCompagnon({
             <Icon name="check" />
             {espacesFines(`À toi · ${montree.nom}, ${NOM_DE_LA_FORME[montree.rang].toLowerCase()}`)}
           </p>
+          {dansLaNiche ? (
+            <p className="small compagnon-niche">
+              <Icon name="home" />
+              {espacesFines(`Dans ta niche : c’est ${c.le === 'la' ? 'elle' : 'lui'} qui grandit`)}
+            </p>
+          ) : (
+            onInstaller && (
+              <button type="button" className="btn btn-ghost compagnon-installer" disabled={busy} onClick={onInstaller}>
+                <Icon name="home" />
+                L’installer dans ma niche
+              </button>
+            )
+          )}
           {suite && (
             <div className="compagnon-jauge">
               <JaugeFine part={sien.justes / JUSTES_DES_FORMES[suite.forme.rang]} />
               <span className="muted small">
-                {espacesFines(`${formatNumber(sien.justes)} sur ${formatNumber(JUSTES_DES_FORMES[suite.forme.rang])} bonnes réponses ${enLePortant(c)} : ${suite.forme.nom.charAt(0).toLowerCase()}${suite.forme.nom.slice(1)}`)}
+                {espacesFines(`${formatNumber(sien.justes)} sur ${formatNumber(JUSTES_DES_FORMES[suite.forme.rang])} bonnes réponses ${avecLui(c)} : ${suite.forme.nom.charAt(0).toLowerCase()}${suite.forme.nom.slice(1)}`)}
               </span>
             </div>
           )}
@@ -188,18 +209,22 @@ function SceneDuCompagnon({
 
 /**
  * La vitrine des compagnons : une scène par compagnon, qu'on fait glisser,
- * des points dessous pour sauter de l'un à l'autre. L'adopter le porte tout
- * de suite, ou le garde pour plus tard, comme un thème (`choixDialog`).
+ * des points dessous pour sauter de l'un à l'autre. L'adopter l'installe
+ * dans sa niche, et le porte tout de suite, ou pas, comme un thème
+ * (`choixDialog`).
  */
 export function RayonDesCompagnons({
   profil,
   busy,
   acheter,
+  installer,
 }: {
   profil: PublicProfileDetail
   busy: boolean
   /** Achète — et porte, ou garde pour plus tard : rend le motif d'un refus, ou null. */
   acheter: (cle: string, porter: boolean) => Promise<string | null>
+  /** Installe dans sa niche un compagnon qu'il a déjà. */
+  installer?: (cle: string) => void
 }) {
   const [ici, setIci] = useState(() => (typeof window === 'undefined' ? 0 : (compagnonDeLAdresse(window.location.hash) ?? 0)))
   const [erreur, setErreur] = useState<{ cle: string; motif: string } | null>(null)
@@ -246,7 +271,7 @@ export function RayonDesCompagnons({
     const il = c.le === 'la' ? 'Elle' : 'Il'
     const choix = await choixDialog({
       title: c.nom,
-      message: `${il} coûte ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis : il t’en restera ${formatNumber(solde - PRIX_D_UN_COMPAGNON)}. ${il} grandira avec les bonnes réponses que tu donnes ${enLePortant(c)}.`,
+      message: `${il} coûte ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis : il t’en restera ${formatNumber(solde - PRIX_D_UN_COMPAGNON)}. ${il} s’installera dans ta niche, en haut de chaque page, et grandira avec tes bonnes réponses.`,
       confirmLabel: `L’adopter et ${c.le} porter · ${enConfettis(PRIX_D_UN_COMPAGNON)}`,
       alternative: { label: 'L’adopter seulement' },
       cancelLabel: 'Plus tard',
@@ -261,18 +286,18 @@ export function RayonDesCompagnons({
     <section className="rayon-compagnons">
       <p className="gemme-legende">
         {espacesFines(
-          'Chacun grandit avec toi : 100, 300 puis 500 bonnes réponses données en le portant, en soirée, au quiz du jour et en campagne. Une forme atteinte ne se perd jamais.',
+          'Il vit dans ta niche, en haut de chaque page, et grandit avec toi : 100, 300 puis 500 bonnes réponses, en soirée, au quiz du jour et en campagne. Une forme atteinte ne se perd jamais, et chacune se porte aussi en avatar.',
         )}
       </p>
       {adopte && (
         <p className="card theme-achete" role="status">
           {adopte.porte ? (
-            `${adopte.c.nom} est à toi, et tu ${adopte.c.le} portes.`
+            `${adopte.c.nom} est à toi : ${adopte.c.le === 'la' ? 'elle' : 'il'} s’installe dans ta niche, et tu ${adopte.c.le} portes.`
           ) : (
             <>
-              {`${adopte.c.nom} est à toi : `}
+              {`${adopte.c.nom} est à toi : ${adopte.c.le === 'la' ? 'elle' : 'il'} s’installe dans ta niche. `}
               <a className="link-inline" href="/profil#avatar">
-                {`${adopte.c.le} porter`}
+                {`${adopte.c.le === 'la' ? 'La' : 'Le'} porter`}
               </a>
               {' quand tu veux.'}
             </>
@@ -286,10 +311,12 @@ export function RayonDesCompagnons({
             c={c}
             sien={boutique.compagnons?.find(a => a.compagnon === c.key)}
             porte={profil.legendaire}
+            dansLaNiche={profil.niche === c.key}
             solde={solde}
             busy={busy}
             erreur={erreur?.cle === c.key ? erreur.motif : null}
             onAdopter={() => void adopter(c)}
+            onInstaller={installer && (() => installer(c.key))}
           />
         ))}
       </div>

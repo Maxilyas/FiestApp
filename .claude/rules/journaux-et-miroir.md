@@ -24,11 +24,13 @@ paths:
   et `toRow` dans `answers.ts` ; `ajouterColonne` (le miroir), l'écriture
   (`SQL.reponse`, `ligneReponse`) et la restauration dans `backup.ts`. Une
   seule oubliée, et la colonne se perd au premier réveil sur disque effacé.
-  La dernière venue, `compagnon` — celui qu'il portait quand la ligne s'est
-  écrite (`Party.compagnonDe`), qui grandit de ses bonnes réponses (règle
-  `profil.md`) —, a ses sœurs hors des soirées : `jour_reponses.compagnon`
-  et `campagne_reponses.compagnon`, posées par `ajouterColonne` dans
-  `jour.ts` et `campagne.ts` (`compagnons.test.ts`).
+  La dernière venue, `compagnon` — celui de sa niche quand la ligne s'est
+  écrite (`Party.compagnonDe`, `ProfileStore.compagnonDeLaNiche` ; jusqu'au
+  18 octobre 2026, celui qu'il portait), qui grandit de ses bonnes réponses
+  (règle `profil.md`) —, a ses sœurs hors des soirées :
+  `jour_reponses.compagnon` et `campagne_reponses.compagnon`, posées par
+  `ajouterColonne` dans `jour.ts` et `campagne.ts` (`compagnons.test.ts`,
+  `niche.test.ts`).
 - **Le démarrage ouvre ses magasins de front** (`deFront`, `server.ts`) :
   après les comptes, douze branches partent ensemble — le miroir et sa
   restauration, les profils, le quiz du jour, le rappel du soir, la

@@ -38,6 +38,7 @@ import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLoge'
 import type { MissionsDuJour } from '../../shared/missions'
 import type { CoffreOuvert } from '../../shared/coffre'
+import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
@@ -383,6 +384,8 @@ export const api = {
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
     /** Ce qu'il a de neuf à porter, compté : la pastille rouge de « Profil » — rien sans profil. */
     nouveautes: () => req<NouveautesDeLaLoge>('/api/joueur/nouveautes'),
+    /** Le compagnon de sa niche et où il en est — sa fiche, ouverte au toucher de la niche ; null sans compagnon. */
+    niche: () => req<{ niche: CompagnonAcquis | null }>('/api/joueur/niche'),
     /** Ce qu'il vient de voir dans sa loge, retenu pour tous ses appareils. */
     retenirLesVus: (vus: VusDeLaLoge) => req<{ ok: true }>('/api/joueur/vus', { method: 'PUT', body: JSON.stringify({ vus }) }),
     /** Ses missions du jour : tirées à sa première visite, ce qui vient d'être fait retenu et dit (`nouvelles`). */
@@ -404,6 +407,8 @@ export const api = {
       theme?: string | null
       gerbe?: string | null
       eclat?: { cle: string; brille: boolean }
+      /** Le compagnon de sa niche, parmi ceux qu'il a adoptés ; null : la règle (`compagnonDeLaNiche`). */
+      niche?: string | null
     }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
     /**

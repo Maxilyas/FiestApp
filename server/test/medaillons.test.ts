@@ -113,6 +113,17 @@ test('l’accueil anonyme n’importe ni les dessins ni les onglets du profil', 
   }
 })
 
+test('la niche du compagnon ne fait venir ses dessins qu’avec un compagnon', () => {
+  // Posée à la racine de chaque page (`main.tsx`), à côté des dialogues : son
+  // code et ses peintures viennent à la demande (`NicheHost`), et l'accueil
+  // anonyme, l'invité sans profil n'en téléchargent rien (invariant 8).
+  const racine = importsStatiques(path.join(client, 'main.tsx'))
+  assert.ok(racine.has(path.join(client, 'components/NicheHost.tsx')), 'la niche attend à la racine')
+  for (const f of ['components/Niche.tsx', 'components/Compagnon.tsx', 'components/compagnons-peints.ts', 'components/medaillons.ts']) {
+    assert.ok(!racine.has(path.join(client, f)), `${f} ne part pas avec chaque page`)
+  }
+})
+
 test('l’accueil ne télécharge pas la liaison temps réel : elle ne sert qu’en soirée', () => {
   // Le formulaire du profil prenait deux fonctions à l'entrée d'une soirée
   // (`Entree.tsx`), et avec elle toute la liaison : socket.io, 13 Ko, sur le

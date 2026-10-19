@@ -2,7 +2,7 @@ import { NOM_FINITION, type FinitionChoisie } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { nomDansLaPhrase, portrait } from '../../../shared/branches'
-import { formeDeCompagnon } from '../../../shared/compagnons'
+import { compagnon, formeDeCompagnon } from '../../../shared/compagnons'
 import { nomDuTitre } from '../../../shared/sentiers'
 import { fond } from '../../../shared/fonds'
 import { gerbe } from '../../../shared/gerbes'
@@ -35,6 +35,8 @@ export type ChoixDuProfil = {
   eclat?: { cle: string; brille: boolean }
   /** La bordure de ligue : `auto`, `aucune`, ou celle d'une ligue atteinte en duel. */
   bordure?: ChoixDeBordure
+  /** Le compagnon de sa niche, parmi ceux qu'il a adoptés : c'est lui qui grandit. */
+  niche?: string | null
 }
 
 /**
@@ -68,7 +70,7 @@ export interface PropsDUnePiece {
 }
 
 /** Les champs d'un enregistrement, dans l'ordre où l'annonce les dit : celui de la rangée de la loge. */
-const CHAMPS = ['avatar', 'eclat', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'gerbe'] as const
+const CHAMPS = ['avatar', 'eclat', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'gerbe', 'niche'] as const
 
 /**
  * Ce qu'un choix enregistré a changé, une phrase par pièce, pour le lecteur
@@ -111,5 +113,9 @@ function annonceDUnChamp(choix: ChoixDuProfil): string {
     return `Ton thème : ${nom ?? 'Velours'}.`
   }
   if (choix.vitrine !== undefined) return choix.vitrine ? 'Ta vitrine est enregistrée.' : 'Ta vitrine montre tes plus beaux hauts faits.'
+  if (choix.niche !== undefined) {
+    const c = compagnon(choix.niche)
+    return c ? `${c.nom} s’installe dans ta niche.` : 'Ta niche accueille ton compagnon.'
+  }
   return 'C’est enregistré.'
 }

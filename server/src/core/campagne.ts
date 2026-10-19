@@ -789,7 +789,7 @@ export class CampagneStore {
    * Branchés au démarrage, comme les vies achetées.
    */
   profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'legendairePorte' | 'apparenceDe'> &
-    Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonPorte' | 'faireGrandir'>>
+    Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonDeLaNiche' | 'faireGrandir'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   /**
@@ -1134,8 +1134,9 @@ export class CampagneStore {
       await ajouterColonne(this.client, 'campagne_duels', colonne, type)
     }
     await this.client.execute('CREATE INDEX IF NOT EXISTS idx_campagne_duels_adversaire ON campagne_duels(adversaire, ferme_le)')
-    // Le compagnon porté à chaque réponse (`compagnonsDe`), venu le 13
-    // octobre 2026 : ses bonnes réponses le font grandir.
+    // Le compagnon de sa niche à chaque réponse (`compagnonsDe`) — venu le 13
+    // octobre 2026, celui qu'il portait jusqu'au 18 : ses bonnes réponses le
+    // font grandir.
     await ajouterColonne(this.client, 'campagne_reponses', 'compagnon', 'TEXT')
     // Ce qu'un geste du QG a fait d'une question signalée, et comment
     // (`IssueDUnSignalement`), venus le 14 octobre 2026 avec la page des
@@ -1179,10 +1180,10 @@ export class CampagneStore {
     )
   }
 
-  /** Le compagnon qu'il porte (`loup`), que la ligne de sa réponse retient ; null sans compagnon. */
-  private compagnonPorte(profileId: string): string | null {
+  /** Le compagnon de sa niche (`loup`), que la ligne de sa réponse retient — qu'il le porte ou non ; null sans compagnon. */
+  private compagnonDeLaNiche(profileId: string): string | null {
     const p = this.profils?.cached?.(profileId)
-    return p && this.profils?.compagnonPorte ? this.profils.compagnonPorte(p) : null
+    return p && this.profils?.compagnonDeLaNiche ? this.profils.compagnonDeLaNiche(p) : null
   }
 
   /**
@@ -2048,7 +2049,7 @@ export class CampagneStore {
       const lot: InStatement[] = [
         {
           sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          args: [s.id, s.index, q.id, c, juste ? 1 : 0, maintenant, this.compagnonPorte(profileId)],
+          args: [s.id, s.index, q.id, c, juste ? 1 : 0, maintenant, this.compagnonDeLaNiche(profileId)],
         },
         {
           sql: 'UPDATE campagne_series SET position = ?, vies = ?, justes = ?, finie_le = ? WHERE id = ?',
@@ -2334,7 +2335,7 @@ export class CampagneStore {
   }
 
   /**
-   * Ses bonnes réponses de campagne données en portant chaque compagnon
+   * Ses bonnes réponses de campagne données avec chaque compagnon
    * (`loup` → 42) — séries, épreuves, parcours, révisions, défis et duels,
    * comme ses confettis : elles le font grandir (`shared/compagnons.ts`).
    * Les étoiles et les ligues, qui paient sans être des réponses, n'y
@@ -5235,7 +5236,7 @@ export class CampagneStore {
       const lot: InStatement[] = [
         {
           sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          args: [e.id, e.index, q.id, c, juste ? 1 : 0, maintenant, this.compagnonPorte(profileId)],
+          args: [e.id, e.index, q.id, c, juste ? 1 : 0, maintenant, this.compagnonDeLaNiche(profileId)],
         },
         {
           sql: 'UPDATE campagne_series SET position = ?, justes = ?, issue = ?, finie_le = ? WHERE id = ?',
@@ -5506,7 +5507,7 @@ export class CampagneStore {
       const lot: InStatement[] = [
         {
           sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          args: [e.id, e.index, q.id, c, juste ? 1 : 0, maintenant, this.compagnonPorte(profileId)],
+          args: [e.id, e.index, q.id, c, juste ? 1 : 0, maintenant, this.compagnonDeLaNiche(profileId)],
         },
         { sql: 'UPDATE campagne_series SET position = ?, justes = ?, issue = ?, finie_le = ? WHERE id = ?', args: [position, justes, issue, finie ? maintenant : null, e.id] },
       ]
@@ -7016,7 +7017,7 @@ export class CampagneStore {
       if (traversee !== null) {
         lot.push({
           sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme, sujet) VALUES (?, ?, ?, NULL, 0, ?, ?, ?, ?, ?)',
-          args: [l.serie.id, traversee, questions[traversee].id, maintenant, this.compagnonPorte(profileId), 'passe-muraille', questions[traversee].forme ?? null, questions[traversee].sujet ?? null],
+          args: [l.serie.id, traversee, questions[traversee].id, maintenant, this.compagnonDeLaNiche(profileId), 'passe-muraille', questions[traversee].forme ?? null, questions[traversee].sujet ?? null],
         })
       }
       // Finie, son bilan avec elle : la renommée le relira (`renommeeLue`).
@@ -7175,7 +7176,7 @@ export class CampagneStore {
       const lot: InStatement[] = [
         {
           sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme, sujet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          args: [l.serie.id, i, q.id, c, juste ? 1 : 0, maintenant, this.compagnonPorte(profileId), aide, q.forme ?? null, q.sujet ?? null],
+          args: [l.serie.id, i, q.id, c, juste ? 1 : 0, maintenant, this.compagnonDeLaNiche(profileId), aide, q.forme ?? null, q.sujet ?? null],
         },
         questions !== l.serie.questions
           ? {

@@ -45,6 +45,11 @@ paths:
 
 ## Les pièges
 
+- **Le coin haut droit d'une page du téléphone est à la niche du
+  compagnon** quand le profil en a un (`body.avec-niche`) : la première
+  ligne s'y arrête — le bloc « Sa place, page par page » de `styles.css`,
+  règle `profil.md` —, et `server/scripts/rendu-niche.ts` dit ce qui passe
+  encore dessous.
 - **En CSS, `transform` se compose APRÈS `rotate`**, et une animation qui pose
   `transform` écrase celui de l'élément : le toast, centré par
   `translateX(-50%)`, partait sur la droite. Centre par marges.

@@ -25,6 +25,7 @@ import { deNom, espacesFines } from '../format'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
+import { porterNiche } from '../niche'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
@@ -425,6 +426,7 @@ export function CampagneApp() {
       // Le thème de son profil habille sa page, comme le quiz du jour.
       void porterTheme(moi.profile?.theme)
       porterGerbe(moi.profile?.gerbe)
+      porterNiche(moi.profile)
       if (!moi.profile) return setEcran({ e: 'anonyme' })
       setProfil(moi.profile)
       // Le point de départ des montées de niveau que la fin d'une série dira.

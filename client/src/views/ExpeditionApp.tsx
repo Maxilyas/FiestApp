@@ -16,6 +16,7 @@ import { espacesFines, formatNumber } from '../format'
 import { showToast } from '../state'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
+import { porterNiche } from '../niche'
 import { gemme } from '../gemmes'
 import { useModale } from '../modale'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
@@ -567,9 +568,10 @@ export function ExpeditionApp() {
       try {
         const moi = await api.joueur.moiLeger()
         if (!vivant) return
-        // Le thème de son profil habille la page, comme la campagne ; sa gerbe éclate à ses bonnes réponses.
+        // Le thème de son profil habille la page, comme la campagne ; sa gerbe éclate à ses bonnes réponses ; son compagnon, dans sa niche.
         void porterTheme(moi.profile?.theme)
         porterGerbe(moi.profile?.gerbe)
+        porterNiche(moi.profile)
         if (moi.profile) retenirLeNiveau(moi.profile.niveau)
       } catch {
         // Sans le profil léger, la page se joue quand même : le thème attendra.
