@@ -243,8 +243,11 @@ test('la dernière vie perdue finit l’expédition, ses erreurs vont au carnet 
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
     let v: VueDeLExpedition = (await poster(banc, lea, '/api/expedition')).corps
     let fin: any = null
+    // Les questions qu'il rate : chacune revient au carnet.
+    const ratees = new Set<string>()
     for (let pas = 0; pas < 40 && v.issue === 'en-route'; pas++) {
       if (v.question) {
+        ratees.add(questionsDe(banc, v.id)[v.question.index].id)
         fin = await repondre(banc, lea, v, false)
         v = fin.expedition
         continue
@@ -264,9 +267,12 @@ test('la dernière vie perdue finit l’expédition, ses erreurs vont au carnet 
     }
     assert.deepEqual([v.issue, v.vies], ['perdue', 0])
     assert.equal((await poster(banc, lea, `/api/expedition/${v.id}/abandon`)).corps.error, 'Cette expédition est finie : pars pour une autre')
-    // Ses erreurs reviennent demain au carnet, comme celles d'une série.
+    // Ses erreurs reviennent demain au carnet, comme celles d'une série : toutes, et rien qu'elles. Pas forcément trois : quand
+    // le chemin n'offre plus que l'inconnu, un piège prend une vie sans question — une expédition sur quinze environ, et
+    // « au moins trois au carnet » rougissait la CI d'autant (le 19 octobre 2026).
     const carnet = (await lire(banc, lea, '/api/campagne/carnet')).corps
-    assert.ok(carnet.demain >= 3, `${carnet.demain} au carnet`)
+    assert.ok(ratees.size > 0)
+    assert.equal(carnet.demain, ratees.size, `${carnet.demain} au carnet pour ${ratees.size} questions ratées`)
 
     const autre: VueDeLExpedition = (await poster(banc, lea, '/api/expedition')).corps
     assert.notEqual(autre.numero, v.numero)
