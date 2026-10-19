@@ -116,6 +116,37 @@ export const FRAPPE_DES_RENCONTRES: Readonly<Record<SorteDeRencontre, readonly n
 }
 export const FRAPPE_EN_PLUS_PAR_QUESTION = 2
 
+/**
+ * La question au centre (v10) : un adversaire se compte en bonnes réponses —
+ * ses crans —, acte par acte. Ceux d'aujourd'hui en sont la traduction : à la
+ * marche de chaque acte, une Concentration jouée, deux bonnes réponses
+ * faisaient tomber une escale, deux ou trois une élite, trois ou quatre un
+ * gardien ; le gardien garde ceux de l'expédition d'avant les rencontres —
+ * quatre faciles, trois moyennes, trois difficiles. Son attaque, elle, ne
+ * grandit plus (`RencontreEnCours.fixe`).
+ */
+export const CRANS_DES_RENCONTRES: Readonly<Record<SorteDeRencontre, readonly number[]>> = {
+  question: [2, 2, 2],
+  elite: [3, 3, 3],
+  gardien: [4, 3, 3],
+}
+/**
+ * Ce que vaut une bonne réponse à une question dure (v10) : six choix, et un
+ * dévoilement trouvé dans la première moitié de ses mots. Polymorphe, qui
+ * corse plus fort, en fait trois.
+ */
+export const CRANS_D_UNE_QUESTION_DURE = 2
+export const CRANS_DE_POLYMORPHE = 3
+/**
+ * La main de la question au centre (v10), sans énergie : trois cartes à
+ * l'ouverture de chaque acte, puis une après chaque question d'une rencontre,
+ * tant qu'elle en tient moins de quatre — cinq sous Trois têtes, une de moins
+ * au cran 4 de l'Ascension.
+ */
+export const MAIN_A_L_OUVERTURE_DE_L_ACTE = 3
+export const MAIN_MAX_EN_QUESTION = 4
+export const MAIN_MAX_SOUS_TROIS_TETES = 5
+
 /** Ce que rendent une source retrouvée, un campement, l'échoppe ; ce que prend un piège de l'inconnu. */
 export const COURAGE_D_UNE_SOURCE = 12
 export const COURAGE_D_UN_CAMPEMENT = 15
@@ -269,6 +300,8 @@ export const FIOLES: readonly Fiole[] = [
   { cle: 'clairvoyance', nom: 'Fiole de clairvoyance', effet: 'efface une mauvaise réponse' },
 ]
 export const fioleDe = (cle: string): Fiole | undefined => FIOLES.find(f => f.cle === cle)
+/** Les fioles de la question au centre (v10) : celle d'énergie est partie avec l'énergie. */
+export const FIOLES_EN_QUESTION: readonly Fiole[] = FIOLES.filter(f => f.cle !== 'energie')
 /**
  * La fiole de clairvoyance bue sur la question : elle s'y range avec les
  * cartes qui la visent (`TourDeRencontre.surLaQuestion`), sous cette clé —
@@ -406,6 +439,40 @@ export interface CarteDeRencontre {
   amelioration?: Amelioration
   /** C'est un exemplaire amélioré : sa clé et son nom finissent par « + ». */
   amelioree?: true
+  /**
+   * Ce qu'elle devient dans la question au centre (v10, `EN_QUESTION`) :
+   * `carteALaVersion` le lui pose dès cette version, et une expédition d'avant
+   * la joue telle qu'elle était.
+   */
+  enQuestion?: CarteEnQuestion
+}
+
+/**
+ * Une carte dans la question au centre (v10) : jouée la question sous les yeux
+ * — avec le pari, à l'annonce, pour celles qui le changent —, sans énergie, et
+ * comptée en crans. Ses mots, quand ils changent, et ceux de son exemplaire
+ * amélioré.
+ */
+export interface CarteEnQuestion {
+  /** Elle se joue à l'annonce, avec le pari : jouée la question vue, elle ferait parier à coup sûr. */
+  pari?: true
+  /** Ses mots ; absents, ceux qu'elle avait. */
+  effet?: string
+  resume?: string
+  /** Son chiffre ; null, elle n'en montre plus — « +4 » ne se compte plus en crans. */
+  valeur?: string | null
+  /** Améliorée : ses mots neufs, et ce qu'elle y gagne. Absente : elle ne s'améliore pas (une maudite, une route, une légendaire). */
+  amelioration?: AmeliorationEnQuestion
+}
+
+/** Ce que l'amélioration change à une carte de la version 10 : ce qu'elle gagne, sa phrase, et ce qui change de sa face. */
+export interface AmeliorationEnQuestion {
+  gain: string
+  effet: string
+  resume?: string
+  valeur?: string | null
+  /** Jouée, elle tire autant de cartes en plus de ce que fait sa carte (`tireEnPlusEnQuestion`). */
+  tire?: number
 }
 
 /** Ce que l'amélioration change à une carte, et ce qu'elle y gagne, dit en quelques mots. */
@@ -454,6 +521,30 @@ export const VERSION_DU_JEU_COMPLET = 8
  * d'avant ne les tire jamais, et rejouée, elle tire ce qu'elle tirait.
  */
 export const VERSION_DES_HUIT_FAMILLES = 9
+
+/**
+ * La version du départ qui joue la question au centre (le 19 octobre 2026,
+ * l'étape 2 du plan validé par le propriétaire — les retours d'un testeur :
+ * « à mon sens faut exploiter davantage le système de question que le système
+ * de combat », « ça fait pas trop sens de jouer une carte avant de voir une
+ * question », « les cartes qui te donnent des PV/Bouclier/énergie je suis pas
+ * archi fan ») : une rencontre s'ouvre sur sa question — avant elle, le pari
+ * seul —, l'adversaire se compte en bonnes réponses (`CRANS_DES_RENCONTRES`),
+ * une erreur coûte son attaque, toujours la même, et plus aucune carte ne
+ * touche au courage ; les cartes aident à répondre, une par question, la
+ * question sous les yeux, sans énergie ; la main se garde, et la défausse ne
+ * revient au paquet qu'à l'acte suivant. Ce que chaque carte y devient :
+ * `EN_QUESTION` ; celles qui n'y entrent plus : `RETIREES_EN_QUESTION`. Le
+ * brief : `retours/2026-10-19/la-question-au-centre.md`.
+ */
+export const VERSION_DE_LA_QUESTION_AU_CENTRE = 10
+
+/**
+ * La question au centre part-elle en production ? Pas encore : la
+ * préproduction d'abord, comme les rencontres le 18 octobre 2026 — la
+ * production garde la version 9 jusqu'à ce que le propriétaire la passe.
+ */
+export const QUESTION_AU_CENTRE_EN_PRODUCTION = false
 
 /** Le paquet de tous, et les neutres que les offres proposent. */
 const NEUTRES: readonly CarteDeRencontre[] = [
@@ -1850,10 +1941,335 @@ const AMELIORATIONS: Readonly<Record<string, Amelioration>> = {
   },
 }
 
-/** Tout le catalogue des rencontres ; une carte qui s'améliore porte ce qu'elle devient (`amelioration`). */
-export const CARTES_DES_RENCONTRES: readonly CarteDeRencontre[] = [...NEUTRES, ...DES_FAMILLES, ...DES_LEGENDAIRES].map(c =>
-  AMELIORATIONS[c.cle] ? { ...c, amelioration: AMELIORATIONS[c.cle] } : c,
-)
+/** Améliorée, elle fait la même chose et tire une carte : celles dont le chiffre ne monte pas, ou qu'un cran de plus rendrait trop fortes. */
+const etTuTiresUneCarte = (effet: string, resume: string): AmeliorationEnQuestion => ({ gain: 'Tu tires une carte en plus', effet: `${effet} Et tu tires une carte.`, resume, tire: 1 })
+
+/**
+ * Ce que chaque carte devient dans la question au centre (v10) — les
+ * soixante-deux qui y restent, les vingt-trois des légendaires comprises :
+ * jouée la question sous les yeux, sans énergie, une par question — celles du
+ * pari à l'annonce, avec lui —, elle aide à répondre, ou fait perdre à
+ * l'adversaire un cran de plus. Absente, elle n'y est plus
+ * (`RETIREES_EN_QUESTION`). Une entrée vide : ses mots ne changent pas. Ce que
+ * dit son texte, la règle le fait (`chiffresApresLaCarte`, `cransDUneBonneReponse`,
+ * le pli ; `expedition-question-au-centre.test.ts` lève et joue chacune).
+ */
+const EN_QUESTION: Readonly<Record<string, CarteEnQuestion>> = {
+  // Les neutres : le paquet de départ, ses deux seconds essais, et deux maudites.
+  concentration: {
+    effet: 'Si tu réponds juste, l’adversaire perd un cran de plus.',
+    resume: '+1 si juste',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Deux crans sur une question difficile',
+      effet: 'Si tu réponds juste, l’adversaire perd un cran de plus — deux sur une question difficile.',
+      resume: '+1, +2 difficile',
+    },
+  },
+  'coup-d-oeil': { amelioration: etTuTiresUneCarte('Efface une mauvaise réponse.', 'Efface 1, +1 carte') },
+  echange: { amelioration: etTuTiresUneCarte('Change de question : une autre, posée par le même adversaire.', 'Autre, +1 carte') },
+  'arret-sur-image': { amelioration: etTuTiresUneCarte('Sur une question mot à mot : le texte s’arrête cinq secondes, et ton gain avec lui.', 'Pause, +1 carte') },
+  detour: {},
+  'double-chance': { amelioration: etTuTiresUneCarte('Choisis deux réponses : il suffit que l’une soit juste.', '2 choix +1 carte') },
+  sursis: { amelioration: etTuTiresUneCarte('Si tu te trompes, l’adversaire ne t’attaque pas.', 'Gratuite, +1 carte') },
+  'tout-ou-rien': {},
+  'quitte-ou-double': { effet: 'Si tu as juste, l’adversaire perd le double. Si tu te trompes, son attaque double.' },
+  // L'Érudit.
+  plume: {
+    effet: 'Si tu réponds juste, l’adversaire perd un cran de plus — deux si la question est de ta catégorie fétiche.',
+    resume: '+1, +2 fétiche',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Trois crans sur ta fétiche, au lieu de deux',
+      effet: 'Si tu réponds juste, l’adversaire perd un cran de plus — trois si la question est de ta catégorie fétiche.',
+      resume: '+1, +3 fétiche',
+    },
+  },
+  'savoir-faire': {
+    effet: 'Si tu réponds juste, l’adversaire perd un cran de plus — deux si la question n’est pas facile.',
+    resume: '+1 ou +2',
+    valeur: '+1',
+    amelioration: { gain: 'Deux crans, même sur une facile', effet: 'Si tu réponds juste, l’adversaire perd deux crans de plus.', resume: '+2 si juste', valeur: '+2' },
+  },
+  memoire: {
+    effet: 'Si tu réponds juste, l’adversaire perd un cran de plus, et tu tires une carte.',
+    resume: '+1, +1 carte',
+    valeur: '+1',
+    amelioration: { gain: 'Deux cartes au lieu d’une', effet: 'Si tu réponds juste, l’adversaire perd un cran de plus, et tu tires deux cartes.', resume: '+1, +2 cartes' },
+  },
+  bibliotheque: {
+    effet: 'Pour toute la rencontre : sur ta catégorie fétiche, chaque bonne réponse lui fait perdre un cran de plus.',
+    resume: '+1 fétiche',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Deux crans au lieu d’un',
+      effet: 'Pour toute la rencontre : sur ta catégorie fétiche, chaque bonne réponse lui fait perdre deux crans de plus.',
+      resume: '+2 fétiche',
+      valeur: '+2',
+    },
+  },
+  expose: { effet: 'Si tu réponds juste, ce que l’adversaire perd double.', resume: 'Crans ×2', amelioration: etTuTiresUneCarte('Si tu réponds juste, ce que l’adversaire perd double.', '×2, +1 carte') },
+  encyclopedie: {
+    effet: 'Pour toute la rencontre : dès ta deuxième bonne réponse, chacune lui fait perdre un cran de plus.',
+    resume: '+1 dès la 2ᵉ',
+    valeur: '+1',
+    amelioration: { gain: 'Dès la première bonne réponse', effet: 'Pour toute la rencontre : chaque bonne réponse lui fait perdre un cran de plus.', resume: '+1 toujours' },
+  },
+  genie: {
+    effet: 'Si tu réponds juste, l’adversaire perd deux crans de plus — trois si la question est de ta catégorie fétiche.',
+    resume: '+2, +3 fétiche',
+    valeur: '+2',
+    amelioration: {
+      gain: 'Trois et quatre crans, au lieu de deux et trois',
+      effet: 'Si tu réponds juste, l’adversaire perd trois crans de plus — quatre si la question est de ta catégorie fétiche.',
+      resume: '+3, +4 fétiche',
+      valeur: '+3',
+    },
+  },
+  // Le Flambeur : ses cartes du pari se jouent à l'annonce, avec lui.
+  'doubler-la-mise': { pari: true, amelioration: etTuTiresUneCarte('Ton pari compte double, gain comme perte.', 'Pari ×2, +1 carte') },
+  pourboire: {
+    amelioration: {
+      gain: `${ECUS_DU_POURBOIRE_PLUS} écus au lieu de ${ECUS_DU_POURBOIRE}`,
+      effet: `Si tu réponds juste, tu gagnes ${ECUS_DU_POURBOIRE_PLUS} écus. Et tu tires une carte.`,
+      resume: `+${ECUS_DU_POURBOIRE_PLUS} écus +1 carte`,
+    },
+  },
+  cagnotte: {
+    effet: `Si tu réponds juste, l’adversaire perd un cran de plus et tu gagnes ${ECUS_DE_LA_CAGNOTTE} écus.`,
+    resume: `+1 et ${ECUS_DE_LA_CAGNOTTE} écus`,
+    valeur: '+1',
+    amelioration: {
+      gain: `${ECUS_DE_LA_CAGNOTTE_PLUS} écus au lieu de ${ECUS_DE_LA_CAGNOTTE}`,
+      effet: `Si tu réponds juste, l’adversaire perd un cran de plus et tu gagnes ${ECUS_DE_LA_CAGNOTTE_PLUS} écus.`,
+      resume: `+1 et ${ECUS_DE_LA_CAGNOTTE_PLUS} écus`,
+    },
+  },
+  banco: {
+    pari: true,
+    effet: 'Si ton pari gagne, l’adversaire perd un cran de plus.',
+    resume: 'Pari : +1',
+    valeur: '+1',
+    amelioration: { gain: 'Deux crans au lieu d’un', effet: 'Si ton pari gagne, l’adversaire perd deux crans de plus.', resume: 'Pari : +2', valeur: '+2' },
+  },
+  assurance: {
+    pari: true,
+    amelioration: { gain: 'Deux cartes au lieu d’une', effet: 'Si tu te trompes, ton pari t’est rendu. Et tu tires deux cartes.', resume: 'Assuré, +2 cartes' },
+  },
+  pactole: {
+    pari: true,
+    effet: 'Pour toute la rencontre : chaque fois que ton pari gagne, l’adversaire perd un cran de plus.',
+    resume: 'Paris : +1',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Deux crans au lieu d’un',
+      effet: 'Pour toute la rencontre : chaque fois que ton pari gagne, l’adversaire perd deux crans de plus.',
+      resume: 'Paris : +2',
+      valeur: '+2',
+    },
+  },
+  rafle: {
+    effet: `Si tu réponds juste, l’adversaire perd deux crans de plus et tu gagnes ${ECUS_DE_LA_RAFLE} écus.`,
+    resume: `+2 et ${ECUS_DE_LA_RAFLE} écus`,
+    valeur: '+2',
+    amelioration: {
+      gain: `${ECUS_DE_LA_RAFLE_PLUS} écus au lieu de ${ECUS_DE_LA_RAFLE}`,
+      effet: `Si tu réponds juste, l’adversaire perd deux crans de plus et tu gagnes ${ECUS_DE_LA_RAFLE_PLUS} écus.`,
+      resume: `+2 et ${ECUS_DE_LA_RAFLE_PLUS} écus`,
+    },
+  },
+  // Le Métamorphe.
+  corser: {
+    effet: 'La question passe à six choix : plus dure, mais une bonne réponse lui fait perdre deux crans.',
+    resume: '6 choix : 2 crans',
+    valeur: '2',
+    amelioration: etTuTiresUneCarte('La question passe à six choix : plus dure, mais une bonne réponse lui fait perdre deux crans.', '6 choix, +1 carte'),
+  },
+  simplifier: { effet: 'La question passe en vrai ou faux.', amelioration: etTuTiresUneCarte('La question passe en vrai ou faux.', 'Vrai/faux +1 carte') },
+  'volte-face': {
+    effet: 'Change de question : une autre, posée par le même adversaire — et si tu as juste, il perd un cran de plus.',
+    resume: 'Change et +1',
+    valeur: '+1',
+    amelioration: etTuTiresUneCarte('Change de question : une autre, posée par le même adversaire — et si tu as juste, il perd un cran de plus.', 'Change, +1 carte'),
+  },
+  prisme: {
+    effet: 'Pour toute la rencontre : à six choix, chaque bonne réponse lui fait perdre un cran de plus.',
+    resume: '6 choix : +1',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Deux crans au lieu d’un',
+      effet: 'Pour toute la rencontre : à six choix, chaque bonne réponse lui fait perdre deux crans de plus.',
+      resume: '6 choix : +2',
+      valeur: '+2',
+    },
+  },
+  polymorphe: {
+    effet: 'La question passe à six choix, et une bonne réponse lui fait perdre trois crans.',
+    resume: '6 choix : 3 crans',
+    valeur: '3',
+    amelioration: etTuTiresUneCarte('La question passe à six choix, et une bonne réponse lui fait perdre trois crans.', '6 choix, +1 carte'),
+  },
+  // L'Élan.
+  echauffement: {
+    effet: 'Si tu réponds juste, l’adversaire perd un cran de plus. Et ta série compte une bonne réponse de plus.',
+    resume: '+1, série +1',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Ta série +2 au lieu de +1',
+      effet: 'Si tu réponds juste, l’adversaire perd un cran de plus. Et ta série compte deux bonnes réponses de plus.',
+      resume: '+1, série +2',
+    },
+  },
+  lancee: {
+    effet: 'Si tu réponds juste, l’adversaire perd un cran de plus — deux si c’est ta troisième d’affilée, ou plus.',
+    resume: '+1, +2 en série',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Deux crans dès la deuxième d’affilée',
+      effet: 'Si tu réponds juste, l’adversaire perd un cran de plus — deux si c’est ta deuxième d’affilée, ou plus.',
+      resume: '+1, +2 dès 2',
+    },
+  },
+  rythme: {
+    effet: 'Pour toute la rencontre : dès ta troisième bonne réponse d’affilée, chacune lui fait perdre un cran de plus.',
+    resume: 'Série : +1',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Dès la deuxième d’affilée',
+      effet: 'Pour toute la rencontre : dès ta deuxième bonne réponse d’affilée, chacune lui fait perdre un cran de plus.',
+      resume: 'Série : +1 dès 2',
+    },
+  },
+  inarretable: {
+    amelioration: etTuTiresUneCarte('Ta série compte une bonne réponse de plus. Pour toute la rencontre, une erreur ne la fait plus retomber.', 'Tenue, +1 carte'),
+  },
+  // Le Devin.
+  lucidite: {
+    effet: 'Si tu réponds juste, l’adversaire perd un cran de plus — deux si une réponse est effacée.',
+    resume: '+1, +2 effacée',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Deux et trois crans, au lieu d’un et deux',
+      effet: 'Si tu réponds juste, l’adversaire perd deux crans de plus — trois si une réponse est effacée.',
+      resume: '+2, +3 effacée',
+      valeur: '+2',
+    },
+  },
+  // Elle se joue sur une question pour la suivante : une carte par question, et pourtant de quoi faire un combo.
+  augure: {
+    effet: 'À la question suivante, une mauvaise réponse s’effacera avant même que tu la voies.',
+    amelioration: etTuTiresUneCarte('À la question suivante, une mauvaise réponse s’effacera avant même que tu la voies.', 'D’avance, +1 carte'),
+  },
+  presage: { amelioration: { gain: 'Deux cartes au lieu d’une', effet: 'Efface une mauvaise réponse, et tu tires deux cartes.', resume: 'Efface 1, +2 cartes' } },
+  'troisieme-oeil': {
+    effet: 'Pour toute la rencontre : chaque indice que tu joues lui fait perdre un cran de plus, si tu réponds juste.',
+    resume: 'Indices +1',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Deux crans au lieu d’un',
+      effet: 'Pour toute la rencontre : chaque indice que tu joues lui fait perdre deux crans de plus, si tu réponds juste.',
+      resume: 'Indices +2',
+      valeur: '+2',
+    },
+  },
+  voyance: { amelioration: etTuTiresUneCarte('Efface deux mauvaises réponses.', 'Efface 2, +1 carte') },
+  vision: { amelioration: etTuTiresUneCarte('Pour toute la rencontre : une mauvaise réponse s’efface à chaque question.', 'Toujours, +1 carte') },
+  revelation: {
+    effet: 'Il ne reste que deux réponses : la bonne et une autre. Et si tu as juste, l’adversaire perd un cran de plus.',
+    resume: 'Reste 2, +1',
+    valeur: '+1',
+    amelioration: {
+      gain: 'Deux crans au lieu d’un',
+      effet: 'Il ne reste que deux réponses : la bonne et une autre. Et si tu as juste, l’adversaire perd deux crans de plus.',
+      resume: 'Reste 2, +2',
+      valeur: '+2',
+    },
+  },
+  // Les légendaires : plus rien n'y soigne ni ne protège — ce qui sauvait du courage sauve de l'erreur.
+  renaissance: { effet: 'Pour toute la rencontre : l’erreur qui finirait ton expédition ne te coûte rien. Une fois par expédition.', resume: 'Sauvé une fois' },
+  'peau-de-feu': { effet: 'Si tu te trompes, l’adversaire ne t’attaque pas — et si tu as juste, il perd un cran de plus.', resume: 'Gratuite et +1', valeur: '+1' },
+  aube: { effet: 'Pour toute la rencontre : chaque bonne réponse lui fait perdre un cran de plus, jusqu’à ta première erreur.', resume: '+1 sans faute', valeur: '+1' },
+  reveil: { effet: 'La dernière carte de ta défausse revient dans ta main.', resume: 'Une carte revient', valeur: null },
+  boucle: { effet: 'Pour toute la rencontre : ta prochaine erreur revient à la question suivante ; retrouvée, elle ne t’a rien coûté.' },
+  sagesse: {},
+  enigme: {},
+  prediction: {},
+  'deux-visages': {},
+  mue: {},
+  commandement: {},
+  elan: { effet: 'Pour toute la rencontre : à chaque série de trois bonnes réponses d’affilée, tu tires une carte.', resume: 'Série = carte' },
+  'trois-tetes': { effet: 'Pour toute la rencontre : ta main tient cinq cartes, et tu en tires deux après chaque question.', resume: 'Main de 5', valeur: '5' },
+  raccourci: {},
+  maison: {},
+  tresor: { pari: true },
+  'feu-d-artifice': { effet: 'Ta défausse revient dans ta pioche, et tu tires de quoi remplir ta main.', resume: 'Tout revient', valeur: null },
+  lanterne: {},
+  boule: {},
+  abysses: { effet: 'Pour toute la rencontre : chaque bonne réponse lui fait perdre un cran de plus — mais chaque erreur te coûte le double.', resume: '+1, coûte ×2', valeur: '+1' },
+  'passe-muraille': {},
+  horizon: { effet: 'Juste après une erreur : elle est effacée, elle ne t’a rien coûté — mais ta prochaine récompense est vide.', resume: 'Erreur effacée' },
+  echolocation: {},
+}
+
+/**
+ * Celles qui quittent les expéditions neuves avec la question au centre —
+ * quarante-deux : l'énergie, le bouclier, le soin, la pioche, le doute, le
+ * courage payé, ou le double d'une autre (Évidence : Concentration, la question
+ * vue ; Miroir : Simplifier). Le Rempart revient à l'étape 6 du plan, en
+ * « seconde chance ». Elles restent au catalogue : une expédition partie avant
+ * les tire et les joue jusqu'au bout, et leurs peintures restent servies.
+ */
+export const RETIREES_EN_QUESTION: ReadonlySet<string> = new Set([
+  'prudence',
+  'pioche',
+  'evidence',
+  'meditation',
+  'sang-froid',
+  'panacee',
+  'maitrise',
+  'surmenage',
+  'lecon',
+  'fortune',
+  'miroir',
+  'cameleon',
+  'metamorphose',
+  'foulee',
+  'acceleration',
+  'sprint',
+  'vent-arriere',
+  'parade',
+  'muraille',
+  'pansement',
+  'contre-attaque',
+  'cuirasse',
+  'second-souffle',
+  'bastion',
+  'represailles',
+  'astrolabe',
+  'insinuation',
+  'rumeur',
+  'objection',
+  'zizanie',
+  'engrenage',
+  'coup-de-grace',
+  'paranoia',
+  'hantise',
+  'fougue',
+  'coup-de-sang',
+  'cicatrices',
+  'adrenaline',
+  'dernier-carre',
+  'temerite',
+  'berserk',
+  'baroud',
+])
+
+/** Tout le catalogue des rencontres ; une carte qui s'améliore porte ce qu'elle devient (`amelioration`), une carte de la question au centre ce qu'elle y est (`enQuestion`). */
+export const CARTES_DES_RENCONTRES: readonly CarteDeRencontre[] = [...NEUTRES, ...DES_FAMILLES, ...DES_LEGENDAIRES].map(c => ({
+  ...c,
+  ...(AMELIORATIONS[c.cle] && { amelioration: AMELIORATIONS[c.cle] }),
+  ...(EN_QUESTION[c.cle] && { enQuestion: EN_QUESTION[c.cle] }),
+}))
 
 // ── Les cartes améliorées ──
 
@@ -1915,12 +2331,65 @@ export function refusDeLAmelioration(paquet: readonly string[], cle: string): st
 }
 
 /**
+ * Une carte telle que la question au centre la joue (v10) : sans énergie ni
+ * épuisement ; celles du pari à l'annonce, les pouvoirs et la route comme
+ * avant, toutes les autres la question sous les yeux ; ses mots neufs
+ * (`EN_QUESTION`), et ceux de son amélioration. Undefined : elle n'y est plus.
+ */
+function carteEnQuestion(c: CarteDeRencontre): CarteDeRencontre | undefined {
+  const base = c.amelioree ? PAR_CLE.get(baseDe(c.cle)) : c
+  const eq = base?.enQuestion
+  const a = c.amelioree ? eq?.amelioration : undefined
+  if (!base || !eq || (c.amelioree && !a)) return undefined
+  const moment: MomentDUneCarte = base.moment === 'route' || base.moment === 'pouvoir' ? base.moment : eq.pari ? 'preparation' : 'reflexe'
+  const valeurDe = (m: { valeur?: string | null } | undefined, sinon: string | undefined) => (m && 'valeur' in m ? (m.valeur ?? undefined) : sinon)
+  const vaut = valeurDe(eq, base.valeur)
+  const x: CarteDeRencontre = { ...c, cout: 0, moment, effet: eq.effet ?? base.effet, resume: eq.resume ?? base.resume }
+  delete x.valeur
+  delete x.epuisement
+  delete x.unique
+  delete x.avantLeCodex
+  delete x.amelioration
+  const valeur = a ? valeurDe(a, vaut) : vaut
+  if (valeur) x.valeur = valeur
+  if (a) {
+    x.effet = a.effet
+    x.resume = a.resume ?? x.resume
+    x.amelioration = { gain: a.gain }
+  } else if (eq.amelioration) {
+    // Ce que l'amélioration lui donnerait : le campement, l'échoppe et le codex le disent avant qu'on choisisse.
+    const { gain, effet, resume } = eq.amelioration
+    const plus = valeurDe(eq.amelioration, vaut)
+    x.amelioration = { gain, effet, ...(resume && { resume }), ...(plus && { valeur: plus }) }
+  }
+  return x
+}
+
+/** Les cartes de la question au centre, exemplaires améliorés compris, par leur clé : la version 10 les lit là. */
+const PAR_CLE_EN_QUESTION = new Map([...PAR_CLE.values()].flatMap(c => {
+  const x = carteEnQuestion(c)
+  return x ? [[c.cle, x] as const] : []
+}))
+
+/** Cette carte se joue-t-elle dans la question au centre (v10) ? Améliorée ou non. */
+export const seJoueEnQuestion = (cle: string) => PAR_CLE_EN_QUESTION.has(cle)
+
+/** Une carte du pari (v10) : elle se joue à l'annonce, avec lui — jouée la question vue, elle ferait parier à coup sûr. */
+export const estDuPari = (cle: string) => !!PAR_CLE.get(baseDe(cle))?.enQuestion?.pari
+
+/** Ce qu'un exemplaire amélioré tire de cartes en plus de sa carte, dans la question au centre (v10) : « Et tu tires une carte ». */
+export const tireEnPlusEnQuestion = (cle: string) => (estAmelioree(cle) ? (PAR_CLE.get(baseDe(cle))?.enQuestion?.amelioration?.tire ?? 0) : 0)
+
+/**
  * Une carte telle qu'un départ de cette version la joue : avant le codex (v5,
  * v6), à ses chiffres d'alors — rejouée aux règles neuves, une expédition
- * partie avant changerait sous les pieds de qui joue. Tout ce qui lit son
- * coût ou ce qu'elle dit dans une expédition passe par ici.
+ * partie avant changerait sous les pieds de qui joue ; depuis la question au
+ * centre (v10), telle qu'elle s'y joue — undefined pour une des quarante-deux
+ * qu'elle a retirées. Tout ce qui lit son coût ou ce qu'elle dit dans une
+ * expédition passe par ici.
  */
 export function carteALaVersion(cle: unknown, v: number): CarteDeRencontre | undefined {
+  if (v >= VERSION_DE_LA_QUESTION_AU_CENTRE) return typeof cle === 'string' ? PAR_CLE_EN_QUESTION.get(cle) : undefined
   const c = carteDeRencontre(cle)
   return c?.avantLeCodex && v < VERSION_DU_CODEX ? { ...c, ...c.avantLeCodex } : c
 }
@@ -1997,15 +2466,60 @@ export const STYLES = Object.keys(CARTES_DE_DEPART_DU_STYLE) as StyleDeJeu[]
 export const estUnStyle = (x: unknown): x is StyleDeJeu => (STYLES as readonly unknown[]).includes(x)
 
 /**
+ * Le paquet de départ de la question au centre (v10) : quatre façons de
+ * s'aider — effacer quand on ne sait pas (Coup d'œil), frapper plus fort quand
+ * on sait (Concentration), changer de question (Échange), se donner un second
+ * essai (Double chance, Sursis, que le codex n'ouvrait qu'aux niveaux 2 et 6).
+ */
+export const PAQUET_EN_QUESTION: readonly string[] = [
+  'concentration',
+  'concentration',
+  'concentration',
+  'coup-d-oeil',
+  'coup-d-oeil',
+  'coup-d-oeil',
+  'double-chance',
+  'echange',
+  'echange',
+  'sursis',
+]
+
+/**
+ * Les styles de la question au centre (v10), dans l'ordre où le codex les
+ * ouvre (`ECHELLE_EN_QUESTION`). Le Rempart, dont toutes les cartes sont des
+ * boucliers ou des soins, attend l'étape 6 du plan ; le Sophiste et le
+ * Téméraire, dont le doute et le courage payé n'ont plus de prise sans les
+ * chiffres du combat, quittent les expéditions neuves.
+ */
+export const STYLES_EN_QUESTION: readonly StyleDeJeu[] = ['devin', 'erudit', 'metamorphe', 'flambeur', 'elan']
+
+/**
+ * La carte de base que chacune remplace, dans la question au centre : une de
+ * même usage — un indice, un Coup d'œil ; une carte qui frappe, une
+ * Concentration ; une forme, l'un et l'autre.
+ */
+export const BASES_REMPLACEES_EN_QUESTION: Readonly<Partial<Record<StyleDeJeu, readonly [string, string]>>> = {
+  devin: ['coup-d-oeil', 'coup-d-oeil'],
+  erudit: ['concentration', 'concentration'],
+  metamorphe: ['concentration', 'coup-d-oeil'],
+  flambeur: ['concentration', 'concentration'],
+  elan: ['concentration', 'concentration'],
+}
+
+/**
  * Le paquet de départ des rencontres, et la carte de chaque légendaire de
  * l'équipée. Un style (le 19 octobre 2026) y pose ses deux cartes à la place
  * de deux cartes de base (`BASES_REMPLACEES_PAR_LE_STYLE`) ; sans style — un
- * départ d'avant lui —, celui de toujours.
+ * départ d'avant lui —, celui de toujours. La question au centre (v10) a le
+ * sien, et ses styles (`PAQUET_EN_QUESTION`, `BASES_REMPLACEES_EN_QUESTION`) :
+ * un style qu'elle n'a pas n'y change rien.
  */
-export function paquetDesRencontres(equipee: readonly string[], style?: StyleDeJeu): string[] {
-  const base = [...PAQUET_DES_RENCONTRES]
-  if (style) {
-    for (const remplacee of BASES_REMPLACEES_PAR_LE_STYLE[style]) base.splice(base.indexOf(remplacee), 1)
+export function paquetDesRencontres(equipee: readonly string[], style?: StyleDeJeu, v = VERSION_DES_HUIT_FAMILLES): string[] {
+  const enQuestion = v >= VERSION_DE_LA_QUESTION_AU_CENTRE
+  const base = [...(enQuestion ? PAQUET_EN_QUESTION : PAQUET_DES_RENCONTRES)]
+  const remplacees = style && (enQuestion ? BASES_REMPLACEES_EN_QUESTION[style] : BASES_REMPLACEES_PAR_LE_STYLE[style])
+  if (style && remplacees) {
+    for (const remplacee of remplacees) base.splice(base.indexOf(remplacee), 1)
     base.push(...CARTES_DE_DEPART_DU_STYLE[style])
   }
   return [...base, ...equipee.flatMap(cle => carteDuLegendaire(cle)?.cle ?? [])].sort()
@@ -2121,6 +2635,8 @@ export function adversaireDe(theme: ThemeDEscale | undefined, categorie?: string
 export const sceauxDe = (sorte: SorteDeRencontre, acte: number) => SCEAUX_DES_RENCONTRES[sorte][Math.min(Math.max(0, acte), 2)]
 /** Sa frappe à la première erreur, à cet acte. */
 export const frappeDe = (sorte: SorteDeRencontre, acte: number) => FRAPPE_DES_RENCONTRES[sorte][Math.min(Math.max(0, acte), 2)]
+/** Ses crans dans la question au centre (v10), à cet acte : les bonnes réponses qui le font tomber. */
+export const cransDe = (sorte: SorteDeRencontre, acte: number) => CRANS_DES_RENCONTRES[sorte][Math.min(Math.max(0, acte), 2)]
 
 /** Le tour d'une question : l'annonce et la préparation, puis la question sous les yeux. */
 export interface TourDeRencontre {
@@ -2202,6 +2718,15 @@ export interface RencontreEnCours {
   boucle: { reprise: number; perte: number; position: number | null } | null
   /** Son doute (la version 9) : ce qu'il perdra à la prochaine question, juste ou fausse (`DOUTE_DE_L_INSINUATION`). */
   doute: number
+  /**
+   * La question au centre (v10) : il se compte en crans — `sceaux` et `max`
+   * les tiennent —, et son attaque ne grandit plus (`frappeDeLaQuestion`). Sa
+   * pioche, sa main et sa défausse sont celles de l'acte
+   * (`EtatDeLExpedition.cycle`) : les mêmes tableaux, jamais réassignés.
+   */
+  enCrans?: true
+  /** L'aube (v10) : une erreur l'a éteinte — ses bonnes réponses ne valent plus un cran de plus. */
+  aubeEteinte?: true
 }
 
 /**
@@ -2239,8 +2764,9 @@ export function courageDeLaCarte(cle: string): number {
   }
 }
 
-/** Ce qu'il frappe à la prochaine erreur, la Garde pas encore comptée. */
-export const frappeDeLaQuestion = (r: Pick<RencontreEnCours, 'frappe' | 'questions'>) => r.frappe + FRAPPE_EN_PLUS_PAR_QUESTION * r.questions
+/** Ce qu'il frappe à la prochaine erreur, la Garde pas encore comptée — toujours la même dans la question au centre (v10). */
+export const frappeDeLaQuestion = (r: Pick<RencontreEnCours, 'frappe' | 'questions'> & Partial<Pick<RencontreEnCours, 'enCrans'>>) =>
+  r.frappe + (r.enCrans ? 0 : FRAPPE_EN_PLUS_PAR_QUESTION * r.questions)
 
 /** Ce qu'une question doit dire d'elle pour le calcul : ses réponses, sa forme, le mot où sa réponse est arrivée. */
 export interface FormeDUneQuestion {
@@ -2293,6 +2819,97 @@ export const enJeu = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>) => t.mise * (
 /** Ce qu'une mise gagnée rapporte, net : la moitié de ce qu'elle engage — triple sous Le trésor, triple sous Quitte ou double, cinq fois sous les deux. */
 export const gainDeLaMise = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>, pouvoirs: readonly string[]) =>
   Math.round(enJeu(t) * PART_GAGNEE_D_UNE_MISE) * (1 + (pouvoirs.includes('tresor') ? 2 : 0) + (t.jouees.includes('quitte-ou-double') ? 2 : 0))
+
+// ── La question au centre (v10) : le verdict en crans ──
+
+/** Ce qu'une mise gagnée rapporte dans la question au centre : la moitié de ce qu'elle engage, triple sous Le trésor — Quitte ou double n'y touche plus. */
+export const gainDuPariEnQuestion = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>, pouvoirs: readonly string[]) =>
+  Math.round(enJeu(t) * PART_GAGNEE_D_UNE_MISE) * (pouvoirs.includes('tresor') ? 3 : 1)
+
+/**
+ * Ce que vaut sa forme, en crans (v10) : un, à quatre choix comme en vrai ou
+ * faux — qui paie deux fois moins d'écus — ; deux à six choix, trois sous
+ * Polymorphe ; deux pour un dévoilement trouvé dans la première moitié de ses
+ * mots, lus à l'heure du serveur où la réponse est arrivée (`devoile`).
+ */
+export function cransDeLaForme(q: FormeDUneQuestion, surLaQuestion: readonly string[] = []): number {
+  if ((q.reponses ?? 4) <= 2) return 1
+  if (q.forme === 'six') return parmi(surLaQuestion, 'polymorphe') ? CRANS_DE_POLYMORPHE : CRANS_D_UNE_QUESTION_DURE
+  if (q.forme === 'devoilement' && q.devoile && q.devoile.sur > 0) return 2 * Math.max(1, q.devoile.mots) <= q.devoile.sur ? CRANS_D_UNE_QUESTION_DURE : 1
+  return 1
+}
+
+/**
+ * Ce que les pouvoirs posés ajoutent à une bonne réponse, en crans (v10) : la
+ * Bibliothèque sur sa catégorie fétiche ; l'Encyclopédie dès sa deuxième
+ * bonne réponse ; le Prisme à six choix ; le Rythme dès sa troisième
+ * d'affilée ; L'aube jusqu'à sa première erreur ; Remonter des abysses ; et,
+ * son pari gagné, Pactole.
+ */
+export function cransDesPouvoirs(o: {
+  pouvoirs: readonly string[]
+  fetiche?: string
+  categorie?: string | null
+  /** Ses bonnes réponses déjà données dans la rencontre. */
+  trouvees?: number
+  /** Sa série avant cette réponse. */
+  serie?: number
+  forme?: FormeDEscale
+  /** L'aube posée ne s'est pas éteinte. */
+  aube?: boolean
+  /** Son pari gagne : il avait parié, et il a juste. */
+  gagne?: boolean
+}): number {
+  const p = o.pouvoirs
+  let n = 0
+  if (parmi(p, 'bibliotheque') && !!o.fetiche && o.categorie === o.fetiche) n += amelioreeParmi(p, 'bibliotheque') ? 2 : 1
+  if (parmi(p, 'encyclopedie') && (amelioreeParmi(p, 'encyclopedie') || (o.trouvees ?? 0) >= 1)) n += 1
+  if (parmi(p, 'prisme') && o.forme === 'six') n += amelioreeParmi(p, 'prisme') ? 2 : 1
+  if (parmi(p, 'rythme') && (o.serie ?? 0) + 1 >= (amelioreeParmi(p, 'rythme') ? 2 : 3)) n += 1
+  if (p.includes('aube') && o.aube) n += 1
+  if (p.includes('abysses')) n += 1
+  if (o.gagne && parmi(p, 'pactole')) n += amelioreeParmi(p, 'pactole') ? 2 : 1
+  return n
+}
+
+/**
+ * Ce que perd l'adversaire sur une bonne réponse, en crans (v10) : sa forme,
+ * ce que les cartes du tour y ajoutent (`TourDeRencontre.charge`, que
+ * `chiffresApresLaCarte` compte), ses pouvoirs, Banco si son pari gagne — le
+ * tout doublé par Exposé, et par Quitte ou double. Le verdict
+ * (`pliDeLExpedition`) et l'aperçu (`apercuDuTour`) le lisent tous deux ici.
+ */
+export function cransDUneBonneReponse(o: {
+  question: FormeDUneQuestion
+  tour: Pick<TourDeRencontre, 'charge' | 'mise' | 'jouees' | 'surLaQuestion'>
+  pouvoirs: readonly string[]
+  fetiche?: string
+  categorie?: string | null
+  trouvees?: number
+  serie?: number
+  aube?: boolean
+}): number {
+  const t = o.tour
+  const gagne = enJeu(t) > 0
+  const forme: FormeDEscale | undefined = (o.question.reponses ?? 4) <= 2 ? 'vrai-faux' : o.question.forme
+  const banco = gagne && parmi(t.jouees, 'banco') ? (amelioreeParmi(t.jouees, 'banco') ? 2 : 1) : 0
+  const somme = cransDeLaForme(o.question, t.surLaQuestion) + t.charge + cransDesPouvoirs({ ...o, forme, gagne }) + banco
+  return somme * (parmi(t.jouees, 'expose') ? 2 : 1) * (t.jouees.includes('quitte-ou-double') ? 2 : 1)
+}
+
+/**
+ * Ce que coûte une erreur dans la question au centre (v10) : l'attaque de
+ * l'adversaire, toujours la même, sans bouclier pour la parer — rien sous
+ * Sursis, La mue ou Peau de feu ; le double sous Tout ou rien, Quitte ou double
+ * ou Remonter des abysses. Renaissance, le pli seul la lit : elle ne sauve que
+ * de l'erreur qui finirait l'expédition.
+ */
+export function attaqueEnQuestion(o: { frappe: number; tour: Pick<TourDeRencontre, 'jouees' | 'surLaQuestion'>; pouvoirs: readonly string[] }): number {
+  const t = o.tour
+  if (parmi(t.jouees, 'sursis') || t.surLaQuestion.includes('mue') || t.jouees.includes('peau-de-feu')) return 0
+  const double = t.surLaQuestion.includes('tout-ou-rien') || t.jouees.includes('quitte-ou-double') || o.pouvoirs.includes('abysses')
+  return double ? o.frappe * 2 : o.frappe
+}
 
 /**
  * Combien de mauvaises réponses chaque carte efface : celles des jokers
@@ -2471,6 +3088,7 @@ export interface ContexteDesChiffres {
 export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoirs: readonly string[], contexte: ContexteDesChiffres): ChiffresDuTour {
   const carte = carteALaVersion(cle, contexte.v)
   if (!carte) return { ...avant }
+  if (contexte.v >= VERSION_DE_LA_QUESTION_AU_CENTRE) return chiffresEnQuestion(cle, carte, avant, pouvoirs, contexte)
   const codex = contexte.v >= VERSION_DU_CODEX
   const plus = !!carte.amelioree
   // Le courage qui lui manque : ce dont le Téméraire frappe (v9).
@@ -2616,6 +3234,62 @@ export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoir
 }
 
 /**
+ * Ce qu'une carte fait aux chiffres du tour dans la question au centre (v10) :
+ * les crans qu'elle ajoute à une bonne réponse — la Charge du code, « +1 si
+ * juste » à l'écran — et la série. Ni énergie, ni bouclier, ni doute : ils
+ * n'y sont plus. Exposé et Quitte ou double doublent, Corser et Polymorphe
+ * changent la forme : `cransDUneBonneReponse` les lit des cartes jouées.
+ */
+function chiffresEnQuestion(cle: string, carte: CarteDeRencontre, avant: ChiffresDuTour, pouvoirs: readonly string[], contexte: ContexteDesChiffres): ChiffresDuTour {
+  const plus = !!carte.amelioree
+  const x = { ...avant }
+  const difficile = contexte.niveau === 'difficile' || contexte.niveau === 'expert'
+  switch (baseDe(cle)) {
+    case 'concentration':
+      x.charge += plus && difficile ? 2 : 1
+      break
+    case 'plume':
+      x.charge += contexte.fetiche ? (plus ? 3 : 2) : 1
+      break
+    case 'savoir-faire':
+      x.charge += plus || (contexte.niveau !== undefined && contexte.niveau !== 'facile') ? 2 : 1
+      break
+    case 'memoire':
+    case 'cagnotte':
+    case 'volte-face':
+    case 'peau-de-feu':
+      x.charge += 1
+      break
+    case 'genie':
+      x.charge += (contexte.fetiche ? 3 : 2) + (plus ? 1 : 0)
+      break
+    case 'rafle':
+      x.charge += 2
+      break
+    case 'revelation':
+      x.charge += plus ? 2 : 1
+      break
+    case 'lucidite':
+      x.charge += ((contexte.effacees ?? 0) > 0 ? 2 : 1) + (plus ? 1 : 0)
+      break
+    case 'lancee':
+      // La série d'avant cette réponse : deux d'affilée déjà, celle-ci fait la troisième.
+      x.charge += avant.serie >= (plus ? 1 : 2) ? 2 : 1
+      break
+    case 'echauffement':
+      x.charge += 1
+      x.serie += plus ? 2 : 1
+      break
+    case 'inarretable':
+      x.serie += 1
+      break
+  }
+  // Troisième œil : chaque indice frappe aussi.
+  if (carte.indice && parmi(pouvoirs, 'troisieme-oeil')) x.charge += amelioreeParmi(pouvoirs, 'troisieme-oeil') ? 2 : 1
+  return x
+}
+
+/**
  * La forme où une carte repose la question : à six choix (Corser,
  * Polymorphe), en vrai ou faux (Simplifier, Miroir) — ce qu'il en faut à
  * l'aperçu d'une carte levée. Le serveur repose la vraie question de la base
@@ -2658,6 +3332,8 @@ export interface ContexteDUneCarte {
   defausse: number
   /** Le doute de l'adversaire (la version 9) : Zizanie n'a rien à doubler sans lui. */
   doute?: number
+  /** Le pari est-il ouvert ? Dans la question au centre (v10), ses cartes ne se jouent qu'avec lui. Absent, il l'est. */
+  pari?: boolean
 }
 
 /** Cette carte — améliorée ou non : c'est la même — est-elle déjà jouée sur la question ? */
@@ -2673,14 +3349,27 @@ const aJoueSurLaQuestion = (c: ContexteDUneCarte, cle: string) => parmi(c.tour.s
  */
 export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null {
   const carte = carteALaVersion(cle, c.v)
-  // Une carte venue après son départ ne s'y joue pas : son paquet ne l'a jamais tirée.
+  // Une carte venue après son départ ne s'y joue pas : son paquet ne l'a jamais tirée ; une que la question au centre a retirée non plus.
   if (!carte || (carte.depuis ?? 0) > c.v) return 'Cette carte ne se lit pas : recharge la page'
   if (carte.moment === 'route') return 'Elle se joue sur le plan, entre deux escales'
   if (!c.main.includes(cle)) return 'Cette carte n’est plus dans ta main : recharge la page'
   const base = baseDe(cle)
-  const avant = carte.moment === 'preparation' || carte.moment === 'pouvoir'
-  if (avant && c.tour.phase !== 'preparation') return 'Elle se joue avant de voir la question'
-  if (carte.moment === 'reflexe' && c.tour.phase !== 'question') return 'Elle se joue pendant la question : vois-la d’abord'
+  if (c.v >= VERSION_DE_LA_QUESTION_AU_CENTRE) {
+    // La question au centre : le pari et ses cartes à l'annonce, avant de voir la question ; toutes les autres la question sous
+    // les yeux, une par question — « ça fait pas trop sens de jouer une carte avant de voir une question » (un testeur, le
+    // 19 octobre 2026).
+    if (estDuPari(cle)) {
+      if (c.pari === false) return 'Elle se joue avec le pari, qui n’est pas encore ouvert à ton niveau'
+      if (c.tour.phase !== 'preparation') return 'Elle se joue avec le pari, avant de voir la question'
+    } else {
+      if (c.tour.phase !== 'question') return 'Elle se joue la question sous les yeux : vois-la d’abord'
+      if (c.tour.jouees.some(j => !estDuPari(j))) return 'Une carte par question : tu en as déjà joué une'
+    }
+  } else {
+    const avant = carte.moment === 'preparation' || carte.moment === 'pouvoir'
+    if (avant && c.tour.phase !== 'preparation') return 'Elle se joue avant de voir la question'
+    if (carte.moment === 'reflexe' && c.tour.phase !== 'question') return 'Elle se joue pendant la question : vois-la d’abord'
+  }
   if (carte.moment === 'pouvoir' && parmi(c.pouvoirs, base)) return 'Elle agit déjà dans cette rencontre'
   // L'inspiration du code se dit « énergie » à l'écran (le 18 octobre 2026 : « l'histoire de l'inspiration n'est pas du tout claire »).
   if (carte.cout > c.tour.inspiration) return `Il lui faut ${carte.cout} d’énergie : il t’en reste ${c.tour.inspiration}`
@@ -2688,11 +3377,19 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
   if (!q) return 'Elle se joue sur une question'
   const changee = c.tour.surLaQuestion.some(changeLaForme)
   const effacees = effaceesDuTour(c.tour.surLaQuestion, c.pouvoirs, q)
+  const enQuestion = c.v >= VERSION_DE_LA_QUESTION_AU_CENTRE
   switch (base) {
+    case 'augure':
+      // Dans la question au centre, elle efface d'avance à la question suivante : celle d'ici n'y change rien.
+      if (enQuestion) return null
+      if (q.reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
+      if (effacees >= q.reponses - 2) return 'Il ne reste plus rien à effacer'
+      return null
+    case 'reveil':
+      return enQuestion && c.defausse === 0 ? 'Ta défausse est vide' : null
     case 'coup-d-oeil':
     case 'sagesse':
     case 'tout-ou-rien':
-    case 'augure':
     case 'presage':
     case 'voyance':
     case 'revelation':
@@ -2755,7 +3452,8 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
     case 'feu-d-artifice':
       return c.defausse > 0 ? null : 'Ta défausse est vide'
     case 'abysses':
-      return c.courage > COUT_DES_ABYSSES ? null : `Il te faut plus de ${COUT_DES_ABYSSES} de courage pour le poser`
+      // Dans la question au centre, aucune carte ne se paie en courage.
+      return enQuestion || c.courage > COUT_DES_ABYSSES ? null : `Il te faut plus de ${COUT_DES_ABYSSES} de courage pour le poser`
     default:
       return null
   }
@@ -2887,8 +3585,11 @@ export function apercuDuTour(o: {
   serie?: number
   /** Son doute au moment de répondre, les cartes du tour comprises (la version 9). */
   doute?: number
+  /** L'aube posée ne s'est pas éteinte (la question au centre, v10). */
+  aube?: boolean
 }): ApercuDuTour {
   const t = o.tour
+  if (o.v >= VERSION_DE_LA_QUESTION_AU_CENTRE) return apercuEnQuestion({ ...o, tour: { ...t, surLaQuestion: t.surLaQuestion ?? [] } })
   const mise = enJeu(t)
   const doute = o.doute ?? 0
   // Le doute ronge d'abord, juste ou faux : ce qui en reste, la réponse le brise — tombé, il ne frappe plus.
@@ -2925,6 +3626,53 @@ export function apercuDuTour(o: {
       ...(tombeDuDoute && { tombe: true as const }),
     },
     ...(ronge > 0 && { doute: ronge }),
+  }
+}
+
+/**
+ * L'aperçu d'un tour de la question au centre (v10), en crans : ce qu'il perd
+ * si tu as juste — au premier mot d'un dévoilement, et au dernier —, s'il
+ * tombe, ce que rapporte le pari ; l'attaque si tu te trompes. La règle même du
+ * verdict (`cransDUneBonneReponse`, `attaqueEnQuestion`) : la carte levée le
+ * promet, le pli le fait.
+ */
+function apercuEnQuestion(o: {
+  tour: Pick<TourDeRencontre, 'charge' | 'mise' | 'jouees' | 'surLaQuestion'>
+  pouvoirs: readonly string[]
+  sceaux: number
+  frappe: number
+  question: { reponses: number; forme: FormeDEscale; categorie: string | null }
+  fetiche?: string
+  mots?: number
+  trouvees?: number
+  serie?: number
+  aube?: boolean
+}): ApercuDuTour {
+  const t = o.tour
+  const crans = (devoile?: { mots: number; sur: number }) =>
+    cransDUneBonneReponse({
+      question: { reponses: o.question.reponses, forme: o.question.forme, ...(devoile && { devoile }) },
+      tour: t,
+      pouvoirs: o.pouvoirs,
+      fetiche: o.fetiche,
+      categorie: o.question.categorie,
+      trouvees: o.trouvees,
+      serie: o.serie,
+      aube: o.aube,
+    })
+  const auDernier = crans()
+  const auPremier = o.question.forme === 'devoilement' && (o.mots ?? 0) > 1 ? crans({ mots: 1, sur: o.mots! }) : undefined
+  const frappe = attaqueEnQuestion({ frappe: o.frappe, tour: t, pouvoirs: o.pouvoirs })
+  const plus = siJuste(t.jouees, o.pouvoirs)
+  return {
+    juste: {
+      brises: auDernier,
+      ...(auPremier !== undefined && auPremier !== auDernier && { auPremierMot: auPremier }),
+      tombe: Math.max(auDernier, auPremier ?? 0) >= o.sceaux,
+      ecus: enJeu(t) > 0 ? gainDuPariEnQuestion(t, o.pouvoirs) : 0,
+      ...(plus.ecus > 0 && { ecusDesCartes: plus.ecus }),
+    },
+    faux: { frappe, absorbee: 0, perdu: frappe, ecus: pariPerdu(t), contre: 0, charge: false },
   }
 }
 
@@ -2989,4 +3737,13 @@ export interface VueDeLaRencontre {
    */
   questionDuTour?: QuestionDuTour
   derniereFrappe: number
+  /**
+   * La question au centre (v10) : `sceaux` et `max` sont ses crans — les
+   * bonnes réponses qui le font tomber —, `frappe` son attaque, toujours la
+   * même ; la main est celle de l'acte, et en tient `mainMax` au plus.
+   */
+  crans?: true
+  mainMax?: number
+  /** L'aube posée s'est éteinte à une erreur (v10) : l'aperçu d'une carte levée ne la compte plus. */
+  aubeEteinte?: true
 }

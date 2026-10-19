@@ -83,6 +83,8 @@ interface ApiDeps {
   campagne: CampagneStore
   /** Les rencontres de l'expédition s'ouvrent sur ce serveur (`rencontresOuvertes`, calculé une fois au démarrage). */
   rencontres: boolean
+  /** La question au centre de l'expédition (v10) s'offre au départ sur ce serveur (`questionAuCentreOuverte`, calculé de même). */
+  questionAuCentre: boolean
   /** Les missions du jour et le coffre de la semaine, qui lisent les trois magasins. */
   missions: Missions
   /** L'heure du quiz du jour — celle du serveur, que les tests font passer minuit. */
@@ -151,6 +153,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     profiles: deps.profiles,
     ouverte: expeditionOuverte({ online: deps.online, env: deps.qg.env }),
     rencontres: deps.rencontres,
+    questionAuCentre: deps.questionAuCentre,
   })
   // Ses missions du jour et le coffre de la semaine, de même.
   mountMissions(app, { missions: deps.missions, profiles: deps.profiles })

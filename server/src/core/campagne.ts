@@ -322,6 +322,7 @@ import {
   ecrireLeBilan,
   energieDesActesALAscension,
   lireLeBilan,
+  mainMaxEnQuestion,
   niveauDe,
   regleOuverte,
   renommeeDe,
@@ -335,6 +336,7 @@ import {
   CLAIRVOYANCE_SUR_LA_QUESTION,
   FIOLES_MAX,
   POUVOIRS_QUI_EFFACENT,
+  VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_JEU_COMPLET,
   baseDe,
@@ -6805,9 +6807,11 @@ export class CampagneStore {
    * numéro et ses gardiens, annoncés avant le départ, que le départ
    * retrouve : la graine de la n-ième expédition d'un profil ne change pas
    * (`graineDe`). Un aller-retour. `rencontres` : le prototype des rencontres
-   * s'offre au départ — hors de la production (`rencontresOuvertes`).
+   * s'offre au départ — hors de la production (`rencontresOuvertes`) ;
+   * `questionAuCentre` : la version 10 aussi (`questionAuCentreOuverte`), et
+   * le codex se lit à son échelle.
    */
-  async pageDeLExpedition(profileId: string, { rencontres = false }: { rencontres?: boolean } = {}): Promise<PageDeLExpedition> {
+  async pageDeLExpedition(profileId: string, { rencontres = false, questionAuCentre = false }: { rencontres?: boolean; questionAuCentre?: boolean } = {}): Promise<PageDeLExpedition> {
     const enRoute = `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`
     const lu = await this.client.batch(
       [
@@ -6829,7 +6833,8 @@ export class CampagneStore {
     const invite = inviteDuJour(jourDe(this.maintenant()))
     const saison = this.saisonDuDepart()
     const gardiens = gardiensDe(graine, siens, invite, saison?.legendaire)
-    const codex = rencontres ? await this.codexLu(lu.slice(5), siens) : undefined
+    const enQuestion = rencontres && questionAuCentre
+    const codex = rencontres ? await this.codexLu(lu.slice(5), siens, versionDuDepart(rencontres, enQuestion)) : undefined
     return {
       expedition: lue ? vueDeLExpedition(lue, plier(lue), siens) : null,
       prochaine: {
@@ -6840,6 +6845,7 @@ export class CampagneStore {
         equipables: LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)),
         ...(saison && { saison: saison.key }),
         ...(rencontres && { rencontres: true as const }),
+        ...(enQuestion && { questionAuCentre: true as const }),
         ...(codex && { codex }),
       },
       passeport: [...tampons].sort(),
@@ -6852,12 +6858,13 @@ export class CampagneStore {
    * chaque exploit qu'il a fait et de chaque légendaire qu'il a —, ses dos
    * de cartes et le plus haut cran de l'Ascension que ses victoires ont
    * ouvert. Les bilans refaits du pli s'écrivent ici, une fois : ratés, ils
-   * se refont à la lecture suivante, rien de plus.
+   * se refont à la lecture suivante, rien de plus. À la version du départ
+   * qu'il figera : la question au centre (v10) a son échelle et ses styles.
    */
-  private async codexLu(lectures: readonly ResultSet[], siens: ReadonlySet<string>): Promise<CodexDeLaPage> {
+  private async codexLu(lectures: readonly ResultSet[], siens: ReadonlySet<string>, v: number): Promise<CodexDeLaPage> {
     const { renommee, exploits, ascension, aEcrire } = renommeeLue(lectures)
     await this.ecrireLesBilansRefaits(aEcrire)
-    return { renommee, ...codexDuNiveau(niveauDe(renommee), LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)), exploits), ascension }
+    return { renommee, ...codexDuNiveau(niveauDe(renommee), LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)), exploits, v), ascension }
   }
 
   /**
@@ -6877,19 +6884,22 @@ export class CampagneStore {
    * les jokers rejoignent le paquet de départ. Une à la fois : celle qu'il a
    * laissée l'attend. `rencontres` : les rencontres (v5 et suivantes), là où
    * la route les accorde — avec son style, sa catégorie fétiche, le dos de son
-   * paquet et son cran de l'Ascension.
+   * paquet et son cran de l'Ascension ; `questionAuCentre` : en version 10, là
+   * où la route l'accorde.
    */
   partirEnExpedition(
     profileId: string,
     equipeeBrute: unknown = [],
     {
       rencontres = false,
+      questionAuCentre = false,
       fetiche,
       dos,
       ascension: cran,
       style: styleDemande,
-    }: { rencontres?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown; style?: unknown } = {},
+    }: { rencontres?: boolean; questionAuCentre?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown; style?: unknown } = {},
   ): Promise<VueDeLExpedition> {
+    const v = versionDuDepart(rencontres, questionAuCentre)
     const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
     if (!equipee) return Promise.reject(new Error('Ton équipe ne se lit pas : recharge la page'))
     if (rencontres && fetiche !== undefined && !(CATEGORIES as readonly unknown[]).includes(fetiche)) return Promise.reject(new Error('Choisis ta catégorie fétiche parmi les douze'))
@@ -6926,7 +6936,7 @@ export class CampagneStore {
       // Aux rencontres (v7), plus d'équipe à choisir : l'invité du jour prête sa carte, ses légendaires ouvrent la leur au codex.
       const refus = rencontres ? null : refusDeLEquipee(equipee, siens, invite)
       if (refus) throw new Error(refus)
-      const codex = rencontres ? await this.codexLu(lu.slice(4), siens) : undefined
+      const codex = rencontres ? await this.codexLu(lu.slice(4), siens, v) : undefined
       // Sa saison : sa fête — si une carte peut la tirer — tient la moitié des thèmes pointus, son légendaire garde l'acte 3.
       const saison = this.saisonDuDepart()
       const fete = saison && sujets.includes(saison.key) ? saison.key : undefined
@@ -6944,8 +6954,9 @@ export class CampagneStore {
       const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
       const depart: DepartDExpedition = {
         // Les rencontres partent en version 9 : le codex — ses cartes, ses règles —, figé avec elle, le jeu complet —
-        // l'épique dans ses offres, l'énergie de chaque acte —, et les huit familles — le doute, le courage en jeu.
-        v: rencontres ? VERSION_DES_HUIT_FAMILLES : 4,
+        // l'épique dans ses offres, l'énergie de chaque acte —, et les huit familles — le doute, le courage en jeu ; en
+        // version 10 là où la question au centre s'ouvre — la question d'abord, l'adversaire en crans, la main de l'acte.
+        v,
         graine,
         numero: numeroDeLaCarte(graine),
         gardiens: gardiensDe(graine, siens, invite, saison?.legendaire),
@@ -8054,13 +8065,21 @@ function versSerie(r: Record<string, unknown>): Serie {
 }
 
 /** Le départ qu'une expédition a gardé ; null : pas une expédition, ou illisible. */
+/**
+ * La version d'un départ neuf : la question au centre là où elle s'ouvre
+ * (`questionAuCentreOuverte`), les huit familles aux rencontres, les écus aux
+ * règles d'avant elles.
+ */
+const versionDuDepart = (rencontres: boolean, questionAuCentre: boolean): DepartDExpedition['v'] =>
+  rencontres ? (questionAuCentre ? VERSION_DE_LA_QUESTION_AU_CENTRE : VERSION_DES_HUIT_FAMILLES) : 4
+
 function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
   if (typeof brut !== 'string') return null
   try {
     const lu = JSON.parse(brut) as DepartDExpedition
     // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus, la 4 sans rencontres,
-    // la 6 sans codex, la 7 sans le jeu complet, la 8 sans les huit familles ; une version inconnue ne se lit pas.
-    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
+    // la 6 sans codex, la 7 sans le jeu complet, la 8 sans les huit familles, la 9 sans la question au centre ; une version inconnue ne se lit pas.
+    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
   } catch {
     return null
   }
@@ -8559,6 +8578,13 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
         ...(d.dos && { dos: d.dos }),
         // Son cran de l'Ascension, tel que le pli le lit : la barre le dit, et ce que rendent le campement et la source.
         ...(e.ascension > 0 && { ascension: e.ascension }),
+        // La question au centre (v10) : la main de l'acte, que le plan montre entre deux rencontres — la pioche comptée, son ordre est au serveur.
+        ...(e.cycle && {
+          main: e.cycle.main,
+          pioche: e.cycle.pioche.length,
+          defausse: e.cycle.defausse,
+          mainMax: mainMaxEnQuestion(!!r?.pouvoirs.includes('trois-tetes'), e.ascension),
+        }),
       },
     }),
     ...(r && { rencontre: vueDeLaRencontre(d, e, posees) }),
