@@ -15,7 +15,7 @@ import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { createECDH, randomBytes } from 'node:crypto'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import express from 'express'
@@ -144,6 +144,63 @@ test('le bandeau s’écrit au-dessus de la racine, échappé : l’administrate
   const pourLui = ecrireLeService(PAGE, { bandeau: null, fermees: [], bientot: ['expedition'], admin: true, avantPremiere: [], ici: null })
   assert.match(pourLui, /<meta name="maintenance-passe" content="oui">/)
   assert.doesNotMatch(pourLui, /bandeau-du-service/)
+})
+
+test('le bandeau passe au-dessus du décor de chaque thème — leurs couches fixes recouvraient tout ce qui n’est pas dans la racine', () => {
+  // Sous Le Sommet, la montagne peinte couvrait le bandeau : il ne restait que
+  // sa place, une barre vide (le retour du propriétaire du 19 octobre 2026). Un
+  // thème peint son décor en couches fixes, au niveau 0 (`html::before`,
+  // `body::before`, `body::after`), et remonte `#root` au niveau 1 ; le bandeau,
+  // posé avant `#root`, restait dans le flux, sous elles.
+  const lire = (fichier: string) => readFileSync(new URL(`../../client/src/${fichier}`, import.meta.url), 'utf8')
+  const regle = /\n\.bandeau-du-service \{([^}]*)\}/.exec(lire('styles.css'))?.[1] ?? ''
+  assert.match(regle, /position: relative;/, 'sans position, son niveau ne vaut rien')
+  const niveau = Number(/z-index: (-?\d+);/.exec(regle)?.[1] ?? Number.NaN)
+  assert.ok(niveau >= 1, `le bandeau au niveau ${niveau}`)
+  const fautes: string[] = []
+  const themes = readdirSync(new URL('../../client/src/themes/', import.meta.url)).filter(f => f.endsWith('.css'))
+  assert.ok(themes.length >= 30, `${themes.length} feuilles de thème`)
+  for (const fichier of themes) {
+    for (const [, selecteurs, corps] of lire(`themes/${fichier}`).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      // Les couches du décor, posées hors de la racine : sur la page, sur son corps.
+      const decor = selecteurs.split(',').some(s => /(\]|html|body)::(before|after)$/.test(s.trim()))
+      const z = /z-index:\s*(-?\d+)/.exec(corps)
+      if (decor && z && Number(z[1]) >= niveau) fautes.push(`${fichier} : ${selecteurs.trim()} au niveau ${z[1]}`)
+    }
+  }
+  assert.deepEqual(fautes, [])
+})
+
+test('une fois la page là, le bandeau se reprend dans la racine, tel que le serveur l’a écrit : le voile d’un thème peint ne le couvre plus', async () => {
+  // Hors de `#root`, le voile de nuit du Sommet — une couche de `#root`, que
+  // le thème remonte d'un niveau — l'effaçait encore : une barre sombre.
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const composant = new URL('../../client/src/components/BandeauxDuService.tsx', import.meta.url).href
+  const avant = (globalThis as { document?: unknown }).document
+  const poses = [
+    { className: 'bandeau-du-service', textContent: 'Le quiz du jour est en panne : on répare' },
+    { className: 'bandeau-du-service bandeau-administrateur', textContent: 'Le quiz du jour est en maintenance pour les joueurs' },
+  ]
+  try {
+    // Ceux d'avant la racine seulement : l'aperçu du QG en porte la classe, dans la page.
+    Object.assign(globalThis, { document: { querySelectorAll: (sel: string) => (sel === 'body > .bandeau-du-service' ? poses : []) } })
+    const { BandeauxDuService } = await import(`${composant}?poses`)
+    assert.equal(
+      renderToStaticMarkup(React.createElement(BandeauxDuService)),
+      '<div><div class="bandeau-du-service" role="status">Le quiz du jour est en panne : on répare</div>' +
+        '<div class="bandeau-du-service bandeau-administrateur" role="status">Le quiz du jour est en maintenance pour les joueurs</div></div>',
+    )
+  } finally {
+    Object.assign(globalThis, { document: avant })
+  }
+  // Sans bandeau posé — une soirée, l'écran commun, `npm run dev` —, rien.
+  const { BandeauxDuService: aucun } = await import(`${composant}?aucun`)
+  assert.equal(renderToStaticMarkup(React.createElement(aucun)), '')
+  // La racine le rend avant tout le reste, hors du filet : une page qui tombe le garde.
+  assert.match(
+    readFileSync(new URL('../../client/src/main.tsx', import.meta.url), 'utf8'),
+    /racine\.render\(\s*<React\.StrictMode>\s*\{\/\*[^*]*\*\/\}\s*<BandeauxDuService \/>\s*<Filet>/,
+  )
 })
 
 test('une page bientôt disponible n’est fermée qu’à qui attend : ses testeurs et l’administrateur y entrent', () => {

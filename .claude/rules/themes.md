@@ -41,7 +41,11 @@ paths:
   sous empreinte —, et son aperçu (`scripts/apercus-themes.ts <clé>`).
   `design.test.ts` mesure ses contrastes aux seuils d'Ivoire. Un thème qui se
   gagne prend `gagne` (`par`, `ou`) et la rareté légendaire ; un thème qui lit
-  l'heure rejoint `SUIVENT_L_HEURE`. Velours s'écrit `null`, partout.
+  l'heure rejoint `SUIVENT_L_HEURE`. Velours s'écrit `null`, partout. Son
+  décor posé hors de `#root` (`html::before`, `body::before`, `body::after`)
+  reste sous le niveau 1 : le bandeau du QG, que le serveur pose avant la
+  racine, passe au-dessus le temps du chargement (`maintenance.test.ts`,
+  règle `qg.md`).
 - **Une règle qui peindrait une carte à fond** ou ce qu'elle montre —
   `.card`, `.label`, `.niveau`, un halo sur `.muted` — s'en écarte par
   `:where(:not(.carte-fond, .carte-fond *))` (sans rien changer à sa
