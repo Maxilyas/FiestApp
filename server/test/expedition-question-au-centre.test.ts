@@ -551,6 +551,7 @@ interface PiecesEnQuestion {
   Adversaire: Composant
   MainDeRencontre: Composant
   CarteLevee: Composant
+  AvantApres: Composant
   FeuilleDesRegles: Composant
   VersionDesCartes: React.Context<number>
 }
@@ -612,6 +613,11 @@ test('à l’écran, la main : sans énergie ni coût au coin ; à l’annonce, 
   assert.match(texte(html), /La question sous les yeux/)
   assert.doesNotMatch(texte(html), /énergie/)
   assert.doesNotMatch(texte(html), JARGON)
+  // L'amélioration, avant et après (au campement, à l'échoppe) : ses phrases à la version 10, ni coût ni « gratuite ».
+  const { AvantApres } = await piecesEnQuestion()
+  const avantApres = texte(await rendreEnQuestion(AvantApres, { cle: 'concentration' }))
+  assert.match(avantApres, /l’adversaire perd un cran de plus\..*la question vue.*deux sur une question difficile/)
+  assert.doesNotMatch(avantApres, /énergie|gratuite/i)
 })
 
 test('les règles de la question au centre : la question d’abord, les crans, une carte par question, la main de l’acte et sa défausse ; le pari et ses cartes ; cinq styles ; ni énergie, ni bouclier', async () => {

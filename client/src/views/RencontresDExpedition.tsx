@@ -1029,9 +1029,11 @@ export function AvantApres({ cle }: { cle: string }) {
  * Une carte de l'avant et de l'après, et dessous ce qu'elle fait : sa phrase,
  * puis son coût, quand elle se joue, et si elle ne sert qu'une fois — une
  * amélioration « Gratuite » ou qui la fait revenir garde la même phrase, et
- * c'est dessous qu'elle change.
+ * c'est dessous qu'elle change. À la version de l'expédition : la question au
+ * centre (v10) ne dit ni coût ni « une fois », et ses moments sont les siens.
  */
 function CeQuElleFait({ c }: { c: CarteDeRencontre }) {
+  const v = useContext(VersionDesCartes)
   const fois = c.unique ? 'une fois par expédition' : c.epuisement ? 'une fois par rencontre' : null
   return (
     <div className="exp-avant-apres-carte">
@@ -1039,7 +1041,7 @@ function CeQuElleFait({ c }: { c: CarteDeRencontre }) {
       <p className="exp-avant-apres-dit">
         <span className="sr-only">{`${c.nom} : `}</span>
         <span>{espacesFines(c.effet)}</span>
-        <span className="muted small">{espacesFines([coutDit(c), MOMENT_COURT[c.moment], fois].filter(Boolean).join(' · '))}</span>
+        <span className="muted small">{espacesFines([coutDit(c, v), momentCourt(c.moment, v), fois].filter(Boolean).join(' · '))}</span>
       </p>
     </div>
   )
