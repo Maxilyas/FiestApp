@@ -34,7 +34,7 @@ import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
 import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
-import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, releve } from './core/pouls'
+import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, ramasseMiettes, releve } from './core/pouls'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
 import { clientDistant, transportDeLaBase } from './core/distante'
 import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
@@ -876,9 +876,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
     corps.maxPlayers = maxPlayersCeiling
     mesurer('mémoire', () => {
       const memoire = process.memoryUsage()
+      // Comment V8 ramasse ses miettes, et le tas qu'il s'accorde : la commande
+      // de démarrage les règle — pour voir qu'elle a pris (`ramasseMiettes`).
+      const { unFil, reducteur, tasMaxMo } = ramasseMiettes()
       return {
         rssMo: Math.round(memoire.rss / 1024 / 1024),
-        memoire: { tasMo: Math.round(memoire.heapUsed / 1024 / 1024), connexions: io.engine.clientsCount },
+        memoire: { tasMo: Math.round(memoire.heapUsed / 1024 / 1024), tasMaxMo, ramasseMiettes: { unFil, reducteur }, connexions: io.engine.clientsCount },
       }
     })
     mesurer('charge', () => ({ charge: charge.lire() }))

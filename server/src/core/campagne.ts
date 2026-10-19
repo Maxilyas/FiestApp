@@ -12,6 +12,7 @@ import {
   partDeLaCategorie,
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
+import { rendreLaMain } from './tourniquet'
 import { DejaPrises, type Intitule } from './jumelles'
 import {
   CHANCES_PAR_TRANCHE,
@@ -499,6 +500,22 @@ interface AdversaireGarde {
   simule?: true
 }
 
+/**
+ * La mesure des difficultés : les comptes du journal, relus au plus toutes
+ * les dix minutes (`brutes`, et `premieres` pour les familles), et ce que
+ * les familles en font pour la base d'où elle a été tirée (`parQuestion`,
+ * refait quand la base change).
+ */
+interface MesureGardee {
+  a: number
+  brutes: Map<string, { justes: number; total: number }>
+  premieres: Map<string, { justes: number; total: number }>
+  base: BaseDeLaCampagne | null
+  parQuestion: ReadonlyMap<string, MesureDUneQuestion>
+  /** Sa suivante est partie en fond (`MESURE_EN_AVANCE_MS`) : une fois, même ratée — une base muette ne se fait pas relire à chaque requête. */
+  relueEnFond?: boolean
+}
+
 /** Un défi entre amis, tel que sa table le garde : son tirage figé, ce qu'il fait jouer, quand il ferme. */
 interface Duel {
   code: string
@@ -807,21 +824,7 @@ export class CampagneStore {
     Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonDeLaNiche' | 'faireGrandir'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
-  /**
-   * La mesure des difficultés : les comptes du journal, relus au plus toutes
-   * les dix minutes (`brutes`, et `premieres` pour les familles), et ce que
-   * les familles en font pour la base d'où elle a été tirée (`parQuestion`,
-   * refait quand la base change).
-   */
-  private mesuresGardees: {
-    a: number
-    brutes: Map<string, { justes: number; total: number }>
-    premieres: Map<string, { justes: number; total: number }>
-    base: BaseDeLaCampagne | null
-    parQuestion: ReadonlyMap<string, MesureDUneQuestion>
-    /** Sa suivante est partie en fond (`MESURE_EN_AVANCE_MS`) : une fois, même ratée — une base muette ne se fait pas relire à chaque requête. */
-    relueEnFond?: boolean
-  } | null = null
+  private mesuresGardees: MesureGardee | null = null
   /** La relecture des comptes en cours (`mesures`). */
   private mesuresEnRoute: Promise<void> | null = null
   /** La famille de chaque question, par base (`famillesDe`). */
@@ -902,8 +905,18 @@ export class CampagneStore {
   private async base(): Promise<BaseDeLaCampagne> {
     const fichiers = await this.fichiers()
     if (this.ajouts.length === 0 && this.corrections.size === 0) return fichiers
-    const f = this.fusion
-    if (f && f.fichiers === fichiers && f.ajouts === this.ajouts.length && f.corrections === this.versionDesCorrections) return f.base
+    const faite = () => {
+      const f = this.fusion
+      return f && f.fichiers === fichiers && f.ajouts === this.ajouts.length && f.corrections === this.versionDesCorrections ? f.base : null
+    }
+    const deja = faite()
+    if (deja) return deja
+    // Refaite à son tour de boucle (`rendreLaMain`) : vingt millisecondes sur
+    // toute la base, que le réveil faisait derrière la lecture des fichiers.
+    // Un autre l'a peut-être faite pendant qu'on attendait.
+    await rendreLaMain()
+    const entreTemps = faite()
+    if (entreTemps) return entreTemps
     const ids = new Set(fichiers.parId.keys())
     const enPlus = this.ajouts.map(a => a.question).filter(q => !ids.has(q.id) && !fichiers.empreintes.has(q.empreinte))
     const base = new BaseDeLaCampagne(appliquerLesCorrections([...fichiers.questions, ...enPlus], this.corrections))
@@ -1301,10 +1314,31 @@ export class CampagneStore {
     // fond qui les fait.
     const garde = perimee ? this.mesuresGardees! : gardee!
     if (garde.base !== base) {
-      garde.parQuestion = mesuresEnFamille(this.famillesDe(base), garde.brutes, garde.premieres)
-      garde.base = base
+      await this.mettreEnFamille(garde, base)
+      // Qui l'attendait repart à son tour : son tirage, sa série de référence
+      // ne suivent pas les familles d'un bloc.
+      await rendreLaMain()
     }
     return garde.parQuestion
+  }
+
+  /**
+   * Les familles de la mesure (`mesuresEnFamille`) pour cette base, chacune de
+   * ses deux étapes à son tour de boucle (`rendreLaMain`) : la famille de
+   * chaque question, une fois par base, puis la part de chacune — sept et
+   * douze millisecondes sur toute la base, qui suivaient d'un bloc la lecture
+   * des comptes, la préparation des tirages et la série de référence derrière
+   * elles. Un autre les a peut-être faites pendant qu'on attendait.
+   */
+  private async mettreEnFamille(garde: MesureGardee, base: BaseDeLaCampagne): Promise<void> {
+    if (!this.famillesGardees.has(base)) {
+      await rendreLaMain()
+      this.famillesDe(base)
+    }
+    await rendreLaMain()
+    if (garde.base === base) return
+    garde.parQuestion = mesuresEnFamille(this.famillesDe(base), garde.brutes, garde.premieres)
+    garde.base = base
   }
 
   /**
@@ -1319,6 +1353,8 @@ export class CampagneStore {
       .then(async () => {
         if (this.ferme) return
         const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
+        // Sa préparation à son tour de boucle, pas derrière les familles.
+        await rendreLaMain()
         if (!this.ferme) this.tirage(jouables, mesure)
       })
       .catch(e => {
@@ -1436,15 +1472,16 @@ export class CampagneStore {
     const [base, jouables, mesure, lu] = await Promise.all([this.base(), this.jouables(), this.mesures(), this.client.execute(LECTURE_DU_SAVOIR)])
     const depart = this.savoir?.modele ?? null
     const joueurs = await premieresDeTous(lu.rows)
-    const modele = await ajusterSansBloquer(
-      {
-        questions: new Map(base.questions.map(q => [q.id, q.meta])),
-        joueurs,
-        forceDeDepart: this.referencePour(jouables, mesure, depart).forceDeDepart,
-        depart,
-      },
-      () => this.ferme,
-    )
+    // Chaque étape à son tour de boucle (`rendreLaMain`) — les questions du
+    // modèle, la préparation du tirage, la série de référence — : au réveil,
+    // elles suivaient d'un bloc les familles de la mesure.
+    await rendreLaMain()
+    const questions = new Map(base.questions.map(q => [q.id, q.meta]))
+    await rendreLaMain()
+    this.tirage(jouables, mesure)
+    await rendreLaMain()
+    const { forceDeDepart } = this.referencePour(jouables, mesure, depart)
+    const modele = await ajusterSansBloquer({ questions, joueurs, forceDeDepart, depart }, () => this.ferme)
     if (modele) this.savoir = { a: this.maintenant(), modele, dureeMs: Math.round(performance.now() - debut) }
   }
 
@@ -1600,13 +1637,18 @@ export class CampagneStore {
    */
   private async preparerEnFond(): Promise<void> {
     const jouables = await this.jouables()
+    // Chaque tranche à son tour de boucle (`rendreLaMain`), la première aussi :
+    // la base vient d'arriver, ses index derrière elle.
     for (let debut = 0; debut < jouables.length && !this.ferme; debut += SUJETS_PAR_TRANCHE) {
+      await rendreLaMain()
       for (let i = debut; i < Math.min(debut + SUJETS_PAR_TRANCHE, jouables.length); i++) sujetsDeLaQuestion(jouables[i])
-      await new Promise<void>(rendre => setImmediate(rendre))
     }
     if (this.ferme) return
+    await rendreLaMain()
     this.choixDe(jouables)
     const mesure = await this.mesures()
+    // Sa préparation à son tour de boucle (`rendreLaMain`), pas derrière les familles de la mesure.
+    await rendreLaMain()
     if (!this.ferme) this.tirage(jouables, mesure)
   }
 
@@ -4166,6 +4208,9 @@ export class CampagneStore {
       }
       const { vues: sesVues, premieres } = lireLesVues(vues.rows)
       const tirees = this.tirage(jouables, mesure).tirer(sesVues, maintenant)
+      // La série de référence d'Automate à son tour de boucle (`rendreLaMain`) :
+      // à une mesure neuve, elle se refait derrière la préparation du tirage.
+      await rendreLaMain()
       // Placé, il affronte le niveau de sa cote ; avant, celui de ses réponses.
       // Sur un thème, ses écarts de catégorie y jouent : il rate où il rate.
       const automate = this.automatePour(premieres, releve, tirees.map(x => x.question), base, toutes, mesure)
@@ -7564,7 +7609,7 @@ async function premieresDeTous(lignes: readonly Record<string, unknown>[]): Prom
     lues += siennes.size
     if (lues >= CHANCES_PAR_TRANCHE) {
       lues = 0
-      await new Promise<void>(rendre => setImmediate(rendre))
+      await rendreLaMain()
     }
   }
   return joueurs

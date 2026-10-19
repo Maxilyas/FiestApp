@@ -17,8 +17,13 @@ cd server
 node --import tsx ../retours/2026-10-16/reproductions/banc-gel.ts
 # Le même, le serveur au dixième de cœur, comme l'offre gratuite de Render (≈ 15 min, root, cgroup v1).
 GEL=1 node --import tsx ../retours/2026-10-16/reproductions/banc-gel.ts
+# Le même, le ramasse-miettes réglé comme chez l'hébergeur (`DRAPEAUX_DU_RAMASSE_MIETTES`, plus bas).
+GEL=1 node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 --import tsx ../retours/2026-10-16/reproductions/banc-gel.ts
 # Avec le profileur de V8 : les fonctions qui ont pris le processeur (ses propres échantillons coûtent).
 PROFILER=1 node --import tsx ../retours/2026-10-16/reproductions/banc-gel.ts
+# Compilé comme le paquet de production (`npm run build` d'abord : la base vérifiée au build), puis les trous de la boucle.
+node --import tsx ../retours/2026-10-16/reproductions/compiler.ts ../retours/2026-10-16/reproductions/banc-gel.ts ../export/banc/banc-gel.mjs
+PROFILER=1 node ../export/banc/banc-gel.mjs
 # Puis, sur la base qu'il a laissée : les allers-retours de chaque route, et son processeur rangé par couche.
 node --import tsx ../retours/2026-10-16/reproductions/banc-gel-profil.ts
 ```
@@ -48,6 +53,45 @@ l'offre gratuite —, et le faux Turso en ressort : c'est la base distante,
 200 ms de processeur y prenaient 600 ms de mur sans bride, 4,8 s bridées.
 Ses gels sont donc plus longs que ceux de Render ; les rapports entre
 étapes, avant et après une correction, restent justes.
+
+**Le ramasse-miettes au dixième de cœur** (le 19 octobre 2026, un passage
+bridé par réglage) — la plus longue pause, et le plus long gel de la boucle :
+
+| Étape | Défaut | Base allégée de 9 Mo | Un seul fil | Un seul fil, sans réducteur |
+|---|---|---|---|---|
+| Préchauffage (48 s) | 703 ms · 2 587 ms | 303 ms · 4 095 ms | 194 ms · 2 587 ms | 192 ms · 2 203 ms |
+| Après 31 min, le calme et les duels | 1 900 ms · 1 899 ms | 1 901 ms · 1 898 ms | 605 ms · 696 ms | 99 ms · 523 ms |
+| Après 62 min, un dé | 1 000 ms · 1 402 ms | 100 ms · 1 300 ms | 102 ms · 1 501 ms | 97 ms · 1 211 ms |
+| Quatre accueils de front | 200 ms · 2 392 ms (9,8 s) | 195 ms · 596 ms (7,1 s) | 297 ms · 2 493 ms (10 s) | 100 ms · 490 ms (3,8 s) |
+
+La pause de 1,9 s tombait dans un moment calme, juste après une rafale
+d'allocations : le réducteur de mémoire de V8, qui recompacte un tas qu'il
+croit de huit gigaoctets — Node 22 ne lui dit pas les 512 Mo du conteneur.
+La base allégée (sans l'explication, la source, les champs de relecture ni
+la description des entités) ne la change pas ; le reste des gels — 1,2 à
+2,6 s au préchauffage et au dé — est du calcul d'un seul tenant, pas du
+ramasse-miettes. Sans réducteur, le tas du banc monte à 230–275 Mo au lieu
+de 160–185 : d'où le plafond de la commande de démarrage
+(`--max-old-space-size=320`, règle `exploitation.md`).
+
+**Les trous de la boucle, compilé comme en production** (le 19 octobre 2026,
+`compiler.ts`, sans bride) : sous tsx, la base se relit et se vérifie au
+réveil — le processeur du juge, que la production ne paie pas —, et chaque
+fonction passe par `__name`. Compilé, la base vérifiée au build se relit
+telle quelle, et `PROFILER=1` dit les plus longs trous de la boucle (une
+minuterie toutes les 2 ms) et ce que le profileur a vu tourner pendant
+chacun. Les plus longs, avant et après le tourniquet (`rendreLaMain`,
+`server/src/core/tourniquet.ts`) — une étape de fond par tour de boucle :
+
+| Étape | Avant | Après |
+|---|---|---|
+| Préchauffage après un réveil | 131 ms — les index de la base, les familles de la mesure, la préparation des tirages, la série de référence, d'un bloc | 34 ms — les index de la base seuls, ou la première préparation d'un tirage |
+| Un dé tombé sur une mesure périmée | 68 ms — les familles, le tirage, la série de référence d'Automate | 13 ms |
+| Un tirage tombé sur une mesure périmée | 32 ms | 17 ms |
+
+Au dixième de cœur de l'hébergeur, un bloc de calcul dure dix fois plus :
+1,3 s de serveur figé au réveil, 0,3 s après. Le processeur, lui, ne change
+pas : le travail est le même, rendu en étapes.
 
 **L'étape 2 — les sujets et le tirage** (`banc-tirage.ts`) : sur la vraie
 base, sans serveur, les sujets de toute la base, la préparation d'un tirage

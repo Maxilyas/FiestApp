@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import type { Server, Socket } from 'node:net'
 import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node:perf_hooks'
+import { getHeapStatistics } from 'node:v8'
 import {
   APPELS_POUR_UNE_LENTE,
   ERREURS_EN_DETAIL,
@@ -728,6 +729,48 @@ export function plafondsDuConteneur(lire: (fichier: string) => string = f => rea
   return {
     processeurPct: processeur === null ? null : Math.round(processeur * 10) / 10,
     memoireMo: memoire === null || memoire >= MEMOIRE_SANS_PLAFOND ? null : Math.round(memoire / 1024 / 1024),
+  }
+}
+
+/**
+ * Ce que la commande de démarrage de l'hébergeur dit au ramasse-miettes (le
+ * banc du 19 octobre 2026, `ramasseMiettes`) : un seul fil — ses fils d'aide
+ * se disputaient le dixième de cœur sans finir plus tôt — ; pas de réducteur
+ * de mémoire — il recompactait le tas au repos, 1,9 s de serveur figé — ; et
+ * le tas plafonné, puisque plus rien ne le recompacte et que V8 ne lit pas les
+ * 512 Mo du conteneur : 320 Mo, quand le serveur en tient 80 à 150 vivants.
+ * `render.yaml` et la mise en ligne la recopient (`ramasse-miettes.test.ts`).
+ */
+export const DRAPEAUX_DU_RAMASSE_MIETTES = ['--single-threaded-gc', '--no-memory-reducer', '--max-old-space-size=320'] as const
+
+/** Comment V8 ramasse ses miettes, tel que la commande de démarrage le lui dit, et le tas qu'il s'accorde. */
+export interface RamasseMiettes {
+  /** Sur le seul fil de la boucle (`--single-threaded-gc`). */
+  unFil: boolean
+  /** Le réducteur de mémoire, qui recompacte le tas au repos (`--no-memory-reducer` l'éteint). */
+  reducteur: boolean
+  /** Le tas que V8 s'accorde, en mégaoctets : `--max-old-space-size`, sinon sa règle — qui ne lit pas le conteneur. */
+  tasMaxMo: number
+}
+
+/**
+ * Le ramasse-miettes de ce processus (le banc du 19 octobre 2026). Au
+ * dixième de cœur de l'hébergeur, V8 ramasse comme sur toute la machine : ses
+ * fils d'aide — quatre, que Node lui donne — se disputent le dixième sans
+ * finir plus tôt, et un tas qu'il croit de huit gigaoctets (il ne lit pas le
+ * conteneur), il le recompacte au repos — une pause de 1,9 s au banc, juste
+ * après le recalcul de la mesure et du modèle du savoir, quand tout semblait
+ * calme. Ce qui le
+ * règle tient dans la commande de démarrage (`NODE_OPTIONS` refuse ces
+ * drapeaux) : `/healthz` et le journal de démarrage disent s'ils ont pris.
+ */
+export function ramasseMiettes(drapeaux: readonly string[] = process.execArgv, tasMax: number = getHeapStatistics().heap_size_limit): RamasseMiettes {
+  // V8 lit `--single_threaded_gc` comme `--single-threaded-gc`, et `--single-threaded` l'emporte.
+  const lus = drapeaux.map(d => d.replace(/_/g, '-'))
+  return {
+    unFil: lus.includes('--single-threaded-gc') || lus.includes('--single-threaded'),
+    reducteur: !lus.includes('--no-memory-reducer') && !lus.includes('--nomemory-reducer'),
+    tasMaxMo: Math.round(tasMax / 1024 / 1024),
   }
 }
 
