@@ -37,6 +37,19 @@ export const RENCONTRES_EN_PRODUCTION = false
 export const COURAGE_MAX = 50
 /** L'inspiration de chaque question : de quoi jouer deux ou trois cartes. L'écran l'appelle « énergie », le mot de tous les jeux. */
 export const INSPIRATION_PAR_QUESTION = 3
+/**
+ * Depuis le jeu complet (v8), l'énergie suit les actes : deux à l'acte 1,
+ * trois ensuite. Trois cartes pour trois d'énergie, presque toutes à 0 ou 1,
+ * se jouaient toutes à chaque question — « on joue toutes les cartes à tous
+ * les tours car ça coûte pas beaucoup d'énergie et du coup y'a aucune
+ * réflexion » (le propriétaire, le 19 octobre 2026). Deux sur trois : on
+ * choisit, l'attaque ou le bouclier ; la main qui grandit (`CARTES_DES_ACTES`)
+ * garde ensuite une carte de plus que ce qu'on paie.
+ */
+export const ENERGIE_DES_ACTES: readonly number[] = [2, 3, 3]
+
+/** L'énergie de chaque question, acte par acte, à la version d'un départ — avant le jeu complet, trois partout. */
+export const energieDesActes = (v: number): number[] => (v >= VERSION_DU_JEU_COMPLET ? [...ENERGIE_DES_ACTES] : ENERGIE_DES_ACTES.map(() => INSPIRATION_PAR_QUESTION))
 /** Les cartes tirées à chaque question (v5) ; ce qu'il n'en joue pas part à la défausse. */
 export const CARTES_PAR_QUESTION = 5
 /**
@@ -65,6 +78,10 @@ export const MISES: readonly number[] = [0, 10, 20, 40]
  * écus : l'échoppe n'était plus un choix.
  */
 export const PART_GAGNEE_D_UNE_MISE = 0.5
+/** Ce que le Flambeur gagne d'écus sur une bonne réponse (le jeu complet) : Pourboire, Cagnotte, Rafle — à part de son pari. */
+export const ECUS_DU_POURBOIRE = 8
+export const ECUS_DE_LA_CAGNOTTE = 5
+export const ECUS_DE_LA_RAFLE = 10
 
 /** Ce qu'une bonne réponse brise, selon la marche de la question : son savoir. */
 export const SAVOIR_DES_MARCHES: Readonly<Record<Niveau, number>> = { facile: 6, moyen: 8, difficile: 11, expert: 14 }
@@ -110,6 +127,34 @@ export const COURAGE_DE_L_AUBE = 3
 export const COUT_DES_ABYSSES = 6
 export const SEUIL_DES_ABYSSES = 20
 export const COURAGE_DES_ABYSSES = 4
+/** Ce que rendent Panacée — une fois par expédition —, Second souffle — une fois par rencontre — et Pansement, sur une bonne réponse (le jeu complet). */
+export const COURAGE_DE_LA_PANACEE = 15
+export const COURAGE_DU_SECOND_SOUFFLE = 6
+export const COURAGE_DU_PANSEMENT = 4
+/** Surmenage (le jeu complet) : ce que l'attaque fait de plus, si l'on se trompe — le prix de ses deux d'énergie. */
+export const FRAPPE_DU_SURMENAGE = 6
+/** Les boucliers du jeu complet : Caméléon à chaque question changée, Cuirasse à chaque question, Astrolabe à chaque indice joué. */
+export const BOUCLIER_DU_CAMELEON = 4
+export const BOUCLIER_DE_LA_CUIRASSE = 3
+export const BOUCLIER_DE_L_ASTROLABE = 3
+/**
+ * Les pouvoirs qui frappent de plus (le jeu complet) : l'Encyclopédie, par
+ * bonne réponse déjà donnée dans la rencontre ; le Prisme, sur chaque bonne
+ * réponse, plus à six choix. Mesurés seuls (`calibrage-rencontres.ts
+ * --cartes`), l'Encyclopédie à 2 pour deux d'énergie et le Prisme à six
+ * choix seulement retiraient au joueur moyen neuf points chacun : on ne
+ * gagnait pas à les prendre.
+ */
+export const ENCYCLOPEDIE_PAR_JUSTE = 3
+export const PRISME_PAR_JUSTE = 2
+export const PRISME_A_SIX_CHOIX = 6
+/**
+ * Représailles : la part de ce que le bouclier pare que l'adversaire perd,
+ * arrondie au-dessus. Entière, pour une d'énergie et toute la rencontre, elle
+ * menait le joueur moyen au bout 91 fois sur cent contre 56 sans rien prendre :
+ * Prudence, la carte de base, devenait une attaque.
+ */
+export const PART_DES_REPRESAILLES = 0.5
 
 /**
  * Une fiole : ce qui ne sert qu'une fois (la proposition du codex — « un
@@ -148,10 +193,27 @@ export const CLAIRVOYANCE_SUR_LA_QUESTION = 'fiole-clairvoyance'
 /** Une offre de cartes : trois, une à prendre ; chaque carte tirée de l'une de ses deux familles, `PART_D_UNE_FAMILLE` chacune, sinon des neutres. */
 export const CARTES_PAR_OFFRE = 3
 export const PART_D_UNE_FAMILLE = 0.4
-/** Les raretés d'une offre : après une rencontre, et — rare plus souvent — après une élite, dans un coffre ou à l'échoppe. */
-export type PoidsDesRaretes = Readonly<Record<'commun' | 'rare' | 'maudit', number>>
+/** Les raretés que tire une offre : l'épique depuis le jeu complet (v8). */
+export type RareteDOffre = 'commun' | 'rare' | 'epique' | 'maudit'
+/**
+ * Les raretés d'une offre : après une rencontre, et — rare plus souvent —
+ * après une élite, dans un coffre ou à l'échoppe. Une rareté absente ne se
+ * tire pas : les poids d'avant le jeu complet n'ont pas d'épique, et une
+ * offre d'alors se rejoue telle qu'elle s'est jouée.
+ */
+export type PoidsDesRaretes = Readonly<Partial<Record<RareteDOffre, number>>>
 export const RARETES_D_UNE_RENCONTRE: PoidsDesRaretes = { commun: 0.6, rare: 0.3, maudit: 0.1 }
 export const RARETES_D_UNE_ELITE: PoidsDesRaretes = { commun: 0.3, rare: 0.6, maudit: 0.1 }
+/**
+ * Depuis le jeu complet (v8) : une épique de temps en temps après une
+ * rencontre, souvent après une élite — « il n'y a vraiment pas beaucoup de
+ * rare / épique dans le jeu » (le 19 octobre 2026). L'acte 1 garde ses
+ * communes (`RARETES_DE_L_ACTE_1_DU_JEU_COMPLET`).
+ */
+export const RARETES_DU_JEU_COMPLET: Readonly<Record<'rencontre' | 'elite', PoidsDesRaretes>> = {
+  rencontre: { commun: 0.55, rare: 0.3, epique: 0.07, maudit: 0.08 },
+  elite: { commun: 0.25, rare: 0.47, epique: 0.2, maudit: 0.08 },
+}
 /**
  * Depuis la version 6, les rares attendent : à l'acte 1, une rencontre ne
  * propose que des communes, une élite, un coffre ou l'échoppe des communes et
@@ -163,9 +225,15 @@ export const RARETES_DE_L_ACTE_1: Readonly<Record<'rencontre' | 'elite', PoidsDe
   rencontre: { commun: 1, rare: 0, maudit: 0 },
   elite: { commun: 0.6, rare: 0.4, maudit: 0 },
 }
+/** L'acte 1 du jeu complet (v8) : des communes après une rencontre ; une élite, un coffre, l'échoppe, une rare souvent, une épique parfois. */
+export const RARETES_DE_L_ACTE_1_DU_JEU_COMPLET: Readonly<Record<'rencontre' | 'elite', PoidsDesRaretes>> = {
+  rencontre: { commun: 1 },
+  elite: { commun: 0.55, rare: 0.37, epique: 0.08 },
+}
 
 /** Les raretés d'une offre — d'une rencontre, sinon d'une élite, d'un coffre, de l'échoppe —, à cet acte et à la version d'un départ. */
 export function raretesDeLOffre(v: number, acte: number, quelle: 'rencontre' | 'elite'): PoidsDesRaretes {
+  if (v >= VERSION_DU_JEU_COMPLET) return acte <= 0 ? RARETES_DE_L_ACTE_1_DU_JEU_COMPLET[quelle] : RARETES_DU_JEU_COMPLET[quelle]
   if (v >= 6 && acte <= 0) return RARETES_DE_L_ACTE_1[quelle]
   return quelle === 'rencontre' ? RARETES_D_UNE_RENCONTRE : RARETES_D_UNE_ELITE
 }
@@ -190,7 +258,12 @@ export interface CarteDeRencontre {
   cout: number
   moment: MomentDUneCarte
   famille: FamilleDeCartes
-  rarete: 'commun' | 'rare' | 'maudit' | 'legendaire'
+  /**
+   * Sa rareté — l'épique depuis le jeu complet (`VERSION_DU_JEU_COMPLET`) :
+   * entre la rare et la légendaire, la carte autour de laquelle un paquet se
+   * construit. Une maudite est forte et coûte.
+   */
+  rarete: 'commun' | 'rare' | 'epique' | 'maudit' | 'legendaire'
   /**
    * Une phrase, qui commence par ce qu'elle fait — en mots de tous les jours :
    * « l'adversaire perd », « bouclier », « pari ». « Je veux que ce soit très
@@ -225,6 +298,14 @@ export interface CarteDeRencontre {
    * départ d'avant se rejoue à ses chiffres d'alors (`carteALaVersion`).
    */
   avantLeCodex?: Partial<Pick<CarteDeRencontre, 'cout' | 'effet' | 'resume' | 'valeur'>>
+  /**
+   * La version du départ qui la connaît : venue avec le jeu complet, elle
+   * n'entre jamais dans les offres d'un départ d'avant — rejouées, elles
+   * tireraient une autre carte sous les pieds de qui joue.
+   */
+  depuis?: number
+  /** Jouée, elle quitte son paquet : une fois par expédition (Panacée). */
+  unique?: true
 }
 
 /**
@@ -240,6 +321,17 @@ export interface CarteDeRencontre {
  * Bibliothèque frappe sur toutes.
  */
 export const VERSION_DU_CODEX = 7
+
+/**
+ * La version du départ qui joue le jeu complet (le 19 octobre 2026 : « Il n'y
+ * a vraiment pas beaucoup de rare / épique dans le jeu comme carte, cela donne
+ * pas beaucoup de diversité. Tu pourrais pas donner un jeu complet ? ») : huit
+ * cartes par famille — trois communes, trois rares, deux épiques —, des
+ * neutres de plus, la rareté épique dans les offres ; et l'énergie de l'acte 1
+ * à deux (`ENERGIE_DES_ACTES` : « on joue toutes les cartes à tous les tours
+ * car ça coûte pas beaucoup d'énergie et du coup y'a aucune réflexion »).
+ */
+export const VERSION_DU_JEU_COMPLET = 8
 
 /** Le paquet de tous, et les neutres que les offres proposent. */
 const NEUTRES: readonly CarteDeRencontre[] = [
@@ -270,10 +362,24 @@ const NEUTRES: readonly CarteDeRencontre[] = [
     valeur: '5 s',
   },
   { cle: 'detour', nom: 'Le détour', cout: 0, moment: 'route', famille: 'neutre', rarete: 'commun', effet: 'Ton pas suivant peut aller à n’importe quelle escale de l’étage du dessus.', resume: 'Va où tu veux' },
+  // Le jeu complet (v8) : une attaque qu'on joue en voyant la question — la Concentration de qui sait.
+  {
+    cle: 'evidence',
+    nom: 'Évidence',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'neutre',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Une fois la question vue : si tu réponds juste, l’adversaire perd 4 de plus.',
+    resume: '+4 si juste',
+    valeur: '+4',
+  },
   {
     cle: 'double-chance',
     nom: 'Double chance',
-    cout: 2,
+    // Une d'énergie depuis le jeu complet : à deux, elle prenait toute la question de l'acte 1, et retirait six points au joueur moyen qui la prenait.
+    cout: 1,
     moment: 'reflexe',
     famille: 'neutre',
     rarete: 'rare',
@@ -283,6 +389,57 @@ const NEUTRES: readonly CarteDeRencontre[] = [
     resume: '2 réponses',
   },
   { cle: 'sursis', nom: 'Sursis', cout: 2, moment: 'preparation', famille: 'neutre', rarete: 'rare', epuisement: true, effet: 'Si tu te trompes, l’adversaire ne t’attaque pas.', resume: 'Erreur gratuite' },
+  {
+    cle: 'meditation',
+    nom: 'Méditation',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'neutre',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    epuisement: true,
+    effet: '+1 d’énergie pour cette question, et tu tires une carte de plus.',
+    resume: 'Énergie et carte',
+    valeur: '+1',
+  },
+  {
+    cle: 'sang-froid',
+    nom: 'Sang-froid',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'neutre',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Une fois la question vue : bouclier 4 — et si tu réponds juste, l’adversaire perd 4 de plus.',
+    resume: 'Bouclier 4 et +4',
+    valeur: '4',
+  },
+  {
+    cle: 'panacee',
+    nom: 'Panacée',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'neutre',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    epuisement: true,
+    unique: true,
+    effet: `Tu reprends ${COURAGE_DE_LA_PANACEE} de courage. Jouée, elle quitte ton paquet.`,
+    resume: `+${COURAGE_DE_LA_PANACEE} courage`,
+    valeur: `+${COURAGE_DE_LA_PANACEE}`,
+  },
+  {
+    cle: 'maitrise',
+    nom: 'Maîtrise',
+    cout: 2,
+    moment: 'pouvoir',
+    famille: 'neutre',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Pour toute la rencontre : +1 d’énergie à chaque question, celle-ci comprise.',
+    resume: '+1 énergie',
+    valeur: '+1',
+  },
   {
     cle: 'tout-ou-rien',
     nom: 'Tout ou rien',
@@ -307,6 +464,19 @@ const NEUTRES: readonly CarteDeRencontre[] = [
     resume: 'Tout ×2',
     valeur: '×2',
   },
+  {
+    cle: 'surmenage',
+    nom: 'Surmenage',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'neutre',
+    rarete: 'maudit',
+    maudit: true,
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `+2 d’énergie pour cette question, et tu tires une carte. Mais si tu te trompes, son attaque fait ${FRAPPE_DU_SURMENAGE} de plus.`,
+    resume: 'Énergie, risqué',
+    valeur: '+2',
+  },
 ]
 
 /**
@@ -328,6 +498,30 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     avantLeCodex: { effet: 'Si la question est de ta catégorie fétiche et que tu réponds juste, l’adversaire perd 5 de plus.', resume: '+5 si fétiche', valeur: '+5' },
   },
   {
+    cle: 'savoir-faire',
+    nom: 'Savoir-faire',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'erudit',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Si tu réponds juste, l’adversaire perd 4 de plus — 7 si la question n’est pas facile.',
+    resume: '+4 ou +7',
+    valeur: '+4',
+  },
+  {
+    cle: 'memoire',
+    nom: 'Mémoire',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'erudit',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Une fois la question vue : si tu réponds juste, l’adversaire perd 3 de plus, et tu tires une carte de plus à la question suivante.',
+    resume: '+3, +1 carte',
+    valeur: '+3',
+  },
+  {
     cle: 'bibliotheque',
     nom: 'Bibliothèque',
     cout: 1,
@@ -339,7 +533,78 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     valeur: '+1',
     avantLeCodex: { effet: 'Pour toute la rencontre : tes bonnes réponses de ta catégorie fétiche lui font perdre 3 de plus.', resume: 'Fétiche +3', valeur: '+3' },
   },
+  {
+    cle: 'lecon',
+    nom: 'Leçon',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'erudit',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Si tu réponds juste, l’adversaire perd 4 de plus — et 4 de plus encore à la question suivante.',
+    resume: '+4, deux fois',
+    valeur: '+4',
+  },
+  {
+    cle: 'expose',
+    nom: 'Exposé',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'erudit',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `Si tu réponds juste, l’adversaire perd une fois de plus ce que vaut la question : ${SAVOIR_DES_MARCHES.facile} en facile, ${SAVOIR_DES_MARCHES.moyen} en moyenne, ${SAVOIR_DES_MARCHES.difficile} en difficile.`,
+    resume: 'Valeur ×2',
+    valeur: '×2',
+  },
+  {
+    cle: 'encyclopedie',
+    nom: 'Encyclopédie',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'erudit',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `Pour toute la rencontre : chaque bonne réponse lui fait perdre ${ENCYCLOPEDIE_PAR_JUSTE} de plus par bonne réponse déjà donnée dans la rencontre.`,
+    resume: `+${ENCYCLOPEDIE_PAR_JUSTE} par juste`,
+    valeur: `+${ENCYCLOPEDIE_PAR_JUSTE}`,
+  },
+  {
+    cle: 'genie',
+    nom: 'Génie',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'erudit',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Si tu réponds juste, l’adversaire perd 8 de plus — 14 si la question est de ta catégorie fétiche.',
+    resume: '+8, +14 fétiche',
+    valeur: '+8',
+  },
   { cle: 'doubler-la-mise', nom: 'Doubler la mise', cout: 0, moment: 'preparation', famille: 'flambeur', rarete: 'commun', effet: 'Ton pari compte double, gain comme perte.', resume: 'Pari ×2', valeur: '×2' },
+  {
+    cle: 'pourboire',
+    nom: 'Pourboire',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'flambeur',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `Si tu réponds juste, tu gagnes ${ECUS_DU_POURBOIRE} écus. Et tu tires une carte.`,
+    resume: `+${ECUS_DU_POURBOIRE} écus +1 carte`,
+  },
+  {
+    cle: 'cagnotte',
+    nom: 'Cagnotte',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'flambeur',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `Si tu réponds juste, l’adversaire perd 4 de plus et tu gagnes ${ECUS_DE_LA_CAGNOTTE} écus.`,
+    resume: `+4 et ${ECUS_DE_LA_CAGNOTTE} écus`,
+    valeur: '+4',
+  },
   {
     cle: 'banco',
     nom: 'Banco',
@@ -349,6 +614,51 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     rarete: 'rare',
     effet: 'Si tu as juste, ton pari frappe aussi : l’adversaire perd 1 de plus par tranche de cinq écus pariés.',
     resume: 'Le pari frappe',
+  },
+  {
+    cle: 'assurance',
+    nom: 'Assurance',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'flambeur',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Si tu te trompes, ton pari t’est rendu. Et tu tires une carte.',
+    resume: 'Assuré, +1 carte',
+  },
+  {
+    cle: 'fortune',
+    nom: 'Fortune',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'flambeur',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Si tu réponds juste, l’adversaire perd 1 de plus par tranche de dix écus que tu as.',
+    resume: '+1 par 10 écus',
+  },
+  {
+    cle: 'pactole',
+    nom: 'Pactole',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'flambeur',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Pour toute la rencontre : quand ton pari gagne, l’adversaire perd aussi autant qu’il te rapporte.',
+    resume: 'Le gain frappe',
+  },
+  {
+    cle: 'rafle',
+    nom: 'Rafle',
+    cout: 2,
+    moment: 'preparation',
+    famille: 'flambeur',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `Si tu réponds juste, l’adversaire perd 14 de plus et tu gagnes ${ECUS_DE_LA_RAFLE} écus.`,
+    resume: `+14 et ${ECUS_DE_LA_RAFLE} écus`,
+    valeur: '+14',
   },
   {
     cle: 'corser',
@@ -370,6 +680,76 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     rarete: 'commun',
     effet: 'La question passe en vrai ou faux : plus facile, mais l’adversaire perd moitié moins. Et bouclier 3.',
     resume: 'Vrai ou faux',
+  },
+  {
+    cle: 'volte-face',
+    nom: 'Volte-face',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'metamorphe',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Change de question : une autre, posée par le même adversaire — et si tu as juste, il perd 3 de plus.',
+    resume: 'Change et +3',
+    valeur: '+3',
+  },
+  {
+    cle: 'prisme',
+    nom: 'Prisme',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'metamorphe',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `Pour toute la rencontre : tes bonnes réponses lui font perdre ${PRISME_PAR_JUSTE} de plus — ${PRISME_A_SIX_CHOIX} à six choix.`,
+    resume: `+${PRISME_PAR_JUSTE}, +${PRISME_A_SIX_CHOIX} à six`,
+    valeur: `+${PRISME_PAR_JUSTE}`,
+  },
+  {
+    cle: 'miroir',
+    nom: 'Miroir',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'metamorphe',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'La question passe en vrai ou faux, sans rien y perdre : l’adversaire perd autant qu’à quatre choix.',
+    resume: 'Vrai ou faux, ×1',
+  },
+  {
+    cle: 'cameleon',
+    nom: 'Caméléon',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'metamorphe',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `Pour toute la rencontre : chaque fois que tu changes la question, ou sa forme, bouclier ${BOUCLIER_DU_CAMELEON}.`,
+    resume: 'Bouclier si change',
+    valeur: `${BOUCLIER_DU_CAMELEON}`,
+  },
+  {
+    cle: 'metamorphose',
+    nom: 'Métamorphose',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'metamorphe',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Pour toute la rencontre : un vrai ou faux lui fait perdre autant qu’une question à quatre choix, et six choix le double.',
+    resume: 'Formes gagnantes',
+  },
+  {
+    cle: 'polymorphe',
+    nom: 'Polymorphe',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'metamorphe',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'La question passe à six choix, et l’adversaire perd le double, pas une fois et demie.',
+    resume: '6 choix ×2',
+    valeur: '×2',
   },
   {
     cle: 'echauffement',
@@ -396,6 +776,78 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     valeur: '+2',
   },
   {
+    cle: 'foulee',
+    nom: 'Foulée',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'elan',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    epuisement: true,
+    effet: '+1 d’énergie pour cette question.',
+    resume: '+1 énergie',
+    valeur: '+1',
+  },
+  {
+    cle: 'acceleration',
+    nom: 'Accélération',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'elan',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Si tu réponds juste, la question suivante te donne 1 d’énergie et une carte de plus.',
+    resume: 'Énergie après',
+  },
+  {
+    cle: 'rythme',
+    nom: 'Rythme',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'elan',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Pour toute la rencontre : chaque bonne réponse lui fait perdre 1 de plus par bonne réponse de ta série, celle-ci comprise.',
+    resume: '+1 par série',
+    valeur: '+1',
+  },
+  {
+    cle: 'sprint',
+    nom: 'Sprint',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'elan',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    epuisement: true,
+    effet: 'Tu tires deux cartes, et +1 d’énergie pour cette question.',
+    resume: 'Cartes et énergie',
+    valeur: '+2',
+  },
+  {
+    cle: 'vent-arriere',
+    nom: 'Vent arrière',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'elan',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Pour toute la rencontre : après chaque bonne réponse, la question suivante te donne 1 d’énergie de plus.',
+    resume: 'Énergie si juste',
+    valeur: '+1',
+  },
+  {
+    cle: 'inarretable',
+    nom: 'Inarrêtable',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'elan',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Ta série compte une bonne réponse de plus. Et pour toute la rencontre, une erreur ne la fait plus retomber.',
+    resume: 'Série tenue',
+  },
+  {
     cle: 'parade',
     nom: 'Parade',
     cout: 1,
@@ -408,6 +860,30 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     avantLeCodex: { cout: 2 },
   },
   {
+    cle: 'muraille',
+    nom: 'Muraille',
+    cout: 2,
+    moment: 'preparation',
+    famille: 'rempart',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Bouclier 12 : si tu te trompes, il pare 12 de l’attaque.',
+    resume: 'Bouclier 12',
+    valeur: '12',
+  },
+  {
+    cle: 'pansement',
+    nom: 'Pansement',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'rempart',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `Si tu réponds juste, tu reprends ${COURAGE_DU_PANSEMENT} de courage.`,
+    resume: `Soin ${COURAGE_DU_PANSEMENT} si juste`,
+    valeur: `+${COURAGE_DU_PANSEMENT}`,
+  },
+  {
     cle: 'contre-attaque',
     nom: 'Contre-attaque',
     cout: 1,
@@ -416,6 +892,53 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     rarete: 'rare',
     effet: 'Si tu te trompes, ton bouclier riposte : l’adversaire perd ce qu’il a paré.',
     resume: 'Riposte',
+  },
+  {
+    cle: 'cuirasse',
+    nom: 'Cuirasse',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'rempart',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `Pour toute la rencontre : bouclier ${BOUCLIER_DE_LA_CUIRASSE} à chaque question, celle-ci comprise.`,
+    resume: 'Bouclier permanent',
+    valeur: `${BOUCLIER_DE_LA_CUIRASSE}`,
+  },
+  {
+    cle: 'second-souffle',
+    nom: 'Second souffle',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'rempart',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    epuisement: true,
+    effet: `Tu reprends ${COURAGE_DU_SECOND_SOUFFLE} de courage.`,
+    resume: `+${COURAGE_DU_SECOND_SOUFFLE} courage`,
+    valeur: `+${COURAGE_DU_SECOND_SOUFFLE}`,
+  },
+  {
+    cle: 'bastion',
+    nom: 'Bastion',
+    cout: 2,
+    moment: 'pouvoir',
+    famille: 'rempart',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Pour toute la rencontre : ton bouclier ne tombe plus après une question — il ne s’use que de ce qu’il pare.',
+    resume: 'Bouclier qui reste',
+  },
+  {
+    cle: 'represailles',
+    nom: 'Représailles',
+    cout: 2,
+    moment: 'pouvoir',
+    famille: 'rempart',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: 'Pour toute la rencontre : ce que ton bouclier pare, l’adversaire en perd la moitié.',
+    resume: 'Riposte, moitié',
   },
   {
     cle: 'lucidite',
@@ -430,6 +953,31 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     avantLeCodex: { cout: 1, effet: 'Si une réponse est effacée et que tu réponds juste, l’adversaire perd 5 de plus.', resume: '+5 si effacée', valeur: '+5' },
   },
   {
+    cle: 'augure',
+    nom: 'Augure',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'devin',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    indice: true,
+    epuisement: true,
+    effet: 'Une mauvaise réponse s’effacera de la question, avant même que tu la voies.',
+    resume: 'Efface 1 d’avance',
+  },
+  {
+    cle: 'presage',
+    nom: 'Présage',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'devin',
+    rarete: 'commun',
+    depuis: VERSION_DU_JEU_COMPLET,
+    indice: true,
+    effet: 'Efface une mauvaise réponse, et tu tires une carte.',
+    resume: 'Efface 1, +1 carte',
+  },
+  {
     cle: 'troisieme-oeil',
     nom: 'Troisième œil',
     avantLeCodex: { cout: 2 },
@@ -440,6 +988,56 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     effet: 'Pour toute la rencontre : chaque indice que tu joues lui fait perdre 3 de plus, si tu réponds juste.',
     resume: 'Indices +3',
     valeur: '+3',
+  },
+  {
+    cle: 'voyance',
+    nom: 'Voyance',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'devin',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    indice: true,
+    effet: 'Efface deux mauvaises réponses.',
+    resume: 'Efface 2',
+  },
+  {
+    cle: 'astrolabe',
+    nom: 'Astrolabe',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'devin',
+    rarete: 'rare',
+    depuis: VERSION_DU_JEU_COMPLET,
+    effet: `Pour toute la rencontre : chaque indice que tu joues te donne bouclier ${BOUCLIER_DE_L_ASTROLABE}.`,
+    resume: 'Indices : bouclier',
+    valeur: `${BOUCLIER_DE_L_ASTROLABE}`,
+  },
+  {
+    cle: 'vision',
+    nom: 'Vision',
+    cout: 2,
+    moment: 'pouvoir',
+    famille: 'devin',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    indice: true,
+    effet: 'Pour toute la rencontre : une mauvaise réponse s’efface à chaque question.',
+    resume: 'Efface 1, toujours',
+  },
+  {
+    cle: 'revelation',
+    nom: 'Révélation',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'devin',
+    rarete: 'epique',
+    depuis: VERSION_DU_JEU_COMPLET,
+    indice: true,
+    epuisement: true,
+    effet: 'Il ne reste que deux réponses : la bonne et une autre. Et si tu as juste, l’adversaire perd 4 de plus.',
+    resume: 'Reste 2, +4',
+    valeur: '+4',
   },
 ]
 
@@ -760,8 +1358,16 @@ export function famillesDeLEquipee(equipee: readonly string[]): FamilleDeCartes[
   return familles
 }
 
-/** Ce que les offres proposent hors des familles : les neutres, sans Concentration ni Prudence — comme Slay the Spire ne propose pas ses frappes de base. */
-const NEUTRES_DES_OFFRES = NEUTRES.filter(c => c.cle !== 'concentration' && c.cle !== 'prudence').map(c => c.cle)
+/**
+ * Ce que les offres d'avant le codex proposent hors des familles : les
+ * neutres, sans Concentration ni Prudence — comme Slay the Spire ne propose
+ * pas ses frappes de base —, ni les cartes venues après elles (`depuis`) :
+ * rejouée, une offre de la version 5 ou 6 tirerait parmi plus de cartes, et
+ * une autre que celle qu'elle a tirée.
+ */
+const NEUTRES_DES_OFFRES = NEUTRES.filter(c => c.cle !== 'concentration' && c.cle !== 'prudence' && !c.depuis).map(c => c.cle)
+/** Les cartes de famille de ces offres-là, de même. */
+const FAMILLES_DES_OFFRES = DES_FAMILLES.filter(c => !c.depuis)
 
 /**
  * Une offre de cartes — après une rencontre, une élite, dans un coffre, à
@@ -778,7 +1384,7 @@ const NEUTRES_DES_OFFRES = NEUTRES.filter(c => c.cle !== 'concentration' && c.cl
 export function offreDeCartes(graine: string, rang: number, familles: readonly FamilleDeCartes[], poids: PoidsDesRaretes = RARETES_D_UNE_RENCONTRE, stricte = false): string[] {
   const r = hasardDe(`${graine}:offre:${rang}`)
   const prises: string[] = []
-  const raretes = Object.entries(poids) as ['commun' | 'rare' | 'maudit', number][]
+  const raretes = Object.entries(poids) as [RareteDOffre, number][]
   for (let essai = 0; prises.length < CARTES_PAR_OFFRE && essai < 60; essai++) {
     const t = r()
     const famille = t < PART_D_UNE_FAMILLE ? familles[0] : t < 2 * PART_D_UNE_FAMILLE ? familles[1] : undefined
@@ -792,7 +1398,7 @@ export function offreDeCartes(graine: string, rang: number, familles: readonly F
         break
       }
     }
-    const tas = famille ? DES_FAMILLES.filter(c => c.famille === famille).map(c => c.cle) : NEUTRES_DES_OFFRES
+    const tas = famille ? FAMILLES_DES_OFFRES.filter(c => c.famille === famille).map(c => c.cle) : NEUTRES_DES_OFFRES
     const libres = tas.filter(cle => !prises.includes(cle))
     const aSaRarete = libres.filter(cle => PAR_CLE.get(cle)?.rarete === rarete)
     const neutresASaRarete = stricte ? NEUTRES_DES_OFFRES.filter(cle => !prises.includes(cle) && PAR_CLE.get(cle)?.rarete === rarete) : []
@@ -865,6 +1471,9 @@ export interface CoupDeRencontre {
   perdu: number
   /** Ce que la mise a rapporté, ou coûté (négatif). */
   mise: number
+  /** Juste : les écus de ses cartes, à part du pari, et le courage repris — Pourboire, Cagnotte, Rafle, Pansement (le jeu complet). Absents sans. */
+  ecus?: number
+  courage?: number
   /** Passe-muraille : traversée, ni frappe ni sceaux. */
   traversee?: true
   /** Renaissance : tombé à zéro, il renaît. */
@@ -893,8 +1502,14 @@ export interface RencontreEnCours {
   defausse: string[]
   epuisees: string[]
   tour: TourDeRencontre
-  /** Ce que le tour suivant reçoit de plus : L'élan, Peau de feu. */
-  suivant: { cartes: number; inspiration: number; charge: number }
+  /**
+   * Ce que le tour suivant reçoit de plus : L'élan, Peau de feu — et, depuis
+   * le jeu complet, Mémoire, Leçon, Accélération, Vent arrière, et le
+   * bouclier que Bastion garde.
+   */
+  suivant: { cartes: number; inspiration: number; charge: number; garde: number }
+  /** Ses bonnes réponses dans la rencontre, d'affilée ou non : Encyclopédie en frappe plus fort (le jeu complet). */
+  trouvees: number
   /** Ce que la dernière erreur lui a coûté de courage : L'horizon le rend. */
   derniereFrappe: number
   /** Le courage que ses frappes lui ont pris dans la rencontre : un gardien vaincu sans en perdre est un exploit (le codex). */
@@ -915,10 +1530,20 @@ export interface FormeDUneQuestion {
   devoile?: { mots: number; sur: number }
 }
 
-/** La forme multiplie ce que brise une bonne réponse : ×0,5 en vrai ou faux, ×1,5 à six choix, de ×3 à ×1 au dévoilement selon le mot. */
-export function multiplicateurDeLaForme(q: FormeDUneQuestion): number {
-  if ((q.reponses ?? 4) <= 2) return MULTIPLICATEUR_DU_VRAI_OU_FAUX
-  if (q.forme === 'six') return MULTIPLICATEUR_DU_SIX_CHOIX
+/** Le six choix de Métamorphose et de Polymorphe : le double, pas une fois et demie (le jeu complet). */
+export const MULTIPLICATEUR_DU_SIX_CHOIX_METAMORPHOSE = 2
+
+/**
+ * La forme multiplie ce que brise une bonne réponse : ×0,5 en vrai ou faux,
+ * ×1,5 à six choix, de ×3 à ×1 au dévoilement selon le mot. Ce que les cartes
+ * y changent (le jeu complet) : sous Métamorphose, un vrai ou faux vaut une
+ * question à quatre choix, et six choix le double ; Miroir, sur la question,
+ * le vrai ou faux qu'il pose ; Polymorphe, les six choix qu'il pose.
+ */
+export function multiplicateurDeLaForme(q: FormeDUneQuestion, cartes?: { pouvoirs: readonly string[]; surLaQuestion: readonly string[] }): number {
+  const metamorphose = !!cartes?.pouvoirs.includes('metamorphose')
+  if ((q.reponses ?? 4) <= 2) return metamorphose || cartes?.surLaQuestion.includes('miroir') ? 1 : MULTIPLICATEUR_DU_VRAI_OU_FAUX
+  if (q.forme === 'six') return metamorphose || cartes?.surLaQuestion.includes('polymorphe') ? MULTIPLICATEUR_DU_SIX_CHOIX_METAMORPHOSE : MULTIPLICATEUR_DU_SIX_CHOIX
   if (q.forme === 'devoilement' && q.devoile && q.devoile.sur > 0) {
     const mots = Math.min(q.devoile.sur, Math.max(1, q.devoile.mots))
     return 1 + ((DEVOILEMENT_AU_PREMIER_MOT - 1) * (q.devoile.sur - mots)) / Math.max(1, q.devoile.sur - 1)
@@ -950,15 +1575,98 @@ export const enJeu = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>) => t.mise * (
 export const gainDeLaMise = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>, pouvoirs: readonly string[]) =>
   Math.round(enJeu(t) * PART_GAGNEE_D_UNE_MISE) * (1 + (pouvoirs.includes('tresor') ? 2 : 0) + (t.jouees.includes('quitte-ou-double') ? 2 : 0))
 
-/** Les réponses qu'effacent les cartes du tour, la fiole de clairvoyance et L'écholocation — jamais plus que deux de moins que ses réponses : sinon la carte répondrait à sa place. */
+/**
+ * Combien de mauvaises réponses chaque carte efface : celles des jokers
+ * (`EFFACE`), et celles du jeu complet — Augure, Présage, Voyance ; Vision,
+ * posée, à chaque question. Révélation efface tout ce qui peut l'être.
+ */
+export const EFFACE_DES_CARTES: Readonly<Record<string, number>> = { ...EFFACE, augure: 1, presage: 1, voyance: 2, vision: 1 }
+
+/** Les pouvoirs qui effacent une réponse à chaque question : L'écholocation, Vision (le jeu complet). */
+export const POUVOIRS_QUI_EFFACENT: readonly string[] = ['echolocation', 'vision']
+
+/** Les réponses qu'effacent les cartes du tour, la fiole de clairvoyance, L'écholocation et Vision — jamais plus que deux de moins que ses réponses : sinon la carte répondrait à sa place. */
 export function effaceesDuTour(surLaQuestion: readonly string[], pouvoirs: readonly string[], q: { reponses: number; datee?: boolean }): number {
   if (q.reponses <= 2) return 0
   let n = 0
-  for (const cle of surLaQuestion) n += cle === CLAIRVOYANCE_SUR_LA_QUESTION ? 1 : (EFFACE[cle] ?? 0)
+  for (const cle of surLaQuestion) n += cle === CLAIRVOYANCE_SUR_LA_QUESTION ? 1 : cle === 'revelation' ? q.reponses : (EFFACE_DES_CARTES[cle] ?? 0)
   // Le Sphinx d'une question qui ne se date pas efface au lieu de souffler : sinon, la carte ne servait à rien.
   if (surLaQuestion.includes('enigme') && !q.datee) n += 1
-  if (pouvoirs.includes('echolocation')) n += EFFACE.echolocation ?? 1
+  for (const cle of POUVOIRS_QUI_EFFACENT) if (pouvoirs.includes(cle)) n += EFFACE_DES_CARTES[cle] ?? 1
   return Math.min(n, q.reponses - 2)
+}
+
+/**
+ * Les cartes qui visent la question dès la préparation : elles changent sa
+ * forme (Corser, Simplifier, Miroir, Polymorphe) ou y effacent une réponse
+ * avant qu'il la voie (Augure). Comme celles qu'on joue la question sous les
+ * yeux, elles se rangent sur elle (`TourDeRencontre.surLaQuestion`) : une
+ * autre question — Échange, Volte-face, La mue — repart sans elles.
+ */
+const SUR_LA_QUESTION_DES_LA_PREPARATION: ReadonlySet<string> = new Set(['corser', 'simplifier', 'miroir', 'polymorphe', 'augure'])
+
+/** Cette carte, jouée, vise-t-elle la question à l'écran ? */
+export const viseLaQuestion = (c: Pick<CarteDeRencontre, 'cle' | 'moment'>) => c.moment === 'reflexe' || SUR_LA_QUESTION_DES_LA_PREPARATION.has(c.cle)
+
+/** Les cartes qui changent la question — sa forme, ou la question elle-même — : Caméléon y lève son bouclier. */
+export const CHANGENT_LA_QUESTION: ReadonlySet<string> = new Set(['corser', 'simplifier', 'miroir', 'polymorphe', 'echange', 'volte-face', 'mue'])
+
+/** Les cartes qui posent une autre question, du même adversaire : celle d'avant ne se pose plus. */
+export const CHANGENT_DE_QUESTION: ReadonlySet<string> = new Set(['echange', 'volte-face', 'mue'])
+
+/** Ce qu'une carte jouée sur une question en fait : sa forme neuve, que le serveur repose de sa question de la base. */
+export const FORME_DE_LA_CARTE: Readonly<Record<string, FormeDEscale>> = { corser: 'six', polymorphe: 'six', simplifier: 'vrai-faux', miroir: 'vrai-faux' }
+
+/** Une carte qui change la forme de la question : une seule fois par question. */
+const changeLaForme = (cle: string) => cle in FORME_DE_LA_CARTE
+
+/**
+ * Ce qu'une bonne réponse rapporte de plus, des cartes jouées à ce tour (le
+ * jeu complet) : les écus de Pourboire, Cagnotte et Rafle — à part de ceux du
+ * pari —, et le courage de Pansement. Le verdict (`pliDeLExpedition`) et
+ * l'aperçu (`apercuDuTour`) les lisent tous deux ici : chaque carte jouée
+ * compte, deux Pourboire en paient deux.
+ */
+export function siJuste(jouees: readonly string[]): { ecus: number; courage: number } {
+  let ecus = 0
+  let courage = 0
+  for (const cle of jouees) {
+    if (cle === 'pourboire') ecus += ECUS_DU_POURBOIRE
+    else if (cle === 'cagnotte') ecus += ECUS_DE_LA_CAGNOTTE
+    else if (cle === 'rafle') ecus += ECUS_DE_LA_RAFLE
+    else if (cle === 'pansement') courage += COURAGE_DU_PANSEMENT
+  }
+  return { ecus, courage }
+}
+
+/** Ce que l'attaque fait de plus sur une erreur, des cartes jouées à ce tour : Surmenage. */
+export const frappeEnPlus = (jouees: readonly string[]) => jouees.filter(cle => cle === 'surmenage').length * FRAPPE_DU_SURMENAGE
+
+/** Ce que coûte un pari perdu : rien sous Assurance. */
+export const pariPerdu = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>) => (t.jouees.includes('assurance') ? 0 : enJeu(t))
+
+/** Ce que l'adversaire perd sur une erreur, de ce que le bouclier a paré : tout sous Contre-attaque jouée à ce tour, la moitié sous Représailles posée — l'une s'ajoute à l'autre. */
+export const riposte = (absorbee: number, jouees: readonly string[], pouvoirs: readonly string[]) =>
+  (jouees.includes('contre-attaque') ? absorbee : 0) + (pouvoirs.includes('represailles') ? Math.ceil(absorbee * PART_DES_REPRESAILLES) : 0)
+
+/**
+ * Ce que le tour suivant reçoit d'une bonne réponse, des cartes jouées à ce
+ * tour et des pouvoirs posés (le jeu complet) : Mémoire, une carte ; Leçon, ses
+ * points ; Accélération, une d'énergie et une carte ; Vent arrière, une
+ * d'énergie.
+ */
+export function suiteDUneBonneReponse(jouees: readonly string[], pouvoirs: readonly string[]): { cartes: number; inspiration: number; charge: number } {
+  const x = { cartes: 0, inspiration: 0, charge: 0 }
+  for (const cle of jouees) {
+    if (cle === 'memoire') x.cartes += 1
+    else if (cle === 'lecon') x.charge += 4
+    else if (cle === 'acceleration') {
+      x.inspiration += 1
+      x.cartes += 1
+    }
+  }
+  if (pouvoirs.includes('vent-arriere')) x.inspiration += 1
+  return x
 }
 
 /** Les chiffres d'un tour qu'une carte change : ce qu'il lui reste d'inspiration, sa Charge, sa Garde, sa série. */
@@ -972,7 +1680,10 @@ export interface ChiffresDuTour {
 /**
  * Ce que les chiffres d'une carte lisent de son départ et de la question :
  * la version — les cartes retouchées par le codex —, la catégorie fétiche
- * de la question (Plume), les réponses déjà effacées (Lucidité).
+ * de la question (Plume, Génie), les réponses déjà effacées (Lucidité) ; et,
+ * depuis le jeu complet, sa marche (Savoir-faire), ce qu'elle vaut (Exposé),
+ * les écus qu'il a (Fortune). L'annonce dit les deux premières à la page, la
+ * vue les écus.
  */
 export interface ContexteDesChiffres {
   v: number
@@ -980,6 +1691,12 @@ export interface ContexteDesChiffres {
   fetiche?: boolean
   /** Les réponses que les cartes du tour y ont effacées (`effaceesDuTour`). */
   effacees?: number
+  /** La marche de la question. */
+  niveau?: Niveau
+  /** Ce que vaut sa bonne réponse, avant les cartes : son savoir (`SAVOIR_DES_MARCHES`). */
+  savoir?: number
+  /** Les écus qu'il a. */
+  ecus?: number
 }
 
 /**
@@ -1031,20 +1748,75 @@ export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoir
     case 'reveil':
       x.inspiration += 2
       break
+    // Le jeu complet (v8).
+    case 'memoire':
+    case 'volte-face':
+      x.charge += 3
+      break
+    case 'evidence':
+    case 'cagnotte':
+      x.charge += 4
+      break
+    case 'lecon':
+    case 'revelation':
+      x.charge += 4
+      break
+    case 'sang-froid':
+      x.garde += 4
+      x.charge += 4
+      break
+    case 'savoir-faire':
+      x.charge += contexte.niveau && contexte.niveau !== 'facile' ? 7 : 4
+      break
+    case 'expose':
+      x.charge += contexte.savoir ?? 0
+      break
+    case 'genie':
+      x.charge += contexte.fetiche ? 14 : 8
+      break
+    case 'fortune':
+      x.charge += Math.floor(Math.max(0, contexte.ecus ?? 0) / 10)
+      break
+    case 'rafle':
+      x.charge += 14
+      break
+    case 'muraille':
+      x.garde += 12
+      break
+    case 'cuirasse':
+      x.garde += BOUCLIER_DE_LA_CUIRASSE
+      break
+    case 'meditation':
+    case 'maitrise':
+    case 'foulee':
+    case 'sprint':
+      x.inspiration += 1
+      break
+    case 'surmenage':
+      x.inspiration += 2
+      break
+    case 'inarretable':
+      x.serie += 1
+      break
   }
-  // Troisième œil : chaque indice frappe aussi.
+  // Troisième œil : chaque indice frappe aussi ; Astrolabe (le jeu complet) : il protège.
   if (carte.indice && pouvoirs.includes('troisieme-oeil')) x.charge += 3
+  if (carte.indice && pouvoirs.includes('astrolabe')) x.garde += BOUCLIER_DE_L_ASTROLABE
+  // Caméléon : changer la question, ou sa forme, lève un bouclier.
+  if (CHANGENT_LA_QUESTION.has(cle) && pouvoirs.includes('cameleon')) x.garde += BOUCLIER_DU_CAMELEON
   return x
 }
 
 /**
- * La forme où une carte repose la question : Corser à six choix, Simplifier
- * en vrai ou faux — ce qu'il en faut à l'aperçu d'une carte levée. Le serveur
- * repose la vraie question de la base (`questionsApresLeGeste`).
+ * La forme où une carte repose la question : à six choix (Corser,
+ * Polymorphe), en vrai ou faux (Simplifier, Miroir) — ce qu'il en faut à
+ * l'aperçu d'une carte levée. Le serveur repose la vraie question de la base
+ * (`questionsApresLeGeste`).
  */
 export function formeApresLaCarte(cle: string, q: { forme: FormeDEscale; reponses: number }): { forme: FormeDEscale; reponses: number } {
-  if (cle === 'corser') return { forme: 'six', reponses: 6 }
-  if (cle === 'simplifier') return { forme: 'vrai-faux', reponses: 2 }
+  const forme = FORME_DE_LA_CARTE[cle]
+  if (forme === 'six') return { forme: 'six', reponses: 6 }
+  if (forme === 'vrai-faux') return { forme: 'vrai-faux', reponses: 2 }
   return q
 }
 
@@ -1088,7 +1860,8 @@ const aJoueSurLaQuestion = (c: ContexteDUneCarte, cle: string) => c.tour.surLaQu
  */
 export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null {
   const carte = carteALaVersion(cle, c.v)
-  if (!carte) return 'Cette carte ne se lit pas : recharge la page'
+  // Une carte venue après son départ ne s'y joue pas : son paquet ne l'a jamais tirée.
+  if (!carte || (carte.depuis ?? 0) > c.v) return 'Cette carte ne se lit pas : recharge la page'
   if (carte.moment === 'route') return 'Elle se joue sur le plan, entre deux escales'
   if (!c.main.includes(cle)) return 'Cette carte n’est plus dans ta main : recharge la page'
   const avant = carte.moment === 'preparation' || carte.moment === 'pouvoir'
@@ -1099,12 +1872,16 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
   if (carte.cout > c.tour.inspiration) return `Il lui faut ${carte.cout} d’énergie : il t’en reste ${c.tour.inspiration}`
   const q = c.question
   if (!q) return 'Elle se joue sur une question'
-  const changee = aJoueSurLaQuestion(c, 'corser') || aJoueSurLaQuestion(c, 'simplifier')
+  const changee = c.tour.surLaQuestion.some(changeLaForme)
   const effacees = effaceesDuTour(c.tour.surLaQuestion, c.pouvoirs, q)
   switch (cle) {
     case 'coup-d-oeil':
     case 'sagesse':
     case 'tout-ou-rien':
+    case 'augure':
+    case 'presage':
+    case 'voyance':
+    case 'revelation':
       if (q.reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
       if (effacees >= q.reponses - 2) return 'Il ne reste plus rien à effacer'
       return null
@@ -1128,10 +1905,12 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
       if (!c.fetiche) return 'Tu n’as pas de catégorie fétiche'
       return q.categorie === c.fetiche ? null : `La question n’est pas de ta catégorie fétiche, ${c.fetiche}`
     case 'corser':
+    case 'polymorphe':
       if (changee) return 'La question a déjà changé de forme'
       if (q.tiree !== 'quatre' && q.tiree !== 'devoilement') return q.tiree === 'six' ? 'Elle est déjà à six choix' : 'Pas sur un vrai ou faux'
       return q.six ? null : 'Cette question n’a pas de quoi tenir six choix'
     case 'simplifier':
+    case 'miroir':
       if (changee) return 'La question a déjà changé de forme'
       // La forme du tirage, jamais celle d'à présent : rejouée, la question déjà simplifiée refuserait Simplifier qui l'a faite.
       return q.tiree === 'vrai-faux' ? 'Elle est déjà un vrai ou faux' : null
@@ -1140,7 +1919,11 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
     case 'banco':
     case 'contre-attaque':
     case 'sursis':
+    case 'assurance':
       return c.tour.jouees.includes(cle) ? 'Déjà jouée à cette question' : null
+    case 'panacee':
+    case 'second-souffle':
+      return c.courage >= COURAGE_MAX ? 'Ton courage est au plus haut' : null
     case 'lucidite':
       if (c.v >= VERSION_DU_CODEX) return null
       return effacees > 0 ? null : 'Aucune réponse effacée sur cette question'
@@ -1187,6 +1970,10 @@ export interface ApercuDuTour {
     tombe: boolean
     /** Ce que rapporte la mise. */
     ecus: number
+    /** Les écus de ses cartes, à part de son pari : Pourboire, Cagnotte, Rafle (le jeu complet) — absent sans. */
+    ecusDesCartes?: number
+    /** Le courage qu'il reprendrait : Pansement (le jeu complet) — absent sans. */
+    courage?: number
   }
   faux: {
     frappe: number
@@ -1212,11 +1999,46 @@ export function enPlusDeLaBibliotheque(o: { v: number; pouvoirs: readonly string
   return o.v >= VERSION_DU_CODEX ? 1 : 0
 }
 
+/**
+ * Ce que les pouvoirs posés ajoutent à une bonne réponse, avant sa forme : la
+ * Bibliothèque (`enPlusDeLaBibliotheque`) et, depuis le jeu complet,
+ * l'Encyclopédie — `ENCYCLOPEDIE_PAR_JUSTE` par bonne réponse déjà donnée
+ * dans la rencontre —, le Prisme — `PRISME_PAR_JUSTE`, `PRISME_A_SIX_CHOIX` à
+ * six choix —, le Rythme — 1 par bonne réponse de sa série, celle-ci
+ * comprise. Le verdict (`pliDeLExpedition`) et l'aperçu la lisent tous deux
+ * ici.
+ */
+export function enPlusDesPouvoirs(o: {
+  v: number
+  pouvoirs: readonly string[]
+  fetiche?: string
+  categorie?: string | null
+  /** Ses bonnes réponses déjà données dans la rencontre. */
+  trouvees?: number
+  /** Sa série avant cette réponse. */
+  serie?: number
+  forme?: FormeDEscale
+}): number {
+  let n = enPlusDeLaBibliotheque(o)
+  if (o.pouvoirs.includes('encyclopedie')) n += ENCYCLOPEDIE_PAR_JUSTE * (o.trouvees ?? 0)
+  if (o.pouvoirs.includes('prisme')) n += o.forme === 'six' ? PRISME_A_SIX_CHOIX : PRISME_PAR_JUSTE
+  if (o.pouvoirs.includes('rythme')) n += (o.serie ?? 0) + 1
+  return n
+}
+
+/**
+ * Ce qui s'ajoute à une bonne réponse après sa forme : Banco — 1 par tranche
+ * de cinq écus pariés — et, depuis le jeu complet, Pactole — ce que le pari
+ * rapporte. Doublé, avec le reste, par Quitte ou double.
+ */
+export const enPlusApresLaForme = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>, pouvoirs: readonly string[]) =>
+  (t.jouees.includes('banco') ? Math.floor(enJeu(t) / 5) : 0) + (pouvoirs.includes('pactole') && enJeu(t) > 0 ? gainDeLaMise(t, pouvoirs) : 0)
+
 /** L'aperçu d'un tour, avec ce que ses cartes y ont fait : la même règle que le verdict. */
 export function apercuDuTour(o: {
   /** La version de son départ (`enPlusDeLaBibliotheque`). */
   v: number
-  tour: Pick<TourDeRencontre, 'charge' | 'garde' | 'mise' | 'jouees'>
+  tour: Pick<TourDeRencontre, 'charge' | 'garde' | 'mise' | 'jouees'> & Partial<Pick<TourDeRencontre, 'surLaQuestion'>>
   pouvoirs: readonly string[]
   sceaux: number
   frappe: number
@@ -1225,24 +2047,36 @@ export function apercuDuTour(o: {
   fetiche?: string
   /** Un dévoilement : ses mots. */
   mots?: number
+  /** Ses bonnes réponses déjà données dans la rencontre, et sa série : l'Encyclopédie et le Rythme en frappent (le jeu complet). */
+  trouvees?: number
+  serie?: number
 }): ApercuDuTour {
   const t = o.tour
   const mise = enJeu(t)
-  const enPlus = enPlusDeLaBibliotheque({ v: o.v, pouvoirs: o.pouvoirs, fetiche: o.fetiche, categorie: o.question.categorie })
+  const enPlus = enPlusDesPouvoirs({ v: o.v, pouvoirs: o.pouvoirs, fetiche: o.fetiche, categorie: o.question.categorie, trouvees: o.trouvees, serie: o.serie, forme: o.question.forme })
+  const cartes = { pouvoirs: o.pouvoirs, surLaQuestion: t.surLaQuestion ?? [] }
   const brises = (multiplicateur: number) =>
-    brisesDUneBonneReponse({ savoir: o.savoir, charge: t.charge, enPlus, multiplicateur, banco: t.jouees.includes('banco') ? Math.floor(mise / 5) : 0, double: t.jouees.includes('quitte-ou-double') })
+    brisesDUneBonneReponse({ savoir: o.savoir, charge: t.charge, enPlus, multiplicateur, banco: enPlusApresLaForme(t, o.pouvoirs), double: t.jouees.includes('quitte-ou-double') })
   const devoilement = o.question.forme === 'devoilement' && (o.mots ?? 0) > 1
-  const auDernier = brises(multiplicateurDeLaForme({ reponses: o.question.reponses, forme: devoilement ? 'quatre' : o.question.forme }))
-  const auPremier = devoilement ? brises(multiplicateurDeLaForme({ reponses: o.question.reponses, forme: 'devoilement', devoile: { mots: 1, sur: o.mots! } })) : undefined
+  const auDernier = brises(multiplicateurDeLaForme({ reponses: o.question.reponses, forme: devoilement ? 'quatre' : o.question.forme }, cartes))
+  const auPremier = devoilement ? brises(multiplicateurDeLaForme({ reponses: o.question.reponses, forme: 'devoilement', devoile: { mots: 1, sur: o.mots! } }, cartes)) : undefined
   const f = frappeDUneErreur({
-    frappe: o.frappe,
+    frappe: o.frappe + frappeEnPlus(t.jouees),
     sauve: t.jouees.includes('sursis') || t.jouees.includes('mue'),
     double: t.jouees.includes('tout-ou-rien') || t.jouees.includes('quitte-ou-double'),
     garde: t.garde,
   })
+  const plus = siJuste(t.jouees)
   return {
-    juste: { brises: auDernier, ...(auPremier !== undefined && { auPremierMot: auPremier }), tombe: Math.max(auDernier, auPremier ?? 0) >= o.sceaux, ecus: mise > 0 ? gainDeLaMise(t, o.pouvoirs) : 0 },
-    faux: { ...f, ecus: mise, contre: t.jouees.includes('contre-attaque') ? f.absorbee : 0, charge: t.charge > 0 },
+    juste: {
+      brises: auDernier,
+      ...(auPremier !== undefined && { auPremierMot: auPremier }),
+      tombe: Math.max(auDernier, auPremier ?? 0) >= o.sceaux,
+      ecus: mise > 0 ? gainDeLaMise(t, o.pouvoirs) : 0,
+      ...(plus.ecus > 0 && { ecusDesCartes: plus.ecus }),
+      ...(plus.courage > 0 && { courage: plus.courage }),
+    },
+    faux: { ...f, ecus: pariPerdu(t), contre: riposte(f.absorbee, t.jouees, o.pouvoirs), charge: t.charge > 0 },
   }
 }
 
@@ -1261,6 +2095,10 @@ export interface VueDeLaRencontre {
   frappe: number
   questions: number
   serie: number
+  /** Ses bonnes réponses dans la rencontre : l'Encyclopédie en frappe (le jeu complet), l'aperçu d'une carte levée la compte. */
+  trouvees: number
+  /** Les écus qu'il a : Fortune en frappe (le jeu complet), l'aperçu d'une carte levée les lit. */
+  ecus: number
   phase: 'preparation' | 'question'
   /**
    * Le rang de la question qui attend : en préparation, elle ne part pas
@@ -1273,6 +2111,8 @@ export interface VueDeLaRencontre {
   garde: number
   mise: number
   jouees: string[]
+  /** Celles qui visent la question : Miroir et Polymorphe y changent ce que vaut sa forme (le jeu complet). */
+  surLaQuestion: string[]
   pouvoirs: string[]
   main: string[]
   /** Combien de cartes attendent dans la pioche : leur ordre est le hasard du serveur. */

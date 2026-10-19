@@ -1,10 +1,11 @@
-// Les cartes peintes de l'Expédition : l'illustration de chacune des
-// vingt-trois cartes sans légendaire (`CARTES_DES_RENCONTRES`,
-// `shared/rencontres.ts`) — celle d'un légendaire est son médaillon peint.
-// « Les cartes c'est des rectangles pas très jolis, ça serait pas possible de
-// faire de vraies cartes ? Ça rajouterait à l'immersion » (le propriétaire,
-// le 18 octobre 2026) ; puis « Go tout faire avec tes recommandations,
-// cependant je n'ai que 7.4 € pour les images ».
+// Les cartes peintes de l'Expédition : l'illustration de chacune des cartes
+// sans légendaire (`CARTES_DES_RENCONTRES`, `shared/rencontres.ts`) — celle
+// d'un légendaire est son médaillon peint. « Les cartes c'est des rectangles
+// pas très jolis, ça serait pas possible de faire de vraies cartes ? Ça
+// rajouterait à l'immersion » (le propriétaire, le 18 octobre 2026) ; puis
+// « Go tout faire avec tes recommandations, cependant je n'ai que 7.4 € pour
+// les images ». Vingt-trois d'abord, puis les quarante-deux du jeu complet,
+// le 19 octobre 2026.
 //
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/anime/cartes.ts --tout --lot
 //   … --seulement=concentration,plume        # un essai, quelques images
@@ -52,8 +53,8 @@ function mettreDeCote(nom: string) {
 }
 
 // ── Les consignes ─────────────────────────────────────────────────────────
-// En anglais, comme celles des légendaires. Un seul style pour les
-// vingt-trois : une collection, comme un set de cartes. L'illustration vit
+// En anglais, comme celles des légendaires. Un seul style pour toutes : une
+// collection, comme un set de cartes. L'illustration vit
 // dans la fenêtre d'une carte, de 58 pixels de haut dans la main à 128 levée :
 // un seul sujet, gros, centré, qui se lit en tout petit — et qui survit au
 // recadrage, presque carré dans la main, en bandeau levée.
@@ -78,10 +79,14 @@ const PALETTE: Record<FamilleDeCartes, string> = {
   devin: 'teal and turquoise, with moonlit silver',
 }
 
-/** Ce qu'ajoute une rareté : une rare plus précieuse, une maudite inquiétante. */
-const RARETE: Record<'commun' | 'rare' | 'maudit', string> = {
+/**
+ * Ce qu'ajoute une rareté : une rare plus précieuse, une épique majestueuse —
+ * le jeu complet, le 19 octobre 2026 —, une maudite inquiétante.
+ */
+const RARETE: Record<'commun' | 'rare' | 'epique' | 'maudit', string> = {
   commun: 'A humble, clear, friendly image.',
   rare: 'A precious, more ornate image: richer gold filigree and a stronger glow.',
+  epique: 'An epic, majestic image: a grander, more dramatic composition, radiant light, a shimmering violet aura around the subject and rich gold filigree.',
   maudit: 'A cursed, tempting card: a darker, eerie mood, a sinister violet glow and tarnished gold — beautiful but dangerous.',
 }
 
@@ -118,6 +123,64 @@ export const SUJETS: Record<string, string> = {
   // Le Devin
   lucidite: 'a crystal lantern glowing in thick fog, its beam clearing a path through the mist',
   'troisieme-oeil': 'a glowing third eye opening in a starry sky, a thin crescent moon below it',
+
+  // Le jeu complet (le 19 octobre 2026) : les neutres
+  evidence: 'a pair of round crystal spectacles resting on a stone ledge, the blurry misty landscape behind them perfectly sharp and clear through the lenses',
+  // Le premier essai posait le paysage dans un cadre d'écran noir : la scène se voit en direct, jusqu'aux bords.
+  meditation:
+    'a small cairn of smooth balanced pebbles on a calm lake shore at dawn, a thread of glowing mist rising from its top stone — the landscape seen directly and reaching every edge, never inside a frame, a screen or a card',
+  'sang-froid': 'a silver chess knight standing perfectly still on a stone chessboard while sparks and embers fly past it',
+  panacee: 'an ornate crystal flask of glowing golden-white elixir on a small stand, healing light radiating from it, sprigs of a sacred herb curling around its base',
+  maitrise: 'a glowing golden laurel crown floating above a pedestal of polished stone, calm rays of light radiating from it',
+  surmenage: 'a single candle burning at both ends in the dark, its two flames flickering a sinister violet, wax dripping fast',
+  // L'Érudit
+  'savoir-faire': 'an artisan workbench with a few finely crafted tools laid neatly on leather: a brass compass, a chisel and a small gleaming gear',
+  memoire: 'a small antique wooden cabinet of many tiny drawers, one drawer pulled open with a soft golden glow spilling out of it',
+  // Celle-ci aussi s'était peinte dans un cadre, puis sa cloche portait des signes lumineux, comme des lettres.
+  lecon:
+    'a brass hand bell beside a stack of leather-bound books tied with a ribbon, a small red apple on top, on a wooden desk in warm lamplight; the bell is perfectly plain and smooth, with no engraving, no marks, no glowing writing — seen directly and reaching every edge, never inside a frame or a card',
+  expose: 'a grand celestial globe on an ornate wooden stand, lit by a single spotlight on a dark stage',
+  encyclopedie: 'an enormous ancient tome with a jeweled cover floating open, golden bookmark ribbons streaming out of it, blank glowing pages swirling around it like a whirlwind',
+  genie: 'a radiant crystal sphere holding a tiny swirling galaxy, raised on a bronze stand, beams of golden light bursting from it',
+  // Le Flambeur
+  pourboire: 'a single gold coin embossed with a small star dropping into a small brass cup with a bright sparkle, warm tavern glow',
+  cagnotte: 'a round terracotta money pot with a slot on top, a few gold coins embossed with a small star stacked beside it, ember glow',
+  // Le premier essai avait deux bandes noires en haut et en bas.
+  assurance:
+    'a gold coin embossed with a small star resting on a velvet cushion under a protective glass dome, a warm fiery glow around it — a full-bleed scene reaching every edge, no black bands',
+  fortune: 'an ornate wheel of fortune of gold and red lacquer spinning fast, its segments plain colored with no numbers nor symbols, sparks flying from its rim',
+  pactole: 'a cascade of gold coins embossed with small stars pouring out of an overturned treasure chest into a glowing golden pool',
+  // Un coffre qui éclate, au premier essai : le même que Pactole, à côté de lui dans le codex.
+  rafle: 'a big fishing net hauled up into the air, overflowing with gold coins and glittering gems that spill through its mesh',
+  // Le Métamorphe
+  'volte-face': 'a golden weathervane shaped like an arrow whirling around in a gust of iridescent wind',
+  prisme: 'a triangular crystal prism splitting a beam of white light into six bright rainbow rays',
+  miroir: 'an ornate oval mirror in a silver frame, its surface rippling like water and glowing with soft magenta light',
+  cameleon: 'a chameleon curled on a twisting branch, its skin shifting through iridescent colors',
+  metamorphose: 'a chrysalis splitting open as a radiant butterfly of iridescent light emerges, its wings unfurling',
+  polymorphe: 'a sphere of liquid metal morphing into six different glowing crystal shapes at once, iridescent reflections',
+  // L'Élan
+  foulee: 'a single winged sandal mid-stride, leaving a trail of green light and spring leaves behind it',
+  acceleration: 'an arrow in flight whose tail feathers burst into green sparks as it speeds up, a long trail of light behind it',
+  rythme: 'a round drum painted with green and gold patterns, glowing concentric rings of sound pulsing from its skin',
+  sprint: 'a hare made of green light dashing at full speed in a blur of motion',
+  'vent-arriere': 'the billowing sails of a small ship filled by a glowing green wind, sparkling gusts swirling around them',
+  inarretable: 'a charging rhinoceros made of emerald light bursting through a wooden barrier, splinters flying',
+  // Le Rempart
+  muraille: 'a massive sandstone rampart with battlements standing tall under a warm golden sky',
+  pansement: 'a rolled linen bandage beside a small pot of healing balm and a sprig of green herb, a soft warm glow',
+  cuirasse: 'a polished bronze breastplate on a wooden stand, gleaming in warm light',
+  'second-souffle': 'a bronze horn blowing a swirling stream of warm golden air',
+  bastion: 'a round stone tower standing firm as great waves crash against its base, golden light shining from its windows',
+  represailles: 'a bronze shield bristling with sharp radiant spikes, arrows shattering against it and flying back',
+  // Le Devin
+  augure: 'a flight of silver birds in a teal night sky spiraling like an omen above a lonely hill',
+  presage: 'a crystal ball with a faint swirling glow inside, resting on a bronze stand on a dark teal cloth',
+  // Les volutes du premier essai dessinaient un point d'interrogation : un symbole.
+  voyance: 'two hands hovering above a glowing crystal ball, soft abstract wisps of moonlit light rising from it — never shaping a letter, a question mark or any symbol',
+  astrolabe: 'an ornate brass astrolabe glowing with moonlit silver light, its rings engraved only with plain lines and dots, never numerals nor letters',
+  vision: 'a brass and silver telescope on a tripod aimed at a radiant teal nebula filling the night sky',
+  revelation: 'heavy teal velvet curtains drawn wide open to reveal a blinding beam of moonlit silver light',
 }
 
 interface Travail {
@@ -133,7 +196,7 @@ for (const cle of Object.keys(SUJETS)) if (!A_PEINDRE.some(c => c.cle === cle)) 
 const TRAVAUX: Travail[] = A_PEINDRE.map(c => ({
   nom: c.cle,
   consigne:
-    `${STYLE}\n\nThe subject: ${SUJETS[c.cle]}.\n\nDominant palette: ${PALETTE[c.famille]}. ${RARETE[c.rarete as 'commun' | 'rare' | 'maudit']}\n\n` +
+    `${STYLE}\n\nThe subject: ${SUJETS[c.cle]}.\n\nDominant palette: ${PALETTE[c.famille]}. ${RARETE[c.rarete as 'commun' | 'rare' | 'epique' | 'maudit']}\n\n` +
     'Output one landscape image (4:3 aspect ratio).',
 }))
 

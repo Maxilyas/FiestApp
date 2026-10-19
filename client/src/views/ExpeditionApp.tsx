@@ -19,7 +19,7 @@ import { porterGerbe } from '../gerbe'
 import { nicheRetientSonSouffle, porterNiche } from '../niche'
 import { NicheALaRevelation } from '../components/NicheReagit'
 import { rareEnCampagne, reactionDuSolo } from '../../../shared/niche'
-import { gemme } from '../gemmes'
+import { GEMME_MAUDITE, gemme } from '../gemmes'
 import { useModale } from '../modale'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
@@ -348,11 +348,12 @@ const RARETE: Record<Joker['rarete'], string> = { commun: 'commun', rare: 'rare'
 /**
  * La couleur d'un joker, au cadre de sa carte : la gemme de sa rareté, celle
  * de l'album et de la boutique (`gemmes.ts`) — argent, bleu, or —, et le
- * pourpre de l'épique pour un maudit, plus fort mais qui coûte. Une seule
- * couleur par rareté dans toute l'application.
+ * rouge sombre des maudites pour un maudit, plus fort mais qui coûte : le
+ * pourpre est à l'épique, que les cartes des rencontres ont depuis le jeu
+ * complet. Une seule couleur par rareté dans toute l'application.
  */
-const GEMME_DU_JOKER: Record<Joker['rarete'], RareteDeTheme> = { commun: 'commune', rare: 'rare', maudit: 'epique', legendaire: 'legendaire' }
-const gemmeDuJoker = (j: Joker) => gemme(GEMME_DU_JOKER[j.rarete])
+const GEMME_DU_JOKER: Record<Exclude<Joker['rarete'], 'maudit'>, RareteDeTheme> = { commun: 'commune', rare: 'rare', legendaire: 'legendaire' }
+const gemmeDuJoker = (j: Joker) => (j.rarete === 'maudit' ? GEMME_MAUDITE : gemme(GEMME_DU_JOKER[j.rarete]))
 
 /** Le dessin d'un joker sans légendaire ; celui d'un légendaire est son médaillon. */
 const ICONE_DU_JOKER: Readonly<Record<string, IconName>> = {
@@ -398,7 +399,7 @@ export function Barre({
   onPartir,
   sansSortie,
 }: {
-  vue: Pick<VueDeLExpedition, 'ecus' | 'vies' | 'talismans' | 'jokers' | 'courage' | 'rencontre' | 'cartes' | 'carte' | 'fioles'>
+  vue: Pick<VueDeLExpedition, 'ecus' | 'vies' | 'talismans' | 'jokers' | 'courage' | 'rencontre' | 'cartes' | 'carte' | 'fioles'> & Partial<Pick<VueDeLExpedition, 'acte'>>
   onPartir: () => void
   sansSortie?: boolean
 }) {
@@ -453,6 +454,8 @@ export function Barre({
           parQuestion={vue.cartes?.parQuestion}
           codex={vue.cartes?.codex}
           ascension={vue.cartes?.ascension}
+          energie={vue.cartes?.energie}
+          acte={vue.acte}
           // Sur le plan, le plan d'abord ; en rencontre, l'ordre où l'on joue.
           debut={vue.rencontre ? undefined : vue.carte ? 'plan' : undefined}
           onFermer={() => setRegles(false)}
@@ -1260,6 +1263,8 @@ export function Depart({
           parQuestion={vue?.cartes?.parQuestion ?? (enRencontres ? CARTES_DES_ACTES : undefined)}
           codex={vue ? vue.cartes?.codex : enRencontres ? codex : undefined}
           ascension={vue ? vue.cartes?.ascension : ouverte > 0 ? cran : undefined}
+          energie={vue?.cartes?.energie}
+          acte={vue?.acte}
           debut="expedition"
           onFermer={() => setRegles(false)}
         />
@@ -1969,7 +1974,7 @@ export function CarteDeLActe({
           onFermer={() => setGrande(false)}
         />
       )}
-      {paquet && vue.cartes && <FeuilleDesCartes paquet={vue.cartes.paquet} ascension={vue.cartes.ascension} onFermer={() => setPaquet(false)} />}
+      {paquet && vue.cartes && <FeuilleDesCartes paquet={vue.cartes.paquet} ascension={vue.cartes.ascension} energie={vue.cartes.energie} onFermer={() => setPaquet(false)} />}
     </div>
   )
 }
@@ -2792,7 +2797,9 @@ function Escale({
             onMontrer={() => setMontrer(true)}
           />
         )}
-        {tas && vue.rencontre && <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={vue.rencontre} ascension={vue.cartes?.ascension} onFermer={() => setTas(false)} />}
+        {tas && vue.rencontre && (
+          <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={vue.rencontre} ascension={vue.cartes?.ascension} energie={vue.cartes?.energie} onFermer={() => setTas(false)} />
+        )}
       </div>
     </div>
   )
@@ -3464,7 +3471,13 @@ function Echoppe({
                 <>
                   <span
                     className="exp-offre-visage"
-                    style={x.rarete && x.rarete !== 'talisman' && x.rarete !== 'fiole' ? gemme(GEMME_DU_JOKER[x.rarete as Joker['rarete']]) : undefined}
+                    style={
+                      !x.rarete || x.rarete === 'talisman' || x.rarete === 'fiole'
+                        ? undefined
+                        : x.rarete === 'maudit'
+                          ? GEMME_MAUDITE
+                          : gemme(GEMME_DU_JOKER[x.rarete as Exclude<Joker['rarete'], 'maudit'>])
+                    }
                     aria-hidden="true"
                   >
                     {x.visage}

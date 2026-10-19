@@ -218,9 +218,9 @@ test('la main, sous une question : de vraies cartes au cadre de leur rareté, le
     enMain.map(c => c.cle),
     MAIN.main,
   )
-  // Le cadre de la rareté, la gemme de l'album : argent pour un commun, le pourpre de l'épique pour un maudit.
+  // Le cadre de la rareté, la gemme de l'album : argent pour un commun ; un maudit, son rouge sombre — le pourpre est à l'épique depuis le jeu complet.
   assert.equal(enMain[0].gemme, '#a8b3bf')
-  assert.equal(enMain[2].gemme, '#b77bff')
+  assert.equal(enMain[2].gemme, '#d4506e')
   // Son nom se voit ; celle qui ne se joue pas maintenant le dit à l'oreille.
   assert.match(enMain[0].contenu, /<b class="exp-joker-nom">Le détour<\/b>$/)
   assert.deepEqual(

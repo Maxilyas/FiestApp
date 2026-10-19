@@ -124,7 +124,13 @@ function stockage(vu: boolean) {
 /** La préparation telle que la page l'assemble : la barre, puis ce que `PreparationDeLaRencontre` pose. */
 async function preparation(j: Journal): Promise<string> {
   const { PreparationDeLaRencontre } = await pieces()
-  const vue = { gardiens: j.depart.gardiens.map(cle => ({ cle, vaincu: false })), acte: 0, fetiche: 'Histoire', cartes: { paquet: j.etat().paquet, route: [], refus: {} } } as unknown as VueDeLExpedition
+  // L'énergie de chaque acte, telle que le serveur la dit d'un départ en version 5 : trois partout.
+  const vue = {
+    gardiens: j.depart.gardiens.map(cle => ({ cle, vaincu: false })),
+    acte: 0,
+    fetiche: 'Histoire',
+    cartes: { paquet: j.etat().paquet, route: [], refus: {}, energie: [3, 3, 3] },
+  } as unknown as VueDeLExpedition
   return rendre(PreparationDeLaRencontre, { vue, r: j.vue(), barre: React.createElement('div', { className: 'exp-barre' }), busy: false, erreur: '', onJouer: rien, onVoir: rien })
 }
 
@@ -411,6 +417,8 @@ test('le codex : toutes les cartes de l’expédition, une page par rareté en o
       ['Toutes', CARTES_DES_RENCONTRES.length, 'true'],
       ['Communes', compte('commun'), 'false'],
       ['Rares', compte('rare'), 'false'],
+      // Le jeu complet : une page de plus, entre les rares et les légendaires.
+      ['Épiques', compte('epique'), 'false'],
       ['Maudites', compte('maudit'), 'false'],
       ['Légendaires', compte('legendaire'), 'false'],
     ],
@@ -453,11 +461,12 @@ test('le codex à son niveau : sa jauge de renommée en tête, ce qu’il a sur 
 
 test('la fin dit la renommée qu’elle rapporte, et le niveau qu’elle fait passer : ses cartes neuves en vraies cartes, la règle qui s’ouvre', async () => {
   const { RenommeeGagnee } = await piecesDuCodex()
-  const { NIVEAUX } = await import('../../shared/codex')
+  const { ECHELLE, NIVEAUX } = await import('../../shared/codex')
   const monte = await rendre(RenommeeGagnee, { avant: NIVEAUX[1] - 10, gagnee: 30 })
   assert.match(texte(monte), /\+30 de renommée Tu passes au niveau 2 Niveau 2 d’explorateur/)
-  assert.deepEqual([...monte.matchAll(/class="exp-codex-carte" data-carte="([^"]+)"/g)].map(m => m[1]), ['double-chance'], 'la carte du niveau 2, à lever')
-  assert.match(texte(monte), /Elle rejoint ton codex : tes récompenses la proposeront dès ta prochaine expédition\./)
+  const duNiveau2 = ECHELLE.find(m => m.niveau === 2)!.cartes
+  assert.deepEqual([...monte.matchAll(/class="exp-codex-carte" data-carte="([^"]+)"/g)].map(m => m[1]), [...duNiveau2], 'les cartes du niveau 2, à lever')
+  assert.match(texte(monte), new RegExp(`Ces ${duNiveau2.length} cartes rejoignent ton codex : tes récompenses les proposeront dès ta prochaine expédition\\.`))
   assert.match(texte(monte), /Le pari s’ouvre : avant de voir une question, parie des écus\./)
   // Sans niveau passé : la renommée et la jauge, rien de neuf.
   const sansNiveau = await rendre(RenommeeGagnee, { avant: NIVEAUX[1], gagnee: 5 })

@@ -133,7 +133,7 @@ test('pourquoi une carte ne se joue pas : son moment, son inspiration, la questi
   assert.equal(refusDeLaCarte(contexte({ courage: 6 }), 'abysses'), 'Il te faut plus de 6 de courage pour le poser')
 })
 
-test('le catalogue : le paquet de départ, douze cartes de famille, les vingt-trois légendaires réécrits — chacun son coût, son moment, sa famille', () => {
+test('le catalogue : le paquet de départ, huit cartes par famille, les vingt-trois légendaires réécrits — chacun son coût, son moment, sa famille', () => {
   assert.deepEqual(paquetDesRencontres([]), [...PAQUET_DES_RENCONTRES].sort())
   assert.deepEqual(paquetDesRencontres(['lg:phenix', 'lg:chouette']).filter(c => !PAQUET_DES_RENCONTRES.includes(c)), ['renaissance', 'sagesse'])
   for (const j of JOKERS_DES_LEGENDAIRES) {
@@ -143,9 +143,16 @@ test('le catalogue : le paquet de départ, douze cartes de famille, les vingt-tr
     assert.notEqual(c.famille, 'neutre')
   }
   assert.equal(CARTES_DES_RENCONTRES.filter(c => c.legendaire).length, LEGENDAIRES_A_JOKER.length)
-  const familles = new Map<string, number>()
-  for (const c of CARTES_DES_RENCONTRES) if (!c.legendaire && c.famille !== 'neutre') familles.set(c.famille, (familles.get(c.famille) ?? 0) + 1)
-  assert.deepEqual([...familles.values()], [2, 2, 2, 2, 2, 2], 'deux cartes par famille, pour le prototype')
+  // Le jeu complet (le 19 octobre 2026) : huit cartes par famille — trois communes, trois rares, deux épiques —, là où le prototype en avait deux.
+  const familles = new Map<string, string[]>()
+  for (const c of CARTES_DES_RENCONTRES) if (!c.legendaire && c.famille !== 'neutre') familles.set(c.famille, [...(familles.get(c.famille) ?? []), c.rarete])
+  assert.deepEqual(
+    [...familles].map(([f, raretes]) => [f, ['commun', 'rare', 'epique'].map(r => raretes.filter(x => x === r).length)]),
+    ['erudit', 'flambeur', 'metamorphe', 'elan', 'rempart', 'devin'].map(f => [f, [3, 3, 2]]),
+    'chaque famille : trois communes, trois rares, deux épiques',
+  )
+  const neutres = CARTES_DES_RENCONTRES.filter(c => c.famille === 'neutre')
+  assert.ok(neutres.filter(c => c.rarete === 'epique').length >= 2 && neutres.filter(c => c.rarete === 'rare').length >= 4, 'les neutres aussi ont leurs rares et leurs épiques')
   for (const c of CARTES_DES_RENCONTRES) {
     assert.ok(c.cout >= 0 && c.cout <= 2, `${c.cle} coûte 0, 1 ou 2`)
     assert.ok(/^[A-ZÀ-Ý0-9+«]/.test(c.effet) && /[.!?»]$/.test(c.effet), `${c.cle} : une phrase`)

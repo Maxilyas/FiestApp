@@ -29,14 +29,16 @@
 import {
   CARTES_DES_RENCONTRES,
   CARTES_PAR_OFFRE,
-  INSPIRATION_PAR_QUESTION,
+  ENERGIE_DES_ACTES,
   VERSION_DU_CODEX,
   carteDeRencontre,
   carteDuLegendaire,
+  energieDesActes,
   frappeDe,
   sceauxDe,
   type CarteDeRencontre,
   type PoidsDesRaretes,
+  type RareteDOffre,
   type SorteDeRencontre,
 } from './rencontres'
 import { hasardDe } from './missions'
@@ -229,18 +231,24 @@ export interface MarcheDuCodex {
  * par niveau, du deuxième au cinquième : le pari, les fioles, les talismans,
  * la catégorie fétiche — deux à la fois, la seconde expédition en aurait trop
  * appris d'un coup. Au sixième, un dos à soi pour son paquet.
+ *
+ * Le jeu complet (le 19 octobre 2026) y range ses quarante-deux cartes : à
+ * chaque niveau, de quoi changer de paquet — quatre communes de plus dès le
+ * premier, qui n'en offrait que quatre ; les cartes du pari avec le pari ;
+ * une épique dès le quatrième, puis deux ou trois par niveau. Une carte s'y
+ * mesure comme les autres (`calibrage-rencontres.ts`).
  */
 export const ECHELLE: readonly MarcheDuCodex[] = [
-  { niveau: 1, cartes: ['concentration', 'prudence', 'coup-d-oeil', 'echange', 'pioche', 'arret-sur-image'] },
-  { niveau: 2, cartes: ['double-chance'], regle: 'pari' },
-  { niveau: 3, cartes: ['parade', 'contre-attaque'], regle: 'fioles' },
-  { niveau: 4, cartes: ['detour', 'tout-ou-rien'], regle: 'talismans' },
-  { niveau: 5, cartes: ['plume', 'bibliotheque'], regle: 'fetiche' },
-  { niveau: 6, cartes: ['sursis', 'quitte-ou-double'], dos: 'etoile' },
-  { niveau: 7, cartes: ['doubler-la-mise'] },
-  { niveau: 8, cartes: ['corser', 'simplifier'] },
-  { niveau: 9, cartes: ['lucidite'] },
-  { niveau: 10, cartes: ['troisieme-oeil'] },
+  { niveau: 1, cartes: ['concentration', 'prudence', 'coup-d-oeil', 'echange', 'pioche', 'arret-sur-image', 'evidence', 'muraille', 'foulee', 'presage'] },
+  { niveau: 2, cartes: ['double-chance', 'pourboire', 'cagnotte', 'savoir-faire', 'assurance'], regle: 'pari' },
+  { niveau: 3, cartes: ['parade', 'contre-attaque', 'pansement', 'memoire', 'second-souffle'], regle: 'fioles' },
+  { niveau: 4, cartes: ['detour', 'tout-ou-rien', 'volte-face', 'augure', 'meditation', 'panacee'], regle: 'talismans' },
+  { niveau: 5, cartes: ['plume', 'bibliotheque', 'lecon', 'expose', 'sang-froid', 'genie'], regle: 'fetiche' },
+  { niveau: 6, cartes: ['sursis', 'quitte-ou-double', 'cuirasse', 'prisme', 'rafle', 'bastion'], dos: 'etoile' },
+  { niveau: 7, cartes: ['doubler-la-mise', 'fortune', 'acceleration', 'rythme', 'surmenage', 'pactole', 'vent-arriere'] },
+  { niveau: 8, cartes: ['corser', 'simplifier', 'miroir', 'cameleon', 'sprint', 'metamorphose', 'polymorphe'] },
+  { niveau: 9, cartes: ['lucidite', 'voyance', 'astrolabe', 'vision', 'revelation', 'represailles'] },
+  { niveau: 10, cartes: ['troisieme-oeil', 'encyclopedie', 'maitrise', 'inarretable'] },
 ]
 
 /** Le niveau qui ouvre une règle. */
@@ -383,11 +391,15 @@ export const REPOS_EN_ASCENSION = 0.5
 export const ENERGIE_EN_ASCENSION = 1
 /** Le cran 5 : ce que les points d'un gardien sont multipliés. */
 export const GARDIENS_EN_ASCENSION = 1.5
+/**
+ * Depuis le jeu complet, l'énergie suit les actes (`ENERGIE_DES_ACTES`) : le
+ * cran 4 en ôte une à chacun, et sa phrase le dit sans chiffre d'acte.
+ */
 export const ASCENSION: readonly CranDAscension[] = [
   { cran: 1, regle: `Les adversaires ont ${POINTS_EN_ASCENSION} points de plus` },
   { cran: 2, regle: `Les adversaires frappent ${FRAPPE_EN_ASCENSION} de plus` },
   { cran: 3, regle: 'Le campement et la source rendent moitié moins de courage' },
-  { cran: 4, regle: `Tu as ${INSPIRATION_PAR_QUESTION - ENERGIE_EN_ASCENSION} d’énergie à chaque question, pas ${INSPIRATION_PAR_QUESTION}` },
+  { cran: 4, regle: `Tu as ${ENERGIE_EN_ASCENSION} d’énergie de moins à chaque question` },
   { cran: 5, regle: 'Les gardiens ont moitié plus de points' },
 ]
 export const ASCENSION_MAX = ASCENSION.length
@@ -410,8 +422,16 @@ export const frappeDeLAdversaire = (sorte: SorteDeRencontre, acte: number, ascen
 /** Ce que rend un repos — le campement, la source — à ce cran : moitié moins dès le cran 3, arrondi au-dessus. */
 export const reposALAscension = (courage: number, ascension: number) => (ascension >= 3 ? Math.ceil(courage * REPOS_EN_ASCENSION) : courage)
 
-/** L'énergie de chaque question à ce cran — ce que lui ajoutent ses cartes viendra en plus. */
-export const energieALAscension = (ascension: number) => INSPIRATION_PAR_QUESTION - (ascension >= 4 ? ENERGIE_EN_ASCENSION : 0)
+/**
+ * L'énergie de chaque question, acte par acte, à la version d'un départ et à
+ * son cran — ce que lui ajoutent ses cartes viendra en plus : le pli la donne,
+ * les règles la disent.
+ */
+export const energieDesActesALAscension = (v: number, ascension: number): number[] => energieDesActes(v).map(n => n - (ascension >= 4 ? ENERGIE_EN_ASCENSION : 0))
+
+/** L'énergie d'une question de cet acte. */
+export const energieDuTour = (v: number, acte: number, ascension: number) =>
+  energieDesActesALAscension(v, ascension)[Math.min(Math.max(0, acte), ENERGIE_DES_ACTES.length - 1)]
 
 /**
  * Le plus haut cran qu'il peut choisir, de ses bilans : aucun sans une
@@ -476,7 +496,7 @@ export function offreDuCodex(
     if (f && f !== 'neutre') parFamille.set(f, (parFamille.get(f) ?? 0) + 1)
   }
   const offrables = ouvertes.map(cle => carteDeRencontre(cle)).filter((c): c is CarteDeRencontre => !!c && c.rarete !== 'legendaire' && !HORS_DES_OFFRES.has(c.cle))
-  const raretes = (Object.entries(poids) as ['commun' | 'rare' | 'maudit', number][]).filter(([, p]) => p > 0)
+  const raretes = (Object.entries(poids) as [RareteDOffre, number][]).filter(([, p]) => p > 0)
   const poidsDe = (c: CarteDeRencontre) => 1 + (c.famille === 'neutre' ? 0 : (parFamille.get(c.famille) ?? 0))
   for (let essai = 0; prises.length < CARTES_PAR_OFFRE && essai < 30; essai++) {
     const u = r()
@@ -493,7 +513,7 @@ export function offreDuCodex(
     const libres = offrables.filter(c => !prises.includes(c.cle))
     const aSaRarete = libres.filter(c => c.rarete === rarete)
     const permises = new Set(raretes.map(([nom]) => nom))
-    const candidates = aSaRarete.length > 0 ? aSaRarete : libres.filter(c => permises.has(c.rarete as 'commun' | 'rare' | 'maudit'))
+    const candidates = aSaRarete.length > 0 ? aSaRarete : libres.filter(c => permises.has(c.rarete as RareteDOffre))
     if (candidates.length === 0) break
     const somme = candidates.reduce((n, c) => n + poidsDe(c), 0)
     let t = r() * somme
