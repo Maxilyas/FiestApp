@@ -4632,6 +4632,13 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .maintenance-testeurs-liste li { display: flex; align-items: center; gap: 10px; }
 .maintenance-testeur { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .maintenance-testeurs-liste .salon-geste { flex: none; }
+/* Les annonces au QG : l'aperçu, la carte même de l'accueil (`CarteDeLAdministrateur`), puis celles faites. */
+.annonce-apercu-vide .annonce-admin-texte > span:not(.muted) { font-style: italic; opacity: 0.6; }
+.annonce-faite { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; }
+.annonce-faite-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.annonce-faite .salon-geste { flex: none; }
+.annonce-faite-tue .annonce-faite-texte b { color: var(--muted); }
+.annonce-faite-etat { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
 
 /* ── Aperçu de l'import : les estimations lues ──────────────────────────
 
@@ -11494,7 +11501,9 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .annonce-admin-icone { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(var(--accent-rgb), 0.15); color: var(--accent-text); }
 .annonce-admin-icone .icon { width: 16px; height: 16px; }
 .annonce-admin-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
-.annonce-admin-merci { flex: none; align-self: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.annonce-admin-merci { flex: none; align-self: center; display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+/* À l'aperçu du QG, le bouton n'est qu'une image (`CarteDeLAdministrateur` sans `onRanger`). */
+span.annonce-admin-merci { cursor: default; }
 /* Le merci d'un signalement se lit en une longue phrase : son bouton passe sous le texte, qu'il serrait en colonne. */
 .annonce-admin-pile { flex-wrap: wrap; }
 .annonce-admin-pile .annonce-admin-texte { flex-basis: calc(100% - 46px); }

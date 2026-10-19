@@ -17,7 +17,7 @@ Ton solde se lit au bout de ta ligne d'expérience (« 🎊 820 »), sur l'accue
 | La campagne | chaque bonne réponse, dans tous ses modes : séries, épreuves des sentiers, parcours de thème, révisions du carnet, défi de la semaine, duels | un confetti chacune |
 | Les étoiles des sentiers | la meilleure note de chaque palier des douze sentiers (pas celles des parcours de thème) | deux étoiles 10, trois étoiles 25 (`CONFETTIS_DES_ETOILES`) ; une meilleure note paie la différence |
 | Les ligues des duels | chaque semaine close où tu as joué trois duels (`DUELS_POUR_LA_RECOMPENSE`) paie ta meilleure ligue de la semaine | bronze 10, argent 20, or 30, platine 40, diamant 50, maîtres 60 (`LIGUES`) ; la semaine en cours paie le lundi |
-| L'administrateur | un don, depuis ta fiche au QG, avec un mot s'il le veut | de 1 à 500 (`CONFETTIS_PAR_DON_MAX`), annoncé une fois sur ton accueil |
+| L'administrateur | un don, depuis ta fiche au QG, avec un mot s'il le veut ; ou une annonce à tous — après une panne, pour une fête —, un don par profil | de 1 à 500 (`CONFETTIS_PAR_DON_MAX`), annoncé une fois sur ton accueil ; de 0 à 500 sous une annonce, à chacun des profils d'alors |
 | Les missions du jour | chaque mission faite, et les trois le même jour ([les missions](les-missions.md)) | 15 chacune, 15 de plus pour les trois — 60 au plus par jour |
 | Le coffre de la semaine | sa rareté commune, ou quand tu as déjà tout le reste | 60, 90, 120 ou 150 selon le coffre (`CONFETTIS_DU_COFFRE`) |
 

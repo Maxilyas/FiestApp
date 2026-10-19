@@ -41,6 +41,7 @@ import type { CoffreOuvert } from '../../shared/coffre'
 import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
+import type { PageDesAnnonces } from '../../shared/annonces'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
 import type { EtatDUnePage, EtatDeLaMaintenance, PageEnMaintenance } from '../../shared/maintenance'
 import type { SuiviDuJour } from '../../shared/qgDuJour'
@@ -700,6 +701,13 @@ export const api = {
       req<EtatDeLaMaintenance>(`/api/admin/maintenance/pages/${page}/testeurs/${encodeURIComponent(profileId)}`, { method: 'PUT' }),
     retirerUnTesteur: (page: PageEnMaintenance, profileId: string) =>
       req<EtatDeLaMaintenance>(`/api/admin/maintenance/pages/${page}/testeurs/${encodeURIComponent(profileId)}`, { method: 'DELETE' }),
+    /** Les annonces à tous, et combien de profils recevraient la prochaine. */
+    annonces: () => req<PageDesAnnonces>('/api/admin/annonces'),
+    /** Une annonce à tous, et ses confettis pour chacun ; `id`, celui de l'envoi : refait, il ne part pas deux fois. Rend la page d'après. */
+    annoncer: (id: string, message: string, confettis: number) =>
+      req<PageDesAnnonces>('/api/admin/annonces', { method: 'POST', body: JSON.stringify({ id, message, confettis }) }),
+    /** Retirer une annonce : l'accueil la tait, ses confettis restent offerts. Rend la page d'après. */
+    retirerLAnnonce: (id: string) => req<PageDesAnnonces>(`/api/admin/annonces/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     /** Tous les espaces, chacun avec son titulaire : les salons des profils, les comptes à mot de passe. */
     espaces: () => req<EspaceDAdministration[]>('/api/admin/espaces'),
     /** Fusionner deux identités d'avant : l'espace prend ce profil pour titulaire, ses quiz d'ailleurs le rejoignent. */

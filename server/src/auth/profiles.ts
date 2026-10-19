@@ -120,6 +120,7 @@ import type { ArchiveStore } from '../core/archive'
 import type { CampagneDuProfil, CoteDesDuels } from '../core/campagne'
 import type { ProfileBadge } from '../core/party'
 import type { CeQueLaLogeLit } from '../../../shared/loge'
+import { ANNONCES_MONTREES, lireLeMessage, lireLesConfettis, type AnnonceAuQg } from '../../../shared/annonces'
 
 /** Chaque champ de `T` donné, même vide : un champ de plus dans `T` ne s'oublie pas en silence là où on le remplit. */
 type ToutDonne<T> = { [K in keyof Required<T>]: undefined extends T[K] ? T[K] | undefined : T[K] }
@@ -596,6 +597,37 @@ function etiquetteDe(cle: string): { emoji: string; title: string } {
   return { emoji: '✨', title: cle }
 }
 
+/** Une annonce à tous, telle que l'accueil la lit (`qg_annonces`, `shared/annonces.ts`). */
+export interface AnnonceATous {
+  id: string
+  message: string
+  /** Ce qu'elle offre à chacun ; 0, un message seul. */
+  confettis: number
+  le: number
+}
+
+/**
+ * Le don qu'une annonce à tous fait à un profil : son identifiant se déduit
+ * des deux. Une annonce rejouée — un second envoi après un délai dépassé —
+ * ne donne pas deux fois, et l'accueil reconnaît, parmi ses dons, ceux que
+ * l'annonce dit déjà : sans ça, il lisait le même cadeau deux fois.
+ */
+const donDeLAnnonce = (annonce: string, profil: string) => `annonce:${annonce}:${profil}`
+const estUnDonDAnnonce = (don: string) => don.startsWith('annonce:')
+
+/** L'identifiant d'une annonce, tiré par la page qui l'envoie : de quoi la reconnaître si elle repart. */
+const ID_D_ANNONCE = /^[0-9a-z-]{8,40}$/i
+
+const COLONNES_D_UNE_ANNONCE = 'id, message, confettis, destinataires, created_at, retiree_le'
+const annonceDuQg = (r: Row): AnnonceAuQg => ({
+  id: String(r.id),
+  message: String(r.message),
+  confettis: Number(r.confettis),
+  destinataires: Number(r.destinataires),
+  le: Number(r.created_at),
+  retireeLe: r.retiree_le == null ? null : Number(r.retiree_le),
+})
+
 export class ProfileStore {
   private client: Client
   private profiles = new Map<string, ProfileRec>()
@@ -992,6 +1024,20 @@ export class ProfileStore {
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_dons ON profile_dons(profile_id)',
         'CREATE INDEX IF NOT EXISTS idx_profile_dons_quand ON profile_dons(created_at)',
+        // Les annonces de l'administrateur à tous (`shared/annonces.ts`), une
+        // ligne chacune, jamais effacée — retirée, elle se tait. Les confettis
+        // qu'elle offre sont des dons, un par profil (`annoncerATous`) : le
+        // solde, l'économie et la suppression d'un profil les lisent déjà.
+        `CREATE TABLE IF NOT EXISTS qg_annonces (
+           id            TEXT PRIMARY KEY,
+           message       TEXT NOT NULL,
+           confettis     INTEGER NOT NULL,
+           destinataires INTEGER NOT NULL,
+           created_at    INTEGER NOT NULL,
+           retiree_le    INTEGER
+         )`,
+        // Celles du dernier mois, lues avec les dons de chaque accueil : par leur date, sans parcourir la table.
+        'CREATE INDEX IF NOT EXISTS idx_qg_annonces_quand ON qg_annonces(created_at)',
         // Ce qu'il a déjà vu dans sa loge, pièce par pièce (`VusDeLaLoge`, en
         // JSON) : la pastille rouge de « Profil » compte ce qu'il a et qui n'y
         // est pas. Retenu sur le téléphone jusqu'au 14 octobre 2026, ce qu'on
@@ -1368,8 +1414,13 @@ export class ProfileStore {
    * Les thèmes et les fonds qu'il a achetés et ce qu'il les a payés, ce que
    * lui ont coûté ses vies des sentiers, ses sabliers et ses compagnons, et
    * les confettis que l'administrateur lui a offerts : un seul aller-retour.
+   * `annonces` : les annonces à tous faites depuis, et depuis son inscription,
+   * dans le même lot — l'accueil les dit sans un aller-retour de plus.
    */
-  private async achatsDe(profileId: string): Promise<{
+  private async achatsDe(
+    profileId: string,
+    annonces?: { depuis: number; inscritLe: number },
+  ): Promise<{
     themes: Map<string, number>
     vies: number
     sabliers: number
@@ -1379,8 +1430,9 @@ export class ProfileStore {
     /** Ce que ses missions faites et ses coffres lui ont donné en confettis. */
     missions: number
     coffres: number
+    aTous: AnnonceATous[]
   }> {
-    const [themes, vies, sabliers, compagnons, fonds, dons, missions, coffres] = await this.client.batch(
+    const [themes, vies, sabliers, compagnons, fonds, dons, missions, coffres, aTous] = await this.client.batch(
       [
         { sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_vies WHERE profile_id = ?', args: [profileId] },
@@ -1395,6 +1447,15 @@ export class ProfileStore {
           args: [RANG_DES_TROIS, RANG_DES_TROIS, profileId],
         },
         { sql: 'SELECT COALESCE(SUM(confettis), 0) AS n FROM profile_coffres WHERE profile_id = ?', args: [profileId] },
+        // Une annonce faite avant son inscription n'est pas pour lui : il n'était pas là.
+        ...(annonces
+          ? [
+              {
+                sql: 'SELECT id, message, confettis, created_at FROM qg_annonces WHERE created_at >= ? AND created_at >= ? AND retiree_le IS NULL ORDER BY created_at DESC',
+                args: [annonces.depuis, annonces.inscritLe],
+              },
+            ]
+          : []),
       ],
       'read',
     )
@@ -1407,6 +1468,7 @@ export class ProfileStore {
       dons: dons.rows.map(r => ({ id: String(r.id), confettis: Number(r.confettis), mot: r.mot == null ? null : String(r.mot), le: Number(r.created_at) })),
       missions: gainsDesMissions(Number(missions.rows[0]?.faites ?? 0), Number(missions.rows[0]?.trois ?? 0)).confettis,
       coffres: Number(coffres.rows[0]?.n ?? 0),
+      aTous: (aTous?.rows ?? []).map(r => ({ id: String(r.id), message: String(r.message), confettis: Number(r.confettis), le: Number(r.created_at) })),
     }
   }
 
@@ -1437,7 +1499,9 @@ export class ProfileStore {
 
   /**
    * Sa boutique, et les dons de l'administrateur qu'elle a comptés, le plus
-   * récent d'abord : l'accueil les annonce, la fiche du QG les additionne.
+   * récent d'abord : l'accueil les annonce, la fiche du QG les additionne. Et
+   * les annonces à tous de ce dernier mois (`ANNONCE_MS`), dans la même
+   * lecture : l'accueil les dit avec les dons qu'elles lui ont faits.
    * `campagne`, quand sa page l'a déjà demandée (`campagneDuProfil`).
    */
   async boutiqueEtDons(
@@ -1445,11 +1509,11 @@ export class ProfileStore {
     jour: string,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
     campagne?: Promise<CampagneDuProfil>,
-  ): Promise<{ boutique: BoutiqueDuProfil; dons: { id: string; confettis: number; mot: string | null; le: number }[] }> {
+  ): Promise<{ boutique: BoutiqueDuProfil; dons: { id: string; confettis: number; mot: string | null; le: number }[]; aTous: AnnonceATous[] }> {
     const historique = soirees ?? this.historiqueOf(p.id)
     const [lues, achats, duJour, deCampagne, compagnons] = await Promise.all([
       historique,
-      this.achatsDe(p.id),
+      this.achatsDe(p.id, { depuis: Date.now() - ANNONCE_MS, inscritLe: p.createdAt }),
       this.justesDuJour?.(p.id) ?? 0,
       // Ses confettis de campagne, et ses maîtres, qui ouvrent le thème qui se gagne : la même lecture.
       campagne ?? this.lectureDeCampagne(p.id),
@@ -1472,6 +1536,7 @@ export class ProfileStore {
         ...(fondsAchetes.length > 0 && { fondsAchetes }),
       },
       dons: achats.dons,
+      aTous: achats.aTous,
     }
   }
 
@@ -1713,20 +1778,30 @@ export class ProfileStore {
    * Ce que l'administrateur a fait pour lui ce dernier mois, à lui dire une
    * fois sur son accueil (`ANNONCE_MS`) : ses dons, son prénom changé, et les
    * mercis de ses signalements qui ont servi — que le quiz du jour et la
-   * campagne ont déjà lus sur le mois —, le plus récent d'abord. Son
-   * téléphone retient ce qu'il a déjà montré.
+   * campagne ont déjà lus sur le mois —, le plus récent d'abord ; et ce qu'il
+   * a dit à tous (`aTous`), chaque annonce avec les confettis qu'elle lui a
+   * offerts — ses dons à elle ne se redisent pas à part. Son téléphone retient
+   * ce qu'il a déjà montré.
    */
   annoncesDe(
     p: ProfileRec,
     dons: readonly { id: string; confettis: number; mot: string | null; le: number }[],
     maintenant: number,
     mercis: readonly AnnonceDeLAdministrateur[] = [],
+    aTous: readonly AnnonceATous[] = [],
   ): AnnonceDeLAdministrateur[] {
     const annonces: AnnonceDeLAdministrateur[] = dons
-      .filter(d => maintenant - d.le < ANNONCE_MS)
+      .filter(d => maintenant - d.le < ANNONCE_MS && !estUnDonDAnnonce(d.id))
       .map(d => ({ id: `don:${d.id}`, sorte: 'confettis' as const, confettis: d.confettis, mot: d.mot, le: d.le }))
     if (p.renommeLe !== null && maintenant - p.renommeLe < ANNONCE_MS) {
       annonces.push({ id: `prenom:${p.renommeLe}`, sorte: 'prenom', nom: p.name, le: p.renommeLe })
+    }
+    // Les confettis d'une annonce sont ceux de SON don : suspendu à son envoi, il
+    // n'en a pas reçu, et l'annonce ne les lui promet pas.
+    const parId = new Map(dons.map(d => [d.id, d.confettis]))
+    for (const a of aTous) {
+      if (maintenant - a.le >= ANNONCE_MS) continue
+      annonces.push({ id: `annonce:${a.id}`, sorte: 'annonce', message: a.message, confettis: parId.get(donDeLAnnonce(a.id, p.id)) ?? 0, le: a.le })
     }
     return [...annonces, ...mercis].sort((a, b) => b.le - a.le)
   }
@@ -4110,6 +4185,79 @@ export class ProfileStore {
       args: [randomUUID(), id, n, propre || null, Date.now()],
     })
     return { confettis: n, mot: propre || null }
+  }
+
+  /**
+   * Une annonce à tous (`shared/annonces.ts`) : un message, et des confettis
+   * pour chacun — un don par profil, comme celui de la fiche d'un joueur —,
+   * écrits d'un seul lot : l'annonce et ses dons ensemble, ou rien. Pour les
+   * profils d'aujourd'hui, sans les suspendus, qui ne la verraient pas ; ceux
+   * qui naîtront ensuite ne la recevront pas : elle parle d'avant eux.
+   *
+   * `id` vient de la page qui l'envoie, et ne change qu'une fois l'annonce
+   * partie : un envoi rejoué — la réponse perdue en route, le geste refait —
+   * retrouve l'annonce faite (`nouvelle` faux) au lieu d'offrir une seconde
+   * fois à tout le monde.
+   */
+  async annoncerATous(demande: { id: unknown; message: unknown; confettis: unknown }): Promise<{ annonce: AnnonceAuQg; nouvelle: boolean }> {
+    const message = lireLeMessage(demande.message)
+    const confettis = lireLesConfettis(demande.confettis)
+    const id = typeof demande.id === 'string' && ID_D_ANNONCE.test(demande.id) ? demande.id : randomUUID()
+    const maintenant = Date.now()
+    const [faite, , lue] = await this.client.batch(
+      [
+        {
+          sql: `INSERT OR IGNORE INTO qg_annonces (id, message, confettis, destinataires, created_at)
+                SELECT ?, ?, ?, COUNT(*), ? FROM profiles WHERE disabled_at IS NULL AND created_at <= ?`,
+          args: [id, message, confettis, maintenant, maintenant],
+        },
+        // À l'heure de l'annonce, la première fois qu'elle est partie : rejouée,
+        // elle ne donne rien aux profils venus depuis, et ses dons déjà faits restent seuls.
+        {
+          sql: `INSERT OR IGNORE INTO profile_dons (id, profile_id, confettis, mot, created_at)
+                SELECT 'annonce:' || a.id || ':' || p.id, p.id, a.confettis, NULL, a.created_at
+                FROM qg_annonces a JOIN profiles p ON p.disabled_at IS NULL AND p.created_at <= a.created_at
+                WHERE a.id = ? AND a.confettis > 0 AND a.retiree_le IS NULL`,
+          args: [id],
+        },
+        { sql: `SELECT ${COLONNES_D_UNE_ANNONCE} FROM qg_annonces WHERE id = ?`, args: [id] },
+      ],
+      'write',
+    )
+    const ligne = lue.rows[0]
+    if (!ligne) throw new Error('L’annonce n’a pas pu partir : réessaie')
+    return { annonce: annonceDuQg(ligne), nouvelle: faite.rowsAffected > 0 }
+  }
+
+  /** Les annonces faites, la plus récente d'abord, et les profils qui recevraient la prochaine : un aller-retour. */
+  async annoncesAuQg(): Promise<{ profils: number; annonces: AnnonceAuQg[] }> {
+    const [annonces, compte] = await this.client.batch(
+      [
+        { sql: `SELECT ${COLONNES_D_UNE_ANNONCE} FROM qg_annonces ORDER BY created_at DESC LIMIT ?`, args: [ANNONCES_MONTREES] },
+        'SELECT COUNT(*) AS n FROM profiles WHERE disabled_at IS NULL',
+      ],
+      'read',
+    )
+    return { profils: Number(compte.rows[0]?.n ?? 0), annonces: annonces.rows.map(annonceDuQg) }
+  }
+
+  /**
+   * Retire une annonce : l'accueil la tait à qui ne l'avait pas encore lue —
+   * une faute dans le message, une nouvelle qui ne tient plus. Ses confettis
+   * restent : un don ne se reprend pas. Null si elle n'existe pas.
+   */
+  async retirerLAnnonce(id: string): Promise<AnnonceAuQg | null> {
+    const [retiree, lue] = await this.client.batch(
+      [
+        { sql: 'UPDATE qg_annonces SET retiree_le = ? WHERE id = ? AND retiree_le IS NULL', args: [Date.now(), id] },
+        { sql: `SELECT ${COLONNES_D_UNE_ANNONCE} FROM qg_annonces WHERE id = ?`, args: [id] },
+      ],
+      'write',
+    )
+    const ligne = lue.rows[0]
+    if (!ligne) return null
+    if (retiree.rowsAffected === 0) throw new Error('Cette annonce est déjà retirée : recharge le QG')
+    return annonceDuQg(ligne)
   }
 
   /**

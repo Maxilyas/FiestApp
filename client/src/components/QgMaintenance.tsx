@@ -53,9 +53,10 @@ const net = (texte: string) => texte.replace(/\s+/g, ' ').trim()
  * le même jour, annoncer pour bientôt ce qui n'est pas prêt — l'Expédition,
  * qu'il essayait encore —, ouvert à ses seuls testeurs. Tout se lit à la page
  * suivante qu'ils ouvrent (`shared/maintenance.ts`) ; chaque geste va au
- * journal.
+ * journal. La panne réglée, le bandeau se retire, et la page des annonces le
+ * dit à chacun, une fois (`QgAnnonces`, `versLesAnnonces`).
  */
-export function QgMaintenance({ onEtat }: { onEtat: (etat: EtatDeLaMaintenance) => void }) {
+export function QgMaintenance({ onEtat, versLesAnnonces }: { onEtat: (etat: EtatDeLaMaintenance) => void; versLesAnnonces: () => void }) {
   const [etat, setEtat] = useState<EtatDeLaMaintenance | null>(null)
   const [error, setError] = useState('')
   const [texte, setTexte] = useState('')
@@ -209,6 +210,14 @@ export function QgMaintenance({ onEtat }: { onEtat: (etat: EtatDeLaMaintenance) 
             </button>
           )}
         </div>
+        {/* Le bandeau se lit en passant, et part avec la panne : dire qu'elle est réglée, c'est une annonce. */}
+        <p className="muted small">
+          {espacesFines('Réparé ? Retire le bandeau, rouvre la page, puis dis-le à chacun, une fois, en haut de son accueil — avec des confettis, si tu veux.')}
+        </p>
+        <button type="button" className="lien-discret qg-suite" onClick={versLesAnnonces}>
+          <Icon name="megaphone" />
+          Faire une annonce
+        </button>
       </section>
 
       <section className="qg-carte" aria-labelledby="maintenance-pages">
