@@ -23,6 +23,7 @@ import {
   PAQUET_DES_RENCONTRES,
   RARETES_DU_JEU_COMPLET,
   STYLES,
+  VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_JEU_COMPLET,
   carteDeRencontre,
   carteDuLegendaire,
@@ -49,15 +50,16 @@ const famille = (cle: string) => carteDeRencontre(cle)!.famille
 
 // ── L'échelle et le paquet ──────────────────────────────────────────────────
 
-test('l’échelle ouvre la variété d’abord : trois styles au niveau 1, un de plus aux niveaux 2, 3 et 4 — chacun avec ses trois communes, ses deux cartes de départ comprises', () => {
-  assert.deepEqual(STYLES, ['rempart', 'erudit', 'devin', 'flambeur', 'elan', 'metamorphe'], 'dans l’ordre où le codex les ouvre')
+test('l’échelle ouvre la variété d’abord : trois styles au niveau 1, un de plus à chacun des cinq suivants — chacun avec ses trois communes, ses deux cartes de départ comprises', () => {
+  // Les six de « Ton style », puis les deux des huit familles (la version 9) : le Sophiste au niveau 5, le Téméraire au 6.
+  assert.deepEqual(STYLES, ['rempart', 'erudit', 'devin', 'flambeur', 'elan', 'metamorphe', 'sophiste', 'temeraire'], 'dans l’ordre où le codex les ouvre')
   assert.deepEqual(stylesDuNiveau(1), ['rempart', 'erudit', 'devin'])
   assert.deepEqual(
-    [2, 3, 4].map(n => stylesDuNiveau(n).slice(-1)[0]),
-    ['flambeur', 'elan', 'metamorphe'],
+    [2, 3, 4, 5, 6].map(n => stylesDuNiveau(n).slice(-1)[0]),
+    ['flambeur', 'elan', 'metamorphe', 'sophiste', 'temeraire'],
   )
   assert.deepEqual(stylesDuNiveau(10), STYLES)
-  assert.deepEqual(STYLES.map(niveauDuStyle), [1, 1, 1, 2, 3, 4])
+  assert.deepEqual(STYLES.map(niveauDuStyle), [1, 1, 1, 2, 3, 4, 5, 6])
   assert.deepEqual(codexDuNiveau(1, []).styles, ['rempart', 'erudit', 'devin'], 'le codex d’un niveau les dit, pour le départ')
   for (const style of STYLES) {
     const communes = CARTES_DES_RENCONTRES.filter(c => c.famille === style && c.rarete === 'commun')
@@ -87,7 +89,7 @@ test('le paquet d’un style : ses deux cartes à la place de deux cartes de bas
     assert.deepEqual(compte(paquet), [4 - [x, y].filter(c => c === 'concentration').length, 4 - [x, y].filter(c => c === 'prudence').length], style)
   }
   // Mesuré : l'Érudit, le Flambeur et l'Élan, qui ne font qu'attaquer, gardent leurs quatre Prudences — sans quoi leur paquet manquait
-  // de boucliers ; le Rempart garde ses quatre Concentrations.
+  // de boucliers ; le Rempart garde ses quatre Concentrations. Le Sophiste et le Téméraire aussi gardent les leurs.
   assert.deepEqual(
     STYLES.map(style => compte(paquetDesRencontres([], style))),
     [
@@ -97,6 +99,8 @@ test('le paquet d’un style : ses deux cartes à la place de deux cartes de bas
       [2, 4],
       [2, 4],
       [3, 3],
+      [2, 4],
+      [2, 4],
     ],
   )
 })
@@ -363,16 +367,28 @@ test('le départ prend son style parmi ceux que son codex ouvre : ses deux carte
   assert.deepEqual([d.v, d.style], [4, undefined])
 })
 
-test('au niveau 4, les six styles : le Métamorphe part avec Corser et Simplifier', async () => {
+test('au niveau 4, les six styles de « Ton style » : le Métamorphe part avec Corser et Simplifier', async () => {
   const c = await inscrireProfil(banc.url, 'styles4', 'Style quatre')
   const { v: premiere } = await partirPuisAbandonner(c, { rencontres: true })
-  // Le niveau 4, juste : sa renommée écrite au bilan de l'expédition finie.
+  // Le niveau 4, juste : sa renommée écrite au bilan de l'expédition finie. Le Sophiste et le Téméraire attendent les niveaux 5 et 6.
   base(db => db.prepare('UPDATE campagne_series SET bilan = ? WHERE id = ?').run(ecrireLeBilan({ escales: NIVEAUX[3], adversaires: 0, elites: 0, gardiens: 0, auBout: false }), premiere.id), true)
   const page: PageDeLExpedition = (await lire(c, '/api/expedition')).corps
-  assert.deepEqual(page.prochaine.codex?.styles, STYLES)
+  assert.deepEqual(page.prochaine.codex?.styles, STYLES.slice(0, 6))
   const { v, depart: d } = await partirPuisAbandonner(c, { rencontres: true, style: 'metamorphe' })
   assert.equal(d.style, 'metamorphe')
   assert.ok(v.cartes?.paquet.includes('corser') && v.cartes.paquet.includes('simplifier'))
+})
+
+test('au niveau 6, les huit styles : le Téméraire part avec Fougue et Cicatrices, en version 9 — les huit familles', async () => {
+  const c = await inscrireProfil(banc.url, 'styles6', 'Style six')
+  const { v: premiere } = await partirPuisAbandonner(c, { rencontres: true })
+  base(db => db.prepare('UPDATE campagne_series SET bilan = ? WHERE id = ?').run(ecrireLeBilan({ escales: NIVEAUX[5], adversaires: 0, elites: 0, gardiens: 0, auBout: false }), premiere.id), true)
+  const page: PageDeLExpedition = (await lire(c, '/api/expedition')).corps
+  assert.deepEqual(page.prochaine.codex?.styles, STYLES)
+  const { v, depart: d } = await partirPuisAbandonner(c, { rencontres: true, style: 'temeraire' })
+  assert.deepEqual([d.v, d.style], [VERSION_DES_HUIT_FAMILLES, 'temeraire'])
+  assert.ok(v.cartes?.paquet.includes('fougue') && v.cartes.paquet.includes('cicatrices'))
+  assert.equal(v.cartes?.paquet.filter(cle => cle === 'concentration').length, 2, 'à la place de deux Concentrations')
 })
 
 // ── La page ─────────────────────────────────────────────────────────────────
@@ -435,10 +451,16 @@ test('le départ propose ses styles en pastilles — rien de retenu, le premier 
   assert.match(texte(erudit), /Tu pars avec Plume et Savoir-faire, à la place de deux Concentrations[\s\S]*Ta catégorie fétiche : aucune Choisir/)
   // Un style que son codex n'ouvre pas encore — retenu pour un autre profil — : le premier des siens.
   assert.deepEqual(pastilles(await leDepart(1, 'metamorphe'))[0], ['Rempart', 'true'])
-  // Au niveau 4, les six, et plus rien à attendre.
+  // Au niveau 4, les six de « Ton style » ; le Sophiste s'annonce au 5. Au niveau 6, les huit, et plus rien à attendre.
   const quatre = await leDepart(4)
   assert.equal(pastilles(quatre).length, 6)
-  assert.doesNotMatch(texte(quatre), /s’ouvre au niveau/)
+  assert.match(texte(quatre), /Le Sophiste s’ouvre au niveau 5\./)
+  const six = await leDepart(6)
+  assert.deepEqual(
+    pastilles(six).map(([nom]) => nom),
+    ['Rempart', 'Érudit', 'Devin', 'Flambeur', 'Élan', 'Métamorphe', 'Sophiste', 'Téméraire'],
+  )
+  assert.doesNotMatch(texte(six), /s’ouvre au niveau/)
 })
 
 test('les règles disent les styles : le choix du départ, la récompense de son style, chacun et sa façon de gagner — fermé, son niveau', async () => {

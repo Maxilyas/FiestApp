@@ -92,6 +92,9 @@ import {
   cartesDeCombat,
   cartesParQuestion,
   chiffresApresLaCarte,
+  courageDeLaCarte,
+  douteApresLaQuestion,
+  douteDUneErreur,
   effaceesDuTour,
   enJeu,
   enPlusApresLaForme,
@@ -113,6 +116,7 @@ import {
   refusDeLAmelioration,
   refusDeLaCarte,
   riposte,
+  rongeDuDoute,
   siJuste,
   suiteDUneBonneReponse,
   viseLaQuestion,
@@ -855,9 +859,11 @@ export interface DepartDExpedition {
    * complet (`VERSION_DU_JEU_COMPLET`) — ses quarante-deux cartes de plus,
    * l'épique dans les offres (`raretesDeLOffre`), et l'énergie qui suit les
    * actes (`ENERGIE_DES_ACTES`, deux à l'acte 1) ; une expédition partie en
-   * version 7 garde ses trois d'énergie et ses offres.
+   * version 7 garde ses trois d'énergie et ses offres. 9 : les huit familles
+   * (`VERSION_DES_HUIT_FAMILLES`) — le Sophiste et le Téméraire, leurs seize
+   * cartes, le doute ; une expédition partie en version 8 n'en tire aucune.
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -1358,6 +1364,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       perdu: 0,
       aube: 0,
       boucle: null,
+      doute: 0,
     }
   }
   /**
@@ -1446,6 +1453,13 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const q = questions[i] ?? { escale: r.escale, acte: e.acte }
     const mise = enJeu(t)
     const traversee = t.surLaQuestion.includes('passe-muraille')
+    // Le doute (v9) ronge d'abord, juste ou faux, puis baisse de 1 — sauf sous Paranoïa ; tombé du doute, il ne frappe plus.
+    // Coup de grâce lit celui qu'il avait en répondant : ce que la page montrait.
+    const doute = r.doute
+    const ronge = rongeDuDoute(r.sceaux, doute)
+    r.sceaux -= ronge
+    r.doute = douteApresLaQuestion(doute, r.pouvoirs)
+    const tombeDuDoute = ronge > 0 && r.sceaux <= 0
     let coup: CoupDeRencontre
     if (traversee) {
       // Ni trouvée ni ratée : ni frappe, ni sceaux, et la mise est rendue.
@@ -1459,7 +1473,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         charge: t.charge,
         enPlus: enPlusDesPouvoirs({ v: depart.v, pouvoirs: r.pouvoirs, fetiche: depart.fetiche, categorie: q.categorie, trouvees: r.trouvees, serie: r.serie, forme: q.reponses !== undefined && q.reponses <= 2 ? 'vrai-faux' : q.forme }),
         multiplicateur: multiplicateurDeLaForme(q, { pouvoirs: r.pouvoirs, surLaQuestion: t.surLaQuestion }),
-        banco: enPlusApresLaForme(t, r.pouvoirs),
+        banco: enPlusApresLaForme(t, r.pouvoirs, doute),
         double: t.jouees.includes('quitte-ou-double'),
       })
       r.sceaux = Math.max(0, r.sceaux - brises)
@@ -1467,9 +1481,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       r.trouvees++
       e.justes++
       deSuite()
-      // Le pari, puis ce que les cartes du tour rapportent à part : les écus du Flambeur, le courage de Pansement.
+      // Le pari, puis ce que les cartes du tour rapportent à part : les écus du Flambeur, le courage de Pansement et d'Adrénaline.
       const gain = mise > 0 ? gainDeLaMise(t, r.pouvoirs) : 0
-      const plus = siJuste(t.jouees)
+      const plus = siJuste(t.jouees, r.pouvoirs)
       e.ecus += gain + plus.ecus
       if (plus.courage > 0) e.courage = Math.min(COURAGE_MAX, e.courage! + plus.courage)
       if (mise >= PARI_DE_L_EXPLOIT) exploit('pari-de-40')
@@ -1496,16 +1510,18 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     } else {
       const f = frappeDUneErreur({
         frappe: frappeDeLaQuestion(r) + frappeEnPlus(t.jouees),
-        sauve: parmi(t.jouees, 'sursis') || t.surLaQuestion.includes('mue'),
+        sauve: tombeDuDoute || parmi(t.jouees, 'sursis') || t.surLaQuestion.includes('mue'),
         double: t.surLaQuestion.includes('tout-ou-rien') || t.jouees.includes('quitte-ou-double'),
         garde: t.garde,
       })
       e.courage! -= f.perdu
       r.perdu += f.perdu
       e.affilee = 0
-      // Contre-attaque et Représailles : ce que le bouclier a paré, l'adversaire le perd.
-      const contre = riposte(f.absorbee, t.jouees, r.pouvoirs)
+      // Contre-attaque et Représailles : ce que le bouclier a paré, l'adversaire le perd ; Berserk (v9), ce que l'attaque a pris.
+      const contre = riposte(f.absorbee, t.jouees, r.pouvoirs, f.perdu)
       r.sceaux = Math.max(0, r.sceaux - contre)
+      // Engrenage (v9) : l'erreur sème le doute — pour la question suivante.
+      r.doute += douteDUneErreur(r.pouvoirs)
       // Inarrêtable : sa série ne retombe pas.
       if (!parmi(r.pouvoirs, 'inarretable')) r.serie = 0
       // Bastion : le bouclier reste, moins ce qu'il a paré.
@@ -1528,7 +1544,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     // Ce qu'il n'a pas joué part à la défausse.
     r.defausse.push(...r.main)
     r.main = []
-    e.coup = coup
+    e.coup = ronge > 0 ? { ...coup, doute: ronge } : coup
     if (e.courage! <= 0) {
       if (r.pouvoirs.includes('renaissance')) {
         // Une fois par expédition : la carte quitte son paquet.
@@ -1562,19 +1578,23 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     if (carte.moment === 'pouvoir') r.pouvoirs.push(g.joker)
     else if (carte.epuisement) r.epuisees.push(g.joker)
     else r.defausse.push(g.joker)
-    // Ses chiffres — l'inspiration qu'elle coûte, la Charge, la Garde, la série — : la règle que la page relit, carte levée.
-    const x = chiffresApresLaCarte(g.joker, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: r.serie }, r.pouvoirs, {
+    // Ses chiffres — l'inspiration qu'elle coûte, la Charge, la Garde, la série, le doute — : la règle que la page relit, carte levée.
+    const x = chiffresApresLaCarte(g.joker, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: r.serie, doute: r.doute }, r.pouvoirs, {
       v: depart.v,
       fetiche: !!depart.fetiche && q?.categorie === depart.fetiche,
       effacees,
       niveau,
       savoir: SAVOIR_DES_MARCHES[niveau],
       ecus: e.ecus,
+      courage: e.courage ?? COURAGE_MAX,
     })
     t.inspiration = x.inspiration
     t.charge = x.charge
     t.garde = x.garde
     r.serie = x.serie
+    r.doute = x.doute ?? r.doute
+    // Le courage qu'elle coûte (v9) : Fougue, Coup de sang — le refus a dit qu'il en reste assez.
+    e.courage! -= courageDeLaCarte(g.joker)
     // Ce qui ne se chiffre pas, de sa carte — et de son exemplaire amélioré : une carte de plus, plus de courage.
     const plus = !!carte.amelioree
     switch (baseDe(g.joker)) {
@@ -1590,6 +1610,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       case 'presage':
       case 'surmenage':
       case 'pourboire':
+      case 'coup-de-sang':
         piocher(1)
         break
       // Doubler la mise améliorée en tire une aussi.
@@ -2202,6 +2223,7 @@ export function contexteDeLaCarte(depart: Pick<DepartDExpedition, 'v' | 'fetiche
     courage: e.courage ?? 0,
     derniereFrappe: r.derniereFrappe,
     defausse: r.defausse.length,
+    doute: r.doute,
   }
 }
 
@@ -2282,6 +2304,8 @@ export function vueDeLaRencontre(
     serie: r.serie,
     trouvees: r.trouvees,
     ecus: e.ecus,
+    courage: e.courage ?? 0,
+    ...(r.doute > 0 && { doute: r.doute }),
     phase: r.tour.phase,
     ...(e.enAttente !== null && { position: e.enAttente }),
     inspiration: r.tour.inspiration,
@@ -2315,6 +2339,7 @@ export function vueDeLaRencontre(
           ...(q?.mots !== undefined && { mots: q.mots }),
           trouvees: r.trouvees,
           serie: r.serie,
+          doute: r.doute,
         }),
       }),
   }

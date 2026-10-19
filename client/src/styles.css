@@ -9645,6 +9645,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-sceaux-jauge i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.4s ease; }
 .exp-sceaux b { flex: none; color: var(--accent-text); font-size: 0.82rem; font-variant-numeric: lining-nums tabular-nums; }
 .exp-adversaire-tombe .exp-sceaux b { color: var(--muted); }
+/* Son doute (les huit familles) : l'azur du Sophiste, une convention en dur comme la teinte des familles ; le texte reste à l'encre du thème. */
+.exp-doute { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px 1px 5px; border: 1px solid color-mix(in srgb, #4f8ee0 70%, var(--edge)); border-radius: var(--radius-pill); background: color-mix(in srgb, #4f8ee0 16%, var(--surface)); color: var(--ink); font-size: 0.75rem; font-weight: 700; line-height: 1.3; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.exp-doute .icon { width: 13px; height: 13px; color: #4f8ee0; }
 /* La question qu'il pose, sans son texte : ce qu'on en sait, et ses chances à droite. */
 .exp-sa-question { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; padding-top: 8px; border-top: 1px dashed var(--edge-strong); font-size: 0.84rem; line-height: 1.3; }
 .exp-sa-chance { flex: none; display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: lining-nums tabular-nums; }

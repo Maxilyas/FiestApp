@@ -231,7 +231,10 @@ export interface MarcheDuCodex {
  * Rempart, l'Érudit, le Devin, et sa catégorie fétiche avec l'Érudit ; puis
  * un style de plus à chacun des trois suivants, avec sa règle — le Flambeur et
  * le pari au 2, l'Élan et les fioles au 3, le Métamorphe et les talismans au
- * 4 —, et des rares de ceux qu'on a déjà. Les rares et les épiques qui pèsent
+ * 4 —, et des rares de ceux qu'on a déjà ; puis les deux styles de la version
+ * 9, qui jouent autrement — le Sophiste et son doute au 5, le Téméraire et son
+ * courage au 6, leurs rares au 6 et au 7, leurs épiques au 8 et au 9 : qui
+ * les ouvre connaît déjà le jeu qu'ils détournent. Les rares et les épiques qui pèsent
  * le plus attendent : Sursis au niveau 6 — mesurée, elle seule ouverte au
  * niveau 1 menait le joueur moyen au bout une fois sur deux, plus qu'avec tout
  * le codex (`calibrage-rencontres.ts`, le 18 octobre 2026) —, Représailles au
@@ -273,11 +276,20 @@ export const ECHELLE: readonly MarcheDuCodex[] = [
   { niveau: 2, cartes: ['doubler-la-mise', 'pourboire', 'cagnotte', 'double-chance', 'contre-attaque', 'lecon', 'voyance'], regle: 'pari', styles: ['flambeur'] },
   { niveau: 3, cartes: ['echauffement', 'lancee', 'foulee', 'assurance', 'second-souffle', 'expose', 'astrolabe'], regle: 'fioles', styles: ['elan'] },
   { niveau: 4, cartes: ['corser', 'simplifier', 'volte-face', 'acceleration', 'fortune', 'detour', 'meditation', 'sang-froid'], regle: 'talismans', styles: ['metamorphe'] },
-  { niveau: 5, cartes: ['bibliotheque', 'cuirasse', 'troisieme-oeil', 'rythme', 'miroir', 'prisme', 'tout-ou-rien', 'panacee'] },
-  { niveau: 6, cartes: ['sursis', 'sprint', 'cameleon', 'quitte-ou-double', 'bastion', 'vision'], dos: 'etoile' },
-  { niveau: 7, cartes: ['rafle', 'pactole', 'vent-arriere', 'surmenage', 'revelation'] },
-  { niveau: 8, cartes: ['metamorphose', 'polymorphe'] },
-  { niveau: 9, cartes: ['encyclopedie', 'represailles'] },
+  {
+    niveau: 5,
+    cartes: ['bibliotheque', 'cuirasse', 'troisieme-oeil', 'rythme', 'miroir', 'prisme', 'tout-ou-rien', 'panacee', 'insinuation', 'rumeur', 'objection'],
+    styles: ['sophiste'],
+  },
+  {
+    niveau: 6,
+    cartes: ['sursis', 'sprint', 'cameleon', 'quitte-ou-double', 'bastion', 'vision', 'fougue', 'coup-de-sang', 'cicatrices', 'zizanie', 'coup-de-grace'],
+    dos: 'etoile',
+    styles: ['temeraire'],
+  },
+  { niveau: 7, cartes: ['rafle', 'pactole', 'vent-arriere', 'surmenage', 'revelation', 'engrenage', 'adrenaline', 'dernier-carre', 'temerite'] },
+  { niveau: 8, cartes: ['metamorphose', 'polymorphe', 'paranoia', 'berserk'] },
+  { niveau: 9, cartes: ['encyclopedie', 'represailles', 'hantise', 'baroud'] },
   { niveau: 10, cartes: ['maitrise'] },
 ]
 

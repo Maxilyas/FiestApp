@@ -177,15 +177,30 @@ export async function lireLot(nom: string): Promise<EtatDuLot> {
 }
 
 /**
- * Ce qu'un appel a coûté, en dollars, à partir de ses jetons. Les tarifs sont
- * ceux qu'on connaissait de Nano Banana Pro (entrée 2 $, texte et pensée
- * 12 $, image 120 $ le million de jetons) : une estimation pour tenir un
+ * Les tarifs de chaque modèle, en dollars le million de jetons : l'entrée, le
+ * texte et la pensée, l'image. Nano Banana Pro d'abord ; Nano Banana 2 (le
+ * 19 octobre 2026, pour les cartes des huit familles) en coûte la moitié par
+ * image — 0,067 $ en 1K, au prix plein. Un modèle inconnu se compte au tarif
+ * du Pro : un budget tenu trop large vaut mieux qu'un budget dépassé.
+ */
+const TARIFS: { modele: RegExp; entree: number; texte: number; image: number }[] = [
+  { modele: /flash-image/, entree: 0.5, texte: 3, image: 60 },
+  { modele: /./, entree: 2, texte: 12, image: 120 },
+]
+
+/**
+ * Ce qu'un appel a coûté, en dollars, à partir de ses jetons et des tarifs
+ * qu'on connaissait de son modèle (`TARIFS`) : une estimation pour tenir un
  * budget, pas une facture — la page des prix de Google fait foi. Un lot
  * coûte la moitié.
  */
-export function coutEstime(jetons: any, { lot = false }: { lot?: boolean } = {}): number {
+export function coutEstime(jetons: any, { lot = false, modele = '' }: { lot?: boolean; modele?: string } = {}): number {
   if (!jetons) return 0
+  const t = TARIFS.find(x => x.modele.test(modele))!
   const images = (jetons.candidatesTokensDetails ?? []).filter((d: any) => d.modality === 'IMAGE').reduce((n: number, d: any) => n + (d.tokenCount ?? 0), 0)
   const sortie = (jetons.candidatesTokenCount ?? 0) - images + (jetons.thoughtsTokenCount ?? 0)
-  return (((jetons.promptTokenCount ?? 0) * 2 + sortie * 12 + images * 120) / 1e6) * (lot ? 0.5 : 1)
+  return (((jetons.promptTokenCount ?? 0) * t.entree + sortie * t.texte + images * t.image) / 1e6) * (lot ? 0.5 : 1)
 }
+
+/** Ce qu'une image coûtera environ, avant de payer — en 1K, pensée comprise : de quoi refuser un lot au-delà du budget. */
+export const coutDUneImage = (modele: string, { lot = false }: { lot?: boolean } = {}) => (/flash-image/.test(modele) ? 0.07 : 0.14) * (lot ? 0.5 : 1)

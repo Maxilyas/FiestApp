@@ -109,12 +109,13 @@ test('la fin d’une expédition écrit son bilan — abandonnée aussi : un jou
 test('la renommée se relit de toutes ses expéditions finies : son niveau, ses cartes, ses règles, figés au départ — au niveau 5, toutes les règles', async () => {
   const c = await inscrireProfil(banc.url, 'aguerri', 'Aguerri')
   const finie = await unPasPuisAbandon(c)
-  // Le niveau 5, juste : la catégorie fétiche, le pari, les fioles et les talismans ouverts, et les six styles.
+  // Le niveau 5, juste : la catégorie fétiche, le pari, les fioles et les talismans ouverts, et sept styles — le Sophiste s'y
+  // ouvre (la version 9), le Téméraire attend le 6.
   ecrireLeBilanEnBase(finie, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[4] }))
   const codex = (await page(c)).prochaine.codex!
   assert.deepEqual(codex, { renommee: NIVEAUX[4], ...codexDuNiveau(5, []), ascension: 0 })
   assert.deepEqual(codex.regles, ['fetiche', 'pari', 'fioles', 'talismans'])
-  assert.equal(codex.styles?.length, 6)
+  assert.equal(codex.styles?.length, 7)
   const parti = await poster(c, '/api/expedition', { rencontres: true, fetiche: 'Histoire' })
   assert.equal(parti.status, 200, parti.corps.error)
   const v = parti.corps as VueDeLExpedition

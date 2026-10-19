@@ -109,6 +109,7 @@ import {
 } from '../../../shared/rencontres'
 import {
   Adversaire,
+  adversaireALaRevelation,
   Apercu,
   AvantApres,
   BoireUneFiole,
@@ -2488,7 +2489,7 @@ function Escale({
   const joue = vue.joue ? jokerDeCle(vue.joue) : undefined
   // En rencontre : l'adversaire en tête — à la révélation, tel que la réponse l'a laissé ; la vue d'après n'en a plus s'il est tombé.
   const rencontre = r ? avant?.rencontre : vue.rencontre
-  const sceauxApres = r && rencontre ? rencontre.sceaux - (r.coup?.brises ?? 0) : undefined
+  const apres = r && rencontre ? adversaireALaRevelation(rencontre, r.coup, vue.rencontre) : undefined
   const [tas, setTas] = useState(false)
   // Un dévoilement : ses mots à mesure qu'ils se disent ; répondu, son intitulé entier revient avec le verdict. Arrêt sur image joué, ils se relisent.
   const devoile = useDevoilement(
@@ -2513,7 +2514,7 @@ function Escale({
       <div className="quiz-player epreuve">
         <Barre vue={vue} onPartir={onPartir} sansSortie={finie} />
         {rencontre ? (
-          <Adversaire r={rencontre} gardien={gardien} acte={acte} sceaux={sceauxApres} compact />
+          <Adversaire r={rencontre} gardien={gardien} acte={acte} sceaux={apres?.sceaux} doute={apres?.doute} compact />
         ) : auGardien_ ? (
           <div className="exp-gardien-tete">
             <Medaillon cle={gardien} className="exp-medaillon exp-medaillon-gardien" />

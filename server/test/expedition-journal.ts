@@ -60,9 +60,12 @@ export function carteDeLaForge(): CarteDUnActe {
   }
 }
 
-/** Un départ du jeu complet, au codex entier — le pari, les fioles, la fétiche —, mais dont les offres ne tirent que ces cartes. */
+/**
+ * Un départ du jeu complet, au codex entier — le pari, les fioles, la fétiche —, mais dont les offres ne tirent que ces cartes.
+ * À la version qui les connaît toutes : une carte des huit familles part en version 9, les autres en 8.
+ */
 export const depart = (graine: string, cartes: readonly string[], plus: Partial<DepartDExpedition> = {}): DepartDExpedition => ({
-  v: VERSION_DU_JEU_COMPLET,
+  v: Math.max(VERSION_DU_JEU_COMPLET, ...cartes.map(cle => carteDeRencontre(cle)?.depuis ?? 0)) as DepartDExpedition['v'],
   graine,
   numero: 10_000,
   gardiens: ['lg:kraken', 'lg:dragon', 'lg:oracle'],
@@ -170,10 +173,10 @@ export class Journal {
  * plein, les soins ne se jouent pas. Puis le scénario, s'il y en a un, à cette
  * main. Une graine cherchée, jamais choisie : le vrai hasard du pli.
  */
-export function avecEnMain(cle: string, scenario: (j: Journal) => boolean = () => true): Journal {
+export function avecEnMain(cle: string, scenario: (j: Journal) => boolean = () => true, autre: Partial<DepartDExpedition> = {}): Journal {
   const maudite = carteDeRencontre(cle)!.rarete === 'maudit'
   for (let n = 0; n < 800; n++) {
-    const j = new Journal(depart(`complet:${cle}:${n}`, [cle]))
+    const j = new Journal(depart(`complet:${cle}:${n}`, [cle], autre))
     if (maudite) {
       j.acte(cle)
       j.prendreSiOfferte(cle)
@@ -197,10 +200,10 @@ export function avecEnMain(cle: string, scenario: (j: Journal) => boolean = () =
  * réponses de la rencontre d'en bas — trois laissent 29 de courage, de quoi
  * voir ce qu'un soin rend sous le plafond.
  */
-export function avecEnMainAmelioree(cle: string, scenario: (j: Journal) => boolean = () => true, erreurs = 1): Journal {
+export function avecEnMainAmelioree(cle: string, scenario: (j: Journal) => boolean = () => true, erreurs = 1, autre: Partial<DepartDExpedition> = {}): Journal {
   const plus = ameliorer(cle)
   for (let n = 0; n < 1500; n++) {
-    const j = new Journal(depart(`ameliore:${cle}:${n}`, [cle], { cartes: [carteDeLaForge(), carteDeLaForge(), carteDeLaForge()] }))
+    const j = new Journal(depart(`ameliore:${cle}:${n}`, [cle], { cartes: [carteDeLaForge(), carteDeLaForge(), carteDeLaForge()], ...autre }))
     j.avancer('e00')
     for (let k = 0; k < erreurs; k++) j.repondre(false)
     j.gagner()
