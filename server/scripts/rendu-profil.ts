@@ -302,8 +302,10 @@ try {
   await photo('10-boutique-compagnon-ultime', false, 1200)
   await page.click('.vitrine-point[aria-label="La Tortue-île"]')
   await photo('10-boutique-compagnon-tortue', false, 900)
+  // Le loup adopté, porté en avatar — l'adoption ne le fait pas : il se choisit, comme dans la loge —, puis la tortue, qui attend son tour.
   await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'loup' }, cookie)
-  await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'tortue', porter: false }, cookie)
+  await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'cp:loup-louveteau' }, cookie, 'PUT')
+  await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'tortue', installer: false }, cookie)
   const nourrir = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   for (const [serie, n, compagnon] of [
     ['avec-le-loup', 520, 'loup'],

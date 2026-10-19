@@ -63,7 +63,7 @@ import { ligueDe, type CoteApresLeDuel, type DuelOuvert, type EnjeuDuDuel, type 
 import { rareEnCampagne, reactionDuSolo } from '../../../shared/niche'
 import { NicheALaRevelation } from '../components/NicheReagit'
 import { EnMaintenance } from '../components/EnMaintenance'
-import { fermeePourMoi, pagesEnMaintenance } from '../maintenance'
+import { enMaintenance, fermeePourMoi } from '../maintenance'
 
 type Ecran =
   | { e: 'chargement' }
@@ -941,22 +941,24 @@ export function CampagneApp() {
   // la série — « Jusqu'où iras-tu ? » et son gros bouton — passait 60 à 90 ms
   // avant le bon onglet (l'experte du jeu solo, le 11 octobre 2026).
   const surSonOnglet = ecran.e === 'accueil' || ecran.e === 'chargement'
-  // Le défi de la semaine en maintenance (`/admin#maintenance`) : son onglet
-  // le dit, sans rien demander ; le reste de la campagne reste ouvert. Une
-  // tentative déjà à l'écran se finit, comme toute partie.
-  if (surSonOnglet && mode === 'defi' && fermeePourMoi('defi')) {
+  // Le défi de la semaine fermé — en maintenance, ou bientôt disponible
+  // (`/admin#maintenance`) : son onglet le dit, sans rien demander ; le reste
+  // de la campagne reste ouvert. Une tentative déjà à l'écran se finit, comme
+  // toute partie.
+  const defiFerme = fermeePourMoi('defi')
+  if (surSonOnglet && mode === 'defi' && defiFerme) {
     return (
       <div className="player-shell campagne">
         <Sortie />
         {onglets}
-        <EnMaintenance page="defi" />
+        <EnMaintenance page="defi" pourquoi={defiFerme} />
       </div>
     )
   }
   if (surSonOnglet && mode === 'defi') {
     return (
       <>
-        <PageDuDefi onglets={onglets} onJouer={jouerLeDefi} enMaintenance={pagesEnMaintenance().has('defi')} />
+        <PageDuDefi onglets={onglets} onJouer={jouerLeDefi} enMaintenance={enMaintenance('defi')} />
         {toastVu}
       </>
     )

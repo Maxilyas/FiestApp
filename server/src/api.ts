@@ -116,9 +116,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // Derrière la porte, avant toute route : chaque geste qui change quelque
   // chose se note au journal du QG, celui d'une route à venir compris.
   app.use('/api/admin', journaliser(deps.gestes))
-  // Devant les routes des joueurs : une page en maintenance ferme celles qui y
-  // commencent une partie, un départ, un achat (`PORTES_DES_PAGES`).
-  app.use('/api', fermerLesPortes({ maintenance: deps.maintenance, auth: deps.auth }))
+  // Devant les routes des joueurs : une page en maintenance, ou bientôt
+  // disponible, ferme celles qui y commencent une partie, un départ, un achat
+  // (`PORTES_DES_PAGES`) — à tous sauf à l'administrateur et à ses testeurs.
+  app.use('/api', fermerLesPortes({ maintenance: deps.maintenance, auth: deps.auth, profiles: deps.profiles }))
   mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount, espaceChange: deps.espaceChange })
   // La télé qu'on branche depuis son téléphone, sans rien taper à la télécommande.
   mountAppairage(app, { auth: deps.auth, online: deps.online })
@@ -200,8 +201,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
     rappels: deps.rappels,
     maintenant: deps.maintenant,
   })
-  // Le bandeau rouge et les pages en maintenance : l'administrateur seul.
-  mountMaintenance(app, { maintenance: deps.maintenance })
+  // Le bandeau rouge, les pages fermées et leurs testeurs : l'administrateur seul.
+  mountMaintenance(app, { maintenance: deps.maintenance, profiles: deps.profiles })
 
   /**
    * Le ménage des photos de l'espace. Celles qu'une partie encore sur le

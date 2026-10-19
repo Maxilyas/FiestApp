@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { PublicProfileDetail } from '../../../shared/profil'
 import { compteDeLaCollection, type Compte } from '../../../shared/collection'
 import type { ChoixDuProfil } from './choix'
@@ -95,12 +95,22 @@ export function PanneauBoutique({
   onSolde,
 }: Props & {
   acheter: (cle: string, porter: boolean) => Promise<string | null>
-  acheterCompagnon: (cle: string, porter: boolean) => Promise<string | null>
+  acheterCompagnon: (cle: string, installer: boolean) => Promise<string | null>
   acheterFond: (cle: string, porter: boolean) => Promise<string | null>
   /** Un objet acheté : le solde que le serveur rend. */
   onSolde: (solde: number) => void
 }) {
   const [{ rayon, objet }, setLu] = useState(lireRayon)
+  // Une adresse de la boutique suivie depuis la boutique même — « Adopter »,
+  // dans la fiche de la niche — ne recharge pas la page : le rayon la suit.
+  useEffect(() => {
+    const suivre = () => {
+      const lu = lireRayon()
+      if (lu.rayon !== 'themes') setLu(lu)
+    }
+    window.addEventListener('hashchange', suivre)
+    return () => window.removeEventListener('hashchange', suivre)
+  }, [])
   const choisir = (r: RayonDeLaBoutique) => {
     const ici = `${window.location.pathname}${window.location.search}`
     const adresse = { objets: ADRESSE_DES_OBJETS, compagnons: ADRESSE_DES_COMPAGNONS, fonds: ADRESSE_DES_FONDS, themes: ici }[r]

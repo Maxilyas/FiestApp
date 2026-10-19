@@ -9,10 +9,12 @@
 // Et ses réactions, dans la soirée (`shared/niche.ts`) : le souffle retenu
 // quand elle touche une réponse, la bonne réponse qui le nourrit (« +1 », sa
 // jauge), la ratée (il pleut chez lui), la rare (une bulle de cœurs), puis
-// la sortie au podium et une caresse dehors.
+// la sortie au podium et une caresse dehors. Et « Ma niche », sa gestion : un
+// nom qu'on lui donne, une forme d'avant qu'on y montre, un autre de ses
+// compagnons qu'on y installe d'un toucher.
 // Léa, niveau 14, son loup adulte dans sa niche — 350 bonnes réponses avec
-// lui, sa jauge aux trois quarts. Le client construit d'abord
-// (`npm run build -w client`).
+// lui, sa jauge aux trois quarts — et sa jeune tortue qui attend. Le client
+// construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-niche.ts [dossier]        (ECRAN=390x844, THEME=ivoire)
 import { createRequire } from 'node:module'
@@ -108,9 +110,11 @@ async function lea(login: string): Promise<string> {
     JSON.stringify({ v: VERSION_BAREME }),
   )
   db.prepare('UPDATE profiles SET xp = ?, niche = ? WHERE id = ?').run(xpDuNiveau(14), 'loup', id)
-  db.prepare('INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, 1000, 2, 1)').run(id, 'loup')
-  // De quoi l'avoir payé : une partie du quiz du jour d'avant, ses bonnes réponses en confettis.
-  db.prepare(`INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, '2026-09-20', 1, 10, NULL, 0, 1872, 1, 0)`).run(id)
+  const compagnon = db.prepare('INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, 1000, ?, 1)')
+  compagnon.run(id, 'loup', 2)
+  compagnon.run(id, 'tortue', 1)
+  // De quoi les avoir payés, et adopter le chat : une partie du quiz du jour d'avant, ses bonnes réponses en confettis.
+  db.prepare(`INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, '2026-09-20', 1, 10, NULL, 0, 3200, 1, 0)`).run(id)
   // Et 350 bonnes réponses données avec lui, aux quiz du jour de juillet — leurs
   // tirages avec, que le compte des bonnes réponses lit : sa jauge vers sa forme ultime en part.
   const questions = Array.from({ length: 10 }, (_, i) => ({ reserveId: `rendu-niche-${i}`, texte: `Question ${i + 1}`, reponses: ['A', 'B', 'C', 'D'], bonne: 0, categorie: null, duree: 20, lectureMs: 3000, anecdote: null }))
@@ -168,14 +172,40 @@ async function solo() {
   }
   await aller('/', 'button.identite-ligne')
   await photo(page, '01-accueil')
-  // Sa fiche, au toucher de la niche, puis une caresse.
+  // « Ma niche », au toucher de la niche : une caresse, un nom, une forme
+  // d'avant, la tortue installée d'un toucher, puis le loup qui revient.
+  const fiche = (nom: string) => page.screenshot({ path: path.join(sortie, `${nom}.png`) })
   await page.locator('.niche').click()
-  await page.waitForSelector('.niche-fiche .niche-fiche-jauge .jauge-fine, .niche-fiche .niche-fiche-jauge .muted:not(:empty)')
+  await page.waitForSelector('.niche-fiche [aria-labelledby="niche-compagnons"] .niche-choix[aria-pressed="true"]')
   await patienter(700)
-  await page.screenshot({ path: path.join(sortie, '02-fiche.png') })
-  await page.locator('.niche-fiche .btn-primary').click()
+  await fiche('02-fiche')
+  await page.locator('.niche-fiche-gestes .btn-primary').click()
   await patienter(420)
-  await page.screenshot({ path: path.join(sortie, '03-fiche-caresse.png') })
+  await fiche('03-fiche-caresse')
+  await page.locator('.niche-renommer').click()
+  await page.locator('#niche-nom').fill('Nox')
+  await patienter(300)
+  await fiche('03b-fiche-nommer')
+  await page.locator('.niche-nommer .btn-primary').click()
+  await page.waitForSelector('.niche-fiche-nom >> text=Nox')
+  await patienter(500)
+  await fiche('03c-fiche-nommee')
+  await page.locator('.niche-choix[aria-label="Le louveteau"]').click()
+  await page.waitForSelector('.niche-choix[aria-label="Le louveteau"][aria-pressed="true"]')
+  await patienter(800)
+  await fiche('03d-fiche-louveteau')
+  await page.evaluate(`document.querySelector('.niche-fiche .carte-corps').scrollTo(0, 99999)`)
+  await patienter(500)
+  await fiche('03e-fiche-compagnons')
+  await page.locator('.niche-choix[aria-label^="La Tortue-île"]').click()
+  await page.waitForSelector('.niche-choix[aria-label="La Tortue-île"][aria-pressed="true"]')
+  await page.evaluate(`document.querySelector('.niche-fiche .carte-corps').scrollTo(0, 0)`)
+  await patienter(800)
+  await fiche('03f-fiche-tortue')
+  await page.locator('.niche-choix[aria-label^="Nox"]').click()
+  await page.waitForSelector('.niche-choix[aria-label="Nox"][aria-pressed="true"]')
+  await page.locator('.niche-choix[aria-label="Le loup adulte"]').click()
+  await page.waitForSelector('.niche-choix[aria-label="Le loup adulte"][aria-pressed="true"]')
   await page.locator('.niche-fiche .carte-fermer').click()
 
   await aller('/profil', '.profil-boutons .gros-compte')
@@ -196,6 +226,14 @@ async function solo() {
   await photo(page, '09-boutique')
   await aller('/boutique#compagnons', '.vitrine-compagnons')
   await photo(page, '10-boutique-compagnons')
+  // Adopter le chat, le loup dans sa niche : l'y installer, ou l'adopter seulement — jamais le porter.
+  await aller('/boutique#compagnon-chat', '.vitrine-compagnons')
+  await page.locator('.compagnon-carte:nth-child(2) .compagnon-achat .btn-primary').click()
+  await page.waitForSelector('.dialog-backdrop')
+  await patienter(500)
+  await page.screenshot({ path: path.join(sortie, '10b-boutique-adopter.png') })
+  await page.keyboard.press('Escape')
+  await aller('/boutique#compagnons', '.vitrine-compagnons')
   // Le repli : la page défile, la niche se fait petite au coin.
   await page.mouse.wheel(0, 420)
   await patienter(700)

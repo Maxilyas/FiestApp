@@ -16,8 +16,8 @@ import { EXPEDITION_EN_PRODUCTION } from '../../../shared/jokers'
 // Déjà sur l'accueil par son en-tête (`Identite.tsx`) : le merci n'y ajoute rien à télécharger.
 import { phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/profil'
 // Ils n'importent rien : le premier script de chaque page les lit déjà (`main.tsx`).
-import { BOUTON_EN_MAINTENANCE, type PageEnMaintenance } from '../../../shared/maintenance'
-import { pagesEnMaintenance } from '../maintenance'
+import { BOUTON_BIENTOT, BOUTON_EN_MAINTENANCE, PASTILLE_AVANT_PREMIERE, type BoutonDeLaPage, type PageEnMaintenance } from '../../../shared/maintenance'
+import { boutonEteint } from '../maintenance'
 import { BlasonDeLigue } from './Blason'
 
 // L'accueil, selon qui le tient.
@@ -182,8 +182,8 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; 
   }
 }
 
-/** Rien en maintenance. */
-const AUCUNE: ReadonlySet<PageEnMaintenance> = new Set()
+/** Rien de fermé, rien d'essayé avant tout le monde. */
+const RIEN_DE_FERME: Partial<Record<PageEnMaintenance, BoutonDeLaPage>> = {}
 
 /**
  * L'accueil d'un profil : ce qu'on vient faire, en gros boutons — une soirée
@@ -196,9 +196,10 @@ const AUCUNE: ReadonlySet<PageEnMaintenance> = new Set()
  * place et de taille selon l'heure et les rôles. Tout le monde a son salon :
  * il n'y a plus de porte d'animateur à chercher.
  *
- * Une page en maintenance éteint son bouton, et sa ligne le dit : on ne
- * l'apprenait qu'en touchant. Le défi fermé seul ne se propose plus sur le
- * bouton de la campagne, qui dit le reste.
+ * Une page fermée — en maintenance, ou bientôt disponible — éteint son
+ * bouton, et sa ligne dit pourquoi : on ne l'apprenait qu'en touchant. Le
+ * défi fermé seul ne se propose plus sur le bouton de la campagne, qui dit le
+ * reste. Une page qu'il essaie avant tout le monde le dit d'une pastille.
  */
 export function AccueilJouer({
   enCours,
@@ -208,7 +209,7 @@ export function AccueilJouer({
   aujourdhui,
   campagne,
   duels,
-  fermees = AUCUNE,
+  etats = RIEN_DE_FERME,
 }: {
   enCours: { nom: string; slug: string }[]
   onRejoindre: () => void
@@ -221,8 +222,8 @@ export function AccueilJouer({
   campagne?: SentiersDAccueil
   /** Ses duels : sa ligue, sa cote, sa semaine — et qui le défie. */
   duels?: DuelsDAccueil
-  /** Les pages en maintenance (`client/src/maintenance.ts`) : leur bouton le dit. */
-  fermees?: ReadonlySet<PageEnMaintenance>
+  /** Ce que dit le bouton de chaque page fermée, pour lui (`boutonsDesPages`, `client/src/maintenance.ts`). */
+  etats?: Partial<Record<PageEnMaintenance, BoutonDeLaPage>>
 }) {
   // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
   // Le jour vient du serveur : calculé ici, son `Intl` chargeait les données
@@ -230,9 +231,15 @@ export function AccueilJouer({
   const dernier = jour?.jours[0]?.jour
   const joueAujourdhui = !!dernier && dernier === (aujourdhui ?? jourDe(Date.now()))
   const serie = jour && jour.serie > 1 ? ` · série de ${jour.serie} jours` : ''
-  const laCampagne = boutonDeLaCampagne(campagne && fermees.has('defi') ? { ...campagne, defi: undefined } : campagne)
+  // Éteinte pour lui : en maintenance — pour tous —, ou bientôt disponible sans qu'il l'essaie.
+  const eteinte = (page: PageEnMaintenance) => {
+    const e = etats[page]
+    return e === 'maintenance' || e === 'bientot' ? e : undefined
+  }
+  const pourquoi = (page: PageEnMaintenance) => espacesFines(etats[page] === 'bientot' ? BOUTON_BIENTOT : BOUTON_EN_MAINTENANCE)
+  const enAvantPremiere = (page: PageEnMaintenance) => (etats[page] === 'avant-premiere' ? PASTILLE_AVANT_PREMIERE : undefined)
+  const laCampagne = boutonDeLaCampagne(campagne && eteinte('defi') ? { ...campagne, defi: undefined } : campagne)
   const lesDuels = boutonDesDuels(duels)
-  const enMaintenance = espacesFines(BOUTON_EN_MAINTENANCE)
   return (
     <div className="accueil-gestes">
       {/* Il joue déjà quelque part : on y revient d'un toucher, avant tout. */}
@@ -245,33 +252,41 @@ export function AccueilJouer({
         <span className="label" id="jouer-seul">
           Seul
         </span>
-        {fermees.has('campagne') ? (
-          <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={enMaintenance} ferme href="/campagne" />
+        {eteinte('campagne') ? (
+          <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={pourquoi('campagne')} ferme={eteinte('campagne')} href="/campagne" />
         ) : (
-          <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={laCampagne.detail} pastille={laCampagne.pastille} href={laCampagne.href} />
+          <GrosBouton
+            icone={<Icon name="target" />}
+            titre="La campagne"
+            detail={laCampagne.detail}
+            pastille={laCampagne.pastille ?? enAvantPremiere('campagne')}
+            href={laCampagne.href}
+          />
         )}
         <GrosBouton
           icone={<Icon name="sun" />}
           titre="Le quiz du jour"
-          detail={fermees.has('jour') ? enMaintenance : joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
-          pastille={jour && !joueAujourdhui && !fermees.has('jour') ? 'À jouer' : undefined}
-          ferme={fermees.has('jour')}
+          detail={eteinte('jour') ? pourquoi('jour') : joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
+          pastille={eteinte('jour') ? undefined : jour && !joueAujourdhui ? 'À jouer' : enAvantPremiere('jour')}
+          ferme={eteinte('jour')}
           href="/jour"
         />
         {/* Sous le quiz du jour : un joueur à la fois, chacun sur son téléphone, à son heure. Son blason dès son premier duel. */}
-        {fermees.has('duels') ? (
-          <GrosBouton icone={<Icon name="swords" />} titre="Les duels" detail={enMaintenance} ferme href="/duels" />
+        {eteinte('duels') ? (
+          <GrosBouton icone={<Icon name="swords" />} titre="Les duels" detail={pourquoi('duels')} ferme={eteinte('duels')} href="/duels" />
         ) : (
           <GrosBouton
             icone={duels && duels.joues > 0 ? <BlasonDeLigue ligue={duels.ligue} taille={26} decoratif /> : <Icon name="swords" />}
             titre="Les duels"
             detail={lesDuels.detail}
             pastille={
-              lesDuels.allume && (
+              lesDuels.allume ? (
                 <span className="pastille-resultat">
                   <Icon name="spark" />
                   Résultat
                 </span>
+              ) : (
+                enAvantPremiere('duels')
               )
             }
             compteur={lesDuels.compteur}
@@ -279,13 +294,14 @@ export function AccueilJouer({
             href="/duels"
           />
         )}
-        {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec. */}
+        {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec — et le QG l'annonce pour bientôt. */}
         {EXPEDITION_EN_PRODUCTION && (
           <GrosBouton
             icone={<Icon name="flag" />}
             titre="L’Expédition"
-            detail={fermees.has('expedition') ? enMaintenance : 'Trois gardiens à vaincre, un légendaire au bout'}
-            ferme={fermees.has('expedition')}
+            detail={eteinte('expedition') ? pourquoi('expedition') : 'Trois gardiens à vaincre, un légendaire au bout'}
+            pastille={enAvantPremiere('expedition')}
+            ferme={eteinte('expedition')}
             href="/expedition"
           />
         )}
@@ -409,9 +425,10 @@ function retenirLAnnonce(code: string) {
  */
 export function BanniereDuResultat({ resultats }: { resultats?: DuelsDAccueil['resultats'] }) {
   const [etat, setEtat] = useState<'cachee' | 'montree' | 'repart'>('cachee')
-  // Les duels en maintenance, elle se tait sans passer son tour : son « Voir »
-  // mènerait à leur page fermée, et elle tombe une fois qu'ils rouvrent.
-  const code = resultats && resultats.n > 0 && !pagesEnMaintenance().has('duels') ? resultats.code : null
+  // Les duels fermés — en maintenance, bientôt disponibles —, elle se tait
+  // sans passer son tour : son « Voir » mènerait à leur page fermée, et elle
+  // tombe une fois qu'ils rouvrent.
+  const code = resultats && resultats.n > 0 && !boutonEteint('duels') ? resultats.code : null
   useEffect(() => {
     if (!code || dejaAnnonce(code)) return
     retenirLAnnonce(code)

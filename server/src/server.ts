@@ -25,7 +25,7 @@ import { ArchiveStore, recapOfArchive, reviewOfArchive, type ApparencesDesProfil
 import { JournalDesGestes } from './core/journalDesGestes'
 import { SanteDuServeur } from './core/santeDuServeur'
 import { Maintenance } from './core/maintenance'
-import { estLAdministrateur } from './maintenance'
+import { quiEstCe } from './maintenance'
 import type { BadgeLookup } from './core/party'
 import { recalculerHistorique } from './core/recalcul'
 import { reprendreLesPortraits } from './core/repriseDesPortraits'
@@ -48,6 +48,7 @@ import { erreurDeRequete, repondreErreur } from './core/http'
 import { ecrireAttente, ecrireLeService, espaceDeLEntree, pageDEntree, prechargerDonnees } from './core/page'
 import { parseRoute } from '../../shared/adresses'
 import { donneesDeDepart, type EntreeDeDepart } from '../../shared/depart'
+import { fermeePour, pageDeLAdresse } from '../../shared/maintenance'
 import { cloreLaSoiree, wireSockets } from './sockets'
 import { SERVEUR } from './racine'
 import type { IoServer } from './core/types'
@@ -398,12 +399,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Le quiz du jour, pour les profils : sa réserve, ses parties, ses nuits.
   const maintenantDuJour = opts.horlogeDuJour ?? Date.now
   const jour = new JourStore(opts.quizDbUrl, opts.quizDbToken, { profiles, maintenant: maintenantDuJour })
-  // Le bandeau rouge et les pages en maintenance, posés au QG : chaque page
-  // servie et chaque route qui commence une partie les lisent en mémoire.
+  // Le bandeau rouge, les pages en maintenance et celles bientôt disponibles,
+  // posés au QG : chaque page servie et chaque route qui commence une partie
+  // les lisent en mémoire, testeurs compris.
   const maintenance = new Maintenance(opts.quizDbUrl, opts.quizDbToken, { maintenant: maintenantDuJour })
   // Son rappel du soir, aux téléphones qui l'ont demandé. Les services de push
   // veulent de quoi joindre qui les sollicite : l'adresse publique du serveur.
-  // Le quiz du jour en maintenance, il attend.
+  // Le quiz du jour fermé — en maintenance, ou bientôt disponible —, il attend.
   const adressePublique = originOf(opts.publicUrl)
   const rappels = new RappelStore(opts.quizDbUrl, opts.quizDbToken, {
     profiles,
@@ -752,6 +754,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     await jour.oublierProfil(profileId)
     await rappels.oublierProfil(profileId)
     await campagne.oublierProfil(profileId)
+    // Les pages bientôt disponibles qu'il testait (`core/maintenance.ts`).
+    await maintenance.oublierProfil(profileId)
     await profiles.supprimer(profileId)
     console.log(`[profils] profil « ${login} » supprimé` + (salon ? `, détaché de « ${salon.login} »` : ''))
     return { salon: salon ? 'detache' : null }
@@ -1309,13 +1313,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
         const compte = entree ? auth.bySlug(entree) : undefined
         const espace = compte && compte.slug === entree ? auth.publicSpace(compte) : undefined
         if (espace) html = pageDEntree(html, espace)
-        // Le bandeau et les pages en maintenance (`core/maintenance.ts`), lus
-        // en mémoire. Une page fermée à qui la demande montre l'écran de la
-        // maintenance (`main.tsx`) : elle ne précharge pas ce qu'elle ne
-        // demandera jamais.
+        // Le bandeau, les pages en maintenance et celles bientôt disponibles
+        // (`core/maintenance.ts`), lus en mémoire, testeurs compris. Une page
+        // fermée à qui la demande montre l'écran qui le dit (`main.tsx`) : elle
+        // ne précharge pas ce qu'elle ne demandera jamais.
         const route = parseRoute(chemin)
-        const service = maintenance.pourLaPage(route, () => estLAdministrateur(auth, req))
-        const fermee = !!service?.ici && !service.admin
+        const service = maintenance.pourLaPage(route, () => quiEstCe({ auth, profiles }, req))
+        const ici = pageDeLAdresse(route)
+        const fermee = !!service && !!ici && fermeePour(service, ici) !== null
         // Ce que la page demandera dès son code arrivé part avec son script
         // (`shared/depart.ts`), et son attente est déjà écrite.
         if (page.statut === 200 && !fermee) html = prechargerDonnees(html, donneesDeDepart(route))

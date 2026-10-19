@@ -4,7 +4,8 @@
 // au quiz du jour, en campagne —, à 100, 300 et 500. Une forme atteinte ne
 // se perd jamais, l'on peut porter une forme d'avant, et qui portait sa plus
 // haute porte la nouvelle. Celui qui grandit est celui de sa niche, qu'il le
-// porte ou non (le 18 octobre 2026) : `niche.test.ts`.
+// porte ou non (le 18 octobre 2026) : `niche.test.ts` ; l'adoption l'y
+// installe sans le faire porter (le 19 octobre 2026) : `ma-niche.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -156,7 +157,7 @@ test('la boutique : trois compagnons, leurs quatre formes et ce qu’elles deman
   const avecLeLoup = await rayon({ legendaire: 'cp:loup-jeune', boutique: boutique(50, [{ compagnon: 'loup', rang: 1, justes: 162 }]) })
   assert.match(avecLeLoup, /À toi · Le jeune loup, deuxième forme/)
   assert.match(avecLeLoup, /162 sur 300 bonnes réponses avec lui\s: le loup adulte/)
-  assert.match(avecLeLoup, /<a class="link-inline" href="\/profil#avatar">Tu le portes · en changer<\/a>/)
+  assert.match(avecLeLoup, /<a class="link-inline" href="\/profil#avatar">Tu le portes en avatar · en changer<\/a>/)
   // Ses formes atteintes cochées ; la sienne montrée en grand.
   assert.equal(avecLeLoup.match(/class="compagnon-forme compagnon-atteinte"/g)?.length, 2)
   assert.match(avecLeLoup, /aria-pressed="true" aria-label="Le jeune loup, rare, à toi"/)
@@ -169,8 +170,11 @@ test('la boutique : trois compagnons, leurs quatre formes et ce qu’elles deman
   // La tortue se dit au féminin : « Tu le portes » se lisait de travers sous elle.
   const avecLaTortue = await rayon({ legendaire: 'cp:tortue-jeune', boutique: boutique(0, [{ compagnon: 'tortue', rang: 1, justes: 120 }]) })
   assert.match(avecLaTortue, /120 sur 300 bonnes réponses avec elle\s: la tortue-bosquet/)
-  assert.match(avecLaTortue, /<a class="link-inline" href="\/profil#avatar">Tu la portes · en changer<\/a>/)
+  assert.match(avecLaTortue, /<a class="link-inline" href="\/profil#avatar">Tu la portes en avatar · en changer<\/a>/)
   assert.match(avecLaTortue, /aria-label="Les formes de la Tortue-île"/)
+  // Pas portée : la loge s'ouvre avec sa plus grande forme à l'essai.
+  const pasPortee = await rayon({ legendaire: null, boutique: boutique(0, [{ compagnon: 'tortue', rang: 1, justes: 120 }]) })
+  assert.match(pasPortee, /<a class="link-inline" href="\/profil\?essayer=cp:tortue-jeune#avatar">La porter en avatar<\/a>/)
 })
 
 // ── Sur un serveur jetable ────────────────────────────────────────────────
@@ -228,8 +232,8 @@ function serieEnPortant(banc: Banc, profileId: string, id: string, n: number, co
 }
 
 const lire = async (banc: Banc, cookie: string) => ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any).profile
-const acheter = (banc: Banc, cookie: string | undefined, compagnon: string, porter?: boolean) =>
-  ecrire(banc.url, '/api/joueur/compagnons', { compagnon, ...(porter === false && { porter }) }, cookie).then(async r => ({
+const acheter = (banc: Banc, cookie: string | undefined, compagnon: string) =>
+  ecrire(banc.url, '/api/joueur/compagnons', { compagnon }, cookie).then(async r => ({
     status: r.status,
     corps: (await r.json()) as any,
   }))
@@ -251,7 +255,7 @@ test('un compagnon s’achète 1000 confettis à sa première forme, et se porte
     confettis(banc, alice, '2026-09-20', 1200)
     const achat = await acheter(banc, cookie, 'loup')
     assert.equal(achat.status, 200, achat.corps.error)
-    assert.equal(achat.corps.profile.legendaire, 'cp:loup-louveteau', 'acheté, et porté aussitôt')
+    assert.equal(achat.corps.profile.legendaire, null, 'adopté, il vit dans sa niche : il ne se porte qu’en le choisissant')
     assert.deepEqual(achat.corps.profile.compagnons, [{ compagnon: 'loup', rang: 0 }])
     assert.deepEqual(achat.corps.boutique.confettis, { gagnes: 1200, depenses: 1000, solde: 200 })
     assert.deepEqual(achat.corps.boutique.compagnons, [{ compagnon: 'loup', rang: 0, justes: 0 }])
@@ -264,13 +268,14 @@ test('un compagnon s’achète 1000 confettis à sa première forme, et se porte
     assert.equal(tropTot.corps.error, 'Le jeune loup arrive à 100 bonnes réponses données avec lui')
     assert.equal((await porter(banc, cookie, { legendaire: 'cp:tortue-bebe' })).corps.error, 'La Tortue-île s’achète d’abord, à la boutique')
 
-    // Un emoji l'ôte ; il se reporte d'un geste.
+    // Il se porte d'un geste ; un emoji l'ôte.
+    assert.equal((await porter(banc, cookie, { legendaire: 'cp:loup-louveteau' })).corps.profile.legendaire, 'cp:loup-louveteau')
     assert.equal((await porter(banc, cookie, { avatar: '🦊' })).corps.profile.legendaire, null)
     assert.equal((await porter(banc, cookie, { legendaire: 'cp:loup-louveteau' })).corps.profile.legendaire, 'cp:loup-louveteau')
 
-    // Acheté sans le porter : celui qu'il porte reste sur lui.
+    // Un autre adopté : celui qu'il porte reste sur lui.
     confettis(banc, alice, '2026-09-21', 1000)
-    const garde = await acheter(banc, cookie, 'chat', false)
+    const garde = await acheter(banc, cookie, 'chat')
     assert.equal(garde.status, 200, garde.corps.error)
     assert.equal(garde.corps.profile.legendaire, 'cp:loup-louveteau')
     assert.deepEqual(
@@ -280,7 +285,7 @@ test('un compagnon s’achète 1000 confettis à sa première forme, et se porte
     assert.deepEqual(garde.corps.boutique.confettis, { gagnes: 2200, depenses: 2000, solde: 200 })
     // La tortue se dit au féminin, jusque dans le refus.
     confettis(banc, alice, '2026-09-22', 1000)
-    assert.equal((await acheter(banc, cookie, 'tortue', false)).status, 200)
+    assert.equal((await acheter(banc, cookie, 'tortue')).status, 200)
     assert.equal((await porter(banc, cookie, { legendaire: 'cp:tortue-jeune' })).corps.error, 'La jeune tortue arrive à 100 bonnes réponses données avec elle')
 
     // La salle le voit : il remplace son emoji à l'instantané.
@@ -296,6 +301,8 @@ test('il grandit avec les bonnes réponses données avec lui ; qui le portait à
     const alice = idDe(banc, 'alice')
     confettis(banc, alice, '2026-09-20', 1000)
     assert.equal((await acheter(banc, cookie, 'loup')).status, 200)
+    // Il le porte en avatar : il le choisit, l'adoption ne le fait pas.
+    assert.equal((await porter(banc, cookie, { legendaire: 'cp:loup-louveteau' })).status, 200)
 
     // 99 bonnes réponses avec lui, et une sans lui : pas encore.
     serieEnPortant(banc, alice, 's1', 99, 'loup')
@@ -434,6 +441,8 @@ test('en soirée, ses bonnes réponses le nourrissent — les justes et l’esti
     const alice = idDe(banc, 'alice')
     confettis(banc, alice, '2026-09-20', 1000)
     assert.equal((await acheter(banc, aliceCookie, 'loup')).status, 200)
+    // Elle le porte en avatar : la salle le verra grandir.
+    assert.equal((await porter(banc, aliceCookie, { legendaire: 'cp:loup-louveteau' })).status, 200)
     // 97 bonnes réponses en campagne : les trois de ce soir le font grandir.
     serieEnPortant(banc, alice, 'avant', 97, 'loup')
 

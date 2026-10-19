@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { Icon } from './Icon'
 import { DESSINS } from './compagnons-peints'
 import type { DessinDeCompagnon, HumeurPeinte } from './Compagnon'
@@ -6,15 +6,21 @@ import { useModale } from '../modale'
 import { api } from '../api'
 import { espacesFines, formatNumber } from '../format'
 import {
+  COMPAGNONS,
   JUSTES_DES_FORMES,
   NOM_DE_LA_FORME,
+  NOM_D_UN_COMPAGNON_MAX,
   avecLui,
   compagnon as leCompagnon,
+  formeDansLaNiche,
   prochaineForme,
+  type CleDeCompagnon,
   type CompagnonAcquis,
+  type CompagnonPossede,
   type FormeDeCompagnon,
 } from '../../../shared/compagnons'
 import { NOM_RARETE } from '../../../shared/badges'
+import type { PublicProfile } from '../../../shared/profil'
 import { ecouterLaNiche, porterNiche, type MomentDeLaNiche, type NicheVue } from '../niche'
 
 // La niche du compagnon (le choix du 18 octobre 2026,
@@ -28,9 +34,9 @@ import { ecouterLaNiche, porterNiche, type MomentDeLaNiche, type NicheVue } from
 // bonne réponse, qui le nourrit ; dépité avec toi d'une ratée ; une bulle de
 // cœurs quand peu l'ont trouvée ; au podium ou à une forme atteinte, il sort
 // de sa niche). Elle se fait petite quand la page défile, et la toucher ouvre
-// sa fiche — sa forme, sa jauge, « Le caresser », qui ne rapporte rien
-// (invariant 8 : aucun avantage). Chaque page lui laisse son coin
-// (`body.avec-niche`, `styles.css`).
+// sa fiche, qui est sa gestion — son nom, la forme qu'il y montre, celui des
+// siens qui y vit, « Le caresser », qui ne rapporte rien (invariant 8 : aucun
+// avantage). Chaque page lui laisse son coin (`body.avec-niche`, `styles.css`).
 
 /**
  * Le cadrage en buste de chaque forme, en largeurs de niche : le côté du
@@ -83,6 +89,22 @@ const SILHOUETTES: Readonly<Record<string, readonly [number, number, number, num
 
 /** Ce qui s'envole quand on le caresse : des cœurs et des étincelles, comme à la boutique — des emojis d'avant Unicode 13. */
 const ENVOLS = ['💛', '✨', '💖', '✨', '💛']
+
+/** Des noms à lui donner, en exemple dans le champ vide. */
+const PROPOSITIONS: Readonly<Record<CleDeCompagnon, string>> = {
+  loup: 'Nox, Luna, Grisou…',
+  chat: 'Mochi, Grelot, Lumen…',
+  tortue: 'Jade, Caillou, Mousse…',
+}
+
+/** La forme que la niche montre : celle qu'il a choisie, sinon sa plus haute (`formeDansLaNiche`). */
+const formeDe = (v: NicheVue) => formeDansLaNiche(v as CompagnonPossede)
+
+/** « Louveteau », « Tortue-île » : son nom sous une petite niche, sans article. */
+function sansArticle(nom: string): string {
+  const s = nom.replace(/^(L[ae] |L’)/, '')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
 
 /** La page a défilé de plus que cela : la niche se fait petite. */
 const REPLI_PX = 40
@@ -438,9 +460,13 @@ function Dehors({ forme, dessin, depart, onRentre }: { forme: FormeDeCompagnon; 
   )
 }
 
-/** La niche, au coin de la page, et sa fiche au toucher. Rien tant que son dessin n'est pas livré. */
-export function Niche({ compagnon, rang }: NicheVue) {
-  const forme = leCompagnon(compagnon)?.formes[rang]
+/**
+ * La niche, au coin de la page, et sa fiche au toucher : la forme qu'il y
+ * montre, appelé par son nom. Rien tant que son dessin n'est pas livré.
+ */
+export function Niche(vue: NicheVue) {
+  const { rang, nom } = vue
+  const forme = formeDe(vue)
   const dessin = forme && DESSINS[forme.key]
   const [repliee, setRepliee] = useState(false)
   const [fiche, setFiche] = useState(false)
@@ -607,7 +633,7 @@ export function Niche({ compagnon, rang }: NicheVue) {
           (repas?.vue ? ' jauge-vue' : '') +
           (dehors ? ' vide' : '')
         }
-        aria-label={`${forme.nom}, dans ta niche : sa fiche`}
+        aria-label={`${nom ?? forme.nom}, dans ta niche : sa fiche`}
         aria-haspopup="dialog"
         onClick={() => setFiche(true)}
       >
@@ -639,42 +665,142 @@ export function Niche({ compagnon, rang }: NicheVue) {
           }}
         />
       )}
-      {fiche && <FicheDeLaNiche forme={forme} dessin={dessin} onFermer={() => setFiche(false)} />}
+      {fiche && <FicheDeLaNiche niche={vue} onFermer={() => setFiche(false)} />}
     </>
   )
 }
 
 /**
- * Sa fiche : lui en grand, dans sa niche ; sa forme et sa légende ; où il en
- * est — ses bonnes réponses vers la forme suivante, lues à l'ouverture
- * (`GET /api/joueur/niche`) — ; « Le caresser », pour le plaisir — il en est
- * ravi — ; et ses formes, à la boutique, où l'on installe un autre compagnon
- * dans la niche.
+ * Ses formes atteintes, en petites niches : celle qu'on touche vit dans sa
+ * niche. Seulement ce qu'il a — ce qui vient se voit à la boutique, comme
+ * dans la loge (le choix du 13 octobre 2026).
  */
-export function FicheDeLaNiche({ forme, dessin, onFermer }: { forme: FormeDeCompagnon; dessin: DessinDeCompagnon; onFermer: () => void }) {
+export function SesFormes({ niche, busy, onMontrer }: { niche: NicheVue; busy: boolean; onMontrer: (rang: number) => void }) {
+  const c = leCompagnon(niche.compagnon)
+  const montree = formeDe(niche)
+  if (!c || !montree) return null
+  return (
+    <div className="niche-choix-rangee">
+      {c.formes
+        .filter(f => f.rang <= niche.rang)
+        .map(f => {
+          const dessin = DESSINS[f.key]
+          const ici = f.rang === montree.rang
+          return (
+            <button key={f.key} type="button" className="niche-choix" aria-pressed={ici} aria-label={f.nom} disabled={busy} onClick={() => !ici && onMontrer(f.rang)}>
+              <span className={`niche-mini niche-${c.key}`}>{dessin && <Arche forme={f} dessin={dessin} />}</span>
+              <span className="niche-choix-nom">{sansArticle(f.nom)}</span>
+            </button>
+          )
+        })}
+    </div>
+  )
+}
+
+/**
+ * Ses compagnons, en petites niches, chacun sous la forme qu'il montre :
+ * celui qui y vit, les autres à installer d'un toucher — c'est celui de la
+ * niche qui grandit —, et la boutique tant qu'il ne les a pas tous.
+ */
+export function SesCompagnons({
+  compagnons,
+  niche,
+  busy,
+  onInstaller,
+  onBoutique,
+}: {
+  compagnons: readonly CompagnonPossede[]
+  niche: string
+  busy: boolean
+  onInstaller: (cle: CleDeCompagnon) => void
+  /** La boutique s'ouvre : la fiche se ferme, même sur la page de la boutique, où rien ne se recharge. */
+  onBoutique?: () => void
+}) {
+  return (
+    <div className="niche-choix-rangee">
+      {compagnons.map(a => {
+        const c = leCompagnon(a.compagnon)
+        const f = formeDansLaNiche(a)
+        if (!c || !f) return null
+        const dessin = DESSINS[f.key]
+        const ici = a.compagnon === niche
+        // Un nom fixe : celui qui vit dans la niche se dit par `aria-pressed`, jamais par son libellé (`design.test.ts`).
+        const lui = a.nom ?? c.nom
+        return (
+          <button
+            key={a.compagnon}
+            type="button"
+            className="niche-choix"
+            aria-pressed={ici}
+            aria-label={lui}
+            disabled={busy}
+            onClick={() => !ici && onInstaller(a.compagnon)}
+          >
+            <span className={`niche-mini niche-${c.key}`}>{dessin && <Arche forme={f} dessin={dessin} />}</span>
+            <span className="niche-choix-nom">{a.nom ?? sansArticle(c.nom)}</span>
+          </button>
+        )
+      })}
+      {compagnons.length < COMPAGNONS.length && (
+        <a className="niche-choix niche-choix-adopter" href="/boutique#compagnons" onClick={onBoutique}>
+          <span className="niche-mini niche-mini-vide" aria-hidden="true">
+            <Icon name="plus" />
+          </span>
+          <span className="niche-choix-nom">Adopter</span>
+        </a>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Sa fiche, qui est sa gestion (le 19 octobre 2026, le propriétaire : « il
+ * n'y a pas d'interface de gestion de compagnon quand on clique dessus ?
+ * Pouvoir choisir son compagnon, le customiser »). Lui en grand, dans sa
+ * niche : son nom — qu'on lui donne d'ici, et que lui seul voit —, sa forme
+ * et sa légende ; où il en est, lu à l'ouverture (`GET /api/joueur/niche`) ;
+ * « Le caresser », pour le plaisir — il en est ravi — ; « Le porter en
+ * avatar », qui ouvre la loge avec lui à l'essai : la niche est sa maison,
+ * l'avatar une autre affaire. Puis la forme qu'il montre dans la niche, parmi
+ * celles qu'il a atteintes, et ses compagnons : celui qui y vit, les autres
+ * à installer d'un toucher. Chaque geste rend le profil, que la niche prend
+ * aussitôt (`porterNiche`).
+ */
+export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer: () => void }) {
   const boite = useRef<HTMLDivElement>(null)
   useModale(boite, onFermer)
   const [caresses, setCaresses] = useState(0)
   const [ravi, setRavi] = useState(false)
   const [calme] = useState(sansMouvement)
-  // `undefined` : en chemin ; `null` : rien à dire (une panne, un serveur d'avant).
-  const [acquis, setAcquis] = useState<CompagnonAcquis | null | undefined>(undefined)
+  // Ses compagnons et où chacun en est. `undefined` : en chemin ; `null` : rien à dire (une panne).
+  const [siens, setSiens] = useState<CompagnonAcquis[] | null | undefined>(undefined)
+  const [busy, setBusy] = useState(false)
+  const [erreur, setErreur] = useState('')
+  const [nommer, setNommer] = useState(false)
+  const [brouillon, setBrouillon] = useState('')
+  const champ = useRef<HTMLInputElement>(null)
   useEffect(() => {
     let vivant = true
     api.joueur.niche().then(
       r => {
         if (!vivant) return
-        setAcquis(r.niche)
-        // Une forme atteinte depuis que la page a lu le profil : la niche la prend tout de suite.
-        if (r.niche && r.niche.rang > forme.rang) porterNiche({ niche: r.niche.compagnon, compagnons: [r.niche] })
+        // Un serveur d'avant ne dit que celui de la niche.
+        setSiens(r.compagnons ?? (r.niche ? [r.niche] : []))
+        // Une forme atteinte depuis que la page a lu le profil, un réglage
+        // fait sur un autre appareil : la niche les prend tout de suite.
+        if (r.niche) porterNiche({ niche: r.niche.compagnon, compagnons: [r.niche] })
       },
-      () => vivant && setAcquis(null),
+      () => vivant && setSiens(null),
     )
     return () => {
       vivant = false
     }
     // Une lecture par ouverture : la forme qu'elle fait prendre ne la relance pas.
   }, [])
+  // « Renommer » touché, c'est vouloir écrire : le champ prend le focus.
+  useEffect(() => {
+    if (nommer) champ.current?.focus()
+  }, [nommer])
   // Caressé, il en est ravi un instant.
   useEffect(() => {
     if (caresses === 0) return
@@ -682,15 +808,49 @@ export function FicheDeLaNiche({ forme, dessin, onFermer }: { forme: FormeDeComp
     const t = setTimeout(() => setRavi(false), 1600)
     return () => clearTimeout(t)
   }, [caresses])
-  const c = leCompagnon(forme.compagnon)!
-  const sien = acquis && acquis.compagnon === forme.compagnon ? acquis : null
+  const c = leCompagnon(niche.compagnon)
+  const forme = formeDe(niche)
+  const dessin = forme && DESSINS[forme.key]
+  if (!c || !forme || !dessin) return null
+  const sien = siens?.find(a => a.compagnon === niche.compagnon)
   const suite = sien ? prochaineForme(sien) : null
-  const il = c.le === 'la' ? 'elle' : 'il'
+  const Il = c.le === 'la' ? 'Elle' : 'Il'
+  const Le = c.le === 'la' ? 'La' : 'Le'
+
+  /** Un geste de sa gestion : le profil que le serveur rend passe aussitôt dans la niche, et dans la liste de ses compagnons. */
+  const faire = async (geste: () => Promise<{ profile: PublicProfile }>): Promise<boolean> => {
+    if (busy) return false
+    setBusy(true)
+    setErreur('')
+    try {
+      const { profile } = await geste()
+      porterNiche(profile)
+      setSiens(l => (l ? l.map(a => ({ ...(profile.compagnons?.find(b => b.compagnon === a.compagnon) ?? a), justes: a.justes })) : l))
+      return true
+    } catch (e) {
+      setErreur((e as Error).message)
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+  const ouvrirLeNom = () => {
+    setBrouillon(niche.nom ?? '')
+    setErreur('')
+    setNommer(true)
+  }
+  const garderLeNom = async (e: FormEvent) => {
+    e.preventDefault()
+    if (await faire(() => api.joueur.reglerCompagnon(niche.compagnon, { nom: brouillon }))) setNommer(false)
+  }
+  // Sa plus haute forme n'est pas un choix : elle suit sa croissance.
+  const montrer = (rang: number) => void faire(() => api.joueur.reglerCompagnon(niche.compagnon, { montree: rang === niche.rang ? null : rang }))
+  const installer = (cle: CleDeCompagnon) => void faire(() => api.joueur.enregistrer({ niche: cle }))
   return (
     <div className="carte-voile" onClick={onFermer}>
-      <div ref={boite} className="carte-feuille niche-fiche" role="dialog" aria-modal="true" aria-label={c.nom} tabIndex={-1} onClick={e => e.stopPropagation()}>
+      <div ref={boite} className="carte-feuille niche-fiche" role="dialog" aria-modal="true" aria-label="Ma niche" tabIndex={-1} onClick={e => e.stopPropagation()}>
         <header className="carte-barre">
-          <b className="feuille-titre">{c.nom}</b>
+          <b className="feuille-titre">Ma niche</b>
           <button type="button" className="carte-fermer" onClick={onFermer}>
             <Icon name="x" />
             Fermer
@@ -715,15 +875,48 @@ export function FicheDeLaNiche({ forme, dessin, onFermer }: { forme: FormeDeComp
               )}
             </span>
             <div className="niche-fiche-texte">
-              <span className="label">Dans ta niche</span>
-              <b className="niche-fiche-nom">{forme.nom}</b>
-              <span className="muted small">{`${NOM_DE_LA_FORME[forme.rang]} · ${NOM_RARETE[forme.rarete].toLowerCase()}`}</span>
+              <span className="label">{c.nom}</span>
+              <b className="niche-fiche-nom">{niche.nom ?? forme.nom}</b>
+              <span className="muted small">{`${niche.nom ? `${forme.nom} · ` : ''}${NOM_DE_LA_FORME[forme.rang]} · ${NOM_RARETE[forme.rarete].toLowerCase()}`}</span>
+              {!nommer && (
+                <button type="button" className="niche-renommer" disabled={busy} onClick={ouvrirLeNom}>
+                  <Icon name="edit" />
+                  {niche.nom ? 'Renommer' : 'Lui donner un nom'}
+                </button>
+              )}
             </div>
           </div>
+          {nommer && (
+            <form className="niche-nommer" onSubmit={garderLeNom}>
+              <label className="label" htmlFor="niche-nom">
+                Son nom · toi seul le vois
+              </label>
+              <div className="niche-nommer-ligne">
+                <input
+                  id="niche-nom"
+                  ref={champ}
+                  className="input"
+                  type="text"
+                  value={brouillon}
+                  maxLength={NOM_D_UN_COMPAGNON_MAX}
+                  placeholder={PROPOSITIONS[c.key]}
+                  autoComplete="off"
+                  enterKeyHint="done"
+                  onChange={e => setBrouillon(e.target.value)}
+                />
+                <button type="submit" className="btn btn-primary" disabled={busy}>
+                  Garder
+                </button>
+              </div>
+              <button type="button" className="link-inline small niche-nommer-annuler" onClick={() => setNommer(false)}>
+                Annuler
+              </button>
+            </form>
+          )}
           <p className="niche-fiche-legende">{espacesFines(forme.legende)}</p>
           {/* Sa place gardée pendant la lecture : la feuille ne saute pas quand elle arrive. */}
           <div className="niche-fiche-jauge" aria-live="polite">
-            {acquis === undefined ? (
+            {siens === undefined ? (
               <span className="muted small">…</span>
             ) : suite ? (
               <>
@@ -736,22 +929,55 @@ export function FicheDeLaNiche({ forme, dessin, onFermer }: { forme: FormeDeComp
                   )}
                 </span>
               </>
-            ) : forme.rang === 3 ? (
+            ) : niche.rang === 3 ? (
               <span className="muted small">{espacesFines('Sa forme ultime : son monde prend vie.')}</span>
             ) : null}
           </div>
-          <p className="muted small niche-fiche-regle">
-            {espacesFines(`${il === 'elle' ? 'Elle' : 'Il'} grandit avec tes bonnes réponses, en soirée, au quiz du jour et en campagne — sans jamais te donner d’avantage.`)}
-          </p>
           <div className="niche-fiche-gestes">
             <button type="button" className="btn btn-primary" onClick={() => setCaresses(n => n + 1)}>
               <Icon name="sparkles" />
-              {`${c.le === 'la' ? 'La' : 'Le'} caresser`}
+              {`${Le} caresser`}
             </button>
-            <a className="btn" href={`/boutique#compagnon-${forme.compagnon}`}>
-              Ses formes
+            <a className="btn" href={`/profil?essayer=${forme.key}#avatar`} onClick={onFermer}>
+              {`${Le} porter en avatar`}
             </a>
           </div>
+          <section className="niche-fiche-section" aria-labelledby="niche-formes">
+            <div className="niche-fiche-section-tete">
+              <h3 id="niche-formes" className="label">
+                Sa forme dans ta niche
+              </h3>
+              <a className="link-inline" href={`/boutique#compagnon-${c.key}`} onClick={onFermer}>
+                Ses formes
+              </a>
+            </div>
+            {niche.rang > 0 ? (
+              <SesFormes niche={niche} busy={busy} onMontrer={montrer} />
+            ) : (
+              <p className="muted small">{espacesFines(`${Il} en prendra trois autres en grandissant : chacune pourra vivre ici.`)}</p>
+            )}
+          </section>
+          <section className="niche-fiche-section" aria-labelledby="niche-compagnons">
+            <h3 id="niche-compagnons" className="label">
+              Tes compagnons
+            </h3>
+            {siens === undefined ? (
+              <span className="muted small">…</span>
+            ) : (
+              <>
+                <SesCompagnons compagnons={siens ?? [{ compagnon: c.key, rang: niche.rang }]} niche={c.key} busy={busy} onInstaller={installer} onBoutique={onFermer} />
+                {siens && siens.length > 1 && <p className="muted small niche-choix-aide">Touche-en un pour l’installer dans ta niche.</p>}
+              </>
+            )}
+          </section>
+          {erreur && (
+            <p className="error" role="alert">
+              {erreur}
+            </p>
+          )}
+          <p className="muted small niche-fiche-regle">
+            {espacesFines('Celui de ta niche grandit avec tes bonnes réponses, en soirée, au quiz du jour et en campagne — sans jamais te donner d’avantage.')}
+          </p>
         </div>
       </div>
     </div>

@@ -99,6 +99,14 @@ aujourd'hui — son médaillon peint, son décor, son anneau. Ceux qui portent d
 le leur ne perdent rien. C'est le compagnon de la niche qui grandit ; porter un
 médaillon ne fait grandir personne.
 
+**La niche est sa maison, l'avatar une autre affaire** (le 19 octobre 2026,
+le propriétaire : « dans la boutique quand on fait porter, ça le met sur
+notre avatar et dans la niche. Ça serait mieux que dans la niche ») :
+l'adoption l'installe dans la niche sans le faire porter ; on le porte en le
+choisissant, dans la loge (« Le porter en avatar » l'y essaie). Changer
+d'avatar ne fait plus déménager personne : les niches jamais choisies se
+sont figées une fois sur ce qu'elles montraient.
+
 ## 7. À l'écran commun
 
 Seulement son arrivée, le podium et une métamorphose. Jamais pendant une
@@ -142,6 +150,14 @@ vidéo générée : trop chère pour ce qu'elle apporte.
    n'est jamais fausse : parmi les plus proches — le serveur le dit à chacun,
    `parmiLesProches` —, elle le nourrit. `rendu-niche.ts` photographie chaque
    réaction dans une soirée jouée, et la sortie au podium.
+   - Le même soir, **« Ma niche »**, sa gestion, au toucher de la niche (« il
+     n'y a pas d'interface de gestion de compagnon quand on clique dessus ?
+     Pouvoir choisir son compagnon, le customiser », le propriétaire) : son
+     nom, que lui seul voit ; la forme qu'il montre, parmi celles qu'il a
+     atteintes — une forme atteinte reprend la place — ; celui des siens qui
+     y vit, d'un toucher ; « Le porter en avatar ». Ce qui le
+     « customiserait » davantage attend sa peinture : les ornements de la
+     niche (point 4), les métamorphoses (point 5).
 3. Le haut fait « Première traversée » et la livraison de Lumi
    (`livrer-compagnons.ts luciole`).
 4. Les paliers de la niche, lus des journaux.

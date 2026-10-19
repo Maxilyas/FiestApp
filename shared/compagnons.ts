@@ -12,7 +12,10 @@
 // Il vit dans sa niche, en haut de chaque page du téléphone (le choix du 18
 // octobre 2026, `retours/2026-10-16/compagnon/principe.md`), et c'est celui
 // de la niche qui grandit : jusque-là, celui qu'on portait — et porter un
-// médaillon ne fait plus grandir personne.
+// médaillon ne fait plus grandir personne. La niche est sa maison, l'avatar
+// une autre affaire (le 19 octobre 2026) : l'adoption l'y installe sans le
+// faire porter, et sa niche se gère en la touchant — celui qui y vit, son
+// nom, la forme qu'il y montre.
 //
 // Comme tout ce qui se porte, un compagnon ne donne AUCUN avantage de jeu.
 //
@@ -38,6 +41,9 @@ export const RARETE_DES_FORMES: readonly Rarete[] = ['commune', 'rare', 'epique'
 
 /** Ce que chaque forme est pour lui, en deux mots : la carte, la fiche, la boutique. */
 export const NOM_DE_LA_FORME = ['Première forme', 'Deuxième forme', 'Troisième forme', 'Forme ultime'] as const
+
+/** Le nom qu'on lui donne (« Nox ») : court, il tient sous sa niche et sur une ligne de sa fiche. */
+export const NOM_D_UN_COMPAGNON_MAX = 16
 
 export type CleDeCompagnon = 'loup' | 'chat' | 'tortue'
 
@@ -174,6 +180,14 @@ export interface CompagnonPossede {
   compagnon: CleDeCompagnon
   /** Le rang de la plus haute forme atteinte. */
   rang: number
+  /** Le nom qu'il lui a donné, s'il lui en a donné un : à lui seul — la salle ne le voit jamais. */
+  nom?: string
+  /**
+   * Le rang de la forme qu'il montre dans sa niche, s'il en a choisi une
+   * d'avant la plus haute ; absent, la plus haute — il grandit alors sous ses
+   * yeux. Une forme atteinte reprend la place (`formeDansLaNiche`).
+   */
+  montree?: number
 }
 
 /** Et les bonnes réponses données avec lui depuis l'achat, relues dans ses journaux : la jauge de la forme suivante. */
@@ -199,20 +213,28 @@ export function formeLaPlusHaute(a: CompagnonPossede): FormeDeCompagnon | undefi
   return compagnon(a.compagnon)?.formes[a.rang]
 }
 
+/** La forme qu'il montre dans sa niche : celle qu'il a choisie, si elle est atteinte, sinon sa plus haute. */
+export function formeDansLaNiche(a: CompagnonPossede): FormeDeCompagnon | undefined {
+  return compagnon(a.compagnon)?.formes[a.montree !== undefined && a.montree >= 0 && a.montree <= a.rang ? a.montree : a.rang]
+}
+
 /**
  * Le compagnon de sa niche — celui que ses bonnes réponses font grandir — ;
- * null sans compagnon. Celui qu'il y a installé (`choisi`), sinon celui qu'il
- * porte (`porte`, une forme) : jusqu'au 18 octobre 2026, c'était le seul qui
- * grandissait, et qui n'a jamais choisi ne voit pas le sien changer de
- * maison. Sinon le plus grand des siens, le premier du catalogue à égalité.
- * Rien qu'il n'ait pas : un nom inconnu, un compagnon qu'il n'a pas adopté.
+ * null sans compagnon. Celui qu'il y a installé (`choisi`), sinon le plus
+ * grand des siens, le premier du catalogue à égalité. Rien qu'il n'ait pas :
+ * un nom inconnu, un compagnon qu'il n'a pas adopté. Ce qu'il porte n'y
+ * compte plus (le 19 octobre 2026) : la niche suivait l'avatar de qui ne
+ * l'avait jamais choisie, et l'ôter faisait déménager son compagnon. Ces
+ * niches-là se sont figées une fois, sur ce qu'il portait
+ * (`ProfileStore.installerLesNiches`).
  */
-export function compagnonDeLaNiche(choisi: unknown, porte: unknown, possedes: readonly CompagnonPossede[]): CleDeCompagnon | null {
-  const sien = (c: unknown) => possedes.find(a => a.compagnon === c)
+export function compagnonDeLaNiche(choisi: unknown, possedes: readonly CompagnonPossede[]): CleDeCompagnon | null {
+  const sien = possedes.find(a => a.compagnon === choisi)
+  if (sien) return sien.compagnon
   let plusGrand: CompagnonPossede | undefined
   for (const c of COMPAGNONS) {
-    const a = sien(c.key)
+    const a = possedes.find(x => x.compagnon === c.key)
     if (a && (!plusGrand || a.rang > plusGrand.rang)) plusGrand = a
   }
-  return (sien(choisi) ?? sien(formeDeCompagnon(porte)?.compagnon) ?? plusGrand)?.compagnon ?? null
+  return plusGrand?.compagnon ?? null
 }

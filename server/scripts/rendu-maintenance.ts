@@ -2,11 +2,14 @@
 // sur un serveur jetable — le client construit d'abord
 // (`npm run build -w client`) : l'accueil sans profil sous le bandeau — ses
 // trois gros boutons toujours sans défiler —, l'accueil d'un profil, le quiz
-// du jour et les duels fermés, sa niche sous le bandeau ; l'écran d'une page
-// fermée ; l'onglet du défi fermé seul ; une question de la campagne, où le
-// bandeau se tait ; la même page fermée pour l'administrateur, qui y entre
-// encore ; et la page du QG, au téléphone et en 1366 × 768. À chaque photo,
-// ce qui déborde en largeur, et ce qui passe sous la niche.
+// du jour et les duels fermés, l'Expédition bientôt disponible, sa niche sous
+// le bandeau ; l'écran d'une page fermée, celui d'une page qui arrive ;
+// l'onglet du défi fermé seul ; une question de la campagne, où le bandeau se
+// tait ; la même page fermée pour l'administrateur, qui y entre encore ;
+// l'accueil et l'Expédition de son testeur, sous le bandeau ; et la page du
+// QG — ses testeurs, la recherche d'un autre —, au téléphone et en
+// 1366 × 768. À chaque photo, ce qui déborde en largeur, et ce qui passe sous
+// la niche.
 //
 //   npx tsx scripts/rendu-maintenance.ts [dossier]        (THEME=ivoire)
 import { createRequire } from 'node:module'
@@ -69,11 +72,17 @@ try {
   if (theme) await ecrire(banc.url, '/api/joueur/moi', { theme }, lea, 'PUT')
 
   const poser = (chemin: string, corps: unknown) => ecrire(banc.url, chemin, corps, adminDeNouveau, 'PUT').then(r => r.status)
+  // Tom teste l'Expédition, que l'administrateur garde pour bientôt.
+  const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐸')
+  const idTom = ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: tom } })).json()) as any).profile.id
+  if (theme) await ecrire(banc.url, '/api/joueur/moi', { theme }, tom, 'PUT')
   console.log(
-    'bandeau, jour, duels :',
+    'bandeau, jour, duels, expédition, son testeur :',
     await poser('/api/admin/maintenance/bandeau', { texte: 'Le quiz du jour et les duels sont en panne depuis ce matin : on répare, merci de votre patience !' }),
-    await poser('/api/admin/maintenance/pages/jour', { fermee: true }),
-    await poser('/api/admin/maintenance/pages/duels', { fermee: true }),
+    await poser('/api/admin/maintenance/pages/jour', { etat: 'maintenance' }),
+    await poser('/api/admin/maintenance/pages/duels', { etat: 'maintenance' }),
+    await poser('/api/admin/maintenance/pages/expedition', { etat: 'bientot' }),
+    await poser(`/api/admin/maintenance/pages/expedition/testeurs/${idTom}`, {}),
   )
   void admin
 
@@ -122,10 +131,13 @@ try {
     await page.waitForSelector('.niche .niche-bete img', { timeout: 8000 }).catch(() => {})
     await photo(page, '02-accueil-profil')
     await photo(page, '02b-accueil-profil-entier', { pleine: true })
-    // 3. Le quiz du jour, fermé : l'écran qui le dit.
+    // 3. Le quiz du jour, fermé : l'écran qui le dit ; l'Expédition, qui arrive : le sien.
     await page.goto(`${banc.url}/jour`)
     await page.waitForSelector('.en-maintenance')
     await photo(page, '03-jour-en-maintenance')
+    await page.goto(`${banc.url}/expedition`)
+    await page.waitForSelector('.en-bientot')
+    await photo(page, '03b-expedition-bientot')
     // 4. Le défi seul fermé : son onglet le dit, le reste de la campagne reste ouvert.
     console.log('défi :', await poser('/api/admin/maintenance/pages/defi', { fermee: true }))
     await page.goto(`${banc.url}/campagne#defi`)
@@ -148,10 +160,28 @@ try {
     await page.goto(`${banc.url}/jour`)
     await page.waitForSelector('.bandeau-administrateur')
     await photo(page, '06-jour-pour-l-administrateur')
-    // 7. La page du QG, au téléphone.
+    // 7. La page du QG, au téléphone : l'Expédition et son testeur, puis un autre qu'on cherche.
     await page.goto(`${banc.url}/admin#maintenance`)
-    await page.waitForSelector('.maintenance-page')
+    await page.waitForSelector('.maintenance-testeurs')
     await photo(page, '07-qg-maintenance-telephone', { pleine: true })
+    await page.fill('.maintenance-testeurs input[type="search"]', 'lé')
+    await page.waitForSelector('.maintenance-testeurs .admin-geste-oui', { timeout: 8000 }).catch(() => {})
+    await page.locator('.maintenance-testeurs').scrollIntoViewIfNeeded()
+    await photo(page, '07b-qg-un-testeur-de-plus')
+    await ctx.close()
+  }
+
+  // 7c. Tom, son testeur : son accueil le lui dit, et l'Expédition s'ouvre pour lui — sous le bandeau.
+  {
+    const ctx = await contexte([tom])
+    const page = await ctx.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/`)
+    await page.waitForSelector('.gros-bouton[href="/expedition"]')
+    await photo(page, '07c-accueil-du-testeur', { pleine: true })
+    await page.goto(`${banc.url}/expedition`)
+    await page.waitForSelector('.exp-depart, .exp-carte, main', { timeout: 8000 }).catch(() => {})
+    await photo(page, '07d-expedition-du-testeur')
     await ctx.close()
   }
 
