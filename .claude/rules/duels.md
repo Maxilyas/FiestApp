@@ -270,7 +270,12 @@ jour a sa notification (règle `rappel-et-installation.md`).
   une autre. Elle n'entre en mémoire (`enCours`) qu'écrite ; ratée, sa
   première réponse le dit (`rencontresPerdues`). La page s'ouvre aussi d'un
   aller-retour, et le profil d'Automate ne se demande jamais (son
-  identifiant vide repartait vers la base, `rencontresEtDuels`).
+  identifiant vide repartait vers la base, `rencontresEtDuels`). Ses amis et
+  les défis qu'ils lui ont envoyés, qu'elle lit en s'ouvrant (`mesAmis`),
+  d'un lot, puis tous leurs profils d'un coup : un défi reçu se lit avec son
+  envoi, jamais relu par son code — `duelDe` apporte ses questions, et un
+  aller-retour par ligne ; au réveil, ils en enchaînaient quatre, l'une des
+  routes les plus lentes du serveur (le 19 octobre 2026).
   `duels-attente.test.ts` compte ceux qui se suivent.
 - **Le dé demande avant de tirer, et ne se relance pas.** Sa feuille
   (`LeDe`, `FeuilleDuDe`) dit l'enjeu — à chances égales, lu de la seule

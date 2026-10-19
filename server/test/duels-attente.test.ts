@@ -228,6 +228,57 @@ test('la page des duels s’ouvre d’un aller-retour, ses duels contre quelqu�
   assert.equal(m.enSerie, 1, `${m.enSerie} allers-retours l’un derrière l’autre :\n${m.sqls.join('\n')}`)
 })
 
+test('ses amis et les défis qu’ils lui ont envoyés se lisent d’un aller-retour — leurs profils d’un second, au réveil —, sans les questions des défis', async () => {
+  // Max a ajouté Jules et Noé ; eux et Zoé, qui l'a ajouté sans qu'il
+  // l'ajoute, lui ont chacun envoyé un défi. La page des duels lit tout cela
+  // en s'ouvrant (`GET /api/campagne/amis`) : ses amis, puis leurs profils,
+  // puis chaque défi reçu par son code, puis le profil de Zoé — quatre
+  // allers-retours l'un derrière l'autre au réveil, et chaque défi relu avec
+  // ses questions, qu'aucune ligne ne montre.
+  const max = await inscrireProfil(banc.url, 'max', 'Max')
+  const idDe = async (qui: string) => ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: qui } })).json()) as any).profile.id as string
+  const deMax = await idDe(max)
+  for (const [login, prenom, sonAmi] of [
+    ['jules', 'Jules', true],
+    ['noe', 'Noé', true],
+    ['zoe', 'Zoé', false],
+  ] as const) {
+    const autre = await inscrireProfil(banc.url, login, prenom)
+    if (sonAmi) await poster(`/api/campagne/amis/${await idDe(autre)}/ajout`, {}, max)
+    await poster(`/api/campagne/amis/${deMax}/ajout`, {}, autre)
+    const { code } = await poster('/api/campagne/duel', {}, autre)
+    assert.deepEqual(await poster(`/api/campagne/duel/${code}/envoi`, { amis: [deMax] }, autre), { envoyes: 1 })
+  }
+  const lireSesAmis = () =>
+    fetch(`${banc.url}/api/campagne/amis`, { headers: { Cookie: max } }).then(async r => {
+      assert.equal(r.status, 200)
+      return (await r.json()) as any
+    })
+  const attendu = (m: { resultat: any }) => {
+    assert.deepEqual(m.resultat.amis.map((a: any) => a.nom).sort(), ['Jules', 'Noé'])
+    assert.deepEqual(m.resultat.recus.map((d: any) => d.auteur.nom).sort(), ['Jules', 'Noé', 'Zoé'])
+  }
+  const sansQuestions = (m: { lectures: { sql: string }[] }) =>
+    assert.ok(!m.lectures.some(l => /SELECT \* FROM campagne_duels/.test(l.sql)), `un défi reçu relu en entier, ses questions comprises :\n${m.lectures.map(l => l.sql).join('\n')}`)
+
+  // Le classement et les profils en mémoire : ses lectures à lui, d'un seul lot.
+  await lireSesAmis()
+  const chaud = await mesurer(lireSesAmis)
+  attendu(chaud)
+  assert.equal(chaud.enSerie, 1, chaud.sqls.join('\n'))
+  assert.equal(chaud.appels, 1, `une seule requête vers la base :\n${chaud.sqls.join('\n')}`)
+
+  // Au réveil, son profil déjà lu par la page (`moi?leger`) : le lot et le
+  // classement, puis tous les profils qu'il nomme d'un coup.
+  await banc.redemarrer()
+  await idDe(max)
+  const froid = await mesurer(lireSesAmis)
+  attendu(froid)
+  sansQuestions(froid)
+  assert.equal(froid.enSerie, 2, `${froid.enSerie} allers-retours l’un derrière l’autre :\n${froid.sqls.join('\n')}`)
+  assert.equal(froid.sqls.filter(s => /FROM profiles WHERE/.test(s)).length, 1, `leurs profils en plusieurs fois :\n${froid.sqls.join('\n')}`)
+})
+
 test('au réveil, son profil se charge d’un aller-retour, ses Éclats et ses récompenses avec', async () => {
   // Sa fiche, puis ses Éclats, puis ses récompenses : trois allers-retours l'un
   // derrière l'autre à sa première requête après chaque réveil de
