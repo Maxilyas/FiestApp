@@ -1001,6 +1001,24 @@ function votesDuSondage(sess: GameSessionRec<QuizState>, vctx: ViewContext, limi
     .slice(0, limite)
 }
 
+/**
+ * Les estimations du tiers le plus proche de la cible, à rang partagé :
+ * celles qui nourrissent un compagnon — le tiers même du journal (`tiers`,
+ * `core/journal.ts`), que la soirée relit pour le faire grandir
+ * (`progress.ts`). Le même ensemble pour toute la salle : calculé une fois par
+ * diffusion, en triant une fois — un rang par proposition, à cinq cents
+ * invités, refaisait le tour de la salle pour chacun.
+ */
+function prochesDeLaCible(sess: GameSessionRec<QuizState>, target: number, vctx: ViewContext): ReadonlySet<string> {
+  return vctx.memo('quiz:proches', () => {
+    const estimees = Object.entries(sess.state.responses).filter(([, r]) => r.value !== null)
+    const valeurs = estimees.map(([, r]) => -ecartEstimation(r.value!, target))
+    const tries = [...valeurs].sort((a, b) => b - a)
+    const tiers = Math.ceil(estimees.length / 3)
+    return new Set(estimees.filter((_, i) => rangDansLesTries(valeurs[i], tries) <= tiers).map(([id]) => id))
+  })
+}
+
 /** Les propositions d'une question « estimation », de la plus proche à la plus loin. */
 function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewContext, limit: number): QuizGuessRow[] {
   const st = sess.state
@@ -1499,6 +1517,7 @@ export const quizModule: GameModule<QuizState> = {
           // Le même classement des votes pour toute la salle : calculé une fois par diffusion.
           ...(q.kind === 'choice' && q.variante === 'sondage' && { votes: vctx.memo('quiz:votes', () => votesDuSondage(sess, vctx, 3)) }),
           target: q.kind === 'number' && !cibleInconnue(st, q) ? q.target : undefined,
+          ...(q.kind === 'number' && !st.cancelled && !cibleInconnue(st, q) && prochesDeLaCible(sess, q.target, vctx).has(playerId) && { parmiLesProches: true as const }),
           yourPoints: playerId in st.lastAwards ? st.lastAwards[playerId] : null,
           ...(st.cancelled && { cancelled: true }),
           yourQuizTotal: st.totals[playerId] ?? 0,

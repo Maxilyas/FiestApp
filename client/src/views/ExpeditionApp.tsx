@@ -16,7 +16,9 @@ import { espacesFines, formatNumber } from '../format'
 import { showToast } from '../state'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
-import { porterNiche } from '../niche'
+import { nicheRetientSonSouffle, porterNiche } from '../niche'
+import { NicheALaRevelation } from '../components/NicheReagit'
+import { rareEnCampagne, reactionDuSolo } from '../../../shared/niche'
 import { gemme } from '../gemmes'
 import { useModale } from '../modale'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
@@ -712,6 +714,8 @@ export function ExpeditionApp() {
   /** Une réponse — deux sous Double chance —, à la question qu'il a choisie sous Deux visages. */
   const repondre = async (vue: VueDeLExpedition, q: QuestionDExpedition, choix: number | readonly number[]) => {
     if (busy) return
+    // Sa niche retient son souffle jusqu'au verdict du serveur.
+    nicheRetientSonSouffle()
     setBusy(true)
     setErreur('')
     try {
@@ -2874,6 +2878,8 @@ function Revelation({
   return (
     <>
       <div className={'card result-banner ' + (r.juste ? 'result-ok' : 'result-ko')} role="status">
+        {/* Sa niche : sans réponse — le temps d'un dévoilement écoulé —, elle reste calme. */}
+        <NicheALaRevelation cle={`expedition:${r.expedition.id}:${q.index}`} reaction={reactionDuSolo(choix === null ? null : r.juste, rareEnCampagne(q.niveau))} />
         {r.juste ? (
           <>
             <span className="big">🎊 +1</span>

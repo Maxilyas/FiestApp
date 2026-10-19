@@ -212,7 +212,7 @@ Trois compagnons, des animaux peints, s'achètent **1 000 confettis** à leur pr
 | Le Chat des lanternes 🐱 | Le chaton | Le jeune chat | Le chat des lanternes | L'esprit des lanternes |
 | La Tortue-île 🐢 | La petite tortue | La jeune tortue | La tortue-bosquet | La tortue-île |
 
-Chacune de ses formes atteintes se porte aussi comme un légendaire, dans la loge, pièce « Avatar » ; acheté et porté, il remplace ton avatar dans la salle où tu joues — porter un médaillon ne fait grandir personne : c'est la niche qui compte. Sa jauge, ses formes dans la collection et son Éclat : [le profil](le-profil.md).
+Chacune de ses formes atteintes se porte aussi comme un légendaire, dans la loge, pièce « Avatar » ; acheté et porté, il remplace ton avatar dans la salle où tu joues — porter un médaillon ne fait grandir personne : c'est la niche qui compte. Dans sa niche, il réagit à la révélation — ravi, dépité avec toi, des cœurs quand peu l'ont trouvée — et sort au podium, sans jamais te donner d'avantage. Sa jauge, ses réactions, ses formes dans la collection et son Éclat : [le profil](le-profil.md).
 
 ## L'identité visuelle
 

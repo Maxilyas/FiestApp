@@ -4,8 +4,9 @@ Ce qui est décidé ou proposé, en un seul endroit. Dans l'application : les
 trois compagnons de la boutique, leurs quatre formes, portées en avatar — et,
 depuis le 18 octobre 2026 au soir, **la niche** (le point 1 de la fin de
 cette page : sa place sur chaque page, sa fiche, son repli, et le compagnon de
-la niche qui grandit). Le reste attend ; les preuves visuelles sont sur la
-planche (lien dans `README.md`).
+la niche qui grandit) ; depuis le 19 octobre, **ses humeurs et ses réactions
+à la révélation** (le point 2 : le § 2 tel qu'il est écrit). Le reste
+attend ; les preuves visuelles sont sur la planche (lien dans `README.md`).
 
 ## En une phrase
 
@@ -128,7 +129,19 @@ vidéo générée : trop chère pour ce qu'elle apporte.
    choisi garde celui qu'il porte) —, sa fiche (`GET /api/joueur/niche`).
    `server/scripts/rendu-niche.ts` la photographie sur vingt-quatre écrans :
    rien ne passe dessous, en 360 × 640 comme en 390 × 844.
-2. Les humeurs livrées (peintes pour les quatre) et les réactions à la révélation.
+2. ~~Les humeurs livrées (peintes pour les quatre) et les réactions à la
+   révélation.~~ Faites le 19 octobre 2026 : les humeurs du loup, du chat et
+   de la tortue — ravi, dépité, triomphe, pour chaque forme — livrées par la
+   chaîne (`livrer-compagnons.ts`, depuis l'archive de leur dossier `app` :
+   rien de repayé ; celles de Lumi partiront avec elle, au point 3) ; les
+   réactions du § 2 dans la soirée, le quiz du jour, la campagne, les
+   sentiers, les parcours et l'expédition (`client/src/niche.ts`,
+   `shared/niche.ts`, `components/NicheReagit.tsx`). « Peu l'ont trouvée » :
+   le quart au plus, à quatre réponses au moins — au quiz du jour, des
+   joueurs du jour ; en campagne, une experte (`PART_RARE`). Une estimation
+   n'est jamais fausse : parmi les plus proches — le serveur le dit à chacun,
+   `parmiLesProches` —, elle le nourrit. `rendu-niche.ts` photographie chaque
+   réaction dans une soirée jouée, et la sortie au podium.
 3. Le haut fait « Première traversée » et la livraison de Lumi
    (`livrer-compagnons.ts luciole`).
 4. Les paliers de la niche, lus des journaux.

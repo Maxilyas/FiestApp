@@ -69,13 +69,16 @@ function verifierPaire(paire: [string, string], nom: string) {
 
 // ── 1. Les fichiers ───────────────────────────────────────────────────────
 
-test('chaque forme a ses fichiers sous leur empreinte : l’animal ; son décor dès la deuxième ; le monde vivant de la forme ultime', async () => {
+test('chaque forme a ses fichiers sous leur empreinte : l’animal et ses trois humeurs ; son décor dès la deuxième ; le monde vivant de la forme ultime', async () => {
   const { DESSINS } = await import(url('components/compagnons-peints.ts'))
   assert.deepEqual(Object.keys(DESSINS).sort(), FORMES_DES_COMPAGNONS.map(f => f.key).sort(), 'les douze, et elles seules')
   for (const f of FORMES_DES_COMPAGNONS) {
     const d = DESSINS[f.key]
     const nom = `${f.compagnon}-${f.key.slice(f.key.indexOf('-') + 1)}`
     verifierPaire(d.perso, `${nom}-perso`)
+    // Ses humeurs, que la niche échange à la révélation : sans elles, elle ne saurait plus réagir.
+    assert.deepEqual(Object.keys(d.humeurs ?? {}).sort(), ['depite', 'ravi', 'triomphe'], `${f.key} : ses humeurs`)
+    for (const [humeur, paire] of Object.entries<[string, string]>(d.humeurs)) verifierPaire(paire, `${nom}-${humeur}`)
     // La première forme est peinte seule : le disque teinté de son compagnon la reçoit.
     if (f.rang === 0) assert.equal(d.disque, undefined, f.key)
     else verifierPaire(d.disque, `${nom}-disque`)
@@ -111,7 +114,8 @@ test('le monde vivant arrive avec sa transparence : rien à fondre dans la page'
 test('les fichiers peints sont tous cités : un compagnon repeint emporte l’ancien', async () => {
   const { DESSINS } = await import(url('components/compagnons-peints.ts'))
   const cites = new Set<string>()
-  for (const d of Object.values<any>(DESSINS)) for (const f of [...(d.disque ?? []), ...d.perso, ...Object.values<string[]>(d.vivant ?? {}).flat()]) cites.add(f)
+  for (const d of Object.values<any>(DESSINS))
+    for (const f of [...(d.disque ?? []), ...d.perso, ...Object.values<string[]>(d.humeurs ?? {}).flat(), ...Object.values<string[]>(d.vivant ?? {}).flat()]) cites.add(f)
   const presents = readdirSync(PUBLICS).map(f => `/compagnons/${f}`)
   assert.deepEqual(
     presents.filter(f => !cites.has(f)),

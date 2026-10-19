@@ -11,6 +11,7 @@
 // Rien ici du catalogue ni des dessins : ce fichier part avec chaque page,
 // l'accueil anonyme compris. La niche elle-même vient à la demande
 // (`components/NicheHost.tsx`).
+import type { ReactionALaRevelation } from '../../shared/niche'
 
 /** Ce que la niche montre : son compagnon (`loup`), et le rang de sa plus haute forme. */
 export interface NicheVue {
@@ -34,9 +35,13 @@ function lue(brut: unknown): NicheVue | null {
 
 function poser(niche: NicheVue | null): void {
   const meme = niche?.compagnon === actuelle?.compagnon && niche?.rang === actuelle?.rang
+  // Une forme atteinte pendant la partie — le profil relu après un quiz, une
+  // partie du jour, une série — : il sort de sa niche pour la montrer.
+  const grandi = !!niche && !!actuelle && niche.compagnon === actuelle.compagnon && niche.rang > actuelle.rang
   actuelle = niche
   if (typeof document !== 'undefined') document.body.classList.toggle(CLASSE, !!niche)
   if (!meme) for (const f of abonnes) f()
+  if (grandi && enJeu) sortir()
 }
 
 /**
@@ -81,4 +86,94 @@ export function nicheActuelle(): NicheVue | null {
 export function abonnerNiche(f: () => void): () => void {
   abonnes.add(f)
   return () => abonnes.delete(f)
+}
+
+// ── Ses réactions, le temps d'une partie ─────────────────────────────────
+//
+// Les pages de jeu disent à la niche ce qui se passe (le principe du
+// compagnon, § 2) : une réponse touchée — il retient son souffle, le
+// téléphone ne sait pas encore si elle est juste (invariant 1) —, la
+// révélation — ravi, dépité avec toi, des cœurs quand peu l'ont trouvée —,
+// puis le calme quand le verdict s'en va. Au podium d'un quiz, ou à une forme
+// atteinte, il sort de sa niche : une fois par quiz au plus. Sans niche,
+// personne n'écoute — l'invité anonyme ne télécharge rien de plus.
+
+/** Ce que la niche apprend : le composant le joue (`Niche.tsx`). */
+export type MomentDeLaNiche =
+  | { sorte: 'souffle' }
+  | { sorte: 'juste'; rare: boolean; nourri: boolean; depuis: Element | null }
+  | { sorte: 'ratee' }
+  | { sorte: 'calme' }
+  | { sorte: 'sortie' }
+
+const ecouteurs = new Set<(m: MomentDeLaNiche) => void>()
+
+function annoncer(m: MomentDeLaNiche): void {
+  for (const f of ecouteurs) f(m)
+}
+
+/** La niche écoute ses moments, dans l'ordre où ils arrivent : deux dans le même instant ne s'écrasent pas. */
+export function ecouterLaNiche(f: (m: MomentDeLaNiche) => void): () => void {
+  ecouteurs.add(f)
+  return () => ecouteurs.delete(f)
+}
+
+/** Une réponse donnée sur cette page : la partie est en cours, une forme atteinte le fera sortir. */
+let enJeu = false
+/** Une sortie par quiz au plus : la réponse suivante en rouvre une. */
+let sortiePrise = false
+/** La révélation qu'elle fête, et le calme qu'elle attend de son départ (`nicheApresLaRevelation`). */
+let revelation: string | null = null
+let calmeEnAttente: ReturnType<typeof setTimeout> | null = null
+
+function sortir(): void {
+  if (sortiePrise) return
+  sortiePrise = true
+  annoncer({ sorte: 'sortie' })
+}
+
+/** Une réponse touchée, ou envoyée : il retient son souffle jusqu'au verdict. */
+export function nicheRetientSonSouffle(): void {
+  enJeu = true
+  sortiePrise = false
+  annoncer({ sorte: 'souffle' })
+}
+
+/**
+ * La révélation d'une question (`cle` : laquelle), et le bandeau d'où partent
+ * ses étincelles quand elle le nourrit. Le même bandeau remonté dans le même
+ * instant — React, en développement, monte deux fois — ne la rejoue pas.
+ */
+export function nicheALaRevelation(cle: string, reaction: ReactionALaRevelation, depuis: Element | null): void {
+  if (calmeEnAttente && revelation === cle) {
+    clearTimeout(calmeEnAttente)
+    calmeEnAttente = null
+    return
+  }
+  revelation = cle
+  annoncer(
+    reaction.verdict === 'juste'
+      ? { sorte: 'juste', rare: reaction.rare, nourri: reaction.nourri, depuis }
+      : reaction.verdict === 'ratee'
+        ? { sorte: 'ratee' }
+        : { sorte: 'calme' },
+  )
+}
+
+/** Le verdict quitte l'écran — la question suivante, la fin : il retrouve son calme. */
+export function nicheApresLaRevelation(cle: string): void {
+  if (revelation !== cle) return
+  if (calmeEnAttente) clearTimeout(calmeEnAttente)
+  calmeEnAttente = setTimeout(() => {
+    calmeEnAttente = null
+    revelation = null
+    annoncer({ sorte: 'calme' })
+  }, 0)
+}
+
+/** La fin d'un quiz de soirée : sur le podium, il sort de sa niche — après l'expérience, que la niche attend. */
+export function nicheALaFin(podium: boolean): void {
+  // Un quiz arrêté avant sa révélation : le souffle retenu se relâche.
+  annoncer({ sorte: 'calme' })
+  if (podium) sortir()
 }

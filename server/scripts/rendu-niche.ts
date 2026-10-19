@@ -6,7 +6,12 @@
 // la révélation, le podium. Puis sa fiche, une caresse, et le repli quand la
 // page défile. À chaque page, ce qui passe sous la niche se dit : un texte,
 // un bouton, une image que la page ne lui a pas laissé (« sous la niche »).
-// Léa, niveau 14, son loup adulte dans sa niche. Le client construit d'abord
+// Et ses réactions, dans la soirée (`shared/niche.ts`) : le souffle retenu
+// quand elle touche une réponse, la bonne réponse qui le nourrit (« +1 », sa
+// jauge), la ratée (il pleut chez lui), la rare (une bulle de cœurs), puis
+// la sortie au podium et une caresse dehors.
+// Léa, niveau 14, son loup adulte dans sa niche — 350 bonnes réponses avec
+// lui, sa jauge aux trois quarts. Le client construit d'abord
 // (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-niche.ts [dossier]        (ECRAN=390x844, THEME=ivoire)
@@ -106,6 +111,16 @@ async function lea(login: string): Promise<string> {
   db.prepare('INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, 1000, 2, 1)').run(id, 'loup')
   // De quoi l'avoir payé : une partie du quiz du jour d'avant, ses bonnes réponses en confettis.
   db.prepare(`INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, '2026-09-20', 1, 10, NULL, 0, 1872, 1, 0)`).run(id)
+  // Et 350 bonnes réponses données avec lui, aux quiz du jour de juillet — leurs
+  // tirages avec, que le compte des bonnes réponses lit : sa jauge vers sa forme ultime en part.
+  const questions = Array.from({ length: 10 }, (_, i) => ({ reserveId: `rendu-niche-${i}`, texte: `Question ${i + 1}`, reponses: ['A', 'B', 'C', 'D'], bonne: 0, categorie: null, duree: 20, lectureMs: 3000, anecdote: null }))
+  const tirage = db.prepare(`INSERT OR IGNORE INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, ?, '[]', 1)`)
+  const juste = db.prepare(`INSERT INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le, compagnon) VALUES (?, ?, ?, 0, 1000, 1, 100, 1, 'loup')`)
+  for (let j = 0; j < 35; j++) {
+    const jour = new Date(Date.UTC(2026, 6, 1 + j)).toISOString().slice(0, 10)
+    tirage.run(jour, JSON.stringify(questions))
+    for (let q = 0; q < 10; q++) juste.run(id, jour, q)
+  }
   db.close()
   await banc.redemarrer()
   if (theme) await ecrire(banc.url, '/api/joueur/moi', { theme }, cookie, 'PUT')
@@ -231,18 +246,22 @@ async function solo() {
 async function soiree() {
   const url = banc.url
   const cookie = await connexionAnimateur(url)
-  const packId = await creerQuiz(
-    url,
-    cookie,
-    [
-      qcm('Quelle planète surnomme-t-on la planète rouge ?', ['Vénus', 'Mars', 'Jupiter', 'Saturne'], 1, 30),
-      qcm('Combien de cordes compte un violon ?', ['Trois', 'Quatre', 'Cinq', 'Six'], 1, 30),
-    ],
-    'Culture générale',
-  )
+  // Trois questions : Léa trouve la première, rate la deuxième, et trouve la troisième, que ses amis ratent tous — la rare.
+  const QUESTIONS = [
+    { texte: 'Quelle planète surnomme-t-on la planète rouge ?', reponses: ['Vénus', 'Mars', 'Jupiter', 'Saturne'], bonne: 1 },
+    { texte: 'Combien de cordes compte un violon ?', reponses: ['Trois', 'Quatre', 'Cinq', 'Six'], bonne: 1 },
+    { texte: 'Quel est l’animal national de l’Écosse ?', reponses: ['Le cerf', 'L’aigle royal', 'La licorne', 'Le lion'], bonne: 2 },
+  ]
+  const packId = await creerQuiz(url, cookie, QUESTIONS.map(q => qcm(q.texte, q.reponses, q.bonne, 30)), 'Culture générale')
   const cookieLea = await lea('lea2')
   const host = await ecranCommun(url, cookie)
   const amis: Invite[] = []
+  // Juste (1) ou non (0), question par question.
+  const PLANS = [
+    [1, 1, 0],
+    [0, 0, 0],
+    [0, 1, 0],
+  ]
   for (const [nom, avatar] of [
     ['Tom', '🐼'],
     ['Julie', '🦊'],
@@ -252,7 +271,9 @@ async function soiree() {
   amis.forEach((inv, i) =>
     inv.socket.on('session:view', ({ sessionId, view }: any) => {
       if (view.phase !== 'question' || view.myAnswer != null || view.answered) return
-      setTimeout(() => (inv.socket as any).emit('player:action', { sessionId, action: { type: 'answer', choice: (view.qIndex + i) % 4 } }, () => {}), 2600 + i * 250)
+      const q = QUESTIONS[view.qIndex]
+      const choix = PLANS[i][view.qIndex] ? q.bonne : (q.bonne + 1 + i) % 4
+      setTimeout(() => (inv.socket as any).emit('player:action', { sessionId, action: { type: 'answer', choice: choix } }, () => {}), 2600 + i * 250)
     }),
   )
   const moi = await invite(url, 'Léa', '🐸', { cookie: cookieLea })
@@ -277,22 +298,38 @@ async function soiree() {
     ;(host as any).emit('host:command', { sessionId: vue.sessionId, command: { type: 'next', phase: ph, qIndex, round } })
   }
   await lancerQuiz(host, packId)
-  const LEA = [/Mars/, /Quatre/]
-  for (let q = 0; q < 2; q++) {
+  const LEA = [/Mars/, /Trois/, /licorne/]
+  const REVELATIONS = ['24-soiree-revelation', '24b-soiree-ratee', '24c-soiree-rare']
+  // Le temps du repas — « +1 » et sa jauge —, puis, pour la rare, sa bulle de cœurs, qui attend que « +1 » s'efface.
+  const ATTENTES = [1300, 1300, 2600]
+  for (let q = 0; q < QUESTIONS.length; q++) {
     await phase('question', q)
     await telephone.waitForSelector('.ans-btn')
     if (q === 0) await photo(telephone, '23-soiree-question')
     await telephone.getByRole('button', { name: LEA[q] }).first().click({ timeout: 4000 }).catch(() => {})
-    await patienter(2400)
+    // Elle a touché sa réponse : il retient son souffle, penché vers la page, son ciel assombri.
+    if (q === 0) await photo(telephone, '23b-soiree-souffle', { attente: 700 })
+    // Toute la salle répond, puis la révélation vient d'elle-même ; sinon, l'animateur la donne.
+    await patienter(q === 0 ? 3200 : 3900)
     if (vue?.view.phase === 'question' && vue.view.qIndex === q) suivant()
     await phase('reveal', q)
     await telephone.waitForSelector('.result-banner')
-    if (q === 0) await photo(telephone, '24-soiree-revelation', { attente: 1200 })
+    await photo(telephone, REVELATIONS[q], { attente: ATTENTES[q] })
     if (vue?.view.phase === 'reveal' && vue.view.qIndex === q) suivant()
   }
   await phase('finished')
   await telephone.waitForSelector('.fin-quiz-ligne')
-  await photo(telephone, '25-soiree-podium', { attente: 5000 })
+  await photo(telephone, '25-soiree-podium', { attente: 1000 })
+  // Sur le podium, après l'expérience : il sort de sa niche et se pose en bas, près du pouce.
+  await telephone.waitForSelector('.niche-dehors.pose', { timeout: 15000 }).catch(() => console.error('[soirée] pas de sortie au podium'))
+  await patienter(500)
+  await telephone.screenshot({ path: path.join(sortie, '25b-soiree-sortie.png') })
+  await telephone.locator('.niche-dehors').click({ timeout: 3000 }).catch(() => {})
+  await patienter(450)
+  await telephone.screenshot({ path: path.join(sortie, '25c-soiree-caresse.png') })
+  // Puis il rentre chez lui.
+  await telephone.waitForSelector('.niche-dehors', { state: 'detached', timeout: 15000 }).catch(() => console.error('[soirée] il n’est pas rentré'))
+  await photo(telephone, '25d-soiree-rentre', { attente: 400 })
   host.close()
   await ctx.close()
 }

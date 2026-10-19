@@ -3,8 +3,8 @@
 Une maquette : la niche du compagnon et ses réactions sont posées dans les
 vrais écrans d'une soirée jouée (Playwright, `addInitScript`) pour décider où
 il vit et comment il accompagne le joueur, avant d'écrire une ligne du vrai
-code. La niche elle-même est dans l'application depuis le 18 octobre 2026
-(plus bas) ; ses réactions, pas encore.
+code. La niche elle-même est dans l'application depuis le 18 octobre 2026,
+ses réactions depuis le 19 (plus bas).
 
 ## La planche
 
@@ -19,6 +19,21 @@ Tout se regarde sur la planche Design, privée : <https://claude.ai/artifact/Uq6
 
 Les films et les images n'existent que là (et dans `export/`, qui ne se
 committe pas).
+
+## Le 19 octobre : ses humeurs, et ses réactions à la révélation
+
+Le point 2 du principe (`principe.md`, § 10) : la niche réagit pour de vrai,
+comme le film du quiz entier le montrait. Ses humeurs peintes — ravi, dépité,
+triomphe, pour chaque forme du loup, du chat et de la tortue — sont livrées
+par la chaîne, depuis l'archive de leur dossier `app` (rien de repayé). Il
+retient son souffle quand on touche une réponse ; une bonne réponse le
+nourrit — des étincelles, « +1 », sa jauge sur le rebord le temps du repas,
+il sautille — ; une ratée, il pleut chez lui ; une rare, une bulle de cœurs ;
+au podium d'un quiz ou à une forme atteinte, il sort de sa niche, se pose en
+bas de l'écran, se caresse, puis rentre. En soirée, au quiz du jour, en
+campagne, sur les sentiers, en parcours et en expédition. Les photos :
+`server/scripts/rendu-niche.ts`, une soirée jouée de trois questions (juste,
+ratée, rare) et son podium.
 
 ## Le 18 octobre, la nuit : la niche dans l'application
 
