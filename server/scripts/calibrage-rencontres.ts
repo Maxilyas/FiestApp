@@ -77,7 +77,31 @@
 // le moyen, le fort) : sans style, 32, 78 et 99 ; le Sophiste suivi, 42, 79
 // et 98 ; le Téméraire suivi, 11, 62 et 96, avisé, 26, 76 et 97.
 //
-//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3] [--sans-fioles] [--ascension 2] [--ascensions] [--seule genie] [--cartes [genie,lecon]] [--part 1/4] [--style devin] [--styles] [--avise]
+// La question au centre (la version 10, `--version 10`, le 19 octobre 2026) :
+// un autre joueur, qui voit la question d'abord — à l'annonce, il ne joue que
+// le pari et ses cartes —, puis la sait ou non. S'il la sait, il joue ce qui
+// ajoute des crans quand il en faut (`cransAvec`, la règle même du pli), un
+// pouvoir dans une rencontre longue, sinon ce qui sert plus tard ; s'il ne la
+// sait pas, l'aide qui lui laisse la meilleure chance (`chanceApres`) — une
+// autre question l'emporte souvent : il la sait autant que celle-ci —, et
+// faute d'aide, ce qui rend l'erreur gratuite. Une carte par question ; ses
+// rares, ses épiques et ses légendaires attendent une élite ou le gardien.
+// Chaque carte seule (`--cartes`, au niveau 10) : Révélation +9, Sursis +7,
+// Génie et Exposé +6 ; Troisième œil, Rythme, Prisme, Tout ou rien et Doubler
+// la mise −7 ou −8 — elles tiennent une place de la main pour rien. Il ne
+// prend que ce qui vaut (`PREFERENCE_EN_QUESTION`). Trois cents expéditions par
+// case, aux crans du brief (2, 3, 4-3-3) : le faible, le moyen et le fort au
+// bout 3, 49 et 97 fois sur cent au niveau 1, 7, 58 et 97 au niveau 10, en 31
+// à 36 questions. Essayés à 2-2-3, 3-4-4 et 4-4-4 : 1, 32 et 92 au niveau 1 —
+// le moyen à la cible —, 3, 44 et 94 au niveau 10, en 31 à 39 questions. Le
+// fort ne descend pas à huit sur dix sans que le moyen tombe sous un sur
+// cinq : deux d'attaque de plus, 0, 18 et 86. À ces crans, les styles suivis,
+// au niveau 10, pour le moyen : le Devin 45, sans style 44, le Métamorphe 34,
+// l'Érudit 32, le Flambeur 29, l'Élan 28 — leurs cartes valent moins que les
+// autres ; l'Ascension, au codex entier : le fort 94, puis 93, 83, 78, 75 et
+// 65 ; le moyen 44, puis 31, 15, 11, 10 et 7.
+//
+//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 10] [--cas 0] [--niveau 3] [--sans-fioles] [--ascension 2] [--ascensions] [--seule genie] [--cartes [genie,lecon]] [--part 1/4] [--style devin] [--styles] [--avise]
 import { CATEGORIES } from '../../shared/categories'
 import { SUJETS } from '../../shared/sujets'
 import { TAUX_DU_CALIBRAGE } from '../../shared/sentiers'
@@ -123,20 +147,27 @@ import {
   FIOLES_MAX,
   INSPIRATION_PAR_QUESTION,
   SAVOIR_DES_MARCHES,
+  VERSION_DE_LA_QUESTION_AU_CENTRE,
   ameliorer,
+  attaqueEnQuestion,
   baseDe,
   carteALaVersion,
   carteDeRencontre,
   chiffresApresLaCarte,
+  cransDUneBonneReponse,
   effaceesDuTour,
   estUnStyle,
   formeDeLaCarte,
+  frappeDeLaQuestion,
   parmi,
   refusDeLAmelioration,
+  seJoueEnQuestion,
+  viseLaQuestion,
   type CleDeFiole,
+  type FormeDUneQuestion,
   type StyleDeJeu,
 } from '../../shared/rencontres'
-import { ASCENSION, ASCENSION_MAX, EXPLOITS, NIVEAUX, codexDuNiveau, niveauDe, renommeeDe, type CleDExploit } from '../../shared/codex'
+import { ASCENSION_MAX, EXPLOITS, NIVEAUX, ascensionDe, codexDuNiveau, mainMaxEnQuestion, niveauDe, renommeeDe, type CleDExploit } from '../../shared/codex'
 
 function option(nom: string, defaut: number): number {
   const i = process.argv.indexOf(`--${nom}`)
@@ -144,12 +175,16 @@ function option(nom: string, defaut: number): number {
 }
 const EXPEDITIONS = option('expeditions', 1000)
 /**
- * La version des règles mesurée : 9 d'office, celle des départs d'aujourd'hui
- * — les huit familles ; `--version 8` remesure le jeu complet d'avant elles,
- * `--version 7` le codex d'avant lui, `--version 6` la main qui grandit avec
- * les actes sans le codex, `--version 5` la main de cinq cartes d'emblée.
+ * La version des règles mesurée : 9 d'office, celle des départs de la
+ * production — les huit familles ; `--version 10` mesure la question au
+ * centre, que la préproduction joue d'abord ; `--version 8` remesure le jeu
+ * complet d'avant elles, `--version 7` le codex d'avant lui, `--version 6` la
+ * main qui grandit avec les actes sans le codex, `--version 5` la main de cinq
+ * cartes d'emblée.
  */
-const VERSION = ([5, 6, 7, 8, 9] as const).find(v => v === option('version', 9)) ?? 9
+const VERSION = ([5, 6, 7, 8, 9, 10] as const).find(v => v === option('version', 9)) ?? 9
+/** La question au centre (v10) : la question d'abord, l'adversaire en crans, une carte par question — un autre joueur, plus bas. */
+const EN_QUESTION = VERSION >= VERSION_DE_LA_QUESTION_AU_CENTRE
 
 const logit = (p: number) => Math.log(p / (1 - p))
 const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
@@ -341,9 +376,41 @@ const PREFERENCE_DES_HUIT_FAMILLES = [
   'rumeur',
   ...PREFERENCE_DU_JEU_COMPLET.slice(4),
 ]
+/**
+ * À la question au centre (la version 10, le 19 octobre 2026), chaque carte
+ * mesurée seule (`--cartes --version 10`, deux cent cinquante expéditions au
+ * niveau 10, contre ne rien prendre — le moyen y va au bout 57 fois sur cent,
+ * le fort 98) : Révélation, neuf points de plus pour le moyen, Sursis sept,
+ * Génie et Exposé six, Rafle, Voyance, Polymorphe et Présage quatre ; puis,
+ * dans le bruit de la mesure, de Détour à Vision. Une troisième Échange ou un
+ * quatrième Coup d'œil n'ajoutent rien, et ce qui ne vaut que dans son cas —
+ * Troisième œil, Rythme, Prisme, Tout ou rien, Doubler la mise, Arrêt sur
+ * image : sept points de moins — tient une place de la main pour rien : une
+ * carte par question, chaque place compte. Il ne prend que ce qui y vaut.
+ */
+const PREFERENCE_EN_QUESTION = [
+  'revelation',
+  'sursis',
+  'genie',
+  'expose',
+  'rafle',
+  'voyance',
+  'polymorphe',
+  'presage',
+  'detour',
+  'double-chance',
+  'cagnotte',
+  'corser',
+  'simplifier',
+  'augure',
+  'volte-face',
+  'vision',
+]
+/** Ce qu'il retire à la question au centre, son courage au plus haut : celles qui y valent moins que rien, mesurées — la plus faible d'abord. */
+const A_RETIRER_EN_QUESTION = ['troisieme-oeil', 'rythme', 'prisme', 'tout-ou-rien', 'doubler-la-mise', 'arret-sur-image', 'savoir-faire', 'plume', 'inarretable']
 /** Ce que prend et retire le joueur qui a appris, à la version mesurée. */
-const PREFERENCE_DU_CODEX = VERSION >= 9 ? PREFERENCE_DES_HUIT_FAMILLES : VERSION >= 8 ? PREFERENCE_DU_JEU_COMPLET : PREFERENCE_DU_CODEX_7
-const A_RETIRER_DU_CODEX = VERSION >= 8 ? A_RETIRER_DU_JEU_COMPLET : A_RETIRER_DU_CODEX_7
+const PREFERENCE_DU_CODEX = EN_QUESTION ? PREFERENCE_EN_QUESTION : VERSION >= 9 ? PREFERENCE_DES_HUIT_FAMILLES : VERSION >= 8 ? PREFERENCE_DU_JEU_COMPLET : PREFERENCE_DU_CODEX_7
+const A_RETIRER_DU_CODEX = EN_QUESTION ? A_RETIRER_EN_QUESTION : VERSION >= 8 ? A_RETIRER_DU_JEU_COMPLET : A_RETIRER_DU_CODEX_7
 const EXEMPLAIRES_DU_CODEX = 2
 /** Les pouvoirs qu'il pose dès qu'il les tire : ils valent toute la rencontre — ceux du jeu complet compris. */
 const POUVOIRS_JOUES = [
@@ -377,6 +444,18 @@ const POUVOIRS_JOUES = [
   'adrenaline',
   'berserk',
 ]
+/**
+ * À la question au centre (v10), les pouvoirs qu'il pose quand la rencontre est
+ * longue — une élite, un gardien, et encore deux bonnes réponses à donner : une
+ * carte par question, un cran de plus à chaque bonne réponse vaut plus qu'un
+ * seul. Ceux qui effacent et ceux qui tirent des cartes ensuite ; les maudits,
+ * jamais.
+ */
+const POUVOIRS_EN_QUESTION = ['encyclopedie', 'aube', 'vision', 'echolocation', 'bibliotheque', 'prisme', 'rythme', 'trois-tetes', 'elan', 'troisieme-oeil', 'inarretable', 'boucle', 'renaissance']
+/** Ce qu'il joue s'il sait la réponse : ce qui ajoute des crans (`cransAvec`) — Corser et Polymorphe la corsent, Quitte ou double la double. */
+const ATTAQUES_EN_QUESTION = ['genie', 'expose', 'rafle', 'polymorphe', 'quitte-ou-double', 'plume', 'savoir-faire', 'lancee', 'corser', 'concentration', 'cagnotte', 'memoire', 'echauffement', 'lucidite', 'revelation', 'peau-de-feu']
+/** Ce qui l'aide s'il ne la sait pas : il joue celle qui lui laisse la meilleure chance (`chanceApres`). */
+const AIDES_EN_QUESTION = ['deux-visages', 'revelation', 'voyance', 'sagesse', 'tout-ou-rien', 'double-chance', 'echange', 'volte-face', 'mue', 'prediction', 'enigme', 'vision', 'echolocation', 'coup-d-oeil', 'presage', 'simplifier']
 /**
  * Les cartes qui frappent de plus si la réponse est juste, jouées avant la question : il prend celle qui frappe le plus par point
  * d'énergie (`parEnergie`) — Cicatrices, Dernier carré et Baroud au courage qui lui manque (les huit familles).
@@ -429,7 +508,7 @@ const SANS_AMELIORATIONS = process.argv.includes('--sans-ameliorations')
  * La carte qu'il améliore d'abord : la meilleure qu'il prend, puis les cartes
  * de base, qu'il tire le plus souvent — un exemplaire chacune.
  */
-const ORDRE_DES_AMELIORATIONS = [...PREFERENCE_DU_CODEX, 'concentration', 'prudence', 'coup-d-oeil', 'echange']
+const ORDRE_DES_AMELIORATIONS = [...PREFERENCE_DU_CODEX, ...(EN_QUESTION ? ['concentration', 'coup-d-oeil', 'echange', 'double-chance', 'sursis'] : ['concentration', 'prudence', 'coup-d-oeil', 'echange'])]
 /** `--ascension 2` : les départs du codex à ce cran ; `--ascensions` : chaque cran, au codex entier. */
 const ASCENSION_MESUREE = Math.min(Math.max(0, option('ascension', 0)), ASCENSION_MAX)
 const TOUTES_LES_ASCENSIONS = process.argv.includes('--ascensions')
@@ -452,7 +531,8 @@ const TOUS_LES_STYLES = process.argv.includes('--styles')
 const SUIT_SON_STYLE = !process.argv.includes('--avise')
 /** Les cartes d'un style que le joueur qui le suit prend, de la meilleure qu'il connaisse aux autres. */
 function cartesDuStyle(style: StyleDeJeu): string[] {
-  const siennes = CARTES_DES_RENCONTRES.filter(c => c.famille === style && !c.legendaire).map(c => c.cle)
+  // À la question au centre, celles qu'elle garde seulement : les autres ne s'y offrent plus.
+  const siennes = CARTES_DES_RENCONTRES.filter(c => c.famille === style && !c.legendaire && (!EN_QUESTION || seJoueEnQuestion(c.cle))).map(c => c.cle)
   return [...PREFERENCE_DU_CODEX.filter(c => siennes.includes(c)), ...siennes.filter(c => !PREFERENCE_DU_CODEX.includes(c))]
 }
 
@@ -484,7 +564,8 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
   const fetiche = [...CATEGORIES].sort((a, b) => (j.categories.get(b) ?? 0) - (j.categories.get(a) ?? 0))[0]
   // Au codex, l'invité du jour d'un jour tiré de la graine ; ses légendaires gardés ouvrent leur carte, et ne gardent plus d'acte.
   const invite = inviteDuJour(graine)
-  const tout = VERSION >= 7 ? codexDuNiveau(cas.niveau ?? 1, cas.equipee, cas.exploits ?? []) : undefined
+  // À la version mesurée : la question au centre a son échelle, ses styles et ses soixante-deux cartes.
+  const tout = VERSION >= 7 ? codexDuNiveau(cas.niveau ?? 1, cas.equipee, cas.exploits ?? [], VERSION) : undefined
   // À une version d'avant (`--version 7`, `--version 8`), les cartes et les styles d'alors seulement : l'échelle d'aujourd'hui range aussi les neuves.
   const connue = (cle: string) => (carteDeRencontre(cle)?.depuis ?? 0) <= VERSION
   const avant = tout && { ...tout, cartes: tout.cartes.filter(connue), styles: tout.styles.filter(s => CARTES_DE_DEPART_DU_STYLE[s].every(connue)) }
@@ -721,6 +802,189 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     return cle ? { quoi: 'jouer', joker: exemplaire(e, cle), position: i, ...(cle === 'prediction' && { montre: 0 }) } : null
   }
 
+  // ── La question au centre (v10) : il voit la question, puis joue une carte au plus ──
+
+  /**
+   * Les crans qu'une bonne réponse ferait perdre, cette carte jouée en plus —
+   * aucune : `null` —, à la règle même du pli : ses chiffres
+   * (`chiffresApresLaCarte`), la forme où elle repose la question, les pouvoirs
+   * qu'elle pose, puis `cransDUneBonneReponse`. Un dévoilement qu'il sait se
+   * répond à mi-texte : la première moitié de ses mots, deux crans.
+   */
+  const cransAvec = (e: EtatDeLExpedition, i: number, cle: string | null): number => {
+    const rc = e.rencontre!
+    const q = posees[i]
+    const t = rc.tour
+    let question: FormeDUneQuestion = {
+      reponses: q.reponses ?? 4,
+      forme: q.forme ?? (q.reponses === 2 ? 'vrai-faux' : 'quatre'),
+      ...(q.forme === 'devoilement' && { devoile: { mots: MOTS_D_UN_DEVOILEMENT / 2, sur: MOTS_D_UN_DEVOILEMENT } }),
+    }
+    let tour: Parameters<typeof cransDUneBonneReponse>[0]['tour'] = t
+    let pouvoirs = rc.pouvoirs
+    let serie = rc.serie
+    if (cle !== null) {
+      const k = exemplaire(e, cle)
+      const carte = carteALaVersion(k, VERSION)
+      if (!carte) return cransAvec(e, i, null)
+      const vers = formeDeLaCarte(k)
+      if (vers === 'six') question = { reponses: 6, forme: 'six' }
+      else if (vers === 'vrai-faux') question = { reponses: 2, forme: 'vrai-faux' }
+      const niveau = q.niveau ?? 'facile'
+      const apres = chiffresApresLaCarte(k, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: rc.serie }, rc.pouvoirs, {
+        v: VERSION,
+        fetiche: !!depart.fetiche && q.categorie === depart.fetiche,
+        effacees: effaceesDuTour(t.surLaQuestion, rc.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee }),
+        niveau,
+        savoir: SAVOIR_DES_MARCHES[niveau],
+        ecus: e.ecus,
+        courage: e.courage ?? COURAGE_MAX,
+      })
+      serie = apres.serie
+      tour = { ...t, charge: apres.charge, jouees: [...t.jouees, k], surLaQuestion: viseLaQuestion(carte) && baseDe(k) !== 'augure' ? [...t.surLaQuestion, k] : t.surLaQuestion }
+      if (carte.moment === 'pouvoir') pouvoirs = [...rc.pouvoirs, k]
+    }
+    return cransDUneBonneReponse({ question, tour, pouvoirs, fetiche: depart.fetiche, categorie: q.categorie, trouvees: rc.trouvees, serie, aube: !rc.aubeEteinte })
+  }
+
+  /**
+   * Sa chance de trouver la question qu'il ne sait pas, cette carte jouée — aucune :
+   * `null` : il devine parmi ce qui reste, comme `juger`. Une question neuve du
+   * même adversaire (Échange, Volte-face, La mue), il la sait autant que
+   * celle-ci ; deux au choix (Deux visages), la seconde.
+   */
+  const chanceApres = (e: EtatDeLExpedition, i: number, cle: string | null): number => {
+    const rc = e.rencontre!
+    const q = posees[i]
+    const n = q.reponses ?? 4
+    let restent = n - effaceesDuTour(rc.tour.surLaQuestion, rc.pouvoirs, { reponses: n, datee: q.datee })
+    if (rc.tour.surLaQuestion.includes('enigme') && q.datee) restent--
+    else if (e.talismans.includes('loupe') && q.categorie === 'Histoire' && q.datee) restent--
+    restent = Math.max(2, restent)
+    const sait = savoir(q.p4)
+    if (cle === null) return 1 / restent
+    switch (baseDe(cle)) {
+      case 'coup-d-oeil':
+      case 'presage':
+      case 'vision':
+      case 'echolocation':
+      case 'enigme':
+        return 1 / Math.max(2, restent - 1)
+      case 'voyance':
+      case 'sagesse':
+      case 'tout-ou-rien':
+        return 1 / Math.max(2, restent - 2)
+      case 'revelation':
+      case 'simplifier':
+        return 1 / 2
+      case 'double-chance':
+        return Math.min(1, 2 / restent)
+      case 'prediction':
+        return q.nombre ? 1 / 2 : 1 / restent
+      case 'echange':
+      case 'volte-face':
+      case 'mue':
+        return sait + (1 - sait) / n
+      case 'deux-visages':
+        return sait + (1 - sait) / restent
+      default:
+        return 1 / restent
+    }
+  }
+
+  /**
+   * À l'annonce (v10) : le pari seul, avant de voir la question — et ses cartes,
+   * s'il va parier : Le trésor et Pactole pour une élite ou un gardien, son pari
+   * assuré, Banco, doublé quand il est sûr de lui. Null : il voit la question.
+   * Une annonce sans pari — un dévoilement, au niveau 1 — ne demande rien.
+   */
+  const enAnnonce = (e: EtatDeLExpedition, i: number): GesteDExpedition | null => {
+    const rc = e.rencontre!
+    const mise = miser(e, i)
+    if (mise <= 0) return null
+    const q = posees[i]
+    const chance = chanceSelonLaForme(q.p4, q.forme ?? (q.reponses === 2 ? 'vrai-faux' : 'quatre'))
+    const jouerLa = (cle: string): GesteDExpedition => ({ quoi: 'jouer', joker: exemplaire(e, cle), position: i })
+    if (rc.sorte !== 'question') for (const cle of ['tresor', 'pactole']) if (peut(e, cle)) return jouerLa(cle)
+    if (peut(e, 'assurance')) return jouerLa('assurance')
+    if (peut(e, 'banco')) return jouerLa('banco')
+    if (chance >= 0.8 && e.ecus >= 2 * mise && peut(e, 'doubler-la-mise')) return jouerLa('doubler-la-mise')
+    return null
+  }
+
+  /**
+   * La question sous les yeux (v10) : une carte au plus. S'il la sait, ce qui
+   * ajoute des crans, quand il en faut — un pouvoir dans une rencontre longue —,
+   * sinon ce qui sert plus tard (Augure, Pourboire, Le réveil) ; s'il ne la
+   * sait pas, d'abord ce qui sauve d'une erreur qui finirait l'expédition, puis
+   * l'aide qui lui laisse la meilleure chance, et faute d'aide, ce qui rend
+   * l'erreur gratuite quand elle coûte cher. Ses rares, ses épiques et ses
+   * légendaires attendent une élite ou le gardien, sa main pleine mise à part :
+   * une carte de plus s'y perdrait.
+   */
+  const enQuestionAuCentre = (e: EtatDeLExpedition, i: number): GesteDExpedition | null => {
+    const rc = e.rencontre!
+    const q = posees[i]
+    const autre = e.autre !== null ? posees[e.autre] : undefined
+    const courage = e.courage ?? 0
+    const avecMontre = (cle: string) => (baseDe(cle) === 'prediction' ? { montre: 0 } : undefined)
+    const jouerLa = (cle: string): GesteDExpedition => ({ quoi: 'jouer', joker: exemplaire(e, cle), position: i, ...avecMontre(cle) })
+    const peutLa = (cle: string) => peut(e, cle, avecMontre(cle))
+    const pleine = rc.main.length >= mainMaxEnQuestion(rc.pouvoirs.includes('trois-tetes'), e.ascension)
+    const garder = (cle: string) => rc.sorte === 'question' && !pleine && ['rare', 'epique', 'legendaire'].includes(carteDeRencontre(cle)?.rarete ?? '')
+    const libres = (liste: readonly string[]) => liste.filter(c => peutLa(c) && !garder(c))
+    const rang: Record<string, number> = { commun: 0, maudit: 1, rare: 1, epique: 2, legendaire: 3 }
+    const rarete = (cle: string) => rang[carteDeRencontre(cle)?.rarete ?? 'commun'] ?? 0
+    // L'erreur d'avant effacée lui rend son courage, s'il en manque — sa récompense suivante vide.
+    if (rc.derniereFrappe >= 6 && courage <= 30 && peutLa('horizon')) return jouerLa('horizon')
+    const restants = rc.sceaux
+    const longue = rc.sorte !== 'question'
+    if (q.sait || autre?.sait) {
+      const sans = cransAvec(e, i, null)
+      const plusTard = () => {
+        const cle = libres(['augure', 'pourboire', ...(rc.defausse.length > 0 && rc.main.length <= 2 ? ['reveil'] : [])])[0]
+        return cle ? jouerLa(cle) : null
+      }
+      // Il tombe de toute façon : rien à frapper, ce qui sert plus tard.
+      if (sans >= restants) return plusTard()
+      if (longue && restants - sans >= 2) {
+        const pouvoir = libres(POUVOIRS_EN_QUESTION)[0]
+        if (pouvoir) return jouerLa(pouvoir)
+      }
+      // Ce qui ajoute le plus de crans — sans compter ceux qu'il n'a plus à faire perdre —, la plus commune à crans égaux.
+      const attaques = libres(ATTAQUES_EN_QUESTION)
+        .map(c => ({ c, n: Math.min(restants, cransAvec(e, i, c)) }))
+        .filter(x => x.n > sans)
+        .sort((a, b) => b.n - a.n || rarete(a.c) - rarete(b.c))
+      if (attaques.length > 0) return jouerLa(attaques[0].c)
+      return plusTard()
+    }
+    // Deux visages joué, l'autre ne se sait pas non plus : plus rien à jouer, une carte par question.
+    const attaque = attaqueEnQuestion({ frappe: frappeDeLaQuestion(rc), tour: rc.tour, pouvoirs: rc.pouvoirs })
+    if (courage <= attaque) {
+      const sauve = ['sursis', 'peau-de-feu', 'renaissance', 'passe-muraille'].find(peutLa)
+      if (sauve) return jouerLa(sauve)
+    }
+    const base = chanceApres(e, i, null)
+    const aides = libres(AIDES_EN_QUESTION.filter(c => c !== 'tout-ou-rien' || courage > 2 * attaque + 10))
+      .map(c => ({ c, p: chanceApres(e, i, c) }))
+      .sort((a, b) => b.p - a.p || rarete(a.c) - rarete(b.c))
+    if (aides.length > 0 && aides[0].p > base + 0.05) return jouerLa(aides[0].c)
+    if (attaque >= 7 || courage <= 20) {
+      const sauve = libres(['sursis', 'peau-de-feu'])[0]
+      if (sauve) return jouerLa(sauve)
+    }
+    return null
+  }
+
+  /** Une carte qui repose la question à une autre forme — Corser, Simplifier, Polymorphe, Miroir —, comme le serveur (`questionsApresLeGeste`) : ce qu'il sait, il le sait encore. */
+  const reposer = (g: GesteDExpedition, i: number) => {
+    const vers = g.quoi === 'jouer' ? formeDeLaCarte(g.joker) : undefined
+    if (!vers) return
+    const q = posees[i]
+    posees[i] = vers === 'six' ? { ...q, forme: 'six', reponses: 6 } : { ...q, forme: 'vrai-faux', reponses: 2, nombre: undefined, reponseEn: undefined }
+  }
+
   const carteVue = (e: EtatDeLExpedition): CarteDUnActe => {
     const carte = carteEnJeu(depart, e)!
     if (!carte.escales.some(x => x.sorte === 'inconnu')) return carte
@@ -884,27 +1148,25 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
         continue
       }
       if (rc && rc.tour.phase === 'preparation') {
-        const g = enPreparation(e, i)
+        // À la question au centre, l'annonce ne tient que le pari et ses cartes.
+        const g = EN_QUESTION ? enAnnonce(e, i) : enPreparation(e, i)
         if (g) {
           gestes.push(g)
           joue(g)
-          const vers = g.quoi === 'jouer' ? formeDeLaCarte(g.joker) : undefined
-          if (vers) {
-            // Reposée à sa nouvelle forme, comme le serveur le fait (`questionsApresLeGeste`) : ce qu'il sait, il le sait encore.
-            const q = posees[i]
-            posees[i] = vers === 'six' ? { ...q, forme: 'six', reponses: 6 } : { ...q, forme: 'vrai-faux', reponses: 2, nombre: undefined, reponseEn: undefined }
-          }
+          reposer(g, i)
           continue
         }
         gestes.push({ quoi: 'voir', mise: miser(e, i), position: i })
         continue
       }
       if (rc) {
-        const g = enQuestion(e, i)
+        const g = EN_QUESTION ? enQuestionAuCentre(e, i) : enQuestion(e, i)
         if (g) {
           gestes.push(g)
           joue(g)
           if (g.quoi === 'jouer' && g.joker === 'passe-muraille') reponses.set(i, false)
+          // À la question au centre, Corser, Simplifier et Polymorphe se jouent la question vue.
+          if (EN_QUESTION) reposer(g, i)
           continue
         }
       }
@@ -981,7 +1243,7 @@ if (VERSION >= 7 && TOUTES_LES_ASCENSIONS) {
     const parJoueur = JOUEURS.map(([nom, theta]) => Array.from({ length: EXPEDITIONS }, (_, k) => jouer(unJoueur(theta, `calibrage:${nom}:${k}`), `calibrage:${k}`, cas, cran)))
     const moyen = parJoueur[1]
     console.log(
-      `  ${String(cran).padStart(4)}   ${parJoueur.map(issues => pc(issues.filter(i => i.auBout).length / EXPEDITIONS).padStart(7)).join('   ')}   ${virgule(moyenne(moyen, i => i.questions)).padStart(18)}   ${virgule(moyenne(moyen.filter(i => i.auBout), i => i.courage)).padStart(19)}   ${cran > 0 ? ASCENSION[cran - 1].regle : 'sans cran'}`,
+      `  ${String(cran).padStart(4)}   ${parJoueur.map(issues => pc(issues.filter(i => i.auBout).length / EXPEDITIONS).padStart(7)).join('   ')}   ${virgule(moyenne(moyen, i => i.questions)).padStart(18)}   ${virgule(moyenne(moyen.filter(i => i.auBout), i => i.courage)).padStart(19)}   ${cran > 0 ? ascensionDe(VERSION)[cran - 1].regle : 'sans cran'}`,
     )
   }
   console.log('')
@@ -1004,7 +1266,7 @@ if (VERSION >= 7 && TOUTES_LES_CARTES) {
   console.log(`Chaque carte seule — ${cas.nom}, ${EXPEDITIONS} expéditions par joueur, contre ne rien prendre${PART.n > 1 ? ` (part ${PART.k} sur ${PART.n})` : ''}.`)
   const rien = auBout('rien')
   console.log(`  ${'rien'.padEnd(18)} ${rien.map(pc).join(' · ')}`)
-  const aMesurer = CARTES_DES_RENCONTRES.filter(c => !c.legendaire && c.cle !== 'concentration' && c.cle !== 'prudence')
+  const aMesurer = CARTES_DES_RENCONTRES.filter(c => !c.legendaire && c.cle !== 'concentration' && c.cle !== 'prudence' && (!EN_QUESTION || seJoueEnQuestion(c.cle)))
     .filter(c => !CARTES_MESUREES || CARTES_MESUREES.includes(c.cle))
     .filter((_, n) => n % PART.n === PART.k - 1)
   const lignes = aMesurer.map(c => {
@@ -1026,7 +1288,7 @@ if (VERSION >= 7 && TOUS_LES_STYLES) {
   for (const cas of UN_NIVEAU ? [UN_NIVEAU] : UN_CAS === null ? CAS : [CAS[UN_CAS]]) {
     console.log(cas.nom)
     console.log(`  style        ${JOUEURS.map(([nom]) => nom.padStart(7)).join('   ')}   offertes   jouées`)
-    for (const style of [undefined, ...codexDuNiveau(cas.niveau ?? 1, cas.equipee).styles]) {
+    for (const style of [undefined, ...codexDuNiveau(cas.niveau ?? 1, cas.equipee, [], VERSION).styles]) {
       const parJoueur = JOUEURS.map(([nom, theta]) => Array.from({ length: EXPEDITIONS }, (_, k) => jouer(unJoueur(theta, `calibrage:${nom}:${k}`), `calibrage:${k}`, { ...cas, style })))
       const moyen = parJoueur[1]
       console.log(
