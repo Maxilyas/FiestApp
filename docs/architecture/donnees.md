@@ -56,8 +56,13 @@ son client libSQL par `clientDistant`
 (`server/src/core/distante.ts`), qui borne chaque aller-retour à dix secondes
 (`DELAI_DISTANT_MS`) : sans ce délai, une base muette faisait attendre plus
 de cinq minutes, suspendait le démarrage et gelait le miroir avec les vingt
-requêtes qui l'attendaient. Le même module mesure chaque aller-retour, que
-`/healthz` et le QG relisent.
+requêtes qui l'attendaient. Vers une base distante, chaque appel est de plus
+borné de bout en bout (`clientBorne`, cinq secondes de marge,
+`MARGE_D_UN_APPEL_MS`) : le délai du `fetch` n'a pas empêché, en
+production, une lecture de ne jamais revenir, sans une erreur, et de figer
+tout ce qui l'attendait derrière un verrou ; elle échoue maintenant, et
+l'appel suivant part d'un client neuf. Le même module mesure chaque
+aller-retour, que `/healthz` et le QG relisent.
 
 ## Les journaux de la soirée
 

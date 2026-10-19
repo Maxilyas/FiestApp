@@ -29,6 +29,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Annuler (un duel) | Le geste du QG qui ferme tout de suite un duel classé que l'adversaire n'a pas commencé, comme à son expiration : il ne compte pour personne ; commencé de l'autre côté, il ne s'annule plus | `CampagneStore.annulerUnDuel`, `POST /api/admin/duels/:code/annuler` |
 | Annuler (une question) | Retirer une question du jour pour tous, le jour même seulement : chaque joueur se recompte | `JourStore.annuler` |
 | Aperçu (d'un thème) | L'écran d'une question photographié dans l'application sous ce thème, que montrent la boutique et la collection | `apercuDe` |
+| Appel resté en route | Un appel à la base distante qui n'a ni répondu ni échoué dans son délai et sa marge : il échoue, et le suivant part d'un client neuf | `AppelEnRoute`, `clientBorne` |
 | Application installée | FiestApp ajoutée à l'écran d'accueil du téléphone, seule à pouvoir recevoir le rappel du soir | `estInstallee` |
 | Apprise | Une question retrouvée à ses trois rendez-vous. Une erreur la renvoie au premier | `apresUnPassage` |
 | Archive | La copie brute d'une soirée close — invités, équipes, prix remis, les deux journaux, les quiz joués —, relue avec le code du jour | `PartyArchive` (`shared/archive.ts`), `ArchiveStore` (`server/src/core/archive.ts`) |
