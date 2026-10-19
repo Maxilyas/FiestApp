@@ -90,11 +90,12 @@ function debutDe(instruction: unknown): string {
  * du savoir, lancé au démarrage, n'a jamais fini ni échoué ; depuis minuit,
  * sur quatre démarrages de suite, plus un duel, une épreuve, une série ni le
  * défi de la semaine ne s'était tiré — « Le serveur ne répond pas », quand
- * le quiz du jour se jouait. On n'a pas su le reproduire. Derrière un verrou — celui d'un profil, celui du tirage du
- * défi — ou une lecture partagée — la mesure des difficultés, que tout
- * tirage attend —, une seule lecture figeait tout ce qui l'attendait,
- * jusqu'au redémarrage. Bornée, elle échoue comme une base muette : le
- * verrou se libère, la requête suivante passe.
+ * le quiz du jour se jouait. On n'a pas su le reproduire. Derrière un
+ * verrou — celui d'un profil, celui du tirage du défi — ou une lecture
+ * partagée — la mesure des difficultés, que tout tirage attend —, une seule
+ * lecture figeait tout ce qui l'attendait, jusqu'au redémarrage. Bornée,
+ * elle échoue comme une base muette : le verrou se libère, la requête
+ * suivante passe.
  *
  * Le client neuf, parce que le client libsql ne lance que vingt requêtes à la
  * fois : celle qui ne revient pas garderait sa place pour toujours. L'ancien
@@ -103,11 +104,17 @@ function debutDe(instruction: unknown): string {
  * au relevé de l'heure (`base · appel resté en route`) : la page « Le
  * serveur » du QG dira laquelle, la prochaine fois. Un client `file:` n'en a
  * pas besoin : il ne passe pas par le réseau.
+ *
+ * Ce début ne se lit qu'une fois l'appel resté en route (`quoi`, une
+ * fonction) : calculé à chaque appel, il repassait le texte de chaque requête
+ * — une expression rationnelle, puis `tronquer`, qui le découpe en
+ * caractères — à chaque aller-retour, au dixième de cœur de l'hébergeur ;
+ * le profil de l'accueil l'a montré.
  */
 export function clientBorne(creer: () => Client, dureeMs: number): Client {
   let client = creer()
   const remplaces: Client[] = []
-  const borne = <T>(quoi: string, appel: (c: Client) => Promise<T>): Promise<T> => {
+  const borne = <T>(quoi: () => string, appel: (c: Client) => Promise<T>): Promise<T> => {
     const parti = client
     let lance: Promise<T>
     try {
@@ -118,7 +125,7 @@ export function clientBorne(creer: () => Client, dureeMs: number): Client {
     let minuteur: ReturnType<typeof setTimeout> | undefined
     const enRoute = new Promise<never>((_, rejeter) => {
       minuteur = setTimeout(() => {
-        const e = new AppelEnRoute(quoi, dureeMs)
+        const e = new AppelEnRoute(quoi(), dureeMs)
         console.error(`[base] ${e.message} — la suite part d’un client neuf`)
         releve.erreur('base · appel resté en route', e)
         if (client === parti) {
@@ -132,10 +139,25 @@ export function clientBorne(creer: () => Client, dureeMs: number): Client {
   }
   return {
     execute: ((instruction: InStatement | string, args?: InArgs) =>
-      borne(debutDe(instruction), c => (typeof instruction === 'string' ? c.execute(instruction, args) : c.execute(instruction)))) as Client['execute'],
-    batch: (instructions, mode) => borne(`lot de ${instructions.length} : ${debutDe(instructions[0])}`, c => c.batch(instructions, mode)),
-    migrate: instructions => borne(`migration de ${instructions.length} : ${debutDe(instructions[0])}`, c => c.migrate(instructions)),
-    executeMultiple: sql => borne(debutDe(sql), c => c.executeMultiple(sql)),
+      borne(
+        () => debutDe(instruction),
+        c => (typeof instruction === 'string' ? c.execute(instruction, args) : c.execute(instruction)),
+      )) as Client['execute'],
+    batch: (instructions, mode) =>
+      borne(
+        () => `lot de ${instructions.length} : ${debutDe(instructions[0])}`,
+        c => c.batch(instructions, mode),
+      ),
+    migrate: instructions =>
+      borne(
+        () => `migration de ${instructions.length} : ${debutDe(instructions[0])}`,
+        c => c.migrate(instructions),
+      ),
+    executeMultiple: sql =>
+      borne(
+        () => debutDe(sql),
+        c => c.executeMultiple(sql),
+      ),
     // Aucun magasin n'en ouvre : elle passe telle quelle, sans borne.
     transaction: ((mode?: TransactionMode) => client.transaction(mode)) as Client['transaction'],
     sync: () => client.sync(),

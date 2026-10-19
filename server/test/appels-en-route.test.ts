@@ -122,6 +122,33 @@ test('un appel qui répond à temps passe tel quel — son refus aussi — et ne
   assert.deepEqual(erreursDuReleve().compte, {})
 })
 
+test('le texte d’une requête ne se lit qu’une fois l’appel resté en route, jamais à chaque aller-retour', async () => {
+  // Lu à chaque appel — une expression rationnelle et `tronquer` sur tout le
+  // SQL —, il coûtait à chaque aller-retour, au dixième de cœur, ce qui ne
+  // sert qu'à la panne.
+  let lu = 0
+  const requete = (reponse: 'repond' | 'jamais') => ({
+    get sql() {
+      lu++
+      return `SELECT ${reponse} FROM campagne_reponses`
+    },
+    args: [],
+    reponse,
+  })
+  const client = clientBorne(
+    () =>
+      ({
+        execute: (x: { reponse: string }) => (x.reponse === 'jamais' ? new Promise<never>(() => {}) : Promise.resolve(resultat(1))),
+        close: () => {},
+      }) as unknown as Client,
+    BORNE_MS,
+  )
+  for (let i = 0; i < 3; i++) await client.execute(requete('repond'))
+  assert.equal(lu, 0, 'un appel qui répond ne lit jamais le texte de sa requête')
+  await silencieux(() => assert.rejects(client.execute(requete('jamais')), /SELECT jamais FROM campagne_reponses/))
+  assert.equal(lu, 1, 'resté en route, il le lit une fois, pour le dire')
+})
+
 test('une base `file:` garde son client tel quel ; une base distante a le sien borné, à son délai et sa marge', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'quizz-borne-'))
   try {
