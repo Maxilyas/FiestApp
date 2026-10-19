@@ -17,13 +17,16 @@ import {
   nomDeLaForme,
   prochaineForme,
   type CleDeCompagnon,
+  type Compagnon,
   type CompagnonAcquis,
   type CompagnonPossede,
   type FormeDeCompagnon,
 } from '../../../shared/compagnons'
 import { NOM_RARETE } from '../../../shared/badges'
 import type { PublicProfile } from '../../../shared/profil'
-import { ecouterLaNiche, porterNiche, type MomentDeLaNiche, type NicheVue } from '../niche'
+import { ORNEMENTS, ornementsMontres, prochainOrnement, prochainSeuil, titreDeLAmitie, type CleDOrnement, type StyleDOrnement } from '../../../shared/ornements'
+import { ecouterLaNiche, nicheTouchee, porterNiche, prendreLAppel, type MomentDeLaNiche, type NicheVue } from '../niche'
+import { ApercuDOrnement, DessinDesOrnements, HaloDeLaNiche } from './Ornements'
 
 // La niche du compagnon (le choix du 18 octobre 2026,
 // `retours/2026-10-16/compagnon/principe.md`) : une petite fenêtre en arche,
@@ -154,6 +157,9 @@ const DEHORS_MAX_MS = 9000
 const TRIOMPHE_SUR_PLACE_MS = 2800
 /** Un souffle retenu sans verdict — un quiz arrêté, une page quittée — se relâche de lui-même. */
 const SOUFFLE_MAX_MS = 120_000
+/** « Touche-moi ! » : la page se pose d'abord, puis la bulle reste le temps de la lire. */
+const APPEL_APRES_MS = 1200
+const APPEL_MS = 6500
 
 const sansMouvement = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
@@ -234,7 +240,9 @@ const GESTES: Record<Geste['sorte'], { images: Keyframe[]; options: KeyframeAnim
  * montre le temps d'un repas. Ses humeurs se posent sur l'expression neutre,
  * le même dessin repeint : une seule se voit, échangée en fondu, et jamais
  * avant d'être chargée — l'animal ne disparaît pas le temps de l'image.
- * `humeurs` : celles à charger dès maintenant.
+ * `humeurs` : celles à charger dès maintenant. Après sa forme ultime, les
+ * ornements que sa niche montre (`ornements`) : le halo derrière elle, l'or
+ * sur son cadre, le reste par-dessus — hors du cadre, qui coupe tout.
  */
 function Arche({
   forme,
@@ -243,6 +251,7 @@ function Arche({
   humeurs = [],
   geste = null,
   jauge = null,
+  ornements = [],
 }: {
   forme: FormeDeCompagnon
   dessin: DessinDeCompagnon
@@ -250,6 +259,7 @@ function Arche({
   humeurs?: readonly HumeurPeinte[]
   geste?: Geste | null
   jauge?: number | null
+  ornements?: readonly CleDOrnement[]
 }) {
   const c = CADRAGES[forme.key] ?? ENTIER
   const decor = dessin.disque?.[1]
@@ -270,42 +280,50 @@ function Arche({
     return () => a.cancel()
   }, [geste?.sorte, geste?.n]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <span className="niche-cadre" aria-hidden="true">
-      <span className={'niche-decor' + (decor ? '' : ` niche-ciel niche-ciel-${forme.compagnon}`)} style={decor ? { backgroundImage: `url(${decor})` } : undefined} />
-      <span ref={corps} className={'niche-bete' + (c.miroir ? ' miroir' : '')} style={bete}>
-        <img className={montree === 'neutre' ? 'on' : undefined} src={dessin.perso[0]} alt="" decoding="async" draggable={false} />
-        {dessin.humeurs &&
-          aCharger.map(h => {
-            const src = dessin.humeurs![h][0]
-            return (
-              <img
-                key={h}
-                className={montree === h ? 'on' : undefined}
-                src={src}
-                alt=""
-                decoding="async"
-                draggable={false}
-                onLoad={() => setChargees(s => (s.has(src) ? s : new Set(s).add(src)))}
-              />
-            )
-          })}
+    <>
+      {ornements.includes('halo') && <HaloDeLaNiche />}
+      <span className={'niche-cadre' + (ornements.includes('arche') ? ' orne-or' : '')} aria-hidden="true">
+        <span className={'niche-decor' + (decor ? '' : ` niche-ciel niche-ciel-${forme.compagnon}`)} style={decor ? { backgroundImage: `url(${decor})` } : undefined} />
+        <span ref={corps} className={'niche-bete' + (c.miroir ? ' miroir' : '')} style={bete}>
+          <img className={montree === 'neutre' ? 'on' : undefined} src={dessin.perso[0]} alt="" decoding="async" draggable={false} />
+          {dessin.humeurs &&
+            aCharger.map(h => {
+              const src = dessin.humeurs![h][0]
+              return (
+                <img
+                  key={h}
+                  className={montree === h ? 'on' : undefined}
+                  src={src}
+                  alt=""
+                  decoding="async"
+                  draggable={false}
+                  onLoad={() => setChargees(s => (s.has(src) ? s : new Set(s).add(src)))}
+                />
+              )
+            })}
+        </span>
+        {humeur === 'depite' && <Pluie />}
+        <span className="niche-rebord">
+          {jauge !== null && (
+            <span className="niche-jauge">
+              <span style={{ width: `${Math.round(jauge * 100)}%` }} />
+            </span>
+          )}
+        </span>
       </span>
-      {humeur === 'depite' && <Pluie />}
-      <span className="niche-rebord">
-        {jauge !== null && (
-          <span className="niche-jauge">
-            <span style={{ width: `${Math.round(jauge * 100)}%` }} />
-          </span>
-        )}
-      </span>
-    </span>
+      <DessinDesOrnements cles={ornements} />
+    </>
   )
 }
 
-/** La part de sa forme suivante qu'il a déjà : rien à sa forme ultime (ses paliers viendront). */
-function partDeLaJauge(justes: number, rang: number): number | null {
-  const seuil = JUSTES_DES_FORMES[rang + 1]
-  return seuil === undefined ? null : Math.min(1, justes / seuil)
+/**
+ * La part de son prochain but qu'il a déjà : sa forme suivante, puis, après
+ * sa forme ultime, le palier suivant de sa niche — la jauge ne s'arrête plus
+ * (le propriétaire, le 19 octobre 2026). Rien quand sa niche a tout.
+ */
+function partDeLaJauge(justes: number, rang: number, paliers: number): number | null {
+  const seuil = prochainSeuil({ rang, paliers })
+  return seuil === null ? null : Math.min(1, justes / seuil)
 }
 
 /** Des étincelles, de ce que la réponse rapporte jusqu'à sa niche : il mange. */
@@ -490,10 +508,13 @@ function Dehors({ forme, dessin, depart, onRentre }: { forme: FormeDeCompagnon; 
  */
 export function Niche(vue: NicheVue) {
   const { rang, nom } = vue
+  const paliers = vue.paliers ?? 0
   const forme = formeDe(vue)
   const dessin = forme && DESSINS[forme.key]
   const [repliee, setRepliee] = useState(false)
   const [fiche, setFiche] = useState(false)
+  // « Touche-moi ! » : sa gestion s'ouvre en la touchant, et rien ne le disait (`prendreLAppel`).
+  const [appel, setAppel] = useState(false)
   // Ce qu'il vit à la révélation (`client/src/niche.ts`).
   const [humeur, setHumeur] = useState<Humeur>('neutre')
   const [souffle, setSouffle] = useState(false)
@@ -507,9 +528,9 @@ export function Niche(vue: NicheVue) {
   // Ce que lisent ses moments, qui l'écoutent une fois pour toutes : sa forme
   // d'à présent, et ses bonnes réponses — lues à la première réponse de la
   // page, puis comptées à chaque repas.
-  const courant = useRef({ forme, dessin, rang })
-  courant.current = { forme, dessin, rang }
-  const jauge = useRef<{ compagnon: string; justes: number; rang: number } | null>(null)
+  const courant = useRef({ forme, dessin, rang, paliers })
+  courant.current = { forme, dessin, rang, paliers }
+  const jauge = useRef<{ compagnon: string; justes: number; rang: number; paliers: number } | null>(null)
   const jaugeDemandee = useRef(false)
   const minuteurs = useRef(new Set<ReturnType<typeof setTimeout>>())
   const plusTard = (f: () => void, ms: number) => {
@@ -528,6 +549,17 @@ export function Niche(vue: NicheVue) {
     window.addEventListener('scroll', suivre, { passive: true })
     return () => window.removeEventListener('scroll', suivre)
   }, [])
+  // Sur l'accueil, le profil et la boutique, les premières fois : une bulle
+  // lui propose de la toucher, le temps que la page se pose.
+  useEffect(() => {
+    if (!prendreLAppel()) return
+    const montre = setTimeout(() => setAppel(true), APPEL_APRES_MS)
+    const cache = setTimeout(() => setAppel(false), APPEL_APRES_MS + APPEL_MS)
+    return () => {
+      clearTimeout(montre)
+      clearTimeout(cache)
+    }
+  }, [])
   useEffect(() => {
     let vivant = true
     let souffleMax: ReturnType<typeof setTimeout> | null = null
@@ -542,7 +574,7 @@ export function Niche(vue: NicheVue) {
       jaugeDemandee.current = true
       api.joueur.niche().then(
         r => {
-          if (vivant && r.niche) jauge.current = { compagnon: r.niche.compagnon, justes: r.niche.justes, rang: r.niche.rang }
+          if (vivant && r.niche) jauge.current = { compagnon: r.niche.compagnon, justes: r.niche.justes, rang: r.niche.rang, paliers: r.niche.paliers ?? 0 }
         },
         () => {},
       )
@@ -553,11 +585,11 @@ export function Niche(vue: NicheVue) {
       setGeste(g => ({ sorte: 'saute', n: (g?.n ?? 0) + 1 }))
       if (nourri) {
         const j = jauge.current
-        const { forme: f, rang: r } = courant.current
+        const { forme: f, rang: r, paliers: p } = courant.current
         let part: number | null = null
         if (j && f && j.compagnon === f.compagnon) {
           j.justes++
-          part = partDeLaJauge(j.justes, Math.max(j.rang, r))
+          part = partDeLaJauge(j.justes, Math.max(j.rang, r), Math.max(j.paliers, p))
         }
         const n = Date.now()
         setRepas({ n, part, vue: part !== null })
@@ -659,9 +691,26 @@ export function Niche(vue: NicheVue) {
         }
         aria-label={`${nom ?? forme.nom}, dans ta niche : sa fiche`}
         aria-haspopup="dialog"
-        onClick={() => setFiche(true)}
+        onClick={() => {
+          setAppel(false)
+          setFiche(true)
+        }}
       >
-        <Arche forme={forme} dessin={dessin} humeur={humeur} humeurs={avecHumeurs ? HUMEURS_DE_LA_REVELATION : []} geste={geste} jauge={repas ? repas.part : null} />
+        <Arche
+          forme={forme}
+          dessin={dessin}
+          humeur={humeur}
+          humeurs={avecHumeurs ? HUMEURS_DE_LA_REVELATION : []}
+          geste={geste}
+          jauge={repas ? repas.part : null}
+          ornements={ornementsMontres(vue)}
+        />
+        {/* Le doigt la traverse : c'est la niche qu'elle montre. */}
+        {appel && !repliee && (
+          <span className="niche-appel" aria-hidden="true">
+            {espacesFines('Touche-moi !')}
+          </span>
+        )}
         {repas && (
           <span key={repas.n} className="niche-plus" aria-hidden="true">
             +1
@@ -804,21 +853,51 @@ export function SesCompagnons({
 }
 
 /**
- * Sa fiche, qui est sa gestion (le 19 octobre 2026, le propriétaire : « il
- * n'y a pas d'interface de gestion de compagnon quand on clique dessus ?
- * Pouvoir choisir son compagnon, le customiser »). Lui en grand, dans sa
- * niche : son nom — qu'on lui donne d'ici, et que lui seul voit —, sa forme
- * et sa légende ; où il en est, lu à l'ouverture (`GET /api/joueur/niche`) ;
- * « Le caresser », pour le plaisir — il en est ravi — ; « Le porter en
- * avatar », qui ouvre la loge avec lui à l'essai : la niche est sa maison,
- * l'avatar une autre affaire. Puis la forme qu'il montre dans la niche, parmi
- * celles qu'il a atteintes — sa métamorphose comprise —, et ses compagnons :
- * celui qui y vit, les autres à installer d'un toucher. Chaque geste rend le
- * profil, que la niche prend aussitôt (`porterNiche`).
+ * Sa fiche, ouverte en touchant sa niche, d'où que ce soit : sa gestion
+ * (`MaNiche`) dans une feuille, par-dessus la page. L'écran « Mon compagnon »
+ * du profil montre la même, sans la feuille.
  */
 export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer: () => void }) {
   const boite = useRef<HTMLDivElement>(null)
   useModale(boite, onFermer)
+  return (
+    <div className="carte-voile" onClick={onFermer}>
+      <div ref={boite} className="carte-feuille niche-fiche" role="dialog" aria-modal="true" aria-label="Ma niche" tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <header className="carte-barre">
+          <b className="feuille-titre">Ma niche</b>
+          <button type="button" className="carte-fermer" onClick={onFermer}>
+            <Icon name="x" />
+            Fermer
+          </button>
+        </header>
+        <div className="carte-corps">
+          <MaNiche niche={niche} onPartir={onFermer} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Sa gestion (le 19 octobre 2026, le propriétaire : « il n'y a pas
+ * d'interface de gestion de compagnon quand on clique dessus ? Pouvoir
+ * choisir son compagnon, le customiser » — puis, le même jour : « où est-ce
+ * que cela se fait ? »). Lui en grand, dans sa niche : son nom — qu'on lui
+ * donne d'ici, et que sa carte montre —, sa forme et sa légende ; où il en
+ * est, lu à l'ouverture (`GET /api/joueur/niche`) : sa forme suivante, puis le
+ * palier suivant de sa niche ; « Le caresser », pour le plaisir — il en est
+ * ravi — ; « Le porter en avatar », qui ouvre la loge avec lui à l'essai : la
+ * niche est sa maison, l'avatar une autre affaire. Puis ses ornements — ceux
+ * qu'il a gagnés, montrés ou cachés d'un toucher, et ceux qui viennent —, la
+ * forme qu'il montre dans la niche, parmi celles qu'il a atteintes — sa
+ * métamorphose comprise —, et ses compagnons : celui qui y vit, les autres à
+ * installer d'un toucher. Chaque geste rend le profil, que la niche prend
+ * aussitôt (`porterNiche`). `onPartir` : un lien qui mène ailleurs — la
+ * feuille se ferme, même sur la page de la boutique, où rien ne se recharge ;
+ * `surLeProfil` : l'écran du profil, où la loge s'ouvre sans recharger la
+ * page (`suivreUnLien`).
+ */
+export function MaNiche({ niche, onPartir, surLeProfil = false }: { niche: NicheVue; onPartir?: () => void; surLeProfil?: boolean }) {
   const [caresses, setCaresses] = useState(0)
   const [ravi, setRavi] = useState(false)
   const [calme] = useState(sansMouvement)
@@ -832,6 +911,8 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
   const [brouillon, setBrouillon] = useState('')
   const champ = useRef<HTMLInputElement>(null)
   useEffect(() => {
+    // Trouvée : « Touche-moi ! » ne se propose plus, d'ici ou de son écran.
+    nicheTouchee()
     let vivant = true
     api.joueur.niche().then(
       r => {
@@ -867,6 +948,8 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
   if (!c || !forme || !dessin) return null
   const sien = siens?.find(a => a.compagnon === niche.compagnon)
   const suite = sien ? prochaineForme(sien) : null
+  // Après sa forme ultime, la jauge vise le palier suivant de sa niche (le propriétaire, le 19 octobre 2026).
+  const prochain = sien && !suite ? prochainOrnement({ paliers: Math.max(sien.paliers ?? 0, niche.paliers ?? 0), justes: sien.justes }) : null
   const Il = c.le === 'la' ? 'Elle' : 'Il'
   const Le = c.le === 'la' ? 'La' : 'Le'
 
@@ -903,154 +986,254 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
     if (fait && montree === MONTREE_DE_LA_METAMORPHOSE) setNeuves(n => n.filter(k => k !== c.lumiere?.key))
   }
   const installer = (cle: CleDeCompagnon) => void faire(() => api.joueur.enregistrer({ niche: cle }))
+  const orner = (cle: CleDOrnement, style: StyleDOrnement) => void faire(() => api.joueur.reglerCompagnon(niche.compagnon, { ornements: { [cle]: style } }))
   return (
-    <div className="carte-voile" onClick={onFermer}>
-      <div ref={boite} className="carte-feuille niche-fiche" role="dialog" aria-modal="true" aria-label="Ma niche" tabIndex={-1} onClick={e => e.stopPropagation()}>
-        <header className="carte-barre">
-          <b className="feuille-titre">Ma niche</b>
-          <button type="button" className="carte-fermer" onClick={onFermer}>
-            <Icon name="x" />
-            Fermer
-          </button>
-        </header>
-        <div className="carte-corps">
-          <div className="niche-fiche-tete">
-            <span className={`niche-grande niche-${forme.compagnon}` + (ravi ? ' ravi' : '')}>
-              <Arche
-                forme={forme}
-                dessin={dessin}
-                humeur={ravi ? 'ravi' : 'neutre'}
-                humeurs={['ravi']}
-                geste={caresses > 0 && !calme ? { sorte: 'saute', n: caresses } : null}
-              />
-              {caresses > 0 && !calme && (
-                <span key={`envol-${caresses}`} className="compagnon-envols niche-envols" aria-hidden="true">
-                  {ENVOLS.map((e, i) => (
-                    <i key={i}>{e}</i>
-                  ))}
-                </span>
-              )}
+    <div className="niche-gestion">
+      <div className="niche-fiche-tete">
+        <span className={`niche-grande niche-${forme.compagnon}` + (ravi ? ' ravi' : '')}>
+          <Arche
+            forme={forme}
+            dessin={dessin}
+            humeur={ravi ? 'ravi' : 'neutre'}
+            humeurs={['ravi']}
+            geste={caresses > 0 && !calme ? { sorte: 'saute', n: caresses } : null}
+            ornements={ornementsMontres(niche)}
+          />
+          {caresses > 0 && !calme && (
+            <span key={`envol-${caresses}`} className="compagnon-envols niche-envols" aria-hidden="true">
+              {ENVOLS.map((e, i) => (
+                <i key={i}>{e}</i>
+              ))}
             </span>
-            <div className="niche-fiche-texte">
-              <span className="label">{c.nom}</span>
-              <b className="niche-fiche-nom">{niche.nom ?? forme.nom}</b>
-              <span className="muted small">{`${niche.nom ? `${forme.nom} · ` : ''}${nomDeLaForme(forme)} · ${NOM_RARETE[forme.rarete].toLowerCase()}`}</span>
-              {!nommer && (
-                <button type="button" className="niche-renommer" disabled={busy} onClick={ouvrirLeNom}>
-                  <Icon name="edit" />
-                  {niche.nom ? 'Renommer' : 'Lui donner un nom'}
-                </button>
-              )}
-            </div>
-          </div>
-          {nommer && (
-            <form className="niche-nommer" onSubmit={garderLeNom}>
-              <label className="label" htmlFor="niche-nom">
-                Son nom · toi seul le vois
-              </label>
-              <div className="niche-nommer-ligne">
-                <input
-                  id="niche-nom"
-                  ref={champ}
-                  className="input"
-                  type="text"
-                  value={brouillon}
-                  maxLength={NOM_D_UN_COMPAGNON_MAX}
-                  placeholder={PROPOSITIONS[c.key]}
-                  autoComplete="off"
-                  enterKeyHint="done"
-                  onChange={e => setBrouillon(e.target.value)}
-                />
-                <button type="submit" className="btn btn-primary" disabled={busy}>
-                  Garder
-                </button>
-              </div>
-              <button type="button" className="link-inline small niche-nommer-annuler" onClick={() => setNommer(false)}>
-                Annuler
-              </button>
-            </form>
           )}
-          <p className="niche-fiche-legende">{espacesFines(forme.legende)}</p>
-          {/* Sa place gardée pendant la lecture : la feuille ne saute pas quand elle arrive. */}
-          <div className="niche-fiche-jauge" aria-live="polite">
-            {siens === undefined ? (
-              <span className="muted small">…</span>
-            ) : suite ? (
-              <>
-                <span className="jauge-fine" aria-hidden="true">
-                  <span style={{ width: `${Math.round(Math.min(1, sien!.justes / JUSTES_DES_FORMES[suite.forme.rang]) * 100)}%` }} />
-                </span>
-                <span className="muted small">
-                  {espacesFines(
-                    `${formatNumber(sien!.justes)} sur ${formatNumber(JUSTES_DES_FORMES[suite.forme.rang])} bonnes réponses ${avecLui(c)} : ${suite.forme.nom.charAt(0).toLowerCase()}${suite.forme.nom.slice(1)}`,
-                  )}
-                </span>
-              </>
-            ) : forme.metamorphose ? (
-              <span className="muted small">{espacesFines('Sa métamorphose, que l’Éclat lui a ouverte.')}</span>
-            ) : niche.rang === 3 ? (
-              <span className="muted small">
-                {espacesFines(
-                  // La luciole n'a pas encore de métamorphose : rien à promettre.
-                  !c.lumiere || metamorphoseOuverte(niche as CompagnonPossede)
-                    ? 'Sa forme ultime : son monde prend vie.'
-                    : `Sa forme ultime : son monde prend vie. Si l’Éclat tombe sur ${c.le === 'la' ? 'elle' : 'lui'}, sa métamorphose s’ouvre.`,
-                )}
-              </span>
-            ) : null}
-          </div>
-          <div className="niche-fiche-gestes">
-            <button type="button" className="btn btn-primary" onClick={() => setCaresses(n => n + 1)}>
-              <Icon name="sparkles" />
-              {`${Le} caresser`}
+        </span>
+        <div className="niche-fiche-texte">
+          <span className="label">{c.nom}</span>
+          <b className="niche-fiche-nom">{niche.nom ?? forme.nom}</b>
+          <span className="muted small">{`${niche.nom ? `${forme.nom} · ` : ''}${nomDeLaForme(forme)} · ${NOM_RARETE[forme.rarete].toLowerCase()}`}</span>
+          {/* Le titre de leur amitié, au palier de sa niche : « Amis pour la vie ». */}
+          {titreDeLAmitie(niche.paliers) && <span className="niche-fiche-amitie">{titreDeLAmitie(niche.paliers)}</span>}
+          {!nommer && (
+            <button type="button" className="niche-renommer" disabled={busy} onClick={ouvrirLeNom}>
+              <Icon name="edit" />
+              {niche.nom ? 'Renommer' : 'Lui donner un nom'}
             </button>
-            <a className="btn" href={`/profil?essayer=${forme.key}#avatar`} onClick={onFermer}>
-              {`${Le} porter en avatar`}
-            </a>
-          </div>
-          <section className="niche-fiche-section" aria-labelledby="niche-formes">
-            <div className="niche-fiche-section-tete">
-              <h3 id="niche-formes" className="label">
-                Sa forme dans ta niche
-              </h3>
-              {/* La luciole n'est pas en boutique : ses formes se voient dans l'album, à la page de la prochaine. */}
-              <a
-                className="link-inline"
-                href={c.gagne ? `/profil#collection-avatars-${c.formes[Math.min(niche.rang + 1, c.formes.length - 1)].rarete}` : `/boutique#compagnon-${c.key}`}
-                onClick={onFermer}
-              >
-                Ses formes
-              </a>
-            </div>
-            {niche.rang > 0 ? (
-              <SesFormes niche={niche} busy={busy} neuves={neuves} onMontrer={montrer} />
-            ) : (
-              <p className="muted small">{espacesFines(`${Il} en prendra trois autres en grandissant : chacune pourra vivre ici.`)}</p>
-            )}
-          </section>
-          <section className="niche-fiche-section" aria-labelledby="niche-compagnons">
-            <h3 id="niche-compagnons" className="label">
-              Tes compagnons
-            </h3>
-            {siens === undefined ? (
-              <span className="muted small">…</span>
-            ) : (
-              <>
-                <SesCompagnons compagnons={siens ?? [{ compagnon: c.key, rang: niche.rang }]} niche={c.key} busy={busy} onInstaller={installer} onBoutique={onFermer} />
-                {siens && siens.length > 1 && <p className="muted small niche-choix-aide">Touche-en un pour l’installer dans ta niche.</p>}
-              </>
-            )}
-          </section>
-          {erreur && (
-            <p className="error" role="alert">
-              {erreur}
-            </p>
           )}
-          <p className="muted small niche-fiche-regle">
-            {espacesFines('Celui de ta niche grandit avec tes bonnes réponses, en soirée, au quiz du jour et en campagne — sans jamais te donner d’avantage.')}
-          </p>
         </div>
       </div>
+      {nommer && (
+        <form className="niche-nommer" onSubmit={garderLeNom}>
+          {/* Sa carte le montre aussi (le propriétaire, le 19 octobre 2026) : « toi seul le vois » n'est plus vrai. */}
+          <label className="label" htmlFor="niche-nom">
+            Son nom · sur ta carte aussi
+          </label>
+          <div className="niche-nommer-ligne">
+            <input
+              id="niche-nom"
+              ref={champ}
+              className="input"
+              type="text"
+              value={brouillon}
+              maxLength={NOM_D_UN_COMPAGNON_MAX}
+              placeholder={PROPOSITIONS[c.key]}
+              autoComplete="off"
+              enterKeyHint="done"
+              onChange={e => setBrouillon(e.target.value)}
+            />
+            <button type="submit" className="btn btn-primary" disabled={busy}>
+              Garder
+            </button>
+          </div>
+          <button type="button" className="link-inline small niche-nommer-annuler" onClick={() => setNommer(false)}>
+            Annuler
+          </button>
+        </form>
+      )}
+      <p className="niche-fiche-legende">{espacesFines(forme.legende)}</p>
+      {/* Sa place gardée pendant la lecture : la feuille ne saute pas quand elle arrive. */}
+      <div className="niche-fiche-jauge" aria-live="polite">
+        {siens === undefined ? (
+          <span className="muted small">…</span>
+        ) : suite ? (
+          <>
+            <span className="jauge-fine" aria-hidden="true">
+              <span style={{ width: `${Math.round(Math.min(1, sien!.justes / JUSTES_DES_FORMES[suite.forme.rang]) * 100)}%` }} />
+            </span>
+            <span className="muted small">
+              {espacesFines(
+                `${formatNumber(sien!.justes)} sur ${formatNumber(JUSTES_DES_FORMES[suite.forme.rang])} bonnes réponses ${avecLui(c)} : ${suite.forme.nom.charAt(0).toLowerCase()}${suite.forme.nom.slice(1)}`,
+              )}
+            </span>
+          </>
+        ) : prochain ? (
+          <>
+            <span className="jauge-fine" aria-hidden="true">
+              <span style={{ width: `${Math.round(Math.min(1, sien!.justes / prochain.ornement.justes) * 100)}%` }} />
+            </span>
+            <span className="muted small">
+              {espacesFines(`${formatNumber(sien!.justes)} sur ${formatNumber(prochain.ornement.justes)} bonnes réponses ${avecLui(c)} : ${prochain.ornement.nom}`)}
+            </span>
+          </>
+        ) : sien ? (
+          <span className="muted small">{espacesFines(`${titreDeLAmitie(ORNEMENTS.length)} : sa niche a tous ses ornements.`)}</span>
+        ) : null}
+      </div>
+      <div className="niche-fiche-gestes">
+        <button type="button" className="btn btn-primary" onClick={() => setCaresses(n => n + 1)}>
+          <Icon name="sparkles" />
+          {`${Le} caresser`}
+        </button>
+        <a className="btn" href={`${surLeProfil ? '' : '/profil'}?essayer=${forme.key}#avatar`} onClick={onPartir}>
+          {`${Le} porter en avatar`}
+        </a>
+      </div>
+      <SaNicheSEmbellit niche={niche} c={c} busy={busy} onOrner={orner} />
+      <section className="niche-fiche-section" aria-labelledby="niche-formes">
+        <div className="niche-fiche-section-tete">
+          <h3 id="niche-formes" className="label">
+            Sa forme dans ta niche
+          </h3>
+          {/* La luciole n'est pas en boutique : ses formes se voient dans l'album, à la page de la prochaine. */}
+          <a
+            className="link-inline"
+            href={c.gagne ? `/profil#collection-avatars-${c.formes[Math.min(niche.rang + 1, c.formes.length - 1)].rarete}` : `/boutique#compagnon-${c.key}`}
+            onClick={onPartir}
+          >
+            Ses formes
+          </a>
+        </div>
+        {niche.rang > 0 ? (
+          <SesFormes niche={niche} busy={busy} neuves={neuves} onMontrer={montrer} />
+        ) : (
+          <p className="muted small">{espacesFines(`${Il} en prendra trois autres en grandissant : chacune pourra vivre ici.`)}</p>
+        )}
+        {/* Sa métamorphose s'annonce là où elle se choisira : une forme de plus. La luciole n'en a pas encore : rien à promettre. */}
+        {!!c.lumiere && niche.rang === 3 && !metamorphoseOuverte(niche as CompagnonPossede) && (
+          <p className="muted small">{espacesFines(`Si l’Éclat tombe sur ${c.le === 'la' ? 'elle' : 'lui'}, sa métamorphose s’ouvre : une forme de plus.`)}</p>
+        )}
+      </section>
+      <section className="niche-fiche-section" aria-labelledby="niche-compagnons">
+        <h3 id="niche-compagnons" className="label">
+          Tes compagnons
+        </h3>
+        {siens === undefined ? (
+          <span className="muted small">…</span>
+        ) : (
+          <>
+            <SesCompagnons compagnons={siens ?? [{ compagnon: c.key, rang: niche.rang }]} niche={c.key} busy={busy} onInstaller={installer} onBoutique={onPartir} />
+            {siens && siens.length > 1 && <p className="muted small niche-choix-aide">Touche-en un pour l’installer dans ta niche.</p>}
+          </>
+        )}
+      </section>
+      {erreur && (
+        <p className="error" role="alert">
+          {erreur}
+        </p>
+      )}
+      <p className="muted small niche-fiche-regle">
+        {espacesFines('Celui de ta niche grandit avec tes bonnes réponses, en soirée, au quiz du jour et en campagne — sans jamais te donner d’avantage.')}
+      </p>
     </div>
+  )
+}
+
+/**
+ * Sa niche, sur la durée (le choix du 19 octobre 2026, `shared/ornements.ts`) :
+ * avant sa forme ultime, ce qui l'attend ; après, chaque ornement gagné, qu'un
+ * toucher montre ou cache — son nom ne change pas, `aria-pressed` dit s'il se
+ * montre (`design.test.ts`) —, puis ceux qui viennent, et à combien.
+ */
+function SaNicheSEmbellit({
+  niche,
+  c,
+  busy,
+  onOrner,
+}: {
+  niche: NicheVue
+  c: Compagnon
+  busy: boolean
+  onOrner: (cle: CleDOrnement, style: StyleDOrnement) => void
+}) {
+  const paliers = niche.rang === 3 ? (niche.paliers ?? 0) : 0
+  const gagnes = ORNEMENTS.filter(o => o.palier <= paliers)
+  const aVenir = ORNEMENTS.filter(o => o.palier > paliers)
+  return (
+    <section className="niche-fiche-section" aria-labelledby="niche-ornements">
+      <h3 id="niche-ornements" className="label">
+        Sa niche s’embellit
+      </h3>
+      {niche.rang < 3 ? (
+        <p className="muted small">
+          {espacesFines(
+            `Après sa forme ultime, sa niche s’embellit : ${ORNEMENTS[0].nom} à ${formatNumber(ORNEMENTS[0].justes)} bonnes réponses ${avecLui(c)}, puis trois autres ornements, jusqu’à ${formatNumber(ORNEMENTS[ORNEMENTS.length - 1].justes)}.`,
+          )}
+        </p>
+      ) : (
+        <>
+          {gagnes.length > 0 && (
+            <div className="niche-ornes">
+              {gagnes.map(o => {
+                const montre = niche.ornements?.[o.key] !== 'cache'
+                return (
+                  <button key={o.key} type="button" className="niche-orne" aria-pressed={montre} disabled={busy} onClick={() => onOrner(o.key, montre ? 'cache' : 'dessin')}>
+                    <ApercuDOrnement cle={o.key} />
+                    <span className="niche-orne-texte">
+                      <b>{o.titre}</b>
+                      <span className="muted small">{`${o.nom.charAt(0).toUpperCase()}${o.nom.slice(1)}`}</span>
+                    </span>
+                    <span className="niche-orne-coche" aria-hidden="true">
+                      <Icon name="check" />
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {gagnes.length > 0 && <p className="muted small niche-choix-aide">Touche un ornement pour le montrer ou le cacher.</p>}
+          {aVenir.length > 0 && (
+            <ul className="niche-ornes-a-venir">
+              {aVenir.map(o => (
+                <li key={o.key}>
+                  <span className="niche-orne-a-venir-titre">{`${o.titre} · à ${formatNumber(o.justes)}`}</span>
+                  <span className="muted small">{` — ${o.nom}`}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Ce que dit le bouton « Mon compagnon » du profil : son nom et la forme
+ * qu'il montre, et la jauge de son prochain but — sa forme suivante, puis le
+ * palier suivant de sa niche (`prochainSeuil`). `justes` : ses bonnes
+ * réponses données avec lui, que la page tient de sa boutique ; sans elles,
+ * la jauge garde sa place.
+ */
+export function ceQueDitSonBouton(niche: NicheVue, justes: number | undefined): { detail: string; jauge: number; compte?: string } {
+  const forme = formeDe(niche)
+  const detail = forme ? (niche.nom ? `${niche.nom}, ${forme.nom.charAt(0).toLowerCase()}${forme.nom.slice(1)}` : forme.nom) : (niche.nom ?? '')
+  if (justes === undefined) return { detail, jauge: 0 }
+  const seuil = prochainSeuil(niche)
+  if (seuil === null) return { detail, jauge: 1, compte: titreDeLAmitie(ORNEMENTS.length) }
+  return { detail, jauge: Math.min(1, justes / seuil), compte: `${formatNumber(justes)} sur ${formatNumber(seuil)}` }
+}
+
+/**
+ * Sa niche en petit, sans un geste — la carte d'un joueur, le bouton « Mon
+ * compagnon » du profil : la forme qu'elle montre et ses ornements. `taille` :
+ * sa largeur, en pixels.
+ */
+export function NicheEnMiniature({ niche, taille }: { niche: NicheVue; taille: number }) {
+  const forme = formeDe(niche)
+  const dessin = forme && DESSINS[forme.key]
+  if (!forme || !dessin) return null
+  return (
+    <span className={`niche-mini niche-${forme.compagnon}`} style={{ '--l': `${taille}px` } as CSSProperties}>
+      <Arche forme={forme} dessin={dessin} ornements={ornementsMontres(niche)} />
+    </span>
   )
 }

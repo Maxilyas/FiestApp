@@ -240,8 +240,16 @@ test('la boutique : trois compagnons, leurs quatre formes et ce qu’elles deman
   assert.doesNotMatch(avecLeLoup, />L’adopter</, 'rien à adopter à ce prix-là')
   // Ce qui manque se gagne : les missions du jour le disent, sous chacun.
   assert.equal(avecLeLoup.match(/<a class="link-inline" href="\/#missions">mes missions<\/a>/g)?.length, 2)
-  // À sa forme ultime, il n'a plus rien à atteindre.
-  assert.match(await rayon({ legendaire: null, boutique: boutique(0, [{ compagnon: 'tortue', rang: 3, justes: 620 }]) }), /Sa forme ultime\s: son monde prend vie\./)
+  // À sa forme ultime, la jauge vise le palier suivant de sa niche au lieu de s'arrêter (le propriétaire, le
+  // 19 octobre 2026) ; elle ne s'arrête qu'à la légende, sa niche ornée de tout.
+  assert.match(
+    await rayon({ legendaire: null, boutique: boutique(0, [{ compagnon: 'tortue', rang: 3, justes: 620 }]) }),
+    /620 sur 1500 bonnes réponses avec elle\s: une guirlande de petites lampes/,
+  )
+  assert.match(
+    await rayon({ legendaire: null, boutique: boutique(0, [{ compagnon: 'tortue', rang: 3, paliers: 4, justes: 26000 }]) }),
+    /Légende\s: sa niche a tous ses ornements\./,
+  )
   // La tortue se dit au féminin : « Tu le portes » se lisait de travers sous elle.
   const avecLaTortue = await rayon({ legendaire: 'cp:tortue-jeune', boutique: boutique(0, [{ compagnon: 'tortue', rang: 1, justes: 120 }]) })
   assert.match(avecLaTortue, /120 sur 300 bonnes réponses avec elle\s: la tortue-bosquet/)
