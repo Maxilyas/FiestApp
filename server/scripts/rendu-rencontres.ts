@@ -23,6 +23,9 @@
 // « + » dans la main et levée, une offre qui en propose une, l'échoppe.
 // Le plan fondu dans l'écran : une escale plus loin touchée sur le plan, qui se
 // dit sous les cartes ; un mélange, ses catégories en emblèmes et nommées.
+// Les huit familles : le départ du Sophiste et sa carte qui sème le doute —
+// l'adversaire qui doute, l'aperçu, une erreur qui lui coûte quand même —,
+// puis le départ du Téméraire et sa carte payée en courage.
 // Le client construit d'abord (`npm run build -w client`).
 //
 // Léa a quatre légendaires, rangés comme gardés au bout d'expéditions
@@ -140,7 +143,7 @@ try {
     console.error(`[déborde] ${ou} : ${l} pixels de large — ${fautifs}`)
   }
 
-  // Le départ : les rencontres sans rien demander — c'est le jeu —, son style à choisir parmi les six de son niveau.
+  // Le départ : les rencontres sans rien demander — c'est le jeu —, son style à choisir parmi les huit de son niveau.
   await page.goto(`${banc.url}/expedition`)
   await page.waitForSelector('.exp-style')
   await largeur('le départ')
@@ -543,6 +546,63 @@ try {
     }
     console.error(`[rendu] écran inconnu au tour ${tour}`)
     break
+  }
+
+  // Les huit familles (le 19 octobre 2026) : le Sophiste sème le doute — sa carte levée, le doute sur l'adversaire et dans
+  // l'aperçu, puis une erreur qui lui coûte quand même —, le Téméraire paie en courage — ce que sa carte coûte, levée, puis le
+  // courage qu'elle a pris. Chacun part de son style, joue jusqu'à ses photos, puis abandonne.
+  for (const [style, siennes, n] of [
+    ['Sophiste', ['insinuation', 'rumeur'], '10'],
+    ['Téméraire', ['fougue', 'cicatrices'], '11'],
+  ] as const) {
+    const enRoute = (await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: cookie } })).json()) as { expedition: { id: string } | null }
+    if (enRoute.expedition) await ecrire(banc.url, `/api/expedition/${enRoute.expedition.id}/abandon`, {}, cookie)
+    await page.goto(`${banc.url}/expedition`)
+    await page.waitForSelector('.exp-style')
+    await page.locator('.exp-un-style', { hasText: style }).click()
+    await page.locator('.exp-style').scrollIntoViewIfNeeded()
+    await largeur(`le départ du ${style}`)
+    await photo(`${n}-depart`)
+    await page.click('.exp-depart-pied .btn-primary')
+    await page.waitForSelector('.exp-plan')
+    let jouee = false
+    let verdict = false
+    for (let tour = 0; tour < 120 && !verdict; tour++) {
+      const ou = await ici()
+      if (ou === 'carte') {
+        const adversaire = page.locator('.exp-carte-escale.exp-question, .exp-carte-escale.exp-elite').first()
+        await ((await adversaire.count()) ? adversaire : page.locator('.exp-carte-escale').first()).click()
+        await page.locator('.exp-panneau > .btn-primary').click()
+      } else if (ou === 'preparation') {
+        if (await page.locator('.feuille-regles').count()) await page.locator('.feuille-regles .carte-pied .btn-primary').click()
+        if (!jouee && (await jouerUneCarte([...siennes], `${n}a-carte-levee`))) {
+          jouee = true
+          await largeur(`la préparation du ${style}`)
+          await photo(`${n}b-joue`)
+          await photo(`${n}b-joue-entier`, true)
+        }
+        await page.locator('.exp-voir').click()
+      } else if (ou === 'question') {
+        // Le Sophiste se trompe, son doute semé : l'adversaire perd quand même ; le Téméraire a juste.
+        await repondre(!(jouee && style === 'Sophiste'))
+      } else if (ou === 'revelation') {
+        if (jouee) {
+          await photo(`${n}c-verdict`, true)
+          verdict = true
+        } else await page.locator('.result-banner ~ .btn-primary.btn-big').click()
+      } else if (ou === 'offre') {
+        await page.locator('.exp-a-prendre-carte, .exp-offre-ligne').first().click()
+        await page.locator('.exp-offre .exp-depart-pied .btn-primary').click()
+      } else if (ou === 'campement') {
+        const repos = page.locator('.exp-camper .exp-choix-ligne', { hasText: 'Te reposer' })
+        if (await repos.count()) await repos.click()
+        await page.locator('.exp-camper .exp-depart-pied .btn-primary').click()
+      } else if (ou === 'echoppe') await page.locator('.exp-echoppe-page .btn-ghost').click()
+      else if (ou === 'inconnu' || ou === 'vaincu') await page.locator('.btn-primary.btn-big').last().click()
+      else break
+      await page.waitForTimeout(300)
+    }
+    if (!verdict) console.error(`[rendu] le ${style} n'a jamais eu ${siennes.join(' ni ')} en main`)
   }
   await contexte.close()
 } finally {

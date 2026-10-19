@@ -7,8 +7,11 @@ export interface Onglet<T extends string> {
   icone?: IconName
   /** Son nom au téléphone, quand la rangée ne tient pas sur une ligne (« Sentiers » pour « Les sentiers ») ; la feuille de la rangée dit quand. */
   court?: string
-  /** Ce qui l'attend derrière, compté : un chiffre à l'œil, une phrase au lecteur d'écran. */
-  pastille?: { n: number; label: string }
+  /**
+   * Ce qui l'attend derrière, compté : un chiffre à l'œil, une phrase au lecteur d'écran. Au-delà de 99, « 99+ » — ce qui attend
+   * se compte à peu près ; `entier`, le compte d'un catalogue, qui dit sa taille : le codex montrait « 99+ » sur ses 120 cartes.
+   */
+  pastille?: { n: number; label: string; entier?: true }
 }
 
 /** Les touches du motif d'onglets, et l'onglet où chacune mène. */
@@ -81,7 +84,7 @@ export function Onglets<T extends string>({
           {o.pastille && (
             <>
               <span className="onglet-pastille" aria-hidden="true">
-                {o.pastille.n > 99 ? '99+' : o.pastille.n}
+                {o.pastille.n > 99 && !o.pastille.entier ? '99+' : o.pastille.n}
               </span>
               <span className="sr-only">{`, ${o.pastille.label}`}</span>
             </>

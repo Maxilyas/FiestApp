@@ -21,6 +21,7 @@ import {
   COURAGE_DU_SECOND_SOUFFLE_PLUS,
   COURAGE_MAX,
   ECUS_AU_DEPART,
+  VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
   ameliorer,
@@ -31,6 +32,8 @@ import {
   carteDuLegendaire,
   changeDeQuestion,
   chiffresApresLaCarte,
+  courageDeLaCarte,
+  douteDUneErreur,
   effaceesDuTour,
   enJeu,
   enPlusDesPouvoirs,
@@ -50,7 +53,7 @@ import {
   type ChiffresDuTour,
   type ContexteDUneCarte,
 } from '../../shared/rencontres'
-import { GARDIEN, PRIX_DE_L_ECHOPPE, prixDeLArticle, refusDeLAchat, type CarteDUnActe, type EtatDeLExpedition } from '../../shared/expedition'
+import { GARDIEN, PRIX_DE_L_ECHOPPE, prixDeLArticle, refusDeLAchat, type CarteDUnActe, type DepartDExpedition, type EtatDeLExpedition } from '../../shared/expedition'
 import { Journal, avecEnMainAmelioree, carte, depart, pieces, rendre, rien, texte } from './expedition-journal'
 
 Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
@@ -61,8 +64,9 @@ const plusDe = (c: CarteDeRencontre) => carteDeRencontre(ameliorer(c.cle))!
 
 // ── Le catalogue ────────────────────────────────────────────────────────────
 
-test('soixante et une cartes s’améliorent — ni les maudites, ni la carte de route, ni celles des légendaires — ; l’améliorée a son « + », son gain, et change ce qu’on voit', () => {
-  assert.equal(AMELIORABLES.length, 61)
+test('soixante-dix-sept cartes s’améliorent — ni les maudites, ni la carte de route, ni celles des légendaires — ; l’améliorée a son « + », son gain, et change ce qu’on voit', () => {
+  // Soixante et une au jeu complet, seize de plus avec les huit familles (la version 9).
+  assert.equal(AMELIORABLES.length, 77)
   for (const c of CARTES_DES_RENCONTRES) {
     const devrait = c.rarete !== 'maudit' && c.rarete !== 'legendaire' && c.moment !== 'route'
     assert.equal(!!c.amelioration, devrait, c.cle)
@@ -92,25 +96,29 @@ test('soixante et une cartes s’améliorent — ni les maudites, ni la carte de
 
 const AVANT: ChiffresDuTour = { inspiration: 3, charge: 0, garde: 0, serie: 2 }
 
-/** Ce qu'une carte jouée vaut, chiffre par chiffre, aux règles du pli — dans plusieurs cas : fétiche ou non, une marche, une réponse effacée. */
+/**
+ * Ce qu'une carte jouée vaut, chiffre par chiffre, aux règles du pli — dans plusieurs cas : fétiche ou non, une marche, une réponse
+ * effacée, le courage entamé ; le doute qu'elle sème, celui qu'elle sème posée à chaque erreur, le courage qu'elle coûte (en
+ * moins : moins cher, c'est mieux).
+ */
 function valeurs(cle: string): number[] {
   const out: number[] = []
-  for (const contexte of [{}, { fetiche: true }, { niveau: 'moyen' as const }, { effacees: 1 }]) {
-    const x = chiffresApresLaCarte(cle, AVANT, [], { v: VERSION_DU_JEU_COMPLET, savoir: 8, ecus: 60, ...contexte })
-    out.push(x.inspiration, x.charge, x.garde, x.serie)
+  for (const contexte of [{}, { fetiche: true }, { niveau: 'moyen' as const }, { effacees: 1 }, { courage: 15 }]) {
+    const x = chiffresApresLaCarte(cle, { ...AVANT, doute: 2 }, [], { v: VERSION_DES_HUIT_FAMILLES, savoir: 8, ecus: 60, ...contexte })
+    out.push(x.inspiration, x.charge, x.garde, x.serie, x.doute ?? 0)
   }
   // Posée, ce qu'elle fait aux autres cartes : un indice, une question changée.
   out.push(chiffresApresLaCarte('coup-d-oeil', AVANT, [cle], { v: VERSION_DU_JEU_COMPLET }).charge, chiffresApresLaCarte('coup-d-oeil', AVANT, [cle], { v: VERSION_DU_JEU_COMPLET }).garde)
   out.push(chiffresApresLaCarte('echange', AVANT, [cle], { v: VERSION_DU_JEU_COMPLET }).garde)
-  const juste = siJuste([cle])
+  const juste = siJuste([cle], [cle])
   const suite = suiteDUneBonneReponse([cle], [cle])
-  out.push(juste.ecus, juste.courage, suite.cartes, suite.inspiration, suite.charge)
+  out.push(juste.ecus, juste.courage, suite.cartes, suite.inspiration, suite.charge, douteDUneErreur([cle]), -courageDeLaCarte(cle))
   for (const forme of ['quatre', 'six'] as const) out.push(enPlusDesPouvoirs({ v: VERSION_DU_JEU_COMPLET, pouvoirs: [cle], fetiche: 'Histoire', categorie: 'Histoire', trouvees: 2, serie: 1, forme }))
   return out
 }
 
 /** Les améliorations qui ne se chiffrent pas, que le pli fait — chacune vérifiée plus bas : une carte tirée de plus, du courage, la rencontre gardée. */
-const DANS_LE_PLI = new Set(['pioche', 'sprint', 'meditation', 'assurance', 'doubler-la-mise', 'panacee', 'second-souffle', 'echange', 'augure'])
+const DANS_LE_PLI = new Set(['pioche', 'sprint', 'meditation', 'assurance', 'doubler-la-mise', 'panacee', 'second-souffle', 'echange', 'augure', 'rumeur'])
 
 test('chaque carte améliorée fait plus que sa carte : jamais moins nulle part, mieux quelque part — un chiffre, son coût, ou ce que le pli fait', () => {
   for (const c of AMELIORABLES) {
@@ -180,18 +188,30 @@ test('une carte améliorée se refuse pour les mêmes raisons que sa carte — d
 
 // ── Chaque carte améliorée, levée puis jouée ────────────────────────────────
 
-/** Ce qu'il faut à une carte pour se jouer dans la main de l'élite : Arrêt sur image, un dévoilement. */
+/**
+ * Ce qu'il faut à une carte pour se jouer dans la main de l'élite : Arrêt sur image, un dévoilement ; Zizanie, un doute à doubler
+ * — Rumeur, que le Sophiste a de départ, jouée d'abord.
+ */
 const POUR_SE_JOUER: Record<string, (j: Journal) => void> = {
   'arret-sur-image': j => {
     j.poser({ forme: 'devoilement', mots: 12, tiree: 'devoilement' })
   },
+  zizanie: j => {
+    j.jouer('rumeur')
+  },
+}
+
+/** Le départ et la main qu'il lui faut : Zizanie, la Rumeur dans la même main. */
+const MAIN_POUR_SE_JOUER: Record<string, { autre: Partial<DepartDExpedition>; main: (j: Journal) => boolean }> = {
+  zizanie: { autre: { style: 'sophiste' }, main: j => !!j.etat().rencontre?.main.includes('rumeur') },
 }
 
 test(`chaque carte améliorée, levée, annonce ce que le serveur fait : ${AMELIORABLES.length} cartes`, async () => {
   const { apercuALaMise, changementDeLaCarte } = await pieces()
   for (const c of AMELIORABLES) {
     const p = ameliorer(c.cle)
-    const j = avecEnMainAmelioree(c.cle)
+    const besoin = MAIN_POUR_SE_JOUER[c.cle]
+    const j = avecEnMainAmelioree(c.cle, besoin?.main, 1, besoin?.autre)
     POUR_SE_JOUER[c.cle]?.(j)
     // Une carte de pendant la question se joue la question vue, son pari dit.
     if (c.moment === 'reflexe') j.voir(10)
@@ -226,8 +246,8 @@ test('ce que le pli fait de plus : une carte tirée de plus, la rencontre gardé
     const avant = j.etat()
     assert.equal(tirees(avant, j.jouer(ameliorer(cle))), combien, `${cle}+ tire ${combien} cartes`)
   }
-  // Échange+ et Augure+ ne quittent plus la rencontre : jouées, elles vont à la défausse.
-  for (const cle of ['echange', 'augure']) {
+  // Échange+, Augure+ et Rumeur+ ne quittent plus la rencontre : jouées, elles vont à la défausse.
+  for (const cle of ['echange', 'augure', 'rumeur']) {
     const j = avecEnMainAmelioree(cle)
     if (carteDeRencontre(cle)!.moment === 'reflexe') j.voir()
     const r = j.jouer(ameliorer(cle)).rencontre!

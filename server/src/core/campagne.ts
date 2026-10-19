@@ -334,6 +334,7 @@ import {
   CLAIRVOYANCE_SUR_LA_QUESTION,
   FIOLES_MAX,
   POUVOIRS_QUI_EFFACENT,
+  VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_JEU_COMPLET,
   baseDe,
   carteDeRencontre,
@@ -6926,9 +6927,9 @@ export class CampagneStore {
       const vues = lireLesVues(lues.rows)
       const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
       const depart: DepartDExpedition = {
-        // Les rencontres partent en version 8 : le codex — ses cartes, ses règles —, figé avec elle, et le jeu complet —
-        // l'épique dans ses offres, l'énergie de chaque acte.
-        v: rencontres ? VERSION_DU_JEU_COMPLET : 4,
+        // Les rencontres partent en version 9 : le codex — ses cartes, ses règles —, figé avec elle, le jeu complet —
+        // l'épique dans ses offres, l'énergie de chaque acte —, et les huit familles — le doute, le courage en jeu.
+        v: rencontres ? VERSION_DES_HUIT_FAMILLES : 4,
         graine,
         numero: numeroDeLaCarte(graine),
         gardiens: gardiensDe(graine, siens, invite, saison?.legendaire),
@@ -8024,8 +8025,8 @@ function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
   try {
     const lu = JSON.parse(brut) as DepartDExpedition
     // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus, la 4 sans rencontres,
-    // la 6 sans codex, la 7 sans le jeu complet ; une version inconnue ne se lit pas.
-    return lu && [1, 2, 3, 4, 5, 6, 7, 8].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
+    // la 6 sans codex, la 7 sans le jeu complet, la 8 sans les huit familles ; une version inconnue ne se lit pas.
+    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
   } catch {
     return null
   }

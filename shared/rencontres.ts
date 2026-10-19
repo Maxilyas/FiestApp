@@ -157,6 +157,54 @@ export const PRISME_A_SIX_CHOIX = 6
  * Prudence, la carte de base, devenait une attaque.
  */
 export const PART_DES_REPRESAILLES = 0.5
+/**
+ * Le doute du Sophiste (la version 9, le 19 octobre 2026) : un adversaire qui
+ * doute perd, à cette question — juste ou fausse —, autant de points que son
+ * doute, puis il ne doute plus ; tombé du doute, il ne frappe pas. Le seul
+ * dégât qui ne demande pas de savoir la réponse : de quoi gagner autrement
+ * qu'en sachant. Ce qu'en sèment Insinuation, Rumeur, Objection — et son
+ * bouclier —, et Engrenage à chaque erreur, pour la question suivante.
+ *
+ * Il baissait de 1 par question, et s'additionnait : mesurée seule
+ * (`calibrage-rencontres.ts --cartes`, le 19 octobre 2026), Insinuation menait
+ * le joueur moyen au bout 90 fois sur cent contre 50 sans rien prendre,
+ * Hantise 94, Engrenage 90 — la moitié d'un gardien à coups de doute. Il ne
+ * dure plus que sous Paranoïa : la carte autour de laquelle on le bâtit.
+ * Même ainsi, un dégât sûr vaut cher : à 3, Insinuation ajoutait quinze
+ * points, Engrenage vingt-trois, et Hantise — 1 à chaque carte jouée ensuite,
+ * deux ou trois par question — trente et un. Insinuation en sème 2,
+ * Engrenage 1 par erreur, Hantise 1 par question, pour deux d'énergie.
+ */
+export const DOUTE_DE_L_INSINUATION = 2
+export const DOUTE_DE_LA_RUMEUR = 2
+export const DOUTE_DE_L_OBJECTION = 2
+export const BOUCLIER_DE_L_OBJECTION = 4
+export const DOUTE_DE_L_ENGRENAGE = 1
+export const DOUTE_DE_LA_HANTISE = 1
+/**
+ * Le courage du Téméraire (la version 9) : il en paie pour frapper — Fougue,
+ * Coup de sang —, et frappe d'autant plus qu'il lui en manque : Cicatrices,
+ * 1 de plus par tranche de `COURAGE_D_UNE_CICATRICE` qui lui manque, Dernier
+ * carré sous `SEUIL_DU_DERNIER_CARRE`. Adrénaline lui en rend à chaque bonne
+ * réponse ; Berserk riposte de `PART_DU_BERSERK` de ce que l'attaque lui
+ * prend. Une carte qui coûte du courage ne se joue pas s'il n'en a pas
+ * plus : elle l'achèverait.
+ *
+ * Mesurées seules au premier réglage, les cartes qui se paient coûtaient plus
+ * qu'elles ne rapportaient — Coup de sang, à 4 de courage, retirait douze
+ * points au joueur moyen, Fougue, à 3, sept : une attaque ne vaut que deux de
+ * courage. Berserk, entier, en ajoutait trente-quatre : comme Représailles, il
+ * ne riposte que de la moitié. Et à 2 de courage, Coup de sang en retirait
+ * encore sept : de l'énergie sans cartes à jouer ne sert à rien — il en tire
+ * une, comme Surmenage. Suivi, le style payait trop : Fougue ne coûte plus
+ * que 1 (`CARTES_DE_DEPART_DU_STYLE`).
+ */
+export const COURAGE_DE_LA_FOUGUE = 1
+export const COURAGE_DU_COUP_DE_SANG = 2
+export const COURAGE_D_UNE_CICATRICE = 4
+export const COURAGE_DE_L_ADRENALINE = 2
+export const SEUIL_DU_DERNIER_CARRE = 25
+export const PART_DU_BERSERK = 0.5
 
 /**
  * Une carte améliorée fait la même chose, en mieux (« Est-ce que l'on
@@ -179,6 +227,13 @@ export const BOUCLIER_DE_L_ASTROLABE_PLUS = 5
 export const ENCYCLOPEDIE_PAR_JUSTE_PLUS = 4
 export const PRISME_PAR_JUSTE_PLUS = 3
 export const PRISME_A_SIX_CHOIX_PLUS = 9
+export const DOUTE_DE_L_INSINUATION_PLUS = 3
+export const DOUTE_DE_L_OBJECTION_PLUS = 3
+export const BOUCLIER_DE_L_OBJECTION_PLUS = 6
+export const DOUTE_DE_L_ENGRENAGE_PLUS = 2
+export const COURAGE_DU_COUP_DE_SANG_PLUS = 1
+export const COURAGE_D_UNE_CICATRICE_PLUS = 3
+export const COURAGE_DE_L_ADRENALINE_PLUS = 3
 /**
  * La part des cartes d'une offre qui arrivent améliorées, acte par acte :
  * aucune à l'acte 1, une sur quatre à l'acte 2, une sur deux à l'acte 3 —
@@ -279,8 +334,12 @@ export function raretesDeLOffre(v: number, acte: number, quelle: 'rencontre' | '
  */
 export type MomentDUneCarte = 'preparation' | 'reflexe' | 'pouvoir' | 'route'
 
-/** Les six familles de la proposition, et les neutres : les deux légendaires de l'équipée choisissent les siennes. */
-export type FamilleDeCartes = 'erudit' | 'flambeur' | 'metamorphe' | 'elan' | 'rempart' | 'devin' | 'neutre'
+/**
+ * Les familles — les six de la proposition, puis le Sophiste et le Téméraire
+ * (la version 9) —, et les neutres : avant le codex, les deux légendaires de
+ * l'équipée choisissaient les siennes.
+ */
+export type FamilleDeCartes = 'erudit' | 'flambeur' | 'metamorphe' | 'elan' | 'rempart' | 'devin' | 'sophiste' | 'temeraire' | 'neutre'
 
 export interface CarteDeRencontre {
   /** La clé d'un joker d'avant quand la carte en vient (`renaissance`, `coup-d-oeil`) : un légendaire garde la sienne. */
@@ -385,6 +444,16 @@ export const VERSION_DU_CODEX = 7
  * car ça coûte pas beaucoup d'énergie et du coup y'a aucune réflexion »).
  */
 export const VERSION_DU_JEU_COMPLET = 8
+
+/**
+ * La version du départ qui joue les huit familles (le 19 octobre 2026 : « Pour
+ * les cartes il faut vraiment plus de gameplay différents ») : le Sophiste et
+ * le Téméraire, seize cartes, et ce qu'elles apportent de neuf — le doute, qui
+ * ronge l'adversaire à chaque question, juste ou fausse ; le courage qu'on
+ * paie pour frapper. Leurs cartes portent `depuis` : une offre d'un départ
+ * d'avant ne les tire jamais, et rejouée, elle tire ce qu'elle tirait.
+ */
+export const VERSION_DES_HUIT_FAMILLES = 9
 
 /** Le paquet de tous, et les neutres que les offres proposent. */
 const NEUTRES: readonly CarteDeRencontre[] = [
@@ -1092,6 +1161,196 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     resume: 'Reste 2, +4',
     valeur: '+4',
   },
+  // Le Sophiste (la version 9) : le doute — ce que l'adversaire perd à cette question, juste ou fausse.
+  {
+    cle: 'insinuation',
+    nom: 'Insinuation',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'sophiste',
+    rarete: 'commun',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: `Doute ${DOUTE_DE_L_INSINUATION} : juste ou faux, l’adversaire perd ${DOUTE_DE_L_INSINUATION} à cette question.`,
+    resume: `Doute ${DOUTE_DE_L_INSINUATION}`,
+    valeur: `${DOUTE_DE_L_INSINUATION}`,
+  },
+  {
+    cle: 'rumeur',
+    nom: 'Rumeur',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'sophiste',
+    rarete: 'commun',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    epuisement: true,
+    effet: `Doute ${DOUTE_DE_LA_RUMEUR} : juste ou faux, l’adversaire perd ${DOUTE_DE_LA_RUMEUR} à cette question.`,
+    resume: `Doute ${DOUTE_DE_LA_RUMEUR}`,
+    valeur: `${DOUTE_DE_LA_RUMEUR}`,
+  },
+  {
+    cle: 'objection',
+    nom: 'Objection',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'sophiste',
+    rarete: 'commun',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: `Une fois la question vue : bouclier ${BOUCLIER_DE_L_OBJECTION}, et doute ${DOUTE_DE_L_OBJECTION}.`,
+    resume: 'Doute et bouclier',
+  },
+  {
+    cle: 'zizanie',
+    nom: 'Zizanie',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'sophiste',
+    rarete: 'rare',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: 'Son doute double : juste ou faux, l’adversaire perd deux fois plus à cette question.',
+    resume: 'Doute ×2',
+    valeur: '×2',
+  },
+  {
+    cle: 'engrenage',
+    nom: 'Engrenage',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'sophiste',
+    rarete: 'rare',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: `Pour toute la rencontre : doute ${DOUTE_DE_L_ENGRENAGE} à chaque erreur — il le perd à la question suivante.`,
+    resume: `Erreur : doute ${DOUTE_DE_L_ENGRENAGE}`,
+    valeur: `${DOUTE_DE_L_ENGRENAGE}`,
+  },
+  {
+    cle: 'coup-de-grace',
+    nom: 'Coup de grâce',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'sophiste',
+    rarete: 'rare',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: 'Si tu réponds juste, l’adversaire perd en plus autant qu’il doute.',
+    resume: '+ son doute',
+  },
+  {
+    cle: 'paranoia',
+    nom: 'Paranoïa',
+    cout: 2,
+    moment: 'pouvoir',
+    famille: 'sophiste',
+    rarete: 'epique',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: 'Pour toute la rencontre : son doute ne retombe plus — il le perd à chaque question.',
+    resume: 'Doute tenu',
+  },
+  {
+    cle: 'hantise',
+    nom: 'Hantise',
+    cout: 2,
+    moment: 'pouvoir',
+    famille: 'sophiste',
+    rarete: 'epique',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: `Pour toute la rencontre : doute ${DOUTE_DE_LA_HANTISE} à chaque question, celle-ci comprise.`,
+    resume: 'Doute permanent',
+    valeur: `${DOUTE_DE_LA_HANTISE}`,
+  },
+  // Le Téméraire (la version 9) : le courage en jeu — il en paie pour frapper, et frappe d'autant plus qu'il lui en manque.
+  {
+    cle: 'fougue',
+    nom: 'Fougue',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'temeraire',
+    rarete: 'commun',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: `Si tu réponds juste, l’adversaire perd 8 de plus. Elle te coûte ${COURAGE_DE_LA_FOUGUE} de courage.`,
+    resume: `+8, −${COURAGE_DE_LA_FOUGUE} courage`,
+    valeur: '+8',
+  },
+  {
+    cle: 'coup-de-sang',
+    nom: 'Coup de sang',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'temeraire',
+    rarete: 'commun',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: `+2 d’énergie pour cette question, et tu tires une carte. Il te coûte ${COURAGE_DU_COUP_DE_SANG} de courage.`,
+    resume: '+2 énergie',
+    valeur: '+2',
+  },
+  {
+    cle: 'cicatrices',
+    nom: 'Cicatrices',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'temeraire',
+    rarete: 'commun',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: `Si tu réponds juste, l’adversaire perd 3 de plus — et 1 encore par tranche de ${COURAGE_D_UNE_CICATRICE} de courage qui te manque.`,
+    resume: '+ courage perdu',
+    valeur: '+3',
+  },
+  {
+    cle: 'adrenaline',
+    nom: 'Adrénaline',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'temeraire',
+    rarete: 'rare',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: `Pour toute la rencontre : chaque bonne réponse te rend ${COURAGE_DE_L_ADRENALINE} de courage.`,
+    resume: `Juste : soin ${COURAGE_DE_L_ADRENALINE}`,
+    valeur: `+${COURAGE_DE_L_ADRENALINE}`,
+  },
+  {
+    cle: 'dernier-carre',
+    nom: 'Dernier carré',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'temeraire',
+    rarete: 'rare',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: `Si tu réponds juste, l’adversaire perd 5 de plus — 14 si ton courage est sous ${SEUIL_DU_DERNIER_CARRE}.`,
+    resume: '+5, +14 à bout',
+    valeur: '+5',
+  },
+  {
+    cle: 'temerite',
+    nom: 'Témérité',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'temeraire',
+    rarete: 'rare',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: 'Si tu réponds juste, l’adversaire perd 9 de plus. Mais ton bouclier tombe à zéro.',
+    resume: '+9 sans bouclier',
+    valeur: '+9',
+  },
+  {
+    cle: 'berserk',
+    nom: 'Berserk',
+    cout: 2,
+    moment: 'pouvoir',
+    famille: 'temeraire',
+    rarete: 'epique',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: 'Pour toute la rencontre : chaque fois que l’adversaire te fait perdre du courage, il en perd la moitié.',
+    resume: 'Rend ½ des coups',
+  },
+  {
+    cle: 'baroud',
+    nom: 'Baroud',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'temeraire',
+    rarete: 'epique',
+    depuis: VERSION_DES_HUIT_FAMILLES,
+    effet: 'Si tu réponds juste, l’adversaire perd en plus la moitié du courage qui te manque.',
+    resume: '½ courage perdu',
+  },
 ]
 
 /**
@@ -1531,6 +1790,64 @@ const AMELIORATIONS: Readonly<Record<string, Amelioration>> = {
   },
   vision: { gain: '1 d’énergie au lieu de 2', cout: 1 },
   revelation: { gain: 'Gratuite', cout: 0 },
+  // Le Sophiste.
+  insinuation: {
+    gain: `Doute ${DOUTE_DE_L_INSINUATION_PLUS} au lieu de ${DOUTE_DE_L_INSINUATION}`,
+    effet: `Doute ${DOUTE_DE_L_INSINUATION_PLUS} : juste ou faux, l’adversaire perd ${DOUTE_DE_L_INSINUATION_PLUS} à cette question.`,
+    resume: `Doute ${DOUTE_DE_L_INSINUATION_PLUS}`,
+    valeur: `${DOUTE_DE_L_INSINUATION_PLUS}`,
+  },
+  rumeur: { gain: 'Plus seulement une fois par rencontre', durable: true },
+  objection: {
+    gain: `Bouclier ${BOUCLIER_DE_L_OBJECTION_PLUS} et doute ${DOUTE_DE_L_OBJECTION_PLUS}, au lieu de ${BOUCLIER_DE_L_OBJECTION} et ${DOUTE_DE_L_OBJECTION}`,
+    effet: `Une fois la question vue : bouclier ${BOUCLIER_DE_L_OBJECTION_PLUS}, et doute ${DOUTE_DE_L_OBJECTION_PLUS}.`,
+  },
+  zizanie: { gain: 'Gratuite', cout: 0 },
+  engrenage: {
+    gain: `Doute ${DOUTE_DE_L_ENGRENAGE_PLUS} au lieu de ${DOUTE_DE_L_ENGRENAGE}`,
+    effet: `Pour toute la rencontre : doute ${DOUTE_DE_L_ENGRENAGE_PLUS} à chaque erreur.`,
+    resume: `Erreur : doute ${DOUTE_DE_L_ENGRENAGE_PLUS}`,
+    valeur: `${DOUTE_DE_L_ENGRENAGE_PLUS}`,
+  },
+  'coup-de-grace': { gain: 'Gratuite', cout: 0 },
+  paranoia: { gain: '1 d’énergie au lieu de 2', cout: 1 },
+  hantise: { gain: '1 d’énergie au lieu de 2', cout: 1 },
+  // Le Téméraire.
+  fougue: {
+    gain: '+11 au lieu de +8',
+    effet: `Si tu réponds juste, l’adversaire perd 11 de plus. Elle te coûte ${COURAGE_DE_LA_FOUGUE} de courage.`,
+    resume: `+11, −${COURAGE_DE_LA_FOUGUE} courage`,
+    valeur: '+11',
+  },
+  'coup-de-sang': {
+    gain: `${COURAGE_DU_COUP_DE_SANG_PLUS} de courage au lieu de ${COURAGE_DU_COUP_DE_SANG}`,
+    effet: `+2 d’énergie pour cette question, et tu tires une carte. Il te coûte ${COURAGE_DU_COUP_DE_SANG_PLUS} de courage.`,
+  },
+  cicatrices: {
+    gain: `+4, et 1 par tranche de ${COURAGE_D_UNE_CICATRICE_PLUS}, au lieu de +3 et ${COURAGE_D_UNE_CICATRICE}`,
+    effet: `Si tu réponds juste, l’adversaire perd 4 de plus — et 1 encore par tranche de ${COURAGE_D_UNE_CICATRICE_PLUS} de courage qui te manque.`,
+    valeur: '+4',
+  },
+  adrenaline: {
+    gain: `+${COURAGE_DE_L_ADRENALINE_PLUS} au lieu de +${COURAGE_DE_L_ADRENALINE}`,
+    effet: `Pour toute la rencontre : chaque bonne réponse te rend ${COURAGE_DE_L_ADRENALINE_PLUS} de courage.`,
+    resume: `Juste : soin ${COURAGE_DE_L_ADRENALINE_PLUS}`,
+    valeur: `+${COURAGE_DE_L_ADRENALINE_PLUS}`,
+  },
+  'dernier-carre': {
+    gain: '+7 et +18 au lieu de +5 et +14',
+    effet: `Si tu réponds juste, l’adversaire perd 7 de plus — 18 si ton courage est sous ${SEUIL_DU_DERNIER_CARRE}.`,
+    resume: '+7, +18 à bout',
+    valeur: '+7',
+  },
+  temerite: { gain: '+12 au lieu de +9', effet: 'Si tu réponds juste, l’adversaire perd 12 de plus. Mais ton bouclier tombe à zéro.', resume: '+12 sans bouclier', valeur: '+12' },
+  berserk: { gain: '1 d’énergie au lieu de 2', cout: 1 },
+  baroud: {
+    gain: '4 de plus',
+    effet: 'Si tu réponds juste, l’adversaire perd 4 de plus, et la moitié du courage qui te manque.',
+    resume: '+4 et ½ perdu',
+    valeur: '+4',
+  },
 }
 
 /** Tout le catalogue des rencontres ; une carte qui s'améliore porte ce qu'elle devient (`amelioration`). */
@@ -1648,6 +1965,10 @@ export const CARTES_DE_DEPART_DU_STYLE: Readonly<Record<StyleDeJeu, readonly [st
   flambeur: ['pourboire', 'cagnotte'],
   elan: ['echauffement', 'lancee'],
   metamorphe: ['corser', 'simplifier'],
+  sophiste: ['insinuation', 'rumeur'],
+  // Une qui se paie, une qui frappe de ce qui manque : parti avec Fougue et Coup de sang, deux cartes qui se paient, le joueur
+  // faible qui ne prenait que ce qui vaut n'allait plus au bout que 18 fois sur cent, contre 31 sans style.
+  temeraire: ['fougue', 'cicatrices'],
 }
 
 /**
@@ -1665,6 +1986,9 @@ export const BASES_REMPLACEES_PAR_LE_STYLE: Readonly<Record<StyleDeJeu, readonly
   flambeur: ['concentration', 'concentration'],
   elan: ['concentration', 'concentration'],
   metamorphe: ['concentration', 'prudence'],
+  // Le doute frappe, le Téméraire aussi : les Prudences restent.
+  sophiste: ['concentration', 'concentration'],
+  temeraire: ['concentration', 'concentration'],
 }
 
 /** Les styles, dans l'ordre où le codex les ouvre (`ECHELLE`). */
@@ -1699,6 +2023,8 @@ export const FAMILLES_DE_CARTES: Readonly<Record<FamilleDeCartes, { nom: string;
   elan: { nom: 'L’Élan', devise: 'Je ne m’arrête plus', jeu: 'Chaque bonne réponse d’affilée frappe plus fort que la précédente.' },
   rempart: { nom: 'Le Rempart', devise: 'Je tiens bon', jeu: 'Il gagne en tenant, à coups de boucliers et de courage.' },
   devin: { nom: 'Le Devin', devise: 'Je lis les signes', jeu: 'Il efface les mauvaises réponses avant de choisir.' },
+  sophiste: { nom: 'Le Sophiste', devise: 'Je sème le doute', jeu: 'Ses adversaires doutent : ils perdent des points à chaque question, même quand il se trompe.' },
+  temeraire: { nom: 'Le Téméraire', devise: 'Je joue avec le feu', jeu: 'Il paie en courage pour frapper plus fort — et frappe d’autant plus qu’il en a perdu.' },
   neutre: { nom: 'Les neutres', devise: 'Pour tout le monde' },
 }
 
@@ -1830,6 +2156,8 @@ export interface CoupDeRencontre {
   courage?: number
   /** Passe-muraille : traversée, ni frappe ni sceaux. */
   traversee?: true
+  /** Ce que son doute lui a fait perdre avant le verdict, juste ou faux (la version 9) — absent sans doute. */
+  doute?: number
   /** Renaissance : tombé à zéro, il renaît. */
   renaissance?: true
   /** L'adversaire tombe : les écus et le courage de la victoire. */
@@ -1872,6 +2200,43 @@ export interface RencontreEnCours {
   aube: number
   /** La boucle : l'erreur à reposer, ce qu'elle a coûté, le rang où elle se repose. */
   boucle: { reprise: number; perte: number; position: number | null } | null
+  /** Son doute (la version 9) : ce qu'il perdra à la prochaine question, juste ou fausse (`DOUTE_DE_L_INSINUATION`). */
+  doute: number
+}
+
+/**
+ * Ce que le doute lui fait perdre avant le verdict d'une question, juste ou
+ * faux : autant qu'il doute, jamais plus que ce qui lui reste. Le verdict
+ * (`pliDeLExpedition`) et l'aperçu (`apercuDuTour`) le lisent tous deux ici.
+ */
+export const rongeDuDoute = (sceaux: number, doute: number) => Math.min(Math.max(0, sceaux), Math.max(0, doute))
+
+/**
+ * Son doute après une question : il retombe — sauf sous Paranoïa, où il le
+ * reperd à chaque question —, et Hantise en sème pour la suivante (celle où
+ * elle est jouée, ses chiffres le comptent : `chiffresApresLaCarte`).
+ */
+export const douteApresLaQuestion = (doute: number, pouvoirs: readonly string[]) =>
+  (parmi(pouvoirs, 'paranoia') ? doute : 0) + (parmi(pouvoirs, 'hantise') ? DOUTE_DE_LA_HANTISE : 0)
+
+/** Ce qu'une erreur sème de doute : Engrenage posé. */
+export const douteDUneErreur = (pouvoirs: readonly string[]) =>
+  parmi(pouvoirs, 'engrenage') ? (amelioreeParmi(pouvoirs, 'engrenage') ? DOUTE_DE_L_ENGRENAGE_PLUS : DOUTE_DE_L_ENGRENAGE) : 0
+
+/**
+ * Le courage qu'une carte coûte à jouer (la version 9) : Fougue, Coup de
+ * sang — l'exemplaire amélioré, le sien. Le pli le prend, le refus dit
+ * qu'il en faut plus (`refusDeLaCarte`).
+ */
+export function courageDeLaCarte(cle: string): number {
+  switch (baseDe(cle)) {
+    case 'fougue':
+      return COURAGE_DE_LA_FOUGUE
+    case 'coup-de-sang':
+      return estAmelioree(cle) ? COURAGE_DU_COUP_DE_SANG_PLUS : COURAGE_DU_COUP_DE_SANG
+    default:
+      return 0
+  }
 }
 
 /** Ce qu'il frappe à la prochaine erreur, la Garde pas encore comptée. */
@@ -1986,14 +2351,14 @@ const changeLaForme = (cle: string) => formeDeLaCarte(cle) !== undefined
 /**
  * Ce qu'une bonne réponse rapporte de plus, des cartes jouées à ce tour (le
  * jeu complet) : les écus de Pourboire, Cagnotte et Rafle — à part de ceux du
- * pari —, et le courage de Pansement. Le verdict (`pliDeLExpedition`) et
- * l'aperçu (`apercuDuTour`) les lisent tous deux ici : chaque carte jouée
- * compte, deux Pourboire en paient deux — et chaque exemplaire amélioré, ses
- * chiffres à lui.
+ * pari —, et le courage de Pansement ; depuis les huit familles, celui
+ * d'Adrénaline posée. Le verdict (`pliDeLExpedition`) et l'aperçu
+ * (`apercuDuTour`) les lisent tous deux ici : chaque carte jouée compte, deux
+ * Pourboire en paient deux — et chaque exemplaire amélioré, ses chiffres à lui.
  */
-export function siJuste(jouees: readonly string[]): { ecus: number; courage: number } {
+export function siJuste(jouees: readonly string[], pouvoirs: readonly string[] = []): { ecus: number; courage: number } {
   let ecus = 0
-  let courage = 0
+  let courage = parmi(pouvoirs, 'adrenaline') ? (amelioreeParmi(pouvoirs, 'adrenaline') ? COURAGE_DE_L_ADRENALINE_PLUS : COURAGE_DE_L_ADRENALINE) : 0
   for (const cle of jouees) {
     const plus = estAmelioree(cle)
     switch (baseDe(cle)) {
@@ -2020,9 +2385,16 @@ export const frappeEnPlus = (jouees: readonly string[]) => jouees.filter(cle => 
 /** Ce que coûte un pari perdu : rien sous Assurance. */
 export const pariPerdu = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>) => (parmi(t.jouees, 'assurance') ? 0 : enJeu(t))
 
-/** Ce que l'adversaire perd sur une erreur, de ce que le bouclier a paré : tout sous Contre-attaque jouée à ce tour, la moitié sous Représailles posée — l'une s'ajoute à l'autre. */
-export const riposte = (absorbee: number, jouees: readonly string[], pouvoirs: readonly string[]) =>
-  (parmi(jouees, 'contre-attaque') ? absorbee : 0) + (parmi(pouvoirs, 'represailles') ? Math.ceil(absorbee * PART_DES_REPRESAILLES) : 0)
+/**
+ * Ce que l'adversaire perd sur une erreur, de ce que le bouclier a paré : tout
+ * sous Contre-attaque jouée à ce tour, la moitié sous Représailles posée — et,
+ * depuis les huit familles, la moitié du courage que l'attaque lui a pris sous
+ * Berserk posé. Chacune s'ajoute aux autres, chaque moitié arrondie au-dessus.
+ */
+export const riposte = (absorbee: number, jouees: readonly string[], pouvoirs: readonly string[], perdu = 0) =>
+  (parmi(jouees, 'contre-attaque') ? absorbee : 0) +
+  (parmi(pouvoirs, 'represailles') ? Math.ceil(absorbee * PART_DES_REPRESAILLES) : 0) +
+  (parmi(pouvoirs, 'berserk') ? Math.ceil(perdu * PART_DU_BERSERK) : 0)
 
 /**
  * Ce que le tour suivant reçoit d'une bonne réponse, des cartes jouées à ce
@@ -2051,12 +2423,14 @@ export function suiteDUneBonneReponse(jouees: readonly string[], pouvoirs: reado
   return x
 }
 
-/** Les chiffres d'un tour qu'une carte change : ce qu'il lui reste d'inspiration, sa Charge, sa Garde, sa série. */
+/** Les chiffres d'un tour qu'une carte change : ce qu'il lui reste d'inspiration, sa Charge, sa Garde, sa série — et le doute de l'adversaire (la version 9). */
 export interface ChiffresDuTour {
   inspiration: number
   charge: number
   garde: number
   serie: number
+  /** Absent d'un appel d'avant le doute : une carte qui en sème part de zéro. */
+  doute?: number
 }
 
 /**
@@ -2079,11 +2453,14 @@ export interface ContexteDesChiffres {
   savoir?: number
   /** Les écus qu'il a. */
   ecus?: number
+  /** Le courage qu'il a : Cicatrices, Dernier carré et Baroud frappent d'autant plus qu'il lui en manque (la version 9). Absent, il est plein. */
+  courage?: number
 }
 
 /**
  * Ce qu'une carte jouée fait aux chiffres du tour — l'inspiration qu'elle
- * coûte, la Charge, la Garde, la série : la seule règle, que le pli applique
+ * coûte, la Charge, la Garde, la série ; depuis les huit familles, le doute
+ * qu'elle sème, que le pli garde à la rencontre : la seule règle, que le pli applique
  * (`pliDeLExpedition`) et que la page relit, carte levée, pour dire ce
  * qu'elle changerait avant qu'on la joue (« je veux que ce soit bien
  * compréhensible pour des novices », le 18 octobre 2026). Ce qu'elle fait
@@ -2096,6 +2473,8 @@ export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoir
   if (!carte) return { ...avant }
   const codex = contexte.v >= VERSION_DU_CODEX
   const plus = !!carte.amelioree
+  // Le courage qui lui manque : ce dont le Téméraire frappe (v9).
+  const manque = Math.max(0, COURAGE_MAX - (contexte.courage ?? COURAGE_MAX))
   const x = { ...avant, inspiration: avant.inspiration - carte.cout }
   switch (baseDe(cle)) {
     case 'concentration':
@@ -2188,6 +2567,45 @@ export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoir
     case 'inarretable':
       x.serie += 1
       break
+    // Les huit familles (v9) : le doute du Sophiste…
+    case 'insinuation':
+      x.doute = (x.doute ?? 0) + (plus ? DOUTE_DE_L_INSINUATION_PLUS : DOUTE_DE_L_INSINUATION)
+      break
+    case 'rumeur':
+      x.doute = (x.doute ?? 0) + DOUTE_DE_LA_RUMEUR
+      break
+    case 'objection':
+      x.garde += plus ? BOUCLIER_DE_L_OBJECTION_PLUS : BOUCLIER_DE_L_OBJECTION
+      x.doute = (x.doute ?? 0) + (plus ? DOUTE_DE_L_OBJECTION_PLUS : DOUTE_DE_L_OBJECTION)
+      break
+    case 'zizanie':
+      x.doute = (x.doute ?? 0) * 2
+      break
+    // Hantise : son doute de cette question ; celui des suivantes, le verdict le sème (`douteApresLaQuestion`).
+    case 'hantise':
+      x.doute = (x.doute ?? 0) + DOUTE_DE_LA_HANTISE
+      break
+    // … et le courage du Téméraire : ce qu'il paie (`courageDeLaCarte`), le pli le prend ; ce qui lui manque frappe.
+    case 'fougue':
+      x.charge += plus ? 11 : 8
+      break
+    case 'coup-de-sang':
+      x.inspiration += 2
+      break
+    case 'cicatrices':
+      x.charge += (plus ? 4 : 3) + Math.floor(manque / (plus ? COURAGE_D_UNE_CICATRICE_PLUS : COURAGE_D_UNE_CICATRICE))
+      break
+    case 'dernier-carre':
+      x.charge += COURAGE_MAX - manque < SEUIL_DU_DERNIER_CARRE ? (plus ? 18 : 14) : plus ? 7 : 5
+      break
+    case 'temerite':
+      // Son bouclier tombe, celui que Cuirasse ou Bastion lui a donné compris : un bouclier joué ensuite le relève.
+      x.garde = 0
+      x.charge += plus ? 12 : 9
+      break
+    case 'baroud':
+      x.charge += (plus ? 4 : 0) + Math.ceil(manque / 2)
+      break
   }
   // Troisième œil : chaque indice frappe aussi ; Astrolabe (le jeu complet) : il protège.
   if (carte.indice && parmi(pouvoirs, 'troisieme-oeil')) x.charge += amelioreeParmi(pouvoirs, 'troisieme-oeil') ? 5 : 3
@@ -2238,6 +2656,8 @@ export interface ContexteDUneCarte {
   courage: number
   derniereFrappe: number
   defausse: number
+  /** Le doute de l'adversaire (la version 9) : Zizanie n'a rien à doubler sans lui. */
+  doute?: number
 }
 
 /** Cette carte — améliorée ou non : c'est la même — est-elle déjà jouée sur la question ? */
@@ -2314,7 +2734,16 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
     case 'contre-attaque':
     case 'sursis':
     case 'assurance':
+    case 'coup-de-grace':
       return parmi(c.tour.jouees, base) ? 'Déjà jouée à cette question' : null
+    case 'zizanie':
+      return (c.doute ?? 0) > 0 ? null : 'Il ne doute pas encore : sème d’abord le doute'
+    case 'fougue':
+    case 'coup-de-sang': {
+      // Elle l'achèverait : on ne paie pas son dernier courage pour frapper.
+      const prix = courageDeLaCarte(cle)
+      return c.courage > prix ? null : `Il te faut plus de ${prix} de courage pour la jouer`
+    }
     case 'panacee':
     case 'second-souffle':
       return c.courage >= COURAGE_MAX ? 'Ton courage est au plus haut' : null
@@ -2379,7 +2808,11 @@ export interface ApercuDuTour {
     contre: number
     /** Sa Charge retombe. */
     charge: boolean
+    /** Son doute le fait tomber avant qu'il frappe (la version 9) : il ne t'attaque pas. Absent sinon. */
+    tombe?: true
   }
+  /** Ce que son doute lui fera perdre avant le verdict, juste ou faux (la version 9) — absent sans doute. */
+  doute?: number
 }
 
 /**
@@ -2427,10 +2860,14 @@ export function enPlusDesPouvoirs(o: {
 /**
  * Ce qui s'ajoute à une bonne réponse après sa forme : Banco — 1 par tranche
  * de cinq écus pariés — et, depuis le jeu complet, Pactole — ce que le pari
- * rapporte. Doublé, avec le reste, par Quitte ou double.
+ * rapporte ; depuis les huit familles, Coup de grâce — autant qu'il doute au
+ * moment de répondre, ce que la page montre. Doublé, avec le reste, par
+ * Quitte ou double.
  */
-export const enPlusApresLaForme = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>, pouvoirs: readonly string[]) =>
-  (parmi(t.jouees, 'banco') ? Math.floor(enJeu(t) / 5) : 0) + (parmi(pouvoirs, 'pactole') && enJeu(t) > 0 ? gainDeLaMise(t, pouvoirs) : 0)
+export const enPlusApresLaForme = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>, pouvoirs: readonly string[], doute = 0) =>
+  (parmi(t.jouees, 'banco') ? Math.floor(enJeu(t) / 5) : 0) +
+  (parmi(pouvoirs, 'pactole') && enJeu(t) > 0 ? gainDeLaMise(t, pouvoirs) : 0) +
+  (parmi(t.jouees, 'coup-de-grace') ? Math.max(0, doute) : 0)
 
 /** L'aperçu d'un tour, avec ce que ses cartes y ont fait : la même règle que le verdict. */
 export function apercuDuTour(o: {
@@ -2448,33 +2885,46 @@ export function apercuDuTour(o: {
   /** Ses bonnes réponses déjà données dans la rencontre, et sa série : l'Encyclopédie et le Rythme en frappent (le jeu complet). */
   trouvees?: number
   serie?: number
+  /** Son doute au moment de répondre, les cartes du tour comprises (la version 9). */
+  doute?: number
 }): ApercuDuTour {
   const t = o.tour
   const mise = enJeu(t)
+  const doute = o.doute ?? 0
+  // Le doute ronge d'abord, juste ou faux : ce qui en reste, la réponse le brise — tombé, il ne frappe plus.
+  const ronge = rongeDuDoute(o.sceaux, doute)
+  const tombeDuDoute = ronge > 0 && ronge >= o.sceaux
   const enPlus = enPlusDesPouvoirs({ v: o.v, pouvoirs: o.pouvoirs, fetiche: o.fetiche, categorie: o.question.categorie, trouvees: o.trouvees, serie: o.serie, forme: o.question.forme })
   const cartes = { pouvoirs: o.pouvoirs, surLaQuestion: t.surLaQuestion ?? [] }
   const brises = (multiplicateur: number) =>
-    brisesDUneBonneReponse({ savoir: o.savoir, charge: t.charge, enPlus, multiplicateur, banco: enPlusApresLaForme(t, o.pouvoirs), double: t.jouees.includes('quitte-ou-double') })
+    brisesDUneBonneReponse({ savoir: o.savoir, charge: t.charge, enPlus, multiplicateur, banco: enPlusApresLaForme(t, o.pouvoirs, doute), double: t.jouees.includes('quitte-ou-double') })
   const devoilement = o.question.forme === 'devoilement' && (o.mots ?? 0) > 1
   const auDernier = brises(multiplicateurDeLaForme({ reponses: o.question.reponses, forme: devoilement ? 'quatre' : o.question.forme }, cartes))
   const auPremier = devoilement ? brises(multiplicateurDeLaForme({ reponses: o.question.reponses, forme: 'devoilement', devoile: { mots: 1, sur: o.mots! } }, cartes)) : undefined
   const f = frappeDUneErreur({
     frappe: o.frappe + frappeEnPlus(t.jouees),
-    sauve: parmi(t.jouees, 'sursis') || t.jouees.includes('mue'),
+    sauve: tombeDuDoute || parmi(t.jouees, 'sursis') || t.jouees.includes('mue'),
     double: t.jouees.includes('tout-ou-rien') || t.jouees.includes('quitte-ou-double'),
     garde: t.garde,
   })
-  const plus = siJuste(t.jouees)
+  const plus = siJuste(t.jouees, o.pouvoirs)
   return {
     juste: {
       brises: auDernier,
       ...(auPremier !== undefined && { auPremierMot: auPremier }),
-      tombe: Math.max(auDernier, auPremier ?? 0) >= o.sceaux,
+      tombe: ronge + Math.max(auDernier, auPremier ?? 0) >= o.sceaux,
       ecus: mise > 0 ? gainDeLaMise(t, o.pouvoirs) : 0,
       ...(plus.ecus > 0 && { ecusDesCartes: plus.ecus }),
       ...(plus.courage > 0 && { courage: plus.courage }),
     },
-    faux: { ...f, ecus: pariPerdu(t), contre: riposte(f.absorbee, t.jouees, o.pouvoirs), charge: t.charge > 0 },
+    faux: {
+      ...f,
+      ecus: pariPerdu(t),
+      contre: riposte(f.absorbee, t.jouees, o.pouvoirs, f.perdu),
+      charge: !tombeDuDoute && t.charge > 0,
+      ...(tombeDuDoute && { tombe: true as const }),
+    },
+    ...(ronge > 0 && { doute: ronge }),
   }
 }
 
@@ -2497,6 +2947,10 @@ export interface VueDeLaRencontre {
   trouvees: number
   /** Les écus qu'il a : Fortune en frappe (le jeu complet), l'aperçu d'une carte levée les lit. */
   ecus: number
+  /** Son courage : Cicatrices, Dernier carré et Baroud en frappent (la version 9), l'aperçu d'une carte levée le lit. */
+  courage: number
+  /** Le doute de l'adversaire (la version 9) — absent sans doute. */
+  doute?: number
   phase: 'preparation' | 'question'
   /**
    * Le rang de la question qui attend : en préparation, elle ne part pas

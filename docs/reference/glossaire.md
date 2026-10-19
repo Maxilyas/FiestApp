@@ -142,6 +142,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Données de départ | Ce qu'une page demande dès son code arrivé, et que le serveur fait précharger avec la page, à la même adresse | `donneesDeDepart`, `DEPART` (`shared/depart.ts`) |
 | Dos de cartes | L'habit de son paquet d'expédition, sur le plan et au codex : l'ordinaire d'office, l'étoilé au niveau 6, le doré par un exploit ; choisi au départ parmi les siens — sinon le plus rare —, il ne change rien au jeu | `DOS_DES_CARTES`, `DepartDExpedition.dos`, `ChoixDuDos` |
 | Dos doré | Le dos de cartes en or, ouvert par l'exploit du gardien de l'acte 3 vaincu sans perdre de courage ; l'or ne change rien au jeu | `dosDuPaquet`, `.exp-dos-dore` |
+| Doute (d'un adversaire) | Ce que sèment les cartes du Sophiste (les huit familles) : à la question, juste ou fausse, l'adversaire perd autant de points qu'il doute, avant le verdict, puis il ne doute plus — sauf sous Paranoïa. Tombé de son doute, il n'attaque pas. Une pastille « Doute N » sous ses points, et l'aperçu le dit des deux côtés | `RencontreEnCours.doute`, `rongeDuDoute`, `douteApresLaQuestion`, `CoupDeRencontre.doute` |
 | Duel | Une série de la campagne que deux adversaires jouent sur les mêmes questions, chacun à son heure ; le plus de bonnes réponses gagne | `shared/duels.ts` |
 | Duel au dé | Le duel tout de suite contre Automate, à chances égales sur la cote qu'on voit, sur toutes les catégories ou sur ce qu'on choisit ; une série de mode `rencontre` (« rencontre » dans le code) | `commencerUneRencontre`, `enjeuDuDe` |
 | Duel classé | À l'écran, le duel contre quelqu'un ; dans le code, tout duel qui compte pour la cote, celui du dé compris | `lectureDesDuels` |
@@ -255,6 +256,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Hook de démarrage | Le script qui installe les dépendances au début d'une session de Claude Code sur le web, et ne fait rien en local | `.claude/hooks/session-start.sh` |
 | Hors classement | Le chef d'un salon qui anime seulement : il répond pour le plaisir, et rien de lui ne compte | `horsClassement` |
 | Hors ligne | Un invité dont aucune connexion n'est ouverte ; seul l'instantané des écrans d'animateur le dit | `Party.isConnected`, `connected` |
+| Huit familles (de l'expédition) | La version 9 du départ, le 19 octobre 2026 : deux styles de plus, chacun ses huit cartes peintes — le Sophiste, qui sème le doute, au niveau 5, et le Téméraire, qui paie en courage pour frapper et frappe d'autant plus qu'il en a perdu, au niveau 6. Une expédition partie avant n'en tire aucune | `VERSION_DES_HUIT_FAMILLES`, `courageDeLaCarte` |
 
 ## I
 
@@ -503,7 +505,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Souffle | Les 0,7 s entre la dernière réponse attendue et la révélation, relancées par un changement d'avis | `SETTLE_MS` |
 | Source | Une escale de l'expédition qui repose une question du carnet : retrouvée, elle rend une vie ; ratée, elle ne coûte rien. Comme en révision, ni la mesure ni les écussons ne comptent sa réponse | `sorte: 'source'`, `QuestionDeSerie.carnet` |
 | Souvenir | La page publique d'une soirée : podium, équipes, prix remis, palmarès, trophées, chiffres | `buildRecap` (`server/src/core/recap.ts`) |
-| Style (d'expédition) | La famille de cartes qu'on choisit au départ d'une expédition, parmi celles que son niveau ouvre — le Rempart, l'Érudit et le Devin au niveau 1, puis le Flambeur, l'Élan, le Métamorphe : ses deux cartes de départ prennent la place de deux cartes de base, chaque récompense en propose une, et la catégorie fétiche va avec l'Érudit. Figé avec l'expédition | `StyleDeJeu`, `CARTES_DE_DEPART_DU_STYLE`, `DepartDExpedition.style`, `ChoixDuStyle` |
+| Style (d'expédition) | La famille de cartes qu'on choisit au départ d'une expédition, parmi celles que son niveau ouvre — le Rempart, l'Érudit et le Devin au niveau 1, puis le Flambeur, l'Élan, le Métamorphe, le Sophiste et le Téméraire, un par niveau jusqu'au 6 : ses deux cartes de départ prennent la place de deux cartes de base, chaque récompense en propose une, et la catégorie fétiche va avec l'Érudit. Figé avec l'expédition | `StyleDeJeu`, `CARTES_DE_DEPART_DU_STYLE`, `DepartDExpedition.style`, `ChoixDuStyle` |
 | Suivi du jour | Ce que la page du quiz du jour au QG montre à côté de la réserve : le tirage d'aujourd'hui question par question, le classement du mois, les séries qui tiennent, le rappel du soir | `SuiviDuJour` |
 | Sujet | Un choix de série qui traverse les catégories : un thème, une époque ou un fil rouge | `shared/sujets.ts` |
 | Suspendre (un profil) | Fermer un profil sans rien effacer : ni connexion, ni place aux classements, jusqu'à sa réactivation | `profiles.disabled_at` |

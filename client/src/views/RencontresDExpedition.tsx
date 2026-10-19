@@ -62,6 +62,7 @@ import {
   FIOLES_MAX,
   MISES,
   STYLES,
+  VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_JEU_COMPLET,
   ameliorer,
   apercuDuTour,
@@ -71,6 +72,7 @@ import {
   cartesDeCombat,
   changeDeQuestion,
   chiffresApresLaCarte,
+  courageDeLaCarte,
   fioleDe,
   formeApresLaCarte,
   viseLaQuestion,
@@ -272,6 +274,9 @@ const TEINTE_DE_LA_FAMILLE: Record<FamilleDeCartes, string> = {
   elan: '#4fbf72',
   rempart: '#c49a5a',
   devin: '#2fb3a6',
+  // Les huit familles (v9) : l'azur du Sophiste, loin du violet de l'Érudit ; le cramoisi du Téméraire, plus rouge que la braise du Flambeur.
+  sophiste: '#4f8ee0',
+  temeraire: '#d63a4a',
 }
 
 /**
@@ -430,17 +435,20 @@ export function apercuALaMise(r: VueDeLaRencontre, mise: number, fetiche: string
   const c = avec === undefined ? undefined : carteALaVersion(avec, r.v)
   // Dans l'ordre du pli : un pouvoir est posé avant que ses chiffres se comptent.
   const pouvoirs = c?.moment === 'pouvoir' ? [...r.pouvoirs, c.cle] : r.pouvoirs
-  // Ce que ses chiffres lisent de la question (le jeu complet) : sa marche, ce qu'elle vaut — l'annonce les dit —, les écus qu'il a.
+  // Ce que ses chiffres lisent de la question (le jeu complet) : sa marche, ce qu'elle vaut — l'annonce les dit —, les écus qu'il a ;
+  // le doute de l'adversaire et son courage (les huit familles).
+  const doute = r.doute ?? 0
   const chiffres = c
-    ? chiffresApresLaCarte(c.cle, { inspiration: r.inspiration, charge: r.charge, garde: r.garde, serie: r.serie }, pouvoirs, {
+    ? chiffresApresLaCarte(c.cle, { inspiration: r.inspiration, charge: r.charge, garde: r.garde, serie: r.serie, doute }, pouvoirs, {
         v: r.v,
         fetiche: !!fetiche && a.categorie === fetiche,
         effacees: r.effacees,
         niveau: a.niveau,
         savoir: a.savoir,
         ecus: r.ecus,
+        courage: r.courage,
       })
-    : r
+    : { ...r, doute }
   const q = c ? formeApresLaCarte(c.cle, { forme: a.forme, reponses: a.reponses }) : { forme: a.forme, reponses: a.reponses }
   // Les cartes qui visent la question, comme le pli les range : une autre question repart sans elles.
   const surLaQuestion = !c ? r.surLaQuestion : changeDeQuestion(c.cle) ? (c.cle === 'mue' ? ['mue'] : []) : viseLaQuestion(c) ? [...r.surLaQuestion, c.cle] : r.surLaQuestion
@@ -456,13 +464,15 @@ export function apercuALaMise(r: VueDeLaRencontre, mise: number, fetiche: string
     ...(a.mots !== undefined && { mots: a.mots }),
     trouvees: r.trouvees,
     serie: chiffres.serie,
+    doute: chiffres.doute ?? doute,
   })
 }
 
-/** Ce qu'une carte levée changerait à l'aperçu : avant elle, et avec elle. */
+/** Ce qu'une carte levée changerait à l'aperçu : avant elle, et avec elle — et son courage, si elle en coûte (les huit familles). */
 export interface ChangementDeLaCarte {
   avant: ApercuDuTour
   apres: ApercuDuTour
+  courage?: { avant: number; apres: number }
 }
 
 /** Le changement d'une carte qui se joue maintenant ; null : l'aperçu ne bouge pas, ou elle ne se joue pas. */
@@ -470,11 +480,15 @@ export function changementDeLaCarte(r: VueDeLaRencontre, mise: number, fetiche: 
   if (r.refus[cle] !== null && r.refus[cle] !== undefined) return null
   const avant = apercuALaMise(r, mise, fetiche)
   const apres = apercuALaMise(r, mise, fetiche, cle)
-  return avant && apres ? { avant, apres } : null
+  const prix = courageDeLaCarte(cle)
+  return avant && apres ? { avant, apres, ...(prix > 0 && { courage: { avant: r.courage, apres: r.courage - prix } }) } : null
 }
 
+/** Ce qu'il perd si tu as juste : ce que son doute lui coûte d'abord (les huit familles), puis ce que ta réponse brise. */
+const perteSiJuste = (a: ApercuDuTour) => (a.doute ?? 0) + a.juste.brises
+
 /** Ce qu'une bonne réponse ferait, dit en clair. */
-const ditJuste = (a: ApercuDuTour) => (a.juste.tombe ? 'il tombe' : `il perd ${a.juste.brises}`)
+const ditJuste = (a: ApercuDuTour) => (a.juste.tombe ? 'il tombe' : `il perd ${perteSiJuste(a)}`)
 
 /** Un nombre collé au mot qui le précède : « pare 5 » ne se coupe pas, un « 5 » seul en début de ligne ne se lit pas. */
 const colle = (mot: string, n: number | string) => `${mot} ${n}`
@@ -492,19 +506,25 @@ const colle = (mot: string, n: number | string) => `${mot} ${n}`
 export function Apercu({ a, base, compact }: { a: ApercuDuTour; base?: ApercuDuTour; compact?: boolean }) {
   const j = a.juste
   const f = a.faux
-  const deCartes = base && !j.tombe ? j.brises - base.juste.brises : 0
+  // Son doute (les huit familles) : il le perd juste ou faux, avant le verdict — chaque tuile le dit.
+  const doute = a.doute ?? 0
+  const deCartes = base && !j.tombe ? perteSiJuste(a) - perteSiJuste(base) : 0
   const detailJuste = [
-    j.tombe && colle('il perd', j.brises),
-    j.auPremierMot !== undefined && `${colle('jusqu’à', j.auPremierMot)} si tu réponds tôt`,
+    j.tombe && colle('il perd', perteSiJuste(a)),
+    doute > 0 && `${colle('dont', doute)} de son doute`,
+    j.auPremierMot !== undefined && `${colle('jusqu’à', doute + j.auPremierMot)} si tu réponds tôt`,
     deCartes > 0 && `${colle('dont', `+${deCartes}`)} grâce à tes cartes`,
     j.ecus > 0 && `+${j.ecus} écus de ton pari`,
     (j.ecusDesCartes ?? 0) > 0 && `+${j.ecusDesCartes} écus de tes cartes`,
     (j.courage ?? 0) > 0 && `+${j.courage} de courage`,
   ].filter((x): x is string => !!x)
   const detailFaux = [
-    f.frappe === 0
-      ? 'il ne t’attaque pas'
-      : f.absorbee > 0 && (f.perdu === 0 ? `${colle('son attaque fait', f.frappe)} : ton bouclier pare tout` : `${colle('son attaque fait', f.frappe)}, ton bouclier en ${colle('pare', f.absorbee)}`),
+    f.tombe
+      ? 'son doute le fait tomber : il ne t’attaque pas'
+      : f.frappe === 0
+        ? 'il ne t’attaque pas'
+        : f.absorbee > 0 && (f.perdu === 0 ? `${colle('son attaque fait', f.frappe)} : ton bouclier pare tout` : `${colle('son attaque fait', f.frappe)}, ton bouclier en ${colle('pare', f.absorbee)}`),
+    !f.tombe && doute > 0 && `son doute : ${colle('il perd', doute)}`,
     f.contre > 0 && `riposte : ${colle('il perd', f.contre)}`,
     f.ecus > 0 && `−${f.ecus} écus de ton pari`,
   ].filter((x): x is string => !!x)
@@ -517,7 +537,7 @@ export function Apercu({ a, base, compact }: { a: ApercuDuTour; base?: ApercuDuT
         </span>
         {/* Une autre valeur, un autre élément : il se pose d'un petit bond, et l'œil voit ce que la carte a changé. */}
         <b key={ditJuste(a)} className="exp-apercu-chiffre">
-          {j.tombe ? 'Il tombe !' : `Il perd ${j.brises}`}
+          {j.tombe ? 'Il tombe !' : `Il perd ${perteSiJuste(a)}`}
         </b>
         {!compact && detailJuste.map(t => <span key={t}>{espacesFines(t)}</span>)}
       </div>
@@ -541,6 +561,10 @@ export function Apercu({ a, base, compact }: { a: ApercuDuTour; base?: ApercuDuT
 function Changement({ c }: { c: ChangementDeLaCarte }) {
   const { avant, apres } = c
   const lignes: { cle: string; icone: IconName; quoi: string; de: string; a: string }[] = []
+  // Les huit familles : le courage qu'elle coûte, sur-le-champ ; le doute qu'elle sème, qu'il perd juste ou faux.
+  if (c.courage) lignes.push({ cle: 'prix', icone: 'heart', quoi: 'Ton courage, tout de suite', de: `${c.courage.avant}`, a: `${c.courage.apres}` })
+  const douteDe = (x: ApercuDuTour) => x.doute ?? 0
+  if (douteDe(avant) !== douteDe(apres)) lignes.push({ cle: 'doute', icone: 'bulles', quoi: 'Son doute, juste ou faux', de: `${douteDe(avant)}`, a: `il perd ${douteDe(apres)}` })
   if (ditJuste(avant) !== ditJuste(apres)) lignes.push({ cle: 'juste', icone: 'check', quoi: 'Si tu as juste', de: ditJuste(avant), a: ditJuste(apres) })
   if (avant.juste.ecus !== apres.juste.ecus) lignes.push({ cle: 'gain', icone: 'ecu', quoi: 'Ton pari gagné', de: `+${avant.juste.ecus}`, a: `+${apres.juste.ecus} écus` })
   // Le jeu complet : les écus et le courage que ses cartes rapportent sur une bonne réponse.
@@ -1259,7 +1283,7 @@ export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onF
   // Des puces qui comptent, comme les pages de l'album des trophées : cinq onglets à leur nom ne tenaient pas sur une ligne en 360.
   const onglets = PAGES_DU_CODEX.map(p => {
     const n = p.id === 'toutes' ? CARTES_DES_RENCONTRES.length : CARTES_DES_RENCONTRES.filter(c => c.rarete === p.id).length
-    return { id: p.id, nom: p.nom, pastille: { n, label: `${n} carte${n > 1 ? 's' : ''}` } }
+    return { id: p.id, nom: p.nom, pastille: { n, label: `${n} carte${n > 1 ? 's' : ''}`, entier: true as const } }
   })
   const fermee = regardee && !estOuverte(regardee) ? ouvertureDite(regardee) : null
   return (
@@ -1441,20 +1465,39 @@ const FORME_DITE: Record<FormeDEscale, string | null> = { quatre: null, six: 'si
  * thème pointu, le médaillon d'un gardien —, son nom, et ce qu'il lui reste,
  * en jauge et en chiffre — les points qu'une bonne réponse lui fait perdre ;
  * à zéro, il tombe. Dessous, la question qu'il pose (`SaQuestion`), sans son
- * texte. `sceaux` : ce qui lui reste après la réponse, à la révélation ;
- * `compact`, la question sous les yeux : son nom et sa jauge seuls.
+ * texte. `sceaux` et `doute` : ce qui lui reste après la réponse, à la
+ * révélation (`adversaireALaRevelation`) ; `compact`, la question sous les
+ * yeux : son nom et sa jauge seuls.
  */
-export function Adversaire({ r, gardien, acte, sceaux, compact }: { r: VueDeLaRencontre; gardien: string; acte: number; sceaux?: number; compact?: boolean }) {
+export function Adversaire({
+  r,
+  gardien,
+  acte,
+  sceaux,
+  doute: douteApres,
+  compact,
+}: {
+  r: VueDeLaRencontre
+  gardien: string
+  acte: number
+  sceaux?: number
+  doute?: number
+  compact?: boolean
+}) {
   const restants = Math.max(0, sceaux ?? r.sceaux)
   const sujet = r.sujet ? sujetParCle(r.sujet) : undefined
   const theme = sujet?.nom ?? r.categorie ?? 'Mélange'
   const surtitre = r.sorte === 'gardien' ? `Gardien · acte ${acte + 1}` : r.sorte === 'elite' ? `Élite · ${theme}` : theme
   const part = r.max > 0 ? Math.round((restants / r.max) * 100) : 0
   const nom = r.sorte === 'gardien' ? nomDuGardien(gardien) : r.adversaire
+  // Son doute (les huit familles) : ce qu'il perdra à cette question, juste ou fausse — tombé, il ne doute plus de rien.
+  const doute = restants > 0 ? (douteApres ?? r.doute ?? 0) : 0
   return (
     <section
       className={`exp-adversaire exp-adversaire-${r.sorte}` + (restants === 0 ? ' exp-adversaire-tombe' : '') + (compact ? ' exp-adversaire-compact' : '')}
-      aria-label={espacesFines(`${surtitre} : ${nom}, ${restants === 0 ? 'tombé' : `il lui reste ${restants} point${restants > 1 ? 's' : ''} sur ${r.max}`}`)}
+      aria-label={espacesFines(
+        `${surtitre} : ${nom}, ${restants === 0 ? 'tombé' : `il lui reste ${restants} point${restants > 1 ? 's' : ''} sur ${r.max}`}${doute > 0 ? `, il doute : il perdra ${doute} à cette question, juste ou fausse` : ''}`,
+      )}
     >
       <div className="exp-adversaire-haut" aria-hidden="true">
         <span className="exp-adversaire-embleme">
@@ -1474,6 +1517,12 @@ export function Adversaire({ r, gardien, acte, sceaux, compact }: { r: VueDeLaRe
               <i style={{ width: `${part}%` }} />
             </span>
             <b>{restants === 0 ? 'Tombé' : `${restants} point${restants > 1 ? 's' : ''}`}</b>
+            {doute > 0 && (
+              <span className="exp-doute">
+                <Icon name="bulles" />
+                {`Doute ${doute}`}
+              </span>
+            )}
           </span>
         </span>
       </div>
@@ -1481,6 +1530,19 @@ export function Adversaire({ r, gardien, acte, sceaux, compact }: { r: VueDeLaRe
     </section>
   )
 }
+
+/**
+ * L'adversaire à la révélation, tel que la réponse l'a laissé : ses points
+ * d'avant, moins ce que la réponse a brisé et ce que son doute lui a coûté —
+ * compté à part dans le coup (`CoupDeRencontre.doute`) —, et le doute qu'il
+ * garde pour la question suivante, que porte la vue d'après (Paranoïa,
+ * Engrenage ; rien s'il est tombé). Lu de la seule vue d'avant, l'en-tête
+ * gardait ce que le doute avait pris, et le doute déjà perdu.
+ */
+export const adversaireALaRevelation = (avant: VueDeLaRencontre, coup: CoupDeRencontre | null | undefined, apres: VueDeLaRencontre | null | undefined) => ({
+  sceaux: avant.sceaux - (coup?.brises ?? 0) - (coup?.doute ?? 0),
+  doute: apres?.doute ?? 0,
+})
 
 /**
  * La question qu'il pose, avant de la voir : sa catégorie, sa marche, sa
@@ -1602,6 +1664,8 @@ const ouvertAuNiveau = (regle: RegleDuCodex) => (niveauDeLaRegle(regle) <= 1 ? '
  * route ou celui qui partirait — le campement et la source y rendent moins.
  * `energie` : celle de chaque question, acte par acte — deux à l'acte 1 depuis
  * le jeu complet. `ameliorees` : ses cartes s'améliorent (le jeu complet).
+ * `v` : la version de son départ — le doute, le courage qu'on paie et les deux
+ * styles des huit familles n'existent pas dans une expédition partie avant.
  */
 function reglesDesRencontres(
   parQuestion: readonly number[],
@@ -1609,10 +1673,14 @@ function reglesDesRencontres(
   ascension: number,
   energie: readonly number[],
   ameliorees: boolean,
+  v: number,
 ): SectionDesRegles[] {
   const [a1, a2, a3] = parQuestion
   const [e1, e2, e3] = energie
   const ouverte = (regle: RegleDuCodex) => !codex || codex.regles.includes(regle)
+  const huitFamilles = v >= VERSION_DES_HUIT_FAMILLES
+  // Les styles que son expédition connaît : ceux dont les cartes de départ existent à sa version.
+  const sesStyles = STYLES.filter(s => CARTES_DE_DEPART_DU_STYLE[s].every(cle => (carteDeRencontre(cle)?.depuis ?? 0) <= v))
   const sonEnergie =
     e1 === e2 && e2 === e3
       ? `Tu en as ${e1} à chaque question.`
@@ -1629,6 +1697,16 @@ function reglesDesRencontres(
         { icone: 'check', texte: 'Réponds juste : l’adversaire perd des points. À zéro, il tombe.' },
         { icone: 'heart', texte: 'Trompe-toi : il t’attaque, et tu perds du courage. Son attaque grandit à chaque question.' },
         { icone: 'x', texte: 'Plus de courage : l’expédition s’arrête là.' },
+        // Les huit familles : le doute du Sophiste, le courage que le Téméraire paie.
+        ...(huitFamilles
+          ? [
+              {
+                icone: 'bulles' as const,
+                texte: 'Un adversaire qui doute perd autant de points à cette question, juste ou fausse, puis il ne doute plus. Tombé de son doute, il ne t’attaque pas.',
+              },
+              { icone: 'heart' as const, texte: 'Une carte qui se paie en courage ne se joue pas s’il ne t’en reste pas plus que son prix.' },
+            ]
+          : []),
       ],
     },
     {
@@ -1656,7 +1734,7 @@ function reglesDesRencontres(
               // Mesuré le 19 octobre 2026 : le joueur qui ne prend que les cartes de l'Érudit, du Flambeur ou de l'Élan va au bout bien
               // moins souvent que celui qui les mêle à des boucliers — ce que le style ne dit pas tout seul.
               { icone: 'shield' as const, texte: 'Ton style ne fait pas tout : un paquet qui ne fait qu’attaquer tombe vite. Prends aussi de quoi te protéger.' },
-              ...STYLES.map(s => ({
+              ...sesStyles.map(s => ({
                 icone: ICONE_DU_STYLE[s],
                 texte: `${FAMILLES_DE_CARTES[s].nom} — « ${FAMILLES_DE_CARTES[s].devise} » : ${(FAMILLES_DE_CARTES[s].jeu ?? '').replace(/^./, x => x.toLowerCase())}${
                   !codex.styles || codex.styles.includes(s) ? '' : ` Il s’ouvre au niveau ${niveauDuStyle(s)} d’explorateur.`
@@ -1906,14 +1984,9 @@ export function FeuilleDesRegles({
   onFermer: () => void
 }) {
   const sonEnergie = energieDesActes(energie, ascension ?? 0)
+  const version = v ?? VERSION_DES_HUIT_FAMILLES
   const sections = rencontres
-    ? reglesDesRencontres(
-        parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION],
-        codex,
-        ascension ?? 0,
-        sonEnergie,
-        (v ?? VERSION_DU_JEU_COMPLET) >= VERSION_DU_JEU_COMPLET,
-      )
+    ? reglesDesRencontres(parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex, ascension ?? 0, sonEnergie, version >= VERSION_DU_JEU_COMPLET, version)
     : reglesDesJokers()
   const ordre = debut ? [...sections.filter(s => s.cle === debut), ...sections.filter(s => s.cle !== debut)] : sections
   return (
@@ -2061,12 +2134,15 @@ export function PreparationDeLaRencontre({
  * ses lignes — le bouclier, la riposte, le pari, la victoire.
  */
 export function verdictDeLaRencontre(c: CoupDeRencontre, adversaire: string, finie: boolean): { titre: string; lignes: string[] } {
-  if (c.traversee) return { titre: 'Question passée : personne ne perd rien', lignes: ['Elle part à ton carnet.'] }
+  // Son doute (les huit familles) : ce qu'il a perdu avant le verdict, juste ou faux — compté avec ce que la réponse a brisé.
+  const doute = c.doute ?? 0
+  if (c.traversee) return { titre: 'Question passée : personne ne perd rien', lignes: [doute > 0 && `Son doute lui a coûté ${doute}`, 'Elle part à ton carnet.'].filter((x): x is string => !!x) }
   if (c.juste) {
     return {
-      titre: c.victoire ? `${adversaire} tombe !` : `Juste ! ${adversaire} perd ${c.brises}`,
+      titre: c.victoire ? `${adversaire} tombe !` : `Juste ! ${adversaire} perd ${doute + c.brises}`,
       lignes: [
-        c.victoire && `Il a perdu ${c.brises} d’un coup`,
+        c.victoire && `Il a perdu ${doute + c.brises} d’un coup`,
+        doute > 0 && `Dont ${doute} de son doute`,
         c.mise > 0 && `+${c.mise} écus gagnés avec ton pari`,
         (c.ecus ?? 0) > 0 && `+${c.ecus} écus de tes cartes`,
         (c.courage ?? 0) > 0 && `+${c.courage} de courage, grâce à tes cartes`,
@@ -2075,22 +2151,27 @@ export function verdictDeLaRencontre(c: CoupDeRencontre, adversaire: string, fin
       ].filter((x): x is string => !!x),
     }
   }
+  // Tombé de son doute avant de frapper : la riposte n'y est pour rien, l'attaque n'a pas eu lieu.
+  const tombeDuDoute = !!c.victoire && doute > 0 && c.frappe === 0 && c.brises === 0
   const titre = finie
     ? 'Raté… tu n’as plus de courage'
     : c.renaissance
       ? `Raté… Renaissance : tu renais avec ${COURAGE_DE_LA_RENAISSANCE} de courage`
-      : c.frappe === 0
-        ? 'Raté… mais il ne t’attaque pas'
-        : c.perdu === 0
-          ? 'Raté… ton bouclier a tout paré'
-          : `Raté… tu perds ${c.perdu} de courage`
+      : tombeDuDoute
+        ? `Raté… mais son doute fait tomber ${adversaire} !`
+        : c.frappe === 0
+          ? 'Raté… mais il ne t’attaque pas'
+          : c.perdu === 0
+            ? 'Raté… ton bouclier a tout paré'
+            : `Raté… tu perds ${c.perdu} de courage`
   return {
     titre,
     lignes: [
+      !tombeDuDoute && doute > 0 && `Son doute lui a coûté ${doute}`,
       c.frappe > 0 && c.absorbee > 0 && c.perdu > 0 && `Ton bouclier a paré ${c.absorbee} de son attaque de ${c.frappe}`,
       c.brises > 0 && `Riposte : ${adversaire} perd ${c.brises}`,
       c.mise < 0 && `−${-c.mise} écus : ton pari est perdu`,
-      c.victoire && `${adversaire} tombe quand même !`,
+      c.victoire && !tombeDuDoute && `${adversaire} tombe quand même !`,
     ].filter((x): x is string => !!x),
   }
 }
@@ -2104,6 +2185,9 @@ export function ceQueLaCarteAFait(cle: string): string | null {
   if (cle === 'feu-d-artifice') return 'Ta défausse revient dans ta pioche : trois cartes de plus'
   if (cle === 'horizon') return 'Ton courage te revient — et ta prochaine récompense sera vide'
   if (cle === 'reveil') return 'Deux d’énergie de plus pour cette question'
+  // Les huit familles : ce qu'il a payé de son courage pour la jouer.
+  const prix = courageDeLaCarte(cle)
+  if (prix > 0) return `« ${c.nom} » t’a coûté ${prix} de courage`
   return null
 }
 
@@ -2318,6 +2402,8 @@ export const ICONE_DU_STYLE: Readonly<Record<StyleDeJeu, IconName>> = {
   flambeur: 'ecu',
   elan: 'skip',
   metamorphe: 'shuffle',
+  sophiste: 'bulles',
+  temeraire: 'swords',
 }
 
 /** Le nom d'un style sans son article, sur sa tuile : « Rempart », « Érudit ». */
