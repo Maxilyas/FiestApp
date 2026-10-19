@@ -6,13 +6,16 @@
 // gardien vaincu ; le pari et les talismans qui attendent leur niveau ; les
 // cartes que le codex a retouchées — à leurs chiffres d'avant dans une
 // expédition d'avant. Puis les exploits — un but précis, une récompense
-// précise —, relevés dans le pli, gardés par le bilan. Par les routes — la
+// précise —, relevés dans le pli, gardés par le bilan ; puis les objets — les
+// fioles, une règle de son codex, et les dos de cartes. Par les routes — la
 // renommée et les exploits relus des bilans, rattrapés, le départ qui fige
-// son codex — : `expedition-codex.test.ts`.
+// son codex et prend son dos — : `expedition-codex.test.ts` ; une fiole
+// achetée et bue : `expedition-rencontres-routes.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   BONNES_D_AFFILEE,
+  DOS_DES_CARTES,
   ECHELLE,
   EXPLOITS,
   NIVEAUX,
@@ -21,12 +24,14 @@ import {
   RENOMMEE,
   VERSION_DU_BILAN,
   codexDuNiveau,
+  dosOuverts,
   ecrireLeBilan,
   lireLeBilan,
   niveauDe,
   niveauDeLaRegle,
   offreDuCodex,
   ouvertureDe,
+  ouvertureDuDos,
   progressionDe,
   regleOuverte,
   renommeeDe,
@@ -35,20 +40,32 @@ import {
 import {
   CARTES_DES_RENCONTRES,
   CARTES_PAR_OFFRE,
+  CLAIRVOYANCE_SUR_LA_QUESTION,
+  COURAGE_D_UNE_FIOLE,
+  COURAGE_MAX,
+  ENERGIE_D_UNE_FIOLE,
+  FIOLES,
+  FIOLES_MAX,
+  INSPIRATION_PAR_QUESTION,
   RARETES_D_UNE_ELITE,
   RARETES_D_UNE_RENCONTRE,
   VERSION_DU_CODEX,
   carteALaVersion,
   carteDeRencontre,
   chiffresApresLaCarte,
+  effaceesDuTour,
   enPlusDeLaBibliotheque,
   refusDeLaCarte,
+  type CleDeFiole,
   type ContexteDUneCarte,
 } from '../../shared/rencontres'
 import {
   GARDIEN,
+  PRIX_DE_L_ECHOPPE,
   bilanDuPli,
   pliDeLExpedition,
+  refusDeLAchat,
+  refusDeLaFiole,
   refusDeLaMise,
   vueDeLaRencontre,
   type CarteDUnActe,
@@ -134,7 +151,7 @@ test('le codex d’un niveau : ses cartes dans l’ordre du catalogue, la carte 
   )
   assert.deepEqual(un.regles, [])
   const cinq = codexDuNiveau(5, ['lg:phenix'])
-  assert.deepEqual(cinq.regles, ['pari', 'talismans', 'fetiche'])
+  assert.deepEqual(cinq.regles, ['pari', 'fioles', 'talismans', 'fetiche'])
   assert.ok(cinq.cartes.includes('renaissance') && cinq.cartes.includes('plume'), 'la carte du Phénix qu’il a, et Plume du niveau 5')
   assert.ok(!cinq.cartes.includes('sursis') && !cinq.cartes.includes('sagesse'), 'ni Sursis du niveau 6, ni la carte de la Chouette qu’il n’a pas')
   // Au dernier niveau, tout ce que les niveaux ouvrent ; les cartes des exploits attendent leur exploit.
@@ -526,4 +543,164 @@ test(`les exploits se relèvent aussi aux règles d’avant : une expédition au
   assert.deepEqual(e.exploits, ['d-affilee'], 'ni pari ni rencontre aux règles d’avant')
   const exploits: readonly CleDExploit[] = bilanDuPli(e).exploits ?? []
   assert.deepEqual(exploits, ['d-affilee'])
+})
+
+// ── Les objets : les fioles et les dos ──────────────────────────────────────
+
+/** Le premier acte jusqu'à son coffre : la rencontre d'en bas gagnée, son offre laissée. */
+function jusquAuCoffre(j: Journal) {
+  j.avancer('e00')
+  j.gagner()
+  j.prendre()
+  return j.avancer('e10')
+}
+
+/** Un départ au niveau 3, d'une graine où le coffre du premier acte cache cette fiole. */
+function aSaFiole(prefixe: string, fiole: CleDeFiole): Journal {
+  for (let k = 0; k < 300; k++) {
+    const j = new Journal(depart(`${prefixe}:${k}`, 3))
+    if (jusquAuCoffre(j).offre?.fiole === fiole) return j
+  }
+  throw new Error(`aucune graine ne cache ${fiole} (${prefixe})`)
+}
+
+/** La fiole du coffre prise, puis la source, puis la rencontre de l'étage 3 : elle attend sa première question, qu'il prépare. */
+function jusquALaRencontre(j: Journal, fiole: CleDeFiole) {
+  j.geste({ quoi: 'prendre', jokers: [], fiole })
+  j.avancer('e20')
+  j.gagner()
+  return j.avancer('e30')
+}
+
+/** La carte faite à la main, une échoppe à la place de sa source. */
+function carteAvecEchoppe(): CarteDUnActe {
+  const c = carte()
+  return { ...c, escales: c.escales.map(x => (x.id === 'e20' ? { id: x.id, etage: x.etage, colonne: x.colonne, sorte: 'echoppe' as const, suite: x.suite } : x)) }
+}
+
+test('les fioles s’ouvrent au niveau 3 : une expédition d’avant le codex, ou partie avant elles, n’en a pas', () => {
+  assert.equal(niveauDeLaRegle('fioles'), 3)
+  assert.equal(regleOuverte({ v: 6 }, 'fioles'), false, 'une expédition d’avant le codex finit à ses règles d’alors')
+  assert.equal(regleOuverte({ v: 6 }, 'talismans'), true)
+  assert.equal(regleOuverte({ v: VERSION_DU_CODEX, codex: codexDuNiveau(2, []) }, 'fioles'), false)
+  assert.equal(regleOuverte({ v: VERSION_DU_CODEX, codex: codexDuNiveau(3, []) }, 'fioles'), true)
+  assert.equal(jusquAuCoffre(new Journal(depart('fioles:niveau-2', 2))).offre?.fiole, undefined, 'au niveau 2, son coffre n’en cache pas')
+  // Partie au niveau 5 avant les fioles : son codex figé n'en avait pas la règle — elle finit sans.
+  const avant = new Journal({ ...depart('fioles:avant', 5), codex: { ...codexDuNiveau(5, []), regles: ['pari', 'talismans', 'fetiche'], renommee: NIVEAUX[4] } })
+  const e = jusquAuCoffre(avant)
+  assert.equal(e.offre?.fiole, undefined)
+  assert.deepEqual(avant.geste({ quoi: 'boire', fiole: 'courage' }).fioles, [], 'ni à boire')
+})
+
+test('un coffre cache une fiole, à prendre à la place d’une carte — de son propre hasard : ses cartes ne bougent pas', () => {
+  const j = new Journal(depart('fioles:coffre', 3))
+  let e = jusquAuCoffre(j)
+  const fiole = e.offre!.fiole!
+  assert.ok(FIOLES.some(f => f.cle === fiole), fiole)
+  assert.equal(e.offre!.jokers.length, CARTES_PAR_OFFRE, 'et ses trois cartes')
+  // Le même départ sans la règle : les mêmes cartes — la fiole a son propre hasard, elle ne décale aucun tirage.
+  const sans = new Journal({ ...depart('fioles:coffre', 3), codex: { ...codexDuNiveau(3, []), regles: ['pari'], renommee: NIVEAUX[2] } })
+  assert.deepEqual(jusquAuCoffre(sans).offre!.jokers, e.offre!.jokers)
+  const { paquet, ecus } = e
+  e = j.geste({ quoi: 'prendre', jokers: [], fiole })
+  assert.deepEqual(e.fioles, [fiole])
+  assert.deepEqual([e.paquet, e.ecus], [paquet, ecus], 'à la place d’une carte — et un coffre ouvert ne paie pas ses écus')
+})
+
+test(`l’échoppe vend sa fiole, une fois, ${PRIX_DE_L_ECHOPPE.fiole} écus ; ${FIOLES_MAX} places au plus — la troisième attend qu’il en boive une`, () => {
+  const j = new Journal({ ...depart('fioles:echoppe', 3), cartes: [carteAvecEchoppe(), carteAvecEchoppe(), carteAvecEchoppe()] })
+  let e = jusquAuCoffre(j)
+  const premiere = e.offre!.fiole!
+  j.geste({ quoi: 'prendre', jokers: [], fiole: premiere })
+  e = j.avancer('e20')
+  const vendue = e.echoppe!.fiole!
+  assert.ok(FIOLES.some(f => f.cle === vendue), vendue)
+  const ecus = e.ecus
+  assert.ok(ecus >= PRIX_DE_L_ECHOPPE.fiole, `${ecus} écus`)
+  e = j.geste({ quoi: 'acheter', article: 'fiole' })
+  assert.deepEqual([e.fioles, e.ecus], [[premiere, vendue], ecus - PRIX_DE_L_ECHOPPE.fiole])
+  assert.equal(refusDeLAchat(e, { article: 'fiole' }), 'Déjà achetée')
+  assert.equal(refusDeLAchat({ ...e, echoppe: { ...e.echoppe!, achats: [] } }, { article: 'fiole' }), `Tes ${FIOLES_MAX} places de fiole sont prises : bois-en une d’abord`)
+  // Le coffre de l'acte 2 en cache une autre : son sac plein, elle reste au coffre.
+  j.avancer('e30')
+  j.gagner()
+  j.prendre()
+  j.avancer('cg')
+  j.geste({ quoi: 'camper' })
+  j.avancer(GARDIEN)
+  j.gagner()
+  j.prendre()
+  e = jusquAuCoffre(j)
+  assert.equal(e.acte, 1)
+  const troisieme = e.offre!.fiole!
+  e = j.geste({ quoi: 'prendre', jokers: [], fiole: troisieme })
+  assert.deepEqual(e.fioles, [premiere, vendue], 'deux places : la troisième ne se prend pas')
+})
+
+test('boire du courage quand il en manque — même la question sous les yeux, sa position portée ; au plein, elle reste au sac', () => {
+  const j = aSaFiole('fioles:courage', 'courage')
+  let e = j.geste({ quoi: 'prendre', jokers: [], fiole: 'courage' })
+  assert.equal(refusDeLaFiole(e, 'courage', j.questions), 'Ton courage est au plus haut')
+  assert.deepEqual(j.geste({ quoi: 'boire', fiole: 'courage' }).fioles, ['courage'], 'refusée, le pli l’ignore')
+  j.avancer('e20')
+  j.gagner()
+  j.avancer('e30')
+  j.repondre(false)
+  e = j.repondre(false)
+  const reste = e.courage!
+  assert.ok(reste + COURAGE_D_UNE_FIOLE < COURAGE_MAX, `${reste} de courage`)
+  e = j.geste({ quoi: 'boire', fiole: 'courage' })
+  assert.deepEqual([e.courage, e.fioles], [reste, ['courage']], 'une question attend : sans sa position, le geste ne se joue pas par-dessus')
+  e = j.geste({ quoi: 'boire', fiole: 'courage', position: e.enAttente! })
+  assert.deepEqual([e.courage, e.fioles], [reste + COURAGE_D_UNE_FIOLE, []])
+})
+
+test('boire de l’énergie en rencontre : pour la question en cours seulement — sur le plan, elle attend', () => {
+  const j = aSaFiole('fioles:energie', 'energie')
+  let e = j.geste({ quoi: 'prendre', jokers: [], fiole: 'energie' })
+  assert.equal(refusDeLaFiole(e, 'energie', j.questions), 'Elle se boit en rencontre : son énergie ne dure qu’une question')
+  j.avancer('e20')
+  j.gagner()
+  e = j.avancer('e30')
+  assert.equal(e.rencontre?.tour.phase, 'preparation')
+  e = j.geste({ quoi: 'boire', fiole: 'energie', position: e.enAttente! })
+  assert.deepEqual([e.rencontre!.tour.inspiration, e.fioles], [INSPIRATION_PAR_QUESTION + ENERGIE_D_UNE_FIOLE, []])
+  e = j.repondre(true)
+  assert.ok(e.rencontre, 'il tient encore')
+  assert.equal(e.rencontre!.tour.inspiration, INSPIRATION_PAR_QUESTION, 'la question suivante repart de la sienne')
+})
+
+test('boire la clairvoyance, la question sous les yeux : une mauvaise réponse effacée, comptée avec celles des cartes — ni sur un vrai ou faux, ni plus de deux sur quatre', () => {
+  const j = aSaFiole('fioles:clairvoyance', 'clairvoyance')
+  let e = jusquALaRencontre(j, 'clairvoyance')
+  assert.equal(refusDeLaFiole(e, 'clairvoyance', j.questions), 'Elle se boit la question sous les yeux', 'en préparation, la question est cachée')
+  e = j.voir()
+  assert.equal(refusDeLaFiole(e, 'clairvoyance', j.questions), null)
+  const vraiFaux = j.questions.map((q, i) => (i === e.enAttente ? { ...q, reponses: 2 } : q))
+  assert.equal(refusDeLaFiole(e, 'clairvoyance', vraiFaux), 'Pas sur un vrai ou faux : elle répondrait à ta place')
+  e = j.geste({ quoi: 'boire', fiole: 'clairvoyance', position: e.enAttente! })
+  const t = e.rencontre!.tour
+  assert.deepEqual([t.surLaQuestion, e.fioles], [[CLAIRVOYANCE_SUR_LA_QUESTION], []])
+  assert.equal(effaceesDuTour(t.surLaQuestion, e.rencontre!.pouvoirs, { reponses: 4 }), 1)
+  assert.equal(vueDeLaRencontre(j.depart, e, j.questions)!.effacees, 1, 'la page le sait ; le serveur seul dit laquelle')
+  // Deux effacées sur quatre : il n'en reste que deux, une de plus répondrait à sa place.
+  const deux = { ...e, fioles: ['clairvoyance' as const], rencontre: { ...e.rencontre!, tour: { ...t, surLaQuestion: [...t.surLaQuestion, 'coup-d-oeil'] } } }
+  assert.equal(refusDeLaFiole(deux, 'clairvoyance', j.questions), 'Il ne reste que deux réponses : plus rien à effacer')
+})
+
+test('les dos de cartes : l’ordinaire d’office, l’étoilé au niveau 6, le doré par l’exploit du gardien — chacun une fois', () => {
+  assert.deepEqual(
+    DOS_DES_CARTES.map(d => d.cle),
+    ['ordinaire', 'etoile', 'dore'],
+    'du plus commun au plus rare : un départ sans choix prend le dernier qu’il a',
+  )
+  assert.deepEqual(
+    DOS_DES_CARTES.map(d => ouvertureDuDos(d.cle)),
+    [{ niveau: 1 }, { niveau: 6 }, { exploit: 'gardien-intact' }],
+  )
+  for (const d of DOS_DES_CARTES.slice(1)) assert.equal(ECHELLE.filter(m => m.dos === d.cle).length + EXPLOITS.filter(x => x.dos === d.cle).length, 1, d.cle)
+  assert.deepEqual(dosOuverts(5, []), ['ordinaire'])
+  assert.deepEqual(dosOuverts(6, []), ['ordinaire', 'etoile'])
+  assert.deepEqual(dosOuverts(1, ['gardien-intact']), ['ordinaire', 'dore'])
+  assert.deepEqual(codexDuNiveau(NIVEAU_MAX, [], ['gardien-intact']).dos, ['ordinaire', 'etoile', 'dore'], 'le codex les dit, le départ en prend un')
 })

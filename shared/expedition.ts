@@ -44,12 +44,15 @@ import {
   type BilanDUneExpedition,
   type CleDExploit,
   type CodexDuDepart,
+  type DosDuPaquet,
   type RegleDuCodex,
 } from './codex'
 import {
+  CLAIRVOYANCE_SUR_LA_QUESTION,
   COURAGE_A_L_ECHOPPE,
   COURAGE_D_UN_CAMPEMENT,
   COURAGE_D_UN_PIEGE,
+  COURAGE_D_UNE_FIOLE,
   COURAGE_D_UNE_SOURCE,
   COURAGE_DE_LA_RENAISSANCE,
   COURAGE_DE_L_AUBE,
@@ -57,6 +60,9 @@ import {
   COURAGE_MAX,
   COUT_DES_ABYSSES,
   ECUS_AU_DEPART,
+  ENERGIE_D_UNE_FIOLE,
+  FIOLES,
+  FIOLES_MAX,
   INSPIRATION_PAR_QUESTION,
   MISES,
   SAVOIR_DES_MARCHES,
@@ -76,6 +82,7 @@ import {
   enPlusDeLaBibliotheque,
   estDeRoute,
   famillesDeLEquipee,
+  fioleDe,
   frappeDUneErreur,
   frappeDe,
   frappeDeLaQuestion,
@@ -87,6 +94,7 @@ import {
   refusDeLaCarte,
   sceauxDe,
   type AnnonceDuTour,
+  type CleDeFiole,
   type ContexteDUneCarte,
   type CoupDeRencontre,
   type QuestionDuTour,
@@ -528,16 +536,18 @@ export const ECUS_AU_PREMIER_MOT = 3
 /**
  * Ce que vend une échoppe — ou le marchand de l'inconnu —, et à quel prix :
  * une vie, l'un de ses trois jokers (selon sa rareté), son talisman, un
- * joker retiré de son paquet. Chaque article une fois par échoppe. Des choix
- * de produit.
+ * joker retiré de son paquet ; au codex, sa fiole — entre une commune et une
+ * rare : elle ne sert qu'une fois, mais quand on veut. Chaque article une
+ * fois par échoppe. Des choix de produit.
  */
-export const PRIX_DE_L_ECHOPPE: Readonly<{ vie: number; talisman: number; retirer: number; commun: number; rare: number; maudit: number }> = {
+export const PRIX_DE_L_ECHOPPE: Readonly<{ vie: number; talisman: number; retirer: number; commun: number; rare: number; maudit: number; fiole: number }> = {
   vie: 40,
   commun: 20,
   rare: 35,
   maudit: 15,
   talisman: 50,
   retirer: 15,
+  fiole: 25,
 }
 
 /** Une offre — un coffre, une élite trouvée — propose un talisman de plus, de temps en temps : ils sont rares. */
@@ -610,8 +620,17 @@ export function talismanDeLOffre(graine: string, rang: number, tenus: readonly s
   return libres.length > 0 ? libres[Math.floor(r() * libres.length)].cle : null
 }
 
-/** Ce qu'il achète à l'échoppe : une vie, un de ses jokers, son talisman, ou un joker retiré de son paquet. */
-export type ArticleDeLEchoppe = 'vie' | 'joker' | 'talisman' | 'retirer'
+/**
+ * La fiole d'un coffre ou d'une échoppe (le codex, au niveau qui les ouvre),
+ * l'une des trois à parts égales : du hasard de la graine et du rang de
+ * l'offre, à part de ses cartes — elle ne décale aucun autre tirage.
+ */
+export function fioleDeLOffre(graine: string, rang: number): CleDeFiole {
+  return FIOLES[Math.floor(hasardDe(`${graine}:fiole:${rang}`)() * FIOLES.length)].cle
+}
+
+/** Ce qu'il achète à l'échoppe : une vie, un de ses jokers, son talisman, un joker retiré de son paquet — ou sa fiole (le codex). */
+export type ArticleDeLEchoppe = 'vie' | 'joker' | 'talisman' | 'retirer' | 'fiole'
 
 /** Le prix d'un article : un joker selon sa rareté. */
 export function prixDeLArticle(article: ArticleDeLEchoppe, cle?: string): number {
@@ -836,6 +855,12 @@ export interface DepartDExpedition {
    * expédition partie.
    */
   codex?: CodexDuDepart
+  /**
+   * Le dos de son paquet (le codex) : choisi au départ parmi ceux qu'il a —
+   * sinon le plus rare —, gardé avec lui. Le pli ne le lit pas : la page
+   * l'habille. Absent d'un départ d'avant les dos.
+   */
+  dos?: DosDuPaquet
 }
 
 /**
@@ -847,8 +872,14 @@ export interface DepartDExpedition {
 export type GesteDExpedition =
   | { quoi: 'avancer'; vers: string }
   | { quoi: 'jouer'; joker: string; position?: number; categorie?: string; montre?: number }
-  | { quoi: 'prendre'; jokers: string[]; talisman?: string }
+  /** Une offre prise : ses cartes, et son talisman ou sa fiole (le codex), chacun à la place d'une carte. */
+  | { quoi: 'prendre'; jokers: string[]; talisman?: string; fiole?: CleDeFiole }
   | { quoi: 'camper'; retirer?: string }
+  /**
+   * Une fiole bue (le codex) : quand il veut — pendant une question, elle
+   * porte sa position, comme une carte jouée sur elle.
+   */
+  | { quoi: 'boire'; fiole: CleDeFiole; position?: number }
   /**
    * À l'échoppe (v4) : un article, et le joker qu'il vise — celui de l'étal,
    * ou celui qu'on retire. `prix` : ce qu'il a payé, que le serveur écrit —
@@ -1005,6 +1036,8 @@ export interface EtatDeLExpedition {
   affilee: number
   /** Le pari est ouvert (v7 : au niveau qu'il faut ; toujours avant). */
   pari: boolean
+  /** Les fioles qu'il porte (le codex), `FIOLES_MAX` au plus, dans l'ordre où il les a eues. */
+  fioles: CleDeFiole[]
 }
 
 /** Une offre de jokers — un coffre, une élite trouvée. */
@@ -1017,12 +1050,15 @@ export interface OffreDeJokers {
   gardien?: true
   /** Un talisman, à prendre à la place d'un joker (v4). */
   talisman?: string
+  /** La fiole d'un coffre (le codex), à prendre à la place d'une carte — s'il lui reste une place pour elle. */
+  fiole?: CleDeFiole
 }
 
-/** Une échoppe ouverte : ses trois jokers, son talisman, et ce qu'il y a déjà acheté — `vie`, `talisman`, `retirer` ou la clé d'un joker. */
+/** Une échoppe ouverte : ses trois jokers, son talisman — sa fiole, au codex —, et ce qu'il y a déjà acheté : `vie`, `talisman`, `retirer`, `fiole` ou la clé d'un joker. */
 export interface EchoppeOuverte {
   jokers: string[]
   talisman: string | null
+  fiole?: CleDeFiole
   achats: string[]
 }
 
@@ -1122,10 +1158,12 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     exploits: [],
     affilee: 0,
     pari: regleOuverte(depart, 'pari'),
+    fioles: [],
   }
-  // Le codex (v7) : ses offres ne tirent que les cartes qu'il a ouvertes, et les talismans attendent leur niveau.
+  // Le codex (v7) : ses offres ne tirent que les cartes qu'il a ouvertes, et les talismans attendent leur niveau — les fioles aussi.
   const avecLeCodex = depart.v >= VERSION_DU_CODEX && !!depart.codex
   const talismans = regleOuverte(depart, 'talismans')
+  const fioles = regleOuverte(depart, 'fioles')
   const fini = () => e.issue !== 'en-route' && e.issue !== 'au-bout'
   const pose = (cle: string) => e.poses.includes(cle)
   const oter = (liste: string[], cle: string) => {
@@ -1221,7 +1259,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   /**
    * Une offre de cartes (v5) — une rencontre gagnée, une élite, un coffre ; et,
    * depuis le codex (v7), le coffre d'un gardien vaincu, qui ouvre sur une
-   * légendaire — ; vide après L'horizon.
+   * légendaire — ; vide après L'horizon. Un coffre, au niveau des fioles, en
+   * cache une : on les trouve là, et à l'échoppe.
    */
   const offrirDesCartes = (quelle: 'rencontre' | 'elite' | 'coffre' | 'gardien') => {
     if (e.recompenseVide) {
@@ -1240,6 +1279,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       ...(quelle === 'coffre' && { coffre: true as const }),
       ...(quelle === 'gardien' && { gardien: true as const }),
       ...(talisman && { talisman }),
+      ...(quelle === 'coffre' && fioles && { fiole: fioleDeLOffre(depart.graine, rang) }),
     }
   }
   /** Les écus d'une rencontre gagnée : ce que la carte annonçait de l'escale — doublés par le maillot jaune sur le sport. */
@@ -1459,7 +1499,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       ...(talisman && { talisman }),
     }
   }
-  /** Une échoppe — ou le marchand de l'inconnu — : trois jokers, un talisman s'il en reste, du hasard de son rang d'offre. */
+  /** Une échoppe — ou le marchand de l'inconnu — : trois jokers, un talisman s'il en reste, une fiole au codex, du hasard de son rang d'offre. */
   const ouvrirLEchoppe = () => {
     const rang = e.offres++
     const poids = raretesDeLOffre(depart.v, e.acte, 'elite')
@@ -1468,7 +1508,12 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       : avecRencontres
         ? offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), poids, depart.v >= 6)
         : offreDeJokers(depart.graine, rang, depart.v)
-    e.echoppe = { jokers, talisman: talismans ? talismanDeLOffre(depart.graine, rang, e.talismans, true) : null, achats: [] }
+    e.echoppe = {
+      jokers,
+      talisman: talismans ? talismanDeLOffre(depart.graine, rang, e.talismans, true) : null,
+      ...(fioles && { fiole: fioleDeLOffre(depart.graine, rang) }),
+      achats: [],
+    }
   }
   /** Une vie de moins hors d'une question — un piège — : Renaissance relève, sinon l'expédition s'arrête là. */
   const blesser = () => {
@@ -1785,14 +1830,19 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   const prendre = (g: Extract<GesteDExpedition, { quoi: 'prendre' }>) => {
     if (!e.offre) return
     const offre = e.offre
-    // Le talisman prend la place d'un joker.
-    const talisman = offre.talisman !== undefined && g.talisman === offre.talisman && offre.aPrendre > 0 ? offre.talisman : null
-    const pris = [...new Set(g.jokers)].filter(j => offre.jokers.includes(j)).slice(0, offre.aPrendre - (talisman ? 1 : 0))
+    // Le talisman prend la place d'un joker ; la fiole aussi, s'il lui reste une place pour elle.
+    let places = offre.aPrendre
+    const talisman = offre.talisman !== undefined && g.talisman === offre.talisman && places > 0 ? offre.talisman : null
+    if (talisman) places--
+    const fiole = offre.fiole !== undefined && g.fiole === offre.fiole && places > 0 && e.fioles.length < FIOLES_MAX ? offre.fiole : null
+    if (fiole) places--
+    const pris = [...new Set(g.jokers)].filter(j => offre.jokers.includes(j)).slice(0, places)
     e.paquet.push(...pris)
     e.paquet.sort()
     if (talisman && !e.talismans.includes(talisman)) e.talismans.push(talisman)
+    if (fiole) e.fioles.push(fiole)
     // Un coffre qu'on passe sans rien prendre rapporte ses écus ; vide, il n'avait rien à laisser.
-    if (offre.coffre && pris.length === 0 && !talisman && offre.jokers.length > 0) e.ecus += ECUS_D_UN_COFFRE_LAISSE
+    if (offre.coffre && pris.length === 0 && !talisman && !fiole && offre.jokers.length > 0) e.ecus += ECUS_D_UN_COFFRE_LAISSE
     e.offre = null
   }
 
@@ -1814,10 +1864,26 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     } else if (g.article === 'talisman') {
       e.talismans.push(echoppe.talisman!)
       echoppe.achats.push('talisman')
+    } else if (g.article === 'fiole') {
+      e.fioles.push(echoppe.fiole!)
+      echoppe.achats.push('fiole')
     } else {
       retirer(g.joker!)
       echoppe.achats.push('retirer')
     }
+  }
+
+  /**
+   * Une fiole bue (le codex) : elle quitte son sac et fait ce qu'elle dit —
+   * du courage, de l'énergie pour la question en cours, une mauvaise réponse
+   * effacée de celle qu'il a sous les yeux.
+   */
+  const boire = (g: Extract<GesteDExpedition, { quoi: 'boire' }>) => {
+    if (refusDeLaFiole(e, g.fiole, questions) !== null) return
+    oter(e.fioles, g.fiole)
+    if (g.fiole === 'courage') e.courage = Math.min(COURAGE_MAX, e.courage! + COURAGE_D_UNE_FIOLE)
+    else if (g.fiole === 'energie') e.rencontre!.tour.inspiration += ENERGIE_D_UNE_FIOLE
+    else e.rencontre!.tour.surLaQuestion.push(CLAIRVOYANCE_SUR_LA_QUESTION)
   }
 
   /** Un joker retiré — au campement, à l'échoppe —, d'où qu'il soit ; faux s'il n'est nulle part. */
@@ -1837,8 +1903,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     e.campement = false
   }
 
-  /** Un joker — une carte, un « voir » en rencontre — qui vise la question qui attend : il se joue avant qu'elle soit jugée. */
-  const vise = (g: GesteDExpedition) => (g.quoi === 'jouer' || g.quoi === 'voir') && g.position !== undefined && (g.position === e.enAttente || g.position === e.autre)
+  /** Un joker — une carte, un « voir » en rencontre, une fiole bue — qui vise la question qui attend : il se joue avant qu'elle soit jugée. */
+  const vise = (g: GesteDExpedition) =>
+    (g.quoi === 'jouer' || g.quoi === 'voir' || g.quoi === 'boire') && g.position !== undefined && (g.position === e.enAttente || g.position === e.autre)
   /**
    * Juge ce qui a sa réponse — jusqu'à la question que vise le geste `g` : la
    * suivante s'ouvre, et le joker joué sur elle se joue avant qu'elle soit
@@ -1867,6 +1934,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       if (avecEcus) acheter(g)
     } else if (g.quoi === 'voir') {
       if (avecRencontres) voir(g)
+    } else if (g.quoi === 'boire') {
+      if (fioles) boire(g)
     } else if (g.quoi === 'garder' && e.issue === 'au-bout' && depart.gardiens.includes(g.legendaire)) {
       e.issue = 'legendaire'
       e.garde = g.legendaire
@@ -2242,7 +2311,7 @@ function refusSurLaCarte(
  * retiré, de son paquet, de sa défausse ou de sa main ; et de quoi payer.
  */
 export function refusDeLAchat(
-  e: Pick<EtatDeLExpedition, 'issue' | 'echoppe' | 'ecus' | 'vies' | 'paquet' | 'defausse' | 'main' | 'talismans'> & { courage?: number | null },
+  e: Pick<EtatDeLExpedition, 'issue' | 'echoppe' | 'ecus' | 'vies' | 'paquet' | 'defausse' | 'main' | 'talismans'> & { courage?: number | null; fioles?: readonly string[] },
   g: { article: ArticleDeLEchoppe; joker?: string },
   /** Le prix qu'il paie : celui du barème, sauf pour un achat que le journal garde à son prix. */
   prix = prixDeLArticle(g.article, g.joker),
@@ -2263,11 +2332,42 @@ export function refusDeLAchat(
   } else if (g.article === 'talisman') {
     if (!echoppe.talisman) return 'Plus de talisman à vendre'
     if (echoppe.achats.includes('talisman') || e.talismans.includes(echoppe.talisman)) return 'Déjà acheté'
+  } else if (g.article === 'fiole') {
+    if (!echoppe.fiole) return 'Pas de fiole à vendre ici'
+    if (echoppe.achats.includes('fiole')) return 'Déjà achetée'
+    if ((e.fioles?.length ?? 0) >= FIOLES_MAX) return `Tes ${FIOLES_MAX} places de fiole sont prises : bois-en une d’abord`
   } else {
     if (echoppe.achats.includes('retirer')) return v5 ? 'Une carte retirée par échoppe' : 'Un joker retiré par échoppe'
     if (!g.joker || ![...e.paquet, ...e.defausse, ...e.main].includes(g.joker)) return v5 ? 'Cette carte n’est pas dans ton paquet' : 'Ce joker n’est pas dans ton paquet'
   }
   if (e.ecus < prix) return `Il te manque ${prix - e.ecus} écu${prix - e.ecus > 1 ? 's' : ''}`
+  return null
+}
+
+/**
+ * Pourquoi cette fiole ne se boit pas maintenant (le codex) — null : elle se
+ * boit. Le courage, partout tant qu'il en manque ; l'énergie, en rencontre ;
+ * la clairvoyance, la question sous les yeux, s'il reste à effacer — comme un
+ * Coup d'œil : jamais sur un vrai ou faux, elle répondrait à sa place. Le pli
+ * l'ignore, le serveur la refuse, la page le dit.
+ */
+export function refusDeLaFiole(
+  e: Pick<EtatDeLExpedition, 'issue' | 'fioles' | 'courage' | 'rencontre' | 'enAttente'>,
+  cle: string,
+  questions: readonly QuestionPosee[],
+): string | null {
+  const fiole = fioleDe(cle)
+  if (!fiole) return 'Cette fiole ne se lit pas : recharge la page'
+  if (e.issue !== 'en-route') return 'L’expédition ne se joue plus'
+  if (!e.fioles.includes(fiole.cle)) return 'Cette fiole n’est plus dans ton sac : recharge la page'
+  if (fiole.cle === 'courage') return e.courage !== null && e.courage >= COURAGE_MAX ? 'Ton courage est au plus haut' : null
+  const r = e.rencontre
+  if (fiole.cle === 'energie') return r ? null : 'Elle se boit en rencontre : son énergie ne dure qu’une question'
+  if (!r || r.tour.phase !== 'question' || e.enAttente === null) return 'Elle se boit la question sous les yeux'
+  const q = questions[e.enAttente]
+  const reponses = q?.reponses ?? 4
+  if (reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
+  if (effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q?.datee }) >= reponses - 2) return 'Il ne reste que deux réponses : plus rien à effacer'
   return null
 }
 
@@ -2385,6 +2485,12 @@ export interface VueDeLExpedition {
    * au départ (`CartesEnJeu.codex.exploits`).
    */
   exploits?: CleDExploit[]
+  /**
+   * Ses fioles (le codex, au niveau qui les ouvre) : celles qu'il porte, et
+   * pourquoi chacune ne se boit pas maintenant — null : elle se boit
+   * (`refusDeLaFiole`). Absentes d'une expédition sans fioles.
+   */
+  fioles?: { tenues: CleDeFiole[]; refus: Partial<Record<CleDeFiole, string | null>> }
 }
 
 /** Les cartes d'une expédition en rencontres (v5), telles que la page les voit hors d'une rencontre. */
@@ -2407,6 +2513,8 @@ export interface CartesEnJeu {
    * le dos doré habille son paquet ; absents d'un départ d'avant les exploits.
    */
   codex?: { niveau: number; regles: RegleDuCodex[]; renommee?: number; exploits?: CleDExploit[] }
+  /** Le dos de son paquet, choisi au départ (`DepartDExpedition.dos`) ; absent d'un départ d'avant les dos. */
+  dos?: DosDuPaquet
 }
 
 /**
@@ -2414,7 +2522,8 @@ export interface CartesEnJeu {
  * de toutes ses expéditions finies — perdues et abandonnées comprises —, son
  * niveau d'explorateur, et ce qu'il ouvre — les cartes, celles des exploits
  * qu'il a faits et des légendaires qu'il a comprises, et les règles —, ses
- * exploits. Son départ le figera tel quel.
+ * exploits. Son départ le figera tel quel. Les dos de cartes qu'il a : le
+ * départ en prend un.
  */
 export interface CodexDeLaPage {
   renommee: number
@@ -2422,6 +2531,7 @@ export interface CodexDeLaPage {
   cartes: string[]
   regles: RegleDuCodex[]
   exploits: CleDExploit[]
+  dos: DosDuPaquet[]
 }
 
 /** Ce que la page de l'expédition lit en arrivant. */

@@ -11,9 +11,10 @@
 // quoi un joueur qui tombe à l'acte 1 resterait toujours au même niveau —, de
 // ce qu'elle a fait : ses escales, ses adversaires, ses élites, ses gardiens,
 // le bout. Elle fait le niveau d'explorateur ; chaque niveau ouvre des cartes,
-// les premiers des règles — la première expédition n'a ni pari, ni talisman,
-// ni catégorie fétiche. Un légendaire qu'on a ouvre sa carte ; un exploit — un
-// but précis, fait une fois — la sienne, ou le dos doré du paquet.
+// les premiers des règles — la première expédition n'a ni pari, ni fiole, ni
+// talisman, ni catégorie fétiche. Un légendaire qu'on a ouvre sa carte ; un
+// exploit — un but précis, fait une fois — la sienne, ou le dos doré du
+// paquet ; le niveau 6, le dos étoilé.
 //
 // Pur. Ce qu'une expédition a fait se compte de son pli (`bilanDuPli`,
 // `shared/expedition.ts`) — invariant 14 : la renommée d'une expédition finie
@@ -43,8 +44,8 @@ export interface Exploit {
   but: string
   /** La carte qu'il ouvre au codex — hors de l'échelle : elle ne s'ouvre que par lui. */
   carte?: string
-  /** Sans carte : le dos doré de son paquet. */
-  dos?: 'dore'
+  /** Sans carte : un dos pour son paquet — le doré. */
+  dos?: DosDuPaquet
 }
 
 /** Le pari qu'il faut gagner : le plus gros (`MISES`) — doublé par Doubler la mise, un pari de 20 y suffit. */
@@ -176,13 +177,20 @@ export function progressionDe(renommee: number): { niveau: number; depuis: numbe
 }
 
 /** Les règles qu'un niveau ouvre : la première expédition n'a que des cartes, l'énergie et le courage. */
-export type RegleDuCodex = 'pari' | 'talismans' | 'fetiche'
+export type RegleDuCodex = 'pari' | 'fioles' | 'talismans' | 'fetiche'
 
-/** Ce qu'un niveau ouvre : des cartes, et pour certains une règle. */
+/**
+ * Les règles d'avant le codex : une expédition partie sans lui (v6 et moins)
+ * les a toutes. Les fioles sont venues après — elle n'en a pas.
+ */
+const REGLES_D_AVANT_LE_CODEX: readonly RegleDuCodex[] = ['pari', 'talismans', 'fetiche']
+
+/** Ce qu'un niveau ouvre : des cartes, et pour certains une règle, ou un dos pour son paquet. */
 export interface MarcheDuCodex {
   niveau: number
   cartes: readonly string[]
   regle?: RegleDuCodex
+  dos?: DosDuPaquet
 }
 
 /**
@@ -195,15 +203,18 @@ export interface MarcheDuCodex {
  * menait le joueur moyen au bout une fois sur deux, plus qu'avec tout le
  * codex (`calibrage-rencontres.ts`, le 18 octobre 2026). Banco, Lancée et
  * Échauffement n'y sont pas : leur exploit les ouvre (`EXPLOITS`). Toutes les
- * autres cartes sans légendaire y sont, une fois (`codex.test.ts`).
+ * autres cartes sans légendaire y sont, une fois (`codex.test.ts`). Une règle
+ * par niveau, du deuxième au cinquième : le pari, les fioles, les talismans,
+ * la catégorie fétiche — deux à la fois, la seconde expédition en aurait trop
+ * appris d'un coup. Au sixième, un dos à soi pour son paquet.
  */
 export const ECHELLE: readonly MarcheDuCodex[] = [
   { niveau: 1, cartes: ['concentration', 'prudence', 'coup-d-oeil', 'echange', 'pioche', 'arret-sur-image'] },
   { niveau: 2, cartes: ['double-chance'], regle: 'pari' },
-  { niveau: 3, cartes: ['parade', 'contre-attaque'] },
+  { niveau: 3, cartes: ['parade', 'contre-attaque'], regle: 'fioles' },
   { niveau: 4, cartes: ['detour', 'tout-ou-rien'], regle: 'talismans' },
   { niveau: 5, cartes: ['plume', 'bibliotheque'], regle: 'fetiche' },
-  { niveau: 6, cartes: ['sursis', 'quitte-ou-double'] },
+  { niveau: 6, cartes: ['sursis', 'quitte-ou-double'], dos: 'etoile' },
   { niveau: 7, cartes: ['doubler-la-mise'] },
   { niveau: 8, cartes: ['corser', 'simplifier'] },
   { niveau: 9, cartes: ['lucidite'] },
@@ -245,7 +256,12 @@ export interface CodexDuDepart {
   renommee?: number
 }
 
-export function codexDuNiveau(niveau: number, legendaires: readonly string[], exploits: readonly CleDExploit[] = []): CodexDuDepart & { exploits: CleDExploit[] } {
+/** Ce qu'ouvre un niveau, ses exploits et ses légendaires : le codex que son départ figera — et ses dos de cartes, que le départ choisit. */
+export function codexDuNiveau(
+  niveau: number,
+  legendaires: readonly string[],
+  exploits: readonly CleDExploit[] = [],
+): CodexDuDepart & { exploits: CleDExploit[]; dos: DosDuPaquet[] } {
   const marches = ECHELLE.filter(m => m.niveau <= niveau)
   const ouvertes = new Set([
     ...marches.flatMap(m => m.cartes),
@@ -257,12 +273,54 @@ export function codexDuNiveau(niveau: number, legendaires: readonly string[], ex
     cartes: CARTES_DES_RENCONTRES.filter(c => ouvertes.has(c.cle)).map(c => c.cle),
     regles: marches.flatMap(m => (m.regle ? [m.regle] : [])),
     exploits: EXPLOITS.map(x => x.cle).filter(cle => exploits.includes(cle)),
+    dos: dosOuverts(niveau, exploits),
   }
 }
 
-/** Une règle du codex est-elle ouverte à ce départ ? Une expédition d'avant le codex (v6 et moins) les a toutes. */
+/**
+ * Une règle du codex est-elle ouverte à ce départ ? Une expédition d'avant le
+ * codex (v6 et moins) a toutes celles d'alors ; une partie au codex, celles
+ * qu'il a figées — une partie avant les fioles n'en a pas, même au niveau 3.
+ */
 export function regleOuverte(depart: { v: number; codex?: CodexDuDepart }, regle: RegleDuCodex): boolean {
-  return depart.v < VERSION_DU_CODEX || !!depart.codex?.regles.includes(regle)
+  return depart.v < VERSION_DU_CODEX ? REGLES_D_AVANT_LE_CODEX.includes(regle) : !!depart.codex?.regles.includes(regle)
+}
+
+// ── Les dos de cartes ───────────────────────────────────────────────────────
+
+/**
+ * L'habit de son paquet : le dos de ses cartes, sur le plan et au codex —
+ * rien de plus, aucune règle n'y lit (la proposition du codex). L'ordinaire
+ * d'office, l'étoilé au niveau 6 (`ECHELLE`), le doré par un exploit
+ * (`EXPLOITS`). Choisi au départ, gardé avec lui (`DepartDExpedition.dos`).
+ */
+export type DosDuPaquet = 'ordinaire' | 'etoile' | 'dore'
+export interface DosDeCartes {
+  cle: DosDuPaquet
+  /** Son nom, en minuscule : il se dit dans une phrase — « le dos doré est à toi ». */
+  nom: string
+}
+export const DOS_DES_CARTES: readonly DosDeCartes[] = [
+  { cle: 'ordinaire', nom: 'le dos ordinaire' },
+  { cle: 'etoile', nom: 'le dos étoilé' },
+  { cle: 'dore', nom: 'le dos doré' },
+]
+export const dosDe = (cle: string): DosDeCartes | undefined => DOS_DES_CARTES.find(d => d.cle === cle)
+
+/** Comment s'ouvre un dos : d'office, à son niveau, ou par son exploit. */
+export function ouvertureDuDos(cle: DosDuPaquet): { niveau: number } | { exploit: CleDExploit } {
+  const marche = ECHELLE.find(m => m.dos === cle)
+  if (marche) return { niveau: marche.niveau }
+  const exploit = EXPLOITS.find(x => x.dos === cle)
+  return exploit ? { exploit: exploit.cle } : { niveau: 1 }
+}
+
+/** Les dos qu'il a, dans l'ordre du catalogue : le dernier est le plus rare — celui qu'un départ prend s'il n'en choisit pas. */
+export function dosOuverts(niveau: number, exploits: readonly CleDExploit[]): DosDuPaquet[] {
+  return DOS_DES_CARTES.map(d => d.cle).filter(cle => {
+    const o = ouvertureDuDos(cle)
+    return 'niveau' in o ? o.niveau <= niveau : exploits.includes(o.exploit)
+  })
 }
 
 // ── Les offres ──────────────────────────────────────────────────────────────

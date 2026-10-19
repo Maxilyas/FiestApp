@@ -287,6 +287,7 @@ import {
   prixDeLArticle,
   refusDeLAchat,
   refusDeLEquipee,
+  refusDeLaFiole,
   refusDeLaMise,
   refusDuJoker,
   reponsesEffacees,
@@ -317,13 +318,15 @@ import {
   ecrireLeBilan,
   lireLeBilan,
   niveauDe,
+  regleOuverte,
   renommeeDe,
   type BilanDUneExpedition,
   type CleDExploit,
+  type DosDuPaquet,
 } from '../../../shared/codex'
 import { EFFACE, JOKERS_QUI_AIDENT, LEGENDAIRES_A_JOKER } from '../../../shared/jokers'
 import { cleDeLExpedition } from '../../../shared/legendaires'
-import { carteDeRencontre, cartesDesActes, effaceesDuTour } from '../../../shared/rencontres'
+import { CLAIRVOYANCE_SUR_LA_QUESTION, FIOLES_MAX, carteDeRencontre, cartesDesActes, effaceesDuTour, fioleDe, type CleDeFiole } from '../../../shared/rencontres'
 
 /** Une question de la série, telle que le serveur la garde : la bonne réponse avec. */
 interface QuestionDeSerie {
@@ -6730,9 +6733,9 @@ export class CampagneStore {
   /**
    * Son codex, de sa renommée lue (`lecturesDeLaRenommee`) : son niveau
    * d'explorateur, et ce qu'il ouvre — l'échelle jusqu'à lui, la carte de
-   * chaque exploit qu'il a fait et de chaque légendaire qu'il a. Les bilans
-   * refaits du pli s'écrivent ici, une fois : ratés, ils se refont à la
-   * lecture suivante, rien de plus.
+   * chaque exploit qu'il a fait et de chaque légendaire qu'il a —, et ses dos
+   * de cartes. Les bilans refaits du pli s'écrivent ici, une fois : ratés,
+   * ils se refont à la lecture suivante, rien de plus.
    */
   private async codexLu(lectures: readonly ResultSet[], siens: ReadonlySet<string>): Promise<CodexDeLaPage> {
     const { renommee, exploits, aEcrire } = renommeeLue(lectures)
@@ -6762,9 +6765,14 @@ export class CampagneStore {
    * elle ; son équipée — deux des siens au plus, ou l'invité du jour —, dont
    * les jokers rejoignent le paquet de départ. Une à la fois : celle qu'il a
    * laissée l'attend. `rencontres` : le prototype des rencontres (v5), que la
-   * route n'accorde que hors de la production — avec sa catégorie fétiche.
+   * route n'accorde que hors de la production — avec sa catégorie fétiche et
+   * le dos de son paquet.
    */
-  partirEnExpedition(profileId: string, equipeeBrute: unknown = [], { rencontres = false, fetiche }: { rencontres?: boolean; fetiche?: unknown } = {}): Promise<VueDeLExpedition> {
+  partirEnExpedition(
+    profileId: string,
+    equipeeBrute: unknown = [],
+    { rencontres = false, fetiche, dos }: { rencontres?: boolean; fetiche?: unknown; dos?: unknown } = {},
+  ): Promise<VueDeLExpedition> {
     const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
     if (!equipee) return Promise.reject(new Error('Ton équipe ne se lit pas : recharge la page'))
     if (rencontres && fetiche !== undefined && !(CATEGORIES as readonly unknown[]).includes(fetiche)) return Promise.reject(new Error('Choisis ta catégorie fétiche parmi les douze'))
@@ -6825,6 +6833,9 @@ export class CampagneStore {
         // Sa catégorie fétiche attend son niveau : avant lui, ni Plume ni Bibliothèque ne sont ouvertes.
         ...(codex?.regles.includes('fetiche') && typeof fetiche === 'string' && { fetiche }),
         ...(codex && { codex: { niveau: codex.niveau, cartes: codex.cartes, regles: codex.regles, exploits: codex.exploits, renommee: codex.renommee } }),
+        // Le dos qu'il a choisi, s'il l'a ; sinon le plus rare des siens. Un téléphone partagé retient celui d'un autre profil :
+        // il ne refuse pas le départ pour un habit.
+        ...(codex && { dos: codex.dos.includes(dos as DosDuPaquet) ? (dos as DosDuPaquet) : codex.dos[codex.dos.length - 1] }),
       }
       const id = randomUUID()
       await this.client.execute({
@@ -7922,16 +7933,19 @@ function lireGeste(brut: unknown): GesteDExpedition | null {
       ...(rang(g.montre) && { montre: g.montre }),
     }
   }
+  const fiole = (x: unknown): x is CleDeFiole => typeof x === 'string' && fioleDe(x) !== undefined
   if (g.quoi === 'prendre' && Array.isArray(g.jokers) && g.jokers.length <= 3 && g.jokers.every(cle)) {
-    return { quoi: 'prendre', jokers: g.jokers as string[], ...(cle(g.talisman) && { talisman: g.talisman }) }
+    return { quoi: 'prendre', jokers: g.jokers as string[], ...(cle(g.talisman) && { talisman: g.talisman }), ...(fiole(g.fiole) && { fiole: g.fiole }) }
   }
   if (g.quoi === 'camper') return g.retirer === undefined || g.retirer === null ? { quoi: 'camper' } : cle(g.retirer) ? { quoi: 'camper', retirer: g.retirer } : null
-  if (g.quoi === 'acheter' && (g.article === 'vie' || g.article === 'talisman' || g.article === 'joker' || g.article === 'retirer')) {
+  if (g.quoi === 'acheter' && (g.article === 'vie' || g.article === 'talisman' || g.article === 'joker' || g.article === 'retirer' || g.article === 'fiole')) {
     // Le prix payé, relu du journal : celui qu'une page enverrait, `gesteRecevable` le remplace par celui du barème.
     return { quoi: 'acheter', article: g.article, ...(cle(g.joker) && { joker: g.joker }), ...(rang(g.prix) && { prix: g.prix }) }
   }
   // En rencontre (v5) : sa mise, en voyant la question.
   if (g.quoi === 'voir' && rang(g.mise) && g.mise <= 1000) return { quoi: 'voir', mise: g.mise, ...(rang(g.position) && { position: g.position }) }
+  // Une fiole bue (le codex) : pendant une question, sa position.
+  if (g.quoi === 'boire' && fiole(g.fiole)) return { quoi: 'boire', fiole: g.fiole, ...(rang(g.position) && { position: g.position }) }
   return null
 }
 
@@ -7969,9 +7983,11 @@ function gesteRecevable(l: ExpeditionLue, avant: EtatDeLExpedition, g: GesteDExp
     const pris = [...new Set(g.jokers)]
     if (pris.some(j => !offre.jokers.includes(j))) throw new Error('Ce joker n’est pas dans l’offre : choisis parmi ceux-là')
     if (g.talisman !== undefined && g.talisman !== offre.talisman) throw new Error('Ce talisman n’est pas dans l’offre')
-    // Le talisman prend la place d'un joker.
-    if (pris.length + (g.talisman ? 1 : 0) > offre.aPrendre) throw new Error(offre.aPrendre <= 1 ? 'Tu n’en prends qu’un' : `Tu n’en prends que ${offre.aPrendre}`)
-    return { quoi: 'prendre', jokers: pris, ...(g.talisman && { talisman: g.talisman }) }
+    if (g.fiole !== undefined && g.fiole !== offre.fiole) throw new Error('Cette fiole n’est pas dans l’offre')
+    if (g.fiole !== undefined && avant.fioles.length >= FIOLES_MAX) throw new Error(`Tes ${FIOLES_MAX} places de fiole sont prises : bois-en une d’abord`)
+    // Le talisman prend la place d'un joker, la fiole aussi.
+    if (pris.length + (g.talisman ? 1 : 0) + (g.fiole ? 1 : 0) > offre.aPrendre) throw new Error(offre.aPrendre <= 1 ? 'Tu n’en prends qu’un' : `Tu n’en prends que ${offre.aPrendre}`)
+    return { quoi: 'prendre', jokers: pris, ...(g.talisman && { talisman: g.talisman }), ...(g.fiole && { fiole: g.fiole }) }
   }
   if (g.quoi === 'acheter') {
     if (l.depart.v < 4) throw new Error('Cette expédition n’a pas d’écus : recharge la page')
@@ -7995,6 +8011,14 @@ function gesteRecevable(l: ExpeditionLue, avant: EtatDeLExpedition, g: GesteDExp
     if (refus) throw new Error(refus)
     return { quoi: 'voir', mise: g.mise, position: avant.enAttente }
   }
+  if (g.quoi === 'boire') {
+    // Les fioles (le codex) : à son niveau, et pendant une question, sur celle qui attend — comme une carte jouée sur elle.
+    if (!regleOuverte(l.depart, 'fioles')) throw new Error('Cette expédition n’a pas de fioles : recharge la page')
+    if (g.position !== undefined && g.position !== avant.enAttente && g.position !== avant.autre) throw new Error('Cette question est passée : l’expédition a continué sans elle')
+    const refus = refusDeLaFiole(avant, g.fiole, questionsPosees(l.serie.questions))
+    if (refus) throw new Error(refus)
+    return { quoi: 'boire', fiole: g.fiole, ...(avant.enAttente !== null && { position: avant.enAttente }) }
+  }
   throw new Error('Ce geste ne se lit pas : recharge la page')
 }
 
@@ -8009,6 +8033,8 @@ function jokerQuiAide(e: EtatDeLExpedition, q: QuestionDeSerie): string | null {
     // En rencontre (v5), plusieurs cartes visent la question : la colonne garde le premier indice — un seul suffit à ne rien mesurer.
     const indice = r.tour.surLaQuestion.find(cle => carteDeRencontre(cle)?.indice)
     if (indice) return indice
+    // La fiole de clairvoyance (le codex) a effacé une réponse : sa clé, comme celle d'un Coup d'œil.
+    if (r.tour.surLaQuestion.includes(CLAIRVOYANCE_SUR_LA_QUESTION) && q.reponses.length > 2) return CLAIRVOYANCE_SUR_LA_QUESTION
     if (r.pouvoirs.includes('echolocation') && q.reponses.length > 2) return 'echolocation'
   }
   const joue = e.joue?.joker
@@ -8338,12 +8364,17 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
             ...(d.codex.exploits && { exploits: d.codex.exploits }),
           },
         }),
+        ...(d.dos && { dos: d.dos }),
       },
     }),
     ...(r && { rencontre: vueDeLaRencontre(d, e, posees) }),
     renommee: renommeeDe(bilanDuPli(e)),
     // Ses exploits, au codex : la révélation dit celui qui tombe, la fin ceux qui sont neufs.
     ...(d.codex && { exploits: [...e.exploits] }),
+    // Ses fioles, à leur niveau : celles qu'il porte, et pourquoi chacune ne se boit pas maintenant.
+    ...(regleOuverte(d, 'fioles') && {
+      fioles: { tenues: e.fioles, refus: Object.fromEntries([...new Set(e.fioles)].map(f => [f, refusDeLaFiole(e, f, posees)])) },
+    }),
   }
 }
 

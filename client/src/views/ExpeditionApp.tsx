@@ -77,7 +77,7 @@ import {
   type ThemeDEscale,
   type VueDeLExpedition,
 } from '../../../shared/expedition'
-import { exploitDe } from '../../../shared/codex'
+import { exploitDe, type DosDuPaquet } from '../../../shared/codex'
 import {
   CARTES_DES_ACTES,
   CARTES_DES_RENCONTRES,
@@ -87,23 +87,28 @@ import {
   COURAGE_D_UNE_SOURCE,
   COURAGE_MAX,
   FAMILLES_DE_CARTES,
+  FIOLES_MAX,
   VERSION_DU_CODEX,
   carteALaVersion,
   carteDeRencontre,
   carteDuLegendaire,
   estDeRoute,
+  fioleDe,
   paquetDesRencontres,
   sceauxDe,
   type CarteDeRencontre,
+  type CleDeFiole,
 } from '../../../shared/rencontres'
 import {
   Adversaire,
   Apercu,
   AuDepart,
+  BoireUneFiole,
   BoutonDesRegles,
   COURT,
   CarteLevee,
   CartesAPrendre,
+  ChoixDuDos,
   Courage,
   FeuilleDesCartes,
   FeuilleDesRegles,
@@ -114,13 +119,16 @@ import {
   NiveauDExplorateur,
   RenommeeGagnee,
   PreparationDeLaRencontre,
+  SesFioles,
   ToutesLesCartes,
+  VerreDeFiole,
   VersionDesCartes,
   VisageDeLaCarte,
   ceQueLaCarteAFait,
   changementDeLaCarte,
   comptesDesCartes,
   dosDuPaquet,
+  dosRetenu,
   exploitsNeufs,
   feticheRetenue,
   gemmeDeLaCarte,
@@ -128,6 +136,7 @@ import {
   pourcents,
   recompenseDe,
   rencontresRetenues,
+  retenirLeDos,
   retenirLesRencontres,
   verdictDeLaRencontre,
 } from './RencontresDExpedition'
@@ -381,7 +390,7 @@ export function Barre({
   onPartir,
   sansSortie,
 }: {
-  vue: Pick<VueDeLExpedition, 'ecus' | 'vies' | 'talismans' | 'jokers' | 'courage' | 'rencontre' | 'cartes' | 'carte'>
+  vue: Pick<VueDeLExpedition, 'ecus' | 'vies' | 'talismans' | 'jokers' | 'courage' | 'rencontre' | 'cartes' | 'carte' | 'fioles'>
   onPartir: () => void
   sansSortie?: boolean
 }) {
@@ -394,34 +403,42 @@ export function Barre({
     poses.length > 0 && `Posés : ${poses.map(j => j.nom).join(', ')}`,
     talismans.length > 0 && `Tes talismans : ${talismans.map(cle => talismanDeCle(cle)?.nom ?? cle).join(', ')}`,
   ].filter(Boolean)
+  const fioles = (vue.fioles?.tenues.length ?? 0) > 0
   return (
     <div className="exp-barre">
       {!sansSortie && <Sortie vers="Partir" href="/expedition" onClick={onPartir} />}
       <BoutonDesRegles onOuvrir={() => setRegles(true)} />
-      {posees.length > 0 && (
-        <span className="exp-posees" role="group" aria-label="Posées pour toute la rencontre">
-          {posees.map(c => (
-            <button key={c.cle} type="button" className="exp-pose" style={gemmeDeLaCarte(c)} data-carte={c.cle} aria-haspopup="dialog" aria-label={c.nom} onClick={() => setRegardee(c.cle)}>
-              <VisageDeLaCarte c={c} />
-            </button>
-          ))}
-        </span>
-      )}
-      {dits.length > 0 && (
-        <span className="exp-talismans" role="img" aria-label={dits.join(' ; ')}>
-          {poses.map(j => (
-            <span key={j.cle} className="exp-pose" style={gemmeDuJoker(j)}>
-              <VisageDuJoker j={j} />
-            </span>
-          ))}
-          {talismans.map(cle => (
-            <Icon key={cle} name={ICONE_DU_TALISMAN[cle] ?? 'sparkles'} />
-          ))}
-        </span>
-      )}
       {vue.ecus !== undefined && <Ecus n={vue.ecus} />}
       {/* En rencontres (le prototype), le courage remplace les trois vies. */}
       {vue.courage !== undefined ? <Courage n={vue.courage} /> : <Vies restantes={vue.vies} />}
+      {/* Ce qu'il porte, après les écus et le courage : d'un bloc, il passe à la ligne quand il ne tient plus, et rien d'autre ne bouge. */}
+      {(posees.length > 0 || dits.length > 0 || fioles) && (
+        <span className="exp-sac">
+          {posees.length > 0 && (
+            <span className="exp-posees" role="group" aria-label="Posées pour toute la rencontre">
+              {posees.map(c => (
+                <button key={c.cle} type="button" className="exp-pose" style={gemmeDeLaCarte(c)} data-carte={c.cle} aria-haspopup="dialog" aria-label={c.nom} onClick={() => setRegardee(c.cle)}>
+                  <VisageDeLaCarte c={c} />
+                </button>
+              ))}
+            </span>
+          )}
+          {dits.length > 0 && (
+            <span className="exp-talismans" role="img" aria-label={dits.join(' ; ')}>
+              {poses.map(j => (
+                <span key={j.cle} className="exp-pose" style={gemmeDuJoker(j)}>
+                  <VisageDuJoker j={j} />
+                </span>
+              ))}
+              {talismans.map(cle => (
+                <Icon key={cle} name={ICONE_DU_TALISMAN[cle] ?? 'sparkles'} />
+              ))}
+            </span>
+          )}
+          {/* Ses fioles (le codex), à boire d'ici, sur chaque écran. */}
+          {fioles && vue.fioles && <SesFioles fioles={vue.fioles} />}
+        </span>
+      )}
       {regles && (
         <FeuilleDesRegles
           rencontres={vue.courage !== undefined}
@@ -572,13 +589,16 @@ export function ExpeditionApp() {
     void relire().then(() => setErreur(motif))
   }
 
-  /** Partir — aux rencontres, là où le prototype s'ouvre et s'il le garde, avec sa catégorie fétiche. */
-  const partir = async (equipee: readonly string[], rencontres: { fetiche: string | null } | null) => {
+  /** Partir — aux rencontres, là où le prototype s'ouvre et s'il le garde, avec sa catégorie fétiche et le dos de son paquet. */
+  const partir = async (equipee: readonly string[], rencontres: { fetiche: string | null; dos: DosDuPaquet | null } | null) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
-      const vue = await api.expedition.partir(equipee, rencontres ? { rencontres: true, ...(rencontres.fetiche && { fetiche: rencontres.fetiche }) } : {})
+      const vue = await api.expedition.partir(
+        equipee,
+        rencontres ? { rencontres: true, ...(rencontres.fetiche && { fetiche: rencontres.fetiche }), ...(rencontres.dos && { dos: rencontres.dos }) } : {},
+      )
       retenirLEquipee(equipee)
       // Ce que la fin dira est celui de cette expédition : la précédente, jouée sur la même page, a eu sa fin.
       setGains({ xp: 0, justes: 0, tampons: [] })
@@ -640,9 +660,9 @@ export function ExpeditionApp() {
   /** En rencontre : sa mise dite, il voit la question qui attend. */
   const voir = (vue: VueDeLExpedition, mise: number) => geste(() => api.expedition.voir(vue.id, vue.rang + 1, mise, vue.rencontre?.position))
 
-  const prendre = (vue: VueDeLExpedition, jokers: readonly string[], talisman?: string) =>
+  const prendre = (vue: VueDeLExpedition, jokers: readonly string[], talisman?: string, fiole?: CleDeFiole) =>
     geste(
-      () => api.expedition.prendre(vue.id, vue.rang + 1, jokers, talisman),
+      () => api.expedition.prendre(vue.id, vue.rang + 1, jokers, talisman, fiole),
       apres => {
         // Un coffre passé sans rien prendre : ses écus, qu'un mot dit.
         const gagnes = (apres.ecus ?? 0) - (vue.ecus ?? 0)
@@ -654,6 +674,18 @@ export function ExpeditionApp() {
 
   /** À l'échoppe : un article, payé en écus ; l'échoppe reste ouverte pour le suivant. */
   const acheter = (vue: VueDeLExpedition, article: ArticleDeLEchoppe, joker?: string) => geste(() => api.expedition.acheter(vue.id, vue.rang + 1, article, joker))
+
+  /** Une fiole bue (le codex), de la barre : pendant une question, sur celle qui attend — son rang seul part, comme une carte. */
+  const boire = (vue: VueDeLExpedition, fiole: CleDeFiole) => {
+    const position = vue.question?.index ?? vue.rencontre?.position
+    return geste(
+      () => api.expedition.boire(vue.id, vue.rang + 1, fiole, position),
+      () => {
+        const f = fioleDe(fiole)
+        if (f) showToast({ kind: 'info', message: `${f.nom} : ${f.effet}` })
+      },
+    )
+  }
 
   /**
    * L'échoppe qu'il a laissée sans avancer (« Reprendre la route ») : la carte
@@ -809,8 +841,14 @@ export function ExpeditionApp() {
   }
 
   const { vue } = ecran
-  // Ses cartes se lisent à la version de son départ : une expédition partie avant le codex garde ses chiffres.
-  const aSaVersion = (x: ReactNode) => <VersionDesCartes.Provider value={vue.cartes?.v ?? VERSION_DU_CODEX}>{x}</VersionDesCartes.Provider>
+  // Ses cartes se lisent à la version de son départ : une expédition partie avant le codex garde ses chiffres. Ses fioles se
+  // boivent de la barre de chaque écran — sauf à la révélation d'une réponse : bue là, l'écran passait à la suite, et
+  // l'écart avec la vue d'avant, qui dit ce que la réponse a coûté, aurait compté la fiole.
+  const aSaVersion = (x: ReactNode, fioles = true) => (
+    <VersionDesCartes.Provider value={vue.cartes?.v ?? VERSION_DU_CODEX}>
+      <BoireUneFiole.Provider value={fioles ? fiole => void boire(vue, fiole) : null}>{x}</BoireUneFiole.Provider>
+    </VersionDesCartes.Provider>
+  )
   const surLaMain = { onJouer: (cle: string, plus?: { categorie?: string; montre?: number }) => void jouer(vue, cle, plus) }
   if (ecran.reponse && ecran.question) {
     return aSaVersion(
@@ -827,11 +865,12 @@ export function ExpeditionApp() {
         onSuite={() => suite(vue, ecran.reponse!)}
         onPartir={quitter}
         onSignaler={() => void signaler(vue.id, ecran.question!.index)}
-      />
+      />,
+      false,
     )
   }
   if (vue.issue === 'au-bout') return <ChoixDuLegendaire vue={vue} busy={busy} erreur={erreur} onGarder={cle => void garder(vue, cle)} />
-  if (vue.offre) return aSaVersion(<Offre vue={vue} offre={vue.offre} busy={busy} erreur={erreur} onPrendre={(jokers, talisman) => void prendre(vue, jokers, talisman)} onPartir={quitter} />)
+  if (vue.offre) return aSaVersion(<Offre vue={vue} offre={vue.offre} busy={busy} erreur={erreur} onPrendre={(jokers, talisman, fiole) => void prendre(vue, jokers, talisman, fiole)} onPartir={quitter} />)
   if (vue.campement) return aSaVersion(<Campement vue={vue} busy={busy} erreur={erreur} onCamper={retirer => void camper(vue, retirer)} onPartir={quitter} />)
   // L'échoppe où il est, tant qu'il ne l'a pas laissée : elle se rouvre de la carte.
   const ouEstLEchoppe = `${vue.id}:${vue.acte}:${vue.ici}`
@@ -1006,8 +1045,8 @@ export function Depart({
   page: PageDeLExpedition
   busy: boolean
   erreur: string
-  /** `rencontres` : partir au prototype des rencontres, avec sa catégorie fétiche ; null, aux règles d'avant. */
-  onPartir: (equipee: readonly string[], rencontres: { fetiche: string | null } | null) => void
+  /** `rencontres` : partir au prototype des rencontres, avec sa catégorie fétiche et le dos de son paquet ; null, aux règles d'avant. */
+  onPartir: (equipee: readonly string[], rencontres: { fetiche: string | null; dos: DosDuPaquet | null } | null) => void
   onReprendre: (vue: VueDeLExpedition) => void
   /** Celle qui l'attend s'abandonne d'ici aussi : « J'aimerais pouvoir abandonner une expédition » (le 18 octobre 2026) — le geste ne vivait qu'au fond de la feuille de la carte. */
   onAbandonner: (vue: VueDeLExpedition) => void
@@ -1024,6 +1063,8 @@ export function Depart({
   const ouvertes = !vue && !!page.prochaine.rencontres
   const [aux, setAux] = useState(rencontresRetenues)
   const [fetiche, setFetiche] = useState(feticheRetenue)
+  // Le dos de son paquet (le codex) : celui qu'il a choisi la dernière fois, s'il l'a encore — sinon le plus rare des siens.
+  const [dos, setDos] = useState(() => (page.prochaine.codex ? dosRetenu(page.prochaine.codex.dos) : null))
   const enRencontres = vue ? vue.courage !== undefined : ouvertes && aux
   // Le codex (v7) : celui qu'elle a figé en route, celui qui partirait avant ; aux règles d'avant, aucun.
   const codex = page.prochaine.codex
@@ -1141,6 +1182,8 @@ export function Depart({
             <b>{formatNumber(codex ? codex.cartes.length : CARTES_DES_RENCONTRES.length)}</b>
             {codex ? ` cartes sur ${formatNumber(CARTES_DES_RENCONTRES.length)}` : ' cartes'}
           </p>
+          {/* Ses dos de cartes, là où il en a plusieurs : celui qui partira habille sa pioche sur le plan. */}
+          {!vue && codex && <ChoixDuDos siens={codex.dos} dos={dos} onChoisir={setDos} />}
         </section>
       )}
       {erreur && (
@@ -1171,8 +1214,9 @@ export function Depart({
               aria-disabled={busy || undefined}
               onClick={() => {
                 if (ouvertes) retenirLesRencontres(aux, fetiche)
+                if (enRencontres && dos) retenirLeDos(dos)
                 // Sa catégorie fétiche attend son niveau : avant lui, elle ne part pas.
-                onPartir(equipee, enRencontres ? { fetiche: feticheOuverte ? fetiche : null } : null)
+                onPartir(equipee, enRencontres ? { fetiche: feticheOuverte ? fetiche : null, dos } : null)
               }}
             >
               <Icon name="flag" />
@@ -2916,6 +2960,8 @@ function GardienVaincu({ vue, gardien, onSuite }: { vue: VueDeLExpedition; gardi
 
 /** Dans une offre, la clé du talisman, pour le distinguer d'un joker parmi ce qu'on prend. */
 const TALISMAN = 'talisman:'
+/** De même, la fiole d'un coffre (le codex). */
+const FIOLE = 'fiole:'
 
 /**
  * Un joker pour son paquet (la maquette 12) : ce qu'offre un coffre ou une
@@ -2937,7 +2983,7 @@ function Offre({
   offre: NonNullable<VueDeLExpedition['offre']>
   busy: boolean
   erreur: string
-  onPrendre: (jokers: readonly string[], talisman?: string) => void
+  onPrendre: (jokers: readonly string[], talisman?: string, fiole?: CleDeFiole) => void
   onPartir: () => void
 }) {
   const [pris, setPris] = useState<string[]>([])
@@ -2951,8 +2997,15 @@ function Offre({
   const toucher = (cle: string) => setPris(p => (p.includes(cle) ? p.filter(x => x !== cle) : p.length < offre.aPrendre ? [...p, cle] : [...p.slice(1), cle]))
   const siens = vue.jokers ? [...vue.jokers.paquet, ...vue.jokers.main, ...vue.jokers.defausse] : []
   const nom = (cle: string) =>
-    cle.startsWith(TALISMAN) ? (talismanDeCle(cle.slice(TALISMAN.length))?.nom ?? cle) : ((v5 ? carteDeRencontre(cle)?.nom : jokerDeCle(cle)?.nom) ?? cle)
+    cle.startsWith(TALISMAN)
+      ? (talismanDeCle(cle.slice(TALISMAN.length))?.nom ?? cle)
+      : cle.startsWith(FIOLE)
+        ? (fioleDe(cle.slice(FIOLE.length))?.nom ?? cle)
+        : ((v5 ? carteDeRencontre(cle)?.nom : jokerDeCle(cle)?.nom) ?? cle)
   const t = offre.talisman ? talismanDeCle(offre.talisman) : undefined
+  // La fiole d'un coffre (le codex) : à la place d'une carte, s'il lui reste une place pour elle — sinon elle dit pourquoi.
+  const f = offre.fiole ? fioleDe(offre.fiole) : undefined
+  const sacPlein = (vue.fioles?.tenues.length ?? 0) >= FIOLES_MAX
   if (v5) {
     return (
       <div className="player-shell expedition exp-offre">
@@ -2997,6 +3050,31 @@ function Offre({
             )}
           </div>
         )}
+        {!vide && f && (
+          <div className="exp-offres">
+            <button
+              type="button"
+              className={'exp-offre-ligne exp-offre-fiole' + (pris.includes(FIOLE + f.cle) ? ' exp-choisi' : '')}
+              aria-pressed={pris.includes(FIOLE + f.cle)}
+              aria-disabled={sacPlein || undefined}
+              onClick={() => !sacPlein && toucher(FIOLE + f.cle)}
+            >
+              <span className="exp-offre-visage" aria-hidden="true">
+                <VerreDeFiole cle={f.cle} />
+              </span>
+              <span className="exp-joker">
+                <span className="exp-offre-nom">
+                  <b>{f.nom}</b>
+                  <span className="exp-rarete exp-rarete-fiole">fiole</span>
+                </span>
+                <span className="small">{espacesFines(f.effet)}</span>
+                <span className="muted small">
+                  {espacesFines(sacPlein ? `Tes ${FIOLES_MAX} places sont prises : bois-en une d’abord` : 'Elle ne sert qu’une fois, quand tu veux')}
+                </span>
+              </span>
+            </button>
+          </div>
+        )}
         <section className="exp-paquet" aria-labelledby="exp-paquet-titre">
           <h2 className="label" id="exp-paquet-titre">{`Ton paquet · ${vue.cartes?.paquet.length ?? 0}`}</h2>
           <RangeeDeCartes cles={vue.cartes?.paquet ?? []} vide="Ton paquet est vide." nom="Ton paquet" onRegarder={setRegardee} />
@@ -3016,9 +3094,11 @@ function Offre({
               if (vide) onPrendre([])
               else if (pris.length > 0) {
                 const talisman = pris.find(c => c.startsWith(TALISMAN))?.slice(TALISMAN.length)
+                const fiole = pris.find(c => c.startsWith(FIOLE))?.slice(FIOLE.length) as CleDeFiole | undefined
                 onPrendre(
-                  pris.filter(c => !c.startsWith(TALISMAN)),
+                  pris.filter(c => !c.startsWith(TALISMAN) && !c.startsWith(FIOLE)),
                   talisman,
+                  fiole,
                 )
               }
             }}
@@ -3243,7 +3323,8 @@ type LigneDeLEtal = { cle: string; article: Article; nom: string; detail: string
 /**
  * L'échoppe (l'étape 4) — ou le marchand de l'inconnu — : ce que ses écus
  * achètent, chaque article une fois — une vie, l'un de ses trois jokers, son
- * talisman, un joker retiré de son paquet. Un article se choisit, puis
+ * talisman, un joker retiré de son paquet ; au codex, sa fiole, que la barre
+ * boira quand il voudra. Un article se choisit, puis
  * s'achète : un toucher perdu sous le pouce ne coûte rien. Ce qui ne
  * s'achète pas dit pourquoi, de la même règle que le serveur
  * (`refusDeLAchat`). Elle se quitte en reprenant la route : le pas suivant
@@ -3282,14 +3363,17 @@ function Echoppe({
     main: vue.jokers?.main ?? [],
     talismans: vue.talismans ?? [],
     ...(v5 && { courage: vue.courage }),
+    fioles: vue.fioles?.tenues ?? [],
   }
   const t = echoppe.talisman ? talismanDeCle(echoppe.talisman) : undefined
+  const f = echoppe.fiole ? fioleDe(echoppe.fiole) : undefined
   const nomDe = (cle: string) => (v5 ? carteDeRencontre(cle)?.nom : jokerDeCle(cle)?.nom) ?? cle
-  // L'étal, dans l'ordre où l'on pense : se soigner, s'équiper, puis s'alléger.
+  // L'étal, dans l'ordre où l'on pense : se soigner — tout de suite, ou plus tard d'une fiole —, s'équiper, puis s'alléger.
   const etal: LigneDeLEtal[] = [
     v5
       ? { cle: 'vie', article: { article: 'vie' }, nom: 'Du courage', detail: `+${COURAGE_A_L_ECHOPPE} · tu en as ${vue.courage} sur ${COURAGE_MAX}`, visage: <Icon name="heart" /> }
       : { cle: 'vie', article: { article: 'vie' }, nom: 'Une vie', detail: `Tu en as ${vue.vies} sur ${VIES}`, visage: <Icon name="heart" /> },
+    ...(f ? [{ cle: 'fiole', article: { article: 'fiole' as const }, nom: f.nom, detail: `${f.effet} · elle se boit quand tu veux`, visage: <VerreDeFiole cle={f.cle} />, rarete: 'fiole' }] : []),
     ...echoppe.jokers.flatMap((cle): LigneDeLEtal[] => {
       if (v5) {
         const c = carteALaVersion(cle, vue.cartes?.v ?? VERSION_DU_CODEX)
@@ -3334,13 +3418,19 @@ function Echoppe({
                 <LigneDeCarte c={x.carte} prix={<span className="exp-prix">{achete ? 'Achetée' : <Prix n={prix(x.article)} />}</span>} />
               ) : (
                 <>
-                  <span className="exp-offre-visage" style={x.rarete && x.rarete !== 'talisman' ? gemme(GEMME_DU_JOKER[x.rarete as Joker['rarete']]) : undefined} aria-hidden="true">
+                  <span
+                    className="exp-offre-visage"
+                    style={x.rarete && x.rarete !== 'talisman' && x.rarete !== 'fiole' ? gemme(GEMME_DU_JOKER[x.rarete as Joker['rarete']]) : undefined}
+                    aria-hidden="true"
+                  >
                     {x.visage}
                   </span>
                   <span className="exp-joker">
                     <span className="exp-offre-nom">
                       <b>{x.nom}</b>
-                      {x.rarete && <span className={`exp-rarete exp-rarete-${x.rarete}`}>{x.rarete === 'talisman' ? 'talisman' : RARETE[x.rarete as Joker['rarete']]}</span>}
+                      {x.rarete && (
+                        <span className={`exp-rarete exp-rarete-${x.rarete}`}>{x.rarete === 'talisman' || x.rarete === 'fiole' ? x.rarete : RARETE[x.rarete as Joker['rarete']]}</span>
+                      )}
                     </span>
                     <span className="small">{espacesFines(x.detail)}</span>
                   </span>

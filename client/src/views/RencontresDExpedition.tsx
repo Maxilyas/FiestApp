@@ -15,8 +15,33 @@ import { sujetParCle } from '../../../shared/sujets'
 import { CATEGORIES } from '../../../shared/categories'
 import type { Niveau } from '../../../shared/campagne'
 import type { RareteDeTheme } from '../../../shared/themes'
-import { MARCHES_DES_ACTES, duGardien, gardienAuFeminin, leGardien, nomDuGardien, type CodexDeLaPage, type FormeDEscale, type VueDeLExpedition } from '../../../shared/expedition'
-import { ECHELLE, EXPLOITS, RENOMMEE, exploitDe, niveauDeLaRegle, ouvertureDe, progressionDe, type CleDExploit, type Exploit, type RegleDuCodex } from '../../../shared/codex'
+import {
+  MARCHES_DES_ACTES,
+  PRIX_DE_L_ECHOPPE,
+  duGardien,
+  gardienAuFeminin,
+  leGardien,
+  nomDuGardien,
+  type CodexDeLaPage,
+  type FormeDEscale,
+  type VueDeLExpedition,
+} from '../../../shared/expedition'
+import {
+  DOS_DES_CARTES,
+  ECHELLE,
+  EXPLOITS,
+  RENOMMEE,
+  dosDe,
+  exploitDe,
+  niveauDeLaRegle,
+  ouvertureDe,
+  ouvertureDuDos,
+  progressionDe,
+  type CleDExploit,
+  type DosDuPaquet,
+  type Exploit,
+  type RegleDuCodex,
+} from '../../../shared/codex'
 import {
   CARTES_DES_RENCONTRES,
   CARTES_PAR_QUESTION,
@@ -25,6 +50,8 @@ import {
   COURAGE_DE_LA_RENAISSANCE,
   COURAGE_MAX,
   FAMILLES_DE_CARTES,
+  FIOLES,
+  FIOLES_MAX,
   INSPIRATION_PAR_QUESTION,
   MISES,
   VERSION_DU_CODEX,
@@ -33,10 +60,12 @@ import {
   carteDeRencontre,
   cartesDeCombat,
   chiffresApresLaCarte,
+  fioleDe,
   formeApresLaCarte,
   type AnnonceDuTour,
   type ApercuDuTour,
   type CarteDeRencontre,
+  type CleDeFiole,
   type CoupDeRencontre,
   type FamilleDeCartes,
   type MomentDUneCarte,
@@ -527,8 +556,8 @@ export function MainDeRencontre({
   enPetit?: boolean
   /** La pioche — le paquet, sur le plan — : combien, ce qu'elle dit à l'oreille, et ce qu'elle ouvre. */
   pile: { compte: number; mot: string; dit: string; onOuvrir: () => void }
-  /** Le dos de son paquet, sur le plan : doré après l'exploit du gardien (`dosDuPaquet`). */
-  dos?: 'dore'
+  /** Le dos de son paquet, sur le plan : celui qu'il a choisi au départ (`dosDuPaquet`). */
+  dos?: DosDuPaquet
   /** En rencontre : son inspiration du tour, son énergie à l'écran. */
   inspiration?: number
   /** Avant la question, ou pendant. */
@@ -582,7 +611,7 @@ export function MainDeRencontre({
           {indexees.map(x => (
             <CarteEnPetit key={`${x.k}:${x.i}`} c={x.c} refus={refus[x.k] ?? null} onToucher={() => setLevee(x.i)} />
           ))}
-          <button type="button" className={'exp-pioche' + (dos === 'dore' ? ' exp-dos-dore' : '')} aria-haspopup="dialog" onClick={pile.onOuvrir}>
+          <button type="button" className={'exp-pioche' + classeDuDos(dos)} aria-haspopup="dialog" onClick={pile.onOuvrir}>
             <b aria-hidden="true">{pile.compte}</b>
             <span className="sr-only">{pile.dit}</span>
           </button>
@@ -897,22 +926,29 @@ export function NiveauDExplorateur({ renommee }: { renommee: number }) {
 /** Ce qu'un niveau ouvre d'autre que des cartes, dit à la fin qui l'ouvre. */
 const REGLE_OUVERTE: Readonly<Record<RegleDuCodex, string>> = {
   pari: 'Le pari s’ouvre : avant de voir une question, parie des écus.',
+  fioles: `Les fioles s’ouvrent : l’échoppe en vend, les coffres en cachent — ${FIOLES_MAX} dans ton sac, à boire quand tu veux.`,
   talismans: 'Les talismans s’ouvrent : tes récompenses et l’échoppe en proposent.',
   fetiche: 'Ta catégorie fétiche s’ouvre : choisis-la au départ.',
 }
 
+/** Le nom d'un dos, dans une phrase : « le dos doré ». */
+const nomDuDos = (cle: DosDuPaquet) => dosDe(cle)?.nom ?? cle
+
 /**
  * Ce qu'un exploit ouvre, en fin de phrase : « Banco rejoint ton codex »,
- * « ton paquet prend un dos doré » — au futur tant que l'expédition court :
- * son codex est figé, l'exploit ne compte qu'à la suivante.
+ * « le dos doré est à toi » — au futur tant que l'expédition court : son
+ * codex est figé, l'exploit ne compte qu'à la suivante.
  */
 export function recompenseDe(x: Exploit, futur = false): string {
   if (x.carte) return `${nomDeLaRecompense(x)} ${futur ? 'rejoindra' : 'rejoint'} ton codex`
-  return `ton paquet ${futur ? 'prendra' : 'prend'} un dos doré`
+  return `${nomDeLaRecompense(x)} ${futur ? 'sera' : 'est'} à toi`
 }
 
-/** Ce qu'un exploit ouvre, en nom : sa carte, ou le dos doré. */
-const nomDeLaRecompense = (x: Exploit) => (x.carte ? (carteDeRencontre(x.carte)?.nom ?? x.carte) : 'un dos doré pour ton paquet')
+/** Ce qu'un exploit ouvre, en nom : sa carte, ou son dos. */
+const nomDeLaRecompense = (x: Exploit) => (x.carte ? (carteDeRencontre(x.carte)?.nom ?? x.carte) : nomDuDos(x.dos ?? 'dore'))
+
+/** La classe d'un dos, sur la pioche : l'ordinaire n'en a pas. */
+export const classeDuDos = (dos: DosDuPaquet | undefined) => (dos && dos !== 'ordinaire' ? ` exp-dos-${dos}` : '')
 
 /**
  * Les exploits neufs d'une expédition : faits en route, que son codex n'avait
@@ -925,8 +961,13 @@ export function exploitsNeufs(vue: Pick<VueDeLExpedition, 'exploits' | 'cartes'>
   return (vue.exploits ?? []).filter(x => !deja.includes(x))
 }
 
-/** Le dos de son paquet : doré après l'exploit du gardien — celui de son codex au départ. */
-export const dosDuPaquet = (vue: Pick<VueDeLExpedition, 'cartes'>): 'dore' | undefined => (vue.cartes?.codex?.exploits?.includes('gardien-intact') ? 'dore' : undefined)
+/**
+ * Le dos de son paquet : celui qu'il a choisi au départ. Un départ d'avant
+ * les dos le prenait doré de l'exploit du gardien — celui de son codex au
+ * départ.
+ */
+export const dosDuPaquet = (vue: Pick<VueDeLExpedition, 'cartes'>): DosDuPaquet | undefined =>
+  vue.cartes?.dos ?? (vue.cartes?.codex?.exploits?.includes('gardien-intact') ? 'dore' : undefined)
 
 /**
  * Ce que la fin d'une expédition rapporte au codex : sa renommée, perdue ou
@@ -992,6 +1033,13 @@ export function RenommeeGagnee({ avant, gagnee, exploits = [] }: { avant: number
           {espacesFines(REGLE_OUVERTE[regle])}
         </p>
       ))}
+      {/* Un dos neuf, tel que la pioche le portera. */}
+      {marches.flatMap(m => (m.dos ? [m.dos] : [])).map(dos => (
+        <p key={dos} className="exp-renommee-regle">
+          <span className={'exp-pioche exp-dos-miniature' + classeDuDos(dos)} aria-hidden="true" />
+          {espacesFines(`Un dos neuf pour ton paquet : ${nomDuDos(dos)}. Choisis-le au départ.`)}
+        </p>
+      ))}
       {regardee && <CarteLevee cle={regardee} onReposer={() => setRegardee(null)} />}
     </section>
   )
@@ -1016,8 +1064,9 @@ function ouvertureDite(cle: string): { court: string; phrase: string } | null {
  * tout, comme dans un tas. `codex` : son niveau et sa jauge en tête, et les
  * cartes qu'il n'a pas encore éteintes, comment les ouvrir dessous — un
  * niveau, un exploit, ou le légendaire qui la donne. Celles-là se lèvent
- * aussi : savoir ce qui vient donne envie d'y aller. Au pied, ses exploits :
- * le dos doré n'a pas de carte qui le dise.
+ * aussi : savoir ce qui vient donne envie d'y aller. Au pied, ses exploits,
+ * puis ses dos de cartes — ceux qu'il a, et comment s'ouvrent les autres :
+ * un dos n'a pas de carte qui le dise.
  */
 export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onFermer: () => void }) {
   const [page, setPage] = useState<PageDuCodex>('toutes')
@@ -1075,10 +1124,34 @@ export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onF
                     <Icon name={fait ? 'check-circle' : 'medal'} />
                     <span>
                       <b className="exp-exploit-but">{espacesFines(x.but)}</b>
-                      <span className="muted small">{espacesFines(fait ? (x.carte ? `Fait : ${nomDeLaRecompense(x)} est dans ton codex.` : 'Fait : ton paquet a son dos doré.') : `Ouvre ${nomDeLaRecompense(x)}.`)}</span>
+                      <span className="muted small">
+                        {espacesFines(fait ? `Fait : ${nomDeLaRecompense(x)} ${x.carte ? 'est dans ton codex' : 'est à toi'}.` : `Ouvre ${nomDeLaRecompense(x)}.`)}
+                      </span>
                     </span>
-                    {/* Le dos doré se montre tel que la pioche le porte ; une carte, elle, se voit dans le codex. */}
-                    {x.dos && <span className={'exp-pioche exp-dos-miniature' + (fait ? ' exp-dos-dore' : '')} aria-hidden="true" />}
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
+        {codex && (
+          <section className="exp-exploits" aria-labelledby="exp-dos-titre">
+            <h3 className="label" id="exp-dos-titre">
+              {`Tes dos de cartes · ${codex.dos.length} sur ${DOS_DES_CARTES.length}`}
+            </h3>
+            <ul>
+              {DOS_DES_CARTES.map(d => {
+                const aLui = codex.dos.includes(d.cle)
+                const o = ouvertureDuDos(d.cle)
+                const comment = 'exploit' in o ? `Exploit : ${exploitDe(o.exploit)?.but ?? o.exploit}.` : `Il s’ouvre au niveau ${o.niveau} d’explorateur.`
+                return (
+                  <li key={d.cle} className={'exp-un-dos' + (aLui ? '' : ' exp-dos-ferme')}>
+                    {/* Le dos tel que la pioche le portera : une carte se voit dans le codex, un dos ici. */}
+                    <span className={'exp-pioche exp-dos-miniature' + classeDuDos(d.cle)} aria-hidden="true" />
+                    <span>
+                      <b className="exp-exploit-but">{espacesFines(d.nom)}</b>
+                      <span className="muted small">{espacesFines(aLui ? (codex.dos.length > 1 ? 'À toi : choisis-le au départ.' : 'À toi.') : comment)}</span>
+                    </span>
                   </li>
                 )
               })}
@@ -1088,6 +1161,88 @@ export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onF
       </Feuille>
       {regardee && <CarteLevee cle={regardee} {...(fermee && { ouverture: fermee.phrase })} onReposer={() => setRegardee(null)} />}
     </>
+  )
+}
+
+// ── Les fioles ──────────────────────────────────────────────────────────────
+
+/**
+ * Boire une fiole : la page pose le geste sur chaque écran d'une expédition
+ * en route (`ExpeditionApp`, `aSaVersion`) — la barre du haut est partout, la
+ * fiole aussi, sans passer de main en main. Sans lui, une fiole se regarde
+ * seulement.
+ */
+export const BoireUneFiole = createContext<((fiole: CleDeFiole) => void) | null>(null)
+
+/**
+ * La teinte d'une fiole, sur son verre : le rouge du courage, le bleu de
+ * l'orbe d'énergie, le violet de la clairvoyance. Une convention, écrite en
+ * dur comme celle des familles : aucun thème ne la repeint (règle `css.md`).
+ */
+const TEINTE_DE_LA_FIOLE: Record<CleDeFiole, string> = { courage: '#e0565c', energie: '#3cc4d4', clairvoyance: '#a07bf0' }
+
+/** Une fiole dessinée : son verre, à sa teinte. */
+export function VerreDeFiole({ cle }: { cle: CleDeFiole }) {
+  return (
+    <span className="exp-fiole-verre" style={{ '--fiole': TEINTE_DE_LA_FIOLE[cle] } as CSSProperties} aria-hidden="true">
+      <Icon name="fiole" />
+    </span>
+  )
+}
+
+/**
+ * Ses fioles, dans la barre du haut : celles qu'il porte — rien tant qu'il
+ * n'en a pas : deux places vides, à côté des écus et du courage, ne disaient
+ * rien qu'on ne lise aux règles, et la barre d'un téléphone n'a pas la place.
+ * Touchée, une fiole se lève (`FioleLevee`).
+ */
+export function SesFioles({ fioles }: { fioles: NonNullable<VueDeLExpedition['fioles']> }) {
+  const [levee, setLevee] = useState<CleDeFiole | null>(null)
+  if (fioles.tenues.length === 0) return null
+  return (
+    <span className="exp-fioles" role="group" aria-label="Tes fioles">
+      {fioles.tenues.map((cle, i) => (
+        <button key={`${cle}:${i}`} type="button" className="exp-fiole" data-fiole={cle} aria-haspopup="dialog" aria-label={fioleDe(cle)?.nom ?? cle} onClick={() => setLevee(cle)}>
+          <VerreDeFiole cle={cle} />
+        </button>
+      ))}
+      {levee && <FioleLevee cle={levee} refus={fioles.refus[levee] ?? null} onReposer={() => setLevee(null)} />}
+    </span>
+  )
+}
+
+/**
+ * Une fiole levée : ce qu'elle fait, et « La boire » — ou pourquoi pas
+ * maintenant, de la règle même du serveur (`refusDeLaFiole`, arrivée avec la
+ * vue). Bue, elle se repose d'elle-même.
+ */
+export function FioleLevee({ cle, refus, onReposer }: { cle: CleDeFiole; refus: string | null; onReposer: () => void }) {
+  const boire = useContext(BoireUneFiole)
+  const f = fioleDe(cle)
+  if (!f) return null
+  return (
+    <Feuille titre={f.nom} className="feuille-fiole" onFermer={onReposer}>
+      <div className="exp-fiole-levee">
+        <VerreDeFiole cle={cle} />
+        <p className="exp-fiole-effet">{espacesFines(`${f.effet}.`)}</p>
+      </div>
+      <p className="muted small">{espacesFines(`Une fiole ne sert qu’une fois, quand tu veux — même la question sous les yeux. Tu en portes ${FIOLES_MAX} au plus.`)}</p>
+      {boire &&
+        (refus ? (
+          <p className="exp-refus small">{espacesFines(refus)}</p>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-primary btn-big btn-block"
+            onClick={() => {
+              onReposer()
+              boire(cle)
+            }}
+          >
+            La boire
+          </button>
+        ))}
+    </Feuille>
   )
 }
 
@@ -1231,7 +1386,7 @@ function retenirLeGuide() {
 
 /** Une section des règles : de quoi elle parle, son titre, une ligne par règle — un dessin, une phrase. */
 interface SectionDesRegles {
-  cle: 'rencontre' | 'cartes' | 'pari' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'exploits' | 'passeport' | 'questions' | 'jokers'
+  cle: 'rencontre' | 'cartes' | 'pari' | 'fioles' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'exploits' | 'passeport' | 'questions' | 'jokers'
   titre: string
   /** `energie` : l'orbe de l'énergie, tel que la main le montre. */
   lignes: { icone: IconName | 'energie'; texte: string }[]
@@ -1291,6 +1446,21 @@ function reglesDesRencontres(parQuestion: readonly number[], codex?: CodexDesReg
         { icone: 'echoppe', texte: 'Tes écus se gagnent en battant tes adversaires et se dépensent à l’échoppe. Ils restent dans l’expédition.' },
       ],
     },
+    // Les fioles (le codex) : ce que chacune fait, où elles se trouvent — fermées, le niveau qui les ouvre.
+    ...(codex
+      ? [
+          {
+            cle: 'fioles' as const,
+            titre: 'Les fioles',
+            lignes: [
+              ...(ouverte('fioles') ? [] : [{ icone: 'lock' as const, texte: `Elles s’ouvrent ${ouvertAuNiveau('fioles')}.` }]),
+              { icone: 'fiole' as const, texte: `Une fiole ne sert qu’une fois : bois-la quand tu veux, même la question sous les yeux. Tu en portes ${FIOLES_MAX} au plus.` },
+              ...FIOLES.map(f => ({ icone: 'fiole' as const, texte: `${f.nom} : ${f.effet}.` })),
+              { icone: 'echoppe' as const, texte: `L’échoppe en vend une, ${PRIX_DE_L_ECHOPPE.fiole} écus ; un coffre en cache une, à prendre à la place d’une carte.` },
+            ],
+          },
+        ]
+      : []),
     {
       cle: 'expedition',
       titre: 'L’expédition',
@@ -1665,6 +1835,53 @@ export function retenirLesRencontres(oui: boolean, fetiche: string | null) {
   } catch {
     // Un stockage refusé : le prochain départ reproposera les rencontres, sans catégorie fétiche.
   }
+}
+
+/** Le dos de son paquet, choisi au départ : retenu sur le téléphone, sous try/catch. */
+const CLE_DU_DOS = 'quizz.expedition.dos'
+
+/**
+ * Le dos qui partira : celui qu'il a choisi la dernière fois, s'il l'a encore
+ * — un téléphone partagé retient celui d'un autre profil —, sinon le plus
+ * rare des siens, celui que le serveur prendrait.
+ */
+export function dosRetenu(siens: readonly DosDuPaquet[]): DosDuPaquet | null {
+  try {
+    const lu = localStorage.getItem(CLE_DU_DOS)
+    if (lu && (siens as readonly string[]).includes(lu)) return lu as DosDuPaquet
+  } catch {
+    // Un stockage refusé : le plus rare, comme sans choix.
+  }
+  return siens[siens.length - 1] ?? null
+}
+
+export function retenirLeDos(dos: DosDuPaquet) {
+  try {
+    localStorage.setItem(CLE_DU_DOS, dos)
+  } catch {
+    // Un stockage refusé : le prochain départ reprendra le plus rare.
+  }
+}
+
+/** Le dos de son paquet, au départ : ceux qu'il a, en vraies pioches — celui qui partira, souligné. Seul, il n'y a rien à choisir. */
+export function ChoixDuDos({ siens, dos, onChoisir }: { siens: readonly DosDuPaquet[]; dos: DosDuPaquet | null; onChoisir: (dos: DosDuPaquet) => void }) {
+  if (siens.length < 2) return null
+  return (
+    <div className="exp-choix-du-dos" role="radiogroup" aria-label="Le dos de ton paquet">
+      <span className="label">Le dos de ton paquet</span>
+      {siens.map(d => (
+        <button
+          key={d}
+          type="button"
+          role="radio"
+          aria-checked={dos === d}
+          aria-label={dosDe(d)?.nom ?? d}
+          className={'exp-pioche exp-dos-miniature' + classeDuDos(d)}
+          onClick={() => onChoisir(d)}
+        />
+      ))}
+    </div>
+  )
 }
 
 /**

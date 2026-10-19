@@ -139,7 +139,7 @@ export type IconName =
   | 'missions'
   // L'expédition : la source qui rend une vie, le campement avant le gardien ;
   // ses écus, l'échoppe qui les dépense, la boussole et le maillot jaune ;
-  // le tampon de son passeport.
+  // le tampon de son passeport ; une fiole, à boire quand on veut.
   | 'source'
   | 'campement'
   | 'ecu'
@@ -147,6 +147,7 @@ export type IconName =
   | 'boussole'
   | 'maillot'
   | 'tampon'
+  | 'fiole'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -984,6 +985,16 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
         <path d="M10 13.5V10c0-1.2-1.2-1.8-1.2-3.4a3.2 3.2 0 0 1 6.4 0c0 1.6-1.2 2.2-1.2 3.4v3.5" />
         <path d="M5 18v-2a2.5 2.5 0 0 1 2.5-2.5h9A2.5 2.5 0 0 1 19 16v2Z" />
         <path d="M5 21h14" />
+      </>
+    ),
+  },
+  // Une fiole ronde : son bouchon, son col, sa panse, et ce qui y reste.
+  fiole: {
+    paths: (
+      <>
+        <path d="M8.5 3h7" />
+        <path d="M10 3v5.3a6.5 6.5 0 1 0 4 0V3" />
+        <path d="M7 15.5h10" />
       </>
     ),
   },

@@ -111,6 +111,40 @@ export const COUT_DES_ABYSSES = 6
 export const SEUIL_DES_ABYSSES = 20
 export const COURAGE_DES_ABYSSES = 4
 
+/**
+ * Une fiole : ce qui ne sert qu'une fois (la proposition du codex — « un
+ * filet aux débutants », qui donne enfin un usage aux écus de l'échoppe).
+ * Elle se boit quand on veut, même la question sous les yeux ; elle
+ * s'achète à l'échoppe et se trouve dans un coffre, à la place d'une carte ;
+ * elle ne vit que l'expédition. Deux places au plus : les garder toutes pour
+ * le gardien ne serait plus un choix.
+ */
+export type CleDeFiole = 'courage' | 'energie' | 'clairvoyance'
+export interface Fiole {
+  cle: CleDeFiole
+  nom: string
+  /** Ce qu'elle fait, en minuscule : il suit son nom. */
+  effet: string
+}
+export const FIOLES_MAX = 2
+/** Ce que rend la fiole de courage : moins que le courage de l'échoppe, qu'on ne garde pas pour plus tard. */
+export const COURAGE_D_UNE_FIOLE = 10
+/** Ce que donne la fiole d'énergie, pour la question en cours : de quoi jouer une carte de plus. */
+export const ENERGIE_D_UNE_FIOLE = 2
+export const FIOLES: readonly Fiole[] = [
+  { cle: 'courage', nom: 'Fiole de courage', effet: `+${COURAGE_D_UNE_FIOLE} de courage` },
+  { cle: 'energie', nom: 'Fiole d’énergie', effet: `+${ENERGIE_D_UNE_FIOLE} d’énergie pour cette question` },
+  { cle: 'clairvoyance', nom: 'Fiole de clairvoyance', effet: 'efface une mauvaise réponse' },
+]
+export const fioleDe = (cle: string): Fiole | undefined => FIOLES.find(f => f.cle === cle)
+/**
+ * La fiole de clairvoyance bue sur la question : elle s'y range avec les
+ * cartes qui la visent (`TourDeRencontre.surLaQuestion`), sous cette clé —
+ * les réponses qu'elle efface se comptent avec les leurs, une autre question
+ * (Échange, La mue) repart sans elle, et la réponse est aidée.
+ */
+export const CLAIRVOYANCE_SUR_LA_QUESTION = 'fiole-clairvoyance'
+
 /** Une offre de cartes : trois, une à prendre ; chaque carte tirée de l'une de ses deux familles, `PART_D_UNE_FAMILLE` chacune, sinon des neutres. */
 export const CARTES_PAR_OFFRE = 3
 export const PART_D_UNE_FAMILLE = 0.4
@@ -916,11 +950,11 @@ export const enJeu = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>) => t.mise * (
 export const gainDeLaMise = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>, pouvoirs: readonly string[]) =>
   Math.round(enJeu(t) * PART_GAGNEE_D_UNE_MISE) * (1 + (pouvoirs.includes('tresor') ? 2 : 0) + (t.jouees.includes('quitte-ou-double') ? 2 : 0))
 
-/** Les réponses qu'effacent les cartes du tour et L'écholocation — jamais plus que deux de moins que ses réponses : sinon la carte répondrait à sa place. */
+/** Les réponses qu'effacent les cartes du tour, la fiole de clairvoyance et L'écholocation — jamais plus que deux de moins que ses réponses : sinon la carte répondrait à sa place. */
 export function effaceesDuTour(surLaQuestion: readonly string[], pouvoirs: readonly string[], q: { reponses: number; datee?: boolean }): number {
   if (q.reponses <= 2) return 0
   let n = 0
-  for (const cle of surLaQuestion) n += EFFACE[cle] ?? 0
+  for (const cle of surLaQuestion) n += cle === CLAIRVOYANCE_SUR_LA_QUESTION ? 1 : (EFFACE[cle] ?? 0)
   // Le Sphinx d'une question qui ne se date pas efface au lieu de souffler : sinon, la carte ne servait à rien.
   if (surLaQuestion.includes('enigme') && !q.datee) n += 1
   if (pouvoirs.includes('echolocation')) n += EFFACE.echolocation ?? 1
