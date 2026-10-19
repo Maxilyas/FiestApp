@@ -588,8 +588,9 @@ export const api = {
       gesteDExpedition(id, rang, { quoi: 'prendre', jokers: [...jokers], ...(talisman !== undefined && { talisman }), ...(fiole !== undefined && { fiole }) }),
     /** Une fiole bue — pendant une question, sur celle qui attend (`position`), comme une carte jouée sur elle. */
     boire: (id: string, rang: number, fiole: CleDeFiole, position?: number) => gesteDExpedition(id, rang, { quoi: 'boire', fiole, ...(position !== undefined && { position }) }),
-    /** Au campement : une vie — ou, `retirer`, ce joker ôté de son paquet. */
-    camper: (id: string, rang: number, retirer?: string) => gesteDExpedition(id, rang, { quoi: 'camper', ...(retirer !== undefined && { retirer }) }),
+    /** Au campement : une vie — ou, `retirer`, ce joker ôté de son paquet ; `ameliorer`, cette carte améliorée (le jeu complet). */
+    camper: (id: string, rang: number, choix: { retirer?: string; ameliorer?: string } = {}) =>
+      gesteDExpedition(id, rang, { quoi: 'camper', ...(choix.retirer !== undefined && { retirer: choix.retirer }), ...(choix.ameliorer !== undefined && { ameliorer: choix.ameliorer }) }),
     /** À l'échoppe : un article contre des écus — le joker de l'étal, ou celui qu'on retire. */
     acheter: (id: string, rang: number, article: ArticleDeLEchoppe, joker?: string) => gesteDExpedition(id, rang, { quoi: 'acheter', article, ...(joker !== undefined && { joker }) }),
     garder: (id: string, rang: number, legendaire: string) => gesteDExpedition(id, rang, { quoi: 'garder', legendaire }),

@@ -9384,8 +9384,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-panneau p { margin: 0; }
 .exp-panneau-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding-left: 2px; }
 .exp-panneau-tete h2 { margin: 0; }
-/* « Affronter le Scarabée solaire », « Y aller : Les grands rendez-vous du sport » : en capitales espacées, le nom débordait du bouton en 360 × 640 — il passe à la ligne. */
-.exp-panneau .btn-big { padding-block: 8px; white-space: normal; text-align: center; text-wrap: balance; line-height: 1.25; }
+/* « Affronter le Scarabée solaire », « Y aller : Les grands rendez-vous du sport » : en capitales espacées, le nom débordait du bouton en 360 × 640 — il passe à la ligne.
+   Le pied de l'échoppe aussi : le bouton qui améliore Concentration pour 25 écus faisait la page large de 368 pixels (le 19 octobre 2026). */
+.exp-panneau .btn-big, .exp-depart-pied .btn-big { padding-block: 8px; white-space: normal; text-align: center; text-wrap: balance; line-height: 1.25; }
 .exp-panneau-titre { font-size: 0.86rem; line-height: 1.35; }
 /* Le pied de la feuille « La carte » : ce que dit l'escale touchée. Deux lignes gardées : la feuille ne saute pas d'une escale à l'autre. */
 .exp-vu { min-height: 2.7em; margin: 0; font-size: 0.86rem; line-height: 1.35; }
@@ -9750,6 +9751,17 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-vc-texte { margin-top: 8px; padding: 0 14px; font-size: 0.94rem; line-height: 1.38; }
 .exp-vc-gemme { flex: none; width: 7px; height: 7px; margin: auto 0 6px; rotate: 45deg; background: var(--gemme); box-shadow: 0 0 6px var(--gemme); }
 .exp-vc-nombre { position: absolute; top: -7px; right: -7px; z-index: 1; min-width: 22px; height: 22px; padding: 0 5px; border: 2px solid var(--bg-raised); border-radius: var(--radius-pill); background: var(--ink); color: var(--bg); font-size: 0.75rem; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; line-height: 18px; }
+/* Une carte améliorée (le jeu complet) : un « + » vert au coin du bas — dans la main aussi, où son nom ne se lit pas — et son chiffre
+   cerclé du même vert, comme les cartes améliorées de Slay the Spire. Une convention, en dur : aucun thème ne la repeint (règle `css.md`). */
+.exp-vc-ameliore { position: absolute; right: -7px; bottom: -7px; z-index: 1; display: grid; place-items: center; width: 22px; height: 22px; border: 2px solid var(--bg-raised); border-radius: 50%; background: #2f9a44; color: #fff; font-size: 1rem; font-weight: 800; line-height: 1; }
+.exp-vc-amelioree .exp-vc-valeur { border-color: #2f9a44; }
+.exp-vc-levee > .exp-vc-ameliore { right: -9px; bottom: -9px; width: 32px; height: 32px; font-size: 1.35rem; }
+/* Avant et après une amélioration, au campement et à l'échoppe : les deux cartes côte à côte, la flèche entre elles, ce qu'elle gagne dessous. */
+/* Le pied collé (`.exp-depart-pied`) tient jusqu'à deux boutons : la page défile assez pour la montrer au-dessus de lui. */
+.exp-avant-apres { display: grid; justify-items: center; gap: 6px; margin: 2px 0 4px; scroll-margin-bottom: 150px; }
+.exp-avant-apres-cartes { display: flex; align-items: center; gap: 10px; }
+.exp-avant-apres-cartes > .icon { flex: none; width: 22px; height: 22px; color: #2f9a44; }
+.exp-avant-apres-gain { margin: 0; font-weight: 700; text-align: center; }
 /* Dans la main : cinq au plus en 360 pixels, sans un mot — son dessin, son coût, son chiffre. */
 .exp-vc-main { width: 100%; height: 88px; }
 .exp-vc-main .exp-vc-art { height: 58px; }
@@ -9813,8 +9825,12 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-niveau-tete b { font-size: 1.05rem; }
 .exp-niveau-compte { margin-left: auto; color: var(--accent-text); font-size: 0.85rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
 .exp-niveau .jauge-fine { height: 6px; }
-.exp-ouverture { display: flex; align-items: center; gap: 6px; margin: 0; color: #f3ece4; font-weight: 600; text-align: center; }
-.exp-ouverture .icon { flex: none; width: 16px; height: 16px; }
+.exp-ouverture,
+.exp-ameliorable { display: flex; align-items: center; gap: 6px; margin: 0; color: #f3ece4; font-weight: 600; text-align: center; }
+.exp-ouverture .icon,
+.exp-ameliorable .icon { flex: none; width: 16px; height: 16px; }
+/* Au codex : ce que l'amélioration lui donnerait, la flèche au vert des cartes améliorées. */
+.exp-ameliorable .icon { color: #5fd07a; }
 /* La fin : la renommée gagnée en grand, le niveau qu'elle fait passer, ses cartes neuves en vraies cartes. */
 .exp-renommee { display: flex; flex-direction: column; gap: 10px; }
 .exp-renommee p { margin: 0; }

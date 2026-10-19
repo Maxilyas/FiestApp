@@ -92,12 +92,15 @@ import {
   FAMILLES_DE_CARTES,
   FIOLES_MAX,
   VERSION_DU_CODEX,
+  VERSION_DU_JEU_COMPLET,
   carteALaVersion,
   carteDeRencontre,
   carteDuLegendaire,
   estDeRoute,
   fioleDe,
   paquetDesRencontres,
+  parmi,
+  refusDeLAmelioration,
   type CarteDeRencontre,
   type CleDeFiole,
 } from '../../../shared/rencontres'
@@ -105,6 +108,7 @@ import {
   Adversaire,
   Apercu,
   AuDepart,
+  AvantApres,
   BoireUneFiole,
   BoutonDesRegles,
   COURT,
@@ -455,6 +459,7 @@ export function Barre({
           codex={vue.cartes?.codex}
           ascension={vue.cartes?.ascension}
           energie={vue.cartes?.energie}
+          v={vue.cartes?.v}
           acte={vue.acte}
           // Sur le plan, le plan d'abord ; en rencontre, l'ordre où l'on joue.
           debut={vue.rencontre ? undefined : vue.carte ? 'plan' : undefined}
@@ -690,7 +695,7 @@ export function ExpeditionApp() {
       },
     )
 
-  const camper = (vue: VueDeLExpedition, retirer?: string) => geste(() => api.expedition.camper(vue.id, vue.rang + 1, retirer))
+  const camper = (vue: VueDeLExpedition, choix: { retirer?: string; ameliorer?: string }) => geste(() => api.expedition.camper(vue.id, vue.rang + 1, choix))
 
   /** À l'échoppe : un article, payé en écus ; l'échoppe reste ouverte pour le suivant. */
   const acheter = (vue: VueDeLExpedition, article: ArticleDeLEchoppe, joker?: string) => geste(() => api.expedition.acheter(vue.id, vue.rang + 1, article, joker))
@@ -893,7 +898,7 @@ export function ExpeditionApp() {
   }
   if (vue.issue === 'au-bout') return <ChoixDuLegendaire vue={vue} busy={busy} erreur={erreur} onGarder={cle => void garder(vue, cle)} />
   if (vue.offre) return aSaVersion(<Offre vue={vue} offre={vue.offre} busy={busy} erreur={erreur} onPrendre={(jokers, talisman, fiole) => void prendre(vue, jokers, talisman, fiole)} onPartir={quitter} />)
-  if (vue.campement) return aSaVersion(<Campement vue={vue} busy={busy} erreur={erreur} onCamper={retirer => void camper(vue, retirer)} onPartir={quitter} />)
+  if (vue.campement) return aSaVersion(<Campement vue={vue} busy={busy} erreur={erreur} onCamper={choix => void camper(vue, choix)} onPartir={quitter} />)
   // L'échoppe où il est, tant qu'il ne l'a pas laissée : elle se rouvre de la carte.
   const ouEstLEchoppe = `${vue.id}:${vue.acte}:${vue.ici}`
   if (vue.echoppe && echoppeLaissee !== ouEstLEchoppe) {
@@ -1264,6 +1269,7 @@ export function Depart({
           codex={vue ? vue.cartes?.codex : enRencontres ? codex : undefined}
           ascension={vue ? vue.cartes?.ascension : ouverte > 0 ? cran : undefined}
           energie={vue?.cartes?.energie}
+          v={vue?.cartes?.v}
           acte={vue?.acte}
           debut="expedition"
           onFermer={() => setRegles(false)}
@@ -2169,7 +2175,7 @@ function FeuilleDeLaCarte({
         <li>
           <Icon name="campement" />
           {vue.cartes
-            ? `Campement : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, vue.cartes.ascension ?? 0)} de courage, ou une carte de moins`
+            ? `Campement : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, vue.cartes.ascension ?? 0)} de courage, ${vue.cartes.v >= VERSION_DU_JEU_COMPLET ? 'une carte de moins ou une carte améliorée' : 'ou une carte de moins'}`
             : vue.jokers
               ? 'Campement : une vie, ou un joker de moins'
               : 'Campement : une vie de plus'}
@@ -2637,7 +2643,12 @@ function Escale({
   const sceauxApres = r && rencontre ? rencontre.sceaux - (r.coup?.brises ?? 0) : undefined
   const [tas, setTas] = useState(false)
   // Un dévoilement : ses mots à mesure qu'ils se disent ; répondu, son intitulé entier revient avec le verdict. Arrêt sur image joué, ils se relisent.
-  const devoile = useDevoilement(vue.id, !r && affichee.forme === 'devoilement' ? affichee.index : null, vue.joue ?? (vue.rencontre?.jouees.includes('arret-sur-image') ? 'arret-sur-image' : ''))
+  const devoile = useDevoilement(
+    vue.id,
+    !r && affichee.forme === 'devoilement' ? affichee.index : null,
+    // Arrêt sur image, amélioré ou non : le texte s'arrête.
+    vue.joue ?? (vue.rencontre && parmi(vue.rencontre.jouees, 'arret-sur-image') ? 'arret-sur-image' : ''),
+  )
   const enDevoilement = !r && affichee.forme === 'devoilement'
   const texte = r?.texte ?? affichee.texte
   const total = affichee.devoilement?.mots ?? 0
@@ -3260,8 +3271,9 @@ function Offre({
 /**
  * Le campement, au bout d'un acte (le brief, que les maquettes n'avaient
  * pas) : une vie de plus — ou un joker retiré de son paquet, pour tirer plus
- * souvent ses meilleurs. Puis le gardien. Ses trois vies déjà là, retirer
- * s'offre d'abord : le repos ne lui donnerait rien.
+ * souvent ses meilleurs ; au jeu complet, une carte améliorée. Puis le
+ * gardien. Ses trois vies déjà là, améliorer — sinon retirer — s'offre
+ * d'abord : le repos ne lui donnerait rien.
  */
 function Campement({
   vue,
@@ -3273,17 +3285,28 @@ function Campement({
   vue: VueDeLExpedition
   busy: boolean
   erreur: string
-  onCamper: (retirer?: string) => void
+  onCamper: (choix: { retirer?: string; ameliorer?: string }) => void
   onPartir: () => void
 }) {
-  // Au prototype des rencontres, le repos rend du courage, et l'on retire une carte de son paquet.
+  // Au prototype des rencontres, le repos rend du courage, et l'on retire une carte de son paquet — ou, depuis le jeu complet, on
+  // en améliore une : la forge de Slay the Spire.
   const courage = vue.courage
   const siens = vue.jokers ? comptes([...vue.jokers.paquet, ...vue.jokers.main, ...vue.jokers.defausse]) : vue.cartes ? comptesDesCartes(vue.cartes.paquet) : []
+  const paquet = vue.cartes?.paquet ?? []
+  const ameliorations = !!vue.cartes && vue.cartes.v >= VERSION_DU_JEU_COMPLET
+  // Celles qu'il peut améliorer : la règle même du serveur (`refusDeLAmelioration`).
+  const ameliorables = ameliorations ? paquet.filter(c => refusDeLAmelioration(paquet, c) === null) : []
   const plein = courage !== undefined ? courage >= COURAGE_MAX : vue.vies >= VIES
-  const [retirer, setRetirer] = useState(plein && siens.length > 0)
+  // Le courage au plus haut, le repos ne donne rien : l'amélioration d'abord, sinon une carte à retirer.
+  const [choix, setChoix] = useState<'repos' | 'retirer' | 'ameliorer'>(plein ? (ameliorables.length > 0 ? 'ameliorer' : siens.length > 0 ? 'retirer' : 'repos') : 'repos')
+  const retirer = choix === 'retirer'
   const [cle, setCle] = useState<string | null>(null)
   const gardien = vue.gardiens[vue.acte]?.cle ?? ''
-  const choisi = siens.find(c => c.cle === cle)
+  const choisi = choix === 'ameliorer' ? (cle !== null && ameliorables.includes(cle) ? { cle, nom: carteDeRencontre(cle)?.nom ?? cle } : undefined) : siens.find(c => c.cle === cle)
+  const choisir = (x: typeof choix) => {
+    setChoix(x)
+    setCle(null)
+  }
   const repos =
     courage !== undefined
       ? plein
@@ -3305,7 +3328,7 @@ function Campement({
         )}
       </header>
       <div className="exp-choix-liste" role="radiogroup" aria-label="Ce que tu fais au campement">
-        <button type="button" role="radio" aria-checked={!retirer} className={'exp-choix-ligne' + (!retirer ? ' exp-choisi' : '')} onClick={() => setRetirer(false)}>
+        <button type="button" role="radio" aria-checked={choix === 'repos'} className={'exp-choix-ligne' + (choix === 'repos' ? ' exp-choisi' : '')} onClick={() => choisir('repos')}>
           <span className="exp-choix-icone" aria-hidden="true">
             <Icon name="heart" />
           </span>
@@ -3314,13 +3337,31 @@ function Campement({
             <span className="muted small">{repos}</span>
           </span>
         </button>
+        {ameliorations && (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={choix === 'ameliorer'}
+            aria-disabled={ameliorables.length === 0 || undefined}
+            className={'exp-choix-ligne' + (choix === 'ameliorer' ? ' exp-choisi' : '')}
+            onClick={() => ameliorables.length > 0 && choisir('ameliorer')}
+          >
+            <span className="exp-choix-icone" aria-hidden="true">
+              <Icon name="arrow-up" />
+            </span>
+            <span className="exp-gardien-texte">
+              <b className="exp-gardien-nom">Améliorer une carte</b>
+              {ameliorables.length === 0 && <span className="muted small">Tu n’as plus de carte à améliorer</span>}
+            </span>
+          </button>
+        )}
         <button
           type="button"
           role="radio"
           aria-checked={retirer}
           aria-disabled={siens.length === 0 || undefined}
           className={'exp-choix-ligne' + (retirer ? ' exp-choisi' : '')}
-          onClick={() => siens.length > 0 && setRetirer(true)}
+          onClick={() => siens.length > 0 && choisir('retirer')}
         >
           <span className="exp-choix-icone" aria-hidden="true">
             <Icon name="trash" />
@@ -3336,6 +3377,13 @@ function Campement({
       {/* En rencontres, la carte à retirer se choisit parmi ses vraies cartes, comme une offre — en pastilles, une ligne de noms de plus. */}
       {retirer && vue.cartes && (
         <RangeeDeCartes cles={vue.cartes.paquet} vide="Ton paquet est vide." nom="La carte à retirer" choisie={cle} onRegarder={setCle} />
+      )}
+      {/* La carte à améliorer, parmi celles qui le peuvent ; choisie, ce qu'elle deviendrait, côte à côte. */}
+      {choix === 'ameliorer' && (
+        <>
+          <RangeeDeCartes cles={ameliorables} vide="Aucune carte à améliorer." nom="La carte à améliorer" choisie={cle} onRegarder={setCle} />
+          {choisi && <AvantApres cle={choisi.cle} />}
+        </>
       )}
       {retirer && !vue.cartes && (
         <div className="exp-a-retirer" role="group" aria-label="Le joker à retirer">
@@ -3355,10 +3403,22 @@ function Campement({
         <button
           type="button"
           className="btn btn-primary btn-big btn-block"
-          aria-disabled={busy || (retirer && !choisi) || undefined}
-          onClick={() => (retirer ? choisi && onCamper(choisi.cle) : onCamper())}
+          aria-disabled={busy || (choix !== 'repos' && !choisi) || undefined}
+          onClick={() => (choix === 'repos' ? onCamper({}) : choisi && onCamper(choix === 'retirer' ? { retirer: choisi.cle } : { ameliorer: choisi.cle }))}
         >
-          {retirer ? (choisi ? `Retirer « ${choisi.nom} »` : vue.cartes ? 'Choisis la carte à retirer' : 'Choisis le joker à retirer') : 'Te reposer'}
+          {espacesFines(
+            choix === 'ameliorer'
+              ? choisi
+                ? `Améliorer « ${choisi.nom} »`
+                : 'Choisis la carte à améliorer'
+              : retirer
+                ? choisi
+                  ? `Retirer « ${choisi.nom} »`
+                  : vue.cartes
+                    ? 'Choisis la carte à retirer'
+                    : 'Choisis le joker à retirer'
+                : 'Te reposer',
+          )}
         </button>
       </div>
     </div>
@@ -3375,7 +3435,8 @@ type LigneDeLEtal = { cle: string; article: Article; nom: string; detail: string
  * L'échoppe (l'étape 4) — ou le marchand de l'inconnu — : ce que ses écus
  * achètent, chaque article une fois — une vie, l'un de ses trois jokers, son
  * talisman, un joker retiré de son paquet ; au codex, sa fiole, que la barre
- * boira quand il voudra. Un article se choisit, puis
+ * boira quand il voudra ; depuis le jeu complet, une carte de son paquet
+ * améliorée, choisie en vraies cartes. Un article se choisit, puis
  * s'achète : un toucher perdu sous le pouce ne coûte rien. Ce qui ne
  * s'achète pas dit pourquoi, de la même règle que le serveur
  * (`refusDeLAchat`). Elle se quitte en reprenant la route : le pas suivant
@@ -3400,6 +3461,7 @@ function Echoppe({
 }) {
   const [choisi, setChoisi] = useState<string | null>(null)
   const [aRetirer, setARetirer] = useState<string | null>(null)
+  const [aAmeliorer, setAAmeliorer] = useState<string | null>(null)
   const ecus = vue.ecus ?? 0
   // Au prototype des rencontres, l'échoppe vend du courage et des cartes ; on y retire une carte de son paquet.
   const v5 = vue.courage !== undefined
@@ -3434,14 +3496,27 @@ function Echoppe({
       return j ? [{ cle, article: { article: 'joker', joker: cle }, nom: j.nom, detail: j.effet, visage: <VisageDuJoker j={j} />, rarete: j.rarete }] : []
     }),
     ...(t ? [{ cle: 'talisman', article: { article: 'talisman' as const }, nom: t.nom, detail: t.effet, visage: <Icon name={ICONE_DU_TALISMAN[t.cle] ?? 'sparkles'} />, rarete: 'talisman' }] : []),
+    // Le jeu complet : une carte de son paquet améliorée, la règle même du campement.
+    ...(echoppe.ameliorer
+      ? [{ cle: 'ameliorer', article: { article: 'ameliorer' as const }, nom: 'Améliorer une carte', detail: 'Une carte de ton paquet, en mieux, jusqu’au bout de l’expédition', visage: <Icon name="arrow-up" /> }]
+      : []),
     v5
       ? { cle: 'retirer', article: { article: 'retirer' }, nom: 'Retirer une carte', detail: 'Elle quitte ton paquet jusqu’au bout de l’expédition', visage: <Icon name="trash" /> }
       : { cle: 'retirer', article: { article: 'retirer' }, nom: 'Retirer un joker', detail: 'Il quitte ton paquet jusqu’au bout de l’expédition', visage: <Icon name="trash" /> },
   ]
   const ligne = etal.find(x => x.cle === choisi)
-  const vise: Article | null = ligne ? (ligne.article.article === 'retirer' ? { article: 'retirer', ...(aRetirer && { joker: aRetirer }) } : ligne.article) : null
-  // « Retirer » sans joker choisi : le refus attend le choix, il ne dit pas encore « pas dans ton paquet ».
-  const refus = vise && !(vise.article === 'retirer' && !vise.joker) ? refusDeLAchat(etat, vise) : null
+  const vise: Article | null = ligne
+    ? ligne.article.article === 'retirer'
+      ? { article: 'retirer', ...(aRetirer && { joker: aRetirer }) }
+      : ligne.article.article === 'ameliorer'
+        ? { article: 'ameliorer', ...(aAmeliorer && { joker: aAmeliorer }) }
+        : ligne.article
+    : null
+  // « Retirer » ou « Améliorer » sans carte choisie : le refus attend le choix, il ne dit pas encore « pas dans ton paquet ».
+  const sansCarte = !!vise && (vise.article === 'retirer' || vise.article === 'ameliorer') && !vise.joker
+  const refus = vise && !sansCarte ? refusDeLAchat(etat, vise) : null
+  // Celles qu'il peut améliorer : la règle même du serveur (`refusDeLAmelioration`).
+  const ameliorables = echoppe.ameliorer ? etat.paquet.filter(c => refusDeLAmelioration(etat.paquet, c) === null) : []
   const prix = (a: Article) => prixDeLArticle(a.article, a.joker)
   const marchand = vue.inconnu?.contenu === 'marchand'
   return (
@@ -3507,6 +3582,13 @@ function Echoppe({
           ))}
         </div>
       )}
+      {/* La carte à améliorer : en vraies cartes, comme au campement — ce qu'elle deviendrait, côte à côte. */}
+      {choisi === 'ameliorer' && (
+        <>
+          <RangeeDeCartes cles={ameliorables} vide="Aucune carte à améliorer." nom="La carte à améliorer" choisie={aAmeliorer} onRegarder={setAAmeliorer} />
+          {aAmeliorer && <AvantApres cle={aAmeliorer} />}
+        </>
+      )}
       {refus && <p className="exp-refus small">{espacesFines(refus)}</p>}
       {erreur && (
         <p className="error" role="alert">
@@ -3517,18 +3599,25 @@ function Echoppe({
         <button
           type="button"
           className="btn btn-primary btn-big btn-block"
-          aria-disabled={busy || !vise || refus !== null || (vise.article === 'retirer' && !vise.joker) || undefined}
-          onClick={() => vise && !busy && refus === null && (vise.article !== 'retirer' || vise.joker) && onAcheter(vise.article, vise.joker)}
+          aria-disabled={busy || !vise || refus !== null || sansCarte || undefined}
+          onClick={() => vise && !busy && refus === null && !sansCarte && onAcheter(vise.article, vise.joker)}
         >
-          {!vise || !ligne
-            ? 'Choisis un article'
-            : vise.article === 'retirer'
-              ? vise.joker
-                ? `Retirer « ${nomDe(vise.joker)} » · ${prix(vise)} écus`
-                : v5
-                  ? 'Choisis la carte à retirer'
-                  : 'Choisis le joker à retirer'
-              : `Acheter « ${ligne.nom} » · ${prix(vise)} écus`}
+          {/* Passé à la ligne, un guillemet restait seul au bout : les espaces fines les tiennent à leur nom. */}
+          {espacesFines(
+            !vise || !ligne
+              ? 'Choisis un article'
+              : vise.article === 'retirer'
+                ? vise.joker
+                  ? `Retirer « ${nomDe(vise.joker)} » · ${prix(vise)} écus`
+                  : v5
+                    ? 'Choisis la carte à retirer'
+                    : 'Choisis le joker à retirer'
+                : vise.article === 'ameliorer'
+                  ? vise.joker
+                    ? `Améliorer « ${nomDe(vise.joker)} » · ${prix(vise)} écus`
+                    : 'Choisis la carte à améliorer'
+                  : `Acheter « ${ligne.nom} » · ${prix(vise)} écus`,
+          )}
         </button>
         <button type="button" className="btn btn-ghost btn-block" onClick={onReprendre}>
           Reprendre la route

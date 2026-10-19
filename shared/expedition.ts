@@ -63,11 +63,14 @@ import {
   COURAGE_DE_L_AUBE,
   COURAGE_DES_ABYSSES,
   COURAGE_DE_LA_PANACEE,
+  COURAGE_DE_LA_PANACEE_PLUS,
   COURAGE_DU_SECOND_SOUFFLE,
+  COURAGE_DU_SECOND_SOUFFLE_PLUS,
   COURAGE_MAX,
   COUT_DES_ABYSSES,
   BOUCLIER_DE_LA_CUIRASSE,
-  CHANGENT_DE_QUESTION,
+  BOUCLIER_DE_LA_CUIRASSE_PLUS,
+  CHANCE_D_UNE_OFFRE_AMELIOREE,
   ECUS_AU_DEPART,
   ENERGIE_D_UNE_FIOLE,
   FIOLES,
@@ -76,8 +79,12 @@ import {
   SAVOIR_DES_MARCHES,
   SEUIL_DES_ABYSSES,
   VERSION_DU_CODEX,
+  VERSION_DU_JEU_COMPLET,
   adversaireDe,
+  ameliorer,
+  amelioreeParmi,
   apercuDuTour,
+  baseDe,
   brisesDUneBonneReponse,
   carteALaVersion,
   carteDeRencontre,
@@ -100,7 +107,9 @@ import {
   offreDeCartes,
   paquetDesRencontres,
   pariPerdu,
+  parmi,
   raretesDeLOffre,
+  refusDeLAmelioration,
   refusDeLaCarte,
   riposte,
   siJuste,
@@ -551,9 +560,21 @@ export const ECUS_AU_PREMIER_MOT = 3
  * une vie, l'un de ses trois jokers (selon sa rareté — l'épique depuis le jeu
  * complet), son talisman, un joker retiré de son paquet ; au codex, sa fiole
  * — entre une commune et une rare : elle ne sert qu'une fois, mais quand on
- * veut. Chaque article une fois par échoppe. Des choix de produit.
+ * veut ; depuis le jeu complet, une carte de son paquet améliorée — le prix
+ * d'une fiole : elle ajoute moins qu'une carte neuve, mais pour toute
+ * l'expédition. Chaque article une fois par échoppe. Des choix de produit.
  */
-export const PRIX_DE_L_ECHOPPE: Readonly<{ vie: number; talisman: number; retirer: number; commun: number; rare: number; epique: number; maudit: number; fiole: number }> = {
+export const PRIX_DE_L_ECHOPPE: Readonly<{
+  vie: number
+  talisman: number
+  retirer: number
+  ameliorer: number
+  commun: number
+  rare: number
+  epique: number
+  maudit: number
+  fiole: number
+}> = {
   vie: 40,
   commun: 20,
   rare: 35,
@@ -561,6 +582,7 @@ export const PRIX_DE_L_ECHOPPE: Readonly<{ vie: number; talisman: number; retire
   maudit: 15,
   talisman: 50,
   retirer: 15,
+  ameliorer: 25,
   fiole: 25,
 }
 
@@ -643,8 +665,8 @@ export function fioleDeLOffre(graine: string, rang: number): CleDeFiole {
   return FIOLES[Math.floor(hasardDe(`${graine}:fiole:${rang}`)() * FIOLES.length)].cle
 }
 
-/** Ce qu'il achète à l'échoppe : une vie, un de ses jokers, son talisman, un joker retiré de son paquet — ou sa fiole (le codex). */
-export type ArticleDeLEchoppe = 'vie' | 'joker' | 'talisman' | 'retirer' | 'fiole'
+/** Ce qu'il achète à l'échoppe : une vie, un de ses jokers, son talisman, un joker retiré de son paquet — ou sa fiole (le codex), une carte améliorée (le jeu complet). */
+export type ArticleDeLEchoppe = 'vie' | 'joker' | 'talisman' | 'retirer' | 'fiole' | 'ameliorer'
 
 /** Le prix d'un article : un joker selon sa rareté. */
 export function prixDeLArticle(article: ArticleDeLEchoppe, cle?: string): number {
@@ -900,7 +922,8 @@ export type GesteDExpedition =
   | { quoi: 'jouer'; joker: string; position?: number; categorie?: string; montre?: number }
   /** Une offre prise : ses cartes, et son talisman ou sa fiole (le codex), chacun à la place d'une carte. */
   | { quoi: 'prendre'; jokers: string[]; talisman?: string; fiole?: CleDeFiole }
-  | { quoi: 'camper'; retirer?: string }
+  /** Au campement : du repos, une carte retirée — ou, depuis le jeu complet, une carte améliorée. */
+  | { quoi: 'camper'; retirer?: string; ameliorer?: string }
   /**
    * Une fiole bue (le codex) : quand il veut — pendant une question, elle
    * porte sa position, comme une carte jouée sur elle.
@@ -1082,11 +1105,13 @@ export interface OffreDeJokers {
   fiole?: CleDeFiole
 }
 
-/** Une échoppe ouverte : ses trois jokers, son talisman — sa fiole, au codex —, et ce qu'il y a déjà acheté : `vie`, `talisman`, `retirer`, `fiole` ou la clé d'un joker. */
+/** Une échoppe ouverte : ses trois jokers, son talisman — sa fiole, au codex —, et ce qu'il y a déjà acheté : `vie`, `talisman`, `retirer`, `fiole`, `ameliorer` ou la clé d'un joker. */
 export interface EchoppeOuverte {
   jokers: string[]
   talisman: string | null
   fiole?: CleDeFiole
+  /** Elle améliore une carte de son paquet (le jeu complet). */
+  ameliorer?: true
   achats: string[]
 }
 
@@ -1205,6 +1230,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   const avecLeCodex = depart.v >= VERSION_DU_CODEX && !!depart.codex
   const talismans = regleOuverte(depart, 'talismans')
   const fioles = regleOuverte(depart, 'fioles')
+  // Le jeu complet : ses cartes s'améliorent — au campement, à l'échoppe, et dans les offres des actes 2 et 3.
+  const ameliorations = avecRencontres && depart.v >= VERSION_DU_JEU_COMPLET
   const fini = () => e.issue !== 'en-route' && e.issue !== 'au-bout'
   const pose = (cle: string) => e.poses.includes(cle)
   const oter = (liste: string[], cle: string) => {
@@ -1277,9 +1304,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const r = e.rencontre!
     r.tour = {
       phase: 'preparation',
-      inspiration: energieDuTour(depart.v, e.acte, ascension) + r.suivant.inspiration + (r.pouvoirs.includes('maitrise') ? 1 : 0),
+      inspiration: energieDuTour(depart.v, e.acte, ascension) + r.suivant.inspiration + (parmi(r.pouvoirs, 'maitrise') ? 1 : 0),
       charge: r.suivant.charge,
-      garde: r.suivant.garde + (r.pouvoirs.includes('cuirasse') ? BOUCLIER_DE_LA_CUIRASSE : 0),
+      garde: r.suivant.garde + (amelioreeParmi(r.pouvoirs, 'cuirasse') ? BOUCLIER_DE_LA_CUIRASSE_PLUS : parmi(r.pouvoirs, 'cuirasse') ? BOUCLIER_DE_LA_CUIRASSE : 0),
       mise: 0,
       jouees: [],
       surLaQuestion: [],
@@ -1318,6 +1345,18 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     }
   }
   /**
+   * Le jeu complet : aux actes 2 et 3, une carte d'une offre arrive parfois
+   * améliorée (`CHANCE_D_UNE_OFFRE_AMELIOREE`). Son propre fil de hasard, un
+   * tirage par carte — qu'elle s'améliore ou non — : les cartes de l'offre
+   * restent celles qu'elle tirait, et rien d'autre ne se décale.
+   */
+  const ameliorees = (cartes: string[], rang: number): string[] => {
+    const chance = ameliorations ? (CHANCE_D_UNE_OFFRE_AMELIOREE[e.acte] ?? 0) : 0
+    if (chance <= 0) return cartes
+    const h = hasardDe(`${depart.graine}:amelioree:${rang}`)
+    return cartes.map(cle => (h() < chance && carteDeRencontre(cle)?.amelioration ? ameliorer(cle) : cle))
+  }
+  /**
    * Une offre de cartes (v5) — une rencontre gagnée, une élite, un coffre ; et,
    * depuis le codex (v7), le coffre d'un gardien vaincu, qui ouvre sur une
    * légendaire — ; vide après L'horizon. Un coffre, au niveau des fioles, en
@@ -1332,10 +1371,11 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const rang = e.offres++
     const talisman = quelle !== 'rencontre' && talismans ? talismanDeLOffre(depart.graine, rang, e.talismans, false) : null
     const poids = raretesDeLOffre(depart.v, e.acte, quelle === 'rencontre' ? 'rencontre' : 'elite')
+    const cartes = avecLeCodex
+      ? offreDuCodex(depart.graine, rang, depart.codex!.cartes, e.paquet, poids, quelle === 'gardien')
+      : offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), poids, depart.v >= 6)
     e.offre = {
-      jokers: avecLeCodex
-        ? offreDuCodex(depart.graine, rang, depart.codex!.cartes, e.paquet, poids, quelle === 'gardien')
-        : offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), poids, depart.v >= 6),
+      jokers: ameliorees(cartes, rang),
       aPrendre: 1,
       ...(quelle === 'coffre' && { coffre: true as const }),
       ...(quelle === 'gardien' && { gardien: true as const }),
@@ -1428,7 +1468,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       r.suivant.cartes += suite.cartes
       r.suivant.inspiration += suite.inspiration
       r.suivant.charge += suite.charge
-      if (r.pouvoirs.includes('bastion')) r.suivant.garde = t.garde
+      if (parmi(r.pouvoirs, 'bastion')) r.suivant.garde = t.garde
       // La boucle : l'erreur reposée, retrouvée, rend son courage.
       if (r.boucle && r.boucle.position === i) {
         e.courage = Math.min(COURAGE_MAX, e.courage! + r.boucle.perte)
@@ -1440,7 +1480,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     } else {
       const f = frappeDUneErreur({
         frappe: frappeDeLaQuestion(r) + frappeEnPlus(t.jouees),
-        sauve: t.jouees.includes('sursis') || t.surLaQuestion.includes('mue'),
+        sauve: parmi(t.jouees, 'sursis') || t.surLaQuestion.includes('mue'),
         double: t.surLaQuestion.includes('tout-ou-rien') || t.jouees.includes('quitte-ou-double'),
         garde: t.garde,
       })
@@ -1451,9 +1491,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       const contre = riposte(f.absorbee, t.jouees, r.pouvoirs)
       r.sceaux = Math.max(0, r.sceaux - contre)
       // Inarrêtable : sa série ne retombe pas.
-      if (!r.pouvoirs.includes('inarretable')) r.serie = 0
+      if (!parmi(r.pouvoirs, 'inarretable')) r.serie = 0
       // Bastion : le bouclier reste, moins ce qu'il a paré.
-      if (r.pouvoirs.includes('bastion')) r.suivant.garde = Math.max(0, t.garde - f.absorbee)
+      if (parmi(r.pouvoirs, 'bastion')) r.suivant.garde = Math.max(0, t.garde - f.absorbee)
       // Sous Assurance, le pari perdu est rendu.
       const perdue = Math.min(e.ecus, pariPerdu(t))
       e.ecus -= perdue
@@ -1519,18 +1559,26 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     t.charge = x.charge
     t.garde = x.garde
     r.serie = x.serie
-    switch (g.joker) {
+    // Ce qui ne se chiffre pas, de sa carte — et de son exemplaire amélioré : une carte de plus, plus de courage.
+    const plus = !!carte.amelioree
+    switch (baseDe(g.joker)) {
       case 'pioche':
       case 'sprint':
-        piocher(2)
+        piocher(plus ? 3 : 2)
         break
       // Celles qui tirent une carte à leur place : jouées, elles ne coûtent pas une carte de la main.
       case 'meditation':
+      case 'assurance':
+        piocher(plus ? 2 : 1)
+        break
       case 'presage':
       case 'surmenage':
       case 'pourboire':
-      case 'assurance':
         piocher(1)
+        break
+      // Doubler la mise améliorée en tire une aussi.
+      case 'doubler-la-mise':
+        if (plus) piocher(1)
         break
       case 'feu-d-artifice':
         r.pioche = [...r.pioche, ...r.defausse].sort()
@@ -1546,12 +1594,12 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         e.recompenseVide = true
         break
       case 'panacee':
-        // Une fois par expédition : jouée, elle quitte son paquet — elle ne reviendra pas à la rencontre suivante.
-        e.courage = Math.min(COURAGE_MAX, e.courage! + COURAGE_DE_LA_PANACEE)
-        oter(e.paquet, 'panacee')
+        // Une fois par expédition : jouée, elle quitte son paquet — cet exemplaire-là — et ne reviendra pas à la rencontre suivante.
+        e.courage = Math.min(COURAGE_MAX, e.courage! + (plus ? COURAGE_DE_LA_PANACEE_PLUS : COURAGE_DE_LA_PANACEE))
+        oter(e.paquet, g.joker)
         break
       case 'second-souffle':
-        e.courage = Math.min(COURAGE_MAX, e.courage! + COURAGE_DU_SECOND_SOUFFLE)
+        e.courage = Math.min(COURAGE_MAX, e.courage! + (plus ? COURAGE_DU_SECOND_SOUFFLE_PLUS : COURAGE_DU_SECOND_SOUFFLE))
         break
       case 'echange':
       case 'volte-face':
@@ -1612,6 +1660,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       jokers,
       talisman: talismans ? talismanDeLOffre(depart.graine, rang, e.talismans, true) : null,
       ...(fioles && { fiole: fioleDeLOffre(depart.graine, rang) }),
+      ...(ameliorations && { ameliorer: true as const }),
       achats: [],
     }
   }
@@ -1967,6 +2016,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     } else if (g.article === 'fiole') {
       e.fioles.push(echoppe.fiole!)
       echoppe.achats.push('fiole')
+    } else if (g.article === 'ameliorer') {
+      ameliorerLaCarte(g.joker!)
+      echoppe.achats.push('ameliorer')
     } else {
       retirer(g.joker!)
       echoppe.achats.push('retirer')
@@ -1994,12 +2046,23 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     return true
   }
 
-  const camper = (cle: string | undefined) => {
+  /** Un exemplaire de son paquet amélioré (le jeu complet) : il y prend sa clé « + » ; faux s'il ne s'améliore pas (`refusDeLAmelioration`). */
+  const ameliorerLaCarte = (cle: string): boolean => {
+    if (!ameliorations || refusDeLAmelioration(e.paquet, cle) !== null) return false
+    e.paquet[e.paquet.indexOf(cle)] = ameliorer(cle)
+    e.paquet.sort()
+    return true
+  }
+
+  /** Au campement : le repos, une carte retirée, ou — depuis le jeu complet — une carte améliorée ; un choix qui ne se fait pas n'est pas un choix. */
+  const camper = (g: Extract<GesteDExpedition, { quoi: 'camper' }>) => {
     if (!e.campement) return
-    if (cle === undefined) {
+    if (g.ameliorer !== undefined) {
+      if (g.retirer !== undefined || !ameliorerLaCarte(g.ameliorer)) return
+    } else if (g.retirer === undefined) {
       if (e.courage !== null) e.courage = Math.min(COURAGE_MAX, e.courage + reposALAscension(COURAGE_D_UN_CAMPEMENT, ascension))
       else e.vies = Math.min(VIES, e.vies + 1)
-    } else if (!retirer(cle)) return
+    } else if (!retirer(g.retirer)) return
     e.campement = false
   }
 
@@ -2029,7 +2092,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     else if (g.quoi === 'jouer') {
       if (avecJokers) jouer(g)
     } else if (g.quoi === 'prendre') prendre(g)
-    else if (g.quoi === 'camper') camper(g.retirer)
+    else if (g.quoi === 'camper') camper(g)
     else if (g.quoi === 'acheter') {
       if (avecEcus) acheter(g)
     } else if (g.quoi === 'voir') {
@@ -2088,7 +2151,7 @@ export function routeDisponible(e: Pick<EtatDeLExpedition, 'paquet' | 'routeJoue
 export function refusDeLaMise(e: Pick<EtatDeLExpedition, 'ecus' | 'rencontre'> & { pari?: boolean }, mise: number): string | null {
   if (!MISES.includes(mise)) return `Parie ${MISES.join(', ').replace(/, (\d+)$/, ' ou $1')} écus`
   if (e.pari === false && mise > 0) return `Le pari s’ouvre au niveau ${niveauDeLaRegle('pari')} d’explorateur`
-  const total = mise * (e.rencontre?.tour.jouees.includes('doubler-la-mise') ? 2 : 1)
+  const total = mise * (e.rencontre && parmi(e.rencontre.tour.jouees, 'doubler-la-mise') ? 2 : 1)
   if (total > e.ecus) return `Il te manque ${total - e.ecus} écu${total - e.ecus > 1 ? 's' : ''} pour parier autant`
   return null
 }
@@ -2413,7 +2476,8 @@ function refusSurLaCarte(
  * Pourquoi cet achat ne se fait pas — null : il se fait. Le pli l'ignore, le
  * serveur le refuse, la page le grise et dit pourquoi. Chaque article une
  * fois par échoppe ; une vie, sous trois ; un joker de l'étal ; un joker
- * retiré, de son paquet, de sa défausse ou de sa main ; et de quoi payer.
+ * retiré, de son paquet, de sa défausse ou de sa main ; une carte améliorée,
+ * de son paquet (`refusDeLAmelioration`) ; et de quoi payer.
  */
 export function refusDeLAchat(
   e: Pick<EtatDeLExpedition, 'issue' | 'echoppe' | 'ecus' | 'vies' | 'paquet' | 'defausse' | 'main' | 'talismans'> & { courage?: number | null; fioles?: readonly string[] },
@@ -2441,6 +2505,12 @@ export function refusDeLAchat(
     if (!echoppe.fiole) return 'Pas de fiole à vendre ici'
     if (echoppe.achats.includes('fiole')) return 'Déjà achetée'
     if ((e.fioles?.length ?? 0) >= FIOLES_MAX) return `Tes ${FIOLES_MAX} places de fiole sont prises : bois-en une d’abord`
+  } else if (g.article === 'ameliorer') {
+    // Le jeu complet : une carte de son paquet améliorée, une fois par échoppe — la règle même du campement.
+    if (!echoppe.ameliorer) return 'On n’améliore pas de carte ici'
+    if (echoppe.achats.includes('ameliorer')) return 'Une carte améliorée par échoppe'
+    const refus = refusDeLAmelioration(e.paquet, g.joker ?? '')
+    if (refus) return refus
   } else {
     if (echoppe.achats.includes('retirer')) return v5 ? 'Une carte retirée par échoppe' : 'Un joker retiré par échoppe'
     if (!g.joker || ![...e.paquet, ...e.defausse, ...e.main].includes(g.joker)) return v5 ? 'Cette carte n’est pas dans ton paquet' : 'Ce joker n’est pas dans ton paquet'

@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Icon, type IconName } from '../components/Icon'
 import { Dessin } from '../components/Avatar'
 import { EMBLEME } from '../components/Ecusson'
@@ -49,7 +49,7 @@ import {
 import {
   CARTES_DES_RENCONTRES,
   CARTES_PAR_QUESTION,
-  CHANGENT_DE_QUESTION,
+  CHANCE_D_UNE_OFFRE_AMELIOREE,
   COURAGE_D_UN_CAMPEMENT,
   COURAGE_D_UNE_SOURCE,
   COURAGE_DE_LA_RENAISSANCE,
@@ -59,10 +59,13 @@ import {
   FIOLES_MAX,
   MISES,
   VERSION_DU_JEU_COMPLET,
+  ameliorer,
   apercuDuTour,
+  baseDe,
   carteALaVersion,
   carteDeRencontre,
   cartesDeCombat,
+  changeDeQuestion,
   chiffresApresLaCarte,
   fioleDe,
   formeApresLaCarte,
@@ -231,7 +234,7 @@ export function VisageDeLaCarte({ c }: { c: CarteDeRencontre }) {
       <Dessin cle={c.legendaire} />
     </span>
   ) : (
-    <Icon name={ICONE_DE_LA_CARTE[c.cle] ?? 'sparkles'} />
+    <Icon name={ICONE_DE_LA_CARTE[baseDe(c.cle)] ?? 'sparkles'} />
   )
 }
 
@@ -240,12 +243,13 @@ export function origineDeLaCarte(c: CarteDeRencontre): string {
   return [MOMENT[c.moment], ...plusDeLaCarte(c)].join(' · ')
 }
 
-/** Ce qu'il faut savoir de plus sur elle : une fois par rencontre — ou par expédition —, un indice, le légendaire qui la donne. */
+/** Ce qu'il faut savoir de plus sur elle : une fois par rencontre — ou par expédition —, un indice, le légendaire qui la donne, ce que l'amélioration lui a donné. */
 function plusDeLaCarte(c: CarteDeRencontre): string[] {
   return [
     c.unique ? 'une fois par expédition' : c.epuisement && 'une fois par rencontre',
     c.indice && 'une aide : ta réponse ne compte pas dans tes statistiques',
     c.legendaire && `la carte ${duGardien(c.legendaire)}`,
+    c.amelioree && c.amelioration && `améliorée : ${c.amelioration.gain.toLowerCase()}`,
   ].filter((x): x is string => !!x)
 }
 
@@ -323,11 +327,15 @@ export function CarteDessinee({
   children?: ReactNode
 }) {
   const style = { ...gemmeDeLaCarte(c), '--famille': TEINTE_DE_LA_FAMILLE[c.famille] } as CSSProperties
-  // Peinte, son illustration (`server/scripts/anime/cartes.ts`) : la grande levée, la petite ailleurs. La teinte de sa famille
-  // reste dessous, le temps qu'elle arrive.
-  const peinture = CARTES_PEINTES[c.cle]
+  // Peinte, son illustration (`server/scripts/anime/cartes.ts`) : la grande levée, la petite ailleurs — celle de sa carte, améliorée
+  // ou non. La teinte de sa famille reste dessous, le temps qu'elle arrive.
+  const peinture = CARTES_PEINTES[baseDe(c.cle)]
   return (
-    <span className={`exp-vc exp-vc-${taille}` + (c.legendaire ? ' exp-vc-du-legendaire' : '')} style={style} aria-hidden={taille === 'levee' ? undefined : true}>
+    <span
+      className={`exp-vc exp-vc-${taille}` + (c.legendaire ? ' exp-vc-du-legendaire' : '') + (c.amelioree ? ' exp-vc-amelioree' : '')}
+      style={style}
+      aria-hidden={taille === 'levee' ? undefined : true}
+    >
       <CoutEnEnergie c={c} manque={energie !== undefined && c.cout > energie} />
       {taille === 'levee' && c.rarete !== 'commun' && <span className="exp-vc-rarete-dite">{RARETE_DE_LA_CARTE[c.rarete]}</span>}
       <span className="exp-vc-art">
@@ -339,6 +347,8 @@ export function CarteDessinee({
       {children}
       <span className="exp-vc-gemme" />
       {nombre !== undefined && nombre > 1 && <b className="exp-vc-nombre">{`×${nombre}`}</b>}
+      {/* Améliorée (le jeu complet) : un « + » vert au coin, dans la main aussi, où son nom ne se lit pas. */}
+      {c.amelioree && <b className="exp-vc-ameliore">+</b>}
     </span>
   )
 }
@@ -346,13 +356,14 @@ export function CarteDessinee({
 /** L'ordre du catalogue : neutres, familles, légendaires — pas celui des noms, que `localeCompare` trierait en chargeant `Intl` (règle `client.md`). */
 const RANG_AU_CATALOGUE = new Map(CARTES_DES_RENCONTRES.map((c, i) => [c.cle, i]))
 
+/** Son rang au catalogue : celui de sa carte — l'exemplaire amélioré juste après elle. */
+const rangAuCatalogue = (cle: string) => (RANG_AU_CATALOGUE.get(baseDe(cle)) ?? 999) + (cle === baseDe(cle) ? 0 : 0.5)
+
 /** Des cartes comptées — « Concentration ×4 » —, dans l'ordre du catalogue. */
 export function comptesDesCartes(cles: readonly string[]): { cle: string; nom: string; n: number }[] {
   const n = new Map<string, number>()
   for (const cle of cles) n.set(cle, (n.get(cle) ?? 0) + 1)
-  return [...n]
-    .map(([cle, x]) => ({ cle, nom: carteDeRencontre(cle)?.nom ?? cle, n: x }))
-    .sort((a, b) => (RANG_AU_CATALOGUE.get(a.cle) ?? 99) - (RANG_AU_CATALOGUE.get(b.cle) ?? 99))
+  return [...n].map(([cle, x]) => ({ cle, nom: carteDeRencontre(cle)?.nom ?? cle, n: x })).sort((a, b) => rangAuCatalogue(a.cle) - rangAuCatalogue(b.cle))
 }
 
 /** Ce qui reste d'un tas quand on en ôte d'autres, chaque carte autant de fois qu'elle y est. */
@@ -427,7 +438,7 @@ export function apercuALaMise(r: VueDeLaRencontre, mise: number, fetiche: string
     : r
   const q = c ? formeApresLaCarte(c.cle, { forme: a.forme, reponses: a.reponses }) : { forme: a.forme, reponses: a.reponses }
   // Les cartes qui visent la question, comme le pli les range : une autre question repart sans elles.
-  const surLaQuestion = !c ? r.surLaQuestion : CHANGENT_DE_QUESTION.has(c.cle) ? (c.cle === 'mue' ? ['mue'] : []) : viseLaQuestion(c) ? [...r.surLaQuestion, c.cle] : r.surLaQuestion
+  const surLaQuestion = !c ? r.surLaQuestion : changeDeQuestion(c.cle) ? (c.cle === 'mue' ? ['mue'] : []) : viseLaQuestion(c) ? [...r.surLaQuestion, c.cle] : r.surLaQuestion
   return apercuDuTour({
     v: r.v,
     tour: { charge: chiffres.charge, garde: chiffres.garde, mise, jouees: c ? [...r.jouees, c.cle] : r.jouees, surLaQuestion },
@@ -742,6 +753,7 @@ export function CarteLevee({
   busy = false,
   changement,
   ouverture,
+  avecAmelioration,
   onJouer,
   onMontrer,
   onReposer,
@@ -752,6 +764,8 @@ export function CarteLevee({
   changement?: ChangementDeLaCarte | null
   /** Une carte que son codex n'a pas encore : comment elle s'ouvre, sous la carte. */
   ouverture?: string
+  /** Au codex (le jeu complet) : ce que l'amélioration lui donnerait, sous la carte. */
+  avecAmelioration?: boolean
   onJouer?: JouerUneCarte
   onMontrer?: () => void
   onReposer: () => void
@@ -781,6 +795,12 @@ export function CarteLevee({
           <p className="exp-ouverture">
             <Icon name="lock" />
             {espacesFines(ouverture)}
+          </p>
+        )}
+        {avecAmelioration && c.amelioration && !c.amelioree && (
+          <p className="exp-ameliorable">
+            <Icon name="arrow-up" />
+            {espacesFines(`Améliorée : ${c.amelioration.gain.toLowerCase()}`)}
           </p>
         )}
         {!onJouer ? null : refus ? (
@@ -841,6 +861,36 @@ export function energieDite(energie: readonly number[]): string {
  */
 const regleDuCycle = (energie: readonly number[]) =>
   `À chaque question, tu tires de nouvelles cartes de ta pioche, et tu as ${energieDite(energie)} pour les jouer. Celles que tu ne joues pas vont à la défausse ; quand ta pioche est vide, ta défausse y est remélangée. Une carte « une fois par rencontre » revient à la rencontre suivante, et chaque rencontre remélange tout ton paquet. Les cartes de route se jouent sur le plan, une fois par acte.`
+
+/**
+ * Ce que l'amélioration fera d'une carte, avant qu'on la choisisse — au
+ * campement, à l'échoppe (le jeu complet) : la carte, puis la même améliorée,
+ * côte à côte — son chiffre, son coût, son « + » —, et ce qu'elle y gagne en
+ * mots. Comme la forge de Slay the Spire, on voit avant d'y passer.
+ * Elle paraît sous la rangée, hors de l'écran en 360 × 640 et sous le bouton
+ * collé du pied : la carte touchée, la page défile jusqu'à elle.
+ */
+export function AvantApres({ cle }: { cle: string }) {
+  const carte = useCarte()
+  const avant = carte(cle)
+  const apres = carte(ameliorer(cle))
+  const ici = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const calme = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ici.current?.scrollIntoView({ block: 'nearest', behavior: calme ? 'auto' : 'smooth' })
+  }, [cle])
+  if (!avant?.amelioration || !apres) return null
+  return (
+    <div ref={ici} className="exp-avant-apres" role="group" aria-label={`${avant.nom}, améliorée : ${avant.amelioration.gain}`}>
+      <div className="exp-avant-apres-cartes" aria-hidden="true">
+        <CarteDessinee c={avant} taille="rangee" />
+        <Icon name="chevron-right" />
+        <CarteDessinee c={apres} taille="rangee" />
+      </div>
+      <p className="exp-avant-apres-gain">{espacesFines(avant.amelioration.gain)}</p>
+    </div>
+  )
+}
 
 /**
  * Un tas en vraies cartes, qui défilent de côté (« Voir la pioche on voit
@@ -1286,7 +1336,7 @@ export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onF
           </section>
         )}
       </Feuille>
-      {regardee && <CarteLevee cle={regardee} {...(fermee && { ouverture: fermee.phrase })} onReposer={() => setRegardee(null)} />}
+      {regardee && <CarteLevee cle={regardee} {...(fermee && { ouverture: fermee.phrase })} avecAmelioration onReposer={() => setRegardee(null)} />}
     </>
   )
 }
@@ -1513,7 +1563,7 @@ function retenirLeGuide() {
 
 /** Une section des règles : de quoi elle parle, son titre, une ligne par règle — un dessin, une phrase. */
 interface SectionDesRegles {
-  cle: 'rencontre' | 'cartes' | 'pari' | 'fioles' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'exploits' | 'ascension' | 'passeport' | 'questions' | 'jokers'
+  cle: 'rencontre' | 'cartes' | 'ameliorees' | 'pari' | 'fioles' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'exploits' | 'ascension' | 'passeport' | 'questions' | 'jokers'
   titre: string
   /** `energie` : l'orbe de l'énergie, tel que la main le montre. */
   lignes: { icone: IconName | 'energie'; texte: string }[]
@@ -1539,9 +1589,15 @@ const ouvertAuNiveau = (regle: RegleDuCodex) => `au niveau ${niveauDeLaRegle(reg
  * dit le niveau qui l'ouvre. `ascension` : son cran, celui de l'expédition en
  * route ou celui qui partirait — le campement et la source y rendent moins.
  * `energie` : celle de chaque question, acte par acte — deux à l'acte 1 depuis
- * le jeu complet.
+ * le jeu complet. `ameliorees` : ses cartes s'améliorent (le jeu complet).
  */
-function reglesDesRencontres(parQuestion: readonly number[], codex: CodexDesRegles | undefined, ascension: number, energie: readonly number[]): SectionDesRegles[] {
+function reglesDesRencontres(
+  parQuestion: readonly number[],
+  codex: CodexDesRegles | undefined,
+  ascension: number,
+  energie: readonly number[],
+  ameliorees: boolean,
+): SectionDesRegles[] {
   const [a1, a2, a3] = parQuestion
   const [e1, e2, e3] = energie
   const ouverte = (regle: RegleDuCodex) => !codex || codex.regles.includes(regle)
@@ -1551,6 +1607,8 @@ function reglesDesRencontres(parQuestion: readonly number[], codex: CodexDesRegl
       : e2 === e3
         ? `Tu en as ${e1} à chaque question de l’acte 1, ${e2} ensuite.`
         : `Tu en as ${e1} à chaque question de l’acte 1, ${e2} à l’acte 2, ${e3} à l’acte 3.`
+  // « une sur quatre » : la part des cartes offertes déjà améliorées, à l'acte 2 puis à l'acte 3.
+  const uneSur = (acte: number) => `une sur ${Math.round(1 / (CHANCE_D_UNE_OFFRE_AMELIOREE[acte] || 1))}`
   return [
     {
       cle: 'rencontre',
@@ -1574,6 +1632,22 @@ function reglesDesRencontres(parQuestion: readonly number[], codex: CodexDesRegl
         { icone: 'flag', texte: 'Une carte de route se joue sur le plan, une fois par acte.' },
       ],
     },
+    // Le jeu complet : ce qu'une amélioration fait, et où l'on en trouve — une ligne chacun.
+    ...(ameliorees
+      ? [
+          {
+            cle: 'ameliorees' as const,
+            titre: 'Tes cartes améliorées',
+            lignes: [
+              { icone: 'arrow-up' as const, texte: 'Une carte améliorée fait la même chose, en mieux : un chiffre plus haut, moins d’énergie, une carte de plus… Son nom finit par « + ».' },
+              { icone: 'campement' as const, texte: 'Au campement, améliore une carte au lieu de te reposer.' },
+              { icone: 'echoppe' as const, texte: `L’échoppe en améliore une, ${PRIX_DE_L_ECHOPPE.ameliorer} écus.` },
+              { icone: 'plus-square' as const, texte: `Tes récompenses en proposent déjà améliorées : ${uneSur(1)} à l’acte 2, ${uneSur(2)} à l’acte 3.` },
+              { icone: 'x' as const, texte: 'Ni les maudites, ni les cartes de route, ni celles des légendaires ne s’améliorent.' },
+            ],
+          },
+        ]
+      : []),
     {
       cle: 'pari',
       titre: 'Le pari',
@@ -1757,6 +1831,7 @@ export function FeuilleDesRegles({
   codex,
   ascension,
   energie,
+  v,
   acte = 0,
   debut,
   pied,
@@ -1771,6 +1846,8 @@ export function FeuilleDesRegles({
   ascension?: number
   /** L'énergie de chaque acte, telle que la vue la dit (`CartesEnJeu.energie`) ; sans elle, celle d'une expédition qui partirait. */
   energie?: readonly number[]
+  /** La version de son départ (`CartesEnJeu.v`) : ses cartes s'améliorent depuis le jeu complet ; sans elle, celle d'une expédition qui partirait. */
+  v?: number
   /** L'acte où il en est : l'orbe de l'énergie dit la sienne. */
   acte?: number
   debut?: DebutDesRegles
@@ -1779,7 +1856,13 @@ export function FeuilleDesRegles({
 }) {
   const sonEnergie = energieDesActes(energie, ascension ?? 0)
   const sections = rencontres
-    ? reglesDesRencontres(parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex, ascension ?? 0, sonEnergie)
+    ? reglesDesRencontres(
+        parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION],
+        codex,
+        ascension ?? 0,
+        sonEnergie,
+        (v ?? VERSION_DU_JEU_COMPLET) >= VERSION_DU_JEU_COMPLET,
+      )
     : reglesDesJokers()
   const ordre = debut ? [...sections.filter(s => s.cle === debut), ...sections.filter(s => s.cle !== debut)] : sections
   return (
@@ -1907,6 +1990,7 @@ export function PreparationDeLaRencontre({
           codex={vue.cartes?.codex}
           ascension={vue.cartes?.ascension}
           energie={vue.cartes?.energie}
+          v={vue.cartes?.v}
           acte={vue.acte}
           onFermer={vu}
           pied={
@@ -1965,7 +2049,7 @@ export function ceQueLaCarteAFait(cle: string): string | null {
   const c = carteDeRencontre(cle)
   if (!c) return null
   if (c.moment === 'pouvoir') return cle === 'abysses' ? `« ${c.nom} » est posée : elle t’a coûté 6 de courage` : `« ${c.nom} » agit pour toute la rencontre`
-  if (cle === 'pioche') return 'Deux cartes de plus dans ta main'
+  if (baseDe(cle) === 'pioche') return c.amelioree ? 'Trois cartes de plus dans ta main' : 'Deux cartes de plus dans ta main'
   if (cle === 'feu-d-artifice') return 'Ta défausse revient dans ta pioche : trois cartes de plus'
   if (cle === 'horizon') return 'Ton courage te revient — et ta prochaine récompense sera vide'
   if (cle === 'reveil') return 'Deux d’énergie de plus pour cette question'

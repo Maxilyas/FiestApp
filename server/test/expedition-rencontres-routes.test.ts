@@ -45,7 +45,9 @@ import {
   RENCONTRES_EN_PRODUCTION,
   SAVOIR_DES_MARCHES,
   SCEAUX_DES_RENCONTRES,
+  VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
+  ameliorer,
   paquetDesRencontres,
 } from '../../shared/rencontres'
 import { NIVEAUX, NIVEAU_MAX, codexDuNiveau } from '../../shared/codex'
@@ -505,4 +507,138 @@ test('une fiole (le codex) : l’échoppe en vend une, une fois ; la clairvoyanc
   assert.ok(!effacees.includes(questionsDe(v.id)[position].bonne), 'jamais la bonne : le serveur seul la sait')
   await repondre(c, v, true)
   assert.equal(reponseEnBase(v.id, position).joker, CLAIRVOYANCE_SUR_LA_QUESTION, 'une réponse aidée : la mesure ne la compte pas')
+})
+
+// ── Les cartes améliorées (le jeu complet) ──────────────────────────────────
+
+/** Le premier étage du premier acte en campements, le deuxième en échoppes : la forge, puis l'étal. */
+function forgeEtEtal(depart: DepartDExpedition): { bas: string; haut: string } {
+  for (const e of depart.cartes[0].escales) {
+    if (e.etage !== 0 && e.etage !== 1) continue
+    e.sorte = e.etage === 0 ? 'campement' : 'echoppe'
+    delete e.theme
+    delete e.forme
+    delete e.chance
+  }
+  const bas = depart.cartes[0].depart[0]
+  return { bas, haut: depart.cartes[0].escales.find(e => e.id === bas)!.suite[0] }
+}
+
+test('le jeu complet, par les routes : une carte améliorée au campement, une autre à l’échoppe, au prix du barème ; ce qui ne s’améliore pas, refusé en clair', async () => {
+  const c = await inscrireProfil(banc.url, 'forge', 'Forge')
+  let chemin = { bas: '', haut: '' }
+  let v = await partirEt(c, { rencontres: true }, d => {
+    assert.equal(d.v, VERSION_DU_JEU_COMPLET)
+    chemin = forgeEtEtal(d)
+  })
+  v = await avancer(c, v, chemin.bas)
+  assert.equal(v.campement, true)
+  let r = await geste(c, v, { quoi: 'camper', ameliorer: 'surmenage' })
+  assert.deepEqual([r.status, r.corps.error], [400, 'Cette carte n’est pas dans ton paquet'])
+  r = await geste(c, v, { quoi: 'camper', ameliorer: 'concentration', retirer: 'prudence' })
+  assert.deepEqual([r.status, r.corps.error], [400, 'Ce geste ne se lit pas : recharge la page'], 'un choix à la fois')
+  r = await geste(c, v, { quoi: 'camper', ameliorer: 'concentration' })
+  assert.equal(r.status, 200, r.corps.error)
+  v = r.corps.expedition
+  const paquet = v.cartes!.paquet
+  assert.deepEqual([paquet.filter(x => x === 'concentration').length, paquet.filter(x => x === 'concentration+').length], [3, 1])
+  assert.equal(v.courage, COURAGE_MAX, 'pas de repos : il a amélioré')
+  v = await avancer(c, v, chemin.haut)
+  assert.equal(v.echoppe?.ameliorer, true)
+  r = await geste(c, v, { quoi: 'acheter', article: 'ameliorer', joker: 'concentration+', prix: 1 })
+  assert.deepEqual([r.status, r.corps.error], [400, 'Elle est déjà améliorée'])
+  r = await geste(c, v, { quoi: 'acheter', article: 'ameliorer', joker: 'prudence', prix: 1 })
+  assert.equal(r.status, 200, r.corps.error)
+  v = r.corps.expedition
+  assert.ok(v.cartes!.paquet.includes('prudence+'))
+  assert.equal(v.ecus, ECUS_AU_DEPART - PRIX_DE_L_ECHOPPE.ameliorer, 'au prix du barème, pas à celui que la page écrirait')
+  r = await geste(c, v, { quoi: 'acheter', article: 'ameliorer', joker: 'coup-d-oeil' })
+  assert.deepEqual([r.status, r.corps.error], [400, 'Une carte améliorée par échoppe'])
+})
+
+test('une expédition d’avant le jeu complet n’améliore rien : ni le campement, ni l’échoppe', async () => {
+  const c = await inscrireProfil(banc.url, 'forgeavant', 'Forge avant')
+  let chemin = { bas: '', haut: '' }
+  let v = await partirEt(c, { rencontres: true }, d => {
+    d.v = VERSION_DU_CODEX
+    chemin = forgeEtEtal(d)
+  })
+  v = await avancer(c, v, chemin.bas)
+  let r = await geste(c, v, { quoi: 'camper', ameliorer: 'concentration' })
+  assert.deepEqual([r.status, r.corps.error], [400, 'Cette expédition n’améliore pas ses cartes : repose-toi, ou retire une carte'])
+  r = await geste(c, v, { quoi: 'camper' })
+  assert.equal(r.status, 200, r.corps.error)
+  v = await avancer(c, r.corps.expedition, chemin.haut)
+  assert.equal(v.echoppe?.ameliorer, undefined)
+  r = await geste(c, v, { quoi: 'acheter', article: 'ameliorer', joker: 'prudence' })
+  assert.deepEqual([r.status, r.corps.error], [400, 'On n’améliore pas de carte ici'])
+})
+
+/**
+ * Une carte améliorée en main à la première rencontre : le coffre du premier
+ * pas la propose, il la prend, le campement d'au-dessus l'améliore, et la main
+ * de l'escale d'après tire son exemplaire « + ».
+ */
+function forcerAmelioreeEnMain(depart: DepartDExpedition, cle: string, legendaire: string): { coffre: string; camp: string; question: string } {
+  depart.equipee = [legendaire]
+  depart.codex = codexDuNiveau(NIVEAU_MAX, [])
+  const carte = depart.cartes[0]
+  const parId = new Map(carte.escales.map(e => [e.id, e]))
+  const coffre = parId.get(carte.depart[0])!
+  const camp = parId.get(coffre.suite[0])!
+  const question = parId.get(camp.suite[0])!
+  for (const [e, sorte] of [
+    [coffre, 'coffre'],
+    [camp, 'campement'],
+  ] as const) {
+    e.sorte = sorte
+    delete e.theme
+    delete e.forme
+    delete e.chance
+  }
+  question.sorte = 'question'
+  question.theme = { categories: ['Histoire'] }
+  question.forme = 'quatre'
+  question.chance = 0.7
+  const gestes: GesteDExpedition[] = [
+    { quoi: 'avancer', vers: coffre.id },
+    { quoi: 'prendre', jokers: [cle] },
+    { quoi: 'avancer', vers: camp.id },
+    { quoi: 'camper', ameliorer: cle },
+    { quoi: 'avancer', vers: question.id },
+  ]
+  graineOu(
+    depart,
+    `${cle}+`,
+    d => !!pliDeLExpedition(d, gestes.slice(0, 1), [], new Map()).offre?.jokers.includes(cle) && !!pliDeLExpedition(d, gestes, [], new Map()).rencontre?.main.includes(ameliorer(cle)),
+  )
+  return { coffre: coffre.id, camp: camp.id, question: question.id }
+}
+
+test('Double chance+ : gratuite, deux réponses choisies — et la réponse est aidée, sous la clé de sa carte', async () => {
+  const c = await inscrireProfil(banc.url, 'doubleplus', 'Double plus')
+  let chemin = { coffre: '', camp: '', question: '' }
+  let v = await partirEt(c, { rencontres: true }, d => {
+    chemin = forcerAmelioreeEnMain(d, 'double-chance', 'lg:janus')
+  })
+  v = await avancer(c, v, chemin.coffre)
+  let r = await geste(c, v, { quoi: 'prendre', jokers: ['double-chance'] })
+  assert.equal(r.status, 200, r.corps.error)
+  v = await avancer(c, r.corps.expedition, chemin.camp)
+  r = await geste(c, v, { quoi: 'camper', ameliorer: 'double-chance' })
+  assert.equal(r.status, 200, r.corps.error)
+  v = await avancer(c, r.corps.expedition, chemin.question)
+  assert.ok(v.rencontre?.main.includes('double-chance+'))
+  v = await voir(c, v, 0)
+  assert.equal(v.rencontre!.refus['double-chance+'], null)
+  const energie = v.rencontre!.inspiration
+  v = await jouer(c, v, 'double-chance+')
+  assert.equal(v.rencontre!.inspiration, energie, 'gratuite')
+  assert.equal(v.question!.deux, true, 'deux réponses à choisir, comme sa carte')
+  const position = v.question!.index
+  const q = questionsDe(v.id)[position]
+  r = await poster(c, `/api/expedition/${v.id}/reponse`, { position, choix: [(q.bonne + 1) % q.reponses.length, q.bonne] })
+  assert.equal(r.status, 200, r.corps.error)
+  assert.equal(r.corps.coup.juste, true, 'l’une des deux est la bonne')
+  assert.equal(reponseEnBase(v.id, position).joker, 'double-chance', 'une réponse aidée, sous la clé de sa carte')
 })

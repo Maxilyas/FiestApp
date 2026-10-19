@@ -157,6 +157,36 @@ export const PRISME_A_SIX_CHOIX = 6
 export const PART_DES_REPRESAILLES = 0.5
 
 /**
+ * Une carte améliorée fait la même chose, en mieux (« Est-ce que l'on
+ * pourrait pas aussi avoir un système d'amélioration des cartes ? », le
+ * propriétaire, le 19 octobre 2026) : un chiffre plus haut, une d'énergie de
+ * moins, une carte tirée de plus, ou elle ne quitte plus la rencontre. Voici
+ * ceux de ses chiffres que la règle lit d'une constante — « _PLUS », comme le
+ * « + » de son nom (« Panacée+ ») ; les autres s'écrivent dans la règle même,
+ * à côté de ceux de sa carte (`chiffresApresLaCarte`, `siJuste`…).
+ */
+export const ECUS_DU_POURBOIRE_PLUS = 12
+export const ECUS_DE_LA_CAGNOTTE_PLUS = 8
+export const ECUS_DE_LA_RAFLE_PLUS = 15
+export const COURAGE_DE_LA_PANACEE_PLUS = 25
+export const COURAGE_DU_SECOND_SOUFFLE_PLUS = 10
+export const COURAGE_DU_PANSEMENT_PLUS = 7
+export const BOUCLIER_DU_CAMELEON_PLUS = 7
+export const BOUCLIER_DE_LA_CUIRASSE_PLUS = 5
+export const BOUCLIER_DE_L_ASTROLABE_PLUS = 5
+export const ENCYCLOPEDIE_PAR_JUSTE_PLUS = 4
+export const PRISME_PAR_JUSTE_PLUS = 3
+export const PRISME_A_SIX_CHOIX_PLUS = 9
+/**
+ * La part des cartes d'une offre qui arrivent améliorées, acte par acte :
+ * aucune à l'acte 1, une sur quatre à l'acte 2, une sur deux à l'acte 3 —
+ * comme dans Slay the Spire, plus loin on va, mieux on trouve. Tirée sur son
+ * propre fil (`graine:amelioree:rang`) : les cartes de l'offre restent celles
+ * qu'elle tirait.
+ */
+export const CHANCE_D_UNE_OFFRE_AMELIOREE: readonly number[] = [0, 0.25, 0.5]
+
+/**
  * Une fiole : ce qui ne sert qu'une fois (la proposition du codex — « un
  * filet aux débutants », qui donne enfin un usage aux écus de l'échoppe).
  * Elle se boit quand on veut, même la question sous les yeux ; elle
@@ -306,6 +336,27 @@ export interface CarteDeRencontre {
   depuis?: number
   /** Jouée, elle quitte son paquet : une fois par expédition (Panacée). */
   unique?: true
+  /**
+   * Ce qu'elle devient améliorée (le jeu complet) — au campement, à
+   * l'échoppe, ou trouvée telle dans une offre —, sous sa clé suivie de « + »
+   * (`ameliorer`). Absente, elle ne s'améliore pas : une maudite, une carte de
+   * route, la carte d'un légendaire.
+   */
+  amelioration?: Amelioration
+  /** C'est un exemplaire amélioré : sa clé et son nom finissent par « + ». */
+  amelioree?: true
+}
+
+/** Ce que l'amélioration change à une carte, et ce qu'elle y gagne, dit en quelques mots. */
+export interface Amelioration {
+  /** Ce qu'elle gagne, comparée à sa carte — « +6 au lieu de +4 », « Gratuite » : le campement et l'échoppe le disent avant qu'on choisisse. */
+  gain: string
+  cout?: number
+  effet?: string
+  resume?: string
+  valeur?: string
+  /** Jouée, elle ne quitte plus la rencontre : elle va à la défausse, et revient. */
+  durable?: true
 }
 
 /**
@@ -1294,14 +1345,254 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
   },
 ]
 
-/** Tout le catalogue des rencontres. */
-export const CARTES_DES_RENCONTRES: readonly CarteDeRencontre[] = [...NEUTRES, ...DES_FAMILLES, ...DES_LEGENDAIRES]
+/**
+ * Ce que l'amélioration fait de chaque carte qui en a une (le jeu complet), à
+ * la manière de Slay the Spire : un chiffre plus haut — de la moitié environ —,
+ * une d'énergie de moins, une carte tirée de plus, ou elle ne quitte plus la
+ * rencontre. Ni les maudites, ni la carte de route, ni celles des légendaires :
+ * une malédiction ne s'arrange pas, et un légendaire est déjà au sommet. Ce
+ * que dit son texte, la règle le fait (`chiffresApresLaCarte`, `siJuste`… ;
+ * `expedition-ameliorations.test.ts` lève et joue chacune).
+ */
+const AMELIORATIONS: Readonly<Record<string, Amelioration>> = {
+  // Les neutres.
+  concentration: { gain: '+6 au lieu de +4', effet: 'Si tu réponds juste, l’adversaire perd 6 de plus.', resume: '+6 si juste', valeur: '+6' },
+  prudence: { gain: 'Bouclier 8 au lieu de 5', effet: 'Bouclier 8 : si tu te trompes, il pare 8 de l’attaque.', resume: 'Bouclier 8', valeur: '8' },
+  'coup-d-oeil': { gain: 'Gratuite', cout: 0 },
+  echange: { gain: 'Plus seulement une fois par rencontre', durable: true },
+  pioche: { gain: 'Trois cartes au lieu de deux', effet: 'Tire trois cartes de plus.', resume: '+3 cartes', valeur: '+3' },
+  'arret-sur-image': { gain: 'Gratuite', cout: 0 },
+  evidence: { gain: '+6 au lieu de +4', effet: 'Une fois la question vue : si tu réponds juste, l’adversaire perd 6 de plus.', resume: '+6 si juste', valeur: '+6' },
+  'double-chance': { gain: 'Gratuite', cout: 0 },
+  sursis: { gain: '1 d’énergie au lieu de 2', cout: 1 },
+  meditation: { gain: 'Deux cartes au lieu d’une', effet: '+1 d’énergie pour cette question, et tu tires deux cartes de plus.', resume: 'Énergie, 2 cartes' },
+  'sang-froid': {
+    gain: 'Bouclier 6 et +6, au lieu de 4',
+    effet: 'Une fois la question vue : bouclier 6 — et si tu réponds juste, l’adversaire perd 6 de plus.',
+    resume: 'Bouclier 6 et +6',
+    valeur: '6',
+  },
+  panacee: {
+    gain: `+${COURAGE_DE_LA_PANACEE_PLUS} au lieu de +${COURAGE_DE_LA_PANACEE}`,
+    effet: `Tu reprends ${COURAGE_DE_LA_PANACEE_PLUS} de courage. Jouée, elle quitte ton paquet.`,
+    resume: `+${COURAGE_DE_LA_PANACEE_PLUS} courage`,
+    valeur: `+${COURAGE_DE_LA_PANACEE_PLUS}`,
+  },
+  maitrise: { gain: '1 d’énergie au lieu de 2', cout: 1 },
+  // L'Érudit.
+  plume: {
+    gain: '+3 et +8 au lieu de +2 et +6',
+    effet: 'Si tu réponds juste, l’adversaire perd 3 de plus — 8 si la question est de ta catégorie fétiche.',
+    resume: '+3, +8 fétiche',
+    valeur: '+3',
+  },
+  'savoir-faire': {
+    gain: '+6 ou +10 au lieu de +4 ou +7',
+    effet: 'Si tu réponds juste, l’adversaire perd 6 de plus — 10 si la question n’est pas facile.',
+    resume: '+6 ou +10',
+    valeur: '+6',
+  },
+  memoire: {
+    gain: '+5 au lieu de +3',
+    effet: 'Une fois la question vue : si tu réponds juste, l’adversaire perd 5 de plus, et tu tires une carte de plus à la question suivante.',
+    resume: '+5, +1 carte',
+    valeur: '+5',
+  },
+  bibliotheque: {
+    gain: '+2 et +5 au lieu de +1 et +3',
+    effet: 'Pour toute la rencontre : tes bonnes réponses lui font perdre 2 de plus — 5 celles de ta catégorie fétiche.',
+    resume: '+2, +5 fétiche',
+    valeur: '+2',
+  },
+  lecon: {
+    gain: '+6 au lieu de +4, les deux fois',
+    effet: 'Si tu réponds juste, l’adversaire perd 6 de plus — et 6 de plus encore à la question suivante.',
+    resume: '+6, deux fois',
+    valeur: '+6',
+  },
+  expose: { gain: 'Gratuite', cout: 0 },
+  encyclopedie: {
+    gain: `+${ENCYCLOPEDIE_PAR_JUSTE_PLUS} par bonne réponse au lieu de +${ENCYCLOPEDIE_PAR_JUSTE}`,
+    effet: `Pour toute la rencontre : chaque bonne réponse lui fait perdre ${ENCYCLOPEDIE_PAR_JUSTE_PLUS} de plus par bonne réponse déjà donnée dans la rencontre.`,
+    resume: `+${ENCYCLOPEDIE_PAR_JUSTE_PLUS} par juste`,
+    valeur: `+${ENCYCLOPEDIE_PAR_JUSTE_PLUS}`,
+  },
+  genie: {
+    gain: '+12 et +20 au lieu de +8 et +14',
+    effet: 'Si tu réponds juste, l’adversaire perd 12 de plus — 20 si la question est de ta catégorie fétiche.',
+    resume: '+12, +20 fétiche',
+    valeur: '+12',
+  },
+  // Le Flambeur.
+  'doubler-la-mise': { gain: 'Tu tires une carte en plus', effet: 'Ton pari compte double, gain comme perte. Et tu tires une carte.', resume: 'Pari ×2, +1 carte' },
+  pourboire: {
+    gain: `${ECUS_DU_POURBOIRE_PLUS} écus au lieu de ${ECUS_DU_POURBOIRE}`,
+    effet: `Si tu réponds juste, tu gagnes ${ECUS_DU_POURBOIRE_PLUS} écus. Et tu tires une carte.`,
+    resume: `+${ECUS_DU_POURBOIRE_PLUS} écus +1 carte`,
+  },
+  cagnotte: {
+    gain: `+6 et ${ECUS_DE_LA_CAGNOTTE_PLUS} écus, au lieu de +4 et ${ECUS_DE_LA_CAGNOTTE}`,
+    effet: `Si tu réponds juste, l’adversaire perd 6 de plus et tu gagnes ${ECUS_DE_LA_CAGNOTTE_PLUS} écus.`,
+    resume: `+6 et ${ECUS_DE_LA_CAGNOTTE_PLUS} écus`,
+    valeur: '+6',
+  },
+  banco: { gain: 'Gratuite', cout: 0 },
+  assurance: { gain: 'Deux cartes au lieu d’une', effet: 'Si tu te trompes, ton pari t’est rendu. Et tu tires deux cartes.', resume: 'Assuré, +2 cartes' },
+  fortune: { gain: 'Gratuite', cout: 0 },
+  pactole: { gain: 'Gratuite', cout: 0 },
+  rafle: {
+    gain: `+20 et ${ECUS_DE_LA_RAFLE_PLUS} écus, au lieu de +14 et ${ECUS_DE_LA_RAFLE}`,
+    effet: `Si tu réponds juste, l’adversaire perd 20 de plus et tu gagnes ${ECUS_DE_LA_RAFLE_PLUS} écus.`,
+    resume: `+20 et ${ECUS_DE_LA_RAFLE_PLUS} écus`,
+    valeur: '+20',
+  },
+  // Le Métamorphe.
+  corser: { gain: 'Gratuite', cout: 0 },
+  simplifier: { gain: 'Bouclier 6 au lieu de 3', effet: 'La question passe en vrai ou faux : plus facile, mais l’adversaire perd moitié moins. Et bouclier 6.' },
+  'volte-face': { gain: 'Gratuite', cout: 0 },
+  prisme: {
+    gain: `+${PRISME_PAR_JUSTE_PLUS} et +${PRISME_A_SIX_CHOIX_PLUS} au lieu de +${PRISME_PAR_JUSTE} et +${PRISME_A_SIX_CHOIX}`,
+    effet: `Pour toute la rencontre : tes bonnes réponses lui font perdre ${PRISME_PAR_JUSTE_PLUS} de plus — ${PRISME_A_SIX_CHOIX_PLUS} à six choix.`,
+    resume: `+${PRISME_PAR_JUSTE_PLUS}, +${PRISME_A_SIX_CHOIX_PLUS} à six`,
+    valeur: `+${PRISME_PAR_JUSTE_PLUS}`,
+  },
+  miroir: { gain: 'Gratuite', cout: 0 },
+  cameleon: {
+    gain: `Bouclier ${BOUCLIER_DU_CAMELEON_PLUS} au lieu de ${BOUCLIER_DU_CAMELEON}`,
+    effet: `Pour toute la rencontre : chaque fois que tu changes la question, ou sa forme, bouclier ${BOUCLIER_DU_CAMELEON_PLUS}.`,
+    valeur: `${BOUCLIER_DU_CAMELEON_PLUS}`,
+  },
+  metamorphose: { gain: 'Gratuite', cout: 0 },
+  polymorphe: { gain: 'Bouclier 4 en plus', effet: 'La question passe à six choix, et l’adversaire perd le double, pas une fois et demie. Et bouclier 4.' },
+  // L'Élan.
+  echauffement: {
+    gain: '+4 au lieu de +2',
+    effet: 'Si tu réponds juste, l’adversaire perd 4 de plus. Et ta série compte une bonne réponse de plus.',
+    resume: '+4, série +1',
+    valeur: '+4',
+  },
+  lancee: {
+    gain: '+3 par bonne réponse au lieu de +2',
+    effet: 'Si tu réponds juste, l’adversaire perd 3 de plus par bonne réponse de ta série, celle-ci comprise.',
+    resume: '+3 par série',
+    valeur: '+3',
+  },
+  foulee: { gain: '+2 d’énergie au lieu de +1', effet: '+2 d’énergie pour cette question.', resume: '+2 énergie', valeur: '+2' },
+  acceleration: { gain: 'Deux cartes au lieu d’une', effet: 'Si tu réponds juste, la question suivante te donne 1 d’énergie et deux cartes de plus.' },
+  rythme: { gain: 'Gratuite', cout: 0 },
+  sprint: { gain: 'Trois cartes au lieu de deux', effet: 'Tu tires trois cartes, et +1 d’énergie pour cette question.', valeur: '+3' },
+  'vent-arriere': { gain: 'Gratuite', cout: 0 },
+  inarretable: { gain: 'Gratuite', cout: 0 },
+  // Le Rempart.
+  parade: { gain: 'Bouclier 9 au lieu de 6', effet: 'Bouclier 9, une fois la question vue : si tu te trompes, il pare 9 de l’attaque.', resume: 'Bouclier 9', valeur: '9' },
+  muraille: { gain: 'Bouclier 16 au lieu de 12', effet: 'Bouclier 16 : si tu te trompes, il pare 16 de l’attaque.', resume: 'Bouclier 16', valeur: '16' },
+  pansement: {
+    gain: `+${COURAGE_DU_PANSEMENT_PLUS} au lieu de +${COURAGE_DU_PANSEMENT}`,
+    effet: `Si tu réponds juste, tu reprends ${COURAGE_DU_PANSEMENT_PLUS} de courage.`,
+    resume: `Soin ${COURAGE_DU_PANSEMENT_PLUS} si juste`,
+    valeur: `+${COURAGE_DU_PANSEMENT_PLUS}`,
+  },
+  'contre-attaque': { gain: 'Gratuite', cout: 0 },
+  cuirasse: {
+    gain: `Bouclier ${BOUCLIER_DE_LA_CUIRASSE_PLUS} au lieu de ${BOUCLIER_DE_LA_CUIRASSE}`,
+    effet: `Pour toute la rencontre : bouclier ${BOUCLIER_DE_LA_CUIRASSE_PLUS} à chaque question, celle-ci comprise.`,
+    valeur: `${BOUCLIER_DE_LA_CUIRASSE_PLUS}`,
+  },
+  'second-souffle': {
+    gain: `+${COURAGE_DU_SECOND_SOUFFLE_PLUS} au lieu de +${COURAGE_DU_SECOND_SOUFFLE}`,
+    effet: `Tu reprends ${COURAGE_DU_SECOND_SOUFFLE_PLUS} de courage.`,
+    resume: `+${COURAGE_DU_SECOND_SOUFFLE_PLUS} courage`,
+    valeur: `+${COURAGE_DU_SECOND_SOUFFLE_PLUS}`,
+  },
+  bastion: { gain: '1 d’énergie au lieu de 2', cout: 1 },
+  represailles: { gain: '1 d’énergie au lieu de 2', cout: 1 },
+  // Le Devin.
+  lucidite: {
+    gain: '+3 et +8 au lieu de +2 et +5',
+    effet: 'Si tu réponds juste, l’adversaire perd 3 de plus — 8 si une réponse est effacée.',
+    resume: '+3, +8 effacée',
+    valeur: '+3',
+  },
+  augure: { gain: 'Plus seulement une fois par rencontre', durable: true },
+  presage: { gain: 'Gratuite', cout: 0 },
+  'troisieme-oeil': {
+    gain: '+5 par indice au lieu de +3',
+    effet: 'Pour toute la rencontre : chaque indice que tu joues lui fait perdre 5 de plus, si tu réponds juste.',
+    resume: 'Indices +5',
+    valeur: '+5',
+  },
+  voyance: { gain: 'Gratuite', cout: 0 },
+  astrolabe: {
+    gain: `Bouclier ${BOUCLIER_DE_L_ASTROLABE_PLUS} au lieu de ${BOUCLIER_DE_L_ASTROLABE}`,
+    effet: `Pour toute la rencontre : chaque indice que tu joues te donne bouclier ${BOUCLIER_DE_L_ASTROLABE_PLUS}.`,
+    valeur: `${BOUCLIER_DE_L_ASTROLABE_PLUS}`,
+  },
+  vision: { gain: '1 d’énergie au lieu de 2', cout: 1 },
+  revelation: { gain: 'Gratuite', cout: 0 },
+}
 
-const PAR_CLE = new Map(CARTES_DES_RENCONTRES.map(c => [c.cle, c]))
+/** Tout le catalogue des rencontres ; une carte qui s'améliore porte ce qu'elle devient (`amelioration`). */
+export const CARTES_DES_RENCONTRES: readonly CarteDeRencontre[] = [...NEUTRES, ...DES_FAMILLES, ...DES_LEGENDAIRES].map(c =>
+  AMELIORATIONS[c.cle] ? { ...c, amelioration: AMELIORATIONS[c.cle] } : c,
+)
 
-/** Une carte par sa clé, telle que le codex la joue ; undefined : elle n'est pas du catalogue des rencontres. */
+// ── Les cartes améliorées ──
+
+/** La clé d'un exemplaire amélioré : celle de sa carte, suivie de « + » — comme son nom, « Concentration+ ». */
+export const ameliorer = (cle: string) => `${cle}+`
+/** Cet exemplaire est-il amélioré ? */
+export const estAmelioree = (cle: string) => cle.endsWith('+')
+/** La carte d'un exemplaire, amélioré ou non : ce que lit chaque règle qui la reconnaît — un refus, ce qu'elle fait, l'écran qui la dessine. */
+export const baseDe = (cle: string) => (estAmelioree(cle) ? cle.slice(0, -1) : cle)
+/**
+ * Cette carte est-elle dans la liste — jouée, posée, sur la question —,
+ * améliorée ou non ? Les tas d'une rencontre portent la clé de l'exemplaire :
+ * cherché sous sa seule clé, Sursis+ jouée ne sauvait rien
+ * (`expedition-ameliorations.test.ts` relit le code pour qu'aucune règle ne
+ * cherche plus ainsi une carte qui s'améliore).
+ */
+export const parmi = (liste: readonly string[], cle: string) => liste.includes(cle) || liste.includes(ameliorer(cle))
+/** Y est-elle améliorée ? */
+export const amelioreeParmi = (liste: readonly string[], cle: string) => liste.includes(ameliorer(cle))
+
+/**
+ * Un exemplaire amélioré, tel que la règle et la page le lisent : sa clé et
+ * son nom suivis de « + », ses chiffres neufs — venu avec le jeu complet,
+ * comme les améliorations. Il garde `amelioration`, de quoi dire ce qu'il a
+ * gagné.
+ */
+function exemplaireAmeliore(c: CarteDeRencontre, a: Amelioration): CarteDeRencontre {
+  const { gain: _gain, durable, ...neuf } = a
+  const x: CarteDeRencontre = { ...c, ...neuf, cle: ameliorer(c.cle), nom: `${c.nom}+`, amelioree: true, depuis: Math.max(c.depuis ?? 0, VERSION_DU_JEU_COMPLET) }
+  delete x.avantLeCodex
+  if (durable) delete x.epuisement
+  return x
+}
+
+/** Les exemplaires améliorés : hors du catalogue — le codex et les offres l'énumèrent —, mais chacun se lit par sa clé. */
+const AMELIOREES: readonly CarteDeRencontre[] = CARTES_DES_RENCONTRES.flatMap(c => (c.amelioration ? [exemplaireAmeliore(c, c.amelioration)] : []))
+
+const PAR_CLE = new Map([...CARTES_DES_RENCONTRES, ...AMELIOREES].map(c => [c.cle, c]))
+
+/** Une carte par sa clé — un exemplaire amélioré compris —, telle que le codex la joue ; undefined : elle n'est pas du catalogue des rencontres. */
 export function carteDeRencontre(cle: unknown): CarteDeRencontre | undefined {
   return typeof cle === 'string' ? PAR_CLE.get(cle) : undefined
+}
+
+/**
+ * Pourquoi cette carte ne s'améliore pas — null : elle s'améliore. Une seule
+ * règle, au campement comme à l'échoppe : le pli l'applique, le serveur la
+ * renvoie, la page la dit. Un exemplaire de son paquet, pas encore amélioré,
+ * d'une carte qui a son amélioration.
+ */
+export function refusDeLAmelioration(paquet: readonly string[], cle: string): string | null {
+  const c = carteDeRencontre(cle)
+  if (!c || !paquet.includes(cle)) return 'Cette carte n’est pas dans ton paquet'
+  if (c.amelioree) return 'Elle est déjà améliorée'
+  if (!c.amelioration) {
+    return c.maudit ? 'Une carte maudite ne s’améliore pas' : c.legendaire ? 'La carte d’un légendaire ne s’améliore pas' : 'Une carte de route ne s’améliore pas'
+  }
+  return null
 }
 
 /**
@@ -1541,9 +1832,9 @@ export const MULTIPLICATEUR_DU_SIX_CHOIX_METAMORPHOSE = 2
  * le vrai ou faux qu'il pose ; Polymorphe, les six choix qu'il pose.
  */
 export function multiplicateurDeLaForme(q: FormeDUneQuestion, cartes?: { pouvoirs: readonly string[]; surLaQuestion: readonly string[] }): number {
-  const metamorphose = !!cartes?.pouvoirs.includes('metamorphose')
-  if ((q.reponses ?? 4) <= 2) return metamorphose || cartes?.surLaQuestion.includes('miroir') ? 1 : MULTIPLICATEUR_DU_VRAI_OU_FAUX
-  if (q.forme === 'six') return metamorphose || cartes?.surLaQuestion.includes('polymorphe') ? MULTIPLICATEUR_DU_SIX_CHOIX_METAMORPHOSE : MULTIPLICATEUR_DU_SIX_CHOIX
+  const metamorphose = !!cartes && parmi(cartes.pouvoirs, 'metamorphose')
+  if ((q.reponses ?? 4) <= 2) return metamorphose || (!!cartes && parmi(cartes.surLaQuestion, 'miroir')) ? 1 : MULTIPLICATEUR_DU_VRAI_OU_FAUX
+  if (q.forme === 'six') return metamorphose || (!!cartes && parmi(cartes.surLaQuestion, 'polymorphe')) ? MULTIPLICATEUR_DU_SIX_CHOIX_METAMORPHOSE : MULTIPLICATEUR_DU_SIX_CHOIX
   if (q.forme === 'devoilement' && q.devoile && q.devoile.sur > 0) {
     const mots = Math.min(q.devoile.sur, Math.max(1, q.devoile.mots))
     return 1 + ((DEVOILEMENT_AU_PREMIER_MOT - 1) * (q.devoile.sur - mots)) / Math.max(1, q.devoile.sur - 1)
@@ -1569,7 +1860,7 @@ export function frappeDUneErreur(o: { frappe: number; sauve: boolean; double: bo
 }
 
 /** La mise en jeu : celle annoncée, double sous Doubler la mise. */
-export const enJeu = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>) => t.mise * (t.jouees.includes('doubler-la-mise') ? 2 : 1)
+export const enJeu = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>) => t.mise * (parmi(t.jouees, 'doubler-la-mise') ? 2 : 1)
 
 /** Ce qu'une mise gagnée rapporte, net : la moitié de ce qu'elle engage — triple sous Le trésor, triple sous Quitte ou double, cinq fois sous les deux. */
 export const gainDeLaMise = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>, pouvoirs: readonly string[]) =>
@@ -1589,10 +1880,13 @@ export const POUVOIRS_QUI_EFFACENT: readonly string[] = ['echolocation', 'vision
 export function effaceesDuTour(surLaQuestion: readonly string[], pouvoirs: readonly string[], q: { reponses: number; datee?: boolean }): number {
   if (q.reponses <= 2) return 0
   let n = 0
-  for (const cle of surLaQuestion) n += cle === CLAIRVOYANCE_SUR_LA_QUESTION ? 1 : cle === 'revelation' ? q.reponses : (EFFACE_DES_CARTES[cle] ?? 0)
+  for (const cle of surLaQuestion) {
+    const b = baseDe(cle)
+    n += cle === CLAIRVOYANCE_SUR_LA_QUESTION ? 1 : b === 'revelation' ? q.reponses : (EFFACE_DES_CARTES[b] ?? 0)
+  }
   // Le Sphinx d'une question qui ne se date pas efface au lieu de souffler : sinon, la carte ne servait à rien.
   if (surLaQuestion.includes('enigme') && !q.datee) n += 1
-  for (const cle of POUVOIRS_QUI_EFFACENT) if (pouvoirs.includes(cle)) n += EFFACE_DES_CARTES[cle] ?? 1
+  for (const cle of POUVOIRS_QUI_EFFACENT) if (parmi(pouvoirs, cle)) n += EFFACE_DES_CARTES[cle] ?? 1
   return Math.min(n, q.reponses - 2)
 }
 
@@ -1606,7 +1900,7 @@ export function effaceesDuTour(surLaQuestion: readonly string[], pouvoirs: reado
 const SUR_LA_QUESTION_DES_LA_PREPARATION: ReadonlySet<string> = new Set(['corser', 'simplifier', 'miroir', 'polymorphe', 'augure'])
 
 /** Cette carte, jouée, vise-t-elle la question à l'écran ? */
-export const viseLaQuestion = (c: Pick<CarteDeRencontre, 'cle' | 'moment'>) => c.moment === 'reflexe' || SUR_LA_QUESTION_DES_LA_PREPARATION.has(c.cle)
+export const viseLaQuestion = (c: Pick<CarteDeRencontre, 'cle' | 'moment'>) => c.moment === 'reflexe' || SUR_LA_QUESTION_DES_LA_PREPARATION.has(baseDe(c.cle))
 
 /** Les cartes qui changent la question — sa forme, ou la question elle-même — : Caméléon y lève son bouclier. */
 export const CHANGENT_LA_QUESTION: ReadonlySet<string> = new Set(['corser', 'simplifier', 'miroir', 'polymorphe', 'echange', 'volte-face', 'mue'])
@@ -1614,27 +1908,45 @@ export const CHANGENT_LA_QUESTION: ReadonlySet<string> = new Set(['corser', 'sim
 /** Les cartes qui posent une autre question, du même adversaire : celle d'avant ne se pose plus. */
 export const CHANGENT_DE_QUESTION: ReadonlySet<string> = new Set(['echange', 'volte-face', 'mue'])
 
+/** Cet exemplaire, joué, pose-t-il une autre question ? Amélioré ou non. */
+export const changeDeQuestion = (cle: string) => CHANGENT_DE_QUESTION.has(baseDe(cle))
+
 /** Ce qu'une carte jouée sur une question en fait : sa forme neuve, que le serveur repose de sa question de la base. */
 export const FORME_DE_LA_CARTE: Readonly<Record<string, FormeDEscale>> = { corser: 'six', polymorphe: 'six', simplifier: 'vrai-faux', miroir: 'vrai-faux' }
 
+/** La forme où cet exemplaire repose la question, amélioré ou non ; undefined : il n'y touche pas. */
+export const formeDeLaCarte = (cle: string): FormeDEscale | undefined => FORME_DE_LA_CARTE[baseDe(cle)]
+
 /** Une carte qui change la forme de la question : une seule fois par question. */
-const changeLaForme = (cle: string) => cle in FORME_DE_LA_CARTE
+const changeLaForme = (cle: string) => formeDeLaCarte(cle) !== undefined
 
 /**
  * Ce qu'une bonne réponse rapporte de plus, des cartes jouées à ce tour (le
  * jeu complet) : les écus de Pourboire, Cagnotte et Rafle — à part de ceux du
  * pari —, et le courage de Pansement. Le verdict (`pliDeLExpedition`) et
  * l'aperçu (`apercuDuTour`) les lisent tous deux ici : chaque carte jouée
- * compte, deux Pourboire en paient deux.
+ * compte, deux Pourboire en paient deux — et chaque exemplaire amélioré, ses
+ * chiffres à lui.
  */
 export function siJuste(jouees: readonly string[]): { ecus: number; courage: number } {
   let ecus = 0
   let courage = 0
   for (const cle of jouees) {
-    if (cle === 'pourboire') ecus += ECUS_DU_POURBOIRE
-    else if (cle === 'cagnotte') ecus += ECUS_DE_LA_CAGNOTTE
-    else if (cle === 'rafle') ecus += ECUS_DE_LA_RAFLE
-    else if (cle === 'pansement') courage += COURAGE_DU_PANSEMENT
+    const plus = estAmelioree(cle)
+    switch (baseDe(cle)) {
+      case 'pourboire':
+        ecus += plus ? ECUS_DU_POURBOIRE_PLUS : ECUS_DU_POURBOIRE
+        break
+      case 'cagnotte':
+        ecus += plus ? ECUS_DE_LA_CAGNOTTE_PLUS : ECUS_DE_LA_CAGNOTTE
+        break
+      case 'rafle':
+        ecus += plus ? ECUS_DE_LA_RAFLE_PLUS : ECUS_DE_LA_RAFLE
+        break
+      case 'pansement':
+        courage += plus ? COURAGE_DU_PANSEMENT_PLUS : COURAGE_DU_PANSEMENT
+        break
+    }
   }
   return { ecus, courage }
 }
@@ -1643,29 +1955,36 @@ export function siJuste(jouees: readonly string[]): { ecus: number; courage: num
 export const frappeEnPlus = (jouees: readonly string[]) => jouees.filter(cle => cle === 'surmenage').length * FRAPPE_DU_SURMENAGE
 
 /** Ce que coûte un pari perdu : rien sous Assurance. */
-export const pariPerdu = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>) => (t.jouees.includes('assurance') ? 0 : enJeu(t))
+export const pariPerdu = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>) => (parmi(t.jouees, 'assurance') ? 0 : enJeu(t))
 
 /** Ce que l'adversaire perd sur une erreur, de ce que le bouclier a paré : tout sous Contre-attaque jouée à ce tour, la moitié sous Représailles posée — l'une s'ajoute à l'autre. */
 export const riposte = (absorbee: number, jouees: readonly string[], pouvoirs: readonly string[]) =>
-  (jouees.includes('contre-attaque') ? absorbee : 0) + (pouvoirs.includes('represailles') ? Math.ceil(absorbee * PART_DES_REPRESAILLES) : 0)
+  (parmi(jouees, 'contre-attaque') ? absorbee : 0) + (parmi(pouvoirs, 'represailles') ? Math.ceil(absorbee * PART_DES_REPRESAILLES) : 0)
 
 /**
  * Ce que le tour suivant reçoit d'une bonne réponse, des cartes jouées à ce
  * tour et des pouvoirs posés (le jeu complet) : Mémoire, une carte ; Leçon, ses
- * points ; Accélération, une d'énergie et une carte ; Vent arrière, une
- * d'énergie.
+ * points ; Accélération, une d'énergie et une carte — deux, améliorée ; Vent
+ * arrière, une d'énergie.
  */
 export function suiteDUneBonneReponse(jouees: readonly string[], pouvoirs: readonly string[]): { cartes: number; inspiration: number; charge: number } {
   const x = { cartes: 0, inspiration: 0, charge: 0 }
   for (const cle of jouees) {
-    if (cle === 'memoire') x.cartes += 1
-    else if (cle === 'lecon') x.charge += 4
-    else if (cle === 'acceleration') {
-      x.inspiration += 1
-      x.cartes += 1
+    const plus = estAmelioree(cle)
+    switch (baseDe(cle)) {
+      case 'memoire':
+        x.cartes += 1
+        break
+      case 'lecon':
+        x.charge += plus ? 6 : 4
+        break
+      case 'acceleration':
+        x.inspiration += 1
+        x.cartes += plus ? 2 : 1
+        break
     }
   }
-  if (pouvoirs.includes('vent-arriere')) x.inspiration += 1
+  if (parmi(pouvoirs, 'vent-arriere')) x.inspiration += 1
   return x
 }
 
@@ -1707,90 +2026,98 @@ export interface ContexteDesChiffres {
  * compréhensible pour des novices », le 18 octobre 2026). Ce qu'elle fait
  * d'autre — tirer des cartes, changer de question, la reposer à une autre
  * forme —, le pli seul le fait. Aux chiffres de la version de son départ
- * (`carteALaVersion`).
+ * (`carteALaVersion`), et à ceux d'un exemplaire amélioré (`plus`).
  */
 export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoirs: readonly string[], contexte: ContexteDesChiffres): ChiffresDuTour {
   const carte = carteALaVersion(cle, contexte.v)
   if (!carte) return { ...avant }
   const codex = contexte.v >= VERSION_DU_CODEX
+  const plus = !!carte.amelioree
   const x = { ...avant, inspiration: avant.inspiration - carte.cout }
-  switch (cle) {
+  switch (baseDe(cle)) {
     case 'concentration':
-      x.charge += 4
+    case 'evidence':
+      x.charge += plus ? 6 : 4
       break
     case 'prudence':
-      x.garde += 5
+      x.garde += plus ? 8 : 5
       break
     case 'peau-de-feu':
       x.garde += 8
       break
     case 'parade':
-      x.garde += 6
+      x.garde += plus ? 9 : 6
       break
     case 'simplifier':
-      x.garde += 3
+      x.garde += plus ? 6 : 3
+      break
+    case 'polymorphe':
+      if (plus) x.garde += 4
       break
     // Avant le codex, Plume et Lucidité ne se jouaient que dans leur cas (`refusDeLaCarte`) : ailleurs, des cartes mortes en main.
     case 'plume':
-      x.charge += !codex || contexte.fetiche ? (codex ? 6 : 5) : 2
+      x.charge += !codex || contexte.fetiche ? (codex ? (plus ? 8 : 6) : 5) : plus ? 3 : 2
       break
     case 'lucidite':
-      x.charge += !codex || (contexte.effacees ?? 0) > 0 ? 5 : 2
+      x.charge += !codex || (contexte.effacees ?? 0) > 0 ? (plus ? 8 : 5) : plus ? 3 : 2
       break
     case 'lancee':
       // Avec le codex, la bonne réponse qu'elle vise compte dans la série : sans elle, la première d'une série ne frappait pas.
-      x.charge += 2 * (avant.serie + (codex ? 1 : 0))
+      x.charge += (plus ? 3 : 2) * (avant.serie + (codex ? 1 : 0))
       break
     case 'echauffement':
       x.serie += 1
-      if (codex) x.charge += 2
+      if (codex) x.charge += plus ? 4 : 2
       break
     case 'reveil':
       x.inspiration += 2
       break
     // Le jeu complet (v8).
-    case 'memoire':
     case 'volte-face':
       x.charge += 3
       break
-    case 'evidence':
-    case 'cagnotte':
-      x.charge += 4
+    case 'memoire':
+      x.charge += plus ? 5 : 3
       break
+    case 'cagnotte':
     case 'lecon':
+      x.charge += plus ? 6 : 4
+      break
     case 'revelation':
       x.charge += 4
       break
     case 'sang-froid':
-      x.garde += 4
-      x.charge += 4
+      x.garde += plus ? 6 : 4
+      x.charge += plus ? 6 : 4
       break
     case 'savoir-faire':
-      x.charge += contexte.niveau && contexte.niveau !== 'facile' ? 7 : 4
+      x.charge += contexte.niveau && contexte.niveau !== 'facile' ? (plus ? 10 : 7) : plus ? 6 : 4
       break
     case 'expose':
       x.charge += contexte.savoir ?? 0
       break
     case 'genie':
-      x.charge += contexte.fetiche ? 14 : 8
+      x.charge += contexte.fetiche ? (plus ? 20 : 14) : plus ? 12 : 8
       break
     case 'fortune':
       x.charge += Math.floor(Math.max(0, contexte.ecus ?? 0) / 10)
       break
     case 'rafle':
-      x.charge += 14
+      x.charge += plus ? 20 : 14
       break
     case 'muraille':
-      x.garde += 12
+      x.garde += plus ? 16 : 12
       break
     case 'cuirasse':
-      x.garde += BOUCLIER_DE_LA_CUIRASSE
+      x.garde += plus ? BOUCLIER_DE_LA_CUIRASSE_PLUS : BOUCLIER_DE_LA_CUIRASSE
       break
     case 'meditation':
     case 'maitrise':
-    case 'foulee':
     case 'sprint':
       x.inspiration += 1
+      break
+    case 'foulee':
+      x.inspiration += plus ? 2 : 1
       break
     case 'surmenage':
       x.inspiration += 2
@@ -1800,10 +2127,10 @@ export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoir
       break
   }
   // Troisième œil : chaque indice frappe aussi ; Astrolabe (le jeu complet) : il protège.
-  if (carte.indice && pouvoirs.includes('troisieme-oeil')) x.charge += 3
-  if (carte.indice && pouvoirs.includes('astrolabe')) x.garde += BOUCLIER_DE_L_ASTROLABE
+  if (carte.indice && parmi(pouvoirs, 'troisieme-oeil')) x.charge += amelioreeParmi(pouvoirs, 'troisieme-oeil') ? 5 : 3
+  if (carte.indice && parmi(pouvoirs, 'astrolabe')) x.garde += amelioreeParmi(pouvoirs, 'astrolabe') ? BOUCLIER_DE_L_ASTROLABE_PLUS : BOUCLIER_DE_L_ASTROLABE
   // Caméléon : changer la question, ou sa forme, lève un bouclier.
-  if (CHANGENT_LA_QUESTION.has(cle) && pouvoirs.includes('cameleon')) x.garde += BOUCLIER_DU_CAMELEON
+  if (CHANGENT_LA_QUESTION.has(baseDe(cle)) && parmi(pouvoirs, 'cameleon')) x.garde += amelioreeParmi(pouvoirs, 'cameleon') ? BOUCLIER_DU_CAMELEON_PLUS : BOUCLIER_DU_CAMELEON
   return x
 }
 
@@ -1814,7 +2141,7 @@ export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoir
  * (`questionsApresLeGeste`).
  */
 export function formeApresLaCarte(cle: string, q: { forme: FormeDEscale; reponses: number }): { forme: FormeDEscale; reponses: number } {
-  const forme = FORME_DE_LA_CARTE[cle]
+  const forme = formeDeLaCarte(cle)
   if (forme === 'six') return { forme: 'six', reponses: 6 }
   if (forme === 'vrai-faux') return { forme: 'vrai-faux', reponses: 2 }
   return q
@@ -1850,13 +2177,16 @@ export interface ContexteDUneCarte {
   defausse: number
 }
 
-const aJoueSurLaQuestion = (c: ContexteDUneCarte, cle: string) => c.tour.surLaQuestion.includes(cle)
+/** Cette carte — améliorée ou non : c'est la même — est-elle déjà jouée sur la question ? */
+const aJoueSurLaQuestion = (c: ContexteDUneCarte, cle: string) => parmi(c.tour.surLaQuestion, cle)
 
 /**
  * Pourquoi cette carte ne se joue pas maintenant, en rencontre — null : elle
  * se joue. Une seule règle : le pli l'applique, le serveur la renvoie en
  * refus, la vue la porte pour chaque carte de la main, et la page n'en
- * recopie rien. Les cartes de route ont la leur, sur le plan.
+ * recopie rien. Les cartes de route ont la leur, sur le plan. Un exemplaire
+ * amélioré se refuse pour les mêmes raisons que sa carte — deux Cuirasse, dont
+ * une améliorée, n'en font pas deux posées.
  */
 export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null {
   const carte = carteALaVersion(cle, c.v)
@@ -1864,17 +2194,18 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
   if (!carte || (carte.depuis ?? 0) > c.v) return 'Cette carte ne se lit pas : recharge la page'
   if (carte.moment === 'route') return 'Elle se joue sur le plan, entre deux escales'
   if (!c.main.includes(cle)) return 'Cette carte n’est plus dans ta main : recharge la page'
+  const base = baseDe(cle)
   const avant = carte.moment === 'preparation' || carte.moment === 'pouvoir'
   if (avant && c.tour.phase !== 'preparation') return 'Elle se joue avant de voir la question'
   if (carte.moment === 'reflexe' && c.tour.phase !== 'question') return 'Elle se joue pendant la question : vois-la d’abord'
-  if (carte.moment === 'pouvoir' && c.pouvoirs.includes(cle)) return 'Elle agit déjà dans cette rencontre'
+  if (carte.moment === 'pouvoir' && parmi(c.pouvoirs, base)) return 'Elle agit déjà dans cette rencontre'
   // L'inspiration du code se dit « énergie » à l'écran (le 18 octobre 2026 : « l'histoire de l'inspiration n'est pas du tout claire »).
   if (carte.cout > c.tour.inspiration) return `Il lui faut ${carte.cout} d’énergie : il t’en reste ${c.tour.inspiration}`
   const q = c.question
   if (!q) return 'Elle se joue sur une question'
   const changee = c.tour.surLaQuestion.some(changeLaForme)
   const effacees = effaceesDuTour(c.tour.surLaQuestion, c.pouvoirs, q)
-  switch (cle) {
+  switch (base) {
     case 'coup-d-oeil':
     case 'sagesse':
     case 'tout-ou-rien':
@@ -1887,18 +2218,18 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
       return null
     case 'double-chance':
       if (q.reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
-      return aJoueSurLaQuestion(c, cle) ? 'Déjà jouée sur cette question' : null
+      return aJoueSurLaQuestion(c, base) ? 'Déjà jouée sur cette question' : null
     case 'enigme':
-      return aJoueSurLaQuestion(c, cle) ? 'Le Sphinx a déjà parlé' : null
+      return aJoueSurLaQuestion(c, base) ? 'Le Sphinx a déjà parlé' : null
     case 'prediction':
       if (!q.nombre || q.reponses <= 2) return 'La Prédiction se joue sur une année ou un nombre'
-      return aJoueSurLaQuestion(c, cle) ? 'L’Oracle a déjà parlé' : null
+      return aJoueSurLaQuestion(c, base) ? 'L’Oracle a déjà parlé' : null
     case 'deux-visages':
       if (q.forme === 'devoilement') return 'Pas sur un dévoilement : deux textes à la fois, tu n’en lirais aucun'
-      return aJoueSurLaQuestion(c, cle) ? 'Déjà deux questions à l’écran' : null
+      return aJoueSurLaQuestion(c, base) ? 'Déjà deux questions à l’écran' : null
     case 'arret-sur-image':
       if (q.forme !== 'devoilement') return 'Arrêt sur image se joue sur un dévoilement'
-      return aJoueSurLaQuestion(c, cle) ? 'Le texte s’est déjà arrêté' : null
+      return aJoueSurLaQuestion(c, base) ? 'Le texte s’est déjà arrêté' : null
     case 'plume':
       // Depuis le codex, elle se joue partout : sa catégorie fétiche ne fait que frapper plus fort (`chiffresApresLaCarte`).
       if (c.v >= VERSION_DU_CODEX) return null
@@ -1920,7 +2251,7 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
     case 'contre-attaque':
     case 'sursis':
     case 'assurance':
-      return c.tour.jouees.includes(cle) ? 'Déjà jouée à cette question' : null
+      return parmi(c.tour.jouees, base) ? 'Déjà jouée à cette question' : null
     case 'panacee':
     case 'second-souffle':
       return c.courage >= COURAGE_MAX ? 'Ton courage est au plus haut' : null
@@ -1994,9 +2325,10 @@ export interface ApercuDuTour {
  * (`pliDeLExpedition`) et l'aperçu la lisent tous deux ici.
  */
 export function enPlusDeLaBibliotheque(o: { v: number; pouvoirs: readonly string[]; fetiche?: string; categorie?: string | null }): number {
-  if (!o.pouvoirs.includes('bibliotheque')) return 0
-  if (o.fetiche && o.categorie === o.fetiche) return 3
-  return o.v >= VERSION_DU_CODEX ? 1 : 0
+  if (!parmi(o.pouvoirs, 'bibliotheque')) return 0
+  const plus = amelioreeParmi(o.pouvoirs, 'bibliotheque')
+  if (o.fetiche && o.categorie === o.fetiche) return plus ? 5 : 3
+  return o.v >= VERSION_DU_CODEX ? (plus ? 2 : 1) : 0
 }
 
 /**
@@ -2020,9 +2352,12 @@ export function enPlusDesPouvoirs(o: {
   forme?: FormeDEscale
 }): number {
   let n = enPlusDeLaBibliotheque(o)
-  if (o.pouvoirs.includes('encyclopedie')) n += ENCYCLOPEDIE_PAR_JUSTE * (o.trouvees ?? 0)
-  if (o.pouvoirs.includes('prisme')) n += o.forme === 'six' ? PRISME_A_SIX_CHOIX : PRISME_PAR_JUSTE
-  if (o.pouvoirs.includes('rythme')) n += (o.serie ?? 0) + 1
+  if (parmi(o.pouvoirs, 'encyclopedie')) n += (amelioreeParmi(o.pouvoirs, 'encyclopedie') ? ENCYCLOPEDIE_PAR_JUSTE_PLUS : ENCYCLOPEDIE_PAR_JUSTE) * (o.trouvees ?? 0)
+  if (parmi(o.pouvoirs, 'prisme')) {
+    const plus = amelioreeParmi(o.pouvoirs, 'prisme')
+    n += o.forme === 'six' ? (plus ? PRISME_A_SIX_CHOIX_PLUS : PRISME_A_SIX_CHOIX) : plus ? PRISME_PAR_JUSTE_PLUS : PRISME_PAR_JUSTE
+  }
+  if (parmi(o.pouvoirs, 'rythme')) n += (o.serie ?? 0) + 1
   return n
 }
 
@@ -2032,7 +2367,7 @@ export function enPlusDesPouvoirs(o: {
  * rapporte. Doublé, avec le reste, par Quitte ou double.
  */
 export const enPlusApresLaForme = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>, pouvoirs: readonly string[]) =>
-  (t.jouees.includes('banco') ? Math.floor(enJeu(t) / 5) : 0) + (pouvoirs.includes('pactole') && enJeu(t) > 0 ? gainDeLaMise(t, pouvoirs) : 0)
+  (parmi(t.jouees, 'banco') ? Math.floor(enJeu(t) / 5) : 0) + (parmi(pouvoirs, 'pactole') && enJeu(t) > 0 ? gainDeLaMise(t, pouvoirs) : 0)
 
 /** L'aperçu d'un tour, avec ce que ses cartes y ont fait : la même règle que le verdict. */
 export function apercuDuTour(o: {
@@ -2062,7 +2397,7 @@ export function apercuDuTour(o: {
   const auPremier = devoilement ? brises(multiplicateurDeLaForme({ reponses: o.question.reponses, forme: 'devoilement', devoile: { mots: 1, sur: o.mots! } }, cartes)) : undefined
   const f = frappeDUneErreur({
     frappe: o.frappe + frappeEnPlus(t.jouees),
-    sauve: t.jouees.includes('sursis') || t.jouees.includes('mue'),
+    sauve: parmi(t.jouees, 'sursis') || t.jouees.includes('mue'),
     double: t.jouees.includes('tout-ou-rien') || t.jouees.includes('quitte-ou-double'),
     garde: t.garde,
   })

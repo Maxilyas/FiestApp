@@ -112,13 +112,17 @@ import {
   CARTES_DES_RENCONTRES,
   COURAGE_MAX,
   FIOLES_MAX,
-  FORME_DE_LA_CARTE,
   INSPIRATION_PAR_QUESTION,
   SAVOIR_DES_MARCHES,
+  ameliorer,
+  baseDe,
   carteALaVersion,
   carteDeRencontre,
   chiffresApresLaCarte,
   effaceesDuTour,
+  formeDeLaCarte,
+  parmi,
+  refusDeLAmelioration,
   type CleDeFiole,
 } from '../../shared/rencontres'
 import { ASCENSION, ASCENSION_MAX, EXPLOITS, NIVEAUX, codexDuNiveau, niveauDe, renommeeDe, type CleDExploit } from '../../shared/codex'
@@ -370,6 +374,17 @@ const COURAGE_POUR_BOIRE = 20
 const MEILLEURES_DU_CODEX = PREFERENCE_DU_CODEX.slice(0, 6)
 /** `--sans-fioles` : les mêmes départs sans leur règle — ce qu'elles changent. */
 const SANS_FIOLES = process.argv.includes('--sans-fioles')
+/**
+ * `--sans-ameliorations` : le même joueur, qui n'améliore jamais rien — ni au
+ * campement, ni à l'échoppe — : ce que ses améliorations lui valent. Les
+ * offres en proposent encore d'améliorées, la règle du jeu complet.
+ */
+const SANS_AMELIORATIONS = process.argv.includes('--sans-ameliorations')
+/**
+ * La carte qu'il améliore d'abord : la meilleure qu'il prend, puis les cartes
+ * de base, qu'il tire le plus souvent — un exemplaire chacune.
+ */
+const ORDRE_DES_AMELIORATIONS = [...PREFERENCE_DU_CODEX, 'concentration', 'prudence', 'coup-d-oeil', 'echange']
 /** `--ascension 2` : les départs du codex à ce cran ; `--ascensions` : chaque cran, au codex entier. */
 const ASCENSION_MESUREE = Math.min(Math.max(0, option('ascension', 0)), ASCENSION_MAX)
 const TOUTES_LES_ASCENSIONS = process.argv.includes('--ascensions')
@@ -483,32 +498,39 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     if (sur.includes('enigme') && q.datee) restent--
     else if (e.talismans.includes('loupe') && q.categorie === 'Histoire' && q.datee) restent--
     restent = Math.max(2, restent)
-    const p = sur.includes('double-chance') ? 2 / restent : sur.includes('prediction') ? 1 / 2 : 1 / restent
+    const p = parmi(sur, 'double-chance') ? 2 / restent : sur.includes('prediction') ? 1 / 2 : 1 / restent
     return r() < p
   }
 
-  const peut = (e: EtatDeLExpedition, cle: string, geste?: { categorie?: string; montre?: number }) =>
-    (e.rencontre ? e.rencontre.main.includes(cle) : true) && refusDuJoker(depart, e, cle, posees, geste) === null
+  /** L'exemplaire de cette carte qu'il jouerait : l'amélioré s'il l'a en main (le jeu complet), sinon l'autre. */
+  const exemplaire = (e: EtatDeLExpedition, cle: string) => (e.rencontre?.main.includes(ameliorer(cle)) ? ameliorer(cle) : cle)
+
+  const peut = (e: EtatDeLExpedition, cle: string, geste?: { categorie?: string; montre?: number }) => {
+    const k = exemplaire(e, cle)
+    return (e.rencontre ? e.rencontre.main.includes(k) : true) && refusDuJoker(depart, e, k, posees, geste) === null
+  }
 
   /**
    * Ce qu'une carte d'attaque ajouterait à ce que perd l'adversaire, par point
    * d'énergie, à la règle même du pli (`chiffresApresLaCarte`) : joués dans un
    * ordre fixe, Fortune passait après Concentration même à deux cents écus, et
-   * Génie, à deux d'énergie, avant tout le reste.
+   * Génie, à deux d'énergie, avant tout le reste. L'exemplaire qu'il a en main,
+   * amélioré ou non.
    */
   const parEnergie = (e: EtatDeLExpedition, i: number, cle: string) => {
     const rc = e.rencontre!
     const q = posees[i]
     const niveau = q.niveau ?? 'facile'
     const t = rc.tour
-    const apres = chiffresApresLaCarte(cle, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: rc.serie }, rc.pouvoirs, {
+    const k = exemplaire(e, cle)
+    const apres = chiffresApresLaCarte(k, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: rc.serie }, rc.pouvoirs, {
       v: VERSION,
       fetiche: !!depart.fetiche && q.categorie === depart.fetiche,
       niveau,
       savoir: SAVOIR_DES_MARCHES[niveau],
       ecus: e.ecus,
     })
-    return (apres.charge - t.charge) / Math.max(1, carteALaVersion(cle, VERSION)?.cout ?? 1)
+    return (apres.charge - t.charge) / Math.max(1, carteALaVersion(k, VERSION)?.cout ?? 1)
   }
 
   /** Ce qu'il joue avant de voir la question — une carte à la fois, tant qu'il en a — ; null : il voit la question. */
@@ -517,7 +539,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     const q = posees[i]
     const chance = chanceSelonLaForme(q.p4, q.forme ?? (q.reponses === 2 ? 'vrai-faux' : 'quatre'))
     const courage = e.courage ?? 0
-    const jouerLa = (cle: string): GesteDExpedition => ({ quoi: 'jouer', joker: cle, position: i })
+    const jouerLa = (cle: string): GesteDExpedition => ({ quoi: 'jouer', joker: exemplaire(e, cle), position: i })
     // Ce qui ne coûte rien et donne : piocher, s'inspirer — Pourboire tire une carte à sa place.
     for (const cle of ['reveil', 'pioche', 'sprint', 'meditation', 'foulee', 'pourboire']) if (peut(e, cle)) return jouerLa(cle)
     if (rc.defausse.length >= 4 && peut(e, 'feu-d-artifice')) return jouerLa('feu-d-artifice')
@@ -562,7 +584,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     for (const m of [voulue, 20, 10, 0]) if (m <= voulue && peutMiser(e, m)) return m
     return 0
   }
-  const peutMiser = (e: EtatDeLExpedition, m: number) => m * (e.rencontre?.tour.jouees.includes('doubler-la-mise') ? 2 : 1) <= e.ecus
+  const peutMiser = (e: EtatDeLExpedition, m: number) => m * (e.rencontre && parmi(e.rencontre.tour.jouees, 'doubler-la-mise') ? 2 : 1) <= e.ecus
 
   /**
    * Ce qu'il joue la question sous les yeux : s'il la sait, ce qui frappe sans
@@ -575,7 +597,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     if (q.sait) {
       // Il la sait : ce qui frappe — le jeu complet en a, à jouer la question vue ; Lucidité, gratuite, d'abord.
       const cle = [...(q.forme === 'devoilement' ? ['arret-sur-image'] : []), 'lucidite', 'evidence', 'memoire', 'sang-froid'].find(c => peut(e, c))
-      return cle ? { quoi: 'jouer', joker: cle, position: i } : null
+      return cle ? { quoi: 'jouer', joker: exemplaire(e, cle), position: i } : null
     }
     if (autre?.sait) return null
     const courage = e.courage ?? 0
@@ -599,7 +621,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       'parade',
     ]
     const cle = ordre.find(c => peut(e, c, c === 'prediction' ? { montre: 0 } : undefined))
-    return cle ? { quoi: 'jouer', joker: cle, position: i, ...(cle === 'prediction' && { montre: 0 }) } : null
+    return cle ? { quoi: 'jouer', joker: exemplaire(e, cle), position: i, ...(cle === 'prediction' && { montre: 0 }) } : null
   }
 
   const carteVue = (e: EtatDeLExpedition): CarteDUnActe => {
@@ -646,17 +668,36 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     return null
   }
 
-  /** Ce qu'il voudrait parmi ces cartes, du meilleur au moins bon : au codex, jamais une de plus qu'il n'en garde — sous `--seule`, elle seule. */
+  /**
+   * Ce qu'il voudrait parmi ces cartes, du meilleur au moins bon — l'exemplaire
+   * offert, l'amélioré d'abord (le jeu complet) : au codex, jamais une de plus
+   * qu'il n'en garde — sous `--seule`, elle seule.
+   */
   const aPrendre = (e: EtatDeLExpedition, cartes: readonly string[]) =>
-    codex
-      ? (seule !== null ? [seule] : PREFERENCE_DU_CODEX).filter(c => cartes.includes(c) && e.paquet.filter(x => x === c).length < EXEMPLAIRES_DU_CODEX)
-      : PREFERENCE_DES_OFFRES.filter(c => cartes.includes(c))
+    (codex ? (seule !== null ? [seule] : PREFERENCE_DU_CODEX) : PREFERENCE_DES_OFFRES).flatMap(c => {
+      const offert = cartes.includes(ameliorer(c)) ? ameliorer(c) : cartes.includes(c) ? c : null
+      if (offert === null) return []
+      return codex && e.paquet.filter(x => baseDe(x) === c).length >= EXEMPLAIRES_DU_CODEX ? [] : [offert]
+    })
+
+  /** Les cartes de son paquet qu'il améliorerait (le jeu complet), la première d'abord ; aucune sous `--sans-ameliorations`. */
+  const aAmeliorer = (e: EtatDeLExpedition): string[] => {
+    if (SANS_AMELIORATIONS || VERSION < 8) return []
+    const rang = (cle: string) => (ORDRE_DES_AMELIORATIONS.includes(cle) ? ORDRE_DES_AMELIORATIONS.indexOf(cle) : ORDRE_DES_AMELIORATIONS.length)
+    return [...new Set(e.paquet.filter(cle => refusDeLAmelioration(e.paquet, cle) === null))].sort((a, b) => rang(a) - rang(b))
+  }
 
   const aAcheter = (e: EtatDeLExpedition): { article: ArticleDeLEchoppe; joker?: string } | null => {
     const etal = e.echoppe!
     const voulus: { article: ArticleDeLEchoppe; joker?: string }[] = [
       ...((e.courage ?? 0) <= COURAGE_MAX - 15 ? [{ article: 'vie' as const }] : []),
       ...(etal.fiole ? [{ article: 'fiole' as const }] : []),
+      // Le jeu complet : une carte améliorée, après le courage et la fiole, avant une carte neuve.
+      ...(etal.ameliorer
+        ? aAmeliorer(e)
+            .slice(0, 1)
+            .map(cle => ({ article: 'ameliorer' as const, joker: cle }))
+        : []),
       ...aPrendre(e, etal.jokers)
         .slice(0, 1)
         .map(cle => ({ article: 'joker' as const, joker: cle })),
@@ -704,7 +745,8 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       // Le coffre d'un gardien (v7) ouvre sur une légendaire : il la prend d'abord.
       const legendaires = offre.jokers.filter(c => carteDeRencontre(c)?.rarete === 'legendaire')
       const voulus = [...legendaires, ...aPrendre(e, offre.jokers)]
-      const talisman = offre.talisman && TALISMANS_UTILES.includes(offre.talisman) && !voulus.some(c => c === 'double-chance' || c === 'bibliotheque') ? offre.talisman : undefined
+      const talisman =
+        offre.talisman && TALISMANS_UTILES.includes(offre.talisman) && !voulus.some(c => baseDe(c) === 'double-chance' || baseDe(c) === 'bibliotheque') ? offre.talisman : undefined
       // La fiole d'un coffre, à la place d'une carte : s'il n'y voit pas l'une des meilleures, ou si le courage lui manque.
       const fiole =
         !talisman && offre.fiole && e.fioles.length < FIOLES_MAX && (!voulus.some(c => MEILLEURES_DU_CODEX.includes(c)) || ((e.courage ?? 0) <= 30 && offre.fiole === 'courage'))
@@ -722,8 +764,10 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       }
     }
     if (e.campement) {
-      const retirer = (e.courage ?? 0) >= COURAGE_MAX - 8 ? (codex ? A_RETIRER_DU_CODEX : A_RETIRER).find(c => e.paquet.includes(c)) : undefined
-      gestes.push({ quoi: 'camper', ...(retirer && { retirer }) })
+      // Le jeu complet : son courage assez haut, il améliore sa meilleure carte plutôt que de se reposer — la forge de Slay the Spire.
+      const ameliorer = (e.courage ?? 0) >= COURAGE_MAX - 15 ? aAmeliorer(e)[0] : undefined
+      const retirer = !ameliorer && (e.courage ?? 0) >= COURAGE_MAX - 8 ? (codex ? A_RETIRER_DU_CODEX : A_RETIRER).find(c => e.paquet.includes(c)) : undefined
+      gestes.push({ quoi: 'camper', ...(retirer && { retirer }), ...(ameliorer && { ameliorer }) })
       continue
     }
     if (e.enAttente !== null) {
@@ -739,7 +783,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
         if (g) {
           gestes.push(g)
           jouees++
-          const vers = g.quoi === 'jouer' ? FORME_DE_LA_CARTE[g.joker] : undefined
+          const vers = g.quoi === 'jouer' ? formeDeLaCarte(g.joker) : undefined
           if (vers) {
             // Reposée à sa nouvelle forme, comme le serveur le fait (`questionsApresLeGeste`) : ce qu'il sait, il le sait encore.
             const q = posees[i]
@@ -762,7 +806,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       // Deux visages : celle qu'il sait, s'il en sait une.
       const cible = e.autre !== null && !posees[i].sait && posees[e.autre]?.sait ? e.autre : i
       // Un dévoilement qu'il sait se répond à mi-texte — au tiers, le texte arrêté par Arrêt sur image.
-      const arrete = !!e.rencontre?.tour.surLaQuestion.includes('arret-sur-image')
+      const arrete = !!e.rencontre && parmi(e.rencontre.tour.surLaQuestion, 'arret-sur-image')
       if (posees[cible].forme === 'devoilement') {
         const mots = posees[cible].sait ? MOTS_D_UN_DEVOILEMENT / (arrete ? 3 : 2) : MOTS_D_UN_DEVOILEMENT
         posees[cible] = { ...posees[cible], devoile: { mots, sur: MOTS_D_UN_DEVOILEMENT } }

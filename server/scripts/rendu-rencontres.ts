@@ -18,6 +18,9 @@
 // le dos de son paquet choisi au départ, ses dos au codex ; la fiole d'une
 // échoppe achetée, celle d'un coffre prise, puis levée dans la barre et bue.
 // L'Ascension : ses crans au départ, celui qu'elle choisit, sur le plan.
+// Les cartes améliorées (le jeu complet) : leur section des règles, le
+// campement qui en améliore une — avant et après, côte à côte —, la carte
+// « + » dans la main et levée, une offre qui en propose une, l'échoppe.
 // Le client construit d'abord (`npm run build -w client`).
 //
 // Léa a quatre légendaires, rangés comme gardés au bout d'expéditions
@@ -144,6 +147,9 @@ try {
   await page.locator('.exp-haut-du-depart .exp-regles').click()
   await page.waitForSelector('.feuille-regles')
   await photo('1a-regles')
+  // Le jeu complet : ses cartes améliorées, la section qui les dit.
+  await page.locator('#exp-regles-ameliorees').scrollIntoViewIfNeeded()
+  await photo('1a-regles-ameliorees')
   await page.locator('.feuille-regles .carte-fermer').click()
   // Le codex : toutes les cartes, une page par rareté ; une carte levée, peinte.
   await page.locator('.exp-codex-du-depart .exp-ouvrir').click()
@@ -219,9 +225,9 @@ try {
     return 'autre'
   }
 
-  /** Une carte de la main qui se joue : la première de ces clés, qui n'est pas éteinte ; levée, photographiée une fois, puis jouée. */
+  /** Une carte de la main qui se joue : la première de ces clés — améliorée d'abord —, qui n'est pas éteinte ; levée, photographiée une fois, puis jouée. */
   const jouerUneCarte = async (cles: string[], photoDeLaLevee?: string): Promise<boolean> => {
-    for (const cle of cles) {
+    for (const cle of cles.flatMap(c => [`${c}+`, c])) {
       const carte = page.locator(`.exp-cartes .exp-face[data-carte="${cle}"]:not(.exp-face-eteinte)`).first()
       if (!(await carte.count())) continue
       await carte.click()
@@ -338,6 +344,16 @@ try {
         await page.locator('.exp-leve .exp-reposer').click()
         await page.locator('.feuille-paquet .carte-fermer').click()
       }
+      // Une carte améliorée dans sa main (le jeu complet) : son « + » vert au coin ; levée, ce qu'elle fait en mieux.
+      const amelioree = page.locator('.exp-cartes .exp-face[data-carte$="+"]').first()
+      if (!fait.has('3h-amelioree-levee') && (await amelioree.count())) {
+        await unePhoto('3h-main-amelioree')
+        await amelioree.click()
+        await page.waitForSelector('.exp-leve')
+        await page.waitForTimeout(300)
+        await unePhoto('3h-amelioree-levee')
+        await page.locator('.exp-leve .exp-reposer').click()
+      }
       // Ses cartes d'avant la question, une par une, tant qu'il en a : frapper plus fort, le bouclier, la forme, le pari.
       for (let k = 0; k < 3; k++) {
         if (!(await jouerUneCarte(['tresor', 'corser', 'simplifier', 'concentration', 'prudence', 'doubler-la-mise'], '3c-carte-levee'))) break
@@ -366,14 +382,33 @@ try {
       await unePhoto(questions === 0 ? '4-question' : '4-question-suivante')
       // Une fiole qui se boit la question sous les yeux — la clairvoyance : une mauvaise réponse s'efface.
       if (!fait.has('4f-fiole-question') && (await page.locator('.exp-barre .exp-fiole').count())) {
-        await page.locator('.exp-barre .exp-fiole').first().click()
-        await page.waitForSelector('.feuille-fiole')
-        const boire = page.locator('.feuille-fiole .btn-primary')
-        if (await boire.count()) {
-          await boire.click()
-          await page.waitForTimeout(400)
-          await unePhoto('4f-fiole-question')
-        } else await page.locator('.feuille-fiole .carte-fermer').click()
+        // Ce qui couvre la fiole, s'il y a quelque chose : le doigt toucherait cela, pas elle.
+        const dessus = await page.evaluate(
+          `(() => { const f = document.querySelector('.exp-barre .exp-fiole'); const r = f.getBoundingClientRect(); const e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return f.contains(e) ? '' : (e ? e.tagName.toLowerCase() + '.' + String(e.className.baseVal ?? e.className).split(' ').join('.') : 'rien') + ' sur la fiole (' + Math.round(r.x) + ', ' + Math.round(r.y) + ', ' + Math.round(r.width) + ' × ' + Math.round(r.height) + '), défilée de ' + Math.round(scrollY) })()`,
+        )
+        if (dessus) {
+          console.error(`[couvert] ${dessus}`)
+          await photo('fiole-couverte')
+          await page.screenshot({ path: path.join(sortie, 'fiole-couverte-entiere.png'), fullPage: true })
+        }
+        const touchee = await page
+          .locator('.exp-barre .exp-fiole')
+          .first()
+          .click({ timeout: dessus ? 3000 : 30000 })
+          .then(
+            () => true,
+            () => false,
+          )
+        if (!touchee) console.error('[couvert] la fiole ne se touche pas')
+        else {
+          await page.waitForSelector('.feuille-fiole')
+          const boire = page.locator('.feuille-fiole .btn-primary')
+          if (await boire.count()) {
+            await boire.click()
+            await page.waitForTimeout(400)
+            await unePhoto('4f-fiole-question')
+          } else await page.locator('.feuille-fiole .carte-fermer').click()
+        }
       }
       await jouerUneCarte(['coup-d-oeil', 'deux-visages', 'echange'], '4b-reflexe-leve')
       if (await page.locator('.exp-visages').count()) await page.locator('.exp-visages .pill-btn').first().click()
@@ -399,6 +434,8 @@ try {
       // Le trésor d'un gardien vaincu (le codex) : une carte légendaire de son codex parmi les trois.
       const tresor = (await page.locator('.exp-offre .exp-surtitre', { hasText: 'trésor' }).count()) > 0
       await unePhoto(tresor ? '7c-tresor' : coffre ? '8-coffre' : '5d-carte-a-prendre', true)
+      // Dès l'acte 2 (le jeu complet), une carte offerte peut arriver améliorée : son « + » vert, déjà.
+      if (await page.locator('.exp-offre .exp-a-prendre-carte[data-carte$="+"]').count()) await unePhoto('5g-offre-amelioree', true)
       // La fiole d'un coffre, à la place d'une carte, s'il lui reste une place pour elle.
       const fiole = page.locator('.exp-offre-fiole:not([aria-disabled="true"])')
       if (await fiole.count()) await fiole.click()
@@ -410,10 +447,24 @@ try {
     }
     if (ou === 'campement') {
       await unePhoto('6b-campement')
-      // Le courage au plus haut, le campement propose d'office de retirer une carte : il en choisit une, parmi ses vraies cartes.
-      if (await page.locator('.exp-camper .exp-rangee-carte').count()) {
-        await page.locator('.exp-camper .exp-rangee-carte').first().click()
-        await unePhoto('6c-campement-retirer')
+      // Le courage au plus haut, le repos ne donne rien : le campement propose d'office d'améliorer une carte (le jeu complet). La
+      // première fois, il améliore Concentration — sinon la première — et regarde ce qu'elle deviendra, côte à côte ; ensuite, il
+      // retire une carte, parmi ses vraies cartes. Sous son plafond, il se repose.
+      const repos = (await page.locator('.exp-camper .exp-choix-ligne[aria-checked="true"]', { hasText: 'Te reposer' }).count()) > 0
+      if (!repos && !fait.has('6d-campement-ameliorer') && (await page.locator('.exp-camper .exp-rangee-carte').count())) {
+        await largeur('le campement')
+        await unePhoto('6c-campement-ameliorer-choix')
+        const concentration = page.locator('.exp-camper .exp-rangee-carte[data-carte="concentration"]')
+        await ((await concentration.count()) ? concentration : page.locator('.exp-camper .exp-rangee-carte')).first().click()
+        await page.waitForSelector('.exp-avant-apres')
+        await largeur('l’amélioration au campement')
+        await unePhoto('6d-campement-ameliorer', true)
+      } else if (!repos) {
+        await page.locator('.exp-camper .exp-choix-ligne', { hasText: 'Retirer' }).click()
+        if (await page.locator('.exp-camper .exp-rangee-carte').count()) {
+          await page.locator('.exp-camper .exp-rangee-carte').first().click()
+          await unePhoto('6e-campement-retirer')
+        }
       }
       if (await page.locator('.exp-a-retirer').count()) await page.locator('.exp-a-retirer .pill-btn').first().click()
       await page.locator('.exp-camper .exp-depart-pied .btn-primary').click()
@@ -431,6 +482,22 @@ try {
           await acheter.click()
           await page.waitForTimeout(400)
           await unePhoto('8d-fiole-achetee')
+        }
+      }
+      // Une carte améliorée (le jeu complet) : celles qui le peuvent en rangée, la choisie avant et après — achetée s'il en a de quoi.
+      const ameliorer = page.locator('.exp-echoppe-page .exp-offre-ligne:not([aria-disabled="true"])', { hasText: 'Améliorer une carte' })
+      if (!fait.has('8e-echoppe-ameliorer') && (await ameliorer.count())) {
+        await ameliorer.click()
+        if (await page.locator('.exp-echoppe-page .exp-rangee-carte').count()) {
+          await page.locator('.exp-echoppe-page .exp-rangee-carte').first().click()
+          await page.waitForSelector('.exp-avant-apres')
+          await largeur('l’amélioration à l’échoppe')
+          await unePhoto('8e-echoppe-ameliorer', true)
+          const acheter = page.locator('.exp-echoppe-page .exp-depart-pied .btn-primary')
+          if ((await acheter.getAttribute('aria-disabled')) !== 'true') {
+            await acheter.click()
+            await page.waitForTimeout(400)
+          }
         }
       }
       await page.locator('.exp-echoppe-page .btn-ghost').click()
