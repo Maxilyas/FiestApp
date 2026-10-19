@@ -276,41 +276,56 @@ test('toucher un nom du classement du défi ouvre sa carte — même sans quiz d
 
 // Le constat 5 de l'experte du jeu solo (le 11 octobre 2026) : le défi de la
 // semaine, neuf chaque lundi, ne se trouvait qu'au troisième onglet de la
-// campagne — le bouton de l'accueil n'en disait rien. Il le dit maintenant,
-// tant qu'il ne l'a pas fini, à qui a déjà joué la campagne
-// (`campagne-ouverture.test.ts` : ce que le bouton en fait).
-test('l’accueil dit le défi de la semaine tant qu’il n’est pas fini — à qui a déjà joué la campagne', () =>
+// campagne. Le bouton de la campagne l'a d'abord dit, à qui l'avait déjà
+// jouée ; depuis le 19 octobre 2026, il a son onglet à l'accueil, à côté du
+// quiz du jour — « beaucoup de gens ne savent pas qu'il y a le défi de la
+// semaine car il est caché dans la campagne » (le propriétaire) —, qui le
+// dit à tout profil, sa place comprise une fois sa tentative finie
+// (`campagne-ouverture.test.ts` : ce que l'onglet en fait).
+test('l’accueil dit le défi de la semaine à tout profil — qui l’a relevé, sa tentative, sa place —, compté comme son classement', () =>
   avecBanc(async (banc, horloge) => {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
-    const accueil = async () => (await lire(banc, lea, '/api/joueur/moi?accueil')).corps.profile.campagne
-    // Rien joué : le bouton dit d'abord ce qu'on fait dans la campagne.
-    assert.equal((await accueil()).defi, undefined)
-    // Une série jouée : le défi de la semaine l'attend, et personne ne l'a relevé.
-    const serie = (await poster(banc, lea, '/api/campagne/serie')).corps
-    const questions = questionsDe(banc, serie.id)
-    for (let i = 0; i < 3; i++) {
-      const r = await poster(banc, lea, `/api/campagne/serie/${serie.id}/reponse`, { index: i, choix: (questions[i].bonne + 1) % questions[i].reponses.length })
-      assert.equal(r.status, 200, r.corps.error)
+    const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐸')
+    const accueil = async (cookie = lea) => (await lire(banc, cookie, '/api/joueur/moi?accueil')).corps.profile
+    /** Ce que sa page en dit : ceux qui l'ont relevé, et sa ligne. */
+    const saPage = async (cookie = lea) => {
+      const p = (await lire(banc, cookie, '/api/campagne/defi')).corps
+      const sienne = [...p.lignes, ...(p.moi ? [p.moi] : [])].find((l: any) => l.profileId === p.sienne)
+      return { joueurs: p.joueurs, rang: sienne?.rang, justes: sienne?.justes }
     }
+    // Jamais joué la campagne : l'accueil le lui dit quand même, et le bouton de la campagne n'en parle plus.
     assert.deepEqual((await accueil()).defi, { joueurs: 0 })
+    assert.equal((await accueil()).campagne.defi, undefined)
     // Bob l'a ouvert sans répondre : il ne compte pas, comme au classement. Puis deux réponses : un joueur.
     await poster(banc, bob, '/api/campagne/defi')
     assert.deepEqual((await accueil()).defi, { joueurs: 0 })
     await relever(banc, bob, () => true, 2)
     assert.deepEqual((await accueil()).defi, { joueurs: 1 })
-    // Le sien ouvert : il l'attend, à reprendre.
+    // Le sien ouvert : il l'attend, à reprendre, ses bonnes réponses comptées.
     await poster(banc, lea, '/api/campagne/defi')
-    assert.deepEqual((await accueil()).defi, { joueurs: 1, commence: true })
+    assert.deepEqual((await accueil()).defi, { joueurs: 1, enCours: { justes: 0 } })
     await relever(banc, lea, () => true, 1)
-    assert.deepEqual((await accueil()).defi, { joueurs: 2, commence: true })
-    // Fini : plus rien, le bouton revient à son carnet ou à son sentier.
+    assert.deepEqual((await accueil()).defi, { joueurs: 2, enCours: { justes: 1 } })
+    // Fini : sa place, celle de sa page — Bob devant, encore en route.
     await relever(banc, lea, () => false)
-    assert.equal((await accueil()).defi, undefined)
-    // Le lundi d'après, le défi est neuf, et elle en a relevé un : il passe devant son carnet.
+    assert.deepEqual((await accueil()).defi, { joueurs: 2, releve: { justes: 1, rang: 2 } })
+    assert.deepEqual(await saPage(), { joueurs: 2, rang: 2, justes: 1 })
+    // Zoé finit à égalité avec Bob : tous deux premiers, rang partagé (invariant 15), et Léa troisième.
+    await relever(banc, zoe, i => i < 2)
+    assert.deepEqual((await accueil(zoe)).defi, { joueurs: 3, releve: { justes: 2, rang: 1 } })
+    assert.deepEqual((await accueil()).defi, { joueurs: 3, releve: { justes: 1, rang: 3 } })
+    // Bob masqué par l'administrateur quitte le classement des autres, et leur onglet — pas le sien.
+    const admin = await connexionAnimateur(banc.url)
+    assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: idDe(banc, 'bob'), masque: true })).status, 200)
+    assert.deepEqual((await accueil()).defi, { joueurs: 2, releve: { justes: 1, rang: 2 } })
+    assert.deepEqual(await saPage(), { joueurs: 2, rang: 2, justes: 1 })
+    assert.deepEqual((await accueil(bob)).defi, { joueurs: 3, enCours: { justes: 2 } })
+    // Zoé suspendue : plus personne ne la trouve, ni au classement ni sur l'onglet.
+    assert.equal((await poster(banc, admin, `/api/admin/profils/${idDe(banc, 'zoe')}/suspendre`)).status, 200)
+    assert.deepEqual((await accueil()).defi, { joueurs: 1, releve: { justes: 1, rang: 1 } })
+    assert.deepEqual(await saPage(), { joueurs: 1, rang: 1, justes: 1 })
+    // Le lundi d'après, un défi neuf, que personne n'a relevé : sa tentative d'avant ne compte plus.
     horloge.t = MARDI + 6 * JOUR_MS
-    assert.deepEqual((await accueil()).defi, { joueurs: 0, habitue: true, neuf: true })
-    // Le mardi, il n'est plus neuf.
-    horloge.t = MARDI + 7 * JOUR_MS
-    assert.deepEqual((await accueil()).defi, { joueurs: 0, habitue: true })
+    assert.deepEqual((await accueil()).defi, { joueurs: 0 })
   }))

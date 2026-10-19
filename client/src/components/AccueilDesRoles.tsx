@@ -8,7 +8,9 @@ import type { PublicSpace } from '../../../shared/space'
 import { jourDe, type CarriereDuJour } from '../../../shared/jour'
 import { espacesFines } from '../format'
 import { branche, deLaBranche } from '../../../shared/branches'
-import { PALIER_DU_MAITRE, type DefiDAccueil, type SentiersDAccueil } from '../../../shared/sentiers'
+import { PALIER_DU_MAITRE, type SentiersDAccueil } from '../../../shared/sentiers'
+import type { DefiDAccueil } from '../../../shared/campagne'
+import { placeDuJour } from '../../../shared/course'
 import { DUELS_POUR_LA_RECOMPENSE, ligueParCle, type DuelsDAccueil } from '../../../shared/duels'
 import { formatNumber } from '../../../shared/typographie'
 // Il n'importe rien, et l'en-tête de l'accueil le tire déjà par `shared/legendaires.ts` (`Identite.tsx`).
@@ -19,6 +21,7 @@ import { phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/pr
 import { BOUTON_BIENTOT, BOUTON_EN_MAINTENANCE, PASTILLE_AVANT_PREMIERE, type BoutonDeLaPage, type PageEnMaintenance } from '../../../shared/maintenance'
 import { boutonEteint } from '../maintenance'
 import { BlasonDeLigue } from './Blason'
+import { JourEtDefi } from './JourEtDefi'
 
 // L'accueil, selon qui le tient.
 //
@@ -69,17 +72,12 @@ export function JAnime({ espace }: { espace: PublicSpace }) {
  * campagne, jamais un sentier seul : mené à `#sentier-scene`, « la
  * campagne » ouvrait la scène sans les onglets de la campagne. Sur ses
  * sentiers, celui qu'il avance est en tête, à un toucher. Le défi de la
- * semaine aussi, tant qu'il ne l'a pas fini. Les défis de ses amis sont au
- * bouton des duels (`boutonDesDuels`).
+ * semaine a quitté ce bouton pour son onglet, à côté du quiz du jour
+ * (`boutonDuDefi`) ; les défis de ses amis sont au bouton des duels
+ * (`boutonDesDuels`).
  */
 export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: string; href: string; pastille?: string } {
   const b = branche(c?.avance?.branche)
-  // Le défi de la semaine, neuf chaque lundi, ne se trouvait qu'au troisième onglet de la campagne (l'experte du jeu
-  // solo, le 11 octobre 2026). Commencé, neuf, ou pour qui en relève un chaque semaine, il passe devant le carnet ;
-  // sinon derrière : qui ne le joue jamais garde chaque jour le rendez-vous de son carnet. Jamais devant une épreuve
-  // laissée en route, qui coûtera une vie.
-  const defi = c?.defi && !c.avance?.laissee ? c.defi : undefined
-  if (defi && (defi.commence || defi.neuf || defi.habitue)) return boutonDuDefi(defi)
   // Le carnet passe devant le sentier — pas devant une épreuve laissée en route : c'est le rendez-vous du lendemain,
   // que seul l'onglet comptait, deux écrans plus loin. L'adresse du carnet (`ADRESSE_DU_CARNET`) écrite ici, comme celle des sentiers.
   if (c?.aRevoir && !c.avance?.laissee) {
@@ -92,7 +90,6 @@ export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: s
       pastille: 'À revoir',
     }
   }
-  if (defi) return boutonDuDefi(defi)
   // « les sentiers de tes avatars » : quels avatars, et qu'est-ce qu'un sentier ? (l'experte du jeu solo, le 11 octobre 2026)
   // Ce qu'on y gagne, en deux lignes au téléphone.
   if (!c?.avance || !b) return { detail: 'Une série sans fin, ou des portraits à gagner', href: '/campagne' }
@@ -107,19 +104,30 @@ export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: s
   }
 }
 
+/** « 8 bonnes réponses » : le nombre ne quitte pas ses mots à la ligne. */
+const bonnesReponses = (n: number) => `${n} bonne${n > 1 ? 's' : ''} réponse${n > 1 ? 's' : ''}`
+
 /**
- * Le défi de la semaine sur le bouton de la campagne : le sien à reprendre, ou
- * ceux qui l'ont relevé, comme sa page (« joueurs cette semaine »). En deux
- * lignes en 360 de large, comme les autres boutons : « à toi » restait seul
- * sur une troisième — la pastille le dit.
+ * La tuile du défi de la semaine, dans son onglet à côté du quiz du jour :
+ * ceux qui l'ont relevé, le sien à reprendre, ou sa place une fois relevé —
+ * ce que sa page montre (`defiDAccueil`). Deux lignes au plus en 360 de
+ * large : son titre en prend déjà deux, à côté de sa pastille.
  */
-function boutonDuDefi(d: DefiDAccueil): { detail: string; href: string; pastille: string } {
+export function boutonDuDefi(d: DefiDAccueil | undefined): { detail: string; pastille?: string } {
+  // Une base qui s'en est tue : ce qu'il est, sans un chiffre — sa page dira le reste.
+  if (!d) return { detail: 'La même série pour tous, jusqu’à dimanche' }
+  if (d.releve) {
+    // « 4ᵉ place sur 10 » d'un bloc : coupée, elle laissait « 10 » seul sur sa ligne. Loin des premiers, ni place ni rang.
+    const place = placeDuJour(d.releve.rang, d.joueurs, d.releve.justes)
+    return { detail: espacesFines(place ? `${bonnesReponses(d.releve.justes)} · ${place.replace(/ /g, '\xa0')}` : `Relevé : ${bonnesReponses(d.releve.justes)}`) }
+  }
+  if (d.enCours) {
+    return { detail: espacesFines(d.enCours.justes > 0 ? `${bonnesReponses(d.enCours.justes)} : reprends-le` : 'Ton défi t’attend : reprends-le'), pastille: 'À finir' }
+  }
   const n = d.joueurs
-  const releve = n > 1 ? `${n} joueurs l’ont relevé` : n === 1 ? 'un joueur l’a relevé' : 'à toi d’ouvrir le bal'
   return {
-    detail: espacesFines(d.commence ? 'Ton défi de la semaine t’attend : reprends-le' : `Le défi de la semaine : ${releve}`),
-    href: '/campagne#defi',
-    pastille: d.commence ? 'À finir' : 'À relever',
+    detail: espacesFines(n > 1 ? `${n} joueurs l’ont relevé · jusqu’à dimanche` : n === 1 ? 'Un joueur l’a relevé · jusqu’à dimanche' : 'La même série pour tous : à toi d’ouvrir le bal'),
+    pastille: 'À relever',
   }
 }
 
@@ -187,10 +195,11 @@ const RIEN_DE_FERME: Partial<Record<PageEnMaintenance, BoutonDeLaPage>> = {}
 
 /**
  * L'accueil d'un profil : ce qu'on vient faire, en gros boutons — une soirée
- * où l'on joue déjà passe devant tout (« Revenir chez Hugo »), puis le quiz
- * du jour, créer un salon, rejoindre une soirée. Chacun ouvre sa page, qui en
- * dit plus : un toucher de plus qu'une carte qui montrait tout, mais un
- * écran qu'on lit d'un coup d'œil.
+ * où l'on joue déjà passe devant tout (« Revenir chez Hugo »), puis la
+ * campagne, le quiz du jour et le défi de la semaine — une tuile, deux
+ * onglets (`JourEtDefi`) —, les duels, créer un salon, rejoindre une soirée.
+ * Chacun ouvre sa page, qui en dit plus : un toucher de plus qu'une carte qui
+ * montrait tout, mais un écran qu'on lit d'un coup d'œil.
  *
  * Il remplace « Je joue » et « Ce soir », dont les boutons changeaient de
  * place et de taille selon l'heure et les rôles. Tout le monde a son salon :
@@ -198,8 +207,8 @@ const RIEN_DE_FERME: Partial<Record<PageEnMaintenance, BoutonDeLaPage>> = {}
  *
  * Une page fermée — en maintenance, ou bientôt disponible — éteint son
  * bouton, et sa ligne dit pourquoi : on ne l'apprenait qu'en touchant. Le
- * défi fermé seul ne se propose plus sur le bouton de la campagne, qui dit le
- * reste. Une page qu'il essaie avant tout le monde le dit d'une pastille.
+ * défi fermé seul éteint sa tuile, sous son onglet. Une page qu'il essaie
+ * avant tout le monde le dit d'une pastille.
  */
 export function AccueilJouer({
   enCours,
@@ -208,6 +217,7 @@ export function AccueilJouer({
   jour,
   aujourdhui,
   campagne,
+  defi,
   duels,
   etats = RIEN_DE_FERME,
 }: {
@@ -220,6 +230,8 @@ export function AccueilJouer({
   aujourdhui?: string
   /** Ses sentiers : ses vies, et celui qu'il avance. */
   campagne?: SentiersDAccueil
+  /** Le défi de la semaine : qui l'a relevé, et sa tentative — sa place, une fois relevé. */
+  defi?: DefiDAccueil
   /** Ses duels : sa ligue, sa cote, sa semaine — et qui le défie. */
   duels?: DuelsDAccueil
   /** Ce que dit le bouton de chaque page fermée, pour lui (`boutonsDesPages`, `client/src/maintenance.ts`). */
@@ -230,7 +242,8 @@ export function AccueilJouer({
   // du français avant le premier écran ; un serveur d'avant ne le dit pas.
   const dernier = jour?.jours[0]?.jour
   const joueAujourdhui = !!dernier && dernier === (aujourdhui ?? jourDe(Date.now()))
-  const serie = jour && jour.serie > 1 ? ` · série de ${jour.serie} jours` : ''
+  // « 12 jours » d'un bloc : « jours » restait seul sur sa ligne en 360.
+  const serie = jour && jour.serie > 1 ? ` · série de ${jour.serie} jours` : ''
   // Éteinte pour lui : en maintenance — pour tous —, ou bientôt disponible sans qu'il l'essaie.
   const eteinte = (page: PageEnMaintenance) => {
     const e = etats[page]
@@ -238,7 +251,8 @@ export function AccueilJouer({
   }
   const pourquoi = (page: PageEnMaintenance) => espacesFines(etats[page] === 'bientot' ? BOUTON_BIENTOT : BOUTON_EN_MAINTENANCE)
   const enAvantPremiere = (page: PageEnMaintenance) => (etats[page] === 'avant-premiere' ? PASTILLE_AVANT_PREMIERE : undefined)
-  const laCampagne = boutonDeLaCampagne(campagne && eteinte('defi') ? { ...campagne, defi: undefined } : campagne)
+  const laCampagne = boutonDeLaCampagne(campagne)
+  const leDefi = boutonDuDefi(defi)
   const lesDuels = boutonDesDuels(duels)
   return (
     <div className="accueil-gestes">
@@ -263,13 +277,34 @@ export function AccueilJouer({
             href={laCampagne.href}
           />
         )}
-        <GrosBouton
-          icone={<Icon name="sun" />}
-          titre="Le quiz du jour"
-          detail={eteinte('jour') ? pourquoi('jour') : joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
-          pastille={eteinte('jour') ? undefined : jour && !joueAujourdhui ? 'À jouer' : enAvantPremiere('jour')}
-          ferme={eteinte('jour')}
-          href="/jour"
+        {/* Le quiz du jour et le défi de la semaine, au même endroit : la tuile du quiz du jour, ouverte d'office, et
+            celle du défi, sous deux onglets (le choix du propriétaire du 19 octobre 2026 — au troisième onglet de la
+            campagne, beaucoup ne savaient pas que le défi existait). Un point d'or sur l'onglet de ce qui attend. */}
+        <JourEtDefi
+          jour={
+            <GrosBouton
+              icone={<Icon name="sun" />}
+              titre="Le quiz du jour"
+              detail={eteinte('jour') ? pourquoi('jour') : joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
+              pastille={eteinte('jour') ? undefined : jour && !joueAujourdhui ? 'À jouer' : enAvantPremiere('jour')}
+              ferme={eteinte('jour')}
+              href="/jour"
+            />
+          }
+          defi={
+            <GrosBouton
+              icone={<Icon name="trophy" />}
+              titre="Le défi de la semaine"
+              detail={eteinte('defi') ? pourquoi('defi') : leDefi.detail}
+              pastille={eteinte('defi') ? undefined : (leDefi.pastille ?? enAvantPremiere('defi'))}
+              ferme={eteinte('defi')}
+              href="/campagne#defi"
+            />
+          }
+          attend={{
+            ...(!eteinte('jour') && jour && !joueAujourdhui && { jour: 'à jouer' }),
+            ...(!eteinte('defi') && leDefi.pastille && { defi: leDefi.pastille.toLowerCase() }),
+          }}
         />
         {/* Sous le quiz du jour : un joueur à la fois, chacun sur son téléphone, à son heure. Son blason dès son premier duel. */}
         {eteinte('duels') ? (

@@ -22,7 +22,7 @@ Les duels demandent un profil, où restent ta cote, ta ligue et tes confettis : 
 
 ## Où les trouver
 
-**À l'accueil**, la tuile « Les duels », sous « Le quiz du jour » dans la section « Seul » — des épées, puis le blason de ta ligue —, dit d'abord ce qui t'attend : un résultat (« Hugo a joué ton duel », la tuile allumée d'or), un duel reçu (« Léa te défie : à toi de jouer »), ton duel au dé laissé en route ; sinon ta ligue, ta cote et ta semaine (« Ligue de bronze · cote 1017 · encore 2 duels pour ta récompense »). Un chiffre blanc sur rouge additionne les résultats à voir et les duels à relever, et une bannière « Duel terminé » tombe une fois en haut de l'accueil quand un résultat arrive.
+**À l'accueil**, la tuile « Les duels », sous celle du quiz du jour et du défi de la semaine dans la section « Seul » — des épées, puis le blason de ta ligue —, dit d'abord ce qui t'attend : un résultat (« Hugo a joué ton duel », la tuile allumée d'or), un duel reçu (« Léa te défie : à toi de jouer »), ton duel au dé laissé en route ; sinon ta ligue, ta cote et ta semaine (« Ligue de bronze · cote 1017 · encore 2 duels pour ta récompense »). Un chiffre blanc sur rouge additionne les résultats à voir et les duels à relever, et une bannière « Duel terminé » tombe une fois en haut de l'accueil quand un résultat arrive.
 
 **La page `/duels`** : le cadran des six ligues autour de ta cote ; ta semaine en trois losanges ; « Défier », en grand, et le dé à côté ; trois onglets, « En cours », « Historique », « Classement » ; en haut, « Comment ça marche ? » et tes amis. « En cours » range d'abord les résultats que tu n'as pas vus, puis ce qui est à toi de jouer (« À toi »), puis ce qui attend l'autre, avec le temps restant.
 

@@ -391,11 +391,11 @@ export function CampagneApp() {
   const onglets = (
     <Onglets
       onglets={[
-        // Quatre au téléphone : sans leur article, chacun tient sur une ligne.
+        // Au téléphone, sans leur article : chacun tient sur une ligne. Le défi de la semaine a quitté ces onglets pour
+        // le sien, à côté du quiz du jour sur l'accueil (le choix du propriétaire du 19 octobre 2026) : sa page,
+        // `#defi`, se tient sans eux ; ceux des amis sont aux duels (`/duels`).
         { id: 'serie', nom: 'La série', court: 'Série', icone: 'list' },
         { id: 'sentiers', nom: 'Les sentiers', court: 'Sentiers', icone: 'target' },
-        // Le défi de la semaine ; ceux des amis sont aux duels (`/duels`).
-        { id: 'defi', nom: 'Le défi', court: 'Défi', icone: 'trophy' },
         // Le carnet, puis les parcours de thème (le choix du 12 octobre 2026) : on y apprend, on n'y perd rien.
         // Ce qui l'attend aujourd'hui se compte sur l'onglet : sinon, il faudrait l'ouvrir pour le savoir.
         {
@@ -414,8 +414,12 @@ export function CampagneApp() {
     />
   )
 
+  // La page du défi se tient sans les onglets de la campagne : l'onglet du navigateur dit la page qu'on regarde.
   useEffect(() => {
-    document.title = DUELS ? 'Les duels · FiestApp' : 'La campagne · FiestApp'
+    document.title = DUELS ? 'Les duels · FiestApp' : mode === 'defi' ? 'Le défi de la semaine · FiestApp' : 'La campagne · FiestApp'
+  }, [mode])
+
+  useEffect(() => {
     let vivant = true
     // L'état part avec le profil, pas après lui, et le profil se lit en
     // léger : comme au quiz du jour, son détail ne servait qu'au thème. Ouverte
@@ -942,15 +946,14 @@ export function CampagneApp() {
   // avant le bon onglet (l'experte du jeu solo, le 11 octobre 2026).
   const surSonOnglet = ecran.e === 'accueil' || ecran.e === 'chargement'
   // Le défi de la semaine fermé — en maintenance, ou bientôt disponible
-  // (`/admin#maintenance`) : son onglet le dit, sans rien demander ; le reste
-  // de la campagne reste ouvert. Une tentative déjà à l'écran se finit, comme
-  // toute partie.
+  // (`/admin#maintenance`) : sa page le dit, sans rien demander, et sa tuile
+  // s'éteint à l'accueil ; le reste de la campagne reste ouvert. Une
+  // tentative déjà à l'écran se finit, comme toute partie.
   const defiFerme = fermeePourMoi('defi')
   if (surSonOnglet && mode === 'defi' && defiFerme) {
     return (
       <div className="player-shell campagne">
         <Sortie />
-        {onglets}
         <EnMaintenance page="defi" pourquoi={defiFerme} />
       </div>
     )
@@ -958,7 +961,7 @@ export function CampagneApp() {
   if (surSonOnglet && mode === 'defi') {
     return (
       <>
-        <PageDuDefi onglets={onglets} onJouer={jouerLeDefi} enMaintenance={enMaintenance('defi')} />
+        <PageDuDefi onJouer={jouerLeDefi} enMaintenance={enMaintenance('defi')} />
         {toastVu}
       </>
     )

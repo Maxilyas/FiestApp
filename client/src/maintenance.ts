@@ -32,7 +32,7 @@ function lire(): VuDuService {
   return lu
 }
 
-/** En maintenance, pour tous : l'administrateur, qui y entre, le lit sur l'onglet du défi. */
+/** En maintenance, pour tous : l'administrateur, qui y entre, le lit sur la page du défi. */
 export const enMaintenance = (page: PageEnMaintenance): boolean => lire().fermees.includes(page)
 
 /** Fermée à qui regarde, et pourquoi ; null s'il y entre — l'administrateur partout, un testeur dans la sienne. */

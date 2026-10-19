@@ -7803,6 +7803,25 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
   font-variant-numeric: lining-nums tabular-nums;
   white-space: nowrap;
 }
+/* Le quiz du jour et le défi de la semaine : une tuile, deux onglets fins
+   (`JourEtDefi`, le choix du propriétaire du 19 octobre 2026). La tuile du
+   quiz du jour garde sa forme : son cadre passe à la tuile entière, les
+   onglets la coiffent, et le gros bouton de l'onglet ouvert la remplit. */
+.jour-defi { border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.jour-defi:has(.gros-bouton:hover) { border-color: var(--edge-strong); }
+/* L'onglet ouvert mène à une page fermée : le cadre prend les pointillés d'un gros bouton fermé, que la tuile efface. */
+.jour-defi:has(> .jour-defi-panneaux > :not([aria-hidden='true']) .gros-ferme) { border-style: dashed; }
+.jour-defi .onglets-fins { padding: 0 10px; }
+.jour-defi .onglets-fins .onglet { min-height: 42px; }
+.jour-defi .gros-bouton { border: 0; border-radius: 0 0 var(--radius) var(--radius); background: none; }
+/* Les deux panneaux tiennent la même case, l'autre caché : la tuile garde la
+   hauteur du plus grand, rien ne saute dessous quand on change d'onglet. */
+.jour-defi-panneaux { display: grid; }
+.jour-defi-panneaux > [role='tabpanel'] { grid-area: 1 / 1; display: flex; }
+.jour-defi-panneaux > [aria-hidden='true'] { visibility: hidden; }
+/* Le point d'or d'un onglet : ce qui l'attend derrière, sans compte — l'or de
+   la pastille « À jouer », pas le rouge de ce que d'autres lui ont envoyé. */
+.onglet-point { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 
 /* ── Le profil : qui l'on est, puis quatre gros boutons ─────────────────
    Épuré : « M'habiller » (la loge, sur son écran), « Ma collection » — sa
@@ -8258,9 +8277,11 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .onglets-campagne { margin-top: -4px; }
 /* Le nom court d'un onglet ne sert qu'au téléphone. */
 .onglet-court { display: none; }
-/* Quatre onglets au téléphone, depuis le carnet : sans leurs icônes ni leur
-   article, chacun tient sur une ligne — « Les sentiers » et « Le carnet »
-   passaient sur deux. « Apprendre » n'a pas d'article à perdre. */
+/* Les onglets de la campagne au téléphone : sans leurs icônes ni leur
+   article, chacun tient sur une ligne — à quatre, « Les sentiers » et « Le
+   carnet » passaient sur deux ; le défi est parti à l'accueil le 19 octobre
+   2026, ils gardent leurs noms courts. « Apprendre » n'a pas d'article à
+   perdre. */
 @media (max-width: 420px) {
   .onglets-campagne .onglet { gap: 4px; padding: 0 4px; }
   .onglets-campagne .onglet .icon { display: none; }

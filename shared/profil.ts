@@ -25,6 +25,7 @@ import type { Ecusson } from './ecussons'
 import type { BoutiqueDuProfil } from './themes'
 import type { Paliers } from './branches'
 import type { SentiersDAccueil } from './sentiers'
+import type { DefiDAccueil } from './campagne'
 import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
 import type { VusDeLaLoge } from './piecesDeLaLoge'
 import type { ActiviteDUnJoueur } from './qgActivite'
@@ -1077,6 +1078,8 @@ export type ProfilDAccueil = PublicProfile &
   Pick<PublicProfileDetail, 'jour' | 'boutique'> & {
     /** Ses vies et le sentier qu'il avance, pour le bouton de la campagne ; absent si la base s'est tue. */
     campagne?: SentiersDAccueil
+    /** Le défi de la semaine, pour son onglet à côté du quiz du jour ; absent si la base s'est tue. */
+    defi?: DefiDAccueil
     /** Sa ligue, sa cote, sa semaine et les défis de ses amis, pour le bouton des duels ; absent si la base s'est tue. */
     duels?: DuelsDAccueil
     /**

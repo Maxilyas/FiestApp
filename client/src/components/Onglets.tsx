@@ -9,6 +9,12 @@ export interface Onglet<T extends string> {
   court?: string
   /** Ce qui l'attend derrière, compté : un chiffre à l'œil, une phrase au lecteur d'écran. */
   pastille?: { n: number; label: string }
+  /**
+   * Ce qui l'attend derrière, sans compte — le quiz du jour à jouer, le défi à
+   * relever : un point d'or à l'œil, l'or de la pastille « À jouer », et sa
+   * phrase au lecteur d'écran (« à relever »).
+   */
+  point?: string
 }
 
 /** Les touches du motif d'onglets, et l'onglet où chacune mène. */
@@ -84,6 +90,12 @@ export function Onglets<T extends string>({
                 {o.pastille.n > 99 ? '99+' : o.pastille.n}
               </span>
               <span className="sr-only">{`, ${o.pastille.label}`}</span>
+            </>
+          )}
+          {o.point && (
+            <>
+              <span className="onglet-point" aria-hidden="true" />
+              <span className="sr-only">{`, ${o.point}`}</span>
             </>
           )}
         </button>

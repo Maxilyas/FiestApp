@@ -6,14 +6,15 @@
 
 ## En bref
 
-La campagne se joue seul, à ton rythme, sans chronomètre ni animateur. Elle vit à `/campagne`, en quatre onglets :
+La campagne se joue seul, à ton rythme, sans chronomètre ni animateur. Elle vit à `/campagne`, en trois onglets :
 
 | Onglet | Adresse | Ce que tu y fais |
 |---|---|---|
 | « La série » | `/campagne` | Une série à trois vies qui monte de marche en marche |
 | « Les sentiers » | `/campagne#sentiers` | Les sentiers du savoir ([leur page](les-sentiers-du-savoir.md)) |
-| « Le défi » | `/campagne#defi` | La même série pour tous, une tentative par semaine |
 | « Apprendre » | `/campagne#carnet` | Le carnet de révision, puis les parcours de thème |
+
+Le défi de la semaine — la même série pour tous, une tentative par semaine — a sa page à lui, `/campagne#defi`, sans ces onglets : on y vient de l'accueil, où il partage une tuile avec le quiz du jour ([plus bas](#le-défi-de-la-semaine)).
 
 Les sentiers font monter une catégorie en douze paliers, puis un palier de maître, et ouvrent les portraits des avatars du savoir. Les parcours de thème font monter un sujet en six étapes. Les duels, contre Automate ou contre quelqu'un, ont leur page, `/duels` (voir [les duels](les-duels.md)). Tous ces modes puisent dans la même base de questions, rapportent la même chose par bonne réponse et remplissent le même carnet.
 
@@ -24,7 +25,7 @@ Chaque valeur citée ici a sa ligne dans [les barèmes](../reference/baremes.md)
 
 ## Une partie
 
-**À l'accueil**, le gros bouton de la campagne te mène d'abord à une épreuve de sentier laissée en route, puis à ton défi de la semaine (si tu l'as commencé, si c'est lundi ou si tu en as déjà relevé un), puis aux questions de ton carnet à revoir aujourd'hui, puis au défi, et enfin au sentier que tu avances. Le défi n'y paraît qu'après ta première partie de campagne, et disparaît une fois ta tentative finie.
+**À l'accueil**, le gros bouton de la campagne te mène d'abord à une épreuve de sentier laissée en route, puis aux questions de ton carnet à revoir aujourd'hui, et enfin au sentier que tu avances. Le défi de la semaine n'y est plus : il a son onglet, à côté du quiz du jour.
 
 **L'onglet « La série »** montre ton record. Sous « Commencer une série », une ligne dit sur quoi tu joues (« Sur Toutes les catégories », « Histoire et Sport », un sujet). « Changer › » ouvre la feuille « Sur quoi ? » : toutes les catégories, une ou plusieurs des douze, ou, dans l'onglet « Thèmes », un sujet — les thèmes en tuiles, chacun son emblème, les époques sur une frise, dans l'ordre du temps, et les fils rouges en pastilles. Une catégorie choisie seule s'affine : sa case s'ouvre comme un onglet sur un panneau où sont incrustées ses **rubriques**, chacun de ses sous-thèmes (« Sport », puis « Football »), « Toute la catégorie » en tête. Ton choix est retenu sur ce téléphone.
 
@@ -114,6 +115,8 @@ Dans l'onglet « Apprendre », le carnet transforme chaque erreur en rendez-vous
 
 Un même défi pour tout le serveur, du lundi au dimanche minuit, heure de Paris : une série à trois vies, sans chronomètre, et **une seule tentative**. Laissée en route, la tentative se reprend, mais elle ne s'abandonne pas.
 
+**Où le trouver.** Sur l'accueil, il partage une tuile avec le quiz du jour, sous deux onglets — « Quiz du jour », ouvert d'office, et « Défi de la semaine » (depuis le 19 octobre 2026 : au troisième onglet de la campagne, beaucoup ne savaient pas qu'il existait). Sa tuile dit combien l'ont relevé (« 9 joueurs l'ont relevé · jusqu'à dimanche », « À relever »), tes bonnes réponses s'il t'attend (« À finir »), puis ta place une fois relevé (« 8 bonnes réponses · 4ᵉ place sur 10 ») ; tant qu'il t'attend, un point d'or le dit sur son onglet. Elle ouvre sa page, `/campagne#defi`, « ← Accueil » en tête : ses règles, « Relever le défi », son classement et la semaine dernière. Ce que dit la tuile se compte comme le classement de la page, aux mêmes règles.
+
 | Règle | Ce qu'il en est |
 |---|---|
 | Ses questions | Tirées pour le premier joueur qui le relève (« Relever le défi »), pas à l'ouverture de la page. Le tirage se fait comme pour une série sur toutes les catégories, sans privilégier les questions jamais vues, puis il reste figé pour la semaine |
@@ -122,7 +125,7 @@ Un même défi pour tout le serveur, du lundi au dimanche minuit, heure de Paris
 | La correction | Disponible à la clôture seulement : plus tôt, elle soufflerait les réponses |
 | Ce qu'il compte | Ton expérience, tes confettis, tes hauts faits de série et tes pistes, mais pas ton record |
 
-**Le Vainqueur du défi.** À la clôture, le premier reçoit le haut fait « Le Vainqueur du défi » ; en cas d'égalité, tous les premiers le reçoivent. Il porte aussi **le laurier d'argent** à côté de son prénom pendant toute la semaine suivante, y compris en soirée ; si le joueur a aussi le laurier du quiz du jour, c'est celui-ci qui s'affiche. Pour qu'il y ait un vainqueur, il faut au moins deux joueurs (`JOUEURS_POUR_LE_DEFI` : seul, on n'a battu personne) et au moins une bonne réponse. Un profil que l'administrateur a masqué des classements n'y apparaît que pour lui-même, et ne peut pas gagner. La semaine suivante, l'onglet le dit sous « La semaine dernière » : les vainqueurs et leur laurier, ta place, ce que la clôture t'a décerné — en lignes de trophées, comme à la fin d'une partie, chacune menant à l'album — et « La correction du défi ».
+**Le Vainqueur du défi.** À la clôture, le premier reçoit le haut fait « Le Vainqueur du défi » ; en cas d'égalité, tous les premiers le reçoivent. Il porte aussi **le laurier d'argent** à côté de son prénom pendant toute la semaine suivante, y compris en soirée ; si le joueur a aussi le laurier du quiz du jour, c'est celui-ci qui s'affiche. Pour qu'il y ait un vainqueur, il faut au moins deux joueurs (`JOUEURS_POUR_LE_DEFI` : seul, on n'a battu personne) et au moins une bonne réponse. Un profil que l'administrateur a masqué des classements n'y apparaît que pour lui-même, et ne peut pas gagner. La semaine suivante, sa page le dit sous « La semaine dernière » : les vainqueurs et leur laurier, ta place, ce que la clôture t'a décerné — en lignes de trophées, comme à la fin d'une partie, chacune menant à l'album — et « La correction du défi ».
 
 **L'Éclat.** Une tentative finie par sa dernière réponse tire l'Éclat, avec une chance sur vingt (`CHANCE_ECLAT_DU_DEFI`). Une tentative arrêtée par la clôture n'en tire pas. La série, la révision et les sentiers n'en tirent jamais, parce qu'on peut les rejouer à volonté ; au défi, c'est le calendrier qui sert de garde-fou. Ce qu'est l'Éclat est expliqué dans [les récompenses](les-recompenses.md).
 

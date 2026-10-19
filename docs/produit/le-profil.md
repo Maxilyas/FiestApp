@@ -42,8 +42,8 @@ Connecté, `/` est ton accueil. De haut en bas : **ta ligne** — ton avatar, to
 
 | Section | Bouton | Ce qu'il dit, et sa pastille |
 |---|---|---|
-| « Seul » | [La campagne](la-campagne.md) | ton défi de la semaine (« À relever », « À finir »), ton carnet (« À revoir »), ton épreuve laissée en route, sinon le sentier que tu avances et tes vies |
-| | [Le quiz du jour](le-quiz-du-jour.md) | « Dix questions, les mêmes pour tous », ou « Joué aujourd'hui », et ta série ; « À jouer » tant que celui du jour t'attend |
+| « Seul » | [La campagne](la-campagne.md) | ton carnet (« À revoir »), ton épreuve laissée en route, sinon le sentier que tu avances et tes vies |
+| | [Le quiz du jour](le-quiz-du-jour.md) et [le défi de la semaine](la-campagne.md#le-défi-de-la-semaine) | une tuile, deux onglets, le quiz du jour ouvert d'office. « Quiz du jour » : « Dix questions, les mêmes pour tous », ou « Joué aujourd'hui », et ta série ; « À jouer » tant que celui du jour t'attend. « Défi de la semaine » : combien l'ont relevé (« À relever »), tes bonnes réponses s'il t'attend (« À finir »), ta place une fois relevé. Un point d'or sur l'onglet de ce qui attend |
 | | [Les duels](les-duels.md) | un résultat à voir (la tuile s'allume, « Résultat »), qui te défie, ton duel en route, sinon ta ligue, ta cote et ta semaine ; un chiffre blanc sur rouge compte ce qui t'attend |
 | « Entre amis » | « Créer un salon » | « Tu lances les quiz : tu joues, ou tu animes » |
 | | « Rejoindre une soirée » | « Avec son code, ou le QR de l'hôte » |

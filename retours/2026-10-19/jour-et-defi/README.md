@@ -6,11 +6,23 @@ sorte d'onglet avec le quiz du jour, tout en gardant par défaut le quiz du
 jour. Je pense que beaucoup de gens ne savent pas qu'il y a le défi de la
 semaine car il est caché dans la campagne » (le propriétaire).
 
-Une maquette, pas encore une décision : les onglets sont posés dans le vrai
-code de l'accueil, derrière un drapeau du téléphone (`quizz.maquette`),
-photographiés au téléphone en 360 × 640 sur un serveur jetable, puis rangés
-sur une planche. Rien de l'application ne change : le prototype vit dans
-`maquette/prototype.patch`.
+Une maquette : les onglets sont posés dans le vrai code de l'accueil,
+derrière un drapeau du téléphone (`quizz.maquette`), photographiés au
+téléphone en 360 × 640 sur un serveur jetable, puis rangés sur une planche.
+Le prototype vit dans `maquette/prototype.patch`.
+
+## La décision : la tuile à deux onglets
+
+« Je valide la tuile à deux onglets » (le propriétaire, le 19 octobre 2026) :
+la proposition 1 est dans l'application (`client/src/components/JourEtDefi.tsx`,
+règles `profil.md` et `campagne.md`). Ce qui a changé en chemin, par rapport
+au prototype : l'accueil lit le défi dans son en-tête (`ProfilDAccueil.defi`,
+`CampagneStore.defiDAccueil`, pour tout profil, compté comme le classement :
+ni suspendus ni masqués) au lieu d'une requête de plus ; la page du défi garde
+son adresse (`/campagne#defi`), sans les onglets de la campagne ; « série de
+12 jours » ne se coupe plus avant « jours ». Les trois questions d'en bas
+attendent une suite : le quiz du jour reste ouvert d'office, et la tuile du
+défi ouvre sa page.
 
 Léa, la joueuse photographiée, joue le quiz du jour depuis douze jours et n'a
 jamais ouvert la campagne ; neuf joueurs ont relevé le défi. C'est le cas où,
@@ -106,7 +118,9 @@ Le prototype ne cherche que le rendu ; la vraie version, une fois choisie :
 
 ## Rejouer la maquette
 
-Depuis la racine, avec le Chromium de Playwright (`npm root -g`) :
+Le patch s'applique sur le code d'avant la vraie version (le commit
+`9ab47d8`, dans un arbre à part : `git worktree add`). Depuis sa racine,
+avec le Chromium de Playwright (`npm root -g`) :
 
 ```bash
 git apply retours/2026-10-19/jour-et-defi/maquette/prototype.patch

@@ -560,6 +560,7 @@ export function ProfilApp() {
           jour={profil.jour}
           aujourdhui={'aujourdhui' in profil ? profil.aujourdhui : undefined}
           campagne={'campagne' in profil ? profil.campagne : undefined}
+          defi={'defi' in profil ? profil.defi : undefined}
           duels={'duels' in profil ? profil.duels : undefined}
           etats={boutonsDesPages()}
         />
