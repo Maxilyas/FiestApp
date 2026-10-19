@@ -99,7 +99,7 @@ Quand quelque chose ne marche plus pour les joueurs — le quiz du jour qui ne s
 **Les pages** : le quiz du jour, la campagne (le défi de la semaine avec), le défi de la semaine seul, les duels (les défis entre amis compris), l'Expédition, la boutique. Chacune est ouverte à tous, en maintenance, ou bientôt disponible ; deux boutons la font passer à l'un des deux autres. « Mettre en maintenance », confirmé, puis « Rouvrir ». Une page en maintenance :
 
 - se remplace, pour les joueurs, par un écran qui dit qu'une réparation est en cours, que rien de ce qu'ils ont gagné n'est perdu, avec « Retour à l'accueil » et « Réessayer » ;
-- éteint son bouton sur l'accueil, qui dit « En maintenance : reviens un peu plus tard » ; le défi fermé seul ne s'y propose plus ;
+- éteint son bouton sur l'accueil, qui dit « En maintenance : reviens un peu plus tard » ; le défi fermé seul éteint sa tuile, sous son onglet à côté du quiz du jour ;
 - ferme ce qui y commence — une partie, un départ, un achat —, même depuis une page restée ouverte : le joueur lit « Le quiz du jour est en maintenance : reviens un peu plus tard ». Une partie déjà à l'écran, elle, se finit ;
 - tait le rappel du soir, pour le quiz du jour : il part si tu rouvres avant 22 h.
 

@@ -1,0 +1,514 @@
+diff --git a/client/src/components/AccueilDesRoles.tsx b/client/src/components/AccueilDesRoles.tsx
+index 610330b..7675095 100644
+--- a/client/src/components/AccueilDesRoles.tsx
++++ b/client/src/components/AccueilDesRoles.tsx
+@@ -19,6 +19,7 @@ import { phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/pr
+ import { BOUTON_BIENTOT, BOUTON_EN_MAINTENANCE, PASTILLE_AVANT_PREMIERE, type BoutonDeLaPage, type PageEnMaintenance } from '../../../shared/maintenance'
+ import { boutonEteint } from '../maintenance'
+ import { BlasonDeLigue } from './Blason'
++import { JourEtDefi, maquetteEssayee } from './JourEtDefi'
+ 
+ // L'accueil, selon qui le tient.
+ //
+@@ -238,7 +239,9 @@ export function AccueilJouer({
+   }
+   const pourquoi = (page: PageEnMaintenance) => espacesFines(etats[page] === 'bientot' ? BOUTON_BIENTOT : BOUTON_EN_MAINTENANCE)
+   const enAvantPremiere = (page: PageEnMaintenance) => (etats[page] === 'avant-premiere' ? PASTILLE_AVANT_PREMIERE : undefined)
+-  const laCampagne = boutonDeLaCampagne(campagne && eteinte('defi') ? { ...campagne, defi: undefined } : campagne)
++  // La maquette du 19 octobre 2026 : le défi quitte le bouton de la campagne pour son onglet, à côté du quiz du jour.
++  const maquette = maquetteEssayee()
++  const laCampagne = boutonDeLaCampagne(campagne && (eteinte('defi') || maquette) ? { ...campagne, defi: undefined } : campagne)
+   const lesDuels = boutonDesDuels(duels)
+   return (
+     <div className="accueil-gestes">
+@@ -252,6 +255,8 @@ export function AccueilJouer({
+         <span className="label" id="jouer-seul">
+           Seul
+         </span>
++        {/* La carte à onglets passe en tête : à la place du quiz du jour, son bouton tombait sous le pli en 360 × 640. */}
++        {maquette === 'carte' && !eteinte('jour') && <JourEtDefi maquette={maquette} jour={jour} aujourdhui={aujourdhui} />}
+         {eteinte('campagne') ? (
+           <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={pourquoi('campagne')} ferme={eteinte('campagne')} href="/campagne" />
+         ) : (
+@@ -263,14 +268,18 @@ export function AccueilJouer({
+             href={laCampagne.href}
+           />
+         )}
+-        <GrosBouton
+-          icone={<Icon name="sun" />}
+-          titre="Le quiz du jour"
+-          detail={eteinte('jour') ? pourquoi('jour') : joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
+-          pastille={eteinte('jour') ? undefined : jour && !joueAujourdhui ? 'À jouer' : enAvantPremiere('jour')}
+-          ferme={eteinte('jour')}
+-          href="/jour"
+-        />
++        {maquette === 'carte' && !eteinte('jour') ? null : maquette === 'tuile' && !eteinte('jour') ? (
++          <JourEtDefi maquette={maquette} jour={jour} aujourdhui={aujourdhui} />
++        ) : (
++          <GrosBouton
++            icone={<Icon name="sun" />}
++            titre="Le quiz du jour"
++            detail={eteinte('jour') ? pourquoi('jour') : joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
++            pastille={eteinte('jour') ? undefined : jour && !joueAujourdhui ? 'À jouer' : enAvantPremiere('jour')}
++            ferme={eteinte('jour')}
++            href="/jour"
++          />
++        )}
+         {/* Sous le quiz du jour : un joueur à la fois, chacun sur son téléphone, à son heure. Son blason dès son premier duel. */}
+         {eteinte('duels') ? (
+           <GrosBouton icone={<Icon name="swords" />} titre="Les duels" detail={pourquoi('duels')} ferme={eteinte('duels')} href="/duels" />
+diff --git a/client/src/components/JourEtDefi.tsx b/client/src/components/JourEtDefi.tsx
+new file mode 100644
+index 0000000..ad57559
+--- /dev/null
++++ b/client/src/components/JourEtDefi.tsx
+@@ -0,0 +1,299 @@
++import { useEffect, useState, type ReactNode } from 'react'
++import { api } from '../api'
++import { Icon } from './Icon'
++import { GrosBouton } from './Pieces'
++import { Avatar } from './Avatar'
++import { Onglets } from './Onglets'
++import { ontGagneHier } from './Jour'
++import { espacesFines, formatNumber, pts } from '../format'
++import { placeDuJour } from '../../../shared/course'
++import { enumerer } from '../../../shared/classement'
++import type { CarriereDuJour, PartieDuJour } from '../../../shared/jour'
++import type { DefiDeLaSemaine, LigneDuDefi } from '../../../shared/campagne'
++
++// Maquette du 19 octobre 2026 — le quiz du jour et le défi de la semaine au
++// même endroit de l'accueil, en onglets, le quiz du jour d'office : rangé au
++// troisième onglet de la campagne, le défi, beaucoup ne savaient pas qu'il
++// existait (le propriétaire). Deux allures, essayées sur le téléphone par
++// `quizz.maquette` : `tuile` — deux onglets fins posés sur la tuile
++// d'aujourd'hui, à sa place —, `carte` — un classeur à deux onglets en tête
++// de « Seul », qui dit où en est la salle et a son bouton.
++
++export type Maquette = 'tuile' | 'carte'
++
++/** L'allure essayée sur ce téléphone, s'il y en a une. */
++export function maquetteEssayee(): Maquette | null {
++  try {
++    const m = localStorage.getItem('quizz.maquette')
++    return m === 'tuile' || m === 'carte' ? m : null
++  } catch {
++    return null
++  }
++}
++
++/** La page du défi, qui a quitté les onglets de la campagne. */
++const PAGE_DU_DEFI = '/campagne#defi'
++
++type Lequel = 'jour' | 'defi'
++
++const bonnes = (n: number) => `${n > 1 ? 'bonnes' : 'bonne'} réponse${n > 1 ? 's' : ''}`
++const nBonnes = (n: number) => `${n} ${bonnes(n)}`
++/** « 4ᵉ place sur 10 » d'un bloc : coupée, elle laissait « 10 » seul sur sa ligne. */
++const dUnBloc = (s: string) => s.replace(/ /g, ' ')
++
++/** « clôture dans 4 jours » : ce qui reste au défi, à l'heure de Paris. */
++function cloture(minutes: number): string {
++  if (minutes < 60) return `clôture dans ${minutes} min`
++  if (minutes < 24 * 60) return 'clôture ce soir à minuit'
++  const jours = Math.floor(minutes / (24 * 60))
++  return `clôture dans ${jours} jour${jours > 1 ? 's' : ''}`
++}
++
++/** Où il en est du défi : rien d'ouvert, une tentative à reprendre, ou relevé — sa ligne au classement. */
++function sonDefi(d: DefiDeLaSemaine) {
++  const t = d.tentative
++  const sienne = [...d.lignes, ...(d.moi ? [d.moi] : [])].find(l => l.profileId === d.sienne)
++  return { t, sienne, etat: !t ? ('a-relever' as const) : t.finie ? ('releve' as const) : ('a-finir' as const) }
++}
++
++/**
++ * « Hugo mène le classement », son score au bout, comme au classement —
++ * tous les ex æquo en tête (invariant 15), lui compris. « avec 11 bonnes
++ * réponses » en toutes lettres passait sur deux lignes en 360.
++ */
++function laTete(d: DefiDeLaSemaine): { lignes: LigneDuDefi[]; texte: string; justes: number } | null {
++  const tete = d.lignes.filter(l => l.rang === 1 && l.justes > 0)
++  if (tete.length === 0) return null
++  const noms = tete.map(l => (l.profileId === d.sienne ? 'toi' : l.nom))
++  const toi = noms.length === 1 && noms[0] === 'toi'
++  const sujet = toi ? 'Tu' : enumerer(noms).replace(/^toi/, 'Toi')
++  const verbe = toi ? 'mènes' : tete.length > 1 ? 'mènent' : 'mène'
++  return { lignes: tete, texte: `${sujet} ${verbe} le classement`, justes: tete[0].justes }
++}
++
++export function JourEtDefi({ maquette, jour, aujourdhui }: { maquette: Maquette; jour?: CarriereDuJour; aujourdhui?: string }) {
++  // D'office, le quiz du jour — le rendez-vous de chaque matin ; rien ne se
++  // retient : l'accueil rouvre toujours sur lui.
++  const [lequel, setLequel] = useState<Lequel>('jour')
++  const [defi, setDefi] = useState<DefiDeLaSemaine | null>(null)
++  const [partie, setPartie] = useState<PartieDuJour | null>(null)
++  useEffect(() => {
++    let vivant = true
++    // Le défi part en fond dès l'accueil montré : son onglet a son point avant d'être touché.
++    api.campagne
++      .defi()
++      .then(d => vivant && setDefi(d))
++      .catch(() => {})
++    if (maquette === 'carte')
++      api.jour
++        .etat()
++        .then(p => vivant && setPartie(p))
++        .catch(() => {})
++    return () => {
++      vivant = false
++    }
++  }, [maquette])
++
++  const dernier = jour?.jours[0]
++  const joueAujourdhui = !!dernier && !!aujourdhui && dernier.jour === aujourdhui
++  const etatDuDefi = defi ? sonDefi(defi).etat : null
++  const onglets = (
++    <Onglets
++      onglets={[
++        { id: 'jour', nom: 'Quiz du jour', ...(jour && !joueAujourdhui && { point: 'à jouer' }) },
++        { id: 'defi', nom: 'Défi de la semaine', ...(etatDuDefi && etatDuDefi !== 'releve' && { point: etatDuDefi === 'a-finir' ? 'à finir' : 'à relever' }) },
++      ]}
++      actif={lequel}
++      onChoisir={setLequel}
++      label="Le quiz du jour et le défi de la semaine"
++      idOnglet={l => `jour-defi-${l}`}
++      idPanneau={l => `jour-defi-panneau-${l}`}
++      className={maquette === 'tuile' ? 'onglets-fins' : 'onglets-classeur'}
++    />
++  )
++  // Les deux panneaux tiennent la même case, l'autre caché : le bloc garde la
++  // hauteur du plus grand, et changer d'onglet ne fait rien sauter dessous —
++  // le pouce qui visait « Les duels » les touche encore.
++  const panneaux = (jourEnPanneau: ReactNode, defiEnPanneau: ReactNode) => (
++    <div className="jour-defi-panneaux">
++      {(
++        [
++          ['jour', jourEnPanneau],
++          ['defi', defiEnPanneau],
++        ] as const
++      ).map(([l, contenu]) => (
++        <div key={l} id={`jour-defi-panneau-${l}`} role="tabpanel" aria-labelledby={`jour-defi-${l}`} aria-hidden={l !== lequel || undefined} className="jour-defi-panneau">
++          {contenu}
++        </div>
++      ))}
++    </div>
++  )
++
++  if (maquette === 'tuile') {
++    const serie = jour && jour.serie > 1 ? ` · série de ${jour.serie} jours` : ''
++    return (
++      <section className="jour-defi jour-defi-tuile">
++        {onglets}
++        {panneaux(
++          <GrosBouton
++            icone={<Icon name="sun" />}
++            titre="Le quiz du jour"
++            detail={joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
++            pastille={jour && !joueAujourdhui ? 'À jouer' : undefined}
++            href="/jour"
++          />,
++          <TuileDuDefi defi={defi} />,
++        )}
++      </section>
++    )
++  }
++  return (
++    <section className="jour-defi jour-defi-carte">
++      {onglets}
++      {panneaux(<PanneauDuJour partie={partie} />, <PanneauDuDefi defi={defi} />)}
++    </section>
++  )
++}
++
++/** La tuile du défi, faite comme les autres : ce qu'il est, où en est la salle — ou le sien. */
++function TuileDuDefi({ defi }: { defi: DefiDeLaSemaine | null }) {
++  if (!defi) return <GrosBouton icone={<Icon name="trophy" />} titre="Le défi de la semaine" detail="La même série pour tous, jusqu’à dimanche" href={PAGE_DU_DEFI} />
++  const { t, sienne, etat } = sonDefi(defi)
++  const n = defi.joueurs
++  const releve = n > 1 ? `${n} joueurs l’ont relevé` : n === 1 ? 'un joueur l’a relevé' : 'à toi d’ouvrir le bal'
++  const place = sienne && placeDuJour(sienne.rang, n, sienne.justes)
++  // Deux lignes au plus en 360, comme les autres tuiles : son titre en prend déjà deux, à côté de sa pastille.
++  const detail =
++    etat === 'a-relever'
++      ? `${releve.charAt(0).toUpperCase()}${releve.slice(1)} · jusqu’à dimanche`
++      : etat === 'a-finir'
++        ? `${nBonnes(t!.justes)} : reprends-le`
++        : `${nBonnes(t!.justes)}${place ? ` · ${dUnBloc(place)}` : ''}`
++  return (
++    <GrosBouton
++      icone={<Icon name="trophy" />}
++      titre="Le défi de la semaine"
++      detail={espacesFines(detail)}
++      pastille={etat === 'a-relever' ? 'À relever' : etat === 'a-finir' ? 'À finir' : undefined}
++      href={PAGE_DU_DEFI}
++    />
++  )
++}
++
++/** Le chiffre du moment, en grand, comme au héros du défi : ce qu'il dit, en deux lignes à côté. */
++function Chiffre({ n, haut, bas }: { n: number; haut: string; bas: string }) {
++  return (
++    <div className="jd-hud">
++      <b>{formatNumber(n)}</b>
++      <span>
++        <span className="jd-hud-haut">{espacesFines(haut)}</span>
++        <span className="jd-hud-bas">{espacesFines(bas)}</span>
++      </span>
++    </div>
++  )
++}
++
++/** Où en est la salle — qui mène, qui a joué —, une ligne qui ouvre le classement ; un score au bout, comme au classement. */
++function LaSalle({ href, avant, texte, score }: { href: string; avant: ReactNode; texte: string; score?: { n: number; dit: string } }) {
++  return (
++    <a className="jd-salle" href={href}>
++      {avant}
++      <span className="jd-salle-texte">{espacesFines(texte)}</span>
++      {score && (
++        <span className="jd-salle-score">
++          {score.n}
++          <span className="sr-only"> {score.dit}</span>
++        </span>
++      )}
++      <Icon name="chevron-right" />
++    </a>
++  )
++}
++
++function PanneauDuJour({ partie }: { partie: PartieDuJour | null }) {
++  // Sa place gardée pendant qu'il arrive : rien ne saute sous le pouce.
++  if (!partie || partie.etat === 'aucun') return <div className="jd-attente" aria-busy="true" />
++  const salle = [
++    partie.joueurs > 0 ? `Déjà ${partie.joueurs} joueur${partie.joueurs > 1 ? 's' : ''} aujourd’hui` : '',
++    partie.etat !== 'finie' && partie.vainqueursDHier.length > 0 ? ontGagneHier(partie) : '',
++  ]
++    .filter(Boolean)
++    .join(' · ')
++  if (partie.etat === 'finie') {
++    const place = placeDuJour(partie.rang, partie.joueurs, partie.points)
++    return (
++      <>
++        <Chiffre
++          n={partie.points}
++          haut={`points${place ? ` · ${dUnBloc(place)}` : ''}`}
++          bas={`${place ? 'pour l’instant · ' : ''}${nBonnes(partie.justes)}${partie.serie > 1 ? ` · série de ${partie.serie} jours` : ''}`}
++        />
++        {salle && <LaSalle href="/jour#classement" avant={<Icon name="users" />} texte={salle} />}
++        <a className="btn btn-accent btn-block" href="/jour#classement">
++          Voir le classement du jour
++        </a>
++      </>
++    )
++  }
++  return (
++    <>
++      {partie.serie >= 2 ? (
++        <Chiffre n={partie.serie} haut="jours de série" bas={partie.serieTenue ? 'tenue aujourd’hui' : 'joue avant minuit pour la garder'} />
++      ) : (
++        <Chiffre n={partie.total} haut="questions, les mêmes pour tous" bas="un classement chaque jour" />
++      )}
++      {salle && <LaSalle href="/jour#classement" avant={<Icon name="users" />} texte={salle} />}
++      <a className="btn btn-primary btn-block" href="/jour">
++        <Icon name="play" />
++        {partie.etat === 'en-cours' ? `Reprendre · ${pts(partie.points)}` : 'Jouer le quiz du jour'}
++      </a>
++    </>
++  )
++}
++
++function PanneauDuDefi({ defi }: { defi: DefiDeLaSemaine | null }) {
++  if (!defi) return <div className="jd-attente" aria-busy="true" />
++  const { t, sienne, etat } = sonDefi(defi)
++  const n = defi.joueurs
++  const tete = laTete(defi)
++  const salle = tete && (
++    <LaSalle
++      href={PAGE_DU_DEFI}
++      avant={
++        <span className="jd-avatars">
++          {tete.lignes.slice(0, 3).map(l => (
++            <Avatar key={l.profileId} className="jd-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} bordure={l.bordure} />
++          ))}
++        </span>
++      }
++      texte={tete.texte}
++      score={{ n: tete.justes, dit: `avec ${nBonnes(tete.justes)}` }}
++    />
++  )
++  if (etat === 'releve') {
++    const place = sienne && placeDuJour(sienne.rang, n, sienne.justes)
++    return (
++      <>
++        <Chiffre n={t!.justes} haut={`${bonnes(t!.justes)}${place ? ` · ${dUnBloc(place)}` : ''}`} bas="classement figé dimanche à minuit" />
++        {salle}
++        <a className="btn btn-accent btn-block" href={PAGE_DU_DEFI}>
++          Voir le classement du défi
++        </a>
++      </>
++    )
++  }
++  return (
++    <>
++      {etat === 'a-finir' ? (
++        <Chiffre n={t!.justes} haut={`${bonnes(t!.justes)} · ${t!.vies} vie${t!.vies > 1 ? 's' : ''}`} bas={`ton défi t’attend · ${cloture(defi.minutesRestantes)}`} />
++      ) : (
++        <Chiffre n={n} haut={n > 1 ? 'joueurs l’ont relevé' : n === 1 ? 'joueur l’a relevé' : 'joueur : à toi d’ouvrir le bal'} bas={cloture(defi.minutesRestantes)} />
++      )}
++      {salle}
++      <a className="btn btn-primary btn-block" href={PAGE_DU_DEFI}>
++        <Icon name="play" />
++        {etat === 'a-finir' ? 'Reprendre mon défi' : 'Relever le défi'}
++      </a>
++    </>
++  )
++}
+diff --git a/client/src/components/Onglets.tsx b/client/src/components/Onglets.tsx
+index da38cd5..a41c1c2 100644
+--- a/client/src/components/Onglets.tsx
++++ b/client/src/components/Onglets.tsx
+@@ -9,6 +9,12 @@ export interface Onglet<T extends string> {
+   court?: string
+   /** Ce qui l'attend derrière, compté : un chiffre à l'œil, une phrase au lecteur d'écran. */
+   pastille?: { n: number; label: string }
++  /**
++   * Ce qui l'attend derrière, sans compte — un quiz à jouer, un défi à
++   * relever : un point d'or à l'œil, comme la pastille « À jouer » des gros
++   * boutons, et sa phrase au lecteur d'écran (« à relever »).
++   */
++  point?: string
+ }
+ 
+ /** Les touches du motif d'onglets, et l'onglet où chacune mène. */
+@@ -86,6 +92,12 @@ export function Onglets<T extends string>({
+               <span className="sr-only">{`, ${o.pastille.label}`}</span>
+             </>
+           )}
++          {o.point && (
++            <>
++              <span className="onglet-point" aria-hidden="true" />
++              <span className="sr-only">{`, ${o.point}`}</span>
++            </>
++          )}
+         </button>
+       ))}
+     </div>
+diff --git a/client/src/styles.css b/client/src/styles.css
+index 74777a5..8e7e10a 100644
+--- a/client/src/styles.css
++++ b/client/src/styles.css
+@@ -7804,6 +7804,82 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
+   white-space: nowrap;
+ }
+ 
++/* ── La maquette du 19 octobre 2026 : le quiz du jour et le défi de la
++   semaine au même endroit de l'accueil, en onglets (`JourEtDefi`) ───────
++   Le point d'or d'un onglet dit ce qui l'attend derrière, sans compte —
++   l'or de la pastille « À jouer », pas le rouge des défis reçus. */
++.onglet-point { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
++/* La tuile : deux onglets fins posés sur elle, la tuile d'aujourd'hui dessous. */
++.jour-defi-tuile { border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
++.jour-defi-tuile .onglets-fins { padding: 0 10px; }
++.jour-defi-tuile .onglets-fins .onglet { min-height: 42px; }
++.jour-defi-tuile .gros-bouton { border: 0; border-radius: 0; background: none; }
++/* Le classeur : deux onglets qui tiennent à la carte. Celui qu'on regarde est
++   de la même étoffe qu'elle, opaque, et couvre son trait du haut ; l'autre
++   reste en retrait, le trait passe dessous. */
++.onglets.onglets-classeur { flex-wrap: nowrap; gap: 6px; padding: 0 8px; border: 0; border-radius: 0; background: none; }
++.onglets-classeur .onglet {
++  position: relative;
++  min-height: 44px;
++  margin-bottom: -1px;
++  border: 1px solid var(--edge);
++  border-bottom-color: transparent;
++  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
++  background: var(--surface-faint);
++  color: var(--muted);
++}
++.onglets-classeur .onglet.actif {
++  z-index: 1;
++  border-color: var(--edge-strong) var(--edge-strong) var(--bg-raised);
++  background: var(--bg-raised);
++  color: var(--accent-text);
++  box-shadow: none;
++  font-weight: 600;
++}
++/* Les deux panneaux dans la même case, l'autre caché : le bloc garde la
++   hauteur du plus grand, rien ne saute dessous quand on change d'onglet. */
++.jour-defi-panneaux { display: grid; }
++.jour-defi-panneaux > .jour-defi-panneau { grid-area: 1 / 1; }
++.jour-defi-panneaux > [aria-hidden='true'] { visibility: hidden; }
++.jour-defi-tuile .jour-defi-panneau { display: flex; }
++.jour-defi-carte .jour-defi-panneaux {
++  border: 1px solid var(--edge-strong);
++  border-radius: var(--radius);
++  background: var(--bg-raised);
++}
++.jour-defi-carte .jour-defi-panneau { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px; }
++/* Le bouton au pied, au même endroit sous les deux onglets. */
++.jour-defi-carte .jour-defi-panneau > .btn { margin-top: auto; }
++/* Le chiffre du moment, comme au héros du défi, en plus petit. */
++.jd-hud { display: flex; align-items: center; gap: 14px; }
++.jd-hud b { flex: none; min-width: 1.2em; font-family: var(--serif); font-size: 2.9rem; font-weight: 600; line-height: 0.9; text-align: center; color: var(--accent-text); text-shadow: 0 0 22px rgba(var(--accent-rgb), 0.35); font-variant-numeric: lining-nums tabular-nums; }
++.jd-hud > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
++.jd-hud-haut { color: var(--ink); font-size: 0.95rem; font-weight: 600; line-height: 1.25; }
++.jd-hud-bas { color: var(--muted); font-size: 0.85rem; line-height: 1.3; }
++/* Où en est la salle : une ligne en creux, qui ouvre le classement. */
++.jd-salle {
++  display: flex;
++  align-items: center;
++  gap: 10px;
++  min-height: 44px;
++  padding: 6px 10px 6px 12px;
++  border-radius: var(--radius-xs);
++  background: var(--surface);
++  color: var(--muted);
++  font-size: 0.88rem;
++  line-height: 1.3;
++  text-decoration: none;
++}
++.jd-salle:hover { color: var(--ink); }
++.jd-salle > .icon { flex: none; width: 18px; height: 18px; color: var(--accent-text); }
++.jd-salle > .icon:last-child { width: 16px; height: 16px; color: var(--muted); }
++.jd-salle-texte { flex: 1; min-width: 0; }
++.jd-salle-score { flex: none; font-family: var(--serif); font-size: 1.5rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
++.jd-avatars { display: inline-flex; flex: none; }
++.jd-avatar { font-size: 1.35rem; line-height: 1; }
++.jd-avatar + .jd-avatar { margin-left: -6px; }
++.jd-attente { min-height: 170px; }
++
+ /* ── Le profil : qui l'on est, puis quatre gros boutons ─────────────────
+    Épuré : « M'habiller » (la loge, sur son écran), « Ma collection » — sa
+    jauge et son compte —, « Mes soirées », « Ma carrière ». Les gros boutons
+diff --git a/client/src/views/CampagneApp.tsx b/client/src/views/CampagneApp.tsx
+index 3db2a1a..da522e5 100644
+--- a/client/src/views/CampagneApp.tsx
++++ b/client/src/views/CampagneApp.tsx
+@@ -64,6 +64,7 @@ import { rareEnCampagne, reactionDuSolo } from '../../../shared/niche'
+ import { NicheALaRevelation } from '../components/NicheReagit'
+ import { EnMaintenance } from '../components/EnMaintenance'
+ import { enMaintenance, fermeePourMoi } from '../maintenance'
++import { maquetteEssayee } from '../components/JourEtDefi'
+ 
+ type Ecran =
+   | { e: 'chargement' }
+@@ -394,8 +395,9 @@ export function CampagneApp() {
+         // Quatre au téléphone : sans leur article, chacun tient sur une ligne.
+         { id: 'serie', nom: 'La série', court: 'Série', icone: 'list' },
+         { id: 'sentiers', nom: 'Les sentiers', court: 'Sentiers', icone: 'target' },
+-        // Le défi de la semaine ; ceux des amis sont aux duels (`/duels`).
+-        { id: 'defi', nom: 'Le défi', court: 'Défi', icone: 'trophy' },
++        // Le défi de la semaine ; ceux des amis sont aux duels (`/duels`). La maquette du 19 octobre 2026 l'emmène
++        // à l'accueil, à côté du quiz du jour : la campagne garde trois onglets.
++        ...(maquetteEssayee() ? [] : [{ id: 'defi' as const, nom: 'Le défi', court: 'Défi', icone: 'trophy' as const }]),
+         // Le carnet, puis les parcours de thème (le choix du 12 octobre 2026) : on y apprend, on n'y perd rien.
+         // Ce qui l'attend aujourd'hui se compte sur l'onglet : sinon, il faudrait l'ouvrir pour le savoir.
+         {
+@@ -958,7 +960,7 @@ export function CampagneApp() {
+   if (surSonOnglet && mode === 'defi') {
+     return (
+       <>
+-        <PageDuDefi onglets={onglets} onJouer={jouerLeDefi} enMaintenance={enMaintenance('defi')} />
++        <PageDuDefi onglets={maquetteEssayee() ? null : onglets} onJouer={jouerLeDefi} enMaintenance={enMaintenance('defi')} />
+         {toastVu}
+       </>
+     )

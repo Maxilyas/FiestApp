@@ -54,7 +54,7 @@ interface ProfileApiDeps {
    * celui qu'il avance ; ses duels, pour le leur ; les questions qu'il a
    * signalées et dont sa remarque a servi, pour le remercier.
    */
-  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels' | 'duProfil' | 'mercisDe'>
+  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'defiDAccueil' | 'accueilDesDuels' | 'duProfil' | 'mercisDe'>
 }
 
 /**
@@ -175,7 +175,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     const rec = (await profiles.byId(me.id)) ?? me
     // À l'horloge des magasins, qui datent leurs relectures : les tests l'avancent.
     const depuis = deps.maintenant() - ANNONCE_MS
-    const [jour, lue, campagne, duels, mercis] = await Promise.all([
+    const [jour, lue, campagne, defi, duels, mercis] = await Promise.all([
       deps.jour.carriereDe(rec.id),
       // Une base qui se tait ôte le solde, pas la page. Les dons de
       // l'administrateur viennent avec lui, dans la même lecture : l'accueil
@@ -187,6 +187,11 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       // Et les sentiers : le bouton de la campagne retrouve sa phrase de toujours.
       deps.campagne.accueilDesSentiers(rec.id).catch(e => {
         console.error('[profil] sentiers illisibles :', e)
+        return undefined
+      }),
+      // Et le défi de la semaine, pour son onglet à côté du quiz du jour : une base qui s'en tait n'ôte que lui.
+      deps.campagne.defiDAccueil(rec.id).catch(e => {
+        console.error('[profil] défi de l’accueil illisible :', e)
         return undefined
       }),
       // Et les duels : leur bouton dit sa ligue — ou qui le défie.
@@ -213,6 +218,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       aujourdhui,
       ...(boutique && { boutique }),
       ...(campagne && { campagne }),
+      ...(defi && { defi }),
       ...(duels && { duels }),
       ...(annonces.length > 0 && { annonces }),
     }

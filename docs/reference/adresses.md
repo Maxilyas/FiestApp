@@ -49,7 +49,7 @@ Chaque page sans espace pose le titre de son onglet dès le premier rendu (« Me
 | `/#missions` | l'accueil, la feuille des missions du jour ouverte — la fin d'une partie et la fiche d'un objet du trésor y mènent ; le fragment s'efface une fois lu |
 | `/boutique#compagnons`, `#fonds`, `#objets`, `#objet-<objet>`, `#theme-<clé>`, `#compagnon-<clé>`, `#fond-<clé>` | un rayon de la boutique, la fiche d'un objet ; `#theme-aurore`, le rayon des thèmes ouvert sur sa rareté, sa fiche dépliée (le bandeau « À la une » de l'accueil y mène) ; `#compagnon-tortue`, la vitrine des compagnons tournée vers lui (« À la une » et l'album des avatars y mènent) ; `#fond-jazz`, le rayon des fonds, sa fiche dépliée (« À la une » et la fiche d'un fond des savoirs, dans « Ma collection », y mènent) |
 | `/jour#classement`, `#classement-hier`, `#classement-mois`, `#correction` | le classement d'une période, la correction de sa partie |
-| `/campagne#sentiers`, `#sentier-<branche>`, `#defi`, `#carnet` | les sentiers, un sentier, le défi de la semaine, le carnet |
+| `/campagne#sentiers`, `#sentier-<branche>`, `#defi`, `#carnet` | les sentiers, un sentier, le défi de la semaine — sa page, sans les onglets de la campagne, que la tuile de l'accueil ouvre —, le carnet |
 | `/duels#duel-<code>`, `#defier`, `#defier-<id>` | un duel entre amis, en préparer un, défier quelqu'un |
 | `/compte#historique` | l'historique de l'espace, dans la page |
 | `/admin#profils`, `#salons`… | une page du QG par sujet |

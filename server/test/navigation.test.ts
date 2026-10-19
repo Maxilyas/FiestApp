@@ -119,12 +119,17 @@ test('l’accueil d’un profil n’a pas de carte « J’anime » : chacune de 
   assert.match(profil, /<pret\.PanneauSoirees profil=\{profil\} monEspace=\{espace\?\.slug\} \/>/)
 })
 
-test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz du jour, les duels, l’expédition, un salon, rejoindre — en gros boutons, à la même place', async () => {
+test('l’accueil d’un profil : une soirée en cours d’abord, puis la campagne, le quiz du jour et le défi, les duels, l’expédition, un salon, rejoindre — en gros boutons, à la même place', async () => {
   const accueil = (props: object) =>
     rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
   const toujours = [
     'La campagneUne série sans fin, ou des portraits à gagner → /campagne',
+    // Le quiz du jour et le défi de la semaine, une tuile à deux onglets (le choix du propriétaire du 19 octobre
+    // 2026) : les onglets d'abord, puis la tuile de chacun — celle du défi cachée tant que son onglet n'est pas touché.
+    'Quiz du jour [bouton]',
+    'Défi de la semaine [bouton]',
     'Le quiz du jourDix questions, les mêmes pour tous → /jour',
+    'Le défi de la semaineLa même série pour tous, jusqu’à dimanche → /campagne#defi',
     // Sous le quiz du jour (le souhait du propriétaire du 11 octobre 2026) : défier un joueur, sorti de la campagne.
     'Les duelsDéfie qui tu veux, ou Automate\u00a0: monte de ligue → /duels',
     // Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) : sans eux, elle n'avait pas de bouton.
@@ -145,7 +150,8 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz d
   const { jourDe } = await import('../../shared/jour')
   const carriere = (jours: string[]) => ({ joues: jours.length, serie: 4, record: 4, medailles: { or: 0, argent: 0, bronze: 0 }, meilleurScore: 0, podiums: 0, victoires: 0, jours: jours.map(jour => ({ jour })) })
   const aJouer = await accueil({ jour: carriere(['2026-01-01']) })
-  assert.match(aJouer, /Dix questions, les mêmes pour tous · série de 4 jours.*<span class="pastille-attente">À jouer<\/span>/)
+  // « 4 jours » d'un bloc, par une espace insécable : en 360 de large, « jours » passait seul à la ligne.
+  assert.match(aJouer, /Dix questions, les mêmes pour tous · série de 4\xa0jours.*<span class="pastille-attente">À jouer<\/span>/)
   // La pastille prend la place du chevron : les deux serraient le titre, et
   // « jour » passait seul à la ligne en 360 de large. Les autres le gardent.
   const bouton = (href: string) => new RegExp(`<a class="gros-bouton" href="${href}">.*?</a>`).exec(aJouer)?.[0] ?? ''
@@ -153,7 +159,7 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz d
   assert.doesNotMatch(bouton('/jour'), /chevron/)
   assert.match(bouton('/salon'), /class="icon chevron"/)
   const joue = await accueil({ jour: carriere([jourDe(Date.now())]) })
-  assert.match(joue, /Joué aujourd’hui · série de 4 jours/)
+  assert.match(joue, /Joué aujourd’hui · série de 4\xa0jours/)
   assert.doesNotMatch(joue, /À jouer/)
   // Le jour de Paris vient du serveur quand il le dit : calculé ici, son
   // `Intl` chargeait les données du français avant le premier écran.

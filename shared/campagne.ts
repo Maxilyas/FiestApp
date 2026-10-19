@@ -715,6 +715,20 @@ export interface DefiDeLaSemaine {
   saSemainePassee?: { serie: string; justes: number; rang: number; joueurs: number; recompenses: PalierTombe[] }
 }
 
+/**
+ * Le défi de la semaine sur l'accueil, à tout profil, dans son onglet à côté
+ * du quiz du jour (`CampagneStore.defiDAccueil`) : ceux qui l'ont relevé,
+ * comptés comme son classement, et sa tentative — ouverte, ou finie avec sa
+ * place. Ce que l'onglet dit, la page du défi le montre.
+ */
+export interface DefiDAccueil {
+  joueurs: number
+  /** Sa tentative ouverte : ses bonnes réponses, à reprendre. */
+  enCours?: { justes: number }
+  /** Sa tentative finie : ses bonnes réponses et sa place, rang partagé (invariant 15) — le classement court jusqu'à dimanche minuit. */
+  releve?: { justes: number; rang: number }
+}
+
 // ── Le défi entre amis ──────────────────────────────────────────────────────
 //
 // Le défi de la semaine se joue contre tout le monde ; celui-ci, contre qui

@@ -550,12 +550,12 @@ test('le quiz du jour en maintenance, le rappel du soir attend : rouvert avant l
 
 // ── 5. L'accueil ──────────────────────────────────────────────────────────
 
-test('à l’accueil, une page en maintenance éteint son bouton et le dit ; le défi fermé seul ne se propose plus', async () => {
+test('à l’accueil, une page en maintenance éteint son bouton et le dit ; le défi fermé seul éteint sa tuile, sous son onglet', async () => {
   // Le client lit son adresse une fois, au chargement : posée avant l'import, après les serveurs du banc.
   Object.assign(globalThis, { window: { location: { pathname: '/', search: '', hash: '', origin: 'http://banc' }, opener: null } })
   const module = await import(new URL('../../client/src/components/AccueilDesRoles.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
-  const campagne = { vies: 11, avance: null, defi: { joueurs: 12, neuf: true } }
+  const campagne = { vies: 11, avance: null }
   const accueil = (fermees: string[]) =>
     renderToStaticMarkup(
       React.createElement(module.AccueilJouer, {
@@ -563,6 +563,7 @@ test('à l’accueil, une page en maintenance éteint son bouton et le dit ; le 
         onRejoindre: () => {},
         lendemain: null,
         campagne,
+        defi: { joueurs: 12 },
         jour: { serie: 3, jours: [] },
         duels: { joues: 0, defisRecus: { n: 2, de: 'Léa' } },
         etats: Object.fromEntries(fermees.map(p => [p, 'maintenance'])),
@@ -572,7 +573,8 @@ test('à l’accueil, une page en maintenance éteint son bouton et le dit ; le 
 
   const ouvert = accueil([])
   assert.doesNotMatch(ouvert, /gros-ferme|En maintenance/)
-  assert.match(bouton(ouvert, 'La campagne'), /href="\/campagne#defi"/)
+  assert.match(bouton(ouvert, 'Le défi de la semaine'), /href="\/campagne#defi".*<span class="pastille-attente">À relever<\/span>/)
+  assert.match(ouvert, /, à relever<\/span>/)
 
   const ferme = accueil(['jour', 'duels'])
   for (const titre of ['Le quiz du jour', 'Les duels']) {
@@ -585,9 +587,15 @@ test('à l’accueil, une page en maintenance éteint son bouton et le dit ; le 
   assert.doesNotMatch(bouton(ferme, 'Les duels'), /gros-compteur/)
   assert.doesNotMatch(bouton(ferme, 'La campagne'), /gros-ferme/)
 
-  const sansLeDefi = bouton(accueil(['defi']), 'La campagne')
-  assert.doesNotMatch(sansLeDefi, /#defi|défi de la semaine/)
-  assert.doesNotMatch(sansLeDefi, /gros-ferme/, 'le reste de la campagne reste ouvert')
+  // Le défi fermé seul : sa tuile s'éteint sous son onglet, sans pastille ni point — elle inviterait à entrer. La
+  // campagne, elle, reste ouverte.
+  const sansLeDefi = accueil(['defi'])
+  const tuile = bouton(sansLeDefi, 'Le défi de la semaine')
+  assert.match(tuile, /^class="gros-bouton gros-ferme" href="\/campagne#defi"/)
+  assert.match(tuile, /<span class="gros-detail">En maintenance : reviens un peu plus tard<\/span>/)
+  assert.doesNotMatch(tuile, /À relever/)
+  assert.doesNotMatch(sansLeDefi, /, à relever<\/span>/)
+  assert.doesNotMatch(bouton(sansLeDefi, 'La campagne'), /gros-ferme/, 'le reste de la campagne reste ouvert')
   assert.match(bouton(accueil(['campagne']), 'La campagne'), /class="gros-bouton gros-ferme" href="\/campagne"/)
 })
 
@@ -596,17 +604,26 @@ test('à l’accueil, une page bientôt disponible s’éteint pour qui attend, 
   const module = await import(new URL('../../client/src/components/AccueilDesRoles.tsx', import.meta.url).href)
   const { MaintenanceApp } = await import(new URL('../../client/src/views/MaintenanceApp.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
-  const campagne = { vies: 11, avance: null, defi: { joueurs: 12, neuf: true } }
+  const campagne = { vies: 11, avance: null }
   const accueil = (etats: Record<string, string>) =>
-    renderToStaticMarkup(React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, campagne, jour: { serie: 0, jours: [] }, etats }))
+    renderToStaticMarkup(
+      React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, campagne, defi: { joueurs: 12 }, jour: { serie: 0, jours: [] }, etats }),
+    )
   const bouton = (html: string, titre: string) => html.split('<a ').find(x => x.includes(`<b>${titre}</b>`))!
 
-  // Qui attend : le bouton s'éteint, sans rouge — rien n'y est cassé —, et le défi bientôt disponible quitte celui de la campagne.
+  // Qui attend : le bouton s'éteint, sans rouge — rien n'y est cassé —, la tuile du défi bientôt disponible aussi, sous son onglet.
   const attend = accueil({ expedition: 'bientot', defi: 'bientot' })
-  const expedition = bouton(attend, 'L’Expédition')
-  assert.match(expedition, /^class="gros-bouton gros-ferme gros-bientot" href="\/expedition"/)
-  assert.match(expedition, /<span class="gros-detail">Bientôt disponible<\/span>/)
-  assert.doesNotMatch(bouton(attend, 'La campagne'), /#defi|défi de la semaine/)
+  for (const [titre, href] of [
+    ['L’Expédition', '/expedition'],
+    ['Le défi de la semaine', '/campagne#defi'],
+  ]) {
+    const b = bouton(attend, titre)
+    assert.match(b, new RegExp(`^class="gros-bouton gros-ferme gros-bientot" href="${href}"`), titre)
+    assert.match(b, /<span class="gros-detail">Bientôt disponible<\/span>/, titre)
+  }
+  assert.doesNotMatch(attend, /, à relever<\/span>/)
+  // « À relever » reste au défi qu'il essaie, comme « À jouer » au quiz du jour.
+  assert.match(bouton(accueil({ defi: 'avant-premiere' }), 'Le défi de la semaine'), /<span class="pastille-attente">À relever<\/span>/)
   // Son testeur : ouvert, et il le sait.
   const essaie = bouton(accueil({ expedition: 'avant-premiere' }), 'L’Expédition')
   assert.match(essaie, /^class="gros-bouton" href="\/expedition"/)

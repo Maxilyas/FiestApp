@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
@@ -16,7 +16,11 @@ import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { placeDuJour } from '../../../shared/course'
 import type { CorrectionDeCampagne, DefiDeLaSemaine, LigneDuDefi, SerieDeCampagne } from '../../../shared/campagne'
 
-/** L'adresse de l'onglet du défi, dans la campagne. */
+/**
+ * L'adresse de la page du défi, servie par la campagne — qui en joue la
+ * partie — sans ses onglets : l'accueil y mène, depuis l'onglet du défi à côté
+ * du quiz du jour.
+ */
 export const ADRESSE_DU_DEFI = '#defi'
 
 const bonnes = (n: number) => `${n} bonne${n > 1 ? 's' : ''} réponse${n > 1 ? 's' : ''}`
@@ -31,24 +35,24 @@ function cloture(minutes: number): string {
 }
 
 /**
- * Le défi de la semaine, troisième onglet de la campagne (`#defi`) : la même
- * série pour tous jusqu'à dimanche minuit (Paris), une seule tentative,
- * trois vies, sans chronomètre. Son classement, et la semaine passée : ses
- * vainqueurs, qui portent le laurier d'argent, sa place à soi et sa
- * correction — qui n'ouvre qu'à la clôture, pour ne rien souffler à ceux
- * qui jouent encore.
+ * Le défi de la semaine, sa page (`#defi`) : la même série pour tous jusqu'à
+ * dimanche minuit (Paris), une seule tentative, trois vies, sans
+ * chronomètre. Son classement, et la semaine passée : ses vainqueurs, qui
+ * portent le laurier d'argent, sa place à soi et sa correction — qui n'ouvre
+ * qu'à la clôture, pour ne rien souffler à ceux qui jouent encore. Elle a
+ * quitté les onglets de la campagne pour une page à elle, « ← Accueil » en
+ * tête : on y vient de son onglet, à côté du quiz du jour (le choix du
+ * propriétaire du 19 octobre 2026).
  *
  * La partie elle-même se joue sur l'écran de la série (`CampagneApp`) : une
  * question, sa révélation, la suivante — la page lui passe la tentative.
  */
 export function PageDuDefi({
-  onglets,
   onJouer,
   enMaintenance = false,
 }: {
-  onglets: ReactNode
   onJouer: (tentative: SerieDeCampagne) => void
-  /** Fermé aux joueurs, ouvert à l'administrateur, qui vérifie la réparation : l'onglet le lui rappelle. */
+  /** Fermé aux joueurs, ouvert à l'administrateur, qui vérifie la réparation : la page le lui rappelle. */
   enMaintenance?: boolean
 }) {
   const [defi, setDefi] = useState<DefiDeLaSemaine | null>(null)
@@ -97,7 +101,6 @@ export function PageDuDefi({
   return (
     <div className="player-shell campagne">
       <Sortie />
-      {onglets}
       {enMaintenance && <p className="avis-administrateur">{espacesFines(pourLAdministrateur('defi'))}</p>}
       <section className="atlas-branche campagne-heros defi-heros" style={lueur(OR)}>
         <span className="atlas-categorie">Le défi de la semaine</span>

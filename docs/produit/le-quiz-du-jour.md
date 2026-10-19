@@ -12,7 +12,7 @@ Le quiz du jour est **réservé aux profils** : sans profil, `/jour` montre une 
 
 ### Depuis l'accueil
 
-Sur l'accueil d'un profil, dans la section « Seul », le gros bouton **« Le quiz du jour »** dit « Dix questions, les mêmes pour tous » (ou « Joué aujourd'hui »), ta série quand elle dépasse un jour, et porte la pastille « À jouer » tant que ta partie du jour n'est pas commencée.
+Sur l'accueil d'un profil, dans la section « Seul », le quiz du jour partage une tuile avec [le défi de la semaine](la-campagne.md#le-défi-de-la-semaine), sous deux onglets, « Quiz du jour » et « Défi de la semaine » ; elle s'ouvre toujours sur le quiz du jour. Son gros bouton **« Le quiz du jour »** dit « Dix questions, les mêmes pour tous » (ou « Joué aujourd'hui »), ta série quand elle dépasse un jour, et porte la pastille « À jouer » tant que ta partie du jour n'est pas commencée — son onglet, un point d'or.
 
 En haut de `/jour` : « ← Accueil », la pastille de ta **série** (une flamme, tes jours, tes sabliers) et, dans l'application installée, la petite **cloche** du rappel du soir. La carte du jour donne la date, les questions et leurs catégories, et le bouton « Jouer » (« Reprendre · 450 pts » pour une partie commencée) ; dessous, « Déjà 12 joueurs aujourd'hui » (qui ouvre le classement) et qui a gagné hier.
 

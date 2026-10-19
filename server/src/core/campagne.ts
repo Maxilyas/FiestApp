@@ -166,6 +166,7 @@ import {
   type CorrectionDeCampagne,
   type CorrectionDeQuestion,
   type ChoixDeLaCampagne,
+  type DefiDAccueil,
   type DefiDeLaSemaine,
   type EtatDeCampagne,
   type FinDeSerie,
@@ -208,7 +209,6 @@ import {
   type ChanceDuSentier,
   type Melange,
   type MelangesRegles,
-  type DefiDAccueil,
   type EpreuveDeSentier,
   type EtatDesSentiers,
   type FinDEpreuve,
@@ -5132,23 +5132,15 @@ export class CampagneStore {
    * aujourd'hui : c'est le rendez-vous du lendemain, que l'accueil taisait —
    * l'onglet le comptait, deux écrans plus loin (l'experte du jeu solo, le
    * 11 octobre 2026). Compté sans la base, qu'un démarrage n'a peut-être pas
-   * encore lue : seules les questions retirées en sortent. Et le défi de la
-   * semaine, qu'on ne trouvait qu'au troisième onglet (`defiDAccueil`). Les
-   * défis des amis sont au bouton des duels (`accueilDesDuels`).
+   * encore lue : seules les questions retirées en sortent. Le défi de la
+   * semaine a son onglet à côté du quiz du jour (`defiDAccueil`), les défis
+   * des amis le bouton des duels (`accueilDesDuels`).
    */
   async accueilDesSentiers(profileId: string): Promise<SentiersDAccueil> {
-    const [{ sentiers, vies, ouverte }, suivis, defi] = await Promise.all([
-      this.lireLesSentiers(profileId),
-      this.suivisDe(profileId),
-      // Une base qui s'en tait n'ôte que lui : le bouton garde son sentier et son carnet.
-      this.defiDAccueil(profileId).catch(e => {
-        console.error('[campagne] défi de l’accueil illisible :', e)
-        return null
-      }),
-    ])
+    const [{ sentiers, vies, ouverte }, suivis] = await Promise.all([this.lireLesSentiers(profileId), this.suivisDe(profileId)])
     const laissee = ouverte?.branche && ouverte.palier ? { branche: ouverte.branche, palier: ouverte.palier } : null
     const aRevoir = this.compterARevoir(suivis)
-    return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee), ...(aRevoir > 0 && { aRevoir }), ...(defi && { defi }) }
+    return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee), ...(aRevoir > 0 && { aRevoir }) }
   }
 
   /** Les questions de son carnet à revoir aujourd'hui, comme l'accueil les compte : le tirage de ses missions du jour en propose une révision. */
@@ -5165,32 +5157,33 @@ export class CampagneStore {
   }
 
   /**
-   * Le défi de la semaine sur le bouton de la campagne, en une lecture, de
-   * front avec le reste : ceux qui l'ont relevé — une réponse au moins, comme
-   * son classement —, le sien s'il l'a ouvert, s'il en a relevé un une
-   * semaine passée, et le lundi, le jour où il est neuf. Rien s'il l'a fini,
-   * ni à qui n'a jamais joué la campagne : son bouton lui dit d'abord ce
-   * qu'on y fait.
+   * Le défi de la semaine sur l'accueil, à tout profil, dans son onglet à
+   * côté du quiz du jour (le choix du propriétaire du 19 octobre 2026 : rangé
+   * au troisième onglet de la campagne, beaucoup ne savaient pas qu'il
+   * existait) — ceux qui l'ont relevé, et sa tentative, ouverte ou finie avec
+   * sa place. Comptés comme son classement (`classementDesTentatives`) : une
+   * réponse au moins, ni suspendus ni masqués — sauf lui —, rang partagé
+   * (invariant 15) ; ce que l'onglet dit, la page le montre. D'une seule
+   * lecture, de front avec le reste de l'accueil : les tentatives de la
+   * semaine en un texte, sans charger les profils, que le classement ne lit
+   * que pour les nommer.
    */
-  private async defiDAccueil(profileId: string): Promise<DefiDAccueil | null> {
+  async defiDAccueil(profileId: string): Promise<DefiDAccueil> {
     const { semaine } = this.semaineDeLHeure()
     const res = await this.client.execute({
       sql: `SELECT
-              (SELECT COUNT(*) FROM campagne_series WHERE mode = 'defi' AND semaine = ? AND position > 0) AS joueurs,
-              (SELECT finie_le IS NOT NULL FROM campagne_series WHERE profile_id = ? AND mode = 'defi' AND semaine = ? ORDER BY commencee_le LIMIT 1) AS finie,
-              EXISTS (SELECT 1 FROM campagne_series WHERE profile_id = ? AND mode = 'defi' AND semaine < ?) AS habitue,
-              EXISTS (SELECT 1 FROM campagne_series WHERE profile_id = ?) AS joue`,
-      args: [semaine, profileId, semaine, profileId, semaine, profileId],
+              (SELECT json_group_array(json_array(profile_id, justes)) FROM campagne_series
+                WHERE mode = 'defi' AND semaine = ? AND position > 0 AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)) AS tentatives,
+              (SELECT json_array(justes, finie_le IS NOT NULL) FROM campagne_series
+                WHERE profile_id = ? AND mode = 'defi' AND semaine = ? ORDER BY commencee_le LIMIT 1) AS sienne`,
+      args: [semaine, profileId, semaine],
     })
     const r = res.rows[0]
-    // `finie` : null sans tentative, 0 ouverte, 1 finie.
-    if (!r || !Number(r.joue) || Number(r.finie) === 1) return null
-    return {
-      joueurs: Number(r.joueurs),
-      ...(r.finie != null && { commence: true as const }),
-      ...(Number(r.habitue) > 0 && { habitue: true as const }),
-      ...(semaine === jourDe(this.maintenant()) && { neuf: true as const }),
-    }
+    const justes = (JSON.parse(String(r?.tentatives ?? '[]')) as [string, number][]).filter(([id]) => id === profileId || !this.masque?.(id)).map(([, j]) => j)
+    const joueurs = justes.length
+    if (r?.sienne == null) return { joueurs }
+    const [lesSiennes, finie] = JSON.parse(String(r.sienne)) as [number, number]
+    return finie ? { joueurs, releve: { justes: lesSiennes, rang: rangPartage(lesSiennes, justes) } } : { joueurs, enCours: { justes: lesSiennes } }
   }
 
   /**

@@ -58,7 +58,7 @@ export const PAGES_FERMABLES: Record<PageEnMaintenance, { nom: string; ferme: st
     titre: 'La campagne est en maintenance',
     bientot: 'La campagne arrive bientôt',
   },
-  defi: { nom: 'Le défi de la semaine', ferme: 'Son onglet de la campagne, seul', titre: 'Le défi de la semaine est en maintenance', bientot: 'Le défi de la semaine arrive bientôt' },
+  defi: { nom: 'Le défi de la semaine', ferme: 'Sa page et sa tuile de l’accueil, seules', titre: 'Le défi de la semaine est en maintenance', bientot: 'Le défi de la semaine arrive bientôt' },
   duels: {
     nom: 'Les duels',
     ferme: 'Les duels classés, le dé contre Automate et les défis entre amis',
@@ -111,8 +111,8 @@ export const BANDEAU_MAX = 140
 
 /**
  * La page qu'ouvre une adresse, quand elle se met en maintenance. Le défi n'y
- * est jamais : son onglet se dit dans le fragment (`#defi`), que le serveur ne
- * reçoit pas — la campagne le ferme elle-même.
+ * est jamais : sa page se dit dans le fragment de la campagne (`#defi`), que
+ * le serveur ne reçoit pas — la campagne la ferme elle-même.
  */
 export function pageDeLAdresse(route: Route): PageEnMaintenance | null {
   if (route.kind !== 'account') return null

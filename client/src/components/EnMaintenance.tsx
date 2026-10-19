@@ -6,8 +6,8 @@ import { EN_AVANT_PREMIERE, ON_REPARE, PAGES_FERMABLES, type PageEnMaintenance }
 /**
  * Ce que montre une page fermée (`shared/maintenance.ts`) : en maintenance,
  * qu'on la répare, que rien n'est perdu ; bientôt disponible, qu'elle arrive
- * — et de quoi repartir. Une page entière passe par `MaintenanceApp`,
- * l'onglet du défi de la semaine par lui seul. Le bandeau de
+ * — et de quoi repartir. Une page entière passe par `MaintenanceApp` ; la
+ * page du défi de la semaine, que la campagne sert, le pose elle-même. Le bandeau de
  * l'administrateur, quand il en a posé un, est déjà au-dessus : c'est lui
  * qui dit le problème.
  */
