@@ -62,7 +62,11 @@ borné de bout en bout (`clientBorne`, cinq secondes de marge,
 production, une lecture de ne jamais revenir, sans une erreur, et de figer
 tout ce qui l'attendait derrière un verrou ; elle échoue maintenant, et
 l'appel suivant part d'un client neuf. Le même module mesure chaque
-aller-retour, que `/healthz` et le QG relisent.
+aller-retour, que `/healthz` et le QG relisent. Ses allers-retours passent
+par le `fetch` de Node, ou, `QUIZ_DB_TRANSPORT=leger`, par le transport
+léger (`server/src/core/transportLeger.ts`) : `http.request`, deux fois
+moins de processeur par aller-retour au dixième de cœur de l'hébergeur, les
+mêmes connexions gardées et comptées (`server/src/core/connexions.ts`).
 
 ## Les journaux de la soirée
 

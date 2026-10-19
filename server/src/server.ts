@@ -36,7 +36,7 @@ import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
 import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, releve } from './core/pouls'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
-import { clientDistant } from './core/distante'
+import { clientDistant, transportDeLaBase } from './core/distante'
 import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
@@ -917,6 +917,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
             echecsParMin: pouls.echecsDeLaBase.lire().n,
             gardeMs: GARDE_DE_NODE_MS,
             gardeAnnonceeMs: gardeAnnoncee(),
+            // Par où passent ses allers-retours (`QUIZ_DB_TRANSPORT`) : pour voir qu'il a pris.
+            transport: transportDeLaBase(),
             chaudes: connexionsGardeesChaudes()
               ? {
                   battementsParMin: pouls.battements.lire().n,

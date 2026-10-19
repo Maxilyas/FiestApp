@@ -2,8 +2,45 @@ import { createClient, LibsqlError, type Client, type InArgs, type InStatement, 
 import { tronquer } from '../../../shared/avatars'
 import { noterLaReponse, noterUnEchec, refermerLesAttardees, suivreLaBase, unAllerRetourPart } from './connexions'
 import { pouls, releve } from './pouls'
+import { fetchLeger } from './transportLeger'
 
 export type { Client }
+
+/**
+ * Par où passent les allers-retours vers une base distante : le `fetch` de
+ * Node (undici), ou le transport léger (`core/transportLeger.ts`), deux fois
+ * moins coûteux au processeur — `QUIZ_DB_TRANSPORT=leger`, qui s'essaie en
+ * préproduction avant la production, la page « Le serveur » du QG ouverte.
+ * Un pour tout le processus, comme ses connexions.
+ */
+export type TransportDeLaBase = 'fetch' | 'leger'
+
+let transport: TransportDeLaBase = 'fetch'
+
+/** Le transport des clients qui partent ensuite — et des allers-retours de ceux déjà ouverts (`avecDelai` le relit à chacun). */
+export function choisirLeTransport(choisi: TransportDeLaBase) {
+  transport = choisi
+}
+
+export function transportDeLaBase(): TransportDeLaBase {
+  return transport
+}
+
+/**
+ * Ce que demande `QUIZ_DB_TRANSPORT` : `leger` (ou `léger`) le transport
+ * léger, `fetch` ou rien celui de Node ; autre chose, un refus qui dit quoi
+ * écrire.
+ */
+export function transportDemande(texte: string | undefined): { transport: TransportDeLaBase } | { refus: string } {
+  const lu = texte?.trim().toLowerCase()
+  if (!lu || lu === 'fetch' || lu === 'undici') return { transport: 'fetch' }
+  if (lu === 'leger' || lu === 'léger') return { transport: 'leger' }
+  return {
+    refus:
+      `QUIZ_DB_TRANSPORT illisible (« ${texte!.trim()} ») : leger pour le transport léger vers la base, ` +
+      'deux fois moins coûteux au processeur ; fetch ou rien pour celui de Node. Les allers-retours passent par le fetch de Node.',
+  }
+}
 
 /**
  * La base permanente, avec un délai.
@@ -249,17 +286,25 @@ export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {
     // qu'on attend : ses trente millisecondes feraient passer Turso pour plus
     // rapide qu'il ne l'est pour un joueur, et l'entretien les compte à part.
     const arrive = reglages.battement ? null : unAllerRetourPart()
-    try {
-      const reponse = await fetch(requete, { signal: AbortSignal.timeout(delaiMs) })
-      // Chaque `execute`, chaque `batch` passe ici : `/healthz` dit ce
-      // qu'un aller-retour vers Turso coûte vraiment (`pouls.base`), et la
-      // page « Le serveur » du QG s'en souvient heure par heure (`releve`).
+    // Chaque `execute`, chaque `batch` passe ici : `/healthz` dit ce qu'un
+    // aller-retour vers Turso coûte vraiment (`pouls.base`), et la page « Le
+    // serveur » du QG s'en souvient heure par heure (`releve`) — compté jusqu'à
+    // ses en-têtes, où le `fetch` de Node rend sa réponse, et où le délai que
+    // la base annonce se lit : le transport léger les dit en route.
+    const entetes = (lues: { get(nom: string): string | null }) => {
       const ms = performance.now() - debut
       if (arrive) {
         pouls.base.noter(ms)
         releve.base(ms)
       }
-      noterLaReponse(reponse.headers)
+      noterLaReponse(lues)
+    }
+    try {
+      // Le transport léger rend ce que le client libsql lit d'une réponse, sans
+      // ses objets du web : c'est tout ce qu'il en lit (`ReponseLegere`).
+      if (transport === 'leger') return (await fetchLeger(requete, delaiMs, entetes)) as unknown as Response
+      const reponse = await fetch(requete, { signal: AbortSignal.timeout(delaiMs) })
+      entetes(reponse.headers)
       return reponse
     } catch (e) {
       // Une connexion que la base avait fermée se verrait ici d'abord, et la
@@ -303,5 +348,9 @@ export function pourquoiInjoignable(e: unknown): string | null {
     // Jeton refusé, base supprimée, fichier illisible.
     return e.message
   }
+  // Le même réseau, par le transport léger : l'erreur du système, sans
+  // enveloppe — son code dit tout (ENOTFOUND, ECONNREFUSED, un certificat…).
+  const code = (e as { code?: unknown } | null)?.code
+  if (e instanceof Error && typeof code === 'string' && code) return `réseau — ${code}`
   return null
 }

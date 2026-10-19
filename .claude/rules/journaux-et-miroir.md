@@ -1,8 +1,9 @@
 ---
 paths:
-  - "server/src/core/{scores,answers,backup,distante,db,connexions}.ts"
+  - "server/src/core/{scores,answers,backup,distante,db,connexions,transportLeger}.ts"
   - "server/src/server.ts"
-  - "server/test/{miroir,demarrage,relecture,categories,compagnons,connexions-de-la-base,appels-en-route}.test.ts"
+  - "server/test/{miroir,demarrage,relecture,categories,compagnons,connexions-de-la-base,appels-en-route,transport-leger}.test.ts"
+  - "server/test/garde-des-connexions.ts"
 ---
 
 # Les deux bases, les journaux et le miroir Turso
@@ -14,7 +15,8 @@ paths:
 - `core/answers.ts` — une ligne par invité et par question posée, y compris sans réponse
 - `core/backup.ts` — le miroir de la soirée dans Turso (les sept tables `party_*`) : une file par espace, ordonnée, qui insiste ; la resynchronisation après une panne ; sa santé
 - `core/distante.ts` — le client libsql, avec un délai : une base muette se dit en dix secondes, pas en cinq minutes — et chaque aller-retour referme d'abord les connexions attardées (`refermerLesAttardees`, plus bas) ; vers une base distante, chaque appel borné de bout en bout (`clientBorne`, plus bas) ; et `ajouterColonne()`, qui lit le schéma avant de migrer — une fois par table — et laisse toute panne arrêter le démarrage
-- `core/connexions.ts` — les connexions vers la base (la revue du 14 octobre 2026, `retours/2026-10-14/` : en production, 225 ms l'aller-retour sur une connexion à rouvrir, 29 sur une connexion gardée) : celles qui s'ouvrent — le canal `undici:client:connected` du `fetch` de Node, filtré sur les hôtes que `clientDistant` suit —, celles que la base referme d'elle-même et leur âge, les allers-retours tombés en route, le délai qu'elle annonce (`Keep-Alive: timeout=…`), tout cela à `/healthz` (`base.connexions`) et au relevé de l'heure ; et l'entretien qui les garde chaudes tant que des joueurs jouent (`QUIZ_DB_KEEPWARM`, perf-turso-13) : chaque route d'API hors de `/api/admin` dit qu'un joueur est là (`noterUneDemande`, le minutage de `server.ts`), et une minute durant (`CHAUDES_MS`), avant que la plus anciennement servie des connexions qu'il garde ait trois secondes de calme (`BATTEMENT_MS` — compté connexion par connexion, de la fin de sa dernière réponse : les canaux `undici:client:sendHeaders`, `undici:request:trailers` et `undici:request:error`), un `SELECT 1` part sur chaque connexion libre, six au plus (`CHAUDES_AU_PLUS`), par un client à lui (`clientDistant(…, { battement: true })`) : ses battements ne comptent ni dans le temps de Turso, ni dans ses échecs, ni parmi les connexions neuves d'un joueur — à part, avec ceux qui tombent et les connexions qu'ils ouvrent (`connexions-de-la-base.test.ts`). Une base en fichier n'en a pas
+- `core/connexions.ts` — les connexions vers la base (la revue du 14 octobre 2026, `retours/2026-10-14/` : en production, 225 ms l'aller-retour sur une connexion à rouvrir, 29 sur une connexion gardée) : celles qui s'ouvrent — le canal `undici:client:connected` du `fetch` de Node, filtré sur les hôtes que `clientDistant` suit —, celles que la base referme d'elle-même et leur âge, les allers-retours tombés en route, le délai qu'elle annonce (`Keep-Alive: timeout=…`), tout cela à `/healthz` (`base.connexions`) et au relevé de l'heure ; et l'entretien qui les garde chaudes tant que des joueurs jouent (`QUIZ_DB_KEEPWARM`, perf-turso-13) : chaque route d'API hors de `/api/admin` dit qu'un joueur est là (`noterUneDemande`, le minutage de `server.ts`), et une minute durant (`CHAUDES_MS`), avant que la plus anciennement servie des connexions qu'il garde ait trois secondes de calme (`BATTEMENT_MS` — compté connexion par connexion, de la fin de sa dernière réponse : les canaux `undici:client:sendHeaders`, `undici:request:trailers` et `undici:request:error`), un `SELECT 1` part sur chaque connexion libre, six au plus (`CHAUDES_AU_PLUS`), par un client à lui (`clientDistant(…, { battement: true })`) : ses battements ne comptent ni dans le temps de Turso, ni dans ses échecs, ni parmi les connexions neuves d'un joueur — à part, avec ceux qui tombent et les connexions qu'ils ouvrent (`connexions-de-la-base.test.ts`). Une base en fichier n'en a pas. Les trois moments d'une connexion — ouverte, empruntée, rendue (`connexionOuverte`, `connexionEmpruntee`, `connexionRendue`) — sont des fonctions, que les canaux d'undici appellent, et le transport léger lui-même : la garde (`gardeDesConnexions`), les comptes et l'entretien ne savent pas lequel tourne
+- `core/transportLeger.ts` — le transport léger (`QUIZ_DB_TRANSPORT=leger`, le banc du 19 octobre 2026) : les allers-retours du client libsql sur `http.request` / `https.request` au lieu du `fetch` de Node (`fetchLeger`), deux fois moins de processeur au client de la base — la vague de quatre accueils de front, 786 → 255 ms de processeur au banc du gel ; un agent de Node par protocole, qui garde une connexion libre le temps de `gardeDesConnexions` (`keepSocketAlive`) et n'en ouvre pas plus de `CONNEXIONS_AU_PLUS` ; ni compression demandée, ni objets du web : la réponse lue en entier (`ReponseLegere`), ses en-têtes dits dès leur arrivée (`quandLesEntetes`) — `avecDelai` y chronomètre l'aller-retour et lit le délai annoncé, comme à la réponse du `fetch`. Choisi une fois pour le processus (`choisirLeTransport`, que `index.ts` pose d'après `transportDemande`), dit à `/healthz` (`base.connexions.transport`). Les épreuves de la garde se déclarent pour un transport (`testerLesConnexions`, `test/garde-des-connexions.ts`) : `connexions-de-la-base.test.ts` les joue par le `fetch`, `transport-leger.test.ts` par lui
 - `server/src/server.ts` — le démarrage dans l'ordre (les comptes, puis tout le reste de front, puis ce qui relie les magasins) et l'arrêt (`close`)
 
 ## Les pièges
@@ -44,7 +46,22 @@ paths:
   et un long lot local (un recalcul, une sauvegarde) ne doit pas tomber à
   quinze secondes. Une transaction (`client.transaction()`) n'est pas
   bornée — aucun magasin n'en ouvre ; le jour où l'un s'en servira, ses
-  appels se bornent eux aussi (`appels-en-route.test.ts`).
+  appels se bornent eux aussi (`appels-en-route.test.ts`). Et ce qui ne sert
+  qu'à la panne ne se calcule qu'à la panne : le début de la requête, lu à
+  chaque appel, repassait tout son SQL à chaque aller-retour (`quoi`, une
+  fonction).
+- **Le transport léger rend la réponse lue en entier** (`fetchLeger`) : le
+  `fetch` de Node la rendait à ses en-têtes, et `avecDelai` y chronomètre
+  l'aller-retour et lit le délai que la base annonce — le transport léger
+  les lui dit en route (`quandLesEntetes`). Lus à la fin, ils arrivaient
+  après une longue réponse, et la garde de celle-ci restait celle d'avant.
+  Une connexion se repère une fois (`vues`) : l'agent de Node qui passe une
+  connexion rendue à une requête en attente ne pose pas `reusedSocket`, et
+  elle se serait comptée neuve. Sa garde est celle de `connexions.ts`
+  (`gardeDesConnexions`, dans `keepSocketAlive`) : celle de l'agent la
+  garderait jusqu'à ce que Turso la ferme sous une requête. Il ne s'essaie
+  qu'en préproduction d'abord, comme l'entretien (règle `exploitation.md`) ;
+  par défaut, le `fetch` de Node.
 - **Une colonne de plus au journal des réponses** se pose dans trois
   fichiers : `addColumn` dans `db.ts` (la locale) ; `COLUMNS`, l'insertion
   et `toRow` dans `answers.ts` ; `ajouterColonne` (le miroir), l'écriture
