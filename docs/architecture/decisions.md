@@ -1412,6 +1412,15 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 *Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/styles.css`, `client/src/gemmes.ts`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-carte-ecran.test.ts`*
 
+### Un trophée que le serveur tait là où il ne se gagne pas
+**Contexte** : le codex promettait le trophée L'Explorateur, une piste au niveau d'explorateur. Ce niveau ne se voit qu'en préproduction, où les rencontres s'ouvrent ; la production ne le montre nulle part, et le propriétaire ne veut pas l'ouvrir avant une semaine de jeu (le 19 octobre 2026). Or l'album bâtit ses pistes d'un catalogue fixe, et le même code sert les deux environnements : un drapeau du code, comme `voiesMontrees`, l'aurait caché en préproduction aussi.
+
+**Décision** : le serveur décide, d'une seule source — `rencontresOuvertes`, calculée au démarrage. Là où les rencontres sont fermées, `statsDe` ne lit pas la renommée et le niveau vaut 0 (aucun palier ne tombe), et `hautsFaitsVus` ne cite pas le trophée ; l'album ne bâtit la case d'un trophée réservé (`montreParLeServeur`) que si le serveur la cite.
+
+**Conséquence** : la collection d'un joueur de la production ne compte pas trois trophées d'un niveau qu'il ne voit pas, et la préproduction le montre et le décerne. La renommée, elle, s'écrit partout : le jour où les rencontres s'ouvriront, chacun aura ses paliers à sa partie suivante. Un trophée réservé de plus prend le même champ et passe par le même drapeau du serveur.
+
+*Fichiers : `shared/hautsfaits.ts`, `shared/trophees.ts`, `server/src/core/campagne.ts`, `server/src/auth/profiles.ts`, `server/src/server.ts`, `server/test/expedition-codex.test.ts`, `server/test/trophees.test.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

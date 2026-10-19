@@ -337,7 +337,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Niveau | Ce que l'expérience donne sur la courbe 60 × (n − 1)², ou celui qu'une courbe d'avant avait donné, s'il est plus haut et qu'elle le donne encore | `niveauDuProfil` |
 | Niveau d'Automate | Le score qu'Automate vise sur une série : le niveau de campagne du joueur pendant son placement, puis celui de sa cote | `niveauPourLeDuel` |
 | Niveau de campagne | Le score qu'un joueur ferait en moyenne sur une série tirée pour lui, d'après ses réponses de campagne | `scoreDeReference` |
-| Niveau d'explorateur | Ce que sa renommée donne, de 1 à 10 : chaque niveau ouvre des cartes à son codex, les premiers une règle — le pari au 2, les talismans au 4, la catégorie fétiche au 5 | `niveauDe`, `NIVEAUX`, `ECHELLE` |
+| Niveau d'explorateur | Ce que sa renommée donne, de 1 à 10 : chaque niveau ouvre des cartes à son codex, les premiers une règle — le pari au 2, les fioles au 3, les talismans au 4, la catégorie fétiche au 5 —, le sixième le dos étoilé ; les niveaux 4, 7 et 10 font la piste de L'Explorateur, là où les rencontres s'ouvrent | `niveauDe`, `NIVEAUX`, `ECHELLE`, `StatsDeCampagne.explorateur` |
 | Nom d'espace | Le nom d'un espace dans l'adresse (`chez-nadia`) : 2 à 24 minuscules, chiffres ou tirets, ni réservé ni fait de six chiffres | `isValidSlug`, `SLUG` (`shared/space.ts`) |
 | Nom d'une soirée | Son identifiant figé : le jour et l'instant de sa première question jouée, et une empreinte de l'espace | `archiveIdOf`, `soireeEnCours` |
 | Nom réservé | Un premier segment d'adresse que l'application emploie elle-même, et qu'aucun espace ne peut porter | `RESERVED_SLUGS` (`shared/space.ts`) |

@@ -654,6 +654,12 @@ export class CampagneStore {
   private client: Client
   /** L'étagère des profils (`RecompensesDeCampagne`), branchée par le serveur. */
   private recompenses: RecompensesDeCampagne | null
+  /**
+   * Les rencontres de l'expédition s'ouvrent ici (`rencontresOuvertes`) : ses
+   * paliers comptent le niveau d'explorateur (`statsDe`). Ailleurs, il vaut 0
+   * — en production, ni lu, ni décerné : L'Explorateur ne s'y montre pas.
+   */
+  private readonly rencontres: boolean
   private maintenant: () => number
   private verrous = new Map<string, Promise<unknown>>()
   /** La base du dépôt, lue à la première demande sans figer le serveur (`BaseDeLaCampagne.depuisLeDossier`) ; les tests en donnent une petite. */
@@ -846,10 +852,13 @@ export class CampagneStore {
       empreintesDuJour?: () => Promise<ReadonlySet<string>>
       ecrireXp?: (profileId: string, xp: number, jours: number) => Promise<unknown>
       recompenses?: RecompensesDeCampagne
+      /** Les rencontres de l'expédition s'ouvrent sur ce serveur (`rencontresOuvertes`) : le niveau d'explorateur compte pour L'Explorateur. */
+      rencontres?: boolean
     } = {},
   ) {
     this.client = clientDistant(url, authToken)
     this.recompenses = opts.recompenses ?? null
+    this.rencontres = opts.rencontres ?? false
     this.maintenant = opts.maintenant ?? Date.now
     const donnee = opts.base
     let lue: Promise<BaseDeLaCampagne> | null = null
@@ -1657,9 +1666,11 @@ export class CampagneStore {
    * épreuves des sentiers comprises pour ces deux-là —, et ce que ses
    * épreuves ont validé sur les sentiers (`statsDesSentiers`). Le niveau
    * d'une question est celui que la série lui donnait quand elle l'a posée.
+   * Là où les rencontres s'ouvrent, son niveau d'explorateur aussi : sa
+   * renommée, dans le même lot (`lecturesDeLaRenommee`).
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
-    const [record, justes, expertes, validees, passeport] = await this.client.batch(
+    const [record, justes, expertes, validees, passeport, ...renommee] = await this.client.batch(
       [
         {
           sql: `SELECT COALESCE(MAX(justes), 0) AS n FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`,
@@ -1676,6 +1687,7 @@ export class CampagneStore {
         },
         this.lectureDesValidees(profileId),
         lectureDuPasseport(profileId),
+        ...(this.rencontres ? lecturesDeLaRenommee(profileId) : []),
       ],
       'read',
     )
@@ -1687,6 +1699,29 @@ export class CampagneStore {
       ...statsDesSentiers(sentiersLus([], validees.rows)),
       // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun.
       tampons: passeport.rows.length,
+      explorateur: this.rencontres ? await this.niveauDExplorateur(renommee) : 0,
+    }
+  }
+
+  /**
+   * Son niveau d'explorateur, de sa renommée lue (`lecturesDeLaRenommee`) —
+   * 0 sans renommée, jamais le niveau 1 qui ne se refuse à personne
+   * (`StatsDeCampagne.explorateur`). Les bilans refaits du pli s'écrivent ici
+   * aussi : sans quoi chaque page du profil replierait les mêmes expéditions.
+   */
+  private async niveauDExplorateur(lectures: readonly ResultSet[]): Promise<number> {
+    const { renommee, aEcrire } = renommeeLue(lectures)
+    await this.ecrireLesBilansRefaits(aEcrire)
+    return renommee > 0 ? niveauDe(renommee) : 0
+  }
+
+  /** Les bilans refaits du pli (`renommeeLue`), écrits une fois : ratés, ils se refont à la lecture suivante, rien de plus. */
+  private async ecrireLesBilansRefaits(aEcrire: InStatement[]): Promise<void> {
+    if (aEcrire.length === 0) return
+    try {
+      await this.client.batch(aEcrire, 'write')
+    } catch (e) {
+      console.error('[expedition] bilans non écrits :', e)
     }
   }
 
@@ -6739,13 +6774,7 @@ export class CampagneStore {
    */
   private async codexLu(lectures: readonly ResultSet[], siens: ReadonlySet<string>): Promise<CodexDeLaPage> {
     const { renommee, exploits, aEcrire } = renommeeLue(lectures)
-    if (aEcrire.length > 0) {
-      try {
-        await this.client.batch(aEcrire, 'write')
-      } catch (e) {
-        console.error('[expedition] bilans non écrits :', e)
-      }
-    }
+    await this.ecrireLesBilansRefaits(aEcrire)
     return { renommee, ...codexDuNiveau(niveauDe(renommee), LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)), exploits) }
   }
 
