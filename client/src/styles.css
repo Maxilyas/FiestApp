@@ -9759,11 +9759,16 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-vc-ameliore { position: absolute; right: -7px; bottom: -7px; z-index: 1; display: grid; place-items: center; width: 22px; height: 22px; border: 2px solid var(--bg-raised); border-radius: 50%; background: #2f9a44; color: #fff; font-size: 1rem; font-weight: 800; line-height: 1; }
 .exp-vc-amelioree .exp-vc-valeur { border-color: #2f9a44; }
 .exp-vc-levee > .exp-vc-ameliore { right: -9px; bottom: -9px; width: 32px; height: 32px; font-size: 1.35rem; }
-/* Avant et après une amélioration, au campement et à l'échoppe : les deux cartes côte à côte, la flèche entre elles, ce qu'elle gagne dessous. */
+/* Avant et après une amélioration, au campement et à l'échoppe : les deux cartes côte à côte, la flèche entre elles, chacune sa
+   phrase dessous — sa colonne pas plus large qu'une carte et demie, que la phrase reste sous sa carte —, puis ce qu'elle gagne. */
 /* Le pied collé (`.exp-depart-pied`) tient jusqu'à deux boutons : la page défile assez pour la montrer au-dessus de lui. */
-.exp-avant-apres { display: grid; justify-items: center; gap: 6px; margin: 2px 0 4px; scroll-margin-bottom: 150px; }
-.exp-avant-apres-cartes { display: flex; align-items: center; gap: 10px; }
-.exp-avant-apres-cartes > .icon { flex: none; width: 22px; height: 22px; color: #2f9a44; }
+.exp-avant-apres { display: grid; justify-items: center; gap: 10px; margin: 2px 0 4px; scroll-margin-bottom: 150px; }
+.exp-avant-apres-cartes { justify-self: stretch; display: flex; align-items: flex-start; justify-content: center; gap: 8px; }
+.exp-avant-apres-carte { flex: 1 1 0; min-width: 0; max-width: 170px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* La flèche à mi-hauteur des cartes (132 pixels), quelle que soit la longueur des phrases dessous. */
+.exp-avant-apres-cartes > .icon { flex: none; width: 22px; height: 22px; margin-top: 55px; color: #2f9a44; }
+/* Des lignes équilibrées : sur une colonne de 140 pixels, « plus. » et « question » restaient seuls sur la leur. */
+.exp-avant-apres-dit { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 0.875rem; line-height: 1.35; text-align: center; text-wrap: balance; }
 .exp-avant-apres-gain { margin: 0; font-weight: 700; text-align: center; }
 /* Dans la main : cinq au plus en 360 pixels, sans un mot — son dessin, son coût, son chiffre. */
 .exp-vc-main { width: 100%; height: 88px; }
