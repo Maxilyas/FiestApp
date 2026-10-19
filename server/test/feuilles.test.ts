@@ -23,7 +23,9 @@
 // propriétaire, le 19 octobre 2026) : sous vingt-cinq thèmes sur trente-cinq,
 // la carte d'un ami, touchée dans la liste des amis, laissait lire toute la
 // liste au travers d'elle — le `.card` d'un thème, en verre translucide, est
-// plus fort que le sol de la carte.
+// plus fort que le sol de la carte. Et sous Le Sommet, au téléphone Android,
+// la feuille des amis ne se dessinait pas : les couches fixes du décor
+// prenaient la mémoire des tuiles, et le décor restait à sa place.
 //
 // Un vrai geste demande un navigateur ; ici, les règles qui l'empêchent, et
 // les voiles qui les portent.
@@ -126,6 +128,9 @@ function force(selecteur: string): number {
   return f
 }
 
+/** Une règle posée par un thème : sous `:root[data-theme='…']`. */
+const duTheme = (s: string) => /^:root\[data-theme='[a-z]+'\]/.test(s)
+
 /** Les classes du sujet d'un sélecteur — son dernier composé —, hors de ses parenthèses ; aucune s'il vise un pseudo-élément. */
 function sujet(selecteur: string): string[] {
   const dernier = selecteur.split(/\s*[\s>+~]\s*(?![^(]*\))/).pop()!
@@ -143,7 +148,6 @@ test('sous tous les thèmes, une feuille, une carte ou un dialogue ouvert garde 
     { nom: 'la carte d’un joueur', classes: ['card', 'dialog', 'carte-joueur'] },
   ]
   const peint = (corps: string) => /(?:^|;)\s*background(?:-color)?\s*:/.test(corps)
-  const duTheme = (s: string) => /^:root\[data-theme='[a-z]+'\]/.test(s)
   for (const { nom, classes } of DIALOGUES) {
     const vise = (s: string) => sujet(s).length > 0 && sujet(s).every(c => classes.includes(c))
     // Son sol : la règle la plus forte qui le pose plein, d'un `--bg-raised`.
@@ -183,4 +187,44 @@ test('sous tous les thèmes, une feuille, une carte ou un dialogue ouvert garde 
     assert.ok(sols.length >= 2, `${ou} : ses sols sont lus`)
     for (const [, jeton, valeur] of sols) assert.match(valeur, /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i, `${ou} : --${jeton} (${valeur}) se lit au travers`)
   }
+})
+
+test('une feuille, une carte ou un dialogue ouvert retire le décor du thème : la mémoire du téléphone va à ce qu’on ouvre', () => {
+  // « Le décor reste visible à travers la feuille », sous Le Sommet, au
+  // téléphone Android (le propriétaire, le 19 octobre 2026) : les couches
+  // fixes du décor — la montagne, ses lanternes, ses drapeaux, le voile de
+  // nuit, la neige —, plein écran à la densité du téléphone, prenaient la
+  // mémoire des tuiles, et la feuille ouverte par-dessus n'en avait plus :
+  // elle ne se dessinait pas, ou à moitié. Le temps qu'elle reste ouverte, le
+  // décor se retire — assombri aux trois quarts, couvert presque partout, il
+  // ne s'y voyait guère.
+  const OUVERTS = ['.carte-voile', '.dialog-backdrop', '.coffre-scene']
+  // Les voiles d'une feuille, d'une carte, d'un dialogue, et la scène du coffre de la semaine.
+  assert.match(source('components/Pieces.tsx'), /<div className="carte-voile"/)
+  assert.match(source('components/Dialog.tsx'), /<div className="dialog-backdrop"/)
+  assert.match(source('components/CarteJoueur.tsx'), /<div className="dialog-backdrop"/)
+  assert.match(source('components/Coffre.tsx'), /<div className=\{`coffre-scene /)
+  // Retiré, quelle que soit la force de la règle du thème qui le pose.
+  const sous = `:root[data-theme]:has(${OUVERTS.join(', ')})`
+  const retrait = reglesDe(css).find(r => r.selecteurs.some(s => s.startsWith(sous)))
+  assert.ok(retrait, `la règle qui retire le décor sous ${OUVERTS.join(', ')}`)
+  assert.match(retrait.corps, /^\s*content: none !important;\s*$/)
+  const retirees = new Set(
+    retrait.selecteurs.map(s => {
+      assert.ok(s.startsWith(sous), s)
+      return s.slice(sous.length).trim()
+    }),
+  )
+  // Chaque couche fixe d'un thème est de son décor : chacune se retire.
+  let couches = 0
+  for (const [ou, feuille] of feuillesDesThemes) {
+    for (const r of reglesDe(feuille).filter(r => /(?:^|;)\s*position:\s*fixed\b/.test(r.corps))) {
+      for (const s of r.selecteurs.filter(duTheme)) {
+        const couche = s.replace(/^:root(?:\[[^\]]*\])+/, '').trim()
+        assert.ok(retirees.has(couche), `${ou} : « ${s} », une couche fixe de son décor, reste sous une feuille ouverte`)
+        couches++
+      }
+    }
+  }
+  assert.ok(couches >= 60, `les couches fixes des thèmes sont lues (${couches})`)
 })

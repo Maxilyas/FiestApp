@@ -45,7 +45,11 @@ paths:
   décor posé hors de `#root` (`html::before`, `body::before`, `body::after`)
   reste sous le niveau 1 : le bandeau du QG, que le serveur pose avant la
   racine, passe au-dessus le temps du chargement (`maintenance.test.ts`,
-  règle `qg.md`).
+  règle `qg.md`). Ses couches fixes — celles-là, et `#root::before`,
+  `#root::after` — se retirent sous une feuille, une carte ou un dialogue
+  ouverts : au téléphone, elles prenaient la mémoire que la feuille des amis
+  attendait pour se dessiner (règle `css.md`). Une couche fixe ailleurs
+  rejoint la règle qui les retire, ou `feuilles.test.ts` la refuse.
 - **Une règle qui peindrait une carte à fond** ou ce qu'elle montre —
   `.card`, `.label`, `.niveau`, un halo sur `.muted` — s'en écarte par
   `:where(:not(.carte-fond, .carte-fond *))` (sans rien changer à sa

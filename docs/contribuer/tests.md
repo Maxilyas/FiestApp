@@ -269,7 +269,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/mots.test.ts` — les noms des prix et leurs clés.
 - `server/test/chiffres.test.ts` — la précision des QCM, le coup d'œil des estimations.
 - `server/test/design.test.ts` — le système de design.
-- `server/test/feuilles.test.ts` — une feuille, une carte ou un dialogue ouvert : la page de dessous ne défile plus, rien ne clignote à l’ouverture, et rien ne se lit au travers, sous aucun thème.
+- `server/test/feuilles.test.ts` — une feuille, une carte ou un dialogue ouvert : la page de dessous ne défile plus, rien ne clignote à l’ouverture, rien ne se lit au travers, sous aucun thème, et le décor du thème se retire le temps qu’elle reste ouverte.
 - `server/test/typographie.test.ts` — élision, rang, espaces insécables.
 
 ### Les comptes, l'administration, le QG
