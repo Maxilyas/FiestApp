@@ -574,8 +574,8 @@ export const api = {
    */
   expedition: {
     page: () => req<PageDeLExpedition>(DEPART.expedition),
-    /** Partir avec son équipée — et, là où elles s'ouvrent (partout, depuis qu'elles sont le jeu), aux rencontres, avec sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension. */
-    partir: (equipee: readonly string[], plus: { rencontres?: true; fetiche?: string; dos?: string; ascension?: number } = {}) =>
+    /** Partir avec son équipée — et, là où elles s'ouvrent (partout, depuis qu'elles sont le jeu), aux rencontres, avec son style, sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension. */
+    partir: (equipee: readonly string[], plus: { rencontres?: true; style?: string; fetiche?: string; dos?: string; ascension?: number } = {}) =>
       req<VueDeLExpedition>('/api/expedition', { method: 'POST', body: JSON.stringify({ equipee, ...plus }) }),
     avancer: (id: string, rang: number, vers: string) => gesteDExpedition(id, rang, { quoi: 'avancer', vers }),
     /** En rencontre : sa mise dite, il voit la question qui attend (`position`). */

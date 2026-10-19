@@ -69,7 +69,7 @@
 // Double chance, passée à une d'énergie après ces mesures (+5 seule), a
 // rejoint ses préférences ensuite.
 //
-//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3] [--sans-fioles] [--ascension 2] [--ascensions] [--seule genie] [--cartes [genie,lecon]] [--part 1/4]
+//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3] [--sans-fioles] [--ascension 2] [--ascensions] [--seule genie] [--cartes [genie,lecon]] [--part 1/4] [--style devin] [--styles]
 import { CATEGORIES } from '../../shared/categories'
 import { SUJETS } from '../../shared/sujets'
 import { TAUX_DU_CALIBRAGE } from '../../shared/sentiers'
@@ -120,10 +120,12 @@ import {
   carteDeRencontre,
   chiffresApresLaCarte,
   effaceesDuTour,
+  estUnStyle,
   formeDeLaCarte,
   parmi,
   refusDeLAmelioration,
   type CleDeFiole,
+  type StyleDeJeu,
 } from '../../shared/rencontres'
 import { ASCENSION, ASCENSION_MAX, EXPLOITS, NIVEAUX, codexDuNiveau, niveauDe, renommeeDe, type CleDExploit } from '../../shared/codex'
 
@@ -213,6 +215,13 @@ interface Issue {
   gardiens: string[]
   /** Les fioles qu'il a bues (le codex). */
   bues: number
+  /**
+   * La variété (« Ton style », le 19 octobre 2026 : « j'ai l'impression de
+   * piocher tout le temps la même chose ») : les cartes différentes que ses
+   * offres lui ont proposées, et celles qu'il a jouées.
+   */
+  offertes: number
+  differentes: number
 }
 
 /** Ce qu'il prend dans une offre aux règles d'avant le codex (v5, v6), du meilleur au moins bon ; ce qu'il n'y nomme pas, il le laisse. */
@@ -388,6 +397,28 @@ const ORDRE_DES_AMELIORATIONS = [...PREFERENCE_DU_CODEX, 'concentration', 'prude
 /** `--ascension 2` : les départs du codex à ce cran ; `--ascensions` : chaque cran, au codex entier. */
 const ASCENSION_MESUREE = Math.min(Math.max(0, option('ascension', 0)), ASCENSION_MAX)
 const TOUTES_LES_ASCENSIONS = process.argv.includes('--ascensions')
+/**
+ * « Ton style » (le 19 octobre 2026) : `--style devin` fait partir chaque cas
+ * avec ce style — s'il n'est pas encore ouvert à son niveau, le premier des
+ * siens, comme le serveur ; `--styles` mesure, niveau par niveau, chaque style
+ * ouvert contre le départ sans style. Avec un style, le joueur le suit : il
+ * prend d'abord une carte de sa famille — la meilleure qu'il connaisse, sinon
+ * une autre —, n'en retire aucune au campement et améliore les siennes
+ * d'abord. Le pire cas d'un style : le joueur qui s'y tient, même quand une
+ * carte d'ailleurs vaudrait plus.
+ */
+const STYLE_MESURE = (() => {
+  const i = process.argv.indexOf('--style')
+  return i >= 0 && estUnStyle(process.argv[i + 1]) ? process.argv[i + 1] : undefined
+})() as StyleDeJeu | undefined
+const TOUS_LES_STYLES = process.argv.includes('--styles')
+/** `--avise` : le joueur qui part avec son style mais ne prend que ce qui vaut — ce que le style lui-même change, sans le suivre. */
+const SUIT_SON_STYLE = !process.argv.includes('--avise')
+/** Les cartes d'un style que le joueur qui le suit prend, de la meilleure qu'il connaisse aux autres. */
+function cartesDuStyle(style: StyleDeJeu): string[] {
+  const siennes = CARTES_DES_RENCONTRES.filter(c => c.famille === style && !c.legendaire).map(c => c.cle)
+  return [...PREFERENCE_DU_CODEX.filter(c => siennes.includes(c)), ...siennes.filter(c => !PREFERENCE_DU_CODEX.includes(c))]
+}
 
 /**
  * Une équipée mesurée : aux règles d'avant (v5, v6), les légendaires qu'il
@@ -400,6 +431,8 @@ interface Cas {
   niveau?: number
   /** Au codex : les exploits qu'il a faits — leurs cartes ouvertes. */
   exploits?: CleDExploit[]
+  /** Au codex : le style qu'il choisit au départ (`--style`, `--styles`). */
+  style?: StyleDeJeu
 }
 
 function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESUREE, seule: string | null = SEULE): Issue {
@@ -421,6 +454,9 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
   // Sous `--seule`, ses offres ne tirent qu'elle, et les légendaires qu'il a : prise dès qu'elle passe.
   const ouvert = avant && seule !== null ? { ...avant, cartes: avant.cartes.filter(c => c === seule || carteDeRencontre(c)?.rarete === 'legendaire') } : avant
   const codex = ouvert && SANS_FIOLES ? { ...ouvert, regles: ouvert.regles.filter(r => r !== 'fioles') } : ouvert
+  // Son style : celui du cas, s'il est ouvert à son niveau — sinon le premier des siens, comme le serveur (`partirEnExpedition`).
+  const voulu = cas.style ?? STYLE_MESURE
+  const style = codex && voulu && codex.styles.length > 0 ? (codex.styles.includes(voulu) ? voulu : codex.styles[0]) : undefined
   const depart: DepartDExpedition = {
     v: VERSION,
     graine,
@@ -431,8 +467,10 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     equipee: codex ? [invite] : cas.equipee,
     chances,
     chanceDeLaSource: chanceSur(j, 'moyen', null),
-    ...((!codex || codex.regles.includes('fetiche')) && { fetiche }),
+    // Sa catégorie fétiche, comme le serveur la garde : à son niveau, et à l'Érudit seul quand un style est posé.
+    ...((!codex || codex.regles.includes('fetiche')) && (!style || style === 'erudit') && { fetiche }),
     ...(codex && { codex }),
+    ...(style && { style }),
     // L'Ascension ne vit qu'au codex : le pli l'ignore ailleurs.
     ...(codex && ascension > 0 && { ascension }),
   }
@@ -443,6 +481,13 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
   const reponses = new Map<number, boolean>()
   let jouees = 0
   let depenses = 0
+  const offertes = new Set<string>()
+  const differentes = new Set<string>()
+  /** Une carte jouée : comptée, et sa carte de base parmi les différentes. */
+  const joue = (g: GesteDExpedition) => {
+    jouees++
+    if (g.quoi === 'jouer') differentes.add(baseDe(g.joker))
+  }
   const plier = () => pliDeLExpedition(depart, gestes, posees, reponses)
 
   const tirer = (t: ATirer, e: EtatDeLExpedition) => {
@@ -673,8 +718,13 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
    * offert, l'amélioré d'abord (le jeu complet) : au codex, jamais une de plus
    * qu'il n'en garde — sous `--seule`, elle seule.
    */
+  // Le joueur qui suit son style : ses cartes d'abord, à prendre comme à améliorer, et aucune à retirer.
+  const sonStyle = style && SUIT_SON_STYLE ? cartesDuStyle(style) : []
+  const preference = [...new Set([...sonStyle, ...PREFERENCE_DU_CODEX])]
+  const ordreDesAmeliorations = [...new Set([...sonStyle, ...ORDRE_DES_AMELIORATIONS])]
+  const aRetirer = (codex ? A_RETIRER_DU_CODEX : A_RETIRER).filter(c => !sonStyle.includes(c))
   const aPrendre = (e: EtatDeLExpedition, cartes: readonly string[]) =>
-    (codex ? (seule !== null ? [seule] : PREFERENCE_DU_CODEX) : PREFERENCE_DES_OFFRES).flatMap(c => {
+    (codex ? (seule !== null ? [seule] : preference) : PREFERENCE_DES_OFFRES).flatMap(c => {
       const offert = cartes.includes(ameliorer(c)) ? ameliorer(c) : cartes.includes(c) ? c : null
       if (offert === null) return []
       return codex && e.paquet.filter(x => baseDe(x) === c).length >= EXEMPLAIRES_DU_CODEX ? [] : [offert]
@@ -683,7 +733,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
   /** Les cartes de son paquet qu'il améliorerait (le jeu complet), la première d'abord ; aucune sous `--sans-ameliorations`. */
   const aAmeliorer = (e: EtatDeLExpedition): string[] => {
     if (SANS_AMELIORATIONS || VERSION < 8) return []
-    const rang = (cle: string) => (ORDRE_DES_AMELIORATIONS.includes(cle) ? ORDRE_DES_AMELIORATIONS.indexOf(cle) : ORDRE_DES_AMELIORATIONS.length)
+    const rang = (cle: string) => (ordreDesAmeliorations.includes(cle) ? ordreDesAmeliorations.indexOf(cle) : ordreDesAmeliorations.length)
     return [...new Set(e.paquet.filter(cle => refusDeLAmelioration(e.paquet, cle) === null))].sort((a, b) => rang(a) - rang(b))
   }
 
@@ -738,10 +788,13 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
         exploits: e.exploits,
         gardiens: depart.gardiens,
         bues: gestes.filter(g => g.quoi === 'boire').length,
+        offertes: offertes.size,
+        differentes: differentes.size,
       }
     }
     if (e.offre) {
       const offre = e.offre
+      for (const c of offre.jokers) offertes.add(baseDe(c))
       // Le coffre d'un gardien (v7) ouvre sur une légendaire : il la prend d'abord.
       const legendaires = offre.jokers.filter(c => carteDeRencontre(c)?.rarete === 'legendaire')
       const voulus = [...legendaires, ...aPrendre(e, offre.jokers)]
@@ -766,7 +819,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     if (e.campement) {
       // Le jeu complet : son courage assez haut, il améliore sa meilleure carte plutôt que de se reposer — la forge de Slay the Spire.
       const ameliorer = (e.courage ?? 0) >= COURAGE_MAX - 15 ? aAmeliorer(e)[0] : undefined
-      const retirer = !ameliorer && (e.courage ?? 0) >= COURAGE_MAX - 8 ? (codex ? A_RETIRER_DU_CODEX : A_RETIRER).find(c => e.paquet.includes(c)) : undefined
+      const retirer = !ameliorer && (e.courage ?? 0) >= COURAGE_MAX - 8 ? aRetirer.find(c => e.paquet.includes(c)) : undefined
       gestes.push({ quoi: 'camper', ...(retirer && { retirer }), ...(ameliorer && { ameliorer }) })
       continue
     }
@@ -782,7 +835,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
         const g = enPreparation(e, i)
         if (g) {
           gestes.push(g)
-          jouees++
+          joue(g)
           const vers = g.quoi === 'jouer' ? formeDeLaCarte(g.joker) : undefined
           if (vers) {
             // Reposée à sa nouvelle forme, comme le serveur le fait (`questionsApresLeGeste`) : ce qu'il sait, il le sait encore.
@@ -798,7 +851,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
         const g = enQuestion(e, i)
         if (g) {
           gestes.push(g)
-          jouees++
+          joue(g)
           if (g.quoi === 'jouer' && g.joker === 'passe-muraille') reponses.set(i, false)
           continue
         }
@@ -828,7 +881,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     const route = surLaCarte(e, permises)
     if (route) {
       gestes.push(route)
-      jouees++
+      joue(route)
       continue
     }
     gestes.push({ quoi: 'avancer', vers: lePlusSur(e, permises)?.trace[0] ?? permises[0] })
@@ -841,9 +894,9 @@ const virgule = (x: number) => x.toFixed(1).replace('.', ',')
 const CAS: Cas[] =
   VERSION >= 7
     ? [
-        { nom: 'Niveau 1 — sa première expédition, sans légendaire', equipee: [], niveau: 1 },
+        { nom: 'Niveau 1 — sa première expédition, sans légendaire, la catégorie fétiche ouverte', equipee: [], niveau: 1 },
         { nom: 'Niveau 3 — le pari et les fioles ouverts', equipee: [], niveau: 3 },
-        { nom: 'Niveau 6 — les talismans et la fétiche ouverts, la Chouette et le Phénix gardés', equipee: ['lg:chouette', 'lg:phenix'], niveau: 6 },
+        { nom: 'Niveau 6 — toutes les règles ouvertes, la Chouette et le Phénix gardés', equipee: ['lg:chouette', 'lg:phenix'], niveau: 6 },
         {
           nom: 'Niveau 10 — le codex entier, ses exploits faits, quatre légendaires gardés',
           equipee: ['lg:chouette', 'lg:phenix', 'lg:dragon', 'lg:janus'],
@@ -910,7 +963,28 @@ if (VERSION >= 7 && TOUTES_LES_CARTES) {
     console.log(`  ${l.cle.padEnd(18)} ${l.a.map(pc).join(' · ')}   ${l.ecart.map(x => (x >= 0 ? `+${x}` : `${x}`)).join(' · ')}   ${l.rarete}`)
   console.log('')
 }
-for (const cas of TOUTES_LES_ASCENSIONS || TOUTES_LES_CARTES ? [] : UN_NIVEAU ? [UN_NIVEAU] : UN_CAS === null ? CAS : [CAS[UN_CAS]]) {
+/**
+ * Chaque style (`--styles`), niveau par niveau : la part qui va au bout, pour
+ * les trois joueurs, de celui qui suit son style contre le départ sans style —
+ * et la variété du moyen : les cartes différentes que ses offres lui
+ * proposent, et celles qu'il joue.
+ */
+if (VERSION >= 7 && TOUS_LES_STYLES) {
+  console.log(`Les styles — ${EXPEDITIONS} expéditions par joueur ; avec un style, le joueur le suit.`)
+  for (const cas of UN_NIVEAU ? [UN_NIVEAU] : UN_CAS === null ? CAS : [CAS[UN_CAS]]) {
+    console.log(cas.nom)
+    console.log(`  style        ${JOUEURS.map(([nom]) => nom.padStart(7)).join('   ')}   offertes   jouées`)
+    for (const style of [undefined, ...codexDuNiveau(cas.niveau ?? 1, cas.equipee).styles]) {
+      const parJoueur = JOUEURS.map(([nom, theta]) => Array.from({ length: EXPEDITIONS }, (_, k) => jouer(unJoueur(theta, `calibrage:${nom}:${k}`), `calibrage:${k}`, { ...cas, style })))
+      const moyen = parJoueur[1]
+      console.log(
+        `  ${(style ?? 'sans style').padEnd(12)} ${parJoueur.map(issues => pc(issues.filter(i => i.auBout).length / EXPEDITIONS).padStart(7)).join('   ')}   ${virgule(moyenne(moyen, i => i.offertes)).padStart(8)}   ${virgule(moyenne(moyen, i => i.differentes)).padStart(6)}`,
+      )
+    }
+    console.log('')
+  }
+}
+for (const cas of TOUTES_LES_ASCENSIONS || TOUTES_LES_CARTES || TOUS_LES_STYLES ? [] : UN_NIVEAU ? [UN_NIVEAU] : UN_CAS === null ? CAS : [CAS[UN_CAS]]) {
   console.log(cas.nom)
   console.log('  joueur   au bout   arrêté à l’acte 1 · 2 · 3   questions   rencontres   cartes jouées   écus   courage au bout   renommée   fioles bues')
   for (const [nom, theta] of JOUEURS) {
@@ -933,7 +1007,7 @@ for (const cas of TOUTES_LES_ASCENSIONS || TOUTES_LES_CARTES ? [] : UN_NIVEAU ? 
  * Ses exploits aussi : faits, leur carte s'ouvre à l'expédition suivante —
  * et quand chacun tombe, et pour combien de joueurs en vingt expéditions.
  */
-if (VERSION >= 7 && !UN_NIVEAU && UN_CAS === null && !TOUTES_LES_ASCENSIONS) {
+if (VERSION >= 7 && !UN_NIVEAU && UN_CAS === null && !TOUTES_LES_ASCENSIONS && !TOUS_LES_STYLES) {
   const CARRIERES = Math.max(20, Math.round(EXPEDITIONS / 10))
   const LONGUEUR = 20
   const TRANCHES: [string, number, number][] = [

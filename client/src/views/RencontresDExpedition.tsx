@@ -37,6 +37,7 @@ import {
   energieDesActesALAscension,
   exploitDe,
   niveauDeLaRegle,
+  niveauDuStyle,
   ouvertureDe,
   ouvertureDuDos,
   progressionDe,
@@ -47,6 +48,8 @@ import {
   type RegleDuCodex,
 } from '../../../shared/codex'
 import {
+  BASES_REMPLACEES_PAR_LE_STYLE,
+  CARTES_DE_DEPART_DU_STYLE,
   CARTES_DES_RENCONTRES,
   CARTES_PAR_QUESTION,
   CHANCE_D_UNE_OFFRE_AMELIOREE,
@@ -58,6 +61,7 @@ import {
   FIOLES,
   FIOLES_MAX,
   MISES,
+  STYLES,
   VERSION_DU_JEU_COMPLET,
   ameliorer,
   apercuDuTour,
@@ -77,6 +81,7 @@ import {
   type CoupDeRencontre,
   type FamilleDeCartes,
   type MomentDUneCarte,
+  type StyleDeJeu,
   type VueDeLaRencontre,
 } from '../../../shared/rencontres'
 
@@ -1563,7 +1568,7 @@ function retenirLeGuide() {
 
 /** Une section des règles : de quoi elle parle, son titre, une ligne par règle — un dessin, une phrase. */
 interface SectionDesRegles {
-  cle: 'rencontre' | 'cartes' | 'ameliorees' | 'pari' | 'fioles' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'exploits' | 'ascension' | 'passeport' | 'questions' | 'jokers'
+  cle: 'rencontre' | 'cartes' | 'style' | 'ameliorees' | 'pari' | 'fioles' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'exploits' | 'ascension' | 'passeport' | 'questions' | 'jokers'
   titre: string
   /** `energie` : l'orbe de l'énergie, tel que la main le montre. */
   lignes: { icone: IconName | 'energie'; texte: string }[]
@@ -1574,10 +1579,17 @@ export type DebutDesRegles = SectionDesRegles['cle']
 /** Ce que les règles lisent du codex d'une expédition (v7) : les règles que son niveau a ouvertes. */
 export interface CodexDesRegles {
   regles: readonly RegleDuCodex[]
+  /** Les styles qu'il a ouverts (le 19 octobre 2026) : les règles disent le niveau des autres. Absents d'un départ figé, qui ne les garde pas. */
+  styles?: readonly StyleDeJeu[]
 }
 
-/** « s'ouvre au niveau 2 d'explorateur » : une règle que son niveau n'a pas encore ouverte. */
-const ouvertAuNiveau = (regle: RegleDuCodex) => `au niveau ${niveauDeLaRegle(regle)} d’explorateur`
+/**
+ * « s'ouvre au niveau 2 d'explorateur » : une règle que son niveau n'a pas
+ * encore ouverte. Une règle du niveau 1 fermée — la catégorie fétiche d'une
+ * expédition partie avant « Ton style », qui l'ouvrait au niveau 5 — s'ouvre à
+ * la prochaine : « au niveau 1 » se lirait comme une erreur.
+ */
+const ouvertAuNiveau = (regle: RegleDuCodex) => (niveauDeLaRegle(regle) <= 1 ? 'dès ta prochaine expédition' : `au niveau ${niveauDeLaRegle(regle)} d’explorateur`)
 
 /**
  * Les règles d'une expédition en rencontres, ce que les pages ne disent plus
@@ -1632,6 +1644,28 @@ function reglesDesRencontres(
         { icone: 'flag', texte: 'Une carte de route se joue sur le plan, une fois par acte.' },
       ],
     },
+    // Les styles (le 19 octobre 2026) : ce que le choix du départ fait, puis chacun, sa devise et sa façon de gagner — fermé, son niveau.
+    ...(codex
+      ? [
+          {
+            cle: 'style' as const,
+            titre: 'Ton style',
+            lignes: [
+              { icone: 'users' as const, texte: 'Au départ, choisis ton style : une famille de cartes. Deux de ses cartes partent dans ton paquet, à la place de deux cartes de base.' },
+              { icone: 'plus-square' as const, texte: 'Chaque récompense propose une carte de ton style, une que tu n’as pas encore s’il en reste ; les deux autres viennent de partout.' },
+              // Mesuré le 19 octobre 2026 : le joueur qui ne prend que les cartes de l'Érudit, du Flambeur ou de l'Élan va au bout bien
+              // moins souvent que celui qui les mêle à des boucliers — ce que le style ne dit pas tout seul.
+              { icone: 'shield' as const, texte: 'Ton style ne fait pas tout : un paquet qui ne fait qu’attaquer tombe vite. Prends aussi de quoi te protéger.' },
+              ...STYLES.map(s => ({
+                icone: ICONE_DU_STYLE[s],
+                texte: `${FAMILLES_DE_CARTES[s].nom} — « ${FAMILLES_DE_CARTES[s].devise} » : ${(FAMILLES_DE_CARTES[s].jeu ?? '').replace(/^./, x => x.toLowerCase())}${
+                  !codex.styles || codex.styles.includes(s) ? '' : ` Il s’ouvre au niveau ${niveauDuStyle(s)} d’explorateur.`
+                }`,
+              })),
+            ],
+          },
+        ]
+      : []),
     // Le jeu complet : ce qu'une amélioration fait, et où l'on en trouve — une ligne chacun.
     ...(ameliorees
       ? [
@@ -1713,7 +1747,7 @@ function reglesDesRencontres(
           titre: 'Tes récompenses',
           lignes: [
             { icone: 'plus-square', texte: 'Un adversaire tombé : une carte de ton codex à choisir parmi trois — plus souvent rare après une élite ou dans un coffre.' },
-            { icone: 'users', texte: 'Plus tu prends de cartes d’une famille, plus tes récompenses t’en proposent.' },
+            { icone: 'users', texte: 'Une des trois est de ton style, les deux autres de partout.' },
             { icone: 'crown', texte: 'Un gardien vaincu, aux actes 1 et 2 : son trésor propose une carte légendaire de ton codex.' },
             ...(ouverte('talismans') ? [] : [{ icone: 'lock' as const, texte: `Les talismans s’ouvrent ${ouvertAuNiveau('talismans')}.` }]),
           ],
@@ -1735,7 +1769,7 @@ function reglesDesRencontres(
             { icone: 'book', texte: 'Ta renommée fait ton niveau d’explorateur : chaque niveau ouvre des cartes dans ton codex, et seules celles-là tombent en récompense.' },
             { icone: 'sparkles', texte: 'Chaque légendaire que tu as y ouvre sa carte. L’invité du jour part avec toi : sa carte rejoint ton paquet.' },
             ...(ouverte('fetiche')
-              ? [{ icone: 'target' as const, texte: 'Ta catégorie fétiche : Plume et Bibliothèque frappent plus fort sur ses questions.' }]
+              ? [{ icone: 'target' as const, texte: 'Ta catégorie fétiche, que choisit l’Érudit : Plume, Bibliothèque et Génie frappent plus fort sur ses questions.' }]
               : [{ icone: 'lock' as const, texte: `Ta catégorie fétiche s’ouvre ${ouvertAuNiveau('fetiche')}.` }]),
           ],
         }
@@ -2245,6 +2279,124 @@ export function FeticheDuDepart({ fetiche, onFetiche }: { fetiche: string | null
           <Icon name="chevron-right" />
         </button>
       </div>
+      {choisir && <FeuilleDeLaFetiche fetiche={fetiche} onChoisir={onFetiche} onFermer={() => setChoisir(false)} />}
+    </section>
+  )
+}
+
+/** Son style, choisi au départ : retenu sur le téléphone, sous try/catch — un stockage refusé ne doit rien bloquer. */
+const CLE_DU_STYLE = 'quizz.expedition.style'
+
+/**
+ * Le style qui partira : celui de la dernière fois, s'il l'a encore — un
+ * téléphone partagé retient celui d'un autre profil —, sinon le premier des
+ * siens, celui que le serveur prendrait.
+ */
+export function styleRetenu(siens: readonly StyleDeJeu[]): StyleDeJeu | null {
+  try {
+    const lu = localStorage.getItem(CLE_DU_STYLE)
+    if (lu && (siens as readonly string[]).includes(lu)) return lu as StyleDeJeu
+  } catch {
+    // Un stockage refusé : le premier des siens, comme sans choix.
+  }
+  return siens[0] ?? null
+}
+
+export function retenirLeStyle(style: StyleDeJeu) {
+  try {
+    localStorage.setItem(CLE_DU_STYLE, style)
+  } catch {
+    // Un stockage refusé : le prochain départ reprendra le premier des siens.
+  }
+}
+
+/** Le dessin de chaque style, sur sa pastille au départ et dans les règles. L'éclair est à l'énergie : aucun ne le prend. */
+export const ICONE_DU_STYLE: Readonly<Record<StyleDeJeu, IconName>> = {
+  rempart: 'shield',
+  erudit: 'book',
+  devin: 'eye',
+  flambeur: 'ecu',
+  elan: 'skip',
+  metamorphe: 'shuffle',
+}
+
+/** Le nom d'un style sans son article, sur sa tuile : « Rempart », « Érudit ». */
+const nomCourtDuStyle = (style: StyleDeJeu) => FAMILLES_DE_CARTES[style].nom.replace(/^(Le |La |L’)/, '')
+
+/** Les cartes de base que ses deux cartes remplacent : « deux Concentrations », « une Concentration et une Prudence ». */
+function basesRemplacees(style: StyleDeJeu): string {
+  const [x, y] = BASES_REMPLACEES_PAR_LE_STYLE[style].map(cle => carteDeRencontre(cle)?.nom ?? cle)
+  return x === y ? `deux ${x}s` : `une ${x} et une ${y}`
+}
+
+/**
+ * « Ton style », au départ (le 19 octobre 2026 : « Pour les cartes il faut
+ * vraiment plus de gameplay différents […] j'ai l'impression de piocher tout
+ * le temps la même chose et de pas avoir à choisir de style de jeu ») : une
+ * famille parmi celles que son codex ouvre, en pastilles à sa teinte. Sous
+ * elles, celle qui partira — sa devise, sa façon de gagner, ses deux cartes
+ * de départ —, et pour l'Érudit, sa catégorie fétiche. Le style qui s'ouvre
+ * ensuite se dit en une ligne : on sait ce qu'on gagnera en jouant.
+ */
+export function ChoixDuStyle({
+  styles,
+  style,
+  onChoisir,
+  fetiche,
+  feticheOuverte,
+  onFetiche,
+  prochain,
+}: {
+  styles: readonly StyleDeJeu[]
+  style: StyleDeJeu
+  onChoisir: (style: StyleDeJeu) => void
+  fetiche: string | null
+  feticheOuverte: boolean
+  onFetiche: (categorie: string | null) => void
+  /** Le prochain style à s'ouvrir, et son niveau ; rien quand il les a tous. */
+  prochain?: { style: StyleDeJeu; niveau: number }
+}) {
+  const [choisir, setChoisir] = useState(false)
+  const famille = FAMILLES_DE_CARTES[style]
+  const [a, b] = CARTES_DE_DEPART_DU_STYLE[style].map(cle => carteDeRencontre(cle)?.nom ?? cle)
+  return (
+    <section className="card exp-style" aria-labelledby="exp-style-titre">
+      <h2 className="label" id="exp-style-titre">
+        Ton style
+      </h2>
+      <div className="exp-styles" role="radiogroup" aria-labelledby="exp-style-titre">
+        {styles.map(s => (
+          <button
+            key={s}
+            type="button"
+            role="radio"
+            aria-checked={s === style}
+            className="exp-un-style"
+            style={{ '--famille': TEINTE_DE_LA_FAMILLE[s] } as CSSProperties}
+            onClick={() => onChoisir(s)}
+          >
+            <Icon name={ICONE_DU_STYLE[s]} />
+            <span>{nomCourtDuStyle(s)}</span>
+          </button>
+        ))}
+      </div>
+      <p className="exp-style-dit">
+        <b>{espacesFines(`${famille.nom} · « ${famille.devise} »`)}</b> {espacesFines(famille.jeu ?? '')}
+      </p>
+      <p className="muted small">{espacesFines(`Tu pars avec ${a} et ${b}, à la place de ${basesRemplacees(style)} ; chaque récompense propose une carte de ton style.`)}</p>
+      {style === 'erudit' && feticheOuverte && (
+        <div className="exp-section-tete">
+          <span className="small">
+            {'Ta catégorie fétiche : '}
+            <b>{fetiche ?? 'aucune'}</b>
+          </span>
+          <button type="button" className="link-inline small exp-changer" aria-haspopup="dialog" onClick={() => setChoisir(true)}>
+            {fetiche ? 'Changer' : 'Choisir'}
+            <Icon name="chevron-right" />
+          </button>
+        </div>
+      )}
+      {prochain && <p className="muted small exp-style-prochain">{espacesFines(`${FAMILLES_DE_CARTES[prochain.style].nom} s’ouvre au niveau ${prochain.niveau}.`)}</p>}
       {choisir && <FeuilleDeLaFetiche fetiche={fetiche} onChoisir={onFetiche} onFermer={() => setChoisir(false)} />}
     </section>
   )

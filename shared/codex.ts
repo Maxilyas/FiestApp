@@ -11,8 +11,8 @@
 // quoi un joueur qui tombe à l'acte 1 resterait toujours au même niveau —, de
 // ce qu'elle a fait : ses escales, ses adversaires, ses élites, ses gardiens,
 // le bout. Elle fait le niveau d'explorateur ; chaque niveau ouvre des cartes,
-// les premiers des règles — la première expédition n'a ni pari, ni fiole, ni
-// talisman, ni catégorie fétiche. Un légendaire qu'on a ouvre sa carte ; un
+// les premiers un style et une règle — la première expédition choisit entre
+// trois styles, sans pari, ni fiole, ni talisman. Un légendaire qu'on a ouvre sa carte ; un
 // exploit — un but précis, fait une fois — la sienne, ou le dos doré du
 // paquet ; le niveau 6, le dos étoilé. Une expédition menée au bout ouvre
 // l'Ascension : des crans de difficulté, chacun ouvert par une victoire à
@@ -31,6 +31,7 @@ import {
   CARTES_PAR_OFFRE,
   ENERGIE_DES_ACTES,
   VERSION_DU_CODEX,
+  baseDe,
   carteDeRencontre,
   carteDuLegendaire,
   energieDesActes,
@@ -40,6 +41,7 @@ import {
   type PoidsDesRaretes,
   type RareteDOffre,
   type SorteDeRencontre,
+  type StyleDeJeu,
 } from './rencontres'
 import { hasardDe } from './missions'
 
@@ -74,7 +76,7 @@ export const PARI_DE_L_EXPLOIT = 40
 export const BONNES_D_AFFILEE = 20
 
 /**
- * Les exploits, dans l'ordre où ils se disent. Banco, Lancée et Échauffement
+ * Les exploits, dans l'ordre où ils se disent. Banco, Génie et Inarrêtable
  * ne s'ouvrent que par eux : chacun récompense la façon de jouer qu'il sert —
  * parier gros, frapper fort, enchaîner. Mesurés sur la carrière
  * (`calibrage-rencontres.ts`, le 18 octobre 2026, cent joueurs de chaque
@@ -89,8 +91,10 @@ export const BONNES_D_AFFILEE = 20
  */
 export const EXPLOITS: readonly Exploit[] = [
   { cle: 'pari-de-40', but: `gagner un pari de ${PARI_DE_L_EXPLOIT} écus`, carte: 'banco' },
-  { cle: 'une-seule-reponse', but: 'faire tomber une élite d’une seule réponse', carte: 'lancee' },
-  { cle: 'd-affilee', but: `répondre juste ${BONNES_D_AFFILEE} fois d’affilée`, carte: 'echauffement' },
+  // Lancée et Échauffement jusqu'au 19 octobre 2026 : l'Élan, devenu un style, les tient de départ. Frapper fort d'un coup
+  // ouvre Génie ; tenir vingt d'affilée, Inarrêtable — la série qui ne retombe plus.
+  { cle: 'une-seule-reponse', but: 'faire tomber une élite d’une seule réponse', carte: 'genie' },
+  { cle: 'd-affilee', but: `répondre juste ${BONNES_D_AFFILEE} fois d’affilée`, carte: 'inarretable' },
   { cle: 'gardien-intact', but: 'vaincre le gardien de l’acte 3 sans perdre de courage', dos: 'dore' },
 ]
 
@@ -209,47 +213,79 @@ export type RegleDuCodex = 'pari' | 'fioles' | 'talismans' | 'fetiche'
  */
 const REGLES_D_AVANT_LE_CODEX: readonly RegleDuCodex[] = ['pari', 'talismans', 'fetiche']
 
-/** Ce qu'un niveau ouvre : des cartes, et pour certains une règle, ou un dos pour son paquet. */
+/** Ce qu'un niveau ouvre : des cartes, et pour certains une règle, un style, ou un dos pour son paquet. */
 export interface MarcheDuCodex {
   niveau: number
   cartes: readonly string[]
   regle?: RegleDuCodex
+  /** Le style qu'il ouvre (« Ton style », le 19 octobre 2026) : ses communes sont dans ses cartes, ses deux cartes de départ comprises. */
+  styles?: readonly StyleDeJeu[]
   dos?: DosDuPaquet
 }
 
 /**
- * L'échelle : au niveau 1, six cartes simples, des communes — le paquet de
- * départ, La pioche et Arrêt sur image ; puis une ou deux cartes par niveau,
- * une famille entière à partir du troisième. Les déblocages ouvrent surtout
- * des façons de jouer, un peu de puissance : chaque carte plus forte rendrait
- * le début injouable et la fin trop facile. Les rares qui pèsent le plus
- * attendent — Sursis au niveau 6 : mesurée, elle seule ouverte au niveau 1
- * menait le joueur moyen au bout une fois sur deux, plus qu'avec tout le
- * codex (`calibrage-rencontres.ts`, le 18 octobre 2026). Banco, Lancée et
- * Échauffement n'y sont pas : leur exploit les ouvre (`EXPLOITS`). Toutes les
- * autres cartes sans légendaire y sont, une fois (`codex.test.ts`). Une règle
- * par niveau, du deuxième au cinquième : le pari, les fioles, les talismans,
- * la catégorie fétiche — deux à la fois, la seconde expédition en aurait trop
- * appris d'un coup. Au sixième, un dos à soi pour son paquet.
+ * L'échelle — la variété d'abord, la puissance ensuite (« Ton style », le 19
+ * octobre 2026 : « j'ai l'impression de piocher tout le temps la même chose
+ * et de pas avoir à choisir de style de jeu ») : au niveau 1, le paquet de
+ * départ, quelques neutres et trois styles entiers à leurs communes — le
+ * Rempart, l'Érudit, le Devin, et sa catégorie fétiche avec l'Érudit ; puis
+ * un style de plus à chacun des trois suivants, avec sa règle — le Flambeur et
+ * le pari au 2, l'Élan et les fioles au 3, le Métamorphe et les talismans au
+ * 4 —, et des rares de ceux qu'on a déjà. Les rares et les épiques qui pèsent
+ * le plus attendent : Sursis au niveau 6 — mesurée, elle seule ouverte au
+ * niveau 1 menait le joueur moyen au bout une fois sur deux, plus qu'avec tout
+ * le codex (`calibrage-rencontres.ts`, le 18 octobre 2026) —, Représailles au
+ * 9, Maîtrise au 10. Jusque-là, le niveau 1 n'ouvrait que huit cartes à
+ * gagner, presque toutes neutres, et les familles n'arrivaient qu'aux niveaux
+ * 5 à 10 : on tirait les mêmes, sans style à suivre.
  *
- * Le jeu complet (le 19 octobre 2026) y range ses quarante-deux cartes : à
- * chaque niveau, de quoi changer de paquet — quatre communes de plus dès le
- * premier, qui n'en offrait que quatre ; les cartes du pari avec le pari ;
- * une épique dès le quatrième, puis deux ou trois par niveau. Une carte s'y
- * mesure comme les autres (`calibrage-rencontres.ts`).
+ * Banco, Génie et Inarrêtable n'y sont pas : leur exploit les ouvre
+ * (`EXPLOITS`) — Lancée et Échauffement l'étaient, mais l'Élan les tient de
+ * départ. Toutes les autres cartes sans légendaire y sont, une fois
+ * (`codex.test.ts`). Au sixième, un dos à soi pour son paquet. Un départ fige
+ * le codex qu'il ouvre (`CodexDuDepart`) : retoucher l'échelle ne change
+ * rien aux expéditions parties.
  */
 export const ECHELLE: readonly MarcheDuCodex[] = [
-  { niveau: 1, cartes: ['concentration', 'prudence', 'coup-d-oeil', 'echange', 'pioche', 'arret-sur-image', 'evidence', 'muraille', 'foulee', 'presage'] },
-  { niveau: 2, cartes: ['double-chance', 'pourboire', 'cagnotte', 'savoir-faire', 'assurance'], regle: 'pari' },
-  { niveau: 3, cartes: ['parade', 'contre-attaque', 'pansement', 'memoire', 'second-souffle'], regle: 'fioles' },
-  { niveau: 4, cartes: ['detour', 'tout-ou-rien', 'volte-face', 'augure', 'meditation', 'panacee'], regle: 'talismans' },
-  { niveau: 5, cartes: ['plume', 'bibliotheque', 'lecon', 'expose', 'sang-froid', 'genie'], regle: 'fetiche' },
-  { niveau: 6, cartes: ['sursis', 'quitte-ou-double', 'cuirasse', 'prisme', 'rafle', 'bastion'], dos: 'etoile' },
-  { niveau: 7, cartes: ['doubler-la-mise', 'fortune', 'acceleration', 'rythme', 'surmenage', 'pactole', 'vent-arriere'] },
-  { niveau: 8, cartes: ['corser', 'simplifier', 'miroir', 'cameleon', 'sprint', 'metamorphose', 'polymorphe'] },
-  { niveau: 9, cartes: ['lucidite', 'voyance', 'astrolabe', 'vision', 'revelation', 'represailles'] },
-  { niveau: 10, cartes: ['troisieme-oeil', 'encyclopedie', 'maitrise', 'inarretable'] },
+  {
+    niveau: 1,
+    cartes: [
+      'concentration',
+      'prudence',
+      'coup-d-oeil',
+      'echange',
+      'pioche',
+      'arret-sur-image',
+      'evidence',
+      'parade',
+      'muraille',
+      'pansement',
+      'plume',
+      'savoir-faire',
+      'memoire',
+      'lucidite',
+      'augure',
+      'presage',
+    ],
+    regle: 'fetiche',
+    styles: ['rempart', 'erudit', 'devin'],
+  },
+  { niveau: 2, cartes: ['doubler-la-mise', 'pourboire', 'cagnotte', 'double-chance', 'contre-attaque', 'lecon', 'voyance'], regle: 'pari', styles: ['flambeur'] },
+  { niveau: 3, cartes: ['echauffement', 'lancee', 'foulee', 'assurance', 'second-souffle', 'expose', 'astrolabe'], regle: 'fioles', styles: ['elan'] },
+  { niveau: 4, cartes: ['corser', 'simplifier', 'volte-face', 'acceleration', 'fortune', 'detour', 'meditation', 'sang-froid'], regle: 'talismans', styles: ['metamorphe'] },
+  { niveau: 5, cartes: ['bibliotheque', 'cuirasse', 'troisieme-oeil', 'rythme', 'miroir', 'prisme', 'tout-ou-rien', 'panacee'] },
+  { niveau: 6, cartes: ['sursis', 'sprint', 'cameleon', 'quitte-ou-double', 'bastion', 'vision'], dos: 'etoile' },
+  { niveau: 7, cartes: ['rafle', 'pactole', 'vent-arriere', 'surmenage', 'revelation'] },
+  { niveau: 8, cartes: ['metamorphose', 'polymorphe'] },
+  { niveau: 9, cartes: ['encyclopedie', 'represailles'] },
+  { niveau: 10, cartes: ['maitrise'] },
 ]
+
+/** Les styles qu'ouvre un niveau, du premier au sien, dans l'ordre de l'échelle : ceux que le départ propose. */
+export const stylesDuNiveau = (niveau: number): StyleDeJeu[] => ECHELLE.filter(m => m.niveau <= niveau).flatMap(m => m.styles ?? [])
+
+/** Le niveau qui ouvre un style. */
+export const niveauDuStyle = (style: StyleDeJeu) => ECHELLE.find(m => m.styles?.includes(style))?.niveau ?? 1
 
 /** Le niveau qui ouvre une règle. */
 export const niveauDeLaRegle = (regle: RegleDuCodex) => ECHELLE.find(m => m.regle === regle)?.niveau ?? 1
@@ -292,12 +328,15 @@ export interface CodexDuDepart {
   ascensionOuverte?: number
 }
 
-/** Ce qu'ouvre un niveau, ses exploits et ses légendaires : le codex que son départ figera — et ses dos de cartes, que le départ choisit. */
+/**
+ * Ce qu'ouvre un niveau, ses exploits et ses légendaires : le codex que son
+ * départ figera — et ses dos de cartes et ses styles, que le départ choisit.
+ */
 export function codexDuNiveau(
   niveau: number,
   legendaires: readonly string[],
   exploits: readonly CleDExploit[] = [],
-): CodexDuDepart & { exploits: CleDExploit[]; dos: DosDuPaquet[] } {
+): CodexDuDepart & { exploits: CleDExploit[]; dos: DosDuPaquet[]; styles: StyleDeJeu[] } {
   const marches = ECHELLE.filter(m => m.niveau <= niveau)
   const ouvertes = new Set([
     ...marches.flatMap(m => m.cartes),
@@ -310,6 +349,7 @@ export function codexDuNiveau(
     regles: marches.flatMap(m => (m.regle ? [m.regle] : [])),
     exploits: EXPLOITS.map(x => x.cle).filter(cle => exploits.includes(cle)),
     dos: dosOuverts(niveau, exploits),
+    styles: stylesDuNiveau(niveau),
   }
 }
 
@@ -475,6 +515,17 @@ const HORS_DES_OFFRES = new Set(['concentration', 'prudence'])
  * coffre d'un gardien (`legendaire`) ouvre sur une carte légendaire de son
  * codex qu'il n'a pas déjà. Du hasard de la graine et du rang de l'offre :
  * recharger ne la change pas.
+ *
+ * Son style (le 19 octobre 2026) : une de ses cartes d'abord, à la rareté
+ * tirée — sinon à une autre que l'offre permet —, une que son paquet n'a pas
+ * encore s'il en reste ; puis deux cartes de partout, chacune au même poids.
+ * Chaque récompense propose ainsi de quoi suivre son style, et de quoi en
+ * sortir. Le poids des familles de son paquet s'efface avec lui : il tirait
+ * les deux autres vers son style, et l'offre de l'Érudit n'était plus que de
+ * l'Érudit (`calibrage-rencontres.ts --styles` : moins de cartes différentes
+ * proposées en une expédition qu'avant les styles). Sans style, le hasard se
+ * tire dans le même ordre qu'avant lui : une offre d'un départ d'avant se
+ * rejoue telle qu'elle s'est jouée.
  */
 export function offreDuCodex(
   graine: string,
@@ -483,6 +534,7 @@ export function offreDuCodex(
   paquet: readonly string[],
   poids: PoidsDesRaretes,
   legendaire = false,
+  style?: StyleDeJeu,
 ): string[] {
   const r = hasardDe(`${graine}:offre:${rang}`)
   const prises: string[] = []
@@ -497,8 +549,10 @@ export function offreDuCodex(
   }
   const offrables = ouvertes.map(cle => carteDeRencontre(cle)).filter((c): c is CarteDeRencontre => !!c && c.rarete !== 'legendaire' && !HORS_DES_OFFRES.has(c.cle))
   const raretes = (Object.entries(poids) as [RareteDOffre, number][]).filter(([, p]) => p > 0)
-  const poidsDe = (c: CarteDeRencontre) => 1 + (c.famille === 'neutre' ? 0 : (parFamille.get(c.famille) ?? 0))
-  for (let essai = 0; prises.length < CARTES_PAR_OFFRE && essai < 30; essai++) {
+  const permises = new Set(raretes.map(([nom]) => nom))
+  const poidsDe = (c: CarteDeRencontre) => (style ? 1 : 1 + (c.famille === 'neutre' ? 0 : (parFamille.get(c.famille) ?? 0)))
+  /** Une rareté, tirée à ses poids. */
+  const tirerLaRarete = () => {
     const u = r()
     let cumul = 0
     let rarete = raretes[0]?.[0]
@@ -510,22 +564,39 @@ export function offreDuCodex(
         break
       }
     }
-    const libres = offrables.filter(c => !prises.includes(c.cle))
-    const aSaRarete = libres.filter(c => c.rarete === rarete)
-    const permises = new Set(raretes.map(([nom]) => nom))
-    const candidates = aSaRarete.length > 0 ? aSaRarete : libres.filter(c => permises.has(c.rarete as RareteDOffre))
-    if (candidates.length === 0) break
+    return rarete
+  }
+  /** Parmi ces cartes libres, celles de cette rareté — sinon d'une autre que l'offre permet. */
+  const aSaRarete = (libres: CarteDeRencontre[], rarete: RareteDOffre | undefined) => {
+    const siennes = libres.filter(c => c.rarete === rarete)
+    return siennes.length > 0 ? siennes : libres.filter(c => permises.has(c.rarete as RareteDOffre))
+  }
+  /** L'une d'elles, chacune à son poids. */
+  const choisir = (candidates: CarteDeRencontre[]) => {
     const somme = candidates.reduce((n, c) => n + poidsDe(c), 0)
     let t = r() * somme
-    let choisie = candidates[candidates.length - 1]
     for (const c of candidates) {
       t -= poidsDe(c)
-      if (t < 0) {
-        choisie = c
-        break
-      }
+      if (t < 0) return c
     }
-    prises.push(choisie.cle)
+    return candidates[candidates.length - 1]
+  }
+  if (style && prises.length < CARTES_PAR_OFFRE) {
+    const rarete = tirerLaRarete()
+    const siennes = offrables.filter(c => c.famille === style && !prises.includes(c.cle))
+    // Une qu'il n'a pas encore d'abord : reproposer celle qu'il tient déjà, c'était piocher la même chose.
+    const neuves = siennes.filter(c => !paquet.some(cle => baseDe(cle) === c.cle))
+    const candidates = [neuves, siennes].map(libres => aSaRarete(libres, rarete)).find(l => l.length > 0) ?? []
+    if (candidates.length > 0) prises.push(choisir(candidates).cle)
+  }
+  for (let essai = 0; prises.length < CARTES_PAR_OFFRE && essai < 30; essai++) {
+    const rarete = tirerLaRarete()
+    const candidates = aSaRarete(
+      offrables.filter(c => !prises.includes(c.cle)),
+      rarete,
+    )
+    if (candidates.length === 0) break
+    prises.push(choisir(candidates).cle)
   }
   return prises
 }

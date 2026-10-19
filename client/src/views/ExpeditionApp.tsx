@@ -81,7 +81,7 @@ import {
   type ThemeDEscale,
   type VueDeLExpedition,
 } from '../../../shared/expedition'
-import { cranOuvertParLaVictoire, exploitDe, pointsDeLAdversaire, reposALAscension, type DosDuPaquet } from '../../../shared/codex'
+import { cranOuvertParLaVictoire, exploitDe, niveauDuStyle, pointsDeLAdversaire, reposALAscension, type DosDuPaquet } from '../../../shared/codex'
 import {
   CARTES_DES_ACTES,
   CARTES_DES_RENCONTRES,
@@ -92,6 +92,7 @@ import {
   COURAGE_MAX,
   FAMILLES_DE_CARTES,
   FIOLES_MAX,
+  STYLES,
   VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
   carteALaVersion,
@@ -104,6 +105,7 @@ import {
   refusDeLAmelioration,
   type CarteDeRencontre,
   type CleDeFiole,
+  type StyleDeJeu,
 } from '../../../shared/rencontres'
 import {
   Adversaire,
@@ -116,6 +118,7 @@ import {
   CartesAPrendre,
   ChoixDeLAscension,
   ChoixDuDos,
+  ChoixDuStyle,
   Courage,
   FeticheDuDepart,
   FeuilleDesCartes,
@@ -147,6 +150,8 @@ import {
   retenirLAscension,
   retenirLaFetiche,
   retenirLeDos,
+  retenirLeStyle,
+  styleRetenu,
   verdictDeLaRencontre,
 } from './RencontresDExpedition'
 
@@ -175,6 +180,9 @@ import {
 // toucher perdu sur la main ne doit rien coûter.
 
 type Fin = { recompenses?: PalierTombe[]; legendaires?: string[] }
+
+/** Ce que le départ choisit, aux rencontres : son style, sa catégorie fétiche, le dos de son paquet, son cran de l'Ascension. */
+type ChoixDuDepart = { style: StyleDeJeu | null; fetiche: string | null; dos: DosDuPaquet | null; ascension: number }
 
 type Ecran =
   | { e: 'chargement' }
@@ -614,8 +622,8 @@ export function ExpeditionApp() {
     void relire().then(() => setErreur(motif))
   }
 
-  /** Partir — aux rencontres, là où elles s'ouvrent (partout, depuis qu'elles sont le jeu), avec sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension. */
-  const partir = async (equipee: readonly string[], rencontres: { fetiche: string | null; dos: DosDuPaquet | null; ascension: number } | null) => {
+  /** Partir — aux rencontres, là où elles s'ouvrent (partout, depuis qu'elles sont le jeu), avec son style, sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension. */
+  const partir = async (equipee: readonly string[], rencontres: ChoixDuDepart | null) => {
     if (busy) return
     setBusy(true)
     setErreur('')
@@ -625,6 +633,7 @@ export function ExpeditionApp() {
         rencontres
           ? {
               rencontres: true,
+              ...(rencontres.style && { style: rencontres.style }),
               ...(rencontres.fetiche && { fetiche: rencontres.fetiche }),
               ...(rencontres.dos && { dos: rencontres.dos }),
               ...(rencontres.ascension > 0 && { ascension: rencontres.ascension }),
@@ -1078,8 +1087,8 @@ export function Depart({
   page: PageDeLExpedition
   busy: boolean
   erreur: string
-  /** `rencontres` : partir aux rencontres, avec sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension ; null, aux règles d'avant. */
-  onPartir: (equipee: readonly string[], rencontres: { fetiche: string | null; dos: DosDuPaquet | null; ascension: number } | null) => void
+  /** `rencontres` : partir aux rencontres, avec son style, sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension ; null, aux règles d'avant. */
+  onPartir: (equipee: readonly string[], rencontres: ChoixDuDepart | null) => void
   onReprendre: (vue: VueDeLExpedition) => void
   /** Celle qui l'attend s'abandonne d'ici aussi : « J'aimerais pouvoir abandonner une expédition » (le 18 octobre 2026) — le geste ne vivait qu'au fond de la feuille de la carte. */
   onAbandonner: (vue: VueDeLExpedition) => void
@@ -1100,6 +1109,9 @@ export function Depart({
   const [dos, setDos] = useState(() => (page.prochaine.codex ? dosRetenu(page.prochaine.codex.dos) : null))
   // Son cran de l'Ascension, parmi ceux qu'il a ouverts : celui de la dernière fois, ou aucun.
   const [cran, setCran] = useState(() => (page.prochaine.codex ? ascensionRetenue(page.prochaine.codex.ascension) : 0))
+  // Son style (le 19 octobre 2026), parmi ceux que son codex ouvre : celui de la dernière fois, sinon le premier des siens.
+  const styles = page.prochaine.codex?.styles ?? []
+  const [style, setStyle] = useState(() => styleRetenu(page.prochaine.codex?.styles ?? []))
   const enRencontres = vue ? vue.courage !== undefined : ouvertes
   // Le codex (v7) : celui qu'elle a figé en route, celui qui partirait avant ; aux règles d'avant, aucun.
   const codex = page.prochaine.codex
@@ -1117,8 +1129,13 @@ export function Depart({
   // La saison de son départ — celle qu'elle a eue, en route ; celle d'aujourd'hui, avant de partir.
   const s = laSaison(vue ? vue.saison : page.prochaine.saison)
   const tampons = page.passeport.length
-  // Le paquet qui partirait : en rencontres, il s'ouvre en vraies cartes ; aux règles d'avant, il se dit en une ligne.
-  const sonPaquet = !vue && montree && enRencontres ? paquetDesRencontres(montree) : null
+  // Le paquet qui partirait : en rencontres, il s'ouvre en vraies cartes — les deux de son style comprises ; aux règles d'avant, il
+  // se dit en une ligne.
+  const sonPaquet = !vue && montree && enRencontres ? paquetDesRencontres(montree, style ?? undefined) : null
+  // Le style qui s'ouvre ensuite, et son niveau : la ligne du départ dit ce que le jeu fera gagner.
+  const prochainStyle = STYLES.find(x => !styles.includes(x))
+  // Sa catégorie fétiche est à l'Érudit, qui en vit : un autre style ne la porte pas.
+  const feticheDuDepart = feticheOuverte && (!style || style === 'erudit') ? fetiche : null
   return (
     <div className="player-shell expedition">
       <div className="exp-haut-du-depart">
@@ -1176,13 +1193,26 @@ export function Depart({
           {!vue && !enRencontres && <p className="muted small">{espacesFines(`Ton paquet au départ : ${ditDesComptes(paquetDeDepart(montree)).join(', ')}.`)}</p>}
         </section>
       )}
+      {/* Son style, avant le paquet qu'il fait ; un serveur d'avant les styles n'en dit aucun : la catégorie fétiche, seule. */}
+      {ouvertes && style ? (
+        <ChoixDuStyle
+          styles={styles}
+          style={style}
+          onChoisir={setStyle}
+          fetiche={fetiche}
+          feticheOuverte={feticheOuverte}
+          onFetiche={setFetiche}
+          {...(prochainStyle && { prochain: { style: prochainStyle, niveau: niveauDuStyle(prochainStyle) } })}
+        />
+      ) : (
+        ouvertes && feticheOuverte && <FeticheDuDepart fetiche={fetiche} onFetiche={setFetiche} />
+      )}
       {sonPaquet && (
         <button type="button" className="link-inline small exp-voir-le-paquet" aria-haspopup="dialog" onClick={() => setPaquet(true)}>
           {`Ton paquet · ${sonPaquet.length} cartes`}
           <Icon name="chevron-right" />
         </button>
       )}
-      {ouvertes && feticheOuverte && <FeticheDuDepart fetiche={fetiche} onFetiche={setFetiche} />}
       {ouverte > 0 && <ChoixDeLAscension ouverte={ouverte} cran={cran} onChoisir={setCran} />}
       <section className="card exp-passeport" aria-labelledby="exp-passeport-titre">
         <div className="exp-section-tete">
@@ -1251,9 +1281,10 @@ export function Depart({
               onClick={() => {
                 if (ouvertes) retenirLaFetiche(fetiche)
                 if (enRencontres && dos) retenirLeDos(dos)
+                if (enRencontres && style) retenirLeStyle(style)
                 if (ouverte > 0) retenirLAscension(cran, ouverte)
-                // Sa catégorie fétiche attend son niveau : avant lui, elle ne part pas. Son cran, ceux qu'il a ouverts.
-                onPartir(equipee, enRencontres ? { fetiche: feticheOuverte ? fetiche : null, dos, ascension: ouverte > 0 ? Math.min(cran, ouverte) : 0 } : null)
+                // Sa catégorie fétiche attend son niveau, et l'Érudit : sans lui, elle ne part pas. Son cran, ceux qu'il a ouverts.
+                onPartir(equipee, enRencontres ? { style, fetiche: feticheDuDepart, dos, ascension: ouverte > 0 ? Math.min(cran, ouverte) : 0 } : null)
               }}
             >
               <Icon name="flag" />

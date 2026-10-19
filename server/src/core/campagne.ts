@@ -294,6 +294,7 @@ import {
   routeDisponible,
   sensDeLOracle,
   siecleDeLaQuestion,
+  styleDuDepart,
   vueDeLaRencontre,
   type ApresUnGeste,
   type CarteDUnActe,
@@ -337,6 +338,7 @@ import {
   carteDeRencontre,
   cartesDesActes,
   effaceesDuTour,
+  estUnStyle,
   fioleDe,
   formeDeLaCarte,
   parmi,
@@ -6811,14 +6813,20 @@ export class CampagneStore {
    * prochaine expédition, et la chance qu'il a sur chaque escale, gardée avec
    * elle ; son équipée — deux des siens au plus, ou l'invité du jour —, dont
    * les jokers rejoignent le paquet de départ. Une à la fois : celle qu'il a
-   * laissée l'attend. `rencontres` : le prototype des rencontres (v5), que la
-   * route n'accorde que hors de la production — avec sa catégorie fétiche, le
-   * dos de son paquet et son cran de l'Ascension.
+   * laissée l'attend. `rencontres` : les rencontres (v5 et suivantes), là où
+   * la route les accorde — avec son style, sa catégorie fétiche, le dos de son
+   * paquet et son cran de l'Ascension.
    */
   partirEnExpedition(
     profileId: string,
     equipeeBrute: unknown = [],
-    { rencontres = false, fetiche, dos, ascension: cran }: { rencontres?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown } = {},
+    {
+      rencontres = false,
+      fetiche,
+      dos,
+      ascension: cran,
+      style: styleDemande,
+    }: { rencontres?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown; style?: unknown } = {},
   ): Promise<VueDeLExpedition> {
     const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
     if (!equipee) return Promise.reject(new Error('Ton équipe ne se lit pas : recharge la page'))
@@ -6863,6 +6871,11 @@ export class CampagneStore {
       // Son cran de l'Ascension, parmi ceux que ses victoires ont ouverts. Un téléphone partagé retient celui d'un autre
       // profil : il part au plus haut des siens, sans refuser le départ.
       const ascension = codex && typeof cran === 'number' && Number.isInteger(cran) ? Math.min(Math.max(0, cran), codex.ascension) : 0
+      // Son style (le 19 octobre 2026), parmi ceux que son codex ouvre. Un style qu'il n'a pas encore — un téléphone partagé
+      // retient celui d'un autre profil — part au premier des siens, sans refuser le départ ; rien de demandé, aucun style :
+      // le paquet et les offres d'avant lui.
+      const sesStyles = codex?.styles ?? []
+      const style = estUnStyle(styleDemande) && sesStyles.length > 0 ? (sesStyles.includes(styleDemande) ? styleDemande : sesStyles[0]) : undefined
       // En rencontres, des cartes à plus d'adversaires (`POIDS_DES_ESCALES_DES_RENCONTRES`) ; aux règles d'avant, celles de toujours.
       const cartes = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, fete, rencontres ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES))
       const vues = lireLesVues(lues.rows)
@@ -6881,8 +6894,9 @@ export class CampagneStore {
         chances,
         chanceDeLaSource,
         ...(saison && { saison: saison.key }),
-        // Sa catégorie fétiche attend son niveau : avant lui, ni Plume ni Bibliothèque ne sont ouvertes.
-        ...(codex?.regles.includes('fetiche') && typeof fetiche === 'string' && { fetiche }),
+        // Sa catégorie fétiche attend son niveau ; un style posé, elle est à l'Érudit seul, qui en vit — Plume, Bibliothèque.
+        ...(codex?.regles.includes('fetiche') && typeof fetiche === 'string' && (!style || style === 'erudit') && { fetiche }),
+        ...(style && { style }),
         ...(codex && {
           codex: { niveau: codex.niveau, cartes: codex.cartes, regles: codex.regles, exploits: codex.exploits, renommee: codex.renommee, ascensionOuverte: codex.ascension },
         }),
@@ -8432,6 +8446,7 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
     ...(v5 && {
       courage: e.courage ?? 0,
       ...(d.fetiche && { fetiche: d.fetiche }),
+      ...(styleDuDepart(d) && { style: styleDuDepart(d) }),
       cartes: {
         v: d.v,
         paquet: e.paquet,
