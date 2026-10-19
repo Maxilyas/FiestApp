@@ -96,6 +96,13 @@ adulte, la forêt sous la neige du jeune — la déco ne se perd plus. Page
   sur le magenta) est corrigé : sa découpe les rend opaques (`opaque`, une
   consigne de plus à la chaîne) — 3,92 $ en tout.
   Le film d'un quiz entier avec elle : `COMPAGNON=luciole … quiz-entier.ts film`.
+  Sa métamorphose, **la luciole-aurore** (le 20 octobre 2026, « peins-la
+  ici ») : peinte par la même chaîne d'après la seule luciole-constellation
+  de l'archive (`--eclat=aurore --seulement=eclat-aurore` : rien d'autre de
+  repeint), dix images, 1,40 $ — sa première découpe gardait les rideaux
+  d'aurore du ciel sous ses ailes, repeinte en les nommant. Son illustration,
+  ses fichiers `app/eclat-aurore-*` et ses consignes rejoignent
+  `luciole-peinte/` ; le journal y compte 5,33 $ pour toute la luciole.
 - **Après 500** — rien n'existe aujourd'hui. La proposition : la niche
   s'embellit, et garde chaque ornement (`paliers.js`) — 1 500 une guirlande,
   4 000 du lierre et des fleurs, 10 000 l'arche dorée et son étoile, 25 000 un

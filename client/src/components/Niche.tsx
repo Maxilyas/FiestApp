@@ -75,6 +75,10 @@ const CADRAGES: Readonly<Record<string, { taille: number; gauche: number; haut: 
   'cp:loup-tempete': { taille: 1.9, gauche: -0.12, haut: -0.12, miroir: false },
   'cp:chat-soleil': { taille: 1.8, gauche: -0.68, haut: 0, miroir: false },
   'cp:tortue-fleurs': { taille: 1.6, gauche: -0.7, haut: -0.12, miroir: false },
+  // La luciole-aurore (le 20 octobre 2026), essayée sur une maquette de la
+  // niche contre la ligne de la constellation : le visage au milieu, ses deux
+  // voiles d'aurore de part et d'autre — plus grande, on ne lisait plus ses ailes.
+  'cp:luciole-aurore': { taille: 1.9, gauche: -0.322, haut: -0.25, miroir: false },
 }
 
 /** Sans cadrage : le dessin entier, au fond de la niche. */
@@ -107,6 +111,7 @@ const SILHOUETTES: Readonly<Record<string, readonly [number, number, number, num
   'cp:loup-tempete': [0.071, 0.071, 0.965, 0.969],
   'cp:chat-soleil': [0.018, 0.023, 0.954, 0.984],
   'cp:tortue-fleurs': [0.004, 0.06, 0.996, 0.996],
+  'cp:luciole-aurore': [0.004, 0.004, 0.996, 0.708],
 }
 
 /** Ce qui s'envole quand on le caresse : des cœurs et des étincelles, comme à la boutique — des emojis d'avant Unicode 13. */
@@ -991,7 +996,7 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
             ) : niche.rang === 3 ? (
               <span className="muted small">
                 {espacesFines(
-                  // La luciole n'a pas encore de métamorphose : rien à promettre.
+                  // Un compagnon sans métamorphose n'en promet aucune.
                   !c.lumiere || metamorphoseOuverte(niche as CompagnonPossede)
                     ? 'Sa forme ultime : son monde prend vie.'
                     : `Sa forme ultime : son monde prend vie. Si l’Éclat tombe sur ${c.le === 'la' ? 'elle' : 'lui'}, sa métamorphose s’ouvre.`,

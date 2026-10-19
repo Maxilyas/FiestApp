@@ -111,8 +111,9 @@ export interface Compagnon {
    * remplace pas : c'est une forme de plus, qu'on choisit (le propriétaire,
    * le 19 octobre 2026 : « je veux que ce soit un choix ») — en avatar dans
    * la loge, dans sa niche depuis « Ma niche » —, ouverte à sa forme ultime
-   * quand l'Éclat brille sur lui (`metamorphoseOuverte`). La luciole n'a pas
-   * encore la sienne : l'Éclat ne lui pose que ses paillettes.
+   * quand l'Éclat brille sur lui (`metamorphoseOuverte`). Facultative : un
+   * compagnon livré sans elle n'en promet aucune, et l'Éclat ne lui pose que
+   * ses paillettes — la luciole, jusqu'à sa luciole-aurore (le 20 octobre 2026).
    */
   lumiere?: FormeDeCompagnon
   /**
@@ -176,8 +177,9 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
   ],
   // Ses formes gardent les noms de la planche que le propriétaire a vue (le
   // 18 octobre 2026), sauf la première : « le ver luisant » se serait dit « en
-  // la portant » — toutes au féminin, comme elle. Sa métamorphose n'est pas
-  // encore peinte.
+  // la portant » — toutes au féminin, comme elle. Sa métamorphose, la
+  // luciole-aurore, peinte le 20 octobre 2026 (« peins-la ici », le
+  // propriétaire) : elle ne remplace rien, comme celles des trois autres.
   [
     'luciole',
     'La Luciole',
@@ -190,7 +192,7 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
       ['adulte', 'La luciole des sentiers', 'Ses ailes d’ambre grandes ouvertes, sa traînée de lumière éclaire la forêt.'],
       ['constellation', 'La luciole-constellation', 'Ses ailes de vitrail : son essaim tourne autour d’elle et sort du cercle.'],
     ],
-    null,
+    ['aurore', 'La luciole-aurore', 'Ailes en voiles d’aurore boréale, lanterne en petit soleil.'],
     'expedition',
   ],
 ]
@@ -230,7 +232,7 @@ export const COMPAGNON_DE_L_EXPEDITION: CleDeCompagnon = 'luciole'
 /** Leurs seize formes, compagnon après compagnon. */
 export const FORMES_DES_COMPAGNONS: readonly FormeDeCompagnon[] = COMPAGNONS.flatMap(c => c.formes)
 
-/** Leurs trois métamorphoses de lumière, à part : elles ne se gagnent pas en grandissant. */
+/** Leurs métamorphoses de lumière, à part : elles ne se gagnent pas en grandissant. */
 export const METAMORPHOSES: readonly FormeDeCompagnon[] = COMPAGNONS.flatMap(c => c.lumiere ?? [])
 
 const PAR_CLE = new Map([...FORMES_DES_COMPAGNONS, ...METAMORPHOSES].map(f => [f.key, f]))
@@ -315,7 +317,7 @@ export function prochaineForme(a: CompagnonAcquis): { forme: FormeDeCompagnon; e
  * Sa métamorphose s'ouvre-t-elle à lui ? Sa forme ultime atteinte, et l'Éclat
  * sur lui — tombé avant ou après, sur n'importe laquelle de ses formes : il
  * suit le compagnon qui grandit (`clesQuiBrillent`). Jamais pour un compagnon
- * qui n'en a pas : la luciole éclatée garde ses paillettes, rien de plus.
+ * qui n'en a pas : éclaté, il garde ses paillettes, rien de plus.
  */
 export const metamorphoseOuverte = (a: Pick<CompagnonPossede, 'compagnon' | 'rang' | 'eclat'>): boolean =>
   a.rang >= 3 && !!a.eclat && !!compagnon(a.compagnon)?.lumiere
