@@ -32,6 +32,7 @@ import { CATEGORIES } from '../../../shared/categories'
 import { NIVEAUX, QUESTIONS_PAR_MARCHE, QUESTIONS_PAR_SERIE, REPONSES_FICTIVES, TAUX_A_PRIORI, VIES, tauxLisse, type MesureDUneQuestion, type Niveau } from '../../../shared/campagne'
 import { SCORE_DE_REFERENCE } from '../../../shared/duels'
 import { chanceDeValider, type Melange } from '../../../shared/sentiers'
+import { rendreLaMain } from './tourniquet'
 
 /**
  * L'écart type des forces, en logit, autour de celle du joueur de la cote de
@@ -374,6 +375,15 @@ export function* ajustement(entree: EntreeDuModele): Generator<void, ModeleDuSav
     }
     passes++
     if (plusGrand < PRECISION) break
+    // Les deux tours de toutes les questions comptent aussi : sur peu de
+    // réponses — mille, sur une base de vingt-six mille questions —, une
+    // tranche durait cinq passes et tenait le serveur 30 à 40 ms (le banc du
+    // gel, le 19 octobre 2026).
+    calculees += 2 * Q
+    if (calculees >= CHANCES_PAR_TRANCHE) {
+      calculees = 0
+      yield
+    }
   }
 
   const difficultes = new Map<string, number>()
@@ -404,7 +414,7 @@ export async function ajusterSansBloquer(entree: EntreeDuModele, arrete: () => b
   for (;;) {
     const pas = calcul.next()
     if (pas.done) return pas.value
-    await new Promise<void>(rendre => setImmediate(rendre))
+    await rendreLaMain()
     if (arrete()) return null
   }
 }

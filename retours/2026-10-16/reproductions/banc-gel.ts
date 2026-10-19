@@ -16,12 +16,17 @@
 // reste dehors, comme la vraie base, à 30 ms l'aller-retour. La machine du
 // banc étant elle-même partagée, ses gels sont plus longs que ceux de
 // Render : les rapports comptent, pas les valeurs.
+//
+// Sous tsx, chaque fonction passe par `__name`, et la base de la campagne se
+// relit et se vérifie : compilé comme le paquet (`compiler.ts`), le banc
+// mesure ce que la production fait. `PROFILER=1` y dit aussi les plus longs
+// trous de la boucle, et ce qui tournait pendant chacun.
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { monitorEventLoopDelay, PerformanceObserver } from 'node:perf_hooks'
 import { Session } from 'node:inspector/promises'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fauxTurso, attendre, DONNEES } from '../../2026-10-14/reproductions/outils.ts'
 import { demarrer, connexionAnimateur, inscrireProfil, ecrire } from '../../../server/test/banc.ts'
 const GEL = process.env.GEL === '1'
@@ -227,47 +232,116 @@ interface Mesure { etape: string; ms: number; cpuMs: number; blocageMs: number; 
 const mesures: Mesure[] = []
 const profils: Record<string, unknown> = {}
 
-/** Le profil de V8 réduit à ce qui a pris le processeur : la fonction de l'application la plus profonde de chaque échantillon. */
-function lesPlusChers(profile: any, combien = 5): string[] {
+// Compilé, toutes les fonctions sont dans le même fichier : le module d'une
+// ligne se lit dans le commentaire qu'esbuild pose en tête de chacun.
+const PAQUET = process.argv[1]
+const modules: { ligne: number; module: string }[] = []
+if (PAQUET.endsWith('.mjs')) {
+  readFileSync(PAQUET, 'utf8')
+    .split('\n')
+    .forEach((l, i) => {
+      const m = /^\/\/ (\S+\.m?[tj]s)$/.exec(l)
+      if (m) modules.push({ ligne: i, module: m[1].replace(/^(\.\.\/)+/, '') })
+    })
+}
+const moduleDe = (url: string, ligne: number): string => {
+  if (modules.length === 0 || !url.endsWith(PAQUET)) return url.replace(/^.*\/(server|shared|node_modules)\//, '$1/').replace(/^file:\/\//, '')
+  let bas = 0
+  let haut = modules.length - 1
+  while (bas < haut) {
+    const m = (bas + haut + 1) >> 1
+    if (modules[m].ligne <= ligne) bas = m
+    else haut = m - 1
+  }
+  return modules[bas].module
+}
+
+/** La clé d'un échantillon : la fonction du code de l'application (server/src, shared) la plus profonde ; sinon la feuille elle-même (une bibliothèque, un décodage). */
+function cleurDe(profile: any): (id: number | undefined) => string | null {
   const parId = new Map<number, any>(profile.nodes.map((n: any) => [n.id, n]))
   const parent = new Map<number, number>()
   for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id)
-  const temps = new Map<string, number>()
-  const nom = (cf: any) => `${cf.functionName || '(anonyme)'} ${cf.url.replace(/^.*\/(server|shared|node_modules)\//, '$1/').replace(/^file:\/\//, '')}:${cf.lineNumber + 1}`
-  for (let i = 0; i < profile.samples.length; i++) {
-    const dt = (profile.timeDeltas[i + 1] ?? 0) / 1000
-    let id: number | undefined = profile.samples[i]
+  const nom = (cf: any) => `${cf.functionName || '(anonyme)'} ${moduleDe(cf.url, cf.lineNumber)}:${cf.lineNumber + 1}`
+  return id => {
     const feuille = parId.get(id!)
-    if (!feuille || ['(idle)', '(program)'].includes(feuille.callFrame.functionName)) continue
-    let cle = feuille.callFrame.functionName === '(garbage collector)' ? '(ramasse-miettes)' : null
-    // La fonction du code de l'application (server/src, shared) la plus profonde ;
-    // sinon la feuille elle-même (une bibliothèque, un décodage).
-    while (!cle && id !== undefined) {
-      const cf = parId.get(id)?.callFrame
-      if (cf && /\/(server\/src|shared)\//.test(cf.url)) cle = nom(cf)
-      id = parent.get(id)
+    if (!feuille || ['(idle)', '(program)'].includes(feuille.callFrame.functionName)) return null
+    if (feuille.callFrame.functionName === '(garbage collector)') return '(ramasse-miettes)'
+    for (let i = id; i !== undefined; i = parent.get(i)) {
+      const cf = parId.get(i)?.callFrame
+      if (cf?.url && /(^|\/)(src|shared)\//.test(moduleDe(cf.url, cf.lineNumber)) && !cf.url.includes('node_modules')) return nom(cf)
     }
-    cle ??= `[${nom(feuille.callFrame)}]`
-    temps.set(cle, (temps.get(cle) ?? 0) + dt)
+    return `[${nom(feuille.callFrame)}]`
+  }
+}
+
+/** Le profil de V8 réduit à ce qui a pris le processeur : la fonction de l'application la plus profonde de chaque échantillon. */
+function lesPlusChers(profile: any, combien = 5): string[] {
+  const cle = cleurDe(profile)
+  const temps = new Map<string, number>()
+  for (let i = 0; i < profile.samples.length; i++) {
+    const c = cle(profile.samples[i])
+    if (c) temps.set(c, (temps.get(c) ?? 0) + (profile.timeDeltas[i + 1] ?? 0) / 1000)
   }
   return [...temps].sort((a, b) => b[1] - a[1]).slice(0, combien).filter(([, ms]) => ms >= 2).map(([c, ms]) => `${Math.round(ms)} ms ${c}`)
+}
+
+// Les trous de la boucle : une minuterie toutes les 2 ms, et chaque écart de
+// plus de 12 ms entre deux de ses tours, sur l'horloge monotone en µs — celle
+// des échantillons du profileur. Ce qui a tourné pendant un trou, c'est ce
+// qui figeait le serveur ; le profil d'une étape entière le noie.
+const trous: { a: number; b: number }[] = []
+let minuterie: NodeJS.Timeout | null = null
+function guetterLesTrous() {
+  trous.length = 0
+  let dernier = process.hrtime.bigint()
+  minuterie = setInterval(() => {
+    const t = process.hrtime.bigint()
+    if (t - dernier > 12_000_000n) trous.push({ a: Number(dernier / 1000n), b: Number(t / 1000n) })
+    dernier = t
+  }, 2)
+}
+
+/** Les plus longs trous de la boucle, et ce que le profileur y a vu tourner. */
+function lesPlusLongsTrous(profile: any, combien = 3): string[] {
+  const cle = cleurDe(profile)
+  const instants: number[] = []
+  let t = profile.startTime
+  for (let i = 0; i < profile.samples.length; i++) instants.push((t += profile.timeDeltas[i] ?? 0))
+  return [...trous]
+    .sort((x, y) => y.b - y.a - (x.b - x.a))
+    .slice(0, combien)
+    .filter(trou => trou.b - trou.a >= 20_000)
+    .map(trou => {
+      const temps = new Map<string, number>()
+      for (let i = 0; i < instants.length; i++) {
+        if (instants[i] < trou.a || instants[i] > trou.b) continue
+        const c = cle(profile.samples[i]) ?? '(repos)'
+        temps.set(c, (temps.get(c) ?? 0) + (profile.timeDeltas[i + 1] ?? 0) / 1000)
+      }
+      return `trou ${Math.round((trou.b - trou.a) / 1000)} ms : ${[...temps].sort((x, y) => y[1] - x[1]).slice(0, 6).map(([c, ms]) => `${Math.round(ms)} ${c}`).join(' · ')}`
+    })
 }
 
 async function mesurer(etape: string, f: () => Promise<number | void>, { profiler = PROFILER } = {}) {
   gcs = []
   const h = monitorEventLoopDelay({ resolution: 5 })
   h.enable()
-  if (profiler) await session.post('Profiler.start')
+  if (profiler) {
+    await session.post('Profiler.start')
+    guetterLesTrous()
+  }
   const cpu = process.cpuUsage()
   const debut = performance.now()
   const octets = await f()
   const ms = performance.now() - debut
   const c = process.cpuUsage(cpu)
   h.disable()
+  if (minuterie) clearInterval(minuterie)
+  minuterie = null
   let haut: string[] = []
   if (profiler) {
     const { profile } = await session.post('Profiler.stop')
-    haut = lesPlusChers(profile)
+    haut = [...lesPlusChers(profile), ...lesPlusLongsTrous(profile)]
     profils[etape] = profile
   }
   await new Promise(r => setImmediate(r))

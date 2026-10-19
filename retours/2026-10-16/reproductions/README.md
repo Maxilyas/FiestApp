@@ -21,6 +21,9 @@ GEL=1 node --import tsx ../retours/2026-10-16/reproductions/banc-gel.ts
 GEL=1 node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 --import tsx ../retours/2026-10-16/reproductions/banc-gel.ts
 # Avec le profileur de V8 : les fonctions qui ont pris le processeur (ses propres échantillons coûtent).
 PROFILER=1 node --import tsx ../retours/2026-10-16/reproductions/banc-gel.ts
+# Compilé comme le paquet de production (`npm run build` d'abord : la base vérifiée au build), puis les trous de la boucle.
+node --import tsx ../retours/2026-10-16/reproductions/compiler.ts ../retours/2026-10-16/reproductions/banc-gel.ts ../export/banc/banc-gel.mjs
+PROFILER=1 node ../export/banc/banc-gel.mjs
 # Puis, sur la base qu'il a laissée : les allers-retours de chaque route, et son processeur rangé par couche.
 node --import tsx ../retours/2026-10-16/reproductions/banc-gel-profil.ts
 ```
@@ -70,6 +73,25 @@ la description des entités) ne la change pas ; le reste des gels — 1,2 à
 ramasse-miettes. Sans réducteur, le tas du banc monte à 230–275 Mo au lieu
 de 160–185 : d'où le plafond de la commande de démarrage
 (`--max-old-space-size=320`, règle `exploitation.md`).
+
+**Les trous de la boucle, compilé comme en production** (le 19 octobre 2026,
+`compiler.ts`, sans bride) : sous tsx, la base se relit et se vérifie au
+réveil — le processeur du juge, que la production ne paie pas —, et chaque
+fonction passe par `__name`. Compilé, la base vérifiée au build se relit
+telle quelle, et `PROFILER=1` dit les plus longs trous de la boucle (une
+minuterie toutes les 2 ms) et ce que le profileur a vu tourner pendant
+chacun. Les plus longs, avant et après le tourniquet (`rendreLaMain`,
+`server/src/core/tourniquet.ts`) — une étape de fond par tour de boucle :
+
+| Étape | Avant | Après |
+|---|---|---|
+| Préchauffage après un réveil | 131 ms — les index de la base, les familles de la mesure, la préparation des tirages, la série de référence, d'un bloc | 34 ms — les index de la base seuls, ou la première préparation d'un tirage |
+| Un dé tombé sur une mesure périmée | 68 ms — les familles, le tirage, la série de référence d'Automate | 13 ms |
+| Un tirage tombé sur une mesure périmée | 32 ms | 17 ms |
+
+Au dixième de cœur de l'hébergeur, un bloc de calcul dure dix fois plus :
+1,3 s de serveur figé au réveil, 0,3 s après. Le processeur, lui, ne change
+pas : le travail est le même, rendu en étapes.
 
 **L'étape 2 — les sujets et le tirage** (`banc-tirage.ts`) : sur la vraie
 base, sans serveur, les sujets de toute la base, la préparation d'un tirage

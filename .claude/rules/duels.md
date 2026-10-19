@@ -301,7 +301,12 @@ jour a sa notification (règle `rappel-et-installation.md`).
   dé lit celui qu'il y a, et lance le suivant **avant** son `batch` s'il a
   vieilli : partie derrière, sa lecture serait un aller-retour de plus. Il
   rend la main par tranches (`CHANCES_PAR_TRANCHE`) : d'un bloc, cent mille
-  réponses tiendraient le serveur une seconde.
+  réponses tiendraient le serveur une seconde. Les deux tours de toutes les
+  questions de chaque passe y comptent aussi : sur mille réponses et
+  vingt-six mille questions, une tranche durait cinq passes, 30 à 40 ms. Et
+  chaque tranche, comme ses étapes d'avant — les questions du modèle, la
+  préparation du tirage, la série de référence —, passe par le tourniquet
+  (`rendreLaMain`, règle `campagne.md`).
 - **Le classement relit toutes les rencontres finies** de tout le monde :
   gardé (`cotes`) dix minutes au plus (`COTES_GARDEES_MS`), vidé à chaque duel
   fini ici et au départ d'un profil — et la fin de chaque duel le relit

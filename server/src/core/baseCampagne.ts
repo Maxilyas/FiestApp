@@ -9,6 +9,7 @@ import { sansAccent } from '../../../shared/homonymes'
 // Partagée : l'écran de l'administrateur, qui corrige une question, borne ses champs à la même mesure.
 import { MAX_REPONSE } from '../../../shared/campagne'
 import { empreinteDe } from './jour'
+import { rendreLaMain } from './tourniquet'
 
 /**
  * La base de la campagne : ses questions à elle, écrites et étiquetées
@@ -327,7 +328,7 @@ export async function lireLaBaseSansBloquer(dossier = DOSSIER_DE_LA_BASE): Promi
   for (;;) {
     const pas = lecture.next()
     if (pas.done) return pas.value
-    await new Promise<void>(rendre => setImmediate(rendre))
+    await rendreLaMain()
   }
 }
 
@@ -512,6 +513,9 @@ export class BaseDeLaCampagne {
       console.warn(`[campagne] ${refusees.length} question(s) de la base écartée(s) :`)
       for (const r of refusees.slice(0, 10)) console.warn(`  ${r.fichier} #${r.position} — ${r.motif}`)
     }
+    // Ses index, vingt millisecondes sur toute la base, à leur tour de boucle
+    // (`rendreLaMain`) : pas derrière le dernier morceau du fichier.
+    await rendreLaMain()
     return new BaseDeLaCampagne(questions)
   }
 }
