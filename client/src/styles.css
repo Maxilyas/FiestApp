@@ -10912,6 +10912,12 @@ body.avec-niche .tete-sous-la-niche { display: flex; }
 /* Au podium d'un quiz, la place va à la ligne plutôt que de passer sous elle, et « Quiz terminé » garde sa largeur. */
 body.avec-niche .fin-quiz-ligne { flex-wrap: wrap; row-gap: 2px; margin-right: var(--niche-place); border-radius: 20px; }
 body.avec-niche .fin-quiz-quoi { flex: 1 0 auto; overflow: visible; text-overflow: clip; }
+/* Les écrans d'un duel : leur surtitre, centré sur toute la largeur, passait sous elle — « Toutes les catégories » y perdait sa fin. Il se pose sous son bas (max(82px, encoche + 58px)), à dix pixels. */
+body.avec-niche .player-shell.duels-verdict,
+body.avec-niche .player-shell.duels-envoye { padding-top: max(92px, calc(env(safe-area-inset-top) + 68px)); }
+body.avec-niche .duels-defi > .duels-surtitre { margin-top: 30px; }
+/* La croix du verdict était sous elle : la toucher ouvrait « Ma niche ». Elle prend le coin d'en face, où les autres écrans d'un duel ont leur sortie (« ← Les duels ») : collée à sa gauche, on la prenait pour celle du compagnon. */
+body.avec-niche .duels-fermer { right: auto; left: 12px; }
 /* Le rayon des objets : une case par objet — son dessin dans un rond de sa
    couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
    au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on
