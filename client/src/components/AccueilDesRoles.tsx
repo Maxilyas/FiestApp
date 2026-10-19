@@ -12,11 +12,11 @@ import { PALIER_DU_MAITRE, type SentiersDAccueil } from '../../../shared/sentier
 import type { DefiDAccueil } from '../../../shared/campagne'
 import { placeDuJour } from '../../../shared/course'
 import { DUELS_POUR_LA_RECOMPENSE, ligueParCle, type DuelsDAccueil } from '../../../shared/duels'
-import { formatNumber } from '../../../shared/typographie'
 // Il n'importe rien, et l'en-tête de l'accueil le tire déjà par `shared/legendaires.ts` (`Identite.tsx`).
 import { EXPEDITION_EN_PRODUCTION } from '../../../shared/jokers'
-// Déjà sur l'accueil par son en-tête (`Identite.tsx`) : le merci n'y ajoute rien à télécharger.
-import { phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/profil'
+import type { AnnonceDeLAdministrateur } from '../../../shared/profil'
+// Ses cartes n'importent que ce que l'accueil a déjà : l'en-tête tire `shared/profil.ts` (`Identite.tsx`).
+import { CarteDeLAdministrateur } from './CarteDeLAdministrateur'
 // Ils n'importent rien : le premier script de chaque page les lit déjà (`main.tsx`).
 import { BOUTON_BIENTOT, BOUTON_EN_MAINTENANCE, PASTILLE_AVANT_PREMIERE, type BoutonDeLaPage, type PageEnMaintenance } from '../../../shared/maintenance'
 import { boutonEteint } from '../maintenance'
@@ -374,9 +374,10 @@ function annoncesNouvelles(profileId: string, annonces: readonly AnnonceDeLAdmin
  * Ce que l'administrateur a fait pour lui — des confettis offerts et son
  * mot, son prénom changé (la maquette validée le 13 octobre 2026), une
  * question qu'il a signalée et dont sa remarque a servi (celle du 14
- * octobre 2026, « Remercier le joueur ») —, en tête de l'accueil, une fois :
- * sur ce téléphone, elles sont retenues dès qu'elles paraissent, et
- * « Merci » les range — « Avec plaisir », sous un merci.
+ * octobre 2026, « Remercier le joueur »), ce qu'il a annoncé à tous (le 19
+ * octobre 2026) —, en tête de l'accueil, une fois : sur ce téléphone, elles
+ * sont retenues dès qu'elles paraissent, et leur bouton les range
+ * (`CarteDeLAdministrateur`).
  */
 export function AnnoncesDeLAdministrateur({ profileId, prenom, annonces }: { profileId: string; prenom: string; annonces?: readonly AnnonceDeLAdministrateur[] }) {
   const [montrees, setMontrees] = useState<AnnonceDeLAdministrateur[]>([])
@@ -390,36 +391,7 @@ export function AnnoncesDeLAdministrateur({ profileId, prenom, annonces }: { pro
   return (
     <ul className="annonces-admin" aria-label="De l’administrateur">
       {montrees.map(a => (
-        <li key={a.id} className={'annonce-admin' + (a.sorte === 'merci' ? ' annonce-admin-pile' : '')}>
-          <span className="annonce-admin-icone" aria-hidden="true">
-            <Icon name={a.sorte === 'confettis' ? 'sparkles' : a.sorte === 'merci' ? 'heart' : 'edit'} />
-          </span>
-          <span className="annonce-admin-texte">
-            {a.sorte === 'confettis' ? (
-              <>
-                <b>
-                  +{formatNumber(a.confettis)} confetti{a.confettis > 1 ? 's' : ''}
-                </b>
-                {a.mot && <span>{espacesFines(`« ${a.mot} »`)}</span>}
-                <span className="muted small">— de l’administrateur</span>
-              </>
-            ) : a.sorte === 'merci' ? (
-              <>
-                <b>{espacesFines(`Merci, ${prenom} !`)}</b>
-                <span>{espacesFines(phraseDuMerci(a))}</span>
-                <span className="muted small">— de l’administrateur</span>
-              </>
-            ) : (
-              <>
-                <b>Ton prénom a changé</b>
-                <span>{espacesFines(`L’administrateur l’a changé en « ${a.nom} ».`)}</span>
-              </>
-            )}
-          </span>
-          <button type="button" className="annonce-admin-merci" onClick={() => setMontrees(m => m.filter(x => x.id !== a.id))}>
-            {a.sorte === 'merci' ? 'Avec plaisir' : 'Merci'}
-          </button>
-        </li>
+        <CarteDeLAdministrateur key={a.id} annonce={a} prenom={prenom} onRanger={() => setMontrees(m => m.filter(x => x.id !== a.id))} />
       ))}
     </ul>
   )

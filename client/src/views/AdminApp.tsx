@@ -15,6 +15,7 @@ import { QgSoirees } from '../components/QgSoirees'
 import { QgServeur } from '../components/QgServeur'
 import { QgActivite } from '../components/QgActivite'
 import { QgMaintenance } from '../components/QgMaintenance'
+import { QgAnnonces } from '../components/QgAnnonces'
 import { MenuBarre, Sortie } from '../components/Pieces'
 import { useAppState } from '../state'
 import { useNouveautesDuMenu } from '../nouveautes'
@@ -47,8 +48,22 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * catalogue.
  */
 
-type Ecran = 'journal' | 'serveur' | 'maintenance' | 'activite' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne' | 'duels' | 'economie' | 'signalements'
-const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements']
+type Ecran =
+  | 'journal'
+  | 'serveur'
+  | 'maintenance'
+  | 'activite'
+  | 'soirees'
+  | 'profils'
+  | 'salons'
+  | 'catalogue'
+  | 'jour'
+  | 'campagne'
+  | 'duels'
+  | 'economie'
+  | 'signalements'
+  | 'annonces'
+const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -71,13 +86,15 @@ const TITRE: Record<Ecran, string> = {
   duels: 'Les duels',
   economie: 'L’économie',
   signalements: 'Les signalements',
+  annonces: 'Les annonces',
 }
 
 /**
  * La barre de côté, par groupe ; la vue d'ensemble est `null`. Seules les
- * pages qui existent : « Animer » la rejoindra à son tour. L'économie se
- * range avec les joueurs, comme sur la maquette : leurs confettis ; l'activité
- * en tête des modes, qu'elle compare.
+ * pages qui existent : « Animer » est venu avec les annonces (le 19 octobre
+ * 2026), les événements et la mise en avant le rejoindront à leur tour.
+ * L'économie se range avec les joueurs, comme sur la maquette : leurs
+ * confettis ; l'activité en tête des modes, qu'elle compare.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
@@ -113,6 +130,10 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
       { ecran: 'catalogue', nom: 'Catalogue', icone: 'globe' },
       { ecran: 'signalements', nom: 'Signalements', icone: 'flag' },
     ],
+  },
+  {
+    groupe: 'Animer',
+    pages: [{ ecran: 'annonces', nom: 'Annonces', icone: 'megaphone' }],
   },
 ]
 
@@ -398,14 +419,16 @@ export function AdminApp() {
                 <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
                 <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
                 <Ligne icone="alert" nom="La maintenance" valeur={enMaintenance || 'Bandeau, pages fermées, testeurs'} onClick={() => aller('maintenance')} />
+                <Ligne icone="megaphone" nom="Les annonces" valeur="Un mot à tous, des confettis" onClick={() => aller('annonces')} />
               </ul>
             </nav>
           </>
         )}
         {ecran === 'journal' && <QgJournal />}
         {ecran === 'serveur' && <QgServeur />}
-        {/* Chaque geste rend l'état d'après : la barre de côté le compte aussitôt. */}
-        {ecran === 'maintenance' && <QgMaintenance onEtat={setMaintenance} />}
+        {/* Chaque geste rend l'état d'après : la barre de côté le compte aussitôt. La panne réglée, l'annonce qui le dit à tous. */}
+        {ecran === 'maintenance' && <QgMaintenance onEtat={setMaintenance} versLesAnnonces={() => aller('annonces')} />}
+        {ecran === 'annonces' && <QgAnnonces />}
         {ecran === 'activite' && <QgActivite />}
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
         {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} />}

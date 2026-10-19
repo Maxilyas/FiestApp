@@ -41,6 +41,7 @@ export type IconName =
   | 'list'
   | 'lock'
   | 'maximize'
+  | 'megaphone'
   | 'message'
   | 'more'
   | 'more-vertical'
@@ -238,6 +239,15 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
     ),
   },
   message: { paths: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10Z" /> },
+  // L'annonce de l'administrateur à tous : son onglet du QG, sa carte sur l'accueil.
+  megaphone: {
+    paths: (
+      <>
+        <path d="m3 11 18-5v12L3 14v-3Z" />
+        <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+      </>
+    ),
+  },
   alert: {
     paths: (
       <>

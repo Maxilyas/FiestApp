@@ -326,11 +326,11 @@ Les fonds des savoirs achetés en boutique (`shared/fonds.ts`), un par profil et
 
 ### `profile_dons`
 
-Les confettis offerts par l'administrateur, avec leur mot.
+Les confettis offerts par l'administrateur, avec leur mot — et ceux d'une annonce à tous, un don par profil.
 
-- **Colonnes clés** : `id`, `profile_id`, `confettis`, `mot`, `created_at` (indexée : la page de l'économie du QG lit les dons par date).
+- **Colonnes clés** : `id` (celui d'un don d'annonce se déduit d'elle et du profil — `annonce:<annonce>:<profil>` : rejouée, elle ne donne pas deux fois, et l'accueil ne la redit pas en don), `profile_id`, `confettis`, `mot` (vide sous une annonce : son message vit dans `qg_annonces`), `created_at` (indexée : la page de l'économie du QG lit les dons par date).
 - **Espace** : non.
-- **Écrite par** : `ProfileStore` (`offrirDesConfettis`, depuis la fiche d'un joueur au QG), jamais modifiée.
+- **Écrite par** : `ProfileStore` (`offrirDesConfettis`, depuis la fiche d'un joueur au QG ; `annoncerATous`, depuis la page des annonces, dans le lot de l'annonce), jamais modifiée.
 - **Lue par** : `ProfileStore` (le solde, l'annonce sur l'accueil) ; la page de l'économie du QG (`economieDepuis`, « Tes dons »).
 - **Effacée par** : la suppression du profil.
 
@@ -905,6 +905,16 @@ Les testeurs d'une page bientôt disponible : un profil par ligne, qui y entre a
 - **Écrite par** : `Maintenance` (`ajouterUnTesteur`), depuis la page du QG.
 - **Lue par** : `Maintenance`, une fois au démarrage, puis tenue en mémoire avec l'état des pages.
 - **Effacée par** : le testeur retiré au QG ; un profil supprimé emporte les siennes (`oublierProfil`, dans `supprimerProfil`). La page rouverte à tous les garde, pour une prochaine fois.
+
+### `qg_annonces`
+
+Les annonces de l'administrateur à tous les profils (`/admin#annonces`) : un message que chacun lit une fois sur son accueil, et ce qu'il offre à chacun.
+
+- **Colonnes clés** : `id` (tiré par la page qui l'envoie : le même envoi refait ne repart pas), `message`, `confettis` (par profil ; 0, un message seul), `destinataires` (les profils qui l'ont reçue : ceux d'alors, sans les suspendus), `created_at` (indexée : l'accueil lit celles du dernier mois), `retiree_le`.
+- **Espace** : non — elle parle à tout le serveur.
+- **Écrite par** : `ProfileStore` (`annoncerATous`, dans le même lot que ses dons de `profile_dons` ; `retirerLAnnonce`, qui pose `retiree_le`).
+- **Lue par** : `ProfileStore` — l'accueil de chaque profil, dans le lot de ses dons (`achatsDe`), celles du dernier mois faites après son inscription ; la page du QG (`annoncesAuQg`).
+- **Effacée par** : rien — retirée, elle se tait ; ses confettis restent offerts.
 
 ## Pour aller plus loin
 

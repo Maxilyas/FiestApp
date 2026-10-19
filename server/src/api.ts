@@ -6,6 +6,7 @@ import { expeditionOuverte, mountExpedition } from './expedition'
 import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
+import { mountAnnonces } from './annonces'
 import type { Maintenance } from './core/maintenance'
 import { journaliser, type JournalDesGestes } from './core/journalDesGestes'
 import express, { type Express } from 'express'
@@ -209,6 +210,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   })
   // Le bandeau rouge, les pages fermées et leurs testeurs : l'administrateur seul.
   mountMaintenance(app, { maintenance: deps.maintenance, profiles: deps.profiles })
+  // Les annonces à tous, et les confettis qu'elles offrent : l'administrateur seul.
+  mountAnnonces(app, { profiles: deps.profiles })
 
   /**
    * Le ménage des photos de l'espace. Celles qu'une partie encore sur le

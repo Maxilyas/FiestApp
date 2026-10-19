@@ -976,13 +976,16 @@ export type IssueQuiSert = 'corrigee' | 'reclassee' | 'retiree' | 'annulee'
 /**
  * Ce que l'administrateur a fait pour un joueur et qu'on lui dit, une fois,
  * en tête de son accueil : des confettis offerts, son prénom changé, une
- * question qu'il a signalée et dont sa remarque a servi. Retenu sur son
- * téléphone une fois montré (`AnnoncesDeLAdministrateur`).
+ * question qu'il a signalée et dont sa remarque a servi — et ce qu'il a dit à
+ * tous, une annonce (`shared/annonces.ts`), avec les confettis qu'elle lui a
+ * offerts. Retenu sur son téléphone une fois montré
+ * (`AnnoncesDeLAdministrateur`).
  */
 export type AnnonceDeLAdministrateur =
   | { id: string; sorte: 'confettis'; confettis: number; mot: string | null; le: number }
   | { id: string; sorte: 'prenom'; nom: string; le: number }
   | { id: string; sorte: 'merci'; mode: 'jour' | 'campagne'; issue: IssueQuiSert; question: string; le: number }
+  | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number }
 
 /** Combien de temps une annonce attend sa prochaine visite : un mois, puis elle se tait. */
 export const ANNONCE_MS = 30 * 24 * 3_600_000
