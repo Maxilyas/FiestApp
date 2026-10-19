@@ -443,12 +443,25 @@ test('à l’écran : la carte améliorée porte son « + » vert et son nom « 
   )
 })
 
-test('avant de choisir : la carte et son amélioration côte à côte, et ce qu’elle y gagne ; les règles du jeu complet le disent, celles d’avant non', async () => {
+test('avant de choisir : la carte et son amélioration côte à côte, ce que fait chacune et ce qu’elle y gagne ; les règles du jeu complet le disent, celles d’avant non', async () => {
   const { AvantApres, FeuilleDesRegles } = await pieces()
   const html = await rendre(AvantApres, { cle: 'prudence' })
   assert.deepEqual([...html.matchAll(/class="exp-vc exp-vc-rangee[^"]*"/g)].length, 2)
   assert.match(html, /exp-vc-amelioree/)
-  assert.match(texte(html), /Bouclier 8 au lieu de 5/)
+  // Chacune sa phrase entière, son coût et son moment : « 5 › 8 » et « Bouclier 8 au lieu de 5 » seuls ne disaient ni ce que fait
+  // la carte, ni ce que fera son amélioration (un retour du 19 octobre 2026).
+  const dit = texte(html)
+  assert.match(dit, /Prudence : Bouclier 5 : si tu te trompes, il pare 5 de l’attaque\. 1 d’énergie · avant la question/)
+  assert.match(dit, /Prudence\+ : Bouclier 8 : si tu te trompes, il pare 8 de l’attaque\. 1 d’énergie · avant la question/)
+  assert.match(dit, /Bouclier 8 au lieu de 5/)
+  // Moins chère : la même phrase, et ce qu'elle coûte dessous.
+  const gratuite = texte(await rendre(AvantApres, { cle: 'coup-d-oeil' }))
+  assert.match(gratuite, /Coup d’œil : Efface une mauvaise réponse\. 1 d’énergie · pendant la question/)
+  assert.match(gratuite, /Coup d’œil\+ : Efface une mauvaise réponse\. gratuite · pendant la question/)
+  // Elle revient : « une fois par rencontre » sous sa carte, plus sous l'améliorée.
+  const revient = texte(await rendre(AvantApres, { cle: 'echange' }))
+  assert.match(revient, /Échange : Change de question : une autre, posée par le même adversaire\. gratuite · pendant la question · une fois par rencontre/)
+  assert.match(revient, /Échange\+ : Change de question : une autre, posée par le même adversaire\. gratuite · pendant la question Plus seulement une fois par rencontre/)
   assert.equal(await rendre(AvantApres, { cle: 'surmenage' }), '', 'une maudite ne s’améliore pas')
   const regles = (v: number) => rendre(FeuilleDesRegles, { rencontres: true, v, onFermer: rien })
   const neuves = texte(await regles(VERSION_DU_JEU_COMPLET))
