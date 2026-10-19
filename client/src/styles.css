@@ -4553,8 +4553,18 @@ h3 > .icon {
    blanc sur rouge, le même rouge sous tous les thèmes — une convention, comme
    le compteur des gros boutons : `--alert` vire au jaune sous Braises. Dans
    le flux, au-dessus de `#root` : il défile avec la page et ne couvre rien ;
-   il garde l'encoche à sa charge. Jamais pendant une soirée (`montreLeBandeau`). */
+   il garde l'encoche à sa charge. Jamais pendant une soirée (`montreLeBandeau`).
+   Au niveau 1 : un thème peint son décor en couches fixes au niveau 0 et
+   remonte `#root` au niveau 1 — dans le flux, sans niveau, le bandeau passait
+   sous la montagne du Sommet, et il ne restait que sa place vide (le retour du
+   propriétaire du 19 octobre 2026). Ça ne vaut que le temps du chargement :
+   le voile du thème, une couche de `#root`, le couvrait encore, et la page là,
+   il est repris dans la racine (`BandeauxDuService`), où rien ne le voile et
+   où ce que la page pose par-dessus — un dialogue, une feuille, la bannière
+   d'un duel — le recouvre (`maintenance.test.ts`). */
 .bandeau-du-service {
+  position: relative;
+  z-index: 1;
   padding: max(10px, env(safe-area-inset-top)) 16px 10px;
   background: #d93025;
   color: #ffffff;

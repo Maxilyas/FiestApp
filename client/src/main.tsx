@@ -2,6 +2,7 @@ import React, { Component, Suspense, type ComponentType, type ReactNode } from '
 import ReactDOM from 'react-dom/client'
 import { DialogHost } from './components/Dialog'
 import { NicheHost } from './components/NicheHost'
+import { BandeauxDuService } from './components/BandeauxDuService'
 import { applyTheme } from './theme'
 import { confirmerTheme, poserThemeRetenu } from './themeJoueur'
 import { poserNicheRetenue } from './niche'
@@ -10,7 +11,7 @@ import { ecouterLInstallation } from './installation'
 import { Patience } from './annonce'
 import { route, type AccountPage, type PublicPage } from './routes'
 import { donneesDuFragment } from '../../shared/depart'
-import { CLASSE_DU_BANDEAU, pageDeLAdresse } from '../../shared/maintenance'
+import { pageDeLAdresse } from '../../shared/maintenance'
 import { fermeePourMoi } from './maintenance'
 import { titreDePage } from './titres'
 import './styles.css'
@@ -227,28 +228,6 @@ if (appEnv) {
 }
 
 /**
- * Le bandeau de l'administrateur (`ecrireLeService`, `server/src/core/page.ts`),
- * déjà dans la page au-dessus de la racine : il ne demande aucun script pour
- * se montrer. La niche du compagnon, fixée au coin, descend de sa hauteur
- * (`--haut-du-bandeau`) tant que la page n'a pas défilé — mesurée à chaque
- * changement : une ligne de plus à l'écran tourné, rien pendant une question,
- * où il se tait.
- */
-const bandeaux = document.querySelectorAll<HTMLElement>(`.${CLASSE_DU_BANDEAU}`)
-if (bandeaux.length > 0) {
-  document.body.classList.add('avec-bandeau')
-  const mesurer = () => {
-    let haut = 0
-    bandeaux.forEach(b => (haut += b.offsetHeight))
-    document.body.style.setProperty('--haut-du-bandeau', `${haut}px`)
-  }
-  if (typeof ResizeObserver === 'function') {
-    const suivi = new ResizeObserver(mesurer)
-    bandeaux.forEach(b => suivi.observe(b))
-  } else mesurer()
-}
-
-/**
  * Le filet : une erreur de rendu, et React démonte la page entière. L'invité
  * restait devant un écran noir, sans un mot et sans bouton — il a suffi d'un
  * stockage refusé au chargement d'un module pour que la page de jeu y passe.
@@ -290,6 +269,8 @@ const racine = ReactDOM.createRoot(document.getElementById('root')!)
 const rendre = (page: ReactNode) =>
   racine.render(
     <React.StrictMode>
+      {/* Le bandeau de l'administrateur, repris dans la racine : hors d'elle, le voile d'un thème peint l'effaçait. */}
+      <BandeauxDuService />
       <Filet>
         {/* Rien n'y suspend plus : le filet d'une page qui suspendrait un jour. */}
         <Suspense fallback={<Patience texte={<p className="muted">Chargement…</p>} />}>{page}</Suspense>

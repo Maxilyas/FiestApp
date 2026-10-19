@@ -11,13 +11,20 @@
 // 1366 × 768. À chaque photo, ce qui déborde en largeur, et ce qui passe sous
 // la niche.
 //
-//   npx tsx scripts/rendu-maintenance.ts [dossier]        (THEME=ivoire)
+//   npx tsx scripts/rendu-maintenance.ts [dossier]        (THEME=ivoire, THEME=sommet…)
+//
+// Léa et Tom ont tous les thèmes — achetés, et gagnés par les badges qui les
+// ouvrent, comme Camille dans `rendu-themes.ts` : un thème peint posait son
+// décor par-dessus le bandeau, et seul un thème gagné le montrait.
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil } from '../test/banc'
+import { THEMES } from '../../shared/themes'
+import { BRANCHES } from '../../shared/branches'
+import { PAGES, cleDeLaPage } from '../../shared/calendrier'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-maintenance')
 mkdirSync(sortie, { recursive: true })
@@ -60,22 +67,36 @@ const navigateur = await chromium.launch({ headless: true })
 const rapport: string[] = []
 try {
   const admin = await connexionAnimateur(banc.url)
-  // Léa, son loup dans sa niche : la niche descend sous le bandeau.
+  // Léa, son loup dans sa niche : la niche descend sous le bandeau. Tom teste
+  // l'Expédition, que l'administrateur garde pour bientôt.
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
-  const id = ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: lea } })).json()) as any).profile.id
+  const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐸')
+  const idDe = async (cookie: string) => ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: cookie } })).json()) as any).profile.id as string
+  const id = await idDe(lea)
+  const idTom = await idDe(tom)
   const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   db.prepare('UPDATE profiles SET niche = ? WHERE id = ?').run('loup', id)
   db.prepare('INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, 1000, 1, 1)').run(id, 'loup')
+  for (const qui of [id, idTom]) {
+    const achat = db.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, 1)')
+    for (const t of THEMES) if (t.rarete !== 'offert' && !t.gagne) achat.run(qui, t.key)
+    const maitre = db.prepare('INSERT INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, 13, 1)')
+    for (const b of BRANCHES) maitre.run(qui, b.key)
+    const badge = db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, ?, '', '🏅', ?, 1)`)
+    for (let i = 0; i < 50; i++) badge.run(qui, 'hf:laurier', `#jour:2026-01-${i}`, 'Laurier')
+    for (const cle of ['hf:infatigable:2', 'hf:alpiniste:3', 'hf:elite:2', 'mois:2026-09']) badge.run(qui, cle, '#jour:2026-09-30', cle)
+    for (const p of PAGES) badge.run(qui, cleDeLaPage(p.mois), `#jour:2026-${p.mois}-24`, p.nom)
+  }
   db.close()
   await banc.redemarrer()
   const adminDeNouveau = await connexionAnimateur(banc.url)
-  if (theme) await ecrire(banc.url, '/api/joueur/moi', { theme }, lea, 'PUT')
+  for (const qui of [lea, tom]) {
+    if (!theme) break
+    const r = await ecrire(banc.url, '/api/joueur/moi', { theme }, qui, 'PUT')
+    if (!r.ok) throw new Error(`Le thème ${theme} ne se porte pas (${r.status} ${await r.text()})`)
+  }
 
   const poser = (chemin: string, corps: unknown) => ecrire(banc.url, chemin, corps, adminDeNouveau, 'PUT').then(r => r.status)
-  // Tom teste l'Expédition, que l'administrateur garde pour bientôt.
-  const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐸')
-  const idTom = ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: tom } })).json()) as any).profile.id
-  if (theme) await ecrire(banc.url, '/api/joueur/moi', { theme }, tom, 'PUT')
   console.log(
     'bandeau, jour, duels, expédition, son testeur :',
     await poser('/api/admin/maintenance/bandeau', { texte: 'Le quiz du jour et les duels sont en panne depuis ce matin : on répare, merci de votre patience !' }),
