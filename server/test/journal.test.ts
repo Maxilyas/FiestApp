@@ -155,6 +155,11 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, '/api/admin/maintenance/bandeau', { texte: null }, 'PUT'), 'retirer le bandeau')
     ok(await faire(banc, admin, '/api/admin/maintenance/pages/jour', { fermee: true }, 'PUT'), 'mettre en maintenance')
     ok(await faire(banc, admin, '/api/admin/maintenance/pages/jour', { fermee: false }, 'PUT'), 'rouvrir')
+    // L'Expédition annoncée pour bientôt, Max pour la tester — puis retiré, et elle ouverte à tous.
+    ok(await faire(banc, admin, '/api/admin/maintenance/pages/expedition', { etat: 'bientot' }, 'PUT'), 'annoncer pour bientôt')
+    ok(await faire(banc, admin, `/api/admin/maintenance/pages/expedition/testeurs/${idMax}`, {}, 'PUT'), 'ajouter un testeur')
+    ok(await faire(banc, admin, `/api/admin/maintenance/pages/expedition/testeurs/${idMax}`, {}, 'DELETE'), 'retirer un testeur')
+    ok(await faire(banc, admin, '/api/admin/maintenance/pages/expedition', { etat: 'ouverte' }, 'PUT'), 'ouvrir à tous')
 
     // La campagne : régler le mélange d'un palier, puis garder, retirer, corriger.
     ok(await faire(banc, admin, '/api/admin/campagne/paliers/2/melange', { melange: { facile: 12, moyen: 4 } }), 'régler un mélange')
@@ -217,6 +222,10 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Bandeau retiré : « Le quiz du jour revient ce soir »',
       'Page mise en maintenance : Le quiz du jour',
       'Page rouverte aux joueurs : Le quiz du jour',
+      'Page bientôt disponible, pour ses testeurs : L’Expédition',
+      'Testeur ajouté à « L’Expédition » : Max (@max)',
+      'Testeur retiré de « L’Expédition » : Max (@max)',
+      'Page ouverte à tous : L’Expédition',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
     }
@@ -241,8 +250,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     assert.equal(gestes.find(g => g.resume.startsWith('Soirée laissée en plan'))?.cible, enPlan)
     assert.deepEqual(
       gestes.filter(g => g.sorte === 'maintenance').map(g => g.cible),
-      [null, null, null, 'jour', 'jour'],
-      'une page fermée vise sa page ; le bandeau, rien',
+      [null, null, null, 'jour', 'jour', 'expedition', idMax, idMax, 'expedition'],
+      'une page fermée vise sa page ; un testeur, son profil, pour sa fiche ; le bandeau, rien',
     )
 
     // La page le lit, du plus récent au plus ancien ; filtré par sorte.

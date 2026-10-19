@@ -62,16 +62,21 @@ export function prechargerDonnees(html: string, adresses: string[]): string {
  * serveur dans la page même : le bandeau en clair au-dessus de la racine —
  * là dès la première image, sans un script ni une requête de plus, et sans
  * que rien ne saute quand la page arrive dessous ; React ne touche qu'à
- * `#root`, il reste —, et les pages fermées dans une balise que le client lit
- * (`client/src/maintenance.ts`). Sur une page fermée, l'administrateur, qui y
- * entre encore, lit qu'elle l'est pour les joueurs : sans un mot, il ne
- * verrait pas qu'il l'a laissée fermée. Le texte passe par `echapper` :
- * l'administrateur l'écrit, mais tout le monde le lit.
+ * `#root`, il reste —, et les pages fermées dans des balises que le client lit
+ * (`client/src/maintenance.ts`) : en maintenance, bientôt disponibles, et
+ * celles où ce visiteur entre quand même — l'administrateur partout, un
+ * testeur dans celles qu'il essaie. Sur une page en maintenance,
+ * l'administrateur, qui y entre encore, lit qu'elle l'est pour les joueurs :
+ * sans un mot, il ne verrait pas qu'il l'a laissée fermée. Le texte passe par
+ * `echapper` : l'administrateur l'écrit, mais tout le monde le lit.
  */
 export function ecrireLeService(html: string, service: ServiceDeLaPage): string {
+  const uneFermee = service.fermees.length > 0 || service.bientot.length > 0
   const metas = [
     service.fermees.length > 0 && `<meta name="maintenance" content="${ecrireLesFermees(service.fermees)}">`,
-    service.fermees.length > 0 && service.admin && '<meta name="maintenance-passe" content="oui">',
+    service.bientot.length > 0 && `<meta name="bientot" content="${ecrireLesFermees(service.bientot)}">`,
+    uneFermee && service.admin && '<meta name="maintenance-passe" content="oui">',
+    service.avantPremiere.length > 0 && `<meta name="avant-premiere" content="${ecrireLesFermees(service.avantPremiere)}">`,
   ].filter(Boolean)
   const bandeaux = [
     service.bandeau && `<div class="${CLASSE_DU_BANDEAU}" role="status">${echapper(espacesFines(service.bandeau))}</div>`,

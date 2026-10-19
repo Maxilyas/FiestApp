@@ -95,11 +95,13 @@ const PUBLIC: Record<PublicPage, PageACharger> = {
   soirees: ArchivesApp,
 }
 
-// Une page que l'administrateur a mise en maintenance (`/admin#maintenance`) :
-// l'écran qui le dit, à sa place — le code de la page ne part pas. Lui, il y
-// entre encore (`fermeePourMoi`).
+// Une page que l'administrateur a mise en maintenance, ou annoncée pour
+// bientôt (`/admin#maintenance`) : l'écran qui le dit, à sa place — le code de
+// la page ne part pas. Lui, il y entre encore, et un testeur dans celle qu'il
+// essaie (`fermeePourMoi`).
 const fermee = pageDeLAdresse(route)
-const EnMaintenance = fermee && fermeePourMoi(fermee) ? () => import('./views/MaintenanceApp').then(m => m.pageFermee(fermee)) : null
+const pourquoi = fermee ? fermeePourMoi(fermee) : null
+const EnMaintenance = fermee && pourquoi ? () => import('./views/MaintenanceApp').then(m => m.pageFermee(fermee, pourquoi)) : null
 
 // L'accueil et `/profil` sont la même page : on se connecte avec son profil,
 // et c'est de là qu'on anime sa soirée ou qu'on en rejoint une. `LandingApp`

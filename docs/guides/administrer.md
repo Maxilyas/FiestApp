@@ -21,7 +21,7 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 | La vue d'ensemble | `/admin` | l'instant, ce qui attend un geste, la journée, trente jours, le serveur |
 | Le journal | `/admin#journal` | tes gestes, du plus récent au plus ancien |
 | Le serveur | `/admin#serveur` | sept jours de santé, heure par heure |
-| La maintenance | `/admin#maintenance` | le bandeau rouge qui prévient les joueurs d'un problème, et les pages fermées le temps d'une réparation |
+| La maintenance | `/admin#maintenance` | le bandeau rouge qui prévient les joueurs d'un problème, les pages fermées le temps d'une réparation, et celles bientôt disponibles, ouvertes à leurs seuls testeurs |
 | L'activité | `/admin#activite` | trente jours de questions jouées et de parties, mode par mode, et qui joue à quoi |
 | Les soirées | `/admin#soirees` | celles qui se jouent, celles laissées en plan, le bilan du mois |
 | Le quiz du jour | `/admin#jour` | la journée, la réserve, le tirage, le classement, les séries, le rappel du soir |
@@ -92,11 +92,11 @@ Une alerte du serveur se traite dans [Exploiter](../exploitation/exploiter.md).
 
 ## La maintenance
 
-Quand quelque chose ne marche plus pour les joueurs — le quiz du jour qui ne s'ouvre pas, un défi qui plante —, cette page, sous « Piloter », sert à les prévenir et à fermer ce qui ne marche pas le temps de le réparer. Tout vaut dès la page suivante qu'ils ouvrent ; chaque geste va au journal (filtre « Maintenance »). Ce qui est posé se compte en rouge dans la barre de côté, quelle que soit la page du QG où tu es : rien ne se rouvre de lui-même.
+Quand quelque chose ne marche plus pour les joueurs — le quiz du jour qui ne s'ouvre pas, un défi qui plante —, cette page, sous « Piloter », sert à les prévenir et à fermer ce qui ne marche pas le temps de le réparer ; et, pour ce qui n'est pas encore prêt, à l'annoncer pour bientôt en ne l'ouvrant qu'à quelques testeurs. Tout vaut dès la page suivante qu'ils ouvrent ; chaque geste va au journal (filtre « Maintenance »). Ce qui ne marche pas se compte en rouge dans la barre de côté, quelle que soit la page du QG où tu es : rien ne se rouvre de lui-même.
 
 **Le bandeau** : une phrase ou deux, 140 caractères au plus, que les joueurs lisent en rouge en haut de chaque page — l'accueil, les modes, la boutique, le QG —, avec ou sans profil. L'aperçu la montre telle qu'ils la liront à mesure que tu l'écris. « Afficher le bandeau », « Changer le bandeau » quand tu le retouches, « Retirer le bandeau ». Il ne paraît jamais pendant une soirée — ni sur le téléphone des invités, où il prendrait la place des réponses, ni sur l'écran commun, qui le projetterait à toute la salle —, ni pendant une question du quiz du jour ou de la campagne, où la page tient l'écran au pixel près.
 
-**Les pages en maintenance** : le quiz du jour, la campagne (le défi de la semaine avec), le défi de la semaine seul, les duels (les défis entre amis compris), l'Expédition, la boutique. « Mettre en maintenance », confirmé, puis « Rouvrir ». Une page fermée :
+**Les pages** : le quiz du jour, la campagne (le défi de la semaine avec), le défi de la semaine seul, les duels (les défis entre amis compris), l'Expédition, la boutique. Chacune est ouverte à tous, en maintenance, ou bientôt disponible ; deux boutons la font passer à l'un des deux autres. « Mettre en maintenance », confirmé, puis « Rouvrir ». Une page en maintenance :
 
 - se remplace, pour les joueurs, par un écran qui dit qu'une réparation est en cours, que rien de ce qu'ils ont gagné n'est perdu, avec « Retour à l'accueil » et « Réessayer » ;
 - éteint son bouton sur l'accueil, qui dit « En maintenance : reviens un peu plus tard » ; le défi fermé seul ne s'y propose plus ;
@@ -104,6 +104,8 @@ Quand quelque chose ne marche plus pour les joueurs — le quiz du jour qui ne s
 - tait le rappel du soir, pour le quiz du jour : il part si tu rouvres avant 22 h.
 
 Toi, tu y entres encore, par la session de ta console : une ligne te rappelle que la page est fermée pour les joueurs — de quoi vérifier la réparation en production avant de rouvrir. Les soirées ne se ferment pas : une salle entière joue derrière l'écran commun ; pour prévenir les animateurs, le bandeau.
+
+**Bientôt disponible** : pour ce qui n'est pas encore prêt — l'Expédition qu'on essaie encore —, fermé à tous sauf à ses testeurs et à toi. « Bientôt disponible », confirmé ; pour les joueurs qui attendent, la page se remplace par un écran qui dit qu'elle arrive bientôt (« L'Expédition arrive bientôt »), sans parler de panne ; son bouton de l'accueil s'éteint sur « Bientôt disponible », et ce qui y commence leur répond « L'Expédition arrive bientôt : reviens dans quelques jours ». Rien de rouge : rien n'y est cassé, et la page peut attendre des semaines. Sous la page, **ses testeurs** : « Ajouter un testeur » cherche un profil par son prénom ou son identifiant, comme « Les profils » ; « Retirer » le renvoie attendre avec les autres. Un testeur entre par sa session de joueur, connecté à son profil : la page s'ouvre pour lui comme pour tous, et son bouton de l'accueil le lui dit d'une pastille « En test ». Personne d'autre ne voit qui teste. « Ouvrir à tous », confirmé, la rend à tout le monde dès la page suivante qu'ils ouvrent ; ses testeurs restent notés, pour une prochaine fois. Mise en maintenance, elle ne s'ouvre plus qu'à toi : ce qui ne marche pas ne s'essaie pas. Un profil supprimé ne teste plus rien.
 
 ## Les soirées
 
