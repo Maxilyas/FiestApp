@@ -331,13 +331,16 @@ import { cleDeLExpedition } from '../../../shared/legendaires'
 import {
   CLAIRVOYANCE_SUR_LA_QUESTION,
   FIOLES_MAX,
-  FORME_DE_LA_CARTE,
   POUVOIRS_QUI_EFFACENT,
   VERSION_DU_JEU_COMPLET,
+  baseDe,
   carteDeRencontre,
   cartesDesActes,
   effaceesDuTour,
   fioleDe,
+  formeDeLaCarte,
+  parmi,
+  refusDeLAmelioration,
   type CleDeFiole,
 } from '../../../shared/rencontres'
 
@@ -7020,7 +7023,7 @@ export class CampagneStore {
       const { apres, vues } = complete
       let questions = complete.questions
       // Arrêt sur image : le dévoilement s'arrête à l'heure du serveur où il est joué — sa question le garde, la route des mots et la réponse le lisent.
-      const arret = g.quoi === 'jouer' && g.joker === 'arret-sur-image' && g.position !== undefined ? g.position : null
+      const arret = g.quoi === 'jouer' && baseDe(g.joker) === 'arret-sur-image' && g.position !== undefined ? g.position : null
       if (arret !== null && questions[arret]) questions = questions.map((q, i) => (i === arret ? { ...q, arretLe: maintenant } : q))
       // Un piège de l'inconnu peut prendre la dernière vie : un geste, alors, finit l'expédition.
       const finie = apres.issue === 'perdue'
@@ -7098,8 +7101,8 @@ export class CampagneStore {
     const q = questions[i]
     if (!q) return questions
     let nouvelle: QuestionDeSerie | null = null
-    // Corser et Polymorphe la posent à six choix, Simplifier et Miroir en vrai ou faux (`FORME_DE_LA_CARTE`).
-    const vers = g.quoi === 'jouer' ? FORME_DE_LA_CARTE[g.joker] : undefined
+    // Corser et Polymorphe la posent à six choix, Simplifier et Miroir en vrai ou faux (`FORME_DE_LA_CARTE`) — améliorées ou non.
+    const vers = g.quoi === 'jouer' ? formeDeLaCarte(g.joker) : undefined
     if (vers) {
       const base = this.parIdDe(await this.jouables()).get(q.id)
       if (!base) throw new Error('Cette question ne change plus de forme : recharge la page')
@@ -7170,7 +7173,7 @@ export class CampagneStore {
       const q = l.serie.questions[i]
       if (!q) throw new Error('Cette question n’est pas encore tirée : recharge la page')
       const valide = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0 && x < q.reponses.length
-      const doubleChance = avant.rencontre ? avant.rencontre.tour.surLaQuestion.includes('double-chance') : avant.joue?.joker === 'double-chance'
+      const doubleChance = avant.rencontre ? parmi(avant.rencontre.tour.surLaQuestion, 'double-chance') : avant.joue?.joker === 'double-chance'
       const choisis = doubleChance && Array.isArray(choix) ? [...new Set(choix.filter(valide))].slice(0, 2) : valide(choix) ? [choix] : []
       const juste = choisis.includes(q.bonne)
       // La sienne, telle que la correction la redit : la juste s'il l'a donnée, sinon la première.
@@ -7990,8 +7993,15 @@ function lireGeste(brut: unknown): GesteDExpedition | null {
   if (g.quoi === 'prendre' && Array.isArray(g.jokers) && g.jokers.length <= 3 && g.jokers.every(cle)) {
     return { quoi: 'prendre', jokers: g.jokers as string[], ...(cle(g.talisman) && { talisman: g.talisman }), ...(fiole(g.fiole) && { fiole: g.fiole }) }
   }
-  if (g.quoi === 'camper') return g.retirer === undefined || g.retirer === null ? { quoi: 'camper' } : cle(g.retirer) ? { quoi: 'camper', retirer: g.retirer } : null
-  if (g.quoi === 'acheter' && (g.article === 'vie' || g.article === 'talisman' || g.article === 'joker' || g.article === 'retirer' || g.article === 'fiole')) {
+  if (g.quoi === 'camper') {
+    // Le repos, une carte retirée ou — le jeu complet — une carte améliorée : un seul des trois.
+    const sans = (x: unknown) => x === undefined || x === null
+    if (sans(g.retirer) && sans(g.ameliorer)) return { quoi: 'camper' }
+    if (cle(g.retirer) && sans(g.ameliorer)) return { quoi: 'camper', retirer: g.retirer }
+    if (cle(g.ameliorer) && sans(g.retirer)) return { quoi: 'camper', ameliorer: g.ameliorer }
+    return null
+  }
+  if (g.quoi === 'acheter' && (g.article === 'vie' || g.article === 'talisman' || g.article === 'joker' || g.article === 'retirer' || g.article === 'fiole' || g.article === 'ameliorer')) {
     // Le prix payé, relu du journal : celui qu'une page enverrait, `gesteRecevable` le remplace par celui du barème.
     return { quoi: 'acheter', article: g.article, ...(cle(g.joker) && { joker: g.joker }), ...(rang(g.prix) && { prix: g.prix }) }
   }
@@ -8047,11 +8057,18 @@ function gesteRecevable(l: ExpeditionLue, avant: EtatDeLExpedition, g: GesteDExp
     const refus = refusDeLAchat(avant, g)
     if (refus) throw new Error(refus)
     // Le journal garde le prix payé : un barème qui change ne refait pas un achat déjà fait.
-    return { quoi: 'acheter', article: g.article, ...((g.article === 'joker' || g.article === 'retirer') && { joker: g.joker }), prix: prixDeLArticle(g.article, g.joker) }
+    const vise = g.article === 'joker' || g.article === 'retirer' || g.article === 'ameliorer'
+    return { quoi: 'acheter', article: g.article, ...(vise && { joker: g.joker }), prix: prixDeLArticle(g.article, g.joker) }
   }
   if (g.quoi === 'camper') {
     if (!avant.campement) throw new Error('Tu n’es pas au campement')
     if (g.retirer !== undefined && ![...avant.paquet, ...avant.defausse, ...avant.main].includes(g.retirer)) throw new Error(l.depart.v >= 5 ? 'Cette carte n’est pas dans ton paquet' : 'Ce joker n’est pas dans ton paquet')
+    if (g.ameliorer !== undefined) {
+      // Le jeu complet : la règle même du pli (`refusDeLAmelioration`).
+      if (l.depart.v < VERSION_DU_JEU_COMPLET || avant.courage === null) throw new Error('Cette expédition n’améliore pas ses cartes : repose-toi, ou retire une carte')
+      const refus = refusDeLAmelioration(avant.paquet, g.ameliorer)
+      if (refus) throw new Error(refus)
+    }
     return g
   }
   if (g.quoi === 'voir') {
@@ -8083,13 +8100,14 @@ function gesteRecevable(l: ExpeditionLue, avant: EtatDeLExpedition, g: GesteDExp
 function jokerQuiAide(e: EtatDeLExpedition, q: QuestionDeSerie): string | null {
   const r = e.rencontre
   if (r) {
-    // En rencontre (v5), plusieurs cartes visent la question : la colonne garde le premier indice — un seul suffit à ne rien mesurer.
+    // En rencontre (v5), plusieurs cartes visent la question : la colonne garde le premier indice — un seul suffit à ne rien mesurer —,
+    // sous la clé de sa carte : améliorée, c'est la même aide.
     const indice = r.tour.surLaQuestion.find(cle => carteDeRencontre(cle)?.indice)
-    if (indice) return indice
+    if (indice) return baseDe(indice)
     // La fiole de clairvoyance (le codex) a effacé une réponse : sa clé, comme celle d'un Coup d'œil.
     if (r.tour.surLaQuestion.includes(CLAIRVOYANCE_SUR_LA_QUESTION) && q.reponses.length > 2) return CLAIRVOYANCE_SUR_LA_QUESTION
     // L'écholocation, Vision (le jeu complet) : posées, elles effacent une réponse à chaque question.
-    const pouvoir = POUVOIRS_QUI_EFFACENT.find(cle => r.pouvoirs.includes(cle))
+    const pouvoir = POUVOIRS_QUI_EFFACENT.find(cle => parmi(r.pouvoirs, cle))
     if (pouvoir && q.reponses.length > 2) return pouvoir
   }
   const joue = e.joue?.joker
@@ -8298,7 +8316,8 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
   const loupe = e.talismans.includes('loupe')
   const joue = e.joue?.joker
   const surLaQuestion = r?.tour.surLaQuestion ?? []
-  const vise = (cle: string) => (v5 ? surLaQuestion.includes(cle) : joue === cle)
+  // En rencontre, la carte sur la question, améliorée ou non : Double chance+ choisit deux réponses comme l'autre.
+  const vise = (cle: string) => (v5 ? parmi(surLaQuestion, cle) : joue === cle)
   const montre = v5 ? r?.tour.montre : e.joue?.montre
   const montree = (position: number): QuestionDExpedition | undefined => {
     const q = l.serie.questions[position]

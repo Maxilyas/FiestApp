@@ -14,7 +14,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
 import { GARDIEN, pliDeLExpedition, vueDeLaRencontre, type CarteDUnActe, type DepartDExpedition, type EtatDeLExpedition, type GesteDExpedition, type QuestionPosee, type VueDeLExpedition } from '../../shared/expedition'
-import { CARTES_DES_RENCONTRES, type ApercuDuTour, type VueDeLaRencontre } from '../../shared/rencontres'
+import { CARTES_DES_RENCONTRES, ameliorer, carteDeRencontre, type ApercuDuTour, type CarteDeRencontre, type VueDeLaRencontre } from '../../shared/rencontres'
 
 Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
 
@@ -124,12 +124,12 @@ function stockage(vu: boolean) {
 /** La préparation telle que la page l'assemble : la barre, puis ce que `PreparationDeLaRencontre` pose. */
 async function preparation(j: Journal): Promise<string> {
   const { PreparationDeLaRencontre } = await pieces()
-  // L'énergie de chaque acte, telle que le serveur la dit d'un départ en version 5 : trois partout.
+  // L'énergie de chaque acte, telle que le serveur la dit d'un départ en version 5 : trois partout — et sa version, que les règles lisent.
   const vue = {
     gardiens: j.depart.gardiens.map(cle => ({ cle, vaincu: false })),
     acte: 0,
     fetiche: 'Histoire',
-    cartes: { paquet: j.etat().paquet, route: [], refus: {}, energie: [3, 3, 3] },
+    cartes: { v: j.depart.v, paquet: j.etat().paquet, route: [], refus: {}, energie: [3, 3, 3] },
   } as unknown as VueDeLExpedition
   return rendre(PreparationDeLaRencontre, { vue, r: j.vue(), barre: React.createElement('div', { className: 'exp-barre' }), busy: false, erreur: '', onJouer: rien, onVoir: rien })
 }
@@ -150,8 +150,16 @@ function lignes(phrase: string, n: number): string[] {
   return out
 }
 
-/** Chaque carte telle que le codex la joue, et telle qu'une expédition d'avant le codex la montre encore, quand il l'a retouchée. */
-const TOUTES_LES_VERSIONS = CARTES_DES_RENCONTRES.flatMap(c => [c, ...(c.avantLeCodex ? [{ ...c, ...c.avantLeCodex }] : [])])
+/**
+ * Chaque carte telle que le codex la joue, telle qu'une expédition d'avant le
+ * codex la montre encore, quand il l'a retouchée — et améliorée (le jeu
+ * complet), quand elle s'améliore.
+ */
+const TOUTES_LES_VERSIONS: CarteDeRencontre[] = CARTES_DES_RENCONTRES.flatMap(c => [
+  c,
+  ...(c.avantLeCodex ? [{ ...c, ...c.avantLeCodex }] : []),
+  ...(c.amelioration ? [carteDeRencontre(ameliorer(c.cle))!] : []),
+])
 
 test('chaque carte se résume en deux lignes de neuf signes, et son chiffre tient dans son médaillon', () => {
   // « 2 questions » ne tenait pas : « questions » coupé, la carte disait « 2 questio… ». Le résumé se dit à l'oreille, et dans les lignes d'une offre.
