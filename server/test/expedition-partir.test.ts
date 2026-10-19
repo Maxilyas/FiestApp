@@ -103,7 +103,7 @@ test('au codex, le départ dit son niveau et sa jauge, ce qu’il a sur ce qu’
   const { codexDuNiveau, NIVEAUX } = await import('../../shared/codex')
   const { CARTES_DES_RENCONTRES } = await import('../../shared/rencontres')
   const deux = codexDuNiveau(2, ['lg:dragon'])
-  const html = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, equipables: ['lg:dragon'], codex: { renommee: NIVEAUX[1] + 10, ...deux } }, passeport: [] })
+  const html = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, equipables: ['lg:dragon'], codex: { renommee: NIVEAUX[1] + 10, ...deux, ascension: 0 } }, passeport: [] })
   const lu = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
   assert.doesNotMatch(html, /exp-equipee|exp-changer[^>]*>Changer/, 'ses légendaires ouvrent leur carte au codex : plus d’équipe à choisir')
   assert.match(lu, /Le Lion Couronné, l’invité du jour, part avec toi\s*: sa carte rejoint ton paquet\./)
@@ -111,8 +111,29 @@ test('au codex, le départ dit son niveau et sa jauge, ce qu’il a sur ce qu’
   assert.match(lu, new RegExp(`${deux.cartes.length} cartes sur ${CARTES_DES_RENCONTRES.length}`))
   assert.match(html, /exp-voir-le-paquet" aria-haspopup="dialog">Ton paquet · 11 cartes/, 'le paquet de départ et la carte de l’invité')
   assert.doesNotMatch(lu, /Ta catégorie fétiche/, 'au niveau 2, rien à choisir')
-  const cinq = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, codex: { renommee: NIVEAUX[4], ...codexDuNiveau(5, []) } }, passeport: [] })
+  const cinq = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, codex: { renommee: NIVEAUX[4], ...codexDuNiveau(5, []), ascension: 0 } }, passeport: [] })
   assert.match(cinq.replace(/<[^>]+>/g, ' '), /Ta catégorie fétiche/, 'au niveau 5, elle se choisit')
+})
+
+test('l’Ascension au départ : rien avant une expédition menée au bout ; ensuite ses crans ouverts, aucun d’office ; en route, le bas du départ dit son cran', async () => {
+  const { codexDuNiveau, NIVEAUX } = await import('../../shared/codex')
+  const avec = (ascension: number): PageDeLExpedition => ({ expedition: null, prochaine: { ...prochaine, rencontres: true, codex: { renommee: NIVEAUX[2], ...codexDuNiveau(3, []), ascension } }, passeport: [] })
+  assert.doesNotMatch(await depart(avec(0)), /exp-ascension/, 'sans victoire, rien à choisir')
+  const html = await depart(avec(2))
+  assert.match(html, /<h2 class="label" id="exp-ascension-titre">L’Ascension<\/h2>/)
+  assert.deepEqual(
+    [...html.matchAll(/role="radio" aria-checked="(true|false)" aria-label="((?:Sans c|C)ran[^"]*)"/g)].map(m => [m[2], m[1]]),
+    [
+      ['Sans cran', 'true'],
+      ['Cran 1', 'false'],
+      ['Cran 2', 'false'],
+    ],
+    'rien de retenu : aucun cran — l’Ascension se choisit',
+  )
+  // En route, à son cran : la ligne sous « Reprendre ».
+  const cartes = { v: 7, paquet: [], route: [], refus: {}, parQuestion: [3, 4, 5], ascension: 2 }
+  const vue = { ...enRoute, gardiens: prochaine.gardiens.map(cle => ({ cle, vaincu: false })), vies: 3, justes: 2, courage: 41, equipee: [], invite: 'lg:lion', cartes } as unknown as VueDeLExpedition
+  assert.match(await depart({ expedition: vue, prochaine, passeport: [] }), /Acte 1 · Ascension 2 · 41 de courage sur 50/)
 })
 
 test('aux rencontres, le départ ouvre le codex : toutes les cartes de l’expédition', async () => {

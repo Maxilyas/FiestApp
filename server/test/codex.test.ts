@@ -7,23 +7,32 @@
 // cartes que le codex a retouchées — à leurs chiffres d'avant dans une
 // expédition d'avant. Puis les exploits — un but précis, une récompense
 // précise —, relevés dans le pli, gardés par le bilan ; puis les objets — les
-// fioles, une règle de son codex, et les dos de cartes. Par les routes — la
+// fioles, une règle de son codex, et les dos de cartes ; puis l'Ascension —
+// ses crans ouverts par les victoires, ce que chacun durcit. Par les routes — la
 // renommée et les exploits relus des bilans, rattrapés, le départ qui fige
 // son codex et prend son dos — : `expedition-codex.test.ts` ; une fiole
 // achetée et bue : `expedition-rencontres-routes.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  ASCENSION,
+  ASCENSION_MAX,
   BONNES_D_AFFILEE,
   DOS_DES_CARTES,
   ECHELLE,
+  ENERGIE_EN_ASCENSION,
   EXPLOITS,
+  FRAPPE_EN_ASCENSION,
+  GARDIENS_EN_ASCENSION,
   NIVEAUX,
   NIVEAU_MAX,
   PARI_DE_L_EXPLOIT,
+  POINTS_EN_ASCENSION,
   RENOMMEE,
   VERSION_DU_BILAN,
+  ascensionOuverte,
   codexDuNiveau,
+  cranOuvertParLaVictoire,
   dosOuverts,
   ecrireLeBilan,
   lireLeBilan,
@@ -35,13 +44,17 @@ import {
   progressionDe,
   regleOuverte,
   renommeeDe,
+  reposALAscension,
+  type BilanDUneExpedition,
   type CleDExploit,
 } from '../../shared/codex'
 import {
   CARTES_DES_RENCONTRES,
   CARTES_PAR_OFFRE,
   CLAIRVOYANCE_SUR_LA_QUESTION,
+  COURAGE_D_UN_CAMPEMENT,
   COURAGE_D_UNE_FIOLE,
+  COURAGE_D_UNE_SOURCE,
   COURAGE_MAX,
   ENERGIE_D_UNE_FIOLE,
   FIOLES,
@@ -55,13 +68,16 @@ import {
   chiffresApresLaCarte,
   effaceesDuTour,
   enPlusDeLaBibliotheque,
+  frappeDe,
   refusDeLaCarte,
+  sceauxDe,
   type CleDeFiole,
   type ContexteDUneCarte,
 } from '../../shared/rencontres'
 import {
   GARDIEN,
   PRIX_DE_L_ECHOPPE,
+  ascensionDuDepart,
   bilanDuPli,
   pliDeLExpedition,
   refusDeLAchat,
@@ -703,4 +719,82 @@ test('les dos de cartes : l’ordinaire d’office, l’étoilé au niveau 6, le
   assert.deepEqual(dosOuverts(6, []), ['ordinaire', 'etoile'])
   assert.deepEqual(dosOuverts(1, ['gardien-intact']), ['ordinaire', 'dore'])
   assert.deepEqual(codexDuNiveau(NIVEAU_MAX, [], ['gardien-intact']).dos, ['ordinaire', 'etoile', 'dore'], 'le codex les dit, le départ en prend un')
+})
+
+// ── L'Ascension ─────────────────────────────────────────────────────────────
+
+test('l’Ascension s’ouvre par les victoires : la première ouvre le cran 1, une victoire à son plus haut cran le suivant — plus bas ou perdue, rien ; le dernier au plus — et le bilan garde son cran', () => {
+  const b = (auBout: boolean, ascension?: number): BilanDUneExpedition => ({ escales: 9, adversaires: 5, elites: 1, gardiens: auBout ? 3 : 1, auBout, exploits: [], ...(ascension !== undefined && { ascension }) })
+  assert.deepEqual(
+    ASCENSION.map(c => c.cran),
+    Array.from({ length: ASCENSION_MAX }, (_, i) => i + 1),
+  )
+  assert.equal(ascensionOuverte([]), 0)
+  assert.equal(ascensionOuverte([b(false), b(false, 3)]), 0, 'perdues, elles n’ouvrent rien')
+  assert.equal(ascensionOuverte([b(true)]), 1, 'une victoire d’avant l’Ascension l’ouvre')
+  assert.equal(ascensionOuverte([b(true), b(true, 1)]), 2)
+  assert.equal(ascensionOuverte([b(true, 2), b(true)]), 3, 'une victoire plus bas ne reprend rien')
+  assert.equal(ascensionOuverte([b(true, ASCENSION_MAX)]), ASCENSION_MAX, 'le dernier au plus')
+  assert.equal(cranOuvertParLaVictoire(0, 0), 1)
+  assert.equal(cranOuvertParLaVictoire(0, 1), null, 'sous son plus haut cran, la victoire n’ouvre rien')
+  assert.equal(cranOuvertParLaVictoire(2, 2), 3)
+  assert.equal(cranOuvertParLaVictoire(ASCENSION_MAX, ASCENSION_MAX), null)
+  // Relu, un cran se borne au dernier ; illisible, il ne compte pas — sans cran, le bilan se lit sans.
+  const perdue = b(false)
+  assert.deepEqual(lireLeBilan(ecrireLeBilan({ ...perdue, ascension: 2 })), { ...perdue, ascension: 2 })
+  assert.deepEqual(lireLeBilan(ecrireLeBilan(perdue)), perdue)
+  assert.deepEqual(lireLeBilan(JSON.stringify({ v: VERSION_DU_BILAN, ...perdue, ascension: 99 })), { ...perdue, ascension: ASCENSION_MAX })
+  assert.deepEqual(lireLeBilan(JSON.stringify({ v: VERSION_DU_BILAN, ...perdue, ascension: 'trois' })), perdue)
+})
+
+/** Le départ du codex entier, à ce cran. */
+const aSonCran = (graine: string, ascension: number): DepartDExpedition => ({ ...depart(graine, NIVEAU_MAX), ...(ascension > 0 && { ascension }) })
+
+test('chaque cran durcit l’expédition et garde ceux d’en dessous : les points des adversaires, leur frappe, l’énergie de chaque question, les gardiens ; le bilan dit son cran', () => {
+  for (let cran = 0; cran <= ASCENSION_MAX; cran++) {
+    const e = new Journal(aSonCran(`ascension:${cran}`, cran)).avancer('e00')
+    assert.equal(e.ascension, cran)
+    assert.equal(e.courage, COURAGE_MAX, 'le courage du départ ne bouge pas')
+    assert.equal(e.rencontre!.tour.inspiration, INSPIRATION_PAR_QUESTION - (cran >= 4 ? ENERGIE_EN_ASCENSION : 0), `cran ${cran} : l’énergie de la question`)
+    assert.deepEqual([e.rencontre!.sceaux, e.rencontre!.max], Array(2).fill(sceauxDe('question', 0) + (cran >= 1 ? POINTS_EN_ASCENSION : 0)), `cran ${cran} : ses points`)
+    assert.equal(e.rencontre!.frappe, frappeDe('question', 0) + (cran >= 2 ? FRAPPE_EN_ASCENSION : 0), `cran ${cran} : sa frappe`)
+    const g = jusquAuGardien(new Journal(aSonCran(`ascension:gardien:${cran}`, cran)))
+    const points = sceauxDe('gardien', 0) + (cran >= 1 ? POINTS_EN_ASCENSION : 0)
+    assert.equal(g.rencontre!.max, cran >= 5 ? Math.round(points * GARDIENS_EN_ASCENSION) : points, `cran ${cran} : le gardien`)
+    assert.equal(bilanDuPli(g).ascension, cran > 0 ? cran : undefined)
+  }
+})
+
+test('dès le cran 3, le campement et la source rendent moitié moins de courage, arrondi au-dessus', () => {
+  assert.deepEqual(
+    [reposALAscension(COURAGE_D_UNE_SOURCE, 3), reposALAscension(COURAGE_D_UN_CAMPEMENT, 3)],
+    [Math.ceil(COURAGE_D_UNE_SOURCE / 2), Math.ceil(COURAGE_D_UN_CAMPEMENT / 2)],
+  )
+  for (const cran of [2, 3]) {
+    const j = new Journal(aSonCran(`ascension:repos:${cran}`, cran))
+    // Trois erreurs d'abord : ni la source ni le campement ne le remontent au plein.
+    j.avancer('e00')
+    for (let k = 0; k < 3; k++) j.repondre(false)
+    j.gagner()
+    j.prendre()
+    j.avancer('e10')
+    j.prendre()
+    let avant = j.avancer('e20').courage!
+    let e = j.gagner()
+    assert.equal(e.courage! - avant, reposALAscension(COURAGE_D_UNE_SOURCE, cran), `cran ${cran} : la source`)
+    j.avancer('e30')
+    j.gagner()
+    j.prendre()
+    avant = j.avancer('cg').courage!
+    e = j.geste({ quoi: 'camper' })
+    assert.equal(e.courage! - avant, reposALAscension(COURAGE_D_UN_CAMPEMENT, cran), `cran ${cran} : le campement`)
+  }
+})
+
+test('un cran ne se lit qu’au codex : une expédition d’avant lui l’ignore — et au-delà du dernier, c’est le dernier', () => {
+  const avant: DepartDExpedition = { ...aSonCran('ascension:avant', ASCENSION_MAX), v: 6, codex: undefined }
+  assert.equal(ascensionDuDepart(avant), 0)
+  const e = new Journal(avant).avancer('e00')
+  assert.deepEqual([e.ascension, e.courage, e.rencontre!.max], [0, COURAGE_MAX, sceauxDe('question', 0)])
+  assert.equal(ascensionDuDepart(aSonCran('ascension:trop', 9)), ASCENSION_MAX)
 })

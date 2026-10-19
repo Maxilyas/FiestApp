@@ -27,16 +27,20 @@ import {
   type VueDeLExpedition,
 } from '../../../shared/expedition'
 import {
+  ASCENSION,
+  ASCENSION_MAX,
   DOS_DES_CARTES,
   ECHELLE,
   EXPLOITS,
   RENOMMEE,
   dosDe,
+  energieALAscension,
   exploitDe,
   niveauDeLaRegle,
   ouvertureDe,
   ouvertureDuDos,
   progressionDe,
+  reposALAscension,
   type CleDExploit,
   type DosDuPaquet,
   type Exploit,
@@ -52,7 +56,6 @@ import {
   FAMILLES_DE_CARTES,
   FIOLES,
   FIOLES_MAX,
-  INSPIRATION_PAR_QUESTION,
   MISES,
   VERSION_DU_CODEX,
   apercuDuTour,
@@ -757,8 +760,12 @@ export function CarteLevee({
   )
 }
 
-/** Le cycle des cartes, en une fois : « on comprend pas bien ce qu'on a en main et comment les cartes reviennent » (le 18 octobre 2026). */
-const REGLE_DU_CYCLE = `À chaque question, tu tires de nouvelles cartes de ta pioche, et tu as ${INSPIRATION_PAR_QUESTION} d’énergie pour les jouer. Celles que tu ne joues pas vont à la défausse ; quand ta pioche est vide, ta défausse y est remélangée. Une carte « une fois par rencontre » revient à la rencontre suivante, et chaque rencontre remélange tout ton paquet. Les cartes de route se jouent sur le plan, une fois par acte.`
+/**
+ * Le cycle des cartes, en une fois : « on comprend pas bien ce qu'on a en main et comment les cartes reviennent » (le 18 octobre 2026).
+ * L'énergie, celle de son cran de l'Ascension.
+ */
+const regleDuCycle = (ascension: number) =>
+  `À chaque question, tu tires de nouvelles cartes de ta pioche, et tu as ${energieALAscension(ascension)} d’énergie pour les jouer. Celles que tu ne joues pas vont à la défausse ; quand ta pioche est vide, ta défausse y est remélangée. Une carte « une fois par rencontre » revient à la rencontre suivante, et chaque rencontre remélange tout ton paquet. Les cartes de route se jouent sur le plan, une fois par acte.`
 
 /**
  * Un tas en vraies cartes, qui défilent de côté (« Voir la pioche on voit
@@ -859,7 +866,18 @@ export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly str
  * jusqu'à la rencontre suivante ; puis tout son paquet, et la règle du cycle.
  * Une carte touchée se montre en grand, par-dessus la feuille.
  */
-export function FeuilleDesCartes({ paquet, rencontre, onFermer }: { paquet: readonly string[]; rencontre?: VueDeLaRencontre; onFermer: () => void }) {
+export function FeuilleDesCartes({
+  paquet,
+  rencontre,
+  ascension = 0,
+  onFermer,
+}: {
+  paquet: readonly string[]
+  rencontre?: VueDeLaRencontre
+  /** Son cran de l'Ascension : l'énergie de chaque question, que la règle du cycle dit. */
+  ascension?: number
+  onFermer: () => void
+}) {
   const [regardee, setRegardee] = useState<string | null>(null)
   const pioche = rencontre ? sans(cartesDeCombat(paquet), [...rencontre.main, ...rencontre.defausse, ...rencontre.epuisees, ...rencontre.pouvoirs]) : []
   const tas = (titre: string, cles: readonly string[], vide: string) => (
@@ -880,7 +898,7 @@ export function FeuilleDesCartes({ paquet, rencontre, onFermer }: { paquet: read
           </>
         )}
         {tas('Tout ton paquet', paquet, 'Ton paquet est vide.')}
-        <p className="muted small">{espacesFines(REGLE_DU_CYCLE)}</p>
+        <p className="muted small">{espacesFines(regleDuCycle(ascension))}</p>
       </Feuille>
       {regardee && <CarteLevee cle={regardee} onReposer={() => setRegardee(null)} />}
     </>
@@ -934,6 +952,12 @@ const REGLE_OUVERTE: Readonly<Record<RegleDuCodex, string>> = {
 /** Le nom d'un dos, dans une phrase : « le dos doré ». */
 const nomDuDos = (cle: DosDuPaquet) => dosDe(cle)?.nom ?? cle
 
+/** La règle d'un cran de l'Ascension au milieu d'une phrase : « les adversaires ont 4 points de plus ». */
+const regleDuCran = (cran: number) => {
+  const regle = ASCENSION[cran - 1]?.regle ?? ''
+  return regle.charAt(0).toLowerCase() + regle.slice(1)
+}
+
 /**
  * Ce qu'un exploit ouvre, en fin de phrase : « Banco rejoint ton codex »,
  * « le dos doré est à toi » — au futur tant que l'expédition court : son
@@ -975,9 +999,20 @@ export const dosDuPaquet = (vue: Pick<VueDeLExpedition, 'cartes'>): DosDuPaquet 
  * même niveau —, et le niveau qu'elle fait passer, avec les cartes qu'il
  * ouvre, en vraies cartes qui se lèvent, et les règles ; ses exploits neufs
  * (`exploitsNeufs`), et ce qu'ils ouvrent. `avant` : la renommée qu'il avait
- * au départ, figée avec lui (`CodexDuDepart.renommee`).
+ * au départ, figée avec lui (`CodexDuDepart.renommee`). `ascension` : le cran
+ * de l'Ascension que sa victoire ouvre (`cranOuvertParLaVictoire`).
  */
-export function RenommeeGagnee({ avant, gagnee, exploits = [] }: { avant: number; gagnee: number; exploits?: readonly CleDExploit[] }) {
+export function RenommeeGagnee({
+  avant,
+  gagnee,
+  exploits = [],
+  ascension = null,
+}: {
+  avant: number
+  gagnee: number
+  exploits?: readonly CleDExploit[]
+  ascension?: number | null
+}) {
   const [regardee, setRegardee] = useState<string | null>(null)
   const niveauAvant = progressionDe(avant).niveau
   const niveau = progressionDe(avant + gagnee).niveau
@@ -1040,6 +1075,17 @@ export function RenommeeGagnee({ avant, gagnee, exploits = [] }: { avant: number
           {espacesFines(`Un dos neuf pour ton paquet : ${nomDuDos(dos)}. Choisis-le au départ.`)}
         </p>
       ))}
+      {/* L'Ascension : la première victoire l'ouvre, chaque victoire à son plus haut cran ouvre le suivant. */}
+      {ascension !== null && (
+        <p className="exp-renommee-regle">
+          <Icon name="mountain" />
+          {espacesFines(
+            ascension === 1
+              ? `L’Ascension s’ouvre : au départ, choisis son cran 1 — ${regleDuCran(1)}.`
+              : `Le cran ${ascension} de l’Ascension s’ouvre. En plus des autres : ${regleDuCran(ascension)}.`,
+          )}
+        </p>
+      )}
       {regardee && <CarteLevee cle={regardee} onReposer={() => setRegardee(null)} />}
     </section>
   )
@@ -1386,7 +1432,7 @@ function retenirLeGuide() {
 
 /** Une section des règles : de quoi elle parle, son titre, une ligne par règle — un dessin, une phrase. */
 interface SectionDesRegles {
-  cle: 'rencontre' | 'cartes' | 'pari' | 'fioles' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'exploits' | 'passeport' | 'questions' | 'jokers'
+  cle: 'rencontre' | 'cartes' | 'pari' | 'fioles' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'exploits' | 'ascension' | 'passeport' | 'questions' | 'jokers'
   titre: string
   /** `energie` : l'orbe de l'énergie, tel que la main le montre. */
   lignes: { icone: IconName | 'energie'; texte: string }[]
@@ -1409,9 +1455,10 @@ const ouvertAuNiveau = (regle: RegleDuCodex) => `au niveau ${niveauDeLaRegle(reg
  * 2026). `parQuestion` : les cartes que chaque question tire, acte par acte,
  * telles que le serveur les dit. `codex` (v7) : plus d'équipe à choisir, des
  * récompenses de son codex, et ce que chaque niveau ouvre — une règle fermée
- * dit le niveau qui l'ouvre.
+ * dit le niveau qui l'ouvre. `ascension` : son cran, celui de l'expédition en
+ * route ou celui qui partirait — le campement et la source y rendent moins.
  */
-function reglesDesRencontres(parQuestion: readonly number[], codex?: CodexDesRegles): SectionDesRegles[] {
+function reglesDesRencontres(parQuestion: readonly number[], codex?: CodexDesRegles, ascension = 0): SectionDesRegles[] {
   const [a1, a2, a3] = parQuestion
   const ouverte = (regle: RegleDuCodex) => !codex || codex.regles.includes(regle)
   return [
@@ -1428,7 +1475,7 @@ function reglesDesRencontres(parQuestion: readonly number[], codex?: CodexDesReg
       cle: 'cartes',
       titre: 'Tes cartes',
       lignes: [
-        { icone: 'energie', texte: `Chaque carte coûte de l’énergie — le chiffre dans son coin. Tu en as ${INSPIRATION_PAR_QUESTION} à chaque question.` },
+        { icone: 'energie', texte: `Chaque carte coûte de l’énergie — le chiffre dans son coin. Tu en as ${energieALAscension(ascension)} à chaque question.` },
         { icone: 'list', texte: a1 === a3 ? `Tu tires ${a1} cartes à chaque question.` : `Tu tires ${a1} cartes à chaque question de l’acte 1, ${a2} à l’acte 2, ${a3} à l’acte 3.` },
         { icone: 'eye-off', texte: '« Maintenant » : avant de voir la question. « Pendant la question » : une fois qu’elle est sous tes yeux.' },
         { icone: 'eye', texte: 'Touche une carte : elle dit ce qu’elle fait, et ce qu’elle changerait.' },
@@ -1476,9 +1523,12 @@ function reglesDesRencontres(parQuestion: readonly number[], codex?: CodexDesReg
       lignes: [
         { icone: 'flag', texte: 'À chaque pas, choisis ton escale. Son pourcentage : tes chances sur ses questions — celles d’un joueur moyen, tant que tu n’as pas assez joué.' },
         { icone: 'swords', texte: 'Une rencontre : un adversaire de sa catégorie. Une élite : plus coriace, mieux payée.' },
-        { icone: 'source', texte: `Une source : une question de ton carnet, ${COURAGE_D_UNE_SOURCE} de courage si tu la retrouves.` },
+        { icone: 'source', texte: `Une source : une question de ton carnet, ${reposALAscension(COURAGE_D_UNE_SOURCE, ascension)} de courage si tu la retrouves.` },
         { icone: 'coffre', texte: 'Un coffre : une carte au choix — ou des écus, si tu n’en prends aucune.' },
-        { icone: 'campement', texte: `Un campement, avant le gardien : ${COURAGE_D_UN_CAMPEMENT} de courage, ou une carte de moins — un paquet plus court tire plus souvent tes meilleures.` },
+        {
+          icone: 'campement',
+          texte: `Un campement, avant le gardien : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, ascension)} de courage, ou une carte de moins — un paquet plus court tire plus souvent tes meilleures.`,
+        },
         { icone: 'help', texte: 'L’inconnu : un marchand, un piège, ou un légendaire de passage.' },
       ],
     },
@@ -1532,6 +1582,18 @@ function reglesDesRencontres(parQuestion: readonly number[], codex?: CodexDesReg
             lignes: [
               { icone: 'medal' as const, texte: 'Un exploit se fait une fois, dans n’importe quelle expédition — même perdue ensuite. Il compte dès la suivante.' },
               ...EXPLOITS.map(x => ({ icone: ICONE_DE_L_EXPLOIT[x.cle], texte: `Exploit : ${x.but} — ${recompenseDe(x)}.` })),
+            ],
+          },
+          // L'Ascension (le codex) : comment elle s'ouvre, le cran de celle-ci, et ce que chaque cran ajoute.
+          {
+            cle: 'ascension' as const,
+            titre: 'L’Ascension',
+            lignes: [
+              { icone: 'mountain' as const, texte: 'Va au bout d’une expédition : l’Ascension s’ouvre. Choisis ton cran au départ ; une victoire à ton plus haut cran ouvre le suivant.' },
+              ...(ascension > 0
+                ? [{ icone: 'flag' as const, texte: ascension === 1 ? 'Ton expédition est au cran 1.' : `Ton expédition est au cran ${ascension} : les règles des crans 1 à ${ascension} s’ajoutent.` }]
+                : []),
+              ...ASCENSION.map(c => ({ icone: c.cran <= ascension ? ('check' as const) : ('mountain' as const), texte: `Cran ${c.cran} : ${regleDuCran(c.cran)}.` })),
             ],
           },
         ]
@@ -1603,6 +1665,7 @@ export function FeuilleDesRegles({
   rencontres,
   parQuestion,
   codex,
+  ascension,
   debut,
   pied,
   onFermer,
@@ -1612,11 +1675,13 @@ export function FeuilleDesRegles({
   parQuestion?: readonly number[]
   /** Son codex (v7) : son départ, ou celui qui partirait. */
   codex?: CodexDesRegles
+  /** Son cran de l'Ascension : celui de l'expédition en route (`CartesEnJeu.ascension`), ou celui qui partirait. */
+  ascension?: number
   debut?: DebutDesRegles
   pied?: ReactNode
   onFermer: () => void
 }) {
-  const sections = rencontres ? reglesDesRencontres(parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex) : reglesDesJokers()
+  const sections = rencontres ? reglesDesRencontres(parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex, ascension) : reglesDesJokers()
   const ordre = debut ? [...sections.filter(s => s.cle === debut), ...sections.filter(s => s.cle !== debut)] : sections
   return (
     <Feuille titre="Les règles" className="feuille-regles" onFermer={onFermer} pied={pied}>
@@ -1630,7 +1695,7 @@ export function FeuilleDesRegles({
               <li key={l.texte}>
                 <span className="exp-guide-icone" aria-hidden="true">
                   {/* L'énergie se montre telle que la main la montre : son orbe et son chiffre. */}
-                  {l.icone === 'energie' ? <b className="exp-vc-cout">{INSPIRATION_PAR_QUESTION}</b> : <Icon name={l.icone} />}
+                  {l.icone === 'energie' ? <b className="exp-vc-cout">{energieALAscension(ascension ?? 0)}</b> : <Icon name={l.icone} />}
                 </span>
                 <span>{espacesFines(l.texte)}</span>
               </li>
@@ -1735,12 +1800,13 @@ export function PreparationDeLaRencontre({
         <Icon name="eye" />
         Voir la question
       </button>
-      {tas && <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={r} onFermer={() => setTas(false)} />}
+      {tas && <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={r} ascension={vue.cartes?.ascension} onFermer={() => setTas(false)} />}
       {aide && (
         <FeuilleDesRegles
           rencontres
           parQuestion={vue.cartes?.parQuestion}
           codex={vue.cartes?.codex}
+          ascension={vue.cartes?.ascension}
           onFermer={vu}
           pied={
             <button type="button" className="btn btn-primary btn-block" onClick={vu}>
@@ -1881,6 +1947,80 @@ export function ChoixDuDos({ siens, dos, onChoisir }: { siens: readonly DosDuPaq
         />
       ))}
     </div>
+  )
+}
+
+/** Son cran de l'Ascension, choisi au départ : retenu sur le téléphone, sous try/catch — `haut`, s'il partait au plus haut des siens. */
+const CLE_DE_L_ASCENSION = 'quizz.expedition.ascension'
+
+/**
+ * Le cran qui partira : celui qu'il a choisi la dernière fois, borné à ceux
+ * qu'il a ouverts — un téléphone partagé retient celui d'un autre profil —,
+ * ou le plus haut, s'il y était : la victoire qui ouvre le suivant l'y mène,
+ * comme on monte. Rien de retenu, aucun cran : l'Ascension se choisit, elle ne
+ * durcit l'expédition de personne d'office.
+ */
+export function ascensionRetenue(ouverte: number): number {
+  try {
+    const lu = localStorage.getItem(CLE_DE_L_ASCENSION)
+    if (lu === 'haut') return ouverte
+    const n = lu === null ? 0 : Number(lu)
+    return Number.isInteger(n) ? Math.min(Math.max(0, n), ouverte) : 0
+  } catch {
+    return 0
+  }
+}
+
+export function retenirLAscension(cran: number, ouverte: number) {
+  try {
+    localStorage.setItem(CLE_DE_L_ASCENSION, cran > 0 && cran >= ouverte ? 'haut' : String(cran))
+  } catch {
+    // Un stockage refusé : le prochain départ repartira sans cran.
+  }
+}
+
+/**
+ * L'Ascension, au départ (le codex), une fois une expédition menée au bout :
+ * ses crans ouverts — « Sans », puis un par victoire à son plus haut —, et ce
+ * que le cran choisi ajoute, une ligne par règle, celles d'en dessous
+ * comprises. Au plus haut, ce qu'une victoire ouvrirait : c'est tout son prix.
+ */
+export function ChoixDeLAscension({ ouverte, cran, onChoisir }: { ouverte: number; cran: number; onChoisir: (cran: number) => void }) {
+  return (
+    <section className="card exp-ascension" aria-labelledby="exp-ascension-titre">
+      <h2 className="label" id="exp-ascension-titre">
+        L’Ascension
+      </h2>
+      {/* Sous le titre, pas à côté : six pastilles et « L'Ascension » ne tiennent pas sur une ligne en 360. */}
+      <div className="exp-crans-d-ascension" role="radiogroup" aria-labelledby="exp-ascension-titre">
+        {Array.from({ length: ouverte + 1 }, (_, i) => (
+          <button
+            key={i}
+            type="button"
+            role="radio"
+            aria-checked={cran === i}
+            aria-label={i === 0 ? 'Sans cran' : `Cran ${i}`}
+            className={'pill-btn' + (cran === i ? ' active' : '')}
+            onClick={() => onChoisir(i)}
+          >
+            {i === 0 ? 'Sans' : i}
+          </button>
+        ))}
+      </div>
+      {cran === 0 ? (
+        <p className="muted small">{espacesFines('Sans cran : l’expédition de toujours.')}</p>
+      ) : (
+        <ul className="exp-regles-du-cran">
+          {ASCENSION.slice(0, cran).map(c => (
+            <li key={c.cran}>
+              <Icon name="mountain" />
+              <span>{espacesFines(`${c.regle}.`)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {cran > 0 && cran === ouverte && ouverte < ASCENSION_MAX && <p className="muted small">{espacesFines(`Va au bout à ce cran : le cran ${ouverte + 1} s’ouvre.`)}</p>}
+    </section>
   )
 }
 
