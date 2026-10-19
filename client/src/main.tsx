@@ -10,6 +10,8 @@ import { ecouterLInstallation } from './installation'
 import { Patience } from './annonce'
 import { route, type AccountPage, type PublicPage } from './routes'
 import { donneesDuFragment } from '../../shared/depart'
+import { CLASSE_DU_BANDEAU, pageDeLAdresse } from '../../shared/maintenance'
+import { fermeePourMoi } from './maintenance'
 import { titreDePage } from './titres'
 import './styles.css'
 
@@ -93,11 +95,18 @@ const PUBLIC: Record<PublicPage, PageACharger> = {
   soirees: ArchivesApp,
 }
 
+// Une page que l'administrateur a mise en maintenance (`/admin#maintenance`) :
+// l'écran qui le dit, à sa place — le code de la page ne part pas. Lui, il y
+// entre encore (`fermeePourMoi`).
+const fermee = pageDeLAdresse(route)
+const EnMaintenance = fermee && fermeePourMoi(fermee) ? () => import('./views/MaintenanceApp').then(m => m.pageFermee(fermee)) : null
+
 // L'accueil et `/profil` sont la même page : on se connecte avec son profil,
 // et c'est de là qu'on anime sa soirée ou qu'on en rejoint une. `LandingApp`
 // ne sert plus qu'aux adresses qui ne mènent nulle part.
 const App =
-  route.kind === 'account'
+  EnMaintenance ??
+  (route.kind === 'account'
     ? ACCOUNT[route.page]
     : route.kind === 'join'
       ? PlayerApp
@@ -105,7 +114,7 @@ const App =
         ? PUBLIC[route.page]
         : route.kind === 'landing'
           ? ProfilApp
-          : LandingApp
+          : LandingApp)
 // Demandé d'emblée : le code de la page part avant tout le reste du démarrage.
 const code = App()
 
@@ -163,14 +172,17 @@ if (LISENT_LE_PROFIL.has(App)) poserNicheRetenue()
 // Ce que le serveur n'a pas pu précharger avec la page : le fragment de
 // l'adresse (`#sentiers`) ne lui parvient pas. Demandé d'ici, il part avant
 // que le code de la page n'arrive pour le demander, et son `fetch` reprend
-// la réponse (`donneesDuFragment`, `shared/depart.ts`).
-for (const adresse of donneesDuFragment(route, window.location.hash)) {
-  const lien = document.createElement('link')
-  lien.rel = 'preload'
-  lien.as = 'fetch'
-  lien.href = adresse
-  lien.crossOrigin = 'anonymous'
-  document.head.append(lien)
+// la réponse (`donneesDuFragment`, `shared/depart.ts`). Une page en
+// maintenance ne demandera rien.
+if (!EnMaintenance) {
+  for (const adresse of donneesDuFragment(route, window.location.hash)) {
+    const lien = document.createElement('link')
+    lien.rel = 'preload'
+    lien.as = 'fetch'
+    lien.href = adresse
+    lien.crossOrigin = 'anonymous'
+    document.head.append(lien)
+  }
 }
 
 // Les écrans d'entrée ancrent leur bouton en bas de page : le clavier d'un
@@ -210,6 +222,28 @@ if (appEnv) {
   prefixer()
   const titre = document.querySelector('title')
   if (titre) new MutationObserver(prefixer).observe(titre, { childList: true })
+}
+
+/**
+ * Le bandeau de l'administrateur (`ecrireLeService`, `server/src/core/page.ts`),
+ * déjà dans la page au-dessus de la racine : il ne demande aucun script pour
+ * se montrer. La niche du compagnon, fixée au coin, descend de sa hauteur
+ * (`--haut-du-bandeau`) tant que la page n'a pas défilé — mesurée à chaque
+ * changement : une ligne de plus à l'écran tourné, rien pendant une question,
+ * où il se tait.
+ */
+const bandeaux = document.querySelectorAll<HTMLElement>(`.${CLASSE_DU_BANDEAU}`)
+if (bandeaux.length > 0) {
+  document.body.classList.add('avec-bandeau')
+  const mesurer = () => {
+    let haut = 0
+    bandeaux.forEach(b => (haut += b.offsetHeight))
+    document.body.style.setProperty('--haut-du-bandeau', `${haut}px`)
+  }
+  if (typeof ResizeObserver === 'function') {
+    const suivi = new ResizeObserver(mesurer)
+    bandeaux.forEach(b => suivi.observe(b))
+  } else mesurer()
 }
 
 /**

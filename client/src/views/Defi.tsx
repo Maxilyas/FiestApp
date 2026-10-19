@@ -10,7 +10,8 @@ import { LigneDeTrophee } from '../components/Gains'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { tropheesTombes } from '../../../shared/gains'
 import { OR, lueur } from '../components/Atlas'
-import { deNom } from '../format'
+import { deNom, espacesFines } from '../format'
+import { pourLAdministrateur } from '../../../shared/maintenance'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { placeDuJour } from '../../../shared/course'
 import type { CorrectionDeCampagne, DefiDeLaSemaine, LigneDuDefi, SerieDeCampagne } from '../../../shared/campagne'
@@ -40,7 +41,16 @@ function cloture(minutes: number): string {
  * La partie elle-même se joue sur l'écran de la série (`CampagneApp`) : une
  * question, sa révélation, la suivante — la page lui passe la tentative.
  */
-export function PageDuDefi({ onglets, onJouer }: { onglets: ReactNode; onJouer: (tentative: SerieDeCampagne) => void }) {
+export function PageDuDefi({
+  onglets,
+  onJouer,
+  enMaintenance = false,
+}: {
+  onglets: ReactNode
+  onJouer: (tentative: SerieDeCampagne) => void
+  /** Fermé aux joueurs, ouvert à l'administrateur, qui vérifie la réparation : l'onglet le lui rappelle. */
+  enMaintenance?: boolean
+}) {
   const [defi, setDefi] = useState<DefiDeLaSemaine | null>(null)
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
@@ -88,6 +98,7 @@ export function PageDuDefi({ onglets, onJouer }: { onglets: ReactNode; onJouer: 
     <div className="player-shell campagne">
       <Sortie />
       {onglets}
+      {enMaintenance && <p className="avis-administrateur">{espacesFines(pourLAdministrateur('defi'))}</p>}
       <section className="atlas-branche campagne-heros defi-heros" style={lueur(OR)}>
         <span className="atlas-categorie">Le défi de la semaine</span>
         <h1>La même série pour tous</h1>

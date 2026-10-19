@@ -14,6 +14,7 @@ import { QgJournal } from '../components/QgJournal'
 import { QgSoirees } from '../components/QgSoirees'
 import { QgServeur } from '../components/QgServeur'
 import { QgActivite } from '../components/QgActivite'
+import { QgMaintenance } from '../components/QgMaintenance'
 import { MenuBarre, Sortie } from '../components/Pieces'
 import { useAppState } from '../state'
 import { useNouveautesDuMenu } from '../nouveautes'
@@ -22,6 +23,7 @@ import { formatNumber } from '../../../shared/typographie'
 import { jourDe, jourEnToutesLettres } from '../../../shared/jour'
 import { heureEcrite, lesChosesATraiter, type DirectDuQg, type VueDEnsemble } from '../../../shared/qg'
 import type { EspaceDAdministration } from '../../../shared/space'
+import { ceQuiEstPose, PAGES_EN_MAINTENANCE, type EtatDeLaMaintenance } from '../../../shared/maintenance'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/partage'
 import type { QuizQuestionDef } from '../../../shared/library'
 
@@ -45,8 +47,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * catalogue.
  */
 
-type Ecran = 'journal' | 'serveur' | 'activite' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne' | 'duels' | 'economie' | 'signalements'
-const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements']
+type Ecran = 'journal' | 'serveur' | 'maintenance' | 'activite' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne' | 'duels' | 'economie' | 'signalements'
+const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -58,6 +60,7 @@ function lireEcran(): Ecran | null {
 const TITRE: Record<Ecran, string> = {
   journal: 'Le journal',
   serveur: 'Le serveur',
+  maintenance: 'La maintenance',
   activite: 'L’activité',
   soirees: 'Les soirées',
   profils: 'Les profils',
@@ -83,6 +86,7 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
       { ecran: null, nom: 'Vue d’ensemble', icone: 'bar-chart' },
       { ecran: 'journal', nom: 'Journal', icone: 'list' },
       { ecran: 'serveur', nom: 'Serveur', icone: 'zap' },
+      { ecran: 'maintenance', nom: 'Maintenance', icone: 'alert' },
     ],
   },
   {
@@ -133,6 +137,8 @@ export function AdminApp() {
   const [vueEnPanne, setVueEnPanne] = useState(false)
   const [profils, setProfils] = useState<number>()
   const [espaces, setEspaces] = useState<EspaceDAdministration[]>()
+  /** Le bandeau et les pages fermées : la barre de côté les rappelle, de toutes les pages — on ne laisse pas une page fermée sans le voir. */
+  const [maintenance, setMaintenance] = useState<EtatDeLaMaintenance | null>(null)
   /** Ce que son propre profil a de neuf à porter : la pastille de « Profil », dans la barre du téléphone. */
   const nouveautes = useNouveautesDuMenu(true)
   // Une lecture à la fois : l'hébergeur qui se réveille tient une requête trente secondes.
@@ -173,6 +179,7 @@ export function AdminApp() {
   const relireLesComptes = () => {
     api.admin.profils('').then(l => setProfils(l.total), () => {})
     api.admin.espaces().then(setEspaces, () => {})
+    api.admin.maintenance().then(setMaintenance, () => {})
   }
 
   useEffect(() => {
@@ -274,6 +281,10 @@ export function AdminApp() {
   const enCours = direct?.soirees.filter(s => s.etat === 'en-cours').length
   const enPlan = direct?.soirees.filter(s => s.etat === 'en-plan').length ?? 0
   const comptes: Partial<Record<Ecran, number>> = { soirees: enCours, profils, salons: espaces?.length }
+  // Ce qui est posé — le bandeau, les pages fermées — se compte en rouge : rien ne se rouvre de lui-même.
+  const posees = maintenance ? ceQuiEstPose(maintenance) : 0
+  const fermees = maintenance ? PAGES_EN_MAINTENANCE.filter(p => maintenance.pages[p] !== null).length : 0
+  const enMaintenance = [maintenance?.bandeau && 'Bandeau affiché', fermees > 0 && `${fermees} page${fermees > 1 ? 's' : ''} fermée${fermees > 1 ? 's' : ''}`].filter(Boolean).join(' · ')
 
   return (
     <div className="player-shell compte admin qg">
@@ -311,15 +322,15 @@ export function AdminApp() {
             {pages.map(p => {
               // Ce qui attend un geste sur la page : tout, pour la vue d'ensemble.
               const siennes = p.ecran === null ? choses : choses.filter(c => c.ecran === p.ecran)
-              const pastille = p.ecran === 'signalements' ? signalees : siennes.length
+              const pastille = p.ecran === 'signalements' ? signalees : p.ecran === 'maintenance' ? posees : siennes.length
               const compte = p.ecran ? comptes[p.ecran] : undefined
               return (
                 <LienDuQg key={p.nom} ici={ecran === p.ecran} href={p.ecran ? `/admin#${p.ecran}` : '/admin'} icone={p.icone} onAller={() => aller(p.ecran)}>
                   {p.nom}
                   {pastille > 0 ? (
-                    <span className={'qg-pastille' + (siennes.some(c => c.alerte) ? ' qg-pastille-alerte' : '')}>
+                    <span className={'qg-pastille' + (p.ecran === 'maintenance' || siennes.some(c => c.alerte) ? ' qg-pastille-alerte' : '')}>
                       {pastille}
-                      <span className="sr-only">{p.ecran === 'signalements' ? ' à relire' : ' à traiter'}</span>
+                      <span className="sr-only">{p.ecran === 'signalements' ? ' à relire' : p.ecran === 'maintenance' ? ` : ${enMaintenance}` : ' à traiter'}</span>
                     </span>
                   ) : (
                     compte !== undefined && <span className="qg-compte">{formatNumber(compte)}</span>
@@ -378,12 +389,15 @@ export function AdminApp() {
                 />
                 <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
                 <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
+                <Ligne icone="alert" nom="La maintenance" valeur={enMaintenance || 'Bandeau, pages fermées'} onClick={() => aller('maintenance')} />
               </ul>
             </nav>
           </>
         )}
         {ecran === 'journal' && <QgJournal />}
         {ecran === 'serveur' && <QgServeur />}
+        {/* Chaque geste rend l'état d'après : la barre de côté le compte aussitôt. */}
+        {ecran === 'maintenance' && <QgMaintenance onEtat={setMaintenance} />}
         {ecran === 'activite' && <QgActivite />}
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
         {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} />}

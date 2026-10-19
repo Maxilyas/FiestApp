@@ -31,6 +31,7 @@ import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
 import { porterNiche } from '../niche'
 import { relireLesMissions } from '../missions'
+import { pagesEnMaintenance } from '../maintenance'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
 
@@ -561,6 +562,7 @@ export function ProfilApp() {
           aujourdhui={'aujourdhui' in profil ? profil.aujourdhui : undefined}
           campagne={'campagne' in profil ? profil.campagne : undefined}
           duels={'duels' in profil ? profil.duels : undefined}
+          fermees={pagesEnMaintenance()}
         />
         {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
         <Installer avecProfil />

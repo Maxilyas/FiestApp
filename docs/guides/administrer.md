@@ -1,8 +1,8 @@
 # Administrer FiestApp
 
-> Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions, relire les questions signalées, annuler un duel que l'adversaire n'a pas commencé, suivre les confettis.
+> Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, prévenir les joueurs d'un problème et fermer ce qui ne marche pas, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions, relire les questions signalées, annuler un duel que l'adversaire n'a pas commencé, suivre les confettis.
 
-**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Le serveur](#la-santé-du-serveur) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Les signalements](#les-signalements) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
+**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Le serveur](#la-santé-du-serveur) · [La maintenance](#la-maintenance) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Les signalements](#les-signalements) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
 
 > [!NOTE]
 > Le QG a grandi page après page : chaque mode de jeu y a la sienne — le quiz du jour, la campagne, les duels —, l'économie et les signalements aussi ; une page « Animer » viendra à son tour. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
@@ -21,6 +21,7 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 | La vue d'ensemble | `/admin` | l'instant, ce qui attend un geste, la journée, trente jours, le serveur |
 | Le journal | `/admin#journal` | tes gestes, du plus récent au plus ancien |
 | Le serveur | `/admin#serveur` | sept jours de santé, heure par heure |
+| La maintenance | `/admin#maintenance` | le bandeau rouge qui prévient les joueurs d'un problème, et les pages fermées le temps d'une réparation |
 | L'activité | `/admin#activite` | trente jours de questions jouées et de parties, mode par mode, et qui joue à quoi |
 | Les soirées | `/admin#soirees` | celles qui se jouent, celles laissées en plan, le bilan du mois |
 | Le quiz du jour | `/admin#jour` | la journée, la réserve, le tirage, le classement, les séries, le rappel du soir |
@@ -73,7 +74,7 @@ La fiche d'un joueur dit aussi ses trente jours, mode par mode (« Trente jours 
 
 Chaque geste du QG qui change quelque chose s'y note de lui-même, en une phrase qui nomme ce qu'il a touché : « Profil supprimé : Tom (@tom) », « Espace désactivé : Nadia B. », « Soirée laissée en plan close : Antoine — rien n'avait été joué ». Un refus ne s'y note jamais. Un geste noté ne se modifie ni ne s'efface : défaire, c'est faire le geste contraire, qui se note à son tour. Le journal garde le nom d'un profil supprimé — la trace de ce qui a eu lieu.
 
-Filtres : Tous, Soirées, Profils, Salons, Catalogue, Quiz du jour, Campagne, Duels. Les gestes se rangent par jour (« Aujourd'hui », « Hier », puis la date), cinquante à la fois (« Voir les gestes d'avant »). La fiche d'un joueur reprend les tiens sur son profil (« Tes gestes sur ce profil »). Un code de secours tiré n'y paraît jamais, seulement sa phrase : « Code de secours neuf tiré : Léa (@lea) ».
+Filtres : Tous, Soirées, Profils, Salons, Catalogue, Quiz du jour, Campagne, Duels, Maintenance. Les gestes se rangent par jour (« Aujourd'hui », « Hier », puis la date), cinquante à la fois (« Voir les gestes d'avant »). La fiche d'un joueur reprend les tiens sur son profil (« Tes gestes sur ce profil »). Un code de secours tiré n'y paraît jamais, seulement sa phrase : « Code de secours neuf tiré : Léa (@lea) ».
 
 ## La santé du serveur
 
@@ -88,6 +89,21 @@ Sept jours, heure par heure, gardés dans la base permanente ; la nuit, l'héber
 - **Réveils et arrêts** : chaque démarrage et sa raison — « Réveil » (l'hébergeur rallume le serveur endormi), « Mise en ligne » (une version neuve), « Relancé » (le serveur d'avant vivait encore, ou s'est éteint dans la minute), « Redémarrage après un arrêt net » —, et chaque « Arrêt net » : ni extinction propre, ni signe de vie depuis vingt minutes. Puis le tableau des heures éveillées.
 
 Une alerte du serveur se traite dans [Exploiter](../exploitation/exploiter.md).
+
+## La maintenance
+
+Quand quelque chose ne marche plus pour les joueurs — le quiz du jour qui ne s'ouvre pas, un défi qui plante —, cette page, sous « Piloter », sert à les prévenir et à fermer ce qui ne marche pas le temps de le réparer. Tout vaut dès la page suivante qu'ils ouvrent ; chaque geste va au journal (filtre « Maintenance »). Ce qui est posé se compte en rouge dans la barre de côté, quelle que soit la page du QG où tu es : rien ne se rouvre de lui-même.
+
+**Le bandeau** : une phrase ou deux, 140 caractères au plus, que les joueurs lisent en rouge en haut de chaque page — l'accueil, les modes, la boutique, le QG —, avec ou sans profil. L'aperçu la montre telle qu'ils la liront à mesure que tu l'écris. « Afficher le bandeau », « Changer le bandeau » quand tu le retouches, « Retirer le bandeau ». Il ne paraît jamais pendant une soirée — ni sur le téléphone des invités, où il prendrait la place des réponses, ni sur l'écran commun, qui le projetterait à toute la salle —, ni pendant une question du quiz du jour ou de la campagne, où la page tient l'écran au pixel près.
+
+**Les pages en maintenance** : le quiz du jour, la campagne (le défi de la semaine avec), le défi de la semaine seul, les duels (les défis entre amis compris), l'Expédition, la boutique. « Mettre en maintenance », confirmé, puis « Rouvrir ». Une page fermée :
+
+- se remplace, pour les joueurs, par un écran qui dit qu'une réparation est en cours, que rien de ce qu'ils ont gagné n'est perdu, avec « Retour à l'accueil » et « Réessayer » ;
+- éteint son bouton sur l'accueil, qui dit « En maintenance : reviens un peu plus tard » ; le défi fermé seul ne s'y propose plus ;
+- ferme ce qui y commence — une partie, un départ, un achat —, même depuis une page restée ouverte : le joueur lit « Le quiz du jour est en maintenance : reviens un peu plus tard ». Une partie déjà à l'écran, elle, se finit ;
+- tait le rappel du soir, pour le quiz du jour : il part si tu rouvres avant 22 h.
+
+Toi, tu y entres encore, par la session de ta console : une ligne te rappelle que la page est fermée pour les joueurs — de quoi vérifier la réparation en production avant de rouvrir. Les soirées ne se ferment pas : une salle entière joue derrière l'écran commun ; pour prévenir les animateurs, le bandeau.
 
 ## Les soirées
 

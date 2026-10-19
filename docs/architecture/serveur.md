@@ -33,11 +33,11 @@ flowchart TD
   IDX["index.ts — lit l'environnement<br/>refuse sans QUIZ_DB_URL en ligne"] --> CQS["createQuizServer — Express,<br/>en-têtes, Socket.io"]
   CQS --> LOC["initDb — la base locale"]
   LOC --> AUTH["AuthStore.init, ensureDefaultSpace<br/>les comptes d'abord, seuls"]
-  AUTH --> FRONT{{"deFront — douze branches de front"}}
+  AUTH --> FRONT{{"deFront — treize branches de front"}}
   FRONT --> B1["le miroir : init, restoreInto,<br/>stampLegacySpace"]
   FRONT --> B2["profils, quiz du jour,<br/>rappel du soir"]
   FRONT --> B3["bibliothèque et amorce, programmes,<br/>partages, salons"]
-  FRONT --> B4["campagne, journal des gestes,<br/>santé, historique"]
+  FRONT --> B4["campagne, journal des gestes,<br/>santé, maintenance, historique"]
   B1 & B2 & B3 & B4 --> LIENS["les branchements entre magasins,<br/>adopterLesComptes"]
   LIENS --> RELU["les relectures uniques : recalculerHistorique,<br/>reprendreLesPortraits, relireLesJours,<br/>relireLesSeries, appliquerLeBaremeDuSolo"]
   RELU --> SALLE["SpaceRegistry, wakeRunning<br/>les parties en cours repartent"]
@@ -73,11 +73,12 @@ flowchart TD
 5. **Les magasins se construisent**, chacun avec son client libSQL
    (`clientDistant`, `server/src/core/distante.ts`), qui abandonne une requête
    après 10 s : sans lui, on a mesuré 301 s d'attente, et tout gelait.
-6. **Douze branches de front** (`deFront`) : le miroir (ses tables,
+6. **Treize branches de front** (`deFront`) : le miroir (ses tables,
    `restoreInto` si la base locale est vide, `stampLegacySpace`), les profils,
    le quiz du jour et l'amorce de sa réserve, le rappel du soir, la
    bibliothèque et son amorce (`seedLibrary`), les programmes, les partages,
-   les salons, la campagne, le journal des gestes, la santé du serveur,
+   les salons, la campagne, le journal des gestes, la santé du serveur, la
+   maintenance (le bandeau et les pages fermées du QG, `Maintenance`),
    l'historique. En série, chaque réveil attendait soixante allers-retours —
    trois secondes de page blanche ; et un échec ne remonte qu'une fois toutes
    les branches finies, pour que rien n'écrive plus après.

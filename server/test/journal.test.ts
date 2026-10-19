@@ -149,6 +149,13 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, `/api/admin/soirees/${enPlan}/clore`), 'clore la soirée en plan')
     zoe.socket.disconnect()
 
+    // La maintenance : un bandeau affiché, changé, retiré ; une page fermée, puis rouverte.
+    ok(await faire(banc, admin, '/api/admin/maintenance/bandeau', { texte: 'Le quiz du jour est en panne : on répare' }, 'PUT'), 'afficher le bandeau')
+    ok(await faire(banc, admin, '/api/admin/maintenance/bandeau', { texte: 'Le quiz du jour revient ce soir' }, 'PUT'), 'changer le bandeau')
+    ok(await faire(banc, admin, '/api/admin/maintenance/bandeau', { texte: null }, 'PUT'), 'retirer le bandeau')
+    ok(await faire(banc, admin, '/api/admin/maintenance/pages/jour', { fermee: true }, 'PUT'), 'mettre en maintenance')
+    ok(await faire(banc, admin, '/api/admin/maintenance/pages/jour', { fermee: false }, 'PUT'), 'rouvrir')
+
     // La campagne : régler le mélange d'un palier, puis garder, retirer, corriger.
     ok(await faire(banc, admin, '/api/admin/campagne/paliers/2/melange', { melange: { facile: 12, moyen: 4 } }), 'régler un mélange')
     ok(await faire(banc, admin, '/api/admin/campagne/garder', { questionId: 'essai001' }), 'garder en campagne')
@@ -205,6 +212,11 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Profil renommé : « Léa » devient « Léa B. » (@lea)',
       'Mélange du palier 2 des sentiers réglé : 14 faciles et 2 moyennes → 12 faciles et 4 moyennes',
       'Duel classé annulé avant d’être joué : Ana (@ana) → Max (@max)',
+      'Bandeau affiché : « Le quiz du jour est en panne : on répare »',
+      'Bandeau changé : « Le quiz du jour est en panne : on répare » devient « Le quiz du jour revient ce soir »',
+      'Bandeau retiré : « Le quiz du jour revient ce soir »',
+      'Page mise en maintenance : Le quiz du jour',
+      'Page rouverte aux joueurs : Le quiz du jour',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
     }
@@ -227,6 +239,11 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     assert.equal(gestes.find(g => g.resume.startsWith('Profil masqué'))?.cible, idLea)
     assert.equal(gestes.find(g => g.resume === 'Profil supprimé : Tom (@tom)')?.cible, idTom)
     assert.equal(gestes.find(g => g.resume.startsWith('Soirée laissée en plan'))?.cible, enPlan)
+    assert.deepEqual(
+      gestes.filter(g => g.sorte === 'maintenance').map(g => g.cible),
+      [null, null, null, 'jour', 'jour'],
+      'une page fermée vise sa page ; le bandeau, rien',
+    )
 
     // La page le lit, du plus récent au plus ancien ; filtré par sorte.
     const journal = (await lire<JournalDuQg>(banc, admin, '/api/admin/gestes')).corps

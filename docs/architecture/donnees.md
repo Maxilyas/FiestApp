@@ -314,10 +314,10 @@ tous. Chaque constante, et ce que la changer reprend ou non :
    et ce qui date d'avant les espaces se rattache à celui de l'administrateur.
    Les sessions expirées s'effacent ; sur une base sans compte, le serveur
    crée l'administrateur — en ligne, jamais avec le mot de passe par défaut.
-4. **Douze branches de front** (`deFront`) : le miroir et sa restauration,
+4. **Treize branches de front** (`deFront`) : le miroir et sa restauration,
    les profils, le quiz du jour, le rappel du soir, la bibliothèque et ses
    quiz d'amorce, les programmes, les partages, les salons, la campagne, le
-   journal des gestes, la santé du serveur et l'historique. Un magasin qui a
+   journal des gestes, la santé du serveur, la maintenance et l'historique. Un magasin qui a
    besoin d'un autre s'ouvre après lui, dans la même branche ; un échec ne
    remonte qu'une fois toutes les branches arrivées au bout. L'un après
    l'autre, soixante allers-retours faisaient trois secondes à chaque réveil,

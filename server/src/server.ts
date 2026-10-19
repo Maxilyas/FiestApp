@@ -24,6 +24,8 @@ import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive, type ApparencesDesProfils } from './core/archive'
 import { JournalDesGestes } from './core/journalDesGestes'
 import { SanteDuServeur } from './core/santeDuServeur'
+import { Maintenance } from './core/maintenance'
+import { estLAdministrateur } from './maintenance'
 import type { BadgeLookup } from './core/party'
 import { recalculerHistorique } from './core/recalcul'
 import { reprendreLesPortraits } from './core/repriseDesPortraits'
@@ -43,7 +45,7 @@ import { rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
 import { RappelStore } from './core/rappels'
 import { erreurDeRequete, repondreErreur } from './core/http'
-import { ecrireAttente, espaceDeLEntree, pageDEntree, prechargerDonnees } from './core/page'
+import { ecrireAttente, ecrireLeService, espaceDeLEntree, pageDEntree, prechargerDonnees } from './core/page'
 import { parseRoute } from '../../shared/adresses'
 import { donneesDeDepart, type EntreeDeDepart } from '../../shared/depart'
 import { cloreLaSoiree, wireSockets } from './sockets'
@@ -396,14 +398,19 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Le quiz du jour, pour les profils : sa réserve, ses parties, ses nuits.
   const maintenantDuJour = opts.horlogeDuJour ?? Date.now
   const jour = new JourStore(opts.quizDbUrl, opts.quizDbToken, { profiles, maintenant: maintenantDuJour })
+  // Le bandeau rouge et les pages en maintenance, posés au QG : chaque page
+  // servie et chaque route qui commence une partie les lisent en mémoire.
+  const maintenance = new Maintenance(opts.quizDbUrl, opts.quizDbToken, { maintenant: maintenantDuJour })
   // Son rappel du soir, aux téléphones qui l'ont demandé. Les services de push
   // veulent de quoi joindre qui les sollicite : l'adresse publique du serveur.
+  // Le quiz du jour en maintenance, il attend.
   const adressePublique = originOf(opts.publicUrl)
   const rappels = new RappelStore(opts.quizDbUrl, opts.quizDbToken, {
     profiles,
     jour,
     maintenant: maintenantDuJour,
     sujet: adressePublique?.startsWith('https://') ? adressePublique : 'mailto:fiestapp@example.com',
+    enPause: () => maintenance.estFermee('jour'),
     ...opts.rappels,
   })
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
@@ -500,6 +507,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     campagne.init(),
     gestes.init(),
     sante.init(),
+    maintenance.init(),
     (async () => {
       await archives.init(defaultSpace)
       // Le tirage d'un quiz choisit d'abord les questions jamais posées : il
@@ -1156,6 +1164,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       clore: rt => cloreLaSoiree(rt, { auth, inscriptions }),
     },
     gestes,
+    maintenance,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
@@ -1298,9 +1307,17 @@ export async function createQuizServer(opts: QuizServerOptions) {
         const compte = entree ? auth.bySlug(entree) : undefined
         const espace = compte && compte.slug === entree ? auth.publicSpace(compte) : undefined
         if (espace) html = pageDEntree(html, espace)
+        // Le bandeau et les pages en maintenance (`core/maintenance.ts`), lus
+        // en mémoire. Une page fermée à qui la demande montre l'écran de la
+        // maintenance (`main.tsx`) : elle ne précharge pas ce qu'elle ne
+        // demandera jamais.
+        const route = parseRoute(chemin)
+        const service = maintenance.pourLaPage(route, () => estLAdministrateur(auth, req))
+        const fermee = !!service?.ici && !service.admin
         // Ce que la page demandera dès son code arrivé part avec son script
         // (`shared/depart.ts`), et son attente est déjà écrite.
-        if (page.statut === 200) html = prechargerDonnees(html, donneesDeDepart(parseRoute(chemin)))
+        if (page.statut === 200 && !fermee) html = prechargerDonnees(html, donneesDeDepart(route))
+        if (service) html = ecrireLeService(html, service)
         res.status(page.statut).type('html').send(ecrireAttente(html, espace))
       }
       if (!decision.archive) return envoyer(decision)
@@ -1410,6 +1427,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           auth.close()
           jour.close()
           rappels.close()
+          maintenance.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin
           // du dernier quiz garde ainsi le plus long sursis pour aboutir. On ne
           // les refermait jamais.

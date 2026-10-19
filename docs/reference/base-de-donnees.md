@@ -886,6 +886,16 @@ Chaque démarrage du serveur, et son extinction propre.
 - **Lue par** : `SanteDuServeur` (la raison de chaque démarrage : réveil, mise en ligne, relance, redémarrage après un arrêt net ; l'alerte d'arrêt net).
 - **Effacée par** : le relevé : ce qui n'a plus donné signe de vie depuis huit jours.
 
+### `qg_maintenance`
+
+Ce que l'administrateur pose au QG (`/admin#maintenance`) : le bandeau rouge, et les pages en maintenance — une ligne par chose posée, la table vide sinon.
+
+- **Colonnes clés** : `cle` (la clé : `bandeau`, ou la page fermée — `jour`, `campagne`, `defi`, `duels`, `expedition`, `boutique`), `texte` (celui du bandeau ; vide pour une page), `depuis`.
+- **Espace** : non — elles valent pour tout le serveur.
+- **Écrite par** : `Maintenance` (`server/src/core/maintenance.ts`), à chaque geste de la page du QG, l'un après l'autre.
+- **Lue par** : `Maintenance`, une fois au démarrage, puis tenue en mémoire : chaque page servie et chaque route qui commence une partie la lisent sans un aller-retour.
+- **Effacée par** : le geste contraire — retirer le bandeau, rouvrir la page — efface sa ligne.
+
 ## Pour aller plus loin
 
 - [Les données](../architecture/donnees.md) — pourquoi deux bases, comment le miroir tient, le démarrage et l'arrêt

@@ -58,7 +58,7 @@ Le détail : [la vue d'ensemble de l'architecture](../architecture/vue-d-ensembl
 ### Chaque réveil est un démarrage : démarrer vite, et sans tsx
 **Contexte** : l'offre gratuite endort le service après un quart d'heure sans trafic, et le premier invité qui scanne le QR attend la fin du démarrage.
 
-**Décision** : après les comptes, les magasins s'ouvrent de front (`deFront`, douze branches) ; le serveur part en un seul fichier construit par esbuild (`server/dist/index.mjs`), lancé par `exec node` ; tout chemin se compte depuis `SERVEUR`.
+**Décision** : après les comptes, les magasins s'ouvrent de front (`deFront`, treize branches aujourd'hui) ; le serveur part en un seul fichier construit par esbuild (`server/dist/index.mjs`), lancé par `exec node` ; tout chemin se compte depuis `SERVEUR`.
 
 **Conséquence** : soixante allers-retours en série (trois secondes) et la traduction du TypeScript par tsx (0,8 à 1 s de processeur, 40 Mo) disparaissent du réveil ; `SIGTERM` atteint le serveur, qui éteint ses chronomètres et vide son miroir ; un chemin compté depuis l'`import.meta.url` d'un module casserait le paquet sans une erreur.
 
@@ -371,7 +371,7 @@ Le détail : [les données](../architecture/donnees.md).
 ### Un démarrage de front, et rien d'attendu après l'ouverture du port
 **Contexte** : chaque réveil attendait soixante allers-retours en série avant d'ouvrir le port — trois secondes, pendant lesquelles le premier invité regardait une page blanche.
 
-**Décision** : après les comptes, les magasins s'ouvrent ensemble, en douze branches (`deFront`), et tous finissent avant qu'un échec remonte ; ce qui n'a pas à retarder la première page — l'écriture du démarrage au QG, la lecture de la base de la campagne — part une fois le port ouvert.
+**Décision** : après les comptes, les magasins s'ouvrent ensemble, en treize branches aujourd'hui (`deFront`), et tous finissent avant qu'un échec remonte ; ce qui n'a pas à retarder la première page — l'écriture du démarrage au QG, la lecture de la base de la campagne — part une fois le port ouvert.
 
 **Conséquence** : un magasin qui a besoin d'un autre s'ouvre après lui, dans la même branche ; ce qui relie deux magasins se branche après l'ouverture.
 

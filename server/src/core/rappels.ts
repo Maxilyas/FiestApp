@@ -109,6 +109,13 @@ export interface RappelDeps {
   servicesDePush?: (url: URL) => boolean
   /** Toutes les combien l'heure se regarde : les tests la regardent plus souvent. */
   intervalleMs?: number
+  /**
+   * Le quiz du jour est en maintenance (`/admin#maintenance`) : la tournée
+   * attend. « Ton quiz du jour t'attend » vers une page fermée ferait ouvrir
+   * à chacun l'écran qui dit de revenir plus tard ; rien n'étant réservé, la
+   * tournée part si la page rouvre avant la fin du rappel (`FIN_DU_RAPPEL`).
+   */
+  enPause?: () => boolean
 }
 
 export class RappelStore {
@@ -336,6 +343,7 @@ export class RappelStore {
     const jour = jourDe(maintenant)
     const heure = heureDeParis(maintenant)
     if (this.faitPour === jour || heure < HEURE_DU_RAPPEL || heure >= FIN_DU_RAPPEL || Date.now() < this.pasAvant) return null
+    if (this.deps.enPause?.()) return null
     this.tournee = this.faireLaTournee(jour)
       .then(() => {
         this.faitPour = jour
