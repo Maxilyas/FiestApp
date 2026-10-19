@@ -9270,25 +9270,30 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    et la main, posée au bas de l'écran. */
 .player-shell.exp-carte-page { gap: 10px; padding-bottom: 0; }
 .exp-titre-acte { margin: 0; font-size: 1.3rem; line-height: 1.15; text-wrap: balance; font-variant-numeric: lining-nums; }
-/* L'acte en petit : un bouton qui ouvre la carte en grand, tout l'acte d'un
-   coup d'œil. Ses escales, en pour cent de sa hauteur : il grandit sur un
-   écran plus haut, sans jamais descendre sous 170 pixels. */
-.exp-plan { position: relative; flex: 1 1 0; min-height: 170px; max-height: 440px; margin: 0 -8px; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: radial-gradient(90% 60% at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%), var(--surface); color: inherit; font: inherit; cursor: zoom-in; }
+/* Le plan de l'acte, tout l'acte d'un coup d'œil, dans la page : ses escales
+   se touchent sur place (le 19 octobre 2026 — il s'ouvrait en grand dans une
+   feuille à part). Ses escales, en pour cent de sa hauteur : il grandit sur
+   un écran plus haut, sans jamais descendre sous 180 pixels — ses étages y
+   gardent dix-sept pixels, ses escales en font seize. */
+.exp-plan { position: relative; flex: 1 1 0; min-height: 180px; max-height: 440px; margin: 0 -8px; border: 1px solid var(--edge); border-radius: var(--radius); background: radial-gradient(90% 60% at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%), var(--surface); }
 .exp-petit-plan { position: absolute; inset: 12px 10px 8px; }
-.exp-plan-ouvrir { position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--bg-raised); color: var(--accent-text); font-size: var(--t-label); font-weight: 700; line-height: 1.4; }
-.exp-plan-ouvrir .icon { width: 12px; height: 12px; }
 .exp-petit-plan .exp-liens line { stroke-width: 1.5; stroke-dasharray: 2 4; }
 .exp-petit-plan .exp-liens line.lien-fait, .exp-petit-plan .exp-liens line.lien-choisi { stroke-dasharray: none; }
 .exp-petit-plan .exp-liens line.lien-choisi { stroke-width: 2.5; }
-/* Une escale du plan : dix-huit pixels, son emblème sans un mot — les mêmes états qu'en grand. */
-.exp-point { position: absolute; display: grid; place-items: center; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 1.5px solid var(--edge-strong); border-radius: 50%; background: var(--bg-raised); color: var(--accent-text); }
+/* Une escale du plan : seize pixels, son emblème sans un mot — à dix-huit, deux étages se chevauchaient quand le plan tombe à sa
+   hauteur la plus courte. Elle se touche plus large qu'elle ne se voit : ses voisines de l'étage sont à quatre-vingts pixels,
+   celles de l'étage d'au-dessus à une vingtaine. */
+.exp-point { position: absolute; display: grid; place-items: center; width: 16px; height: 16px; margin: -8px 0 0 -8px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 50%; background: var(--bg-raised); color: var(--accent-text); font: inherit; cursor: pointer; }
+.exp-point::before { content: ''; position: absolute; inset: -4px -20px; }
 .exp-point > .icon { width: 10px; height: 10px; }
+/* Celle que la ligne sous les cartes décrit, touchée hors des proposées : un anneau gris, sans sortir du retrait — pas un `outline`, que le focus tient seul. */
+.exp-point.exp-regardee { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--muted); }
 .exp-point.exp-plus-loin { opacity: 0.55; }
 .exp-point.exp-loin { opacity: 0.2; }
 .exp-point.exp-passee { color: var(--muted); opacity: 0.45; }
 .exp-point.exp-a-portee { border: 2px solid var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 14%, transparent); }
 .exp-point.exp-choisie { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
-.exp-point.exp-ici { width: 20px; height: 20px; margin: -10px 0 0 -10px; border: 2px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+.exp-point.exp-ici { width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid var(--accent); background: var(--accent); color: var(--on-accent); }
 .exp-point.exp-ici::after { content: ''; position: absolute; inset: -5px; border: 2px solid var(--accent); border-radius: 50%; animation: exp-ici 1.8s ease-out infinite; pointer-events: none; }
 .exp-point.exp-campement { color: var(--or-text); }
 .exp-point.exp-campement.exp-ici { color: var(--on-accent); }
@@ -9312,6 +9317,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-carte-escale.exp-elite .exp-carte-sorte, .exp-carte-escale.exp-gardien .exp-carte-sorte { color: var(--accent-text); }
 .exp-carte-embleme { display: grid; place-items: center; width: 32px; height: 32px; border: 1.5px solid var(--edge-strong); border-radius: 50%; background: var(--bg-raised); color: var(--accent-text); }
 .exp-carte-embleme > .icon { width: 17px; height: 17px; }
+/* Un mélange : l'emblème de chacune de ses catégories, côte à côte dans sa pastille — « on ne peut pas voir le mélange » (le 19 octobre 2026). */
+.exp-carte-embleme.exp-embleme-melange { grid-auto-flow: column; gap: 3px; width: auto; min-width: 32px; padding: 0 7px; border-radius: var(--radius-pill); }
+.exp-carte-embleme.exp-embleme-melange > .icon { width: 15px; height: 15px; }
 .exp-carte-escale.exp-campement .exp-carte-embleme { color: var(--or-text); }
 .exp-carte-escale.exp-inconnu .exp-carte-embleme { border-style: dashed; }
 .exp-carte-escale.exp-gardien .exp-carte-embleme { width: 44px; height: 44px; border: 0; background: none; }
@@ -9329,56 +9337,18 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-glyphe-joker { display: inline-block; width: 9px; height: 12px; margin-right: 2px; border: 1.5px solid currentColor; border-radius: 2px; }
 .exp-la-plus-sure { position: absolute; top: -9px; left: 50%; translate: -50% 0; padding: 0 7px; border: 1px solid var(--accent); border-radius: var(--radius-pill); background: var(--bg-raised); color: var(--accent-text); font-size: var(--t-label); font-weight: 700; line-height: 1.45; white-space: nowrap; }
 .exp-note { color: var(--muted); line-height: 1.35; text-align: center; }
-/* La carte en grand, dans sa feuille : les colonnes en pour cent de sa
-   largeur, les étages en pixels (`ExpeditionApp.tsx`). Une seule escale
-   brille, celle où il est ; les proposées s'entourent ; le reste attend en
-   retrait, plus petit, son emblème sans un mot — tout le tracé allumé d'ici
-   au campement faisait douter de l'escale où l'on était. Les liens, sous les
-   escales, d'un trait qui ne s'étire pas avec elle (`vector-effect`) : en
-   pointillé ce qui mène encore quelque part, presque effacé ce qui n'y mène
-   plus, éteint ce qui est passé ; d'ici aux proposées, un pointillé clair,
-   doré et plein vers celle qu'il a choisie. */
-.exp-carte { position: relative; flex: none; width: 100%; margin: 6px 0 2px; }
+/* Les liens du plan, sous les escales, d'un trait qui ne s'étire pas avec lui (`vector-effect`) : en pointillé ce qui mène
+   encore quelque part, presque effacé ce qui n'y mène plus, éteint ce qui est passé ; d'ici aux proposées, un pointillé
+   clair, doré et plein vers celle qu'il a choisie — tout le tracé allumé d'ici au campement faisait douter de l'escale où
+   l'on était. */
 .exp-liens { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .exp-liens line { stroke: color-mix(in srgb, var(--accent) 34%, transparent); stroke-width: 2; stroke-dasharray: 3 6; stroke-linecap: round; }
 .exp-liens line.lien-mort { stroke: color-mix(in srgb, var(--accent) 12%, transparent); }
 .exp-liens line.lien-fait { stroke: var(--muted); stroke-dasharray: none; opacity: 0.45; }
 .exp-liens line.lien-propose { stroke: color-mix(in srgb, var(--ink) 55%, transparent); stroke-dasharray: 2 5; }
 .exp-liens line.lien-choisi { stroke: var(--accent); stroke-width: 3; stroke-dasharray: none; }
-.exp-escale { position: absolute; z-index: 1; display: grid; place-items: center; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 50%; background: var(--bg-raised); color: var(--accent-text); font: inherit; cursor: pointer; }
-.exp-escale > .icon { width: 20px; height: 20px; }
-/* Le nom d'une escale passe sur les liens : un halo du fond le détache du pointillé. Deux lignes au plus — le panneau dit le reste. */
-.exp-etiquette { position: absolute; top: 47px; left: 50%; display: -webkit-box; width: 84px; margin-left: -42px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--muted); font-size: var(--t-label); font-weight: 600; line-height: 1.15; text-align: center; text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg); pointer-events: none; }
-/* Plus loin sur sa route : en retrait, plus petite — son emblème suffit, et touchée, elle dit ce qu'elle cache. Hors de sa route ou passée : à peine là. */
-.exp-escale.exp-plus-loin { opacity: 0.5; scale: 0.86; }
-.exp-escale.exp-loin { opacity: 0.22; scale: 0.8; }
-.exp-escale.exp-passee { color: var(--muted); opacity: 0.45; scale: 0.8; }
-/* Les proposées, à portée : entourées, leur nom en clair dessous, leur chance au-dessus. Pas `.exp-proposee` : la réponse proposée d'un vrai ou faux, dont la règle en faisait des cartes carrées. */
-.exp-escale.exp-a-portee { border: 2px solid var(--ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 12%, transparent); }
-.exp-escale.exp-a-portee .exp-etiquette { color: var(--ink); }
-/* Celle que le pied de la feuille décrit, touchée hors des proposées : un anneau gris, sans sortir du retrait — pas un `outline`, que le focus tient seul. */
-.exp-escale.exp-regardee { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--muted); }
-/* Celle qu'il a touchée : un anneau doré, sans s'allumer — seule l'escale où il est brille. */
-.exp-escale.exp-choisie { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 34%, transparent); }
-.exp-escale.exp-choisie .exp-etiquette { color: var(--accent-text); font-weight: 700; }
-/* Sa chance, au-dessus d'une proposée : la balise et le pour cent, sur le fond. Au coin, elle sortait de l'écran à la colonne de droite ; le tampon tient le flanc gauche. */
-.exp-sa-chance { position: absolute; top: -15px; left: 50%; translate: -50% 0; display: inline-flex; align-items: center; gap: 2px; padding: 1px 5px 1px 3px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--bg-raised); color: var(--ink); font-size: var(--t-label); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; line-height: 1.2; white-space: nowrap; pointer-events: none; }
-.exp-sa-chance .balise { width: 11px; height: 11px; }
-/* L'escale où il est : la seule qui brille — pleine, et un anneau qui s'élargit et s'éteint, par `scale` et `opacity` seulement. */
-.exp-escale.exp-ici { border: 2px solid var(--accent); background: var(--accent); color: var(--on-accent); }
-.exp-escale.exp-ici .exp-etiquette { color: var(--accent-text); font-weight: 700; }
-.exp-escale.exp-ici::after { content: ''; position: absolute; inset: -7px; border: 2px solid var(--accent); border-radius: 50%; animation: exp-ici 1.8s ease-out infinite; pointer-events: none; }
+/* L'escale où il est, sur le plan : un anneau qui s'élargit et s'éteint, par `scale` et `opacity` seulement. */
 @keyframes exp-ici { from { scale: 0.85; opacity: 0.9; } to { scale: 1.35; opacity: 0; } }
-.exp-escale.exp-campement { color: var(--or-text); }
-.exp-escale.exp-campement.exp-ici { color: var(--on-accent); }
-.exp-escale.exp-gardien { width: 64px; height: 64px; margin: -32px 0 0 -32px; border-width: 2px; }
-.exp-escale.exp-gardien .exp-medaillon { font-size: 56px; }
-.exp-escale.exp-gardien .exp-etiquette { top: 68px; width: 180px; margin-left: -90px; font-family: var(--serif); font-size: 1rem; color: var(--accent-text); }
-.exp-depart { position: absolute; left: 0; right: 0; display: flex; justify-content: center; height: 26px; margin-top: -13px; pointer-events: none; }
-.exp-depart-nom { display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; border-radius: var(--radius-pill); color: var(--muted); font-size: 0.8rem; font-weight: 600; }
-.exp-depart .icon { width: 16px; height: 16px; }
-/* Au départ, il est là : le départ brille, comme l'escale où il sera. */
-.exp-depart.exp-ici .exp-depart-nom { background: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent); }
 /* Le panneau, collé au bas de l'écran, de bord à bord : quatre cartes y gardent leur nom sur une ligne — « Géographie » se coupait à 336 pixels. */
 .exp-panneau { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 8px; margin: 0 -20px; padding: 10px 10px max(12px, env(safe-area-inset-bottom)); border: 1px solid var(--edge-strong); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; background: var(--bg-raised); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28); }
 .exp-panneau p { margin: 0; }
@@ -9388,14 +9358,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    Le pied de l'échoppe aussi : le bouton qui améliore Concentration pour 25 écus faisait la page large de 368 pixels (le 19 octobre 2026). */
 .exp-panneau .btn-big, .exp-depart-pied .btn-big { padding-block: 8px; white-space: normal; text-align: center; text-wrap: balance; line-height: 1.25; }
 .exp-panneau-titre { font-size: 0.86rem; line-height: 1.35; }
-/* Le pied de la feuille « La carte » : ce que dit l'escale touchée. Deux lignes gardées : la feuille ne saute pas d'une escale à l'autre. */
-.exp-vu { min-height: 2.7em; margin: 0; font-size: 0.86rem; line-height: 1.35; }
-/* La légende, dans sa feuille (« La carte ») : une ligne par emblème. */
-.exp-legende { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; color: var(--muted); font-size: 0.86rem; }
-.exp-legende li { display: flex; align-items: center; gap: 8px; }
-.exp-legende .icon { flex: none; width: 16px; height: 16px; color: var(--accent-text); }
-.exp-legende-pistes { display: inline-flex; gap: 2px; }
-.feuille-carte p { margin: 0 0 10px; line-height: 1.4; }
+/* Ce que dit l'escale touchée — sur le plan ou en carte —, sous les cartes. Deux lignes gardées : le plan ne saute pas d'une
+   escale à l'autre ; trois au plus, un mélange de trois catégories y tient. */
+.exp-vu { display: -webkit-box; min-height: 2.7em; margin: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; font-size: 0.82rem; line-height: 1.35; }
 /* Une escale, le gardien : la question de la campagne, avec ce qui la situe au-dessus. */
 .exp-ou { margin: 0; }
 /* La règle d'une source, d'une élite. Pas `.exp-source` ni `.exp-elite` : ce sont les classes d'une escale de la carte (`exp-${sorte}`), que `.exp-source` décentrait. */
@@ -9624,11 +9589,6 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* L'inconnu dévoilé : un piège, son signe en grand. */
 .exp-inconnu-piege { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: rgba(var(--alert-rgb), 0.14); color: var(--alert); }
 .exp-inconnu-piege .icon { width: 52px; height: 52px; }
-/* Le passeport (le 18 octobre 2026) : son tampon au flanc gauche de chaque thème pointu qu'il n'a pas encore — sa chance tient le dessus, son nom le dessous. */
-.exp-a-tamponner { position: absolute; top: 12px; left: -16px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 2px var(--bg); }
-.exp-a-tamponner .icon { width: 13px; height: 13px; stroke-width: 2.2; }
-.exp-legende .exp-a-tamponner { position: static; width: 16px; height: 16px; box-shadow: none; }
-.exp-legende .exp-a-tamponner .icon { width: 11px; height: 11px; color: var(--on-accent); }
 .exp-passeport, .exp-codex-du-depart { display: flex; flex-direction: column; gap: 8px; }
 .exp-passeport p, .exp-codex-du-depart p { margin: 0; }
 .exp-passeport-compte { display: flex; align-items: center; gap: 6px; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }

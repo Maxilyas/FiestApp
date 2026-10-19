@@ -21,6 +21,8 @@
 // Les cartes améliorées (le jeu complet) : leur section des règles, le
 // campement qui en améliore une — avant et après, côte à côte —, la carte
 // « + » dans la main et levée, une offre qui en propose une, l'échoppe.
+// Le plan fondu dans l'écran : une escale plus loin touchée sur le plan, qui se
+// dit sous les cartes ; un mélange, ses catégories en emblèmes et nommées.
 // Le client construit d'abord (`npm run build -w client`).
 //
 // Léa a quatre légendaires, rangés comme gardés au bout d'expéditions
@@ -279,6 +281,19 @@ try {
     if (ou === 'carte') {
       if (await page.locator('.exp-panneau .exp-carte-rencontre').count()) await unePhoto('2b-carte-route')
       if (await page.locator('.exp-panneau-titre').count()) await unePhoto('6-avant-le-gardien')
+      // Le plan fondu dans l'écran (le 19 octobre 2026) : une escale plus loin, touchée sur le plan, se dit sous les cartes ; un
+      // mélange proposé montre ses catégories sur sa carte, et touché, les nomme.
+      const plusLoin = page.locator('.exp-plan .exp-point.exp-plus-loin').first()
+      if (!fait.has('2d-plan-touche') && (await plusLoin.count())) {
+        await plusLoin.click()
+        await largeur('le plan touché')
+        await unePhoto('2d-plan-touche')
+      }
+      const melange = page.locator('.exp-carte-escale:has(.exp-embleme-melange)').first()
+      if (!fait.has('2e-melange') && (await melange.count())) {
+        await melange.click()
+        await unePhoto('2e-melange')
+      }
       // Le paquet, touché depuis la carte : tout ce qu'il a, et la règle du cycle.
       if (!fait.has('2c-paquet')) {
         await page.locator('.exp-panneau .exp-pioche').click()

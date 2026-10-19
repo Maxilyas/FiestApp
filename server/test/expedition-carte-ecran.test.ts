@@ -42,9 +42,9 @@ async function rendre(vue: VueDeLExpedition): Promise<string> {
   return renderToStaticMarkup(React.createElement(CarteDeLActe, { vue, carte: vue.carte!, busy: false, erreur: '', onAvancer: rien, onAbandonner: rien, onPartir: rien, onJouer: rien }))
 }
 
-/** Les escales du plan, en haut : leurs classes. */
+/** Les escales du plan, en haut : leurs classes — chacune un bouton, depuis le plan fondu dans l'écran. */
 function points(html: string) {
-  return [...html.matchAll(/<span class="exp-point ([^"]+)" data-escale="([^"]+)"/g)].map(m => ({ id: m[2], classes: m[1].split(' ') }))
+  return [...html.matchAll(/<button type="button" class="exp-point ([^"]+)" data-escale="([^"]+)"/g)].map(m => ({ id: m[2], classes: m[1].split(' ') }))
 }
 
 /** Les cartes des escales proposées, en bas : dans leur ordre, choisie ou non, la plus sûre, ce qu'elles montrent. */
@@ -78,12 +78,17 @@ test('au départ : l’acte en petit, le départ qui brille ; les escales du bas
   // Le reste attend plus loin, en retrait ; le gardien, le but, non.
   assert.ok(avec('exp-plus-loin', plan).length > 10)
   assert.ok(!avec('exp-plus-loin', plan).includes(GARDIEN))
-  // Le plan est un dessin, sans un mot : touché, il s'ouvre en grand — et n'est pas rendu d'avance. « Le plan », plus
-  // « La carte » : le même mot disait la carte de l'acte et les cartes de la main, sur le même écran (le codex, le
-  // 18 octobre 2026).
-  assert.match(html, /<button type="button" class="exp-plan" aria-haspopup="dialog"><span class="exp-petit-plan" aria-hidden="true">/)
-  assert.match(html, /<\/svg>Le plan<\/span><span class="sr-only">, tu es au départ<\/span><\/button>/)
-  assert.doesNotMatch(html, /id="escale-|exp-etiquette|exp-sa-chance|class="exp-legende"/)
+  // Le plan fondu dans l'écran (le 19 octobre 2026, « une fusion entre carte et l'interface, car là le zoom est séparé ») :
+  // il ne s'ouvre plus en grand dans une feuille à part — ses escales se touchent sur place, chacune dit à l'oreille ce
+  // qu'elle cache, et rien du grand plan n'est rendu.
+  assert.match(html, /<div class="exp-plan" role="group" aria-label="Le plan de l’acte 1"><div class="exp-petit-plan">/)
+  assert.doesNotMatch(html, /aria-haspopup="dialog"><div class="exp-petit-plan"|exp-plan-ouvrir/)
+  assert.doesNotMatch(html, /id="escale-|exp-etiquette|exp-sa-chance|class="exp-legende"|feuille-carte/)
+  for (const id of carte.depart) {
+    assert.match(html, new RegExp(`class="exp-point [^"]*exp-a-portee[^"]*" data-escale="${id}" style="[^"]*" aria-label="[^"]+" aria-pressed="false" aria-describedby="exp-dit-proposee"`), `${id} : touchée, elle se choisit`)
+  }
+  // Rien de touché : la ligne sous les cartes dit comment savoir ce qu'une escale cache.
+  assert.match(html, /<p class="exp-vu" role="status"><b>Touche une escale <\/b>sur le plan ou en carte, pour savoir ce qu’elle cache\.<\/p>/)
   // D'ici, un trait vers chaque proposée.
   assert.equal(html.match(/class="lien-propose"/g)?.length, carte.depart.length)
 
@@ -110,7 +115,7 @@ test('au départ : l’acte en petit, le départ qui brille ; les escales du bas
   // Rien de choisi : le bouton attend ; les chances d'un joueur moyen se disent.
   assert.match(html, /aria-disabled="true">Choisis ton escale/)
   assert.match(html, /class="exp-note small">Les chances d’un joueur moyen/)
-  // « Abandonner l'expédition » vit dans la feuille de la carte : l'écran tient en un écran.
+  // « Abandonner l'expédition » vit au départ, derrière « ← Partir » : l'écran tient en un écran.
   assert.doesNotMatch(html, /Abandonner/)
 })
 
@@ -128,8 +133,36 @@ test('arrivé à une escale, elle seule brille ; ses suites seules sont en carte
   assert.deepEqual(cartes(html).map(c => c.id).sort(), [...x.suite].sort())
   assert.equal(html.match(/class="lien-propose"/g)?.length, 2)
   assert.match(html, /class="lien-fait"/, 'le pas fait, éteint')
-  assert.match(html, /<span class="sr-only">, tu es à l’escale [^<]+<\/span><\/button>/)
+  // L'escale où il est se dit à l'oreille comme sur le plan : « tu es ici » par aria-current, jamais dans son nom.
+  assert.match(html, new RegExp(`class="exp-point [^"]*exp-ici[^"]*" data-escale="${x.id}" style="[^"]*" aria-label="[^"]+" aria-current="location"`))
   assert.match(html, /aria-disabled="true">Choisis ton escale/)
+})
+
+test('un mélange montre ses catégories : leurs emblèmes sur sa carte, leurs noms sous les cartes une fois choisie', async () => {
+  // « lorsque l'on clique sur une des escales que l'on veut aller sans le mode carte, on ne peut pas voir le mélange » (le
+  // 19 octobre 2026) : sa carte disait « Mélange ×3 », et ses catégories ne se lisaient que dans la feuille du plan.
+  const carte = uneCarte('carte-ecran:1')
+  const [melange, seule] = carte.depart.map(id => carte.escales.find(e => e.id === id)!)
+  melange.theme = { categories: ['Histoire', 'Sport', 'Cinéma & séries'] }
+  seule.theme = { categories: ['Géographie'] }
+  const sansChoix = await rendre(uneVue(carte, null, [], [melange.id, seule.id]))
+  const parId = new Map(cartes(sansChoix).map(c => [c.id, c]))
+  // Sa pastille : un emblème par catégorie, dans l'ordre du mélange ; son nom, sans compte.
+  const pastille = /<span class="exp-carte-embleme exp-embleme-melange" aria-hidden="true">([\s\S]*?)<\/span>/.exec(parId.get(melange.id)!.contenu)
+  assert.ok(pastille, 'le mélange a sa pastille d’emblèmes')
+  assert.equal(pastille[1].match(/<svg/g)?.length, 3, 'un emblème par catégorie')
+  assert.match(parId.get(melange.id)!.contenu, /class="exp-carte-nom" aria-hidden="true">Mélange</)
+  assert.doesNotMatch(sansChoix, /Mélange ×/)
+  // Une catégorie seule garde son emblème rond ; sa description dit ses catégories à l'oreille, à la française.
+  assert.match(parId.get(seule.id)!.contenu, /<span class="exp-carte-embleme" aria-hidden="true"><svg/)
+  assert.match(parId.get(melange.id)!.nom, /^Mélange : Histoire, Sport et Cinéma &amp; séries · /)
+  // Seule proposée, elle est choisie d'office : la ligne sous les cartes la décrit — ses catégories en clair, en noms courts, sa
+  // marche ; ni sa chance ni ses écus, que sa carte montre. Plus longue, elle prenait au plan sa dernière place en 360 × 640.
+  const choisie = await rendre(uneVue(carte, null, [], [melange.id]))
+  const ligne = /<p class="exp-vu" role="status">([\s\S]*?)<\/p>/.exec(choisie)![1]
+  // Ses espaces fines devant « : » (`espacesFines`) : `\s` les lit.
+  assert.match(ligne, /^Mélange\s:\sHistoire, Sport et Cinéma\s·\sfacile$/)
+  assert.doesNotMatch(ligne, /%|<b>|écus/, 'ni sa chance, ni ses écus, ni de titre : le panneau s’appelle déjà « Ta prochaine escale »')
 })
 
 test('au campement, le gardien seul est en carte : choisi d’office, sa chance de le vaincre, « Affronter »', async () => {

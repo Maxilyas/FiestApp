@@ -1450,6 +1450,15 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 *Fichiers : `shared/rencontres.ts`, `shared/expedition.ts`, `server/src/core/campagne.ts`, `client/src/views/RencontresDExpedition.tsx`, `client/src/views/ExpeditionApp.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/test/expedition-ameliorations.test.ts`, `server/test/expedition-journal.ts`*
 
+### Le plan fondu dans l'écran : ses escales se touchent sur place, plus de feuille
+**Contexte** : l'écran d'un acte montrait le plan en petit, un dessin sans un mot, et ses escales permises en cartes ; touché, le plan s'ouvrait en grand dans une feuille, la seule où une escale disait ce qu'elle cachait — un mélange, ses catégories. Le propriétaire, le 19 octobre 2026 : « est-ce que l'on pourrait pas avoir une fusion entre carte et l'interface, car là le zoom est séparé », et « lorsque l'on clique sur une des escales que l'on veut aller sans le mode carte, on ne peut pas voir le mélange ».
+
+**Décision** : le plan reste en petit, tout l'acte d'un coup d'œil, et ses escales deviennent des boutons : touchée, une escale permise se choisit comme sa carte, une autre s'entoure de gris, et la ligne sous les cartes dit ce que cache la dernière touchée, sur le plan ou en carte — sans sa chance ni ses écus, que sa carte montre. Un mélange montre les emblèmes de ses catégories sur sa carte, et la ligne les nomme. La feuille du plan disparaît : sa légende rejoint le « ? », « Abandonner l'expédition » reste au départ. Le plan en grand, qui défilait, ne revient pas en place : l'écran tient en un écran, et le plan en petit, qui grandit avec la hauteur de l'écran, suffit à voir où l'on va.
+
+**Conséquence** : une rangée d'escales fait une vingtaine de pixels en 360 × 640 : leur cible déborde de côté, où les voisines sont à quatre-vingts pixels. La ligne de l'escale touchée garde deux lignes, trois au plus, pour que le plan ne saute pas d'un toucher à l'autre. Les jokers de la production partagent l'écran : leur plan se touche de même.
+
+*Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `client/src/styles.css`, `server/test/expedition-carte-ecran.test.ts`, `server/scripts/rendu-rencontres.ts`, `server/scripts/rendu-expedition.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).
