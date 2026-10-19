@@ -35,6 +35,8 @@ const enClair = (s: unknown) => sqlDe(s).replace(/\s+/g, ' ').trim().slice(0, 70
 
 /** L'écriture d'une rencontre, retenue tant que le test ne la lâche pas : ce que le dé n'attend plus, et que sa première réponse attend. */
 let retenue: Promise<void> | null = null
+/** L'écriture d'un duel lancé, retenue de même : « Jouer le duel » ne l'attend plus non plus. */
+let duelRetenu: Promise<void> | null = null
 
 const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', (...args: unknown[]) => Promise<unknown>>
 for (const methode of ['execute', 'batch'] as const) {
@@ -49,6 +51,7 @@ for (const methode of ['execute', 'batch'] as const) {
     const rang = compte.finis + 1
     if (mesure) await new Promise<void>(r => setImmediate(r))
     if (retenue && methode === 'execute' && /^\s*INSERT INTO campagne_series[\s\S]*'rencontre'/.test(sqlDe(args[0]))) await retenue
+    if (duelRetenu && methode === 'batch' && /^\s*INSERT INTO campagne_duels/.test(sqlDe((args[0] as unknown[])[0]))) await duelRetenu
     const res = await origine.apply(this, args)
     if (mesure && compte.actif && mesure === compte.mesure) {
       compte.appels++
@@ -287,6 +290,87 @@ test('au réveil, son profil se charge d’un aller-retour, ses Éclats et ses r
   const m = await mesurer(() => lire('/api/campagne/choix'))
   const duProfil = m.sqls.filter(s => /FROM profiles WHERE|FROM profile_eclats|FROM profile_badges/.test(s))
   assert.equal(duProfil.length, 1, `son profil en ${duProfil.length} fois :\n${m.sqls.join('\n')}`)
+})
+
+test('« Jouer le duel » répond d’un aller-retour — le duel déjà ouvert entre eux, leurs deux cotes, ce que chacun a vu, sa fiche de front —, sans attendre que le duel s’écrive : sa première réponse l’attend', async () => {
+  // Le duel ouvert, puis les deux cotes et ce que chacun avait vu, puis
+  // l'écriture : trois allers-retours l'un derrière l'autre, quatre quand la
+  // fiche de l'adversaire n'était pas en mémoire — 3 à 6 s au 95ᵉ centile en
+  // production (le relevé de l'heure, le 19 octobre 2026). Comme le dé, il
+  // n'en attend plus qu'un.
+  const ids: string[] = []
+  for (const login of ['yanis', 'ruth']) {
+    const autre = await inscrireProfil(banc.url, login, login)
+    ids.push(((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: autre } })).json()) as any).profile.id)
+  }
+  const lancer = async (adversaire: string) => {
+    let lacher = () => {}
+    duelRetenu = new Promise<void>(r => (lacher = r))
+    try {
+      const lance = mesurer(() => poster('/api/campagne/duel', { adversaire }))
+      assert.equal(await premier(lance, 3000), 'arrivée', '« Jouer le duel » attend que le duel s’écrive')
+      const m = await lance
+      // Sa première réponse, elle, attend l'écriture : le verrou du profil la retient.
+      const reponse = poster(`/api/campagne/serie/${m.resultat.serie.id}/reponse`, { index: 0, choix: 0 })
+      assert.equal(await premier(reponse, 300), 'en attente', 'la réponse est passée avant que le duel soit écrit')
+      lacher()
+      assert.equal(typeof (await reponse).juste, 'boolean', 'le duel écrit, la réponse compte')
+      return m
+    } finally {
+      lacher()
+      duelRetenu = null
+    }
+  }
+  const m = await lancer(ids[0])
+  assert.ok(m.resultat.code && m.resultat.serie.question, 'un duel lancé, et sa première question')
+  assert.ok(m.resultat.enjeu, 'ce qu’il met en jeu, contre la cote d’en face')
+  assert.equal(m.enSerie, 1, `${m.enSerie} allers-retours l’un derrière l’autre avant de répondre :\n${m.sqls.join('\n')}`)
+  // Un second contre le même se refuse toujours, lu du même lot : le premier attend d'être joué.
+  const second = await ecrire(banc.url, '/api/campagne/duel', { adversaire: ids[0] }, cookie)
+  assert.equal(second.status, 400)
+  assert.equal(((await second.json()) as any).error, 'Tu as déjà un duel en cours contre yanis : finis-le, il partira à ta dernière réponse')
+  // Au réveil, la fiche de l'adversaire n'est plus en mémoire : elle se lit de front avec le lot.
+  await banc.redemarrer()
+  await lire('/api/campagne/choix')
+  const reveil = await lancer(ids[1])
+  assert.equal(reveil.enSerie, 1, `${reveil.enSerie} allers-retours l’un derrière l’autre, au réveil :\n${reveil.sqls.join('\n')}`)
+})
+
+test('un duel que la base refuse d’écrire : « Jouer le duel » a répondu, sa première réponse dit de le relancer — sans rien écrire —, et le suivant part', async () => {
+  const sam = await inscrireProfil(banc.url, 'sam', 'Sam')
+  const autre = await inscrireProfil(banc.url, 'lou', 'Lou')
+  const lou = ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: autre } })).json()) as any).profile.id as string
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  const compter = (table: string, colonne: string, id: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${colonne} = ?`).get(id) as { n: number }).n
+  try {
+    // La base refuse le duel, comme Turso en panne (`miroir.test.ts`).
+    db.exec(`CREATE TRIGGER panne BEFORE INSERT ON campagne_duels BEGIN SELECT RAISE(ABORT, 'base en panne'); END`)
+    let perdu: any
+    try {
+      perdu = await poster('/api/campagne/duel', { adversaire: lou }, sam)
+    } finally {
+      db.exec('DROP TRIGGER panne')
+    }
+    assert.ok(perdu.serie.question, '« Jouer le duel » a répondu, sans attendre l’écriture')
+    const r = await ecrire(banc.url, `/api/campagne/serie/${perdu.serie.id}/reponse`, { index: 0, choix: 0 }, sam)
+    assert.equal(r.status, 400)
+    assert.equal(((await r.json()) as any).error, 'Ce duel n’a pas pu commencer : lance-le de nouveau')
+    // Ni le duel, ni sa tentative, ni l'envoi promis à Lou, ni une réponse orpheline.
+    assert.equal(compter('campagne_duels', 'code', perdu.code), 0)
+    assert.equal(compter('campagne_series', 'id', perdu.serie.id), 0)
+    assert.equal(compter('campagne_envois_prevus', 'code', perdu.code), 0)
+    assert.equal(compter('campagne_reponses', 'serie_id', perdu.serie.id), 0)
+
+    // Le suivant, contre la même : rien ne l'attendait, il part, écrit, et se joue.
+    const neuf = await poster('/api/campagne/duel', { adversaire: lou }, sam)
+    assert.notEqual(neuf.serie.id, perdu.serie.id)
+    const jouee = await poster(`/api/campagne/serie/${neuf.serie.id}/reponse`, { index: 0, choix: 0 }, sam)
+    assert.equal(typeof jouee.juste, 'boolean')
+    assert.equal(compter('campagne_duels', 'code', neuf.code), 1)
+    assert.equal(compter('campagne_series', 'id', neuf.serie.id), 1)
+  } finally {
+    db.close()
+  }
 })
 
 const client = (f: string) => readFileSync(new URL(`../../client/src/${f}`, import.meta.url), 'utf8')
