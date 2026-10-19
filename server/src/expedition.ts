@@ -17,10 +17,10 @@ interface ExpeditionDeps {
    */
   ouverte: boolean
   /**
-   * Le départ peut-il choisir les rencontres (la v5, `shared/rencontres.ts`) ?
-   * Un prototype : la préproduction d'abord (le choix du propriétaire du
-   * 18 octobre 2026), la production le jour où `RENCONTRES_EN_PRODUCTION`
-   * l'ouvre. Sans lui, le départ reste celui des jokers.
+   * Le départ part-il aux rencontres (la v5 et suivantes, `shared/rencontres.ts`) ?
+   * La préproduction d'abord (le choix du propriétaire du 18 octobre 2026),
+   * partout depuis le 19 — c'est le jeu (`RENCONTRES_EN_PRODUCTION`). Sans
+   * elles, le départ reste celui des jokers.
    */
   rencontres?: boolean
 }
@@ -34,7 +34,7 @@ export function expeditionOuverte({ online, env }: { online: boolean; env: strin
   return EXPEDITION_EN_PRODUCTION || !online || env !== 'production'
 }
 
-/** Les rencontres se choisissent-elles au départ ? La même règle, sous leur drapeau à elles. */
+/** Les rencontres s'ouvrent-elles au départ ? La même règle, sous leur drapeau à elles — ouvert : partout. */
 export function rencontresOuvertes({ online, env }: { online: boolean; env: string }): boolean {
   return RENCONTRES_EN_PRODUCTION || !online || env !== 'production'
 }

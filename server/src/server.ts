@@ -90,6 +90,13 @@ export interface QuizServerOptions {
    * Absent en production : rien ne s'affiche, et rien ne pèse.
    */
   appEnv?: string
+  /**
+   * Les rencontres de l'expédition s'ouvrent-elles ici ? Absent : leur
+   * drapeau le dit (`rencontresOuvertes`) — partout depuis qu'elles sont le
+   * jeu. Un test ou un rendu les ferme pour voir le serveur que donnerait le
+   * drapeau refermé : le départ des jokers, sans L'Explorateur.
+   */
+  rencontres?: boolean
   /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
   miroir?: Omit<ReglagesMiroir, 'base'>
   /** Le client compilé. Les tests en donnent un de trois lignes : `client/dist` n'existe qu'après le build. */
@@ -424,9 +431,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
   // Les codes des salons : six chiffres pour entrer chez quelqu'un.
   const salons = new SalonStore(opts.quizDbUrl, opts.quizDbToken)
-  // Les rencontres de l'expédition, un prototype hors de la production (`rencontresOuvertes`, que ses routes lisent
-  // aussi) : ce que le codex fait gagner hors de l'expédition — L'Explorateur — ne compte et ne se montre que là.
-  const rencontres = rencontresOuvertes({ online: !!opts.online, env: opts.appEnv ?? 'production' })
+  // Les rencontres de l'expédition (`rencontresOuvertes`), calculées une fois : ses routes les lisent, et ce que le
+  // codex fait gagner hors de l'expédition — L'Explorateur — ne compte et ne se montre que là où elles s'ouvrent.
+  const rencontres = opts.rencontres ?? rencontresOuvertes({ online: !!opts.online, env: opts.appEnv ?? 'production' })
   // La campagne solo : ses séries, tirées de sa base à elle (`core/baseCampagne.ts`),
   // loin de la réserve du quiz du jour.
   const campagne = new CampagneStore(opts.quizDbUrl, opts.quizDbToken, {
@@ -1157,6 +1164,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     missions: new Missions({ profiles, jour, campagne, maintenant: maintenantDuJour, ...(opts.hasardDuCoffre && { hasard: opts.hasardDuCoffre }) }),
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
+    rencontres,
     qg: {
       db,
       registry,

@@ -1,5 +1,5 @@
-// Le prototype des rencontres (le départ en version 7, le codex, le 18
-// octobre 2026), photographié au téléphone (360 × 640) sur un serveur
+// Les rencontres — le prototype du 18 octobre 2026, le jeu depuis le 19 : le
+// départ ne les demande plus —, photographiées au téléphone (360 × 640) sur un serveur
 // jetable : le départ d'un débutant au niveau 1 et son codex aux cartes
 // éteintes, une carte fermée levée ; puis le départ d'une joueuse aguerrie
 // — son niveau et sa jauge, ses règles au « ? », son codex, la catégorie
@@ -87,7 +87,7 @@ try {
       console.log(path.join(sortie, `${nomFichier}.png`))
     }
     await p.goto(`${banc.url}/expedition`)
-    await p.waitForSelector('.exp-prototype')
+    await p.waitForSelector('.exp-codex-du-depart')
     await saPhoto('0-depart-niveau-1', true)
     await p.locator('.exp-codex-du-depart .exp-ouvrir').click()
     await p.waitForSelector('.feuille-codex')
@@ -140,9 +140,9 @@ try {
     console.error(`[déborde] ${ou} : ${l} pixels de large — ${fautifs}`)
   }
 
-  // Le départ : le prototype proposé d'office, sa catégorie fétiche à choisir.
+  // Le départ : les rencontres sans rien demander — c'est le jeu —, sa catégorie fétiche à choisir.
   await page.goto(`${banc.url}/expedition`)
-  await page.waitForSelector('.exp-prototype')
+  await page.waitForSelector('.exp-fetiche-du-depart')
   await photo('1-depart')
   await photo('1-depart-entier', true)
   // Les règles, au « ? » d'en haut : ce que le départ ne redit plus.
@@ -188,7 +188,7 @@ try {
   await page.locator('.feuille-codex .exp-un-dos').last().scrollIntoViewIfNeeded()
   await photo('1a-codex-dos')
   await page.locator('.feuille-codex .carte-fermer').click()
-  await page.locator('.exp-prototype .exp-changer').click()
+  await page.locator('.exp-fetiche-du-depart .exp-changer').click()
   await page.waitForSelector('.feuille-fetiche')
   await photo('1b-fetiche')
   await page.locator('.exp-fetiche', { hasText: 'Histoire' }).click()

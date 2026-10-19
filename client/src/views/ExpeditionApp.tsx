@@ -108,7 +108,6 @@ import {
 import {
   Adversaire,
   Apercu,
-  AuDepart,
   AvantApres,
   BoireUneFiole,
   BoutonDesRegles,
@@ -118,6 +117,7 @@ import {
   ChoixDeLAscension,
   ChoixDuDos,
   Courage,
+  FeticheDuDepart,
   FeuilleDesCartes,
   FeuilleDesRegles,
   FeuilleDuCodex,
@@ -144,10 +144,9 @@ import {
   origineDeLaCarte,
   pourcents,
   recompenseDe,
-  rencontresRetenues,
   retenirLAscension,
+  retenirLaFetiche,
   retenirLeDos,
-  retenirLesRencontres,
   verdictDeLaRencontre,
 } from './RencontresDExpedition'
 
@@ -308,7 +307,7 @@ function decrire(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardi
 }
 
 /**
- * Ce qu'une escale cache, au prototype des rencontres : une escale à question
+ * Ce qu'une escale cache, aux rencontres : une escale à question
  * est un adversaire — les points à lui faire perdre, sa chance par question —, le courage
  * remplace les vies, une carte les jokers.
  */
@@ -430,7 +429,7 @@ export function Barre({
       {!sansSortie && <Sortie vers="Partir" href="/expedition" onClick={onPartir} />}
       <BoutonDesRegles onOuvrir={() => setRegles(true)} />
       {vue.ecus !== undefined && <Ecus n={vue.ecus} />}
-      {/* En rencontres (le prototype), le courage remplace les trois vies. */}
+      {/* En rencontres, le courage remplace les trois vies. */}
       {vue.courage !== undefined ? <Courage n={vue.courage} /> : <Vies restantes={vue.vies} />}
       {/* Ce qu'il porte, après les écus et le courage : d'un bloc, il passe à la ligne quand il ne tient plus, et rien d'autre ne bouge. */}
       {(posees.length > 0 || dits.length > 0 || fioles) && (
@@ -615,7 +614,7 @@ export function ExpeditionApp() {
     void relire().then(() => setErreur(motif))
   }
 
-  /** Partir — aux rencontres, là où le prototype s'ouvre et s'il le garde, avec sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension. */
+  /** Partir — aux rencontres, là où elles s'ouvrent (partout, depuis qu'elles sont le jeu), avec sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension. */
   const partir = async (equipee: readonly string[], rencontres: { fetiche: string | null; dos: DosDuPaquet | null; ascension: number } | null) => {
     if (busy) return
     setBusy(true)
@@ -1039,7 +1038,7 @@ function SonJoker({ cle }: { cle: string }) {
   )
 }
 
-/** La carte d'un gardien, au prototype des rencontres : son nom, ce qu'elle fait. Vaincu, il la glisse dans le paquet ; gardé, elle part dans les équipées suivantes. */
+/** La carte d'un gardien, aux rencontres : son nom, ce qu'elle fait. Vaincu, il la glisse dans le paquet ; gardé, elle part dans les équipées suivantes. */
 function SaCarte({ cle }: { cle: string }) {
   const c = carteDuLegendaire(cle)
   if (!c) return null
@@ -1079,7 +1078,7 @@ export function Depart({
   page: PageDeLExpedition
   busy: boolean
   erreur: string
-  /** `rencontres` : partir au prototype des rencontres, avec sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension ; null, aux règles d'avant. */
+  /** `rencontres` : partir aux rencontres, avec sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension ; null, aux règles d'avant. */
   onPartir: (equipee: readonly string[], rencontres: { fetiche: string | null; dos: DosDuPaquet | null; ascension: number } | null) => void
   onReprendre: (vue: VueDeLExpedition) => void
   /** Celle qui l'attend s'abandonne d'ici aussi : « J'aimerais pouvoir abandonner une expédition » (le 18 octobre 2026) — le geste ne vivait qu'au fond de la feuille de la carte. */
@@ -1093,15 +1092,15 @@ export function Depart({
   const [regles, setRegles] = useState(false)
   const [paquet, setPaquet] = useState(false)
   const [voirLeCodex, setCodex] = useState(false)
-  // Le prototype des rencontres, là où il s'ouvre : d'office, sauf s'il l'a coupé la dernière fois ; sa catégorie fétiche, retenue.
+  // Les rencontres, là où elles s'ouvrent — partout, depuis qu'elles sont le jeu : le départ ne les demande plus (« ne plus
+  // demander ça, c'est vraiment le jeu maintenant », le 19 octobre 2026), il les prend. Sa catégorie fétiche, retenue.
   const ouvertes = !vue && !!page.prochaine.rencontres
-  const [aux, setAux] = useState(rencontresRetenues)
   const [fetiche, setFetiche] = useState(feticheRetenue)
   // Le dos de son paquet (le codex) : celui qu'il a choisi la dernière fois, s'il l'a encore — sinon le plus rare des siens.
   const [dos, setDos] = useState(() => (page.prochaine.codex ? dosRetenu(page.prochaine.codex.dos) : null))
   // Son cran de l'Ascension, parmi ceux qu'il a ouverts : celui de la dernière fois, ou aucun.
   const [cran, setCran] = useState(() => (page.prochaine.codex ? ascensionRetenue(page.prochaine.codex.ascension) : 0))
-  const enRencontres = vue ? vue.courage !== undefined : ouvertes && aux
+  const enRencontres = vue ? vue.courage !== undefined : ouvertes
   // Le codex (v7) : celui qu'elle a figé en route, celui qui partirait avant ; aux règles d'avant, aucun.
   const codex = page.prochaine.codex
   // L'Ascension se choisit une fois une expédition menée au bout ; un serveur d'avant elle ne dit rien de ses crans.
@@ -1183,9 +1182,7 @@ export function Depart({
           <Icon name="chevron-right" />
         </button>
       )}
-      {ouvertes && (
-        <AuDepart actif={aux} fetiche={fetiche} feticheOuverte={feticheOuverte} onActif={setAux} onFetiche={setFetiche} />
-      )}
+      {ouvertes && feticheOuverte && <FeticheDuDepart fetiche={fetiche} onFetiche={setFetiche} />}
       {ouverte > 0 && <ChoixDeLAscension ouverte={ouverte} cran={cran} onChoisir={setCran} />}
       <section className="card exp-passeport" aria-labelledby="exp-passeport-titre">
         <div className="exp-section-tete">
@@ -1252,7 +1249,7 @@ export function Depart({
               className="btn btn-primary btn-big btn-block"
               aria-disabled={busy || undefined}
               onClick={() => {
-                if (ouvertes) retenirLesRencontres(aux, fetiche)
+                if (ouvertes) retenirLaFetiche(fetiche)
                 if (enRencontres && dos) retenirLeDos(dos)
                 if (ouverte > 0) retenirLAscension(cran, ouverte)
                 // Sa catégorie fétiche attend son niveau : avant lui, elle ne part pas. Son cran, ceux qu'il a ouverts.
@@ -1260,7 +1257,7 @@ export function Depart({
               }}
             >
               <Icon name="flag" />
-              {enRencontres ? 'Partir aux rencontres' : 'Partir'}
+              Partir
             </button>
           </>
         )}
@@ -1420,7 +1417,7 @@ export function FeuilleDeLEquipee({
 }: {
   prochaine: PageDeLExpedition['prochaine']
   equipee: readonly string[]
-  /** Au prototype des rencontres, chacun apporte sa carte et sa famille, pas son joker. */
+  /** Aux rencontres, chacun apporte sa carte et sa famille, pas son joker. */
   rencontres?: boolean
   onChoisir: (equipee: string[]) => void
   onFermer: () => void
@@ -1675,7 +1672,7 @@ type Gain = { cle: string; dessin: ReactNode; texte: string; vie?: boolean }
  */
 function faceDeLEscale(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardiens' | 'ecus' | 'jokers' | 'cartes'>): { sorte: string; nom: string; gains: Gain[] } {
   const enEcus = (n: number): Gain[] => (vue.ecus === undefined ? [] : [{ cle: 'ecus', dessin: <Icon name="ecu" />, texte: `+${n}` }])
-  // Au prototype des rencontres, ce que rend une source, un campement — ce que prend un piège — est du courage.
+  // Aux rencontres, ce que rend une source, un campement — ce que prend un piège — est du courage.
   const v5 = !!vue.cartes
   const vie = (texte: string): Gain => ({ cle: 'vie', dessin: <Icon name="heart" />, texte, vie: true })
   const joker: Gain[] = vue.jokers || v5 ? [{ cle: 'joker', dessin: <i className="exp-glyphe-joker" />, texte: '+1' }] : []
@@ -1963,7 +1960,7 @@ export function CarteDeLActe({
   }
   const dit = ceQueDitLEscale(parId.get(regardee ?? retenue ?? ''), vue, carte, lecture)
   const [paquet, setPaquet] = useState(false)
-  // Au prototype des rencontres, le gardien ne se compte plus en vies : sa chance est celle de chaque question.
+  // Aux rencontres, le gardien ne se compte plus en vies : sa chance est celle de chaque question.
   const chanceDe = (e: EscaleDeLaCarte) => (aveugle ? undefined : e.sorte === 'gardien' ? (vue.cartes ? carte.chanceDuGardien : chanceDeVaincre(pGardien, m.aTrouver, vue.vies)) : e.chance)
 
   return (
@@ -1990,7 +1987,7 @@ export function CarteDeLActe({
             </button>
           )}
           {vue.jokers && <Main vue={vue} jokers={vue.jokers} busy={busy} enPetit onJouer={onJouer} />}
-          {/* Au prototype des rencontres : ses cartes de route en petit, puis tout son paquet. */}
+          {/* Aux rencontres : ses cartes de route en petit, puis tout son paquet. */}
           {vue.cartes && (
             <MainDeRencontre
               cles={vue.cartes.route}
@@ -2458,7 +2455,7 @@ function Escale({
   const doubleChance = !r && !!affichee.deux
   const aMontrer = montrer && !vue.joue
   const joue = vue.joue ? jokerDeCle(vue.joue) : undefined
-  // En rencontre (le prototype) : l'adversaire en tête — à la révélation, tel que la réponse l'a laissé ; la vue d'après n'en a plus s'il est tombé.
+  // En rencontre : l'adversaire en tête — à la révélation, tel que la réponse l'a laissé ; la vue d'après n'en a plus s'il est tombé.
   const rencontre = r ? avant?.rencontre : vue.rencontre
   const sceauxApres = r && rencontre ? rencontre.sceaux - (r.coup?.brises ?? 0) : undefined
   const [tas, setTas] = useState(false)
@@ -2643,7 +2640,7 @@ function Escale({
  * fait renaître, Tout ou rien en prend deux.
  */
 function verdictDe(r: ReponseDExpedition, avant: VueDeLExpedition | null, source: boolean, finie: boolean): string {
-  // Une source, au prototype des rencontres : pas d'adversaire, pas de coup — retrouvée, elle rend du courage ; ratée, rien.
+  // Une source, aux rencontres : pas d'adversaire, pas de coup — retrouvée, elle rend du courage ; ratée, rien.
   if (r.expedition.courage !== undefined) {
     const gagne = r.expedition.courage - (avant?.courage ?? r.expedition.courage)
     if (r.juste) return gagne > 0 ? `Retrouvée ! +${gagne} de courage` : 'Retrouvée !'
@@ -2869,12 +2866,12 @@ function Offre({
   onPartir: () => void
 }) {
   const [pris, setPris] = useState<string[]>([])
-  // Au prototype des rencontres, une carte de son paquet touchée se montre en grand.
+  // Aux rencontres, une carte de son paquet touchée se montre en grand.
   const [regardee, setRegardee] = useState<string | null>(null)
   const ici = vue.ici ? vue.carte?.escales.find(e => e.id === vue.ici) : undefined
   const vide = offre.jokers.length === 0
   const deux = offre.aPrendre > 1
-  // Au prototype des rencontres, l'offre est de cartes — celle d'un adversaire tombé, d'une élite, d'un coffre.
+  // Aux rencontres, l'offre est de cartes — celle d'un adversaire tombé, d'une élite, d'un coffre.
   const v5 = !!vue.cartes
   const toucher = (cle: string) => setPris(p => (p.includes(cle) ? p.filter(x => x !== cle) : p.length < offre.aPrendre ? [...p, cle] : [...p.slice(1), cle]))
   const siens = vue.jokers ? [...vue.jokers.paquet, ...vue.jokers.main, ...vue.jokers.defausse] : []
@@ -3108,7 +3105,7 @@ function Campement({
   onCamper: (choix: { retirer?: string; ameliorer?: string }) => void
   onPartir: () => void
 }) {
-  // Au prototype des rencontres, le repos rend du courage, et l'on retire une carte de son paquet — ou, depuis le jeu complet, on
+  // Aux rencontres, le repos rend du courage, et l'on retire une carte de son paquet — ou, depuis le jeu complet, on
   // en améliore une : la forge de Slay the Spire.
   const courage = vue.courage
   const siens = vue.jokers ? comptes([...vue.jokers.paquet, ...vue.jokers.main, ...vue.jokers.defausse]) : vue.cartes ? comptesDesCartes(vue.cartes.paquet) : []
@@ -3283,7 +3280,7 @@ function Echoppe({
   const [aRetirer, setARetirer] = useState<string | null>(null)
   const [aAmeliorer, setAAmeliorer] = useState<string | null>(null)
   const ecus = vue.ecus ?? 0
-  // Au prototype des rencontres, l'échoppe vend du courage et des cartes ; on y retire une carte de son paquet.
+  // Aux rencontres, l'échoppe vend du courage et des cartes ; on y retire une carte de son paquet.
   const v5 = vue.courage !== undefined
   const siens = vue.jokers ? comptes([...vue.jokers.paquet, ...vue.jokers.main, ...vue.jokers.defausse]) : vue.cartes ? comptesDesCartes(vue.cartes.paquet) : []
   const etat = {
