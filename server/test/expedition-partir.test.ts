@@ -121,8 +121,9 @@ test('l’Ascension au départ : rien avant une expédition menée au bout ; ens
   assert.doesNotMatch(await depart(avec(0)), /exp-ascension/, 'sans victoire, rien à choisir')
   const html = await depart(avec(2))
   assert.match(html, /<h2 class="label" id="exp-ascension-titre">L’Ascension<\/h2>/)
+  const crans = html.match(/<div class="exp-crans-d-ascension"[\s\S]*?<\/div>/)?.[0] ?? ''
   assert.deepEqual(
-    [...html.matchAll(/role="radio" aria-checked="(true|false)" aria-label="((?:Sans c|C)ran[^"]*)"/g)].map(m => [m[2], m[1]]),
+    [...crans.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/g)].map(m => [m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(), m[1]]),
     [
       ['Sans cran', 'true'],
       ['Cran 1', 'false'],

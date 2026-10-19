@@ -181,7 +181,7 @@ try {
   // et le plan le dira à chaque pas.
   await page.locator('.exp-ascension').scrollIntoViewIfNeeded()
   await photo('1f-ascension-sans')
-  await page.locator('.exp-ascension [role="radio"][aria-label="Cran 2"]').click()
+  await page.locator('.exp-ascension').getByRole('button', { name: 'Cran 2' }).click()
   await largeur('l’Ascension au départ')
   await photo('1f-ascension')
   // Plus d'équipe à choisir (le codex) : l'invité du jour part avec elle, ses légendaires ont ouvert leur carte à son codex.

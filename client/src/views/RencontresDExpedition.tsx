@@ -1991,19 +1991,21 @@ export function ChoixDeLAscension({ ouverte, cran, onChoisir }: { ouverte: numbe
       <h2 className="label" id="exp-ascension-titre">
         L’Ascension
       </h2>
-      {/* Sous le titre, pas à côté : six pastilles et « L'Ascension » ne tiennent pas sur une ligne en 360. */}
-      <div className="exp-crans-d-ascension" role="radiogroup" aria-labelledby="exp-ascension-titre">
+      {/* Sous le titre, pas à côté : six pastilles et « L'Ascension » ne tiennent pas sur une ligne en 360. Une pastille dit son
+          état comme toutes les autres, `aria-pressed`, sous un nom qui ne change pas — « Cran 2 » à l'oreille (`design.test.ts`). */}
+      <div className="exp-crans-d-ascension" role="group" aria-labelledby="exp-ascension-titre">
         {Array.from({ length: ouverte + 1 }, (_, i) => (
-          <button
-            key={i}
-            type="button"
-            role="radio"
-            aria-checked={cran === i}
-            aria-label={i === 0 ? 'Sans cran' : `Cran ${i}`}
-            className={'pill-btn' + (cran === i ? ' active' : '')}
-            onClick={() => onChoisir(i)}
-          >
-            {i === 0 ? 'Sans' : i}
+          <button key={i} type="button" aria-pressed={cran === i} className={'pill-btn' + (cran === i ? ' active' : '')} onClick={() => onChoisir(i)}>
+            {i === 0 ? (
+              <>
+                Sans<span className="sr-only"> cran</span>
+              </>
+            ) : (
+              <>
+                <span className="sr-only">Cran </span>
+                {i}
+              </>
+            )}
           </button>
         ))}
       </div>

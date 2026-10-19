@@ -721,7 +721,7 @@ test('l’Ascension au départ : ses crans ouverts, « Sans » d’abord ; ce qu
   const { ASCENSION, ASCENSION_MAX } = await import('../../shared/codex')
   const html = await rendre(ChoixDeLAscension, { ouverte: 3, cran: 2, onChoisir: rien })
   assert.deepEqual(
-    [...html.matchAll(/role="radio" aria-checked="(true|false)" aria-label="([^"]+)"/g)].map(m => [m[2], m[1]]),
+    [...html.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/g)].map(m => [texte(m[2]).trim(), m[1]]),
     [
       ['Sans cran', 'false'],
       ['Cran 1', 'false'],
