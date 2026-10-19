@@ -175,6 +175,8 @@ const COURT: Readonly<Record<string, readonly [string, string]>> = {
 /** Ce qu'une piste compte, en court : « 7 victoires », « niveau 14 », « record 18 ». */
 function compteDeLaPiste(h: HautFaitDeCarriere, valeur: number): string {
   if (h.key === 'hf:legende') return `niveau ${valeur}`
+  // Le codex n'a pas de niveau 0 : jamais parti, il ne compte rien encore, comme le passeport vierge.
+  if (h.key === 'hf:explorateur') return valeur > 0 ? `niveau ${valeur}` : '0'
   if (h.key === 'hf:alpiniste') return `record ${valeur}`
   const mots = COURT[h.key]
   return mots ? `${formatNumber(valeur)} ${valeur < 2 ? mots[0] : mots[1]}` : formatNumber(valeur)
@@ -193,7 +195,7 @@ export function seuilDeLEtape(piste: string, seuil: number): string {
   if (piste.startsWith('ecusson:')) return pluriel(seuil, 'bonne réponse', 'bonnes réponses')
   const h = hautFait(piste)
   if (h?.famille !== 'carriere') return formatNumber(seuil)
-  if (h.key === 'hf:legende') return `Niveau ${seuil}`
+  if (h.key === 'hf:legende' || h.key === 'hf:explorateur') return `Niveau ${seuil}`
   const mots = COURT[h.key]
   return mots ? pluriel(seuil, mots[0], mots[1]) : pluriel(seuil, h.mesureUne, h.mesure)
 }
@@ -207,6 +209,7 @@ export function ouIlEnEst(piste: string, valeur: number): string {
   const h = hautFait(piste)
   if (h?.famille !== 'carriere') return ''
   if (h.key === 'hf:legende') return `Tu es au niveau ${valeur}.`
+  if (h.key === 'hf:explorateur') return valeur > 0 ? `Tu es explorateur de niveau ${valeur}.` : 'Chaque expédition finie fait monter ton niveau d’explorateur.'
   if (h.key === 'hf:alpiniste') return `Ta meilleure série de campagne : ${pluriel(valeur, 'bonne réponse', 'bonnes réponses')}.`
   if (h.key === 'hf:infatigable') return `Ta plus longue série : ${pluriel(valeur, 'jour d’affilée', 'jours d’affilée')}.`
   return `Tu en es à ${pluriel(valeur, h.mesureUne, h.mesure)}.`
@@ -319,7 +322,9 @@ const AIDE_DES_COUPS = 'Pour en rire : ta carte ne les montre que si tu les choi
 export function albumDesTrophees(p: ProfilDeLAlbumDesTrophees): PageDeTrophees[] {
   const vus = new Map(p.hautsFaits.map(h => [h.key, h]))
   const bordures = p.bordures ?? []
-  const pistes = (page: keyof typeof PISTES_DE) => PISTES_DE[page].map(h => caseDePiste(h, vus))
+  // Un trophée réservé (`montreParLeServeur`) n'a de case que si le serveur le cite : en production, L'Explorateur se
+  // serait compté « 0 sur 3 » dans la collection de chacun, pour un niveau qui ne s'y voit nulle part.
+  const pistes = (page: keyof typeof PISTES_DE) => PISTES_DE[page].filter(h => !h.montreParLeServeur || vus.has(h.key)).map(h => caseDePiste(h, vus))
   const sections: Record<PageDesTrophees, SectionDeLAlbum[]> = {
     soiree: [
       section('pistes', 'Les pistes', AIDE_DES_PISTES, pistes('soiree')),

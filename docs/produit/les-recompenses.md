@@ -214,6 +214,7 @@ Chaque étape tombe une fois dans ta carrière et rapporte 50, 100 puis 200 poin
 | 🎓 L'Érudit | expertes trouvées en campagne, hors révisions | 25 · 100 · 300 | en campagne |
 | 👟 Le Marathonien | bonnes réponses en campagne, tous modes | 250 · 1 000 · 2 000 | en campagne |
 | 🧳 Le Globe-trotter | tampons au passeport de l'expédition : chaque thème pointu trouvé, une fois | 10 · 40 · 92 | au bout d'une expédition |
+| 🎒 L'Explorateur | ton niveau d'explorateur : la renommée de toutes tes expéditions | 4 · 7 · 10 | au bout d'une expédition — en préproduction seulement, tant que les rencontres de l'expédition y restent |
 | 🥾 Le Randonneur | paliers des sentiers validés en épreuve | 12 · 48 · 120 | en campagne |
 | 🌟 La Constellation | étoiles des sentiers, la meilleure note de chaque palier | 25 · 100 · 250 | en campagne |
 | 🗺️ Le Cartographe | sentiers validés en épreuve jusqu'au palier 8 ou plus haut | 3 · 6 · 12 | en campagne |

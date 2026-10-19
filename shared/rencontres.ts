@@ -111,6 +111,40 @@ export const COUT_DES_ABYSSES = 6
 export const SEUIL_DES_ABYSSES = 20
 export const COURAGE_DES_ABYSSES = 4
 
+/**
+ * Une fiole : ce qui ne sert qu'une fois (la proposition du codex — « un
+ * filet aux débutants », qui donne enfin un usage aux écus de l'échoppe).
+ * Elle se boit quand on veut, même la question sous les yeux ; elle
+ * s'achète à l'échoppe et se trouve dans un coffre, à la place d'une carte ;
+ * elle ne vit que l'expédition. Deux places au plus : les garder toutes pour
+ * le gardien ne serait plus un choix.
+ */
+export type CleDeFiole = 'courage' | 'energie' | 'clairvoyance'
+export interface Fiole {
+  cle: CleDeFiole
+  nom: string
+  /** Ce qu'elle fait, en minuscule : il suit son nom. */
+  effet: string
+}
+export const FIOLES_MAX = 2
+/** Ce que rend la fiole de courage : moins que le courage de l'échoppe, qu'on ne garde pas pour plus tard. */
+export const COURAGE_D_UNE_FIOLE = 10
+/** Ce que donne la fiole d'énergie, pour la question en cours : de quoi jouer une carte de plus. */
+export const ENERGIE_D_UNE_FIOLE = 2
+export const FIOLES: readonly Fiole[] = [
+  { cle: 'courage', nom: 'Fiole de courage', effet: `+${COURAGE_D_UNE_FIOLE} de courage` },
+  { cle: 'energie', nom: 'Fiole d’énergie', effet: `+${ENERGIE_D_UNE_FIOLE} d’énergie pour cette question` },
+  { cle: 'clairvoyance', nom: 'Fiole de clairvoyance', effet: 'efface une mauvaise réponse' },
+]
+export const fioleDe = (cle: string): Fiole | undefined => FIOLES.find(f => f.cle === cle)
+/**
+ * La fiole de clairvoyance bue sur la question : elle s'y range avec les
+ * cartes qui la visent (`TourDeRencontre.surLaQuestion`), sous cette clé —
+ * les réponses qu'elle efface se comptent avec les leurs, une autre question
+ * (Échange, La mue) repart sans elle, et la réponse est aidée.
+ */
+export const CLAIRVOYANCE_SUR_LA_QUESTION = 'fiole-clairvoyance'
+
 /** Une offre de cartes : trois, une à prendre ; chaque carte tirée de l'une de ses deux familles, `PART_D_UNE_FAMILLE` chacune, sinon des neutres. */
 export const CARTES_PAR_OFFRE = 3
 export const PART_D_UNE_FAMILLE = 0.4
@@ -186,7 +220,26 @@ export interface CarteDeRencontre {
   maudit?: true
   /** Le légendaire qui la donne (`lg:phenix`). */
   legendaire?: string
+  /**
+   * Ce qu'elle était avant le codex (v5, v6), quand il l'a retouchée : un
+   * départ d'avant se rejoue à ses chiffres d'alors (`carteALaVersion`).
+   */
+  avantLeCodex?: Partial<Pick<CarteDeRencontre, 'cout' | 'effet' | 'resume' | 'valeur'>>
 }
+
+/**
+ * La version du départ qui joue le codex (`shared/codex.ts`) — et ses cartes
+ * retouchées, le même soir : prises sans compter, presque toutes celles qu'on
+ * gagne faisaient perdre le joueur qui les prenait. Les cartes de base
+ * valaient plus — Concentration, Prudence, une d'énergie chacune —, et le
+ * joueur moyen qui ne prenait rien allait au bout 37 fois sur cent, 28 s'il
+ * prenait tout (`calibrage-rencontres.ts`, le 18 octobre 2026). Débloquer ne
+ * doit jamais affaiblir : une carte de famille fait toujours un peu, et plus
+ * dans son cas — Plume, Lucidité, Échauffement —, Parade et Troisième œil
+ * coûtent une d'énergie, Lancée compte la bonne réponse qu'elle vise, la
+ * Bibliothèque frappe sur toutes.
+ */
+export const VERSION_DU_CODEX = 7
 
 /** Le paquet de tous, et les neutres que les offres proposent. */
 const NEUTRES: readonly CarteDeRencontre[] = [
@@ -269,9 +322,10 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     moment: 'preparation',
     famille: 'erudit',
     rarete: 'commun',
-    effet: 'Si la question est de ta catégorie fétiche et que tu réponds juste, l’adversaire perd 5 de plus.',
-    resume: '+5 si fétiche',
-    valeur: '+5',
+    effet: 'Si tu réponds juste, l’adversaire perd 2 de plus — 6 si la question est de ta catégorie fétiche.',
+    resume: '+2, +6 fétiche',
+    valeur: '+2',
+    avantLeCodex: { effet: 'Si la question est de ta catégorie fétiche et que tu réponds juste, l’adversaire perd 5 de plus.', resume: '+5 si fétiche', valeur: '+5' },
   },
   {
     cle: 'bibliotheque',
@@ -280,9 +334,10 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     moment: 'pouvoir',
     famille: 'erudit',
     rarete: 'rare',
-    effet: 'Pour toute la rencontre : tes bonnes réponses de ta catégorie fétiche lui font perdre 3 de plus.',
-    resume: 'Fétiche +3',
-    valeur: '+3',
+    effet: 'Pour toute la rencontre : tes bonnes réponses lui font perdre 1 de plus — 3 celles de ta catégorie fétiche.',
+    resume: '+1, +3 fétiche',
+    valeur: '+1',
+    avantLeCodex: { effet: 'Pour toute la rencontre : tes bonnes réponses de ta catégorie fétiche lui font perdre 3 de plus.', resume: 'Fétiche +3', valeur: '+3' },
   },
   { cle: 'doubler-la-mise', nom: 'Doubler la mise', cout: 0, moment: 'preparation', famille: 'flambeur', rarete: 'commun', effet: 'Ton pari compte double, gain comme perte.', resume: 'Pari ×2', valeur: '×2' },
   {
@@ -316,7 +371,18 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     effet: 'La question passe en vrai ou faux : plus facile, mais l’adversaire perd moitié moins. Et bouclier 3.',
     resume: 'Vrai ou faux',
   },
-  { cle: 'echauffement', nom: 'Échauffement', cout: 0, moment: 'preparation', famille: 'elan', rarete: 'commun', effet: 'Ajoute 1 à ta série de bonnes réponses d’affilée.', resume: 'Série +1', valeur: '+1' },
+  {
+    cle: 'echauffement',
+    nom: 'Échauffement',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'elan',
+    rarete: 'commun',
+    effet: 'Si tu réponds juste, l’adversaire perd 2 de plus. Et ta série compte une bonne réponse de plus.',
+    resume: '+2, série +1',
+    valeur: '+2',
+    avantLeCodex: { effet: 'Ajoute 1 à ta série de bonnes réponses d’affilée.', resume: 'Série +1', valeur: '+1' },
+  },
   {
     cle: 'lancee',
     nom: 'Lancée',
@@ -324,20 +390,22 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
     moment: 'preparation',
     famille: 'elan',
     rarete: 'commun',
-    effet: 'Si tu réponds juste, l’adversaire perd 2 de plus par bonne réponse de ta série.',
+    effet: 'Si tu réponds juste, l’adversaire perd 2 de plus par bonne réponse de ta série, celle-ci comprise.',
+    avantLeCodex: { effet: 'Si tu réponds juste, l’adversaire perd 2 de plus par bonne réponse de ta série.' },
     resume: '+2 par série',
     valeur: '+2',
   },
   {
     cle: 'parade',
     nom: 'Parade',
-    cout: 2,
+    cout: 1,
     moment: 'reflexe',
     famille: 'rempart',
     rarete: 'commun',
     effet: 'Bouclier 6, une fois la question vue : si tu te trompes, il pare 6 de l’attaque.',
     resume: 'Bouclier 6',
     valeur: '6',
+    avantLeCodex: { cout: 2 },
   },
   {
     cle: 'contre-attaque',
@@ -352,18 +420,20 @@ const DES_FAMILLES: readonly CarteDeRencontre[] = [
   {
     cle: 'lucidite',
     nom: 'Lucidité',
-    cout: 1,
+    cout: 0,
     moment: 'reflexe',
     famille: 'devin',
     rarete: 'commun',
-    effet: 'Si une réponse est effacée et que tu réponds juste, l’adversaire perd 5 de plus.',
-    resume: '+5 si effacée',
-    valeur: '+5',
+    effet: 'Si tu réponds juste, l’adversaire perd 2 de plus — 5 si une réponse est effacée.',
+    resume: '+2, +5 effacée',
+    valeur: '+2',
+    avantLeCodex: { cout: 1, effet: 'Si une réponse est effacée et que tu réponds juste, l’adversaire perd 5 de plus.', resume: '+5 si effacée', valeur: '+5' },
   },
   {
     cle: 'troisieme-oeil',
     nom: 'Troisième œil',
-    cout: 2,
+    avantLeCodex: { cout: 2 },
+    cout: 1,
     moment: 'pouvoir',
     famille: 'devin',
     rarete: 'rare',
@@ -556,7 +626,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     moment: 'route',
     famille: 'devin',
     rarete: 'legendaire',
-    effet: 'Les pièges de l’inconnu se montrent sur la carte, jusqu’au bout de l’acte.',
+    effet: 'Les pièges de l’inconnu se montrent sur le plan, jusqu’au bout de l’acte.',
     resume: 'Voir les pièges',
   },
   {
@@ -631,9 +701,20 @@ export const CARTES_DES_RENCONTRES: readonly CarteDeRencontre[] = [...NEUTRES, .
 
 const PAR_CLE = new Map(CARTES_DES_RENCONTRES.map(c => [c.cle, c]))
 
-/** Une carte par sa clé ; undefined : elle n'est pas du catalogue des rencontres. */
+/** Une carte par sa clé, telle que le codex la joue ; undefined : elle n'est pas du catalogue des rencontres. */
 export function carteDeRencontre(cle: unknown): CarteDeRencontre | undefined {
   return typeof cle === 'string' ? PAR_CLE.get(cle) : undefined
+}
+
+/**
+ * Une carte telle qu'un départ de cette version la joue : avant le codex (v5,
+ * v6), à ses chiffres d'alors — rejouée aux règles neuves, une expédition
+ * partie avant changerait sous les pieds de qui joue. Tout ce qui lit son
+ * coût ou ce qu'elle dit dans une expédition passe par ici.
+ */
+export function carteALaVersion(cle: unknown, v: number): CarteDeRencontre | undefined {
+  const c = carteDeRencontre(cle)
+  return c?.avantLeCodex && v < VERSION_DU_CODEX ? { ...c, ...c.avantLeCodex } : c
 }
 
 /** La carte d'un légendaire (`lg:phenix`), s'il en a une. */
@@ -816,6 +897,8 @@ export interface RencontreEnCours {
   suivant: { cartes: number; inspiration: number; charge: number }
   /** Ce que la dernière erreur lui a coûté de courage : L'horizon le rend. */
   derniereFrappe: number
+  /** Le courage que ses frappes lui ont pris dans la rencontre : un gardien vaincu sans en perdre est un exploit (le codex). */
+  perdu: number
   /** L'aube : ses bonnes réponses depuis qu'elle est posée. */
   aube: number
   /** La boucle : l'erreur à reposer, ce qu'elle a coûté, le rang où elle se repose. */
@@ -867,11 +950,11 @@ export const enJeu = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>) => t.mise * (
 export const gainDeLaMise = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>, pouvoirs: readonly string[]) =>
   Math.round(enJeu(t) * PART_GAGNEE_D_UNE_MISE) * (1 + (pouvoirs.includes('tresor') ? 2 : 0) + (t.jouees.includes('quitte-ou-double') ? 2 : 0))
 
-/** Les réponses qu'effacent les cartes du tour et L'écholocation — jamais plus que deux de moins que ses réponses : sinon la carte répondrait à sa place. */
+/** Les réponses qu'effacent les cartes du tour, la fiole de clairvoyance et L'écholocation — jamais plus que deux de moins que ses réponses : sinon la carte répondrait à sa place. */
 export function effaceesDuTour(surLaQuestion: readonly string[], pouvoirs: readonly string[], q: { reponses: number; datee?: boolean }): number {
   if (q.reponses <= 2) return 0
   let n = 0
-  for (const cle of surLaQuestion) n += EFFACE[cle] ?? 0
+  for (const cle of surLaQuestion) n += cle === CLAIRVOYANCE_SUR_LA_QUESTION ? 1 : (EFFACE[cle] ?? 0)
   // Le Sphinx d'une question qui ne se date pas efface au lieu de souffler : sinon, la carte ne servait à rien.
   if (surLaQuestion.includes('enigme') && !q.datee) n += 1
   if (pouvoirs.includes('echolocation')) n += EFFACE.echolocation ?? 1
@@ -887,17 +970,32 @@ export interface ChiffresDuTour {
 }
 
 /**
+ * Ce que les chiffres d'une carte lisent de son départ et de la question :
+ * la version — les cartes retouchées par le codex —, la catégorie fétiche
+ * de la question (Plume), les réponses déjà effacées (Lucidité).
+ */
+export interface ContexteDesChiffres {
+  v: number
+  /** La question est de sa catégorie fétiche. */
+  fetiche?: boolean
+  /** Les réponses que les cartes du tour y ont effacées (`effaceesDuTour`). */
+  effacees?: number
+}
+
+/**
  * Ce qu'une carte jouée fait aux chiffres du tour — l'inspiration qu'elle
  * coûte, la Charge, la Garde, la série : la seule règle, que le pli applique
  * (`pliDeLExpedition`) et que la page relit, carte levée, pour dire ce
  * qu'elle changerait avant qu'on la joue (« je veux que ce soit bien
  * compréhensible pour des novices », le 18 octobre 2026). Ce qu'elle fait
  * d'autre — tirer des cartes, changer de question, la reposer à une autre
- * forme —, le pli seul le fait.
+ * forme —, le pli seul le fait. Aux chiffres de la version de son départ
+ * (`carteALaVersion`).
  */
-export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoirs: readonly string[]): ChiffresDuTour {
-  const carte = carteDeRencontre(cle)
+export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoirs: readonly string[], contexte: ContexteDesChiffres): ChiffresDuTour {
+  const carte = carteALaVersion(cle, contexte.v)
   if (!carte) return { ...avant }
+  const codex = contexte.v >= VERSION_DU_CODEX
   const x = { ...avant, inspiration: avant.inspiration - carte.cout }
   switch (cle) {
     case 'concentration':
@@ -915,15 +1013,20 @@ export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoir
     case 'simplifier':
       x.garde += 3
       break
+    // Avant le codex, Plume et Lucidité ne se jouaient que dans leur cas (`refusDeLaCarte`) : ailleurs, des cartes mortes en main.
     case 'plume':
+      x.charge += !codex || contexte.fetiche ? (codex ? 6 : 5) : 2
+      break
     case 'lucidite':
-      x.charge += 5
+      x.charge += !codex || (contexte.effacees ?? 0) > 0 ? 5 : 2
       break
     case 'lancee':
-      x.charge += 2 * avant.serie
+      // Avec le codex, la bonne réponse qu'elle vise compte dans la série : sans elle, la première d'une série ne frappait pas.
+      x.charge += 2 * (avant.serie + (codex ? 1 : 0))
       break
     case 'echauffement':
       x.serie += 1
+      if (codex) x.charge += 2
       break
     case 'reveil':
       x.inspiration += 2
@@ -963,6 +1066,8 @@ export interface QuestionDuTour {
 
 /** Ce qu'il faut savoir pour dire si une carte se joue. */
 export interface ContexteDUneCarte {
+  /** La version de son départ : son coût et ses règles en dépendent (`carteALaVersion`). */
+  v: number
   tour: Pick<TourDeRencontre, 'phase' | 'inspiration' | 'jouees' | 'surLaQuestion'>
   main: readonly string[]
   pouvoirs: readonly string[]
@@ -979,12 +1084,12 @@ const aJoueSurLaQuestion = (c: ContexteDUneCarte, cle: string) => c.tour.surLaQu
  * Pourquoi cette carte ne se joue pas maintenant, en rencontre — null : elle
  * se joue. Une seule règle : le pli l'applique, le serveur la renvoie en
  * refus, la vue la porte pour chaque carte de la main, et la page n'en
- * recopie rien. Les cartes de route ont la leur, sur la carte.
+ * recopie rien. Les cartes de route ont la leur, sur le plan.
  */
 export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null {
-  const carte = carteDeRencontre(cle)
+  const carte = carteALaVersion(cle, c.v)
   if (!carte) return 'Cette carte ne se lit pas : recharge la page'
-  if (carte.moment === 'route') return 'Elle se joue sur la carte, entre deux escales'
+  if (carte.moment === 'route') return 'Elle se joue sur le plan, entre deux escales'
   if (!c.main.includes(cle)) return 'Cette carte n’est plus dans ta main : recharge la page'
   const avant = carte.moment === 'preparation' || carte.moment === 'pouvoir'
   if (avant && c.tour.phase !== 'preparation') return 'Elle se joue avant de voir la question'
@@ -1018,6 +1123,8 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
       if (q.forme !== 'devoilement') return 'Arrêt sur image se joue sur un dévoilement'
       return aJoueSurLaQuestion(c, cle) ? 'Le texte s’est déjà arrêté' : null
     case 'plume':
+      // Depuis le codex, elle se joue partout : sa catégorie fétiche ne fait que frapper plus fort (`chiffresApresLaCarte`).
+      if (c.v >= VERSION_DU_CODEX) return null
       if (!c.fetiche) return 'Tu n’as pas de catégorie fétiche'
       return q.categorie === c.fetiche ? null : `La question n’est pas de ta catégorie fétiche, ${c.fetiche}`
     case 'corser':
@@ -1035,6 +1142,7 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
     case 'sursis':
       return c.tour.jouees.includes(cle) ? 'Déjà jouée à cette question' : null
     case 'lucidite':
+      if (c.v >= VERSION_DU_CODEX) return null
       return effacees > 0 ? null : 'Aucune réponse effacée sur cette question'
     case 'horizon':
       return c.derniereFrappe > 0 ? null : 'Il se joue juste après une erreur qui t’a coûté du courage'
@@ -1093,8 +1201,21 @@ export interface ApercuDuTour {
   }
 }
 
+/**
+ * Ce que la Bibliothèque posée ajoute à une bonne réponse : 3 sur sa
+ * catégorie fétiche ; depuis le codex, 1 sur toutes les autres. Le verdict
+ * (`pliDeLExpedition`) et l'aperçu la lisent tous deux ici.
+ */
+export function enPlusDeLaBibliotheque(o: { v: number; pouvoirs: readonly string[]; fetiche?: string; categorie?: string | null }): number {
+  if (!o.pouvoirs.includes('bibliotheque')) return 0
+  if (o.fetiche && o.categorie === o.fetiche) return 3
+  return o.v >= VERSION_DU_CODEX ? 1 : 0
+}
+
 /** L'aperçu d'un tour, avec ce que ses cartes y ont fait : la même règle que le verdict. */
 export function apercuDuTour(o: {
+  /** La version de son départ (`enPlusDeLaBibliotheque`). */
+  v: number
   tour: Pick<TourDeRencontre, 'charge' | 'garde' | 'mise' | 'jouees'>
   pouvoirs: readonly string[]
   sceaux: number
@@ -1107,7 +1228,7 @@ export function apercuDuTour(o: {
 }): ApercuDuTour {
   const t = o.tour
   const mise = enJeu(t)
-  const enPlus = o.pouvoirs.includes('bibliotheque') && o.fetiche && o.question.categorie === o.fetiche ? 3 : 0
+  const enPlus = enPlusDeLaBibliotheque({ v: o.v, pouvoirs: o.pouvoirs, fetiche: o.fetiche, categorie: o.question.categorie })
   const brises = (multiplicateur: number) =>
     brisesDUneBonneReponse({ savoir: o.savoir, charge: t.charge, enPlus, multiplicateur, banco: t.jouees.includes('banco') ? Math.floor(mise / 5) : 0, double: t.jouees.includes('quitte-ou-double') })
   const devoilement = o.question.forme === 'devoilement' && (o.mots ?? 0) > 1
@@ -1127,6 +1248,8 @@ export function apercuDuTour(o: {
 
 /** La rencontre telle que la page la reçoit (v5). */
 export interface VueDeLaRencontre {
+  /** La version de son départ : les cartes se lisent à ses chiffres (`carteALaVersion`), l'aperçu d'une carte levée aussi. */
+  v: number
   sorte: SorteDeRencontre
   adversaire: string
   /** Sa catégorie — son emblème —, ou le thème pointu de l'escale. */
@@ -1160,6 +1283,10 @@ export interface VueDeLaRencontre {
   refus: Record<string, string | null>
   /** En préparation, pour chaque mise, pourquoi elle ne se fait pas — null : elle se fait (`refusDeLaMise`). */
   mises?: Record<number, string | null>
+  /** Le pari n'est pas encore ouvert à son niveau d'explorateur (le codex, v7) : la page ne le propose pas. */
+  pari?: false
+  /** La question sous les yeux, les réponses que les cartes du tour y ont effacées : Lucidité en frappe plus fort. */
+  effacees?: number
   annonce?: AnnonceDuTour
   apercu?: ApercuDuTour
 }

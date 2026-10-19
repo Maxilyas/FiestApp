@@ -41,6 +41,15 @@ paths:
   personne peut remporter rejoint `PRIX_INDIVIDUELS` (`core/stats.ts`) :
   sans lui, la collection mentirait (« 14 sur 20 ») — `fin-de-soiree.test.ts`
   relit les clés du calcul.
+- **Un trophée réservé à certains serveurs se tait aux deux bouts**
+  (`montreParLeServeur` — L'Explorateur, le 19 octobre 2026, là où les
+  rencontres de l'expédition s'ouvrent) : ce qu'il compte vaut 0 ailleurs,
+  il n'y tombe donc pas ; `hautsFaitsVus` ne le cite pas ; l'album ne lui
+  fait de case que cité (`albumDesTrophees`), sans quoi chaque collection
+  de la production le compterait « 0 sur 3 ». Un drapeau du code
+  (`voiesMontrees`) ne suffit pas quand la préproduction doit le montrer :
+  elle sert le même code — c'est le serveur qui sait (`rencontresOuvertes`,
+  posé au démarrage sur `ProfileStore.rencontres` et `CampagneStore`).
 - **Durcir la règle d'un haut fait de soirée, d'un prix ou d'un Divin, puis
   monter `VERSION_BAREME`, reprend le passé** : le recalcul remplace les
   lignes de chaque soirée (`remplacerRecompensesDeSoiree`), et ce que la

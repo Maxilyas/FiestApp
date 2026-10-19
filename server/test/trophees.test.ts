@@ -145,18 +145,29 @@ const NEUF = {
   sentiers: {},
 }
 
-test('l’album compte tout ce qui se gagne par ce qu’on a fait : 194 trophées, une page par mode — et s’ouvre où l’on joue', () => {
+test('l’album compte tout ce qui se gagne par ce qu’on a fait : 197 trophées, une page par mode — et s’ouvre où l’on joue', () => {
   const pages = albumDesTrophees(NEUF as any)
   assert.deepEqual(
     pages.map(p => `${p.page} ${p.acquis}/${p.total}`),
     // La soirée : huit pistes de trois métaux, onze exploits, neuf coups du sort, vingt prix ;
-    // le quiz du jour : cinq pistes, six exploits, trois coups, douze pages ; la campagne : quatre pistes — le
-    // Globe-trotter, le passeport de l'expédition, depuis le 18 octobre 2026 —, cinq exploits ;
-    // les duels : six ligues, six bordures serties ; les sentiers : trois pistes, deux exploits, douze maîtres ;
-    // partout : douze écussons de trois métaux, le niveau et les Éclats.
-    ['soiree 0/64', 'jour 0/36', 'campagne 0/17', 'duels 0/12', 'sentiers 0/23', 'partout 0/42'],
+    // le quiz du jour : cinq pistes, six exploits, trois coups, douze pages ; la campagne : cinq pistes — le
+    // Globe-trotter, le passeport de l'expédition, depuis le 18 octobre 2026, et L'Explorateur, son niveau
+    // d'explorateur, depuis le 19 —, cinq exploits ; les duels : six ligues, six bordures serties ; les sentiers :
+    // trois pistes, deux exploits, douze maîtres ; partout : douze écussons de trois métaux, le niveau et les Éclats.
+    ['soiree 0/64', 'jour 0/36', 'campagne 0/20', 'duels 0/12', 'sentiers 0/23', 'partout 0/42'],
   )
-  assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 194 })
+  assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 197 })
+  // L'Explorateur ne se compte que là où le serveur le cite — là où les rencontres s'ouvrent : la production le tait,
+  // et sa collection ne compte pas trois trophées d'un niveau qu'elle ne montre nulle part.
+  const sansLui = { ...NEUF, hautsFaits: NEUF.hautsFaits.filter(h => h.key !== 'hf:explorateur') }
+  assert.deepEqual(compteDesTrophees(sansLui as any), { acquis: 0, total: 194 })
+  assert.ok(!albumDesTrophees(sansLui as any).some(p => p.sections.some(s => s.cases.some(c => c.cle === 'hf:explorateur'))))
+  // Cité, sa case compte un niveau — rien encore pour qui n'est jamais parti : le codex n'a pas de niveau 0.
+  const explorateur = (vus: typeof NEUF.hautsFaits) => albumDesTrophees({ ...NEUF, hautsFaits: vus } as any).find(p => p.page === 'campagne')!.sections[0].cases.find(c => c.cle === 'hf:explorateur')!
+  assert.equal(explorateur(NEUF.hautsFaits).compte, '0')
+  const parti = explorateur(NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 1, valeur: 5 } : h)))
+  assert.deepEqual([parti.compte, parti.metaux, parti.prochain], ['niveau 5', 1, 7])
+  assert.equal(seuilDeLEtape('hf:explorateur', 7), 'Niveau 7')
   // Rien encore : le quiz du jour, ce qu'on joue le plus. Sinon, le mode où il a le plus.
   assert.equal(pageDuDebutDesTrophees(NEUF as any), 'jour')
   const campagne = { ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:alpiniste' ? { ...h, fois: 2, valeur: 15 } : h)) }
@@ -180,6 +191,7 @@ test('chaque trophée a sa page : celle du mode où il se gagne', () => {
     ['heures:10', 'jour'],
     ['hf:funambule', 'campagne'],
     ['hf:marathonien:3', 'campagne'],
+    ['hf:explorateur:2', 'campagne'],
     ['ligue:or', 'duels'],
     ['maitre:foret', 'sentiers'],
     ['hf:randonneur:2', 'sentiers'],

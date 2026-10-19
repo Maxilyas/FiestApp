@@ -369,7 +369,7 @@ Les tests qui gardent la base :
 
 À ne pas oublier :
 - **Le tirage de l'Éclat** reste hors de `recompenserLaSerie`, que la relecture rejoue.
-- **Un palier de carrière de campagne** suit une autre voie : une entrée de `HAUTS_FAITS_DE_CARRIERE` avec `deCampagne`, dont la valeur se lit dans `statsDe`.
+- **Un palier de carrière de campagne** suit une autre voie : une entrée de `HAUTS_FAITS_DE_CARRIERE` avec `deCampagne`, dont la valeur se lit dans `statsDe`. Réservé aux serveurs où les rencontres de l'expédition s'ouvrent, comme L'Explorateur : `montreParLeServeur`, et sa valeur à 0 ailleurs (`CampagneStore` sait où il est).
 
 ## Les sentiers du savoir
 

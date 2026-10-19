@@ -39,6 +39,7 @@ import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
+import { rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
 import { RappelStore } from './core/rappels'
 import { erreurDeRequete, repondreErreur } from './core/http'
@@ -414,6 +415,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
   // Les codes des salons : six chiffres pour entrer chez quelqu'un.
   const salons = new SalonStore(opts.quizDbUrl, opts.quizDbToken)
+  // Les rencontres de l'expédition, un prototype hors de la production (`rencontresOuvertes`, que ses routes lisent
+  // aussi) : ce que le codex fait gagner hors de l'expédition — L'Explorateur — ne compte et ne se montre que là.
+  const rencontres = rencontresOuvertes({ online: !!opts.online, env: opts.appEnv ?? 'production' })
   // La campagne solo : ses séries, tirées de sa base à elle (`core/baseCampagne.ts`),
   // loin de la réserve du quiz du jour.
   const campagne = new CampagneStore(opts.quizDbUrl, opts.quizDbToken, {
@@ -422,6 +426,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     empreintesDuJour: () => jour.empreintes(),
     ecrireXp: (profileId, xp, jours) => profiles.ecrireXpDeCampagne(profileId, xp, jours),
     recompenses: profiles,
+    rencontres,
   })
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
@@ -535,6 +540,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.compagnonsDeCampagne = id => campagne.compagnonsDe(id)
   // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
   profiles.statsDeCampagne = id => campagne.statsDe(id)
+  // L'Explorateur ne se cite que là où les rencontres s'ouvrent, comme il ne s'y gagne que là.
+  profiles.rencontres = rencontres
   // Sa ligue des duels, sur sa carte.
   profiles.duelsDe = id => campagne.coteDe(id)
   // Sa bordure de ligue, que la salle lit de mémoire à chaque diffusion :
@@ -1235,6 +1242,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     app.use('/compagnons', express.static(path.join(clientDist, 'compagnons'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // Les décors peints — le calendrier, les thèmes peints, les fonds de carte — de même (`server/scripts/anime/decors.ts`).
     app.use('/decors', express.static(path.join(clientDist, 'decors'), { maxAge: '1y', immutable: true, fallthrough: false }))
+    // Les cartes peintes de l'Expédition de même (`server/scripts/anime/cartes.ts`).
+    app.use('/cartes', express.static(path.join(clientDist, 'cartes'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // La page d'accueil est lue une fois et gardée en mémoire — elle ne change
     // pas d'un déploiement à l'autre. Hors production, on y glisse le nom de
     // l'environnement : c'est le seul endroit qui atteint TOUTES les pages,
