@@ -99,6 +99,34 @@ paths:
   (`Input.dispatchTouchEvent` — `synthesizeScrollGesture` n'y fait rien
   défiler), et filme l'ouverture (`Page.startScreencast`) pour la
   luminosité de chaque image.
+- **Ce qui se pose sur la page a un sol plein, sous tous les thèmes.**
+  Chaque thème repeint `.card` d'un verre fait pour laisser voir son décor —
+  translucide sous vingt-cinq d'entre eux, de 82 à 95 % —, d'un sélecteur
+  (0,3,0) plus fort que celui d'un dialogue (`.dialog`, 0,1,0) ou de la carte
+  d'un joueur (0,2,0) : ouverte depuis la liste des amis, la carte d'un ami
+  laissait lire toute la liste au travers d'elle (« une histoire de
+  transparence avec le thème qui passe par-dessus », le 19 octobre 2026). Leur
+  sol se reprend, plus fort que le thème et sa couleur seule
+  (`:root .card.dialog:not(.carte-fond)`, `--bg-raised`) : le dégradé, la
+  bordure et l'ombre du thème restent. Une surface de plus posée sur un voile
+  prend un sol plein qu'aucun thème ne repeint — une feuille n'a pas `.card`,
+  elle pose `--bg` ; `feuilles.test.ts` lit chaque thème.
+- **Une feuille ouverte retire le décor du thème** (`.carte-voile`,
+  `.dialog-backdrop`, `.coffre-scene` : `content: none !important` sur ses
+  couches fixes, `html::before`, `body::before`, `body::after`,
+  `#root::before`, `#root::after`). Plein écran à la densité d'un téléphone,
+  ces couches prennent la mémoire des tuiles : sous Le Sommet, au téléphone
+  Android, la feuille des amis ouverte par-dessus ne se dessinait pas, ou à
+  moitié, et le décor restait à sa place (« le thème qui passe
+  par-dessus », le 19 octobre 2026). Assombri aux trois quarts et couvert, il
+  ne s'y voyait guère. Une couche fixe de plus dans un thème rejoint cette
+  règle (`feuilles.test.ts` les lit toutes). Le Chromium des rendus ne le
+  montre pas tel quel — il a toute la mémoire qu'il veut : lancé en
+  `channel: 'chromium'`, carte graphique émulée (`--use-angle=swiftshader
+  --enable-unsafe-swiftshader --enable-gpu-rasterization`) et sa mémoire
+  bornée à celle d'un téléphone (`--force-gpu-mem-available-mb=64`, en
+  412 × 915 à la densité 2,625), il ne dessinait plus la feuille une seconde
+  après son ouverture, et la dessine depuis.
 - **Une classe assemblée couvre tout son préfixe** : la garde des classes
   mortes (S7, `design.test.ts`) tient pour vivante toute classe qui commence
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`
