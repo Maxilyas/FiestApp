@@ -36,6 +36,7 @@ import { CURIOSITE_DES_L_ETAGE, PART_DU_REBUS, RARETES_D_UNE_CURIOSITE, type Sor
 import { lireNombreEnTete } from './nombres'
 import type { PalierTombe } from './jour'
 import type { CleDeSaison } from './saisons'
+import type { CleDeCompagnon } from './compagnons'
 import { FAMILLES_DE_SUJETS, SUJETS, type FamilleDeSujet } from './sujets'
 import {
   ASCENSION_MAX,
@@ -3507,6 +3508,8 @@ export interface ApresUnGeste {
   expedition: VueDeLExpedition
   recompenses?: PalierTombe[]
   legendaires?: string[]
+  /** Le compagnon qui vient de le rejoindre : la luciole, à sa première expédition menée au bout — la Première traversée. */
+  compagnon?: CleDeCompagnon
 }
 
 // ── Ce qu'un joker montre d'une question : le serveur seul le calcule ──────

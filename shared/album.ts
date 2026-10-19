@@ -12,9 +12,11 @@
 // forme ultime, au douzième palier, est légendaire — l'égale des vingt-six
 // légendaires des hauts faits. Les compagnons de la boutique de même, forme
 // par forme : celle qu'on achète est commune, la forme ultime légendaire — et
-// la métamorphose que l'Éclat lui ouvre, une forme de plus, aussi. Les
-// Divins ont leur page, et n'y disent rien d'eux : ni règle, ni lieu, ni
-// progression (invariant 21).
+// la métamorphose que l'Éclat lui ouvre, une forme de plus, aussi. La
+// luciole aussi, qui ne s'achète pas : sa première forme se gagne en
+// expédition, et l'album est le seul endroit où on la voit avant de l'avoir
+// (le 20 octobre 2026). Les Divins ont leur page, et n'y disent rien d'eux :
+// ni règle, ni lieu, ni progression (invariant 21).
 //
 // Une dérivation pure de ce que la page du profil reçoit déjà : « Ma
 // collection » compte ses avatars par elle (`compteDeLaCollection`), une seule
@@ -98,10 +100,14 @@ const avatar = (cle: string, sorte: SorteDAvatar, rarete: RareteDAvatar, lieux: 
 export const AVATARS_DE_L_ALBUM: readonly AvatarDeLAlbum[] = [
   ...LEGENDAIRES.map(l => avatar(l.key, 'legendaire', 'legendaire', lieuxDuLegendaire(l))),
   ...PORTRAITS.map(p => avatar(p.key, 'portrait', RARETE_DU_RANG[p.rang], ['sentiers'])),
-  ...COMPAGNONS.flatMap(c => [
-    ...c.formes.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? ['boutique'] : ['boutique', 'niche'])),
-    avatar(c.lumiere.key, 'compagnon', c.lumiere.rarete, ['boutique', 'niche', 'eclat']),
-  ]),
+  ...COMPAGNONS.flatMap(c => {
+    // La boutique, ou l'expédition pour la luciole : là où vient sa première forme.
+    const vient = c.gagne ?? 'boutique'
+    return [
+      ...c.formes.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? [vient] : [vient, 'niche'])),
+      ...(c.lumiere ? [avatar(c.lumiere.key, 'compagnon', c.lumiere.rarete, [vient, 'niche', 'eclat'])] : []),
+    ]
+  }),
   ...COLLECTION.map(c => avatar(c.emoji, 'emoji', c.niveau < COLLECTION_HAUTE ? 'commune' : 'peucommune', ['niveau'])),
   ...DIVINS.map(d => avatar(d.key, 'divin', 'divin', [])),
 ]
@@ -145,8 +151,13 @@ function dite(elements: readonly string[], mot: string, avant = ''): string {
 export function ouIlSeGagne(a: AvatarDeLAlbum): string {
   if (a.sorte === 'emoji') return `au niveau ${COLLECTION.find(c => c.emoji === a.cle)!.niveau}`
   const f = formeDeCompagnon(a.cle)
-  if (f?.metamorphose) return `en boutique, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(compagnonDe(f))} et par l’Éclat`
-  if (f) return f.rang === 0 ? 'en boutique' : `en boutique, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(compagnonDe(f))}`
+  if (f) {
+    const c = compagnonDe(f)
+    // En boutique, ou en expédition pour la luciole.
+    const vient = DANS[c.gagne ?? 'boutique']
+    if (f.metamorphose) return `${vient}, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(c)} et par l’Éclat`
+    return f.rang === 0 ? vient : `${vient}, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(c)}`
+  }
   const l = legendaire(a.cle)
   const s = l?.saison && saison(l.saison)
   if (s) return `pour ${s.nom}`
@@ -343,18 +354,29 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
     ]
   }
   if (a.sorte === 'compagnon') {
-    // Une seule voie : l'acheter, puis le faire grandir dans sa niche — et,
-    // pour sa métamorphose, l'Éclat sur lui.
+    // Une seule voie : l'acheter — ou, la luciole, la gagner en menant une
+    // expédition au bout —, puis le faire grandir dans sa niche — et, pour
+    // sa métamorphose, l'Éclat sur lui.
     const f = formeDeCompagnon(cle)!
     const c = compagnonDe(f)
     const sien = (p.compagnons ?? []).find(x => x.compagnon === c.key)
-    const achat: EtapeDUneVoie = {
-      lieu: 'boutique',
-      titre: `En boutique : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis`,
-      regle: `${c.nom} s’achète à sa première forme, puis grandit avec toi`,
-      tenue: !!sien,
-      progres: null,
-    }
+    const achat: EtapeDUneVoie =
+      c.gagne === 'expedition'
+        ? {
+            // Pas de jauge : une expédition va au bout, ou non — une fois suffit.
+            lieu: 'expedition',
+            titre: 'En expédition : la Première traversée',
+            regle: `Mène une expédition au bout — le troisième gardien vaincu — : ${c.le === 'la' ? 'elle' : 'il'} te rejoint, puis grandit avec toi`,
+            tenue: !!sien,
+            progres: null,
+          }
+        : {
+            lieu: 'boutique',
+            titre: `En boutique : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis`,
+            regle: `${c.nom} s’achète à sa première forme, puis grandit avec toi`,
+            tenue: !!sien,
+            progres: null,
+          }
     if (f.rang === 0) return [[achat]]
     const requis = JUSTES_DES_FORMES[f.rang]
     const tenue = !!sien && sien.rang >= f.rang

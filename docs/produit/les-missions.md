@@ -52,7 +52,7 @@ Puis un objet de cette rareté qu'il n'a pas :
 
 - **le trésor**, qui ne se trouve nulle part ailleurs — six fonds de carte peints (rares : la Voie lactée, le Jardin des lanternes ; épiques : les Abysses, la Bibliothèque enchantée ; légendaires : le Dragon d'or, la Cité céleste) et six gerbes (peu communes : les flocons, les cœurs ; rares : les papillons, les étoiles filantes ; épique : les diamants ; légendaire : le trésor) ; il pèse double dans sa rareté, et ne se vend pas : la boutique ne le montre pas, « Ma collection » dit d'où il vient — les douze fonds des savoirs, qui se vendent, n'entrent pas au coffre ;
 - **un thème de la boutique**, offert — jamais un thème qui se gagne, ni un thème de saison hors de sa saison ;
-- **un compagnon**, sa première forme, au légendaire seulement — il vaut le prix d'un thème légendaire ;
+- **un compagnon** de la boutique, sa première forme, au légendaire seulement — il vaut le prix d'un thème légendaire ; jamais la luciole, qui se gagne au bout d'une expédition ;
 - **des confettis** à la rareté commune — 60, 90, 120 ou 150 selon le coffre —, autant de chances que tous ses thèmes ensemble : la rareté commune n'est pas qu'un lot de consolation.
 
 Une rareté où il a déjà tout descend d'un cran, jusqu'aux confettis. Le tirage se fait une fois, à l'ouverture, et ne se refait jamais : rouvert, le coffre redonne ce qu'il a donné. Un thème ou un compagnon offert est à lui comme acheté — le QG ne le compte pas comme une vente.

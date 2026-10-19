@@ -657,6 +657,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Et ses épreuves : les trophées des sentiers, à qui les avait déjà gagnés.
   const epreuves = await campagne.relireLesEpreuves()
   if (epreuves) console.log(`[sentiers] ${epreuves.epreuves} épreuve(s) relue(s), ${epreuves.profils} profil(s)`)
+  // La Première traversée (le 20 octobre 2026) : qui avait déjà mené une
+  // expédition au bout reçoit la luciole, une fois.
+  const traversees = await campagne.rattraperLesPremieresTraversees()
+  if (traversees) console.log(`[expedition] la luciole rejoint ${traversees} profil(s) qui avai(en)t déjà mené une expédition au bout`)
   // Le barème du solo (le 6 octobre 2026) : ce qui s'est déjà joué au quiz
   // du jour et en campagne se recompte au barème du jour, une fois, et les
   // niveaux gelés de l'ancienne courbe se rattrapent (`core/baremeDuSolo.ts`).

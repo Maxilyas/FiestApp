@@ -10,7 +10,7 @@
 // laisserait rien retenir. Rien de ce qu'il a déjà ; rien du tout s'il a
 // tout — l'absence, pas un bandeau vide.
 
-import { COMPAGNONS, type CleDeCompagnon } from './compagnons'
+import { COMPAGNONS_DE_LA_BOUTIQUE, type CleDeCompagnon } from './compagnons'
 import { FONDS_EN_BOUTIQUE, type CleDeFond } from './fonds'
 import { enBoutique, THEMES, type BoutiqueDuProfil, type Theme } from './themes'
 
@@ -48,8 +48,9 @@ const BEAUX = new Set(['rare', 'epique', 'legendaire'])
 export function aLaUne(boutique: Pick<BoutiqueDuProfil, 'possedes' | 'jour' | 'compagnons' | 'fondsAchetes'>): ALaUne[] {
   const n = rangDuJour(boutique.jour)
   const adoptes = new Set((boutique.compagnons ?? []).map(c => c.compagnon))
+  // Ceux de la boutique seulement : la luciole se gagne en Expédition, le bandeau la vendrait.
   const compagnons: ALaUne[] = tournee(
-    COMPAGNONS.filter(c => !adoptes.has(c.key)),
+    COMPAGNONS_DE_LA_BOUTIQUE.filter(c => !adoptes.has(c.key)),
     n,
   ).map(c => ({ sorte: 'compagnon', cle: c.key }))
   const possedes = new Set(boutique.possedes)

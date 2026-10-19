@@ -19,11 +19,19 @@
 // dessous qui s'affiche une micro seconde (l'accueil) », au téléphone — sa
 // couleur seule s'anime depuis.
 //
+// « Une histoire de transparence avec le thème qui passe par-dessus » (le
+// propriétaire, le 19 octobre 2026) : sous vingt-cinq thèmes sur trente-cinq,
+// la carte d'un ami, touchée dans la liste des amis, laissait lire toute la
+// liste au travers d'elle — le `.card` d'un thème, en verre translucide, est
+// plus fort que le sol de la carte. Et sous Le Sommet, au téléphone Android,
+// la feuille des amis ne se dessinait pas : les couches fixes du décor
+// prenaient la mémoire des tuiles, et le décor restait à sa place.
+//
 // Un vrai geste demande un navigateur ; ici, les règles qui l'empêchent, et
 // les voiles qui les portent.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 
 const source = (fichier: string) => readFileSync(new URL(`../../client/src/${fichier}`, import.meta.url), 'utf8')
 const css = source('styles.css')
@@ -71,4 +79,152 @@ test('à l’ouverture, le voile s’assombrit avec la feuille qui monte, par sa
   assert.doesNotMatch(regle('.dialog-backdrop'), /opacity/)
   // La feuille ne s'efface pas elle-même : transparente sur un voile déjà noir, elle faisait le trou.
   assert.doesNotMatch(pas('carte-monte'), /opacity/)
+})
+
+// ── Sous tous les thèmes, rien ne se lit au travers ────────────────────────
+
+const THEMES = new URL('../../client/src/themes/', import.meta.url)
+/** Chaque feuille où un thème peint : la sienne, et la commune pour Ivoire. */
+const feuillesDesThemes: [string, string][] = [
+  ['styles.css', css],
+  ...readdirSync(THEMES)
+    .filter(f => f.endsWith('.css'))
+    .map((f): [string, string] => [f, readFileSync(new URL(f, THEMES), 'utf8')]),
+]
+/** Une liste de sélecteurs coupée à ses virgules — pas à celles d'une parenthèse, `:not(a, b)`. */
+const couper = (liste: string) =>
+  liste
+    .split(/,(?![^(]*\))/)
+    .map(s => s.trim())
+    .filter(Boolean)
+/** Les règles d'une feuille, celles d'un `@media` comprises, à plat. */
+const reglesDe = (texte: string) =>
+  [...texte.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}@]+)\{([^{}]*)\}/g)].map(([, tete, corps]) => ({ selecteurs: couper(tete), corps }))
+const PARENTHESES = String.raw`\((?:[^()]|\([^()]*\))*\)`
+
+/**
+ * La force d'un sélecteur, en un nombre — un identifiant pour 10 000, une
+ * classe, un attribut ou une pseudo-classe pour 100, une balise ou un
+ * pseudo-élément pour 1 : `:where()` ne compte pas ; `:not()`, `:is()` et
+ * `:has()`, leur argument le plus fort.
+ */
+function force(selecteur: string): number {
+  let f = 0
+  let reste = selecteur.replace(new RegExp(`:where${PARENTHESES}`, 'g'), ' ').replace(new RegExp(`:(?:not|is|has)(${PARENTHESES})`, 'g'), (_, arg: string) => {
+    f += Math.max(...couper(arg.slice(1, -1)).map(force))
+    return ' '
+  })
+  const compter = (motif: RegExp, poids: number) => {
+    reste = reste.replace(motif, () => {
+      f += poids
+      return ' '
+    })
+  }
+  compter(/#[\w-]+/g, 10_000)
+  compter(/\[[^\]]*\]/g, 100)
+  compter(/::[\w-]+/g, 1)
+  compter(/[.:][\w-]+/g, 100)
+  compter(/[a-z][\w-]*/gi, 1)
+  return f
+}
+
+/** Une règle posée par un thème : sous `:root[data-theme='…']`. */
+const duTheme = (s: string) => /^:root\[data-theme='[a-z]+'\]/.test(s)
+
+/** Les classes du sujet d'un sélecteur — son dernier composé —, hors de ses parenthèses ; aucune s'il vise un pseudo-élément. */
+function sujet(selecteur: string): string[] {
+  const dernier = selecteur.split(/\s*[\s>+~]\s*(?![^(]*\))/).pop()!
+  if (dernier.includes('::')) return []
+  return [...dernier.replace(new RegExp(`:[\\w-]+${PARENTHESES}`, 'g'), '').matchAll(/\.([\w-]+)/g)].map(m => m[1])
+}
+
+test('sous tous les thèmes, une feuille, une carte ou un dialogue ouvert garde son sol plein : on ne lit rien au travers', () => {
+  // Ce que posent un dialogue et la carte d'un joueur — sans fond : une carte
+  // à fond a le sien, que les thèmes ne touchent pas (`fonds.test.ts`).
+  assert.match(source('components/Dialog.tsx'), /className="card dialog"/)
+  assert.match(source('components/CarteJoueur.tsx'), /className=\{'card dialog carte-joueur' \+ \(fond \? ` carte-fond fond-\$\{fond\}` : ''\)\}/)
+  const DIALOGUES = [
+    { nom: 'un dialogue', classes: ['card', 'dialog'] },
+    { nom: 'la carte d’un joueur', classes: ['card', 'dialog', 'carte-joueur'] },
+  ]
+  const peint = (corps: string) => /(?:^|;)\s*background(?:-color)?\s*:/.test(corps)
+  for (const { nom, classes } of DIALOGUES) {
+    const vise = (s: string) => sujet(s).length > 0 && sujet(s).every(c => classes.includes(c))
+    // Son sol : la règle la plus forte qui le pose plein, d'un `--bg-raised`.
+    const sols = reglesDe(css)
+      .filter(r => /(?:^|;)\s*background(?:-color)?\s*:[^;]*var\(--bg-raised\)\s*(?:;|$)/.test(r.corps))
+      .flatMap(r => r.selecteurs.filter(s => !duTheme(s) && vise(s)))
+    assert.ok(sols.length > 0, `le sol d’${nom}`)
+    const forceDuSol = Math.max(...sols.map(force))
+    // Chaque thème repeint `.card` d'un verre fait pour laisser voir son décor
+    // sous une carte de la page — translucide sous vingt-cinq d'entre eux. Plus
+    // fort que le sol, il le remplaçait : posé sur la page, le dialogue
+    // laissait lire ce qu'il couvrait, et la carte d'un ami, toute la liste des
+    // amis. Le sol se reprend plus fort qu'eux, sa couleur seule : leurs
+    // dégradés, leur bordure et leur ombre restent, posés sur du plein.
+    let repeints = 0
+    for (const [ou, feuille] of feuillesDesThemes) {
+      for (const r of reglesDe(feuille).filter(r => peint(r.corps))) {
+        for (const s of r.selecteurs.filter(s => duTheme(s) && vise(s))) {
+          assert.ok(force(s) < forceDuSol, `${ou} : « ${s} » (${force(s)}) repeint le sol d’${nom}, plus fort que lui (${forceDuSol})`)
+          repeints++
+        }
+      }
+    }
+    assert.ok(repeints >= 30, `le .card de chaque thème est lu (${repeints} règles)`)
+  }
+  assert.match(css, /\n:root \.card\.dialog:not\(\.carte-fond\) \{ background-color: var\(--bg-raised\); \}/)
+  // Une feuille pose le sien sur la page même, et aucun thème n'y touche.
+  assert.match(regle('.carte-feuille'), /background: var\(--bg\);/)
+  for (const [ou, feuille] of feuillesDesThemes) {
+    for (const r of reglesDe(feuille).filter(r => peint(r.corps))) {
+      for (const s of r.selecteurs.filter(duTheme)) assert.ok(!sujet(s).includes('carte-feuille'), `${ou} : « ${s} » repeint le sol d’une feuille`)
+    }
+  }
+  // Et ces sols sont pleins sous tous les thèmes, Velours et Ivoire compris.
+  for (const [ou, feuille] of feuillesDesThemes) {
+    const sols = [...feuille.matchAll(/--(bg|bg-raised):\s*([^;]+);/g)]
+    assert.ok(sols.length >= 2, `${ou} : ses sols sont lus`)
+    for (const [, jeton, valeur] of sols) assert.match(valeur, /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i, `${ou} : --${jeton} (${valeur}) se lit au travers`)
+  }
+})
+
+test('une feuille, une carte ou un dialogue ouvert retire le décor du thème : la mémoire du téléphone va à ce qu’on ouvre', () => {
+  // « Le décor reste visible à travers la feuille », sous Le Sommet, au
+  // téléphone Android (le propriétaire, le 19 octobre 2026) : les couches
+  // fixes du décor — la montagne, ses lanternes, ses drapeaux, le voile de
+  // nuit, la neige —, plein écran à la densité du téléphone, prenaient la
+  // mémoire des tuiles, et la feuille ouverte par-dessus n'en avait plus :
+  // elle ne se dessinait pas, ou à moitié. Le temps qu'elle reste ouverte, le
+  // décor se retire — assombri aux trois quarts, couvert presque partout, il
+  // ne s'y voyait guère.
+  const OUVERTS = ['.carte-voile', '.dialog-backdrop', '.coffre-scene']
+  // Les voiles d'une feuille, d'une carte, d'un dialogue, et la scène du coffre de la semaine.
+  assert.match(source('components/Pieces.tsx'), /<div className="carte-voile"/)
+  assert.match(source('components/Dialog.tsx'), /<div className="dialog-backdrop"/)
+  assert.match(source('components/CarteJoueur.tsx'), /<div className="dialog-backdrop"/)
+  assert.match(source('components/Coffre.tsx'), /<div className=\{`coffre-scene /)
+  // Retiré, quelle que soit la force de la règle du thème qui le pose.
+  const sous = `:root[data-theme]:has(${OUVERTS.join(', ')})`
+  const retrait = reglesDe(css).find(r => r.selecteurs.some(s => s.startsWith(sous)))
+  assert.ok(retrait, `la règle qui retire le décor sous ${OUVERTS.join(', ')}`)
+  assert.match(retrait.corps, /^\s*content: none !important;\s*$/)
+  const retirees = new Set(
+    retrait.selecteurs.map(s => {
+      assert.ok(s.startsWith(sous), s)
+      return s.slice(sous.length).trim()
+    }),
+  )
+  // Chaque couche fixe d'un thème est de son décor : chacune se retire.
+  let couches = 0
+  for (const [ou, feuille] of feuillesDesThemes) {
+    for (const r of reglesDe(feuille).filter(r => /(?:^|;)\s*position:\s*fixed\b/.test(r.corps))) {
+      for (const s of r.selecteurs.filter(duTheme)) {
+        const couche = s.replace(/^:root(?:\[[^\]]*\])+/, '').trim()
+        assert.ok(retirees.has(couche), `${ou} : « ${s} », une couche fixe de son décor, reste sous une feuille ouverte`)
+        couches++
+      }
+    }
+  }
+  assert.ok(couches >= 60, `les couches fixes des thèmes sont lues (${couches})`)
 })

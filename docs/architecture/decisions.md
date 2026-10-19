@@ -710,6 +710,15 @@ Le détail : [le profil](../produit/le-profil.md).
 
 *Fichiers : `shared/compagnons.ts`, `server/src/auth/profiles.ts`, `client/src/components/Niche.tsx`, `client/src/components/Ouverts.tsx`*
 
+### La luciole se gagne, et ne se montre que dans la collection
+**Contexte** : peinte le 18 octobre 2026 pour l'Expédition — « que certains hauts faits récompensent de nouveaux compagnons, comme la luciole » —, elle n'était branchée nulle part ; la maquette la montrait en silhouette en boutique, « à gagner en Expédition ». Le 20 octobre, le propriétaire : « que dans la collection pas boutique ».
+
+**Décision** : un compagnon du catalogue comme les autres, qui dit où il se gagne (`Compagnon.gagne`) ; la boutique, son achat, le coffre, « À la une » et « Adopter » ne lisent que ceux qui se vendent (`COMPAGNONS_DE_LA_BOUTIQUE`), l'album les lit tous. La Première traversée l'offre — la première expédition menée au bout —, à prix nul comme un compagnon du coffre, dans une niche vide seulement (`ProfileStore.offrirUnCompagnon`, appelé par `garderUnGardien` avant de clore) ; qui avait déjà mené une expédition au bout l'a reçue une fois au démarrage. Pas de trophée de plus : la Première traversée nomme sa voie, sans expérience ni rareté à mesurer.
+
+**Conséquence** : un compagnon de plus « à gagner » prend `gagne` et son lieu, et rien de la boutique ne le montre ; `Compagnon.lumiere` est facultatif, et `metamorphoseOuverte` lit le compagnon — celui qui n'en a pas ne promet rien. Le solde et les ventes du QG l'ignorent (prix nul).
+
+*Fichiers : `shared/compagnons.ts`, `shared/album.ts`, `server/src/auth/profiles.ts`, `server/src/core/campagne.ts`, `client/src/components/Ouverts.tsx`*
+
 ### La carte : une règle, trois portes
 **Contexte** : la carte ne s'ouvrait qu'en soirée, sur un nom ; chacun composait sa tenue sans jamais la voir, et la carte d'un autre, hors soirée, était réduite à deux gestes.
 

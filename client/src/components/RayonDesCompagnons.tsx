@@ -8,7 +8,7 @@ import { Compagnon, teintesDuCompagnon } from './Compagnon'
 import './compagnons-peints'
 import { espacesFines, formatNumber } from '../format'
 import {
-  COMPAGNONS,
+  COMPAGNONS_DE_LA_BOUTIQUE,
   JUSTES_DES_FORMES,
   NOM_DE_LA_FORME,
   PRIX_D_UN_COMPAGNON,
@@ -56,7 +56,7 @@ const dansLaPhrase = (c: LeCompagnon) => `${c.le} ${c.nom.replace(/^L[ae] /, '')
 /** Le compagnon qu'une adresse ouvre — `/boutique#compagnon-chat`, le bandeau « À la une » de l'accueil — : la vitrine s'ouvre sur lui. */
 export function compagnonDeLAdresse(hash: string): number | null {
   const m = /^#compagnon-([\w-]+)$/.exec(hash)
-  const i = m ? COMPAGNONS.findIndex(c => c.key === m[1]) : -1
+  const i = m ? COMPAGNONS_DE_LA_BOUTIQUE.findIndex(c => c.key === m[1]) : -1
   return i >= 0 ? i : null
 }
 
@@ -334,8 +334,9 @@ export function RayonDesCompagnons({
           )}
         </p>
       )}
+      {/* Ceux qui se vendent : la luciole se gagne en expédition, et ne se montre que dans « Ma collection ». */}
       <div className="vitrine-compagnons" ref={piste} onScroll={surLaPiste} aria-label="Les compagnons">
-        {COMPAGNONS.map(c => (
+        {COMPAGNONS_DE_LA_BOUTIQUE.map(c => (
           <SceneDuCompagnon
             key={c.key}
             c={c}
@@ -351,7 +352,7 @@ export function RayonDesCompagnons({
         ))}
       </div>
       <div className="vitrine-points">
-        {COMPAGNONS.map((c, i) => (
+        {COMPAGNONS_DE_LA_BOUTIQUE.map((c, i) => (
           <button key={c.key} type="button" className="vitrine-point" aria-label={c.nom} aria-current={i === ici || undefined} onClick={() => allerA(i)} />
         ))}
       </div>

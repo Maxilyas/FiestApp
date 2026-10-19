@@ -6,7 +6,7 @@ import { useModale } from '../modale'
 import { api } from '../api'
 import { espacesFines, formatNumber } from '../format'
 import {
-  COMPAGNONS,
+  COMPAGNONS_DE_LA_BOUTIQUE,
   JUSTES_DES_FORMES,
   MONTREE_DE_LA_METAMORPHOSE,
   NOM_D_UN_COMPAGNON_MAX,
@@ -62,6 +62,13 @@ const CADRAGES: Readonly<Record<string, { taille: number; gauche: number; haut: 
   'cp:tortue-jeune': { taille: 1.2953, gauche: -0.0944, haut: -0.0854, miroir: false },
   'cp:tortue-adulte': { taille: 1.4343, gauche: -0.1811, haut: -0.1256, miroir: false },
   'cp:tortue-ile': { taille: 1.369, gauche: -0.1558, haut: -0.1558, miroir: false },
+  // La luciole (le 20 octobre 2026), de la même façon : le cadrage de sa page
+  // de la planche (`humeurs-luciole/cadrages.json`), qui regarde déjà la page,
+  // rapporté sur ses humeurs livrées — la méthode retrouve celui de la tortue.
+  'cp:luciole-ver': { taille: 1.02, gauche: -0.0267, haut: 0.2086, miroir: false },
+  'cp:luciole-jeune': { taille: 1.3509, gauche: -0.1503, haut: -0.0023, miroir: false },
+  'cp:luciole-adulte': { taille: 1.556, gauche: -0.2745, haut: -0.1975, miroir: false },
+  'cp:luciole-constellation': { taille: 1.4534, gauche: -0.323, haut: -0.1648, miroir: false },
   // Leurs métamorphoses de lumière, posées à l'œil sur leurs humeurs (le 19
   // octobre 2026) : le loup et le chat bondissent de face, la tortue garde ses
   // fleurs — toutes regardent déjà la page.
@@ -93,6 +100,10 @@ const SILHOUETTES: Readonly<Record<string, readonly [number, number, number, num
   'cp:tortue-jeune': [0.07, 0.178, 0.865, 0.869],
   'cp:tortue-adulte': [0.113, 0.061, 0.868, 0.888],
   'cp:tortue-ile': [0.072, 0.072, 0.915, 0.94],
+  'cp:luciole-ver': [0.074, 0.098, 0.938, 0.873],
+  'cp:luciole-jeune': [0.15, 0.096, 0.812, 0.812],
+  'cp:luciole-adulte': [0.201, 0.139, 0.841, 0.828],
+  'cp:luciole-constellation': [0.209, 0.075, 0.917, 0.866],
   'cp:loup-tempete': [0.071, 0.071, 0.965, 0.969],
   'cp:chat-soleil': [0.018, 0.023, 0.954, 0.984],
   'cp:tortue-fleurs': [0.004, 0.06, 0.996, 0.996],
@@ -106,6 +117,8 @@ const PROPOSITIONS: Readonly<Record<CleDeCompagnon, string>> = {
   loup: 'Nox, Luna, Grisou…',
   chat: 'Mochi, Grelot, Lumen…',
   tortue: 'Jade, Caillou, Mousse…',
+  // Lumi, son nom de la maquette (le 18 octobre 2026), comme Nox celui du loup de Léa.
+  luciole: 'Lumi, Lueur, Pollen…',
 }
 
 /** La forme que la niche montre : celle qu'il a choisie, sinon sa plus haute (`formeDansLaNiche`). */
@@ -705,7 +718,7 @@ export function SesFormes({
   const c = leCompagnon(niche.compagnon)
   const montree = formeDe(niche)
   if (!c || !montree) return null
-  const formes = [...c.formes.filter(f => f.rang <= niche.rang), ...(metamorphoseOuverte(niche) ? [c.lumiere] : [])]
+  const formes = [...c.formes.filter(f => f.rang <= niche.rang), ...(c.lumiere && metamorphoseOuverte(niche as CompagnonPossede) ? [c.lumiere] : [])]
   return (
     <div className="niche-choix-rangee">
       {formes.map(f => {
@@ -777,7 +790,8 @@ export function SesCompagnons({
           </button>
         )
       })}
-      {compagnons.length < COMPAGNONS.length && (
+      {/* Ceux de la boutique seulement : la luciole ne s'adopte pas, elle se gagne en expédition. */}
+      {COMPAGNONS_DE_LA_BOUTIQUE.some(c => !compagnons.some(a => a.compagnon === c.key)) && (
         <a className="niche-choix niche-choix-adopter" href="/boutique#compagnons" onClick={onBoutique}>
           <span className="niche-mini niche-mini-vide" aria-hidden="true">
             <Icon name="plus" />
@@ -886,7 +900,7 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
   // métamorphose, montrée, est trouvée : le serveur la retient vue.
   const montrer = async (montree: number) => {
     const fait = await faire(() => api.joueur.reglerCompagnon(niche.compagnon, { montree: montree === niche.rang ? null : montree }))
-    if (fait && montree === MONTREE_DE_LA_METAMORPHOSE) setNeuves(n => n.filter(k => k !== c.lumiere.key))
+    if (fait && montree === MONTREE_DE_LA_METAMORPHOSE) setNeuves(n => n.filter(k => k !== c.lumiere?.key))
   }
   const installer = (cle: CleDeCompagnon) => void faire(() => api.joueur.enregistrer({ niche: cle }))
   return (
@@ -977,7 +991,8 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
             ) : niche.rang === 3 ? (
               <span className="muted small">
                 {espacesFines(
-                  metamorphoseOuverte(niche)
+                  // La luciole n'a pas encore de métamorphose : rien à promettre.
+                  !c.lumiere || metamorphoseOuverte(niche as CompagnonPossede)
                     ? 'Sa forme ultime : son monde prend vie.'
                     : `Sa forme ultime : son monde prend vie. Si l’Éclat tombe sur ${c.le === 'la' ? 'elle' : 'lui'}, sa métamorphose s’ouvre.`,
                 )}
@@ -998,7 +1013,12 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
               <h3 id="niche-formes" className="label">
                 Sa forme dans ta niche
               </h3>
-              <a className="link-inline" href={`/boutique#compagnon-${c.key}`} onClick={onFermer}>
+              {/* La luciole n'est pas en boutique : ses formes se voient dans l'album, à la page de la prochaine. */}
+              <a
+                className="link-inline"
+                href={c.gagne ? `/profil#collection-avatars-${c.formes[Math.min(niche.rang + 1, c.formes.length - 1)].rarete}` : `/boutique#compagnon-${c.key}`}
+                onClick={onFermer}
+              >
                 Ses formes
               </a>
             </div>

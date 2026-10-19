@@ -425,6 +425,34 @@ test('le préchauffage compte les sujets et prépare le tirage en fond : la prem
   }
 })
 
+test('un choix de catégories garde sa liste de jouables, et la préparation de son tirage avec', async () => {
+  // Filtrée à neuf à chaque série, chaque duel, chaque dé sur des catégories
+  // choisies — les trois quarts des séries et la moitié des duels en
+  // production, le 19 octobre 2026 —, la liste repassait la base au crible, et
+  // la préparation de son tirage, rangée par liste, se refaisait pour rien.
+  const { url, effacer } = basePermanente()
+  const campagne = new CampagneStore(url, undefined, { base: baseDEssai(900, { categories: ['Nature', 'Histoire', 'Sport'] }) })
+  try {
+    await campagne.init()
+    const prive = campagne as unknown as {
+      jouables(categories?: readonly string[]): Promise<readonly QuestionDeLaBase[]>
+      tirage(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, unknown>): PreparationDuTirage
+    }
+    const histoire = await prive.jouables(['Histoire'])
+    assert.equal(histoire.length, 300)
+    assert.ok(histoire.every(q => q.meta.categorie === 'Histoire'))
+    assert.equal(await prive.jouables(['Histoire']), histoire, 'le même choix, la même liste')
+    const deux = await prive.jouables(['Sport', 'Histoire'])
+    assert.equal(await prive.jouables(['Histoire', 'Sport', 'Histoire']), deux, 'dans n’importe quel ordre, doublons compris')
+    assert.deepEqual(deux, (await prive.jouables()).filter(q => q.meta.categorie !== 'Nature'), 'dans l’ordre de la base, comme filtrée à neuf')
+    const mesure = await campagne.mesures()
+    assert.equal(prive.tirage(await prive.jouables(['Histoire']), mesure), prive.tirage(histoire, mesure), 'un seul tirage préparé pour ce choix')
+  } finally {
+    campagne.close()
+    effacer()
+  }
+})
+
 test('ceux qui trouvent la mesure périmée ensemble n’en relisent qu’une, et reçoivent la même', async () => {
   // Le préchauffage, le modèle du savoir, deux tirages : chacun relisait tous
   // les comptes, et chacun refaisait une mesure neuve — que les tirages

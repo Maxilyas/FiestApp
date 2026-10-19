@@ -8,13 +8,14 @@
 // trouvent nulle part ailleurs : ils pèsent double dans leur rareté, pour
 // que le coffre donne d'abord ce que la boutique ne vend pas. Un thème et un
 // compagnon de la boutique y entrent aussi, offerts — pas un thème qui se
-// gagne (il dirait faux sur son exploit), ni un thème de saison hors de sa
-// saison (il ne serait plus rare). Jamais ce qu'il a déjà : une rareté où il
-// a tout descend d'un cran, et tout en dernier, ce sont des confettis.
+// gagne (il dirait faux sur son exploit), ni la luciole, qui se gagne au bout
+// d'une expédition, ni un thème de saison hors de sa saison (il ne serait
+// plus rare). Jamais ce qu'il a déjà : une rareté où il a tout descend d'un
+// cran, et tout en dernier, ce sont des confettis.
 
 import { NOM_RARETE, type Rarete } from './badges'
 import { CHANCES_DU_COFFRE, CONFETTIS_DU_COFFRE, type ObjetDuTresor, type RangDuCoffre } from './coffre'
-import { COMPAGNONS } from './compagnons'
+import { COMPAGNONS, COMPAGNONS_DE_LA_BOUTIQUE } from './compagnons'
 import { FONDS } from './fonds'
 import { GERBES } from './gerbes'
 import { formatNumber } from './typographie'
@@ -41,7 +42,7 @@ function reserveDe(rarete: Rarete, jour: string): Candidat[] {
     // Un thème de saison ne sort qu'à sa saison, comme en boutique : hors d'elle, il cesserait d'être rare.
     ...THEMES.filter(t => t.rarete === rarete && !t.gagne && (!t.saison || enBoutique(t, jour))).map(t => boutique({ sorte: 'theme', cle: t.key })),
     // Un compagnon vaut le prix d'un thème légendaire : il est légendaire au coffre.
-    ...(rarete === 'legendaire' ? COMPAGNONS.map(c => tresor({ sorte: 'compagnon', cle: c.key })) : []),
+    ...(rarete === 'legendaire' ? COMPAGNONS_DE_LA_BOUTIQUE.map(c => tresor({ sorte: 'compagnon', cle: c.key })) : []),
   ]
 }
 

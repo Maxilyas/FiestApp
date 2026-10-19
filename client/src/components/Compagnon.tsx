@@ -81,8 +81,8 @@ interface Allure {
   /** Sa forme ultime sort du disque tout entière, son monde avec elle. */
   entiere: boolean
   vivant: Couche[]
-  /** Sa métamorphose de lumière : son aura et son anneau, à sa couleur — celle de la maquette, où l'on a choisi chacune. */
-  lumiere: string
+  /** Sa métamorphose de lumière : son aura et son anneau, à sa couleur — celle de la maquette, où l'on a choisi chacune. La luciole n'en a pas encore. */
+  lumiere?: string
 }
 
 const ALLURES: Record<CleDeCompagnon, Allure> = {
@@ -115,6 +115,15 @@ const ALLURES: Record<CleDeCompagnon, Allure> = {
     ],
     // L'île en fleurs : ses fleurs blanches et dorées.
     lumiere: '#fff1b8',
+  },
+  // La luciole : le pré d'été à la nuit tombée, sa lanterne vert et or ; à sa
+  // forme ultime, son essaim tourne autour d'elle comme une constellation, et
+  // elle sort du disque tout entière (`entier`, `server/scripts/anime/compagnons.ts`).
+  luciole: {
+    fond: ['#cfe98a', '#2c4636', '#0f1830'],
+    aura: '#d6ff8c',
+    entiere: true,
+    vivant: [{ cle: 'lucioles', mouvement: 'tourne', taille: 172, devant: true }],
   },
 }
 
@@ -187,7 +196,7 @@ function peint(dessin: DessinDeCompagnon, forme: FormeDeCompagnon, allure: Allur
   const entiere = rare || (rang === 3 && allure.entiere)
   const [o, cote] = entiere ? ENTIERE : CADRE[rang]
   const perso = `<image href="${dessin.perso[taille]}" x="${o}" y="${o}" width="${cote}" height="${cote}"/>`
-  const anneau = rare ? allure.lumiere : ANNEAU[rang]
+  const anneau = rare ? (allure.lumiere ?? ANNEAU[3]) : ANNEAU[rang]
   // Le disque cède son bord au cercle d'une finition, ou à l'anneau de la forme.
   const rayon = e.cercle ? 45 : anneau ? 46.4 : 48
   const grand = 'x="-60" y="-60" width="220" height="220"'
@@ -210,7 +219,7 @@ function peint(dessin: DessinDeCompagnon, forme: FormeDeCompagnon, allure: Allur
   else scene += (dessin.disque ? `<image href="${dessin.disque[taille]}" x="0" y="0" width="100" height="100"/>` : '') + perso
   const ultime = rang === 3 && !e.verrouille
   if (ultime) {
-    const aura = rare ? allure.lumiere : allure.aura
+    const aura = rare ? (allure.lumiere ?? allure.aura) : allure.aura
     defs += `<radialGradient id="${u}_aura" gradientUnits="userSpaceOnUse" cx="50" cy="52" r="64"><stop offset=".58" stop-color="${aura}" stop-opacity=".5"/><stop offset="1" stop-color="${aura}" stop-opacity="0"/></radialGradient>`
     avant += `<circle class="pt-aura" cx="50" cy="52" r="64" fill="url(#${u}_aura)"/>`
   }

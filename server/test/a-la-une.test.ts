@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
 import { aLaUne, A_LA_UNE_MAX } from '../../shared/aLaUne'
-import { COMPAGNONS } from '../../shared/compagnons'
+import { COMPAGNONS, COMPAGNONS_DE_LA_BOUTIQUE } from '../../shared/compagnons'
 import { FONDS_EN_BOUTIQUE, PRIX_D_UN_FOND } from '../../shared/fonds'
 import { THEMES } from '../../shared/themes'
 
@@ -43,7 +43,8 @@ test('un compagnon, un thème, un fond : un de chaque sorte, le même toute la j
     demain.map(u => u.sorte),
     ['compagnon', 'theme', 'fond'],
   )
-  assert.equal(rangDe(COMPAGNONS, demain[0].cle), (rangDe(COMPAGNONS, une[0].cle) + 1) % COMPAGNONS.length)
+  // Le tour se fait parmi ceux de la boutique : la luciole se gagne en expédition (le 20 octobre 2026).
+  assert.equal(rangDe(COMPAGNONS_DE_LA_BOUTIQUE, demain[0].cle), (rangDe(COMPAGNONS_DE_LA_BOUTIQUE, une[0].cle) + 1) % COMPAGNONS_DE_LA_BOUTIQUE.length)
   assert.equal(rangDe(FONDS_EN_BOUTIQUE, demain[2].cle), (rangDe(FONDS_EN_BOUTIQUE, une[2].cle) + 1) % FONDS_EN_BOUTIQUE.length)
   // Douze jours, douze fonds : chacun passe à la une à son tour.
   const fonds = new Set(Array.from({ length: FONDS_EN_BOUTIQUE.length }, (_, j) => aLaUne({ ...NEUF, jour: `2026-11-${String(j + 1).padStart(2, '0')}` })[2].cle))

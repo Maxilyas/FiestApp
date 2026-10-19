@@ -4,7 +4,7 @@ Une maquette : la niche du compagnon et ses réactions sont posées dans les
 vrais écrans d'une soirée jouée (Playwright, `addInitScript`) pour décider où
 il vit et comment il accompagne le joueur, avant d'écrire une ligne du vrai
 code. La niche elle-même est dans l'application depuis le 18 octobre 2026,
-ses réactions depuis le 19 (plus bas).
+ses réactions depuis le 19, la luciole depuis le 20 (plus bas).
 
 ## La planche
 
@@ -19,6 +19,20 @@ Tout se regarde sur la planche Design, privée : <https://claude.ai/artifact/Uq6
 
 Les films et les images n'existent que là (et dans `export/`, qui ne se
 committe pas).
+
+## Le 20 octobre : la luciole dans l'application
+
+« Est-ce que le compagnon luciole a été branché et est en live ? » — non,
+seulement peinte ; « que dans la collection pas boutique » (le
+propriétaire). Le point 3 du principe (`principe.md`, § 10) est construit :
+la luciole livrée par la chaîne depuis `luciole-peinte/` (rien de repayé),
+au catalogue sans se vendre — ni la boutique, ni le coffre, ni « À la une »,
+ni « Adopter » de « Ma niche » ne la montrent ; l'album des avatars, si —,
+et la Première traversée qui l'amène : la première expédition menée au
+bout, offerte dans la niche si elle est vide. Son cadrage dans la niche
+reprend celui de sa page de la planche (`humeurs-luciole/cadrages.json`),
+rapporté sur ses humeurs livrées par la méthode de `humeurs.py` — qui
+retrouve au millième le cadrage de la tortue.
 
 ## Le 19 octobre, le soir : « Ma niche », sa gestion
 

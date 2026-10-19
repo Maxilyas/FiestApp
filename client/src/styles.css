@@ -3452,6 +3452,17 @@ h3 > .icon {
   border-color: var(--edge-strong);
   box-shadow: var(--shadow-dialog);
 }
+/* Un dialogue, la carte d'un joueur : leur sol reste plein sous tous les
+   thèmes. Chaque thème repeint `.card` d'un sélecteur plus fort que le leur
+   (0,3,0), d'un verre fait pour laisser voir son décor sous une carte de la
+   page — translucide sous vingt-cinq d'entre eux, de 82 à 95 %. Posés sur la
+   page, ils laissaient lire ce qu'ils couvraient : la carte d'un ami, touchée
+   dans la liste des amis, toute la liste (« une histoire de transparence
+   avec le thème qui passe par-dessus », le propriétaire, le 19 octobre 2026).
+   Leur sol se reprend, plus fort que le thème (0,4,0), et lui seul : ses
+   dégradés, sa bordure et son ombre restent, posés sur du plein. Une carte à
+   fond a le sien, que les thèmes ne touchent pas. */
+:root .card.dialog:not(.carte-fond) { background-color: var(--bg-raised); }
 
 .dialog h3 { font-size: 1.5rem; }
 .dialog-message { white-space: pre-line; line-height: 1.45; }
@@ -7477,6 +7488,23 @@ span.case-avatar { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .carte-feuille { animation: none; }
 }
+/* Une feuille, une carte, un dialogue ou le coffre ouvert : le décor du thème
+   se retire, le temps qu'ils restent ouverts. Ses couches fixes — sous Le
+   Sommet, la montagne, ses lanternes, ses drapeaux, le voile de nuit et la
+   neige —, plein écran à la densité du téléphone, prennent la mémoire des
+   tuiles : au téléphone Android, la feuille des amis ouverte par-dessus n'en
+   avait plus, elle ne se dessinait pas ou à moitié, et le décor restait à sa
+   place (« le thème qui passe par-dessus », le propriétaire, le 19 octobre
+   2026). Rejoué dans Chromium, la mémoire graphique bornée à celle d'un
+   téléphone : la feuille manquait encore une seconde après son ouverture. Le
+   décor, assombri aux trois quarts par le voile et couvert presque partout,
+   ne s'y voyait guère ; il revient à la fermeture. `!important` : la règle
+   d'un thème qui le pose peut être plus forte que celle-ci. */
+:root[data-theme]:has(.carte-voile, .dialog-backdrop, .coffre-scene)::before,
+:root[data-theme]:has(.carte-voile, .dialog-backdrop, .coffre-scene) body::before,
+:root[data-theme]:has(.carte-voile, .dialog-backdrop, .coffre-scene) body::after,
+:root[data-theme]:has(.carte-voile, .dialog-backdrop, .coffre-scene) #root::before,
+:root[data-theme]:has(.carte-voile, .dialog-backdrop, .coffre-scene) #root::after { content: none !important; }
 .carte-barre { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 12px 10px 18px; border-bottom: 1px solid var(--edge); }
 .feuille-titre { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; }
 .carte-fermer {
@@ -10745,6 +10773,16 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
     radial-gradient(circle at 72% 20%, rgba(255, 240, 200, 0.85) 0 3px, rgba(255, 240, 200, 0.25) 4.4px, rgba(255, 240, 200, 0) 11px),
     radial-gradient(120% 40% at 50% 104%, rgba(120, 220, 210, 0.35), rgba(120, 220, 210, 0) 70%),
     linear-gradient(#173a52 0%, #1d5560 58%, #1f6a63 100%);
+}
+/* Le pré d'été, la nuit, et deux lucioles qui passent : celui de sa planche (le 18 octobre 2026). */
+.niche-ciel-luciole {
+  background:
+    radial-gradient(circle at 24% 26%, rgba(214, 255, 140, 0.9) 0 1.6px, rgba(214, 255, 140, 0.3) 3px, rgba(214, 255, 140, 0) 8px),
+    radial-gradient(circle at 78% 40%, rgba(214, 255, 140, 0.8) 0 1.3px, rgba(214, 255, 140, 0.25) 2.6px, rgba(214, 255, 140, 0) 7px),
+    radial-gradient(circle at 60% 14%, #fff 0 0.6px, rgba(255, 255, 255, 0) 1.2px),
+    radial-gradient(circle at 16% 52%, #fff 0 0.6px, rgba(255, 255, 255, 0) 1.2px),
+    radial-gradient(120% 45% at 50% 112%, #1d3a2a 0 52%, rgba(29, 58, 42, 0) 53%),
+    linear-gradient(#141c3c 0%, #1f2a4a 55%, #2a3a3a 100%);
 }
 /* Lui, en buste : son dessin livré, cadré forme par forme (`CADRAGES`),
    retourné pour regarder la page. Ses humeurs, repeintes sur la même

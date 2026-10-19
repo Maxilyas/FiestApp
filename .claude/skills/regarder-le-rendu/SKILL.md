@@ -22,6 +22,15 @@ description: Regarder une page ou un écran de FiestApp comme le verra un invit�
   `Emulation.setSafeAreaInsetsOverride` (CDP, `ctx.newCDPSession(page)`) la
   pose : 47 pixels en haut pour un 390 × 844, 48 pour un 414 × 896, 34 en bas
   (`rendu-niche.ts`, `ENCOCHE=47`).
+- **Un téléphone a peu de mémoire graphique, Chromium sans écran toute
+  celle qu'il veut** : ce qu'un téléphone ne dessine pas faute de mémoire —
+  une feuille sous les couches d'un thème peint, au téléphone Android (règle
+  `css.md`) — s'y dessine toujours. Pour le voir : `chromium.launch({
+  headless: true, channel: 'chromium', args: ['--use-angle=swiftshader',
+  '--enable-unsafe-swiftshader', '--enable-gpu-rasterization',
+  '--force-gpu-mem-available-mb=64'] })`, en 412 × 915 à la densité 2,625,
+  la photo une seconde après le geste — quatre secondes après, la mémoire
+  s'est libérée et tout est dessiné.
 - **Les lancer** : depuis `server/`, `npx tsx scripts/<script>.ts
   ../export/<dossier>` — sans dossier, les photos tombent dans un dossier
   de `server/` que git n'ignore pas (`rendu-themes.ts` écrit dans
