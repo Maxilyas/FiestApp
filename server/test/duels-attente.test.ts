@@ -289,6 +289,31 @@ test('au réveil, son profil se charge d’un aller-retour, ses Éclats et ses r
   assert.equal(duProfil.length, 1, `son profil en ${duProfil.length} fois :\n${m.sqls.join('\n')}`)
 })
 
+test('« Jouer le duel » lit d’un aller-retour — le duel déjà ouvert entre eux, leurs deux cotes, ce que chacun a vu —, sa fiche de front, puis l’écrit', async () => {
+  // Le duel ouvert, puis les deux cotes et ce que chacun avait vu, puis
+  // l'écriture : trois allers-retours l'un derrière l'autre, quatre quand la
+  // fiche de l'adversaire n'était pas en mémoire — 3 à 6 s au 95ᵉ centile en
+  // production (le relevé de l'heure, le 19 octobre 2026).
+  const ids: string[] = []
+  for (const login of ['yanis', 'ruth']) {
+    const autre = await inscrireProfil(banc.url, login, login)
+    ids.push(((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: autre } })).json()) as any).profile.id)
+  }
+  const m = await mesurer(() => poster('/api/campagne/duel', { adversaire: ids[0] }))
+  assert.ok(m.resultat.code && m.resultat.serie.question, 'un duel lancé, et sa première question')
+  assert.ok(m.resultat.enjeu, 'ce qu’il met en jeu, contre la cote d’en face')
+  assert.equal(m.enSerie, 2, `${m.enSerie} allers-retours l’un derrière l’autre :\n${m.sqls.join('\n')}`)
+  // Un second contre le même se refuse toujours, lu du même lot : le premier attend d'être joué.
+  const second = await ecrire(banc.url, '/api/campagne/duel', { adversaire: ids[0] }, cookie)
+  assert.equal(second.status, 400)
+  assert.equal(((await second.json()) as any).error, 'Tu as déjà un duel en cours contre yanis : finis-le, il partira à ta dernière réponse')
+  // Au réveil, la fiche de l'adversaire n'est plus en mémoire : elle se lit de front avec le lot.
+  await banc.redemarrer()
+  await lire('/api/campagne/choix')
+  const reveil = await mesurer(() => poster('/api/campagne/duel', { adversaire: ids[1] }))
+  assert.equal(reveil.enSerie, 2, `${reveil.enSerie} allers-retours l’un derrière l’autre, au réveil :\n${reveil.sqls.join('\n')}`)
+})
+
 const client = (f: string) => readFileSync(new URL(`../../client/src/${f}`, import.meta.url), 'utf8')
 
 test('« Défier » s’ouvre sans attendre : la page des duels demande en fond ce que la préparation propose, et elle n’attend plus que cela', () => {

@@ -29,8 +29,14 @@ paths:
   ensemble neuf toutes les dix minutes, elle faisait tout refaire — et un
   retrait ne se reprend jamais, leur nombre suffit à dire qu'il en est
   venu un : un geste qui en rendrait un devrait la refaire), ses catégories
-  et ses sujets aussi (`choixDe`, `sujetsComptes`), et la liste d'un sujet
-  (`duSujet`). Ce que le tirage relit de chaque question — sa marche, sa
+  et ses sujets aussi (`choixDe`, `sujetsComptes`), la liste d'un sujet
+  (`duSujet`), et celle d'un choix de catégories (`jouablesDesChoix`, rangée
+  par les catégories triées, `CHOIX_GARDES` au plus : filtrée à neuf à chaque
+  série, duel ou dé sur des catégories choisies — les trois quarts des
+  séries, la moitié des duels en production —, la préparation de son tirage
+  se refaisait pour une liste neuve, le 19 octobre 2026). Une liste tirée des
+  jouables se garde donc toujours, comparée par identité : c'est d'elle que
+  la préparation du tirage se range. Ce que le tirage relit de chaque question — sa marche, sa
   file (catégorie et sous-thème) — se prépare une fois par liste et par
   mesure (`PreparationDuTirage`, `CampagneStore.tirage` ; la mesure
   changée garde les files) : un tirage n'est plus qu'un battage sur des
