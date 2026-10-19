@@ -14,7 +14,17 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
 import { GARDIEN, pliDeLExpedition, vueDeLaRencontre, type CarteDUnActe, type DepartDExpedition, type EtatDeLExpedition, type GesteDExpedition, type QuestionPosee, type VueDeLExpedition } from '../../shared/expedition'
-import { CARTES_DES_RENCONTRES, ameliorer, carteDeRencontre, type ApercuDuTour, type CarteDeRencontre, type VueDeLaRencontre } from '../../shared/rencontres'
+import {
+  CARTES_DES_RENCONTRES,
+  VERSION_DE_LA_QUESTION_AU_CENTRE,
+  ameliorer,
+  carteALaVersion,
+  carteDeRencontre,
+  seJoueEnQuestion,
+  type ApercuDuTour,
+  type CarteDeRencontre,
+  type VueDeLaRencontre,
+} from '../../shared/rencontres'
 
 Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
 
@@ -153,12 +163,14 @@ function lignes(phrase: string, n: number): string[] {
 /**
  * Chaque carte telle que le codex la joue, telle qu'une expédition d'avant le
  * codex la montre encore, quand il l'a retouchée — et améliorée (le jeu
- * complet), quand elle s'améliore.
+ * complet), quand elle s'améliore ; et telle que la question au centre la joue
+ * (v10), améliorée comprise, quand elle y est encore.
  */
 const TOUTES_LES_VERSIONS: CarteDeRencontre[] = CARTES_DES_RENCONTRES.flatMap(c => [
   c,
   ...(c.avantLeCodex ? [{ ...c, ...c.avantLeCodex }] : []),
   ...(c.amelioration ? [carteDeRencontre(ameliorer(c.cle))!] : []),
+  ...[c.cle, ...(c.amelioration ? [ameliorer(c.cle)] : [])].filter(seJoueEnQuestion).map(cle => carteALaVersion(cle, VERSION_DE_LA_QUESTION_AU_CENTRE)!),
 ])
 
 test('chaque carte se résume en deux lignes de neuf signes, et son chiffre tient dans son médaillon', () => {

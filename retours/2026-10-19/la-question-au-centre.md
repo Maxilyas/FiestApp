@@ -37,9 +37,12 @@ sa PR, validé par le propriétaire le même jour — « 1. Ta recommandation
 6. **Les familles, en façons de répondre** — après une semaine de jeu.
 
 Ce brief fixe l'étape 2 avant la première ligne de code : la règle, ce qui
-part, ce qui reste, l'écran, le calibrage, les invariants. **Il attend sa
-validation** : rien n'en est dans le code. Ses quatre questions sont à la
-fin (« Ce que je te demande de valider »).
+part, ce qui reste, l'écran, le calibrage, les invariants. Ses quatre
+questions sont à la fin (« Ce que je te demande de valider ») ; **validées le
+même jour** — « Une carte par question. Les cartes reviennent à l'acte
+suivant. Rempart en pause. 4. Ce que tu recommandes » —, elles ont fait la
+version 10 du départ, en préproduction seulement : ce que le code en a fait,
+et où il s'écarte de ce brief, au bout (« Ce que le code en a fait »).
 
 ## Ce qui a été décidé le 19 octobre 2026
 
@@ -310,8 +313,8 @@ la main au lieu de la défausse —, et chacune le dit levée.
   à part.
 - **Les règles au « ? »**, réécrites pour la version 10 : une ligne chacune.
 
-Regardé au téléphone en 360 × 640 (`rendu-rencontres.ts`, revu pour la
-version 10), d'un départ au niveau 1 à la fin, et au niveau 6.
+Regardé au téléphone en 360 × 640 (`server/scripts/rendu-question-au-centre.ts`),
+d'un départ au niveau 1 jusqu'au plan de l'acte 2, et au niveau du pari.
 
 ## Le calibrage
 
@@ -390,3 +393,69 @@ complète doit garder sa quarantaine de questions.
 4. **Les chiffres de départ, avant le calibrage** : deux, trois, quatre-trois-
    trois crans ; deux pour une question dure ; les attaques d'aujourd'hui
    sans leur croissance ; 50 de courage ; une main de quatre.
+
+## Ce que le code en a fait
+
+Validé le 19 octobre 2026 : « Une carte par question. Les cartes reviennent à
+l'acte suivant. Rempart en pause. 4. Ce que tu recommandes. » Fait le même
+jour : la version 10 du départ (`VERSION_DE_LA_QUESTION_AU_CENTRE`), en
+préproduction seulement (`QUESTION_AU_CENTRE_EN_PRODUCTION`) — la production
+part en version 9, et une expédition partie avant se rejoue à ses règles.
+Les chiffres de départ sont ceux du point 4 ; les barèmes et ce que les
+changer implique : `docs/reference/baremes.md` (« La question au centre »).
+
+Là où le code s'écarte de ce brief, et pourquoi :
+
+- **Les crans, calibrés** (`calibrage-rencontres.ts --version 10`, trois
+  cents expéditions par case, le joueur qui voit la question d'abord et joue
+  une carte au plus) : aux chiffres du point 4 — 2, 3 et 4-3-3 —, le moyen
+  allait au bout 49 fois sur cent au niveau 1 et le fort 97, en 31 à 36
+  questions, loin de la cible et de la quarantaine de questions. Ils sont
+  désormais de 2-2-3 pour une escale, 3-4-4 pour une élite, 4-4-4 pour un
+  gardien : le moyen à 32, le fort à 92, en 39 questions ; le codex le fait
+  encore monter, jusqu'à 44 au niveau 10. Le faible le paie — une à trois
+  fois sur cent, neuf en version 9 — : le fort ne descend pas vers 80 sans
+  que le moyen tombe sous 20 (un gardien de cinq crans à l'acte 3, 23 ; deux
+  d'attaque de plus, 18), l'écart de savoir décide de presque tout. Les deux
+  cibles ne tiennent pas ensemble avec ces leviers ; la semaine de jeu dira
+  laquelle compte. Les attaques, le courage et le repos n'ont pas bougé.
+- **Des cartes qui ne valent rien seules**, mesurées une à une : Troisième
+  œil, Rythme, Prisme, Tout ou rien, Doubler la mise et Arrêt sur image —
+  un pouvoir prend la carte de la question ; et l'Érudit, le Flambeur et
+  l'Élan, suivis, restent à dix points du départ sans style au niveau 10.
+  Rien n'en est retouché : les familles, après la semaine de jeu.
+- **L'acte s'ouvre en rendant tout** : la main d'avant revient avec la
+  défausse, puis la main en tire trois. Remplie seulement, elle aurait gardé
+  d'un acte à l'autre une carte de circonstance — Arrêt sur image sans
+  dévoilement, la Prédiction sans nombre — qui y dormirait toute
+  l'expédition.
+- **Un dévoilement s'annonce, même au niveau 1** : ses mots ne courent
+  qu'une fois vus (invariant 6), et « Voir la question » les lance.
+- **Les cartes du pari dorment hors de l'acte tant que le pari est fermé** :
+  au niveau 1, Le trésor d'un invité du jour prendrait une place de la main
+  sans jamais se jouer.
+- **Des cartes qui frappent un peu plus** que la traduction d'ici : Plume,
+  un cran partout et deux sur la fétiche (elle se joue partout depuis le
+  codex) ; Lucidité, un, deux quand une réponse est effacée ; Génie, deux,
+  trois sur la fétiche ; Rafle, deux crans et 10 écus ; Cagnotte, un cran et
+  5 écus — une rare ou une épique doit valoir plus que la Concentration du
+  paquet de départ, et une carte qui ne paie que des écus prenait la place
+  d'une carte qui aide. Peau de feu rend l'erreur gratuite et vaut un cran de
+  plus sur la question même où elle se joue ; Le réveil rend la dernière
+  carte de la défausse.
+- **Augure d'avance traverse les rencontres** : il attend la question
+  suivante qui a de quoi effacer — un vrai ou faux le laisse passer —,
+  fût-elle dans la rencontre d'après.
+- **L'écran dit ce qu'une réponse ferait, sans tuiles** : les crans
+  qu'une bonne réponse prendrait palpitent, rayés — une Concentration jouée en
+  fait palpiter un de plus —, et l'attaque se dit cartes comptées, éteinte
+  sous Sursis ; sous le pari choisi, ce qu'il rapporte et coûte ; à
+  l'annonce, la main entière, éteinte sauf les cartes du pari. Sans eux, une
+  carte jouée ne changeait rien à l'écran (le rendu en 360 × 640).
+- **Chaque carte fait encore son aller-retour** : celles qui ne lisent pas la
+  bonne réponse ne partent pas encore avec la réponse, d'un seul lot. Une
+  carte au plus par question la tient à deux allers-retours au plus sans le
+  pari, trois avec lui — une carte du pari en ajoute un — ; le lot viendra si
+  la semaine de jeu le fait sentir.
+- **Le mot « cran »** dit aussi ceux de l'Ascension, choisis au départ et
+  rappelés au titre du plan : à revoir si la semaine de jeu les confond.

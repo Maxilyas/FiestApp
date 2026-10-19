@@ -92,8 +92,9 @@
 // prend que ce qui vaut (`PREFERENCE_EN_QUESTION`). Trois cents expéditions par
 // case, aux crans du brief (2, 3, 4-3-3) : le faible, le moyen et le fort au
 // bout 3, 49 et 97 fois sur cent au niveau 1, 7, 58 et 97 au niveau 10, en 31
-// à 36 questions. Essayés à 2-2-3, 3-4-4 et 4-4-4 : 1, 32 et 92 au niveau 1 —
-// le moyen à la cible —, 3, 44 et 94 au niveau 10, en 31 à 39 questions. Le
+// à 36 questions. Retenus, 2-2-3, 3-4-4 et 4-4-4 (`CRANS_DES_RENCONTRES`) : 1,
+// 32 et 92 au niveau 1 — le moyen à la cible —, 3, 44 et 94 au niveau 10, en
+// 31 à 39 questions. Le
 // fort ne descend pas à huit sur dix sans que le moyen tombe sous un sur
 // cinq : deux d'attaque de plus, 0, 18 et 86. À ces crans, les styles suivis,
 // au niveau 10, pour le moyen : le Devin 45, sans style 44, le Métamorphe 34,

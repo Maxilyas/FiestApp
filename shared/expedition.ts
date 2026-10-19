@@ -2584,7 +2584,7 @@ export function refusDUneCarte(
     return refusSurLaCarte(depart, e, cle, geste, 'carte')
   }
   const c = contexteDeLaCarte(depart, e, questions)
-  if (!c) return 'Elle se joue en rencontre'
+  if (!c) return depart.v >= VERSION_DE_LA_QUESTION_AU_CENTRE ? 'Elle se joue en rencontre, la question sous les yeux' : 'Elle se joue en rencontre'
   const refus = refusDeLaCarte(c, cle)
   if (refus) return refus
   if (cle === 'prediction' && geste && !(Number.isInteger(geste.montre) && geste.montre! >= 0 && geste.montre! < (c.question?.reponses ?? 0))) return 'Montre une des réponses à l’Oracle'

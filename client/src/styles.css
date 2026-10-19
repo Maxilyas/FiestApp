@@ -9678,6 +9678,22 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Son doute (les huit familles) : l'azur du Sophiste, une convention en dur comme la teinte des familles ; le texte reste à l'encre du thème. */
 .exp-doute { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px 1px 5px; border: 1px solid color-mix(in srgb, #4f8ee0 70%, var(--edge)); border-radius: var(--radius-pill); background: color-mix(in srgb, #4f8ee0 16%, var(--surface)); color: var(--ink); font-size: 0.75rem; font-weight: 700; line-height: 1.3; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
 .exp-doute .icon { width: 13px; height: 13px; color: #4f8ee0; }
+/* La question au centre (v10) : ses crans en pastilles — pleines, ce qu'il lui reste —, et son attaque à côté, toujours la même. */
+.exp-crans-pastilles { flex: 1; display: flex; align-items: center; gap: 4px; }
+.exp-crans-pastilles i { flex: 1; max-width: 44px; height: 10px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--track); }
+.exp-crans-pastilles i.exp-cran-plein { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent); }
+/* Ce qu'une bonne réponse prendrait palpite, rayé : une Concentration jouée en fait palpiter un de plus — sans elle, rien ne
+   disait ce que la carte avait fait. */
+.exp-crans-pastilles i.exp-cran-vise { background: repeating-linear-gradient(135deg, var(--accent) 0 4px, color-mix(in srgb, var(--accent) 30%, transparent) 4px 8px); animation: exp-cran-palpite 1.1s ease-in-out infinite alternate; }
+@keyframes exp-cran-palpite { to { opacity: 0.45; } }
+.exp-attaque { flex: none; display: inline-flex; align-items: center; gap: 3px; color: var(--ink); font-size: 0.82rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.exp-attaque .icon { width: 14px; height: 14px; color: var(--alert); }
+/* Une carte qui adoucit son attaque l'éteint, une qui la double la rougit. */
+.exp-attaque-moindre, .exp-attaque-moindre .icon { color: var(--muted); }
+.exp-attaque-pire { color: var(--alert); }
+@media (prefers-reduced-motion: reduce) {
+  .exp-crans-pastilles i.exp-cran-vise { animation: none; }
+}
 /* La question qu'il pose, sans son texte : ce qu'on en sait, et ses chances à droite. */
 .exp-sa-question { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; padding-top: 8px; border-top: 1px dashed var(--edge-strong); font-size: 0.84rem; line-height: 1.3; }
 .exp-sa-chance { flex: none; display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: lining-nums tabular-nums; }

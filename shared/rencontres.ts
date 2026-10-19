@@ -118,17 +118,20 @@ export const FRAPPE_EN_PLUS_PAR_QUESTION = 2
 
 /**
  * La question au centre (v10) : un adversaire se compte en bonnes réponses —
- * ses crans —, acte par acte. Ceux d'aujourd'hui en sont la traduction : à la
- * marche de chaque acte, une Concentration jouée, deux bonnes réponses
- * faisaient tomber une escale, deux ou trois une élite, trois ou quatre un
- * gardien ; le gardien garde ceux de l'expédition d'avant les rencontres —
- * quatre faciles, trois moyennes, trois difficiles. Son attaque, elle, ne
- * grandit plus (`RencontreEnCours.fixe`).
+ * ses crans —, acte par acte. Son attaque, elle, ne grandit plus
+ * (`RencontreEnCours.enCrans`). Mesuré le 19 octobre 2026
+ * (`calibrage-rencontres.ts --version 10`) : à la traduction du brief — deux
+ * pour une escale, trois pour une élite, quatre puis trois pour un gardien —,
+ * le joueur moyen allait au bout 49 fois sur cent au niveau 1, le fort 97,
+ * en 31 à 36 questions ; un cran de plus aux escales de l'acte 3, et des
+ * élites et des gardiens plus coriaces, le ramènent à la cible du brief — une
+ * fois sur trois (32), en 39 questions —, le fort à 92. Le faible y paie : 1 à
+ * 3 au lieu de 9 en version 9.
  */
 export const CRANS_DES_RENCONTRES: Readonly<Record<SorteDeRencontre, readonly number[]>> = {
-  question: [2, 2, 2],
-  elite: [3, 3, 3],
-  gardien: [4, 3, 3],
+  question: [2, 2, 3],
+  elite: [3, 4, 4],
+  gardien: [4, 4, 4],
 }
 /**
  * Ce que vaut une bonne réponse à une question dure (v10) : six choix, et un

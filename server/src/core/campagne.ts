@@ -8562,7 +8562,8 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
         v: d.v,
         paquet: e.paquet,
         route: deRoute,
-        refus: Object.fromEntries([...new Set(deRoute)].map(cle => [cle, refusDuJoker(d, e, cle, posees)])),
+        // Celles de route — et, dans la question au centre (v10), celles de la main de l'acte, que le plan montre en petit.
+        refus: Object.fromEntries([...new Set([...deRoute, ...(e.cycle?.main ?? [])])].map(cle => [cle, refusDuJoker(d, e, cle, posees)])),
         parQuestion: cartesDesActes(d.v),
         // L'énergie de chaque question, acte par acte, à sa version et à son cran : les règles la disent, telle que le pli la donne.
         energie: energieDesActesALAscension(d.v, e.ascension),
