@@ -89,6 +89,14 @@ export interface HautFaitDeCarriere {
    * et l'album le range sur la page des sentiers.
    */
   surLesSentiers?: true
+  /**
+   * Il ne se montre que là où le serveur le cite (`PublicProfileDetail.hautsFaits`)
+   * : L'Explorateur, tant que les rencontres de l'expédition restent fermées
+   * en production — son niveau ne s'y voit nulle part, et le même code sert
+   * la préproduction, où il se gagne. Le serveur le tait et ne le décerne
+   * pas ; l'album ne bâtit pas sa case sans lui.
+   */
+  montreParLeServeur?: true
 }
 
 export type HautFait = HautFaitDeSoiree | HautFaitDeCarriere
@@ -727,6 +735,25 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     valeur: c => c.campagne.tampons,
     deCampagne: 'tampons',
   },
+  // Le niveau d'explorateur de l'expédition (le codex, le 19 octobre 2026) :
+  // la renommée de toutes ses expéditions finies, relue de leurs bilans
+  // (`StatsDeCampagne.explorateur`). Sur la carrière de
+  // `calibrage-rencontres.ts`, le joueur moyen passe le niveau 4 à sa
+  // troisième expédition, le 7 à sa septième, le 10 — le codex entier,
+  // `NIVEAU_MAX` — à sa treizième. Réservé aux serveurs où les rencontres
+  // s'ouvrent (`montreParLeServeur`).
+  {
+    key: 'hf:explorateur',
+    famille: 'carriere',
+    emoji: '🎒',
+    title: 'L’Explorateur',
+    mesure: 'niveaux d’explorateur',
+    mesureUne: 'niveau d’explorateur',
+    paliers: [4, 7, 10],
+    valeur: c => c.campagne.explorateur,
+    deCampagne: 'explorateur',
+    montreParLeServeur: true,
+  },
   // Les sentiers du savoir (le 15 octobre 2026) : ce qui s'y valide en
   // épreuve — un palier, ses étoiles, un sentier mené au bout de ses
   // chapitres (`statsDesSentiers`). Un palier repris des portraits d'avant
@@ -848,11 +875,12 @@ export function xpDe(cle: string): number {
 /**
  * Ce qu'un palier demande, tel qu'on l'écrit sous son titre : « 2000 réponses
  * envoyées », « 1 avatar éclaté » — et « Niveau 20 » pour La Légende, qui ne
- * se compte pas.
+ * se compte pas, « Niveau 7 d'explorateur » pour L'Explorateur.
  */
 export function regleDuPalier(h: HautFaitDeCarriere, palier: number): string {
   const seuil = h.paliers[palier - 1]
   if (h.key === 'hf:legende') return `Niveau ${seuil}`
+  if (h.key === 'hf:explorateur') return `Niveau ${seuil} d’explorateur`
   return `${formatNumber(seuil)} ${seuil < 2 ? h.mesureUne : h.mesure}`
 }
 
@@ -1124,6 +1152,14 @@ export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   'hf:globe-trotter:1': 0.08,
   'hf:globe-trotter:2': 0.015,
   'hf:globe-trotter:3': 0.002,
+  // Estimés le 19 octobre 2026, avant l'ouverture des rencontres en
+  // production : la part de ceux qui partent en expédition, et la carrière de
+  // `calibrage-rencontres.ts` — le niveau 4 à la troisième ou quatrième
+  // expédition, le 7 à la septième à la dixième, le 10 de la onzième à la
+  // vingtième.
+  'hf:explorateur:1': 0.08,
+  'hf:explorateur:2': 0.03,
+  'hf:explorateur:3': 0.01,
   // Ceux des sentiers (le 15 octobre 2026), mesurés sur la production — seize
   // joueurs de campagne, dix sur les sentiers en trois semaines : quatre
   // auraient Le Randonneur et La Constellation au bronze, un à l'argent ;

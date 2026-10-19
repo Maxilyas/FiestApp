@@ -4,7 +4,9 @@
 // rattrapée du pli pour celles qui n'en ont pas, une fois —, le niveau qu'elle
 // fait et ce qu'il ouvre, figés au départ ; la carte de ses légendaires au
 // codex, et l'invité du jour qui prête la sienne ; le dos de son paquet, pris
-// au départ parmi les siens. Les règles et le pli : `codex.test.ts`.
+// au départ parmi les siens ; L'Explorateur, la piste du niveau
+// d'explorateur, tombée à la fin d'une expédition — jamais en production.
+// Les règles et le pli : `codex.test.ts`.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -58,8 +60,8 @@ after(() => banc.close())
 const lire = (cookie: string, chemin: string) => fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 const poster = (cookie: string, chemin: string, corps: unknown = {}) => ecrire(banc.url, chemin, corps, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 
-function base<T>(fn: (db: Database.Database) => T, ecriture = false): T {
-  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: !ecriture, fileMustExist: true })
+function base<T>(fn: (db: Database.Database) => T, ecriture = false, b: Banc = banc): T {
+  const db = new Database(b.quizDbUrl.replace(/^file:/, ''), { readonly: !ecriture, fileMustExist: true })
   try {
     return fn(db)
   } finally {
@@ -67,13 +69,18 @@ function base<T>(fn: (db: Database.Database) => T, ecriture = false): T {
   }
 }
 
-const bilanEnBase = (id: string) => base(db => (db.prepare('SELECT bilan FROM campagne_series WHERE id = ?').get(id) as { bilan: string | null }).bilan)
-const ecrireLeBilanEnBase = (id: string, bilan: string | null) => base(db => db.prepare('UPDATE campagne_series SET bilan = ? WHERE id = ?').run(bilan, id), true)
+const bilanEnBase = (id: string, b: Banc = banc) => base(db => (db.prepare('SELECT bilan FROM campagne_series WHERE id = ?').get(id) as { bilan: string | null }).bilan, false, b)
+const ecrireLeBilanEnBase = (id: string, bilan: string | null, b: Banc = banc) => base(db => db.prepare('UPDATE campagne_series SET bilan = ? WHERE id = ?').run(bilan, id), true, b)
 const departDe = (id: string): DepartDExpedition => base(db => JSON.parse((db.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(id) as { expedition: string }).expedition))
 const page = async (c: string): Promise<PageDeLExpedition> => (await lire(c, '/api/expedition')).corps
 
 /** Partir aux rencontres, faire un pas, et abandonner : une expédition finie, son bilan écrit — une escale. */
 async function unPasPuisAbandon(c: string): Promise<string> {
+  return (await unPasPuisLaFin(c)).id
+}
+
+/** De même, et ce que sa fin a fait tomber (`recompenses`). */
+async function unPasPuisLaFin(c: string): Promise<{ id: string; recompenses: { key: string }[] }> {
   const parti = await poster(c, '/api/expedition', { rencontres: true })
   assert.equal(parti.status, 200, parti.corps.error)
   let v = parti.corps as VueDeLExpedition
@@ -85,7 +92,7 @@ async function unPasPuisAbandon(c: string): Promise<string> {
   const fin = await poster(c, `/api/expedition/${v.id}/abandon`)
   assert.equal(fin.status, 200, fin.corps.error)
   assert.equal(fin.corps.expedition.renommee, 1)
-  return v.id
+  return { id: v.id, recompenses: fin.corps.recompenses ?? [] }
 }
 
 const UNE_ESCALE: BilanDUneExpedition = { escales: 1, adversaires: 0, elites: 0, gardiens: 0, auBout: false }
@@ -198,4 +205,53 @@ test('ses légendaires ouvrent leur carte au codex ; plus d’équipe à choisir
   const v = parti.corps as VueDeLExpedition
   assert.deepEqual(v.equipee, [p.prochaine.invite])
   assert.deepEqual(v.cartes?.paquet, paquetDesRencontres([p.prochaine.invite]))
+})
+
+test('L’Explorateur, au niveau d’explorateur : sa piste se lit à la page du profil — rien pour qui n’est jamais parti —, son bronze tombe à la fin de l’expédition qui passe le niveau 4 ; la production ne le cite ni ne le décerne', async () => {
+  const sien = (moi: any) => moi.profile.hautsFaits.find((h: any) => h.key === 'hf:explorateur')
+  const c = await inscrireProfil(banc.url, 'explorateur', 'Explorateur')
+  // Jamais parti : 0, pas le niveau 1 que chacun a sans rien — « 1 sur 4 » se proposait comme le trophée le plus proche.
+  const avant = sien((await lire(c, '/api/joueur/moi')).corps)
+  assert.deepEqual([avant.fois, avant.valeur, avant.prochain], [0, 0, 4])
+  const premiere = await unPasPuisLaFin(c)
+  assert.ok(!premiere.recompenses.some(r => r.key.startsWith('hf:explorateur')), 'le niveau 1 ne fait rien tomber')
+  // Sa renommée posée juste sous le niveau 4 : la page du profil le dit au 3, et l'expédition suivante, d'une escale, le passe.
+  ecrireLeBilanEnBase(premiere.id, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[3] - 1 }))
+  assert.equal(sien((await lire(c, '/api/joueur/moi')).corps).valeur, 3)
+  const seconde = await unPasPuisLaFin(c)
+  assert.deepEqual(
+    seconde.recompenses.filter(r => r.key.startsWith('hf:explorateur')).map(r => r.key),
+    ['hf:explorateur:1'],
+  )
+  const apres = sien((await lire(c, '/api/joueur/moi')).corps)
+  assert.deepEqual([apres.fois, apres.valeur, apres.prochain], [1, 4, 7])
+
+  // En production, les rencontres fermées : la même renommée ne s'y gagne pas, et la page du profil ne le cite pas —
+  // l'album ne lui fait pas de case (`montreParLeServeur`).
+  const prod = await demarrer({ online: true, baseDeLaCampagne: BASE })
+  try {
+    const p = await inscrireProfil(prod.url, 'production', 'Production')
+    const posterP = (chemin: string, corps: unknown = {}) => ecrire(prod.url, chemin, corps, p).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+    const finir = async () => {
+      const parti = await posterP('/api/expedition', { rencontres: true })
+      assert.equal(parti.status, 200, parti.corps.error)
+      const v = parti.corps as VueDeLExpedition
+      assert.equal(v.courage, undefined, 'en production, le départ reste celui des jokers')
+      const pas = await posterP(`/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers: v.permises[0] } })
+      assert.equal(pas.status, 200, pas.corps.error)
+      const fin = await posterP(`/api/expedition/${v.id}/abandon`)
+      assert.equal(fin.status, 200, fin.corps.error)
+      return { id: v.id, recompenses: (fin.corps.recompenses ?? []) as { key: string }[] }
+    }
+    const une = await finir()
+    // Son bilan s'écrit comme partout : la renommée attend le jour où les rencontres s'y ouvriront.
+    assert.ok(bilanEnBase(une.id, prod))
+    ecrireLeBilanEnBase(une.id, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[9] }), prod)
+    const deux = await finir()
+    assert.ok(!deux.recompenses.some(r => r.key.startsWith('hf:explorateur')), 'ni décerné…')
+    const moi = await fetch(`${prod.url}/api/joueur/moi`, { headers: { Cookie: p } }).then(r => r.json() as Promise<any>)
+    assert.ok(sien(moi) === undefined && moi.profile.hautsFaits.some((h: any) => h.key === 'hf:globe-trotter'), '…ni cité, quand les autres pistes le sont')
+  } finally {
+    await prod.close()
+  }
 })

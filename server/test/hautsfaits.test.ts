@@ -403,9 +403,11 @@ test('ses plus beaux hauts faits : les plus rares à décrocher, un palier par h
   assert.ok(PART_DES_JOUEURS['hf:oracle'] > PART_DES_JOUEURS['hf:grand-chelem'])
 })
 
-test('un palier se dit par ce qu’il demande — et La Légende par son niveau', () => {
+test('un palier se dit par ce qu’il demande — et La Légende par son niveau, L’Explorateur par le sien', () => {
   const carriere = (key: string) => hautFait(key) as HautFaitDeCarriere
   assert.equal(regleDuPalier(carriere('hf:bavard'), 3), '2000 réponses envoyées')
   assert.equal(regleDuPalier(carriere('hf:eclats'), 1), '1 avatar éclaté')
   assert.equal(regleDuPalier(carriere('hf:legende'), 2), 'Niveau 20')
+  // « 7 niveaux d'explorateur » se lisait comme sept niveaux à gagner, quand c'est le niveau 7 qu'on atteint.
+  assert.equal(regleDuPalier(carriere('hf:explorateur'), 2), 'Niveau 7 d’explorateur')
 })
