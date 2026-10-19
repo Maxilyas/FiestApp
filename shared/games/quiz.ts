@@ -221,6 +221,12 @@ export interface QuizPlayerView {
   imageRevelation?: string
   correct?: number
   target?: number
+  /**
+   * Estimation, à la révélation : la sienne est du tiers le plus proche de la
+   * cible — celles qui nourrissent un compagnon (`progress.ts`) —, et la
+   * niche le fête (`shared/niche.ts`). Le rang des autres ne part pas.
+   */
+  parmiLesProches?: true
   yourPoints?: number | null
   /**
    * L'animateur a annulé les points de la question. `yourPoints` passe alors

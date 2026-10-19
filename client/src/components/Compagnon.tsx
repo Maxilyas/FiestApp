@@ -27,6 +27,9 @@ import { dessinDuCompagnon, useDessins } from './medaillons'
  * dorée sur un disque sombre.
  */
 
+/** Ce qu'il montre à la révélation : ravi d'une bonne réponse, dépité avec toi d'une ratée, triomphant quand il sort de sa niche. */
+export type HumeurPeinte = 'ravi' | 'depite' | 'triomphe'
+
 export interface DessinDeCompagnon {
   /**
    * Le décor de la forme, sur le carré 0 → 100 que le disque découpe.
@@ -35,6 +38,12 @@ export interface DessinDeCompagnon {
   disque?: [string, string]
   /** L'animal seul, détouré, dans son cadre (`CADRE`) : sa forme fait la silhouette, et c'est lui qui sort du disque. */
   perso: [string, string]
+  /**
+   * Ses humeurs, repeintes sur la même découpe — seules la tête, la queue et
+   * la mine bougent : la niche les échange en place à la révélation
+   * (`Niche.tsx`).
+   */
+  humeurs?: Record<HumeurPeinte, [string, string]>
   /** Le monde vivant de la forme ultime, couche par couche (`ALLURES`). */
   vivant?: Record<string, [string, string]>
 }

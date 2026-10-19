@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import type { DetailDeLaQuestion, QuizAction, QuizPlayerView, VoisinAuClassement } from '../../../../shared/games/quiz'
 import { lireNombre } from '../../../../shared/nombres'
 import { rangPartage } from '../../../../shared/classement'
@@ -20,6 +20,9 @@ import { LigneDeCourse } from './Course'
 import { toucher } from '../../toucher'
 import { PastilleEquipe } from '../../components/PastilleEquipe'
 import { ecartAuPodium, ligneDeSoiree, moitieHaute } from '../../../../shared/course'
+import { reactionDeLaSoiree } from '../../../../shared/niche'
+import { nicheRetientSonSouffle } from '../../niche'
+import { NicheALaFin, NicheALaRevelation } from '../../components/NicheReagit'
 
 interface Props {
   view: QuizPlayerView
@@ -180,6 +183,7 @@ function ChoixMultiples({ view: v, send, closes, enAttente, perdue }: PropsDeVar
         disabled={bloque || coches.length === 0 || memes(coches, v.yourChoices)}
         {...toucher(() => {
           navigator.vibrate?.(35)
+          nicheRetientSonSouffle()
           send({ type: 'answers', choices: coches, ...visee(v) })
         })}
       >
@@ -236,6 +240,7 @@ function OrdreARetrouver({ view: v, send, closes, enAttente, perdue }: PropsDeVa
         disabled={bloque || suite.length !== n || memes(suite, v.yourChoices)}
         {...toucher(() => {
           navigator.vibrate?.(35)
+          nicheRetientSonSouffle()
           send({ type: 'order', order: suite, ...visee(v) })
         })}
       >
@@ -328,7 +333,9 @@ function GuessForm({
     // Ce qui ne se lit pas le dit : le formulaire se taisait, et l'invité
     // qui avait tapé « 35 000 » croyait avoir répondu.
     setIllisible(value === null)
-    if (value !== null) send({ type: 'guess', value, ...visee(view) })
+    if (value === null) return
+    nicheRetientSonSouffle()
+    send({ type: 'guess', value, ...visee(view) })
   }
 
   return (
@@ -629,11 +636,14 @@ function VarianteRevelee({
   salle,
   envoi,
   attendue,
+  niche,
 }: {
   view: QuizPlayerView
   salle: Salle
   envoi: Envoi | null
   attendue: string
+  /** Ce que la niche du compagnon en fait (`NicheALaRevelation`). */
+  niche: ReactNode
 }) {
   const repondu = !!v.yourChoices?.length
   const ton = v.cancelled || v.justArrived || !repondu ? '' : v.yourCorrect ? 'result-ok' : 'result-ko'
@@ -643,6 +653,7 @@ function VarianteRevelee({
     <div className="quiz-player">
       <TeteSousLaNiche view={v} />
       <div className={'card result-banner ' + ton}>
+        {niche}
         {v.justArrived ? (
           <Welcome />
         ) : v.cancelled ? (
@@ -920,6 +931,8 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
                   aria-pressed={v.yourChoice === i || enAttente?.choice === i}
                   {...toucher(() => {
                     navigator.vibrate?.(35)
+                    // Sa niche retient son souffle : le téléphone ne sait pas encore si c'est juste.
+                    nicheRetientSonSouffle()
                     send({ type: 'answer', choice: i, ...visee(v) })
                   })}
                   className={
@@ -988,6 +1001,8 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
     // On la montre encore — c'est ce que la salle vient de lire —, mais sans
     // l'appeler « la bonne ».
     const attendue = v.cancelled ? 'La réponse prévue' : 'La bonne réponse'
+    // La niche de son compagnon, à la révélation : ravie, dépitée avec lui, ou calme.
+    const niche = <NicheALaRevelation cle={`soiree:${v.qIndex}:${v.round ?? 0}`} reaction={reactionDeLaSoiree(v, participants)} />
 
     // Estimation : pas de bonne ou mauvaise réponse, seulement un écart.
     if (v.kind === 'number') {
@@ -1000,6 +1015,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
         <div className="quiz-player">
           <TeteSousLaNiche view={v} />
           <div className={'card result-banner ' + ton}>
+            {niche}
             {v.justArrived && !answered ? (
               <Welcome />
             ) : v.cancelled ? (
@@ -1032,7 +1048,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
 
     if (v.variante === 'sondage') return <SondageRevele view={v} salle={salle} />
     if (v.variante === 'plusieurs' || v.variante === 'ordre') {
-      return <VarianteRevelee view={v} salle={salle} envoi={viseLaVue(envoi, v) ? envoi : null} attendue={attendue} />
+      return <VarianteRevelee view={v} salle={salle} envoi={viseLaVue(envoi, v) ? envoi : null} attendue={attendue} niche={niche} />
     }
 
     const good = v.yourChoice !== null && v.yourChoice === v.correct
@@ -1042,6 +1058,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
       <div className="quiz-player">
         <TeteSousLaNiche view={v} />
         <div className={'card result-banner ' + ton}>
+          {niche}
           {v.justArrived ? (
             <Welcome />
           ) : v.cancelled ? (
@@ -1082,6 +1099,8 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
   const soiree = v.soireeEntamee && moi ? ligneDeSoiree(moi.score, players.map(p => p.score)) : null
   return (
     <div className="quiz-player fin-quiz">
+      {/* Sur le podium, son compagnon sort de sa niche — après l'expérience. */}
+      <NicheALaFin podium={v.yourPodiumIndex !== undefined && !v.horsClassement && total > 0} />
       {/* Sa place, en une ligne : le quiz est fini, on regarde le podium. */}
       <div className="fin-quiz-ligne" role="status">
         <span className="fin-quiz-drapeau" aria-hidden="true">

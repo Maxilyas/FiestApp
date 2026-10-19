@@ -10556,9 +10556,10 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
   border-radius: calc(var(--l) / 2) calc(var(--l) / 2) calc(var(--l) * 12 / 54) calc(var(--l) * 12 / 54);
   background: #1a1412;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  transition: box-shadow 0.5s ease, border-color 0.5s ease;
 }
 /* Son décor peint, celui de son avatar : la pleine lune du loup adulte, la forêt sous la neige du jeune. */
-.niche-decor { position: absolute; inset: 0; background-position: center 30%; background-size: cover; background-repeat: no-repeat; }
+.niche-decor { position: absolute; inset: 0; background-position: center 30%; background-size: cover; background-repeat: no-repeat; transition: filter 0.45s ease; }
 /* La première forme n'a pas de décor peint : un ciel à ses couleurs. */
 .niche-ciel-loup {
   background:
@@ -10584,17 +10585,48 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
     radial-gradient(120% 40% at 50% 104%, rgba(120, 220, 210, 0.35), rgba(120, 220, 210, 0) 70%),
     linear-gradient(#173a52 0%, #1d5560 58%, #1f6a63 100%);
 }
-/* Lui, en buste : son dessin livré, cadré forme par forme (`CADRAGES`), retourné pour regarder la page. */
+/* Lui, en buste : son dessin livré, cadré forme par forme (`CADRAGES`),
+   retourné pour regarder la page. Ses humeurs, repeintes sur la même
+   découpe, se posent sur l'expression neutre : une seule se voit, échangée
+   en fondu. Ses gestes — sautiller, s'abattre — se jouent sur lui
+   (`GESTES`, `Niche.tsx`). */
 .niche-bete { position: absolute; transform-origin: 50% 100%; }
-.niche-bete img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)); -webkit-user-drag: none; user-select: none; }
+.niche-bete img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+  transform-origin: 50% 28%;
+  transition: opacity 0.22s ease, transform 0.45s cubic-bezier(0.3, 0.7, 0.3, 1);
+  -webkit-user-drag: none;
+  user-select: none;
+}
+.niche-bete img.on { opacity: 1; }
 .niche-bete.miroir img { transform: scaleX(-1); }
-.niche-bete.saute { animation: niche-saute 0.8s cubic-bezier(0.3, 0.6, 0.35, 1); }
-@keyframes niche-saute {
-  0% { transform: translateY(0) scale(1, 1); }
-  18% { transform: translateY(2%) scale(1.05, 0.94); }
-  45% { transform: translateY(-9%) scale(0.97, 1.05); }
-  70% { transform: translateY(0) scale(1.04, 0.96); }
-  100% { transform: translateY(0) scale(1, 1); }
+/* Il retient son souffle — une réponse touchée, pas encore jugée : penché vers la page, la tête un peu plus près ; son ciel s'assombrit, et plus rien ne bouge. */
+.niche.retient .niche-bete img { transform: translate(-3.5%, 2.5%) scale(1.1); }
+.niche.retient .niche-bete.miroir img { transform: scaleX(-1) translate(3.5%, 2.5%) scale(1.1); }
+.niche.retient .niche-decor { filter: brightness(0.58) saturate(0.8); }
+.niche.retient .niche-cadre,
+.niche.ravi .niche-cadre { border-color: rgba(244, 213, 141, 0.95); }
+/* Ravi : son cadre s'allume. Triomphant, plus encore. */
+.niche.ravi .niche-cadre { box-shadow: 0 0 0 1px rgba(244, 213, 141, 0.35), 0 0 16px rgba(244, 213, 141, 0.55), 0 8px 18px rgba(0, 0, 0, 0.45); }
+.niche.triomphe .niche-cadre { border-color: rgb(255, 226, 150); box-shadow: 0 0 0 1px rgba(255, 226, 150, 0.5), 0 0 22px rgba(244, 213, 141, 0.75), 0 8px 18px rgba(0, 0, 0, 0.45); }
+/* Dépité avec toi, jamais déçu de toi : il pleut chez lui, et rien ne sort vers la page. */
+.niche.depite .niche-decor { filter: brightness(0.62) saturate(0.55); }
+.niche-pluie { position: absolute; left: 50%; top: calc(var(--l) * 3 / 54); width: calc(var(--l) * 26 / 54); transform: translateX(-50%); animation: niche-pluie-arrive 0.4s ease both; }
+.niche-pluie svg { display: block; width: 100%; overflow: visible; }
+.niche-goutte { animation: niche-goutte 0.9s linear infinite; }
+.niche-goutte:nth-child(2) { animation-delay: 0.3s; }
+.niche-goutte:nth-child(3) { animation-delay: 0.6s; }
+@keyframes niche-pluie-arrive { from { opacity: 0; } }
+@keyframes niche-goutte {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(8px); opacity: 0; }
 }
 .niche-rebord {
   position: absolute;
@@ -10604,6 +10636,115 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
   height: calc(var(--l) * 7 / 54);
   background: linear-gradient(rgba(240, 214, 150, 0.95), rgba(150, 112, 58, 0.95));
   box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.4);
+}
+/* Une bonne réponse le nourrit : son rebord s'allume, « +1 » paraît à côté de lui, et sa jauge — vers sa forme suivante — le temps du repas. */
+.niche.nourrie .niche-rebord { animation: niche-rebord 1s ease-out; }
+@keyframes niche-rebord {
+  0% { box-shadow: 0 0 0 rgba(255, 236, 190, 0); }
+  25% { box-shadow: 0 0 16px 5px rgba(255, 236, 190, 0.95); }
+  100% { box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.4); }
+}
+.niche-jauge {
+  position: absolute;
+  left: calc(var(--l) * 6 / 54);
+  right: calc(var(--l) * 6 / 54);
+  top: calc(var(--l) * 2 / 54);
+  height: calc(var(--l) * 3 / 54);
+  border-radius: 3px;
+  background: rgba(58, 38, 18, 0.6);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.niche-jauge > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #fff6d8, #ffd86a); box-shadow: 0 0 5px rgba(255, 236, 190, 0.95); transition: width 0.8s cubic-bezier(0.3, 0.7, 0.3, 1); }
+.niche.jauge-vue .niche-jauge { opacity: 1; }
+.niche-plus {
+  position: absolute;
+  right: 100%;
+  top: calc(var(--l) * 18 / 54);
+  margin-right: 6px;
+  font: 700 0.875rem/1 var(--sans);
+  color: #ffe08a;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: niche-plus 1.4s ease-out forwards;
+}
+@keyframes niche-plus {
+  0% { opacity: 0; transform: translateY(8px); }
+  18% { opacity: 1; transform: translateY(0); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
+/* Peu l'ont trouvée : une bulle de cœurs sort de sa niche, vers la page. */
+.niche-bulle {
+  position: absolute;
+  right: calc(100% + 9px);
+  top: calc(var(--l) * 10 / 54);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 42px;
+  padding: 0 11px;
+  border: 1.5px solid #d9b56a;
+  border-radius: 15px;
+  background: #f6efe3;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+  transform-origin: 100% 50%;
+  pointer-events: none;
+  animation: niche-bulle 2.1s ease-out both;
+}
+.niche-bulle::after { content: ''; position: absolute; right: -7px; top: 50%; width: 11px; height: 11px; margin-top: -6px; border-top: 1.5px solid #d9b56a; border-right: 1.5px solid #d9b56a; background: #f6efe3; transform: rotate(45deg); }
+.niche-bulle svg { display: block; width: 22px; height: 22px; }
+.niche-bulle svg + svg { width: 16px; height: 16px; margin-top: -10px; }
+@keyframes niche-bulle {
+  0% { opacity: 0; transform: scale(0.2) translateX(14px); }
+  16% { opacity: 1; transform: scale(1.06); }
+  22% { transform: scale(1); }
+  85% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.6) translateX(12px); }
+}
+/* Les étincelles d'un repas, de ce que la réponse rapporte jusqu'à sa niche : leur vol se joue sur elles (`Etincelles`). */
+.niche-etincelle { position: fixed; left: 0; top: 0; z-index: 39; width: 18px; height: 18px; opacity: 0; pointer-events: none; filter: drop-shadow(0 0 6px rgba(255, 226, 150, 0.95)); }
+.niche-etincelle.petite { width: 11px; height: 11px; }
+.niche-etincelle svg { display: block; width: 100%; height: 100%; }
+/* Les grands moments — son podium, une forme atteinte — : il sort de sa
+   niche, vole jusqu'en bas de l'écran, près du pouce, et s'y pose
+   (`Dehors`) ; on peut le caresser, puis il rentre. La niche garde son
+   décor pendant qu'il est dehors. La scène couvre l'écran sans rien en
+   prendre — seul lui se touche — et coupe ce qui sortirait de côté. */
+.niche.vide .niche-bete { opacity: 0; transition: opacity 0.15s ease; }
+.niche-dehors-scene { position: fixed; inset: 0; z-index: 38; overflow: hidden; pointer-events: none; }
+.niche-dehors { position: absolute; padding: 0; border: 0; background: none; transform-origin: 0 0; pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.niche-dehors-corps { position: absolute; inset: 0; }
+.niche-dehors-corps img { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5)); -webkit-user-drag: none; user-select: none; }
+.niche-dehors.miroir .niche-dehors-corps img { transform: scaleX(-1); }
+.niche-dehors-rayons {
+  position: absolute;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(244, 213, 141, 0.32) 0deg 5deg, rgba(244, 213, 141, 0) 5deg 15deg);
+  -webkit-mask: radial-gradient(closest-side, #000 18%, transparent 70%);
+  mask: radial-gradient(closest-side, #000 18%, transparent 70%);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.4s ease;
+  animation: niche-tourne 10s linear infinite;
+}
+@keyframes niche-tourne {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+.niche-dehors-ombre { position: absolute; height: 6%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0)); opacity: 0; transition: opacity 0.3s ease; }
+.niche-dehors.pose .niche-dehors-rayons,
+.niche-dehors.pose .niche-dehors-ombre { opacity: 1; }
+.niche-dehors-coeurs { position: absolute; width: 0; height: 0; }
+.niche-dehors-coeurs i { position: absolute; width: var(--t); height: var(--t); opacity: 0; animation: niche-coeur 1.6s ease-out var(--d) forwards; }
+.niche-dehors-coeurs svg { display: block; width: 100%; height: 100%; }
+@keyframes niche-coeur {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1.1) rotate(var(--r)); }
 }
 /* Sa fiche : lui en grand, dans la même niche. */
 .niche-fiche .carte-corps { gap: 14px; padding-bottom: max(22px, env(safe-area-inset-bottom)); }
@@ -10623,9 +10764,19 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
 .niche-envols i:nth-child(3) { --x: 4px; --y: -88px; }
 .niche-envols i:nth-child(4) { --x: 30px; --y: -72px; }
 .niche-envols i:nth-child(5) { --x: 54px; --y: -50px; }
+/* Immobile si le téléphone demande moins de mouvement : ses humeurs changent encore, rien ne bouge — ni souffle, ni pluie, ni vol ; il triomphe dans sa niche sans en sortir. */
 @media (prefers-reduced-motion: reduce) {
-  .niche { transition: none; }
-  .niche-bete.saute { animation: none; }
+  .niche,
+  .niche-cadre,
+  .niche-decor,
+  .niche-bete img { transition: none; }
+  .niche.retient .niche-bete img { transform: none; }
+  .niche.retient .niche-bete.miroir img { transform: scaleX(-1); }
+  .niche-pluie,
+  .niche-goutte,
+  .niche.nourrie .niche-rebord,
+  .niche-plus,
+  .niche-bulle { animation: none; }
 }
 /* Sa place, page par page : la première ligne de chaque page s'arrête avant
    elle (`body.avec-niche`, posée par `client/src/niche.ts`). Elle couvre,

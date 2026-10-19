@@ -60,6 +60,8 @@ import { gesteAccepte } from '../../../shared/console'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
 import { porterNiche } from '../niche'
+import { rareAuQuizDuJour, reactionDuSolo } from '../../../shared/niche'
+import { NicheALaRevelation } from '../components/NicheReagit'
 import { nConfettis } from '../../../shared/themes'
 
 /** La marge du serveur après l'échéance (`GRACE_MS`, `games/quiz.ts`), et un souffle : la question se révèle d'elle-même. */
@@ -659,6 +661,8 @@ function vueDeQuestion(q: QuestionDuJour, envoi: Envoi | null): QuizPlayerView {
 /** Ce que la réponse apprend : les points, la bonne réponse, la part de la salle, l'anecdote. */
 function Revelation({ r }: { r: RevelationDuJour }) {
   const ton = r.annulee || r.choix === null ? '' : r.juste ? 'result-ok' : 'result-ko'
+  // Sa niche : sans réponse, trop tard ou annulée, elle reste calme ; peu de joueurs du jour l'ont trouvée, des cœurs.
+  const reaction = reactionDuSolo(r.annulee || r.tropTard || r.choix === null ? null : r.juste, rareAuQuizDuJour(r.trouveePar))
   return (
     <div className="quiz-player">
       <div className="quiz-topbar">
@@ -669,6 +673,7 @@ function Revelation({ r }: { r: RevelationDuJour }) {
       {/* La question, rappelée : « La bonne réponse : Faux » ne dit rien sans elle. */}
       <p className="jour-rappel">{espacesFines(r.texte)}</p>
       <div className={'card result-banner ' + ton}>
+        <NicheALaRevelation cle={`jour:${r.index}`} reaction={reaction} />
         {r.annulee ? (
           <p>Question annulée : elle ne compte pour personne.</p>
         ) : r.tropTard ? (

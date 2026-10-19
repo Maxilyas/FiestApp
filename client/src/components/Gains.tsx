@@ -2,6 +2,7 @@ import { useEffect, useId, useState, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { Avatar } from './Avatar'
 import { api } from '../api'
+import { porterNiche } from '../niche'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { gemme } from '../gemmes'
 import { apercuDe } from '../apercus'
@@ -62,7 +63,9 @@ export const niveauDe = (p: Pick<PublicProfile, 'niveau' | 'acquis' | 'requis'>,
  * n'ont que le profil léger d'avant — et celui que la page avait vu. Le quiz
  * du jour la montrait ; la campagne ne disait que « +12 XP », et l'on ne
  * voyait pas qu'on avançait (le 6 octobre 2026). Muet, rien : la fin reste
- * lisible sans lui.
+ * lisible sans lui. Le même profil relu donne à la niche la forme que la
+ * partie a fait atteindre à son compagnon : il en sort pour la montrer
+ * (`client/src/niche.ts`).
  */
 export function useNiveauRelu(actif = true): NiveauDeLaFin | null {
   // Le niveau d'avant se lit au premier rendu : la relecture le remplace.
@@ -77,6 +80,7 @@ export function useNiveauRelu(actif = true): NiveauDeLaFin | null {
         if (!vivant || !profile) return
         niveauVu = profile.niveau
         setLu(profile)
+        porterNiche(profile)
       })
       .catch(() => {})
     return () => {

@@ -9,6 +9,9 @@ import { SerieCorrigee } from '../components/SerieCorrigee'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../components/Gains'
 import { Etoiles } from '../components/Etoiles'
 import { GerbeDeJuste } from '../components/Gerbe'
+import { NicheALaRevelation } from '../components/NicheReagit'
+import { nicheRetientSonSouffle } from '../niche'
+import { rareEnCampagne, reactionDuSolo } from '../../../shared/niche'
 import { promptDialog } from '../components/Dialog'
 import { espacesFines } from '../format'
 import { showToast } from '../state'
@@ -296,6 +299,8 @@ export function JeuDuParcours({ depart, onRetour }: { depart: EtapeAJouer; onRet
 
   const repondre = async (choix: number) => {
     if (ecran.e !== 'epreuve' || ecran.reponse || busy) return
+    // Sa niche retient son souffle jusqu'au verdict du serveur.
+    nicheRetientSonSouffle()
     setBusy(true)
     setErreur('')
     try {
@@ -439,6 +444,7 @@ function EcranDeLEtape({
         ) : (
           <>
             <div className={'card result-banner ' + (r.juste ? 'result-ok' : 'result-ko')} role="status">
+              <NicheALaRevelation cle={`parcours:${r.epreuve.id}:${q.index}`} reaction={reactionDuSolo(r.juste, rareEnCampagne(q.niveau))} />
               {r.juste ? (
                 <>
                   <span className="big">🎊 +1</span>
