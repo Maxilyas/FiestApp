@@ -69,7 +69,15 @@
 // Double chance, passée à une d'énergie après ces mesures (+5 seule), a
 // rejoint ses préférences ensuite.
 //
-//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3] [--sans-fioles] [--ascension 2] [--ascensions] [--seule genie] [--cartes [genie,lecon]] [--part 1/4] [--style devin] [--styles]
+// Les huit familles (la version 9, d'office depuis, le 19 octobre 2026) : le
+// Sophiste et son doute, le Téméraire et son courage. Le doute frappe juste
+// ou faux : aux premiers chiffres, Insinuation seule menait le moyen au bout
+// 90 fois sur cent contre 50 ; réglées, les seize vont de Berserk, +18, à −2.
+// Au niveau 10 sans légendaire, trois cents expéditions par case (le faible,
+// le moyen, le fort) : sans style, 32, 78 et 99 ; le Sophiste suivi, 42, 79
+// et 98 ; le Téméraire suivi, 11, 62 et 96, avisé, 26, 76 et 97.
+//
+//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3] [--sans-fioles] [--ascension 2] [--ascensions] [--seule genie] [--cartes [genie,lecon]] [--part 1/4] [--style devin] [--styles] [--avise]
 import { CATEGORIES } from '../../shared/categories'
 import { SUJETS } from '../../shared/sujets'
 import { TAUX_DU_CALIBRAGE } from '../../shared/sentiers'
@@ -109,6 +117,7 @@ import {
   type QuestionPosee,
 } from '../../shared/expedition'
 import {
+  CARTES_DE_DEPART_DU_STYLE,
   CARTES_DES_RENCONTRES,
   COURAGE_MAX,
   FIOLES_MAX,
@@ -135,12 +144,12 @@ function option(nom: string, defaut: number): number {
 }
 const EXPEDITIONS = option('expeditions', 1000)
 /**
- * La version des règles mesurée : 8 d'office, celle des départs d'aujourd'hui
- * — le jeu complet ; `--version 7` remesure le codex d'avant lui, `--version 6`
- * la main qui grandit avec les actes sans le codex, `--version 5` la main de
- * cinq cartes d'emblée.
+ * La version des règles mesurée : 9 d'office, celle des départs d'aujourd'hui
+ * — les huit familles ; `--version 8` remesure le jeu complet d'avant elles,
+ * `--version 7` le codex d'avant lui, `--version 6` la main qui grandit avec
+ * les actes sans le codex, `--version 5` la main de cinq cartes d'emblée.
  */
-const VERSION = ([5, 6, 7, 8] as const).find(v => v === option('version', 8)) ?? 8
+const VERSION = ([5, 6, 7, 8, 9] as const).find(v => v === option('version', 9)) ?? 9
 
 const logit = (p: number) => Math.log(p / (1 - p))
 const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
@@ -314,8 +323,26 @@ const PREFERENCE_DU_JEU_COMPLET = [
   'sursis',
 ]
 const A_RETIRER_DU_JEU_COMPLET = ['troisieme-oeil', 'tout-ou-rien', 'lancee', 'arret-sur-image', 'surmenage', 'lecon', 'doubler-la-mise', 'banco']
+/**
+ * Aux huit familles (le 19 octobre 2026, `--cartes`, retouchées) : Berserk,
+ * dix-huit points de plus pour le moyen au bout, Insinuation huit, Engrenage,
+ * Adrénaline et Témérité sept, Hantise et Rumeur six ; les autres à ±5 près,
+ * ou qui ne valent qu'avec le doute d'une autre — Zizanie, Coup de grâce,
+ * Paranoïa.
+ */
+const PREFERENCE_DES_HUIT_FAMILLES = [
+  'berserk',
+  ...PREFERENCE_DU_JEU_COMPLET.slice(0, 4),
+  'insinuation',
+  'engrenage',
+  'adrenaline',
+  'temerite',
+  'hantise',
+  'rumeur',
+  ...PREFERENCE_DU_JEU_COMPLET.slice(4),
+]
 /** Ce que prend et retire le joueur qui a appris, à la version mesurée. */
-const PREFERENCE_DU_CODEX = VERSION >= 8 ? PREFERENCE_DU_JEU_COMPLET : PREFERENCE_DU_CODEX_7
+const PREFERENCE_DU_CODEX = VERSION >= 9 ? PREFERENCE_DES_HUIT_FAMILLES : VERSION >= 8 ? PREFERENCE_DU_JEU_COMPLET : PREFERENCE_DU_CODEX_7
 const A_RETIRER_DU_CODEX = VERSION >= 8 ? A_RETIRER_DU_JEU_COMPLET : A_RETIRER_DU_CODEX_7
 const EXEMPLAIRES_DU_CODEX = 2
 /** Les pouvoirs qu'il pose dès qu'il les tire : ils valent toute la rencontre — ceux du jeu complet compris. */
@@ -343,9 +370,18 @@ const POUVOIRS_JOUES = [
   'represailles',
   'cameleon',
   'astrolabe',
+  // Les huit familles (v9).
+  'engrenage',
+  'paranoia',
+  'hantise',
+  'adrenaline',
+  'berserk',
 ]
-/** Les cartes qui frappent de plus si la réponse est juste, jouées avant la question : il prend celle qui frappe le plus par point d'énergie (`parEnergie`). */
-const ATTAQUES = ['genie', 'rafle', 'expose', 'plume', 'lancee', 'lecon', 'savoir-faire', 'concentration', 'cagnotte', 'fortune', 'echauffement']
+/**
+ * Les cartes qui frappent de plus si la réponse est juste, jouées avant la question : il prend celle qui frappe le plus par point
+ * d'énergie (`parEnergie`) — Cicatrices, Dernier carré et Baroud au courage qui lui manque (les huit familles).
+ */
+const ATTAQUES = ['genie', 'rafle', 'expose', 'plume', 'lancee', 'lecon', 'savoir-faire', 'concentration', 'cagnotte', 'fortune', 'echauffement', 'cicatrices', 'dernier-carre', 'baroud']
 /**
  * `--seule genie` : ses offres ne proposent que cette carte — et les
  * légendaires qu'il a —, il la prend, deux au plus : ce qu'elle vaut seule ;
@@ -449,8 +485,9 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
   // Au codex, l'invité du jour d'un jour tiré de la graine ; ses légendaires gardés ouvrent leur carte, et ne gardent plus d'acte.
   const invite = inviteDuJour(graine)
   const tout = VERSION >= 7 ? codexDuNiveau(cas.niveau ?? 1, cas.equipee, cas.exploits ?? []) : undefined
-  // Au codex d'avant le jeu complet (`--version 7`), les cartes d'alors seulement : l'échelle d'aujourd'hui range aussi les neuves.
-  const avant = tout && VERSION < 8 ? { ...tout, cartes: tout.cartes.filter(c => !carteDeRencontre(c)?.depuis) } : tout
+  // À une version d'avant (`--version 7`, `--version 8`), les cartes et les styles d'alors seulement : l'échelle d'aujourd'hui range aussi les neuves.
+  const connue = (cle: string) => (carteDeRencontre(cle)?.depuis ?? 0) <= VERSION
+  const avant = tout && { ...tout, cartes: tout.cartes.filter(connue), styles: tout.styles.filter(s => CARTES_DE_DEPART_DU_STYLE[s].every(connue)) }
   // Sous `--seule`, ses offres ne tirent qu'elle, et les légendaires qu'il a : prise dès qu'elle passe.
   const ouvert = avant && seule !== null ? { ...avant, cartes: avant.cartes.filter(c => c === seule || carteDeRencontre(c)?.rarete === 'legendaire') } : avant
   const codex = ouvert && SANS_FIOLES ? { ...ouvert, regles: ouvert.regles.filter(r => r !== 'fioles') } : ouvert
@@ -568,12 +605,13 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     const niveau = q.niveau ?? 'facile'
     const t = rc.tour
     const k = exemplaire(e, cle)
-    const apres = chiffresApresLaCarte(k, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: rc.serie }, rc.pouvoirs, {
+    const apres = chiffresApresLaCarte(k, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: rc.serie, doute: rc.doute }, rc.pouvoirs, {
       v: VERSION,
       fetiche: !!depart.fetiche && q.categorie === depart.fetiche,
       niveau,
       savoir: SAVOIR_DES_MARCHES[niveau],
       ecus: e.ecus,
+      courage: e.courage ?? COURAGE_MAX,
     })
     return (apres.charge - t.charge) / Math.max(1, carteALaVersion(k, VERSION)?.cout ?? 1)
   }
@@ -585,8 +623,14 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     const chance = chanceSelonLaForme(q.p4, q.forme ?? (q.reponses === 2 ? 'vrai-faux' : 'quatre'))
     const courage = e.courage ?? 0
     const jouerLa = (cle: string): GesteDExpedition => ({ quoi: 'jouer', joker: exemplaire(e, cle), position: i })
-    // Ce qui ne coûte rien et donne : piocher, s'inspirer — Pourboire tire une carte à sa place.
-    for (const cle of ['reveil', 'pioche', 'sprint', 'meditation', 'foulee', 'pourboire']) if (peut(e, cle)) return jouerLa(cle)
+    // Ce qui ne coûte rien et donne : piocher, s'inspirer — Pourboire tire une carte à sa place ; la Rumeur sème le doute (v9).
+    for (const cle of ['reveil', 'pioche', 'sprint', 'meditation', 'foulee', 'pourboire', 'rumeur']) if (peut(e, cle)) return jouerLa(cle)
+    // Les huit familles : Coup de sang, s'il a de quoi dépenser l'énergie qu'il paie de son courage — la carte qu'il tire en plus ;
+    // le doute, qui frappe juste ou faux — Insinuation, puis Zizanie sur un doute qui vaut d'être doublé.
+    const payantes = rc.main.filter(c => (carteALaVersion(c, VERSION)?.cout ?? 0) >= 1).length
+    if (courage > 25 && payantes >= 1 && peut(e, 'coup-de-sang')) return jouerLa('coup-de-sang')
+    if (peut(e, 'insinuation')) return jouerLa('insinuation')
+    if (rc.doute >= 2 && peut(e, 'zizanie')) return jouerLa('zizanie')
     if (rc.defausse.length >= 4 && peut(e, 'feu-d-artifice')) return jouerLa('feu-d-artifice')
     if (rc.derniereFrappe >= 6 && peut(e, 'horizon')) return jouerLa('horizon')
     // Le courage, quand il en manque (le jeu complet) : Panacée ne sert qu'une fois, il la garde pour un vrai besoin.
@@ -604,6 +648,10 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       if (chance >= 0.7 && peut(e, 'surmenage')) return jouerLa('surmenage')
       // Ce qui ne coûte rien d'abord, puis l'attaque qui frappe le plus par point d'énergie.
       for (const cle of ['acceleration', 'pansement']) if (peut(e, cle)) return jouerLa(cle)
+      // Le Téméraire : Fougue tant qu'il a du courage à payer, Témérité sûr de lui ; Coup de grâce sur un doute qui frappe (v9).
+      if (courage > 15 && peut(e, 'fougue')) return jouerLa('fougue')
+      if (chance >= 0.75 && courage > 20 && peut(e, 'temerite')) return jouerLa('temerite')
+      if (rc.doute >= 2 && peut(e, 'coup-de-grace')) return jouerLa('coup-de-grace')
       const attaques = ATTAQUES.filter(cle => peut(e, cle)).sort((a, b) => parEnergie(e, i, b) - parEnergie(e, i, a))
       if (attaques.length > 0) return jouerLa(attaques[0])
       if (peut(e, 'banco')) return jouerLa('banco')
@@ -614,7 +662,10 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       if (courage <= 20 && peut(e, 'sursis')) return jouerLa('sursis')
       if (peut(e, 'augure')) return jouerLa('augure')
       for (const cle of ['muraille', 'prudence', 'peau-de-feu', 'contre-attaque']) if (peut(e, cle)) return jouerLa(cle)
-      for (const cle of ['concentration', 'plume', 'echauffement', 'savoir-faire']) if (peut(e, cle)) return jouerLa(cle)
+      // Puis ce qui frappe : le Téméraire aussi — sans quoi Fougue et Cicatrices, ses cartes de départ, restaient en main là où
+      // Concentration se jouait, et le joueur faible qui part avec ce style allait au bout 20 fois sur cent au lieu de 31.
+      for (const cle of ['concentration', 'plume', 'echauffement', 'savoir-faire', 'cicatrices', 'dernier-carre']) if (peut(e, cle)) return jouerLa(cle)
+      if (courage > 30 && peut(e, 'fougue')) return jouerLa('fougue')
     }
     return null
   }
@@ -640,8 +691,8 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     const q = posees[i]
     const autre = e.autre !== null ? posees[e.autre] : undefined
     if (q.sait) {
-      // Il la sait : ce qui frappe — le jeu complet en a, à jouer la question vue ; Lucidité, gratuite, d'abord.
-      const cle = [...(q.forme === 'devoilement' ? ['arret-sur-image'] : []), 'lucidite', 'evidence', 'memoire', 'sang-froid'].find(c => peut(e, c))
+      // Il la sait : ce qui frappe — le jeu complet en a, à jouer la question vue ; Lucidité, gratuite, d'abord ; l'Objection sème encore son doute (v9).
+      const cle = [...(q.forme === 'devoilement' ? ['arret-sur-image'] : []), 'lucidite', 'evidence', 'memoire', 'sang-froid', 'objection'].find(c => peut(e, c))
       return cle ? { quoi: 'jouer', joker: exemplaire(e, cle), position: i } : null
     }
     if (autre?.sait) return null
@@ -663,6 +714,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       'lucidite',
       ...(courage <= 15 ? ['passe-muraille'] : []),
       'sang-froid',
+      'objection',
       'parade',
     ]
     const cle = ordre.find(c => peut(e, c, c === 'prediction' ? { montre: 0 } : undefined))
@@ -1007,7 +1059,8 @@ for (const cas of TOUTES_LES_ASCENSIONS || TOUTES_LES_CARTES || TOUS_LES_STYLES 
  * Ses exploits aussi : faits, leur carte s'ouvre à l'expédition suivante —
  * et quand chacun tombe, et pour combien de joueurs en vingt expéditions.
  */
-if (VERSION >= 7 && !UN_NIVEAU && UN_CAS === null && !TOUTES_LES_ASCENSIONS && !TOUS_LES_STYLES) {
+// Pas sous `--cartes` : chaque carte seule se mesure à un niveau, et la carrière doublait le temps de la mesure pour rien.
+if (VERSION >= 7 && !UN_NIVEAU && UN_CAS === null && !TOUTES_LES_ASCENSIONS && !TOUS_LES_STYLES && !TOUTES_LES_CARTES) {
   const CARRIERES = Math.max(20, Math.round(EXPEDITIONS / 10))
   const LONGUEUR = 20
   const TRANCHES: [string, number, number][] = [

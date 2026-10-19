@@ -45,6 +45,7 @@ import {
   RENCONTRES_EN_PRODUCTION,
   SAVOIR_DES_MARCHES,
   SCEAUX_DES_RENCONTRES,
+  VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
   ameliorer,
@@ -224,9 +225,10 @@ test('la page propose les rencontres ; le départ les prend — son courage, ses
   assert.equal(v.jokers, undefined, 'des cartes à la place des jokers')
   assert.equal(v.rencontre, undefined, 'aucune rencontre avant le premier pas')
   const depart = departDe(v.id)
-  // La version 8 (le jeu complet, le 19 octobre 2026) : la version 6 — la main qui grandit avec les actes, les rares qui attendent l'acte 2,
-  // plus d'adversaires —, le codex de son niveau, figé au départ (la 7), et l'énergie qui suit les actes.
-  assert.equal(depart.v, VERSION_DU_JEU_COMPLET)
+  // La version 9 (les huit familles, le 19 octobre 2026) : la version 6 — la main qui grandit avec les actes, les rares qui attendent
+  // l'acte 2, plus d'adversaires —, le codex de son niveau, figé au départ (la 7), l'énergie qui suit les actes (la 8, le jeu complet),
+  // et les seize cartes du Sophiste et du Téméraire.
+  assert.equal(depart.v, VERSION_DES_HUIT_FAMILLES)
   assert.deepEqual(v.cartes?.parQuestion, [3, 4, 5], 'les règles disent ce que tire chaque acte : la page n’en recopie rien')
   assert.deepEqual(v.cartes?.energie, [...ENERGIE_DES_ACTES], 'et l’énergie de chaque acte : deux à l’acte 1')
   // Le départ fige ce que le codex ouvre ; de ses dos, il en prend un — au niveau 1, l'ordinaire. Sans victoire, aucun cran de
@@ -534,7 +536,7 @@ test('le jeu complet, par les routes : une carte améliorée au campement, une a
   const c = await inscrireProfil(banc.url, 'forge', 'Forge')
   let chemin = { bas: '', haut: '' }
   let v = await partirEt(c, { rencontres: true }, d => {
-    assert.equal(d.v, VERSION_DU_JEU_COMPLET)
+    assert.ok(d.v >= VERSION_DU_JEU_COMPLET, 'un départ qui améliore ses cartes')
     chemin = forgeEtEtal(d)
   })
   v = await avancer(c, v, chemin.bas)

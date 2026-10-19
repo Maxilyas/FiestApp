@@ -144,11 +144,12 @@ test('le catalogue : le paquet de départ, huit cartes par famille, les vingt-tr
   }
   assert.equal(CARTES_DES_RENCONTRES.filter(c => c.legendaire).length, LEGENDAIRES_A_JOKER.length)
   // Le jeu complet (le 19 octobre 2026) : huit cartes par famille — trois communes, trois rares, deux épiques —, là où le prototype en avait deux.
+  // Les huit familles (la version 9) : le Sophiste et le Téméraire, au même compte.
   const familles = new Map<string, string[]>()
   for (const c of CARTES_DES_RENCONTRES) if (!c.legendaire && c.famille !== 'neutre') familles.set(c.famille, [...(familles.get(c.famille) ?? []), c.rarete])
   assert.deepEqual(
     [...familles].map(([f, raretes]) => [f, ['commun', 'rare', 'epique'].map(r => raretes.filter(x => x === r).length)]),
-    ['erudit', 'flambeur', 'metamorphe', 'elan', 'rempart', 'devin'].map(f => [f, [3, 3, 2]]),
+    ['erudit', 'flambeur', 'metamorphe', 'elan', 'rempart', 'devin', 'sophiste', 'temeraire'].map(f => [f, [3, 3, 2]]),
     'chaque famille : trois communes, trois rares, deux épiques',
   )
   const neutres = CARTES_DES_RENCONTRES.filter(c => c.famille === 'neutre')

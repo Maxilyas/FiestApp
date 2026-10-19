@@ -27,7 +27,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renam
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
-import { coutEstime, formatDe, generer, lancerLot, lireLot, type Rendu } from './gemini'
+import { coutDUneImage, coutEstime, formatDe, generer, lancerLot, lireLot, type Rendu } from './gemini'
 import { dansLaPage, deDataUrl, pagePixels } from './pixels'
 import { CARTES_DES_RENCONTRES, type FamilleDeCartes } from '../../../shared/rencontres'
 
@@ -77,6 +77,8 @@ const PALETTE: Record<FamilleDeCartes, string> = {
   elan: 'emerald and fresh spring green, with gold',
   rempart: 'bronze, ochre and warm sandstone, with gold',
   devin: 'teal and turquoise, with moonlit silver',
+  sophiste: 'smoky azure blue and misty blue-grey, with pale silver highlights',
+  temeraire: 'crimson and deep scarlet, with dark iron and hot gold embers',
 }
 
 /**
@@ -181,6 +183,25 @@ export const SUJETS: Record<string, string> = {
   astrolabe: 'an ornate brass astrolabe glowing with moonlit silver light, its rings engraved only with plain lines and dots, never numerals nor letters',
   vision: 'a brass and silver telescope on a tripod aimed at a radiant teal nebula filling the night sky',
   revelation: 'heavy teal velvet curtains drawn wide open to reveal a blinding beam of moonlit silver light',
+
+  // Les huit familles (le 19 octobre 2026) : le Sophiste, le doute
+  insinuation: 'a white porcelain theater mask turned half away, a thin ribbon of pale blue smoke curling out from between its lips like a whisper',
+  rumeur: 'a flurry of tiny folded paper birds fluttering out of an open lacquered box, each trailing a wisp of pale blue smoke',
+  objection: 'an ornate silver gavel coming down on its round wooden block, a dome of pale blue protective light flaring out from the strike',
+  zizanie: 'a single golden apple glowing on a marble table, hairline cracks of blue light spreading across the marble all around it',
+  engrenage: 'a cluster of interlocking brass and steel cogwheels turning in a haze of blue smoke, small sparks where their teeth meet — plain gears, no markings',
+  'coup-de-grace': 'a slender silver rapier thrusting straight through a hanging veil of blue fog, the fog tearing apart around the blade',
+  paranoia: 'a single lantern with a blue flame standing in a dark hall of mirrors, its light reflected endlessly into the distance in every direction',
+  hantise: 'a translucent pale blue ghostly shroud drifting through an old candlelit library, books lifting gently off the shelves in its wake',
+  // Le Téméraire, le courage en jeu
+  fougue: 'a rearing red stallion with a mane of fire, sparks flying from its hooves',
+  'coup-de-sang': 'a heart-shaped ruby crystal pulsing with crimson light, hot sparks bursting out of it',
+  cicatrices: 'a battered iron helmet covered in deep scratches and dents, crimson embers glowing inside each of its scars',
+  adrenaline: 'an iron gauntlet clenched into a fist, crimson energy crackling around it like lightning',
+  'dernier-carre': 'a lone tattered crimson war banner still standing on a smoking hilltop at dusk, embers drifting around it',
+  temerite: 'a blazing red sword planted upright at the very edge of a crumbling cliff, a broken round shield tumbling away into the dark abyss below',
+  berserk: 'a roaring bear made of crimson fire charging straight ahead, a trail of embers behind it',
+  baroud: 'a broken sword lying on scorched ground, its shattered blade still blazing with a fierce crimson fire, embers rising from it',
 }
 
 interface Travail {
@@ -222,7 +243,7 @@ const lireJournal = (): any[] =>
 const depense = () => lireJournal().reduce((n, e) => n + (e.cout ?? 0), 0)
 function ranger(nom: string, r: Rendu, lot: boolean) {
   writeFileSync(fichier(`${nom}.${formatDe(r.image).ext}`), r.image)
-  const cout = coutEstime(r.jetons, { lot })
+  const cout = coutEstime(r.jetons, { lot, modele: MODELE })
   appendFileSync(cheminJournal, JSON.stringify({ nom, date: new Date().toISOString(), modele: MODELE, lot, jetons: r.jetons, cout }) + '\n')
   console.log(`  ${nom} : environ ${cout.toFixed(3)} $ (total ${depense().toFixed(2)} $)`)
 }
@@ -258,8 +279,9 @@ if (GENERER) {
   const aFaire = TRAVAUX.filter(t => (seulement.length === 0 || seulement.includes(t.nom)) && !existant(t.nom))
   if (aFaire.length) {
     // Le budget se tient avant de payer : au prix plein, une image coûte
-    // environ 0,14 $ (0,07 $ en lot), pensée comprise.
-    const prevu = aFaire.length * (LOT ? 0.07 : 0.14)
+    // environ 0,14 $ (0,07 $ en lot), pensée comprise — la moitié sous Nano
+    // Banana 2 (`MODELE=gemini-3.1-flash-image`, `coutDUneImage`).
+    const prevu = aFaire.length * coutDUneImage(MODELE, { lot: LOT })
     if (depense() + prevu > BUDGET) {
       throw new Error(`Budget : ${depense().toFixed(2)} $ dépensés, ${prevu.toFixed(2)} $ prévus pour ${aFaire.length} image(s) — au-delà de ${BUDGET} $.`)
     }
