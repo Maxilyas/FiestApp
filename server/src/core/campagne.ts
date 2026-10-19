@@ -339,12 +339,15 @@ import {
 import { EFFACE, JOKERS_QUI_AIDENT, LEGENDAIRES_A_JOKER } from '../../../shared/jokers'
 import { cleDeLExpedition } from '../../../shared/legendaires'
 import { compositionDite, gabaritDe, lireUneComposition, seCompose, tuilesDe } from '../../../shared/lettres'
+import { PREFIXE_DU_REBUS, QUESTION_DU_REBUS, type SorteDeCuriosite } from '../../../shared/curiosites'
+import { contenuDesCuriosites, type ContenuDesCuriosites } from './curiosites'
 import {
   CLAIRVOYANCE_SUR_LA_QUESTION,
   FIOLES_MAX,
   POUVOIRS_QUI_EFFACENT,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_CURIOSITES,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_JEU_COMPLET,
   baseDe,
@@ -444,6 +447,12 @@ interface QuestionDeSerie {
   tiree?: FormeDEscale
   six?: true
   reponseEn?: 'annee' | 'nombre'
+  /**
+   * Un rébus (une curiosité de l'expédition, v12) : ses emojis. Il n'est pas
+   * une question de la base — son identifiant porte `PREFIXE_DU_REBUS` —, sa
+   * réponse se compose (`forme`, `tuiles`), et `anecdote` dit comment il se lit.
+   */
+  rebus?: string
 }
 
 /**
@@ -2331,6 +2340,8 @@ export class CampagneStore {
           niveau: q.niveau,
           anecdote: q.anecdote,
           composee: r.composee,
+          // Un rébus (v12) : ses emojis, sans quoi « Quel film se cache derrière ces emojis ? » ne dirait rien.
+          ...(q.rebus && { rebus: q.rebus }),
         }
       }
       const bonneReponse = bonneReponseDuVraiOuFaux(q, base)
@@ -2526,6 +2537,7 @@ export class CampagneStore {
               SELECT r.reserve_id AS id, r.juste AS juste, r.repondue_le AS le, r.serie_id AS serie, r.position AS position
               FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
               WHERE s.profile_id = ?
+                AND r.reserve_id NOT LIKE '${PREFIXE_DU_REBUS}%'
                 AND NOT (r.juste = 1 AND (r.joker IS NOT NULL OR COALESCE(r.forme, '') = 'vrai-faux'))
                 AND NOT (s.mode = 'defi' AND s.semaine >= ?)
                 AND NOT (s.mode = 'duel' AND s.duel IN (SELECT code FROM campagne_duels WHERE ferme_le > ?))
@@ -6436,6 +6448,8 @@ export class CampagneStore {
     if (!s) throw new Error('Cette série est introuvable')
     if (!Number.isInteger(index) || index < 0 || index >= s.index) throw new Error('Réponds d’abord à cette question')
     const q = s.questions[index]
+    // Un rébus (v12) n'est pas une question de la base : le QG n'aurait ni version à relire ni réponse à corriger.
+    if (q.id.startsWith(PREFIXE_DU_REBUS)) throw new Error('Un rébus ne se signale pas : seules les questions de la campagne le peuvent')
     if (!(await this.base()).parId.has(q.id)) throw new Error('Cette question n’est plus dans la campagne')
     // Signalée de nouveau après une relecture, elle revient à relire : l'issue d'avant ne la suit pas.
     await this.client.execute({
@@ -6988,9 +7002,11 @@ export class CampagneStore {
       const sesStyles = codex?.styles ?? []
       const style = estUnStyle(styleDemande) && sesStyles.length > 0 ? (sesStyles.includes(styleDemande) ? styleDemande : sesStyles[0]) : undefined
       // En rencontres, des cartes à plus d'adversaires (`POIDS_DES_ESCALES_DES_RENCONTRES`) ; aux règles d'avant, celles de toujours.
-      // Les coups de pouce (v11) y posent leurs escales à composer, sur le même tirage.
+      // Les coups de pouce (v11) y posent leurs escales à composer, sur le même tirage ; les curiosités (v12), une par acte, sur le leur.
       const formes = v >= VERSION_DES_COUPS_DE_POUCE ? POIDS_DES_FORMES_A_COMPOSER : POIDS_DES_FORMES
-      const cartes = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, fete, rencontres ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES, formes))
+      const cartes = Array.from({ length: ACTES }, (_, acte) =>
+        carteDUnActe(graine, acte, sujets, fete, rencontres ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES, formes, v >= VERSION_DES_CURIOSITES),
+      )
       const vues = lireLesVues(lues.rows)
       const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
       const depart: DepartDExpedition = {
@@ -7509,6 +7525,13 @@ export class CampagneStore {
       ...(q.meta.date && { date: q.meta.date }),
       ...(['annee', 'nombre'].includes(formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur })) && { nombre: true as const }),
     })
+    // Une curiosité (v12) : un rébus, ou un plat dont on devine d'où il vient — ni le thème ni la marche de l'escale, qui n'en a pas.
+    if (escale.sorte === 'curiosite') {
+      const q = questionDeLaCuriosite(escale.curiosite ?? 'plat', contenuDesCuriosites(), this.parIdDe(toutes), this.deLaCategorie(toutes, 'Cuisine'), toutes, vues, x =>
+        rangee(x, niveauDeQuestion(x.meta.difficulte, mesure.get(x.id))),
+      )
+      return { tirees: [{ ...q, escale: a.escale, acte }], vues: lues }
+    }
     if (suivis) {
       const parId = this.parIdDe(toutes)
       const aRevoir = [...suivis]
@@ -8124,12 +8147,12 @@ function versSerie(r: Record<string, unknown>): Serie {
 }
 
 /**
- * La version d'un départ neuf : la question au centre et ses coups de pouce
- * là où elle s'ouvre (`questionAuCentreOuverte`), les huit familles aux
- * rencontres, les écus aux règles d'avant elles.
+ * La version d'un départ neuf : la question au centre, ses coups de pouce et
+ * ses curiosités là où elle s'ouvre (`questionAuCentreOuverte`), les huit
+ * familles aux rencontres, les écus aux règles d'avant elles.
  */
 const versionDuDepart = (rencontres: boolean, questionAuCentre: boolean): DepartDExpedition['v'] =>
-  rencontres ? (questionAuCentre ? VERSION_DES_COUPS_DE_POUCE : VERSION_DES_HUIT_FAMILLES) : 4
+  rencontres ? (questionAuCentre ? VERSION_DES_CURIOSITES : VERSION_DES_HUIT_FAMILLES) : 4
 
 /** Le départ qu'une expédition a gardé ; null : pas une expédition, ou illisible. */
 function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
@@ -8137,9 +8160,9 @@ function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
   try {
     const lu = JSON.parse(brut) as DepartDExpedition
     // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus, la 4 sans rencontres,
-    // la 6 sans codex, la 7 sans le jeu complet, la 8 sans les huit familles, la 9 sans la question au centre, la 10 sans coups de pouce ;
-    // une version inconnue ne se lit pas.
-    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
+    // la 6 sans codex, la 7 sans le jeu complet, la 8 sans les huit familles, la 9 sans la question au centre, la 10 sans coups de pouce,
+    // la 11 sans curiosités ; une version inconnue ne se lit pas.
+    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
   } catch {
     return null
   }
@@ -8539,6 +8562,8 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
       // Un dévoilement ne part pas entier (invariant 1) : ses mots se lisent à leur heure (`devoilement`), son compte seul part ici.
       ...(q.forme === 'devoilement' && { texte: '', devoilement: { mots: motsDe(q.texte).length } }),
       ...(composer && { reponses: [], composer }),
+      // Un rébus (v12) : ses emojis, que la page montre en grand au-dessus de ses cases.
+      ...(q.rebus && { rebus: q.rebus }),
       ...(q.forme && { forme: q.forme }),
       ...(q.proposee !== undefined && { proposee: q.proposee }),
       escale: q.escale ?? '',
@@ -9010,6 +9035,67 @@ function aSaForme(q: QuestionDeSerie, base: QuestionDeLaBase, forme: FormeDEscal
   }
   if (forme === 'devoilement') return { ...q, forme, devoileLe: maintenant }
   return q
+}
+
+/**
+ * La question d'une curiosité (v12) : un rébus — à composer, ses tuiles
+ * tirées et gardées avec lui, comme une question à composer —, ou un plat de
+ * la liste dont on devine d'où il vient, à quatre choix, tel que la base l'a
+ * écrit. Jamais vu d'abord, puis le plus anciennement vu : ce que
+ * l'expédition a posé passe pour vu à l'instant (`vues`), et le même rébus ne
+ * revient pas dans une expédition tant qu'il en reste d'autres. Un rébus que
+ * le contenu n'a plus cède au plat ; un plat que la base n'a plus — retiré,
+ * ou une base d'essai —, à une question de cuisine, puis à toute la base :
+ * le pli attend une question, il en faut une.
+ */
+function questionDeLaCuriosite(
+  sorte: SorteDeCuriosite,
+  contenu: ContenuDesCuriosites,
+  parId: ReadonlyMap<string, QuestionDeLaBase>,
+  cuisine: readonly QuestionDeLaBase[],
+  toutes: readonly QuestionDeLaBase[],
+  vues: Pick<ReadonlyMap<string, number>, 'get'>,
+  rangee: (q: QuestionDeLaBase) => QuestionDeSerie,
+): QuestionDeSerie {
+  if (sorte === 'rebus') {
+    const r = laMoinsVue(contenu.rebus, x => PREFIXE_DU_REBUS + x.id, vues)
+    const g = r && gabaritDe(r.reponse)
+    if (r && g) {
+      return {
+        id: PREFIXE_DU_REBUS + r.id,
+        texte: QUESTION_DU_REBUS[r.genre],
+        // Sa seule réponse, la bonne : la page n'en reçoit que les cases et les tuiles (invariant 1), la correction la redit.
+        reponses: [r.reponse],
+        bonne: 0,
+        categorie: null,
+        anecdote: r.lecture,
+        niveau: 'moyen',
+        forme: 'lettres',
+        tiree: 'lettres',
+        rebus: r.emojis,
+        ...tuilesDe(g.lettres, Math.random),
+      }
+    }
+  }
+  const plats = contenu.plats.flatMap(p => parId.get(p.id) ?? [])
+  const q = laMoinsVue(plats, x => x.id, vues) ?? laMoinsVue(cuisine.filter(x => x.reponses.length > 2), x => x.id, vues) ?? laMoinsVue(toutes, x => x.id, vues)!
+  return { ...rangee(q), tiree: 'quatre' }
+}
+
+/** Parmi ces candidats, un jamais vu, au hasard ; sinon le plus anciennement vu. */
+function laMoinsVue<T>(candidats: readonly T[], idDe: (x: T) => string, vues: Pick<ReadonlyMap<string, number>, 'get'>): T | undefined {
+  const jamais: T[] = []
+  let ancienne: T | undefined
+  let le = Number.POSITIVE_INFINITY
+  for (const x of candidats) {
+    const v = vues.get(idDe(x))
+    if (v === undefined) jamais.push(x)
+    else if (v < le) {
+      le = v
+      ancienne = x
+    }
+  }
+  return jamais.length > 0 ? jamais[Math.floor(Math.random() * jamais.length)] : ancienne
 }
 
 /**

@@ -49,6 +49,7 @@ export function Corrige({
   bonne,
   choix,
   formes = true,
+  sous,
   children,
 }: {
   verdict: Verdict
@@ -62,6 +63,8 @@ export function Corrige({
   choix: number | null
   /** La forme de chaque réponse, celle de la salle : sans elles, une réponse composée de l'expédition, qui n'avait pas de choix. */
   formes?: boolean
+  /** Ce que l'intitulé désigne, juste sous lui : les emojis d'un rébus de l'expédition (« ces emojis »). */
+  sous?: ReactNode
   /** Ce qui suit les réponses : le temps, la part de la salle, l'anecdote. */
   children?: ReactNode
 }) {
@@ -77,6 +80,7 @@ export function Corrige({
         {points}
       </div>
       <p className="corrige-texte">{espacesFines(texte)}</p>
+      {sous}
       <div className="corrige-reponses">
         <p className="corrige-reponse corrige-bonne">
           <span className="corrige-legende">

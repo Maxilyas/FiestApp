@@ -25,6 +25,8 @@ export function SerieCorrigee({ correction }: { correction: CorrectionDeCampagne
           choix={c.choix}
           // Une réponse composée (l'expédition, v11) n'avait pas de choix : ni leurs formes, ni la sienne.
           formes={c.composee === undefined}
+          // Un rébus de l'expédition (une curiosité, v12) : « Quel personnage se cache derrière ces emojis ? » ne se relit qu'avec eux.
+          sous={c.rebus !== undefined && <p className="corrige-rebus">{c.rebus}</p>}
         >
           {/* Sa proposée fausse, « Faux » ne dit pas ce qu'il fallait répondre (un testeur, le 19 octobre 2026). */}
           {c.bonneReponse !== undefined && (

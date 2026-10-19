@@ -32,6 +32,7 @@ import {
 } from './jokers'
 import { SOUS_THEMES } from './etiquettes'
 import { LETTRES_EN_TROP, gabaritDe, signesDe, sonArticle, type CaseAComposer } from './lettres'
+import { CURIOSITE_DES_L_ETAGE, PART_DU_REBUS, RARETES_D_UNE_CURIOSITE, type SorteDeCuriosite } from './curiosites'
 import { lireNombreEnTete } from './nombres'
 import type { PalierTombe } from './jour'
 import type { CleDeSaison } from './saisons'
@@ -73,6 +74,7 @@ import {
   COUT_DES_ABYSSES,
   BOUCLIER_DE_LA_CUIRASSE,
   BOUCLIER_DE_LA_CUIRASSE_PLUS,
+  CARTES_PAR_OFFRE,
   CHANCE_D_UNE_OFFRE_AMELIOREE,
   ECUS_AU_DEPART,
   ENERGIE_D_UNE_FIOLE,
@@ -160,9 +162,9 @@ export const CHEMINS = 5
  * écus (l'étape 4) ; avant eux, il posait une question à la place d'une
  * échoppe ou de l'inconnu — les élites et les coffres sont venus avec les
  * jokers (l'étape 2). Une carte d'avant, gardée par son expédition, garde
- * ses escales.
+ * ses escales. La curiosité est venue avec la version 12 (`shared/curiosites.ts`).
  */
-export type SorteDEscale = 'question' | 'elite' | 'source' | 'coffre' | 'inconnu' | 'echoppe' | 'campement' | 'gardien'
+export type SorteDEscale = 'question' | 'elite' | 'source' | 'coffre' | 'inconnu' | 'echoppe' | 'campement' | 'gardien' | 'curiosite'
 
 /**
  * Ce que cache l'inconnu (l'étape 4) : un marchand — une échoppe —, un piège
@@ -204,6 +206,8 @@ export interface EscaleDeLaCarte {
   contenu?: ContenuDeLInconnu
   /** Un thème pointu dont son passeport n'a pas encore le tampon : la vue seule le pose, jamais la carte gardée. */
   aTamponner?: true
+  /** Une curiosité (v12) : ce qu'elle demande — d'où vient un plat, ou un rébus. La carte le dit avant qu'on y entre. */
+  curiosite?: SorteDeCuriosite
 }
 
 export interface CarteDUnActe {
@@ -317,7 +321,8 @@ const idDe = (etage: number, colonne: number) => `e${etage}${colonne}`
  * d'adversaires ; le hasard tiré reste le même, seule la sorte qu'il désigne
  * change. `formes`, de même : celles d'un départ des coups de pouce (v11) ont
  * leurs escales à composer, sur le même tirage — ni une escale, ni un thème ne
- * bouge.
+ * bouge. `curiosites` : un départ des curiosités (v12) en pose une, la carte
+ * faite, sur son propre fil (`poserLaCuriosite`).
  */
 export function carteDUnActe(
   graine: string,
@@ -326,6 +331,7 @@ export function carteDUnActe(
   fete?: string,
   poids: PoidsDesEscales = POIDS_DES_ESCALES,
   formes: PoidsDesFormes = POIDS_DES_FORMES,
+  curiosites = false,
 ): CarteDUnActe {
   const r = hasardDe(`${graine}:carte:${acte}`)
   const entier = (n: number) => Math.floor(r() * n)
@@ -420,6 +426,7 @@ export function carteDUnActe(
       delete cible.forme
     }
   }
+  if (curiosites) poserLaCuriosite(graine, acte, escales)
 
   const parId = new Map(escales.map(e => [e.id, e]))
   for (const e of escales) {
@@ -437,6 +444,26 @@ export function carteDUnActe(
   }
 }
 
+/**
+ * La curiosité d'un acte (v12) : une de ses escales à question, dès le
+ * deuxième étage, devient une escale bonus — le plat une fois sur deux, le
+ * rébus sinon (`PART_DU_REBUS`). Sur son propre fil, une fois la carte
+ * faite : tirée dans celui de la carte, elle aurait décalé la sorte, le thème
+ * et la forme de toutes les escales d'après — « tirée à part : aucune autre
+ * escale ne bouge » (le choix du propriétaire du 19 octobre 2026). Une carte
+ * sans question à changer n'en a pas.
+ */
+function poserLaCuriosite(graine: string, acte: number, escales: EscaleDeLaCarte[]): void {
+  const r = hasardDe(`${graine}:curiosite:${acte}`)
+  const candidates = escales.filter(e => e.sorte === 'question' && e.etage >= CURIOSITE_DES_L_ETAGE)
+  if (candidates.length === 0) return
+  const e = candidates[Math.floor(r() * candidates.length)]
+  e.sorte = 'curiosite'
+  e.curiosite = r() < PART_DU_REBUS ? 'rebus' : 'plat'
+  delete e.theme
+  delete e.forme
+}
+
 /** La marche d'une escale à question : celle de son acte, selon l'étage — l'élite celle du dessus, le gardien la sienne. */
 export function marcheDe(acte: number, e: Pick<EscaleDeLaCarte, 'sorte' | 'etage'>): Niveau {
   const m = MARCHES_DES_ACTES[Math.min(acte, ACTES - 1)]
@@ -445,8 +472,8 @@ export function marcheDe(acte: number, e: Pick<EscaleDeLaCarte, 'sorte' | 'etage
   return e.etage < ETAGES_DU_BAS ? m.bas : m.haut
 }
 
-/** Une escale où l'on répond : question, élite, source, gardien. */
-export const aUneQuestion = (s: SorteDEscale) => s === 'question' || s === 'elite' || s === 'source' || s === 'gardien'
+/** Une escale où l'on répond : question, élite, source, gardien — et la curiosité (v12). */
+export const aUneQuestion = (s: SorteDEscale) => s === 'question' || s === 'elite' || s === 'source' || s === 'gardien' || s === 'curiosite'
 
 /** Le numéro d'une carte, ce que la page en dit — « Carte n° 48 213 » — : la graine reste au serveur. */
 export function numeroDeLaCarte(graine: string): number {
@@ -914,9 +941,12 @@ export interface DepartDExpedition {
    * les coups de pouce (`VERSION_DES_COUPS_DE_POUCE`) — la forme à composer
    * sur ses cartes (`POIDS_DES_FORMES_A_COMPOSER`), L'initiale, Le repère et
    * La lettre au codex (`ECHELLE_DES_COUPS_DE_POUCE`) ; une expédition partie
-   * en version 10 n'en a ni escale ni carte.
+   * en version 10 n'en a ni escale ni carte. 12 : les curiosités
+   * (`VERSION_DES_CURIOSITES`) — une escale bonus par acte sur ses cartes, le
+   * plat ou le rébus (`shared/curiosites.ts`), et sa récompense ; une
+   * expédition partie en version 11 n'en a pas.
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -1204,6 +1234,8 @@ export interface OffreDeJokers {
   talisman?: string
   /** La fiole d'un coffre (le codex), à prendre à la place d'une carte — s'il lui reste une place pour elle. */
   fiole?: CleDeFiole
+  /** La récompense d'une curiosité trouvée (v12) : des cartes rares, une fiole, un talisman, un à prendre — laissée, elle ne rapporte rien. */
+  curiosite?: true
 }
 
 /** Une échoppe ouverte : ses trois jokers, son talisman — sa fiole, au codex —, et ce qu'il y a déjà acheté : `vie`, `talisman`, `retirer`, `fiole`, `ameliorer` ou la clé d'un joker. */
@@ -1573,6 +1605,32 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       ...(quelle === 'gardien' && { gardien: true as const }),
       ...(talisman && { talisman }),
       ...(quelle === 'coffre' && fioles && { fiole: fioleDeLOffre(depart.graine, rang, depart.v) }),
+    }
+  }
+  /**
+   * La récompense d'une curiosité trouvée (v12) : trois places, une à prendre
+   * — une carte rare de son codex, une fiole à leur niveau, un talisman au
+   * sien. Une fiole quand son sac est plein, un talisman quand il les a tous,
+   * ou une règle pas encore ouverte : une carte rare à leur place — une
+   * fiole qu'il ne peut pas prendre ne serait qu'une place perdue. Ni
+   * L'horizon, qui vide la récompense d'un combat, ni les écus d'un coffre
+   * laissé : la curiosité est à part. Du hasard de la graine et du rang de
+   * l'offre, comme les autres.
+   */
+  const offrirUneCuriosite = () => {
+    const rang = e.offres++
+    const talisman = talismans ? talismanDeLOffre(depart.graine, rang, e.talismans, true) : null
+    const fiole = fioles && e.fioles.length < FIOLES_MAX ? fioleDeLOffre(depart.graine, rang, depart.v) : undefined
+    const places = CARTES_PAR_OFFRE - (talisman ? 1 : 0) - (fiole ? 1 : 0)
+    const cartes = avecLeCodex
+      ? offreDuCodex(depart.graine, rang, depart.codex!.cartes, e.paquet, RARETES_D_UNE_CURIOSITE, false, style)
+      : offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), RARETES_D_UNE_CURIOSITE, true)
+    e.offre = {
+      jokers: ameliorees(cartes.slice(0, places), rang),
+      aPrendre: 1,
+      curiosite: true,
+      ...(talisman && { talisman }),
+      ...(fiole && { fiole }),
     }
   }
   /** Les écus d'une rencontre gagnée : ce que la carte annonçait de l'escale — doublés par le maillot jaune sur le sport. */
@@ -2158,12 +2216,19 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       e.categorie = null
       if (e.rencontre) jugerEnRencontre(i, juste)
       else {
-        // Une source (v5) : sans cartes ; retrouvée, elle rend du courage — ratée, elle ne coûte rien, le carnet la garde.
         e.coup = null
-        if (juste) {
+        const ici = e.ici ? escaleEnJeu(depart, e, e.ici) : undefined
+        if (ici?.sorte === 'curiosite') {
+          // Une curiosité (v12) : trouvée, sa récompense ; ratée, rien — pas même la série d'affilée de l'exploit, qu'elle ne fait
+          // ni ne coupe : « ratée, elle ne coûte rien ».
+          if (juste) {
+            e.justes++
+            offrirUneCuriosite()
+          }
+        } else if (juste) {
+          // Une source (v5) : sans cartes ; retrouvée, elle rend du courage — ratée, elle ne coûte rien, le carnet la garde.
           e.justes++
           deSuite()
-          const ici = e.ici ? escaleEnJeu(depart, e, e.ici) : undefined
           if (ici?.sorte === 'source') e.courage = Math.min(COURAGE_MAX, e.courage! + reposALAscension(COURAGE_D_UNE_SOURCE, ascension))
         } else e.affilee = 0
       }
@@ -2621,6 +2686,8 @@ export function refusDUneCarte(
     return refusSurLaCarte(depart, e, cle, geste, 'carte')
   }
   const c = contexteDeLaCarte(depart, e, questions)
+  // Une curiosité (v12) se répond sans cartes, comme une source : elles attendent les adversaires.
+  if (!c && e.enAttente !== null && e.ici !== null && escaleEnJeu(depart, e, e.ici)?.sorte === 'curiosite') return 'Une curiosité se répond sans cartes : garde-les pour les adversaires'
   if (!c) return depart.v >= VERSION_DE_LA_QUESTION_AU_CENTRE ? 'Elle se joue en rencontre, la question sous les yeux' : 'Elle se joue en rencontre'
   const refus = refusDeLaCarte(c, cle)
   if (refus) return refus
@@ -3163,6 +3230,8 @@ export interface QuestionDExpedition extends QuestionDeCampagne {
   composer?: QuestionAComposer
   /** Ce que les coups de pouce joués sur elle en disent (v11) : « Elle commence par S », « Son époque : les années 1240 ». */
   pouces?: string[]
+  /** Un rébus (une curiosité, v12) : ses emojis, en grand au-dessus de ses cases (`emojisDe` les sépare) ; sa réponse se compose. */
+  rebus?: string
 }
 
 /**

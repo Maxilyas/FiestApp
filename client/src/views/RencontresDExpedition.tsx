@@ -12,6 +12,7 @@ import { useModale } from '../modale'
 import { iconeDuSujet } from '../iconeDuSujet'
 import { couleurDePiste, pourcentDeChance } from '../../../shared/sentiers'
 import { sujetParCle } from '../../../shared/sujets'
+import { ceQueRapporteUneCuriosite } from '../../../shared/curiosites'
 import { CATEGORIES } from '../../../shared/categories'
 import type { Niveau } from '../../../shared/campagne'
 import type { RareteDeTheme } from '../../../shared/themes'
@@ -70,6 +71,7 @@ import {
   STYLES_EN_QUESTION,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_CURIOSITES,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_JEU_COMPLET,
   ameliorer,
@@ -2097,6 +2099,8 @@ function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, 
   const ouverte = (regle: RegleDuCodex) => !codex || codex.regles.includes(regle)
   // Les coups de pouce (v11) : la forme à composer et ses trois cartes ; une expédition de la version 10 ne les a pas.
   const aComposer = v >= VERSION_DES_COUPS_DE_POUCE
+  // Les curiosités (v12) : une escale bonus par acte ; une expédition de la version 11 n'en a pas.
+  const curiosites = v >= VERSION_DES_CURIOSITES
   const avant = reglesDesRencontres([CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex, ascension, [0, 0, 0], true, VERSION_DES_HUIT_FAMILLES)
   const neuves: Partial<Record<SectionDesRegles['cle'], SectionDesRegles | null>> = {
     rencontre: {
@@ -2200,6 +2204,15 @@ function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, 
       // Une amélioration ne baisse plus de coût : elle ajoute un cran, ou une carte.
       const [, ...reste] = s.lignes
       return [{ ...s, lignes: [{ icone: 'arrow-up' as const, texte: 'Une carte améliorée fait la même chose, en mieux : un cran de plus, une carte de plus… Son nom finit par « + ».' }, ...reste] }]
+    }
+    if (s.cle === 'plan' && curiosites) {
+      // La curiosité, après le coffre : une escale de plus sur le plan, dite des mots de sa carte.
+      const apres = s.lignes.findIndex(l => l.icone === 'coffre') + 1
+      const ligne = {
+        icone: 'utensils' as const,
+        texte: `Une curiosité, une par acte : d’où vient un plat, ou un rébus en emojis à composer — sans adversaire ni cartes. Trouvée, ${ceQueRapporteUneCuriosite(ouverte('fioles'), ouverte('talismans'))} au choix ; ratée, rien de perdu.`,
+      }
+      return [{ ...s, lignes: [...s.lignes.slice(0, apres), ligne, ...s.lignes.slice(apres)] }]
     }
     if (!(s.cle in neuves)) return [s]
     const neuve = neuves[s.cle]

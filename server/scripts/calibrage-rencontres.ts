@@ -166,6 +166,7 @@ import {
   SAVOIR_DES_MARCHES,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_CURIOSITES,
   ameliorer,
   attaqueEnQuestion,
   baseDe,
@@ -196,18 +197,20 @@ function option(nom: string, defaut: number): number {
 const EXPEDITIONS = option('expeditions', 1000)
 /**
  * La version des règles mesurée : 9 d'office, celle des départs de la
- * production — les huit familles ; `--version 11` mesure les coups de pouce
- * et les lettres, que la préproduction joue d'abord, `--version 10` la
- * question au centre d'avant eux ; `--version 8` remesure le jeu complet
- * d'avant les huit familles, `--version 7` le codex d'avant lui, `--version 6`
- * la main qui grandit avec les actes sans le codex, `--version 5` la main de
- * cinq cartes d'emblée.
+ * production — les huit familles ; `--version 12` mesure les curiosités, que
+ * la préproduction joue d'abord, `--version 11` les coups de pouce et les
+ * lettres d'avant elles, `--version 10` la question au centre d'avant eux ;
+ * `--version 8` remesure le jeu complet d'avant les huit familles,
+ * `--version 7` le codex d'avant lui, `--version 6` la main qui grandit avec
+ * les actes sans le codex, `--version 5` la main de cinq cartes d'emblée.
  */
-const VERSION = ([5, 6, 7, 8, 9, 10, 11] as const).find(v => v === option('version', 9)) ?? 9
+const VERSION = ([5, 6, 7, 8, 9, 10, 11, 12] as const).find(v => v === option('version', 9)) ?? 9
 /** La question au centre (v10) : la question d'abord, l'adversaire en crans, une carte par question — un autre joueur, plus bas. */
 const EN_QUESTION = VERSION >= VERSION_DE_LA_QUESTION_AU_CENTRE
 /** Les coups de pouce et les lettres (v11) : une escale sur cinq à composer dès l'étage 2, L'initiale, Le repère et La lettre. */
 const A_COMPOSER = VERSION >= VERSION_DES_COUPS_DE_POUCE
+/** Les curiosités (v12) : une escale bonus par acte, le plat — sa chance sur la cuisine — ou le rébus, composé à sa chance moyenne. */
+const CURIOSITES = VERSION >= VERSION_DES_CURIOSITES
 
 const logit = (p: number) => Math.log(p / (1 - p))
 const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
@@ -637,9 +640,10 @@ interface Cas {
 
 function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESUREE, seule: string | null = SEULE): Issue {
   const sujets = SUJETS.map(s => s.cle).sort()
-  // Les cartes du départ, comme le serveur les tire : à plus d'adversaires dès la version 6, une escale sur cinq à composer dès la 11.
+  // Les cartes du départ, comme le serveur les tire : à plus d'adversaires dès la version 6, une escale sur cinq à composer dès la 11,
+  // une curiosité par acte dès la 12.
   const cartes: CarteDUnActe[] = Array.from({ length: ACTES }, (_, acte) =>
-    carteDUnActe(graine, acte, sujets, undefined, VERSION >= 6 ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES, A_COMPOSER ? POIDS_DES_FORMES_A_COMPOSER : POIDS_DES_FORMES),
+    carteDUnActe(graine, acte, sujets, undefined, VERSION >= 6 ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES, A_COMPOSER ? POIDS_DES_FORMES_A_COMPOSER : POIDS_DES_FORMES, CURIOSITES),
   )
   cartes.forEach((carte, acte) => {
     for (const e of carte.escales) if (e.sorte === 'question' || e.sorte === 'elite' || e.sorte === 'source') e.chance = chanceAnnoncee(j, acte, e)
@@ -708,10 +712,14 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       p4 = chanceSur(j, marche, (categorie = au(CATEGORIES)))
     } else {
       const escale = escaleEnJeu(depart, e, t.escale)!
-      marche = escale.sorte === 'source' ? 'facile' : marcheDe(t.acte, escale)
+      marche = escale.sorte === 'source' ? 'facile' : escale.sorte === 'curiosite' ? 'moyen' : marcheDe(t.acte, escale)
       const th = escale.theme
       if (escale.sorte === 'question' || escale.sorte === 'elite') forme = escale.forme
-      if (escale.sorte === 'source') p4 = chanceSur(j, 'moyen', (categorie = au(CATEGORIES)))
+      // Une curiosité (v12) : le plat, d'une marche moyenne de la cuisine ; le rébus, à composer, à sa chance moyenne.
+      if (escale.sorte === 'curiosite') {
+        if (escale.curiosite === 'rebus') forme = 'lettres'
+        p4 = chanceSur(j, 'moyen', (categorie = escale.curiosite === 'rebus' ? au(CATEGORIES) : 'Cuisine'))
+      } else if (escale.sorte === 'source') p4 = chanceSur(j, 'moyen', (categorie = au(CATEGORIES)))
       else if (t.categorie) p4 = chanceSur(j, marche, (categorie = t.categorie))
       else if (!th) p4 = chanceSur(j, marche, (categorie = au(CATEGORIES)))
       else if ('sujet' in th) p4 = chanceSur(j, marche, (categorie = au(CATEGORIES)), th.sujet)

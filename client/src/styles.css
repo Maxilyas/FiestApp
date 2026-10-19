@@ -6664,6 +6664,8 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .corrige-points { flex: none; font-family: var(--serif); font-weight: 600; font-size: 1.15rem; line-height: 1; white-space: nowrap; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
 .corrige.ok .corrige-points { color: var(--accent-text); }
 .corrige-texte { font-size: 1.05rem; line-height: 1.35; }
+/* Les emojis d'un rébus de l'expédition, sous l'intitulé qui les désigne : en grand, comme quand on l'a joué. */
+.corrige-rebus { text-align: center; font-size: 2rem; line-height: 1.2; letter-spacing: 0.12em; }
 .corrige-reponses { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .corrige-reponse {
   display: flex;
@@ -9343,6 +9345,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-point.exp-gardien .exp-medaillon { font-size: 30px; }
 .exp-point.exp-inconnu { border-style: dashed; }
 .exp-point.exp-piege { border-style: solid; border-color: var(--alert); color: var(--alert); }
+/* Une curiosité (v12), une escale bonus : le bleu des collections — ni l'or du campement, ni le rouge d'un piège. Il y est : l'or de « tu es ici ». */
+.exp-point.exp-curiosite { border-color: var(--anneau-collection-haut); color: var(--anneau-collection-haut); }
+.exp-point.exp-curiosite.exp-ici { border-color: var(--accent); color: var(--on-accent); }
 .exp-point-tampon { position: absolute; top: -3px; left: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1.5px var(--bg-raised); }
 .exp-petit-depart { position: absolute; left: 50%; display: inline-flex; align-items: center; gap: 3px; height: 18px; margin-top: -9px; padding: 0 8px; translate: -50% 0; border-radius: var(--radius-pill); color: var(--muted); font-size: var(--t-label); font-weight: 700; white-space: nowrap; }
 .exp-petit-depart .icon { width: 11px; height: 11px; }
@@ -9367,6 +9372,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-carte-escale.exp-gardien .exp-carte-embleme { width: 44px; height: 44px; border: 0; background: none; }
 .exp-carte-escale.exp-gardien .exp-medaillon { font-size: 44px; }
 .exp-carte-escale.exp-piege .exp-carte-embleme { border-color: var(--alert); color: var(--alert); }
+.exp-carte-escale.exp-curiosite .exp-carte-embleme { border-color: var(--anneau-collection-haut); color: var(--anneau-collection-haut); }
+.exp-carte-escale.exp-curiosite .exp-carte-sorte { color: var(--anneau-collection-haut); }
 .exp-carte-nom { display: -webkit-box; max-width: 100%; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-family: var(--serif); font-size: 0.95rem; font-weight: 600; line-height: 1.1; hyphens: auto; overflow-wrap: break-word; }
 /* Sa chance et ses gains, au pied : sur une ligne même à quatre cartes ; l'élite, qui en a trois, sur deux. */
 .exp-carte-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 5px; margin-top: auto; font-size: 0.75rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; line-height: 1.2; }
@@ -9407,6 +9414,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-ou { margin: 0; }
 /* La règle d'une source, d'une élite. Pas `.exp-source` ni `.exp-elite` : ce sont les classes d'une escale de la carte (`exp-${sorte}`), que `.exp-source` décentrait. */
 .exp-regle { margin: 0; padding: 7px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); color: var(--ink); line-height: 1.35; }
+.exp-regle.exp-regle-curiosite { border-color: color-mix(in srgb, var(--anneau-collection-haut) 55%, transparent); }
+/* Un rébus (v12) : ses emojis en grand, chacun dans sa case, comme « 4 images 1 mot » — quatre tiennent sur une ligne en 360 de large. */
+.exp-rebus { display: flex; justify-content: center; gap: 8px; margin: 2px 0 0; }
+.exp-rebus > span { display: grid; place-items: center; width: 64px; height: 64px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-xs); background: var(--surface-strong); font-size: 2.4rem; line-height: 1; }
 .exp-gardien-tete { display: flex; align-items: center; gap: 12px; }
 .exp-gardien-tete p { margin: 0; }
 .exp-medaillon-gardien { font-size: 64px; }

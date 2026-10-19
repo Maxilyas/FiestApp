@@ -29,6 +29,7 @@ import { NOM_NIVEAU, SIGNALEMENT_MAX, VIES, type CorrectionDeCampagne, type Nive
 import { couleurDePiste } from '../../../shared/sentiers'
 import { sujetParCle } from '../../../shared/sujets'
 import { compositionDite } from '../../../shared/lettres'
+import { NOM_DE_LA_CURIOSITE, ceQueRapporteUneCuriosite, emojisDe } from '../../../shared/curiosites'
 import { saison as laSaison, type Saison } from '../../../shared/saisons'
 import type { RareteDeTheme } from '../../../shared/themes'
 import { hautFait } from '../../../shared/hautsfaits'
@@ -98,7 +99,7 @@ import {
   STYLES,
   STYLES_EN_QUESTION,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
-  VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_CURIOSITES,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
@@ -256,8 +257,18 @@ const categoriesDuMelange = (e: EscaleDeLaCarte): readonly string[] => (e.theme 
 /** Ce que cache l'inconnu, en un mot sous l'escale. */
 const CONTENU: Record<ContenuDeLInconnu, string> = { marchand: 'Marchand', piege: 'Piège', passage: 'De passage' }
 
+/**
+ * Ce que rapporte une curiosité (v12), aux règles de son codex : celles que
+ * le pli tire — une carte rare, et la fiole et le talisman à leur niveau.
+ */
+const recompenseDeLaCuriosite = (vue: Pick<VueDeLExpedition, 'cartes'>) => {
+  const codex = vue.cartes?.codex
+  return ceQueRapporteUneCuriosite(!codex || codex.regles.includes('fioles'), !codex || codex.regles.includes('talismans'))
+}
+
 /** Ce qu'on lit sous l'escale, sur la carte. */
 function etiquette(e: EscaleDeLaCarte, acte: number, gardiens: readonly { cle: string }[]): string {
+  if (e.sorte === 'curiosite') return 'Curiosité'
   if (e.sorte === 'source') return 'Source'
   if (e.sorte === 'campement') return 'Campement'
   if (e.sorte === 'coffre') return 'Coffre'
@@ -274,6 +285,8 @@ function etiquette(e: EscaleDeLaCarte, acte: number, gardiens: readonly { cle: s
  * échoppe ; l'inconnu, un point d'interrogation — dévoilé, ce qu'il cache.
  */
 function iconeDe(e: EscaleDeLaCarte): IconName {
+  // Une curiosité (v12) : le couvert du plat, l'image du rébus.
+  if (e.sorte === 'curiosite') return e.curiosite === 'rebus' ? 'image' : 'utensils'
   if (e.sorte === 'source') return 'source'
   if (e.sorte === 'campement') return 'campement'
   if (e.sorte === 'coffre') return 'coffre'
@@ -352,6 +365,10 @@ function decrireEnRencontres(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'ac
   const chance = e.chance === undefined || court ? '' : ` · ${pourcents(e.chance)} par question ${qui}${prix}`
   // Son cran de l'Ascension : les points des adversaires et ce que rend un repos s'y lisent, comme le pli les compte.
   const cran = vue.cartes?.ascension ?? 0
+  if (e.sorte === 'curiosite') {
+    const quoi = e.curiosite === 'rebus' ? 'un rébus en emojis, à composer' : 'un plat dont tu devines d’où il vient'
+    return `Une curiosité : ${quoi}, sans adversaire. Trouvée, ${recompenseDeLaCuriosite(vue)} au choix ; ratée, elle ne coûte rien`
+  }
   if (e.sorte === 'source') return `Une source : une question de ton carnet. Retrouvée, elle te rend ${reposALAscension(COURAGE_D_UNE_SOURCE, cran)} de courage ; ratée, elle ne coûte rien${chance}`
   if (e.sorte === 'campement') {
     const repos = `Un campement : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, cran)} de courage`
@@ -1198,9 +1215,10 @@ export function Depart({
   const styles = page.prochaine.codex?.styles ?? []
   const [style, setStyle] = useState(() => styleRetenu(page.prochaine.codex?.styles ?? []))
   const enRencontres = vue ? vue.courage !== undefined : ouvertes
-  // La version que ses pièces lisent : celle de l'expédition en route, sinon celle qui partirait — la question au centre et ses
-  // coups de pouce (v11), là où la page la dit ouverte. Ses cartes, son codex, ses styles et son Ascension en dépendent.
-  const v = vue ? (vue.cartes?.v ?? VERSION_DU_CODEX) : page.prochaine.questionAuCentre ? VERSION_DES_COUPS_DE_POUCE : VERSION_DES_HUIT_FAMILLES
+  // La version que ses pièces lisent : celle de l'expédition en route, sinon celle qui partirait — la question au centre, ses
+  // coups de pouce et ses curiosités (v12), là où la page la dit ouverte. Ses cartes, son codex, ses styles, son Ascension et
+  // ses règles en dépendent.
+  const v = vue ? (vue.cartes?.v ?? VERSION_DU_CODEX) : page.prochaine.questionAuCentre ? VERSION_DES_CURIOSITES : VERSION_DES_HUIT_FAMILLES
   // Le codex (v7) : celui qu'elle a figé en route, celui qui partirait avant ; aux règles d'avant, aucun.
   const codex = page.prochaine.codex
   // L'Ascension se choisit une fois une expédition menée au bout ; un serveur d'avant elle ne dit rien de ses crans.
@@ -1816,6 +1834,8 @@ function faceDeLEscale(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 
       return { sorte: 'Élite', nom: nomCourtDuTheme(e.theme), gains: [...joker, ...prix, ...tampon] }
     case 'source':
       return { sorte: 'Source', nom: 'Ton carnet', gains: [vie(v5 ? `+${reposALAscension(COURAGE_D_UNE_SOURCE, cran)}` : '+1')] }
+    case 'curiosite':
+      return { sorte: 'Curiosité', nom: NOM_DE_LA_CURIOSITE[e.curiosite ?? 'plat'], gains: joker }
     case 'campement':
       return { sorte: 'Campement', nom: 'Le repos', gains: [vie(v5 ? `+${reposALAscension(COURAGE_D_UN_CAMPEMENT, cran)}` : '+1')] }
     case 'coffre':
@@ -1865,8 +1885,10 @@ function CarteDEscale({
   // l'élite et le gardien disent leur sorte, et une escale sans adversaire se nomme d'un mot. Sa description dit le reste.
   const v5 = !!vue.cartes
   const sansAdversaire = e.sorte !== 'question' && e.sorte !== 'elite' && e.sorte !== 'gardien'
-  const sorte = !v5 || (!sansAdversaire && e.sorte !== 'question') ? face.sorte : null
-  const nom = !v5 || !sansAdversaire ? face.nom : e.sorte === 'inconnu' ? (e.contenu ? face.nom : 'Inconnu') : face.sorte
+  // Une curiosité (v12) dit sa sorte et ce qu'elle demande : un plat ou un rébus, c'est ce qu'on choisit en la prenant.
+  const curiosite = e.sorte === 'curiosite'
+  const sorte = !v5 || (!sansAdversaire && e.sorte !== 'question') || curiosite ? face.sorte : null
+  const nom = !v5 || !sansAdversaire || curiosite ? face.nom : e.sorte === 'inconnu' ? (e.contenu ? face.nom : 'Inconnu') : face.sorte
   // Un mélange montre ses catégories, chacune son emblème (le 19 octobre 2026 : « on ne peut pas voir le mélange » sans ouvrir le plan).
   const melange = categoriesDuMelange(e)
   return (
@@ -2621,9 +2643,10 @@ export function ComposerLaReponse({ composer, busy, onValider }: { composer: Que
  * l'indice de l'Énigme, ce que dit l'Oracle, ce que coûterait une erreur.
  * Sa forme (l'étape 3, la maquette 11) : six choix, un vrai ou faux et sa
  * réponse proposée, un dévoilement mot à mot. Puis sa révélation : la bonne
- * réponse, l'anecdote, et la suite.
+ * réponse, l'anecdote, et la suite. Une curiosité (v12) : son en-tête, ce
+ * qu'elle rapporte, les emojis d'un rébus en grand.
  */
-function Escale({
+export function Escale({
   vue,
   avant,
   question: q,
@@ -2668,6 +2691,8 @@ function Escale({
   const escale = !auGardien_ && carte ? carte.escales.find(e => e.id === q.escale) : undefined
   const source = escale?.sorte === 'source'
   const elite = escale?.sorte === 'elite'
+  // Une curiosité (v12) : un plat, un rébus — une escale bonus, sans adversaire ni cartes.
+  const curiosite = escale?.sorte === 'curiosite' ? (escale.curiosite ?? 'plat') : null
   const m = MARCHES_DES_ACTES[acte]
   // Les crans du gardien : ceux qu'il a trouvés — à la révélation, la réponse comprise.
   const trouvees = auGardien_ ? (r ? (r.vaincu ? m.aTrouver : (r.expedition.gardien?.trouvees ?? m.aTrouver)) : (vue.gardien?.trouvees ?? 0)) : 0
@@ -2744,6 +2769,7 @@ function Escale({
           </p>
         )}
         {elite && !r && !rencontre && <p className="exp-regle small">{espacesFines('Une élite : trouvée, un joker au choix pour ton paquet ; ratée, une vie.')}</p>}
+        {curiosite && !r && <p className="exp-regle exp-regle-curiosite small">{espacesFines(`Une curiosité : trouvée, ${recompenseDeLaCuriosite(vue)} au choix ; ratée, rien de perdu.`)}</p>}
         {autre && (
           <div className="exp-visages" role="group" aria-label="Deux visages : la question à laquelle tu réponds">
             <button type="button" className={'pill-btn' + (visage === 0 ? ' active' : '')} aria-pressed={visage === 0} onClick={() => setVisage(0)}>
@@ -2754,7 +2780,9 @@ function Escale({
             </button>
           </div>
         )}
-        <span className="label quiz-categorie">{[theme, affichee.categorie, NOM_NIVEAU[affichee.niveau]].filter(Boolean).join(' · ')}</span>
+        <span className="label quiz-categorie">
+          {curiosite ? `Curiosité · ${NOM_DE_LA_CURIOSITE[curiosite]}` : [theme, affichee.categorie, NOM_NIVEAU[affichee.niveau]].filter(Boolean).join(' · ')}
+        </span>
         {enDevoilement ? (
           <>
             {/* Sa taille se lit sur son compte de mots : elle ne change pas à chaque mot qui arrive. */}
@@ -2769,6 +2797,14 @@ function Escale({
           </>
         ) : (
           <h2 className={'quiz-question' + questionSizeClass(texte)}>{espacesFines(texte)}</h2>
+        )}
+        {/* Un rébus (v12) : ses emojis en grand, chacun dans sa case, comme « 4 images 1 mot » ; la réponse se compose dessous. */}
+        {affichee.rebus && (
+          <p className="exp-rebus">
+            {(emojisDe(affichee.rebus) ?? [affichee.rebus]).map((x, i) => (
+              <span key={i}>{x}</span>
+            ))}
+          </p>
         )}
         {affichee.proposee !== undefined && (
           <p className="exp-proposee">
@@ -2817,6 +2853,7 @@ function Escale({
             choix={choix}
             composee={composee}
             source={source}
+            curiosite={!!curiosite}
             finie={finie}
             gardien={gardien}
             adversaire={rencontre?.adversaire}
@@ -2903,7 +2940,10 @@ function Escale({
  * ont servi : Sursis et La mue la sauvent, Peau de feu aussi, Renaissance
  * fait renaître, Tout ou rien en prend deux.
  */
-function verdictDe(r: ReponseDExpedition, avant: VueDeLExpedition | null, source: boolean, finie: boolean): string {
+function verdictDe(r: ReponseDExpedition, avant: VueDeLExpedition | null, source: boolean, finie: boolean, curiosite = false): string {
+  // Une curiosité (v12) : trouvée, sa récompense vient ; ratée, elle n'a rien coûté.
+  // Le « +10 XP » suit le verdict : « Ta récompense t'attend +10 XP » se lisait comme une récompense de dix points.
+  if (curiosite) return r.juste ? 'Bien vu, ta récompense t’attend !' : 'Raté… une curiosité ne coûte rien'
   // Une source, aux rencontres : pas d'adversaire, pas de coup — retrouvée, elle rend du courage ; ratée, rien.
   if (r.expedition.courage !== undefined) {
     const gagne = r.expedition.courage - (avant?.courage ?? r.expedition.courage)
@@ -3004,6 +3044,7 @@ function Revelation({
   choix,
   composee,
   source,
+  curiosite = false,
   finie,
   gardien,
   adversaire,
@@ -3016,6 +3057,8 @@ function Revelation({
   choix: number | null
   composee?: string
   source: boolean
+  /** Une curiosité (v12) : ni adversaire ni courage — sa récompense, ou rien. */
+  curiosite?: boolean
   finie: boolean
   gardien: string
   /** En rencontre : l'adversaire, que la réponse a peut-être fait tomber. */
@@ -3025,7 +3068,7 @@ function Revelation({
 }) {
   // En rencontre, le coup de la réponse dit ce qu'elle a brisé ou coûté : ses lignes remplacent les écus de l'escale — en crans, dans la question au centre.
   const coup = r.coup ? verdictDeLaRencontre(r.coup, adversaire ?? 'L’adversaire', finie, !!avant?.rencontre?.crans) : null
-  const verdict = coup ? coup.titre : verdictDe(r, avant, source, finie)
+  const verdict = coup ? coup.titre : verdictDe(r, avant, source, finie, curiosite)
   // L'exploit que cette réponse vient de faire (le codex) : neuf pour son codex, et pas encore dit à la question d'avant.
   const dits = avant ? exploitsNeufs(avant) : []
   const exploits = exploitsNeufs(r.expedition).filter(x => !dits.includes(x))
@@ -3034,9 +3077,11 @@ function Revelation({
     : finie
       ? 'Voir la fin'
       : r.expedition.offre
-        ? r.expedition.cartes
-          ? 'Choisir ta carte'
-          : 'Choisir ton joker'
+        ? r.expedition.offre.curiosite
+          ? 'Choisir ta récompense'
+          : r.expedition.cartes
+            ? 'Choisir ta carte'
+            : 'Choisir ton joker'
         : r.expedition.question || r.expedition.rencontre
           ? 'Question suivante'
           : 'Retour au plan'
@@ -3048,7 +3093,8 @@ function Revelation({
         {r.juste ? (
           <>
             <span className="big">🎊 +1</span>
-            <p>{espacesFines(`${verdict}${r.xp > 0 ? ` +${r.xp} XP` : ''}`)}</p>
+            {/* « +10 XP » d'un bloc : après un verdict long — une curiosité —, « XP » passait seul à la ligne. */}
+            <p>{espacesFines(`${verdict}${r.xp > 0 ? ` +${r.xp} XP` : ''}`)}</p>
             {/* Ses écus (l'étape 4) : ceux de l'escale, et ceux du gardien qui tombe — jamais des confettis. En rencontre, le coup les dit. */}
             {r.ecus !== undefined && !coup && (
               <p className="exp-gain-ecus">
@@ -3105,9 +3151,12 @@ function Revelation({
       {gardien && r.vaincu === undefined && q.escale === GARDIEN && !finie && r.expedition.gardien && (
         <p className="muted small centre">{`Encore ${r.expedition.gardien.aTrouver - r.expedition.gardien.trouvees} pour vaincre ${leGardien(gardien)}`}</p>
       )}
-      <button type="button" className="lien-signaler link-inline small" onClick={onSignaler}>
-        Signaler une erreur dans cette question
-      </button>
+      {/* Un rébus (v12) n'est pas une question de la campagne : le serveur ne le prendrait pas, rien ne le propose. */}
+      {!q.rebus && (
+        <button type="button" className="lien-signaler link-inline small" onClick={onSignaler}>
+          Signaler une erreur dans cette question
+        </button>
+      )}
     </>
   )
 }
@@ -3185,7 +3234,8 @@ function Offre({
   // Aux rencontres, une carte de son paquet touchée se montre en grand.
   const [regardee, setRegardee] = useState<string | null>(null)
   const ici = vue.ici ? vue.carte?.escales.find(e => e.id === vue.ici) : undefined
-  const vide = offre.jokers.length === 0
+  // La récompense d'une curiosité (v12) peut n'avoir qu'une carte, à côté d'une fiole et d'un talisman : elle n'est vide que sans rien.
+  const vide = offre.jokers.length === 0 && !(offre.curiosite && (offre.talisman || offre.fiole))
   const deux = offre.aPrendre > 1
   // Aux rencontres, l'offre est de cartes — celle d'un adversaire tombé, d'une élite, d'un coffre.
   const v5 = !!vue.cartes
@@ -3210,17 +3260,19 @@ function Offre({
             {/* Le trésor d'un gardien vaincu (le codex) : une carte légendaire de son codex parmi les trois — l'acte d'après est déjà ouvert. */}
             {offre.gardien
               ? `Le trésor ${duGardien(vue.gardiens[vue.acte - 1]?.cle ?? '')}`
-              : ici?.sorte === 'coffre'
-                ? 'Un coffre'
-                : ici?.sorte === 'elite'
-                  ? 'L’élite est tombée'
-                  : 'L’adversaire est tombé'}
+              : offre.curiosite
+                ? 'Curiosité trouvée'
+                : ici?.sorte === 'coffre'
+                  ? 'Un coffre'
+                  : ici?.sorte === 'elite'
+                    ? 'L’élite est tombée'
+                    : 'L’adversaire est tombé'}
           </span>
-          <h1>{vide ? 'La récompense est vide' : 'Choisis une carte'}</h1>
+          <h1>{vide ? 'La récompense est vide' : offre.curiosite ? 'Choisis ta récompense' : 'Choisis une carte'}</h1>
           {/* Ce que devient la carte prise est dans les règles ; seule la récompense vide se dit, qui surprend. */}
           {vide && <p className="muted">{espacesFines('L’horizon l’a vidée : c’était le prix de ton courage rendu.')}</p>}
         </header>
-        {!vide && <CartesAPrendre cles={offre.jokers} prises={pris} onToucher={toucher} />}
+        {!vide && offre.jokers.length > 0 && <CartesAPrendre cles={offre.jokers} prises={pris} onToucher={toucher} />}
         {!vide && t && (
           <div className="exp-offres">
             {t && (
@@ -3298,7 +3350,7 @@ function Offre({
               }
             }}
           >
-            {vide ? 'Continuer' : pris.length === 0 ? 'Choisis une carte' : `Prendre « ${nom(pris[0])} »`}
+            {vide ? 'Continuer' : pris.length === 0 ? (offre.curiosite ? 'Choisis ta récompense' : 'Choisis une carte') : `Prendre « ${nom(pris[0])} »`}
           </button>
           {!vide && (
             <button type="button" className="btn btn-ghost btn-block" aria-disabled={busy || undefined} onClick={() => onPrendre([])}>

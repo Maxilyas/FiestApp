@@ -636,6 +636,8 @@ export interface CorrectionDeCampagne {
    * ni choix, ni leurs formes.
    */
   composee?: string
+  /** Un rébus de l'expédition (une curiosité, v12) : ses emojis, que l'intitulé désigne. */
+  rebus?: string
 }
 
 // ── Le défi de la semaine ─────────────────────────────────────────────────

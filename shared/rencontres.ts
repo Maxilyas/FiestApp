@@ -564,6 +564,17 @@ export const QUESTION_AU_CENTRE_EN_PRODUCTION = false
  */
 export const VERSION_DES_COUPS_DE_POUCE = 11
 
+/**
+ * La version du départ qui pose les curiosités (le 19 octobre 2026, l'étape 4
+ * du plan — le testeur : « des trucs bonus sur le chemin qui te filent des
+ * récompenses cool ») : une escale bonus par acte dès l'étage 2, un plat dont
+ * on devine d'où il vient ou un rébus à composer (`shared/curiosites.ts`).
+ * Une sorte d'escale de plus change ce qu'une carte tire : une expédition
+ * partie en version 11 finit sans elles. En préproduction avec la question
+ * au centre. Le brief : `retours/2026-10-19/les-curiosites.md`.
+ */
+export const VERSION_DES_CURIOSITES = 12
+
 /** Le paquet de tous, et les neutres que les offres proposent. */
 const NEUTRES: readonly CarteDeRencontre[] = [
   { cle: 'concentration', nom: 'Concentration', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: 'Si tu réponds juste, l’adversaire perd 4 de plus.', resume: '+4 si juste', valeur: '+4' },
