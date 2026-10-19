@@ -17,6 +17,8 @@ import { GARDIEN, pliDeLExpedition, vueDeLaRencontre, type CarteDUnActe, type De
 import {
   CARTES_DES_RENCONTRES,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_HUIT_FAMILLES,
   ameliorer,
   carteALaVersion,
   carteDeRencontre,
@@ -170,7 +172,11 @@ const TOUTES_LES_VERSIONS: CarteDeRencontre[] = CARTES_DES_RENCONTRES.flatMap(c 
   c,
   ...(c.avantLeCodex ? [{ ...c, ...c.avantLeCodex }] : []),
   ...(c.amelioration ? [carteDeRencontre(ameliorer(c.cle))!] : []),
-  ...[c.cle, ...(c.amelioration ? [ameliorer(c.cle)] : [])].filter(seJoueEnQuestion).map(cle => carteALaVersion(cle, VERSION_DE_LA_QUESTION_AU_CENTRE)!),
+  ...[c.cle, ...(c.amelioration ? [ameliorer(c.cle)] : [])].filter(cle => seJoueEnQuestion(cle)).map(cle => carteALaVersion(cle, VERSION_DE_LA_QUESTION_AU_CENTRE)!),
+  // Les coups de pouce (v11), nés dans la question au centre : à leur version seulement — leur exemplaire « + » aussi.
+  ...[c.cle, ameliorer(c.cle)]
+    .filter(cle => !seJoueEnQuestion(cle) && seJoueEnQuestion(cle, VERSION_DES_COUPS_DE_POUCE))
+    .map(cle => carteALaVersion(cle, VERSION_DES_COUPS_DE_POUCE)!),
 ])
 
 test('chaque carte se résume en deux lignes de neuf signes, et son chiffre tient dans son médaillon', () => {
@@ -423,18 +429,31 @@ test('l’offre : trois vraies cartes côte à côte ; la touchée s’éclaire,
 
 // ── Le codex et le plan ─────────────────────────────────────────────────────
 
+/**
+ * Les cartes de la production — la version 9 — : la feuille du codex ne
+ * montre que celles de sa version (`carteALaVersion`), et les coups de pouce
+ * (v11) n'y sont pas.
+ */
+const DE_LA_PRODUCTION = CARTES_DES_RENCONTRES.filter(c => (c.depuis ?? 0) <= VERSION_DES_HUIT_FAMILLES)
+
+/** La feuille du codex à une version, comme la page la pose (`VersionDesCartes`) : celle de la production d'office. */
+async function rendreLeCodex(props: Record<string, unknown>, v = VERSION_DES_HUIT_FAMILLES): Promise<string> {
+  const { FeuilleDuCodex, VersionDesCartes } = (await pieces()) as unknown as { FeuilleDuCodex: Composant; VersionDesCartes: React.Context<number> }
+  return rendre((() => React.createElement(VersionDesCartes.Provider, { value: v }, React.createElement(FeuilleDuCodex, props))) as Composant, {})
+}
+
 test('le codex : toutes les cartes de l’expédition, une page par rareté en onglets qui comptent ; touchée, une carte se lève', async () => {
   // « Est-ce que l'on ferait pas un codex de carte global aussi, avec de commun à légendaire ? » (le 18 octobre 2026)
   const { FeuilleDuCodex } = (await pieces()) as unknown as { FeuilleDuCodex: Composant }
   assert.equal(typeof FeuilleDuCodex, 'function', 'le codex est une feuille (`FeuilleDuCodex`)')
-  const html = await rendre(FeuilleDuCodex, { onFermer: rien })
+  const html = await rendreLeCodex({ onFermer: rien })
   assert.match(html, /class="carte-feuille feuille-codex" role="dialog" aria-modal="true" aria-label="Ton codex"/)
   // Les onglets : toutes, puis de la commune à la légendaire, chacun son compte.
-  const compte = (r: string) => CARTES_DES_RENCONTRES.filter(c => c.rarete === r).length
+  const compte = (r: string) => DE_LA_PRODUCTION.filter(c => c.rarete === r).length
   assert.deepEqual(
     [...html.matchAll(/role="tab" aria-selected="(true|false)"[^>]*>([^<]+)<span class="onglet-pastille" aria-hidden="true">(\d+)<\/span>/g)].map(m => [m[2], Number(m[3]), m[1]]),
     [
-      ['Toutes', CARTES_DES_RENCONTRES.length, 'true'],
+      ['Toutes', DE_LA_PRODUCTION.length, 'true'],
       ['Communes', compte('commun'), 'false'],
       ['Rares', compte('rare'), 'false'],
       // Le jeu complet : une page de plus, entre les rares et les légendaires.
@@ -447,10 +466,13 @@ test('le codex : toutes les cartes de l’expédition, une page par rareté en o
   const grille = html.slice(html.indexOf('class="exp-codex"'))
   assert.deepEqual(
     [...grille.matchAll(/<button type="button" class="exp-codex-carte" data-carte="([^"]+)" aria-haspopup="dialog">/g)].map(m => m[1]),
-    CARTES_DES_RENCONTRES.map(c => c.cle),
+    DE_LA_PRODUCTION.map(c => c.cle),
   )
-  assert.equal((grille.match(/class="exp-vc exp-vc-rangee/g) ?? []).length, CARTES_DES_RENCONTRES.length)
+  assert.equal((grille.match(/class="exp-vc exp-vc-rangee/g) ?? []).length, DE_LA_PRODUCTION.length)
   assert.match(texte(grille), /Concentration, commune : \+4 si juste/)
+  // Les coups de pouce attendent la version 11 : là, et là seulement, le codex les montre.
+  assert.doesNotMatch(grille, /data-carte="(initiale|repere|lettre)"/)
+  assert.match(await rendreLeCodex({ onFermer: rien }, VERSION_DES_COUPS_DE_POUCE), /data-carte="initiale"[\s\S]*data-carte="repere"|data-carte="repere"[\s\S]*data-carte="initiale"/)
 })
 
 // ── Le codex qui s'ouvre en jouant (la version 7) ─────────────────────────────
@@ -462,12 +484,12 @@ test('le codex à son niveau : sa jauge de renommée en tête, ce qu’il a sur 
   const { FeuilleDuCodex, CarteLevee } = await piecesDuCodex()
   const { NIVEAUX, codexDuNiveau } = await import('../../shared/codex')
   const ouvert = codexDuNiveau(3, ['lg:phenix'])
-  const html = await rendre(FeuilleDuCodex, { codex: { renommee: NIVEAUX[2] + 20, ...ouvert }, onFermer: rien })
+  const html = await rendreLeCodex({ codex: { renommee: NIVEAUX[2] + 20, ...ouvert }, onFermer: rien })
   const t = texte(html)
   assert.match(t, new RegExp(`Niveau 3 d’explorateur : ${NIVEAUX[2] + 20} de renommée, ${NIVEAUX[3]} pour le niveau 4\\.`))
-  assert.match(t, new RegExp(`${ouvert.cartes.length} cartes sur ${CARTES_DES_RENCONTRES.length} sont à toi`))
+  assert.match(t, new RegExp(`${ouvert.cartes.length} cartes sur ${DE_LA_PRODUCTION.length} sont à toi`))
   const fermees = [...html.matchAll(/<li class="exp-codex-fermee"><button type="button" class="exp-codex-carte" data-carte="([^"]+)"/g)].map(m => m[1])
-  assert.deepEqual(fermees, CARTES_DES_RENCONTRES.filter(c => !ouvert.cartes.includes(c.cle)).map(c => c.cle), 'toutes les autres, éteintes')
+  assert.deepEqual(fermees, DE_LA_PRODUCTION.filter(c => !ouvert.cartes.includes(c.cle)).map(c => c.cle), 'toutes les autres, éteintes')
   assert.ok(!fermees.includes('renaissance') && fermees.includes('sagesse'), 'la carte du Phénix, qu’il a ; pas celle de la Chouette')
   // Dessous, en court : le niveau qui l'ouvre, ou le légendaire qui la donne ; à l'oreille, en phrase.
   assert.match(html, /data-carte="detour"[\s\S]*?<span class="exp-codex-ouverture" aria-hidden="true">[\s\S]*?Niveau 4<\/span>/)
@@ -476,7 +498,7 @@ test('le codex à son niveau : sa jauge de renommée en tête, ce qu’il a sur 
   // Levée, une carte fermée dit comment l'ouvrir.
   assert.match(texte(await rendre(CarteLevee, { cle: 'detour', ouverture: 'Elle s’ouvre au niveau 4 d’explorateur.', onReposer: rien })), /Elle s’ouvre au niveau 4 d’explorateur\./)
   // Sans codex — une expédition d'avant —, tout est ouvert, comme avant.
-  assert.doesNotMatch(await rendre(FeuilleDuCodex, { onFermer: rien }), /exp-codex-fermee/)
+  assert.doesNotMatch(await rendreLeCodex({ onFermer: rien }), /exp-codex-fermee/)
 })
 
 test('la fin dit la renommée qu’elle rapporte, et le niveau qu’elle fait passer : ses cartes neuves en vraies cartes, la règle qui s’ouvre', async () => {

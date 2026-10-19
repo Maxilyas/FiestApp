@@ -102,7 +102,21 @@
 // autres ; l'Ascension, au codex entier : le fort 94, puis 93, 83, 78, 75 et
 // 65 ; le moyen 44, puis 31, 15, 11, 10 et 7.
 //
-//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 10] [--cas 0] [--niveau 3] [--sans-fioles] [--ascension 2] [--ascensions] [--seule genie] [--cartes [genie,lecon]] [--part 1/4] [--style devin] [--styles] [--avise]
+// Les coups de pouce et les lettres (la version 11, `--version 11`, le
+// 19 octobre 2026) : une escale sur cinq à composer dès l'étage 2 — qu'il
+// trouve une fois sur dix sans la savoir, deux de plus sur dix par lettre de
+// trop retirée, par lettre posée et par époque dite (`chanceDeComposer`) —, et
+// trois cartes : L'initiale et La lettre parmi ses aides, au partage mesuré
+// sur la base livrée (`PARTAGENT_L_INITIALE`, `PARTAGENT_LA_LETTRE`), Le
+// repère comme l'Énigme. Chaque carte seule : La lettre +8 au niveau 1 et +6
+// au 10, sur mille expéditions ; L'initiale +6 au 10 ; Le repère, qui ne
+// disait que le domaine sans époque à dire, −3 et −6 au niveau 1 — retouché
+// pour effacer, comme le Sphinx, +0 et −4. Trois cents expéditions par case :
+// le faible, le moyen et le fort au bout 1, 30 et 92 fois sur cent au niveau 1,
+// 2, 45 et 92 au niveau 10 ; la forme seule ne déplace rien (1, 31 et 92), les
+// coups de pouce rendent trois à six points au moyen à mesure qu'il les ouvre.
+//
+//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 11] [--cas 0] [--niveau 3] [--sans-fioles] [--ascension 2] [--ascensions] [--seule genie] [--cartes [genie,lecon]] [--part 1/4] [--style devin] [--styles] [--avise]
 import { CATEGORIES } from '../../shared/categories'
 import { SUJETS } from '../../shared/sujets'
 import { TAUX_DU_CALIBRAGE } from '../../shared/sentiers'
@@ -115,6 +129,8 @@ import {
   bilanDuPli,
   POIDS_DES_ESCALES,
   POIDS_DES_ESCALES_DES_RENCONTRES,
+  POIDS_DES_FORMES,
+  POIDS_DES_FORMES_A_COMPOSER,
   carteDUnActe,
   chanceSelonLaForme,
   chancesDuTrace,
@@ -149,6 +165,7 @@ import {
   INSPIRATION_PAR_QUESTION,
   SAVOIR_DES_MARCHES,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_COUPS_DE_POUCE,
   ameliorer,
   attaqueEnQuestion,
   baseDe,
@@ -157,6 +174,7 @@ import {
   chiffresApresLaCarte,
   cransDUneBonneReponse,
   effaceesDuTour,
+  estAmelioree,
   estUnStyle,
   formeDeLaCarte,
   frappeDeLaQuestion,
@@ -169,6 +187,7 @@ import {
   type StyleDeJeu,
 } from '../../shared/rencontres'
 import { ASCENSION_MAX, EXPLOITS, NIVEAUX, ascensionDe, codexDuNiveau, mainMaxEnQuestion, niveauDe, renommeeDe, type CleDExploit } from '../../shared/codex'
+import { LETTRES_EN_TROP } from '../../shared/lettres'
 
 function option(nom: string, defaut: number): number {
   const i = process.argv.indexOf(`--${nom}`)
@@ -177,15 +196,18 @@ function option(nom: string, defaut: number): number {
 const EXPEDITIONS = option('expeditions', 1000)
 /**
  * La version des règles mesurée : 9 d'office, celle des départs de la
- * production — les huit familles ; `--version 10` mesure la question au
- * centre, que la préproduction joue d'abord ; `--version 8` remesure le jeu
- * complet d'avant elles, `--version 7` le codex d'avant lui, `--version 6` la
- * main qui grandit avec les actes sans le codex, `--version 5` la main de cinq
- * cartes d'emblée.
+ * production — les huit familles ; `--version 11` mesure les coups de pouce
+ * et les lettres, que la préproduction joue d'abord, `--version 10` la
+ * question au centre d'avant eux ; `--version 8` remesure le jeu complet
+ * d'avant les huit familles, `--version 7` le codex d'avant lui, `--version 6`
+ * la main qui grandit avec les actes sans le codex, `--version 5` la main de
+ * cinq cartes d'emblée.
  */
-const VERSION = ([5, 6, 7, 8, 9, 10] as const).find(v => v === option('version', 9)) ?? 9
+const VERSION = ([5, 6, 7, 8, 9, 10, 11] as const).find(v => v === option('version', 9)) ?? 9
 /** La question au centre (v10) : la question d'abord, l'adversaire en crans, une carte par question — un autre joueur, plus bas. */
 const EN_QUESTION = VERSION >= VERSION_DE_LA_QUESTION_AU_CENTRE
+/** Les coups de pouce et les lettres (v11) : une escale sur cinq à composer dès l'étage 2, L'initiale, Le repère et La lettre. */
+const A_COMPOSER = VERSION >= VERSION_DES_COUPS_DE_POUCE
 
 const logit = (p: number) => Math.log(p / (1 - p))
 const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
@@ -207,6 +229,31 @@ const PART_DES_SIX = 0.8
 const SAIT_UNE_REPRISE = 0.7
 /** Un dévoilement : douze mots ; ce qu'il sait, il le répond à mi-texte ; sinon, le texte entier. */
 const MOTS_D_UN_DEVOILEMENT = 12
+/** Une réponse à composer (v11) : huit lettres — 7,9 en moyenne sur la base livrée, de quatre à douze —, ses tuiles trois de plus. */
+const LETTRES_D_UNE_REPONSE = 8
+/**
+ * Ce que L'initiale et La lettre laissent d'une question à choix qu'il ne sait
+ * pas (v11), mesuré sur la base livrée le 19 octobre 2026 — ses vingt-six mille
+ * questions à quatre choix : la part des autres réponses qui commencent comme
+ * la bonne, ou qui ont la lettre dite. Seule à commencer ainsi deux fois sur
+ * trois, L'initiale le fait trouver 80 fois sur cent, sa fin en plus 93 ; La
+ * lettre 60, deux lettres 81. À six choix ou après un effacement, la même part
+ * de ce qui reste.
+ */
+const PARTAGENT_L_INITIALE = 0.145
+const PARTAGENT_L_INITIALE_ET_LA_FIN = 0.05
+const PARTAGENT_LA_LETTRE = 0.35
+const PARTAGENT_LES_DEUX_LETTRES = 0.14
+/** Sa chance parmi `restent` réponses, quand chacune des autres répond encore à l'indice à la chance `s` : l'espérance de 1 / (1 + K), K de loi binomiale (restent − 1, s). */
+const parmiCeQuiRepond = (restent: number, s: number) => (1 - (1 - s) ** restent) / (restent * s)
+/**
+ * Sa chance de composer une réponse qu'il ne sait pas (v11) : une sur dix, le
+ * hasard de la forme (`chanceSelonLaForme`) ; chaque lettre de trop retirée,
+ * chaque lettre posée et l'époque d'une question qui se date lui ôtent deux
+ * réponses sur dix — une sur deux au mieux. Un modèle, pas une mesure : il n'y
+ * a pas de base de compositions ratées.
+ */
+const chanceDeComposer = (aides: number) => 1 / Math.max(2, 10 - 2 * aides)
 
 function normale(r: () => number): number {
   return Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(2 * Math.PI * r())
@@ -409,8 +456,24 @@ const PREFERENCE_EN_QUESTION = [
 ]
 /** Ce qu'il retire à la question au centre, son courage au plus haut : celles qui y valent moins que rien, mesurées — la plus faible d'abord. */
 const A_RETIRER_EN_QUESTION = ['troisieme-oeil', 'rythme', 'prisme', 'tout-ou-rien', 'doubler-la-mise', 'arret-sur-image', 'savoir-faire', 'plume', 'inarretable']
+/**
+ * Aux coups de pouce (la version 11, le 19 octobre 2026, chaque carte seule
+ * contre ne rien prendre) : La lettre, huit points de plus pour le moyen au
+ * bout au niveau 1, six au niveau 10, sur mille expéditions ; L'initiale six au
+ * niveau 10, sur deux cent cinquante. Le repère, retouché, ne change rien au
+ * moyen : il ne le prend pas.
+ */
+const PREFERENCE_DES_COUPS_DE_POUCE = [...PREFERENCE_EN_QUESTION.slice(0, 4), 'lettre', 'initiale', ...PREFERENCE_EN_QUESTION.slice(4)]
 /** Ce que prend et retire le joueur qui a appris, à la version mesurée. */
-const PREFERENCE_DU_CODEX = EN_QUESTION ? PREFERENCE_EN_QUESTION : VERSION >= 9 ? PREFERENCE_DES_HUIT_FAMILLES : VERSION >= 8 ? PREFERENCE_DU_JEU_COMPLET : PREFERENCE_DU_CODEX_7
+const PREFERENCE_DU_CODEX = A_COMPOSER
+  ? PREFERENCE_DES_COUPS_DE_POUCE
+  : EN_QUESTION
+    ? PREFERENCE_EN_QUESTION
+    : VERSION >= 9
+      ? PREFERENCE_DES_HUIT_FAMILLES
+      : VERSION >= 8
+        ? PREFERENCE_DU_JEU_COMPLET
+        : PREFERENCE_DU_CODEX_7
 const A_RETIRER_DU_CODEX = EN_QUESTION ? A_RETIRER_EN_QUESTION : VERSION >= 8 ? A_RETIRER_DU_JEU_COMPLET : A_RETIRER_DU_CODEX_7
 const EXEMPLAIRES_DU_CODEX = 2
 /** Les pouvoirs qu'il pose dès qu'il les tire : ils valent toute la rencontre — ceux du jeu complet compris. */
@@ -455,8 +518,28 @@ const POUVOIRS_JOUES = [
 const POUVOIRS_EN_QUESTION = ['encyclopedie', 'aube', 'vision', 'echolocation', 'bibliotheque', 'prisme', 'rythme', 'trois-tetes', 'elan', 'troisieme-oeil', 'inarretable', 'boucle', 'renaissance']
 /** Ce qu'il joue s'il sait la réponse : ce qui ajoute des crans (`cransAvec`) — Corser et Polymorphe la corsent, Quitte ou double la double. */
 const ATTAQUES_EN_QUESTION = ['genie', 'expose', 'rafle', 'polymorphe', 'quitte-ou-double', 'plume', 'savoir-faire', 'lancee', 'corser', 'concentration', 'cagnotte', 'memoire', 'echauffement', 'lucidite', 'revelation', 'peau-de-feu']
-/** Ce qui l'aide s'il ne la sait pas : il joue celle qui lui laisse la meilleure chance (`chanceApres`). */
-const AIDES_EN_QUESTION = ['deux-visages', 'revelation', 'voyance', 'sagesse', 'tout-ou-rien', 'double-chance', 'echange', 'volte-face', 'mue', 'prediction', 'enigme', 'vision', 'echolocation', 'coup-d-oeil', 'presage', 'simplifier']
+/** Ce qui l'aide s'il ne la sait pas : il joue celle qui lui laisse la meilleure chance (`chanceApres`) — les coups de pouce de la version 11 compris. */
+const AIDES_EN_QUESTION = [
+  'deux-visages',
+  'revelation',
+  'voyance',
+  'sagesse',
+  'tout-ou-rien',
+  'double-chance',
+  'echange',
+  'volte-face',
+  'mue',
+  'prediction',
+  'enigme',
+  'vision',
+  'echolocation',
+  'coup-d-oeil',
+  'presage',
+  'simplifier',
+  'initiale',
+  'lettre',
+  'repere',
+]
 /**
  * Les cartes qui frappent de plus si la réponse est juste, jouées avant la question : il prend celle qui frappe le plus par point
  * d'énergie (`parEnergie`) — Cicatrices, Dernier carré et Baroud au courage qui lui manque (les huit familles).
@@ -533,7 +616,7 @@ const SUIT_SON_STYLE = !process.argv.includes('--avise')
 /** Les cartes d'un style que le joueur qui le suit prend, de la meilleure qu'il connaisse aux autres. */
 function cartesDuStyle(style: StyleDeJeu): string[] {
   // À la question au centre, celles qu'elle garde seulement : les autres ne s'y offrent plus.
-  const siennes = CARTES_DES_RENCONTRES.filter(c => c.famille === style && !c.legendaire && (!EN_QUESTION || seJoueEnQuestion(c.cle))).map(c => c.cle)
+  const siennes = CARTES_DES_RENCONTRES.filter(c => c.famille === style && !c.legendaire && (!EN_QUESTION || seJoueEnQuestion(c.cle, VERSION))).map(c => c.cle)
   return [...PREFERENCE_DU_CODEX.filter(c => siennes.includes(c)), ...siennes.filter(c => !PREFERENCE_DU_CODEX.includes(c))]
 }
 
@@ -554,8 +637,10 @@ interface Cas {
 
 function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESUREE, seule: string | null = SEULE): Issue {
   const sujets = SUJETS.map(s => s.cle).sort()
-  // Les cartes du départ, comme le serveur les tire : à plus d'adversaires dès la version 6.
-  const cartes: CarteDUnActe[] = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, undefined, VERSION >= 6 ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES))
+  // Les cartes du départ, comme le serveur les tire : à plus d'adversaires dès la version 6, une escale sur cinq à composer dès la 11.
+  const cartes: CarteDUnActe[] = Array.from({ length: ACTES }, (_, acte) =>
+    carteDUnActe(graine, acte, sujets, undefined, VERSION >= 6 ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES, A_COMPOSER ? POIDS_DES_FORMES_A_COMPOSER : POIDS_DES_FORMES),
+  )
   cartes.forEach((carte, acte) => {
     for (const e of carte.escales) if (e.sorte === 'question' || e.sorte === 'elite' || e.sorte === 'source') e.chance = chanceAnnoncee(j, acte, e)
     carte.chanceDuGardien = CATEGORIES.reduce((s, c) => s + chanceSur(j, MARCHES_DES_ACTES[acte].gardien, c), 0) / CATEGORIES.length
@@ -632,8 +717,9 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       else if ('sujet' in th) p4 = chanceSur(j, marche, (categorie = au(CATEGORIES)), th.sujet)
       else p4 = chanceSur(j, marche, (categorie = au(th.categories)))
     }
-    const reponsesDeLaForme = forme === 'vrai-faux' ? 2 : forme === 'six' ? 6 : 4
-    const nombre = forme !== 'vrai-faux' && r() < PART_DES_NOMBRES
+    // À composer, ses réponses sont ses tuiles ; et une réponse qui se compose n'est jamais une année ni un nombre.
+    const reponsesDeLaForme = forme === 'vrai-faux' ? 2 : forme === 'six' ? 6 : forme === 'lettres' ? LETTRES_D_UNE_REPONSE + LETTRES_EN_TROP : 4
+    const nombre = forme !== 'vrai-faux' && forme !== 'lettres' && r() < PART_DES_NOMBRES
     posees.push({
       escale: t.escale,
       acte: t.acte,
@@ -651,19 +737,38 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     })
   }
 
-  /** Juste ou non, à la question `i` : il sait, sinon il devine parmi ce qui reste — ce que les cartes du tour y effacent. */
+  /**
+   * Sa chance de trouver la question `q` sans la savoir, ces cartes sur elle et
+   * ces pouvoirs posés : il devine parmi ce qui reste — ce que les cartes y
+   * effacent, et une réponse de plus que l'époque écarte d'une question qui se
+   * date —, parmi ce qui répond encore à L'initiale ou à La lettre (v11) ; à
+   * composer, `chanceDeComposer`.
+   */
+  const chanceSansSavoir = (q: QuestionPosee, sur: readonly string[], pouvoirs: readonly string[], talismans: readonly string[]): number => {
+    const n = q.reponses ?? 4
+    const effacees = effaceesDuTour(sur, pouvoirs, { reponses: n, datee: q.datee, nombre: q.nombre, forme: q.forme })
+    // L'époque : le siècle de l'Énigme, celui de la loupe sur l'Histoire, la décennie du repère — qui ne dit jamais celle d'une réponse
+    // en années : il y efface, comme sur une question qui ne se date pas (`effaceesDuTour`).
+    const epoque = !!q.datee && (sur.includes('enigme') || (parmi(sur, 'repere') && !q.nombre) || (talismans.includes('loupe') && q.categorie === 'Histoire'))
+    if (q.forme === 'lettres') {
+      const posees = sur.reduce((s, c) => s + (baseDe(c) === 'initiale' || baseDe(c) === 'lettre' ? (estAmelioree(c) ? 2 : 1) : 0), 0)
+      return chanceDeComposer(effacees + Math.min(posees, LETTRES_D_UNE_REPONSE - 2) + (epoque ? 1 : 0))
+    }
+    const restent = Math.max(2, n - effacees - (epoque ? 1 : 0))
+    if (parmi(sur, 'double-chance')) return 2 / restent
+    if (sur.includes('prediction')) return 1 / 2
+    const initiale = sur.find(c => baseDe(c) === 'initiale')
+    if (initiale) return parmiCeQuiRepond(restent, estAmelioree(initiale) ? PARTAGENT_L_INITIALE_ET_LA_FIN : PARTAGENT_L_INITIALE)
+    const lettre = sur.find(c => baseDe(c) === 'lettre')
+    if (lettre) return parmiCeQuiRepond(restent, estAmelioree(lettre) ? PARTAGENT_LES_DEUX_LETTRES : PARTAGENT_LA_LETTRE)
+    return 1 / restent
+  }
+
+  /** Juste ou non, à la question `i` : il sait, sinon il devine (`chanceSansSavoir`). */
   const juger = (i: number, e: EtatDeLExpedition): boolean => {
     const q = posees[i]
     if (q.sait) return true
-    const t = e.rencontre?.tour
-    const sur = t?.surLaQuestion ?? []
-    let restent = (q.reponses ?? 4) - effaceesDuTour(sur, e.rencontre?.pouvoirs ?? [], { reponses: q.reponses ?? 4, datee: q.datee })
-    // L'Énigme d'une question qui se date : le siècle et le domaine écartent, en moyenne, une réponse de plus ; la loupe, sur l'Histoire.
-    if (sur.includes('enigme') && q.datee) restent--
-    else if (e.talismans.includes('loupe') && q.categorie === 'Histoire' && q.datee) restent--
-    restent = Math.max(2, restent)
-    const p = parmi(sur, 'double-chance') ? 2 / restent : sur.includes('prediction') ? 1 / 2 : 1 / restent
-    return r() < p
+    return r() < chanceSansSavoir(q, e.rencontre?.tour.surLaQuestion ?? [], e.rencontre?.pouvoirs ?? [], e.talismans)
   }
 
   /** L'exemplaire de cette carte qu'il jouerait : l'amélioré s'il l'a en main (le jeu complet), sinon l'autre. */
@@ -835,7 +940,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       const apres = chiffresApresLaCarte(k, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: rc.serie }, rc.pouvoirs, {
         v: VERSION,
         fetiche: !!depart.fetiche && q.categorie === depart.fetiche,
-        effacees: effaceesDuTour(t.surLaQuestion, rc.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee }),
+        effacees: effaceesDuTour(t.surLaQuestion, rc.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee, nombre: q.nombre, forme: q.forme }),
         niveau,
         savoir: SAVOIR_DES_MARCHES[niveau],
         ecus: e.ecus,
@@ -858,13 +963,39 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     const rc = e.rencontre!
     const q = posees[i]
     const n = q.reponses ?? 4
-    let restent = n - effaceesDuTour(rc.tour.surLaQuestion, rc.pouvoirs, { reponses: n, datee: q.datee })
-    if (rc.tour.surLaQuestion.includes('enigme') && q.datee) restent--
-    else if (e.talismans.includes('loupe') && q.categorie === 'Histoire' && q.datee) restent--
-    restent = Math.max(2, restent)
     const sait = savoir(q.p4)
+    // À composer (v11), la règle même du verdict simulé : la carte jouée ajoutée à la question — ou aux pouvoirs, si elle se pose.
+    if (q.forme === 'lettres') {
+      const sur = rc.tour.surLaQuestion
+      if (cle === null) return chanceSansSavoir(q, sur, rc.pouvoirs, e.talismans)
+      const k = exemplaire(e, cle)
+      switch (baseDe(cle)) {
+        case 'simplifier':
+          return 1 / 2
+        case 'echange':
+        case 'volte-face':
+        case 'mue':
+          return sait + (1 - sait) * chanceDeComposer(0)
+        default:
+          return carteALaVersion(k, VERSION)?.moment === 'pouvoir'
+            ? chanceSansSavoir(q, sur, [...rc.pouvoirs, k], e.talismans)
+            : chanceSansSavoir(q, [...sur, k], rc.pouvoirs, e.talismans)
+      }
+    }
+    let restent = n - effaceesDuTour(rc.tour.surLaQuestion, rc.pouvoirs, { reponses: n, datee: q.datee, nombre: q.nombre })
+    const dejaDatee = !!q.datee && (rc.tour.surLaQuestion.includes('enigme') || (e.talismans.includes('loupe') && q.categorie === 'Histoire'))
+    if (dejaDatee) restent--
+    restent = Math.max(2, restent)
     if (cle === null) return 1 / restent
     switch (baseDe(cle)) {
+      // Les coups de pouce (v11) : la décennie d'une question qui se date — rien de plus, son siècle déjà dit —, sinon une réponse
+      // effacée ; et ce qui répond encore à l'initiale ou à la lettre dite.
+      case 'repere':
+        return q.datee && !q.nombre && dejaDatee ? 1 / restent : 1 / Math.max(2, restent - 1)
+      case 'initiale':
+        return parmiCeQuiRepond(restent, estAmelioree(exemplaire(e, cle)) ? PARTAGENT_L_INITIALE_ET_LA_FIN : PARTAGENT_L_INITIALE)
+      case 'lettre':
+        return parmiCeQuiRepond(restent, estAmelioree(exemplaire(e, cle)) ? PARTAGENT_LES_DEUX_LETTRES : PARTAGENT_LA_LETTRE)
       case 'coup-d-oeil':
       case 'presage':
       case 'vision':
@@ -1267,7 +1398,7 @@ if (VERSION >= 7 && TOUTES_LES_CARTES) {
   console.log(`Chaque carte seule — ${cas.nom}, ${EXPEDITIONS} expéditions par joueur, contre ne rien prendre${PART.n > 1 ? ` (part ${PART.k} sur ${PART.n})` : ''}.`)
   const rien = auBout('rien')
   console.log(`  ${'rien'.padEnd(18)} ${rien.map(pc).join(' · ')}`)
-  const aMesurer = CARTES_DES_RENCONTRES.filter(c => !c.legendaire && c.cle !== 'concentration' && c.cle !== 'prudence' && (!EN_QUESTION || seJoueEnQuestion(c.cle)))
+  const aMesurer = CARTES_DES_RENCONTRES.filter(c => !c.legendaire && c.cle !== 'concentration' && c.cle !== 'prudence' && (!EN_QUESTION || seJoueEnQuestion(c.cle, VERSION)))
     .filter(c => !CARTES_MESUREES || CARTES_MESUREES.includes(c.cle))
     .filter((_, n) => n % PART.n === PART.k - 1)
   const lignes = aMesurer.map(c => {

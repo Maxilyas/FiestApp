@@ -69,6 +69,7 @@ import {
   STYLES,
   STYLES_EN_QUESTION,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_JEU_COMPLET,
   ameliorer,
@@ -1612,7 +1613,7 @@ export function FioleLevee({ cle, refus, onReposer }: { cle: CleDeFiole; refus: 
 const MARCHE_DITE: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
 
 /** Une forme qui n'est pas celle de tous les jours, dite en clair ; quatre choix ne se disent pas. */
-const FORME_DITE: Record<FormeDEscale, string | null> = { quatre: null, six: 'six choix', 'vrai-faux': 'vrai ou faux', devoilement: 'mot à mot' }
+const FORME_DITE: Record<FormeDEscale, string | null> = { quatre: null, six: 'six choix', 'vrai-faux': 'vrai ou faux', devoilement: 'mot à mot', lettres: 'à composer' }
 
 /**
  * L'adversaire, en tête de la rencontre : l'emblème de sa catégorie — de son
@@ -2094,6 +2095,8 @@ function reglesDesRencontres(
  */
 function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, v: number): SectionDesRegles[] {
   const ouverte = (regle: RegleDuCodex) => !codex || codex.regles.includes(regle)
+  // Les coups de pouce (v11) : la forme à composer et ses trois cartes ; une expédition de la version 10 ne les a pas.
+  const aComposer = v >= VERSION_DES_COUPS_DE_POUCE
   const avant = reglesDesRencontres([CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex, ascension, [0, 0, 0], true, VERSION_DES_HUIT_FAMILLES)
   const neuves: Partial<Record<SectionDesRegles['cle'], SectionDesRegles | null>> = {
     rencontre: {
@@ -2101,7 +2104,14 @@ function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, 
       titre: 'Une rencontre',
       lignes: [
         { icone: 'eye', texte: 'La question d’abord : tu la vois, puis tu choisis ta carte et ta réponse.' },
-        { icone: 'check', texte: 'Réponds juste : l’adversaire perd un cran — deux à six choix, ou quand tu trouves une question mot à mot avant la moitié de ses mots. Sans crans, il tombe.' },
+        {
+          icone: 'check',
+          texte: `Réponds juste : l’adversaire perd un cran — deux à six choix, ${
+            aComposer ? 'à composer, ' : ''
+          }ou quand tu trouves une question mot à mot avant la moitié de ses mots. Sans crans, il tombe.`,
+        },
+        // Les coups de pouce (v11) : la question sans choix.
+        ...(aComposer ? [{ icone: 'lettres' as const, texte: 'À composer : pas de choix — touche ses lettres dans l’ordre de la réponse. Trois sont de trop : les cartes qui effacent les retirent.' }] : []),
         { icone: 'sparkles', texte: 'Ses crans rayés, qui palpitent : ceux que ta bonne réponse lui prendrait, tes cartes comptées.' },
         { icone: 'heart', texte: 'Trompe-toi : il t’attaque, toujours autant — le chiffre à côté de ses crans —, et tu perds du courage.' },
         { icone: 'source', texte: 'Ton courage se regagne sur le plan : la source, le campement, l’échoppe, une fiole.' },
@@ -2113,6 +2123,15 @@ function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, 
       titre: 'Tes cartes',
       lignes: [
         { icone: 'target', texte: 'Une carte par question, la question sous les yeux : elle t’aide à répondre, ou fait perdre un cran de plus à l’adversaire.' },
+        ...(aComposer
+          ? [
+              {
+                icone: 'bulb' as const,
+                texte:
+                  'Les coups de pouce te soufflent la réponse : Le repère, son époque — sans époque, il efface ; La lettre, une de ses lettres ; L’initiale, la première. À composer, ces deux-là posent leurs lettres.',
+              },
+            ]
+          : []),
         {
           icone: 'list',
           texte: `Ta main tire ${MAIN_A_L_OUVERTURE_DE_L_ACTE} cartes à l’ouverture de chaque acte, puis une après chaque question, ${mainMaxEnQuestion(false, ascension)} au plus : ce que tu ne joues pas, tu le gardes.`,
@@ -2371,6 +2390,7 @@ export function PreparationDeLaRencontre({
       <Adversaire r={r} gardien={gardien} acte={vue.acte} apercu={apercu} tot={r.annonce?.forme === 'devoilement'} />
       {apercu && !v10 && <Apercu a={apercu} base={base} />}
       {v10 && r.annonce?.forme === 'devoilement' && <p className="exp-consigne small">{espacesFines('Une question mot à mot : ses mots courent dès que tu la vois.')}</p>}
+      {v10 && r.annonce?.forme === 'lettres' && <p className="exp-consigne small">{espacesFines('Une question à composer : pas de choix — ses lettres, à remettre dans l’ordre.')}</p>}
       {(!v10 || cles.length > 0) && (
         <MainDeRencontre
           cles={cles}

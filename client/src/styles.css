@@ -9587,6 +9587,29 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    sous le pli. */
 .player-shell:has(.ans-grid.exp-six) { height: auto; min-height: 100dvh; }
 .player-shell:has(.ans-grid) .ans-grid.exp-six { flex: none; min-height: min-content; grid-auto-rows: auto; }
+/* La forme à composer (les coups de pouce, v11) : ses cases, mot par mot, puis ses tuiles et ses deux gestes. Douze lettres
+   tiennent sur une ligne en 360 × 640 — les cases rétrécissent avec leur mot (`flex: 0 1 28px`) —, et deux mots qui ne tiennent
+   pas côte à côte passent chacun sur sa ligne : jamais un mot coupé. Une lettre posée d'office se lit à part, sur sa teinte. */
+.exp-composer { display: flex; flex-direction: column; gap: 14px; }
+.exp-cases { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; }
+.exp-article { color: var(--muted); font-weight: 600; }
+.exp-mot { display: flex; align-items: flex-end; gap: 3px; max-width: 100%; min-width: 0; }
+/* Une largeur, pas seulement une base : vide, une case ne comptait pour rien dans la largeur de son mot, qui tombait à zéro — et ses cases
+   avec, invisibles (le rendu du 19 octobre 2026). Elle rétrécit encore pour douze lettres en 360 pixels. */
+.exp-case { flex: 0 1 28px; width: 28px; min-width: 0; height: 38px; padding: 0; border: 0; border-bottom: 2px solid var(--edge-strong); border-radius: var(--radius-xs) var(--radius-xs) 0 0; background: var(--surface); color: var(--ink); font: 700 1.15rem/1 var(--sans); }
+.exp-case.exp-case-pleine { border-bottom-color: var(--accent); background: var(--accent-soft); cursor: pointer; }
+.exp-case.exp-case-posee { border-bottom-color: var(--accent); background: color-mix(in srgb, var(--accent) 24%, var(--surface)); color: var(--accent-text); cursor: default; }
+.exp-signe { flex: none; padding-bottom: 6px; font: 700 1.1rem/1 var(--sans); color: var(--muted); }
+.exp-tuiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.exp-tuile { width: 42px; height: 46px; padding: 0; border: 1px solid var(--edge-strong); border-radius: var(--radius-xs); background: var(--surface-strong); color: var(--ink); font: 700 1.25rem/1 var(--sans); box-shadow: 0 2px 0 var(--edge-strong); cursor: pointer; touch-action: manipulation; }
+.exp-tuile[aria-disabled='true'] { opacity: 0.45; cursor: default; }
+.exp-composer-gestes { display: flex; gap: 10px; }
+.exp-composer-gestes .btn { flex: 1; }
+.exp-composer-gestes .btn[aria-disabled='true'] { opacity: 0.55; cursor: default; }
+/* Un coup de pouce (v11) : ce qu'il souffle, à côté de son ampoule. */
+.exp-pouce { display: flex; align-items: center; gap: 8px; }
+.exp-pouce .icon { flex: none; color: var(--accent-text); }
+.exp-composee { letter-spacing: 0.06em; }
 /* Un joker pour son paquet (la maquette 12) : trois jokers, leur rareté en pastille. */
 .exp-offres { display: flex; flex-direction: column; gap: 8px; }
 .exp-offre-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }

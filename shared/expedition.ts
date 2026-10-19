@@ -31,6 +31,7 @@ import {
   jokerDuLegendaire,
 } from './jokers'
 import { SOUS_THEMES } from './etiquettes'
+import { LETTRES_EN_TROP, gabaritDe, signesDe, sonArticle, type CaseAComposer } from './lettres'
 import { lireNombreEnTete } from './nombres'
 import type { PalierTombe } from './jour'
 import type { CleDeSaison } from './saisons'
@@ -171,14 +172,16 @@ export type SorteDEscale = 'question' | 'elite' | 'source' | 'coffre' | 'inconnu
  */
 export type ContenuDeLInconnu = 'marchand' | 'piege' | 'passage'
 
-export type FormeDEscale = 'quatre' | 'vrai-faux' | 'six' | 'devoilement'
+/** La forme d'une question : à quatre choix, vrai ou faux, à six choix, mot à mot — et, depuis les coups de pouce (v11), à composer (`shared/lettres.ts`). */
+export type FormeDEscale = 'quatre' | 'vrai-faux' | 'six' | 'devoilement' | 'lettres'
 
 /**
  * Les formes qu'une carte tire : toutes depuis l'étape 3 — quatre choix,
- * vrai ou faux, six choix, dévoilement. Celles d'avant, gardées par leur
- * expédition, restent à quatre choix.
+ * vrai ou faux, six choix, dévoilement —, et à composer depuis les coups de
+ * pouce, que seuls leurs poids tirent (`POIDS_DES_FORMES_A_COMPOSER`). Celles
+ * d'avant, gardées par leur expédition, restent à quatre choix.
  */
-const FORMES_OUVERTES: ReadonlySet<FormeDEscale> = new Set(['quatre', 'vrai-faux', 'six', 'devoilement'])
+const FORMES_OUVERTES: ReadonlySet<FormeDEscale> = new Set(['quatre', 'vrai-faux', 'six', 'devoilement', 'lettres'])
 
 /** Le thème d'une escale : une catégorie, un mélange de deux ou trois, ou un sujet de `shared/sujets.ts` — un thème pointu. */
 export type ThemeDEscale = { categories: string[] } | { sujet: string }
@@ -271,11 +274,26 @@ export const PART_DES_THEMES_POINTUS = 0.14
 export const PART_DE_LA_FETE = 0.5
 
 /** Les formes des étages 2 à 6 ; le premier étage pose quatre choix sept fois sur dix, sinon un vrai ou faux. */
-export const POIDS_DES_FORMES: readonly { forme: FormeDEscale; part: number }[] = [
+export type PoidsDesFormes = readonly { forme: FormeDEscale; part: number }[]
+export const POIDS_DES_FORMES: PoidsDesFormes = [
   { forme: 'quatre', part: 0.4 },
   { forme: 'vrai-faux', part: 0.2 },
   { forme: 'six', part: 0.2 },
   { forme: 'devoilement', part: 0.2 },
+]
+/**
+ * Celles d'un départ des coups de pouce (v11) : une escale à composer sur
+ * cinq dès l'étage 2 (le choix du propriétaire du 19 octobre 2026), prise aux
+ * quatre choix et aux deux formes de la question au centre qui en valaient
+ * deux crans — le vrai ou faux garde sa part, la porte de qui doute. Le
+ * premier étage ne change pas. Des choix de produit.
+ */
+export const POIDS_DES_FORMES_A_COMPOSER: PoidsDesFormes = [
+  { forme: 'quatre', part: 0.3 },
+  { forme: 'vrai-faux', part: 0.2 },
+  { forme: 'six', part: 0.15 },
+  { forme: 'devoilement', part: 0.15 },
+  { forme: 'lettres', part: 0.2 },
 ]
 
 /** L'identifiant du gardien, sur chaque carte. */
@@ -297,9 +315,18 @@ const idDe = (etage: number, colonne: number) => `e${etage}${colonne}`
  * de plus : hors saison, une graine redonne la carte d'avant les saisons.
  * `poids` : la part de chaque sorte — celle d'un départ en rencontres a plus
  * d'adversaires ; le hasard tiré reste le même, seule la sorte qu'il désigne
- * change.
+ * change. `formes`, de même : celles d'un départ des coups de pouce (v11) ont
+ * leurs escales à composer, sur le même tirage — ni une escale, ni un thème ne
+ * bouge.
  */
-export function carteDUnActe(graine: string, acte: number, sujets: readonly string[], fete?: string, poids: PoidsDesEscales = POIDS_DES_ESCALES): CarteDUnActe {
+export function carteDUnActe(
+  graine: string,
+  acte: number,
+  sujets: readonly string[],
+  fete?: string,
+  poids: PoidsDesEscales = POIDS_DES_ESCALES,
+  formes: PoidsDesFormes = POIDS_DES_FORMES,
+): CarteDUnActe {
   const r = hasardDe(`${graine}:carte:${acte}`)
   const entier = (n: number) => Math.floor(r() * n)
   const liens = new Map<string, number[]>()
@@ -365,7 +392,7 @@ export function carteDUnActe(graine: string, acte: number, sujets: readonly stri
         else {
           const t = r()
           let cumul = 0
-          for (const p of POIDS_DES_FORMES) {
+          for (const p of formes) {
             cumul += p.part
             if (t < cumul) {
               forme = p.forme
@@ -703,9 +730,11 @@ export function prixDeLArticle(article: ArticleDeLEchoppe, cle?: string): number
 
 /**
  * Le hasard de chaque forme : un sur quatre à quatre choix et au
- * dévoilement, un sur six à six choix, un sur deux en vrai ou faux.
+ * dévoilement, un sur six à six choix, un sur deux en vrai ou faux — et un
+ * sur dix à composer (v11) : des tuiles bien rangées font parfois trouver un
+ * mot à moitié su. Un choix de produit, que le calibrage lit.
  */
-const HASARD: Record<FormeDEscale, number> = { quatre: 1 / 4, devoilement: 1 / 4, six: 1 / 6, 'vrai-faux': 1 / 2 }
+const HASARD: Record<FormeDEscale, number> = { quatre: 1 / 4, devoilement: 1 / 4, six: 1 / 6, 'vrai-faux': 1 / 2, lettres: 1 / 10 }
 
 /**
  * Une chance à quatre choix ramenée à une autre forme : le savoir se lit sous
@@ -881,9 +910,13 @@ export interface DepartDExpedition {
    * question d'abord, le pari seul avant elle ; l'adversaire en crans,
    * l'erreur à prix fixe ; une carte par question, sans énergie, la main de
    * l'acte (`EtatDeLExpedition.cycle`) ; soixante-deux cartes, cinq styles ;
-   * hors de la production d'abord (`QUESTION_AU_CENTRE_EN_PRODUCTION`).
+   * hors de la production d'abord (`QUESTION_AU_CENTRE_EN_PRODUCTION`). 11 :
+   * les coups de pouce (`VERSION_DES_COUPS_DE_POUCE`) — la forme à composer
+   * sur ses cartes (`POIDS_DES_FORMES_A_COMPOSER`), L'initiale, Le repère et
+   * La lettre au codex (`ECHELLE_DES_COUPS_DE_POUCE`) ; une expédition partie
+   * en version 10 n'en a ni escale ni carte.
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -1000,7 +1033,11 @@ export interface QuestionPosee {
   reponses?: number
   /** Ses réponses sont des années ou des nombres : la Prédiction s'y joue. */
   nombre?: boolean
-  /** La forme où elle s'est posée, quand ce n'est pas celle de la base : Arrêt sur image ne se joue que sur un dévoilement. */
+  /**
+   * La forme où elle s'est posée, quand ce n'est pas celle de la base : Arrêt
+   * sur image ne se joue que sur un dévoilement. À composer (v11), ses
+   * réponses (`reponses`) sont ses tuiles : ses lettres de trop s'effacent.
+   */
   forme?: FormeDEscale
   /** Sa catégorie : le maillot jaune double les écus du sport (v4). */
   categorie?: string
@@ -1799,7 +1836,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const carte = carteALaVersion(g.joker, depart.v)!
     const t = r.tour
     const q = e.enAttente === null ? undefined : questions[e.enAttente]
-    const effacees = q ? effaceesDuTour(t.surLaQuestion, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee }) : 0
+    const effacees = q ? effaceesDuTour(t.surLaQuestion, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee, nombre: q.nombre, forme: q.forme }) : 0
     const niveau = q?.niveau ?? marcheDeLaRencontre(r)
     const base = baseDe(g.joker)
     const plus = !!carte.amelioree
@@ -1885,7 +1922,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const t = r.tour
     // Ce que ses chiffres lisent de la question, avant qu'elle ne parte de la main : sa catégorie, ce qui y est déjà effacé.
     const q = e.enAttente === null ? undefined : questions[e.enAttente]
-    const effacees = q ? effaceesDuTour(t.surLaQuestion, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee }) : 0
+    const effacees = q ? effaceesDuTour(t.surLaQuestion, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee, nombre: q.nombre, forme: q.forme }) : 0
     // Sa marche, ce qu'elle vaut (le jeu complet : Savoir-faire, Exposé) — ce que l'annonce dit à la page.
     const niveau = q?.niveau ?? marcheDeLaRencontre(r)
     oter(r.main, g.joker)
@@ -2757,7 +2794,7 @@ export function jouerSurPlace(r: VueDeLaRencontre, cle: string, fetiche?: string
   const carte = carteALaVersion(cle, r.v)!
   // Dans l'ordre du pli : ce qu'elle lit d'effacé avant de viser la question, puis elle quitte la main, puis ses chiffres — un pouvoir
   // posé d'abord, qu'il se lise lui-même (Hantise).
-  const effacees = effaceesDuTour(r.surLaQuestion, r.pouvoirs, { reponses: qt.reponses, datee: qt.datee })
+  const effacees = effaceesDuTour(r.surLaQuestion, r.pouvoirs, { reponses: qt.reponses, datee: qt.datee, nombre: qt.nombre, forme: qt.forme })
   const main = [...r.main]
   main.splice(main.indexOf(cle), 1)
   const jouees = [...r.jouees, cle]
@@ -3084,7 +3121,10 @@ export function refusDeLaFiole(
   const q = questions[e.enAttente]
   const reponses = q?.reponses ?? 4
   if (reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
-  if (effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q?.datee }) >= reponses - 2) return 'Il ne reste que deux réponses : plus rien à effacer'
+  // À composer (v11), elle retire une lettre de trop, tant qu'il en reste.
+  if (q?.forme === 'lettres')
+    return effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q.datee, forme: 'lettres' }) >= LETTRES_EN_TROP ? 'Il ne reste plus de lettre de trop' : null
+  if (effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q?.datee, nombre: q?.nombre }) >= reponses - 2) return 'Il ne reste que deux réponses : plus rien à effacer'
   return null
 }
 
@@ -3116,6 +3156,30 @@ export interface QuestionDExpedition extends QuestionDeCampagne {
   devoilement?: { mots: number }
   /** La loupe (un talisman) : le siècle d'une question d'Histoire qui se date. */
   siecle?: string
+  /**
+   * À composer (v11) : ses cases et ses tuiles — ses `reponses` sont vides :
+   * ses choix la rendraient à quatre choix, et sa bonne réponse la dirait.
+   */
+  composer?: QuestionAComposer
+  /** Ce que les coups de pouce joués sur elle en disent (v11) : « Elle commence par S », « Son époque : les années 1240 ». */
+  pouces?: string[]
+}
+
+/**
+ * Une question à composer, telle que la page la reçoit : ses cases et ses
+ * tuiles, jamais leur ordre (invariant 1). Les lettres de trop qu'une carte a
+ * retirées n'y sont plus, ni les tuiles des lettres qu'un coup de pouce a
+ * posées.
+ */
+export interface QuestionAComposer {
+  /** L'article posé d'office devant les cases : « La », « L’ ». */
+  article?: string
+  /** Ses mots, case par case : null, une lettre à poser ; un signe, posé d'office. */
+  mots: CaseAComposer[][]
+  /** Les lettres qu'un coup de pouce a posées : le rang de leur case parmi celles à remplir, de 0, et la lettre — elles ne se retouchent pas. */
+  posees: { rang: number; lettre: string }[]
+  /** Ses tuiles, chacune son numéro — son rang au tirage, qui ne change pas quand une autre s'en va —, et sa lettre. */
+  tuiles: { n: number; lettre: string }[]
 }
 
 /** Ce que dit l'Oracle d'une réponse montrée : la bonne est plus haut, plus bas, ou c'est elle. */
@@ -3303,10 +3367,10 @@ export interface PageDeLExpedition {
     /** Les rencontres partent : partout, depuis qu'elles sont le jeu (`RENCONTRES_EN_PRODUCTION`). */
     rencontres?: true
     /**
-     * Le départ part en version 10, la question au centre — hors de la
-     * production d'abord (`QUESTION_AU_CENTRE_EN_PRODUCTION`) : la page le
-     * demande (`questionAuCentre: true`), et son codex, ses styles et son
-     * Ascension sont ceux de cette version.
+     * Le départ part en version 11, la question au centre et ses coups de
+     * pouce — hors de la production d'abord (`QUESTION_AU_CENTRE_EN_PRODUCTION`) :
+     * la page le demande (`questionAuCentre: true`), et son codex, ses styles
+     * et son Ascension sont ceux de cette version.
      */
     questionAuCentre?: true
     /** Son codex (le 18 octobre 2026), là où les rencontres s'offrent. */
@@ -3324,6 +3388,7 @@ export interface ReponseDExpedition {
    * Un vrai ou faux tiré d'une question à quatre choix, dont la réponse
    * proposée était fausse : la bonne de ses quatre réponses, avec le verdict
    * seulement (invariant 1) — « Faux » ne disait pas ce qu'il fallait savoir.
+   * À composer (v11), toujours : la page n'en a eu que les tuiles.
    */
   bonneReponse?: string
   anecdote: string | null
@@ -3431,12 +3496,162 @@ export function siecleDeLaQuestion(q: { date?: { valeur: string; precision?: str
   return Number.isFinite(annee) && annee !== 0 ? siecleDe(annee, q.date?.precision === 'siecle') : null
 }
 
+/** Le domaine d'une question : sa catégorie et son sous-thème — « Histoire, Pouvoirs ». */
+function domaineDe(q: { categorie: string | null; sousTheme?: string }): string {
+  const sousTheme = q.categorie && q.sousTheme ? SOUS_THEMES[q.categorie as keyof typeof SOUS_THEMES]?.find(s => s.cle === q.sousTheme)?.nom : undefined
+  return [q.categorie, sousTheme].filter(Boolean).join(', ')
+}
+
 /** L'indice de l'Énigme : le siècle de la question — ou qu'elle ne se date pas — et son domaine, sa catégorie et son sous-thème. */
 export function indiceDeLEnigme(q: { categorie: string | null; sousTheme?: string; date?: { valeur: string; precision?: string } | null }): string {
   const quand = siecleDeLaQuestion(q) ?? 'Elle ne se date pas'
-  const sousTheme = q.categorie && q.sousTheme ? SOUS_THEMES[q.categorie as keyof typeof SOUS_THEMES]?.find(s => s.cle === q.sousTheme)?.nom : undefined
-  const domaine = [q.categorie, sousTheme].filter(Boolean).join(', ')
+  const domaine = domaineDe(q)
   return domaine ? `${quand} · ${domaine}` : quand
+}
+
+// ── Les coups de pouce (v11) : ce qu'ils soufflent, le serveur seul le calcule ──
+
+/**
+ * L'époque d'une question qui se date, telle que Le repère la dit : sa
+ * décennie — « les années 1240 » —, son siècle avant l'an mil ou datée au
+ * siècle. Null : elle ne se date pas, ou sa réponse est une année ou un
+ * nombre — l'époque la dirait : Le repère n'y dit que son domaine.
+ */
+function epoqueDe(q: { date?: { valeur: string; precision?: string } | null; nombre?: boolean }): string | null {
+  if (q.nombre || !q.date) return null
+  const annee = Number(/^-?\d+/.exec(q.date.valeur)?.[0])
+  if (!Number.isFinite(annee) || annee === 0) return null
+  if (q.date.precision === 'siecle' || annee < 1000) return siecleDe(annee, q.date.precision === 'siecle').replace(/^Le /, 'le ')
+  return `les années ${Math.floor(annee / 10) * 10}`
+}
+
+/**
+ * Ce que dit Le repère (v11) : l'époque de la question ; sans époque à dire,
+ * qu'il efface — une mauvaise réponse, ou à composer une lettre de trop
+ * (`effaceesDuTour`, comme le Sphinx) ; amélioré, son domaine aussi, sa
+ * catégorie et son sous-thème. Il ne lit pas la réponse, seulement d'où vient
+ * la question.
+ */
+export function ceQueDitLeRepere(
+  q: { categorie: string | null; sousTheme?: string; date?: { valeur: string; precision?: string } | null; nombre?: boolean; forme?: string },
+  plus: boolean,
+): string {
+  const epoque = epoqueDe(q)
+  const domaine = domaineDe(q)
+  const efface = q.forme === 'lettres' ? 'une lettre de trop s’en va' : 'une mauvaise réponse s’efface'
+  return [epoque ? `Son époque : ${epoque}` : `Pas d’époque à dire : ${efface}`, ...(plus && domaine ? [`Son domaine : ${domaine}`] : [])].join(' · ')
+}
+
+/** « Elle », ou, quand la bonne réponse a un article, « Sans son article, elle » : on compte ses lettres comme on les compose. */
+const elleSansSonArticle = (reponse: string) => (sonArticle(reponse).article ? 'Sans son article, elle' : 'Elle')
+
+/**
+ * Ce que dit L'initiale d'une question à choix (v11) : la première lettre de
+ * sa bonne réponse — et sa dernière, améliorée. Elle n'appartient qu'à elle
+ * deux fois sur trois, sur quatre choix — qui ne sait pas trouve huit fois sur
+ * dix (mesuré sur la base livrée, le 19 octobre 2026) : une rare. Elle lit la
+ * bonne réponse : le serveur seul l'appelle.
+ */
+export function ceQueDitLInitiale(q: { reponses: readonly string[]; bonne: number }, plus: boolean): string {
+  const reponse = q.reponses[q.bonne] ?? ''
+  const mots = signesDe(reponse)
+  const premiere = mots[0]?.[0]
+  if (!premiere) return 'Elle ne s’écrit pas en lettres'
+  const dernier = mots[mots.length - 1]
+  return `${elleSansSonArticle(reponse)} commence par ${premiere}${plus ? ` et finit par ${dernier[dernier.length - 1]}` : ''}`
+}
+
+/**
+ * Ce que dit La lettre d'une question à choix (v11) : une lettre de sa bonne
+ * réponse — deux, améliorée —, comme au pendu : « Elle contient un R ». Une
+ * qu'une autre réponse encore à l'écran n'a pas, quand elle en a — sinon la
+ * carte ne servirait à rien —, au hasard de la graine et du rang de la
+ * question : la même à chaque lecture. Sur quatre choix, qui ne sait pas
+ * trouve six fois sur dix — huit avec L'initiale : une commune. Elle lit la
+ * bonne réponse : le serveur seul l'appelle.
+ */
+export function ceQueDitLaLettre(graine: string, position: number, q: { reponses: readonly string[]; bonne: number }, effacees: readonly number[], plus: boolean): string {
+  const reponse = q.reponses[q.bonne] ?? ''
+  const lettresDe = (r: string) => new Set([...signesDe(r).join('')].filter(s => /[A-Z]/.test(s)))
+  const siennes = [...lettresDe(reponse)]
+  if (siennes.length === 0) return 'Elle ne s’écrit pas en lettres'
+  const autres = q.reponses.flatMap((r, i) => (i === q.bonne || effacees.includes(i) ? [] : [lettresDe(r)]))
+  const parlantes = siennes.filter(l => autres.some(a => !a.has(l)))
+  const tas = parlantes.length > 0 ? parlantes : siennes
+  const h = hasardDe(`${graine}:lettre:${position}`)
+  for (let i = tas.length - 1; i > 0; i--) {
+    const j = Math.floor(h() * (i + 1))
+    ;[tas[i], tas[j]] = [tas[j], tas[i]]
+  }
+  const dites = tas.slice(0, plus ? 2 : 1)
+  return `${elleSansSonArticle(reponse)} contient ${dites.map(l => `un ${l}`).join(' et ')}`
+}
+
+/**
+ * Les cases qu'un coup de pouce pose sur une question à composer (v11), par
+ * leur rang parmi les `n` à remplir : L'initiale la première — et la
+ * dernière, améliorée —, La lettre une autre, au hasard de la graine et du
+ * rang de la question — deux, améliorée. Jamais plus que `n − 2` : il reste
+ * toujours de quoi composer.
+ */
+export function casesPosees(graine: string, position: number, n: number, cartes: readonly string[]): number[] {
+  const posees: number[] = []
+  const poser = (rang: number) => {
+    if (rang >= 0 && rang < n && !posees.includes(rang) && posees.length < n - 2) posees.push(rang)
+  }
+  const h = hasardDe(`${graine}:lettre:${position}`)
+  for (const cle of cartes) {
+    const base = baseDe(cle)
+    if (base === 'initiale') {
+      poser(0)
+      if (estAmelioree(cle)) poser(n - 1)
+    } else if (base === 'lettre') {
+      for (let k = 0; k < (estAmelioree(cle) ? 2 : 1); k++) {
+        const libres = Array.from({ length: n }, (_, i) => i).filter(i => i > 0 && !posees.includes(i))
+        if (libres.length > 0) poser(libres[Math.floor(h() * libres.length)])
+      }
+    }
+  }
+  return posees.sort((a, b) => a - b)
+}
+
+/**
+ * Ce que montre une question à composer (v11), à son rang : ses cases, les
+ * lettres que les coups de pouce y ont posées, et ses tuiles — moins
+ * `retirees` lettres de trop (`effaceesDuTour`), au hasard de la graine et du
+ * rang, dans le même ordre pour toutes les cartes qui en retirent, et moins
+ * une tuile par lettre posée. Elle lit la bonne réponse : le serveur seul
+ * l'appelle. Null : sa réponse ne se compose pas — une question gardée qui ne
+ * se lit plus.
+ */
+export function questionAComposer(
+  graine: string,
+  position: number,
+  q: { reponses: readonly string[]; bonne: number; tuiles: readonly string[]; enTrop: readonly number[] },
+  retirees: number,
+  cartes: readonly string[],
+): QuestionAComposer | null {
+  const g = gabaritDe(q.reponses[q.bonne] ?? '')
+  if (!g) return null
+  const posees = casesPosees(graine, position, g.lettres.length, cartes).map(rang => ({ rang, lettre: g.lettres[rang] }))
+  const r = hasardDe(`${graine}:efface:${position}`)
+  const deTrop = [...q.enTrop]
+  for (let i = deTrop.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1))
+    ;[deTrop[i], deTrop[j]] = [deTrop[j], deTrop[i]]
+  }
+  const parties = new Set(deTrop.slice(0, Math.max(0, retirees)))
+  // Une tuile par lettre posée : la première de cette lettre qui reste — une lettre de trop n'en est jamais une de la réponse.
+  for (const p of posees) {
+    const i = q.tuiles.findIndex((l, k) => l === p.lettre && !q.enTrop.includes(k) && !parties.has(k))
+    if (i >= 0) parties.add(i)
+  }
+  return {
+    ...(g.article && { article: g.article }),
+    mots: g.mots,
+    posees,
+    tuiles: q.tuiles.flatMap((lettre, n) => (parties.has(n) ? [] : [{ n, lettre }])),
+  }
 }
 
 /** Le nombre d'une réponse : le premier qu'elle écrit, compté avant notre ère s'il l'est. Null : elle n'en écrit pas. */

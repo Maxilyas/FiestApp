@@ -613,7 +613,8 @@ export const api = {
     /** À l'échoppe : un article contre des écus — le joker de l'étal, ou celui qu'on retire. */
     acheter: (id: string, rang: number, article: ArticleDeLEchoppe, joker?: string) => gesteDExpedition(id, rang, { quoi: 'acheter', article, ...(joker !== undefined && { joker }) }),
     garder: (id: string, rang: number, legendaire: string) => gesteDExpedition(id, rang, { quoi: 'garder', legendaire }),
-    repondre: (id: string, position: number, choix: number | readonly number[]) =>
+    /** Une réponse : un choix, deux sous Double chance — ou, à composer (v11), ses lettres dans l'ordre de ses cases. */
+    repondre: (id: string, position: number, choix: number | readonly number[] | string) =>
       req<ReponseDExpedition>(`/api/expedition/${encodeURIComponent(id)}/reponse`, { method: 'POST', body: JSON.stringify({ position, choix }) }),
     abandonner: (id: string) => req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/abandon`, { method: 'POST' }),
     devoilement: lireLeDevoilement,

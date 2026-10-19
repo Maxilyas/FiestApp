@@ -65,9 +65,10 @@ const plusDe = (c: CarteDeRencontre) => carteDeRencontre(ameliorer(c.cle))!
 // ── Le catalogue ────────────────────────────────────────────────────────────
 
 test('soixante-dix-sept cartes s’améliorent — ni les maudites, ni la carte de route, ni celles des légendaires — ; l’améliorée a son « + », son gain, et change ce qu’on voit', () => {
-  // Soixante et une au jeu complet, seize de plus avec les huit familles (la version 9).
+  // Soixante et une au jeu complet, seize de plus avec les huit familles (la version 9). Les coups de pouce (v11) ne vivent que dans
+  // la question au centre, et leur amélioration avec eux (`expedition-coups-de-pouce.test.ts`).
   assert.equal(AMELIORABLES.length, 77)
-  for (const c of CARTES_DES_RENCONTRES) {
+  for (const c of CARTES_DES_RENCONTRES.filter(x => (x.depuis ?? 0) <= VERSION_DES_HUIT_FAMILLES)) {
     const devrait = c.rarete !== 'maudit' && c.rarete !== 'legendaire' && c.moment !== 'route'
     assert.equal(!!c.amelioration, devrait, c.cle)
     if (!devrait) assert.equal(carteDeRencontre(ameliorer(c.cle)), undefined, `${c.cle} n’a pas d’exemplaire « + »`)

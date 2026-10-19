@@ -23,6 +23,8 @@ export function SerieCorrigee({ correction }: { correction: CorrectionDeCampagne
           reponses={c.reponses}
           bonne={c.bonne}
           choix={c.choix}
+          // Une réponse composée (l'expédition, v11) n'avait pas de choix : ni leurs formes, ni la sienne.
+          formes={c.composee === undefined}
         >
           {/* Sa proposée fausse, « Faux » ne dit pas ce qu'il fallait répondre (un testeur, le 19 octobre 2026). */}
           {c.bonneReponse !== undefined && (

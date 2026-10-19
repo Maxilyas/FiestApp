@@ -22,6 +22,7 @@
 import type { Niveau } from './campagne'
 import type { FormeDEscale, ThemeDEscale } from './expedition'
 import { EFFACE } from './jokers'
+import { LETTRES_EN_TROP } from './lettres'
 import { hasardDe } from './missions'
 
 /**
@@ -135,8 +136,9 @@ export const CRANS_DES_RENCONTRES: Readonly<Record<SorteDeRencontre, readonly nu
 }
 /**
  * Ce que vaut une bonne réponse à une question dure (v10) : six choix, et un
- * dévoilement trouvé dans la première moitié de ses mots. Polymorphe, qui
- * corse plus fort, en fait trois.
+ * dévoilement trouvé dans la première moitié de ses mots — depuis les coups
+ * de pouce (v11), une réponse composée. Polymorphe, qui corse plus fort, en
+ * fait trois.
  */
 export const CRANS_D_UNE_QUESTION_DURE = 2
 export const CRANS_DE_POLYMORPHE = 3
@@ -549,6 +551,19 @@ export const VERSION_DE_LA_QUESTION_AU_CENTRE = 10
  */
 export const QUESTION_AU_CENTRE_EN_PRODUCTION = false
 
+/**
+ * La version du départ qui joue les coups de pouce et les lettres (le 19
+ * octobre 2026, l'étape 3 du plan — le testeur : « Ça manque un peu de cartes
+ * pour donner des indices […] des lettres présentes dans la réponse […] comme
+ * un pendu ») : la forme à composer (`shared/lettres.ts`), une escale sur cinq
+ * dès l'étage 2 (`POIDS_DES_FORMES_A_COMPOSER`), et trois cartes qui soufflent
+ * — L'initiale, Le repère, La lettre. En préproduction avec la question au
+ * centre (`QUESTION_AU_CENTRE_EN_PRODUCTION`) : une expédition partie en
+ * version 10 finit à ses règles, sans escale à composer ni cartes neuves. Le
+ * brief : `retours/2026-10-19/les-coups-de-pouce.md`.
+ */
+export const VERSION_DES_COUPS_DE_POUCE = 11
+
 /** Le paquet de tous, et les neutres que les offres proposent. */
 const NEUTRES: readonly CarteDeRencontre[] = [
   { cle: 'concentration', nom: 'Concentration', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: 'Si tu réponds juste, l’adversaire perd 4 de plus.', resume: '+4 si juste', valeur: '+4' },
@@ -590,6 +605,46 @@ const NEUTRES: readonly CarteDeRencontre[] = [
     effet: 'Une fois la question vue : si tu réponds juste, l’adversaire perd 4 de plus.',
     resume: '+4 si juste',
     valeur: '+4',
+  },
+  // Les coups de pouce (v11) : ils soufflent la réponse — une époque, une lettre ; à composer, L'initiale et La lettre posent les leurs.
+  // Ce qu'ils disent lit la bonne réponse : le serveur seul le calcule (`ceQueDitLeRepere`, `shared/expedition.ts`).
+  {
+    cle: 'repere',
+    nom: 'Le repère',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'neutre',
+    rarete: 'commun',
+    indice: true,
+    depuis: VERSION_DES_COUPS_DE_POUCE,
+    // Sans époque à dire, elle efface, comme le Sphinx : mesurée seule (le 19 octobre 2026), elle disait le domaine — que l'escale dit
+    // déjà — six fois sur dix, encombrait la main pour rien, et retirait au joueur fort six points sur cent au bout.
+    effet: 'Elle te dit l’époque de la question — sinon, elle efface une mauvaise réponse.',
+    resume: 'Époque ou efface 1',
+  },
+  {
+    cle: 'lettre',
+    nom: 'La lettre',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'neutre',
+    rarete: 'commun',
+    indice: true,
+    depuis: VERSION_DES_COUPS_DE_POUCE,
+    effet: 'Elle te dit une lettre de la bonne réponse. À composer, elle la pose à sa place.',
+    resume: 'Une lettre',
+  },
+  {
+    cle: 'initiale',
+    nom: 'L’initiale',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'neutre',
+    rarete: 'rare',
+    indice: true,
+    depuis: VERSION_DES_COUPS_DE_POUCE,
+    effet: 'Elle te dit par quelle lettre commence la bonne réponse. À composer, elle la pose.',
+    resume: 'Son initiale',
   },
   {
     cle: 'double-chance',
@@ -1977,6 +2032,18 @@ const EN_QUESTION: Readonly<Record<string, CarteEnQuestion>> = {
   sursis: { amelioration: etTuTiresUneCarte('Si tu te trompes, l’adversaire ne t’attaque pas.', 'Gratuite, +1 carte') },
   'tout-ou-rien': {},
   'quitte-ou-double': { effet: 'Si tu as juste, l’adversaire perd le double. Si tu te trompes, son attaque double.' },
+  // Les coups de pouce (v11), nés dans la question au centre : améliorés, ils en disent plus.
+  repere: { amelioration: { gain: 'Son domaine en plus', effet: 'Elle te dit le domaine de la question, et son époque — sinon, elle efface une mauvaise réponse.', resume: 'Époque, domaine' } },
+  lettre: {
+    amelioration: { gain: 'Deux lettres au lieu d’une', effet: 'Elle te dit deux lettres de la bonne réponse. À composer, elle les pose à leur place.', resume: 'Deux lettres' },
+  },
+  initiale: {
+    amelioration: {
+      gain: 'La dernière lettre aussi',
+      effet: 'Elle te dit par quelle lettre commence la bonne réponse, et par laquelle elle finit. À composer, elle les pose.',
+      resume: 'Initiale et fin',
+    },
+  },
   // L'Érudit.
   plume: {
     effet: 'Si tu réponds juste, l’adversaire perd un cran de plus — deux si la question est de ta catégorie fétiche.',
@@ -2307,8 +2374,20 @@ function exemplaireAmeliore(c: CarteDeRencontre, a: Amelioration): CarteDeRencon
   return x
 }
 
-/** Les exemplaires améliorés : hors du catalogue — le codex et les offres l'énumèrent —, mais chacun se lit par sa clé. */
-const AMELIOREES: readonly CarteDeRencontre[] = CARTES_DES_RENCONTRES.flatMap(c => (c.amelioration ? [exemplaireAmeliore(c, c.amelioration)] : []))
+/**
+ * Les exemplaires améliorés : hors du catalogue — le codex et les offres
+ * l'énumèrent —, mais chacun se lit par sa clé. Une carte née dans la question
+ * au centre (les coups de pouce, v11) n'a d'amélioration que la sienne
+ * (`EN_QUESTION`) : son exemplaire naît de là, et `carteEnQuestion` lui donne
+ * ses mots.
+ */
+const AMELIOREES: readonly CarteDeRencontre[] = CARTES_DES_RENCONTRES.flatMap(c =>
+  c.amelioration
+    ? [exemplaireAmeliore(c, c.amelioration)]
+    : c.enQuestion?.amelioration && (c.depuis ?? 0) > VERSION_DE_LA_QUESTION_AU_CENTRE
+      ? [exemplaireAmeliore(c, { gain: c.enQuestion.amelioration.gain })]
+      : [],
+)
 
 const PAR_CLE = new Map([...CARTES_DES_RENCONTRES, ...AMELIOREES].map(c => [c.cle, c]))
 
@@ -2327,7 +2406,8 @@ export function refusDeLAmelioration(paquet: readonly string[], cle: string): st
   const c = carteDeRencontre(cle)
   if (!c || !paquet.includes(cle)) return 'Cette carte n’est pas dans ton paquet'
   if (c.amelioree) return 'Elle est déjà améliorée'
-  if (!c.amelioration) {
+  // Son exemplaire « + » dit qu'elle s'améliore : un coup de pouce (v11) n'a d'amélioration que celle de la question au centre.
+  if (!PAR_CLE.has(ameliorer(cle))) {
     return c.maudit ? 'Une carte maudite ne s’améliore pas' : c.legendaire ? 'La carte d’un légendaire ne s’améliore pas' : 'Une carte de route ne s’améliore pas'
   }
   return null
@@ -2374,8 +2454,12 @@ const PAR_CLE_EN_QUESTION = new Map([...PAR_CLE.values()].flatMap(c => {
   return x ? [[c.cle, x] as const] : []
 }))
 
-/** Cette carte se joue-t-elle dans la question au centre (v10) ? Améliorée ou non. */
-export const seJoueEnQuestion = (cle: string) => PAR_CLE_EN_QUESTION.has(cle)
+/**
+ * Cette carte se joue-t-elle dans la question au centre, à cette version ?
+ * Améliorée ou non. Un coup de pouce n'y entre qu'à la version 11 : une
+ * expédition partie en version 10 ne l'a jamais tiré.
+ */
+export const seJoueEnQuestion = (cle: string, v = VERSION_DE_LA_QUESTION_AU_CENTRE) => carteALaVersion(cle, Math.max(v, VERSION_DE_LA_QUESTION_AU_CENTRE)) !== undefined
 
 /** Une carte du pari (v10) : elle se joue à l'annonce, avec lui — jouée la question vue, elle ferait parier à coup sûr. */
 export const estDuPari = (cle: string) => !!PAR_CLE.get(baseDe(cle))?.enQuestion?.pari
@@ -2388,13 +2472,16 @@ export const tireEnPlusEnQuestion = (cle: string) => (estAmelioree(cle) ? (PAR_C
  * v6), à ses chiffres d'alors — rejouée aux règles neuves, une expédition
  * partie avant changerait sous les pieds de qui joue ; depuis la question au
  * centre (v10), telle qu'elle s'y joue — undefined pour une des quarante-deux
- * qu'elle a retirées. Tout ce qui lit son coût ou ce qu'elle dit dans une
- * expédition passe par ici.
+ * qu'elle a retirées. Une carte venue après la version (`depuis`) ne s'y lit
+ * pas : son paquet ne l'a jamais tirée, et son codex ne la montre pas — les
+ * coups de pouce de la version 11 n'ont rien à faire au codex de la
+ * production. Tout ce qui lit son coût ou ce qu'elle dit dans une expédition
+ * passe par ici.
  */
 export function carteALaVersion(cle: unknown, v: number): CarteDeRencontre | undefined {
-  if (v >= VERSION_DE_LA_QUESTION_AU_CENTRE) return typeof cle === 'string' ? PAR_CLE_EN_QUESTION.get(cle) : undefined
-  const c = carteDeRencontre(cle)
-  return c?.avantLeCodex && v < VERSION_DU_CODEX ? { ...c, ...c.avantLeCodex } : c
+  const c = v >= VERSION_DE_LA_QUESTION_AU_CENTRE ? (typeof cle === 'string' ? PAR_CLE_EN_QUESTION.get(cle) : undefined) : carteDeRencontre(cle)
+  if (!c || (c.depuis ?? 0) > v) return undefined
+  return c.avantLeCodex && v < VERSION_DU_CODEX ? { ...c, ...c.avantLeCodex } : c
 }
 
 /** La carte d'un légendaire (`lg:phenix`), s'il en a une. */
@@ -2833,10 +2920,12 @@ export const gainDuPariEnQuestion = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>
  * Ce que vaut sa forme, en crans (v10) : un, à quatre choix comme en vrai ou
  * faux — qui paie deux fois moins d'écus — ; deux à six choix, trois sous
  * Polymorphe ; deux pour un dévoilement trouvé dans la première moitié de ses
- * mots, lus à l'heure du serveur où la réponse est arrivée (`devoile`).
+ * mots, lus à l'heure du serveur où la réponse est arrivée (`devoile`) ; deux
+ * pour une réponse composée (v11), qu'aucun choix ne soufflait.
  */
 export function cransDeLaForme(q: FormeDUneQuestion, surLaQuestion: readonly string[] = []): number {
   if ((q.reponses ?? 4) <= 2) return 1
+  if (q.forme === 'lettres') return CRANS_D_UNE_QUESTION_DURE
   if (q.forme === 'six') return parmi(surLaQuestion, 'polymorphe') ? CRANS_DE_POLYMORPHE : CRANS_D_UNE_QUESTION_DURE
   if (q.forme === 'devoilement' && q.devoile && q.devoile.sur > 0) return 2 * Math.max(1, q.devoile.mots) <= q.devoile.sur ? CRANS_D_UNE_QUESTION_DURE : 1
   return 1
@@ -2924,18 +3013,32 @@ export const EFFACE_DES_CARTES: Readonly<Record<string, number>> = { ...EFFACE, 
 /** Les pouvoirs qui effacent une réponse à chaque question : L'écholocation, Vision (le jeu complet). */
 export const POUVOIRS_QUI_EFFACENT: readonly string[] = ['echolocation', 'vision']
 
-/** Les réponses qu'effacent les cartes du tour, la fiole de clairvoyance, L'écholocation et Vision — jamais plus que deux de moins que ses réponses : sinon la carte répondrait à sa place. */
-export function effaceesDuTour(surLaQuestion: readonly string[], pouvoirs: readonly string[], q: { reponses: number; datee?: boolean }): number {
+/**
+ * Les réponses qu'effacent les cartes du tour, la fiole de clairvoyance,
+ * L'écholocation et Vision — jamais plus que deux de moins que ses réponses :
+ * sinon la carte répondrait à sa place. À composer (v11), ce sont les lettres
+ * de trop qui s'en vont : ses réponses sont ses tuiles, et toutes celles de
+ * trop peuvent partir — il reste à mettre les lettres dans l'ordre.
+ */
+export function effaceesDuTour(
+  surLaQuestion: readonly string[],
+  pouvoirs: readonly string[],
+  q: { reponses: number; datee?: boolean; nombre?: boolean; forme?: FormeDEscale },
+): number {
   if (q.reponses <= 2) return 0
+  const auPlus = q.forme === 'lettres' ? LETTRES_EN_TROP : q.reponses - 2
+  // Le repère (v11) n'a pas d'époque à dire d'une question qui ne se date pas, ni d'une année ou d'un nombre — elle dirait la réponse :
+  // il efface alors, comme le Sphinx.
+  const sansEpoque = !q.datee || !!q.nombre
   let n = 0
   for (const cle of surLaQuestion) {
     const b = baseDe(cle)
-    n += cle === CLAIRVOYANCE_SUR_LA_QUESTION ? 1 : b === 'revelation' ? q.reponses : (EFFACE_DES_CARTES[b] ?? 0)
+    n += cle === CLAIRVOYANCE_SUR_LA_QUESTION ? 1 : b === 'revelation' ? q.reponses : b === 'repere' ? (sansEpoque ? 1 : 0) : (EFFACE_DES_CARTES[b] ?? 0)
   }
   // Le Sphinx d'une question qui ne se date pas efface au lieu de souffler : sinon, la carte ne servait à rien.
   if (surLaQuestion.includes('enigme') && !q.datee) n += 1
   for (const cle of POUVOIRS_QUI_EFFACENT) if (parmi(pouvoirs, cle)) n += EFFACE_DES_CARTES[cle] ?? 1
-  return Math.min(n, q.reponses - 2)
+  return Math.min(n, auPlus)
 }
 
 /**
@@ -3381,13 +3484,15 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
   const changee = c.tour.surLaQuestion.some(changeLaForme)
   const effacees = effaceesDuTour(c.tour.surLaQuestion, c.pouvoirs, q)
   const enQuestion = c.v >= VERSION_DE_LA_QUESTION_AU_CENTRE
+  // À composer (v11), ses réponses sont ses tuiles : ce qui s'efface, ce sont ses lettres de trop, toutes s'il le faut.
+  const aComposer = q.forme === 'lettres'
+  const plusRienAEffacer = effacees >= (aComposer ? LETTRES_EN_TROP : q.reponses - 2) ? (aComposer ? 'Il ne reste plus de lettre de trop' : 'Il ne reste plus rien à effacer') : null
   switch (base) {
     case 'augure':
       // Dans la question au centre, elle efface d'avance à la question suivante : celle d'ici n'y change rien.
       if (enQuestion) return null
       if (q.reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
-      if (effacees >= q.reponses - 2) return 'Il ne reste plus rien à effacer'
-      return null
+      return plusRienAEffacer
     case 'reveil':
       return enQuestion && c.defausse === 0 ? 'Ta défausse est vide' : null
     case 'coup-d-oeil':
@@ -3397,19 +3502,34 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
     case 'voyance':
     case 'revelation':
       if (q.reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
-      if (effacees >= q.reponses - 2) return 'Il ne reste plus rien à effacer'
-      return null
+      return plusRienAEffacer
     case 'double-chance':
+      if (aComposer) return 'Pas sur une question à composer : elle n’a pas de choix'
       if (q.reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
       return aJoueSurLaQuestion(c, base) ? 'Déjà jouée sur cette question' : null
     case 'enigme':
       return aJoueSurLaQuestion(c, base) ? 'Le Sphinx a déjà parlé' : null
     case 'prediction':
+      // Une réponse composée n'a pas de choix à montrer à l'Oracle — « Huit » se répond aussi en lettres.
+      if (aComposer) return 'Pas sur une question à composer : l’Oracle n’a aucune réponse à montrer'
       if (!q.nombre || q.reponses <= 2) return 'La Prédiction se joue sur une année ou un nombre'
       return aJoueSurLaQuestion(c, base) ? 'L’Oracle a déjà parlé' : null
     case 'deux-visages':
       if (q.forme === 'devoilement') return 'Pas sur un dévoilement : deux textes à la fois, tu n’en lirais aucun'
+      if (aComposer) return 'Pas sur une question à composer : deux réponses à composer, tu n’en finirais aucune'
       return aJoueSurLaQuestion(c, base) ? 'Déjà deux questions à l’écran' : null
+    // Les coups de pouce (v11) : L'initiale et La lettre diraient la réponse d'un vrai ou faux, et d'une année le premier chiffre,
+    // que les quatre choix partagent ; à composer, elles posent leurs lettres. Le repère dit l'époque partout où elle ne dit pas la
+    // réponse ; ailleurs il efface, et se refuse quand il n'y a plus rien à effacer.
+    case 'repere':
+      if (q.datee && !q.nombre) return null
+      if (q.reponses <= 2) return 'Pas d’époque à dire de ce vrai ou faux, et rien à y effacer'
+      return plusRienAEffacer
+    case 'initiale':
+    case 'lettre':
+      if (q.reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
+      if (!aComposer && q.nombre) return 'Pas sur une année ou un nombre : elle se joue sur des mots'
+      return null
     case 'arret-sur-image':
       if (q.forme !== 'devoilement') return 'Arrêt sur image se joue sur un dévoilement'
       return aJoueSurLaQuestion(c, base) ? 'Le texte s’est déjà arrêté' : null
@@ -3421,6 +3541,7 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
     case 'corser':
     case 'polymorphe':
       if (changee) return 'La question a déjà changé de forme'
+      if (q.tiree === 'lettres') return 'Pas sur une question à composer : elle n’a pas de choix à corser'
       if (q.tiree !== 'quatre' && q.tiree !== 'devoilement') return q.tiree === 'six' ? 'Elle est déjà à six choix' : 'Pas sur un vrai ou faux'
       return q.six ? null : 'Cette question n’a pas de quoi tenir six choix'
     case 'simplifier':

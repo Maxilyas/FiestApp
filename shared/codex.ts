@@ -33,6 +33,7 @@ import {
   MAIN_MAX_EN_QUESTION,
   MAIN_MAX_SOUS_TROIS_TETES,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   baseDe,
@@ -343,8 +344,19 @@ export const ECHELLE_EN_QUESTION: readonly MarcheDuCodex[] = [
   { niveau: 10, cartes: ['encyclopedie'] },
 ]
 
-/** L'échelle d'un départ de cette version : celle de la question au centre dès la version 10. */
-export const echelleDe = (v: number): readonly MarcheDuCodex[] => (v >= VERSION_DE_LA_QUESTION_AU_CENTRE ? ECHELLE_EN_QUESTION : ECHELLE)
+/**
+ * L'échelle des coups de pouce (v11) : celle de la question au centre, et ses
+ * trois cartes — Le repère et La lettre au niveau 1, où les communes
+ * attendaient des aides, L'initiale, une rare, au niveau 3. Un départ de la
+ * version 10 garde la sienne : son codex figé ne les nomme pas.
+ */
+export const ECHELLE_DES_COUPS_DE_POUCE: readonly MarcheDuCodex[] = ECHELLE_EN_QUESTION.map(m =>
+  m.niveau === 1 ? { ...m, cartes: [...m.cartes, 'repere', 'lettre'] } : m.niveau === 3 ? { ...m, cartes: [...m.cartes, 'initiale'] } : m,
+)
+
+/** L'échelle d'un départ de cette version : celle de la question au centre dès la version 10, et ses coups de pouce dès la 11. */
+export const echelleDe = (v: number): readonly MarcheDuCodex[] =>
+  v >= VERSION_DES_COUPS_DE_POUCE ? ECHELLE_DES_COUPS_DE_POUCE : v >= VERSION_DE_LA_QUESTION_AU_CENTRE ? ECHELLE_EN_QUESTION : ECHELLE
 
 /** Les styles qu'ouvre un niveau, du premier au sien, dans l'ordre de l'échelle : ceux que le départ propose — à la version du départ. */
 export const stylesDuNiveau = (niveau: number, v = VERSION_DES_HUIT_FAMILLES): StyleDeJeu[] =>
@@ -364,7 +376,7 @@ export const niveauDeLaRegle = (regle: RegleDuCodex, v = VERSION_DES_HUIT_FAMILL
  * des quarante-deux que la question au centre a retirées).
  */
 export function ouvertureDe(cle: string, v = VERSION_DES_HUIT_FAMILLES): { niveau: number } | { exploit: CleDExploit } | { legendaire: string } | null {
-  if (v >= VERSION_DE_LA_QUESTION_AU_CENTRE && !seJoueEnQuestion(cle)) return null
+  if (v >= VERSION_DE_LA_QUESTION_AU_CENTRE && !seJoueEnQuestion(cle, v)) return null
   const marche = echelleDe(v).find(m => m.cartes.includes(cle))
   if (marche) return { niveau: marche.niveau }
   const exploit = EXPLOITS.find(x => x.carte === cle)
@@ -419,7 +431,7 @@ export function codexDuNiveau(
     ...legendaires.flatMap(l => carteDuLegendaire(l)?.cle ?? []),
   ])
   // Une carte retirée de la question au centre ne s'y ouvre jamais, même par son exploit.
-  const seJoue = (cle: string) => v < VERSION_DE_LA_QUESTION_AU_CENTRE || seJoueEnQuestion(cle)
+  const seJoue = (cle: string) => v < VERSION_DE_LA_QUESTION_AU_CENTRE || seJoueEnQuestion(cle, v)
   return {
     niveau,
     cartes: CARTES_DES_RENCONTRES.filter(c => ouvertes.has(c.cle) && seJoue(c.cle)).map(c => c.cle),

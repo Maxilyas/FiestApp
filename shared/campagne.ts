@@ -630,6 +630,12 @@ export interface CorrectionDeCampagne {
   proposee?: string
   /** Le même, quand la réponse proposée était fausse : la bonne de ses quatre réponses. */
   bonneReponse?: string
+  /**
+   * Une question à composer de l'expédition (v11) : ce qu'il a composé, en
+   * capitales. Ses `reponses` sont sa bonne et, fausse, cette composition :
+   * ni choix, ni leurs formes.
+   */
+  composee?: string
 }
 
 // ── Le défi de la semaine ─────────────────────────────────────────────────

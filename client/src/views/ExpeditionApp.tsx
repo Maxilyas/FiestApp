@@ -28,6 +28,7 @@ import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees } from '.
 import { NOM_NIVEAU, SIGNALEMENT_MAX, VIES, type CorrectionDeCampagne, type Niveau } from '../../../shared/campagne'
 import { couleurDePiste } from '../../../shared/sentiers'
 import { sujetParCle } from '../../../shared/sujets'
+import { compositionDite } from '../../../shared/lettres'
 import { saison as laSaison, type Saison } from '../../../shared/saisons'
 import type { RareteDeTheme } from '../../../shared/themes'
 import { hautFait } from '../../../shared/hautsfaits'
@@ -76,6 +77,7 @@ import {
   type EscaleDeLaCarte,
   type JokersEnJeu,
   type PageDeLExpedition,
+  type QuestionAComposer,
   type QuestionDExpedition,
   type ReponseDExpedition,
   type SensDeLOracle,
@@ -96,6 +98,7 @@ import {
   STYLES,
   STYLES_EN_QUESTION,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
@@ -209,9 +212,10 @@ type Ecran =
    * le choix au bout — l'écran se lit de la vue. Une question répondue garde
    * sa révélation (`reponse`) jusqu'à « Suite » : la vue, elle, est déjà
    * celle d'après, et `avant` celle de la question — ses vies, son joker, ses
-   * posés : ce que la réponse a coûté se lit de l'écart.
+   * posés : ce que la réponse a coûté se lit de l'écart. À composer (v11),
+   * ce qu'il a composé (`composee`) : la révélation le redit.
    */
-  | { e: 'route'; vue: VueDeLExpedition; question?: QuestionDExpedition; reponse?: ReponseDExpedition; choix?: number; avant?: VueDeLExpedition }
+  | { e: 'route'; vue: VueDeLExpedition; question?: QuestionDExpedition; reponse?: ReponseDExpedition; choix?: number; composee?: string; avant?: VueDeLExpedition }
   | { e: 'vaincu'; vue: VueDeLExpedition; gardien: string }
   /** L'inconnu vient de se dévoiler — un piège, un légendaire de passage — ; `tombe` : le piège a pris sa dernière vie. */
   | { e: 'inconnu'; vue: VueDeLExpedition; tombe?: Fin }
@@ -782,8 +786,8 @@ export function ExpeditionApp() {
    */
   const [echoppeLaissee, setEchoppeLaissee] = useState<string | null>(null)
 
-  /** Une réponse — deux sous Double chance —, à la question qu'il a choisie sous Deux visages. */
-  const repondre = async (vue: VueDeLExpedition, q: QuestionDExpedition, choix: number | readonly number[]) => {
+  /** Une réponse — deux sous Double chance, ses lettres à composer —, à la question qu'il a choisie sous Deux visages. */
+  const repondre = async (vue: VueDeLExpedition, q: QuestionDExpedition, choix: number | readonly number[] | string) => {
     if (busy) return
     // Sa niche retient son souffle jusqu'au verdict du serveur.
     nicheRetientSonSouffle()
@@ -792,7 +796,12 @@ export function ExpeditionApp() {
     try {
       const reponse = await api.expedition.repondre(vue.id, q.index, choix)
       setGains(g => ({ xp: g.xp + reponse.xp, justes: g.justes + (reponse.juste ? 1 : 0), tampons: reponse.tampon ? [...g.tampons, reponse.tampon] : g.tampons }))
-      // La révélation reste à l'écran, sans le faire défiler : la bonne réponse est sous le doigt.
+      // La révélation reste à l'écran, sans le faire défiler : la bonne réponse est sous le doigt. Composée, elle n'est aucune de ses
+      // réponses : la révélation dit ce qu'il a composé.
+      if (typeof choix === 'string') {
+        setEcranBrut({ e: 'route', vue: reponse.expedition, question: q, reponse, choix: reponse.bonne, composee: choix, avant: vue })
+        return
+      }
       const premier = typeof choix === 'number' ? choix : (choix.includes(reponse.bonne) ? reponse.bonne : choix[0])
       setEcranBrut({ e: 'route', vue: reponse.expedition, question: q, reponse, choix: premier, avant: vue })
     } catch (e) {
@@ -949,6 +958,7 @@ export function ExpeditionApp() {
         question={ecran.question}
         reponse={ecran.reponse}
         choix={ecran.choix ?? null}
+        composee={ecran.composee}
         busy={busy}
         erreur={erreur}
         onRepondre={() => {}}
@@ -1188,9 +1198,9 @@ export function Depart({
   const styles = page.prochaine.codex?.styles ?? []
   const [style, setStyle] = useState(() => styleRetenu(page.prochaine.codex?.styles ?? []))
   const enRencontres = vue ? vue.courage !== undefined : ouvertes
-  // La version que ses pièces lisent : celle de l'expédition en route, sinon celle qui partirait — la question au centre (v10),
-  // là où la page la dit ouverte. Ses cartes, son codex, ses styles et son Ascension en dépendent.
-  const v = vue ? (vue.cartes?.v ?? VERSION_DU_CODEX) : page.prochaine.questionAuCentre ? VERSION_DE_LA_QUESTION_AU_CENTRE : VERSION_DES_HUIT_FAMILLES
+  // La version que ses pièces lisent : celle de l'expédition en route, sinon celle qui partirait — la question au centre et ses
+  // coups de pouce (v11), là où la page la dit ouverte. Ses cartes, son codex, ses styles et son Ascension en dépendent.
+  const v = vue ? (vue.cartes?.v ?? VERSION_DU_CODEX) : page.prochaine.questionAuCentre ? VERSION_DES_COUPS_DE_POUCE : VERSION_DES_HUIT_FAMILLES
   // Le codex (v7) : celui qu'elle a figé en route, celui qui partirait avant ; aux règles d'avant, aucun.
   const codex = page.prochaine.codex
   // L'Ascension se choisit une fois une expédition menée au bout ; un serveur d'avant elle ne dit rien de ses crans.
@@ -2519,6 +2529,90 @@ export function ReponsesDeLEscale({
 }
 
 /**
+ * La réponse à composer (v11) : ses cases, mot par mot — l'article, le trait
+ * d'union et l'apostrophe posés d'office, comme les lettres d'un coup de
+ * pouce —, puis ses tuiles. Toucher une tuile la pose dans la première case
+ * vide ; toucher une case pleine rend sa tuile ; « Effacer » vide tout, et
+ * « Valider » attend que tout soit plein. Pas de clavier : il pousserait les
+ * boutons hors de l'écran. La page ne sait pas la réponse : elle envoie les
+ * lettres dans l'ordre de ses cases, et le serveur juge (invariant 1).
+ */
+export function ComposerLaReponse({ composer, busy, onValider }: { composer: QuestionAComposer; busy: boolean; onValider: (lettres: string) => void }) {
+  const [placees, setPlacees] = useState<(number | null)[]>([])
+  const n = composer.mots.reduce((s, mot) => s + mot.filter(c => c === null).length, 0)
+  const posees = new Map(composer.posees.map(p => [p.rang, p.lettre]))
+  const lettreDe = new Map(composer.tuiles.map(t => [t.n, t.lettre]))
+  // Une carte jouée en route retire une lettre de trop, ou en pose une : ce qu'il avait mis d'une tuile partie, ou sur une case
+  // posée depuis, se retire de lui-même.
+  const actuelles = Array.from({ length: n }, (_, rang) => {
+    const t = placees[rang]
+    return t !== undefined && t !== null && lettreDe.has(t) && !posees.has(rang) ? t : null
+  })
+  const dansLesCases = new Set(actuelles.filter((t): t is number => t !== null))
+  const libres = composer.tuiles.filter(t => !dansLesCases.has(t.n))
+  const lettres = actuelles.map((t, rang) => posees.get(rang) ?? (t === null ? '' : (lettreDe.get(t) ?? ''))).join('')
+  const plein = lettres.length === n
+  const poser = (t: number) => {
+    const rang = actuelles.findIndex((x, k) => x === null && !posees.has(k))
+    if (busy || rang < 0) return
+    setPlacees(actuelles.map((x, k) => (k === rang ? t : x)))
+  }
+  const retirer = (rang: number) => !busy && setPlacees(actuelles.map((x, k) => (k === rang ? null : x)))
+  let rang = 0
+  return (
+    <div className="exp-composer">
+      <div className="exp-cases" role="group" aria-label={`Ta réponse : ${n} lettres à composer`}>
+        {composer.article && <span className="exp-article">{composer.article}</span>}
+        {composer.mots.map((mot, m) => (
+          <span key={m} className="exp-mot">
+            {mot.map((c, i) => {
+              if (c !== null) {
+                return (
+                  <span key={i} className="exp-signe" aria-hidden="true">
+                    {c}
+                  </span>
+                )
+              }
+              const k = rang++
+              const posee = posees.get(k)
+              const t = actuelles[k]
+              const l = posee ?? (t === null ? undefined : lettreDe.get(t))
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  className={'exp-case' + (posee ? ' exp-case-posee' : l ? ' exp-case-pleine' : '')}
+                  aria-label={posee ? `Lettre ${k + 1} : ${posee}, posée d’office` : l ? `Lettre ${k + 1} : ${l} — touche pour la retirer` : `Lettre ${k + 1}, vide`}
+                  aria-disabled={busy || !!posee || !l || undefined}
+                  {...toucher(() => !posee && l && retirer(k))}
+                >
+                  {l ?? ''}
+                </button>
+              )
+            })}
+          </span>
+        ))}
+      </div>
+      <div className="exp-tuiles" role="group" aria-label="Les lettres à poser">
+        {libres.map(t => (
+          <button key={t.n} type="button" className="exp-tuile" aria-label={`Poser un ${t.lettre}`} aria-disabled={busy || plein || undefined} {...toucher(() => !plein && poser(t.n))}>
+            {t.lettre}
+          </button>
+        ))}
+      </div>
+      <div className="exp-composer-gestes">
+        <button type="button" className="btn btn-ghost" aria-disabled={busy || dansLesCases.size === 0 || undefined} onClick={() => !busy && setPlacees([])}>
+          Effacer
+        </button>
+        <button type="button" className="btn btn-primary" aria-disabled={busy || !plein || undefined} onClick={() => plein && !busy && onValider(lettres)}>
+          {plein ? 'Valider' : `Encore ${n - lettres.length} lettre${n - lettres.length > 1 ? 's' : ''}`}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Une question de l'expédition (les maquettes 4 et 7) : celle d'une escale —
  * sa catégorie, son mélange ou son thème pointu —, d'une source, d'une
  * élite, ou du gardien, son médaillon et ses crans au-dessus ; sous ses
@@ -2535,6 +2629,7 @@ function Escale({
   question: q,
   reponse: r,
   choix,
+  composee,
   busy,
   erreur,
   onRepondre,
@@ -2549,9 +2644,11 @@ function Escale({
   question: QuestionDExpedition
   reponse: ReponseDExpedition | null
   choix: number | null
+  /** Révélée, à composer (v11) : ce qu'il a composé. */
+  composee?: string
   busy: boolean
   erreur: string
-  onRepondre: (q: QuestionDExpedition, choix: number | readonly number[]) => void
+  onRepondre: (q: QuestionDExpedition, choix: number | readonly number[] | string) => void
   onJouer: JouerUnJoker
   onSuite: () => void
   onPartir: () => void
@@ -2689,6 +2786,14 @@ function Escale({
             <b>La loupe :</b> {espacesFines(affichee.siecle)}
           </p>
         )}
+        {/* Les coups de pouce (v11) : ce que Le repère, L'initiale ou La lettre soufflent — à composer, les lettres sont dans les cases. */}
+        {!r &&
+          affichee.pouces?.map(p => (
+            <p key={p} className="exp-indice exp-pouce small" role="status">
+              <Icon name="bulb" />
+              {espacesFines(p)}
+            </p>
+          ))}
         {!r && affichee.prediction && (
           <p className="exp-indice small" role="status">
             <b>L’Oracle</b>
@@ -2704,7 +2809,24 @@ function Escale({
           </p>
         )}
         {doubleChance && <p className="exp-consigne small">{espacesFines('Double chance : choisis deux réponses — il suffit que l’une soit juste.')}</p>}
-        {!r ? (
+        {r ? (
+          <Revelation
+            question={q}
+            reponse={r}
+            avant={avant}
+            choix={choix}
+            composee={composee}
+            source={source}
+            finie={finie}
+            gardien={gardien}
+            adversaire={rencontre?.adversaire}
+            onSuite={onSuite}
+            onSignaler={onSignaler}
+          />
+        ) : affichee.composer ? (
+          // Une question à composer (v11) : sa clé change avec elle — Échange en pose une autre, rien de composé ne la suit.
+          <ComposerLaReponse key={affichee.index} composer={affichee.composer} busy={busy} onValider={lettres => onRepondre(affichee, lettres)} />
+        ) : (
           <ReponsesDeLEscale
             reponses={affichee.reponses}
             effacees={effacees}
@@ -2714,8 +2836,6 @@ function Escale({
             busy={busy}
             onToucher={toucherReponse}
           />
-        ) : (
-          <Revelation question={q} reponse={r} avant={avant} choix={choix} source={source} finie={finie} gardien={gardien} adversaire={rencontre?.adversaire} onSuite={onSuite} onSignaler={onSignaler} />
         )}
         {doubleChance && (
           <button type="button" className="btn btn-primary btn-block" aria-disabled={busy || deux.length === 0 || undefined} onClick={() => deux.length > 0 && !busy && onRepondre(affichee, deux)}>
@@ -2823,11 +2943,34 @@ export function LaBonneReponse({
   question: q,
   reponse: r,
   choix,
+  composee,
 }: {
-  question: Pick<QuestionDExpedition, 'reponses' | 'proposee'>
-  reponse: Pick<ReponseDExpedition, 'bonne' | 'bonneReponse'>
+  question: Pick<QuestionDExpedition, 'reponses' | 'proposee' | 'composer'>
+  reponse: Pick<ReponseDExpedition, 'bonne' | 'bonneReponse'> & { juste?: boolean }
   choix: number | null
+  /** À composer (v11) : ce qu'il a composé. */
+  composee?: string
 }) {
+  // À composer (v11) : la page n'en avait que les tuiles — le serveur dit la bonne avec le verdict, et, faux, ce qu'il a composé
+  // se lit à côté, dans ses cases : « Tu as composé SOPHOCLES — c'était Sophocle ».
+  if (q.composer && r.bonneReponse !== undefined) {
+    return (
+      <p className="muted">
+        {composee !== undefined && r.juste === false ? (
+          <>
+            {'Tu as composé '}
+            <strong className="exp-composee">{compositionDite(q.composer.mots, composee)}</strong>
+            {' — c’était '}
+            <strong>{espacesFines(r.bonneReponse)}</strong>
+          </>
+        ) : (
+          <>
+            La bonne réponse : <strong>{espacesFines(r.bonneReponse)}</strong>
+          </>
+        )}
+      </p>
+    )
+  }
   return (
     <p className="muted">
       {choix === null ? 'Sans réponse. ' : ''}
@@ -2859,6 +3002,7 @@ function Revelation({
   reponse: r,
   avant,
   choix,
+  composee,
   source,
   finie,
   gardien,
@@ -2870,6 +3014,7 @@ function Revelation({
   reponse: ReponseDExpedition
   avant: VueDeLExpedition | null
   choix: number | null
+  composee?: string
   source: boolean
   finie: boolean
   gardien: string
@@ -2942,7 +3087,7 @@ function Revelation({
             ))}
           </ul>
         )}
-        <LaBonneReponse question={q} reponse={r} choix={choix} />
+        <LaBonneReponse question={q} reponse={r} choix={choix} composee={composee} />
         {r.devoile && <p className="muted small">{espacesFines(`Répondu au ${r.devoile.mots === 1 ? '1ᵉʳ' : `${r.devoile.mots}ᵉ`} mot sur ${r.devoile.sur}.`)}</p>}
       </div>
       {r.anecdote && (

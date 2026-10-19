@@ -48,6 +48,7 @@ export function Corrige({
   reponses,
   bonne,
   choix,
+  formes = true,
   children,
 }: {
   verdict: Verdict
@@ -59,6 +60,8 @@ export function Corrige({
   reponses: readonly string[]
   bonne: number
   choix: number | null
+  /** La forme de chaque réponse, celle de la salle : sans elles, une réponse composée de l'expédition, qui n'avait pas de choix. */
+  formes?: boolean
   /** Ce qui suit les réponses : le temps, la part de la salle, l'anecdote. */
   children?: ReactNode
 }) {
@@ -81,7 +84,7 @@ export function Corrige({
             {verdict === 'Juste' ? 'La bonne réponse · la tienne' : 'La bonne réponse'}
           </span>
           <span className="corrige-mot">
-            <Shape index={bonne} inline />
+            {formes && <Shape index={bonne} inline />}
             {espacesFines(reponses[bonne])}
           </span>
         </p>
@@ -92,7 +95,7 @@ export function Corrige({
               Ta réponse
             </span>
             <span className="corrige-mot">
-              <Shape index={sienne} inline />
+              {formes && <Shape index={sienne} inline />}
               <s>{espacesFines(reponses[sienne])}</s>
             </span>
           </p>

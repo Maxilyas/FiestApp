@@ -112,14 +112,16 @@ async function avecLeStyleRetenu<T>(style: string, f: () => Promise<T>): Promise
 
 test('au codex, le départ dit son niveau et sa jauge, ce qu’il a sur ce qu’il y a ; plus d’équipe à choisir — l’invité du jour, même avec des légendaires à lui ; sa catégorie fétiche va avec l’Érudit', async () => {
   const { codexDuNiveau, NIVEAUX } = await import('../../shared/codex')
-  const { CARTES_DES_RENCONTRES } = await import('../../shared/rencontres')
+  const { CARTES_DES_RENCONTRES, VERSION_DES_HUIT_FAMILLES } = await import('../../shared/rencontres')
+  // Le catalogue de la production, celui des huit familles : une carte venue après elle — la version 11 — n'y compte pas.
+  const DE_LA_PRODUCTION = CARTES_DES_RENCONTRES.filter(c => (c.depuis ?? 0) <= VERSION_DES_HUIT_FAMILLES)
   const deux = codexDuNiveau(2, ['lg:dragon'])
   const html = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, equipables: ['lg:dragon'], codex: { renommee: NIVEAUX[1] + 10, ...deux, ascension: 0 } }, passeport: [] })
   const lu = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
   assert.doesNotMatch(html, /exp-equipee|exp-changer[^>]*>Changer/, 'ses légendaires ouvrent leur carte au codex : plus d’équipe à choisir')
   assert.match(lu, /Le Lion Couronné, l’invité du jour, part avec toi\s*: sa carte rejoint ton paquet\./)
   assert.match(lu, new RegExp(`Niveau 2 d’explorateur : ${NIVEAUX[1] + 10} de renommée, ${NIVEAUX[2]} pour le niveau 3\\.`))
-  assert.match(lu, new RegExp(`${deux.cartes.length} cartes sur ${CARTES_DES_RENCONTRES.length}`))
+  assert.match(lu, new RegExp(`${deux.cartes.length} cartes sur ${DE_LA_PRODUCTION.length}`))
   assert.match(html, /exp-voir-le-paquet" aria-haspopup="dialog">Ton paquet · 11 cartes/, 'le paquet de départ et la carte de l’invité')
   // « Ton style » (le 19 octobre 2026) : rien de retenu, le premier des siens — le Rempart, sans catégorie fétiche.
   assert.doesNotMatch(lu, /Ta catégorie fétiche/, 'le Rempart n’en a pas : elle est à l’Érudit')

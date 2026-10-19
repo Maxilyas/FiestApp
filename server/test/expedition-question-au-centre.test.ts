@@ -51,6 +51,7 @@ import {
   STYLES,
   STYLES_EN_QUESTION,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_HUIT_FAMILLES,
   carteALaVersion,
   carteDeRencontre,
@@ -84,7 +85,8 @@ const EN_QUESTION: readonly CarteDeRencontre[] = CARTES_DES_RENCONTRES.filter(c 
 test('soixante-deux cartes restent, quarante-deux partent — aucune ne s’y joue, ne s’y ouvre ni ne s’y offre ; l’échelle ouvre chaque carte à gagner une fois', () => {
   assert.equal(EN_QUESTION.length, 62)
   assert.equal(RETIREES_EN_QUESTION.size, 42)
-  assert.equal(EN_QUESTION.length + RETIREES_EN_QUESTION.size, CARTES_DES_RENCONTRES.length, 'chaque carte reste ou part')
+  // Les coups de pouce viennent après elle (v11, `expedition-coups-de-pouce.test.ts`) : une expédition de la version 10 ne les connaît pas.
+  assert.equal(EN_QUESTION.length + RETIREES_EN_QUESTION.size, CARTES_DES_RENCONTRES.filter(c => (c.depuis ?? 0) <= V).length, 'chaque carte reste ou part')
   for (const cle of RETIREES_EN_QUESTION) {
     assert.ok(carteDeRencontre(cle), `${cle} est une carte`)
     assert.equal(seJoueEnQuestion(cle), false, cle)
@@ -500,7 +502,8 @@ test('par les routes : la page la propose, le départ la prend — sa main de l�
   assert.equal(page.prochaine.questionAuCentre, true)
   assert.deepEqual(page.prochaine.codex.styles, stylesDuNiveau(1, V), 'ses styles à lui')
   let v = await partirEnQuestion(c, 1)
-  assert.equal(v.cartes!.v, V)
+  // Elle part avec ses coups de pouce (v11) : la question au centre, la forme à composer en plus.
+  assert.equal(v.cartes!.v, VERSION_DES_COUPS_DE_POUCE)
   assert.equal(v.cartes!.main!.length, MAIN_A_L_OUVERTURE_DE_L_ACTE)
   assert.equal(v.cartes!.mainMax, MAIN_MAX_EN_QUESTION)
   for (const cle of v.cartes!.paquet) assert.ok(seJoueEnQuestion(cle), cle)
