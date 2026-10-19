@@ -1,4 +1,5 @@
-import { createClient, LibsqlError, type Client, type IntMode } from '@libsql/client'
+import { createClient, LibsqlError, type Client, type InArgs, type InStatement, type IntMode, type TransactionMode } from '@libsql/client'
+import { tronquer } from '../../../shared/avatars'
 import { noterLaReponse, noterUnEchec, refermerLesAttardees, suivreLaBase, unAllerRetourPart } from './connexions'
 import { pouls, releve } from './pouls'
 
@@ -29,6 +30,28 @@ export class BaseMuette extends Error {
 }
 
 /**
+ * Ce qu'un appel à la base distante — un `execute`, un `batch` — a de plus
+ * que son aller-retour avant d'être déclaré resté en route (`clientBorne`) :
+ * sa place dans la file de vingt du client, le décodage des lignes, au
+ * dixième de cœur de l'hébergeur. Dix secondes et cinq : avant les vingt au
+ * bout desquelles la page abandonne d'elle-même (`DELAI_REQUETE_MS`,
+ * `client/src/api.ts`), et la requête suivante passe à temps.
+ */
+export const MARGE_D_UN_APPEL_MS = 5_000
+
+/**
+ * Un appel resté en route au-delà de son aller-retour et de sa marge : une
+ * erreur du serveur, comptée au relevé de l'heure avec le début de sa
+ * requête — jamais ses paramètres, ni un message pour l'invité.
+ */
+export class AppelEnRoute extends Error {
+  constructor(quoi: string, ms: number) {
+    super(`appel à la base resté en route ${Math.round(ms / 1000)} s : ${quoi}`)
+    this.name = 'AppelEnRoute'
+  }
+}
+
+/**
  * Le client libsql des cinq magasins de la base permanente, et des scripts.
  *
  * Le délai enveloppe le `fetch` du client HTTP (celui qu'emprunte une URL
@@ -36,6 +59,7 @@ export class BaseMuette extends Error {
  * comprise. Une base `file:` ne passe jamais par `fetch` — pour elle, rien ne
  * change. `battement` : le client de l'entretien des connexions, dont les
  * allers-retours ne comptent pas comme ceux qu'on attend (`connexions.ts`).
+ * Une base distante a de plus chaque appel borné (`clientBorne`).
  */
 export function clientDistant(
   url: string,
@@ -45,7 +69,89 @@ export function clientDistant(
   const delaiMs = reglages.delaiMs ?? DELAI_DISTANT_MS
   // Ses connexions se comptent par l'hôte de son adresse (`connexions.ts`).
   suivreLaBase(url)
-  return createClient({ url, authToken, intMode: reglages.intMode, fetch: avecDelai(delaiMs, { battement: reglages.battement }) })
+  const creer = () => createClient({ url, authToken, intMode: reglages.intMode, fetch: avecDelai(delaiMs, { battement: reglages.battement }) })
+  return url.startsWith('file:') ? creer() : clientBorne(creer, delaiMs + MARGE_D_UN_APPEL_MS)
+}
+
+/** Le début d'une requête, pour le journal : son texte, sans ses paramètres. */
+function debutDe(instruction: unknown): string {
+  const sql = typeof instruction === 'string' ? instruction : Array.isArray(instruction) ? instruction[0] : (instruction as { sql?: unknown } | null)?.sql
+  return typeof sql === 'string' ? tronquer(sql.replace(/\s+/g, ' ').trim(), 80) : '?'
+}
+
+/**
+ * Un client dont chaque appel échoue au bout de `dureeMs` (`AppelEnRoute`),
+ * même si rien en dessous n'a rendu la main — et dont l'appel suivant part
+ * d'un client neuf.
+ *
+ * Le délai du `fetch` ne suffit pas. En production, le 15 octobre 2026, une
+ * lecture des missions du propriétaire n'est jamais revenue, sans une erreur
+ * au journal (`core/missions.ts` borne les siennes depuis). Le 19, le modèle
+ * du savoir, lancé au démarrage, n'a jamais fini ni échoué ; depuis minuit,
+ * plus une série, une épreuve, un duel ni le défi de la semaine ne s'était
+ * tiré, et le quiz du jour du propriétaire ne commençait pas — « Le serveur
+ * ne répond pas », quand d'autres jouaient le leur. On n'a pas su le
+ * reproduire. Derrière un verrou — celui d'un profil, celui du tirage du
+ * défi — ou une lecture partagée — la mesure des difficultés, que tout
+ * tirage attend —, une seule lecture figeait tout ce qui l'attendait,
+ * jusqu'au redémarrage. Bornée, elle échoue comme une base muette : le
+ * verrou se libère, la requête suivante passe.
+ *
+ * Le client neuf, parce que le client libsql ne lance que vingt requêtes à la
+ * fois : celle qui ne revient pas garderait sa place pour toujours. L'ancien
+ * n'est fermé qu'avec le serveur — ses autres requêtes en vol finissent
+ * d'elles-mêmes. Le début de la requête restée en route part au journal et
+ * au relevé de l'heure (`base · appel resté en route`) : la page « Le
+ * serveur » du QG dira laquelle, la prochaine fois. Un client `file:` n'en a
+ * pas besoin : il ne passe pas par le réseau.
+ */
+export function clientBorne(creer: () => Client, dureeMs: number): Client {
+  let client = creer()
+  const remplaces: Client[] = []
+  const borne = <T>(quoi: string, appel: (c: Client) => Promise<T>): Promise<T> => {
+    const parti = client
+    let lance: Promise<T>
+    try {
+      lance = appel(parti)
+    } catch (e) {
+      return Promise.reject(e)
+    }
+    let minuteur: ReturnType<typeof setTimeout> | undefined
+    const enRoute = new Promise<never>((_, rejeter) => {
+      minuteur = setTimeout(() => {
+        const e = new AppelEnRoute(quoi, dureeMs)
+        console.error(`[base] ${e.message} — la suite part d’un client neuf`)
+        releve.erreur('base · appel resté en route', e)
+        if (client === parti) {
+          remplaces.push(parti)
+          client = creer()
+        }
+        rejeter(e)
+      }, dureeMs)
+    })
+    return Promise.race([lance, enRoute]).finally(() => clearTimeout(minuteur))
+  }
+  return {
+    execute: ((instruction: InStatement | string, args?: InArgs) =>
+      borne(debutDe(instruction), c => (typeof instruction === 'string' ? c.execute(instruction, args) : c.execute(instruction)))) as Client['execute'],
+    batch: (instructions, mode) => borne(`lot de ${instructions.length} : ${debutDe(instructions[0])}`, c => c.batch(instructions, mode)),
+    migrate: instructions => borne(`migration de ${instructions.length} : ${debutDe(instructions[0])}`, c => c.migrate(instructions)),
+    executeMultiple: sql => borne(debutDe(sql), c => c.executeMultiple(sql)),
+    // Aucun magasin n'en ouvre : elle passe telle quelle, sans borne.
+    transaction: ((mode?: TransactionMode) => client.transaction(mode)) as Client['transaction'],
+    sync: () => client.sync(),
+    close: () => {
+      for (const c of remplaces.splice(0)) c.close()
+      client.close()
+    },
+    reconnect: () => client.reconnect(),
+    get closed() {
+      return client.closed
+    },
+    get protocol() {
+      return client.protocol
+    },
+  }
 }
 
 /** Les colonnes d'une table de la base permanente, telles que son schéma les dit. */
@@ -155,7 +261,7 @@ export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {
  * lieu d'une pile que personne ne sait lire sur le tableau de bord.
  */
 export function pourquoiInjoignable(e: unknown): string | null {
-  if (e instanceof BaseMuette) return e.message
+  if (e instanceof BaseMuette || e instanceof AppelEnRoute) return e.message
   // Le délai peut aussi tomber pendant la lecture de la réponse, après
   // `fetch` : l'erreur remonte alors telle quelle.
   if (e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
