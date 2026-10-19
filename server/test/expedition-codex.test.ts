@@ -5,7 +5,7 @@
 // fait et ce qu'il ouvre, figés au départ ; la carte de ses légendaires au
 // codex, et l'invité du jour qui prête la sienne ; le dos de son paquet, pris
 // au départ parmi les siens ; L'Explorateur, la piste du niveau
-// d'explorateur, tombée à la fin d'une expédition — jamais en production ;
+// d'explorateur, tombée à la fin d'une expédition — jamais là où les rencontres se referment ;
 // l'Ascension, ouverte par les victoires relues des bilans, son cran borné et
 // figé au départ, gardé par le bilan. Les règles et le pli : `codex.test.ts`.
 import { after, before, test } from 'node:test'
@@ -208,7 +208,7 @@ test('ses légendaires ouvrent leur carte au codex ; plus d’équipe à choisir
   assert.deepEqual(v.cartes?.paquet, paquetDesRencontres([p.prochaine.invite]))
 })
 
-test('L’Explorateur, au niveau d’explorateur : sa piste se lit à la page du profil — rien pour qui n’est jamais parti —, son bronze tombe à la fin de l’expédition qui passe le niveau 4 ; la production ne le cite ni ne le décerne', async () => {
+test('L’Explorateur, au niveau d’explorateur : sa piste se lit à la page du profil — rien pour qui n’est jamais parti —, son bronze tombe à la fin de l’expédition qui passe le niveau 4 ; un serveur aux rencontres refermées ne le cite ni ne le décerne', async () => {
   const sien = (moi: any) => moi.profile.hautsFaits.find((h: any) => h.key === 'hf:explorateur')
   const c = await inscrireProfil(banc.url, 'explorateur', 'Explorateur')
   // Jamais parti : 0, pas le niveau 1 que chacun a sans rien — « 1 sur 4 » se proposait comme le trophée le plus proche.
@@ -227,9 +227,10 @@ test('L’Explorateur, au niveau d’explorateur : sa piste se lit à la page du
   const apres = sien((await lire(c, '/api/joueur/moi')).corps)
   assert.deepEqual([apres.fois, apres.valeur, apres.prochain], [1, 4, 7])
 
-  // En production, les rencontres fermées : la même renommée ne s'y gagne pas, et la page du profil ne le cite pas —
-  // l'album ne lui fait pas de case (`montreParLeServeur`).
-  const prod = await demarrer({ online: true, baseDeLaCampagne: BASE })
+  // Les rencontres refermées — la production, le jour où leur drapeau repasserait à `false` ; elles y sont le jeu depuis
+  // le 19 octobre 2026 — : la même renommée ne s'y gagne pas, et la page du profil ne le cite pas — l'album ne lui fait
+  // pas de case (`montreParLeServeur`).
+  const prod = await demarrer({ online: true, baseDeLaCampagne: BASE, rencontres: false })
   try {
     const p = await inscrireProfil(prod.url, 'production', 'Production')
     const posterP = (chemin: string, corps: unknown = {}) => ecrire(prod.url, chemin, corps, p).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
@@ -237,7 +238,7 @@ test('L’Explorateur, au niveau d’explorateur : sa piste se lit à la page du
       const parti = await posterP('/api/expedition', { rencontres: true })
       assert.equal(parti.status, 200, parti.corps.error)
       const v = parti.corps as VueDeLExpedition
-      assert.equal(v.courage, undefined, 'en production, le départ reste celui des jokers')
+      assert.equal(v.courage, undefined, 'les rencontres refermées, le départ reste celui des jokers')
       const pas = await posterP(`/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers: v.permises[0] } })
       assert.equal(pas.status, 200, pas.corps.error)
       const fin = await posterP(`/api/expedition/${v.id}/abandon`)

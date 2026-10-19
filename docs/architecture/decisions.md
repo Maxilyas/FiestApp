@@ -1459,6 +1459,15 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 *Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `client/src/styles.css`, `server/test/expedition-carte-ecran.test.ts`, `server/scripts/rendu-rencontres.ts`, `server/scripts/rendu-expedition.ts`*
 
+### Les rencontres, le jeu : le départ ne les demande plus, et le drapeau reste
+**Contexte** : les rencontres étaient un prototype de la préproduction, que le départ proposait d'un interrupteur, « prototype » à côté, retenu sur le téléphone — coupées, l'expédition partait aux jokers. Le propriétaire, le 19 octobre 2026 : « je pense que l'on part sur ça donc ne plus demander ça, c'est vraiment le jeu maintenant ». Rien n'est encore déployé en production, où il teste seul.
+
+**Décision** : le départ ne demande plus rien — l'interrupteur, sa pastille et le choix retenu (`quizz.expedition.rencontres`) s'en vont, et un « non » d'avant ne coupe plus rien ; ne reste que la catégorie fétiche, une fois son niveau atteint. Leur drapeau (`RENCONTRES_EN_PRODUCTION`) passe à `true` : elles partent en production aussi. Il reste, plutôt que d'être retiré avec ses chemins : repassé à `false`, la production repartirait aux jokers d'une ligne — un filet tant qu'elles n'y ont pas été jouées. Le serveur les calcule une fois (`rencontresOuvertes`) et les donne à ses routes comme à L'Explorateur ; une option du serveur les ferme (`rencontres: false`), pour le test de ce filet et pour photographier les jokers.
+
+**Conséquence** : les jokers ne partent plus que d'un serveur aux rencontres fermées : leur rendu (`rendu-expedition.ts`) démarre le sien ainsi, et une expédition aux jokers déjà partie finit à ses règles. Le code des jokers reste — il rejoue les expéditions d'avant (invariant 14). La préparation coûte encore un aller-retour par carte jouée, en production comme ailleurs : la regrouper avec le pari, en un seul geste, reste à faire avant d'y inviter du monde.
+
+*Fichiers : `shared/rencontres.ts`, `server/src/server.ts`, `server/src/api.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-rencontres-routes.test.ts`, `server/test/expedition-codex.test.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

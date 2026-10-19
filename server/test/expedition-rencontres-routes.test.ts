@@ -1,5 +1,5 @@
-// Le prototype des rencontres par ses routes, sur un vrai serveur : le départ
-// qui les choisit — hors de la production seulement —, la question tirée au
+// Les rencontres par leurs routes, sur un vrai serveur : le départ qui les
+// prend — partout, depuis qu'elles sont le jeu —, la question tirée au
 // même lot que le pas mais gardée au serveur tant qu'il prépare (invariant 1),
 // la mise, le verdict qui brise ou qui frappe, la victoire et sa carte à
 // prendre ; un dévoilement qui ne court qu'une fois la question vue
@@ -197,9 +197,11 @@ async function repondre(cookie: string, v: VueDeLExpedition, juste: boolean) {
 
 const PREPARE = 'Prépare-toi, puis vois la question : elle n’est pas encore sous tes yeux'
 
-test('les rencontres ne s’ouvrent pas en production tant que leur drapeau ne le dit pas', () => {
-  assert.equal(RENCONTRES_EN_PRODUCTION, false, 'un prototype : la préproduction d’abord')
-  assert.equal(rencontresOuvertes({ online: true, env: 'production' }), false)
+test('les rencontres sont le jeu : leur drapeau les ouvre partout, la production comprise', () => {
+  // La préproduction d'abord (le 18 octobre 2026), puis partout : « je pense que l'on part sur ça donc ne plus demander ça,
+  // c'est vraiment le jeu maintenant » (le 19). Le drapeau reste, de quoi refermer la production d'une ligne.
+  assert.equal(RENCONTRES_EN_PRODUCTION, true, 'le jeu, partout')
+  assert.equal(rencontresOuvertes({ online: true, env: 'production' }), true)
   assert.equal(rencontresOuvertes({ online: true, env: 'preprod' }), true)
   assert.equal(rencontresOuvertes({ online: false, env: 'production' }), true, '`npm run dev`, les tests')
 })
@@ -207,7 +209,7 @@ test('les rencontres ne s’ouvrent pas en production tant que leur drapeau ne l
 test('la page propose les rencontres ; le départ les prend — son courage, ses écus, le paquet des rencontres et la carte de l’invité, son codex ; au niveau 1, ni catégorie fétiche ni pari', async () => {
   const c = await inscrireProfil(banc.url, 'depart5', 'Départ')
   const page = (await lire(c, '/api/expedition')).corps
-  assert.equal(page.prochaine.rencontres, true, 'hors de la production, le départ les propose')
+  assert.equal(page.prochaine.rencontres, true, 'le départ les prend')
   const r = await poster(c, '/api/expedition', { rencontres: true, fetiche: 'Histoire' })
   assert.equal(r.status, 200, r.corps.error)
   const v = r.corps as VueDeLExpedition

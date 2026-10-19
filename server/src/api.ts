@@ -2,7 +2,7 @@ import { sujetsDeLaQuestion, type CampagneStore } from './core/campagne'
 import { composerUnQuiz, dejaDansLEspace, idDeLaBase, lireChoixDuQuiz, NOMBRE_MIN, titreDuQuizToutPret, uneAutreQuestion } from './core/quizToutPret'
 import { dernieresFois } from './core/memoire'
 import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './campagne'
-import { expeditionOuverte, mountExpedition, rencontresOuvertes } from './expedition'
+import { expeditionOuverte, mountExpedition } from './expedition'
 import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
@@ -80,6 +80,8 @@ interface ApiDeps {
   rappels: RappelStore
   /** La campagne solo : ses séries, pour les profils. */
   campagne: CampagneStore
+  /** Les rencontres de l'expédition s'ouvrent sur ce serveur (`rencontresOuvertes`, calculé une fois au démarrage). */
+  rencontres: boolean
   /** Les missions du jour et le coffre de la semaine, qui lisent les trois magasins. */
   missions: Missions
   /** L'heure du quiz du jour — celle du serveur, que les tests font passer minuit. */
@@ -142,9 +144,13 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // La campagne aussi : seul, avec son profil.
   mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
   // L'expédition, une partie de la campagne d'un autre mode : ouverte en production depuis ses jokers, tant que son drapeau l'ouvre.
-  // Ses rencontres, un prototype, hors de la production seulement tant que le leur ne l'ouvre pas.
-  const ou = { online: deps.online, env: deps.qg.env }
-  mountExpedition(app, { campagne: deps.campagne, profiles: deps.profiles, ouverte: expeditionOuverte(ou), rencontres: rencontresOuvertes(ou) })
+  // Ses rencontres sont le jeu partout depuis le 19 octobre 2026 — le même calcul que L'Explorateur lit (`server.ts`).
+  mountExpedition(app, {
+    campagne: deps.campagne,
+    profiles: deps.profiles,
+    ouverte: expeditionOuverte({ online: deps.online, env: deps.qg.env }),
+    rencontres: deps.rencontres,
+  })
   // Ses missions du jour et le coffre de la semaine, de même.
   mountMissions(app, { missions: deps.missions, profiles: deps.profiles })
   // Sa réserve se remplit par une routine, avec son jeton — pas un animateur non plus.

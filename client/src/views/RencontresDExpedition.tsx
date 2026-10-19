@@ -80,9 +80,9 @@ import {
   type VueDeLaRencontre,
 } from '../../../shared/rencontres'
 
-// Le prototype des rencontres, à l'écran (`shared/rencontres.ts` ; la
-// proposition « L'Expédition en cartes », validée par le propriétaire le
-// 18 octobre 2026 : « C'est good lance le prototype avec tes recos »). Une
+// Les rencontres, à l'écran (`shared/rencontres.ts` ; la proposition
+// « L'Expédition en cartes », validée par le propriétaire le 18 octobre 2026 :
+// « C'est good lance le prototype avec tes recos » — le jeu depuis le 19). Une
 // escale à question est un adversaire : la page dit qui il est, ce qu'il lui
 // reste et la question qu'il pose ; puis ce que la réponse fera — « Si tu as
 // juste », « Si tu te trompes » —, la main, le pari, et « Voir la question » ;
@@ -1919,7 +1919,7 @@ export function BoutonDesRegles({ onOuvrir }: { onOuvrir: () => void }) {
 }
 
 /**
- * La préparation d'une question (le cœur du prototype), dans l'ordre où l'on
+ * La préparation d'une question (le cœur des rencontres), dans l'ordre où l'on
  * joue : l'adversaire et la question qu'il pose, ce que la réponse fera, les
  * cartes à jouer, le pari, puis « Voir la question » — le bouton au bout, plus
  * au-dessus des cartes qu'il fallait jouer avant lui. À la première
@@ -2075,18 +2075,13 @@ export function ceQueLaCarteAFait(cle: string): string | null {
 
 // ── Le départ ──────────────────────────────────────────────────────────────
 
-/** Le choix de partir aux rencontres, et sa catégorie fétiche : retenus sur le téléphone, sous try/catch — un stockage refusé ne doit rien bloquer. */
-const CLE_DES_RENCONTRES = 'quizz.expedition.rencontres'
+/**
+ * Sa catégorie fétiche : retenue sur le téléphone, sous try/catch — un
+ * stockage refusé ne doit rien bloquer. Le choix de partir aux rencontres,
+ * qu'on retenait à côté (`quizz.expedition.rencontres`), n'est plus lu :
+ * elles sont le jeu, et un « non » d'avant ne les coupe plus.
+ */
 const CLE_DE_LA_FETICHE = 'quizz.expedition.fetiche'
-
-/** Parti aux rencontres la dernière fois — d'office oui, c'est le prototype qu'on essaie. */
-export function rencontresRetenues(): boolean {
-  try {
-    return localStorage.getItem(CLE_DES_RENCONTRES) !== 'non'
-  } catch {
-    return true
-  }
-}
 
 export function feticheRetenue(): string | null {
   try {
@@ -2097,13 +2092,12 @@ export function feticheRetenue(): string | null {
   }
 }
 
-export function retenirLesRencontres(oui: boolean, fetiche: string | null) {
+export function retenirLaFetiche(fetiche: string | null) {
   try {
-    localStorage.setItem(CLE_DES_RENCONTRES, oui ? 'oui' : 'non')
     if (fetiche) localStorage.setItem(CLE_DE_LA_FETICHE, fetiche)
     else localStorage.removeItem(CLE_DE_LA_FETICHE)
   } catch {
-    // Un stockage refusé : le prochain départ reproposera les rencontres, sans catégorie fétiche.
+    // Un stockage refusé : le prochain départ repartira sans catégorie fétiche.
   }
 }
 
@@ -2231,54 +2225,26 @@ export function ChoixDeLAscension({ ouverte, cran, onChoisir }: { ouverte: numbe
 }
 
 /**
- * Au départ, là où le prototype s'ouvre (la préproduction) : partir aux
- * rencontres — d'office — et sa catégorie fétiche, que l'Érudit fait vivre.
- * Ce que sont les rencontres, et les familles de son équipe, se lisent dans
- * les règles : deux paragraphes de plus sur le départ, « on s'y perd » (la
- * revue du 18 octobre 2026). La catégorie fétiche attend le niveau qui
- * l'ouvre (`feticheOuverte`, le codex) : avant lui, rien à choisir.
+ * Au départ, sa catégorie fétiche, que l'Érudit fait vivre — une fois le
+ * niveau qui l'ouvre atteint (`codex.regles`, le codex) : avant lui, rien à
+ * choisir, et rien ne s'affiche. Le départ ne demande plus s'il part aux
+ * rencontres (un interrupteur, « prototype », jusqu'au 19 octobre 2026) :
+ * c'est le jeu. Ce que sont les rencontres se lit dans les règles.
  */
-export function AuDepart({
-  actif,
-  fetiche,
-  feticheOuverte = true,
-  onActif,
-  onFetiche,
-}: {
-  actif: boolean
-  fetiche: string | null
-  feticheOuverte?: boolean
-  onActif: (oui: boolean) => void
-  onFetiche: (categorie: string | null) => void
-}) {
+export function FeticheDuDepart({ fetiche, onFetiche }: { fetiche: string | null; onFetiche: (categorie: string | null) => void }) {
   const [choisir, setChoisir] = useState(false)
   return (
-    <section className="card exp-prototype" aria-labelledby="exp-prototype-titre">
+    <section className="card exp-fetiche-du-depart">
       <div className="exp-section-tete">
-        <h2 className="label" id="exp-prototype-titre">
-          Les rencontres
-          <span className="exp-pastille exp-pastille-or">prototype</span>
-        </h2>
-        <button type="button" role="switch" aria-checked={actif} aria-labelledby="exp-prototype-titre" className="exp-interrupteur" onClick={() => onActif(!actif)}>
-          <i aria-hidden="true" />
+        <span className="small">
+          {'Ta catégorie fétiche : '}
+          <b>{fetiche ?? 'aucune'}</b>
+        </span>
+        <button type="button" className="link-inline small exp-changer" aria-haspopup="dialog" onClick={() => setChoisir(true)}>
+          {fetiche ? 'Changer' : 'Choisir'}
+          <Icon name="chevron-right" />
         </button>
       </div>
-      {!actif ? (
-        <p className="small">{espacesFines('Coupées : l’expédition part aux règles d’avant, trois vies et des jokers.')}</p>
-      ) : (
-        feticheOuverte && (
-          <div className="exp-section-tete">
-            <span className="small">
-              {'Ta catégorie fétiche : '}
-              <b>{fetiche ?? 'aucune'}</b>
-            </span>
-            <button type="button" className="link-inline small exp-changer" aria-haspopup="dialog" onClick={() => setChoisir(true)}>
-              {fetiche ? 'Changer' : 'Choisir'}
-              <Icon name="chevron-right" />
-            </button>
-          </div>
-        )
-      )}
       {choisir && <FeuilleDeLaFetiche fetiche={fetiche} onChoisir={onFetiche} onFermer={() => setChoisir(false)} />}
     </section>
   )

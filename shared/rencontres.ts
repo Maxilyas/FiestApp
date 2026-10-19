@@ -14,9 +14,10 @@
 // fait l'état d'une expédition de la version 5 ; le serveur seul tire et juge
 // (invariant 1) ; la page dessine.
 //
-// Un prototype, en préproduction seulement (`RENCONTRES_EN_PRODUCTION`) : ses
-// chiffres sont des ordres de grandeur, que le calibrage et une semaine de jeu
-// fixeront (`server/scripts/calibrage-rencontres.ts`).
+// D'abord un prototype, en préproduction seulement ; le jeu partout depuis le
+// 19 octobre 2026 (« je pense que l'on part sur ça donc ne plus demander ça,
+// c'est vraiment le jeu maintenant », `RENCONTRES_EN_PRODUCTION`). Ses
+// chiffres se mesurent au calibrage (`server/scripts/calibrage-rencontres.ts`).
 
 import type { Niveau } from './campagne'
 import type { FormeDEscale, ThemeDEscale } from './expedition'
@@ -24,12 +25,13 @@ import { EFFACE } from './jokers'
 import { hasardDe } from './missions'
 
 /**
- * Les rencontres partent hors de la production seulement : la préproduction,
- * `npm run dev` et les tests les jouent ; en production, une expédition part
- * toujours aux règles d'avant (la version 4). Passé à `true`, le départ les
- * propose partout.
+ * Les rencontres partent partout, la production comprise, et le départ ne les
+ * demande plus : c'est le jeu. Repassé à `false`, la production repartirait
+ * aux règles d'avant (la version 4, ses trois vies et ses jokers) — de quoi
+ * les refermer d'une ligne si elles cassaient là-bas ; la préproduction,
+ * `npm run dev` et les tests les gardent.
  */
-export const RENCONTRES_EN_PRODUCTION = false
+export const RENCONTRES_EN_PRODUCTION = true
 
 // ── Les règles chiffrées : des choix de produit (`docs/reference/baremes.md`) ──
 

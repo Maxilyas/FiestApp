@@ -1,4 +1,5 @@
-// Les écrans de l'Expédition, photographiés au téléphone (360 × 640) sur un
+// Les écrans de l'Expédition aux règles d'avant — les jokers, que donnerait le
+// drapeau des rencontres refermé —, photographiés au téléphone (360 × 640) sur un
 // serveur jetable : la page d'un invité sans profil ; le départ, son équipée
 // et sa feuille — les trente-deux jokers dépliés — ; la carte d'un acte — l'acte
 // en petit, le départ qui brille, les escales proposées en cartes, la plus sûre
@@ -105,12 +106,15 @@ const HALLOWEEN = [2, 3, 4].flatMap((difficulte, m) =>
 
 // Quatre-vingts questions par catégorie, de chaque difficulté : de quoi tirer trois actes et leurs gardiens.
 // L'horloge part du jour du Dragon d'Or et avance : un dévoilement se dit à l'heure du serveur. La cinquième
-// la fait sauter à Halloween.
+// la fait sauter à Halloween. Les rencontres fermées : depuis qu'elles sont le jeu (le 19 octobre 2026), le
+// départ ne les demande plus, et les jokers ne partent plus que d'un serveur où leur drapeau serait refermé —
+// celui-ci (`rendu-rencontres.ts` photographie le jeu).
 const debut = Date.now()
 let jourDuRendu = JOUR
 const banc = await demarrer({
   baseDeLaCampagne: new BaseDeLaCampagne([...baseDEssai(960, { categories: [...CATEGORIES] }).questions, ...HALLOWEEN]),
   horlogeDuJour: () => jourDuRendu + (Date.now() - debut),
+  rencontres: false,
 })
 const navigateur = await chromium.launch({ headless: true })
 try {
@@ -167,15 +171,9 @@ try {
   await page.locator('a.gros-bouton[href="/expedition"]').scrollIntoViewIfNeeded()
   await photo('0b-accueil')
 
-  // Le départ : les trois gardiens, l'équipée proposée — l'invité du jour d'abord. Hors de la production, le prototype
-  // des rencontres s'y propose, d'office : ce rendu-ci est celui des jokers, il le coupe (`rendu-rencontres.ts` le prend).
+  // Le départ : les trois gardiens, l'équipée proposée — l'invité du jour d'abord.
   await page.goto(`${banc.url}/expedition`)
   await page.waitForSelector('.exp-gardiens')
-  const sansLesRencontres = async () => {
-    const interrupteur = page.locator('.exp-interrupteur[aria-checked="true"]')
-    if (await interrupteur.count()) await interrupteur.click()
-  }
-  await sansLesRencontres()
   await photo('1-depart')
   await photo('1-depart-entier', true)
 
@@ -219,7 +217,6 @@ try {
   }
 
   // La carte de l'acte 1 : l'acte en petit, le départ qui brille ; les escales du bas en cartes ; la main encore vide.
-  await sansLesRencontres()
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-plan')
   await photo('2-carte')
@@ -429,7 +426,6 @@ try {
   await page.waitForSelector('.exp-gardiens')
   await photo('13-depart-suivant')
   await choisirLEquipee(['Lion', 'Comète'])
-  await sansLesRencontres()
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-plan')
   /** Sur la carte, un joker de carte en main : sa carte levée, puis joué. */
@@ -462,7 +458,6 @@ try {
   // deuxième à six choix, le troisième en dévoilement — puis le serveur redémarré les relit.
   await page.locator('.fin-actions .btn-primary').click()
   await page.waitForSelector('.exp-gardiens')
-  await sansLesRencontres()
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-plan')
   const enRoute = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: cookie } })).json()) as any).expedition
@@ -523,7 +518,6 @@ try {
   if (laisser) await ecrire(banc.url, `/api/expedition/${laisser.id}/abandon`, {}, cookie)
   await page.goto(`${banc.url}/expedition`)
   await page.waitForSelector('.exp-gardiens')
-  await sansLesRencontres()
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-plan')
   const quatrieme = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: cookie } })).json()) as any).expedition
@@ -624,7 +618,6 @@ try {
   await page.waitForSelector('.feuille-passeport')
   await photo('s2-passeport-vierge')
   await page.locator('.feuille-passeport .carte-fermer').click()
-  await sansLesRencontres()
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-plan')
   await photo('s3-carte-saison')
