@@ -202,19 +202,23 @@ try {
       livrees[f.key] = livree
     }
     // Sa métamorphose de lumière, une forme de plus : son décor, l'animal et
-    // ses humeurs. Une machine qui ne l'a pas garde celle d'avant.
-    const sansLumiere = fichiersDe(c.lumiere).filter(n => !existsSync(fichier(n)))
-    if (sansLumiere.length === 0) livrees[c.lumiere.key] = await peinte(c.lumiere)
-    else console.log(`${c.key} : sa métamorphose ${livrees[c.lumiere.key] ? 'reste celle d’avant' : 'n’est pas livrée'}, il manque ${sansLumiere.join(', ')}`)
+    // ses humeurs. Une machine qui ne l'a pas garde celle d'avant ; la
+    // luciole n'en a pas encore au catalogue.
+    const lumiere = c.lumiere
+    if (lumiere) {
+      const sansLumiere = fichiersDe(lumiere).filter(n => !existsSync(fichier(n)))
+      if (sansLumiere.length === 0) livrees[lumiere.key] = await peinte(lumiere)
+      else console.log(`${c.key} : sa métamorphose ${livrees[lumiere.key] ? 'reste celle d’avant' : 'n’est pas livrée'}, il manque ${sansLumiere.join(', ')}`)
+    }
     nouveaux++
-    console.log(`${c.key} : livré (${c.formes.length} formes${livrees[c.lumiere.key] ? ' et sa métamorphose' : ''})`)
+    console.log(`${c.key} : livré (${c.formes.length} formes${lumiere && livrees[lumiere.key] ? ' et sa métamorphose' : ''})`)
   }
 } finally {
   await nav.close()
 }
 
 const liste = (p: [string, string]) => `['${p[0]}', '${p[1]}']`
-const lignes = COMPAGNONS.flatMap(c => [...c.formes, c.lumiere])
+const lignes = COMPAGNONS.flatMap(c => [...c.formes, ...(c.lumiere ? [c.lumiere] : [])])
   .filter(f => livrees[f.key])
   .map(f => {
     const l = livrees[f.key]

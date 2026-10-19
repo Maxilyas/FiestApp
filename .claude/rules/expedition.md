@@ -145,7 +145,15 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
   qui échoue laisse l'expédition au bout, et le geste se rejoue. Un gardien
   qu'il a déjà se garde aussi — gagné ailleurs en route, ou tiré faute
   d'autres (`gardiensDe`) — et ne rapporte que l'expérience de ses
-  réponses : le départ et l'en-tête le disent (`aLui`).
+  réponses : le départ et l'en-tête le disent (`aLui`). La luciole s'offre
+  au même endroit, avant de clore (la Première traversée, le 20 octobre
+  2026 : `ProfileStore.offrirUnCompagnon`, règle `profil.md`) : l'offrir deux
+  fois ne change rien, et seule la première menée au bout l'annonce
+  (`ApresUnGeste.compagnon`, `CompagnonRejoint` à la fin). Qui avait déjà
+  mené une expédition au bout l'a reçue au démarrage, une fois
+  (`rattraperLesPremieresTraversees`, `issue = 'legendaire'`, drapeau
+  `campagne_meta.premieres_traversees`) : une autre façon d'aller au bout
+  passerait par là aussi (`luciole.test.ts`).
 - **Un légendaire de saison ne garde qu'à sa saison** (le 18 octobre 2026) :
   jamais tiré parmi les gardiens (`gardiensDe` les écarte), il ne prend
   l'acte 3 que d'une expédition partie à sa saison — `deSaison`, de

@@ -11,6 +11,11 @@
 // une de plus à sa forme ultime, sa métamorphose de lumière : elle ne remplace
 // rien, on la choisit (`Compagnon.lumiere`, le 19 octobre 2026).
 //
+// La luciole, elle, ne s'achète pas : elle rejoint qui mène une expédition au
+// bout, la Première traversée (`Compagnon.gagne`, le 20 octobre 2026), et ne
+// se montre que dans « Ma collection » — ni en boutique, ni au coffre, ni « À
+// la une » (`COMPAGNONS_DE_LA_BOUTIQUE`).
+//
 // Il vit dans sa niche, en haut de chaque page du téléphone (le choix du 18
 // octobre 2026, `retours/2026-10-16/compagnon/principe.md`), et c'est celui
 // de la niche qui grandit : jusque-là, celui qu'on portait — et porter un
@@ -56,7 +61,14 @@ export const MONTREE_DE_LA_METAMORPHOSE = 4
 /** Le nom qu'on lui donne (« Nox ») : court, il tient sous sa niche et sur une ligne de sa fiche. */
 export const NOM_D_UN_COMPAGNON_MAX = 16
 
-export type CleDeCompagnon = 'loup' | 'chat' | 'tortue'
+export type CleDeCompagnon = 'loup' | 'chat' | 'tortue' | 'luciole'
+
+/**
+ * Où se gagne un compagnon qui ne s'achète pas : la luciole, au bout d'une
+ * expédition. D'autres viendront sur le même modèle, un par mode, chacun son
+ * exploit (`retours/2026-10-16/compagnon/principe.md`, § 5).
+ */
+export type LieuDuCompagnon = 'expedition'
 
 export interface FormeDeCompagnon {
   /** `cp:loup-adulte` : un avatar dessiné, porté à la place de l'emoji comme un légendaire. */
@@ -99,13 +111,27 @@ export interface Compagnon {
    * remplace pas : c'est une forme de plus, qu'on choisit (le propriétaire,
    * le 19 octobre 2026 : « je veux que ce soit un choix ») — en avatar dans
    * la loge, dans sa niche depuis « Ma niche » —, ouverte à sa forme ultime
-   * quand l'Éclat brille sur lui (`metamorphoseOuverte`).
+   * quand l'Éclat brille sur lui (`metamorphoseOuverte`). La luciole n'a pas
+   * encore la sienne : l'Éclat ne lui pose que ses paillettes.
    */
-  lumiere: FormeDeCompagnon
+  lumiere?: FormeDeCompagnon
+  /**
+   * Où il se gagne, s'il ne s'achète pas — absent, il est en boutique. La
+   * luciole rejoint qui mène une expédition au bout (le souhait du
+   * propriétaire, le 18 octobre 2026 : « que certains hauts faits
+   * récompensent de nouveaux compagnons, comme la luciole »), et ne se
+   * montre que dans « Ma collection » (le 20 octobre 2026 : « que dans la
+   * collection, pas boutique »).
+   */
+  gagne?: LieuDuCompagnon
 }
 
-/** Un compagnon, ses quatre formes et sa lumière, dans l'ordre : `[clé, nom, pronom, emoji, phrase, [id, nom, légende][], [id, nom, légende]]`. */
-const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, string, string][], [string, string, string]][] = [
+/**
+ * Un compagnon, ses quatre formes et sa lumière, dans l'ordre, et où il se
+ * gagne s'il ne s'achète pas : `[clé, nom, pronom, emoji, phrase, [id, nom,
+ * légende][], [id, nom, légende] | null, lieu ?]`.
+ */
+const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, string, string][], [string, string, string] | null, LieuDuCompagnon?][] = [
   [
     'loup',
     'Le Loup',
@@ -148,39 +174,64 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
     ],
     ['fleurs', 'L’île en fleurs', 'Fleurs blanches et dorées, pétales qui tourbillonnent.'],
   ],
+  // Ses formes gardent les noms de la planche que le propriétaire a vue (le
+  // 18 octobre 2026), sauf la première : « le ver luisant » se serait dit « en
+  // la portant » — toutes au féminin, comme elle. Sa métamorphose n'est pas
+  // encore peinte.
+  [
+    'luciole',
+    'La Luciole',
+    'la',
+    '✨',
+    'Une luciole d’ambre toute ronde, sa lanterne qui luit vert et or, deux longues antennes : elle éclaire le chemin.',
+    [
+      ['ver', 'La petite luciole', 'Encore un ver luisant, tout rond sur sa feuille, le bout de la queue qui luit.'],
+      ['jeune', 'La jeune luciole', 'À peine éclose, ses ailes encore froissées, dans le pré d’été à la nuit tombée.'],
+      ['adulte', 'La luciole des sentiers', 'Ses ailes d’ambre grandes ouvertes, sa traînée de lumière éclaire la forêt.'],
+      ['constellation', 'La luciole-constellation', 'Ses ailes de vitrail : son essaim tourne autour d’elle et sort du cercle.'],
+    ],
+    null,
+    'expedition',
+  ],
 ]
 
-/** Les trois compagnons de la boutique, dans l'ordre de ses rayons. */
-export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, emoji, phrase, formes, [idDeLaLumiere, nomDeLaLumiere, legendeDeLaLumiere]]) => ({
-  key,
-  nom,
-  le,
-  emoji,
-  phrase,
-  formes: formes.map(([id, nomDeForme, legende], rang) => ({
-    key: `cp:${key}-${id}`,
-    compagnon: key,
-    rang,
-    nom: nomDeForme,
-    legende,
-    rarete: RARETE_DES_FORMES[rang],
-  })),
-  lumiere: {
-    key: `cp:${key}-${idDeLaLumiere}`,
-    compagnon: key,
-    rang: 3,
-    nom: nomDeLaLumiere,
-    legende: legendeDeLaLumiere,
-    rarete: 'legendaire',
-    metamorphose: true,
-  },
-}))
+/** Les quatre compagnons : ceux de la boutique, dans l'ordre de ses rayons, puis la luciole de l'Expédition. */
+export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, emoji, phrase, formes, lumiere, gagne]) => {
+  const c: Compagnon = {
+    key,
+    nom,
+    le,
+    emoji,
+    phrase,
+    formes: formes.map(([id, nomDeForme, legende], rang) => ({
+      key: `cp:${key}-${id}`,
+      compagnon: key,
+      rang,
+      nom: nomDeForme,
+      legende,
+      rarete: RARETE_DES_FORMES[rang],
+    })),
+  }
+  if (lumiere) c.lumiere = { key: `cp:${key}-${lumiere[0]}`, compagnon: key, rang: 3, nom: lumiere[1], legende: lumiere[2], rarete: 'legendaire', metamorphose: true }
+  if (gagne) c.gagne = gagne
+  return c
+})
 
-/** Les douze formes, compagnon après compagnon. */
+/**
+ * Ceux que la boutique vend : son rayon, l'achat, le coffre et « À la une »
+ * ne connaissent qu'eux — un compagnon qui se gagne ailleurs ne s'y montre
+ * même pas en silhouette.
+ */
+export const COMPAGNONS_DE_LA_BOUTIQUE: readonly Compagnon[] = COMPAGNONS.filter(c => !c.gagne)
+
+/** Le compagnon qu'amène la Première traversée : la luciole, à qui mène une expédition au bout — le troisième gardien vaincu. */
+export const COMPAGNON_DE_L_EXPEDITION: CleDeCompagnon = 'luciole'
+
+/** Leurs seize formes, compagnon après compagnon. */
 export const FORMES_DES_COMPAGNONS: readonly FormeDeCompagnon[] = COMPAGNONS.flatMap(c => c.formes)
 
 /** Leurs trois métamorphoses de lumière, à part : elles ne se gagnent pas en grandissant. */
-export const METAMORPHOSES: readonly FormeDeCompagnon[] = COMPAGNONS.map(c => c.lumiere)
+export const METAMORPHOSES: readonly FormeDeCompagnon[] = COMPAGNONS.flatMap(c => c.lumiere ?? [])
 
 const PAR_CLE = new Map([...FORMES_DES_COMPAGNONS, ...METAMORPHOSES].map(f => [f.key, f]))
 const COMPAGNON_PAR_CLE = new Map(COMPAGNONS.map(c => [c.key, c]))
@@ -202,6 +253,14 @@ export function compagnonDe(f: FormeDeCompagnon): Compagnon {
 
 /** Ce qui le fait grandir, dit à son genre : « avec lui », « avec elle ». */
 export const avecLui = (c: Compagnon) => (c.le === 'la' ? 'avec elle' : 'avec lui')
+
+/**
+ * Le refus fait à qui règle, porte ou installe un compagnon qu'il n'a pas :
+ * où l'obtenir. « À la boutique » aurait envoyé chercher la luciole là où
+ * elle n'est pas.
+ */
+export const pourLAvoir = (c: Compagnon): string =>
+  c.gagne === 'expedition' ? `${c.nom} se gagne d’abord : mène une expédition au bout` : `${c.nom} s’achète d’abord, à la boutique`
 
 /** Le rang de la plus haute forme que ces bonnes réponses, données avec lui, font atteindre. */
 export function rangAtteint(justes: number): number {
@@ -255,16 +314,18 @@ export function prochaineForme(a: CompagnonAcquis): { forme: FormeDeCompagnon; e
 /**
  * Sa métamorphose s'ouvre-t-elle à lui ? Sa forme ultime atteinte, et l'Éclat
  * sur lui — tombé avant ou après, sur n'importe laquelle de ses formes : il
- * suit le compagnon qui grandit (`clesQuiBrillent`).
+ * suit le compagnon qui grandit (`clesQuiBrillent`). Jamais pour un compagnon
+ * qui n'en a pas : la luciole éclatée garde ses paillettes, rien de plus.
  */
-export const metamorphoseOuverte = (a: Pick<CompagnonPossede, 'rang' | 'eclat'>): boolean => a.rang >= 3 && !!a.eclat
+export const metamorphoseOuverte = (a: Pick<CompagnonPossede, 'compagnon' | 'rang' | 'eclat'>): boolean =>
+  a.rang >= 3 && !!a.eclat && !!compagnon(a.compagnon)?.lumiere
 
 /** Les clés des formes que ces compagnons laissent porter : chacun jusqu'à sa plus haute, et sa métamorphose si elle s'est ouverte. */
 export function formesOuvertes(possedes: readonly CompagnonPossede[]): string[] {
   return possedes.flatMap(a => {
     const c = compagnon(a.compagnon)
     if (!c) return []
-    return [...c.formes.filter(f => f.rang <= a.rang).map(f => f.key), ...(metamorphoseOuverte(a) ? [c.lumiere.key] : [])]
+    return [...c.formes.filter(f => f.rang <= a.rang).map(f => f.key), ...(c.lumiere && metamorphoseOuverte(a) ? [c.lumiere.key] : [])]
   })
 }
 
@@ -280,7 +341,7 @@ export function formeLaPlusHaute(a: CompagnonPossede): FormeDeCompagnon | undefi
 export function formeDansLaNiche(a: CompagnonPossede): FormeDeCompagnon | undefined {
   const c = compagnon(a.compagnon)
   if (!c) return undefined
-  if (a.montree === MONTREE_DE_LA_METAMORPHOSE && metamorphoseOuverte(a)) return c.lumiere
+  if (a.montree === MONTREE_DE_LA_METAMORPHOSE && c.lumiere && metamorphoseOuverte(a)) return c.lumiere
   return c.formes[a.montree !== undefined && a.montree >= 0 && a.montree <= a.rang ? a.montree : a.rang]
 }
 

@@ -46,7 +46,7 @@ const SORTES = BRANCHES.map(b => `branche:${b.key}` as const)
 
 /** Ce que range chaque page, sous ses gemmes. */
 const CE_QU_ELLE_RANGE: Record<RareteDAvatar, string> = {
-  commune: 'Le visage de chaque sentier du savoir, chaque compagnon tel qu’on l’achète, et les emojis des premiers niveaux.',
+  commune: 'Le visage de chaque sentier du savoir, chaque compagnon à sa première forme, et les emojis des premiers niveaux.',
   peucommune: 'Le deuxième portrait de chaque sentier, et les emojis des niveaux suivants.',
   rare: 'Les troisième et quatrième portraits de chaque sentier, et chaque compagnon à sa deuxième forme.',
   epique: 'Le cinquième portrait de chaque sentier, celui qui sort de son cadre, et chaque compagnon à sa troisième forme.',

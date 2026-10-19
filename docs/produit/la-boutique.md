@@ -1,6 +1,6 @@
 # La boutique
 
-> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, vingt-cinq fonds de carte, seize gerbes, trois compagnons — et l'identité visuelle de FiestApp.
+> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, vingt-cinq fonds de carte, seize gerbes, trois compagnons — et la luciole, qui ne s'achète pas — et l'identité visuelle de FiestApp.
 
 **Dans cette page** : [gagner des confettis](#gagner-des-confettis) · [les dépenser](#les-dépenser) · [un solde qui se relit](#un-solde-qui-se-relit) · [la boutique et ses rayons](#la-boutique-et-ses-rayons) · [essayer et porter](#essayer-et-porter) · [les thèmes](#les-thèmes) · [les fonds de carte](#les-fonds-de-carte) · [les gerbes](#les-gerbes) · [les compagnons](#les-compagnons) · [l'identité visuelle](#lidentité-visuelle) · [comment c'est construit](#comment-cest-construit)
 
@@ -211,6 +211,8 @@ Trois compagnons, des animaux peints, s'achètent **1 000 confettis** à leur pr
 | Le Loup 🐺 | Le louveteau | Le jeune loup | Le loup adulte | Le loup des étoiles |
 | Le Chat des lanternes 🐱 | Le chaton | Le jeune chat | Le chat des lanternes | L'esprit des lanternes |
 | La Tortue-île 🐢 | La petite tortue | La jeune tortue | La tortue-bosquet | La tortue-île |
+
+Un quatrième, **la luciole**, ne s'achète pas : elle rejoint qui mène une expédition au bout — la Première traversée, le troisième gardien vaincu et un gardien gardé ([l'Expédition](l-expedition.md)) —, offerte, une fois, dans ta niche si elle est vide ; sinon elle attend son tour dans « Ma niche » (le choix du 20 octobre 2026 : « que dans la collection, pas boutique »). Ni le rayon, ni le coffre de la semaine, ni « À la une » ne la montrent : seul l'album des avatars de « Ma collection » la fait voir avant qu'on l'ait. Elle grandit comme les autres — la petite luciole, la jeune luciole, la luciole des sentiers, la luciole-constellation — et n'a pas encore de métamorphose.
 
 Chacune de ses formes atteintes se porte aussi comme un légendaire, si tu le choisis, dans la loge, pièce « Avatar » ; porté, il remplace ton avatar dans la salle où tu joues — porter un médaillon ne fait grandir personne : c'est la niche qui compte. À sa forme ultime, l'Éclat lui ouvre une forme de plus, **sa métamorphose de lumière** — le loup-tempête, le chat-soleil, l'île en fleurs —, qui ne remplace rien : elle se porte et se montre dans sa niche en la choisissant. Dans sa niche, il réagit à la révélation — ravi, dépité avec toi, des cœurs quand peu l'ont trouvée — et sort au podium, sans jamais te donner d'avantage. Toucher ta niche ouvre « Ma niche » : lui donner un nom, choisir la forme qu'il y montre, y installer un autre des tiens. Sa jauge, ses réactions, sa gestion, ses formes dans la collection et son Éclat : [le profil](le-profil.md).
 
