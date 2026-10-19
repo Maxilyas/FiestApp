@@ -10722,6 +10722,16 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
     radial-gradient(120% 40% at 50% 104%, rgba(120, 220, 210, 0.35), rgba(120, 220, 210, 0) 70%),
     linear-gradient(#173a52 0%, #1d5560 58%, #1f6a63 100%);
 }
+/* Le pré d'été, la nuit, et deux lucioles qui passent : celui de sa planche (le 18 octobre 2026). */
+.niche-ciel-luciole {
+  background:
+    radial-gradient(circle at 24% 26%, rgba(214, 255, 140, 0.9) 0 1.6px, rgba(214, 255, 140, 0.3) 3px, rgba(214, 255, 140, 0) 8px),
+    radial-gradient(circle at 78% 40%, rgba(214, 255, 140, 0.8) 0 1.3px, rgba(214, 255, 140, 0.25) 2.6px, rgba(214, 255, 140, 0) 7px),
+    radial-gradient(circle at 60% 14%, #fff 0 0.6px, rgba(255, 255, 255, 0) 1.2px),
+    radial-gradient(circle at 16% 52%, #fff 0 0.6px, rgba(255, 255, 255, 0) 1.2px),
+    radial-gradient(120% 45% at 50% 112%, #1d3a2a 0 52%, rgba(29, 58, 42, 0) 53%),
+    linear-gradient(#141c3c 0%, #1f2a4a 55%, #2a3a3a 100%);
+}
 /* Lui, en buste : son dessin livré, cadré forme par forme (`CADRAGES`),
    retourné pour regarder la page. Ses humeurs, repeintes sur la même
    découpe, se posent sur l'expression neutre : une seule se voit, échangée

@@ -15,7 +15,7 @@ import React from 'react'
 import { BRANCHES, ouvertsDansLaBranche } from '../../shared/branches'
 import { LEGENDAIRES } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
-import { COMPAGNONS, METAMORPHOSES } from '../../shared/compagnons'
+import { COMPAGNONS, COMPAGNONS_DE_LA_BOUTIQUE, METAMORPHOSES } from '../../shared/compagnons'
 import { GERBES } from '../../shared/gerbes'
 import { FINITIONS } from '../../shared/profil'
 
@@ -89,15 +89,17 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
   assert.equal(epique.length, BRANCHES.length + COMPAGNONS.length)
   assert.equal(epique.filter(c => !c.aLui && c.nom.endsWith(', épique, à gagner sur les sentiers')).length, BRANCHES.length)
   // Chacun à son genre : « avec elle », pour la tortue.
-  for (const c of COMPAGNONS) {
+  for (const c of COMPAGNONS_DE_LA_BOUTIQUE) {
     assert.equal(epique.filter(x => !x.aLui && x.nom === `${c.formes[2].nom}, épique, à gagner en boutique, puis à 300 bonnes réponses ${c.le === 'la' ? 'avec elle' : 'avec lui'}`).length, 1, c.key)
   }
   assert.ok(epique.some(x => x.nom === 'La tortue-bosquet, épique, à gagner en boutique, puis à 300 bonnes réponses avec elle'))
+  // La luciole ne s'achète pas : elle se gagne en expédition (le 20 octobre 2026).
+  assert.ok(epique.some(x => x.nom === 'La luciole des sentiers, épique, à gagner en expédition, puis à 300 bonnes réponses avec elle'))
   // Chaque gemme dit où il en est, en chiffres : la couleur seule ne se lit pas.
-  // Les compagnons y ont aussi leur forme, une par page : trois de plus — et
-  // leurs trois métamorphoses, légendaires.
+  // Les compagnons y ont aussi leur forme, une par page : quatre de plus — et
+  // les trois métamorphoses de ceux de la boutique, légendaires.
   const html = await album('commune')
-  assert.match(html, /aria-label="Rare, 1 sur 27"/)
+  assert.match(html, /aria-label="Rare, 1 sur 28"/)
   assert.match(html, new RegExp(`aria-label="Légendaire, 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length}"`))
   assert.equal(ouvertsDansLaBranche(avancee, paliers), 3)
 })

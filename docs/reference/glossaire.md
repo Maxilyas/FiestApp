@@ -101,7 +101,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Coffre (d'une escale) | Une escale de l'expédition qui offre un joker au choix parmi trois — deux sous Le trésor, aucun après L'horizon | `sorte: 'coffre'`, `offreDeJokers` |
 | Collection de prix | Les prix du palmarès qu'un profil a remportés, sur vingt | `PRIX_INDIVIDUELS`, `CATALOGUE_DES_PRIX` (`server/src/core/stats.ts`) |
 | Commande du jour | Ce que la routine doit écrire aujourd'hui pour chaque catégorie : combien de questions, quels sous-thèmes et quelles difficultés | `commandeDuJour` |
-| Compagnon | Un animal peint adopté en boutique, qui vit dans sa niche et grandit avec les bonnes réponses données avec lui ; chacune de ses formes atteintes se porte aussi en avatar | `COMPAGNONS` |
+| Compagnon | Un animal peint adopté en boutique — ou, la luciole, gagné au bout d'une expédition —, qui vit dans sa niche et grandit avec les bonnes réponses données avec lui ; chacune de ses formes atteintes se porte aussi en avatar | `COMPAGNONS`, `COMPAGNONS_DE_LA_BOUTIQUE` |
 | Compte | Un espace, vu du serveur : son identifiant cloisonne ses quiz, sa soirée et son historique ; il ne bouge jamais | `accounts`, `AuthStore` |
 | Compte d'avant | Un espace à identifiant et mot de passe, d'avant les salons ouverts par les profils — celui de l'administrateur en est un | `AccountRec.passwordHash` |
 | Confetti | La monnaie des profils : une bonne réponse, un confetti — en soirée qui compte, au quiz du jour, en campagne —, plus les étoiles des sentiers, les ligues des duels et les dons de l'administrateur | `confettisDeSoiree` |
@@ -304,6 +304,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | La loge | L'écran « M'habiller » : tout ce qu'un profil porte, en six pièces qu'on essaie avant de les porter | `client/src/components/Loge.tsx` |
 | Lot (d'écritures) | Ce qu'un passage du moteur envoie au miroir en une seule transaction : gains, réponses, effacements et état de la partie | `ouvrirLot`, `fermerLot` |
 | Lot (de questions) | Un fichier de questions écrit par un agent, qui attend sa relecture et son rangement dans `.lots-campagne/` | `server/scripts/lots-campagne.ts` |
+| Luciole | Le compagnon de l'Expédition, qui ne s'achète pas : la Première traversée l'amène, et seule « Ma collection » la montre avant qu'on l'ait ; quatre formes, de la petite luciole à la luciole-constellation, sans métamorphose encore | `COMPAGNON_DE_L_EXPEDITION`, `Compagnon.gagne` |
 | Lumière | Ce qui déborde autour de l'avatar aux trois dernières finitions : le Diamant (Prisme), les Voiles (Aurore), l'Astrolabe (Constellation) | `client/src/components/Lumiere.tsx` |
 
 ## M
@@ -325,7 +326,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | « Mes trophées » | Le panneau de la pièce « Vitrine » de la loge : les trophées gagnés, à toucher jusqu'à trois, dans l'ordre où la carte les montrera — « Mes hauts faits » jusqu'au 13 octobre 2026 | `MaVitrine` (`client/src/components/Trophees.tsx`) |
 | Mesure | La phase où une estimation en direct, close, attend la valeur que l'animateur tape | `cible` |
 | Mesure des pages | Ce que chaque page fait attendre à un téléphone bridé, cache vide puis plein, avant et après une retouche | `server/scripts/mesure-pages.ts` |
-| Métamorphose (d'un compagnon) | Sa métamorphose de lumière — le loup-tempête, le chat-soleil, l'île en fleurs —, que l'Éclat ouvre à sa forme ultime : une forme de plus, qui ne remplace rien, choisie en avatar dans la loge et dans sa niche dans « Ma niche » | `Compagnon.lumiere`, `metamorphoseOuverte`, `MONTREE_DE_LA_METAMORPHOSE` |
+| Métamorphose (d'un compagnon) | Sa métamorphose de lumière — le loup-tempête, le chat-soleil, l'île en fleurs ; la luciole n'en a pas encore —, que l'Éclat ouvre à sa forme ultime : une forme de plus, qui ne remplace rien, choisie en avatar dans la loge et dans sa niche dans « Ma niche » | `Compagnon.lumiere`, `metamorphoseOuverte`, `MONTREE_DE_LA_METAMORPHOSE` |
 | Miroir | La copie de la soirée en cours dans la base permanente (les tables `party_*`), d'où elle se recharge quand le disque est reparti vide | `PartyBackup` |
 | Mise de côté | Une question gardée dans le quiz sans être jouée — ni prête, ni à compléter | `deCote` |
 | Mode (d'une partie) | Ce que joue une ligne de `campagne_series` : une série, une révision, un défi, une épreuve de sentier, un parcours, un duel ou une rencontre | `campagne_series.mode` |
@@ -405,6 +406,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Pour qui ? | Le geste qui remplit le prénom — ou les deux — et l'accord d'un modèle de fête en le copiant | `personnaliser` |
 | Précision | La part de bonnes réponses parmi les QCM répondus, dite sur combien — jamais les estimations | `accuracy` (`PlayerStat`, `shared/types.ts`), `surQcm` (`client/src/format.ts`) |
 | Précompression | Les fichiers du client compressés une fois pour toutes au build, et servis tels quels selon ce que le navigateur accepte | `server/src/core/precompresse.ts` |
+| Première traversée | La première expédition menée au bout — le troisième gardien vaincu, un gardien gardé — : elle amène la luciole, offerte, dans sa niche si elle est vide, une fois | `garderUnGardien`, `ProfileStore.offrirUnCompagnon` |
 | Préproduction | Le second service, déployé à chaque fusion sur `main`, sur sa propre base Turso | `APP_ENV` |
 | Preuve fraîche | Le mot de passe redemandé pour remplacer ou détacher le profil qui tient un espace, même console ouverte | `prouver` |
 | Prix | Une distinction remise à une équipe à l'écran, pour le plaisir : 0 point d'office | `POINTS_D_UN_PRIX` |

@@ -7,7 +7,7 @@ import { Vies } from '../components/Vies'
 import { Balise } from '../components/Balise'
 import { Dessin } from '../components/Avatar'
 import { EMBLEME } from '../components/Ecusson'
-import { LegendaireOuvert } from '../components/Ouverts'
+import { CompagnonRejoint, LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, retenirLeNiveau, useNiveauRelu } from '../components/Gains'
 import { GerbeDeJuste } from '../components/Gerbe'
@@ -45,6 +45,7 @@ import {
   type SorteDeJoker,
 } from '../../../shared/jokers'
 import type { PalierTombe } from '../../../shared/jour'
+import type { CleDeCompagnon } from '../../../shared/compagnons'
 import {
   ACTES,
   ECUS_D_UN_COFFRE_LAISSE,
@@ -182,7 +183,8 @@ import {
 // serveur) —, puis son bouton le joue. Joué, il ne se reprend pas : un
 // toucher perdu sur la main ne doit rien coûter.
 
-type Fin = { recompenses?: PalierTombe[]; legendaires?: string[] }
+/** Ce que la fin fait tomber — et le compagnon qu'elle amène : la luciole, à la Première traversée. */
+type Fin = { recompenses?: PalierTombe[]; legendaires?: string[]; compagnon?: CleDeCompagnon }
 
 /** Ce que le départ choisit, aux rencontres : son style, sa catégorie fétiche, le dos de son paquet, son cran de l'Ascension. */
 type ChoixDuDepart = { style: StyleDeJeu | null; fetiche: string | null; dos: DosDuPaquet | null; ascension: number }
@@ -794,7 +796,7 @@ export function ExpeditionApp() {
     setErreur('')
     try {
       const apres = await api.expedition.garder(vue.id, vue.rang + 1, cle)
-      setEcran({ e: 'fin', vue: apres.expedition, tombe: { recompenses: apres.recompenses, legendaires: apres.legendaires }, correction: null })
+      setEcran({ e: 'fin', vue: apres.expedition, tombe: { recompenses: apres.recompenses, legendaires: apres.legendaires, compagnon: apres.compagnon }, correction: null })
     } catch (e) {
       refuse(e)
     } finally {
@@ -3669,7 +3671,8 @@ export function FinDeLExpedition({
   const { vue, tombe } = fin
   const recompenses = tombe.recompenses ?? []
   const cles = recompenses.map(x => x.key)
-  const niveau = useNiveauRelu(gains.xp > 0 || cles.length > 0)
+  // Le profil relu porte aussi sa niche : la luciole qui vient d'arriver s'y montre tout de suite.
+  const niveau = useNiveauRelu(gains.xp > 0 || cles.length > 0 || !!tombe.compagnon)
   const gardee = vue.issue === 'legendaire' && vue.garde ? vue.garde : null
   const nouveau = gardee !== null && (tombe.legendaires ?? []).includes(gardee)
   const acte = Math.min(vue.acte, ACTES - 1) + 1
@@ -3707,6 +3710,7 @@ export function FinDeLExpedition({
       {(tombe.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}
+      {tombe.compagnon && <CompagnonRejoint cle={tombe.compagnon} />}
       {/* Le codex (v7) : la renommée qu'elle rapporte, perdue aussi, et le niveau qu'elle fait passer. */}
       {vue.cartes?.codex && vue.renommee !== undefined && (
         <RenommeeGagnee avant={vue.cartes.codex.renommee ?? 0} gagnee={vue.renommee} exploits={exploitsNeufs(vue)} ascension={cranOuvert} />

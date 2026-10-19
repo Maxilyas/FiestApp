@@ -157,6 +157,44 @@ export const DESSINS: Record<string, DessinDeCompagnon> = {
       triomphe: ['/compagnons/tortue-eclat-fleurs-triomphe-512.e8ee23bcbc.webp', '/compagnons/tortue-eclat-fleurs-triomphe-256.94207d061f.webp'],
     },
   },
+  'cp:luciole-ver': {
+    perso: ['/compagnons/luciole-ver-perso-512.a4b9d40260.webp', '/compagnons/luciole-ver-perso-256.ff6a0533fc.webp'],
+    humeurs: {
+      ravi: ['/compagnons/luciole-ver-ravi-512.5aaeb61c2c.webp', '/compagnons/luciole-ver-ravi-256.2ef053343c.webp'],
+      depite: ['/compagnons/luciole-ver-depite-512.9e5d5d062f.webp', '/compagnons/luciole-ver-depite-256.c0b1a60aca.webp'],
+      triomphe: ['/compagnons/luciole-ver-triomphe-512.bcd601085f.webp', '/compagnons/luciole-ver-triomphe-256.50413c4e33.webp'],
+    },
+  },
+  'cp:luciole-jeune': {
+    disque: ['/compagnons/luciole-jeune-disque-512.8e8c95a620.webp', '/compagnons/luciole-jeune-disque-256.a522f02370.webp'],
+    perso: ['/compagnons/luciole-jeune-perso-512.57b52d6147.webp', '/compagnons/luciole-jeune-perso-256.8b78361cad.webp'],
+    humeurs: {
+      ravi: ['/compagnons/luciole-jeune-ravi-512.15db7ce90a.webp', '/compagnons/luciole-jeune-ravi-256.cfd4876f5d.webp'],
+      depite: ['/compagnons/luciole-jeune-depite-512.f3f3648d5b.webp', '/compagnons/luciole-jeune-depite-256.1703065855.webp'],
+      triomphe: ['/compagnons/luciole-jeune-triomphe-512.79133a54dd.webp', '/compagnons/luciole-jeune-triomphe-256.8003ff0679.webp'],
+    },
+  },
+  'cp:luciole-adulte': {
+    disque: ['/compagnons/luciole-adulte-disque-512.a92a966b06.webp', '/compagnons/luciole-adulte-disque-256.47272a5157.webp'],
+    perso: ['/compagnons/luciole-adulte-perso-512.e5127129d8.webp', '/compagnons/luciole-adulte-perso-256.7be24ca457.webp'],
+    humeurs: {
+      ravi: ['/compagnons/luciole-adulte-ravi-512.4161f11092.webp', '/compagnons/luciole-adulte-ravi-256.b7c6e8b56b.webp'],
+      depite: ['/compagnons/luciole-adulte-depite-512.2c6d7cc3c9.webp', '/compagnons/luciole-adulte-depite-256.4e3c905825.webp'],
+      triomphe: ['/compagnons/luciole-adulte-triomphe-512.bae43399ec.webp', '/compagnons/luciole-adulte-triomphe-256.2f39993e10.webp'],
+    },
+  },
+  'cp:luciole-constellation': {
+    disque: ['/compagnons/luciole-constellation-disque-512.5de93a1eb8.webp', '/compagnons/luciole-constellation-disque-256.eb550ad55a.webp'],
+    perso: ['/compagnons/luciole-constellation-perso-512.7f0f972adc.webp', '/compagnons/luciole-constellation-perso-256.a684dbff5b.webp'],
+    humeurs: {
+      ravi: ['/compagnons/luciole-constellation-ravi-512.45457017a0.webp', '/compagnons/luciole-constellation-ravi-256.8aba8e9d69.webp'],
+      depite: ['/compagnons/luciole-constellation-depite-512.2b8c1525a6.webp', '/compagnons/luciole-constellation-depite-256.c18ae38bb5.webp'],
+      triomphe: ['/compagnons/luciole-constellation-triomphe-512.4d3fa17565.webp', '/compagnons/luciole-constellation-triomphe-256.688ae63366.webp'],
+    },
+    vivant: {
+      lucioles: ['/compagnons/luciole-constellation-vivant-lucioles-512.7d7c1ec9b9.webp', '/compagnons/luciole-constellation-vivant-lucioles-256.942a9acee8.webp'],
+    },
+  },
 }
 
 // Évalué, le dessin est là pour tout `Avatar` de la page (voir `medaillons.ts`).

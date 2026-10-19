@@ -31,11 +31,13 @@ import {
 import { ProfileStore } from '../src/auth/profiles'
 import {
   COMPAGNONS,
+  COMPAGNONS_DE_LA_BOUTIQUE,
   FORMES_DES_COMPAGNONS,
   JUSTES_DES_FORMES,
   METAMORPHOSES,
   MONTREE_DE_LA_METAMORPHOSE,
   PRIX_D_UN_COMPAGNON,
+  compagnon,
   formeDansLaNiche,
   formeDeCompagnon,
   formesOuvertes,
@@ -55,13 +57,19 @@ ProfileStore.tirageEclat = () => false
 
 // ── Le catalogue, pur ─────────────────────────────────────────────────────
 
-test('trois compagnons, quatre formes chacun, la rareté qui monte avec eux', () => {
+test('quatre compagnons — trois en boutique, la luciole en expédition —, quatre formes chacun, la rareté qui monte avec eux', () => {
   assert.deepEqual(
     COMPAGNONS.map(c => c.key),
+    ['loup', 'chat', 'tortue', 'luciole'],
+  )
+  // La luciole ne se vend pas (le 20 octobre 2026) : la boutique, le coffre et « À la une » ne lisent que les trois.
+  assert.deepEqual(
+    COMPAGNONS_DE_LA_BOUTIQUE.map(c => c.key),
     ['loup', 'chat', 'tortue'],
   )
-  assert.equal(FORMES_DES_COMPAGNONS.length, 12)
-  assert.equal(new Set(FORMES_DES_COMPAGNONS.map(f => f.key)).size, 12, 'une clé par forme')
+  assert.equal(compagnon('luciole')!.gagne, 'expedition')
+  assert.equal(FORMES_DES_COMPAGNONS.length, 16)
+  assert.equal(new Set(FORMES_DES_COMPAGNONS.map(f => f.key)).size, 16, 'une clé par forme')
   for (const c of COMPAGNONS) {
     assert.deepEqual(
       c.formes.map(f => f.rarete),
@@ -83,7 +91,7 @@ test('trois compagnons, quatre formes chacun, la rareté qui monte avec eux', ()
   assert.deepEqual([...JUSTES_DES_FORMES], [0, 100, 300, 500])
 })
 
-test('chacun a sa métamorphose de lumière : une forme de plus, légendaire, qui ne se gagne pas en grandissant', () => {
+test('chacun de la boutique a sa métamorphose de lumière : une forme de plus, légendaire, qui ne se gagne pas en grandissant', () => {
   // Peintes le 13 octobre 2026, livrées le 19 : l'Éclat les ouvre, et elles ne
   // remplacent rien (le propriétaire : « je veux que ce soit un choix »).
   assert.deepEqual(
@@ -91,11 +99,19 @@ test('chacun a sa métamorphose de lumière : une forme de plus, légendaire, qu
     ['cp:loup-tempete', 'cp:chat-soleil', 'cp:tortue-fleurs'],
   )
   assert.deepEqual(
-    COMPAGNONS.map(c => c.lumiere.nom),
+    COMPAGNONS_DE_LA_BOUTIQUE.map(c => c.lumiere?.nom),
     ['Le loup-tempête', 'Le chat-soleil', 'L’île en fleurs'],
   )
-  for (const c of COMPAGNONS) {
-    const m = c.lumiere
+  // La luciole n'a pas encore la sienne : éclatée à sa forme ultime, elle garde ses paillettes.
+  assert.equal(compagnon('luciole')!.lumiere, undefined)
+  assert.equal(metamorphoseOuverte({ compagnon: 'luciole', rang: 3, eclat: true }), false)
+  assert.deepEqual(
+    formesOuvertes([{ compagnon: 'luciole', rang: 3, eclat: true }]),
+    compagnon('luciole')!.formes.map(f => f.key),
+  )
+  assert.equal(formeDansLaNiche({ compagnon: 'luciole', rang: 3, eclat: true, montree: MONTREE_DE_LA_METAMORPHOSE })?.key, 'cp:luciole-constellation')
+  for (const c of COMPAGNONS_DE_LA_BOUTIQUE) {
+    const m = c.lumiere!
     assert.equal(formeDeCompagnon(m.key), m)
     assert.deepEqual([m.compagnon, m.rang, m.rarete, m.metamorphose], [c.key, 3, 'legendaire', true], m.key)
     assert.ok(!FORMES_DES_COMPAGNONS.includes(m), `${m.key} : pas une forme où il grandit`)
@@ -105,7 +121,9 @@ test('chacun a sa métamorphose de lumière : une forme de plus, légendaire, qu
   assert.equal(prochaineForme({ compagnon: 'loup', rang: 3, justes: 900, eclat: true }), null, 'sa forme ultime n’a toujours pas de suite')
   // Elle s'ouvre à sa forme ultime, l'Éclat sur lui — tombé avant ou après.
   assert.deepEqual(
-    [{ rang: 3, eclat: true as const }, { rang: 2, eclat: true as const }, { rang: 3 }].map(metamorphoseOuverte),
+    [{ compagnon: 'loup' as const, rang: 3, eclat: true as const }, { compagnon: 'loup' as const, rang: 2, eclat: true as const }, { compagnon: 'loup' as const, rang: 3 }].map(
+      metamorphoseOuverte,
+    ),
     [true, false, false],
   )
   assert.deepEqual(

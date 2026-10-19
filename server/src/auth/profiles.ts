@@ -104,6 +104,7 @@ import {
   formeDeCompagnon,
   formesOuvertes,
   metamorphoseOuverte,
+  pourLAvoir,
   rangAtteint,
   type CleDeCompagnon,
   type Compagnon,
@@ -433,7 +434,7 @@ function lireCompagnon(siens: Map<CleDeCompagnon, SienEnMemoire> | undefined, r:
   // métamorphose, si, à sa forme ultime : elle ne se montre que tant que
   // l'Éclat brille sur lui (`formeDansLaNiche`), que ce démarrage n'a peut-être
   // pas encore lu — et revient avec lui.
-  const choisie = montree !== null && Number.isInteger(montree) && ((montree >= 0 && montree < rang) || (montree === MONTREE_DE_LA_METAMORPHOSE && rang >= c.lumiere.rang))
+  const choisie = montree !== null && Number.isInteger(montree) && ((montree >= 0 && montree < rang) || (montree === MONTREE_DE_LA_METAMORPHOSE && !!c.lumiere && rang >= c.lumiere.rang))
   siens.set(c.key, {
     rang,
     nom: typeof r.nom === 'string' && r.nom ? r.nom : null,
@@ -1946,6 +1947,8 @@ export class ProfileStore {
       const c = compagnonDuCatalogue(cle)
       if (!c) throw new Error('Ce compagnon n’existe pas')
       if (this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} est déjà à toi`)
+      // La luciole ne se vend pas : seul un appel forgé la demanderait, la boutique ne la montre pas.
+      if (c.gagne) throw new Error(`${c.nom} ne s’achète pas : ${c.le === 'la' ? 'elle' : 'il'} rejoint qui mène une expédition au bout`)
       const manque = PRIX_D_UN_COMPAGNON - (await this.boutiqueDe(rec, jour)).confettis.solde
       if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${nomDansLaPhrase(c.nom)}`)
       // Celui qui y vit la garde en toutes lettres : laissée à la règle, la
@@ -1970,6 +1973,42 @@ export class ProfileStore {
   }
 
   /**
+   * Offre un compagnon qui ne s'achète pas — la luciole, à la Première
+   * traversée (`COMPAGNON_DE_L_EXPEDITION`) — à prix nul, comme un coffre :
+   * il se porte et grandit comme acheté, et ni le solde ni les ventes du QG
+   * ne le comptent. Une niche vide l'accueille, jamais à la place de celui
+   * qui y vit, et il ne devient pas son avatar. Rend vrai s'il est neuf :
+   * déjà à lui, rien ne change — la fin d'une expédition et le rattrapage du
+   * démarrage le redemandent sans crainte. Un profil suspendu ne le reçoit
+   * qu'en base : réactivé, il le trouve chez lui.
+   */
+  offrirUnCompagnon(id: string, cle: CleDeCompagnon, quand: number): Promise<boolean> {
+    return this.unAchatALaFois(id, async () => {
+      const rec = await this.byId(id)
+      if (this.compagnons.get(id)?.has(cle)) return false
+      // Une niche vide s'écrit, comme au coffre : celui qui y vit déjà — le seul, ou le plus grand —, sinon lui.
+      const niche = rec && !rec.niche ? (this.compagnonDeLaNiche(rec) ?? cle) : null
+      const [ajout] = await this.client.batch(
+        [
+          {
+            sql: 'INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, 0, 0, ?) ON CONFLICT(profile_id, compagnon) DO NOTHING',
+            args: [id, cle, quand],
+          },
+          ...(niche ? [{ sql: 'UPDATE profiles SET niche = ? WHERE id = ? AND niche IS NULL', args: [niche, id] }] : []),
+        ],
+        'write',
+      )
+      if (rec) {
+        let siens = this.compagnons.get(id)
+        if (!siens) this.compagnons.set(id, (siens = new Map()))
+        if (!siens.has(cle)) siens.set(cle, { rang: 0, nom: null, montree: null })
+        if (niche && !rec.niche) rec.niche = niche
+      }
+      return ajout.rowsAffected > 0
+    })
+  }
+
+  /**
    * Ce qu'il règle d'un de ses compagnons, dans sa niche : son nom — à lui
    * seul, la salle ne le voit jamais — et la forme qu'il y montre, parmi
    * celles qu'il a atteintes ; sa plus haute, ou null, la rend à sa
@@ -1980,7 +2019,7 @@ export class ProfileStore {
     const rec = await this.require(id)
     const c = compagnonDuCatalogue(cle)
     if (!c) throw new Error('Ce compagnon n’existe pas')
-    if (!this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} s’achète d’abord, à la boutique`)
+    if (!this.compagnons.get(id)?.has(c.key)) throw new Error(pourLAvoir(c))
     const champs: Partial<Pick<SienEnMemoire, 'nom' | 'montree'>> = {}
     if (patch.nom !== undefined) champs.nom = nomDeCompagnon(patch.nom)
     if (patch.montree === null) champs.montree = null
@@ -2007,7 +2046,7 @@ export class ProfileStore {
     // Montrée dans sa niche, sa métamorphose est trouvée : ni « Ma niche » ni
     // la loge ne la disent plus nouvelle. Une base qui hoquette ici ne défait
     // pas ce qu'il vient de régler.
-    if (champs.montree === MONTREE_DE_LA_METAMORPHOSE) {
+    if (champs.montree === MONTREE_DE_LA_METAMORPHOSE && c.lumiere) {
       await this.voirDansLaLoge(id, c.lumiere.key).catch(e => console.error('[profil] loge illisible :', e))
     }
     return rec
@@ -2019,7 +2058,7 @@ export class ProfileStore {
    * demande aussi l'Éclat sur lui (`metamorphoseOuverte`).
    */
   private verifierLaForme(f: FormeDeCompagnon, c: Compagnon, sien: CompagnonPossede | undefined): asserts sien is CompagnonPossede {
-    if (!sien) throw new Error(`${c.nom} s’achète d’abord, à la boutique`)
+    if (!sien) throw new Error(pourLAvoir(c))
     if (f.metamorphose) {
       if (!metamorphoseOuverte(sien)) throw new Error(`${f.nom} s’ouvre à sa forme ultime, quand l’Éclat tombe sur ${c.le === 'la' ? 'elle' : 'lui'}`)
     } else if (sien.rang < f.rang) throw new Error(`${f.nom} arrive à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses données ${avecLui(c)}`)
@@ -3170,7 +3209,7 @@ export class ProfileStore {
       else {
         const c = compagnonDuCatalogue(patch.niche)
         if (!c) throw new Error('Ce compagnon n’existe pas')
-        if (!this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} s’achète d’abord, à la boutique`)
+        if (!this.compagnons.get(id)?.has(c.key)) throw new Error(pourLAvoir(c))
         champs.niche = c.key
       }
     }

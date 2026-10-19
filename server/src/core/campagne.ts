@@ -314,6 +314,7 @@ import {
   type ThemeDEscale,
   type VueDeLExpedition,
 } from '../../../shared/expedition'
+import { COMPAGNON_DE_L_EXPEDITION } from '../../../shared/compagnons'
 import {
   EXPLOITS,
   VERSION_DU_BILAN,
@@ -825,7 +826,7 @@ export class CampagneStore {
    * Branchés au démarrage, comme les vies achetées.
    */
   profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'legendairePorte' | 'apparenceDe'> &
-    Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonDeLaNiche' | 'faireGrandir'>>
+    Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonDeLaNiche' | 'faireGrandir' | 'offrirUnCompagnon'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   private mesuresGardees: MesureGardee | null = null
@@ -1927,6 +1928,31 @@ export class CampagneStore {
       args: ['relecture_des_epreuves', String(VERSION_DES_EPREUVES)],
     })
     return { epreuves: res.rows.length, profils: profils.size }
+  }
+
+  /**
+   * La Première traversée, à qui l'avait faite avant la luciole (le 20
+   * octobre 2026) : chaque profil qui a gardé un gardien au bout d'une
+   * expédition la reçoit, datée de la première — offerte comme à une fin
+   * (`garderUnGardien`), une niche vide l'accueille. Une fois, sous son
+   * drapeau : le démarrage suivant ne relit rien, et un démarrage interrompu
+   * recommence sans rien donner deux fois. Rend combien l'ont reçue, ou null
+   * quand c'est déjà fait.
+   */
+  async rattraperLesPremieresTraversees(): Promise<number | null> {
+    if (!this.profils?.offrirUnCompagnon) return null
+    const fait = await this.client.execute({ sql: 'SELECT valeur FROM campagne_meta WHERE cle = ?', args: ['premieres_traversees'] })
+    if (fait.rows.length > 0) return null
+    const res = await this.client.execute(`SELECT profile_id, MIN(finie_le) AS le FROM campagne_series WHERE mode = 'expedition' AND issue = 'legendaire' GROUP BY profile_id`)
+    let offertes = 0
+    for (const r of res.rows) {
+      if (await this.profils.offrirUnCompagnon(String(r.profile_id), COMPAGNON_DE_L_EXPEDITION, Number(r.le))) offertes++
+    }
+    await this.client.execute({
+      sql: 'INSERT INTO campagne_meta (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur',
+      args: ['premieres_traversees', String(Date.now())],
+    })
+    return offertes
   }
 
   /**
@@ -7201,12 +7227,15 @@ export class CampagneStore {
    * Garder un gardien, au bout de l'acte 3 : un légendaire de plus. La ligne
    * qui le lui donne se range d'abord — un rangement qui échoue ne laisse pas
    * une expédition finie sans son légendaire : le geste se rejoue —, puis
-   * l'expédition se clôt.
+   * l'expédition se clôt. La première menée au bout amène aussi la luciole,
+   * la Première traversée (`COMPAGNON_DE_L_EXPEDITION`), offerte de même
+   * avant de clore : l'offrir deux fois ne change rien.
    */
   private async garderUnGardien(profileId: string, l: ExpeditionLue, avant: EtatDeLExpedition, g: Extract<GesteDExpedition, { quoi: 'garder' }>, maintenant: number): Promise<ApresUnGeste> {
     if (avant.issue !== 'au-bout') throw new Error('Va au bout de l’acte 3 pour garder un gardien')
     if (!l.depart.gardiens.includes(g.legendaire)) throw new Error('Ce gardien n’est pas de ton expédition')
     const legendaires = this.recompenses ? this.recompenses.legendairesOuverts(profileId, await this.recompenses.ranger(profileId, cleDeSerie(l.serie.id), [cleDeLExpedition(g.legendaire)], maintenant)) : []
+    const rejointe = (await this.profils?.offrirUnCompagnon?.(profileId, COMPAGNON_DE_L_EXPEDITION, maintenant)) ?? false
     const gestes = [...l.gestes, g]
     const apres = pliDeLExpedition(l.depart, gestes, questionsPosees(l.serie.questions, l.reponduesLe), l.reponses)
     await this.ecrireLExpedition(profileId, [
@@ -7221,6 +7250,7 @@ export class CampagneStore {
       expedition: vueDeLExpedition({ ...l, serie: { ...l.serie, finieLe: maintenant }, gestes }, apres, this.legendairesDe(profileId)),
       ...(gains.recompenses && { recompenses: gains.recompenses }),
       ...(tous.length > 0 && { legendaires: tous }),
+      ...(rejointe && { compagnon: COMPAGNON_DE_L_EXPEDITION }),
     }
   }
 

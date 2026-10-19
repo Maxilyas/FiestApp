@@ -147,7 +147,8 @@ test('dans chaque page, chaque case essaie son avatar : rien ne se porte ni ne s
   const APPARENCE = source('components/Apparence.tsx')
   assert.doesNotMatch(APPARENCE, /\benregistrer\(|onPorter=|id="detail-avatar"|fiche-case/)
   // Les espaces de `espacesFines` devant les deux-points et le point d'interrogation : le chemin de ce qui reste — sa page de l'album.
-  assert.match(await page('legendaire'), /<a class="loge-a-gagner" href="#collection-avatars-legendaire">42 avatars légendaires à gagner\s:\soù\s\?<svg/)
+  // La luciole-constellation comprise (le 20 octobre 2026).
+  assert.match(await page('legendaire'), /<a class="loge-a-gagner" href="#collection-avatars-legendaire">43 avatars légendaires à gagner\s:\soù\s\?<svg/)
 })
 
 test('les gemmes de l’album : les offerts, puis chaque rareté où il a quelque chose, chacune son compte, ouvertes sur la page de ce qu’il porte', async () => {
@@ -214,11 +215,11 @@ test('seulement ce qu’il a : ni cadenas ni fantômes — ce qui reste se compt
     'Avatar 🐝, de collection · niveau 8',
     'Avatar 🦩, de collection · niveau 9',
   ])
-  // Ce qui reste sur sa page de l'album, compté, et son chemin — les espaces fines de `espacesFines` comprises.
-  assert.match(commune, /href="#collection-avatars-commune">13 avatars communs à gagner\s:\soù\s\?/)
+  // Ce qui reste sur sa page de l'album, compté, et son chemin — les espaces fines de `espacesFines` comprises —, les formes de la luciole avec.
+  assert.match(commune, /href="#collection-avatars-commune">14 avatars communs à gagner\s:\soù\s\?/)
   assert.match(await page('peucommune'), /href="#collection-avatars-peucommune">13 avatars peu communs à gagner\s:\soù\s\?/)
   // Les offerts mènent à tout l'album : ce qui reste de toutes ses pages.
-  assert.match(await page('offert'), /href="#collection-avatars">115 avatars à gagner\s:\soù\s\?/)
+  assert.match(await page('offert'), /href="#collection-avatars">119 avatars à gagner\s:\soù\s\?/)
   // Un Divin ne dit pas comment : rien à compter sous sa page (invariant 21).
   assert.doesNotMatch(await page('divin'), /loge-a-gagner/)
   // Les compagnons, à la rareté de leur forme : le louveteau commun, le jeune loup rare.
@@ -232,7 +233,7 @@ test('seulement ce qu’il a : ni cadenas ni fantômes — ce qui reste se compt
   assert.ok(!casesDe(await page('legendaire', { ...HABITUE, compagnons: [{ compagnon: 'loup', rang: 3 }] })).some(c => c.nom.startsWith('Le loup-tempête')), 'pas sans l’Éclat')
   // Le premier jour : les offerts seuls, et ce qui reste de tout l'album.
   assert.deepEqual((await sesPages(DEBUTANT)).map(p => p.page), ['offert'])
-  assert.match(await page('offert', DEBUTANT), /href="#collection-avatars">131 avatars à gagner\s:\soù\s\?/)
+  assert.match(await page('offert', DEBUTANT), /href="#collection-avatars">135 avatars à gagner\s:\soù\s\?/)
 })
 
 test('la carte montre une case — son halo d’or —, celle qu’il porte garde sa coche, et rien ne bouge sous le doigt', async () => {

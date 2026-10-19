@@ -6,7 +6,8 @@ depuis le 18 octobre 2026 au soir, **la niche** (le point 1 de la fin de
 cette page : sa place sur chaque page, sa fiche, son repli, et le compagnon de
 la niche qui grandit) ; depuis le 19 octobre, **ses humeurs et ses réactions
 à la révélation** (le point 2 : le § 2 tel qu'il est écrit), et **la lumière
-que l'Éclat ouvre**, une forme de plus (la moitié du point 5). Le reste attend ; les
+que l'Éclat ouvre**, une forme de plus (la moitié du point 5) ; depuis le
+20 octobre, **la luciole et la Première traversée** (le point 3). Le reste attend ; les
 preuves visuelles sont sur la planche (lien dans `README.md`).
 
 ## En une phrase
@@ -89,8 +90,11 @@ mauvaises réponses font gagner —, à livrer (la lumière l'est depuis le
   dépôt (`calibrage-expedition.ts`, avec une équipée de deux) fait arriver au
   bout le joueur moyen une fois sur trois ou quatre, le fort deux fois sur
   trois — la cible du brief de l'Expédition. Aucune expédition n'est encore
-  jouée en production : à vérifier dès qu'il y en aura. En boutique, elle se
-  montre en silhouette, « à gagner en Expédition ».
+  jouée en production : à vérifier dès qu'il y en aura. ~~En boutique, elle se
+  montre en silhouette, « à gagner en Expédition ».~~ Ni en boutique, ni au
+  coffre, ni « À la une » : « que dans la collection pas boutique » (le
+  propriétaire, le 20 octobre 2026) — l'album des avatars la montre, sa voie
+  « En expédition : la Première traversée ».
 - D'autres sur le même modèle, plus tard : un compagnon par mode, chacun son
   haut fait.
 
@@ -160,8 +164,19 @@ vidéo générée : trop chère pour ce qu'elle apporte.
      y vit, d'un toucher ; « Le porter en avatar ». Ce qui le
      « customiserait » davantage attend sa peinture : les ornements de la
      niche (point 4), les métamorphoses (point 5).
-3. Le haut fait « Première traversée » et la livraison de Lumi
-   (`livrer-compagnons.ts luciole`).
+3. ~~Le haut fait « Première traversée » et la livraison de Lumi
+   (`livrer-compagnons.ts luciole`).~~ Faits le 20 octobre 2026 : la luciole
+   livrée depuis `luciole-peinte/` (ses quatre formes, leurs humeurs, son
+   essaim ; pas de métamorphose encore), au catalogue sous le nom de « La
+   Luciole » — Lumi est le premier nom proposé pour la sienne, comme Nox pour
+   le loup —, ses formes au féminin (« La petite luciole » plutôt que « Le
+   ver luisant », qui se serait dit « en la portant »). La Première
+   traversée : la première expédition menée au bout l'offre, à prix nul,
+   dans la niche si elle est vide (`garderUnGardien`,
+   `ProfileStore.offrirUnCompagnon`), et l'écran de fin la fête
+   (`CompagnonRejoint`) ; qui avait déjà mené une expédition au bout l'a
+   reçue au démarrage. Pas un trophée de l'album des trophées : le nom de la
+   voie qui la donne.
 4. Les paliers de la niche, lus des journaux.
 5. Les métamorphoses livrées. ~~La lumière~~ livrée le 19 octobre 2026 (« quelqu'un a eu le loup compagnon en éclaté mais son avatar n'a pas changé », le propriétaire : peinte, elle ne partait pas, et l'Éclat ne posait que quatre paillettes) : le loup-tempête, le chat-soleil, l'île en fleurs, une forme de plus que l'Éclat ouvre à la forme ultime, et qui ne la remplace pas — « je veux que ce soit un choix », le propriétaire, le même jour : une case de plus dans la loge pour la porter, une petite niche de plus dans « Ma niche » pour l'y montrer — ses humeurs, son cadrage —, marquées d'un point rouge tant qu'on ne l'a pas vue ; l'album l'a sur sa page légendaire. Reste l'ombre, peinte, et sa règle (cent mauvaises réponses en le portant).
 6. Le réveil et « Le laisser dormir ».

@@ -1,16 +1,18 @@
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import type { Finition } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { nomDansLaPhrase, portrait as portraitDe } from '../../../shared/branches'
-import { compagnonDe, formeDeCompagnon, type FormeDeCompagnon } from '../../../shared/compagnons'
+import { compagnon as leCompagnon, compagnonDe, formeDeCompagnon, type CleDeCompagnon, type FormeDeCompagnon } from '../../../shared/compagnons'
 import { api } from '../api'
 import { espacesFines } from '../format'
+import { abonnerNiche, nicheActuelle } from '../niche'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
 
 // Ce qu'une partie vient d'ouvrir de grand, qu'on porte d'ici — un
-// légendaire, l'Éclat, et le médaillon d'un Divin — : à la fin d'une soirée
+// légendaire, l'Éclat, et le médaillon d'un Divin ; et le compagnon qu'elle
+// amène, qui va dans sa niche — : à la fin d'une soirée
 // (`FinDeSoiree.tsx`), du quiz du jour (`JourApp.tsx`), d'une série de
 // campagne ou d'un défi (`CampagneApp.tsx`) ou d'une épreuve des sentiers.
 // À part de la fin de soirée : le quiz du jour l'importait pour ces
@@ -79,6 +81,37 @@ export function LegendaireOuvert({ cle, dejaPorte }: { cle: string; dejaPorte: b
   )
 }
 
+/**
+ * Le compagnon qu'une partie vient d'amener — la luciole, à la première
+ * expédition menée au bout : la Première traversée —, sa première forme en
+ * grand. On ne le porte pas d'ici : l'adoption ne fait pas porter (le
+ * propriétaire, le 19 octobre 2026 : « ça serait mieux que dans la niche ») ;
+ * il s'installe dans sa niche si elle est vide, sinon il attend son tour dans
+ * « Ma niche » — celui qui y vit la garde, comme au coffre.
+ */
+export function CompagnonRejoint({ cle }: { cle: CleDeCompagnon }) {
+  const ici = useSyncExternalStore(abonnerNiche, nicheActuelle, () => null)
+  const c = leCompagnon(cle)
+  if (!c) return null
+  const Il = c.le === 'la' ? 'Elle' : 'Il'
+  const attend = ici !== null && ici.compagnon !== cle
+  return (
+    <section className="card fin-legendaire fin-compagnon">
+      <span className="label">Première traversée</span>
+      <Medaillon cle={c.formes[0].key} className="fin-medaillon" />
+      <h2>{`${c.nom} te rejoint`}</h2>
+      <p className="serif-note">{espacesFines(c.phrase)}</p>
+      <p className="muted small">
+        {espacesFines(
+          attend
+            ? `${Il} attend son tour dans « Ma niche » : touche ta niche pour l’y installer — c’est celui de ta niche qui grandit.`
+            : `${Il} s’installe dans ta niche, en haut de chaque page, et grandit avec tes bonnes réponses. Touche-la pour lui donner un nom.`,
+        )}
+      </p>
+    </section>
+  )
+}
+
 /** Le tirage en toutes lettres, comme on le dit : « une chance sur quarante ». */
 const EN_LETTRES: Record<number, string> = { 20: 'vingt', 40: 'quarante' }
 
@@ -92,8 +125,10 @@ export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; ava
   // Un compagnon porté éclate aussi (`cibleEclat`) : sans lui, sa clé s'écrivait en toutes lettres — « Ton cp:loup-jeune a éclaté ! ».
   const compagnon = formeDeCompagnon(cle)
   const dessine = legendaire(cle) ?? portraitDe(cle) ?? compagnon
-  // L'Éclat tombe sur ce qu'il porte : sa forme ultime portée, il l'a atteinte, et sa métamorphose s'ouvre maintenant.
-  const ouverte = compagnon && compagnon.rang === 3 && !compagnon.metamorphose ? compagnon : null
+  // L'Éclat tombe sur ce qu'il porte : sa forme ultime portée, il l'a atteinte, et sa métamorphose s'ouvre maintenant —
+  // s'il en a une : la luciole n'a pas encore la sienne.
+  const lumiere = compagnon && compagnonDe(compagnon).lumiere
+  const ouverte = compagnon && lumiere && compagnon.rang === 3 && !compagnon.metamorphose ? compagnon : null
   return (
     <>
       <section className="card fin-eclat">
@@ -106,8 +141,8 @@ export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; ava
         <p className="serif-note">
           {compagnon ? 'Il brille, désormais, sous toutes ses formes — et personne d’autre ne l’a comme ça.' : 'Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.'}
         </p>
-        {compagnon && !ouverte && !compagnon.metamorphose && (
-          <p className="muted small">{espacesFines(`Dès sa forme ultime, l’Éclat lui ouvre sa métamorphose : ${nomDansLaPhrase(compagnonDe(compagnon).lumiere.nom)}.`)}</p>
+        {compagnon && lumiere && !ouverte && !compagnon.metamorphose && (
+          <p className="muted small">{espacesFines(`Dès sa forme ultime, l’Éclat lui ouvre sa métamorphose : ${nomDansLaPhrase(lumiere.nom)}.`)}</p>
         )}
       </section>
       {ouverte && <MetamorphoseOuverte forme={ouverte} />}
@@ -125,6 +160,7 @@ export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; ava
 function MetamorphoseOuverte({ forme }: { forme: FormeDeCompagnon }) {
   const [porte, setPorte] = useState(false)
   const m = compagnonDe(forme).lumiere
+  if (!m) return null
   const porter = async () => {
     try {
       const { profile } = await api.joueur.enregistrer({ legendaire: m.key })
