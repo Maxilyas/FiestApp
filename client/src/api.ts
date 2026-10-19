@@ -42,7 +42,7 @@ import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
-import type { EtatDeLaMaintenance, PageEnMaintenance } from '../../shared/maintenance'
+import type { EtatDUnePage, EtatDeLaMaintenance, PageEnMaintenance } from '../../shared/maintenance'
 import type { SuiviDuJour } from '../../shared/qgDuJour'
 import type { SuiviDeLaCampagne } from '../../shared/qgCampagne'
 import type { SuiviDesDuels } from '../../shared/qgDuels'
@@ -385,8 +385,15 @@ export const api = {
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
     /** Ce qu'il a de neuf à porter, compté : la pastille rouge de « Profil » — rien sans profil. */
     nouveautes: () => req<NouveautesDeLaLoge>('/api/joueur/nouveautes'),
-    /** Le compagnon de sa niche et où il en est — sa fiche, ouverte au toucher de la niche ; null sans compagnon. */
-    niche: () => req<{ niche: CompagnonAcquis | null }>('/api/joueur/niche'),
+    /**
+     * Le compagnon de sa niche et où il en est, et tous les siens — sa fiche,
+     * ouverte au toucher de la niche ; null et rien sans compagnon. Un serveur
+     * d'avant ne dit que le premier.
+     */
+    niche: () => req<{ niche: CompagnonAcquis | null; compagnons?: CompagnonAcquis[] }>('/api/joueur/niche'),
+    /** Ce qu'il règle d'un de ses compagnons, depuis sa niche : son nom (vide, il n'en a plus), la forme qu'il y montre (null : sa plus haute). */
+    reglerCompagnon: (compagnon: string, reglage: { nom?: string; montree?: number | null }) =>
+      req<{ profile: PublicProfile }>(`/api/joueur/compagnons/${encodeURIComponent(compagnon)}`, { method: 'PUT', body: JSON.stringify(reglage) }),
     /** Ce qu'il vient de voir dans sa loge, retenu pour tous ses appareils. */
     retenirLesVus: (vus: VusDeLaLoge) => req<{ ok: true }>('/api/joueur/vus', { method: 'PUT', body: JSON.stringify({ vus }) }),
     /** Ses missions du jour : tirées à sa première visite, ce qui vient d'être fait retenu et dit (`nouvelles`). */
@@ -423,11 +430,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ theme, porter }),
       }),
-    /** Acheter un compagnon, à sa première forme — le porter aussitôt, ou le garder pour plus tard —, comme un thème. */
-    acheterCompagnon: (compagnon: string, porter = true) =>
+    /** Adopter un compagnon, à sa première forme : il s'installe dans sa niche, ou attend son tour (`installer: false`). Il ne se porte que dans la loge. */
+    acheterCompagnon: (compagnon: string, installer = true) =>
       req<{ profile: PublicProfile; boutique: BoutiqueDuProfil }>('/api/joueur/compagnons', {
         method: 'POST',
-        body: JSON.stringify({ compagnon, porter }),
+        body: JSON.stringify({ compagnon, installer }),
       }),
     /** Acheter un fond des savoirs — le porter aussitôt, ou le garder pour plus tard. Ses fonds reviennent relus, le nouveau compris. */
     acheterFond: (fond: string, porter = true) =>
@@ -674,9 +681,14 @@ export const api = {
     maintenance: () => req<EtatDeLaMaintenance>('/api/admin/maintenance'),
     /** Poser le bandeau, ou le retirer (`null`) ; rend l'état d'après. */
     poserLeBandeau: (texte: string | null) => req<EtatDeLaMaintenance>('/api/admin/maintenance/bandeau', { method: 'PUT', body: JSON.stringify({ texte }) }),
-    /** Mettre une page en maintenance, ou la rouvrir ; rend l'état d'après. */
-    mettreEnMaintenance: (page: PageEnMaintenance, fermee: boolean) =>
-      req<EtatDeLaMaintenance>(`/api/admin/maintenance/pages/${page}`, { method: 'PUT', body: JSON.stringify({ fermee }) }),
+    /** Ce que devient une page : ouverte à tous, en maintenance, bientôt disponible ; rend l'état d'après. */
+    changerLaPage: (page: PageEnMaintenance, etat: EtatDUnePage) =>
+      req<EtatDeLaMaintenance>(`/api/admin/maintenance/pages/${page}`, { method: 'PUT', body: JSON.stringify({ etat }) }),
+    /** Un testeur de plus pour une page bientôt disponible, ou de moins ; rend l'état d'après. */
+    ajouterUnTesteur: (page: PageEnMaintenance, profileId: string) =>
+      req<EtatDeLaMaintenance>(`/api/admin/maintenance/pages/${page}/testeurs/${encodeURIComponent(profileId)}`, { method: 'PUT' }),
+    retirerUnTesteur: (page: PageEnMaintenance, profileId: string) =>
+      req<EtatDeLaMaintenance>(`/api/admin/maintenance/pages/${page}/testeurs/${encodeURIComponent(profileId)}`, { method: 'DELETE' }),
     /** Tous les espaces, chacun avec son titulaire : les salons des profils, les comptes à mot de passe. */
     espaces: () => req<EspaceDAdministration[]>('/api/admin/espaces'),
     /** Fusionner deux identités d'avant : l'espace prend ce profil pour titulaire, ses quiz d'ailleurs le rejoignent. */

@@ -78,7 +78,7 @@ flowchart TD
    le quiz du jour et l'amorce de sa réserve, le rappel du soir, la
    bibliothèque et son amorce (`seedLibrary`), les programmes, les partages,
    les salons, la campagne, le journal des gestes, la santé du serveur, la
-   maintenance (le bandeau et les pages fermées du QG, `Maintenance`),
+   maintenance (le bandeau, les pages fermées du QG et leurs testeurs, `Maintenance`),
    l'historique. En série, chaque réveil attendait soixante allers-retours —
    trois secondes de page blanche ; et un échec ne remonte qu'une fois toutes
    les branches finies, pour que rien n'écrive plus après.

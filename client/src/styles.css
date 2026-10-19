@@ -4588,31 +4588,40 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .en-maintenance-icone { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: rgba(217, 48, 37, 0.14); color: #d93025; }
 .en-maintenance-icone .icon { width: 30px; height: 30px; }
 .en-maintenance-gestes { display: grid; gap: 10px; width: 100%; margin-top: 8px; }
+/* Bientôt disponible : rien n'y est cassé — ni rouge, ni alerte. */
+.en-bientot .en-maintenance-icone { background: var(--surface-strong); color: var(--accent-text); }
 /* Le bouton de l'accueil d'une page fermée : éteint, sa ligne dit pourquoi — il mène encore à la page qui l'explique. */
 .gros-bouton.gros-ferme { border-style: dashed; background: none; }
 .gros-ferme .gros-icone { opacity: 0.5; filter: grayscale(1); }
 .gros-ferme .gros-texte b { color: var(--muted); }
 .gros-ferme .gros-detail { color: var(--alert); }
+.gros-bientot .gros-detail { color: var(--accent-text); }
 /* L'onglet du défi, ouvert à l'administrateur seul. */
 .avis-administrateur { margin: 0; padding: 10px 14px; border-radius: var(--radius-xs); background: #7a4f00; color: #ffffff; font-size: 0.875rem; font-weight: 600; line-height: 1.35; }
 /* La page du QG : ce qui est posé, en rouge, et un geste par page. Deux classes : `.etiquette`, plus bas, l'emportait — rouge sur rouge sous l'Ivoire. */
 .etiquette.etiquette-alerte { border-color: #d93025; background: #d93025; color: #ffffff; }
 .maintenance-compte { margin: -6px 0 0; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+.maintenance-etiquettes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .maintenance-gestes .salon-geste[aria-disabled='true'] { opacity: 0.5; cursor: default; }
-.maintenance-page { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--edge); }
+/* Une page par ligne : ce qu'elle ferme, ce qu'elle est, puis ses gestes dessous — à côté, au téléphone, « Rouvrir »
+   laissait au texte un mot par ligne —, et ses testeurs quand elle est bientôt disponible. */
+.maintenance-page { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--edge); }
 .maintenance-page:first-child { border-top: 0; }
 .maintenance-page-icone { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--surface-strong); }
 .maintenance-page-icone .icon { width: 18px; height: 18px; }
 .maintenance-fermee .maintenance-page-icone { background: #d93025; color: #ffffff; }
-.maintenance-page-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.maintenance-bientot .maintenance-page-icone { background: var(--accent); color: var(--on-accent); }
+.maintenance-page-corps { flex: 1; min-width: 0; display: grid; gap: 10px; }
+.maintenance-page-texte { display: flex; flex-direction: column; gap: 2px; }
 .maintenance-depuis { color: var(--alert); font-size: 0.85rem; font-weight: 600; }
-.maintenance-page .salon-geste { flex: none; }
-@media (max-width: 480px) {
-  /* Au téléphone, le geste passe sous ce qu'il ferme : à côté, « Rouvrir » laissait au texte un mot par ligne. */
-  .maintenance-page { flex-wrap: wrap; }
-  .maintenance-page-texte { flex-basis: calc(100% - 48px); }
-  .maintenance-page .salon-geste { margin-left: 48px; }
-}
+.maintenance-bientot-depuis { color: var(--accent-text); font-size: 0.85rem; font-weight: 600; }
+.maintenance-page-gestes { display: flex; flex-wrap: wrap; gap: 8px; }
+.maintenance-testeurs { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--radius-xs); background: var(--surface-strong); }
+.maintenance-testeurs .champ-recherche { margin: 0; }
+.maintenance-testeurs-liste { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.maintenance-testeurs-liste li { display: flex; align-items: center; gap: 10px; }
+.maintenance-testeur { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.maintenance-testeurs-liste .salon-geste { flex: none; }
 
 /* ── Aperçu de l'import : les estimations lues ──────────────────────────
 
@@ -10842,6 +10851,49 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
 .niche-fiche-jauge { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 2.75em; }
 .niche-fiche-gestes { display: flex; gap: 10px; }
 .niche-fiche-gestes .btn { flex: 1; justify-content: center; min-height: 48px; }
+/* Sa gestion (le 19 octobre 2026) : son nom, qu'on lui donne d'ici ; la forme
+   qu'il montre et celui des siens qui y vit, en petites niches — celle qui y
+   vit pressée, d'un anneau d'or. */
+.niche-renommer { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin-top: 2px; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; font-size: 0.875rem; cursor: pointer; }
+.niche-renommer:hover { color: var(--accent-text-hover); }
+.niche-renommer svg { width: 15px; height: 15px; }
+.niche-nommer { display: flex; flex-direction: column; gap: 6px; }
+.niche-nommer .label { margin: 0; }
+.niche-nommer-ligne { display: flex; gap: 8px; }
+.niche-nommer-ligne input { flex: 1; min-width: 0; }
+.niche-nommer-ligne .btn { flex: none; }
+.niche-nommer-annuler { align-self: flex-start; }
+.niche-fiche-section { display: flex; flex-direction: column; gap: 8px; }
+.niche-fiche-section .label { margin: 0; }
+.niche-fiche-section-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.niche-fiche-section-tete .link-inline { font-size: 0.875rem; }
+.niche-choix-rangee { display: flex; flex-wrap: wrap; gap: 8px; }
+.niche-choix {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 74px;
+  padding: 8px 2px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.niche-choix[aria-pressed='true'] { border-color: var(--edge); background: var(--accent-soft); cursor: default; }
+.niche-choix[aria-pressed='true'] .niche-cadre { border-color: rgb(244, 213, 141); box-shadow: 0 0 0 1px rgba(244, 213, 141, 0.45), 0 0 12px rgba(244, 213, 141, 0.5); }
+.niche-choix:disabled { opacity: 0.7; cursor: progress; }
+.niche-choix:not([aria-pressed='true']):hover .niche-cadre { border-color: rgba(244, 213, 141, 0.95); }
+.niche-mini { --l: 54px; position: relative; flex: none; width: var(--l); height: calc(var(--l) * 62 / 54); }
+.niche-choix-nom { max-width: 100%; font-size: var(--t-label); line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
+.niche-choix[aria-pressed='true'] .niche-choix-nom { color: var(--accent-text); font-weight: 600; }
+.niche-mini-vide { display: grid; place-items: center; border: 1px dashed var(--edge-strong); border-radius: calc(var(--l) / 2) calc(var(--l) / 2) 12px 12px; color: var(--accent-text); }
+.niche-mini-vide svg { width: 22px; height: 22px; }
+.niche-choix-aide { margin: 0; }
 /* Ses cœurs s'envolent dans la feuille : moins haut qu'à la boutique, qui a toute sa scène. */
 .niche-envols i { top: 36%; }
 .niche-envols i:nth-child(1) { --x: -52px; --y: -54px; }

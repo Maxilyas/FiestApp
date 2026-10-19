@@ -281,10 +281,18 @@ export function AdminApp() {
   const enCours = direct?.soirees.filter(s => s.etat === 'en-cours').length
   const enPlan = direct?.soirees.filter(s => s.etat === 'en-plan').length ?? 0
   const comptes: Partial<Record<Ecran, number>> = { soirees: enCours, profils, salons: espaces?.length }
-  // Ce qui est posé — le bandeau, les pages fermées — se compte en rouge : rien ne se rouvre de lui-même.
+  // Ce qui est posé — le bandeau, les pages fermées — se compte en rouge : rien ne se rouvre de lui-même. Une page
+  // bientôt disponible se dit sans rouge : elle attend son heure, rien n'y est cassé.
   const posees = maintenance ? ceQuiEstPose(maintenance) : 0
   const fermees = maintenance ? PAGES_EN_MAINTENANCE.filter(p => maintenance.pages[p] !== null).length : 0
-  const enMaintenance = [maintenance?.bandeau && 'Bandeau affiché', fermees > 0 && `${fermees} page${fermees > 1 ? 's' : ''} fermée${fermees > 1 ? 's' : ''}`].filter(Boolean).join(' · ')
+  const bientot = maintenance ? PAGES_EN_MAINTENANCE.filter(p => maintenance.bientot[p] !== null).length : 0
+  const enMaintenance = [
+    maintenance?.bandeau && 'Bandeau affiché',
+    fermees > 0 && `${fermees} page${fermees > 1 ? 's' : ''} fermée${fermees > 1 ? 's' : ''}`,
+    bientot > 0 && `${bientot} bientôt disponible${bientot > 1 ? 's' : ''}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <div className="player-shell compte admin qg">
@@ -389,7 +397,7 @@ export function AdminApp() {
                 />
                 <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
                 <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
-                <Ligne icone="alert" nom="La maintenance" valeur={enMaintenance || 'Bandeau, pages fermées'} onClick={() => aller('maintenance')} />
+                <Ligne icone="alert" nom="La maintenance" valeur={enMaintenance || 'Bandeau, pages fermées, testeurs'} onClick={() => aller('maintenance')} />
               </ul>
             </nav>
           </>

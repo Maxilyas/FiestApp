@@ -175,6 +175,13 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
   le reste. L'album dit ses voies une par une (`ouIlSeGagne`) : un seul mot
   pour tous ses lieux faisait de la Chimère un légendaire « en soirée, au
   quiz du jour, en campagne ou en expédition ».
+  Pour la garder à quelques testeurs sans toucher au code, le QG l'annonce
+  pour bientôt (`/admin#maintenance`, le souhait du propriétaire du
+  19 octobre 2026, règle `qg.md`) : sa page et `POST /api/expedition`
+  fermés à tous sauf à ses testeurs et à l'administrateur, son bouton de
+  l'accueil éteint sur « Bientôt disponible » — le drapeau, lui, reste
+  ouvert. La voie de l'album ne se referme pas avec : elle dit d'où vient un
+  légendaire, pas ce qu'on peut jouer ce soir.
 - **Les escales de la carte portent la classe de leur sorte**
   (`exp-question`, `exp-elite`, `exp-source`, `exp-coffre`,
   `exp-campement`, `exp-gardien`) : une règle CSS de ce nom, faite pour

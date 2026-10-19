@@ -156,15 +156,16 @@ export function GrosBouton({
   /** Le compte au bout de la jauge (« 27 sur 308 ») ; sa place est gardée tant qu'il n'est pas arrivé. */
   compte?: string
   /**
-   * Sa page est en maintenance (`/admin#maintenance`) : le bouton s'éteint, sa
-   * ligne le dit. Il mène encore à sa page, qui dit qu'on la répare — et où
-   * l'administrateur, lui, entre encore.
+   * Sa page est fermée (`/admin#maintenance`) — en maintenance, ou bientôt
+   * disponible : le bouton s'éteint, sa ligne dit pourquoi. Il mène encore à
+   * sa page, qui le dit en grand — et où l'administrateur, lui, entre encore.
    */
-  ferme?: boolean
+  ferme?: 'maintenance' | 'bientot'
   href?: string
   onClick?: () => void
 }) {
-  const classe = 'gros-bouton' + (principal ? ' gros-principal' : '') + (allume ? ' gros-allume' : '') + (ferme ? ' gros-ferme' : '')
+  const classe =
+    'gros-bouton' + (principal ? ' gros-principal' : '') + (allume ? ' gros-allume' : '') + (ferme ? ' gros-ferme' : '') + (ferme === 'bientot' ? ' gros-bientot' : '')
   const contenu = (
     <>
       <span className="gros-icone">{icone}</span>
