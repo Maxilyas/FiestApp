@@ -68,6 +68,7 @@ import {
   prixDeLEscale,
   refusDeLAchat,
   traceLePlusSur,
+  vueApresLaCarte,
   type ApresUnGeste,
   type ArticleDeLEchoppe,
   type CarteDUnActe,
@@ -147,6 +148,7 @@ import {
   gemmeDeLaCarte,
   origineDeLaCarte,
   pourcents,
+  prechargerLesPeintures,
   recompenseDe,
   retenirLAscension,
   retenirLaFetiche,
@@ -566,6 +568,13 @@ export function ExpeditionApp() {
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
   const [gains, setGains] = useState<GainsDeLExpedition>({ xp: 0, justes: 0, tampons: [] })
+  const [surPlace, setSurPlace] = useState<CartesSurPlace | null>(null)
+  // Les petites peintures de son paquet, d'avance — une carte tirée arrive peinte —, et celles d'une offre ou d'une échoppe : la
+  // révélation qui la précède leur laisse le temps.
+  const enRoute = ecran.e === 'route' ? ecran.vue : null
+  useEffect(() => {
+    if (enRoute) prechargerLesPeintures([...(enRoute.cartes?.paquet ?? []), ...(enRoute.offre?.jokers ?? []), ...(enRoute.echoppe?.jokers ?? [])])
+  }, [enRoute])
   const setEcran = (e: Ecran) => {
     setEcranBrut(e)
     setErreur('')
@@ -652,15 +661,20 @@ export function ExpeditionApp() {
     }
   }
 
-  /** Un geste qui rend l'expédition d'après : l'écran se relit d'elle — sauf celui que `puis` choisit. */
+  /**
+   * Un geste qui rend l'expédition d'après : l'écran se relit d'elle — sauf celui que `puis` choisit. Les cartes jouées sur
+   * place sont parties avec lui ; refusé, il ne s'est pas écrit, elles non plus : elles reviennent dans la main.
+   */
   const geste = async (faire: () => Promise<ApresUnGeste>, puis?: (apres: VueDeLExpedition, r: ApresUnGeste) => Ecran | void) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
       const r = await faire()
+      setSurPlace(null)
       setEcran(puis?.(r.expedition, r) ?? { e: 'route', vue: r.expedition })
     } catch (e) {
+      setSurPlace(null)
       refuse(e)
     } finally {
       setBusy(false)
@@ -685,12 +699,22 @@ export function ExpeditionApp() {
 
   /**
    * Un joker : sur la question à l'écran — sa position, qu'un joker périmé soit refusé —, sur la carte, ou posé. Une
-   * carte des rencontres vise de même la question qui attend, même cachée tant qu'il prépare : son rang seul part.
+   * carte des rencontres vise de même la question qui attend, même cachée tant qu'il prépare : son rang seul part. En
+   * préparation, celle dont tout l'effet se lit de la vue se joue sur place (`vueApresLaCarte`) et part avec le geste
+   * suivant (`cartes`, celles déjà jouées ainsi), toutes d'un seul aller-retour — chacune en coûtait un. `vue` est celle
+   * que la page montre, ses cartes jouées sur place comprises : le geste porte le rang de la première.
    */
-  const jouer = (vue: VueDeLExpedition, cle: string, plus: { categorie?: string; montre?: number } = {}) => {
+  const jouer = (vue: VueDeLExpedition, cle: string, plus: { categorie?: string; montre?: number } = {}, cartes: readonly string[] = []) => {
+    if (busy) return
+    if (plus.categorie === undefined && plus.montre === undefined && vueApresLaCarte(vue, cle)) {
+      setSurPlace({ id: vue.id, rang: vue.rang - cartes.length, cartes: [...cartes, cle] })
+      const dit = ceQueLaCarteAFait(cle)
+      if (dit) showToast({ kind: 'info', message: dit })
+      return
+    }
     const position = vue.question?.index ?? vue.rencontre?.position
     return geste(
-      () => api.expedition.jouer(vue.id, vue.rang + 1, cle, { ...(position !== undefined && { position }), ...plus }),
+      () => api.expedition.jouer(vue.id, vue.rang + 1 - cartes.length, cle, { ...(position !== undefined && { position }), ...plus }, cartes),
       apres => {
         // Une carte de route dit ce qu'elle ouvre, comme un joker de carte ; une carte de combat, ce que l'écran ne montre pas.
         const dit = vue.cartes && !estDeRoute(cle) ? ceQueLaCarteAFait(cle) : ceQuIlAFait(cle, vue, apres)
@@ -699,8 +723,9 @@ export function ExpeditionApp() {
     )
   }
 
-  /** En rencontre : sa mise dite, il voit la question qui attend. */
-  const voir = (vue: VueDeLExpedition, mise: number) => geste(() => api.expedition.voir(vue.id, vue.rang + 1, mise, vue.rencontre?.position))
+  /** En rencontre : sa mise dite, il voit la question qui attend — ses cartes jouées sur place avec lui. */
+  const voir = (vue: VueDeLExpedition, mise: number, cartes: readonly string[] = []) =>
+    geste(() => api.expedition.voir(vue.id, vue.rang + 1 - cartes.length, mise, vue.rencontre?.position, cartes))
 
   const prendre = (vue: VueDeLExpedition, jokers: readonly string[], talisman?: string, fiole?: CleDeFiole) =>
     geste(
@@ -717,11 +742,11 @@ export function ExpeditionApp() {
   /** À l'échoppe : un article, payé en écus ; l'échoppe reste ouverte pour le suivant. */
   const acheter = (vue: VueDeLExpedition, article: ArticleDeLEchoppe, joker?: string) => geste(() => api.expedition.acheter(vue.id, vue.rang + 1, article, joker))
 
-  /** Une fiole bue (le codex), de la barre : pendant une question, sur celle qui attend — son rang seul part, comme une carte. */
-  const boire = (vue: VueDeLExpedition, fiole: CleDeFiole) => {
+  /** Une fiole bue (le codex), de la barre : pendant une question, sur celle qui attend — son rang seul part, comme une carte ; en préparation, les cartes jouées sur place avec elle. */
+  const boire = (vue: VueDeLExpedition, fiole: CleDeFiole, cartes: readonly string[] = []) => {
     const position = vue.question?.index ?? vue.rencontre?.position
     return geste(
-      () => api.expedition.boire(vue.id, vue.rang + 1, fiole, position),
+      () => api.expedition.boire(vue.id, vue.rang + 1 - cartes.length, fiole, position, cartes),
       () => {
         const f = fioleDe(fiole)
         if (f) showToast({ kind: 'info', message: `${f.nom} : ${f.effet}` })
@@ -884,16 +909,17 @@ export function ExpeditionApp() {
     return <FinDeLExpedition fin={ecran} gains={gains} erreur={erreur} onCorrection={() => void voirCorrection()} onAutre={() => void relire()} />
   }
 
-  const { vue } = ecran
+  // La vue du serveur, et les cartes jouées sur place depuis : la main, l'énergie, l'aperçu qu'elles laissent.
+  const { vue, cartes } = avecLesCartesSurPlace(ecran.vue, surPlace)
   // Ses cartes se lisent à la version de son départ : une expédition partie avant le codex garde ses chiffres. Ses fioles se
   // boivent de la barre de chaque écran — sauf à la révélation d'une réponse : bue là, l'écran passait à la suite, et
   // l'écart avec la vue d'avant, qui dit ce que la réponse a coûté, aurait compté la fiole.
   const aSaVersion = (x: ReactNode, fioles = true) => (
     <VersionDesCartes.Provider value={vue.cartes?.v ?? VERSION_DU_CODEX}>
-      <BoireUneFiole.Provider value={fioles ? fiole => void boire(vue, fiole) : null}>{x}</BoireUneFiole.Provider>
+      <BoireUneFiole.Provider value={fioles ? fiole => void boire(vue, fiole, cartes) : null}>{x}</BoireUneFiole.Provider>
     </VersionDesCartes.Provider>
   )
-  const surLaMain = { onJouer: (cle: string, plus?: { categorie?: string; montre?: number }) => void jouer(vue, cle, plus) }
+  const surLaMain = { onJouer: (cle: string, plus?: { categorie?: string; montre?: number }) => void jouer(vue, cle, plus, cartes) }
   if (ecran.reponse && ecran.question) {
     return aSaVersion(
       <Escale
@@ -945,7 +971,7 @@ export function ExpeditionApp() {
         busy={busy}
         erreur={erreur}
         onJouer={surLaMain.onJouer}
-        onVoir={mise => void voir(vue, mise)}
+        onVoir={mise => void voir(vue, mise, cartes)}
       />
     )
   }
@@ -983,6 +1009,33 @@ export function ExpeditionApp() {
       {...surLaMain}
     />
   )
+}
+
+/** Les cartes jouées sur place depuis la dernière vue du serveur : l'expédition et le rang qu'elles suivent. */
+interface CartesSurPlace {
+  id: string
+  rang: number
+  cartes: string[]
+}
+
+/**
+ * La vue que la page montre : celle du serveur, et les cartes jouées sur place
+ * depuis (`vueApresLaCarte`), tant qu'il n'a pas bougé — un geste passé, un
+ * autre onglet, et elles ne suivent plus rien. « ← Partir » puis
+ * « Reprendre » les retrouve ; recharger la page les rend à la main : rien
+ * n'en était parti.
+ */
+export function avecLesCartesSurPlace(vue: VueDeLExpedition, sur: CartesSurPlace | null): { vue: VueDeLExpedition; cartes: string[] } {
+  if (!sur || sur.id !== vue.id || sur.rang !== vue.rang) return { vue, cartes: [] }
+  let v = vue
+  const cartes: string[] = []
+  for (const cle of sur.cartes) {
+    const apres = vueApresLaCarte(v, cle)
+    if (!apres) break
+    v = apres
+    cartes.push(cle)
+  }
+  return { vue: v, cartes }
 }
 
 /** Ce que la fin redit de l'expédition jouée sur cette page : son expérience, ses confettis, ses tampons neufs. */
