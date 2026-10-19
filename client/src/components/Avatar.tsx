@@ -48,8 +48,9 @@ interface Props {
  *
  * Un portrait des branches (`Portrait.tsx`) se porte comme un légendaire :
  * la finition devient son cercle, l'Éclat son ciel rare. Un compagnon de la
- * boutique (`Compagnon.tsx`) comme un portrait — l'Éclat fait de sa forme
- * ultime sa métamorphose ; plus jeune, ses paillettes l'annoncent.
+ * boutique (`Compagnon.tsx`) comme un portrait — l'Éclat n'y pose que ses
+ * paillettes, sous toutes ses formes : la métamorphose qu'il lui ouvre est
+ * une forme de plus, qu'on porte en la choisissant.
  *
  * Les trois dernières finitions — Prisme, Aurore, Constellation — ont en
  * plus leur lumière (`Lumiere.tsx`), autour de l'emoji comme du médaillon :
@@ -116,7 +117,7 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
         ) : portrait && Portrait ? (
           <Portrait cle={portrait} finition={finition} eclat={eclat} grand={grand} />
         ) : compagnon && Compagnon ? (
-          <Compagnon cle={compagnon} finition={finition} eclat={eclat} grand={grand} />
+          <Compagnon cle={compagnon} finition={finition} grand={grand} />
         ) : (
           avatar
         )}

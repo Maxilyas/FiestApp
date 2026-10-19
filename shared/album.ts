@@ -11,7 +11,8 @@
 // premiers niveaux sont communs ; plus haut sur le sentier, plus rare ; sa
 // forme ultime, au douzième palier, est légendaire — l'égale des vingt-six
 // légendaires des hauts faits. Les compagnons de la boutique de même, forme
-// par forme : celle qu'on achète est commune, la forme ultime légendaire. Les
+// par forme : celle qu'on achète est commune, la forme ultime légendaire — et
+// la métamorphose que l'Éclat lui ouvre, une forme de plus, aussi. Les
 // Divins ont leur page, et n'y disent rien d'eux : ni règle, ni lieu, ni
 // progression (invariant 21).
 //
@@ -28,8 +29,8 @@ import { NOM_PALIER, clePalier, hautFait, origineDe, regleDuPalier } from './hau
 import { saison } from './saisons'
 import { recompensesDe } from './proches'
 import { formatNumber } from './typographie'
-import { FORMES_DES_COMPAGNONS, JUSTES_DES_FORMES, PRIX_D_UN_COMPAGNON, avecLui, compagnonDe, formeDeCompagnon, formesOuvertes } from './compagnons'
-import type { PublicProfileDetail } from './profil'
+import { COMPAGNONS, JUSTES_DES_FORMES, PRIX_D_UN_COMPAGNON, avecLui, compagnonDe, formeDeCompagnon, formesOuvertes } from './compagnons'
+import { CHANCE_ECLAT, CHANCE_ECLAT_DU_DEFI, type PublicProfileDetail } from './profil'
 
 /** Les pages de l'album : les cinq raretés des thèmes, et les Divins à part. */
 export type RareteDAvatar = Rarete | 'divin'
@@ -54,9 +55,10 @@ export type SorteDAvatar = 'legendaire' | 'divin' | 'portrait' | 'compagnon' | '
  * Où se gagne un avatar : en soirée, au quiz du jour, en campagne — ses
  * séries, ses défis —, sur les sentiers du savoir, en montant de niveau, à sa
  * saison, ou en boutique — un compagnon, qui grandit ensuite dans sa niche
- * (`niche`). La pastille de sa case, et l'icône de chacune de ses voies.
+ * (`niche`), et dont l'Éclat ouvre la métamorphose (`eclat`). La pastille de
+ * sa case, et l'icône de chacune de ses voies.
  */
-export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'niche' | 'expedition'
+export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'niche' | 'eclat' | 'expedition'
 
 export interface AvatarDeLAlbum {
   /** `lg:phenix`, `dv:seraphin`, `br:cerf`, `cp:loup-jeune`, ou l'emoji de collection lui-même. */
@@ -88,14 +90,18 @@ const avatar = (cle: string, sorte: SorteDAvatar, rarete: RareteDAvatar, lieux: 
 
 /**
  * Tout l'album, dans l'ordre du catalogue : les légendaires, les portraits
- * branche après branche, les compagnons forme après forme, les emojis de
+ * branche après branche, les compagnons forme après forme — leur
+ * métamorphose après leur forme ultime, dont elle s'ouvre —, les emojis de
  * collection, les Divins. Pas les vingt-quatre emojis de l'inscription : ils
  * sont à tout le monde.
  */
 export const AVATARS_DE_L_ALBUM: readonly AvatarDeLAlbum[] = [
   ...LEGENDAIRES.map(l => avatar(l.key, 'legendaire', 'legendaire', lieuxDuLegendaire(l))),
   ...PORTRAITS.map(p => avatar(p.key, 'portrait', RARETE_DU_RANG[p.rang], ['sentiers'])),
-  ...FORMES_DES_COMPAGNONS.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? ['boutique'] : ['boutique', 'niche'])),
+  ...COMPAGNONS.flatMap(c => [
+    ...c.formes.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? ['boutique'] : ['boutique', 'niche'])),
+    avatar(c.lumiere.key, 'compagnon', c.lumiere.rarete, ['boutique', 'niche', 'eclat']),
+  ]),
   ...COLLECTION.map(c => avatar(c.emoji, 'emoji', c.niveau < COLLECTION_HAUTE ? 'commune' : 'peucommune', ['niveau'])),
   ...DIVINS.map(d => avatar(d.key, 'divin', 'divin', [])),
 ]
@@ -115,6 +121,7 @@ const DANS: Record<LieuDAvatar, string> = {
   saison: 'à sa saison',
   boutique: 'en boutique',
   niche: 'dans sa niche',
+  eclat: 'par l’Éclat',
   expedition: 'en expédition',
 }
 
@@ -132,11 +139,13 @@ function dite(elements: readonly string[], mot: string, avant = ''): string {
  * jour et en campagne, ou en expédition » (la Chimère, depuis la voie de
  * l'expédition : un seul mot pour tous ses lieux disait qu'un seul suffisait) ;
  * un emoji, son niveau ; un légendaire de saison, sa fête ; une forme de
- * compagnon, ses bonnes réponses. Rien pour un Divin.
+ * compagnon, ses bonnes réponses — sa métamorphose, l'Éclat avec. Rien pour
+ * un Divin.
  */
 export function ouIlSeGagne(a: AvatarDeLAlbum): string {
   if (a.sorte === 'emoji') return `au niveau ${COLLECTION.find(c => c.emoji === a.cle)!.niveau}`
   const f = formeDeCompagnon(a.cle)
+  if (f?.metamorphose) return `en boutique, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(compagnonDe(f))} et par l’Éclat`
   if (f) return f.rang === 0 ? 'en boutique' : `en boutique, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(compagnonDe(f))}`
   const l = legendaire(a.cle)
   const s = l?.saison && saison(l.saison)
@@ -256,6 +265,7 @@ const OU: Record<LieuDAvatar, string> = {
   saison: 'À sa saison',
   boutique: 'En boutique',
   niche: 'Dans sa niche',
+  eclat: 'Par l’Éclat',
   expedition: 'En expédition',
 }
 
@@ -333,7 +343,8 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
     ]
   }
   if (a.sorte === 'compagnon') {
-    // Une seule voie : l'acheter, puis le faire grandir dans sa niche.
+    // Une seule voie : l'acheter, puis le faire grandir dans sa niche — et,
+    // pour sa métamorphose, l'Éclat sur lui.
     const f = formeDeCompagnon(cle)!
     const c = compagnonDe(f)
     const sien = (p.compagnons ?? []).find(x => x.compagnon === c.key)
@@ -348,19 +359,24 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
     const requis = JUSTES_DES_FORMES[f.rang]
     const tenue = !!sien && sien.rang >= f.rang
     const justes = p.boutique?.compagnons?.find(x => x.compagnon === c.key)?.justes ?? 0
-    return [
-      [
-        achat,
-        {
-          lieu: 'niche',
-          titre: `Dans sa niche : ${formatNumber(requis)} bonnes réponses`,
-          regle: 'Celles qui rapportent un confetti, en soirée, au quiz du jour et en campagne',
-          tenue,
-          // Une forme atteinte le reste, même si ses bonnes réponses ont redescendu.
-          progres: sien ? compte(tenue ? requis : Math.min(justes, requis), requis) : null,
-        },
-      ],
-    ]
+    const grandir: EtapeDUneVoie = {
+      lieu: 'niche',
+      titre: `Dans sa niche : ${formatNumber(requis)} bonnes réponses`,
+      regle: 'Celles qui rapportent un confetti, en soirée, au quiz du jour et en campagne',
+      tenue,
+      // Une forme atteinte le reste, même si ses bonnes réponses ont redescendu.
+      progres: sien ? compte(tenue ? requis : Math.min(justes, requis), requis) : null,
+    }
+    if (!f.metamorphose) return [[achat, grandir]]
+    // Pas de jauge : un tirage, qui tombe sur ce qu'il porte (`cibleEclat`).
+    const eclat: EtapeDUneVoie = {
+      lieu: 'eclat',
+      titre: 'Par l’Éclat : en portant l’une de ses formes',
+      regle: `Une chance sur ${CHANCE_ECLAT} par soirée à deux ou quiz du jour, sur ${CHANCE_ECLAT_DU_DEFI} au défi de la semaine`,
+      tenue: !!sien?.eclat,
+      progres: null,
+    }
+    return [[achat, grandir, eclat]]
   }
   const l = legendaire(cle)!
   const s = l.saison && saison(l.saison)

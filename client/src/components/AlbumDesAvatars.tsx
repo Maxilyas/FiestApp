@@ -27,7 +27,7 @@ import { BRANCHES, brancheDe, portrait } from '../../../shared/branches'
 import { COLLECTION } from '../../../shared/avatars'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { NOM_DE_LA_FORME, compagnonDe, formeDeCompagnon } from '../../../shared/compagnons'
+import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 
 // L'album « Mes avatars », dans « Ma collection » (la maquette 1, choisie le
@@ -50,7 +50,7 @@ const CE_QU_ELLE_RANGE: Record<RareteDAvatar, string> = {
   peucommune: 'Le deuxième portrait de chaque sentier, et les emojis des niveaux suivants.',
   rare: 'Les troisième et quatrième portraits de chaque sentier, et chaque compagnon à sa deuxième forme.',
   epique: 'Le cinquième portrait de chaque sentier, celui qui sort de son cadre, et chaque compagnon à sa troisième forme.',
-  legendaire: 'Les légendaires des hauts faits, la forme ultime de chaque sentier et celle de chaque compagnon.',
+  legendaire: 'Les légendaires des hauts faits, la forme ultime de chaque sentier, celle de chaque compagnon et sa métamorphose.',
   divin: 'Ils ne disent pas comment.',
 }
 
@@ -63,6 +63,7 @@ const ICONE_DU_LIEU: Record<LieuDAvatar, IconName> = {
   saison: 'calendar',
   boutique: 'bag',
   niche: 'paw',
+  eclat: 'spark',
   expedition: 'flag',
 }
 
@@ -165,11 +166,10 @@ export function FicheDeLAvatar({ a, aLui, porte, profil, dessin }: { a: AvatarDe
   const recit = a.sorte === 'divin' ? (profil.divins ?? []).find(d => d.key === a.cle) : undefined
   const inconnu = a.sorte === 'divin' && !recit
   const aller = aLui ? null : ouAller(a.cle, voies)
-  // Un Divin descendu n'éclate jamais ; un compagnon, sur sa forme ultime,
-  // qui prend sa métamorphose — l'Éclat tombé sur l'une de ses formes (ses
-  // paillettes l'annoncent sur les autres, qui n'ont rien de plus à dire) ;
+  // Un Divin descendu n'éclate jamais ; un compagnon n'a pas de version rare
+  // à choisir — ses paillettes le suivent, et sa métamorphose a sa case — ;
   // les autres, s'il est tombé sur eux.
-  const eclate = aLui && a.sorte !== 'divin' && (f ? f.rang === 3 && brilleChez(profil, a.cle) : profil.eclats.includes(a.cle))
+  const eclate = aLui && a.sorte !== 'divin' && a.sorte !== 'compagnon' && profil.eclats.includes(a.cle)
   return (
     <div className="galerie-detail detail-case album-detail" style={gemmeDAvatar(a.rarete)}>
       <div className="album-detail-tete">
@@ -192,7 +192,7 @@ export function FicheDeLAvatar({ a, aLui, porte, profil, dessin }: { a: AvatarDe
       {f && (
         <>
           <p className="serif-note">{f.legende}</p>
-          <p className="muted small">{`${compagnonDe(f).nom} · ${NOM_DE_LA_FORME[f.rang]}`}</p>
+          <p className="muted small">{`${compagnonDe(f).nom} · ${nomDeLaForme(f)}`}</p>
         </>
       )}
       {a.sorte === 'emoji' && <p className="muted small">Réservé aux profils : l’inscription ne le propose pas.</p>}
@@ -280,11 +280,7 @@ export function AlbumDesAvatars({ profil, page, onPage }: { profil: PublicProfil
       return Portrait && dessinDuPortrait(dessins, a.cle) ? <Portrait cle={a.cle} verrouille={!aLui} eclat={aLui && brille(a.cle)} grand={grand} /> : <span className="pt" aria-hidden="true" />
     }
     if (a.sorte === 'compagnon') {
-      return Compagnon && dessinDuCompagnon(dessins, a.cle) ? (
-        <Compagnon cle={a.cle} verrouille={!aLui} eclat={aLui && brille(a.cle)} grand={grand} />
-      ) : (
-        <span className="pt" aria-hidden="true" />
-      )
+      return Compagnon && dessinDuCompagnon(dessins, a.cle) ? <Compagnon cle={a.cle} verrouille={!aLui} grand={grand} /> : <span className="pt" aria-hidden="true" />
     }
     return aLui ? <Avatar avatar={a.cle} eclat={brille(a.cle)} /> : <span className="silhouette">{a.cle}</span>
   }

@@ -71,8 +71,9 @@ export function avatarMontre(porte: Pick<Tenue, 'avatar' | 'legendaire'>, essai:
 /**
  * Ce qui peut avoir éclaté dans l'avatar montré : le légendaire ou le
  * portrait, sinon l'emoji (`cibleEclat`) — rien sous un Divin, qui n'éclate
- * pas et cache l'emoji, ni sous un compagnon : sa métamorphose prend sa forme
- * ultime sans se choisir encore, et ses paillettes l'annoncent avant elle.
+ * pas et cache l'emoji, ni sous un compagnon : ses paillettes le suivent sous
+ * toutes ses formes, et sa métamorphose, que l'Éclat ouvre à sa forme ultime,
+ * se choisit comme une forme de plus, dans la grille.
  */
 export function cibleDeLEclat(montre: { avatar: string; legendaire: string | null }): string | null {
   return divin(montre.legendaire) || formeDeCompagnon(montre.legendaire) ? null : cibleEclat(montre.legendaire, montre.avatar)

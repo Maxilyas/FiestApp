@@ -21,7 +21,7 @@ import {
   type RareteDAvatar,
 } from '../../../shared/album'
 import { brancheDe, deLaBranche, portrait as portraitDe } from '../../../shared/branches'
-import { NOM_DE_LA_FORME, compagnonDe, formeDeCompagnon } from '../../../shared/compagnons'
+import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { FONDS, FONDS_EN_BOUTIQUE } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { avatarMontre, avatarsNeufs, avecLEssai, bordureNeuve, type Essai } from '../../../shared/loge'
@@ -224,9 +224,9 @@ export function PageDAvatars({ profil, essai, essayer, neufs, page }: PropsDUneP
     if (d) return laCase(cle, dessine(cle), `${d.nom}, Divin`, { legendaire: cle }, medaillon(cle), ' anneau-divin')
     const p = portraitDe(cle)
     if (p) return laCase(cle, dessine(cle), `${p.nom}, portrait ${deLaBranche(brancheDe(p))}${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)))
-    // Une forme de compagnon : une forme d'avant se porte aussi.
+    // Une forme de compagnon : une forme d'avant se porte aussi, et sa métamorphose.
     const f = formeDeCompagnon(cle)
-    if (f) return laCase(cle, dessine(cle), `${f.nom}, ${compagnonDe(f).nom}, ${NOM_DE_LA_FORME[f.rang].toLowerCase()}${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)))
+    if (f) return laCase(cle, dessine(cle), `${f.nom}, ${compagnonDe(f).nom}, ${nomDeLaForme(f).toLowerCase()}${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)))
     return null
   }
   return (

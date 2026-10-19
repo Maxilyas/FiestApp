@@ -1,10 +1,10 @@
 // Les compagnons peints (`server/scripts/anime/livrer-compagnons.ts`) : leurs
 // fichiers, servis sous leur empreinte, et ce que chaque forme montre — le
 // disque teinté de la première, le décor des suivantes et l'anneau de leur
-// rareté, ce qui sort du cercle, la forme ultime et son monde vivant, sa
-// métamorphose quand l'Éclat est tombé sur lui, la silhouette de ce qu'on n'a
-// pas. Des modules du client, rendus en HTML ; un serveur jetable pour la
-// route seulement.
+// rareté, ce qui sort du cercle, la forme ultime et son monde vivant, la
+// métamorphose que l'Éclat lui ouvre, la silhouette de ce qu'on n'a pas. Des
+// modules du client, rendus en HTML ; un serveur jetable pour la route
+// seulement.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import React from 'react'
 import { demarrer } from './banc'
-import { COMPAGNONS, FORMES_DES_COMPAGNONS } from '../../shared/compagnons'
+import { COMPAGNONS, FORMES_DES_COMPAGNONS, METAMORPHOSES, type FormeDeCompagnon } from '../../shared/compagnons'
 import { FINITIONS } from '../../shared/profil'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
@@ -45,8 +45,11 @@ const POIDS_MAX: Record<string, number> = { '512': 130_000, '256': 46_000 }
 /** Les couches vivantes de chaque forme ultime, celles que `Compagnon.tsx` pose. */
 const COUCHES: Record<string, string[]> = { loup: ['rubans'], chat: ['feux', 'lanternes'], tortue: ['brume', 'oiseaux'] }
 
-/** La métamorphose de lumière de chaque compagnon, sous son nom dans la chaîne (`livrer-compagnons.ts`). */
-const LUMIERES: Record<string, string> = { loup: 'eclat-tempete', chat: 'eclat-soleil', tortue: 'eclat-fleurs' }
+/** Toutes les formes qui se peignent : les douze, et les trois métamorphoses. */
+const PEINTES: readonly FormeDeCompagnon[] = [...FORMES_DES_COMPAGNONS, ...METAMORPHOSES]
+
+/** Le nom de ses fichiers : `loup-ultime`, et sa métamorphose sous son nom dans la chaîne, `loup-eclat-tempete`. */
+const nomDesFichiers = (f: FormeDeCompagnon) => `${f.compagnon}-${f.metamorphose ? 'eclat-' : ''}${f.key.slice(f.key.indexOf('-') + 1)}`
 
 /** Les morceaux d'un fichier WebP (un RIFF), dans l'ordre : `VP8X`, `ALPH`, `VP8 `… */
 function morceaux(octets: Buffer): string[] {
@@ -74,36 +77,25 @@ function verifierPaire(paire: [string, string], nom: string) {
 
 // ── 1. Les fichiers ───────────────────────────────────────────────────────
 
-/** Une peinture et ses fichiers : l'animal, son décor s'il en a un, ses trois humeurs, que la niche échange à la révélation. */
-function verifierPeinture(d: any, nom: string, decor: boolean, quoi: string) {
-  verifierPaire(d.perso, `${nom}-perso`)
-  // Sans ses humeurs, la niche ne saurait plus réagir.
-  assert.deepEqual(Object.keys(d.humeurs ?? {}).sort(), ['depite', 'ravi', 'triomphe'], `${quoi} : ses humeurs`)
-  for (const [humeur, paire] of Object.entries<[string, string]>(d.humeurs)) verifierPaire(paire, `${nom}-${humeur}`)
-  if (decor) verifierPaire(d.disque, `${nom}-disque`)
-  else assert.equal(d.disque, undefined, quoi)
-}
-
-test('chaque forme a ses fichiers sous leur empreinte : l’animal et ses trois humeurs ; son décor dès la deuxième ; le monde vivant et la métamorphose de la forme ultime', async () => {
+test('chaque forme a ses fichiers sous leur empreinte : l’animal et ses trois humeurs ; son décor dès la deuxième ; le monde vivant de la forme ultime ; sa métamorphose, sous sa clé', async () => {
   const { DESSINS } = await import(url('components/compagnons-peints.ts'))
-  assert.deepEqual(Object.keys(DESSINS).sort(), FORMES_DES_COMPAGNONS.map(f => f.key).sort(), 'les douze, et elles seules')
-  for (const f of FORMES_DES_COMPAGNONS) {
+  // Les métamorphoses, peintes le 13 octobre 2026, ne partaient pas : un loup
+  // éclaté ne changeait que de quatre paillettes (le retour du 19 octobre).
+  assert.deepEqual(Object.keys(DESSINS).sort(), PEINTES.map(f => f.key).sort(), 'les douze et les trois métamorphoses, et elles seules')
+  for (const f of PEINTES) {
     const d = DESSINS[f.key]
-    const nom = `${f.compagnon}-${f.key.slice(f.key.indexOf('-') + 1)}`
+    const nom = nomDesFichiers(f)
+    verifierPaire(d.perso, `${nom}-perso`)
+    // Ses humeurs, que la niche échange à la révélation : sans elles, elle ne saurait plus réagir.
+    assert.deepEqual(Object.keys(d.humeurs ?? {}).sort(), ['depite', 'ravi', 'triomphe'], `${f.key} : ses humeurs`)
+    for (const [humeur, paire] of Object.entries<[string, string]>(d.humeurs)) verifierPaire(paire, `${nom}-${humeur}`)
     // La première forme est peinte seule : le disque teinté de son compagnon la reçoit.
-    verifierPeinture(d, nom, f.rang > 0, f.key)
-    if (f.rang === 3) {
+    if (f.rang === 0) assert.equal(d.disque, undefined, f.key)
+    else verifierPaire(d.disque, `${nom}-disque`)
+    if (f.rang === 3 && !f.metamorphose) {
       assert.deepEqual(Object.keys(d.vivant).sort(), [...COUCHES[f.compagnon]].sort(), f.key)
       for (const [cle, paire] of Object.entries<[string, string]>(d.vivant)) verifierPaire(paire, `${nom}-vivant-${cle}`)
-      // Sa lumière, que l'Éclat fait tomber : peinte le 13 octobre 2026, elle
-      // ne partait pas, et un loup éclaté ne changeait que de quatre paillettes.
-      assert.ok(d.eclat, `${f.key} : sa métamorphose de lumière`)
-      verifierPeinture(d.eclat, `${f.compagnon}-${LUMIERES[f.compagnon]}`, true, `${f.key} éclaté`)
-      assert.equal(d.eclat.vivant, undefined, 'son monde est le sien, peint autour d’elle')
-    } else {
-      assert.equal(d.vivant, undefined, `${f.key} : son monde ne vit qu’à la forme ultime`)
-      assert.equal(d.eclat, undefined, `${f.key} : sa métamorphose ne prend que la forme ultime`)
-    }
+    } else assert.equal(d.vivant, undefined, `${f.key} : son monde ne vit qu’à la forme ultime — sa métamorphose a le sien, peint autour d’elle`)
   }
 })
 
@@ -132,9 +124,8 @@ test('le monde vivant arrive avec sa transparence : rien à fondre dans la page'
 test('les fichiers peints sont tous cités : un compagnon repeint emporte l’ancien', async () => {
   const { DESSINS } = await import(url('components/compagnons-peints.ts'))
   const cites = new Set<string>()
-  const peinture = (p: any) => [...(p.disque ?? []), ...p.perso, ...Object.values<string[]>(p.humeurs ?? {}).flat()]
   for (const d of Object.values<any>(DESSINS))
-    for (const f of [...peinture(d), ...Object.values<string[]>(d.vivant ?? {}).flat(), ...(d.eclat ? peinture(d.eclat) : [])]) cites.add(f)
+    for (const f of [...(d.disque ?? []), ...d.perso, ...Object.values<string[]>(d.humeurs ?? {}).flat(), ...Object.values<string[]>(d.vivant ?? {}).flat()]) cites.add(f)
   const presents = readdirSync(PUBLICS).map(f => `/compagnons/${f}`)
   assert.deepEqual(
     presents.filter(f => !cites.has(f)),
@@ -222,15 +213,13 @@ test('le chat et la tortue sortent du cercle tout entiers à leur forme ultime, 
   assert.match(ile, /<g class="pt-debord cp-vivant cp-vole">/)
 })
 
-test('éclaté, sa forme ultime devient sa métamorphose : son décor, lui tout entier hors du disque, l’aura et l’anneau à sa couleur — plus jeune, rien ne change', async () => {
+test('sa métamorphose, une forme de plus : son décor, lui tout entier hors du disque, l’aura et l’anneau à sa couleur, ni monde vivant ni étoiles', async () => {
   const { DESSINS } = await import(url('components/compagnons-peints.ts'))
-  // Un loup éclaté ne changeait que de quatre paillettes, et l'on croyait que
-  // l'Éclat n'avait rien fait (le retour du 19 octobre 2026) : le loup-tempête prend sa place.
-  const rare = DESSINS['cp:loup-ultime'].eclat
-  const tempete = await compagnon({ cle: 'cp:loup-ultime', eclat: true })
-  assert.match(tempete, /^<svg class="pt cp cp-loup cp-eclate" viewBox="0 0 100 100" role="img" aria-label="Le loup des étoiles, éclaté">/)
+  const rare = DESSINS['cp:loup-tempete']
+  const tempete = await compagnon({ cle: 'cp:loup-tempete' })
+  assert.match(tempete, /^<svg class="pt cp cp-loup" viewBox="0 0 100 100" role="img" aria-label="Le loup-tempête"><title>Le loup-tempête<\/title>/)
   assert.ok(tempete.includes(rare.disque[1]) && tempete.includes(rare.perso[1]), 'son décor et lui, en petit')
-  assert.ok(!tempete.includes(DESSINS['cp:loup-ultime'].perso[1]) && !tempete.includes(DESSINS['cp:loup-ultime'].disque[1]), 'plus rien du loup des étoiles')
+  assert.ok(!tempete.includes(DESSINS['cp:loup-ultime'].perso[1]) && !tempete.includes(DESSINS['cp:loup-ultime'].disque[1]), 'rien du loup des étoiles')
   // Tout entier hors du disque, estompé avant le bord de son image ; une liste, qui cache ce qui déborde, garde celui du disque.
   assert.ok(tempete.includes(`<g class="pt-debord" mask="url(#`) && tempete.includes(`_entier)"><image href="${rare.perso[1]}" x="-22" y="-22" width="144" height="144"/></g>`))
   // L'aura et l'anneau à sa couleur ; son monde est le sien : ni rubans, ni étoiles.
@@ -238,25 +227,24 @@ test('éclaté, sa forme ultime devient sa métamorphose : son décor, lui tout 
   assert.match(tempete, /class="pt-aura"/)
   assert.match(tempete, /stop-color="#4fe3c1" stop-opacity="\.5"/)
   assert.doesNotMatch(tempete, /cp-vivant|pt-etoile|#f2b84b/)
-  assert.ok((await compagnon({ cle: 'cp:loup-ultime', eclat: true, grand: true })).includes(rare.perso[0]), 'en grand, ses grands fichiers')
+  assert.ok((await compagnon({ cle: 'cp:loup-tempete', grand: true })).includes(rare.perso[0]), 'en grand, ses grands fichiers')
   // Le chat-soleil et l'île en fleurs de même, chacun sa couleur.
   for (const [cle, couleur] of [
-    ['cp:chat-esprit', '#ffcf6b'],
-    ['cp:tortue-ile', '#fff1b8'],
+    ['cp:chat-soleil', '#ffcf6b'],
+    ['cp:tortue-fleurs', '#fff1b8'],
   ]) {
-    const html = await compagnon({ cle, eclat: true })
-    assert.ok(html.includes(DESSINS[cle].eclat.perso[1]), cle)
+    const html = await compagnon({ cle })
+    assert.ok(html.includes(DESSINS[cle].perso[1]), cle)
     assert.match(html, new RegExp(`stroke="${couleur}"`), cle)
     assert.doesNotMatch(html, /cp-vivant/, `${cle} : ses lanternes, sa brume restent au monde de sa forme ultime`)
   }
-  // Plus jeune, l'Éclat ne change pas son dessin : ses paillettes l'annoncent (`Avatar`).
-  for (const f of FORMES_DES_COMPAGNONS.filter(x => x.rang < 3)) assert.equal(await compagnon({ cle: f.key, eclat: true }), await compagnon({ cle: f.key }), f.key)
-  // Pas encore à lui : sa silhouette, rien de sa métamorphose.
-  const verrou = await compagnon({ cle: 'cp:loup-ultime', eclat: true, verrouille: true })
-  assert.doesNotMatch(verrou, /cp-eclate/)
-  assert.ok(!verrou.includes(rare.perso[1]))
+  // Pas encore à lui — l'album : sa silhouette dorée, tout entière hors du disque.
+  const verrou = await compagnon({ cle: 'cp:loup-tempete', verrouille: true })
+  assert.match(verrou, /aria-label="Le loup-tempête — pas encore à toi"/)
+  assert.match(verrou, /<g class="pt-debord" mask="url\(#[^)]+_entier\)"><rect [^>]*mask="url\(#[^)]+_forme\)"/)
+  assert.doesNotMatch(verrou, /pt-aura/)
   // Porté sous une finition, son cercle prend la place de son anneau, comme pour toute forme.
-  const porte = await compagnon({ cle: 'cp:loup-ultime', eclat: true, finition: 'or' })
+  const porte = await compagnon({ cle: 'cp:loup-tempete', finition: 'or' })
   assert.match(porte, /class="lg-cercle lg-cercle-or"/)
   assert.doesNotMatch(porte, /stroke="#4fe3c1"/)
 })
@@ -281,7 +269,7 @@ test('porté sous l’Argent ou l’Or, on le voit encore : le cercle de la fini
   // l'animal entier — « cela remplit le cercle intégralement et on ne voit
   // plus l'image » (le retour du propriétaire du 14 octobre 2026) ; Holo, un
   // simple anneau, passait.
-  for (const f of FORMES_DES_COMPAGNONS) {
+  for (const f of PEINTES) {
     // Mat n'a pas de cercle : l'anneau de sa rareté reste (plus haut).
     for (const finition of FINITIONS.filter(x => x !== 'mat')) {
       const html = await compagnon({ cle: f.key, finition })
@@ -297,10 +285,8 @@ test('porté sous l’Argent ou l’Or, on le voit encore : le cercle de la fini
 const definitions = (html: string) =>
   new Map([...html.matchAll(/<([a-zA-Z]+)\b[^>]*?\sid="([^"]*)"[^>]*?(?:\/>|>[\s\S]*?<\/\1>)/g)].map(m => [m[2], m[0]]))
 
-/** Tous les états d'une forme : chaque finition ou aucune, à lui ou non, en grand ou non, éclaté ou non. */
-const ETATS = [undefined, ...FINITIONS].flatMap(finition =>
-  [false, true].flatMap(verrouille => [false, true].flatMap(grand => [false, true].map(eclat => ({ finition, verrouille, grand, eclat })))),
-)
+/** Tous les états d'une forme : chaque finition ou aucune, à lui ou non, en grand ou non. */
+const ETATS = [undefined, ...FINITIONS].flatMap(finition => [false, true].flatMap(verrouille => [false, true].map(grand => ({ finition, verrouille, grand }))))
 
 test('rendus chacun dans sa racine, comme sur une planche, deux états d’un compagnon ne se prennent jamais un dégradé', async () => {
   // Deux racines React numérotent chacune `useId` depuis zéro, et le premier
@@ -308,9 +294,9 @@ test('rendus chacun dans sa racine, comme sur une planche, deux états d’un co
   // dégradé de l'Argent posé avant lui.
   const argent = definitions(await compagnon({ cle: 'cp:loup-jeune', finition: 'argent' }))
   for (const id of definitions(await compagnon({ cle: 'cp:loup-jeune', finition: 'or' })).keys()) assert.ok(!argent.has(id), id)
-  // Quels que soient la forme et son état, un nom ne dit jamais deux choses.
+  // Quels que soient la forme — sa métamorphose comprise, qui peint autrement le même rang — et son état, un nom ne dit jamais deux choses.
   const vus = new Map<string, string>()
-  for (const f of FORMES_DES_COMPAGNONS) {
+  for (const f of PEINTES) {
     for (const etat of ETATS) {
       for (const [id, definition] of definitions(await compagnon({ cle: f.key, ...etat }))) {
         const avant = vus.get(id)
@@ -321,19 +307,25 @@ test('rendus chacun dans sa racine, comme sur une planche, deux états d’un co
   }
 })
 
-test('porté, il prend la place de l’emoji comme un portrait — éclaté, sa métamorphose sous ses paillettes —, et ce qui l’anime se fige s’il le faut', async () => {
+test('porté, il prend la place de l’emoji comme un portrait — éclaté, ses paillettes sur la forme même —, et ce qui l’anime se fige s’il le faut', async () => {
   await import(url('components/compagnons-peints.ts'))
   const avatar = await rendu('components/Avatar', 'Avatar', { avatar: '🦊', legendaire: 'cp:loup-jeune', finition: 'mat' })
   assert.match(avatar, /^<span class="av av-portrait"><span class="av-emoji"><svg class="pt cp cp-loup"/)
   assert.doesNotMatch(avatar, /🦊/, 'l’emoji ne se montre plus dessous')
-  // Éclaté, sa forme ultime porte sa métamorphose sous les paillettes de l'Éclat ; plus jeune, les paillettes seules.
+  // Éclatée, sa forme ultime reste la sienne, sous les paillettes de l'Éclat : sa
+  // métamorphose ne la remplace pas, elle se choisit (le 19 octobre 2026, « je
+  // veux que ce soit un choix »). Plus jeune, de même.
   const { DESSINS } = await import(url('components/compagnons-peints.ts'))
-  const tempete = await rendu('components/Avatar', 'Avatar', { avatar: '🦊', legendaire: 'cp:loup-ultime', finition: 'mat', eclat: true })
-  assert.match(tempete, /^<span class="av av-portrait av-eclat"><span class="av-emoji"><svg class="pt cp cp-loup cp-eclate"/)
-  assert.ok(tempete.includes(DESSINS['cp:loup-ultime'].eclat.perso[1]))
-  const jeune = await rendu('components/Avatar', 'Avatar', { avatar: '🦊', legendaire: 'cp:loup-jeune', finition: 'mat', eclat: true })
-  assert.match(jeune, /^<span class="av av-portrait av-eclat"><span class="av-emoji"><svg class="pt cp cp-loup"/)
-  assert.ok(jeune.includes(DESSINS['cp:loup-jeune'].perso[1]))
+  for (const cle of ['cp:loup-ultime', 'cp:loup-jeune']) {
+    const eclate = await rendu('components/Avatar', 'Avatar', { avatar: '🦊', legendaire: cle, finition: 'mat', eclat: true })
+    assert.match(eclate, /^<span class="av av-portrait av-eclat"><span class="av-emoji"><svg class="pt cp cp-loup"/, cle)
+    assert.ok(eclate.includes(DESSINS[cle].perso[1]), cle)
+    assert.ok(!eclate.includes(DESSINS['cp:loup-tempete'].perso[1]), `${cle} : rien du loup-tempête`)
+  }
+  // Sa métamorphose portée prend la place de l'emoji comme ses formes ; l'Éclat qui la lui a ouverte y pose aussi ses paillettes.
+  const tempete = await rendu('components/Avatar', 'Avatar', { avatar: '🦊', legendaire: 'cp:loup-tempete', finition: 'mat', eclat: true })
+  assert.match(tempete, /^<span class="av av-portrait av-eclat"><span class="av-emoji"><svg class="pt cp cp-loup"/)
+  assert.ok(tempete.includes(DESSINS['cp:loup-tempete'].perso[1]))
   // Son monde vivant bouge par `transform` et `opacity`.
   for (const m of ['tourne', 'pulse', 'monte', 'derive', 'vole']) assert.match(CSS, new RegExp(`\\.cp \\.cp-${m} \\{[^}]*animation: cp-${m} `), m)
   // Le système demande moins de mouvement : tout ce qui est dans un portrait s'arrête, le compagnon compris.

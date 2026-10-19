@@ -16,8 +16,9 @@ import type { ReactionALaRevelation } from '../../shared/niche'
 /**
  * Ce que la niche montre : son compagnon (`loup`), le rang de sa plus haute
  * forme — sa croissance —, ce qu'il en a réglé : la forme qu'il y montre
- * (`montree`, d'avant la plus haute) et son nom, qui n'est qu'à lui ; et son
- * Éclat, qui fait de sa forme ultime sa métamorphose (`CompagnonPossede.eclat`).
+ * (`montree`, d'avant la plus haute, ou 4 pour sa métamorphose) et son nom,
+ * qui n'est qu'à lui ; et son Éclat, qui lui ouvre sa métamorphose à sa forme
+ * ultime (`CompagnonPossede.eclat`).
  */
 export interface NicheVue {
   compagnon: string
@@ -34,19 +35,26 @@ const CLASSE = 'avec-niche'
 let actuelle: NicheVue | null = null
 const abonnes = new Set<() => void>()
 
-/** Ce qu'une niche venue d'ailleurs — le stockage, un profil — a de lisible : une forme pas atteinte, un nom vide ne passent pas. */
+/**
+ * Ce qu'une niche venue d'ailleurs — le stockage, un profil — a de lisible :
+ * une forme pas atteinte, une métamorphose sans l'Éclat, un nom vide ne
+ * passent pas. Rien du catalogue ici : sa métamorphose se dit 4
+ * (`MONTREE_DE_LA_METAMORPHOSE`, que `ma-niche.test.ts` compare).
+ */
 function lue(brut: unknown): NicheVue | null {
   const v = brut as Partial<NicheVue> | null
   if (!v || typeof v.compagnon !== 'string' || !v.compagnon) return null
   const rang = Number(v.rang)
   if (!Number.isInteger(rang) || rang < 0 || rang > 3) return null
   const montree = v.montree
+  const eclat = v.eclat === true
+  const lisible = typeof montree === 'number' && Number.isInteger(montree) && ((montree >= 0 && montree < rang) || (montree === 4 && rang === 3 && eclat))
   return {
     compagnon: v.compagnon,
     rang,
-    ...(typeof montree === 'number' && Number.isInteger(montree) && montree >= 0 && montree < rang && { montree }),
+    ...(lisible && { montree }),
     ...(typeof v.nom === 'string' && v.nom && { nom: v.nom }),
-    ...(v.eclat === true && { eclat: true as const }),
+    ...(eclat && { eclat: true as const }),
   }
 }
 

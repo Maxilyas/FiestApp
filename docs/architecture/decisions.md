@@ -692,6 +692,15 @@ Le détail : [le profil](../produit/le-profil.md).
 
 *Fichiers : `server/src/auth/profiles.ts`, `shared/loge.ts`, `shared/album.ts`, `client/src/components/Avatar.tsx`*
 
+### La métamorphose d'un compagnon est une forme de plus, qu'on choisit
+**Contexte** : peintes le 13 octobre 2026, les métamorphoses de lumière que l'Éclat ouvre ne partaient pas — « quelqu'un a eu le loup compagnon en éclaté mais son avatar n'a pas changé ». Livrées d'abord à la place de la forme ultime éclatée, comme la version rare d'un légendaire, elles retiraient au joueur le loup des étoiles qu'il avait fait grandir : « je veux que ce soit un choix » (le propriétaire, le 19 octobre 2026).
+
+**Décision** : chacune a sa clé (`cp:loup-tempete`, `Compagnon.lumiere`), hors des quatre formes où il grandit ; ouverte à sa forme ultime quand l'Éclat brille sur lui (`metamorphoseOuverte`), elle se porte comme une forme — une case de plus dans la loge — et se montre dans sa niche — `montree` à 4 —, deux choix séparés ; rien ne change d'office, et la loge comme « Ma niche » la marquent neuve tant qu'il ne l'a pas vue. L'Éclat ne change le dessin d'aucune forme : ses paillettes les annoncent.
+
+**Conséquence** : partout où une forme se lit, elle passe — l'album, la grille, l'essai, la validation (`verifierLaForme`), `legendairePorte`, qui la referme avec l'Éclat ; et ce qui compte les formes où il grandit (`FORMES_DES_COMPAGNONS`, `JUSTES_DES_FORMES`, `prochaineForme`) ne la voit pas.
+
+*Fichiers : `shared/compagnons.ts`, `server/src/auth/profiles.ts`, `client/src/components/Niche.tsx`, `client/src/components/Ouverts.tsx`*
+
 ### La carte : une règle, trois portes
 **Contexte** : la carte ne s'ouvrait qu'en soirée, sur un nom ; chacun composait sa tenue sans jamais la voir, et la carte d'un autre, hors soirée, était réduite à deux gestes.
 

@@ -33,9 +33,14 @@ import {
   COMPAGNONS,
   FORMES_DES_COMPAGNONS,
   JUSTES_DES_FORMES,
+  METAMORPHOSES,
+  MONTREE_DE_LA_METAMORPHOSE,
   PRIX_D_UN_COMPAGNON,
+  formeDansLaNiche,
   formeDeCompagnon,
   formesOuvertes,
+  metamorphoseOuverte,
+  nomDeLaForme,
   prochaineForme,
   rangAtteint,
 } from '../../shared/compagnons'
@@ -78,6 +83,50 @@ test('trois compagnons, quatre formes chacun, la rareté qui monte avec eux', ()
   assert.deepEqual([...JUSTES_DES_FORMES], [0, 100, 300, 500])
 })
 
+test('chacun a sa métamorphose de lumière : une forme de plus, légendaire, qui ne se gagne pas en grandissant', () => {
+  // Peintes le 13 octobre 2026, livrées le 19 : l'Éclat les ouvre, et elles ne
+  // remplacent rien (le propriétaire : « je veux que ce soit un choix »).
+  assert.deepEqual(
+    METAMORPHOSES.map(f => f.key),
+    ['cp:loup-tempete', 'cp:chat-soleil', 'cp:tortue-fleurs'],
+  )
+  assert.deepEqual(
+    COMPAGNONS.map(c => c.lumiere.nom),
+    ['Le loup-tempête', 'Le chat-soleil', 'L’île en fleurs'],
+  )
+  for (const c of COMPAGNONS) {
+    const m = c.lumiere
+    assert.equal(formeDeCompagnon(m.key), m)
+    assert.deepEqual([m.compagnon, m.rang, m.rarete, m.metamorphose], [c.key, 3, 'legendaire', true], m.key)
+    assert.ok(!FORMES_DES_COMPAGNONS.includes(m), `${m.key} : pas une forme où il grandit`)
+    assert.equal(nomDeLaForme(m), 'Métamorphose')
+    assert.equal(nomDeLaForme(c.formes[3]), 'Forme ultime')
+  }
+  assert.equal(prochaineForme({ compagnon: 'loup', rang: 3, justes: 900, eclat: true }), null, 'sa forme ultime n’a toujours pas de suite')
+  // Elle s'ouvre à sa forme ultime, l'Éclat sur lui — tombé avant ou après.
+  assert.deepEqual(
+    [{ rang: 3, eclat: true as const }, { rang: 2, eclat: true as const }, { rang: 3 }].map(metamorphoseOuverte),
+    [true, false, false],
+  )
+  assert.deepEqual(
+    formesOuvertes([
+      { compagnon: 'loup', rang: 3, eclat: true },
+      { compagnon: 'chat', rang: 3 },
+      { compagnon: 'tortue', rang: 2, eclat: true },
+    ]),
+    [
+      ...COMPAGNONS[0].formes.map(f => f.key),
+      'cp:loup-tempete',
+      ...COMPAGNONS[1].formes.map(f => f.key),
+      'cp:tortue-bebe',
+      'cp:tortue-jeune',
+      'cp:tortue-adulte',
+    ],
+  )
+  // Sa niche la montre au rang de plus (4), et seulement ouverte.
+  assert.equal(MONTREE_DE_LA_METAMORPHOSE, 4)
+})
+
 test('il grandit à 100, 300 et 500 bonnes réponses ; ce qui reste se compte', () => {
   assert.deepEqual(
     [0, 99, 100, 299, 300, 499, 500, 4000].map(rangAtteint),
@@ -102,13 +151,11 @@ test('l’Éclat tombe sur le compagnon qu’il porte, et le suit sous toutes se
   assert.equal(brilleChez(profil, 'cp:loup-ultime'), true, 'le louveteau éclaté a grandi : il brille encore')
   assert.equal(brilleChez(profil, 'cp:chat-chaton'), false, 'un autre compagnon ne brille pas pour lui')
   assert.equal(brilleChez({ ...profil, eclatsEteints: ['cp:loup-louveteau'] }, 'cp:loup-adulte'), false, 'éteint, il est éteint partout')
-  // Sa métamorphose prend sa forme ultime sans se choisir : la loge ne propose rien sous lui.
+  // Sa métamorphose aussi : ses paillettes la suivent, et le tirage d'après tombe dans le vide (`cibleEclatDe`).
+  assert.equal(brilleChez(profil, 'cp:loup-tempete'), true)
+  // Son Éclat n'a pas de version à choisir : la loge ne propose rien sous lui — sa métamorphose est une case de plus.
   assert.equal(cibleDeLEclat({ avatar: '🦊', legendaire: 'cp:loup-jeune' }), null)
-  // Et chacun a la sienne, nommée : sa fiche la dit à la place de sa forme ultime.
-  assert.deepEqual(
-    COMPAGNONS.map(c => c.lumiere.nom),
-    ['Le loup-tempête', 'Le chat-soleil', 'L’île en fleurs'],
-  )
+  assert.equal(cibleDeLEclat({ avatar: '🦊', legendaire: 'cp:loup-tempete' }), null)
 })
 
 test('la loge le dit : « Compagnon · Le Loup » à l’essai, « Tu portes le jeune loup » à l’oreille, et chaque forme atteinte est du nouveau', () => {
@@ -128,8 +175,13 @@ test('la loge le dit : « Compagnon · Le Loup » à l’essai, « Tu portes le 
   const avatars = ceQuIlAPorter(profil as any).avatar
   assert.ok(avatars.includes('cp:loup-louveteau') && avatars.includes('cp:loup-jeune'), 'ses deux formes')
   assert.ok(!avatars.includes('cp:loup-adulte'), 'pas celle qu’il n’a pas atteinte')
+  // Sa métamorphose ouverte est du nouveau, comme une forme : la loge la marque, la barre du menu la compte.
+  const ultime = (eclat?: true) => ceQuIlAPorter({ ...profil, compagnons: [{ compagnon: 'loup', rang: 3, ...(eclat && { eclat }) }] } as any).avatar
+  assert.ok(ultime(true).includes('cp:loup-tempete'))
+  assert.ok(!ultime().includes('cp:loup-tempete'), 'pas sans l’Éclat')
+  assert.deepEqual(lignesDeLEssai({ legendaire: 'cp:loup-tempete' }, { niveau: 3 }), [{ piece: 'avatar', nom: 'Le loup-tempête', detail: 'Compagnon · Le Loup' }])
+  assert.equal(annonceDuChoix({ legendaire: 'cp:tortue-fleurs' }), 'Tu portes l’île en fleurs.')
 })
-
 /** Le rayon des compagnons, rendu pour ce profil. */
 async function rayon(profil: object): Promise<string> {
   Object.assign(globalThis, { React })
@@ -343,7 +395,11 @@ test('il grandit avec les bonnes réponses données avec lui ; qui le portait à
     )
   }))
 
-test('son Éclat se dit avec lui, sous toutes ses formes : sa niche montre sa métamorphose — éteint, plus rien', () =>
+const lireLaNiche = async (banc: Banc, cookie: string) => (await (await fetch(`${banc.url}/api/joueur/niche`, { headers: { Cookie: cookie } })).json()) as any
+const montrer = (banc: Banc, cookie: string, compagnon: string, montree: number | null) =>
+  ecrire(banc.url, `/api/joueur/compagnons/${compagnon}`, { montree }, cookie, 'PUT').then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+
+test('l’Éclat lui ouvre sa métamorphose à sa forme ultime : rien ne change d’office, elle se porte et se montre en la choisissant, neuve tant qu’il ne l’a pas trouvée', () =>
   avecBanc(async banc => {
     const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     const alice = idDe(banc, 'alice')
@@ -351,21 +407,57 @@ test('son Éclat se dit avec lui, sous toutes ses formes : sa niche montre sa m�
     assert.equal((await acheter(banc, cookie, 'loup')).status, 200)
     // Le chat attend son tour : le loup garde sa niche.
     assert.equal((await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'chat', installer: false }, cookie)).status, 200)
+    // Sa forme ultime atteinte, sans l'Éclat : elle ne s'ouvre pas.
+    serieEnPortant(banc, alice, 's1', 520, 'loup')
+    const sansEclat = 'Le loup-tempête s’ouvre à sa forme ultime, quand l’Éclat tombe sur lui'
+    assert.equal((await porter(banc, cookie, { legendaire: 'cp:loup-tempete' })).corps.error, sansEclat)
+    assert.equal((await montrer(banc, cookie, 'loup', MONTREE_DE_LA_METAMORPHOSE)).corps.error, sansEclat)
+    // Sa loge vue une fois : ce qui viendra s'y dira nouveau.
+    assert.equal((await ecrire(banc.url, '/api/joueur/vus', { vus: { avatar: ['cp:loup-louveteau'] } }, cookie, 'PUT')).status, 200)
     // Tombé sur son louveteau, une soirée d'avant : il a grandi depuis.
     enBase(banc, db => db.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, 'cp:loup-louveteau', 'une-soiree', 1)`).run(alice))
-    serieEnPortant(banc, alice, 's1', 520, 'loup')
     await banc.redemarrer()
     // La niche ne lit pas les Éclats : le serveur le dit de chaque compagnon, à
     // sa page comme à sa fiche — le chat, lui, n'a pas éclaté.
-    assert.deepEqual((await lire(banc, cookie)).compagnons, [
+    const moi = await lire(banc, cookie)
+    assert.deepEqual(moi.compagnons, [
       { compagnon: 'loup', rang: 3, eclat: true },
       { compagnon: 'chat', rang: 0 },
     ])
-    const fiche = (await (await fetch(`${banc.url}/api/joueur/niche`, { headers: { Cookie: cookie } })).json()) as any
+    // Rien ne change d'office : ni son avatar, ni sa niche, qui garde sa forme ultime.
+    assert.equal(moi.legendaire, null)
+    let fiche = await lireLaNiche(banc, cookie)
     assert.deepEqual(fiche.niche, { compagnon: 'loup', rang: 3, eclat: true, justes: 520 })
-    // Sa version d'origine, choisie : plus de métamorphose, ni dans sa niche, ni sur lui.
-    assert.equal((await porter(banc, cookie, { eclat: { cle: 'cp:loup-louveteau', brille: false } })).status, 200)
-    assert.deepEqual((await lire(banc, cookie)).compagnons[0], { compagnon: 'loup', rang: 3 })
+    // Neuve, pour qu'il la trouve : « Ma niche » la marque, comme la loge.
+    assert.deepEqual(fiche.neuves, ['cp:loup-tempete'])
+    // Le chat n'a ni sa forme ultime ni l'Éclat : refusé en clair, partout.
+    assert.equal((await porter(banc, cookie, { legendaire: 'cp:chat-soleil' })).corps.error, 'Le chat-soleil s’ouvre à sa forme ultime, quand l’Éclat tombe sur lui')
+    assert.equal((await montrer(banc, cookie, 'chat', MONTREE_DE_LA_METAMORPHOSE)).status, 400)
+    assert.equal((await montrer(banc, cookie, 'loup', 5)).corps.error, 'Cette forme n’existe pas')
+    // Montrée dans sa niche : choisie, et trouvée — ni « Ma niche » ni la loge ne la disent plus nouvelle.
+    const montree = await montrer(banc, cookie, 'loup', MONTREE_DE_LA_METAMORPHOSE)
+    assert.equal(montree.status, 200, montree.corps.error)
+    assert.deepEqual(montree.corps.profile.compagnons[0], { compagnon: 'loup', rang: 3, montree: MONTREE_DE_LA_METAMORPHOSE, eclat: true })
+    const vus = enBase(banc, db => JSON.parse((db.prepare('SELECT vus FROM profile_loge_vus WHERE profile_id = ?').get(alice) as { vus: string }).vus))
+    assert.ok(vus.avatar.includes('cp:loup-tempete'))
+    // Et le choix tient au réveil du serveur : relu, il ne gardait que les formes d'avant la plus haute.
+    await banc.redemarrer()
+    fiche = await lireLaNiche(banc, cookie)
+    assert.equal(fiche.niche.montree, MONTREE_DE_LA_METAMORPHOSE)
+    assert.deepEqual(fiche.neuves, [])
+    // L'avatar est une autre affaire : la porter est un autre choix, que la salle voit.
+    assert.equal((await porter(banc, cookie, { legendaire: 'cp:loup-tempete' })).corps.profile.legendaire, 'cp:loup-tempete')
+    assert.equal((await montrer(banc, cookie, 'loup', null)).status, 200, 'sa forme ultime reprend la niche d’un toucher')
+    assert.equal((await lire(banc, cookie)).legendaire, 'cp:loup-tempete', 'et la métamorphose reste sur lui')
+    // La soirée qui avait fait tomber l'Éclat retirée, il s'en va : sa métamorphose se referme.
+    assert.equal((await montrer(banc, cookie, 'loup', MONTREE_DE_LA_METAMORPHOSE)).status, 200)
+    enBase(banc, db => db.prepare('DELETE FROM profile_eclats WHERE profile_id = ?').run(alice))
+    await banc.redemarrer()
+    const sans = await lire(banc, cookie)
+    assert.equal(sans.legendaire, null, 'plus portée')
+    assert.equal(formeDansLaNiche(sans.compagnons[0])?.key, 'cp:loup-ultime', 'sa niche reprend sa forme ultime')
+    assert.deepEqual(sans.compagnons[0], { compagnon: 'loup', rang: 3, montree: MONTREE_DE_LA_METAMORPHOSE }, 'son choix reste, pour quand l’Éclat reviendra')
+    assert.deepEqual((await lireLaNiche(banc, cookie)).neuves, [])
   }))
 
 /** Les questions de sa série, lues en base : le téléphone ne voit jamais la bonne avant sa réponse. */

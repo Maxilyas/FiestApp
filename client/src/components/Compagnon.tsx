@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react'
 import type { Finition } from '../../../shared/profil'
-import { formeDeCompagnon, type CleDeCompagnon } from '../../../shared/compagnons'
+import { formeDeCompagnon, type CleDeCompagnon, type FormeDeCompagnon } from '../../../shared/compagnons'
 import { Cercle } from './Cercle'
 import { dessinDuCompagnon, useDessins } from './medaillons'
 
@@ -26,21 +26,22 @@ import { dessinDuCompagnon, useDessins } from './medaillons'
  * devient son cercle, comme un portrait ; pas encore à lui, sa silhouette
  * dorée sur un disque sombre.
  *
- * Éclaté, sa forme ultime devient sa métamorphose de lumière (la maquette
- * des compagnons, `principe.md` § 4) : un autre animal, plus féroce, dans son
+ * Sa métamorphose de lumière (`Compagnon.lumiere`, la maquette des
+ * compagnons, `principe.md` § 4), que l'Éclat ouvre à sa forme ultime, se
+ * peint comme une forme de plus : un autre animal, plus féroce, dans son
  * propre décor, qui sort tout entier du disque, l'aura et l'anneau à sa
- * couleur — ni monde vivant, ni étoiles : son décor est le sien. Plus jeune,
- * rien ne change : les paillettes de l'Éclat l'annoncent (`Avatar.tsx`).
- * Jusqu'au 19 octobre 2026, peinte mais pas livrée, elle ne se montrait
- * jamais : un loup éclaté ne gagnait que ses quatre paillettes, et l'on
- * croyait que l'Éclat n'avait rien fait.
+ * couleur — ni monde vivant, ni étoiles : son décor est le sien. Elle ne
+ * remplace rien : on la choisit, en avatar comme dans la niche (le 19
+ * octobre 2026, « je veux que ce soit un choix ») ; l'Éclat, lui, pose ses
+ * paillettes sur toutes ses formes (`Avatar.tsx`). Peinte le 13 octobre,
+ * elle n'était pas livrée : un loup éclaté ne gagnait que ses quatre
+ * paillettes, et l'on croyait que l'Éclat n'avait rien fait.
  */
 
 /** Ce qu'il montre à la révélation : ravi d'une bonne réponse, dépité avec toi d'une ratée, triomphant quand il sort de sa niche. */
 export type HumeurPeinte = 'ravi' | 'depite' | 'triomphe'
 
-/** Ce qu'une forme a de peint — ou sa métamorphose : son décor, l'animal, ses humeurs. */
-export interface PeintureDeCompagnon {
+export interface DessinDeCompagnon {
   /**
    * Le décor de la forme, sur le carré 0 → 100 que le disque découpe.
    * Absent à la première forme, peinte seule : le disque teinté la reçoit.
@@ -54,17 +55,8 @@ export interface PeintureDeCompagnon {
    * (`Niche.tsx`).
    */
   humeurs?: Record<HumeurPeinte, [string, string]>
-}
-
-export interface DessinDeCompagnon extends PeintureDeCompagnon {
   /** Le monde vivant de la forme ultime, couche par couche (`ALLURES`). */
   vivant?: Record<string, [string, string]>
-  /**
-   * La métamorphose de lumière de la forme ultime, que l'Éclat lui fait
-   * prendre : peinte d'après elle, avec son décor et ses humeurs, l'animal
-   * tout entier dans son cadre (`ENTIERE`).
-   */
-  eclat?: PeintureDeCompagnon
 }
 
 /**
@@ -178,8 +170,6 @@ interface EtatPeint {
   /** Un cercle de finition le porte : il remplace l'anneau de la forme. */
   cercle: boolean
   grand: boolean
-  /** Sa métamorphose prend la place de sa forme ultime : l'Éclat est tombé sur lui. */
-  eclate: boolean
 }
 
 /**
@@ -188,15 +178,15 @@ interface EtatPeint {
  * disque, `apres` par-dessus (l'anneau, ce qui sort, le monde devant lui, les
  * étoiles). Tout en chaînes : des fichiers du dépôt, jamais une donnée d'invité.
  */
-function peint(dessin: DessinDeCompagnon, rang: number, allure: Allure, u: string, e: EtatPeint) {
+function peint(dessin: DessinDeCompagnon, forme: FormeDeCompagnon, allure: Allure, u: string, e: EtatPeint) {
+  const { rang } = forme
   const taille = e.grand ? 0 : 1
   // Sa métamorphose, peinte tout entière dans son image, en sort de tous côtés
   // comme la forme ultime du chat : son cadre est celui d'une forme entière.
-  const rare = e.eclate ? dessin.eclat : undefined
-  const vu = rare ?? dessin
-  const entiere = !!rare || (rang === 3 && allure.entiere)
+  const rare = !!forme.metamorphose
+  const entiere = rare || (rang === 3 && allure.entiere)
   const [o, cote] = entiere ? ENTIERE : CADRE[rang]
-  const perso = `<image href="${vu.perso[taille]}" x="${o}" y="${o}" width="${cote}" height="${cote}"/>`
+  const perso = `<image href="${dessin.perso[taille]}" x="${o}" y="${o}" width="${cote}" height="${cote}"/>`
   const anneau = rare ? allure.lumiere : ANNEAU[rang]
   // Le disque cède son bord au cercle d'une finition, ou à l'anneau de la forme.
   const rayon = e.cercle ? 45 : anneau ? 46.4 : 48
@@ -217,7 +207,7 @@ function peint(dessin: DessinDeCompagnon, rang: number, allure: Allure, u: strin
   defs += `<radialGradient id="${u}_fond" cx="50%" cy="40%" r="62%"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></radialGradient>`
   let scene = `<rect ${grand} fill="url(#${u}_fond)"/>`
   if (e.verrouille) scene += silhouette
-  else scene += (vu.disque ? `<image href="${vu.disque[taille]}" x="0" y="0" width="100" height="100"/>` : '') + perso
+  else scene += (dessin.disque ? `<image href="${dessin.disque[taille]}" x="0" y="0" width="100" height="100"/>` : '') + perso
   const ultime = rang === 3 && !e.verrouille
   if (ultime) {
     const aura = rare ? allure.lumiere : allure.aura
@@ -235,7 +225,7 @@ function peint(dessin: DessinDeCompagnon, rang: number, allure: Allure, u: strin
       `<mask id="${id}" maskUnits="userSpaceOnUse" x="${x}" y="${x}" width="${t}" height="${t}"><rect x="${x}" y="${x}" width="${t}" height="${t}" fill="url(#${id}g)"/></mask>`
     return `<g class="pt-debord cp-vivant cp-${v.mouvement}"><g mask="url(#${id})"><image href="${image[taille]}" x="${x}" y="${x}" width="${t}" height="${t}"/></g></g>`
   }
-  // Sa métamorphose a son propre monde, peint autour d'elle : les rubans du loup des étoiles n'y tournent plus.
+  // Sa métamorphose a son propre monde, peint autour d'elle : les rubans du loup des étoiles n'y tournent pas.
   const couches = ultime && !rare ? allure.vivant.filter(v => dessin.vivant?.[v.cle]) : []
   for (const v of couches) if (!v.devant) avant += couche(v, dessin.vivant![v.cle])
   // Le cercle d'une finition prend la place de l'anneau (le composant le pose).
@@ -280,46 +270,41 @@ interface Props {
   verrouille?: boolean
   /** La finition de celui qui le porte : elle devient son cercle. Absente, ou Mat, l'anneau de sa forme. */
   finition?: Finition
-  /** L'Éclat est tombé sur lui — sur l'une de ses formes (`clesQuiBrillent`) : sa forme ultime prend sa métamorphose. */
-  eclat?: boolean
   /** Regardé en grand — la carte, la fiche de l'album — : il prend ses grands fichiers. */
   grand?: boolean
   className?: string
 }
 
 /** Un compagnon, à la taille du texte qui l'entoure (1 em). Rien, tant que son dessin n'est pas arrivé. */
-export function Compagnon({ cle, verrouille, finition, eclat, grand, className }: Props) {
+export function Compagnon({ cle, verrouille, finition, grand, className }: Props) {
   const brut = useId()
   const dessin = dessinDuCompagnon(useDessins(), cle)
   const f = formeDeCompagnon(cle)
   // Verrouillé, il n'a pas de cercle : il n'est pas encore à lui.
   const cercle = !!finition && finition !== 'mat' && !verrouille
-  // Sa métamorphose ne se montre qu'à sa forme ultime : plus jeune, l'Éclat ne change pas son dessin.
-  const eclate = !!eclat && !verrouille && f?.rang === 3 && !!dessin?.eclat
   // `useId` rend des deux-points, que `url(#…)` n'aime pas ; la clé et l'état
-  // — éclaté, la finition de son cercle comprise — entrent dans le préfixe,
-  // comme pour un portrait : deux racines React numérotent chacune depuis
-  // zéro, et le premier dégradé d'un nom gagne. Sur une planche, l'Or d'un
-  // compagnon prenait le dégradé de l'Argent posé avant lui.
-  const etat = (verrouille ? 'v' : eclate ? 'e' : 'n') + (cercle ? 'c' + finition : '') + (grand ? 'g' : '')
+  // — la finition de son cercle comprise — entrent dans le préfixe, comme
+  // pour un portrait : deux racines React numérotent chacune depuis zéro, et
+  // le premier dégradé d'un nom gagne. Sur une planche, l'Or d'un compagnon
+  // prenait le dégradé de l'Argent posé avant lui.
+  const etat = (verrouille ? 'v' : 'n') + (cercle ? 'c' + finition : '') + (grand ? 'g' : '')
   const u = `cp-${cle.slice(3)}-${etat}-${brut.replace(/[^a-zA-Z0-9-]/g, '')}-`
   // Peint une fois par état (`useMemo`) : React réécrit un `innerHTML` dès
   // que l'objet `__html` change, même à texte égal (`Portrait.tsx`).
   const peinture = useMemo(() => {
     if (!f || !dessin) return null
-    const { defs, avant, scene, apres, rayon } = peint(dessin, f.rang, ALLURES[f.compagnon], u, { verrouille: !!verrouille, cercle, grand: !!grand, eclate })
+    const { defs, avant, scene, apres, rayon } = peint(dessin, f, ALLURES[f.compagnon], u, { verrouille: !!verrouille, cercle, grand: !!grand })
     return {
       defs: { __html: `<clipPath id="${u}_clip"><circle cx="50" cy="50" r="${rayon}"/></clipPath>` + defs },
       avant: avant ? { __html: avant } : null,
       scene: { __html: scene },
       apres: apres ? { __html: apres } : null,
     }
-  }, [f, dessin, verrouille, cercle, grand, eclate, u])
+  }, [f, dessin, verrouille, cercle, grand, u])
   if (!f || !peinture) return null
   const classes = ['pt', 'cp', `cp-${f.compagnon}`]
-  if (eclate) classes.push('cp-eclate')
   if (className) classes.push(className)
-  const titre = verrouille ? `${f.nom} — pas encore à toi` : eclate ? `${f.nom}, éclaté` : f.nom
+  const titre = verrouille ? `${f.nom} — pas encore à toi` : f.nom
   return (
     <svg className={classes.join(' ')} viewBox="0 0 100 100" role="img" aria-label={titre}>
       <title>{titre}</title>

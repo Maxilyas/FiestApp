@@ -105,8 +105,9 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
   assert.deepEqual(lignes, [
     // Deux portraits, le Phénix et le Séraphin, les cinq emojis de collection
     // du niveau 8 : un seul album (le 13 octobre 2026), compté par sa règle —
-    // les douze formes des compagnons comprises.
-    ['avatars', '9/128', ['avatars 9/128']],
+    // les douze formes des compagnons comprises, et leurs trois métamorphoses
+    // depuis le 19 octobre 2026.
+    ['avatars', '9/131', ['avatars 9/131']],
     // Les trophées aussi, en un album — une page par mode (la maquette 1, le
     // 13 octobre 2026) —, juste après les avatars, comptés par sa règle : en
     // soirée, L'Habitué à l'argent (deux métaux), le Phénix, la Lanterne
@@ -123,7 +124,7 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // le 15.
     ['style', '9/89', ['themes 3/35', 'fonds 1/25', 'gerbes 2/16', 'finitions 3/7', 'bordures 0/6']],
   ])
-  assert.deepEqual(total, { acquis: 25, total: 363 })
+  assert.deepEqual(total, { acquis: 25, total: 366 })
   assert.deepEqual(
     compteDeLaCollection({ ...LEA, bordures: [{ ligue: 'bronze', crans: 12 }, { ligue: 'argent', crans: 3 }] } as any)
       .familles.find(f => f.famille === 'style')!
@@ -203,9 +204,9 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 363<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 366<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Trophées 7 sur 146', 'Style 9 sur 89'])
+  assert.deepEqual(familles, ['Avatars 9 sur 131', 'Trophées 7 sur 146', 'Style 9 sur 89'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —
@@ -339,7 +340,7 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
     'peucommune Peu commune, 1 sur 18',
     'rare Rare, 0 sur 27',
     'epique Épique, 0 sur 15',
-    'legendaire* Légendaire, 1 sur 41',
+    'legendaire* Légendaire, 1 sur 44',
     'divin Divin, 1 sur 6',
   ])
   assert.match(html, /<div class="gemmes gemmes-album" role="tablist" aria-label="Les raretés">/)
@@ -347,11 +348,14 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   assert.equal(html.match(/aria-controls="album-page"/g)?.length, 1)
   assert.match(html, /<div class="album-avatars" role="tabpanel" id="album-page" aria-labelledby="gemme-legendaire"/)
   // Ce que range la page, compté.
-  assert.match(html, /<p class="gemme-legende"[^>]*><b>Légendaire · 1 sur 41\.<\/b> Les légendaires des hauts faits, la forme ultime de chaque sentier et celle de chaque compagnon\.<\/p>/)
-  // Quarante et une cases : le Phénix d'abord, porté — sa coche —, puis ce qui reste — les légendaires, les
-  // formes ultimes des sentiers et des compagnons —, chacun dit où il se gagne.
+  assert.match(
+    html,
+    /<p class="gemme-legende"[^>]*><b>Légendaire · 1 sur 44\.<\/b> Les légendaires des hauts faits, la forme ultime de chaque sentier, celle de chaque compagnon et sa métamorphose\.<\/p>/,
+  )
+  // Quarante-quatre cases : le Phénix d'abord, porté — sa coche —, puis ce qui reste — les légendaires, les
+  // formes ultimes des sentiers et des compagnons, leurs métamorphoses —, chacun dit où il se gagne.
   const cases = [...html.matchAll(/<button type="button" class="album-case([^"]*)" aria-expanded="false" aria-label="([^"]+)"/g)].map(m => ({ classes: m[1], nom: m[2] }))
-  assert.equal(cases.length, LEGENDAIRES.length + 12 + 3)
+  assert.equal(cases.length, LEGENDAIRES.length + 12 + 3 + 3)
   assert.deepEqual(cases[0], { classes: '', nom: 'Le Phénix, légendaire, porté' })
   assert.equal(html.match(/class="album-coche"/g)?.length, 1)
   assert.ok(cases.slice(1).every(c => c.classes.includes('album-manque')))
@@ -361,6 +365,7 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
     'La Citrouille, légendaire, à gagner pour Halloween',
     'L’Éléphant, légendaire, à gagner en campagne',
     'Le loup des étoiles, légendaire, à gagner en boutique, puis à 500 bonnes réponses avec lui',
+    'Le loup-tempête, légendaire, à gagner en boutique, puis à 500 bonnes réponses avec lui et par l’Éclat',
   ])
     assert.ok(cases.some(c => c.nom === nom), nom)
   // Une pastille sur chaque case qui reste, et leur légende sous la grille.

@@ -308,7 +308,7 @@ Les sabliers qui protègent la série du quiz du jour, une ligne par sablier.
 
 Les compagnons achetés, la plus haute forme que chacun a atteinte, et ce qu'il en a réglé depuis sa niche.
 
-- **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date) ; `nom`, le nom qu'il lui a donné (NULL : aucun ; à lui seul, rien ne le montre à la salle), et `montree`, le rang de la forme qu'il montre dans sa niche quand ce n'est pas la plus haute (NULL : la plus haute, qui suit sa croissance — une forme atteinte la remet à NULL).
+- **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date) ; `nom`, le nom qu'il lui a donné (NULL : aucun ; à lui seul, rien ne le montre à la salle), et `montree`, le rang de la forme qu'il montre dans sa niche quand ce n'est pas la plus haute, ou 4 pour sa métamorphose (`MONTREE_DE_LA_METAMORPHOSE` : relu à sa forme ultime, montré tant que l'Éclat brille sur lui) (NULL : la plus haute, qui suit sa croissance — une forme atteinte la remet à NULL).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche`, sauf `installer: false` —, la croissance, `reglerCompagnon` pour `nom` et `montree`).
 - **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`).
