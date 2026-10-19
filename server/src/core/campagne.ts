@@ -314,6 +314,7 @@ import {
 import {
   EXPLOITS,
   VERSION_DU_BILAN,
+  ascensionOuverte,
   codexDuNiveau,
   ecrireLeBilan,
   lireLeBilan,
@@ -6768,14 +6769,15 @@ export class CampagneStore {
   /**
    * Son codex, de sa renommée lue (`lecturesDeLaRenommee`) : son niveau
    * d'explorateur, et ce qu'il ouvre — l'échelle jusqu'à lui, la carte de
-   * chaque exploit qu'il a fait et de chaque légendaire qu'il a —, et ses dos
-   * de cartes. Les bilans refaits du pli s'écrivent ici, une fois : ratés,
-   * ils se refont à la lecture suivante, rien de plus.
+   * chaque exploit qu'il a fait et de chaque légendaire qu'il a —, ses dos
+   * de cartes et le plus haut cran de l'Ascension que ses victoires ont
+   * ouvert. Les bilans refaits du pli s'écrivent ici, une fois : ratés, ils
+   * se refont à la lecture suivante, rien de plus.
    */
   private async codexLu(lectures: readonly ResultSet[], siens: ReadonlySet<string>): Promise<CodexDeLaPage> {
-    const { renommee, exploits, aEcrire } = renommeeLue(lectures)
+    const { renommee, exploits, ascension, aEcrire } = renommeeLue(lectures)
     await this.ecrireLesBilansRefaits(aEcrire)
-    return { renommee, ...codexDuNiveau(niveauDe(renommee), LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)), exploits) }
+    return { renommee, ...codexDuNiveau(niveauDe(renommee), LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)), exploits), ascension }
   }
 
   /**
@@ -6794,13 +6796,13 @@ export class CampagneStore {
    * elle ; son équipée — deux des siens au plus, ou l'invité du jour —, dont
    * les jokers rejoignent le paquet de départ. Une à la fois : celle qu'il a
    * laissée l'attend. `rencontres` : le prototype des rencontres (v5), que la
-   * route n'accorde que hors de la production — avec sa catégorie fétiche et
-   * le dos de son paquet.
+   * route n'accorde que hors de la production — avec sa catégorie fétiche, le
+   * dos de son paquet et son cran de l'Ascension.
    */
   partirEnExpedition(
     profileId: string,
     equipeeBrute: unknown = [],
-    { rencontres = false, fetiche, dos }: { rencontres?: boolean; fetiche?: unknown; dos?: unknown } = {},
+    { rencontres = false, fetiche, dos, ascension: cran }: { rencontres?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown } = {},
   ): Promise<VueDeLExpedition> {
     const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
     if (!equipee) return Promise.reject(new Error('Ton équipe ne se lit pas : recharge la page'))
@@ -6842,6 +6844,9 @@ export class CampagneStore {
       // Sa saison : sa fête — si une carte peut la tirer — tient la moitié des thèmes pointus, son légendaire garde l'acte 3.
       const saison = this.saisonDuDepart()
       const fete = saison && sujets.includes(saison.key) ? saison.key : undefined
+      // Son cran de l'Ascension, parmi ceux que ses victoires ont ouverts. Un téléphone partagé retient celui d'un autre
+      // profil : il part au plus haut des siens, sans refuser le départ.
+      const ascension = codex && typeof cran === 'number' && Number.isInteger(cran) ? Math.min(Math.max(0, cran), codex.ascension) : 0
       // En rencontres, des cartes à plus d'adversaires (`POIDS_DES_ESCALES_DES_RENCONTRES`) ; aux règles d'avant, celles de toujours.
       const cartes = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, fete, rencontres ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES))
       const vues = lireLesVues(lues.rows)
@@ -6861,10 +6866,13 @@ export class CampagneStore {
         ...(saison && { saison: saison.key }),
         // Sa catégorie fétiche attend son niveau : avant lui, ni Plume ni Bibliothèque ne sont ouvertes.
         ...(codex?.regles.includes('fetiche') && typeof fetiche === 'string' && { fetiche }),
-        ...(codex && { codex: { niveau: codex.niveau, cartes: codex.cartes, regles: codex.regles, exploits: codex.exploits, renommee: codex.renommee } }),
+        ...(codex && {
+          codex: { niveau: codex.niveau, cartes: codex.cartes, regles: codex.regles, exploits: codex.exploits, renommee: codex.renommee, ascensionOuverte: codex.ascension },
+        }),
         // Le dos qu'il a choisi, s'il l'a ; sinon le plus rare des siens. Un téléphone partagé retient celui d'un autre profil :
         // il ne refuse pas le départ pour un habit.
         ...(codex && { dos: codex.dos.includes(dos as DosDuPaquet) ? (dos as DosDuPaquet) : codex.dos[codex.dos.length - 1] }),
+        ...(ascension > 0 && { ascension }),
       }
       const id = randomUUID()
       await this.client.execute({
@@ -8172,14 +8180,22 @@ function lecturesDeLaRenommee(profileId: string): InStatement[] {
  * La renommée de ces lectures : les bilans gardés, au barème du jour, et ceux
  * qu'il a fallu refaire du pli (invariant 14 : le même chemin que
  * l'expédition qu'on joue) — à écrire, pour ne les replier qu'une fois. Et
- * ses exploits : chacun compte dès qu'une expédition l'a fait.
+ * ses exploits : chacun compte dès qu'une expédition l'a fait ; et le plus
+ * haut cran de l'Ascension que ses victoires ont ouvert.
  */
-function renommeeLue([bilans, series, gestes, reponses]: readonly ResultSet[]): { renommee: number; exploits: CleDExploit[]; aEcrire: InStatement[] } {
+function renommeeLue([bilans, series, gestes, reponses]: readonly ResultSet[]): {
+  renommee: number
+  exploits: CleDExploit[]
+  ascension: number
+  aEcrire: InStatement[]
+} {
   let renommee = 0
   const faits = new Set<CleDExploit>()
+  const comptes: BilanDUneExpedition[] = []
   const compter = (b: BilanDUneExpedition) => {
     renommee += renommeeDe(b)
     for (const x of b.exploits ?? []) faits.add(x)
+    comptes.push(b)
   }
   for (const ligne of bilans.rows) {
     const b = lireLeBilan(ligne.bilan)
@@ -8199,7 +8215,7 @@ function renommeeLue([bilans, series, gestes, reponses]: readonly ResultSet[]): 
     compter(b)
     aEcrire.push({ sql: 'UPDATE campagne_series SET bilan = ? WHERE id = ?', args: [ecrireLeBilan(b), id] })
   }
-  return { renommee, exploits: EXPLOITS.map(x => x.cle).filter(cle => faits.has(cle)), aEcrire }
+  return { renommee, exploits: EXPLOITS.map(x => x.cle).filter(cle => faits.has(cle)), ascension: ascensionOuverte(comptes), aEcrire }
 }
 
 /** Où en était un dévoilement à l'instant `t` — l'heure du serveur où sa réponse est arrivée (invariant 6) : les mots dits, sur combien. */
@@ -8391,9 +8407,12 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
             regles: d.codex.regles,
             ...(d.codex.renommee !== undefined && { renommee: d.codex.renommee }),
             ...(d.codex.exploits && { exploits: d.codex.exploits }),
+            ...(d.codex.ascensionOuverte !== undefined && { ascensionOuverte: d.codex.ascensionOuverte }),
           },
         }),
         ...(d.dos && { dos: d.dos }),
+        // Son cran de l'Ascension, tel que le pli le lit : la barre le dit, et ce que rendent le campement et la source.
+        ...(e.ascension > 0 && { ascension: e.ascension }),
       },
     }),
     ...(r && { rencontre: vueDeLaRencontre(d, e, posees) }),

@@ -5,8 +5,9 @@
 // fait et ce qu'il ouvre, figés au départ ; la carte de ses légendaires au
 // codex, et l'invité du jour qui prête la sienne ; le dos de son paquet, pris
 // au départ parmi les siens ; L'Explorateur, la piste du niveau
-// d'explorateur, tombée à la fin d'une expédition — jamais en production.
-// Les règles et le pli : `codex.test.ts`.
+// d'explorateur, tombée à la fin d'une expédition — jamais en production ;
+// l'Ascension, ouverte par les victoires relues des bilans, son cran borné et
+// figé au départ, gardé par le bilan. Les règles et le pli : `codex.test.ts`.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -14,7 +15,7 @@ import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
-import { NIVEAUX, codexDuNiveau, ecrireLeBilan, type BilanDUneExpedition } from '../../shared/codex'
+import { NIVEAUX, codexDuNiveau, ecrireLeBilan, lireLeBilan, type BilanDUneExpedition } from '../../shared/codex'
 import { paquetDesRencontres } from '../../shared/rencontres'
 import { cleDeLExpedition } from '../../shared/legendaires'
 import type { DepartDExpedition, PageDeLExpedition, VueDeLExpedition } from '../../shared/expedition'
@@ -99,7 +100,7 @@ const UNE_ESCALE: BilanDUneExpedition = { escales: 1, adversaires: 0, elites: 0,
 
 test('la fin d’une expédition écrit son bilan — abandonnée aussi : un joueur qui tombe tôt avance quand même', async () => {
   const c = await inscrireProfil(banc.url, 'bilan', 'Bilan')
-  assert.deepEqual((await page(c)).prochaine.codex, { renommee: 0, ...codexDuNiveau(1, []) }, 'au premier départ, le niveau 1')
+  assert.deepEqual((await page(c)).prochaine.codex, { renommee: 0, ...codexDuNiveau(1, []), ascension: 0 }, 'au premier départ, le niveau 1')
   const id = await unPasPuisAbandon(c)
   assert.equal(bilanEnBase(id), ecrireLeBilan(UNE_ESCALE))
   assert.equal((await page(c)).prochaine.codex?.renommee, 1, 'la page la relit')
@@ -111,7 +112,7 @@ test('la renommée se relit de toutes ses expéditions finies : son niveau, ses 
   // Le niveau 5, juste : le pari, les fioles, les talismans et la catégorie fétiche ouverts.
   ecrireLeBilanEnBase(finie, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[4] }))
   const codex = (await page(c)).prochaine.codex!
-  assert.deepEqual(codex, { renommee: NIVEAUX[4], ...codexDuNiveau(5, []) })
+  assert.deepEqual(codex, { renommee: NIVEAUX[4], ...codexDuNiveau(5, []), ascension: 0 })
   assert.deepEqual(codex.regles, ['pari', 'fioles', 'talismans', 'fetiche'])
   const parti = await poster(c, '/api/expedition', { rencontres: true, fetiche: 'Histoire' })
   assert.equal(parti.status, 200, parti.corps.error)
@@ -119,8 +120,8 @@ test('la renommée se relit de toutes ses expéditions finies : son niveau, ses 
   assert.equal(v.fetiche, 'Histoire', 'au niveau 5, sa catégorie fétiche part avec lui')
   // Le départ fige ce que le codex ouvre ; ses dos, il en prend un (`DepartDExpedition.dos`).
   const { dos: _dos, ...ouvert } = codexDuNiveau(5, [])
-  assert.deepEqual(departDe(v.id).codex, { ...ouvert, renommee: NIVEAUX[4] })
-  assert.deepEqual(v.cartes?.codex, { niveau: 5, regles: ['pari', 'fioles', 'talismans', 'fetiche'], renommee: NIVEAUX[4], exploits: [] })
+  assert.deepEqual(departDe(v.id).codex, { ...ouvert, renommee: NIVEAUX[4], ascensionOuverte: 0 })
+  assert.deepEqual(v.cartes?.codex, { niveau: 5, regles: ['pari', 'fioles', 'talismans', 'fetiche'], renommee: NIVEAUX[4], exploits: [], ascensionOuverte: 0 })
   assert.deepEqual(v.exploits, [], 'aucun exploit au départ')
   // La renommée qui monte en route ne change rien à l'expédition partie : son codex est figé.
   ecrireLeBilanEnBase(finie, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[8] }))
@@ -176,7 +177,7 @@ test('ses exploits se relisent des bilans : chacun ouvre sa carte au codex, se f
   // Une expédition d'avant y a gagné un gros pari et tenu un gardien sans perdre de courage.
   ecrireLeBilanEnBase(finie, ecrireLeBilan({ ...UNE_ESCALE, exploits: ['gardien-intact', 'pari-de-40'] }))
   const codex = (await page(c)).prochaine.codex!
-  assert.deepEqual(codex, { renommee: 1, ...codexDuNiveau(1, [], ['pari-de-40', 'gardien-intact']) })
+  assert.deepEqual(codex, { renommee: 1, ...codexDuNiveau(1, [], ['pari-de-40', 'gardien-intact']), ascension: 0 })
   assert.deepEqual(codex.exploits, ['pari-de-40', 'gardien-intact'])
   assert.ok(codex.cartes.includes('banco'), 'Banco s’ouvre par son exploit, dès le niveau 1')
   assert.ok(!codex.cartes.includes('lancee'), 'Lancée attend le sien')
@@ -198,7 +199,7 @@ test('ses légendaires ouvrent leur carte au codex ; plus d’équipe à choisir
   await banc.redemarrer()
   const p = await page(c)
   assert.ok(p.prochaine.codex?.cartes.includes('renaissance'), 'la carte du Phénix, qu’il a')
-  assert.deepEqual(p.prochaine.codex, { renommee: 0, ...codexDuNiveau(1, ['lg:phenix']) })
+  assert.deepEqual(p.prochaine.codex, { renommee: 0, ...codexDuNiveau(1, ['lg:phenix']), ascension: 0 })
   // Une équipe demandée ne part pas : l'invité du jour seul, sa carte dans le paquet.
   const parti = await poster(c, '/api/expedition', { rencontres: true, equipee: ['lg:phenix'] })
   assert.equal(parti.status, 200, parti.corps.error)
@@ -254,4 +255,43 @@ test('L’Explorateur, au niveau d’explorateur : sa piste se lit à la page du
   } finally {
     await prod.close()
   }
+})
+
+test('l’Ascension : une expédition menée au bout l’ouvre ; son cran se fige au départ parmi ceux qu’il a ouverts — demandé plus haut, le plus haut des siens —, le bilan le garde, et une victoire à son plus haut cran ouvre le suivant', async () => {
+  const c = await inscrireProfil(banc.url, 'ascension', 'Ascension')
+  const finie = await unPasPuisAbandon(c)
+  assert.equal((await page(c)).prochaine.codex?.ascension, 0, 'sans victoire, aucun cran')
+  const partir = async (corps: Record<string, unknown>) => {
+    const parti = await poster(c, '/api/expedition', corps)
+    assert.equal(parti.status, 200, parti.corps.error)
+    return parti.corps as VueDeLExpedition
+  }
+  const abandonner = async (v: VueDeLExpedition) => assert.equal((await poster(c, `/api/expedition/${v.id}/abandon`)).status, 200)
+  // Demandé sans victoire, un cran ne part pas — sans refuser le départ.
+  let v = await partir({ rencontres: true, ascension: 2 })
+  assert.equal(departDe(v.id).ascension, undefined)
+  assert.equal(v.cartes?.ascension, undefined)
+  assert.equal(v.cartes?.codex?.ascensionOuverte, 0, 'la fin dira le cran que sa victoire ouvre')
+  await abandonner(v)
+  // Une victoire d'avant l'Ascension l'ouvre.
+  ecrireLeBilanEnBase(finie, ecrireLeBilan({ ...UNE_ESCALE, gardiens: 3, auBout: true }))
+  assert.equal((await page(c)).prochaine.codex?.ascension, 1)
+  // Un téléphone partagé retient le cran 4 d'un autre profil : il part au plus haut des siens.
+  v = await partir({ rencontres: true, ascension: 4 })
+  assert.equal(departDe(v.id).ascension, 1)
+  assert.deepEqual([v.cartes?.ascension, v.cartes?.codex?.ascensionOuverte], [1, 1])
+  const pas = await poster(c, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers: v.permises[0] } })
+  assert.equal(pas.status, 200, pas.corps.error)
+  await abandonner(v)
+  assert.deepEqual(lireLeBilan(bilanEnBase(v.id)), { ...UNE_ESCALE, exploits: [], ascension: 1 }, 'son bilan garde son cran — perdue, elle n’ouvre rien')
+  assert.equal((await page(c)).prochaine.codex?.ascension, 1)
+  // Menée au bout au cran 1 : le cran 2 s'ouvre. Sans cran demandé, aucun.
+  ecrireLeBilanEnBase(v.id, ecrireLeBilan({ ...UNE_ESCALE, gardiens: 3, auBout: true, ascension: 1 }))
+  assert.equal((await page(c)).prochaine.codex?.ascension, 2)
+  v = await partir({ rencontres: true })
+  assert.equal(departDe(v.id).ascension, undefined, 'l’Ascension se choisit')
+  await abandonner(v)
+  // Aux règles d'avant, pas de codex : pas de cran.
+  v = await partir({ ascension: 1 })
+  assert.equal(departDe(v.id).ascension, undefined)
 })

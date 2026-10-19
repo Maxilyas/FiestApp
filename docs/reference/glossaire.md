@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 449 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 450 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -33,6 +33,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Apprise | Une question retrouvée à ses trois rendez-vous. Une erreur la renvoie au premier | `apresUnPassage` |
 | Archive | La copie brute d'une soirée close — invités, équipes, prix remis, les deux journaux, les quiz joués —, relue avec le code du jour | `PartyArchive` (`shared/archive.ts`), `ArchiveStore` (`server/src/core/archive.ts`) |
 | Arrêt net | Un arrêt sans extinction propre — processus tué, mémoire épuisée —, qui perd la file du miroir | `arreteNet` |
+| Ascension (de l'expédition) | Cinq crans de difficulté, chacun ajouté à ceux d'en dessous — les points des adversaires, leur frappe, le repos, l'énergie, les gardiens — : la première expédition menée au bout ouvre le cran 1, une victoire à son plus haut cran le suivant ; choisi au départ, aucun d'office, figé avec l'expédition | `ASCENSION`, `ascensionOuverte` (`shared/codex.ts`), `DepartDExpedition.ascension` |
 | Atelier | La seconde régie où travaillent les experts, à côté de la tablée en direct ; leurs gestes la visent par sa fiche | `TABLEE`, `server/scripts/tablee/pilote.mjs` |
 | Attente écrite | L'écran d'attente que le serveur écrit dans la page avant tout script — le nom de la soirée et « On arrive… », ou « Chargement… » —, que React remplace sans que rien ne bouge | `ecrireAttente` (`server/src/core/page.ts`), `Patience` (`client/src/annonce.tsx`) |
 | Automate | L'adversaire simulé du dé, 🤖, qui joue comme le joueur d'après le modèle du savoir, son score tenu à 2 bonnes réponses de ce qu'on attend de lui | `AUTOMATE` |

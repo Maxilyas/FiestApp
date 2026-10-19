@@ -77,7 +77,7 @@ import {
   type ThemeDEscale,
   type VueDeLExpedition,
 } from '../../../shared/expedition'
-import { exploitDe, type DosDuPaquet } from '../../../shared/codex'
+import { cranOuvertParLaVictoire, exploitDe, pointsDeLAdversaire, reposALAscension, type DosDuPaquet } from '../../../shared/codex'
 import {
   CARTES_DES_ACTES,
   CARTES_DES_RENCONTRES,
@@ -95,7 +95,6 @@ import {
   estDeRoute,
   fioleDe,
   paquetDesRencontres,
-  sceauxDe,
   type CarteDeRencontre,
   type CleDeFiole,
 } from '../../../shared/rencontres'
@@ -108,6 +107,7 @@ import {
   COURT,
   CarteLevee,
   CartesAPrendre,
+  ChoixDeLAscension,
   ChoixDuDos,
   Courage,
   FeuilleDesCartes,
@@ -124,6 +124,7 @@ import {
   VerreDeFiole,
   VersionDesCartes,
   VisageDeLaCarte,
+  ascensionRetenue,
   ceQueLaCarteAFait,
   changementDeLaCarte,
   comptesDesCartes,
@@ -136,6 +137,7 @@ import {
   pourcents,
   recompenseDe,
   rencontresRetenues,
+  retenirLAscension,
   retenirLeDos,
   retenirLesRencontres,
   verdictDeLaRencontre,
@@ -298,12 +300,14 @@ function decrire(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardi
  * est un adversaire — les points à lui faire perdre, sa chance par question —, le courage
  * remplace les vies, une carte les jokers.
  */
-function decrireEnRencontres(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardiens' | 'moyen' | 'ecus'>, carte: CarteDUnActe): string {
+function decrireEnRencontres(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardiens' | 'moyen' | 'ecus' | 'cartes'>, carte: CarteDUnActe): string {
   const qui = vue.moyen ? 'pour un joueur moyen' : 'pour toi'
   const prix = e.chance !== undefined && (e.sorte === 'question' || e.sorte === 'elite') ? ` · ${prixDeLEscale(e)} écus à la victoire` : ''
   const chance = e.chance === undefined ? '' : ` · ${pourcents(e.chance)} par question ${qui}${prix}`
-  if (e.sorte === 'source') return `Une source : une question de ton carnet. Retrouvée, elle te rend ${COURAGE_D_UNE_SOURCE} de courage ; ratée, elle ne coûte rien${chance}`
-  if (e.sorte === 'campement') return `Un campement : ${COURAGE_D_UN_CAMPEMENT} de courage — ou une carte retirée de ton paquet`
+  // Son cran de l'Ascension : les points des adversaires et ce que rend un repos s'y lisent, comme le pli les compte.
+  const cran = vue.cartes?.ascension ?? 0
+  if (e.sorte === 'source') return `Une source : une question de ton carnet. Retrouvée, elle te rend ${reposALAscension(COURAGE_D_UNE_SOURCE, cran)} de courage ; ratée, elle ne coûte rien${chance}`
+  if (e.sorte === 'campement') return `Un campement : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, cran)} de courage — ou une carte retirée de ton paquet`
   if (e.sorte === 'coffre') return `Un coffre : une carte au choix parmi trois, pour ton paquet — ou ${ECUS_D_UN_COFFRE_LAISSE} écus, si tu n’en prends aucune`
   if (e.sorte === 'echoppe') return 'Une échoppe : du courage, des cartes, un talisman, contre tes écus'
   if (e.sorte === 'inconnu') {
@@ -317,13 +321,14 @@ function decrireEnRencontres(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'ac
     const g = vue.gardiens[vue.acte]?.cle ?? ''
     const m = MARCHES_DES_ACTES[acte]
     const p = carte.chanceDuGardien
-    return `${nomDuGardien(g)}, gardien de l’acte : ${sceauxDe('gardien', acte)} points à lui faire perdre, en questions ${MARCHE[m.gardien]}s${p === undefined ? '' : ` · ${pourcents(p)} par question ${qui}`}`
+    return `${nomDuGardien(g)}, gardien de l’acte : ${pointsDeLAdversaire('gardien', acte, cran)} points à lui faire perdre, en questions ${MARCHE[m.gardien]}s${p === undefined ? '' : ` · ${pourcents(p)} par question ${qui}`}`
   }
   const t = e.theme
   const quoi = !t ? 'Une question' : 'sujet' in t ? `Thème pointu : ${nomDuTheme(t)}` : t.categories.length > 1 ? `Mélange : ${nomDuTheme(t)}` : nomDuTheme(t)
   const tampon = e.aTamponner ? ' · un tampon neuf pour ton passeport' : ''
-  if (e.sorte === 'elite') return `Une élite, ${quoi.charAt(0).toLowerCase()}${quoi.slice(1)} · ${MARCHE[marcheDe(vue.acte, e)]} : ${sceauxDe('elite', acte)} points à lui faire perdre. Tombée, une carte au choix, plus souvent rare${chance}${tampon}`
-  return `${quoi} · ${MARCHE[marcheDe(vue.acte, e)]} : un adversaire, ${sceauxDe('question', acte)} points à lui faire perdre${chance}${tampon}`
+  if (e.sorte === 'elite')
+    return `Une élite, ${quoi.charAt(0).toLowerCase()}${quoi.slice(1)} · ${MARCHE[marcheDe(vue.acte, e)]} : ${pointsDeLAdversaire('elite', acte, cran)} points à lui faire perdre. Tombée, une carte au choix, plus souvent rare${chance}${tampon}`
+  return `${quoi} · ${MARCHE[marcheDe(vue.acte, e)]} : un adversaire, ${pointsDeLAdversaire('question', acte, cran)} points à lui faire perdre${chance}${tampon}`
 }
 
 // ── Les jokers ──────────────────────────────────────────────────────────────
@@ -444,6 +449,7 @@ export function Barre({
           rencontres={vue.courage !== undefined}
           parQuestion={vue.cartes?.parQuestion}
           codex={vue.cartes?.codex}
+          ascension={vue.cartes?.ascension}
           // Sur le plan, le plan d'abord ; en rencontre, l'ordre où l'on joue.
           debut={vue.rencontre ? undefined : vue.carte ? 'plan' : undefined}
           onFermer={() => setRegles(false)}
@@ -589,15 +595,22 @@ export function ExpeditionApp() {
     void relire().then(() => setErreur(motif))
   }
 
-  /** Partir — aux rencontres, là où le prototype s'ouvre et s'il le garde, avec sa catégorie fétiche et le dos de son paquet. */
-  const partir = async (equipee: readonly string[], rencontres: { fetiche: string | null; dos: DosDuPaquet | null } | null) => {
+  /** Partir — aux rencontres, là où le prototype s'ouvre et s'il le garde, avec sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension. */
+  const partir = async (equipee: readonly string[], rencontres: { fetiche: string | null; dos: DosDuPaquet | null; ascension: number } | null) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
       const vue = await api.expedition.partir(
         equipee,
-        rencontres ? { rencontres: true, ...(rencontres.fetiche && { fetiche: rencontres.fetiche }), ...(rencontres.dos && { dos: rencontres.dos }) } : {},
+        rencontres
+          ? {
+              rencontres: true,
+              ...(rencontres.fetiche && { fetiche: rencontres.fetiche }),
+              ...(rencontres.dos && { dos: rencontres.dos }),
+              ...(rencontres.ascension > 0 && { ascension: rencontres.ascension }),
+            }
+          : {},
       )
       retenirLEquipee(equipee)
       // Ce que la fin dira est celui de cette expédition : la précédente, jouée sur la même page, a eu sa fin.
@@ -1045,8 +1058,8 @@ export function Depart({
   page: PageDeLExpedition
   busy: boolean
   erreur: string
-  /** `rencontres` : partir au prototype des rencontres, avec sa catégorie fétiche et le dos de son paquet ; null, aux règles d'avant. */
-  onPartir: (equipee: readonly string[], rencontres: { fetiche: string | null; dos: DosDuPaquet | null } | null) => void
+  /** `rencontres` : partir au prototype des rencontres, avec sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension ; null, aux règles d'avant. */
+  onPartir: (equipee: readonly string[], rencontres: { fetiche: string | null; dos: DosDuPaquet | null; ascension: number } | null) => void
   onReprendre: (vue: VueDeLExpedition) => void
   /** Celle qui l'attend s'abandonne d'ici aussi : « J'aimerais pouvoir abandonner une expédition » (le 18 octobre 2026) — le geste ne vivait qu'au fond de la feuille de la carte. */
   onAbandonner: (vue: VueDeLExpedition) => void
@@ -1065,9 +1078,13 @@ export function Depart({
   const [fetiche, setFetiche] = useState(feticheRetenue)
   // Le dos de son paquet (le codex) : celui qu'il a choisi la dernière fois, s'il l'a encore — sinon le plus rare des siens.
   const [dos, setDos] = useState(() => (page.prochaine.codex ? dosRetenu(page.prochaine.codex.dos) : null))
+  // Son cran de l'Ascension, parmi ceux qu'il a ouverts : celui de la dernière fois, ou aucun.
+  const [cran, setCran] = useState(() => (page.prochaine.codex ? ascensionRetenue(page.prochaine.codex.ascension) : 0))
   const enRencontres = vue ? vue.courage !== undefined : ouvertes && aux
   // Le codex (v7) : celui qu'elle a figé en route, celui qui partirait avant ; aux règles d'avant, aucun.
   const codex = page.prochaine.codex
+  // L'Ascension se choisit une fois une expédition menée au bout ; un serveur d'avant elle ne dit rien de ses crans.
+  const ouverte = !vue && enRencontres ? (codex?.ascension ?? 0) : 0
   const auCodex = vue ? !!vue.cartes?.codex : enRencontres && !!codex
   const feticheOuverte = !codex || codex.regles.includes('fetiche')
   // Celle qui l'attend dit l'équipée qu'elle a emmenée ; une expédition de l'étape 1 n'en avait pas. Au codex, l'invité du jour seul.
@@ -1148,6 +1165,7 @@ export function Depart({
       {ouvertes && (
         <AuDepart actif={aux} fetiche={fetiche} feticheOuverte={feticheOuverte} onActif={setAux} onFetiche={setFetiche} />
       )}
+      {ouverte > 0 && <ChoixDeLAscension ouverte={ouverte} cran={cran} onChoisir={setCran} />}
       <section className="card exp-passeport" aria-labelledby="exp-passeport-titre">
         <div className="exp-section-tete">
           <h2 className="label" id="exp-passeport-titre">
@@ -1195,7 +1213,7 @@ export function Depart({
         {vue ? (
           <>
             <p className="muted small centre">
-              {`Acte ${Math.min(vue.acte, ACTES - 1) + 1} · ${vue.courage !== undefined ? `${vue.courage} de courage sur ${COURAGE_MAX}` : `${vue.vies} vie${vue.vies > 1 ? 's' : ''} sur ${VIES}`} · ${vue.justes} bonne${vue.justes > 1 ? 's' : ''} réponse${vue.justes > 1 ? 's' : ''}`}
+              {`Acte ${Math.min(vue.acte, ACTES - 1) + 1}${vue.cartes?.ascension ? ` · Ascension ${vue.cartes.ascension}` : ''} · ${vue.courage !== undefined ? `${vue.courage} de courage sur ${COURAGE_MAX}` : `${vue.vies} vie${vue.vies > 1 ? 's' : ''} sur ${VIES}`} · ${vue.justes} bonne${vue.justes > 1 ? 's' : ''} réponse${vue.justes > 1 ? 's' : ''}`}
             </p>
             <button type="button" className="btn btn-primary btn-big btn-block" onClick={() => onReprendre(vue)}>
               <Icon name="play" />
@@ -1215,8 +1233,9 @@ export function Depart({
               onClick={() => {
                 if (ouvertes) retenirLesRencontres(aux, fetiche)
                 if (enRencontres && dos) retenirLeDos(dos)
-                // Sa catégorie fétiche attend son niveau : avant lui, elle ne part pas.
-                onPartir(equipee, enRencontres ? { fetiche: feticheOuverte ? fetiche : null, dos } : null)
+                if (ouverte > 0) retenirLAscension(cran, ouverte)
+                // Sa catégorie fétiche attend son niveau : avant lui, elle ne part pas. Son cran, ceux qu'il a ouverts.
+                onPartir(equipee, enRencontres ? { fetiche: feticheOuverte ? fetiche : null, dos, ascension: ouverte > 0 ? Math.min(cran, ouverte) : 0 } : null)
               }}
             >
               <Icon name="flag" />
@@ -1227,13 +1246,14 @@ export function Depart({
       </div>
       {choisir && <FeuilleDeLEquipee prochaine={page.prochaine} equipee={equipee} rencontres={enRencontres} onChoisir={setEquipee} onFermer={() => setChoisir(false)} />}
       {passeport && <FeuilleDuPasseport tampons={page.passeport} onFermer={() => setPasseport(false)} />}
-      {paquet && sonPaquet && <FeuilleDesCartes paquet={sonPaquet} onFermer={() => setPaquet(false)} />}
+      {paquet && sonPaquet && <FeuilleDesCartes paquet={sonPaquet} ascension={ouverte > 0 ? cran : 0} onFermer={() => setPaquet(false)} />}
       {voirLeCodex && <FeuilleDuCodex codex={codex} onFermer={() => setCodex(false)} />}
       {regles && (
         <FeuilleDesRegles
           rencontres={enRencontres}
           parQuestion={vue?.cartes?.parQuestion ?? (enRencontres ? CARTES_DES_ACTES : undefined)}
           codex={vue ? vue.cartes?.codex : enRencontres ? codex : undefined}
+          ascension={vue ? vue.cartes?.ascension : ouverte > 0 ? cran : undefined}
           debut="expedition"
           onFermer={() => setRegles(false)}
         />
@@ -1651,15 +1671,17 @@ function faceDeLEscale(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 
   const tampon: Gain[] = e.aTamponner ? [{ cle: 'tampon', dessin: <Icon name="tampon" />, texte: '' }] : []
   // Une escale sans chance dite — sous L'écholocation — ne dit pas non plus ses écus : ils en dépendent.
   const prix = e.chance === undefined ? [] : enEcus(prixDeLEscale(e))
+  // Son cran de l'Ascension : un repos y rend moins.
+  const cran = vue.cartes?.ascension ?? 0
   switch (e.sorte) {
     case 'question':
       return { sorte: v5 ? 'Rencontre' : 'Question', nom: nomCourtDuTheme(e.theme), gains: [...prix, ...tampon] }
     case 'elite':
       return { sorte: 'Élite', nom: nomCourtDuTheme(e.theme), gains: [...joker, ...prix, ...tampon] }
     case 'source':
-      return { sorte: 'Source', nom: 'Ton carnet', gains: [vie(v5 ? `+${COURAGE_D_UNE_SOURCE}` : '+1')] }
+      return { sorte: 'Source', nom: 'Ton carnet', gains: [vie(v5 ? `+${reposALAscension(COURAGE_D_UNE_SOURCE, cran)}` : '+1')] }
     case 'campement':
-      return { sorte: 'Campement', nom: 'Le repos', gains: [vie(v5 ? `+${COURAGE_D_UN_CAMPEMENT}` : '+1')] }
+      return { sorte: 'Campement', nom: 'Le repos', gains: [vie(v5 ? `+${reposALAscension(COURAGE_D_UN_CAMPEMENT, cran)}` : '+1')] }
     case 'coffre':
       return { sorte: 'Coffre', nom: v5 ? 'Une carte au choix' : 'Un joker au choix', gains: joker }
     case 'echoppe':
@@ -1849,7 +1871,11 @@ export function CarteDeLActe({
   return (
     <div className="player-shell expedition exp-carte-page">
       <Barre vue={vue} onPartir={onPartir} />
-      <h1 className="exp-titre-acte">{`Acte ${vue.acte + 1} · Vers ${leGardien(gardien)}`}</h1>
+      <h1 className="exp-titre-acte">
+        {`Acte ${vue.acte + 1} · Vers ${leGardien(gardien)}`}
+        {/* Son cran de l'Ascension, à chaque pas : ce qu'il ajoute est au « ? » d'en haut. */}
+        {vue.cartes?.ascension ? <span className="exp-pastille exp-pastille-or exp-pastille-cran">{`Ascension ${vue.cartes.ascension}`}</span> : null}
+      </h1>
       <button type="button" className="exp-plan" aria-haspopup="dialog" onClick={() => setGrande(true)}>
         <PetitPlan vue={vue} carte={carte} lecture={lecture} retenue={retenue} />
         <span className="exp-plan-ouvrir">
@@ -1887,7 +1913,9 @@ export function CarteDeLActe({
         {/* Une ligne : que chaque erreur lui coûte une vie, ses questions le disent en tête. */}
         {auCampement && (
           <p className="exp-panneau-titre">
-            {espacesFines(vue.cartes ? `${sceauxDe('gardien', vue.acte)} points à lui faire perdre, en questions ${MARCHE[m.gardien]}s.` : `${regleDuGardien(vue.acte)}.`)}
+            {espacesFines(
+              vue.cartes ? `${pointsDeLAdversaire('gardien', vue.acte, vue.cartes.ascension ?? 0)} points à lui faire perdre, en questions ${MARCHE[m.gardien]}s.` : `${regleDuGardien(vue.acte)}.`,
+            )}
           </p>
         )}
         {proposees.length === 0 ? (
@@ -1935,7 +1963,7 @@ export function CarteDeLActe({
           onFermer={() => setGrande(false)}
         />
       )}
-      {paquet && vue.cartes && <FeuilleDesCartes paquet={vue.cartes.paquet} onFermer={() => setPaquet(false)} />}
+      {paquet && vue.cartes && <FeuilleDesCartes paquet={vue.cartes.paquet} ascension={vue.cartes.ascension} onFermer={() => setPaquet(false)} />}
     </div>
   )
 }
@@ -2121,11 +2149,19 @@ function FeuilleDeLaCarte({
         )}
         <li>
           <Icon name="source" />
-          {espacesFines(vue.cartes ? `Source : une question de ton carnet, qui rend ${COURAGE_D_UNE_SOURCE} de courage` : 'Source : une question de ton carnet, qui rend une vie')}
+          {espacesFines(
+            vue.cartes
+              ? `Source : une question de ton carnet, qui rend ${reposALAscension(COURAGE_D_UNE_SOURCE, vue.cartes.ascension ?? 0)} de courage`
+              : 'Source : une question de ton carnet, qui rend une vie',
+          )}
         </li>
         <li>
           <Icon name="campement" />
-          {vue.cartes ? `Campement : ${COURAGE_D_UN_CAMPEMENT} de courage, ou une carte de moins` : vue.jokers ? 'Campement : une vie, ou un joker de moins' : 'Campement : une vie de plus'}
+          {vue.cartes
+            ? `Campement : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, vue.cartes.ascension ?? 0)} de courage, ou une carte de moins`
+            : vue.jokers
+              ? 'Campement : une vie, ou un joker de moins'
+              : 'Campement : une vie de plus'}
         </li>
         {(vue.jokers || vue.cartes) && (
           <>
@@ -2632,7 +2668,7 @@ function Escale({
           <p className="exp-regle small">
             {espacesFines(
               vue.courage !== undefined
-                ? `Une source : retrouvée, +${COURAGE_D_UNE_SOURCE} de courage ; ratée, rien.`
+                ? `Une source : retrouvée, +${reposALAscension(COURAGE_D_UNE_SOURCE, vue.cartes?.ascension ?? 0)} de courage ; ratée, rien.`
                 : 'Une source : une question de ton carnet. Retrouvée, elle te rend une vie ; ratée, elle ne te coûte rien.',
             )}
           </p>
@@ -2750,7 +2786,7 @@ function Escale({
             onMontrer={() => setMontrer(true)}
           />
         )}
-        {tas && vue.rencontre && <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={vue.rencontre} onFermer={() => setTas(false)} />}
+        {tas && vue.rencontre && <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={vue.rencontre} ascension={vue.cartes?.ascension} onFermer={() => setTas(false)} />}
       </div>
     </div>
   )
@@ -3237,7 +3273,7 @@ function Campement({
     courage !== undefined
       ? plein
         ? 'Ton courage est au plus haut'
-        : `+${Math.min(COURAGE_D_UN_CAMPEMENT, COURAGE_MAX - courage)} de courage`
+        : `+${Math.min(reposALAscension(COURAGE_D_UN_CAMPEMENT, vue.cartes?.ascension ?? 0), COURAGE_MAX - courage)} de courage`
       : plein
         ? 'Tes trois vies sont là : le repos ne t’en donne pas de plus'
         : `Une vie de plus : ${vue.vies + 1} sur ${VIES}`
@@ -3627,6 +3663,10 @@ export function FinDeLExpedition({
   const acte = Math.min(vue.acte, ACTES - 1) + 1
   const vaincus = vue.gardiens.filter(g => g.vaincu).length
   const s = vue.justes > 1 ? 's' : ''
+  // L'Ascension : le cran où elle est partie, et celui que sa victoire ouvre — s'il passe au-dessus de ceux qu'il avait en partant.
+  const cran = vue.cartes?.ascension ?? 0
+  const ouverteAuDepart = vue.cartes?.codex?.ascensionOuverte
+  const cranOuvert = (vue.issue === 'au-bout' || vue.issue === 'legendaire') && ouverteAuDepart !== undefined ? cranOuvertParLaVictoire(cran, ouverteAuDepart) : null
   return (
     <div className="player-shell expedition">
       <Sortie />
@@ -3635,8 +3675,8 @@ export function FinDeLExpedition({
         <h1>{gardee ? (nouveau ? `${nomDuGardien(gardee)} est à toi` : 'Expédition accomplie') : vue.issue === 'abandonnee' ? 'Expédition abandonnée' : 'L’expédition s’arrête là'}</h1>
         <p className="muted small">
           {gardee
-            ? `Trois gardiens vaincus, ${vue.justes} bonne${s} réponse${s}.`
-            : `Acte ${acte} · ${vaincus} gardien${vaincus > 1 ? 's' : ''} vaincu${vaincus > 1 ? 's' : ''} · ${vue.justes} bonne${s} réponse${s}.`}
+            ? `Trois gardiens vaincus${cran > 0 ? ` au cran ${cran} de l’Ascension` : ''}, ${vue.justes} bonne${s} réponse${s}.`
+            : `Acte ${acte}${cran > 0 ? ` · Ascension ${cran}` : ''} · ${vaincus} gardien${vaincus > 1 ? 's' : ''} vaincu${vaincus > 1 ? 's' : ''} · ${vue.justes} bonne${s} réponse${s}.`}
         </p>
         {gardee && !nouveau && <p className="muted small">{espacesFines(`${nomDuGardien(gardee)} était déjà à toi : ton expédition te rapporte l’expérience de tes réponses.`)}</p>}
         {/* Les écus meurent avec l'expédition (le brief) : la fin le dit, une fois. */}
@@ -3656,7 +3696,9 @@ export function FinDeLExpedition({
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}
       {/* Le codex (v7) : la renommée qu'elle rapporte, perdue aussi, et le niveau qu'elle fait passer. */}
-      {vue.cartes?.codex && vue.renommee !== undefined && <RenommeeGagnee avant={vue.cartes.codex.renommee ?? 0} gagnee={vue.renommee} exploits={exploitsNeufs(vue)} />}
+      {vue.cartes?.codex && vue.renommee !== undefined && (
+        <RenommeeGagnee avant={vue.cartes.codex.renommee ?? 0} gagnee={vue.renommee} exploits={exploitsNeufs(vue)} ascension={cranOuvert} />
+      )}
       <CeQueTuGagnes
         parts={partsDeLXp([
           { nom: 'tes bonnes réponses', xp: gains.xp },

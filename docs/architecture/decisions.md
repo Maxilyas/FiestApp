@@ -1421,6 +1421,15 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 *Fichiers : `shared/hautsfaits.ts`, `shared/trophees.ts`, `server/src/core/campagne.ts`, `server/src/auth/profiles.ts`, `server/src/server.ts`, `server/test/expedition-codex.test.ts`, `server/test/trophees.test.ts`*
 
+### L'Ascension du codex : des crans qu'on choisit, ouverts par les victoires
+**Contexte** : au codex entier, le joueur fort allait au bout neuf fois sur dix, et plus rien ne restait à gagner pour qui gagne. Deux Ascensions étaient sur la table. Celle du brief de la V1 : un quatrième gardien, une seule vie, deux légendaires au bout, aucun ratée. Celle de la proposition du codex : des niveaux de difficulté après une première victoire. Le propriétaire a validé les recommandations du codex (« Go tout faire avec tes recommandations »), et veut attendre une semaine de jeu avant de durcir l'expédition de tous.
+
+**Décision** : cinq crans, chacun ajouté à ceux d'en dessous — les adversaires ont 6 points de plus, ils frappent 3 de plus, le campement et la source rendent moitié moins de courage, 2 d'énergie à chaque question au lieu de 3, les gardiens moitié plus de points. La première expédition menée au bout ouvre le cran 1, une victoire à son plus haut cran le suivant ; les crans ouverts se relisent des bilans, comme la renommée, et les victoires d'avant comptent. On le choisit au départ parmi les siens, aucun d'office : l'Ascension ne durcit que qui la demande. Le départ le fige. Le serveur le borne à ceux qu'il a ouverts, sans refuser un départ. Ce qu'un cran change se dit d'une seule règle, que le pli applique et que la page annonce. L'Ascension du brief reste à trancher à côté.
+
+**Conséquence** : mesuré au codex entier, le fort va au bout 93 fois sur cent sans cran, puis 88, 80, 75, 65 et 43 ; le moyen 56, puis 39, 23, 15, 7 et 0. Aux premiers chiffres, trois crans sur cinq ne retiraient presque rien au fort ; partir avec 30 de courage, rien du tout — le repos le remontait —, et ce cran est devenu une énergie de moins. Elle n'ouvre aucune carte et ne rapporte rien de plus que le cran suivant ; un cran de plus s'écrit dans `ASCENSION` et dans sa règle, et se mesure avant de se régler.
+
+*Fichiers : `shared/codex.ts`, `shared/expedition.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/test/codex.test.ts`, `server/test/expedition-codex.test.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

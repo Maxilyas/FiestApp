@@ -702,3 +702,91 @@ test('les dos de cartes : au codex, ceux qu’il a et comment s’ouvrent les au
   assert.equal(dosDuPaquet({ cartes: { codex } }), 'dore')
   assert.doesNotMatch(t, JARGON)
 })
+
+// ── L'Ascension (le codex) ──────────────────────────────────────────────────
+
+interface PiecesDeLAscension {
+  ChoixDeLAscension: Composant
+  RenommeeGagnee: Composant
+  ascensionRetenue: (ouverte: number) => number
+  retenirLAscension: (cran: number, ouverte: number) => void
+}
+const piecesDeLAscension = async () => (await pieces()) as unknown as Pieces & PiecesDeLAscension
+
+/** La règle d'un cran au milieu d'une phrase, telle que les règles et la fin l'écrivent. */
+const auMilieu = (regle: string) => regle.charAt(0).toLowerCase() + regle.slice(1)
+
+test('l’Ascension au départ : ses crans ouverts, « Sans » d’abord ; ce que le cran choisi ajoute, ceux d’en dessous compris ; au plus haut, ce qu’une victoire ouvrirait — et le cran retenu sur le téléphone', async () => {
+  const { ChoixDeLAscension, ascensionRetenue, retenirLAscension } = await piecesDeLAscension()
+  const { ASCENSION, ASCENSION_MAX } = await import('../../shared/codex')
+  const html = await rendre(ChoixDeLAscension, { ouverte: 3, cran: 2, onChoisir: rien })
+  assert.deepEqual(
+    [...html.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/g)].map(m => [texte(m[2]).trim(), m[1]]),
+    [
+      ['Sans cran', 'false'],
+      ['Cran 1', 'false'],
+      ['Cran 2', 'true'],
+      ['Cran 3', 'false'],
+    ],
+    'les crans qu’il a ouverts, pas un de plus',
+  )
+  const t = texte(html)
+  assert.match(t, new RegExp(`${ASCENSION[0].regle}\\. ${ASCENSION[1].regle}\\.`), 'le cran 2 et celui d’en dessous')
+  assert.doesNotMatch(t, new RegExp(ASCENSION[2].regle))
+  assert.doesNotMatch(t, /s’ouvre/, 'sous son plus haut cran, sa victoire n’ouvrirait rien')
+  assert.match(texte(await rendre(ChoixDeLAscension, { ouverte: 3, cran: 3, onChoisir: rien })), /Va au bout à ce cran : le cran 4 s’ouvre\./)
+  assert.match(texte(await rendre(ChoixDeLAscension, { ouverte: 3, cran: 0, onChoisir: rien })), /Sans cran : l’expédition de toujours\./)
+  assert.doesNotMatch(texte(await rendre(ChoixDeLAscension, { ouverte: ASCENSION_MAX, cran: ASCENSION_MAX, onChoisir: rien })), /s’ouvre/, 'au dernier, plus rien à ouvrir')
+  // Retenu sur le téléphone : rien, aucun cran ; un cran sous le plus haut y reste ; au plus haut, la victoire qui ouvre le suivant l'y mène.
+  const memoire = new Map<string, string>()
+  Object.assign(globalThis, { localStorage: { getItem: (k: string) => memoire.get(k) ?? null, setItem: (k: string, v: string) => memoire.set(k, v), removeItem: (k: string) => memoire.delete(k) } })
+  assert.equal(ascensionRetenue(3), 0, 'l’Ascension se choisit : elle ne durcit personne d’office')
+  retenirLAscension(1, 3)
+  assert.deepEqual([ascensionRetenue(3), ascensionRetenue(4)], [1, 1])
+  retenirLAscension(3, 3)
+  assert.deepEqual([ascensionRetenue(3), ascensionRetenue(4)], [3, 4])
+  memoire.set('quizz.expedition.ascension', '4')
+  assert.equal(ascensionRetenue(2), 2, 'celui d’un autre profil du téléphone : le plus haut des siens')
+  const refuse = () => {
+    throw new Error('stockage refusé')
+  }
+  Object.assign(globalThis, { localStorage: { getItem: refuse, setItem: refuse, removeItem: refuse } })
+  assert.equal(ascensionRetenue(3), 0, 'un stockage refusé : aucun cran')
+  retenirLAscension(2, 3)
+})
+
+test('l’Ascension dans les règles et à la fin : comment elle s’ouvre et chaque cran ; le cran de l’expédition, ce que rendent le campement et la source ; la victoire qui ouvre un cran, et l’expédition qui le dit', async () => {
+  const { FeuilleDesRegles, RenommeeGagnee } = await piecesDeLAscension()
+  const { ASCENSION, NIVEAUX, reposALAscension } = await import('../../shared/codex')
+  const { COURAGE_D_UNE_SOURCE, COURAGE_D_UN_CAMPEMENT } = await import('../../shared/rencontres')
+  const regles = async (ascension?: number) =>
+    texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: [] }, ...(ascension !== undefined && { ascension }), onFermer: rien }))
+  const sans = await regles()
+  assert.match(sans, /L’Ascension Va au bout d’une expédition : l’Ascension s’ouvre\. Choisis ton cran au départ ; une victoire à ton plus haut cran ouvre le suivant\./)
+  for (const c of ASCENSION) assert.match(sans, new RegExp(`Cran ${c.cran} : ${auMilieu(c.regle)}\\.`))
+  assert.match(sans, new RegExp(`Une source : une question de ton carnet, ${COURAGE_D_UNE_SOURCE} de courage si tu la retrouves\\.`))
+  assert.match(sans, new RegExp(`Un campement, avant le gardien : ${COURAGE_D_UN_CAMPEMENT} de courage`))
+  const auTrois = await regles(3)
+  assert.match(auTrois, /Ton expédition est au cran 3 : les règles des crans 1 à 3 s’ajoutent\./)
+  assert.match(auTrois, new RegExp(`Une source : une question de ton carnet, ${reposALAscension(COURAGE_D_UNE_SOURCE, 3)} de courage si tu la retrouves\\.`))
+  assert.match(auTrois, new RegExp(`Un campement, avant le gardien : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, 3)} de courage`))
+  assert.doesNotMatch(texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], onFermer: rien })), /L’Ascension/, 'avant le codex, aucune')
+  // La fin : la victoire qui ouvre un cran le dit, avec ce qu'il ajoute.
+  assert.match(texte(await rendre(RenommeeGagnee, { avant: NIVEAUX[9], gagnee: 150, ascension: 1 })), new RegExp(`L’Ascension s’ouvre : au départ, choisis son cran 1 — ${auMilieu(ASCENSION[0].regle)}\\.`))
+  assert.match(texte(await rendre(RenommeeGagnee, { avant: NIVEAUX[9], gagnee: 150, ascension: 3 })), new RegExp(`Le cran 3 de l’Ascension s’ouvre\\. En plus des autres : ${auMilieu(ASCENSION[2].regle)}\\.`))
+  assert.doesNotMatch(texte(await rendre(RenommeeGagnee, { avant: NIVEAUX[9], gagnee: 150 })), /Ascension/)
+  // L'expédition menée au bout à son plus haut cran : la fin dit son cran, et le suivant qui s'ouvre ; plus bas, rien ne s'ouvre.
+  Object.assign(globalThis, { window: { location: { pathname: '/expedition', search: '', hash: '' } } })
+  const { FinDeLExpedition } = (await import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)) as { FinDeLExpedition: Composant }
+  const vaincus = ['lg:kraken', 'lg:dragon', 'lg:oracle'].map(cle => ({ cle, vaincu: true }))
+  const fin = (ascensionOuverte: number) => {
+    const cartes = { v: 7, paquet: [], route: [], refus: {}, parQuestion: [3, 4, 5], ascension: 2, codex: { niveau: 10, regles: [], renommee: NIVEAUX[9], exploits: [], ascensionOuverte } }
+    const vue = { id: 'x', numero: 7, acte: 3, gardiens: vaincus, carte: null, ici: null, trace: [], permises: [], vies: 2, justes: 31, issue: 'legendaire', garde: 'lg:dragon', moyen: false, rang: 40, courage: 22, cartes, renommee: 150, exploits: [] }
+    return rendre(FinDeLExpedition, { fin: { e: 'fin', vue, tombe: { legendaires: [] }, correction: null }, gains: { xp: 0, justes: 0, tampons: [] }, erreur: '', onCorrection: rien, onAutre: rien })
+  }
+  const auPlusHaut = texte(await fin(2))
+  assert.match(auPlusHaut, /Trois gardiens vaincus au cran 2 de l’Ascension, 31 bonnes réponses\./)
+  assert.match(auPlusHaut, /Le cran 3 de l’Ascension s’ouvre/)
+  assert.doesNotMatch(texte(await fin(4)), /de l’Ascension s’ouvre/, 'sous son plus haut cran, sa victoire n’ouvre rien')
+  for (const t of [sans, auTrois, auPlusHaut]) assert.doesNotMatch(t, JARGON)
+})

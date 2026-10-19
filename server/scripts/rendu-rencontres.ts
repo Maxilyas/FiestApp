@@ -17,13 +17,16 @@
 // révélation et à la fin —, puis deux fois sur trois. Les objets (le codex) :
 // le dos de son paquet choisi au départ, ses dos au codex ; la fiole d'une
 // échoppe achetée, celle d'un coffre prise, puis levée dans la barre et bue.
+// L'Ascension : ses crans au départ, celui qu'elle choisit, sur le plan.
 // Le client construit d'abord (`npm run build -w client`).
 //
 // Léa a quatre légendaires, rangés comme gardés au bout d'expéditions
 // passées — le Dragon d'Or, Janus, le Lion, le Phénix : leurs cartes sont à
 // son codex — et une expédition finie, de quoi la mettre au niveau 6 — le dos
 // étoilé, qu'elle choisit —, avec deux exploits : un pari de 40 écus gagné
-// (Banco s'ouvre) et un gardien vaincu sans perdre de courage (le dos doré).
+// (Banco s'ouvre) et un gardien vaincu sans perdre de courage (le dos doré) ;
+// menée au bout au cran 1 de l'Ascension, elle lui a ouvert le cran 2, où
+// elle part.
 //
 //   npx tsx scripts/rendu-rencontres.ts [dossier] [ivoire]
 import { createRequire } from 'node:module'
@@ -98,7 +101,7 @@ try {
     try {
       base
         .prepare('UPDATE campagne_series SET bilan = ? WHERE id = ?')
-        .run(ecrireLeBilan({ escales: 120, adversaires: 46, elites: 12, gardiens: 9, auBout: true, exploits: ['pari-de-40', 'gardien-intact'] }), partie.id)
+        .run(ecrireLeBilan({ escales: 120, adversaires: 46, elites: 12, gardiens: 9, auBout: true, exploits: ['pari-de-40', 'gardien-intact'], ascension: 1 }), partie.id)
     } finally {
       base.close()
     }
@@ -174,6 +177,13 @@ try {
   await page.locator('.exp-choix-du-dos').scrollIntoViewIfNeeded()
   await page.locator('.exp-choix-du-dos [role="radio"][aria-label="le dos étoilé"]').click()
   await photo('1d-dos')
+  // L'Ascension : sa victoire au cran 1 a ouvert le cran 2 — « Sans » d'office ; elle le choisit, ses deux règles dites dessous,
+  // et le plan le dira à chaque pas.
+  await page.locator('.exp-ascension').scrollIntoViewIfNeeded()
+  await photo('1f-ascension-sans')
+  await page.locator('.exp-ascension').getByRole('button', { name: 'Cran 2' }).click()
+  await largeur('l’Ascension au départ')
+  await photo('1f-ascension')
   // Plus d'équipe à choisir (le codex) : l'invité du jour part avec elle, ses légendaires ont ouvert leur carte à son codex.
   await page.waitForTimeout(200)
   await photo('1e-depart-pret', true)

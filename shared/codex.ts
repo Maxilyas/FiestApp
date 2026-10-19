@@ -14,7 +14,9 @@
 // les premiers des règles — la première expédition n'a ni pari, ni fiole, ni
 // talisman, ni catégorie fétiche. Un légendaire qu'on a ouvre sa carte ; un
 // exploit — un but précis, fait une fois — la sienne, ou le dos doré du
-// paquet ; le niveau 6, le dos étoilé.
+// paquet ; le niveau 6, le dos étoilé. Une expédition menée au bout ouvre
+// l'Ascension : des crans de difficulté, chacun ouvert par une victoire à
+// celui d'en dessous, qu'on choisit au départ.
 //
 // Pur. Ce qu'une expédition a fait se compte de son pli (`bilanDuPli`,
 // `shared/expedition.ts`) — invariant 14 : la renommée d'une expédition finie
@@ -24,7 +26,19 @@
 // d'une expédition partie. Ses constantes sont des choix de produit
 // (`docs/reference/baremes.md`).
 
-import { CARTES_DES_RENCONTRES, CARTES_PAR_OFFRE, VERSION_DU_CODEX, carteDeRencontre, carteDuLegendaire, type CarteDeRencontre, type PoidsDesRaretes } from './rencontres'
+import {
+  CARTES_DES_RENCONTRES,
+  CARTES_PAR_OFFRE,
+  INSPIRATION_PAR_QUESTION,
+  VERSION_DU_CODEX,
+  carteDeRencontre,
+  carteDuLegendaire,
+  frappeDe,
+  sceauxDe,
+  type CarteDeRencontre,
+  type PoidsDesRaretes,
+  type SorteDeRencontre,
+} from './rencontres'
 import { hasardDe } from './missions'
 
 // ── Les exploits ────────────────────────────────────────────────────────────
@@ -95,6 +109,12 @@ export interface BilanDUneExpedition {
   auBout: boolean
   /** Les exploits qu'elle a faits (la version 2 du bilan) ; ils ne rapportent pas de renommée. */
   exploits?: readonly CleDExploit[]
+  /**
+   * Le cran de l'Ascension où elle est partie — absent sans : allée au bout,
+   * elle ouvre le suivant (`ascensionOuverte`). Une expédition d'avant
+   * l'Ascension n'en avait pas : son bilan n'a pas à se refaire.
+   */
+  ascension?: number
 }
 
 /**
@@ -110,7 +130,7 @@ export const VERSION_DU_BILAN = 2
  * perdue à l'acte 1 en rapporte une vingtaine — de quoi passer le niveau 2 —,
  * une menée au bout cent cinquante environ.
  */
-export const RENOMMEE: Readonly<Record<Exclude<keyof BilanDUneExpedition, 'exploits'>, number>> = {
+export const RENOMMEE: Readonly<Record<Exclude<keyof BilanDUneExpedition, 'exploits' | 'ascension'>, number>> = {
   escales: 1,
   adversaires: 3,
   elites: 6,
@@ -140,7 +160,9 @@ export function lireLeBilan(brut: unknown): BilanDUneExpedition | null {
     if (lu.escales === null || lu.adversaires === null || lu.elites === null || lu.gardiens === null) return null
     // Un exploit que le code ne connaît plus se tait : il n'ouvre rien.
     const exploits = EXPLOITS.map(x => x.cle).filter(cle => (b.exploits as unknown[]).includes(cle))
-    return { ...(lu as Omit<BilanDUneExpedition, 'exploits'>), exploits }
+    // Un cran au-delà de l'Ascension d'aujourd'hui compte pour le dernier : il ne s'ouvre rien de plus haut.
+    const ascension = Math.min(n(b.ascension) ?? 0, ASCENSION_MAX)
+    return { ...(lu as Omit<BilanDUneExpedition, 'exploits'>), exploits, ...(ascension > 0 && { ascension }) }
   } catch {
     return null
   }
@@ -254,6 +276,12 @@ export interface CodexDuDepart {
    * l'expédition, et dit le niveau qu'elle fait passer. Absente au calibrage.
    */
   renommee?: number
+  /**
+   * Le plus haut cran de l'Ascension qu'il avait ouvert en partant : la fin
+   * dit celui que sa victoire ouvre (`cranOuvertParLaVictoire`). Absent d'un
+   * départ d'avant l'Ascension — la fin n'en dit rien.
+   */
+  ascensionOuverte?: number
 }
 
 /** Ce qu'ouvre un niveau, ses exploits et ses légendaires : le codex que son départ figera — et ses dos de cartes, que le départ choisit. */
@@ -321,6 +349,94 @@ export function dosOuverts(niveau: number, exploits: readonly CleDExploit[]): Do
     const o = ouvertureDuDos(cle)
     return 'niveau' in o ? o.niveau <= niveau : exploits.includes(o.exploit)
   })
+}
+
+// ── L'Ascension ─────────────────────────────────────────────────────────────
+
+/**
+ * L'Ascension (la proposition du codex, « des niveaux de difficulté après une
+ * première victoire ») : une expédition menée au bout ouvre son premier cran,
+ * et une victoire à son plus haut cran ouvre le suivant. Chaque cran ajoute sa
+ * règle à celles d'en dessous ; on part au cran qu'on veut parmi les siens, et
+ * le départ le fige (`DepartDExpedition.ascension`). Pour qui va déjà au
+ * bout : au codex entier, le joueur fort y va 93 fois sur cent, puis 88, 80,
+ * 75, 65 et 43 du cran 1 au cran 5 ; le moyen 56, puis 39, 23, 15, 7 et plus
+ * jamais (`calibrage-rencontres.ts --ascensions`). Elle ne retire rien à
+ * personne et n'ouvre aucune carte : son seul prix est le cran suivant.
+ */
+export interface CranDAscension {
+  cran: number
+  /** Ce qu'il ajoute, tel que le départ et les règles le disent. */
+  regle: string
+}
+/** Le cran 1 : les points de plus de chaque adversaire — une bonne réponse de plus, souvent, contre un adversaire ordinaire. */
+export const POINTS_EN_ASCENSION = 6
+/** Le cran 2 : la frappe de plus de chaque adversaire, dès sa première. */
+export const FRAPPE_EN_ASCENSION = 3
+/** Le cran 3 : la part du courage que rendent encore le campement et la source. */
+export const REPOS_EN_ASCENSION = 0.5
+/**
+ * Le cran 4 : l'énergie de moins à chaque question — une carte de moins à
+ * jouer. Partir avec 30 de courage, essayé d'abord, ne retirait rien au fort :
+ * le campement et la source le remontaient avant qu'il en manque.
+ */
+export const ENERGIE_EN_ASCENSION = 1
+/** Le cran 5 : ce que les points d'un gardien sont multipliés. */
+export const GARDIENS_EN_ASCENSION = 1.5
+export const ASCENSION: readonly CranDAscension[] = [
+  { cran: 1, regle: `Les adversaires ont ${POINTS_EN_ASCENSION} points de plus` },
+  { cran: 2, regle: `Les adversaires frappent ${FRAPPE_EN_ASCENSION} de plus` },
+  { cran: 3, regle: 'Le campement et la source rendent moitié moins de courage' },
+  { cran: 4, regle: `Tu as ${INSPIRATION_PAR_QUESTION - ENERGIE_EN_ASCENSION} d’énergie à chaque question, pas ${INSPIRATION_PAR_QUESTION}` },
+  { cran: 5, regle: 'Les gardiens ont moitié plus de points' },
+]
+export const ASCENSION_MAX = ASCENSION.length
+
+/** Les points d'un adversaire à ce cran : les siens, `POINTS_EN_ASCENSION` de plus dès le cran 1 — ceux d'un gardien, moitié plus au cran 5. */
+export function pointsALAscension(points: number, sorte: SorteDeRencontre, ascension: number): number {
+  const plus = points + (ascension >= 1 ? POINTS_EN_ASCENSION : 0)
+  return sorte === 'gardien' && ascension >= 5 ? Math.round(plus * GARDIENS_EN_ASCENSION) : plus
+}
+
+/** La première frappe d'un adversaire à ce cran. */
+export const frappeALAscension = (frappe: number, ascension: number) => frappe + (ascension >= 2 ? FRAPPE_EN_ASCENSION : 0)
+
+/** Les points d'un adversaire de cette sorte, à cet acte et à ce cran : ceux que le pli lui donne, et que le plan annonce. */
+export const pointsDeLAdversaire = (sorte: SorteDeRencontre, acte: number, ascension: number) => pointsALAscension(sceauxDe(sorte, acte), sorte, ascension)
+
+/** Sa première frappe, à cet acte et à ce cran. */
+export const frappeDeLAdversaire = (sorte: SorteDeRencontre, acte: number, ascension: number) => frappeALAscension(frappeDe(sorte, acte), ascension)
+
+/** Ce que rend un repos — le campement, la source — à ce cran : moitié moins dès le cran 3, arrondi au-dessus. */
+export const reposALAscension = (courage: number, ascension: number) => (ascension >= 3 ? Math.ceil(courage * REPOS_EN_ASCENSION) : courage)
+
+/** L'énergie de chaque question à ce cran — ce que lui ajoutent ses cartes viendra en plus. */
+export const energieALAscension = (ascension: number) => INSPIRATION_PAR_QUESTION - (ascension >= 4 ? ENERGIE_EN_ASCENSION : 0)
+
+/**
+ * Le plus haut cran qu'il peut choisir, de ses bilans : aucun sans une
+ * victoire ; une victoire ouvre le cran 1, une au cran N le cran N + 1 — le
+ * dernier au plus. Les victoires d'avant l'Ascension comptent : elle se lit
+ * des bilans, comme la renommée.
+ */
+export function ascensionOuverte(bilans: Iterable<BilanDUneExpedition>): number {
+  let ouverte = 0
+  for (const b of bilans) if (b.auBout) ouverte = Math.max(ouverte, cranApresLaVictoire(b.ascension ?? 0))
+  return ouverte
+}
+
+/** Le cran qu'une victoire à ce cran ouvre — le dernier au plus. */
+const cranApresLaVictoire = (cran: number) => Math.min(ASCENSION_MAX, cran + 1)
+
+/**
+ * Le cran qu'ouvre une expédition allée au bout à ce cran, quand il avait
+ * ouvert jusqu'à `ouverte` en partant : le suivant du sien, s'il passe
+ * au-dessus — null sinon (une victoire sous son plus haut cran n'ouvre rien).
+ * La règle de `ascensionOuverte`, pour la fin qui le dit.
+ */
+export function cranOuvertParLaVictoire(cran: number, ouverte: number): number | null {
+  const apres = cranApresLaVictoire(cran)
+  return apres > ouverte ? apres : null
 }
 
 // ── Les offres ──────────────────────────────────────────────────────────────

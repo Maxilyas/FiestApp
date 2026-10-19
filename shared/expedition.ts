@@ -36,11 +36,16 @@ import type { PalierTombe } from './jour'
 import type { CleDeSaison } from './saisons'
 import { FAMILLES_DE_SUJETS, SUJETS, type FamilleDeSujet } from './sujets'
 import {
+  ASCENSION_MAX,
   BONNES_D_AFFILEE,
   PARI_DE_L_EXPLOIT,
+  energieALAscension,
+  frappeDeLAdversaire,
   niveauDeLaRegle,
   offreDuCodex,
+  pointsDeLAdversaire,
   regleOuverte,
+  reposALAscension,
   type BilanDUneExpedition,
   type CleDExploit,
   type CodexDuDepart,
@@ -63,7 +68,6 @@ import {
   ENERGIE_D_UNE_FIOLE,
   FIOLES,
   FIOLES_MAX,
-  INSPIRATION_PAR_QUESTION,
   MISES,
   SAVOIR_DES_MARCHES,
   SEUIL_DES_ABYSSES,
@@ -84,7 +88,6 @@ import {
   famillesDeLEquipee,
   fioleDe,
   frappeDUneErreur,
-  frappeDe,
   frappeDeLaQuestion,
   gainDeLaMise,
   multiplicateurDeLaForme,
@@ -92,7 +95,6 @@ import {
   paquetDesRencontres,
   raretesDeLOffre,
   refusDeLaCarte,
-  sceauxDe,
   type AnnonceDuTour,
   type CleDeFiole,
   type ContexteDUneCarte,
@@ -861,6 +863,14 @@ export interface DepartDExpedition {
    * l'habille. Absent d'un départ d'avant les dos.
    */
   dos?: DosDuPaquet
+  /**
+   * Son cran de l'Ascension (le codex, `shared/codex.ts`) : choisi au départ
+   * parmi ceux qu'il a ouverts, gardé avec lui — ouvrir le suivant en route
+   * ne durcit pas l'expédition qu'il joue. Absent : aucun cran, comme toute
+   * expédition d'avant l'Ascension ; le pli ne le lit qu'au codex
+   * (`ascensionDuDepart`).
+   */
+  ascension?: number
 }
 
 /**
@@ -1038,6 +1048,8 @@ export interface EtatDeLExpedition {
   pari: boolean
   /** Les fioles qu'il porte (le codex), `FIOLES_MAX` au plus, dans l'ordre où il les a eues. */
   fioles: CleDeFiole[]
+  /** Le cran de l'Ascension où il est parti (le codex) : 0 sans — et hors du codex. */
+  ascension: number
 }
 
 /** Une offre de jokers — un coffre, une élite trouvée. */
@@ -1075,12 +1087,22 @@ export function paquetDeDepart(equipee: readonly string[]): string[] {
 }
 
 /** Ce que le pli lit du départ. */
-type DepartLu = Pick<DepartDExpedition, 'v' | 'graine' | 'cartes' | 'gardiens' | 'equipee' | 'chanceDeLaSource' | 'chances' | 'fetiche' | 'codex'>
+type DepartLu = Pick<DepartDExpedition, 'v' | 'graine' | 'cartes' | 'gardiens' | 'equipee' | 'chanceDeLaSource' | 'chances' | 'fetiche' | 'codex' | 'ascension'>
 
-/** Ce qu'une expédition a fait, que la renommée compte : le bilan du pli, ses gardiens et le bout — et ses exploits. */
-export function bilanDuPli(e: Pick<EtatDeLExpedition, 'bilan' | 'vaincus' | 'issue' | 'exploits'>): BilanDUneExpedition {
-  return { ...e.bilan, gardiens: e.vaincus, auBout: e.issue === 'au-bout' || e.issue === 'legendaire', exploits: [...e.exploits] }
+/** Ce qu'une expédition a fait, que la renommée compte : le bilan du pli, ses gardiens et le bout — ses exploits, et son cran d'Ascension. */
+export function bilanDuPli(e: Pick<EtatDeLExpedition, 'bilan' | 'vaincus' | 'issue' | 'exploits' | 'ascension'>): BilanDUneExpedition {
+  return {
+    ...e.bilan,
+    gardiens: e.vaincus,
+    auBout: e.issue === 'au-bout' || e.issue === 'legendaire',
+    exploits: [...e.exploits],
+    ...(e.ascension > 0 && { ascension: e.ascension }),
+  }
 }
+
+/** Le cran de l'Ascension d'un départ : celui qu'il a figé, au codex seulement — une expédition d'avant n'en a aucun. */
+export const ascensionDuDepart = (depart: Pick<DepartDExpedition, 'v' | 'codex' | 'ascension'>) =>
+  depart.v >= VERSION_DU_CODEX && depart.codex ? Math.min(Math.max(0, depart.ascension ?? 0), ASCENSION_MAX) : 0
 
 /**
  * L'état d'une expédition, replié de son départ, de ses gestes et de ses
@@ -1110,6 +1132,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   const avecEcus = depart.v >= 4
   // Le prototype des rencontres (v5) : le courage, une rencontre à chaque escale à question, des cartes à la place des jokers.
   const avecRencontres = depart.v >= 5
+  // L'Ascension (le codex) : ses crans durcissent le courage du départ, les adversaires et le repos.
+  const ascension = ascensionDuDepart(depart)
   const e: EtatDeLExpedition = {
     acte: 0,
     ici: null,
@@ -1159,6 +1183,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     affilee: 0,
     pari: regleOuverte(depart, 'pari'),
     fioles: [],
+    ascension,
   }
   // Le codex (v7) : ses offres ne tirent que les cartes qu'il a ouvertes, et les talismans attendent leur niveau — les fioles aussi.
   const avecLeCodex = depart.v >= VERSION_DU_CODEX && !!depart.codex
@@ -1224,7 +1249,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   /** Un tour s'ouvre sur la question qui attend : l'inspiration, la main — et ce que le tour d'avant lui a laissé. */
   const nouveauTour = () => {
     const r = e.rencontre!
-    r.tour = { phase: 'preparation', inspiration: INSPIRATION_PAR_QUESTION + r.suivant.inspiration, charge: r.suivant.charge, garde: 0, mise: 0, jouees: [], surLaQuestion: [] }
+    r.tour = { phase: 'preparation', inspiration: energieALAscension(ascension) + r.suivant.inspiration, charge: r.suivant.charge, garde: 0, mise: 0, jouees: [], surLaQuestion: [] }
     const deplus = r.suivant.cartes + (r.pouvoirs.includes('trois-tetes') ? 2 : 0)
     r.suivant = { cartes: 0, inspiration: 0, charge: 0 }
     piocher(cartesParQuestion(depart.v, e.acte) + deplus)
@@ -1234,12 +1259,13 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   /** Une rencontre commence : tout son paquet de combat dans la pioche — ce qu'une rencontre a épuisé revient à la suivante. */
   const commencerUneRencontre = (sorte: SorteDeRencontre, escale: string, categorie: string | null) => {
     e.rencontres++
+    const points = pointsDeLAdversaire(sorte, e.acte, ascension)
     e.rencontre = {
       sorte,
       escale,
-      sceaux: sceauxDe(sorte, e.acte),
-      max: sceauxDe(sorte, e.acte),
-      frappe: frappeDe(sorte, e.acte),
+      sceaux: points,
+      max: points,
+      frappe: frappeDeLAdversaire(sorte, e.acte, ascension),
       questions: 0,
       serie: 0,
       categorie,
@@ -1622,7 +1648,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
           e.justes++
           deSuite()
           const ici = e.ici ? escaleEnJeu(depart, e, e.ici) : undefined
-          if (ici?.sorte === 'source') e.courage = Math.min(COURAGE_MAX, e.courage! + COURAGE_D_UNE_SOURCE)
+          if (ici?.sorte === 'source') e.courage = Math.min(COURAGE_MAX, e.courage! + reposALAscension(COURAGE_D_UNE_SOURCE, ascension))
         } else e.affilee = 0
       }
       return true
@@ -1897,7 +1923,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   const camper = (cle: string | undefined) => {
     if (!e.campement) return
     if (cle === undefined) {
-      if (e.courage !== null) e.courage = Math.min(COURAGE_MAX, e.courage + COURAGE_D_UN_CAMPEMENT)
+      if (e.courage !== null) e.courage = Math.min(COURAGE_MAX, e.courage + reposALAscension(COURAGE_D_UN_CAMPEMENT, ascension))
       else e.vies = Math.min(VIES, e.vies + 1)
     } else if (!retirer(cle)) return
     e.campement = false
@@ -2512,9 +2538,15 @@ export interface CartesEnJeu {
    * niveau gagné. Ses exploits d'alors : la fin dit ceux qu'elle ajoute, et
    * le dos doré habille son paquet ; absents d'un départ d'avant les exploits.
    */
-  codex?: { niveau: number; regles: RegleDuCodex[]; renommee?: number; exploits?: CleDExploit[] }
+  codex?: { niveau: number; regles: RegleDuCodex[]; renommee?: number; exploits?: CleDExploit[]; ascensionOuverte?: number }
   /** Le dos de son paquet, choisi au départ (`DepartDExpedition.dos`) ; absent d'un départ d'avant les dos. */
   dos?: DosDuPaquet
+  /**
+   * Son cran de l'Ascension, figé au départ (`ascensionDuDepart`) : la barre
+   * et les règles le disent, et ce que rendent le campement et la source s'y
+   * lit (`reposALAscension`). Absent : aucun cran.
+   */
+  ascension?: number
 }
 
 /**
@@ -2532,6 +2564,8 @@ export interface CodexDeLaPage {
   regles: RegleDuCodex[]
   exploits: CleDExploit[]
   dos: DosDuPaquet[]
+  /** Le plus haut cran de l'Ascension qu'il a ouvert (`ascensionOuverte`) — 0 tant qu'aucune expédition n'est allée au bout. */
+  ascension: number
 }
 
 /** Ce que la page de l'expédition lit en arrivant. */

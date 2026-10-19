@@ -41,7 +41,17 @@
 // fort presque toujours, le faible une ou deux fois sur dix ; le gros pari
 // tombe à la deuxième ou la troisième pour tous, dès que le pari s'ouvre.
 //
-//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3] [--sans-fioles]
+// L'Ascension (le 19 octobre 2026) : `--ascension 3` joue chaque cas au cran
+// 3 ; `--ascensions` mesure, au codex entier, chaque cran l'un après l'autre —
+// ce que chacun retire au fort, pour qui elle est faite. Mesurée le même jour
+// (trois cents expéditions par case) : le fort va au bout 93 fois sur cent
+// sans cran, puis 88, 80, 75, 65 et 43 ; le moyen 56, puis 39, 23, 15, 7 et
+// 0. Aux premiers chiffres — 4 points, 2 de frappe, partir avec 40 de
+// courage —, les crans 1, 2 et 4 ne retiraient au fort que 1 à 4 points ;
+// partir avec 30 ne lui en retirait aucun — le campement et la source le
+// remontaient avant qu'il en manque : une énergie de moins, si.
+//
+//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3] [--sans-fioles] [--ascension 2] [--ascensions]
 import { CATEGORIES } from '../../shared/categories'
 import { SUJETS } from '../../shared/sujets'
 import { TAUX_DU_CALIBRAGE } from '../../shared/sentiers'
@@ -81,7 +91,7 @@ import {
   type QuestionPosee,
 } from '../../shared/expedition'
 import { COURAGE_MAX, FIOLES_MAX, INSPIRATION_PAR_QUESTION, carteDeRencontre, effaceesDuTour, type CleDeFiole } from '../../shared/rencontres'
-import { EXPLOITS, NIVEAUX, codexDuNiveau, niveauDe, renommeeDe, type CleDExploit } from '../../shared/codex'
+import { ASCENSION, ASCENSION_MAX, EXPLOITS, NIVEAUX, codexDuNiveau, niveauDe, renommeeDe, type CleDExploit } from '../../shared/codex'
 
 function option(nom: string, defaut: number): number {
   const i = process.argv.indexOf(`--${nom}`)
@@ -238,6 +248,9 @@ const COURAGE_POUR_BOIRE = 20
 const MEILLEURES_DU_CODEX = PREFERENCE_DU_CODEX.slice(0, 6)
 /** `--sans-fioles` : les mêmes départs sans leur règle — ce qu'elles changent. */
 const SANS_FIOLES = process.argv.includes('--sans-fioles')
+/** `--ascension 2` : les départs du codex à ce cran ; `--ascensions` : chaque cran, au codex entier. */
+const ASCENSION_MESUREE = Math.min(Math.max(0, option('ascension', 0)), ASCENSION_MAX)
+const TOUTES_LES_ASCENSIONS = process.argv.includes('--ascensions')
 
 /**
  * Une équipée mesurée : aux règles d'avant (v5, v6), les légendaires qu'il
@@ -252,7 +265,7 @@ interface Cas {
   exploits?: CleDExploit[]
 }
 
-function jouer(j: Joueur, graine: string, cas: Cas): Issue {
+function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESUREE): Issue {
   const sujets = SUJETS.map(s => s.cle).sort()
   // Les cartes du départ, comme le serveur les tire : à plus d'adversaires dès la version 6.
   const cartes: CarteDUnActe[] = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, undefined, VERSION >= 6 ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES))
@@ -279,6 +292,8 @@ function jouer(j: Joueur, graine: string, cas: Cas): Issue {
     chanceDeLaSource: chanceSur(j, 'moyen', null),
     ...((!codex || codex.regles.includes('fetiche')) && { fetiche }),
     ...(codex && { codex }),
+    // L'Ascension ne vit qu'au codex : le pli l'ignore ailleurs.
+    ...(codex && ascension > 0 && { ascension }),
   }
   const r = hasardDe(`${graine}:reponses`)
   const au = <T>(liste: readonly T[]) => liste[Math.floor(r() * liste.length)]
@@ -635,9 +650,29 @@ const CAS: Cas[] =
 // `--cas 0` : un seul cas — un niveau au codex, une équipée avant —, le temps d'essayer un réglage ; `--niveau 4` : ce niveau seul, sans légendaire.
 const UN_CAS = process.argv.includes('--cas') ? option('cas', 0) : null
 const UN_NIVEAU: Cas | null = process.argv.includes('--niveau') ? { nom: `Niveau ${option('niveau', 1)}, sans légendaire`, equipee: [], niveau: option('niveau', 1) } : null
-console.log(`Les rencontres (v${VERSION}) — ${EXPEDITIONS} expéditions par joueur et par équipée. Courage ${COURAGE_MAX}, ${VIES} vies d'avant en reflet.\n`)
+console.log(
+  `Les rencontres (v${VERSION}) — ${EXPEDITIONS} expéditions par joueur et par équipée. Courage ${COURAGE_MAX}, ${VIES} vies d'avant en reflet.${ASCENSION_MESUREE > 0 ? ` Au cran ${ASCENSION_MESUREE} de l'Ascension.` : ''}\n`,
+)
 const moyenne = (liste: Issue[], f: (i: Issue) => number) => (liste.length === 0 ? 0 : liste.reduce((s, i) => s + f(i), 0) / liste.length)
-for (const cas of UN_NIVEAU ? [UN_NIVEAU] : UN_CAS === null ? CAS : [CAS[UN_CAS]]) {
+/**
+ * L'Ascension, cran par cran (`--ascensions`) : au codex entier — celui qui
+ * va déjà au bout, pour qui elle est faite —, ce que chaque cran retire à
+ * chacun, et ce qu'il lui reste de courage quand il y arrive.
+ */
+if (VERSION >= 7 && TOUTES_LES_ASCENSIONS) {
+  const cas = UN_NIVEAU ?? CAS[UN_CAS ?? CAS.length - 1]
+  console.log(`L’Ascension — ${cas.nom}, cran par cran.`)
+  console.log(`  cran   ${JOUEURS.map(([nom]) => nom.padStart(7)).join('   ')}   questions du moyen   son courage au bout`)
+  for (let cran = 0; cran <= ASCENSION_MAX; cran++) {
+    const parJoueur = JOUEURS.map(([nom, theta]) => Array.from({ length: EXPEDITIONS }, (_, k) => jouer(unJoueur(theta, `calibrage:${nom}:${k}`), `calibrage:${k}`, cas, cran)))
+    const moyen = parJoueur[1]
+    console.log(
+      `  ${String(cran).padStart(4)}   ${parJoueur.map(issues => pc(issues.filter(i => i.auBout).length / EXPEDITIONS).padStart(7)).join('   ')}   ${virgule(moyenne(moyen, i => i.questions)).padStart(18)}   ${virgule(moyenne(moyen.filter(i => i.auBout), i => i.courage)).padStart(19)}   ${cran > 0 ? ASCENSION[cran - 1].regle : 'sans cran'}`,
+    )
+  }
+  console.log('')
+}
+for (const cas of TOUTES_LES_ASCENSIONS ? [] : UN_NIVEAU ? [UN_NIVEAU] : UN_CAS === null ? CAS : [CAS[UN_CAS]]) {
   console.log(cas.nom)
   console.log('  joueur   au bout   arrêté à l’acte 1 · 2 · 3   questions   rencontres   cartes jouées   écus   courage au bout   renommée   fioles bues')
   for (const [nom, theta] of JOUEURS) {
@@ -660,7 +695,7 @@ for (const cas of UN_NIVEAU ? [UN_NIVEAU] : UN_CAS === null ? CAS : [CAS[UN_CAS]
  * Ses exploits aussi : faits, leur carte s'ouvre à l'expédition suivante —
  * et quand chacun tombe, et pour combien de joueurs en vingt expéditions.
  */
-if (VERSION >= 7 && !UN_NIVEAU && UN_CAS === null) {
+if (VERSION >= 7 && !UN_NIVEAU && UN_CAS === null && !TOUTES_LES_ASCENSIONS) {
   const CARRIERES = Math.max(20, Math.round(EXPEDITIONS / 10))
   const LONGUEUR = 20
   const TRANCHES: [string, number, number][] = [

@@ -221,11 +221,13 @@ test('la page propose les rencontres ; le départ les prend — son courage, ses
   // d'adversaires —, et le codex de son niveau, figé au départ.
   assert.equal(depart.v, 7)
   assert.deepEqual(v.cartes?.parQuestion, [3, 4, 5], 'les règles disent ce que tire chaque acte : la page n’en recopie rien')
-  // Le départ fige ce que le codex ouvre ; de ses dos, il en prend un — au niveau 1, l'ordinaire.
+  // Le départ fige ce que le codex ouvre ; de ses dos, il en prend un — au niveau 1, l'ordinaire. Sans victoire, aucun cran de
+  // l'Ascension ouvert : la fin dira celui qu'une première victoire ouvre.
   const { dos: _dos, ...ouvert } = codexDuNiveau(1, [])
-  assert.deepEqual(depart.codex, { ...ouvert, renommee: 0 })
+  assert.deepEqual(depart.codex, { ...ouvert, renommee: 0, ascensionOuverte: 0 })
   assert.equal(depart.dos, 'ordinaire')
-  assert.deepEqual(v.cartes?.codex, { niveau: 1, regles: [], renommee: 0, exploits: [] })
+  assert.equal(depart.ascension, undefined)
+  assert.deepEqual(v.cartes?.codex, { niveau: 1, regles: [], renommee: 0, exploits: [], ascensionOuverte: 0 })
   assert.equal(depart.fetiche, undefined)
 })
 
