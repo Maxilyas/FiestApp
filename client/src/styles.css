@@ -5670,6 +5670,8 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .fin-legendaire h2 { font-size: 1.9rem; }
 .fin-legendaire .serif-note { margin: 0; }
 .fin-medaillon { font-size: 150px; line-height: 0; animation: revelation 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* La métamorphose d'un compagnon sort de son disque de tous côtés (`ENTIERE`, 22 % de plus) : sa place, pour qu'elle ne morde ni l'étiquette ni son nom. */
+.fin-metamorphose .fin-medaillon { margin: 34px 0 30px; }
 
 /* Un Divin descend : plus lentement qu'un légendaire, dans une lumière qui
    s'éteint à mesure qu'il apparaît. Une fois par vie, peut-être : on prend
@@ -9777,11 +9779,16 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-vc-ameliore { position: absolute; right: -7px; bottom: -7px; z-index: 1; display: grid; place-items: center; width: 22px; height: 22px; border: 2px solid var(--bg-raised); border-radius: 50%; background: #2f9a44; color: #fff; font-size: 1rem; font-weight: 800; line-height: 1; }
 .exp-vc-amelioree .exp-vc-valeur { border-color: #2f9a44; }
 .exp-vc-levee > .exp-vc-ameliore { right: -9px; bottom: -9px; width: 32px; height: 32px; font-size: 1.35rem; }
-/* Avant et après une amélioration, au campement et à l'échoppe : les deux cartes côte à côte, la flèche entre elles, ce qu'elle gagne dessous. */
+/* Avant et après une amélioration, au campement et à l'échoppe : les deux cartes côte à côte, la flèche entre elles, chacune sa
+   phrase dessous — sa colonne pas plus large qu'une carte et demie, que la phrase reste sous sa carte —, puis ce qu'elle gagne. */
 /* Le pied collé (`.exp-depart-pied`) tient jusqu'à deux boutons : la page défile assez pour la montrer au-dessus de lui. */
-.exp-avant-apres { display: grid; justify-items: center; gap: 6px; margin: 2px 0 4px; scroll-margin-bottom: 150px; }
-.exp-avant-apres-cartes { display: flex; align-items: center; gap: 10px; }
-.exp-avant-apres-cartes > .icon { flex: none; width: 22px; height: 22px; color: #2f9a44; }
+.exp-avant-apres { display: grid; justify-items: center; gap: 10px; margin: 2px 0 4px; scroll-margin-bottom: 150px; }
+.exp-avant-apres-cartes { justify-self: stretch; display: flex; align-items: flex-start; justify-content: center; gap: 8px; }
+.exp-avant-apres-carte { flex: 1 1 0; min-width: 0; max-width: 170px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* La flèche à mi-hauteur des cartes (132 pixels), quelle que soit la longueur des phrases dessous. */
+.exp-avant-apres-cartes > .icon { flex: none; width: 22px; height: 22px; margin-top: 55px; color: #2f9a44; }
+/* Des lignes équilibrées : sur une colonne de 140 pixels, « plus. » et « question » restaient seuls sur la leur. */
+.exp-avant-apres-dit { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 0.875rem; line-height: 1.35; text-align: center; text-wrap: balance; }
 .exp-avant-apres-gain { margin: 0; font-weight: 700; text-align: center; }
 /* Dans la main : cinq au plus en 360 pixels, sans un mot — son dessin, son coût, son chiffre. */
 .exp-vc-main { width: 100%; height: 88px; }
@@ -10915,6 +10922,8 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
 .niche-choix:disabled { opacity: 0.7; cursor: progress; }
 .niche-choix:not([aria-pressed='true']):hover .niche-cadre { border-color: rgba(244, 213, 141, 0.95); }
 .niche-mini { --l: 54px; position: relative; flex: none; width: var(--l); height: calc(var(--l) * 62 / 54); }
+/* Sa métamorphose pas encore vue : le point rouge des cases neuves de la loge (`.case-avatar.neuve`). */
+.niche-choix.neuve .niche-mini::after { content: ''; position: absolute; top: -2px; left: -2px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .niche-choix-nom { max-width: 100%; font-size: var(--t-label); line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
 .niche-choix[aria-pressed='true'] .niche-choix-nom { color: var(--accent-text); font-weight: 600; }
 .niche-mini-vide { display: grid; place-items: center; border: 1px dashed var(--edge-strong); border-radius: calc(var(--l) / 2) calc(var(--l) / 2) 12px 12px; color: var(--accent-text); }
@@ -11335,6 +11344,12 @@ body.avec-niche .duels-fermer { right: auto; left: 12px; }
 .qg-echec-entier { margin: 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.85rem; overflow-wrap: anywhere; }
 .qg-pile { display: flex; flex-direction: column; gap: 4px; margin: 0; padding-left: 1.8em; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; overflow-wrap: anywhere; }
 .qg-pile li::marker { color: var(--muted); }
+/* La page des erreurs : un mode en panne se voit d'un liseré rouge ; l'état d'une erreur, son icône devant ; un téléphone prévenu, son geste au bout. */
+.qg-erreurs-panne { border-color: var(--alert); }
+.qg-erreurs-etat { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.9rem; font-weight: 600; }
+.qg-erreurs-etat .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
+.qg-erreurs-etat-alerte .icon { color: var(--alert); }
+.qg-erreurs-telephone { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
 /* La légende dit aussi les chiffres du jour qu'on survole — aujourd'hui sinon : au toucher, pas d'infobulle. */
 .qg-legende { display: flex; flex-direction: column; gap: 6px; }
 .qg-legende-jour { font-size: 0.85rem; font-weight: 600; }

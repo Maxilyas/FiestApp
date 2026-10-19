@@ -13,6 +13,7 @@ import { VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
 import { QgJournal } from '../components/QgJournal'
 import { QgSoirees } from '../components/QgSoirees'
 import { QgServeur } from '../components/QgServeur'
+import { QgErreurs } from '../components/QgErreurs'
 import { QgActivite } from '../components/QgActivite'
 import { QgMaintenance } from '../components/QgMaintenance'
 import { QgAnnonces } from '../components/QgAnnonces'
@@ -32,8 +33,9 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * Le QG de l'administrateur (`/admin`), pour lui seul — le souhait du
  * propriétaire du 13 octobre 2026 : « un vrai QG pour monitorer tous les
  * modes de jeu et avoir un vrai impact dessus ». La vue d'ensemble d'abord
- * (`QgVueDEnsemble.tsx`), le journal de ses gestes (`QgJournal.tsx`) et la
- * santé du serveur sur sept jours (`QgServeur.tsx`), puis
+ * (`QgVueDEnsemble.tsx`), le journal de ses gestes (`QgJournal.tsx`), les
+ * erreurs à trier et les pannes (`QgErreurs.tsx`) et la santé du serveur
+ * sur sept jours (`QgServeur.tsx`), puis
  * une page par sujet, chacune à son adresse (`/admin#jour`) : l'activité de
  * tous les modes (`QgActivite.tsx`), les soirées
  * (`QgSoirees.tsx`), le quiz du jour, la campagne, les profils, les salons,
@@ -50,6 +52,7 @@ import type { QuizQuestionDef } from '../../../shared/library'
 
 type Ecran =
   | 'journal'
+  | 'erreurs'
   | 'serveur'
   | 'maintenance'
   | 'activite'
@@ -63,7 +66,7 @@ type Ecran =
   | 'economie'
   | 'signalements'
   | 'annonces'
-const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces']
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -74,6 +77,7 @@ function lireEcran(): Ecran | null {
 
 const TITRE: Record<Ecran, string> = {
   journal: 'Le journal',
+  erreurs: 'Les erreurs',
   serveur: 'Le serveur',
   maintenance: 'La maintenance',
   activite: 'L’activité',
@@ -102,6 +106,8 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
     pages: [
       { ecran: null, nom: 'Vue d’ensemble', icone: 'bar-chart' },
       { ecran: 'journal', nom: 'Journal', icone: 'list' },
+      // Avant le serveur : on y agit — trier, être prévenu —, quand l'autre se lit.
+      { ecran: 'erreurs', nom: 'Erreurs', icone: 'x-circle' },
       { ecran: 'serveur', nom: 'Serveur', icone: 'zap' },
       { ecran: 'maintenance', nom: 'Maintenance', icone: 'alert' },
     ],
@@ -295,6 +301,7 @@ export function AdminApp() {
   const instant = direct?.maintenant ?? vue?.maintenant
   const choses = lesChosesATraiter(vue?.aTraiter ?? null, direct, instant)
   const duServeur = choses.filter(c => c.ecran === 'serveur').length
+  const desErreurs = choses.filter(c => c.ecran === 'erreurs').length
   const reserve = vue?.aTraiter.reserve
   // Les questions à relire aux deux modes : la pastille de leur page les compte, pas la ligne qui les annonce.
   const signalees = vue ? vue.aTraiter.signalementsDuJour.questions + vue.aTraiter.signalementsDeLaCampagne.questions : 0
@@ -417,6 +424,7 @@ export function AdminApp() {
                   onClick={() => aller('signalements')}
                 />
                 <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
+                <Ligne icone="x-circle" nom="Les erreurs" valeur={desErreurs > 0 ? `${desErreurs} à traiter` : 'Trier, être prévenu'} onClick={() => aller('erreurs')} />
                 <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
                 <Ligne icone="alert" nom="La maintenance" valeur={enMaintenance || 'Bandeau, pages fermées, testeurs'} onClick={() => aller('maintenance')} />
                 <Ligne icone="megaphone" nom="Les annonces" valeur="Un mot à tous, des confettis" onClick={() => aller('annonces')} />
@@ -425,7 +433,9 @@ export function AdminApp() {
           </>
         )}
         {ecran === 'journal' && <QgJournal />}
-        {ecran === 'serveur' && <QgServeur />}
+        {/* Un tri change ce qui sonne : la ligne de « À traiter », et la pastille de la barre de côté, se relisent. */}
+        {ecran === 'erreurs' && <QgErreurs apresUnTri={relireLaVue} />}
+        {ecran === 'serveur' && <QgServeur versLesErreurs={() => aller('erreurs')} />}
         {/* Chaque geste rend l'état d'après : la barre de côté le compte aussitôt. La panne réglée, l'annonce qui le dit à tous. */}
         {ecran === 'maintenance' && <QgMaintenance onEtat={setMaintenance} versLesAnnonces={() => aller('annonces')} />}
         {ecran === 'annonces' && <QgAnnonces />}

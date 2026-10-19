@@ -8,11 +8,13 @@ import { espacesFines, formatNumber } from '../format'
 import {
   COMPAGNONS,
   JUSTES_DES_FORMES,
-  NOM_DE_LA_FORME,
+  MONTREE_DE_LA_METAMORPHOSE,
   NOM_D_UN_COMPAGNON_MAX,
   avecLui,
   compagnon as leCompagnon,
   formeDansLaNiche,
+  metamorphoseOuverte,
+  nomDeLaForme,
   prochaineForme,
   type CleDeCompagnon,
   type CompagnonAcquis,
@@ -60,6 +62,12 @@ const CADRAGES: Readonly<Record<string, { taille: number; gauche: number; haut: 
   'cp:tortue-jeune': { taille: 1.2953, gauche: -0.0944, haut: -0.0854, miroir: false },
   'cp:tortue-adulte': { taille: 1.4343, gauche: -0.1811, haut: -0.1256, miroir: false },
   'cp:tortue-ile': { taille: 1.369, gauche: -0.1558, haut: -0.1558, miroir: false },
+  // Leurs métamorphoses de lumière, posées à l'œil sur leurs humeurs (le 19
+  // octobre 2026) : le loup et le chat bondissent de face, la tortue garde ses
+  // fleurs — toutes regardent déjà la page.
+  'cp:loup-tempete': { taille: 1.9, gauche: -0.12, haut: -0.12, miroir: false },
+  'cp:chat-soleil': { taille: 1.8, gauche: -0.68, haut: 0, miroir: false },
+  'cp:tortue-fleurs': { taille: 1.6, gauche: -0.7, haut: -0.12, miroir: false },
 }
 
 /** Sans cadrage : le dessin entier, au fond de la niche. */
@@ -85,6 +93,9 @@ const SILHOUETTES: Readonly<Record<string, readonly [number, number, number, num
   'cp:tortue-jeune': [0.07, 0.178, 0.865, 0.869],
   'cp:tortue-adulte': [0.113, 0.061, 0.868, 0.888],
   'cp:tortue-ile': [0.072, 0.072, 0.915, 0.94],
+  'cp:loup-tempete': [0.071, 0.071, 0.965, 0.969],
+  'cp:chat-soleil': [0.018, 0.023, 0.954, 0.984],
+  'cp:tortue-fleurs': [0.004, 0.06, 0.996, 0.996],
 }
 
 /** Ce qui s'envole quand on le caresse : des cœurs et des étincelles, comme à la boutique — des emojis d'avant Unicode 13. */
@@ -673,26 +684,51 @@ export function Niche(vue: NicheVue) {
 /**
  * Ses formes atteintes, en petites niches : celle qu'on touche vit dans sa
  * niche. Seulement ce qu'il a — ce qui vient se voit à la boutique, comme
- * dans la loge (le choix du 13 octobre 2026).
+ * dans la loge (le choix du 13 octobre 2026) —, et sa métamorphose quand
+ * l'Éclat la lui a ouverte : une forme de plus, qui ne prend la niche qu'en
+ * la choisissant (le 19 octobre 2026, « je veux que ce soit un choix »).
+ * `neuves`, celles qu'il n'a pas encore vues : leur point rouge, comme dans la
+ * loge, pour qu'il les trouve.
  */
-export function SesFormes({ niche, busy, onMontrer }: { niche: NicheVue; busy: boolean; onMontrer: (rang: number) => void }) {
+export function SesFormes({
+  niche,
+  busy,
+  neuves = [],
+  onMontrer,
+}: {
+  niche: NicheVue
+  busy: boolean
+  neuves?: readonly string[]
+  /** Le rang de la forme touchée — `MONTREE_DE_LA_METAMORPHOSE` pour sa métamorphose. */
+  onMontrer: (montree: number) => void
+}) {
   const c = leCompagnon(niche.compagnon)
   const montree = formeDe(niche)
   if (!c || !montree) return null
+  const formes = [...c.formes.filter(f => f.rang <= niche.rang), ...(metamorphoseOuverte(niche) ? [c.lumiere] : [])]
   return (
     <div className="niche-choix-rangee">
-      {c.formes
-        .filter(f => f.rang <= niche.rang)
-        .map(f => {
-          const dessin = DESSINS[f.key]
-          const ici = f.rang === montree.rang
-          return (
-            <button key={f.key} type="button" className="niche-choix" aria-pressed={ici} aria-label={f.nom} disabled={busy} onClick={() => !ici && onMontrer(f.rang)}>
-              <span className={`niche-mini niche-${c.key}`}>{dessin && <Arche forme={f} dessin={dessin} />}</span>
-              <span className="niche-choix-nom">{sansArticle(f.nom)}</span>
-            </button>
-          )
-        })}
+      {formes.map(f => {
+        const dessin = DESSINS[f.key]
+        const ici = f.key === montree.key
+        const neuve = neuves.includes(f.key)
+        // Neuve, elle le dit après son nom, comme une case de la loge ; montrée, `aria-pressed` le dit seul (`design.test.ts`).
+        const nom = neuve ? `${f.nom}, nouveau` : f.nom
+        return (
+          <button
+            key={f.key}
+            type="button"
+            className={'niche-choix' + (neuve ? ' neuve' : '')}
+            aria-pressed={ici}
+            aria-label={nom}
+            disabled={busy}
+            onClick={() => !ici && onMontrer(f.metamorphose ? MONTREE_DE_LA_METAMORPHOSE : f.rang)}
+          >
+            <span className={`niche-mini niche-${c.key}`}>{dessin && <Arche forme={f} dessin={dessin} />}</span>
+            <span className="niche-choix-nom">{sansArticle(f.nom)}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -762,9 +798,9 @@ export function SesCompagnons({
  * « Le caresser », pour le plaisir — il en est ravi — ; « Le porter en
  * avatar », qui ouvre la loge avec lui à l'essai : la niche est sa maison,
  * l'avatar une autre affaire. Puis la forme qu'il montre dans la niche, parmi
- * celles qu'il a atteintes, et ses compagnons : celui qui y vit, les autres
- * à installer d'un toucher. Chaque geste rend le profil, que la niche prend
- * aussitôt (`porterNiche`).
+ * celles qu'il a atteintes — sa métamorphose comprise —, et ses compagnons :
+ * celui qui y vit, les autres à installer d'un toucher. Chaque geste rend le
+ * profil, que la niche prend aussitôt (`porterNiche`).
  */
 export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer: () => void }) {
   const boite = useRef<HTMLDivElement>(null)
@@ -774,6 +810,8 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
   const [calme] = useState(sansMouvement)
   // Ses compagnons et où chacun en est. `undefined` : en chemin ; `null` : rien à dire (une panne).
   const [siens, setSiens] = useState<CompagnonAcquis[] | null | undefined>(undefined)
+  // Ses métamorphoses pas encore vues, ni dans la loge ni ici : leur point rouge.
+  const [neuves, setNeuves] = useState<readonly string[]>([])
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
   const [nommer, setNommer] = useState(false)
@@ -786,6 +824,7 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
         if (!vivant) return
         // Un serveur d'avant ne dit que celui de la niche.
         setSiens(r.compagnons ?? (r.niche ? [r.niche] : []))
+        setNeuves(r.neuves ?? [])
         // Une forme atteinte depuis que la page a lu le profil, un réglage
         // fait sur un autre appareil : la niche les prend tout de suite.
         if (r.niche) porterNiche({ niche: r.niche.compagnon, compagnons: [r.niche] })
@@ -843,8 +882,12 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
     e.preventDefault()
     if (await faire(() => api.joueur.reglerCompagnon(niche.compagnon, { nom: brouillon }))) setNommer(false)
   }
-  // Sa plus haute forme n'est pas un choix : elle suit sa croissance.
-  const montrer = (rang: number) => void faire(() => api.joueur.reglerCompagnon(niche.compagnon, { montree: rang === niche.rang ? null : rang }))
+  // Sa plus haute forme n'est pas un choix : elle suit sa croissance. Sa
+  // métamorphose, montrée, est trouvée : le serveur la retient vue.
+  const montrer = async (montree: number) => {
+    const fait = await faire(() => api.joueur.reglerCompagnon(niche.compagnon, { montree: montree === niche.rang ? null : montree }))
+    if (fait && montree === MONTREE_DE_LA_METAMORPHOSE) setNeuves(n => n.filter(k => k !== c.lumiere.key))
+  }
   const installer = (cle: CleDeCompagnon) => void faire(() => api.joueur.enregistrer({ niche: cle }))
   return (
     <div className="carte-voile" onClick={onFermer}>
@@ -877,7 +920,7 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
             <div className="niche-fiche-texte">
               <span className="label">{c.nom}</span>
               <b className="niche-fiche-nom">{niche.nom ?? forme.nom}</b>
-              <span className="muted small">{`${niche.nom ? `${forme.nom} · ` : ''}${NOM_DE_LA_FORME[forme.rang]} · ${NOM_RARETE[forme.rarete].toLowerCase()}`}</span>
+              <span className="muted small">{`${niche.nom ? `${forme.nom} · ` : ''}${nomDeLaForme(forme)} · ${NOM_RARETE[forme.rarete].toLowerCase()}`}</span>
               {!nommer && (
                 <button type="button" className="niche-renommer" disabled={busy} onClick={ouvrirLeNom}>
                   <Icon name="edit" />
@@ -929,8 +972,16 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
                   )}
                 </span>
               </>
+            ) : forme.metamorphose ? (
+              <span className="muted small">{espacesFines('Sa métamorphose, que l’Éclat lui a ouverte.')}</span>
             ) : niche.rang === 3 ? (
-              <span className="muted small">{espacesFines('Sa forme ultime : son monde prend vie.')}</span>
+              <span className="muted small">
+                {espacesFines(
+                  metamorphoseOuverte(niche)
+                    ? 'Sa forme ultime : son monde prend vie.'
+                    : `Sa forme ultime : son monde prend vie. Si l’Éclat tombe sur ${c.le === 'la' ? 'elle' : 'lui'}, sa métamorphose s’ouvre.`,
+                )}
+              </span>
             ) : null}
           </div>
           <div className="niche-fiche-gestes">
@@ -952,7 +1003,7 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
               </a>
             </div>
             {niche.rang > 0 ? (
-              <SesFormes niche={niche} busy={busy} onMontrer={montrer} />
+              <SesFormes niche={niche} busy={busy} neuves={neuves} onMontrer={montrer} />
             ) : (
               <p className="muted small">{espacesFines(`${Il} en prendra trois autres en grandissant : chacune pourra vivre ici.`)}</p>
             )}

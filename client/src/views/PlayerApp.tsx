@@ -314,7 +314,7 @@ function SalleDuJoueur() {
   const sienDeLaNiche = profil?.compagnons?.find(c => c.compagnon === niche)
   useEffect(() => {
     if (presente) porterNiche(niche && sienDeLaNiche ? { niche, compagnons: [sienDeLaNiche] } : null)
-  }, [presente, niche, sienDeLaNiche?.rang, sienDeLaNiche?.montree, sienDeLaNiche?.nom]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [presente, niche, sienDeLaNiche?.rang, sienDeLaNiche?.montree, sienDeLaNiche?.nom, sienDeLaNiche?.eclat]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // L'expérience créditée en fin de quiz : le serveur renvoie le profil à
   // jour, et le niveau affiché sur ce téléphone monte pendant la fête — pas

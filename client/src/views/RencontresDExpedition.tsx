@@ -995,8 +995,11 @@ const regleDuCycleEnQuestion = (mainMax: number) =>
 /**
  * Ce que l'amélioration fera d'une carte, avant qu'on la choisisse — au
  * campement, à l'échoppe (le jeu complet) : la carte, puis la même améliorée,
- * côte à côte — son chiffre, son coût, son « + » —, et ce qu'elle y gagne en
- * mots. Comme la forge de Slay the Spire, on voit avant d'y passer.
+ * côte à côte — son chiffre, son coût, son « + » —, chacune sa phrase entière
+ * dessous, et ce qu'elle y gagne en mots. Comme la forge de Slay the Spire, on
+ * voit avant d'y passer — et l'on lit ce qu'on améliore : « +4 › +6 » et
+ * « +6 au lieu de +4 » seuls ne disaient ni ce que fait la carte, ni ce que
+ * fera son amélioration (un retour du 19 octobre 2026).
  * Elle paraît sous la rangée, hors de l'écran en 360 × 640 et sous le bouton
  * collé du pied : la carte touchée, la page défile jusqu'à elle.
  */
@@ -1012,12 +1015,32 @@ export function AvantApres({ cle }: { cle: string }) {
   if (!avant?.amelioration || !apres) return null
   return (
     <div ref={ici} className="exp-avant-apres" role="group" aria-label={`${avant.nom}, améliorée : ${avant.amelioration.gain}`}>
-      <div className="exp-avant-apres-cartes" aria-hidden="true">
-        <CarteDessinee c={avant} taille="rangee" />
+      <div className="exp-avant-apres-cartes">
+        <CeQuElleFait c={avant} />
         <Icon name="chevron-right" />
-        <CarteDessinee c={apres} taille="rangee" />
+        <CeQuElleFait c={apres} />
       </div>
       <p className="exp-avant-apres-gain">{espacesFines(avant.amelioration.gain)}</p>
+    </div>
+  )
+}
+
+/**
+ * Une carte de l'avant et de l'après, et dessous ce qu'elle fait : sa phrase,
+ * puis son coût, quand elle se joue, et si elle ne sert qu'une fois — une
+ * amélioration « Gratuite » ou qui la fait revenir garde la même phrase, et
+ * c'est dessous qu'elle change.
+ */
+function CeQuElleFait({ c }: { c: CarteDeRencontre }) {
+  const fois = c.unique ? 'une fois par expédition' : c.epuisement ? 'une fois par rencontre' : null
+  return (
+    <div className="exp-avant-apres-carte">
+      <CarteDessinee c={c} taille="rangee" />
+      <p className="exp-avant-apres-dit">
+        <span className="sr-only">{`${c.nom} : `}</span>
+        <span>{espacesFines(c.effet)}</span>
+        <span className="muted small">{espacesFines([coutDit(c), MOMENT_COURT[c.moment], fois].filter(Boolean).join(' · '))}</span>
+      </p>
     </div>
   )
 }

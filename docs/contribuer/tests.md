@@ -286,6 +286,8 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/journal.test.ts` — le journal des gestes de l'administrateur.
 - `server/test/qg-soirees.test.ts` — les soirées au QG.
 - `server/test/qg-serveur.test.ts` — la santé du serveur sur sept jours.
+- `server/test/qg-erreurs.test.ts` — les erreurs au QG : le tri relu sur les versions — réglée, revenue, ignorée —, l'alerte qui ne compte que celles à regarder, et la panne d'un mode qui sonne sur le téléphone de l'administrateur, puis son retour, redémarrage compris.
+- `server/test/veille.test.ts` — la veille des modes de jeu, l'horloge à la main : quand un mode tombe, quand il est rétabli, ce que la notification dit.
 - `server/test/qg-charge.test.ts` — ce que les listes du QG coûtent à Turso : les quiz de tous les espaces d'une seule lecture.
 - `server/test/qg-jour.test.ts` — le quiz du jour au QG : le tirage question par question, le classement du mois, les séries, le rappel du soir.
 - `server/test/campagne-contredites.test.ts` — ce que les réponses contredisent, au QG : les plus nettes d'abord, et « Reclasser » à la difficulté qu'elles disent.
@@ -388,7 +390,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/corrige.test.ts` — le corrigé d'une question.
 - `server/test/laurier.test.ts` — le laurier du vainqueur d'hier.
 - `server/test/soiree-et-jour.test.ts` — la soirée et le quiz du jour se parlent.
-- `server/test/rappel.test.ts` — le rappel du soir, seule notification.
+- `server/test/rappel.test.ts` — le rappel du soir, seule notification d'un joueur — et le service worker sous `/admin`, celui des alertes du QG. Le faux service de push et ses téléphones vivent dans `server/test/push.ts`.
 - `server/test/installation.test.ts` — installer l'application.
 
 ### La campagne et sa base

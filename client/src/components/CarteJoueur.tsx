@@ -4,7 +4,7 @@ import type { BadgePorte } from '../../../shared/badges'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { brancheDe, portrait as portraitDe } from '../../../shared/branches'
-import { compagnonDe, formeDeCompagnon, NOM_DE_LA_FORME } from '../../../shared/compagnons'
+import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { NOM_FINITION } from '../../../shared/profil'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { nomDuTitre } from '../../../shared/sentiers'
@@ -438,7 +438,7 @@ function LegendeDeLAvatar({ carte }: { carte: CarteDeJoueur }) {
       : pr && dessinDuPortrait(dessins, pr.key)
         ? { famille: `${brancheDe(pr).nom} · ${brancheDe(pr).categorie}`, classe: 'muted', nom: pr.nom }
         : cp && dessins.Compagnon
-          ? { famille: `${compagnonDe(cp).nom} · ${NOM_DE_LA_FORME[cp.rang]}`, classe: 'muted', nom: cp.nom }
+          ? { famille: `${compagnonDe(cp).nom} · ${nomDeLaForme(cp)}`, classe: 'muted', nom: cp.nom }
           : null
   const finition = !d && carte.finition && carte.finition !== 'mat' ? `Finition ${NOM_FINITION[carte.finition]}` : null
   const parure = [finition, !d && carte.eclat && 'éclaté'].filter(Boolean).join(' · ')

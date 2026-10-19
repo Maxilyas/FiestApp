@@ -23,7 +23,7 @@ import { LEGENDAIRES } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
 import { BRANCHES, PORTRAITS } from '../../shared/branches'
 import { AVATARS, COLLECTION } from '../../shared/avatars'
-import { COMPAGNONS, FORMES_DES_COMPAGNONS } from '../../shared/compagnons'
+import { COMPAGNONS, FORMES_DES_COMPAGNONS, METAMORPHOSES } from '../../shared/compagnons'
 import { hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 
 /** Un haut fait du catalogue, tel que la page du profil le reçoit. */
@@ -52,14 +52,15 @@ const LEA = {
 }
 
 test('l’album : tous les avatars qui se gagnent, une fois chacun, rangés en six pages', () => {
-  // Les légendaires, les portraits, les formes des compagnons, les emojis de
-  // collection, les Divins — pas ceux de l'inscription, à tout le monde.
-  assert.equal(AVATARS_DE_L_ALBUM.length, LEGENDAIRES.length + PORTRAITS.length + FORMES_DES_COMPAGNONS.length + COLLECTION.length + DIVINS.length)
+  // Les légendaires, les portraits, les formes des compagnons et leurs
+  // métamorphoses, les emojis de collection, les Divins — pas ceux de
+  // l'inscription, à tout le monde.
+  assert.equal(AVATARS_DE_L_ALBUM.length, LEGENDAIRES.length + PORTRAITS.length + FORMES_DES_COMPAGNONS.length + METAMORPHOSES.length + COLLECTION.length + DIVINS.length)
   assert.equal(new Set(AVATARS_DE_L_ALBUM.map(a => a.cle)).size, AVATARS_DE_L_ALBUM.length)
   for (const emoji of AVATARS) assert.equal(avatarDeLAlbum(emoji), undefined, emoji)
   const parPage = Object.fromEntries(RARETES_D_AVATAR.map(r => [r, AVATARS_DE_L_ALBUM.filter(a => a.rarete === r).length]))
-  // Trois compagnons, une forme sur chacune des pages commune, rare, épique et légendaire.
-  assert.deepEqual(parPage, { commune: 21, peucommune: 18, rare: 27, epique: 15, legendaire: 41, divin: 6 })
+  // Trois compagnons, une forme sur chacune des pages commune, rare, épique et légendaire — et leur métamorphose, légendaire.
+  assert.deepEqual(parPage, { commune: 21, peucommune: 18, rare: 27, epique: 15, legendaire: 44, divin: 6 })
 })
 
 test('la rareté dit ce qu’un avatar demande : plus haut sur le sentier, plus rare ; sa forme ultime, légendaire', () => {
@@ -117,8 +118,9 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
   for (const p of PORTRAITS) assert.deepEqual(avatarDeLAlbum(p.key)!.lieux, ['sentiers'], p.key)
   for (const c of COLLECTION) assert.deepEqual(avatarDeLAlbum(c.emoji)!.lieux, ['niveau'], c.emoji)
   for (const d of DIVINS) assert.deepEqual(avatarDeLAlbum(d.key)!.lieux, [], d.key)
-  // Un compagnon s'achète ; ses formes suivantes, dans sa niche.
+  // Un compagnon s'achète ; ses formes suivantes, dans sa niche ; sa métamorphose, par l'Éclat.
   for (const f of FORMES_DES_COMPAGNONS) assert.deepEqual(avatarDeLAlbum(f.key)!.lieux, f.rang === 0 ? ['boutique'] : ['boutique', 'niche'], f.key)
+  for (const f of METAMORPHOSES) assert.deepEqual(avatarDeLAlbum(f.key)!.lieux, ['boutique', 'niche', 'eclat'], f.key)
   // D'une phrase, à l'oreille : ses voies sont l'une ou l'autre, les étapes d'une voie toutes à la fois.
   const dit = (cle: string) => ouIlSeGagne(avatarDeLAlbum(cle)!)
   assert.equal(dit('lg:licorne'), 'en soirée ou au quiz du jour')
@@ -137,6 +139,7 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
   assert.equal(dit('cp:chat-adulte'), 'en boutique, puis à 300 bonnes réponses avec lui')
   // Chacun à son genre : « en le portant » se lisait de travers sous la tortue.
   assert.equal(dit('cp:tortue-ile'), 'en boutique, puis à 500 bonnes réponses avec elle')
+  assert.equal(dit('cp:tortue-fleurs'), 'en boutique, puis à 500 bonnes réponses avec elle et par l’Éclat')
 })
 
 test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun dans l’ordre du catalogue — le compte de la collection est le sien', () => {
@@ -144,7 +147,7 @@ test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun d
   assert.deepEqual(
     pages.map(p => `${p.rarete} ${p.acquis}/${p.total}`),
     // Le blaireau (palier 4) et l'écureuil (palier 2) ; cinq emojis jusqu'au niveau 8 ; le Phénix ; le Séraphin.
-    ['commune 6/21', 'peucommune 1/18', 'rare 0/27', 'epique 0/15', 'legendaire 1/41', 'divin 1/6'],
+    ['commune 6/21', 'peucommune 1/18', 'rare 0/27', 'epique 0/15', 'legendaire 1/44', 'divin 1/6'],
   )
   const commune = pages[0].avatars
   assert.deepEqual(
@@ -153,17 +156,18 @@ test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun d
   )
   assert.ok(commune.findIndex(a => !a.aLui) === 6 && commune.slice(6).every(a => !a.aLui), 'ce qui reste vient ensuite')
   // Le Phénix d'abord, puis les vingt-cinq autres légendaires, puis les douze
-  // formes ultimes des sentiers et les trois des compagnons.
+  // formes ultimes des sentiers, et les trois des compagnons, chacune suivie
+  // de sa métamorphose.
   const legendaires = pages[4].avatars.map(a => a.avatar.cle)
   assert.equal(legendaires[0], 'lg:phenix')
   assert.deepEqual(legendaires.slice(1, 26), LEGENDAIRES.filter(l => l.key !== 'lg:phenix').map(l => l.key))
   assert.deepEqual(legendaires.slice(26, 38), BRANCHES.map(b => b.portraits[5].key))
-  assert.deepEqual(legendaires.slice(38), COMPAGNONS.map(c => c.formes[3].key))
+  assert.deepEqual(legendaires.slice(38), COMPAGNONS.flatMap(c => [c.formes[3].key, c.lumiere.key]))
   // Une seule règle compte l'album, sa ligne de « Ma collection » et son total.
-  assert.deepEqual(compteDeLAlbum(LEA), { acquis: 9, total: 128 })
+  assert.deepEqual(compteDeLAlbum(LEA), { acquis: 9, total: 131 })
   assert.deepEqual(compteDeLAlbum(LEA), { acquis: pages.reduce((s, p) => s + p.acquis, 0), total: pages.reduce((s, p) => s + p.total, 0) })
   const avatars = compteDeLaCollection({ ...LEA, ouvertes: [], prix: [], ecussons: [] } as any).familles.find(f => f.famille === 'avatars')!
-  assert.deepEqual(avatars.parties, [{ partie: 'avatars', acquis: 9, total: 128 }])
+  assert.deepEqual(avatars.parties, [{ partie: 'avatars', acquis: 9, total: 131 }])
 })
 
 test('les compagnons dans l’album : chaque forme à sa page, achetées en boutique, puis grandies dans sa niche', () => {
@@ -181,7 +185,7 @@ test('les compagnons dans l’album : chaque forme à sa page, achetées en bout
     compagnons: [{ compagnon: 'loup' as const, rang: 1 }],
     boutique: { confettis: { gagnes: 0, depenses: 0, solde: 0 }, possedes: [], porte: null, jour: '2026-10-13', compagnons: [{ compagnon: 'loup' as const, rang: 1, justes: 162 }] },
   }
-  assert.deepEqual(compteDeLAlbum(AVEC_LE_LOUP), { acquis: 11, total: 128 })
+  assert.deepEqual(compteDeLAlbum(AVEC_LE_LOUP), { acquis: 11, total: 131 })
   assert.equal(pageDuDebut(AVEC_LE_LOUP), 'rare', 'il porte le jeune loup : la page rare')
   assert.equal(pageDuProchain(LEA, 'compagnon'), 'commune', 'aucun acheté : la première forme de chacun')
   assert.equal(pageDuProchain(AVEC_LE_LOUP, 'compagnon'), 'commune', 'le chat et la tortue restent à acheter')
@@ -207,6 +211,23 @@ test('les compagnons dans l’album : chaque forme à sa page, achetées en bout
     requis: 100,
     dit: '100 sur 100',
   })
+  // Sa métamorphose : l'acheter, sa forme ultime, puis l'Éclat en portant l'une de ses formes — un tirage, sans jauge.
+  const [[, ultime, eclat]] = voiesDeLAvatar('cp:loup-tempete', AVEC_LE_LOUP)
+  assert.equal(ultime.titre, 'Dans sa niche : 500 bonnes réponses')
+  assert.deepEqual(eclat, {
+    lieu: 'eclat',
+    titre: 'Par l’Éclat : en portant l’une de ses formes',
+    regle: 'Une chance sur 40 par soirée à deux ou quiz du jour, sur 20 au défi de la semaine',
+    tenue: false,
+    progres: null,
+  })
+  // L'Éclat tombé — sur le louveteau, il y a longtemps — : tenu ; sa métamorphose s'ouvre à sa forme ultime, et pas avant.
+  const ECLATE = { ...AVEC_LE_LOUP, compagnons: [{ compagnon: 'loup' as const, rang: 1, eclat: true as const }] }
+  assert.equal(voiesDeLAvatar('cp:loup-tempete', ECLATE)[0][2].tenue, true)
+  assert.deepEqual(compteDeLAlbum(ECLATE), { acquis: 11, total: 131 })
+  const ULTIME = { ...ECLATE, compagnons: [{ compagnon: 'loup' as const, rang: 3, eclat: true as const }] }
+  assert.deepEqual(compteDeLAlbum(ULTIME), { acquis: 14, total: 131 }, 'ses quatre formes, et sa métamorphose')
+  assert.ok(pagesDeLAlbum(ULTIME)[4].avatars.some(a => a.aLui && a.avatar.cle === 'cp:loup-tempete'))
 })
 
 test('l’album s’ouvre sur la page de ce qu’il porte, sinon sur la première où il reste à gagner', () => {

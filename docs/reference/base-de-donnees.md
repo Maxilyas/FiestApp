@@ -308,7 +308,7 @@ Les sabliers qui protègent la série du quiz du jour, une ligne par sablier.
 
 Les compagnons achetés, la plus haute forme que chacun a atteinte, et ce qu'il en a réglé depuis sa niche.
 
-- **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date) ; `nom`, le nom qu'il lui a donné (NULL : aucun ; à lui seul, rien ne le montre à la salle), et `montree`, le rang de la forme qu'il montre dans sa niche quand ce n'est pas la plus haute (NULL : la plus haute, qui suit sa croissance — une forme atteinte la remet à NULL).
+- **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date) ; `nom`, le nom qu'il lui a donné (NULL : aucun ; à lui seul, rien ne le montre à la salle), et `montree`, le rang de la forme qu'il montre dans sa niche quand ce n'est pas la plus haute, ou 4 pour sa métamorphose (`MONTREE_DE_LA_METAMORPHOSE` : relu à sa forme ultime, montré tant que l'Éclat brille sur lui) (NULL : la plus haute, qui suit sa croissance — une forme atteinte la remet à NULL).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche`, sauf `installer: false` —, la croissance, `reglerCompagnon` pour `nom` et `montree`).
 - **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`).
@@ -885,6 +885,36 @@ Chaque démarrage du serveur, et son extinction propre.
 - **Écrite par** : `SanteDuServeur` — une fois le port ouvert, puis à chaque relevé, et à l'arrêt.
 - **Lue par** : `SanteDuServeur` (la raison de chaque démarrage : réveil, mise en ligne, relance, redémarrage après un arrêt net ; l'alerte d'arrêt net).
 - **Effacée par** : le relevé : ce qui n'a plus donné signe de vie depuis huit jours.
+
+### `qg_erreurs`
+
+Le tri des erreurs serveur (`/admin#erreurs`) : ce que l'administrateur a dit de chacune — une ligne par erreur triée, les mêmes fondues (`cleDeLErreur`) ; sans ligne, elle est à regarder.
+
+- **Colonnes clés** : `cle` (la clé : sa source, sa sorte, son message sans ses nombres), `etat` (`reglee` ou `ignoree`), `note` (le mot qui l'accompagne, 80 caractères au plus), `depuis`, `versions` (JSON : les versions qui l'avaient vue tomber quand on l'a réglée — y retomber n'est pas revenir).
+- **Espace** : non — le serveur est le même pour tous.
+- **Écrite par** : `SanteDuServeur` (`trier`), à chaque geste de la page des erreurs.
+- **Lue par** : `SanteDuServeur`, une fois au démarrage, puis tenue en mémoire : la page des erreurs, et l'alerte de la vue d'ensemble, qui ne compte que celles à regarder.
+- **Effacée par** : « Remettre à regarder » efface sa ligne. Elle survit aux huit jours du relevé : une erreur ignorée qui retombe dans un mois le reste.
+
+### `qg_alertes_telephones`
+
+Les téléphones de l'administrateur que la panne d'un mode de jeu fait sonner (`core/alertes.ts`).
+
+- **Colonnes clés** : `endpoint` (la clé : l'adresse d'abonnement que son service de push lui a donnée — jamais rendue au QG, qui ne voit que son empreinte), `p256dh`, `auth` (ses clés de chiffrement), `depuis`, `vu_le` (son dernier abonnement : les cinq plus récents restent).
+- **Espace** : non — ni une session : une session du QG qui expire ne doit pas faire taire une panne.
+- **Écrite par** : `AlertesDuQg` (`abonner`), depuis la page des erreurs ou le service worker qui renouvelle son abonnement.
+- **Lue par** : `AlertesDuQg` — à chaque panne, à chaque retour, à l'essai.
+- **Effacée par** : « Retirer » au QG ; un service de push qui le dit désabonné (404, 410) ; un sixième, qui remplace le plus ancien.
+
+### `qg_pannes`
+
+Les modes de jeu en panne, dits au téléphone de l'administrateur et pas encore rétablis.
+
+- **Colonnes clés** : `mode` (la clé : `jour`, `campagne`, `defi`, `duels`, `expedition`, `soirees`, `boutique`, `accueil`), `depuis`, `echecs`, `dernier_echec`, `source` (la route qui l'a fait tomber).
+- **Espace** : non.
+- **Écrite par** : `AlertesDuQg` (`garderLesPannes`), quand la veille dit une panne (`core/veille.ts`).
+- **Lue par** : `AlertesDuQg`, au démarrage : la veille du serveur neuf les hérite, déjà dites — la réparation se met en ligne par un redémarrage, et son retour doit se dire.
+- **Effacée par** : le retour du mode (`oublierLesPannes`).
 
 ### `qg_maintenance`
 

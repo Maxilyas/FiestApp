@@ -19,7 +19,8 @@
 // échoppe achetée, celle d'un coffre prise, puis levée dans la barre et bue.
 // L'Ascension : ses crans au départ, celui qu'elle choisit, sur le plan.
 // Les cartes améliorées (le jeu complet) : leur section des règles, le
-// campement qui en améliore une — avant et après, côte à côte —, la carte
+// campement qui en améliore une — avant et après, côte à côte, ce que fait
+// chacune, sur l'écran que voit le joueur et en entier —, la carte
 // « + » dans la main et levée, une offre qui en propose une, l'échoppe.
 // Le plan fondu dans l'écran : une escale plus loin touchée sur le plan, qui se
 // dit sous les cartes ; un mélange, ses catégories en emblèmes et nommées.
@@ -492,6 +493,9 @@ try {
         await ((await concentration.count()) ? concentration : page.locator('.exp-camper .exp-rangee-carte')).first().click()
         await page.waitForSelector('.exp-avant-apres')
         await largeur('l’amélioration au campement')
+        // L'écran que voit le joueur, la carte touchée : la page a défilé jusqu'à l'avant et l'après, au-dessus du pied collé —
+        // avant la photo pleine page, qui retaille la fenêtre.
+        await unePhoto('6d-campement-ameliorer-ecran')
         await unePhoto('6d-campement-ameliorer', true)
       } else if (!repos) {
         await page.locator('.exp-camper .exp-choix-ligne', { hasText: 'Retirer' }).click()

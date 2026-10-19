@@ -94,6 +94,7 @@ import { brancheDe, deLaBranche, nomDansLaPhrase, portrait, portraitsOuverts, ty
 import {
   COMPAGNONS,
   JUSTES_DES_FORMES,
+  MONTREE_DE_LA_METAMORPHOSE,
   NOM_D_UN_COMPAGNON_MAX,
   PRIX_D_UN_COMPAGNON,
   compagnon as compagnonDuCatalogue,
@@ -101,10 +102,14 @@ import {
   avecLui,
   compagnonDeLaNiche,
   formeDeCompagnon,
+  formesOuvertes,
+  metamorphoseOuverte,
   rangAtteint,
   type CleDeCompagnon,
+  type Compagnon,
   type CompagnonAcquis,
   type CompagnonPossede,
+  type FormeDeCompagnon,
 } from '../../../shared/compagnons'
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
 import { PRIX_D_UN_SABLIER, SABLIERS_MAX, jourAvant, jourDe, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
@@ -414,7 +419,7 @@ function lireLigneDeMission(r: Record<string, unknown>): LigneDeMission {
 interface SienEnMemoire {
   rang: number
   nom: string | null
-  /** La forme qu'il montre dans sa niche, d'avant sa plus haute ; null : la plus haute. */
+  /** La forme qu'il montre dans sa niche, d'avant sa plus haute, ou sa métamorphose (`MONTREE_DE_LA_METAMORPHOSE`) ; null : la plus haute. */
   montree: number | null
 }
 
@@ -424,11 +429,15 @@ function lireCompagnon(siens: Map<CleDeCompagnon, SienEnMemoire> | undefined, r:
   if (!siens || !c) return
   const rang = Math.max(0, Math.min(c.formes.length - 1, Number(r.rang) || 0))
   const montree = r.montree == null ? null : Number(r.montree)
+  // Sa plus haute, ou une forme qu'il n'a pas : ce n'est plus un choix. Sa
+  // métamorphose, si, à sa forme ultime : elle ne se montre que tant que
+  // l'Éclat brille sur lui (`formeDansLaNiche`), que ce démarrage n'a peut-être
+  // pas encore lu — et revient avec lui.
+  const choisie = montree !== null && Number.isInteger(montree) && ((montree >= 0 && montree < rang) || (montree === MONTREE_DE_LA_METAMORPHOSE && rang >= c.lumiere.rang))
   siens.set(c.key, {
     rang,
     nom: typeof r.nom === 'string' && r.nom ? r.nom : null,
-    // Sa plus haute, ou une forme qu'il n'a pas : ce n'est plus un choix.
-    montree: montree !== null && Number.isInteger(montree) && montree >= 0 && montree < rang ? montree : null,
+    montree: choisie ? montree : null,
   })
 }
 
@@ -1806,13 +1815,27 @@ export class ProfileStore {
     return [...annonces, ...mercis].sort((a, b) => b.le - a.le)
   }
 
-  /** Ses compagnons achetés, la plus haute forme de chacun, son nom et la forme qu'il montre : de mémoire, dans l'ordre du catalogue. */
+  /**
+   * Ses compagnons achetés, la plus haute forme de chacun, son nom, la forme
+   * qu'il montre et son Éclat — qui vaut pour toutes ses formes, et ouvre sa
+   * métamorphose à la forme ultime : de mémoire, dans l'ordre du catalogue.
+   */
   compagnonsOf(id: string): CompagnonPossede[] {
     const siens = this.compagnons.get(id)
     if (!siens?.size) return []
     return COMPAGNONS.flatMap(c => {
       const s = siens.get(c.key)
-      return s ? [{ compagnon: c.key, rang: s.rang, ...(s.nom && { nom: s.nom }), ...(s.montree !== null && { montree: s.montree }) }] : []
+      return s
+        ? [
+            {
+              compagnon: c.key,
+              rang: s.rang,
+              ...(s.nom && { nom: s.nom }),
+              ...(s.montree !== null && { montree: s.montree }),
+              ...(this.brilleChez(id, c.formes[0].key) && { eclat: true as const }),
+            },
+          ]
+        : []
     })
   }
 
@@ -1962,14 +1985,16 @@ export class ProfileStore {
     if (patch.nom !== undefined) champs.nom = nomDeCompagnon(patch.nom)
     if (patch.montree === null) champs.montree = null
     else if (patch.montree !== undefined) {
-      const f = typeof patch.montree === 'number' && Number.isInteger(patch.montree) ? c.formes[patch.montree] : undefined
+      const n = typeof patch.montree === 'number' && Number.isInteger(patch.montree) ? patch.montree : -1
+      const f = n === MONTREE_DE_LA_METAMORPHOSE ? c.lumiere : c.formes[n]
       if (!f) throw new Error('Cette forme n’existe pas')
       // Vérifiée sur ses bonnes réponses du moment, comme une forme qu'on
       // porte : celle qu'il vient d'atteindre se montre sans attendre.
       const sien = (await this.compagnonsDe(rec)).find(a => a.compagnon === c.key)
-      if (!sien || f.rang > sien.rang) throw new Error(`${f.nom} arrive à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses données ${avecLui(c)}`)
-      // Sa plus haute n'est pas un choix : elle suivra sa croissance.
-      champs.montree = f.rang < sien.rang ? f.rang : null
+      this.verifierLaForme(f, c, sien)
+      // Sa plus haute n'est pas un choix : elle suivra sa croissance. Sa
+      // métamorphose, si : elle ne se gagne pas en grandissant.
+      champs.montree = f.metamorphose ? MONTREE_DE_LA_METAMORPHOSE : f.rang < sien.rang ? f.rang : null
     }
     const colonnes = (['nom', 'montree'] as const).filter(k => k in champs)
     if (colonnes.length === 0) return rec
@@ -1979,7 +2004,52 @@ export class ProfileStore {
     })
     const s = this.compagnons.get(id)?.get(c.key)
     if (s) Object.assign(s, champs)
+    // Montrée dans sa niche, sa métamorphose est trouvée : ni « Ma niche » ni
+    // la loge ne la disent plus nouvelle. Une base qui hoquette ici ne défait
+    // pas ce qu'il vient de régler.
+    if (champs.montree === MONTREE_DE_LA_METAMORPHOSE) {
+      await this.voirDansLaLoge(id, c.lumiere.key).catch(e => console.error('[profil] loge illisible :', e))
+    }
     return rec
+  }
+
+  /**
+   * Refuse en clair une forme qu'il n'a pas, à porter ou à montrer : un
+   * compagnon pas adopté, une forme pas encore atteinte — sa métamorphose, qui
+   * demande aussi l'Éclat sur lui (`metamorphoseOuverte`).
+   */
+  private verifierLaForme(f: FormeDeCompagnon, c: Compagnon, sien: CompagnonPossede | undefined): asserts sien is CompagnonPossede {
+    if (!sien) throw new Error(`${c.nom} s’achète d’abord, à la boutique`)
+    if (f.metamorphose) {
+      if (!metamorphoseOuverte(sien)) throw new Error(`${f.nom} s’ouvre à sa forme ultime, quand l’Éclat tombe sur ${c.le === 'la' ? 'elle' : 'lui'}`)
+    } else if (sien.rang < f.rang) throw new Error(`${f.nom} arrive à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses données ${avecLui(c)}`)
+  }
+
+  /**
+   * Ses métamorphoses ouvertes qu'il n'a pas encore vues dans sa loge : « Ma
+   * niche » les marque « Nouveau », comme la loge (`ceQuIlAPorter`). Rien tant
+   * qu'il n'a jamais regardé ses avatars — sa première visite retiendra
+   * tout —, et pas une lecture de plus sans métamorphose : la niche lit sa
+   * route à la première réponse de chaque page.
+   */
+  async metamorphosesNeuves(id: string, compagnons: readonly CompagnonPossede[]): Promise<string[]> {
+    const ouvertes = formesOuvertes(compagnons).filter(k => formeDeCompagnon(k)?.metamorphose)
+    if (ouvertes.length === 0) return []
+    // La base s'est tue sur ce qu'il a vu : rien de nouveau, plutôt que sa niche en panne.
+    const vus = (
+      await this.vusDeLaLoge(id).catch(e => {
+        console.error('[profil] loge illisible :', e)
+        return null
+      })
+    )?.avatar
+    return vus ? ouvertes.filter(k => !vus.includes(k)) : []
+  }
+
+  /** Un avatar trouvé hors de sa loge — sa métamorphose, montrée dans sa niche — : vu, comme si la loge l'avait montré. */
+  private async voirDansLaLoge(id: string, cle: string): Promise<void> {
+    const vus = await this.vusDeLaLoge(id)
+    if (!vus?.avatar || vus.avatar.includes(cle)) return
+    await this.retenirLesVusDeLaLoge(id, { ...vus, avatar: [...vus.avatar, cle] })
   }
 
   /**
@@ -2440,13 +2510,17 @@ export class ProfileStore {
    * Un portrait, lui, s'est vérifié quand il l'a pris (`update`) : un palier
    * validé ne se reprend jamais — ni soirée retirée, ni épreuve effacée. Un
    * compagnon, s'il l'a acheté et a atteint sa forme — une forme atteinte ne
-   * se perd jamais.
+   * se perd jamais ; sa métamorphose, tant que l'Éclat brille sur lui : la
+   * soirée retirée qui l'avait fait tomber la reprend.
    */
   legendairePorte(p: ProfileRec): string | null {
     if (!p.legendaire) return null
     if (portrait(p.legendaire)) return p.legendaire
     const forme = formeDeCompagnon(p.legendaire)
-    if (forme) return (this.compagnons.get(p.id)?.get(forme.compagnon)?.rang ?? -1) >= forme.rang ? forme.key : null
+    if (forme) {
+      const atteinte = (this.compagnons.get(p.id)?.get(forme.compagnon)?.rang ?? -1) >= forme.rang
+      return atteinte && (!forme.metamorphose || this.brilleChez(p.id, forme.key)) ? forme.key : null
+    }
     const a = divin(p.legendaire) ? this.divinsOf(p.id) : this.legendairesOf(p.id)
     return a.includes(p.legendaire) ? p.legendaire : null
   }
@@ -3085,10 +3159,7 @@ export class ProfileStore {
         // Sa forme se vérifie sur ses bonnes réponses du moment : une forme
         // qu'il vient d'atteindre se porte sans attendre une autre lecture.
         const f = formeDeCompagnon(patch.legendaire)!
-        const c = compagnonDe(f)
-        const sien = (await this.compagnonsDe(rec)).find(a => a.compagnon === f.compagnon)
-        if (!sien) throw new Error(`${c.nom} s’achète d’abord, à la boutique`)
-        if (sien.rang < f.rang) throw new Error(`${f.nom} arrive à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses données ${avecLui(c)}`)
+        this.verifierLaForme(f, compagnonDe(f), (await this.compagnonsDe(rec)).find(a => a.compagnon === f.compagnon))
         champs.legendaire = f.key
       } else throw new Error('Cet avatar légendaire n’est pas encore à toi')
     }
