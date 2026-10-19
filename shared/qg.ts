@@ -654,11 +654,11 @@ export function bilanDesSoirees(soirees: readonly ChiffresDUneSoiree[], minuits:
 /**
  * Ce que l'administrateur fait d'ici se note — un profil supprimé, un salon
  * renommé, une question retirée, une soirée laissée en plan close, un bandeau
- * posé —, rangé par ce que le geste touche : la page du journal filtre par là.
- * « Autre » : une route qui n'a pas dit sa phrase
+ * posé, une annonce à tous —, rangé par ce que le geste touche : la page du
+ * journal filtre par là. « Autre » : une route qui n'a pas dit sa phrase
  * (`server/src/core/journalDesGestes.ts`).
  */
-export const SORTES_DE_GESTES = ['soiree', 'profil', 'salon', 'catalogue', 'jour', 'campagne', 'duel', 'maintenance', 'autre'] as const
+export const SORTES_DE_GESTES = ['soiree', 'profil', 'salon', 'catalogue', 'jour', 'campagne', 'duel', 'maintenance', 'annonce', 'autre'] as const
 export type SorteDeGeste = (typeof SORTES_DE_GESTES)[number]
 
 export const NOM_DE_LA_SORTE: Record<SorteDeGeste, string> = {
@@ -670,6 +670,7 @@ export const NOM_DE_LA_SORTE: Record<SorteDeGeste, string> = {
   campagne: 'Campagne',
   duel: 'Duels',
   maintenance: 'Maintenance',
+  annonce: 'Annonces',
   autre: 'Autres',
 }
 

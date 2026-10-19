@@ -160,6 +160,9 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, `/api/admin/maintenance/pages/expedition/testeurs/${idMax}`, {}, 'PUT'), 'ajouter un testeur')
     ok(await faire(banc, admin, `/api/admin/maintenance/pages/expedition/testeurs/${idMax}`, {}, 'DELETE'), 'retirer un testeur')
     ok(await faire(banc, admin, '/api/admin/maintenance/pages/expedition', { etat: 'ouverte' }, 'PUT'), 'ouvrir à tous')
+    // La panne réglée, une annonce à tous et ses confettis — puis retirée.
+    ok(await faire(banc, admin, '/api/admin/annonces', { id: 'annonce-du-journal', message: 'Le quiz du jour remarche : merci de votre patience !', confettis: 20 }), 'annoncer à tous')
+    ok(await faire(banc, admin, '/api/admin/annonces/annonce-du-journal', undefined, 'DELETE'), 'retirer l’annonce')
 
     // La campagne : régler le mélange d'un palier, puis garder, retirer, corriger.
     ok(await faire(banc, admin, '/api/admin/campagne/paliers/2/melange', { melange: { facile: 12, moyen: 4 } }), 'régler un mélange')
@@ -226,6 +229,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Testeur ajouté à « L’Expédition » : Max (@max)',
       'Testeur retiré de « L’Expédition » : Max (@max)',
       'Page ouverte à tous : L’Expédition',
+      'Annonce retirée : « Le quiz du jour remarche : merci de votre patience ! » — ses confettis restent offerts',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
     }
@@ -241,6 +245,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       /^Question du jour reclassée, .+ → .+ : « .+ »$/,
       /^Question de la campagne reclassée, Histoire › .+ · difficulté 5 → Géographie › .+ · difficulté 2 : « Question d.essai numéro 4 : laquelle est la bonne \? »$/,
       /^Épreuve de sentier libérée, sans coûter de vie : Léa \(@lea\) — .+, palier 1$/,
+      // À combien de profils : ceux du banc à cet instant, sans s'accorder à aucun prénom.
+      /^Annonce à \d+ profils : « Le quiz du jour remarche : merci de votre patience ! » — 20 confettis chacun$/,
     ]) {
       assert.ok(resumes.some(r => attendu.test(r)), `${attendu} parmi :\n${resumes.join('\n')}`)
     }
@@ -252,6 +258,11 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       gestes.filter(g => g.sorte === 'maintenance').map(g => g.cible),
       [null, null, null, 'jour', 'jour', 'expedition', idMax, idMax, 'expedition'],
       'une page fermée vise sa page ; un testeur, son profil, pour sa fiche ; le bandeau, rien',
+    )
+    assert.deepEqual(
+      gestes.filter(g => g.sorte === 'annonce').map(g => g.cible),
+      ['annonce-du-journal', 'annonce-du-journal'],
+      'une annonce, faite puis retirée, se vise elle-même',
     )
 
     // La page le lit, du plus récent au plus ancien ; filtré par sorte.

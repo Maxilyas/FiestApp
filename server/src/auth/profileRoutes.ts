@@ -210,8 +210,9 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     ])
     const boutique = lue?.boutique
     // Ce que l'administrateur a fait pour lui : ses dons, son prénom changé, ses
-    // signalements qui ont servi — dits une fois, son téléphone retient le reste.
-    const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now(), mercis)
+    // signalements qui ont servi, ses annonces à tous — dits une fois, son
+    // téléphone retient le reste.
+    const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now(), mercis, lue?.aTous ?? [])
     return {
       ...profiles.toPublic(rec),
       jour,

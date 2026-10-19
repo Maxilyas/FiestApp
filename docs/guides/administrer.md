@@ -1,11 +1,11 @@
 # Administrer FiestApp
 
-> Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, prévenir les joueurs d'un problème et fermer ce qui ne marche pas, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions, relire les questions signalées, annuler un duel que l'adversaire n'a pas commencé, suivre les confettis.
+> Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, prévenir les joueurs d'un problème et fermer ce qui ne marche pas, leur annoncer qu'il est réglé, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions, relire les questions signalées, annuler un duel que l'adversaire n'a pas commencé, suivre les confettis.
 
-**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Le serveur](#la-santé-du-serveur) · [La maintenance](#la-maintenance) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Les signalements](#les-signalements) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
+**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Le serveur](#la-santé-du-serveur) · [La maintenance](#la-maintenance) · [Les annonces](#les-annonces) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Les signalements](#les-signalements) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
 
 > [!NOTE]
-> Le QG a grandi page après page : chaque mode de jeu y a la sienne — le quiz du jour, la campagne, les duels —, l'économie et les signalements aussi ; une page « Animer » viendra à son tour. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
+> Le QG a grandi page après page : chaque mode de jeu y a la sienne — le quiz du jour, la campagne, les duels —, l'économie et les signalements aussi ; « Animer » a commencé par les annonces, les événements et la mise en avant viendront à leur tour. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
 
 ## Entrer au QG
 
@@ -32,6 +32,7 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 | L'économie | `/admin#economie` | les confettis gagnés et dépensés, d'où ils viennent, où ils partent, ce qui circule, les meilleures ventes, les Éclats et les légendaires |
 | Le catalogue | `/admin#catalogue` | les copies de quiz proposées à tous |
 | Les signalements | `/admin#signalements` | les questions que les joueurs signalent, au quiz du jour et en campagne, et celles relues ces trente jours |
+| Les annonces | `/admin#annonces` | un message à tous les profils, lu une fois en haut de leur accueil — une panne réglée, une nouveauté —, avec des confettis pour chacun si tu veux |
 
 Le QG se tient à jour seul — le direct toutes les dix secondes, la vue d'ensemble toutes les cinq minutes et chaque fois que tu y reviens — et ne relit rien tant que l'onglet est caché. En tête, « En direct » ; si le serveur se tait, « Dernier relevé à 21 h 40 » ou « Le serveur ne répond pas ».
 
@@ -74,7 +75,7 @@ La fiche d'un joueur dit aussi ses trente jours, mode par mode (« Trente jours 
 
 Chaque geste du QG qui change quelque chose s'y note de lui-même, en une phrase qui nomme ce qu'il a touché : « Profil supprimé : Tom (@tom) », « Espace désactivé : Nadia B. », « Soirée laissée en plan close : Antoine — rien n'avait été joué ». Un refus ne s'y note jamais. Un geste noté ne se modifie ni ne s'efface : défaire, c'est faire le geste contraire, qui se note à son tour. Le journal garde le nom d'un profil supprimé — la trace de ce qui a eu lieu.
 
-Filtres : Tous, Soirées, Profils, Salons, Catalogue, Quiz du jour, Campagne, Duels, Maintenance. Les gestes se rangent par jour (« Aujourd'hui », « Hier », puis la date), cinquante à la fois (« Voir les gestes d'avant »). La fiche d'un joueur reprend les tiens sur son profil (« Tes gestes sur ce profil »). Un code de secours tiré n'y paraît jamais, seulement sa phrase : « Code de secours neuf tiré : Léa (@lea) ».
+Filtres : Tous, Soirées, Profils, Salons, Catalogue, Quiz du jour, Campagne, Duels, Maintenance, Annonces. Les gestes se rangent par jour (« Aujourd'hui », « Hier », puis la date), cinquante à la fois (« Voir les gestes d'avant »). La fiche d'un joueur reprend les tiens sur son profil (« Tes gestes sur ce profil »). Un code de secours tiré n'y paraît jamais, seulement sa phrase : « Code de secours neuf tiré : Léa (@lea) ».
 
 ## La santé du serveur
 
@@ -106,6 +107,20 @@ Quand quelque chose ne marche plus pour les joueurs — le quiz du jour qui ne s
 Toi, tu y entres encore, par la session de ta console : une ligne te rappelle que la page est fermée pour les joueurs — de quoi vérifier la réparation en production avant de rouvrir. Les soirées ne se ferment pas : une salle entière joue derrière l'écran commun ; pour prévenir les animateurs, le bandeau.
 
 **Bientôt disponible** : pour ce qui n'est pas encore prêt — l'Expédition qu'on essaie encore —, fermé à tous sauf à ses testeurs et à toi. « Bientôt disponible », confirmé ; pour les joueurs qui attendent, la page se remplace par un écran qui dit qu'elle arrive bientôt (« L'Expédition arrive bientôt »), sans parler de panne ; son bouton de l'accueil s'éteint sur « Bientôt disponible », et ce qui y commence leur répond « L'Expédition arrive bientôt : reviens dans quelques jours ». Rien de rouge : rien n'y est cassé, et la page peut attendre des semaines. Sous la page, **ses testeurs** : « Ajouter un testeur » cherche un profil par son prénom ou son identifiant, comme « Les profils » ; « Retirer » le renvoie attendre avec les autres. Un testeur entre par sa session de joueur, connecté à son profil : la page s'ouvre pour lui comme pour tous, et son bouton de l'accueil le lui dit d'une pastille « En test ». Personne d'autre ne voit qui teste. « Ouvrir à tous », confirmé, la rend à tout le monde dès la page suivante qu'ils ouvrent ; ses testeurs restent notés, pour une prochaine fois. Mise en maintenance, elle ne s'ouvre plus qu'à toi : ce qui ne marche pas ne s'essaie pas. Un profil supprimé ne teste plus rien.
+
+Une fois réparé : retire le bandeau, rouvre la page, puis dis-le à chacun par [une annonce](#les-annonces) — « Faire une annonce », sous le bandeau, y mène. Le bandeau se lit en passant et part avec la panne ; l'annonce, elle, attend chacun sur son accueil.
+
+## Les annonces
+
+Sous « Animer » : un message pour tous les profils, que chacun lit une fois, en haut de son accueil — « Le quiz du jour et le défi remarchent. Merci de votre patience ! » après une panne, « L'Expédition est ouverte à tous » pour une nouveauté. Chaque geste va au journal (filtre « Annonces »).
+
+- **Ce qu'elle dit** : 200 caractères au plus ; l'aperçu la montre telle que les joueurs la liront, à mesure que tu l'écris.
+- **Des confettis pour chacun ?** De 0 à 500 — un dédommagement, un cadeau. La page dit à combien de profils elle partirait et ce que ça fait en tout. Chacun les reçoit en un don, comme ceux de la fiche d'un joueur : dans son solde, et parmi « Tes dons » à l'économie.
+- **« Annoncer à tous »** (ou « Annoncer et offrir 50 confettis »), confirmé : elle part aux profils d'aujourd'hui, sans les suspendus. Ni les invités sans profil ni ceux qui en créeront un ensuite ne la liront : elle parle d'avant eux. Un profil suspendu à l'envoi n'en reçoit pas les confettis ; réactivé, il lit le message seul.
+- **Ce que le joueur en voit** : une carte en tête de son accueil, une fois par téléphone, pendant trente jours — « +50 confettis, à tous les joueurs », ton message, « — de l'administrateur », et « Merci » ; sans confettis, « À tous les joueurs » et « Compris ».
+- **Les annonces faites** : chacune, la plus récente d'abord — son message, ses confettis, combien de profils l'ont reçue, quand. « Retirer », confirmé, la tait à qui ne l'a pas encore lue — une faute dans le message, une nouvelle qui ne tient plus — ; ses confettis restent à chacun : un don ne se reprend pas. Un mois passé, elle ne se montre plus d'elle-même.
+
+Une réponse perdue en route ne fait pas offrir deux fois : refait, le même envoi répond « Cette annonce est déjà partie : la voici dans la liste ».
 
 ## Les soirées
 
