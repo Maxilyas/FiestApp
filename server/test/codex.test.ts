@@ -93,16 +93,17 @@ import {
 
 // ── L'échelle et la renommée ────────────────────────────────────────────────
 
-test('l’échelle et les exploits : chaque carte sans légendaire une fois — par son niveau, ou par son exploit —, des communes au niveau 1 ; le pari au 2, les talismans au 4, la fétiche au 5 ; Sursis attend le 6', () => {
+test('l’échelle et les exploits : chaque carte sans légendaire une fois — par son niveau, ou par son exploit —, des communes au niveau 1 ; la fétiche au 1, le pari au 2, les talismans au 4 ; Sursis attend le 6', () => {
   const echelonnees = ECHELLE.flatMap(m => m.cartes)
   const parExploit = EXPLOITS.flatMap(x => x.carte ?? [])
   assert.deepEqual([...echelonnees, ...parExploit].sort(), CARTES_DES_RENCONTRES.filter(c => !c.legendaire).map(c => c.cle).sort(), 'toutes, une fois')
   assert.equal(new Set([...echelonnees, ...parExploit]).size, echelonnees.length + parExploit.length)
   // « Dans le codex, une carte verrouillée dit toujours comment l'obtenir : un niveau, un exploit ou un légendaire. »
+  // Lancée et Échauffement jusqu'au 19 octobre 2026 : l'Élan, devenu un style, part avec elles.
   assert.deepEqual(
-    ['banco', 'lancee', 'echauffement'].map(ouvertureDe),
+    ['banco', 'genie', 'inarretable'].map(ouvertureDe),
     [{ exploit: 'pari-de-40' }, { exploit: 'une-seule-reponse' }, { exploit: 'd-affilee' }],
-    'Banco, Lancée et Échauffement : leur exploit seul les ouvre',
+    'Banco, Génie et Inarrêtable : leur exploit seul les ouvre',
   )
   assert.deepEqual(EXPLOITS.find(x => x.cle === 'gardien-intact'), { cle: 'gardien-intact', but: 'vaincre le gardien de l’acte 3 sans perdre de courage', dos: 'dore' })
   // Des exploits, pas des cadeaux (la carrière de `calibrage-rencontres.ts`) : vingt d'affilée, une élite, le dernier gardien.
@@ -118,7 +119,8 @@ test('l’échelle et les exploits : chaque carte sans légendaire une fois — 
     [],
     'le niveau 1 n’ouvre que des communes',
   )
-  assert.deepEqual([niveauDeLaRegle('pari'), niveauDeLaRegle('talismans'), niveauDeLaRegle('fetiche')], [2, 4, 5])
+  // La fétiche dès le niveau 1, avec l'Érudit qui en vit (« Ton style », le 19 octobre 2026).
+  assert.deepEqual([niveauDeLaRegle('fetiche'), niveauDeLaRegle('pari'), niveauDeLaRegle('fioles'), niveauDeLaRegle('talismans')], [1, 2, 3, 4])
   // Mesurée seule ouverte au niveau 1, elle menait le joueur moyen au bout une fois sur deux : plus qu'avec tout le codex.
   assert.deepEqual(ouvertureDe('sursis'), { niveau: 6 })
   assert.deepEqual(ouvertureDe('plume'), { niveau: niveauDeLaRegle('fetiche') }, 'Plume s’ouvre avec la catégorie fétiche qui la fait vivre')
@@ -165,16 +167,16 @@ test('le codex d’un niveau : ses cartes dans l’ordre du catalogue, la carte 
     un.cartes,
     CARTES_DES_RENCONTRES.filter(c => ECHELLE[0].cartes.includes(c.cle)).map(c => c.cle),
   )
-  assert.deepEqual(un.regles, [])
+  assert.deepEqual(un.regles, ['fetiche'])
   const cinq = codexDuNiveau(5, ['lg:phenix'])
-  assert.deepEqual(cinq.regles, ['pari', 'fioles', 'talismans', 'fetiche'])
-  assert.ok(cinq.cartes.includes('renaissance') && cinq.cartes.includes('plume'), 'la carte du Phénix qu’il a, et Plume du niveau 5')
+  assert.deepEqual(cinq.regles, ['fetiche', 'pari', 'fioles', 'talismans'])
+  assert.ok(cinq.cartes.includes('renaissance') && cinq.cartes.includes('bibliotheque'), 'la carte du Phénix qu’il a, et Bibliothèque du niveau 5')
   assert.ok(!cinq.cartes.includes('sursis') && !cinq.cartes.includes('sagesse'), 'ni Sursis du niveau 6, ni la carte de la Chouette qu’il n’a pas')
   // Au dernier niveau, tout ce que les niveaux ouvrent ; les cartes des exploits attendent leur exploit.
   const sansLegendaire = CARTES_DES_RENCONTRES.filter(c => !c.legendaire).length
   const toutEnJouant = codexDuNiveau(NIVEAU_MAX, [])
   assert.equal(toutEnJouant.cartes.length, sansLegendaire - 3)
-  assert.ok(!toutEnJouant.cartes.includes('banco') && !toutEnJouant.cartes.includes('lancee') && !toutEnJouant.cartes.includes('echauffement'))
+  assert.ok(!toutEnJouant.cartes.includes('banco') && !toutEnJouant.cartes.includes('genie') && !toutEnJouant.cartes.includes('inarretable'))
   const tous = EXPLOITS.map(x => x.cle)
   assert.equal(codexDuNiveau(NIVEAU_MAX, [], tous).cartes.length, sansLegendaire, 'le codex entier, sans légendaire, ses exploits faits')
   // Un exploit ouvre sa carte à tout niveau ; le codex garde ses exploits, dans leur ordre.

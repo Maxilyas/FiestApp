@@ -99,7 +99,18 @@ test('la feuille de l’équipe dit « Ton équipe » d’un bout à l’autre :
   }
 })
 
-test('au codex, le départ dit son niveau et sa jauge, ce qu’il a sur ce qu’il y a ; plus d’équipe à choisir — l’invité du jour, même avec des légendaires à lui ; sa catégorie fétiche attend son niveau', async () => {
+/** Un style retenu sur le téléphone (`quizz.expedition.style`), le temps d'un rendu : rien d'autre de retenu. */
+async function avecLeStyleRetenu<T>(style: string, f: () => Promise<T>): Promise<T> {
+  const avant = (globalThis as { localStorage?: unknown }).localStorage
+  Object.assign(globalThis, { localStorage: { getItem: (cle: string) => (cle === 'quizz.expedition.style' ? style : null), setItem: rien } })
+  try {
+    return await f()
+  } finally {
+    Object.assign(globalThis, { localStorage: avant })
+  }
+}
+
+test('au codex, le départ dit son niveau et sa jauge, ce qu’il a sur ce qu’il y a ; plus d’équipe à choisir — l’invité du jour, même avec des légendaires à lui ; sa catégorie fétiche va avec l’Érudit', async () => {
   const { codexDuNiveau, NIVEAUX } = await import('../../shared/codex')
   const { CARTES_DES_RENCONTRES } = await import('../../shared/rencontres')
   const deux = codexDuNiveau(2, ['lg:dragon'])
@@ -110,9 +121,12 @@ test('au codex, le départ dit son niveau et sa jauge, ce qu’il a sur ce qu’
   assert.match(lu, new RegExp(`Niveau 2 d’explorateur : ${NIVEAUX[1] + 10} de renommée, ${NIVEAUX[2]} pour le niveau 3\\.`))
   assert.match(lu, new RegExp(`${deux.cartes.length} cartes sur ${CARTES_DES_RENCONTRES.length}`))
   assert.match(html, /exp-voir-le-paquet" aria-haspopup="dialog">Ton paquet · 11 cartes/, 'le paquet de départ et la carte de l’invité')
-  assert.doesNotMatch(lu, /Ta catégorie fétiche/, 'au niveau 2, rien à choisir')
-  const cinq = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, codex: { renommee: NIVEAUX[4], ...codexDuNiveau(5, []), ascension: 0 } }, passeport: [] })
-  assert.match(cinq.replace(/<[^>]+>/g, ' '), /Ta catégorie fétiche/, 'au niveau 5, elle se choisit')
+  // « Ton style » (le 19 octobre 2026) : rien de retenu, le premier des siens — le Rempart, sans catégorie fétiche.
+  assert.doesNotMatch(lu, /Ta catégorie fétiche/, 'le Rempart n’en a pas : elle est à l’Érudit')
+  const erudit = await avecLeStyleRetenu('erudit', () =>
+    depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, codex: { renommee: NIVEAUX[1] + 10, ...deux, ascension: 0 } }, passeport: [] }),
+  )
+  assert.match(erudit.replace(/<[^>]+>/g, ' '), /Ta catégorie fétiche/, 'l’Érudit, retenu : elle se choisit avec lui')
 })
 
 test('l’Ascension au départ : rien avant une expédition menée au bout ; ensuite ses crans ouverts, aucun d’office ; en route, le bas du départ dit son cran', async () => {

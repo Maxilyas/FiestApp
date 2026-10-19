@@ -1626,18 +1626,79 @@ export const cartesDeCombat = (paquet: readonly string[]) => paquet.filter(cle =
  */
 export const PAQUET_DES_RENCONTRES: readonly string[] = ['concentration', 'concentration', 'concentration', 'concentration', 'prudence', 'prudence', 'prudence', 'prudence', 'coup-d-oeil', 'echange']
 
-export function paquetDesRencontres(equipee: readonly string[]): string[] {
-  return [...PAQUET_DES_RENCONTRES, ...equipee.flatMap(cle => carteDuLegendaire(cle)?.cle ?? [])].sort()
+/**
+ * Un style de jeu : une famille, choisie au départ (le 19 octobre 2026 : « Pour
+ * les cartes il faut vraiment plus de gameplay différents […] j'ai
+ * l'impression de piocher tout le temps la même chose et de pas avoir à
+ * choisir de style de jeu »). Ses offres tiraient une famille au hasard de
+ * ce que le paquet tenait déjà, et le paquet partait le même pour tous : rien
+ * ne disait quelle façon de gagner on jouait. Les neutres sont à tout le monde.
+ */
+export type StyleDeJeu = Exclude<FamilleDeCartes, 'neutre'>
+
+/**
+ * Les deux cartes qu'un style met dans le paquet de départ — des communes que
+ * son niveau ouvre avec lui (`ECHELLE`, `shared/codex.ts`) : dès la première
+ * question, on joue son style.
+ */
+export const CARTES_DE_DEPART_DU_STYLE: Readonly<Record<StyleDeJeu, readonly [string, string]>> = {
+  rempart: ['parade', 'pansement'],
+  erudit: ['plume', 'savoir-faire'],
+  devin: ['augure', 'presage'],
+  flambeur: ['pourboire', 'cagnotte'],
+  elan: ['echauffement', 'lancee'],
+  metamorphe: ['corser', 'simplifier'],
 }
 
-/** Le nom et la devise de chaque famille, ce que la page en dit. */
-export const FAMILLES_DE_CARTES: Readonly<Record<FamilleDeCartes, { nom: string; devise: string }>> = {
-  erudit: { nom: 'L’Érudit', devise: 'Je connais mon rayon' },
-  flambeur: { nom: 'Le Flambeur', devise: 'Je parie sur moi' },
-  metamorphe: { nom: 'Le Métamorphe', devise: 'Je change la question' },
-  elan: { nom: 'L’Élan', devise: 'Je ne m’arrête plus' },
-  rempart: { nom: 'Le Rempart', devise: 'Je tiens bon' },
-  devin: { nom: 'Le Devin', devise: 'Je lis les signes' },
+/**
+ * La carte de base que chacune remplace : une attaque prend la place d'une
+ * Concentration, une protection celle d'une Prudence, un indice — qui sert à
+ * l'une comme à l'autre — une de chaque. Mesuré le 19 octobre 2026
+ * (`calibrage-rencontres.ts --styles`) : prises toutes deux à la place d'une
+ * Concentration et d'une Prudence, les cartes d'attaque laissaient le paquet
+ * de l'Érudit, du Flambeur et de l'Élan sans assez de boucliers.
+ */
+export const BASES_REMPLACEES_PAR_LE_STYLE: Readonly<Record<StyleDeJeu, readonly [string, string]>> = {
+  rempart: ['prudence', 'prudence'],
+  erudit: ['concentration', 'concentration'],
+  devin: ['concentration', 'prudence'],
+  flambeur: ['concentration', 'concentration'],
+  elan: ['concentration', 'concentration'],
+  metamorphe: ['concentration', 'prudence'],
+}
+
+/** Les styles, dans l'ordre où le codex les ouvre (`ECHELLE`). */
+export const STYLES = Object.keys(CARTES_DE_DEPART_DU_STYLE) as StyleDeJeu[]
+
+export const estUnStyle = (x: unknown): x is StyleDeJeu => (STYLES as readonly unknown[]).includes(x)
+
+/**
+ * Le paquet de départ des rencontres, et la carte de chaque légendaire de
+ * l'équipée. Un style (le 19 octobre 2026) y pose ses deux cartes à la place
+ * de deux cartes de base (`BASES_REMPLACEES_PAR_LE_STYLE`) ; sans style — un
+ * départ d'avant lui —, celui de toujours.
+ */
+export function paquetDesRencontres(equipee: readonly string[], style?: StyleDeJeu): string[] {
+  const base = [...PAQUET_DES_RENCONTRES]
+  if (style) {
+    for (const remplacee of BASES_REMPLACEES_PAR_LE_STYLE[style]) base.splice(base.indexOf(remplacee), 1)
+    base.push(...CARTES_DE_DEPART_DU_STYLE[style])
+  }
+  return [...base, ...equipee.flatMap(cle => carteDuLegendaire(cle)?.cle ?? [])].sort()
+}
+
+/**
+ * Le nom et la devise de chaque famille, ce que la page en dit — et, pour un
+ * style, sa façon de gagner en une phrase de tous les jours (`jeu`) : le
+ * départ la dit sous le style choisi, les règles sous chacun.
+ */
+export const FAMILLES_DE_CARTES: Readonly<Record<FamilleDeCartes, { nom: string; devise: string; jeu?: string }>> = {
+  erudit: { nom: 'L’Érudit', devise: 'Je connais mon rayon', jeu: 'Il frappe fort quand il sait — plus encore sur sa catégorie fétiche.' },
+  flambeur: { nom: 'Le Flambeur', devise: 'Je parie sur moi', jeu: 'Il gagne des écus et les parie ; ses gains frappent aussi.' },
+  metamorphe: { nom: 'Le Métamorphe', devise: 'Je change la question', jeu: 'Six choix pour frapper plus, un vrai ou faux pour risquer moins.' },
+  elan: { nom: 'L’Élan', devise: 'Je ne m’arrête plus', jeu: 'Chaque bonne réponse d’affilée frappe plus fort que la précédente.' },
+  rempart: { nom: 'Le Rempart', devise: 'Je tiens bon', jeu: 'Il gagne en tenant, à coups de boucliers et de courage.' },
+  devin: { nom: 'Le Devin', devise: 'Je lis les signes', jeu: 'Il efface les mauvaises réponses avant de choisir.' },
   neutre: { nom: 'Les neutres', devise: 'Pour tout le monde' },
 }
 
