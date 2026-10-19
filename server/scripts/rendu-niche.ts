@@ -1,11 +1,13 @@
 // La niche du compagnon, photographiée sur chaque page du téléphone où elle
 // vit (`client/src/components/Niche.tsx`) : l'accueil, le profil, la loge,
 // la collection, la boutique et ses compagnons, le quiz du jour — sa page, une
-// question, une révélation —, la campagne et ses onglets, les duels,
-// l'expédition, le salon, et une soirée — la salle d'attente, une question,
-// la révélation, le podium. Puis sa fiche, une caresse, et le repli quand la
-// page défile. À chaque page, ce qui passe sous la niche se dit : un texte,
-// un bouton, une image que la page ne lui a pas laissé (« sous la niche »).
+// question, une révélation —, la campagne et ses onglets, les duels — la
+// carte du verdict d'un duel au dé, un duel classé face cachée, « Duel
+// envoyé » —, l'expédition, le salon, et une soirée — la salle d'attente, une
+// question, la révélation, le podium. Puis sa fiche, une caresse, et le repli
+// quand la page défile. À chaque page, ce qui passe sous la niche se dit : un
+// texte, un bouton, une image que la page ne lui a pas laissé (« sous la
+// niche »).
 // Et ses réactions, dans la soirée (`shared/niche.ts`) : le souffle retenu
 // quand elle touche une réponse, la bonne réponse qui le nourrit (« +1 », sa
 // jauge), la ratée (il pleut chez lui), la rare (une bulle de cœurs), puis
@@ -16,7 +18,7 @@
 // lui, sa jauge aux trois quarts — et sa jeune tortue qui attend. Le client
 // construit d'abord (`npm run build -w client`).
 //
-//   npx tsx scripts/rendu-niche.ts [dossier]        (ECRAN=390x844, THEME=ivoire)
+//   npx tsx scripts/rendu-niche.ts [dossier]        (ECRAN=390x844, ENCOCHE=47, THEME=ivoire)
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
@@ -44,6 +46,10 @@ const sortie = path.resolve(process.argv[2] ?? 'rendu-niche')
 mkdirSync(sortie, { recursive: true })
 const [largeur, hauteur] = (process.env.ECRAN ?? '360x640').split('x').map(Number)
 const theme = process.env.THEME ?? null
+// L'encoche d'un iPhone, en pixels : Chromium sans écran la tient à zéro, et
+// la niche descend avec elle (`env(safe-area-inset-top)`) — chaque page aussi,
+// pas toujours d'autant.
+const encoche = Number(process.env.ENCOCHE ?? 0)
 
 function chargerPlaywright(): any {
   const globale = spawnSync('npm', ['root', '-g'], { encoding: 'utf8' }).stdout.trim()
@@ -138,6 +144,16 @@ async function contexte(cookie: string) {
   return ctx
 }
 
+/** Une page du téléphone, son encoche posée avant qu'elle n'ouvre rien — et la barre d'accueil des iPhone qui en ont une, 34 pixels en bas. */
+async function nouvellePage(ctx: any) {
+  const page = await ctx.newPage()
+  if (encoche) {
+    const cdp = await ctx.newCDPSession(page)
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: encoche, topMax: encoche, bottom: 34, bottomMax: 34, left: 0, leftMax: 0, right: 0, rightMax: 0 } })
+  }
+  return page
+}
+
 /** La photo d'une page, en haut, sa niche arrivée — et ce qui passe dessous. */
 async function photo(page: any, nom: string, { pleine = false, attente = 600 } = {}) {
   await page.waitForSelector('.niche .niche-bete img', { timeout: 8000 }).catch(() => {})
@@ -159,10 +175,22 @@ function tirageDuJour() {
   return JSON.parse(r.questions) as { reponses: string[]; bonne: number }[]
 }
 
+/** Une partie de la campagne jouée jusqu'à sa fin, la première réponse touchée à chaque question : trois fautes la finissent vite. */
+async function jusquAuBout(page: any) {
+  for (;;) {
+    await page.locator('.ans-btn').first().click()
+    const suite = page.getByRole('button', { name: /Question suivante|Voir qui a gagné|Voir mon duel/ })
+    await suite.waitFor()
+    const derniere = !(await suite.textContent())?.includes('Question suivante')
+    await suite.click()
+    if (derniere) return
+  }
+}
+
 async function solo() {
   const cookie = await lea('lea')
   const ctx = await contexte(cookie)
-  const page = await ctx.newPage()
+  const page = await nouvellePage(ctx)
   page.on('pageerror', (e: Error) => console.error('[page]', e.message))
   const aller = async (adresse: string, attendu: string) => {
     await page.goto('about:blank')
@@ -274,6 +302,22 @@ async function solo() {
   await photo(page, '18-carnet', { attente: 1200 })
   await aller('/duels', '.duels')
   await photo(page, '19-duels', { attente: 1500 })
+  // Un duel au dé joué jusqu'au bout : la carte du verdict, et sa croix qui ramène aux duels.
+  await page.getByRole('button', { name: 'Un duel contre Automate' }).click()
+  await page.locator('.feuille-du-de').getByRole('button', { name: 'Jouer le duel' }).click()
+  await jusquAuBout(page)
+  await page.waitForSelector('.duels-carte3d.ouverte')
+  await photo(page, '19b-duel-verdict', { attente: 1100 })
+  // Un duel classé lancé contre Tom : sa page, ses deux cartes, puis « Duel envoyé » à sa dernière réponse.
+  const cookieDeTom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+  const tom = ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: cookieDeTom } })).json()) as any).profile.id
+  const { code } = (await (await ecrire(banc.url, '/api/campagne/duel', { adversaire: tom }, cookie)).json()) as { code: string }
+  await aller(`/duels#duel-${code}`, '.duels-cartes')
+  await photo(page, '19c-duel-cartes')
+  await page.getByRole('button', { name: 'Reprendre le duel' }).click()
+  await jusquAuBout(page)
+  await page.waitForSelector('.duels-envoye')
+  await photo(page, '19d-duel-envoye')
   await aller('/expedition', '.expedition')
   await photo(page, '20-expedition', { attente: 1200 })
   await aller('/salon', '.player-shell')
@@ -318,7 +362,7 @@ async function soiree() {
   moi.socket.close()
   const ctx = await contexte(cookieLea)
   await ctx.addInitScript(([cle, me]: string[]) => localStorage.setItem(cle, me), [`quizz.me.${ADMIN.slug}`, JSON.stringify({ playerId: moi.playerId, token: moi.token })])
-  const telephone = await ctx.newPage()
+  const telephone = await nouvellePage(ctx)
   telephone.on('pageerror', (e: Error) => console.error('[téléphone]', e.message))
   await telephone.goto(`${url}/${ADMIN.slug}`)
   await telephone.waitForSelector('.me-header')
