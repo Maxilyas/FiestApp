@@ -449,20 +449,21 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
 
   // Le compagnon de sa niche et où il en est — sa plus haute forme, ses bonnes
   // réponses données avec lui depuis l'adoption (`compagnonsDe`, relues dans
-  // ses journaux), son nom, la forme qu'il montre —, et tous les siens : la
-  // fiche que la niche ouvre au toucher, sur toutes les pages, où il les
-  // gère. Pas le profil entier : la page du profil seule lit sa boutique.
-  // Sans profil ou sans compagnon, null et rien.
+  // ses journaux), son nom, la forme qu'il montre —, tous les siens, et leurs
+  // métamorphoses qu'il n'a pas encore vues (`neuves`) : la fiche que la
+  // niche ouvre au toucher, sur toutes les pages, où il les gère. Pas le
+  // profil entier : la page du profil seule lit sa boutique. Sans profil ou
+  // sans compagnon, null et rien.
   app.get(
     '/api/joueur/niche',
     wrap(async (req, res) => {
       noStore(res)
       const me = await current(req)
-      if (!me) return res.json({ niche: null, compagnons: [] })
+      if (!me) return res.json({ niche: null, compagnons: [], neuves: [] })
       const compagnons = await profiles.compagnonsDe(me)
       // Après la relecture : une niche laissée à la règle suit le plus grand des siens.
       const cle = profiles.compagnonDeLaNiche(me)
-      res.json({ niche: compagnons.find(a => a.compagnon === cle) ?? null, compagnons })
+      res.json({ niche: compagnons.find(a => a.compagnon === cle) ?? null, compagnons, neuves: await profiles.metamorphosesNeuves(me.id, compagnons) })
     }),
   )
 
@@ -735,9 +736,9 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
 
   /**
    * Ce qu'il règle d'un de ses compagnons, depuis sa niche : son nom (`nom`,
-   * vide pour l'ôter), la forme qu'il y montre (`montree`, un rang atteint ;
-   * null, sa plus haute). Rien de cela ne part à la salle : son nom n'est qu'à
-   * lui, et ce qu'il porte n'a pas bougé.
+   * vide pour l'ôter), la forme qu'il y montre (`montree`, un rang atteint,
+   * ou 4 pour sa métamorphose ; null, sa plus haute). Rien de cela ne part à
+   * la salle : son nom n'est qu'à lui, et ce qu'il porte n'a pas bougé.
    */
   app.put(
     '/api/joueur/compagnons/:cle',

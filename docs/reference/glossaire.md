@@ -230,7 +230,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Fonds des savoirs | Les douze fonds de carte peints, un par catégorie de questions, les seuls que la boutique vend, tous au même prix | `FONDS_EN_BOUTIQUE`, `PRIX_D_UN_FOND` |
 | Force d'en face | Ce contre quoi la cote bouge : la cote du score d'Automate au dé, la cote figée de l'adversaire contre quelqu'un | `DuelJoue.coteAdverse` |
 | Format complet | Les règles de la liste collée, écrites à partir des bornes et des catégories, avec un exemple de chaque possibilité : ce qu'on donne à un ami ou à une IA | `FORMAT_DE_LISTE` |
-| Forme | Un des quatre âges d'un compagnon, de celle qu'on achète à la forme ultime ; une forme atteinte ne se perd jamais | `FORMES_DES_COMPAGNONS` |
+| Forme | Un des quatre âges d'un compagnon, de celle qu'on achète à la forme ultime ; une forme atteinte ne se perd jamais — sa métamorphose est une forme de plus, qui ne se gagne pas en grandissant | `FORMES_DES_COMPAGNONS` |
 | Forme (d'un compagnon) | L'un de ses quatre états, de rareté montante, ouverts à l'achat puis à 100, 300 et 500 bonnes réponses ; atteinte, elle ne se perd jamais | `JUSTES_DES_FORMES` |
 | Forme du jour | Ce qui fait varier un joueur d'une épreuve à l'autre — sa forme, le chapitre tiré — et que sa chance d'un palier intègre ; rien à voir avec la forme d'un compagnon | `FORME_D_UNE_EPREUVE` |
 | Fraîcheur | L'ordre de tirage propre à un joueur : d'abord les questions jamais vues, puis celles vues il y a longtemps, et en dernier celles des dernières 24 heures | `parFraicheur` |
@@ -325,6 +325,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | « Mes trophées » | Le panneau de la pièce « Vitrine » de la loge : les trophées gagnés, à toucher jusqu'à trois, dans l'ordre où la carte les montrera — « Mes hauts faits » jusqu'au 13 octobre 2026 | `MaVitrine` (`client/src/components/Trophees.tsx`) |
 | Mesure | La phase où une estimation en direct, close, attend la valeur que l'animateur tape | `cible` |
 | Mesure des pages | Ce que chaque page fait attendre à un téléphone bridé, cache vide puis plein, avant et après une retouche | `server/scripts/mesure-pages.ts` |
+| Métamorphose (d'un compagnon) | Sa métamorphose de lumière — le loup-tempête, le chat-soleil, l'île en fleurs —, que l'Éclat ouvre à sa forme ultime : une forme de plus, qui ne remplace rien, choisie en avatar dans la loge et dans sa niche dans « Ma niche » | `Compagnon.lumiere`, `metamorphoseOuverte`, `MONTREE_DE_LA_METAMORPHOSE` |
 | Miroir | La copie de la soirée en cours dans la base permanente (les tables `party_*`), d'où elle se recharge quand le disque est reparti vide | `PartyBackup` |
 | Mise de côté | Une question gardée dans le quiz sans être jouée — ni prête, ni à compléter | `deCote` |
 | Mode (d'une partie) | Ce que joue une ligne de `campagne_series` : une série, une révision, un défi, une épreuve de sentier, un parcours, un duel ou une rencontre | `campagne_series.mode` |

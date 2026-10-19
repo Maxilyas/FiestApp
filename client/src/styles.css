@@ -5670,6 +5670,8 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .fin-legendaire h2 { font-size: 1.9rem; }
 .fin-legendaire .serif-note { margin: 0; }
 .fin-medaillon { font-size: 150px; line-height: 0; animation: revelation 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* La métamorphose d'un compagnon sort de son disque de tous côtés (`ENTIERE`, 22 % de plus) : sa place, pour qu'elle ne morde ni l'étiquette ni son nom. */
+.fin-metamorphose .fin-medaillon { margin: 34px 0 30px; }
 
 /* Un Divin descend : plus lentement qu'un légendaire, dans une lumière qui
    s'éteint à mesure qu'il apparaît. Une fois par vie, peut-être : on prend
@@ -10902,6 +10904,8 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
 .niche-choix:disabled { opacity: 0.7; cursor: progress; }
 .niche-choix:not([aria-pressed='true']):hover .niche-cadre { border-color: rgba(244, 213, 141, 0.95); }
 .niche-mini { --l: 54px; position: relative; flex: none; width: var(--l); height: calc(var(--l) * 62 / 54); }
+/* Sa métamorphose pas encore vue : le point rouge des cases neuves de la loge (`.case-avatar.neuve`). */
+.niche-choix.neuve .niche-mini::after { content: ''; position: absolute; top: -2px; left: -2px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .niche-choix-nom { max-width: 100%; font-size: var(--t-label); line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
 .niche-choix[aria-pressed='true'] .niche-choix-nom { color: var(--accent-text); font-weight: 600; }
 .niche-mini-vide { display: grid; place-items: center; border: 1px dashed var(--edge-strong); border-radius: calc(var(--l) / 2) calc(var(--l) / 2) 12px 12px; color: var(--accent-text); }

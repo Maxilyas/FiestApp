@@ -14,6 +14,7 @@ import {
   PRIX_D_UN_COMPAGNON,
   avecLui,
   compagnon as leCompagnon,
+  formeDeCompagnon,
   prochaineForme,
   type Compagnon as LeCompagnon,
   type CompagnonAcquis,
@@ -93,7 +94,8 @@ function SceneDuCompagnon({
   const montree = c.formes[sien?.rang ?? 0]
   const suite = sien ? prochaineForme(sien) : null
   const manque = PRIX_D_UN_COMPAGNON - solde
-  const lePorte = !!porte && c.formes.some(f => f.key === porte)
+  // Sa métamorphose aussi : c'est lui qu'on porte.
+  const lePorte = formeDeCompagnon(porte)?.compagnon === c.key
   const { aura, fond } = teintesDuCompagnon(c.key)
   const teintes = { '--aura': aura, '--scene': fond[1], '--nuit': fond[2] } as CSSProperties
   return (

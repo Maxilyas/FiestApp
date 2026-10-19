@@ -7,7 +7,9 @@
 // jour, campagne, duels. Quatre formes du même individu, chacune plus riche
 // que la précédente, et plus rare : un compagnon payé cher récompense
 // l'assiduité, et il doit être beau (le propriétaire). Une forme atteinte ne
-// se perd jamais, et chacune se porte aussi en avatar.
+// se perd jamais, et chacune se porte aussi en avatar. L'Éclat lui en ouvre
+// une de plus à sa forme ultime, sa métamorphose de lumière : elle ne remplace
+// rien, on la choisit (`Compagnon.lumiere`, le 19 octobre 2026).
 //
 // Il vit dans sa niche, en haut de chaque page du téléphone (le choix du 18
 // octobre 2026, `retours/2026-10-16/compagnon/principe.md`), et c'est celui
@@ -42,6 +44,15 @@ export const RARETE_DES_FORMES: readonly Rarete[] = ['commune', 'rare', 'epique'
 /** Ce que chaque forme est pour lui, en deux mots : la carte, la fiche, la boutique. */
 export const NOM_DE_LA_FORME = ['Première forme', 'Deuxième forme', 'Troisième forme', 'Forme ultime'] as const
 
+/** Ce qu'une forme est pour lui, en deux mots — sa métamorphose a le sien. */
+export const nomDeLaForme = (f: FormeDeCompagnon): string => (f.metamorphose ? 'Métamorphose' : NOM_DE_LA_FORME[f.rang])
+
+/**
+ * Ce que `montree` vaut quand sa niche montre sa métamorphose : une forme de
+ * plus, après la forme ultime, qui ne se gagne pas en grandissant.
+ */
+export const MONTREE_DE_LA_METAMORPHOSE = 4
+
 /** Le nom qu'on lui donne (« Nox ») : court, il tient sous sa niche et sur une ligne de sa fiche. */
 export const NOM_D_UN_COMPAGNON_MAX = 16
 
@@ -59,6 +70,11 @@ export interface FormeDeCompagnon {
   /** Ce qu'elle montre, en une phrase. */
   legende: string
   rarete: Rarete
+  /**
+   * Sa métamorphose de lumière, et non une forme qui se gagne en grandissant :
+   * elle garde le rang de la forme ultime, d'où elle s'ouvre (`Compagnon.lumiere`).
+   */
+  metamorphose?: true
 }
 
 export interface Compagnon {
@@ -76,10 +92,20 @@ export interface Compagnon {
   /** Ce qu'il est, d'une forme à l'autre. */
   phrase: string
   formes: readonly FormeDeCompagnon[]
+  /**
+   * Sa métamorphose de lumière (`cp:loup-tempete`), que l'Éclat fait tomber :
+   * un autre animal, plus féroce, peint d'après sa forme ultime (le choix du
+   * 13 octobre 2026), son nom et sa légende ceux de la maquette. Elle ne la
+   * remplace pas : c'est une forme de plus, qu'on choisit (le propriétaire,
+   * le 19 octobre 2026 : « je veux que ce soit un choix ») — en avatar dans
+   * la loge, dans sa niche depuis « Ma niche » —, ouverte à sa forme ultime
+   * quand l'Éclat brille sur lui (`metamorphoseOuverte`).
+   */
+  lumiere: FormeDeCompagnon
 }
 
-/** Un compagnon et ses quatre formes, dans l'ordre : `[clé, nom, pronom, emoji, phrase, [id, nom, légende][]]`. */
-const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, string, string][]][] = [
+/** Un compagnon, ses quatre formes et sa lumière, dans l'ordre : `[clé, nom, pronom, emoji, phrase, [id, nom, légende][], [id, nom, légende]]`. */
+const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, string, string][], [string, string, string]][] = [
   [
     'loup',
     'Le Loup',
@@ -92,6 +118,7 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
       ['adulte', 'Le loup adulte', 'Sur une crête, au-dessus d’une mer de nuages, sous la pleine lune.'],
       ['ultime', 'Le loup des étoiles', 'Sa selle devenue ciel étoilé, ses rubans d’étoiles tournent autour de lui.'],
     ],
+    ['tempete', 'Le loup-tempête', 'Éclairs d’aurore et glace qui vole.'],
   ],
   [
     'chat',
@@ -105,6 +132,7 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
       ['adulte', 'Le chat des lanternes', 'Au cœur de la fête de nuit, sous les premiers feux d’artifice.'],
       ['esprit', 'L’esprit des lanternes', 'Deux queues de flamme ; ses lanternes et ses feux d’artifice sortent du cercle.'],
     ],
+    ['soleil', 'Le chat-soleil', 'Fourrure d’or tissé, queues en comètes, feux d’artifice dorés.'],
   ],
   [
     'tortue',
@@ -118,11 +146,12 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
       ['adulte', 'La tortue-bosquet', 'Un bosquet sur la carapace et sa cascade, en pleine mer.'],
       ['ile', 'La tortue-île', 'Une île entière sur le dos : ses cascades et ses oiseaux sortent du cercle.'],
     ],
+    ['fleurs', 'L’île en fleurs', 'Fleurs blanches et dorées, pétales qui tourbillonnent.'],
   ],
 ]
 
 /** Les trois compagnons de la boutique, dans l'ordre de ses rayons. */
-export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, emoji, phrase, formes]) => ({
+export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, emoji, phrase, formes, [idDeLaLumiere, nomDeLaLumiere, legendeDeLaLumiere]]) => ({
   key,
   nom,
   le,
@@ -136,12 +165,24 @@ export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, em
     legende,
     rarete: RARETE_DES_FORMES[rang],
   })),
+  lumiere: {
+    key: `cp:${key}-${idDeLaLumiere}`,
+    compagnon: key,
+    rang: 3,
+    nom: nomDeLaLumiere,
+    legende: legendeDeLaLumiere,
+    rarete: 'legendaire',
+    metamorphose: true,
+  },
 }))
 
 /** Les douze formes, compagnon après compagnon. */
 export const FORMES_DES_COMPAGNONS: readonly FormeDeCompagnon[] = COMPAGNONS.flatMap(c => c.formes)
 
-const PAR_CLE = new Map(FORMES_DES_COMPAGNONS.map(f => [f.key, f]))
+/** Leurs trois métamorphoses de lumière, à part : elles ne se gagnent pas en grandissant. */
+export const METAMORPHOSES: readonly FormeDeCompagnon[] = COMPAGNONS.map(c => c.lumiere)
+
+const PAR_CLE = new Map([...FORMES_DES_COMPAGNONS, ...METAMORPHOSES].map(f => [f.key, f]))
 const COMPAGNON_PAR_CLE = new Map(COMPAGNONS.map(c => [c.key, c]))
 
 /** La forme de compagnon de cette clé (`cp:loup-adulte`) ; rien pour une autre clé. */
@@ -184,10 +225,18 @@ export interface CompagnonPossede {
   nom?: string
   /**
    * Le rang de la forme qu'il montre dans sa niche, s'il en a choisi une
-   * d'avant la plus haute ; absent, la plus haute — il grandit alors sous ses
-   * yeux. Une forme atteinte reprend la place (`formeDansLaNiche`).
+   * d'avant la plus haute — ou sa métamorphose (`MONTREE_DE_LA_METAMORPHOSE`) ;
+   * absent, la plus haute — il grandit alors sous ses yeux. Une forme
+   * atteinte reprend la place (`formeDansLaNiche`).
    */
   montree?: number
+  /**
+   * L'Éclat brille sur lui — tombé sur l'une de ses formes, et pas éteint
+   * (`brilleChez`) : à sa forme ultime, il lui ouvre sa métamorphose
+   * (`metamorphoseOuverte`). Le serveur le dit : la niche ne lit pas les
+   * Éclats, et sa fiche se relit seule à l'ouverture (`GET /api/joueur/niche`).
+   */
+  eclat?: true
 }
 
 /** Et les bonnes réponses données avec lui depuis l'achat, relues dans ses journaux : la jauge de la forme suivante. */
@@ -203,9 +252,20 @@ export function prochaineForme(a: CompagnonAcquis): { forme: FormeDeCompagnon; e
   return { forme: suivante, encore: Math.max(0, JUSTES_DES_FORMES[suivante.rang] - a.justes) }
 }
 
-/** Les clés des formes que ces compagnons laissent porter : chacun jusqu'à sa plus haute. */
+/**
+ * Sa métamorphose s'ouvre-t-elle à lui ? Sa forme ultime atteinte, et l'Éclat
+ * sur lui — tombé avant ou après, sur n'importe laquelle de ses formes : il
+ * suit le compagnon qui grandit (`clesQuiBrillent`).
+ */
+export const metamorphoseOuverte = (a: Pick<CompagnonPossede, 'rang' | 'eclat'>): boolean => a.rang >= 3 && !!a.eclat
+
+/** Les clés des formes que ces compagnons laissent porter : chacun jusqu'à sa plus haute, et sa métamorphose si elle s'est ouverte. */
 export function formesOuvertes(possedes: readonly CompagnonPossede[]): string[] {
-  return possedes.flatMap(a => (compagnon(a.compagnon)?.formes ?? []).filter(f => f.rang <= a.rang).map(f => f.key))
+  return possedes.flatMap(a => {
+    const c = compagnon(a.compagnon)
+    if (!c) return []
+    return [...c.formes.filter(f => f.rang <= a.rang).map(f => f.key), ...(metamorphoseOuverte(a) ? [c.lumiere.key] : [])]
+  })
 }
 
 /** La plus haute forme qu'il a de ce compagnon. */
@@ -213,9 +273,15 @@ export function formeLaPlusHaute(a: CompagnonPossede): FormeDeCompagnon | undefi
   return compagnon(a.compagnon)?.formes[a.rang]
 }
 
-/** La forme qu'il montre dans sa niche : celle qu'il a choisie, si elle est atteinte, sinon sa plus haute. */
+/**
+ * La forme qu'il montre dans sa niche : celle qu'il a choisie, si elle est
+ * atteinte — sa métamorphose, si elle s'est ouverte —, sinon sa plus haute.
+ */
 export function formeDansLaNiche(a: CompagnonPossede): FormeDeCompagnon | undefined {
-  return compagnon(a.compagnon)?.formes[a.montree !== undefined && a.montree >= 0 && a.montree <= a.rang ? a.montree : a.rang]
+  const c = compagnon(a.compagnon)
+  if (!c) return undefined
+  if (a.montree === MONTREE_DE_LA_METAMORPHOSE && metamorphoseOuverte(a)) return c.lumiere
+  return c.formes[a.montree !== undefined && a.montree >= 0 && a.montree <= a.rang ? a.montree : a.rang]
 }
 
 /**

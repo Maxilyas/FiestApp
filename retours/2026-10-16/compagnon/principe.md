@@ -5,8 +5,9 @@ trois compagnons de la boutique, leurs quatre formes, portées en avatar — et,
 depuis le 18 octobre 2026 au soir, **la niche** (le point 1 de la fin de
 cette page : sa place sur chaque page, sa fiche, son repli, et le compagnon de
 la niche qui grandit) ; depuis le 19 octobre, **ses humeurs et ses réactions
-à la révélation** (le point 2 : le § 2 tel qu'il est écrit). Le reste
-attend ; les preuves visuelles sont sur la planche (lien dans `README.md`).
+à la révélation** (le point 2 : le § 2 tel qu'il est écrit), et **la lumière
+que l'Éclat ouvre**, une forme de plus (la moitié du point 5). Le reste attend ; les
+preuves visuelles sont sur la planche (lien dans `README.md`).
 
 ## En une phrase
 
@@ -75,7 +76,8 @@ raison de lui rester fidèle. Un palier atteint ne se perd jamais.
 
 En route, deux buts de plus : les **métamorphoses**, déjà peintes pour le loup,
 le chat et la tortue — la lumière que l'Éclat fait tomber, l'ombre que cent
-mauvaises réponses font gagner —, à livrer.
+mauvaises réponses font gagner —, à livrer (la lumière l'est depuis le
+19 octobre 2026).
 
 ## 5. Comment on l'a
 
@@ -161,5 +163,5 @@ vidéo générée : trop chère pour ce qu'elle apporte.
 3. Le haut fait « Première traversée » et la livraison de Lumi
    (`livrer-compagnons.ts luciole`).
 4. Les paliers de la niche, lus des journaux.
-5. Les métamorphoses livrées.
+5. Les métamorphoses livrées. ~~La lumière~~ livrée le 19 octobre 2026 (« quelqu'un a eu le loup compagnon en éclaté mais son avatar n'a pas changé », le propriétaire : peinte, elle ne partait pas, et l'Éclat ne posait que quatre paillettes) : le loup-tempête, le chat-soleil, l'île en fleurs, une forme de plus que l'Éclat ouvre à la forme ultime, et qui ne la remplace pas — « je veux que ce soit un choix », le propriétaire, le même jour : une case de plus dans la loge pour la porter, une petite niche de plus dans « Ma niche » pour l'y montrer — ses humeurs, son cadrage —, marquées d'un point rouge tant qu'on ne l'a pas vue ; l'album l'a sur sa page légendaire. Reste l'ombre, peinte, et sa règle (cent mauvaises réponses en le portant).
 6. Le réveil et « Le laisser dormir ».

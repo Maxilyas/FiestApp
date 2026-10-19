@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import type { Finition } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
-import { portrait as portraitDe } from '../../../shared/branches'
-import { formeDeCompagnon } from '../../../shared/compagnons'
+import { nomDansLaPhrase, portrait as portraitDe } from '../../../shared/branches'
+import { compagnonDe, formeDeCompagnon, type FormeDeCompagnon } from '../../../shared/compagnons'
 import { api } from '../api'
+import { espacesFines } from '../format'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
@@ -91,17 +92,62 @@ export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; ava
   // Un compagnon porté éclate aussi (`cibleEclat`) : sans lui, sa clé s'écrivait en toutes lettres — « Ton cp:loup-jeune a éclaté ! ».
   const compagnon = formeDeCompagnon(cle)
   const dessine = legendaire(cle) ?? portraitDe(cle) ?? compagnon
+  // L'Éclat tombe sur ce qu'il porte : sa forme ultime portée, il l'a atteinte, et sa métamorphose s'ouvre maintenant.
+  const ouverte = compagnon && compagnon.rang === 3 && !compagnon.metamorphose ? compagnon : null
   return (
-    <section className="card fin-eclat">
-      <span className="label">{`Une chance sur ${EN_LETTRES[chance] ?? chance}`}</span>
-      <span className="fin-apparition">
-        {dessine ? <Avatar avatar={avatar} legendaire={cle} finition={finition} eclat /> : <Avatar avatar={cle} finition={finition} eclat />}
-      </span>
-      <h2>{dessine ? `${dessine.nom} a éclaté !` : `Ton ${cle} a éclaté !`}</h2>
-      {/* Un compagnon n'a pas encore de version rare : ses paillettes le suivent sous toutes ses formes (`clesQuiBrillent`). */}
-      <p className="serif-note">
-        {compagnon ? 'Il brille, désormais, sous toutes ses formes — et personne d’autre ne l’a comme ça.' : 'Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.'}
-      </p>
+    <>
+      <section className="card fin-eclat">
+        <span className="label">{`Une chance sur ${EN_LETTRES[chance] ?? chance}`}</span>
+        <span className="fin-apparition">
+          {dessine ? <Avatar avatar={avatar} legendaire={cle} finition={finition} eclat /> : <Avatar avatar={cle} finition={finition} eclat />}
+        </span>
+        <h2>{dessine ? `${dessine.nom} a éclaté !` : `Ton ${cle} a éclaté !`}</h2>
+        {/* Un compagnon n'a pas de version rare : ses paillettes le suivent sous toutes ses formes (`clesQuiBrillent`), et sa forme ultime ouvre sa métamorphose. */}
+        <p className="serif-note">
+          {compagnon ? 'Il brille, désormais, sous toutes ses formes — et personne d’autre ne l’a comme ça.' : 'Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.'}
+        </p>
+        {compagnon && !ouverte && !compagnon.metamorphose && (
+          <p className="muted small">{espacesFines(`Dès sa forme ultime, l’Éclat lui ouvre sa métamorphose : ${nomDansLaPhrase(compagnonDe(compagnon).lumiere.nom)}.`)}</p>
+        )}
+      </section>
+      {ouverte && <MetamorphoseOuverte forme={ouverte} />}
+    </>
+  )
+}
+
+/**
+ * La métamorphose que l'Éclat vient d'ouvrir, sous sa carte : elle s'ajoute
+ * à ses formes et ne remplace rien (le propriétaire, le 19 octobre 2026 :
+ * « je veux que ce soit un choix ») — sa forme ultime reste telle quelle, et
+ * on la porte d'ici, ou plus tard : la loge et sa niche la marquent neuve
+ * tant qu'il ne l'a pas vue.
+ */
+function MetamorphoseOuverte({ forme }: { forme: FormeDeCompagnon }) {
+  const [porte, setPorte] = useState(false)
+  const m = compagnonDe(forme).lumiere
+  const porter = async () => {
+    try {
+      const { profile } = await api.joueur.enregistrer({ legendaire: m.key })
+      setPorte(profile.legendaire === m.key)
+      showToast({ kind: 'info', message: `Tu portes ${nomDansLaPhrase(m.nom)}` })
+    } catch (e) {
+      showToast({ kind: 'error', message: (e as Error).message })
+    }
+  }
+  return (
+    <section className="card fin-legendaire fin-metamorphose">
+      <span className="label">Sa métamorphose s’ouvre</span>
+      <Medaillon cle={m.key} className="fin-medaillon" />
+      <h2>{m.nom}</h2>
+      <p className="serif-note">{m.legende}</p>
+      {porte ? (
+        <p className="muted small">C’est elle que la salle verra, dès la prochaine soirée.</p>
+      ) : (
+        <button className="btn btn-primary" onClick={() => void porter()}>
+          Le porter
+        </button>
+      )}
+      <p className="muted small">{espacesFines('Elle s’ajoute à ses formes, sans rien remplacer : la loge et ta niche te la proposent.')}</p>
     </section>
   )
 }

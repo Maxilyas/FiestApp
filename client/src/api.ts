@@ -398,12 +398,13 @@ export const api = {
     /** Ce qu'il a de neuf à porter, compté : la pastille rouge de « Profil » — rien sans profil. */
     nouveautes: () => req<NouveautesDeLaLoge>('/api/joueur/nouveautes'),
     /**
-     * Le compagnon de sa niche et où il en est, et tous les siens — sa fiche,
-     * ouverte au toucher de la niche ; null et rien sans compagnon. Un serveur
-     * d'avant ne dit que le premier.
+     * Le compagnon de sa niche et où il en est, tous les siens, et leurs
+     * métamorphoses qu'il n'a pas encore vues (`neuves`) — sa fiche, ouverte
+     * au toucher de la niche ; null et rien sans compagnon. Un serveur d'avant
+     * ne dit que le premier.
      */
-    niche: () => req<{ niche: CompagnonAcquis | null; compagnons?: CompagnonAcquis[] }>('/api/joueur/niche'),
-    /** Ce qu'il règle d'un de ses compagnons, depuis sa niche : son nom (vide, il n'en a plus), la forme qu'il y montre (null : sa plus haute). */
+    niche: () => req<{ niche: CompagnonAcquis | null; compagnons?: CompagnonAcquis[]; neuves?: string[] }>('/api/joueur/niche'),
+    /** Ce qu'il règle d'un de ses compagnons, depuis sa niche : son nom (vide, il n'en a plus), la forme qu'il y montre (null : sa plus haute ; 4 : sa métamorphose). */
     reglerCompagnon: (compagnon: string, reglage: { nom?: string; montree?: number | null }) =>
       req<{ profile: PublicProfile }>(`/api/joueur/compagnons/${encodeURIComponent(compagnon)}`, { method: 'PUT', body: JSON.stringify(reglage) }),
     /** Ce qu'il vient de voir dans sa loge, retenu pour tous ses appareils. */

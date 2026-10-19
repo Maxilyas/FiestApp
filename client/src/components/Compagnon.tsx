@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react'
 import type { Finition } from '../../../shared/profil'
-import { formeDeCompagnon, type CleDeCompagnon } from '../../../shared/compagnons'
+import { formeDeCompagnon, type CleDeCompagnon, type FormeDeCompagnon } from '../../../shared/compagnons'
 import { Cercle } from './Cercle'
 import { dessinDuCompagnon, useDessins } from './medaillons'
 
@@ -25,6 +25,17 @@ import { dessinDuCompagnon, useDessins } from './medaillons'
  * passe avec ce qui déborde : jamais dans une liste. Porté, la finition
  * devient son cercle, comme un portrait ; pas encore à lui, sa silhouette
  * dorée sur un disque sombre.
+ *
+ * Sa métamorphose de lumière (`Compagnon.lumiere`, la maquette des
+ * compagnons, `principe.md` § 4), que l'Éclat ouvre à sa forme ultime, se
+ * peint comme une forme de plus : un autre animal, plus féroce, dans son
+ * propre décor, qui sort tout entier du disque, l'aura et l'anneau à sa
+ * couleur — ni monde vivant, ni étoiles : son décor est le sien. Elle ne
+ * remplace rien : on la choisit, en avatar comme dans la niche (le 19
+ * octobre 2026, « je veux que ce soit un choix ») ; l'Éclat, lui, pose ses
+ * paillettes sur toutes ses formes (`Avatar.tsx`). Peinte le 13 octobre,
+ * elle n'était pas livrée : un loup éclaté ne gagnait que ses quatre
+ * paillettes, et l'on croyait que l'Éclat n'avait rien fait.
  */
 
 /** Ce qu'il montre à la révélation : ravi d'une bonne réponse, dépité avec toi d'une ratée, triomphant quand il sort de sa niche. */
@@ -63,13 +74,15 @@ interface Couche {
   devant: boolean
 }
 
-/** Ce que chaque compagnon a à lui : le disque de sa première forme, l'aura et le monde de sa forme ultime. */
+/** Ce que chaque compagnon a à lui : le disque de sa première forme, l'aura et le monde de sa forme ultime, la couleur de sa métamorphose. */
 interface Allure {
   fond: [string, string, string]
   aura: string
   /** Sa forme ultime sort du disque tout entière, son monde avec elle. */
   entiere: boolean
   vivant: Couche[]
+  /** Sa métamorphose de lumière : son aura et son anneau, à sa couleur — celle de la maquette, où l'on a choisi chacune. */
+  lumiere: string
 }
 
 const ALLURES: Record<CleDeCompagnon, Allure> = {
@@ -78,6 +91,8 @@ const ALLURES: Record<CleDeCompagnon, Allure> = {
     aura: '#9ec8ff',
     entiere: false,
     vivant: [{ cle: 'rubans', mouvement: 'tourne', taille: 170, devant: true }],
+    // Le loup-tempête : ses éclairs d'aurore.
+    lumiere: '#4fe3c1',
   },
   chat: {
     fond: ['#f6c48f', '#7a3b52', '#22101a'],
@@ -87,6 +102,8 @@ const ALLURES: Record<CleDeCompagnon, Allure> = {
       { cle: 'feux', mouvement: 'pulse', taille: 176, devant: false },
       { cle: 'lanternes', mouvement: 'monte', taille: 166, devant: true },
     ],
+    // Le chat-soleil : son or tissé.
+    lumiere: '#ffcf6b',
   },
   tortue: {
     fond: ['#9fe0d6', '#1f6f78', '#0a2a33'],
@@ -96,6 +113,8 @@ const ALLURES: Record<CleDeCompagnon, Allure> = {
       { cle: 'brume', mouvement: 'derive', taille: 176, devant: true },
       { cle: 'oiseaux', mouvement: 'vole', taille: 168, devant: true },
     ],
+    // L'île en fleurs : ses fleurs blanches et dorées.
+    lumiere: '#fff1b8',
   },
 }
 
@@ -159,12 +178,16 @@ interface EtatPeint {
  * disque, `apres` par-dessus (l'anneau, ce qui sort, le monde devant lui, les
  * étoiles). Tout en chaînes : des fichiers du dépôt, jamais une donnée d'invité.
  */
-function peint(dessin: DessinDeCompagnon, rang: number, allure: Allure, u: string, e: EtatPeint) {
+function peint(dessin: DessinDeCompagnon, forme: FormeDeCompagnon, allure: Allure, u: string, e: EtatPeint) {
+  const { rang } = forme
   const taille = e.grand ? 0 : 1
-  const entiere = rang === 3 && allure.entiere
+  // Sa métamorphose, peinte tout entière dans son image, en sort de tous côtés
+  // comme la forme ultime du chat : son cadre est celui d'une forme entière.
+  const rare = !!forme.metamorphose
+  const entiere = rare || (rang === 3 && allure.entiere)
   const [o, cote] = entiere ? ENTIERE : CADRE[rang]
   const perso = `<image href="${dessin.perso[taille]}" x="${o}" y="${o}" width="${cote}" height="${cote}"/>`
-  const anneau = ANNEAU[rang]
+  const anneau = rare ? allure.lumiere : ANNEAU[rang]
   // Le disque cède son bord au cercle d'une finition, ou à l'anneau de la forme.
   const rayon = e.cercle ? 45 : anneau ? 46.4 : 48
   const grand = 'x="-60" y="-60" width="220" height="220"'
@@ -187,7 +210,8 @@ function peint(dessin: DessinDeCompagnon, rang: number, allure: Allure, u: strin
   else scene += (dessin.disque ? `<image href="${dessin.disque[taille]}" x="0" y="0" width="100" height="100"/>` : '') + perso
   const ultime = rang === 3 && !e.verrouille
   if (ultime) {
-    defs += `<radialGradient id="${u}_aura" gradientUnits="userSpaceOnUse" cx="50" cy="52" r="64"><stop offset=".58" stop-color="${allure.aura}" stop-opacity=".5"/><stop offset="1" stop-color="${allure.aura}" stop-opacity="0"/></radialGradient>`
+    const aura = rare ? allure.lumiere : allure.aura
+    defs += `<radialGradient id="${u}_aura" gradientUnits="userSpaceOnUse" cx="50" cy="52" r="64"><stop offset=".58" stop-color="${aura}" stop-opacity=".5"/><stop offset="1" stop-color="${aura}" stop-opacity="0"/></radialGradient>`
     avant += `<circle class="pt-aura" cx="50" cy="52" r="64" fill="url(#${u}_aura)"/>`
   }
   // Le monde vivant, chaque couche estompée en cercle : sans quoi le carré
@@ -201,7 +225,8 @@ function peint(dessin: DessinDeCompagnon, rang: number, allure: Allure, u: strin
       `<mask id="${id}" maskUnits="userSpaceOnUse" x="${x}" y="${x}" width="${t}" height="${t}"><rect x="${x}" y="${x}" width="${t}" height="${t}" fill="url(#${id}g)"/></mask>`
     return `<g class="pt-debord cp-vivant cp-${v.mouvement}"><g mask="url(#${id})"><image href="${image[taille]}" x="${x}" y="${x}" width="${t}" height="${t}"/></g></g>`
   }
-  const couches = ultime ? allure.vivant.filter(v => dessin.vivant?.[v.cle]) : []
+  // Sa métamorphose a son propre monde, peint autour d'elle : les rubans du loup des étoiles n'y tournent pas.
+  const couches = ultime && !rare ? allure.vivant.filter(v => dessin.vivant?.[v.cle]) : []
   for (const v of couches) if (!v.devant) avant += couche(v, dessin.vivant![v.cle])
   // Le cercle d'une finition prend la place de l'anneau (le composant le pose).
   if (!e.cercle) {
@@ -234,7 +259,7 @@ function peint(dessin: DessinDeCompagnon, rang: number, allure: Allure, u: strin
     apres += `<g class="pt-debord" mask="url(#${u}_entier)">${e.verrouille ? silhouette : perso}</g>`
   }
   for (const v of couches) if (v.devant) apres += couche(v, dessin.vivant![v.cle])
-  if (ultime && !allure.entiere) apres += ETOILES.map(([x, y, r]) => etoile(x, y, r)).join('')
+  if (ultime && !entiere) apres += ETOILES.map(([x, y, r]) => etoile(x, y, r)).join('')
   return { defs, avant, scene, apres, rayon }
 }
 
@@ -268,7 +293,7 @@ export function Compagnon({ cle, verrouille, finition, grand, className }: Props
   // que l'objet `__html` change, même à texte égal (`Portrait.tsx`).
   const peinture = useMemo(() => {
     if (!f || !dessin) return null
-    const { defs, avant, scene, apres, rayon } = peint(dessin, f.rang, ALLURES[f.compagnon], u, { verrouille: !!verrouille, cercle, grand: !!grand })
+    const { defs, avant, scene, apres, rayon } = peint(dessin, f, ALLURES[f.compagnon], u, { verrouille: !!verrouille, cercle, grand: !!grand })
     return {
       defs: { __html: `<clipPath id="${u}_clip"><circle cx="50" cy="50" r="${rayon}"/></clipPath>` + defs },
       avant: avant ? { __html: avant } : null,

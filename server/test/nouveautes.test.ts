@@ -247,16 +247,17 @@ test('chaque nouveauté de la pièce « Avatar » a sa marque dans la loge, et s
     legendaires: LEGENDAIRES.map(l => l.key),
     divins: DIVINS.map(d => ({ key: d.key, legende: '…', ton: 'eclat' })),
     sentiers: Object.fromEntries(BRANCHES.map(b => [b.key, 12])),
-    compagnons: COMPAGNONS.map(c => ({ compagnon: c.key, rang: 3 })),
+    // L'Éclat du chat, que le serveur dit avec lui : sa métamorphose est ouverte, une case de plus.
+    compagnons: COMPAGNONS.map(c => ({ compagnon: c.key, rang: 3, ...(c.key === 'chat' && { eclat: true }) })),
     bordures: LIGUES.map(l => ({ ligue: l.cle, crans: 12 })),
     eclats: ['🐸', 'lg:dragon', 'br:blaireau', 'cp:chat-jeune', '🐝'],
   }
-  // Ce qu'un Éclat fait briller : l'avatar où il est tombé — toutes les formes, pour un compagnon.
+  // Ce qu'un Éclat fait briller : l'avatar où il est tombé — toutes les formes, pour un compagnon, sa métamorphose comprise.
   const BRILLENT: Record<string, string[]> = {
     '🐸': ['🐸'],
     'lg:dragon': ['lg:dragon'],
     'br:blaireau': ['br:blaireau'],
-    'cp:chat-jeune': ['cp:chat-chaton', 'cp:chat-jeune', 'cp:chat-adulte', 'cp:chat-esprit'],
+    'cp:chat-jeune': ['cp:chat-chaton', 'cp:chat-jeune', 'cp:chat-adulte', 'cp:chat-esprit', 'cp:chat-soleil'],
     '🐝': ['🐝'],
   }
   const cles = ceQuIlAPorter(tout as any).avatar

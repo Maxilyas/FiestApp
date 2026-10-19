@@ -1,6 +1,7 @@
 // Les compagnons peints : les fichiers de chaque forme — ses humeurs, que la
-// niche échange en place à la révélation —, et le monde vivant de leur forme
-// ultime.
+// niche échange en place à la révélation —, le monde vivant de leur forme
+// ultime, et leur métamorphose de lumière, que l'Éclat ouvre : une forme de
+// plus.
 //
 // Peints en images par `server/scripts/anime/compagnons.ts`, dans un seul
 // style — la peinture lumineuse : une collection.
@@ -51,6 +52,15 @@ export const DESSINS: Record<string, DessinDeCompagnon> = {
       rubans: ['/compagnons/loup-ultime-vivant-rubans-512.ef4fdaa542.webp', '/compagnons/loup-ultime-vivant-rubans-256.f7beac4ff2.webp'],
     },
   },
+  'cp:loup-tempete': {
+    disque: ['/compagnons/loup-eclat-tempete-disque-512.fa1bb6ac7d.webp', '/compagnons/loup-eclat-tempete-disque-256.31cb1d0bb9.webp'],
+    perso: ['/compagnons/loup-eclat-tempete-perso-512.ea6d90d657.webp', '/compagnons/loup-eclat-tempete-perso-256.5c3a9d3bfa.webp'],
+    humeurs: {
+      ravi: ['/compagnons/loup-eclat-tempete-ravi-512.53256141ac.webp', '/compagnons/loup-eclat-tempete-ravi-256.fe3d144cce.webp'],
+      depite: ['/compagnons/loup-eclat-tempete-depite-512.d2dfdd7bd1.webp', '/compagnons/loup-eclat-tempete-depite-256.3d24d28d97.webp'],
+      triomphe: ['/compagnons/loup-eclat-tempete-triomphe-512.4b36c82a90.webp', '/compagnons/loup-eclat-tempete-triomphe-256.f8e97888da.webp'],
+    },
+  },
   'cp:chat-chaton': {
     perso: ['/compagnons/chat-chaton-perso-512.87e13a2b28.webp', '/compagnons/chat-chaton-perso-256.9a1e4eae94.webp'],
     humeurs: {
@@ -90,6 +100,15 @@ export const DESSINS: Record<string, DessinDeCompagnon> = {
       lanternes: ['/compagnons/chat-esprit-vivant-lanternes-512.06e7fdf59f.webp', '/compagnons/chat-esprit-vivant-lanternes-256.7b842a2d40.webp'],
     },
   },
+  'cp:chat-soleil': {
+    disque: ['/compagnons/chat-eclat-soleil-disque-512.2855b4da7c.webp', '/compagnons/chat-eclat-soleil-disque-256.a04db3982c.webp'],
+    perso: ['/compagnons/chat-eclat-soleil-perso-512.4429f7993a.webp', '/compagnons/chat-eclat-soleil-perso-256.df0c206e38.webp'],
+    humeurs: {
+      ravi: ['/compagnons/chat-eclat-soleil-ravi-512.14d0086454.webp', '/compagnons/chat-eclat-soleil-ravi-256.e4d2fd4175.webp'],
+      depite: ['/compagnons/chat-eclat-soleil-depite-512.7de2bd4bb9.webp', '/compagnons/chat-eclat-soleil-depite-256.e3599a6f07.webp'],
+      triomphe: ['/compagnons/chat-eclat-soleil-triomphe-512.7b8ea1b251.webp', '/compagnons/chat-eclat-soleil-triomphe-256.5cbcefcc81.webp'],
+    },
+  },
   'cp:tortue-bebe': {
     perso: ['/compagnons/tortue-bebe-perso-512.f7457465d2.webp', '/compagnons/tortue-bebe-perso-256.15f75b1d81.webp'],
     humeurs: {
@@ -127,6 +146,15 @@ export const DESSINS: Record<string, DessinDeCompagnon> = {
     vivant: {
       brume: ['/compagnons/tortue-ile-vivant-brume-512.36c0026f6d.webp', '/compagnons/tortue-ile-vivant-brume-256.efa2a254c4.webp'],
       oiseaux: ['/compagnons/tortue-ile-vivant-oiseaux-512.2f594abf90.webp', '/compagnons/tortue-ile-vivant-oiseaux-256.3b20a56fb7.webp'],
+    },
+  },
+  'cp:tortue-fleurs': {
+    disque: ['/compagnons/tortue-eclat-fleurs-disque-512.df9283f0f6.webp', '/compagnons/tortue-eclat-fleurs-disque-256.79e6e5af21.webp'],
+    perso: ['/compagnons/tortue-eclat-fleurs-perso-512.e442a39d9e.webp', '/compagnons/tortue-eclat-fleurs-perso-256.beea4b6d4f.webp'],
+    humeurs: {
+      ravi: ['/compagnons/tortue-eclat-fleurs-ravi-512.6ba3575dc8.webp', '/compagnons/tortue-eclat-fleurs-ravi-256.566b1cda58.webp'],
+      depite: ['/compagnons/tortue-eclat-fleurs-depite-512.2dd068feb4.webp', '/compagnons/tortue-eclat-fleurs-depite-256.d8359c20fc.webp'],
+      triomphe: ['/compagnons/tortue-eclat-fleurs-triomphe-512.e8ee23bcbc.webp', '/compagnons/tortue-eclat-fleurs-triomphe-256.94207d061f.webp'],
     },
   },
 }

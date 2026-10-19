@@ -15,7 +15,7 @@ import React from 'react'
 import { BRANCHES, ouvertsDansLaBranche } from '../../shared/branches'
 import { LEGENDAIRES } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
-import { COMPAGNONS } from '../../shared/compagnons'
+import { COMPAGNONS, METAMORPHOSES } from '../../shared/compagnons'
 import { GERBES } from '../../shared/gerbes'
 import { FINITIONS } from '../../shared/profil'
 
@@ -94,18 +94,21 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
   }
   assert.ok(epique.some(x => x.nom === 'La tortue-bosquet, épique, à gagner en boutique, puis à 300 bonnes réponses avec elle'))
   // Chaque gemme dit où il en est, en chiffres : la couleur seule ne se lit pas.
-  // Les compagnons y ont aussi leur forme, une par page : trois de plus.
+  // Les compagnons y ont aussi leur forme, une par page : trois de plus — et
+  // leurs trois métamorphoses, légendaires.
   const html = await album('commune')
   assert.match(html, /aria-label="Rare, 1 sur 27"/)
-  assert.match(html, new RegExp(`aria-label="Légendaire, 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length}"`))
+  assert.match(html, new RegExp(`aria-label="Légendaire, 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length}"`))
   assert.equal(ouvertsDansLaBranche(avancee, paliers), 3)
 })
 
 test('les légendaires et les Divins dans l’album, le compte en tête — un Divin voilé ne dit rien de lui', async () => {
   const html = await album('legendaire')
-  assert.match(html, new RegExp(`<b>Légendaire · 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length}\\.</b>`))
+  // Ses légendaires, la forme ultime de chaque sentier et de chaque compagnon, et la métamorphose de chacun.
+  const legendaires = LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length
+  assert.match(html, new RegExp(`<b>Légendaire · 1 sur ${legendaires}\\.</b>`))
   const cases = casesDeLAlbum(html)
-  assert.equal(cases.length, LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length)
+  assert.equal(cases.length, legendaires)
   assert.deepEqual(cases.filter(c => c.aLui).map(c => c.nom), [`${LEGENDAIRES[0].nom}, légendaire, à toi`])
   // Un Divin verrouillé ne dit rien de lui, pas même son nom (invariant 21).
   const divins = await album('divin')

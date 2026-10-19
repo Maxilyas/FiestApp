@@ -301,7 +301,7 @@ export function ProfilApp() {
   const sienDeLaNiche = profil?.compagnons?.find(c => c.compagnon === niche)
   useEffect(() => {
     if (!chargement) porterNiche(niche && sienDeLaNiche ? { niche, compagnons: [sienDeLaNiche] } : null)
-  }, [chargement, niche, sienDeLaNiche?.rang, sienDeLaNiche?.montree, sienDeLaNiche?.nom]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chargement, niche, sienDeLaNiche?.rang, sienDeLaNiche?.montree, sienDeLaNiche?.nom, sienDeLaNiche?.eclat]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // L'accueil affiché, le code du quiz du jour, de la campagne et des duels
   // vient en fond : toucher leur bouton ouvre la page sans le télécharger d'abord.

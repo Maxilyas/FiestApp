@@ -186,6 +186,25 @@ test('l’Éclat tombé sur un compagnon porté : son dessin et son nom — sa c
   assert.match(readFileSync(new URL('../../client/src/components/Cloture.tsx', import.meta.url), 'utf8'), /legendaire\(e\.eclate\) \|\| portrait\(e\.eclate\) \|\| formeDeCompagnon\(e\.eclate\)/)
 })
 
+test('l’Éclat tombé sur sa forme ultime : la carte montre la métamorphose qui s’ouvre, et « Le porter » — plus jeune, elle l’annonce', async () => {
+  const carte = (cle: string) => rendu('components/Ouverts', 'EclatTombe', { cle, avatar: '🦊', chance: 40 })
+  // L'Éclat tombe sur ce qu'il porte : sa forme ultime portée, sa métamorphose
+  // s'ouvre maintenant — une forme de plus, qui ne remplace rien (le
+  // propriétaire, le 19 octobre 2026 : « je veux que ce soit un choix »).
+  const ultime = await carte('cp:loup-ultime')
+  assert.match(ultime, /<h2>Le loup des étoiles a éclaté !<\/h2>/)
+  assert.match(ultime, /<section class="card fin-legendaire fin-metamorphose"><span class="label">Sa métamorphose s’ouvre<\/span>/)
+  assert.match(ultime, /<h2>Le loup-tempête<\/h2><p class="serif-note">Éclairs d’aurore et glace qui vole\.<\/p>/)
+  assert.match(ultime, /<button class="btn btn-primary">Le porter<\/button>/)
+  assert.match(ultime, /Elle s’ajoute à ses formes, sans rien remplacer/)
+  // Plus jeune : ses paillettes, et ce que sa forme ultime lui réserve.
+  const jeune = await carte('cp:tortue-jeune')
+  assert.doesNotMatch(jeune, /fin-legendaire|Le porter/)
+  assert.match(jeune, /Dès sa forme ultime, l’Éclat lui ouvre sa métamorphose\s: l’île en fleurs\./)
+  // Un emoji, un légendaire : rien de cela.
+  for (const cle of ['🦊', 'lg:phenix']) assert.doesNotMatch(await carte(cle), /métamorphose/, cle)
+})
+
 // ── 4. Ce que le serveur envoie ───────────────────────────────────────────
 
 let instant = 1_000

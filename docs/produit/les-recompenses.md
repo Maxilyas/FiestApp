@@ -114,8 +114,8 @@ Un tirage, et rien d'autre : ton avatar change de couleurs, pour toujours, et pe
 
 Rien d'autre ne le tire — ni les séries de la campagne, ni ses révisions, ni les sentiers, ni les parcours, ni les duels : ils se rejouent à volonté, quand une soirée, une partie par jour ou une tentative par semaine tiennent lieu de garde-fou.
 
-- **Ce qui éclate** : ce que tu portes — un légendaire, un portrait des sentiers, une forme de compagnon —, sinon ton emoji ; sous un Divin, ton emoji. Un compagnon n'éclate qu'une fois, toutes formes comprises ; sur un avatar déjà éclaté, le tirage tombe dans le vide.
-- **C'est définitif.** Tu le portes en « Version rare » ou en « Version d'origine » ; l'Éclat reste à toi et compte pour La Pluie d'Éclats. Il ne se reprend qu'avec la soirée qui l'a tiré ; celui d'une partie du jour ou du défi, jamais.
+- **Ce qui éclate** : ce que tu portes — un légendaire, un portrait des sentiers, une forme de compagnon —, sinon ton emoji ; sous un Divin, ton emoji. Un compagnon n'éclate qu'une fois, toutes formes comprises : des paillettes brillent sur chacune, et à sa forme ultime, l'Éclat lui ouvre sa métamorphose de lumière — une forme de plus, qu'on porte ou qu'on montre dans sa niche en la choisissant ([le profil](le-profil.md)) ; sur un avatar déjà éclaté, le tirage tombe dans le vide.
+- **C'est définitif.** Tu le portes en « Version rare » ou en « Version d'origine » — sauf un compagnon : sa métamorphose a sa propre case ; l'Éclat reste à toi et compte pour La Pluie d'Éclats. Il ne se reprend qu'avec la soirée qui l'a tiré ; celui d'une partie du jour ou du défi, jamais.
 
 ## Les trophées
 
