@@ -157,7 +157,7 @@ Chaque description est relue au catalogue : une clé inconnue refuse l'entrée e
 
 ## Le rappel du soir
 
-C'est **la seule notification** de FiestApp : ni un défi, ni un duel ne font sonner un téléphone.
+C'est **la seule notification** qu'un joueur reçoive de FiestApp : ni un défi, ni un duel ne font sonner un téléphone. (L'administrateur a la sienne, à part : la panne d'un mode de jeu, sur son téléphone — voir [administrer](../guides/administrer.md#les-erreurs-et-les-pannes).)
 
 - **Où** : dans l'application installée seulement (sur iPhone, depuis iOS 16.4), une petite cloche en haut de la page du jour. Un toucher l'active — le téléphone demande alors sa permission —, un second la coupe. Pleine, elle est allumée ; barrée, les notifications sont bloquées, et seuls les réglages du téléphone les rouvrent.
 - **Quand** : vers 18 h à Paris (`HEURE_DU_RAPPEL`), une notification, une seule par téléphone et par jour, à qui n'a pas fini sa partie. Rien pour qui l'a finie, rien un jour sans quiz, rien à partir de 22 h (`FIN_DU_RAPPEL`) : un serveur qui redémarre tard ne réveille personne. Abonné après 18 h, le premier rappel est pour le lendemain.

@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import { releve } from './pouls'
+import { veille } from './veille'
 import { tronquer } from '../../../shared/avatars'
 
 /** Ce que lit l'utilisateur quand la panne ne le regarde pas. */
@@ -55,6 +56,8 @@ export function messagePourEcran(e: unknown, contexte: string): string {
   if (erreurMontrable(e)) return e.message
   console.error(`[socket] ${contexte} :`, e)
   releve.erreur(`socket ${contexte}`, e)
+  // Le message, lui, a abouti — son toast part — : la veille compte l'échec à côté de sa réussite (`core/veille.ts`).
+  veille.noter(`socket ${contexte}`, false)
   return ERREUR_SERVEUR
 }
 

@@ -12,6 +12,7 @@ import { sansAccent } from '../../shared/homonymes'
 import { apparenceDeLAvatar } from '../../shared/profil'
 import { cleanAvatar, cleanName, tronquer } from '../../shared/avatars'
 import { pouls, releve } from './core/pouls'
+import { veille } from './core/veille'
 
 interface SocketDeps {
   /** Les soirées en cours, une par espace. */
@@ -243,11 +244,15 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         const panne = (e: unknown) => {
           console.error(`[socket] « ${event} » a échoué :`, e)
           releve.erreur(`socket ${event}`, e)
+          veille.noter(`socket ${event}`, false)
           if (enPanne !== undefined) repondre(enPanne)
         }
+        // La veille des soirées : chaque message qui aboutit compte, comme chaque route (`core/veille.ts`).
+        const abouti = () => veille.noter(`socket ${event}`, true)
         try {
           const suite = traiter(charge as Charge<E>, repondre as Accuse<E>)
-          if (suite instanceof Promise) suite.catch(panne)
+          if (suite instanceof Promise) suite.then(abouti, panne)
+          else abouti()
         } catch (e) {
           panne(e)
         }

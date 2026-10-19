@@ -500,6 +500,15 @@ Le détail : [la sécurité](../architecture/securite.md).
 
 *Fichiers : `server/src/core/http.ts`*
 
+### Les erreurs se trient, et seule la panne d'un mode fait sonner un téléphone
+**Contexte** : la page du serveur détaillait chaque erreur de la semaine, mais rien n'y disait « vue », « réglée » ou « sans gravité » : la même liste revenait à chaque visite, et l'alerte rouge de la vue d'ensemble sonnait pour chacune, un hoquet de Turso connu compris (« je trouve que je peux pas très bien manager les erreurs que je vois », le 19 octobre 2026). Le même jour, le quiz du jour et les défis ne s'ouvraient plus en production, et seul un joueur l'a dit : « Je veux bien une notification sur mon téléphone quand une erreur tombe — importante, c'est-à-dire l'indisponibilité d'un mode de jeu ».
+
+**Décision** : une page à elles (`/admin#erreurs`), où chaque erreur se trie — à regarder, réglée, ignorée — et dont seules celles à regarder allument la vue d'ensemble ; le tri vit à part du relevé (`qg_erreurs`) et se relit sur les versions de l'erreur : réglée, elle revient d'elle-même sous une version qui ne l'avait pas vue. Une erreur seule ne sonne pas : une veille en mémoire (`core/veille.ts`) lit chaque route et chaque message du temps réel, et un mode tombe quand une de ses sources échoue trois fois en dix minutes, et plus souvent qu'elle ne réussit ; il est rétabli quand chacune a réussi de nouveau, sans un échec pendant un quart d'heure. La panne, puis le retour, sonnent sur les téléphones de l'administrateur — le Web Push du rappel du soir, sous ses clés, sur un abonnement à part (le service worker enregistré sous `/admin`). Les plantages du client et le courriel, proposés, n'ont pas été retenus.
+
+**Conséquence** : une panne dite se garde jusqu'à son retour (`qg_pannes`) : la mise en ligne de la réparation est un redémarrage, et le serveur neuf dit « Rétabli ». Les modes tombés ensemble se disent dans une notification — une base muette les fait tous tomber —, sans un prénom ni un message d'erreur. Un téléphone se montre par son empreinte, jamais son adresse, et ne tient à aucune session : une session du QG qui expire ne fait pas taire une panne. Le rappel du soir reste la seule notification d'un joueur.
+
+*Fichiers : `shared/triDesErreurs.ts`, `shared/pannes.ts`, `server/src/core/veille.ts`, `server/src/core/alertes.ts`, `server/src/erreursDuQg.ts`, `client/src/components/QgErreurs.tsx`, `client/src/alertesDuQg.ts`, `server/test/qg-erreurs.test.ts`*
+
 ## La page
 
 Le détail : [le client](../architecture/client.md).
@@ -968,7 +977,7 @@ Le détail : [le quiz du jour](../produit/le-quiz-du-jour.md).
 ### Un rappel de moins vaut mieux qu'un de trop
 **Contexte** : une tournée peut croiser un redémarrage, ou le second serveur d'un déploiement ; et le propriétaire ne veut pas « que les gens reçoivent trop de notifications, uniquement le quiz du jour » (13 octobre 2026).
 
-**Décision** : le rappel du soir est la seule notification ; chaque téléphone est réservé en base (`dernier_jour`) avant l'envoi, rien ne part à partir de 22 h, et un rappel perdu en route ne se rattrape pas. Le Web Push s'écrit sans bibliothèque (`node:crypto` seul) et ne vise que les services de push connus.
+**Décision** : le rappel du soir est la seule notification d'un joueur — l'administrateur a, depuis le 19 octobre 2026, celle d'un mode en panne (« Les erreurs se trient… ») ; chaque téléphone est réservé en base (`dernier_jour`) avant l'envoi, rien ne part à partir de 22 h, et un rappel perdu en route ne se rattrape pas. Le Web Push s'écrit sans bibliothèque (`node:crypto` seul) et ne vise que les services de push connus.
 
 **Conséquence** : ni un défi ni un duel ne sonnent ; un téléphone ne reçoit jamais deux rappels le même soir ; une adresse de push inconnue est refusée à l'abonnement ; le bilan de chaque soir se garde pour le QG (`jour_rappels_tournees`), une seconde tournée s'y ajoutant sans rien compter deux fois.
 

@@ -9,8 +9,9 @@
 // en sont et combien elles comptent de monde (le choix du 13 octobre 2026).
 
 import { jourAvant, jourDe, jourEnToutesLettres, minutesDeParis } from './jour'
-import { formatNumber } from './typographie'
+import { espacesFines, formatNumber } from './typographie'
 import { MEMOIRE_DE_L_HEBERGEUR_MO, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
+import { lesModes } from './pannes'
 // Des types seulement : `qgCampagne.ts` et `qgDuels.ts` lisent leurs jours ici, et rien ne tourne en rond à l'exécution.
 import type { CampagneDeLaVue } from './qgCampagne'
 import type { DuelsDeLaVue } from './qgDuels'
@@ -405,20 +406,33 @@ export interface ChoseATraiter {
   titre: string
   detail: string
   /** L'écran du QG qui la montre ; null, rien encore à ouvrir — la ligne suffit. */
-  ecran: 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | null
+  ecran: 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | 'erreurs' | null
 }
 
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`
 
 /**
- * La liste de ce qui attend un geste, la plus pressée d'abord : le miroir en
- * panne, le serveur arrêté net ou en erreur, la réserve qui baisse
- * s'allument, le reste s'aligne. Rien qui n'attende pas : une liste qui dit
- * toujours quelque chose ne se lit plus. `maintenant` date un arrêt net
- * (« hier à 23 h 10 ») ; sans lui, l'heure seule.
+ * La liste de ce qui attend un geste, la plus pressée d'abord : un mode de jeu
+ * en panne, le miroir en panne, le serveur arrêté net ou en erreur, la réserve
+ * qui baisse s'allument, le reste s'aligne. Rien qui n'attende pas : une liste
+ * qui dit toujours quelque chose ne se lit plus. `maintenant` date un arrêt
+ * net (« hier à 23 h 10 ») ; sans lui, l'heure seule.
  */
 export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectDuQg, 'soirees' | 'miroir'> | null, maintenant?: number): ChoseATraiter[] {
   const choses: ChoseATraiter[] = []
+  // Un mode de jeu que la veille du serveur voit tomber (`core/veille.ts`) : le téléphone de l'administrateur l'a sonné, s'il l'a allumé.
+  const pannes = vue?.serveur.pannes ?? []
+  if (pannes.length > 0) {
+    const echecs = pannes.reduce((n, p) => n + p.echecs, 0)
+    const premiere = Math.min(...pannes.map(p => p.depuis))
+    choses.push({
+      cle: 'panne',
+      alerte: true,
+      titre: espacesFines(`Panne : ${lesModes(pannes.map(p => p.mode))}`),
+      detail: `depuis ${heureEcrite(premiere)} · ${pluriel(echecs, 'échec')}, le dernier à ${heureEcrite(Math.max(...pannes.map(p => p.dernierEchec)))}`,
+      ecran: 'erreurs',
+    })
+  }
   const miroir = direct?.miroir
   if (miroir && (miroir.enEchecDepuis !== null || miroir.espacesEnRetard > 0)) {
     choses.push({
@@ -445,9 +459,10 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
     choses.push({
       cle: 'erreurs',
       alerte: true,
-      titre: e.n > 1 ? `${formatNumber(e.n)} erreurs serveur` : 'Une erreur serveur',
+      // Les seules à regarder : réglées ou ignorées, elles ne sonnent plus (`/admin#erreurs`).
+      titre: e.n > 1 ? `${formatNumber(e.n)} erreurs serveur à regarder` : 'Une erreur serveur à regarder',
       detail: `depuis ${heureEcrite(e.depuis)} · ${e.source}`,
-      ecran: 'serveur',
+      ecran: 'erreurs',
     })
   }
   if (serveur?.memoireMo) {
@@ -658,7 +673,7 @@ export function bilanDesSoirees(soirees: readonly ChiffresDUneSoiree[], minuits:
  * journal filtre par là. « Autre » : une route qui n'a pas dit sa phrase
  * (`server/src/core/journalDesGestes.ts`).
  */
-export const SORTES_DE_GESTES = ['soiree', 'profil', 'salon', 'catalogue', 'jour', 'campagne', 'duel', 'maintenance', 'annonce', 'autre'] as const
+export const SORTES_DE_GESTES = ['soiree', 'profil', 'salon', 'catalogue', 'jour', 'campagne', 'duel', 'maintenance', 'annonce', 'erreur', 'autre'] as const
 export type SorteDeGeste = (typeof SORTES_DE_GESTES)[number]
 
 export const NOM_DE_LA_SORTE: Record<SorteDeGeste, string> = {
@@ -671,6 +686,7 @@ export const NOM_DE_LA_SORTE: Record<SorteDeGeste, string> = {
   duel: 'Duels',
   maintenance: 'Maintenance',
   annonce: 'Annonces',
+  erreur: 'Erreurs',
   autre: 'Autres',
 }
 

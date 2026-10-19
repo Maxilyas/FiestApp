@@ -24,6 +24,9 @@ import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive, type ApparencesDesProfils } from './core/archive'
 import { JournalDesGestes } from './core/journalDesGestes'
 import { SanteDuServeur } from './core/santeDuServeur'
+import { veille, type EvenementDeLaVeille, type ReglagesDeLaVeille } from './core/veille'
+import { AlertesDuQg } from './core/alertes'
+import { messageDePanne, messageDeRetour } from '../../shared/pannes'
 import { Maintenance } from './core/maintenance'
 import { quiEstCe } from './maintenance'
 import type { BadgeLookup } from './core/party'
@@ -125,6 +128,12 @@ export interface QuizServerOptions {
    * sur la machine — en ligne, seuls ceux des navigateurs sont acceptés.
    */
   rappels?: { intervalleMs?: number; servicesDePush?: (url: URL) => boolean }
+  /**
+   * La veille des modes de jeu (`core/veille.ts`) : les tests avancent son
+   * heure, et la font parler sans attendre les autres pannes. Les alertes du
+   * QG prennent les services de push du rappel du soir.
+   */
+  veille?: ReglagesDeLaVeille
   /**
    * Le commit qui tourne, sept caractères (`RENDER_GIT_COMMIT` sur
    * l'hébergeur) : la production se promeut à la main, et rien ne disait
@@ -272,6 +281,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // dans le même processus — les tests —, n'a rien à lui léguer. Ce que le
   // démarrage coûte à Turso, en revanche, compte dans sa première heure.
   releve.remettreAZero()
+  // Sa veille des modes de jeu aussi : les pannes d'avant, la base les lui rend (`AlertesDuQg.init`).
+  veille.remettreAZero()
+  veille.regler(opts.veille ?? {})
   const maxPlayersCeiling = opts.maxPlayers ?? MAX_PLAYERS_CEILING
   const app = express()
   const httpServer = createServer(app)
@@ -306,8 +318,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const debut = performance.now()
     res.on('finish', () => {
       const modele: unknown = req.route?.path
+      if (typeof modele !== 'string') return
+      // La veille des modes de jeu : un 5xx la fait guetter une panne, le reste — un refus compris — est une réponse (`core/veille.ts`).
+      veille.noter(`${req.method} ${modele}`, res.statusCode < 500)
       // Une réponse qui s'écrit au fil du temps — le dévoilement de l'expédition — dure ce qu'elle raconte : ce n'est pas une attente.
-      if (typeof modele !== 'string' || res.locals.auFilDuTemps) return
+      if (res.locals.auFilDuTemps) return
       const ms = performance.now() - debut
       pouls.noterRoute(`${req.method} ${modele}`, ms)
       // Et heure par heure, pour la page « Le serveur » du QG.
@@ -414,13 +429,21 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // veulent de quoi joindre qui les sollicite : l'adresse publique du serveur.
   // Le quiz du jour fermé — en maintenance, ou bientôt disponible —, il attend.
   const adressePublique = originOf(opts.publicUrl)
+  const sujetDuPush = adressePublique?.startsWith('https://') ? adressePublique : 'mailto:fiestapp@example.com'
   const rappels = new RappelStore(opts.quizDbUrl, opts.quizDbToken, {
     profiles,
     jour,
     maintenant: maintenantDuJour,
-    sujet: adressePublique?.startsWith('https://') ? adressePublique : 'mailto:fiestapp@example.com',
+    sujet: sujetDuPush,
     enPause: () => maintenance.estFermee('jour'),
     ...opts.rappels,
+  })
+  // Les alertes de panne sur le téléphone de l'administrateur : les clés du
+  // rappel du soir, les mêmes services de push — lues à l'envoi, pas avant.
+  const alertes = new AlertesDuQg(opts.quizDbUrl, opts.quizDbToken, {
+    cles: () => rappels.clesDuServeur(),
+    sujet: sujetDuPush,
+    ...(opts.rappels?.servicesDePush && { servicesDePush: opts.rappels.servicesDePush }),
   })
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
   const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
@@ -516,6 +539,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     campagne.init(),
     gestes.init(),
     sante.init(),
+    // Les pannes qu'un serveur d'avant n'a pas vues se rétablir : la veille dira leur retour.
+    alertes.init().then(heritees => veille.heriter(heritees)),
     maintenance.init(),
     (async () => {
       await archives.init(defaultSpace)
@@ -1182,6 +1207,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     },
     gestes,
     maintenance,
+    erreurs: { sante, alertes, rappels, veille },
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
@@ -1410,6 +1436,23 @@ export async function createQuizServer(opts: QuizServerOptions) {
   prechauffage.unref()
   // Le rappel du soir regarde l'heure, chaque minute.
   rappels.demarrer()
+  // La veille dit ses pannes au téléphone de l'administrateur, et les garde
+  // jusqu'à leur retour : la mise en ligne de la réparation est un
+  // redémarrage, et la veille du serveur neuf dira « Rétabli ». Rien de tout
+  // cela ne fait attendre une réponse : une base muette se dit au journal.
+  const direLaVeille = (e: EvenementDeLaVeille) => {
+    const message = e.sorte === 'panne' ? messageDePanne(e.pannes) : messageDeRetour(e.modes)
+    console.warn(`[veille] ${message.titre} — ${message.corps}`)
+    const garder = e.sorte === 'panne' ? alertes.garderLesPannes(e.pannes) : alertes.oublierLesPannes(e.modes)
+    garder.catch(err => console.warn('[veille] les pannes ne se gardent pas :', err instanceof Error ? err.message : err))
+    alertes.prevenir(message).then(
+      b => {
+        if (b.envoyes + b.echecs + b.retires > 0) console.log(`[alertes] ${message.titre} : ${b.envoyes} téléphone(s) prévenu(s), ${b.echecs} échec(s), ${b.retires} oublié(s)`)
+      },
+      err => console.warn('[alertes] les téléphones du QG ne se lisent pas :', err instanceof Error ? err.message : err),
+    )
+  }
+  veille.demarrer(direLaVeille)
 
   return {
     httpServer,
@@ -1428,6 +1471,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
         const santeArretee = sante.arreter()
         // Plus un rappel ne part : la tournée en route s'arrête au téléphone suivant.
         rappels.arreter()
+        // Ni une panne : un serveur qui s'arrête fait échouer ce qui était en route.
+        veille.arreter(direLaVeille)
         charge.arreter()
         registry.stopAll()
         io.close(async () => {
@@ -1445,6 +1490,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           auth.close()
           jour.close()
           rappels.close()
+          alertes.close()
           maintenance.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin
           // du dernier quiz garde ainsi le plus long sursis pour aboutir. On ne

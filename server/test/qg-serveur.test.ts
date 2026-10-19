@@ -33,6 +33,7 @@ import {
   type PageDuServeur,
 } from '../../shared/santeDuServeur'
 import { lesChosesATraiter, type ATraiterDuQg, type VueDEnsemble } from '../../shared/qg'
+import { lesErreursTriees, type PageDesErreurs } from '../../shared/triDesErreurs'
 
 const H = 3_600_000
 // Mardi 13 octobre 2026, 21 h 04 à Paris — à l'heure d'été, deux heures devant UTC.
@@ -714,13 +715,32 @@ test('les erreurs de la semaine : les mêmes fondues d’une heure et d’un dé
   )
 })
 
-test('ce qui a échoué se lit sur la page, et chaque erreur ouvre sa fiche : d’où elle vient, combien, sous quelles versions, sa pile', async () => {
+test('ce qui a échoué se lit sur la page des erreurs, et chaque erreur ouvre sa fiche : d’où elle vient, combien, sous quelles versions, sa pile', async () => {
   Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#serveur', origin: 'http://banc' } } })
   const { SanteDuServeurAuQg, FicheDeLErreur, texteDeLErreur } = await import(new URL('../../client/src/components/QgServeur.tsx', import.meta.url).href)
+  const { ErreursAuQg } = await import(new URL('../../client/src/components/QgErreurs.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   const rendu = (el: React.ReactElement) => sansInsecables(renderToStaticMarkup(el).replace(/<!-- -->/g, ''))
   const page = pageDuServeur(LIGNES_DETAILLEES, SEMAINE, { maintenant, courant: COURANT })
-  const html = rendu(React.createElement(SanteDuServeurAuQg, { page }))
+  // La liste vit sur sa page depuis le 19 octobre 2026, où elle se trie : celle du serveur dit combien, d'où, et y mène.
+  const duServeur = rendu(React.createElement(SanteDuServeurAuQg, { page }))
+  for (const attendu of [
+    'Ce qui a échoué',
+    '2 erreurs différentes cette semaine, la dernière aujourd’hui à 20 h 31 ; 1 erreur comptée sans son détail.',
+    '<span class="qg-source">POST /api/jour/reponse</span><span class="num">4 erreurs</span>',
+    'href="/admin#erreurs"',
+  ]) {
+    assert.ok(duServeur.includes(attendu), `« ${attendu} » dans la page du serveur`)
+  }
+  const desErreurs: PageDesErreurs = {
+    maintenant,
+    enMarche: { depuis: page.enMarche.depuis, version: page.enMarche.version },
+    erreurs: lesErreursTriees(page.erreurs, new Map()),
+    sansDetail: page.erreursSansDetail,
+    pannes: [],
+    alertes: { cle: null, telephones: [] },
+  }
+  const html = rendu(React.createElement(ErreursAuQg, { page: desErreurs }))
   for (const attendu of [
     'Ce qui a échoué',
     'LibsqlError : SQLITE_BUSY: database is locked',
@@ -729,9 +749,12 @@ test('ce qui a échoué se lit sur la page, et chaque erreur ouvre sa fiche : d�
     '4 fois · la dernière aujourd’hui à 20 h 15 · lireJour · server/src/core/jour.ts:1215',
     'Comptées sans leur détail',
   ]) {
-    assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
+    assert.ok(html.includes(attendu), `« ${attendu} » dans la page des erreurs`)
   }
-  for (const absent of ['NaN', 'undefined', 'null']) assert.ok(!html.includes(absent), `pas de « ${absent} »`)
+  for (const absent of ['NaN', 'undefined', 'null']) {
+    assert.ok(!html.includes(absent), `pas de « ${absent} »`)
+    assert.ok(!duServeur.includes(absent), `pas de « ${absent} »`)
+  }
 
   const typeError: ErreurDeLaSemaine = page.erreurs[1]
   const fiche = rendu(React.createElement(FicheDeLErreur, { erreur: typeError, page }))
@@ -798,19 +821,22 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
   ]
   const alertes = alertesDuServeur({ recentes, demarrages, memoireMo: 462, maintenant, courant: 'g' })
   assert.deepEqual(alertes, {
+    pannes: [],
     arretNet: { vers: maintenant - 2 * H },
     erreurs: { n: 4, depuis: cetteHeure - H, source: 'POST /api/x' },
     tursoLent: { p95: 1400, depuis: cetteHeure - H },
     memoireMo: 462,
   })
   assert.deepEqual(alertesDuServeur({ recentes: [], demarrages: [], memoireMo: 300, maintenant, courant: 'g' }), {
+    pannes: [],
     arretNet: null,
     erreurs: null,
     tursoLent: null,
     memoireMo: null,
   })
 
-  // Dans « À traiter » : après le miroir, avant la réserve — trois en rouge, Turso lent en sourdine.
+  // Dans « À traiter » : après le miroir, avant la réserve — trois en rouge, Turso lent en sourdine. Les
+  // erreurs mènent à leur page, où elles se trient (le 19 octobre 2026) : les autres, à la page du serveur.
   const calme: ATraiterDuQg = {
     reserve: { joursDAvance: 6 },
     signalementsDuJour: { questions: 0, joueurs: 0 },
@@ -825,7 +851,7 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
     choses.map(c => [c.cle, c.alerte, c.ecran]),
     [
       ['arret-net', true, 'serveur'],
-      ['erreurs', true, 'serveur'],
+      ['erreurs', true, 'erreurs'],
       ['memoire', true, 'serveur'],
       ['turso-lent', false, 'serveur'],
       ['reserve', true, 'jour'],
@@ -835,7 +861,7 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
     choses.slice(0, 4).map(c => sansInsecables(`${c.titre} — ${c.detail}`)),
     [
       'Le serveur s’est arrêté net — aujourd’hui à 19 h 04, sans s’éteindre proprement',
-      '4 erreurs serveur — depuis 20 h 00 · POST /api/x',
+      '4 erreurs serveur à regarder — depuis 20 h 00 · POST /api/x',
       'La mémoire approche du plafond — 462 Mo sur 512 : au-delà, l’hébergeur arrête le serveur',
       'Turso répond lentement — 1,4 s au 95ᵉ centile depuis 20 h 00',
     ],

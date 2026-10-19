@@ -1,15 +1,24 @@
-// Le service worker de l'application installée, et rien d'autre que sa
-// notification (`server/src/core/rappels.ts`) — le rappel du soir du quiz du
-// jour : il montre ce que le serveur envoie, et ouvre sa page quand on la
-// touche.
+// Le service worker de l'application installée, et rien d'autre que ses
+// notifications : le rappel du soir du quiz du jour (`server/src/core/rappels.ts`)
+// et, enregistré une seconde fois sous `/admin`, les pannes que le QG dit au
+// téléphone de l'administrateur (`server/src/core/alertes.ts`). Il montre ce
+// que le serveur envoie, et ouvre sa page quand on la touche.
 //
 // Il ne garde rien en cache et n'intercepte aucune requête : l'application
 // reste celle que le serveur sert, à jour à chaque ouverture. Écrit à la
 // main, hors du paquet : un service worker garde son adresse (`/sw.js`), et
-// c'est elle qui décide des pages qu'il couvre — toutes.
+// c'est elle qui décide des pages qu'il peut couvrir — toutes.
+
+/**
+ * Celui du QG : ses abonnements ne sont pas ceux du rappel du soir — chaque
+ * enregistrement a le sien —, et ils se rendent à sa route à lui.
+ */
+const DU_QG = new URL(self.registration.scope).pathname.startsWith('/admin')
 
 /** Ce que dit une notification arrivée sans message lisible : un push montre toujours quelque chose. */
-const PAR_DEFAUT = { titre: 'Le quiz du jour t’attend', corps: 'Dix questions, jusqu’à minuit.', url: '/jour' }
+const PAR_DEFAUT = DU_QG
+  ? { titre: 'Le QG', corps: 'Une panne, ou son retour : touche pour voir.', url: '/admin#erreurs', tag: 'qg-panne' }
+  : { titre: 'Le quiz du jour t’attend', corps: 'Dix questions, jusqu’à minuit.', url: '/jour' }
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', evenement => evenement.waitUntil(self.clients.claim()))
@@ -39,7 +48,7 @@ self.addEventListener('push', evenement => {
 
 self.addEventListener('notificationclick', evenement => {
   evenement.notification.close()
-  const url = new URL((evenement.notification.data && evenement.notification.data.url) || '/jour', self.location.origin)
+  const url = new URL((evenement.notification.data && evenement.notification.data.url) || PAR_DEFAUT.url, self.location.origin)
   evenement.waitUntil(ouvrir(url))
 })
 
@@ -63,24 +72,27 @@ async function ouvrir(url) {
 
 // Le service de push a renouvelé l'abonnement (Firefox le fait) : le nouveau
 // rejoint le serveur, avec la session de ce téléphone, que la requête porte,
-// et l'adresse de l'ancien — il en garde le réglage.
+// et l'adresse de l'ancien — il en garde le réglage. Celui du QG rejoint la
+// liste des téléphones de l'administrateur, à la place de l'ancien.
+const ROUTE = DU_QG ? { cle: '/api/admin/alertes', abonner: '/api/admin/alertes/telephones' } : { cle: '/api/jour/rappel', abonner: '/api/jour/rappel' }
+
 self.addEventListener('pushsubscriptionchange', evenement => {
   evenement.waitUntil(
     (async () => {
       let nouvel = evenement.newSubscription
       if (!nouvel) {
         const ancienne = evenement.oldSubscription && evenement.oldSubscription.options.applicationServerKey
-        const cle = ancienne || octets((await (await fetch('/api/jour/rappel', { credentials: 'same-origin' })).json()).cle)
+        const cle = ancienne || octets((await (await fetch(ROUTE.cle, { credentials: 'same-origin' })).json()).cle)
         nouvel = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: cle })
       }
-      await fetch('/api/jour/rappel', {
+      await fetch(ROUTE.abonner, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz' },
         body: JSON.stringify({ abonnement: nouvel.toJSON(), ...(evenement.oldSubscription && { ancien: evenement.oldSubscription.endpoint }) }),
       })
     })().catch(() => {
-      // Sans réseau, ou déconnecté : la page du jour le rattachera à la prochaine visite.
+      // Sans réseau, ou déconnecté : la page du jour le rattachera à la prochaine visite — celle du QG, au prochain « Prévenir ce téléphone ».
     }),
   )
 })

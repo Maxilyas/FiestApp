@@ -43,6 +43,8 @@ import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise,
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDesAnnonces } from '../../shared/annonces'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
+import type { EtatDUneErreur, PageDesErreurs } from '../../shared/triDesErreurs'
+import type { BilanDUneAlerte } from '../../shared/pannes'
 import type { EtatDUnePage, EtatDeLaMaintenance, PageEnMaintenance } from '../../shared/maintenance'
 import type { SuiviDuJour } from '../../shared/qgDuJour'
 import type { SuiviDeLaCampagne } from '../../shared/qgCampagne'
@@ -708,6 +710,18 @@ export const api = {
       req<PageDesAnnonces>('/api/admin/annonces', { method: 'POST', body: JSON.stringify({ id, message, confettis }) }),
     /** Retirer une annonce : l'accueil la tait, ses confettis restent offerts. Rend la page d'après. */
     retirerLAnnonce: (id: string) => req<PageDesAnnonces>(`/api/admin/annonces/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    /** Les erreurs de la semaine, chacune sous son tri, les modes en panne, et les téléphones que la panne fait sonner. */
+    erreurs: () => req<PageDesErreurs>('/api/admin/erreurs'),
+    /** Une erreur réglée — avec son mot —, ignorée, ou remise à regarder. Rend la page d'après. */
+    trierLErreur: (cle: string, etat: EtatDUneErreur, note: string | null) =>
+      req<PageDesErreurs>('/api/admin/erreurs/tri', { method: 'POST', body: JSON.stringify({ cle, etat, note }) }),
+    /** Ce téléphone sonnera à la panne d'un mode : l'abonnement que son service de push lui a donné. */
+    alerterCeTelephone: (abonnement: PushSubscriptionJSON) =>
+      req<PageDesErreurs['alertes']>('/api/admin/alertes/telephones', { method: 'POST', body: JSON.stringify({ abonnement }) }),
+    /** Un téléphone ne sonnera plus, par son empreinte — celui-ci, ou un autre de la liste. */
+    plusDAlertes: (empreinte: string) => req<PageDesErreurs['alertes']>(`/api/admin/alertes/telephones/${encodeURIComponent(empreinte)}`, { method: 'DELETE' }),
+    /** Fait sonner les téléphones prévenus, pour voir. */
+    essaiDAlerte: () => req<BilanDUneAlerte & PageDesErreurs['alertes']>('/api/admin/alertes/essai', { method: 'POST' }),
     /** Tous les espaces, chacun avec son titulaire : les salons des profils, les comptes à mot de passe. */
     espaces: () => req<EspaceDAdministration[]>('/api/admin/espaces'),
     /** Fusionner deux identités d'avant : l'espace prend ce profil pour titulaire, ses quiz d'ailleurs le rejoignent. */

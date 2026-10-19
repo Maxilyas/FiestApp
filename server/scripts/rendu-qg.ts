@@ -34,6 +34,7 @@
 //   npx tsx scripts/rendu-qg.ts [dossier]
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
+import { createECDH, randomBytes } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
@@ -49,6 +50,7 @@ import { gainVide, releveVide } from '../../shared/profil'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { PageDesSignalements } from '../../shared/qgSignalements'
 import type { ErreurEnDetail } from '../../shared/santeDuServeur'
+import { veille } from '../src/core/veille'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-qg')
 mkdirSync(sortie, { recursive: true })
@@ -655,12 +657,16 @@ try {
     const [cle, valeur] = admin.split('=')
     await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
     const page = await contexte.newPage()
+    // Sans écran, Chromium refuse les notifications quoi qu'on lui accorde : la page des erreurs dirait
+    // « refusées ». Un téléphone neuf, lui, n'a encore rien répondu — c'est lui qu'on photographie.
+    await page.addInitScript("try { Object.defineProperty(Notification, 'permission', { get: () => 'default' }) } catch {}")
     page.on('pageerror', (e: Error) => console.error('[page]', e.message))
     await page.goto(`${banc.url}${adresse}`)
     await page.waitForSelector('.qg-tete')
     if (adresse === '/admin') await page.waitForSelector('.qg-graphe svg, .qg-participations .muted', { timeout: 15000 })
     if (adresse === '/admin#soirees') await page.waitForSelector('.qg-barres', { timeout: 15000 })
     if (adresse === '/admin#serveur') await page.waitForSelector('.qg-graphe svg', { timeout: 15000 })
+    if (adresse === '/admin#erreurs') await page.waitForSelector('section[aria-labelledby="erreurs-telephone"] .admin-gestes, section[aria-labelledby="erreurs-telephone"] .qg-erreurs-etat', { timeout: 15000 })
     if (adresse === '/admin#jour') await page.waitForSelector('.qg-question', { timeout: 15000 })
     if (adresse === '/admin#campagne') {
       await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
@@ -721,6 +727,44 @@ try {
   await photographier('23-serveur-1920', 1920, 1080, { adresse: '/admin#serveur' })
   await photographier('24-serveur-telephone', 360, 640, { adresse: '/admin#serveur' })
   await photographier('25-serveur-ivoire', 360, 640, { adresse: '/admin#serveur', theme: 'ivoire' })
+
+  // Les erreurs : celle du lancement d'avant-hier réglée, avec son mot ; un téléphone
+  // prévenu des pannes ; et le quiz du jour en panne depuis vingt minutes — la veille
+  // la tient d'un serveur d'avant, comme après une mise en ligne.
+  {
+    const lues = (await (await fetch(`${banc.url}/api/admin/erreurs`, { headers: { Cookie: admin } })).json()) as { erreurs: { cle: string; source: string }[] }
+    const duLancement = lues.erreurs.find(e => e.source === 'socket host:launch')
+    if (duLancement) await ecrire(banc.url, '/api/admin/erreurs/tri', { cle: duLancement.cle, etat: 'reglee', note: 'PR #284' }, admin)
+    const cles = createECDH('prime256v1')
+    cles.generateKeys()
+    await ecrire(
+      banc.url,
+      '/api/admin/alertes/telephones',
+      { abonnement: { endpoint: 'https://fcm.googleapis.com/fcm/send/rendu-du-qg', keys: { p256dh: cles.getPublicKey().toString('base64url'), auth: randomBytes(16).toString('base64url') } } },
+      admin,
+    )
+    const ilYa = (minutes: number) => Date.now() - minutes * 60_000
+    veille.heriter([{ mode: 'jour', depuis: ilYa(20), echecs: 7, dernierEchec: ilYa(2), source: 'POST /api/jour/commencer' }])
+  }
+  await photographier('64-erreurs', 1366, 768, { adresse: '/admin#erreurs' })
+  await photographier('65-erreurs-1920', 1920, 1080, { adresse: '/admin#erreurs' })
+  await photographier('66-erreurs-telephone', 360, 640, { adresse: '/admin#erreurs' })
+  await photographier('67-erreurs-ivoire', 360, 640, { adresse: '/admin#erreurs', theme: 'ivoire' })
+  // La panne en tête de « À traiter », au téléphone : sous « En ce moment », la carte se cherche.
+  {
+    const contexte = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 })
+    const [cle, valeur] = admin.split('=')
+    await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
+    const page = await contexte.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin`)
+    await page.waitForSelector('.qg-traiter .qg-liste', { timeout: 15000 })
+    await page.locator('.qg-traiter').scrollIntoViewIfNeeded()
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: path.join(sortie, '68-panne-a-traiter.png') })
+    console.log(path.join(sortie, '68-panne-a-traiter.png'))
+    await contexte.close()
+  }
   await photographier('60-activite', 1366, 768, { adresse: '/admin#activite' })
   await photographier('61-activite-1920', 1920, 1080, { adresse: '/admin#activite' })
   await photographier('62-activite-telephone', 360, 640, { adresse: '/admin#activite' })
@@ -765,20 +809,30 @@ try {
   await surLesSignalements('56-signalements-relues', 1366, 768, versLesRelues, true)
   await surLesSignalements('57-signalements-relues-telephone', 360, 640, versLesRelues, true)
 
-  // Ce qui a échoué : la fiche d'une erreur, ouverte d'un toucher sur sa ligne.
-  for (const [nom, largeur, hauteur] of [
-    ['29-serveur-erreur', 1366, 768],
-    ['29-serveur-erreur-telephone', 360, 640],
+  // Ce qui a échoué : la fiche d'une erreur à regarder, ouverte d'un toucher sur sa ligne ;
+  // puis l'onglet des réglées, et la fiche de celle qu'on a réglée.
+  for (const [nom, largeur, hauteur, onglet] of [
+    ['29-erreur', 1366, 768, null],
+    ['29-erreur-telephone', 360, 640, null],
+    ['69-erreurs-reglees', 1366, 768, 'Réglées'],
+    ['69-erreur-reglee-telephone', 360, 640, 'Réglées'],
   ] as const) {
     const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: largeur < 600 ? 2 : 1 })
     const [cle, valeur] = admin.split('=')
     await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
     const page = await contexte.newPage()
     page.on('pageerror', (e: Error) => console.error('[page]', e.message))
-    await page.goto(`${banc.url}/admin#serveur`)
-    await page.locator('section[aria-labelledby="serveur-echecs"] button.qg-ligne').first().click()
-    await page.waitForSelector('.carte-feuille')
+    await page.goto(`${banc.url}/admin#erreurs`)
+    await page.waitForSelector('section[aria-labelledby="erreurs-semaine"]', { timeout: 15000 })
+    if (onglet) await page.getByRole('tab', { name: new RegExp(`^${onglet}`) }).click()
+    // À l'ordinateur, l'onglet des réglées lui-même ; au téléphone, la fiche de sa ligne.
+    if (!onglet || largeur < 600) {
+      await page.locator('section[aria-labelledby="erreurs-semaine"] button.qg-ligne').first().click()
+      await page.waitForSelector('.carte-feuille')
+    }
     await page.waitForTimeout(500)
+    const deborde = (await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')) as number
+    if (deborde > 0) console.error(`[${nom}] la page déborde de ${deborde} px en largeur`)
     await page.screenshot({ path: path.join(sortie, `${nom}.png`) })
     console.log(path.join(sortie, `${nom}.png`))
     await contexte.close()

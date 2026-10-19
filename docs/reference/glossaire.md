@@ -431,7 +431,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Rang partagé | 1 + le nombre de concurrents strictement devant : deux premiers ex æquo, puis un troisième | `rangPartage` |
 | Rangement | Ce sous quoi une récompense est rangée — le nom d'une soirée, un jour, un mois, une série, une semaine — et qui l'emporte s'il est retiré | `soiree_id` |
 | Ranger | Faire entrer un lot vérifié dans le dépôt, sous des identifiants neufs | `server/scripts/base-campagne.ts` |
-| Rappel du soir | La seule notification de FiestApp : vers 18 h, aux téléphones abonnés dont la partie du jour n'est pas finie | `server/src/core/rappels.ts` |
+| Rappel du soir | La seule notification qu'un joueur reçoive : vers 18 h, aux téléphones abonnés dont la partie du jour n'est pas finie — l'administrateur, lui, reçoit aussi les pannes du QG (`core/alertes.ts`) | `server/src/core/rappels.ts` |
 | Rareté | La part des profils non suspendus qui ont un trophée, de « Commune » à « Légendaire », muette sous dix profils | `rareteDe` |
 | Rareté (d'un thème) | Son rang, de Commune à Légendaire, décrété avec son prix plutôt que mesuré | `PRIX_DES_THEMES` |
 | Rattrapage | L'expérience versée une fois aux profils dont le niveau gardé dépassait la courbe du jour, pour qu'elle le leur donne | `rattraperLesNiveauxGeles` |

@@ -7,6 +7,7 @@ import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
 import { mountAnnonces } from './annonces'
+import { mountErreurs, type ErreursDeps } from './erreursDuQg'
 import type { Maintenance } from './core/maintenance'
 import { journaliser, type JournalDesGestes } from './core/journalDesGestes'
 import express, { type Express } from 'express'
@@ -95,6 +96,8 @@ interface ApiDeps {
   gestes: JournalDesGestes
   /** Le bandeau rouge et les pages en maintenance : le QG les pose, et une page fermée ferme ses portes. */
   maintenance: Maintenance
+  /** La page des erreurs du QG, et les téléphones que la panne d'un mode fait sonner. */
+  erreurs: ErreursDeps
 }
 
 /**
@@ -212,6 +215,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountMaintenance(app, { maintenance: deps.maintenance, profiles: deps.profiles })
   // Les annonces à tous, et les confettis qu'elles offrent : l'administrateur seul.
   mountAnnonces(app, { profiles: deps.profiles })
+  // Le tri des erreurs serveur, et les alertes de panne sur son téléphone : l'administrateur seul.
+  mountErreurs(app, deps.erreurs)
 
   /**
    * Le ménage des photos de l'espace. Celles qu'une partie encore sur le

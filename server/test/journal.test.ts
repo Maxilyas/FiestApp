@@ -8,6 +8,7 @@
 // rougit tant qu'elle n'a pas été jouée ici avec sa phrase.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createECDH, createHash, randomBytes } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -18,6 +19,7 @@ import { EN_PLAN_MS, GESTES_PAR_PAGE, gestesParJour, type DirectDuQg, type Geste
 import { CATEGORIES } from '../../shared/categories'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { toPlayable } from '../../shared/library'
+import type { PageDesErreurs } from '../../shared/triDesErreurs'
 import { JournalDesGestes, journaliser, noterLeGeste } from '../src/core/journalDesGestes'
 
 // L'application Express du serveur, attrapée à sa première requête.
@@ -49,7 +51,12 @@ function notes(banc: Banc): { route: string; sorte: string; resume: string; cibl
 
 test('chaque route de l’administration qui change quelque chose se note avec sa phrase — lue dans le routeur', async () => {
   const horloge = { decalage: 0 }
-  const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40), horlogeDuJour: () => Date.now() + horloge.decalage })
+  const banc = await demarrer({
+    baseDeLaCampagne: baseDEssai(40),
+    horlogeDuJour: () => Date.now() + horloge.decalage,
+    // Le téléphone des alertes du QG pousse vers la machine, où rien ne l'attend.
+    rappels: { servicesDePush: url => url.hostname === '127.0.0.1' },
+  })
   try {
     const admin = await connexionAnimateur(banc.url)
     const ok = (r: { status: number; corps: any }, quoi: string) => assert.ok(r.status < 300, `${quoi} : ${r.status} ${r.corps?.error ?? ''}`)
@@ -163,6 +170,21 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     // La panne réglée, une annonce à tous et ses confettis — puis retirée.
     ok(await faire(banc, admin, '/api/admin/annonces', { id: 'annonce-du-journal', message: 'Le quiz du jour remarche : merci de votre patience !', confettis: 20 }), 'annoncer à tous')
     ok(await faire(banc, admin, '/api/admin/annonces/annonce-du-journal', undefined, 'DELETE'), 'retirer l’annonce')
+    // Les erreurs : une vraie, que la base refuse — un 500 ne se note pas —, réglée avec son mot ;
+    // puis un téléphone prévenu des pannes, essayé — son service ne répond pas —, et retiré.
+    const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    base.exec(`CREATE TRIGGER refus BEFORE INSERT ON profile_dons BEGIN SELECT RAISE(ABORT, 'quota'); END`)
+    assert.equal((await faire(banc, admin, `/api/admin/profils/${idLea}/confettis`, { confettis: 5 })).status, 500)
+    base.exec('DROP TRIGGER refus')
+    base.close()
+    const [erreur] = (await lire<PageDesErreurs>(banc, admin, '/api/admin/erreurs')).corps.erreurs
+    ok(await faire(banc, admin, '/api/admin/erreurs/tri', { cle: erreur.cle, etat: 'reglee', note: 'PR #284' }), 'régler une erreur')
+    const cles = createECDH('prime256v1')
+    cles.generateKeys()
+    const telephone = { endpoint: 'http://127.0.0.1:9/push/qg', keys: { p256dh: cles.getPublicKey().toString('base64url'), auth: randomBytes(16).toString('base64url') } }
+    ok(await faire(banc, admin, '/api/admin/alertes/telephones', { abonnement: telephone }), 'prévenir un téléphone')
+    ok(await faire(banc, admin, '/api/admin/alertes/essai'), 'essayer')
+    ok(await faire(banc, admin, `/api/admin/alertes/telephones/${createHash('sha256').update(telephone.endpoint).digest('hex').slice(0, 16)}`, undefined, 'DELETE'), 'ne plus prévenir')
 
     // La campagne : régler le mélange d'un palier, puis garder, retirer, corriger.
     ok(await faire(banc, admin, '/api/admin/campagne/paliers/2/melange', { melange: { facile: 12, moyen: 4 } }), 'régler un mélange')
@@ -230,6 +252,9 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Testeur retiré de « L’Expédition » : Max (@max)',
       'Page ouverte à tous : L’Expédition',
       'Annonce retirée : « Le quiz du jour remarche : merci de votre patience ! » — ses confettis restent offerts',
+      'Alertes de panne allumées sur un téléphone (un navigateur) — 1 téléphone prévenu',
+      'Essai d’alerte : aucun téléphone n’a sonné (1 en échec)',
+      'Alertes de panne coupées sur un téléphone — plus aucun téléphone prévenu',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
     }
@@ -247,6 +272,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       /^Épreuve de sentier libérée, sans coûter de vie : Léa \(@lea\) — .+, palier 1$/,
       // À combien de profils : ceux du banc à cet instant, sans s'accorder à aucun prénom.
       /^Annonce à \d+ profils : « Le quiz du jour remarche : merci de votre patience ! » — 20 confettis chacun$/,
+      // L'erreur se nomme par sa sorte, son message et sa route : la même, d'un geste à l'autre.
+      /^Erreur réglée : \w+ — .*quota.* \(POST \/api\/admin\/profils\/:id\/confettis\) — « PR #284 »$/,
     ]) {
       assert.ok(resumes.some(r => attendu.test(r)), `${attendu} parmi :\n${resumes.join('\n')}`)
     }
@@ -263,6 +290,11 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       gestes.filter(g => g.sorte === 'annonce').map(g => g.cible),
       ['annonce-du-journal', 'annonce-du-journal'],
       'une annonce, faite puis retirée, se vise elle-même',
+    )
+    assert.deepEqual(
+      gestes.filter(g => g.sorte === 'erreur').map(g => g.cible),
+      ['POST /api/admin/profils/:id/confettis', null, null, null],
+      'une erreur vise sa source ; un téléphone, rien — son adresse ne s’écrit nulle part',
     )
 
     // La page le lit, du plus récent au plus ancien ; filtré par sorte.
