@@ -396,6 +396,14 @@ interface QuestionDeSerie {
   forme?: FormeDEscale
   /** Un vrai ou faux tiré d'une question à quatre choix : la réponse proposée — la bonne une fois sur deux. */
   proposee?: string
+  /**
+   * Un vrai ou faux tiré d'une question à quatre choix : la bonne de ses
+   * quatre réponses, que le serveur seul garde. Ses réponses devenues « Vrai »
+   * et « Faux », elle ne se lisait plus nulle part : la révélation disait
+   * « « Eschyle » : faux », et rien de ce qu'il fallait savoir (un testeur, le
+   * 19 octobre 2026). Elle ne part qu'avec le verdict (`bonneReponseDuVraiOuFaux`).
+   */
+  bonneReponse?: string
   /** Un dévoilement : l'heure du serveur de son premier mot, celle de son tirage. */
   devoileLe?: number
   /** Un dévoilement : l'heure du serveur où Arrêt sur image l'a arrêté. */
@@ -2281,8 +2289,10 @@ export class CampagneStore {
       throw new Error((await this.duelDe(s.duel))?.adversaire ? 'La correction du duel s’ouvre quand vous l’aurez joué tous les deux' : 'La correction du défi s’ouvre à sa fermeture : tes amis jouent encore')
     }
     const res = await this.client.execute({ sql: 'SELECT position, choix, juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [s.id] })
+    const base = s.questions.some(sansSaBonneReponse) ? await this.base() : null
     return res.rows.map(r => {
       const q = s.questions[Number(r.position)]
+      const bonneReponse = bonneReponseDuVraiOuFaux(q, base)
       return {
         texte: q.texte,
         reponses: q.reponses,
@@ -2291,8 +2301,10 @@ export class CampagneStore {
         juste: Number(r.juste) === 1,
         niveau: q.niveau,
         anecdote: q.anecdote,
-        // Un vrai ou faux de l'expédition tiré d'une question à quatre choix : sans la réponse qu'il proposait, « Faux » ne dirait rien.
+        // Un vrai ou faux de l'expédition tiré d'une question à quatre choix : sans la réponse qu'il proposait, « Faux » ne dirait rien —
+        // et, la proposée fausse, sans ce qu'il fallait répondre non plus.
         ...(q.proposee !== undefined && { proposee: q.proposee }),
+        ...(bonneReponse !== undefined && { bonneReponse }),
       }
     })
   }
@@ -7186,7 +7198,7 @@ export class CampagneStore {
       const base = this.parIdDe(await this.jouables()).get(q.id)
       if (!base) throw new Error('Cette question ne change plus de forme : recharge la page')
       // Reposée nue — ni dévoilement en cours, ni réponse proposée —, puis à sa forme neuve.
-      const { forme: _forme, proposee: _proposee, devoileLe: _devoileLe, arretLe: _arretLe, ...nue } = q
+      const { forme: _forme, proposee: _proposee, bonneReponse: _bonneReponse, devoileLe: _devoileLe, arretLe: _arretLe, ...nue } = q
       nouvelle = aSaForme(nue, base, vers, maintenant)
       // Un vrai ou faux se répond « Vrai » ou « Faux » : l'annonce ne dit plus « une année ».
       if (nouvelle.reponses.length <= 2) delete nouvelle.reponseEn
@@ -7296,12 +7308,15 @@ export class CampagneStore {
       const vaincu = apres.vaincus > avant.vaincus ? l.depart.gardiens[avant.acte] : undefined
       // Ce que la réponse a rapporté (v4) : les écus de l'escale, ceux du gardien qui tombe.
       const ecus = apres.ecus - avant.ecus
+      // Un vrai ou faux dont la proposée était fausse : ce qu'il fallait répondre, avec le verdict.
+      const bonneReponse = bonneReponseDuVraiOuFaux(q, sansSaBonneReponse(q) ? await this.base() : null)
       return {
         juste,
         bonne: q.bonne,
         anecdote: q.anecdote,
         xp,
         expedition: vueDeLExpedition(ecrite, apres, this.legendairesDe(profileId)),
+        ...(bonneReponse !== undefined && { bonneReponse }),
         ...(vaincu && { vaincu }),
         ...(ecus > 0 && { ecus }),
         ...(tampon && { tampon }),
@@ -8867,11 +8882,29 @@ function aSaForme(q: QuestionDeSerie, base: QuestionDeLaBase, forme: FormeDEscal
     const proposee = vraie ? q.reponses[q.bonne] : fausses[Math.floor(Math.random() * fausses.length)]
     // « Vrai », « Faux », dans cet ordre, comme un vrai ou faux de la base ; plus des nombres à montrer à l'Oracle.
     const { nombre: _nombre, ...sansNombre } = q
-    return { ...sansNombre, reponses: ['Vrai', 'Faux'], bonne: vraie ? 0 : 1, forme, proposee }
+    return { ...sansNombre, reponses: ['Vrai', 'Faux'], bonne: vraie ? 0 : 1, forme, proposee, bonneReponse: q.reponses[q.bonne] }
   }
   if (forme === 'devoilement') return { ...q, forme, devoileLe: maintenant }
   return q
 }
+
+/**
+ * Ce qu'il fallait répondre à un vrai ou faux tiré d'une question à quatre
+ * choix, quand la réponse proposée était fausse — pour son verdict et sa
+ * correction, jamais avant (invariant 1). Proposée juste, la révélation la
+ * dit déjà : rien. Posé avant que la question la garde (`bonneReponse`), la
+ * base la redit, tant qu'elle juge la proposée comme lui.
+ */
+function bonneReponseDuVraiOuFaux(q: QuestionDeSerie, base: BaseDeLaCampagne | null): string | undefined {
+  if (q.proposee === undefined || q.bonne === 0) return undefined
+  if (q.bonneReponse !== undefined) return q.bonneReponse
+  const d = base?.parId.get(q.id)
+  if (!d || !d.reponses.includes(q.proposee) || d.reponses[d.bonne] === q.proposee) return undefined
+  return d.reponses[d.bonne]
+}
+
+/** Un vrai ou faux posé avant que sa question garde sa bonne réponse : sa correction relit la base. */
+const sansSaBonneReponse = (q: QuestionDeSerie) => q.proposee !== undefined && q.bonne === 1 && q.bonneReponse === undefined
 
 /** Ce que le téléphone reçoit d'une question : jamais la bonne réponse ni l'anecdote avant la sienne. */
 function questionMontree(q: QuestionDeSerie, index: number): QuestionDeCampagne {

@@ -2980,6 +2980,12 @@ export interface PageDeLExpedition {
 export interface ReponseDExpedition {
   juste: boolean
   bonne: number
+  /**
+   * Un vrai ou faux tiré d'une question à quatre choix, dont la réponse
+   * proposée était fausse : la bonne de ses quatre réponses, avec le verdict
+   * seulement (invariant 1) — « Faux » ne disait pas ce qu'il fallait savoir.
+   */
+  bonneReponse?: string
   anecdote: string | null
   xp: number
   expedition: VueDeLExpedition

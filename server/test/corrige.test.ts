@@ -76,6 +76,21 @@ test('sans réponse, la bonne seule — et rien de barré', async () => {
   assert.doesNotMatch(html, /corrige-sienne|<s>/)
 })
 
+// Le 19 octobre 2026, un testeur : « je sais que c'est pas Eschyle mais ça ne
+// me dit pas c'était quoi la réponse ». « Mes réponses » d'une expédition ne
+// redisait d'un vrai ou faux que la réponse proposée, et « Faux ».
+test('un vrai ou faux de l’expédition à la proposée fausse dit, sous ses réponses, ce qu’il fallait répondre', async () => {
+  const vraiOuFaux = { texte: 'Qui a écrit Œdipe roi ?', reponses: ['Vrai', 'Faux'], bonne: 1, choix: 0, juste: false, proposee: 'Eschyle' }
+  const html = await serieCorrigee([question({ ...vraiOuFaux, bonneReponse: 'Sophocle', anecdote: 'Vers 430 av. J.-C.' }), question({ ...vraiOuFaux, bonne: 0, choix: 1, proposee: 'Sophocle' })])
+  const [fausse, juste] = html.split('<li').slice(1)
+  assert.match(fausse, /Qui a écrit Œdipe roi.\? — «.Eschyle.»/)
+  assert.match(fausse, /<p class="corrige-vraie">C’était <b>Sophocle<\/b><\/p>/)
+  assert.ok(fausse.indexOf('corrige-reponses') < fausse.indexOf('corrige-vraie') && fausse.indexOf('corrige-vraie') < fausse.indexOf('corrige-anecdote'), 'sous ses réponses, avant l’anecdote')
+  // Proposée juste, elle se lit déjà dans l'intitulé : rien de plus.
+  assert.doesNotMatch(juste, /corrige-vraie/)
+  assert.match(regle('.corrige-vraie'), /text-align:\s*center/, 'au centre, comme les réponses')
+})
+
 test('les réponses se centrent, comme à la révélation, et la sienne se distingue de la bonne sans la couleur', () => {
   assert.match(regle('.corrige-reponses'), /align-items:\s*center/)
   assert.match(regle('.corrige-reponse'), /text-align:\s*center/)

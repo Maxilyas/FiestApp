@@ -24,6 +24,12 @@ export function SerieCorrigee({ correction }: { correction: CorrectionDeCampagne
           bonne={c.bonne}
           choix={c.choix}
         >
+          {/* Sa proposée fausse, « Faux » ne dit pas ce qu'il fallait répondre (un testeur, le 19 octobre 2026). */}
+          {c.bonneReponse !== undefined && (
+            <p className="corrige-vraie">
+              C’était <b>{espacesFines(c.bonneReponse)}</b>
+            </p>
+          )}
           {c.anecdote && <p className="corrige-anecdote small">{espacesFines(c.anecdote)}</p>}
         </Corrige>
       ))}

@@ -628,6 +628,8 @@ export interface CorrectionDeCampagne {
   anecdote: string | null
   /** Un vrai ou faux de l'expédition tiré d'une question à quatre choix : la réponse qu'il proposait. */
   proposee?: string
+  /** Le même, quand la réponse proposée était fausse : la bonne de ses quatre réponses. */
+  bonneReponse?: string
 }
 
 // ── Le défi de la semaine ─────────────────────────────────────────────────

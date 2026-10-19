@@ -2753,6 +2753,47 @@ function verdictDe(r: ReponseDExpedition, avant: VueDeLExpedition | null, source
   return perdues >= 2 ? `Raté… deux vies de moins : ${reste}` : `Raté… ${reste}`
 }
 
+/**
+ * Ce que la révélation dit de la bonne réponse, sous son verdict. D'un vrai ou
+ * faux tiré d'une question à quatre choix : ce qu'il proposait, ce qu'il
+ * valait, et — faux — ce qu'il fallait répondre, que le serveur donne avec le
+ * verdict (le 19 octobre 2026, un testeur : « je sais que c'est pas Eschyle
+ * mais ça ne me dit pas c'était quoi la réponse »).
+ */
+export function LaBonneReponse({
+  question: q,
+  reponse: r,
+  choix,
+}: {
+  question: Pick<QuestionDExpedition, 'reponses' | 'proposee'>
+  reponse: Pick<ReponseDExpedition, 'bonne' | 'bonneReponse'>
+  choix: number | null
+}) {
+  return (
+    <p className="muted">
+      {choix === null ? 'Sans réponse. ' : ''}
+      {q.proposee !== undefined ? (
+        <>
+          {espacesFines(`« ${q.proposee} » : `)}
+          <strong>{r.bonne === 0 ? 'vrai' : 'faux'}</strong>
+          {r.bonneReponse !== undefined && (
+            <>
+              {/* Le tiret collé à « faux » : seul en tête de ligne, il ne se lirait plus comme sa suite. */}
+              {'\u00a0— c’était '}
+              <strong>{espacesFines(r.bonneReponse)}</strong>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          La bonne réponse : {q.reponses.length <= 4 && <Shape index={r.bonne} inline />}
+          <strong>{espacesFines(q.reponses[r.bonne])}</strong>
+        </>
+      )}
+    </p>
+  )
+}
+
 /** La révélation d'une question : juste ou non, ce que la réponse a coûté, la bonne réponse, l'anecdote, et la suite. */
 function Revelation({
   question: q,
@@ -2842,21 +2883,7 @@ function Revelation({
             ))}
           </ul>
         )}
-        <p className="muted">
-          {choix === null ? 'Sans réponse. ' : ''}
-          {q.proposee !== undefined ? (
-            // Un vrai ou faux tiré d'une question à quatre choix : ce qu'il proposait, et ce qu'il valait.
-            <>
-              {espacesFines(`« ${q.proposee} » : `)}
-              <strong>{r.bonne === 0 ? 'vrai' : 'faux'}</strong>
-            </>
-          ) : (
-            <>
-              La bonne réponse : {q.reponses.length <= 4 && <Shape index={r.bonne} inline />}
-              <strong>{espacesFines(q.reponses[r.bonne])}</strong>
-            </>
-          )}
-        </p>
+        <LaBonneReponse question={q} reponse={r} choix={choix} />
         {r.devoile && <p className="muted small">{espacesFines(`Répondu au ${r.devoile.mots === 1 ? '1ᵉʳ' : `${r.devoile.mots}ᵉ`} mot sur ${r.devoile.sur}.`)}</p>}
       </div>
       {r.anecdote && (

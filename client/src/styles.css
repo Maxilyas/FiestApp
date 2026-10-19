@@ -6681,6 +6681,8 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .corrige-pied { display: flex; flex-direction: column; gap: 3px; }
 .corrige-pied .icon { width: 1em; height: 1em; vertical-align: -0.14em; margin-right: 2px; }
 .corrige-anecdote { color: var(--ink); line-height: 1.4; }
+/* Un vrai ou faux de l'expédition dont la proposée était fausse : ce qu'il fallait répondre, au centre sous ses réponses. */
+.corrige-vraie { text-align: center; color: var(--ink); line-height: 1.35; }
 
 /* Des onglets en pilule : le classement du jour, d'hier, du mois ; le
    profil. Ils passent à la ligne plutôt que de sortir de l'écran : sur une

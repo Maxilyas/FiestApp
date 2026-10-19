@@ -54,7 +54,7 @@ Ne rien prendre d'une offre est permis. Une offre cache parfois un **talisman**,
 Chaque question et chaque élite a sa forme, que sa chance sur le plan compte déjà :
 
 - **Quatre choix** : la question telle que la base l'a écrite.
-- **Vrai ou faux** : une question à quatre choix en devient un — son intitulé, une réponse proposée, la bonne une fois sur deux : « Vrai » ou « Faux » ? Une question née vrai ou faux se pose telle qu'elle est écrite. Un joker qui efface ou qui double ne s'y joue pas : il répondrait à ta place.
+- **Vrai ou faux** : une question à quatre choix en devient un — son intitulé, une réponse proposée, la bonne une fois sur deux : « Vrai » ou « Faux » ? Une question née vrai ou faux se pose telle qu'elle est écrite. Un joker qui efface ou qui double ne s'y joue pas : il répondrait à ta place. Proposée fausse, la révélation dit aussi ce qu'il fallait répondre — « « Eschyle » : faux — c'était Sophocle » —, et « Mes réponses » de même, sous « Faux » (le 19 octobre 2026, un testeur : « je sais que c'est pas Eschyle mais ça ne me dit pas c'était quoi la réponse ») : le serveur garde la bonne des quatre réponses avec la question, et ne la donne qu'avec le verdict.
 - **Six choix** : ses quatre réponses et deux leurres de plus.
 - **Le dévoilement** : l'intitulé paraît mot à mot, un toutes les 350 ms, les quatre réponses dès le départ — réponds dès que tu sais. Le texte vient du serveur au fil des mots, jamais entier d'avance, et l'heure de ta réponse est celle du serveur : la révélation dit à quel mot tu as répondu, et redonne l'intitulé entier. **Arrêt sur image**, un commun des offres, l'arrête cinq secondes, son compte avec lui ; Deux visages ne s'y joue pas — deux textes à la fois, on n'en lirait aucun.
 
