@@ -15,14 +15,16 @@ import type { ReactionALaRevelation } from '../../shared/niche'
 
 /**
  * Ce que la niche montre : son compagnon (`loup`), le rang de sa plus haute
- * forme — sa croissance —, et ce qu'il en a réglé : la forme qu'il y montre
- * (`montree`, d'avant la plus haute) et son nom, qui n'est qu'à lui.
+ * forme — sa croissance —, ce qu'il en a réglé : la forme qu'il y montre
+ * (`montree`, d'avant la plus haute) et son nom, qui n'est qu'à lui ; et son
+ * Éclat, qui fait de sa forme ultime sa métamorphose (`CompagnonPossede.eclat`).
  */
 export interface NicheVue {
   compagnon: string
   rang: number
   montree?: number
   nom?: string
+  eclat?: true
 }
 
 const CLE = 'quizz.niche'
@@ -44,12 +46,17 @@ function lue(brut: unknown): NicheVue | null {
     rang,
     ...(typeof montree === 'number' && Number.isInteger(montree) && montree >= 0 && montree < rang && { montree }),
     ...(typeof v.nom === 'string' && v.nom && { nom: v.nom }),
+    ...(v.eclat === true && { eclat: true as const }),
   }
 }
 
 function poser(niche: NicheVue | null): void {
   const meme =
-    niche?.compagnon === actuelle?.compagnon && niche?.rang === actuelle?.rang && niche?.montree === actuelle?.montree && niche?.nom === actuelle?.nom
+    niche?.compagnon === actuelle?.compagnon &&
+    niche?.rang === actuelle?.rang &&
+    niche?.montree === actuelle?.montree &&
+    niche?.nom === actuelle?.nom &&
+    niche?.eclat === actuelle?.eclat
   // Une forme atteinte pendant la partie — le profil relu après un quiz, une
   // partie du jour, une série — : il sort de sa niche pour la montrer.
   const grandi = !!niche && !!actuelle && niche.compagnon === actuelle.compagnon && niche.rang > actuelle.rang
@@ -60,13 +67,13 @@ function poser(niche: NicheVue | null): void {
 }
 
 /** Un compagnon tel que le profil le dit (`CompagnonPossede`). */
-type CompagnonDuProfil = { compagnon: string; rang: number; montree?: number; nom?: string }
+type CompagnonDuProfil = { compagnon: string; rang: number; montree?: number; nom?: string; eclat?: true }
 
 /**
  * Le compagnon que le serveur met dans sa niche (`PublicProfile.niche`), à
- * la forme qu'il a atteinte, avec son nom et la forme qu'il y montre ; rien
- * sans profil ou sans compagnon. Retenu sur ce téléphone pour le prochain
- * démarrage.
+ * la forme qu'il a atteinte, avec son nom, la forme qu'il y montre et son
+ * Éclat ; rien sans profil ou sans compagnon. Retenu sur ce téléphone pour le
+ * prochain démarrage.
  */
 export function porterNiche(profil: { niche?: string; compagnons?: readonly CompagnonDuProfil[] } | null | undefined): void {
   const sien = profil?.niche ? profil.compagnons?.find(c => c.compagnon === profil.niche) : undefined

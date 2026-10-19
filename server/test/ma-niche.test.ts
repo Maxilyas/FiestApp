@@ -34,7 +34,7 @@ test('la forme de sa niche : celle qu’il a choisie parmi celles qu’il a atte
 
 const client = (fichier: string) => new URL(`../../client/src/${fichier}`, import.meta.url).href
 
-test('le téléphone retient son nom et la forme de sa niche, et ne relit rien d’abîmé', async () => {
+test('le téléphone retient son nom, la forme de sa niche et son Éclat, et ne relit rien d’abîmé', async () => {
   const retenu = new Map<string, string>()
   Object.assign(globalThis, {
     document: { body: { classList: { toggle: () => true } } },
@@ -54,11 +54,17 @@ test('le téléphone retient son nom et la forme de sa niche, et ne relit rien d
     niche.porterNiche({ niche: 'loup', compagnons: [{ compagnon: 'loup', rang: 2, nom: 'Noxou' }] })
     assert.equal(appels, 3, 'un nom changé aussi')
     assert.deepEqual(JSON.parse(retenu.get('quizz.niche')!), { compagnon: 'loup', rang: 2, nom: 'Noxou' })
+    // Son Éclat, que le serveur dit de lui (`CompagnonPossede.eclat`) : sa métamorphose l'attend à sa forme ultime.
+    niche.porterNiche({ niche: 'loup', compagnons: [{ compagnon: 'loup', rang: 2, nom: 'Noxou', eclat: true }] })
+    assert.equal(appels, 4, 'éclaté, la niche le prend')
+    assert.deepEqual(JSON.parse(retenu.get('quizz.niche')!), { compagnon: 'loup', rang: 2, nom: 'Noxou', eclat: true })
     for (const [brut, lu] of [
       [{ compagnon: 'loup', rang: 1, montree: 0, nom: 'Nox' }, { compagnon: 'loup', rang: 1, montree: 0, nom: 'Nox' }],
       [{ compagnon: 'loup', rang: 1, montree: 2 }, { compagnon: 'loup', rang: 1 }],
       [{ compagnon: 'loup', rang: 1, montree: -1, nom: 42 }, { compagnon: 'loup', rang: 1 }],
       [{ compagnon: 'loup', rang: 1, nom: '' }, { compagnon: 'loup', rang: 1 }],
+      [{ compagnon: 'loup', rang: 3, eclat: true }, { compagnon: 'loup', rang: 3, eclat: true }],
+      [{ compagnon: 'loup', rang: 3, eclat: 'oui' }, { compagnon: 'loup', rang: 3 }],
     ]) {
       retenu.set('quizz.niche', JSON.stringify(brut))
       niche.poserNicheRetenue()
@@ -84,6 +90,41 @@ test('la niche montre la forme qu’il a choisie, et l’appelle par son nom', a
   assert.match(html, /aria-label="Nox, dans ta niche : sa fiche"/)
   assert.ok(html.includes(`src="${DESSINS['cp:loup-louveteau'].perso[0]}"`), 'le louveteau, qu’il a choisi')
   assert.ok(!html.includes(DESSINS['cp:loup-adulte'].perso[0]), 'pas sa plus grande forme')
+})
+
+test('éclaté, il vit dans sa niche sous sa métamorphose — son décor, son buste, son nom ; une forme d’avant, ou sans Éclat, rien ne change', async () => {
+  const { DESSINS } = await import(client('components/compagnons-peints.ts'))
+  const rare = DESSINS['cp:loup-ultime'].eclat
+  const tempete = await rendre('Niche', { compagnon: 'loup', rang: 3, eclat: true })
+  assert.ok(tempete.includes(`src="${rare.perso[0]}"`), 'le loup-tempête, en buste')
+  assert.ok(tempete.includes(`background-image:url(${rare.disque[1]})`), 'dans son décor')
+  assert.ok(!tempete.includes(DESSINS['cp:loup-ultime'].perso[0]), 'plus le loup des étoiles')
+  assert.match(tempete, /aria-label="Le loup-tempête, dans ta niche : sa fiche"/)
+  // De face, il regarde déjà la page : son cadrage ne le retourne pas.
+  assert.doesNotMatch(tempete, /niche-bete miroir/)
+  // Une forme d'avant, choisie, n'a pas de métamorphose ; sans Éclat, le loup des étoiles.
+  assert.ok((await rendre('Niche', { compagnon: 'loup', rang: 3, montree: 2, eclat: true })).includes(DESSINS['cp:loup-adulte'].perso[0]))
+  const etoiles = await rendre('Niche', { compagnon: 'loup', rang: 3 })
+  assert.ok(etoiles.includes(DESSINS['cp:loup-ultime'].perso[0]) && !etoiles.includes(rare.perso[0]))
+  // Sa fiche le nomme et le décrit comme il se montre : elle décrivait les rubans d'étoiles sous le loup-tempête.
+  const fiche = await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 3, eclat: true }, onFermer: () => {} })
+  assert.match(fiche, /<b class="niche-fiche-nom">Le loup-tempête<\/b>/)
+  assert.match(fiche, /Forme ultime · légendaire · éclaté/)
+  assert.match(fiche, /<p class="niche-fiche-legende">Éclairs d’aurore et glace qui vole\.<\/p>/)
+  assert.match(fiche, /class="niche-choix" aria-pressed="true" aria-label="Le loup-tempête"/, 'sa forme ultime, parmi les siennes')
+  assert.match(fiche, /aria-pressed="false" aria-label="Le loup adulte"/)
+  // Ses compagnons en petites niches : chacun sous son Éclat à lui.
+  const siens = await rendre('SesCompagnons', {
+    compagnons: [
+      { compagnon: 'loup', rang: 3, justes: 520, eclat: true },
+      { compagnon: 'chat', rang: 3, justes: 600 },
+    ],
+    niche: 'loup',
+    busy: false,
+    onInstaller: () => {},
+  })
+  assert.ok(siens.includes(rare.perso[0]))
+  assert.ok(siens.includes(DESSINS['cp:chat-esprit'].perso[0]), 'le chat n’a pas éclaté')
 })
 
 test('sa fiche est sa gestion : son nom, sa forme, le caresser, le porter en avatar — seulement ce qu’il a', async () => {

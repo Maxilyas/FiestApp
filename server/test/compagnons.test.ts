@@ -102,8 +102,13 @@ test('l’Éclat tombe sur le compagnon qu’il porte, et le suit sous toutes se
   assert.equal(brilleChez(profil, 'cp:loup-ultime'), true, 'le louveteau éclaté a grandi : il brille encore')
   assert.equal(brilleChez(profil, 'cp:chat-chaton'), false, 'un autre compagnon ne brille pas pour lui')
   assert.equal(brilleChez({ ...profil, eclatsEteints: ['cp:loup-louveteau'] }, 'cp:loup-adulte'), false, 'éteint, il est éteint partout')
-  // Sa version rare n'existe pas encore : la loge ne propose rien à choisir sous lui.
+  // Sa métamorphose prend sa forme ultime sans se choisir : la loge ne propose rien sous lui.
   assert.equal(cibleDeLEclat({ avatar: '🦊', legendaire: 'cp:loup-jeune' }), null)
+  // Et chacun a la sienne, nommée : sa fiche la dit à la place de sa forme ultime.
+  assert.deepEqual(
+    COMPAGNONS.map(c => c.lumiere.nom),
+    ['Le loup-tempête', 'Le chat-soleil', 'L’île en fleurs'],
+  )
 })
 
 test('la loge le dit : « Compagnon · Le Loup » à l’essai, « Tu portes le jeune loup » à l’oreille, et chaque forme atteinte est du nouveau', () => {
@@ -336,6 +341,31 @@ test('il grandit avec les bonnes réponses données avec lui ; qui le portait à
       (await porter(banc, cookie, { legendaire: 'cp:loup-ultime' })).corps.error,
       'Le loup des étoiles arrive à 500 bonnes réponses données avec lui',
     )
+  }))
+
+test('son Éclat se dit avec lui, sous toutes ses formes : sa niche montre sa métamorphose — éteint, plus rien', () =>
+  avecBanc(async banc => {
+    const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const alice = idDe(banc, 'alice')
+    confettis(banc, alice, '2026-09-20', 2000)
+    assert.equal((await acheter(banc, cookie, 'loup')).status, 200)
+    // Le chat attend son tour : le loup garde sa niche.
+    assert.equal((await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'chat', installer: false }, cookie)).status, 200)
+    // Tombé sur son louveteau, une soirée d'avant : il a grandi depuis.
+    enBase(banc, db => db.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, 'cp:loup-louveteau', 'une-soiree', 1)`).run(alice))
+    serieEnPortant(banc, alice, 's1', 520, 'loup')
+    await banc.redemarrer()
+    // La niche ne lit pas les Éclats : le serveur le dit de chaque compagnon, à
+    // sa page comme à sa fiche — le chat, lui, n'a pas éclaté.
+    assert.deepEqual((await lire(banc, cookie)).compagnons, [
+      { compagnon: 'loup', rang: 3, eclat: true },
+      { compagnon: 'chat', rang: 0 },
+    ])
+    const fiche = (await (await fetch(`${banc.url}/api/joueur/niche`, { headers: { Cookie: cookie } })).json()) as any
+    assert.deepEqual(fiche.niche, { compagnon: 'loup', rang: 3, eclat: true, justes: 520 })
+    // Sa version d'origine, choisie : plus de métamorphose, ni dans sa niche, ni sur lui.
+    assert.equal((await porter(banc, cookie, { eclat: { cle: 'cp:loup-louveteau', brille: false } })).status, 200)
+    assert.deepEqual((await lire(banc, cookie)).compagnons[0], { compagnon: 'loup', rang: 3 })
   }))
 
 /** Les questions de sa série, lues en base : le téléphone ne voit jamais la bonne avant sa réponse. */

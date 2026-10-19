@@ -165,10 +165,11 @@ export function FicheDeLAvatar({ a, aLui, porte, profil, dessin }: { a: AvatarDe
   const recit = a.sorte === 'divin' ? (profil.divins ?? []).find(d => d.key === a.cle) : undefined
   const inconnu = a.sorte === 'divin' && !recit
   const aller = aLui ? null : ouAller(a.cle, voies)
-  // Un Divin descendu n'éclate jamais ; un compagnon n'a pas encore de
-  // version rare à choisir — ses paillettes la disent ; les autres, s'il est
-  // tombé sur eux.
-  const eclate = aLui && a.sorte !== 'divin' && a.sorte !== 'compagnon' && profil.eclats.includes(a.cle)
+  // Un Divin descendu n'éclate jamais ; un compagnon, sur sa forme ultime,
+  // qui prend sa métamorphose — l'Éclat tombé sur l'une de ses formes (ses
+  // paillettes l'annoncent sur les autres, qui n'ont rien de plus à dire) ;
+  // les autres, s'il est tombé sur eux.
+  const eclate = aLui && a.sorte !== 'divin' && (f ? f.rang === 3 && brilleChez(profil, a.cle) : profil.eclats.includes(a.cle))
   return (
     <div className="galerie-detail detail-case album-detail" style={gemmeDAvatar(a.rarete)}>
       <div className="album-detail-tete">
@@ -279,7 +280,11 @@ export function AlbumDesAvatars({ profil, page, onPage }: { profil: PublicProfil
       return Portrait && dessinDuPortrait(dessins, a.cle) ? <Portrait cle={a.cle} verrouille={!aLui} eclat={aLui && brille(a.cle)} grand={grand} /> : <span className="pt" aria-hidden="true" />
     }
     if (a.sorte === 'compagnon') {
-      return Compagnon && dessinDuCompagnon(dessins, a.cle) ? <Compagnon cle={a.cle} verrouille={!aLui} grand={grand} /> : <span className="pt" aria-hidden="true" />
+      return Compagnon && dessinDuCompagnon(dessins, a.cle) ? (
+        <Compagnon cle={a.cle} verrouille={!aLui} eclat={aLui && brille(a.cle)} grand={grand} />
+      ) : (
+        <span className="pt" aria-hidden="true" />
+      )
     }
     return aLui ? <Avatar avatar={a.cle} eclat={brille(a.cle)} /> : <span className="silhouette">{a.cle}</span>
   }

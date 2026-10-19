@@ -1731,13 +1731,27 @@ export class ProfileStore {
     return [...annonces, ...mercis].sort((a, b) => b.le - a.le)
   }
 
-  /** Ses compagnons achetés, la plus haute forme de chacun, son nom et la forme qu'il montre : de mémoire, dans l'ordre du catalogue. */
+  /**
+   * Ses compagnons achetés, la plus haute forme de chacun, son nom, la forme
+   * qu'il montre et son Éclat — qui vaut pour toutes ses formes : de mémoire,
+   * dans l'ordre du catalogue.
+   */
   compagnonsOf(id: string): CompagnonPossede[] {
     const siens = this.compagnons.get(id)
     if (!siens?.size) return []
     return COMPAGNONS.flatMap(c => {
       const s = siens.get(c.key)
-      return s ? [{ compagnon: c.key, rang: s.rang, ...(s.nom && { nom: s.nom }), ...(s.montree !== null && { montree: s.montree }) }] : []
+      return s
+        ? [
+            {
+              compagnon: c.key,
+              rang: s.rang,
+              ...(s.nom && { nom: s.nom }),
+              ...(s.montree !== null && { montree: s.montree }),
+              ...(this.brilleChez(id, c.formes[0].key) && { eclat: true as const }),
+            },
+          ]
+        : []
     })
   }
 

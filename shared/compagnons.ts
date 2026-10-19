@@ -76,10 +76,17 @@ export interface Compagnon {
   /** Ce qu'il est, d'une forme à l'autre. */
   phrase: string
   formes: readonly FormeDeCompagnon[]
+  /**
+   * Sa métamorphose de lumière, que l'Éclat fait tomber : un autre animal,
+   * plus féroce, qui prend la place de sa forme ultime (le choix du
+   * 13 octobre 2026) — son nom et ce qu'elle montre, ceux de la maquette.
+   * Sa fiche le dit à la place de sa forme ultime, qu'elle ne montre plus.
+   */
+  lumiere: { nom: string; legende: string }
 }
 
-/** Un compagnon et ses quatre formes, dans l'ordre : `[clé, nom, pronom, emoji, phrase, [id, nom, légende][]]`. */
-const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, string, string][]][] = [
+/** Un compagnon, ses quatre formes et sa lumière, dans l'ordre : `[clé, nom, pronom, emoji, phrase, [id, nom, légende][], [nom, légende]]`. */
+const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, string, string][], [string, string]][] = [
   [
     'loup',
     'Le Loup',
@@ -92,6 +99,7 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
       ['adulte', 'Le loup adulte', 'Sur une crête, au-dessus d’une mer de nuages, sous la pleine lune.'],
       ['ultime', 'Le loup des étoiles', 'Sa selle devenue ciel étoilé, ses rubans d’étoiles tournent autour de lui.'],
     ],
+    ['Le loup-tempête', 'Éclairs d’aurore et glace qui vole.'],
   ],
   [
     'chat',
@@ -105,6 +113,7 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
       ['adulte', 'Le chat des lanternes', 'Au cœur de la fête de nuit, sous les premiers feux d’artifice.'],
       ['esprit', 'L’esprit des lanternes', 'Deux queues de flamme ; ses lanternes et ses feux d’artifice sortent du cercle.'],
     ],
+    ['Le chat-soleil', 'Fourrure d’or tissé, queues en comètes, feux d’artifice dorés.'],
   ],
   [
     'tortue',
@@ -118,11 +127,12 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
       ['adulte', 'La tortue-bosquet', 'Un bosquet sur la carapace et sa cascade, en pleine mer.'],
       ['ile', 'La tortue-île', 'Une île entière sur le dos : ses cascades et ses oiseaux sortent du cercle.'],
     ],
+    ['L’île en fleurs', 'Fleurs blanches et dorées, pétales qui tourbillonnent.'],
   ],
 ]
 
 /** Les trois compagnons de la boutique, dans l'ordre de ses rayons. */
-export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, emoji, phrase, formes]) => ({
+export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, emoji, phrase, formes, [nomDeLaLumiere, legendeDeLaLumiere]]) => ({
   key,
   nom,
   le,
@@ -136,6 +146,7 @@ export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, em
     legende,
     rarete: RARETE_DES_FORMES[rang],
   })),
+  lumiere: { nom: nomDeLaLumiere, legende: legendeDeLaLumiere },
 }))
 
 /** Les douze formes, compagnon après compagnon. */
@@ -188,6 +199,13 @@ export interface CompagnonPossede {
    * yeux. Une forme atteinte reprend la place (`formeDansLaNiche`).
    */
   montree?: number
+  /**
+   * L'Éclat brille sur lui — tombé sur l'une de ses formes, et pas éteint
+   * (`brilleChez`) : sa forme ultime prend sa métamorphose, dans sa niche
+   * comme en avatar. Le serveur le dit, la niche ne lit pas les Éclats : elle
+   * se relit seule à l'ouverture de sa fiche (`GET /api/joueur/niche`).
+   */
+  eclat?: true
 }
 
 /** Et les bonnes réponses données avec lui depuis l'achat, relues dans ses journaux : la jauge de la forme suivante. */

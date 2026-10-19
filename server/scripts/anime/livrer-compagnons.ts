@@ -13,16 +13,18 @@
 //    assemblée (512 pixels pour les 100 unités du disque), la petite réduite
 //    de moitié dans Chromium ; les fichiers qu'ils remplacent partent ;
 // 2. `client/src/components/compagnons-peints.ts` est réécrit : les fichiers
-//    de chaque forme — ses humeurs comprises —, et ceux du monde vivant de sa
-//    forme ultime.
+//    de chaque forme — ses humeurs comprises —, ceux du monde vivant de sa
+//    forme ultime, et ceux de sa métamorphose de lumière.
 //
 // L'expression neutre est partie la première (le choix du 13 octobre 2026 :
 // l'achat, le port et la croissance d'abord) ; ses trois humeurs — ravi,
 // dépité, triomphe — l'ont rejointe le 19 octobre 2026, avec les réactions
 // de la niche à la révélation (`retours/2026-10-16/compagnon/principe.md`,
-// § 10). Les métamorphoses attendent encore leur tour. Un compagnon
-// incomplet n'est pas livré, et garde ce qu'il avait : sans ses humeurs, sa
-// niche ne saurait plus réagir.
+// § 10), puis la lumière que l'Éclat fait tomber, le même jour : peinte le
+// 13 octobre, elle ne partait pas, et un loup éclaté ne changeait que de
+// quatre paillettes. L'ombre attend sa règle (cent mauvaises réponses en le
+// portant). Un compagnon incomplet n'est pas livré, et garde ce qu'il avait :
+// sans ses humeurs, sa niche ne saurait plus réagir.
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -57,6 +59,15 @@ const idDansLaChaine = (cle: string) => cle.slice(cle.indexOf('-') + 1)
  * pas (`recouvrement`, `compagnons.ts`), et la niche les échange en place.
  */
 const HUMEURS = ['ravi', 'depite', 'triomphe'] as const
+
+/**
+ * La métamorphose de lumière de chaque compagnon, celle que l'Éclat fait
+ * tomber (`voie: 'lumiere'` dans `compagnons.ts`, qu'on ne peut importer : il
+ * peint en s'évaluant) : son nom dans la chaîne. Peinte d'après la forme
+ * ultime, avec son décor et ses humeurs, elle se range sous elle, qui seule
+ * la montre (`Compagnon.tsx`).
+ */
+const LUMIERES: Readonly<Record<string, string>> = { loup: 'eclat-tempete', chat: 'eclat-soleil', tortue: 'eclat-fleurs' }
 
 const empreinte = (donnees: Buffer) => createHash('sha256').update(donnees).digest('hex').slice(0, 10)
 
@@ -114,12 +125,17 @@ async function couche(src, cote, qualite) {
 }
 `
 
-/** Ce que le module garde d'une forme : ses fichiers, `[grand, petit]`. */
-interface Livree {
+/** Ce qu'une forme, ou sa métamorphose, a de peint : ses fichiers, `[grand, petit]`. */
+interface Peinte {
   disque?: [string, string]
   perso: [string, string]
   humeurs?: Record<(typeof HUMEURS)[number], [string, string]>
+}
+
+/** Ce que le module garde d'une forme : sa peinture, le monde vivant de la forme ultime et sa métamorphose. */
+interface Livree extends Peinte {
   vivant?: Record<string, [string, string]>
+  eclat?: Peinte
 }
 
 /** Ce que le module cite déjà : un compagnon qu'on ne relivre pas garde le sien. */
@@ -159,22 +175,30 @@ try {
   for (const c of COMPAGNONS.filter(x => voulus.length === 0 || voulus.includes(x.key))) {
     const app = path.join(racine, c.key, 'app')
     const fichier = (nom: string) => path.join(app, `${nom}.webp`)
-    const manque = c.formes.flatMap(f => {
-      const id = idDansLaChaine(f.key)
-      return [`${id}-neutre`, ...HUMEURS.map(h => `${id}-${h}`), ...(f.rang > 0 ? [`${id}-disque`] : [])].filter(n => !existsSync(fichier(n)))
-    })
+    /** Ce qu'il faut d'une peinture : l'expression neutre, ses humeurs, et son décor s'il en a un. */
+    const fichiersDe = (id: string, decor: boolean) => [`${id}-neutre`, ...HUMEURS.map(h => `${id}-${h}`), ...(decor ? [`${id}-disque`] : [])]
+    const manque = c.formes.flatMap(f => fichiersDe(idDansLaChaine(f.key), f.rang > 0).filter(n => !existsSync(fichier(n))))
     if (manque.length) {
       console.log(`${c.key} : pas livré, il manque ${manque.join(', ')}`)
       continue
     }
+    /** Une peinture et ses deux tailles, sous son nom dans le client (`loup-ultime`, `loup-eclat-tempete`). */
+    const peinte = async (id: string, decor: boolean): Promise<Peinte> => {
+      const nom = `${c.key}-${id}`
+      const p: Peinte = { perso: await paire(readFileSync(fichier(`${id}-neutre`)), `${nom}-perso`) }
+      if (decor) p.disque = await paire(readFileSync(fichier(`${id}-disque`)), `${nom}-disque`)
+      const humeurs = {} as NonNullable<Peinte['humeurs']>
+      for (const h of HUMEURS) humeurs[h] = await paire(readFileSync(fichier(`${id}-${h}`)), `${nom}-${h}`)
+      p.humeurs = humeurs
+      return p
+    }
+    // Sa lumière d'avant, si elle manque à cette machine : relivré sans elle, il la perdrait.
+    const ultime = c.formes[3]
+    const lumiereDAvant = livrees[ultime.key]?.eclat
     for (const f of c.formes) {
       const id = idDansLaChaine(f.key)
       const nom = `${c.key}-${id}`
-      const livree: Livree = { perso: await paire(readFileSync(fichier(`${id}-neutre`)), `${nom}-perso`) }
-      if (f.rang > 0) livree.disque = await paire(readFileSync(fichier(`${id}-disque`)), `${nom}-disque`)
-      const humeurs = {} as NonNullable<Livree['humeurs']>
-      for (const h of HUMEURS) humeurs[h] = await paire(readFileSync(fichier(`${id}-${h}`)), `${nom}-${h}`)
-      livree.humeurs = humeurs
+      const livree: Livree = await peinte(id, f.rang > 0)
       // Le monde vivant de la forme ultime : chaque couche peinte à part.
       const couches = readdirSync(app)
         .filter(n => n.startsWith(`${id}-vivant-`) && n.endsWith('.webp'))
@@ -188,39 +212,42 @@ try {
       }
       livrees[f.key] = livree
     }
+    // Sa métamorphose de lumière, sous sa forme ultime : décor, animal et humeurs, comme une forme.
+    const lumiere = LUMIERES[c.key]
+    const sansLumiere = lumiere ? fichiersDe(lumiere, true).filter(n => !existsSync(fichier(n))) : ['sa lumière']
+    if (sansLumiere.length === 0) livrees[ultime.key].eclat = await peinte(lumiere, true)
+    else if (lumiereDAvant) livrees[ultime.key].eclat = lumiereDAvant
+    if (sansLumiere.length) console.log(`${c.key} : sa lumière ${lumiereDAvant ? 'reste celle d’avant' : 'n’est pas livrée'}, il manque ${sansLumiere.join(', ')}`)
     nouveaux++
-    console.log(`${c.key} : livré (${c.formes.length} formes)`)
+    console.log(`${c.key} : livré (${c.formes.length} formes${livrees[ultime.key].eclat ? ' et sa lumière' : ''})`)
   }
 } finally {
   await nav.close()
 }
 
 const liste = (p: [string, string]) => `['${p[0]}', '${p[1]}']`
+/** Des fichiers sous leur nom, à cette marge : `humeurs: { ravi: […], … }`. */
+const bloc = (marge: string, nom: string, paires: Record<string, [string, string]> | undefined) =>
+  paires
+    ? `${marge}${nom}: {\n${Object.entries(paires)
+        .map(([cle, p]) => `${marge}  ${cle}: ${liste(p)},\n`)
+        .join('')}${marge}},\n`
+    : ''
+/** Une peinture, à cette marge : son décor, l'animal, ses humeurs. */
+const peinture = (marge: string, p: Peinte) =>
+  (p.disque ? `${marge}disque: ${liste(p.disque)},\n` : '') + `${marge}perso: ${liste(p.perso)},\n` + bloc(marge, 'humeurs', p.humeurs)
 const lignes = COMPAGNONS.flatMap(c => c.formes)
   .filter(f => livrees[f.key])
   .map(f => {
     const l = livrees[f.key]
-    const bloc = (nom: string, paires: Record<string, [string, string]> | undefined) =>
-      paires
-        ? `    ${nom}: {\n${Object.entries(paires)
-            .map(([cle, p]) => `      ${cle}: ${liste(p)},\n`)
-            .join('')}    },\n`
-        : ''
-    return (
-      `  '${f.key}': {\n` +
-      (l.disque ? `    disque: ${liste(l.disque)},\n` : '') +
-      `    perso: ${liste(l.perso)},\n` +
-      bloc('humeurs', l.humeurs) +
-      bloc('vivant', l.vivant) +
-      `  },`
-    )
+    return `  '${f.key}': {\n` + peinture('    ', l) + bloc('    ', 'vivant', l.vivant) + (l.eclat ? `    eclat: {\n${peinture('      ', l.eclat)}    },\n` : '') + `  },`
   })
 
 writeFileSync(
   module_,
   `// Les compagnons peints : les fichiers de chaque forme — ses humeurs, que la
-// niche échange en place à la révélation —, et le monde vivant de leur forme
-// ultime.
+// niche échange en place à la révélation —, le monde vivant de leur forme
+// ultime, et la métamorphose de lumière que l'Éclat lui fait prendre.
 //
 // Peints en images par \`server/scripts/anime/compagnons.ts\`, dans un seul
 // style — la peinture lumineuse : une collection.
@@ -241,9 +268,10 @@ inscrireDessin({ Compagnon, compagnons: DESSINS })
 `,
 )
 // Ce que plus personne ne cite part : un compagnon retiré du catalogue, une couche vivante renommée.
+const fichiersDeLaPeinture = (p: Peinte) => [...(p.disque ?? []), ...p.perso, ...Object.values(p.humeurs ?? {}).flat()]
 const cites = new Set(
   Object.values(livrees).flatMap(l =>
-    [...(l.disque ?? []), ...l.perso, ...Object.values(l.humeurs ?? {}).flat(), ...Object.values(l.vivant ?? {}).flat()].map(a => a.slice('/compagnons/'.length)),
+    [...fichiersDeLaPeinture(l), ...Object.values(l.vivant ?? {}).flat(), ...(l.eclat ? fichiersDeLaPeinture(l.eclat) : [])].map(a => a.slice('/compagnons/'.length)),
   ),
 )
 for (const f of readdirSync(publics)) if (!cites.has(f)) rmSync(path.join(publics, f))

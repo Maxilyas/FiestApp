@@ -619,7 +619,7 @@ const LUCIOLE: Compagnon = {
       'DISAPPOINTED, in a cute and gentle way, never tragic — antennae drooping, big sad eyes looking up, a small pout, its belly glowing dimmer',
     triomphe: 'TRIUMPHANT — head held high, eyes shining, mouth open in a joyful cheer, antennae raised high, its belly blazing with light',
   },
-  // Pas de métamorphose pour l'instant : celles des trois autres attendent encore leur tour.
+  // Pas de métamorphose pour l'instant : la lumière des trois autres n'est livrée que depuis le 19 octobre 2026, et leur ombre attend sa règle.
   eclats: {},
   vivant: [
     {
