@@ -96,6 +96,7 @@ import {
   douteApresLaQuestion,
   douteDUneErreur,
   effaceesDuTour,
+  formeDeLaCarte,
   enJeu,
   enPlusApresLaForme,
   enPlusDesPouvoirs,
@@ -127,6 +128,7 @@ import {
   type QuestionDuTour,
   type RencontreEnCours,
   type SorteDeRencontre,
+  type TourDeRencontre,
   type StyleDeJeu,
   type VueDeLaRencontre,
 } from './rencontres'
@@ -958,6 +960,19 @@ export type GesteDExpedition =
    * — la position qu'elle vise, comme un joker joué sur elle.
    */
   | { quoi: 'voir'; mise: number; position?: number }
+
+/**
+ * Ce que la page envoie pour un geste : le rang qu'il croit suivre, et les
+ * cartes qu'elle a jouées sur place avant lui, en préparation
+ * (`jouerSurPlace`). Le serveur les rejoue dans l'ordre, chacune jugée comme
+ * si elle était partie seule, et les écrit d'un même lot avec lui — toutes ou
+ * aucune ; le rang est celui de la première.
+ */
+export interface GesteAvecSesCartes {
+  rang: number
+  geste: GesteDExpedition
+  avant?: Extract<GesteDExpedition, { quoi: 'jouer' }>[]
+}
 
 /** Une question posée, telle que la partie la range : l'escale et l'acte où elle a été tirée, et ce qu'un joker doit en savoir. */
 export interface QuestionPosee {
@@ -2163,9 +2178,12 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     }
   }
   // Les vies de la série ne sont qu'un reflet pour les lectures de la campagne : en rencontre, celui du courage.
-  if (avecRencontres) e.vies = e.courage! <= 0 ? 0 : Math.min(VIES, Math.ceil((e.courage! * VIES) / COURAGE_MAX))
+  if (avecRencontres) e.vies = viesDuCourage(e.courage!)
   return e
 }
+
+/** Les vies qu'une expédition en rencontres dit à la campagne (v5) : le reflet de son courage. */
+export const viesDuCourage = (courage: number) => (courage <= 0 ? 0 : Math.min(VIES, Math.ceil((courage * VIES) / COURAGE_MAX)))
 
 /** Les cartes de route qu'il peut encore jouer dans l'acte (v5) : celles de son paquet, moins celles déjà jouées. */
 export function routeDisponible(e: Pick<EtatDeLExpedition, 'paquet' | 'routeJouees'>): string[] {
@@ -2185,7 +2203,7 @@ export function routeDisponible(e: Pick<EtatDeLExpedition, 'paquet' | 'routeJoue
  * permises, et de quoi la payer, doublée sous Doubler la mise ; depuis le
  * codex (v7), au niveau où le pari s'ouvre (`pari`). La page dit « pari ».
  */
-export function refusDeLaMise(e: Pick<EtatDeLExpedition, 'ecus' | 'rencontre'> & { pari?: boolean }, mise: number): string | null {
+export function refusDeLaMise(e: { ecus: number; pari?: boolean; rencontre: { tour: Pick<TourDeRencontre, 'jouees'> } | null }, mise: number): string | null {
   if (!MISES.includes(mise)) return `Parie ${MISES.join(', ').replace(/, (\d+)$/, ' ou $1')} écus`
   if (e.pari === false && mise > 0) return `Le pari s’ouvre au niveau ${niveauDeLaRegle('pari')} d’explorateur`
   const total = mise * (e.rencontre && parmi(e.rencontre.tour.jouees, 'doubler-la-mise') ? 2 : 1)
@@ -2271,7 +2289,6 @@ export function vueDeLaRencontre(
   const escale = r.sorte === 'gardien' ? undefined : escaleEnJeu(depart, e, r.escale)
   const q = e.enAttente === null ? undefined : questions[e.enAttente]
   const qt = questionDuTour(q)
-  const echo = r.pouvoirs.includes('echolocation')
   const ctx = contexteDeLaCarte(depart, e, questions)
   const marche: Niveau = r.sorte === 'gardien' ? MARCHES_DES_ACTES[Math.min(e.acte, ACTES - 1)].gardien : escale ? marcheDe(e.acte, escale) : 'facile'
   let annonce: AnnonceDuTour | undefined
@@ -2279,16 +2296,19 @@ export function vueDeLaRencontre(
     // Sa chance : celle que la carte annonçait de l'escale — du gardien —, ramenée à la forme où elle se pose à présent.
     const dite = r.sorte === 'gardien' ? depart.cartes[e.acte]?.chanceDuGardien : escale ? chanceAnnoncee(depart, e.acte, escale, r.categorie) : undefined
     const chance = dite === undefined ? undefined : arrondiDeChance(chanceALaForme(dite, r.sorte === 'gardien' ? 'quatre' : (escale?.forme ?? 'quatre'), qt.forme))
-    annonce = {
-      categorie: q.categorie ?? null,
-      niveau: q.niveau ?? marche,
-      forme: qt.forme,
-      reponses: qt.reponses,
-      ...(q.mots !== undefined && { mots: q.mots }),
-      ...(q.reponseEn && { reponseEn: q.reponseEn }),
-      ...(!echo && chance !== undefined && { chance }),
-      savoir: SAVOIR_DES_MARCHES[q.niveau ?? marche],
-    }
+    annonce = annonceSousLesPouvoirs(
+      {
+        categorie: q.categorie ?? null,
+        niveau: q.niveau ?? marche,
+        forme: qt.forme,
+        reponses: qt.reponses,
+        ...(q.mots !== undefined && { mots: q.mots }),
+        ...(q.reponseEn && { reponseEn: q.reponseEn }),
+        ...(chance !== undefined && { chance }),
+        savoir: SAVOIR_DES_MARCHES[q.niveau ?? marche],
+      },
+      r.pouvoirs,
+    )
   }
   const theme = r.categorie ? undefined : escale?.theme
   return {
@@ -2342,6 +2362,164 @@ export function vueDeLaRencontre(
           doute: r.doute,
         }),
       }),
+    ...(qt && { questionDuTour: qt }),
+    derniereFrappe: r.derniereFrappe,
+  }
+}
+
+/**
+ * Celles qui attendent le serveur, même en préparation : ce qu'elles font
+ * passe par ce que la vue ne dit pas — tirer des cartes, dont l'ordre est le
+ * hasard du serveur ; une autre question ou une autre forme, qu'il repose ;
+ * le courage rendu, l'écran qui le dit. Une carte de plus dans le `switch` de
+ * `jouerEnRencontre` s'y ajoute : `expedition-sur-place.test.ts` joue chaque
+ * carte sur place et au pli, et la refuse si les deux vues diffèrent.
+ */
+export const ATTENDENT_LE_SERVEUR: ReadonlySet<string> = new Set([
+  'pioche',
+  'sprint',
+  'meditation',
+  'assurance',
+  'presage',
+  'surmenage',
+  'pourboire',
+  'coup-de-sang',
+  'doubler-la-mise',
+  'feu-d-artifice',
+  'abysses',
+  'horizon',
+  'panacee',
+  'second-souffle',
+  'echange',
+  'volte-face',
+  'mue',
+  'deux-visages',
+  'prediction',
+])
+
+/**
+ * Cette carte peut-elle se jouer sur place, en préparation ? Ni de route, ni
+ * de pendant la question, ni de celles qui attendent le serveur — une seule
+ * règle : la page la lit avant de jouer sans lui, le serveur avant de rejouer
+ * le lot qu'elle lui envoie.
+ */
+export function seJoueSurPlace(cle: string, v: number): boolean {
+  const carte = carteALaVersion(cle, v)
+  return !!carte && carte.moment !== 'route' && carte.moment !== 'reflexe' && !ATTENDENT_LE_SERVEUR.has(baseDe(cle)) && !formeDeLaCarte(cle)
+}
+
+/** L'annonce d'une question sous ses pouvoirs : L'écholocation posée, elle ne dit plus sa chance — à la vue du serveur comme à la carte jouée sur place. */
+function annonceSousLesPouvoirs(annonce: AnnonceDuTour, pouvoirs: readonly string[]): AnnonceDuTour {
+  if (!pouvoirs.includes('echolocation') || annonce.chance === undefined) return annonce
+  const { chance: _chance, ...sans } = annonce
+  return sans
+}
+
+/**
+ * Une carte jouée dans la page, sans attendre le serveur (la phase
+ * d'optimisation de l'Expédition, le 19 octobre 2026) : en préparation, une
+ * carte jouée coûtait un aller-retour — quatre ou cinq par question, chacun
+ * l'attente du réseau du téléphone, puis d'une écriture de Turso. Celles dont
+ * tout l'effet se lit de la vue se jouent ici, par les règles mêmes du pli —
+ * ce qu'elle quitte, ses chiffres (`chiffresApresLaCarte`), son courage
+ * (`courageDeLaCarte`), les refus de la main (`refusDeLaCarte`) et des
+ * mises (`refusDeLaMise`), l'annonce (`annonceSousLesPouvoirs`), l'aperçu
+ * (`apercuDuTour`) —, et partent avec le geste qui suit, d'un seul
+ * aller-retour (`GesteAvecSesCartes`). Null : elle attend le serveur
+ * (`seJoueSurPlace`), ou ne se joue pas ici — la question vue, ou refusée.
+ */
+export function jouerSurPlace(r: VueDeLaRencontre, cle: string, fetiche?: string): VueDeLaRencontre | null {
+  const qt = r.questionDuTour
+  if (r.phase !== 'preparation' || !r.annonce || !qt || !r.main.includes(cle) || r.refus[cle] !== null || !seJoueSurPlace(cle, r.v)) return null
+  const carte = carteALaVersion(cle, r.v)!
+  // Dans l'ordre du pli : ce qu'elle lit d'effacé avant de viser la question, puis elle quitte la main, puis ses chiffres — un pouvoir
+  // posé d'abord, qu'il se lise lui-même (Hantise).
+  const effacees = effaceesDuTour(r.surLaQuestion, r.pouvoirs, { reponses: qt.reponses, datee: qt.datee })
+  const main = [...r.main]
+  main.splice(main.indexOf(cle), 1)
+  const jouees = [...r.jouees, cle]
+  const surLaQuestion = viseLaQuestion(carte) ? [...r.surLaQuestion, cle] : r.surLaQuestion
+  const pouvoirs = carte.moment === 'pouvoir' ? [...r.pouvoirs, cle] : r.pouvoirs
+  const epuisees = carte.moment !== 'pouvoir' && carte.epuisement ? [...r.epuisees, cle] : r.epuisees
+  const defausse = carte.moment !== 'pouvoir' && !carte.epuisement ? [...r.defausse, cle] : r.defausse
+  const niveau = r.annonce.niveau
+  const x = chiffresApresLaCarte(cle, { inspiration: r.inspiration, charge: r.charge, garde: r.garde, serie: r.serie, doute: r.doute ?? 0 }, pouvoirs, {
+    v: r.v,
+    fetiche: !!fetiche && r.annonce.categorie === fetiche,
+    effacees,
+    niveau,
+    savoir: SAVOIR_DES_MARCHES[niveau],
+    ecus: r.ecus,
+    courage: r.courage,
+  })
+  const courage = r.courage - courageDeLaCarte(cle)
+  const doute = x.doute ?? r.doute ?? 0
+  const tour = { phase: 'preparation' as const, inspiration: x.inspiration, charge: x.charge, garde: x.garde, mise: r.mise, jouees, surLaQuestion }
+  const ctx: ContexteDUneCarte = {
+    v: r.v,
+    tour,
+    main,
+    pouvoirs,
+    question: qt,
+    ...(fetiche && { fetiche }),
+    courage,
+    derniereFrappe: r.derniereFrappe,
+    defausse: defausse.length,
+    doute,
+  }
+  const { doute: _avant, ...sansDoute } = r
+  return {
+    ...sansDoute,
+    courage,
+    ...(doute > 0 && { doute }),
+    annonce: annonceSousLesPouvoirs(r.annonce, pouvoirs),
+    inspiration: x.inspiration,
+    charge: x.charge,
+    garde: x.garde,
+    serie: x.serie,
+    jouees,
+    surLaQuestion,
+    pouvoirs,
+    main,
+    defausse,
+    epuisees,
+    refus: Object.fromEntries([...new Set(main)].map(c => [c, refusDeLaCarte(ctx, c)])),
+    mises: Object.fromEntries(MISES.map(m => [m, refusDeLaMise({ ecus: r.ecus, pari: r.pari !== false, rencontre: { tour } }, m)])),
+    apercu: apercuDuTour({
+      v: r.v,
+      tour,
+      pouvoirs,
+      sceaux: r.sceaux,
+      frappe: r.frappe,
+      savoir: r.annonce.savoir,
+      question: { reponses: qt.reponses, forme: qt.forme, categorie: qt.categorie },
+      ...(fetiche && { fetiche }),
+      ...(r.annonce.mots !== undefined && { mots: r.annonce.mots }),
+      trouvees: r.trouvees,
+      serie: x.serie,
+      doute,
+    }),
+  }
+}
+
+/**
+ * La vue de l'expédition, une carte jouée sur place (`jouerSurPlace`) : le
+ * rang du geste suivant, la rencontre, le courage qu'elle coûte — les vies
+ * qui en sont le reflet (`viesDuCourage`), la fiole qu'il rend buvable
+ * (`refusDeLaFiole`). Null : elle attend le serveur.
+ */
+export function vueApresLaCarte(vue: VueDeLExpedition, cle: string): VueDeLExpedition | null {
+  const r = vue.rencontre && jouerSurPlace(vue.rencontre, cle, vue.fetiche)
+  if (!r) return null
+  // En préparation, aucune fiole ne lit la question qui attend : la clairvoyance se refuse avant.
+  const e = { issue: vue.issue, fioles: vue.fioles?.tenues ?? [], courage: r.courage, rencontre: { tour: r, pouvoirs: r.pouvoirs }, enAttente: r.position ?? null }
+  return {
+    ...vue,
+    rang: vue.rang + 1,
+    vies: viesDuCourage(r.courage),
+    courage: r.courage,
+    rencontre: r,
+    ...(vue.fioles && { fioles: { tenues: vue.fioles.tenues, refus: Object.fromEntries([...new Set(vue.fioles.tenues)].map(f => [f, refusDeLaFiole(e, f, [])])) } }),
   }
 }
 
@@ -2568,7 +2746,7 @@ export function refusDeLAchat(
  * l'ignore, le serveur la refuse, la page le dit.
  */
 export function refusDeLaFiole(
-  e: Pick<EtatDeLExpedition, 'issue' | 'fioles' | 'courage' | 'rencontre' | 'enAttente'>,
+  e: Pick<EtatDeLExpedition, 'issue' | 'fioles' | 'courage' | 'enAttente'> & { rencontre: { tour: Pick<TourDeRencontre, 'phase' | 'surLaQuestion'>; pouvoirs: readonly string[] } | null },
   cle: string,
   questions: readonly QuestionPosee[],
 ): string | null {

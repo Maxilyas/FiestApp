@@ -293,6 +293,7 @@ import {
   refusDuJoker,
   reponsesEffacees,
   routeDisponible,
+  seJoueSurPlace,
   sensDeLOracle,
   siecleDeLaQuestion,
   styleDuDepart,
@@ -7061,17 +7062,30 @@ export class CampagneStore {
    * le rang qu'il croit suivre : un double toucher, un second onglet ne
    * jouent pas deux fois (invariant 12, porté au solo). Ce que le pli demande
    * ensuite — la question d'Échange, l'autre de Deux visages — se tire dans
-   * le même lot.
+   * le même lot. Les cartes que la page a jouées sur place avant lui, en
+   * préparation (`avant`, `jouerSurPlace`), se rejouent d'abord, chacune
+   * jugée sur l'état que laisse la précédente, comme partie seule, et
+   * s'écrivent avec lui — toutes ou aucune : une refusée refuse le lot. Le
+   * rang est celui de la première.
    */
-  gesteDExpedition(profileId: string, id: string, rang: unknown, brut: unknown): Promise<ApresUnGeste> {
+  gesteDExpedition(profileId: string, id: string, rang: unknown, brut: unknown, avantBrut: unknown = []): Promise<ApresUnGeste> {
     return this.avecVerrou(profileId, async () => {
       const gardee = await this.expeditionAJouer(profileId, id)
       if (!gardee) throw new Error('Cette expédition est introuvable')
-      const l = gardee.lue
-      if (l.serie.finieLe !== null) throw new Error('Cette expédition est finie : pars pour une autre')
-      if (rang !== l.gestes.length + 1) throw new Error('Ce geste est passé : l’expédition a continué sans lui')
+      const lue = gardee.lue
+      if (lue.serie.finieLe !== null) throw new Error('Cette expédition est finie : pars pour une autre')
+      if (rang !== lue.gestes.length + 1) throw new Error('Ce geste est passé : l’expédition a continué sans lui')
       const lu = lireGeste(brut)
-      if (!lu) throw new Error('Ce geste ne se lit pas : recharge la page')
+      const surPlace = lireLesCartesSurPlace(avantBrut)
+      if (!lu || !surPlace || (lu.quoi === 'garder' && surPlace.length > 0)) throw new Error('Ce geste ne se lit pas : recharge la page')
+      let l = lue
+      for (const carte of surPlace) {
+        const avant = plier(l)
+        // La règle même de la page (`seJoueSurPlace`) : une carte qui attend le serveur ne passe pas en lot — son tirage, sa question
+        // reposée se feraient sous une autre carte.
+        if (avant.rencontre?.tour.phase !== 'preparation' || !seJoueSurPlace(carte.joker, l.depart.v)) throw new Error('Cette carte se joue seule : recharge la page')
+        l = { ...l, gestes: [...l.gestes, gesteRecevable(l, avant, carte)] }
+      }
       const avant = plier(l)
       const maintenant = this.maintenant()
       if (lu.quoi === 'garder') return this.garderUnGardien(profileId, l, avant, lu, maintenant)
@@ -7090,9 +7104,11 @@ export class CampagneStore {
       if (arret !== null && questions[arret]) questions = questions.map((q, i) => (i === arret ? { ...q, arretLe: maintenant } : q))
       // Un piège de l'inconnu peut prendre la dernière vie : un geste, alors, finit l'expédition.
       const finie = apres.issue === 'perdue'
-      const lot: InStatement[] = [
-        { sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)', args: [l.serie.id, gestes.length, JSON.stringify(g), maintenant] },
-      ]
+      // Les cartes jouées sur place, puis lui, chacun à son rang : le journal qu'auraient écrit des gestes partis un à un.
+      const lot: InStatement[] = gestes.slice(lue.gestes.length).map((x, k) => ({
+        sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)',
+        args: [l.serie.id, lue.gestes.length + 1 + k, JSON.stringify(x), maintenant],
+      }))
       if (traversee !== null) {
         lot.push({
           sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme, sujet) VALUES (?, ?, ?, NULL, 0, ?, ?, ?, ?, ?)',
@@ -8073,6 +8089,18 @@ function lireGeste(brut: unknown): GesteDExpedition | null {
   // Une fiole bue (le codex) : pendant une question, sa position.
   if (g.quoi === 'boire' && fiole(g.fiole)) return { quoi: 'boire', fiole: g.fiole, ...(rang(g.position) && { position: g.position }) }
   return null
+}
+
+/**
+ * Les cartes jouées sur place qu'un geste emmène (`GesteAvecSesCartes.avant`)
+ * — aucune, s'il n'en dit rien ; null : ce n'en est pas. Une préparation n'en
+ * tient pas tant : la main et l'énergie les bornent bien avant.
+ */
+function lireLesCartesSurPlace(brut: unknown): Extract<GesteDExpedition, { quoi: 'jouer' }>[] | null {
+  if (brut === undefined || brut === null) return []
+  if (!Array.isArray(brut) || brut.length > 12) return null
+  const lues = brut.map(lireGeste)
+  return lues.every((g): g is Extract<GesteDExpedition, { quoi: 'jouer' }> => g?.quoi === 'jouer') ? lues : null
 }
 
 /**

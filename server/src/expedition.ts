@@ -96,13 +96,14 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
     }),
   )
 
-  // Un geste — avancer, jouer une carte, voir la question et sa mise, prendre une offre, camper, garder un gardien —, avec le rang qu'il croit suivre.
+  // Un geste — avancer, jouer une carte, voir la question et sa mise, prendre une offre, camper, garder un gardien —, avec le rang qu'il croit suivre,
+  // et les cartes que la page a jouées sur place avant lui (`avant`, `GesteAvecSesCartes`).
   app.post(
     '/api/expedition/:id/geste',
     petit,
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(await deps.campagne.gesteDExpedition(profil.id, String(req.params.id), Number(req.body?.rang), req.body?.geste))
+      if (profil) res.json(await deps.campagne.gesteDExpedition(profil.id, String(req.params.id), Number(req.body?.rang), req.body?.geste, req.body?.avant))
     }),
   )
 

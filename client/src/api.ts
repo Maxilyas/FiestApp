@@ -18,7 +18,7 @@ import type {
 } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, Melange, ReponseDEpreuve } from '../../shared/sentiers'
 import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
-import type { ApresUnGeste, ArticleDeLEchoppe, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
+import type { ApresUnGeste, ArticleDeLEchoppe, GesteAvecSesCartes, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
 import type { CleDeFiole } from '../../shared/rencontres'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
@@ -193,9 +193,18 @@ export interface Activation {
 /** L'adresse à envoyer : le jeton voyage dans le fragment, que le navigateur garde pour lui. */
 export const activationUrl = (token: string) => `${window.location.origin}/activer#t=${token}`
 
-/** Un geste de l'expédition, avec le rang qu'il croit suivre : un double toucher ne joue pas deux fois. */
-const gesteDExpedition = (id: string, rang: number, geste: GesteDExpedition) =>
-  req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify({ rang, geste }) })
+/**
+ * Un geste de l'expédition, avec le rang qu'il croit suivre : un double toucher ne joue pas deux fois. Il emmène les cartes
+ * jouées sur place avant lui (`GesteAvecSesCartes`) : le rang est alors celui de la première.
+ */
+const gesteDExpedition = (id: string, rang: number, geste: GesteDExpedition, cartes: readonly string[] = [], position?: number) => {
+  const corps: GesteAvecSesCartes = {
+    rang,
+    geste,
+    ...(cartes.length > 0 && { avant: cartes.map(joker => ({ quoi: 'jouer' as const, joker, ...(position !== undefined && { position }) })) }),
+  }
+  return req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify(corps) })
+}
 
 /**
  * Les mots d'un dévoilement de l'expédition, à mesure que le serveur les
@@ -578,16 +587,18 @@ export const api = {
     partir: (equipee: readonly string[], plus: { rencontres?: true; style?: string; fetiche?: string; dos?: string; ascension?: number } = {}) =>
       req<VueDeLExpedition>('/api/expedition', { method: 'POST', body: JSON.stringify({ equipee, ...plus }) }),
     avancer: (id: string, rang: number, vers: string) => gesteDExpedition(id, rang, { quoi: 'avancer', vers }),
-    /** En rencontre : sa mise dite, il voit la question qui attend (`position`). */
-    voir: (id: string, rang: number, mise: number, position?: number) => gesteDExpedition(id, rang, { quoi: 'voir', mise, ...(position !== undefined && { position }) }),
-    /** Un joker : sur la question qui attend (`position` : un joker périmé est refusé), sur la carte, ou posé. */
-    jouer: (id: string, rang: number, joker: string, plus: { position?: number; categorie?: string; montre?: number } = {}) =>
-      gesteDExpedition(id, rang, { quoi: 'jouer', joker, ...plus }),
+    /** En rencontre : sa mise dite, il voit la question qui attend (`position`) — les cartes jouées sur place avec lui. */
+    voir: (id: string, rang: number, mise: number, position?: number, cartes: readonly string[] = []) =>
+      gesteDExpedition(id, rang, { quoi: 'voir', mise, ...(position !== undefined && { position }) }, cartes, position),
+    /** Un joker : sur la question qui attend (`position` : un joker périmé est refusé), sur la carte, ou posé — les cartes jouées sur place avant lui. */
+    jouer: (id: string, rang: number, joker: string, plus: { position?: number; categorie?: string; montre?: number } = {}, cartes: readonly string[] = []) =>
+      gesteDExpedition(id, rang, { quoi: 'jouer', joker, ...plus }, cartes, plus.position),
     /** Ce qu'il prend d'une offre : ses jokers, et le talisman ou la fiole qui en prend la place. */
     prendre: (id: string, rang: number, jokers: readonly string[], talisman?: string, fiole?: CleDeFiole) =>
       gesteDExpedition(id, rang, { quoi: 'prendre', jokers: [...jokers], ...(talisman !== undefined && { talisman }), ...(fiole !== undefined && { fiole }) }),
-    /** Une fiole bue — pendant une question, sur celle qui attend (`position`), comme une carte jouée sur elle. */
-    boire: (id: string, rang: number, fiole: CleDeFiole, position?: number) => gesteDExpedition(id, rang, { quoi: 'boire', fiole, ...(position !== undefined && { position }) }),
+    /** Une fiole bue — pendant une question, sur celle qui attend (`position`), comme une carte jouée sur elle ; les cartes jouées sur place avant elle. */
+    boire: (id: string, rang: number, fiole: CleDeFiole, position?: number, cartes: readonly string[] = []) =>
+      gesteDExpedition(id, rang, { quoi: 'boire', fiole, ...(position !== undefined && { position }) }, cartes, position),
     /** Au campement : une vie — ou, `retirer`, ce joker ôté de son paquet ; `ameliorer`, cette carte améliorée (le jeu complet). */
     camper: (id: string, rang: number, choix: { retirer?: string; ameliorer?: string } = {}) =>
       gesteDExpedition(id, rang, { quoi: 'camper', ...(choix.retirer !== undefined && { retirer: choix.retirer }), ...(choix.ameliorer !== undefined && { ameliorer: choix.ameliorer }) }),
