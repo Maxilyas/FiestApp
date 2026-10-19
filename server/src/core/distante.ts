@@ -88,10 +88,9 @@ function debutDe(instruction: unknown): string {
  * lecture des missions du propriétaire n'est jamais revenue, sans une erreur
  * au journal (`core/missions.ts` borne les siennes depuis). Le 19, le modèle
  * du savoir, lancé au démarrage, n'a jamais fini ni échoué ; depuis minuit,
- * plus une série, une épreuve, un duel ni le défi de la semaine ne s'était
- * tiré, et le quiz du jour du propriétaire ne commençait pas — « Le serveur
- * ne répond pas », quand d'autres jouaient le leur. On n'a pas su le
- * reproduire. Derrière un verrou — celui d'un profil, celui du tirage du
+ * sur quatre démarrages de suite, plus un duel, une épreuve, une série ni le
+ * défi de la semaine ne s'était tiré — « Le serveur ne répond pas », quand
+ * le quiz du jour se jouait. On n'a pas su le reproduire. Derrière un verrou — celui d'un profil, celui du tirage du
  * défi — ou une lecture partagée — la mesure des difficultés, que tout
  * tirage attend —, une seule lecture figeait tout ce qui l'attendait,
  * jusqu'au redémarrage. Bornée, elle échoue comme une base muette : le

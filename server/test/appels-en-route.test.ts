@@ -2,8 +2,8 @@
 // `core/distante.ts`). En production, le 15 octobre 2026 puis le 19, une
 // lecture n'a jamais rendu la main, sans une erreur — le délai du `fetch` n'y
 // avait rien pu — et, derrière un verrou ou une lecture partagée, figeait ce
-// qui l'attendait jusqu'au redémarrage : le défi de la semaine, les séries,
-// les duels, le quiz du jour d'un profil. On n'a pas su le reproduire : ici,
+// qui l'attendait jusqu'au redémarrage : les duels, les épreuves des
+// sentiers, les séries, le défi de la semaine. On n'a pas su le reproduire : ici,
 // un faux client libsql dont un appel ne se règle jamais.
 import { beforeEach, test } from 'node:test'
 import assert from 'node:assert/strict'

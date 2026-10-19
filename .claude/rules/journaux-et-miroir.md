@@ -21,11 +21,13 @@ paths:
 
 - **Le délai du `fetch` ne borne pas tout** : en production, le 15 octobre
   2026 (une lecture des missions) puis le 19 (le modèle du savoir, lancé au
-  démarrage, jamais fini ni échoué ; depuis minuit, plus un tirage de
-  campagne, ni le défi de la semaine ; le quiz du jour d'un profil qui ne
-  commençait pas), une lecture n'est jamais revenue, sans une erreur — on
-  n'a pas su le reproduire, ni en local, ni bridé à un dixième de cœur, ni
-  contre la vraie base en lecture seule. Derrière un verrou ou une lecture
+  démarrage, jamais fini ni échoué ; depuis minuit, sur quatre démarrages
+  de suite, plus un duel, une épreuve des sentiers, une série ni le défi de
+  la semaine, quand le quiz du jour se jouait), une lecture n'est jamais
+  revenue, sans une erreur — on n'a pas su le reproduire, ni en local, ni
+  bridé à un dixième de cœur, ni contre la vraie base en lecture seule, ni
+  derrière un faux Turso qui répond comme le vrai (gzip, par morceaux, en
+  HTTPS). Derrière un verrou ou une lecture
   partagée (la mesure des difficultés), une seule figeait tout ce qui
   l'attendait jusqu'au redémarrage. Vers une base distante, `clientDistant`
   borne donc chaque `execute`, `batch`, `migrate` et `executeMultiple` à son
