@@ -11322,6 +11322,12 @@ body.avec-niche .duels-fermer { right: auto; left: 12px; }
 .qg-echec-entier { margin: 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.85rem; overflow-wrap: anywhere; }
 .qg-pile { display: flex; flex-direction: column; gap: 4px; margin: 0; padding-left: 1.8em; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; overflow-wrap: anywhere; }
 .qg-pile li::marker { color: var(--muted); }
+/* La page des erreurs : un mode en panne se voit d'un liseré rouge ; l'état d'une erreur, son icône devant ; un téléphone prévenu, son geste au bout. */
+.qg-erreurs-panne { border-color: var(--alert); }
+.qg-erreurs-etat { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.9rem; font-weight: 600; }
+.qg-erreurs-etat .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
+.qg-erreurs-etat-alerte .icon { color: var(--alert); }
+.qg-erreurs-telephone { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
 /* La légende dit aussi les chiffres du jour qu'on survole — aujourd'hui sinon : au toucher, pas d'infobulle. */
 .qg-legende { display: flex; flex-direction: column; gap: 6px; }
 .qg-legende-jour { font-size: 0.85rem; font-weight: 600; }

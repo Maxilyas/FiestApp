@@ -198,6 +198,15 @@ export class RappelStore {
   }
 
   /**
+   * Les clés entières, pour les alertes du QG (`core/alertes.ts`) : les mêmes,
+   * qu'un téléphone abonné connaît déjà — une seule paire par serveur, tirée
+   * une fois et gardée. Null avant qu'elles soient lues.
+   */
+  clesDuServeur(): ClesVapid | null {
+    return this.cles
+  }
+
+  /**
    * Abonne ce téléphone, pour ce profil et cette session — ou l'y rattache :
    * la page du jour le renvoie à chaque visite, et c'est la dernière session
    * qui compte. `activer` allume sa cloche ; sans lui, son réglage reste —

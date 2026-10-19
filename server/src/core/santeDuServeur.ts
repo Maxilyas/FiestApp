@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 import type { InStatement, Row } from '@libsql/client'
 import { clientDistant, type Client } from './distante'
 import { releve as releveDuProcessus, type ReleveHoraire } from './pouls'
+import { veille as veilleDuProcessus, type Veille } from './veille'
+import { lesErreursTriees, lireLeTri, type EtatDUneErreur, type PageDesErreurs, type TriDUneErreur, type TriLu } from '../../../shared/triDesErreurs'
 import {
   ARRET_RECENT_MS,
   HEURE_MS,
@@ -15,6 +17,7 @@ import {
   pageDuServeur,
   type AlertesDuServeur,
   type DemarrageDuServeur,
+  type ErreurDeLaSemaine,
   type ErreurEnDetail,
   type HeureDeSante,
   type PageDuServeur,
@@ -54,6 +57,19 @@ function erreursLues(v: unknown): ErreurEnDetail[] {
         e.pile.every((c: unknown) => typeof c === 'string'),
     )
     .map(e => ({ ...e, code: typeof e.code === 'string' ? e.code : null, ou: typeof e.ou === 'string' ? e.ou : null }))
+}
+
+/** Un tri de `qg_erreurs` ; null s'il ne se lit plus — la ligne illisible laisse son erreur à regarder. */
+function lireTri(r: Row): [string, TriDUneErreur] | null {
+  if (r.etat !== 'reglee' && r.etat !== 'ignoree') return null
+  let versions: unknown
+  try {
+    versions = JSON.parse(String(r.versions))
+  } catch {
+    return null
+  }
+  if (!Array.isArray(versions) || !versions.every(v => typeof v === 'string')) return null
+  return [String(r.cle), { etat: r.etat, note: r.note === null ? null : String(r.note), depuis: Number(r.depuis), versions }]
 }
 
 /** Une ligne de `qg_sante` ; null si son relevé ne se lit plus — une ligne illisible ôte son heure, pas la page. */
@@ -102,7 +118,15 @@ export class SanteDuServeur {
   private purgeeLe = 0
   private lue: { le: number; lecture: Promise<{ heures: HeureDeSante[]; demarrages: DemarrageDuServeur[] }> } | null = null
   private recents: { le: number; lecture: Promise<DemarrageDuServeur[]> } | null = null
+  /**
+   * Ce que l'administrateur a dit des erreurs (`/admin#erreurs`), lu au
+   * démarrage et tenu en mémoire : les alertes de la vue d'ensemble le lisent
+   * toutes les cinq minutes, sans un aller-retour. Gardé au-delà des huit
+   * jours du relevé : une erreur ignorée qui retombe dans un mois le reste.
+   */
+  private tris = new Map<string, TriDUneErreur>()
   private readonly releve: ReleveHoraire
+  private readonly veille: Pick<Veille, 'pannes'>
   private readonly now: () => number
   private readonly releveMs: number
   private readonly plafonds: PlafondsDuConteneur
@@ -119,6 +143,7 @@ export class SanteDuServeur {
     deps: {
       maintenant?: () => number
       releve?: ReleveHoraire
+      veille?: Pick<Veille, 'pannes'>
       releveMs?: number
       plafonds?: PlafondsDuConteneur
       mesuresDeLHebergeur?: string | null
@@ -126,6 +151,7 @@ export class SanteDuServeur {
   ) {
     this.client = clientDistant(url, authToken)
     this.releve = deps.releve ?? releveDuProcessus
+    this.veille = deps.veille ?? veilleDuProcessus
     this.now = deps.maintenant ?? Date.now
     this.releveMs = deps.releveMs ?? RELEVE_MS
     this.plafonds = deps.plafonds ?? PLAFONDS_INCONNUS
@@ -133,7 +159,7 @@ export class SanteDuServeur {
   }
 
   async init() {
-    await this.client.batch(
+    const lus = await this.client.batch(
       [
         `CREATE TABLE IF NOT EXISTS qg_sante (
            heure     INTEGER NOT NULL,
@@ -153,9 +179,19 @@ export class SanteDuServeur {
          )`,
         'CREATE INDEX IF NOT EXISTS idx_qg_demarrages_le ON qg_demarrages(demarre_le)',
         'CREATE INDEX IF NOT EXISTS idx_qg_demarrages_vu ON qg_demarrages(vu_le)',
+        // Le tri des erreurs, une ligne par erreur triée (`cleDeLErreur`) : sans ligne, elle est à regarder.
+        `CREATE TABLE IF NOT EXISTS qg_erreurs (
+           cle      TEXT PRIMARY KEY,
+           etat     TEXT NOT NULL,
+           note     TEXT,
+           depuis   INTEGER NOT NULL,
+           versions TEXT NOT NULL
+         )`,
+        'SELECT cle, etat, note, depuis, versions FROM qg_erreurs',
       ],
       'write',
     )
+    this.tris = new Map(lus[lus.length - 1].rows.map(lireTri).filter((t): t is [string, TriDUneErreur] => t !== null))
   }
 
   /** Le démarrage qui répond, tel que la page le montre ; null avant qu'il soit prêt. */
@@ -286,10 +322,56 @@ export class SanteDuServeur {
   }
 
   /**
-   * Ce qui, du serveur, attend un geste dans « À traiter » : les erreurs et
-   * Turso lus dans le relevé, la mémoire mesurée à l'instant, et les
-   * démarrages de ce dernier jour relus au plus toutes les dix minutes. Une
-   * base qui se tait ôte l'arrêt net, pas le reste.
+   * La page des erreurs (`/admin#erreurs`) : celles de la semaine, lues comme
+   * la page « Le serveur » — la base au plus une fois la minute, ce démarrage
+   * dans son relevé —, chacune sous son tri.
+   */
+  async erreurs(): Promise<Pick<PageDesErreurs, 'maintenant' | 'enMarche' | 'erreurs' | 'sansDetail'>> {
+    const page = await this.page()
+    return {
+      maintenant: page.maintenant,
+      enMarche: { depuis: page.enMarche.depuis, version: page.enMarche.version },
+      erreurs: lesErreursTriees(page.erreurs, this.tris),
+      sansDetail: page.erreursSansDetail,
+    }
+  }
+
+  /**
+   * L'administrateur trie une erreur de la semaine : réglée — avec les
+   * versions qui l'ont vue tomber jusqu'ici : y retomber n'est pas revenir —,
+   * ignorée, ou remise à regarder, qui efface son tri. Un geste qui ne change
+   * rien est refusé, comme ailleurs au QG. Rend l'erreur et son tri d'avant,
+   * pour le journal ; null si elle n'est plus dans la semaine.
+   */
+  async trier(cle: string, etat: EtatDUneErreur, note: string | null): Promise<{ erreur: ErreurDeLaSemaine; avant: TriLu } | null> {
+    const erreur = (await this.page()).erreurs.find(e => e.cle === cle)
+    if (!erreur) return null
+    const tri = this.tris.get(cle)
+    const avant = lireLeTri(erreur.parVersion, tri)
+    if (avant.etat === etat && (etat === 'a-regarder' || note === tri?.note)) {
+      throw new Error(etat === 'a-regarder' ? 'Cette erreur est déjà à regarder' : etat === 'reglee' ? 'Cette erreur est déjà réglée' : 'Cette erreur est déjà ignorée')
+    }
+    if (etat === 'a-regarder') {
+      await this.client.execute({ sql: 'DELETE FROM qg_erreurs WHERE cle = ?', args: [cle] })
+      this.tris.delete(cle)
+    } else {
+      // Une note changée garde sa date : seul un nouveau tri la refait.
+      const neuf: TriDUneErreur = avant.etat === etat && tri ? { ...tri, note } : { etat, note, depuis: this.now(), versions: erreur.versions }
+      await this.client.execute({
+        sql: 'INSERT OR REPLACE INTO qg_erreurs (cle, etat, note, depuis, versions) VALUES (?, ?, ?, ?, ?)',
+        args: [cle, neuf.etat, neuf.note, neuf.depuis, JSON.stringify(neuf.versions)],
+      })
+      this.tris.set(cle, neuf)
+    }
+    return { erreur, avant }
+  }
+
+  /**
+   * Ce qui, du serveur, attend un geste dans « À traiter » : les modes en
+   * panne, que la veille voit tomber ; les erreurs à regarder et Turso lus
+   * dans le relevé, la mémoire mesurée à l'instant, et les démarrages de ce
+   * dernier jour relus au plus toutes les dix minutes. Une base qui se tait
+   * ôte l'arrêt net, pas le reste.
    */
   async alertes(memoireMo: number | null): Promise<AlertesDuServeur> {
     const maintenant = this.now()
@@ -306,6 +388,15 @@ export class SanteDuServeur {
       console.error('[santé] les démarrages ne se lisent pas :', e)
       return []
     })
-    return alertesDuServeur({ recentes: this.releve.lignes(this.id), demarrages, memoireMo, maintenant, courant: this.id })
+    return alertesDuServeur({
+      recentes: this.releve.lignes(this.id),
+      demarrages,
+      memoireMo,
+      maintenant,
+      courant: this.id,
+      version: this.moi?.version ?? null,
+      tri: this.tris,
+      pannes: this.veille.pannes(),
+    })
   }
 }

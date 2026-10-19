@@ -725,6 +725,13 @@ Les sessions, les essais, les codes, et ce que le QG surveille : [administrer](.
 | `PROCESSEUR_DE_L_HEBERGEUR_PCT` | 10 | `shared/santeDuServeur.ts` | Le processeur de l'instance gratuite, en pour cent d'un cœur : le plafond en pointillé | Comme `MEMOIRE_DE_L_HEBERGEUR_MO` |
 | `APPELS_POUR_UNE_LENTE` | 5 | `shared/santeDuServeur.ts` | Les appels qu'il faut à une route, dans une heure, pour qu'on juge sa lenteur | Affichage seul |
 | `APPELS_POUR_LA_PLUS_LENTE` | 20 | `shared/santeDuServeur.ts` | Les appels qu'il faut à une route, sur la semaine, pour être « la plus lente » | Affichage seul |
+| `NOTE_D_UNE_ERREUR_MAX` | 80 | `shared/triDesErreurs.ts` | Le mot qui accompagne une erreur réglée ou ignorée (« PR #284 »), en caractères | Coupé au-delà (`tronquer`) : un mot, pas un récit |
+| `FENETRE_D_UNE_PANNE_MS` | 10 min | `shared/pannes.ts` | Les minutes que la veille des modes de jeu regarde | Plus courte, une panne se dit plus vite, mais une heure calme n'y verrait jamais trois échecs ; plus longue, l'alerte arrive tard |
+| `ECHECS_D_UNE_PANNE` | 3 | `shared/pannes.ts` | Les échecs (5xx, exception) qu'il faut à une route — ou un message du temps réel — sur la fenêtre, et pas moins que ses réussites, pour faire tomber son mode | Un choix de produit, à dire : plus bas, le téléphone de l'administrateur sonne pour un joueur malchanceux ; plus haut, une panne du matin, quand peu jouent, se tait |
+| `RETABLI_APRES_MS` | 15 min | `shared/pannes.ts` | Sans un échec depuis cette durée, et chaque route tombée réussie de nouveau, le mode est rétabli | Plus court, une panne qui hoquette sonne « Rétabli » puis « Panne » encore |
+| `GROUPEMENT_MS` | 20 s | `server/src/core/veille.ts` | Le temps que la veille laisse aux autres modes de tomber avant de dire une panne : une base muette les fait tous tomber, une seule notification les dit tous | Plus long, l'alerte arrive d'autant plus tard |
+| `TELEPHONES_PREVENUS_MAX` | 5 | `shared/pannes.ts` | Les téléphones que la panne d'un mode fait sonner, au plus : les plus récemment allumés | Un de plus remplace le plus ancien |
+| `TTL_D_UNE_ALERTE_S` | 1 h | `server/src/core/alertes.ts` | Ce que le service de push garde une alerte pour un téléphone éteint | Au-delà, le QG en dit plus qu'elle ; le retour remplace la panne chez le service (`Topic`) |
 
 La réserve d'essais des consoles n'a pas de constante nommée : 20 essais d'un coup, puis 20 par minute, par adresse (`new Budget(20, 20)` dans `LoginBudget`, `server/src/auth/http.ts`), et le verrou d'un secret dure 15 minutes. Les inscriptions de profils (10 d'un coup, puis 5 par minute) et les salons créés (5 d'un coup, puis 1 toutes les 6 minutes) ont leur réserve dans `server/src/auth/profileRoutes.ts`, l'adresse locale exemptée.
 

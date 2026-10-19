@@ -16,6 +16,8 @@
 // (`server/src/core/santeDuServeur.ts`), les tests les jouent sans serveur.
 
 import { formatNumber } from './typographie'
+import { lireLeTri, type ParVersion, type TriDUneErreur } from './triDesErreurs'
+import type { PanneDUnMode } from './pannes'
 
 export const HEURE_MS = 3_600_000
 /** Ce que la page montre. */
@@ -355,16 +357,24 @@ export interface ErreurDeLaSemaine extends ErreurEnDetail {
   heures: { heure: number; n: number }[]
   /** Les versions des démarrages où elle est tombée : encore là après une mise en ligne, elle n'est pas réparée. */
   versions: string[]
+  /** Combien de fois sous chaque version, et la dernière, la plus récente d'abord : son tri les lit (`lireLeTri`). */
+  parVersion: ParVersion[]
 }
 
 /** Les erreurs que la page détaille, au plus : une panne en boucle n'en fait qu'une, et la semaine en compte rarement plus. */
 export const ERREURS_MONTREES = 50
 
-/** Ce qui, du serveur, attend un geste dans « À traiter » (le choix du 13 octobre 2026 : les quatre). */
+/** Ce qui, du serveur, attend un geste dans « À traiter » (le choix du 13 octobre 2026 : les quatre ; les pannes, le 19). */
 export interface AlertesDuServeur {
+  /** Les modes de jeu en panne à l'instant (`core/veille.ts`) : ce qui presse le plus. */
+  pannes: PanneDUnMode[]
   /** Le dernier démarrage arrêté net, ces dernières vingt-quatre heures : vers quand — son dernier signe. */
   arretNet: { vers: number } | null
-  /** Les erreurs serveur depuis le début de l'heure d'avant, et la source qui en donne le plus. */
+  /**
+   * Les erreurs serveur à regarder depuis le début de l'heure d'avant — ni les
+   * ignorées, ni les réglées qui ne sont pas revenues (`lireLeTri`) —, et la
+   * source qui en donne le plus.
+   */
   erreurs: { n: number; depuis: number; source: string } | null
   /** Turso au-delà d'une seconde, au 95ᵉ centile de l'heure. */
   tursoLent: { p95: number; depuis: number } | null
@@ -527,7 +537,7 @@ export function erreursDeLaSemaine(
   lignes: readonly HeureDeSante[],
   versionDe: (demarrage: string) => string | null,
 ): { erreurs: ErreurDeLaSemaine[]; sansDetail: { source: string; n: number }[] } {
-  const fondues = new Map<string, ErreurDeLaSemaine & { parHeure: Map<number, number>; parVersion: Set<string> }>()
+  const fondues = new Map<string, ErreurDeLaSemaine & { parHeure: Map<number, number>; vues: Map<string | null, ParVersion> }>()
   const comptees = new Map<string, number>()
   const detaillees = new Map<string, number>()
   for (const l of lignes) {
@@ -536,24 +546,27 @@ export function erreursDeLaSemaine(
       detaillees.set(e.source, (detaillees.get(e.source) ?? 0) + e.n)
       const cle = cleDeLErreur(e)
       let f = fondues.get(cle)
-      if (!f) fondues.set(cle, (f = { ...e, pile: [...e.pile], cle, heures: [], versions: [], parHeure: new Map(), parVersion: new Set() }))
+      if (!f) fondues.set(cle, (f = { ...e, pile: [...e.pile], cle, heures: [], versions: [], parVersion: [], parHeure: new Map(), vues: new Map() }))
       else {
         if (e.derniere > f.derniere) Object.assign(f, { message: e.message, code: e.code, ou: e.ou, pile: [...e.pile], derniere: e.derniere })
         f.n += e.n
         f.premiere = Math.min(f.premiere, e.premiere)
       }
       f.parHeure.set(l.heure, (f.parHeure.get(l.heure) ?? 0) + e.n)
+      // Hors de l'hébergeur, sans version : son tri le lit quand même — toute rechute la fait revenir.
       const version = versionDe(l.demarrage)
-      if (version) f.parVersion.add(version)
+      const vue = f.vues.get(version)
+      f.vues.set(version, { version, n: (vue?.n ?? 0) + e.n, derniere: Math.max(vue?.derniere ?? 0, e.derniere) })
     }
   }
   const erreurs = [...fondues.values()]
     .sort((a, b) => b.derniere - a.derniere)
     .slice(0, ERREURS_MONTREES)
-    .map(({ parHeure, parVersion, ...e }) => ({
+    .map(({ parHeure, vues, ...e }) => ({
       ...e,
       heures: [...parHeure].map(([heure, n]) => ({ heure, n })).sort((a, b) => b.heure - a.heure),
-      versions: [...parVersion].sort(),
+      versions: [...vues.keys()].filter((v): v is string => v !== null).sort(),
+      parVersion: [...vues.values()].sort((a, b) => b.derniere - a.derniere),
     }))
   const sansDetail = [...comptees]
     .map(([source, n]) => ({ source, n: n - (detaillees.get(source) ?? 0) }))
@@ -719,11 +732,33 @@ export function pageDuServeur(
 }
 
 /**
+ * Les erreurs d'une heure de ce démarrage qui restent à regarder, par source :
+ * une ignorée ne sonne plus, une réglée seulement si elle est revenue sous une
+ * version qui ne l'avait pas vue (`lireLeTri`). Celles qui n'ont pas leur
+ * détail — au-delà de douze dans l'heure — ne se trient pas : elles comptent.
+ */
+function erreursARegarder(h: HeureDeSante, tri: ReadonlyMap<string, TriDUneErreur>, version: string | null): Map<string, number> {
+  const aRegarder = new Map<string, number>()
+  const ajouter = (source: string, n: number) => {
+    if (n > 0) aRegarder.set(source, (aRegarder.get(source) ?? 0) + n)
+  }
+  const detaillees = new Map<string, number>()
+  for (const e of h.erreursEnDetail ?? []) {
+    detaillees.set(e.source, (detaillees.get(e.source) ?? 0) + e.n)
+    if (lireLeTri([{ version, n: e.n, derniere: e.derniere }], tri.get(cleDeLErreur(e))).etat === 'a-regarder') ajouter(e.source, e.n)
+  }
+  for (const [source, n] of Object.entries(h.erreurs)) ajouter(source, n - (detaillees.get(source) ?? 0))
+  return aRegarder
+}
+
+/**
  * Ce qui, du serveur, mérite une ligne dans « À traiter ». `recentes` : le
  * relevé de ce démarrage — l'heure en cours, et celle d'avant si elle la
- * précède — ; `demarrages`, ceux qui ont donné signe de vie ce dernier jour.
- * Les erreurs comptent depuis le début de l'heure d'avant : une erreur de
- * 20 h 59 se voit encore à 21 h 05.
+ * précède —, sous sa version (`version`) ; `demarrages`, ceux qui ont donné
+ * signe de vie ce dernier jour ; `tri`, ce que l'administrateur a dit des
+ * erreurs (`/admin#erreurs`) — l'alerte rouge sonnait pour chacune, un
+ * hoquet de Turso déjà connu compris. Les erreurs comptent depuis le début
+ * de l'heure d'avant : une erreur de 20 h 59 se voit encore à 21 h 05.
  */
 export function alertesDuServeur({
   recentes,
@@ -731,29 +766,40 @@ export function alertesDuServeur({
   memoireMo,
   maintenant,
   courant,
+  version = null,
+  tri = new Map(),
+  pannes = [],
 }: {
   recentes: readonly HeureDeSante[]
   demarrages: readonly DemarrageDuServeur[]
   memoireMo: number | null
   maintenant: number
   courant: string
+  version?: string | null
+  tri?: ReadonlyMap<string, TriDUneErreur>
+  pannes?: readonly PanneDUnMode[]
 }): AlertesDuServeur {
   const cetteHeure = debutDeLHeure(maintenant)
   const lues = recentes.filter(h => h.heure === cetteHeure || h.heure === cetteHeure - HEURE_MS).sort((a, b) => a.heure - b.heure)
 
   const sources = new Map<string, number>()
-  for (const h of lues) for (const [s, n] of Object.entries(h.erreurs)) sources.set(s, (sources.get(s) ?? 0) + n)
+  let depuis: number | null = null
+  for (const h of lues) {
+    const aRegarder = erreursARegarder(h, tri, version)
+    if (aRegarder.size > 0) depuis ??= h.heure
+    for (const [s, n] of aRegarder) sources.set(s, (sources.get(s) ?? 0) + n)
+  }
   const total = [...sources.values()].reduce((s, n) => s + n, 0)
   const premiere = [...sources].sort((a, b) => b[1] - a[1])[0]
-  const depuis = lues.find(h => totalDesErreurs(h.erreurs) > 0)?.heure ?? cetteHeure
 
   // Turso se juge sur l'heure en cours dès qu'elle a assez d'allers-retours, sinon sur celle d'avant.
   const jugee = [...lues].reverse().find(h => (h.base?.n ?? 0) >= ALLERS_RETOURS_POUR_JUGER)
   const arrets = demarrages.filter(d => arreteNet(d, maintenant, courant) && maintenant - d.vuLe <= ARRET_RECENT_MS).sort((a, b) => b.vuLe - a.vuLe)
 
   return {
+    pannes: [...pannes],
     arretNet: arrets[0] ? { vers: arrets[0].vuLe } : null,
-    erreurs: total > 0 && premiere ? { n: total, depuis, source: premiere[0] } : null,
+    erreurs: total > 0 && premiere ? { n: total, depuis: depuis ?? cetteHeure, source: premiere[0] } : null,
     tursoLent: jugee?.base && jugee.base.p95 > TURSO_LENT_MS ? { p95: jugee.base.p95, depuis: jugee.heure } : null,
     memoireMo: memoireMo !== null && memoireMo > MEMOIRE_PLAFOND_MO ? memoireMo : null,
   }
