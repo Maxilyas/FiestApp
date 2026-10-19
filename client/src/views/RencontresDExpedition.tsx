@@ -338,8 +338,11 @@ export function CarteDessinee({
 }) {
   const style = { ...gemmeDeLaCarte(c), '--famille': TEINTE_DE_LA_FAMILLE[c.famille] } as CSSProperties
   // Peinte, son illustration (`server/scripts/anime/cartes.ts`) : la grande levée, la petite ailleurs — celle de sa carte, améliorée
-  // ou non. La teinte de sa famille reste dessous, le temps qu'elle arrive.
+  // ou non. La teinte de sa famille reste dessous, le temps qu'elle arrive. Levée, la grande se demande tout de suite, la petite
+  // dessous : déjà là — la main la montrait —, elle tient la place tant que la grande voyage (seize kilo-octets, deux cents
+  // millisecondes en 4G).
   const peinture = CARTES_PEINTES[baseDe(c.cle)]
+  const levee = taille === 'levee'
   return (
     <span
       className={`exp-vc exp-vc-${taille}` + (c.legendaire ? ' exp-vc-du-legendaire' : '') + (c.amelioree ? ' exp-vc-amelioree' : '')}
@@ -349,7 +352,18 @@ export function CarteDessinee({
       <CoutEnEnergie c={c} manque={energie !== undefined && c.cout > energie} />
       {taille === 'levee' && c.rarete !== 'commun' && <span className="exp-vc-rarete-dite">{RARETE_DE_LA_CARTE[c.rarete]}</span>}
       <span className="exp-vc-art">
-        {peinture ? <img className="exp-vc-peinture" src={peinture[taille === 'levee' ? 0 : 1]} alt="" loading="lazy" decoding="async" /> : <VisageDeLaCarte c={c} />}
+        {peinture ? (
+          <img
+            className="exp-vc-peinture"
+            src={peinture[levee ? 0 : 1]}
+            alt=""
+            loading={levee ? 'eager' : 'lazy'}
+            decoding="async"
+            {...(levee && { style: { backgroundImage: `url(${peinture[1]})` } })}
+          />
+        ) : (
+          <VisageDeLaCarte c={c} />
+        )}
       </span>
       {taille !== 'levee' && c.valeur && <b className="exp-vc-valeur">{c.valeur}</b>}
       {taille !== 'main' && <b className={'exp-vc-nom' + (taille === 'rangee' && serre(c.nom) ? ' exp-vc-nom-serre' : '')}>{c.nom}</b>}
@@ -361,6 +375,35 @@ export function CarteDessinee({
       {c.amelioree && <b className="exp-vc-ameliore">+</b>}
     </span>
   )
+}
+
+/** Les petites peintures déjà demandées d'avance sur cette page : chacune une fois. */
+const PEINTURES_DEMANDEES = new Set<string>()
+
+/**
+ * Les petites peintures de ces cartes — son paquet —, demandées d'avance
+ * quand la page respire (la phase d'optimisation de l'Expédition, le
+ * 19 octobre 2026) : tirée dans une main, une carte jamais vue y arrivait sur
+ * sa teinte, sa peinture un aller-retour plus tard, une à une. Six
+ * kilo-octets chacune, gardées un an par le navigateur (`/cartes`,
+ * `immutable`) : elles ne voyagent qu'une fois.
+ */
+export function prechargerLesPeintures(cles: readonly string[]) {
+  if (typeof Image === 'undefined') return
+  const adresses = [...new Set(cles.map(cle => CARTES_PEINTES[baseDe(cle)]?.[1]))].filter((a): a is string => !!a && !PEINTURES_DEMANDEES.has(a))
+  if (adresses.length === 0) return
+  for (const a of adresses) PEINTURES_DEMANDEES.add(a)
+  const demander = () => {
+    for (const a of adresses) {
+      const img = new Image()
+      // Après ce que la page montre : une peinture d'avance ne passe jamais devant une de l'écran.
+      img.setAttribute('fetchpriority', 'low')
+      img.decoding = 'async'
+      img.src = a
+    }
+  }
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(demander, { timeout: 2000 })
+  else setTimeout(demander, 300)
 }
 
 /** L'ordre du catalogue : neutres, familles, légendaires — pas celui des noms, que `localeCompare` trierait en chargeant `Intl` (règle `client.md`). */

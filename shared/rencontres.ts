@@ -2981,4 +2981,12 @@ export interface VueDeLaRencontre {
   effacees?: number
   annonce?: AnnonceDuTour
   apercu?: ApercuDuTour
+  /**
+   * Ce que la question qui attend dit d'elle aux règles des cartes — jamais
+   * son texte ni sa réponse (invariant 1) —, et la dernière frappe, que
+   * L'horizon rend : de quoi rejouer dans la page, en préparation, les refus
+   * des cartes qui restent en main (`jouerSurPlace`).
+   */
+  questionDuTour?: QuestionDuTour
+  derniereFrappe: number
 }

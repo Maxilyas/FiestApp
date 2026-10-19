@@ -56,6 +56,7 @@ import {
   creerQuiz,
   demarrer,
   ecranCommun,
+  ecrire,
   emitAck,
   estimation,
   inscrireProfil,
@@ -113,8 +114,8 @@ interface PageMesuree {
   cle: string
   nom: string
   chemin: string
-  /** Qui ouvre la page : son cookie, ou le jeton d'invité retenu sur le téléphone. */
-  qui: 'anonyme' | 'profil' | 'animateur' | 'invite'
+  /** Qui ouvre la page : son cookie, ou le jeton d'invité retenu sur le téléphone ; l'explorateur, un profil parti en expédition. */
+  qui: 'anonyme' | 'profil' | 'animateur' | 'invite' | 'explorateur'
   /** Le premier élément qui dit que la page est là. */
   pret: string
   appareil?: keyof typeof APPAREILS
@@ -137,6 +138,9 @@ const PAGES: PageMesuree[] = [
   { cle: 'sentiers', nom: 'Sentiers du savoir', chemin: '/campagne#sentiers', qui: 'profil', pret: '.sentiers:not([aria-busy]) .sentiers-tuile' },
   // Sa cote arrivée : la barre vers la ligue d'après ne se dessine qu'avec elle.
   { cle: 'duels', nom: 'Les duels', chemin: '/duels', qui: 'profil', pret: '.duels:not([aria-busy]) .duels-vers' },
+  // L'Expédition : son départ, puis celle qu'on reprend — le plan de l'acte et les escales permises en cartes.
+  { cle: 'expedition-depart', nom: 'Expédition (départ)', chemin: '/expedition', qui: 'profil', pret: '.exp-depart-pied .btn-primary' },
+  { cle: 'expedition', nom: 'Expédition (le plan)', chemin: '/expedition', qui: 'explorateur', pret: '.exp-panneau .exp-carte-escale' },
   { cle: 'souvenir', nom: 'Souvenir de la soirée', chemin: `/${ADMIN.slug}/souvenir`, qui: 'anonyme', pret: '.recap.souvenir .page-corps > *' },
   { cle: 'bilan', nom: 'Bilan de la soirée', chemin: `/${ADMIN.slug}/bilan`, qui: 'anonyme', pret: '.recap.bilan .page-corps > *' },
   { cle: 'mes-quiz', nom: 'Mes quiz', chemin: '/edit', qui: 'animateur', pret: '.quiz-carte-ouvrir' },
@@ -237,7 +241,11 @@ async function semer(url: string) {
   for (const i of salle) i.socket.close()
   const zoe = await invite(url, 'Zoé', '🐨')
   zoe.socket.close()
-  return { hote, lea, zoe: { playerId: zoe.playerId, token: zoe.token } }
+  // Max est parti en expédition : sa page la rouvre sur le plan de l'acte.
+  const max = await inscrireProfil(url, 'max', 'Max', '🐺')
+  const partie = await ecrire(url, '/api/expedition', { rencontres: true }, max)
+  if (!partie.ok) throw new Error(`l’expédition de Max ne part pas : ${partie.status} ${await partie.text()}`)
+  return { hote, lea, max, zoe: { playerId: zoe.playerId, token: zoe.token } }
 }
 
 // ── Une page ouverte et chronométrée ──────────────────────────────────────
@@ -353,8 +361,8 @@ async function contexteDe(navigateur: any, page: PageMesuree, etat: Etat) {
     locale: 'fr-FR',
     timezoneId: 'Europe/Paris',
   })
-  if (page.qui === 'profil' || page.qui === 'animateur') {
-    const [nom, valeur] = (page.qui === 'profil' ? etat.lea : etat.hote).split('=')
+  if (page.qui === 'profil' || page.qui === 'animateur' || page.qui === 'explorateur') {
+    const [nom, valeur] = (page.qui === 'profil' ? etat.lea : page.qui === 'explorateur' ? etat.max : etat.hote).split('=')
     await contexte.addCookies([{ name: nom, value: valeur, url: etat.url }])
   }
   if (page.qui === 'invite') {
@@ -702,6 +710,7 @@ interface Etat {
   url: string
   hote: string
   lea: string
+  max: string
   zoe: { playerId: string; token: string }
 }
 
