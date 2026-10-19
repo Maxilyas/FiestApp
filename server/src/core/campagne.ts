@@ -759,11 +759,12 @@ export class CampagneStore {
    */
   private expeditions = new Map<string, ExpeditionGardee>()
   /**
-   * La rencontre que le dé a promise à chaque profil sans pouvoir l'écrire
-   * (`commencerUneRencontre` répond avant l'écriture) : sa première réponse
-   * dit quoi faire, au lieu de « introuvable ». Oubliée au dé suivant.
+   * La partie que le dé ou un duel lancé a promise à chaque profil sans
+   * pouvoir l'écrire (`commencerUneRencontre`, `creerUnDuel` répondent avant
+   * l'écriture) : sa première réponse dit quoi faire (`relancer`), au lieu de
+   * « introuvable ». Oubliée au dé ou au duel suivant.
    */
-  private rencontresPerdues = new Map<string, string>()
+  private partiesPerdues = new Map<string, { serie: string; relancer: string }>()
   /** Les questions du défi de chaque semaine jouée depuis le démarrage : figées en base, relues une fois. */
   private tirages = new Map<string, QuestionDeSerie[]>()
   /**
@@ -2085,8 +2086,9 @@ export class CampagneStore {
     return this.avecVerrou(profileId, async () => {
       const gardee = this.enCours.get(profileId)
       const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
-      // Le dé l'a promise sans pouvoir l'écrire (`commencerUneRencontre`) : il n'y a rien à jouer.
-      if (!s && this.rencontresPerdues.get(profileId) === id) throw new Error('Ce duel n’a pas pu commencer : relance le dé')
+      // Le dé ou le duel l'a promise sans pouvoir l'écrire (`partiesPerdues`) : il n'y a rien à jouer.
+      const perdue = this.partiesPerdues.get(profileId)
+      if (!s && perdue?.serie === id) throw new Error(perdue.relancer)
       // Le voisin n'en sait pas plus (invariant 3) : la série d'un autre est introuvable.
       if (!s || (s.mode !== 'serie' && s.mode !== 'defi' && s.mode !== 'duel' && s.mode !== 'revision' && s.mode !== 'rencontre')) throw new Error('Cette série est introuvable')
       // Lundi à minuit, le défi se clôt : son classement est figé, sa vainqueur rangé.
@@ -3093,8 +3095,8 @@ export class CampagneStore {
   }
 
   /** Sa tentative neuve à un défi entre amis : son tirage, ses catégories ou son sujet — les hauts faits de série les lisent. */
-  private async releverLeDuel(profileId: string, duel: Duel, lot: InStatement[] = []): Promise<Serie> {
-    const serie: Serie = {
+  private tentativeNeuve(profileId: string, duel: Duel): Serie {
+    return {
       id: randomUUID(),
       profileId,
       questions: duel.questions,
@@ -3112,17 +3114,21 @@ export class CampagneStore {
       sujet: duel.sujet,
       duel: duel.code,
     }
-    await this.client.batch(
-      [
-        ...lot,
-        {
-          sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, categories, sujet, duel)
-                VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'duel', ?, ?, ?)`,
-          args: [serie.id, profileId, JSON.stringify(duel.questions), VIES, this.maintenant(), duel.categories ? JSON.stringify(duel.categories) : null, duel.sujet, duel.code],
-        },
-      ],
-      'write',
-    )
+  }
+
+  /** La ligne de sa tentative, qui commence là. */
+  private ecritureDeLaTentative(serie: Serie, duel: Duel): InStatement {
+    return {
+      sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, categories, sujet, duel)
+            VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'duel', ?, ?, ?)`,
+      args: [serie.id, serie.profileId, JSON.stringify(duel.questions), VIES, this.maintenant(), duel.categories ? JSON.stringify(duel.categories) : null, duel.sujet, duel.code],
+    }
+  }
+
+  /** Relever un défi : sa tentative neuve, écrite avant de répondre (`releverUnDuel`). */
+  private async releverLeDuel(profileId: string, duel: Duel): Promise<Serie> {
+    const serie = this.tentativeNeuve(profileId, duel)
+    await this.client.batch([this.ecritureDeLaTentative(serie, duel)], 'write')
     this.garderEnCours(serie)
     return serie
   }
@@ -3184,6 +3190,10 @@ export class CampagneStore {
    * Les amis choisis (`amis`) — les siens seulement : un identifiant qui n'en
    * est pas un ne reçoit rien, sans qu'il l'apprenne — l'attendent à sa
    * dernière réponse (`campagne_envois_prevus`, `envoyerLesPrevus`).
+   *
+   * Comme le dé, il répond d'un aller-retour, avant que le duel s'écrive (le
+   * choix du propriétaire du 19 octobre 2026 : « homogénéiser et faire pareil
+   * que pour les dés ») : une écriture ratée se dit à sa première réponse.
    */
   creerUnDuel(
     profileId: string,
@@ -3192,7 +3202,8 @@ export class CampagneStore {
     amis?: unknown,
     adversaire?: unknown,
   ): Promise<{ code: string; serie: SerieDeCampagne; enjeu?: EnjeuDuDuel }> {
-    return this.avecVerrou(profileId, async () => {
+    return this.avecVerrouJusquALEcriture(profileId, async () => {
+      this.partiesPerdues.delete(profileId)
       const maintenant = this.maintenant()
       // Un duel classé n'a pas de plafond : un seul ouvert par adversaire
       // (`adversaireDuDuel`) — cinq qui attendaient bloquaient le sixième, et le
@@ -3218,7 +3229,7 @@ export class CampagneStore {
       // vu. Le duel ouvert, puis les cotes et les vues, puis l'écriture : trois
       // allers-retours l'un derrière l'autre, quatre quand sa fiche n'était pas
       // en mémoire — 3 à 6 s au 95ᵉ centile en production (le relevé de
-      // l'heure, le 19 octobre 2026).
+      // l'heure, le 19 octobre 2026). L'écriture part après la réponse.
       const [toutes, mesure, sesAmis, lus, lui] = await Promise.all([
         this.jouables(suivi ? undefined : categories),
         this.mesures(),
@@ -3247,24 +3258,31 @@ export class CampagneStore {
         .tirer(vues, maintenant)
         .map(x => versQuestionDeSerie(x.question, x.niveau))
       const retenues = suivi ? null : lireCategories(categoriesRetenues(categories))
-      for (let essai = 0; ; essai++) {
-        const duel: Duel = {
-          code: nouveauCode(),
-          auteur: profileId,
-          questions,
-          categories: retenues,
-          sujet: suivi?.cle ?? null,
-          creeLe: maintenant,
-          fermeLe: maintenant + DUREE_D_UN_DUEL_MS,
-          closLe: null,
-          adversaire: contre,
-          coteAuteur: cotes ? cotes[0].cote : null,
-          coteAdversaire: cotes ? cotes[1].cote : null,
-          vuLe: null,
-        }
-        try {
-          // Le défi, ses amis choisis et sa première tentative dans le même lot : l'un ne va pas sans l'autre.
-          const serie = await this.releverLeDuel(profileId, duel, [
+      const duel: Duel = {
+        code: nouveauCode(),
+        auteur: profileId,
+        questions,
+        categories: retenues,
+        sujet: suivi?.cle ?? null,
+        creeLe: maintenant,
+        fermeLe: maintenant + DUREE_D_UN_DUEL_MS,
+        closLe: null,
+        adversaire: contre,
+        coteAuteur: cotes ? cotes[0].cote : null,
+        coteAdversaire: cotes ? cotes[1].cote : null,
+        vuLe: null,
+      }
+      const serie = this.tentativeNeuve(profileId, duel)
+      // Le défi, ses amis choisis et sa première tentative dans le même lot :
+      // l'un ne va pas sans l'autre. Il part après la réponse, comme la
+      // rencontre du dé (`avecVerrouJusquALEcriture`) : le verrou du profil
+      // tient jusqu'à ce qu'il soit écrit, et sa première réponse l'attend.
+      // Gardé une fois écrit (`duels`, `enCours`). Raté — une base qui tombe, ou
+      // un code déjà pris, une chance sur des centaines de millions —, rien ne
+      // l'est : sa première réponse dit de le relancer (`partiesPerdues`).
+      const ecriture = this.client
+        .batch(
+          [
             {
               // Les deux cotes de chacun, figées : celle qu'on voit, contre laquelle bouge celle
               // de l'autre ; la cachée, contre laquelle bouge sa cachée (la montée, `shared/duels.ts`).
@@ -3287,15 +3305,22 @@ export class CampagneStore {
               ],
             },
             ...prevus.map(id => ({ sql: 'INSERT INTO campagne_envois_prevus (code, profile_id) VALUES (?, ?)', args: [duel.code, id] })),
-          ])
-          this.duels.set(duel.code, duel)
-          // Ce qu'il met en jeu, que sa partie redit à chaque question : contre la cote d'en face, figée ici — lui l'a lancé.
-          return { code: duel.code, serie: vueDeSerie(serie), ...(cotes && { enjeu: enjeuContre(cotes[0], cotes[1].cote, true) }) }
-        } catch (e) {
-          // Un code déjà pris — une chance sur des centaines de millions — : on en tire un autre, une fois.
-          if (essai > 0 || !String((e as Error).message).includes('UNIQUE')) throw e
-        }
-      }
+            this.ecritureDeLaTentative(serie, duel),
+          ],
+          'write',
+        )
+        .then(
+          () => {
+            this.duels.set(duel.code, duel)
+            this.garderEnCours(serie)
+          },
+          (e: unknown) => {
+            this.partiesPerdues.set(profileId, { serie: serie.id, relancer: 'Ce duel n’a pas pu commencer : lance-le de nouveau' })
+            console.warn('[campagne] un duel ne s’est pas écrit :', e instanceof Error ? e.message : e)
+          },
+        )
+      // Ce qu'il met en jeu, que sa partie redit à chaque question : contre la cote d'en face, figée ici — lui l'a lancé.
+      return { reponse: { code: duel.code, serie: vueDeSerie(serie), ...(cotes && { enjeu: enjeuContre(cotes[0], cotes[1].cote, true) }) }, ecriture }
     })
   }
 
@@ -4182,12 +4207,12 @@ export class CampagneStore {
    * « l'attente est perceptible » ; `duels-attente.test.ts`) ; il n'en attend
    * plus qu'un. Le prix, que le propriétaire a accepté le même jour : une
    * écriture ratée ne se dit plus au toucher, mais à la première réponse
-   * (`rencontresPerdues`). Une rencontre laissée, qui se reprend, a lu ses
+   * (`partiesPerdues`). Une rencontre laissée, qui se reprend, a lu ses
    * vues pour rien : moins cher qu'un aller-retour de plus à chaque dé.
    */
   commencerUneRencontre(profileId: string, choix: { categories?: readonly string[]; sujet?: string } = {}): Promise<RencontreDeCampagne> {
     return this.avecVerrouJusquALEcriture(profileId, async () => {
-      this.rencontresPerdues.delete(profileId)
+      this.partiesPerdues.delete(profileId)
       const maintenant = this.maintenant()
       const suivi = choix.sujet === undefined ? undefined : sujetParCle(choix.sujet)
       // La base et sa mesure, gardées en mémoire, partent à côté ; une
@@ -4282,7 +4307,7 @@ export class CampagneStore {
         .then(
           () => this.garderEnCours(serie),
           (e: unknown) => {
-            this.rencontresPerdues.set(profileId, serie.id)
+            this.partiesPerdues.set(profileId, { serie: serie.id, relancer: 'Ce duel n’a pas pu commencer : relance le dé' })
             console.warn('[campagne] une rencontre ne s’est pas écrite :', e instanceof Error ? e.message : e)
           },
         )
