@@ -7,7 +7,7 @@ import { Feuille } from '../components/Pieces'
 import { Onglets } from '../components/Onglets'
 import { CARTES_PEINTES } from '../components/cartes-peintes'
 import { espacesFines, formatNumber } from '../format'
-import { gemme } from '../gemmes'
+import { GEMME_MAUDITE, gemme } from '../gemmes'
 import { useModale } from '../modale'
 import { iconeDuSujet } from '../iconeDuSujet'
 import { couleurDePiste, pourcentDeChance } from '../../../shared/sentiers'
@@ -34,7 +34,7 @@ import {
   EXPLOITS,
   RENOMMEE,
   dosDe,
-  energieALAscension,
+  energieDesActesALAscension,
   exploitDe,
   niveauDeLaRegle,
   ouvertureDe,
@@ -49,6 +49,7 @@ import {
 import {
   CARTES_DES_RENCONTRES,
   CARTES_PAR_QUESTION,
+  CHANGENT_DE_QUESTION,
   COURAGE_D_UN_CAMPEMENT,
   COURAGE_D_UNE_SOURCE,
   COURAGE_DE_LA_RENAISSANCE,
@@ -57,7 +58,7 @@ import {
   FIOLES,
   FIOLES_MAX,
   MISES,
-  VERSION_DU_CODEX,
+  VERSION_DU_JEU_COMPLET,
   apercuDuTour,
   carteALaVersion,
   carteDeRencontre,
@@ -65,6 +66,7 @@ import {
   chiffresApresLaCarte,
   fioleDe,
   formeApresLaCarte,
+  viseLaQuestion,
   type AnnonceDuTour,
   type ApercuDuTour,
   type CarteDeRencontre,
@@ -119,7 +121,7 @@ export const COURT: Readonly<Record<string, string>> = {
  * les siens, et sa main dit ce que le serveur fera. Le codex, hors de toute
  * expédition, montre les cartes d'aujourd'hui.
  */
-export const VersionDesCartes = createContext(VERSION_DU_CODEX)
+export const VersionDesCartes = createContext<number>(VERSION_DU_JEU_COMPLET)
 
 /** Une carte par sa clé, à la version de l'expédition à l'écran. */
 function useCarte(): (cle: string) => CarteDeRencontre | undefined {
@@ -129,14 +131,15 @@ function useCarte(): (cle: string) => CarteDeRencontre | undefined {
 
 /**
  * La couleur d'une carte, au cadre : la gemme de sa rareté — celle des
- * jokers, de l'album et de la boutique (`gemmes.ts`) ; une maudite prend le
- * pourpre de l'épique. Une seule couleur par rareté dans toute l'application.
+ * jokers, de l'album et de la boutique (`gemmes.ts`) ; l'épique, depuis le
+ * jeu complet, le pourpre de l'album, et une maudite son rouge sombre
+ * (`GEMME_MAUDITE`). Une seule couleur par rareté dans toute l'application.
  */
-const GEMME_DE_LA_CARTE: Record<CarteDeRencontre['rarete'], RareteDeTheme> = { commun: 'commune', rare: 'rare', maudit: 'epique', legendaire: 'legendaire' }
-export const gemmeDeLaCarte = (c: CarteDeRencontre) => gemme(GEMME_DE_LA_CARTE[c.rarete])
+const GEMME_DE_LA_CARTE: Record<Exclude<CarteDeRencontre['rarete'], 'maudit'>, RareteDeTheme> = { commun: 'commune', rare: 'rare', epique: 'epique', legendaire: 'legendaire' }
+export const gemmeDeLaCarte = (c: CarteDeRencontre) => (c.rarete === 'maudit' ? GEMME_MAUDITE : gemme(GEMME_DE_LA_CARTE[c.rarete]))
 
 /** Sa rareté, accordée à « carte ». */
-export const RARETE_DE_LA_CARTE: Record<CarteDeRencontre['rarete'], string> = { commun: 'commune', rare: 'rare', maudit: 'maudite', legendaire: 'légendaire' }
+export const RARETE_DE_LA_CARTE: Record<CarteDeRencontre['rarete'], string> = { commun: 'commune', rare: 'rare', epique: 'épique', maudit: 'maudite', legendaire: 'légendaire' }
 
 /** Quand une carte se joue, en clair : la carte levée, l'offre, l'échoppe le disent. */
 export const MOMENT: Record<MomentDUneCarte, string> = {
@@ -176,6 +179,49 @@ const ICONE_DE_LA_CARTE: Readonly<Record<string, IconName>> = {
   'contre-attaque': 'sabre',
   lucidite: 'bulb',
   'troisieme-oeil': 'moon',
+  // Le jeu complet : chacune le sien — les posées pour toute la rencontre se reconnaissent ainsi, en haut de l'écran.
+  evidence: 'search',
+  meditation: 'leaf',
+  'sang-froid': 'check-circle',
+  panacee: 'fiole',
+  maitrise: 'award',
+  surmenage: 'alert',
+  'savoir-faire': 'clipboard',
+  memoire: 'archive',
+  lecon: 'bell',
+  expose: 'pupitre',
+  encyclopedie: 'lettres',
+  genie: 'sun',
+  pourboire: 'bag',
+  cagnotte: 'coffre',
+  assurance: 'lock',
+  fortune: 'trophy',
+  pactole: 'medal',
+  rafle: 'tag',
+  'volte-face': 'shuffle',
+  prisme: 'palette',
+  miroir: 'image',
+  cameleon: 'paw',
+  metamorphose: 'globe',
+  polymorphe: 'hash',
+  foulee: 'skip',
+  acceleration: 'play',
+  rythme: 'music',
+  sprint: 'avion',
+  'vent-arriere': 'volume',
+  inarretable: 'dinosaure',
+  muraille: 'landmark',
+  pansement: 'stethoscope',
+  cuirasse: 'anneau',
+  'second-souffle': 'bulles',
+  bastion: 'chateau',
+  represailles: 'swords',
+  augure: 'repere',
+  presage: 'message',
+  voyance: 'maximize',
+  astrolabe: 'boussole',
+  vision: 'telescope',
+  revelation: 'sparkles',
 }
 
 /** Une carte en petit : le médaillon du légendaire qui la donne, sinon son dessin. */
@@ -194,10 +240,10 @@ export function origineDeLaCarte(c: CarteDeRencontre): string {
   return [MOMENT[c.moment], ...plusDeLaCarte(c)].join(' · ')
 }
 
-/** Ce qu'il faut savoir de plus sur elle : une fois par rencontre, un indice, le légendaire qui la donne. */
+/** Ce qu'il faut savoir de plus sur elle : une fois par rencontre — ou par expédition —, un indice, le légendaire qui la donne. */
 function plusDeLaCarte(c: CarteDeRencontre): string[] {
   return [
-    c.epuisement && 'une fois par rencontre',
+    c.unique ? 'une fois par expédition' : c.epuisement && 'une fois par rencontre',
     c.indice && 'une aide : ta réponse ne compte pas dans tes statistiques',
     c.legendaire && `la carte ${duGardien(c.legendaire)}`,
   ].filter((x): x is string => !!x)
@@ -368,17 +414,23 @@ export function apercuALaMise(r: VueDeLaRencontre, mise: number, fetiche: string
   const c = avec === undefined ? undefined : carteALaVersion(avec, r.v)
   // Dans l'ordre du pli : un pouvoir est posé avant que ses chiffres se comptent.
   const pouvoirs = c?.moment === 'pouvoir' ? [...r.pouvoirs, c.cle] : r.pouvoirs
+  // Ce que ses chiffres lisent de la question (le jeu complet) : sa marche, ce qu'elle vaut — l'annonce les dit —, les écus qu'il a.
   const chiffres = c
     ? chiffresApresLaCarte(c.cle, { inspiration: r.inspiration, charge: r.charge, garde: r.garde, serie: r.serie }, pouvoirs, {
         v: r.v,
         fetiche: !!fetiche && a.categorie === fetiche,
         effacees: r.effacees,
+        niveau: a.niveau,
+        savoir: a.savoir,
+        ecus: r.ecus,
       })
     : r
   const q = c ? formeApresLaCarte(c.cle, { forme: a.forme, reponses: a.reponses }) : { forme: a.forme, reponses: a.reponses }
+  // Les cartes qui visent la question, comme le pli les range : une autre question repart sans elles.
+  const surLaQuestion = !c ? r.surLaQuestion : CHANGENT_DE_QUESTION.has(c.cle) ? (c.cle === 'mue' ? ['mue'] : []) : viseLaQuestion(c) ? [...r.surLaQuestion, c.cle] : r.surLaQuestion
   return apercuDuTour({
     v: r.v,
-    tour: { charge: chiffres.charge, garde: chiffres.garde, mise, jouees: c ? [...r.jouees, c.cle] : r.jouees },
+    tour: { charge: chiffres.charge, garde: chiffres.garde, mise, jouees: c ? [...r.jouees, c.cle] : r.jouees, surLaQuestion },
     pouvoirs,
     sceaux: r.sceaux,
     frappe: r.frappe,
@@ -386,6 +438,8 @@ export function apercuALaMise(r: VueDeLaRencontre, mise: number, fetiche: string
     question: { reponses: q.reponses, forme: q.forme, categorie: a.categorie },
     ...(fetiche && { fetiche }),
     ...(a.mots !== undefined && { mots: a.mots }),
+    trouvees: r.trouvees,
+    serie: chiffres.serie,
   })
 }
 
@@ -428,6 +482,8 @@ export function Apercu({ a, base, compact }: { a: ApercuDuTour; base?: ApercuDuT
     j.auPremierMot !== undefined && `${colle('jusqu’à', j.auPremierMot)} si tu réponds tôt`,
     deCartes > 0 && `${colle('dont', `+${deCartes}`)} grâce à tes cartes`,
     j.ecus > 0 && `+${j.ecus} écus de ton pari`,
+    (j.ecusDesCartes ?? 0) > 0 && `+${j.ecusDesCartes} écus de tes cartes`,
+    (j.courage ?? 0) > 0 && `+${j.courage} de courage`,
   ].filter((x): x is string => !!x)
   const detailFaux = [
     f.frappe === 0
@@ -471,6 +527,11 @@ function Changement({ c }: { c: ChangementDeLaCarte }) {
   const lignes: { cle: string; icone: IconName; quoi: string; de: string; a: string }[] = []
   if (ditJuste(avant) !== ditJuste(apres)) lignes.push({ cle: 'juste', icone: 'check', quoi: 'Si tu as juste', de: ditJuste(avant), a: ditJuste(apres) })
   if (avant.juste.ecus !== apres.juste.ecus) lignes.push({ cle: 'gain', icone: 'ecu', quoi: 'Ton pari gagné', de: `+${avant.juste.ecus}`, a: `+${apres.juste.ecus} écus` })
+  // Le jeu complet : les écus et le courage que ses cartes rapportent sur une bonne réponse.
+  const ecusDe = (x: ApercuDuTour) => x.juste.ecusDesCartes ?? 0
+  const courageDe = (x: ApercuDuTour) => x.juste.courage ?? 0
+  if (ecusDe(avant) !== ecusDe(apres)) lignes.push({ cle: 'ecus', icone: 'ecu', quoi: 'Si tu as juste, tes cartes', de: `+${ecusDe(avant)}`, a: `+${ecusDe(apres)} écus` })
+  if (courageDe(avant) !== courageDe(apres)) lignes.push({ cle: 'soin', icone: 'heart', quoi: 'Si tu as juste, tu reprends', de: `${courageDe(avant)}`, a: `${courageDe(apres)} de courage` })
   if (avant.faux.perdu !== apres.faux.perdu) lignes.push({ cle: 'faux', icone: 'heart', quoi: 'Si tu te trompes', de: `tu perds ${avant.faux.perdu}`, a: `tu perds ${apres.faux.perdu}` })
   if (avant.faux.contre !== apres.faux.contre) lignes.push({ cle: 'contre', icone: 'sabre', quoi: 'Si tu te trompes, riposte', de: `${avant.faux.contre}`, a: `il perd ${apres.faux.contre}` })
   if (avant.faux.ecus !== apres.faux.ecus) lignes.push({ cle: 'perte', icone: 'ecu', quoi: 'Ton pari perdu', de: `−${avant.faux.ecus}`, a: `−${apres.faux.ecus} écus` })
@@ -761,11 +822,25 @@ export function CarteLevee({
 }
 
 /**
- * Le cycle des cartes, en une fois : « on comprend pas bien ce qu'on a en main et comment les cartes reviennent » (le 18 octobre 2026).
- * L'énergie, celle de son cran de l'Ascension.
+ * L'énergie de chaque question, acte par acte : celle que la vue dit
+ * (`CartesEnJeu.energie`) ; sans vue — au départ —, celle d'une expédition
+ * qui partirait, à son cran.
  */
-const regleDuCycle = (ascension: number) =>
-  `À chaque question, tu tires de nouvelles cartes de ta pioche, et tu as ${energieALAscension(ascension)} d’énergie pour les jouer. Celles que tu ne joues pas vont à la défausse ; quand ta pioche est vide, ta défausse y est remélangée. Une carte « une fois par rencontre » revient à la rencontre suivante, et chaque rencontre remélange tout ton paquet. Les cartes de route se jouent sur le plan, une fois par acte.`
+export const energieDesActes = (energie: readonly number[] | undefined, ascension: number): readonly number[] => energie ?? energieDesActesALAscension(VERSION_DU_JEU_COMPLET, ascension)
+
+/** « 3 d'énergie », ou acte par acte : « 2 d'énergie à l'acte 1, 3 ensuite ». */
+export function energieDite(energie: readonly number[]): string {
+  const [a1, a2, a3] = energie
+  if (a1 === a2 && a2 === a3) return `${a1} d’énergie`
+  return a2 === a3 ? `${a1} d’énergie à l’acte 1, ${a2} ensuite` : `${a1} d’énergie à l’acte 1, ${a2} à l’acte 2, ${a3} à l’acte 3`
+}
+
+/**
+ * Le cycle des cartes, en une fois : « on comprend pas bien ce qu'on a en main et comment les cartes reviennent » (le 18 octobre 2026).
+ * L'énergie, celle de chaque acte à son cran de l'Ascension.
+ */
+const regleDuCycle = (energie: readonly number[]) =>
+  `À chaque question, tu tires de nouvelles cartes de ta pioche, et tu as ${energieDite(energie)} pour les jouer. Celles que tu ne joues pas vont à la défausse ; quand ta pioche est vide, ta défausse y est remélangée. Une carte « une fois par rencontre » revient à la rencontre suivante, et chaque rencontre remélange tout ton paquet. Les cartes de route se jouent sur le plan, une fois par acte.`
 
 /**
  * Un tas en vraies cartes, qui défilent de côté (« Voir la pioche on voit
@@ -849,7 +924,9 @@ export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly str
       {choisie && (
         <p className="exp-a-prendre-dit" aria-hidden="true">
           <b>{choisie.nom}</b>
-          <span className={`exp-rarete exp-rarete-${choisie.rarete}`}>{RARETE_DE_LA_CARTE[choisie.rarete]}</span>
+          <span className={`exp-rarete exp-rarete-${choisie.rarete}`} style={gemmeDeLaCarte(choisie)}>
+            {RARETE_DE_LA_CARTE[choisie.rarete]}
+          </span>
           <span>{espacesFines(choisie.effet)}</span>
           <span className="muted small">{espacesFines(`${coutDit(choisie)} · ${MOMENT[choisie.moment]}`)}</span>
         </p>
@@ -870,12 +947,15 @@ export function FeuilleDesCartes({
   paquet,
   rencontre,
   ascension = 0,
+  energie,
   onFermer,
 }: {
   paquet: readonly string[]
   rencontre?: VueDeLaRencontre
-  /** Son cran de l'Ascension : l'énergie de chaque question, que la règle du cycle dit. */
+  /** Son cran de l'Ascension : l'énergie de chaque question, que la règle du cycle dit — sans vue, au départ. */
   ascension?: number
+  /** L'énergie de chaque acte, telle que la vue la dit (`CartesEnJeu.energie`). */
+  energie?: readonly number[]
   onFermer: () => void
 }) {
   const [regardee, setRegardee] = useState<string | null>(null)
@@ -898,7 +978,7 @@ export function FeuilleDesCartes({
           </>
         )}
         {tas('Tout ton paquet', paquet, 'Ton paquet est vide.')}
-        <p className="muted small">{espacesFines(regleDuCycle(ascension))}</p>
+        <p className="muted small">{espacesFines(regleDuCycle(energieDesActes(energie, ascension)))}</p>
       </Feuille>
       {regardee && <CarteLevee cle={regardee} onReposer={() => setRegardee(null)} />}
     </>
@@ -911,6 +991,7 @@ const PAGES_DU_CODEX: { id: PageDuCodex; nom: string }[] = [
   { id: 'toutes', nom: 'Toutes' },
   { id: 'commun', nom: 'Communes' },
   { id: 'rare', nom: 'Rares' },
+  { id: 'epique', nom: 'Épiques' },
   { id: 'maudit', nom: 'Maudites' },
   { id: 'legendaire', nom: 'Légendaires' },
 ]
@@ -1457,10 +1538,19 @@ const ouvertAuNiveau = (regle: RegleDuCodex) => `au niveau ${niveauDeLaRegle(reg
  * récompenses de son codex, et ce que chaque niveau ouvre — une règle fermée
  * dit le niveau qui l'ouvre. `ascension` : son cran, celui de l'expédition en
  * route ou celui qui partirait — le campement et la source y rendent moins.
+ * `energie` : celle de chaque question, acte par acte — deux à l'acte 1 depuis
+ * le jeu complet.
  */
-function reglesDesRencontres(parQuestion: readonly number[], codex?: CodexDesRegles, ascension = 0): SectionDesRegles[] {
+function reglesDesRencontres(parQuestion: readonly number[], codex: CodexDesRegles | undefined, ascension: number, energie: readonly number[]): SectionDesRegles[] {
   const [a1, a2, a3] = parQuestion
+  const [e1, e2, e3] = energie
   const ouverte = (regle: RegleDuCodex) => !codex || codex.regles.includes(regle)
+  const sonEnergie =
+    e1 === e2 && e2 === e3
+      ? `Tu en as ${e1} à chaque question.`
+      : e2 === e3
+        ? `Tu en as ${e1} à chaque question de l’acte 1, ${e2} ensuite.`
+        : `Tu en as ${e1} à chaque question de l’acte 1, ${e2} à l’acte 2, ${e3} à l’acte 3.`
   return [
     {
       cle: 'rencontre',
@@ -1475,7 +1565,7 @@ function reglesDesRencontres(parQuestion: readonly number[], codex?: CodexDesReg
       cle: 'cartes',
       titre: 'Tes cartes',
       lignes: [
-        { icone: 'energie', texte: `Chaque carte coûte de l’énergie — le chiffre dans son coin. Tu en as ${energieALAscension(ascension)} à chaque question.` },
+        { icone: 'energie', texte: `Chaque carte coûte de l’énergie — le chiffre dans son coin. ${sonEnergie}` },
         { icone: 'list', texte: a1 === a3 ? `Tu tires ${a1} cartes à chaque question.` : `Tu tires ${a1} cartes à chaque question de l’acte 1, ${a2} à l’acte 2, ${a3} à l’acte 3.` },
         { icone: 'eye-off', texte: '« Maintenant » : avant de voir la question. « Pendant la question » : une fois qu’elle est sous tes yeux.' },
         { icone: 'eye', texte: 'Touche une carte : elle dit ce qu’elle fait, et ce qu’elle changerait.' },
@@ -1666,6 +1756,8 @@ export function FeuilleDesRegles({
   parQuestion,
   codex,
   ascension,
+  energie,
+  acte = 0,
   debut,
   pied,
   onFermer,
@@ -1677,11 +1769,18 @@ export function FeuilleDesRegles({
   codex?: CodexDesRegles
   /** Son cran de l'Ascension : celui de l'expédition en route (`CartesEnJeu.ascension`), ou celui qui partirait. */
   ascension?: number
+  /** L'énergie de chaque acte, telle que la vue la dit (`CartesEnJeu.energie`) ; sans elle, celle d'une expédition qui partirait. */
+  energie?: readonly number[]
+  /** L'acte où il en est : l'orbe de l'énergie dit la sienne. */
+  acte?: number
   debut?: DebutDesRegles
   pied?: ReactNode
   onFermer: () => void
 }) {
-  const sections = rencontres ? reglesDesRencontres(parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex, ascension) : reglesDesJokers()
+  const sonEnergie = energieDesActes(energie, ascension ?? 0)
+  const sections = rencontres
+    ? reglesDesRencontres(parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex, ascension ?? 0, sonEnergie)
+    : reglesDesJokers()
   const ordre = debut ? [...sections.filter(s => s.cle === debut), ...sections.filter(s => s.cle !== debut)] : sections
   return (
     <Feuille titre="Les règles" className="feuille-regles" onFermer={onFermer} pied={pied}>
@@ -1695,7 +1794,7 @@ export function FeuilleDesRegles({
               <li key={l.texte}>
                 <span className="exp-guide-icone" aria-hidden="true">
                   {/* L'énergie se montre telle que la main la montre : son orbe et son chiffre. */}
-                  {l.icone === 'energie' ? <b className="exp-vc-cout">{energieALAscension(ascension ?? 0)}</b> : <Icon name={l.icone} />}
+                  {l.icone === 'energie' ? <b className="exp-vc-cout">{sonEnergie[Math.min(Math.max(0, acte), sonEnergie.length - 1)]}</b> : <Icon name={l.icone} />}
                 </span>
                 <span>{espacesFines(l.texte)}</span>
               </li>
@@ -1800,13 +1899,15 @@ export function PreparationDeLaRencontre({
         <Icon name="eye" />
         Voir la question
       </button>
-      {tas && <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={r} ascension={vue.cartes?.ascension} onFermer={() => setTas(false)} />}
+      {tas && <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={r} ascension={vue.cartes?.ascension} energie={vue.cartes?.energie} onFermer={() => setTas(false)} />}
       {aide && (
         <FeuilleDesRegles
           rencontres
           parQuestion={vue.cartes?.parQuestion}
           codex={vue.cartes?.codex}
           ascension={vue.cartes?.ascension}
+          energie={vue.cartes?.energie}
+          acte={vue.acte}
           onFermer={vu}
           pied={
             <button type="button" className="btn btn-primary btn-block" onClick={vu}>
@@ -1832,6 +1933,8 @@ export function verdictDeLaRencontre(c: CoupDeRencontre, adversaire: string, fin
       lignes: [
         c.victoire && `Il a perdu ${c.brises} d’un coup`,
         c.mise > 0 && `+${c.mise} écus gagnés avec ton pari`,
+        (c.ecus ?? 0) > 0 && `+${c.ecus} écus de tes cartes`,
+        (c.courage ?? 0) > 0 && `+${c.courage} de courage, grâce à tes cartes`,
         c.victoire && c.victoire.ecus > 0 && `+${c.victoire.ecus} écus de victoire`,
         c.victoire && c.victoire.courage > 0 && `+${c.victoire.courage} de courage, grâce à L’aube`,
       ].filter((x): x is string => !!x),
@@ -2166,7 +2269,9 @@ export function LigneDeCarte({ c, prix }: { c: CarteDeRencontre; prix?: ReactNod
       <span className="exp-joker">
         <span className="exp-offre-nom">
           <b>{c.nom}</b>
-          <span className={`exp-rarete exp-rarete-${c.rarete}`}>{RARETE_DE_LA_CARTE[c.rarete]}</span>
+          <span className={`exp-rarete exp-rarete-${c.rarete}`} style={gemmeDeLaCarte(c)}>
+            {RARETE_DE_LA_CARTE[c.rarete]}
+          </span>
         </span>
         <span className="small">{espacesFines(c.effet)}</span>
         <span className="muted small">{espacesFines([c.moment !== 'route' && coutDit(c), MOMENT[c.moment]].filter(Boolean).join(' · '))}</span>

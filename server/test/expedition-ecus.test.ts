@@ -284,7 +284,7 @@ test('l’échoppe : ses prix, chaque article une fois, une vie sous trois, de q
   assert.equal(refusDeLAchat(etat, { article: 'retirer', joker: 'renaissance' }), 'Ce joker n’est pas dans ton paquet')
   assert.equal(refusDeLAchat({ ...etat, echoppe: { ...etat.echoppe!, achats: ['vie'] } }, { article: 'vie' }), 'Une vie par échoppe')
   assert.equal(refusDeLAchat({ ...etat, echoppe: null }, { article: 'vie' }), 'Il n’y a pas d’échoppe ici')
-  assert.deepEqual(PRIX_DE_L_ECHOPPE, { vie: 40, commun: 20, rare: 35, maudit: 15, talisman: 50, retirer: 15, fiole: 25 })
+  assert.deepEqual(PRIX_DE_L_ECHOPPE, { vie: 40, commun: 20, rare: 35, epique: 55, maudit: 15, talisman: 50, retirer: 15, fiole: 25 })
 })
 
 test('acheter, dans le pli : les écus se dépensent, l’article arrive, et le talisman reste jusqu’au bout de l’expédition', () => {

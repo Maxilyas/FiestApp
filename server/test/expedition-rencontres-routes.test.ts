@@ -36,15 +36,16 @@ import {
   CLAIRVOYANCE_SUR_LA_QUESTION,
   COURAGE_MAX,
   ECUS_AU_DEPART,
+  ENERGIE_DES_ACTES,
   FRAPPE_DES_RENCONTRES,
   FRAPPE_EN_PLUS_PAR_QUESTION,
-  INSPIRATION_PAR_QUESTION,
   MULTIPLICATEUR_DU_SIX_CHOIX,
   MULTIPLICATEUR_DU_VRAI_OU_FAUX,
   PAQUET_DES_RENCONTRES,
   RENCONTRES_EN_PRODUCTION,
   SAVOIR_DES_MARCHES,
   SCEAUX_DES_RENCONTRES,
+  VERSION_DU_JEU_COMPLET,
   paquetDesRencontres,
 } from '../../shared/rencontres'
 import { NIVEAUX, NIVEAU_MAX, codexDuNiveau } from '../../shared/codex'
@@ -217,10 +218,11 @@ test('la page propose les rencontres ; le départ les prend — son courage, ses
   assert.equal(v.jokers, undefined, 'des cartes à la place des jokers')
   assert.equal(v.rencontre, undefined, 'aucune rencontre avant le premier pas')
   const depart = departDe(v.id)
-  // La version 7 (le codex, le 18 octobre 2026) : la version 6 — la main qui grandit avec les actes, les rares qui attendent l'acte 2, plus
-  // d'adversaires —, et le codex de son niveau, figé au départ.
-  assert.equal(depart.v, 7)
+  // La version 8 (le jeu complet, le 19 octobre 2026) : la version 6 — la main qui grandit avec les actes, les rares qui attendent l'acte 2,
+  // plus d'adversaires —, le codex de son niveau, figé au départ (la 7), et l'énergie qui suit les actes.
+  assert.equal(depart.v, VERSION_DU_JEU_COMPLET)
   assert.deepEqual(v.cartes?.parQuestion, [3, 4, 5], 'les règles disent ce que tire chaque acte : la page n’en recopie rien')
+  assert.deepEqual(v.cartes?.energie, [...ENERGIE_DES_ACTES], 'et l’énergie de chaque acte : deux à l’acte 1')
   // Le départ fige ce que le codex ouvre ; de ses dos, il en prend un — au niveau 1, l'ordinaire. Sans victoire, aucun cran de
   // l'Ascension ouvert : la fin dira celui qu'une première victoire ouvre.
   const { dos: _dos, ...ouvert } = codexDuNiveau(1, [])
@@ -269,7 +271,8 @@ test('une escale à question est une rencontre : l’annonce et la main d’abor
   assert.deepEqual([r.sorte, r.adversaire, r.categorie], ['question', 'Le Scribe', 'Histoire'], 'l’adversaire de sa catégorie')
   const sceaux = SCEAUX_DES_RENCONTRES.question[0]
   assert.deepEqual([r.sceaux, r.max, r.frappe], [sceaux, sceaux, FRAPPE_DES_RENCONTRES.question[0]])
-  assert.deepEqual([r.phase, r.position, r.inspiration], ['preparation', 0, INSPIRATION_PAR_QUESTION])
+  // L'énergie de l'acte 1 (le jeu complet) : deux, pour trois cartes — il choisit.
+  assert.deepEqual([r.phase, r.position, r.inspiration], ['preparation', 0, ENERGIE_DES_ACTES[0]])
   // La version 6 : trois cartes à l'acte 1 (« ça fait beaucoup de bonus en main en même temps »).
   assert.equal(r.main.length, CARTES_DES_ACTES[0])
   assert.equal(r.pioche, paquetDesRencontres(departDe(v.id).equipee ?? []).length - CARTES_DES_ACTES[0], 'son paquet, la carte de l’invité du jour comprise, moins sa main')
@@ -297,7 +300,7 @@ test('une escale à question est une rencontre : l’annonce et la main d’abor
 
   // Concentration : +4 de Charge, l'aperçu le dit ; puis il mise dix écus et voit la question.
   v = await jouer(c, v, 'concentration')
-  assert.deepEqual([v.rencontre!.charge, v.rencontre!.inspiration], [4, INSPIRATION_PAR_QUESTION - 1])
+  assert.deepEqual([v.rencontre!.charge, v.rencontre!.inspiration], [4, ENERGIE_DES_ACTES[0] - 1])
   assert.equal(v.rencontre!.apercu!.juste.brises, annonce.savoir + 4)
   assert.equal(v.question, undefined)
   v = await voir(c, v, 10)

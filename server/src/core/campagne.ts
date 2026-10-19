@@ -317,6 +317,7 @@ import {
   ascensionOuverte,
   codexDuNiveau,
   ecrireLeBilan,
+  energieDesActesALAscension,
   lireLeBilan,
   niveauDe,
   regleOuverte,
@@ -327,7 +328,18 @@ import {
 } from '../../../shared/codex'
 import { EFFACE, JOKERS_QUI_AIDENT, LEGENDAIRES_A_JOKER } from '../../../shared/jokers'
 import { cleDeLExpedition } from '../../../shared/legendaires'
-import { CLAIRVOYANCE_SUR_LA_QUESTION, FIOLES_MAX, carteDeRencontre, cartesDesActes, effaceesDuTour, fioleDe, type CleDeFiole } from '../../../shared/rencontres'
+import {
+  CLAIRVOYANCE_SUR_LA_QUESTION,
+  FIOLES_MAX,
+  FORME_DE_LA_CARTE,
+  POUVOIRS_QUI_EFFACENT,
+  VERSION_DU_JEU_COMPLET,
+  carteDeRencontre,
+  cartesDesActes,
+  effaceesDuTour,
+  fioleDe,
+  type CleDeFiole,
+} from '../../../shared/rencontres'
 
 /** Une question de la série, telle que le serveur la garde : la bonne réponse avec. */
 interface QuestionDeSerie {
@@ -6852,8 +6864,9 @@ export class CampagneStore {
       const vues = lireLesVues(lues.rows)
       const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
       const depart: DepartDExpedition = {
-        // Les rencontres partent en version 7 : le codex — ses cartes, ses règles —, figé avec elle.
-        v: rencontres ? 7 : 4,
+        // Les rencontres partent en version 8 : le codex — ses cartes, ses règles —, figé avec elle, et le jeu complet —
+        // l'épique dans ses offres, l'énergie de chaque acte.
+        v: rencontres ? VERSION_DU_JEU_COMPLET : 4,
         graine,
         numero: numeroDeLaCarte(graine),
         gardiens: gardiensDe(graine, siens, invite, saison?.legendaire),
@@ -7084,12 +7097,14 @@ export class CampagneStore {
     const q = questions[i]
     if (!q) return questions
     let nouvelle: QuestionDeSerie | null = null
-    if (g.quoi === 'jouer' && (g.joker === 'corser' || g.joker === 'simplifier')) {
+    // Corser et Polymorphe la posent à six choix, Simplifier et Miroir en vrai ou faux (`FORME_DE_LA_CARTE`).
+    const vers = g.quoi === 'jouer' ? FORME_DE_LA_CARTE[g.joker] : undefined
+    if (vers) {
       const base = this.parIdDe(await this.jouables()).get(q.id)
       if (!base) throw new Error('Cette question ne change plus de forme : recharge la page')
       // Reposée nue — ni dévoilement en cours, ni réponse proposée —, puis à sa forme neuve.
       const { forme: _forme, proposee: _proposee, devoileLe: _devoileLe, arretLe: _arretLe, ...nue } = q
-      nouvelle = aSaForme(nue, base, g.joker === 'corser' ? 'six' : 'vrai-faux', maintenant)
+      nouvelle = aSaForme(nue, base, vers, maintenant)
       // Un vrai ou faux se répond « Vrai » ou « Faux » : l'annonce ne dit plus « une année ».
       if (nouvelle.reponses.length <= 2) delete nouvelle.reponseEn
     } else if (g.quoi === 'voir' && q.forme === 'devoilement') {
@@ -7946,8 +7961,8 @@ function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
   try {
     const lu = JSON.parse(brut) as DepartDExpedition
     // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus, la 4 sans rencontres,
-    // la 6 sans codex ; une version inconnue ne se lit pas.
-    return lu && [1, 2, 3, 4, 5, 6, 7].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
+    // la 6 sans codex, la 7 sans le jeu complet ; une version inconnue ne se lit pas.
+    return lu && [1, 2, 3, 4, 5, 6, 7, 8].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
   } catch {
     return null
   }
@@ -8072,7 +8087,9 @@ function jokerQuiAide(e: EtatDeLExpedition, q: QuestionDeSerie): string | null {
     if (indice) return indice
     // La fiole de clairvoyance (le codex) a effacé une réponse : sa clé, comme celle d'un Coup d'œil.
     if (r.tour.surLaQuestion.includes(CLAIRVOYANCE_SUR_LA_QUESTION) && q.reponses.length > 2) return CLAIRVOYANCE_SUR_LA_QUESTION
-    if (r.pouvoirs.includes('echolocation') && q.reponses.length > 2) return 'echolocation'
+    // L'écholocation, Vision (le jeu complet) : posées, elles effacent une réponse à chaque question.
+    const pouvoir = POUVOIRS_QUI_EFFACENT.find(cle => r.pouvoirs.includes(cle))
+    if (pouvoir && q.reponses.length > 2) return pouvoir
   }
   const joue = e.joue?.joker
   if (joue && JOKERS_QUI_AIDENT.has(joue)) return joue
@@ -8401,6 +8418,8 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
         route: deRoute,
         refus: Object.fromEntries([...new Set(deRoute)].map(cle => [cle, refusDuJoker(d, e, cle, posees)])),
         parQuestion: cartesDesActes(d.v),
+        // L'énergie de chaque question, acte par acte, à sa version et à son cran : les règles la disent, telle que le pli la donne.
+        energie: energieDesActesALAscension(d.v, e.ascension),
         ...(d.codex && {
           codex: {
             niveau: d.codex.niveau,

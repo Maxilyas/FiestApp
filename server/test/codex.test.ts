@@ -211,11 +211,14 @@ test('une offre du codex : trois cartes qu’il a ouvertes — jamais Concentrat
   const sansFamille = rempart(['concentration', 'prudence'])
   const duRempart = rempart(['concentration', 'prudence', 'parade', 'parade', 'contre-attaque', 'contre-attaque'])
   assert.ok(duRempart > 2 * sansFamille, `du Rempart : ${duRempart} contre ${sansFamille}`)
-  // Au niveau 1, les seules cartes à gagner.
+  // Au niveau 1, les seules cartes à gagner : celles qu'il ouvre, sans les deux de base.
   const deUn = codexDuNiveau(1, []).cartes
+  const aGagner = ECHELLE[0].cartes.filter(cle => cle !== 'concentration' && cle !== 'prudence')
   for (let k = 0; k < 100; k++) {
-    for (const cle of offreDuCodex(`un:${k}`, k, deUn, [], RARETES_D_UNE_ELITE)) assert.ok(['coup-d-oeil', 'echange', 'pioche', 'arret-sur-image'].includes(cle), cle)
+    for (const cle of offreDuCodex(`un:${k}`, k, deUn, [], RARETES_D_UNE_ELITE)) assert.ok(aGagner.includes(cle), cle)
   }
+  // Le jeu complet en ouvre huit dès le niveau 1, là où il n'y en avait que quatre à gagner.
+  assert.ok(aGagner.length >= 8, `${aGagner.length} cartes à gagner au niveau 1`)
 })
 
 test('le trésor d’un gardien : une légendaire de son codex qu’il n’a pas dans son paquet, puis deux autres ; sans légendaire à lui, trois cartes', () => {

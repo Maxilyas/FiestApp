@@ -162,6 +162,18 @@ try {
   await page.waitForTimeout(300)
   await photo('1a-codex-levee')
   await page.locator('.exp-leve .exp-reposer').click()
+  // Le jeu complet : les épiques, au pourpre de l'album — l'une levée —, puis les maudites, à leur rouge.
+  await page.locator('.feuille-codex .onglet', { hasText: 'Épiques' }).click()
+  await page.waitForTimeout(300)
+  await photo('1a-codex-epiques')
+  await page.locator('.feuille-codex .exp-codex-carte').first().click()
+  await page.waitForSelector('.exp-leve')
+  await page.waitForTimeout(300)
+  await photo('1a-codex-epique-levee')
+  await page.locator('.exp-leve .exp-reposer').click()
+  await page.locator('.feuille-codex .onglet', { hasText: 'Maudites' }).click()
+  await page.waitForTimeout(300)
+  await photo('1a-codex-maudites')
   // Au pied du codex, ses exploits : deux faits, deux à faire ; puis ses dos, tels que la pioche les porte.
   await page.locator('.feuille-codex .exp-exploits').first().scrollIntoViewIfNeeded()
   await photo('1a-codex-exploits')

@@ -39,7 +39,7 @@ import {
   ASCENSION_MAX,
   BONNES_D_AFFILEE,
   PARI_DE_L_EXPLOIT,
-  energieALAscension,
+  energieDuTour,
   frappeDeLAdversaire,
   niveauDeLaRegle,
   offreDuCodex,
@@ -62,8 +62,12 @@ import {
   COURAGE_DE_LA_RENAISSANCE,
   COURAGE_DE_L_AUBE,
   COURAGE_DES_ABYSSES,
+  COURAGE_DE_LA_PANACEE,
+  COURAGE_DU_SECOND_SOUFFLE,
   COURAGE_MAX,
   COUT_DES_ABYSSES,
+  BOUCLIER_DE_LA_CUIRASSE,
+  CHANGENT_DE_QUESTION,
   ECUS_AU_DEPART,
   ENERGIE_D_UNE_FIOLE,
   FIOLES,
@@ -83,18 +87,25 @@ import {
   chiffresApresLaCarte,
   effaceesDuTour,
   enJeu,
-  enPlusDeLaBibliotheque,
+  enPlusApresLaForme,
+  enPlusDesPouvoirs,
   estDeRoute,
   famillesDeLEquipee,
   fioleDe,
   frappeDUneErreur,
   frappeDeLaQuestion,
+  frappeEnPlus,
   gainDeLaMise,
   multiplicateurDeLaForme,
   offreDeCartes,
   paquetDesRencontres,
+  pariPerdu,
   raretesDeLOffre,
   refusDeLaCarte,
+  riposte,
+  siJuste,
+  suiteDUneBonneReponse,
+  viseLaQuestion,
   type AnnonceDuTour,
   type CleDeFiole,
   type ContexteDUneCarte,
@@ -537,15 +548,16 @@ export const ECUS_AU_PREMIER_MOT = 3
 
 /**
  * Ce que vend une échoppe — ou le marchand de l'inconnu —, et à quel prix :
- * une vie, l'un de ses trois jokers (selon sa rareté), son talisman, un
- * joker retiré de son paquet ; au codex, sa fiole — entre une commune et une
- * rare : elle ne sert qu'une fois, mais quand on veut. Chaque article une
- * fois par échoppe. Des choix de produit.
+ * une vie, l'un de ses trois jokers (selon sa rareté — l'épique depuis le jeu
+ * complet), son talisman, un joker retiré de son paquet ; au codex, sa fiole
+ * — entre une commune et une rare : elle ne sert qu'une fois, mais quand on
+ * veut. Chaque article une fois par échoppe. Des choix de produit.
  */
-export const PRIX_DE_L_ECHOPPE: Readonly<{ vie: number; talisman: number; retirer: number; commun: number; rare: number; maudit: number; fiole: number }> = {
+export const PRIX_DE_L_ECHOPPE: Readonly<{ vie: number; talisman: number; retirer: number; commun: number; rare: number; epique: number; maudit: number; fiole: number }> = {
   vie: 40,
   commun: 20,
   rare: 35,
+  epique: 55,
   maudit: 15,
   talisman: 50,
   retirer: 15,
@@ -639,7 +651,7 @@ export function prixDeLArticle(article: ArticleDeLEchoppe, cle?: string): number
   if (article === 'joker') {
     // Une carte des rencontres (v5) que les jokers n'ont pas — Banco, Bibliothèque — se paie à sa rareté à elle, pas au prix d'une commune.
     const rarete = jokerDeCle(cle)?.rarete ?? carteDeRencontre(cle)?.rarete
-    return rarete === 'rare' || rarete === 'maudit' ? PRIX_DE_L_ECHOPPE[rarete] : PRIX_DE_L_ECHOPPE.commun
+    return rarete === 'rare' || rarete === 'epique' || rarete === 'maudit' ? PRIX_DE_L_ECHOPPE[rarete] : PRIX_DE_L_ECHOPPE.commun
   }
   return PRIX_DE_L_ECHOPPE[article]
 }
@@ -815,9 +827,13 @@ export interface DepartDExpedition {
    * offres ne tirent que les cartes qu'il a ouvertes, et pèsent les familles
    * de son paquet ; le coffre d'un gardien vaincu propose une légendaire ;
    * plus d'équipe à choisir, l'invité du jour prête sa carte ; le pari, les
-   * talismans et la catégorie fétiche attendent leur niveau.
+   * talismans et la catégorie fétiche attendent leur niveau. 8 : le jeu
+   * complet (`VERSION_DU_JEU_COMPLET`) — ses quarante-deux cartes de plus,
+   * l'épique dans les offres (`raretesDeLOffre`), et l'énergie qui suit les
+   * actes (`ENERGIE_DES_ACTES`, deux à l'acte 1) ; une expédition partie en
+   * version 7 garde ses trois d'énergie et ses offres.
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -1232,6 +1248,12 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
 
   // ── Les rencontres (v5) ──
 
+  /** La marche des questions d'une rencontre : celle du gardien de l'acte, sinon celle de son escale. */
+  const marcheDeLaRencontre = (r: RencontreEnCours): Niveau => {
+    if (r.sorte === 'gardien') return MARCHES_DES_ACTES[Math.min(e.acte, ACTES - 1)].gardien
+    const escale = escaleEnJeu(depart, e, r.escale)
+    return escale ? marcheDe(e.acte, escale) : 'facile'
+  }
   /** Des cartes de la pioche vers la main ; la pioche vide, la défausse y revient — le cycle de Slay the Spire. */
   const piocher = (n: number) => {
     const r = e.rencontre
@@ -1246,12 +1268,24 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       r.main.push(r.pioche.splice(Math.floor(h() * r.pioche.length), 1)[0])
     }
   }
-  /** Un tour s'ouvre sur la question qui attend : l'inspiration, la main — et ce que le tour d'avant lui a laissé. */
+  /**
+   * Un tour s'ouvre sur la question qui attend : l'inspiration — celle de son
+   * acte, depuis le jeu complet —, la main, et ce que le tour d'avant lui a
+   * laissé ; Maîtrise et Cuirasse, posées, y ajoutent la leur.
+   */
   const nouveauTour = () => {
     const r = e.rencontre!
-    r.tour = { phase: 'preparation', inspiration: energieALAscension(ascension) + r.suivant.inspiration, charge: r.suivant.charge, garde: 0, mise: 0, jouees: [], surLaQuestion: [] }
+    r.tour = {
+      phase: 'preparation',
+      inspiration: energieDuTour(depart.v, e.acte, ascension) + r.suivant.inspiration + (r.pouvoirs.includes('maitrise') ? 1 : 0),
+      charge: r.suivant.charge,
+      garde: r.suivant.garde + (r.pouvoirs.includes('cuirasse') ? BOUCLIER_DE_LA_CUIRASSE : 0),
+      mise: 0,
+      jouees: [],
+      surLaQuestion: [],
+    }
     const deplus = r.suivant.cartes + (r.pouvoirs.includes('trois-tetes') ? 2 : 0)
-    r.suivant = { cartes: 0, inspiration: 0, charge: 0 }
+    r.suivant = { cartes: 0, inspiration: 0, charge: 0, garde: 0 }
     piocher(cartesParQuestion(depart.v, e.acte) + deplus)
     // La boucle : l'erreur revient à cette question-ci.
     if (r.boucle && r.boucle.position === null) r.boucle.position = e.enAttente
@@ -1275,7 +1309,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       defausse: [],
       epuisees: [],
       tour: { phase: 'preparation', inspiration: 0, charge: 0, garde: 0, mise: 0, jouees: [], surLaQuestion: [] },
-      suivant: { cartes: 0, inspiration: 0, charge: 0 },
+      suivant: { cartes: 0, inspiration: 0, charge: 0, garde: 0 },
+      trouvees: 0,
       derniereFrappe: 0,
       perdu: 0,
       aube: 0,
@@ -1362,20 +1397,25 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     } else if (juste) {
       const escale = r.sorte === 'gardien' ? undefined : escaleEnJeu(depart, e, r.escale)
       const marche: Niveau = r.sorte === 'gardien' ? MARCHES_DES_ACTES[Math.min(e.acte, ACTES - 1)].gardien : escale ? marcheDe(e.acte, escale) : 'facile'
+      // Ce que ses pouvoirs y ajoutent et ce que sa forme vaut : la règle même de l'aperçu (`apercuDuTour`).
       const brises = brisesDUneBonneReponse({
         savoir: SAVOIR_DES_MARCHES[q.niveau ?? marche],
         charge: t.charge,
-        enPlus: enPlusDeLaBibliotheque({ v: depart.v, pouvoirs: r.pouvoirs, fetiche: depart.fetiche, categorie: q.categorie }),
-        multiplicateur: multiplicateurDeLaForme(q),
-        banco: t.jouees.includes('banco') ? Math.floor(mise / 5) : 0,
+        enPlus: enPlusDesPouvoirs({ v: depart.v, pouvoirs: r.pouvoirs, fetiche: depart.fetiche, categorie: q.categorie, trouvees: r.trouvees, serie: r.serie, forme: q.reponses !== undefined && q.reponses <= 2 ? 'vrai-faux' : q.forme }),
+        multiplicateur: multiplicateurDeLaForme(q, { pouvoirs: r.pouvoirs, surLaQuestion: t.surLaQuestion }),
+        banco: enPlusApresLaForme(t, r.pouvoirs),
         double: t.jouees.includes('quitte-ou-double'),
       })
       r.sceaux = Math.max(0, r.sceaux - brises)
       r.serie++
+      r.trouvees++
       e.justes++
       deSuite()
+      // Le pari, puis ce que les cartes du tour rapportent à part : les écus du Flambeur, le courage de Pansement.
       const gain = mise > 0 ? gainDeLaMise(t, r.pouvoirs) : 0
-      e.ecus += gain
+      const plus = siJuste(t.jouees)
+      e.ecus += gain + plus.ecus
+      if (plus.courage > 0) e.courage = Math.min(COURAGE_MAX, e.courage! + plus.courage)
       if (mise >= PARI_DE_L_EXPLOIT) exploit('pari-de-40')
       if (r.pouvoirs.includes('aube')) r.aube++
       if (r.pouvoirs.includes('abysses') && e.courage! < SEUIL_DES_ABYSSES) e.courage = Math.min(COURAGE_MAX, e.courage! + COURAGE_DES_ABYSSES)
@@ -1383,6 +1423,12 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         r.suivant.cartes += 2
         r.suivant.inspiration += 1
       }
+      // Le jeu complet : ce qu'une bonne réponse laisse à la question suivante — et le bouclier que Bastion garde entier.
+      const suite = suiteDUneBonneReponse(t.jouees, r.pouvoirs)
+      r.suivant.cartes += suite.cartes
+      r.suivant.inspiration += suite.inspiration
+      r.suivant.charge += suite.charge
+      if (r.pouvoirs.includes('bastion')) r.suivant.garde = t.garde
       // La boucle : l'erreur reposée, retrouvée, rend son courage.
       if (r.boucle && r.boucle.position === i) {
         e.courage = Math.min(COURAGE_MAX, e.courage! + r.boucle.perte)
@@ -1390,10 +1436,10 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         r.pouvoirs = r.pouvoirs.filter(c => c !== 'boucle')
       }
       r.derniereFrappe = 0
-      coup = { juste: true, brises, frappe: 0, absorbee: 0, perdu: 0, mise: gain }
+      coup = { juste: true, brises, frappe: 0, absorbee: 0, perdu: 0, mise: gain, ...(plus.ecus > 0 && { ecus: plus.ecus }), ...(plus.courage > 0 && { courage: plus.courage }) }
     } else {
       const f = frappeDUneErreur({
-        frappe: frappeDeLaQuestion(r),
+        frappe: frappeDeLaQuestion(r) + frappeEnPlus(t.jouees),
         sauve: t.jouees.includes('sursis') || t.surLaQuestion.includes('mue'),
         double: t.surLaQuestion.includes('tout-ou-rien') || t.jouees.includes('quitte-ou-double'),
         garde: t.garde,
@@ -1401,10 +1447,15 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       e.courage! -= f.perdu
       r.perdu += f.perdu
       e.affilee = 0
-      const contre = t.jouees.includes('contre-attaque') ? f.absorbee : 0
+      // Contre-attaque et Représailles : ce que le bouclier a paré, l'adversaire le perd.
+      const contre = riposte(f.absorbee, t.jouees, r.pouvoirs)
       r.sceaux = Math.max(0, r.sceaux - contre)
-      r.serie = 0
-      const perdue = Math.min(e.ecus, mise)
+      // Inarrêtable : sa série ne retombe pas.
+      if (!r.pouvoirs.includes('inarretable')) r.serie = 0
+      // Bastion : le bouclier reste, moins ce qu'il a paré.
+      if (r.pouvoirs.includes('bastion')) r.suivant.garde = Math.max(0, t.garde - f.absorbee)
+      // Sous Assurance, le pari perdu est rendu.
+      const perdue = Math.min(e.ecus, pariPerdu(t))
       e.ecus -= perdue
       // Peau de feu : la Garde a tout pris — la question suivante frappe plus fort.
       if (t.jouees.includes('peau-de-feu') && f.perdu === 0 && f.frappe > 0) r.suivant.charge += 4
@@ -1447,9 +1498,11 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     // Ce que ses chiffres lisent de la question, avant qu'elle ne parte de la main : sa catégorie, ce qui y est déjà effacé.
     const q = e.enAttente === null ? undefined : questions[e.enAttente]
     const effacees = q ? effaceesDuTour(t.surLaQuestion, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee }) : 0
+    // Sa marche, ce qu'elle vaut (le jeu complet : Savoir-faire, Exposé) — ce que l'annonce dit à la page.
+    const niveau = q?.niveau ?? marcheDeLaRencontre(r)
     oter(r.main, g.joker)
     t.jouees.push(g.joker)
-    if (carte.moment === 'reflexe' || g.joker === 'corser' || g.joker === 'simplifier') t.surLaQuestion.push(g.joker)
+    if (viseLaQuestion(carte)) t.surLaQuestion.push(g.joker)
     if (carte.moment === 'pouvoir') r.pouvoirs.push(g.joker)
     else if (carte.epuisement) r.epuisees.push(g.joker)
     else r.defausse.push(g.joker)
@@ -1458,6 +1511,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       v: depart.v,
       fetiche: !!depart.fetiche && q?.categorie === depart.fetiche,
       effacees,
+      niveau,
+      savoir: SAVOIR_DES_MARCHES[niveau],
+      ecus: e.ecus,
     })
     t.inspiration = x.inspiration
     t.charge = x.charge
@@ -1465,7 +1521,16 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     r.serie = x.serie
     switch (g.joker) {
       case 'pioche':
+      case 'sprint':
         piocher(2)
+        break
+      // Celles qui tirent une carte à leur place : jouées, elles ne coûtent pas une carte de la main.
+      case 'meditation':
+      case 'presage':
+      case 'surmenage':
+      case 'pourboire':
+      case 'assurance':
+        piocher(1)
         break
       case 'feu-d-artifice':
         r.pioche = [...r.pioche, ...r.defausse].sort()
@@ -1480,7 +1545,16 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         r.derniereFrappe = 0
         e.recompenseVide = true
         break
+      case 'panacee':
+        // Une fois par expédition : jouée, elle quitte son paquet — elle ne reviendra pas à la rencontre suivante.
+        e.courage = Math.min(COURAGE_MAX, e.courage! + COURAGE_DE_LA_PANACEE)
+        oter(e.paquet, 'panacee')
+        break
+      case 'second-souffle':
+        e.courage = Math.min(COURAGE_MAX, e.courage! + COURAGE_DU_SECOND_SOUFFLE)
+        break
       case 'echange':
+      case 'volte-face':
       case 'mue': {
         // Une autre question, de la même escale : celle-ci ne se pose plus ; ce qui la visait ne vise pas l'autre.
         const i = e.enAttente!
@@ -2127,6 +2201,8 @@ export function vueDeLaRencontre(
     frappe: frappeDeLaQuestion(r),
     questions: r.questions,
     serie: r.serie,
+    trouvees: r.trouvees,
+    ecus: e.ecus,
     phase: r.tour.phase,
     ...(e.enAttente !== null && { position: e.enAttente }),
     inspiration: r.tour.inspiration,
@@ -2134,6 +2210,7 @@ export function vueDeLaRencontre(
     garde: r.tour.garde,
     mise: r.tour.mise,
     jouees: r.tour.jouees,
+    surLaQuestion: r.tour.surLaQuestion,
     pouvoirs: r.pouvoirs,
     main: r.main,
     pioche: r.pioche.length,
@@ -2157,6 +2234,8 @@ export function vueDeLaRencontre(
           question: { reponses: qt.reponses, forme: qt.forme, categorie: qt.categorie },
           ...(depart.fetiche && { fetiche: depart.fetiche }),
           ...(q?.mots !== undefined && { mots: q.mots }),
+          trouvees: r.trouvees,
+          serie: r.serie,
         }),
       }),
   }
@@ -2531,6 +2610,12 @@ export interface CartesEnJeu {
   refus: Record<string, string | null>
   /** Les cartes que chaque question tire, acte par acte (`cartesDesActes`) : les règles le disent, la page n'en recopie rien. */
   parQuestion: number[]
+  /**
+   * L'énergie de chaque question, acte par acte, à sa version et à son cran
+   * (`energieDesActesALAscension`) : deux à l'acte 1 depuis le jeu complet.
+   * Absente d'une page d'avant elle : trois partout.
+   */
+  energie?: number[]
   /**
    * Son codex à son départ (v7) : son niveau, les règles ouvertes — les
    * règles disent celles qui attendent —, et la renommée qu'il avait : la fin

@@ -19,6 +19,14 @@ const GEMMES: Record<RareteDeTheme, string> = {
 export const gemme = (r: RareteDeTheme) => ({ '--gemme': GEMMES[r] }) as CSSProperties
 
 /**
+ * La gemme d'une carte ou d'un joker maudit : un rouge sombre. Elle prenait
+ * le pourpre de l'épique tant que les cartes n'avaient pas d'épique ; depuis
+ * le jeu complet de l'Expédition (le 19 octobre 2026), une maudite qui
+ * ressemblerait à une épique se prendrait pour une récompense.
+ */
+export const GEMME_MAUDITE = { '--gemme': '#d4506e' } as CSSProperties
+
+/**
  * La gemme d'un avatar : celles des thèmes, une opale pour les Divins, que
  * la feuille irise, et une pierre grise pour les emojis de l'inscription, à
  * tout le monde : l'or des thèmes offerts, à côté de la gemme légendaire,

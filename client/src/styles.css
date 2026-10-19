@@ -9511,9 +9511,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-offre-ligne .exp-joker { flex: 1; min-width: 0; }
 .exp-offre-nom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .exp-offre-nom b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.1; }
-/* Les raretés par les jetons du thème, et pas seulement par leur teinte : commun en filet terne, rare en filet d'or, légendaire en or plein, maudit en rouge. */
+/* Les raretés par les jetons du thème, et pas seulement par leur teinte : commun en filet terne, rare en filet d'or, légendaire en or plein, maudit en rouge — et l'épique du jeu complet au pourpre de sa gemme, que la pastille porte (`gemmeDeLaCarte`) : sans elle, elle se lisait commune. */
 .exp-rarete { flex: none; padding: 1px 8px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--muted); font-size: var(--t-label); font-weight: 700; }
 .exp-rarete-rare { border-color: var(--accent); color: var(--accent-text); }
+.exp-rarete-epique { border-color: var(--gemme); color: color-mix(in srgb, var(--gemme) 70%, var(--ink)); }
 .exp-rarete-maudit { border-color: transparent; background: rgba(var(--alert-rgb), 0.16); color: var(--alert); }
 .exp-rarete-legendaire { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .exp-paquet { display: flex; flex-direction: column; gap: 6px; }
