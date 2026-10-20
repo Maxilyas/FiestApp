@@ -139,14 +139,9 @@ function sujet(selecteur: string): string[] {
 }
 
 test('sous tous les thèmes, une feuille, une carte ou un dialogue ouvert garde son sol plein : on ne lit rien au travers', () => {
-  // Ce que posent un dialogue et la carte d'un joueur — sans fond : une carte
-  // à fond a le sien, que les thèmes ne touchent pas (`fonds.test.ts`).
+  // Ce que pose un dialogue.
   assert.match(source('components/Dialog.tsx'), /className="card dialog"/)
-  assert.match(source('components/CarteJoueur.tsx'), /className=\{'card dialog carte-joueur' \+ \(fond \? ` carte-fond fond-\$\{fond\}` : ''\)\}/)
-  const DIALOGUES = [
-    { nom: 'un dialogue', classes: ['card', 'dialog'] },
-    { nom: 'la carte d’un joueur', classes: ['card', 'dialog', 'carte-joueur'] },
-  ]
+  const DIALOGUES = [{ nom: 'un dialogue', classes: ['card', 'dialog'] }]
   const peint = (corps: string) => /(?:^|;)\s*background(?:-color)?\s*:/.test(corps)
   for (const { nom, classes } of DIALOGUES) {
     const vise = (s: string) => sujet(s).length > 0 && sujet(s).every(c => classes.includes(c))
@@ -174,6 +169,23 @@ test('sous tous les thèmes, une feuille, une carte ou un dialogue ouvert garde 
     assert.ok(repeints >= 30, `le .card de chaque thème est lu (${repeints} règles)`)
   }
   assert.match(css, /\n:root \.card\.dialog:not\(\.carte-fond\) \{ background-color: var\(--bg-raised\); \}/)
+  // La carte d'un joueur n'est plus un `.card` (la carte à collectionner, le
+  // 20 octobre 2026) : ce sont ses faces qui ont un sol — celui du tableau de
+  // bord, quadrillé, sur du plein —, et aucun thème n'y touche ; ce qui se pose
+  // sous elle aussi : translucides, sa croix et « Retourner la carte »
+  // laissaient lire la page au travers.
+  const CARTE = source('components/CarteJoueur.tsx')
+  assert.match(CARTE, /className=\{'carte-joueur' \+ \(ligue \? ` cadre-\$\{ligue\}` : ''\)\}/)
+  assert.doesNotMatch(CARTE, /className=["'`{][^>]*\bcard\b/, 'ni `.card`, ni `.dialog` : chaque thème les repeint')
+  assert.match(regle('.carte-defile'), /background: var\(--bg-raised\);/)
+  assert.match(regle('.carte-joueur .carte-defile'), /var\(--bg-raised\);\s*$/, 'le quadrillage, sur du plein')
+  for (const s of ['.carte-croix', '.carte-retourner', '.carte-joueur > .carte-gestes']) assert.match(regle(s), /background: var\(--bg-raised\);/, s)
+  const DE_LA_CARTE = ['carte-joueur', 'carte-pivot', 'carte-face', 'carte-defile', 'carte-sous', 'carte-croix', 'carte-retourner']
+  for (const [ou, feuille] of feuillesDesThemes) {
+    for (const r of reglesDe(feuille).filter(r => peint(r.corps))) {
+      for (const s of r.selecteurs.filter(duTheme)) assert.ok(!sujet(s).some(c => DE_LA_CARTE.includes(c)), `${ou} : « ${s} » repeint le sol de la carte d’un joueur`)
+    }
+  }
   // Une feuille pose le sien sur la page même, et aucun thème n'y touche.
   assert.match(regle('.carte-feuille'), /background: var\(--bg\);/)
   for (const [ou, feuille] of feuillesDesThemes) {

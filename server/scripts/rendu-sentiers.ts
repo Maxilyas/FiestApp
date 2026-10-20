@@ -240,7 +240,7 @@ try {
   await page.goto(`${banc.url}/profil`)
   await page.click('button.identite-ligne')
   // C'est la carte ouverte, à fond, qu'on attend.
-  await page.waitForSelector('.carte-joueur.carte-fond')
+  await page.waitForSelector('.carte-joueur .carte-fond')
   await page.waitForTimeout(800)
   await photo('15-carte-cabinet')
   await page.goto(`${banc.url}/campagne#sentier-stade`)

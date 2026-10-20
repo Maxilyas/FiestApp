@@ -606,7 +606,11 @@ test('la carte de la loge s’ouvre en grand sur l’essai : la carte du serveur
   // La loge l'ouvre sur l'essai — « Aperçu de ta carte », « Porter » au pied ; la carte en grand, sur ce qu'il porte, sans retouche.
   const LOGE = source('components/Loge.tsx')
   assert.match(LOGE, /<laCarte\.CarteJoueur\s+adresse="\/api\/joueur\/carte"\s+retouche=\{apercu \? c => carteAvecLEssai\(c, profil, essai\) : undefined\}/)
-  assert.match(source('components/CarteJoueur.tsx'), /\{retouche \? 'Aperçu de ta carte' : 'Carte de joueur'\}/)
+  // « Aperçu de ta carte » au-dessus d'elle, son pied dessous ; sans essai, ni l'un ni l'autre.
+  const enGrand = await rendu('components/CarteJoueur', 'CarteJoueur', { adresse: '/api/joueur/carte', retouche: (c: unknown) => c, pied: 'Porter', onFermer: () => {} })
+  assert.match(enGrand, /<div class="carte-joueur"[^>]*><p class="carte-apercu[^"]*">.*?Aperçu de ta carte<\/p><div class="carte-pivot">/)
+  assert.match(enGrand, /<footer class="carte-gestes">Porter<\/footer><\/div><\/div>$/)
+  assert.doesNotMatch(await rendu('components/CarteJoueur', 'CarteJoueur', { adresse: '/api/joueur/carte', onFermer: () => {} }), /Aperçu de ta carte|carte-gestes/)
   // Elle vient à la demande, comme au profil : la loge ne la télécharge qu'au toucher.
   assert.match(LOGE, /const carteJoueur = aLaDemande\(\(\) => import\('\.\/CarteJoueur'\)\)/)
   assert.doesNotMatch(LOGE, /^import [^;]* from '\.\/CarteJoueur'/m)

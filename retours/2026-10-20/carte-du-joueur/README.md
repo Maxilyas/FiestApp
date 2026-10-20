@@ -38,8 +38,9 @@ quiz du jour, ses duels et son record de campagne sont des cadrans du tableau
 des chiffres, chacun l'icône de sa pastille à côté de son chiffre ; un cadran
 seul sur la dernière rangée la prend en entier, couché. Puis ses écussons,
 puis sa collection, tout au bout. Le dos tient en entier en 360 × 640, le lien
-des mots compris (planche, « Le dos, retravaillé »). La vraie version reste à
-écrire : plus bas, ce qu'elle demandera.
+des mots compris (planche, « Le dos, retravaillé »). Puis, le même jour :
+« 1. En bas 2. De la ligue actuelle. Go construire la vraie carte » — la vraie
+version est écrite (plus bas).
 
 ## La planche
 
@@ -148,41 +149,62 @@ Le contenu de la carte, en pixels, pour 427 visibles en 360 × 640
 | 2 · Perché | 767 | 743 | 767 | 505 |
 | 3 · À collectionner | recto 472 + dos | 472 + dos | 472 + dos | 345 + dos |
 
-## À trancher
+## Tranché
 
-La proposition 3 est choisie, et son retournement (plus haut). Restent :
+1. **La croix** sous la carte, à côté de « Retourner la carte », sous le
+   pouce : « En bas » (le propriétaire, le 20 octobre 2026).
+2. **Le cadre** : celui de sa ligue actuelle aux duels, « De la ligue
+   actuelle » — aux métaux de sa bordure (`METAUX`), la gemme du niveau au
+   même métal, l'or et l'émail noir du Soleil noir pour les maîtres ; sans
+   duel classé, ou pour un invité sans profil, celui de tous, le champagne du
+   thème. La finition portée reste autour de l'avatar.
 
-1. **La croix** sous la carte, à côté de « Retourner », sous le pouce — ou au
-   coin haut gauche, en face de la niche de la page ?
-2. **Le cadre** : celui de la finition portée, ou celui de sa ligue des duels
-   (sa bordure) ?
+## La vraie version
 
-## Ce que la vraie version demandera
+Écrite le même jour, sans drapeau : `CarteJoueur.tsx` est la carte à
+collectionner, et la carte d'avant s'en est allée — `SonCompagnon` perché au
+coin de l'illustration, `PlaqueDuCompagnon` dessous. Le patch garde les trois
+propositions, pour mémoire.
 
-Le prototype ne cherche que le rendu ; la carte à collectionner, pour de bon :
-
-- **Un composant à part**, que la soirée télécharge pour chaque invité
-  (règle `client.md`) : la carte d'aujourd'hui s'en va, `SonCompagnon` avec
-  elle. Le patch garde les deux autres propositions derrière leur drapeau,
-  pour mémoire.
-- **Ses gestes** : ceux d'une carte de profil (`GestesDuJoueur` : Défier,
-  Ajouter) sous elle, avec « Retourner » et la croix ; l'aperçu de la loge
-  (« Aperçu de ta carte », son « Porter ») ; le focus qui revient à ce qu'on a
-  touché — l'avatar, le compagnon, « Retourner » — et Échap.
-- **Le fond de carte posé sur l'illustration**, et plus sur la carte entière
-  (`fonds.test.ts` relit chaque feuille, règle `themes.md`) ; le sol plein de
-  la carte sous chaque thème, qui repeint `.card` (`feuilles.test.ts`, règle
-  `css.md`).
-- **Le dos** : les cadrans du solo d'abord pour qui n'a joué aucune soirée
-  (`cadransDeLaCarte`, `carte-du-solo.test.ts`), puis ce que disaient les
-  pastilles ; les mots de la carte (`motsDeLaCarte`).
-- **Le compagnon en grand** (`CompagnonEnGrand`), comme l'avatar
-  (`avatar-en-grand.test.ts`) ; la carte attend le code de la niche, aussi peu
-  que ses dessins (`niche-paliers.test.ts`).
+- **Son cadre** : `cadreDeLaCarte`, `.cadre-<ligue>` (`styles.css`). La carte
+  n'est plus un `.card` : ce sont ses faces qui ont un sol, et aucun thème n'y
+  touche (`feuilles.test.ts`).
+- **Ses gestes** sous elle, avec « Retourner la carte » et la croix, sur un sol
+  plein — translucides, ils laissaient lire la page au travers : ceux d'une
+  carte de profil (`GestesDuJoueur` : Défier, Ajouter) ; l'aperçu de la loge,
+  « Aperçu de ta carte » au-dessus, « Porter » dessous ; le focus revient à
+  l'avatar ou au compagnon qu'on avait ouvert en grand, et Échap les referme
+  sans fermer la carte.
+- **« Retourner la carte »** garde son nom des deux côtés, l'état par
+  `aria-pressed` : le prototype disait « Revoir sa carte » au dos, et un
+  lecteur d'écran aurait lu « Revoir sa carte, activé » — l'état dit deux
+  fois (`design.test.ts`).
+- **Le fond de carte** habille l'illustration (`.carte-illustration.carte-fond`),
+  le lambrequin du théâtre derrière l'avatar.
+- **Le dos** : `cadransDuDos` — les cadrans des soirées, ou ceux du solo, puis
+  les prix, le quiz du jour, les duels et le record de campagne, chacun s'il a
+  quelque chose à dire. Ses écussons prennent chacun le tiers de la rangée :
+  « Cinéma & séries » tient sur une ligne, et le dos de Léa tient en entier en
+  360 × 640, ses mots compris — à 56 pixels chacun, comme au prototype, il
+  défilait de 25 : le bas du lien des mots.
+- **Ce qui précède l'illustration** — sa tête, son laurier, son surnom —
+  s'arrête avant la niche perchée : un laurier sur deux lignes passait dessous.
+- **Le compagnon en grand** (`CompagnonEnGrand`), ses ornements en grands
+  fichiers (`NicheEnMiniature` `grand`).
 - **Le mouvement réduit** : ni inclinaison, ni retournement animé.
-- **Les rendus** qui photographient la carte (`rendu-niche.ts`,
-  `rendu-profil.ts`, `rendu-bordures.ts`) ; **les mots** : la règle
-  `profil.md` (la carte) et `docs/produit/le-profil.md`.
+- **Les rendus** : `server/scripts/rendu-carte.ts` la photographie dans tous ses
+  états, chaque cadre de ligue compris, et dit pour chacun si la face défile ;
+  `rendu-bordures.ts` et `rendu-sentiers.ts` la cherchent où elle est.
+- **Les tests** : `carte-a-collectionner.test.ts` (le cadre, le dos, le
+  retournement, le fond, le compagnon perché et en grand), et ceux qui
+  relisaient la carte d'avant, à la même intention (`avatar-en-grand`,
+  `petit-ecran`, `feuilles`, `carte-du-solo`, `loge`).
+
+Ses mesures, en 360 × 640 (`rendu-carte.ts`, `mesures.txt`) : une face de
+471 pixels, qui ne défile ni au recto ni au dos pour Léa, en soirée comme sur
+sa propre carte ; 336 pour la débutante, 354 pour l'invité sans profil. Dans
+l'aperçu de la loge, « Aperçu de ta carte » et « Porter » lui prennent de la
+place : 382 pixels, qui défilent de 80 — elle tient en entier en 390 × 844.
 
 ## Rejouer la maquette
 
