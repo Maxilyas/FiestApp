@@ -16,6 +16,7 @@
 //   … --eclat=tempete                  # la métamorphose gardée : son décor, sa découpe, ses expressions
 //   … --regenerer=adulte,adulte-ravi   # repayer ces images, et ce qui part d'elles
 //   … --seulement=eclat-aurore         # ne peindre que ces images, et ce qui part d'elles
+//   … --seulement=bebe,jeune --exactement   # ne peindre que celles-là, sans ce qui en part
 //
 // Une expression ne se pose pas sur une illustration qui porte déjà le loup
 // neutre : la tête baissée du dépité laissait voir l'autre derrière elle. Le
@@ -239,6 +240,11 @@ interface Compagnon {
   eclats: Record<string, Eclat>
   /** Les couches vivantes de sa forme ultime. */
   vivant?: Vivant[]
+  /**
+   * Un portrait choisi d'avance, que le propriétaire a validé (`reference.jpg` dans son dossier) : la planche de
+   * modèle le prend pour son premier âge, au lieu d'inventer l'individu.
+   */
+  reference?: boolean
   /** La pose de son entrée en scène, repeinte sur la découpe de la forme ultime — si l'entrée se fait. */
   bond?: string
 }
@@ -665,13 +671,77 @@ const LUCIOLE: Compagnon = {
   ],
 }
 
-const COMPAGNONS: Compagnon[] = [LOUP, CHAT, TORTUE, LUCIOLE]
+/**
+ * Le panda roux : choisi par le propriétaire le 20 octobre 2026 sur le candidat 2 de ses essais
+ * (`export/compagnons/panda/candidats/`), d'après son prompt — un bébé tout rond, le poil roux
+ * épais, les yeux ambrés immenses. Les couleurs de son pelage ne portent ni vert ni magenta : le
+ * fond vert des découpes, comme pour le loup. Ses métamorphoses attendent le choix du propriétaire.
+ */
+const PANDA: Compagnon = {
+  id: 'panda',
+  reference: true,
+  identite:
+    'Its identity never changes from one age to the next: a rich, plush reddish-orange coat; a cream-white face with a soft white muzzle, ' +
+    'two small cream-white brow spots above the eyes and big cream-white cheek patches; small rounded ears with soft white fur outside and ' +
+    'russet inside; big sparkling amber eyes with several catchlights; a small heart-shaped dark-brown nose; dark russet chest and legs; a ' +
+    'fluffy tail ringed in rust-red and pale apricot bands. It must look like a red panda, never a giant panda or a fox.',
+  ages: [
+    'a tiny baby red panda sitting shyly, tiny and fluffy, with an oversized round head, chubby cheeks, tiny rounded ears and its paws resting ' +
+      'together, its striped tail curled around its little body',
+    'a half-grown young red panda, visibly younger and smaller than the adult — a slimmer, lanky body on longer legs, bigger ears, a slightly ' +
+      'longer snout, still fluffy juvenile fur, a round curious face and a tail still too big for it',
+    'the adult red panda, sleek, graceful and calm, with a full bushy ringed tail',
+    'its mythic ultimate form — larger and majestic, its fur glowing like autumn embers lit from within, golden light tracing the rings of its ' +
+      'great tail, drifting glowing maple leaves of gold and crimson all around it',
+  ],
+  formes: [
+    { id: 'bebe', garde: 'the baby red panda' },
+    {
+      id: 'jeune',
+      decor: 'a bamboo grove and mossy rocks in morning mist, soft golden sunbeams between the stems, a few leaves drifting down',
+      taille: 'It is still small: it fills only about 55% of the canvas height, with plenty of setting around it.',
+      garde: 'the young red panda — its head, ears, body, legs, paws and tail',
+      retirer: 'the bamboo, the rocks, the mist, the sunbeams, the drifting leaves and the sky',
+    },
+    {
+      id: 'adulte',
+      decor: 'a thick mossy branch of an ancient tree high in a misty mountain forest at golden hour, fiery maple trees glowing far below',
+      deborde: 'its raised head and pricked ears',
+      garde: 'the red panda — its head, ears, body, legs, paws and tail',
+      retirer: 'the branch, the moss, the trees, the mist and the sky',
+    },
+    {
+      id: 'erable',
+      entier: true,
+      decor: 'a sea of crimson and golden maple trees under an immense amber sunset sky, glowing leaves rising in the warm air',
+      garde: 'the great red panda with the glowing maple leaves swirling right around it',
+      retirer: 'the sky, the maple trees, the sunset and the distant leaves',
+    },
+  ],
+  expressions: {
+    ravi: 'JOYFUL — bright smiling eyes, mouth open in a happy little smile, chubby cheeks lifted, ears perked up, its striped tail swishing up',
+    depite:
+      'DISAPPOINTED, in a cute and gentle way, never tragic — ears folded down, head a little lowered, big sad eyes looking up, mouth closed ' +
+      'in a small pout, tail drooping',
+    triomphe: 'TRIUMPHANT — chest puffed out, head held high, mouth open in a proud joyful squeak, ears up, one front paw raised, tail raised high',
+  },
+  eclats: {},
+}
+
+const COMPAGNONS: Compagnon[] = [LOUP, CHAT, TORTUE, LUCIOLE, PANDA]
 
 const FEUILLE = (c: Compagnon, style: string) =>
   [
     'Character model sheet for an original collectible companion of a party quiz game: ONE animal shown at four ages, side by side from left ' +
       'to right, evenly spaced, each full body in a three-quarter view facing slightly left, on one plain light grey background — no ground, no scenery.',
     `From left to right: 1) ${c.ages[0]}; 2) ${c.ages[1]}; 3) ${c.ages[2]}; 4) ${c.ages[3]}.`,
+    ...(c.reference
+      ? [
+          'The attached image is the validated portrait of this companion as a baby. The first (youngest) age must be exactly this individual — ' +
+            'the same face, markings, eyes, nose, ears, proportions, fur colors and rendering — shown here sitting full body, in a three-quarter ' +
+            'view. The three other ages are the same individual, grown.',
+        ]
+      : []),
     c.identite,
     style,
     ORIGINAL,
@@ -717,7 +787,7 @@ function travaux(c: Compagnon, style: string | undefined, eclats: string[]): Tra
   // Un style déjà choisi n'a plus d'essai : sa planche de modèle se peint seule,
   // la première, pour un compagnon qui n'en a pas encore.
   const feuille = `feuille-${style}`
-  const t: Travail[] = [{ nom: feuille, consigne: FEUILLE(c, s.consigne), sources: [], format: '16:9' }]
+  const t: Travail[] = [{ nom: feuille, consigne: FEUILLE(c, s.consigne), sources: c.reference ? ['reference'] : [], format: '16:9' }]
   c.formes.forEach((f, i) => {
     t.push({ nom: f.id, sources: [feuille], consigne: consigneDeForme(c, i, s.consigne) })
     if (f.decor) {
@@ -792,7 +862,8 @@ function etCeQuiEnPart(noms: string[], tous: Travail[]): Set<string> {
 const TOUS = travaux(compagnon, STYLE, ECLATS)
 const inconnues = liste('seulement').filter(n => !TOUS.some(t => t.nom === n))
 if (inconnues.length) throw new Error(`--seulement=${inconnues.join(',')} : pas une image de la chaîne (${TOUS.map(t => t.nom).join(', ')})`)
-const seulement = liste('seulement').length ? etCeQuiEnPart(liste('seulement'), TOUS) : null
+// `--exactement` : seulement ces images, sans ce qui en part — pour juger les quatre formes avant de payer leurs découpes.
+const seulement = liste('seulement').length ? (args.includes('--exactement') ? new Set(liste('seulement')) : etCeQuiEnPart(liste('seulement'), TOUS)) : null
 const TRAVAUX = seulement ? TOUS.filter(t => seulement.has(t.nom)) : TOUS
 
 // Ce qu'on repaie, et tout ce qui part de lui : une découpe repeinte change la
