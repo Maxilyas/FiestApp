@@ -9645,6 +9645,34 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-composer-gestes { display: flex; gap: 10px; }
 .exp-composer-gestes .btn { flex: 1; }
 .exp-composer-gestes .btn[aria-disabled='true'] { opacity: 0.55; cursor: default; }
+/* La frise (v13) : quatre places l'une sous l'autre, reliées par le trait d'une frise — le plus ancien en haut —, puis ses
+   événements en cartes, deux par rangée : en 360 × 640, quatre places et quatre cartes de deux lignes tiennent avec la question
+   et l'adversaire. Une place vide se voit en pointillé ; pleine, elle prend l'or de la case d'un mot composé. */
+.exp-frise { display: flex; flex-direction: column; gap: 12px; }
+.exp-frise-places { position: relative; display: grid; gap: 6px; margin: 0; padding: 0 0 0 14px; list-style: none; }
+.exp-frise-places::before { content: ''; position: absolute; left: 4px; top: 8px; bottom: 8px; width: 2px; border-radius: 1px; background: var(--edge-strong); }
+.exp-frise-places > li { position: relative; }
+.exp-frise-places > li::before { content: ''; position: absolute; left: -14px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: var(--bg-raised); border: 2px solid var(--edge-strong); box-sizing: border-box; }
+.exp-frise-place { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 40px; padding: 6px 10px; border: 1.5px dashed var(--edge-strong); border-radius: var(--radius-xs); background: transparent; color: var(--ink); text-align: left; font: inherit; }
+.exp-frise-place.exp-frise-pleine { border-style: solid; border-color: var(--accent); background: var(--accent-soft); cursor: pointer; }
+.exp-frise-rang { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.exp-frise-evenement { font-size: 0.95rem; font-weight: 600; line-height: 1.25; }
+.exp-frise-cartes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.exp-frise-carte { display: flex; flex-direction: column; justify-content: center; gap: 4px; min-height: 58px; padding: 8px 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-xs); background: var(--surface-strong); color: var(--ink); box-shadow: 0 2px 0 var(--edge-strong); font: 600 0.88rem/1.25 var(--sans); text-align: center; overflow-wrap: break-word; hyphens: auto; cursor: pointer; touch-action: manipulation; }
+.exp-frise-carte[aria-disabled='true'] { opacity: 0.45; cursor: default; }
+/* Une année qu'une carte a dite : sous l'événement, en or — elle reste avec lui d'une place à l'autre. */
+.exp-frise-annee { display: block; font: 600 0.8rem/1.2 var(--sans); color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+/* La frise rangée (v13), à la révélation et dans « Mes réponses » : l'année devant chaque événement, et, ratée, où il l'avait mis. */
+/* Les années en colonne, alignées à droite : chaque ligne à sa largeur, « 793 » décalait son événement de celui de « 1789 ». La colonne
+   se partage (`subgrid`) ; un navigateur qui ne le connaît pas garde la sienne à chaque ligne, sa largeur au moins celle de quatre chiffres. */
+.frise-rangee { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin: 8px 0 0; padding: 0; list-style: none; text-align: left; }
+.frise-rangee > li { display: grid; grid-column: 1 / -1; grid-template-columns: auto 1fr; grid-template-columns: subgrid; align-items: baseline; column-gap: 10px; }
+.frise-annee { min-width: 2.2em; text-align: right; font-family: var(--serif); font-size: 1.05rem; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.frise-evenement { line-height: 1.3; color: var(--ink); }
+.frise-sa-place { grid-column: 2; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.06em; color: var(--muted); }
+.frise-a-sa-place .frise-sa-place { color: var(--accent-text); }
+.frise-sa-place .icon { width: 12px; height: 12px; vertical-align: -0.1em; }
+.frise-deplacee .frise-sa-place { color: var(--alert); }
 /* Un coup de pouce (v11) : ce qu'il souffle, à côté de son ampoule. */
 .exp-pouce { display: flex; align-items: center; gap: 8px; }
 .exp-pouce .icon { flex: none; color: var(--accent-text); }

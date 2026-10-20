@@ -73,6 +73,7 @@ import {
   VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_CURIOSITES,
   VERSION_DES_HUIT_FAMILLES,
+  VERSION_DE_LA_FRISE,
   VERSION_DU_JEU_COMPLET,
   ameliorer,
   apercuDuTour,
@@ -1615,7 +1616,7 @@ export function FioleLevee({ cle, refus, onReposer }: { cle: CleDeFiole; refus: 
 const MARCHE_DITE: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
 
 /** Une forme qui n'est pas celle de tous les jours, dite en clair ; quatre choix ne se disent pas. */
-const FORME_DITE: Record<FormeDEscale, string | null> = { quatre: null, six: 'six choix', 'vrai-faux': 'vrai ou faux', devoilement: 'mot à mot', lettres: 'à composer' }
+const FORME_DITE: Record<FormeDEscale, string | null> = { quatre: null, six: 'six choix', 'vrai-faux': 'vrai ou faux', devoilement: 'mot à mot', lettres: 'à composer', frise: 'une frise' }
 
 /**
  * L'adversaire, en tête de la rencontre : l'emblème de sa catégorie — de son
@@ -2101,6 +2102,8 @@ function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, 
   const aComposer = v >= VERSION_DES_COUPS_DE_POUCE
   // Les curiosités (v12) : une escale bonus par acte ; une expédition de la version 11 n'en a pas.
   const curiosites = v >= VERSION_DES_CURIOSITES
+  // La frise (v13) : quatre événements à ranger ; une expédition de la version 12 n'en a pas.
+  const enFrise = v >= VERSION_DE_LA_FRISE
   const avant = reglesDesRencontres([CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex, ascension, [0, 0, 0], true, VERSION_DES_HUIT_FAMILLES)
   const neuves: Partial<Record<SectionDesRegles['cle'], SectionDesRegles | null>> = {
     rencontre: {
@@ -2110,12 +2113,21 @@ function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, 
         { icone: 'eye', texte: 'La question d’abord : tu la vois, puis tu choisis ta carte et ta réponse.' },
         {
           icone: 'check',
-          texte: `Réponds juste : l’adversaire perd un cran — deux à six choix, ${
-            aComposer ? 'à composer, ' : ''
+          texte: `Réponds juste : l’adversaire perd un cran — deux à six choix, ${aComposer ? 'à composer, ' : ''}${
+            enFrise ? 'sur une frise, ' : ''
           }ou quand tu trouves une question mot à mot avant la moitié de ses mots. Sans crans, il tombe.`,
         },
         // Les coups de pouce (v11) : la question sans choix.
         ...(aComposer ? [{ icone: 'lettres' as const, texte: 'À composer : pas de choix — touche ses lettres dans l’ordre de la réponse. Trois sont de trop : les cartes qui effacent les retirent.' }] : []),
+        // La frise (v13) : quatre événements dans l'ordre du temps.
+        ...(enFrise
+          ? [
+              {
+                icone: 'calendar' as const,
+                texte: 'Une frise : quatre événements à remettre dans l’ordre, du plus ancien au plus récent — juste en entier. Les cartes qui effacent en datent, deux au plus.',
+              },
+            ]
+          : []),
         { icone: 'sparkles', texte: 'Ses crans rayés, qui palpitent : ceux que ta bonne réponse lui prendrait, tes cartes comptées.' },
         { icone: 'heart', texte: 'Trompe-toi : il t’attaque, toujours autant — le chiffre à côté de ses crans —, et tu perds du courage.' },
         { icone: 'source', texte: 'Ton courage se regagne sur le plan : la source, le campement, l’échoppe, une fiole.' },
@@ -2404,6 +2416,7 @@ export function PreparationDeLaRencontre({
       {apercu && !v10 && <Apercu a={apercu} base={base} />}
       {v10 && r.annonce?.forme === 'devoilement' && <p className="exp-consigne small">{espacesFines('Une question mot à mot : ses mots courent dès que tu la vois.')}</p>}
       {v10 && r.annonce?.forme === 'lettres' && <p className="exp-consigne small">{espacesFines('Une question à composer : pas de choix — ses lettres, à remettre dans l’ordre.')}</p>}
+      {v10 && r.annonce?.forme === 'frise' && <p className="exp-consigne small">{espacesFines('Une frise : quatre événements à remettre dans l’ordre du temps.')}</p>}
       {(!v10 || cles.length > 0) && (
         <MainDeRencontre
           cles={cles}

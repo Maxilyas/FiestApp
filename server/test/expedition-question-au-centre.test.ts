@@ -51,7 +51,7 @@ import {
   STYLES,
   STYLES_EN_QUESTION,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
-  VERSION_DES_CURIOSITES,
+  VERSION_DE_LA_FRISE,
   VERSION_DES_HUIT_FAMILLES,
   carteALaVersion,
   carteDeRencontre,
@@ -502,8 +502,9 @@ test('par les routes : la page la propose, le départ la prend — sa main de l�
   assert.equal(page.prochaine.questionAuCentre, true)
   assert.deepEqual(page.prochaine.codex.styles, stylesDuNiveau(1, V), 'ses styles à lui')
   let v = await partirEnQuestion(c, 1)
-  // Elle part avec ses coups de pouce (v11) et ses curiosités (v12) : la question au centre, la forme à composer, les escales bonus.
-  assert.equal(v.cartes!.v, VERSION_DES_CURIOSITES)
+  // Elle part avec ses coups de pouce (v11), ses curiosités (v12) et sa frise (v13) : la question au centre, la forme à composer,
+  // les escales bonus, les événements à ranger.
+  assert.equal(v.cartes!.v, VERSION_DE_LA_FRISE)
   assert.equal(v.cartes!.main!.length, MAIN_A_L_OUVERTURE_DE_L_ACTE)
   assert.equal(v.cartes!.mainMax, MAIN_MAX_EN_QUESTION)
   for (const cle of v.cartes!.paquet) assert.ok(seJoueEnQuestion(cle), cle)

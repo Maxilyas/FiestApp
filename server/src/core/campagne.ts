@@ -237,7 +237,7 @@ import {
 import { JOURS_DU_QG, jourDeLInstant, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
 import { DUELS_EN_ATTENTE_MONTRES, LIGNES_DU_CLASSEMENT_AU_QG, joueursParLigue, type JoueurDuDuel, type SuiviDesDuels } from '../../../shared/qgDuels'
 import { etoilesDansLeTemps, liguesDansLeTemps, type EpreuveValidee, type Mouvement } from '../../../shared/qgEconomie'
-import type { JournauxDesJours } from '../../../shared/missions'
+import { hasardDe, type JournauxDesJours } from '../../../shared/missions'
 import {
   PARCOURS_AU_QG,
   lesPlusRatees,
@@ -267,6 +267,7 @@ import {
   POIDS_DES_ESCALES_DES_RENCONTRES,
   POIDS_DES_FORMES,
   POIDS_DES_FORMES_A_COMPOSER,
+  POIDS_DES_FORMES_A_LA_FRISE,
   arrondiDeChance,
   bilanDuPli,
   carteDUnActe,
@@ -311,6 +312,7 @@ import {
   type EscaleDeLaCarte,
   type EtatDeLExpedition,
   type FormeDEscale,
+  type FriseAPoser,
   type GesteDExpedition,
   type JokersEnJeu,
   type PageDeLExpedition,
@@ -343,6 +345,20 @@ import { compositionDite, gabaritDe, lireUneComposition, seCompose, tuilesDe } f
 import { PREFIXE_DU_REBUS, QUESTION_DU_REBUS, type SorteDeCuriosite } from '../../../shared/curiosites'
 import { contenuDesCuriosites, type ContenuDesCuriosites } from './curiosites'
 import {
+  ECART_DE_LA_FRISE,
+  PREFIXE_DE_LA_FRISE,
+  QUESTION_DE_LA_FRISE,
+  choisirLaFrise,
+  evenementsDates,
+  friseJuste,
+  lireUnOrdre,
+  ordreDansLeTemps,
+  ordreGarde,
+  ordreMontre,
+  type EvenementDeLaFrise,
+} from '../../../shared/frise'
+import { evenementsDeLaBase } from './frises'
+import {
   CLAIRVOYANCE_SUR_LA_QUESTION,
   FIOLES_MAX,
   POUVOIRS_QUI_EFFACENT,
@@ -350,6 +366,7 @@ import {
   VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_CURIOSITES,
   VERSION_DES_HUIT_FAMILLES,
+  VERSION_DE_LA_FRISE,
   VERSION_DU_JEU_COMPLET,
   baseDe,
   carteDeRencontre,
@@ -454,6 +471,16 @@ interface QuestionDeSerie {
    * réponse se compose (`forme`, `tuiles`), et `anecdote` dit comment il se lit.
    */
   rebus?: string
+  /**
+   * Une frise (v13) : l'année de chacun de ses événements, dans l'ordre du
+   * temps — celui de ses `reponses`, leurs lignes —, et l'ordre où la page les
+   * montre (`montre[i]` : le rang dans le temps de la carte montrée en i-e),
+   * tirés avec elle et gardés : recharger redonne les mêmes. Ni l'un ni
+   * l'autre ne part avant le verdict (invariant 1). Elle n'est pas une
+   * question de la base : son identifiant porte `PREFIXE_DE_LA_FRISE` et ceux
+   * de ses événements.
+   */
+  frise?: { annees: number[]; montre: number[] }
 }
 
 /**
@@ -1670,6 +1697,47 @@ export class CampagneStore {
     return parId
   }
 
+  /** Les événements des frises (v13) que ces jouables datent, gardés avec elles : une base neuve les relit. */
+  private evenementsGardes = new WeakMap<readonly QuestionDeLaBase[], readonly EvenementDeLaFrise[]>()
+
+  /**
+   * Une frise pour une escale (v13) : quatre événements de son tas — ceux dont
+   * la question y est —, à l'écart de sa marche, jamais vus dans une frise
+   * d'abord (`vus`) ; à une marche facile, ceux des questions faciles d'abord,
+   * s'ils suffisent : la frise s'y range d'intuition. Ses événements et leurs
+   * années gardés avec elle, et l'ordre où la page les montre. Null : son tas
+   * n'a pas de quoi.
+   */
+  private friseDe(toutes: readonly QuestionDeLaBase[], tas: readonly (readonly QuestionDeLaBase[])[], marche: Niveau, vus: ReadonlySet<string>): QuestionDeSerie | null {
+    let evenements = this.evenementsGardes.get(toutes)
+    if (!evenements) this.evenementsGardes.set(toutes, (evenements = evenementsDeLaBase(this.parIdDe(toutes))))
+    const parId = this.parIdDe(toutes)
+    let candidats = evenements
+    if (!(tas.length === 1 && tas[0] === toutes)) {
+      const dansLeTas = new Set<string>()
+      for (const morceau of tas) for (const q of morceau) dansLeTas.add(q.id)
+      candidats = evenements.filter(e => dansLeTas.has(e.id))
+    }
+    const dejaVu = (id: string) => vus.has(id)
+    const ecart = ECART_DE_LA_FRISE[marche]
+    const faciles = marche === 'facile' ? candidats.filter(e => (parId.get(e.id)?.meta.difficulte ?? 3) <= 2) : candidats
+    const choisis = choisirLaFrise(faciles, ecart, Math.random, dejaVu) ?? (faciles !== candidats ? choisirLaFrise(candidats, ecart, Math.random, dejaVu) : null)
+    if (!choisis) return null
+    const categories = [...new Set(choisis.map(e => e.categorie))]
+    return {
+      id: PREFIXE_DE_LA_FRISE + choisis.map(e => e.id).join('+'),
+      texte: QUESTION_DE_LA_FRISE,
+      reponses: choisis.map(e => e.evenement),
+      bonne: 0,
+      categorie: categories.length === 1 ? categories[0] : null,
+      anecdote: null,
+      niveau: marche,
+      forme: 'frise',
+      tiree: 'frise',
+      frise: { annees: choisis.map(e => e.annee), montre: ordreMontre(choisis.length, Math.random) },
+    }
+  }
+
   /**
    * Le tirage d'une série sur ces jouables, préparé une fois pour leur
    * mesure (`PreparationDuTirage`) : la liste de toutes les catégories, ou
@@ -2375,6 +2443,21 @@ export class CampagneStore {
     const base = s.questions.some(sansSaBonneReponse) ? await this.base() : null
     return res.rows.map(r => {
       const q = s.questions[Number(r.position)]
+      // Une frise de l'expédition (v13) : ses événements dans l'ordre du temps, chacun son année, et, ratée, l'ordre qu'il avait donné.
+      if (q.forme === 'frise' && q.frise) {
+        const juste = Number(r.juste) === 1
+        const sienne = juste ? null : ordreGarde(typeof r.composee === 'string' ? r.composee : null, q.reponses.length)
+        return {
+          texte: q.texte,
+          reponses: q.reponses,
+          bonne: 0,
+          choix: juste ? 0 : 1,
+          juste,
+          niveau: q.niveau,
+          anecdote: q.anecdote,
+          frise: { annees: q.frise.annees, ...(sienne && { sienne }) },
+        }
+      }
       // Une question à composer de l'expédition (v11) : sa bonne réponse seule — ses choix ne se sont jamais montrés —, et, fausse, ce
       // qu'il a composé, comme une seconde réponse.
       if (q.forme === 'lettres' && typeof r.composee === 'string') {
@@ -2586,7 +2669,7 @@ export class CampagneStore {
               SELECT r.reserve_id AS id, r.juste AS juste, r.repondue_le AS le, r.serie_id AS serie, r.position AS position
               FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
               WHERE s.profile_id = ?
-                AND r.reserve_id NOT LIKE '${PREFIXE_DU_REBUS}%'
+                AND r.reserve_id NOT LIKE '${PREFIXE_DU_REBUS}%' AND r.reserve_id NOT LIKE '${PREFIXE_DE_LA_FRISE}%'
                 AND NOT (r.juste = 1 AND (r.joker IS NOT NULL OR COALESCE(r.forme, '') = 'vrai-faux'))
                 AND NOT (s.mode = 'defi' AND s.semaine >= ?)
                 AND NOT (s.mode = 'duel' AND s.duel IN (SELECT code FROM campagne_duels WHERE ferme_le > ?))
@@ -6516,6 +6599,8 @@ export class CampagneStore {
     const q = s.questions[index]
     // Un rébus (v12) n'est pas une question de la base : le QG n'aurait ni version à relire ni réponse à corriger.
     if (q.id.startsWith(PREFIXE_DU_REBUS)) throw new Error('Un rébus ne se signale pas : seules les questions de la campagne le peuvent')
+    // Une frise (v13) non plus : quatre questions récrites en une ligne chacune, aucune n'est celle qu'il a jouée.
+    if (q.id.startsWith(PREFIXE_DE_LA_FRISE)) throw new Error('Une frise ne se signale pas : seules les questions de la campagne le peuvent')
     if (!(await this.base()).parId.has(q.id)) throw new Error('Cette question n’est plus dans la campagne')
     // Signalée de nouveau après une relecture, elle revient à relire : l'issue d'avant ne la suit pas.
     await this.client.execute({
@@ -7068,8 +7153,9 @@ export class CampagneStore {
       const sesStyles = codex?.styles ?? []
       const style = estUnStyle(styleDemande) && sesStyles.length > 0 ? (sesStyles.includes(styleDemande) ? styleDemande : sesStyles[0]) : undefined
       // En rencontres, des cartes à plus d'adversaires (`POIDS_DES_ESCALES_DES_RENCONTRES`) ; aux règles d'avant, celles de toujours.
-      // Les coups de pouce (v11) y posent leurs escales à composer, sur le même tirage ; les curiosités (v12), une par acte, sur le leur.
-      const formes = v >= VERSION_DES_COUPS_DE_POUCE ? POIDS_DES_FORMES_A_COMPOSER : POIDS_DES_FORMES
+      // Les coups de pouce (v11) y posent leurs escales à composer, sur le même tirage ; les curiosités (v12), une par acte, sur le leur ;
+      // la frise (v13), une escale sur dix, sur le même tirage encore.
+      const formes = v >= VERSION_DE_LA_FRISE ? POIDS_DES_FORMES_A_LA_FRISE : v >= VERSION_DES_COUPS_DE_POUCE ? POIDS_DES_FORMES_A_COMPOSER : POIDS_DES_FORMES
       const cartes = Array.from({ length: ACTES }, (_, acte) =>
         carteDUnActe(graine, acte, sujets, fete, rencontres ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES, formes, v >= VERSION_DES_CURIOSITES),
       )
@@ -7407,7 +7493,16 @@ export class CampagneStore {
       let juste: boolean
       let c: number | null
       let composee: string | null = null
-      if (aComposer) {
+      if (q.forme === 'frise' && q.frise) {
+        // Une frise (v13) : ses événements dans l'ordre où il les a posés, par leur rang à l'écran — le serveur seul sait le temps
+        // (invariant 1). Le journal garde l'ordre donné, en rangs dans le temps (« 1032 ») : la correction le redit.
+        const ordre = lireUnOrdre(choix, q.reponses.length)
+        if (!ordre) throw new Error('Pose les quatre événements sur la frise, puis valide')
+        const dansLeTemps = ordreDansLeTemps(ordre, q.frise.montre)
+        juste = friseJuste(dansLeTemps)
+        composee = dansLeTemps.join('')
+        c = juste ? q.bonne : -1
+      } else if (aComposer) {
         composee = lireUneComposition(choix, aComposer.lettres.length)
         if (composee === null) throw new Error('Remplis toutes ses cases, puis valide')
         juste = composee === aComposer.lettres
@@ -7479,6 +7574,8 @@ export class CampagneStore {
         ...(l.depart.v >= 5 && apres.coup && { coup: apres.coup }),
         // Le dévoilement répondu : son intitulé entier, qu'il n'avait peut-être pas fini de lire.
         ...(devoile && { texte: q.texte, devoile }),
+        // Une frise (v13) : la bonne, dans l'ordre du temps — chaque événement et son année —, avec le verdict seulement (invariant 1).
+        ...(q.forme === 'frise' && q.frise && { frise: { evenements: q.reponses, annees: q.frise.annees } }),
         ...gains,
       }
     })
@@ -7624,6 +7721,12 @@ export class CampagneStore {
     const sujet = theme && 'sujet' in theme && tas[0] !== toutes ? theme.sujet : undefined
     // Sa forme (l'étape 3) : celle d'une question ou d'une élite ; une source, un gardien posent la question telle qu'elle est écrite.
     const forme = escale.sorte === 'question' || escale.sorte === 'elite' ? escale.forme : undefined
+    // Une frise (v13) : quatre événements de son thème, jamais vus dans une frise d'abord. Un thème qui n'a pas de quoi en faire une —
+    // un thème pointu sans événements, une base d'essai — la pose à quatre choix, comme une forme qu'aucune question ne prend.
+    if (forme === 'frise' && n === 1) {
+      const frise = this.friseDe(toutes, tas, marche, evenementsVus(lues, dejaPosees))
+      if (frise) return { tirees: [{ ...frise, escale: a.escale, acte, ...(sujet && { sujet }) }], vues: lues }
+    }
     const garde = seLaissePoser(forme)
     let tirees = tirerPourUneEscale(tas, marche, n, { sansVraiFaux: gardien || garde !== undefined, garde, vues, mesure, maintenant, posees })
     let aPoser = forme
@@ -8217,12 +8320,12 @@ function versSerie(r: Record<string, unknown>): Serie {
 }
 
 /**
- * La version d'un départ neuf : la question au centre, ses coups de pouce et
- * ses curiosités là où elle s'ouvre (`questionAuCentreOuverte`), les huit
- * familles aux rencontres, les écus aux règles d'avant elles.
+ * La version d'un départ neuf : la question au centre, ses coups de pouce,
+ * ses curiosités et sa frise là où elle s'ouvre (`questionAuCentreOuverte`),
+ * les huit familles aux rencontres, les écus aux règles d'avant elles.
  */
 const versionDuDepart = (rencontres: boolean, questionAuCentre: boolean): DepartDExpedition['v'] =>
-  rencontres ? (questionAuCentre ? VERSION_DES_CURIOSITES : VERSION_DES_HUIT_FAMILLES) : 4
+  rencontres ? (questionAuCentre ? VERSION_DE_LA_FRISE : VERSION_DES_HUIT_FAMILLES) : 4
 
 /** Le départ qu'une expédition a gardé ; null : pas une expédition, ou illisible. */
 function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
@@ -8231,8 +8334,8 @@ function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
     const lu = JSON.parse(brut) as DepartDExpedition
     // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus, la 4 sans rencontres,
     // la 6 sans codex, la 7 sans le jeu complet, la 8 sans les huit familles, la 9 sans la question au centre, la 10 sans coups de pouce,
-    // la 11 sans curiosités ; une version inconnue ne se lit pas.
-    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
+    // la 11 sans curiosités, la 12 sans frise ; une version inconnue ne se lit pas.
+    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
   } catch {
     return null
   }
@@ -8616,11 +8719,14 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
       : (joue ? (EFFACE[joue] ?? 0) : 0) + (echo ? EFFACE.echolocation : 0)
     // Ses cases et ses tuiles, jamais ses réponses : ses choix la rendraient à quatre choix, et sa bonne réponse la dirait (invariant 1).
     const composer = sesTuiles ? questionAComposer(d.graine, position, { reponses: q.reponses, bonne: q.bonne, ...sesTuiles }, combien, surLaQuestion) : null
-    const effacees = composer ? [] : reponsesEffacees(d.graine, position, q, combien)
+    // Une frise (v13) : ses événements dans l'ordre montré, jamais celui du temps (invariant 1) ; ce qu'une carte effacerait, elle le date.
+    const frise = q.forme === 'frise' && q.frise ? friseMontree(d.graine, position, q.reponses, q.frise, combien) : null
+    const effacees = composer || frise ? [] : reponsesEffacees(d.graine, position, q, combien)
     // Ce que soufflent les coups de pouce joués sur elle (v11) : Le repère partout ; L'initiale et La lettre sur une question à choix —
-    // à composer, elles posent leurs lettres dans ses cases.
+    // à composer, elles posent leurs lettres dans ses cases ; sur une frise, Le repère date un événement, sans un mot.
     const pouces = surLaQuestion.flatMap(cle => {
       const base = baseDe(cle)
+      if (frise) return []
       if (base === 'repere') return [ceQueDitLeRepere(q, estAmelioree(cle))]
       if (composer) return []
       if (base === 'initiale') return [ceQueDitLInitiale(q, estAmelioree(cle))]
@@ -8632,6 +8738,7 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
       // Un dévoilement ne part pas entier (invariant 1) : ses mots se lisent à leur heure (`devoilement`), son compte seul part ici.
       ...(q.forme === 'devoilement' && { texte: '', devoilement: { mots: motsDe(q.texte).length } }),
       ...(composer && { reponses: [], composer }),
+      ...(frise && { reponses: [], frise }),
       // Un rébus (v12) : ses emojis, que la page montre en grand au-dessus de ses cases.
       ...(q.rebus && { rebus: q.rebus }),
       ...(q.forme && { forme: q.forme }),
@@ -8639,7 +8746,8 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
       escale: q.escale ?? '',
       ...(effacees.length > 0 && { effacees }),
       ...(vise('double-chance') && { deux: true as const }),
-      ...(vise('enigme') && { indice: indiceDeLEnigme(q) }),
+      // Sur une frise, le Sphinx date un événement : « Elle ne se date pas » mentirait, elle en a quatre.
+      ...(vise('enigme') && !frise && { indice: indiceDeLEnigme(q) }),
       ...(vise('prediction') && montre !== undefined && { prediction: { montre, sens: sensDeLOracle(q, montre) } }),
       ...(loupe && aLaLoupe(q) && { siecle: siecleDeLaQuestion(q)! }),
       ...(pouces.length > 0 && { pouces }),
@@ -9179,6 +9287,35 @@ function questionDeLaCuriosite(
   const plats = contenu.plats.flatMap(p => parId.get(p.id) ?? [])
   const q = laMoinsVue(plats, x => x.id, vues) ?? laMoinsVue(cuisine.filter(x => x.reponses.length > 2), x => x.id, vues) ?? laMoinsVue(toutes, x => x.id, vues)!
   return { ...rangee(q), tiree: 'quatre' }
+}
+
+/**
+ * Ce que la page reçoit d'une frise (v13) : ses événements dans l'ordre
+ * montré, et l'année de ceux qu'une carte a datés — `combien`, ce qu'elle
+ * aurait effacé (`effaceesDuTour`), au hasard de la graine et du rang de la
+ * question, comme les réponses effacées. Jamais l'ordre du temps (invariant 1).
+ */
+function friseMontree(graine: string, position: number, lignes: readonly string[], f: { annees: readonly number[]; montre: readonly number[] }, combien: number): FriseAPoser {
+  const datees = new Set(evenementsDates(hasardDe(`${graine}:efface:${position}`), lignes.length, combien))
+  return {
+    evenements: f.montre.map(i => lignes[i]),
+    annees: f.montre.map(i => (datees.has(i) ? f.annees[i] : null)),
+  }
+}
+
+/**
+ * Les événements qu'il a déjà vus dans une frise (v13) : ceux des frises de
+ * son journal — leur identifiant porte les leurs (`PREFIXE_DE_LA_FRISE`) — et
+ * de celles que l'expédition a posées.
+ */
+function evenementsVus(lues: Pick<ReadonlyMap<string, number>, 'keys'>, posees: Iterable<string>): Set<string> {
+  const vus = new Set<string>()
+  const lire = (id: string) => {
+    if (id.startsWith(PREFIXE_DE_LA_FRISE)) for (const e of id.slice(PREFIXE_DE_LA_FRISE.length).split('+')) vus.add(e)
+  }
+  for (const id of lues.keys()) lire(id)
+  for (const id of posees) lire(id)
+  return vus
 }
 
 /** Parmi ces candidats, un jamais vu, au hasard ; sinon le plus anciennement vu. */

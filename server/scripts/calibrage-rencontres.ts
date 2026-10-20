@@ -131,6 +131,7 @@ import {
   POIDS_DES_ESCALES_DES_RENCONTRES,
   POIDS_DES_FORMES,
   POIDS_DES_FORMES_A_COMPOSER,
+  POIDS_DES_FORMES_A_LA_FRISE,
   carteDUnActe,
   chanceSelonLaForme,
   chancesDuTrace,
@@ -167,6 +168,7 @@ import {
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_CURIOSITES,
+  VERSION_DE_LA_FRISE,
   ameliorer,
   attaqueEnQuestion,
   baseDe,
@@ -197,20 +199,23 @@ function option(nom: string, defaut: number): number {
 const EXPEDITIONS = option('expeditions', 1000)
 /**
  * La version des règles mesurée : 9 d'office, celle des départs de la
- * production — les huit familles ; `--version 12` mesure les curiosités, que
- * la préproduction joue d'abord, `--version 11` les coups de pouce et les
- * lettres d'avant elles, `--version 10` la question au centre d'avant eux ;
+ * production — les huit familles ; `--version 13` mesure la frise, que la
+ * préproduction joue d'abord, `--version 12` les curiosités d'avant elle,
+ * `--version 11` les coups de pouce et les lettres d'avant elles,
+ * `--version 10` la question au centre d'avant eux ;
  * `--version 8` remesure le jeu complet d'avant les huit familles,
  * `--version 7` le codex d'avant lui, `--version 6` la main qui grandit avec
  * les actes sans le codex, `--version 5` la main de cinq cartes d'emblée.
  */
-const VERSION = ([5, 6, 7, 8, 9, 10, 11, 12] as const).find(v => v === option('version', 9)) ?? 9
+const VERSION = ([5, 6, 7, 8, 9, 10, 11, 12, 13] as const).find(v => v === option('version', 9)) ?? 9
 /** La question au centre (v10) : la question d'abord, l'adversaire en crans, une carte par question — un autre joueur, plus bas. */
 const EN_QUESTION = VERSION >= VERSION_DE_LA_QUESTION_AU_CENTRE
 /** Les coups de pouce et les lettres (v11) : une escale sur cinq à composer dès l'étage 2, L'initiale, Le repère et La lettre. */
 const A_COMPOSER = VERSION >= VERSION_DES_COUPS_DE_POUCE
 /** Les curiosités (v12) : une escale bonus par acte, le plat — sa chance sur la cuisine — ou le rébus, composé à sa chance moyenne. */
 const CURIOSITES = VERSION >= VERSION_DES_CURIOSITES
+/** La frise (v13) : une escale sur dix, quatre événements à ranger — sa chance sur la marche, sous le hasard d'un sur vingt-quatre. */
+const A_LA_FRISE = VERSION >= VERSION_DE_LA_FRISE
 
 const logit = (p: number) => Math.log(p / (1 - p))
 const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
@@ -257,6 +262,14 @@ const parmiCeQuiRepond = (restent: number, s: number) => (1 - (1 - s) ** restent
  * a pas de base de compositions ratées.
  */
 const chanceDeComposer = (aides: number) => 1 / Math.max(2, 10 - 2 * aides)
+/**
+ * Sa chance de ranger une frise qu'il ne sait pas (v13) : une sur
+ * vingt-quatre, le hasard de la forme ; un événement daté par une carte en
+ * fait une sur huit — un repère pour placer les autres —, deux une sur quatre.
+ * Un modèle, faute de frises jouées : savoir situer quatre événements n'est
+ * pas savoir une réponse, et la semaine de jeu dira lequel est le plus dur.
+ */
+const chanceDeLaFrise = (datees: number) => (datees >= 2 ? 1 / 4 : datees === 1 ? 1 / 8 : 1 / 24)
 
 function normale(r: () => number): number {
   return Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(2 * Math.PI * r())
@@ -643,7 +656,15 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
   // Les cartes du départ, comme le serveur les tire : à plus d'adversaires dès la version 6, une escale sur cinq à composer dès la 11,
   // une curiosité par acte dès la 12.
   const cartes: CarteDUnActe[] = Array.from({ length: ACTES }, (_, acte) =>
-    carteDUnActe(graine, acte, sujets, undefined, VERSION >= 6 ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES, A_COMPOSER ? POIDS_DES_FORMES_A_COMPOSER : POIDS_DES_FORMES, CURIOSITES),
+    carteDUnActe(
+      graine,
+      acte,
+      sujets,
+      undefined,
+      VERSION >= 6 ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES,
+      A_LA_FRISE ? POIDS_DES_FORMES_A_LA_FRISE : A_COMPOSER ? POIDS_DES_FORMES_A_COMPOSER : POIDS_DES_FORMES,
+      CURIOSITES,
+    ),
   )
   cartes.forEach((carte, acte) => {
     for (const e of carte.escales) if (e.sorte === 'question' || e.sorte === 'elite' || e.sorte === 'source') e.chance = chanceAnnoncee(j, acte, e)
@@ -725,9 +746,11 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       else if ('sujet' in th) p4 = chanceSur(j, marche, (categorie = au(CATEGORIES)), th.sujet)
       else p4 = chanceSur(j, marche, (categorie = au(th.categories)))
     }
-    // À composer, ses réponses sont ses tuiles ; et une réponse qui se compose n'est jamais une année ni un nombre.
+    // À composer, ses réponses sont ses tuiles ; et une réponse qui se compose n'est jamais une année ni un nombre — une frise (v13),
+    // ses quatre événements, non plus, et elle ne se date pas d'une seule année : le Sphinx et Le repère y datent un événement.
     const reponsesDeLaForme = forme === 'vrai-faux' ? 2 : forme === 'six' ? 6 : forme === 'lettres' ? LETTRES_D_UNE_REPONSE + LETTRES_EN_TROP : 4
-    const nombre = forme !== 'vrai-faux' && forme !== 'lettres' && r() < PART_DES_NOMBRES
+    const nombre = forme !== 'vrai-faux' && forme !== 'lettres' && forme !== 'frise' && r() < PART_DES_NOMBRES
+    const datee = forme !== 'frise' && r() < PART_DES_DATEES
     posees.push({
       escale: t.escale,
       acte: t.acte,
@@ -738,7 +761,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       niveau: marche,
       tiree: forme ?? 'quatre',
       six: r() < PART_DES_SIX,
-      datee: r() < PART_DES_DATEES,
+      datee,
       ...(nombre && { nombre: true, reponseEn: 'nombre' as const }),
       ...(forme && forme !== 'quatre' && { forme }),
       ...(forme === 'devoilement' && { mots: MOTS_D_UN_DEVOILEMENT }),
@@ -758,6 +781,8 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     // L'époque : le siècle de l'Énigme, celui de la loupe sur l'Histoire, la décennie du repère — qui ne dit jamais celle d'une réponse
     // en années : il y efface, comme sur une question qui ne se date pas (`effaceesDuTour`).
     const epoque = !!q.datee && (sur.includes('enigme') || (parmi(sur, 'repere') && !q.nombre) || (talismans.includes('loupe') && q.categorie === 'Histoire'))
+    // Une frise (v13) : ce que les cartes effaceraient, elles le datent (`effaceesDuTour`, deux au plus).
+    if (q.forme === 'frise') return chanceDeLaFrise(effacees)
     if (q.forme === 'lettres') {
       const posees = sur.reduce((s, c) => s + (baseDe(c) === 'initiale' || baseDe(c) === 'lettre' ? (estAmelioree(c) ? 2 : 1) : 0), 0)
       return chanceDeComposer(effacees + Math.min(posees, LETTRES_D_UNE_REPONSE - 2) + (epoque ? 1 : 0))
@@ -972,8 +997,9 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     const q = posees[i]
     const n = q.reponses ?? 4
     const sait = savoir(q.p4)
-    // À composer (v11), la règle même du verdict simulé : la carte jouée ajoutée à la question — ou aux pouvoirs, si elle se pose.
-    if (q.forme === 'lettres') {
+    // À composer (v11), la règle même du verdict simulé : la carte jouée ajoutée à la question — ou aux pouvoirs, si elle se pose. Une
+    // frise (v13) de même : une autre question de son escale est une autre frise.
+    if (q.forme === 'lettres' || q.forme === 'frise') {
       const sur = rc.tour.surLaQuestion
       if (cle === null) return chanceSansSavoir(q, sur, rc.pouvoirs, e.talismans)
       const k = exemplaire(e, cle)
@@ -983,7 +1009,7 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
         case 'echange':
         case 'volte-face':
         case 'mue':
-          return sait + (1 - sait) * chanceDeComposer(0)
+          return sait + (1 - sait) * (q.forme === 'frise' ? chanceDeLaFrise(0) : chanceDeComposer(0))
         default:
           return carteALaVersion(k, VERSION)?.moment === 'pouvoir'
             ? chanceSansSavoir(q, sur, [...rc.pouvoirs, k], e.talismans)

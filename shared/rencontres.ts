@@ -575,6 +575,17 @@ export const VERSION_DES_COUPS_DE_POUCE = 11
  */
 export const VERSION_DES_CURIOSITES = 12
 
+/**
+ * La version du départ qui pose la frise (le 20 octobre 2026, l'étape 5 du
+ * plan — le testeur : « des événements à remettre dans l'ordre ») : quatre
+ * événements à ranger du plus ancien au plus récent, une escale sur dix dès
+ * l'étage 2 (`POIDS_DES_FORMES_A_LA_FRISE`, `shared/frise.ts`). Une forme de
+ * plus change ce qu'une carte tire : une expédition partie en version 12 finit
+ * sans elle. En préproduction avec la question au centre. Le brief :
+ * `retours/2026-10-20/la-frise.md`.
+ */
+export const VERSION_DE_LA_FRISE = 13
+
 /** Le paquet de tous, et les neutres que les offres proposent. */
 const NEUTRES: readonly CarteDeRencontre[] = [
   { cle: 'concentration', nom: 'Concentration', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: 'Si tu réponds juste, l’adversaire perd 4 de plus.', resume: '+4 si juste', valeur: '+4' },
@@ -2932,11 +2943,12 @@ export const gainDuPariEnQuestion = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>
  * faux — qui paie deux fois moins d'écus — ; deux à six choix, trois sous
  * Polymorphe ; deux pour un dévoilement trouvé dans la première moitié de ses
  * mots, lus à l'heure du serveur où la réponse est arrivée (`devoile`) ; deux
- * pour une réponse composée (v11), qu'aucun choix ne soufflait.
+ * pour une réponse composée (v11), qu'aucun choix ne soufflait, et pour une
+ * frise (v13), quatre événements rangés en entier.
  */
 export function cransDeLaForme(q: FormeDUneQuestion, surLaQuestion: readonly string[] = []): number {
   if ((q.reponses ?? 4) <= 2) return 1
-  if (q.forme === 'lettres') return CRANS_D_UNE_QUESTION_DURE
+  if (q.forme === 'lettres' || q.forme === 'frise') return CRANS_D_UNE_QUESTION_DURE
   if (q.forme === 'six') return parmi(surLaQuestion, 'polymorphe') ? CRANS_DE_POLYMORPHE : CRANS_D_UNE_QUESTION_DURE
   if (q.forme === 'devoilement' && q.devoile && q.devoile.sur > 0) return 2 * Math.max(1, q.devoile.mots) <= q.devoile.sur ? CRANS_D_UNE_QUESTION_DURE : 1
   return 1
@@ -3497,7 +3509,16 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
   const enQuestion = c.v >= VERSION_DE_LA_QUESTION_AU_CENTRE
   // À composer (v11), ses réponses sont ses tuiles : ce qui s'efface, ce sont ses lettres de trop, toutes s'il le faut.
   const aComposer = q.forme === 'lettres'
-  const plusRienAEffacer = effacees >= (aComposer ? LETTRES_EN_TROP : q.reponses - 2) ? (aComposer ? 'Il ne reste plus de lettre de trop' : 'Il ne reste plus rien à effacer') : null
+  // Une frise (v13) : ce qu'une carte effacerait, elle le date — deux événements au plus, comme deux réponses sur quatre.
+  const enFrise = q.forme === 'frise'
+  const plusRienAEffacer =
+    effacees >= (aComposer ? LETTRES_EN_TROP : q.reponses - 2)
+      ? aComposer
+        ? 'Il ne reste plus de lettre de trop'
+        : enFrise
+          ? 'Deux événements sont déjà datés : les autres sont à toi'
+          : 'Il ne reste plus rien à effacer'
+      : null
   switch (base) {
     case 'augure':
       // Dans la question au centre, elle efface d'avance à la question suivante : celle d'ici n'y change rien.
@@ -3516,6 +3537,7 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
       return plusRienAEffacer
     case 'double-chance':
       if (aComposer) return 'Pas sur une question à composer : elle n’a pas de choix'
+      if (enFrise) return 'Pas sur une frise : elle n’a pas de choix'
       if (q.reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
       return aJoueSurLaQuestion(c, base) ? 'Déjà jouée sur cette question' : null
     case 'enigme':
@@ -3523,21 +3545,26 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
     case 'prediction':
       // Une réponse composée n'a pas de choix à montrer à l'Oracle — « Huit » se répond aussi en lettres.
       if (aComposer) return 'Pas sur une question à composer : l’Oracle n’a aucune réponse à montrer'
+      if (enFrise) return 'Pas sur une frise : l’Oracle n’a aucune réponse à montrer'
       if (!q.nombre || q.reponses <= 2) return 'La Prédiction se joue sur une année ou un nombre'
       return aJoueSurLaQuestion(c, base) ? 'L’Oracle a déjà parlé' : null
     case 'deux-visages':
       if (q.forme === 'devoilement') return 'Pas sur un dévoilement : deux textes à la fois, tu n’en lirais aucun'
       if (aComposer) return 'Pas sur une question à composer : deux réponses à composer, tu n’en finirais aucune'
+      if (enFrise) return 'Pas sur une frise : deux frises à ranger, tu n’en finirais aucune'
       return aJoueSurLaQuestion(c, base) ? 'Déjà deux questions à l’écran' : null
     // Les coups de pouce (v11) : L'initiale et La lettre diraient la réponse d'un vrai ou faux, et d'une année le premier chiffre,
     // que les quatre choix partagent ; à composer, elles posent leurs lettres. Le repère dit l'époque partout où elle ne dit pas la
     // réponse ; ailleurs il efface, et se refuse quand il n'y a plus rien à effacer.
     case 'repere':
+      // Sur une frise, il date un événement : comme une carte qui efface.
+      if (enFrise) return plusRienAEffacer
       if (q.datee && !q.nombre) return null
       if (q.reponses <= 2) return 'Pas d’époque à dire de ce vrai ou faux, et rien à y effacer'
       return plusRienAEffacer
     case 'initiale':
     case 'lettre':
+      if (enFrise) return 'Pas sur une frise : elle n’a pas de mot à écrire'
       if (q.reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
       if (!aComposer && q.nombre) return 'Pas sur une année ou un nombre : elle se joue sur des mots'
       return null
@@ -3553,11 +3580,14 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
     case 'polymorphe':
       if (changee) return 'La question a déjà changé de forme'
       if (q.tiree === 'lettres') return 'Pas sur une question à composer : elle n’a pas de choix à corser'
+      if (q.tiree === 'frise') return 'Pas sur une frise : elle n’a pas de choix à corser'
       if (q.tiree !== 'quatre' && q.tiree !== 'devoilement') return q.tiree === 'six' ? 'Elle est déjà à six choix' : 'Pas sur un vrai ou faux'
       return q.six ? null : 'Cette question n’a pas de quoi tenir six choix'
     case 'simplifier':
     case 'miroir':
       if (changee) return 'La question a déjà changé de forme'
+      // Une frise n'est pas une question de la base : elle n'a pas de vrai ou faux à devenir.
+      if (q.tiree === 'frise') return 'Pas sur une frise : elle n’a pas de forme plus simple'
       // La forme du tirage, jamais celle d'à présent : rejouée, la question déjà simplifiée refuserait Simplifier qui l'a faite.
       return q.tiree === 'vrai-faux' ? 'Elle est déjà un vrai ou faux' : null
     case 'doubler-la-mise':

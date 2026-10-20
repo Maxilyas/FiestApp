@@ -9,6 +9,7 @@ import { Dessin } from '../components/Avatar'
 import { EMBLEME } from '../components/Ecusson'
 import { CompagnonRejoint, LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
+import { FriseRangee } from '../components/FriseRangee'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, retenirLeNiveau, useNiveauRelu } from '../components/Gains'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { confirmDialog, promptDialog } from '../components/Dialog'
@@ -30,6 +31,7 @@ import { couleurDePiste } from '../../../shared/sentiers'
 import { sujetParCle } from '../../../shared/sujets'
 import { compositionDite } from '../../../shared/lettres'
 import { NOM_DE_LA_CURIOSITE, ceQueRapporteUneCuriosite, emojisDe } from '../../../shared/curiosites'
+import { anneeDite } from '../../../shared/frise'
 import { saison as laSaison, type Saison } from '../../../shared/saisons'
 import type { RareteDeTheme } from '../../../shared/themes'
 import { hautFait } from '../../../shared/hautsfaits'
@@ -80,6 +82,7 @@ import {
   type JokersEnJeu,
   type PageDeLExpedition,
   type QuestionAComposer,
+  type FriseAPoser,
   type QuestionDExpedition,
   type ReponseDExpedition,
   type SensDeLOracle,
@@ -101,6 +104,7 @@ import {
   STYLES_EN_QUESTION,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_CURIOSITES,
+  VERSION_DE_LA_FRISE,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
@@ -216,9 +220,20 @@ type Ecran =
    * sa révélation (`reponse`) jusqu'à « Suite » : la vue, elle, est déjà
    * celle d'après, et `avant` celle de la question — ses vies, son joker, ses
    * posés : ce que la réponse a coûté se lit de l'écart. À composer (v11),
-   * ce qu'il a composé (`composee`) : la révélation le redit.
+   * ce qu'il a composé (`composee`) : la révélation le redit ; une frise
+   * (v13), l'ordre qu'il a donné (`ordre`, par le rang de ses cartes à
+   * l'écran).
    */
-  | { e: 'route'; vue: VueDeLExpedition; question?: QuestionDExpedition; reponse?: ReponseDExpedition; choix?: number; composee?: string; avant?: VueDeLExpedition }
+  | {
+      e: 'route'
+      vue: VueDeLExpedition
+      question?: QuestionDExpedition
+      reponse?: ReponseDExpedition
+      choix?: number
+      composee?: string
+      ordre?: number[]
+      avant?: VueDeLExpedition
+    }
   | { e: 'vaincu'; vue: VueDeLExpedition; gardien: string }
   /** L'inconnu vient de se dévoiler — un piège, un légendaire de passage — ; `tombe` : le piège a pris sa dernière vie. */
   | { e: 'inconnu'; vue: VueDeLExpedition; tombe?: Fin }
@@ -821,6 +836,11 @@ export function ExpeditionApp() {
         setEcranBrut({ e: 'route', vue: reponse.expedition, question: q, reponse, choix: reponse.bonne, composee: choix, avant: vue })
         return
       }
+      // Une frise (v13) : l'ordre qu'il a donné, que la révélation redit à côté du bon.
+      if (q.frise && Array.isArray(choix)) {
+        setEcranBrut({ e: 'route', vue: reponse.expedition, question: q, reponse, choix: reponse.bonne, ordre: [...choix], avant: vue })
+        return
+      }
       const premier = typeof choix === 'number' ? choix : (choix.includes(reponse.bonne) ? reponse.bonne : choix[0])
       setEcranBrut({ e: 'route', vue: reponse.expedition, question: q, reponse, choix: premier, avant: vue })
     } catch (e) {
@@ -978,6 +998,7 @@ export function ExpeditionApp() {
         reponse={ecran.reponse}
         choix={ecran.choix ?? null}
         composee={ecran.composee}
+        ordre={ecran.ordre}
         busy={busy}
         erreur={erreur}
         onRepondre={() => {}}
@@ -1220,7 +1241,7 @@ export function Depart({
   // La version que ses pièces lisent : celle de l'expédition en route, sinon celle qui partirait — la question au centre, ses
   // coups de pouce et ses curiosités (v12), là où la page la dit ouverte. Ses cartes, son codex, ses styles, son Ascension et
   // ses règles en dépendent.
-  const v = vue ? (vue.cartes?.v ?? VERSION_DU_CODEX) : page.prochaine.questionAuCentre ? VERSION_DES_CURIOSITES : VERSION_DES_HUIT_FAMILLES
+  const v = vue ? (vue.cartes?.v ?? VERSION_DU_CODEX) : page.prochaine.questionAuCentre ? VERSION_DE_LA_FRISE : VERSION_DES_HUIT_FAMILLES
   // Le codex (v7) : celui qu'elle a figé en route, celui qui partirait avant ; aux règles d'avant, aucun.
   const codex = page.prochaine.codex
   // L'Ascension se choisit une fois une expédition menée au bout ; un serveur d'avant elle ne dit rien de ses crans.
@@ -2637,6 +2658,75 @@ export function ComposerLaReponse({ composer, busy, onValider }: { composer: Que
 }
 
 /**
+ * La frise à poser (v13) : ses places, du plus ancien au plus récent, puis ses
+ * événements en cartes, deux par rangée. Toucher un événement le pose à la
+ * première place libre ; toucher une place le rend ; « Effacer » rend tout, et
+ * « Valider » attend que les quatre soient posés — les gestes de la forme à
+ * composer. Un événement qu'une carte a daté montre son année. La page ne sait
+ * pas l'ordre : elle envoie ses cartes dans l'ordre de ses places, par leur
+ * rang à l'écran, et le serveur juge (invariant 1).
+ */
+export function PoserLaFrise({ frise, busy, onValider }: { frise: FriseAPoser; busy: boolean; onValider: (ordre: number[]) => void }) {
+  const [places, setPlaces] = useState<number[]>([])
+  const n = frise.evenements.length
+  const posees = new Set(places)
+  const libres = frise.evenements.map((_, i) => i).filter(i => !posees.has(i))
+  const plein = places.length === n
+  const poser = (i: number) => !busy && !plein && !posees.has(i) && setPlaces([...places, i])
+  const retirer = (k: number) => !busy && setPlaces(places.filter((_, j) => j !== k))
+  const datee = (i: number) => frise.annees[i] ?? null
+  const rang = (k: number) => (k === 0 ? 'Le plus ancien' : k === n - 1 ? 'Le plus récent' : `${k + 1}ᵉ`)
+  return (
+    <div className="exp-frise">
+      <ol className="exp-frise-places" aria-label="La frise, du plus ancien au plus récent">
+        {Array.from({ length: n }, (_, k) => {
+          const i = places[k]
+          const annee = i === undefined ? null : datee(i)
+          return (
+            <li key={k}>
+              <button
+                type="button"
+                className={'exp-frise-place' + (i !== undefined ? ' exp-frise-pleine' : '')}
+                aria-label={i !== undefined ? `${rang(k)} : ${frise.evenements[i]} — touche pour le retirer` : `${rang(k)}, vide`}
+                aria-disabled={busy || i === undefined || undefined}
+                {...toucher(() => retirer(k))}
+              >
+                <span className="exp-frise-rang">{rang(k)}</span>
+                {i !== undefined && (
+                  <span className="exp-frise-evenement">
+                    {espacesFines(frise.evenements[i])}
+                    {annee !== null && <b className="exp-frise-annee">{anneeDite(annee)}</b>}
+                  </span>
+                )}
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+      <div className="exp-frise-cartes" role="group" aria-label="Les événements à poser">
+        {libres.map(i => {
+          const annee = datee(i)
+          return (
+            <button key={i} type="button" className="exp-frise-carte" aria-disabled={busy || plein || undefined} {...toucher(() => poser(i))}>
+              {espacesFines(frise.evenements[i])}
+              {annee !== null && <b className="exp-frise-annee">{anneeDite(annee)}</b>}
+            </button>
+          )
+        })}
+      </div>
+      <div className="exp-composer-gestes">
+        <button type="button" className="btn btn-ghost" aria-disabled={busy || places.length === 0 || undefined} onClick={() => !busy && setPlaces([])}>
+          Effacer
+        </button>
+        <button type="button" className="btn btn-primary" aria-disabled={busy || !plein || undefined} onClick={() => plein && !busy && onValider(places)}>
+          {plein ? 'Valider' : `Encore ${n - places.length} événement${n - places.length > 1 ? 's' : ''}`}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Une question de l'expédition (les maquettes 4 et 7) : celle d'une escale —
  * sa catégorie, son mélange ou son thème pointu —, d'une source, d'une
  * élite, ou du gardien, son médaillon et ses crans au-dessus ; sous ses
@@ -2655,6 +2745,7 @@ export function Escale({
   reponse: r,
   choix,
   composee,
+  ordre,
   busy,
   erreur,
   onRepondre,
@@ -2671,6 +2762,8 @@ export function Escale({
   choix: number | null
   /** Révélée, à composer (v11) : ce qu'il a composé. */
   composee?: string
+  /** Révélée, une frise (v13) : l'ordre qu'il a donné, par le rang de ses cartes à l'écran. */
+  ordre?: readonly number[]
   busy: boolean
   erreur: string
   onRepondre: (q: QuestionDExpedition, choix: number | readonly number[] | string) => void
@@ -2854,6 +2947,7 @@ export function Escale({
             avant={avant}
             choix={choix}
             composee={composee}
+            ordre={ordre}
             source={source}
             curiosite={!!curiosite}
             finie={finie}
@@ -2865,6 +2959,9 @@ export function Escale({
         ) : affichee.composer ? (
           // Une question à composer (v11) : sa clé change avec elle — Échange en pose une autre, rien de composé ne la suit.
           <ComposerLaReponse key={affichee.index} composer={affichee.composer} busy={busy} onValider={lettres => onRepondre(affichee, lettres)} />
+        ) : affichee.frise ? (
+          // Une frise (v13) : de même, sa clé change avec elle.
+          <PoserLaFrise key={affichee.index} frise={affichee.frise} busy={busy} onValider={ordre_ => onRepondre(affichee, ordre_)} />
         ) : (
           <ReponsesDeLEscale
             reponses={affichee.reponses}
@@ -2986,13 +3083,23 @@ export function LaBonneReponse({
   reponse: r,
   choix,
   composee,
+  ordre,
 }: {
-  question: Pick<QuestionDExpedition, 'reponses' | 'proposee' | 'composer'>
-  reponse: Pick<ReponseDExpedition, 'bonne' | 'bonneReponse'> & { juste?: boolean }
+  question: Pick<QuestionDExpedition, 'reponses' | 'proposee' | 'composer' | 'frise'>
+  reponse: Pick<ReponseDExpedition, 'bonne' | 'bonneReponse' | 'frise'> & { juste?: boolean }
   choix: number | null
   /** À composer (v11) : ce qu'il a composé. */
   composee?: string
+  /** Une frise (v13) : l'ordre qu'il a donné, par le rang de ses cartes à l'écran. */
+  ordre?: readonly number[]
 }) {
+  // Une frise (v13) : la bonne, rangée, chaque événement et son année, que le serveur donne avec le verdict ; ratée, où il avait mis
+  // chacun — ses cartes se retrouvent par leur ligne, unique dans sa frise.
+  if (r.frise) {
+    const { evenements, annees } = r.frise
+    const places = r.juste === false && ordre && q.frise ? evenements.map(e => ordre.indexOf(q.frise!.evenements.indexOf(e))) : undefined
+    return <FriseRangee evenements={evenements} annees={annees} places={places} />
+  }
   // À composer (v11) : la page n'en avait que les tuiles — le serveur dit la bonne avec le verdict, et, faux, ce qu'il a composé
   // se lit à côté, dans ses cases : « Tu as composé SOPHOCLES — c'était Sophocle ».
   if (q.composer && r.bonneReponse !== undefined) {
@@ -3045,6 +3152,7 @@ function Revelation({
   avant,
   choix,
   composee,
+  ordre,
   source,
   curiosite = false,
   finie,
@@ -3058,6 +3166,7 @@ function Revelation({
   avant: VueDeLExpedition | null
   choix: number | null
   composee?: string
+  ordre?: readonly number[]
   source: boolean
   /** Une curiosité (v12) : ni adversaire ni courage — sa récompense, ou rien. */
   curiosite?: boolean
@@ -3135,7 +3244,7 @@ function Revelation({
             ))}
           </ul>
         )}
-        <LaBonneReponse question={q} reponse={r} choix={choix} composee={composee} />
+        <LaBonneReponse question={q} reponse={r} choix={choix} composee={composee} ordre={ordre} />
         {r.devoile && <p className="muted small">{espacesFines(`Répondu au ${r.devoile.mots === 1 ? '1ᵉʳ' : `${r.devoile.mots}ᵉ`} mot sur ${r.devoile.sur}.`)}</p>}
       </div>
       {r.anecdote && (
@@ -3153,8 +3262,8 @@ function Revelation({
       {gardien && r.vaincu === undefined && q.escale === GARDIEN && !finie && r.expedition.gardien && (
         <p className="muted small centre">{`Encore ${r.expedition.gardien.aTrouver - r.expedition.gardien.trouvees} pour vaincre ${leGardien(gardien)}`}</p>
       )}
-      {/* Un rébus (v12) n'est pas une question de la campagne : le serveur ne le prendrait pas, rien ne le propose. */}
-      {!q.rebus && (
+      {/* Un rébus (v12), une frise (v13) ne sont pas des questions de la campagne : le serveur ne les prendrait pas, rien ne le propose. */}
+      {!q.rebus && !q.frise && (
         <button type="button" className="lien-signaler link-inline small" onClick={onSignaler}>
           Signaler une erreur dans cette question
         </button>

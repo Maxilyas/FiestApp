@@ -1,4 +1,5 @@
 import { Corrige, verdictDe } from './Corrige'
+import { FriseRangee } from './FriseRangee'
 import { espacesFines } from '../format'
 import { NOM_NIVEAU, type CorrectionDeCampagne } from '../../../shared/campagne'
 
@@ -27,6 +28,8 @@ export function SerieCorrigee({ correction }: { correction: CorrectionDeCampagne
           formes={c.composee === undefined}
           // Un rébus de l'expédition (une curiosité, v12) : « Quel personnage se cache derrière ces emojis ? » ne se relit qu'avec eux.
           sous={c.rebus !== undefined && <p className="corrige-rebus">{c.rebus}</p>}
+          // Une frise de l'expédition (v13) : rangée, chaque événement et son année — ratée, où il avait mis chacun.
+          corps={c.frise && <FriseRangee evenements={c.reponses} annees={c.frise.annees} places={c.frise.sienne && c.reponses.map((_, k) => c.frise!.sienne!.indexOf(k))} />}
         >
           {/* Sa proposée fausse, « Faux » ne dit pas ce qu'il fallait répondre (un testeur, le 19 octobre 2026). */}
           {c.bonneReponse !== undefined && (

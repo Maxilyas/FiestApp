@@ -175,16 +175,21 @@ export type SorteDEscale = 'question' | 'elite' | 'source' | 'coffre' | 'inconnu
  */
 export type ContenuDeLInconnu = 'marchand' | 'piege' | 'passage'
 
-/** La forme d'une question : à quatre choix, vrai ou faux, à six choix, mot à mot — et, depuis les coups de pouce (v11), à composer (`shared/lettres.ts`). */
-export type FormeDEscale = 'quatre' | 'vrai-faux' | 'six' | 'devoilement' | 'lettres'
+/**
+ * La forme d'une question : à quatre choix, vrai ou faux, à six choix, mot à
+ * mot — et, depuis les coups de pouce (v11), à composer (`shared/lettres.ts`) ;
+ * depuis la frise (v13), quatre événements à ranger (`shared/frise.ts`).
+ */
+export type FormeDEscale = 'quatre' | 'vrai-faux' | 'six' | 'devoilement' | 'lettres' | 'frise'
 
 /**
  * Les formes qu'une carte tire : toutes depuis l'étape 3 — quatre choix,
- * vrai ou faux, six choix, dévoilement —, et à composer depuis les coups de
- * pouce, que seuls leurs poids tirent (`POIDS_DES_FORMES_A_COMPOSER`). Celles
+ * vrai ou faux, six choix, dévoilement —, à composer depuis les coups de
+ * pouce et la frise depuis la version 13, que seuls leurs poids tirent
+ * (`POIDS_DES_FORMES_A_COMPOSER`, `POIDS_DES_FORMES_A_LA_FRISE`). Celles
  * d'avant, gardées par leur expédition, restent à quatre choix.
  */
-const FORMES_OUVERTES: ReadonlySet<FormeDEscale> = new Set(['quatre', 'vrai-faux', 'six', 'devoilement', 'lettres'])
+const FORMES_OUVERTES: ReadonlySet<FormeDEscale> = new Set(['quatre', 'vrai-faux', 'six', 'devoilement', 'lettres', 'frise'])
 
 /** Le thème d'une escale : une catégorie, un mélange de deux ou trois, ou un sujet de `shared/sujets.ts` — un thème pointu. */
 export type ThemeDEscale = { categories: string[] } | { sujet: string }
@@ -299,6 +304,21 @@ export const POIDS_DES_FORMES_A_COMPOSER: PoidsDesFormes = [
   { forme: 'six', part: 0.15 },
   { forme: 'devoilement', part: 0.15 },
   { forme: 'lettres', part: 0.2 },
+]
+/**
+ * Celles d'un départ de la frise (v13) : une escale sur dix dès l'étage 2,
+ * prise aux quatre choix — les autres formes gardent leur part, et le même
+ * tirage qu'en version 11 : seule la forme qu'il désigne change. Le premier
+ * étage ne change pas. Des choix de produit (le brief :
+ * `retours/2026-10-20/la-frise.md`).
+ */
+export const POIDS_DES_FORMES_A_LA_FRISE: PoidsDesFormes = [
+  { forme: 'quatre', part: 0.2 },
+  { forme: 'vrai-faux', part: 0.2 },
+  { forme: 'six', part: 0.15 },
+  { forme: 'devoilement', part: 0.15 },
+  { forme: 'lettres', part: 0.2 },
+  { forme: 'frise', part: 0.1 },
 ]
 
 /** L'identifiant du gardien, sur chaque carte. */
@@ -760,9 +780,10 @@ export function prixDeLArticle(article: ArticleDeLEchoppe, cle?: string): number
  * Le hasard de chaque forme : un sur quatre à quatre choix et au
  * dévoilement, un sur six à six choix, un sur deux en vrai ou faux — et un
  * sur dix à composer (v11) : des tuiles bien rangées font parfois trouver un
- * mot à moitié su. Un choix de produit, que le calibrage lit.
+ * mot à moitié su ; un sur vingt-quatre pour une frise (v13), les vingt-quatre
+ * ordres de quatre événements. Un choix de produit, que le calibrage lit.
  */
-const HASARD: Record<FormeDEscale, number> = { quatre: 1 / 4, devoilement: 1 / 4, six: 1 / 6, 'vrai-faux': 1 / 2, lettres: 1 / 10 }
+const HASARD: Record<FormeDEscale, number> = { quatre: 1 / 4, devoilement: 1 / 4, six: 1 / 6, 'vrai-faux': 1 / 2, lettres: 1 / 10, frise: 1 / 24 }
 
 /**
  * Une chance à quatre choix ramenée à une autre forme : le savoir se lit sous
@@ -945,9 +966,12 @@ export interface DepartDExpedition {
    * en version 10 n'en a ni escale ni carte. 12 : les curiosités
    * (`VERSION_DES_CURIOSITES`) — une escale bonus par acte sur ses cartes, le
    * plat ou le rébus (`shared/curiosites.ts`), et sa récompense ; une
-   * expédition partie en version 11 n'en a pas.
+   * expédition partie en version 11 n'en a pas. 13 : la frise
+   * (`VERSION_DE_LA_FRISE`) — quatre événements à ranger, une escale sur dix
+   * (`POIDS_DES_FORMES_A_LA_FRISE`, `shared/frise.ts`) ; une expédition
+   * partie en version 12 n'en a pas.
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -3233,6 +3257,21 @@ export interface QuestionDExpedition extends QuestionDeCampagne {
   pouces?: string[]
   /** Un rébus (une curiosité, v12) : ses emojis, en grand au-dessus de ses cases (`emojisDe` les sépare) ; sa réponse se compose. */
   rebus?: string
+  /**
+   * Une frise (v13) : ses événements dans l'ordre où la page les montre —
+   * jamais celui du temps (invariant 1) — ; ses `reponses` sont vides.
+   */
+  frise?: FriseAPoser
+}
+
+/**
+ * Une frise telle que la page la reçoit (v13) : ses événements, dans un ordre
+ * tiré au hasard qui n'est jamais le bon, et l'année de ceux qu'une carte a
+ * datés — null pour les autres.
+ */
+export interface FriseAPoser {
+  evenements: string[]
+  annees: (number | null)[]
 }
 
 /**
@@ -3478,6 +3517,14 @@ export interface ReponseDExpedition {
   tampon?: string
   /** En rencontre (v5) : ce qu'elle a brisé, ce qu'elle a coûté, ce que la mise a fait — et la victoire. */
   coup?: CoupDeRencontre
+  /** Une frise (v13) : la bonne, dans l'ordre du temps — chaque événement et son année —, avec le verdict seulement (invariant 1). */
+  frise?: FriseRevelee
+}
+
+/** Une frise révélée (v13) : ses événements dans l'ordre du temps, chacun son année. */
+export interface FriseRevelee {
+  evenements: string[]
+  annees: number[]
 }
 
 /** Une famille du passeport : ses sujets dans l'ordre du catalogue, et combien il en a tamponné. */

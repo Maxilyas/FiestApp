@@ -638,6 +638,13 @@ export interface CorrectionDeCampagne {
   composee?: string
   /** Un rébus de l'expédition (une curiosité, v12) : ses emojis, que l'intitulé désigne. */
   rebus?: string
+  /**
+   * Une frise de l'expédition (v13) : ses `reponses` sont ses événements dans
+   * l'ordre du temps ; leurs années, alignées, et, ratée, l'ordre qu'il avait
+   * donné — le rang dans le temps de chaque événement qu'il avait posé, du
+   * premier au dernier (`sienne`).
+   */
+  frise?: { annees: number[]; sienne?: number[] }
 }
 
 // ── Le défi de la semaine ─────────────────────────────────────────────────
