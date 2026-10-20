@@ -310,8 +310,8 @@ export function ProfilApp() {
   useEffect(() => {
     if (!chargement) porterNiche(niche && sienDeLaNiche ? { niche, compagnons: [sienDeLaNiche] } : null)
   }, [chargement, niche, sienDeLaNiche?.rang, sienDeLaNiche?.montree, sienDeLaNiche?.nom, sienDeLaNiche?.eclat, sienDeLaNiche?.paliers, JSON.stringify(sienDeLaNiche?.ornements)]) // eslint-disable-line react-hooks/exhaustive-deps
-  // La niche telle qu'elle se montre — sa gestion, d'ici ou de sa fiche, la
-  // change sans que la page ne relise le profil —, et son code, celui de la
+  // La niche telle qu'elle se montre — sa page ou sa fiche, au coin, la
+  // changent sans que la page ne relise le profil —, et son code, celui de la
   // niche au coin de la page : le bouton « Mon compagnon » et son écran le
   // partagent (`laNiche`), l'accueil anonyme n'en télécharge rien.
   const nicheIci = useSyncExternalStore(abonnerNiche, nicheActuelle, () => null)
@@ -748,7 +748,7 @@ export function ProfilApp() {
           compteur={plus && plus.nouveautes.nouveautes > 0 ? { n: plus.nouveautes.nouveautes, label: nouveautesAPorter(plus.nouveautes.nouveautes) } : undefined}
           onClick={() => ouvrir(pieceNeuve ?? 'avatar')}
         />
-        {/* Sa niche, en petit : sa gestion ne s'ouvrait qu'en la touchant au coin de la page (le 19 octobre 2026). */}
+        {/* Sa niche, en petit, vers sa page, où il se règle : sa gestion ne s'ouvrait qu'en la touchant au coin de la page (le 19 octobre 2026). */}
         {nicheIci && (
           <GrosBouton
             icone={codeDeLaNiche ? <codeDeLaNiche.NicheEnMiniature niche={nicheIci} taille={36} /> : <Icon name="home" />}

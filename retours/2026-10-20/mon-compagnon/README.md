@@ -64,6 +64,23 @@ Ce qui a changé en chemin, par rapport à la maquette :
   au sol se pose au-dessus d'elle : une plaque longue (« Lui donner un nom »)
   couvrait la gamelle et la place libre d'à côté.
 
+## Le soir : la fiche de la niche, plus douce
+
+« Maintenant quand on clique sur la niche en haut à droite, on pourrait avoir
+un truc plus soft avec les actions pour le caresser et rediriger vers
+l'onglet compagnon ? […] je rendrais ce truc plus simple, c'est à dire
+uniquement pouvoir interagir avec lui ? Et de savoir où il en est
+bien-sûr » (le propriétaire).
+
+La feuille « Ma niche », qui montait du bas avec toute sa gestion — son nom,
+ses formes, ses ornements, ses compagnons —, devient une bulle qui sort de la
+niche (`FicheDeLaNiche`) : lui en grand, qu'on caresse — ses tours compris —,
+son nom et sa forme, où il en est vers sa forme suivante ou son prochain
+ornement, ses envies du jour (« Un cadeau t'attend chez lui ! »), et deux
+pastilles, « Le caresser » et « Chez lui », d'or quand son cadeau l'y attend.
+Tout ce qui se règle vit sur sa page. Caressé dans la bulle, il ne dort plus
+volets fermés chez lui l'instant d'après.
+
 ## Pour plus tard
 
 - Des trouvailles de saison, une fois les trente trouvées (le propriétaire).

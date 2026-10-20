@@ -32,7 +32,7 @@ import type { NicheVue } from '../niche'
 // couleur, ses doubles comptés, celles qui manquent en silhouette, qui disent
 // où les trouver. Toucher une place libre puis une trouvaille l'y pose ;
 // toucher une trouvaille posée la range. L'onglet « Sa niche » garde la forme
-// qu'elle montre et ses ornements, comme sa fiche.
+// qu'elle montre et ses ornements — ils ne se règlent que là.
 
 /** Où se trouve chaque rareté : ce qu'une trouvaille qui manque dit quand on la touche. */
 const OU_LA_TROUVER: Readonly<Record<Rarete, string>> = {
@@ -335,11 +335,7 @@ export function Decorer({
                 <h3 id="decorer-formes" className="label">
                   Sa forme dans sa niche
                 </h3>
-                {niche.rang > 0 ? (
-                  <SesFormes niche={niche} busy={busy} neuves={neuves} onMontrer={onMontrer} />
-                ) : (
-                  <p className="muted small">{espacesFines(`${c.le === 'la' ? 'Elle' : 'Il'} en prendra trois autres en grandissant : chacune pourra vivre ici.`)}</p>
-                )}
+                <SesFormes niche={niche} busy={busy} neuves={neuves} onMontrer={onMontrer} />
               </section>
               <SaNicheSEmbellit niche={niche} c={c} busy={busy} onOrner={onOrner} />
               <p className="muted small">{espacesFines(`Ses formes et ses ornements se gagnent avec tes bonnes réponses, en soirée, au quiz du jour et en campagne : ${formatNumber(100)}, ${formatNumber(300)} puis ${formatNumber(500)}, puis sa niche s’embellit.`)}</p>

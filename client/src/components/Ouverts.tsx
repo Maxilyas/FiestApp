@@ -86,8 +86,9 @@ export function LegendaireOuvert({ cle, dejaPorte }: { cle: string; dejaPorte: b
  * expédition menée au bout : la Première traversée —, sa première forme en
  * grand. On ne le porte pas d'ici : l'adoption ne fait pas porter (le
  * propriétaire, le 19 octobre 2026 : « ça serait mieux que dans la niche ») ;
- * il s'installe dans sa niche si elle est vide, sinon il attend son tour dans
- * « Ma niche » — celui qui y vit la garde, comme au coffre.
+ * il s'installe dans sa niche si elle est vide, sinon il attend son tour —
+ * celui qui y vit la garde, comme au coffre —, et « Mon compagnon », au
+ * profil, l'y installe : la fiche de la niche ne règle plus rien.
  */
 export function CompagnonRejoint({ cle }: { cle: CleDeCompagnon }) {
   const ici = useSyncExternalStore(abonnerNiche, nicheActuelle, () => null)
@@ -104,8 +105,8 @@ export function CompagnonRejoint({ cle }: { cle: CleDeCompagnon }) {
       <p className="muted small">
         {espacesFines(
           attend
-            ? `${Il} attend son tour dans « Ma niche » : touche ta niche pour l’y installer — c’est celui de ta niche qui grandit.`
-            : `${Il} s’installe dans ta niche, en haut de chaque page, et grandit avec tes bonnes réponses. Touche-la pour lui donner un nom.`,
+            ? `${Il} attend son tour : « Mon compagnon », au profil, l’installe dans ta niche — c’est celui de ta niche qui grandit.`
+            : `${Il} s’installe dans ta niche, en haut de chaque page, et grandit avec tes bonnes réponses. Donne-lui un nom dans « Mon compagnon », au profil.`,
         )}
       </p>
     </section>

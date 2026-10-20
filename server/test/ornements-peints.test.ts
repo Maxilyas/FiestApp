@@ -16,6 +16,7 @@ import path from 'node:path'
 import React from 'react'
 import { demarrer } from './banc'
 import { ORNEMENTS, STYLES_PEINTS } from '../../shared/ornements'
+import { compagnon } from '../../shared/compagnons'
 import { isValidSlug } from '../../shared/space'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
@@ -159,9 +160,9 @@ test('un style par ornement, mêlés comme il veut : dessiné, il reste celui de
 
 // ── 3. Son choix ──────────────────────────────────────────────────────────
 
-test('« Sa niche s’embellit » : chaque ornement gagné, ses trois choix — Féerique, Dessin, Caché —, chacun son aperçu', async () => {
+test('« Sa niche s’embellit », dans « Décorer » : chaque ornement gagné, ses trois choix — Féerique, Dessin, Caché —, chacun son aperçu', async () => {
   const P = (await peints()).feerique
-  const html = await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 3, paliers: 2, ornements: { lierre: 'dessin' } }, onFermer: () => {} })
+  const html = await rendre('SaNicheSEmbellit', { niche: { compagnon: 'loup', rang: 3, paliers: 2, ornements: { lierre: 'dessin' } }, c: compagnon('loup'), busy: false, onOrner: () => {} })
   const groupes = [...html.matchAll(/<div class="niche-orne" role="group" aria-labelledby="([^"]+)">([\s\S]*?)<\/div><\/div>/g)]
   assert.equal(groupes.length, 2, 'les deux qu’il a gagnés, et eux seuls')
   for (const [g, titre, presse] of [

@@ -4,16 +4,16 @@
 // question, une révélation —, la campagne et ses onglets, les duels — la
 // carte du verdict d'un duel au dé, un duel classé face cachée, « Duel
 // envoyé » —, l'expédition, le salon, et une soirée — la salle d'attente, une
-// question, la révélation, le podium. Puis sa fiche, une caresse, et le repli
-// quand la page défile. À chaque page, ce qui passe sous la niche se dit : un
-// texte, un bouton, une image que la page ne lui a pas laissé (« sous la
-// niche »).
+// question, la révélation, le podium. Puis le repli quand la page défile. À
+// chaque page, ce qui passe sous la niche se dit : un texte, un bouton, une
+// image que la page ne lui a pas laissé (« sous la niche »).
 // Et ses réactions, dans la soirée (`shared/niche.ts`) : le souffle retenu
 // quand elle touche une réponse, la bonne réponse qui le nourrit (« +1 », sa
 // jauge), la ratée (il pleut chez lui), la rare (une bulle de cœurs), puis
-// la sortie au podium et une caresse dehors. Et « Ma niche », sa gestion : un
-// nom qu'on lui donne, une forme d'avant qu'on y montre, un autre de ses
-// compagnons qu'on y installe d'un toucher.
+// la sortie au podium et une caresse dehors. Et sa fiche, la bulle qui sort
+// d'elle : où il en est, ses envies du jour, une caresse, la niche touchée qui
+// la referme, « Chez lui » depuis l'accueil et depuis le profil, et la niche
+// repliée qui se déplie pour elle.
 // Léa, niveau 14, son loup adulte dans sa niche — 350 bonnes réponses avec
 // lui, sa jauge aux trois quarts — et sa jeune tortue qui attend. Avec
 // `PALIERS=n` (1 à 4), son loup a passé sa forme ultime et sa niche tant de
@@ -217,47 +217,42 @@ async function solo() {
   }
   await aller('/', 'button.identite-ligne')
   await photo(page, '01-accueil')
-  // « Ma niche », au toucher de la niche : une caresse, un nom, une forme
-  // d'avant, la tortue installée d'un toucher, puis le loup qui revient.
+  // Sa fiche, au toucher de la niche : la bulle qui sort d'elle, où il en est
+  // et ses envies lus, puis une caresse ; la niche touchée la referme.
   const fiche = (nom: string) => page.screenshot({ path: path.join(sortie, `${nom}.png`) })
-  await page.locator('.niche').click()
-  await page.waitForSelector('.niche-fiche [aria-labelledby="niche-compagnons"] .niche-choix[aria-pressed="true"]')
-  await patienter(700)
+  const ouvrirLaFiche = async () => {
+    await page.locator('.niche').click()
+    await page.waitForFunction(`document.querySelector('.niche-fiche-jauge')?.textContent !== '…' && !!document.querySelector('.niche-fiche-envies')`)
+    await patienter(700)
+  }
+  await ouvrirLaFiche()
   await fiche('02-fiche')
-  await page.locator('.niche-fiche-gestes .btn-primary').click()
+  await page.locator('.niche-fiche-gestes button.chez-pastille').click()
   await patienter(420)
   await fiche('03-fiche-caresse')
-  await page.locator('.niche-renommer').click()
-  await page.locator('#niche-nom').fill('Nox')
-  await patienter(300)
-  await fiche('03b-fiche-nommer')
-  await page.locator('.niche-nommer .btn-primary').click()
-  await page.waitForSelector('.niche-fiche-nom >> text=Nox')
-  await patienter(500)
-  await fiche('03c-fiche-nommee')
-  await page.locator('.niche-choix[aria-label="Le louveteau"]').click()
-  await page.waitForSelector('.niche-choix[aria-label="Le louveteau"][aria-pressed="true"]')
-  await patienter(800)
-  await fiche('03d-fiche-louveteau')
-  await page.evaluate(`document.querySelector('.niche-fiche .carte-corps').scrollTo(0, 99999)`)
-  await patienter(500)
-  await fiche('03e-fiche-compagnons')
-  await page.locator('.niche-choix[aria-label^="La Tortue-île"]').click()
-  await page.waitForSelector('.niche-choix[aria-label="La Tortue-île"][aria-pressed="true"]')
-  await page.evaluate(`document.querySelector('.niche-fiche .carte-corps').scrollTo(0, 0)`)
-  await patienter(800)
-  await fiche('03f-fiche-tortue')
-  await page.locator('.niche-choix[aria-label^="Nox"]').click()
-  await page.waitForSelector('.niche-choix[aria-label="Nox"][aria-pressed="true"]')
-  // Sa plus haute forme reprend sa niche : l'adulte, ou, ses paliers passés, le loup des étoiles.
-  const plusHaute = paliers > 0 ? 'Le loup des étoiles' : 'Le loup adulte'
-  await page.locator(`.niche-choix[aria-label="${plusHaute}"]`).click()
-  await page.waitForSelector(`.niche-choix[aria-label="${plusHaute}"][aria-pressed="true"]`)
-  await page.locator('.niche-fiche .carte-fermer').click()
+  // La niche, au-dessus du voile, est inerte : le doigt qui la touche touche le voile, qui referme la bulle.
+  const coin = await page.locator('.niche').boundingBox()
+  await page.mouse.click(coin.x + coin.width / 2, coin.y + coin.height / 2)
+  await page.waitForSelector('.niche-fiche', { state: 'detached', timeout: 3000 }).catch(() => console.error('[fiche] la niche touchée ne la referme pas'))
+  // « Chez lui », depuis l'accueil : sa page.
+  await ouvrirLaFiche()
+  await page.locator('.niche-fiche-gestes a.chez-pastille').click()
+  await page.waitForSelector('.chez-scene .chez-niche .niche-bete img', { timeout: 15000 }).catch(() => console.error('[fiche] « Chez lui » ne mène pas chez lui'))
+  await patienter(600)
+  // Caressé dans sa fiche, il est réveillé : pas de volets fermés chez lui.
+  if (await page.locator('.chez-volets').count()) console.error('[fiche] caressé dans sa fiche, il dort encore chez lui')
+  await fiche('03b-chez-lui-depuis-l-accueil')
 
   await aller('/profil', '.profil-boutons .gros-compte')
   await page.waitForSelector('.profil-boutons .gros-icone .niche-mini', { timeout: 8000 }).catch(() => console.error('[profil] pas de niche sur « Mon compagnon »'))
   await photo(page, '04-profil')
+  // « Chez lui », depuis le profil : la même page, l'adresse seule change (`#compagnon`) — rien ne se recharge.
+  await page.evaluate('window.pasRecharge = true')
+  await ouvrirLaFiche()
+  await page.locator('.niche-fiche-gestes a.chez-pastille').click()
+  await page.waitForSelector('.chez-scene .chez-niche .niche-bete img', { timeout: 15000 }).catch(() => console.error('[fiche] « Chez lui » ne mène pas chez lui, depuis le profil'))
+  if (!(await page.evaluate('window.pasRecharge === true'))) console.error('[fiche] « Chez lui » a rechargé la page du profil')
+  await aller('/profil', '.profil-boutons .gros-compte')
   // « Mon compagnon », chez lui : la niche du coin s'efface, il est là en grand (`rendu-compagnon.ts` en fait le tour).
   await page.getByRole('button', { name: /Mon compagnon/ }).click()
   await page.waitForSelector('.chez-scene .chez-niche .niche-bete img')
@@ -298,6 +293,10 @@ async function solo() {
   await page.mouse.wheel(0, 420)
   await patienter(700)
   await page.screenshot({ path: path.join(sortie, '11-repli.png') })
+  // Repliée, touchée : elle se déplie, et sa bulle sort d'elle.
+  await ouvrirLaFiche()
+  await fiche('11b-repli-fiche')
+  await page.keyboard.press('Escape')
 
   await aller('/jour', '.jour-heros')
   await photo(page, '12-jour')

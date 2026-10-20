@@ -111,7 +111,7 @@ export interface Compagnon {
    * 13 octobre 2026), son nom et sa légende ceux de la maquette. Elle ne la
    * remplace pas : c'est une forme de plus, qu'on choisit (le propriétaire,
    * le 19 octobre 2026 : « je veux que ce soit un choix ») — en avatar dans
-   * la loge, dans sa niche depuis « Ma niche » —, ouverte à sa forme ultime
+   * la loge, dans sa niche depuis « Décorer », chez lui —, ouverte à sa forme ultime
    * quand l'Éclat brille sur lui (`metamorphoseOuverte`). Facultative : un
    * compagnon livré sans elle n'en promet aucune, et l'Éclat ne lui pose que
    * ses paillettes — la luciole, jusqu'à sa luciole-aurore (le 20 octobre 2026).

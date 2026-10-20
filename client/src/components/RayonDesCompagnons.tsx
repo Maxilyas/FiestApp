@@ -344,8 +344,8 @@ export function RayonDesCompagnons({
         <p className="card theme-achete" role="status">
           {espacesFines(
             adopte.installe
-              ? `${adopte.c.nom} est à toi : ${adopte.c.le === 'la' ? 'elle' : 'il'} s’installe dans ta niche. Touche-la pour lui donner un nom.`
-              : `${adopte.c.nom} est à toi. ${adopte.resteLa ? `${adopte.resteLa.charAt(0).toUpperCase()}${adopte.resteLa.slice(1)} garde ta niche` : 'Ta niche ne change pas'} : touche-la pour changer quand tu veux.`,
+              ? `${adopte.c.nom} est à toi : ${adopte.c.le === 'la' ? 'elle' : 'il'} s’installe dans ta niche. « Gérer ma niche », pour lui donner un nom.`
+              : `${adopte.c.nom} est à toi. ${adopte.resteLa ? `${adopte.resteLa.charAt(0).toUpperCase()}${adopte.resteLa.slice(1)} garde ta niche` : 'Ta niche ne change pas'} : « Gérer ma niche », pour changer quand tu veux.`,
           )}
         </p>
       )}

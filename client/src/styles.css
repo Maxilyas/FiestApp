@@ -11146,33 +11146,108 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
   15% { opacity: 1; }
   100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1.1) rotate(var(--r)); }
 }
-/* Sa fiche : lui en grand, dans la même niche. */
-.niche-fiche .carte-corps { gap: 14px; padding-bottom: max(22px, env(safe-area-inset-bottom)); }
-.niche-fiche-tete { display: flex; align-items: center; gap: 18px; }
-.niche-grande { --l: 108px; position: relative; flex: none; width: var(--l); height: calc(var(--l) * 62 / 54); }
-.niche-fiche-texte { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.niche-fiche-nom { font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.1; }
-.niche-fiche-legende,
-.niche-fiche-regle { margin: 0; }
-.niche-fiche-jauge { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 2.75em; }
-.niche-fiche-gestes { display: flex; gap: 10px; }
-.niche-fiche-gestes .btn { flex: 1; justify-content: center; min-height: 48px; }
-/* Sa gestion (le 19 octobre 2026) : son nom, qu'on lui donne d'ici ; la forme
-   qu'il montre et celui des siens qui y vit, en petites niches — celle qui y
-   vit pressée, d'un anneau d'or. */
-.niche-renommer { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin-top: 2px; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; font-size: 0.875rem; cursor: pointer; }
-.niche-renommer:hover { color: var(--accent-text-hover); }
-.niche-renommer svg { width: 15px; height: 15px; }
+/* Sa fiche (le 20 octobre 2026) : une bulle qui sort de sa niche, sous elle,
+   la page sous un voile léger — « un truc plus soft » que la feuille de sa
+   gestion, qui montait du bas. La niche se déplie et passe au-dessus du
+   voile (`.ouverte`) : on voit d'où sort la bulle, et la toucher la referme
+   (inerte, elle laisse le geste au voile). Un objet peint, comme elle : sa
+   nuit et son or, qu'aucun thème ne repeint — sa pointe compte sur ce fond
+   uni. La bulle est opaque dès sa première image ; seul le voile se fond,
+   par sa couleur (règle `css.md`). */
+.niche.ouverte { z-index: 61; }
+.niche-fiche-voile {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(8, 5, 4, 0.42);
+  touch-action: none;
+  animation: voile-tombe 0.18s ease-out both;
+}
+.niche-fiche {
+  position: fixed;
+  /* Sous la niche dépliée (62 pixels de haut), à son bord droit : celui de la colonne du téléphone. */
+  top: calc(max(20px, calc(env(safe-area-inset-top) - 4px)) + 74px);
+  right: max(16px, calc((100vw - 560px) / 2 + 16px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: min(320px, calc(100vw - 32px));
+  padding: 18px 16px 16px;
+  border: 1px solid rgba(217, 181, 106, 0.55);
+  border-radius: 22px;
+  background: radial-gradient(circle at 50% 66px, rgba(233, 201, 127, 0.16), rgba(233, 201, 127, 0) 120px), #1a1412;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 236, 190, 0.08);
+  color: #f3ece2;
+  text-align: center;
+  transform-origin: calc(100% - 27px) -8px;
+  animation: niche-fiche-sort 0.28s cubic-bezier(0.3, 0.7, 0.35, 1.15) both;
+}
+.niche-fiche:focus { outline: none; }
+/* Sa pointe, sous le milieu de la niche (27 pixels de son bord droit). */
+.niche-fiche::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  right: 20px;
+  width: 14px;
+  height: 14px;
+  border-top: 1px solid rgba(217, 181, 106, 0.55);
+  border-left: 1px solid rgba(217, 181, 106, 0.55);
+  border-top-left-radius: 3px;
+  background: #1a1412;
+  transform: rotate(45deg);
+}
+@keyframes niche-fiche-sort {
+  from { transform: translateY(-6px) scale(0.86); }
+}
+/* Un écran couché, peu haut : elle défile dans son cadre plutôt que de passer sous le bord. */
+@media (max-height: 480px) {
+  .niche-fiche { max-height: calc(100vh - 110px); overflow-y: auto; overscroll-behavior: contain; }
+}
+.niche-fiche-fermer { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: none; color: rgba(243, 236, 226, 0.7); cursor: pointer; }
+.niche-fiche-fermer:hover { color: #f3ece2; }
+.niche-fiche-fermer .icon { width: 18px; height: 18px; }
+/* Lui en grand : le toucher le caresse. */
+.niche-grande { --l: 84px; position: relative; flex: none; width: var(--l); height: calc(var(--l) * 62 / 54); margin: 2px 0 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.niche-fiche-nom { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
+.niche-fiche-forme { color: rgba(243, 236, 226, 0.72); font-size: 0.8125rem; line-height: 1.3; }
+.niche-fiche-amitie { color: #e8cb8a; font-size: 0.8125rem; font-weight: 700; }
+/* Où il en est, puis ses envies du jour : leur place gardée pendant la lecture. */
+.niche-fiche-jauge { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 6px; align-self: stretch; min-height: 3.1em; margin-top: 10px; }
+.niche-fiche-barre { display: block; height: 5px; border-radius: 3px; background: rgba(243, 236, 226, 0.14); overflow: hidden; }
+.niche-fiche-barre > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f6dfa0, #d9a640); box-shadow: 0 0 8px rgba(246, 223, 160, 0.55); }
+.niche-fiche-petit { color: rgba(243, 236, 226, 0.72); font-size: 0.8125rem; line-height: 1.35; }
+.niche-fiche-jour { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 30px; margin: 8px 0 0; text-align: left; }
+.niche-fiche-envies { flex: none; display: flex; gap: 4px; }
+.niche-fiche-envies i { display: grid; place-items: center; width: 26px; height: 26px; border: 1.5px dashed rgba(233, 201, 127, 0.5); border-radius: 50%; color: rgba(243, 236, 226, 0.65); }
+.niche-fiche-envies i .chez-icone { width: 14px; height: 14px; stroke-width: 1.8; }
+.niche-fiche-envies i.faite { border: 0; background: linear-gradient(180deg, #ecd08e, #c99c4c); color: #2a1d10; }
+.niche-fiche-envies i.cadeau { width: 30px; height: 30px; border: 0; animation: chez-gigote 1.8s ease-in-out infinite; }
+.niche-fiche-envies i.cadeau svg { display: block; width: 100%; height: 100%; }
+.niche-fiche-cadeau { color: #f6dfa0; font-size: 0.875rem; font-weight: 700; line-height: 1.3; }
+.niche-fiche-gestes { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
+/* Ses cœurs s'envolent dans la bulle : moins haut qu'à la boutique, qui a toute sa scène. */
+.niche-envols i { top: 36%; }
+.niche-envols i:nth-child(1) { --x: -52px; --y: -54px; }
+.niche-envols i:nth-child(2) { --x: -24px; --y: -78px; }
+.niche-envols i:nth-child(3) { --x: 4px; --y: -88px; }
+.niche-envols i:nth-child(4) { --x: 30px; --y: -72px; }
+.niche-envols i:nth-child(5) { --x: 54px; --y: -50px; }
+@media (prefers-reduced-motion: reduce) {
+  .niche-fiche,
+  .niche-fiche-envies i.cadeau { animation: none; }
+}
+/* Son nom, sur sa page et dans la galerie : un champ et « Garder ». */
 .niche-nommer { display: flex; flex-direction: column; gap: 6px; }
 .niche-nommer .label { margin: 0; }
 .niche-nommer-ligne { display: flex; gap: 8px; }
 .niche-nommer-ligne input { flex: 1; min-width: 0; }
 .niche-nommer-ligne .btn { flex: none; }
-.niche-nommer-annuler { align-self: flex-start; }
+/* « Décorer », l'onglet « Sa niche » : la forme qu'il y montre, en petites
+   niches — celle qui y vit pressée, d'un anneau d'or —, et ses ornements. */
 .niche-fiche-section { display: flex; flex-direction: column; gap: 8px; }
 .niche-fiche-section .label { margin: 0; }
-.niche-fiche-section-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.niche-fiche-section-tete .link-inline { font-size: 0.875rem; }
 .niche-choix-rangee { display: flex; flex-wrap: wrap; gap: 8px; }
 .niche-choix {
   display: flex;
@@ -11199,16 +11274,7 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
 .niche-choix.neuve .niche-mini::after { content: ''; position: absolute; top: -2px; left: -2px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .niche-choix-nom { max-width: 100%; font-size: var(--t-label); line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
 .niche-choix[aria-pressed='true'] .niche-choix-nom { color: var(--accent-text); font-weight: 600; }
-.niche-mini-vide { display: grid; place-items: center; border: 1px dashed var(--edge-strong); border-radius: calc(var(--l) / 2) calc(var(--l) / 2) 12px 12px; color: var(--accent-text); }
-.niche-mini-vide svg { width: 22px; height: 22px; }
 .niche-choix-aide { margin: 0; }
-/* Ses cœurs s'envolent dans la feuille : moins haut qu'à la boutique, qui a toute sa scène. */
-.niche-envols i { top: 36%; }
-.niche-envols i:nth-child(1) { --x: -52px; --y: -54px; }
-.niche-envols i:nth-child(2) { --x: -24px; --y: -78px; }
-.niche-envols i:nth-child(3) { --x: 4px; --y: -88px; }
-.niche-envols i:nth-child(4) { --x: 30px; --y: -72px; }
-.niche-envols i:nth-child(5) { --x: 54px; --y: -50px; }
 /* Immobile si le téléphone demande moins de mouvement : ses humeurs changent encore, rien ne bouge — ni souffle, ni pluie, ni vol ; il triomphe dans sa niche sans en sortir. */
 @media (prefers-reduced-motion: reduce) {
   .niche,
@@ -11303,21 +11369,16 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
   .orne-peint-halo,
   .orne-scintille { animation: none; }
 }
-/* « Sa niche s'embellit », dans sa gestion : chaque ornement gagné, ses trois
+/* Dans sa fiche, l'étoile de l'arche dorée et le halo sortent de lui par le
+   haut : la bulle leur laisse la place sous son bord. Peinte, sa niche déborde
+   de partout — le lierre de ses flancs et sous elle, la guirlande, l'étoile,
+   le halo — : au milieu de la bulle, elle a ses côtés ; dessus et dessous, la
+   place de ce qui la déborde, ou le lierre passait sur son nom. */
+.niche-grande:has(.orne-arche, .niche-halo) { margin-top: 18px; }
+.niche-grande:has(.orne-peint) { margin: 26px 0 16px; }
+/* « Sa niche s'embellit », dans « Décorer » : chaque ornement gagné, ses trois
    choix — peint, dessiné, caché —, chacun l'ornement seul sur une petite
    niche vide (`ApercuDOrnement`) ; puis ceux qui viennent, et à combien. */
-.niche-gestion { display: flex; flex-direction: column; gap: 14px; }
-/* L'étoile de l'arche dorée et le halo sortent de lui par le haut : en tête d'une feuille qui défile, elle les couperait. */
-.niche-grande:has(.orne-arche, .niche-halo) { margin-top: 20px; }
-/* Peinte, sa niche déborde de partout — le lierre de ses flancs et sous elle,
-   la guirlande, l'étoile, le halo — : à côté de son nom, le lierre passait
-   sur lui et sur la phrase d'en dessous, et le bord de l'écran le coupait. Elle
-   passe au-dessus, au milieu, avec la place de ce qui la déborde. */
-.niche-fiche-tete:has(.orne-peint) { flex-direction: column; gap: 22px; text-align: center; }
-.niche-fiche-tete:has(.orne-peint) .niche-fiche-texte { align-items: center; }
-.niche-fiche-tete:has(.orne-peint) .niche-renommer { align-self: center; }
-.niche-grande:has(.orne-peint) { margin: 32px 0 12px; }
-.niche-fiche-amitie { color: var(--or-text); font-size: 0.875rem; font-weight: 700; }
 .niche-ornes { display: flex; flex-direction: column; gap: 10px; }
 .niche-orne { display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 10px; border: 1px solid var(--edge); border-radius: var(--radius-xs); }
 .niche-orne-styles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -11565,8 +11626,11 @@ body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
 /* Ce qu'un toucher fait là, maintenant — une seule pastille : « Décorer », sa friandise, la jauge du câlin. Les gros boutons de l'ancienne page n'y sont plus (« gros et pas jolis »). */
 .chez-gestes { position: absolute; left: 0; right: 0; bottom: 6px; z-index: 8; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; pointer-events: none; }
 .chez-gestes > * { pointer-events: auto; }
-.chez-pastille { position: relative; display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 15px 0 12px; border: 1px solid rgba(217, 181, 106, 0.42); border-radius: var(--radius-pill); background: rgba(18, 13, 11, 0.58); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #f3ece2; font: inherit; font-size: 0.84rem; font-weight: 600; white-space: nowrap; cursor: pointer; transition: transform 0.15s ease; }
+.chez-pastille { position: relative; display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 15px 0 12px; border: 1px solid rgba(217, 181, 106, 0.42); border-radius: var(--radius-pill); background: rgba(18, 13, 11, 0.58); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #f3ece2; font: inherit; font-size: 0.84rem; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; transition: transform 0.15s ease; }
 .chez-pastille::before { content: ''; position: absolute; inset: -4px 0; }
+/* En lien (« Chez lui », dans la fiche de la niche), elle garde sa couleur au survol : celle des liens d'Ivoire s'y perdait. */
+a.chez-pastille:hover { color: #f3ece2; }
+a.chez-pastille.or:hover { color: #1a1412; }
 .chez-pastille:active { transform: scale(0.96); }
 .chez-pastille:disabled { opacity: 0.7; cursor: progress; }
 .chez-pastille .icon,

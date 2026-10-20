@@ -328,7 +328,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | « Mes trophées » | Le panneau de la pièce « Vitrine » de la loge : les trophées gagnés, à toucher jusqu'à trois, dans l'ordre où la carte les montrera — « Mes hauts faits » jusqu'au 13 octobre 2026 | `MaVitrine` (`client/src/components/Trophees.tsx`) |
 | Mesure | La phase où une estimation en direct, close, attend la valeur que l'animateur tape | `cible` |
 | Mesure des pages | Ce que chaque page fait attendre à un téléphone bridé, cache vide puis plein, avant et après une retouche | `server/scripts/mesure-pages.ts` |
-| Métamorphose (d'un compagnon) | Sa métamorphose de lumière — le loup-tempête, le chat-soleil, l'île en fleurs, la luciole-aurore —, que l'Éclat ouvre à sa forme ultime : une forme de plus, qui ne remplace rien, choisie en avatar dans la loge et dans sa niche dans « Ma niche » | `Compagnon.lumiere`, `metamorphoseOuverte`, `MONTREE_DE_LA_METAMORPHOSE` |
+| Métamorphose (d'un compagnon) | Sa métamorphose de lumière — le loup-tempête, le chat-soleil, l'île en fleurs, la luciole-aurore —, que l'Éclat ouvre à sa forme ultime : une forme de plus, qui ne remplace rien, choisie en avatar dans la loge et dans sa niche dans « Décorer », chez lui | `Compagnon.lumiere`, `metamorphoseOuverte`, `MONTREE_DE_LA_METAMORPHOSE` |
 | Miroir | La copie de la soirée en cours dans la base permanente (les tables `party_*`), d'où elle se recharge quand le disque est reparti vide | `PartyBackup` |
 | Mise de côté | Une question gardée dans le quiz sans être jouée — ni prête, ni à compléter | `deCote` |
 | Mode (d'une partie) | Ce que joue une ligne de `campagne_series` : une série, une révision, un défi, une épreuve de sentier, un parcours, un duel ou une rencontre | `campagne_series.mode` |
@@ -346,7 +346,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | Ne plus l'attendre | Le geste de l'animateur qui dispense un téléphone mort d'être attendu à chaque question | `dispenses` |
-| Niche | La petite fenêtre en arche, en haut à droite de chaque page du téléphone, où vit le compagnon qui grandit ; il y réagit à la révélation — souffle retenu, ravi, dépité, des cœurs —, en sort au podium, et la toucher ouvre « Ma niche », sa gestion : son nom, la forme qu'il y montre, celui des siens qui y vit — sans compagnon, pas de niche | `compagnonDeLaNiche`, `profiles.niche`, `profile_compagnons.nom`, `components/Niche.tsx`, `shared/niche.ts` |
+| Niche | La petite fenêtre en arche, en haut à droite de chaque page du téléphone, où vit le compagnon qui grandit ; il y réagit à la révélation — souffle retenu, ravi, dépité, des cœurs —, en sort au podium, et la toucher ouvre sa fiche, une bulle : le caresser, où il en est, ses envies du jour, et « Chez lui », sa page, où se règlent son nom, la forme qu'il y montre, celui des siens qui y vit — sans compagnon, pas de niche | `compagnonDeLaNiche`, `profiles.niche`, `profile_compagnons.nom`, `components/Niche.tsx`, `shared/niche.ts` |
 | Niveau | Ce que l'expérience donne sur la courbe 60 × (n − 1)², ou celui qu'une courbe d'avant avait donné, s'il est plus haut et qu'elle le donne encore | `niveauDuProfil` |
 | Niveau d'Automate | Le score qu'Automate vise sur une série : le niveau de campagne du joueur pendant son placement, puis celui de sa cote | `niveauPourLeDuel` |
 | Niveau de campagne | Le score qu'un joueur ferait en moyenne sur une série tirée pour lui, d'après ses réponses de campagne | `scoreDeReference` |

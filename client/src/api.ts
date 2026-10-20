@@ -401,9 +401,9 @@ export const api = {
     nouveautes: () => req<NouveautesDeLaLoge>('/api/joueur/nouveautes'),
     /**
      * Le compagnon de sa niche et où il en est, tous les siens, et leurs
-     * métamorphoses qu'il n'a pas encore vues (`neuves`) — sa fiche, ouverte
-     * au toucher de la niche ; null et rien sans compagnon. Un serveur d'avant
-     * ne dit que le premier.
+     * métamorphoses qu'il n'a pas encore vues (`neuves`) — sa page, et sa
+     * fiche, ouverte au toucher de la niche ; null et rien sans compagnon. Un
+     * serveur d'avant ne dit que le premier.
      */
     niche: () => req<{ niche: CompagnonAcquis | null; compagnons?: CompagnonAcquis[]; neuves?: string[] }>('/api/joueur/niche'),
     /**

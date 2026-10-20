@@ -3,9 +3,11 @@
 // de chaque page du téléphone, et c'est lui qui grandit — qu'on le porte en
 // avatar ou non : « porter un médaillon ne fait grandir personne ». Adopté, il
 // s'y installe ; on l'y change d'un geste ; ce qu'on porte ne la fait plus
-// bouger (le 19 octobre 2026 : sa gestion, `ma-niche.test.ts`).
+// bouger (le 19 octobre 2026 : sa gestion, `ma-niche.test.ts`). La toucher
+// ouvre sa fiche, une bulle sous elle (le 20 octobre 2026).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
 import {
   attendre,
@@ -97,7 +99,15 @@ async function niche(composant: 'Niche' | 'FicheDeLaNiche', props: object): Prom
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
 
-test('la niche : son décor peint, lui en buste tourné vers la page — sa fiche : sa forme, sa jauge, « Le caresser »', async () => {
+/** Une règle de la feuille de styles, par son sélecteur exact. */
+function regle(selecteur: string): string {
+  const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
+  const debut = css.indexOf(`\n${selecteur} {`)
+  assert.ok(debut >= 0, `la règle ${selecteur}`)
+  return css.slice(debut, css.indexOf('}', debut) + 1)
+}
+
+test('la niche : son décor peint, lui en buste tourné vers la page — sa fiche, une bulle : sa forme, sa jauge, « Le caresser », « Chez lui »', async () => {
   const { DESSINS } = await import(client('components/compagnons-peints.ts'))
   const adulte = await niche('Niche', { compagnon: 'loup', rang: 2 })
   assert.match(adulte, /<button type="button" class="niche niche-loup" aria-label="Le loup adulte, dans ta niche : sa fiche" aria-haspopup="dialog">/)
@@ -110,15 +120,37 @@ test('la niche : son décor peint, lui en buste tourné vers la page — sa fich
   // Une forme que le catalogue ne connaît pas : rien plutôt qu'un cadre vide.
   assert.equal(await niche('Niche', { compagnon: 'dragon', rang: 1 }), '')
 
+  // Sa fiche, une bulle sous elle (le 20 octobre 2026, « un truc plus soft »), nommée par lui.
   const fiche = await niche('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 2 }, onFermer: () => {} })
-  assert.match(fiche, /role="dialog" aria-modal="true" aria-label="Ma niche"/)
-  assert.match(fiche, /<b class="niche-fiche-nom">Le loup adulte<\/b>/)
+  const titre = /role="dialog" aria-modal="true" aria-labelledby="([^"]+)"/.exec(fiche)?.[1]
+  assert.ok(titre, 'un dialogue, nommé par son nom')
+  assert.ok(fiche.includes(`<b id="${titre}" class="niche-fiche-nom">Le loup adulte</b>`))
   assert.match(fiche, /Troisième forme · épique/)
-  assert.match(fiche, /Celui de ta niche grandit avec tes bonnes réponses, en soirée, au quiz du jour et en campagne — sans jamais te donner d’avantage\./)
+  assert.ok(fiche.includes(`src="${DESSINS['cp:loup-adulte'].perso[0]}"`), 'lui en grand, qu’on caresse en le touchant')
   assert.match(fiche, />Le caresser<\/button>/)
-  assert.match(fiche, /<a class="link-inline" href="\/boutique#compagnon-loup">Ses formes<\/a>/)
-  // Sa jauge se lit à l'ouverture : sa place est gardée en attendant.
-  assert.match(fiche, /<div class="niche-fiche-jauge" aria-live="polite"><span class="muted small">…<\/span><\/div>/)
+  assert.match(fiche, /<a class="chez-pastille" href="\/profil#compagnon"><svg[^>]*>.*?<\/svg>Chez lui<\/a>/)
+  // Sa jauge et ses envies du jour se lisent à l'ouverture : leur place est gardée en attendant.
+  assert.match(fiche, /<div class="niche-fiche-jauge" aria-live="polite"><span class="niche-fiche-petit">…<\/span><\/div>/)
+  assert.match(fiche, /<p class="niche-fiche-jour"><span class="niche-fiche-petit">…<\/span><\/p>/)
+  // Ce qui le fait grandir, et sans avantage : « Comment ça marche », sur sa page — la bulle ne le redit plus.
+  const { CommentCaMarche } = await import(client('components/MonCompagnon.tsx'))
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const regles = renderToStaticMarkup(React.createElement(CommentCaMarche, { c: compagnon('loup'), complicite: 0, trouvees: 0 }))
+  assert.match(regles, /Chaque bonne réponse le nourrit — en soirée, au quiz du jour, en campagne\./)
+  assert.match(regles, /Ni ses formes ni ses trouvailles ne donnent d’avantage de jeu\./)
+})
+
+test('sa fiche sort de la niche : la niche passe au-dessus d’un voile léger, qui ne laisse aucun geste à la page et s’assombrit par sa couleur', () => {
+  const voile = regle('.niche-fiche-voile')
+  assert.match(voile, /touch-action: none;/)
+  assert.match(voile, /animation: voile-tombe /, 'au pas de la bulle, par sa couleur')
+  assert.doesNotMatch(voile, /opacity/)
+  const niveau = (r: string) => Number(/z-index: (\d+);/.exec(r)?.[1])
+  assert.ok(niveau(regle('.niche.ouverte')) > niveau(voile), 'la niche, au-dessus : on voit d’où sort la bulle')
+  assert.ok(niveau(voile) > niveau(regle('.menu-barre')), 'le voile couvre la barre du menu')
+  // Opaque dès sa première image : la bulle grandit, elle ne se fond pas.
+  assert.doesNotMatch(regle('.niche-fiche'), /opacity/)
+  assert.match(regle('.niche-fiche'), /background: [^;]*#1a1412;/, 'un sol plein, qu’aucun thème ne repeint')
 })
 
 /** Le rayon des compagnons, rendu pour ce profil. */
