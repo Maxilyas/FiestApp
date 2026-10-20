@@ -684,7 +684,10 @@ const PANDA: Compagnon = {
     'Its identity never changes from one age to the next: a rich, plush reddish-orange coat; a cream-white face with a soft white muzzle, ' +
     'two small cream-white brow spots above the eyes and big cream-white cheek patches; small rounded ears with soft white fur outside and ' +
     'russet inside; big sparkling amber eyes with several catchlights; a small heart-shaped dark-brown nose; dark russet chest and legs; a ' +
-    'fluffy tail ringed in rust-red and pale apricot bands. It must look like a red panda, never a giant panda or a fox.',
+    'fluffy tail ringed in rust-red and pale apricot bands. It must look like a red panda, never a giant panda or a fox. At EVERY age it keeps ' +
+    'the eyes of the baby: large, round, wide-open amber eyes with several soft catchlights, a tender and innocent gaze — only a little smaller ' +
+    'against the face as it grows, never small, beady or realistic animal eyes. The rendering is the same at every age: stylized, soft, ' +
+    'premium 3D animated film — appealing rounded shapes and plush fur, never photorealistic, never a painterly illustration.',
   ages: [
     'a tiny baby red panda sitting shyly, tiny and fluffy, with an oversized round head, chubby cheeks, tiny rounded ears and its paws resting ' +
       'together, its striped tail curled around its little body',
