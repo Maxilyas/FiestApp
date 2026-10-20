@@ -108,25 +108,81 @@ cents expéditions, au code final.)
   (`MARCHES_DES_ACTES`) : la version 15 le rompt pour l'acte 3
   (`MARCHES_PLUS_DURES`). Les crans et l'attaque restent ceux de la version
   14 : le plus simple qui tient la cible.
-- **Le niveau 1 n'y est pas** : le fort à 34 au lieu de 50, le moyen à 9.
-  L'écart entre le niveau 1 et le niveau 3 vient des fioles — ouvertes au
-  niveau 3, deux bues par expédition — : tout réglage commun qui remonte le
-  niveau 1 à cinquante remonte les autres au-dessus de soixante-dix. Un niveau
-  1 plus dur, dans le sens de l'offset ; à défaire, s'il le faut, par une
-  règle du codex au niveau 1, pas par la difficulté de tous.
-- **Le faible à 5 ou 6** au lieu de 2 ou 3 : il va au bout quand les cartes
-  d'aide tombent bien, que la version 14 lui donnait déjà (7 à 9).
-- **Débloquer n'affaiblit pas** : le moyen va au bout 9, 21, 24 puis 22 fois
-  sur cent — le niveau 10 sous le 6, dans le bruit de cinq cents expéditions,
-  comme en version 14 (61, puis 55).
+- **Le niveau 1 n'y était pas** : le fort à 34 au lieu de 50, le moyen à 9 —
+  l'écart au niveau 3 venait des fioles et des premières rares.
+
+### La cible revue : les cartes plus rares aident à gagner
+
+En cours de route, la session qui avait lancé la version 15 a relayé le
+propriétaire :
+
+> « Je veux qu'avec les cartes plus rares, et du coup le fait de jouer, ça
+> aide vraiment à gagner. Je suis d'accord pour avoir un faible pourcentage
+> de victoire au début. »
+
+et une cible neuve, l'offset compris : **au niveau 1, le fort à 30-35 %, le
+moyen à 5, le faible à 0 ou 1 ; au 3, 45 et 10 à 12 ; au 6, 55 à 60 et 18 à
+20 ; au 10, 65 à 70, 25 à 30 et 3 à 5** — la carrière qui monte nettement
+d'un tiers à l'autre, chaque rare et chaque épique seule nettement au-dessus
+d'une commune, et au niveau 10 le joueur qui ne prend rien bien en dessous de
+celui qui joue. D'abord durcir ce qui ne dépend pas des cartes, puis régler
+les rares et les épiques pour qu'elles rattrapent.
+
+Le soin d'abord : la source, le campement, l'échoppe et la fiole de courage
+ne rendent plus que **la moitié** (`SOIN_DU_DETAIL`). Puis la rareté, avec
+les marches retenues plus haut — trois cents expéditions par case, puis cinq
+cents :
+
+| Essai | Niveau 1 | Niveau 3 | Niveau 6 | Niveau 10 |
+|---|---|---|---|---|
+| le soin à 40 %, +3 crans à l'épique, plus d'épiques dans les offres | 0 · 5 · 26 | 2 · 15 · 46 | 2 · 13 · 48 | 3 · 16 · 50 |
+| le même, une épique efface deux réponses sur sa question | 0 · 6 · 26 | 2 · 16 · 44 | 2 · 14 · 47 | 2 · 17 · 50 |
+| le même, une rare en efface une | 0 · 7 · 31 | 2 · 15 · 50 | 2 · 18 · 52 | 3 · 19 · 54 |
+| sans effacer : une rare pare la moitié de l'attaque, une épique toute | 1 · 6 · 27 | 2 · 17 · 50 | 2 · 19 · 53 | 2 · 19 · 52 |
+| la parade et l'effacement de l'épique, encore plus d'épiques dans les offres | 1 · 6 · 27 | 1 · 17 · 51 | 2 · 19 · 47 | 3 · 15 · 53 |
+| la parade et l'effacement, une épique jouée en plus de la carte de la question | 1 · 6 · 27 | 2 · 17 · 50 | 2 · 18 · 54 | 2 · 22 · 52 |
+| la parade, les fioles au niveau 6 au lieu du 3 | 1 · 6 · 27 | 1 · 13 · 50 | 2 · 19 · 53 | 2 · 19 · 52 |
+| la parade et l'effacement, une rare qui pare tout, le soin à moitié | 1 · 8 · 31 | 2 · 15 · 55 | 4 · 23 · 59 | 3 · 26 · 56 |
+| **la parade (la moitié, toute), le soin à moitié, le joueur remis à jour** (retenu) | **1 · 6 · 30** | **3 · 17 · 50** | **4 · 22 · 59** | **4 · 24 · 59** |
+
+(la ligne retenue, cinq cents expéditions, au code final ; les crans de
+l'épique et l'effacement retirés, sans effet.)
+
+- **Une rare jouée sur la question pare la moitié de l'attaque d'une
+  erreur, une épique toute** (`PARADE_DE_LA_RARETE`), en plus de ce
+  qu'elle fait. Le codex ouvre les rares à partir du niveau 2 et les
+  épiques à partir du 6 : la règle ne touche presque pas le niveau 1, et
+  fait monter les autres. Les règles le disent, l'aperçu et la carte levée
+  le promettent.
+- **Ce qui n'a rien fait** : des crans de plus à l'épique — face aux
+  expertes, frapper ne sert pas, c'est trouver qui compte —, deux réponses
+  effacées par une épique (le joueur les garde pour l'élite et le gardien,
+  il en a rarement une à la question qu'il ne sait pas), une épique en plus
+  de la carte de la question (il joue dix-sept cartes en quarante questions :
+  ce n'est pas la règle qui le borne), plus d'épiques dans les offres (il
+  laisse celles qui ne valent rien), les fioles plus tard. Retirés : le plus
+  simple qui tient.
+- **Le joueur simulé, remis à jour** : il prend les cartes dans l'ordre de
+  leur mesure seule sous ces règles (`PREFERENCE_DU_DETAIL`) — l'Encyclopédie,
+  Représailles, Génie et Rafle, mortes avant la parade, y entrent.
+- **Où l'on en est** : le niveau 1 et le niveau 6 sont dans la cible ; le
+  niveau 3 au-dessus (le fort à 50 au lieu de 45, le moyen à 17 au lieu de
+  10-12) ; le fort du niveau 10 en dessous (59 au lieu de 65-70), le moyen à
+  la marge basse (24). Passé le niveau 3, une carte de plus aide moins : une
+  carte par question, et le joueur en a déjà une qui sert. Sans prendre une
+  carte (`--seule rien`), au niveau 10 : 1 · 5 · 26 — jouer double la
+  chance du fort, quintuple celle du moyen.
 - **La carrière** (cinquante joueurs, vingt expéditions) : le moyen au bout
-  17 fois sur cent à ses trois premières (42 en version 14), puis 21 et 22
-  (60) ; le fort 35, puis 56 et 53 (95 à 98) ; le faible 1 à 5 (3 à 6). Le
-  moyen passe le niveau 10 à sa quinzième expédition (treizième) : la
-  renommée vient aussi des expéditions perdues. Les exploits : le gardien de
-  l'acte 3 intact, 46 moyens sur cent en vingt expéditions (86), 78 forts
-  (100).
-- **L'Ascension** : [ASCENSION]
+  16 fois sur cent à ses trois premières, 21 de la 4ᵉ à la 10ᵉ, 26 de la
+  11ᵉ à la 20ᵉ (42, 60 et 60 en version 14) ; le fort 31, 48 et 59 ; le
+  faible 1, 2 et 5. Le moyen passe le niveau 10 à sa quinzième expédition
+  (treizième). Les exploits : le gardien de l'acte 3 intact, 64 moyens sur
+  cent en vingt expéditions (86), 82 forts (100).
+- **L'Ascension** (au codex entier, trois cents expéditions, le faible, le
+  moyen et le fort) : 4 · 22 · 60 sans cran, puis 1 · 16 · 52, 1 · 10 · 36,
+  1 · 7 · 36, 0 · 5 · 25 et 1 · 3 · 21 au cran 5 — chaque cran retire
+  encore, le campement et la source à moitié du cran 3 ne retirent rien au
+  fort, qui en a déjà moitié moins.
 
 ## 3. L'Élan : une aide qui revient
 
@@ -135,14 +191,23 @@ cents expéditions, au code final.)
   **Vent arrière** (épique), posé, efface une réponse à chaque question —
   dès celle où il se pose — tant qu'il a juste, retombe à la première erreur
   (`retombentALErreur`), et la carte jouée revient ; il ne frappe plus.
-- Chaque carte seule (`--cartes --version 15 --cas 3`, quatre cents
+- Chaque carte seule (`--cartes --version 15 --cas 3`, deux cent cinquante
   expéditions au niveau 10, le moyen et le fort, contre ne rien prendre —
-  12 et 48) : Inarrêtable +9 · +8, Foulée +5 · +4 (+2 · +3 en version 14),
-  le Rythme +3 · +5 (+6 · +1), Vent arrière +2 · −1 (−1 · +2) — joué d'abord
-  comme un pouvoir sur une question qu'il savait, −1 · −9 : il efface dès sa
-  question, il se joue sur celle qu'on ne sait pas. Échauffement 0 · −9 et
-  Accélération −1 · −4, intouchés : elles frappent, et frapper vaut peu.
-- Les styles : [STYLES]
+  3 et 24) : Foulée +2 · +2 (+2 · +3 en version 14), le Rythme +4 · +5
+  (+6 · +1), Vent arrière +3 · +4 (−1 · +2) — joué d'abord comme un pouvoir
+  sur une question qu'il savait, −1 · −9 : il efface dès sa question, il se
+  joue sur celle qu'on ne sait pas. Inarrêtable +2 · 0, Échauffement
+  +1 · −7 et Accélération +1 · +1, intouchés : la parade de l'épique fait
+  d'Inarrêtable un doublon, et frapper vaut peu.
+- Les styles (`--styles`, quatre cents expéditions, le faible, le moyen et
+  le fort ; le joueur suit son style à la lettre) : au niveau 3, sans style
+  4 · 18 · 52, l'Élan 2 · 13 · 41, le Devin 1 · 11 · 39, l'Érudit
+  1 · 10 · 39, le Métamorphe 2 · 12 · 36, le Flambeur 2 · 11 · 35 ; au
+  niveau 10, sans style 4 · 23 · 60, le Rempart 7 · 27 · 62, l'Érudit
+  3 · 14 · 50, le Devin 3 · 14 · 47, le Métamorphe 2 · 14 · 45, le Flambeur
+  1 · 17 · 41, l'Élan 3 · 12 · 37. Suivi à la lettre, un style laisse les
+  meilleures cartes des autres familles : seul le Rempart, qui répond
+  encore, fait mieux que sans style.
 
 ## 4. Le carnet : le second essai y entre
 
@@ -160,8 +225,21 @@ carnet se relit du journal à chaque lecture.
   question de la base, et ne pourrait entrer au carnet.
 - Le détail ne prend pas le thème de son escale : il l'impose (Arts &
   lettres).
-- Le niveau 1 reste sous la cible, le faible un peu au-dessus, et seules
-  les marches ont bougé (plus haut).
+- La cible revue n'est pas atteinte partout : le niveau 3 un peu trop facile,
+  le fort du niveau 10 six à onze points sous elle (plus haut, « Où l'on en
+  est »).
+
+## Ce qui reste à trancher
+
+- **Cinq rares et épiques ne valent pas encore clairement plus qu'une
+  commune**, seules au niveau 10 (le moyen et le fort contre ne rien
+  prendre ; la meilleure commune, La lettre, +5 · +5) : Banco 0 · −5, Sursis
+  +2 · −4, Accélération +1 · +1, Inarrêtable +2 · 0, Métamorphose +2 · +1.
+  Sursis et Inarrêtable pardonnent une erreur, ce que la parade de leur
+  rareté fait déjà : à retoucher, chacune mesurée seule.
+- **Le fort du niveau 10** : remonter de six à onze points sans toucher au
+  niveau 3 demande ce que seuls les derniers niveaux ouvrent — retoucher
+  leurs cartes (au-dessus), ou une règle du codex au niveau 7 ou plus.
 
 ## Les invariants que l'étape touche
 

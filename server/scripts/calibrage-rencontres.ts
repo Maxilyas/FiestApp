@@ -564,33 +564,45 @@ const PREFERENCE_DES_FAMILLES = [
 /**
  * Au détail (la version 15, le 20 octobre 2026) : le même joueur, dans l'ordre
  * où, seules, les cartes le mènent au bout à cette version — l'acte 3 en
- * experte, le soin plus maigre, la rareté qui se sent, l'Élan retouché
- * (`--cartes --version 15 --cas 3`, deux cent cinquante expéditions, le moyen
- * et le fort ensemble, contre ne rien prendre — 3 et 21) : Pactole +13 · +22,
- * Bastion +11 · +19, Révélation +12 · +14… Celles qui n'y valent pas quatre
- * points à eux deux, il ne les prend pas.
+ * experte, le soin à moitié, la rare qui pare la moitié de l'attaque et
+ * l'épique toute, l'Élan retouché (`--cartes --version 15 --cas 3`, deux cent
+ * cinquante expéditions, le moyen et le fort ensemble, contre ne rien prendre
+ * — 3 et 24) : Pactole +15 · +22, la Bibliothèque +6 · +24, Représailles
+ * +11 · +18, l'Encyclopédie +9 · +15… Celles qui n'y valent pas quatre points
+ * à eux deux, il ne les prend pas.
  */
 const PREFERENCE_DU_DETAIL = [
   'pactole',
+  'bibliotheque',
+  'represailles',
+  'encyclopedie',
   'bastion',
   'revelation',
-  'vision',
-  'bibliotheque',
   'troisieme-oeil',
-  'inarretable',
   'miroir',
-  'cuirasse',
-  'initiale',
   'astrolabe',
-  'vent-arriere',
-  'lettre',
+  'cuirasse',
+  'genie',
+  'rafle',
+  'initiale',
   'lecon',
-  'fortune',
-  'foulee',
+  'vision',
+  'lettre',
   'second-souffle',
+  'rythme',
+  'cameleon',
+  'polymorphe',
+  'vent-arriere',
+  'parade',
+  'contre-attaque',
+  'fortune',
   'prisme',
   'double-chance',
+  'expose',
   'assurance',
+  'foulee',
+  'voyance',
+  'muraille',
 ]
 /** Ce qu'il retire aux familles, son courage au plus haut : celles qui y valent moins que rien, la plus faible d'abord. */
 const A_RETIRER_DES_FAMILLES = ['arret-sur-image', 'tout-ou-rien', 'quitte-ou-double']

@@ -381,18 +381,18 @@ export const RARETES_DE_L_ACTE_1_DU_JEU_COMPLET: Readonly<Record<'rencontre' | '
   elite: { commun: 0.55, rare: 0.37, epique: 0.08 },
 }
 
-/** Les raretés d'une offre — d'une rencontre, sinon d'une élite, d'un coffre, de l'échoppe —, à cet acte et à la version d'un départ. */
 /**
  * Le détail (v15) : les raretés des offres des actes 2 et 3 — plus d'épiques,
  * que le codex ouvre à mesure qu'on joue : « avec les cartes plus rares, et du
  * coup le fait de jouer, ça aide vraiment à gagner ». Une rareté que le codex
  * n'a pas encore laisse sa place aux autres (`offreDuCodex`).
  */
-export const RARETES_DU_DETAIL: Record<'rencontre' | 'elite', { commun: number; rare: number; epique: number; maudit: number }> = {
+export const RARETES_DU_DETAIL: Readonly<Record<'rencontre' | 'elite', PoidsDesRaretes>> = {
   rencontre: { commun: 0.45, rare: 0.3, epique: 0.17, maudit: 0.08 },
   elite: { commun: 0.15, rare: 0.4, epique: 0.37, maudit: 0.08 },
 }
 
+/** Les raretés d'une offre — d'une rencontre, sinon d'une élite, d'un coffre, de l'échoppe —, à cet acte et à la version d'un départ. */
 export function raretesDeLOffre(v: number, acte: number, quelle: 'rencontre' | 'elite'): PoidsDesRaretes {
   if (v >= VERSION_DU_DETAIL && acte > 0) return RARETES_DU_DETAIL[quelle]
   if (v >= VERSION_DU_JEU_COMPLET) return acte <= 0 ? RARETES_DE_L_ACTE_1_DU_JEU_COMPLET[quelle] : RARETES_DU_JEU_COMPLET[quelle]
