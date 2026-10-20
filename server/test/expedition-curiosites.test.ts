@@ -12,7 +12,7 @@ import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { BaseDeLaCampagne, lireLaBase } from '../src/core/baseCampagne'
 import { NIVEAU_MAX, codexDuNiveau, niveauDeLaRegle } from '../../shared/codex'
-import { VERSION_DES_COUPS_DE_POUCE, VERSION_DES_CURIOSITES, VERSION_DES_FAMILLES, carteDeRencontre } from '../../shared/rencontres'
+import { VERSION_DES_COUPS_DE_POUCE, VERSION_DES_CURIOSITES, VERSION_DES_FAMILLES, VERSION_DU_DETAIL, carteDeRencontre } from '../../shared/rencontres'
 import { gabaritDe } from '../../shared/lettres'
 import { CURIOSITE_DES_L_ETAGE, PREFIXE_DU_REBUS, QUESTION_DU_REBUS, ceQueRapporteUneCuriosite, emojisDe, refusDuRebus, type Rebus } from '../../shared/curiosites'
 import {
@@ -269,8 +269,8 @@ const page = (): Promise<{ CarteDeLActe: Composant; Escale: Composant }> => impo
 test('par les routes et à l’écran : un rébus, ses emojis et ses cases sans sa réponse ; un plat de la liste ; trouvée, la récompense ; un rébus ne mesure rien, n’entre pas au carnet, ne se signale pas', async () => {
   const c = await inscrireProfil(banc.url, 'curieux', 'Curieux')
   let v = await partirAuxCuriosites(c)
-  // La préproduction part aux familles (v14), qui gardent la frise et les curiosités.
-  assert.equal(v.cartes!.v, VERSION_DES_FAMILLES)
+  // La préproduction part au détail (v15), qui garde la frise et les curiosités.
+  assert.equal(v.cartes!.v, VERSION_DU_DETAIL)
   const { CarteDeLActe, Escale } = await page()
   // Sur le plan : « Curiosité », son nom, ce qu'elle rapporte.
   const plan = texte(await rendre(CarteDeLActe, { vue: v, carte: v.carte!, busy: false, erreur: '', onAvancer: rien, onAbandonner: rien, onPartir: rien, onJouer: rien }))

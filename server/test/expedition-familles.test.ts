@@ -27,6 +27,7 @@ import {
   STYLES_EN_QUESTION,
   VERSION_DES_FAMILLES,
   VERSION_DE_LA_FRISE,
+  VERSION_DU_DETAIL,
   ameliorer,
   aDeQuoiEssayerEncore,
   carteALaVersion,
@@ -761,7 +762,8 @@ async function partirAuRempart(cookie: string): Promise<VueDeLExpedition> {
   const v = r.corps as VueDeLExpedition
   base(db => {
     const d = JSON.parse((db.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(v.id) as { expedition: string }).expedition) as DepartDExpedition
-    assert.equal(d.v, V)
+    // La préproduction part au détail (v15), qui garde les familles : le Rempart s'y joue à leurs règles.
+    assert.equal(d.v, VERSION_DU_DETAIL)
     d.style = 'rempart'
     for (const e of d.cartes[0].escales) {
       if (e.etage !== 0) continue
@@ -780,7 +782,7 @@ async function partirAuRempart(cookie: string): Promise<VueDeLExpedition> {
 test('par les routes : ratée sous Parade, l’essai s’écrit au journal des gestes — ni bonne réponse, ni anecdote —, sa réponse effacée ; la seconde se juge, aidée', async () => {
   const c = await inscrireProfil(banc.url, 'rempart', 'Rempart')
   let v = await partirAuRempart(c)
-  assert.equal(v.cartes!.v, V)
+  assert.equal(v.cartes!.v, VERSION_DU_DETAIL)
   v = (await geste(c, v, { quoi: 'avancer', vers: v.carte!.depart[0] })).corps.expedition
   if (v.rencontre!.phase === 'preparation') v = (await geste(c, v, { quoi: 'voir', mise: 0, position: v.rencontre!.position })).corps.expedition
   const q = v.question!

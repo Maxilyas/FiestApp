@@ -139,6 +139,24 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
     }),
   )
 
+  // Un détail (v15) : chaque cadrage du tableau à son heure, pas avant
+  // (invariant 1) ; tous une fois la réponse jugée. Trop tôt, 425 et dans
+  // combien de temps : la page le redemande. Gardé par le téléphone une fois
+  // servi — son adresse ne dit que l'expédition, la question et le rang.
+  app.get(
+    '/api/expedition/:id/detail/:position/:cadrage',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const d = await deps.campagne.cadrageDuDetail(profil.id, String(req.params.id), Number(req.params.position), Number(req.params.cadrage))
+      if ('dans' in d) {
+        res.status(425).set({ 'Cache-Control': 'no-store', 'Retry-After': String(Math.ceil(d.dans / 1000)) }).json({ error: 'Pas encore : le tableau s’élargit à son heure', dans: d.dans })
+        return
+      }
+      res.set({ 'Cache-Control': 'private, max-age=86400' }).type('image/webp').sendFile(d.fichier)
+    }),
+  )
+
   // Un dévoilement (l'étape 3) : les mots de la question qui attend, chacun
   // à son heure — une réponse qui s'écrit au fil du texte, un mot par ligne,
   // jamais l'intitulé entier d'avance (invariant 1). Rouverte, elle redit

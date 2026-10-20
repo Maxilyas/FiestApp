@@ -141,6 +141,21 @@ export const CRANS_DES_RENCONTRES: Readonly<Record<SorteDeRencontre, readonly nu
  * fait trois.
  */
 export const CRANS_D_UNE_QUESTION_DURE = 2
+/**
+ * Le détail (v15) : la part de l'attaque que pare une carte jouée sur la
+ * question, selon sa rareté — en plus de ce qu'elle fait — si la réponse est
+ * fausse (`attaqueEnQuestion`) : une rare la moitié, une épique toute. Le
+ * propriétaire, le 20 octobre 2026 : « Je veux qu'avec les cartes plus rares,
+ * et du coup le fait de jouer, ça aide vraiment à gagner. Je suis d'accord pour
+ * avoir un faible pourcentage de victoire au début. » Le codex ouvre les rares
+ * et les épiques à mesure qu'on joue : l'expédition, durcie pour tous, se
+ * rattrape en jouant. Essayés avant elle et sans effet mesurable : des crans
+ * de plus à l'épique (face aux expertes, frapper ne sert pas), deux réponses
+ * effacées par une épique jouée sur la question, une épique jouée en plus de
+ * la carte de la question, plus d'épiques dans les offres. Un choix de produit
+ * (`docs/reference/baremes.md`).
+ */
+export const PARADE_DE_LA_RARETE: Readonly<Partial<Record<CarteDeRencontre['rarete'], number>>> = { rare: 0.5, epique: 1 }
 export const CRANS_DE_POLYMORPHE = 3
 /**
  * La main de la question au centre (v10), sans énergie : trois cartes à
@@ -154,6 +169,14 @@ export const MAIN_MAX_SOUS_TROIS_TETES = 5
 
 /** Ce que rendent une source retrouvée, un campement, l'échoppe ; ce que prend un piège de l'inconnu. */
 export const COURAGE_D_UNE_SOURCE = 12
+/**
+ * Le détail (v15) : la part du courage que rendent la source, le campement,
+ * l'échoppe et la fiole de courage — le soin, qui ne dépend pas des cartes :
+ * durci d'abord, pour que les cartes rattrapent (`soinALaVersion`).
+ */
+export const SOIN_DU_DETAIL = 0.5
+/** Ce que rend un soin à la version d'un départ : moins depuis le détail (v15), arrondi au-dessus. */
+export const soinALaVersion = (courage: number, v: number) => (v >= VERSION_DU_DETAIL ? Math.ceil(courage * SOIN_DU_DETAIL) : courage)
 export const COURAGE_D_UN_CAMPEMENT = 15
 export const COURAGE_A_L_ECHOPPE = 15
 export const COURAGE_D_UN_PIEGE = 8
@@ -305,6 +328,8 @@ export const FIOLES: readonly Fiole[] = [
   { cle: 'clairvoyance', nom: 'Fiole de clairvoyance', effet: 'efface une mauvaise réponse' },
 ]
 export const fioleDe = (cle: string): Fiole | undefined => FIOLES.find(f => f.cle === cle)
+/** Ce que fait une fiole, à la version d'un départ : celle de courage rend moins depuis le détail (v15, `soinALaVersion`). */
+export const effetDeLaFiole = (f: Fiole, v: number): string => (f.cle === 'courage' ? `+${soinALaVersion(COURAGE_D_UNE_FIOLE, v)} de courage` : f.effet)
 /** Les fioles de la question au centre (v10) : celle d'énergie est partie avec l'énergie. */
 export const FIOLES_EN_QUESTION: readonly Fiole[] = FIOLES.filter(f => f.cle !== 'energie')
 /**
@@ -357,7 +382,19 @@ export const RARETES_DE_L_ACTE_1_DU_JEU_COMPLET: Readonly<Record<'rencontre' | '
 }
 
 /** Les raretés d'une offre — d'une rencontre, sinon d'une élite, d'un coffre, de l'échoppe —, à cet acte et à la version d'un départ. */
+/**
+ * Le détail (v15) : les raretés des offres des actes 2 et 3 — plus d'épiques,
+ * que le codex ouvre à mesure qu'on joue : « avec les cartes plus rares, et du
+ * coup le fait de jouer, ça aide vraiment à gagner ». Une rareté que le codex
+ * n'a pas encore laisse sa place aux autres (`offreDuCodex`).
+ */
+export const RARETES_DU_DETAIL: Record<'rencontre' | 'elite', { commun: number; rare: number; epique: number; maudit: number }> = {
+  rencontre: { commun: 0.45, rare: 0.3, epique: 0.17, maudit: 0.08 },
+  elite: { commun: 0.15, rare: 0.4, epique: 0.37, maudit: 0.08 },
+}
+
 export function raretesDeLOffre(v: number, acte: number, quelle: 'rencontre' | 'elite'): PoidsDesRaretes {
+  if (v >= VERSION_DU_DETAIL && acte > 0) return RARETES_DU_DETAIL[quelle]
   if (v >= VERSION_DU_JEU_COMPLET) return acte <= 0 ? RARETES_DE_L_ACTE_1_DU_JEU_COMPLET[quelle] : RARETES_DU_JEU_COMPLET[quelle]
   if (v >= 6 && acte <= 0) return RARETES_DE_L_ACTE_1[quelle]
   return quelle === 'rencontre' ? RARETES_D_UNE_RENCONTRE : RARETES_D_UNE_ELITE
@@ -607,6 +644,21 @@ export const VERSION_DE_LA_FRISE = 13
  * `retours/2026-10-20/les-familles.md`.
  */
 export const VERSION_DES_FAMILLES = 14
+
+/**
+ * La version du départ du détail (le 20 octobre 2026, au retour du
+ * propriétaire : « Je veux quelque chose de bien plus difficile, aussi met un
+ * offset car tu as tendance à sous estimer la difficulté. Fait la forme du
+ * détail. Les autres suit tes recommandations ») : un tableau dont on ne voit
+ * d'abord qu'un détail, la moitié de l'escale sur dix que la frise prenait
+ * (`POIDS_DES_FORMES_AU_DETAIL`) ; un acte 3 plus dur, son gardien en
+ * experte (`MARCHES_PLUS_DURES`) ; l'Élan qui
+ * aide et revient (`EN_DETAIL`) ; et la question retrouvée au second essai
+ * entre au carnet. Une expédition partie en version 14 finit à ses règles. En
+ * préproduction avec la question au centre. Le brief :
+ * `retours/2026-10-20/le-detail.md`.
+ */
+export const VERSION_DU_DETAIL = 15
 
 /**
  * Fortune (v14) : les écus qu'elle mise sur la réponse, la question sous les
@@ -2632,6 +2684,14 @@ const EN_FAMILLES: Readonly<Record<string, CarteEnQuestion>> = {
 const ESSAI_SUR_LA_QUESTION: ReadonlySet<string> = new Set(['parade', 'second-souffle'])
 
 /**
+ * Toutes les cartes qui donnent un second essai (v14), par leur clé : la
+ * colonne `joker` d'une réponse retrouvée au second essai porte l'une
+ * d'elles (`jokerQuiAide`), et le carnet la tient pour ratée — sa première
+ * réponse était fausse (`suivisDe`, le détail, v15).
+ */
+export const CARTES_DU_SECOND_ESSAI: readonly string[] = [...ESSAI_SUR_LA_QUESTION, 'bastion', 'cuirasse']
+
+/**
  * Une question où un second essai laisse encore à choisir (v14) : jamais un
  * vrai ou faux, ni quand l'écran n'en montre plus que deux — la bonne et une
  * autre : la ratée effacée, il répondrait à sa place. À composer et sur une
@@ -2676,6 +2736,60 @@ export function secondEssaiDuTour(o: {
   return null
 }
 
+/**
+ * Ce que l'Élan devient dans la version du détail (v15) : une aide qui
+ * revient, plutôt qu'un cran de plus — à la version 14, il restait le style
+ * le plus faible (47 au bout pour le moyen aux niveaux 6 et 10, contre 61 et
+ * 55 sans style) : ses cartes frappaient, et seul le Rythme, qui efface et
+ * revient, pesait (+9 seul ; Foulée, deux crans, +2). Une carte absente
+ * d'ici se joue comme dans les familles (`EN_FAMILLES`) ; ce que valait
+ * chaque version d'une carte s'écrit au-dessus d'elle.
+ */
+const EN_DETAIL: Readonly<Record<string, CarteEnQuestion>> = {
+  // v14 : deux crans si juste, et revient (+2 seule). v15 : la commune de l'Élan aide comme le Rythme le faisait — elle efface, et
+  // revient tant qu'il a juste.
+  foulee: {
+    moment: 'reflexe',
+    indice: true,
+    effet: 'Efface une mauvaise réponse — et si tu as juste, Foulée revient dans ta main.',
+    resume: 'Efface 1, revient',
+    valeur: null,
+    amelioration: {
+      gain: 'Deux réponses effacées au lieu d’une',
+      effet: 'Efface deux mauvaises réponses — et si tu as juste, Foulée revient dans ta main.',
+      resume: 'Efface 2, revient',
+    },
+  },
+  // v14 : efface une réponse, et revient (+9 seule). v15 : la rare en efface deux — la commune fait désormais ce qu'elle faisait.
+  rythme: {
+    moment: 'reflexe',
+    indice: true,
+    effet: 'Efface deux mauvaises réponses — et si tu as juste, Rythme revient dans ta main.',
+    resume: 'Efface 2, revient',
+    valeur: null,
+    amelioration: etTuTiresUneCarte('Efface deux mauvaises réponses — et si tu as juste, Rythme revient dans ta main.', 'Efface 2, +1 carte'),
+  },
+  // v14 : posé, deux crans à chaque bonne réponse de la rencontre, et la carte jouée revient (0 seule). v15 : posé, il efface une
+  // réponse à chaque question tant qu'il a juste — sa première erreur le fait retomber (`retombentALErreur`) —, et la carte jouée
+  // revient.
+  'vent-arriere': {
+    indice: true,
+    effet: 'Tant que tu as juste : chaque question s’ouvre avec une mauvaise réponse effacée, et la carte que tu y joues revient dans ta main. Ta première erreur le fait retomber.',
+    resume: 'Efface 1, revient',
+    valeur: null,
+    amelioration: etTuTiresUneCarte(
+      'Tant que tu as juste : chaque question s’ouvre avec une mauvaise réponse effacée, et la carte que tu y joues revient dans ta main. Ta première erreur le fait retomber.',
+      'Efface 1, +1 carte',
+    ),
+  },
+}
+
+/** Les mots d'une carte dans la question au centre, à cette version : le détail (v15), puis les familles (v14), puis la version 10. */
+const enQuestionALaVersion = (base: Pick<CarteDeRencontre, 'cle' | 'enQuestion'> | undefined, v: number): CarteEnQuestion | undefined =>
+  !base
+    ? undefined
+    : ((v >= VERSION_DU_DETAIL ? EN_DETAIL[base.cle] : undefined) ?? (v >= VERSION_DES_FAMILLES ? EN_FAMILLES[base.cle] : undefined) ?? base.enQuestion)
+
 /** Les cartes de l'Élan qui reviennent dans la main quand la réponse est juste (v14). */
 const REVIENNENT_SI_JUSTE: ReadonlySet<string> = new Set(['echauffement', 'foulee', 'rythme'])
 
@@ -2694,6 +2808,9 @@ export const revientSiJuste = (cle: string, pouvoirs: readonly string[]) => REVI
  * (`CoupDeRencontre.retombees`).
  */
 export const RETOMBENT_A_L_ERREUR: ReadonlySet<string> = new Set(['troisieme-oeil', 'inarretable'])
+/** Ceux d'une version : Vent arrière aussi depuis le détail (v15), qui n'efface que tant qu'il a juste. */
+export const retombentALErreur = (v: number): ReadonlySet<string> => (v >= VERSION_DU_DETAIL ? RETOMBENT_DU_DETAIL : RETOMBENT_A_L_ERREUR)
+const RETOMBENT_DU_DETAIL: ReadonlySet<string> = new Set([...RETOMBENT_A_L_ERREUR, 'vent-arriere'])
 
 /** Ce que les cartes jouées à ce tour coûtent en écus sur une erreur (v14) : la mise de Fortune. */
 export const ecusPerdusDesCartes = (jouees: readonly string[], v: number) => (v >= VERSION_DES_FAMILLES ? jouees.filter(cle => baseDe(cle) === 'fortune').length * MISE_DE_FORTUNE : 0)
@@ -2850,10 +2967,10 @@ export function refusDeLAmelioration(paquet: readonly string[], cle: string): st
  * avant, toutes les autres la question sous les yeux ; ses mots neufs
  * (`EN_QUESTION`), et ceux de son amélioration. Undefined : elle n'y est plus.
  */
-function carteEnQuestion(c: CarteDeRencontre, enFamilles = false): CarteDeRencontre | undefined {
+function carteEnQuestion(c: CarteDeRencontre, v: number = VERSION_DE_LA_QUESTION_AU_CENTRE): CarteDeRencontre | undefined {
   const base = c.amelioree ? PAR_CLE.get(baseDe(c.cle)) : c
-  // Les familles (v14) : ses mots neufs, s'ils changent — sinon ceux de la question au centre.
-  const eq = (enFamilles && base ? EN_FAMILLES[base.cle] : undefined) ?? base?.enQuestion
+  // Les familles (v14), le détail (v15) : ses mots neufs, s'ils changent — sinon ceux de la question au centre.
+  const eq = enQuestionALaVersion(base, v)
   const a = c.amelioree ? eq?.amelioration : undefined
   if (!base || !eq || (c.amelioree && !a)) return undefined
   const moment: MomentDUneCarte = eq.moment ?? (base.moment === 'route' || base.moment === 'pouvoir' ? base.moment : eq.pari ? 'preparation' : 'reflexe')
@@ -2889,7 +3006,13 @@ const PAR_CLE_EN_QUESTION = new Map([...PAR_CLE.values()].flatMap(c => {
 
 /** Celles des familles (v14) : la question au centre, et les cartes reprises ou retouchées (`EN_FAMILLES`). */
 const PAR_CLE_DES_FAMILLES = new Map([...PAR_CLE.values()].flatMap(c => {
-  const x = carteEnQuestion(c, true)
+  const x = carteEnQuestion(c, VERSION_DES_FAMILLES)
+  return x ? [[c.cle, x] as const] : []
+}))
+
+/** Celles du détail (v15) : les familles, et l'Élan retouché (`EN_DETAIL`). */
+const PAR_CLE_DU_DETAIL = new Map([...PAR_CLE.values()].flatMap(c => {
+  const x = carteEnQuestion(c, VERSION_DU_DETAIL)
   return x ? [[c.cle, x] as const] : []
 }))
 
@@ -2905,7 +3028,7 @@ export const estDuPari = (cle: string) => !!PAR_CLE.get(baseDe(cle))?.enQuestion
 
 /** Ce qu'un exemplaire amélioré tire de cartes en plus de sa carte, dans la question au centre (v10) : « Et tu tires une carte » — aux mots des familles dès la version 14. */
 export const tireEnPlusEnQuestion = (cle: string, v = VERSION_DE_LA_QUESTION_AU_CENTRE) =>
-  estAmelioree(cle) ? (((v >= VERSION_DES_FAMILLES ? EN_FAMILLES[baseDe(cle)] : undefined) ?? PAR_CLE.get(baseDe(cle))?.enQuestion)?.amelioration?.tire ?? 0) : 0
+  estAmelioree(cle) ? (enQuestionALaVersion(PAR_CLE.get(baseDe(cle)), v)?.amelioration?.tire ?? 0) : 0
 
 /**
  * Une carte telle qu'un départ de cette version la joue : avant le codex (v5,
@@ -2919,7 +3042,7 @@ export const tireEnPlusEnQuestion = (cle: string, v = VERSION_DE_LA_QUESTION_AU_
  * passe par ici.
  */
 export function carteALaVersion(cle: unknown, v: number): CarteDeRencontre | undefined {
-  const parCle = v >= VERSION_DES_FAMILLES ? PAR_CLE_DES_FAMILLES : PAR_CLE_EN_QUESTION
+  const parCle = v >= VERSION_DU_DETAIL ? PAR_CLE_DU_DETAIL : v >= VERSION_DES_FAMILLES ? PAR_CLE_DES_FAMILLES : PAR_CLE_EN_QUESTION
   const c = v >= VERSION_DE_LA_QUESTION_AU_CENTRE ? (typeof cle === 'string' ? parCle.get(cle) : undefined) : carteDeRencontre(cle)
   if (!c || (c.depuis ?? 0) > v) return undefined
   return c.avantLeCodex && v < VERSION_DU_CODEX ? { ...c, ...c.avantLeCodex } : c
@@ -3413,7 +3536,8 @@ export const gainDuPariEnQuestion = (t: Pick<TourDeRencontre, 'mise' | 'jouees'>
  * Polymorphe ; deux pour un dévoilement trouvé dans la première moitié de ses
  * mots, lus à l'heure du serveur où la réponse est arrivée (`devoile`) ; deux
  * pour une réponse composée (v11), qu'aucun choix ne soufflait, et pour une
- * frise (v13), quatre événements rangés en entier.
+ * frise (v13), quatre événements rangés en entier ; deux pour un détail (v15)
+ * reconnu avant la moitié de ses cadrages, comme un dévoilement — un après.
  */
 export function cransDeLaForme(q: FormeDUneQuestion, surLaQuestion: readonly string[] = []): number {
   if ((q.reponses ?? 4) <= 2) return 1
@@ -3421,7 +3545,7 @@ export function cransDeLaForme(q: FormeDUneQuestion, surLaQuestion: readonly str
   if (q.forme === 'lettres' && parmi(surLaQuestion, 'metamorphose')) return CRANS_DE_POLYMORPHE
   if (q.forme === 'lettres' || q.forme === 'frise') return CRANS_D_UNE_QUESTION_DURE
   if (q.forme === 'six') return parmi(surLaQuestion, 'polymorphe') ? CRANS_DE_POLYMORPHE : CRANS_D_UNE_QUESTION_DURE
-  if (q.forme === 'devoilement' && q.devoile && q.devoile.sur > 0) return 2 * Math.max(1, q.devoile.mots) <= q.devoile.sur ? CRANS_D_UNE_QUESTION_DURE : 1
+  if ((q.forme === 'devoilement' || q.forme === 'detail') && q.devoile && q.devoile.sur > 0) return 2 * Math.max(1, q.devoile.mots) <= q.devoile.sur ? CRANS_D_UNE_QUESTION_DURE : 1
   return 1
 }
 
@@ -3462,8 +3586,8 @@ export function cransDesPouvoirs(o: {
   if (!familles && parmi(p, 'prisme') && o.forme === 'six') n += amelioreeParmi(p, 'prisme') ? 2 : 1
   if (!familles && parmi(p, 'rythme') && (o.serie ?? 0) + 1 >= (amelioreeParmi(p, 'rythme') ? 2 : 3)) n += 1
   if (familles && parmi(p, 'represailles') && o.ratee) n += amelioreeParmi(p, 'represailles') ? 3 : 2
-  // Vent arrière (v14) : posé, deux à chaque bonne réponse de la rencontre.
-  if (familles && parmi(p, 'vent-arriere')) n += 2
+  // Vent arrière (v14) : posé, deux à chaque bonne réponse de la rencontre — au détail (v15), il efface à la place (`effaceesDuTour`).
+  if (familles && (o.v ?? 0) < VERSION_DU_DETAIL && parmi(p, 'vent-arriere')) n += 2
   if (p.includes('aube') && o.aube) n += 1
   if (p.includes('abysses')) n += 1
   // Pactole : son pari gagné, un cran — deux, amélioré ; aux familles (v14), chaque bonne réponse, et un de plus si son pari gagne.
@@ -3528,7 +3652,11 @@ export function attaqueEnQuestion(o: { frappe: number; tour: Pick<TourDeRencontr
   )
     return 0
   const double = t.surLaQuestion.includes('tout-ou-rien') || t.jouees.includes('quitte-ou-double') || o.pouvoirs.includes('abysses')
-  return double ? o.frappe * 2 : o.frappe
+  const frappe = double ? o.frappe * 2 : o.frappe
+  // Le détail (v15) : la rare ou l'épique jouée sur la question en pare sa part (`PARADE_DE_LA_RARETE`) — la plus rare l'emporte.
+  if ((o.v ?? 0) < VERSION_DU_DETAIL) return frappe
+  const part = Math.max(0, ...t.jouees.map(cle => PARADE_DE_LA_RARETE[carteALaVersion(cle, o.v!)?.rarete ?? 'commun'] ?? 0))
+  return Math.round(frappe * (1 - Math.min(1, part)))
 }
 
 /**
@@ -3558,13 +3686,17 @@ export function effaceesAvecLEssai(
   t: Pick<TourDeRencontre, 'surLaQuestion'> & Partial<Pick<TourDeRencontre, 'essai'>>,
   pouvoirs: readonly string[],
   q: { reponses: number; datee?: boolean; nombre?: boolean; forme?: FormeDEscale },
+  v = 0,
 ): number {
-  const n = effaceesDuTour(t.surLaQuestion, pouvoirs, q)
+  const n = effaceesDuTour(t.surLaQuestion, pouvoirs, q, v)
   return t.essai !== undefined && q.forme !== 'lettres' && q.forme !== 'frise' && q.reponses > 2 ? n + 1 : n
 }
 
 /** Les pouvoirs qui effacent une réponse à chaque question : L'écholocation, Vision (le jeu complet). */
 export const POUVOIRS_QUI_EFFACENT: readonly string[] = ['echolocation', 'vision']
+/** Ceux d'une version : Vent arrière aussi depuis le détail (v15). */
+export const pouvoirsQuiEffacent = (v: number): readonly string[] => (v >= VERSION_DU_DETAIL ? POUVOIRS_QUI_EFFACENT_DU_DETAIL : POUVOIRS_QUI_EFFACENT)
+const POUVOIRS_QUI_EFFACENT_DU_DETAIL: readonly string[] = [...POUVOIRS_QUI_EFFACENT, 'vent-arriere']
 
 /**
  * Les réponses qu'effacent les cartes du tour, la fiole de clairvoyance,
@@ -3577,8 +3709,11 @@ export function effaceesDuTour(
   surLaQuestion: readonly string[],
   pouvoirs: readonly string[],
   q: { reponses: number; datee?: boolean; nombre?: boolean; forme?: FormeDEscale },
+  /** La version du départ : l'Élan du détail (v15) efface — Foulée une, le Rythme deux, Vent arrière posé une à chaque question. */
+  v = 0,
 ): number {
   if (q.reponses <= 2) return 0
+  const auDetail = v >= VERSION_DU_DETAIL
   const auPlus = q.forme === 'lettres' ? LETTRES_EN_TROP : q.reponses - 2
   // Le repère (v11) n'a pas d'époque à dire d'une question qui ne se date pas, ni d'une année ou d'un nombre — elle dirait la réponse :
   // il efface alors, comme le Sphinx.
@@ -3586,13 +3721,17 @@ export function effaceesDuTour(
   let n = 0
   for (const cle of surLaQuestion) {
     const b = baseDe(cle)
-    // Astrolabe et le Rythme améliorés (v14) en effacent deux.
+    // Astrolabe et le Rythme améliorés (v14) en effacent deux ; au détail (v15), Foulée une — deux, améliorée —, le Rythme deux.
+    if (auDetail && (b === 'foulee' || b === 'rythme')) {
+      n += b === 'rythme' || estAmelioree(cle) ? 2 : 1
+      continue
+    }
     const plus = (b === 'astrolabe' || b === 'rythme') && estAmelioree(cle) ? 1 : 0
     n += cle === CLAIRVOYANCE_SUR_LA_QUESTION ? 1 : b === 'revelation' ? q.reponses : b === 'repere' ? (sansEpoque ? 1 : 0) : (EFFACE_DES_CARTES[b] ?? 0) + plus
   }
   // Le Sphinx d'une question qui ne se date pas efface au lieu de souffler : sinon, la carte ne servait à rien.
   if (surLaQuestion.includes('enigme') && !q.datee) n += 1
-  for (const cle of POUVOIRS_QUI_EFFACENT) if (parmi(pouvoirs, cle)) n += EFFACE_DES_CARTES[cle] ?? 1
+  for (const cle of pouvoirsQuiEffacent(v)) if (parmi(pouvoirs, cle)) n += EFFACE_DES_CARTES[cle] ?? 1
   return Math.min(n, auPlus)
 }
 
@@ -3942,7 +4081,10 @@ function chiffresEnQuestion(cle: string, carte: CarteDeRencontre, avant: Chiffre
         x.charge += 2
         break
       // Foulée : deux — trois, améliorée ; Banco de même, et un de plus si son pari gagne (`cransDUneBonneReponse`, qui sait la mise).
+      // Au détail (v15), Foulée efface au lieu de frapper (`effaceesDuTour`).
       case 'foulee':
+        if (contexte.v < VERSION_DU_DETAIL) x.charge += plus ? 3 : 2
+        break
       case 'banco':
         x.charge += plus ? 3 : 2
         break
@@ -4055,6 +4197,13 @@ export interface ContexteDUneCarte {
   ecus?: number
 }
 
+/**
+ * Pourquoi un détail (v15) ne change pas de forme : reposée de sa question de
+ * la base, à six choix, en vrai ou faux ou à composer, elle perdrait son
+ * tableau — et son intitulé le nomme.
+ */
+const DETAIL_SANS_AUTRE_FORME = 'Pas sur un détail : sans son tableau, la question le nommerait'
+
 /** Cette carte — améliorée ou non : c'est la même — est-elle déjà jouée sur la question ? */
 const aJoueSurLaQuestion = (c: ContexteDUneCarte, cle: string) => parmi(c.tour.surLaQuestion, cle)
 
@@ -4098,7 +4247,7 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
   if (!q) return 'Elle se joue sur une question'
   const changee = c.tour.surLaQuestion.some(cle => changeLaForme(cle, c.v))
   // L'essai raté (v14) compte : sa réponse fausse est effacée.
-  const effacees = effaceesAvecLEssai(c.tour, c.pouvoirs, q)
+  const effacees = effaceesAvecLEssai(c.tour, c.pouvoirs, q, c.v)
   const enQuestion = c.v >= VERSION_DE_LA_QUESTION_AU_CENTRE
   // À composer (v11), ses réponses sont ses tuiles : ce qui s'efface, ce sont ses lettres de trop, toutes s'il le faut.
   const aComposer = q.forme === 'lettres'
@@ -4145,6 +4294,7 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
       return aJoueSurLaQuestion(c, base) ? 'L’Oracle a déjà parlé' : null
     case 'deux-visages':
       if (q.forme === 'devoilement') return 'Pas sur un dévoilement : deux textes à la fois, tu n’en lirais aucun'
+      if (q.forme === 'detail') return 'Pas sur un détail : deux tableaux à la fois, tu n’en regarderais aucun'
       if (aComposer) return 'Pas sur une question à composer : deux réponses à composer, tu n’en finirais aucune'
       if (enFrise) return 'Pas sur une frise : deux frises à ranger, tu n’en finirais aucune'
       return aJoueSurLaQuestion(c, base) ? 'Déjà deux questions à l’écran' : null
@@ -4164,6 +4314,8 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
       if (!aComposer && q.nombre) return 'Pas sur une année ou un nombre : elle se joue sur des mots'
       return null
     case 'arret-sur-image':
+      // Un détail (v15) s'arrête comme un texte : le tableau reste à son cadrage le temps de la pause.
+      if (q.forme === 'detail') return aJoueSurLaQuestion(c, base) ? 'Le tableau s’est déjà arrêté' : null
       if (q.forme !== 'devoilement') return 'Arrêt sur image se joue sur un dévoilement'
       return aJoueSurLaQuestion(c, base) ? 'Le texte s’est déjà arrêté' : null
     case 'plume':
@@ -4176,6 +4328,7 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
       if (changee) return 'La question a déjà changé de forme'
       if (q.tiree === 'lettres') return 'Pas sur une question à composer : elle n’a pas de choix à corser'
       if (q.tiree === 'frise') return 'Pas sur une frise : elle n’a pas de choix à corser'
+      if (q.tiree === 'detail') return DETAIL_SANS_AUTRE_FORME
       // Les familles (v14) : un vrai ou faux tiré d'une question à quatre choix repasse à six — au-dessus du premier étage, deux
       // questions sur dix seulement restaient à quatre choix, et le Métamorphe n'avait presque rien à corser.
       const deVraiOuFaux = c.v >= VERSION_DES_FAMILLES && q.tiree === 'vrai-faux'
@@ -4187,6 +4340,7 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
       if (changee) return 'La question a déjà changé de forme'
       // Une frise n'est pas une question de la base : elle n'a pas de vrai ou faux à devenir.
       if (q.tiree === 'frise') return 'Pas sur une frise : elle n’a pas de forme plus simple'
+      if (q.tiree === 'detail') return DETAIL_SANS_AUTRE_FORME
       // La forme du tirage, jamais celle d'à présent : rejouée, la question déjà simplifiée refuserait Simplifier qui l'a faite.
       return q.tiree === 'vrai-faux' ? 'Elle est déjà un vrai ou faux' : null
     case 'doubler-la-mise':
@@ -4235,6 +4389,8 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
 function refusDesFamilles(c: ContexteDUneCarte, base: string, q: QuestionDuTour, changee: boolean, effacees: number, plusRienAEffacer: string | null): string | null {
   const aComposer = q.forme === 'lettres'
   const enFrise = q.forme === 'frise'
+  // Au détail (v15), Foulée efface, comme le Rythme.
+  if (base === 'foulee' && c.v >= VERSION_DU_DETAIL) base = 'rythme'
   switch (base) {
     case 'rythme':
       // Comme Coup d'œil.
@@ -4250,12 +4406,14 @@ function refusDesFamilles(c: ContexteDUneCarte, base: string, q: QuestionDuTour,
       // Comme Simplifier : la forme du tirage, jamais celle d'à présent.
       if (changee) return 'La question a déjà changé de forme'
       if (q.tiree === 'frise') return 'Pas sur une frise : elle n’a pas de forme plus simple'
+      if (q.tiree === 'detail') return DETAIL_SANS_AUTRE_FORME
       return q.tiree === 'vrai-faux' ? 'Elle est déjà un vrai ou faux' : null
     case 'metamorphose':
       // La forme du tirage, comme Corser : rejouée, la question déjà passée à composer refuserait la carte qui l'y a mise.
       if (changee) return 'La question a déjà changé de forme'
       if (q.tiree === 'lettres') return 'Elle est déjà à composer'
       if (q.tiree === 'frise') return 'Pas sur une frise : elle n’a pas de mot à composer'
+      if (q.tiree === 'detail') return DETAIL_SANS_AUTRE_FORME
       if (q.tiree === 'vrai-faux' || q.reponses <= 2) return 'Pas sur un vrai ou faux : sa réponse est Vrai ou Faux'
       return q.compose ? null : 'Sa réponse ne se compose pas : trop de mots, ou des chiffres'
     case 'prisme':
@@ -4263,6 +4421,7 @@ function refusDesFamilles(c: ContexteDUneCarte, base: string, q: QuestionDuTour,
       if (changee) return 'La question a déjà changé de forme'
       if (q.tiree === 'lettres') return 'Pas sur une question à composer : elle n’a pas de choix'
       if (q.tiree === 'frise') return 'Pas sur une frise : elle n’a pas de choix'
+      if (q.tiree === 'detail') return DETAIL_SANS_AUTRE_FORME
       if (q.tiree === 'six') return 'Elle est déjà à six choix'
       return q.six ? null : 'Cette question n’a pas de quoi tenir six choix'
     case 'lecon':
@@ -4511,7 +4670,8 @@ function apercuEnQuestion(o: {
       ratee: o.ratee,
     })
   const auDernier = crans()
-  const auPremier = o.question.forme === 'devoilement' && (o.mots ?? 0) > 1 ? crans({ mots: 1, sur: o.mots! }) : undefined
+  // Un dévoilement trouvé au premier mot, un détail (v15) au premier cadrage : ce qu'il vaut s'il est trouvé tôt.
+  const auPremier = (o.question.forme === 'devoilement' || o.question.forme === 'detail') && (o.mots ?? 0) > 1 ? crans({ mots: 1, sur: o.mots! }) : undefined
   const frappe = attaqueEnQuestion({ frappe: o.frappe, tour: t, pouvoirs: o.pouvoirs, v: o.v })
   const plus = siJuste(t.jouees, o.pouvoirs, o.v)
   // Les familles (v14) : la mise de Fortune, perdue sur une erreur ; et le second essai, qui passe avant tout le reste.

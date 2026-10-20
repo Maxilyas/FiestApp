@@ -1,5 +1,6 @@
 import { Corrige, verdictDe } from './Corrige'
 import { FriseRangee } from './FriseRangee'
+import { TableauEntier } from './TableauEntier'
 import { espacesFines } from '../format'
 import { NOM_NIVEAU, type CorrectionDeCampagne } from '../../../shared/campagne'
 
@@ -27,7 +28,8 @@ export function SerieCorrigee({ correction }: { correction: CorrectionDeCampagne
           // Une réponse composée (l'expédition, v11) n'avait pas de choix : ni leurs formes, ni la sienne.
           formes={c.composee === undefined}
           // Un rébus de l'expédition (une curiosité, v12) : « Quel personnage se cache derrière ces emojis ? » ne se relit qu'avec eux.
-          sous={c.rebus !== undefined && <p className="corrige-rebus">{c.rebus}</p>}
+          // Un détail de l'expédition (v15) : « Qui a peint ce tableau ? » ne se relit qu'avec lui — entier, nommé.
+          sous={c.rebus !== undefined ? <p className="corrige-rebus">{c.rebus}</p> : c.detail && <TableauEntier src={c.detail.image} titre={c.detail.titre} peintre={c.detail.peintre} annee={c.detail.annee} />}
           // Une frise de l'expédition (v13) : rangée, chaque événement et son année — ratée, où il avait mis chacun.
           corps={c.frise && <FriseRangee evenements={c.reponses} annees={c.frise.annees} places={c.frise.sienne && c.reponses.map((_, k) => c.frise!.sienne!.indexOf(k))} />}
         >

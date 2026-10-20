@@ -51,6 +51,7 @@ import {
   pointsDeLAdversaire,
   regleOuverte,
   reposALAscension,
+  soinALAscension,
   type BilanDUneExpedition,
   type CleDExploit,
   type CodexDuDepart,
@@ -64,6 +65,7 @@ import {
   COURAGE_D_UN_PIEGE,
   COURAGE_D_UNE_FIOLE,
   COURAGE_D_UNE_SOURCE,
+  soinALaVersion,
   COURAGE_DE_LA_RENAISSANCE,
   COURAGE_DE_L_AUBE,
   COURAGE_DES_ABYSSES,
@@ -88,6 +90,7 @@ import {
   SEUIL_DES_ABYSSES,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_FAMILLES,
+  VERSION_DU_DETAIL,
   VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
   adversaireDe,
@@ -135,7 +138,7 @@ import {
   raretesDeLOffre,
   refusDeLAmelioration,
   refusDeLaCarte,
-  RETOMBENT_A_L_ERREUR,
+  retombentALErreur,
   revientSiJuste,
   riposte,
   rongeDuDoute,
@@ -186,18 +189,21 @@ export type ContenuDeLInconnu = 'marchand' | 'piege' | 'passage'
 /**
  * La forme d'une question : à quatre choix, vrai ou faux, à six choix, mot à
  * mot — et, depuis les coups de pouce (v11), à composer (`shared/lettres.ts`) ;
- * depuis la frise (v13), quatre événements à ranger (`shared/frise.ts`).
+ * depuis la frise (v13), quatre événements à ranger (`shared/frise.ts`) ;
+ * depuis le détail (v15), un tableau qui se montre d'un détail au tableau
+ * entier, et son peintre à trouver parmi quatre.
  */
-export type FormeDEscale = 'quatre' | 'vrai-faux' | 'six' | 'devoilement' | 'lettres' | 'frise'
+export type FormeDEscale = 'quatre' | 'vrai-faux' | 'six' | 'devoilement' | 'lettres' | 'frise' | 'detail'
 
 /**
  * Les formes qu'une carte tire : toutes depuis l'étape 3 — quatre choix,
  * vrai ou faux, six choix, dévoilement —, à composer depuis les coups de
- * pouce et la frise depuis la version 13, que seuls leurs poids tirent
- * (`POIDS_DES_FORMES_A_COMPOSER`, `POIDS_DES_FORMES_A_LA_FRISE`). Celles
+ * pouce, la frise depuis la version 13 et le détail depuis la 15, que seuls
+ * leurs poids tirent (`POIDS_DES_FORMES_A_COMPOSER`,
+ * `POIDS_DES_FORMES_A_LA_FRISE`, `POIDS_DES_FORMES_AU_DETAIL`). Celles
  * d'avant, gardées par leur expédition, restent à quatre choix.
  */
-const FORMES_OUVERTES: ReadonlySet<FormeDEscale> = new Set(['quatre', 'vrai-faux', 'six', 'devoilement', 'lettres', 'frise'])
+const FORMES_OUVERTES: ReadonlySet<FormeDEscale> = new Set(['quatre', 'vrai-faux', 'six', 'devoilement', 'lettres', 'frise', 'detail'])
 
 /** Le thème d'une escale : une catégorie, un mélange de deux ou trois, ou un sujet de `shared/sujets.ts` — un thème pointu. */
 export type ThemeDEscale = { categories: string[] } | { sujet: string }
@@ -244,6 +250,25 @@ export const MARCHES_DES_ACTES: readonly { bas: Niveau; haut: Niveau; elite: Niv
   { bas: 'facile', haut: 'moyen', elite: 'moyen', gardien: 'moyen', aTrouver: 3 },
   { bas: 'moyen', haut: 'moyen', elite: 'difficile', gardien: 'difficile', aTrouver: 3 },
 ]
+
+/**
+ * Les marches du détail (v15, « bien plus difficile », avec l'offset que le
+ * propriétaire a demandé) : l'acte 3 pose ses hauts étages et son gardien
+ * en experte — un choix de produit qui rompt le « jamais d'experte » des
+ * versions d'avant (le joueur moyen en trouve une sur dix) : de tous les
+ * leviers mesurés, le seul qui retienne le fort ; les crans et l'attaque
+ * retiraient au moyen, pas à lui. L'élite garde sa marche difficile — elle a
+ * ses crans de plus : experte aussi, le fort tombait sous cinquante
+ * (`docs/reference/baremes.md`).
+ */
+export const MARCHES_PLUS_DURES: typeof MARCHES_DES_ACTES = [
+  { bas: 'facile', haut: 'facile', elite: 'moyen', gardien: 'facile', aTrouver: 4 },
+  { bas: 'facile', haut: 'moyen', elite: 'moyen', gardien: 'moyen', aTrouver: 3 },
+  { bas: 'moyen', haut: 'expert', elite: 'difficile', gardien: 'expert', aTrouver: 3 },
+]
+
+/** Les marches d'un départ de cette version : plus dures depuis le détail (v15). */
+export const marchesDe = (v = 0): typeof MARCHES_DES_ACTES => (v >= VERSION_DU_DETAIL ? MARCHES_PLUS_DURES : MARCHES_DES_ACTES)
 
 /** Les étages du bas d'un acte (0 à 2) prennent sa marche basse, ceux du haut (3 à 5) sa marche haute. */
 const ETAGES_DU_BAS = 3
@@ -327,6 +352,21 @@ export const POIDS_DES_FORMES_A_LA_FRISE: PoidsDesFormes = [
   { forme: 'devoilement', part: 0.15 },
   { forme: 'lettres', part: 0.2 },
   { forme: 'frise', part: 0.1 },
+]
+/**
+ * Celles d'un départ du détail (v15) : l'escale sur dix de la frise, moitié
+ * chacune (le propriétaire, le 20 octobre 2026) — le même tirage encore,
+ * seule la forme qu'il désigne change. Un détail se pose en Arts & lettres
+ * (`CATEGORIE_DU_DETAIL`) : ses tableaux viennent tous de là.
+ */
+export const POIDS_DES_FORMES_AU_DETAIL: PoidsDesFormes = [
+  { forme: 'quatre', part: 0.2 },
+  { forme: 'vrai-faux', part: 0.2 },
+  { forme: 'six', part: 0.15 },
+  { forme: 'devoilement', part: 0.15 },
+  { forme: 'lettres', part: 0.2 },
+  { forme: 'frise', part: 0.05 },
+  { forme: 'detail', part: 0.05 },
 ]
 
 /** L'identifiant du gardien, sur chaque carte. */
@@ -436,6 +476,8 @@ export function carteDUnActe(
           }
         }
         e.forme = FORMES_OUVERTES.has(forme) ? forme : 'quatre'
+        // Un détail (v15) : la carte dit d'où vient son tableau. Posé après le tirage, il n'en déplace rien.
+        if (e.forme === 'detail') e.theme = { categories: [CATEGORIE_DU_DETAIL] }
       }
       escales.push(e)
     }
@@ -494,8 +536,8 @@ function poserLaCuriosite(graine: string, acte: number, escales: EscaleDeLaCarte
 }
 
 /** La marche d'une escale à question : celle de son acte, selon l'étage — l'élite celle du dessus, le gardien la sienne. */
-export function marcheDe(acte: number, e: Pick<EscaleDeLaCarte, 'sorte' | 'etage'>): Niveau {
-  const m = MARCHES_DES_ACTES[Math.min(acte, ACTES - 1)]
+export function marcheDe(acte: number, e: Pick<EscaleDeLaCarte, 'sorte' | 'etage'>, v = 0): Niveau {
+  const m = marchesDe(v)[Math.min(acte, ACTES - 1)]
   if (e.sorte === 'gardien') return m.gardien
   if (e.sorte === 'elite') return m.elite
   return e.etage < ETAGES_DU_BAS ? m.bas : m.haut
@@ -636,6 +678,38 @@ export function motsDits(total: number, depuis: number, t: number, arret?: numbe
 /** L'instant où se dit le `n`-ième mot (de 1 à `total`) : la route l'attend pour l'écrire. */
 export function instantDuMot(n: number, depuis: number, arret?: number): number {
   const sansPause = depuis + Math.max(0, n - 1) * MS_PAR_MOT
+  return arret !== undefined && arret >= depuis && sansPause > arret ? sansPause + ARRET_SUR_IMAGE_MS : sansPause
+}
+
+// ── Le détail (v15) ────────────────────────────────────────────────────────
+
+/**
+ * Le détail : un tableau dont on ne voit d'abord qu'un détail, puis un cadrage
+ * plus large tous les `MS_PAR_CADRAGE`, jusqu'au tableau entier — le
+ * `CADRAGES_DU_DETAIL`-ième —, à l'heure du serveur (invariant 6) ; Arrêt sur
+ * image en suspend le compte, comme celui d'un dévoilement. Trouvé dans la
+ * première moitié de ses cadrages, il vaut deux crans (`cransDeLaForme`). La
+ * question ne nomme jamais le tableau : son intitulé de la base le ferait.
+ * Des choix de produit (`docs/reference/baremes.md`).
+ */
+export const CADRAGES_DU_DETAIL = 4
+export const MS_PAR_CADRAGE = 5000
+export const QUESTION_DU_DETAIL = 'Qui a peint ce tableau ?'
+/** La catégorie de ses tableaux : la carte la pose sur l'escale d'un détail. */
+export const CATEGORIE_DU_DETAIL = 'Arts & lettres'
+
+/** Combien de cadrages d'un détail se montrent à l'instant `t` — l'heure du serveur : le premier dès `depuis`, sans la pause d'Arrêt sur image. */
+export function cadragesMontres(depuis: number, t: number, arret?: number): number {
+  if (t < depuis) return 0
+  return Math.min(CADRAGES_DU_DETAIL, 1 + Math.floor(tempsCompte(depuis, t, arret) / MS_PAR_CADRAGE))
+}
+
+/** L'adresse d'un cadrage (v15) : l'expédition, la position de sa question, son rang — jamais le tableau, que la route seule connaît. */
+export const adresseDuCadrage = (expedition: string, position: number, cadrage: number) => `/api/expedition/${expedition}/detail/${position}/${cadrage}`
+
+/** L'instant où se montre le `n`-ième cadrage (de 1 à `CADRAGES_DU_DETAIL`) : la route ne le sert pas avant. */
+export function instantDuCadrage(n: number, depuis: number, arret?: number): number {
+  const sansPause = depuis + Math.max(0, n - 1) * MS_PAR_CADRAGE
   return arret !== undefined && arret >= depuis && sansPause > arret ? sansPause + ARRET_SUR_IMAGE_MS : sansPause
 }
 
@@ -791,7 +865,7 @@ export function prixDeLArticle(article: ArticleDeLEchoppe, cle?: string): number
  * mot à moitié su ; un sur vingt-quatre pour une frise (v13), les vingt-quatre
  * ordres de quatre événements. Un choix de produit, que le calibrage lit.
  */
-const HASARD: Record<FormeDEscale, number> = { quatre: 1 / 4, devoilement: 1 / 4, six: 1 / 6, 'vrai-faux': 1 / 2, lettres: 1 / 10, frise: 1 / 24 }
+const HASARD: Record<FormeDEscale, number> = { quatre: 1 / 4, devoilement: 1 / 4, six: 1 / 6, 'vrai-faux': 1 / 2, lettres: 1 / 10, frise: 1 / 24, detail: 1 / 4 }
 
 /**
  * Une chance à quatre choix ramenée à une autre forme : le savoir se lit sous
@@ -980,9 +1054,14 @@ export interface DepartDExpedition {
    * partie en version 12 n'en a pas. 14 : les familles en façons de répondre
    * (`VERSION_DES_FAMILLES`) — les cartes reprises et retouchées
    * (`EN_FAMILLES`), le Rempart et son second essai (le geste `essai`) ; une
-   * expédition partie en version 13 garde ses cartes à leurs mots.
+   * expédition partie en version 13 garde ses cartes à leurs mots. 15 : le
+   * détail (`VERSION_DU_DETAIL`) — un tableau à reconnaître d'un détail
+   * (`POIDS_DES_FORMES_AU_DETAIL`), un acte 3 plus dur, son gardien en
+   * experte (`MARCHES_PLUS_DURES`), l'Élan
+   * retouché (`EN_DETAIL`) ; une expédition partie en version 14 finit à ses
+   * règles.
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -1472,9 +1551,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
 
   /** La marche des questions d'une rencontre : celle du gardien de l'acte, sinon celle de son escale. */
   const marcheDeLaRencontre = (r: RencontreEnCours): Niveau => {
-    if (r.sorte === 'gardien') return MARCHES_DES_ACTES[Math.min(e.acte, ACTES - 1)].gardien
+    if (r.sorte === 'gardien') return marchesDe(depart.v)[Math.min(e.acte, ACTES - 1)].gardien
     const escale = escaleEnJeu(depart, e, r.escale)
-    return escale ? marcheDe(e.acte, escale) : 'facile'
+    return escale ? marcheDe(e.acte, escale, depart.v) : 'facile'
   }
   /** Des cartes de la pioche vers la main ; la pioche vide, la défausse y revient — le cycle de Slay the Spire. */
   const piocher = (n: number) => {
@@ -1553,7 +1632,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   const nouveauTourEnQuestion = () => {
     const r = e.rencontre!
     const q = e.enAttente === null ? undefined : questions[e.enAttente]
-    r.tour = { phase: e.pari || q?.forme === 'devoilement' ? 'preparation' : 'question', inspiration: 0, charge: 0, garde: 0, mise: 0, jouees: [], surLaQuestion: [] }
+    r.tour = { phase: e.pari || q?.forme === 'devoilement' || q?.forme === 'detail' ? 'preparation' : 'question', inspiration: 0, charge: 0, garde: 0, mise: 0, jouees: [], surLaQuestion: [] }
     if (e.dAvance.length > 0 && q && (q.reponses ?? 4) > 2) r.tour.surLaQuestion.push(...e.dAvance.splice(0))
     // La boucle : l'erreur revient à cette question-ci.
     if (r.boucle && r.boucle.position === null) r.boucle.position = e.enAttente
@@ -1748,7 +1827,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       coup = { juste: false, brises: 0, frappe: 0, absorbee: 0, perdu: 0, mise: 0, traversee: true }
     } else if (juste) {
       const escale = r.sorte === 'gardien' ? undefined : escaleEnJeu(depart, e, r.escale)
-      const marche: Niveau = r.sorte === 'gardien' ? MARCHES_DES_ACTES[Math.min(e.acte, ACTES - 1)].gardien : escale ? marcheDe(e.acte, escale) : 'facile'
+      const marche: Niveau = r.sorte === 'gardien' ? marchesDe(depart.v)[Math.min(e.acte, ACTES - 1)].gardien : escale ? marcheDe(e.acte, escale, depart.v) : 'facile'
       // Ce que ses pouvoirs y ajoutent et ce que sa forme vaut : la règle même de l'aperçu (`apercuDuTour`).
       const brises = brisesDUneBonneReponse({
         savoir: SAVOIR_DES_MARCHES[q.niveau ?? marche],
@@ -1929,7 +2008,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       const misee = Math.min(e.ecus, ecusPerdusDesCartes(t.jouees, depart.v))
       e.ecus -= misee
       r.suivant.cartes += cartesTireesDuTour(t.jouees, false, depart.v)
-      const retombe = familles ? r.pouvoirs.filter(cle => RETOMBENT_A_L_ERREUR.has(baseDe(cle))) : []
+      const retombe = familles ? r.pouvoirs.filter(cle => retombentALErreur(depart.v).has(baseDe(cle))) : []
       for (const cle of retombe) if (oter(r.pouvoirs, cle)) e.cycle!.defausse.push(cle)
       if (familles) r.ratee = true
       if (r.boucle && r.boucle.position === i) {
@@ -1977,7 +2056,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const t = r.tour
     const q = e.enAttente === null ? undefined : questions[e.enAttente]
     // L'essai raté (v14) compte parmi les réponses effacées : Lucidité le voit, comme la page.
-    const effacees = q ? effaceesAvecLEssai(t, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee, nombre: q.nombre, forme: q.forme }) : 0
+    const effacees = q ? effaceesAvecLEssai(t, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee, nombre: q.nombre, forme: q.forme }, depart.v) : 0
     const niveau = q?.niveau ?? marcheDeLaRencontre(r)
     const base = baseDe(g.joker)
     const plus = !!carte.amelioree
@@ -2069,7 +2148,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const t = r.tour
     // Ce que ses chiffres lisent de la question, avant qu'elle ne parte de la main : sa catégorie, ce qui y est déjà effacé.
     const q = e.enAttente === null ? undefined : questions[e.enAttente]
-    const effacees = q ? effaceesDuTour(t.surLaQuestion, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee, nombre: q.nombre, forme: q.forme }) : 0
+    const effacees = q ? effaceesDuTour(t.surLaQuestion, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee, nombre: q.nombre, forme: q.forme }, depart.v) : 0
     // Sa marche, ce qu'elle vaut (le jeu complet : Savoir-faire, Exposé) — ce que l'annonce dit à la page.
     const niveau = q?.niveau ?? marcheDeLaRencontre(r)
     oter(r.main, g.joker)
@@ -2332,7 +2411,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
           // Une source (v5) : sans cartes ; retrouvée, elle rend du courage — ratée, elle ne coûte rien, le carnet la garde.
           e.justes++
           deSuite()
-          if (ici?.sorte === 'source') e.courage = Math.min(COURAGE_MAX, e.courage! + reposALAscension(COURAGE_D_UNE_SOURCE, ascension))
+          if (ici?.sorte === 'source') e.courage = Math.min(COURAGE_MAX, e.courage! + soinALAscension(COURAGE_D_UNE_SOURCE, depart.v, ascension))
         } else e.affilee = 0
       }
       return true
@@ -2565,7 +2644,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     e.ecus -= prix
     if (g.article === 'vie') {
       // En rencontre (v5), « une vie » est du courage.
-      if (e.courage !== null) e.courage = Math.min(COURAGE_MAX, e.courage + COURAGE_A_L_ECHOPPE)
+      if (e.courage !== null) e.courage = Math.min(COURAGE_MAX, e.courage + soinALaVersion(COURAGE_A_L_ECHOPPE, depart.v))
       else e.vies = Math.min(VIES, e.vies + 1)
       echoppe.achats.push('vie')
     } else if (g.article === 'joker') {
@@ -2594,9 +2673,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
    * effacée de celle qu'il a sous les yeux.
    */
   const boire = (g: Extract<GesteDExpedition, { quoi: 'boire' }>) => {
-    if (refusDeLaFiole(e, g.fiole, questions) !== null) return
+    if (refusDeLaFiole(e, g.fiole, questions, depart.v) !== null) return
     oter(e.fioles, g.fiole)
-    if (g.fiole === 'courage') e.courage = Math.min(COURAGE_MAX, e.courage! + COURAGE_D_UNE_FIOLE)
+    if (g.fiole === 'courage') e.courage = Math.min(COURAGE_MAX, e.courage! + soinALaVersion(COURAGE_D_UNE_FIOLE, depart.v))
     else if (g.fiole === 'energie') e.rencontre!.tour.inspiration += ENERGIE_D_UNE_FIOLE
     else e.rencontre!.tour.surLaQuestion.push(CLAIRVOYANCE_SUR_LA_QUESTION)
   }
@@ -2631,7 +2710,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     if (g.ameliorer !== undefined) {
       if (g.retirer !== undefined || !ameliorerLaCarte(g.ameliorer)) return
     } else if (g.retirer === undefined) {
-      if (e.courage !== null) e.courage = Math.min(COURAGE_MAX, e.courage + reposALAscension(COURAGE_D_UN_CAMPEMENT, ascension))
+      if (e.courage !== null) e.courage = Math.min(COURAGE_MAX, e.courage + soinALAscension(COURAGE_D_UN_CAMPEMENT, depart.v, ascension))
       else e.vies = Math.min(VIES, e.vies + 1)
     } else if (!retirer(g.retirer)) return
     e.campement = false
@@ -2743,7 +2822,7 @@ export function secondEssaiEnAttente(depart: Pick<DepartDExpedition, 'v'>, e: Pi
     pouvoirs: r.pouvoirs,
     essais: r.essais,
     question: { reponses, forme: q.forme },
-    effacees: effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q.datee, nombre: q.nombre, forme: q.forme }),
+    effacees: effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q.datee, nombre: q.nombre, forme: q.forme }, depart.v),
   })
 }
 
@@ -2858,7 +2937,7 @@ export function vueDeLaRencontre(
   const q = e.enAttente === null ? undefined : questions[e.enAttente]
   const qt = questionDuTour(q)
   const ctx = contexteDeLaCarte(depart, e, questions)
-  const marche: Niveau = r.sorte === 'gardien' ? MARCHES_DES_ACTES[Math.min(e.acte, ACTES - 1)].gardien : escale ? marcheDe(e.acte, escale) : 'facile'
+  const marche: Niveau = r.sorte === 'gardien' ? marchesDe(depart.v)[Math.min(e.acte, ACTES - 1)].gardien : escale ? marcheDe(e.acte, escale, depart.v) : 'facile'
   let annonce: AnnonceDuTour | undefined
   if (q && qt) {
     // Sa chance : celle que la carte annonçait de l'escale — du gardien —, ramenée à la forme où elle se pose à présent.
@@ -2911,7 +2990,7 @@ export function vueDeLaRencontre(
     ...(r.tour.phase === 'preparation' && { mises: Object.fromEntries(MISES.map(m => [m, refusDeLaMise(e, m)])) }),
     // Le pari pas encore ouvert (v7) : la page ne le propose pas.
     ...(!e.pari && { pari: false as const }),
-    ...(r.tour.phase === 'question' && qt && { effacees: effaceesAvecLEssai(r.tour, r.pouvoirs, qt) }),
+    ...(r.tour.phase === 'question' && qt && { effacees: effaceesAvecLEssai(r.tour, r.pouvoirs, qt, depart.v) }),
     ...(annonce && { annonce }),
     ...(annonce &&
       qt && {
@@ -2931,7 +3010,7 @@ export function vueDeLaRencontre(
           aube: !r.aubeEteinte,
           ratee: !!r.ratee,
           ...(r.essais !== undefined && { essais: r.essais }),
-          effacees: effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, qt),
+          effacees: effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, qt, depart.v),
         }),
       }),
     ...(qt && { questionDuTour: qt }),
@@ -3015,7 +3094,7 @@ export function jouerSurPlace(r: VueDeLaRencontre, cle: string, fetiche?: string
   const carte = carteALaVersion(cle, r.v)!
   // Dans l'ordre du pli : ce qu'elle lit d'effacé avant de viser la question, puis elle quitte la main, puis ses chiffres — un pouvoir
   // posé d'abord, qu'il se lise lui-même (Hantise).
-  const effacees = effaceesDuTour(r.surLaQuestion, r.pouvoirs, { reponses: qt.reponses, datee: qt.datee, nombre: qt.nombre, forme: qt.forme })
+  const effacees = effaceesDuTour(r.surLaQuestion, r.pouvoirs, { reponses: qt.reponses, datee: qt.datee, nombre: qt.nombre, forme: qt.forme }, r.v)
   const main = [...r.main]
   main.splice(main.indexOf(cle), 1)
   const jouees = [...r.jouees, cle]
@@ -3100,7 +3179,7 @@ export function vueApresLaCarte(vue: VueDeLExpedition, cle: string): VueDeLExped
     vies: viesDuCourage(r.courage),
     courage: r.courage,
     rencontre: r,
-    ...(vue.fioles && { fioles: { tenues: vue.fioles.tenues, refus: Object.fromEntries([...new Set(vue.fioles.tenues)].map(f => [f, refusDeLaFiole(e, f, [])])) } }),
+    ...(vue.fioles && { fioles: { tenues: vue.fioles.tenues, refus: Object.fromEntries([...new Set(vue.fioles.tenues)].map(f => [f, refusDeLaFiole(e, f, [], r.v)])) } }),
   }
 }
 
@@ -3140,9 +3219,9 @@ export const arrondiDeChance = (x: number) => Math.round(x * 1000) / 1000
  * celle de sa catégorie à sa marche, gardée au départ à quatre choix et
  * ramenée à la forme de l'escale. La carte la dit, et ses écus s'y lisent.
  */
-export function chanceAnnoncee(depart: Pick<DepartDExpedition, 'chances'>, acte: number, x: EscaleDeLaCarte, commandement: string | null): number | undefined {
+export function chanceAnnoncee(depart: Pick<DepartDExpedition, 'chances' | 'v'>, acte: number, x: EscaleDeLaCarte, commandement: string | null): number | undefined {
   if (commandement && (x.sorte === 'question' || x.sorte === 'elite')) {
-    const p = depart.chances?.[commandement]?.[marcheDe(acte, x)]
+    const p = depart.chances?.[commandement]?.[marcheDe(acte, x, depart.v)]
     if (p !== undefined) return arrondiDeChance(chanceSelonLaForme(p, x.forme ?? 'quatre'))
   }
   return x.chance
@@ -3330,6 +3409,8 @@ export function refusDeLaFiole(
   e: Pick<EtatDeLExpedition, 'issue' | 'fioles' | 'courage' | 'enAttente'> & { rencontre: { tour: Pick<TourDeRencontre, 'phase' | 'surLaQuestion'>; pouvoirs: readonly string[] } | null },
   cle: string,
   questions: readonly QuestionPosee[],
+  /** La version du départ : ce que l'Élan du détail (v15) efface déjà. */
+  v = 0,
 ): string | null {
   const fiole = fioleDe(cle)
   if (!fiole) return 'Cette fiole ne se lit pas : recharge la page'
@@ -3344,8 +3425,8 @@ export function refusDeLaFiole(
   if (reponses <= 2) return 'Pas sur un vrai ou faux : elle répondrait à ta place'
   // À composer (v11), elle retire une lettre de trop, tant qu'il en reste.
   if (q?.forme === 'lettres')
-    return effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q.datee, forme: 'lettres' }) >= LETTRES_EN_TROP ? 'Il ne reste plus de lettre de trop' : null
-  if (effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q?.datee, nombre: q?.nombre }) >= reponses - 2) return 'Il ne reste que deux réponses : plus rien à effacer'
+    return effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q.datee, forme: 'lettres' }, v) >= LETTRES_EN_TROP ? 'Il ne reste plus de lettre de trop' : null
+  if (effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q?.datee, nombre: q?.nombre }, v) >= reponses - 2) return 'Il ne reste que deux réponses : plus rien à effacer'
   return null
 }
 
@@ -3391,6 +3472,22 @@ export interface QuestionDExpedition extends QuestionDeCampagne {
    * jamais celui du temps (invariant 1) — ; ses `reponses` sont vides.
    */
   frise?: FriseAPoser
+  /**
+   * Un détail (v15) : de quoi montrer chaque cadrage à son heure — la page les
+   * demande un à un à leur route, qui ne sert aucun avant elle (invariant 1).
+   * Ni le tableau, ni son peintre : son `texte` est `QUESTION_DU_DETAIL`.
+   */
+  detail?: DetailAPoser
+}
+
+/**
+ * Un détail tel que la page le reçoit (v15) : l'heure du serveur où son
+ * premier cadrage s'est montré, et celle d'Arrêt sur image, joué sur lui —
+ * la page en lit le cadrage du moment (`cadragesMontres`, à `serverNow()`).
+ */
+export interface DetailAPoser {
+  depuis: number
+  arret?: number
 }
 
 /**
@@ -3648,6 +3745,8 @@ export interface ReponseDExpedition {
   coup?: CoupDeRencontre
   /** Une frise (v13) : la bonne, dans l'ordre du temps — chaque événement et son année —, avec le verdict seulement (invariant 1). */
   frise?: FriseRevelee
+  /** Un détail (v15) : son tableau — son titre, son peintre, son année —, avec le verdict seulement (invariant 1). */
+  detail?: TableauRevele
   /**
    * Les familles (v14) : la réponse était fausse, et cette carte lui donne un
    * second essai — elle s'efface, il répond encore. Rien n'est jugé : ni
@@ -3655,6 +3754,13 @@ export interface ReponseDExpedition {
    * vue porte la question, sa réponse ratée effacée.
    */
   essai?: string
+}
+
+/** Le tableau d'un détail, révélé (v15) : la page le montre entier, de sa route (`CADRAGES_DU_DETAIL`). */
+export interface TableauRevele {
+  titre: string
+  peintre: string
+  annee: number
 }
 
 /** Une frise révélée (v13) : ses événements dans l'ordre du temps, chacun son année. */

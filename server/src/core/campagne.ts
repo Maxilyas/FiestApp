@@ -268,7 +268,13 @@ import {
   POIDS_DES_FORMES,
   POIDS_DES_FORMES_A_COMPOSER,
   POIDS_DES_FORMES_A_LA_FRISE,
+  POIDS_DES_FORMES_AU_DETAIL,
+  CADRAGES_DU_DETAIL,
+  QUESTION_DU_DETAIL,
+  adresseDuCadrage,
   arrondiDeChance,
+  cadragesMontres,
+  instantDuCadrage,
   bilanDuPli,
   carteDUnActe,
   carteEnJeu,
@@ -288,6 +294,7 @@ import {
   instantDuMot,
   inviteDuJour,
   marcheDe,
+  marchesDe,
   motsDe,
   motsDits,
   numeroDeLaCarte,
@@ -360,16 +367,19 @@ import {
   type EvenementDeLaFrise,
 } from '../../../shared/frise'
 import { evenementsDeLaBase } from './frises'
+import { detailsDeLaBase, fichierDuCadrage, type DetailDeLaBase } from './details'
 import {
   CLAIRVOYANCE_SUR_LA_QUESTION,
   FIOLES_MAX,
-  POUVOIRS_QUI_EFFACENT,
+  pouvoirsQuiEffacent,
+  CARTES_DU_SECOND_ESSAI,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_CURIOSITES,
   VERSION_DES_FAMILLES,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DE_LA_FRISE,
+  VERSION_DU_DETAIL,
   VERSION_DU_JEU_COMPLET,
   baseDe,
   carteALaVersion,
@@ -487,6 +497,14 @@ interface QuestionDeSerie {
    * de ses événements.
    */
   frise?: { annees: number[]; montre: number[] }
+  /**
+   * Un détail (v15) : son tableau — son QID nomme ses cadrages —, que la page
+   * ne reçoit qu'avec le verdict (invariant 1). Sa question est celle de la
+   * base qui demande son peintre : son `texte` le nomme, il ne part pas — la
+   * page lit `QUESTION_DU_DETAIL`. Ses cadrages courent de `devoileLe`, comme
+   * les mots d'un dévoilement.
+   */
+  detail?: { qid: string; titre: string; peintre: string; annee: number }
 }
 
 /**
@@ -2495,6 +2513,17 @@ export class CampagneStore {
         // et, la proposée fausse, sans ce qu'il fallait répondre non plus.
         ...(q.proposee !== undefined && { proposee: q.proposee }),
         ...(bonneReponse !== undefined && { bonneReponse }),
+        // Un détail de l'expédition (v15) : la question telle qu'il l'a vue, et le tableau entier, de sa route, sous elle.
+        ...(q.forme === 'detail' &&
+          q.detail && {
+            texte: QUESTION_DU_DETAIL,
+            detail: {
+              titre: q.detail.titre,
+              peintre: q.detail.peintre,
+              annee: q.detail.annee,
+              image: adresseDuCadrage(s.id, Number(r.position), CADRAGES_DU_DETAIL),
+            },
+          }),
       }
     })
   }
@@ -2665,18 +2694,24 @@ export class CampagneStore {
    * réponses à ceux qui jouent encore. Une bonne réponse qu'un joker de
    * l'expédition a aidée ne retrouve rien, ni un vrai ou faux qu'elle a tiré
    * d'une question à quatre choix : trouvée par chance, elle ne prouve rien ;
-   * une erreur aidée y entre comme une autre. La forme se compare sans NULL
-   * (`COALESCE`) : `forme = 'vrai-faux'`, vide, rendait NULL tout le filtre,
-   * et écartait chaque bonne réponse nue.
+   * une erreur aidée y entre comme une autre. Une question retrouvée au
+   * second essai (la colonne `joker` porte la carte de l'essai,
+   * `CARTES_DU_SECOND_ESSAI`) y compte pour ratée : sa première réponse était
+   * fausse — le journal des gestes l'a gardée, le carnet ne lit que les
+   * réponses (le détail, v15 ; à la version 14, elle n'y entrait pas). La
+   * forme se compare sans NULL (`COALESCE`) : `forme = 'vrai-faux'`, vide,
+   * rendait NULL tout le filtre, et écartait chaque bonne réponse nue.
    */
   private async suivisDe(profileId: string): Promise<Map<string, SuiviDeRevision>> {
+    const essais = CARTES_DU_SECOND_ESSAI.map(cle => `'${cle}'`).join(', ')
     const res = await this.client.execute({
       sql: `WITH miennes AS (
-              SELECT r.reserve_id AS id, r.juste AS juste, r.repondue_le AS le, r.serie_id AS serie, r.position AS position
+              SELECT r.reserve_id AS id, CASE WHEN COALESCE(r.joker, '') IN (${essais}) THEN 0 ELSE r.juste END AS juste,
+                     r.repondue_le AS le, r.serie_id AS serie, r.position AS position
               FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
               WHERE s.profile_id = ?
                 AND r.reserve_id NOT LIKE '${PREFIXE_DU_REBUS}%' AND r.reserve_id NOT LIKE '${PREFIXE_DE_LA_FRISE}%'
-                AND NOT (r.juste = 1 AND (r.joker IS NOT NULL OR COALESCE(r.forme, '') = 'vrai-faux'))
+                AND NOT (r.juste = 1 AND COALESCE(r.joker, '') NOT IN (${essais}) AND (r.joker IS NOT NULL OR COALESCE(r.forme, '') = 'vrai-faux'))
                 AND NOT (s.mode = 'defi' AND s.semaine >= ?)
                 AND NOT (s.mode = 'duel' AND s.duel IN (SELECT code FROM campagne_duels WHERE ferme_le > ?))
             )
@@ -7160,13 +7195,20 @@ export class CampagneStore {
       const style = estUnStyle(styleDemande) && sesStyles.length > 0 ? (sesStyles.includes(styleDemande) ? styleDemande : sesStyles[0]) : undefined
       // En rencontres, des cartes à plus d'adversaires (`POIDS_DES_ESCALES_DES_RENCONTRES`) ; aux règles d'avant, celles de toujours.
       // Les coups de pouce (v11) y posent leurs escales à composer, sur le même tirage ; les curiosités (v12), une par acte, sur le leur ;
-      // la frise (v13), une escale sur dix, sur le même tirage encore.
-      const formes = v >= VERSION_DE_LA_FRISE ? POIDS_DES_FORMES_A_LA_FRISE : v >= VERSION_DES_COUPS_DE_POUCE ? POIDS_DES_FORMES_A_COMPOSER : POIDS_DES_FORMES
+      // la frise (v13), une escale sur dix, sur le même tirage encore ; le détail (v15), la moitié de la sienne.
+      const formes =
+        v >= VERSION_DU_DETAIL
+          ? POIDS_DES_FORMES_AU_DETAIL
+          : v >= VERSION_DE_LA_FRISE
+            ? POIDS_DES_FORMES_A_LA_FRISE
+            : v >= VERSION_DES_COUPS_DE_POUCE
+              ? POIDS_DES_FORMES_A_COMPOSER
+              : POIDS_DES_FORMES
       const cartes = Array.from({ length: ACTES }, (_, acte) =>
         carteDUnActe(graine, acte, sujets, fete, rencontres ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES, formes, v >= VERSION_DES_CURIOSITES),
       )
       const vues = lireLesVues(lues.rows)
-      const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
+      const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres, v)
       const depart: DepartDExpedition = {
         // Les rencontres partent en version 9 : le codex — ses cartes, ses règles —, figé avec elle, le jeu complet —
         // l'épique dans ses offres, l'énergie de chaque acte —, et les huit familles — le doute, le courage en jeu ; en
@@ -7240,6 +7282,8 @@ export class CampagneStore {
     jouables: readonly QuestionDeLaBase[],
     /** Ses premières réponses, lues avec ce qu'il a vu dans le lot du départ (`lectureDesVues`). */
     premieres: ReadonlyMap<string, boolean>,
+    /** La version du départ : ses marches (plus dures depuis le détail, v15). */
+    v: number,
   ): Promise<{ moyen: boolean; chances: Record<string, Partial<Record<Niveau, number>>>; chanceDeLaSource: number }> {
     const modele = this.modeleDuSavoir()
     let sa: { reference: SerieDeReference; lui: ForceDUnJoueur } | null = null
@@ -7281,11 +7325,11 @@ export class CampagneStore {
     }
     cartes.forEach((carte, acte) => {
       for (const e of carte.escales) {
-        if (e.sorte === 'question' || e.sorte === 'elite') e.chance = arrondiDeChance(chanceSelonLaForme(chance(marcheDe(acte, e), e.theme), e.forme ?? 'quatre'))
+        if (e.sorte === 'question' || e.sorte === 'elite') e.chance = arrondiDeChance(chanceSelonLaForme(chance(marcheDe(acte, e, v), e.theme), e.forme ?? 'quatre'))
         // Une source repose une erreur de son carnet : une question qu'il a ratée, que sa chance sur une moyenne de toutes les catégories résume.
         else if (e.sorte === 'source') e.chance = arrondiDeChance(chance('moyen'))
       }
-      carte.chanceDuGardien = arrondiDeChance(chance(MARCHES_DES_ACTES[acte].gardien))
+      carte.chanceDuGardien = arrondiDeChance(chance(marchesDe(v)[acte].gardien))
     })
     const chances: Record<string, Partial<Record<Niveau, number>>> = {}
     for (const categorie of CATEGORIES) {
@@ -7430,7 +7474,7 @@ export class CampagneStore {
       nouvelle = aSaForme(nue, base, vers, maintenant)
       // Un vrai ou faux se répond « Vrai » ou « Faux », une question à composer en lettres : l'annonce ne dit plus « une année ».
       if (nouvelle.reponses.length <= 2 || nouvelle.forme === 'lettres') delete nouvelle.reponseEn
-    } else if (g.quoi === 'voir' && q.forme === 'devoilement') {
+    } else if (g.quoi === 'voir' && (q.forme === 'devoilement' || q.forme === 'detail')) {
       const { arretLe: _arretLe, ...sansArret } = q
       nouvelle = { ...sansArret, devoileLe: maintenant }
     }
@@ -7595,9 +7639,12 @@ export class CampagneStore {
         // En rencontre (v5) : ce que la réponse a brisé, coûté, rapporté.
         ...(l.depart.v >= 5 && apres.coup && { coup: apres.coup }),
         // Le dévoilement répondu : son intitulé entier, qu'il n'avait peut-être pas fini de lire.
-        ...(devoile && { texte: q.texte, devoile }),
+        // Un détail (v15), non : son intitulé de la base redirait le tableau que la révélation montre déjà, nommé.
+        ...(devoile && { ...(q.forme !== 'detail' && { texte: q.texte }), devoile }),
         // Une frise (v13) : la bonne, dans l'ordre du temps — chaque événement et son année —, avec le verdict seulement (invariant 1).
         ...(q.forme === 'frise' && q.frise && { frise: { evenements: q.reponses, annees: q.frise.annees } }),
+        // Un détail (v15) : son tableau, avec le verdict seulement — la page le montre entier, de sa route.
+        ...(q.detail && { detail: { titre: q.detail.titre, peintre: q.detail.peintre, annee: q.detail.annee } }),
         ...gains,
       }
     })
@@ -7634,6 +7681,39 @@ export class CampagneStore {
           return { dits, suivantDans: dits < mots.length ? Math.max(0, instantDuMot(dits + 1, depuis, arret()) - t) : null }
         },
       }
+    })
+  }
+
+  /**
+   * Un cadrage d'un détail (v15) : le fichier à servir, à son heure et pas
+   * avant (invariant 1) — le premier dès qu'il voit la question, puis un tous
+   * les `MS_PAR_CADRAGE`, Arrêt sur image compris ; tous, une fois sa réponse
+   * jugée ou l'expédition finie — la révélation et « Mes réponses » montrent
+   * le tableau entier. Trop tôt : dans combien de millisecondes il se montre.
+   * Seule la position et le rang du cadrage voyagent : le tableau reste au
+   * serveur.
+   */
+  cadrageDuDetail(profileId: string, id: string, position: unknown, cadrage: unknown): Promise<{ fichier: string } | { dans: number }> {
+    return this.avecVerrou(profileId, async () => {
+      const gardee = await this.expeditionAJouer(profileId, id)
+      if (!gardee) throw new Error('Cette expédition est introuvable')
+      const l = gardee.lue
+      const i = position as number
+      const k = cadrage as number
+      if (!Number.isInteger(i) || !Number.isInteger(k) || k < 1 || k > CADRAGES_DU_DETAIL) throw new Error('Ce tableau ne se lit pas : recharge la page')
+      const q = l.serie.questions[i]
+      if (!q || q.forme !== 'detail' || !q.detail) throw new Error('Cette question n’a pas de tableau : recharge la page')
+      if (!l.reponses.has(i) && l.serie.finieLe === null) {
+        const avant = plier(l)
+        if (i !== avant.enAttente && i !== avant.autre) throw new Error('Cette question est passée : l’expédition a continué sans elle')
+        // En préparation, rien ne se montre : son premier cadrage attend qu'il la voie (`voir`).
+        if (avant.rencontre?.tour.phase === 'preparation' || q.devoileLe === undefined) throw new Error('Prépare-toi, puis vois la question : elle n’est pas encore sous tes yeux')
+        // L'heure d'Arrêt sur image se relit dans l'expédition gardée : jouée pendant le tableau, elle le retient aussi.
+        const arret = this.expeditions.get(profileId)?.lue.serie.questions[i]?.arretLe ?? q.arretLe
+        const dans = instantDuCadrage(k, q.devoileLe, arret) - this.maintenant()
+        if (dans > 0) return { dans }
+      }
+      return { fichier: fichierDuCadrage(q.detail.qid, k) }
     })
   }
 
@@ -7731,7 +7811,7 @@ export class CampagneStore {
       if (q) return { tirees: [{ ...rangee(q, niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))), carnet: true }], vues: lues }
     }
     const gardien = escale.sorte === 'gardien'
-    const marche: Niveau = source ? 'facile' : marcheDe(acte, escale)
+    const marche: Niveau = source ? 'facile' : marcheDe(acte, escale, depart.v)
     const n = a.combien
     const theme: ThemeDEscale | undefined = a.categorie ? { categories: [a.categorie] } : escale.theme
     let tas: readonly (readonly QuestionDeLaBase[])[] = [toutes]
@@ -7743,6 +7823,19 @@ export class CampagneStore {
     const sujet = theme && 'sujet' in theme && tas[0] !== toutes ? theme.sujet : undefined
     // Sa forme (l'étape 3) : celle d'une question ou d'une élite ; une source, un gardien posent la question telle qu'elle est écrite.
     const forme = escale.sorte === 'question' || escale.sorte === 'elite' ? escale.forme : undefined
+    // Un détail (v15) : un tableau jamais vu d'abord, sa question de la base qui demande son peintre. Une base qui n'en a aucun — une
+    // base d'essai — le pose à quatre choix, sur le thème de l'escale. Leçon et la Bibliothèque font venir leur catégorie fétiche.
+    if (forme === 'detail' && n === 1 && !a.categorie) {
+      const d = detailPourUneEscale(detailsDeLaBase(this.parIdDe(toutes)), marche, vues, x => niveauDeQuestion(x.meta.difficulte, mesure.get(x.id)))
+      if (d) {
+        const x = rangee(d.question, niveauDeQuestion(d.question.meta.difficulte, mesure.get(d.question.id)))
+        const { tableau } = d
+        return {
+          tirees: [{ ...x, forme: 'detail', tiree: 'detail', devoileLe: maintenant, detail: { qid: tableau.qid, titre: tableau.titre, peintre: tableau.peintre, annee: tableau.annee } }],
+          vues: lues,
+        }
+      }
+    }
     // Une frise (v13) : quatre événements de son thème, jamais vus dans une frise d'abord. Un thème qui n'a pas de quoi en faire une —
     // un thème pointu sans événements, une base d'essai — la pose à quatre choix, comme une forme qu'aucune question ne prend.
     if (forme === 'frise' && n === 1) {
@@ -8345,12 +8438,12 @@ function versSerie(r: Record<string, unknown>): Serie {
 
 /**
  * La version d'un départ neuf : la question au centre, ses coups de pouce,
- * ses curiosités, sa frise et ses familles là où elle s'ouvre
+ * ses curiosités, sa frise, ses familles et son détail là où elle s'ouvre
  * (`questionAuCentreOuverte`), les huit familles aux rencontres, les écus aux
  * règles d'avant elles.
  */
 const versionDuDepart = (rencontres: boolean, questionAuCentre: boolean): DepartDExpedition['v'] =>
-  rencontres ? (questionAuCentre ? VERSION_DES_FAMILLES : VERSION_DES_HUIT_FAMILLES) : 4
+  rencontres ? (questionAuCentre ? VERSION_DU_DETAIL : VERSION_DES_HUIT_FAMILLES) : 4
 
 /** Le départ qu'une expédition a gardé ; null : pas une expédition, ou illisible. */
 function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
@@ -8359,8 +8452,9 @@ function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
     const lu = JSON.parse(brut) as DepartDExpedition
     // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus, la 4 sans rencontres,
     // la 6 sans codex, la 7 sans le jeu complet, la 8 sans les huit familles, la 9 sans la question au centre, la 10 sans coups de pouce,
-    // la 11 sans curiosités, la 12 sans frise, la 13 sans les familles en façons de répondre ; une version inconnue ne se lit pas.
-    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
+    // la 11 sans curiosités, la 12 sans frise, la 13 sans les familles en façons de répondre, la 14 sans le détail ni ses adversaires
+    // plus durs ; une version inconnue ne se lit pas.
+    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
   } catch {
     return null
   }
@@ -8491,7 +8585,7 @@ function gesteRecevable(l: ExpeditionLue, avant: EtatDeLExpedition, g: GesteDExp
     // Les fioles (le codex) : à son niveau, et pendant une question, sur celle qui attend — comme une carte jouée sur elle.
     if (!regleOuverte(l.depart, 'fioles')) throw new Error('Cette expédition n’a pas de fioles : recharge la page')
     if (g.position !== undefined && g.position !== avant.enAttente && g.position !== avant.autre) throw new Error('Cette question est passée : l’expédition a continué sans elle')
-    const refus = refusDeLaFiole(avant, g.fiole, questionsPosees(l.serie.questions))
+    const refus = refusDeLaFiole(avant, g.fiole, questionsPosees(l.serie.questions), l.depart.v)
     if (refus) throw new Error(refus)
     return { quoi: 'boire', fiole: g.fiole, ...(avant.enAttente !== null && { position: avant.enAttente }) }
   }
@@ -8510,17 +8604,19 @@ function jokerQuiAide(e: EtatDeLExpedition, q: QuestionDeSerie, v: number): stri
   if (r) {
     // En rencontre (v5), plusieurs cartes visent la question : la colonne garde le premier indice — un seul suffit à ne rien mesurer —,
     // sous la clé de sa carte : améliorée, c'est la même aide.
+    // Les familles (v14) : un second essai — sa première réponse, fausse, s'est effacée : la seconde ne mesure rien, comme Double chance.
+    // Sa carte d'abord, avant celle d'un indice joué avec : le carnet la lit pour savoir que la première était fausse (`suivisDe`).
+    if (r.tour.essai !== undefined) return baseDe(r.tour.essai)
     const indice = r.tour.surLaQuestion.find(cle => carteALaVersion(cle, v)?.indice)
     if (indice) return baseDe(indice)
-    // Les familles (v14) : un second essai — sa première réponse, fausse, s'est effacée : la seconde ne mesure rien, comme Double chance.
-    if (r.tour.essai !== undefined) return baseDe(r.tour.essai)
     // Troisième œil posé (v14) lui a soufflé une lettre de sa bonne réponse — là où il en a une à souffler.
     const troisieme = v >= VERSION_DES_FAMILLES && parmi(r.pouvoirs, 'troisieme-oeil')
     if (troisieme && q.forme !== 'frise' && (q.forme === 'lettres' || (q.reponses.length > 2 && !q.nombre))) return 'troisieme-oeil'
     // La fiole de clairvoyance (le codex) a effacé une réponse : sa clé, comme celle d'un Coup d'œil.
     if (r.tour.surLaQuestion.includes(CLAIRVOYANCE_SUR_LA_QUESTION) && q.reponses.length > 2) return CLAIRVOYANCE_SUR_LA_QUESTION
     // L'écholocation, Vision (le jeu complet) : posées, elles effacent une réponse à chaque question.
-    const pouvoir = POUVOIRS_QUI_EFFACENT.find(cle => parmi(r.pouvoirs, cle))
+    // Vent arrière aussi, depuis le détail (v15).
+    const pouvoir = pouvoirsQuiEffacent(v).find(cle => parmi(r.pouvoirs, cle))
     if (pouvoir && q.reponses.length > 2) return pouvoir
   }
   const joue = e.joue?.joker
@@ -8677,8 +8773,13 @@ function renommeeLue([bilans, series, gestes, reponses]: readonly ResultSet[]): 
   return { renommee, exploits: EXPLOITS.map(x => x.cle).filter(cle => faits.has(cle)), ascension: ascensionOuverte(comptes), aEcrire }
 }
 
-/** Où en était un dévoilement à l'instant `t` — l'heure du serveur où sa réponse est arrivée (invariant 6) : les mots dits, sur combien. */
+/**
+ * Où en était un dévoilement à l'instant `t` — l'heure du serveur où sa
+ * réponse est arrivée (invariant 6) : les mots dits, sur combien ; un détail
+ * (v15), ses cadrages montrés, sur quatre.
+ */
 function devoileA(q: QuestionDeSerie, t: number): { mots: number; sur: number } | undefined {
+  if (q.forme === 'detail' && q.devoileLe !== undefined) return { mots: cadragesMontres(q.devoileLe, t, q.arretLe), sur: CADRAGES_DU_DETAIL }
   if (q.forme !== 'devoilement' || q.devoileLe === undefined) return undefined
   const sur = motsDe(q.texte).length
   return { mots: motsDits(sur, q.devoileLe, t, q.arretLe), sur }
@@ -8710,6 +8811,8 @@ const questionsPosees = (questions: readonly QuestionDeSerie[], reponduesLe?: Re
         datee: siecleDeLaQuestion(q) !== null,
         ...(q.reponseEn && { reponseEn: q.reponseEn }),
         ...(q.forme === 'devoilement' && { mots: motsDe(q.texte).length }),
+        // Un détail (v15) : ses cadrages tiennent lieu de mots — l'aperçu dit ce qu'il vaut trouvé au premier.
+        ...(q.forme === 'detail' && { mots: CADRAGES_DU_DETAIL }),
         ...(q.compose && { compose: true }),
       }),
     }
@@ -8759,7 +8862,7 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
             // Le repère d'une année ou d'un nombre efface, comme sans époque : la sienne dirait la réponse.
             nombre: !!q.nombre,
             ...(sesTuiles && { forme: 'lettres' as const }),
-          })
+          }, d.v)
         : 0
       : (joue ? (EFFACE[joue] ?? 0) : 0) + (echo ? EFFACE.echolocation : 0)
     // Ses cases et ses tuiles, jamais ses réponses : ses choix la rendraient à quatre choix, et sa bonne réponse la dirait (invariant 1).
@@ -8789,6 +8892,9 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
       ...questionMontree(q, position),
       // Un dévoilement ne part pas entier (invariant 1) : ses mots se lisent à leur heure (`devoilement`), son compte seul part ici.
       ...(q.forme === 'devoilement' && { texte: '', devoilement: { mots: motsDe(q.texte).length } }),
+      // Un détail (v15) : son intitulé de la base nomme le tableau — la page lit la question du détail, et ses cadrages à leur route.
+      ...(q.forme === 'detail' &&
+        q.detail && { texte: QUESTION_DU_DETAIL, detail: { depuis: q.devoileLe ?? 0, ...(q.arretLe !== undefined && { arret: q.arretLe }) } }),
       ...(composer && { reponses: [], composer }),
       ...(frise && { reponses: [], frise }),
       // Un rébus (v12) : ses emojis, que la page montre en grand au-dessus de ses cases.
@@ -8932,7 +9038,7 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
     ...(d.codex && { exploits: [...e.exploits] }),
     // Ses fioles, à leur niveau : celles qu'il porte, et pourquoi chacune ne se boit pas maintenant.
     ...(regleOuverte(d, 'fioles') && {
-      fioles: { tenues: e.fioles, refus: Object.fromEntries([...new Set(e.fioles)].map(f => [f, refusDeLaFiole(e, f, posees)])) },
+      fioles: { tenues: e.fioles, refus: Object.fromEntries([...new Set(e.fioles)].map(f => [f, refusDeLaFiole(e, f, posees, d.v)])) },
     }),
   }
 }
@@ -9368,6 +9474,44 @@ function evenementsVus(lues: Pick<ReadonlyMap<string, number>, 'keys'>, posees: 
   for (const id of lues.keys()) lire(id)
   for (const id of posees) lire(id)
   return vus
+}
+
+/**
+ * Le tableau d'un détail (v15) : jamais vu d'abord — aucune de ses questions,
+ * relues de ce qu'il a vu : celle d'une série le lui a déjà nommé —, à la
+ * marche de l'escale s'il en reste ; puis le plus anciennement vu. Ce que
+ * l'expédition a posé passe pour vu à l'instant (`vues`) : le même tableau ne
+ * revient pas dans une expédition tant qu'il en reste d'autres.
+ */
+export function detailPourUneEscale(
+  details: readonly DetailDeLaBase[],
+  marche: Niveau,
+  vues: Pick<ReadonlyMap<string, number>, 'get'>,
+  niveauDe: (q: QuestionDeLaBase) => Niveau,
+  hasard: () => number = Math.random,
+): DetailDeLaBase | undefined {
+  const vuLe = (d: DetailDeLaBase): number | undefined => {
+    let le: number | undefined
+    for (const id of d.tableau.questions) {
+      const v = vues.get(id)
+      if (v !== undefined && (le === undefined || v > le)) le = v
+    }
+    return le
+  }
+  const jamais = details.filter(d => vuLe(d) === undefined)
+  const aSaMarche = jamais.filter(d => niveauDe(d.question) === marche)
+  const parmi = aSaMarche.length > 0 ? aSaMarche : jamais
+  if (parmi.length > 0) return parmi[Math.floor(hasard() * parmi.length)]
+  let ancien: DetailDeLaBase | undefined
+  let le = Number.POSITIVE_INFINITY
+  for (const d of details) {
+    const v = vuLe(d)!
+    if (v < le) {
+      le = v
+      ancien = d
+    }
+  }
+  return ancien
 }
 
 /** Parmi ces candidats, un jamais vu, au hasard ; sinon le plus anciennement vu. */

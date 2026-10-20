@@ -377,6 +377,11 @@ faut la redurcir après la semaine de jeu, c'est le levier
 
 ### Ce qui reste à trancher
 
+Tranché le même jour, vers 13 h, par la version 15 (`le-detail.md`) : le
+carnet tient pour ratée une réponse retrouvée au second essai, l'Élan aide et
+revient, et l'expédition devient bien plus difficile — son gardien de
+l'acte 3 en experte.
+
 1. **Le carnet et le second essai** : une question retrouvée au second essai
    entre-t-elle au carnet, comme le brief le voulait ? Il faudrait que le
    carnet lise les gestes de l'expédition.

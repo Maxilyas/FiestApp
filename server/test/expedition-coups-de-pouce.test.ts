@@ -23,6 +23,7 @@ import {
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_FAMILLES,
+  VERSION_DU_DETAIL,
   VERSION_DES_HUIT_FAMILLES,
   ameliorer,
   carteALaVersion,
@@ -483,9 +484,9 @@ const geste = (cookie: string, v: VueDeLExpedition, g: unknown) => poster(cookie
 test('par les routes : une question à composer — ses cases et ses tuiles, jamais ses réponses ; ses lettres jugées au serveur, deux crans ; fausse, ce qu’il a composé, gardé et corrigé', async () => {
   const c = await inscrireProfil(banc.url, 'pouce1', 'Pouce')
   let v = await partirAComposer(c)
-  // Le départ prend la version de la préproduction : les curiosités (v12), la frise (v13) et les familles (v14) prolongent les coups de
-  // pouce, qu'elles gardent.
-  assert.equal(v.cartes!.v, VERSION_DES_FAMILLES)
+  // Le départ prend la version de la préproduction : les curiosités (v12), la frise (v13), les familles (v14) et le détail (v15)
+  // prolongent les coups de pouce, qu'ils gardent.
+  assert.equal(v.cartes!.v, VERSION_DU_DETAIL)
   const r = await geste(c, v, { quoi: 'avancer', vers: v.carte!.depart[0] })
   assert.equal(r.status, 200, r.corps.error)
   v = r.corps.expedition
