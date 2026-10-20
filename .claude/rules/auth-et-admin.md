@@ -58,11 +58,13 @@ paths:
   trente jours), ni prénom, suspension ou suppression sur son propre
   profil (`estLeSien`) — s'offrir des confettis, si (le 14 octobre 2026). Un geste de plus sur un profil se pose la
   même question.
-- **Une page de plus à la racine rejoint `RESERVED_SLUGS`** (`shared/space.ts`) :
-  `parseRoute` lit `ACCOUNT_PAGES` avant les espaces, et un espace nommé
-  comme une page — `duels` aujourd'hui, ou un dossier servi (`portraits`,
-  `medaillons`, `compagnons`, `decors`) — n'aurait plus d'adresse. Seul
-  l'administrateur choisit une adresse (« Renommer ») ; un salon tire la
+- **Une page de plus à la racine rejoint `RESERVED_SLUGS`** (`shared/space.ts`),
+  un dossier servi aussi : `parseRoute` lit `ACCOUNT_PAGES` avant les
+  espaces, et un espace nommé comme une page — `duels`, qui y manque encore —
+  ou comme un dossier servi n'aurait plus d'adresse. Les dossiers des images
+  peintes (`portraits`, `medaillons`, `compagnons`, `ornements`, `decors`,
+  `cartes`) l'ont rejointe le 20 octobre 2026 (`ornements-peints.test.ts`).
+  Seul l'administrateur choisit une adresse (« Renommer ») ; un salon tire la
   sienne (`s-…`).
 
 ## L'invariant 16, en entier

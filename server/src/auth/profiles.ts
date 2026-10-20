@@ -435,7 +435,7 @@ interface SienEnMemoire {
   montree: number | null
   /** Les paliers de sa niche atteints avec lui (`PALIERS_DE_LA_NICHE`), de 0 à 4 : ils ne font que monter. Absent, aucun. */
   paliers?: number
-  /** Ses ornements réglés autrement que d'office (`{ guirlande: 'cache' }`) ; absent ou vide : tous montrés, dessinés. */
+  /** Ses ornements réglés autrement que d'office (`{ guirlande: 'cache' }`) ; absent ou vide : tous montrés, peints. */
   ornements?: ReglageDesOrnements
 }
 

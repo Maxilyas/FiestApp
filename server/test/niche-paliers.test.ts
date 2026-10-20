@@ -18,6 +18,8 @@ import { MONTREE_DE_LA_METAMORPHOSE } from '../../shared/compagnons'
 import {
   ORNEMENTS,
   PALIERS_DE_LA_NICHE,
+  STYLES_D_ORNEMENT,
+  STYLE_D_OFFICE,
   lireLesOrnements,
   ornementsMontres,
   paliersDeLaNicheAtteints,
@@ -72,13 +74,25 @@ test('après sa forme ultime, quatre paliers, chacun son ornement : 1 500, 4 000
   assert.equal(titreDeLAmitie(4), 'Légende')
 })
 
-test('chaque ornement gagné se montre d’office ; on choisit lesquels montrer — et rien d’inconnu ne passe', () => {
+test('chaque ornement gagné se montre d’office, peint ; on choisit lesquels montrer, et comment — et rien d’inconnu ne passe', () => {
+  // Peint, dessiné comme sur la maquette, ou caché : le Féerique d'office, le style choisi le 20 octobre 2026.
+  assert.deepEqual([...STYLES_D_ORNEMENT], ['feerique', 'dessin', 'cache'])
+  assert.equal(STYLE_D_OFFICE, 'feerique')
   assert.deepEqual(ornementsMontres({}), [])
-  assert.deepEqual(ornementsMontres({ paliers: 2 }), ['guirlande', 'lierre'])
-  assert.deepEqual(ornementsMontres({ paliers: 4, ornements: { lierre: 'cache' } }), ['guirlande', 'arche', 'halo'])
-  // Un réglage d'un ornement pas encore atteint ne montre rien.
-  assert.deepEqual(ornementsMontres({ paliers: 1, ornements: { halo: 'dessin' } }), ['guirlande'])
-  assert.deepEqual(lireLesOrnements('{"guirlande":"cache","lierre":"dessin","dragon":"cache","arche":"paillettes"}'), { guirlande: 'cache' })
+  assert.deepEqual(ornementsMontres({ paliers: 2 }), [
+    { cle: 'guirlande', style: 'feerique' },
+    { cle: 'lierre', style: 'feerique' },
+  ])
+  assert.deepEqual(ornementsMontres({ paliers: 4, ornements: { lierre: 'cache', arche: 'dessin' } }), [
+    { cle: 'guirlande', style: 'feerique' },
+    { cle: 'arche', style: 'dessin' },
+    { cle: 'halo', style: 'feerique' },
+  ])
+  // Un réglage d'un ornement pas encore atteint ne montre rien ; un style inconnu reprend celui d'office.
+  assert.deepEqual(ornementsMontres({ paliers: 1, ornements: { halo: 'dessin' } }), [{ cle: 'guirlande', style: 'feerique' }])
+  assert.deepEqual(ornementsMontres({ paliers: 1, ornements: { guirlande: 'paillettes' } }), [{ cle: 'guirlande', style: 'feerique' }])
+  // Seul ce qui s'écarte du style d'office se retient.
+  assert.deepEqual(lireLesOrnements('{"guirlande":"cache","lierre":"dessin","dragon":"cache","arche":"paillettes","halo":"feerique"}'), { guirlande: 'cache', lierre: 'dessin' })
   assert.deepEqual(lireLesOrnements({ halo: 'cache' }), { halo: 'cache' })
   for (const brut of ['pas du json', '["cache"]', null, 42, ['cache']]) assert.deepEqual(lireLesOrnements(brut), {}, JSON.stringify(brut))
 })
@@ -147,37 +161,41 @@ async function rendre(composant: string, props: object): Promise<string> {
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
 
-test('sa niche porte les ornements qu’il montre : la guirlande, le lierre, l’arche dorée, le halo', async () => {
-  const deux = await rendre('Niche', { compagnon: 'loup', rang: 3, paliers: 2 })
+test('sa niche porte les ornements qu’il montre : la guirlande, le lierre, l’arche dorée, le halo — dessinés, ceux de la maquette', async () => {
+  // Peints d'office : leurs calques et leurs plans, `ornements-peints.test.ts`. Dessinés, ce qui suit.
+  const dessines = (paliers: number, autres: object = {}) => ({ ...Object.fromEntries(ORNEMENTS.slice(0, paliers).map(o => [o.key, 'dessin'])), ...autres })
+  const deux = await rendre('Niche', { compagnon: 'loup', rang: 3, paliers: 2, ornements: dessines(2) })
   assert.match(deux, /class="orne orne-guirlande"/)
   assert.match(deux, /class="orne orne-lierre"/)
-  assert.doesNotMatch(deux, /orne-arche|orne-halo|niche-halo|niche-cadre orne-or/, 'pas ce qu’il n’a pas atteint')
-  const tous = await rendre('Niche', { compagnon: 'loup', rang: 3, paliers: 4, ornements: { lierre: 'cache' } })
+  assert.doesNotMatch(deux, /orne-arche|orne-halo|niche-halo|niche-cadre orne-or|orne-peint/, 'pas ce qu’il n’a pas atteint, ni rien de peint')
+  const tous = await rendre('Niche', { compagnon: 'loup', rang: 3, paliers: 4, ornements: dessines(4, { lierre: 'cache' }) })
   assert.match(tous, /class="niche-halo"/, 'le halo, derrière lui')
   assert.match(tous, /class="niche-cadre orne-or"/, 'l’arche dorée')
   assert.match(tous, /class="orne orne-arche"/, 'et son étoile')
   assert.match(tous, /class="orne orne-guirlande"/)
   assert.doesNotMatch(tous, /orne-lierre/, 'caché : il ne se montre pas')
-  assert.doesNotMatch(await rendre('Niche', { compagnon: 'loup', rang: 2 }), /class="orne /, 'avant le premier palier, rien')
+  for (const vue of [{ compagnon: 'loup', rang: 2 }, { compagnon: 'loup', rang: 3 }]) {
+    assert.doesNotMatch(await rendre('Niche', vue), /class="orne |orne-peint|orne-or/, `avant le premier palier, rien : ${JSON.stringify(vue)}`)
+  }
   // Les lampes scintillent, le halo respire : le mouvement réduit les arrête.
   const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
   const reduit = css.slice(css.indexOf('LES ORNEMENTS DE LA NICHE'))
   assert.match(reduit, /@media \(prefers-reduced-motion: reduce\) \{[^@]*\.orne-lampe[^@]*animation: none/)
 })
 
-test('« Ma niche » dit où il en est après sa forme ultime, et chaque ornement gagné se montre ou se cache d’un toucher', async () => {
+test('« Ma niche » dit où il en est après sa forme ultime, et chaque ornement gagné se montre peint, dessiné, ou se cache d’un toucher', async () => {
   const avant = await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 2 }, onFermer: () => {} })
   assert.match(avant, /Sa niche s’embellit/)
   assert.match(avant, /une guirlande de petites lampes à 1500 bonnes réponses avec lui/, 'annoncée avant sa forme ultime')
   const une = await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 3, paliers: 1 }, onFermer: () => {} })
-  // Un nom fixe : montré ou caché se dit par aria-pressed (`design.test.ts`).
-  assert.match(une, /<button type="button" class="niche-orne" aria-pressed="true"[^>]*>/)
+  // Un nom fixe : le style montré se dit par aria-pressed (`design.test.ts`) ; le détail des choix, `ornements-peints.test.ts`.
+  assert.equal(une.match(/class="niche-orne"/g)?.length, 1, 'seulement ce qu’il a gagné se règle')
+  assert.equal(une.match(/<button type="button" class="niche-orne-style" aria-pressed="true"/g)?.length, 1)
   assert.match(une, /Amis pour la vie/)
-  assert.equal(une.match(/class="niche-orne"/g)?.length, 1, 'seulement ce qu’il a gagné se touche')
   assert.match(une, /Complices · à 4000/, 'le suivant s’annonce')
   const cache = await rendre('FicheDeLaNiche', { niche: { compagnon: 'tortue', rang: 3, paliers: 4, ornements: { guirlande: 'cache' } }, onFermer: () => {} })
   assert.equal(cache.match(/class="niche-orne"/g)?.length, 4)
-  assert.match(cache, /<button type="button" class="niche-orne" aria-pressed="false"/)
+  assert.match(cache, /<button type="button" class="niche-orne-style" aria-pressed="true"[^>]*>(?:(?!<\/button>)[\s\S])*Caché/, 'la guirlande, cachée')
   assert.match(cache, /Légende/)
 })
 
@@ -290,8 +308,12 @@ test('ses paliers se gagnent avec lui, se gardent — même quand une soirée re
     // Retenu par le serveur, pour tous ses appareils : un réveil sur disque effacé le garde.
     await banc.redemarrer({ disqueEfface: true })
     assert.deepEqual((await lire(banc, cookie)).compagnons, [{ compagnon: 'loup', rang: 3, montree: 1, paliers: 1, ornements: { guirlande: 'cache' } }])
-    // Remontrée, elle reprend le dessin d'office : rien à retenir.
-    assert.deepEqual((await regler(banc, cookie, 'loup', { ornements: { guirlande: 'dessin' } })).corps.profile.compagnons, [{ compagnon: 'loup', rang: 3, montree: 1, paliers: 1 }])
+    // Dessinée, comme sur la maquette : retenu aussi.
+    assert.deepEqual((await regler(banc, cookie, 'loup', { ornements: { guirlande: 'dessin' } })).corps.profile.compagnons, [
+      { compagnon: 'loup', rang: 3, montree: 1, paliers: 1, ornements: { guirlande: 'dessin' } },
+    ])
+    // Peinte, elle reprend le style d'office : rien à retenir.
+    assert.deepEqual((await regler(banc, cookie, 'loup', { ornements: { guirlande: 'feerique' } })).corps.profile.compagnons, [{ compagnon: 'loup', rang: 3, montree: 1, paliers: 1 }])
     assert.equal(enBase(banc, db => (db.prepare('SELECT ornements FROM profile_compagnons WHERE profile_id = ?').get(alice) as { ornements: string | null }).ornements), null)
 
     // La série d'où venaient ses bonnes réponses retirée : le palier reste, la jauge repart d'où il en est.
