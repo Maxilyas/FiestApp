@@ -32,6 +32,7 @@
 // boutique vend, l'album montre ce qui vient.
 
 import type { Rarete } from './badges'
+import type { ReglageDesOrnements } from './ornements'
 
 /** Le prix d'un compagnon, à sa première forme : un objet qui se mérite. */
 export const PRIX_D_UN_COMPAGNON = 1000
@@ -280,7 +281,11 @@ export interface CompagnonPossede {
   compagnon: CleDeCompagnon
   /** Le rang de la plus haute forme atteinte. */
   rang: number
-  /** Le nom qu'il lui a donné, s'il lui en a donné un : à lui seul — la salle ne le voit jamais. */
+  /**
+   * Le nom qu'il lui a donné, s'il lui en a donné un : sa carte le montre à
+   * qui l'ouvre (le propriétaire, le 19 octobre 2026), l'instantané de la
+   * salle jamais.
+   */
   nom?: string
   /**
    * Le rang de la forme qu'il montre dans sa niche, s'il en a choisi une
@@ -296,6 +301,14 @@ export interface CompagnonPossede {
    * Éclats, et sa fiche se relit seule à l'ouverture (`GET /api/joueur/niche`).
    */
   eclat?: true
+  /**
+   * Les paliers de sa niche atteints avec lui, après sa forme ultime
+   * (`PALIERS_DE_LA_NICHE`, `shared/ornements.ts`) : de 1 à 4, chacun son
+   * ornement, jamais perdu. Absent avant le premier.
+   */
+  paliers?: number
+  /** Ce qu'il a réglé de ses ornements, quand ce n'est pas le style d'office (`{ guirlande: 'cache' }`) ; absent : tous montrés. */
+  ornements?: ReglageDesOrnements
 }
 
 /** Et les bonnes réponses données avec lui depuis l'achat, relues dans ses journaux : la jauge de la forme suivante. */

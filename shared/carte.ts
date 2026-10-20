@@ -13,6 +13,7 @@
 import type { CleDeLigue } from './duels'
 import type { BadgePorte } from './badges'
 import type { Distinctions, Fiche } from './profil'
+import type { CompagnonPossede } from './compagnons'
 import { VITRINE_MAX, cleRangee, plusBeaux } from './hautsfaits'
 
 /**
@@ -104,6 +105,13 @@ export interface CarteDeJoueur extends Distinctions {
     ecussons?: { categorie: string; palier: 1 | 2 | 3 }[]
     /** Le fond de sa carte, s'il en porte un (`shared/fonds.ts`) : la carte qu'on ouvre change d'allure. */
     fond?: string
+    /**
+     * Le compagnon de sa niche, tel qu'elle le montre — la forme qu'il y a
+     * choisie, son Éclat, les paliers de sa niche et ses ornements — et son
+     * nom, s'il lui en a donné un (le propriétaire, le 19 octobre 2026 : « Le
+     * compagnon sur la carte doit avoir son nom »). Absent sans compagnon.
+     */
+    compagnon?: CompagnonPossede
     /**
      * Les prix du palmarès : ils tombent à chaque soirée, et six fois
      * L'Éclair ne disait rien à la salle. C'est la collection qui se montre —

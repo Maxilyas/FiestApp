@@ -112,6 +112,17 @@ import {
   type CompagnonPossede,
   type FormeDeCompagnon,
 } from '../../../shared/compagnons'
+import {
+  PALIERS_DE_LA_NICHE,
+  STYLES_D_ORNEMENT,
+  STYLE_D_OFFICE,
+  lireLesOrnements,
+  ornement as ornementDuCatalogue,
+  paliersDeLaNicheAtteints,
+  type ReglageDesOrnements,
+  type StyleDOrnement,
+} from '../../../shared/ornements'
+import { formatNumber } from '../../../shared/typographie'
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
 import { PRIX_D_UN_SABLIER, SABLIERS_MAX, jourAvant, jourDe, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
 import type { Achat, Mouvement, SorteDeVente } from '../../../shared/qgEconomie'
@@ -416,12 +427,16 @@ function lireLigneDeMission(r: Record<string, unknown>): LigneDeMission {
   return { jour: String(r.jour), rang: Number(r.rang), mission, faiteLe: r.faite_le == null ? null : Number(r.faite_le) }
 }
 
-/** Ce que la mémoire garde de chacun de ses compagnons : sa plus haute forme, et ce qu'il a réglé de sa niche. */
+/** Ce que la mémoire garde de chacun de ses compagnons : sa plus haute forme, les paliers de sa niche, et ce qu'il en a réglé. */
 interface SienEnMemoire {
   rang: number
   nom: string | null
   /** La forme qu'il montre dans sa niche, d'avant sa plus haute, ou sa métamorphose (`MONTREE_DE_LA_METAMORPHOSE`) ; null : la plus haute. */
   montree: number | null
+  /** Les paliers de sa niche atteints avec lui (`PALIERS_DE_LA_NICHE`), de 0 à 4 : ils ne font que monter. Absent, aucun. */
+  paliers?: number
+  /** Ses ornements réglés autrement que d'office (`{ guirlande: 'cache' }`) ; absent ou vide : tous montrés, dessinés. */
+  ornements?: ReglageDesOrnements
 }
 
 /** Une ligne de `profile_compagnons`, rangée avec ses compagnons : un compagnon que le catalogue ne connaît plus ne se garde pas. */
@@ -439,6 +454,8 @@ function lireCompagnon(siens: Map<CleDeCompagnon, SienEnMemoire> | undefined, r:
     rang,
     nom: typeof r.nom === 'string' && r.nom ? r.nom : null,
     montree: choisie ? montree : null,
+    paliers: Math.max(0, Math.min(PALIERS_DE_LA_NICHE.length, Math.floor(Number(r.paliers) || 0))),
+    ornements: lireLesOrnements(r.ornements),
   })
 }
 
@@ -1000,8 +1017,9 @@ export class ProfileStore {
         // un thème. Et le rang de la plus haute forme qu'il a atteinte : ses
         // bonnes réponses se relisent dans les journaux, mais une forme
         // atteinte ne se perd jamais, même quand une soirée retirée en
-        // reprend (`compagnonsDe`). Son nom et la forme qu'il montre dans sa
-        // niche viennent après coup (`nom`, `montree` : plus bas).
+        // reprend (`compagnonsDe`). Son nom, la forme qu'il montre dans sa
+        // niche, les paliers de sa niche et ses ornements viennent après coup
+        // (`nom`, `montree`, `paliers`, `ornements` : plus bas).
         `CREATE TABLE IF NOT EXISTS profile_compagnons (
            profile_id TEXT NOT NULL,
            compagnon  TEXT NOT NULL,
@@ -1116,6 +1134,12 @@ export class ProfileStore {
     // sa croissance).
     await ajouterColonne(this.client, 'profile_compagnons', 'nom', 'TEXT')
     await ajouterColonne(this.client, 'profile_compagnons', 'montree', 'INTEGER')
+    // Après sa forme ultime, sa niche s'embellit (`shared/ornements.ts`) : les
+    // paliers atteints avec lui — gardés comme son rang, ils ne font que
+    // monter — et ce qu'il a réglé de ses ornements, en JSON (null : tous
+    // montrés, dessinés).
+    await ajouterColonne(this.client, 'profile_compagnons', 'paliers', 'INTEGER')
+    await ajouterColonne(this.client, 'profile_compagnons', 'ornements', 'TEXT')
     // Quand l'administrateur l'a renommé : son accueil le lui dit, une fois.
     await ajouterColonne(this.client, 'profiles', 'renomme_le', 'INTEGER')
     // L'Éclat qu'il a éteint, pour porter la version d'origine de son avatar.
@@ -1196,7 +1220,7 @@ export class ProfileStore {
             sql: `SELECT profile_id, badge, COUNT(*) AS n FROM profile_badges WHERE profile_id IN (${marques}) GROUP BY profile_id, badge`,
             args: paquet,
           },
-          { sql: `SELECT profile_id, compagnon, rang, nom, montree FROM profile_compagnons WHERE profile_id IN (${marques})`, args: paquet },
+          { sql: `SELECT profile_id, compagnon, rang, nom, montree, paliers, ornements FROM profile_compagnons WHERE profile_id IN (${marques})`, args: paquet },
           // Dans le même lot : le trésor de ses coffres n'ajoute pas un aller-retour à son premier passage.
           { sql: `SELECT profile_id, objet FROM profile_coffres WHERE profile_id IN (${marques})`, args: paquet },
           { sql: `SELECT profile_id, fond FROM profile_fonds WHERE profile_id IN (${marques})`, args: paquet },
@@ -1819,7 +1843,8 @@ export class ProfileStore {
   /**
    * Ses compagnons achetés, la plus haute forme de chacun, son nom, la forme
    * qu'il montre et son Éclat — qui vaut pour toutes ses formes, et ouvre sa
-   * métamorphose à la forme ultime : de mémoire, dans l'ordre du catalogue.
+   * métamorphose à la forme ultime —, les paliers de sa niche et ce qu'il a
+   * réglé de ses ornements : de mémoire, dans l'ordre du catalogue.
    */
   compagnonsOf(id: string): CompagnonPossede[] {
     const siens = this.compagnons.get(id)
@@ -1834,6 +1859,8 @@ export class ProfileStore {
               ...(s.nom && { nom: s.nom }),
               ...(s.montree !== null && { montree: s.montree }),
               ...(this.brilleChez(id, c.formes[0].key) && { eclat: true as const }),
+              ...(s.paliers && { paliers: s.paliers }),
+              ...(s.ornements && Object.keys(s.ornements).length > 0 && { ornements: { ...s.ornements } }),
             },
           ]
         : []
@@ -1850,7 +1877,9 @@ export class ProfileStore {
    * bonnes réponses passent un seuil (`JUSTES_DES_FORMES`), et ne redescend
    * plus, même quand une soirée retirée en reprend. Et il grandit pour de
    * bon : qui portait sa plus haute forme porte la nouvelle — qui avait
-   * choisi d'en porter une d'avant la garde.
+   * choisi d'en porter une d'avant la garde. Après sa forme ultime, les
+   * paliers de sa niche montent de même (`PALIERS_DE_LA_NICHE`), et ne se
+   * perdent pas davantage.
    *
    * `soirees`, quand on vient de relire son historique — ou qu'on le relit.
    */
@@ -1872,13 +1901,15 @@ export class ProfileStore {
     ])
     const justesDe = (c: CleDeCompagnon) =>
       lues.reduce((n, s) => n + (soireeQuiCompte(s.gain) ? (s.releve.compagnons?.[c] ?? 0) : 0), 0) + (duJour[c] ?? 0) + (deCampagne[c] ?? 0)
-    const acquis = possedes.map(({ montree, ...a }) => {
+    const acquis = possedes.map(({ montree, paliers: avant, ...a }) => {
       const justes = justesDe(a.compagnon)
       const rang = Math.max(a.rang, rangAtteint(justes))
-      // Une forme atteinte reprend la place de celle qu'il montrait (`grandir`).
-      return { ...a, rang, justes, ...(montree !== undefined && rang === a.rang && { montree }) }
+      const paliers = Math.max(avant ?? 0, paliersDeLaNicheAtteints(justes))
+      // Une forme atteinte reprend la place de celle qu'il montrait (`grandir`) ;
+      // un palier de sa niche, non : c'est elle qui s'embellit, lui ne change pas.
+      return { ...a, rang, justes, ...(montree !== undefined && rang === a.rang && { montree }), ...(paliers > 0 && { paliers }) }
     })
-    const grandis = acquis.filter((a, i) => a.rang > possedes[i].rang)
+    const grandis = acquis.filter((a, i) => a.rang > possedes[i].rang || (a.paliers ?? 0) > (possedes[i].paliers ?? 0))
     if (grandis.length > 0) await this.grandir(p, grandis, possedes)
     return acquis
   }
@@ -1899,22 +1930,28 @@ export class ProfileStore {
   }
 
   /**
-   * Retient les formes que ses compagnons viennent d'atteindre, et fait
-   * porter la nouvelle à qui portait la plus haute d'avant. Une seule
-   * écriture : le rang ne fait que monter (`MAX`), même si deux lectures se
-   * croisent. La forme qu'il montrait dans sa niche laisse la place à la
-   * nouvelle : il grandit sous ses yeux, et la reprend s'il préfère.
+   * Retient les formes que ses compagnons viennent d'atteindre, et les
+   * paliers de leur niche, et fait porter la nouvelle forme à qui portait la
+   * plus haute d'avant. Une seule écriture : le rang et les paliers ne font
+   * que monter (`MAX`), même si deux lectures se croisent. La forme qu'il
+   * montrait dans sa niche laisse la place à la nouvelle : il grandit sous
+   * ses yeux, et la reprend s'il préfère. Un palier seul n'y touche pas : sa
+   * niche s'embellit, lui ne change pas — ni dans sa niche, ni sur lui.
    */
   private async grandir(p: ProfileRec, grandis: readonly CompagnonPossede[], avant: readonly CompagnonPossede[]): Promise<void> {
     const lu = p.legendaire
     const porte = formeDeCompagnon(lu)
-    const suit = grandis.find(g => porte?.compagnon === g.compagnon && porte.rang === avant.find(a => a.compagnon === g.compagnon)?.rang)
+    const rangDAvant = (g: CompagnonPossede) => avant.find(a => a.compagnon === g.compagnon)?.rang ?? 0
+    const aGrandi = (g: CompagnonPossede) => g.rang > rangDAvant(g)
+    // Sa plus haute d'avant, et rien d'autre : sa métamorphose, qui garde le
+    // rang de la forme ultime, serait devenue sa forme ultime au premier palier.
+    const suit = grandis.find(g => aGrandi(g) && porte?.compagnon === g.compagnon && !porte.metamorphose && porte.rang === rangDAvant(g))
     const nouvelle = suit && compagnonDuCatalogue(suit.compagnon)?.formes[suit.rang]
     await this.client.batch(
       [
         ...grandis.map(g => ({
-          sql: 'UPDATE profile_compagnons SET rang = MAX(rang, ?), montree = NULL WHERE profile_id = ? AND compagnon = ?',
-          args: [g.rang, p.id, g.compagnon],
+          sql: `UPDATE profile_compagnons SET rang = MAX(rang, ?), paliers = MAX(COALESCE(paliers, 0), ?)${aGrandi(g) ? ', montree = NULL' : ''} WHERE profile_id = ? AND compagnon = ?`,
+          args: [g.rang, g.paliers ?? 0, p.id, g.compagnon],
         })),
         ...(nouvelle ? [{ sql: 'UPDATE profiles SET legendaire = ? WHERE id = ? AND legendaire = ?', args: [nouvelle.key, p.id, lu] }] : []),
       ],
@@ -1924,8 +1961,9 @@ export class ProfileStore {
     for (const g of grandis) {
       const s = siens?.get(g.compagnon)
       if (!s) continue
+      if (aGrandi(g)) s.montree = null
       s.rang = Math.max(s.rang, g.rang)
-      s.montree = null
+      s.paliers = Math.max(s.paliers ?? 0, g.paliers ?? 0)
     }
     // Un avatar choisi pendant l'écriture l'emporte, en base comme ici : la
     // condition de l'`UPDATE` l'a déjà gardé.
@@ -2009,37 +2047,62 @@ export class ProfileStore {
   }
 
   /**
-   * Ce qu'il règle d'un de ses compagnons, dans sa niche : son nom — à lui
-   * seul, la salle ne le voit jamais — et la forme qu'il y montre, parmi
-   * celles qu'il a atteintes ; sa plus haute, ou null, la rend à sa
-   * croissance. Refusé en clair : un compagnon qu'il n'a pas, une forme pas
-   * encore atteinte.
+   * Ce qu'il règle d'un de ses compagnons, dans sa niche : son nom — que sa
+   * carte montre aussi (le propriétaire, le 19 octobre 2026 : « Le compagnon
+   * sur la carte doit avoir son nom ») —, la forme qu'il y montre, parmi
+   * celles qu'il a atteintes — sa plus haute, ou null, la rend à sa
+   * croissance —, et ses ornements : chacun de ceux qu'il a gagnés, montré
+   * dans un style, ou caché (`ornements`, fondus dans ce qu'il avait réglé).
+   * Refusé en clair : un compagnon qu'il n'a pas, une forme ou un ornement
+   * pas encore atteints.
    */
-  async reglerCompagnon(id: string, cle: unknown, patch: { nom?: unknown; montree?: unknown }): Promise<ProfileRec> {
+  async reglerCompagnon(id: string, cle: unknown, patch: { nom?: unknown; montree?: unknown; ornements?: unknown }): Promise<ProfileRec> {
     const rec = await this.require(id)
     const c = compagnonDuCatalogue(cle)
     if (!c) throw new Error('Ce compagnon n’existe pas')
     if (!this.compagnons.get(id)?.has(c.key)) throw new Error(pourLAvoir(c))
-    const champs: Partial<Pick<SienEnMemoire, 'nom' | 'montree'>> = {}
+    const champs: Partial<Pick<SienEnMemoire, 'nom' | 'montree' | 'ornements'>> = {}
+    // Vérifiés sur ses bonnes réponses du moment, comme une forme qu'on
+    // porte : ce qu'il vient d'atteindre se règle sans attendre. Relues une
+    // fois pour tout le geste.
+    let relus: CompagnonAcquis[] | undefined
+    const sienDuMoment = async () => (relus ??= await this.compagnonsDe(rec)).find(a => a.compagnon === c.key)
     if (patch.nom !== undefined) champs.nom = nomDeCompagnon(patch.nom)
     if (patch.montree === null) champs.montree = null
     else if (patch.montree !== undefined) {
       const n = typeof patch.montree === 'number' && Number.isInteger(patch.montree) ? patch.montree : -1
       const f = n === MONTREE_DE_LA_METAMORPHOSE ? c.lumiere : c.formes[n]
       if (!f) throw new Error('Cette forme n’existe pas')
-      // Vérifiée sur ses bonnes réponses du moment, comme une forme qu'on
-      // porte : celle qu'il vient d'atteindre se montre sans attendre.
-      const sien = (await this.compagnonsDe(rec)).find(a => a.compagnon === c.key)
+      const sien = await sienDuMoment()
       this.verifierLaForme(f, c, sien)
       // Sa plus haute n'est pas un choix : elle suivra sa croissance. Sa
       // métamorphose, si : elle ne se gagne pas en grandissant.
       champs.montree = f.metamorphose ? MONTREE_DE_LA_METAMORPHOSE : f.rang < sien.rang ? f.rang : null
     }
-    const colonnes = (['nom', 'montree'] as const).filter(k => k in champs)
+    if (patch.ornements !== undefined) {
+      const voulus = patch.ornements
+      if (!voulus || typeof voulus !== 'object' || Array.isArray(voulus)) throw new Error('Cet ornement n’existe pas')
+      const paliers = (await sienDuMoment())?.paliers ?? 0
+      const regles: ReglageDesOrnements = { ...this.compagnons.get(id)?.get(c.key)?.ornements }
+      for (const [cleDOrnement, style] of Object.entries(voulus)) {
+        const o = ornementDuCatalogue(cleDOrnement)
+        if (!o) throw new Error('Cet ornement n’existe pas')
+        if (!STYLES_D_ORNEMENT.includes(style as StyleDOrnement)) throw new Error('Ce style d’ornement n’existe pas')
+        if (paliers < o.palier) throw new Error(`${o.nom.charAt(0).toUpperCase()}${o.nom.slice(1)} : à ${formatNumber(o.justes)} bonnes réponses données ${avecLui(c)}`)
+        // Le style d'office ne se retient pas : un ornement remontré redevient comme les autres.
+        if (style === STYLE_D_OFFICE) delete regles[o.key]
+        else regles[o.key] = style as StyleDOrnement
+      }
+      champs.ornements = regles
+    }
+    const colonnes = (['nom', 'montree', 'ornements'] as const).filter(k => k in champs)
     if (colonnes.length === 0) return rec
+    // Ses ornements s'écrivent en JSON — et rien quand tout est d'office.
+    const valeur = (k: (typeof colonnes)[number]) =>
+      k === 'ornements' ? (Object.keys(champs.ornements ?? {}).length > 0 ? JSON.stringify(champs.ornements) : null) : (champs[k] ?? null)
     await this.client.execute({
       sql: `UPDATE profile_compagnons SET ${colonnes.map(k => `${k} = ?`).join(', ')} WHERE profile_id = ? AND compagnon = ?`,
-      args: [...colonnes.map(k => champs[k] ?? null), id, c.key],
+      args: [...colonnes.map(valeur), id, c.key],
     })
     const s = this.compagnons.get(id)?.get(c.key)
     if (s) Object.assign(s, champs)
@@ -4784,7 +4847,7 @@ export class ProfileStore {
     }
     if (!this.compagnons.has(rec.id)) {
       const siens = new Map<CleDeCompagnon, SienEnMemoire>()
-      const res = await this.client.execute({ sql: 'SELECT compagnon, rang, nom, montree FROM profile_compagnons WHERE profile_id = ?', args: [rec.id] })
+      const res = await this.client.execute({ sql: 'SELECT compagnon, rang, nom, montree, paliers, ornements FROM profile_compagnons WHERE profile_id = ?', args: [rec.id] })
       for (const r of res.rows) lireCompagnon(siens, r)
       this.compagnons.set(rec.id, siens)
     }

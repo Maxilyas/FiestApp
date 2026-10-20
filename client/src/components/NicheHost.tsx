@@ -7,7 +7,12 @@ import { aLaDemande, useALaDemande } from '../aLaDemande'
 // l'a posée (`porterNiche`). Son code et ses dessins viennent à la demande :
 // l'accueil anonyme et l'invité sans profil n'en téléchargent rien.
 
-const laNiche = aLaDemande(() => import('./Niche'))
+/**
+ * Le code de la niche, une fois pour toute la page : l'écran « Mon
+ * compagnon » du profil et la carte d'un joueur qui en a un le partagent
+ * avec elle.
+ */
+export const laNiche = aLaDemande(() => import('./Niche'))
 
 export function NicheHost() {
   const niche = useSyncExternalStore(abonnerNiche, nicheActuelle, () => null)

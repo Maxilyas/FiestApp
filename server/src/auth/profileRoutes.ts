@@ -449,7 +449,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
 
   // Le compagnon de sa niche et où il en est — sa plus haute forme, ses bonnes
   // réponses données avec lui depuis l'adoption (`compagnonsDe`, relues dans
-  // ses journaux), son nom, la forme qu'il montre —, tous les siens, et leurs
+  // ses journaux), son nom, la forme qu'il montre, les paliers de sa niche et
+  // ses ornements —, tous les siens, et leurs
   // métamorphoses qu'il n'a pas encore vues (`neuves`) : la fiche que la
   // niche ouvre au toucher, sur toutes les pages, où il les gère. Pas le
   // profil entier : la page du profil seule lit sa boutique. Sans profil ou
@@ -737,8 +738,11 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   /**
    * Ce qu'il règle d'un de ses compagnons, depuis sa niche : son nom (`nom`,
    * vide pour l'ôter), la forme qu'il y montre (`montree`, un rang atteint,
-   * ou 4 pour sa métamorphose ; null, sa plus haute). Rien de cela ne part à
-   * la salle : son nom n'est qu'à lui, et ce qu'il porte n'a pas bougé.
+   * ou 4 pour sa métamorphose ; null, sa plus haute), ses ornements
+   * (`ornements`, `{ guirlande: 'cache' }` : un style par ornement gagné,
+   * fondu dans ce qu'il avait réglé). Rien de cela ne part à la salle : ce
+   * qu'il porte n'a pas bougé, et sa carte, qui montre le compagnon de sa
+   * niche et son nom, se lit quand on l'ouvre.
    */
   app.put(
     '/api/joueur/compagnons/:cle',
@@ -747,7 +751,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       noStore(res)
       const me = await current(req)
       if (!me) return res.status(401).json({ error: 'Connexion requise' })
-      const regle = await profiles.reglerCompagnon(me.id, req.params.cle, { nom: req.body?.nom, montree: req.body?.montree })
+      const regle = await profiles.reglerCompagnon(me.id, req.params.cle, { nom: req.body?.nom, montree: req.body?.montree, ornements: req.body?.ornements })
       res.json({ profile: profiles.toPublic(regle) })
     }),
   )

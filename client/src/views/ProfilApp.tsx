@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react'
 import { Glossaire } from '../components/Glossaire'
 import { api, currentMe, motifDe } from '../api'
 import { Niveau } from '../components/Niveau'
@@ -29,7 +29,8 @@ import { Installer } from '../components/Installer'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
-import { porterNiche } from '../niche'
+import { abonnerNiche, nicheActuelle, porterNiche } from '../niche'
+import { laNiche } from '../components/NicheHost'
 import { relireLesMissions } from '../missions'
 import { boutonsDesPages } from '../maintenance'
 
@@ -301,7 +302,14 @@ export function ProfilApp() {
   const sienDeLaNiche = profil?.compagnons?.find(c => c.compagnon === niche)
   useEffect(() => {
     if (!chargement) porterNiche(niche && sienDeLaNiche ? { niche, compagnons: [sienDeLaNiche] } : null)
-  }, [chargement, niche, sienDeLaNiche?.rang, sienDeLaNiche?.montree, sienDeLaNiche?.nom, sienDeLaNiche?.eclat]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chargement, niche, sienDeLaNiche?.rang, sienDeLaNiche?.montree, sienDeLaNiche?.nom, sienDeLaNiche?.eclat, sienDeLaNiche?.paliers, JSON.stringify(sienDeLaNiche?.ornements)]) // eslint-disable-line react-hooks/exhaustive-deps
+  // La niche telle qu'elle se montre — sa gestion, d'ici ou de sa fiche, la
+  // change sans que la page ne relise le profil —, et son code, celui de la
+  // niche au coin de la page : le bouton « Mon compagnon » et son écran le
+  // partagent (`laNiche`), l'accueil anonyme n'en télécharge rien.
+  const nicheIci = useSyncExternalStore(abonnerNiche, nicheActuelle, () => null)
+  const leCodeDeLaNiche = useALaDemande(laNiche, !!nicheIci && VUE === 'profil')
+  const codeDeLaNiche = leCodeDeLaNiche && leCodeDeLaNiche !== 'perdu' ? leCodeDeLaNiche : null
 
   // L'accueil affiché, le code du quiz du jour, de la campagne et des duels
   // vient en fond : toucher leur bouton ouvre la page sans le télécharger d'abord.
@@ -673,6 +681,24 @@ export function ProfilApp() {
         {sortie}
         <PieceTete piece={e.groupe} titre={e.nom} />
         {regionDAnnonce}
+        {/* Sa niche ouverte en grand : la même gestion que sa fiche, sans la feuille. Sans compagnon, où en adopter un. */}
+        {ecran === 'compagnon' &&
+          (nicheIci ? (
+            codeDeLaNiche ? (
+              <codeDeLaNiche.MaNiche niche={nicheIci} surLeProfil />
+            ) : (
+              <OngletEnChemin perdu={leCodeDeLaNiche === 'perdu'} />
+            )
+          ) : (
+            <div className="profil-sans-compagnon">
+              <p className="muted">
+                {espacesFines('Pas encore de compagnon : il vivra dans sa niche, en haut de chaque page, et grandira avec tes bonnes réponses.')}
+              </p>
+              <a className="btn btn-primary" href="/boutique#compagnons">
+                En adopter un
+              </a>
+            </div>
+          ))}
         {ecran === 'collection' && (pret ? <pret.PanneauCollection profil={profil} /> : enChemin)}
         {ecran === 'carriere' && (pret ? <pret.PanneauCarriere profil={profil} /> : enChemin)}
         {ecran === 'soirees' && (pret ? <pret.PanneauSoirees profil={profil} monEspace={espace?.slug} /> : enChemin)}
@@ -682,18 +708,21 @@ export function ProfilApp() {
     )
   }
 
-  // ── Le profil : qui l'on est, puis quatre boutons ──
+  // ── Le profil : qui l'on est, puis ses gros boutons ──
   // Épuré (le souhait du propriétaire du 12 octobre 2026 : « un bouton pour
   // s'habiller, collection, soirée et carrière ») : la loge, posée sur la
   // page le même jour, faisait défiler toute sa grille d'avatars avant la
   // collection ; avant elle, le vestiaire y étalait sa carte, son thème et
-  // sa gerbe. Elle a repris son écran, derrière « M'habiller ».
+  // sa gerbe. Elle a repris son écran, derrière « M'habiller ». Un
+  // cinquième pour qui a un compagnon, « Mon compagnon » (le 19 octobre 2026).
   const precision = profil.fiche.precision !== null ? Math.round(profil.fiche.precision * 100) : null
   // Le total de sa collection et ce que la loge a de nouveau viennent avec
   // les écrans (`apercusDesTuiles`) : leurs catalogues alourdissaient
   // l'accueil, qui partage ce fichier.
   const plus = pret?.apercusDesTuiles(profil)
   const pieceNeuve = plus ? premierePieceNeuve(plus.nouveautes) : null
+  // « Mon compagnon » : son nom, sa forme, la jauge de son prochain but — ses bonnes réponses, la page les tient de sa boutique.
+  const sonBouton = nicheIci && codeDeLaNiche?.ceQueDitSonBouton(nicheIci, profil.boutique?.compagnons?.find(a => a.compagnon === nicheIci.compagnon)?.justes)
   return (
     <div className="player-shell" onClick={suivreUnLien}>
       <h1 className="sr-only">Mon profil</h1>
@@ -719,6 +748,17 @@ export function ProfilApp() {
           compteur={plus && plus.nouveautes.nouveautes > 0 ? { n: plus.nouveautes.nouveautes, label: nouveautesAPorter(plus.nouveautes.nouveautes) } : undefined}
           onClick={() => ouvrir(pieceNeuve ?? 'avatar')}
         />
+        {/* Sa niche, en petit : sa gestion ne s'ouvrait qu'en la touchant au coin de la page (le 19 octobre 2026). */}
+        {nicheIci && (
+          <GrosBouton
+            icone={codeDeLaNiche ? <codeDeLaNiche.NicheEnMiniature niche={nicheIci} taille={36} /> : <Icon name="home" />}
+            titre="Mon compagnon"
+            jauge={sonBouton?.jauge ?? 0}
+            compte={sonBouton?.compte}
+            detail={sonBouton?.detail ?? 'Sa niche, son nom, ses ornements'}
+            onClick={() => ouvrir('compagnon')}
+          />
+        )}
         <GrosBouton
           icone={<Icon name="award" />}
           titre="Ma collection"
@@ -790,9 +830,13 @@ function OngletEnChemin({ perdu }: { perdu: boolean }) {
  * maquette validée par le propriétaire le 12 octobre 2026), ouverte d'un
  * vestiaire, puis posée sur la page du profil, puis, le même jour, rendue à
  * son écran derrière un bouton : la page du profil, épurée, n'a plus que ses
- * quatre boutons. La boutique a sa page, dans le menu.
+ * quatre boutons. La boutique a sa page, dans le menu. « Mon compagnon »
+ * (`#compagnon`, le 19 octobre 2026 : « où est-ce que cela se fait ? Il
+ * manque des fonctionnalités simples et pratiques pour accéder à cela », le
+ * propriétaire) : la gestion de sa niche, qui ne s'ouvrait qu'en la touchant
+ * — un cinquième bouton, pour qui a un compagnon.
  */
-type EcranDuProfil = PieceDeLaLoge | 'collection' | 'carriere' | 'soirees'
+type EcranDuProfil = PieceDeLaLoge | 'collection' | 'carriere' | 'soirees' | 'compagnon'
 
 const ECRANS: { id: EcranDuProfil; nom: string; groupe: 'M’habiller' | 'Mon profil' }[] = [
   { id: 'avatar', nom: 'Mon avatar', groupe: 'M’habiller' },
@@ -801,6 +845,7 @@ const ECRANS: { id: EcranDuProfil; nom: string; groupe: 'M’habiller' | 'Mon pr
   { id: 'fond', nom: 'Mon fond de carte', groupe: 'M’habiller' },
   { id: 'theme', nom: 'Mon thème', groupe: 'M’habiller' },
   { id: 'gerbe', nom: 'Ma gerbe', groupe: 'M’habiller' },
+  { id: 'compagnon', nom: 'Mon compagnon', groupe: 'Mon profil' },
   { id: 'collection', nom: 'Ma collection', groupe: 'Mon profil' },
   { id: 'carriere', nom: 'Ma carrière', groupe: 'Mon profil' },
   { id: 'soirees', nom: 'Mes soirées', groupe: 'Mon profil' },

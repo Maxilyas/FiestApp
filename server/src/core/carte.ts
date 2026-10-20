@@ -49,6 +49,12 @@ export async function carteDuProfil(
   // La bordure de ligue autour de son avatar, lue avec sa cote — jamais sous un Divin, qui a sa propre lumière.
   const porte = profiles.legendairePorte(profil)
   const bordure = duels && !(porte && divin(porte)) ? bordurePortee(profil.bordure, duels.bordures) : null
+  // Le compagnon de sa niche, tel qu'elle le montre — sa forme, ses
+  // ornements — et avec son nom (le propriétaire, le 19 octobre 2026 : « Le
+  // compagnon sur la carte doit avoir son nom ») : la carte se lit quand on
+  // l'ouvre, rien de lui ne part à la salle. De mémoire, comme sa niche.
+  const niche = profiles.compagnonDeLaNiche(profil)
+  const compagnon = niche ? profiles.compagnonsOf(profil.id).find(a => a.compagnon === niche) : undefined
   const sonProfil: NonNullable<CarteDeJoueur['profil']> = {
     prenom: profil.name,
     niveau: profiles.niveauOf(profil),
@@ -69,6 +75,7 @@ export async function carteDuProfil(
     ...(campagne && (campagne.justes > 0 || paliersValides > 0) && { campagne: { record: campagne.record, justes: campagne.justes, paliers: paliersValides } }),
     ...(ecussons.length > 0 && { ecussons }),
     ...(fond && { fond }),
+    ...(compagnon && { compagnon }),
     fiche: {
       soirees: fiche.soirees,
       precision: fiche.precision,

@@ -21,6 +21,7 @@ import {
 } from '../../../shared/compagnons'
 import { CONFETTIS_D_UNE_MISSION, CONFETTIS_DES_TROIS, MISSIONS_PAR_JOUR } from '../../../shared/missions'
 import { NOM_RARETE } from '../../../shared/badges'
+import { ORNEMENTS, prochainOrnement, titreDeLAmitie } from '../../../shared/ornements'
 import type { PublicProfileDetail } from '../../../shared/profil'
 import { abonnerNiche, nicheActuelle } from '../niche'
 
@@ -93,6 +94,7 @@ function SceneDuCompagnon({
   const forme = c.formes[vue]
   const montree = c.formes[sien?.rang ?? 0]
   const suite = sien ? prochaineForme(sien) : null
+  const orne = sien && !suite ? prochainOrnement(sien) : null
   const manque = PRIX_D_UN_COMPAGNON - solde
   // Sa métamorphose aussi : c'est lui qu'on porte.
   const lePorte = formeDeCompagnon(porte)?.compagnon === c.key
@@ -174,10 +176,23 @@ function SceneDuCompagnon({
               </span>
             </div>
           )}
-          {!suite && <p className="muted small">{espacesFines('Sa forme ultime : son monde prend vie.')}</p>}
+          {/* Après sa forme ultime, la jauge vise le palier suivant de sa niche, et ne s'arrête qu'à la légende (le 19 octobre 2026). */}
+          {!suite && orne && (
+            <div className="compagnon-jauge">
+              <JaugeFine part={sien.justes / orne.ornement.justes} />
+              <span className="muted small">
+                {espacesFines(`${formatNumber(sien.justes)} sur ${formatNumber(orne.ornement.justes)} bonnes réponses ${avecLui(c)} : ${orne.ornement.nom}`)}
+              </span>
+            </div>
+          )}
+          {!suite && !orne && <p className="muted small">{espacesFines(`${titreDeLAmitie(ORNEMENTS.length)} : sa niche a tous ses ornements.`)}</p>}
           {/* L'avatar est une autre affaire que la niche : la loge, sa forme la plus haute à l'essai. */}
           <a className="link-inline" href={lePorte ? '/profil#avatar' : `/profil?essayer=${montree.key}#avatar`}>
             {lePorte ? `Tu ${c.le} portes en avatar · en changer` : `${c.le === 'la' ? 'La' : 'Le'} porter en avatar`}
+          </a>
+          {/* Sa niche se gère à son écran du profil — son nom, sa forme, ses ornements, qui y vit : on ne la trouvait qu'en la touchant. */}
+          <a className="link-inline" href="/profil#compagnon">
+            Gérer ma niche
           </a>
         </div>
       ) : (
@@ -322,7 +337,7 @@ export function RayonDesCompagnons({
     <section className="rayon-compagnons">
       <p className="gemme-legende">
         {espacesFines(
-          'Il vit dans ta niche, en haut de chaque page, et grandit avec toi : 100, 300 puis 500 bonnes réponses, en soirée, au quiz du jour et en campagne. Une forme atteinte ne se perd jamais, et chacune se porte aussi en avatar.',
+          'Il vit dans ta niche, en haut de chaque page, et grandit avec toi : 100, 300 puis 500 bonnes réponses, en soirée, au quiz du jour et en campagne — puis sa niche s’embellit. Une forme atteinte ne se perd jamais, et chacune se porte aussi en avatar.',
         )}
       </p>
       {adopte && (
