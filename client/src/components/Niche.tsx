@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { Icon } from './Icon'
 import { DESSINS } from './compagnons-peints'
 import type { DessinDeCompagnon, HumeurPeinte } from './Compagnon'
@@ -24,9 +24,21 @@ import {
 } from '../../../shared/compagnons'
 import { NOM_RARETE } from '../../../shared/badges'
 import type { PublicProfile } from '../../../shared/profil'
-import { ORNEMENTS, ornementsMontres, prochainOrnement, prochainSeuil, titreDeLAmitie, type CleDOrnement, type StyleDOrnement } from '../../../shared/ornements'
+import {
+  NOM_DU_STYLE,
+  ORNEMENTS,
+  STYLES_D_ORNEMENT,
+  ornementsMontres,
+  prochainOrnement,
+  prochainSeuil,
+  styleDeLOrnement,
+  titreDeLAmitie,
+  type CleDOrnement,
+  type OrnementMontre,
+  type StyleDOrnement,
+} from '../../../shared/ornements'
 import { ecouterLaNiche, nicheTouchee, porterNiche, prendreLAppel, type MomentDeLaNiche, type NicheVue } from '../niche'
-import { ApercuDOrnement, DessinDesOrnements, HaloDeLaNiche } from './Ornements'
+import { ApercuDOrnement, DerriereLaNiche, DevantLaNiche } from './Ornements'
 
 // La niche du compagnon (le choix du 18 octobre 2026,
 // `retours/2026-10-16/compagnon/principe.md`) : une petite fenêtre en arche,
@@ -246,8 +258,11 @@ const GESTES: Record<Geste['sorte'], { images: Keyframe[]; options: KeyframeAnim
  * le même dessin repeint : une seule se voit, échangée en fondu, et jamais
  * avant d'être chargée — l'animal ne disparaît pas le temps de l'image.
  * `humeurs` : celles à charger dès maintenant. Après sa forme ultime, les
- * ornements que sa niche montre (`ornements`) : le halo derrière elle, l'or
- * sur son cadre, le reste par-dessus — hors du cadre, qui coupe tout.
+ * ornements que sa niche montre (`ornements`), chacun dans son style : ce qui
+ * se pose derrière elle avant son cadre, l'or sur lui, le reste par-dessus —
+ * hors du cadre, qui coupe tout. `grand` : leurs grands fichiers peints, là où
+ * la niche se regarde — au coin de la page, comme le dessin de son compagnon,
+ * et dans sa fiche.
  */
 function Arche({
   forme,
@@ -257,6 +272,7 @@ function Arche({
   geste = null,
   jauge = null,
   ornements = [],
+  grand = false,
 }: {
   forme: FormeDeCompagnon
   dessin: DessinDeCompagnon
@@ -264,7 +280,8 @@ function Arche({
   humeurs?: readonly HumeurPeinte[]
   geste?: Geste | null
   jauge?: number | null
-  ornements?: readonly CleDOrnement[]
+  ornements?: readonly OrnementMontre[]
+  grand?: boolean
 }) {
   const c = CADRAGES[forme.key] ?? ENTIER
   const decor = dessin.disque?.[1]
@@ -286,8 +303,8 @@ function Arche({
   }, [geste?.sorte, geste?.n]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
-      {ornements.includes('halo') && <HaloDeLaNiche />}
-      <span className={'niche-cadre' + (ornements.includes('arche') ? ' orne-or' : '')} aria-hidden="true">
+      <DerriereLaNiche montres={ornements} grand={grand} />
+      <span className={'niche-cadre' + (ornements.some(o => o.cle === 'arche') ? ' orne-or' : '')} aria-hidden="true">
         <span className={'niche-decor' + (decor ? '' : ` niche-ciel niche-ciel-${forme.compagnon}`)} style={decor ? { backgroundImage: `url(${decor})` } : undefined} />
         <span ref={corps} className={'niche-bete' + (c.miroir ? ' miroir' : '')} style={bete}>
           <img className={montree === 'neutre' ? 'on' : undefined} src={dessin.perso[0]} alt="" decoding="async" draggable={false} />
@@ -316,7 +333,7 @@ function Arche({
           )}
         </span>
       </span>
-      <DessinDesOrnements cles={ornements} />
+      <DevantLaNiche montres={ornements} grand={grand} />
     </>
   )
 }
@@ -709,6 +726,7 @@ export function Niche(vue: NicheVue) {
           geste={geste}
           jauge={repas ? repas.part : null}
           ornements={ornementsMontres(vue)}
+          grand
         />
         {/* Le doigt la traverse : c'est la niche qu'elle montre. */}
         {appel && !repliee && (
@@ -1003,6 +1021,7 @@ export function MaNiche({ niche, onPartir, surLeProfil = false }: { niche: Niche
             humeurs={['ravi']}
             geste={caresses > 0 && !calme ? { sorte: 'saute', n: caresses } : null}
             ornements={ornementsMontres(niche)}
+            grand
           />
           {caresses > 0 && !calme && (
             <span key={`envol-${caresses}`} className="compagnon-envols niche-envols" aria-hidden="true">
@@ -1144,9 +1163,11 @@ export function MaNiche({ niche, onPartir, surLeProfil = false }: { niche: Niche
 
 /**
  * Sa niche, sur la durée (le choix du 19 octobre 2026, `shared/ornements.ts`) :
- * avant sa forme ultime, ce qui l'attend ; après, chaque ornement gagné, qu'un
- * toucher montre ou cache — son nom ne change pas, `aria-pressed` dit s'il se
- * montre (`design.test.ts`) —, puis ceux qui viennent, et à combien.
+ * avant sa forme ultime, ce qui l'attend ; après, chaque ornement gagné et ses
+ * trois choix — peint, dessiné, caché —, chacun son aperçu, l'ornement seul
+ * sur une petite niche vide : on voit ce qu'on choisit avant de le toucher.
+ * Un nom fixe par choix ; celui qui se montre, `aria-pressed` le dit
+ * (`design.test.ts`). Puis ceux qui viennent, et à combien.
  */
 function SaNicheSEmbellit({
   niche,
@@ -1162,6 +1183,8 @@ function SaNicheSEmbellit({
   const paliers = niche.rang === 3 ? (niche.paliers ?? 0) : 0
   const gagnes = ORNEMENTS.filter(o => o.palier <= paliers)
   const aVenir = ORNEMENTS.filter(o => o.palier > paliers)
+  // Sa fiche peut s'ouvrir sur l'écran « Mon compagnon », qui montre la même gestion : des noms de groupe à elle.
+  const id = useId()
   return (
     <section className="niche-fiche-section" aria-labelledby="niche-ornements">
       <h3 id="niche-ornements" className="label">
@@ -1178,23 +1201,27 @@ function SaNicheSEmbellit({
           {gagnes.length > 0 && (
             <div className="niche-ornes">
               {gagnes.map(o => {
-                const montre = niche.ornements?.[o.key] !== 'cache'
+                const style = styleDeLOrnement(niche.ornements, o.key)
                 return (
-                  <button key={o.key} type="button" className="niche-orne" aria-pressed={montre} disabled={busy} onClick={() => onOrner(o.key, montre ? 'cache' : 'dessin')}>
-                    <ApercuDOrnement cle={o.key} />
-                    <span className="niche-orne-texte">
+                  <div key={o.key} className="niche-orne" role="group" aria-labelledby={`${id}-${o.key}`}>
+                    <span className="niche-orne-texte" id={`${id}-${o.key}`}>
                       <b>{o.titre}</b>
                       <span className="muted small">{`${o.nom.charAt(0).toUpperCase()}${o.nom.slice(1)}`}</span>
                     </span>
-                    <span className="niche-orne-coche" aria-hidden="true">
-                      <Icon name="check" />
-                    </span>
-                  </button>
+                    <div className="niche-orne-styles">
+                      {STYLES_D_ORNEMENT.map(s => (
+                        <button key={s} type="button" className="niche-orne-style" aria-pressed={s === style} disabled={busy} onClick={() => s !== style && onOrner(o.key, s)}>
+                          <ApercuDOrnement cle={o.key} style={s} />
+                          <span className="niche-orne-style-nom">{NOM_DU_STYLE[s]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )
               })}
             </div>
           )}
-          {gagnes.length > 0 && <p className="muted small niche-choix-aide">Touche un ornement pour le montrer ou le cacher.</p>}
+          {gagnes.length > 0 && <p className="muted small niche-choix-aide">Pour chacun : peint, dessiné, ou caché.</p>}
           {aVenir.length > 0 && (
             <ul className="niche-ornes-a-venir">
               {aVenir.map(o => (

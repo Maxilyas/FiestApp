@@ -1,20 +1,51 @@
 import type { CSSProperties } from 'react'
-import type { CleDOrnement } from '../../../shared/ornements'
+import type { CleDOrnement, OrnementMontre, StyleDOrnement } from '../../../shared/ornements'
+import { ORNEMENTS_PEINTS, type CalquePeint, type PlanDUnCalque } from './ornements-peints'
 
 // Les ornements de sa niche (le choix du 19 octobre 2026, `shared/ornements.ts`) :
 // après sa forme ultime, chaque palier en ajoute un, que la niche garde — une
 // guirlande de petites lampes, du lierre et des fleurs au rebord, l'arche
-// dorée et son étoile, un halo et son ciel qui scintille. Dessinés comme sur
-// la maquette que le propriétaire a vue
-// (`retours/2026-10-16/compagnon/maquette/paliers.js`), dans le repère d'une
-// niche de 54 × 62 : ils suivent sa taille (`--l`), du coin de la page à sa
-// fiche. Ce qui sort de l'arche — l'étoile, les feuilles, le halo — passe
-// par-dessus son cadre, qui coupe tout le reste. Des versions peintes
-// viendront, en plusieurs styles. Ni identifiant ni dégradé SVG : la même
-// niche se dessine plusieurs fois par page (règle `medaillons.md`).
+// dorée et son étoile, un halo et son ciel qui scintille. Peints d'office
+// (`ornements-peints.ts`, le Féerique), ou dessinés comme sur la maquette que
+// le propriétaire a vue (`retours/2026-10-16/compagnon/maquette/paliers.js`) :
+// l'un et l'autre dans le repère d'une niche de 54 × 62, ils suivent sa taille
+// (`--l`), du coin de la page à sa fiche. Ce qui sort de l'arche — l'étoile,
+// les feuilles, le halo — passe par-dessus son cadre, qui coupe tout le
+// reste ; ce qui se pose derrière elle passe dessous. Le tout dans des SVG à
+// la taille de la niche, qui débordent sans rien élargir : une image à la
+// taille de son calque, posée de travers, aurait agrandi la feuille qui
+// défile. Ni identifiant ni dégradé SVG : la même niche se dessine plusieurs
+// fois par page (règle `medaillons.md`).
 
 const L = 54
 const H = 62
+
+/** Le repère d'un calque peint : un carré de 120 unités, la niche au centre (`server/scripts/anime/ornements.ts`). */
+const CALQUE = { x: -33, y: -29, cote: 120 }
+
+/** Les calques peints de ces ornements posés à ces plans, chacun avec son ornement, dans l'ordre où ils se posent. */
+function calquesA(montres: readonly OrnementMontre[], plans: readonly PlanDUnCalque[]): { cle: CleDOrnement; calque: CalquePeint }[] {
+  return plans.flatMap(plan => montres.flatMap(m => (m.style === 'dessin' ? [] : ORNEMENTS_PEINTS[m.style][m.cle].filter(c => c.plan === plan).map(calque => ({ cle: m.cle, calque })))))
+}
+
+/** Les calques peints, dans le repère de la niche. `grand` : leurs grands fichiers, là où la niche se regarde. */
+function Calques({ calques, grand }: { calques: readonly { cle: CleDOrnement; calque: CalquePeint }[]; grand: boolean }) {
+  return (
+    <>
+      {calques.map(({ cle, calque }) => (
+        <image
+          key={calque.fichiers[1]}
+          className={`orne-peint orne-peint-${cle}`}
+          href={calque.fichiers[grand ? 0 : 1]}
+          x={CALQUE.x}
+          y={CALQUE.y}
+          width={CALQUE.cote}
+          height={CALQUE.cote}
+        />
+      ))}
+    </>
+  )
+}
 
 const arrondi = (n: number) => Math.round(n * 100) / 100
 
@@ -67,14 +98,40 @@ const SCINTILLEMENTS = [
 ] as const
 
 /**
- * Les ornements dessinés sur sa niche, dans l'ordre de leurs paliers. Le halo
- * se pose derrière elle (`HaloDeLaNiche`), et l'arche dorée sur son cadre
- * (`orne-or`) : ici, ce qui se dessine par-dessus.
+ * Ce qui se pose derrière sa niche — posé avant son cadre, il passe dessous :
+ * le halo, dessiné ou peint, au fond, puis ce qui se peint derrière elle (le
+ * lierre, touffu, qui déborde autour d'elle sans rien cacher d'elle).
  */
-export function DessinDesOrnements({ cles }: { cles: readonly CleDOrnement[] }) {
-  if (cles.length === 0) return null
+export function DerriereLaNiche({ montres, grand = false }: { montres: readonly OrnementMontre[]; grand?: boolean }) {
+  const peints = calquesA(montres, ['fond', 'derriere'])
+  return (
+    <>
+      {montres.some(m => m.cle === 'halo' && m.style === 'dessin') && <HaloDeLaNiche />}
+      {peints.length > 0 && (
+        <svg className="niche-ornements" viewBox={`0 0 ${L} ${H}`} aria-hidden="true" focusable="false">
+          <Calques calques={peints} grand={grand} />
+        </svg>
+      )}
+    </>
+  )
+}
+
+/**
+ * Ce qui se pose par-dessus sa niche, dans l'ordre : l'or peint de l'arche sur
+ * son cadre, les ornements dessinés, son ciel qui scintille — peint ou
+ * dessiné, le halo l'allume —, puis ce qui se peint devant elle (la guirlande,
+ * l'étoile de l'arche par-dessus tout). L'arche dorée garde aussi l'or de son
+ * cadre (`orne-or`).
+ */
+export function DevantLaNiche({ montres, grand = false }: { montres: readonly OrnementMontre[]; grand?: boolean }) {
+  const cles = montres.filter(m => m.style === 'dessin').map(m => m.cle)
+  const scintille = montres.some(m => m.cle === 'halo')
+  const surLeCadre = calquesA(montres, ['cadre'])
+  const devant = calquesA(montres, ['devant'])
+  if (cles.length === 0 && !scintille && surLeCadre.length === 0 && devant.length === 0) return null
   return (
     <svg className="niche-ornements" viewBox={`0 0 ${L} ${H}`} aria-hidden="true" focusable="false">
+      <Calques calques={surLeCadre} grand={grand} />
       {cles.includes('guirlande') && (
         <g className="orne orne-guirlande">
           <path d={FIL} fill="none" stroke="#5a4632" strokeWidth={1} />
@@ -104,34 +161,37 @@ export function DessinDesOrnements({ cles }: { cles: readonly CleDOrnement[] }) 
           <path d={etoile(L / 2, -9, 5.5)} fill="#ffe9a8" />
         </g>
       )}
-      {cles.includes('halo') && (
+      {scintille && (
         <g className="orne orne-halo">
           {SCINTILLEMENTS.map(([x, y, r, d]) => (
             <path key={d} className="orne-scintille" d={etoile(x, y, r * 2)} fill="#fffbe6" style={{ animationDelay: `${d}s` }} />
           ))}
         </g>
       )}
+      <Calques calques={devant} grand={grand} />
     </svg>
   )
 }
 
-/** Le halo de la légende, qui respire à peine derrière sa niche : posé avant elle, il passe dessous. */
-export function HaloDeLaNiche() {
+/** Le halo de la légende, dessiné, qui respire à peine derrière sa niche : posé avant elle, il passe dessous. */
+function HaloDeLaNiche() {
   return <span className="niche-halo" aria-hidden="true" />
 }
 
 /**
- * Un ornement seul, sur une petite niche vide : ce que montre ou cache sa
- * case dans « Ma niche ». `taille` : la largeur de la niche, en pixels.
+ * Un ornement seul, sur une petite niche vide, dans un style : ce que montre
+ * son choix dans « Sa niche s'embellit » — caché, la niche vide. `taille` : la
+ * largeur de la niche, en pixels.
  */
-export function ApercuDOrnement({ cle, taille = 40 }: { cle: CleDOrnement; taille?: number }) {
+export function ApercuDOrnement({ cle, style, taille = 40 }: { cle: CleDOrnement; style: StyleDOrnement; taille?: number }) {
+  const montres: OrnementMontre[] = style === 'cache' ? [] : [{ cle, style }]
   return (
     <span className="niche-apercu" style={{ '--l': `${taille}px` } as CSSProperties} aria-hidden="true">
-      {cle === 'halo' && <HaloDeLaNiche />}
-      <span className={'niche-cadre niche-cadre-vide' + (cle === 'arche' ? ' orne-or' : '')}>
+      <DerriereLaNiche montres={montres} />
+      <span className={'niche-cadre niche-cadre-vide' + (cle === 'arche' && style !== 'cache' ? ' orne-or' : '')}>
         <span className="niche-rebord" />
       </span>
-      <DessinDesOrnements cles={[cle]} />
+      <DevantLaNiche montres={montres} />
     </span>
   )
 }

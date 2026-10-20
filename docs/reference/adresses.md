@@ -115,7 +115,7 @@ Les liens partagés et les QR imprimés avant les espaces mènent à l'espace de
 | `/healthz` | l'état du serveur — [Exploiter](../exploitation/exploiter.md) |
 | `/assets/…` | le paquet du client, à empreinte : un an de cache sans revalider, précompressé |
 | `/fonts/…` | les polices : trente jours de cache |
-| `/portraits/…`, `/medaillons/…`, `/compagnons/…`, `/decors/…`, `/cartes/…` | les images peintes, à empreinte : un an de cache |
+| `/portraits/…`, `/medaillons/…`, `/compagnons/…`, `/ornements/…`, `/decors/…`, `/cartes/…` | les images peintes, à empreinte : un an de cache |
 | `/sw.js`, `/manifest.webmanifest`, `/icone.svg`, `/icone-180.png`, `/icone-192.png`, `/icone-512.png`, `/favicon.ico` | les fichiers de `client/public/`, servis à la racine : une heure de cache |
 | `/robots.txt` | écrit par le serveur : seul l'accueil se laisse indexer, `/s/`, `/api/` et `/media/` sont fermés aux robots |
 
@@ -137,16 +137,17 @@ Ce qu'on tape se corrige par `normalizeSlug` : accents retirés, minuscules, tou
 
 | Ce qu'ils protègent | Noms |
 |---|---|
-| des pages sans espace | `host`, `edit`, `compte`, `admin`, `connexion`, `activer`, `profil`, `jour`, `salon`, `tele`, `boutique`, `campagne` |
+| des pages sans espace | `host`, `edit`, `compte`, `admin`, `connexion`, `activer`, `profil`, `jour`, `salon`, `tele`, `boutique`, `campagne`, `expedition` |
 | les pages publiques, à la racine (leurs adresses d'avant) | `stats`, `souvenir`, `bilan`, `soirees` |
 | les chemins du serveur | `s`, `api`, `media`, `assets`, `fonts`, `healthz`, `socket.io` |
+| les dossiers des images peintes, servis avant la page | `portraits`, `medaillons`, `compagnons`, `ornements`, `decors`, `cartes` |
 | des fichiers de la racine | `manifest.webmanifest`, `icone.svg`, `recap.json`, `bilan.json`, `soirees.json`, `index.html` |
 | deux noms gardés de côté | `joueur`, `deconnexion` |
 
 Les noms à point n'ont de toute façon pas la forme d'un nom d'espace.
 
 > [!WARNING]
-> **Une page, ou un dossier servi avant la page, de plus rejoint cette liste — et rien ne l'impose** : le typecheck force une page nouvelle dans `ACCOUNT` (`client/src/main.tsx`) et `TITRES` (`client/src/titres.ts`), pas ici. Aujourd'hui, `duels` — une page — et les dossiers des images peintes — `portraits`, `medaillons`, `compagnons`, `decors`, `cartes` — n'y sont pas : un espace de l'un de ces noms se créerait, mais son adresse ouvrirait la page des duels, ou un dossier (`/decors` répond 301, puis 404). Seul l'administrateur choisissant les adresses, le risque tient à ses gestes.
+> **Une page, ou un dossier servi avant la page, de plus rejoint cette liste — et rien ne l'impose** : le typecheck force une page nouvelle dans `ACCOUNT` (`client/src/main.tsx`) et `TITRES` (`client/src/titres.ts`), pas ici. Les dossiers des images peintes l'ont rejointe le 20 octobre 2026, avec celui des ornements de la niche (un espace nommé `decors` s'ouvrait sur le dossier : 301, puis 404) ; `duels` — une page — n'y est toujours pas : un espace de ce nom se créerait, mais son adresse ouvrirait la page des duels. Seul l'administrateur choisissant les adresses, le risque tient à ses gestes.
 
 ## Pour aller plus loin
 

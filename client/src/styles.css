@@ -11005,15 +11005,18 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
 /* ═══════════════════════════════════════════════════════════════════
    LES ORNEMENTS DE LA NICHE
    Après sa forme ultime, sa niche s'embellit (`shared/ornements.ts`) :
-   chaque palier lui ajoute un ornement, qu'elle garde — dessinés comme sur
-   la maquette (`components/Ornements.tsx`), dans le repère d'une niche de
-   54 × 62 : ils suivent sa largeur (`--l`), du coin de la page à sa fiche.
-   Un objet peint, comme elle : aucun thème ne les repeint. Les lampes
-   scintillent, le halo respire, son ciel s'allume par endroits — doucement,
-   et plus du tout si le téléphone demande moins de mouvement.
+   chaque palier lui ajoute un ornement, qu'elle garde — peints d'office,
+   ou dessinés comme sur la maquette (`components/Ornements.tsx`), dans le
+   repère d'une niche de 54 × 62 : ils suivent sa largeur (`--l`), du coin
+   de la page à sa fiche. Un objet peint, comme elle : aucun thème ne les
+   repeint. Les lampes scintillent, le halo respire, son ciel s'allume par
+   endroits — doucement, et plus du tout si le téléphone demande moins de
+   mouvement.
    ═══════════════════════════════════════════════════════════════════ */
-/* Par-dessus l'arche, hors de son cadre qui coupe tout : l'étoile, les feuilles et les lampes en débordent. */
+/* Par-dessus l'arche, hors de son cadre qui coupe tout : l'étoile, les feuilles et les lampes en débordent. Posé avant lui, ce qui passe dessous. */
 .niche-ornements { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+/* Le halo peint respire comme le dessiné, autour du centre de son calque — celui de la niche. */
+.orne-peint-halo { transform-box: fill-box; transform-origin: center; animation: orne-halo 4.5s ease-in-out infinite; }
 /* La guirlande de petites lampes, Amis pour la vie : chaque lampe à son heure. */
 .orne-lampe { animation: orne-lampe 3.2s ease-in-out infinite; }
 @keyframes orne-lampe {
@@ -11044,43 +11047,54 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
 @media (prefers-reduced-motion: reduce) {
   .orne-lampe,
   .niche-halo,
+  .orne-peint-halo,
   .orne-scintille { animation: none; }
 }
-/* « Sa niche s'embellit », dans sa gestion : chaque ornement gagné, une case
-   qu'un toucher montre ou cache — l'ornement seul sur une petite niche vide
-   (`ApercuDOrnement`) —, puis ceux qui viennent, et à combien. */
+/* « Sa niche s'embellit », dans sa gestion : chaque ornement gagné, ses trois
+   choix — peint, dessiné, caché —, chacun l'ornement seul sur une petite
+   niche vide (`ApercuDOrnement`) ; puis ceux qui viennent, et à combien. */
 .niche-gestion { display: flex; flex-direction: column; gap: 14px; }
 /* L'étoile de l'arche dorée et le halo sortent de lui par le haut : en tête d'une feuille qui défile, elle les couperait. */
 .niche-grande:has(.orne-arche, .niche-halo) { margin-top: 20px; }
+/* Peinte, sa niche déborde de partout — le lierre de ses flancs et sous elle,
+   la guirlande, l'étoile, le halo — : à côté de son nom, le lierre passait
+   sur lui et sur la phrase d'en dessous, et le bord de l'écran le coupait. Elle
+   passe au-dessus, au milieu, avec la place de ce qui la déborde. */
+.niche-fiche-tete:has(.orne-peint) { flex-direction: column; gap: 22px; text-align: center; }
+.niche-fiche-tete:has(.orne-peint) .niche-fiche-texte { align-items: center; }
+.niche-fiche-tete:has(.orne-peint) .niche-renommer { align-self: center; }
+.niche-grande:has(.orne-peint) { margin: 32px 0 12px; }
 .niche-fiche-amitie { color: var(--or-text); font-size: 0.875rem; font-weight: 700; }
-.niche-ornes { display: flex; flex-direction: column; gap: 8px; }
-.niche-orne {
+.niche-ornes { display: flex; flex-direction: column; gap: 10px; }
+.niche-orne { display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 10px; border: 1px solid var(--edge); border-radius: var(--radius-xs); }
+.niche-orne-styles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.niche-orne-style {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  /* Le lierre peint pend sous la petite niche : son nom s'écarte. */
   gap: 14px;
-  width: 100%;
-  min-height: 72px;
-  /* L'étoile de l'arche dorée sort de sa petite niche par le haut : la case lui laisse la place. */
-  padding: 14px 12px 8px 16px;
-  border: 1px solid var(--edge);
+  min-width: 0;
+  /* L'étoile de l'arche et le halo sortent de la petite niche par le haut, le lierre par les côtés : la case leur laisse la place, et coupe le reste. */
+  padding: 20px 2px 8px;
+  overflow: hidden;
+  border: 1px solid transparent;
   border-radius: var(--radius-xs);
   background: none;
   color: inherit;
   font: inherit;
-  text-align: left;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.niche-orne[aria-pressed='true'] { border-color: var(--edge-strong); background: var(--accent-soft); }
-.niche-orne:disabled { opacity: 0.7; cursor: progress; }
-.niche-orne[aria-pressed='false'] .niche-apercu { opacity: 0.4; filter: grayscale(0.7); }
+.niche-orne-style[aria-pressed='true'] { border-color: var(--edge-strong); background: var(--accent-soft); cursor: default; }
+.niche-orne-style:disabled { cursor: progress; }
+.niche-orne-style-nom { font-size: var(--t-label); line-height: 1.25; }
+.niche-orne-style[aria-pressed='true'] .niche-orne-style-nom { color: var(--accent-text); font-weight: 600; }
 .niche-apercu { position: relative; flex: none; width: var(--l); height: calc(var(--l) * 62 / 54); }
 /* Une petite niche vide : son ciel de nuit, son rebord, l'ornement seul dessus. */
 .niche-cadre-vide { background: linear-gradient(#18234a, #2a2440 60%, #3a2b3c); }
-.niche-orne-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.niche-orne-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .niche-orne-texte b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.15; }
-.niche-orne-coche { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border: 1.5px solid var(--edge-strong); border-radius: 50%; color: transparent; }
-.niche-orne-coche .icon { width: 15px; height: 15px; }
-.niche-orne[aria-pressed='true'] .niche-orne-coche { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .niche-ornes-a-venir { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .niche-ornes-a-venir li { line-height: 1.35; }
 .niche-orne-a-venir-titre { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
@@ -11089,6 +11103,8 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
 /* Sur la carte d'un joueur, le compagnon de sa niche et son nom (`SonCompagnon`) :
    l'étoile de l'arche dorée et le halo en débordent, sa ligne leur laisse la place. */
 .carte-compagnon { display: flex; align-items: center; gap: 14px; padding: 14px 2px 4px 10px; }
+/* Peints, le lierre et la guirlande débordent de ses flancs et sous elle : son nom s'écarte. */
+.carte-compagnon:has(.orne-peint) { gap: 26px; padding: 18px 2px 16px 24px; }
 .carte-compagnon-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .carte-compagnon-texte .label { margin: 0; }
 .carte-compagnon-nom { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }

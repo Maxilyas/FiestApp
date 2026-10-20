@@ -15,10 +15,15 @@
 // une raison de lui rester fidèle —, et un palier atteint ne se perd jamais
 // (`profile_compagnons.paliers` ne fait que monter, même quand une soirée
 // retirée reprend des bonnes réponses). Chaque ornement gagné se montre
-// d'office ; on choisit lesquels montrer (le propriétaire, le même jour). Ils
-// sont dessinés (`components/Ornements.tsx`, d'après la maquette
-// `retours/2026-10-16/compagnon/maquette/paliers.js`) ; des versions peintes,
-// en plusieurs styles, prendront place parmi les styles d'un ornement.
+// d'office ; on choisit lesquels montrer, et comment (le propriétaire, le
+// même jour : « Dessinés comme sur la maquette, sans peinture payante et aussi
+// des versions vraiment très jolies avec des peintures payantes de différents
+// styles. On choisit lesquels montrer ») : peint — d'office —, dessiné, ou
+// caché. Dessinés d'après la maquette (`components/Ornements.tsx`,
+// `retours/2026-10-16/compagnon/maquette/paliers.js`), peints par la chaîne
+// des ornements (`server/scripts/anime/ornements.ts`) dans le style que le
+// propriétaire a choisi sur la planche de l'essai, le Féerique (le 20 octobre
+// 2026).
 //
 // Comme tout ce qui se porte, un ornement ne donne AUCUN avantage de jeu.
 
@@ -59,15 +64,32 @@ export function ornement(cle: unknown): Ornement | undefined {
 }
 
 /**
- * Comment sa niche montre un ornement qu'il a gagné : dessiné — d'office —,
- * ou caché. Les versions peintes s'ajouteront ici, chacune son style.
+ * Les styles peints : chacun ses calques, peints et livrés par la chaîne des
+ * ornements (`client/src/components/ornements-peints.ts`). Un style de plus
+ * s'y ajoute, peint pour les quatre.
  */
-export type StyleDOrnement = 'dessin' | 'cache'
+export const STYLES_PEINTS = ['feerique'] as const
 
-export const STYLES_D_ORNEMENT: readonly StyleDOrnement[] = ['dessin', 'cache']
+export type StylePeint = (typeof STYLES_PEINTS)[number]
 
-/** D'office : dessiné. Seul ce qui s'en écarte se retient (`ReglageDesOrnements`). */
-export const STYLE_D_OFFICE: StyleDOrnement = 'dessin'
+/** Comment sa niche montre un ornement qu'il a gagné : peint, dessiné comme sur la maquette, ou caché. */
+export type StyleDOrnement = StylePeint | 'dessin' | 'cache'
+
+/** Les styles, dans l'ordre où « Sa niche s'embellit » les propose : les versions peintes, le dessin, rien. */
+export const STYLES_D_ORNEMENT: readonly StyleDOrnement[] = [...STYLES_PEINTS, 'dessin', 'cache']
+
+/** Ce que chaque style s'appelle, sous son aperçu. */
+export const NOM_DU_STYLE: Readonly<Record<StyleDOrnement, string>> = { feerique: 'Féerique', dessin: 'Dessin', cache: 'Caché' }
+
+/** Un style qui le montre. */
+export type StyleMontre = Exclude<StyleDOrnement, 'cache'>
+
+/**
+ * D'office : peint, en Féerique — « des versions vraiment très jolies » ; le
+ * dessin, plus léger, se choisit. Seul ce qui s'en écarte se retient
+ * (`ReglageDesOrnements`).
+ */
+export const STYLE_D_OFFICE: StyleMontre = 'feerique'
 
 /** Ce qu'il a réglé de ses ornements, quand ce n'est pas le style d'office : `{ guirlande: 'cache' }`. */
 export type ReglageDesOrnements = Partial<Record<CleDOrnement, StyleDOrnement>>
@@ -111,11 +133,29 @@ export function lireLesOrnements(brut: unknown): ReglageDesOrnements {
 }
 
 /**
- * Les ornements que sa niche montre, dans l'ordre de leurs paliers : ceux
- * qu'il a atteints, sauf ceux qu'il a cachés.
+ * Le style d'un ornement, d'après ce qu'il a réglé : un style qui n'existe
+ * pas — ou plus, ou d'une page d'avant — reprend celui d'office.
  */
-export function ornementsMontres(a: { paliers?: number; ornements?: Readonly<Partial<Record<string, string>>> }): CleDOrnement[] {
-  return ORNEMENTS.filter(o => o.palier <= (a.paliers ?? 0) && a.ornements?.[o.key] !== 'cache').map(o => o.key)
+export function styleDeLOrnement(ornements: Readonly<Partial<Record<string, string>>> | undefined, cle: CleDOrnement): StyleDOrnement {
+  const regle = ornements?.[cle]
+  return STYLES_D_ORNEMENT.includes(regle as StyleDOrnement) ? (regle as StyleDOrnement) : STYLE_D_OFFICE
+}
+
+/** Un ornement que sa niche montre, et comment. */
+export interface OrnementMontre {
+  cle: CleDOrnement
+  style: StyleMontre
+}
+
+/**
+ * Les ornements que sa niche montre, dans l'ordre de leurs paliers, chacun
+ * dans son style : ceux qu'il a atteints, sauf ceux qu'il a cachés.
+ */
+export function ornementsMontres(a: { paliers?: number; ornements?: Readonly<Partial<Record<string, string>>> }): OrnementMontre[] {
+  return ORNEMENTS.filter(o => o.palier <= (a.paliers ?? 0)).flatMap(o => {
+    const style = styleDeLOrnement(a.ornements, o.key)
+    return style === 'cache' ? [] : [{ cle: o.key, style }]
+  })
 }
 
 /**
