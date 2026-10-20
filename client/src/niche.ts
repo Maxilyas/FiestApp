@@ -153,7 +153,7 @@ export function abonnerNiche(f: () => void): () => void {
 
 // ── « Touche-moi ! » ─────────────────────────────────────────────────────
 //
-// Sa gestion s'ouvre en touchant la niche, et rien ne le disait (le
+// Sa fiche s'ouvre en touchant la niche, et rien ne le disait (le
 // propriétaire, le 19 octobre 2026 : « où est-ce que cela se fait ? Il manque
 // des fonctionnalités simples et pratiques pour accéder à cela ») : une bulle
 // le lui propose, sur les pages où l'on se pose — jamais en jouant —, trois
@@ -191,7 +191,7 @@ export function prendreLAppel(): boolean {
   return true
 }
 
-/** Sa niche touchée — sa gestion ouverte, d'où que ce soit : la bulle ne se propose plus. */
+/** Sa niche touchée — sa fiche ou sa page ouverte, d'où que ce soit : la bulle ne se propose plus. */
 export function nicheTouchee(): void {
   const etat = lireLAppel()
   if (!etat || etat.touchee) return
@@ -199,6 +199,34 @@ export function nicheTouchee(): void {
     localStorage.setItem(CLE_DE_L_APPEL, JSON.stringify({ ...etat, touchee: true }))
   } catch {
     // Stockage indisponible : la bulle ne se proposait déjà pas.
+  }
+}
+
+// ── Son réveil ───────────────────────────────────────────────────────────
+//
+// Chez lui, au premier passage du jour sur ce téléphone, il dort, volets
+// fermés (`MonCompagnon`) — sauf s'il a déjà fait quelque chose aujourd'hui.
+// Une caresse dans sa fiche en est une : caressé au coin de la page, il
+// dormait encore chez lui l'instant d'après. Le serveur n'en garde rien : un
+// réveil ne se mérite pas.
+
+/** Le jour (de Paris, celui du serveur) et le compagnon qu'on a réveillés sur ce téléphone. */
+const CLE_DU_REVEIL = 'quizz.compagnon.reveil'
+
+export function reveilleAujourdhui(jour: string, cle: string): boolean {
+  try {
+    return localStorage.getItem(CLE_DU_REVEIL) === `${jour}:${cle}`
+  } catch {
+    // Sans stockage, il ne dort pas : on ne le réveillerait qu'à chaque visite.
+    return true
+  }
+}
+
+export function retenirLeReveil(jour: string, cle: string): void {
+  try {
+    localStorage.setItem(CLE_DU_REVEIL, `${jour}:${cle}`)
+  } catch {
+    // Rien de retenu : il se rendormira à la prochaine visite, sans rien perdre.
   }
 }
 

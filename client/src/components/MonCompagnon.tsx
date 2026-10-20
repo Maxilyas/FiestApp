@@ -3,7 +3,7 @@ import { Icon } from './Icon'
 import { PieceTete } from './Pieces'
 import { Compagnon as DessinDuCompagnon, teintesDuCompagnon } from './Compagnon'
 import { DESSINS } from './compagnons-peints'
-import { Arche, ENVOLS, PROPOSITIONS, sansArticle, sansMouvement, type Geste } from './Niche'
+import { Arche, ENVOLS, IconeDeLEnvie, PROPOSITIONS, PetitPaquet, gesteDeLaCaresse, sansArticle, sansMouvement, type Geste } from './Niche'
 import { ApercuDOrnement } from './Ornements'
 import { Jardin, useEchelle } from './Jardin'
 import { NICHE } from './jardin'
@@ -15,7 +15,7 @@ import { useModale } from '../modale'
 import { api } from '../api'
 import { espacesFines, formatNumber } from '../format'
 import { gemme } from '../gemmes'
-import { nicheTouchee, porterNiche, type NicheVue } from '../niche'
+import { nicheTouchee, porterNiche, retenirLeReveil, reveilleAujourdhui, type NicheVue } from '../niche'
 import { NOM_RARETE } from '../../../shared/badges'
 import {
   COMPAGNONS,
@@ -27,6 +27,7 @@ import {
   formeDansLaNiche,
   metamorphoseOuverte,
   type CleDeCompagnon,
+  type Compagnon,
   type CompagnonAcquis,
   type CompagnonPossede,
   type FormeDeCompagnon,
@@ -52,63 +53,6 @@ import type { PublicProfile, PublicProfileDetail } from '../../../shared/profil'
 type Mode = 'chez' | 'dort' | 'reveil' | 'gouter' | 'calin'
 type Ecran = null | 'info' | 'nom' | 'decorer' | 'galerie' | 'jeu' | 'cadeau'
 
-/** Le jour et le compagnon qu'on a réveillés sur ce téléphone : le premier passage du jour, il dort. */
-const CLE_DU_REVEIL = 'quizz.compagnon.reveil'
-
-function reveilleAujourdhui(jour: string, cle: string): boolean {
-  try {
-    return localStorage.getItem(CLE_DU_REVEIL) === `${jour}:${cle}`
-  } catch {
-    // Sans stockage, il ne dort pas : on ne le réveillerait qu'à chaque visite.
-    return true
-  }
-}
-
-function retenirLeReveil(jour: string, cle: string) {
-  try {
-    localStorage.setItem(CLE_DU_REVEIL, `${jour}:${cle}`)
-  } catch {
-    // Rien de retenu : il se rendormira à la prochaine visite, sans rien perdre.
-  }
-}
-
-/** Un tour qu'il sait, à faire quand on le caresse : le geste de son nom (`GESTES`, `Niche.tsx`). */
-const GESTE_DU_TOUR: Readonly<Record<string, Geste['sorte']>> = {
-  'la pirouette': 'pirouette',
-  'le salut': 'salut',
-  'la danse': 'danse',
-  'le grand saut': 'grandSaut',
-}
-
-/** Ses envies, dessinées : un bol, une main, une balle. */
-function IconeDeLEnvie({ envie }: { envie: Envie }) {
-  if (envie === 'gouter')
-    return (
-      <svg className="chez-icone" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0z" />
-        <path d="M2.5 11.5h19" />
-        <path d="M9 8c0-1.2 1-1.6 1-2.8" />
-        <path d="M13 8c0-1.2 1-1.6 1-2.8" />
-      </svg>
-    )
-  if (envie === 'calin')
-    return (
-      <svg className="chez-icone" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12" />
-        <path d="M11 11.5V4a1.5 1.5 0 0 1 3 0v8" />
-        <path d="M14 11.5V5.5a1.5 1.5 0 0 1 3 0V14" />
-        <path d="M17 13.5v-1a1.5 1.5 0 0 1 3 0V15a7 7 0 0 1-7 7h-1.5a6.5 6.5 0 0 1-5.4-3L3.7 15a1.5 1.5 0 0 1 2.4-1.8L8 15.5" />
-      </svg>
-    )
-  return (
-    <svg className="chez-icone" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M4.6 8c4.4 1.6 10.4 1.6 14.8 0" />
-      <path d="M4.6 16c4.4-1.6 10.4-1.6 14.8 0" />
-    </svg>
-  )
-}
-
 function Coeur({ couleur = '#e8739a' }: { couleur?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -121,22 +65,6 @@ function Lune() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M15.5 4.5a8 8 0 1 0 4 12.8 6.5 6.5 0 0 1-4-12.8z" fill="#e9c97f" />
-    </svg>
-  )
-}
-
-/** Le paquet de son cadeau, en petit : la ligne qui l'annonce sous ses envies. */
-function PetitPaquet() {
-  return (
-    <svg viewBox="0 0 120 120" aria-hidden="true">
-      <rect x="20" y="54" width="80" height="56" rx="6" fill="#6b2f4a" />
-      <rect x="20" y="54" width="40" height="56" rx="6" fill="#7a3854" />
-      <rect x="54" y="54" width="12" height="56" fill="#e9c97f" />
-      <rect x="14" y="40" width="92" height="20" rx="5" fill="#8a4262" />
-      <rect x="54" y="40" width="12" height="20" fill="#f3d27a" />
-      <path d="M60 40C49 22 30 24 39 37c4 5 13 4 21 3z" fill="#f3d27a" />
-      <path d="M60 40c11-18 30-16 21-3-4 5-13 4-21 3z" fill="#e9c97f" />
-      <circle cx="60" cy="40" r="6" fill="#d9b56a" />
     </svg>
   )
 }
@@ -379,11 +307,8 @@ export function MonCompagnon({
 
   // ── Ce qu'un toucher fait ──
   const caresser = () => {
-    const tours = toursAppris(complicite)
     const n = (geste?.n ?? 0) + 1
-    // Un tour sur deux, s'il en sait : la caresse reste une caresse.
-    const sorte = tours.length > 0 && n % 2 === 0 ? GESTE_DU_TOUR[tours[Math.floor(Math.random() * tours.length)]] : 'saute'
-    setGeste(calme ? null : { sorte, n })
+    setGeste(calme ? null : { sorte: gesteDeLaCaresse(complicite, n), n })
     setRavi(true)
     setCoeurs(x => x + 1)
     setAstuce(false)
@@ -605,7 +530,6 @@ export function MonCompagnon({
   }
   const cadeauDuJour = toutes && !sesSoins?.cadeau
   const grand = prochainCadeauGrand(complicite)
-  const amis = [...COMPAGNONS.filter(x => (siens ?? []).some(a => a.compagnon === x.key)), ...COMPAGNONS.filter(x => !(siens ?? []).some(a => a.compagnon === x.key))]
   const trouvees = soins ? Object.keys(soins.trouvailles).length : 0
 
   let gestes: ReactNode
@@ -920,43 +844,17 @@ export function MonCompagnon({
             <Icon name="chevron-right" />
           </button>
         </div>
-        {/* Celui de la niche est pressé ; toucher un autre des siens l'y installe : son nom ne change pas avec l'état (`design.test.ts`). */}
-        <div className="chez-amis" role="group" aria-label="Tes compagnons : touche l’un des tiens pour l’installer dans ta niche">
-          {amis.map(lui => {
-            const a = (siens ?? []).find(x => x.compagnon === lui.key)
-            const f = a ? formeDansLaNiche(a) : lui.formes[0]
-            const dessin = f && DESSINS[f.key]
-            const lA = lui.key === cle
-            const nomLu = a ? (a.nom ?? lui.nom) : lui.gagne ? `${lui.nom} : se gagne en expédition` : `${lui.nom} : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis, voir comment l’avoir`
-            return (
-              <button
-                key={lui.key}
-                type="button"
-                className="chez-ami"
-                aria-pressed={lA}
-                aria-label={nomLu}
-                disabled={occupe || occupee}
-                onClick={() => {
-                  if (a) return void installer(lui.key)
-                  setGalerieSur(lui.key)
-                  setEcran('galerie')
-                }}
-              >
-                <span className={`niche-mini niche-${lui.key}` + (a ? '' : ' chez-verrou')} style={{ '--l': '38px' } as CSSProperties}>
-                  {f && dessin && <Arche forme={f} dessin={dessin} ornements={a && lA ? ornementsMontres(niche) : []} />}
-                </span>
-                {lA && (
-                  <span className="chez-ami-maison" aria-hidden="true">
-                    <Icon name="home" />
-                  </span>
-                )}
-                <span className="chez-ami-nom">{a?.nom ?? sansArticle(lui.nom)}</span>
-                {!a && <span className={'chez-ami-cond' + (lui.gagne ? ' en-expedition' : '')}>{lui.gagne ? 'Expédition' : `🎊 ${formatNumber(PRIX_D_UN_COMPAGNON)}`}</span>}
-                {a && !lA && <span className="chez-ami-cond">L’installer</span>}
-              </button>
-            )
-          })}
-        </div>
+        {/* Le profil en attendant sa lecture : les siens ne passent pas un instant pour des compagnons à adopter. */}
+        <TesCompagnons
+          siens={siens ?? profil.compagnons ?? []}
+          niche={niche}
+          busy={occupe || occupee}
+          onInstaller={autre => void installer(autre)}
+          onVoir={autre => {
+            setGalerieSur(autre)
+            setEcran('galerie')
+          }}
+        />
       </section>
 
       {erreur && (
@@ -972,33 +870,7 @@ export function MonCompagnon({
 
       {ecran === 'info' && (
         <Feuille titre="Comment ça marche" onFermer={() => setEcran(null)}>
-          <ul className="chez-regles">
-            <li>
-              <span className="chez-puce" aria-hidden="true">
-                <Coeur />
-              </span>
-              <span>{espacesFines(`Chaque bonne réponse le nourrit — en soirée, au quiz du jour, en campagne. ${Il} change de forme à 100, 300 puis 500, puis sa niche s’embellit.`)}</span>
-            </li>
-            <li>
-              <span className="chez-puce" aria-hidden="true">
-                <PetitPaquet />
-              </span>
-              <span>{espacesFines(`Chaque jour, trois envies : un goûter, un câlin, une partie de cueillette. Comblées, ${c.le === 'la' ? 'elle' : 'il'} te rapporte une trouvaille pour son jardin — et tous les sept jours de complicité, un grand cadeau.`)}</span>
-            </li>
-            <li>
-              <span className="chez-puce" aria-hidden="true">
-                <Icon name="home" />
-              </span>
-              <span>{espacesFines('Son jardin s’agrandit avec votre complicité : le petit coin, la cour, le jardin, le domaine — de trois à dix places.')}</span>
-            </li>
-            <li>
-              <span className="chez-puce" aria-hidden="true">
-                <Icon name="check-circle" />
-              </span>
-              <span>{espacesFines(`Un jour sans venir ne ${la} fâche pas et ne retire rien. Ni ses formes ni ses trouvailles ne donnent d’avantage de jeu.`)}</span>
-            </li>
-          </ul>
-          <p className="muted small">{espacesFines(`${trouvees} trouvailles sur ${TROUVAILLES.length} · ${complicite} jours de complicité · ${toursAppris(complicite).length} tour${toursAppris(complicite).length > 1 ? 's' : ''} appris`)}</p>
+          <CommentCaMarche c={c} complicite={complicite} trouvees={trouvees} />
         </Feuille>
       )}
 
@@ -1107,7 +979,105 @@ export function MonCompagnon({
   )
 }
 
-/** Une feuille de la page, sur le modèle de sa fiche : son titre, « Fermer », son corps qui défile. */
+/**
+ * « Tes compagnons », sur sa page : les siens d'abord, chacun sous la forme
+ * qu'il montre — celui de la niche pressé, les autres à installer d'un
+ * toucher : c'est celui de la niche qui grandit —, puis ceux qu'il n'a pas,
+ * leur prix ou l'expédition, qui ouvrent leur fiche dans la galerie, où l'on
+ * adopte sur place. Un nom fixe : celui de la niche se dit par
+ * `aria-pressed`, jamais par son libellé (`design.test.ts`).
+ */
+export function TesCompagnons({
+  siens,
+  niche,
+  busy,
+  onInstaller,
+  onVoir,
+}: {
+  siens: readonly CompagnonPossede[]
+  niche: NicheVue
+  busy: boolean
+  onInstaller: (cle: CleDeCompagnon) => void
+  onVoir: (cle: CleDeCompagnon) => void
+}) {
+  const amis = [...COMPAGNONS.filter(x => siens.some(a => a.compagnon === x.key)), ...COMPAGNONS.filter(x => !siens.some(a => a.compagnon === x.key))]
+  return (
+    <div className="chez-amis" role="group" aria-label="Tes compagnons : touche l’un des tiens pour l’installer dans ta niche">
+      {amis.map(lui => {
+        const a = siens.find(x => x.compagnon === lui.key)
+        const f = a ? formeDansLaNiche(a) : lui.formes[0]
+        const dessin = f && DESSINS[f.key]
+        const lA = lui.key === niche.compagnon
+        const nomLu = a ? (a.nom ?? lui.nom) : lui.gagne ? `${lui.nom} : se gagne en expédition` : `${lui.nom} : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis, voir comment l’avoir`
+        return (
+          <button
+            key={lui.key}
+            type="button"
+            className="chez-ami"
+            aria-pressed={lA}
+            aria-label={nomLu}
+            disabled={busy}
+            onClick={() => (a ? onInstaller(lui.key) : onVoir(lui.key))}
+          >
+            <span className={`niche-mini niche-${lui.key}` + (a ? '' : ' chez-verrou')} style={{ '--l': '38px' } as CSSProperties}>
+              {f && dessin && <Arche forme={f} dessin={dessin} ornements={a && lA ? ornementsMontres(niche) : []} />}
+            </span>
+            {lA && (
+              <span className="chez-ami-maison" aria-hidden="true">
+                <Icon name="home" />
+              </span>
+            )}
+            <span className="chez-ami-nom">{a?.nom ?? sansArticle(lui.nom)}</span>
+            {!a && <span className={'chez-ami-cond' + (lui.gagne ? ' en-expedition' : '')}>{lui.gagne ? 'Expédition' : `🎊 ${formatNumber(PRIX_D_UN_COMPAGNON)}`}</span>}
+            {a && !lA && <span className="chez-ami-cond">L’installer</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * « Comment ça marche », au bout du titre de sa page : les règles qui
+ * faisaient le mur de texte de l'écran d'avant, et où il en est de ses
+ * trouvailles, de leur complicité et de ses tours.
+ */
+export function CommentCaMarche({ c, complicite, trouvees }: { c: Compagnon; complicite: number; trouvees: number }) {
+  const tours = toursAppris(complicite).length
+  return (
+    <>
+      <ul className="chez-regles">
+        <li>
+          <span className="chez-puce" aria-hidden="true">
+            <Coeur />
+          </span>
+          <span>{espacesFines(`Chaque bonne réponse le nourrit — en soirée, au quiz du jour, en campagne. ${c.le === 'la' ? 'Elle' : 'Il'} change de forme à 100, 300 puis 500, puis sa niche s’embellit.`)}</span>
+        </li>
+        <li>
+          <span className="chez-puce" aria-hidden="true">
+            <PetitPaquet />
+          </span>
+          <span>{espacesFines(`Chaque jour, trois envies : un goûter, un câlin, une partie de cueillette. Comblées, ${c.le === 'la' ? 'elle' : 'il'} te rapporte une trouvaille pour son jardin — et tous les sept jours de complicité, un grand cadeau.`)}</span>
+        </li>
+        <li>
+          <span className="chez-puce" aria-hidden="true">
+            <Icon name="home" />
+          </span>
+          <span>{espacesFines('Son jardin s’agrandit avec votre complicité : le petit coin, la cour, le jardin, le domaine — de trois à dix places.')}</span>
+        </li>
+        <li>
+          <span className="chez-puce" aria-hidden="true">
+            <Icon name="check-circle" />
+          </span>
+          <span>{espacesFines(`Un jour sans venir ne ${c.le === 'la' ? 'la' : 'le'} fâche pas et ne retire rien. Ni ses formes ni ses trouvailles ne donnent d’avantage de jeu.`)}</span>
+        </li>
+      </ul>
+      <p className="muted small">{espacesFines(`${trouvees} trouvailles sur ${TROUVAILLES.length} · ${complicite} jours de complicité · ${tours} tour${tours > 1 ? 's' : ''} appris`)}</p>
+    </>
+  )
+}
+
+/** Une feuille de la page, sur le modèle de celles du profil : son titre, « Fermer », son corps qui défile. */
 function Feuille({ titre, onFermer, children }: { titre: string; onFermer: () => void; children: ReactNode }) {
   const boite = useRef<HTMLDivElement>(null)
   useModale(boite, onFermer)

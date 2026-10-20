@@ -1,9 +1,12 @@
-// « Ma niche » (le 19 octobre 2026, le propriétaire : « il n'y a pas
+// Sa gestion (le 19 octobre 2026, le propriétaire : « il n'y a pas
 // d'interface de gestion de compagnon quand on clique dessus ? Pouvoir
 // choisir son compagnon, le customiser ») : la niche est sa maison, l'avatar
-// une autre affaire. L'adoption l'y installe sans le faire porter ; toucher
-// la niche ouvre sa gestion — celui qui y vit, son nom, la forme qu'il y
-// montre —, et ce qu'on y choisit ne bouge plus quand on change d'avatar.
+// une autre affaire. L'adoption l'y installe sans le faire porter ; celui qui
+// y vit, son nom, la forme qu'il y montre se règlent chez lui — « Mon
+// compagnon », au profil : sa plaque, « Décorer », « Tes compagnons » —, et
+// ce qu'on y choisit ne bouge plus quand on change d'avatar. Toucher la niche
+// n'ouvre plus qu'une bulle, pour le caresser et voir où il en est (le 20
+// octobre 2026 : « uniquement pouvoir interagir avec lui ? »).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -13,7 +16,7 @@ import Database from 'better-sqlite3'
 import React from 'react'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
-import { MONTREE_DE_LA_METAMORPHOSE, NOM_D_UN_COMPAGNON_MAX, formeDansLaNiche } from '../../shared/compagnons'
+import { MONTREE_DE_LA_METAMORPHOSE, NOM_D_UN_COMPAGNON_MAX, compagnon, formeDansLaNiche } from '../../shared/compagnons'
 import { readFileSync } from 'node:fs'
 import { tirerLeCoffre } from '../../shared/tresor'
 import type { ObjetDuTresor } from '../../shared/coffre'
@@ -88,6 +91,30 @@ test('le téléphone retient son nom, la forme de sa niche et son Éclat, et ne 
   }
 })
 
+test('caressé dans sa fiche, il est réveillé : chez lui, il ne dort plus volets fermés l’instant d’après', async () => {
+  const retenu = new Map<string, string>()
+  Object.assign(globalThis, {
+    document: { body: { classList: { toggle: () => true } } },
+    localStorage: { getItem: (k: string) => retenu.get(k) ?? null, setItem: (k: string, v: string) => retenu.set(k, v), removeItem: (k: string) => retenu.delete(k) },
+  })
+  try {
+    const niche = await import(client('niche.ts'))
+    assert.equal(niche.reveilleAujourdhui('2026-10-20', 'loup'), false, 'au premier passage du jour, il dort')
+    niche.retenirLeReveil('2026-10-20', 'loup')
+    assert.equal(niche.reveilleAujourdhui('2026-10-20', 'loup'), true)
+    assert.equal(niche.reveilleAujourdhui('2026-10-20', 'chat'), false, 'un autre des siens dort encore')
+    assert.equal(niche.reveilleAujourdhui('2026-10-21', 'loup'), false, 'le lendemain, il redort')
+  } finally {
+    Reflect.deleteProperty(globalThis, 'document')
+    Reflect.deleteProperty(globalThis, 'localStorage')
+  }
+  // La caresse de sa fiche le retient, comme le réveil de sa page.
+  const source = readFileSync(new URL('../../client/src/components/Niche.tsx', import.meta.url), 'utf8')
+  const fiche = source.slice(source.indexOf('export function FicheDeLaNiche'), source.indexOf('export function SaNicheSEmbellit'))
+  const caresser = fiche.slice(fiche.indexOf('const caresser = () => {'), fiche.indexOf('\n  }\n', fiche.indexOf('const caresser = () => {')))
+  assert.ok(caresser.includes('retenirLeReveil(soins.jour, niche.compagnon)'), caresser)
+})
+
 /** Un composant de la niche, rendu tel que la page le montre. */
 async function rendre(composant: string, props: object): Promise<string> {
   Object.assign(globalThis, { React })
@@ -95,6 +122,18 @@ async function rendre(composant: string, props: object): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server')
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
+
+/** Un composant de sa page, chez lui (`/profil#compagnon`), rendu tel qu'il s'ouvre — ses soins pas encore lus. */
+async function rendreChezLui(composant: string, props: object): Promise<string> {
+  Object.assign(globalThis, { React })
+  const module = await import(client('components/MonCompagnon.tsx'))
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  return renderToStaticMarkup(React.createElement(module[composant], props))
+}
+
+/** Sa page entière, pour ce compagnon dans sa niche. */
+const chezLui = (niche: { compagnon: string; rang: number }) =>
+  rendreChezLui('MonCompagnon', { niche, profil: { niche: niche.compagnon, compagnons: [niche] }, occupee: false, onAdopter: async () => null, onInstaller: async () => true })
 
 test('la niche montre la forme qu’il a choisie, et l’appelle par son nom', async () => {
   const { DESSINS } = await import(client('components/compagnons-peints.ts'))
@@ -117,31 +156,34 @@ test('sa métamorphose, une forme de plus : rien ne change d’office ; choisie,
   assert.match(tempete, /aria-label="Le loup-tempête, dans ta niche : sa fiche"/)
   // De face, il regarde déjà la page : son cadrage ne le retourne pas.
   assert.doesNotMatch(tempete, /niche-bete miroir/)
-  // Sa fiche le nomme et le décrit comme il se montre ; l'avatar se choisit dans la loge, plus d'ici (le 20 octobre 2026).
-  const fiche = await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 3, montree: MONTREE_DE_LA_METAMORPHOSE, eclat: true }, onFermer: () => {} })
-  assert.match(fiche, /<b class="niche-fiche-nom">Le loup-tempête<\/b>/)
+  // Sa fiche le nomme et le montre comme il se montre ; l'avatar se choisit dans la loge, plus d'ici (le 20 octobre 2026).
+  const tempeteIci = { compagnon: 'loup', rang: 3, montree: MONTREE_DE_LA_METAMORPHOSE, eclat: true }
+  const fiche = await rendre('FicheDeLaNiche', { niche: tempeteIci, onFermer: () => {} })
+  assert.match(fiche, /class="niche-fiche-nom">Le loup-tempête<\/b>/)
   assert.match(fiche, /Métamorphose · légendaire/)
-  assert.match(fiche, /<p class="niche-fiche-legende">Éclairs d’aurore et glace qui vole\.<\/p>/)
+  assert.ok(fiche.includes(`src="${rare.perso[0]}"`), 'en grand, le loup-tempête')
   assert.doesNotMatch(fiche, /porter en avatar/)
-  // Ses cinq formes : les quatre atteintes, et elle, pressée.
-  assert.equal(fiche.match(/<button type="button" class="niche-choix/g)?.length, 5)
-  assert.match(fiche, /aria-pressed="true" aria-label="Le loup-tempête"/)
-  assert.match(fiche, /aria-pressed="false" aria-label="Le loup des étoiles"/)
-  // Ses compagnons en petites niches, chacun sous la forme qu'il montre : le chat éclaté garde la sienne.
-  const siens = await rendre('SesCompagnons', {
-    compagnons: [
+  // Ses cinq formes, dans « Décorer » : les quatre atteintes, et elle, pressée.
+  const formes = await rendre('SesFormes', { niche: tempeteIci, busy: false, onMontrer: () => {} })
+  assert.equal(formes.match(/<button type="button" class="niche-choix/g)?.length, 5)
+  assert.match(formes, /aria-pressed="true" aria-label="Le loup-tempête"/)
+  assert.match(formes, /aria-pressed="false" aria-label="Le loup des étoiles"/)
+  // Ses compagnons en petites niches, chez lui, chacun sous la forme qu'il montre : le chat éclaté garde la sienne.
+  const siens = await rendreChezLui('TesCompagnons', {
+    siens: [
       { compagnon: 'loup', rang: 3, justes: 520, montree: MONTREE_DE_LA_METAMORPHOSE, eclat: true },
       { compagnon: 'chat', rang: 3, justes: 600, eclat: true },
     ],
-    niche: 'loup',
+    niche: tempeteIci,
     busy: false,
     onInstaller: () => {},
+    onVoir: () => {},
   })
   assert.ok(siens.includes(rare.perso[0]))
   assert.ok(siens.includes(DESSINS['cp:chat-esprit'].perso[0]) && !siens.includes(DESSINS['cp:chat-soleil'].perso[0]), 'le chat-soleil attend qu’on le choisisse')
 })
 
-test('« Ma niche » la propose parmi ses formes, marquée d’un point rouge tant qu’il ne l’a pas vue — et seulement ouverte', async () => {
+test('« Décorer » la propose parmi ses formes, marquée d’un point rouge tant qu’il ne l’a pas vue — et seulement ouverte', async () => {
   const formes = (niche: object, neuves?: string[]) => rendre('SesFormes', { niche, busy: false, neuves, onMontrer: () => {} })
   const neuve = await formes({ compagnon: 'loup', rang: 3, eclat: true }, ['cp:loup-tempete'])
   assert.match(neuve, /<button type="button" class="niche-choix neuve" aria-pressed="false" aria-label="Le loup-tempête, nouveau">/)
@@ -161,64 +203,96 @@ test('« Ma niche » la propose parmi ses formes, marquée d’un point rouge ta
   assert.match(css, /\.niche-choix\.neuve \.niche-mini::after \{[^}]*background: #d93025;/)
 })
 
-test('sa fiche est sa gestion : son nom, sa forme, le caresser, chez lui — seulement ce qu’il a', async () => {
+test('sa fiche, une bulle : lui, le caresser, chez lui — rien à y régler ; son nom, ses formes et ses compagnons se règlent chez lui', async () => {
   const { DESSINS } = await import(client('components/compagnons-peints.ts'))
-  const nox = await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 2, montree: 0, nom: 'Nox' }, onFermer: () => {} })
-  assert.match(nox, /role="dialog" aria-modal="true" aria-label="Ma niche"/)
-  assert.match(nox, /<b class="niche-fiche-nom">Nox<\/b>/)
+  const noxIci = { compagnon: 'loup', rang: 2, montree: 0, nom: 'Nox' }
+  const nox = await rendre('FicheDeLaNiche', { niche: noxIci, onFermer: () => {} })
+  assert.match(nox, /role="dialog" aria-modal="true" aria-labelledby=/)
+  assert.match(nox, /class="niche-fiche-nom">Nox<\/b>/)
   assert.match(nox, /Le louveteau · Première forme · commune/)
-  assert.match(nox, /class="niche-renommer"[^>]*>.*?Renommer<\/button>/)
+  assert.ok(nox.includes(DESSINS['cp:loup-louveteau'].perso[0]) && !nox.includes(DESSINS['cp:loup-ultime'].perso[0]), 'la forme qu’il montre, pas une autre')
   assert.match(nox, />Le caresser<\/button>/)
   // « Tu peux enlever le lien vers mon avatar » (le propriétaire, le 20 octobre 2026) : sa page, où l'on s'occupe de lui, en prend la place.
-  assert.match(nox, /<a class="btn" href="\/profil#compagnon">.*?Chez lui<\/a>/)
+  assert.match(nox, /<a class="chez-pastille" href="\/profil#compagnon">.*?Chez lui<\/a>/)
   assert.doesNotMatch(nox, /porter en avatar/)
-  assert.match(nox, /<a class="link-inline" href="\/boutique#compagnon-loup">Ses formes<\/a>/)
-  // Ses trois formes atteintes, la choisie pressée ; pas la quatrième, qu'il n'a pas.
-  assert.equal(nox.match(/<button type="button" class="niche-choix"/g)?.length, 3)
-  assert.match(nox, /<button type="button" class="niche-choix" aria-pressed="true" aria-label="Le louveteau">/)
-  assert.match(nox, /aria-pressed="false" aria-label="Le loup adulte"/)
-  assert.ok(!nox.includes(DESSINS['cp:loup-ultime'].perso[0]))
-  // Ses compagnons se lisent à l'ouverture : leur place est gardée.
-  assert.match(nox, /aria-labelledby="niche-compagnons"/)
+  // « Uniquement pouvoir interagir avec lui ? Et de savoir où il en est » (le
+  // propriétaire, le 20 octobre 2026) : ni nom à changer, ni forme, ni
+  // compagnon à installer, ni boutique — un second endroit pour ce que sa page règle.
+  assert.doesNotMatch(nox, /Renommer|Lui donner un nom|niche-choix|Adopter|\/boutique/)
 
-  const tortue = await rendre('FicheDeLaNiche', { niche: { compagnon: 'tortue', rang: 0 }, onFermer: () => {} })
-  assert.match(tortue, /<b class="niche-fiche-nom">La petite tortue<\/b>/)
-  assert.match(tortue, /class="niche-renommer"[^>]*>.*?Lui donner un nom<\/button>/)
+  // Son nom, sur sa plaque, chez lui : la toucher le change.
+  assert.match(await chezLui(noxIci), /class="chez-plaque"[^>]*aria-label="Nox : le renommer"/)
+  // Ses formes, dans « Décorer » : ses trois atteintes, la choisie pressée ; pas la quatrième, qu'il n'a pas.
+  const formes = await rendre('SesFormes', { niche: noxIci, busy: false, onMontrer: () => {} })
+  assert.equal(formes.match(/<button type="button" class="niche-choix"/g)?.length, 3)
+  assert.match(formes, /<button type="button" class="niche-choix" aria-pressed="true" aria-label="Le louveteau">/)
+  assert.match(formes, /aria-pressed="false" aria-label="Le loup adulte"/)
+  assert.ok(!formes.includes(DESSINS['cp:loup-ultime'].perso[0]))
+  // Ses compagnons, chez lui, sous leur titre : le profil les montre en attendant leur lecture.
+  const page = await chezLui(noxIci)
+  assert.match(page, /aria-labelledby="chez-amis"/)
+  assert.match(page, /aria-pressed="true" aria-label="Nox"/)
+
+  const tortueIci = { compagnon: 'tortue', rang: 0 }
+  const tortue = await rendre('FicheDeLaNiche', { niche: tortueIci, onFermer: () => {} })
+  assert.match(tortue, /class="niche-fiche-nom">La petite tortue<\/b>/)
   assert.match(tortue, />La caresser<\/button>/)
-  assert.doesNotMatch(tortue, /class="niche-choix"/, 'une seule forme : rien à choisir')
+  assert.match(tortue, /Chez elle<\/a>/)
+  assert.match(await chezLui(tortueIci), /class="chez-plaque sans-nom"[^>]*aria-label="Lui donner un nom"/)
+  const uneForme = await rendre('SesFormes', { niche: tortueIci, busy: false, onMontrer: () => {} })
+  assert.doesNotMatch(uneForme, /class="niche-choix"/, 'une seule forme : rien à choisir')
+  assert.match(uneForme, /Elle en prendra trois autres en grandissant/)
 })
 
-test('ses compagnons, en petites niches : celui qui y vit, les autres à installer d’un toucher, et de quoi en adopter un autre', async () => {
+test('« Tes compagnons », chez lui : celui qui y vit, les autres à installer d’un toucher, puis ceux à adopter — leur prix, ou l’expédition', async () => {
   const { DESSINS } = await import(client('components/compagnons-peints.ts'))
-  const deux = await rendre('SesCompagnons', {
-    compagnons: [
+  const tes = (siens: object[], niche: object) => rendreChezLui('TesCompagnons', { siens, niche, busy: false, onInstaller: () => {}, onVoir: () => {} })
+  const deux = await tes(
+    [
       { compagnon: 'loup', rang: 2, justes: 320, montree: 0, nom: 'Nox' },
       { compagnon: 'tortue', rang: 1, justes: 120 },
     ],
-    niche: 'loup',
-    busy: false,
-    onInstaller: () => {},
-  })
+    { compagnon: 'loup', rang: 2, montree: 0, nom: 'Nox' },
+  )
   // Un nom fixe : celui qui y vit se dit par aria-pressed, jamais par son libellé (`design.test.ts`).
   assert.match(deux, /aria-pressed="true" aria-label="Nox"/)
   assert.match(deux, /aria-pressed="false" aria-label="La Tortue-île"/)
-  assert.match(deux, /<span class="niche-choix-nom">Nox<\/span>/)
-  assert.match(deux, /<span class="niche-choix-nom">Tortue-île<\/span>/)
+  assert.match(deux, /<span class="chez-ami-nom">Nox<\/span>/)
+  assert.match(deux, /<span class="chez-ami-nom">Tortue-île<\/span>/)
   assert.ok(deux.includes(DESSINS['cp:loup-louveteau'].perso[0]), 'le loup, sous la forme qu’il montre')
   assert.ok(deux.includes(DESSINS['cp:tortue-jeune'].perso[0]))
-  assert.match(deux, /<a class="niche-choix niche-choix-adopter" href="\/boutique#compagnons">/, 'le chat attend en boutique')
-  const trois = await rendre('SesCompagnons', {
-    compagnons: [
+  // Les siens d'abord ; puis le chat, à son prix — sa fiche dans la galerie, où l'on adopte sur place —, et la luciole, qui se gagne.
+  assert.match(deux, /aria-label="Le Chat des lanternes : 1000 confettis, voir comment l’avoir"/, 'le chat attend qu’on l’adopte')
+  assert.match(deux, /aria-label="La Luciole : se gagne en expédition"/)
+  assert.ok(deux.indexOf('Tortue-île') < deux.indexOf('Chat des lanternes'), 'les siens d’abord')
+  const trois = await tes(
+    [
       { compagnon: 'loup', rang: 0, justes: 0 },
       { compagnon: 'chat', rang: 0, justes: 0 },
       { compagnon: 'tortue', rang: 0, justes: 0 },
     ],
-    niche: 'chat',
-    busy: false,
-    onInstaller: () => {},
-  })
-  assert.doesNotMatch(trois, /niche-choix-adopter/, 'tous adoptés : rien à acheter de plus')
+    { compagnon: 'chat', rang: 0 },
+  )
+  assert.doesNotMatch(trois, /confettis, voir comment/, 'tous adoptés : rien à acheter de plus')
   assert.match(trois, /aria-pressed="true" aria-label="Le Chat des lanternes"/)
+})
+
+test('sa fiche dit ses envies du jour sans un reproche, et son cadeau quand il attend ; une caresse sur deux, un tour qu’il sait', async () => {
+  const { sonJour, gesteDeLaCaresse } = await import(client('components/Niche.tsx'))
+  const loup = compagnon('loup')!
+  const tortue = compagnon('tortue')!
+  const soins = (envies: object, autres: object = {}) => ({ compagnon: 'loup', envies: { gouter: false, calin: false, jeu: false, ...envies }, cadeau: null, complicite: 0, record: 0, jardin: {}, ...autres })
+  const toutes = { gouter: true, calin: true, jeu: true }
+  assert.deepEqual(sonJour(loup, undefined), { faites: [], cadeau: null, phrase: 'Ses trois envies du jour t’attendent' }, 'jamais soigné : rien ne lui manque, tout l’attend')
+  assert.equal(sonJour(loup, soins({ gouter: true })).phrase, '1 envie comblée sur 3')
+  assert.deepEqual(sonJour(loup, soins({ gouter: true, jeu: true })).faites, ['gouter', 'jeu'])
+  assert.deepEqual(sonJour(loup, soins(toutes)), { faites: ['gouter', 'calin', 'jeu'], cadeau: 'petit', phrase: 'Un cadeau t’attend chez lui !' })
+  assert.deepEqual(sonJour(tortue, soins(toutes, { complicite: 6 })), { faites: ['gouter', 'calin', 'jeu'], cadeau: 'grand', phrase: 'Un grand cadeau t’attend chez elle !' }, 'le septième jour')
+  assert.deepEqual(sonJour(loup, soins(toutes, { cadeau: { objet: 'coussin', grand: false } })), { faites: ['gouter', 'calin', 'jeu'], cadeau: null, phrase: 'Trois envies comblées · à demain !' })
+  // Ses tours, appris de leur complicité : une caresse sur deux, s'il en sait — la caresse reste une caresse.
+  for (const n of [1, 2, 3, 4]) assert.equal(gesteDeLaCaresse(0, n), 'saute', 'sans tour appris')
+  assert.deepEqual([1, 2, 3, 4].map(n => gesteDeLaCaresse(3, n)), ['saute', 'pirouette', 'saute', 'pirouette'])
+  for (let i = 0; i < 20; i++) assert.ok(['pirouette', 'salut'].includes(gesteDeLaCaresse(10, 2)), 'un des tours qu’il sait')
 })
 
 // ── Sur un serveur jetable ────────────────────────────────────────────────

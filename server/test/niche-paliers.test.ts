@@ -14,7 +14,8 @@ import Database from 'better-sqlite3'
 import React from 'react'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
-import { MONTREE_DE_LA_METAMORPHOSE } from '../../shared/compagnons'
+import { MONTREE_DE_LA_METAMORPHOSE, compagnon } from '../../shared/compagnons'
+import { formatNumber } from '../../shared/typographie'
 import {
   ORNEMENTS,
   PALIERS_DE_LA_NICHE,
@@ -183,17 +184,29 @@ test('sa niche porte les ornements qu’il montre : la guirlande, le lierre, l�
   assert.match(reduit, /@media \(prefers-reduced-motion: reduce\) \{[^@]*\.orne-lampe[^@]*animation: none/)
 })
 
-test('« Ma niche » dit où il en est après sa forme ultime, et chaque ornement gagné se montre peint, dessiné, ou se cache d’un toucher', async () => {
-  const avant = await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 2 }, onFermer: () => {} })
+test('sa fiche dit où il en est, après sa forme ultime aussi, et « Décorer » montre chaque ornement gagné peint, dessiné, ou caché d’un toucher', async () => {
+  // Où il en est : sa forme suivante, puis le palier suivant de sa niche — la jauge ne s'arrête qu'à la légende.
+  const { ouIlEnEst } = await import(client('components/Niche.tsx'))
+  assert.deepEqual(ouIlEnEst({ compagnon: 'loup', rang: 2, justes: 320 }, 0), { part: 0.64, phrase: '320 sur 500 bonnes réponses avec lui : le loup des étoiles' })
+  assert.deepEqual(ouIlEnEst({ compagnon: 'loup', rang: 3, justes: 1200 }, 0), { part: 0.8, phrase: '1200 sur 1500 bonnes réponses avec lui : une guirlande de petites lampes' })
+  assert.deepEqual(ouIlEnEst({ compagnon: 'tortue', rang: 3, justes: 5000 }, 2), { part: 0.5, phrase: `5000 sur ${formatNumber(10000)} bonnes réponses avec elle : l’arche dorée et son étoile` })
+  assert.deepEqual(ouIlEnEst({ compagnon: 'loup', rang: 3, justes: 30000 }, 4), { part: null, phrase: 'Légende : sa niche a tous ses ornements.' })
+  // Et le titre de leur amitié, sous son nom.
+  assert.match(await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 3, paliers: 1 }, onFermer: () => {} }), /<span class="niche-fiche-amitie">Amis pour la vie<\/span>/)
+
+  // « Sa niche s'embellit », dans « Décorer » : ce qui l'attend, puis ses trois choix pour chaque ornement gagné.
+  const embellit = (niche: { compagnon: string; rang: number; paliers?: number; ornements?: object }) =>
+    rendre('SaNicheSEmbellit', { niche, c: compagnon(niche.compagnon), busy: false, onOrner: () => {} })
+  const avant = await embellit({ compagnon: 'loup', rang: 2 })
   assert.match(avant, /Sa niche s’embellit/)
   assert.match(avant, /une guirlande de petites lampes à 1500 bonnes réponses avec lui/, 'annoncée avant sa forme ultime')
-  const une = await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 3, paliers: 1 }, onFermer: () => {} })
+  const une = await embellit({ compagnon: 'loup', rang: 3, paliers: 1 })
   // Un nom fixe : le style montré se dit par aria-pressed (`design.test.ts`) ; le détail des choix, `ornements-peints.test.ts`.
   assert.equal(une.match(/class="niche-orne"/g)?.length, 1, 'seulement ce qu’il a gagné se règle')
   assert.equal(une.match(/<button type="button" class="niche-orne-style" aria-pressed="true"/g)?.length, 1)
   assert.match(une, /Amis pour la vie/)
   assert.match(une, /Complices · à 4000/, 'le suivant s’annonce')
-  const cache = await rendre('FicheDeLaNiche', { niche: { compagnon: 'tortue', rang: 3, paliers: 4, ornements: { guirlande: 'cache' } }, onFermer: () => {} })
+  const cache = await embellit({ compagnon: 'tortue', rang: 3, paliers: 4, ornements: { guirlande: 'cache' } })
   assert.equal(cache.match(/class="niche-orne"/g)?.length, 4)
   assert.match(cache, /<button type="button" class="niche-orne-style" aria-pressed="true"[^>]*>(?:(?!<\/button>)[\s\S])*Caché/, 'la guirlande, cachée')
   assert.match(cache, /Légende/)

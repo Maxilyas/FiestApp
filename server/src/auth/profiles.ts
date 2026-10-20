@@ -2178,7 +2178,7 @@ export class ProfileStore {
     })
     const s = this.compagnons.get(id)?.get(c.key)
     if (s) Object.assign(s, champs)
-    // Montrée dans sa niche, sa métamorphose est trouvée : ni « Ma niche » ni
+    // Montrée dans sa niche, sa métamorphose est trouvée : ni « Décorer » ni
     // la loge ne la disent plus nouvelle. Une base qui hoquette ici ne défait
     // pas ce qu'il vient de régler.
     if (champs.montree === MONTREE_DE_LA_METAMORPHOSE && c.lumiere) {

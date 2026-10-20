@@ -456,13 +456,13 @@ test('l’Éclat lui ouvre sa métamorphose à sa forme ultime : rien ne change 
     assert.equal(moi.legendaire, null)
     let fiche = await lireLaNiche(banc, cookie)
     assert.deepEqual(fiche.niche, { compagnon: 'loup', rang: 3, eclat: true, justes: 520 })
-    // Neuve, pour qu'il la trouve : « Ma niche » la marque, comme la loge.
+    // Neuve, pour qu'il la trouve : « Décorer » la marque, comme la loge.
     assert.deepEqual(fiche.neuves, ['cp:loup-tempete'])
     // Le chat n'a ni sa forme ultime ni l'Éclat : refusé en clair, partout.
     assert.equal((await porter(banc, cookie, { legendaire: 'cp:chat-soleil' })).corps.error, 'Le chat-soleil s’ouvre à sa forme ultime, quand l’Éclat tombe sur lui')
     assert.equal((await montrer(banc, cookie, 'chat', MONTREE_DE_LA_METAMORPHOSE)).status, 400)
     assert.equal((await montrer(banc, cookie, 'loup', 5)).corps.error, 'Cette forme n’existe pas')
-    // Montrée dans sa niche : choisie, et trouvée — ni « Ma niche » ni la loge ne la disent plus nouvelle.
+    // Montrée dans sa niche : choisie, et trouvée — ni « Décorer » ni la loge ne la disent plus nouvelle.
     const montree = await montrer(banc, cookie, 'loup', MONTREE_DE_LA_METAMORPHOSE)
     assert.equal(montree.status, 200, montree.corps.error)
     assert.deepEqual(montree.corps.profile.compagnons[0], { compagnon: 'loup', rang: 3, montree: MONTREE_DE_LA_METAMORPHOSE, eclat: true })
