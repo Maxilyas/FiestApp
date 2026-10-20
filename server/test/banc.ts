@@ -98,7 +98,9 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
   // Le premier démarrage prend un port libre ; les suivants reprennent le
   // même, pour qu'un téléphone qui se reconnecte tout seul retrouve le serveur.
   let port = 0
-  const lancer = () => createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, ...opts })
+  // Le banc ferme la question au centre de l'expédition (la version 10), comme le calendrier : les épreuves des
+  // rencontres d'avant elle partent en version 9, telles que la production les joue ; les siennes la rouvrent.
+  const lancer = () => createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, ...opts })
   let server = await lancer()
   port = server.port
   const banc: Banc = {

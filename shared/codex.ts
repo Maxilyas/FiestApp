@@ -30,13 +30,21 @@ import {
   CARTES_DES_RENCONTRES,
   CARTES_PAR_OFFRE,
   ENERGIE_DES_ACTES,
+  MAIN_MAX_EN_QUESTION,
+  MAIN_MAX_SOUS_TROIS_TETES,
+  VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_FAMILLES,
+  VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   baseDe,
   carteDeRencontre,
   carteDuLegendaire,
+  cransDe,
   energieDesActes,
   frappeDe,
   sceauxDe,
+  seJoueEnQuestion,
   type CarteDeRencontre,
   type PoidsDesRaretes,
   type RareteDOffre,
@@ -293,18 +301,121 @@ export const ECHELLE: readonly MarcheDuCodex[] = [
   { niveau: 10, cartes: ['maitrise'] },
 ]
 
-/** Les styles qu'ouvre un niveau, du premier au sien, dans l'ordre de l'échelle : ceux que le départ propose. */
-export const stylesDuNiveau = (niveau: number): StyleDeJeu[] => ECHELLE.filter(m => m.niveau <= niveau).flatMap(m => m.styles ?? [])
+/**
+ * L'échelle de la question au centre (v10) : ses trente-six cartes à gagner,
+ * les mêmes règles aux mêmes niveaux, cinq styles. Au niveau 1, le paquet de
+ * départ — Double chance et Sursis y entrent, les seconds essais — et les
+ * communes de trois styles : le Devin, l'Érudit et sa catégorie fétiche, le
+ * Métamorphe, descendu du niveau 4 à la place du Rempart ; le Flambeur et le
+ * pari au 2, l'Élan et les fioles au 3 ; puis des cartes seulement, chaque
+ * niveau la sienne, jusqu'aux styles de l'étape 6. Banco, Génie et Inarrêtable
+ * restent à leurs exploits (`codex.test.ts`).
+ */
+export const ECHELLE_EN_QUESTION: readonly MarcheDuCodex[] = [
+  {
+    niveau: 1,
+    cartes: [
+      'concentration',
+      'coup-d-oeil',
+      'echange',
+      'arret-sur-image',
+      'double-chance',
+      'sursis',
+      'plume',
+      'savoir-faire',
+      'memoire',
+      'lucidite',
+      'augure',
+      'presage',
+      'corser',
+      'simplifier',
+      'volte-face',
+    ],
+    regle: 'fetiche',
+    styles: ['devin', 'erudit', 'metamorphe'],
+  },
+  { niveau: 2, cartes: ['doubler-la-mise', 'pourboire', 'cagnotte', 'voyance'], regle: 'pari', styles: ['flambeur'] },
+  { niveau: 3, cartes: ['echauffement', 'lancee', 'assurance', 'expose'], regle: 'fioles', styles: ['elan'] },
+  { niveau: 4, cartes: ['detour', 'rythme'], regle: 'talismans' },
+  { niveau: 5, cartes: ['bibliotheque', 'troisieme-oeil', 'prisme'] },
+  { niveau: 6, cartes: ['tout-ou-rien', 'quitte-ou-double', 'vision'], dos: 'etoile' },
+  { niveau: 7, cartes: ['rafle', 'pactole'] },
+  { niveau: 8, cartes: ['revelation'] },
+  { niveau: 9, cartes: ['polymorphe'] },
+  { niveau: 10, cartes: ['encyclopedie'] },
+]
+
+/**
+ * L'échelle des coups de pouce (v11) : celle de la question au centre, et ses
+ * trois cartes — Le repère et La lettre au niveau 1, où les communes
+ * attendaient des aides, L'initiale, une rare, au niveau 3. Un départ de la
+ * version 10 garde la sienne : son codex figé ne les nomme pas.
+ */
+export const ECHELLE_DES_COUPS_DE_POUCE: readonly MarcheDuCodex[] = ECHELLE_EN_QUESTION.map(m =>
+  m.niveau === 1 ? { ...m, cartes: [...m.cartes, 'repere', 'lettre'] } : m.niveau === 3 ? { ...m, cartes: [...m.cartes, 'initiale'] } : m,
+)
+
+/**
+ * Les cartes que les familles reprennent (v14), au niveau où chacune s'ouvre :
+ * là où sa famille ouvre les siennes — Leçon et Fortune avec le Flambeur et
+ * son pari, Foulée avec l'Élan, Astrolabe parmi les rares du niveau 3 ; le
+ * Rempart revenu au niveau 4, « jusqu'aux styles de l'étape 6 », ses trois
+ * communes avec lui ; Miroir avec le Prisme ; les autres rares au 6 et au 7,
+ * les épiques au 8 et au 9, comme celles des styles qu'on a déjà.
+ */
+const REPRISES_DES_FAMILLES: Readonly<Partial<Record<number, readonly string[]>>> = {
+  2: ['fortune', 'lecon'],
+  3: ['foulee', 'astrolabe'],
+  4: ['parade', 'muraille', 'pansement'],
+  5: ['miroir'],
+  6: ['cameleon', 'contre-attaque', 'second-souffle'],
+  7: ['acceleration', 'cuirasse'],
+  8: ['metamorphose', 'vent-arriere'],
+  9: ['bastion', 'represailles'],
+}
+
+/**
+ * L'échelle des familles (v14) : celle des coups de pouce, les cartes reprises
+ * (`REPRISES_DES_FAMILLES`) et le Rempart au niveau 4 — six styles. Un départ
+ * de la version 13 garde la sienne : son codex figé ne nomme aucune carte
+ * reprise, et le Rempart n'y est pas.
+ */
+export const ECHELLE_DES_FAMILLES: readonly MarcheDuCodex[] = ECHELLE_DES_COUPS_DE_POUCE.map(m => ({
+  ...m,
+  cartes: [...m.cartes, ...(REPRISES_DES_FAMILLES[m.niveau] ?? [])],
+  ...(m.niveau === 4 && { styles: [...(m.styles ?? []), 'rempart' as const] }),
+}))
+
+/** L'échelle d'un départ de cette version : celle de la question au centre dès la version 10, ses coups de pouce dès la 11, ses familles dès la 14. */
+export const echelleDe = (v: number): readonly MarcheDuCodex[] =>
+  v >= VERSION_DES_FAMILLES
+    ? ECHELLE_DES_FAMILLES
+    : v >= VERSION_DES_COUPS_DE_POUCE
+      ? ECHELLE_DES_COUPS_DE_POUCE
+      : v >= VERSION_DE_LA_QUESTION_AU_CENTRE
+        ? ECHELLE_EN_QUESTION
+        : ECHELLE
+
+/** Les styles qu'ouvre un niveau, du premier au sien, dans l'ordre de l'échelle : ceux que le départ propose — à la version du départ. */
+export const stylesDuNiveau = (niveau: number, v = VERSION_DES_HUIT_FAMILLES): StyleDeJeu[] =>
+  echelleDe(v)
+    .filter(m => m.niveau <= niveau)
+    .flatMap(m => m.styles ?? [])
 
 /** Le niveau qui ouvre un style. */
-export const niveauDuStyle = (style: StyleDeJeu) => ECHELLE.find(m => m.styles?.includes(style))?.niveau ?? 1
+export const niveauDuStyle = (style: StyleDeJeu, v = VERSION_DES_HUIT_FAMILLES) => echelleDe(v).find(m => m.styles?.includes(style))?.niveau ?? 1
 
 /** Le niveau qui ouvre une règle. */
-export const niveauDeLaRegle = (regle: RegleDuCodex) => ECHELLE.find(m => m.regle === regle)?.niveau ?? 1
+export const niveauDeLaRegle = (regle: RegleDuCodex, v = VERSION_DES_HUIT_FAMILLES) => echelleDe(v).find(m => m.regle === regle)?.niveau ?? 1
 
-/** Comment s'ouvre une carte : à son niveau, par son exploit, ou en ayant le légendaire qui la donne. */
-export function ouvertureDe(cle: string): { niveau: number } | { exploit: CleDExploit } | { legendaire: string } | null {
-  const marche = ECHELLE.find(m => m.cartes.includes(cle))
+/**
+ * Comment s'ouvre une carte : à son niveau, par son exploit, ou en ayant le
+ * légendaire qui la donne — null : elle ne s'ouvre pas à cette version (une
+ * des quarante-deux que la question au centre a retirées).
+ */
+export function ouvertureDe(cle: string, v = VERSION_DES_HUIT_FAMILLES): { niveau: number } | { exploit: CleDExploit } | { legendaire: string } | null {
+  if (v >= VERSION_DE_LA_QUESTION_AU_CENTRE && !seJoueEnQuestion(cle, v)) return null
+  const marche = echelleDe(v).find(m => m.cartes.includes(cle))
   if (marche) return { niveau: marche.niveau }
   const exploit = EXPLOITS.find(x => x.carte === cle)
   if (exploit) return { exploit: exploit.cle }
@@ -348,20 +459,24 @@ export function codexDuNiveau(
   niveau: number,
   legendaires: readonly string[],
   exploits: readonly CleDExploit[] = [],
+  /** La version du départ qu'il figera : la question au centre (v10) a son échelle et ses styles. */
+  v = VERSION_DES_HUIT_FAMILLES,
 ): CodexDuDepart & { exploits: CleDExploit[]; dos: DosDuPaquet[]; styles: StyleDeJeu[] } {
-  const marches = ECHELLE.filter(m => m.niveau <= niveau)
+  const marches = echelleDe(v).filter(m => m.niveau <= niveau)
   const ouvertes = new Set([
     ...marches.flatMap(m => m.cartes),
     ...exploits.flatMap(x => exploitDe(x)?.carte ?? []),
     ...legendaires.flatMap(l => carteDuLegendaire(l)?.cle ?? []),
   ])
+  // Une carte retirée de la question au centre ne s'y ouvre jamais, même par son exploit.
+  const seJoue = (cle: string) => v < VERSION_DE_LA_QUESTION_AU_CENTRE || seJoueEnQuestion(cle, v)
   return {
     niveau,
-    cartes: CARTES_DES_RENCONTRES.filter(c => ouvertes.has(c.cle)).map(c => c.cle),
+    cartes: CARTES_DES_RENCONTRES.filter(c => ouvertes.has(c.cle) && seJoue(c.cle)).map(c => c.cle),
     regles: marches.flatMap(m => (m.regle ? [m.regle] : [])),
     exploits: EXPLOITS.map(x => x.cle).filter(cle => exploits.includes(cle)),
     dos: dosOuverts(niveau, exploits),
-    styles: stylesDuNiveau(niveau),
+    styles: stylesDuNiveau(niveau, v),
   }
 }
 
@@ -455,6 +570,34 @@ export const ASCENSION: readonly CranDAscension[] = [
   { cran: 5, regle: 'Les gardiens ont moitié plus de points' },
 ]
 export const ASCENSION_MAX = ASCENSION.length
+
+/**
+ * L'Ascension de la question au centre (v10), ses cinq crans retraduits : les
+ * points d'un adversaire y sont des bonnes réponses — une de plus pour les
+ * élites et les gardiens au cran 1, une encore pour les gardiens au cran 5 —,
+ * et l'énergie de moins y est une carte de moins dans la main. L'attaque et le
+ * repos ne changent pas.
+ */
+export const CRANS_EN_ASCENSION = 1
+export const CRANS_DES_GARDIENS_EN_ASCENSION = 1
+export const MAIN_EN_ASCENSION = 1
+export const ASCENSION_EN_QUESTION: readonly CranDAscension[] = [
+  { cran: 1, regle: 'Les élites et les gardiens demandent une bonne réponse de plus' },
+  { cran: 2, regle: `Les adversaires frappent ${FRAPPE_EN_ASCENSION} de plus` },
+  { cran: 3, regle: 'Le campement et la source rendent moitié moins de courage' },
+  { cran: 4, regle: 'Ta main tient une carte de moins' },
+  { cran: 5, regle: 'Les gardiens en demandent encore une de plus' },
+]
+
+/** Les crans de l'Ascension, tels qu'un départ de cette version les joue — et que le départ et les règles les disent. */
+export const ascensionDe = (v: number): readonly CranDAscension[] => (v >= VERSION_DE_LA_QUESTION_AU_CENTRE ? ASCENSION_EN_QUESTION : ASCENSION)
+
+/** Les crans d'un adversaire de cette sorte dans la question au centre, à cet acte et à ce cran de l'Ascension : ceux que le pli lui donne, et que le plan annonce. */
+export const cransDeLAdversaire = (sorte: SorteDeRencontre, acte: number, ascension: number) =>
+  cransDe(sorte, acte) + (ascension >= 1 && sorte !== 'question' ? CRANS_EN_ASCENSION : 0) + (ascension >= 5 && sorte === 'gardien' ? CRANS_DES_GARDIENS_EN_ASCENSION : 0)
+
+/** Ce que tient la main de la question au centre : quatre cartes — cinq sous Trois têtes —, une de moins dès le cran 4. */
+export const mainMaxEnQuestion = (troisTetes: boolean, ascension: number) => (troisTetes ? MAIN_MAX_SOUS_TROIS_TETES : MAIN_MAX_EN_QUESTION) - (ascension >= 4 ? MAIN_EN_ASCENSION : 0)
 
 /** Les points d'un adversaire à ce cran : les siens, `POINTS_EN_ASCENSION` de plus dès le cran 1 — ceux d'un gardien, moitié plus au cran 5. */
 export function pointsALAscension(points: number, sorte: SorteDeRencontre, ascension: number): number {

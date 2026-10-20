@@ -48,6 +48,9 @@ export function Corrige({
   reponses,
   bonne,
   choix,
+  formes = true,
+  sous,
+  corps,
   children,
 }: {
   verdict: Verdict
@@ -59,6 +62,12 @@ export function Corrige({
   reponses: readonly string[]
   bonne: number
   choix: number | null
+  /** La forme de chaque réponse, celle de la salle : sans elles, une réponse composée de l'expédition, qui n'avait pas de choix. */
+  formes?: boolean
+  /** Ce que l'intitulé désigne, juste sous lui : les emojis d'un rébus de l'expédition (« ces emojis »). */
+  sous?: ReactNode
+  /** À la place de la bonne réponse et de la sienne, ce qui n'a pas de réponse à encadrer : la frise rangée de l'expédition. */
+  corps?: ReactNode
   /** Ce qui suit les réponses : le temps, la part de la salle, l'anecdote. */
   children?: ReactNode
 }) {
@@ -74,30 +83,33 @@ export function Corrige({
         {points}
       </div>
       <p className="corrige-texte">{espacesFines(texte)}</p>
-      <div className="corrige-reponses">
-        <p className="corrige-reponse corrige-bonne">
-          <span className="corrige-legende">
-            <Icon name="check" />
-            {verdict === 'Juste' ? 'La bonne réponse · la tienne' : 'La bonne réponse'}
-          </span>
-          <span className="corrige-mot">
-            <Shape index={bonne} inline />
-            {espacesFines(reponses[bonne])}
-          </span>
-        </p>
-        {sienne !== null && (
-          <p className="corrige-reponse corrige-sienne">
+      {sous}
+      {corps ?? (
+        <div className="corrige-reponses">
+          <p className="corrige-reponse corrige-bonne">
             <span className="corrige-legende">
-              <Icon name="x" />
-              Ta réponse
+              <Icon name="check" />
+              {verdict === 'Juste' ? 'La bonne réponse · la tienne' : 'La bonne réponse'}
             </span>
             <span className="corrige-mot">
-              <Shape index={sienne} inline />
-              <s>{espacesFines(reponses[sienne])}</s>
+              {formes && <Shape index={bonne} inline />}
+              {espacesFines(reponses[bonne])}
             </span>
           </p>
-        )}
-      </div>
+          {sienne !== null && (
+            <p className="corrige-reponse corrige-sienne">
+              <span className="corrige-legende">
+                <Icon name="x" />
+                Ta réponse
+              </span>
+              <span className="corrige-mot">
+                {formes && <Shape index={sienne} inline />}
+                <s>{espacesFines(reponses[sienne])}</s>
+              </span>
+            </p>
+          )}
+        </div>
+      )}
       {children}
     </li>
   )

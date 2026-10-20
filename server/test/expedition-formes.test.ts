@@ -92,12 +92,24 @@ interface QuestionGardee {
   bonne: number
   forme?: string
   proposee?: string
+  bonneReponse?: string
   devoileLe?: number
   arretLe?: number
 }
 
 /** Les questions telles que l'expédition les garde, bonne réponse comprise : ce que seul le serveur sait. */
 const questionsDe = (id: string): QuestionGardee[] => base(db => JSON.parse((db.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(id) as { questions: string }).questions))
+
+/** Récrit une question gardée — `changer` la retouche —, puis redémarre le serveur, qui la relit. */
+async function recrireLaQuestion(serie: string, position: number, changer: (q: QuestionGardee) => QuestionGardee): Promise<void> {
+  const questions = questionsDe(serie)
+  questions[position] = changer(questions[position])
+  base(db => db.prepare('UPDATE campagne_series SET questions = ? WHERE id = ?').run(JSON.stringify(questions), serie), true)
+  await banc.redemarrer()
+}
+
+/** Un vrai ou faux qui propose une mauvaise réponse : le tirage ne la propose fausse qu'une fois sur deux. */
+const proposeeFausse = (deLaBase: QuestionDeLaBase) => (q: QuestionGardee): QuestionGardee => ({ ...q, proposee: deLaBase.reponses.find((_, i) => i !== deLaBase.bonne)!, bonne: 1 })
 
 /**
  * Partir, puis récrire le départ gardé — `forcer` le change —, et redémarrer
@@ -203,6 +215,7 @@ test('vrai ou faux tiré d’une question à quatre choix : une réponse propos�
   // Ratée, elle entre au carnet ; reprise le lendemain en vrai ou faux et trouvée, elle n'y avance pas — une nue, si.
   const r = await repondre(vf, a, false)
   assert.equal(r.juste, false)
+  assert.equal(r.bonneReponse, gardee.bonne === 1 ? deLaBase.reponses[deLaBase.bonne] : undefined, 'ce qu’il fallait répondre, quand la proposée était fausse ; rien quand elle était la bonne')
   assert.deepEqual(reponseEnBase(a.id, q.index), { forme: 'vrai-faux', joker: null, juste: 0 })
   const carnet = async () => (await lire(vf, '/api/campagne/carnet')).corps
   horloge.t += 86_400_000
@@ -216,6 +229,55 @@ test('vrai ou faux tiré d’une question à quatre choix : une réponse propos�
   reprendre(901, null)
   assert.equal((await carnet()).aRevoir, 0, 'trouvée nue, elle avance au rendez-vous suivant')
   horloge.t -= 86_400_000
+})
+
+// Le 19 octobre 2026, un testeur : « sur les vrai ou faux ce serait bien que
+// quand la réponse est fausse ça t'affiche c'était quoi la bonne réponse […]
+// je sais que c'est pas Eschyle mais ça ne me dit pas c'était quoi ». Ses
+// réponses devenues « Vrai » et « Faux », la question ne gardait plus sa bonne.
+test('vrai ou faux à la proposée fausse : le verdict dit ce qu’il fallait répondre, jamais avant lui', async () => {
+  const vf = await inscrireProfil(banc.url, 'proposee', 'Proposée')
+  const v = await partirEt(vf, auPremierEtage('vrai-faux'))
+  const a = await avancer(vf, v, v.permises[0])
+  const position = a.question!.index
+  const deLaBase = BASE.parId.get(questionsDe(a.id)[position].id)!
+  const laBonne = deLaBase.reponses[deLaBase.bonne]
+  assert.equal(questionsDe(a.id)[position].bonneReponse, laBonne, 'le serveur la garde avec la question, à son tirage')
+
+  await recrireLaQuestion(a.id, position, proposeeFausse(deLaBase))
+  const vue = (await lire(vf, '/api/expedition')).corps.expedition as VueDeLExpedition
+  assert.notEqual(vue.question!.proposee, laBonne)
+  assert.ok(!JSON.stringify(vue).includes(laBonne), 'le téléphone ne la reçoit pas avant sa réponse (invariant 1)')
+
+  const r = await repondre(vf, vue, true)
+  assert.equal(r.juste, true, '« Faux » : il a bien jugé')
+  assert.equal(r.bonneReponse, laBonne, 'et le verdict dit ce qu’il fallait répondre')
+})
+
+test('un vrai ou faux posé avant qu’il garde sa bonne réponse : la base la redit, au verdict et dans « Mes réponses »', async () => {
+  const vf = await inscrireProfil(banc.url, 'davant', 'Davant')
+  const v = await partirEt(vf, auPremierEtage('vrai-faux'))
+  const a = await avancer(vf, v, v.permises[0])
+  const position = a.question!.index
+  const deLaBase = BASE.parId.get(questionsDe(a.id)[position].id)!
+  const laBonne = deLaBase.reponses[deLaBase.bonne]
+  // Tirée par le serveur d'avant : la proposée seule, sans la bonne.
+  await recrireLaQuestion(a.id, position, q => {
+    const { bonneReponse: _bonneReponse, ...davant } = proposeeFausse(deLaBase)(q)
+    return davant
+  })
+  const vue = (await lire(vf, '/api/expedition')).corps.expedition as VueDeLExpedition
+  const r = await repondre(vf, vue, false)
+  assert.equal(r.juste, false)
+  assert.equal(r.bonneReponse, laBonne, 'le verdict la relit dans la base')
+
+  // Finie, « Mes réponses » la redit sous « Faux ».
+  const fin = await poster(vf, `/api/expedition/${a.id}/abandon`)
+  assert.equal(fin.status, 200, fin.corps.error)
+  const correction = await lire(vf, `/api/campagne/serie/${a.id}/correction`)
+  assert.equal(correction.status, 200, correction.corps.error)
+  const corrigee = correction.corps.find((c: { proposee?: string }) => c.proposee !== undefined)
+  assert.deepEqual([corrigee.reponses, corrigee.bonne, corrigee.bonneReponse], [['Vrai', 'Faux'], 1, laBonne])
 })
 
 test('un dévoilement ne livre que les mots déjà dits, à l’heure du serveur ; sa réponse dit où il en était', async () => {

@@ -44,7 +44,7 @@ import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
-import { rencontresOuvertes } from './expedition'
+import { questionAuCentreOuverte, rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
 import { RappelStore } from './core/rappels'
 import { erreurDeRequete, repondreErreur } from './core/http'
@@ -100,6 +100,12 @@ export interface QuizServerOptions {
    * drapeau refermé : le départ des jokers, sans L'Explorateur.
    */
   rencontres?: boolean
+  /**
+   * La question au centre de l'expédition (la version 10) s'offre-t-elle ici ?
+   * Absent : son drapeau le dit (`questionAuCentreOuverte`) — hors de la
+   * production d'abord. Un test la ferme pour voir le départ de la production.
+   */
+  questionAuCentre?: boolean
   /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
   miroir?: Omit<ReglagesMiroir, 'base'>
   /** Le client compilé. Les tests en donnent un de trois lignes : `client/dist` n'existe qu'après le build. */
@@ -457,6 +463,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Les rencontres de l'expédition (`rencontresOuvertes`), calculées une fois : ses routes les lisent, et ce que le
   // codex fait gagner hors de l'expédition — L'Explorateur — ne compte et ne se montre que là où elles s'ouvrent.
   const rencontres = opts.rencontres ?? rencontresOuvertes({ online: !!opts.online, env: opts.appEnv ?? 'production' })
+  // La question au centre (la version 10), de même : la préproduction d'abord.
+  const questionAuCentre = opts.questionAuCentre ?? questionAuCentreOuverte({ online: !!opts.online, env: opts.appEnv ?? 'production' })
   // La campagne solo : ses séries, tirées de sa base à elle (`core/baseCampagne.ts`),
   // loin de la réserve du quiz du jour.
   const campagne = new CampagneStore(opts.quizDbUrl, opts.quizDbToken, {
@@ -1197,6 +1205,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
     rencontres,
+    questionAuCentre,
     qg: {
       db,
       registry,

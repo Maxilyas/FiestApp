@@ -62,6 +62,7 @@ import {
   INSPIRATION_PAR_QUESTION,
   RARETES_D_UNE_ELITE,
   RARETES_D_UNE_RENCONTRE,
+  VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   carteALaVersion,
   carteDeRencontre,
@@ -74,6 +75,13 @@ import {
   type CleDeFiole,
   type ContexteDUneCarte,
 } from '../../shared/rencontres'
+
+/**
+ * Le catalogue de l'échelle des huit familles : les coups de pouce (v11) ne
+ * vivent que dans la question au centre, qui a son échelle
+ * (`expedition-coups-de-pouce.test.ts`).
+ */
+const CATALOGUE_DE_L_ECHELLE = CARTES_DES_RENCONTRES.filter(c => (c.depuis ?? 0) <= VERSION_DES_HUIT_FAMILLES)
 import {
   GARDIEN,
   PRIX_DE_L_ECHOPPE,
@@ -96,7 +104,7 @@ import {
 test('l’échelle et les exploits : chaque carte sans légendaire une fois — par son niveau, ou par son exploit —, des communes au niveau 1 ; la fétiche au 1, le pari au 2, les talismans au 4 ; Sursis attend le 6', () => {
   const echelonnees = ECHELLE.flatMap(m => m.cartes)
   const parExploit = EXPLOITS.flatMap(x => x.carte ?? [])
-  assert.deepEqual([...echelonnees, ...parExploit].sort(), CARTES_DES_RENCONTRES.filter(c => !c.legendaire).map(c => c.cle).sort(), 'toutes, une fois')
+  assert.deepEqual([...echelonnees, ...parExploit].sort(), CATALOGUE_DE_L_ECHELLE.filter(c => !c.legendaire).map(c => c.cle).sort(), 'toutes, une fois')
   assert.equal(new Set([...echelonnees, ...parExploit]).size, echelonnees.length + parExploit.length)
   // « Dans le codex, une carte verrouillée dit toujours comment l'obtenir : un niveau, un exploit ou un légendaire. »
   // Lancée et Échauffement jusqu'au 19 octobre 2026 : l'Élan, devenu un style, part avec elles.
@@ -173,7 +181,7 @@ test('le codex d’un niveau : ses cartes dans l’ordre du catalogue, la carte 
   assert.ok(cinq.cartes.includes('renaissance') && cinq.cartes.includes('bibliotheque'), 'la carte du Phénix qu’il a, et Bibliothèque du niveau 5')
   assert.ok(!cinq.cartes.includes('sursis') && !cinq.cartes.includes('sagesse'), 'ni Sursis du niveau 6, ni la carte de la Chouette qu’il n’a pas')
   // Au dernier niveau, tout ce que les niveaux ouvrent ; les cartes des exploits attendent leur exploit.
-  const sansLegendaire = CARTES_DES_RENCONTRES.filter(c => !c.legendaire).length
+  const sansLegendaire = CATALOGUE_DE_L_ECHELLE.filter(c => !c.legendaire).length
   const toutEnJouant = codexDuNiveau(NIVEAU_MAX, [])
   assert.equal(toutEnJouant.cartes.length, sansLegendaire - 3)
   assert.ok(!toutEnJouant.cartes.includes('banco') && !toutEnJouant.cartes.includes('genie') && !toutEnJouant.cartes.includes('inarretable'))

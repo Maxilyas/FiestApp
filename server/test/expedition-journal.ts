@@ -10,6 +10,7 @@ import { VERSION_DU_JEU_COMPLET, ameliorer, carteDeRencontre, formeDeLaCarte, ty
 import {
   GARDIEN,
   pliDeLExpedition,
+  secondEssaiEnAttente,
   vueDeLaRencontre,
   type CarteDUnActe,
   type DepartDExpedition,
@@ -105,13 +106,26 @@ export class Journal {
   voir(mise = 0) {
     return this.geste({ quoi: 'voir', mise, position: this.etat().enAttente! })
   }
-  /** Une carte jouée ; celle qui change la forme de la question — améliorée ou non —, le serveur la repose à sa forme neuve (`questionsApresLeGeste`) : ici aussi. */
+  /**
+   * Une carte jouée ; celle qui change la forme de la question — améliorée ou non —, le serveur la repose à sa forme neuve
+   * (`questionsApresLeGeste`) : ici aussi, à la version du départ — à composer, depuis les familles (v14), ses tuiles.
+   */
   jouer(cle: string) {
     const i = this.etat().enAttente!
     const e = this.geste({ quoi: 'jouer', joker: cle, position: i })
-    const vers = formeDeLaCarte(cle)
-    if (vers && e.rencontre?.tour.jouees.includes(cle)) this.questions[i] = { ...this.questions[i], forme: vers, reponses: vers === 'six' ? 6 : 2 }
+    const vers = formeDeLaCarte(cle, this.depart.v)
+    if (vers && e.rencontre?.tour.jouees.includes(cle)) this.questions[i] = { ...this.questions[i], forme: vers, reponses: vers === 'six' ? 6 : vers === 'lettres' ? 13 : 2 }
     return this.etat()
+  }
+  /**
+   * Une réponse fausse, comme le serveur l'écrit (v14) : sous un second essai, un essai au journal des gestes — la question attend
+   * encore —, sinon la réponse. `choix`, la réponse effacée.
+   */
+  rater(choix?: number) {
+    const e = this.etat()
+    if (e.rencontre?.tour.phase === 'preparation') this.voir()
+    if (secondEssaiEnAttente(this.depart, this.etat(), this.questions)) return this.geste({ quoi: 'essai', position: this.etat().enAttente!, ...(choix !== undefined && { choix }) })
+    return this.repondre(false)
   }
   /** La question qui attend, posée autrement : à une autre marche, à une autre forme. */
   poser(q: Partial<QuestionPosee>) {

@@ -115,6 +115,7 @@ interface QuestionGardee {
   forme?: string
   tiree?: string
   proposee?: string
+  bonneReponse?: string
   devoileLe?: number
 }
 
@@ -455,13 +456,16 @@ test('Simplifier la repose en vrai ou faux : Garde 3, moitié moins brisée ; fa
   const deLaBase = BASE.parId.get(simple.id)!
   assert.ok(deLaBase.reponses.includes(simple.proposee!), 'une des réponses de la question')
   assert.equal(simple.bonne === 0, simple.proposee === deLaBase.reponses[deLaBase.bonne], '« Vrai » quand elle propose la bonne')
+  assert.equal(simple.bonneReponse, deLaBase.reponses[deLaBase.bonne], 'la bonne de ses quatre réponses, gardée au serveur')
   assert.equal(v.rencontre!.garde, 3)
   assert.equal(v.rencontre!.annonce!.forme, 'vrai-faux')
   assert.equal(v.rencontre!.apercu!.juste.brises, Math.round(savoir * MULTIPLICATEUR_DU_VRAI_OU_FAUX))
   v = await voir(c, v, 0)
   assert.deepEqual(v.question!.reponses, ['Vrai', 'Faux'])
   assert.equal(v.question!.proposee, simple.proposee)
+  assert.equal((v.question as { bonneReponse?: string }).bonneReponse, undefined, 'jamais avant sa réponse (invariant 1)')
   const r = await repondre(c, v, false)
+  assert.equal(r.bonneReponse, simple.bonne === 1 ? simple.bonneReponse : undefined, 'sa proposée fausse, le verdict dit ce qu’il fallait répondre')
   const frappe = FRAPPE_DES_RENCONTRES.question[0]
   assert.deepEqual(r.coup, { juste: false, brises: 0, frappe, absorbee: 3, perdu: frappe - 3, mise: 0 })
   assert.equal(r.expedition.courage, COURAGE_MAX - (frappe - 3))

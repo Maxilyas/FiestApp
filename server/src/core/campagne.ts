@@ -237,7 +237,7 @@ import {
 import { JOURS_DU_QG, jourDeLInstant, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
 import { DUELS_EN_ATTENTE_MONTRES, LIGNES_DU_CLASSEMENT_AU_QG, joueursParLigue, type JoueurDuDuel, type SuiviDesDuels } from '../../../shared/qgDuels'
 import { etoilesDansLeTemps, liguesDansLeTemps, type EpreuveValidee, type Mouvement } from '../../../shared/qgEconomie'
-import type { JournauxDesJours } from '../../../shared/missions'
+import { hasardDe, type JournauxDesJours } from '../../../shared/missions'
 import {
   PARCOURS_AU_QG,
   lesPlusRatees,
@@ -265,13 +265,20 @@ import {
   MOTS_DU_DEVOILEMENT,
   POIDS_DES_ESCALES,
   POIDS_DES_ESCALES_DES_RENCONTRES,
+  POIDS_DES_FORMES,
+  POIDS_DES_FORMES_A_COMPOSER,
+  POIDS_DES_FORMES_A_LA_FRISE,
   arrondiDeChance,
   bilanDuPli,
   carteDUnActe,
   carteEnJeu,
+  ceQueDitLInitiale,
+  ceQueDitLaLettre,
+  ceQueDitLeRepere,
   chanceAnnoncee,
   chanceDuJoueurMoyen,
   chanceSelonLaForme,
+  choixDeLEssai,
   contenuDeLInconnu,
   escaleEnJeu,
   escalesPermises,
@@ -286,6 +293,7 @@ import {
   numeroDeLaCarte,
   pliDeLExpedition,
   prixDeLArticle,
+  questionAComposer,
   refusDeLAchat,
   refusDeLEquipee,
   refusDeLaFiole,
@@ -293,6 +301,7 @@ import {
   refusDuJoker,
   reponsesEffacees,
   routeDisponible,
+  secondEssaiEnAttente,
   seJoueSurPlace,
   sensDeLOracle,
   siecleDeLaQuestion,
@@ -305,6 +314,7 @@ import {
   type EscaleDeLaCarte,
   type EtatDeLExpedition,
   type FormeDEscale,
+  type FriseAPoser,
   type GesteDExpedition,
   type JokersEnJeu,
   type PageDeLExpedition,
@@ -323,6 +333,7 @@ import {
   ecrireLeBilan,
   energieDesActesALAscension,
   lireLeBilan,
+  mainMaxEnQuestion,
   niveauDe,
   regleOuverte,
   renommeeDe,
@@ -332,16 +343,40 @@ import {
 } from '../../../shared/codex'
 import { EFFACE, JOKERS_QUI_AIDENT, LEGENDAIRES_A_JOKER } from '../../../shared/jokers'
 import { cleDeLExpedition } from '../../../shared/legendaires'
+import { compositionDite, gabaritDe, lireUneComposition, seCompose, tuilesDe } from '../../../shared/lettres'
+import { PREFIXE_DU_REBUS, QUESTION_DU_REBUS, type SorteDeCuriosite } from '../../../shared/curiosites'
+import { contenuDesCuriosites, type ContenuDesCuriosites } from './curiosites'
+import {
+  ECART_DE_LA_FRISE,
+  PREFIXE_DE_LA_FRISE,
+  QUESTION_DE_LA_FRISE,
+  choisirLaFrise,
+  evenementsDates,
+  friseJuste,
+  lireUnOrdre,
+  ordreDansLeTemps,
+  ordreGarde,
+  ordreMontre,
+  type EvenementDeLaFrise,
+} from '../../../shared/frise'
+import { evenementsDeLaBase } from './frises'
 import {
   CLAIRVOYANCE_SUR_LA_QUESTION,
   FIOLES_MAX,
   POUVOIRS_QUI_EFFACENT,
+  VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_CURIOSITES,
+  VERSION_DES_FAMILLES,
   VERSION_DES_HUIT_FAMILLES,
+  VERSION_DE_LA_FRISE,
   VERSION_DU_JEU_COMPLET,
   baseDe,
+  carteALaVersion,
   carteDeRencontre,
   cartesDesActes,
   effaceesDuTour,
+  estAmelioree,
   estUnStyle,
   fioleDe,
   formeDeLaCarte,
@@ -397,10 +432,27 @@ interface QuestionDeSerie {
   forme?: FormeDEscale
   /** Un vrai ou faux tiré d'une question à quatre choix : la réponse proposée — la bonne une fois sur deux. */
   proposee?: string
+  /**
+   * Un vrai ou faux tiré d'une question à quatre choix : la bonne de ses
+   * quatre réponses, que le serveur seul garde. Ses réponses devenues « Vrai »
+   * et « Faux », elle ne se lisait plus nulle part : la révélation disait
+   * « « Eschyle » : faux », et rien de ce qu'il fallait savoir (un testeur, le
+   * 19 octobre 2026). Elle ne part qu'avec le verdict (`bonneReponseDuVraiOuFaux`).
+   */
+  bonneReponse?: string
   /** Un dévoilement : l'heure du serveur de son premier mot, celle de son tirage. */
   devoileLe?: number
   /** Un dévoilement : l'heure du serveur où Arrêt sur image l'a arrêté. */
   arretLe?: number
+  /**
+   * À composer (v11) : ses tuiles, mélangées au tirage — les lettres de sa
+   * bonne réponse et `LETTRES_EN_TROP` de trop (`tuilesDe`) —, et le rang de
+   * celles de trop, que la page ne reçoit jamais (invariant 1). Ses
+   * `reponses` restent celles de la base, que la page ne reçoit pas non plus :
+   * Simplifier en repose un vrai ou faux, la correction en dit la bonne.
+   */
+  tuiles?: string[]
+  enTrop?: number[]
   /**
    * Une expédition (le 18 octobre 2026) : le thème pointu de l'escale où elle
    * a été tirée — de son tas à lui, ni par un Commandement ni dans toute la
@@ -417,6 +469,24 @@ interface QuestionDeSerie {
   tiree?: FormeDEscale
   six?: true
   reponseEn?: 'annee' | 'nombre'
+  /** Les familles (v14) : sa bonne réponse se compose (`seCompose`) — Miroir et Métamorphose l'y posent. */
+  compose?: true
+  /**
+   * Un rébus (une curiosité de l'expédition, v12) : ses emojis. Il n'est pas
+   * une question de la base — son identifiant porte `PREFIXE_DU_REBUS` —, sa
+   * réponse se compose (`forme`, `tuiles`), et `anecdote` dit comment il se lit.
+   */
+  rebus?: string
+  /**
+   * Une frise (v13) : l'année de chacun de ses événements, dans l'ordre du
+   * temps — celui de ses `reponses`, leurs lignes —, et l'ordre où la page les
+   * montre (`montre[i]` : le rang dans le temps de la carte montrée en i-e),
+   * tirés avec elle et gardés : recharger redonne les mêmes. Ni l'un ni
+   * l'autre ne part avant le verdict (invariant 1). Elle n'est pas une
+   * question de la base : son identifiant porte `PREFIXE_DE_LA_FRISE` et ceux
+   * de ses événements.
+   */
+  frise?: { annees: number[]; montre: number[] }
 }
 
 /**
@@ -1203,6 +1273,11 @@ export class CampagneStore {
     // vide partout ailleurs. Trouvée, elle a mis son tampon au passeport — le
     // passeport et le Globe-trotter se relisent d'elle (`lectureDuPasseport`).
     await ajouterColonne(this.client, 'campagne_reponses', 'sujet', 'TEXT')
+    // Ce qu'il a composé, à une question à composer de l'expédition (les coups
+    // de pouce, le 19 octobre 2026) — ses lettres, dans l'ordre des cases ;
+    // vide partout ailleurs. Fausse, sa réponse n'est aucune des siennes
+    // (`choix` à -1) : la correction et les signalements la redisent d'ici.
+    await ajouterColonne(this.client, 'campagne_reponses', 'composee', 'TEXT')
     // Le bilan d'une expédition finie (le codex, le 18 octobre 2026) — ses
     // escales, ses adversaires, ses élites, ses gardiens, le bout, à sa version
     // (`VERSION_DU_BILAN`) : un reflet de son pli, écrit à sa fin, comme ses
@@ -1626,6 +1701,47 @@ export class CampagneStore {
     let parId = this.parIdGardes.get(jouables)
     if (!parId) this.parIdGardes.set(jouables, (parId = new Map(jouables.map(q => [q.id, q]))))
     return parId
+  }
+
+  /** Les événements des frises (v13) que ces jouables datent, gardés avec elles : une base neuve les relit. */
+  private evenementsGardes = new WeakMap<readonly QuestionDeLaBase[], readonly EvenementDeLaFrise[]>()
+
+  /**
+   * Une frise pour une escale (v13) : quatre événements de son tas — ceux dont
+   * la question y est —, à l'écart de sa marche, jamais vus dans une frise
+   * d'abord (`vus`) ; à une marche facile, ceux des questions faciles d'abord,
+   * s'ils suffisent : la frise s'y range d'intuition. Ses événements et leurs
+   * années gardés avec elle, et l'ordre où la page les montre. Null : son tas
+   * n'a pas de quoi.
+   */
+  private friseDe(toutes: readonly QuestionDeLaBase[], tas: readonly (readonly QuestionDeLaBase[])[], marche: Niveau, vus: ReadonlySet<string>): QuestionDeSerie | null {
+    let evenements = this.evenementsGardes.get(toutes)
+    if (!evenements) this.evenementsGardes.set(toutes, (evenements = evenementsDeLaBase(this.parIdDe(toutes))))
+    const parId = this.parIdDe(toutes)
+    let candidats = evenements
+    if (!(tas.length === 1 && tas[0] === toutes)) {
+      const dansLeTas = new Set<string>()
+      for (const morceau of tas) for (const q of morceau) dansLeTas.add(q.id)
+      candidats = evenements.filter(e => dansLeTas.has(e.id))
+    }
+    const dejaVu = (id: string) => vus.has(id)
+    const ecart = ECART_DE_LA_FRISE[marche]
+    const faciles = marche === 'facile' ? candidats.filter(e => (parId.get(e.id)?.meta.difficulte ?? 3) <= 2) : candidats
+    const choisis = choisirLaFrise(faciles, ecart, Math.random, dejaVu) ?? (faciles !== candidats ? choisirLaFrise(candidats, ecart, Math.random, dejaVu) : null)
+    if (!choisis) return null
+    const categories = [...new Set(choisis.map(e => e.categorie))]
+    return {
+      id: PREFIXE_DE_LA_FRISE + choisis.map(e => e.id).join('+'),
+      texte: QUESTION_DE_LA_FRISE,
+      reponses: choisis.map(e => e.evenement),
+      bonne: 0,
+      categorie: categories.length === 1 ? categories[0] : null,
+      anecdote: null,
+      niveau: marche,
+      forme: 'frise',
+      tiree: 'frise',
+      frise: { annees: choisis.map(e => e.annee), montre: ordreMontre(choisis.length, Math.random) },
+    }
   }
 
   /**
@@ -2329,9 +2445,44 @@ export class CampagneStore {
     if (s.mode === 'duel' && !(await this.duelFerme(s.duel)) && !(await this.joueDesDeuxCotes(s.duel))) {
       throw new Error((await this.duelDe(s.duel))?.adversaire ? 'La correction du duel s’ouvre quand vous l’aurez joué tous les deux' : 'La correction du défi s’ouvre à sa fermeture : tes amis jouent encore')
     }
-    const res = await this.client.execute({ sql: 'SELECT position, choix, juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [s.id] })
+    const res = await this.client.execute({ sql: 'SELECT position, choix, juste, composee FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [s.id] })
+    const base = s.questions.some(sansSaBonneReponse) ? await this.base() : null
     return res.rows.map(r => {
       const q = s.questions[Number(r.position)]
+      // Une frise de l'expédition (v13) : ses événements dans l'ordre du temps, chacun son année, et, ratée, l'ordre qu'il avait donné.
+      if (q.forme === 'frise' && q.frise) {
+        const juste = Number(r.juste) === 1
+        const sienne = juste ? null : ordreGarde(typeof r.composee === 'string' ? r.composee : null, q.reponses.length)
+        return {
+          texte: q.texte,
+          reponses: q.reponses,
+          bonne: 0,
+          choix: juste ? 0 : 1,
+          juste,
+          niveau: q.niveau,
+          anecdote: q.anecdote,
+          frise: { annees: q.frise.annees, ...(sienne && { sienne }) },
+        }
+      }
+      // Une question à composer de l'expédition (v11) : sa bonne réponse seule — ses choix ne se sont jamais montrés —, et, fausse, ce
+      // qu'il a composé, comme une seconde réponse.
+      if (q.forme === 'lettres' && typeof r.composee === 'string') {
+        const juste = Number(r.juste) === 1
+        const mots = gabaritDe(q.reponses[q.bonne])?.mots
+        return {
+          texte: q.texte,
+          reponses: [q.reponses[q.bonne], ...(juste ? [] : [mots ? compositionDite(mots, r.composee) : r.composee])],
+          bonne: 0,
+          choix: juste ? 0 : 1,
+          juste,
+          niveau: q.niveau,
+          anecdote: q.anecdote,
+          composee: r.composee,
+          // Un rébus (v12) : ses emojis, sans quoi « Quel film se cache derrière ces emojis ? » ne dirait rien.
+          ...(q.rebus && { rebus: q.rebus }),
+        }
+      }
+      const bonneReponse = bonneReponseDuVraiOuFaux(q, base)
       return {
         texte: q.texte,
         reponses: q.reponses,
@@ -2340,8 +2491,10 @@ export class CampagneStore {
         juste: Number(r.juste) === 1,
         niveau: q.niveau,
         anecdote: q.anecdote,
-        // Un vrai ou faux de l'expédition tiré d'une question à quatre choix : sans la réponse qu'il proposait, « Faux » ne dirait rien.
+        // Un vrai ou faux de l'expédition tiré d'une question à quatre choix : sans la réponse qu'il proposait, « Faux » ne dirait rien —
+        // et, la proposée fausse, sans ce qu'il fallait répondre non plus.
         ...(q.proposee !== undefined && { proposee: q.proposee }),
+        ...(bonneReponse !== undefined && { bonneReponse }),
       }
     })
   }
@@ -2522,6 +2675,7 @@ export class CampagneStore {
               SELECT r.reserve_id AS id, r.juste AS juste, r.repondue_le AS le, r.serie_id AS serie, r.position AS position
               FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
               WHERE s.profile_id = ?
+                AND r.reserve_id NOT LIKE '${PREFIXE_DU_REBUS}%' AND r.reserve_id NOT LIKE '${PREFIXE_DE_LA_FRISE}%'
                 AND NOT (r.juste = 1 AND (r.joker IS NOT NULL OR COALESCE(r.forme, '') = 'vrai-faux'))
                 AND NOT (s.mode = 'defi' AND s.semaine >= ?)
                 AND NOT (s.mode = 'duel' AND s.duel IN (SELECT code FROM campagne_duels WHERE ferme_le > ?))
@@ -6449,6 +6603,10 @@ export class CampagneStore {
     if (!s) throw new Error('Cette série est introuvable')
     if (!Number.isInteger(index) || index < 0 || index >= s.index) throw new Error('Réponds d’abord à cette question')
     const q = s.questions[index]
+    // Un rébus (v12) n'est pas une question de la base : le QG n'aurait ni version à relire ni réponse à corriger.
+    if (q.id.startsWith(PREFIXE_DU_REBUS)) throw new Error('Un rébus ne se signale pas : seules les questions de la campagne le peuvent')
+    // Une frise (v13) non plus : quatre questions récrites en une ligne chacune, aucune n'est celle qu'il a jouée.
+    if (q.id.startsWith(PREFIXE_DE_LA_FRISE)) throw new Error('Une frise ne se signale pas : seules les questions de la campagne le peuvent')
     if (!(await this.base()).parId.has(q.id)) throw new Error('Cette question n’est plus dans la campagne')
     // Signalée de nouveau après une relecture, elle revient à relire : l'issue d'avant ne la suit pas.
     await this.client.execute({
@@ -6471,7 +6629,7 @@ export class CampagneStore {
   async signalements(): Promise<SignalementDeCampagne[]> {
     const [res, base, fichiers, mesure] = await Promise.all([
       this.client.execute(
-        `SELECT g.question_id, g.profile_id, g.texte, g.cree_le, g.traite_le, g.issue, s.mode, s.branche, s.palier, r.choix, r.juste,
+        `SELECT g.question_id, g.profile_id, g.texte, g.cree_le, g.traite_le, g.issue, s.mode, s.branche, s.palier, r.choix, r.juste, r.composee,
                 json_extract(s.questions, '$[' || r.position || ']') AS vue
          FROM campagne_signalements g
          LEFT JOIN campagne_series s ON s.id = g.serie_id
@@ -6859,9 +7017,11 @@ export class CampagneStore {
    * numéro et ses gardiens, annoncés avant le départ, que le départ
    * retrouve : la graine de la n-ième expédition d'un profil ne change pas
    * (`graineDe`). Un aller-retour. `rencontres` : le prototype des rencontres
-   * s'offre au départ — hors de la production (`rencontresOuvertes`).
+   * s'offre au départ — hors de la production (`rencontresOuvertes`) ;
+   * `questionAuCentre` : la version 10 aussi (`questionAuCentreOuverte`), et
+   * le codex se lit à son échelle.
    */
-  async pageDeLExpedition(profileId: string, { rencontres = false }: { rencontres?: boolean } = {}): Promise<PageDeLExpedition> {
+  async pageDeLExpedition(profileId: string, { rencontres = false, questionAuCentre = false }: { rencontres?: boolean; questionAuCentre?: boolean } = {}): Promise<PageDeLExpedition> {
     const enRoute = `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`
     const lu = await this.client.batch(
       [
@@ -6883,7 +7043,8 @@ export class CampagneStore {
     const invite = inviteDuJour(jourDe(this.maintenant()))
     const saison = this.saisonDuDepart()
     const gardiens = gardiensDe(graine, siens, invite, saison?.legendaire)
-    const codex = rencontres ? await this.codexLu(lu.slice(5), siens) : undefined
+    const enQuestion = rencontres && questionAuCentre
+    const codex = rencontres ? await this.codexLu(lu.slice(5), siens, versionDuDepart(rencontres, enQuestion)) : undefined
     return {
       expedition: lue ? vueDeLExpedition(lue, plier(lue), siens) : null,
       prochaine: {
@@ -6894,6 +7055,7 @@ export class CampagneStore {
         equipables: LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)),
         ...(saison && { saison: saison.key }),
         ...(rencontres && { rencontres: true as const }),
+        ...(enQuestion && { questionAuCentre: true as const }),
         ...(codex && { codex }),
       },
       passeport: [...tampons].sort(),
@@ -6906,12 +7068,13 @@ export class CampagneStore {
    * chaque exploit qu'il a fait et de chaque légendaire qu'il a —, ses dos
    * de cartes et le plus haut cran de l'Ascension que ses victoires ont
    * ouvert. Les bilans refaits du pli s'écrivent ici, une fois : ratés, ils
-   * se refont à la lecture suivante, rien de plus.
+   * se refont à la lecture suivante, rien de plus. À la version du départ
+   * qu'il figera : la question au centre (v10) a son échelle et ses styles.
    */
-  private async codexLu(lectures: readonly ResultSet[], siens: ReadonlySet<string>): Promise<CodexDeLaPage> {
+  private async codexLu(lectures: readonly ResultSet[], siens: ReadonlySet<string>, v: number): Promise<CodexDeLaPage> {
     const { renommee, exploits, ascension, aEcrire } = renommeeLue(lectures)
     await this.ecrireLesBilansRefaits(aEcrire)
-    return { renommee, ...codexDuNiveau(niveauDe(renommee), LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)), exploits), ascension }
+    return { renommee, ...codexDuNiveau(niveauDe(renommee), LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)), exploits, v), ascension }
   }
 
   /**
@@ -6931,19 +7094,22 @@ export class CampagneStore {
    * les jokers rejoignent le paquet de départ. Une à la fois : celle qu'il a
    * laissée l'attend. `rencontres` : les rencontres (v5 et suivantes), là où
    * la route les accorde — avec son style, sa catégorie fétiche, le dos de son
-   * paquet et son cran de l'Ascension.
+   * paquet et son cran de l'Ascension ; `questionAuCentre` : en version 10, là
+   * où la route l'accorde.
    */
   partirEnExpedition(
     profileId: string,
     equipeeBrute: unknown = [],
     {
       rencontres = false,
+      questionAuCentre = false,
       fetiche,
       dos,
       ascension: cran,
       style: styleDemande,
-    }: { rencontres?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown; style?: unknown } = {},
+    }: { rencontres?: boolean; questionAuCentre?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown; style?: unknown } = {},
   ): Promise<VueDeLExpedition> {
+    const v = versionDuDepart(rencontres, questionAuCentre)
     const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
     if (!equipee) return Promise.reject(new Error('Ton équipe ne se lit pas : recharge la page'))
     if (rencontres && fetiche !== undefined && !(CATEGORIES as readonly unknown[]).includes(fetiche)) return Promise.reject(new Error('Choisis ta catégorie fétiche parmi les douze'))
@@ -6980,7 +7146,7 @@ export class CampagneStore {
       // Aux rencontres (v7), plus d'équipe à choisir : l'invité du jour prête sa carte, ses légendaires ouvrent la leur au codex.
       const refus = rencontres ? null : refusDeLEquipee(equipee, siens, invite)
       if (refus) throw new Error(refus)
-      const codex = rencontres ? await this.codexLu(lu.slice(4), siens) : undefined
+      const codex = rencontres ? await this.codexLu(lu.slice(4), siens, v) : undefined
       // Sa saison : sa fête — si une carte peut la tirer — tient la moitié des thèmes pointus, son légendaire garde l'acte 3.
       const saison = this.saisonDuDepart()
       const fete = saison && sujets.includes(saison.key) ? saison.key : undefined
@@ -6993,13 +7159,20 @@ export class CampagneStore {
       const sesStyles = codex?.styles ?? []
       const style = estUnStyle(styleDemande) && sesStyles.length > 0 ? (sesStyles.includes(styleDemande) ? styleDemande : sesStyles[0]) : undefined
       // En rencontres, des cartes à plus d'adversaires (`POIDS_DES_ESCALES_DES_RENCONTRES`) ; aux règles d'avant, celles de toujours.
-      const cartes = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, fete, rencontres ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES))
+      // Les coups de pouce (v11) y posent leurs escales à composer, sur le même tirage ; les curiosités (v12), une par acte, sur le leur ;
+      // la frise (v13), une escale sur dix, sur le même tirage encore.
+      const formes = v >= VERSION_DE_LA_FRISE ? POIDS_DES_FORMES_A_LA_FRISE : v >= VERSION_DES_COUPS_DE_POUCE ? POIDS_DES_FORMES_A_COMPOSER : POIDS_DES_FORMES
+      const cartes = Array.from({ length: ACTES }, (_, acte) =>
+        carteDUnActe(graine, acte, sujets, fete, rencontres ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES, formes, v >= VERSION_DES_CURIOSITES),
+      )
       const vues = lireLesVues(lues.rows)
       const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
       const depart: DepartDExpedition = {
         // Les rencontres partent en version 9 : le codex — ses cartes, ses règles —, figé avec elle, le jeu complet —
-        // l'épique dans ses offres, l'énergie de chaque acte —, et les huit familles — le doute, le courage en jeu.
-        v: rencontres ? VERSION_DES_HUIT_FAMILLES : 4,
+        // l'épique dans ses offres, l'énergie de chaque acte —, et les huit familles — le doute, le courage en jeu ; en
+        // version 11 là où la question au centre s'ouvre — la question d'abord, l'adversaire en crans, la main de l'acte,
+        // et ses coups de pouce : la forme à composer, L'initiale, Le repère, La lettre.
+        v,
         graine,
         numero: numeroDeLaCarte(graine),
         gardiens: gardiensDe(graine, siens, invite, saison?.legendaire),
@@ -7246,16 +7419,17 @@ export class CampagneStore {
     const q = questions[i]
     if (!q) return questions
     let nouvelle: QuestionDeSerie | null = null
-    // Corser et Polymorphe la posent à six choix, Simplifier et Miroir en vrai ou faux (`FORME_DE_LA_CARTE`) — améliorées ou non.
-    const vers = g.quoi === 'jouer' ? formeDeLaCarte(g.joker) : undefined
+    // Corser et Polymorphe la posent à six choix, Simplifier et Miroir en vrai ou faux (`FORME_DE_LA_CARTE`) — améliorées ou non ; depuis
+    // les familles (v14), Métamorphose à composer, le Prisme à six choix — d'un vrai ou faux aussi, de sa question à quatre choix.
+    const vers = g.quoi === 'jouer' ? formeDeLaCarte(g.joker, l.depart.v) : undefined
     if (vers) {
       const base = this.parIdDe(await this.jouables()).get(q.id)
       if (!base) throw new Error('Cette question ne change plus de forme : recharge la page')
-      // Reposée nue — ni dévoilement en cours, ni réponse proposée —, puis à sa forme neuve.
-      const { forme: _forme, proposee: _proposee, devoileLe: _devoileLe, arretLe: _arretLe, ...nue } = q
+      // Reposée nue — ni dévoilement en cours, ni réponse proposée, ni tuiles à composer —, puis à sa forme neuve.
+      const { forme: _forme, proposee: _proposee, bonneReponse: _bonneReponse, devoileLe: _devoileLe, arretLe: _arretLe, tuiles: _tuiles, enTrop: _enTrop, ...nue } = q
       nouvelle = aSaForme(nue, base, vers, maintenant)
-      // Un vrai ou faux se répond « Vrai » ou « Faux » : l'annonce ne dit plus « une année ».
-      if (nouvelle.reponses.length <= 2) delete nouvelle.reponseEn
+      // Un vrai ou faux se répond « Vrai » ou « Faux », une question à composer en lettres : l'annonce ne dit plus « une année ».
+      if (nouvelle.reponses.length <= 2 || nouvelle.forme === 'lettres') delete nouvelle.reponseEn
     } else if (g.quoi === 'voir' && q.forme === 'devoilement') {
       const { arretLe: _arretLe, ...sansArret } = q
       nouvelle = { ...sansArret, devoileLe: maintenant }
@@ -7321,13 +7495,52 @@ export class CampagneStore {
       const i = position as number
       const q = l.serie.questions[i]
       if (!q) throw new Error('Cette question n’est pas encore tirée : recharge la page')
-      const valide = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0 && x < q.reponses.length
-      const doubleChance = avant.rencontre ? parmi(avant.rencontre.tour.surLaQuestion, 'double-chance') : avant.joue?.joker === 'double-chance'
-      const choisis = doubleChance && Array.isArray(choix) ? [...new Set(choix.filter(valide))].slice(0, 2) : valide(choix) ? [choix] : []
-      const juste = choisis.includes(q.bonne)
-      // La sienne, telle que la correction la redit : la juste s'il l'a donnée, sinon la première.
-      const c = juste ? q.bonne : (choisis[0] ?? null)
-      const aide = jokerQuiAide(avant, q)
+      // À composer (v11) : ses lettres, dans l'ordre de ses cases — le serveur seul sait lesquelles (invariant 1).
+      const aComposer = q.forme === 'lettres' && q.tuiles ? gabaritDe(q.reponses[q.bonne]) : null
+      let juste: boolean
+      let c: number | null
+      let composee: string | null = null
+      if (q.forme === 'frise' && q.frise) {
+        // Une frise (v13) : ses événements dans l'ordre où il les a posés, par leur rang à l'écran — le serveur seul sait le temps
+        // (invariant 1). Le journal garde l'ordre donné, en rangs dans le temps (« 1032 ») : la correction le redit.
+        const ordre = lireUnOrdre(choix, q.reponses.length)
+        if (!ordre) throw new Error('Pose les quatre événements sur la frise, puis valide')
+        const dansLeTemps = ordreDansLeTemps(ordre, q.frise.montre)
+        juste = friseJuste(dansLeTemps)
+        composee = dansLeTemps.join('')
+        c = juste ? q.bonne : -1
+      } else if (aComposer) {
+        composee = lireUneComposition(choix, aComposer.lettres.length)
+        if (composee === null) throw new Error('Remplis toutes ses cases, puis valide')
+        juste = composee === aComposer.lettres
+        // Composée fausse, elle n'est aucune de ses réponses : la correction la redit de ce qu'il a composé (`composee`).
+        c = juste ? q.bonne : -1
+      } else {
+        // Des lettres pour une question à choix : la page d'avant Simplifier, qu'un autre onglet a jouée. Rien ne compte.
+        if (typeof choix === 'string') throw new Error('Cette question a changé de forme : recharge la page')
+        const valide = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0 && x < q.reponses.length
+        const doubleChance = avant.rencontre ? parmi(avant.rencontre.tour.surLaQuestion, 'double-chance') : avant.joue?.joker === 'double-chance'
+        const choisis = doubleChance && Array.isArray(choix) ? [...new Set(choix.filter(valide))].slice(0, 2) : valide(choix) ? [choix] : []
+        juste = choisis.includes(q.bonne)
+        // La sienne, telle que la correction la redit : la juste s'il l'a donnée, sinon la première.
+        c = juste ? q.bonne : (choisis[0] ?? null)
+      }
+      // Les familles (v14) : ratée sous un second essai, elle ne se juge pas — elle s'efface, s'écrit en essai au journal des gestes, à
+      // la position de sa question (`campagne_reponses` n'en tient qu'une), et il répond encore. Ni bonne réponse, ni anecdote, ni coup
+      // ne partent (invariant 1) : la vue porte la question, sa réponse ratée effacée.
+      const essai = juste ? null : secondEssaiEnAttente(l.depart, avant, questionsPosees(l.serie.questions, l.reponduesLe))
+      if (essai && i === avant.enAttente) {
+        const g: GesteDExpedition = { quoi: 'essai', position: i, ...(c !== null && c >= 0 && !aComposer && q.forme !== 'frise' && { choix: c }) }
+        const gestes = [...l.gestes, g]
+        const apres = pliDeLExpedition(l.depart, gestes, questionsPosees(l.serie.questions, l.reponduesLe), l.reponses)
+        await this.ecrireLExpedition(profileId, [
+          { sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)', args: [l.serie.id, gestes.length, JSON.stringify(g), recueLe] },
+        ])
+        const ecrite: ExpeditionLue = { ...l, gestes }
+        this.garderLExpedition(profileId, ecrite, gardee.vues)
+        return { juste: false, bonne: -1, anecdote: null, xp: 0, essai, expedition: vueDeLExpedition(ecrite, apres, this.legendairesDe(profileId)) }
+      }
+      const aide = jokerQuiAide(avant, q, l.depart.v)
       const reponses = new Map(l.reponses).set(i, juste)
       const reponduesLe = new Map(l.reponduesLe).set(i, recueLe)
       const { questions, apres, vues } = await this.completerLExpedition(profileId, l, l.gestes, reponses, reponduesLe, gardee.vues)
@@ -7342,8 +7555,8 @@ export class CampagneStore {
       const bilan = finie ? ecrireLeBilan(bilanDuPli(apres)) : null
       const lot: InStatement[] = [
         {
-          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme, sujet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          args: [l.serie.id, i, q.id, c, juste ? 1 : 0, maintenant, this.compagnonDeLaNiche(profileId), aide, q.forme ?? null, q.sujet ?? null],
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme, sujet, composee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          args: [l.serie.id, i, q.id, c, juste ? 1 : 0, maintenant, this.compagnonDeLaNiche(profileId), aide, q.forme ?? null, q.sujet ?? null, composee],
         },
         questions !== l.serie.questions
           ? {
@@ -7366,12 +7579,16 @@ export class CampagneStore {
       const vaincu = apres.vaincus > avant.vaincus ? l.depart.gardiens[avant.acte] : undefined
       // Ce que la réponse a rapporté (v4) : les écus de l'escale, ceux du gardien qui tombe.
       const ecus = apres.ecus - avant.ecus
+      // Un vrai ou faux dont la proposée était fausse : ce qu'il fallait répondre, avec le verdict. À composer, toujours : la page
+      // n'en avait que les tuiles.
+      const bonneReponse = aComposer ? q.reponses[q.bonne] : bonneReponseDuVraiOuFaux(q, sansSaBonneReponse(q) ? await this.base() : null)
       return {
         juste,
         bonne: q.bonne,
         anecdote: q.anecdote,
         xp,
         expedition: vueDeLExpedition(ecrite, apres, this.legendairesDe(profileId)),
+        ...(bonneReponse !== undefined && { bonneReponse }),
         ...(vaincu && { vaincu }),
         ...(ecus > 0 && { ecus }),
         ...(tampon && { tampon }),
@@ -7379,6 +7596,8 @@ export class CampagneStore {
         ...(l.depart.v >= 5 && apres.coup && { coup: apres.coup }),
         // Le dévoilement répondu : son intitulé entier, qu'il n'avait peut-être pas fini de lire.
         ...(devoile && { texte: q.texte, devoile }),
+        // Une frise (v13) : la bonne, dans l'ordre du temps — chaque événement et son année —, avec le verdict seulement (invariant 1).
+        ...(q.forme === 'frise' && q.frise && { frise: { evenements: q.reponses, annees: q.frise.annees } }),
         ...gains,
       }
     })
@@ -7495,6 +7714,13 @@ export class CampagneStore {
       ...(q.meta.date && { date: q.meta.date }),
       ...(['annee', 'nombre'].includes(formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur })) && { nombre: true as const }),
     })
+    // Une curiosité (v12) : un rébus, ou un plat dont on devine d'où il vient — ni le thème ni la marche de l'escale, qui n'en a pas.
+    if (escale.sorte === 'curiosite') {
+      const q = questionDeLaCuriosite(escale.curiosite ?? 'plat', contenuDesCuriosites(), this.parIdDe(toutes), this.deLaCategorie(toutes, 'Cuisine'), toutes, vues, x =>
+        rangee(x, niveauDeQuestion(x.meta.difficulte, mesure.get(x.id))),
+      )
+      return { tirees: [{ ...q, escale: a.escale, acte }], vues: lues }
+    }
     if (suivis) {
       const parId = this.parIdDe(toutes)
       const aRevoir = [...suivis]
@@ -7517,6 +7743,12 @@ export class CampagneStore {
     const sujet = theme && 'sujet' in theme && tas[0] !== toutes ? theme.sujet : undefined
     // Sa forme (l'étape 3) : celle d'une question ou d'une élite ; une source, un gardien posent la question telle qu'elle est écrite.
     const forme = escale.sorte === 'question' || escale.sorte === 'elite' ? escale.forme : undefined
+    // Une frise (v13) : quatre événements de son thème, jamais vus dans une frise d'abord. Un thème qui n'a pas de quoi en faire une —
+    // un thème pointu sans événements, une base d'essai — la pose à quatre choix, comme une forme qu'aucune question ne prend.
+    if (forme === 'frise' && n === 1) {
+      const frise = this.friseDe(toutes, tas, marche, evenementsVus(lues, dejaPosees))
+      if (frise) return { tirees: [{ ...frise, escale: a.escale, acte, ...(sujet && { sujet }) }], vues: lues }
+    }
     const garde = seLaissePoser(forme)
     let tirees = tirerPourUneEscale(tas, marche, n, { sansVraiFaux: gardien || garde !== undefined, garde, vues, mesure, maintenant, posees })
     let aPoser = forme
@@ -7533,7 +7765,10 @@ export class CampagneStore {
         ...x,
         tiree: x.forme ?? (x.reponses.length <= 2 ? 'vrai-faux' : 'quatre'),
         ...(seLaissePoser('six')!(base) && { six: true as const }),
-        ...((en === 'annee' || en === 'nombre') && x.reponses.length > 2 && { reponseEn: en }),
+        // À composer, sa réponse s'écrit en lettres : l'annonce ne dit pas « une année ».
+        ...((en === 'annee' || en === 'nombre') && x.reponses.length > 2 && x.forme !== 'lettres' && { reponseEn: en }),
+        // Les familles (v14) : sa réponse se compose — Métamorphose l'y pose.
+        ...(depart.v >= VERSION_DES_FAMILLES && x.forme !== 'lettres' && seCompose(base) && { compose: true as const }),
       }
     }
     return { tirees: tirees.map(x => enRencontre(aSaForme({ ...rangee(x.question, x.niveau), ...(sujet && { sujet }) }, x.question, aPoser, maintenant), x.question)), vues: lues }
@@ -8108,14 +8343,24 @@ function versSerie(r: Record<string, unknown>): Serie {
   }
 }
 
+/**
+ * La version d'un départ neuf : la question au centre, ses coups de pouce,
+ * ses curiosités, sa frise et ses familles là où elle s'ouvre
+ * (`questionAuCentreOuverte`), les huit familles aux rencontres, les écus aux
+ * règles d'avant elles.
+ */
+const versionDuDepart = (rencontres: boolean, questionAuCentre: boolean): DepartDExpedition['v'] =>
+  rencontres ? (questionAuCentre ? VERSION_DES_FAMILLES : VERSION_DES_HUIT_FAMILLES) : 4
+
 /** Le départ qu'une expédition a gardé ; null : pas une expédition, ou illisible. */
 function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
   if (typeof brut !== 'string') return null
   try {
     const lu = JSON.parse(brut) as DepartDExpedition
     // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus, la 4 sans rencontres,
-    // la 6 sans codex, la 7 sans le jeu complet, la 8 sans les huit familles ; une version inconnue ne se lit pas.
-    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
+    // la 6 sans codex, la 7 sans le jeu complet, la 8 sans les huit familles, la 9 sans la question au centre, la 10 sans coups de pouce,
+    // la 11 sans curiosités, la 12 sans frise, la 13 sans les familles en façons de répondre ; une version inconnue ne se lit pas.
+    return lu && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(lu.v) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
   } catch {
     return null
   }
@@ -8256,15 +8501,22 @@ function gesteRecevable(l: ExpeditionLue, avant: EtatDeLExpedition, g: GesteDExp
 /**
  * Le joker qui aide à répondre à la question qui attend — null : elle se
  * répond nue. Une autre question (Échange, La mue) se pose nue ; deux au
- * choix (Deux visages) ne l'est plus : on prend celle qu'on sait.
+ * choix (Deux visages) ne l'est plus : on prend celle qu'on sait. Une carte
+ * se lit à la version du départ (`carteALaVersion`) : Astrolabe et le Prisme
+ * n'aident à répondre que depuis les familles (v14).
  */
-function jokerQuiAide(e: EtatDeLExpedition, q: QuestionDeSerie): string | null {
+function jokerQuiAide(e: EtatDeLExpedition, q: QuestionDeSerie, v: number): string | null {
   const r = e.rencontre
   if (r) {
     // En rencontre (v5), plusieurs cartes visent la question : la colonne garde le premier indice — un seul suffit à ne rien mesurer —,
     // sous la clé de sa carte : améliorée, c'est la même aide.
-    const indice = r.tour.surLaQuestion.find(cle => carteDeRencontre(cle)?.indice)
+    const indice = r.tour.surLaQuestion.find(cle => carteALaVersion(cle, v)?.indice)
     if (indice) return baseDe(indice)
+    // Les familles (v14) : un second essai — sa première réponse, fausse, s'est effacée : la seconde ne mesure rien, comme Double chance.
+    if (r.tour.essai !== undefined) return baseDe(r.tour.essai)
+    // Troisième œil posé (v14) lui a soufflé une lettre de sa bonne réponse — là où il en a une à souffler.
+    const troisieme = v >= VERSION_DES_FAMILLES && parmi(r.pouvoirs, 'troisieme-oeil')
+    if (troisieme && q.forme !== 'frise' && (q.forme === 'lettres' || (q.reponses.length > 2 && !q.nombre))) return 'troisieme-oeil'
     // La fiole de clairvoyance (le codex) a effacé une réponse : sa clé, comme celle d'un Coup d'œil.
     if (r.tour.surLaQuestion.includes(CLAIRVOYANCE_SUR_LA_QUESTION) && q.reponses.length > 2) return CLAIRVOYANCE_SUR_LA_QUESTION
     // L'écholocation, Vision (le jeu complet) : posées, elles effacent une réponse à chaque question.
@@ -8282,11 +8534,21 @@ function jokerQuiAide(e: EtatDeLExpedition, q: QuestionDeSerie): string | null {
 /** Une question que la loupe éclaire : d'Histoire, et qui se date. */
 const aLaLoupe = (q: QuestionDeSerie) => q.categorie === 'Histoire' && siecleDeLaQuestion(q) !== null
 
-/** Un geste tel que le journal le garde, abandon compris ; null s'il ne se lit plus. */
+/**
+ * Un geste tel que le journal le garde, abandon compris ; null s'il ne se lit
+ * plus. L'essai raté (v14) ne se lit qu'ici : le serveur seul l'écrit, à la
+ * place d'une réponse (`repondreEnExpedition`) — envoyé par une page, il ne se
+ * lirait pas (`lireGeste`).
+ */
 function gesteGarde(brut: unknown): GesteDExpedition | null {
   try {
     const lu: unknown = JSON.parse(String(brut))
-    return lu && typeof lu === 'object' && (lu as { quoi?: unknown }).quoi === 'abandonner' ? { quoi: 'abandonner' } : lireGeste(lu)
+    if (!lu || typeof lu !== 'object') return null
+    const g = lu as Record<string, unknown>
+    if (g.quoi === 'abandonner') return { quoi: 'abandonner' }
+    const rang = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0
+    if (g.quoi === 'essai') return rang(g.position) ? { quoi: 'essai', position: g.position, ...(rang(g.choix) && { choix: g.choix }) } : null
+    return lireGeste(lu)
   } catch {
     return null
   }
@@ -8434,7 +8696,8 @@ const questionsPosees = (questions: readonly QuestionDeSerie[], reponduesLe?: Re
     return {
       escale: q.escale ?? '',
       acte: q.acte ?? 0,
-      reponses: q.reponses.length,
+      // À composer (v11), ses réponses sont ses tuiles : ce qui s'efface, ce sont ses lettres de trop.
+      reponses: q.forme === 'lettres' && q.tuiles ? q.tuiles.length : q.reponses.length,
       ...(q.nombre && { nombre: true }),
       ...(q.forme && { forme: q.forme }),
       ...(q.categorie && { categorie: q.categorie }),
@@ -8447,6 +8710,7 @@ const questionsPosees = (questions: readonly QuestionDeSerie[], reponduesLe?: Re
         datee: siecleDeLaQuestion(q) !== null,
         ...(q.reponseEn && { reponseEn: q.reponseEn }),
         ...(q.forme === 'devoilement' && { mots: motsDe(q.texte).length }),
+        ...(q.compose && { compose: true }),
       }),
     }
   })
@@ -8480,27 +8744,65 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
   // En rencontre, la carte sur la question, améliorée ou non : Double chance+ choisit deux réponses comme l'autre.
   const vise = (cle: string) => (v5 ? parmi(surLaQuestion, cle) : joue === cle)
   const montre = v5 ? r?.tour.montre : e.joue?.montre
+  // Les familles (v14) : Troisième œil posé souffle une lettre de chaque question — à composer, il la pose dans ses cases.
+  const troisieme = d.v >= VERSION_DES_FAMILLES ? r?.pouvoirs.find(cle => baseDe(cle) === 'troisieme-oeil') : undefined
   const montree = (position: number): QuestionDExpedition | undefined => {
     const q = l.serie.questions[position]
     if (!q) return undefined
+    // À composer (v11), ses réponses sont ses tuiles, et ce qui s'efface, ses lettres de trop.
+    const sesTuiles = q.forme === 'lettres' && q.tuiles && q.enTrop ? { tuiles: q.tuiles, enTrop: q.enTrop } : null
     const combien = v5
       ? r
-        ? effaceesDuTour(surLaQuestion, r.pouvoirs, { reponses: q.reponses.length, datee: siecleDeLaQuestion(q) !== null })
+        ? effaceesDuTour(surLaQuestion, r.pouvoirs, {
+            reponses: sesTuiles ? sesTuiles.tuiles.length : q.reponses.length,
+            datee: siecleDeLaQuestion(q) !== null,
+            // Le repère d'une année ou d'un nombre efface, comme sans époque : la sienne dirait la réponse.
+            nombre: !!q.nombre,
+            ...(sesTuiles && { forme: 'lettres' as const }),
+          })
         : 0
       : (joue ? (EFFACE[joue] ?? 0) : 0) + (echo ? EFFACE.echolocation : 0)
-    const effacees = reponsesEffacees(d.graine, position, q, combien)
+    // Ses cases et ses tuiles, jamais ses réponses : ses choix la rendraient à quatre choix, et sa bonne réponse la dirait (invariant 1).
+    const composer = sesTuiles
+      ? questionAComposer(d.graine, position, { reponses: q.reponses, bonne: q.bonne, ...sesTuiles }, combien, troisieme ? [...surLaQuestion, troisieme] : surLaQuestion)
+      : null
+    // Une frise (v13) : ses événements dans l'ordre montré, jamais celui du temps (invariant 1) ; ce qu'une carte effacerait, elle le date.
+    const frise = q.forme === 'frise' && q.frise ? friseMontree(d.graine, position, q.reponses, q.frise, combien) : null
+    // Les familles (v14) : la réponse ratée d'un second essai ne se propose plus — effacée d'abord, puis ce que les cartes effacent.
+    const essai = r?.tour.essai !== undefined && position === e.enAttente ? choixDeLEssai(l.gestes, position) : undefined
+    const effacees = composer || frise ? [] : reponsesEffacees(d.graine, position, q, combien, essai)
+    // Ce que soufflent les coups de pouce joués sur elle (v11) : Le repère partout ; L'initiale et La lettre sur une question à choix —
+    // à composer, elles posent leurs lettres dans ses cases ; sur une frise, Le repère date un événement, sans un mot. Astrolabe (v14)
+    // dit l'initiale, comme L'initiale ; Troisième œil posé, une lettre, sur sa graine à lui : La lettre jouée avec dit la sienne.
+    const pouces = surLaQuestion.flatMap(cle => {
+      const base = baseDe(cle)
+      if (frise) return []
+      if (base === 'repere') return [ceQueDitLeRepere(q, estAmelioree(cle))]
+      if (composer) return []
+      if (base === 'initiale') return [ceQueDitLInitiale(q, estAmelioree(cle))]
+      if (base === 'astrolabe' && d.v >= VERSION_DES_FAMILLES) return [ceQueDitLInitiale(q, false)]
+      if (base === 'lettre') return [ceQueDitLaLettre(d.graine, position, q, effacees, estAmelioree(cle))]
+      return []
+    })
+    if (troisieme && !frise && !composer && q.reponses.length > 2 && !q.nombre) pouces.push(ceQueDitLaLettre(`${d.graine}:oeil`, position, q, effacees, estAmelioree(troisieme)))
     return {
       ...questionMontree(q, position),
       // Un dévoilement ne part pas entier (invariant 1) : ses mots se lisent à leur heure (`devoilement`), son compte seul part ici.
       ...(q.forme === 'devoilement' && { texte: '', devoilement: { mots: motsDe(q.texte).length } }),
+      ...(composer && { reponses: [], composer }),
+      ...(frise && { reponses: [], frise }),
+      // Un rébus (v12) : ses emojis, que la page montre en grand au-dessus de ses cases.
+      ...(q.rebus && { rebus: q.rebus }),
       ...(q.forme && { forme: q.forme }),
       ...(q.proposee !== undefined && { proposee: q.proposee }),
       escale: q.escale ?? '',
       ...(effacees.length > 0 && { effacees }),
       ...(vise('double-chance') && { deux: true as const }),
-      ...(vise('enigme') && { indice: indiceDeLEnigme(q) }),
+      // Sur une frise, le Sphinx date un événement : « Elle ne se date pas » mentirait, elle en a quatre.
+      ...(vise('enigme') && !frise && { indice: indiceDeLEnigme(q) }),
       ...(vise('prediction') && montre !== undefined && { prediction: { montre, sens: sensDeLOracle(q, montre) } }),
       ...(loupe && aLaLoupe(q) && { siecle: siecleDeLaQuestion(q)! }),
+      ...(pouces.length > 0 && { pouces }),
     }
   }
   const boussole = e.talismans.includes('boussole')
@@ -8598,7 +8900,8 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
         v: d.v,
         paquet: e.paquet,
         route: deRoute,
-        refus: Object.fromEntries([...new Set(deRoute)].map(cle => [cle, refusDuJoker(d, e, cle, posees)])),
+        // Celles de route — et, dans la question au centre (v10), celles de la main de l'acte, que le plan montre en petit.
+        refus: Object.fromEntries([...new Set([...deRoute, ...(e.cycle?.main ?? [])])].map(cle => [cle, refusDuJoker(d, e, cle, posees)])),
         parQuestion: cartesDesActes(d.v),
         // L'énergie de chaque question, acte par acte, à sa version et à son cran : les règles la disent, telle que le pli la donne.
         energie: energieDesActesALAscension(d.v, e.ascension),
@@ -8614,6 +8917,13 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
         ...(d.dos && { dos: d.dos }),
         // Son cran de l'Ascension, tel que le pli le lit : la barre le dit, et ce que rendent le campement et la source.
         ...(e.ascension > 0 && { ascension: e.ascension }),
+        // La question au centre (v10) : la main de l'acte, que le plan montre entre deux rencontres — la pioche comptée, son ordre est au serveur.
+        ...(e.cycle && {
+          main: e.cycle.main,
+          pioche: e.cycle.pioche.length,
+          defausse: e.cycle.defausse,
+          mainMax: mainMaxEnQuestion(!!r?.pouvoirs.includes('trois-tetes'), e.ascension),
+        }),
       },
     }),
     ...(r && { rencontre: vueDeLaRencontre(d, e, posees) }),
@@ -8935,10 +9245,16 @@ function leurresDuSixChoix(q: QuestionDeLaBase): string[] {
   return leurres
 }
 
-/** Ce qu'une question de la base doit avoir pour se poser à cette forme ; rien à demander : undefined. */
+/**
+ * Ce qu'une question de la base doit avoir pour se poser à cette forme ; rien
+ * à demander : undefined. À composer (v11), une bonne réponse de deux mots au
+ * plus, de quatre à douze lettres, et un intitulé qui ne parle pas de ses
+ * choix (`seCompose`) : six questions sur dix.
+ */
 function seLaissePoser(forme: FormeDEscale | undefined): ((q: QuestionDeLaBase) => boolean) | undefined {
   if (forme === 'six') return q => q.reponses.length > 2 && leurresDuSixChoix(q).length >= 2
   if (forme === 'devoilement') return q => q.reponses.length > 2 && motsDe(q.texte).length >= MOTS_DU_DEVOILEMENT
+  if (forme === 'lettres') return seCompose
   return undefined
 }
 
@@ -8947,11 +9263,19 @@ function seLaissePoser(forme: FormeDEscale | undefined): ((q: QuestionDeLaBase) 
  * choix — ses quatre réponses et deux leurres, mêlés —, un vrai ou faux tiré
  * d'une question à quatre choix — son intitulé et une réponse proposée, la
  * bonne une fois sur deux —, un dévoilement — son intitulé mot à mot, dès
- * `maintenant`, l'heure de son tirage. Une question née vrai ou faux se
- * pose telle qu'elle est écrite ; une forme qu'elle ne peut pas prendre la
- * laisse à quatre choix.
+ * `maintenant`, l'heure de son tirage —, à composer (v11) — ses tuiles,
+ * mélangées au tirage comme les six choix, et lesquelles sont de trop. Une
+ * question née vrai ou faux se pose telle qu'elle est écrite ; une forme
+ * qu'elle ne peut pas prendre la laisse à quatre choix.
  */
 function aSaForme(q: QuestionDeSerie, base: QuestionDeLaBase, forme: FormeDEscale | undefined, maintenant: number): QuestionDeSerie {
+  if (forme === 'lettres') {
+    const g = seCompose(base) ? gabaritDe(q.reponses[q.bonne]) : null
+    if (!g) return q
+    // Ses réponses ne sont plus des nombres à montrer à l'Oracle : elles ne partent plus.
+    const { nombre: _nombre, ...sansNombre } = q
+    return { ...sansNombre, forme, ...tuilesDe(g.lettres, Math.random) }
+  }
   if (forme === 'six') {
     const leurres = leurresDuSixChoix(base).slice(0, 2)
     if (leurres.length < 2) return q
@@ -8966,11 +9290,119 @@ function aSaForme(q: QuestionDeSerie, base: QuestionDeLaBase, forme: FormeDEscal
     const proposee = vraie ? q.reponses[q.bonne] : fausses[Math.floor(Math.random() * fausses.length)]
     // « Vrai », « Faux », dans cet ordre, comme un vrai ou faux de la base ; plus des nombres à montrer à l'Oracle.
     const { nombre: _nombre, ...sansNombre } = q
-    return { ...sansNombre, reponses: ['Vrai', 'Faux'], bonne: vraie ? 0 : 1, forme, proposee }
+    return { ...sansNombre, reponses: ['Vrai', 'Faux'], bonne: vraie ? 0 : 1, forme, proposee, bonneReponse: q.reponses[q.bonne] }
   }
   if (forme === 'devoilement') return { ...q, forme, devoileLe: maintenant }
   return q
 }
+
+/**
+ * La question d'une curiosité (v12) : un rébus — à composer, ses tuiles
+ * tirées et gardées avec lui, comme une question à composer —, ou un plat de
+ * la liste dont on devine d'où il vient, à quatre choix, tel que la base l'a
+ * écrit. Jamais vu d'abord, puis le plus anciennement vu : ce que
+ * l'expédition a posé passe pour vu à l'instant (`vues`), et le même rébus ne
+ * revient pas dans une expédition tant qu'il en reste d'autres. Un rébus que
+ * le contenu n'a plus cède au plat ; un plat que la base n'a plus — retiré,
+ * ou une base d'essai —, à une question de cuisine, puis à toute la base :
+ * le pli attend une question, il en faut une.
+ */
+function questionDeLaCuriosite(
+  sorte: SorteDeCuriosite,
+  contenu: ContenuDesCuriosites,
+  parId: ReadonlyMap<string, QuestionDeLaBase>,
+  cuisine: readonly QuestionDeLaBase[],
+  toutes: readonly QuestionDeLaBase[],
+  vues: Pick<ReadonlyMap<string, number>, 'get'>,
+  rangee: (q: QuestionDeLaBase) => QuestionDeSerie,
+): QuestionDeSerie {
+  if (sorte === 'rebus') {
+    const r = laMoinsVue(contenu.rebus, x => PREFIXE_DU_REBUS + x.id, vues)
+    const g = r && gabaritDe(r.reponse)
+    if (r && g) {
+      return {
+        id: PREFIXE_DU_REBUS + r.id,
+        texte: QUESTION_DU_REBUS[r.genre],
+        // Sa seule réponse, la bonne : la page n'en reçoit que les cases et les tuiles (invariant 1), la correction la redit.
+        reponses: [r.reponse],
+        bonne: 0,
+        categorie: null,
+        anecdote: r.lecture,
+        niveau: 'moyen',
+        forme: 'lettres',
+        tiree: 'lettres',
+        rebus: r.emojis,
+        ...tuilesDe(g.lettres, Math.random),
+      }
+    }
+  }
+  const plats = contenu.plats.flatMap(p => parId.get(p.id) ?? [])
+  const q = laMoinsVue(plats, x => x.id, vues) ?? laMoinsVue(cuisine.filter(x => x.reponses.length > 2), x => x.id, vues) ?? laMoinsVue(toutes, x => x.id, vues)!
+  return { ...rangee(q), tiree: 'quatre' }
+}
+
+/**
+ * Ce que la page reçoit d'une frise (v13) : ses événements dans l'ordre
+ * montré, et l'année de ceux qu'une carte a datés — `combien`, ce qu'elle
+ * aurait effacé (`effaceesDuTour`), au hasard de la graine et du rang de la
+ * question, comme les réponses effacées. Jamais l'ordre du temps (invariant 1).
+ */
+function friseMontree(graine: string, position: number, lignes: readonly string[], f: { annees: readonly number[]; montre: readonly number[] }, combien: number): FriseAPoser {
+  const datees = new Set(evenementsDates(hasardDe(`${graine}:efface:${position}`), lignes.length, combien))
+  return {
+    evenements: f.montre.map(i => lignes[i]),
+    annees: f.montre.map(i => (datees.has(i) ? f.annees[i] : null)),
+  }
+}
+
+/**
+ * Les événements qu'il a déjà vus dans une frise (v13) : ceux des frises de
+ * son journal — leur identifiant porte les leurs (`PREFIXE_DE_LA_FRISE`) — et
+ * de celles que l'expédition a posées.
+ */
+function evenementsVus(lues: Pick<ReadonlyMap<string, number>, 'keys'>, posees: Iterable<string>): Set<string> {
+  const vus = new Set<string>()
+  const lire = (id: string) => {
+    if (id.startsWith(PREFIXE_DE_LA_FRISE)) for (const e of id.slice(PREFIXE_DE_LA_FRISE.length).split('+')) vus.add(e)
+  }
+  for (const id of lues.keys()) lire(id)
+  for (const id of posees) lire(id)
+  return vus
+}
+
+/** Parmi ces candidats, un jamais vu, au hasard ; sinon le plus anciennement vu. */
+function laMoinsVue<T>(candidats: readonly T[], idDe: (x: T) => string, vues: Pick<ReadonlyMap<string, number>, 'get'>): T | undefined {
+  const jamais: T[] = []
+  let ancienne: T | undefined
+  let le = Number.POSITIVE_INFINITY
+  for (const x of candidats) {
+    const v = vues.get(idDe(x))
+    if (v === undefined) jamais.push(x)
+    else if (v < le) {
+      le = v
+      ancienne = x
+    }
+  }
+  return jamais.length > 0 ? jamais[Math.floor(Math.random() * jamais.length)] : ancienne
+}
+
+/**
+ * Ce qu'il fallait répondre à un vrai ou faux tiré d'une question à quatre
+ * choix, quand la réponse proposée était fausse — pour son verdict et sa
+ * correction, jamais avant (invariant 1). Proposée juste, la révélation la
+ * dit déjà : rien. Posé avant que la question la garde (`bonneReponse`), la
+ * base la redit, tant qu'elle juge la proposée comme lui.
+ */
+function bonneReponseDuVraiOuFaux(q: QuestionDeSerie, base: BaseDeLaCampagne | null): string | undefined {
+  if (q.proposee === undefined || q.bonne === 0) return undefined
+  if (q.bonneReponse !== undefined) return q.bonneReponse
+  const d = base?.parId.get(q.id)
+  if (!d || !d.reponses.includes(q.proposee) || d.reponses[d.bonne] === q.proposee) return undefined
+  return d.reponses[d.bonne]
+}
+
+/** Un vrai ou faux posé avant que sa question garde sa bonne réponse : sa correction relit la base. */
+const sansSaBonneReponse = (q: QuestionDeSerie) => q.proposee !== undefined && q.bonne === 1 && q.bonneReponse === undefined
 
 /** Ce que le téléphone reçoit d'une question : jamais la bonne réponse ni l'anecdote avant la sienne. */
 function questionMontree(q: QuestionDeSerie, index: number): QuestionDeCampagne {
@@ -9075,8 +9507,15 @@ function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSi
     ou,
     ...(ou === 'sentier' && typeof r.branche === 'string' && { branche: r.branche }),
     ...(ou === 'sentier' && r.palier !== null && r.palier !== undefined && { palier: Number(r.palier) }),
-    // Un vrai ou faux tiré d'une question à quatre choix : « Vrai » seul ne dirait pas ce qu'il a jugé.
-    reponse: vue && choix !== null ? (vue.proposee !== undefined ? `« ${vue.proposee} » : ${choix === 0 ? 'vrai' : 'faux'}` : (vue.reponses[choix] ?? null)) : null,
+    // Un vrai ou faux tiré d'une question à quatre choix : « Vrai » seul ne dirait pas ce qu'il a jugé. À composer, ce qu'il a composé.
+    reponse:
+      typeof r.composee === 'string'
+        ? r.composee
+        : vue && choix !== null
+          ? vue.proposee !== undefined
+            ? `« ${vue.proposee} » : ${choix === 0 ? 'vrai' : 'faux'}`
+            : (vue.reponses[choix] ?? null)
+          : null,
     juste: r.juste === null || r.juste === undefined ? null : Number(r.juste) === 1,
     ...(vue && !memeVersion(vue, q) && { versionDAvant: true as const }),
   }

@@ -14,9 +14,16 @@ Object.assign(globalThis, { React, window: { location: { pathname: '/expedition'
 
 /** La page, chargée par son adresse : le typage du serveur ne lit pas le JSX du client. */
 type Composant = (props: Record<string, unknown>) => React.ReactNode
-async function page(): Promise<{ ReponsesDeLEscale: Composant }> {
+async function page(): Promise<{ ReponsesDeLEscale: Composant; LaBonneReponse: Composant }> {
   return import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)
 }
+
+/** Ce qu'on lit d'un rendu : le texte seul, ses espaces fines et insécables rendues ordinaires. */
+const lu = (html: string) =>
+  html
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 
 const CSS = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 
@@ -33,6 +40,21 @@ async function reponses(props: Record<string, unknown>) {
     coche: m[3].includes('ans-check'),
   }))
 }
+
+// Le 19 octobre 2026, un testeur : « je sais que c'est pas Eschyle mais ça ne
+// me dit pas c'était quoi la réponse ». La révélation d'un vrai ou faux tiré
+// d'une question à quatre choix ne disait que ce que valait la proposée.
+test('la révélation d’un vrai ou faux à la proposée fausse dit ce qu’il fallait répondre', async () => {
+  const { LaBonneReponse } = await page()
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const revelation = (reponse: Record<string, unknown>, proposee = 'Eschyle') =>
+    lu(renderToStaticMarkup(React.createElement(LaBonneReponse, { question: { reponses: ['Vrai', 'Faux'], proposee }, reponse, choix: 1 })))
+  assert.equal(revelation({ bonne: 1, bonneReponse: 'Sophocle' }), '« Eschyle » : faux — c’était Sophocle')
+  // Proposée juste, elle se lit déjà : rien de plus.
+  assert.equal(revelation({ bonne: 0 }, 'Sophocle'), '« Sophocle » : vrai')
+  // Une question à quatre choix dit sa bonne réponse, comme avant.
+  assert.equal(lu(renderToStaticMarkup(React.createElement(LaBonneReponse, { question: { reponses: ['Lyon', 'Paris', 'Marseille', 'Lille'] }, reponse: { bonne: 1 }, choix: 0 }))), 'La bonne réponse : Paris')
+})
 
 test('sous Double chance, les deux réponses choisies se voient : cochées, pressées, au filet d’or', async () => {
   const toutes = await reponses({ choisies: [1, 3], doubleChance: true })

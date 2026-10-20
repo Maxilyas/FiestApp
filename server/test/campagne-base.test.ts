@@ -100,9 +100,13 @@ import { sansAccent } from '../../shared/homonymes'
  * pays, des thèmes de leur seule étiquette —, ce qui manquait à dix d'entre
  * eux pour leurs cent questions (`preparer --sujet=coree:65,…`), 432
  * rangées sur 455 (18 refusées comme un fait ou un intitulé déjà posé, 5
- * retirées à la relecture) : 26 291.
+ * retirées à la relecture) : 26 291. Le 19 octobre 2026, cent plats « D'où
+ * vient ce plat ? » pour la curiosité de l'Expédition
+ * (`retours/2026-10-19/les-curiosites.md`), un lot par région du monde et
+ * un pour la France, 103 rangés sur 108 (5 retirés à la relecture : une de
+ * leurs mauvaises réponses mangeait aussi le plat sous ce nom) : 26 394.
  */
-const AU_MOINS = 26291
+const AU_MOINS = 26394
 
 const { questions, refusees } = lireLaBase()
 

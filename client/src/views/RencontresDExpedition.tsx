@@ -12,6 +12,7 @@ import { useModale } from '../modale'
 import { iconeDuSujet } from '../iconeDuSujet'
 import { couleurDePiste, pourcentDeChance } from '../../../shared/sentiers'
 import { sujetParCle } from '../../../shared/sujets'
+import { ceQueRapporteUneCuriosite } from '../../../shared/curiosites'
 import { CATEGORIES } from '../../../shared/categories'
 import type { Niveau } from '../../../shared/campagne'
 import type { RareteDeTheme } from '../../../shared/themes'
@@ -30,12 +31,14 @@ import {
   ASCENSION,
   ASCENSION_MAX,
   DOS_DES_CARTES,
-  ECHELLE,
   EXPLOITS,
   RENOMMEE,
+  ascensionDe,
   dosDe,
+  echelleDe,
   energieDesActesALAscension,
   exploitDe,
+  mainMaxEnQuestion,
   niveauDeLaRegle,
   niveauDuStyle,
   ouvertureDe,
@@ -48,6 +51,7 @@ import {
   type RegleDuCodex,
 } from '../../../shared/codex'
 import {
+  BASES_REMPLACEES_EN_QUESTION,
   BASES_REMPLACEES_PAR_LE_STYLE,
   CARTES_DE_DEPART_DU_STYLE,
   CARTES_DES_RENCONTRES,
@@ -59,10 +63,18 @@ import {
   COURAGE_MAX,
   FAMILLES_DE_CARTES,
   FIOLES,
+  FIOLES_EN_QUESTION,
   FIOLES_MAX,
+  MAIN_A_L_OUVERTURE_DE_L_ACTE,
   MISES,
   STYLES,
+  STYLES_EN_QUESTION,
+  VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_CURIOSITES,
+  VERSION_DES_FAMILLES,
   VERSION_DES_HUIT_FAMILLES,
+  VERSION_DE_LA_FRISE,
   VERSION_DU_JEU_COMPLET,
   ameliorer,
   apercuDuTour,
@@ -73,8 +85,12 @@ import {
   changeDeQuestion,
   chiffresApresLaCarte,
   courageDeLaCarte,
+  effaceesDuTour,
+  estDuPari,
   fioleDe,
   formeApresLaCarte,
+  jeuDuStyle,
+  stylesDeLaVersion,
   viseLaQuestion,
   type AnnonceDuTour,
   type ApercuDuTour,
@@ -140,6 +156,13 @@ function useCarte(): (cle: string) => CarteDeRencontre | undefined {
 }
 
 /**
+ * La question au centre (v10) à l'écran : plus d'énergie — ni orbe, ni coût
+ * au coin des cartes —, l'adversaire en crans, une carte par question.
+ */
+export const enQuestion = (v: number) => v >= VERSION_DE_LA_QUESTION_AU_CENTRE
+const useEnQuestion = () => enQuestion(useContext(VersionDesCartes))
+
+/**
  * La couleur d'une carte, au cadre : la gemme de sa rareté — celle des
  * jokers, de l'album et de la boutique (`gemmes.ts`) ; l'épique, depuis le
  * jeu complet, le pourpre de l'album, et une maudite son rouge sombre
@@ -159,6 +182,19 @@ export const MOMENT: Record<MomentDUneCarte, string> = {
   route: 'Sur le plan, une fois par acte',
 }
 const MOMENT_COURT: Record<MomentDUneCarte, string> = { preparation: 'avant la question', reflexe: 'pendant la question', pouvoir: 'toute la rencontre', route: 'sur le plan' }
+
+/** Dans la question au centre (v10), chaque carte se joue la question vue — celles du pari avec lui, à l'annonce. */
+const MOMENT_EN_QUESTION: Record<MomentDUneCarte, string> = {
+  preparation: 'Avec le pari, avant la question',
+  reflexe: 'La question sous les yeux',
+  pouvoir: 'Pour toute la rencontre',
+  route: 'Sur le plan, une fois par acte',
+}
+const MOMENT_COURT_EN_QUESTION: Record<MomentDUneCarte, string> = { preparation: 'avec le pari', reflexe: 'la question vue', pouvoir: 'toute la rencontre', route: 'sur le plan' }
+
+/** Son moment, à la version de l'expédition à l'écran. */
+export const momentDit = (m: MomentDUneCarte, v: number) => (enQuestion(v) ? MOMENT_EN_QUESTION : MOMENT)[m]
+const momentCourt = (m: MomentDUneCarte, v: number) => (enQuestion(v) ? MOMENT_COURT_EN_QUESTION : MOMENT_COURT)[m]
 
 /** Son moment en un dessin, à côté de ses mots : l'œil fermé avant de voir la question, ouvert pendant. */
 const ICONE_DU_MOMENT: Record<MomentDUneCarte, IconName> = { preparation: 'eye-off', reflexe: 'eye', pouvoir: 'infinity', route: 'flag' }
@@ -245,16 +281,28 @@ export function VisageDeLaCarte({ c }: { c: CarteDeRencontre }) {
   )
 }
 
-/** Ce que dit une carte au-delà de son effet : quand elle se joue, si elle ne sert qu'une fois par rencontre, si elle aide, d'où elle vient. */
-export function origineDeLaCarte(c: CarteDeRencontre): string {
-  return [MOMENT[c.moment], ...plusDeLaCarte(c)].join(' · ')
+/** Ce que dit une carte au-delà de son effet : quand elle se joue — à la version de son départ —, si elle ne sert qu'une fois par rencontre, si elle aide, d'où elle vient. */
+export function origineDeLaCarte(c: CarteDeRencontre, v = VERSION_DES_HUIT_FAMILLES): string {
+  return [momentDit(c.moment, v), ...plusDeLaCarte(c, v)].join(' · ')
 }
 
-/** Ce qu'il faut savoir de plus sur elle : une fois par rencontre — ou par expédition —, un indice, le légendaire qui la donne, ce que l'amélioration lui a donné. */
-function plusDeLaCarte(c: CarteDeRencontre): string[] {
+/**
+ * Ce qu'il faut savoir de plus sur elle : une fois par rencontre — ou par
+ * expédition —, un indice, le légendaire qui la donne, ce que l'amélioration
+ * lui a donné. Dans la question au centre (v10), Augure efface à la question
+ * suivante : c'est sa réponse à elle qui ne compte pas.
+ */
+function plusDeLaCarte(c: CarteDeRencontre, v: number): string[] {
+  const dAvance = enQuestion(v) && baseDe(c.cle) === 'augure'
+  // Un pouvoir qui aide (v14 : Troisième œil, le Rythme) aide les questions qui suivent, pas forcément celle où il se pose.
+  const aide = dAvance
+    ? 'une aide : ta réponse à la question suivante ne compte pas dans tes statistiques'
+    : c.moment === 'pouvoir'
+      ? 'une aide : les réponses qu’elle aide ne comptent pas dans tes statistiques'
+      : 'une aide : ta réponse ne compte pas dans tes statistiques'
   return [
     c.unique ? 'une fois par expédition' : c.epuisement && 'une fois par rencontre',
-    c.indice && 'une aide : ta réponse ne compte pas dans tes statistiques',
+    c.indice && aide,
     c.legendaire && `la carte ${duGardien(c.legendaire)}`,
     c.amelioree && c.amelioration && `améliorée : ${c.amelioration.gain.toLowerCase()}`,
   ].filter((x): x is string => !!x)
@@ -343,13 +391,15 @@ export function CarteDessinee({
   // millisecondes en 4G).
   const peinture = CARTES_PEINTES[baseDe(c.cle)]
   const levee = taille === 'levee'
+  // La question au centre (v10) : plus d'énergie — le coin ne garde que le drapeau d'une carte de route.
+  const sansEnergie = useEnQuestion()
   return (
     <span
       className={`exp-vc exp-vc-${taille}` + (c.legendaire ? ' exp-vc-du-legendaire' : '') + (c.amelioree ? ' exp-vc-amelioree' : '')}
       style={style}
       aria-hidden={taille === 'levee' ? undefined : true}
     >
-      <CoutEnEnergie c={c} manque={energie !== undefined && c.cout > energie} />
+      {(!sansEnergie || c.moment === 'route') && <CoutEnEnergie c={c} manque={energie !== undefined && c.cout > energie} />}
       {taille === 'levee' && c.rarete !== 'commun' && <span className="exp-vc-rarete-dite">{RARETE_DE_LA_CARTE[c.rarete]}</span>}
       <span className="exp-vc-art">
         {peinture ? (
@@ -490,14 +540,23 @@ export function apercuALaMise(r: VueDeLaRencontre, mise: number, fetiche: string
         savoir: a.savoir,
         ecus: r.ecus,
         courage: r.courage,
+        ratee: !!r.ratee,
       })
     : { ...r, doute }
-  const q = c ? formeApresLaCarte(c.cle, { forme: a.forme, reponses: a.reponses }) : { forme: a.forme, reponses: a.reponses }
-  // Les cartes qui visent la question, comme le pli les range : une autre question repart sans elles.
-  const surLaQuestion = !c ? r.surLaQuestion : changeDeQuestion(c.cle) ? (c.cle === 'mue' ? ['mue'] : []) : viseLaQuestion(c) ? [...r.surLaQuestion, c.cle] : r.surLaQuestion
+  const q = c ? formeApresLaCarte(c.cle, { forme: a.forme, reponses: a.reponses }, r.v) : { forme: a.forme, reponses: a.reponses }
+  // Les cartes qui visent la question, comme le pli les range : une autre question repart sans elles — et sans son second essai (v14).
+  const change = !!c && changeDeQuestion(c.cle, r.v)
+  const surLaQuestion = !c ? r.surLaQuestion : change ? (c.cle === 'mue' ? ['mue'] : []) : viseLaQuestion(c) ? [...r.surLaQuestion, c.cle] : r.surLaQuestion
   return apercuDuTour({
     v: r.v,
-    tour: { charge: chiffres.charge, garde: chiffres.garde, mise, jouees: c ? [...r.jouees, c.cle] : r.jouees, surLaQuestion },
+    tour: {
+      charge: chiffres.charge,
+      garde: chiffres.garde,
+      mise,
+      jouees: c ? [...r.jouees, c.cle] : r.jouees,
+      surLaQuestion,
+      ...(r.essai !== undefined && !change && { essai: r.essai }),
+    },
     pouvoirs,
     sceaux: r.sceaux,
     frappe: r.frappe,
@@ -508,6 +567,13 @@ export function apercuALaMise(r: VueDeLaRencontre, mise: number, fetiche: string
     trouvees: r.trouvees,
     serie: chiffres.serie,
     doute: chiffres.doute ?? doute,
+    // L'aube posée, tant qu'aucune erreur ne l'a éteinte (v10) : comme la vue du serveur.
+    aube: !r.aubeEteinte,
+    // Les familles (v14) : l'erreur d'avant, les seconds essais de Cuirasse, ce qui sera effacé, la carte comprise — de quoi dire
+    // « tu réponds encore » : à deux réponses près, le second essai répondrait à sa place.
+    ratee: !!r.ratee,
+    ...(r.essais !== undefined && { essais: r.essais }),
+    effacees: effaceesDuTour(surLaQuestion, pouvoirs, { reponses: q.reponses, datee: r.questionDuTour?.datee, nombre: r.questionDuTour?.nombre, forme: q.forme }),
   })
 }
 
@@ -516,6 +582,8 @@ export interface ChangementDeLaCarte {
   avant: ApercuDuTour
   apres: ApercuDuTour
   courage?: { avant: number; apres: number }
+  /** La question au centre (v10) : ce qu'il perd se compte en crans. */
+  crans?: true
 }
 
 /** Le changement d'une carte qui se joue maintenant ; null : l'aperçu ne bouge pas, ou elle ne se joue pas. */
@@ -524,14 +592,17 @@ export function changementDeLaCarte(r: VueDeLaRencontre, mise: number, fetiche: 
   const avant = apercuALaMise(r, mise, fetiche)
   const apres = apercuALaMise(r, mise, fetiche, cle)
   const prix = courageDeLaCarte(cle)
-  return avant && apres ? { avant, apres, ...(prix > 0 && { courage: { avant: r.courage, apres: r.courage - prix } }) } : null
+  return avant && apres ? { avant, apres, ...(prix > 0 && { courage: { avant: r.courage, apres: r.courage - prix } }), ...(r.crans && { crans: true as const }) } : null
 }
 
 /** Ce qu'il perd si tu as juste : ce que son doute lui coûte d'abord (les huit familles), puis ce que ta réponse brise. */
 const perteSiJuste = (a: ApercuDuTour) => (a.doute ?? 0) + a.juste.brises
 
-/** Ce qu'une bonne réponse ferait, dit en clair. */
-const ditJuste = (a: ApercuDuTour) => (a.juste.tombe ? 'il tombe' : `il perd ${perteSiJuste(a)}`)
+/** Ce qu'une bonne réponse ferait, dit en clair — en crans dans la question au centre : « il perd 1 », seul, ne disait pas quoi. */
+const ditJuste = (a: ApercuDuTour, crans?: boolean) => {
+  const n = perteSiJuste(a)
+  return a.juste.tombe ? 'il tombe' : crans ? `il perd ${n} cran${n > 1 ? 's' : ''}` : `il perd ${n}`
+}
 
 /** Un nombre collé au mot qui le précède : « pare 5 » ne se coupe pas, un « 5 » seul en début de ligne ne se lit pas. */
 const colle = (mot: string, n: number | string) => `${mot} ${n}`
@@ -562,14 +633,17 @@ export function Apercu({ a, base, compact }: { a: ApercuDuTour; base?: ApercuDuT
     (j.courage ?? 0) > 0 && `+${j.courage} de courage`,
   ].filter((x): x is string => !!x)
   const detailFaux = [
+    // Les familles (v14) : un second essai d'abord — ce qui suit ne vaut que s'il se trompe encore.
+    f.essai && (f.frappe === 0 ? 'raté encore, il ne t’attaque pas' : colle('raté encore, tu perds', f.perdu)),
     f.tombe
       ? 'son doute le fait tomber : il ne t’attaque pas'
       : f.frappe === 0
-        ? 'il ne t’attaque pas'
+        ? !f.essai && 'il ne t’attaque pas'
         : f.absorbee > 0 && (f.perdu === 0 ? `${colle('son attaque fait', f.frappe)} : ton bouclier pare tout` : `${colle('son attaque fait', f.frappe)}, ton bouclier en ${colle('pare', f.absorbee)}`),
     !f.tombe && doute > 0 && `son doute : ${colle('il perd', doute)}`,
     f.contre > 0 && `riposte : ${colle('il perd', f.contre)}`,
     f.ecus > 0 && `−${f.ecus} écus de ton pari`,
+    (f.ecusDesCartes ?? 0) > 0 && `−${f.ecusDesCartes} écus de ta mise`,
   ].filter((x): x is string => !!x)
   return (
     <div className={'exp-apercu' + (compact ? ' exp-apercu-compact' : '')} role="group" aria-label="Ce que ta réponse fera">
@@ -589,11 +663,17 @@ export function Apercu({ a, base, compact }: { a: ApercuDuTour; base?: ApercuDuT
           <Icon name="x" />
           Si tu te trompes
         </span>
-        <b key={f.perdu} className="exp-apercu-chiffre">
-          {`Tu perds ${f.perdu}`}
-          <Icon name="heart" />
-          <span className="sr-only"> de courage</span>
-        </b>
+        {f.essai ? (
+          <b key="essai" className="exp-apercu-chiffre">
+            Tu réponds encore
+          </b>
+        ) : (
+          <b key={f.perdu} className="exp-apercu-chiffre">
+            {`Tu perds ${f.perdu}`}
+            <Icon name="heart" />
+            <span className="sr-only"> de courage</span>
+          </b>
+        )}
         {!compact && detailFaux.map(t => <span key={t}>{espacesFines(t)}</span>)}
       </div>
     </div>
@@ -608,16 +688,20 @@ function Changement({ c }: { c: ChangementDeLaCarte }) {
   if (c.courage) lignes.push({ cle: 'prix', icone: 'heart', quoi: 'Ton courage, tout de suite', de: `${c.courage.avant}`, a: `${c.courage.apres}` })
   const douteDe = (x: ApercuDuTour) => x.doute ?? 0
   if (douteDe(avant) !== douteDe(apres)) lignes.push({ cle: 'doute', icone: 'bulles', quoi: 'Son doute, juste ou faux', de: `${douteDe(avant)}`, a: `il perd ${douteDe(apres)}` })
-  if (ditJuste(avant) !== ditJuste(apres)) lignes.push({ cle: 'juste', icone: 'check', quoi: 'Si tu as juste', de: ditJuste(avant), a: ditJuste(apres) })
+  if (ditJuste(avant, c.crans) !== ditJuste(apres, c.crans)) lignes.push({ cle: 'juste', icone: 'check', quoi: 'Si tu as juste', de: ditJuste(avant, c.crans), a: ditJuste(apres, c.crans) })
   if (avant.juste.ecus !== apres.juste.ecus) lignes.push({ cle: 'gain', icone: 'ecu', quoi: 'Ton pari gagné', de: `+${avant.juste.ecus}`, a: `+${apres.juste.ecus} écus` })
   // Le jeu complet : les écus et le courage que ses cartes rapportent sur une bonne réponse.
   const ecusDe = (x: ApercuDuTour) => x.juste.ecusDesCartes ?? 0
   const courageDe = (x: ApercuDuTour) => x.juste.courage ?? 0
   if (ecusDe(avant) !== ecusDe(apres)) lignes.push({ cle: 'ecus', icone: 'ecu', quoi: 'Si tu as juste, tes cartes', de: `+${ecusDe(avant)}`, a: `+${ecusDe(apres)} écus` })
   if (courageDe(avant) !== courageDe(apres)) lignes.push({ cle: 'soin', icone: 'heart', quoi: 'Si tu as juste, tu reprends', de: `${courageDe(avant)}`, a: `${courageDe(apres)} de courage` })
-  if (avant.faux.perdu !== apres.faux.perdu) lignes.push({ cle: 'faux', icone: 'heart', quoi: 'Si tu te trompes', de: `tu perds ${avant.faux.perdu}`, a: `tu perds ${apres.faux.perdu}` })
+  // Les familles (v14) : le second essai passe avant l'attaque — « tu réponds encore ».
+  const ditFaux = (x: ApercuDuTour) => (x.faux.essai ? 'tu réponds encore' : `tu perds ${x.faux.perdu}`)
+  if (ditFaux(avant) !== ditFaux(apres)) lignes.push({ cle: 'faux', icone: apres.faux.essai ? 'rotate' : 'heart', quoi: 'Si tu te trompes', de: ditFaux(avant), a: ditFaux(apres) })
   if (avant.faux.contre !== apres.faux.contre) lignes.push({ cle: 'contre', icone: 'sabre', quoi: 'Si tu te trompes, riposte', de: `${avant.faux.contre}`, a: `il perd ${apres.faux.contre}` })
   if (avant.faux.ecus !== apres.faux.ecus) lignes.push({ cle: 'perte', icone: 'ecu', quoi: 'Ton pari perdu', de: `−${avant.faux.ecus}`, a: `−${apres.faux.ecus} écus` })
+  const miseDe = (x: ApercuDuTour) => x.faux.ecusDesCartes ?? 0
+  if (miseDe(avant) !== miseDe(apres)) lignes.push({ cle: 'mise', icone: 'ecu', quoi: 'Si tu te trompes, ta mise', de: `−${miseDe(avant)}`, a: `−${miseDe(apres)} écus` })
   if (lignes.length === 0) return null
   return (
     <section className="exp-changement" aria-labelledby="exp-changement-titre">
@@ -644,8 +728,8 @@ function Changement({ c }: { c: ChangementDeLaCarte }) {
 
 export type JouerUneCarte = (cle: string, plus?: { categorie?: string; montre?: number }) => void
 
-/** Ce qu'une carte coûte, dit à l'oreille et dans les lignes d'une offre. */
-const coutDit = (c: CarteDeRencontre) => (c.cout === 0 ? 'gratuite' : `${c.cout} d’énergie`)
+/** Ce qu'une carte coûte, dit à l'oreille et dans les lignes d'une offre — rien dans la question au centre (v10), où l'énergie n'est plus. */
+const coutDit = (c: CarteDeRencontre, v: number) => (enQuestion(v) ? null : c.cout === 0 ? 'gratuite' : `${c.cout} d’énergie`)
 
 /**
  * Une carte de la main, dessinée (`CarteDessinee`) : l'orbe de son coût, son
@@ -655,22 +739,24 @@ const coutDit = (c: CarteDeRencontre) => (c.cout === 0 ? 'gratuite' : `${c.cout}
  * pourquoi.
  */
 function FaceDeLaCarte({ c, refus, energie, onToucher }: { c: CarteDeRencontre; refus: string | null; energie?: number; onToucher: () => void }) {
+  const cout = coutDit(c, useContext(VersionDesCartes))
   return (
     <button type="button" className={'exp-face' + (refus ? ' exp-face-eteinte' : '')} data-carte={c.cle} aria-haspopup="dialog" onClick={onToucher}>
       <CarteDessinee c={c} taille="main" energie={energie} />
-      <span className="sr-only">{`${c.nom} : ${c.resume}, ${coutDit(c)}${refus ? ', pas maintenant' : ''}`}</span>
+      <span className="sr-only">{`${c.nom} : ${c.resume}${cout ? `, ${cout}` : ''}${refus ? ', pas maintenant' : ''}`}</span>
     </button>
   )
 }
 
-/** Sur le plan, ses cartes de route en petit : le dessin seul, au cadre de sa rareté. */
+/** Sur le plan, ses cartes de route en petit — dans la question au centre (v10), sa main de l'acte aussi : le dessin seul, au cadre de sa rareté. */
 function CarteEnPetit({ c, refus, onToucher }: { c: CarteDeRencontre; refus: string | null; onToucher: () => void }) {
+  const v = useContext(VersionDesCartes)
   return (
     <button type="button" className={'exp-carte-joker exp-carte-rencontre' + (refus ? ' exp-refuse' : '')} style={gemmeDeLaCarte(c)} data-carte={c.cle} aria-haspopup="dialog" onClick={onToucher}>
       <span className="exp-joker-dessin" aria-hidden="true">
         <VisageDeLaCarte c={c} />
       </span>
-      <span className="sr-only">{`${c.nom}, ${MOMENT_COURT[c.moment]}${refus ? ', pas maintenant' : ''}`}</span>
+      <span className="sr-only">{`${c.nom}, ${momentCourt(c.moment, v)}${refus ? ', pas maintenant' : ''}`}</span>
     </button>
   )
 }
@@ -717,14 +803,17 @@ export function MainDeRencontre({
 }) {
   const [levee, setLevee] = useState<number | null>(null)
   const carte = useCarte()
+  const v10 = useEnQuestion()
   const cle = levee !== null ? cles[levee] : undefined
   const indexees = cles.flatMap((k, i) => {
     const c = carte(k)
     return c ? [{ k, i, c }] : []
   })
-  // Avant la question, deux temps : ce qui se joue maintenant, puis ce qui attendra la question ; pendant, ce temps-là seul.
-  const pendant = indexees.filter(x => x.c.moment === 'reflexe')
-  const maintenant = phase === 'question' ? pendant : indexees.filter(x => x.c.moment !== 'reflexe')
+  // Avant la question, deux temps : ce qui se joue maintenant, puis ce qui attendra la question ; pendant, ce temps-là seul. La
+  // question au centre (v10) : à l'annonce, ses cartes du pari, puis le reste de sa main, éteint — devant un dévoilement, dont
+  // les mots courent dès qu'il le voit, il sait d'avance ce qu'il aura ; la question vue, sa main entière.
+  const pendant = indexees.filter(x => (v10 ? !estDuPari(x.k) : x.c.moment === 'reflexe'))
+  const maintenant = phase === 'question' ? (v10 ? indexees : pendant) : indexees.filter(x => (v10 ? estDuPari(x.k) : x.c.moment !== 'reflexe'))
   const plusTard = phase === 'question' ? [] : pendant
   const face =(x: { k: string; i: number; c: CarteDeRencontre }) => (
     <FaceDeLaCarte key={`${x.k}:${x.i}`} c={x.c} refus={refus[x.k] ?? null} energie={inspiration} onToucher={() => setLevee(x.i)} />
@@ -768,7 +857,8 @@ export function MainDeRencontre({
     )
   }
   // La question vue, sans carte à jouer pendant : rien à montrer, la question d'abord — ce qui est posé pour toute la rencontre est dans la barre.
-  if (phase === 'question' && maintenant.length === 0) return null
+  // La question au centre (v10) garde sa main d'une question à l'autre : vide, elle le dit.
+  if (!v10 && phase === 'question' && maintenant.length === 0) return null
   return (
     <>
       <section className="exp-cartes" aria-labelledby="exp-cartes-titre">
@@ -784,7 +874,9 @@ export function MainDeRencontre({
           </button>
         </div>
         {cles.length === 0 ? (
-          <p className="exp-main-vide">{espacesFines('Ta main est vide : la question suivante en tire de nouvelles.')}</p>
+          <p className="exp-main-vide">
+            {espacesFines(v10 ? 'Ta main est vide : une carte y vient après chaque question, tant que ta pioche en a.' : 'Ta main est vide : la question suivante en tire de nouvelles.')}
+          </p>
         ) : (
           (maintenant.length > 0 || plusTard.length > 0) && (
             <div className="exp-cartes-rangs">
@@ -845,21 +937,24 @@ export function CarteLevee({
   const boite = useRef<HTMLDivElement>(null)
   useModale(boite, onReposer)
   const [categorie, setCategorie] = useState<string | null>(null)
+  const v = useContext(VersionDesCartes)
   const c = useCarte()(cle)
   if (!c) return null
   const verbe = cle === 'prediction' ? 'Montrer une réponse à l’Oracle' : `${c.moment === 'pouvoir' ? 'Poser' : 'Jouer'} « ${c.nom} »`
   // Le Commandement choisit d'abord sa catégorie : douze pastilles sous la carte, qui se fait plus petite.
   const choix = !!onJouer && !refus && cle === 'commandement'
-  const plus = plusDeLaCarte(c)
+  const plus = plusDeLaCarte(c, v)
+  // La question au centre (v10) : une carte du pari porte l'écu du pari ; toutes les autres, l'œil ouvert de la question vue.
+  const icone = enQuestion(v) && c.moment === 'preparation' ? 'ecu' : ICONE_DU_MOMENT[c.moment]
   return (
     <div className="carte-voile exp-leve-voile" onClick={onReposer}>
       <div className={'exp-leve' + (choix ? ' exp-leve-avec-choix' : '')} role="dialog" aria-modal="true" aria-label={c.nom} ref={boite} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <CarteDessinee c={c} taille="levee">
           <span className="exp-vc-quand">
-            <Icon name={ICONE_DU_MOMENT[c.moment]} />
-            {MOMENT[c.moment]}
+            <Icon name={icone} />
+            {momentDit(c.moment, v)}
           </span>
-          {c.moment !== 'route' && <span className="sr-only">{c.cout === 0 ? 'Elle est gratuite.' : `Elle coûte ${c.cout} d’énergie.`}</span>}
+          {c.moment !== 'route' && !enQuestion(v) && <span className="sr-only">{c.cout === 0 ? 'Elle est gratuite.' : `Elle coûte ${c.cout} d’énergie.`}</span>}
           {plus.length > 0 && <span className="exp-vc-plus">{espacesFines(plus.join(' · '))}</span>}
         </CarteDessinee>
         {changement && <Changement c={changement} />}
@@ -934,6 +1029,10 @@ export function energieDite(energie: readonly number[]): string {
 const regleDuCycle = (energie: readonly number[]) =>
   `À chaque question, tu tires de nouvelles cartes de ta pioche, et tu as ${energieDite(energie)} pour les jouer. Celles que tu ne joues pas vont à la défausse ; quand ta pioche est vide, ta défausse y est remélangée. Une carte « une fois par rencontre » revient à la rencontre suivante, et chaque rencontre remélange tout ton paquet. Les cartes de route se jouent sur le plan, une fois par acte.`
 
+/** Le cycle de la question au centre (v10) : la main de l'acte, gardée — « quand l'utiliser ? » a sa réponse. */
+const regleDuCycleEnQuestion = (mainMax: number) =>
+  `Ta main tire ${MAIN_A_L_OUVERTURE_DE_L_ACTE} cartes à l’ouverture de chaque acte, puis une après chaque question, ${mainMax} au plus : ce que tu ne joues pas, tu le gardes. Une carte par question ; jouée, elle part à ta défausse, qui revient à l’acte suivant — chaque carte sert une fois par acte, et le gardien attend au bout. Les cartes de route se jouent sur le plan, une fois par acte.`
+
 /**
  * Ce que l'amélioration fera d'une carte, avant qu'on la choisisse — au
  * campement, à l'échoppe (le jeu complet) : la carte, puis la même améliorée,
@@ -971,9 +1070,11 @@ export function AvantApres({ cle }: { cle: string }) {
  * Une carte de l'avant et de l'après, et dessous ce qu'elle fait : sa phrase,
  * puis son coût, quand elle se joue, et si elle ne sert qu'une fois — une
  * amélioration « Gratuite » ou qui la fait revenir garde la même phrase, et
- * c'est dessous qu'elle change.
+ * c'est dessous qu'elle change. À la version de l'expédition : la question au
+ * centre (v10) ne dit ni coût ni « une fois », et ses moments sont les siens.
  */
 function CeQuElleFait({ c }: { c: CarteDeRencontre }) {
+  const v = useContext(VersionDesCartes)
   const fois = c.unique ? 'une fois par expédition' : c.epuisement ? 'une fois par rencontre' : null
   return (
     <div className="exp-avant-apres-carte">
@@ -981,7 +1082,7 @@ function CeQuElleFait({ c }: { c: CarteDeRencontre }) {
       <p className="exp-avant-apres-dit">
         <span className="sr-only">{`${c.nom} : `}</span>
         <span>{espacesFines(c.effet)}</span>
-        <span className="muted small">{espacesFines([coutDit(c), MOMENT_COURT[c.moment], fois].filter(Boolean).join(' · '))}</span>
+        <span className="muted small">{espacesFines([coutDit(c, v), momentCourt(c.moment, v), fois].filter(Boolean).join(' · '))}</span>
       </p>
     </div>
   )
@@ -1047,8 +1148,11 @@ export function RangeeDeCartes({
  */
 export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly string[]; prises: readonly string[]; onToucher: (cle: string) => void }) {
   const carte = useCarte()
+  const v = useContext(VersionDesCartes)
   const cartes = cles.map(carte).filter((c): c is CarteDeRencontre => !!c)
   const choisie = cartes.find(c => prises.includes(c.cle))
+  /** Son coût — sauf dans la question au centre — et son moment, en une ligne. */
+  const quand = (c: CarteDeRencontre, court: boolean) => [coutDit(c, v), court ? momentCourt(c.moment, v) : momentDit(c.moment, v)].filter(Boolean).join(court ? ', ' : ' · ')
   return (
     <>
       <div className="exp-a-prendre" role="group" aria-label="Les cartes à prendre">
@@ -1062,7 +1166,7 @@ export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly str
             onClick={() => onToucher(c.cle)}
           >
             <CarteDessinee c={c} taille="rangee" />
-            <span className="sr-only">{`${c.nom}, ${RARETE_DE_LA_CARTE[c.rarete]} : ${c.effet} ${coutDit(c)}, ${MOMENT_COURT[c.moment]}.`}</span>
+            <span className="sr-only">{`${c.nom}, ${RARETE_DE_LA_CARTE[c.rarete]} : ${c.effet} ${quand(c, true)}.`}</span>
           </button>
         ))}
       </div>
@@ -1073,7 +1177,7 @@ export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly str
             {RARETE_DE_LA_CARTE[choisie.rarete]}
           </span>
           <span>{espacesFines(choisie.effet)}</span>
-          <span className="muted small">{espacesFines(`${coutDit(choisie)} · ${MOMENT[choisie.moment]}`)}</span>
+          <span className="muted small">{espacesFines(quand(choisie, false))}</span>
         </p>
       )}
     </>
@@ -1091,12 +1195,19 @@ export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly str
 export function FeuilleDesCartes({
   paquet,
   rencontre,
+  acte,
   ascension = 0,
   energie,
   onFermer,
 }: {
   paquet: readonly string[]
   rencontre?: VueDeLaRencontre
+  /**
+   * La main de l'acte (la question au centre, v10), sur le plan comme en
+   * rencontre : sa main, sa défausse, ce que la main tient au plus — la pioche
+   * s'en déduit.
+   */
+  acte?: { main: readonly string[]; defausse: readonly string[]; mainMax: number }
   /** Son cran de l'Ascension : l'énergie de chaque question, que la règle du cycle dit — sans vue, au départ. */
   ascension?: number
   /** L'énergie de chaque acte, telle que la vue la dit (`CartesEnJeu.energie`). */
@@ -1104,7 +1215,12 @@ export function FeuilleDesCartes({
   onFermer: () => void
 }) {
   const [regardee, setRegardee] = useState<string | null>(null)
-  const pioche = rencontre ? sans(cartesDeCombat(paquet), [...rencontre.main, ...rencontre.defausse, ...rencontre.epuisees, ...rencontre.pouvoirs]) : []
+  const posees = rencontre?.pouvoirs ?? []
+  const pioche = acte
+    ? sans(cartesDeCombat(paquet), [...acte.main, ...acte.defausse, ...posees])
+    : rencontre
+      ? sans(cartesDeCombat(paquet), [...rencontre.main, ...rencontre.defausse, ...rencontre.epuisees, ...rencontre.pouvoirs])
+      : []
   const tas = (titre: string, cles: readonly string[], vide: string) => (
     <section className="exp-main-section" key={titre}>
       <h3 className="label">{`${titre} · ${cles.length}`}</h3>
@@ -1113,17 +1229,25 @@ export function FeuilleDesCartes({
   )
   return (
     <>
-      <Feuille titre={rencontre ? 'Tes cartes' : 'Ton paquet'} className="feuille-paquet" onFermer={onFermer}>
-        {rencontre && rencontre.pouvoirs.length > 0 && tas('Posées pour toute la rencontre', rencontre.pouvoirs, '')}
-        {rencontre && (
+      <Feuille titre={rencontre || acte ? 'Tes cartes' : 'Ton paquet'} className="feuille-paquet" onFermer={onFermer}>
+        {posees.length > 0 && tas('Posées pour toute la rencontre', posees, '')}
+        {acte ? (
           <>
-            {tas('Ta pioche', pioche, 'Ta pioche est vide : ta défausse y revient à la question suivante.')}
-            {tas('Ta défausse', rencontre.defausse, 'Rien en défausse.')}
-            {rencontre.epuisees.length > 0 && tas('Hors jeu jusqu’à la rencontre suivante', rencontre.epuisees, '')}
+            {tas('Ta main', acte.main, 'Ta main est vide : une carte y vient après chaque question.')}
+            {tas('Ta pioche', pioche, 'Ta pioche est vide : toutes tes cartes reviennent à l’acte suivant.')}
+            {tas('Ta défausse', acte.defausse, 'Rien en défausse.')}
           </>
+        ) : (
+          rencontre && (
+            <>
+              {tas('Ta pioche', pioche, 'Ta pioche est vide : ta défausse y revient à la question suivante.')}
+              {tas('Ta défausse', rencontre.defausse, 'Rien en défausse.')}
+              {rencontre.epuisees.length > 0 && tas('Hors jeu jusqu’à la rencontre suivante', rencontre.epuisees, '')}
+            </>
+          )
         )}
         {tas('Tout ton paquet', paquet, 'Ton paquet est vide.')}
-        <p className="muted small">{espacesFines(regleDuCycle(energieDesActes(energie, ascension)))}</p>
+        <p className="muted small">{espacesFines(acte ? regleDuCycleEnQuestion(acte.mainMax) : regleDuCycle(energieDesActes(energie, ascension)))}</p>
       </Feuille>
       {regardee && <CarteLevee cle={regardee} onReposer={() => setRegardee(null)} />}
     </>
@@ -1178,9 +1302,9 @@ const REGLE_OUVERTE: Readonly<Record<RegleDuCodex, string>> = {
 /** Le nom d'un dos, dans une phrase : « le dos doré ». */
 const nomDuDos = (cle: DosDuPaquet) => dosDe(cle)?.nom ?? cle
 
-/** La règle d'un cran de l'Ascension au milieu d'une phrase : « les adversaires ont 4 points de plus ». */
-const regleDuCran = (cran: number) => {
-  const regle = ASCENSION[cran - 1]?.regle ?? ''
+/** La règle d'un cran de l'Ascension au milieu d'une phrase : « les adversaires ont 4 points de plus » — à la version du départ, dont la question au centre retraduit les crans. */
+const regleDuCran = (cran: number, v: number) => {
+  const regle = ascensionDe(v)[cran - 1]?.regle ?? ''
   return regle.charAt(0).toLowerCase() + regle.slice(1)
 }
 
@@ -1240,11 +1364,13 @@ export function RenommeeGagnee({
   ascension?: number | null
 }) {
   const [regardee, setRegardee] = useState<string | null>(null)
+  // L'échelle et les crans de sa version : celle de la question au centre ouvre ses cartes à elle.
+  const v = useContext(VersionDesCartes)
   const niveauAvant = progressionDe(avant).niveau
   const niveau = progressionDe(avant + gagnee).niveau
-  const marches = ECHELLE.filter(m => m.niveau > niveauAvant && m.niveau <= niveau)
+  const marches = echelleDe(v).filter(m => m.niveau > niveauAvant && m.niveau <= niveau)
   const faits = exploits.flatMap(x => exploitDe(x) ?? [])
-  const cartes = [...marches.flatMap(m => m.cartes), ...faits.flatMap(x => x.carte ?? [])].flatMap(cle => carteDeRencontre(cle) ?? [])
+  const cartes = [...marches.flatMap(m => m.cartes), ...faits.flatMap(x => x.carte ?? [])].flatMap(cle => carteALaVersion(cle, v) ?? [])
   return (
     <section className="card exp-renommee" aria-labelledby="exp-renommee-titre">
       <h2 className="label" id="exp-renommee-titre">
@@ -1307,8 +1433,8 @@ export function RenommeeGagnee({
           <Icon name="mountain" />
           {espacesFines(
             ascension === 1
-              ? `L’Ascension s’ouvre : au départ, choisis son cran 1 — ${regleDuCran(1)}.`
-              : `Le cran ${ascension} de l’Ascension s’ouvre. En plus des autres : ${regleDuCran(ascension)}.`,
+              ? `L’Ascension s’ouvre : au départ, choisis son cran 1 — ${regleDuCran(1, v)}.`
+              : `Le cran ${ascension} de l’Ascension s’ouvre. En plus des autres : ${regleDuCran(ascension, v)}.`,
           )}
         </p>
       )}
@@ -1317,9 +1443,9 @@ export function RenommeeGagnee({
   )
 }
 
-/** Comment s'ouvre une carte que son codex n'a pas encore, en court sous elle, et en phrase quand elle se lève. */
-function ouvertureDite(cle: string): { court: string; phrase: string } | null {
-  const o = ouvertureDe(cle)
+/** Comment s'ouvre une carte que son codex n'a pas encore, en court sous elle, et en phrase quand elle se lève — à l'échelle de sa version. */
+function ouvertureDite(cle: string, v: number): { court: string; phrase: string } | null {
+  const o = ouvertureDe(cle, v)
   if (!o) return null
   if ('niveau' in o) return { court: `Niveau ${o.niveau}`, phrase: `Elle s’ouvre au niveau ${o.niveau} d’explorateur.` }
   if ('exploit' in o) return { court: 'Exploit', phrase: `Elle s’ouvre par un exploit : ${exploitDe(o.exploit)?.but ?? o.exploit}.` }
@@ -1343,15 +1469,18 @@ function ouvertureDite(cle: string): { court: string; phrase: string } | null {
 export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onFermer: () => void }) {
   const [page, setPage] = useState<PageDuCodex>('toutes')
   const [regardee, setRegardee] = useState<string | null>(null)
+  // Les cartes de sa version, à ses chiffres : la question au centre (v10) n'en montre que les soixante-deux qu'elle joue.
+  const v = useContext(VersionDesCartes)
+  const toutes = CARTES_DES_RENCONTRES.flatMap(c => carteALaVersion(c.cle, v) ?? [])
   const ouvertes = codex ? new Set(codex.cartes) : null
   const estOuverte = (cle: string) => !ouvertes || ouvertes.has(cle)
-  const cartes = CARTES_DES_RENCONTRES.filter(c => page === 'toutes' || c.rarete === page)
+  const cartes = toutes.filter(c => page === 'toutes' || c.rarete === page)
   // Des puces qui comptent, comme les pages de l'album des trophées : cinq onglets à leur nom ne tenaient pas sur une ligne en 360.
   const onglets = PAGES_DU_CODEX.map(p => {
-    const n = p.id === 'toutes' ? CARTES_DES_RENCONTRES.length : CARTES_DES_RENCONTRES.filter(c => c.rarete === p.id).length
+    const n = p.id === 'toutes' ? toutes.length : toutes.filter(c => c.rarete === p.id).length
     return { id: p.id, nom: p.nom, pastille: { n, label: `${n} carte${n > 1 ? 's' : ''}`, entier: true as const } }
   })
-  const fermee = regardee && !estOuverte(regardee) ? ouvertureDite(regardee) : null
+  const fermee = regardee && !estOuverte(regardee) ? ouvertureDite(regardee, v) : null
   return (
     <>
       <Feuille titre="Ton codex" className="feuille-codex" onFermer={onFermer}>
@@ -1359,14 +1488,14 @@ export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onF
         <p className="muted small">
           {espacesFines(
             codex
-              ? `${codex.cartes.length} cartes sur ${CARTES_DES_RENCONTRES.length} sont à toi : tes récompenses les tirent. Les autres s’ouvrent en jouant — un niveau, un exploit. Touche une carte pour la lire.`
-              : `Les ${CARTES_DES_RENCONTRES.length} cartes de l’expédition, de la commune à la légendaire. Touche une carte pour la lire.`,
+              ? `${codex.cartes.length} cartes sur ${toutes.length} sont à toi : tes récompenses les tirent. Les autres s’ouvrent en jouant — un niveau, un exploit. Touche une carte pour la lire.`
+              : `Les ${toutes.length} cartes de l’expédition, de la commune à la légendaire. Touche une carte pour la lire.`,
           )}
         </p>
         <Onglets onglets={onglets} actif={page} onChoisir={setPage} label="Les raretés" idOnglet={id => `codex-${id}`} idPanneau={() => 'codex-page'} className="onglets-puces" />
         <ul className="exp-codex" id="codex-page" role="tabpanel" aria-labelledby={`codex-${page}`}>
           {cartes.map(c => {
-            const ouverture = estOuverte(c.cle) ? null : ouvertureDite(c.cle)
+            const ouverture = estOuverte(c.cle) ? null : ouvertureDite(c.cle, v)
             return (
               <li key={c.cle} className={ouverture ? 'exp-codex-fermee' : undefined}>
                 <button type="button" className="exp-codex-carte" data-carte={c.cle} aria-haspopup="dialog" onClick={() => setRegardee(c.cle)}>
@@ -1524,7 +1653,7 @@ export function FioleLevee({ cle, refus, onReposer }: { cle: CleDeFiole; refus: 
 const MARCHE_DITE: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
 
 /** Une forme qui n'est pas celle de tous les jours, dite en clair ; quatre choix ne se disent pas. */
-const FORME_DITE: Record<FormeDEscale, string | null> = { quatre: null, six: 'six choix', 'vrai-faux': 'vrai ou faux', devoilement: 'mot à mot' }
+const FORME_DITE: Record<FormeDEscale, string | null> = { quatre: null, six: 'six choix', 'vrai-faux': 'vrai ou faux', devoilement: 'mot à mot', lettres: 'à composer', frise: 'une frise' }
 
 /**
  * L'adversaire, en tête de la rencontre : l'emblème de sa catégorie — de son
@@ -1533,7 +1662,12 @@ const FORME_DITE: Record<FormeDEscale, string | null> = { quatre: null, six: 'si
  * à zéro, il tombe. Dessous, la question qu'il pose (`SaQuestion`), sans son
  * texte. `sceaux` et `doute` : ce qui lui reste après la réponse, à la
  * révélation (`adversaireALaRevelation`) ; `compact`, la question sous les
- * yeux : son nom et sa jauge seuls.
+ * yeux : son nom et sa jauge seuls. Dans la question au centre (v10), ses
+ * crans, et ce qu'une réponse ferait (`r.apercu`, la règle du verdict) : les
+ * crans qu'une bonne réponse prendrait tremblent, l'attaque se dit cartes
+ * comptées — une carte jouée change ce qu'on voit, et l'œil le voit sans un
+ * mot ; `tot`, un dévoilement encore à sa première moitié ; `apercu`, celui
+ * du pari choisi à l'annonce, pas encore parti.
  */
 export function Adversaire({
   r,
@@ -1542,6 +1676,8 @@ export function Adversaire({
   sceaux,
   doute: douteApres,
   compact,
+  tot,
+  apercu,
 }: {
   r: VueDeLaRencontre
   gardien: string
@@ -1549,6 +1685,8 @@ export function Adversaire({
   sceaux?: number
   doute?: number
   compact?: boolean
+  tot?: boolean
+  apercu?: ApercuDuTour
 }) {
   const restants = Math.max(0, sceaux ?? r.sceaux)
   const sujet = r.sujet ? sujetParCle(r.sujet) : undefined
@@ -1558,12 +1696,24 @@ export function Adversaire({
   const nom = r.sorte === 'gardien' ? nomDuGardien(gardien) : r.adversaire
   // Son doute (les huit familles) : ce qu'il perdra à cette question, juste ou fausse — tombé, il ne doute plus de rien.
   const doute = restants > 0 ? (douteApres ?? r.doute ?? 0) : 0
+  // La question au centre (v10) : ses crans — les bonnes réponses qui le font tomber —, et son attaque, toujours la même.
+  const crans = !!r.crans
+  // Ce qu'une réponse ferait, tant qu'elle n'est pas donnée (à la révélation, `sceaux` dit ce qu'elle a fait) : les cartes jouées comprises.
+  const a = crans && sceaux === undefined ? (apercu ?? r.apercu) : undefined
+  const prises = a ? (tot && a.juste.auPremierMot !== undefined ? a.juste.auPremierMot : a.juste.brises) : 0
+  const visees = Math.min(restants, prises)
+  const attaque = a ? a.faux.perdu : r.frappe
+  const siJusteDit = !a ? '' : prises >= restants ? ', une bonne réponse le fait tomber' : `, une bonne réponse lui en prend ${visees}`
+  const reste =
+    restants === 0
+      ? 'tombé'
+      : crans
+        ? `il lui reste ${restants} cran${restants > 1 ? 's' : ''} sur ${r.max}${siJusteDit}, son attaque : ${attaque}`
+        : `il lui reste ${restants} point${restants > 1 ? 's' : ''} sur ${r.max}`
   return (
     <section
       className={`exp-adversaire exp-adversaire-${r.sorte}` + (restants === 0 ? ' exp-adversaire-tombe' : '') + (compact ? ' exp-adversaire-compact' : '')}
-      aria-label={espacesFines(
-        `${surtitre} : ${nom}, ${restants === 0 ? 'tombé' : `il lui reste ${restants} point${restants > 1 ? 's' : ''} sur ${r.max}`}${doute > 0 ? `, il doute : il perdra ${doute} à cette question, juste ou fausse` : ''}`,
-      )}
+      aria-label={espacesFines(`${surtitre} : ${nom}, ${reste}${doute > 0 ? `, il doute : il perdra ${doute} à cette question, juste ou fausse` : ''}`)}
     >
       <div className="exp-adversaire-haut" aria-hidden="true">
         <span className="exp-adversaire-embleme">
@@ -1578,18 +1728,37 @@ export function Adversaire({
         <span className="exp-adversaire-texte">
           <span className="label">{surtitre}</span>
           <b className="exp-adversaire-nom">{nom}</b>
-          <span className="exp-sceaux">
-            <span className="exp-sceaux-jauge">
-              <i style={{ width: `${part}%` }} />
-            </span>
-            <b>{restants === 0 ? 'Tombé' : `${restants} point${restants > 1 ? 's' : ''}`}</b>
-            {doute > 0 && (
-              <span className="exp-doute">
-                <Icon name="bulles" />
-                {`Doute ${doute}`}
+          {crans ? (
+            // Ses crans en pastilles — pleines, ce qu'il lui reste ; vides, ce que tes bonnes réponses ont brisé ; celles qui tremblent, ce
+            // que la prochaine prendrait —, et son attaque, plus douce ou plus dure qu'à l'ordinaire si une carte la change.
+            <span className="exp-sceaux exp-crans-adverses">
+              <span className="exp-crans-pastilles">
+                {Array.from({ length: r.max }, (_, i) => (
+                  <i key={i} className={i < restants - visees ? 'exp-cran-plein' : i < restants ? 'exp-cran-plein exp-cran-vise' : undefined} />
+                ))}
               </span>
-            )}
-          </span>
+              <b>{restants === 0 ? 'Tombé' : `${restants} cran${restants > 1 ? 's' : ''}`}</b>
+              {restants > 0 && (
+                <span className={'exp-attaque' + (attaque < r.frappe ? ' exp-attaque-moindre' : attaque > r.frappe ? ' exp-attaque-pire' : '')}>
+                  <Icon name="swords" />
+                  {attaque}
+                </span>
+              )}
+            </span>
+          ) : (
+            <span className="exp-sceaux">
+              <span className="exp-sceaux-jauge">
+                <i style={{ width: `${part}%` }} />
+              </span>
+              <b>{restants === 0 ? 'Tombé' : `${restants} point${restants > 1 ? 's' : ''}`}</b>
+              {doute > 0 && (
+                <span className="exp-doute">
+                  <Icon name="bulles" />
+                  {`Doute ${doute}`}
+                </span>
+              )}
+            </span>
+          )}
         </span>
       </div>
       {!compact && r.annonce && <SaQuestion a={r.annonce} />}
@@ -1744,6 +1913,8 @@ function reglesDesRencontres(
   const [a1, a2, a3] = parQuestion
   const [e1, e2, e3] = energie
   const ouverte = (regle: RegleDuCodex) => !codex || codex.regles.includes(regle)
+  // La question au centre (v10) a ses règles : la question d'abord, l'adversaire en crans, la main de l'acte.
+  if (enQuestion(v)) return reglesEnQuestion(codex, ascension, v)
   const huitFamilles = v >= VERSION_DES_HUIT_FAMILLES
   // Les styles que son expédition connaît : ceux dont les cartes de départ existent à sa version.
   const sesStyles = STYLES.filter(s => CARTES_DE_DEPART_DU_STYLE[s].every(cle => (carteDeRencontre(cle)?.depuis ?? 0) <= v))
@@ -1946,13 +2117,163 @@ function reglesDesRencontres(
               ...(ascension > 0
                 ? [{ icone: 'flag' as const, texte: ascension === 1 ? 'Ton expédition est au cran 1.' : `Ton expédition est au cran ${ascension} : les règles des crans 1 à ${ascension} s’ajoutent.` }]
                 : []),
-              ...ASCENSION.map(c => ({ icone: c.cran <= ascension ? ('check' as const) : ('mountain' as const), texte: `Cran ${c.cran} : ${regleDuCran(c.cran)}.` })),
+              ...ASCENSION.map(c => ({ icone: c.cran <= ascension ? ('check' as const) : ('mountain' as const), texte: `Cran ${c.cran} : ${regleDuCran(c.cran, v)}.` })),
             ],
           },
         ]
       : []),
     { cle: 'passeport', titre: 'Ton passeport', lignes: [{ icone: 'tampon', texte: 'Chaque thème pointu trouvé en expédition y met son tampon.' }] },
   ]
+}
+
+/**
+ * Les règles de la question au centre (v10) : celles d'avant elle, réécrites
+ * là où elle les change — la rencontre en crans, la main de l'acte, le pari et
+ * ses cartes, cinq styles, deux fioles, l'Ascension retraduite. Le reste — le
+ * plan, l'expédition, les récompenses, le codex, les exploits, le passeport —
+ * ne change pas.
+ */
+function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, v: number): SectionDesRegles[] {
+  const ouverte = (regle: RegleDuCodex) => !codex || codex.regles.includes(regle)
+  // Les coups de pouce (v11) : la forme à composer et ses trois cartes ; une expédition de la version 10 ne les a pas.
+  const aComposer = v >= VERSION_DES_COUPS_DE_POUCE
+  // Les curiosités (v12) : une escale bonus par acte ; une expédition de la version 11 n'en a pas.
+  const curiosites = v >= VERSION_DES_CURIOSITES
+  // La frise (v13) : quatre événements à ranger ; une expédition de la version 12 n'en a pas.
+  const enFrise = v >= VERSION_DE_LA_FRISE
+  // Les familles (v14) : le second essai du Rempart, et la façon de répondre de chaque style ; une expédition de la version 13 n'en a pas.
+  const familles = v >= VERSION_DES_FAMILLES
+  const avant = reglesDesRencontres([CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex, ascension, [0, 0, 0], true, VERSION_DES_HUIT_FAMILLES)
+  const neuves: Partial<Record<SectionDesRegles['cle'], SectionDesRegles | null>> = {
+    rencontre: {
+      cle: 'rencontre',
+      titre: 'Une rencontre',
+      lignes: [
+        { icone: 'eye', texte: 'La question d’abord : tu la vois, puis tu choisis ta carte et ta réponse.' },
+        {
+          icone: 'check',
+          texte: `Réponds juste : l’adversaire perd un cran — deux à six choix, ${aComposer ? 'à composer, ' : ''}${
+            enFrise ? 'sur une frise, ' : ''
+          }ou quand tu trouves une question mot à mot avant la moitié de ses mots. Sans crans, il tombe.`,
+        },
+        // Les coups de pouce (v11) : la question sans choix.
+        ...(aComposer ? [{ icone: 'lettres' as const, texte: 'À composer : pas de choix — touche ses lettres dans l’ordre de la réponse. Trois sont de trop : les cartes qui effacent les retirent.' }] : []),
+        // La frise (v13) : quatre événements dans l'ordre du temps.
+        ...(enFrise
+          ? [
+              {
+                icone: 'calendar' as const,
+                texte: 'Une frise : quatre événements à remettre dans l’ordre, du plus ancien au plus récent — juste en entier. Les cartes qui effacent en datent, deux au plus.',
+              },
+            ]
+          : []),
+        { icone: 'sparkles', texte: 'Ses crans rayés, qui palpitent : ceux que ta bonne réponse lui prendrait, tes cartes comptées.' },
+        { icone: 'heart', texte: 'Trompe-toi : il t’attaque, toujours autant — le chiffre à côté de ses crans —, et tu perds du courage.' },
+        // Le second essai (v14) : le Rempart l'apporte.
+        ...(familles
+          ? [{ icone: 'rotate' as const, texte: 'Un second essai — les cartes du Rempart : ratée, ta réponse s’efface, rien n’est jugé, et tu réponds encore. Jamais sur un vrai ou faux.' }]
+          : []),
+        { icone: 'source', texte: 'Ton courage se regagne sur le plan : la source, le campement, l’échoppe, une fiole.' },
+        { icone: 'x', texte: 'Plus de courage : l’expédition s’arrête là.' },
+      ],
+    },
+    cartes: {
+      cle: 'cartes',
+      titre: 'Tes cartes',
+      lignes: [
+        { icone: 'target', texte: 'Une carte par question, la question sous les yeux : elle t’aide à répondre, ou fait perdre un cran de plus à l’adversaire.' },
+        ...(aComposer
+          ? [
+              {
+                icone: 'bulb' as const,
+                texte:
+                  'Les coups de pouce te soufflent la réponse : Le repère, son époque — sans époque, il efface ; La lettre, une de ses lettres ; L’initiale, la première. À composer, ces deux-là posent leurs lettres.',
+              },
+            ]
+          : []),
+        {
+          icone: 'list',
+          texte: `Ta main tire ${MAIN_A_L_OUVERTURE_DE_L_ACTE} cartes à l’ouverture de chaque acte, puis une après chaque question, ${mainMaxEnQuestion(false, ascension)} au plus : ce que tu ne joues pas, tu le gardes.`,
+        },
+        { icone: 'rotate', texte: 'Jouée, une carte part à ta défausse, qui revient à l’acte suivant : chaque carte sert une fois par acte — tes meilleures, réserve-les au gardien.' },
+        { icone: 'infinity', texte: 'Une carte posée pour toute la rencontre se montre en haut de l’écran : touche-la pour la relire. La rencontre finie, elle rejoint ta défausse.' },
+        { icone: 'eye', texte: 'Touche une carte : elle dit ce qu’elle fait, et ce qu’elle changerait.' },
+        { icone: 'flag', texte: 'Une carte de route se joue sur le plan, une fois par acte.' },
+      ],
+    },
+    style: codex
+      ? {
+          cle: 'style',
+          titre: 'Ton style',
+          lignes: [
+            { icone: 'users', texte: 'Au départ, choisis ton style : une famille de cartes. Deux de ses cartes partent dans ton paquet, à la place de deux cartes de base.' },
+            { icone: 'plus-square', texte: 'Chaque récompense propose une carte de ton style, une que tu n’as pas encore s’il en reste ; les deux autres viennent de partout.' },
+            { icone: 'help', texte: 'Ton style ne fait pas tout : prends aussi de quoi t’aider sur les questions que tu ne sais pas.' },
+            // Les familles (v14) : six styles, chacun sa façon de répondre (`jeuDuStyle`).
+            ...stylesDeLaVersion(v).map(s => ({
+              icone: ICONE_DU_STYLE[s],
+              texte: `${FAMILLES_DE_CARTES[s].nom} — « ${FAMILLES_DE_CARTES[s].devise} » : ${(jeuDuStyle(s, v) ?? '').replace(/^./, x => x.toLowerCase())}${
+                !codex.styles || codex.styles.includes(s) ? '' : ` Il s’ouvre au niveau ${niveauDuStyle(s, v)} d’explorateur.`
+              }`,
+            })),
+          ],
+        }
+      : null,
+    pari: {
+      cle: 'pari',
+      titre: 'Le pari',
+      lignes: [
+        ...(ouverte('pari') ? [] : [{ icone: 'lock' as const, texte: `Il s’ouvre ${ouvertAuNiveau('pari')}.` }]),
+        { icone: 'ecu', texte: 'Avant de voir la question, parie des écus : juste, tu gagnes la moitié de ta mise ; faux, tu la perds.' },
+        { icone: 'plus-square', texte: 'Les cartes du pari — Doubler la mise, Assurance, Banco… — se jouent là, avec lui : jouées la question vue, elles feraient parier à coup sûr.' },
+        { icone: 'echoppe', texte: 'Tes écus se gagnent en battant tes adversaires et se dépensent à l’échoppe. Ils restent dans l’expédition.' },
+      ],
+    },
+    fioles: codex
+      ? {
+          cle: 'fioles',
+          titre: 'Les fioles',
+          lignes: [
+            ...(ouverte('fioles') ? [] : [{ icone: 'lock' as const, texte: `Elles s’ouvrent ${ouvertAuNiveau('fioles')}.` }]),
+            { icone: 'fiole', texte: `Une fiole ne sert qu’une fois : bois-la quand tu veux, même la question sous les yeux. Tu en portes ${FIOLES_MAX} au plus.` },
+            ...FIOLES_EN_QUESTION.map(f => ({ icone: 'fiole' as const, texte: `${f.nom} : ${f.effet}.` })),
+            { icone: 'echoppe', texte: `L’échoppe en vend une, ${PRIX_DE_L_ECHOPPE.fiole} écus ; un coffre en cache une, à prendre à la place d’une carte.` },
+          ],
+        }
+      : null,
+    ascension: codex
+      ? {
+          cle: 'ascension',
+          titre: 'L’Ascension',
+          lignes: [
+            { icone: 'mountain', texte: 'Va au bout d’une expédition : l’Ascension s’ouvre. Choisis ton cran au départ ; une victoire à ton plus haut cran ouvre le suivant.' },
+            ...(ascension > 0
+              ? [{ icone: 'flag' as const, texte: ascension === 1 ? 'Ton expédition est au cran 1.' : `Ton expédition est au cran ${ascension} : les règles des crans 1 à ${ascension} s’ajoutent.` }]
+              : []),
+            ...ascensionDe(v).map(c => ({ icone: c.cran <= ascension ? ('check' as const) : ('mountain' as const), texte: `Cran ${c.cran} : ${regleDuCran(c.cran, v)}.` })),
+          ],
+        }
+      : null,
+  }
+  return avant.flatMap(s => {
+    if (s.cle === 'ameliorees') {
+      // Une amélioration ne baisse plus de coût : elle ajoute un cran, ou une carte.
+      const [, ...reste] = s.lignes
+      return [{ ...s, lignes: [{ icone: 'arrow-up' as const, texte: 'Une carte améliorée fait la même chose, en mieux : un cran de plus, une carte de plus… Son nom finit par « + ».' }, ...reste] }]
+    }
+    if (s.cle === 'plan' && curiosites) {
+      // La curiosité, après le coffre : une escale de plus sur le plan, dite des mots de sa carte.
+      const apres = s.lignes.findIndex(l => l.icone === 'coffre') + 1
+      const ligne = {
+        icone: 'utensils' as const,
+        texte: `Une curiosité, une par acte : d’où vient un plat, ou un rébus en emojis à composer — sans adversaire ni cartes. Trouvée, ${ceQueRapporteUneCuriosite(ouverte('fioles'), ouverte('talismans'))} au choix ; ratée, rien de perdu.`,
+      }
+      return [{ ...s, lignes: [...s.lignes.slice(0, apres), ligne, ...s.lignes.slice(apres)] }]
+    }
+    if (!(s.cle in neuves)) return [s]
+    const neuve = neuves[s.cle]
+    return neuve ? [neuve] : []
+  })
 }
 
 /** Le dessin de chaque exploit, dans les règles : ce qu'il faut faire. */
@@ -2120,33 +2441,37 @@ export function PreparationDeLaRencontre({
   const [mise, setMise] = useState(0)
   const [dit, setDit] = useState<string | null>(null)
   const [tas, setTas] = useState(false)
-  // Fermées d'une façon ou d'une autre, les règles sont vues : revenues à chaque rencontre, elles lasseraient.
-  const [aide, setAide] = useState(() => !guideVu())
-  const vu = () => {
-    retenirLeGuide()
-    setAide(false)
-  }
   const gardien = vue.gardiens[Math.min(vue.acte, vue.gardiens.length - 1)]?.cle ?? ''
   const refus = r.mises?.[mise] ?? null
+  // La question au centre (v10) : l'annonce ne demande que le pari — ni tuiles, ni énergie ; de sa main, les cartes du pari, le reste éteint.
+  const v10 = !!r.crans
   // L'aperçu à la mise choisie, par la règle du serveur : celui de la vue est à mise nulle, la mise n'étant dite qu'en voyant la question.
+  // Dans la question au centre, il n'a plus ses tuiles : l'en-tête de l'adversaire le montre, ses crans qui palpitent.
   const apercu = apercuALaMise(r, mise, vue.fetiche) ?? r.apercu
   // Le même, sans les cartes de cette question : ce qu'elles y ajoutent se dit à part.
   const base = apercuALaMise({ ...r, charge: 0, garde: 0, jouees: [] }, mise, vue.fetiche)
   const motif = dit ?? refus
+  const cles = r.main
   return (
     <div className="player-shell expedition exp-rencontre">
       {barre}
-      <Adversaire r={r} gardien={gardien} acte={vue.acte} />
-      {apercu && <Apercu a={apercu} base={base} />}
-      <MainDeRencontre
-        cles={r.main}
-        refus={r.refus}
-        busy={busy}
-        inspiration={r.inspiration}
-        pile={{ compte: r.pioche, mot: 'pioche', dit: `Ta pioche : ${r.pioche} carte${r.pioche > 1 ? 's' : ''}, ta défausse : ${r.defausse.length}`, onOuvrir: () => setTas(true) }}
-        apercuDeLaCarte={cle => changementDeLaCarte(r, mise, vue.fetiche, cle)}
-        onJouer={onJouer}
-      />
+      {/* Un dévoilement trouvé tôt prend un cran de plus : à l'annonce, aucun mot n'est encore dit. */}
+      <Adversaire r={r} gardien={gardien} acte={vue.acte} apercu={apercu} tot={r.annonce?.forme === 'devoilement'} />
+      {apercu && !v10 && <Apercu a={apercu} base={base} />}
+      {v10 && r.annonce?.forme === 'devoilement' && <p className="exp-consigne small">{espacesFines('Une question mot à mot : ses mots courent dès que tu la vois.')}</p>}
+      {v10 && r.annonce?.forme === 'lettres' && <p className="exp-consigne small">{espacesFines('Une question à composer : pas de choix — ses lettres, à remettre dans l’ordre.')}</p>}
+      {v10 && r.annonce?.forme === 'frise' && <p className="exp-consigne small">{espacesFines('Une frise : quatre événements à remettre dans l’ordre du temps.')}</p>}
+      {(!v10 || cles.length > 0) && (
+        <MainDeRencontre
+          cles={cles}
+          refus={r.refus}
+          busy={busy}
+          {...(!v10 && { inspiration: r.inspiration })}
+          pile={{ compte: r.pioche, mot: 'pioche', dit: `Ta pioche : ${r.pioche} carte${r.pioche > 1 ? 's' : ''}, ta défausse : ${r.defausse.length}`, onOuvrir: () => setTas(true) }}
+          apercuDeLaCarte={cle => changementDeLaCarte(r, mise, vue.fetiche, cle)}
+          onJouer={onJouer}
+        />
+      )}
       {/* Le pari attend son niveau (le codex) : avant lui, la première expédition n'a que ses cartes, son énergie et son courage. */}
       {r.pari !== false && (
         <Paris
@@ -2157,6 +2482,12 @@ export function PreparationDeLaRencontre({
             if (refusDeM === null) setMise(m)
           }}
         />
+      )}
+      {/* Sans les tuiles de l'aperçu (v10), ce que le pari choisi rapporte et coûte se dit sous lui, de la règle du verdict. */}
+      {v10 && mise > 0 && apercu && (
+        <p className="exp-consigne small" role="status">
+          {espacesFines(`Juste, +${apercu.juste.ecus} écus ; raté, −${apercu.faux.ecus}.`)}
+        </p>
       )}
       {motif && (
         <p className="exp-refus small" role="status">
@@ -2172,25 +2503,47 @@ export function PreparationDeLaRencontre({
         <Icon name="eye" />
         Voir la question
       </button>
-      {tas && <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={r} ascension={vue.cartes?.ascension} energie={vue.cartes?.energie} onFermer={() => setTas(false)} />}
-      {aide && (
-        <FeuilleDesRegles
-          rencontres
-          parQuestion={vue.cartes?.parQuestion}
-          codex={vue.cartes?.codex}
-          ascension={vue.cartes?.ascension}
-          energie={vue.cartes?.energie}
-          v={vue.cartes?.v}
-          acte={vue.acte}
-          onFermer={vu}
-          pied={
-            <button type="button" className="btn btn-primary btn-block" onClick={vu}>
-              Compris
-            </button>
-          }
-        />
-      )}
+      {tas && <FeuilleDesCartes paquet={vue.cartes?.paquet ?? []} rencontre={r} acte={mainDeLActe(vue)} ascension={vue.cartes?.ascension} energie={vue.cartes?.energie} onFermer={() => setTas(false)} />}
+      <GuideDesRencontres vue={vue} />
     </div>
+  )
+}
+
+/** La main de l'acte (la question au centre, v10), telle que la feuille des tas la lit ; undefined avant elle. */
+export const mainDeLActe = (vue: Pick<VueDeLExpedition, 'cartes'>) => {
+  const c = vue.cartes
+  return c?.main && c.defausse && c.mainMax !== undefined ? { main: c.main, defausse: c.defausse, mainMax: c.mainMax } : undefined
+}
+
+/**
+ * Les règles, ouvertes d'elles-mêmes à la première rencontre, avec
+ * « Compris » — à l'annonce, ou, dans la question au centre (v10), qui n'en a
+ * pas sans le pari, sur la question même. Fermées d'une façon ou d'une autre,
+ * elles sont vues : revenues à chaque rencontre, elles lasseraient.
+ */
+export function GuideDesRencontres({ vue }: { vue: VueDeLExpedition }) {
+  const [aide, setAide] = useState(() => !guideVu())
+  const vu = () => {
+    retenirLeGuide()
+    setAide(false)
+  }
+  if (!aide) return null
+  return (
+    <FeuilleDesRegles
+      rencontres
+      parQuestion={vue.cartes?.parQuestion}
+      codex={vue.cartes?.codex}
+      ascension={vue.cartes?.ascension}
+      energie={vue.cartes?.energie}
+      v={vue.cartes?.v}
+      acte={vue.acte}
+      onFermer={vu}
+      pied={
+        <button type="button" className="btn btn-primary btn-block" onClick={vu}>
+          Compris
+        </button>
+      }
+    />
   )
 }
 
@@ -2199,7 +2552,8 @@ export function PreparationDeLaRencontre({
  * le titre — ce qu'il a perdu, l'adversaire qui tombe, ce qu'il t'a pris — et
  * ses lignes — le bouclier, la riposte, le pari, la victoire.
  */
-export function verdictDeLaRencontre(c: CoupDeRencontre, adversaire: string, finie: boolean): { titre: string; lignes: string[] } {
+export function verdictDeLaRencontre(c: CoupDeRencontre, adversaire: string, finie: boolean, enCrans = false): { titre: string; lignes: string[] } {
+  if (enCrans) return verdictEnCrans(c, adversaire, finie)
   // Son doute (les huit familles) : ce qu'il a perdu avant le verdict, juste ou faux — compté avec ce que la réponse a brisé.
   const doute = c.doute ?? 0
   if (c.traversee) return { titre: 'Question passée : personne ne perd rien', lignes: [doute > 0 && `Son doute lui a coûté ${doute}`, 'Elle part à ton carnet.'].filter((x): x is string => !!x) }
@@ -2242,10 +2596,66 @@ export function verdictDeLaRencontre(c: CoupDeRencontre, adversaire: string, fin
   }
 }
 
-/** Ce qu'une carte jouée vient de faire, quand l'écran ne le montre pas de lui-même ; null : il le dit déjà. */
-export function ceQueLaCarteAFait(cle: string): string | null {
-  const c = carteDeRencontre(cle)
+/**
+ * Le verdict de la question au centre (v10), en crans : « Juste ! Le Scribe
+ * perd un cran », « Le Scribe tombe ! », « Raté… tu perds 6 de courage » — plus
+ * de ligne de calcul, ses crans disent ce qu'il reste à faire.
+ */
+function verdictEnCrans(c: CoupDeRencontre, adversaire: string, finie: boolean): { titre: string; lignes: string[] } {
+  const crans = (n: number) => (n === 1 ? 'un cran' : `${n} crans`)
+  if (c.traversee) return { titre: 'Question passée : personne ne perd rien', lignes: ['Elle part à ton carnet.'] }
+  if (c.juste) {
+    // Les familles (v14) : les cartes qui reviennent dans sa main — Foulée, le Rythme, Vent arrière —, dites par leur nom.
+    const revenues = (c.revenues ?? []).map(cle => carteDeRencontre(cle)?.nom ?? cle)
+    return {
+      titre: c.victoire ? `${adversaire} tombe !` : `Juste ! ${adversaire} perd ${crans(c.brises)}`,
+      lignes: [
+        c.victoire && c.brises > 1 && `Il a perdu ${crans(c.brises)} d’un coup`,
+        c.mise > 0 && `+${c.mise} écus gagnés avec ton pari`,
+        (c.ecus ?? 0) > 0 && `+${c.ecus} écus de tes cartes`,
+        c.victoire && c.victoire.ecus > 0 && `+${c.victoire.ecus} écus de victoire`,
+        revenues.length > 0 && `${revenues.join(' et ')} ${revenues.length > 1 ? 'reviennent' : 'revient'} dans ta main`,
+      ].filter((x): x is string => !!x),
+    }
+  }
+  const titre = finie
+    ? 'Raté… tu n’as plus de courage'
+    : c.renaissance
+      ? 'Raté… Renaissance : ton erreur ne te coûte rien'
+      : c.perdu === 0
+        ? 'Raté… mais il ne t’attaque pas'
+        : `Raté… tu perds ${c.perdu} de courage`
+  // Troisième œil et Inarrêtable (v14) retombent : la barre ne les porte plus, la ligne dit pourquoi.
+  const retombees = (c.retombees ?? []).map(cle => carteDeRencontre(cle)?.nom ?? cle)
+  return {
+    titre,
+    lignes: [
+      c.mise < 0 && `−${-c.mise} écus : ton pari est perdu`,
+      (c.ecus ?? 0) < 0 && `−${-(c.ecus ?? 0)} écus : ta mise est perdue`,
+      retombees.length > 0 && `${retombees.join(' et ')} ${retombees.length > 1 ? 'retombent' : 'retombe'} dans ta défausse`,
+    ].filter((x): x is string => !!x),
+  }
+}
+
+/** Ce qu'une carte jouée vient de faire, quand l'écran ne le montre pas de lui-même ; null : il le dit déjà. À la version de son départ : la question au centre (v10) en a d'autres. */
+export function ceQueLaCarteAFait(cle: string, v = VERSION_DES_HUIT_FAMILLES): string | null {
+  const c = carteALaVersion(cle, v)
   if (!c) return null
+  if (enQuestion(v)) {
+    // Les familles (v14) : la Bibliothèque change aussi de question — un pouvoir qui ne se dirait que posé cacherait l'autre question ;
+    // Troisième œil et Inarrêtable ne tiennent que jusqu'à la prochaine erreur.
+    if (baseDe(cle) === 'bibliotheque' && v >= VERSION_DES_FAMILLES) return 'Une autre question, de ta catégorie fétiche — et les suivantes de la rencontre aussi'
+    if (baseDe(cle) === 'troisieme-oeil' && v >= VERSION_DES_FAMILLES) return `« ${c.nom} » souffle jusqu’à ta prochaine erreur`
+    if (baseDe(cle) === 'inarretable' && v >= VERSION_DES_FAMILLES) return `« ${c.nom} » pardonne ta prochaine erreur`
+    if (c.moment === 'pouvoir') return `« ${c.nom} » agit pour toute la rencontre`
+    if (cle === 'feu-d-artifice') return 'Ta défausse revient dans ta pioche : ta main se remplit'
+    if (cle === 'horizon') return 'Ton erreur est effacée — et ta prochaine récompense sera vide'
+    if (cle === 'reveil') return 'La dernière carte de ta défausse revient dans ta main'
+    if (baseDe(cle) === 'augure') return 'À la question suivante, une mauvaise réponse sera effacée d’avance'
+    // Les familles (v14) : Leçon change de question, comme Échange — l'écran ne dit pas d'où vient l'autre.
+    if (baseDe(cle) === 'lecon' && v >= VERSION_DES_FAMILLES) return 'Une autre question, de ta catégorie fétiche'
+    return null
+  }
   if (c.moment === 'pouvoir') return cle === 'abysses' ? `« ${c.nom} » est posée : elle t’a coûté 6 de courage` : `« ${c.nom} » agit pour toute la rencontre`
   if (baseDe(cle) === 'pioche') return c.amelioree ? 'Trois cartes de plus dans ta main' : 'Deux cartes de plus dans ta main'
   if (cle === 'feu-d-artifice') return 'Ta défausse revient dans ta pioche : trois cartes de plus'
@@ -2368,6 +2778,8 @@ export function retenirLAscension(cran: number, ouverte: number) {
  * comprises. Au plus haut, ce qu'une victoire ouvrirait : c'est tout son prix.
  */
 export function ChoixDeLAscension({ ouverte, cran, onChoisir }: { ouverte: number; cran: number; onChoisir: (cran: number) => void }) {
+  // Les crans de sa version : la question au centre les retraduit en bonnes réponses et en cartes.
+  const crans = ascensionDe(useContext(VersionDesCartes))
   return (
     <section className="card exp-ascension" aria-labelledby="exp-ascension-titre">
       <h2 className="label" id="exp-ascension-titre">
@@ -2395,7 +2807,7 @@ export function ChoixDeLAscension({ ouverte, cran, onChoisir }: { ouverte: numbe
         <p className="muted small">{espacesFines('Sans cran : l’expédition de toujours.')}</p>
       ) : (
         <ul className="exp-regles-du-cran">
-          {ASCENSION.slice(0, cran).map(c => (
+          {crans.slice(0, cran).map(c => (
             <li key={c.cran}>
               <Icon name="mountain" />
               <span>{espacesFines(`${c.regle}.`)}</span>
@@ -2475,10 +2887,18 @@ export const ICONE_DU_STYLE: Readonly<Record<StyleDeJeu, IconName>> = {
 /** Le nom d'un style sans son article, sur sa tuile : « Rempart », « Érudit ». */
 const nomCourtDuStyle = (style: StyleDeJeu) => FAMILLES_DE_CARTES[style].nom.replace(/^(Le |La |L’)/, '')
 
-/** Les cartes de base que ses deux cartes remplacent : « deux Concentrations », « une Concentration et une Prudence ». */
-function basesRemplacees(style: StyleDeJeu): string {
-  const [x, y] = BASES_REMPLACEES_PAR_LE_STYLE[style].map(cle => carteDeRencontre(cle)?.nom ?? cle)
-  return x === y ? `deux ${x}s` : `une ${x} et une ${y}`
+/** Les cartes de base au masculin, et leur pluriel quand un « s » au bout ne le fait pas : la question au centre (v10) remplace des Coups d'œil. */
+const BASES_AU_MASCULIN: ReadonlySet<string> = new Set(['coup-d-oeil', 'echange', 'sursis'])
+const PLURIEL_D_UNE_BASE: Readonly<Record<string, string>> = { 'coup-d-oeil': 'Coups d’œil' }
+
+/** Les cartes de base que ses deux cartes remplacent, à la version du départ : « deux Concentrations », « une Concentration et un Coup d'œil ». */
+function basesRemplacees(style: StyleDeJeu, v: number): string {
+  const remplacees = enQuestion(v) ? BASES_REMPLACEES_EN_QUESTION[style] : BASES_REMPLACEES_PAR_LE_STYLE[style]
+  if (!remplacees) return ''
+  const [x, y] = remplacees
+  const nom = (cle: string) => carteDeRencontre(cle)?.nom ?? cle
+  const article = (cle: string) => (BASES_AU_MASCULIN.has(cle) ? 'un' : 'une')
+  return x === y ? `deux ${PLURIEL_D_UNE_BASE[x] ?? `${nom(x)}s`}` : `${article(x)} ${nom(x)} et ${article(y)} ${nom(y)}`
 }
 
 /**
@@ -2509,6 +2929,7 @@ export function ChoixDuStyle({
   prochain?: { style: StyleDeJeu; niveau: number }
 }) {
   const [choisir, setChoisir] = useState(false)
+  const v = useContext(VersionDesCartes)
   const famille = FAMILLES_DE_CARTES[style]
   const [a, b] = CARTES_DE_DEPART_DU_STYLE[style].map(cle => carteDeRencontre(cle)?.nom ?? cle)
   return (
@@ -2533,9 +2954,9 @@ export function ChoixDuStyle({
         ))}
       </div>
       <p className="exp-style-dit">
-        <b>{espacesFines(`${famille.nom} · « ${famille.devise} »`)}</b> {espacesFines(famille.jeu ?? '')}
+        <b>{espacesFines(`${famille.nom} · « ${famille.devise} »`)}</b> {espacesFines(jeuDuStyle(style, v) ?? '')}
       </p>
-      <p className="muted small">{espacesFines(`Tu pars avec ${a} et ${b}, à la place de ${basesRemplacees(style)} ; chaque récompense propose une carte de ton style.`)}</p>
+      <p className="muted small">{espacesFines(`Tu pars avec ${a} et ${b}, à la place de ${basesRemplacees(style, v)} ; chaque récompense propose une carte de ton style.`)}</p>
       {style === 'erudit' && feticheOuverte && (
         <div className="exp-section-tete">
           <span className="small">
@@ -2603,7 +3024,8 @@ export function ToutesLesCartes({ siens, invite }: { siens: ReadonlySet<string>;
         <b>{c.nom}</b>
         <span className="muted small">
           {[
-            c.moment !== 'route' && coutDit(c),
+            // L'équipe ne se choisissait qu'avant le codex : ses cartes se disent à leurs chiffres d'alors.
+            c.moment !== 'route' && coutDit(c, VERSION_DES_HUIT_FAMILLES),
             MOMENT_COURT[c.moment],
             RARETE_DE_LA_CARTE[c.rarete],
             c.legendaire && (siens.has(c.legendaire) ? 'à toi' : c.legendaire === invite ? 'l’invité du jour' : `${nomDuGardien(c.legendaire)}, à gagner`),
@@ -2632,6 +3054,7 @@ export function ToutesLesCartes({ siens, invite }: { siens: ReadonlySet<string>;
 
 /** Ce qu'une carte montre dans une ligne d'offre ou d'étal : son visage au cadre de sa rareté, son nom et sa rareté, son effet, quand elle se joue. */
 export function LigneDeCarte({ c, prix }: { c: CarteDeRencontre; prix?: ReactNode }) {
+  const v = useContext(VersionDesCartes)
   return (
     <>
       <span className="exp-offre-visage" style={gemmeDeLaCarte(c)} aria-hidden="true">
@@ -2645,7 +3068,7 @@ export function LigneDeCarte({ c, prix }: { c: CarteDeRencontre; prix?: ReactNod
           </span>
         </span>
         <span className="small">{espacesFines(c.effet)}</span>
-        <span className="muted small">{espacesFines([c.moment !== 'route' && coutDit(c), MOMENT[c.moment]].filter(Boolean).join(' · '))}</span>
+        <span className="muted small">{espacesFines([c.moment !== 'route' && coutDit(c, v), momentDit(c.moment, v)].filter(Boolean).join(' · '))}</span>
       </span>
       {prix}
     </>

@@ -591,8 +591,12 @@ export const api = {
    */
   expedition: {
     page: () => req<PageDeLExpedition>(DEPART.expedition),
-    /** Partir avec son équipée — et, là où elles s'ouvrent (partout, depuis qu'elles sont le jeu), aux rencontres, avec son style, sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension. */
-    partir: (equipee: readonly string[], plus: { rencontres?: true; style?: string; fetiche?: string; dos?: string; ascension?: number } = {}) =>
+    /**
+     * Partir avec son équipée — et, là où elles s'ouvrent (partout, depuis qu'elles sont le jeu), aux rencontres, avec son style, sa
+     * catégorie fétiche, le dos de son paquet et son cran de l'Ascension ; `questionAuCentre`, en version 10, là où la page la dit
+     * ouverte (`PageDeLExpedition.prochaine.questionAuCentre`).
+     */
+    partir: (equipee: readonly string[], plus: { rencontres?: true; questionAuCentre?: true; style?: string; fetiche?: string; dos?: string; ascension?: number } = {}) =>
       req<VueDeLExpedition>('/api/expedition', { method: 'POST', body: JSON.stringify({ equipee, ...plus }) }),
     avancer: (id: string, rang: number, vers: string) => gesteDExpedition(id, rang, { quoi: 'avancer', vers }),
     /** En rencontre : sa mise dite, il voit la question qui attend (`position`) — les cartes jouées sur place avec lui. */
@@ -613,7 +617,8 @@ export const api = {
     /** À l'échoppe : un article contre des écus — le joker de l'étal, ou celui qu'on retire. */
     acheter: (id: string, rang: number, article: ArticleDeLEchoppe, joker?: string) => gesteDExpedition(id, rang, { quoi: 'acheter', article, ...(joker !== undefined && { joker }) }),
     garder: (id: string, rang: number, legendaire: string) => gesteDExpedition(id, rang, { quoi: 'garder', legendaire }),
-    repondre: (id: string, position: number, choix: number | readonly number[]) =>
+    /** Une réponse : un choix, deux sous Double chance — ou, à composer (v11), ses lettres dans l'ordre de ses cases. */
+    repondre: (id: string, position: number, choix: number | readonly number[] | string) =>
       req<ReponseDExpedition>(`/api/expedition/${encodeURIComponent(id)}/reponse`, { method: 'POST', body: JSON.stringify({ position, choix }) }),
     abandonner: (id: string) => req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/abandon`, { method: 'POST' }),
     devoilement: lireLeDevoilement,

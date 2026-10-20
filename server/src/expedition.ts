@@ -4,7 +4,7 @@ import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { readPlayerToken } from './auth/http'
 import { EXPEDITION_EN_PRODUCTION } from '../../shared/jokers'
-import { RENCONTRES_EN_PRODUCTION } from '../../shared/rencontres'
+import { QUESTION_AU_CENTRE_EN_PRODUCTION, RENCONTRES_EN_PRODUCTION } from '../../shared/rencontres'
 
 interface ExpeditionDeps {
   campagne: CampagneStore
@@ -23,6 +23,12 @@ interface ExpeditionDeps {
    * elles, le départ reste celui des jokers.
    */
   rencontres?: boolean
+  /**
+   * La question au centre (la version 10, le 19 octobre 2026) s'offre-t-elle
+   * au départ ? La préproduction d'abord (`questionAuCentreOuverte`) : la page
+   * la demande, et sans elle le départ reste en version 9.
+   */
+  questionAuCentre?: boolean
 }
 
 /**
@@ -37,6 +43,11 @@ export function expeditionOuverte({ online, env }: { online: boolean; env: strin
 /** Les rencontres s'ouvrent-elles au départ ? La même règle, sous leur drapeau à elles — ouvert : partout. */
 export function rencontresOuvertes({ online, env }: { online: boolean; env: string }): boolean {
   return RENCONTRES_EN_PRODUCTION || !online || env !== 'production'
+}
+
+/** La question au centre (v10) s'ouvre-t-elle au départ ? La même règle, sous son drapeau — fermé : la préproduction, `npm run dev`, les tests. */
+export function questionAuCentreOuverte({ online, env }: { online: boolean; env: string }): boolean {
+  return QUESTION_AU_CENTRE_EN_PRODUCTION || !online || env !== 'production'
 }
 
 /**
@@ -66,7 +77,7 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
     '/api/expedition',
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(await deps.campagne.pageDeLExpedition(profil.id, { rencontres: deps.rencontres === true }))
+      if (profil) res.json(await deps.campagne.pageDeLExpedition(profil.id, { rencontres: deps.rencontres === true, questionAuCentre: deps.questionAuCentre === true }))
     }),
   )
 
@@ -80,6 +91,8 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
       if (!profil) return
       // Demandées où elles ne s'ouvrent pas, elles se taisent : le départ reste celui des jokers, sans un refus pour une page d'avance.
       const rencontres = deps.rencontres === true && req.body?.rencontres === true
+      // La question au centre de même : demandée où elle ne s'ouvre pas, le départ reste en version 9.
+      const questionAuCentre = rencontres && deps.questionAuCentre === true && req.body?.questionAuCentre === true
       const fetiche = typeof req.body?.fetiche === 'string' ? req.body.fetiche : undefined
       const dos = typeof req.body?.dos === 'string' ? req.body.dos : undefined
       const ascension = typeof req.body?.ascension === 'number' ? req.body.ascension : undefined
@@ -87,6 +100,7 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
       res.json(
         await deps.campagne.partirEnExpedition(profil.id, req.body?.equipee ?? [], {
           rencontres,
+          questionAuCentre,
           ...(rencontres && fetiche !== undefined && { fetiche }),
           ...(rencontres && dos !== undefined && { dos }),
           ...(rencontres && ascension !== undefined && { ascension }),
