@@ -17,6 +17,7 @@ import { ProgrammeStore } from './core/programmes'
 import { SalonStore } from './core/salons'
 import { CampagneStore } from './core/campagne'
 import { Missions } from './core/missions'
+import { Soins } from './core/soins'
 import type { BaseDeLaCampagne } from './core/baseCampagne'
 import { Budget } from './core/budget'
 import { clientIp, readPlayerToken } from './auth/http'
@@ -114,6 +115,8 @@ export interface QuizServerOptions {
   horlogeDuJour?: () => number
   /** Le hasard du coffre de la semaine (`shared/tresor.ts`), dans [0, 1[ : les tests le fixent ; en ligne, `Math.random`. */
   hasardDuCoffre?: () => number
+  /** Le hasard du cadeau de son compagnon (`shared/trouvailles.ts`), dans [0, 1[ : les tests le fixent ; en ligne, une graine par profil, compagnon et jour. */
+  hasardDuCadeau?: () => number
   /**
    * Le jeton de la routine qui remplit la réserve du quiz du jour
    * (`RESERVE_TOKEN`, `quizDuJour.ts`). Absent : la porte n'existe pas, et
@@ -1202,6 +1205,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     campagne,
     // Les missions du jour et le coffre de la semaine lisent les trois magasins, à l'horloge du quiz du jour.
     missions: new Missions({ profiles, jour, campagne, maintenant: maintenantDuJour, ...(opts.hasardDuCoffre && { hasard: opts.hasardDuCoffre }) }),
+    // Les soins de son compagnon, à la même horloge : ses envies sont celles du jour de Paris.
+    soins: new Soins({ profiles, maintenant: maintenantDuJour, ...(opts.hasardDuCadeau && { hasard: opts.hasardDuCadeau }) }),
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
     rencontres,

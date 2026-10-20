@@ -203,8 +203,10 @@ test('« Voir ma carte » : sa carte telle que la salle la verra, sans « ce soi
     assert.equal('ceSoir' in corps, false, 'il n’est dans aucune soirée ici')
     // La page y mène, par la même carte que la salle ouvre : sa ligne en tête du profil se touche.
     assert.match(source('views/ProfilApp.tsx'), /<laCarte\.CarteJoueur adresse="\/api\/joueur\/carte"/)
-    // Et la carte explique ses mots, ceux qu'elle montre.
-    assert.match(source('components/CarteJoueur.tsx'), /<Glossaire mots=\{motsDeLaCarte\(/)
+    // Et la carte explique ses mots, ceux qu'elle montre — à son dos, ou au recto d'un invité, qui n'en a pas.
+    const carte = source('components/CarteJoueur.tsx')
+    assert.match(carte, /const mots = carte && !loupe \? motsDeLaCarte\(carte, avecDessins, !!fond\) : \[\]/)
+    assert.match(carte, /<Glossaire mots=\{mots\} \/>/)
   } finally {
     await banc.close()
   }

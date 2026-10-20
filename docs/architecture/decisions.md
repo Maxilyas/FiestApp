@@ -728,6 +728,15 @@ Le détail : [le profil](../produit/le-profil.md).
 
 *Fichiers : `server/src/core/carte.ts`, `shared/carte.ts`, `server/src/auth/profileRoutes.ts`*
 
+### La carte d'un joueur, une carte à collectionner
+**Contexte** : le compagnon avait sa ligne sous l'avatar — « ça fait tout descendre » (le propriétaire, le 20 octobre 2026) : la carte d'une habituée faisait 1 036 pixels pour 427 visibles, et ses chiffres ne se lisaient qu'en défilant deux écrans. Sur trois maquettes, il a choisi la plus créative — « J'adore la carte à collectionner […] J'aime beaucoup retourner la carte » —, ses pastilles passées dans le tableau des chiffres, la croix « en bas », le cadre « de la ligue actuelle ».
+
+**Décision** : deux faces dans la même case, la taille de la plus grande, jamais plus haute que les trois quarts de l'écran ; au recto, qui il est et ce qu'il fait ce soir — son avatar en grand dans l'illustration, sur son fond, son compagnon perché au coin ; au dos, un seul tableau, ses écussons, sa collection. Le cadre est celui de sa ligue actuelle aux duels (`cadreDeLaCarte`), aux métaux de sa bordure, sans duel classé celui de tous ; la croix et « Retourner la carte » sous elle, hors de ce qui défile. La carte n'est plus un `.card` : ses faces ont leur sol, qu'aucun thème ne repeint.
+
+**Conséquence** : ce qui s'ajoute à la carte choisit sa face ; un chiffre de plus va au tableau du dos (`cadransDuDos`), jamais en pastille ; un invité sans profil n'a pas de dos. Le compagnon s'ouvre en grand comme l'avatar, et ce qui précède l'illustration laisse sa place à la niche perchée.
+
+*Fichiers : `client/src/components/CarteJoueur.tsx`, `client/src/styles.css`, `server/scripts/rendu-carte.ts`, `server/test/carte-a-collectionner.test.ts`*
+
 ### Un seul album des avatars, rangé par rareté
 **Contexte** : trois lignes — le savoir, les légendaires et les Divins, les emojis de collection — rendaient les gens « confus » : on ne savait ni ce qu'un portrait valait à côté d'un légendaire, ni où chercher le suivant.
 

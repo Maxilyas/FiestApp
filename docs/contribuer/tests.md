@@ -307,6 +307,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/collection.test.ts` — les emojis de collection, réservés aux profils.
 - `server/test/carte.test.ts` — la carte d'un joueur.
 - `server/test/carte-du-solo.test.ts` — la carte de qui ne joue qu'en solo.
+- `server/test/carte-a-collectionner.test.ts` — la carte à collectionner : le cadre de sa ligue, le tableau de son dos, son retournement, son fond sur l'illustration, son compagnon perché et en grand.
 - `server/test/avatars-des-pages.test.ts` — l'avatar porté dans le souvenir et le bilan.
 - `server/test/proches.test.ts` — « Les plus proches ».
 - `server/test/premier-haut-fait.test.ts` — le titre et la vitrine d'un débutant.

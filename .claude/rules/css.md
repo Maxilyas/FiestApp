@@ -103,14 +103,18 @@ paths:
   Chaque thème repeint `.card` d'un verre fait pour laisser voir son décor —
   translucide sous vingt-cinq d'entre eux, de 82 à 95 % —, d'un sélecteur
   (0,3,0) plus fort que celui d'un dialogue (`.dialog`, 0,1,0) ou de la carte
-  d'un joueur (0,2,0) : ouverte depuis la liste des amis, la carte d'un ami
-  laissait lire toute la liste au travers d'elle (« une histoire de
-  transparence avec le thème qui passe par-dessus », le 19 octobre 2026). Leur
-  sol se reprend, plus fort que le thème et sa couleur seule
+  d'un joueur (0,2,0), un `.card` jusqu'au 20 octobre 2026 : ouverte depuis
+  la liste des amis, la carte d'un ami laissait lire toute la liste au
+  travers d'elle (« une histoire de transparence avec le thème qui passe
+  par-dessus », le 19 octobre 2026). Leur sol se reprend, plus fort que le
+  thème et sa couleur seule
   (`:root .card.dialog:not(.carte-fond)`, `--bg-raised`) : le dégradé, la
   bordure et l'ombre du thème restent. Une surface de plus posée sur un voile
   prend un sol plein qu'aucun thème ne repeint — une feuille n'a pas `.card`,
-  elle pose `--bg` ; `feuilles.test.ts` lit chaque thème.
+  elle pose `--bg` ; la carte à collectionner non plus, ses faces posent
+  `--bg-raised`, et sa croix et « Retourner la carte », sous elle, aussi :
+  translucides, ils laissaient lire la page ; `feuilles.test.ts` lit chaque
+  thème.
 - **Une feuille ouverte retire le décor du thème** (`.carte-voile`,
   `.dialog-backdrop`, `.coffre-scene` : `content: none !important` sur ses
   couches fixes, `html::before`, `body::before`, `body::after`,

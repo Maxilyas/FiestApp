@@ -40,6 +40,7 @@ import type { MissionsDuJour } from '../../shared/missions'
 import type { CoffreOuvert } from '../../shared/coffre'
 import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { ReglageDesOrnements } from '../../shared/ornements'
+import type { CadeauOuvert, CueilletteEcrite, SoinsDuProfil } from '../../shared/soins'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDesAnnonces } from '../../shared/annonces'
@@ -411,6 +412,19 @@ export const api = {
      */
     reglerCompagnon: (compagnon: string, reglage: { nom?: string; montree?: number | null; ornements?: ReglageDesOrnements }) =>
       req<{ profile: PublicProfile }>(`/api/joueur/compagnons/${encodeURIComponent(compagnon)}`, { method: 'PUT', body: JSON.stringify(reglage) }),
+    /** Ses soins d'aujourd'hui, pour tous ses compagnons — ses envies, son cadeau, sa complicité, son record, son jardin — et ses trouvailles. */
+    soins: () => req<SoinsDuProfil>('/api/joueur/soins'),
+    /** Une envie du jour comblée : le goûter, le câlin. */
+    combler: (compagnon: string, envie: 'gouter' | 'calin') =>
+      req<SoinsDuProfil>(`/api/joueur/compagnons/${encodeURIComponent(compagnon)}/envie`, { method: 'POST', body: JSON.stringify({ envie }) }),
+    /** Son cadeau du jour, ses trois envies comblées : tiré une fois ; rouvert, il redonne ce qu'il a donné. */
+    ouvrirLeCadeau: (compagnon: string) => req<CadeauOuvert>(`/api/joueur/compagnons/${encodeURIComponent(compagnon)}/cadeau`, { method: 'POST', body: '{}' }),
+    /** Une partie de cueillette, écrite : la première du jour comble son envie de jouer. */
+    cueillir: (compagnon: string, score: number) =>
+      req<CueilletteEcrite>(`/api/joueur/compagnons/${encodeURIComponent(compagnon)}/cueillette`, { method: 'POST', body: JSON.stringify({ score }) }),
+    /** Son jardin aménagé, en entier : le serveur vérifie chaque place avant d'écrire. */
+    amenager: (compagnon: string, jardin: Readonly<Record<string, string>>) =>
+      req<SoinsDuProfil>(`/api/joueur/compagnons/${encodeURIComponent(compagnon)}/jardin`, { method: 'PUT', body: JSON.stringify({ jardin }) }),
     /** Ce qu'il vient de voir dans sa loge, retenu pour tous ses appareils. */
     retenirLesVus: (vus: VusDeLaLoge) => req<{ ok: true }>('/api/joueur/vus', { method: 'PUT', body: JSON.stringify({ vus }) }),
     /** Ses missions du jour : tirées à sa première visite, ce qui vient d'être fait retenu et dit (`nouvelles`). */

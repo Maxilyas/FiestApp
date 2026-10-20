@@ -85,17 +85,18 @@ test('sans soirée, ses cadrans sont ceux du solo — ceux des soirées pour qui
   assert.deepEqual(titres(profil({}, { campagne: { record: 6, justes: 9, paliers: 0 } })), ['Hauts faits', 'Précision', 'Record', 'Justes'])
   // Ni soirée ni campagne : ce qu'il a, rien qui dise ce qui lui manque.
   assert.deepEqual(titres(profil({})), ['Hauts faits', 'Précision'])
-  // Des soirées : leurs cadrans, comme avant — la campagne passe en pastille.
-  assert.deepEqual(titres(profil({ soirees: 4, quizGagnes: 2, reflexeMoyenMs: 4200 }, { campagne: { record: 17, justes: 412, paliers: 1 } })), [
-    'Soirées',
-    'Quiz gagnés',
-    'Hauts faits',
-    'Précision',
-    'Coup d’œil',
-    'Réflexe',
-  ])
+  // Des soirées : leurs cadrans, comme avant — la campagne les suit, au dos de la carte.
+  const habitue = profil({ soirees: 4, quizGagnes: 2, reflexeMoyenMs: 4200 }, { campagne: { record: 17, justes: 412, paliers: 1 } })
+  assert.deepEqual(titres(habitue), ['Soirées', 'Quiz gagnés', 'Hauts faits', 'Précision', 'Coup d’œil', 'Réflexe'])
+  const { cadransDuDos } = await import(client('components/CarteJoueur.tsx').href)
+  assert.deepEqual(
+    (cadransDuDos(habitue) as { nom: string }[]).at(-1),
+    { nom: 'Campagne', valeur: '17', base: 'record en série', icone: 'campagne' },
+    'son record de campagne, après les cadrans des soirées',
+  )
+  // Sans soirée, ses cadrans du solo la disent déjà : pas deux fois.
+  assert.equal((cadransDuDos(profil({}, { campagne: { record: 17, justes: 412, paliers: 1 } })) as { nom: string }[]).some(c => c.nom === 'Campagne'), false)
   const carte = readFileSync(client('components/CarteJoueur.tsx'), 'utf8')
-  assert.match(carte, /\{p\.campagne && p\.fiche\.soirees > 0 && \(/, 'la pastille de la campagne, sous les cadrans des soirées')
   // Le glossaire ne dit que les mots que la carte montre.
   assert.match(carte, /mots\.push\('precision', \.\.\.\(p\.fiche\.soirees > 0 \? \(\['coupDOeil', 'reflexe'\] as const\) : \[\]\)\)/)
 })
