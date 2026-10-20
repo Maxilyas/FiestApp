@@ -729,6 +729,14 @@ const PANDA: Compagnon = {
     triomphe: 'TRIUMPHANT — chest puffed out, head held high, mouth open in a proud joyful squeak, ears up, one front paw raised, tail raised high',
   },
   eclats: {},
+  vivant: [
+    {
+      cle: 'feuilles',
+      mode: 'lumiere',
+      consigne:
+        'drifting glowing maple leaves of gold and crimson and tiny floating sparks of warm amber light, like a gentle autumn wind forming a loose ring around the frame, the center left empty',
+    },
+  ],
 }
 
 const COMPAGNONS: Compagnon[] = [LOUP, CHAT, TORTUE, LUCIOLE, PANDA]
