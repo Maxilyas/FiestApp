@@ -268,14 +268,25 @@ jour a sa notification (règle `rappel-et-installation.md`).
   écrite (`avecVerrouJusquALEcriture`) : relâché avant, sa première réponse
   chercherait une rencontre que la base n'a pas, et un second dé en tirerait
   une autre. Elle n'entre en mémoire (`enCours`) qu'écrite ; ratée, sa
-  première réponse le dit (`rencontresPerdues`). La page s'ouvre aussi d'un
+  première réponse le dit (`partiesPerdues`). La page s'ouvre aussi d'un
   aller-retour, et le profil d'Automate ne se demande jamais (son
   identifiant vide repartait vers la base, `rencontresEtDuels`). Ses amis et
   les défis qu'ils lui ont envoyés, qu'elle lit en s'ouvrant (`mesAmis`),
   d'un lot, puis tous leurs profils d'un coup : un défi reçu se lit avec son
   envoi, jamais relu par son code — `duelDe` apporte ses questions, et un
   aller-retour par ligne ; au réveil, ils en enchaînaient quatre, l'une des
-  routes les plus lentes du serveur (le 19 octobre 2026).
+  routes les plus lentes du serveur (le 19 octobre 2026). **Lancer un duel
+  classé fait comme le dé** (`creerUnDuel`, le choix du propriétaire du
+  19 octobre 2026 : « homogénéiser et faire pareil que pour les dés ») : un
+  lot de lectures — le duel déjà ouvert entre eux (`lectureDuDuelOuvert`, la
+  règle du refus), leurs deux journaux, ce que chacun a vu —, la fiche de
+  l'adversaire de front (`byIds`), et la réponse ; le duel, ses envois prévus
+  et sa première tentative s'écrivent ensuite, d'un lot, sous le même
+  verrou. Gardé (`duels`, `enCours`) une fois écrit ; raté — une base qui
+  tombe, un code déjà pris —, sa première réponse dit de le relancer
+  (`partiesPerdues`). Lus l'un après l'autre puis écrits, ils faisaient
+  attendre trois allers-retours, quatre au réveil — 3 à 6 s au 95ᵉ centile,
+  le même soir. Une lecture de plus pour lancer un duel rejoint ce lot.
   `duels-attente.test.ts` compte ceux qui se suivent.
 - **Le dé demande avant de tirer, et ne se relance pas.** Sa feuille
   (`LeDe`, `FeuilleDuDe`) dit l'enjeu — à chances égales, lu de la seule

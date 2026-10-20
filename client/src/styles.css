@@ -10968,8 +10968,134 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
   .niche-goutte,
   .niche.nourrie .niche-rebord,
   .niche-plus,
-  .niche-bulle { animation: none; }
+  .niche-bulle,
+  .niche-appel { animation: none; }
 }
+/* « Touche-moi ! » : sa gestion s'ouvre en la touchant, et rien ne le disait.
+   La bulle des cœurs, avec des mots — sur l'accueil, le profil et la
+   boutique, les premières fois (`prendreLAppel`, `client/src/niche.ts`). Le
+   doigt la traverse : posée sur le bout de la première ligne (« Amis »,
+   l'œil de sa carte), elle ne prend le geste de personne. */
+.niche-appel {
+  position: absolute;
+  pointer-events: none;
+  right: calc(100% + 9px);
+  top: calc(var(--l) * 14 / 54);
+  padding: 8px 12px;
+  border: 1.5px solid #d9b56a;
+  border-radius: 15px;
+  background: #f6efe3;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+  color: #3a2a14;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  transform-origin: 100% 50%;
+  animation: niche-appel 6.5s ease-out both;
+}
+.niche-appel::after { content: ''; position: absolute; right: -7px; top: 50%; width: 11px; height: 11px; margin-top: -6px; border-top: 1.5px solid #d9b56a; border-right: 1.5px solid #d9b56a; background: #f6efe3; transform: rotate(45deg); }
+@keyframes niche-appel {
+  0% { opacity: 0; transform: scale(0.7); }
+  6% { opacity: 1; transform: scale(1.04); }
+  10% { transform: scale(1); }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+/* ═══════════════════════════════════════════════════════════════════
+   LES ORNEMENTS DE LA NICHE
+   Après sa forme ultime, sa niche s'embellit (`shared/ornements.ts`) :
+   chaque palier lui ajoute un ornement, qu'elle garde — dessinés comme sur
+   la maquette (`components/Ornements.tsx`), dans le repère d'une niche de
+   54 × 62 : ils suivent sa largeur (`--l`), du coin de la page à sa fiche.
+   Un objet peint, comme elle : aucun thème ne les repeint. Les lampes
+   scintillent, le halo respire, son ciel s'allume par endroits — doucement,
+   et plus du tout si le téléphone demande moins de mouvement.
+   ═══════════════════════════════════════════════════════════════════ */
+/* Par-dessus l'arche, hors de son cadre qui coupe tout : l'étoile, les feuilles et les lampes en débordent. */
+.niche-ornements { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+/* La guirlande de petites lampes, Amis pour la vie : chaque lampe à son heure. */
+.orne-lampe { animation: orne-lampe 3.2s ease-in-out infinite; }
+@keyframes orne-lampe {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+/* L'arche dorée et son étoile, Inséparables : son cadre et son rebord passent à l'or. */
+.niche-cadre.orne-or { border: 1.5px solid #f3d27a; box-shadow: 0 0 0 1px rgba(243, 210, 122, 0.35), 0 0 10px rgba(243, 210, 122, 0.45), 0 8px 18px rgba(0, 0, 0, 0.45); }
+.niche-cadre.orne-or .niche-rebord { background: linear-gradient(#fff1c2, #d9a640 60%, #a8772a); }
+/* Le halo de la légende, derrière elle — posé avant son cadre, il passe dessous —, et son ciel qui scintille. */
+.niche-halo {
+  position: absolute;
+  inset: calc(var(--l) * -14 / 54);
+  border-radius: calc(var(--l) * 40 / 54) calc(var(--l) * 40 / 54) calc(var(--l) * 22 / 54) calc(var(--l) * 22 / 54);
+  background: radial-gradient(closest-side, rgba(255, 222, 140, 0.42), rgba(255, 222, 140, 0));
+  pointer-events: none;
+  animation: orne-halo 4.5s ease-in-out infinite;
+}
+@keyframes orne-halo {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+.orne-scintille { transform-box: fill-box; transform-origin: center; animation: orne-scintille 2.6s ease-in-out infinite; }
+@keyframes orne-scintille {
+  0%, 100% { opacity: 0.2; transform: scale(0.6); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orne-lampe,
+  .niche-halo,
+  .orne-scintille { animation: none; }
+}
+/* « Sa niche s'embellit », dans sa gestion : chaque ornement gagné, une case
+   qu'un toucher montre ou cache — l'ornement seul sur une petite niche vide
+   (`ApercuDOrnement`) —, puis ceux qui viennent, et à combien. */
+.niche-gestion { display: flex; flex-direction: column; gap: 14px; }
+/* L'étoile de l'arche dorée et le halo sortent de lui par le haut : en tête d'une feuille qui défile, elle les couperait. */
+.niche-grande:has(.orne-arche, .niche-halo) { margin-top: 20px; }
+.niche-fiche-amitie { color: var(--or-text); font-size: 0.875rem; font-weight: 700; }
+.niche-ornes { display: flex; flex-direction: column; gap: 8px; }
+.niche-orne {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 72px;
+  /* L'étoile de l'arche dorée sort de sa petite niche par le haut : la case lui laisse la place. */
+  padding: 14px 12px 8px 16px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xs);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.niche-orne[aria-pressed='true'] { border-color: var(--edge-strong); background: var(--accent-soft); }
+.niche-orne:disabled { opacity: 0.7; cursor: progress; }
+.niche-orne[aria-pressed='false'] .niche-apercu { opacity: 0.4; filter: grayscale(0.7); }
+.niche-apercu { position: relative; flex: none; width: var(--l); height: calc(var(--l) * 62 / 54); }
+/* Une petite niche vide : son ciel de nuit, son rebord, l'ornement seul dessus. */
+.niche-cadre-vide { background: linear-gradient(#18234a, #2a2440 60%, #3a2b3c); }
+.niche-orne-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.niche-orne-texte b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.15; }
+.niche-orne-coche { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border: 1.5px solid var(--edge-strong); border-radius: 50%; color: transparent; }
+.niche-orne-coche .icon { width: 15px; height: 15px; }
+.niche-orne[aria-pressed='true'] .niche-orne-coche { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.niche-ornes-a-venir { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.niche-ornes-a-venir li { line-height: 1.35; }
+.niche-orne-a-venir-titre { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+/* Sa niche en petit, sans un geste : la carte d'un joueur, le bouton « Mon compagnon » du profil. */
+.gros-icone:has(.niche-mini) { background: none; }
+/* Sur la carte d'un joueur, le compagnon de sa niche et son nom (`SonCompagnon`) :
+   l'étoile de l'arche dorée et le halo en débordent, sa ligne leur laisse la place. */
+.carte-compagnon { display: flex; align-items: center; gap: 14px; padding: 14px 2px 4px 10px; }
+.carte-compagnon-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.carte-compagnon-texte .label { margin: 0; }
+.carte-compagnon-nom { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
+.carte-compagnon-amitie { color: var(--or-text); font-size: 0.875rem; font-weight: 700; }
+/* L'écran « Mon compagnon » sans compagnon : où en adopter un. */
+.profil-sans-compagnon { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.profil-sans-compagnon p { margin: 0; }
 /* Sa place, page par page : la première ligne de chaque page s'arrête avant
    elle (`body.avec-niche`, posée par `client/src/niche.ts`). Elle couvre,
    depuis le bord droit de la colonne, de −4 à 50 pixels : la ligne en garde

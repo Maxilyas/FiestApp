@@ -15,10 +15,13 @@
 // nom qu'on lui donne, une forme d'avant qu'on y montre, un autre de ses
 // compagnons qu'on y installe d'un toucher.
 // Léa, niveau 14, son loup adulte dans sa niche — 350 bonnes réponses avec
-// lui, sa jauge aux trois quarts — et sa jeune tortue qui attend. Le client
-// construit d'abord (`npm run build -w client`).
+// lui, sa jauge aux trois quarts — et sa jeune tortue qui attend. Avec
+// `PALIERS=n` (1 à 4), son loup a passé sa forme ultime et sa niche tant de
+// paliers, ses ornements dessus (`shared/ornements.ts`). Et l'écran « Mon
+// compagnon » du profil, et sa carte, où son compagnon se montre avec son
+// nom. Le client construit d'abord (`npm run build -w client`).
 //
-//   npx tsx scripts/rendu-niche.ts [dossier]        (ECRAN=390x844, ENCOCHE=47, THEME=ivoire)
+//   npx tsx scripts/rendu-niche.ts [dossier]        (ECRAN=390x844, ENCOCHE=47, THEME=ivoire, PALIERS=2, SEULEMENT=solo)
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
@@ -41,6 +44,7 @@ import {
 } from '../test/banc'
 import { VERSION_BAREME } from '../src/auth/profiles'
 import { xpDuNiveau } from '../../shared/profil'
+import { PALIERS_DE_LA_NICHE } from '../../shared/ornements'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-niche')
 mkdirSync(sortie, { recursive: true })
@@ -50,6 +54,8 @@ const theme = process.env.THEME ?? null
 // la niche descend avec elle (`env(safe-area-inset-top)`) — chaque page aussi,
 // pas toujours d'autant.
 const encoche = Number(process.env.ENCOCHE ?? 0)
+/** Les paliers de sa niche, après sa forme ultime : 0, son loup adulte d'avant. */
+const paliers = Math.max(0, Math.min(PALIERS_DE_LA_NICHE.length, Number(process.env.PALIERS ?? 0)))
 
 function chargerPlaywright(): any {
   const globale = spawnSync('npm', ['root', '-g'], { encoding: 'utf8' }).stdout.trim()
@@ -117,8 +123,19 @@ async function lea(login: string): Promise<string> {
   )
   db.prepare('UPDATE profiles SET xp = ?, niche = ? WHERE id = ?').run(xpDuNiveau(14), 'loup', id)
   const compagnon = db.prepare('INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, 1000, ?, 1)')
-  compagnon.run(id, 'loup', 2)
+  compagnon.run(id, 'loup', paliers > 0 ? 3 : 2)
   compagnon.run(id, 'tortue', 1)
+  if (paliers > 0) {
+    db.prepare(`UPDATE profile_compagnons SET paliers = ? WHERE profile_id = ? AND compagnon = 'loup'`).run(paliers, id)
+    // Ses bonnes réponses avec lui, d'une série de campagne d'avant : ce palier
+    // passé de 600, la jauge du suivant en route — les 350 du quiz du jour comptent aussi.
+    const n = PALIERS_DE_LA_NICHE[paliers - 1] + 600 - 350
+    db.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le) VALUES ('rendu-paliers', ?, '[]', ?, 3, ?, 1, 2)`).run(id, n, n)
+    const reponse = db.prepare(`INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon) VALUES ('rendu-paliers', ?, ?, 0, 1, 2, 'loup')`)
+    db.transaction(() => {
+      for (let i = 0; i < n; i++) reponse.run(i, `rendu-paliers-${i}`)
+    })()
+  }
   // De quoi les avoir payés, et adopter le chat : une partie du quiz du jour d'avant, ses bonnes réponses en confettis.
   db.prepare(`INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, '2026-09-20', 1, 10, NULL, 0, 3200, 1, 0)`).run(id)
   // Et 350 bonnes réponses données avec lui, aux quiz du jour de juillet — leurs
@@ -232,12 +249,27 @@ async function solo() {
   await fiche('03f-fiche-tortue')
   await page.locator('.niche-choix[aria-label^="Nox"]').click()
   await page.waitForSelector('.niche-choix[aria-label="Nox"][aria-pressed="true"]')
-  await page.locator('.niche-choix[aria-label="Le loup adulte"]').click()
-  await page.waitForSelector('.niche-choix[aria-label="Le loup adulte"][aria-pressed="true"]')
+  // Sa plus haute forme reprend sa niche : l'adulte, ou, ses paliers passés, le loup des étoiles.
+  const plusHaute = paliers > 0 ? 'Le loup des étoiles' : 'Le loup adulte'
+  await page.locator(`.niche-choix[aria-label="${plusHaute}"]`).click()
+  await page.waitForSelector(`.niche-choix[aria-label="${plusHaute}"][aria-pressed="true"]`)
   await page.locator('.niche-fiche .carte-fermer').click()
 
   await aller('/profil', '.profil-boutons .gros-compte')
+  await page.waitForSelector('.profil-boutons .gros-icone .niche-mini', { timeout: 8000 }).catch(() => console.error('[profil] pas de niche sur « Mon compagnon »'))
   await photo(page, '04-profil')
+  // « Mon compagnon », son écran : sa gestion sans la feuille.
+  await page.getByRole('button', { name: /Mon compagnon/ }).click()
+  await page.waitForSelector('.niche-gestion [aria-labelledby="niche-compagnons"] .niche-choix[aria-pressed="true"]')
+  await photo(page, '04b-mon-compagnon', { attente: 900 })
+  await page.screenshot({ path: path.join(sortie, '04c-mon-compagnon-entier.png'), fullPage: true })
+  // Sa carte, comme la salle l'ouvre : son compagnon dans sa niche, avec son nom.
+  await aller('/profil', '.profil-boutons .gros-compte')
+  await page.locator('button.identite-ligne').click()
+  await page.waitForSelector('.carte-joueur .carte-compagnon .niche-bete img', { timeout: 10000 }).catch(() => console.error('[carte] pas de compagnon'))
+  await patienter(800)
+  await page.screenshot({ path: path.join(sortie, '04d-sa-carte.png') })
+  await page.keyboard.press('Escape')
   await aller('/profil#avatar', '.loge-panneau .loge-page-avatars')
   await photo(page, '05-loge')
   // La carte de la loge, collée en haut quand la page défile : la niche repliée à son coin.
@@ -417,8 +449,8 @@ async function soiree() {
 }
 
 try {
-  await solo()
-  await soiree()
+  if (process.env.SEULEMENT !== 'soiree') await solo()
+  if (process.env.SEULEMENT !== 'solo') await soiree()
 } finally {
   await navigateur.close()
   await banc.close()
