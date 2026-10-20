@@ -66,15 +66,17 @@ test('l’avatar de la carte se touche : il s’ouvre en grand à sa place, et �
     carte,
     /<button[^>]*className="carte-avatar-bouton"[^>]*aria-label=\{`Voir l’avatar \$\{deNom\(carte\.nom\)\} en grand`\}[^>]*onClick=\{ouvrirLaLoupe\}\s*>\s*<Avatar\s+className="carte-avatar"/,
   )
-  // Ouverte, elle prend la place de ce que la carte raconte, glossaire compris.
-  assert.match(carte, /\{carte && loupe && <AvatarEnGrand /)
+  // Ouverte, elle prend la place de ce que la carte raconte, glossaire et dos compris — son compagnon aussi.
+  assert.match(carte, /\{carte && loupe\?\.sujet === 'avatar' && <AvatarEnGrand /)
+  assert.match(carte, /\{carte && loupe\?\.sujet === 'compagnon' && compagnon && <CompagnonEnGrand /)
   assert.match(carte, /\{carte && !loupe && \(\s*<>\s*<header className="carte-tete">/)
-  assert.match(carte, /\{carte && !loupe && motsDeLaCarte\(/)
+  assert.match(carte, /const mots = carte && !loupe \? motsDeLaCarte\(/)
+  assert.match(carte, /const aUnDos = !!p && !loupe\n/)
   // Échap la referme, arrêté avant la fenêtre modale qui, sur le document, fermerait la carte.
   assert.match(carte, /if \(loupe && e\.key === 'Escape'\) \{\s*e\.stopPropagation\(\)\s*setLoupe\(null\)/)
   assert.match(carte, /useModale\(boite, onFermer\)/)
-  // Refermée, le focus revient à l'avatar qui l'avait ouverte.
-  assert.match(carte, /if \(!loupe && etaitOuverte\.current\) petitAvatar\.current\?\.focus\(/)
+  // Refermée, le focus revient à ce qui l'avait ouverte : l'avatar, ou le compagnon.
+  assert.match(carte, /if \(!loupe && etaitOuverte\.current\) \(etaitOuverte\.current === 'compagnon' \? petitCompagnon : petitAvatar\)\.current\?\.focus\(/)
 })
 
 test('en grand, un légendaire prend ses grands fichiers et sa lumière entière, et son reflet suit le doigt', async () => {
@@ -173,9 +175,9 @@ test('la case de l’avatar en grand contient tout ce qui en déborde, et la car
   // Elle y prend toute sa place, comme partout où l'avatar est le sujet.
   assert.ok(REGLES.some(r => r.selecteurs.includes('.carte-loupe-avatar .lu') && /scale:\s*1;/.test(r.corps)))
 
-  // La case tient dans la largeur de la carte : le voile, le cadre, les marges de ce qui défile.
+  // La case tient dans la largeur de la carte : le voile, son cadre de métal, les marges de ce qui défile.
   const voile = Number(/padding:\s*(\d+)px/.exec(regle('.dialog-backdrop'))![1])
-  const cadre = Number(/border:\s*(\d+)px/.exec(regle('.card', /border:/))![1])
+  const cadre = Number(/padding:\s*(\d+)px/.exec(regle('.carte-face', /padding:/))![1])
   const marge = Number(/padding:\s*\d+px (\d+)px/.exec(regle('.carte-defile'))![1])
   assert.match(regle('.carte-loupe'), new RegExp(`--loupe: min\\(\\d+px, 100vw - ${2 * (voile + cadre + marge)}px,`))
   // Les calques qui tournent sont des carrés : la case coupe leurs coins, et

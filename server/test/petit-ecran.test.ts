@@ -266,17 +266,25 @@ test('la carte d’un joueur rend le reste de la page inerte, et le focus à qui
   assert.match(modale, /avant\?\.focus\(/)
 })
 
-test('la carte se ferme d’une croix dans sa barre, toujours en vue, et ne prend plus tout l’écran', () => {
+test('la carte se ferme d’une croix sous elle, toujours en vue, et ne prend plus tout l’écran', async () => {
   // « Fermer » attendait au pied d'une carte bien remplie : il fallait
   // défiler jusqu'au bout pour le trouver (la remarque du 3 octobre 2026).
+  // Montée dans sa barre, elle passe sous la carte à collectionner, avec
+  // « Retourner la carte » (le choix du propriétaire du 20 octobre 2026 :
+  // « en bas ») — hors de ce qui défile, sous le pouce.
+  const html = await rendu('components/CarteJoueur', 'CarteJoueur', { slug: 's', playerId: 'p', onFermer: () => {} })
+  const pivot = html.indexOf('<div class="carte-pivot">')
+  const defile = html.indexOf('<div class="carte-defile">')
+  const sous = html.indexOf('<div class="carte-sous">')
+  const croix = html.indexOf('class="carte-croix" aria-label="Fermer"')
+  assert.ok(pivot > 0 && pivot < defile && defile < sous && sous < croix, `la croix, sous la carte : ${html}`)
+  // La carte et ses faces se ferment avant sa rangée : elle n'est pas dans ce qui défile.
+  assert.match(html.slice(defile, sous), /<\/div><\/section><\/div>$/, 'la rangée de la croix, hors de la carte qui défile')
   const carte = source('components/CarteJoueur.tsx')
-  const barre = carte.indexOf('<header className="carte-joueur-barre">')
-  const croix = carte.indexOf('className="carte-croix" aria-label="Fermer"')
-  const defile = carte.indexOf('<div className="carte-defile">')
-  assert.ok(barre > 0 && barre < croix && croix < defile, 'la croix, dans la barre, avant ce qui défile')
   assert.doesNotMatch(carte, /dialog-actions|btn btn-ghost" onClick=\{onFermer\}/, 'plus de « Fermer » au pied')
-  assert.match(regle('.carte-joueur'), /max-height:\s*min\(76dvh, 580px\)/)
-  assert.match(regle('.carte-joueur-barre'), /flex:\s*none/, 'la barre ne défile pas')
+  assert.match(regle('.carte-pivot'), /max-height:\s*min\(76dvh, 580px\)/)
+  assert.match(regle('.carte-joueur'), /max-height:\s*calc\(100dvh - 40px\)/, 'la carte et sa rangée tiennent dans l’écran')
+  assert.match(regle('.carte-sous'), /flex:\s*none/, 'sa rangée ne défile pas')
 })
 
 test('un toast ne s’ancre jamais en haut et en bas à la fois', () => {
