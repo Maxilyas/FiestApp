@@ -721,14 +721,69 @@ const PANDA: Compagnon = {
       retirer: 'the sky, the maple trees, the sunset and the distant leaves',
     },
   ],
+  // La queue ne bouge pas : une queue levée laissait celle de l'illustration enroulée devant le corps,
+  // et le panda en avait deux (le bébé ravi, l'ultime triomphant ; le 20 octobre 2026).
   expressions: {
-    ravi: 'JOYFUL — bright smiling eyes, mouth open in a happy little smile, chubby cheeks lifted, ears perked up, its striped tail swishing up',
+    ravi:
+      'JOYFUL — bright smiling eyes, mouth open in a happy little smile, chubby cheeks lifted, ears perked up. Its tail stays exactly where it ' +
+      'is and as it is: it has ONE tail — never lift, add or duplicate it',
     depite:
       'DISAPPOINTED, in a cute and gentle way, never tragic — ears folded down, head a little lowered, big sad eyes looking up, mouth closed ' +
-      'in a small pout, tail drooping',
-    triomphe: 'TRIUMPHANT — chest puffed out, head held high, mouth open in a proud joyful squeak, ears up, one front paw raised, tail raised high',
+      'in a small pout',
+    triomphe:
+      'TRIUMPHANT — chest puffed out, head held high, mouth open in a proud joyful squeak, ears up, one front paw raised. Its tail stays exactly ' +
+      'where it is and as it is: it has ONE tail — never lift, add or duplicate it',
   },
-  eclats: {},
+  // Deux métamorphoses vivantes, jamais figées (le propriétaire, le 20 octobre 2026 : « un avatar vivant,
+  // extrêmement majestueux, ou en action ») : l'une avance, l'autre se dresse. Un seul panda, une seule
+  // queue — la première version du triomphe en avait deux, sa queue levée et celle de l'illustration.
+  eclats: {
+    aurore: {
+      nom: 'Le panda d’aurore',
+      voie: 'lumiere',
+      consigne: METAMORPHOSE(
+        'its rich reddish-orange plush coat, its cream-white face markings, its big round amber eyes, its small rounded ears, its single fluffy ringed tail',
+        'It becomes the spirit of the first dawn: its fur woven of sunrise gold and rose-quartz light, glowing from within, its single great ringed tail ' +
+          'streaming behind it like a long banner of golden fire and drifting cherry-blossom petals of light; golden mist curling around its paws. ' +
+          'Its scene: a mountain ridge above a sea of clouds at the instant the sun rises, the whole sky ablaze in gold, coral and soft pink. ' +
+          'It has exactly ONE tail.',
+        'It is in full motion, never posed: it strides powerfully toward the viewer along the ridge, seen from the front, one front paw stepping ' +
+          'forward, its fur and mane of cheek-fur lifted by the wind, head held high, its big luminous eyes shining with a calm, proud, tender ' +
+          'majesty — a guardian spirit of the morning, still round-faced and lovable.',
+        'vert',
+      ),
+      garde: 'the dawn panda with its single streaming ringed tail of golden light',
+      retirer: 'the mountain ridge, the clouds, the sky, the sun, the mist and the petals of light around it',
+      opaque: 'its streaming golden tail and the glowing light of its fur',
+      chroma: 'vert',
+      entier: true,
+      expressions: {
+        triomphe: 'TRIUMPHANT — chest out, head thrown back, mouth open in a proud joyful cry, its single tail blazing high behind it',
+      },
+    },
+    lune: {
+      nom: 'Le panda de lune',
+      voie: 'ombre',
+      consigne: METAMORPHOSE(
+        'its plush coat, its cream-white face markings, its big round eyes, its small rounded ears, its single fluffy ringed tail',
+        'It becomes a moon spirit of the night forest: its fur turned deep midnight blue and silver, its face markings glowing like moonlight, its ' +
+          'big eyes shining pale silver-blue, its single great ringed tail trailing soft silver-blue flames and black maple leaves; fireflies of ' +
+          'cold light drift around it. Its scene: a vast night sky with an immense full moon, a misty black forest and a ' +
+          'moonlit stone cliff. It has exactly ONE tail.',
+        'It is in full motion, never posed: it rears up powerfully on its hind legs on the cliff edge, its front paws spread wide, chest out, head ' +
+          'raised and turned toward us with an intense, fearless, majestic gaze, its fur and tail swept by a night wind — a king of the night, ' +
+          'still round-faced and lovable.',
+        'vert',
+      ),
+      garde: 'the moon panda with its single tail trailing silver-blue flames and the black leaves around its body',
+      retirer: 'the sky, the moon, the cliff, the forest, the mist and the distant fireflies',
+      chroma: 'vert',
+      entier: true,
+      expressions: {
+        ravi: 'GLEEFUL — its intense gaze turns into a wide delighted smile, eyes bright and happy instead of fierce — still a majestic spirit, just thrilled',
+      },
+    },
+  },
   vivant: [
     {
       cle: 'feuilles',
