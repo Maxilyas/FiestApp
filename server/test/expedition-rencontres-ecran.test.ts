@@ -18,6 +18,7 @@ import {
   CARTES_DES_RENCONTRES,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_FAMILLES,
   VERSION_DES_HUIT_FAMILLES,
   ameliorer,
   carteALaVersion,
@@ -166,7 +167,9 @@ function lignes(phrase: string, n: number): string[] {
  * Chaque carte telle que le codex la joue, telle qu'une expédition d'avant le
  * codex la montre encore, quand il l'a retouchée — et améliorée (le jeu
  * complet), quand elle s'améliore ; et telle que la question au centre la joue
- * (v10), améliorée comprise, quand elle y est encore.
+ * (v10), améliorée comprise, quand elle y est encore ; et telle que les
+ * familles la jouent (v14) — les reprises, que la version 10 avait retirées,
+ * comprises.
  */
 const TOUTES_LES_VERSIONS: CarteDeRencontre[] = CARTES_DES_RENCONTRES.flatMap(c => [
   c,
@@ -177,6 +180,8 @@ const TOUTES_LES_VERSIONS: CarteDeRencontre[] = CARTES_DES_RENCONTRES.flatMap(c 
   ...[c.cle, ameliorer(c.cle)]
     .filter(cle => !seJoueEnQuestion(cle) && seJoueEnQuestion(cle, VERSION_DES_COUPS_DE_POUCE))
     .map(cle => carteALaVersion(cle, VERSION_DES_COUPS_DE_POUCE)!),
+  // Les familles (v14) : leurs mots à elles — le résumé de Cuirasse, « 1ʳᵉ erreur : 2ᵉ essai », se coupait en trois lignes.
+  ...[c.cle, ameliorer(c.cle)].flatMap(cle => carteALaVersion(cle, VERSION_DES_FAMILLES) ?? []),
 ])
 
 test('chaque carte se résume en deux lignes de neuf signes, et son chiffre tient dans son médaillon', () => {

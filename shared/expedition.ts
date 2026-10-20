@@ -87,6 +87,7 @@ import {
   SAVOIR_DES_MARCHES,
   SEUIL_DES_ABYSSES,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_FAMILLES,
   VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
   adversaireDe,
@@ -101,11 +102,15 @@ import {
   carteDuLegendaire,
   cartesDeCombat,
   cartesParQuestion,
+  cartesTireesDuTour,
+  changeDeQuestion,
   chiffresApresLaCarte,
   courageDeLaCarte,
   cransDUneBonneReponse,
   douteApresLaQuestion,
   douteDUneErreur,
+  ecusPerdusDesCartes,
+  effaceesAvecLEssai,
   effaceesDuTour,
   formeDeLaCarte,
   enJeu,
@@ -130,8 +135,11 @@ import {
   raretesDeLOffre,
   refusDeLAmelioration,
   refusDeLaCarte,
+  RETOMBENT_A_L_ERREUR,
+  revientSiJuste,
   riposte,
   rongeDuDoute,
+  secondEssaiDuTour,
   siJuste,
   suiteDUneBonneReponse,
   tireEnPlusEnQuestion,
@@ -969,9 +977,12 @@ export interface DepartDExpedition {
    * expédition partie en version 11 n'en a pas. 13 : la frise
    * (`VERSION_DE_LA_FRISE`) — quatre événements à ranger, une escale sur dix
    * (`POIDS_DES_FORMES_A_LA_FRISE`, `shared/frise.ts`) ; une expédition
-   * partie en version 12 n'en a pas.
+   * partie en version 12 n'en a pas. 14 : les familles en façons de répondre
+   * (`VERSION_DES_FAMILLES`) — les cartes reprises et retouchées
+   * (`EN_FAMILLES`), le Rempart et son second essai (le geste `essai`) ; une
+   * expédition partie en version 13 garde ses cartes à leurs mots.
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -1066,6 +1077,15 @@ export type GesteDExpedition =
    * — la position qu'elle vise, comme un joker joué sur elle.
    */
   | { quoi: 'voir'; mise: number; position?: number }
+  /**
+   * Les familles (v14) : la première réponse, fausse, d'une question qui
+   * avait un second essai (`secondEssaiDuTour`). Le serveur l'écrit à la place
+   * de la réponse, à la position de sa question — `campagne_reponses` n'en
+   * tient qu'une par question : elle ne se juge pas, et il répond encore.
+   * `choix`, la réponse effacée d'une question à choix — la vue ne la
+   * propose plus. Jamais envoyé par la page (`gesteRecevable`).
+   */
+  | { quoi: 'essai'; position: number; choix?: number }
 
 /**
  * Ce que la page envoie pour un geste : le rang qu'il croit suivre, et les
@@ -1110,6 +1130,8 @@ export interface QuestionPosee {
   reponseEn?: 'annee' | 'nombre'
   /** Un dévoilement (v5) : ses mots, de quoi dire ce qu'il briserait au premier. */
   mots?: number
+  /** Sa bonne réponse se compose (v14) : Miroir et Métamorphose la posent à composer. */
+  compose?: boolean
 }
 
 export type IssueDExpedition = 'en-route' | 'au-bout' | 'legendaire' | 'perdue' | 'abandonnee'
@@ -1119,7 +1141,7 @@ export interface ATirer {
   escale: string
   acte: number
   combien: number
-  /** La catégorie que le Commandement a imposée à l'escale. */
+  /** La catégorie que le Commandement a imposée à l'escale — depuis les familles (v14), la fétiche de Leçon et de la Bibliothèque. */
   categorie?: string
   /** La boucle : reposer la question ratée de ce rang. */
   reprise?: number
@@ -1337,6 +1359,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   const avecRencontres = depart.v >= 5
   // La question au centre (v10) : la question d'abord, l'adversaire en crans, la main de l'acte, une carte par question.
   const enQuestion = depart.v >= VERSION_DE_LA_QUESTION_AU_CENTRE
+  // Les familles (v14) : chaque style une façon de répondre — le second essai, les cartes qui reviennent, la fétiche qu'on fait venir.
+  const familles = depart.v >= VERSION_DES_FAMILLES
   // L'Ascension (le codex) : ses crans durcissent le courage du départ, les adversaires et le repos.
   const ascension = ascensionDuDepart(depart)
   // Son style (le 19 octobre 2026) : ses deux cartes dans le paquet de départ, une des siennes dans chaque offre.
@@ -1846,6 +1870,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         trouvees: r.trouvees,
         serie: r.serie,
         aube: !r.aubeEteinte,
+        v: depart.v,
+        ratee: !!r.ratee,
       })
       r.sceaux = Math.max(0, r.sceaux - crans)
       r.serie++
@@ -1853,12 +1879,25 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       e.justes++
       deSuite()
       const gain = mise > 0 ? gainDuPariEnQuestion(t, r.pouvoirs) : 0
-      const plus = siJuste(t.jouees, r.pouvoirs)
+      const plus = siJuste(t.jouees, r.pouvoirs, depart.v)
       e.ecus += gain + plus.ecus
       if (mise >= PARI_DE_L_EXPLOIT) exploit('pari-de-40')
       // Mémoire tire après sa bonne réponse ; L'élan, à chaque série de trois.
       for (const cle of t.jouees) if (baseDe(cle) === 'memoire') r.suivant.cartes += estAmelioree(cle) ? 2 : 1
       if (r.pouvoirs.includes('elan') && r.serie % 3 === 0) r.suivant.cartes += 1
+      // Les familles (v14) : Accélération fait tirer.
+      r.suivant.cartes += cartesTireesDuTour(t.jouees, true, depart.v)
+      // L'Élan (v14) : Foulée, le Rythme, et sous Vent arrière toute carte jouée, reviennent de la défausse dans sa main — s'il y a de
+      // la place.
+      const revenues: string[] = []
+      if (familles) {
+        for (const cle of t.jouees) {
+          if (!revientSiJuste(cle, r.pouvoirs) || e.cycle!.main.length >= mainMax() || !oter(e.cycle!.defausse, cle)) continue
+          e.cycle!.main.push(cle)
+          revenues.push(cle)
+        }
+      }
+      delete r.ratee
       // La boucle : l'erreur reposée, retrouvée, ne lui a rien coûté — puis elle rejoint la défausse.
       if (r.boucle && r.boucle.position === i) {
         e.courage = Math.min(COURAGE_MAX, e.courage! + r.boucle.perte)
@@ -1866,9 +1905,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         if (oter(r.pouvoirs, 'boucle')) e.cycle!.defausse.push('boucle')
       }
       r.derniereFrappe = 0
-      coup = { juste: true, brises: crans, frappe: 0, absorbee: 0, perdu: 0, mise: gain, ...(plus.ecus > 0 && { ecus: plus.ecus }) }
+      coup = { juste: true, brises: crans, frappe: 0, absorbee: 0, perdu: 0, mise: gain, ...(plus.ecus > 0 && { ecus: plus.ecus }), ...(revenues.length > 0 && { revenues }) }
     } else {
-      const frappe = attaqueEnQuestion({ frappe: frappeDeLaQuestion(r), tour: t, pouvoirs: r.pouvoirs })
+      const frappe = attaqueEnQuestion({ frappe: frappeDeLaQuestion(r), tour: t, pouvoirs: r.pouvoirs, v: depart.v })
       // Renaissance : l'erreur qui finirait l'expédition ne coûte rien — une fois par expédition, la carte quitte son paquet.
       const renaissance = frappe > 0 && e.courage! <= frappe && r.pouvoirs.includes('renaissance')
       if (renaissance) {
@@ -1885,13 +1924,31 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       // Sous Assurance, le pari perdu est rendu.
       const perdue = Math.min(e.ecus, pariPerdu(t))
       e.ecus -= perdue
+      // Les familles (v14) : la mise de Fortune est perdue ; Pansement et Muraille font tirer ; Contre-attaque et Représailles attendent ;
+      // Troisième œil retombe dans la défausse.
+      const misee = Math.min(e.ecus, ecusPerdusDesCartes(t.jouees, depart.v))
+      e.ecus -= misee
+      r.suivant.cartes += cartesTireesDuTour(t.jouees, false, depart.v)
+      const retombe = familles ? r.pouvoirs.filter(cle => RETOMBENT_A_L_ERREUR.has(baseDe(cle))) : []
+      for (const cle of retombe) if (oter(r.pouvoirs, cle)) e.cycle!.defausse.push(cle)
+      if (familles) r.ratee = true
       if (r.boucle && r.boucle.position === i) {
         // Ratée encore : la boucle a servi.
         r.boucle = null
         if (oter(r.pouvoirs, 'boucle')) e.cycle!.defausse.push('boucle')
       } else if (r.pouvoirs.includes('boucle') && !r.boucle && perdu > 0) r.boucle = { reprise: i, perte: perdu, position: null }
       r.derniereFrappe = perdu
-      coup = { juste: false, brises: 0, frappe, absorbee: 0, perdu, mise: perdue > 0 ? -perdue : 0, ...(renaissance && { renaissance: true as const }) }
+      coup = {
+        juste: false,
+        brises: 0,
+        frappe,
+        absorbee: 0,
+        perdu,
+        mise: perdue > 0 ? -perdue : 0,
+        ...(misee > 0 && { ecus: -misee }),
+        ...(renaissance && { renaissance: true as const }),
+        ...(retombe.length > 0 && { retombees: retombe }),
+      }
     }
     r.questions++
     e.coup = coup
@@ -1919,7 +1976,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const carte = carteALaVersion(g.joker, depart.v)!
     const t = r.tour
     const q = e.enAttente === null ? undefined : questions[e.enAttente]
-    const effacees = q ? effaceesDuTour(t.surLaQuestion, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee, nombre: q.nombre, forme: q.forme }) : 0
+    // L'essai raté (v14) compte parmi les réponses effacées : Lucidité le voit, comme la page.
+    const effacees = q ? effaceesAvecLEssai(t, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee, nombre: q.nombre, forme: q.forme }) : 0
     const niveau = q?.niveau ?? marcheDeLaRencontre(r)
     const base = baseDe(g.joker)
     const plus = !!carte.amelioree
@@ -1935,6 +1993,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       savoir: SAVOIR_DES_MARCHES[niveau],
       ecus: e.ecus,
       courage: e.courage ?? COURAGE_MAX,
+      // Contre-attaque (v14) : juste après une erreur — ce que la carte levée lisait de la vue.
+      ratee: !!r.ratee,
     })
     t.charge = x.charge
     r.serie = x.serie
@@ -1942,8 +2002,11 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     let versLaDefausse = carte.moment !== 'pouvoir'
     switch (base) {
       case 'presage':
-      case 'assurance':
         piocherEnQuestion(plus ? 2 : 1)
+        break
+      // Aux familles (v14), Assurance ne tire plus : elle pare l'attaque (`attaqueEnQuestion`) — améliorée, elle tire une carte.
+      case 'assurance':
+        if (!familles) piocherEnQuestion(plus ? 2 : 1)
         break
       case 'pourboire':
         piocherEnQuestion(1)
@@ -1967,21 +2030,6 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         r.derniereFrappe = 0
         e.recompenseVide = true
         break
-      case 'echange':
-      case 'volte-face':
-      case 'mue': {
-        // Une autre question, de la même escale : celle-ci ne se pose plus ; ce qui la visait ne vise pas l'autre.
-        const i = e.enAttente!
-        e.passees = i + 1
-        e.enAttente = i + 1
-        e.autre = null
-        t.surLaQuestion = base === 'mue' ? ['mue'] : []
-        if (r.boucle?.position === i) {
-          r.boucle = null
-          if (oter(r.pouvoirs, 'boucle')) c.defausse.push('boucle')
-        }
-        break
-      }
       case 'deux-visages':
         e.autre = e.enAttente! + 1
         break
@@ -1989,8 +2037,24 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         t.montre = g.montre
         break
     }
+    // Échange, Volte-face, La mue — et Leçon depuis les familles (v14) : une autre question, de la même escale ; celle-ci ne se pose
+    // plus, ce qui la visait ne vise pas l'autre, et son second essai ne passe pas à l'autre.
+    if (changeDeQuestion(g.joker, depart.v)) {
+      const i = e.enAttente!
+      e.passees = i + 1
+      e.enAttente = i + 1
+      e.autre = null
+      t.surLaQuestion = base === 'mue' ? ['mue'] : []
+      delete t.essai
+      // Leçon (v14) : l'autre se tire dans sa catégorie fétiche (`aTirer`).
+      if (base === 'lecon' && depart.fetiche) t.categorie = depart.fetiche
+      if (r.boucle?.position === i) {
+        r.boucle = null
+        if (oter(r.pouvoirs, 'boucle')) c.defausse.push('boucle')
+      }
+    }
     // Améliorée, elle tire une carte de plus (« Et tu tires une carte »).
-    piocherEnQuestion(tireEnPlusEnQuestion(g.joker))
+    piocherEnQuestion(tireEnPlusEnQuestion(g.joker, depart.v))
     if (carte.moment === 'pouvoir') r.pouvoirs.push(g.joker)
     else if (versLaDefausse) c.defausse.push(g.joker)
   }
@@ -2104,6 +2168,20 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     if (refusDeLaMise(e, g.mise) !== null) return
     r.tour.mise = g.mise
     r.tour.phase = 'question'
+  }
+  /**
+   * Les familles (v14) : sa première réponse, fausse, s'efface — la question
+   * ne se juge pas, et il répond encore. La carte qui le donne est celle du
+   * tour (`secondEssaiDuTour`, la règle même que le serveur a lue pour écrire
+   * l'essai) ; Cuirasse compte les siens. Un essai que la règle ne donne pas
+   * ne change rien : la question attend toujours sa réponse.
+   */
+  const essayer = (g: Extract<GesteDExpedition, { quoi: 'essai' }>) => {
+    const r = e.rencontre
+    const carte = r && g.position === e.enAttente ? secondEssaiEnAttente(depart, e, questions) : null
+    if (!r || !carte) return
+    r.tour.essai = carte
+    if (baseDe(carte) === 'cuirasse') r.essais = (r.essais ?? 0) + 1
   }
   const offrir = (coffre: boolean) => {
     if (coffre && e.coffreVide) {
@@ -2559,9 +2637,13 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     e.campement = false
   }
 
-  /** Un joker — une carte, un « voir » en rencontre, une fiole bue — qui vise la question qui attend : il se joue avant qu'elle soit jugée. */
+  /**
+   * Un joker — une carte, un « voir » en rencontre, une fiole bue, un essai
+   * raté (v14) — qui vise la question qui attend : il se joue avant qu'elle
+   * soit jugée.
+   */
   const vise = (g: GesteDExpedition) =>
-    (g.quoi === 'jouer' || g.quoi === 'voir' || g.quoi === 'boire') && g.position !== undefined && (g.position === e.enAttente || g.position === e.autre)
+    (g.quoi === 'jouer' || g.quoi === 'voir' || g.quoi === 'boire' || g.quoi === 'essai') && g.position !== undefined && (g.position === e.enAttente || g.position === e.autre)
   /**
    * Juge ce qui a sa réponse — jusqu'à la question que vise le geste `g` : la
    * suivante s'ouvre, et le joker joué sur elle se joue avant qu'elle soit
@@ -2594,6 +2676,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       if (avecRencontres) voir(g)
     } else if (g.quoi === 'boire') {
       if (fioles) boire(g)
+    } else if (g.quoi === 'essai') {
+      essayer(g)
     } else if (g.quoi === 'garder' && e.issue === 'au-bout' && depart.gardiens.includes(g.legendaire)) {
       e.issue = 'legendaire'
       e.garde = g.legendaire
@@ -2609,7 +2693,10 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       // En rencontre (v5), une question à la fois, gardien compris : on ne sait pas d'avance combien il en faudra.
       const toutLeGardien = !avecRencontres && g !== null && questions.length <= g.debut
       const r = e.rencontre
-      const categorie = r ? r.categorie : e.categorie
+      // Les familles (v14) : l'autre question de Leçon, puis toutes celles d'une rencontre sous la Bibliothèque — celle qu'elle
+      // remplace comprise —, se tirent dans sa catégorie fétiche.
+      const fetiche = familles && r && depart.fetiche && (r.tour.categorie !== undefined || parmi(r.pouvoirs, 'bibliotheque')) ? depart.fetiche : null
+      const categorie = fetiche ?? (r ? r.categorie : e.categorie)
       const reprise = r ? (r.boucle?.position === e.enAttente ? r.boucle.reprise : undefined) : e.boucle?.position === e.enAttente ? e.boucle.reprise : undefined
       e.aTirer = {
         escale: g ? GARDIEN : (e.ici ?? ''),
@@ -2627,6 +2714,38 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
 
 /** Les vies qu'une expédition en rencontres dit à la campagne (v5) : le reflet de son courage. */
 export const viesDuCourage = (courage: number) => (courage <= 0 ? 0 : Math.min(VIES, Math.ceil((courage * VIES) / COURAGE_MAX)))
+
+/** La réponse effacée par l'essai raté d'une question (v14), lue du journal des gestes ; undefined : pas d'essai, ou sans choix. */
+export function choixDeLEssai(gestes: readonly GesteDExpedition[], position: number): number | undefined {
+  for (let k = gestes.length - 1; k >= 0; k--) {
+    const g = gestes[k]
+    if (g.quoi === 'essai' && g.position === position) return g.choix
+  }
+  return undefined
+}
+
+/**
+ * La carte qui donnerait un second essai à la question qui attend, si sa
+ * réponse était fausse (les familles, v14) — null : l'erreur se jugerait. La
+ * règle que le pli applique à l'essai et que le serveur lit pour l'écrire à la
+ * place de la réponse (`repondreEnExpedition`) : la question vue, ses cartes
+ * et ses pouvoirs, ce qui y est déjà effacé (`secondEssaiDuTour`).
+ */
+export function secondEssaiEnAttente(depart: Pick<DepartDExpedition, 'v'>, e: Pick<EtatDeLExpedition, 'rencontre' | 'enAttente'>, questions: readonly QuestionPosee[]): string | null {
+  const r = e.rencontre
+  if (depart.v < VERSION_DES_FAMILLES || !r || r.tour.phase !== 'question' || e.enAttente === null) return null
+  const q = questions[e.enAttente]
+  if (!q) return null
+  const reponses = q.reponses ?? 4
+  return secondEssaiDuTour({
+    v: depart.v,
+    tour: r.tour,
+    pouvoirs: r.pouvoirs,
+    essais: r.essais,
+    question: { reponses, forme: q.forme },
+    effacees: effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, { reponses, datee: q.datee, nombre: q.nombre, forme: q.forme }),
+  })
+}
 
 /** Les cartes de route qu'il peut encore jouer dans l'acte (v5) : celles de son paquet, moins celles déjà jouées. */
 export function routeDisponible(e: Pick<EtatDeLExpedition, 'paquet' | 'routeJouees'>): string[] {
@@ -2667,6 +2786,7 @@ export function questionDuTour(q: QuestionPosee | undefined): QuestionDuTour | n
     nombre: !!q.nombre,
     datee: !!q.datee,
     categorie: q.categorie ?? null,
+    ...(q.compose && { compose: true }),
   }
 }
 
@@ -2686,6 +2806,8 @@ export function contexteDeLaCarte(depart: Pick<DepartDExpedition, 'v' | 'fetiche
     defausse: r.defausse.length,
     doute: r.doute,
     pari: e.pari,
+    // Les familles (v14) : la mise de Fortune.
+    ecus: e.ecus,
   }
 }
 
@@ -2789,7 +2911,7 @@ export function vueDeLaRencontre(
     ...(r.tour.phase === 'preparation' && { mises: Object.fromEntries(MISES.map(m => [m, refusDeLaMise(e, m)])) }),
     // Le pari pas encore ouvert (v7) : la page ne le propose pas.
     ...(!e.pari && { pari: false as const }),
-    ...(r.tour.phase === 'question' && qt && { effacees: effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, qt) }),
+    ...(r.tour.phase === 'question' && qt && { effacees: effaceesAvecLEssai(r.tour, r.pouvoirs, qt) }),
     ...(annonce && { annonce }),
     ...(annonce &&
       qt && {
@@ -2807,6 +2929,9 @@ export function vueDeLaRencontre(
           serie: r.serie,
           doute: r.doute,
           aube: !r.aubeEteinte,
+          ratee: !!r.ratee,
+          ...(r.essais !== undefined && { essais: r.essais }),
+          effacees: effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, qt),
         }),
       }),
     ...(qt && { questionDuTour: qt }),
@@ -2814,6 +2939,10 @@ export function vueDeLaRencontre(
     // La question au centre (v10) : ses crans, et ce que tient la main de l'acte.
     ...(r.enCrans && { crans: true as const, mainMax: mainMaxEnQuestion(r.pouvoirs.includes('trois-tetes'), e.ascension) }),
     ...(r.aubeEteinte && { aubeEteinte: true as const }),
+    // Les familles (v14) : le second essai de cette question, ceux de Cuirasse, et l'erreur d'avant.
+    ...(r.tour.essai !== undefined && { essai: r.tour.essai }),
+    ...(r.essais !== undefined && { essais: r.essais }),
+    ...(r.ratee && { ratee: true as const }),
   }
 }
 
@@ -3519,6 +3648,13 @@ export interface ReponseDExpedition {
   coup?: CoupDeRencontre
   /** Une frise (v13) : la bonne, dans l'ordre du temps — chaque événement et son année —, avec le verdict seulement (invariant 1). */
   frise?: FriseRevelee
+  /**
+   * Les familles (v14) : la réponse était fausse, et cette carte lui donne un
+   * second essai — elle s'efface, il répond encore. Rien n'est jugé : ni
+   * bonne réponse (`bonne` vaut −1), ni anecdote, ni coup (invariant 1) ; la
+   * vue porte la question, sa réponse ratée effacée.
+   */
+  essai?: string
 }
 
 /** Une frise révélée (v13) : ses événements dans l'ordre du temps, chacun son année. */
@@ -3568,15 +3704,24 @@ export interface ApresUnGeste {
  * les jokers : celle que L'écholocation efface le reste quand un Coup d'œil
  * s'y ajoute. Elle lit la bonne réponse : le serveur seul l'appelle.
  */
-export function reponsesEffacees(graine: string, position: number, q: { reponses: readonly string[]; bonne: number }, combien: number): number[] {
-  if (q.reponses.length <= 2 || combien <= 0) return []
+export function reponsesEffacees(
+  graine: string,
+  position: number,
+  q: { reponses: readonly string[]; bonne: number },
+  combien: number,
+  /** Les familles (v14) : la réponse fausse de son premier essai, effacée d'abord — les cartes effacent ensuite les autres, au même hasard. */
+  essai?: number,
+): number[] {
+  const ratee = essai !== undefined && essai !== q.bonne && essai >= 0 && essai < q.reponses.length ? essai : undefined
+  if (q.reponses.length <= 2 || combien + (ratee !== undefined ? 1 : 0) <= 0) return []
   const r = hasardDe(`${graine}:efface:${position}`)
   const fausses = q.reponses.map((_, i) => i).filter(i => i !== q.bonne)
   for (let i = fausses.length - 1; i > 0; i--) {
     const j = Math.floor(r() * (i + 1))
     ;[fausses[i], fausses[j]] = [fausses[j], fausses[i]]
   }
-  return fausses.slice(0, Math.min(combien, q.reponses.length - 2)).sort((a, b) => a - b)
+  const dansLOrdre = ratee === undefined ? fausses : [ratee, ...fausses.filter(i => i !== ratee)]
+  return dansLOrdre.slice(0, Math.min(combien + (ratee !== undefined ? 1 : 0), q.reponses.length - 2)).sort((a, b) => a - b)
 }
 
 const ROMAINS: readonly [number, string][] = [
@@ -3721,10 +3866,11 @@ export function casesPosees(graine: string, position: number, n: number, cartes:
   const h = hasardDe(`${graine}:lettre:${position}`)
   for (const cle of cartes) {
     const base = baseDe(cle)
-    if (base === 'initiale') {
+    // Les familles (v14) : Astrolabe et Métamorphose posent la première lettre, Troisième œil posé une autre à chaque question.
+    if (base === 'initiale' || base === 'astrolabe' || base === 'metamorphose') {
       poser(0)
-      if (estAmelioree(cle)) poser(n - 1)
-    } else if (base === 'lettre') {
+      if (base === 'initiale' && estAmelioree(cle)) poser(n - 1)
+    } else if (base === 'lettre' || base === 'troisieme-oeil') {
       for (let k = 0; k < (estAmelioree(cle) ? 2 : 1); k++) {
         const libres = Array.from({ length: n }, (_, i) => i).filter(i => i > 0 && !posees.includes(i))
         if (libres.length > 0) poser(libres[Math.floor(h() * libres.length)])

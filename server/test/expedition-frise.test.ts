@@ -36,6 +36,7 @@ import {
   CRANS_D_UNE_QUESTION_DURE,
   VERSION_DES_CURIOSITES,
   VERSION_DE_LA_FRISE,
+  VERSION_DES_FAMILLES,
   cransDeLaForme,
   effaceesDuTour,
   refusDeLaCarte,
@@ -278,7 +279,8 @@ const questionsDe = (id: string): { id: string; reponses: string[]; frise?: { an
 const bonOrdre = (montre: readonly number[]) => montre.map((_, k) => montre.indexOf(k))
 
 /**
- * Partir en version 13, puis récrire le départ gardé : les escales des deux
+ * Partir à la version de la préproduction (les familles, v14, qui gardent la
+ * frise), puis récrire le départ gardé : les escales des deux
  * premiers étages, des questions d'Histoire en frise ; une graine où la main
  * de l'acte s'ouvre avec cette carte — Coup d'œil d'office, cherchée par le
  * vrai pli —, et redémarrer le serveur pour qu'il le relise.
@@ -289,7 +291,8 @@ async function partirALaFrise(cookie: string, carte = 'coup-d-oeil'): Promise<Vu
   const v = r.corps as VueDeLExpedition
   base(db => {
     const d = JSON.parse((db.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(v.id) as { expedition: string }).expedition) as DepartDExpedition
-    assert.equal(d.v, V)
+    // La préproduction part aux familles (v14), qui gardent la frise.
+    assert.equal(d.v, VERSION_DES_FAMILLES)
     for (const e of d.cartes[0].escales) {
       if (e.etage > 1) continue
       for (const cle of ['curiosite', 'chance'] as const) delete e[cle]
@@ -315,7 +318,7 @@ const page = (): Promise<{ Escale: Composant; PoserLaFrise: Composant }> => impo
 test('par les routes et à l’écran : une frise — ses événements dans un ordre qui n’est pas le bon, sans années ; datée par Coup d’œil ; rangée, deux crans ; ratée, l’ordre gardé et corrigé ; ni mesure, ni carnet, ni signalement', async () => {
   const c = await inscrireProfil(banc.url, 'historien', 'Historien')
   let v = await partirALaFrise(c)
-  assert.equal(v.cartes!.v, V)
+  assert.equal(v.cartes!.v, VERSION_DES_FAMILLES)
   v = (await geste(c, v, { quoi: 'avancer', vers: v.carte!.depart[0] })).corps.expedition
   const q = v.question!
   const gardee = questionsDe(v.id)[q.index]

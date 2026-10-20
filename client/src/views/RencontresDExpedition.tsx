@@ -72,6 +72,7 @@ import {
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_CURIOSITES,
+  VERSION_DES_FAMILLES,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DE_LA_FRISE,
   VERSION_DU_JEU_COMPLET,
@@ -84,9 +85,12 @@ import {
   changeDeQuestion,
   chiffresApresLaCarte,
   courageDeLaCarte,
+  effaceesDuTour,
   estDuPari,
   fioleDe,
   formeApresLaCarte,
+  jeuDuStyle,
+  stylesDeLaVersion,
   viseLaQuestion,
   type AnnonceDuTour,
   type ApercuDuTour,
@@ -290,9 +294,15 @@ export function origineDeLaCarte(c: CarteDeRencontre, v = VERSION_DES_HUIT_FAMIL
  */
 function plusDeLaCarte(c: CarteDeRencontre, v: number): string[] {
   const dAvance = enQuestion(v) && baseDe(c.cle) === 'augure'
+  // Un pouvoir qui aide (v14 : Troisième œil, le Rythme) aide les questions qui suivent, pas forcément celle où il se pose.
+  const aide = dAvance
+    ? 'une aide : ta réponse à la question suivante ne compte pas dans tes statistiques'
+    : c.moment === 'pouvoir'
+      ? 'une aide : les réponses qu’elle aide ne comptent pas dans tes statistiques'
+      : 'une aide : ta réponse ne compte pas dans tes statistiques'
   return [
     c.unique ? 'une fois par expédition' : c.epuisement && 'une fois par rencontre',
-    c.indice && (dAvance ? 'une aide : ta réponse à la question suivante ne compte pas dans tes statistiques' : 'une aide : ta réponse ne compte pas dans tes statistiques'),
+    c.indice && aide,
     c.legendaire && `la carte ${duGardien(c.legendaire)}`,
     c.amelioree && c.amelioration && `améliorée : ${c.amelioration.gain.toLowerCase()}`,
   ].filter((x): x is string => !!x)
@@ -530,14 +540,23 @@ export function apercuALaMise(r: VueDeLaRencontre, mise: number, fetiche: string
         savoir: a.savoir,
         ecus: r.ecus,
         courage: r.courage,
+        ratee: !!r.ratee,
       })
     : { ...r, doute }
-  const q = c ? formeApresLaCarte(c.cle, { forme: a.forme, reponses: a.reponses }) : { forme: a.forme, reponses: a.reponses }
-  // Les cartes qui visent la question, comme le pli les range : une autre question repart sans elles.
-  const surLaQuestion = !c ? r.surLaQuestion : changeDeQuestion(c.cle) ? (c.cle === 'mue' ? ['mue'] : []) : viseLaQuestion(c) ? [...r.surLaQuestion, c.cle] : r.surLaQuestion
+  const q = c ? formeApresLaCarte(c.cle, { forme: a.forme, reponses: a.reponses }, r.v) : { forme: a.forme, reponses: a.reponses }
+  // Les cartes qui visent la question, comme le pli les range : une autre question repart sans elles — et sans son second essai (v14).
+  const change = !!c && changeDeQuestion(c.cle, r.v)
+  const surLaQuestion = !c ? r.surLaQuestion : change ? (c.cle === 'mue' ? ['mue'] : []) : viseLaQuestion(c) ? [...r.surLaQuestion, c.cle] : r.surLaQuestion
   return apercuDuTour({
     v: r.v,
-    tour: { charge: chiffres.charge, garde: chiffres.garde, mise, jouees: c ? [...r.jouees, c.cle] : r.jouees, surLaQuestion },
+    tour: {
+      charge: chiffres.charge,
+      garde: chiffres.garde,
+      mise,
+      jouees: c ? [...r.jouees, c.cle] : r.jouees,
+      surLaQuestion,
+      ...(r.essai !== undefined && !change && { essai: r.essai }),
+    },
     pouvoirs,
     sceaux: r.sceaux,
     frappe: r.frappe,
@@ -550,6 +569,11 @@ export function apercuALaMise(r: VueDeLaRencontre, mise: number, fetiche: string
     doute: chiffres.doute ?? doute,
     // L'aube posée, tant qu'aucune erreur ne l'a éteinte (v10) : comme la vue du serveur.
     aube: !r.aubeEteinte,
+    // Les familles (v14) : l'erreur d'avant, les seconds essais de Cuirasse, ce qui sera effacé, la carte comprise — de quoi dire
+    // « tu réponds encore » : à deux réponses près, le second essai répondrait à sa place.
+    ratee: !!r.ratee,
+    ...(r.essais !== undefined && { essais: r.essais }),
+    effacees: effaceesDuTour(surLaQuestion, pouvoirs, { reponses: q.reponses, datee: r.questionDuTour?.datee, nombre: r.questionDuTour?.nombre, forme: q.forme }),
   })
 }
 
@@ -609,14 +633,17 @@ export function Apercu({ a, base, compact }: { a: ApercuDuTour; base?: ApercuDuT
     (j.courage ?? 0) > 0 && `+${j.courage} de courage`,
   ].filter((x): x is string => !!x)
   const detailFaux = [
+    // Les familles (v14) : un second essai d'abord — ce qui suit ne vaut que s'il se trompe encore.
+    f.essai && (f.frappe === 0 ? 'raté encore, il ne t’attaque pas' : colle('raté encore, tu perds', f.perdu)),
     f.tombe
       ? 'son doute le fait tomber : il ne t’attaque pas'
       : f.frappe === 0
-        ? 'il ne t’attaque pas'
+        ? !f.essai && 'il ne t’attaque pas'
         : f.absorbee > 0 && (f.perdu === 0 ? `${colle('son attaque fait', f.frappe)} : ton bouclier pare tout` : `${colle('son attaque fait', f.frappe)}, ton bouclier en ${colle('pare', f.absorbee)}`),
     !f.tombe && doute > 0 && `son doute : ${colle('il perd', doute)}`,
     f.contre > 0 && `riposte : ${colle('il perd', f.contre)}`,
     f.ecus > 0 && `−${f.ecus} écus de ton pari`,
+    (f.ecusDesCartes ?? 0) > 0 && `−${f.ecusDesCartes} écus de ta mise`,
   ].filter((x): x is string => !!x)
   return (
     <div className={'exp-apercu' + (compact ? ' exp-apercu-compact' : '')} role="group" aria-label="Ce que ta réponse fera">
@@ -636,11 +663,17 @@ export function Apercu({ a, base, compact }: { a: ApercuDuTour; base?: ApercuDuT
           <Icon name="x" />
           Si tu te trompes
         </span>
-        <b key={f.perdu} className="exp-apercu-chiffre">
-          {`Tu perds ${f.perdu}`}
-          <Icon name="heart" />
-          <span className="sr-only"> de courage</span>
-        </b>
+        {f.essai ? (
+          <b key="essai" className="exp-apercu-chiffre">
+            Tu réponds encore
+          </b>
+        ) : (
+          <b key={f.perdu} className="exp-apercu-chiffre">
+            {`Tu perds ${f.perdu}`}
+            <Icon name="heart" />
+            <span className="sr-only"> de courage</span>
+          </b>
+        )}
         {!compact && detailFaux.map(t => <span key={t}>{espacesFines(t)}</span>)}
       </div>
     </div>
@@ -662,9 +695,13 @@ function Changement({ c }: { c: ChangementDeLaCarte }) {
   const courageDe = (x: ApercuDuTour) => x.juste.courage ?? 0
   if (ecusDe(avant) !== ecusDe(apres)) lignes.push({ cle: 'ecus', icone: 'ecu', quoi: 'Si tu as juste, tes cartes', de: `+${ecusDe(avant)}`, a: `+${ecusDe(apres)} écus` })
   if (courageDe(avant) !== courageDe(apres)) lignes.push({ cle: 'soin', icone: 'heart', quoi: 'Si tu as juste, tu reprends', de: `${courageDe(avant)}`, a: `${courageDe(apres)} de courage` })
-  if (avant.faux.perdu !== apres.faux.perdu) lignes.push({ cle: 'faux', icone: 'heart', quoi: 'Si tu te trompes', de: `tu perds ${avant.faux.perdu}`, a: `tu perds ${apres.faux.perdu}` })
+  // Les familles (v14) : le second essai passe avant l'attaque — « tu réponds encore ».
+  const ditFaux = (x: ApercuDuTour) => (x.faux.essai ? 'tu réponds encore' : `tu perds ${x.faux.perdu}`)
+  if (ditFaux(avant) !== ditFaux(apres)) lignes.push({ cle: 'faux', icone: apres.faux.essai ? 'rotate' : 'heart', quoi: 'Si tu te trompes', de: ditFaux(avant), a: ditFaux(apres) })
   if (avant.faux.contre !== apres.faux.contre) lignes.push({ cle: 'contre', icone: 'sabre', quoi: 'Si tu te trompes, riposte', de: `${avant.faux.contre}`, a: `il perd ${apres.faux.contre}` })
   if (avant.faux.ecus !== apres.faux.ecus) lignes.push({ cle: 'perte', icone: 'ecu', quoi: 'Ton pari perdu', de: `−${avant.faux.ecus}`, a: `−${apres.faux.ecus} écus` })
+  const miseDe = (x: ApercuDuTour) => x.faux.ecusDesCartes ?? 0
+  if (miseDe(avant) !== miseDe(apres)) lignes.push({ cle: 'mise', icone: 'ecu', quoi: 'Si tu te trompes, ta mise', de: `−${miseDe(avant)}`, a: `−${miseDe(apres)} écus` })
   if (lignes.length === 0) return null
   return (
     <section className="exp-changement" aria-labelledby="exp-changement-titre">
@@ -2104,6 +2141,8 @@ function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, 
   const curiosites = v >= VERSION_DES_CURIOSITES
   // La frise (v13) : quatre événements à ranger ; une expédition de la version 12 n'en a pas.
   const enFrise = v >= VERSION_DE_LA_FRISE
+  // Les familles (v14) : le second essai du Rempart, et la façon de répondre de chaque style ; une expédition de la version 13 n'en a pas.
+  const familles = v >= VERSION_DES_FAMILLES
   const avant = reglesDesRencontres([CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex, ascension, [0, 0, 0], true, VERSION_DES_HUIT_FAMILLES)
   const neuves: Partial<Record<SectionDesRegles['cle'], SectionDesRegles | null>> = {
     rencontre: {
@@ -2130,6 +2169,10 @@ function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, 
           : []),
         { icone: 'sparkles', texte: 'Ses crans rayés, qui palpitent : ceux que ta bonne réponse lui prendrait, tes cartes comptées.' },
         { icone: 'heart', texte: 'Trompe-toi : il t’attaque, toujours autant — le chiffre à côté de ses crans —, et tu perds du courage.' },
+        // Le second essai (v14) : le Rempart l'apporte.
+        ...(familles
+          ? [{ icone: 'rotate' as const, texte: 'Un second essai — les cartes du Rempart : ratée, ta réponse s’efface, rien n’est jugé, et tu réponds encore. Jamais sur un vrai ou faux.' }]
+          : []),
         { icone: 'source', texte: 'Ton courage se regagne sur le plan : la source, le campement, l’échoppe, une fiole.' },
         { icone: 'x', texte: 'Plus de courage : l’expédition s’arrête là.' },
       ],
@@ -2166,9 +2209,10 @@ function reglesEnQuestion(codex: CodexDesRegles | undefined, ascension: number, 
             { icone: 'users', texte: 'Au départ, choisis ton style : une famille de cartes. Deux de ses cartes partent dans ton paquet, à la place de deux cartes de base.' },
             { icone: 'plus-square', texte: 'Chaque récompense propose une carte de ton style, une que tu n’as pas encore s’il en reste ; les deux autres viennent de partout.' },
             { icone: 'help', texte: 'Ton style ne fait pas tout : prends aussi de quoi t’aider sur les questions que tu ne sais pas.' },
-            ...STYLES_EN_QUESTION.map(s => ({
+            // Les familles (v14) : six styles, chacun sa façon de répondre (`jeuDuStyle`).
+            ...stylesDeLaVersion(v).map(s => ({
               icone: ICONE_DU_STYLE[s],
-              texte: `${FAMILLES_DE_CARTES[s].nom} — « ${FAMILLES_DE_CARTES[s].devise} » : ${(FAMILLES_DE_CARTES[s].jeu ?? '').replace(/^./, x => x.toLowerCase())}${
+              texte: `${FAMILLES_DE_CARTES[s].nom} — « ${FAMILLES_DE_CARTES[s].devise} » : ${(jeuDuStyle(s, v) ?? '').replace(/^./, x => x.toLowerCase())}${
                 !codex.styles || codex.styles.includes(s) ? '' : ` Il s’ouvre au niveau ${niveauDuStyle(s, v)} d’explorateur.`
               }`,
             })),
@@ -2561,6 +2605,8 @@ function verdictEnCrans(c: CoupDeRencontre, adversaire: string, finie: boolean):
   const crans = (n: number) => (n === 1 ? 'un cran' : `${n} crans`)
   if (c.traversee) return { titre: 'Question passée : personne ne perd rien', lignes: ['Elle part à ton carnet.'] }
   if (c.juste) {
+    // Les familles (v14) : les cartes qui reviennent dans sa main — Foulée, le Rythme, Vent arrière —, dites par leur nom.
+    const revenues = (c.revenues ?? []).map(cle => carteDeRencontre(cle)?.nom ?? cle)
     return {
       titre: c.victoire ? `${adversaire} tombe !` : `Juste ! ${adversaire} perd ${crans(c.brises)}`,
       lignes: [
@@ -2568,6 +2614,7 @@ function verdictEnCrans(c: CoupDeRencontre, adversaire: string, finie: boolean):
         c.mise > 0 && `+${c.mise} écus gagnés avec ton pari`,
         (c.ecus ?? 0) > 0 && `+${c.ecus} écus de tes cartes`,
         c.victoire && c.victoire.ecus > 0 && `+${c.victoire.ecus} écus de victoire`,
+        revenues.length > 0 && `${revenues.join(' et ')} ${revenues.length > 1 ? 'reviennent' : 'revient'} dans ta main`,
       ].filter((x): x is string => !!x),
     }
   }
@@ -2578,7 +2625,16 @@ function verdictEnCrans(c: CoupDeRencontre, adversaire: string, finie: boolean):
       : c.perdu === 0
         ? 'Raté… mais il ne t’attaque pas'
         : `Raté… tu perds ${c.perdu} de courage`
-  return { titre, lignes: [c.mise < 0 && `−${-c.mise} écus : ton pari est perdu`].filter((x): x is string => !!x) }
+  // Troisième œil et Inarrêtable (v14) retombent : la barre ne les porte plus, la ligne dit pourquoi.
+  const retombees = (c.retombees ?? []).map(cle => carteDeRencontre(cle)?.nom ?? cle)
+  return {
+    titre,
+    lignes: [
+      c.mise < 0 && `−${-c.mise} écus : ton pari est perdu`,
+      (c.ecus ?? 0) < 0 && `−${-(c.ecus ?? 0)} écus : ta mise est perdue`,
+      retombees.length > 0 && `${retombees.join(' et ')} ${retombees.length > 1 ? 'retombent' : 'retombe'} dans ta défausse`,
+    ].filter((x): x is string => !!x),
+  }
 }
 
 /** Ce qu'une carte jouée vient de faire, quand l'écran ne le montre pas de lui-même ; null : il le dit déjà. À la version de son départ : la question au centre (v10) en a d'autres. */
@@ -2586,11 +2642,18 @@ export function ceQueLaCarteAFait(cle: string, v = VERSION_DES_HUIT_FAMILLES): s
   const c = carteALaVersion(cle, v)
   if (!c) return null
   if (enQuestion(v)) {
+    // Les familles (v14) : la Bibliothèque change aussi de question — un pouvoir qui ne se dirait que posé cacherait l'autre question ;
+    // Troisième œil et Inarrêtable ne tiennent que jusqu'à la prochaine erreur.
+    if (baseDe(cle) === 'bibliotheque' && v >= VERSION_DES_FAMILLES) return 'Une autre question, de ta catégorie fétiche — et les suivantes de la rencontre aussi'
+    if (baseDe(cle) === 'troisieme-oeil' && v >= VERSION_DES_FAMILLES) return `« ${c.nom} » souffle jusqu’à ta prochaine erreur`
+    if (baseDe(cle) === 'inarretable' && v >= VERSION_DES_FAMILLES) return `« ${c.nom} » pardonne ta prochaine erreur`
     if (c.moment === 'pouvoir') return `« ${c.nom} » agit pour toute la rencontre`
     if (cle === 'feu-d-artifice') return 'Ta défausse revient dans ta pioche : ta main se remplit'
     if (cle === 'horizon') return 'Ton erreur est effacée — et ta prochaine récompense sera vide'
     if (cle === 'reveil') return 'La dernière carte de ta défausse revient dans ta main'
     if (baseDe(cle) === 'augure') return 'À la question suivante, une mauvaise réponse sera effacée d’avance'
+    // Les familles (v14) : Leçon change de question, comme Échange — l'écran ne dit pas d'où vient l'autre.
+    if (baseDe(cle) === 'lecon' && v >= VERSION_DES_FAMILLES) return 'Une autre question, de ta catégorie fétiche'
     return null
   }
   if (c.moment === 'pouvoir') return cle === 'abysses' ? `« ${c.nom} » est posée : elle t’a coûté 6 de courage` : `« ${c.nom} » agit pour toute la rencontre`
@@ -2891,7 +2954,7 @@ export function ChoixDuStyle({
         ))}
       </div>
       <p className="exp-style-dit">
-        <b>{espacesFines(`${famille.nom} · « ${famille.devise} »`)}</b> {espacesFines(famille.jeu ?? '')}
+        <b>{espacesFines(`${famille.nom} · « ${famille.devise} »`)}</b> {espacesFines(jeuDuStyle(style, v) ?? '')}
       </p>
       <p className="muted small">{espacesFines(`Tu pars avec ${a} et ${b}, à la place de ${basesRemplacees(style, v)} ; chaque récompense propose une carte de ton style.`)}</p>
       {style === 'erudit' && feticheOuverte && (

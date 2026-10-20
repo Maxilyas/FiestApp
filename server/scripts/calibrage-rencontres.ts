@@ -147,6 +147,7 @@ import {
   refusDeLAchat,
   refusDeLaFiole,
   refusDuJoker,
+  secondEssaiEnAttente,
   traceLePlusSur,
   type ArticleDeLEchoppe,
   type ATirer,
@@ -162,27 +163,32 @@ import {
   CARTES_DE_DEPART_DU_STYLE,
   CARTES_DES_RENCONTRES,
   COURAGE_MAX,
+  EFFACE_DES_CARTES,
   FIOLES_MAX,
   INSPIRATION_PAR_QUESTION,
   SAVOIR_DES_MARCHES,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_CURIOSITES,
+  VERSION_DES_FAMILLES,
   VERSION_DE_LA_FRISE,
   ameliorer,
   attaqueEnQuestion,
   baseDe,
   carteALaVersion,
   carteDeRencontre,
+  changeDeQuestion,
   chiffresApresLaCarte,
   cransDUneBonneReponse,
   effaceesDuTour,
   estAmelioree,
   estUnStyle,
+  formeApresLaCarte,
   formeDeLaCarte,
   frappeDeLaQuestion,
   parmi,
   refusDeLAmelioration,
+  secondEssaiDuTour,
   seJoueEnQuestion,
   viseLaQuestion,
   type CleDeFiole,
@@ -207,7 +213,7 @@ const EXPEDITIONS = option('expeditions', 1000)
  * `--version 7` le codex d'avant lui, `--version 6` la main qui grandit avec
  * les actes sans le codex, `--version 5` la main de cinq cartes d'emblée.
  */
-const VERSION = ([5, 6, 7, 8, 9, 10, 11, 12, 13] as const).find(v => v === option('version', 9)) ?? 9
+const VERSION = ([5, 6, 7, 8, 9, 10, 11, 12, 13, 14] as const).find(v => v === option('version', 9)) ?? 9
 /** La question au centre (v10) : la question d'abord, l'adversaire en crans, une carte par question — un autre joueur, plus bas. */
 const EN_QUESTION = VERSION >= VERSION_DE_LA_QUESTION_AU_CENTRE
 /** Les coups de pouce et les lettres (v11) : une escale sur cinq à composer dès l'étage 2, L'initiale, Le repère et La lettre. */
@@ -216,6 +222,16 @@ const A_COMPOSER = VERSION >= VERSION_DES_COUPS_DE_POUCE
 const CURIOSITES = VERSION >= VERSION_DES_CURIOSITES
 /** La frise (v13) : une escale sur dix, quatre événements à ranger — sa chance sur la marche, sous le hasard d'un sur vingt-quatre. */
 const A_LA_FRISE = VERSION >= VERSION_DE_LA_FRISE
+/**
+ * Les familles en façons de répondre (v14) : les cartes reprises et
+ * retouchées, le second essai du Rempart — ratée, la réponse s'efface et il
+ * devine encore parmi ce qui reste, comme le serveur écrit l'essai —, Leçon et
+ * la Bibliothèque qui font venir sa catégorie fétiche, Caméléon et ses six
+ * choix.
+ */
+const FAMILLES = VERSION >= VERSION_DES_FAMILLES
+/** La part des questions à choix dont la réponse se compose (v14, `seCompose`) : six sur dix — Miroir et Métamorphose s'y jouent. */
+const PART_QUI_SE_COMPOSE = 0.6
 
 const logit = (p: number) => Math.log(p / (1 - p))
 const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
@@ -480,17 +496,74 @@ const A_RETIRER_EN_QUESTION = ['troisieme-oeil', 'rythme', 'prisme', 'tout-ou-ri
  * moyen : il ne le prend pas.
  */
 const PREFERENCE_DES_COUPS_DE_POUCE = [...PREFERENCE_EN_QUESTION.slice(0, 4), 'lettre', 'initiale', ...PREFERENCE_EN_QUESTION.slice(4)]
+/**
+ * Aux familles (la version 14, le 20 octobre 2026) : toutes les cartes qui y
+ * valent quelque chose, dans l'ordre où, seules, elles mènent le moyen au bout
+ * (`--cartes --version 14 --cas 3`) — les reprises et les retouchées comprises :
+ * Plume et Savoir-faire, que la question au centre retirait, y ont leur
+ * fétiche sous la main. Celles que la mesure ne sépare pas de rien, il ne les
+ * prend pas.
+ */
+const PREFERENCE_DES_FAMILLES = [
+  'bibliotheque',
+  'pactole',
+  'astrolabe',
+  'lecon',
+  'revelation',
+  'initiale',
+  'bastion',
+  'troisieme-oeil',
+  'miroir',
+  'second-souffle',
+  'lettre',
+  'fortune',
+  'inarretable',
+  'rythme',
+  'parade',
+  'muraille',
+  'simplifier',
+  'assurance',
+  'vision',
+  'cuirasse',
+  'plume',
+  'prisme',
+  'doubler-la-mise',
+  'memoire',
+  'banco',
+  'genie',
+  'volte-face',
+  'lucidite',
+  'sursis',
+  'pourboire',
+  'lancee',
+  'cagnotte',
+  'savoir-faire',
+  'acceleration',
+  'cameleon',
+  'detour',
+  'corser',
+  'contre-attaque',
+  'presage',
+  'polymorphe',
+  'echauffement',
+  'foulee',
+  'double-chance',
+]
+/** Ce qu'il retire aux familles, son courage au plus haut : celles qui y valent moins que rien, la plus faible d'abord. */
+const A_RETIRER_DES_FAMILLES = ['arret-sur-image', 'tout-ou-rien', 'quitte-ou-double']
 /** Ce que prend et retire le joueur qui a appris, à la version mesurée. */
-const PREFERENCE_DU_CODEX = A_COMPOSER
-  ? PREFERENCE_DES_COUPS_DE_POUCE
-  : EN_QUESTION
-    ? PREFERENCE_EN_QUESTION
-    : VERSION >= 9
-      ? PREFERENCE_DES_HUIT_FAMILLES
-      : VERSION >= 8
-        ? PREFERENCE_DU_JEU_COMPLET
-        : PREFERENCE_DU_CODEX_7
-const A_RETIRER_DU_CODEX = EN_QUESTION ? A_RETIRER_EN_QUESTION : VERSION >= 8 ? A_RETIRER_DU_JEU_COMPLET : A_RETIRER_DU_CODEX_7
+const PREFERENCE_DU_CODEX = FAMILLES
+  ? PREFERENCE_DES_FAMILLES
+  : A_COMPOSER
+    ? PREFERENCE_DES_COUPS_DE_POUCE
+    : EN_QUESTION
+      ? PREFERENCE_EN_QUESTION
+      : VERSION >= 9
+        ? PREFERENCE_DES_HUIT_FAMILLES
+        : VERSION >= 8
+          ? PREFERENCE_DU_JEU_COMPLET
+          : PREFERENCE_DU_CODEX_7
+const A_RETIRER_DU_CODEX = FAMILLES ? A_RETIRER_DES_FAMILLES : EN_QUESTION ? A_RETIRER_EN_QUESTION : VERSION >= 8 ? A_RETIRER_DU_JEU_COMPLET : A_RETIRER_DU_CODEX_7
 const EXEMPLAIRES_DU_CODEX = 2
 /** Les pouvoirs qu'il pose dès qu'il les tire : ils valent toute la rencontre — ceux du jeu complet compris. */
 const POUVOIRS_JOUES = [
@@ -531,9 +604,49 @@ const POUVOIRS_JOUES = [
  * seul. Ceux qui effacent et ceux qui tirent des cartes ensuite ; les maudits,
  * jamais.
  */
-const POUVOIRS_EN_QUESTION = ['encyclopedie', 'aube', 'vision', 'echolocation', 'bibliotheque', 'prisme', 'rythme', 'trois-tetes', 'elan', 'troisieme-oeil', 'inarretable', 'boucle', 'renaissance']
-/** Ce qu'il joue s'il sait la réponse : ce qui ajoute des crans (`cransAvec`) — Corser et Polymorphe la corsent, Quitte ou double la double. */
-const ATTAQUES_EN_QUESTION = ['genie', 'expose', 'rafle', 'polymorphe', 'quitte-ou-double', 'plume', 'savoir-faire', 'lancee', 'corser', 'concentration', 'cagnotte', 'memoire', 'echauffement', 'lucidite', 'revelation', 'peau-de-feu']
+const POUVOIRS_EN_QUESTION = [
+  'encyclopedie',
+  'aube',
+  'vision',
+  'echolocation',
+  // La Bibliothèque, le Prisme et le Rythme des familles (v14) ne se posent plus pour frapper : l'une change la question, les autres
+  // se jouent sur elle.
+  ...(FAMILLES ? [] : ['bibliotheque', 'prisme', 'rythme']),
+  'trois-tetes',
+  'elan',
+  'troisieme-oeil',
+  // Inarrêtable des familles pardonne la prochaine erreur : il se joue comme Sursis, sur la question qu'il ne sait pas.
+  ...(FAMILLES ? [] : ['inarretable']),
+  'boucle',
+  'renaissance',
+  // Les familles (v14) : le second essai de toute la rencontre, ce qui frappe chaque bonne réponse, ce qui frappe après une erreur.
+  ...(FAMILLES ? ['bastion', 'cuirasse', 'vent-arriere', 'represailles'] : []),
+]
+/**
+ * Ce qu'il joue s'il sait la réponse : ce qui ajoute des crans (`cransAvec`) — Corser et Polymorphe la corsent, Quitte ou double la double ;
+ * depuis les familles (v14), Miroir la pose en vrai ou faux à deux crans, Métamorphose à composer, le Prisme à six choix, Foulée
+ * revient, Fortune mise.
+ */
+const ATTAQUES_EN_QUESTION = [
+  'genie',
+  'expose',
+  'rafle',
+  'polymorphe',
+  'quitte-ou-double',
+  'plume',
+  'savoir-faire',
+  'lancee',
+  'corser',
+  'concentration',
+  'cagnotte',
+  'memoire',
+  'echauffement',
+  'lucidite',
+  'revelation',
+  'peau-de-feu',
+  // À cette version seulement : le Prisme d'avant, un pouvoir, ne s'y jouait pas en attaque ; Caméléon et Accélération frappent.
+  ...(FAMILLES ? ['metamorphose', 'miroir', 'prisme', 'contre-attaque', 'foulee', 'fortune', 'cameleon', 'acceleration'] : []),
+]
 /** Ce qui l'aide s'il ne la sait pas : il joue celle qui lui laisse la meilleure chance (`chanceApres`) — les coups de pouce de la version 11 compris. */
 const AIDES_EN_QUESTION = [
   'deux-visages',
@@ -555,6 +668,9 @@ const AIDES_EN_QUESTION = [
   'initiale',
   'lettre',
   'repere',
+  // Les familles (v14) : souffler, effacer et revenir, faire venir sa fétiche, un vrai ou faux qui en vaut deux, six choix dont deux
+  // effacés, un second essai.
+  ...(FAMILLES ? ['astrolabe', 'troisieme-oeil', 'rythme', 'lecon', 'bibliotheque', 'miroir', 'prisme', 'parade', 'second-souffle', 'bastion', 'cuirasse'] : []),
 ]
 /**
  * Les cartes qui frappent de plus si la réponse est juste, jouées avant la question : il prend celle qui frappe le plus par point
@@ -730,7 +846,8 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     let marche: Niveau
     if (t.escale === GARDIEN) {
       marche = MARCHES_DES_ACTES[t.acte].gardien
-      p4 = chanceSur(j, marche, (categorie = au(CATEGORIES)))
+      // La Bibliothèque et Leçon (v14) : la question du gardien aussi vient de sa catégorie fétiche.
+      p4 = chanceSur(j, marche, (categorie = t.categorie ?? au(CATEGORIES)))
     } else {
       const escale = escaleEnJeu(depart, e, t.escale)!
       marche = escale.sorte === 'source' ? 'facile' : escale.sorte === 'curiosite' ? 'moyen' : marcheDe(t.acte, escale)
@@ -751,20 +868,26 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     const reponsesDeLaForme = forme === 'vrai-faux' ? 2 : forme === 'six' ? 6 : forme === 'lettres' ? LETTRES_D_UNE_REPONSE + LETTRES_EN_TROP : 4
     const nombre = forme !== 'vrai-faux' && forme !== 'lettres' && forme !== 'frise' && r() < PART_DES_NOMBRES
     const datee = forme !== 'frise' && r() < PART_DES_DATEES
+    // Dans l'ordre d'avant : ce qu'il sait, puis les leurres — les mesures d'avant gardent leur hasard.
+    const sait = r() < savoir(p4)
+    const six = r() < PART_DES_SIX
+    // Les familles (v14) : sa réponse se compose — un tirage de plus, à cette version seulement.
+    const compose = FAMILLES && forme !== 'vrai-faux' && forme !== 'lettres' && forme !== 'frise' && !nombre && r() < PART_QUI_SE_COMPOSE
     posees.push({
       escale: t.escale,
       acte: t.acte,
       reponses: reponsesDeLaForme,
       p4,
-      sait: r() < savoir(p4),
+      sait,
       categorie,
       niveau: marche,
       tiree: forme ?? 'quatre',
-      six: r() < PART_DES_SIX,
+      six,
       datee,
       ...(nombre && { nombre: true, reponseEn: 'nombre' as const }),
       ...(forme && forme !== 'quatre' && { forme }),
       ...(forme === 'devoilement' && { mots: MOTS_D_UN_DEVOILEMENT }),
+      ...(compose && { compose: true }),
     })
   }
 
@@ -775,33 +898,41 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
    * date —, parmi ce qui répond encore à L'initiale ou à La lettre (v11) ; à
    * composer, `chanceDeComposer`.
    */
-  const chanceSansSavoir = (q: QuestionPosee, sur: readonly string[], pouvoirs: readonly string[], talismans: readonly string[]): number => {
+  const chanceSansSavoir = (q: QuestionPosee, sur: readonly string[], pouvoirs: readonly string[], talismans: readonly string[], essai = false): number => {
     const n = q.reponses ?? 4
-    const effacees = effaceesDuTour(sur, pouvoirs, { reponses: n, datee: q.datee, nombre: q.nombre, forme: q.forme })
+    // Le second essai (v14) : sur une question à choix, sa réponse ratée ne se propose plus — une de moins parmi ce qui reste.
+    const effacees = effaceesDuTour(sur, pouvoirs, { reponses: n, datee: q.datee, nombre: q.nombre, forme: q.forme }) + (essai && q.forme !== 'lettres' && q.forme !== 'frise' ? 1 : 0)
     // L'époque : le siècle de l'Énigme, celui de la loupe sur l'Histoire, la décennie du repère — qui ne dit jamais celle d'une réponse
     // en années : il y efface, comme sur une question qui ne se date pas (`effaceesDuTour`).
     const epoque = !!q.datee && (sur.includes('enigme') || (parmi(sur, 'repere') && !q.nombre) || (talismans.includes('loupe') && q.categorie === 'Histoire'))
+    // Les familles (v14) : Astrolabe dit l'initiale, Troisième œil posé souffle une lettre à chaque question.
+    const troisieme = FAMILLES ? pouvoirs.find(c => baseDe(c) === 'troisieme-oeil') : undefined
     // Une frise (v13) : ce que les cartes effaceraient, elles le datent (`effaceesDuTour`, deux au plus).
     if (q.forme === 'frise') return chanceDeLaFrise(effacees)
     if (q.forme === 'lettres') {
-      const posees = sur.reduce((s, c) => s + (baseDe(c) === 'initiale' || baseDe(c) === 'lettre' ? (estAmelioree(c) ? 2 : 1) : 0), 0)
+      const poseesParLaCarte = (c: string) => {
+        const b = baseDe(c)
+        if (b === 'initiale' || b === 'lettre') return estAmelioree(c) ? 2 : 1
+        return FAMILLES && (b === 'astrolabe' || b === 'metamorphose') ? 1 : 0
+      }
+      const posees = sur.reduce((s, c) => s + poseesParLaCarte(c), 0) + (troisieme ? (estAmelioree(troisieme) ? 2 : 1) : 0)
       return chanceDeComposer(effacees + Math.min(posees, LETTRES_D_UNE_REPONSE - 2) + (epoque ? 1 : 0))
     }
     const restent = Math.max(2, n - effacees - (epoque ? 1 : 0))
     if (parmi(sur, 'double-chance')) return 2 / restent
     if (sur.includes('prediction')) return 1 / 2
-    const initiale = sur.find(c => baseDe(c) === 'initiale')
-    if (initiale) return parmiCeQuiRepond(restent, estAmelioree(initiale) ? PARTAGENT_L_INITIALE_ET_LA_FIN : PARTAGENT_L_INITIALE)
-    const lettre = sur.find(c => baseDe(c) === 'lettre')
+    const initiale = sur.find(c => baseDe(c) === 'initiale' || (FAMILLES && baseDe(c) === 'astrolabe'))
+    if (initiale) return parmiCeQuiRepond(restent, estAmelioree(initiale) && baseDe(initiale) === 'initiale' ? PARTAGENT_L_INITIALE_ET_LA_FIN : PARTAGENT_L_INITIALE)
+    const lettre = sur.find(c => baseDe(c) === 'lettre') ?? (q.nombre ? undefined : troisieme)
     if (lettre) return parmiCeQuiRepond(restent, estAmelioree(lettre) ? PARTAGENT_LES_DEUX_LETTRES : PARTAGENT_LA_LETTRE)
     return 1 / restent
   }
 
-  /** Juste ou non, à la question `i` : il sait, sinon il devine (`chanceSansSavoir`). */
+  /** Juste ou non, à la question `i` : il sait, sinon il devine (`chanceSansSavoir`) — au second essai (v14), parmi ce qui reste. */
   const juger = (i: number, e: EtatDeLExpedition): boolean => {
     const q = posees[i]
     if (q.sait) return true
-    return r() < chanceSansSavoir(q, e.rencontre?.tour.surLaQuestion ?? [], e.rencontre?.pouvoirs ?? [], e.talismans)
+    return r() < chanceSansSavoir(q, e.rencontre?.tour.surLaQuestion ?? [], e.rencontre?.pouvoirs ?? [], e.talismans, e.rencontre?.tour.essai !== undefined)
   }
 
   /** L'exemplaire de cette carte qu'il jouerait : l'amélioré s'il l'a en main (le jeu complet), sinon l'autre. */
@@ -966,9 +1097,11 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       const k = exemplaire(e, cle)
       const carte = carteALaVersion(k, VERSION)
       if (!carte) return cransAvec(e, i, null)
-      const vers = formeDeLaCarte(k)
+      const vers = formeDeLaCarte(k, VERSION)
       if (vers === 'six') question = { reponses: 6, forme: 'six' }
       else if (vers === 'vrai-faux') question = { reponses: 2, forme: 'vrai-faux' }
+      // Métamorphose (v14) : à composer — ce qu'il sait, il le compose.
+      else if (vers === 'lettres') question = { reponses: LETTRES_D_UNE_REPONSE + LETTRES_EN_TROP, forme: 'lettres' }
       const niveau = q.niveau ?? 'facile'
       const apres = chiffresApresLaCarte(k, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: rc.serie }, rc.pouvoirs, {
         v: VERSION,
@@ -978,12 +1111,13 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
         savoir: SAVOIR_DES_MARCHES[niveau],
         ecus: e.ecus,
         courage: e.courage ?? COURAGE_MAX,
+        ratee: !!rc.ratee,
       })
       serie = apres.serie
       tour = { ...t, charge: apres.charge, jouees: [...t.jouees, k], surLaQuestion: viseLaQuestion(carte) && baseDe(k) !== 'augure' ? [...t.surLaQuestion, k] : t.surLaQuestion }
       if (carte.moment === 'pouvoir') pouvoirs = [...rc.pouvoirs, k]
     }
-    return cransDUneBonneReponse({ question, tour, pouvoirs, fetiche: depart.fetiche, categorie: q.categorie, trouvees: rc.trouvees, serie, aube: !rc.aubeEteinte })
+    return cransDUneBonneReponse({ question, tour, pouvoirs, fetiche: depart.fetiche, categorie: q.categorie, trouvees: rc.trouvees, serie, aube: !rc.aubeEteinte, v: VERSION, ratee: !!rc.ratee })
   }
 
   /**
@@ -993,10 +1127,43 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
    * celle-ci ; deux au choix (Deux visages), la seconde.
    */
   const chanceApres = (e: EtatDeLExpedition, i: number, cle: string | null): number => {
+    const p = chanceDUnCoup(e, i, cle)
+    if (!FAMILLES) return p
+    // Le second essai (v14) : ratée, il devine encore parmi ce qui reste — une réponse de moins sur une question à choix. La règle même
+    // du pli (`secondEssaiDuTour`), la carte jouée comprise ; une autre question n'en garde que celui des pouvoirs.
+    const rc = e.rencontre!
+    const q = posees[i]
+    const k = cle === null ? null : exemplaire(e, cle)
+    const carte = k === null ? undefined : carteALaVersion(k, VERSION)
+    const change = k !== null && changeDeQuestion(k, VERSION)
+    const pouvoirs = carte?.moment === 'pouvoir' ? [...rc.pouvoirs, k!] : rc.pouvoirs
+    const sur = !change && k !== null && carte && viseLaQuestion(carte) ? [...rc.tour.surLaQuestion, k] : change ? [] : rc.tour.surLaQuestion
+    const question = k !== null && !change ? formeApresLaCarte(k, { forme: q.forme ?? (q.reponses === 2 ? 'vrai-faux' : 'quatre'), reponses: q.reponses ?? 4 }, VERSION) : { forme: q.forme, reponses: q.reponses ?? 4 }
+    const essai = secondEssaiDuTour({
+      v: VERSION,
+      tour: { jouees: k === null ? rc.tour.jouees : [...rc.tour.jouees, k], ...(!change && rc.tour.essai !== undefined && { essai: rc.tour.essai }) },
+      pouvoirs,
+      essais: rc.essais,
+      question,
+      effacees: effaceesDuTour(sur, pouvoirs, { reponses: question.reponses, datee: q.datee, nombre: q.nombre, forme: question.forme }),
+    })
+    if (!essai) return p
+    const choix = question.forme !== 'lettres' && question.forme !== 'frise'
+    const encore = (g: number) => g + (1 - g) * (choix ? Math.min(1, g / Math.max(1e-9, 1 - g)) : g)
+    if (!change) return encore(p)
+    // Une autre question : ce qu'il en sait, puis deux essais pour deviner.
+    const s = (baseDe(k!) === 'lecon' || baseDe(k!) === 'bibliotheque') && depart.fetiche ? savoir(chanceSur(j, q.niveau ?? 'facile', depart.fetiche)) : savoir(q.p4)
+    return s + (1 - s) * encore(choix ? 1 / Math.max(2, q.reponses ?? 4) : chanceDeComposer(0))
+  }
+
+  /** Sa chance sur un seul essai, cette carte jouée — la chance d'avant les familles, que `chanceApres` complète de leur second essai. */
+  const chanceDUnCoup = (e: EtatDeLExpedition, i: number, cle: string | null): number => {
     const rc = e.rencontre!
     const q = posees[i]
     const n = q.reponses ?? 4
     const sait = savoir(q.p4)
+    // Leçon (v14) : une autre question, de sa catégorie fétiche — il la sait comme il sait sa fétiche.
+    const saitLaFetiche = FAMILLES && depart.fetiche ? savoir(chanceSur(j, q.niveau ?? 'facile', depart.fetiche)) : sait
     // À composer (v11), la règle même du verdict simulé : la carte jouée ajoutée à la question — ou aux pouvoirs, si elle se pose. Une
     // frise (v13) de même : une autre question de son escale est une autre frise.
     if (q.forme === 'lettres' || q.forme === 'frise') {
@@ -1010,13 +1177,22 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
         case 'volte-face':
         case 'mue':
           return sait + (1 - sait) * (q.forme === 'frise' ? chanceDeLaFrise(0) : chanceDeComposer(0))
+        // Les familles (v14) : Miroir, un vrai ou faux comme Simplifier ; Leçon et la Bibliothèque, une autre question de sa fétiche.
+        case 'miroir':
+          if (FAMILLES) return 1 / 2
+          return chanceSansSavoir(q, [...sur, k], rc.pouvoirs, e.talismans)
+        case 'lecon':
+        case 'bibliotheque':
+          if (FAMILLES) return saitLaFetiche + (1 - saitLaFetiche) * (q.forme === 'frise' ? chanceDeLaFrise(0) : chanceDeComposer(0))
+          return baseDe(cle) === 'bibliotheque' ? chanceSansSavoir(q, sur, [...rc.pouvoirs, k], e.talismans) : chanceSansSavoir(q, sur, rc.pouvoirs, e.talismans)
         default:
           return carteALaVersion(k, VERSION)?.moment === 'pouvoir'
             ? chanceSansSavoir(q, sur, [...rc.pouvoirs, k], e.talismans)
             : chanceSansSavoir(q, [...sur, k], rc.pouvoirs, e.talismans)
       }
     }
-    let restent = n - effaceesDuTour(rc.tour.surLaQuestion, rc.pouvoirs, { reponses: n, datee: q.datee, nombre: q.nombre })
+    // Son second essai déjà joué (v14) : sa réponse ratée ne se propose plus.
+    let restent = n - effaceesDuTour(rc.tour.surLaQuestion, rc.pouvoirs, { reponses: n, datee: q.datee, nombre: q.nombre }) - (FAMILLES && rc.tour.essai !== undefined ? 1 : 0)
     const dejaDatee = !!q.datee && (rc.tour.surLaQuestion.includes('enigme') || (e.talismans.includes('loupe') && q.categorie === 'Histoire'))
     if (dejaDatee) restent--
     restent = Math.max(2, restent)
@@ -1053,9 +1229,35 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
         return sait + (1 - sait) / n
       case 'deux-visages':
         return sait + (1 - sait) / restent
-      default:
-        return 1 / restent
     }
+    // Les familles (v14) : ce que ses cartes reprises et retouchées font à cette question.
+    if (FAMILLES) {
+      const k = exemplaire(e, cle)
+      switch (baseDe(cle)) {
+        case 'astrolabe':
+          // Une réponse effacée — deux, améliorée —, et l'initiale de la bonne.
+          return parmiCeQuiRepond(Math.max(2, restent - (estAmelioree(k) ? 2 : 1)), PARTAGENT_L_INITIALE)
+        case 'troisieme-oeil':
+          // Posé, il souffle une lettre dès cette question.
+          return q.nombre ? 1 / restent : parmiCeQuiRepond(restent, estAmelioree(k) ? PARTAGENT_LES_DEUX_LETTRES : PARTAGENT_LA_LETTRE)
+        case 'lecon':
+        case 'bibliotheque':
+          return saitLaFetiche + (1 - saitLaFetiche) / n
+        case 'prisme':
+          // Six choix, trois effacées : une chance sur trois, à quatre choix comme sur un vrai ou faux — la question change de forme,
+          // ce que le tour avait effacé de l'autre ne compte plus.
+          return 1 / Math.max(2, 6 - (EFFACE_DES_CARTES.prisme ?? 0))
+        case 'rythme':
+          return 1 / Math.max(2, restent - (estAmelioree(k) ? 2 : 1))
+        case 'miroir':
+          return 1 / 2
+        case 'metamorphose':
+          return chanceDeComposer(1)
+        case 'cameleon':
+          return 1 / restent
+      }
+    }
+    return 1 / restent
   }
 
   /**
@@ -1067,10 +1269,19 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
   const enAnnonce = (e: EtatDeLExpedition, i: number): GesteDExpedition | null => {
     const rc = e.rencontre!
     const mise = miser(e, i)
-    if (mise <= 0) return null
     const q = posees[i]
     const chance = chanceSelonLaForme(q.p4, q.forme ?? (q.reponses === 2 ? 'vrai-faux' : 'quatre'))
     const jouerLa = (cle: string): GesteDExpedition => ({ quoi: 'jouer', joker: exemplaire(e, cle), position: i })
+    // Les familles (v14) : ses cartes du pari servent sans parier, à l'aveugle — Banco et Doubler la mise frappent qui croit savoir,
+    // Assurance pare l'attaque de qui en doute. Doubler la mise, il ne la joue que s'il peut encore miser le double de ce qu'il mise.
+    if (FAMILLES) {
+      // Pactole, un pouvoir que la carte de la question ne paie pas : dès qu'une rencontre est longue.
+      if (rc.sorte !== 'question' && peut(e, 'pactole')) return jouerLa('pactole')
+      if (chance >= 0.5 && peut(e, 'banco')) return jouerLa('banco')
+      if (chance >= 0.5 && e.ecus >= 2 * mise && peut(e, 'doubler-la-mise')) return jouerLa('doubler-la-mise')
+      if (chance < 0.6 && peut(e, 'assurance')) return jouerLa('assurance')
+    }
+    if (mise <= 0) return null
     if (rc.sorte !== 'question') for (const cle of ['tresor', 'pactole']) if (peut(e, cle)) return jouerLa(cle)
     if (peut(e, 'assurance')) return jouerLa('assurance')
     if (peut(e, 'banco')) return jouerLa('banco')
@@ -1108,7 +1319,8 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
     if (q.sait || autre?.sait) {
       const sans = cransAvec(e, i, null)
       const plusTard = () => {
-        const cle = libres(['augure', 'pourboire', ...(rc.defausse.length > 0 && rc.main.length <= 2 ? ['reveil'] : [])])[0]
+        // Accélération (v14) : sa bonne réponse lui fait tirer deux cartes.
+        const cle = libres(['augure', 'pourboire', ...(FAMILLES ? ['acceleration'] : []), ...(rc.defausse.length > 0 && rc.main.length <= 2 ? ['reveil'] : [])])[0]
         return cle ? jouerLa(cle) : null
       }
       // Il tombe de toute façon : rien à frapper, ce qui sert plus tard.
@@ -1126,9 +1338,12 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       return plusTard()
     }
     // Deux visages joué, l'autre ne se sait pas non plus : plus rien à jouer, une carte par question.
-    const attaque = attaqueEnQuestion({ frappe: frappeDeLaQuestion(rc), tour: rc.tour, pouvoirs: rc.pouvoirs })
+    const attaque = attaqueEnQuestion({ frappe: frappeDeLaQuestion(rc), tour: rc.tour, pouvoirs: rc.pouvoirs, v: VERSION })
+    // Muraille, Fortune et Inarrêtable (v14) : l'erreur ne l'attaque pas, comme Sursis — l'une fait tirer une carte, l'autre coûte sa
+    // mise ; Inarrêtable, posé, tient jusqu'à l'erreur qu'il pardonne.
+    const pardonnent = FAMILLES ? ['muraille', 'fortune', 'inarretable'] : []
     if (courage <= attaque) {
-      const sauve = ['sursis', 'peau-de-feu', 'renaissance', 'passe-muraille'].find(peutLa)
+      const sauve = ['sursis', ...pardonnent, 'peau-de-feu', 'renaissance', 'passe-muraille'].find(peutLa)
       if (sauve) return jouerLa(sauve)
     }
     const base = chanceApres(e, i, null)
@@ -1137,18 +1352,31 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
       .sort((a, b) => b.p - a.p || rarete(a.c) - rarete(b.c))
     if (aides.length > 0 && aides[0].p > base + 0.05) return jouerLa(aides[0].c)
     if (attaque >= 7 || courage <= 20) {
-      const sauve = libres(['sursis', 'peau-de-feu'])[0]
+      const sauve = libres(['sursis', ...pardonnent, 'peau-de-feu'])[0]
       if (sauve) return jouerLa(sauve)
+    }
+    // Pansement (v14) : faute d'aide, de quoi tirer deux cartes s'il se trompe.
+    if (FAMILLES) {
+      const tire = libres(['pansement'])[0]
+      if (tire) return jouerLa(tire)
     }
     return null
   }
 
-  /** Une carte qui repose la question à une autre forme — Corser, Simplifier, Polymorphe, Miroir —, comme le serveur (`questionsApresLeGeste`) : ce qu'il sait, il le sait encore. */
+  /**
+   * Une carte qui repose la question à une autre forme — Corser, Simplifier, Polymorphe, Miroir ; depuis les familles (v14),
+   * Métamorphose à composer, le Prisme à six choix —, comme le serveur (`questionsApresLeGeste`) : ce qu'il sait, il le sait encore.
+   */
   const reposer = (g: GesteDExpedition, i: number) => {
-    const vers = g.quoi === 'jouer' ? formeDeLaCarte(g.joker) : undefined
+    const vers = g.quoi === 'jouer' ? formeDeLaCarte(g.joker, VERSION) : undefined
     if (!vers) return
     const q = posees[i]
-    posees[i] = vers === 'six' ? { ...q, forme: 'six', reponses: 6 } : { ...q, forme: 'vrai-faux', reponses: 2, nombre: undefined, reponseEn: undefined }
+    posees[i] =
+      vers === 'six'
+        ? { ...q, forme: 'six', reponses: 6 }
+        : vers === 'lettres'
+          ? { ...q, forme: 'lettres', reponses: LETTRES_D_UNE_REPONSE + LETTRES_EN_TROP, nombre: undefined, reponseEn: undefined }
+          : { ...q, forme: 'vrai-faux', reponses: 2, nombre: undefined, reponseEn: undefined }
   }
 
   const carteVue = (e: EtatDeLExpedition): CarteDUnActe => {
@@ -1344,7 +1572,14 @@ function jouer(j: Joueur, graine: string, cas: Cas, ascension = ASCENSION_MESURE
         const mots = posees[cible].sait ? MOTS_D_UN_DEVOILEMENT / (arrete ? 3 : 2) : MOTS_D_UN_DEVOILEMENT
         posees[cible] = { ...posees[cible], devoile: { mots, sur: MOTS_D_UN_DEVOILEMENT } }
       }
-      reponses.set(cible, juger(cible, e))
+      const juste = juger(cible, e)
+      // Les familles (v14) : ratée sous un second essai, elle ne se juge pas — l'essai s'écrit au journal, comme au serveur, et il
+      // répond encore (une carte de plus, s'il n'en a pas joué).
+      if (!juste && cible === e.enAttente && secondEssaiEnAttente(depart, e, posees)) {
+        gestes.push({ quoi: 'essai', position: cible })
+        continue
+      }
+      reponses.set(cible, juste)
       continue
     }
     // Sur le plan, son courage au plus bas : la fiole avant le pas suivant.

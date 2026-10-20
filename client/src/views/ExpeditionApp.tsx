@@ -100,11 +100,9 @@ import {
   COURAGE_MAX,
   FAMILLES_DE_CARTES,
   FIOLES_MAX,
-  STYLES,
-  STYLES_EN_QUESTION,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_CURIOSITES,
-  VERSION_DE_LA_FRISE,
+  VERSION_DES_FAMILLES,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
@@ -116,6 +114,7 @@ import {
   paquetDesRencontres,
   parmi,
   refusDeLAmelioration,
+  stylesDeLaVersion,
   type CarteDeRencontre,
   type CleDeFiole,
   type SorteDeRencontre,
@@ -829,6 +828,12 @@ export function ExpeditionApp() {
     setErreur('')
     try {
       const reponse = await api.expedition.repondre(vue.id, q.index, choix)
+      // Les familles (v14) : un second essai — rien n'est jugé, la question reste, sa réponse ratée effacée, et il répond encore ; sa
+      // niche retient son souffle jusqu'au vrai verdict.
+      if (reponse.essai) {
+        setEcranBrut({ e: 'route', vue: reponse.expedition })
+        return
+      }
       setGains(g => ({ xp: g.xp + reponse.xp, justes: g.justes + (reponse.juste ? 1 : 0), tampons: reponse.tampon ? [...g.tampons, reponse.tampon] : g.tampons }))
       // La révélation reste à l'écran, sans le faire défiler : la bonne réponse est sous le doigt. Composée, elle n'est aucune de ses
       // réponses : la révélation dit ce qu'il a composé.
@@ -1239,9 +1244,9 @@ export function Depart({
   const [style, setStyle] = useState(() => styleRetenu(page.prochaine.codex?.styles ?? []))
   const enRencontres = vue ? vue.courage !== undefined : ouvertes
   // La version que ses pièces lisent : celle de l'expédition en route, sinon celle qui partirait — la question au centre, ses
-  // coups de pouce et ses curiosités (v12), là où la page la dit ouverte. Ses cartes, son codex, ses styles, son Ascension et
-  // ses règles en dépendent.
-  const v = vue ? (vue.cartes?.v ?? VERSION_DU_CODEX) : page.prochaine.questionAuCentre ? VERSION_DE_LA_FRISE : VERSION_DES_HUIT_FAMILLES
+  // coups de pouce, ses curiosités, sa frise et ses familles (v14), là où la page la dit ouverte. Ses cartes, son codex, ses
+  // styles, son Ascension et ses règles en dépendent.
+  const v = vue ? (vue.cartes?.v ?? VERSION_DU_CODEX) : page.prochaine.questionAuCentre ? VERSION_DES_FAMILLES : VERSION_DES_HUIT_FAMILLES
   // Le codex (v7) : celui qu'elle a figé en route, celui qui partirait avant ; aux règles d'avant, aucun.
   const codex = page.prochaine.codex
   // L'Ascension se choisit une fois une expédition menée au bout ; un serveur d'avant elle ne dit rien de ses crans.
@@ -1262,7 +1267,7 @@ export function Depart({
   // se dit en une ligne.
   const sonPaquet = !vue && montree && enRencontres ? paquetDesRencontres(montree, style ?? undefined, v) : null
   // Le style qui s'ouvre ensuite, et son niveau : la ligne du départ dit ce que le jeu fera gagner.
-  const prochainStyle = (v >= VERSION_DE_LA_QUESTION_AU_CENTRE ? STYLES_EN_QUESTION : STYLES).find(x => !styles.includes(x))
+  const prochainStyle = stylesDeLaVersion(v).find(x => !styles.includes(x))
   // Sa catégorie fétiche est à l'Érudit, qui en vit : un autre style ne la porte pas.
   const feticheDuDepart = feticheOuverte && (!style || style === 'erudit') ? fetiche : null
   // Les cartes de l'expédition à sa version : la question au centre n'en joue que soixante-deux.
@@ -2940,6 +2945,13 @@ export function Escale({
           </p>
         )}
         {doubleChance && <p className="exp-consigne small">{espacesFines('Double chance : choisis deux réponses — il suffit que l’une soit juste.')}</p>}
+        {/* Les familles (v14) : son premier essai, raté, s'est effacé — il répond encore, sans que rien soit jugé. */}
+        {!r && vue.rencontre?.essai !== undefined && (
+          <p className="exp-consigne exp-essai small" role="status">
+            <Icon name="rotate" />
+            {espacesFines(`Raté — ${carteDeRencontre(vue.rencontre.essai)?.nom ?? 'ta carte'} efface ta réponse : réponds encore.`)}
+          </p>
+        )}
         {r ? (
           <Revelation
             question={q}
@@ -2957,11 +2969,17 @@ export function Escale({
             onSignaler={onSignaler}
           />
         ) : affichee.composer ? (
-          // Une question à composer (v11) : sa clé change avec elle — Échange en pose une autre, rien de composé ne la suit.
-          <ComposerLaReponse key={affichee.index} composer={affichee.composer} busy={busy} onValider={lettres => onRepondre(affichee, lettres)} />
+          // Une question à composer (v11) : sa clé change avec elle — Échange en pose une autre, rien de composé ne la suit ; un second
+          // essai (v14) la rend vide, comme neuve.
+          <ComposerLaReponse
+            key={`${affichee.index}:${vue.rencontre?.essai ?? ''}`}
+            composer={affichee.composer}
+            busy={busy}
+            onValider={lettres => onRepondre(affichee, lettres)}
+          />
         ) : affichee.frise ? (
           // Une frise (v13) : de même, sa clé change avec elle.
-          <PoserLaFrise key={affichee.index} frise={affichee.frise} busy={busy} onValider={ordre_ => onRepondre(affichee, ordre_)} />
+          <PoserLaFrise key={`${affichee.index}:${vue.rencontre?.essai ?? ''}`} frise={affichee.frise} busy={busy} onValider={ordre_ => onRepondre(affichee, ordre_)} />
         ) : (
           <ReponsesDeLEscale
             reponses={affichee.reponses}

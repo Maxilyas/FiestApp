@@ -9676,6 +9676,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Un coup de pouce (v11) : ce qu'il souffle, à côté de son ampoule. */
 .exp-pouce { display: flex; align-items: center; gap: 8px; }
 .exp-pouce .icon { flex: none; color: var(--accent-text); }
+/* Le second essai (v14) : sa première réponse s'est effacée, il répond encore — la flèche qui tourne, comme une seconde chance. */
+.exp-essai { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.exp-essai .icon { flex: none; }
 .exp-composee { letter-spacing: 0.06em; }
 /* Un joker pour son paquet (la maquette 12) : trois jokers, leur rareté en pastille. */
 .exp-offres { display: flex; flex-direction: column; gap: 8px; }

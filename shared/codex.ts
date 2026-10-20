@@ -34,6 +34,7 @@ import {
   MAIN_MAX_SOUS_TROIS_TETES,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_FAMILLES,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   baseDe,
@@ -354,9 +355,46 @@ export const ECHELLE_DES_COUPS_DE_POUCE: readonly MarcheDuCodex[] = ECHELLE_EN_Q
   m.niveau === 1 ? { ...m, cartes: [...m.cartes, 'repere', 'lettre'] } : m.niveau === 3 ? { ...m, cartes: [...m.cartes, 'initiale'] } : m,
 )
 
-/** L'échelle d'un départ de cette version : celle de la question au centre dès la version 10, et ses coups de pouce dès la 11. */
+/**
+ * Les cartes que les familles reprennent (v14), au niveau où chacune s'ouvre :
+ * là où sa famille ouvre les siennes — Leçon et Fortune avec le Flambeur et
+ * son pari, Foulée avec l'Élan, Astrolabe parmi les rares du niveau 3 ; le
+ * Rempart revenu au niveau 4, « jusqu'aux styles de l'étape 6 », ses trois
+ * communes avec lui ; Miroir avec le Prisme ; les autres rares au 6 et au 7,
+ * les épiques au 8 et au 9, comme celles des styles qu'on a déjà.
+ */
+const REPRISES_DES_FAMILLES: Readonly<Partial<Record<number, readonly string[]>>> = {
+  2: ['fortune', 'lecon'],
+  3: ['foulee', 'astrolabe'],
+  4: ['parade', 'muraille', 'pansement'],
+  5: ['miroir'],
+  6: ['cameleon', 'contre-attaque', 'second-souffle'],
+  7: ['acceleration', 'cuirasse'],
+  8: ['metamorphose', 'vent-arriere'],
+  9: ['bastion', 'represailles'],
+}
+
+/**
+ * L'échelle des familles (v14) : celle des coups de pouce, les cartes reprises
+ * (`REPRISES_DES_FAMILLES`) et le Rempart au niveau 4 — six styles. Un départ
+ * de la version 13 garde la sienne : son codex figé ne nomme aucune carte
+ * reprise, et le Rempart n'y est pas.
+ */
+export const ECHELLE_DES_FAMILLES: readonly MarcheDuCodex[] = ECHELLE_DES_COUPS_DE_POUCE.map(m => ({
+  ...m,
+  cartes: [...m.cartes, ...(REPRISES_DES_FAMILLES[m.niveau] ?? [])],
+  ...(m.niveau === 4 && { styles: [...(m.styles ?? []), 'rempart' as const] }),
+}))
+
+/** L'échelle d'un départ de cette version : celle de la question au centre dès la version 10, ses coups de pouce dès la 11, ses familles dès la 14. */
 export const echelleDe = (v: number): readonly MarcheDuCodex[] =>
-  v >= VERSION_DES_COUPS_DE_POUCE ? ECHELLE_DES_COUPS_DE_POUCE : v >= VERSION_DE_LA_QUESTION_AU_CENTRE ? ECHELLE_EN_QUESTION : ECHELLE
+  v >= VERSION_DES_FAMILLES
+    ? ECHELLE_DES_FAMILLES
+    : v >= VERSION_DES_COUPS_DE_POUCE
+      ? ECHELLE_DES_COUPS_DE_POUCE
+      : v >= VERSION_DE_LA_QUESTION_AU_CENTRE
+        ? ECHELLE_EN_QUESTION
+        : ECHELLE
 
 /** Les styles qu'ouvre un niveau, du premier au sien, dans l'ordre de l'échelle : ceux que le départ propose — à la version du départ. */
 export const stylesDuNiveau = (niveau: number, v = VERSION_DES_HUIT_FAMILLES): StyleDeJeu[] =>
