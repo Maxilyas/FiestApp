@@ -132,6 +132,12 @@ export interface QuizServerOptions {
   /** Quand la base de la campagne se lit en fond, après le démarrage (`PRECHAUFFAGE_CAMPAGNE_MS`). */
   prechauffageCampagneMs?: number
   /**
+   * Un profil qui ouvre son accueil ou l'expédition la fait lire tout de
+   * suite, sans attendre ce délai. Le banc le ferme : ses épreuves comptent ce
+   * que chaque requête lit, et un préchauffage parti en fond s'y mêlerait.
+   */
+  prechauffageAuProfil?: boolean
+  /**
    * Le rappel du soir du quiz du jour (`core/rappels.ts`) : les tests
    * regardent l'heure plus souvent, et ouvrent leur propre service de push,
    * sur la machine — en ligne, seuls ceux des navigateurs sont acceptés.
@@ -1194,6 +1200,18 @@ export async function createQuizServer(opts: QuizServerOptions) {
       res.redirect(302, `/${defaultSlug()}${req.path}`)
     },
   )
+
+  // La base de la campagne, dès qu'un profil ouvre son accueil ou l'expédition (le 20 octobre 2026 : « gros problème de
+  // latence en essayant de lancer une expédition », le propriétaire). Réveillé, le serveur ne la lisait que vingt secondes
+  // après son démarrage, et le premier départ parti avant attendait sa lecture, ses sujets et ses tirages : une seconde de
+  // processeur, une dizaine au dixième de cœur. Une fois la page servie, pour que la requête du réveil passe d'abord.
+  if (opts.prechauffageAuProfil !== false) {
+    app.get(['/api/joueur/moi', '/api/expedition'], (req, res, next) => {
+      const page = req.path === '/api/expedition' || req.query.accueil !== undefined
+      if (page && readPlayerToken(req.header('cookie'))) res.on('finish', () => campagne.prechauffer())
+      next()
+    })
+  }
 
   mountApi(app, {
     store,

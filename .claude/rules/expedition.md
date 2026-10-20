@@ -1032,3 +1032,13 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
   3, une carte de plus aide moins : une par question, et il en a déjà une
   qui sert — le haut du codex ne monte que par des cartes neuves qui valent
   plus que celles qu'il a.
+- **Le départ a besoin de toute la base de la campagne** — ses thèmes
+  pointus se comptent sur elle (`sujetsComptes`), ses chances sur ses
+  mesures — : réveillé, le serveur ne la lisait que vingt secondes après son
+  démarrage, et le premier départ parti avant les payait — 0,8 s de
+  processeur au paquet, sept à huit secondes au dixième de cœur (« gros
+  problème de latence en essayant de lancer une expédition », le
+  20 octobre 2026). L'accueil d'un profil et la page de l'expédition lancent
+  donc le préchauffage, la page servie (`prechauffageAuProfil`, `server.ts` ;
+  règle `campagne-base.md`) : 0,06 s ensuite. Une page neuve d'où l'on part
+  sans passer par elles rejoint leur liste.
