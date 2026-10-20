@@ -129,7 +129,7 @@ Ce que tu as d'abord, en couleur ; le reste en silhouette dorée, une pastille d
 
 | Pour tout le monde | Pour un profil, en plus |
 |---|---|
-| son avatar en grand, son nom | son niveau en gemme, son titre, son laurier, « Champion de … au quiz du jour » ; « « Max » ce soir — Maxime sur son profil » quand l'animateur l'a surnommé ; son avatar posé sur son fond de carte, le blason de sa ligue au coin |
+| son avatar en grand, son nom | son niveau en gemme, son titre, son laurier, « Champion de … au quiz du jour » ; « « Max » ce soir — Maxime sur son profil » quand l'animateur l'a surnommé ; son fond de carte, qui tapisse ses deux faces, dans leur cadre de métal ; le blason de sa ligue au coin |
 | en soirée : sa place, ses points (« Pas encore de points ce soir »), ses réponses par type (« précision 50 % (1 sur 2 QCM) · 8 estimations, coup d'œil 100 % ») | son compagnon, perché au coin de l'illustration, sa plaque dessous — son nom, le titre de votre amitié ; « Ses plus beaux hauts faits », comme les pouvoirs d'une carte, avec ce qu'il a fallu faire |
 | | au dos, un seul tableau : soirées, quiz gagnés, hauts faits, précision, coup d'œil, réflexe — sans aucune soirée, ceux du solo : hauts faits, précision, record en série, paliers de sentier, bonnes réponses de campagne —, puis ses prix (« 14 sur 20 »), son quiz du jour (« 41 j », « 3 victoires »), ses duels (sa cote, sa ligue) et son record de campagne, chacun s'il a quelque chose à dire |
 | | au dos encore : ses trois écussons les plus hauts, puis sa collection, tout au bout — ses Divins, ses légendaires |

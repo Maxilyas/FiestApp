@@ -68,7 +68,9 @@ test('le cadre de sa carte est celui de sa ligue actuelle aux duels — sans due
   for (const l of LIGUES) assert.match(regle(`.cadre-${l.cle}`, /--cadre:/), /--cadre:\s*linear-gradient\(/, l.cle)
   assert.match(regle('.carte-joueur', /--cadre:/), /--cadre:\s*linear-gradient\([^;]*var\(--accent-text\)/)
   assert.match(regle('.carte-face'), /background:\s*var\(--cadre\);/)
-  assert.match(regle('.carte-illustration-cadre'), /background:\s*var\(--cadre\);/, 'l’illustration a le cadre de la carte')
+  // L'illustration a le cadre de la carte, en anneau : peint sur tout le cadre, il remplissait d'or la fenêtre ouverte sur un fond.
+  assert.match(regle('.carte-illustration-cadre::before'), /background:\s*var\(--cadre\);[\s\S]*mask:[^;]*content-box exclude/, 'l’illustration a le cadre de la carte')
+  assert.doesNotMatch(regle('.carte-illustration-cadre'), /background:/)
 })
 
 test('au dos, un seul tableau : ses cadrans, puis ses prix, son quiz du jour, ses duels et son record de campagne', async () => {
@@ -123,11 +125,20 @@ test('elle se retourne : un dos pour un profil, rien pour l’invité sans profi
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{\s*\.carte-pivot \{ transition: none; \}/)
 })
 
-test('son fond de carte habille l’illustration, plus la carte entière', () => {
-  assert.match(CARTE, /<div className=\{'carte-illustration' \+ \(fond \? ` carte-fond fond-\$\{fond\}` : ''\)\}>/)
-  assert.doesNotMatch(CARTE, /'carte-joueur'[^}]*carte-fond/, 'la carte n’est plus à fond')
-  // Le lambrequin du théâtre pend derrière l'avatar : par-dessus, il lui coupait la tête.
-  assert.match(regle('.carte-illustration.carte-fond.fond-theatre:not(.fond-apercu)::before'), /z-index:\s*-1;/)
+test('son fond de carte tapisse ses deux faces, dans leur cadre de métal, et l’illustration le laisse voir', () => {
+  // Dans l'illustration seule, on ne le voyait que derrière l'avatar, quand la
+  // boutique, la loge et la collection le montrent sur la carte entière (« et
+  // le fond ne peut pas couvrir recto et verso ? », le propriétaire, le
+  // 20 octobre 2026).
+  const dedans = /<div className=\{'carte-dedans' \+ \(fond \? ` carte-fond fond-\$\{fond\}` : ''\)\}>\s*<div className="carte-defile">/g
+  assert.equal([...CARTE.matchAll(dedans)].length, 2, 'le recto et le dos')
+  assert.match(CARTE, /<div className="carte-illustration">/)
+  assert.doesNotMatch(CARTE, /'carte-(joueur|illustration)'[^}]*carte-fond/, 'ni la fenêtre de la carte entière, ni l’illustration seule')
+  // Il ne bouge pas : ce qui défile passe par-dessus lui, sans sol à soi ; l'illustration n'y pose qu'un halo autour de l'avatar.
+  assert.match(regle('.carte-joueur .carte-fond > .carte-defile'), /background:\s*none;/)
+  assert.match(regle('.carte-fond .carte-illustration'), /background:\s*radial-gradient\([^;]*transparent 72%\);/)
+  // Le lambrequin du théâtre pend derrière ce que la carte raconte : par-dessus, il couvrait sa tête.
+  assert.match(regle('.carte-dedans.carte-fond.fond-theatre:not(.fond-apercu)::before'), /z-index:\s*-1;/)
 })
 
 test('son compagnon, perché au coin de l’illustration, ne fait plus tout descendre — et rien ne passe sous lui', () => {

@@ -2,11 +2,11 @@
 // jetable : la carte à collectionner (le choix du propriétaire du 20 octobre
 // 2026, `retours/2026-10-20/carte-du-joueur/`) — en soirée, son dos, son
 // avatar et son compagnon en grand ; sa propre carte, sans compagnon, une
-// débutante et son jeune chat, un invité sans profil, sous Ivoire, sur deux
-// fonds de carte (la Nuit étoilée, le Théâtre et son lambrequin) ; le cadre de
-// chaque ligue des duels, et sans ligue ; un nom, un titre et un compagnon
-// aussi longs qu'ils peuvent l'être. Chaque photo dit si la carte défile, et
-// de combien.
+// débutante et son jeune chat, un invité sans profil, sous Ivoire, sur quatre
+// fonds de carte, recto et dos (la Nuit étoilée, le Théâtre et son lambrequin,
+// la Cité céleste, la Bibliothèque sous Ivoire) ; le cadre de chaque ligue des
+// duels, et sans ligue ; un nom, un titre et un compagnon aussi longs qu'ils
+// peuvent l'être. Chaque photo dit si la carte défile, et de combien.
 //
 // Léa est une habituée : niveau 23, le Phénix porté, « L'Oracle » en titre —
 // et Nox, son loup des étoiles, dont la niche a passé trois paliers. Son
@@ -137,8 +137,11 @@ const ETATS: readonly Etat[] = [
   // Un invité sans profil : sa soirée, et rien qui dise ce qui lui manque (invariant 8).
   { nom: '5-anonyme', sansCompagnon: true, carte: () => ({ nom: 'Tom', avatar: '🐼', ceSoir: { ...CE_SOIR, rang: 5, points: 1720, justes: 6, coupDOeil: 0.5 } }) },
   { nom: '6-ivoire', theme: 'ivoire', carte: lue => avecCeSoir(habituee(lue)), gestes: ['dos'] },
-  { nom: '7-fond-nuit', carte: lue => avecCeSoir({ ...habituee(lue), profil: { ...habituee(lue).profil, fond: 'nuit' } }) },
-  { nom: '7-fond-theatre', carte: lue => ({ ...habituee(lue), profil: { ...habituee(lue).profil, fond: 'theatre' } }) },
+  // Son fond tapisse les deux faces : un dessiné, le théâtre et son lambrequin, un peint — le plus clair, la Cité céleste —, et sous Ivoire.
+  { nom: '7-fond-nuit', carte: lue => avecCeSoir({ ...habituee(lue), profil: { ...habituee(lue).profil, fond: 'nuit' } }), gestes: ['dos'] },
+  { nom: '7-fond-theatre', carte: lue => ({ ...habituee(lue), profil: { ...habituee(lue).profil, fond: 'theatre' } }), gestes: ['dos'] },
+  { nom: '7-fond-cite-celeste', carte: lue => avecCeSoir({ ...habituee(lue), profil: { ...habituee(lue).profil, fond: 'cite-celeste' } }), gestes: ['dos'] },
+  { nom: '7-fond-sous-ivoire', theme: 'ivoire', carte: lue => avecCeSoir({ ...habituee(lue), profil: { ...habituee(lue).profil, fond: 'bibliotheque' } }), gestes: ['dos'] },
   // Le cadre de chaque ligue, et sans ligue — la carte seule, côte à côte sur la planche.
   ...LIGUES.map(l => ({ nom: `8-cadre-${l.cle}`, seule: true, carte: (lue: any) => avecCeSoir(habituee(lue, l.cle)) })),
   {
