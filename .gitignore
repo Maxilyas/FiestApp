@@ -8,3 +8,5 @@ export/
 .lots-campagne/
 # Les fiches tirées de Wikidata et le cache de leurs requêtes (server/scripts/faits-wikidata.ts) : régénérables, jamais committés.
 .faits-wikidata/
+# Le cache des images du détail (server/scripts/details.ts) : la réponse de Wikidata, les miniatures, les planches.
+.details/
