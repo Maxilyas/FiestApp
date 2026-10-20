@@ -25,8 +25,9 @@ interface ExpeditionDeps {
   rencontres?: boolean
   /**
    * La question au centre (la version 10, le 19 octobre 2026) s'offre-t-elle
-   * au départ ? La préproduction d'abord (`questionAuCentreOuverte`) : la page
-   * la demande, et sans elle le départ reste en version 9.
+   * au départ ? La préproduction d'abord, partout depuis le 20 octobre 2026
+   * (`questionAuCentreOuverte`) : la page la demande, et sans elle le départ
+   * reste en version 9.
    */
   questionAuCentre?: boolean
 }
@@ -45,7 +46,7 @@ export function rencontresOuvertes({ online, env }: { online: boolean; env: stri
   return RENCONTRES_EN_PRODUCTION || !online || env !== 'production'
 }
 
-/** La question au centre (v10) s'ouvre-t-elle au départ ? La même règle, sous son drapeau — fermé : la préproduction, `npm run dev`, les tests. */
+/** La question au centre (v10) s'ouvre-t-elle au départ ? La même règle, sous son drapeau — ouvert : partout, la production comprise. */
 export function questionAuCentreOuverte({ online, env }: { online: boolean; env: string }): boolean {
   return QUESTION_AU_CENTRE_EN_PRODUCTION || !online || env !== 'production'
 }

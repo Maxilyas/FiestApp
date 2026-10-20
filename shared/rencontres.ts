@@ -590,11 +590,13 @@ export const VERSION_DES_HUIT_FAMILLES = 9
 export const VERSION_DE_LA_QUESTION_AU_CENTRE = 10
 
 /**
- * La question au centre part-elle en production ? Pas encore : la
- * préproduction d'abord, comme les rencontres le 18 octobre 2026 — la
- * production garde la version 9 jusqu'à ce que le propriétaire la passe.
+ * La question au centre part-elle en production ? Oui depuis le 20 octobre
+ * 2026, avec la version 15 : la préproduction d'abord, comme les rencontres,
+ * puis la production, où le propriétaire la fait essayer en accès anticipé.
+ * Repassé à `false`, les départs neufs de la production repartiraient en
+ * version 9 — une expédition en route finit à ses règles.
  */
-export const QUESTION_AU_CENTRE_EN_PRODUCTION = false
+export const QUESTION_AU_CENTRE_EN_PRODUCTION = true
 
 /**
  * La version du départ qui joue les coups de pouce et les lettres (le 19
