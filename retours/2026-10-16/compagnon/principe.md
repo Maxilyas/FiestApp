@@ -167,7 +167,8 @@ vidéo générée : trop chère pour ce qu'elle apporte.
 3. ~~Le haut fait « Première traversée » et la livraison de Lumi
    (`livrer-compagnons.ts luciole`).~~ Faits le 20 octobre 2026 : la luciole
    livrée depuis `luciole-peinte/` (ses quatre formes, leurs humeurs, son
-   essaim ; pas de métamorphose encore), au catalogue sous le nom de « La
+   essaim ; sa métamorphose, la luciole-aurore, peinte et livrée le même
+   soir — point 5), au catalogue sous le nom de « La
    Luciole » — Lumi est le premier nom proposé pour la sienne, comme Nox pour
    le loup —, ses formes au féminin (« La petite luciole » plutôt que « Le
    ver luisant », qui se serait dit « en la portant »). La Première
@@ -178,5 +179,5 @@ vidéo générée : trop chère pour ce qu'elle apporte.
    reçue au démarrage. Pas un trophée de l'album des trophées : le nom de la
    voie qui la donne.
 4. Les paliers de la niche, lus des journaux.
-5. Les métamorphoses livrées. ~~La lumière~~ livrée le 19 octobre 2026 (« quelqu'un a eu le loup compagnon en éclaté mais son avatar n'a pas changé », le propriétaire : peinte, elle ne partait pas, et l'Éclat ne posait que quatre paillettes) : le loup-tempête, le chat-soleil, l'île en fleurs, une forme de plus que l'Éclat ouvre à la forme ultime, et qui ne la remplace pas — « je veux que ce soit un choix », le propriétaire, le même jour : une case de plus dans la loge pour la porter, une petite niche de plus dans « Ma niche » pour l'y montrer — ses humeurs, son cadrage —, marquées d'un point rouge tant qu'on ne l'a pas vue ; l'album l'a sur sa page légendaire. Reste l'ombre, peinte, et sa règle (cent mauvaises réponses en le portant).
+5. Les métamorphoses livrées. ~~La lumière~~ livrée le 19 octobre 2026 (« quelqu'un a eu le loup compagnon en éclaté mais son avatar n'a pas changé », le propriétaire : peinte, elle ne partait pas, et l'Éclat ne posait que quatre paillettes) : le loup-tempête, le chat-soleil, l'île en fleurs — et la luciole-aurore, peinte le 20 octobre 2026 (« peins-la ici »), ses voiles d'aurore boréale au-dessus d'un lac de montagne —, une forme de plus que l'Éclat ouvre à la forme ultime, et qui ne la remplace pas — « je veux que ce soit un choix », le propriétaire, le même jour : une case de plus dans la loge pour la porter, une petite niche de plus dans « Ma niche » pour l'y montrer — ses humeurs, son cadrage —, marquées d'un point rouge tant qu'on ne l'a pas vue ; l'album l'a sur sa page légendaire. Reste l'ombre, peinte, et sa règle (cent mauvaises réponses en le portant).
 6. Le réveil et « Le laisser dormir ».

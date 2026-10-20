@@ -862,5 +862,294 @@
       "serviceTier": "standard"
     },
     "cout": 0.140204
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "eclat-aurore",
+    "date": "2026-10-19T22:39:30.908Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": null,
+    "cout": 0.14,
+    "note": "Jetons perdus : la chaîne plantait en écrivant son journal (coutEstime sans modèle), l’image déjà payée — coût estimé au prix d’une image."
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "eclat-aurore-decor",
+    "date": "2026-10-19T22:41:20.155Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 383,
+      "candidatesTokenCount": 1261,
+      "totalTokenCount": 1882,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 125
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 238,
+      "serviceTier": "standard"
+    },
+    "cout": 0.139714
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "eclat-aurore-decoupe",
+    "date": "2026-10-19T22:41:30.164Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 485,
+      "candidatesTokenCount": 1431,
+      "totalTokenCount": 2120,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 227
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 204,
+      "serviceTier": "standard"
+    },
+    "cout": 0.14155
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "eclat-aurore-ravi",
+    "date": "2026-10-19T22:41:45.583Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 436,
+      "candidatesTokenCount": 1271,
+      "totalTokenCount": 1902,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 178
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 195,
+      "serviceTier": "standard"
+    },
+    "cout": 0.139424
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "eclat-aurore-depite",
+    "date": "2026-10-19T22:41:46.015Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 437,
+      "candidatesTokenCount": 1311,
+      "totalTokenCount": 1940,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 179
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 192,
+      "serviceTier": "standard"
+    },
+    "cout": 0.13987
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "eclat-aurore-triomphe",
+    "date": "2026-10-19T22:41:46.700Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 433,
+      "candidatesTokenCount": 1303,
+      "totalTokenCount": 1980,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 175
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 244,
+      "serviceTier": "standard"
+    },
+    "cout": 0.14039
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "eclat-aurore-decoupe",
+    "date": "2026-10-19T22:42:55.868Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 502,
+      "candidatesTokenCount": 1321,
+      "totalTokenCount": 2084,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 244
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 261,
+      "serviceTier": "standard"
+    },
+    "cout": 0.140948
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "eclat-aurore-ravi",
+    "date": "2026-10-19T22:43:12.338Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 436,
+      "candidatesTokenCount": 1311,
+      "totalTokenCount": 1952,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 178
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 205,
+      "serviceTier": "standard"
+    },
+    "cout": 0.140024
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "eclat-aurore-depite",
+    "date": "2026-10-19T22:43:12.387Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 437,
+      "candidatesTokenCount": 1292,
+      "totalTokenCount": 1894,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 179
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 165,
+      "serviceTier": "standard"
+    },
+    "cout": 0.139318
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "eclat-aurore-triomphe",
+    "date": "2026-10-19T22:43:12.989Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 433,
+      "candidatesTokenCount": 1315,
+      "totalTokenCount": 1931,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 175
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 183,
+      "serviceTier": "standard"
+    },
+    "cout": 0.139802
   }
 ]
