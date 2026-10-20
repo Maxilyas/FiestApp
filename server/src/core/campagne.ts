@@ -914,6 +914,8 @@ export class CampagneStore {
   /** Les duels classés lancés sur trente jours, au QG : gardés de même. */
   private lancesGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes'>> } | null = null
   private ferme = false
+  /** Le préchauffage est parti (`prechauffer`) : le délai du démarrage, ou le premier profil venu. */
+  private prechauffee = false
   /**
    * Les profils, pour nommer le classement du défi et ses vainqueurs
    * (`ProfileStore`) ; les masqués du quiz du jour, qu'il écarte aussi ; et
@@ -2528,8 +2530,15 @@ export class CampagneStore {
     })
   }
 
-  /** Lit la base en fond, sans rien attendre : la première série la trouve prête (`PRECHAUFFAGE_CAMPAGNE_MS`, `server.ts`). */
+  /**
+   * Lit la base en fond, sans rien attendre : la première série la trouve
+   * prête. Une fois par processus — au premier profil qui ouvre son accueil ou
+   * l'expédition, sinon `PRECHAUFFAGE_CAMPAGNE_MS` après le démarrage
+   * (`server.ts`) : appelée encore, elle repasserait toute la base au crible.
+   */
   prechauffer(): void {
+    if (this.prechauffee) return
+    this.prechauffee = true
     this.base().catch(e => console.error('[campagne] base non lue en fond — la première série la relira :', e))
     // Ses sujets et la préparation de ses tirages : la première ouverture de la campagne et le premier tirage les trouvent faits.
     this.preparerEnFond().catch(e => console.warn('[campagne] sujets et tirages non préparés en fond — la première demande les fera :', e instanceof Error ? e.message : e))

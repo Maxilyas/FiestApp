@@ -100,7 +100,9 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
   let port = 0
   // Le banc ferme la question au centre de l'expédition (la version 10), comme le calendrier : les épreuves des
   // rencontres d'avant elle partent en version 9, telles que la production les joue ; les siennes la rouvrent.
-  const lancer = () => createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, ...opts })
+  // Et le préchauffage au premier profil : parti en fond derrière un accueil, il lirait la base et ses mesures au
+  // milieu des allers-retours qu'une épreuve compte (`campagne-charge.test.ts` le rouvre).
+  const lancer = () => createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, prechauffageAuProfil: false, ...opts })
   let server = await lancer()
   port = server.port
   const banc: Banc = {
