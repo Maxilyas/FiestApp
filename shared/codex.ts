@@ -27,6 +27,7 @@
 // (`docs/reference/baremes.md`).
 
 import {
+  soinALaVersion,
   CARTES_DES_RENCONTRES,
   CARTES_PAR_OFFRE,
   ENERGIE_DES_ACTES,
@@ -613,6 +614,9 @@ export const pointsDeLAdversaire = (sorte: SorteDeRencontre, acte: number, ascen
 
 /** Sa première frappe, à cet acte et à ce cran. */
 export const frappeDeLAdversaire = (sorte: SorteDeRencontre, acte: number, ascension: number) => frappeALAscension(frappeDe(sorte, acte), ascension)
+
+/** Ce que rend un soin à la version d'un départ — moins depuis le détail (v15, `soinALaVersion`) — et à ce cran de l'Ascension. */
+export const soinALAscension = (courage: number, v: number, ascension: number) => reposALAscension(soinALaVersion(courage, v), ascension)
 
 /** Ce que rend un repos — le campement, la source — à ce cran : moitié moins dès le cran 3, arrondi au-dessus. */
 export const reposALAscension = (courage: number, ascension: number) => (ascension >= 3 ? Math.ceil(courage * REPOS_EN_ASCENSION) : courage)

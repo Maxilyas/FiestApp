@@ -10,6 +10,8 @@ import { EMBLEME } from '../components/Ecusson'
 import { CompagnonRejoint, LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { FriseRangee } from '../components/FriseRangee'
+import { DetailQuiSElargit, useCadrage } from '../components/TableauDuDetail'
+import { TableauEntier } from '../components/TableauEntier'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, retenirLeNiveau, useNiveauRelu } from '../components/Gains'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { confirmDialog, promptDialog } from '../components/Dialog'
@@ -52,11 +54,13 @@ import type { PalierTombe } from '../../../shared/jour'
 import type { CleDeCompagnon } from '../../../shared/compagnons'
 import {
   ACTES,
+  CADRAGES_DU_DETAIL,
   ECUS_D_UN_COFFRE_LAISSE,
   ECUS_D_UN_GARDIEN,
   ETAGES,
   GARDIEN,
   MARCHES_DES_ACTES,
+  adresseDuCadrage,
   auGardien,
   chanceDeVaincre,
   chanceDuJoueurMoyen,
@@ -89,7 +93,7 @@ import {
   type ThemeDEscale,
   type VueDeLExpedition,
 } from '../../../shared/expedition'
-import { cranOuvertParLaVictoire, cransDeLAdversaire, exploitDe, niveauDuStyle, pointsDeLAdversaire, reposALAscension, type DosDuPaquet } from '../../../shared/codex'
+import { cranOuvertParLaVictoire, cransDeLAdversaire, exploitDe, niveauDuStyle, pointsDeLAdversaire, soinALAscension, type DosDuPaquet } from '../../../shared/codex'
 import {
   CARTES_DES_ACTES,
   CARTES_DES_RENCONTRES,
@@ -97,12 +101,15 @@ import {
   COURAGE_D_UN_CAMPEMENT,
   COURAGE_D_UN_PIEGE,
   COURAGE_D_UNE_SOURCE,
+  effetDeLaFiole,
+  soinALaVersion,
   COURAGE_MAX,
   FAMILLES_DE_CARTES,
   FIOLES_MAX,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_CURIOSITES,
   VERSION_DES_FAMILLES,
+  VERSION_DU_DETAIL,
   VERSION_DES_HUIT_FAMILLES,
   VERSION_DU_CODEX,
   VERSION_DU_JEU_COMPLET,
@@ -385,9 +392,9 @@ function decrireEnRencontres(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'ac
     const quoi = e.curiosite === 'rebus' ? 'un rébus en emojis, à composer' : 'un plat dont tu devines d’où il vient'
     return `Une curiosité : ${quoi}, sans adversaire. Trouvée, ${recompenseDeLaCuriosite(vue)} au choix ; ratée, elle ne coûte rien`
   }
-  if (e.sorte === 'source') return `Une source : une question de ton carnet. Retrouvée, elle te rend ${reposALAscension(COURAGE_D_UNE_SOURCE, cran)} de courage ; ratée, elle ne coûte rien${chance}`
+  if (e.sorte === 'source') return `Une source : une question de ton carnet. Retrouvée, elle te rend ${soinALAscension(COURAGE_D_UNE_SOURCE, vue.cartes?.v ?? 0, cran)} de courage ; ratée, elle ne coûte rien${chance}`
   if (e.sorte === 'campement') {
-    const repos = `Un campement : ${reposALAscension(COURAGE_D_UN_CAMPEMENT, cran)} de courage`
+    const repos = `Un campement : ${soinALAscension(COURAGE_D_UN_CAMPEMENT, vue.cartes?.v ?? 0, cran)} de courage`
     return (vue.cartes?.v ?? 0) >= VERSION_DU_JEU_COMPLET ? `${repos}, une carte retirée de ton paquet ou une carte améliorée` : `${repos} — ou une carte retirée de ton paquet`
   }
   if (e.sorte === 'coffre') return `Un coffre : une carte au choix parmi trois, pour ton paquet — ou ${ECUS_D_UN_COFFRE_LAISSE} écus, si tu n’en prends aucune`
@@ -807,7 +814,7 @@ export function ExpeditionApp() {
       () => api.expedition.boire(vue.id, vue.rang + 1 - cartes.length, fiole, position, cartes),
       () => {
         const f = fioleDe(fiole)
-        if (f) showToast({ kind: 'info', message: `${f.nom} : ${f.effet}` })
+        if (f) showToast({ kind: 'info', message: `${f.nom} : ${effetDeLaFiole(f, vue.cartes?.v ?? 0)}` })
       },
     )
   }
@@ -1244,9 +1251,9 @@ export function Depart({
   const [style, setStyle] = useState(() => styleRetenu(page.prochaine.codex?.styles ?? []))
   const enRencontres = vue ? vue.courage !== undefined : ouvertes
   // La version que ses pièces lisent : celle de l'expédition en route, sinon celle qui partirait — la question au centre, ses
-  // coups de pouce, ses curiosités, sa frise et ses familles (v14), là où la page la dit ouverte. Ses cartes, son codex, ses
+  // coups de pouce, ses curiosités, sa frise, ses familles et son détail (v15), là où la page la dit ouverte. Ses cartes, son codex, ses
   // styles, son Ascension et ses règles en dépendent.
-  const v = vue ? (vue.cartes?.v ?? VERSION_DU_CODEX) : page.prochaine.questionAuCentre ? VERSION_DES_FAMILLES : VERSION_DES_HUIT_FAMILLES
+  const v = vue ? (vue.cartes?.v ?? VERSION_DU_CODEX) : page.prochaine.questionAuCentre ? VERSION_DU_DETAIL : VERSION_DES_HUIT_FAMILLES
   // Le codex (v7) : celui qu'elle a figé en route, celui qui partirait avant ; aux règles d'avant, aucun.
   const codex = page.prochaine.codex
   // L'Ascension se choisit une fois une expédition menée au bout ; un serveur d'avant elle ne dit rien de ses crans.
@@ -1861,11 +1868,11 @@ function faceDeLEscale(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 
     case 'elite':
       return { sorte: 'Élite', nom: nomCourtDuTheme(e.theme), gains: [...joker, ...prix, ...tampon] }
     case 'source':
-      return { sorte: 'Source', nom: 'Ton carnet', gains: [vie(v5 ? `+${reposALAscension(COURAGE_D_UNE_SOURCE, cran)}` : '+1')] }
+      return { sorte: 'Source', nom: 'Ton carnet', gains: [vie(v5 ? `+${soinALAscension(COURAGE_D_UNE_SOURCE, vue.cartes?.v ?? 0, cran)}` : '+1')] }
     case 'curiosite':
       return { sorte: 'Curiosité', nom: NOM_DE_LA_CURIOSITE[e.curiosite ?? 'plat'], gains: joker }
     case 'campement':
-      return { sorte: 'Campement', nom: 'Le repos', gains: [vie(v5 ? `+${reposALAscension(COURAGE_D_UN_CAMPEMENT, cran)}` : '+1')] }
+      return { sorte: 'Campement', nom: 'Le repos', gains: [vie(v5 ? `+${soinALAscension(COURAGE_D_UN_CAMPEMENT, vue.cartes?.v ?? 0, cran)}` : '+1')] }
     case 'coffre':
       return { sorte: 'Coffre', nom: v5 ? 'Une carte au choix' : 'Un joker au choix', gains: joker }
     case 'echoppe':
@@ -2817,6 +2824,9 @@ export function Escale({
     vue.joue ?? (vue.rencontre && parmi(vue.rencontre.jouees, 'arret-sur-image') ? 'arret-sur-image' : ''),
   )
   const enDevoilement = !r && affichee.forme === 'devoilement'
+  // Un détail (v15) : son tableau, cadrage après cadrage, à l'heure du serveur ; répondu, le tableau entier, nommé.
+  const detail = !r && affichee.forme === 'detail' ? affichee.detail : undefined
+  const cadrage = useCadrage(detail)
   const texte = r?.texte ?? affichee.texte
   const total = affichee.devoilement?.mots ?? 0
   const toucherReponse = (i: number) => {
@@ -2840,7 +2850,7 @@ export function Escale({
             doute={apres?.doute}
             compact
             // Un dévoilement trouvé avant la moitié de ses mots prend un cran de plus (v10) : tant qu'il en est temps, l'en-tête le montre.
-            tot={enDevoilement && 2 * Math.max(1, devoile.mots.length) <= total}
+            tot={(enDevoilement && 2 * Math.max(1, devoile.mots.length) <= total) || (!!detail && 2 * cadrage <= CADRAGES_DU_DETAIL)}
           />
         ) : auGardien_ ? (
           <div className="exp-gardien-tete">
@@ -2866,7 +2876,7 @@ export function Escale({
           <p className="exp-regle small">
             {espacesFines(
               vue.courage !== undefined
-                ? `Une source : retrouvée, +${reposALAscension(COURAGE_D_UNE_SOURCE, vue.cartes?.ascension ?? 0)} de courage ; ratée, rien.`
+                ? `Une source : retrouvée, +${soinALAscension(COURAGE_D_UNE_SOURCE, vue.cartes?.v ?? 0, vue.cartes?.ascension ?? 0)} de courage ; ratée, rien.`
                 : 'Une source : une question de ton carnet. Retrouvée, elle te rend une vie ; ratée, elle ne te coûte rien.',
             )}
           </p>
@@ -2886,6 +2896,8 @@ export function Escale({
         <span className="label quiz-categorie">
           {curiosite ? `Curiosité · ${NOM_DE_LA_CURIOSITE[curiosite]}` : [theme, affichee.categorie, NOM_NIVEAU[affichee.niveau]].filter(Boolean).join(' · ')}
         </span>
+        {detail && <DetailQuiSElargit expedition={vue.id} position={affichee.index} cadrage={cadrage} />}
+        {r?.detail && <TableauEntier src={adresseDuCadrage(vue.id, q.index, CADRAGES_DU_DETAIL)} {...r.detail} />}
         {enDevoilement ? (
           <>
             {/* Sa taille se lit sur son compte de mots : elle ne change pas à chaque mot qui arrive. */}
@@ -3266,7 +3278,12 @@ function Revelation({
           </ul>
         )}
         <LaBonneReponse question={q} reponse={r} choix={choix} composee={composee} ordre={ordre} />
-        {r.devoile && <p className="muted small">{espacesFines(`Répondu au ${r.devoile.mots === 1 ? '1ᵉʳ' : `${r.devoile.mots}ᵉ`} mot sur ${r.devoile.sur}.`)}</p>}
+        {r.devoile && (
+          <p className="muted small">
+            {/* Un détail (v15) se reconnaît à un cadrage, pas à un mot. */}
+            {espacesFines(`${r.detail ? 'Reconnu' : 'Répondu'} au ${r.devoile.mots === 1 ? '1ᵉʳ' : `${r.devoile.mots}ᵉ`} ${r.detail ? 'cadrage' : 'mot'} sur ${r.devoile.sur}.`)}
+          </p>
+        )}
       </div>
       {r.anecdote && (
         <p className="card anecdote">
@@ -3446,7 +3463,7 @@ function Offre({
                   <b>{f.nom}</b>
                   <span className="exp-rarete exp-rarete-fiole">fiole</span>
                 </span>
-                <span className="small">{espacesFines(f.effet)}</span>
+                <span className="small">{espacesFines(effetDeLaFiole(f, vue.cartes?.v ?? 0))}</span>
                 <span className="muted small">
                   {espacesFines(sacPlein ? `Tes ${FIOLES_MAX} places sont prises : bois-en une d’abord` : 'Elle ne sert qu’une fois, quand tu veux')}
                 </span>
@@ -3628,7 +3645,7 @@ function Campement({
     courage !== undefined
       ? plein
         ? 'Ton courage est au plus haut'
-        : `+${Math.min(reposALAscension(COURAGE_D_UN_CAMPEMENT, vue.cartes?.ascension ?? 0), COURAGE_MAX - courage)} de courage`
+        : `+${Math.min(soinALAscension(COURAGE_D_UN_CAMPEMENT, vue.cartes?.v ?? 0, vue.cartes?.ascension ?? 0), COURAGE_MAX - courage)} de courage`
       : plein
         ? 'Tes trois vies sont là : le repos ne t’en donne pas de plus'
         : `Une vie de plus : ${vue.vies + 1} sur ${VIES}`
@@ -3801,9 +3818,9 @@ function Echoppe({
   // L'étal, dans l'ordre où l'on pense : se soigner — tout de suite, ou plus tard d'une fiole —, s'équiper, puis s'alléger.
   const etal: LigneDeLEtal[] = [
     v5
-      ? { cle: 'vie', article: { article: 'vie' }, nom: 'Du courage', detail: `+${COURAGE_A_L_ECHOPPE} · tu en as ${vue.courage} sur ${COURAGE_MAX}`, visage: <Icon name="heart" /> }
+      ? { cle: 'vie', article: { article: 'vie' }, nom: 'Du courage', detail: `+${soinALaVersion(COURAGE_A_L_ECHOPPE, vue.cartes?.v ?? 0)} · tu en as ${vue.courage} sur ${COURAGE_MAX}`, visage: <Icon name="heart" /> }
       : { cle: 'vie', article: { article: 'vie' }, nom: 'Une vie', detail: `Tu en as ${vue.vies} sur ${VIES}`, visage: <Icon name="heart" /> },
-    ...(f ? [{ cle: 'fiole', article: { article: 'fiole' as const }, nom: f.nom, detail: `${f.effet} · elle se boit quand tu veux`, visage: <VerreDeFiole cle={f.cle} />, rarete: 'fiole' }] : []),
+    ...(f ? [{ cle: 'fiole', article: { article: 'fiole' as const }, nom: f.nom, detail: `${effetDeLaFiole(f, vue.cartes?.v ?? 0)} · elle se boit quand tu veux`, visage: <VerreDeFiole cle={f.cle} />, rarete: 'fiole' }] : []),
     ...echoppe.jokers.flatMap((cle): LigneDeLEtal[] => {
       if (v5) {
         const c = carteALaVersion(cle, vue.cartes?.v ?? VERSION_DU_CODEX)

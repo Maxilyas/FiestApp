@@ -645,6 +645,11 @@ export interface CorrectionDeCampagne {
    * premier au dernier (`sienne`).
    */
   frise?: { annees: number[]; sienne?: number[] }
+  /**
+   * Un détail de l'expédition (v15) : son tableau — titre, peintre, année —
+   * et l'adresse où se lit le tableau entier, servi à qui a répondu.
+   */
+  detail?: { titre: string; peintre: string; annee: number; image: string }
 }
 
 // ── Le défi de la semaine ─────────────────────────────────────────────────

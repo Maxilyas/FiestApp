@@ -9616,6 +9616,19 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Un rébus (v12) : ses emojis en grand, chacun dans sa case, comme « 4 images 1 mot » — quatre tiennent sur une ligne en 360 de large. */
 .exp-rebus { display: flex; justify-content: center; gap: 8px; margin: 2px 0 0; }
 .exp-rebus > span { display: grid; place-items: center; width: 64px; height: 64px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-xs); background: var(--surface-strong); font-size: 2.4rem; line-height: 1; }
+/* Un détail (v15) : le tableau, du détail au tableau entier, dans un cadre qui ne change pas de taille d'un cadrage à l'autre — il ne pousse
+   pas les réponses —, et ses quatre pas. Comme la photo d'une question (`.quiz-img`), le cadre cède de la hauteur aux réponses, sans
+   descendre sous une vignette qu'on reconnaît : en 360 × 640, la quatrième réponse passait sous le pli (vu au rendu, le 20 octobre 2026). */
+.exp-detail { display: flex; flex-direction: column; gap: 6px; flex: 0 1 auto; min-height: 160px; }
+.exp-detail-cadre { position: relative; flex: 1 1 min(30vh, 220px); min-height: 110px; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
+.exp-detail-cadre img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.exp-detail-pas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.exp-detail-pas > i { height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.exp-detail-pas > i.exp-detail-vu { background: var(--accent); }
+/* Le tableau entier, nommé : la révélation et « Mes réponses ». */
+.tableau-entier { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 4px 0 0; }
+.tableau-entier img { display: block; max-width: 100%; max-height: min(36vh, 260px); border-radius: var(--radius-xs); object-fit: contain; }
+.tableau-entier figcaption { display: flex; flex-direction: column; align-items: center; text-align: center; line-height: 1.3; }
 .exp-gardien-tete { display: flex; align-items: center; gap: 12px; }
 .exp-gardien-tete p { margin: 0; }
 .exp-medaillon-gardien { font-size: 64px; }
