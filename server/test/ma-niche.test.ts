@@ -264,12 +264,14 @@ test('« Tes compagnons », chez lui : celui qui y vit, les autres à installer 
   // Les siens d'abord ; puis le chat, à son prix — sa fiche dans la galerie, où l'on adopte sur place —, et la luciole, qui se gagne.
   assert.match(deux, /aria-label="Le Chat des lanternes : 1000 confettis, voir comment l’avoir"/, 'le chat attend qu’on l’adopte')
   assert.match(deux, /aria-label="La Luciole : se gagne en expédition"/)
+  assert.match(deux, /aria-label="Le Panda roux : 1000 confettis, voir comment l’avoir"/, 'le panda, le dernier venu, attend aussi')
   assert.ok(deux.indexOf('Tortue-île') < deux.indexOf('Chat des lanternes'), 'les siens d’abord')
   const trois = await tes(
     [
       { compagnon: 'loup', rang: 0, justes: 0 },
       { compagnon: 'chat', rang: 0, justes: 0 },
       { compagnon: 'tortue', rang: 0, justes: 0 },
+      { compagnon: 'panda', rang: 0, justes: 0 },
     ],
     { compagnon: 'chat', rang: 0 },
   )

@@ -302,6 +302,11 @@ try {
   await photo('10-boutique-compagnon-ultime', false, 1200)
   await page.click('.vitrine-point[aria-label="La Tortue-île"]')
   await photo('10-boutique-compagnon-tortue', false, 900)
+  // Le panda roux, le dernier de la vitrine (le 20 octobre 2026) : sa scène, puis sa forme ultime.
+  await page.click('.vitrine-point[aria-label="Le Panda roux"]')
+  await photo('10-boutique-compagnon-panda', false, 900)
+  await page.click('.compagnon-carte:nth-child(4) .compagnon-forme[aria-label^="Le panda des érables"]')
+  await photo('10-boutique-compagnon-panda-erable', false, 1200)
   // Le loup adopté, porté en avatar — l'adoption ne le fait pas : il se choisit, comme dans la loge —, puis la tortue, qui attend son tour.
   await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'loup' }, cookie)
   await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'cp:loup-louveteau' }, cookie, 'PUT')

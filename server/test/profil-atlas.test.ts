@@ -99,7 +99,7 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
   // Les compagnons y ont aussi leur forme, une par page : quatre de plus — et
   // la métamorphose de chacun, légendaire.
   const html = await album('commune')
-  assert.match(html, /aria-label="Rare, 1 sur 28"/)
+  assert.match(html, /aria-label="Rare, 1 sur 29"/)
   assert.match(html, new RegExp(`aria-label="Légendaire, 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length}"`))
   assert.equal(ouvertsDansLaBranche(avancee, paliers), 3)
 })

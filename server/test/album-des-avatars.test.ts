@@ -59,9 +59,9 @@ test('l’album : tous les avatars qui se gagnent, une fois chacun, rangés en s
   assert.equal(new Set(AVATARS_DE_L_ALBUM.map(a => a.cle)).size, AVATARS_DE_L_ALBUM.length)
   for (const emoji of AVATARS) assert.equal(avatarDeLAlbum(emoji), undefined, emoji)
   const parPage = Object.fromEntries(RARETES_D_AVATAR.map(r => [r, AVATARS_DE_L_ALBUM.filter(a => a.rarete === r).length]))
-  // Quatre compagnons, une forme sur chacune des pages commune, rare, épique et légendaire — et la métamorphose de
-  // chacun, légendaire : la luciole a la sienne depuis le 20 octobre 2026.
-  assert.deepEqual(parPage, { commune: 22, peucommune: 18, rare: 28, epique: 16, legendaire: 46, divin: 6 })
+  // Cinq compagnons, une forme sur chacune des pages commune, rare, épique et légendaire — et la métamorphose de
+  // chacun, légendaire : la luciole a la sienne depuis le 20 octobre 2026, le panda roux la sienne le même jour.
+  assert.deepEqual(parPage, { commune: 23, peucommune: 18, rare: 29, epique: 17, legendaire: 48, divin: 6 })
 })
 
 test('la rareté dit ce qu’un avatar demande : plus haut sur le sentier, plus rare ; sa forme ultime, légendaire', () => {
@@ -157,7 +157,7 @@ test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun d
   assert.deepEqual(
     pages.map(p => `${p.rarete} ${p.acquis}/${p.total}`),
     // Le blaireau (palier 4) et l'écureuil (palier 2) ; cinq emojis jusqu'au niveau 8 ; le Phénix ; le Séraphin.
-    ['commune 6/22', 'peucommune 1/18', 'rare 0/28', 'epique 0/16', 'legendaire 1/46', 'divin 1/6'],
+    ['commune 6/23', 'peucommune 1/18', 'rare 0/29', 'epique 0/17', 'legendaire 1/48', 'divin 1/6'],
   )
   const commune = pages[0].avatars
   assert.deepEqual(
@@ -181,13 +181,15 @@ test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun d
     'cp:tortue-fleurs',
     'cp:luciole-constellation',
     'cp:luciole-aurore',
+    'cp:panda-erable',
+    'cp:panda-sakura',
   ])
   assert.deepEqual(legendaires.slice(38), COMPAGNONS.flatMap(c => [c.formes[3].key, ...(c.lumiere ? [c.lumiere.key] : [])]))
   // Une seule règle compte l'album, sa ligne de « Ma collection » et son total.
-  assert.deepEqual(compteDeLAlbum(LEA), { acquis: 9, total: 136 })
+  assert.deepEqual(compteDeLAlbum(LEA), { acquis: 9, total: 141 })
   assert.deepEqual(compteDeLAlbum(LEA), { acquis: pages.reduce((s, p) => s + p.acquis, 0), total: pages.reduce((s, p) => s + p.total, 0) })
   const avatars = compteDeLaCollection({ ...LEA, ouvertes: [], prix: [], ecussons: [] } as any).familles.find(f => f.famille === 'avatars')!
-  assert.deepEqual(avatars.parties, [{ partie: 'avatars', acquis: 9, total: 136 }])
+  assert.deepEqual(avatars.parties, [{ partie: 'avatars', acquis: 9, total: 141 }])
 })
 
 test('les compagnons dans l’album : chaque forme à sa page, achetées en boutique, puis grandies dans sa niche', () => {
@@ -205,7 +207,7 @@ test('les compagnons dans l’album : chaque forme à sa page, achetées en bout
     compagnons: [{ compagnon: 'loup' as const, rang: 1 }],
     boutique: { confettis: { gagnes: 0, depenses: 0, solde: 0 }, possedes: [], porte: null, jour: '2026-10-13', compagnons: [{ compagnon: 'loup' as const, rang: 1, justes: 162 }] },
   }
-  assert.deepEqual(compteDeLAlbum(AVEC_LE_LOUP), { acquis: 11, total: 136 })
+  assert.deepEqual(compteDeLAlbum(AVEC_LE_LOUP), { acquis: 11, total: 141 })
   assert.equal(pageDuDebut(AVEC_LE_LOUP), 'rare', 'il porte le jeune loup : la page rare')
   assert.equal(pageDuProchain(LEA, 'compagnon'), 'commune', 'aucun acheté : la première forme de chacun')
   assert.equal(pageDuProchain(AVEC_LE_LOUP, 'compagnon'), 'commune', 'le chat et la tortue restent à acheter')
@@ -257,13 +259,13 @@ test('les compagnons dans l’album : chaque forme à sa page, achetées en bout
   // L'Éclat tombé — sur le louveteau, il y a longtemps — : tenu ; sa métamorphose s'ouvre à sa forme ultime, et pas avant.
   const ECLATE = { ...AVEC_LE_LOUP, compagnons: [{ compagnon: 'loup' as const, rang: 1, eclat: true as const }] }
   assert.equal(voiesDeLAvatar('cp:loup-tempete', ECLATE)[0][2].tenue, true)
-  assert.deepEqual(compteDeLAlbum(ECLATE), { acquis: 11, total: 136 })
+  assert.deepEqual(compteDeLAlbum(ECLATE), { acquis: 11, total: 141 })
   const ULTIME = { ...ECLATE, compagnons: [{ compagnon: 'loup' as const, rang: 3, eclat: true as const }] }
-  assert.deepEqual(compteDeLAlbum(ULTIME), { acquis: 14, total: 136 }, 'ses quatre formes, et sa métamorphose')
+  assert.deepEqual(compteDeLAlbum(ULTIME), { acquis: 14, total: 141 }, 'ses quatre formes, et sa métamorphose')
   // La luciole éclatée à sa forme ultime : ses quatre formes, et sa luciole-aurore (le 20 octobre 2026) ; sans l'Éclat, les quatre seules.
   const LUCIOLE = { ...LEA, compagnons: [{ compagnon: 'luciole' as const, rang: 3, eclat: true as const }] }
-  assert.deepEqual(compteDeLAlbum(LUCIOLE), { acquis: 14, total: 136 })
-  assert.deepEqual(compteDeLAlbum({ ...LEA, compagnons: [{ compagnon: 'luciole' as const, rang: 3 }] }), { acquis: 13, total: 136 })
+  assert.deepEqual(compteDeLAlbum(LUCIOLE), { acquis: 14, total: 141 })
+  assert.deepEqual(compteDeLAlbum({ ...LEA, compagnons: [{ compagnon: 'luciole' as const, rang: 3 }] }), { acquis: 13, total: 141 })
   assert.ok(pagesDeLAlbum(ULTIME)[4].avatars.some(a => a.aLui && a.avatar.cle === 'cp:loup-tempete'))
   // Sa voie part de l'expédition, comme ses formes : la Première traversée, sa forme ultime, puis l'Éclat.
   assert.deepEqual(

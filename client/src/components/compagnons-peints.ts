@@ -204,6 +204,53 @@ export const DESSINS: Record<string, DessinDeCompagnon> = {
       triomphe: ['/compagnons/luciole-eclat-aurore-triomphe-512.79b24d1ffa.webp', '/compagnons/luciole-eclat-aurore-triomphe-256.daaa3a5388.webp'],
     },
   },
+  'cp:panda-bebe': {
+    perso: ['/compagnons/panda-bebe-perso-512.06d9c70dba.webp', '/compagnons/panda-bebe-perso-256.a5331a38c4.webp'],
+    humeurs: {
+      ravi: ['/compagnons/panda-bebe-ravi-512.4b9c1f8acd.webp', '/compagnons/panda-bebe-ravi-256.d055f84acc.webp'],
+      depite: ['/compagnons/panda-bebe-depite-512.7e651cf21e.webp', '/compagnons/panda-bebe-depite-256.99acd3b074.webp'],
+      triomphe: ['/compagnons/panda-bebe-triomphe-512.225b83a2c3.webp', '/compagnons/panda-bebe-triomphe-256.004bd6d2b4.webp'],
+    },
+  },
+  'cp:panda-jeune': {
+    disque: ['/compagnons/panda-jeune-disque-512.a22e27f366.webp', '/compagnons/panda-jeune-disque-256.e475566ce6.webp'],
+    perso: ['/compagnons/panda-jeune-perso-512.8c3b5637a8.webp', '/compagnons/panda-jeune-perso-256.d7a01c3390.webp'],
+    humeurs: {
+      ravi: ['/compagnons/panda-jeune-ravi-512.e542721684.webp', '/compagnons/panda-jeune-ravi-256.1f0a415825.webp'],
+      depite: ['/compagnons/panda-jeune-depite-512.0375916126.webp', '/compagnons/panda-jeune-depite-256.278999e06f.webp'],
+      triomphe: ['/compagnons/panda-jeune-triomphe-512.12a9482986.webp', '/compagnons/panda-jeune-triomphe-256.025e7d2b0f.webp'],
+    },
+  },
+  'cp:panda-adulte': {
+    disque: ['/compagnons/panda-adulte-disque-512.f13f378a10.webp', '/compagnons/panda-adulte-disque-256.dc02b2985f.webp'],
+    perso: ['/compagnons/panda-adulte-perso-512.9184b1c9c2.webp', '/compagnons/panda-adulte-perso-256.b936da3bb2.webp'],
+    humeurs: {
+      ravi: ['/compagnons/panda-adulte-ravi-512.ccfaf9eebb.webp', '/compagnons/panda-adulte-ravi-256.e9f537aabd.webp'],
+      depite: ['/compagnons/panda-adulte-depite-512.a4d90fdd49.webp', '/compagnons/panda-adulte-depite-256.18ee321e49.webp'],
+      triomphe: ['/compagnons/panda-adulte-triomphe-512.471fcebe00.webp', '/compagnons/panda-adulte-triomphe-256.87d5472a6b.webp'],
+    },
+  },
+  'cp:panda-erable': {
+    disque: ['/compagnons/panda-erable-disque-512.c928bee42b.webp', '/compagnons/panda-erable-disque-256.cd6a7f683d.webp'],
+    perso: ['/compagnons/panda-erable-perso-512.6ab9cc1744.webp', '/compagnons/panda-erable-perso-256.051d1bb55a.webp'],
+    humeurs: {
+      ravi: ['/compagnons/panda-erable-ravi-512.728be176fd.webp', '/compagnons/panda-erable-ravi-256.23ba9489cd.webp'],
+      depite: ['/compagnons/panda-erable-depite-512.4e117be7bc.webp', '/compagnons/panda-erable-depite-256.5a6ac96878.webp'],
+      triomphe: ['/compagnons/panda-erable-triomphe-512.0bf69de513.webp', '/compagnons/panda-erable-triomphe-256.a8b02e6d1b.webp'],
+    },
+    vivant: {
+      feuilles: ['/compagnons/panda-erable-vivant-feuilles-512.1fdacf5757.webp', '/compagnons/panda-erable-vivant-feuilles-256.317d7620b6.webp'],
+    },
+  },
+  'cp:panda-sakura': {
+    disque: ['/compagnons/panda-eclat-sakura-disque-512.97fe7ea67d.webp', '/compagnons/panda-eclat-sakura-disque-256.eb275c0b9c.webp'],
+    perso: ['/compagnons/panda-eclat-sakura-perso-512.6fd44f7527.webp', '/compagnons/panda-eclat-sakura-perso-256.00d50505dd.webp'],
+    humeurs: {
+      ravi: ['/compagnons/panda-eclat-sakura-ravi-512.6e1ac91b8d.webp', '/compagnons/panda-eclat-sakura-ravi-256.ec3edcce21.webp'],
+      depite: ['/compagnons/panda-eclat-sakura-depite-512.ecaf52c5b2.webp', '/compagnons/panda-eclat-sakura-depite-256.3565feee9a.webp'],
+      triomphe: ['/compagnons/panda-eclat-sakura-triomphe-512.6d35ebd87b.webp', '/compagnons/panda-eclat-sakura-triomphe-256.20082c446c.webp'],
+    },
+  },
 }
 
 // Évalué, le dessin est là pour tout `Avatar` de la page (voir `medaillons.ts`).

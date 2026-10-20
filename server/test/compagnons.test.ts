@@ -58,19 +58,19 @@ ProfileStore.tirageEclat = () => false
 
 // ── Le catalogue, pur ─────────────────────────────────────────────────────
 
-test('quatre compagnons — trois en boutique, la luciole en expédition —, quatre formes chacun, la rareté qui monte avec eux', () => {
+test('cinq compagnons — quatre en boutique, la luciole en expédition —, quatre formes chacun, la rareté qui monte avec eux', () => {
   assert.deepEqual(
     COMPAGNONS.map(c => c.key),
-    ['loup', 'chat', 'tortue', 'luciole'],
+    ['loup', 'chat', 'tortue', 'luciole', 'panda'],
   )
-  // La luciole ne se vend pas (le 20 octobre 2026) : la boutique, le coffre et « À la une » ne lisent que les trois.
+  // La luciole ne se vend pas (le 20 octobre 2026) : la boutique, le coffre et « À la une » ne lisent que les quatre autres.
   assert.deepEqual(
     COMPAGNONS_DE_LA_BOUTIQUE.map(c => c.key),
-    ['loup', 'chat', 'tortue'],
+    ['loup', 'chat', 'tortue', 'panda'],
   )
   assert.equal(compagnon('luciole')!.gagne, 'expedition')
-  assert.equal(FORMES_DES_COMPAGNONS.length, 16)
-  assert.equal(new Set(FORMES_DES_COMPAGNONS.map(f => f.key)).size, 16, 'une clé par forme')
+  assert.equal(FORMES_DES_COMPAGNONS.length, 20)
+  assert.equal(new Set(FORMES_DES_COMPAGNONS.map(f => f.key)).size, 20, 'une clé par forme')
   for (const c of COMPAGNONS) {
     assert.deepEqual(
       c.formes.map(f => f.rarete),
@@ -98,11 +98,11 @@ test('chacun a sa métamorphose de lumière : une forme de plus, légendaire, qu
   // luciole-aurore, peinte et livrée le 20.
   assert.deepEqual(
     METAMORPHOSES.map(f => f.key),
-    ['cp:loup-tempete', 'cp:chat-soleil', 'cp:tortue-fleurs', 'cp:luciole-aurore'],
+    ['cp:loup-tempete', 'cp:chat-soleil', 'cp:tortue-fleurs', 'cp:luciole-aurore', 'cp:panda-sakura'],
   )
   assert.deepEqual(
     COMPAGNONS.map(c => c.lumiere?.nom),
-    ['Le loup-tempête', 'Le chat-soleil', 'L’île en fleurs', 'La luciole-aurore'],
+    ['Le loup-tempête', 'Le chat-soleil', 'L’île en fleurs', 'La luciole-aurore', 'Le panda des cerisiers'],
   )
   // La luciole, qui ne s'achète pas, s'ouvre la sienne comme les autres : sa forme ultime et l'Éclat.
   assert.equal(metamorphoseOuverte({ compagnon: 'luciole', rang: 3, eclat: true }), true)
@@ -210,25 +210,25 @@ async function rayon(profil: object): Promise<string> {
   return renderToStaticMarkup(React.createElement(module.RayonDesCompagnons, { profil, busy: false, acheter: async () => null }))
 }
 
-test('la boutique : trois compagnons, leurs quatre formes et ce qu’elles demandent — le prix, ou où il en est', async () => {
+test('la boutique : quatre compagnons, leurs quatre formes et ce qu’elles demandent — le prix, ou où il en est', async () => {
   const boutique = (solde: number, compagnons?: object[]) => ({ confettis: { gagnes: solde, depenses: 0, solde }, possedes: [], porte: null, jour: '2026-10-13', compagnons })
   const neuf = await rayon({ legendaire: null, boutique: boutique(1200) })
   // Une vitrine : une scène par compagnon (le souhait du propriétaire du 14 octobre 2026 : « les
   // mettre vraiment en avant, super mignon et avoir envie de les acheter »), qu'on caresse.
-  assert.equal(neuf.match(/<article class="compagnon-carte"/g)?.length, 3)
+  assert.equal(neuf.match(/<article class="compagnon-carte"/g)?.length, 4)
   assert.match(neuf, /<button type="button" class="compagnon-scene" aria-label="Caresser le loup">/)
   assert.match(neuf, /aria-label="Caresser la tortue-île"/)
-  assert.equal(neuf.match(/>L’adopter<\/button>/g)?.length, 3, 'de quoi les adopter tous les trois')
-  assert.equal(neuf.match(/class="compagnon-prix">🎊 1000</g)?.length, 3)
+  assert.equal(neuf.match(/>L’adopter<\/button>/g)?.length, 4, 'de quoi les adopter tous les quatre')
+  assert.equal(neuf.match(/class="compagnon-prix">🎊 1000</g)?.length, 4)
   // Chaque forme dit ce qu'elle demande : l'achat, puis 100, 300, 500 — en couleur, à toucher : on voit ce qu'il devient.
-  assert.equal(neuf.match(/<span class="compagnon-seuil" aria-hidden="true">Achat<\/span>/g)?.length, 3)
-  for (const n of ['100', '300', '500']) assert.equal(neuf.match(new RegExp(`<span class="compagnon-seuil" aria-hidden="true">${n}</span>`, 'g'))?.length, 3, n)
-  assert.equal(neuf.match(/<button type="button" class="compagnon-forme"/g)?.length, 12)
+  assert.equal(neuf.match(/<span class="compagnon-seuil" aria-hidden="true">Achat<\/span>/g)?.length, 4)
+  for (const n of ['100', '300', '500']) assert.equal(neuf.match(new RegExp(`<span class="compagnon-seuil" aria-hidden="true">${n}</span>`, 'g'))?.length, 4, n)
+  assert.equal(neuf.match(/<button type="button" class="compagnon-forme"/g)?.length, 16)
   assert.match(neuf, /aria-pressed="true" aria-label="Le louveteau, commune, à l’adoption"/)
   assert.match(neuf, /aria-label="Le loup des étoiles, légendaire, à 500 bonnes réponses"/)
   assert.doesNotMatch(neuf, /pas encore à toi/, 'aucune silhouette : la boutique montre ce qu’il deviendra')
   // Les points sous la vitrine : un par compagnon, le premier montré.
-  assert.equal(neuf.match(/class="vitrine-point"/g)?.length, 3)
+  assert.equal(neuf.match(/class="vitrine-point"/g)?.length, 4)
   assert.match(neuf, /<button type="button" class="vitrine-point" aria-label="Le Loup" aria-current="true">/)
   // Le loup grandi d'une forme, porté ; trop peu de confettis pour les autres.
   const avecLeLoup = await rayon({ legendaire: 'cp:loup-jeune', boutique: boutique(50, [{ compagnon: 'loup', rang: 1, justes: 162 }]) })
@@ -238,10 +238,10 @@ test('la boutique : trois compagnons, leurs quatre formes et ce qu’elles deman
   // Ses formes atteintes cochées ; la sienne montrée en grand.
   assert.equal(avecLeLoup.match(/class="compagnon-forme compagnon-atteinte"/g)?.length, 2)
   assert.match(avecLeLoup, /aria-pressed="true" aria-label="Le jeune loup, rare, à toi"/)
-  assert.equal(avecLeLoup.match(/>Encore 950 confettis</g)?.length, 2)
+  assert.equal(avecLeLoup.match(/>Encore 950 confettis</g)?.length, 3)
   assert.doesNotMatch(avecLeLoup, />L’adopter</, 'rien à adopter à ce prix-là')
   // Ce qui manque se gagne : les missions du jour le disent, sous chacun.
-  assert.equal(avecLeLoup.match(/<a class="link-inline" href="\/#missions">mes missions<\/a>/g)?.length, 2)
+  assert.equal(avecLeLoup.match(/<a class="link-inline" href="\/#missions">mes missions<\/a>/g)?.length, 3)
   // À sa forme ultime, la jauge vise le palier suivant de sa niche au lieu de s'arrêter (le propriétaire, le
   // 19 octobre 2026) ; elle ne s'arrête qu'à la légende, sa niche ornée de tout.
   assert.match(

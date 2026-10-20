@@ -762,7 +762,9 @@ const PANDA: Compagnon = {
           'mossy arching branch, chest out, head gently tilted toward us with a sweet, serene smile, one front paw delicately lifted toward a falling petal.',
       ),
       garde: 'the pink panda with its single tail and the ribbon of swirling petals trailing from it, and the floating petals right around it',
-      retirer: 'the cherry tree, the blossoms, the branch, the moss, the pond, the sky and the distant falling petals',
+      retirer:
+        'the cherry tree, ALL the blossoms and flower clusters on branches (including those at the corners and edges of the picture), the branch, the ' +
+        'moss, the pond, the sky and the distant falling petals — only the ring of petals right around its head and the ribbon of petals from its tail stay',
       opaque: 'the translucent ribbon of petals that trails from its tail',
       chroma: 'vert',
       entier: true,

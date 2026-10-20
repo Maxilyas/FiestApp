@@ -128,6 +128,15 @@ const ALLURES: Record<CleDeCompagnon, Allure> = {
     // peinture — plus vert que le turquoise du loup-tempête, l'autre aurore.
     lumiere: '#8ff0b4',
   },
+  // Le panda roux (le 20 octobre 2026) : le disque d'un matin de bambouseraie, des feuilles d'érable
+  // qui tournent autour de sa forme ultime ; sa métamorphose, le panda des cerisiers, a l'anneau rose.
+  panda: {
+    fond: ['#ffd9b3', '#b5603a', '#2a1410'],
+    aura: '#ffb36b',
+    entiere: true,
+    vivant: [{ cle: 'feuilles', mouvement: 'derive', taille: 172, devant: true }],
+    lumiere: '#ffb7cf',
+  },
 }
 
 /** Les teintes d'un compagnon — le disque de sa première forme, son aura — : la vitrine de la boutique en fait sa scène. */

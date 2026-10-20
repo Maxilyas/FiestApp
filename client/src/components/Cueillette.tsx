@@ -32,6 +32,8 @@ export const FRIANDISES: Readonly<Record<CleDeCompagnon, Friandise>> = {
   tortue: { unite: 'fraises', un: 'sa fraise', des: 'ses fraises', feminin: true },
   // La luciole butine : une goutte de miel, plutôt qu'un os qu'elle n'aurait pas su porter.
   luciole: { unite: 'gouttes de miel', un: 'sa goutte de miel', des: 'ses gouttes de miel', feminin: true },
+  // Le panda roux croque des pousses de bambou.
+  panda: { unite: 'pousses de bambou', un: 'sa pousse de bambou', des: 'ses pousses de bambou', feminin: true },
 }
 
 /** Sa friandise, dessinée : ce qui s'envole jusqu'à lui au goûter, ce qui tombe à la cueillette. */
@@ -58,6 +60,15 @@ export function DessinDeFriandise({ cle }: { cle: CleDeCompagnon }) {
           <circle cx="26" cy="29" r="1.1" />
           <circle cx="20" cy="34" r="1.1" />
         </g>
+      </svg>
+    )
+  if (cle === 'panda')
+    return (
+      <svg viewBox="0 0 40 44" aria-hidden="true">
+        <path d="M16 41V13c0-5 8-5 8 0v28z" fill="#8fcf6a" />
+        <path d="M16 20h8M16 31h8" stroke="#5f9f45" strokeWidth="2" />
+        <path d="M24 12c6-1 11-5 12-10-6 0-11 3-12 10z" fill="#6fbf55" />
+        <path d="M16 15C10 14 5 11 4 6c6 0 11 3 12 9z" fill="#7fcf63" />
       </svg>
     )
   if (cle === 'luciole')
