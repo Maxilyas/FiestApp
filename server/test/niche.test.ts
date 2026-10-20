@@ -26,7 +26,7 @@ import {
   type Banc,
 } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
-import { avecLui, compagnon, compagnonDeLaNiche } from '../../shared/compagnons'
+import { COMPAGNONS, avecLui, compagnon, compagnonDeLaNiche } from '../../shared/compagnons'
 import { CATEGORIES } from '../../shared/categories'
 import React from 'react'
 
@@ -116,6 +116,9 @@ test('la niche : son décor peint, lui en buste tourné vers la page — sa fich
   assert.match(adulte, /class="niche-bete miroir"/, 'le loup regarde la page')
   // La première forme n'a pas de décor peint : le ciel de son compagnon.
   assert.match(await niche('Niche', { compagnon: 'tortue', rang: 0 }), /class="niche-decor niche-ciel niche-ciel-tortue"/)
+  // Chaque compagnon a le ciel de sa première forme, sans décor peint : sans lui, la niche du panda était noire.
+  const feuille = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
+  for (const c of COMPAGNONS) assert.match(feuille, new RegExp(`\\.niche-ciel-${c.key}\\s*\\{`), `${c.nom} : son ciel`)
   assert.match(await niche('Niche', { compagnon: 'tortue', rang: 0 }), /class="niche-bete"/, 'la tortue la regarde déjà')
   // Une forme que le catalogue ne connaît pas : rien plutôt qu'un cadre vide.
   assert.equal(await niche('Niche', { compagnon: 'dragon', rang: 1 }), '')
