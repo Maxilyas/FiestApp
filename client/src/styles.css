@@ -11025,6 +11025,17 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
     radial-gradient(120% 45% at 50% 112%, #1d3a2a 0 52%, rgba(29, 58, 42, 0) 53%),
     linear-gradient(#141c3c 0%, #1f2a4a 55%, #2a3a3a 100%);
 }
+/* Le panda roux : une bambouseraie dans la brume du matin, un soleil pâle en haut à droite et quelques
+   grains d'or qui flottent — le vert fait ressortir son poil de braise, et c'est celui de sa deuxième forme. */
+.niche-ciel-panda {
+  background:
+    radial-gradient(circle at 78% 18%, #fff3cf 0 3px, rgba(255, 243, 207, 0.4) 4.6px, rgba(255, 243, 207, 0) 12px),
+    radial-gradient(circle at 22% 30%, rgba(255, 226, 150, 0.85) 0 1.2px, rgba(255, 226, 150, 0) 3.4px),
+    radial-gradient(circle at 60% 44%, rgba(255, 226, 150, 0.7) 0 1px, rgba(255, 226, 150, 0) 3px),
+    repeating-linear-gradient(90deg, rgba(20, 52, 38, 0) 0 9px, rgba(20, 52, 38, 0.22) 9px 11px, rgba(20, 52, 38, 0) 11px 24px),
+    radial-gradient(140% 50% at 50% 118%, #2c4a2e 0 46%, rgba(44, 74, 46, 0) 47%),
+    linear-gradient(#2f5a4a 0%, #5a8a67 55%, #8aa86e 100%);
+}
 /* Lui, en buste : son dessin livré, cadré forme par forme (`CADRAGES`),
    retourné pour regarder la page. Ses humeurs, repeintes sur la même
    découpe, se posent sur l'expression neutre : une seule se voit, échangée
