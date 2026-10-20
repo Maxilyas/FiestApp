@@ -195,6 +195,15 @@ export const DESSINS: Record<string, DessinDeCompagnon> = {
       lucioles: ['/compagnons/luciole-constellation-vivant-lucioles-512.7d7c1ec9b9.webp', '/compagnons/luciole-constellation-vivant-lucioles-256.942a9acee8.webp'],
     },
   },
+  'cp:luciole-aurore': {
+    disque: ['/compagnons/luciole-eclat-aurore-disque-512.0a12b631ac.webp', '/compagnons/luciole-eclat-aurore-disque-256.de7f9c721d.webp'],
+    perso: ['/compagnons/luciole-eclat-aurore-perso-512.89ab824e0d.webp', '/compagnons/luciole-eclat-aurore-perso-256.5e67fb5a46.webp'],
+    humeurs: {
+      ravi: ['/compagnons/luciole-eclat-aurore-ravi-512.33b1d548f8.webp', '/compagnons/luciole-eclat-aurore-ravi-256.286d9b9c41.webp'],
+      depite: ['/compagnons/luciole-eclat-aurore-depite-512.27f8cda958.webp', '/compagnons/luciole-eclat-aurore-depite-256.66f791d769.webp'],
+      triomphe: ['/compagnons/luciole-eclat-aurore-triomphe-512.79b24d1ffa.webp', '/compagnons/luciole-eclat-aurore-triomphe-256.daaa3a5388.webp'],
+    },
+  },
 }
 
 // Évalué, le dessin est là pour tout `Avatar` de la page (voir `medaillons.ts`).

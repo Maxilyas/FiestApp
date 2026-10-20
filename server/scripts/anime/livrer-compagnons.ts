@@ -202,8 +202,8 @@ try {
       livrees[f.key] = livree
     }
     // Sa métamorphose de lumière, une forme de plus : son décor, l'animal et
-    // ses humeurs. Une machine qui ne l'a pas garde celle d'avant ; la
-    // luciole n'en a pas encore au catalogue.
+    // ses humeurs. Une machine qui ne l'a pas garde celle d'avant ; un
+    // compagnon sans elle au catalogue n'en livre aucune.
     const lumiere = c.lumiere
     if (lumiere) {
       const sansLumiere = fichiersDe(lumiere).filter(n => !existsSync(fichier(n)))

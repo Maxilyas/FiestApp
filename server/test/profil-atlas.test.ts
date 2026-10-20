@@ -97,7 +97,7 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
   assert.ok(epique.some(x => x.nom === 'La luciole des sentiers, épique, à gagner en expédition, puis à 300 bonnes réponses avec elle'))
   // Chaque gemme dit où il en est, en chiffres : la couleur seule ne se lit pas.
   // Les compagnons y ont aussi leur forme, une par page : quatre de plus — et
-  // les trois métamorphoses de ceux de la boutique, légendaires.
+  // la métamorphose de chacun, légendaire.
   const html = await album('commune')
   assert.match(html, /aria-label="Rare, 1 sur 28"/)
   assert.match(html, new RegExp(`aria-label="Légendaire, 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length}"`))

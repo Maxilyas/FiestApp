@@ -185,7 +185,10 @@ export async function lireLot(nom: string): Promise<EtatDuLot> {
  */
 const TARIFS: { modele: RegExp; entree: number; texte: number; image: number }[] = [
   { modele: /flash-image/, entree: 0.5, texte: 3, image: 60 },
-  { modele: /./, entree: 2, texte: 12, image: 120 },
+  // `^` reconnaît aussi le nom vide, celui des chaînes qui ne nomment pas leur
+  // modèle : `/./` ne le reconnaissait pas, et la chaîne des compagnons
+  // plantait en écrivant son journal, l'image déjà payée (le 20 octobre 2026).
+  { modele: /^/, entree: 2, texte: 12, image: 120 },
 ]
 
 /**

@@ -5,7 +5,8 @@
 // l'album la dit, `album-des-avatars.test.ts`. Comme un compagnon du coffre,
 // elle s'écrit à prix nul et s'installe dans une niche vide, jamais à la
 // place de celui qui y vit ; qui avait déjà mené une expédition au bout la
-// reçoit au démarrage.
+// reçoit au démarrage. Sa métamorphose, la luciole-aurore (peinte le même
+// jour), s'ouvre comme celle des autres : sa forme ultime et l'Éclat.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -202,6 +203,43 @@ test('celui qui vit dans sa niche la garde : la luciole attend son tour, et s’
     const installee = await ecrire(banc.url, '/api/joueur/moi', { niche: 'luciole' }, tom, 'PUT').then(reponse)
     assert.equal(installee.status, 200, installee.corps.error)
     assert.equal(installee.corps.profile.niche, 'luciole')
+  } finally {
+    await banc.close()
+  }
+})
+
+test('sa luciole-aurore : à sa forme ultime, l’Éclat la lui ouvre — à porter, à montrer dans sa niche ; pas avant', async () => {
+  // Peinte le 20 octobre 2026 : sa métamorphose se gagne comme celle des autres, et ne remplace rien.
+  const banc = await demarrer()
+  try {
+    const ines = await inscrireProfil(banc.url, 'ines', 'Inès')
+    const id = idDe(banc, 'ines')
+    enBase(banc, db => {
+      db.prepare(`INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, 'luciole', 0, 3, 1)`).run(id)
+      db.prepare(`UPDATE profiles SET niche = 'luciole' WHERE id = ?`).run(id)
+    })
+    await banc.redemarrer()
+    const fermee = 'La luciole-aurore s’ouvre à sa forme ultime, quand l’Éclat tombe sur elle'
+    const portee = await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'cp:luciole-aurore' }, ines, 'PUT').then(reponse)
+    assert.equal(portee.corps.error, fermee)
+    const montree = await ecrire(banc.url, '/api/joueur/compagnons/luciole', { montree: 4 }, ines, 'PUT').then(reponse)
+    assert.equal(montree.corps.error, fermee)
+
+    // L'Éclat tombé sur sa luciole-constellation, au quiz du jour : elle s'ouvre.
+    enBase(banc, db =>
+      db.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, 'cp:luciole-constellation', 'jour:2026-10-01', 1)`).run(id),
+    )
+    await banc.redemarrer()
+    assert.deepEqual((await moi(banc, ines)).compagnons, [{ compagnon: 'luciole', rang: 3, eclat: true }])
+    const ouverte = await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'cp:luciole-aurore' }, ines, 'PUT').then(reponse)
+    assert.equal(ouverte.status, 200, ouverte.corps.error)
+    assert.equal(ouverte.corps.profile.legendaire, 'cp:luciole-aurore')
+    const dansSaNiche = await ecrire(banc.url, '/api/joueur/compagnons/luciole', { montree: 4 }, ines, 'PUT').then(reponse)
+    assert.equal(dansSaNiche.status, 200, dansSaNiche.corps.error)
+    assert.deepEqual(dansSaNiche.corps.profile.compagnons, [{ compagnon: 'luciole', rang: 3, montree: 4, eclat: true }])
+    // Elle ne remplace rien : sa luciole-constellation se porte toujours.
+    const constellation = await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'cp:luciole-constellation' }, ines, 'PUT').then(reponse)
+    assert.equal(constellation.status, 200, constellation.corps.error)
   } finally {
     await banc.close()
   }
