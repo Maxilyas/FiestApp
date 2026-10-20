@@ -111,8 +111,9 @@ test('une carte qui attend le serveur ne se joue pas sur place, même jouable ; 
 function auHasard(n: number, style: StyleDeJeu | undefined): number {
   const h = hasardDe(`sur-place:${n}`)
   const un = <T>(liste: readonly T[]) => liste[Math.floor(h() * liste.length)]
-  // Tout le codex, sauf les légendaires : les offres tirent de partout.
-  const codex = CARTES_DES_RENCONTRES.filter(c => !c.legendaire).map(c => c.cle)
+  // Tout le codex des huit familles, sauf les légendaires : les offres tirent de partout. Les cartes de la version 11 en sont
+  // écartées — le départ prend la version de ses cartes (`depart`), et la question au centre n'a plus de préparation à jouer ici.
+  const codex = CARTES_DES_RENCONTRES.filter(c => !c.legendaire && (c.depuis ?? 0) <= VERSION_DES_HUIT_FAMILLES).map(c => c.cle)
   const j = new Journal(depart(`sur-place:${n}`, codex, { cartes: [carteDeLaForge(), carteDeLaForge(), carteDeLaForge()], ...(style && { style }) }))
   let comparees = 0
   for (let pas = 0; pas < 300; pas++) {

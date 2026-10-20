@@ -5,7 +5,9 @@
 // rajouterait à l'immersion » (le propriétaire, le 18 octobre 2026) ; puis
 // « Go tout faire avec tes recommandations, cependant je n'ai que 7.4 € pour
 // les images ». Vingt-trois d'abord, puis les quarante-deux du jeu complet,
-// le 19 octobre 2026.
+// le 19 octobre 2026, les seize des huit familles, puis les trois coups de
+// pouce — peints sans les originaux des autres, repris de ce qui est livré
+// (`reprendreLesLivrees`).
 //
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/anime/cartes.ts --tout --lot
 //   … --seulement=concentration,plume        # un essai, quelques images
@@ -30,6 +32,7 @@ import path from 'node:path'
 import { coutDUneImage, coutEstime, formatDe, generer, lancerLot, lireLot, type Rendu } from './gemini'
 import { dansLaPage, deDataUrl, pagePixels } from './pixels'
 import { CARTES_DES_RENCONTRES, type FamilleDeCartes } from '../../../shared/rencontres'
+import { CARTES_PEINTES } from '../../../client/src/components/cartes-peintes'
 
 const args = process.argv.slice(2)
 const LOT = args.includes('--lot')
@@ -202,6 +205,14 @@ export const SUJETS: Record<string, string> = {
   temerite: 'a blazing red sword planted upright at the very edge of a crumbling cliff, a broken round shield tumbling away into the dark abyss below',
   berserk: 'a roaring bear made of crimson fire charging straight ahead, a trail of embers behind it',
   baroud: 'a broken sword lying on scorched ground, its shattered blade still blazing with a fierce crimson fire, embers rising from it',
+
+  // Les coups de pouce (le 19 octobre 2026) : des cartes de lettres, sans une lettre — le modèle en écrirait à la moindre occasion.
+  // La lettre est celle qu'on poste ; l'initiale, ce qui commence — le premier domino qui tombe.
+  repere: 'a tall white lighthouse on a rocky point at dusk, its warm beam sweeping across a misty sea toward the viewer',
+  lettre:
+    'an old folded parchment letter sealed with a plain round red wax seal — a smooth seal with no emblem and no letters — resting on a wooden desk in warm candlelight, a thin ribbon beside it',
+  initiale:
+    'the first domino of a long winding line of ivory dominoes tipping over, a burst of golden light where it starts to fall — plain dominoes marked only with round dark pips (dots), never digits',
 }
 
 interface Travail {
@@ -344,6 +355,29 @@ const enDataUrl = (f: string) => {
 }
 /** Les deux tailles livrées : [grande, petite]. */
 const TAILLES = [480, 240] as const
+
+/**
+ * Les cartes déjà livrées dont l'original manque ici — une machine neuve, un
+ * conteneur sans `export/` — se reprennent de ce que l'application sert :
+ * leurs fichiers livrés sont ceux de `app`, octet pour octet (`livrer`), et
+ * la livraison les repose sous la même empreinte. Sans cela, peindre une
+ * carte de plus demandait les originaux des quatre-vingt-une autres (le
+ * 19 octobre 2026, les coups de pouce) : `--livrer` ne livre rien tant
+ * qu'une carte manque. Une carte qui a son original s'assemble de lui.
+ */
+function reprendreLesLivrees() {
+  const depot = path.resolve('..')
+  let reprises = 0
+  for (const t of TRAVAUX) {
+    if (existant(t.nom) || TAILLES.every(l => existsSync(path.join(app, `${t.nom}-${l}.webp`)))) continue
+    const sources = (CARTES_PEINTES[t.nom] ?? []).map(adresse => path.join(depot, 'client/public', adresse))
+    if (sources.length !== TAILLES.length || !sources.every(f => existsSync(f))) continue
+    TAILLES.forEach((l, i) => writeFileSync(path.join(app, `${t.nom}-${l}.webp`), readFileSync(sources[i])))
+    reprises++
+  }
+  if (reprises > 0) console.log(`${reprises} carte(s) reprise(s) de client/public/cartes, sans original ici`)
+}
+reprendreLesLivrees()
 
 const { chromium } = chargerPlaywright()
 const nav = await chromium.launch({ headless: true })

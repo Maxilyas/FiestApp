@@ -6675,6 +6675,8 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .corrige-points { flex: none; font-family: var(--serif); font-weight: 600; font-size: 1.15rem; line-height: 1; white-space: nowrap; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
 .corrige.ok .corrige-points { color: var(--accent-text); }
 .corrige-texte { font-size: 1.05rem; line-height: 1.35; }
+/* Les emojis d'un rébus de l'expédition, sous l'intitulé qui les désigne : en grand, comme quand on l'a joué. */
+.corrige-rebus { text-align: center; font-size: 2rem; line-height: 1.2; letter-spacing: 0.12em; }
 .corrige-reponses { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .corrige-reponse {
   display: flex;
@@ -6701,6 +6703,8 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .corrige-pied { display: flex; flex-direction: column; gap: 3px; }
 .corrige-pied .icon { width: 1em; height: 1em; vertical-align: -0.14em; margin-right: 2px; }
 .corrige-anecdote { color: var(--ink); line-height: 1.4; }
+/* Un vrai ou faux de l'expédition dont la proposée était fausse : ce qu'il fallait répondre, au centre sous ses réponses. */
+.corrige-vraie { text-align: center; color: var(--ink); line-height: 1.35; }
 
 /* Des onglets en pilule : le classement du jour, d'hier, du mois ; le
    profil. Ils passent à la ligne plutôt que de sortir de l'écran : sur une
@@ -9369,6 +9373,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-point.exp-gardien .exp-medaillon { font-size: 30px; }
 .exp-point.exp-inconnu { border-style: dashed; }
 .exp-point.exp-piege { border-style: solid; border-color: var(--alert); color: var(--alert); }
+/* Une curiosité (v12), une escale bonus : le bleu des collections — ni l'or du campement, ni le rouge d'un piège. Il y est : l'or de « tu es ici ». */
+.exp-point.exp-curiosite { border-color: var(--anneau-collection-haut); color: var(--anneau-collection-haut); }
+.exp-point.exp-curiosite.exp-ici { border-color: var(--accent); color: var(--on-accent); }
 .exp-point-tampon { position: absolute; top: -3px; left: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1.5px var(--bg-raised); }
 .exp-petit-depart { position: absolute; left: 50%; display: inline-flex; align-items: center; gap: 3px; height: 18px; margin-top: -9px; padding: 0 8px; translate: -50% 0; border-radius: var(--radius-pill); color: var(--muted); font-size: var(--t-label); font-weight: 700; white-space: nowrap; }
 .exp-petit-depart .icon { width: 11px; height: 11px; }
@@ -9393,6 +9400,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-carte-escale.exp-gardien .exp-carte-embleme { width: 44px; height: 44px; border: 0; background: none; }
 .exp-carte-escale.exp-gardien .exp-medaillon { font-size: 44px; }
 .exp-carte-escale.exp-piege .exp-carte-embleme { border-color: var(--alert); color: var(--alert); }
+.exp-carte-escale.exp-curiosite .exp-carte-embleme { border-color: var(--anneau-collection-haut); color: var(--anneau-collection-haut); }
+.exp-carte-escale.exp-curiosite .exp-carte-sorte { color: var(--anneau-collection-haut); }
 .exp-carte-nom { display: -webkit-box; max-width: 100%; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-family: var(--serif); font-size: 0.95rem; font-weight: 600; line-height: 1.1; hyphens: auto; overflow-wrap: break-word; }
 /* Sa chance et ses gains, au pied : sur une ligne même à quatre cartes ; l'élite, qui en a trois, sur deux. */
 .exp-carte-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 5px; margin-top: auto; font-size: 0.75rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; line-height: 1.2; }
@@ -9433,6 +9442,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-ou { margin: 0; }
 /* La règle d'une source, d'une élite. Pas `.exp-source` ni `.exp-elite` : ce sont les classes d'une escale de la carte (`exp-${sorte}`), que `.exp-source` décentrait. */
 .exp-regle { margin: 0; padding: 7px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); color: var(--ink); line-height: 1.35; }
+.exp-regle.exp-regle-curiosite { border-color: color-mix(in srgb, var(--anneau-collection-haut) 55%, transparent); }
+/* Un rébus (v12) : ses emojis en grand, chacun dans sa case, comme « 4 images 1 mot » — quatre tiennent sur une ligne en 360 de large. */
+.exp-rebus { display: flex; justify-content: center; gap: 8px; margin: 2px 0 0; }
+.exp-rebus > span { display: grid; place-items: center; width: 64px; height: 64px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-xs); background: var(--surface-strong); font-size: 2.4rem; line-height: 1; }
 .exp-gardien-tete { display: flex; align-items: center; gap: 12px; }
 .exp-gardien-tete p { margin: 0; }
 .exp-medaillon-gardien { font-size: 64px; }
@@ -9613,6 +9626,60 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    sous le pli. */
 .player-shell:has(.ans-grid.exp-six) { height: auto; min-height: 100dvh; }
 .player-shell:has(.ans-grid) .ans-grid.exp-six { flex: none; min-height: min-content; grid-auto-rows: auto; }
+/* La forme à composer (les coups de pouce, v11) : ses cases, mot par mot, puis ses tuiles et ses deux gestes. Douze lettres
+   tiennent sur une ligne en 360 × 640 — les cases rétrécissent avec leur mot (`flex: 0 1 28px`) —, et deux mots qui ne tiennent
+   pas côte à côte passent chacun sur sa ligne : jamais un mot coupé. Une lettre posée d'office se lit à part, sur sa teinte. */
+.exp-composer { display: flex; flex-direction: column; gap: 14px; }
+.exp-cases { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; }
+.exp-article { color: var(--muted); font-weight: 600; }
+.exp-mot { display: flex; align-items: flex-end; gap: 3px; max-width: 100%; min-width: 0; }
+/* Une largeur, pas seulement une base : vide, une case ne comptait pour rien dans la largeur de son mot, qui tombait à zéro — et ses cases
+   avec, invisibles (le rendu du 19 octobre 2026). Elle rétrécit encore pour douze lettres en 360 pixels. */
+.exp-case { flex: 0 1 28px; width: 28px; min-width: 0; height: 38px; padding: 0; border: 0; border-bottom: 2px solid var(--edge-strong); border-radius: var(--radius-xs) var(--radius-xs) 0 0; background: var(--surface); color: var(--ink); font: 700 1.15rem/1 var(--sans); }
+.exp-case.exp-case-pleine { border-bottom-color: var(--accent); background: var(--accent-soft); cursor: pointer; }
+.exp-case.exp-case-posee { border-bottom-color: var(--accent); background: color-mix(in srgb, var(--accent) 24%, var(--surface)); color: var(--accent-text); cursor: default; }
+.exp-signe { flex: none; padding-bottom: 6px; font: 700 1.1rem/1 var(--sans); color: var(--muted); }
+.exp-tuiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.exp-tuile { width: 42px; height: 46px; padding: 0; border: 1px solid var(--edge-strong); border-radius: var(--radius-xs); background: var(--surface-strong); color: var(--ink); font: 700 1.25rem/1 var(--sans); box-shadow: 0 2px 0 var(--edge-strong); cursor: pointer; touch-action: manipulation; }
+.exp-tuile[aria-disabled='true'] { opacity: 0.45; cursor: default; }
+.exp-composer-gestes { display: flex; gap: 10px; }
+.exp-composer-gestes .btn { flex: 1; }
+.exp-composer-gestes .btn[aria-disabled='true'] { opacity: 0.55; cursor: default; }
+/* La frise (v13) : quatre places l'une sous l'autre, reliées par le trait d'une frise — le plus ancien en haut —, puis ses
+   événements en cartes, deux par rangée : en 360 × 640, quatre places et quatre cartes de deux lignes tiennent avec la question
+   et l'adversaire. Une place vide se voit en pointillé ; pleine, elle prend l'or de la case d'un mot composé. */
+.exp-frise { display: flex; flex-direction: column; gap: 12px; }
+.exp-frise-places { position: relative; display: grid; gap: 6px; margin: 0; padding: 0 0 0 14px; list-style: none; }
+.exp-frise-places::before { content: ''; position: absolute; left: 4px; top: 8px; bottom: 8px; width: 2px; border-radius: 1px; background: var(--edge-strong); }
+.exp-frise-places > li { position: relative; }
+.exp-frise-places > li::before { content: ''; position: absolute; left: -14px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: var(--bg-raised); border: 2px solid var(--edge-strong); box-sizing: border-box; }
+.exp-frise-place { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 40px; padding: 6px 10px; border: 1.5px dashed var(--edge-strong); border-radius: var(--radius-xs); background: transparent; color: var(--ink); text-align: left; font: inherit; }
+.exp-frise-place.exp-frise-pleine { border-style: solid; border-color: var(--accent); background: var(--accent-soft); cursor: pointer; }
+.exp-frise-rang { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.exp-frise-evenement { font-size: 0.95rem; font-weight: 600; line-height: 1.25; }
+.exp-frise-cartes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.exp-frise-carte { display: flex; flex-direction: column; justify-content: center; gap: 4px; min-height: 58px; padding: 8px 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-xs); background: var(--surface-strong); color: var(--ink); box-shadow: 0 2px 0 var(--edge-strong); font: 600 0.88rem/1.25 var(--sans); text-align: center; overflow-wrap: break-word; hyphens: auto; cursor: pointer; touch-action: manipulation; }
+.exp-frise-carte[aria-disabled='true'] { opacity: 0.45; cursor: default; }
+/* Une année qu'une carte a dite : sous l'événement, en or — elle reste avec lui d'une place à l'autre. */
+.exp-frise-annee { display: block; font: 600 0.8rem/1.2 var(--sans); color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+/* La frise rangée (v13), à la révélation et dans « Mes réponses » : l'année devant chaque événement, et, ratée, où il l'avait mis. */
+/* Les années en colonne, alignées à droite : chaque ligne à sa largeur, « 793 » décalait son événement de celui de « 1789 ». La colonne
+   se partage (`subgrid`) ; un navigateur qui ne le connaît pas garde la sienne à chaque ligne, sa largeur au moins celle de quatre chiffres. */
+.frise-rangee { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin: 8px 0 0; padding: 0; list-style: none; text-align: left; }
+.frise-rangee > li { display: grid; grid-column: 1 / -1; grid-template-columns: auto 1fr; grid-template-columns: subgrid; align-items: baseline; column-gap: 10px; }
+.frise-annee { min-width: 2.2em; text-align: right; font-family: var(--serif); font-size: 1.05rem; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.frise-evenement { line-height: 1.3; color: var(--ink); }
+.frise-sa-place { grid-column: 2; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.06em; color: var(--muted); }
+.frise-a-sa-place .frise-sa-place { color: var(--accent-text); }
+.frise-sa-place .icon { width: 12px; height: 12px; vertical-align: -0.1em; }
+.frise-deplacee .frise-sa-place { color: var(--alert); }
+/* Un coup de pouce (v11) : ce qu'il souffle, à côté de son ampoule. */
+.exp-pouce { display: flex; align-items: center; gap: 8px; }
+.exp-pouce .icon { flex: none; color: var(--accent-text); }
+/* Le second essai (v14) : sa première réponse s'est effacée, il répond encore — la flèche qui tourne, comme une seconde chance. */
+.exp-essai { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.exp-essai .icon { flex: none; }
+.exp-composee { letter-spacing: 0.06em; }
 /* Un joker pour son paquet (la maquette 12) : trois jokers, leur rareté en pastille. */
 .exp-offres { display: flex; flex-direction: column; gap: 8px; }
 .exp-offre-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
@@ -9706,6 +9773,22 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Son doute (les huit familles) : l'azur du Sophiste, une convention en dur comme la teinte des familles ; le texte reste à l'encre du thème. */
 .exp-doute { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px 1px 5px; border: 1px solid color-mix(in srgb, #4f8ee0 70%, var(--edge)); border-radius: var(--radius-pill); background: color-mix(in srgb, #4f8ee0 16%, var(--surface)); color: var(--ink); font-size: 0.75rem; font-weight: 700; line-height: 1.3; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
 .exp-doute .icon { width: 13px; height: 13px; color: #4f8ee0; }
+/* La question au centre (v10) : ses crans en pastilles — pleines, ce qu'il lui reste —, et son attaque à côté, toujours la même. */
+.exp-crans-pastilles { flex: 1; display: flex; align-items: center; gap: 4px; }
+.exp-crans-pastilles i { flex: 1; max-width: 44px; height: 10px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--track); }
+.exp-crans-pastilles i.exp-cran-plein { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent); }
+/* Ce qu'une bonne réponse prendrait palpite, rayé : une Concentration jouée en fait palpiter un de plus — sans elle, rien ne
+   disait ce que la carte avait fait. */
+.exp-crans-pastilles i.exp-cran-vise { background: repeating-linear-gradient(135deg, var(--accent) 0 4px, color-mix(in srgb, var(--accent) 30%, transparent) 4px 8px); animation: exp-cran-palpite 1.1s ease-in-out infinite alternate; }
+@keyframes exp-cran-palpite { to { opacity: 0.45; } }
+.exp-attaque { flex: none; display: inline-flex; align-items: center; gap: 3px; color: var(--ink); font-size: 0.82rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.exp-attaque .icon { width: 14px; height: 14px; color: var(--alert); }
+/* Une carte qui adoucit son attaque l'éteint, une qui la double la rougit. */
+.exp-attaque-moindre, .exp-attaque-moindre .icon { color: var(--muted); }
+.exp-attaque-pire { color: var(--alert); }
+@media (prefers-reduced-motion: reduce) {
+  .exp-crans-pastilles i.exp-cran-vise { animation: none; }
+}
 /* La question qu'il pose, sans son texte : ce qu'on en sait, et ses chances à droite. */
 .exp-sa-question { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; padding-top: 8px; border-top: 1px dashed var(--edge-strong); font-size: 0.84rem; line-height: 1.3; }
 .exp-sa-chance { flex: none; display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: lining-nums tabular-nums; }
