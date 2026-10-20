@@ -103,8 +103,8 @@ export interface QuizServerOptions {
   rencontres?: boolean
   /**
    * La question au centre de l'expédition (la version 10) s'offre-t-elle ici ?
-   * Absent : son drapeau le dit (`questionAuCentreOuverte`) — hors de la
-   * production d'abord. Un test la ferme pour voir le départ de la production.
+   * Absent : son drapeau le dit (`questionAuCentreOuverte`) — partout, depuis
+   * le 20 octobre 2026. Un test la ferme pour voir le départ de la version 9.
    */
   questionAuCentre?: boolean
   /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */

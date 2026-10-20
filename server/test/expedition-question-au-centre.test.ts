@@ -431,9 +431,9 @@ test('une carte améliorée, dans la question au centre : un cran ou une carte d
 
 // ── Par les routes ──────────────────────────────────────────────────────────
 
-test(`le drapeau : la préproduction, \`npm run dev\` et les tests — la production attend (${QUESTION_AU_CENTRE_EN_PRODUCTION})`, () => {
-  assert.equal(QUESTION_AU_CENTRE_EN_PRODUCTION, false, 'la préproduction d’abord')
-  assert.equal(questionAuCentreOuverte({ online: true, env: 'production' }), false)
+test(`le drapeau : partout, la production comprise depuis le 20 octobre 2026 (${QUESTION_AU_CENTRE_EN_PRODUCTION})`, () => {
+  assert.equal(QUESTION_AU_CENTRE_EN_PRODUCTION, true, 'la production en accès anticipé')
+  assert.equal(questionAuCentreOuverte({ online: true, env: 'production' }), true)
   assert.equal(questionAuCentreOuverte({ online: true, env: 'preprod' }), true)
   assert.equal(questionAuCentreOuverte({ online: false, env: 'production' }), true)
 })

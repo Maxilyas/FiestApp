@@ -1041,7 +1041,8 @@ export interface DepartDExpedition {
    * question d'abord, le pari seul avant elle ; l'adversaire en crans,
    * l'erreur à prix fixe ; une carte par question, sans énergie, la main de
    * l'acte (`EtatDeLExpedition.cycle`) ; soixante-deux cartes, cinq styles ;
-   * hors de la production d'abord (`QUESTION_AU_CENTRE_EN_PRODUCTION`). 11 :
+   * la préproduction d'abord, partout depuis le 20 octobre 2026
+   * (`QUESTION_AU_CENTRE_EN_PRODUCTION`). 11 :
    * les coups de pouce (`VERSION_DES_COUPS_DE_POUCE`) — la forme à composer
    * sur ses cartes (`POIDS_DES_FORMES_A_COMPOSER`), L'initiale, Le repère et
    * La lettre au codex (`ECHELLE_DES_COUPS_DE_POUCE`) ; une expédition partie
@@ -3703,7 +3704,7 @@ export interface PageDeLExpedition {
     rencontres?: true
     /**
      * Le départ part en version 11, la question au centre et ses coups de
-     * pouce — hors de la production d'abord (`QUESTION_AU_CENTRE_EN_PRODUCTION`) :
+     * pouce — partout depuis le 20 octobre 2026 (`QUESTION_AU_CENTRE_EN_PRODUCTION`) :
      * la page le demande (`questionAuCentre: true`), et son codex, ses styles
      * et son Ascension sont ceux de cette version.
      */
