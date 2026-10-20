@@ -45,6 +45,7 @@ import {
   nomDeLaForme,
   prochaineForme,
   rangAtteint,
+  type CleDeCompagnon,
 } from '../../shared/compagnons'
 import { brilleChez } from '../../shared/profil'
 import { cibleEclat } from '../../shared/legendaires'
@@ -91,26 +92,27 @@ test('quatre compagnons — trois en boutique, la luciole en expédition —, qu
   assert.deepEqual([...JUSTES_DES_FORMES], [0, 100, 300, 500])
 })
 
-test('chacun de la boutique a sa métamorphose de lumière : une forme de plus, légendaire, qui ne se gagne pas en grandissant', () => {
+test('chacun a sa métamorphose de lumière : une forme de plus, légendaire, qui ne se gagne pas en grandissant', () => {
   // Peintes le 13 octobre 2026, livrées le 19 : l'Éclat les ouvre, et elles ne
-  // remplacent rien (le propriétaire : « je veux que ce soit un choix »).
+  // remplacent rien (le propriétaire : « je veux que ce soit un choix ») ; la
+  // luciole-aurore, peinte et livrée le 20.
   assert.deepEqual(
     METAMORPHOSES.map(f => f.key),
-    ['cp:loup-tempete', 'cp:chat-soleil', 'cp:tortue-fleurs'],
+    ['cp:loup-tempete', 'cp:chat-soleil', 'cp:tortue-fleurs', 'cp:luciole-aurore'],
   )
   assert.deepEqual(
-    COMPAGNONS_DE_LA_BOUTIQUE.map(c => c.lumiere?.nom),
-    ['Le loup-tempête', 'Le chat-soleil', 'L’île en fleurs'],
+    COMPAGNONS.map(c => c.lumiere?.nom),
+    ['Le loup-tempête', 'Le chat-soleil', 'L’île en fleurs', 'La luciole-aurore'],
   )
-  // La luciole n'a pas encore la sienne : éclatée à sa forme ultime, elle garde ses paillettes.
-  assert.equal(compagnon('luciole')!.lumiere, undefined)
-  assert.equal(metamorphoseOuverte({ compagnon: 'luciole', rang: 3, eclat: true }), false)
-  assert.deepEqual(
-    formesOuvertes([{ compagnon: 'luciole', rang: 3, eclat: true }]),
-    compagnon('luciole')!.formes.map(f => f.key),
-  )
-  assert.equal(formeDansLaNiche({ compagnon: 'luciole', rang: 3, eclat: true, montree: MONTREE_DE_LA_METAMORPHOSE })?.key, 'cp:luciole-constellation')
-  for (const c of COMPAGNONS_DE_LA_BOUTIQUE) {
+  // La luciole, qui ne s'achète pas, s'ouvre la sienne comme les autres : sa forme ultime et l'Éclat.
+  assert.equal(metamorphoseOuverte({ compagnon: 'luciole', rang: 3, eclat: true }), true)
+  assert.equal(metamorphoseOuverte({ compagnon: 'luciole', rang: 2, eclat: true }), false)
+  assert.deepEqual(formesOuvertes([{ compagnon: 'luciole', rang: 3, eclat: true }]), [...compagnon('luciole')!.formes.map(f => f.key), 'cp:luciole-aurore'])
+  assert.equal(formeDansLaNiche({ compagnon: 'luciole', rang: 3, eclat: true, montree: MONTREE_DE_LA_METAMORPHOSE })?.key, 'cp:luciole-aurore')
+  assert.equal(formeDansLaNiche({ compagnon: 'luciole', rang: 3, montree: MONTREE_DE_LA_METAMORPHOSE })?.key, 'cp:luciole-constellation', 'sans l’Éclat, sa forme ultime')
+  // Un compagnon sans elle n'en promet aucune : rien ne s'ouvre pour ce que le catalogue ne connaît pas.
+  assert.equal(metamorphoseOuverte({ compagnon: 'inconnu' as CleDeCompagnon, rang: 3, eclat: true }), false)
+  for (const c of COMPAGNONS) {
     const m = c.lumiere!
     assert.equal(formeDeCompagnon(m.key), m)
     assert.deepEqual([m.compagnon, m.rang, m.rarete, m.metamorphose], [c.key, 3, 'legendaire', true], m.key)
@@ -240,8 +242,16 @@ test('la boutique : trois compagnons, leurs quatre formes et ce qu’elles deman
   assert.doesNotMatch(avecLeLoup, />L’adopter</, 'rien à adopter à ce prix-là')
   // Ce qui manque se gagne : les missions du jour le disent, sous chacun.
   assert.equal(avecLeLoup.match(/<a class="link-inline" href="\/#missions">mes missions<\/a>/g)?.length, 2)
-  // À sa forme ultime, il n'a plus rien à atteindre.
-  assert.match(await rayon({ legendaire: null, boutique: boutique(0, [{ compagnon: 'tortue', rang: 3, justes: 620 }]) }), /Sa forme ultime\s: son monde prend vie\./)
+  // À sa forme ultime, la jauge vise le palier suivant de sa niche au lieu de s'arrêter (le propriétaire, le
+  // 19 octobre 2026) ; elle ne s'arrête qu'à la légende, sa niche ornée de tout.
+  assert.match(
+    await rayon({ legendaire: null, boutique: boutique(0, [{ compagnon: 'tortue', rang: 3, justes: 620 }]) }),
+    /620 sur 1500 bonnes réponses avec elle\s: une guirlande de petites lampes/,
+  )
+  assert.match(
+    await rayon({ legendaire: null, boutique: boutique(0, [{ compagnon: 'tortue', rang: 3, paliers: 4, justes: 26000 }]) }),
+    /Légende\s: sa niche a tous ses ornements\./,
+  )
   // La tortue se dit au féminin : « Tu le portes » se lisait de travers sous elle.
   const avecLaTortue = await rayon({ legendaire: 'cp:tortue-jeune', boutique: boutique(0, [{ compagnon: 'tortue', rang: 1, justes: 120 }]) })
   assert.match(avecLaTortue, /120 sur 300 bonnes réponses avec elle\s: la tortue-bosquet/)

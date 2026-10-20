@@ -1305,6 +1305,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     app.use('/medaillons', express.static(path.join(clientDist, 'medaillons'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // Les compagnons de la boutique de même (`server/scripts/anime/livrer-compagnons.ts`).
     app.use('/compagnons', express.static(path.join(clientDist, 'compagnons'), { maxAge: '1y', immutable: true, fallthrough: false }))
+    // Les ornements peints de leur niche de même (`server/scripts/anime/ornements.ts --livrer`).
+    app.use('/ornements', express.static(path.join(clientDist, 'ornements'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // Les décors peints — le calendrier, les thèmes peints, les fonds de carte — de même (`server/scripts/anime/decors.ts`).
     app.use('/decors', express.static(path.join(clientDist, 'decors'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // Les cartes peintes de l'Expédition de même (`server/scripts/anime/cartes.ts`).

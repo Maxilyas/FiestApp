@@ -81,7 +81,7 @@ interface Allure {
   /** Sa forme ultime sort du disque tout entière, son monde avec elle. */
   entiere: boolean
   vivant: Couche[]
-  /** Sa métamorphose de lumière : son aura et son anneau, à sa couleur — celle de la maquette, où l'on a choisi chacune. La luciole n'en a pas encore. */
+  /** Sa métamorphose de lumière : son aura et son anneau, à sa couleur — celle de la maquette, où l'on a choisi chacune. Sans métamorphose, rien. */
   lumiere?: string
 }
 
@@ -124,6 +124,9 @@ const ALLURES: Record<CleDeCompagnon, Allure> = {
     aura: '#d6ff8c',
     entiere: true,
     vivant: [{ cle: 'lucioles', mouvement: 'tourne', taille: 172, devant: true }],
+    // La luciole-aurore : le vert le plus clair de ses voiles, mesuré sur sa
+    // peinture — plus vert que le turquoise du loup-tempête, l'autre aurore.
+    lumiere: '#8ff0b4',
   },
 }
 

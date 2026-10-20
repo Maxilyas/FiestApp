@@ -340,9 +340,12 @@ test('son nom et la forme qu’il montre : à lui seul, vérifiés, gardés au r
       compagnons: [{ compagnon: 'loup', rang: 2, nom: 'Nox', justes: 320 }],
       neuves: [],
     })
-    // Son nom n'est qu'à lui : la carte que la salle ouvre n'en dit rien.
-    const carte = await (await fetch(`${banc.url}/api/joueur/carte`, { headers: { Cookie: cookie } })).text()
-    assert.ok(!carte.includes('Nox'), 'ni sur sa carte')
+    // La carte que la salle ouvre montre le compagnon de sa niche avec son nom
+    // (le propriétaire, le 19 octobre 2026 : « Le compagnon sur la carte doit
+    // avoir son nom » ; il n'était qu'à lui jusque-là) — l'instantané, lui,
+    // n'en dit toujours rien.
+    const carte = ((await (await fetch(`${banc.url}/api/joueur/carte`, { headers: { Cookie: cookie } })).json()) as any).profil
+    assert.deepEqual(carte.compagnon, { compagnon: 'loup', rang: 2, nom: 'Nox' })
   }))
 
 test('une niche jamais choisie se fige au démarrage : changer d’avatar ne déménage plus personne', () =>

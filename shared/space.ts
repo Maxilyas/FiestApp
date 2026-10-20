@@ -38,6 +38,13 @@ export const RESERVED_SLUGS = new Set([
   'media',
   'assets',
   'fonts',
+  // Les dossiers d'images peintes que le serveur sert : un espace à leur nom n'aurait plus d'adresse.
+  'portraits',
+  'medaillons',
+  'compagnons',
+  'ornements',
+  'decors',
+  'cartes',
   'healthz',
   'socket.io',
   'manifest.webmanifest',

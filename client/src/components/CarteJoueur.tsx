@@ -4,7 +4,9 @@ import type { BadgePorte } from '../../../shared/badges'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { brancheDe, portrait as portraitDe } from '../../../shared/branches'
-import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
+import { compagnonDe, formeDansLaNiche, formeDeCompagnon, nomDeLaForme, type CompagnonPossede } from '../../../shared/compagnons'
+import { titreDeLAmitie } from '../../../shared/ornements'
+import { laNiche } from './NicheHost'
 import { NOM_FINITION } from '../../../shared/profil'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { nomDuTitre } from '../../../shared/sentiers'
@@ -119,7 +121,9 @@ export function CarteJoueur({
       // avant : ce sont les dessins de l'avatar essayé qu'elle attend.
       .then(async (lue: CarteDeJoueur) => {
         const c = retoucher.current ? retoucher.current(lue) : lue
-        await chargerDessinsAuPlus(dessinsDeLaCarte(c))
+        // Le code de sa niche aussi, s'il a un compagnon : sans lui, elle se
+        // poserait sur la carte déjà ouverte. Aussi peu de temps que ses dessins.
+        await Promise.all([chargerDessinsAuPlus(dessinsDeLaCarte(c)), c.profil?.compagnon && auPlus(laNiche.charger())])
         return c
       })
       .then(c => vivant && setCarte(c))
@@ -249,6 +253,7 @@ export function CarteJoueur({
 
               {p && (
                 <>
+                  {p.compagnon && <SonCompagnon compagnon={p.compagnon} />}
                   {avecDessins.divins && (p.divins ?? []).length > 0 && (
                     <div className="carte-legendaires carte-divins" aria-label="Divins">
                       {p.divins.map(cle => (
@@ -353,6 +358,36 @@ export function CarteJoueur({
         {gestes && desGestes && desGestes !== 'perdu' && <desGestes.GestesDuJoueur gestes={gestes} visibles={!loupe} onFermer={onFermer} />}
         {/* Le pied de l'aperçu, comme celui des gestes : « Porter » reste en vue sous une carte bien remplie. */}
         {pied && !loupe && <footer className="carte-gestes">{pied}</footer>}
+      </div>
+    </div>
+  )
+}
+
+/** Le temps qu'une carte attend ce qu'elle montre, comme ses dessins : une requête muette ne la garde pas fermée. */
+const ATTENTE_MAX_MS = 2500
+
+const auPlus = (attendu: Promise<unknown>): Promise<unknown> => Promise.race([attendu.catch(() => {}), new Promise(r => setTimeout(r, ATTENTE_MAX_MS))])
+
+/**
+ * Le compagnon de sa niche (le propriétaire, le 19 octobre 2026 : « Le
+ * compagnon sur la carte doit avoir son nom ») : sa niche en petit — la forme
+ * qu'elle montre, ses ornements —, son nom, sa forme, et le titre de leur
+ * amitié quand sa niche a passé un palier. Sans le code de la niche (un
+ * échec), rien plutôt qu'une arche vide.
+ */
+function SonCompagnon({ compagnon }: { compagnon: CompagnonPossede }) {
+  const code = useALaDemande(laNiche)
+  const forme = formeDansLaNiche(compagnon)
+  if (!forme || !code || code === 'perdu') return null
+  const amitie = titreDeLAmitie(compagnon.paliers)
+  return (
+    <div className="carte-compagnon">
+      <code.NicheEnMiniature niche={compagnon} taille={56} />
+      <div className="carte-compagnon-texte">
+        <span className="label">Son compagnon</span>
+        <b className="carte-compagnon-nom">{compagnon.nom ?? forme.nom}</b>
+        <span className="muted small">{`${compagnon.nom ? forme.nom : compagnonDe(forme).nom} · ${nomDeLaForme(forme)}`}</span>
+        {amitie && <span className="carte-compagnon-amitie">{amitie}</span>}
       </div>
     </div>
   )

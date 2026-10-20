@@ -45,7 +45,7 @@ const POIDS_MAX: Record<string, number> = { '512': 130_000, '256': 46_000 }
 /** Les couches vivantes de chaque forme ultime, celles que `Compagnon.tsx` pose. */
 const COUCHES: Record<string, string[]> = { loup: ['rubans'], chat: ['feux', 'lanternes'], tortue: ['brume', 'oiseaux'], luciole: ['lucioles'] }
 
-/** Toutes les formes qui se peignent : les seize — la luciole comprise, livrée le 20 octobre 2026 —, et les trois métamorphoses. */
+/** Toutes les formes qui se peignent : les seize — la luciole comprise, livrée le 20 octobre 2026 —, et les quatre métamorphoses — la luciole-aurore, peinte le même jour. */
 const PEINTES: readonly FormeDeCompagnon[] = [...FORMES_DES_COMPAGNONS, ...METAMORPHOSES]
 
 /** Le nom de ses fichiers : `loup-ultime`, et sa métamorphose sous son nom dans la chaîne, `loup-eclat-tempete`. */
@@ -81,7 +81,7 @@ test('chaque forme a ses fichiers sous leur empreinte : l’animal et ses trois 
   const { DESSINS } = await import(url('components/compagnons-peints.ts'))
   // Les métamorphoses, peintes le 13 octobre 2026, ne partaient pas : un loup
   // éclaté ne changeait que de quatre paillettes (le retour du 19 octobre).
-  assert.deepEqual(Object.keys(DESSINS).sort(), PEINTES.map(f => f.key).sort(), 'les seize et les trois métamorphoses, et elles seules')
+  assert.deepEqual(Object.keys(DESSINS).sort(), PEINTES.map(f => f.key).sort(), 'les seize et les quatre métamorphoses, et elles seules')
   for (const f of PEINTES) {
     const d = DESSINS[f.key]
     const nom = nomDesFichiers(f)

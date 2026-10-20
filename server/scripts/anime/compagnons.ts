@@ -15,6 +15,7 @@
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/anime/compagnons.ts loup --style=cine3d  # puis tout le reste, dans ce style
 //   … --eclat=tempete                  # la métamorphose gardée : son décor, sa découpe, ses expressions
 //   … --regenerer=adulte,adulte-ravi   # repayer ces images, et ce qui part d'elles
+//   … --seulement=eclat-aurore         # ne peindre que ces images, et ce qui part d'elles
 //
 // Une expression ne se pose pas sur une illustration qui porte déjà le loup
 // neutre : la tête baissée du dépité laissait voir l'autre derrière elle. Le
@@ -182,6 +183,8 @@ interface Eclat {
   garde: string
   retirer: string
   chroma: Chroma
+  /** Ce qui est translucide et doit sortir opaque de sa découpe, comme pour une forme : les voiles d'aurore de la luciole. */
+  opaque?: string
   /** Il sort du disque tout entier : le disque ne prend qu'une part de l'image, et l'animal en déborde de tous côtés. */
   entier?: boolean
   /** Ses expressions à lui, quand celles de tous ne suffisent pas. */
@@ -619,8 +622,40 @@ const LUCIOLE: Compagnon = {
       'DISAPPOINTED, in a cute and gentle way, never tragic — antennae drooping, big sad eyes looking up, a small pout, its belly glowing dimmer',
     triomphe: 'TRIUMPHANT — head held high, eyes shining, mouth open in a joyful cheer, antennae raised high, its belly blazing with light',
   },
-  // Pas de métamorphose pour l'instant : la lumière des trois autres n'est livrée que depuis le 19 octobre 2026, et leur ombre attend sa règle.
-  eclats: {},
+  // Sa lumière seule, la luciole-aurore (le 20 octobre 2026 : « peins-la ici »,
+  // le propriétaire, parmi les pistes proposées) : l'ombre des trois autres
+  // attend encore sa règle. Pas féroce — elle s'envole vers nous, émerveillée,
+  // et reste ronde. Ses voiles d'aurore sont translucides : sa découpe les rend
+  // opaques, sinon le magenta les teinterait comme les ailes de l'adulte. Et
+  // elle nomme les rideaux d'aurore qui pendent sous ses ailes : la première
+  // les avait pris pour elles, une jupe violacée à bord dur sous la luciole.
+  eclats: {
+    aurore: {
+      nom: 'La luciole-aurore',
+      voie: 'lumiere',
+      consigne: METAMORPHOSE(
+        'its round, plush amber body, its lantern belly glowing golden-green, its big gentle eyes with star-shaped highlights, its two long ' +
+          'curling antennae with glowing tips',
+        'It becomes the spirit of the northern lights: its stained-glass wings turned into immense flowing veils of aurora borealis — luminous ' +
+          'ribbons of emerald, teal, cyan and pale gold light rippling out from its back across the sky; frost and aurora glints shimmering in its ' +
+          'amber fuzz; its lantern belly blazing like a small white-gold sun; its swarm of tiny fireflies turned into sparks of aurora light ' +
+          'swirling around it. Its scene: a deep polar night over a still mountain lake that mirrors the sky, dark pine forests and snowy peaks, ' +
+          'the whole sky alive with curtains of green and cyan aurora.',
+        'It soars straight toward the viewer, seen from the front, its aurora wings spread wide open, antennae streaming, eyes wide and shining ' +
+          'with wonder, a small serene smile — majestic and radiant, yet still round and cute.',
+        'magenta',
+      ),
+      garde:
+        'the aurora firefly — its head, antennae, round body, tiny legs, blazing lantern belly and its two great wings: the long flowing veils ' +
+        'of aurora light that spread up and out from its back',
+      retirer:
+        'the night sky, the stars, the vertical curtains of aurora hanging in the sky below and between its wings, the small spirals and ' +
+        'sparks of light, the lake, the pine forests and the snowy peaks',
+      opaque: 'its two wings (veils of emerald, teal, cyan and pale gold light)',
+      chroma: 'magenta',
+      entier: true,
+    },
+  },
   vivant: [
     {
       cle: 'lucioles',
@@ -707,7 +742,7 @@ function travaux(c: Compagnon, style: string | undefined, eclats: string[]): Tra
     t.push({ nom, sources: [ultime], consigne: e.consigne })
     if (!eclats.includes(cle)) continue
     t.push({ nom: `${nom}-decor`, sources: [nom], consigne: DECOR_SEUL(e.garde) })
-    t.push({ nom: `${nom}-decoupe`, sources: [nom], consigne: DECOUPE(e.garde, e.retirer, e.chroma) })
+    t.push({ nom: `${nom}-decoupe`, sources: [nom], consigne: DECOUPE(e.garde, e.retirer, e.chroma, e.opaque) })
     for (const x of Object.keys(EXPRESSIONS) as Expression[]) {
       const quoi = e.expressions?.[x] ?? c.expressions?.[x] ?? EXPRESSIONS[x]
       t.push({ nom: `${nom}-${x}`, sources: [`${nom}-decoupe`], consigne: EXPRESSION(quoi, e.chroma) })
@@ -734,20 +769,35 @@ function mettreDeCote(nom: string) {
   renameSync(f, f.slice(0, -ext.length) + `.ancien-${Date.now()}${ext}`)
 }
 
-const TRAVAUX = travaux(compagnon, STYLE, ECLATS)
+/** Ces images, et tout ce qui part d'elles. */
+function etCeQuiEnPart(noms: string[], tous: Travail[]): Set<string> {
+  const s = new Set(noms)
+  for (let ajoute = true; ajoute; ) {
+    ajoute = false
+    for (const t of tous) {
+      if (!s.has(t.nom) && t.sources.some(x => s.has(x))) {
+        s.add(t.nom)
+        ajoute = true
+      }
+    }
+  }
+  return s
+}
+
+// Une machine qui n'a que l'archive d'un compagnon — ses illustrations et son
+// dossier `app`, sans ses découpes ni ses humeurs brutes — repeindrait tout ce
+// qui lui manque, et autrement : `--seulement=` n'y peint que ces images et ce
+// qui part d'elles. La luciole-aurore (le 20 octobre 2026) s'est peinte ainsi,
+// d'après la seule luciole-constellation de `luciole-peinte/`.
+const TOUS = travaux(compagnon, STYLE, ECLATS)
+const inconnues = liste('seulement').filter(n => !TOUS.some(t => t.nom === n))
+if (inconnues.length) throw new Error(`--seulement=${inconnues.join(',')} : pas une image de la chaîne (${TOUS.map(t => t.nom).join(', ')})`)
+const seulement = liste('seulement').length ? etCeQuiEnPart(liste('seulement'), TOUS) : null
+const TRAVAUX = seulement ? TOUS.filter(t => seulement.has(t.nom)) : TOUS
 
 // Ce qu'on repaie, et tout ce qui part de lui : une découpe repeinte change la
 // place des expressions qui en partent.
-const aRepayer = new Set(liste('regenerer'))
-for (let ajoute = true; ajoute; ) {
-  ajoute = false
-  for (const t of TRAVAUX) {
-    if (!aRepayer.has(t.nom) && t.sources.some(s => aRepayer.has(s))) {
-      aRepayer.add(t.nom)
-      ajoute = true
-    }
-  }
-}
+const aRepayer = etCeQuiEnPart(liste('regenerer'), TRAVAUX)
 for (const nom of aRepayer) mettreDeCote(nom)
 
 // ── Le journal ────────────────────────────────────────────────────────────
@@ -759,7 +809,7 @@ const depense = () => lireJournal().reduce((n, e) => n + (e.cout ?? 0), 0)
 function ranger(nom: string, r: Rendu) {
   writeFileSync(fichier(`${nom}.${formatDe(r.image).ext}`), r.image)
   const journal = lireJournal()
-  const cout = coutEstime(r.jetons)
+  const cout = coutEstime(r.jetons, { modele: MODELE })
   journal.push({ compagnon: compagnon!.id, nom, date: new Date().toISOString(), modele: MODELE, taille: TAILLE, jetons: r.jetons, cout })
   writeFileSync(cheminJournal, JSON.stringify(journal, null, 2) + '\n')
   console.log(`  ${nom} : environ ${cout.toFixed(3)} $ en ${r.secondes.toFixed(0)} s (total ${depense().toFixed(2)} $)`)

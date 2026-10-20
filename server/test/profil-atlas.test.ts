@@ -97,7 +97,7 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
   assert.ok(epique.some(x => x.nom === 'La luciole des sentiers, épique, à gagner en expédition, puis à 300 bonnes réponses avec elle'))
   // Chaque gemme dit où il en est, en chiffres : la couleur seule ne se lit pas.
   // Les compagnons y ont aussi leur forme, une par page : quatre de plus — et
-  // les trois métamorphoses de ceux de la boutique, légendaires.
+  // la métamorphose de chacun, légendaire.
   const html = await album('commune')
   assert.match(html, /aria-label="Rare, 1 sur 28"/)
   assert.match(html, new RegExp(`aria-label="Légendaire, 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length}"`))
@@ -140,7 +140,7 @@ const cartes = (html: string) => [...html.matchAll(/<h3>(?:<svg[^>]*>.*?<\/svg>)
 // Le souhait du propriétaire du 12 octobre 2026 : « un bouton pour la loge…
 // comme ça le profil est épuré, un bouton pour s'habiller, collection,
 // soirée et carrière » — sans la carte, le thème ni la gerbe sur la page.
-test('le profil épuré : qui l’on est, puis quatre boutons — la loge derrière « M’habiller »', async () => {
+test('le profil épuré : qui l’on est, puis quatre boutons — cinq avec un compagnon —, la loge derrière « M’habiller »', async () => {
   const app = source('views/ProfilApp.tsx')
   const ecrans = [...app.matchAll(/\{ id: '(\w+)', nom: '([^']+)', groupe: '([^']+)'/g)].map(([, id, nom, groupe]) => `${groupe} › ${nom} (#${id})`)
   assert.deepEqual(ecrans, [
@@ -150,6 +150,8 @@ test('le profil épuré : qui l’on est, puis quatre boutons — la loge derri�
     'M’habiller › Mon fond de carte (#fond)',
     'M’habiller › Mon thème (#theme)',
     'M’habiller › Ma gerbe (#gerbe)',
+    // Sa niche, qui ne se gérait qu'en la touchant (le 19 octobre 2026 : « où est-ce que cela se fait ? »).
+    'Mon profil › Mon compagnon (#compagnon)',
     'Mon profil › Ma collection (#collection)',
     'Mon profil › Ma carrière (#carriere)',
     'Mon profil › Mes soirées (#soirees)',
@@ -163,7 +165,7 @@ test('le profil épuré : qui l’on est, puis quatre boutons — la loge derri�
   for (const id of ['avatar', 'titre', 'vitrine', 'fond', 'theme', 'gerbe']) assert.match(PIECES, new RegExp(`\\{ id: '${id}', nom: '[^']+', groupe: '(salle|moi)', qui: '`), id)
 
   // La page : soi-même en tête — un toucher ouvre sa carte, comme la salle —, puis quatre gros boutons, dans cet ordre.
-  const page = app.slice(app.indexOf("// ── Le profil : qui l'on est, puis quatre boutons ──"), app.indexOf('/**\n * Un onglet qui arrive'))
+  const page = app.slice(app.indexOf("// ── Le profil : qui l'on est, puis ses gros boutons ──"), app.indexOf('/**\n * Un onglet qui arrive'))
   assert.match(page, /<IdentiteLigne profil=\{profil\} onCarte=\{\(\) => setCarteOuverte\(true\)\} \/>\s*\{carteOuverte && laCarte && laCarte !== 'perdu' && <laCarte\.CarteJoueur adresse="\/api\/joueur\/carte" onFermer=\{\(\) => setCarteOuverte\(false\)\} \/>\}/)
   const boutons = page.slice(page.indexOf('<div className="profil-boutons">'), page.indexOf('<Glossaire'))
   // « M'habiller » ouvre la loge sur la première pièce qui a du neuf, l'avatar d'office.
@@ -171,6 +173,11 @@ test('le profil épuré : qui l’on est, puis quatre boutons — la loge derri�
     ([, icone, titre, ecran]) => `${titre} (${icone}) → #${ecran}`,
   )
   assert.deepEqual(gestes, ['M’habiller (hanger) → #avatar', 'Ma collection (award) → #collection', 'Mes soirées (book) → #soirees', 'Ma carrière (bar-chart) → #carriere'])
+  // Et, juste après « M'habiller », « Mon compagnon » pour qui en a un : sa niche en petit dès que son code est là.
+  assert.match(
+    boutons,
+    /onClick=\{\(\) => ouvrir\(pieceNeuve \?\? 'avatar'\)\}\s*\/>\s*\{\/\*[^*]*\*\/\}\s*\{nicheIci && \(\s*<GrosBouton\s+icone=\{codeDeLaNiche \? <codeDeLaNiche\.NicheEnMiniature niche=\{nicheIci\} taille=\{36\} \/> : <Icon name="home" \/>\}\s+titre="Mon compagnon"[\s\S]*?onClick=\{\(\) => ouvrir\('compagnon'\)\}/,
+  )
   assert.match(page, /const pieceNeuve = plus \? premierePieceNeuve\(plus\.nouveautes\) : null/)
   // Sa collection : sa jauge et son compte, qui viennent avec les écrans.
   assert.match(boutons, /jauge=\{plus \? plus\.collection\.acquis \/ Math\.max\(1, plus\.collection\.total\) : 0\}\s*compte=\{plus && `\$\{formatNumber\(plus\.collection\.acquis\)\} sur \$\{formatNumber\(plus\.collection\.total\)\}`\}/)

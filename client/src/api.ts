@@ -39,6 +39,7 @@ import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLog
 import type { MissionsDuJour } from '../../shared/missions'
 import type { CoffreOuvert } from '../../shared/coffre'
 import type { CompagnonAcquis } from '../../shared/compagnons'
+import type { ReglageDesOrnements } from '../../shared/ornements'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDesAnnonces } from '../../shared/annonces'
@@ -404,8 +405,11 @@ export const api = {
      * ne dit que le premier.
      */
     niche: () => req<{ niche: CompagnonAcquis | null; compagnons?: CompagnonAcquis[]; neuves?: string[] }>('/api/joueur/niche'),
-    /** Ce qu'il règle d'un de ses compagnons, depuis sa niche : son nom (vide, il n'en a plus), la forme qu'il y montre (null : sa plus haute ; 4 : sa métamorphose). */
-    reglerCompagnon: (compagnon: string, reglage: { nom?: string; montree?: number | null }) =>
+    /**
+     * Ce qu'il règle d'un de ses compagnons, depuis sa niche : son nom (vide, il n'en a plus), la forme qu'il y
+     * montre (null : sa plus haute ; 4 : sa métamorphose), ses ornements (`{ guirlande: 'cache' }`, fondus dans ce qu'il avait réglé).
+     */
+    reglerCompagnon: (compagnon: string, reglage: { nom?: string; montree?: number | null; ornements?: ReglageDesOrnements }) =>
       req<{ profile: PublicProfile }>(`/api/joueur/compagnons/${encodeURIComponent(compagnon)}`, { method: 'PUT', body: JSON.stringify(reglage) }),
     /** Ce qu'il vient de voir dans sa loge, retenu pour tous ses appareils. */
     retenirLesVus: (vus: VusDeLaLoge) => req<{ ok: true }>('/api/joueur/vus', { method: 'PUT', body: JSON.stringify({ vus }) }),
