@@ -7,8 +7,9 @@
 // ses places et ses cartes ; Coup d'œil joué, un événement daté ; deux
 // événements posés ; les quatre ; rangée juste, la révélation ; la suivante,
 // rangée à l'envers, sa révélation ; puis « Mes réponses ». Ce qui élargit la
-// page se dit (`[déborde]`). Le client construit d'abord (`npm run build -w
-// client`).
+// page se dit (`[déborde]`), un toucher qui efface ce qui était posé aussi
+// (`[doigt]`) : la frise se pose au doigt. Le client construit d'abord
+// (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-frise.ts [dossier] [ivoire]
 import { createRequire } from 'node:module'
@@ -81,7 +82,9 @@ try {
     }
   }
 
-  const contexte = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 })
+  // Au doigt : la souris ne rejoue pas le click qui suit le lever du doigt, et posée à la souris, la frise ne montrait pas qu'il
+  // effaçait tout ce qu'on y posait (le 20 octobre 2026).
+  const contexte = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true })
   const [nom, valeur] = ulysse.split('=')
   await contexte.addCookies([{ name: nom, value: valeur, url: banc.url }])
   const page = await contexte.newPage()
@@ -97,12 +100,18 @@ try {
     const l = Number(await page.evaluate('document.documentElement.scrollWidth'))
     if (l > 360) console.error(`[déborde] ${ou} : ${l} pixels de large`)
   }
-  /** Pose les cartes à l'écran dans cet ordre (leur rang à l'écran), puis valide. */
+  /** Ce qui est posé sur la frise : un toucher qui l'efface se dit. */
+  const posees = async (attendues: number, ou: string) => {
+    const n = await page.locator('.exp-frise-pleine').count()
+    if (n !== attendues) console.error(`[doigt] ${ou} : ${n} posés sur ${attendues}`)
+  }
+  /** Pose au doigt les cartes à l'écran dans cet ordre (leur rang à l'écran), puis valide. */
   const poser = async (ordre: readonly number[], nomFichier: string) => {
     const lignes = (await page.locator('.exp-frise-carte').allTextContents()).map((t: string) => t.trim())
-    for (const i of ordre) await page.locator('.exp-frise-carte', { hasText: lignes[i] }).first().click()
+    for (const i of ordre) await page.locator('.exp-frise-carte', { hasText: lignes[i] }).first().tap()
+    await posees(ordre.length, nomFichier)
     await photo(nomFichier)
-    await page.locator('.exp-frise .exp-composer-gestes .btn-primary').click()
+    await page.locator('.exp-frise .exp-composer-gestes .btn-primary').tap()
     await page.waitForSelector('.result-banner')
   }
 
@@ -144,9 +153,11 @@ try {
   const { montre } = gardee(rangDeLaQuestion())
   const bon = montre.map((_, k) => montre.indexOf(k))
   const lignes = (await page.locator('.exp-frise-carte').allTextContents()).map((t: string) => t.trim())
-  for (const i of bon.slice(0, 2)) await page.locator('.exp-frise-carte', { hasText: lignes[i] }).first().click()
+  for (const i of bon.slice(0, 2)) await page.locator('.exp-frise-carte', { hasText: lignes[i] }).first().tap()
+  await posees(2, '4-frise-deux-posees')
   await photo('4-frise-deux-posees')
-  await page.locator('.exp-frise .exp-composer-gestes .btn-ghost').click()
+  await page.locator('.exp-frise .exp-composer-gestes .btn-ghost').tap()
+  await posees(0, '4-frise-effacee')
   await poser(bon, '5-frise-pleine')
   await largeur('la frise rangée')
   await photo('6-frise-juste')

@@ -2650,11 +2650,12 @@ export function ComposerLaReponse({ composer, busy, onValider }: { composer: Que
           </button>
         ))}
       </div>
+      {/* Au lever du doigt, comme les tuiles : la dernière tuile posée, ces boutons remontent sous le doigt, et le click qui suit y tombait. */}
       <div className="exp-composer-gestes">
-        <button type="button" className="btn btn-ghost" aria-disabled={busy || dansLesCases.size === 0 || undefined} onClick={() => !busy && setPlacees([])}>
+        <button type="button" className="btn btn-ghost" aria-disabled={busy || dansLesCases.size === 0 || undefined} {...toucher(() => !busy && setPlacees([]))}>
           Effacer
         </button>
-        <button type="button" className="btn btn-primary" aria-disabled={busy || !plein || undefined} onClick={() => plein && !busy && onValider(lettres)}>
+        <button type="button" className="btn btn-primary" aria-disabled={busy || !plein || undefined} {...toucher(() => plein && !busy && onValider(lettres))}>
           {plein ? 'Valider' : `Encore ${n - lettres.length} lettre${n - lettres.length > 1 ? 's' : ''}`}
         </button>
       </div>
@@ -2719,11 +2720,13 @@ export function PoserLaFrise({ frise, busy, onValider }: { frise: FriseAPoser; b
           )
         })}
       </div>
+      {/* Au lever du doigt, comme les cartes : une rangée posée se vide, ces boutons remontent sous le doigt, et le click qui suit
+          effaçait tout ce qui était posé (le retour du propriétaire du 20 octobre 2026). */}
       <div className="exp-composer-gestes">
-        <button type="button" className="btn btn-ghost" aria-disabled={busy || places.length === 0 || undefined} onClick={() => !busy && setPlaces([])}>
+        <button type="button" className="btn btn-ghost" aria-disabled={busy || places.length === 0 || undefined} {...toucher(() => !busy && setPlaces([]))}>
           Effacer
         </button>
-        <button type="button" className="btn btn-primary" aria-disabled={busy || !plein || undefined} onClick={() => plein && !busy && onValider(places)}>
+        <button type="button" className="btn btn-primary" aria-disabled={busy || !plein || undefined} {...toucher(() => plein && !busy && onValider(places))}>
           {plein ? 'Valider' : `Encore ${n - places.length} événement${n - places.length > 1 ? 's' : ''}`}
         </button>
       </div>
