@@ -179,8 +179,13 @@ propositions, pour mémoire.
   `aria-pressed` : le prototype disait « Revoir sa carte » au dos, et un
   lecteur d'écran aurait lu « Revoir sa carte, activé » — l'état dit deux
   fois (`design.test.ts`).
-- **Le fond de carte** habille l'illustration (`.carte-illustration.carte-fond`),
-  le lambrequin du théâtre derrière l'avatar.
+- **Le fond de carte** tapisse les deux faces, dans leur cadre de métal
+  (`.carte-dedans`). Posé d'abord dans l'illustration seule, comme sur la
+  maquette, il ne se voyait que derrière l'avatar, quand la boutique, la loge
+  et la collection le montrent sur la carte entière — « et le fond ne peut
+  pas couvrir recto et verso ? » (le propriétaire, le même jour). L'illustration
+  le laisse voir, son cadre n'étant plus qu'un anneau de métal, et le
+  lambrequin du théâtre pend derrière ce que la carte raconte.
 - **Le dos** : `cadransDuDos` — les cadrans des soirées, ou ceux du solo, puis
   les prix, le quiz du jour, les duels et le record de campagne, chacun s'il a
   quelque chose à dire. Ses écussons prennent chacun le tiers de la rangée :

@@ -3934,9 +3934,9 @@ h3 > .icon {
 
 /* Le décor se pose sur le cadre de la carte, derrière son contenu : les deux
    calques (::before, ::after) tiennent sous le texte (z-index -1, dans
-   l'isolation du cadre). Sur la carte d'un joueur, ce cadre est son
-   illustration, sous son avatar — la carte à collectionner, le 20 octobre
-   2026 ; ailleurs, la carte de la loge et les vignettes, la carte entière.
+   l'isolation du cadre). Sur la carte d'un joueur, ce cadre est le dedans
+   de chacune de ses faces (`.carte-dedans`), dans leur cadre de métal ;
+   ailleurs, la carte de la loge et les vignettes, la carte entière.
    L'encre y reste claire quel que soit le thème : le décor est toujours
    nocturne. D'après la maquette validée (v2).
 
@@ -4154,9 +4154,8 @@ h3 > .icon {
 
 /* Le lambrequin du rideau occupe le haut : ce qui défile passe derrière lui,
    comme sur une scène. Dessiné sous le contenu, il voyait le prénom puis les
-   hauts faits glisser sur ses franges d'or. Sur la carte d'un joueur, où le
-   fond n'habille plus que l'illustration, il pend derrière son avatar
-   (`.carte-illustration`). */
+   hauts faits glisser sur ses franges d'or. Sur la carte d'un joueur, il pend
+   derrière ce qu'elle raconte (`.carte-dedans`). */
 .carte-fond.fond-theatre:not(.fond-apercu)::before { z-index: 1; }
 
 /* Le cabinet de curiosités, au troisième palier de maître des sentiers du
@@ -6203,7 +6202,17 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--lueur) 5%, transparent) 0 1px, transparent 1px 22px),
     var(--bg-raised);
 }
-.cadre-maitre .carte-defile { box-shadow: 0 0 0 2px #15111b; }
+.cadre-maitre .carte-dedans { box-shadow: 0 0 0 2px #15111b; }
+/* Le dedans d'une face, que son fond de carte tapisse — le recto et le dos
+   (le propriétaire, le 20 octobre 2026 : « et le fond ne peut pas couvrir
+   recto et verso ? ») : dans l'illustration seule, on ne le voyait que
+   derrière l'avatar, quand la boutique, la loge et la collection le montrent
+   sur la carte entière. Il ne bouge pas ; ce qui défile passe par-dessus lui,
+   sans sol à soi. La lueur du tableau de bord y reprend l'or du Velours :
+   lue sur la carte, elle gardait celle du thème. */
+.carte-dedans { position: relative; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; border-radius: 12px; }
+.carte-joueur .carte-fond { --lueur: var(--accent-text); }
+.carte-joueur .carte-fond > .carte-defile { background: none; }
 /* Sa tête : son niveau en gemme, son nom, son titre. */
 .carte-joueur .carte-tete { gap: 10px; min-height: 44px; }
 /* La guirlande et l'étoile de son compagnon montent au-dessus de
@@ -6231,10 +6240,24 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   box-shadow: inset 0 0 0 2px var(--gemme-filet), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 .carte-gemme-mot { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
-/* L'illustration : son avatar en grand, sur son fond de carte s'il en porte
-   un — qui n'habille plus la carte entière. Les deux faces ayant la taille
-   de la plus grande, la place qui reste au recto va à elle. */
-.carte-illustration-cadre { position: relative; flex: 1 0 auto; display: flex; margin-top: 2px; padding: 3px; border-radius: 12px; background: var(--cadre); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); }
+/* L'illustration : son avatar en grand, dans un cadre du métal de la carte.
+   Les deux faces ayant la taille de la plus grande, la place qui reste au
+   recto va à elle. */
+.carte-illustration-cadre { position: relative; flex: 1 0 auto; display: flex; margin-top: 2px; padding: 3px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); }
+/* Son métal n'est qu'un anneau : peint sur tout le cadre, il remplissait d'or
+   la fenêtre que l'illustration laisse ouverte sur un fond de carte. */
+.carte-illustration-cadre::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 3px;
+  border-radius: inherit;
+  background: var(--cadre);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
 .carte-illustration {
   position: relative;
   isolation: isolate;
@@ -6251,8 +6274,12 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 }
 /* Son compagnon perché au coin : l'avatar se décale pour lui laisser la place. */
 .carte-illustration-cadre:has(.carte-compagnon) .carte-illustration { padding-right: 70px; }
-/* Le lambrequin du théâtre pend derrière lui : par-dessus, il lui coupait la tête. */
-.carte-illustration.carte-fond.fond-theatre:not(.fond-apercu)::before { z-index: -1; }
+/* Sur un fond, elle le laisse voir : un halo autour de l'avatar, rien de plus. */
+.carte-fond .carte-illustration { background: radial-gradient(52% 70% at 50% 56%, color-mix(in srgb, var(--lueur) 32%, transparent), transparent 72%); }
+/* Le lambrequin du théâtre pend derrière ce que la carte raconte : par-dessus,
+   il couvrait sa tête — et ses faces ne défilant presque plus, le prénom ne
+   glisse plus guère sur ses franges. */
+.carte-dedans.carte-fond.fond-theatre:not(.fond-apercu)::before { z-index: -1; }
 /* Son avatar grandit avec l'illustration ; sa lumière, qui déborde le plus, le fait plus petit. */
 .carte-illustration .carte-avatar { margin: 0; font-size: 58px; font-size: clamp(58px, 40cqh, 86px); }
 .carte-illustration .carte-avatar.av-lumiere { font-size: 40px; font-size: clamp(40px, 27cqh, 58px); }

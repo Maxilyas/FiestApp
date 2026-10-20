@@ -180,7 +180,7 @@ test('sous tous les thèmes, une feuille, une carte ou un dialogue ouvert garde 
   assert.match(regle('.carte-defile'), /background: var\(--bg-raised\);/)
   assert.match(regle('.carte-joueur .carte-defile'), /var\(--bg-raised\);\s*$/, 'le quadrillage, sur du plein')
   for (const s of ['.carte-croix', '.carte-retourner', '.carte-joueur > .carte-gestes']) assert.match(regle(s), /background: var\(--bg-raised\);/, s)
-  const DE_LA_CARTE = ['carte-joueur', 'carte-pivot', 'carte-face', 'carte-defile', 'carte-sous', 'carte-croix', 'carte-retourner']
+  const DE_LA_CARTE = ['carte-joueur', 'carte-pivot', 'carte-face', 'carte-dedans', 'carte-defile', 'carte-sous', 'carte-croix', 'carte-retourner']
   for (const [ou, feuille] of feuillesDesThemes) {
     for (const r of reglesDe(feuille).filter(r => peint(r.corps))) {
       for (const s of r.selecteurs.filter(duTheme)) assert.ok(!sujet(s).some(c => DE_LA_CARTE.includes(c)), `${ou} : « ${s} » repeint le sol de la carte d’un joueur`)

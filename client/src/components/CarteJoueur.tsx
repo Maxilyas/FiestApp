@@ -42,11 +42,12 @@ type Profil = NonNullable<CarteDeJoueur['profil']>
  * `retours/2026-10-20/carte-du-joueur/` : « J'adore la carte à collectionner
  * […] J'aime beaucoup retourner la carte »). Au recto, qui il est et ce qu'il
  * fait ce soir — son niveau en gemme, son nom et son titre, son avatar en
- * grand dans l'illustration, posé sur son fond de carte, son compagnon perché
- * au coin, sa soirée, ses plus beaux hauts faits ; au dos, ses chiffres en un
- * seul tableau, ses écussons, sa collection tout au bout. Son cadre est celui
- * de sa ligue des duels (`cadreDeLaCarte`), et suit le doigt. Le compagnon y
- * avait sa ligne, sous l'avatar : « ça fait tout descendre ».
+ * grand dans l'illustration, son compagnon perché au coin, sa soirée, ses
+ * plus beaux hauts faits ; au dos, ses chiffres en un seul tableau, ses
+ * écussons, sa collection tout au bout. Son fond de carte tapisse les deux
+ * faces. Son cadre est celui de sa ligue des duels (`cadreDeLaCarte`), et suit
+ * le doigt. Le compagnon y avait sa ligne, sous l'avatar : « ça fait tout
+ * descendre ».
  *
  * Un invité anonyme a la sienne : sa soirée, sans dos ni rien qui dise ce qui
  * lui manque. Un surnom donné par l'animateur ne cache pas le prénom du profil.
@@ -157,7 +158,7 @@ export function CarteJoueur({
   const dessins = useDessins()
   const avecDessins = { legendaires: complets(dessins, ['legendaire']), divins: complets(dessins, ['divin']) }
   // Son fond de carte, s'il en porte un : seulement l'un du catalogue. Il
-  // devient l'illustration, sous son avatar.
+  // tapisse ses deux faces, dans leur cadre de métal.
   const fond = fondDeCarte(p?.fond)?.key
   const ligue = carte ? cadreDeLaCarte(carte) : null
   const compagnon = p?.compagnon
@@ -212,177 +213,182 @@ export function CarteJoueur({
         )}
         <div ref={pivot} className={'carte-pivot' + (verso && aUnDos ? ' carte-retournee' : '')} onPointerMove={incliner} onPointerLeave={redresser}>
           <section className="carte-face carte-recto" aria-hidden={(verso && aUnDos) || undefined} inert={verso && aUnDos}>
-            {/* Le contenu défile dans son cadre, et le cadre reste en place autour de lui. */}
-            <div className="carte-defile">
-              {erreur && <p className="muted">{erreur}</p>}
-              {!carte && !erreur && <p className="muted">Chargement…</p>}
-              {carte && loupe?.sujet === 'avatar' && <AvatarEnGrand carte={carte} hauteur={loupe.hauteur} onRevenir={() => setLoupe(null)} />}
-              {carte && loupe?.sujet === 'compagnon' && compagnon && <CompagnonEnGrand compagnon={compagnon} hauteur={loupe.hauteur} onRevenir={() => setLoupe(null)} />}
-              {carte && !loupe && (
-                <>
-                  <header className="carte-tete">
-                    {/* Son niveau en gemme, devant son nom, comme le coût d'une carte : le coin haut droit est à son compagnon. */}
-                    {p && (
-                      <span className="carte-gemme" title={`Niveau ${p.niveau}`}>
-                        <span className="carte-gemme-mot" aria-hidden="true">
-                          niv.
-                        </span>
-                        <span className="sr-only">niveau </span>
-                        {p.niveau}
-                      </span>
-                    )}
-                    <div className="carte-identite">
-                      <h3>{carte.nom}</h3>
-                      {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné, ou d'un sentier dont il est maître. */}
-                      {titre && <p className="titre-porte">{espacesFines(`« ${titre} »`)}</p>}
-                    </div>
-                  </header>
-                  {carte.laurier && (
-                    <p className="carte-laurier">
-                      <Laurier laurier={carte.laurier} decoratif />{' '}
-                      {carte.laurier === 'argent' ? 'Vainqueur du défi de la semaine dernière' : 'Vainqueur du quiz du jour d’hier'}
-                      {carte.laurier !== 'argent' && carte.laurier > 1 && ` · ${NOM_DU_LAURIER[carte.laurier].toLowerCase()}`}
-                    </p>
-                  )}
-                  {/* Le champion du mois dernier, tout le mois : la salle le salue. */}
-                  {carte.champion && (
-                    <p className="carte-laurier carte-champion">
-                      <Icon name="trophy" /> {`Champion ${duMois(carte.champion)} au quiz du jour`}
-                    </p>
-                  )}
-                  {/* Un surnom donné ce soir, pas la marque « (2) » d'un homonyme : « « Camille (2) » ce soir — Camille sur son profil » se lisait comme un surnom. */}
-                  {p && p.prenom !== partsDuNomAffiche(carte.nom).prenom && (
-                    <p className="carte-surnom muted small">
-                      {espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil
-                    </p>
-                  )}
-                  {/* L'illustration : son avatar en grand, sur son fond de carte. En
-                      tête de l'ancienne carte, on ne voyait ni la peinture d'un
-                      légendaire ni la lumière d'une finition : touché, il s'ouvre
-                      encore plus grand (la demande du 6 octobre 2026). */}
-                  <div className="carte-illustration-cadre">
-                    <div className={'carte-illustration' + (fond ? ` carte-fond fond-${fond}` : '')}>
-                      <button
-                        ref={petitAvatar}
-                        type="button"
-                        className="carte-avatar-bouton"
-                        aria-label={`Voir l’avatar ${deNom(carte.nom)} en grand`}
-                        title="Voir en grand"
-                        onClick={ouvrirLaLoupe}
-                      >
-                        <Avatar
-                          className="carte-avatar"
-                          avatar={carte.avatar}
-                          finition={carte.finition}
-                          eclat={carte.eclat}
-                          legendaire={carte.legendaire}
-                          bordure={carte.bordure}
-                        />
-                      </button>
-                      {/* Le blason de sa ligue, comme le symbole d'une série : il dit d'où vient son cadre. */}
-                      {p?.duels && (
-                        <span className="carte-blason" title={ligueParCle(p.duels.ligue).nom}>
-                          <BlasonDeLigue ligue={p.duels.ligue} taille={18} decoratif />
+            {/* Son fond de carte tapisse le dedans de la face, qui ne bouge pas : le contenu défile par-dessus, dans son cadre. */}
+            <div className={'carte-dedans' + (fond ? ` carte-fond fond-${fond}` : '')}>
+              <div className="carte-defile">
+                {erreur && <p className="muted">{erreur}</p>}
+                {!carte && !erreur && <p className="muted">Chargement…</p>}
+                {carte && loupe?.sujet === 'avatar' && <AvatarEnGrand carte={carte} hauteur={loupe.hauteur} onRevenir={() => setLoupe(null)} />}
+                {carte && loupe?.sujet === 'compagnon' && compagnon && <CompagnonEnGrand compagnon={compagnon} hauteur={loupe.hauteur} onRevenir={() => setLoupe(null)} />}
+                {carte && !loupe && (
+                  <>
+                    <header className="carte-tete">
+                      {/* Son niveau en gemme, devant son nom, comme le coût d'une carte : le coin haut droit est à son compagnon. */}
+                      {p && (
+                        <span className="carte-gemme" title={`Niveau ${p.niveau}`}>
+                          <span className="carte-gemme-mot" aria-hidden="true">
+                            niv.
+                          </span>
+                          <span className="sr-only">niveau </span>
+                          {p.niveau}
                         </span>
                       )}
-                      {compagnon && <PlaqueDuCompagnon compagnon={compagnon} />}
-                    </div>
-                    {compagnon && <SonCompagnon compagnon={compagnon} bouton={petitCompagnon} onOuvrir={ouvrirLeCompagnon} />}
-                  </div>
-                  {/* Sa soirée — absente de sa propre carte, lue depuis sa page. */}
-                  {carte.ceSoir && (
-                    <p className="carte-soir">
-                      <Icon name="star" />
-                      <span>
-                        {carte.ceSoir.rang > 0 ? (
-                          <>
-                            <b>{place(carte.ceSoir.rang)}</b> ce soir, sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
-                          </>
-                        ) : (
-                          'Pas encore de points ce soir'
+                      <div className="carte-identite">
+                        <h3>{carte.nom}</h3>
+                        {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné, ou d'un sentier dont il est maître. */}
+                        {titre && <p className="titre-porte">{espacesFines(`« ${titre} »`)}</p>}
+                      </div>
+                    </header>
+                    {carte.laurier && (
+                      <p className="carte-laurier">
+                        <Laurier laurier={carte.laurier} decoratif />{' '}
+                        {carte.laurier === 'argent' ? 'Vainqueur du défi de la semaine dernière' : 'Vainqueur du quiz du jour d’hier'}
+                        {carte.laurier !== 'argent' && carte.laurier > 1 && ` · ${NOM_DU_LAURIER[carte.laurier].toLowerCase()}`}
+                      </p>
+                    )}
+                    {/* Le champion du mois dernier, tout le mois : la salle le salue. */}
+                    {carte.champion && (
+                      <p className="carte-laurier carte-champion">
+                        <Icon name="trophy" /> {`Champion ${duMois(carte.champion)} au quiz du jour`}
+                      </p>
+                    )}
+                    {/* Un surnom donné ce soir, pas la marque « (2) » d'un homonyme : « « Camille (2) » ce soir — Camille sur son profil » se lisait comme un surnom. */}
+                    {p && p.prenom !== partsDuNomAffiche(carte.nom).prenom && (
+                      <p className="carte-surnom muted small">
+                        {espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil
+                      </p>
+                    )}
+                    {/* L'illustration : son avatar en grand. En tête de l'ancienne
+                        carte, on ne voyait ni la peinture d'un légendaire ni la
+                        lumière d'une finition : touché, il s'ouvre encore plus
+                        grand (la demande du 6 octobre 2026). */}
+                    <div className="carte-illustration-cadre">
+                      <div className="carte-illustration">
+                        <button
+                          ref={petitAvatar}
+                          type="button"
+                          className="carte-avatar-bouton"
+                          aria-label={`Voir l’avatar ${deNom(carte.nom)} en grand`}
+                          title="Voir en grand"
+                          onClick={ouvrirLaLoupe}
+                        >
+                          <Avatar
+                            className="carte-avatar"
+                            avatar={carte.avatar}
+                            finition={carte.finition}
+                            eclat={carte.eclat}
+                            legendaire={carte.legendaire}
+                            bordure={carte.bordure}
+                          />
+                        </button>
+                        {/* Le blason de sa ligue, comme le symbole d'une série : il dit d'où vient son cadre. */}
+                        {p?.duels && (
+                          <span className="carte-blason" title={ligueParCle(p.duels.ligue).nom}>
+                            <BlasonDeLigue ligue={p.duels.ligue} taille={18} decoratif />
+                          </span>
                         )}
-                        {/* Les QCM et les estimations, chacun à sa façon : « 1/64
-                            justes » comptait des estimations qui ne sont jamais justes. */}
-                        {carte.ceSoir.reponses > 0 && <span className="carte-soir-detail">{reponsesParType(carte.ceSoir)}</span>}
-                      </span>
-                    </p>
-                  )}
-                  {/* Ce qui le distingue, comme les pouvoirs d'une carte, avec ce
-                      qu'il a fallu faire : un titre seul (« Le Buzzer d'Or ») ne
-                      dit rien à qui ne l'a jamais chassé. */}
-                  {p && p.vitrine.length > 0 && (
-                    <ul className="carte-beaux" aria-label="Ses plus beaux hauts faits">
-                      {p.vitrine.map(b => (
-                        <li key={b.key}>
-                          <span className="hf-emoji" aria-hidden="true">
-                            {b.emoji}
-                          </span>
-                          <span className="hf-corps">
-                            <span className="hf-titre">
-                              {b.title}
-                              {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
+                        {compagnon && <PlaqueDuCompagnon compagnon={compagnon} />}
+                      </div>
+                      {compagnon && <SonCompagnon compagnon={compagnon} bouton={petitCompagnon} onOuvrir={ouvrirLeCompagnon} />}
+                    </div>
+                    {/* Sa soirée — absente de sa propre carte, lue depuis sa page. */}
+                    {carte.ceSoir && (
+                      <p className="carte-soir">
+                        <Icon name="star" />
+                        <span>
+                          {carte.ceSoir.rang > 0 ? (
+                            <>
+                              <b>{place(carte.ceSoir.rang)}</b> ce soir, sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
+                            </>
+                          ) : (
+                            'Pas encore de points ce soir'
+                          )}
+                          {/* Les QCM et les estimations, chacun à sa façon : « 1/64
+                              justes » comptait des estimations qui ne sont jamais justes. */}
+                          {carte.ceSoir.reponses > 0 && <span className="carte-soir-detail">{reponsesParType(carte.ceSoir)}</span>}
+                        </span>
+                      </p>
+                    )}
+                    {/* Ce qui le distingue, comme les pouvoirs d'une carte, avec ce
+                        qu'il a fallu faire : un titre seul (« Le Buzzer d'Or ») ne
+                        dit rien à qui ne l'a jamais chassé. */}
+                    {p && p.vitrine.length > 0 && (
+                      <ul className="carte-beaux" aria-label="Ses plus beaux hauts faits">
+                        {p.vitrine.map(b => (
+                          <li key={b.key}>
+                            <span className="hf-emoji" aria-hidden="true">
+                              {b.emoji}
                             </span>
-                            <span className="muted small">{ceQuIlAFallu(b.key)}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {/* Sans dos, ses mots se disent au recto. */}
-                  {!p && mots.length > 0 && <Glossaire mots={mots} />}
-                </>
-              )}
+                            <span className="hf-corps">
+                              <span className="hf-titre">
+                                {b.title}
+                                {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
+                              </span>
+                              <span className="muted small">{ceQuIlAFallu(b.key)}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {/* Sans dos, ses mots se disent au recto. */}
+                    {!p && mots.length > 0 && <Glossaire mots={mots} />}
+                  </>
+                )}
+              </div>
             </div>
           </section>
           {carte && p && aUnDos && (
             <section className="carte-face carte-dos" aria-hidden={!verso || undefined} inert={!verso}>
-              <div className="carte-defile">
-                <header className="carte-dos-tete">
-                  <h3>{carte.nom}</h3>
-                  <span className="carte-dos-titre">Ses chiffres</span>
-                </header>
-                <Cadrans cases={cadransDuDos(p)} />
-                {/* Ce qu'il sait, catégorie par catégorie : ses trois écussons
-                    les plus hauts. Rien tant qu'il n'en a aucun. */}
-                {p.ecussons && p.ecussons.length > 0 && (
-                  <div className="carte-rangee">
-                    <span className="label">Ses écussons</span>
-                    <div className="ecussons" aria-label="Écussons de savoir">
-                      {p.ecussons.map(e => (
-                        <Ecusson key={e.categorie} categorie={e.categorie} palier={e.palier} />
-                      ))}
+              {/* Le dos aussi : « et le fond ne peut pas couvrir recto et verso ? » (le propriétaire, le 20 octobre 2026). */}
+              <div className={'carte-dedans' + (fond ? ` carte-fond fond-${fond}` : '')}>
+                <div className="carte-defile">
+                  <header className="carte-dos-tete">
+                    <h3>{carte.nom}</h3>
+                    <span className="carte-dos-titre">Ses chiffres</span>
+                  </header>
+                  <Cadrans cases={cadransDuDos(p)} />
+                  {/* Ce qu'il sait, catégorie par catégorie : ses trois écussons
+                      les plus hauts. Rien tant qu'il n'en a aucun. */}
+                  {p.ecussons && p.ecussons.length > 0 && (
+                    <div className="carte-rangee">
+                      <span className="label">Ses écussons</span>
+                      <div className="ecussons" aria-label="Écussons de savoir">
+                        {p.ecussons.map(e => (
+                          <Ecusson key={e.categorie} categorie={e.categorie} palier={e.palier} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {/* Sa collection tout au bout (le propriétaire, le 20 octobre 2026 :
-                    « comme ça la collection de légendaires est à la toute fin »). */}
-                {((avecDessins.divins && (p.divins ?? []).length > 0) || (avecDessins.legendaires && p.legendaires.length > 0)) && (
-                  <div className="carte-rangee">
-                    <span className="label">Sa collection</span>
-                    {avecDessins.divins && (p.divins ?? []).length > 0 && (
-                      <div className="carte-legendaires carte-divins" aria-label="Divins">
-                        {p.divins.map(cle => (
-                          <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
-                            <Dessin cle={cle} />
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {avecDessins.legendaires && p.legendaires.length > 0 && (
-                      <div className="carte-legendaires" aria-label="Avatars légendaires">
-                        {p.legendaires.map(cle => (
-                          <span key={cle} className="carte-legendaire" title={legendaire(cle)?.nom}>
-                            <Dessin cle={cle} />
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {/* Ses mots, dépliés au toucher : la carte, l'écran qu'on touche le
-                    plus en salle d'attente, n'en expliquait aucun. Seulement ceux
-                    qu'elle montre. */}
-                {mots.length > 0 && <Glossaire mots={mots} />}
+                  )}
+                  {/* Sa collection tout au bout (le propriétaire, le 20 octobre 2026 :
+                      « comme ça la collection de légendaires est à la toute fin »). */}
+                  {((avecDessins.divins && (p.divins ?? []).length > 0) || (avecDessins.legendaires && p.legendaires.length > 0)) && (
+                    <div className="carte-rangee">
+                      <span className="label">Sa collection</span>
+                      {avecDessins.divins && (p.divins ?? []).length > 0 && (
+                        <div className="carte-legendaires carte-divins" aria-label="Divins">
+                          {p.divins.map(cle => (
+                            <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
+                              <Dessin cle={cle} />
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {avecDessins.legendaires && p.legendaires.length > 0 && (
+                        <div className="carte-legendaires" aria-label="Avatars légendaires">
+                          {p.legendaires.map(cle => (
+                            <span key={cle} className="carte-legendaire" title={legendaire(cle)?.nom}>
+                              <Dessin cle={cle} />
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Ses mots, dépliés au toucher : la carte, l'écran qu'on touche le
+                      plus en salle d'attente, n'en expliquait aucun. Seulement ceux
+                      qu'elle montre. */}
+                  {mots.length > 0 && <Glossaire mots={mots} />}
+                </div>
               </div>
             </section>
           )}
