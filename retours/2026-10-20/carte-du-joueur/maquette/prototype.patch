@@ -1,0 +1,1044 @@
+diff --git a/client/src/components/CarteJoueur.tsx b/client/src/components/CarteJoueur.tsx
+index bcf2128..aeea08e 100644
+--- a/client/src/components/CarteJoueur.tsx
++++ b/client/src/components/CarteJoueur.tsx
+@@ -28,6 +28,7 @@ import { ligueParCle } from '../../../shared/duels'
+ import { BlasonDeLigue } from './Blason'
+ import { aLaDemande, useALaDemande } from '../aLaDemande'
+ import type { GestesDeLaCarte } from './GestesDuJoueur'
++import { CarteACollectionner, CompagnonEnFace, CompagnonEnGrand, CompagnonPerche, PlaqueDuCompagnon, VitrineEnMedailles, maquetteDeLaCarte } from './CarteMaquette'
+ 
+ /**
+  * Les gestes d'une carte de profil — le défier, l'ajouter à ses amis
+@@ -89,12 +90,14 @@ export function CarteJoueur({
+   // L'avatar en grand, et la hauteur du contenu qu'il remplace : il la
+   // garde, et la carte ne rapetisse pas sous le doigt — centrée dans
+   // l'écran, sa croix aurait sauté.
+-  const [loupe, setLoupe] = useState<{ hauteur: number } | null>(null)
++  // La maquette du 20 octobre 2026 : la proposition essayée sur ce téléphone, sinon la carte d'aujourd'hui.
++  const [maquette] = useState(maquetteDeLaCarte)
++  const [loupe, setLoupe] = useState<{ hauteur: number; sujet: 'avatar' | 'compagnon' } | null>(null)
+   const petitAvatar = useRef<HTMLButtonElement>(null)
+-  const ouvrirLaLoupe = () => {
++  const ouvrirLaLoupe = (sujet: 'avatar' | 'compagnon' = 'avatar') => {
+     const defile = boite.current?.querySelector<HTMLElement>('.carte-defile')
+     const s = defile && getComputedStyle(defile)
+-    setLoupe({ hauteur: defile && s ? defile.clientHeight - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom) : 0 })
++    setLoupe({ sujet, hauteur: defile && s ? defile.clientHeight - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom) : 0 })
+   }
+   // Refermée, le focus revient à l'avatar qui l'avait ouverte : le clavier
+   // et le lecteur d'écran reprennent la carte où l'œil l'avait laissée.
+@@ -145,34 +148,85 @@ export function CarteJoueur({
+   const avecDessins = { legendaires: complets(dessins, ['legendaire']), divins: complets(dessins, ['divin']) }
+   // Son fond de carte, s'il en porte un : seulement l'un du catalogue.
+   const fond = fondDeCarte(p?.fond)?.key
+-  return (
+-    <div className="dialog-backdrop" onClick={onFermer}>
+-      <div
+-        ref={boite}
+-        className={'card dialog carte-joueur' + (fond ? ` carte-fond fond-${fond}` : '')}
+-        role="dialog"
+-        aria-modal="true"
+-        aria-label={carte ? `Carte ${deNom(carte.nom)}` : 'Carte du joueur'}
+-        tabIndex={-1}
+-        onClick={e => e.stopPropagation()}
+-        onKeyDown={e => {
+-          // Échap rend la carte à l'avatar en grand, sans la fermer : arrêté
+-          // ici, il ne parvient pas jusqu'à la fenêtre modale, qui l'écoute
+-          // sur le document.
+-          if (loupe && e.key === 'Escape') {
+-            e.stopPropagation()
+-            setLoupe(null)
+-          }
+-        }}
+-      >
++  // La maquette : le compagnon en face de l'avatar, perché sur la carte, ou la carte à collectionner.
++  const compagnon = p?.compagnon
++  const enFace = maquette === 'vis-a-vis' && !!compagnon
++  const perche = maquette === 'perche'
++  const aCollectionner = maquette === 'a-collectionner'
++  const revenir = () => setLoupe(null)
++  const laLoupe =
++    carte && loupe ? (
++      loupe.sujet === 'compagnon' && compagnon ? (
++        <CompagnonEnGrand compagnon={compagnon} hauteur={loupe.hauteur} onRevenir={revenir} />
++      ) : (
++        <AvatarEnGrand carte={carte} hauteur={loupe.hauteur} onRevenir={revenir} />
++      )
++    ) : null
++  // Sa soirée — absente de sa propre carte, lue depuis sa page.
++  const soir = carte?.ceSoir && (
++    <>
++      <p className="carte-soir">
++        {carte.ceSoir.rang > 0 ? (
++          <>
++            <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
++          </>
++        ) : (
++          'Pas encore de points ce soir'
++        )}
++      </p>
++      {/* Les QCM et les estimations, chacun à sa façon : « 1/64
++          justes » comptait des estimations qui ne sont jamais justes. */}
++      {carte.ceSoir.reponses > 0 && <p className="muted small">{reponsesParType(carte.ceSoir)}</p>}
++    </>
++  )
++  const modale = {
++    ref: boite,
++    role: 'dialog',
++    'aria-modal': true,
++    'aria-label': carte ? `Carte ${deNom(carte.nom)}` : 'Carte du joueur',
++    tabIndex: -1,
++    onClick: (e: { stopPropagation: () => void }) => e.stopPropagation(),
++    onKeyDown: (e: { key: string; stopPropagation: () => void }) => {
++      // Échap rend la carte à l'avatar en grand, sans la fermer : arrêté
++      // ici, il ne parvient pas jusqu'à la fenêtre modale, qui l'écoute
++      // sur le document.
++      if (loupe && e.key === 'Escape') {
++        e.stopPropagation()
++        setLoupe(null)
++      }
++    },
++  }
++  const cadre = (
++    <div
++      {...(perche ? {} : modale)}
++      className={'card dialog carte-joueur' + (aCollectionner && carte ? ' c3-dialogue' : fond ? ` carte-fond fond-${fond}` : '') + (maquette ? ` carte-maquette-${maquette}` : '')}
++    >
++      {aCollectionner && carte ? (
++        <CarteACollectionner
++          carte={carte}
++          fond={fond}
++          loupe={laLoupe}
++          ouvrirAvatar={() => ouvrirLaLoupe('avatar')}
++          ouvrirCompagnon={() => ouvrirLaLoupe('compagnon')}
++          petitAvatar={petitAvatar}
++          dos={p && <DosDeLaCarte p={p} avecDessins={avecDessins} glossaire={<Glossaire mots={motsDeLaCarte(carte, avecDessins, !!fond)} />} />}
++          onFermer={onFermer}
++        />
++      ) : (
++        <>
+         {/* Le balayage du tableau de bord, sous un fond de carte jamais : le
+             fond porte déjà son décor dans les mêmes couches. */}
+         {!fond && <span className="carte-balayage" aria-hidden="true" />}
+-        <header className="carte-joueur-barre">
+-          <span className="salon-hud-label">
+-            <span className="admin-pouls" aria-hidden="true" />
+-            {retouche ? 'Aperçu de ta carte' : 'Carte de joueur'}
+-          </span>
++        <header className={'carte-joueur-barre' + (perche && compagnon ? ' carte-barre-plaque' : '')}>
++          {/* Perché, la barre devient sa plaque : « Carte de joueur » n'apprenait rien. */}
++          {perche && compagnon ? (
++            <PlaqueDuCompagnon compagnon={compagnon} />
++          ) : (
++            <span className="salon-hud-label">
++              <span className="admin-pouls" aria-hidden="true" />
++              {retouche ? 'Aperçu de ta carte' : 'Carte de joueur'}
++            </span>
++          )}
+           <button type="button" className="carte-croix" aria-label="Fermer" title="Fermer" onClick={onFermer}>
+             <Icon name="x" />
+           </button>
+@@ -183,10 +237,10 @@ export function CarteJoueur({
+         <div className="carte-defile">
+           {erreur && <p className="muted">{erreur}</p>}
+           {!carte && !erreur && <p className="muted">Chargement…</p>}
+-          {carte && loupe && <AvatarEnGrand carte={carte} hauteur={loupe.hauteur} onRevenir={() => setLoupe(null)} />}
++          {laLoupe}
+           {carte && !loupe && (
+             <>
+-              <header className="carte-tete">
++              <header className={'carte-tete' + (enFace ? ' carte-tete-en-face' : '')}>
+                 {/* En tête de la carte, on ne voyait ni la peinture d'un
+                     légendaire ni la lumière d'une finition : touché, il
+                     s'ouvre en grand (la demande du 6 octobre 2026). */}
+@@ -196,7 +250,7 @@ export function CarteJoueur({
+                   className="carte-avatar-bouton"
+                   aria-label={`Voir l’avatar ${deNom(carte.nom)} en grand`}
+                   title="Voir en grand"
+-                  onClick={ouvrirLaLoupe}
++                  onClick={() => ouvrirLaLoupe('avatar')}
+                 >
+                   <Avatar
+                     className="carte-avatar"
+@@ -207,7 +261,7 @@ export function CarteJoueur({
+                     bordure={carte.bordure}
+                   />
+                 </button>
+-                <div>
++                <div className="carte-tete-texte">
+                   <h3>
+                     {carte.nom}
+                     <Niveau niveau={p?.niveau} big />
+@@ -233,27 +287,16 @@ export function CarteJoueur({
+                       {espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil
+                     </p>
+                   )}
+-                  {/* Sa soirée — absente de sa propre carte, lue depuis sa page. */}
+-                  {carte.ceSoir && (
+-                    <p className="carte-soir">
+-                      {carte.ceSoir.rang > 0 ? (
+-                        <>
+-                          <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
+-                        </>
+-                      ) : (
+-                        'Pas encore de points ce soir'
+-                      )}
+-                    </p>
+-                  )}
+-                  {/* Les QCM et les estimations, chacun à sa façon : « 1/64
+-                      justes » comptait des estimations qui ne sont jamais justes. */}
+-                  {carte.ceSoir && carte.ceSoir.reponses > 0 && <p className="muted small">{reponsesParType(carte.ceSoir)}</p>}
++                  {!enFace && soir}
+                 </div>
++                {/* En vis-à-vis : son compagnon en face de lui, et sa soirée sur toute la largeur, dessous. */}
++                {enFace && compagnon && <CompagnonEnFace compagnon={compagnon} onOuvrir={() => ouvrirLaLoupe('compagnon')} />}
++                {enFace && soir && <div className="carte-tete-soir">{soir}</div>}
+               </header>
+ 
+               {p && (
+                 <>
+-                  {p.compagnon && <SonCompagnon compagnon={p.compagnon} />}
++                  {!maquette && p.compagnon && <SonCompagnon compagnon={p.compagnon} />}
+                   {avecDessins.divins && (p.divins ?? []).length > 0 && (
+                     <div className="carte-legendaires carte-divins" aria-label="Divins">
+                       {p.divins.map(cle => (
+@@ -274,8 +317,10 @@ export function CarteJoueur({
+                   )}
+                   {/* Ce qui le distingue, avec ce qu'il a fallu faire : un titre
+                       seul (« Le Buzzer d'Or ») ne dit rien à qui ne l'a jamais
+-                      chassé. */}
+-                  {p.vitrine.length > 0 && (
++                      chassé. Perchée, la maquette les range en médailles, ce
++                      qu'il a fallu au toucher. */}
++                  {p.vitrine.length > 0 && perche && <VitrineEnMedailles vitrine={p.vitrine} />}
++                  {p.vitrine.length > 0 && !perche && (
+                     <div>
+                       <span className="label">Ses plus beaux hauts faits</span>
+                       <ul className="carte-beaux">
+@@ -358,11 +403,95 @@ export function CarteJoueur({
+         {gestes && desGestes && desGestes !== 'perdu' && <desGestes.GestesDuJoueur gestes={gestes} visibles={!loupe} onFermer={onFermer} />}
+         {/* Le pied de l'aperçu, comme celui des gestes : « Porter » reste en vue sous une carte bien remplie. */}
+         {pied && !loupe && <footer className="carte-gestes">{pied}</footer>}
+-      </div>
++        </>
++      )}
++    </div>
++  )
++  return (
++    <div className="dialog-backdrop" onClick={onFermer}>
++      {/* Perché, sa niche déborde au-dessus de la carte, qui coupe ce qui la
++          dépasse : elle se pose à côté d'elle, dans la fenêtre modale. */}
++      {perche ? (
++        <div className="carte-perchoir" {...modale}>
++          {cadre}
++          {carte && !loupe && compagnon && <CompagnonPerche compagnon={compagnon} onOuvrir={() => ouvrirLaLoupe('compagnon')} />}
++        </div>
++      ) : (
++        cadre
++      )}
+     </div>
+   )
+ }
+ 
++/** Un cadran du dos : son nom, son icône s'il vient d'ailleurs que des soirées, son chiffre et sur combien il porte. */
++interface CadranDuDos {
++  nom: string
++  icone?: ReactNode
++  valeur: string
++  base?: string
++}
++
++/**
++ * Le dos de la carte à collectionner (la proposition 3 de la maquette) : un
++ * seul tableau de ses chiffres — ceux des soirées, puis ses prix, son quiz du
++ * jour, ses duels et sa campagne, qui étaient des pastilles (le propriétaire,
++ * le 20 octobre 2026 : « pas très jolies, limite plus dans le tableau avec les
++ * précisions ») —, ses écussons, et sa collection de légendaires tout au bout.
++ */
++function DosDeLaCarte({ p, avecDessins, glossaire }: { p: NonNullable<CarteDeJoueur['profil']>; avecDessins: { legendaires: boolean; divins: boolean }; glossaire: ReactNode }) {
++  const medaillons = [...(avecDessins.divins ? (p.divins ?? []) : []), ...(avecDessins.legendaires ? p.legendaires : [])]
++  // Les pastilles d'aujourd'hui, en cadrans : chacun garde l'icône de sa pastille. Rien pour ce qu'il n'a jamais fait.
++  const ailleurs: CadranDuDos[] = [
++    ...(p.prix && p.prix.eus > 0 ? [{ nom: 'Prix', icone: <Icon name="award" />, valeur: formatNumber(p.prix.eus), base: `sur ${formatNumber(p.prix.total)}` }] : []),
++    ...(p.jour
++      ? [{ nom: 'Quiz du jour', icone: <Flamme />, valeur: `${formatNumber(p.jour.joues)} j`, base: p.jour.victoires > 0 ? `${p.jour.victoires} victoire${p.jour.victoires > 1 ? 's' : ''}` : undefined }]
++      : []),
++    ...(p.duels ? [{ nom: 'Duels', icone: <BlasonDeLigue ligue={p.duels.ligue} taille={14} decoratif />, valeur: formatNumber(p.duels.cote), base: ligueParCle(p.duels.ligue).nom }] : []),
++    // Sa campagne, quand ses cadrans sont ceux des soirées : sinon, ils la tiennent déjà.
++    ...(p.campagne && p.fiche.soirees > 0 ? [{ nom: 'Campagne', icone: <Icon name="target" />, valeur: formatNumber(p.campagne.record), base: 'record en série' }] : []),
++  ]
++  const cases: CadranDuDos[] = [...cadransDeLaCarte(p).map(([nom, valeur, base]) => ({ nom, valeur, base })), ...ailleurs]
++  return (
++    <>
++      <dl className="admin-cadrans carte-cadrans c3-cadrans">
++        {cases.map(c => (
++          <div key={c.nom} className="admin-cadran carte-cadran">
++            <dt className="admin-cadran-nom">{c.nom}</dt>
++            <dd className="admin-cadran-chiffre num">
++              {c.icone}
++              {c.valeur}
++            </dd>
++            {c.base && <dd className="carte-cadran-base">{c.base}</dd>}
++          </div>
++        ))}
++      </dl>
++      {p.ecussons && p.ecussons.length > 0 && (
++        <div className="c3-rangee">
++          <span className="label">Ses écussons</span>
++          <div className="ecussons" aria-label="Écussons de savoir">
++            {p.ecussons.map(e => (
++              <Ecusson key={e.categorie} categorie={e.categorie} palier={e.palier} />
++            ))}
++          </div>
++        </div>
++      )}
++      {medaillons.length > 0 && (
++        <div className="c3-rangee">
++          <span className="label">Sa collection</span>
++          <div className="carte-legendaires" aria-label="Avatars légendaires">
++            {medaillons.map(cle => (
++              <span key={cle} className="carte-legendaire" title={divin(cle)?.nom ?? legendaire(cle)?.nom}>
++                <Dessin cle={cle} />
++              </span>
++            ))}
++          </div>
++        </div>
++      )}
++      {glossaire}
++    </>
++  )
++}
++
+ /** Le temps qu'une carte attend ce qu'elle montre, comme ses dessins : une requête muette ne la garde pas fermée. */
+ const ATTENTE_MAX_MS = 2500
+ 
+diff --git a/client/src/components/CarteMaquette.tsx b/client/src/components/CarteMaquette.tsx
+new file mode 100644
+index 0000000..b9a647c
+--- /dev/null
++++ b/client/src/components/CarteMaquette.tsx
+@@ -0,0 +1,327 @@
++import { useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
++import type { CarteDeJoueur } from '../../../shared/carte'
++import { compagnonDe, formeDansLaNiche, nomDeLaForme, type CompagnonPossede } from '../../../shared/compagnons'
++import { titreDeLAmitie } from '../../../shared/ornements'
++import { ceQuIlAFallu } from '../../../shared/hautsfaits'
++import { nomDuTitre } from '../../../shared/sentiers'
++import { espacesFines, place, pts, reponsesParType } from '../format'
++import { useALaDemande } from '../aLaDemande'
++import { laNiche } from './NicheHost'
++import { Avatar } from './Avatar'
++import { Icon } from './Icon'
++
++// La maquette de la carte du joueur (le 20 octobre 2026) : « le compagnon
++// apparaît en dessous de l'avatar et ça fait tout descendre » (le
++// propriétaire). Trois propositions, de la plus sobre à la plus créative,
++// derrière un drapeau du téléphone (`quizz.maquette`) ; sans lui, la carte
++// d'aujourd'hui. `retours/2026-10-20/carte-du-joueur/`.
++
++export type MaquetteDeLaCarte = 'vis-a-vis' | 'perche' | 'a-collectionner'
++
++export function maquetteDeLaCarte(): MaquetteDeLaCarte | null {
++  try {
++    const m = localStorage.getItem('quizz.maquette')
++    return m === 'vis-a-vis' || m === 'perche' || m === 'a-collectionner' ? m : null
++  } catch {
++    return null
++  }
++}
++
++/** Ce que la carte dit de lui : son nom, ou celui de sa forme ; ce qu'il est ; sa forme ; le titre de leur amitié. */
++function leCompagnon(compagnon: CompagnonPossede) {
++  const forme = formeDansLaNiche(compagnon)
++  if (!forme) return null
++  return {
++    nom: compagnon.nom ?? forme.nom,
++    sorte: compagnon.nom ? forme.nom : compagnonDe(forme).nom,
++    etape: nomDeLaForme(forme),
++    amitie: titreDeLAmitie(compagnon.paliers),
++  }
++}
++
++/** Le code de la niche, que la carte attend déjà avant de s'ouvrir (`laNiche`). */
++function useNiche() {
++  const code = useALaDemande(laNiche)
++  return code && code !== 'perdu' ? code : null
++}
++
++/**
++ * Proposition 1, « En vis-à-vis » : le compagnon monte dans la tête de la
++ * carte, en face de l'avatar — le joueur à gauche, lui à droite, qui le
++ * regarde (sa niche le retourne vers la page). Son nom dessous, le titre de
++ * leur amitié en or ; sa forme au toucher, en grand.
++ */
++export function CompagnonEnFace({ compagnon, onOuvrir }: { compagnon: CompagnonPossede; onOuvrir: () => void }) {
++  const code = useNiche()
++  const c = leCompagnon(compagnon)
++  if (!c || !code) return null
++  return (
++    <button type="button" className="carte-compagnon carte-compagnon-en-face" onClick={onOuvrir} aria-label={`Voir ${c.nom} en grand`} title={`${c.nom} · ${c.sorte}`}>
++      <code.NicheEnMiniature niche={compagnon} taille={50} />
++      <b className="carte-compagnon-nom">{c.nom}</b>
++      {c.amitie && <span className="carte-compagnon-amitie">{c.amitie}</span>}
++    </button>
++  )
++}
++
++/**
++ * Proposition 2, « Perché sur la carte » : sa niche se pose sur le bord haut
++ * de la carte, à moitié dehors — comme au coin de chaque page —, et la barre,
++ * qui disait « Carte de joueur », devient sa plaque. Il ne prend plus une
++ * ligne de la carte.
++ */
++export function CompagnonPerche({ compagnon, onOuvrir }: { compagnon: CompagnonPossede; onOuvrir: () => void }) {
++  const code = useNiche()
++  const c = leCompagnon(compagnon)
++  if (!c || !code) return null
++  return (
++    <button type="button" className="carte-compagnon carte-perche" onClick={onOuvrir} aria-label={`Voir ${c.nom} en grand`}>
++      <code.NicheEnMiniature niche={compagnon} taille={56} />
++    </button>
++  )
++}
++
++/** Sa plaque, dans la barre de la carte : son nom, ce qu'il est, le titre de leur amitié. */
++export function PlaqueDuCompagnon({ compagnon }: { compagnon: CompagnonPossede }) {
++  const c = leCompagnon(compagnon)
++  if (!c) return null
++  return (
++    <span className="carte-plaque">
++      <b className="carte-plaque-nom">{c.nom}</b>
++      <span className="carte-plaque-detail">
++        {c.sorte}
++        {c.amitie && (
++          <>
++            {' · '}
++            <span className="carte-compagnon-amitie">{c.amitie}</span>
++          </>
++        )}
++      </span>
++    </span>
++  )
++}
++
++/**
++ * Le compagnon touché, en grand, à la place de ce que la carte raconte —
++ * comme l'avatar (`AvatarEnGrand`) : sa niche, ses ornements, son nom, sa
++ * forme et le titre de leur amitié, que les cartes plus serrées ne disent
++ * plus en entier.
++ */
++export function CompagnonEnGrand({ compagnon, hauteur, onRevenir }: { compagnon: CompagnonPossede; hauteur?: number; onRevenir: () => void }) {
++  const code = useNiche()
++  const c = leCompagnon(compagnon)
++  const bouton = useRef<HTMLButtonElement>(null)
++  useEffect(() => {
++    bouton.current?.focus({ preventScroll: true })
++  }, [code])
++  if (!c || !code) return null
++  return (
++    <div className="carte-loupe" style={hauteur ? { minHeight: hauteur } : undefined}>
++      <button ref={bouton} type="button" className="carte-loupe-bouton carte-loupe-compagnon" aria-label="Revenir à la carte" title="Revenir à la carte" onClick={onRevenir}>
++        <code.NicheEnMiniature niche={compagnon} taille={124} grand />
++      </button>
++      <p className="carte-loupe-legende">
++        <span className="detail-famille muted">{`${c.sorte} · ${c.etape}`}</span>
++        <b className="carte-loupe-nom">{c.nom}</b>
++        {c.amitie && <span className="carte-compagnon-amitie">{c.amitie}</span>}
++      </p>
++      <p className="muted small">Touche-le pour revenir à la carte.</p>
++    </div>
++  )
++}
++
++/**
++ * Proposition 2 : ses plus beaux hauts faits en médailles, côte à côte — ce
++ * qu'il a fallu faire sous la rangée, au toucher. Trois lignes de texte
++ * prenaient la moitié de la carte.
++ */
++export function VitrineEnMedailles({ vitrine }: { vitrine: NonNullable<CarteDeJoueur['profil']>['vitrine'] }) {
++  const [ouverte, setOuverte] = useState<string | null>(null)
++  const fiche = vitrine.find(b => b.key === ouverte)
++  return (
++    <div className="carte-vitrine-medailles">
++      <span className="label">Ses plus beaux hauts faits</span>
++      <ul className="carte-beaux carte-medailles">
++        {vitrine.map(b => (
++          <li key={b.key}>
++            <button type="button" className="carte-medaille" aria-expanded={ouverte === b.key} onClick={() => setOuverte(o => (o === b.key ? null : b.key))}>
++              <span className="carte-medaille-disque" aria-hidden="true">
++                {b.emoji}
++                {b.fois > 1 && <span className="carte-medaille-fois">×{b.fois}</span>}
++              </span>
++              <span className="carte-medaille-titre">{b.title}</span>
++            </button>
++          </li>
++        ))}
++      </ul>
++      {fiche && (
++        <p className="carte-medaille-fiche">
++          <b>{fiche.title}</b> — {ceQuIlAFallu(fiche.key)}
++        </p>
++      )}
++    </div>
++  )
++}
++
++/** Le mouvement réduit fige la carte : ni inclinaison, ni retournement animé. */
++const sansMouvement = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
++
++/**
++ * Proposition 3, « La carte à collectionner » : la carte devient un objet —
++ * le cadre de la finition qu'il porte (Or, Prisme…), qui suit le doigt et
++ * accroche la lumière ; son avatar en grand dans l'illustration, posée sur
++ * son fond de carte ; son compagnon perché au coin de l'illustration, en haut
++ * à droite comme sur chaque page, sa plaque dessous ; ses plus beaux hauts
++ * faits comme les pouvoirs d'une carte, ce qu'il a fallu faire écrit dessous.
++ * Elle se retourne : au dos, ses chiffres, ses écussons, sa collection.
++ * Rien ne défile.
++ */
++export function CarteACollectionner({
++  carte,
++  fond,
++  loupe,
++  ouvrirAvatar,
++  ouvrirCompagnon,
++  petitAvatar,
++  dos,
++  onFermer,
++}: {
++  carte: CarteDeJoueur
++  fond?: string
++  /** L'avatar ou le compagnon en grand, à la place des deux faces. */
++  loupe: ReactNode
++  ouvrirAvatar: () => void
++  ouvrirCompagnon: () => void
++  petitAvatar: RefObject<HTMLButtonElement | null>
++  /** Ce que porte le dos : ses chiffres, ses écussons, ses médaillons, ses pastilles, ses mots. */
++  dos: ReactNode
++  onFermer: () => void
++}) {
++  const [verso, setVerso] = useState(false)
++  const pivot = useRef<HTMLDivElement>(null)
++  const p = carte.profil
++  const titre = nomDuTitre(p?.titre)
++  const c = p?.compagnon ? leCompagnon(p.compagnon) : null
++  const code = useNiche()
++  // Le doigt incline la carte et déplace son reflet : posé sur le style, sans rendre la carte à chaque mouvement.
++  const incliner = (e: PointerEvent<HTMLDivElement>) => {
++    const el = pivot.current
++    if (!el || sansMouvement()) return
++    const r = el.getBoundingClientRect()
++    const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))
++    const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))
++    el.style.setProperty('--rx', `${((0.5 - y) * 9).toFixed(2)}deg`)
++    el.style.setProperty('--ry', `${((x - 0.5) * 11).toFixed(2)}deg`)
++    el.style.setProperty('--gx', `${(x * 100).toFixed(1)}%`)
++    el.style.setProperty('--gy', `${(y * 100).toFixed(1)}%`)
++  }
++  const redresser = () => {
++    const el = pivot.current
++    if (!el) return
++    for (const v of ['--rx', '--ry', '--gx', '--gy']) el.style.removeProperty(v)
++  }
++  // Le cadre de la finition qu'il porte ; un invité sans profil, celui de la carte d'aujourd'hui — l'absence, pas l'infériorité.
++  const cadre = `c3-${carte.finition ?? 'mat'}`
++  return (
++    <>
++      <div ref={pivot} className={`c3-pivot ${cadre}` + (verso ? ' c3-retournee' : '')} onPointerMove={incliner} onPointerLeave={redresser}>
++        {loupe ? (
++          <section className="c3-face c3-recto c3-face-loupe">
++            <div className="carte-defile">{loupe}</div>
++          </section>
++        ) : (
++          <>
++            <section className="c3-face c3-recto" aria-hidden={verso || undefined} inert={verso}>
++              <div className="carte-defile c3-contenu">
++                {/* Son niveau en gemme, devant son nom, comme le coût d'une carte : le coin haut droit est à son compagnon. */}
++                <header className="carte-tete c3-entete">
++                  {p && (
++                    <span className="c3-niveau" title={`Niveau ${p.niveau}`}>
++                      <span className="c3-niveau-mot">niv.</span>
++                      {p.niveau}
++                    </span>
++                  )}
++                  <span className="c3-identite">
++                    <h3 className="c3-nom">{carte.nom}</h3>
++                    {titre && <span className="c3-titre">{espacesFines(`« ${titre} »`)}</span>}
++                  </span>
++                </header>
++                <div className="c3-art-cadre">
++                  <div className={'c3-art' + (fond ? ` carte-fond fond-${fond}` : '')}>
++                    <button ref={petitAvatar} type="button" className="carte-avatar-bouton c3-avatar" aria-label={`Voir l’avatar ${carte.nom} en grand`} title="Voir en grand" onClick={ouvrirAvatar}>
++                      <Avatar className="c3-avatar-av" avatar={carte.avatar} finition={carte.finition} eclat={carte.eclat} legendaire={carte.legendaire} bordure={carte.bordure} grand />
++                    </button>
++                    {c && <span className="c3-plaque">{c.nom}{c.amitie && <span className="c3-plaque-amitie">{c.amitie}</span>}</span>}
++                  </div>
++                  {p?.compagnon && c && code && (
++                    <button type="button" className="carte-compagnon c3-perche" onClick={ouvrirCompagnon} aria-label={`Voir ${c.nom} en grand`} title={`${c.nom} · ${c.sorte}`}>
++                      <code.NicheEnMiniature niche={p.compagnon} taille={54} />
++                    </button>
++                  )}
++                </div>
++                {carte.ceSoir && (
++                  <p className="c3-soir">
++                    <Icon name="star" />
++                    <span>
++                      {carte.ceSoir.rang > 0 ? (
++                        <>
++                          <b>{place(carte.ceSoir.rang)}</b> ce soir, sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
++                        </>
++                      ) : (
++                        'Pas encore de points ce soir'
++                      )}
++                      {carte.ceSoir.reponses > 0 && <span className="c3-soir-detail">{reponsesParType(carte.ceSoir)}</span>}
++                    </span>
++                  </p>
++                )}
++                {p && p.vitrine.length > 0 && (
++                  <ul className="carte-beaux c3-pouvoirs" aria-label="Ses plus beaux hauts faits">
++                    {p.vitrine.map(b => (
++                      <li key={b.key}>
++                        <span className="c3-pouvoir-emoji" aria-hidden="true">
++                          {b.emoji}
++                        </span>
++                        <span className="c3-pouvoir-corps">
++                          <span className="c3-pouvoir-titre">
++                            {b.title}
++                            {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
++                          </span>
++                          <span className="c3-pouvoir-texte">{ceQuIlAFallu(b.key)}</span>
++                        </span>
++                      </li>
++                    ))}
++                  </ul>
++                )}
++              </div>
++            </section>
++            {p && (
++              <section className="c3-face c3-dos" aria-hidden={!verso || undefined} inert={!verso}>
++                <div className="carte-defile c3-contenu">
++                  <header className="c3-entete">
++                    <h3 className="c3-nom">{carte.nom}</h3>
++                    <span className="c3-dos-titre">Ses chiffres</span>
++                  </header>
++                  {dos}
++                </div>
++              </section>
++            )}
++          </>
++        )}
++      </div>
++      {/* Ses gestes sous elle, sous le pouce : la croix au coin haut tombait
++          sur la niche de la page — collée à elle, on la prenait pour la
++          sienne (le piège de `.duels-fermer`). */}
++      <div className="c3-gestes">
++        {p && !loupe && (
++          <button type="button" className="c3-retourner" onClick={() => setVerso(v => !v)} aria-pressed={verso}>
++            <Icon name="rotate" />
++            {verso ? 'Revoir sa carte' : 'Retourner la carte'}
++          </button>
++        )}
++        <button type="button" className="carte-croix c3-croix" aria-label="Fermer" title="Fermer" onClick={onFermer}>
++          <Icon name="x" />
++        </button>
++      </div>
++    </>
++  )
++}
+diff --git a/client/src/components/Niche.tsx b/client/src/components/Niche.tsx
+index 0d342cf..401c9e0 100644
+--- a/client/src/components/Niche.tsx
++++ b/client/src/components/Niche.tsx
+@@ -1259,13 +1259,13 @@ export function ceQueDitSonBouton(niche: NicheVue, justes: number | undefined):
+  * compagnon » du profil : la forme qu'elle montre et ses ornements. `taille` :
+  * sa largeur, en pixels.
+  */
+-export function NicheEnMiniature({ niche, taille }: { niche: NicheVue; taille: number }) {
++export function NicheEnMiniature({ niche, taille, grand = false }: { niche: NicheVue; taille: number; grand?: boolean }) {
+   const forme = formeDe(niche)
+   const dessin = forme && DESSINS[forme.key]
+   if (!forme || !dessin) return null
+   return (
+     <span className={`niche-mini niche-${forme.compagnon}`} style={{ '--l': `${taille}px` } as CSSProperties}>
+-      <Arche forme={forme} dessin={dessin} ornements={ornementsMontres(niche)} />
++      <Arche forme={forme} dessin={dessin} ornements={ornementsMontres(niche)} grand={grand} />
+     </span>
+   )
+ }
+diff --git a/client/src/styles.css b/client/src/styles.css
+index c79a0b2..c695339 100644
+--- a/client/src/styles.css
++++ b/client/src/styles.css
+@@ -12799,3 +12799,371 @@ span.annonce-admin-merci { cursor: default; }
+   .coffre-pluie { display: none; }
+ }
+ @keyframes coffre-parait { from { opacity: 0; } }
++
++/* ═══════════════════════════════════════════════════════════════════
++   LA MAQUETTE DE LA CARTE DU JOUEUR (le 20 octobre 2026)
++   Trois propositions derrière `quizz.maquette` (`CarteMaquette.tsx`) :
++   « le compagnon apparaît en dessous de l'avatar et ça fait tout
++   descendre » (le propriétaire).
++   ═══════════════════════════════════════════════════════════════════ */
++
++/* ── Proposition 1, « En vis-à-vis » : le compagnon en face de l'avatar ── */
++.carte-tete-en-face {
++  display: grid;
++  grid-template-columns: auto minmax(0, 1fr) auto;
++  grid-template-areas: 'avatar texte compagnon' 'soir soir soir';
++  column-gap: 12px;
++  row-gap: 8px;
++  align-items: center;
++}
++.carte-tete-en-face > .carte-avatar-bouton { grid-area: avatar; }
++.carte-tete-en-face > .carte-tete-texte { grid-area: texte; min-width: 0; }
++.carte-tete-en-face > .carte-compagnon { grid-area: compagnon; }
++.carte-tete-en-face > .carte-tete-soir { grid-area: soir; }
++.carte-tete-en-face h3 { flex-wrap: wrap; row-gap: 2px; }
++.carte-tete-soir p { margin: 0; }
++.carte-tete-soir .carte-soir + p { margin-top: 2px; }
++/* Sa colonne laisse leur place à la guirlande, à son étoile et au lierre, qui débordent de la niche. */
++.carte-compagnon.carte-compagnon-en-face,
++.carte-compagnon.carte-compagnon-en-face:has(.orne-peint) {
++  flex-direction: column;
++  align-items: center;
++  gap: 4px;
++  max-width: 96px;
++  margin-right: -6px;
++  padding: 6px 4px 0;
++  border: 0;
++  background: none;
++  color: inherit;
++  font: inherit;
++  text-align: center;
++  cursor: zoom-in;
++}
++.carte-compagnon.carte-compagnon-en-face:has(.orne-peint) { padding: 20px 18px 0; margin-right: -16px; }
++.carte-compagnon-en-face:has(.orne-peint) .carte-compagnon-nom { margin-top: 10px; }
++.carte-compagnon-en-face .carte-compagnon-nom { font-size: 1.05rem; line-height: 1.1; }
++.carte-compagnon-en-face .carte-compagnon-amitie { font-size: var(--t-label); line-height: 1.2; letter-spacing: 0.02em; }
++
++/* ── Proposition 2, « Perché sur la carte » ──────────────────────────── */
++/* La fenêtre modale tient la carte et la niche posée sur son bord : la
++   carte coupe ce qui la dépasse (son fond, son balayage). */
++.carte-perchoir { position: relative; display: flex; flex-direction: column; width: min(360px, 100%); }
++.carte-perchoir:focus { outline: none; }
++.carte-perchoir > .carte-joueur { width: 100%; }
++.carte-compagnon.carte-perche,
++.carte-compagnon.carte-perche:has(.orne-peint) {
++  position: absolute;
++  z-index: 2;
++  top: -30px;
++  left: 20px;
++  display: flex;
++  padding: 0;
++  border: 0;
++  background: none;
++  line-height: 0;
++  cursor: zoom-in;
++}
++/* La barre devient sa plaque, à côté de sa niche : « Carte de joueur » n'apprenait rien. */
++.carte-joueur-barre.carte-barre-plaque { min-height: 60px; padding-left: 102px; }
++.carte-plaque { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
++.carte-plaque-nom { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; line-height: 1.1; }
++.carte-plaque-detail { font-size: var(--t-label); line-height: 1.3; color: var(--muted); }
++.carte-plaque .carte-compagnon-amitie { font-size: var(--t-label); }
++/* Ses plus beaux hauts faits en médailles, côte à côte : ce qu'il a fallu se lit au toucher, sous la rangée. */
++.carte-vitrine-medailles { display: flex; flex-direction: column; gap: 6px; }
++.carte-vitrine-medailles .label { margin: 0; }
++.carte-beaux.carte-medailles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; }
++.carte-beaux.carte-medailles li { display: block; padding: 0; border-bottom: 0; }
++.carte-medaille {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: 6px;
++  width: 100%;
++  height: 100%;
++  padding: 10px 4px 8px;
++  border: 1px solid color-mix(in srgb, var(--lueur) 20%, transparent);
++  border-radius: var(--radius-xs);
++  background: color-mix(in srgb, var(--lueur) 5%, transparent);
++  color: inherit;
++  font: inherit;
++  cursor: pointer;
++}
++.carte-medaille[aria-expanded='true'] { border-color: color-mix(in srgb, var(--lueur) 65%, transparent); background: color-mix(in srgb, var(--lueur) 12%, transparent); }
++.carte-medaille-disque {
++  position: relative;
++  display: grid;
++  place-items: center;
++  width: 46px;
++  height: 46px;
++  border-radius: 50%;
++  font-size: 1.45rem;
++  line-height: 1;
++  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--or-text) 30%, transparent), transparent 70%), color-mix(in srgb, var(--bg) 65%, transparent);
++  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--or-text) 60%, transparent), 0 2px 6px rgba(0, 0, 0, 0.3);
++}
++.carte-medaille-fois {
++  position: absolute;
++  right: -8px;
++  bottom: -4px;
++  padding: 1px 5px;
++  border-radius: var(--radius-pill);
++  background: var(--accent);
++  color: var(--bg);
++  font-size: var(--t-label);
++  font-weight: 700;
++  line-height: 1.35;
++  font-variant-numeric: lining-nums tabular-nums;
++}
++.carte-medaille-titre { font-size: 0.78rem; font-weight: 600; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
++.carte-medaille-fiche { margin: 0; padding: 8px 10px; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--lueur) 9%, transparent); color: var(--muted); font-size: 0.8rem; line-height: 1.35; }
++.carte-medaille-fiche b { color: var(--ink); font-weight: 600; }
++
++/* ── Proposition 3, « La carte à collectionner » ─────────────────────── */
++/* La fenêtre modale ne peint rien : c'est la carte, un objet, qui se
++   tient — sa croix au-dessus d'elle, « Retourner » dessous. */
++:root .card.dialog.carte-joueur.c3-dialogue {
++  width: min(320px, 100%);
++  max-height: none;
++  overflow: visible;
++  padding: 0;
++  border: 0;
++  background: none;
++  box-shadow: none;
++}
++.c3-gestes {
++  position: absolute;
++  z-index: 5;
++  left: 0;
++  right: 0;
++  bottom: -56px;
++  display: flex;
++  justify-content: center;
++  align-items: center;
++  gap: 10px;
++}
++.c3-gestes .carte-croix { flex: none; width: 42px; height: 42px; background: color-mix(in srgb, var(--bg) 75%, transparent); }
++.c3-retourner {
++  display: inline-flex;
++  align-items: center;
++  gap: 8px;
++  min-height: 42px;
++  padding: 0 18px;
++  border: 1px solid color-mix(in srgb, var(--accent-text) 45%, transparent);
++  border-radius: var(--radius-pill);
++  background: color-mix(in srgb, var(--bg) 75%, transparent);
++  color: var(--ink);
++  font: inherit;
++  font-size: 0.9rem;
++  font-weight: 600;
++  cursor: pointer;
++}
++.c3-retourner .icon { width: 16px; height: 16px; color: var(--accent-text); }
++/* Le cadre de la finition qu'il porte : celui de la carte d'aujourd'hui pour qui n'en a pas. */
++.c3-mat { --c3-cadre: linear-gradient(150deg, color-mix(in srgb, var(--accent-text) 60%, var(--bg-raised)), color-mix(in srgb, var(--accent-text) 22%, var(--bg-raised)) 48%, color-mix(in srgb, var(--accent-text) 50%, var(--bg-raised))); }
++.c3-argent { --c3-cadre: linear-gradient(135deg, #f7f9fb 0%, #a7b0ba 22%, #eef2f5 42%, #8a939d 62%, #e3e8ec 82%, #a1aab3 100%); }
++.c3-or { --c3-cadre: linear-gradient(135deg, #fff3c9 0%, #d9a640 20%, #fff1c2 40%, #b8862f 60%, #f6dc8c 80%, #a8772a 100%); }
++.c3-holo { --c3-cadre: conic-gradient(from 210deg, #ffd1f1, #c8f0ff, #d7ffd0, #fff1c0, #ffd1f1); }
++.c3-prisme { --c3-cadre: conic-gradient(from 160deg, #ff5f7e, #ffb85c, #fff36b, #5cff9a, #5cd6ff, #a96bff, #ff5f7e); }
++.c3-aurore { --c3-cadre: linear-gradient(135deg, #42f5c2 0%, #2e8bff 35%, #b35cff 65%, #42f5c2 100%); }
++.c3-constellation { --c3-cadre: linear-gradient(135deg, #1b1f4d, #3b2a6b 45%, #d9b56a 70%, #1b1f4d); }
++/* Elle suit le doigt — et se retourne. */
++.c3-pivot {
++  --gx: 26%;
++  --gy: 14%;
++  position: relative;
++  display: grid;
++  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--tourne, 0deg)));
++  transform-style: preserve-3d;
++  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
++}
++.c3-pivot.c3-retournee { --tourne: 180deg; }
++.c3-face {
++  grid-area: 1 / 1;
++  position: relative;
++  display: flex;
++  flex-direction: column;
++  min-height: 0;
++  max-height: min(76vh, 580px);
++  max-height: min(76dvh, 580px);
++  padding: 7px;
++  border-radius: 18px;
++  background: var(--c3-cadre);
++  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.35);
++  backface-visibility: hidden;
++  -webkit-backface-visibility: hidden;
++}
++.c3-dos { transform: rotateY(180deg); }
++/* Le reflet : la lumière accroche la carte là où le doigt la penche. */
++.c3-face::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++  z-index: 3;
++  border-radius: inherit;
++  background: radial-gradient(circle at var(--gx) var(--gy), rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 45%);
++  mix-blend-mode: soft-light;
++  pointer-events: none;
++}
++/* Holo, Prisme, Aurore : un arc-en-ciel glisse sur la carte. */
++.c3-holo .c3-face::before,
++.c3-prisme .c3-face::before,
++.c3-aurore .c3-face::before {
++  content: '';
++  position: absolute;
++  inset: 0;
++  z-index: 3;
++  border-radius: inherit;
++  background: linear-gradient(115deg, transparent 25%, rgba(255, 80, 200, 0.16) 38%, rgba(80, 220, 255, 0.16) 48%, rgba(255, 240, 120, 0.16) 58%, transparent 72%) var(--gx) var(--gy) / 250% 250%;
++  mix-blend-mode: color-dodge;
++  pointer-events: none;
++}
++.carte-defile.c3-contenu {
++  flex: 1;
++  gap: 8px;
++  padding: 10px 12px 11px;
++  border-radius: 12px;
++  background:
++    radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--lueur) 14%, transparent), transparent 60%),
++    repeating-linear-gradient(0deg, color-mix(in srgb, var(--lueur) 5%, transparent) 0 1px, transparent 1px 22px),
++    repeating-linear-gradient(90deg, color-mix(in srgb, var(--lueur) 5%, transparent) 0 1px, transparent 1px 22px),
++    var(--bg-raised);
++}
++.c3-entete { display: flex; align-items: center; gap: 10px; min-height: 44px; }
++/* Sa guirlande et son étoile montent au-dessus de l'illustration, à droite de son nom. */
++.c3-contenu:has(.c3-perche) .c3-entete { padding-right: 76px; }
++.c3-identite { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
++.c3-nom { margin: 0; font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.05; overflow-wrap: anywhere; }
++.c3-niveau {
++  flex: none;
++  display: inline-flex;
++  flex-direction: column;
++  align-items: center;
++  justify-content: center;
++  width: 44px;
++  height: 44px;
++  border-radius: 50%;
++  background: var(--c3-cadre);
++  color: #2a1a08;
++  font-size: 1.05rem;
++  font-weight: 800;
++  line-height: 1;
++  font-variant-numeric: lining-nums tabular-nums;
++  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
++}
++.c3-mat .c3-niveau { background: var(--accent-soft); color: var(--accent-text); box-shadow: inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.5); }
++.c3-constellation .c3-niveau { color: #fff4d6; }
++.c3-niveau-mot { font-size: var(--t-label); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
++.c3-titre { font-family: var(--serif); font-size: 1rem; font-style: italic; font-weight: 500; line-height: 1.15; color: var(--accent-text); }
++/* L'illustration : son avatar en grand, sur son fond de carte s'il en porte un. */
++/* Les deux faces ont la taille de la plus grande, comme une vraie carte : la place qui reste au recto va à l'illustration. */
++.c3-art-cadre { position: relative; flex: 1 0 auto; display: flex; margin-top: 2px; padding: 3px; border-radius: 12px; background: var(--c3-cadre); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); }
++.c3-art {
++  position: relative;
++  isolation: isolate;
++  display: grid;
++  place-items: center;
++  flex: 1;
++  min-height: 132px;
++  overflow: hidden;
++  border-radius: 9px;
++  background:
++    radial-gradient(52% 70% at 50% 56%, color-mix(in srgb, var(--lueur) 32%, transparent), transparent 72%),
++    radial-gradient(130% 100% at 50% 0%, color-mix(in srgb, var(--bg-raised) 55%, #000), var(--bg));
++}
++/* Son compagnon perché au coin : l'avatar se décale pour lui laisser la place. */
++.c3-art-cadre:has(.c3-perche) .c3-art { padding-right: 70px; }
++.c3-avatar { cursor: zoom-in; }
++/* Son avatar grandit avec l'illustration : sans soirée à dire, le recto lui laisse sa place. */
++.c3-art { container-type: size; }
++.c3-avatar-av { font-size: 58px; font-size: clamp(58px, 40cqh, 86px); }
++.c3-avatar-av.av-lumiere { font-size: 40px; font-size: clamp(40px, 27cqh, 58px); }
++.carte-compagnon.c3-perche,
++.carte-compagnon.c3-perche:has(.orne-peint) {
++  position: absolute;
++  z-index: 2;
++  top: -22px;
++  right: 14px;
++  display: flex;
++  padding: 0;
++  border: 0;
++  background: none;
++  line-height: 0;
++  cursor: zoom-in;
++}
++/* Sa plaque, sous sa niche, sur l'illustration. Un objet peint : aucun thème ne la repeint. */
++.c3-plaque {
++  position: absolute;
++  z-index: 1;
++  right: 10px;
++  bottom: 10px;
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  min-width: 62px;
++  padding: 2px 8px 4px;
++  border: 1px solid rgba(217, 181, 106, 0.65);
++  border-radius: 6px;
++  background: rgba(14, 9, 7, 0.78);
++  color: #f3ece2;
++  font-family: var(--serif);
++  font-size: 1rem;
++  font-weight: 600;
++  line-height: 1.1;
++  text-shadow: none;
++}
++.c3-plaque-amitie { font-family: var(--sans); font-size: var(--t-label); font-weight: 700; color: #e6c47c; }
++.c3-soir {
++  display: flex;
++  align-items: flex-start;
++  gap: 8px;
++  margin: 0;
++  padding: 6px 10px;
++  border: 1px solid color-mix(in srgb, var(--lueur) 24%, transparent);
++  border-radius: 10px;
++  background: color-mix(in srgb, var(--lueur) 9%, transparent);
++  font-size: 0.88rem;
++  line-height: 1.3;
++}
++.c3-soir .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent-text); }
++.c3-soir b { font-family: var(--serif); font-size: 1.05rem; font-variant-numeric: lining-nums; color: var(--accent-text); }
++.c3-soir-detail { display: block; font-size: 0.75rem; color: var(--muted); }
++/* Ses plus beaux hauts faits, comme les pouvoirs d'une carte : ce qu'il a fallu faire, écrit dessous. */
++.carte-beaux.c3-pouvoirs { margin: 0; }
++.carte-beaux.c3-pouvoirs li { gap: 10px; padding: 4px 0; }
++.c3-pouvoir-emoji {
++  flex: none;
++  display: grid;
++  place-items: center;
++  width: 32px;
++  height: 32px;
++  border-radius: 50%;
++  background: color-mix(in srgb, var(--lueur) 12%, transparent);
++  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lueur) 40%, transparent);
++  font-size: 1.05rem;
++  line-height: 1;
++}
++.c3-pouvoir-corps { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
++.c3-pouvoir-titre { display: flex; align-items: baseline; gap: 6px; font-size: 0.88rem; font-weight: 700; line-height: 1.2; }
++.c3-pouvoir-texte { font-size: 0.72rem; line-height: 1.25; color: var(--muted); }
++/* Le dos : ses chiffres, ses écussons, sa collection. */
++.c3-dos-titre { flex: none; margin-left: auto; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
++.c3-rangee { display: flex; flex-direction: column; gap: 6px; }
++.c3-rangee .label { margin: 0; }
++/* Un seul tableau, serré pour tenir sur le dos : les chiffres des soirées, puis ce que disaient ses pastilles, chacun son icône. */
++.c3-dos .carte-cadrans.c3-cadrans { gap: 5px; }
++.c3-cadrans .carte-cadran { padding: 5px 8px; }
++.c3-cadrans .carte-cadran .admin-cadran-chiffre { display: flex; align-items: center; gap: 5px; font-size: 1.15rem; }
++.c3-cadrans .admin-cadran-chiffre > svg { flex: none; width: 15px; height: 15px; }
++.c3-dos .c3-entete { min-height: 34px; }
++/* Le dos tient en 360 × 640, ses mots compris : ses blocs se serrent, le lien des mots garde sa hauteur de doigt. */
++.c3-dos .carte-defile.c3-contenu { gap: 6px; }
++.c3-dos .c3-rangee { gap: 4px; }
++.c3-dos .glossaire { margin-top: -4px; }
++/* Le dernier d'une rangée incomplète la finit ; seul sur la sienne, il se couche — son nom, son chiffre et sa base sur une ligne. */
++.c3-cadrans > .carte-cadran:last-child:nth-child(3n + 1) { grid-column: 1 / -1; flex-direction: row; align-items: baseline; flex-wrap: wrap; column-gap: 10px; }
++.c3-cadrans > .carte-cadran:last-child:nth-child(3n + 2) { grid-column: span 2; }
++.c3-face-loupe .carte-defile { border-radius: 12px; background: var(--bg-raised); }
++@media (prefers-reduced-motion: reduce) {
++  .c3-pivot { transition: none; }
++}

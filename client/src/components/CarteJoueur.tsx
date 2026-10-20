@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import type { CarteDeJoueur } from '../../../shared/carte'
-import type { BadgePorte } from '../../../shared/badges'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { brancheDe, portrait as portraitDe } from '../../../shared/branches'
@@ -16,7 +15,6 @@ import { Avatar, Dessin } from './Avatar'
 import { chargerDessinsAuPlus, complets, dessinDuPortrait, sortesDesAvatars, useDessins, type Sorte } from './medaillons'
 import { justesses, type Chiffre } from './Chiffres'
 import { Flamme, Icon } from './Icon'
-import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
 import { useModale } from '../modale'
 import { partsDuNomAffiche } from '../../../shared/homonymes'
@@ -24,7 +22,7 @@ import { Ecusson } from './Ecusson'
 import { Glossaire } from './Glossaire'
 import type { Mot } from '../../../shared/glossaire'
 import { fond as fondDeCarte } from '../../../shared/fonds'
-import { ligueParCle } from '../../../shared/duels'
+import { ligueParCle, type CleDeLigue } from '../../../shared/duels'
 import { BlasonDeLigue } from './Blason'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import type { GestesDeLaCarte } from './GestesDuJoueur'
@@ -36,27 +34,36 @@ import type { GestesDeLaCarte } from './GestesDuJoueur'
  */
 const lesGestes = aLaDemande(() => import('./GestesDuJoueur'))
 
+type Profil = NonNullable<CarteDeJoueur['profil']>
+
 /**
- * La carte d'un joueur, ouverte en touchant son nom : ce qu'il fait ce soir,
- * et, s'il a un profil, son niveau, ses Divins et ses légendaires, ses plus
- * beaux hauts faits, quelques chiffres et sa collection de prix. C'est ici
- * que les cosmétiques ont enfin un public.
+ * La carte d'un joueur, ouverte en touchant son nom : une carte à
+ * collectionner (le choix du propriétaire du 20 octobre 2026, sur la maquette
+ * `retours/2026-10-20/carte-du-joueur/` : « J'adore la carte à collectionner
+ * […] J'aime beaucoup retourner la carte »). Au recto, qui il est et ce qu'il
+ * fait ce soir — son niveau en gemme, son nom et son titre, son avatar en
+ * grand dans l'illustration, posé sur son fond de carte, son compagnon perché
+ * au coin, sa soirée, ses plus beaux hauts faits ; au dos, ses chiffres en un
+ * seul tableau, ses écussons, sa collection tout au bout. Son cadre est celui
+ * de sa ligue des duels (`cadreDeLaCarte`), et suit le doigt. Le compagnon y
+ * avait sa ligne, sous l'avatar : « ça fait tout descendre ».
  *
- * Un invité anonyme a la sienne : sa soirée, sans rien qui dise ce qui lui
- * manque. Un surnom donné par l'animateur ne cache pas le prénom du profil.
+ * Un invité anonyme a la sienne : sa soirée, sans dos ni rien qui dise ce qui
+ * lui manque. Un surnom donné par l'animateur ne cache pas le prénom du profil.
  *
- * Dans le cadre du tableau de bord, comme la fin de soirée : la barre du
- * haut ne défile pas, et la croix qui ferme y reste en vue. « Fermer », au
- * pied d'une carte bien remplie, ne se voyait qu'en défilant jusqu'au bout,
- * et la carte prenait tout l'écran (la remarque du propriétaire du
- * 3 octobre 2026).
+ * Jamais plus haute que les trois quarts de l'écran : elle s'ouvre sur la
+ * salle, elle ne la cache pas. Sa croix et « Retourner la carte » sont sous
+ * elle, sous le pouce, hors de ce qui défile (le choix du même jour : « en
+ * bas ») : « Fermer », au pied d'une carte bien remplie, ne se voyait qu'en
+ * défilant jusqu'au bout (la remarque du 3 octobre 2026) ; au coin haut
+ * droit, la croix tombait sur la niche de la page.
  *
- * Son avatar se touche : il s'ouvre en grand, à la place de ce que la carte
- * raconte (`AvatarEnGrand`), et un nouveau toucher — ou Échap — rend la
- * carte.
+ * Son avatar se touche, et son compagnon : il s'ouvre en grand, à la place de
+ * ce que la carte raconte (`AvatarEnGrand`, `CompagnonEnGrand`), et un
+ * nouveau toucher — ou Échap — rend la carte.
  *
  * La loge l'ouvre aussi, sur ce qu'on y essaie (`retouche`) : « Aperçu de ta
- * carte », et « Porter » au pied (`pied`).
+ * carte » au-dessus d'elle, et « Porter » au pied (`pied`).
  */
 export function CarteJoueur({
   slug,
@@ -86,22 +93,28 @@ export function CarteJoueur({
   const retoucher = useRef(retouche)
   retoucher.current = retouche
   const desGestes = useALaDemande(lesGestes, !!gestes)
-  // L'avatar en grand, et la hauteur du contenu qu'il remplace : il la
-  // garde, et la carte ne rapetisse pas sous le doigt — centrée dans
-  // l'écran, sa croix aurait sauté.
-  const [loupe, setLoupe] = useState<{ hauteur: number } | null>(null)
+  // L'avatar ou le compagnon en grand, et la hauteur du contenu qu'il
+  // remplace : il la garde, et la carte ne rapetisse pas sous le doigt —
+  // centrée dans l'écran, sa croix aurait sauté.
+  const [loupe, setLoupe] = useState<{ hauteur: number; sujet: 'avatar' | 'compagnon' } | null>(null)
+  const [verso, setVerso] = useState(false)
   const petitAvatar = useRef<HTMLButtonElement>(null)
-  const ouvrirLaLoupe = () => {
-    const defile = boite.current?.querySelector<HTMLElement>('.carte-defile')
+  const petitCompagnon = useRef<HTMLButtonElement>(null)
+  const pivot = useRef<HTMLDivElement>(null)
+  const ouvrir = (sujet: 'avatar' | 'compagnon') => () => {
+    const defile = boite.current?.querySelector<HTMLElement>('.carte-recto .carte-defile')
     const s = defile && getComputedStyle(defile)
-    setLoupe({ hauteur: defile && s ? defile.clientHeight - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom) : 0 })
+    setLoupe({ sujet, hauteur: defile && s ? defile.clientHeight - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom) : 0 })
   }
-  // Refermée, le focus revient à l'avatar qui l'avait ouverte : le clavier
-  // et le lecteur d'écran reprennent la carte où l'œil l'avait laissée.
-  const etaitOuverte = useRef(false)
+  const ouvrirLaLoupe = ouvrir('avatar')
+  const ouvrirLeCompagnon = ouvrir('compagnon')
+  // Refermée, le focus revient à ce qui l'avait ouverte — l'avatar, le
+  // compagnon : le clavier et le lecteur d'écran reprennent la carte où l'œil
+  // l'avait laissée.
+  const etaitOuverte = useRef<'avatar' | 'compagnon' | null>(null)
   useEffect(() => {
-    if (!loupe && etaitOuverte.current) petitAvatar.current?.focus({ preventScroll: true })
-    etaitOuverte.current = !!loupe
+    if (!loupe && etaitOuverte.current) (etaitOuverte.current === 'compagnon' ? petitCompagnon : petitAvatar).current?.focus({ preventScroll: true })
+    etaitOuverte.current = loupe?.sujet ?? null
   }, [loupe])
 
   useEffect(() => {
@@ -143,13 +156,38 @@ export function CarteJoueur({
   // Ils peuvent aussi arriver après l'ouverture : la carte l'ajoute alors.
   const dessins = useDessins()
   const avecDessins = { legendaires: complets(dessins, ['legendaire']), divins: complets(dessins, ['divin']) }
-  // Son fond de carte, s'il en porte un : seulement l'un du catalogue.
+  // Son fond de carte, s'il en porte un : seulement l'un du catalogue. Il
+  // devient l'illustration, sous son avatar.
   const fond = fondDeCarte(p?.fond)?.key
+  const ligue = carte ? cadreDeLaCarte(carte) : null
+  const compagnon = p?.compagnon
+  // Un dos, pour un profil : un invité anonyme n'a que sa soirée.
+  const aUnDos = !!p && !loupe
+  const mots = carte && !loupe ? motsDeLaCarte(carte, avecDessins, !!fond) : []
+  const titre = nomDuTitre(p?.titre)
+
+  // Le doigt l'incline et déplace son reflet : posé sur le style, sans rendre
+  // la carte à chaque mouvement. Le mouvement réduit la laisse droite.
+  const incliner = (e: PointerEvent<HTMLDivElement>) => {
+    const el = pivot.current
+    if (!el || sansMouvement()) return
+    const r = el.getBoundingClientRect()
+    const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))
+    const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))
+    el.style.setProperty('--rx', `${((0.5 - y) * INCLINAISON_MAX).toFixed(2)}deg`)
+    el.style.setProperty('--ry', `${((x - 0.5) * INCLINAISON_MAX * 1.2).toFixed(2)}deg`)
+    el.style.setProperty('--gx', `${(x * 100).toFixed(1)}%`)
+    el.style.setProperty('--gy', `${(y * 100).toFixed(1)}%`)
+  }
+  const redresser = () => {
+    for (const v of ['--rx', '--ry', '--gx', '--gy']) pivot.current?.style.removeProperty(v)
+  }
+
   return (
     <div className="dialog-backdrop" onClick={onFermer}>
       <div
         ref={boite}
-        className={'card dialog carte-joueur' + (fond ? ` carte-fond fond-${fond}` : '')}
+        className={'carte-joueur' + (ligue ? ` cadre-${ligue}` : '')}
         role="dialog"
         aria-modal="true"
         aria-label={carte ? `Carte ${deNom(carte.nom)}` : 'Carte du joueur'}
@@ -165,55 +203,40 @@ export function CarteJoueur({
           }
         }}
       >
-        {/* Le balayage du tableau de bord, sous un fond de carte jamais : le
-            fond porte déjà son décor dans les mêmes couches. */}
-        {!fond && <span className="carte-balayage" aria-hidden="true" />}
-        <header className="carte-joueur-barre">
-          <span className="salon-hud-label">
+        {/* L'essai de la loge se dit au-dessus de la carte : rien n'y est encore porté. */}
+        {retouche && (
+          <p className="carte-apercu salon-hud-label">
             <span className="admin-pouls" aria-hidden="true" />
-            {retouche ? 'Aperçu de ta carte' : 'Carte de joueur'}
-          </span>
-          <button type="button" className="carte-croix" aria-label="Fermer" title="Fermer" onClick={onFermer}>
-            <Icon name="x" />
-          </button>
-        </header>
-        {/* Le contenu défile dans son cadre, et le fond de la carte reste en
-            place derrière lui : posé sur un cadre qui défile, il s'arrêtait
-            à la hauteur de l'écran. */}
-        <div className="carte-defile">
-          {erreur && <p className="muted">{erreur}</p>}
-          {!carte && !erreur && <p className="muted">Chargement…</p>}
-          {carte && loupe && <AvatarEnGrand carte={carte} hauteur={loupe.hauteur} onRevenir={() => setLoupe(null)} />}
-          {carte && !loupe && (
-            <>
-              <header className="carte-tete">
-                {/* En tête de la carte, on ne voyait ni la peinture d'un
-                    légendaire ni la lumière d'une finition : touché, il
-                    s'ouvre en grand (la demande du 6 octobre 2026). */}
-                <button
-                  ref={petitAvatar}
-                  type="button"
-                  className="carte-avatar-bouton"
-                  aria-label={`Voir l’avatar ${deNom(carte.nom)} en grand`}
-                  title="Voir en grand"
-                  onClick={ouvrirLaLoupe}
-                >
-                  <Avatar
-                    className="carte-avatar"
-                    avatar={carte.avatar}
-                    finition={carte.finition}
-                    eclat={carte.eclat}
-                    legendaire={carte.legendaire}
-                    bordure={carte.bordure}
-                  />
-                </button>
-                <div>
-                  <h3>
-                    {carte.nom}
-                    <Niveau niveau={p?.niveau} big />
-                  </h3>
-                  {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné, ou d'un sentier dont il est maître. */}
-                  {nomDuTitre(p?.titre) && <p className="titre-porte">{espacesFines(`« ${nomDuTitre(p?.titre)} »`)}</p>}
+            Aperçu de ta carte
+          </p>
+        )}
+        <div ref={pivot} className={'carte-pivot' + (verso && aUnDos ? ' carte-retournee' : '')} onPointerMove={incliner} onPointerLeave={redresser}>
+          <section className="carte-face carte-recto" aria-hidden={(verso && aUnDos) || undefined} inert={verso && aUnDos}>
+            {/* Le contenu défile dans son cadre, et le cadre reste en place autour de lui. */}
+            <div className="carte-defile">
+              {erreur && <p className="muted">{erreur}</p>}
+              {!carte && !erreur && <p className="muted">Chargement…</p>}
+              {carte && loupe?.sujet === 'avatar' && <AvatarEnGrand carte={carte} hauteur={loupe.hauteur} onRevenir={() => setLoupe(null)} />}
+              {carte && loupe?.sujet === 'compagnon' && compagnon && <CompagnonEnGrand compagnon={compagnon} hauteur={loupe.hauteur} onRevenir={() => setLoupe(null)} />}
+              {carte && !loupe && (
+                <>
+                  <header className="carte-tete">
+                    {/* Son niveau en gemme, devant son nom, comme le coût d'une carte : le coin haut droit est à son compagnon. */}
+                    {p && (
+                      <span className="carte-gemme" title={`Niveau ${p.niveau}`}>
+                        <span className="carte-gemme-mot" aria-hidden="true">
+                          niv.
+                        </span>
+                        <span className="sr-only">niveau </span>
+                        {p.niveau}
+                      </span>
+                    )}
+                    <div className="carte-identite">
+                      <h3>{carte.nom}</h3>
+                      {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné, ou d'un sentier dont il est maître. */}
+                      {titre && <p className="titre-porte">{espacesFines(`« ${titre} »`)}</p>}
+                    </div>
+                  </header>
                   {carte.laurier && (
                     <p className="carte-laurier">
                       <Laurier laurier={carte.laurier} decoratif />{' '}
@@ -229,127 +252,153 @@ export function CarteJoueur({
                   )}
                   {/* Un surnom donné ce soir, pas la marque « (2) » d'un homonyme : « « Camille (2) » ce soir — Camille sur son profil » se lisait comme un surnom. */}
                   {p && p.prenom !== partsDuNomAffiche(carte.nom).prenom && (
-                    <p className="muted small">
+                    <p className="carte-surnom muted small">
                       {espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil
                     </p>
                   )}
+                  {/* L'illustration : son avatar en grand, sur son fond de carte. En
+                      tête de l'ancienne carte, on ne voyait ni la peinture d'un
+                      légendaire ni la lumière d'une finition : touché, il s'ouvre
+                      encore plus grand (la demande du 6 octobre 2026). */}
+                  <div className="carte-illustration-cadre">
+                    <div className={'carte-illustration' + (fond ? ` carte-fond fond-${fond}` : '')}>
+                      <button
+                        ref={petitAvatar}
+                        type="button"
+                        className="carte-avatar-bouton"
+                        aria-label={`Voir l’avatar ${deNom(carte.nom)} en grand`}
+                        title="Voir en grand"
+                        onClick={ouvrirLaLoupe}
+                      >
+                        <Avatar
+                          className="carte-avatar"
+                          avatar={carte.avatar}
+                          finition={carte.finition}
+                          eclat={carte.eclat}
+                          legendaire={carte.legendaire}
+                          bordure={carte.bordure}
+                        />
+                      </button>
+                      {/* Le blason de sa ligue, comme le symbole d'une série : il dit d'où vient son cadre. */}
+                      {p?.duels && (
+                        <span className="carte-blason" title={ligueParCle(p.duels.ligue).nom}>
+                          <BlasonDeLigue ligue={p.duels.ligue} taille={18} decoratif />
+                        </span>
+                      )}
+                      {compagnon && <PlaqueDuCompagnon compagnon={compagnon} />}
+                    </div>
+                    {compagnon && <SonCompagnon compagnon={compagnon} bouton={petitCompagnon} onOuvrir={ouvrirLeCompagnon} />}
+                  </div>
                   {/* Sa soirée — absente de sa propre carte, lue depuis sa page. */}
                   {carte.ceSoir && (
                     <p className="carte-soir">
-                      {carte.ceSoir.rang > 0 ? (
-                        <>
-                          <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
-                        </>
-                      ) : (
-                        'Pas encore de points ce soir'
-                      )}
+                      <Icon name="star" />
+                      <span>
+                        {carte.ceSoir.rang > 0 ? (
+                          <>
+                            <b>{place(carte.ceSoir.rang)}</b> ce soir, sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
+                          </>
+                        ) : (
+                          'Pas encore de points ce soir'
+                        )}
+                        {/* Les QCM et les estimations, chacun à sa façon : « 1/64
+                            justes » comptait des estimations qui ne sont jamais justes. */}
+                        {carte.ceSoir.reponses > 0 && <span className="carte-soir-detail">{reponsesParType(carte.ceSoir)}</span>}
+                      </span>
                     </p>
                   )}
-                  {/* Les QCM et les estimations, chacun à sa façon : « 1/64
-                      justes » comptait des estimations qui ne sont jamais justes. */}
-                  {carte.ceSoir && carte.ceSoir.reponses > 0 && <p className="muted small">{reponsesParType(carte.ceSoir)}</p>}
-                </div>
-              </header>
-
-              {p && (
-                <>
-                  {p.compagnon && <SonCompagnon compagnon={p.compagnon} />}
-                  {avecDessins.divins && (p.divins ?? []).length > 0 && (
-                    <div className="carte-legendaires carte-divins" aria-label="Divins">
-                      {p.divins.map(cle => (
-                        <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
-                          <Dessin cle={cle} />
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {avecDessins.legendaires && p.legendaires.length > 0 && (
-                    <div className="carte-legendaires" aria-label="Avatars légendaires">
-                      {p.legendaires.map(cle => (
-                        <span key={cle} className="carte-legendaire" title={legendaire(cle)?.nom}>
-                          <Dessin cle={cle} />
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {/* Ce qui le distingue, avec ce qu'il a fallu faire : un titre
-                      seul (« Le Buzzer d'Or ») ne dit rien à qui ne l'a jamais
-                      chassé. */}
-                  {p.vitrine.length > 0 && (
-                    <div>
-                      <span className="label">Ses plus beaux hauts faits</span>
-                      <ul className="carte-beaux">
-                        {p.vitrine.map(b => (
-                          <li key={b.key}>
-                            <span className="hf-emoji" aria-hidden="true">
-                              {b.emoji}
+                  {/* Ce qui le distingue, comme les pouvoirs d'une carte, avec ce
+                      qu'il a fallu faire : un titre seul (« Le Buzzer d'Or ») ne
+                      dit rien à qui ne l'a jamais chassé. */}
+                  {p && p.vitrine.length > 0 && (
+                    <ul className="carte-beaux" aria-label="Ses plus beaux hauts faits">
+                      {p.vitrine.map(b => (
+                        <li key={b.key}>
+                          <span className="hf-emoji" aria-hidden="true">
+                            {b.emoji}
+                          </span>
+                          <span className="hf-corps">
+                            <span className="hf-titre">
+                              {b.title}
+                              {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
                             </span>
-                            <span className="hf-corps">
-                              <span className="hf-titre">
-                                {b.title}
-                                {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
-                              </span>
-                              <span className="muted small">{ceQuIlAFallu(b.key)}</span>
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                            <span className="muted small">{ceQuIlAFallu(b.key)}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                  {/* Ce qu'il sait, catégorie par catégorie : ses trois écussons
-                      les plus hauts. Rien tant qu'il n'en a aucun. */}
-                  {p.ecussons && p.ecussons.length > 0 && (
+                  {/* Sans dos, ses mots se disent au recto. */}
+                  {!p && mots.length > 0 && <Glossaire mots={mots} />}
+                </>
+              )}
+            </div>
+          </section>
+          {carte && p && aUnDos && (
+            <section className="carte-face carte-dos" aria-hidden={!verso || undefined} inert={!verso}>
+              <div className="carte-defile">
+                <header className="carte-dos-tete">
+                  <h3>{carte.nom}</h3>
+                  <span className="carte-dos-titre">Ses chiffres</span>
+                </header>
+                <Cadrans cases={cadransDuDos(p)} />
+                {/* Ce qu'il sait, catégorie par catégorie : ses trois écussons
+                    les plus hauts. Rien tant qu'il n'en a aucun. */}
+                {p.ecussons && p.ecussons.length > 0 && (
+                  <div className="carte-rangee">
+                    <span className="label">Ses écussons</span>
                     <div className="ecussons" aria-label="Écussons de savoir">
                       {p.ecussons.map(e => (
                         <Ecusson key={e.categorie} categorie={e.categorie} palier={e.palier} />
                       ))}
                     </div>
-                  )}
-                  <Cadrans cases={cadransDeLaCarte(p)} />
-                  {/* Ses prix : leur nombre, pas leur liste — ils tombent à
-                      chaque soirée. Rien tant qu'il n'en a aucun. */}
-                  {((p.prix && p.prix.eus > 0) || p.jour || p.duels || (p.campagne && p.fiche.soirees > 0)) && (
-                    <div className="carte-pastilles">
-                      {p.prix && p.prix.eus > 0 && (
-                        <span className="carte-prix">
-                          <Icon name="award" />
-                          Prix {p.prix.eus}/{p.prix.total}
-                        </span>
-                      )}
-                      {/* Son quiz du jour, en une pastille : rien s'il n'y a jamais joué. */}
-                      {p.jour && (
-                        <span className="carte-prix">
-                          <Flamme />
-                          Quiz du jour {p.jour.joues} j
-                          {p.jour.victoires > 0 && ` · ${p.jour.victoires} victoire${p.jour.victoires > 1 ? 's' : ''}`}
-                        </span>
-                      )}
-                      {/* Sa ligue des duels, en une pastille : rien tant qu'il n'a fini aucun duel classé. */}
-                      {p.duels && (
-                        <span className="carte-prix">
-                          <BlasonDeLigue ligue={p.duels.ligue} taille={16} decoratif />
-                          {`${ligueParCle(p.duels.ligue).nom} · cote\u00a0${p.duels.cote}`}
-                        </span>
-                      )}
-                      {/* Sa campagne, en une pastille — quand ses cadrans sont ceux des soirées : sinon, elle les tient. */}
-                      {p.campagne && p.fiche.soirees > 0 && (
-                        <span className="carte-prix">
-                          <Icon name="target" />
-                          Campagne · record {formatNumber(p.campagne.record)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-            </>
+                  </div>
+                )}
+                {/* Sa collection tout au bout (le propriétaire, le 20 octobre 2026 :
+                    « comme ça la collection de légendaires est à la toute fin »). */}
+                {((avecDessins.divins && (p.divins ?? []).length > 0) || (avecDessins.legendaires && p.legendaires.length > 0)) && (
+                  <div className="carte-rangee">
+                    <span className="label">Sa collection</span>
+                    {avecDessins.divins && (p.divins ?? []).length > 0 && (
+                      <div className="carte-legendaires carte-divins" aria-label="Divins">
+                        {p.divins.map(cle => (
+                          <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
+                            <Dessin cle={cle} />
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {avecDessins.legendaires && p.legendaires.length > 0 && (
+                      <div className="carte-legendaires" aria-label="Avatars légendaires">
+                        {p.legendaires.map(cle => (
+                          <span key={cle} className="carte-legendaire" title={legendaire(cle)?.nom}>
+                            <Dessin cle={cle} />
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Ses mots, dépliés au toucher : la carte, l'écran qu'on touche le
+                    plus en salle d'attente, n'en expliquait aucun. Seulement ceux
+                    qu'elle montre. */}
+                {mots.length > 0 && <Glossaire mots={mots} />}
+              </div>
+            </section>
           )}
-          {/* Ses mots, dépliés au toucher : la carte, l'écran qu'on touche le
-              plus en salle d'attente, n'en expliquait aucun. Seulement ceux
-              qu'elle montre. */}
-          {carte && !loupe && motsDeLaCarte(carte, avecDessins, !!fond).length > 0 && (
-            <Glossaire mots={motsDeLaCarte(carte, avecDessins, !!fond)} />
+        </div>
+        {/* Ses gestes sous elle, hors de ce qui défile : toujours en vue. */}
+        <div className="carte-sous">
+          {/* Un nom fixe, l'état par `aria-pressed` : « Revoir sa carte, activé » disait l'état deux fois. */}
+          {aUnDos && (
+            <button type="button" className="carte-retourner" aria-pressed={verso} onClick={() => setVerso(v => !v)}>
+              <Icon name="rotate" />
+              Retourner la carte
+            </button>
           )}
+          <button type="button" className="carte-croix" aria-label="Fermer" title="Fermer" onClick={onFermer}>
+            <Icon name="x" />
+          </button>
         </div>
         {/* Ses gestes au pied, hors de ce qui défile : « Défier » reste en vue
             sous une carte bien remplie. Montés dès l'ouverture — ils lisent
@@ -368,27 +417,96 @@ const ATTENTE_MAX_MS = 2500
 
 const auPlus = (attendu: Promise<unknown>): Promise<unknown> => Promise.race([attendu.catch(() => {}), new Promise(r => setTimeout(r, ATTENTE_MAX_MS))])
 
+/** Son inclinaison la plus forte sous le doigt, en degrés : assez pour accrocher la lumière, pas pour qu'on lise mal. */
+const INCLINAISON_MAX = 9
+
+/** Le mouvement réduit : ni inclinaison, ni retournement animé (la feuille de style l'arrête). */
+const sansMouvement = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+/**
+ * Le cadre d'une carte : celui de sa ligue actuelle aux duels (le choix du
+ * propriétaire du 20 octobre 2026 : « de la ligue actuelle »), ses métaux
+ * ceux de sa bordure ; sans duel classé, ni un invité sans profil, celui de
+ * la carte de tous — l'absence, pas l'infériorité.
+ */
+export function cadreDeLaCarte(carte: CarteDeJoueur): CleDeLigue | null {
+  return carte.profil?.duels?.ligue ?? null
+}
+
+/** Ce que la carte dit de son compagnon : son nom, ou celui de sa forme ; ce qu'il est ; sa forme ; le titre de leur amitié. */
+function leCompagnon(compagnon: CompagnonPossede) {
+  const forme = formeDansLaNiche(compagnon)
+  if (!forme) return null
+  return {
+    nom: compagnon.nom ?? forme.nom,
+    sorte: compagnon.nom ? forme.nom : compagnonDe(forme).nom,
+    etape: nomDeLaForme(forme),
+    amitie: titreDeLAmitie(compagnon.paliers),
+  }
+}
+
+/** Le code de la niche, que la carte attend déjà avant de s'ouvrir. Sans lui (un échec), rien plutôt qu'une arche vide. */
+function useCodeDeLaNiche() {
+  const code = useALaDemande(laNiche)
+  return code && code !== 'perdu' ? code : null
+}
+
 /**
  * Le compagnon de sa niche (le propriétaire, le 19 octobre 2026 : « Le
- * compagnon sur la carte doit avoir son nom ») : sa niche en petit — la forme
- * qu'elle montre, ses ornements —, son nom, sa forme, et le titre de leur
- * amitié quand sa niche a passé un palier. Sans le code de la niche (un
- * échec), rien plutôt qu'une arche vide.
+ * compagnon sur la carte doit avoir son nom »), perché au coin de
+ * l'illustration — en haut à droite, comme sur chaque page : sa niche en
+ * petit, la forme qu'elle montre et ses ornements, qui débordent sur le cadre.
+ * Son nom est sur sa plaque (`PlaqueDuCompagnon`) ; sa forme, en le touchant.
  */
-function SonCompagnon({ compagnon }: { compagnon: CompagnonPossede }) {
-  const code = useALaDemande(laNiche)
-  const forme = formeDansLaNiche(compagnon)
-  if (!forme || !code || code === 'perdu') return null
-  const amitie = titreDeLAmitie(compagnon.paliers)
+function SonCompagnon({ compagnon, bouton, onOuvrir }: { compagnon: CompagnonPossede; bouton: RefObject<HTMLButtonElement | null>; onOuvrir: () => void }) {
+  const code = useCodeDeLaNiche()
+  const c = leCompagnon(compagnon)
+  if (!c || !code) return null
   return (
-    <div className="carte-compagnon">
-      <code.NicheEnMiniature niche={compagnon} taille={56} />
-      <div className="carte-compagnon-texte">
-        <span className="label">Son compagnon</span>
-        <b className="carte-compagnon-nom">{compagnon.nom ?? forme.nom}</b>
-        <span className="muted small">{`${compagnon.nom ? forme.nom : compagnonDe(forme).nom} · ${nomDeLaForme(forme)}`}</span>
-        {amitie && <span className="carte-compagnon-amitie">{amitie}</span>}
-      </div>
+    <button ref={bouton} type="button" className="carte-compagnon" onClick={onOuvrir} aria-label={`Voir ${c.nom} en grand`} title={`${c.nom} · ${c.sorte}`}>
+      <code.NicheEnMiniature niche={compagnon} taille={54} />
+    </button>
+  )
+}
+
+/** Sa plaque, sous sa niche, sur l'illustration : son nom, et le titre de leur amitié quand sa niche a passé un palier. */
+function PlaqueDuCompagnon({ compagnon }: { compagnon: CompagnonPossede }) {
+  const code = useCodeDeLaNiche()
+  const c = leCompagnon(compagnon)
+  if (!c || !code) return null
+  return (
+    <span className="carte-plaque">
+      {c.nom}
+      {c.amitie && <span className="carte-compagnon-amitie">{c.amitie}</span>}
+    </span>
+  )
+}
+
+/**
+ * Le compagnon touché, en grand, à la place de ce que la carte raconte —
+ * comme l'avatar : sa niche et ses ornements, en grands fichiers, ce qu'il
+ * est et sa forme, son nom, le titre de leur amitié.
+ */
+export function CompagnonEnGrand({ compagnon, hauteur, onRevenir }: { compagnon: CompagnonPossede; hauteur?: number; onRevenir: () => void }) {
+  const code = useCodeDeLaNiche()
+  const c = leCompagnon(compagnon)
+  const bouton = useRef<HTMLButtonElement>(null)
+  // Le focus sur le compagnon qu'on regarde : Entrée, comme le doigt, rend la carte.
+  useEffect(() => {
+    bouton.current?.focus({ preventScroll: true })
+  }, [code])
+  if (!c || !code) return null
+  return (
+    <div className="carte-loupe" style={hauteur ? { minHeight: hauteur } : undefined}>
+      <button ref={bouton} type="button" className="carte-loupe-bouton" aria-label="Revenir à la carte" title="Revenir à la carte" onClick={onRevenir}>
+        <code.NicheEnMiniature niche={compagnon} taille={124} grand />
+      </button>
+      <p className="carte-loupe-legende">
+        <span className="detail-famille muted">{`${c.sorte} · ${c.etape}`}</span>
+        <b className="carte-loupe-nom">{c.nom}</b>
+        {c.amitie && <span className="carte-compagnon-amitie">{c.amitie}</span>}
+      </p>
+      <p className="muted small">Touche-le pour revenir à la carte.</p>
     </div>
   )
 }
@@ -491,19 +609,56 @@ function LegendeDeLAvatar({ carte }: { carte: CarteDeJoueur }) {
   )
 }
 
+/** Un cadran du dos : son nom, son chiffre et sur combien il porte ; l'icône de la pastille qu'il remplace, s'il en remplace une. */
+export interface CadranDuDos {
+  nom: string
+  valeur: string
+  base?: string
+  icone?: 'prix' | 'jour' | 'duels' | 'campagne'
+  /** Sa ligue, pour le blason des duels. */
+  ligue?: CleDeLigue
+}
+
+/**
+ * Le tableau du dos : ses cadrans (`cadransDeLaCarte`), puis ses prix, son
+ * quiz du jour, ses duels et sa campagne, qui étaient des pastilles sous eux
+ * (le propriétaire, le 20 octobre 2026 : « pas très jolies, limite plus dans
+ * le tableau avec les précisions »). Chacun s'il a quelque chose à dire ; sa
+ * campagne seulement quand ses cadrans sont ceux des soirées : sinon, ils la
+ * tiennent déjà.
+ */
+export function cadransDuDos(p: Profil): CadranDuDos[] {
+  const cases: CadranDuDos[] = cadransDeLaCarte(p).map(([nom, valeur, base]) => ({ nom, valeur, ...(base && { base }) }))
+  if (p.prix && p.prix.eus > 0) cases.push({ nom: 'Prix', valeur: formatNumber(p.prix.eus), base: `sur ${formatNumber(p.prix.total)}`, icone: 'prix' })
+  if (p.jour) {
+    const v = p.jour.victoires
+    cases.push({ nom: 'Quiz du jour', valeur: `${formatNumber(p.jour.joues)} j`, ...(v > 0 && { base: `${formatNumber(v)} victoire${v > 1 ? 's' : ''}` }), icone: 'jour' })
+  }
+  if (p.duels) cases.push({ nom: 'Duels', valeur: formatNumber(p.duels.cote), base: ligueParCle(p.duels.ligue).nom, icone: 'duels', ligue: p.duels.ligue })
+  if (p.campagne && p.fiche.soirees > 0) cases.push({ nom: 'Campagne', valeur: formatNumber(p.campagne.record), base: 'record en série', icone: 'campagne' })
+  return cases
+}
+
 /**
  * Ses chiffres en cadrans, trois par rangée : le chiffre lumineux, son nom,
  * et sur combien il porte quand ça compte — « Précision 50 % », seul, se
- * lisait pareil sur deux QCM et sur deux cents.
+ * lisait pareil sur deux QCM et sur deux cents. Ce que disait une pastille
+ * garde son icône, à côté de son chiffre.
  */
-function Cadrans({ cases }: { cases: Chiffre[] }) {
+function Cadrans({ cases }: { cases: CadranDuDos[] }) {
   return (
     <dl className="admin-cadrans carte-cadrans">
-      {cases.map(([titre, valeur, base]) => (
-        <div key={titre} className="admin-cadran carte-cadran">
-          <dt className="admin-cadran-nom">{titre}</dt>
-          <dd className="admin-cadran-chiffre num">{valeur}</dd>
-          {base && <dd className="carte-cadran-base">{base}</dd>}
+      {cases.map(c => (
+        <div key={c.nom} className="admin-cadran carte-cadran">
+          <dt className="admin-cadran-nom">{c.nom}</dt>
+          <dd className="admin-cadran-chiffre num">
+            {c.icone === 'prix' && <Icon name="award" />}
+            {c.icone === 'jour' && <Flamme />}
+            {c.icone === 'duels' && c.ligue && <BlasonDeLigue ligue={c.ligue} taille={15} decoratif />}
+            {c.icone === 'campagne' && <Icon name="target" />}
+            {c.valeur}
+          </dd>
+          {c.base && <dd className="carte-cadran-base">{c.base}</dd>}
         </div>
       ))}
     </dl>
@@ -530,7 +685,7 @@ export function dessinsDeLaCarte(c: CarteDeJoueur): Sorte[] {
  * qu'il n'avait jamais fait (l'experte du jeu solo, le 11 octobre 2026). Sa
  * précision compte déjà tous les modes de jeu.
  */
-export function cadransDeLaCarte(p: NonNullable<CarteDeJoueur['profil']>): Chiffre[] {
+export function cadransDeLaCarte(p: Profil): Chiffre[] {
   const [precision, coupDOeil] = justesses(p.fiche)
   const hautsFaits: Chiffre = ['Hauts faits', formatNumber(p.hautsFaits)]
   if (p.fiche.soirees > 0) {

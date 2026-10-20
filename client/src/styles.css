@@ -3452,16 +3452,16 @@ h3 > .icon {
   border-color: var(--edge-strong);
   box-shadow: var(--shadow-dialog);
 }
-/* Un dialogue, la carte d'un joueur : leur sol reste plein sous tous les
-   thèmes. Chaque thème repeint `.card` d'un sélecteur plus fort que le leur
-   (0,3,0), d'un verre fait pour laisser voir son décor sous une carte de la
-   page — translucide sous vingt-cinq d'entre eux, de 82 à 95 %. Posés sur la
-   page, ils laissaient lire ce qu'ils couvraient : la carte d'un ami, touchée
-   dans la liste des amis, toute la liste (« une histoire de transparence
-   avec le thème qui passe par-dessus », le propriétaire, le 19 octobre 2026).
-   Leur sol se reprend, plus fort que le thème (0,4,0), et lui seul : ses
-   dégradés, sa bordure et son ombre restent, posés sur du plein. Une carte à
-   fond a le sien, que les thèmes ne touchent pas. */
+/* Un dialogue : son sol reste plein sous tous les thèmes. Chaque thème
+   repeint `.card` d'un sélecteur plus fort que le sien (0,3,0), d'un verre
+   fait pour laisser voir son décor sous une carte de la page — translucide
+   sous vingt-cinq d'entre eux, de 82 à 95 %. Posé sur la page, il laissait
+   lire ce qu'il couvrait : la carte d'un ami, touchée dans la liste des amis,
+   toute la liste (« une histoire de transparence avec le thème qui passe
+   par-dessus », le propriétaire, le 19 octobre 2026). Son sol se reprend,
+   plus fort que le thème (0,4,0), et lui seul : ses dégradés, sa bordure et
+   son ombre restent, posés sur du plein. La carte d'un joueur n'est plus un
+   `.card` : ses faces ont leur sol, qu'aucun thème ne touche. */
 :root .card.dialog:not(.carte-fond) { background-color: var(--bg-raised); }
 
 .dialog h3 { font-size: 1.5rem; }
@@ -3934,7 +3934,9 @@ h3 > .icon {
 
 /* Le décor se pose sur le cadre de la carte, derrière son contenu : les deux
    calques (::before, ::after) tiennent sous le texte (z-index -1, dans
-   l'isolation du cadre), et le contenu défile par-dessus (`.carte-defile`).
+   l'isolation du cadre). Sur la carte d'un joueur, ce cadre est son
+   illustration, sous son avatar — la carte à collectionner, le 20 octobre
+   2026 ; ailleurs, la carte de la loge et les vignettes, la carte entière.
    L'encre y reste claire quel que soit le thème : le décor est toujours
    nocturne. D'après la maquette validée (v2).
 
@@ -4150,11 +4152,11 @@ h3 > .icon {
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.55) 0%, transparent 18%, transparent 82%, rgba(0, 0, 0, 0.55) 100%);
 }
 
-/* Le lambrequin du rideau occupe le haut : la tête de la carte passe
-   dessous, et ce qui défile passe derrière lui, comme sur une scène. Dessiné
-   sous le contenu, il voyait le prénom puis les hauts faits glisser sur ses
-   franges d'or. */
-.carte-fond.fond-theatre .carte-tete { margin-top: 30px; }
+/* Le lambrequin du rideau occupe le haut : ce qui défile passe derrière lui,
+   comme sur une scène. Dessiné sous le contenu, il voyait le prénom puis les
+   hauts faits glisser sur ses franges d'or. Sur la carte d'un joueur, où le
+   fond n'habille plus que l'illustration, il pend derrière son avatar
+   (`.carte-illustration`). */
 .carte-fond.fond-theatre:not(.fond-apercu)::before { z-index: 1; }
 
 /* Le cabinet de curiosités, au troisième palier de maître des sentiers du
@@ -6085,78 +6087,175 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 
 .lb-row.lb-ouvrable:hover { border-color: var(--edge); }
 
-/* La carte d'un joueur, dans le cadre du tableau de bord : quadrillage,
-   lueur d'angle, balayage — sauf sous un fond de carte, qui porte son
-   propre décor. Plus étroite qu'un dialogue, et jamais plus haute que les
-   trois quarts de l'écran : elle s'ouvre sur la salle, elle ne la cache
-   pas. La barre du haut ne défile pas : la croix y reste en vue. */
+/* La tête d'une feuille du QG, et celle de la carte d'un joueur, qui la retouche plus bas. */
+.carte-tete { display: flex; align-items: center; gap: 12px; }
+.carte-tete h3 { display: flex; align-items: center; gap: 8px; font-size: 1.35rem; }
+.carte-tete p { margin: 2px 0 0; }
+.carte-avatar { font-size: 2.4rem; }
+
+/* ── La carte d'un joueur : une carte à collectionner ──────────────────────
+   Le choix du propriétaire du 20 octobre 2026 (la maquette,
+   `retours/2026-10-20/carte-du-joueur/`). Le cadre de sa ligue actuelle aux
+   duels (`cadreDeLaCarte`), le dedans du tableau de bord — quadrillage,
+   lueur d'angle —, deux faces qui se retournent, et ses gestes sous elle,
+   hors de ce qui défile : la croix y reste en vue. Jamais plus haute que
+   les trois quarts de l'écran : elle s'ouvre sur la salle, elle ne la
+   cache pas. La fenêtre modale ne peint rien — ni `.card` ni `.dialog`, que
+   chaque thème repeint d'un verre translucide : ce sont ses faces qui ont
+   un sol, et aucun thème n'y touche (`feuilles.test.ts`). */
 .carte-joueur {
   --lueur: var(--accent-text);
+  /* Le cadre de tous : le champagne du thème — l'absence, pas l'infériorité.
+     Une ligue a les métaux de sa bordure (`METAUX`, `dessinDesBordures.ts`). */
+  --cadre: linear-gradient(150deg, color-mix(in srgb, var(--accent-text) 62%, var(--bg-raised)), color-mix(in srgb, var(--accent-text) 24%, var(--bg-raised)) 48%, color-mix(in srgb, var(--accent-text) 52%, var(--bg-raised)));
+  --gemme-fond: var(--accent-soft);
+  --gemme-encre: var(--accent-text);
+  --gemme-filet: rgba(var(--accent-rgb), 0.5);
   position: relative;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  width: min(360px, 100%);
+  gap: 10px;
+  width: min(320px, 100%);
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+}
+.carte-joueur:focus { outline: none; }
+.cadre-bronze { --cadre: linear-gradient(135deg, #f1c08c 0%, #86501f 22%, #d29660 44%, #5e3718 64%, #f1c08c 82%, #86501f 100%); --gemme-encre: #26150a; }
+.cadre-argent { --cadre: linear-gradient(135deg, #ffffff 0%, #a3acb6 22%, #f4f6f9 44%, #7c858f 64%, #ffffff 82%, #858e98 100%); --gemme-encre: #2c3138; }
+.cadre-or { --cadre: linear-gradient(135deg, #fff0bf 0%, #b8892f 22%, #f6dd94 44%, #7d5416 64%, #fff0bf 82%, #8f6219 100%); --gemme-encre: #3a2508; }
+.cadre-platine { --cadre: linear-gradient(135deg, #ffffff 0%, #b3c1cf 22%, #f2f6fa 44%, #7d8c9c 64%, #ffffff 82%, #8b9bab 100%); --gemme-encre: #36414c; }
+.cadre-diamant { --cadre: linear-gradient(135deg, #ffffff 0%, #b9daf3 22%, #f2faff 44%, #8fb6db 64%, #ffffff 82%, #9dc0e2 100%); --gemme-encre: #3b5a78; }
+/* Les maîtres : l'or, et le bandeau d'émail noir de leur Soleil noir. */
+.cadre-maitre { --cadre: linear-gradient(135deg, #fff0bf 0%, #b8892f 22%, #f6dd94 44%, #7d5416 64%, #fff0bf 82%, #8f6219 100%); }
+.cadre-bronze,
+.cadre-argent,
+.cadre-or,
+.cadre-platine,
+.cadre-diamant { --gemme-fond: var(--cadre); --gemme-filet: rgba(255, 255, 255, 0.5); }
+.cadre-maitre { --gemme-fond: radial-gradient(circle at 35% 30%, #2c2438, #07060a 75%); --gemme-encre: #f6dd94; --gemme-filet: #b8892f; }
+/* L'aperçu de la loge se dit au-dessus d'elle. */
+.carte-apercu { display: inline-flex; align-items: center; align-self: center; gap: 6px; margin: 0; }
+/* Elle suit le doigt — et se retourne. Ses deux faces tiennent la même case,
+   la taille de la plus grande, comme une vraie carte. */
+.carte-pivot {
+  --gx: 26%;
+  --gy: 14%;
+  position: relative;
+  flex: 0 1 auto;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  min-height: 0;
   max-height: min(76vh, 580px);
   max-height: min(76dvh, 580px);
-  padding: 0;
-  border-color: color-mix(in srgb, var(--lueur) 35%, transparent);
+  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--tourne, 0deg)));
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.carte-joueur:not(.carte-fond) {
+.carte-retournee { --tourne: 180deg; }
+.carte-face {
+  grid-area: 1 / 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 7px;
+  border-radius: 18px;
+  background: var(--cadre);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.35);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.carte-dos { transform: rotateY(180deg); }
+/* Le reflet : la lumière accroche la carte là où le doigt la penche. */
+.carte-face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--gx) var(--gy), rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 45%);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+/* Le diamant disperse la lumière : un arc-en-ciel glisse sur la carte. */
+.cadre-diamant .carte-face::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 25%, rgba(255, 80, 200, 0.14) 38%, rgba(80, 220, 255, 0.14) 48%, rgba(255, 240, 120, 0.14) 58%, transparent 72%) var(--gx) var(--gy) / 250% 250%;
+  mix-blend-mode: color-dodge;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .carte-pivot { transition: none; }
+}
+/* Le dedans de la carte, qui défile dans son cadre : le quadrillage et la
+   lueur d'angle du tableau de bord, sur un sol plein. La marge de la carte
+   passe dans ce qui défile — laissée au cadre, elle rognait le halo de
+   l'avatar au bord de la zone qui défile. */
+.carte-defile { position: relative; z-index: 1; flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 12px 11px; border-radius: 12px; background: var(--bg-raised); }
+.carte-joueur .carte-defile {
   background:
     radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--lueur) 14%, transparent), transparent 60%),
     repeating-linear-gradient(0deg, color-mix(in srgb, var(--lueur) 5%, transparent) 0 1px, transparent 1px 22px),
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--lueur) 5%, transparent) 0 1px, transparent 1px 22px),
     var(--bg-raised);
 }
-.carte-balayage {
-  position: absolute;
-  inset: 0 0 auto;
-  height: 40%;
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--lueur) 8%, transparent));
-  transform: translateY(-100%);
-  animation: admin-balayage 7s linear infinite;
-  pointer-events: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .carte-balayage { animation: none; display: none; }
-}
-.carte-joueur-barre {
-  position: relative;
-  z-index: 1;
+.cadre-maitre .carte-defile { box-shadow: 0 0 0 2px #15111b; }
+/* Sa tête : son niveau en gemme, son nom, son titre. */
+.carte-joueur .carte-tete { gap: 10px; min-height: 44px; }
+/* La guirlande et l'étoile de son compagnon montent au-dessus de
+   l'illustration, à droite de son nom : ce qui la précède s'arrête avant
+   elles — un laurier sur deux lignes passait sous la niche. */
+.carte-joueur .carte-defile:has(.carte-compagnon) :is(.carte-tete, .carte-laurier, .carte-surnom) { padding-right: 76px; }
+.carte-identite { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.carte-joueur .carte-tete h3 { margin: 0; font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.05; overflow-wrap: anywhere; }
+.carte-joueur .carte-tete .titre-porte { margin: 0; font-size: 1rem; line-height: 1.15; }
+.carte-gemme {
   flex: none;
-  display: flex;
+  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 8px 8px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--lueur) 22%, transparent);
-}
-.carte-joueur-barre .salon-hud-label { display: inline-flex; align-items: center; gap: 6px; }
-.carte-croix {
-  display: inline-grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--lueur) 35%, transparent);
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--bg) 60%, transparent);
-  color: var(--ink);
-  cursor: pointer;
+  background: var(--gemme-fond);
+  color: var(--gemme-encre);
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+  box-shadow: inset 0 0 0 2px var(--gemme-filet), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
-.carte-croix:hover { border-color: color-mix(in srgb, var(--lueur) 70%, transparent); }
-.carte-croix .icon { width: 18px; height: 18px; }
-/* Le cadre ne défile pas, son contenu si : le fond de la carte reste en
-   place. La marge de la carte passe dans ce qui défile — laissée au cadre,
-   elle rognait le halo de l'avatar au bord de la zone qui défile. */
-.carte-defile { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 16px; }
-.carte-joueur:focus { outline: none; }
-.carte-tete { display: flex; align-items: center; gap: 12px; }
-.carte-tete h3 { display: flex; align-items: center; gap: 8px; font-size: 1.35rem; }
-.carte-tete p { margin: 2px 0 0; }
-.carte-avatar { font-size: 2.4rem; }
+.carte-gemme-mot { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+/* L'illustration : son avatar en grand, sur son fond de carte s'il en porte
+   un — qui n'habille plus la carte entière. Les deux faces ayant la taille
+   de la plus grande, la place qui reste au recto va à elle. */
+.carte-illustration-cadre { position: relative; flex: 1 0 auto; display: flex; margin-top: 2px; padding: 3px; border-radius: 12px; background: var(--cadre); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); }
+.carte-illustration {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 132px;
+  overflow: hidden;
+  border-radius: 9px;
+  container-type: size;
+  background:
+    radial-gradient(52% 70% at 50% 56%, color-mix(in srgb, var(--lueur) 32%, transparent), transparent 72%),
+    radial-gradient(130% 100% at 50% 0%, color-mix(in srgb, var(--bg-raised) 55%, #000), var(--bg));
+}
+/* Son compagnon perché au coin : l'avatar se décale pour lui laisser la place. */
+.carte-illustration-cadre:has(.carte-compagnon) .carte-illustration { padding-right: 70px; }
+/* Le lambrequin du théâtre pend derrière lui : par-dessus, il lui coupait la tête. */
+.carte-illustration.carte-fond.fond-theatre:not(.fond-apercu)::before { z-index: -1; }
+/* Son avatar grandit avec l'illustration ; sa lumière, qui déborde le plus, le fait plus petit. */
+.carte-illustration .carte-avatar { margin: 0; font-size: 58px; font-size: clamp(58px, 40cqh, 86px); }
+.carte-illustration .carte-avatar.av-lumiere { font-size: 40px; font-size: clamp(40px, 27cqh, 58px); }
 /* L'avatar se touche : il s'ouvre en grand (`AvatarEnGrand`). Un bouton nu
    — c'est l'avatar qu'on voit, pas un bouton. */
 .carte-avatar-bouton {
@@ -6170,18 +6269,58 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   font: inherit;
   cursor: zoom-in;
 }
+/* Le blason de sa ligue, comme le symbole d'une série, au coin de l'illustration. */
+.carte-blason { position: absolute; z-index: 1; left: 8px; bottom: 8px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(14, 9, 7, 0.55); }
+/* Sa croix et « Retourner la carte », sous elle, sous le pouce — sur un sol
+   plein : translucides, ils laissaient lire la page au travers. */
+.carte-sous { flex: none; display: flex; justify-content: center; align-items: center; gap: 10px; }
+.carte-croix {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--lueur) 45%, transparent);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--ink);
+  cursor: pointer;
+}
+.carte-croix:hover { border-color: color-mix(in srgb, var(--lueur) 70%, transparent); }
+.carte-croix .icon { width: 18px; height: 18px; }
+.carte-retourner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, var(--lueur) 45%, transparent);
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.carte-retourner:hover { border-color: color-mix(in srgb, var(--lueur) 70%, transparent); }
+.carte-retourner .icon { width: 16px; height: 16px; color: var(--accent-text); }
+/* Les gestes d'un profil et « Porter » de l'aperçu, sous la carte : leur sol à eux. */
+.carte-joueur > .carte-gestes { border: 1px solid color-mix(in srgb, var(--lueur) 22%, transparent); border-radius: 16px; background: var(--bg-raised); }
 /* L'avatar en grand, à la place de ce que la carte raconte. Tout ce qui
    déborde de lui tient dans sa case (`--loupe`), la plus grande que la
-   carte contienne : sa largeur moins ses marges, et sa hauteur
-   (`.carte-joueur`) moins sa barre, ses marges et la légende — rien ne
-   défile, sauf sur un téléphone couché, où la case garde 160 pixels. Le
-   halo et les paillettes d'un emoji y tiennent (1,7 em), la gerbe d'un
-   légendaire éclaté et les rayons d'un Divin aussi ; la lumière des trois
-   dernières finitions va jusqu'à 2,8 em : l'avatar qui la porte se fait
-   plus petit pour qu'elle tienne entière. Ses dessins y prennent leurs
-   grands fichiers, nets à cette taille. */
+   carte contienne : sa largeur moins le voile, le cadre et les marges de ce
+   qui défile, et sa hauteur (`.carte-pivot`) moins son cadre, ses marges et
+   la légende — rien ne défile, sauf sur un téléphone couché, où la case
+   garde 160 pixels. Le halo et les paillettes d'un emoji y tiennent
+   (1,7 em), la gerbe d'un légendaire éclaté et les rayons d'un Divin
+   aussi ; la lumière des trois dernières finitions va jusqu'à 2,8 em :
+   l'avatar qui la porte se fait plus petit pour qu'elle tienne entière. Ses
+   dessins y prennent leurs grands fichiers, nets à cette taille. Le
+   compagnon en grand y prend sa niche (`CompagnonEnGrand`). */
 .carte-loupe {
-  --loupe: min(300px, 100vw - 74px, max(160px, 76dvh - 186px));
+  --loupe: min(300px, 100vw - 78px, max(160px, 76dvh - 186px));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -6190,7 +6329,7 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   text-align: center;
 }
 @supports not (height: 1dvh) {
-  .carte-loupe { --loupe: min(300px, 100vw - 74px, max(160px, 76vh - 186px)); }
+  .carte-loupe { --loupe: min(300px, 100vw - 78px, max(160px, 76vh - 186px)); }
 }
 /* La case coupe ce qui la dépasse : les calques qui tournent sont des
    carrés, et leurs coins — transparents — en sortaient, si bien que la
@@ -6218,7 +6357,22 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 @media (prefers-reduced-motion: reduce) {
   .carte-loupe-avatar { animation: none; }
 }
-.carte-soir b { font-family: var(--serif); font-size: 1.1rem; color: var(--accent-text); }
+/* Sa soirée, dans un bandeau sous l'illustration. */
+.carte-soir {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--lueur) 24%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--lueur) 9%, transparent);
+  font-size: 0.88rem;
+  line-height: 1.3;
+}
+.carte-soir .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent-text); }
+.carte-soir b { font-family: var(--serif); font-size: 1.05rem; font-variant-numeric: lining-nums; color: var(--accent-text); }
+.carte-soir-detail { display: block; font-size: 0.75rem; color: var(--muted); }
 .carte-legendaires { display: flex; flex-wrap: wrap; gap: 6px; }
 .carte-legendaire { font-size: 32px; line-height: 0; }
 /* Dans ses galeries, un médaillon ne bouge que sous le doigt ou la souris :
@@ -6230,37 +6384,54 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .carte-legendaire:not(:hover) .pt * {
   animation: none;
 }
-/* Ses hauts faits en lignes fines, pas en cartes : trois boîtes empilées
-   faisaient la moitié de la hauteur. */
-.carte-beaux { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
-.carte-beaux li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-radius: var(--radius-xs); border-bottom: 1px solid color-mix(in srgb, var(--lueur) 14%, transparent); }
+/* Ses plus beaux hauts faits, comme les pouvoirs d'une carte : en lignes
+   fines, pas en cartes — trois boîtes empilées faisaient la moitié de la
+   hauteur —, ce qu'il a fallu faire écrit dessous. */
+.carte-beaux { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.carte-beaux li { display: flex; align-items: center; gap: 10px; padding: 4px 0; border-radius: var(--radius-xs); border-bottom: 1px solid color-mix(in srgb, var(--lueur) 14%, transparent); }
 .carte-beaux li:last-child { border-bottom: 0; }
-.carte-beaux .hf-emoji { font-size: 1.3rem; }
-.carte-beaux .hf-titre { font-size: 0.92rem; }
-.carte-beaux .muted.small { font-size: 0.78rem; line-height: 1.3; }
-.carte-joueur .ecussons { gap: 6px; }
-.carte-joueur .ecusson { width: 56px; font-size: 0.75rem; }
+.carte-beaux .hf-emoji {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--lueur) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lueur) 40%, transparent);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.carte-beaux .hf-corps { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.carte-beaux .hf-titre { display: flex; align-items: baseline; gap: 6px; font-size: 0.88rem; font-weight: 700; line-height: 1.2; }
+.carte-beaux .muted.small { font-size: 0.72rem; line-height: 1.25; }
+/* Le dos : son nom, ses chiffres en un seul tableau, ses écussons, sa
+   collection tout au bout. Serré pour tenir en 360 × 640, ses mots compris :
+   le lien des mots garde sa hauteur de doigt. */
+.carte-dos .carte-defile { gap: 5px; padding-bottom: 6px; }
+.carte-dos-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; }
+.carte-dos-tete h3 { margin: 0; font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.05; overflow-wrap: anywhere; }
+.carte-dos-titre { flex: none; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.carte-rangee { display: flex; flex-direction: column; gap: 4px; }
+.carte-rangee .label { margin: 0; }
+.carte-dos .glossaire { margin-top: -4px; }
+/* Ses trois écussons, chacun le tiers de la rangée : à 56 pixels, « Cinéma
+   & séries » y prenait deux lignes, et le dos défilait. */
+.carte-joueur .ecussons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.carte-joueur .ecusson { width: auto; font-size: 0.75rem; }
 /* Plus précise que `.admin-cadrans`, déclarée plus bas : trois par rangée. */
-.carte-joueur .carte-cadrans { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; }
-.carte-cadrans .carte-cadran { min-height: 0; padding: 8px 8px 7px; gap: 2px; cursor: default; }
+.carte-joueur .carte-cadrans { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 0; }
+.carte-cadrans .carte-cadran { min-height: 0; padding: 5px 8px; gap: 2px; cursor: default; }
 .carte-cadrans .carte-cadran:hover { border-color: color-mix(in srgb, var(--lueur) 20%, transparent); }
 .carte-cadran dt, .carte-cadran dd { margin: 0; }
 .carte-cadran .admin-cadran-nom { letter-spacing: 0.06em; text-transform: none; font-weight: 600; }
-.carte-cadran .admin-cadran-chiffre { font-size: 1.2rem; white-space: nowrap; }
+/* Ce que disait une pastille garde son icône, à côté de son chiffre. */
+.carte-cadran .admin-cadran-chiffre { display: flex; align-items: center; gap: 5px; font-size: 1.15rem; white-space: nowrap; }
+.carte-cadran .admin-cadran-chiffre > svg { flex: none; width: 15px; height: 15px; }
 .carte-cadran-base { font-size: var(--t-label); line-height: 1.2; color: var(--muted); }
-.carte-pastilles { display: flex; flex-wrap: wrap; gap: 6px; }
-.carte-prix {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--lueur) 22%, transparent);
-  border-radius: var(--radius-pill);
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-.carte-prix .icon { color: var(--accent-text); }
+/* Le dernier d'une rangée incomplète la finit ; seul sur la sienne, il se couche — son nom, son chiffre et sa base sur une ligne. */
+.carte-cadrans > .carte-cadran:last-child:nth-child(3n + 1) { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
+.carte-cadrans > .carte-cadran:last-child:nth-child(3n + 2) { grid-column: span 2; }
 
 /* La catégorie de la question, au-dessus de son intitulé : une étiquette,
    pas un titre — la question reste ce qu'on lit en premier. */
@@ -7433,7 +7604,6 @@ span.case-avatar { cursor: default; }
 .vitrine-option.selected { border-color: var(--edge-strong); background: var(--accent-soft); }
 .vitrine-option:disabled { opacity: 0.45; cursor: default; }
 .vitrine-rang { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 600; }
-.carte-prix .flamme { width: 1em; height: 1em; }
 
 /* ── Les pages du téléphone : l'en-tête d'une page, une feuille, des choix ──
    Les pièces de `components/Pieces.tsx`. Une feuille monte du bas, « Fermer »
@@ -11183,15 +11353,37 @@ body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility:
 .niche-orne-a-venir-titre { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
 /* Sa niche en petit, sans un geste : la carte d'un joueur, le bouton « Mon compagnon » du profil. */
 .gros-icone:has(.niche-mini) { background: none; }
-/* Sur la carte d'un joueur, le compagnon de sa niche et son nom (`SonCompagnon`) :
-   l'étoile de l'arche dorée et le halo en débordent, sa ligne leur laisse la place. */
-.carte-compagnon { display: flex; align-items: center; gap: 14px; padding: 14px 2px 4px 10px; }
-/* Peints, le lierre et la guirlande débordent de ses flancs et sous elle : son nom s'écarte. */
-.carte-compagnon:has(.orne-peint) { gap: 26px; padding: 18px 2px 16px 24px; }
-.carte-compagnon-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.carte-compagnon-texte .label { margin: 0; }
-.carte-compagnon-nom { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
+/* Sur la carte d'un joueur, le compagnon de sa niche (`SonCompagnon`), perché
+   au coin de l'illustration — en haut à droite, comme sur chaque page : ses
+   ornements débordent sur le cadre, et sa guirlande monte à côté du nom. */
+.carte-compagnon { position: absolute; z-index: 2; top: -22px; right: 14px; display: flex; padding: 0; border: 0; background: none; line-height: 0; cursor: zoom-in; }
+/* Sa plaque, sous sa niche, sur l'illustration : son nom. Un objet peint : aucun thème ne la repeint. */
+.carte-plaque {
+  position: absolute;
+  z-index: 1;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 62px;
+  max-width: 116px;
+  padding: 2px 8px 4px;
+  border: 1px solid rgba(217, 181, 106, 0.65);
+  border-radius: 6px;
+  background: rgba(14, 9, 7, 0.78);
+  color: #f3ece2;
+  font-family: var(--serif);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: center;
+  text-shadow: none;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
 .carte-compagnon-amitie { color: var(--or-text); font-size: 0.875rem; font-weight: 700; }
+.carte-plaque .carte-compagnon-amitie { font-family: var(--sans); font-size: var(--t-label); color: #e6c47c; }
 /* L'écran « Mon compagnon » sans compagnon : où en adopter un. */
 .profil-sans-compagnon { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 .profil-sans-compagnon p { margin: 0; }

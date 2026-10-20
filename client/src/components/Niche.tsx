@@ -1257,15 +1257,16 @@ export function ceQueDitSonBouton(niche: NicheVue, justes: number | undefined): 
 /**
  * Sa niche en petit, sans un geste — la carte d'un joueur, le bouton « Mon
  * compagnon » du profil : la forme qu'elle montre et ses ornements. `taille` :
- * sa largeur, en pixels.
+ * sa largeur, en pixels ; `grand` : les grands fichiers de ses ornements, là
+ * où on la regarde de près — le compagnon en grand, sur la carte.
  */
-export function NicheEnMiniature({ niche, taille }: { niche: NicheVue; taille: number }) {
+export function NicheEnMiniature({ niche, taille, grand = false }: { niche: NicheVue; taille: number; grand?: boolean }) {
   const forme = formeDe(niche)
   const dessin = forme && DESSINS[forme.key]
   if (!forme || !dessin) return null
   return (
     <span className={`niche-mini niche-${forme.compagnon}`} style={{ '--l': `${taille}px` } as CSSProperties}>
-      <Arche forme={forme} dessin={dessin} ornements={ornementsMontres(niche)} />
+      <Arche forme={forme} dessin={dessin} ornements={ornementsMontres(niche)} grand={grand} />
     </span>
   )
 }

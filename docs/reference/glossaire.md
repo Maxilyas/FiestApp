@@ -69,14 +69,15 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | « C'était un essai » | Effacer la soirée sans rien garder, en reprenant aux profils tout ce qu'elle avait crédité | `host:discardParty`, `retirerSoireeEntiere` |
+| Cadre (d'une carte) | Le métal de la carte d'un joueur : celui de sa ligue actuelle aux duels, du bronze aux maîtres ; sans duel classé, ou pour un invité, celui de tous, aux couleurs du thème | `cadreDeLaCarte`, `.cadre-<ligue>` |
 | Calendrier des Heures | Douze pages enluminées, une par mois, ouvertes à vingt jours joués dans le mois et dorées pour son champion | `shared/calendrier.ts` |
 | Calibrage | La simulation de bandes d'amis jouant des soirées sur le vrai code, qui mesure les niveaux, les légendaires et la rareté des hauts faits | `server/scripts/calibrage.ts` |
 | Campagne | Le jeu solo des profils, sans chronomètre, à `/campagne` : la série, les sentiers, le défi de la semaine, le carnet, et les duels sur le même écran | `CampagneStore` |
 | Campement | L'une des deux escales du haut d'un plan de l'expédition, juste avant le gardien : une vie, jusqu'à trois — du courage en rencontres —, ou un joker retiré de son paquet, ou, au jeu complet, une carte améliorée | `sorte: 'campement'` (`shared/expedition.ts`), `{ quoi: 'camper' }` |
 | Carnet de révision | Ce qu'on a raté en campagne, qui revient à des rendez-vous espacés jusqu'à être appris | `shared/revision.ts` |
-| Carte à fond | Une carte qui porte un fond : elle garde les couleurs du Velours sous tous les thèmes | `.carte-fond` |
+| Carte à fond | Une carte qui porte un fond — sur la carte d'un joueur, son illustration : elle garde les couleurs du Velours sous tous les thèmes | `.carte-fond` |
 | Carte améliorée | Une carte des rencontres en mieux — moins d'énergie, de plus gros chiffres, ou qui ne quitte plus la rencontre —, un « + » à son nom et sur son dessin : améliorée au campement ou à l'échoppe, ou trouvée telle dans une offre des actes 2 et 3 (le jeu complet). Elle porte sa clé suivie de « + » dans tous les tas | `AMELIORATIONS`, `ameliorer`, `baseDe`, `parmi`, `refusDeLAmelioration` (`shared/rencontres.ts`) |
-| Carte de joueur | La feuille qui s'ouvre en touchant un nom : ce qu'il fait ce soir et, pour un profil, ce qu'il a gagné | `CarteDeJoueur` |
+| Carte de joueur | La carte à collectionner qui s'ouvre en touchant un nom : au recto, ce qu'il fait ce soir ; pour un profil, le cadre de sa ligue, son compagnon et, au dos, ce qu'il a gagné | `CarteDeJoueur`, `CarteJoueur` |
 | Carte levée | Un joker de la main, touché en expédition : en grand au milieu de l'écran, au cadre de sa rareté, ce qu'il fait, puis « Jouer » — ou pourquoi il ne se joue pas maintenant ; toucher à côté le repose | `JokerLeve` |
 | Carte peinte | L'illustration d'une carte des rencontres sans légendaire, peinte par la chaîne de peinture et livrée sous empreinte ; celle d'un légendaire est son médaillon | `CARTES_PEINTES`, `server/scripts/anime/cartes.ts` |
 | Catalogue | Les copies relues et publiées par l'administrateur, offertes à chaque espace sous « Partir d'un modèle » | `EntreeDuCatalogue` |
@@ -102,6 +103,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Collection de prix | Les prix du palmarès qu'un profil a remportés, sur vingt | `PRIX_INDIVIDUELS`, `CATALOGUE_DES_PRIX` (`server/src/core/stats.ts`) |
 | Commande du jour | Ce que la routine doit écrire aujourd'hui pour chaque catégorie : combien de questions, quels sous-thèmes et quelles difficultés | `commandeDuJour` |
 | Compagnon | Un animal peint adopté en boutique — ou, la luciole, gagné au bout d'une expédition —, qui vit dans sa niche et grandit avec les bonnes réponses données avec lui ; chacune de ses formes atteintes se porte aussi en avatar | `COMPAGNONS`, `COMPAGNONS_DE_LA_BOUTIQUE` |
+| Compagnon en grand | Le compagnon d'une carte, touché : sa niche en grand, ses ornements en grands fichiers, ce qu'il est et sa forme, son nom, leur amitié | `CompagnonEnGrand` |
 | Compte | Un espace, vu du serveur : son identifiant cloisonne ses quiz, sa soirée et son historique ; il ne bouge jamais | `accounts`, `AuthStore` |
 | Compte d'avant | Un espace à identifiant et mot de passe, d'avant les salons ouverts par les profils — celui de l'administrateur en est un | `AccountRec.passwordHash` |
 | Confetti | La monnaie des profils : une bonne réponse, un confetti — en soirée qui compte, au quiz du jour, en campagne —, plus les étoiles des sentiers, les ligues des duels et les dons de l'administrateur | `confettisDeSoiree` |
@@ -226,7 +228,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Fin gardée | La fin de soirée rangée sur le téléphone : elle se rouvre quand on revient sur la page (douze heures), jamais quand on y arrive | `SoireeGardee` (`client/src/state.ts`), `estUnRetour` |
 | Finition | L'habillage de l'avatar d'un profil, de Mat à Constellation, ouvert par le niveau ; « Auto » porte la plus belle | `NIVEAU_FINITION` |
 | Fiole | Ce qui ne sert qu'une fois en expédition, au codex dès le niveau 3 : du courage, de l'énergie pour la question, ou une mauvaise réponse effacée ; deux au plus, à boire de la barre quand on veut ; l'échoppe en vend, les coffres en cachent | `FIOLES`, `refusDeLaFiole`, `SesFioles` |
-| Fond de carte | Ce qu'on voit derrière la carte d'un joueur quand on touche son nom ; il se gagne, sort du coffre de la semaine (le trésor), ou s'achète — seuls les fonds des savoirs | `shared/fonds.ts` |
+| Fond de carte | Ce qu'on voit derrière son avatar, sur la carte d'un joueur quand on touche son nom ; il se gagne, sort du coffre de la semaine (le trésor), ou s'achète — seuls les fonds des savoirs | `shared/fonds.ts` |
 | Fonds des savoirs | Les douze fonds de carte peints, un par catégorie de questions, les seuls que la boutique vend, tous au même prix | `FONDS_EN_BOUTIQUE`, `PRIX_D_UN_FOND` |
 | Force d'en face | Ce contre quoi la cote bouge : la cote du score d'Automate au dé, la cote figée de l'adversaire contre quelqu'un | `DuelJoue.coteAdverse` |
 | Format complet | Les règles de la liste collée, écrites à partir des bornes et des catégories, avec un exemple de chaque possibilité : ce qu'on donne à un ami ou à une IA | `FORMAT_DE_LISTE` |

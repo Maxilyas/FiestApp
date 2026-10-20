@@ -103,7 +103,7 @@ try {
   await photo('4-classement-pleine', true)
   // La carte du maître, et son avatar en grand.
   await page.locator('.duels-ligne', { hasText: 'Tom' }).click()
-  await page.waitForSelector('.carte-joueur .carte-tete .av-bordure')
+  await page.waitForSelector('.carte-joueur .carte-avatar-bouton .av-bordure')
   await photo('5-carte')
   await page.click('.carte-avatar-bouton')
   await page.waitForSelector('.carte-loupe .av-bordure')
