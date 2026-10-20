@@ -142,7 +142,7 @@ Le nom de la soirée en cours, tiré une seule fois : une ligne par espace.
 
 ## La base permanente
 
-Soixante et une tables, rangées ici par famille, plus une table de migration. La
+Soixante-quatre tables, rangées ici par famille, plus une table de migration. La
 plupart des magasins gardent ce qu'ils lisent en mémoire et écrivent d'abord
 en base ; chaque écriture qui doit tenir ensemble part en une transaction
 (`batch(…, 'write')`).
@@ -308,10 +308,10 @@ Les sabliers qui protègent la série du quiz du jour, une ligne par sablier.
 
 Les compagnons achetés — ou offerts à prix nul : tirés d'un coffre, ou la luciole, que la Première traversée amène —, la plus haute forme que chacun a atteinte, les paliers de sa niche, et ce qu'il en a réglé depuis sa niche.
 
-- **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date) ; `nom`, le nom qu'il lui a donné (NULL : aucun ; l'instantané de la salle ne le dit jamais, la carte qu'on ouvre en touchant son nom, si — depuis le 19 octobre 2026), et `montree`, le rang de la forme qu'il montre dans sa niche quand ce n'est pas la plus haute, ou 4 pour sa métamorphose (`MONTREE_DE_LA_METAMORPHOSE` : relu à sa forme ultime, montré tant que l'Éclat brille sur lui) (NULL : la plus haute, qui suit sa croissance — une forme atteinte la remet à NULL) ; `paliers`, les paliers de sa niche atteints avec lui après sa forme ultime, de 0 à 4 (`PALIERS_DE_LA_NICHE`, NULL vaut 0 : ne fait que monter, comme `rang`, et ne remet pas `montree` à NULL), et `ornements`, ce qu'il a réglé de ses ornements quand ce n'est pas le style d'office, en JSON (`{"guirlande":"cache","lierre":"dessin"}` : caché, ou dessiné comme sur la maquette ; NULL : tous montrés, peints — le Féerique, `STYLE_D_OFFICE`, depuis le 20 octobre 2026 ; un style inconnu s'y lit comme celui d'office).
+- **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date) ; `nom`, le nom qu'il lui a donné (NULL : aucun ; l'instantané de la salle ne le dit jamais, la carte qu'on ouvre en touchant son nom, si — depuis le 19 octobre 2026), et `montree`, le rang de la forme qu'il montre dans sa niche quand ce n'est pas la plus haute, ou 4 pour sa métamorphose (`MONTREE_DE_LA_METAMORPHOSE` : relu à sa forme ultime, montré tant que l'Éclat brille sur lui) (NULL : la plus haute, qui suit sa croissance — une forme atteinte la remet à NULL) ; `paliers`, les paliers de sa niche atteints avec lui après sa forme ultime, de 0 à 4 (`PALIERS_DE_LA_NICHE`, NULL vaut 0 : ne fait que monter, comme `rang`, et ne remet pas `montree` à NULL), et `ornements`, ce qu'il a réglé de ses ornements quand ce n'est pas le style d'office, en JSON (`{"guirlande":"cache","lierre":"dessin"}` : caché, ou dessiné comme sur la maquette ; NULL : tous montrés, peints — le Féerique, `STYLE_D_OFFICE`, depuis le 20 octobre 2026 ; un style inconnu s'y lit comme celui d'office) ; `jardin`, son jardin autour de sa niche, en JSON — la trouvaille de chaque place occupée (`{"s1":"lanterne","s5":"cerfvolant"}`, `shared/trouvailles.ts` ; NULL : rien de posé), lu par sa page seule (`GET /api/joueur/soins`), jamais avec le profil, et relu à sa complicité du jour (`jardinMontre`).
 - **Espace** : non.
-- **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche`, sauf `installer: false` —, le coffre, `offrirUnCompagnon` — la luciole, à la fin d'une expédition menée au bout et au rattrapage du démarrage, dans une niche vide seulement —, la croissance et les paliers, `reglerCompagnon` pour `nom`, `montree` et `ornements`).
-- **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`).
+- **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche`, sauf `installer: false` —, le coffre, `offrirUnCompagnon` — la luciole, à la fin d'une expédition menée au bout et au rattrapage du démarrage, dans une niche vide seulement —, la croissance et les paliers, `reglerCompagnon` pour `nom`, `montree` et `ornements`, `ecrireLeJardin` pour `jardin`, vérifié par `core/soins.ts`).
+- **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`) ; les soins (`lignesDesSoins`).
 - **Effacée par** : la suppression du profil.
 
 ### `profile_fonds`
@@ -365,6 +365,36 @@ semaine : le tirage, fait une fois, et ce qu'il a donné.
 - **Espace** : non.
 - **Écrite par** : `ProfileStore.ouvrirUnCoffre` (`POST /api/joueur/coffre`), jamais modifiée — un thème ou un compagnon tiré s'écrit aussi dans `profile_achats` ou `profile_compagnons`, à prix nul.
 - **Lue par** : `ProfileStore` — avec le profil (`byIds` : les fonds et les gerbes du trésor qu'il porte, `tresorsOf`), le solde (ses confettis), un coffre rouvert (`coffreDe`) ; la page de l'économie du QG.
+- **Effacée par** : la suppression du profil.
+
+### `profile_envies`
+
+Les envies du jour de son compagnon comblées (`shared/soins.ts`) : une ligne par envie, par jour et par compagnon. Seul s'écrit ce qui est fait, comme une mission.
+
+- **Colonnes clés** : `profile_id`, `compagnon`, `jour` (le jour de Paris) et `envie` (`gouter`, `calin`, `jeu` — la clé à quatre), `faite_le`.
+- **Espace** : non.
+- **Écrite par** : `ProfileStore` — `comblerUneEnvie` (`POST /api/joueur/compagnons/:cle/envie`, le goûter et le câlin), `ecrireLaCueillette` (`jeu`, la première partie du jour) ; jamais modifiée.
+- **Lue par** : `ProfileStore.lignesDesSoins` (les envies du jour lu, `GET /api/joueur/soins`).
+- **Effacée par** : la suppression du profil.
+
+### `profile_cadeaux`
+
+Les cadeaux de son compagnon ouverts, un par jour et par compagnon : le tirage, fait une fois. Sa complicité les compte, et ses trouvailles s'en relisent (`shared/trouvailles.ts`, `inventaire`) — rien ne se compte à côté.
+
+- **Colonnes clés** : `profile_id`, `compagnon` et `jour` (la clé), `objet` (la trouvaille tirée : `lanterne`, `gamelle`…), `grand` (1 pour le grand cadeau, tous les sept jours de complicité), `ouvert_le`.
+- **Espace** : non.
+- **Écrite par** : `ProfileStore.ecrireLeCadeau` (`POST /api/joueur/compagnons/:cle/cadeau`, `ON CONFLICT DO NOTHING` : deux ouvertures parties ensemble n'en écrivent qu'un), jamais modifiée.
+- **Lue par** : `ProfileStore.lignesDesSoins` — tous ses cadeaux, pour la complicité de chacun, ses trouvailles et l'exploit des cent jours.
+- **Effacée par** : la suppression du profil.
+
+### `profile_cueillettes`
+
+Ses parties de cueillette, le jeu de son compagnon, une ligne chacune.
+
+- **Colonnes clés** : `profile_id` et `jouee_le` (la clé), `compagnon`, `score`.
+- **Espace** : non.
+- **Écrite par** : `ProfileStore.ecrireLaCueillette` (`POST /api/joueur/compagnons/:cle/cueillette`), avec l'envie de jouer du jour ; jamais modifiée.
+- **Lue par** : `ProfileStore.lignesDesSoins` — son record avec chaque compagnon, ses parties à trois étoiles (l'étoile filante en demande dix, `EXPLOITS_DU_JARDIN`), l'heure de la dernière (`ECART_ENTRE_DEUX_CUEILLETTES_MS`).
 - **Effacée par** : la suppression du profil.
 
 **Le miroir de la soirée** (`server/src/core/backup.ts`) — la copie, dans la

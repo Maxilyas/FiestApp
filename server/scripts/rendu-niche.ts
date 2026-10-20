@@ -258,9 +258,9 @@ async function solo() {
   await aller('/profil', '.profil-boutons .gros-compte')
   await page.waitForSelector('.profil-boutons .gros-icone .niche-mini', { timeout: 8000 }).catch(() => console.error('[profil] pas de niche sur « Mon compagnon »'))
   await photo(page, '04-profil')
-  // « Mon compagnon », son écran : sa gestion sans la feuille.
+  // « Mon compagnon », chez lui : la niche du coin s'efface, il est là en grand (`rendu-compagnon.ts` en fait le tour).
   await page.getByRole('button', { name: /Mon compagnon/ }).click()
-  await page.waitForSelector('.niche-gestion [aria-labelledby="niche-compagnons"] .niche-choix[aria-pressed="true"]')
+  await page.waitForSelector('.chez-scene .chez-niche .niche-bete img')
   await photo(page, '04b-mon-compagnon', { attente: 900 })
   await page.screenshot({ path: path.join(sortie, '04c-mon-compagnon-entier.png'), fullPage: true })
   // Sa carte, comme la salle l'ouvre : son compagnon dans sa niche, avec son nom.

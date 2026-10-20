@@ -31,6 +31,8 @@ import { mountProfileApi } from './auth/profileRoutes'
 import { mountJour, mountJourAdmin, mountReserve } from './quizDuJour'
 import { mountMissions } from './missions'
 import type { Missions } from './core/missions'
+import { mountSoins } from './soins'
+import type { Soins } from './core/soins'
 import type { JourStore } from './core/jour'
 import type { RappelStore } from './core/rappels'
 import { lireModeles } from './core/seed'
@@ -88,6 +90,8 @@ interface ApiDeps {
   questionAuCentre: boolean
   /** Les missions du jour et le coffre de la semaine, qui lisent les trois magasins. */
   missions: Missions
+  /** Les soins de son compagnon : ses envies du jour, son cadeau, la cueillette, son jardin. */
+  soins: Soins
   /** L'heure du quiz du jour — celle du serveur, que les tests font passer minuit. */
   maintenant: () => number
   /** Le jeton de la routine qui remplit la réserve du quiz du jour ; null, la porte n'existe pas. */
@@ -160,6 +164,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   })
   // Ses missions du jour et le coffre de la semaine, de même.
   mountMissions(app, { missions: deps.missions, profiles: deps.profiles })
+  // Les soins de son compagnon aussi : un profil et son compagnon, pas un animateur.
+  mountSoins(app, { soins: deps.soins, profiles: deps.profiles })
   // Sa réserve se remplit par une routine, avec son jeton — pas un animateur non plus.
   mountReserve(app, { jour: deps.jour, jeton: deps.jetonDeLaReserve })
   // La base de la campagne aussi, par la même routine et le même jeton.
