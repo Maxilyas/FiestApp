@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { DESSINS } from './compagnons-peints'
 import type { DessinDeCompagnon, HumeurPeinte } from './Compagnon'
@@ -130,10 +130,10 @@ const SILHOUETTES: Readonly<Record<string, readonly [number, number, number, num
 }
 
 /** Ce qui s'envole quand on le caresse : des cœurs et des étincelles, comme à la boutique — des emojis d'avant Unicode 13. */
-const ENVOLS = ['💛', '✨', '💖', '✨', '💛']
+export const ENVOLS = ['💛', '✨', '💖', '✨', '💛']
 
 /** Des noms à lui donner, en exemple dans le champ vide. */
-const PROPOSITIONS: Readonly<Record<CleDeCompagnon, string>> = {
+export const PROPOSITIONS: Readonly<Record<CleDeCompagnon, string>> = {
   loup: 'Nox, Luna, Grisou…',
   chat: 'Mochi, Grelot, Lumen…',
   tortue: 'Jade, Caillou, Mousse…',
@@ -145,7 +145,7 @@ const PROPOSITIONS: Readonly<Record<CleDeCompagnon, string>> = {
 const formeDe = (v: NicheVue) => formeDansLaNiche(v as CompagnonPossede)
 
 /** « Louveteau », « Tortue-île » : son nom sous une petite niche, sans article. */
-function sansArticle(nom: string): string {
+export function sansArticle(nom: string): string {
   const s = nom.replace(/^(L[ae] |L’)/, '')
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
@@ -178,7 +178,17 @@ const SOUFFLE_MAX_MS = 120_000
 const APPEL_APRES_MS = 1200
 const APPEL_MS = 6500
 
-const sansMouvement = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+export const sansMouvement = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+/** Son dessin le montre tourné vers la droite : la niche le retourne pour regarder la page, la cueillette le tourne vers où il court. */
+export function regardeADroite(forme: string): boolean {
+  return CADRAGES[forme]?.miroir ?? false
+}
+
+/** Où est l'animal entier dans son dessin (gauche, haut, droite, bas) : ses pattes au sol, à la cueillette comme dehors. */
+export function silhouetteDe(forme: string): readonly [number, number, number, number] {
+  return SILHOUETTES[forme] ?? [0, 0, 1, 1]
+}
 
 const attendre = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
@@ -223,9 +233,9 @@ function Pluie() {
   )
 }
 
-/** Un geste qui se rejoue à chaque fois : sautiller de joie, s'abattre. */
-interface Geste {
-  sorte: 'saute' | 'abat'
+/** Un geste qui se rejoue à chaque fois : sautiller de joie, s'abattre — et, chez lui, ses tours (`shared/soins.ts`). */
+export interface Geste {
+  sorte: 'saute' | 'abat' | 'pirouette' | 'salut' | 'danse' | 'grandSaut'
   n: number
 }
 
@@ -249,6 +259,36 @@ const GESTES: Record<Geste['sorte'], { images: Keyframe[]; options: KeyframeAnim
     images: [{ transform: 'translateY(0)' }, { offset: 0.4, transform: 'translateY(3%) scale(1.02, 0.96)' }, { transform: 'translateY(2%) scale(1.01, 0.97)' }],
     options: { duration: 900, easing: 'ease-out', fill: 'forwards' },
   },
+  // Ses tours, que la complicité lui apprend : la pirouette à trois jours, le salut à dix, la danse à vingt, le grand saut à quarante.
+  pirouette: {
+    images: [{ transform: 'rotateY(0deg)' }, { offset: 0.5, transform: 'translateY(-6%) rotateY(180deg)' }, { transform: 'rotateY(360deg)' }],
+    options: { duration: 900, easing: 'ease-in-out' },
+  },
+  salut: {
+    images: [{ transform: 'rotate(0deg)' }, { offset: 0.35, transform: 'translateY(4%) rotate(-10deg)' }, { offset: 0.7, transform: 'translateY(4%) rotate(-10deg)' }, { transform: 'rotate(0deg)' }],
+    options: { duration: 1100, easing: 'ease-in-out' },
+  },
+  danse: {
+    images: [
+      { transform: 'translateX(0) rotate(0deg)' },
+      { offset: 0.2, transform: 'translateX(-6%) rotate(-7deg)' },
+      { offset: 0.4, transform: 'translateX(6%) rotate(7deg)' },
+      { offset: 0.6, transform: 'translateX(-6%) rotate(-7deg)' },
+      { offset: 0.8, transform: 'translateX(6%) rotate(7deg)' },
+      { transform: 'translateX(0) rotate(0deg)' },
+    ],
+    options: { duration: 1200, easing: 'ease-in-out' },
+  },
+  grandSaut: {
+    images: [
+      { transform: 'translateY(0) scale(1, 1)' },
+      { offset: 0.15, transform: 'translateY(3%) scale(1.06, 0.92)' },
+      { offset: 0.5, transform: 'translateY(-26%) scale(0.96, 1.06) rotate(-6deg)' },
+      { offset: 0.85, transform: 'translateY(0) scale(1.06, 0.94)' },
+      { transform: 'translateY(0) scale(1, 1)' },
+    ],
+    options: { duration: 1000, easing: 'cubic-bezier(0.3, 0.6, 0.35, 1)' },
+  },
 }
 
 /**
@@ -262,9 +302,10 @@ const GESTES: Record<Geste['sorte'], { images: Keyframe[]; options: KeyframeAnim
  * se pose derrière elle avant son cadre, l'or sur lui, le reste par-dessus —
  * hors du cadre, qui coupe tout. `grand` : leurs grands fichiers peints, là où
  * la niche se regarde — au coin de la page, comme le dessin de son compagnon,
- * et dans sa fiche.
+ * et dans sa fiche. `dansLeCadre` : ce qui se pose dans son cadre, coupé par
+ * lui et sous les ornements de devant — ses volets, quand il dort chez lui.
  */
-function Arche({
+export function Arche({
   forme,
   dessin,
   humeur = 'neutre',
@@ -273,6 +314,7 @@ function Arche({
   jauge = null,
   ornements = [],
   grand = false,
+  dansLeCadre = null,
 }: {
   forme: FormeDeCompagnon
   dessin: DessinDeCompagnon
@@ -282,6 +324,7 @@ function Arche({
   jauge?: number | null
   ornements?: readonly OrnementMontre[]
   grand?: boolean
+  dansLeCadre?: ReactNode
 }) {
   const c = CADRAGES[forme.key] ?? ENTIER
   const decor = dessin.disque?.[1]
@@ -332,6 +375,7 @@ function Arche({
             </span>
           )}
         </span>
+        {dansLeCadre}
       </span>
       <DevantLaNiche montres={ornements} grand={grand} />
     </>
@@ -909,18 +953,18 @@ export function FicheDeLaNiche({ niche, onFermer }: { niche: NicheVue; onFermer:
  * donne d'ici, et que sa carte montre —, sa forme et sa légende ; où il en
  * est, lu à l'ouverture (`GET /api/joueur/niche`) : sa forme suivante, puis le
  * palier suivant de sa niche ; « Le caresser », pour le plaisir — il en est
- * ravi — ; « Le porter en avatar », qui ouvre la loge avec lui à l'essai : la
- * niche est sa maison, l'avatar une autre affaire. Puis ses ornements — ceux
+ * ravi — ; « Chez lui », sa page, où l'on s'occupe de lui (ses envies du jour,
+ * son jardin) — « Le porter en avatar » en est parti le 20 octobre 2026 : la
+ * niche est sa maison, l'avatar une autre affaire, qui se choisit dans la
+ * loge. Puis ses ornements — ceux
  * qu'il a gagnés, montrés ou cachés d'un toucher, et ceux qui viennent —, la
  * forme qu'il montre dans la niche, parmi celles qu'il a atteintes — sa
  * métamorphose comprise —, et ses compagnons : celui qui y vit, les autres à
  * installer d'un toucher. Chaque geste rend le profil, que la niche prend
  * aussitôt (`porterNiche`). `onPartir` : un lien qui mène ailleurs — la
- * feuille se ferme, même sur la page de la boutique, où rien ne se recharge ;
- * `surLeProfil` : l'écran du profil, où la loge s'ouvre sans recharger la
- * page (`suivreUnLien`).
+ * feuille se ferme, même sur la page de la boutique, où rien ne se recharge.
  */
-export function MaNiche({ niche, onPartir, surLeProfil = false }: { niche: NicheVue; onPartir?: () => void; surLeProfil?: boolean }) {
+export function MaNiche({ niche, onPartir }: { niche: NicheVue; onPartir?: () => void }) {
   const [caresses, setCaresses] = useState(0)
   const [ravi, setRavi] = useState(false)
   const [calme] = useState(sansMouvement)
@@ -1107,8 +1151,9 @@ export function MaNiche({ niche, onPartir, surLeProfil = false }: { niche: Niche
           <Icon name="sparkles" />
           {`${Le} caresser`}
         </button>
-        <a className="btn" href={`${surLeProfil ? '' : '/profil'}?essayer=${forme.key}#avatar`} onClick={onPartir}>
-          {`${Le} porter en avatar`}
+        <a className="btn" href="/profil#compagnon" onClick={onPartir}>
+          <Icon name="home" />
+          {c.le === 'la' ? 'Chez elle' : 'Chez lui'}
         </a>
       </div>
       <SaNicheSEmbellit niche={niche} c={c} busy={busy} onOrner={orner} />
@@ -1169,7 +1214,7 @@ export function MaNiche({ niche, onPartir, surLeProfil = false }: { niche: Niche
  * Un nom fixe par choix ; celui qui se montre, `aria-pressed` le dit
  * (`design.test.ts`). Puis ceux qui viennent, et à combien.
  */
-function SaNicheSEmbellit({
+export function SaNicheSEmbellit({
   niche,
   c,
   busy,

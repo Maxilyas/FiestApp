@@ -117,12 +117,12 @@ test('sa métamorphose, une forme de plus : rien ne change d’office ; choisie,
   assert.match(tempete, /aria-label="Le loup-tempête, dans ta niche : sa fiche"/)
   // De face, il regarde déjà la page : son cadrage ne le retourne pas.
   assert.doesNotMatch(tempete, /niche-bete miroir/)
-  // Sa fiche le nomme et le décrit comme il se montre, et l'essaie tel quel dans la loge.
+  // Sa fiche le nomme et le décrit comme il se montre ; l'avatar se choisit dans la loge, plus d'ici (le 20 octobre 2026).
   const fiche = await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 3, montree: MONTREE_DE_LA_METAMORPHOSE, eclat: true }, onFermer: () => {} })
   assert.match(fiche, /<b class="niche-fiche-nom">Le loup-tempête<\/b>/)
   assert.match(fiche, /Métamorphose · légendaire/)
   assert.match(fiche, /<p class="niche-fiche-legende">Éclairs d’aurore et glace qui vole\.<\/p>/)
-  assert.match(fiche, /<a class="btn" href="\/profil\?essayer=cp:loup-tempete#avatar">Le porter en avatar<\/a>/)
+  assert.doesNotMatch(fiche, /porter en avatar/)
   // Ses cinq formes : les quatre atteintes, et elle, pressée.
   assert.equal(fiche.match(/<button type="button" class="niche-choix/g)?.length, 5)
   assert.match(fiche, /aria-pressed="true" aria-label="Le loup-tempête"/)
@@ -161,7 +161,7 @@ test('« Ma niche » la propose parmi ses formes, marquée d’un point rouge ta
   assert.match(css, /\.niche-choix\.neuve \.niche-mini::after \{[^}]*background: #d93025;/)
 })
 
-test('sa fiche est sa gestion : son nom, sa forme, le caresser, le porter en avatar — seulement ce qu’il a', async () => {
+test('sa fiche est sa gestion : son nom, sa forme, le caresser, chez lui — seulement ce qu’il a', async () => {
   const { DESSINS } = await import(client('components/compagnons-peints.ts'))
   const nox = await rendre('FicheDeLaNiche', { niche: { compagnon: 'loup', rang: 2, montree: 0, nom: 'Nox' }, onFermer: () => {} })
   assert.match(nox, /role="dialog" aria-modal="true" aria-label="Ma niche"/)
@@ -169,7 +169,9 @@ test('sa fiche est sa gestion : son nom, sa forme, le caresser, le porter en ava
   assert.match(nox, /Le louveteau · Première forme · commune/)
   assert.match(nox, /class="niche-renommer"[^>]*>.*?Renommer<\/button>/)
   assert.match(nox, />Le caresser<\/button>/)
-  assert.match(nox, /<a class="btn" href="\/profil\?essayer=cp:loup-louveteau#avatar">Le porter en avatar<\/a>/, 'la forme qu’il montre, essayée dans la loge')
+  // « Tu peux enlever le lien vers mon avatar » (le propriétaire, le 20 octobre 2026) : sa page, où l'on s'occupe de lui, en prend la place.
+  assert.match(nox, /<a class="btn" href="\/profil#compagnon">.*?Chez lui<\/a>/)
+  assert.doesNotMatch(nox, /porter en avatar/)
   assert.match(nox, /<a class="link-inline" href="\/boutique#compagnon-loup">Ses formes<\/a>/)
   // Ses trois formes atteintes, la choisie pressée ; pas la quatrième, qu'il n'a pas.
   assert.equal(nox.match(/<button type="button" class="niche-choix"/g)?.length, 3)

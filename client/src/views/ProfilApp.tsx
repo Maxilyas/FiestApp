@@ -19,7 +19,7 @@ import { retenirLeCompte, useNouveautesDuMenu } from '../nouveautes'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { annonceDuChoix, type ChoixDuProfil, type GardeDeLaLoge } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { espacesFines, formatNumber } from '../format'
+import { formatNumber } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
 import { route } from '../routes'
 import { derniereSoireeGardee } from '../state'
@@ -48,6 +48,13 @@ const panneaux = aLaDemande(() => import('../components/PanneauxDuProfil'))
 
 /** Sa carte entière, comme la salle la voit, au toucher de sa ligne : rien ne la télécharge avant. */
 const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
+
+/**
+ * « Mon compagnon », chez lui — son jardin, ses envies, la cueillette, son
+ * cadeau —, à la demande : ses dessins et son jeu ne servent qu'à son écran,
+ * et ne partent que quand il s'ouvre — la page du profil n'en montre rien.
+ */
+const chezLui = aLaDemande(() => import('../components/MonCompagnon'))
 
 /**
  * Le haut de l'accueil d'un profil — « À la une », les missions du jour —, à
@@ -310,6 +317,9 @@ export function ProfilApp() {
   const nicheIci = useSyncExternalStore(abonnerNiche, nicheActuelle, () => null)
   const leCodeDeLaNiche = useALaDemande(laNiche, !!nicheIci && VUE === 'profil')
   const codeDeLaNiche = leCodeDeLaNiche && leCodeDeLaNiche !== 'perdu' ? leCodeDeLaNiche : null
+  // Son écran, chez lui, seulement quand on l'ouvre : la page du profil n'en montre rien.
+  const leCodeDeChezLui = useALaDemande(chezLui, VUE === 'profil' && ecran === 'compagnon')
+  const codeDeChezLui = leCodeDeChezLui && leCodeDeChezLui !== 'perdu' ? leCodeDeChezLui : null
 
   // L'accueil affiché, le code du quiz du jour, de la campagne et des duels
   // vient en fond : toucher leur bouton ouvre la page sans le télécharger d'abord.
@@ -679,25 +689,15 @@ export function ProfilApp() {
     return (
       <div className="player-shell" onClick={suivreUnLien}>
         {sortie}
-        <PieceTete piece={e.groupe} titre={e.nom} />
+        {/* Chez lui, la tête est à lui : « Comment ça marche » s'y range, à côté du titre. */}
+        {(ecran !== 'compagnon' || !codeDeChezLui) && <PieceTete piece={e.groupe} titre={e.nom} />}
         {regionDAnnonce}
-        {/* Sa niche ouverte en grand : la même gestion que sa fiche, sans la feuille. Sans compagnon, où en adopter un. */}
+        {/* Chez lui (la maquette validée le 20 octobre 2026) : sa niche au milieu de son jardin, ses envies, son chemin. Sans compagnon, tous ceux qu'on peut avoir. */}
         {ecran === 'compagnon' &&
-          (nicheIci ? (
-            codeDeLaNiche ? (
-              <codeDeLaNiche.MaNiche niche={nicheIci} surLeProfil />
-            ) : (
-              <OngletEnChemin perdu={leCodeDeLaNiche === 'perdu'} />
-            )
+          (codeDeChezLui ? (
+            <codeDeChezLui.MonCompagnon niche={nicheIci} profil={profil} occupee={busy} onAdopter={acheterCompagnon} onInstaller={cle => enregistrer({ niche: cle })} />
           ) : (
-            <div className="profil-sans-compagnon">
-              <p className="muted">
-                {espacesFines('Pas encore de compagnon : il vivra dans sa niche, en haut de chaque page, et grandira avec tes bonnes réponses.')}
-              </p>
-              <a className="btn btn-primary" href="/boutique#compagnons">
-                En adopter un
-              </a>
-            </div>
+            <OngletEnChemin perdu={leCodeDeChezLui === 'perdu'} />
           ))}
         {ecran === 'collection' && (pret ? <pret.PanneauCollection profil={profil} /> : enChemin)}
         {ecran === 'carriere' && (pret ? <pret.PanneauCarriere profil={profil} /> : enChemin)}

@@ -88,6 +88,7 @@ import { divin } from '../../../shared/divins'
 import { lireLesVus, type VusDeLaLoge } from '../../../shared/piecesDeLaLoge'
 import { gainsDesMissions, lireLaMission, RANG_DES_TROIS, type Mission } from '../../../shared/missions'
 import { cleDeLObjet, lireLObjet, rangDuCoffre, type CoffreOuvert, type ObjetDuTresor, type RangDuCoffre } from '../../../shared/coffre'
+import { ETOILES_DE_LA_CUEILLETTE, type Envie } from '../../../shared/soins'
 import { nomDeLObjet, phraseDeLObjet, tirerLeCoffre } from '../../../shared/tresor'
 import type { Rarete } from '../../../shared/badges'
 import { brancheDe, deLaBranche, nomDansLaPhrase, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
@@ -425,6 +426,38 @@ function lireLigneDeMission(r: Record<string, unknown>): LigneDeMission {
     // Illisible, elle se tait : sa ligne garde ce qu'elle a payé, faite ou non.
   }
   return { jour: String(r.jour), rang: Number(r.rang), mission, faiteLe: r.faite_le == null ? null : Number(r.faite_le) }
+}
+
+/**
+ * Ce que la base garde de ses soins (`shared/soins.ts`), lu d'un aller-retour
+ * pour sa page : `core/soins.ts` en dérive ses envies, sa complicité, ses
+ * trouvailles et ses jardins.
+ */
+export interface LignesDesSoins {
+  /** Le jardin de chacun de ses compagnons, tel qu'il est écrit. */
+  jardins: Map<string, Record<string, string>>
+  /** Ses envies comblées du jour lu. */
+  envies: { compagnon: string; envie: string }[]
+  /** Tous ses cadeaux ouverts, du plus ancien au plus récent. */
+  cadeaux: { compagnon: string; jour: string; objet: string; grand: boolean }[]
+  /** Son record à la cueillette, compagnon par compagnon. */
+  records: Map<string, number>
+  /** Ses parties à trois étoiles, tous compagnons confondus. */
+  troisEtoiles: number
+  /** L'heure de sa dernière partie : la suivante l'attend. */
+  derniereCueillette: number | null
+}
+
+/** Un jardin écrit en JSON, relu : une place vers une clé, rien d'autre — ce qui ne se lit pas se tait. */
+function lireLeJardin(brut: unknown): Record<string, string> {
+  if (typeof brut !== 'string' || brut === '') return {}
+  try {
+    const v: unknown = JSON.parse(brut)
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+    return Object.fromEntries(Object.entries(v).filter((e): e is [string, string] => typeof e[1] === 'string'))
+  } catch {
+    return {}
+  }
 }
 
 /** Ce que la mémoire garde de chacun de ses compagnons : sa plus haute forme, les paliers de sa niche, et ce qu'il en a réglé. */
@@ -1109,6 +1142,41 @@ export class ProfileStore {
            PRIMARY KEY (profile_id, semaine)
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_coffres_quand ON profile_coffres(ouvert_le)',
+        // Ses soins (`shared/soins.ts`, la maquette validée le 20 octobre
+        // 2026) : ses envies du jour comblées, une ligne par envie, par jour
+        // et par compagnon, jamais effacée — seul s'écrit ce qui est fait,
+        // comme une mission.
+        `CREATE TABLE IF NOT EXISTS profile_envies (
+           profile_id TEXT NOT NULL,
+           compagnon  TEXT NOT NULL,
+           jour       TEXT NOT NULL,
+           envie      TEXT NOT NULL,
+           faite_le   INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, compagnon, jour, envie)
+         )`,
+        // Ses cadeaux ouverts, un par jour et par compagnon, jamais modifiés :
+        // le tirage se fait une fois, et rouvert, le cadeau redonne ce qu'il
+        // a donné. Sa complicité les compte, et ses trouvailles s'en relisent
+        // (`shared/trouvailles.ts`) — rien ne se compte à côté.
+        `CREATE TABLE IF NOT EXISTS profile_cadeaux (
+           profile_id TEXT NOT NULL,
+           compagnon  TEXT NOT NULL,
+           jour       TEXT NOT NULL,
+           objet      TEXT NOT NULL,
+           grand      INTEGER NOT NULL DEFAULT 0,
+           ouvert_le  INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, compagnon, jour)
+         )`,
+        // Ses parties de cueillette, une ligne chacune : son record avec
+        // chaque compagnon, ses parties à trois étoiles — l'étoile filante en
+        // demande dix —, et l'heure de la dernière, que la suivante attend.
+        `CREATE TABLE IF NOT EXISTS profile_cueillettes (
+           profile_id TEXT NOT NULL,
+           compagnon  TEXT NOT NULL,
+           jouee_le   INTEGER NOT NULL,
+           score      INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, jouee_le)
+         )`,
       ],
       'write',
     )
@@ -1140,6 +1208,10 @@ export class ProfileStore {
     // montrés, dessinés).
     await ajouterColonne(this.client, 'profile_compagnons', 'paliers', 'INTEGER')
     await ajouterColonne(this.client, 'profile_compagnons', 'ornements', 'TEXT')
+    // Son jardin, autour de sa niche (`shared/trouvailles.ts`) : la trouvaille
+    // de chaque place occupée, en JSON (null : rien de posé). Lu par sa page
+    // seule, jamais avec le profil : la niche du coin n'en montre rien.
+    await ajouterColonne(this.client, 'profile_compagnons', 'jardin', 'TEXT')
     // Quand l'administrateur l'a renommé : son accueil le lui dit, une fois.
     await ajouterColonne(this.client, 'profiles', 'renomme_le', 'INTEGER')
     // L'Éclat qu'il a éteint, pour porter la version d'origine de son avatar.
@@ -2152,6 +2224,87 @@ export class ProfileStore {
     const vus = await this.vusDeLaLoge(id)
     if (!vus?.avatar || vus.avatar.includes(cle)) return
     await this.retenirLesVusDeLaLoge(id, { ...vus, avatar: [...vus.avatar, cle] })
+  }
+
+  // ── Ses soins : ses envies, ses cadeaux, ses cueillettes, son jardin ──────
+  // (`shared/soins.ts`, `shared/trouvailles.ts`) : ce que la base garde, et
+  // rien d'autre — juger une envie, tirer un cadeau, vérifier un jardin vit
+  // dans `core/soins.ts`.
+
+  /** Tout ce que la page de son compagnon lit de ses soins, d'un aller-retour : ses jardins, ses envies du jour, ses cadeaux, ses cueillettes. */
+  async lignesDesSoins(profileId: string, jour: string): Promise<LignesDesSoins> {
+    const [jardins, envies, cadeaux, records, cueillettes] = await this.client.batch(
+      [
+        { sql: 'SELECT compagnon, jardin FROM profile_compagnons WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT compagnon, envie FROM profile_envies WHERE profile_id = ? AND jour = ?', args: [profileId, jour] },
+        { sql: 'SELECT compagnon, jour, objet, grand FROM profile_cadeaux WHERE profile_id = ? ORDER BY jour', args: [profileId] },
+        { sql: 'SELECT compagnon, MAX(score) AS record FROM profile_cueillettes WHERE profile_id = ? GROUP BY compagnon', args: [profileId] },
+        {
+          sql: 'SELECT COALESCE(SUM(score >= ?), 0) AS trois, MAX(jouee_le) AS derniere FROM profile_cueillettes WHERE profile_id = ?',
+          args: [ETOILES_DE_LA_CUEILLETTE[ETOILES_DE_LA_CUEILLETTE.length - 1], profileId],
+        },
+      ],
+      'read',
+    )
+    const total = cueillettes.rows[0]
+    return {
+      jardins: new Map(jardins.rows.map(r => [String(r.compagnon), lireLeJardin(r.jardin)])),
+      envies: envies.rows.map(r => ({ compagnon: String(r.compagnon), envie: String(r.envie) })),
+      cadeaux: cadeaux.rows.map(r => ({ compagnon: String(r.compagnon), jour: String(r.jour), objet: String(r.objet), grand: Number(r.grand) === 1 })),
+      records: new Map(records.rows.map(r => [String(r.compagnon), Number(r.record) || 0])),
+      troisEtoiles: Number(total?.trois) || 0,
+      derniereCueillette: total?.derniere == null ? null : Number(total.derniere),
+    }
+  }
+
+  /** Comble une envie du jour, une fois : la seconde n'écrit rien. */
+  async comblerUneEnvie(profileId: string, compagnon: string, jour: string, envie: Envie, quand: number): Promise<void> {
+    await this.client.execute({
+      sql: 'INSERT INTO profile_envies (profile_id, compagnon, jour, envie, faite_le) VALUES (?, ?, ?, ?, ?) ON CONFLICT(profile_id, compagnon, jour, envie) DO NOTHING',
+      args: [profileId, compagnon, jour, envie, quand],
+    })
+  }
+
+  /**
+   * Ouvre le cadeau d'un jour, une fois : deux ouvertures parties ensemble
+   * tirent le même (la graine de `core/soins.ts`), et la seconde n'écrit
+   * rien. Rend le cadeau tel que la base le garde.
+   */
+  async ecrireLeCadeau(profileId: string, compagnon: string, jour: string, objet: string, grand: boolean, quand: number): Promise<{ objet: string; grand: boolean }> {
+    const [, lu] = await this.client.batch(
+      [
+        {
+          sql: 'INSERT INTO profile_cadeaux (profile_id, compagnon, jour, objet, grand, ouvert_le) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(profile_id, compagnon, jour) DO NOTHING',
+          args: [profileId, compagnon, jour, objet, grand ? 1 : 0, quand],
+        },
+        { sql: 'SELECT objet, grand FROM profile_cadeaux WHERE profile_id = ? AND compagnon = ? AND jour = ?', args: [profileId, compagnon, jour] },
+      ],
+      'write',
+    )
+    const r = lu.rows[0]
+    return { objet: String(r.objet), grand: Number(r.grand) === 1 }
+  }
+
+  /** Écrit une partie de cueillette, et l'envie de jouer qu'elle comble — la première du jour ; les suivantes n'en écrivent pas d'autre. */
+  async ecrireLaCueillette(profileId: string, compagnon: string, jour: string, score: number, quand: number): Promise<void> {
+    await this.client.batch(
+      [
+        { sql: 'INSERT INTO profile_cueillettes (profile_id, compagnon, jouee_le, score) VALUES (?, ?, ?, ?) ON CONFLICT(profile_id, jouee_le) DO NOTHING', args: [profileId, compagnon, quand, score] },
+        {
+          sql: "INSERT INTO profile_envies (profile_id, compagnon, jour, envie, faite_le) VALUES (?, ?, ?, 'jeu', ?) ON CONFLICT(profile_id, compagnon, jour, envie) DO NOTHING",
+          args: [profileId, compagnon, jour, quand],
+        },
+      ],
+      'write',
+    )
+  }
+
+  /** Son jardin, tel que `core/soins.ts` l'a vérifié — vide, la colonne se vide. */
+  async ecrireLeJardin(profileId: string, compagnon: string, jardin: Readonly<Record<string, string>>): Promise<void> {
+    await this.client.execute({
+      sql: 'UPDATE profile_compagnons SET jardin = ? WHERE profile_id = ? AND compagnon = ?',
+      args: [Object.keys(jardin).length > 0 ? JSON.stringify(jardin) : null, profileId, compagnon],
+    })
   }
 
   /**
@@ -4529,6 +4682,9 @@ export class ProfileStore {
           'profile_loge_vus',
           'profile_missions',
           'profile_coffres',
+          'profile_envies',
+          'profile_cadeaux',
+          'profile_cueillettes',
         ].map(table => ({
           sql: `DELETE FROM ${table} WHERE profile_id = ?`,
           args: [profileId],
