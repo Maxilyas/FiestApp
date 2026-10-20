@@ -48,6 +48,43 @@ test('la souris et le clavier gardent le click', () => {
   assert.equal(n, 1)
 })
 
+test('le click qui suit un doigt ne touche pas le bouton qui a glissé sous lui', () => {
+  // La frise, au téléphone (le retour du propriétaire du 20 octobre 2026 : « tant que l'on n'a pas mis le bon ordre, ça enlève
+  // tout de ce qu'on a mis. On peut pas cliquer sur effacer ou valider ») : la carte posée quitte sa rangée, « Effacer » remonte
+  // sous le doigt, et le click que le navigateur fait suivre y tombait — tout ce qui était posé s'effaçait, et les deux boutons
+  // s'éteignaient. Passé par toucher, le bouton ignore cet écho.
+  let posees = 0
+  let effacees = 0
+  const carte = toucher(() => posees++)
+  const effacer = toucher(() => effacees++)
+  carte.onPointerUp(doigt(50_000))
+  effacer.onClick(clic(50_020))
+  assert.deepEqual([posees, effacees], [1, 0])
+  // Touché pour de bon, il efface.
+  effacer.onPointerUp(doigt(50_400))
+  assert.equal(effacees, 1)
+})
+
+test('« Effacer » et « Valider » des formes qui se posent passent par toucher — la forme à composer, la frise, et celles à venir', () => {
+  const source = readFileSync(client('views/ExpeditionApp.tsx'), 'utf8').replaceAll('=>', '⇒')
+  const rangees = source
+    .split('className="exp-composer-gestes"')
+    .slice(1)
+    .map(r => r.slice(0, r.indexOf('</div>')))
+  assert.ok(rangees.length >= 2, 'la forme à composer et la frise')
+  for (const r of rangees) {
+    const balises = r
+      .split('<button')
+      .slice(1)
+      .map(b => b.slice(0, b.indexOf('>')))
+    assert.ok(balises.length > 0, 'une rangée de gestes sans bouton')
+    for (const b of balises) {
+      assert.doesNotMatch(b, /onClick=/, 'un geste qui répond au click seul : l’écho d’une carte posée y tombe')
+      assert.match(b, /toucher\(/, 'un geste sans toucher')
+    }
+  }
+})
+
 test('chaque case de réponse du téléphone passe par toucher, et arrive sur place', () => {
   for (const f of ['games/quiz/PlayerView.tsx', 'views/CampagneApp.tsx']) {
     // La balise ouvrante de chaque bouton : jusqu'au premier « > » qui n'est pas une flèche.

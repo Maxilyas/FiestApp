@@ -31,6 +31,13 @@ description: Regarder une page ou un écran de FiestApp comme le verra un invit�
   '--force-gpu-mem-available-mb=64'] })`, en 412 × 915 à la densité 2,625,
   la photo une seconde après le geste — quatre secondes après, la mémoire
   s'est libérée et tout est dessiné.
+- **Un doigt n'est pas une souris** : au lever du doigt, le navigateur fait
+  suivre un `click`, qui tombe sur ce qui a glissé sous lui ; la souris ne
+  le rejoue pas. Un geste qui change la page sous le doigt — une carte
+  posée, une rangée qui se vide — se regarde dans un contexte
+  `hasTouch: true`, au `tap()` plutôt qu'au `click()` : la frise effaçait
+  tout ce qu'on y posait au doigt, et `rendu-frise.ts`, qui posait à la
+  souris, ne l'avait pas vu (le 20 octobre 2026 ; règle `client.md`).
 - **Les lancer** : depuis `server/`, `npx tsx scripts/<script>.ts
   ../export/<dossier>` — sans dossier, les photos tombent dans un dossier
   de `server/` que git n'ignore pas (`rendu-themes.ts` écrit dans

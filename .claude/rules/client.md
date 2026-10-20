@@ -92,6 +92,16 @@ paths:
   « Garder ma progression », et « ← Retour » ne le vide pas : refusé, puis
   « Créer un profil », il attend dans le champ. L'écart que
   `champsAuChangement` a fermé dans `ProfilForm` reste ouvert ici.
+- **Un bouton voisin de cases prises au lever du doigt passe lui aussi par
+  `toucher`** (`client/src/toucher.ts`). Prise au lever du doigt, une case
+  change la page avant le `click` que le navigateur fait suivre, et ce
+  `click` tombe sur ce qui a glissé sous le doigt : un bouton au seul
+  `onClick` le reçoit. La frise de l'expédition effaçait ainsi tout ce qu'on
+  y posait — une rangée de cartes vidée, « Effacer » remontait sous le
+  doigt —, et « Valider » aurait jugé une frise qu'on ne lui avait pas
+  donnée (le retour du propriétaire du 20 octobre 2026). `toucher` ignore
+  cet écho pendant 800 ms, pour tout bouton qui passe par lui
+  (`toucher.test.ts`).
 - **Une clé du stockage du navigateur se lit et s'écrit sous try/catch**
   (comme `writeSafe`) : un stockage refusé au chargement d'un module rendait
   la page de jeu noire, et rien ne le vérifie partout. Les clés commencent
