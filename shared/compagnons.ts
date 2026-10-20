@@ -62,7 +62,7 @@ export const MONTREE_DE_LA_METAMORPHOSE = 4
 /** Le nom qu'on lui donne (« Nox ») : court, il tient sous sa niche et sur une ligne de sa fiche. */
 export const NOM_D_UN_COMPAGNON_MAX = 16
 
-export type CleDeCompagnon = 'loup' | 'chat' | 'tortue' | 'luciole'
+export type CleDeCompagnon = 'loup' | 'chat' | 'tortue' | 'luciole' | 'panda'
 
 /**
  * Où se gagne un compagnon qui ne s'achète pas : la luciole, au bout d'une
@@ -196,9 +196,29 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
     ['aurore', 'La luciole-aurore', 'Ailes en voiles d’aurore boréale, lanterne en petit soleil.'],
     'expedition',
   ],
+  // Le panda roux, le dernier venu de la boutique (le 20 octobre 2026) : après la
+  // luciole dans le catalogue, pour que rien de ce qui s'y comptait par rang ne bouge,
+  // mais vendu comme les trois premiers (`COMPAGNONS_DE_LA_BOUTIQUE` ne retient que
+  // ceux qui ne se gagnent pas). Sa métamorphose, le panda des cerisiers, a été
+  // choisie par le propriétaire parmi quatre thèmes (neige, nuages, cascade, sakura) :
+  // celle des Nuages est peinte, et attend sa règle avec l'ombre des autres.
+  [
+    'panda',
+    'Le Panda roux',
+    'le',
+    '🐼',
+    'Un panda roux au poil de braise, le museau crème et de grands yeux d’ambre : il garde sa queue rayée enroulée contre lui.',
+    [
+      ['bebe', 'Le bébé panda roux', 'Tout rond et tout duveteux, ses grands yeux d’ambre et sa queue rayée enroulée autour de lui.'],
+      ['jeune', 'Le jeune panda roux', 'Dégingandé et curieux, dans une bambouseraie à l’aube.'],
+      ['adulte', 'Le panda roux adulte', 'Sur une branche moussue, au-dessus d’une forêt de brume et d’érables.'],
+      ['erable', 'Le panda des érables', 'Son poil de braise, ses feuilles d’or qui tourbillonnent : elles sortent du cercle.'],
+    ],
+    ['sakura', 'Le panda des cerisiers', 'Poil rose nacré, pétales qui tourbillonnent, une longue queue de fleurs.'],
+  ],
 ]
 
-/** Les quatre compagnons : ceux de la boutique, dans l'ordre de ses rayons, puis la luciole de l'Expédition. */
+/** Les cinq compagnons : ceux de la boutique, dans l'ordre de ses rayons, la luciole de l'Expédition, puis le panda roux. */
 export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, emoji, phrase, formes, lumiere, gagne]) => {
   const c: Compagnon = {
     key,
@@ -230,7 +250,7 @@ export const COMPAGNONS_DE_LA_BOUTIQUE: readonly Compagnon[] = COMPAGNONS.filter
 /** Le compagnon qu'amène la Première traversée : la luciole, à qui mène une expédition au bout — le troisième gardien vaincu. */
 export const COMPAGNON_DE_L_EXPEDITION: CleDeCompagnon = 'luciole'
 
-/** Leurs seize formes, compagnon après compagnon. */
+/** Leurs vingt formes, compagnon après compagnon. */
 export const FORMES_DES_COMPAGNONS: readonly FormeDeCompagnon[] = COMPAGNONS.flatMap(c => c.formes)
 
 /** Leurs métamorphoses de lumière, à part : elles ne se gagnent pas en grandissant. */

@@ -43,9 +43,9 @@ const PUBLICS = new URL('../../client/public/compagnons/', import.meta.url)
 const POIDS_MAX: Record<string, number> = { '512': 130_000, '256': 46_000 }
 
 /** Les couches vivantes de chaque forme ultime, celles que `Compagnon.tsx` pose. */
-const COUCHES: Record<string, string[]> = { loup: ['rubans'], chat: ['feux', 'lanternes'], tortue: ['brume', 'oiseaux'], luciole: ['lucioles'] }
+const COUCHES: Record<string, string[]> = { loup: ['rubans'], chat: ['feux', 'lanternes'], tortue: ['brume', 'oiseaux'], luciole: ['lucioles'], panda: ['feuilles'] }
 
-/** Toutes les formes qui se peignent : les seize — la luciole comprise, livrée le 20 octobre 2026 —, et les quatre métamorphoses — la luciole-aurore, peinte le même jour. */
+/** Toutes les formes qui se peignent : les vingt — la luciole comprise, livrée le 20 octobre 2026, et le panda roux le même jour —, et les cinq métamorphoses — la luciole-aurore et le panda des cerisiers, peints le même jour. */
 const PEINTES: readonly FormeDeCompagnon[] = [...FORMES_DES_COMPAGNONS, ...METAMORPHOSES]
 
 /** Le nom de ses fichiers : `loup-ultime`, et sa métamorphose sous son nom dans la chaîne, `loup-eclat-tempete`. */

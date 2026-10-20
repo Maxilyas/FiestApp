@@ -93,6 +93,13 @@ const CADRAGES: Readonly<Record<string, { taille: number; gauche: number; haut: 
   // niche contre la ligne de la constellation : le visage au milieu, ses deux
   // voiles d'aurore de part et d'autre — plus grande, on ne lisait plus ses ailes.
   'cp:luciole-aurore': { taille: 1.9, gauche: -0.322, haut: -0.25, miroir: false },
+  // Le panda roux (le 20 octobre 2026) : sa tête, mesurée sur ses humeurs livrées, à 60 % de
+  // la largeur de la niche et un peu au-dessus du milieu — il regarde déjà la page, de face.
+  'cp:panda-bebe': { taille: 1.05, gauche: -0.025, haut: 0.051, miroir: false },
+  'cp:panda-jeune': { taille: 1.5, gauche: -0.52, haut: -0.075, miroir: false },
+  'cp:panda-adulte': { taille: 1.62, gauche: -0.36, haut: -0.036, miroir: false },
+  'cp:panda-erable': { taille: 1.5, gauche: -0.055, haut: 0.045, miroir: false },
+  'cp:panda-sakura': { taille: 1.62, gauche: -0.36, haut: 0.045, miroir: false },
 }
 
 /** Sans cadrage : le dessin entier, au fond de la niche. */
@@ -126,6 +133,11 @@ const SILHOUETTES: Readonly<Record<string, readonly [number, number, number, num
   'cp:chat-soleil': [0.018, 0.023, 0.954, 0.984],
   'cp:tortue-fleurs': [0.004, 0.06, 0.996, 0.996],
   'cp:luciole-aurore': [0.004, 0.004, 0.996, 0.708],
+  'cp:panda-bebe': [0.176, 0.068, 0.826, 0.893],
+  'cp:panda-jeune': [0.059, 0.084, 0.93, 0.965],
+  'cp:panda-adulte': [0.068, 0.102, 0.828, 0.909],
+  'cp:panda-erable': [0.028, 0.1, 0.889, 0.97],
+  'cp:panda-sakura': [0.06, 0.068, 0.79, 0.95],
 }
 
 /** Ce qui s'envole quand on le caresse : des cœurs et des étincelles, comme à la boutique — des emojis d'avant Unicode 13. */
@@ -138,6 +150,7 @@ export const PROPOSITIONS: Readonly<Record<CleDeCompagnon, string>> = {
   tortue: 'Jade, Caillou, Mousse…',
   // Lumi, son nom de la maquette (le 18 octobre 2026), comme Nox celui du loup de Léa.
   luciole: 'Lumi, Lueur, Pollen…',
+  panda: 'Roux, Noisette, Caramel…',
 }
 
 /** La forme que la niche montre : celle qu'il a choisie, sinon sa plus haute (`formeDansLaNiche`). */

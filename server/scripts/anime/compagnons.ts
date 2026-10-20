@@ -16,6 +16,7 @@
 //   … --eclat=tempete                  # la métamorphose gardée : son décor, sa découpe, ses expressions
 //   … --regenerer=adulte,adulte-ravi   # repayer ces images, et ce qui part d'elles
 //   … --seulement=eclat-aurore         # ne peindre que ces images, et ce qui part d'elles
+//   … --seulement=bebe,jeune --exactement   # ne peindre que celles-là, sans ce qui en part
 //
 // Une expression ne se pose pas sur une illustration qui porte déjà le loup
 // neutre : la tête baissée du dépité laissait voir l'autre derrière elle. Le
@@ -189,6 +190,8 @@ interface Eclat {
   entier?: boolean
   /** Ses expressions à lui, quand celles de tous ne suffisent pas. */
   expressions?: Partial<Record<Expression, string>>
+  /** Les images dont elle part, quand ce n'est pas la seule forme ultime : le bébé pour le visage, par exemple. */
+  depart?: string[]
 }
 
 /**
@@ -239,6 +242,11 @@ interface Compagnon {
   eclats: Record<string, Eclat>
   /** Les couches vivantes de sa forme ultime. */
   vivant?: Vivant[]
+  /**
+   * Un portrait choisi d'avance, que le propriétaire a validé (`reference.jpg` dans son dossier) : la planche de
+   * modèle le prend pour son premier âge, au lieu d'inventer l'individu.
+   */
+  reference?: boolean
   /** La pose de son entrée en scène, repeinte sur la découpe de la forme ultime — si l'entrée se fait. */
   bond?: string
 }
@@ -665,13 +673,144 @@ const LUCIOLE: Compagnon = {
   ],
 }
 
-const COMPAGNONS: Compagnon[] = [LOUP, CHAT, TORTUE, LUCIOLE]
+/** Une métamorphose douce du panda : le visage du bébé, le corps et le rendu de la forme ultime. */
+const METAMORPHOSE_DOUCE = (theme: string) =>
+  'Two attached images. The FIRST is this companion as a baby: it gives its face — huge round sparkling amber eyes, chubby cheeks, small heart nose, ' +
+  'cream markings, tender baby-like features. The SECOND is its grown ultimate form: it gives the body, coat and the rendering style. Paint its rare ' +
+  `variant, a true metamorphosis recomposed from scratch, nothing like a recolor. ${theme} ` +
+  'It is first and foremost ADORABLE — a round, sweet, baby-like face with huge luminous amber eyes, plush fluffy fur, charming rounded proportions, ' +
+  'never fierce, never realistic — and at the same time MAJESTIC: a regal bearing in a magnificent scene. It has exactly ONE tail. ' +
+  'Premium stylized 3D animated film rendering, soft plush fur, exactly the style of the attached images; never a painterly illustration, never ' +
+  'photorealistic. Framing: the character is large, filling about 85% of the canvas, its whole body inside the canvas with a small margin on every ' +
+  'side. No text, no frame, no watermark. Output one square image (1:1 aspect ratio).'
+
+/**
+ * Le panda roux : choisi par le propriétaire le 20 octobre 2026 sur le candidat 2 de ses essais
+ * (`export/compagnons/panda/candidats/`), d'après son prompt — un bébé tout rond, le poil roux
+ * épais, les yeux ambrés immenses. Les couleurs de son pelage ne portent ni vert ni magenta : le
+ * fond vert des découpes, comme pour le loup. Ses métamorphoses attendent le choix du propriétaire.
+ */
+const PANDA: Compagnon = {
+  id: 'panda',
+  reference: true,
+  identite:
+    'Its identity never changes from one age to the next: a rich, plush reddish-orange coat; a cream-white face with a soft white muzzle, ' +
+    'two small cream-white brow spots above the eyes and big cream-white cheek patches; small rounded ears with soft white fur outside and ' +
+    'russet inside; big sparkling amber eyes with several catchlights; a small heart-shaped dark-brown nose; dark russet chest and legs; a ' +
+    'fluffy tail ringed in rust-red and pale apricot bands. It must look like a red panda, never a giant panda or a fox. At EVERY age it keeps ' +
+    'the eyes of the baby: large, round, wide-open amber eyes with several soft catchlights, a tender and innocent gaze — only a little smaller ' +
+    'against the face as it grows, never small, beady or realistic animal eyes. The rendering is the same at every age: stylized, soft, ' +
+    'premium 3D animated film — appealing rounded shapes and plush fur, never photorealistic, never a painterly illustration.',
+  ages: [
+    'a tiny baby red panda sitting shyly, tiny and fluffy, with an oversized round head, chubby cheeks, tiny rounded ears and its paws resting ' +
+      'together, its striped tail curled around its little body',
+    'a half-grown young red panda, visibly younger and smaller than the adult — a slimmer, lanky body on longer legs, bigger ears, a slightly ' +
+      'longer snout, still fluffy juvenile fur, a round curious face and a tail still too big for it',
+    'the adult red panda, sleek, graceful and calm, with a full bushy ringed tail',
+    'its mythic ultimate form — larger and majestic, its fur glowing like autumn embers lit from within, golden light tracing the rings of its ' +
+      'great tail, drifting glowing maple leaves of gold and crimson all around it',
+  ],
+  formes: [
+    { id: 'bebe', garde: 'the baby red panda' },
+    {
+      id: 'jeune',
+      decor: 'a bamboo grove and mossy rocks in morning mist, soft golden sunbeams between the stems, a few leaves drifting down',
+      taille: 'It is still small: it fills only about 55% of the canvas height, with plenty of setting around it.',
+      garde: 'the young red panda — its head, ears, body, legs, paws and tail',
+      retirer: 'the bamboo, the rocks, the mist, the sunbeams, the drifting leaves and the sky',
+    },
+    {
+      id: 'adulte',
+      decor: 'a thick mossy branch of an ancient tree high in a misty mountain forest at golden hour, fiery maple trees glowing far below',
+      deborde: 'its raised head and pricked ears',
+      garde: 'the red panda — its head, ears, body, legs, paws and tail',
+      retirer: 'the branch, the moss, the trees, the mist and the sky',
+    },
+    {
+      id: 'erable',
+      entier: true,
+      decor: 'a sea of crimson and golden maple trees under an immense amber sunset sky, glowing leaves rising in the warm air',
+      garde: 'the great red panda with the glowing maple leaves swirling right around it',
+      retirer: 'the sky, the maple trees, the sunset and the distant leaves',
+    },
+  ],
+  // La queue ne bouge pas : une queue levée laissait celle de l'illustration enroulée devant le corps,
+  // et le panda en avait deux (le bébé ravi, l'ultime triomphant ; le 20 octobre 2026).
+  expressions: {
+    ravi:
+      'JOYFUL — bright smiling eyes, mouth open in a happy little smile, chubby cheeks lifted, ears perked up. Its tail stays exactly where it ' +
+      'is and as it is: it has ONE tail — never lift, add or duplicate it',
+    depite:
+      'DISAPPOINTED, in a cute and gentle way, never tragic — ears folded down, head a little lowered, big sad eyes looking up, mouth closed ' +
+      'in a small pout',
+    triomphe:
+      'TRIUMPHANT — chest puffed out, head held high, mouth open in a proud joyful squeak, ears up, one front paw raised. Its tail stays exactly ' +
+      'where it is and as it is: it has ONE tail — never lift, add or duplicate it',
+  },
+  // Deux métamorphoses, jamais figées ni féroces : le propriétaire a refusé l'aurore et la lune, trop
+  // dures (le 20 octobre 2026 : « plus mignon et majestueux »), puis retenu le Sakura et les Nuages
+  // parmi quatre thèmes — la forme ultime reste un panda roux, la métamorphose en est un autre monde.
+  // Peintes d'après le bébé (le visage) et la forme ultime (le corps, le rendu) ; un seul panda, une seule queue.
+  eclats: {
+    sakura: {
+      nom: 'Le panda des cerisiers',
+      voie: 'lumiere',
+      consigne: METAMORPHOSE_DOUCE(
+        'THEME — the spirit of spring blossoms: its plush orange coat now dusted with soft pearly-white and blush-pink glow, its single great ringed tail ' +
+          'trailing a long ribbon of swirling cherry-blossom petals; a halo of floating petals around its head (made of petals, no object). Scene: a ' +
+          'giant ancient cherry tree in full bloom, soft golden spring light, a pond mirroring the petals. POSE: it sits proudly and gracefully on a ' +
+          'mossy arching branch, chest out, head gently tilted toward us with a sweet, serene smile, one front paw delicately lifted toward a falling petal.',
+      ),
+      garde: 'the pink panda with its single tail and the ribbon of swirling petals trailing from it, and the floating petals right around it',
+      retirer:
+        'the cherry tree, ALL the blossoms and flower clusters on branches (including those at the corners and edges of the picture), the branch, the ' +
+        'moss, the pond, the sky and the distant falling petals — only the ring of petals right around its head and the ribbon of petals from its tail stay',
+      opaque: 'the translucent ribbon of petals that trails from its tail',
+      chroma: 'vert',
+      entier: true,
+      depart: ['bebe', 'erable'],
+    },
+    nuages: {
+      nom: 'Le panda des nuages',
+      voie: 'ombre',
+      consigne: METAMORPHOSE_DOUCE(
+        'THEME — the spirit of the sky: its fur softly lit like a sunset cloud, fluffy cloud-puffs and tiny gold stars in its coat, its single great ' +
+          'ringed tail trailing a long soft ribbon of pastel sunset light. Scene: high above an ocean of fluffy pastel clouds at golden hour, rays of ' +
+          'sunlight, floating glittering stardust. POSE: it glides forward through the air toward us on a swirl of cloud, all four paws tucked, ears ' +
+          'and fur streaming back in the wind, eyes sparkling with wonder and joy, a big delighted smile — weightless and free.',
+      ),
+      garde: 'the cloud panda with its single tail, the little clouds and stars on its coat and the soft ribbon of light trailing from its tail',
+      retirer: 'the sky, the ocean of clouds, the rays of sunlight, the big distant clouds, the stardust and the swirl of cloud under it',
+      opaque: 'the translucent ribbon of light that trails from its tail',
+      chroma: 'vert',
+      entier: true,
+      depart: ['bebe', 'erable'],
+    },
+  },
+  vivant: [
+    {
+      cle: 'feuilles',
+      mode: 'lumiere',
+      consigne:
+        'drifting glowing maple leaves of gold and crimson and tiny floating sparks of warm amber light, like a gentle autumn wind forming a loose ring around the frame, the center left empty',
+    },
+  ],
+}
+
+const COMPAGNONS: Compagnon[] = [LOUP, CHAT, TORTUE, LUCIOLE, PANDA]
 
 const FEUILLE = (c: Compagnon, style: string) =>
   [
     'Character model sheet for an original collectible companion of a party quiz game: ONE animal shown at four ages, side by side from left ' +
       'to right, evenly spaced, each full body in a three-quarter view facing slightly left, on one plain light grey background — no ground, no scenery.',
     `From left to right: 1) ${c.ages[0]}; 2) ${c.ages[1]}; 3) ${c.ages[2]}; 4) ${c.ages[3]}.`,
+    ...(c.reference
+      ? [
+          'The attached image is the validated portrait of this companion as a baby. The first (youngest) age must be exactly this individual — ' +
+            'the same face, markings, eyes, nose, ears, proportions, fur colors and rendering — shown here sitting full body, in a three-quarter ' +
+            'view. The three other ages are the same individual, grown.',
+        ]
+      : []),
     c.identite,
     style,
     ORIGINAL,
@@ -717,7 +856,7 @@ function travaux(c: Compagnon, style: string | undefined, eclats: string[]): Tra
   // Un style déjà choisi n'a plus d'essai : sa planche de modèle se peint seule,
   // la première, pour un compagnon qui n'en a pas encore.
   const feuille = `feuille-${style}`
-  const t: Travail[] = [{ nom: feuille, consigne: FEUILLE(c, s.consigne), sources: [], format: '16:9' }]
+  const t: Travail[] = [{ nom: feuille, consigne: FEUILLE(c, s.consigne), sources: c.reference ? ['reference'] : [], format: '16:9' }]
   c.formes.forEach((f, i) => {
     t.push({ nom: f.id, sources: [feuille], consigne: consigneDeForme(c, i, s.consigne) })
     if (f.decor) {
@@ -739,7 +878,7 @@ function travaux(c: Compagnon, style: string | undefined, eclats: string[]): Tra
   if (eclats.some(x => !(x in c.eclats))) throw new Error(`--eclat=${eclats.join(',')} : pas une métamorphose (${Object.keys(c.eclats).join(', ')})`)
   for (const [cle, e] of Object.entries(c.eclats)) {
     const nom = `eclat-${cle}`
-    t.push({ nom, sources: [ultime], consigne: e.consigne })
+    t.push({ nom, sources: e.depart ?? [ultime], consigne: e.consigne })
     if (!eclats.includes(cle)) continue
     t.push({ nom: `${nom}-decor`, sources: [nom], consigne: DECOR_SEUL(e.garde) })
     t.push({ nom: `${nom}-decoupe`, sources: [nom], consigne: DECOUPE(e.garde, e.retirer, e.chroma, e.opaque) })
@@ -792,7 +931,8 @@ function etCeQuiEnPart(noms: string[], tous: Travail[]): Set<string> {
 const TOUS = travaux(compagnon, STYLE, ECLATS)
 const inconnues = liste('seulement').filter(n => !TOUS.some(t => t.nom === n))
 if (inconnues.length) throw new Error(`--seulement=${inconnues.join(',')} : pas une image de la chaîne (${TOUS.map(t => t.nom).join(', ')})`)
-const seulement = liste('seulement').length ? etCeQuiEnPart(liste('seulement'), TOUS) : null
+// `--exactement` : seulement ces images, sans ce qui en part — pour juger les quatre formes avant de payer leurs découpes.
+const seulement = liste('seulement').length ? (args.includes('--exactement') ? new Set(liste('seulement')) : etCeQuiEnPart(liste('seulement'), TOUS)) : null
 const TRAVAUX = seulement ? TOUS.filter(t => seulement.has(t.nom)) : TOUS
 
 // Ce qu'on repaie, et tout ce qui part de lui : une découpe repeinte change la
