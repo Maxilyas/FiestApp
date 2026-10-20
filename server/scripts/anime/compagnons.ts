@@ -190,6 +190,8 @@ interface Eclat {
   entier?: boolean
   /** Ses expressions à lui, quand celles de tous ne suffisent pas. */
   expressions?: Partial<Record<Expression, string>>
+  /** Les images dont elle part, quand ce n'est pas la seule forme ultime : le bébé pour le visage, par exemple. */
+  depart?: string[]
 }
 
 /**
@@ -671,6 +673,17 @@ const LUCIOLE: Compagnon = {
   ],
 }
 
+/** Une métamorphose douce du panda : le visage du bébé, le corps et le rendu de la forme ultime. */
+const METAMORPHOSE_DOUCE = (theme: string) =>
+  'Two attached images. The FIRST is this companion as a baby: it gives its face — huge round sparkling amber eyes, chubby cheeks, small heart nose, ' +
+  'cream markings, tender baby-like features. The SECOND is its grown ultimate form: it gives the body, coat and the rendering style. Paint its rare ' +
+  `variant, a true metamorphosis recomposed from scratch, nothing like a recolor. ${theme} ` +
+  'It is first and foremost ADORABLE — a round, sweet, baby-like face with huge luminous amber eyes, plush fluffy fur, charming rounded proportions, ' +
+  'never fierce, never realistic — and at the same time MAJESTIC: a regal bearing in a magnificent scene. It has exactly ONE tail. ' +
+  'Premium stylized 3D animated film rendering, soft plush fur, exactly the style of the attached images; never a painterly illustration, never ' +
+  'photorealistic. Framing: the character is large, filling about 85% of the canvas, its whole body inside the canvas with a small margin on every ' +
+  'side. No text, no frame, no watermark. Output one square image (1:1 aspect ratio).'
+
 /**
  * Le panda roux : choisi par le propriétaire le 20 octobre 2026 sur le candidat 2 de ses essais
  * (`export/compagnons/panda/candidats/`), d'après son prompt — un bébé tout rond, le poil roux
@@ -734,54 +747,42 @@ const PANDA: Compagnon = {
       'TRIUMPHANT — chest puffed out, head held high, mouth open in a proud joyful squeak, ears up, one front paw raised. Its tail stays exactly ' +
       'where it is and as it is: it has ONE tail — never lift, add or duplicate it',
   },
-  // Deux métamorphoses vivantes, jamais figées (le propriétaire, le 20 octobre 2026 : « un avatar vivant,
-  // extrêmement majestueux, ou en action ») : l'une avance, l'autre se dresse. Un seul panda, une seule
-  // queue — la première version du triomphe en avait deux, sa queue levée et celle de l'illustration.
+  // Deux métamorphoses, jamais figées ni féroces : le propriétaire a refusé l'aurore et la lune, trop
+  // dures (le 20 octobre 2026 : « plus mignon et majestueux »), puis retenu le Sakura et les Nuages
+  // parmi quatre thèmes — la forme ultime reste un panda roux, la métamorphose en est un autre monde.
+  // Peintes d'après le bébé (le visage) et la forme ultime (le corps, le rendu) ; un seul panda, une seule queue.
   eclats: {
-    aurore: {
-      nom: 'Le panda d’aurore',
+    sakura: {
+      nom: 'Le panda des cerisiers',
       voie: 'lumiere',
-      consigne: METAMORPHOSE(
-        'its rich reddish-orange plush coat, its cream-white face markings, its big round amber eyes, its small rounded ears, its single fluffy ringed tail',
-        'It becomes the spirit of the first dawn: its fur woven of sunrise gold and rose-quartz light, glowing from within, its single great ringed tail ' +
-          'streaming behind it like a long banner of golden fire and drifting cherry-blossom petals of light; golden mist curling around its paws. ' +
-          'Its scene: a mountain ridge above a sea of clouds at the instant the sun rises, the whole sky ablaze in gold, coral and soft pink. ' +
-          'It has exactly ONE tail.',
-        'It is in full motion, never posed: it strides powerfully toward the viewer along the ridge, seen from the front, one front paw stepping ' +
-          'forward, its fur and mane of cheek-fur lifted by the wind, head held high, its big luminous eyes shining with a calm, proud, tender ' +
-          'majesty — a guardian spirit of the morning, still round-faced and lovable.',
-        'vert',
+      consigne: METAMORPHOSE_DOUCE(
+        'THEME — the spirit of spring blossoms: its plush orange coat now dusted with soft pearly-white and blush-pink glow, its single great ringed tail ' +
+          'trailing a long ribbon of swirling cherry-blossom petals; a halo of floating petals around its head (made of petals, no object). Scene: a ' +
+          'giant ancient cherry tree in full bloom, soft golden spring light, a pond mirroring the petals. POSE: it sits proudly and gracefully on a ' +
+          'mossy arching branch, chest out, head gently tilted toward us with a sweet, serene smile, one front paw delicately lifted toward a falling petal.',
       ),
-      garde: 'the dawn panda with its single streaming ringed tail of golden light',
-      retirer: 'the mountain ridge, the clouds, the sky, the sun, the mist and the petals of light around it',
-      opaque: 'its streaming golden tail and the glowing light of its fur',
+      garde: 'the pink panda with its single tail and the ribbon of swirling petals trailing from it, and the floating petals right around it',
+      retirer: 'the cherry tree, the blossoms, the branch, the moss, the pond, the sky and the distant falling petals',
+      opaque: 'the translucent ribbon of petals that trails from its tail',
       chroma: 'vert',
       entier: true,
-      expressions: {
-        triomphe: 'TRIUMPHANT — chest out, head thrown back, mouth open in a proud joyful cry, its single tail blazing high behind it',
-      },
+      depart: ['bebe', 'erable'],
     },
-    lune: {
-      nom: 'Le panda de lune',
+    nuages: {
+      nom: 'Le panda des nuages',
       voie: 'ombre',
-      consigne: METAMORPHOSE(
-        'its plush coat, its cream-white face markings, its big round eyes, its small rounded ears, its single fluffy ringed tail',
-        'It becomes a moon spirit of the night forest: its fur turned deep midnight blue and silver, its face markings glowing like moonlight, its ' +
-          'big eyes shining pale silver-blue, its single great ringed tail trailing soft silver-blue flames and black maple leaves; fireflies of ' +
-          'cold light drift around it. Its scene: a vast night sky with an immense full moon, a misty black forest and a ' +
-          'moonlit stone cliff. It has exactly ONE tail.',
-        'It is in full motion, never posed: it rears up powerfully on its hind legs on the cliff edge, its front paws spread wide, chest out, head ' +
-          'raised and turned toward us with an intense, fearless, majestic gaze, its fur and tail swept by a night wind — a king of the night, ' +
-          'still round-faced and lovable.',
-        'vert',
+      consigne: METAMORPHOSE_DOUCE(
+        'THEME — the spirit of the sky: its fur softly lit like a sunset cloud, fluffy cloud-puffs and tiny gold stars in its coat, its single great ' +
+          'ringed tail trailing a long soft ribbon of pastel sunset light. Scene: high above an ocean of fluffy pastel clouds at golden hour, rays of ' +
+          'sunlight, floating glittering stardust. POSE: it glides forward through the air toward us on a swirl of cloud, all four paws tucked, ears ' +
+          'and fur streaming back in the wind, eyes sparkling with wonder and joy, a big delighted smile — weightless and free.',
       ),
-      garde: 'the moon panda with its single tail trailing silver-blue flames and the black leaves around its body',
-      retirer: 'the sky, the moon, the cliff, the forest, the mist and the distant fireflies',
+      garde: 'the cloud panda with its single tail, the little clouds and stars on its coat and the soft ribbon of light trailing from its tail',
+      retirer: 'the sky, the ocean of clouds, the rays of sunlight, the big distant clouds, the stardust and the swirl of cloud under it',
+      opaque: 'the translucent ribbon of light that trails from its tail',
       chroma: 'vert',
       entier: true,
-      expressions: {
-        ravi: 'GLEEFUL — its intense gaze turns into a wide delighted smile, eyes bright and happy instead of fierce — still a majestic spirit, just thrilled',
-      },
+      depart: ['bebe', 'erable'],
     },
   },
   vivant: [
@@ -875,7 +876,7 @@ function travaux(c: Compagnon, style: string | undefined, eclats: string[]): Tra
   if (eclats.some(x => !(x in c.eclats))) throw new Error(`--eclat=${eclats.join(',')} : pas une métamorphose (${Object.keys(c.eclats).join(', ')})`)
   for (const [cle, e] of Object.entries(c.eclats)) {
     const nom = `eclat-${cle}`
-    t.push({ nom, sources: [ultime], consigne: e.consigne })
+    t.push({ nom, sources: e.depart ?? [ultime], consigne: e.consigne })
     if (!eclats.includes(cle)) continue
     t.push({ nom: `${nom}-decor`, sources: [nom], consigne: DECOR_SEUL(e.garde) })
     t.push({ nom: `${nom}-decoupe`, sources: [nom], consigne: DECOUPE(e.garde, e.retirer, e.chroma, e.opaque) })
