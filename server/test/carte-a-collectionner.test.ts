@@ -118,7 +118,10 @@ test('elle se retourne : un dos pour un profil, rien pour l’invité sans profi
   assert.match(regle('.carte-pivot'), /grid-template:\s*minmax\(0, 1fr\) \/ minmax\(0, 1fr\);/)
   assert.match(regle('.carte-face'), /grid-area:\s*1 \/ 1;/)
   assert.match(regle('.carte-face'), /backface-visibility:\s*hidden;/)
-  assert.match(regle('.carte-dos'), /transform:\s*rotateY\(180deg\);/)
+  // Le translateZ explicite garde les faces dans le contexte 3D sur Safari iOS
+  // (sans lui, le recto restait visible en miroir au lieu du verso).
+  assert.match(regle('.carte-dos'), /transform:\s*rotateY\(180deg\) translateZ\(1px\);/)
+  assert.match(regle('.carte-face'), /transform:\s*rotateY\(0deg\) translateZ\(1px\);/)
   assert.match(regle('.carte-retournee'), /--tourne:\s*180deg;/)
   // Le mouvement réduit : ni inclinaison sous le doigt, ni retournement animé.
   assert.match(CARTE, /if \(!el \|\| sansMouvement\(\)\) return/)
