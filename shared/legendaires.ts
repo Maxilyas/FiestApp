@@ -428,6 +428,19 @@ export function cibleEclat(porte: string | null | undefined, emoji: string): str
 }
 
 /**
+ * Un Éclat tombé sur un avatar qui avait déjà éclaté ne se perd plus : il
+ * attend en réserve, et se dépense sur n'importe quel avatar qu'on a et qui
+ * n'a pas éclaté. Il vit dans `profile_eclats` sous une clé à part, que la
+ * dépense remplace par l'avatar choisi : il garde ainsi la soirée, le jour ou
+ * la semaine où il est tombé, et suit leur sort (un essai effacé le reprend).
+ */
+export const PREFIXE_DE_LA_RESERVE = 'reserve:'
+
+export function estEnReserve(cle: string): boolean {
+  return cle.startsWith(PREFIXE_DE_LA_RESERVE)
+}
+
+/**
  * Les légendaires qu'un profil a débloqués : ceux dont il remplit la règle
  * du jour, et ceux qu'il avait gagnés avant qu'elle se durcisse.
  *

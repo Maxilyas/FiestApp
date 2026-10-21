@@ -800,6 +800,11 @@ export interface PublicProfile {
    * d'origine. Absent d'un serveur d'avant, où tout ce qui a éclaté brille.
    */
   eclatsEteints?: string[]
+  /**
+   * Les Éclats tombés sur un avatar qui avait déjà éclaté : en réserve, ils
+   * attendent qu'il en choisisse un autre (`eclatDeReserve`). Absent d'un serveur d'avant.
+   */
+  eclatsEnReserve?: number
   /** Combien de badges il porte — le détail se demande à part. */
   badges: number
   /** L'avatar dessiné qu'il porte, s'il en porte un : un légendaire ou un Divin. */

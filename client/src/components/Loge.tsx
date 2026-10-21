@@ -220,7 +220,18 @@ export function Loge({
   // Sa carte, touchée : en grand, telle que la salle la verrait s'il portait l'essai.
   const [enGrand, setEnGrand] = useState(false)
   const laCarte = useALaDemande(carteJoueur, enGrand)
-  const props: PropsDUnePiece = { profil, essai, essayer, busy, neufs: new Set(neufs[piece]) }
+  const props: PropsDUnePiece = {
+    profil,
+    essai,
+    essayer,
+    busy,
+    neufs: new Set(neufs[piece]),
+    // Définitif : il ne passe jamais par l'essai, ni par « Porter ».
+    eclater: async cle => {
+      const depense: ChoixDuProfil = { eclatDeReserve: cle }
+      return !busy && (await enregistrer(depense))
+    },
+  }
   // La carte montre l'essai — et la version de l'avatar montré, s'il a éclaté pour lui.
   const vu = avecLEssai(profil, essai)
   const cible = cibleDeLEclat(avatarMontre(profil, essai))

@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
+import { confirmDialog } from './Dialog'
 import { Icon } from './Icon'
 import { Gemmes } from './Gemmes'
 import { AGagner } from './LigneDeCollection'
@@ -28,7 +29,7 @@ import { avatarMontre, avatarsNeufs, avecLEssai, bordureNeuve, type Essai } from
 import { avatarDeLApercu } from '../../../shared/sonAvatar'
 import { GerbeDeJuste } from './Gerbe'
 import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
-import { FINITIONS, NOM_FINITION, brilleChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import { FINITIONS, NOM_FINITION, brilleChez, clesQuiBrillent, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 import type { PropsDUnePiece } from './choix'
 
 // Les pièces de la loge (« M'habiller », au profil), chacune dans son
@@ -148,8 +149,28 @@ export function MesAvatars(props: PropsDUnePiece) {
   // pastille à suivre »). Quittée, la page le reprend : ses cases restent
   // marquées le temps de la visite, le chemin jusqu'à elles aussi.
   const estNeuf = avatarsNeufs(neufs)
+  // Un Éclat tombé sur un avatar qui avait déjà éclaté attend ici d'être dépensé : un autre avatar à lui éclate, pour toujours.
+  const reserve = profil.eclatsEnReserve ?? 0
+  const [choisit, setChoisit] = useState(false)
+  useEffect(() => {
+    if (reserve === 0) setChoisit(false)
+  }, [reserve])
   return (
     <section className="loge-avatars">
+      {reserve > 0 && props.eclater && (
+        <div className="loge-reserve" role="group" aria-label="Éclat en réserve">
+          <span className="loge-reserve-texte">
+            <b>{reserve === 1 ? '✨ Un Éclat en réserve' : `✨ ${reserve} Éclats en réserve`}</b>
+            <span className="muted small">
+              {choisit ? 'Touche l’avatar qui va éclater : c’est pour toujours.' : 'Il est tombé sur un avatar déjà éclaté. Fais-en éclater un autre.'}
+            </span>
+          </span>
+          {/* Un nom fixe, l'état par aria-pressed : « Annuler » à la place de « Choisir » se lisait comme un autre bouton. */}
+          <button type="button" className="btn btn-primary" aria-pressed={choisit} onClick={() => setChoisit(c => !c)}>
+            Choisir un avatar
+          </button>
+        </div>
+      )}
       <Gemmes
         gemmes={pages.map(p => ({
           id: p.page,
@@ -168,7 +189,7 @@ export function MesAvatars(props: PropsDUnePiece) {
         className="gemmes-loge"
       />
       <div className="loge-page-avatars" role="tabpanel" id="loge-page-avatars" aria-labelledby={`loge-gemme-${page.page}`}>
-        <PageDAvatars {...props} page={page} />
+        <PageDAvatars {...props} page={page} aEclater={choisit} onEclate={() => setChoisit(false)} />
       </div>
     </section>
   )
@@ -181,7 +202,22 @@ export function MesAvatars(props: PropsDUnePiece) {
  * portrait, un légendaire, un compagnon ou un Divin, sans l'emoji dessous en
  * attendant.
  */
-export function PageDAvatars({ profil, essai, essayer, neufs, page }: PropsDUnePiece & { page: PageDAvatars }) {
+export function PageDAvatars({
+  profil,
+  essai,
+  essayer,
+  neufs,
+  page,
+  eclater,
+  aEclater = false,
+  onEclate,
+}: PropsDUnePiece & {
+  page: PageDAvatars
+  /** Il dépense un Éclat en réserve : un toucher choisit l'avatar qui éclate, au lieu de l'essayer. */
+  aEclater?: boolean
+  /** L'Éclat est dépensé : la page sort de son choix. */
+  onEclate?: () => void
+}) {
   // Ce que la carte montre — l'avatar essayé, sinon celui qu'il porte — et
   // la version de chaque Éclat qu'elle montrerait.
   const montre = avatarMontre(profil, essai)
@@ -195,18 +231,49 @@ export function PageDAvatars({ profil, essai, essayer, neufs, page }: PropsDUneP
     porte: !profil.legendaire && profil.avatar === e,
     neuve: estNeuf(e),
   })
-  const laCase = (cle: string, etat: EtatDUneCase, label: string, piece: Essai, dedans: ReactNode, anneau = '') => (
-    <button
-      key={cle}
-      type="button"
-      className={'loge-case case-avatar' + anneau + classesDUnAvatar(etat)}
-      aria-pressed={etat.montre}
-      aria-label={label + ceQueDitLaCase(etat)}
-      onClick={() => essayer(piece)}
-    >
-      {dedans}
-    </button>
-  )
+  // Un Éclat en réserve se dépense sur un avatar à lui qui n'a pas éclaté (qu'il brille ou soit éteint) ; un Divin n'éclate jamais.
+  const eclatable = (cle: string) => !divin(cle) && clesQuiBrillent(profil.eclats, cle).length === 0
+  const faireEclater = async (cle: string, nom: string) => {
+    const d = await confirmDialog({
+      title: `Faire éclater ${nom} ?`,
+      message: 'Il change de couleurs, pour toujours. Ton Éclat en réserve est dépensé.',
+      confirmLabel: 'Faire éclater',
+      cancelLabel: 'Annuler',
+    })
+    if (d && (await eclater?.(cle))) onEclate?.()
+  }
+  const laCase = (cle: string, etat: EtatDUneCase, label: string, piece: Essai, dedans: ReactNode, anneau = '', nom = cle) => {
+    // Le choix de l'Éclat est un autre mode de la grille : une case qui peut éclater le demande, les autres s'éteignent. Rien ne s'essaie.
+    if (aEclater) {
+      const peut = eclatable(cle)
+      return (
+        <button
+          key={cle}
+          type="button"
+          className={'loge-case case-avatar' + anneau + (peut ? ' eclatable' : ' hors-eclat')}
+          aria-disabled={peut ? undefined : true}
+          aria-label={label + (peut ? ', peut éclater' : ', ne peut pas éclater')}
+          onClick={() => {
+            if (peut) void faireEclater(cle, nom)
+          }}
+        >
+          {dedans}
+        </button>
+      )
+    }
+    return (
+      <button
+        key={cle}
+        type="button"
+        className={'loge-case case-avatar' + anneau + classesDUnAvatar(etat)}
+        aria-pressed={etat.montre}
+        aria-label={label + ceQueDitLaCase(etat)}
+        onClick={() => essayer(piece)}
+      >
+        {dedans}
+      </button>
+    )
+  }
   // Un médaillon dans sa case, sans finition ni emoji dessous : la finition se voit sur la carte.
   const medaillon = (cle: string, eclat = false) => <Avatar avatar="" legendaire={cle} eclat={eclat} />
   const eclate = (cle: string) => (brille(cle) ? ', éclaté' : '')
@@ -219,14 +286,14 @@ export function PageDAvatars({ profil, essai, essayer, neufs, page }: PropsDUneP
       return laCase(cle, emoji(cle), `Avatar ${cle}, de collection · niveau ${c.niveau}${eclate(cle)}`, { avatar: cle }, <Avatar avatar={cle} eclat={brille(cle)} />, anneau)
     }
     const l = legendaire(cle)
-    if (l) return laCase(cle, dessine(cle), `${l.nom}, légendaire${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)), ' anneau-legendaire')
+    if (l) return laCase(cle, dessine(cle), `${l.nom}, légendaire${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)), ' anneau-legendaire', l.nom)
     const d = divin(cle)
     if (d) return laCase(cle, dessine(cle), `${d.nom}, Divin`, { legendaire: cle }, medaillon(cle), ' anneau-divin')
     const p = portraitDe(cle)
-    if (p) return laCase(cle, dessine(cle), `${p.nom}, portrait ${deLaBranche(brancheDe(p))}${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)))
+    if (p) return laCase(cle, dessine(cle), `${p.nom}, portrait ${deLaBranche(brancheDe(p))}${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)), '', p.nom)
     // Une forme de compagnon : une forme d'avant se porte aussi, et sa métamorphose.
     const f = formeDeCompagnon(cle)
-    if (f) return laCase(cle, dessine(cle), `${f.nom}, ${compagnonDe(f).nom}, ${nomDeLaForme(f).toLowerCase()}${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)))
+    if (f) return laCase(cle, dessine(cle), `${f.nom}, ${compagnonDe(f).nom}, ${nomDeLaForme(f).toLowerCase()}${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)), '', compagnonDe(f).nom)
     return null
   }
   return (

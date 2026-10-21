@@ -685,6 +685,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         theme: req.body?.theme,
         gerbe: req.body?.gerbe,
         eclat: req.body?.eclat,
+        eclatDeReserve: req.body?.eclatDeReserve,
         bordure: req.body?.bordure,
         niche: req.body?.niche,
       })

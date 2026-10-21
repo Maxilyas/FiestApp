@@ -41,6 +41,19 @@ paths:
   personne peut remporter rejoint `PRIX_INDIVIDUELS` (`core/stats.ts`) :
   sans lui, la collection mentirait (« 14 sur 20 ») — `fin-de-soiree.test.ts`
   relit les clés du calcul.
+- **Un Éclat tombé sur un avatar déjà éclaté attend en réserve** (le 20 octobre
+  2026) : une ligne de `profile_eclats` sous `reserve:<uuid>`
+  (`PREFIXE_DE_LA_RESERVE`), tenue à part des Éclats éclatés
+  (`ProfileStore.reserves`, `reserveOf`) — `eclats` ne compte, ne montre et ne
+  fait briller que ce qui a éclaté, et `eclatsHors` écarte la réserve : elle
+  ne compte pour La Pluie d'Éclats qu'une fois dépensée. Tout tirage passe par
+  `donnerUnEclat` (la soirée comme `tirerUnEclat`), jamais par `grantEclat`
+  seul, qui rend faux et perdait l'Éclat. La dépense (`PUT /api/joueur/moi`
+  `eclatDeReserve`, `depenserUnEclat`) prend la mémoire avant la base, d'un
+  seul tenant, et remplace la clé par l'avatar : la ligne garde sa soirée, un
+  essai effacé la reprend. Définitive, donc jamais un essai de la loge ; ni
+  Divin, ni avatar qu'il n'a pas (`eclat-reserve.test.ts`). Un champ qui lit
+  `profile_eclats` ligne à ligne doit écarter `estEnReserve`.
 - **Un trophée réservé à certains serveurs se tait aux deux bouts**
   (`montreParLeServeur` — L'Explorateur, le 19 octobre 2026, là où les
   rencontres de l'expédition s'ouvrent) : ce qu'il compte vaut 0 ailleurs,

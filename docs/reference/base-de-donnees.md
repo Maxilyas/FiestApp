@@ -247,6 +247,7 @@ et du compte des badges.
 Les Éclats : la version rare d'un avatar, une ligne par profil et par avatar.
 
 - **Colonnes clés** : `profile_id` et `avatar` (la clé), `soiree_id` (la soirée, ou le jour, ou la semaine du défi, qui l'a fait tomber), `created_at` (indexée : le QG compte les Éclats tombés ces trente jours), `eteint` (porté dans sa version d'origine).
+- **Un Éclat en réserve** : tombé sur un avatar déjà éclaté, il se range ici sous la clé `reserve:<uuid>` (`PREFIXE_DE_LA_RESERVE`, `shared/legendaires.ts`) — ni compté, ni montré comme un avatar éclaté ; le dépenser remplace cette clé par l'avatar choisi, la ligne gardant sa soirée et sa date.
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (le tirage, la loge).
 - **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`).

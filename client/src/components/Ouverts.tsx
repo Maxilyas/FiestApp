@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore } from 'react'
 import type { Finition } from '../../../shared/profil'
-import { legendaire } from '../../../shared/legendaires'
+import { estEnReserve, legendaire } from '../../../shared/legendaires'
 import { nomDansLaPhrase, portrait as portraitDe } from '../../../shared/branches'
 import { compagnon as leCompagnon, compagnonDe, formeDeCompagnon, type CleDeCompagnon, type FormeDeCompagnon } from '../../../shared/compagnons'
 import { api } from '../api'
@@ -123,6 +123,22 @@ const EN_LETTRES: Record<number, string> = { 20: 'vingt', 40: 'quarante' }
  * la place d'un légendaire ou d'un portrait le temps que son dessin arrive.
  */
 export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; avatar: string; finition?: Finition; chance: number }) {
+  // Tombé sur un avatar qui avait déjà éclaté, il attend en réserve : rien n'a changé de couleurs, mais il n'est pas perdu.
+  if (estEnReserve(cle)) {
+    return (
+      <section className="card fin-eclat">
+        <span className="label">{`Une chance sur ${EN_LETTRES[chance] ?? chance}`}</span>
+        <span className="fin-apparition">
+          <Avatar avatar={avatar} finition={finition} />
+        </span>
+        <h2>Un Éclat en réserve !</h2>
+        <p className="serif-note">Ton avatar avait déjà éclaté : choisis-en un autre, parmi ceux que tu as, pour le faire éclater.</p>
+        <a className="btn btn-primary" href="/profil#avatar">
+          Choisir mon avatar
+        </a>
+      </section>
+    )
+  }
   // Un compagnon porté éclate aussi (`cibleEclat`) : sans lui, sa clé s'écrivait en toutes lettres — « Ton cp:loup-jeune a éclaté ! ».
   const compagnon = formeDeCompagnon(cle)
   const dessine = legendaire(cle) ?? portraitDe(cle) ?? compagnon

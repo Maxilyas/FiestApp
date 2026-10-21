@@ -3,7 +3,7 @@ import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import type { InStatement, Row } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
-import { cleanAvatar, cleanName, DEFAULT_AVATAR, niveauRequis, tronquer } from '../../../shared/avatars'
+import { AVATARS, cleanAvatar, cleanName, COLLECTION, DEFAULT_AVATAR, niveauRequis, tronquer } from '../../../shared/avatars'
 import {
   AUCUN_JOUR,
   AUCUNE_CAMPAGNE,
@@ -78,8 +78,10 @@ import { cleDeSaison, type Saison } from '../../../shared/saisons'
 import {
   cibleEclat,
   conditionTenue,
+  estEnReserve,
   legendaire,
   legendaireDeLExpedition,
+  PREFIXE_DE_LA_RESERVE,
   legendairesDebloques,
   legendairesOuvertsPar,
   type Condition,
@@ -708,6 +710,13 @@ export class ProfileStore {
    */
   private eteints = new Map<string, Set<string>>()
   /**
+   * Ses Éclats en réserve (`PREFIXE_DE_LA_RESERVE`) : chaque ligne
+   * `reserve:<uid>` de `profile_eclats`, tenue à part des Éclats éclatés —
+   * `eclats` ne compte, ne montre et ne fait briller que ce qui a éclaté.
+   * Chargée avec eux ; une entrée absente vaut zéro.
+   */
+  private reserves = new Map<string, Set<string>>()
+  /**
    * Ses récompenses rangées, par profil : chaque clé d'étagère et le nombre de
    * soirées où elle est tombée. Chargées avec le profil, tenues à jour à
    * chaque écriture : les avatars légendaires qu'il a débloqués s'en
@@ -1301,9 +1310,15 @@ export class ProfileStore {
       )
       const eclatsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
       const eteintsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
+      const reservesDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
       for (const r of eclats.rows) {
-        eclatsDe.get(String(r.profile_id))?.add(String(r.avatar))
-        if (Number(r.eteint) === 1) eteintsDe.get(String(r.profile_id))?.add(String(r.avatar))
+        const avatar = String(r.avatar)
+        if (estEnReserve(avatar)) {
+          reservesDe.get(String(r.profile_id))?.add(avatar)
+          continue
+        }
+        eclatsDe.get(String(r.profile_id))?.add(avatar)
+        if (Number(r.eteint) === 1) eteintsDe.get(String(r.profile_id))?.add(avatar)
       }
       const recompensesDe = new Map<string, Map<string, number>>(paquet.map(id => [id, new Map()]))
       for (const r of badges.rows) recompensesDe.get(String(r.profile_id))?.set(String(r.badge), Number(r.n))
@@ -1322,6 +1337,7 @@ export class ProfileStore {
         if (!this.eclats.has(id)) {
           this.eclats.set(id, eclatsDe.get(id)!)
           this.eteints.set(id, eteintsDe.get(id)!)
+          this.reserves.set(id, reservesDe.get(id)!)
         }
         if (!this.recompenses.has(id)) this.recompenses.set(id, recompensesDe.get(id)!)
         if (!this.compagnons.has(id)) this.compagnons.set(id, compagnonsDe.get(id)!)
@@ -2937,6 +2953,8 @@ export class ProfileStore {
       ouvertes: finitionsOuvertes(niveau),
       eclats: this.eclatsOf(p.id),
       eclatsEteints: this.eteintsOf(p.id),
+      // Toujours dit, zéro compris : la page fond ce profil dans celui qu'elle tient, et un champ absent garderait la réserve d'avant.
+      eclatsEnReserve: this.reserveOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
       // de neuf sur l'étagère dirait qu'il s'est passé quelque chose. Ni une
       // saison, ni un légendaire gardé au bout de l'expédition : ils ne se
@@ -3377,6 +3395,8 @@ export class ProfileStore {
       eclat?: unknown
       bordure?: unknown
       niche?: unknown
+      /** L'avatar sur lequel il dépense un Éclat en réserve (`donnerUnEclat`) : définitif. */
+      eclatDeReserve?: unknown
     },
   ): Promise<ProfileRec> {
     const rec = await this.require(id)
@@ -3521,6 +3541,7 @@ export class ProfileStore {
       if (typeof e?.brille !== 'boolean') throw new Error('Choisis sa version rare ou sa version d’origine')
       eclat = { cle, eteint: !e.brille }
     }
+    const aEclater = patch.eclatDeReserve !== undefined ? await this.verifierUnAvatarAEclater(rec, patch.eclatDeReserve) : null
     const colonnes = Object.keys(champs) as (keyof typeof champs)[]
     // Un prénom qu'il change lui-même tait l'annonce de celui que
     // l'administrateur avait changé : sur un autre téléphone, elle lui aurait
@@ -3546,6 +3567,7 @@ export class ProfileStore {
       if (eclat.eteint) eteints.add(eclat.cle)
       else eteints.delete(eclat.cle)
     }
+    if (aEclater) await this.depenserUnEclat(id, aEclater)
     return rec
   }
 
@@ -3813,6 +3835,7 @@ export class ProfileStore {
     for (const r of eclats.rows) {
       this.eclats.get(profileId)?.delete(String(r.avatar))
       this.eteints.get(profileId)?.delete(String(r.avatar))
+      this.reserves.get(profileId)?.delete(String(r.avatar))
     }
     this.porteurs = null
     await this.ecrireXpDesPaliers(profileId)
@@ -3891,6 +3914,7 @@ export class ProfileStore {
     for (const r of eclats.rows) {
       this.eclats.get(String(r.profile_id))?.delete(String(r.avatar))
       this.eteints.get(String(r.profile_id))?.delete(String(r.avatar))
+      this.reserves.get(String(r.profile_id))?.delete(String(r.avatar))
     }
     this.porteurs = null
     await this.recompterRecompenses(touches)
@@ -4010,9 +4034,94 @@ export class ProfileStore {
     if (!ProfileStore.tirageEclat(chance)) return null
     const profil = await this.byId(profileId)
     if (!profil) return null
-    const avatar = this.cibleEclatDe(profileId, this.avatarPorte(profil))
-    if (!(await this.grantEclat(profileId, avatar, sous))) return null
-    return { avatar, paliers: await this.accorderPaliersDesEclats(profileId, sous) }
+    const avatar = await this.donnerUnEclat(profileId, this.avatarPorte(profil), sous)
+    // En réserve, il ne compte pour la Pluie d'Éclats que dépensé (`depenserUnEclat`).
+    return { avatar, paliers: estEnReserve(avatar) ? [] : await this.accorderPaliersDesEclats(profileId, sous) }
+  }
+
+  /**
+   * Le tirage a réussi : l'Éclat tombe sur ce qu'il porte (`cibleEclatDe`),
+   * ou, si cela avait déjà éclaté, il attend en réserve — il se perdait, et
+   * le joueur qui portait un avatar éclaté ne gagnait rien d'un tirage heureux.
+   * Rend ce qui a éclaté, ou la clé de l'Éclat en réserve (`estEnReserve`).
+   */
+  async donnerUnEclat(profileId: string, emoji: string, sous: string): Promise<string> {
+    const avatar = this.cibleEclatDe(profileId, emoji)
+    if (await this.grantEclat(profileId, avatar, sous)) return avatar
+    const cle = `${PREFIXE_DE_LA_RESERVE}${randomUUID()}`
+    await this.client.execute({
+      sql: 'INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, ?, ?, ?)',
+      args: [profileId, cle, sous, Date.now()],
+    })
+    let reserve = this.reserves.get(profileId)
+    if (!reserve) this.reserves.set(profileId, (reserve = new Set()))
+    reserve.add(cle)
+    return cle
+  }
+
+  /** Combien d'Éclats attendent d'être dépensés (`donnerUnEclat`). */
+  reserveOf(profileId: string): number {
+    return this.reserves.get(profileId)?.size ?? 0
+  }
+
+  /**
+   * Vérifie qu'un Éclat en réserve peut éclater cet avatar : il en a un, c'est
+   * un avatar à lui (légendaire, portrait, forme d'un compagnon, emoji de son
+   * niveau), pas un Divin, et il n'a pas déjà éclaté. Rend la clé nettoyée ;
+   * le refus se dit en clair — seul un appel forgé l'enverrait.
+   */
+  private async verifierUnAvatarAEclater(rec: ProfileRec, brute: unknown): Promise<string> {
+    if (this.reserveOf(rec.id) === 0) throw new Error('Tu n’as aucun Éclat en réserve')
+    const cle = typeof brute === 'string' ? brute : ''
+    if (divin(cle)) throw new Error('Un Divin n’éclate jamais')
+    const f = formeDeCompagnon(cle)
+    const p = portrait(cle)
+    if (legendaire(cle)) {
+      if (!this.legendairesOf(rec.id).includes(cle)) throw new Error('Cet avatar légendaire n’est pas encore à toi')
+    } else if (p) {
+      if (!portraitsOuverts(await this.paliersDe(rec.id)).includes(p.key)) throw new Error('Ce portrait n’est pas encore à toi')
+    } else if (f) {
+      this.verifierLaForme(f, compagnonDe(f), (await this.compagnonsDe(rec)).find(a => a.compagnon === f.compagnon))
+    } else if (AVATARS.includes(cle) || COLLECTION.some(c => c.emoji === cle)) {
+      if (niveauRequis(cle) > this.niveauOf(rec)) throw new Error(`Cet avatar s’ouvre au niveau ${niveauRequis(cle)}`)
+    } else throw new Error('Choisis un de tes avatars')
+    if (clesQuiBrillent(this.eclatsOf(rec.id), cle).length > 0) throw new Error('Cet avatar a déjà éclaté')
+    return cle
+  }
+
+  /**
+   * Dépense un Éclat en réserve sur un avatar vérifié (`verifierUnAvatarAEclater`).
+   * La ligne de la réserve devient celle de l'avatar : elle garde la soirée,
+   * le jour ou la semaine où l'Éclat est tombé, et suit leur sort. La
+   * mémoire change avant la base, d'un seul tenant : deux dépenses parties
+   * ensemble ne prennent ni le même Éclat ni le même avatar. Puis les
+   * paliers de La Pluie d'Éclats qu'il fait atteindre, sous le même nom.
+   */
+  private async depenserUnEclat(profileId: string, cle: string): Promise<void> {
+    const reserve = this.reserves.get(profileId)
+    const uid = reserve && [...reserve][0]
+    let siens = this.eclats.get(profileId)
+    if (!siens) this.eclats.set(profileId, (siens = new Set()))
+    if (!reserve || !uid) throw new Error('Tu n’as aucun Éclat en réserve')
+    if (clesQuiBrillent([...siens], cle).length > 0) throw new Error('Cet avatar a déjà éclaté')
+    reserve.delete(uid)
+    siens.add(cle)
+    let sous: string
+    try {
+      const lue = await this.client.execute({ sql: 'SELECT soiree_id FROM profile_eclats WHERE profile_id = ? AND avatar = ?', args: [profileId, uid] })
+      sous = String(lue.rows[0]?.soiree_id ?? '')
+      const res = await this.client.execute({
+        sql: 'UPDATE profile_eclats SET avatar = ? WHERE profile_id = ? AND avatar = ?',
+        args: [cle, profileId, uid],
+      })
+      if (!sous || res.rowsAffected === 0) throw new Error('Cet Éclat n’est plus là')
+    } catch (e) {
+      siens.delete(cle)
+      // Une soirée effacée pendant ce temps a repris sa ligne : l'Éclat n'existe plus.
+      if (!(e instanceof Error && e.message === 'Cet Éclat n’est plus là')) reserve.add(uid)
+      throw e
+    }
+    await this.accorderPaliersDesEclats(profileId, sous).catch(e => console.error('[éclat] paliers non rangés :', e))
   }
 
   /**
@@ -4037,8 +4146,9 @@ export class ProfileStore {
    */
   private async eclatsHors(profileId: string, noms: ReadonlySet<string>): Promise<number> {
     if (noms.size === 0) return this.eclatsOf(profileId).length
-    const res = await this.client.execute({ sql: 'SELECT soiree_id FROM profile_eclats WHERE profile_id = ?', args: [profileId] })
-    return res.rows.filter(r => !noms.has(String(r.soiree_id))).length
+    const res = await this.client.execute({ sql: 'SELECT soiree_id, avatar FROM profile_eclats WHERE profile_id = ?', args: [profileId] })
+    // Un Éclat en réserve n'a pas encore éclaté : il ne compte pas.
+    return res.rows.filter(r => !estEnReserve(String(r.avatar)) && !noms.has(String(r.soiree_id))).length
   }
 
   // ── L'étagère ───────────────────────────────────────────────────────────
@@ -4698,6 +4808,7 @@ export class ProfileStore {
       this.profiles,
       this.eclats,
       this.eteints,
+      this.reserves,
       this.recompenses,
       this.compagnons,
       this.tresors,
@@ -4997,8 +5108,10 @@ export class ProfileStore {
     // l'instantané de toute la salle.
     if (!this.eclats.has(rec.id)) {
       const eclats = await this.client.execute({ sql: 'SELECT avatar, eteint FROM profile_eclats WHERE profile_id = ?', args: [rec.id] })
-      this.eclats.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar))))
-      this.eteints.set(rec.id, new Set(eclats.rows.filter(e => Number(e.eteint) === 1).map(e => String(e.avatar))))
+      const eclates = eclats.rows.filter(e => !estEnReserve(String(e.avatar)))
+      this.eclats.set(rec.id, new Set(eclates.map(e => String(e.avatar))))
+      this.eteints.set(rec.id, new Set(eclates.filter(e => Number(e.eteint) === 1).map(e => String(e.avatar))))
+      this.reserves.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar)).filter(estEnReserve)))
       await this.recompterRecompenses([rec.id])
     }
     if (!this.compagnons.has(rec.id)) {

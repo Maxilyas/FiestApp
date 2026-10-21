@@ -33,6 +33,8 @@ export type ChoixDuProfil = {
   vitrine?: string[] | null
   /** Porter la version rare d'un avatar qui a éclaté, ou sa version d'origine. */
   eclat?: { cle: string; brille: boolean }
+  /** Dépenser un Éclat en réserve pour faire éclater cet avatar, définitivement (jamais un essai : il s'envoie seul). */
+  eclatDeReserve?: string
   /** La bordure de ligue : `auto`, `aucune`, ou celle d'une ligue atteinte en duel. */
   bordure?: ChoixDeBordure
   /** Le compagnon de sa niche, parmi ceux qu'il a adoptés : c'est lui qui grandit. */
@@ -67,10 +69,12 @@ export interface PropsDUnePiece {
   busy: boolean
   /** Ce qui est arrivé depuis son dernier passage sur ce téléphone. */
   neufs?: ReadonlySet<string>
+  /** Dépenser un Éclat en réserve sur un avatar : vrai s'il a pris. Absent d'une page qui ne sait pas l'enregistrer. */
+  eclater?: (cle: string) => Promise<boolean>
 }
 
 /** Les champs d'un enregistrement, dans l'ordre où l'annonce les dit : celui de la rangée de la loge. */
-const CHAMPS = ['avatar', 'eclat', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'gerbe', 'niche'] as const
+const CHAMPS = ['avatar', 'eclat', 'eclatDeReserve', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'gerbe', 'niche'] as const
 
 /**
  * Ce qu'un choix enregistré a changé, une phrase par pièce, pour le lecteur
@@ -84,6 +88,7 @@ export function annonceDuChoix(choix: ChoixDuProfil): string {
 
 function annonceDUnChamp(choix: ChoixDuProfil): string {
   if (choix.avatar) return `Tu portes ${choix.avatar}.`
+  if (choix.eclatDeReserve) return 'Ton Éclat en réserve a fait éclater cet avatar.'
   if (choix.eclat) return choix.eclat.brille ? 'Tu portes sa version rare.' : 'Tu portes sa version d’origine.'
   if (choix.legendaire !== undefined) {
     const tete = portrait(choix.legendaire) ?? formeDeCompagnon(choix.legendaire)

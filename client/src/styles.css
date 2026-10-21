@@ -8258,6 +8258,11 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-case .av { font-size: 2.9rem; }
 .loge-grille-emojis .loge-case .av { font-size: 1.75rem; }
 .loge-case.porte { border-color: var(--edge-strong); }
+/* Un Éclat en réserve : la bannière au-dessus de la grille, puis les cases qui peuvent éclater (halo d'or) et celles qui ne le peuvent pas (éteintes). */
+.loge-reserve { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 14px; background: var(--accent-soft); }
+.loge-reserve-texte { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
+.loge-case.eclatable { border: 2px solid var(--accent); box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.35); }
+.loge-case.hors-eclat { opacity: 0.4; cursor: default; }
 /* Montrée par la carte : un cadre d'or ; à l'essai, son halo — pas le
    pointillé des autres pièces, que la case arrondie rendait brouillon. */
 .loge-case.selected { border: 2px solid var(--accent); background: var(--accent-soft); }
