@@ -134,7 +134,7 @@ export function CarteDeLAdministrateur({
   // Une question qui attend sa réponse se range en « Plus tard » : elle reviendra à la prochaine visite.
   const libelle = a.sorte === 'merci' ? 'Avec plaisir' : a.sorte === 'annonce' && a.question && merci === null ? 'Plus tard' : a.sorte === 'annonce' && a.confettis === 0 ? 'Compris' : 'Merci'
   return (
-    <li className={'annonce-admin' + (a.sorte === 'merci' || a.sorte === 'annonce' ? ' annonce-admin-pile' : '')}>
+    <li className={'annonce-admin' + (a.sorte === 'annonce' && a.question ? ' annonce-admin-question' : a.sorte === 'merci' || a.sorte === 'annonce' ? ' annonce-admin-pile' : '')}>
       <span className="annonce-admin-icone" aria-hidden="true">
         <Icon name={ICONE[a.sorte]} />
       </span>
