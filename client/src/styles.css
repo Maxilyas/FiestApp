@@ -6148,6 +6148,7 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   max-height: min(76dvh, 580px);
   transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--tourne, 0deg)));
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .carte-retournee { --tourne: 180deg; }
@@ -6163,8 +6164,16 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.35);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  /* Safari iOS : une face sans transform propre, avec un reflet en
+     mix-blend-mode dedans, perd son backface-visibility — le recto restait
+     visible, vu en miroir, au lieu du verso. Un transform 3D explicite sur
+     chaque face la remet dans le contexte 3D, et `isolation` garde le
+     mélange du reflet à l'intérieur de la face. */
+  transform: rotateY(0deg) translateZ(1px);
+  -webkit-transform: rotateY(0deg) translateZ(1px);
+  isolation: isolate;
 }
-.carte-dos { transform: rotateY(180deg); }
+.carte-dos { transform: rotateY(180deg) translateZ(1px); -webkit-transform: rotateY(180deg) translateZ(1px); }
 /* Le reflet : la lumière accroche la carte là où le doigt la penche. */
 .carte-face::after {
   content: '';
