@@ -329,9 +329,9 @@ Les fonds des savoirs achetés en boutique (`shared/fonds.ts`), un par profil et
 
 Les confettis offerts par l'administrateur, avec leur mot — et ceux d'une annonce à tous, un don par profil.
 
-- **Colonnes clés** : `id` (celui d'un don d'annonce se déduit d'elle et du profil — `annonce:<annonce>:<profil>` : rejouée, elle ne donne pas deux fois, et l'accueil ne la redit pas en don), `profile_id`, `confettis`, `mot` (vide sous une annonce : son message vit dans `qg_annonces`), `created_at` (indexée : la page de l'économie du QG lit les dons par date).
+- **Colonnes clés** : `id` (celui d'un don d'annonce se déduit d'elle et du profil — `annonce:<annonce>:<profil>` ; celui d'une réponse à sa question, `annonce-reponse:<annonce>:<profil>` : rejoués, ils ne donnent pas deux fois, et l'accueil ne les redit pas en don), `profile_id`, `confettis`, `mot` (vide sous une annonce : son message vit dans `qg_annonces`), `created_at` (indexée : la page de l'économie du QG lit les dons par date).
 - **Espace** : non.
-- **Écrite par** : `ProfileStore` (`offrirDesConfettis`, depuis la fiche d'un joueur au QG ; `annoncerATous`, depuis la page des annonces, dans le lot de l'annonce), jamais modifiée.
+- **Écrite par** : `ProfileStore` (`offrirDesConfettis`, depuis la fiche d'un joueur au QG ; `annoncerATous`, depuis la page des annonces, dans le lot de l'annonce ; `repondreALAnnonce`, dans le lot de la réponse), jamais modifiée.
 - **Lue par** : `ProfileStore` (le solde, l'annonce sur l'accueil) ; la page de l'économie du QG (`economieDepuis`, « Tes dons »).
 - **Effacée par** : la suppression du profil.
 
@@ -977,6 +977,26 @@ Les annonces de l'administrateur à tous les profils (`/admin#annonces`) : un me
 - **Écrite par** : `ProfileStore` (`annoncerATous`, dans le même lot que ses dons de `profile_dons` ; `retirerLAnnonce`, qui pose `retiree_le`).
 - **Lue par** : `ProfileStore` — l'accueil de chaque profil, dans le lot de ses dons (`achatsDe`), celles du dernier mois faites après son inscription ; la page du QG (`annoncesAuQg`).
 - **Effacée par** : rien — retirée, elle se tait ; ses confettis restent offerts.
+
+### `qg_annonce_questions`
+
+La question qu'une annonce peut poser (`/admin#annonces`) : un vote, une note ou un mot libre. Le message de l'annonce est la question.
+
+- **Colonnes clés** : `annonce_id` (clé primaire : une question par annonce), `sorte` (`vote`, `note` ou `mot`), `choix` (JSON : les choix d'un vote, vide sinon), `recompense` (les confettis de chaque réponse ; 0, aucune), `close_le`.
+- **Espace** : non — comme l'annonce.
+- **Écrite par** : `ProfileStore` (`annoncerATous`, dans le lot de l'annonce, et seulement pour l'annonce née dans ce lot ; `cloreLaQuestion`, qui pose `close_le`).
+- **Lue par** : `ProfileStore` — l'accueil de chaque profil, dans le lot de ses dons (`achatsDe`), tant qu'elle est ouverte et qu'il n'a pas répondu ; la page du QG (`questionsDuQg`).
+- **Effacée par** : rien.
+
+### `qg_annonce_reponses`
+
+Les réponses des profils aux questions des annonces.
+
+- **Colonnes clés** : `annonce_id` et `profile_id` (clé primaire : une réponse par profil et par annonce), `reponse` (l'indice du choix, la note ou le mot), `created_at`.
+- **Espace** : non.
+- **Écrite par** : `ProfileStore` (`repondreALAnnonce`), avec la récompense : un don de `profile_dons` d'identifiant `annonce-reponse:<annonce>:<profil>`, dans le même lot ; rejouée, elle ne donne pas deux fois. Jamais modifiée.
+- **Lue par** : `ProfileStore` — les résultats du QG (`questionsDuQg`), la carte de l'accueil (a-t-il répondu ?).
+- **Effacée par** : un profil supprimé emporte les siennes (`supprimer`).
 
 ## Pour aller plus loin
 

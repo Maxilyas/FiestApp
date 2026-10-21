@@ -745,6 +745,7 @@ Toutes les sources et toutes les dépenses, avec leur valeur : la ligne de chaqu
 | Gain | Les ligues des duels : chaque semaine close avec 3 duels joués paie sa meilleure ligue ; la semaine en cours paie le lundi | bronze 10, argent 20, or 30, platine 40, diamant 50, maîtres 60 | `LIGUES`, `DUELS_POUR_LA_RECOMPENSE`, `confettisDesLigues` (`shared/duels.ts`) |
 | Gain | Un don de l'administrateur, avec un mot facultatif, coupé à 140 caractères (`MOT_D_UN_DON_MAX`) | de 1 à 500 | `CONFETTIS_PAR_DON_MAX` (`shared/profil.ts`) ; `offrirDesConfettis` |
 | Gain | Une annonce de l'administrateur à tous : un don par profil d'alors, sans les suspendus | de 0 à 500 chacun | `CONFETTIS_PAR_DON_MAX` (`shared/profil.ts`) ; `annoncerATous`, `profile_dons` |
+| Gain | La réponse d'un profil à la question d'une annonce : un don par réponse, une fois | de 0 à 500 par réponse | `CONFETTIS_PAR_DON_MAX` (`shared/profil.ts`) ; `repondreALAnnonce`, `profile_dons` |
 | Gain | Les missions du jour : chacune faite, et les trois le même jour | 15 chacune, 15 de plus pour les trois — 60 au plus par jour | `CONFETTIS_D_UNE_MISSION`, `CONFETTIS_DES_TROIS` (`shared/missions.ts`) ; `profile_missions` |
 | Gain | Le coffre de la semaine, à sa rareté commune (ou quand il a déjà tout le reste) | bois 60, argent 90, or 120, royal 150 | `CONFETTIS_DU_COFFRE` (`shared/coffre.ts`) ; `profile_coffres` |
 | Dépense | Un thème, une fois chacun | 150, 250, 400, 650 ou 1 000 | `PRIX_DES_THEMES` (`shared/themes.ts`) ; `profile_achats` |
@@ -859,6 +860,11 @@ Les sessions, les essais, les codes, et ce que le QG surveille : [administrer](.
 | `CONFETTIS_PAR_DON_MAX` | 500 | `shared/profil.ts` | Un don de confettis du QG, au plus (au moins 1) ; ce qu'une annonce à tous offre à chaque profil, au plus (au moins 0) | Un choix de produit, à dire : un don ne se reprend pas, et il s'ajoute au solde à chaque lecture — une annonce le multiplie par tous les profils |
 | `ANNONCE_MAX` | 200 | `shared/annonces.ts` | Le message d'une annonce à tous, en caractères | Il tient en quatre lignes sur la carte de l'accueil, au téléphone ; un message trop long se refuse, il ne se coupe pas |
 | `ANNONCES_MONTREES` | 50 | `shared/annonces.ts` | Les annonces que la page des annonces du QG liste, la plus récente d'abord | Affichage seul |
+| `CHOIX_MIN` · `CHOIX_MAX` | 2 · 5 | `shared/annonces.ts` | Les choix d'un vote joint à une annonce | Moins de deux, ce n'est pas un vote ; plus de cinq, les boutons débordent d'un téléphone en 360 × 640 |
+| `CHOIX_LONGUEUR_MAX` | 40 | `shared/annonces.ts` | Un choix de vote, en caractères | Il tient sur un bouton ; trop long, il se refuse, il ne se coupe pas |
+| `NOTE_MAX` | 5 | `shared/annonces.ts` | La note la plus haute d'une question de note (la plus basse est 1) | Choix de produit : cinq boutons tiennent sur une rangée |
+| `MOT_MAX` | 200 | `shared/annonces.ts` | Un mot libre en réponse, en caractères | Comme le message d'une annonce |
+| `MOTS_MONTRES` | 100 | `shared/annonces.ts` | Les mots libres que le QG lit par annonce, le plus récent d'abord | Affichage seul |
 | `MOT_D_UN_DON_MAX` | 140 | `shared/profil.ts` | Le mot d'un don, en caractères | Affiché sur l'accueil du joueur |
 | `BANDEAU_MAX` | 140 | `shared/maintenance.ts` | Le bandeau rouge de la page « Maintenance » du QG, en caractères | Il se lit au-dessus de chaque page hors d'une soirée : plus long, il repousse les gros boutons de l'accueil sous le pli d'un téléphone ; un texte trop long se refuse, il ne se coupe pas |
 | `SIGNALEMENTS_MONTRES_AU_QG` | 50 | `shared/qgSignalements.ts` | Les questions à relire que la page des signalements lit de chaque mode, les plus récemment signalées d'abord | Affichage seul : à ce compte, la page dit que d'autres attendent, et elles paraissent à mesure |

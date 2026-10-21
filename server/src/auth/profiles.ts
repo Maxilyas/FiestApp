@@ -141,7 +141,21 @@ import type { ArchiveStore } from '../core/archive'
 import type { CampagneDuProfil, CoteDesDuels } from '../core/campagne'
 import type { ProfileBadge } from '../core/party'
 import type { CeQueLaLogeLit } from '../../../shared/loge'
-import { ANNONCES_MONTREES, lireLeMessage, lireLesConfettis, type AnnonceAuQg } from '../../../shared/annonces'
+import {
+  ANNONCES_MONTREES,
+  MOTS_MONTRES,
+  NOTE_MAX,
+  lireLaQuestion,
+  lireLaReponse,
+  lireLeMessage,
+  lireLesConfettis,
+  type AccuseDeReponse,
+  type AnnonceAuQg,
+  type QuestionAPoser,
+  type QuestionAuQg,
+  type QuestionDAnnonce,
+  type SorteDeQuestion,
+} from '../../../shared/annonces'
 
 /** Chaque champ de `T` donné, même vide : un champ de plus dans `T` ne s'oublie pas en silence là où on le remplit. */
 type ToutDonne<T> = { [K in keyof Required<T>]: undefined extends T[K] ? T[K] | undefined : T[K] }
@@ -667,6 +681,8 @@ export interface AnnonceATous {
   /** Ce qu'elle offre à chacun ; 0, un message seul. */
   confettis: number
   le: number
+  /** Sa question, tant qu'il n'y a pas répondu et qu'elle est ouverte. */
+  question?: QuestionAPoser
 }
 
 /**
@@ -676,14 +692,17 @@ export interface AnnonceATous {
  * l'annonce dit déjà : sans ça, il lisait le même cadeau deux fois.
  */
 const donDeLAnnonce = (annonce: string, profil: string) => `annonce:${annonce}:${profil}`
-const estUnDonDAnnonce = (don: string) => don.startsWith('annonce:')
+/** Le don d'une réponse à la question d'une annonce : une par profil, rejouée elle ne donne pas deux fois. */
+const donDeLaReponse = (annonce: string, profil: string) => `annonce-reponse:${annonce}:${profil}`
+const estUnDonDAnnonce = (don: string) => don.startsWith('annonce:') || don.startsWith('annonce-reponse:')
 
 /** L'identifiant d'une annonce, tiré par la page qui l'envoie : de quoi la reconnaître si elle repart. */
 const ID_D_ANNONCE = /^[0-9a-z-]{8,40}$/i
 
 const COLONNES_D_UNE_ANNONCE = 'id, message, confettis, destinataires, created_at, retiree_le'
-const annonceDuQg = (r: Row): AnnonceAuQg => ({
+const annonceDuQg = (r: Row, question: QuestionAuQg | null = null): AnnonceAuQg => ({
   id: String(r.id),
+  question,
   message: String(r.message),
   confettis: Number(r.confettis),
   destinataires: Number(r.destinataires),
@@ -1107,6 +1126,25 @@ export class ProfileStore {
            created_at    INTEGER NOT NULL,
            retiree_le    INTEGER
          )`,
+        // La question qu'une annonce peut poser (`shared/annonces.ts`) : une ligne
+        // par annonce qui en pose une, ses choix en JSON ; close, elle ne se montre
+        // plus aux joueurs et ses résultats restent. Les réponses : une par profil
+        // et par annonce, la clé primaire en fait un vote unique.
+        `CREATE TABLE IF NOT EXISTS qg_annonce_questions (
+           annonce_id TEXT PRIMARY KEY,
+           sorte      TEXT NOT NULL,
+           choix      TEXT NOT NULL,
+           recompense INTEGER NOT NULL,
+           close_le   INTEGER
+         )`,
+        `CREATE TABLE IF NOT EXISTS qg_annonce_reponses (
+           annonce_id TEXT NOT NULL,
+           profile_id TEXT NOT NULL,
+           reponse    TEXT NOT NULL,
+           created_at INTEGER NOT NULL,
+           PRIMARY KEY (annonce_id, profile_id)
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_qg_annonce_reponses_profil ON qg_annonce_reponses(profile_id)',
         // Celles du dernier mois, lues avec les dons de chaque accueil : par leur date, sans parcourir la table.
         'CREATE INDEX IF NOT EXISTS idx_qg_annonces_quand ON qg_annonces(created_at)',
         // Ce qu'il a déjà vu dans sa loge, pièce par pièce (`VusDeLaLoge`, en
@@ -1574,8 +1612,13 @@ export class ProfileStore {
         ...(annonces
           ? [
               {
-                sql: 'SELECT id, message, confettis, created_at FROM qg_annonces WHERE created_at >= ? AND created_at >= ? AND retiree_le IS NULL ORDER BY created_at DESC',
-                args: [annonces.depuis, annonces.inscritLe],
+                // Sa question, tant qu'elle est ouverte et qu'il n'y a pas répondu : la carte la pose avec le message.
+                sql: `SELECT a.id, a.message, a.confettis, a.created_at, q.sorte, q.choix, q.recompense, q.close_le, r.profile_id AS deja
+                      FROM qg_annonces a
+                      LEFT JOIN qg_annonce_questions q ON q.annonce_id = a.id
+                      LEFT JOIN qg_annonce_reponses r ON r.annonce_id = a.id AND r.profile_id = ?
+                      WHERE a.created_at >= ? AND a.created_at >= ? AND a.retiree_le IS NULL ORDER BY a.created_at DESC`,
+                args: [profileId, annonces.depuis, annonces.inscritLe],
               },
             ]
           : []),
@@ -1591,7 +1634,15 @@ export class ProfileStore {
       dons: dons.rows.map(r => ({ id: String(r.id), confettis: Number(r.confettis), mot: r.mot == null ? null : String(r.mot), le: Number(r.created_at) })),
       missions: gainsDesMissions(Number(missions.rows[0]?.faites ?? 0), Number(missions.rows[0]?.trois ?? 0)).confettis,
       coffres: Number(coffres.rows[0]?.n ?? 0),
-      aTous: (aTous?.rows ?? []).map(r => ({ id: String(r.id), message: String(r.message), confettis: Number(r.confettis), le: Number(r.created_at) })),
+      aTous: (aTous?.rows ?? []).map(r => ({
+        id: String(r.id),
+        message: String(r.message),
+        confettis: Number(r.confettis),
+        le: Number(r.created_at),
+        ...(r.sorte != null && r.close_le == null && r.deja == null && {
+          question: { sorte: String(r.sorte) as SorteDeQuestion, choix: JSON.parse(String(r.choix)) as string[], recompense: Number(r.recompense) },
+        }),
+      })),
     }
   }
 
@@ -1924,7 +1975,14 @@ export class ProfileStore {
     const parId = new Map(dons.map(d => [d.id, d.confettis]))
     for (const a of aTous) {
       if (maintenant - a.le >= ANNONCE_MS) continue
-      annonces.push({ id: `annonce:${a.id}`, sorte: 'annonce', message: a.message, confettis: parId.get(donDeLAnnonce(a.id, p.id)) ?? 0, le: a.le })
+      annonces.push({
+        id: `annonce:${a.id}`,
+        sorte: 'annonce',
+        message: a.message,
+        confettis: parId.get(donDeLAnnonce(a.id, p.id)) ?? 0,
+        le: a.le,
+        ...(a.question && { question: a.question }),
+      })
     }
     return [...annonces, ...mercis].sort((a, b) => b.le - a.le)
   }
@@ -4655,12 +4713,13 @@ export class ProfileStore {
    * retrouve l'annonce faite (`nouvelle` faux) au lieu d'offrir une seconde
    * fois à tout le monde.
    */
-  async annoncerATous(demande: { id: unknown; message: unknown; confettis: unknown }): Promise<{ annonce: AnnonceAuQg; nouvelle: boolean }> {
+  async annoncerATous(demande: { id: unknown; message: unknown; confettis: unknown; question?: unknown }): Promise<{ annonce: AnnonceAuQg; nouvelle: boolean }> {
     const message = lireLeMessage(demande.message)
     const confettis = lireLesConfettis(demande.confettis)
     const id = typeof demande.id === 'string' && ID_D_ANNONCE.test(demande.id) ? demande.id : randomUUID()
     const maintenant = Date.now()
-    const [faite, , lue] = await this.client.batch(
+    const question = lireLaQuestion(demande.question)
+    const lot = await this.client.batch(
       [
         {
           sql: `INSERT OR IGNORE INTO qg_annonces (id, message, confettis, destinataires, created_at)
@@ -4676,13 +4735,81 @@ export class ProfileStore {
                 WHERE a.id = ? AND a.confettis > 0 AND a.retiree_le IS NULL`,
           args: [id],
         },
+        // Sa question, dans le même lot — et seulement pour l'annonce née dans ce lot : rejouée avec une
+        // question, une annonce déjà faite n'en gagne pas une.
+        ...(question
+          ? [
+              {
+                sql: `INSERT OR IGNORE INTO qg_annonce_questions (annonce_id, sorte, choix, recompense)
+                      SELECT id, ?, ?, ? FROM qg_annonces WHERE id = ? AND created_at = ?`,
+                args: [question.sorte, JSON.stringify(question.choix), question.recompense, id, maintenant],
+              },
+            ]
+          : []),
         { sql: `SELECT ${COLONNES_D_UNE_ANNONCE} FROM qg_annonces WHERE id = ?`, args: [id] },
       ],
       'write',
     )
-    const ligne = lue.rows[0]
+    const ligne = lot[lot.length - 1].rows[0]
     if (!ligne) throw new Error('L’annonce n’a pas pu partir : réessaie')
-    return { annonce: annonceDuQg(ligne), nouvelle: faite.rowsAffected > 0 }
+    const questions = await this.questionsDuQg([id])
+    return { annonce: annonceDuQg(ligne, questions.get(id) ?? null), nouvelle: lot[0].rowsAffected > 0 }
+  }
+
+  /**
+   * Les questions des annonces données, chacune avec ce qu'elle a récolté : les
+   * comptes (un vote, une note), la moyenne et les mots libres avec le prénom de
+   * qui les a écrits. Un seul aller-retour.
+   */
+  private async questionsDuQg(ids: readonly string[]): Promise<Map<string, QuestionAuQg>> {
+    const rendu = new Map<string, QuestionAuQg>()
+    if (ids.length === 0) return rendu
+    const marques = ids.map(() => '?').join(', ')
+    const [questions, comptes, mots] = await this.client.batch(
+      [
+        { sql: `SELECT annonce_id, sorte, choix, recompense, close_le FROM qg_annonce_questions WHERE annonce_id IN (${marques})`, args: [...ids] },
+        {
+          sql: `SELECT annonce_id, reponse, COUNT(*) AS n FROM qg_annonce_reponses WHERE annonce_id IN (${marques}) GROUP BY annonce_id, reponse`,
+          args: [...ids],
+        },
+        {
+          sql: `SELECT r.annonce_id, r.reponse, r.created_at, p.name
+                FROM qg_annonce_reponses r
+                JOIN qg_annonce_questions q ON q.annonce_id = r.annonce_id AND q.sorte = 'mot'
+                LEFT JOIN profiles p ON p.id = r.profile_id
+                WHERE r.annonce_id IN (${marques}) ORDER BY r.created_at DESC`,
+          args: [...ids],
+        },
+      ],
+      'read',
+    )
+    for (const q of questions.rows) {
+      const id = String(q.annonce_id)
+      const sorte = String(q.sorte) as SorteDeQuestion
+      const choix = JSON.parse(String(q.choix)) as string[]
+      const rangees = comptes.rows.filter(c => String(c.annonce_id) === id)
+      const reponses = rangees.reduce((t, c) => t + Number(c.n), 0)
+      const taille = sorte === 'vote' ? choix.length : sorte === 'note' ? NOTE_MAX : 0
+      const decompte = Array.from({ length: taille }, () => 0)
+      if (sorte === 'vote') for (const c of rangees) decompte[Number(c.reponse)] += Number(c.n)
+      if (sorte === 'note') for (const c of rangees) decompte[Number(c.reponse) - 1] += Number(c.n)
+      rendu.set(id, {
+        sorte,
+        choix,
+        recompense: Number(q.recompense),
+        fermeeLe: q.close_le == null ? null : Number(q.close_le),
+        resultats: {
+          reponses,
+          comptes: decompte,
+          moyenne: sorte === 'note' && reponses > 0 ? decompte.reduce((t, n, i) => t + n * (i + 1), 0) / reponses : null,
+          mots: mots.rows
+            .filter(m => String(m.annonce_id) === id)
+            .slice(0, MOTS_MONTRES)
+            .map(m => ({ prenom: m.name == null ? 'Un profil supprimé' : String(m.name), texte: String(m.reponse), le: Number(m.created_at) })),
+        },
+      })
+    }
+    return rendu
   }
 
   /** Les annonces faites, la plus récente d'abord, et les profils qui recevraient la prochaine : un aller-retour. */
@@ -4694,7 +4821,8 @@ export class ProfileStore {
       ],
       'read',
     )
-    return { profils: Number(compte.rows[0]?.n ?? 0), annonces: annonces.rows.map(annonceDuQg) }
+    const questions = await this.questionsDuQg(annonces.rows.map(r => String(r.id)))
+    return { profils: Number(compte.rows[0]?.n ?? 0), annonces: annonces.rows.map(r => annonceDuQg(r, questions.get(String(r.id)) ?? null)) }
   }
 
   /**
@@ -4713,7 +4841,69 @@ export class ProfileStore {
     const ligne = lue.rows[0]
     if (!ligne) return null
     if (retiree.rowsAffected === 0) throw new Error('Cette annonce est déjà retirée : recharge le QG')
-    return annonceDuQg(ligne)
+    return annonceDuQg(ligne, (await this.questionsDuQg([id])).get(id) ?? null)
+  }
+
+  /**
+   * Clôt la question d'une annonce : les joueurs ne la voient plus, ceux qui ont
+   * répondu gardent leurs confettis, et les résultats restent au QG. Null si
+   * l'annonce n'existe pas.
+   */
+  async cloreLaQuestion(id: string): Promise<AnnonceAuQg | null> {
+    const [close, lue] = await this.client.batch(
+      [
+        { sql: 'UPDATE qg_annonce_questions SET close_le = ? WHERE annonce_id = ? AND close_le IS NULL', args: [Date.now(), id] },
+        { sql: `SELECT ${COLONNES_D_UNE_ANNONCE} FROM qg_annonces WHERE id = ?`, args: [id] },
+      ],
+      'write',
+    )
+    const ligne = lue.rows[0]
+    if (!ligne) return null
+    const question = (await this.questionsDuQg([id])).get(id)
+    if (!question) throw new Error('Cette annonce ne pose pas de question')
+    if (close.rowsAffected === 0) throw new Error('Cette question est déjà close : recharge le QG')
+    return annonceDuQg(ligne, question)
+  }
+
+  /**
+   * La réponse d'un profil à la question d'une annonce : une seule, et la
+   * récompense avec elle — un don dont l'identifiant se déduit de l'annonce et du
+   * profil, écrit dans le même lot que la réponse. Rejouée (la réponse perdue en
+   * route), elle ne donne pas deux fois. `introuvable` : l'annonce n'existe pas,
+   * est retirée, parlait d'avant lui ou date de plus d'un mois — l'accueil ne la
+   * dit plus ; `fermee` : l'administrateur a clos la question ; `deja` : il a répondu.
+   */
+  async repondreALAnnonce(p: ProfileRec, annonceId: string, reponse: unknown): Promise<{ etat: 'ok'; accuse: AccuseDeReponse } | { etat: 'introuvable' | 'fermee' | 'deja' }> {
+    const lue = await this.client.execute({
+      sql: `SELECT a.created_at, a.retiree_le, q.sorte, q.choix, q.recompense, q.close_le, r.profile_id AS deja
+            FROM qg_annonces a
+            JOIN qg_annonce_questions q ON q.annonce_id = a.id
+            LEFT JOIN qg_annonce_reponses r ON r.annonce_id = a.id AND r.profile_id = ?
+            WHERE a.id = ?`,
+      args: [p.id, annonceId],
+    })
+    const ligne = lue.rows[0]
+    const maintenant = Date.now()
+    if (!ligne || ligne.retiree_le != null || Number(ligne.created_at) < p.createdAt || maintenant - Number(ligne.created_at) >= ANNONCE_MS) return { etat: 'introuvable' }
+    if (ligne.close_le != null) return { etat: 'fermee' }
+    if (ligne.deja != null) return { etat: 'deja' }
+    const question: QuestionDAnnonce = { sorte: String(ligne.sorte) as SorteDeQuestion, choix: JSON.parse(String(ligne.choix)) as string[], recompense: Number(ligne.recompense) }
+    const lueReponse = lireLaReponse(question, reponse)
+    await this.client.batch(
+      [
+        { sql: 'INSERT OR IGNORE INTO qg_annonce_reponses (annonce_id, profile_id, reponse, created_at) VALUES (?, ?, ?, ?)', args: [annonceId, p.id, lueReponse, maintenant] },
+        ...(question.recompense > 0
+          ? [
+              {
+                sql: 'INSERT OR IGNORE INTO profile_dons (id, profile_id, confettis, mot, created_at) VALUES (?, ?, ?, NULL, ?)',
+                args: [donDeLaReponse(annonceId, p.id), p.id, question.recompense, maintenant],
+              },
+            ]
+          : []),
+      ],
+      'write',
+    )
+    return { etat: 'ok', accuse: { confettis: question.recompense } }
   }
 
   /**
@@ -4809,6 +4999,7 @@ export class ProfileStore {
           'profile_compagnons',
           'profile_fonds',
           'profile_dons',
+          'qg_annonce_reponses',
           'profile_loge_vus',
           'profile_missions',
           'profile_coffres',

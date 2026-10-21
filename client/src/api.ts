@@ -43,7 +43,7 @@ import type { ReglageDesOrnements } from '../../shared/ornements'
 import type { CadeauOuvert, CueilletteEcrite, SoinsDuProfil } from '../../shared/soins'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
-import type { PageDesAnnonces } from '../../shared/annonces'
+import type { AccuseDeReponse, PageDesAnnonces, QuestionDAnnonce } from '../../shared/annonces'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
 import type { EtatDUneErreur, PageDesErreurs } from '../../shared/triDesErreurs'
 import type { BilanDUneAlerte } from '../../shared/pannes'
@@ -342,7 +342,7 @@ export const api = {
     changePassword: (current: string, next: string) =>
       req<{ ok: true }>('/api/auth/password', { method: 'POST', body: JSON.stringify({ current, next }) }),
     /** La télé sans session demande un code à afficher, et le jeton qui l'attend. */
-    appairage: () => req<{ code: string; jeton: string; expireA: number }>('/api/auth/appairage', { method: 'POST', body: '{}' }),
+    appairage: () => req<{ code: string; jeton: string; expireA: number }>('/api/auth/appairage', { method: 'POST' }),
     /**
      * La télé attend : `attente` tant que personne n'a validé, `ok` quand sa
      * session est posée, `perime` quand il lui faut un code neuf.
@@ -425,6 +425,9 @@ export const api = {
     /** Son jardin aménagé, en entier : le serveur vérifie chaque place avant d'écrire. */
     amenager: (compagnon: string, jardin: Readonly<Record<string, string>>) =>
       req<SoinsDuProfil>(`/api/joueur/compagnons/${encodeURIComponent(compagnon)}/jardin`, { method: 'PUT', body: JSON.stringify({ jardin }) }),
+    /** Sa réponse à la question d'une annonce : l'indice d'un choix, une note, ou quelques mots. Rend les confettis qu'elle lui rapporte. */
+    repondreALAnnonce: (id: string, reponse: number | string) =>
+      req<AccuseDeReponse>(`/api/joueur/annonces/${encodeURIComponent(id)}/reponse`, { method: 'POST', body: JSON.stringify({ reponse }) }),
     /** Ce qu'il vient de voir dans sa loge, retenu pour tous ses appareils. */
     retenirLesVus: (vus: VusDeLaLoge) => req<{ ok: true }>('/api/joueur/vus', { method: 'PUT', body: JSON.stringify({ vus }) }),
     /** Ses missions du jour : tirées à sa première visite, ce qui vient d'être fait retenu et dit (`nouvelles`). */
@@ -732,8 +735,10 @@ export const api = {
     /** Les annonces à tous, et combien de profils recevraient la prochaine. */
     annonces: () => req<PageDesAnnonces>('/api/admin/annonces'),
     /** Une annonce à tous, et ses confettis pour chacun ; `id`, celui de l'envoi : refait, il ne part pas deux fois. Rend la page d'après. */
-    annoncer: (id: string, message: string, confettis: number) =>
-      req<PageDesAnnonces>('/api/admin/annonces', { method: 'POST', body: JSON.stringify({ id, message, confettis }) }),
+    annoncer: (id: string, message: string, confettis: number, question?: QuestionDAnnonce) =>
+      req<PageDesAnnonces>('/api/admin/annonces', { method: 'POST', body: JSON.stringify({ id, message, confettis, ...(question && { question }) }) }),
+    /** Clore la question d'une annonce : les joueurs ne la voient plus, les résultats restent. Rend la page d'après. */
+    cloreLaQuestion: (id: string) => req<PageDesAnnonces>(`/api/admin/annonces/${encodeURIComponent(id)}/cloturer`, { method: 'POST', body: '{}' }),
     /** Retirer une annonce : l'accueil la tait, ses confettis restent offerts. Rend la page d'après. */
     retirerLAnnonce: (id: string) => req<PageDesAnnonces>(`/api/admin/annonces/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     /** Les erreurs de la semaine, chacune sous son tri, les modes en panne, et les téléphones que la panne fait sonner. */

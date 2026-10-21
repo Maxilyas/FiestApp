@@ -171,6 +171,9 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     // La panne réglée, une annonce à tous et ses confettis — puis retirée.
     ok(await faire(banc, admin, '/api/admin/annonces', { id: 'annonce-du-journal', message: 'Le quiz du jour remarche : merci de votre patience !', confettis: 20 }), 'annoncer à tous')
     ok(await faire(banc, admin, '/api/admin/annonces/annonce-du-journal', undefined, 'DELETE'), 'retirer l’annonce')
+    // Une annonce qui pose une question, puis la question close.
+    ok(await faire(banc, admin, '/api/admin/annonces', { id: 'annonce-a-question', message: 'Une note pour l’Expédition ?', question: { sorte: 'note', recompense: 5 } }), 'annoncer une question')
+    ok(await faire(banc, admin, '/api/admin/annonces/annonce-a-question/cloturer', {}), 'clore la question')
     // Les erreurs : une vraie, que la base refuse — un 500 ne se note pas —, réglée avec son mot ;
     // puis un téléphone prévenu des pannes, essayé — son service ne répond pas —, et retiré.
     const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
@@ -290,8 +293,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     )
     assert.deepEqual(
       gestes.filter(g => g.sorte === 'annonce').map(g => g.cible),
-      ['annonce-du-journal', 'annonce-du-journal'],
-      'une annonce, faite puis retirée, se vise elle-même',
+      ['annonce-du-journal', 'annonce-du-journal', 'annonce-a-question', 'annonce-a-question'],
+      'une annonce, faite puis retirée — ou sa question close —, se vise elle-même',
     )
     assert.deepEqual(
       gestes.filter(g => g.sorte === 'erreur').map(g => g.cible),
