@@ -158,6 +158,7 @@ Une réponse perdue en route ne fait pas offrir deux fois : refait, le même env
 | Geste | Ce qu'il fait |
 |---|---|
 | « Offrir des confettis » | De 1 à 500 (50 par défaut), avec un mot facultatif de 140 caractères au plus, « lu sur son accueil ». Un don ne se reprend pas, et ne se fait pas à un profil suspendu. Sur ta propre fiche, le groupe s'appelle « Pour toi » et le geste « T'offrir des confettis » : tu t'en offres comme à n'importe qui. |
+| « Offrir un Éclat » | Un Éclat en réserve, confirmé : le joueur le dépense dans sa loge, pièce « Avatar », sur n'importe quel avatar à lui qui n'a pas encore éclaté — définitif. Sert à tester comme à récompenser ; sur ta propre fiche, « T'offrir un Éclat ». Pas à un profil suspendu, et le QG ne le compte pas parmi les Éclats tirés. |
 | « Tirer un code de secours » | Pour qui a perdu son mot de passe : un code neuf, montré une seule fois (« Copier le code »), à lui transmettre. Il le tape dans « J'ai oublié mon mot de passe » avec son identifiant, puis choisit un mot de passe ; un nouveau code, que personne d'autre ne voit, remplace alors le tien. Son code d'avant ne vaut plus rien. |
 | « Lever le verrou de connexion » | Paraît quand sa connexion est fermée — cinq essais manqués, du mot de passe ou du code de secours, la ferment un quart d'heure — et la rouvre aussitôt. |
 | « Libérer l'épreuve » | Paraît quand une épreuve de sentier l'attend — tant qu'elle attend, aucune autre ne commence — et la referme sans lui coûter de vie. |

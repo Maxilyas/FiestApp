@@ -82,6 +82,7 @@ import {
   legendaire,
   legendaireDeLExpedition,
   PREFIXE_DE_LA_RESERVE,
+  PREFIXE_DES_DONS_D_ECLAT,
   legendairesDebloques,
   legendairesOuvertsPar,
   type Condition,
@@ -2498,7 +2499,7 @@ export class ProfileStore {
         { sql: 'SELECT fond, prix, created_at FROM profile_fonds WHERE created_at >= ?', args: [depuis] },
         { sql: 'SELECT nombre, prix, created_at FROM profile_vies WHERE created_at >= ?', args: [depuis] },
         { sql: 'SELECT prix, created_at FROM profile_sabliers WHERE created_at >= ?', args: [depuis] },
-        { sql: 'SELECT soiree_id, created_at FROM profile_eclats WHERE created_at >= ?', args: [depuis] },
+        { sql: 'SELECT soiree_id, created_at FROM profile_eclats WHERE created_at >= ? AND soiree_id NOT LIKE ?', args: [depuis, `${PREFIXE_DES_DONS_D_ECLAT}%`] },
         { sql: 'SELECT rang, faite_le FROM profile_missions WHERE faite_le >= ?', args: [depuis] },
         { sql: 'SELECT confettis, ouvert_le FROM profile_coffres WHERE ouvert_le >= ? AND confettis > 0', args: [depuis] },
       ],
@@ -4621,6 +4622,25 @@ export class ProfileStore {
       args: [randomUUID(), id, n, propre || null, Date.now()],
     })
     return { confettis: n, mot: propre || null }
+  }
+
+  /**
+   * Un Éclat offert par l'administrateur : il arrive en réserve (`donnerUnEclat`),
+   * que le joueur dépense sur l'avatar de son choix. Rangé sous un nom qu'aucune
+   * soirée, aucun jour ni aucune semaine ne porte (`#don:`) : rien ne le reprend
+   * en passant, et le QG ne le compte pas parmi les Éclats tirés. Pour tester
+   * comme pour offrir ; jamais à un profil suspendu, qui ne le verrait pas.
+   */
+  async offrirUnEclat(id: string): Promise<number> {
+    const cle = `${PREFIXE_DE_LA_RESERVE}${randomUUID()}`
+    await this.client.execute({
+      sql: 'INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, ?, ?, ?)',
+      args: [id, cle, `${PREFIXE_DES_DONS_D_ECLAT}${randomUUID()}`, Date.now()],
+    })
+    let reserve = this.reserves.get(id)
+    if (!reserve) this.reserves.set(id, (reserve = new Set()))
+    reserve.add(cle)
+    return reserve.size
   }
 
   /**

@@ -780,6 +780,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ confettis, mot }),
       }),
+    /** Un Éclat offert, en réserve : le joueur le dépense sur l'avatar de son choix. */
+    offrirUnEclat: (id: string) => req<{ ok: true; enReserve: number }>(`/api/admin/profils/${encodeURIComponent(id)}/eclat`, { method: 'POST', body: '{}' }),
     codeDeSecours: (id: string) =>
       req<{ code: string; login: string }>(`/api/admin/profils/${encodeURIComponent(id)}/secours`, { method: 'POST', body: '{}' }),
     renommer: (id: string, nom: string) =>

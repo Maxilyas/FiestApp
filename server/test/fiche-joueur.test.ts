@@ -76,6 +76,37 @@ test('offrir des confettis : dans son solde, dit une fois sur son accueil avec l
   }
 })
 
+test('offrir un Éclat : en réserve chez le joueur, qui le dépense sur l’avatar de son choix — jamais à un suspendu, noté au journal', async () => {
+  const { banc, admin, lea, id } = await avecLea()
+  try {
+    const don = await faire(banc, admin, `/api/admin/profils/${id}/eclat`)
+    assert.equal(don.status, 200, don.corps.error)
+    assert.equal(don.corps.enReserve, 1)
+    assert.deepEqual(await sesGestes(banc, admin, id), ['Éclat offert, en réserve : Léa (@lea)'])
+
+    // Chez lui : un Éclat en réserve, rien d'éclaté pour l'instant.
+    const avant = (await lire<{ profile: { eclats: string[]; eclatsEnReserve: number } }>(banc, lea, '/api/joueur/moi')).corps.profile
+    assert.deepEqual([avant.eclats, avant.eclatsEnReserve], [[], 1])
+
+    // Il le dépense sur un avatar à lui : définitif, et plus rien en réserve.
+    const depense = await ecrire(banc.url, '/api/joueur/moi', { eclatDeReserve: '🐸' }, lea, 'PUT')
+    assert.equal(depense.status, 200)
+    const apres = (await lire<{ profile: { eclats: string[]; eclatsEnReserve: number } }>(banc, lea, '/api/joueur/moi')).corps.profile
+    assert.deepEqual([apres.eclats, apres.eclatsEnReserve], [['🐸'], 0])
+
+    // Le QG ne le compte pas parmi les Éclats tirés : c'est un don.
+    const eco = (await lire<{ eclats: { total: number } }>(banc, admin, '/api/admin/economie')).corps
+    assert.equal(eco.eclats.total, 0)
+
+    // Pas à un suspendu, qui ne le verrait pas ; ni à un profil inconnu.
+    assert.equal((await faire(banc, admin, `/api/admin/profils/${id}/suspendre`)).status, 200)
+    assert.match((await faire(banc, admin, `/api/admin/profils/${id}/eclat`)).corps.error, /Réactive/)
+    assert.equal((await faire(banc, admin, '/api/admin/profils/inconnu/eclat')).status, 404)
+  } finally {
+    await banc.close()
+  }
+})
+
 test('un code de secours neuf : l’ancien ne vaut plus rien, le joueur rentre par « Mot de passe oublié ? »', async () => {
   const { banc, admin, id } = await avecLea()
   try {

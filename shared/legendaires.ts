@@ -436,6 +436,9 @@ export function cibleEclat(porte: string | null | undefined, emoji: string): str
  */
 export const PREFIXE_DE_LA_RESERVE = 'reserve:'
 
+/** Le nom sous lequel se range un Éclat offert par l'administrateur : ni soirée, ni jour, ni semaine. */
+export const PREFIXE_DES_DONS_D_ECLAT = '#don:'
+
 export function estEnReserve(cle: string): boolean {
   return cle.startsWith(PREFIXE_DE_LA_RESERVE)
 }

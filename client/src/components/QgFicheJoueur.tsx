@@ -113,6 +113,17 @@ export function FicheDuJoueurAuQg({
       f.toi ? `${nConfettis(don.confettis)} ajouté${don.confettis > 1 ? 's' : ''} à ton solde` : `${nConfettis(don.confettis)} offert${don.confettis > 1 ? 's' : ''} à ${f.nom}`,
     )
 
+  const offrirUnEclat = async () => {
+    const ok = await confirmDialog({
+      title: f.toi ? 'T’offrir un Éclat ?' : 'Lui offrir un Éclat ?',
+      message: f.toi
+        ? 'Il arrive en réserve dans ta loge, pièce « Avatar » : tu le dépenses sur l’avatar de ton choix, pour toujours.'
+        : `Il arrive en réserve chez ${f.nom}, qui le dépense sur l’avatar de son choix, pour toujours. Un Éclat ne se reprend pas.`,
+      confirmLabel: 'Offrir un Éclat',
+    })
+    if (ok) await geste(async () => void (await api.admin.offrirUnEclat(f.id)), f.toi ? 'Éclat en réserve dans ta loge' : `Éclat offert à ${f.nom}`)
+  }
+
   const reconnecter = async () => {
     const ok = await confirmDialog({
       title: 'Lui tirer un code de secours neuf ?',
@@ -153,6 +164,11 @@ export function FicheDuJoueurAuQg({
     !f.suspendu && !don && (
       <Geste key="don" icone="sparkles" onClick={() => setDon({ confettis: 50, mot: '' })}>
         {f.toi ? 'T’offrir des confettis' : 'Offrir des confettis'}
+      </Geste>
+    ),
+    !f.suspendu && (
+      <Geste key="eclat" icone="star" occupe={occupe} onClick={() => void offrirUnEclat()}>
+        {f.toi ? 'T’offrir un Éclat' : 'Offrir un Éclat'}
       </Geste>
     ),
     !f.suspendu && (
