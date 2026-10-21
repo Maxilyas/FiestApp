@@ -151,6 +151,56 @@ try {
     await photo(page, '08-qg-annonces-ordinateur', { pleine: true })
     await ctx.close()
   }
+  // 4. Une question : le formulaire du QG (un vote, ses choix, la récompense), la carte sur l'accueil de Léa,
+  //    sa réponse et le merci, puis les résultats au QG, avec un mot libre et une note à côté.
+  {
+    const ctx = await contexte([admin])
+    const page = await ctx.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin#annonces`)
+    await page.waitForSelector('#annonce-message')
+    await page.fill('#annonce-message', 'Quel mode voulez-vous voir grandir en premier ?')
+    await page.locator('.annonce-sorte', { hasText: 'Un vote' }).click()
+    await page.fill('input[aria-label="Choix 1"]', 'Les duels')
+    await page.fill('input[aria-label="Choix 2"]', 'La campagne')
+    await page.locator('.annonce-choix-form .salon-geste', { hasText: 'Ajouter un choix' }).click()
+    await page.fill('input[aria-label="Choix 3"]', 'L’Expédition')
+    await page.fill('#annonce-recompense', '10')
+    await page.locator('#annonce-recompense').blur()
+    await photo(page, '09-qg-question-ecrite', { pleine: true })
+    await ctx.close()
+  }
+  for (const corps of [
+    { id: 'sondage-des-modes', message: 'Quel mode voulez-vous voir grandir en premier ?', question: { sorte: 'vote', choix: ['Les duels', 'La campagne', 'L’Expédition'], recompense: 10 } },
+    { id: 'note-expedition', message: 'Comment trouves-tu l’Expédition ?', question: { sorte: 'note', recompense: 0 } },
+    { id: 'mot-libre-idee', message: 'Une idée pour la prochaine version ?', question: { sorte: 'mot', recompense: 5 } },
+  ]) console.log('question :', (await ecrire(banc.url, '/api/admin/annonces', corps, admin)).status)
+  {
+    const ctx = await contexte([lea])
+    const page = await ctx.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/`)
+    await page.waitForSelector('.annonce-choix-bouton')
+    await page.waitForSelector('.niche .niche-bete img', { timeout: 8000 }).catch(() => {})
+    await photo(page, '10-accueil-questions', { pleine: true })
+    await page.locator('.annonce-choix-bouton', { hasText: 'La campagne' }).click()
+    await page.waitForSelector('.annonce-question-merci')
+    await photo(page, '11-accueil-apres-le-vote')
+    await page.locator('.annonce-note').nth(3).click()
+    await page.fill('.annonce-mot textarea', 'Un mode coopératif pour jouer à plusieurs sur le même téléphone !')
+    await page.locator('.annonce-mot .annonce-choix-bouton').click()
+    await page.waitForTimeout(600)
+    await ctx.close()
+  }
+  {
+    const ctx = await contexte([admin])
+    const page = await ctx.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin#annonces`)
+    await page.waitForSelector('.annonce-resultats')
+    await photo(page, '12-qg-resultats', { pleine: true })
+    await ctx.close()
+  }
   console.log(`\n${rapport.join('\n')}\n→ ${sortie}`)
 } finally {
   await navigateur.close()

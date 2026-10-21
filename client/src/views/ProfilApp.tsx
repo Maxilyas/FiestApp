@@ -564,7 +564,12 @@ export function ProfilApp() {
         </div>
         {carteOuverte && laCarte && laCarte !== 'perdu' && <laCarte.CarteJoueur adresse="/api/joueur/carte" onFermer={() => setCarteOuverte(false)} />}
         {/* Ce que l'administrateur a fait pour lui — des confettis offerts, son prénom changé, un merci pour ses signalements —, dit une fois. */}
-        <AnnoncesDeLAdministrateur profileId={profil.id} prenom={profil.name} annonces={'annonces' in profil ? profil.annonces : undefined} />
+        <AnnoncesDeLAdministrateur
+          profileId={profil.id}
+          prenom={profil.name}
+          annonces={'annonces' in profil ? profil.annonces : undefined}
+          onRepondu={() => void relire({ missionsDemandees: true }).catch(() => {})}
+        />
         {/* « À la une » et les missions du jour, sous soi : un bandeau fin et une ligne, au-dessus des gros boutons (la maquette C). */}
         {leHaut === 'perdu' ? null : leHaut ? (
           <leHaut.HautDeLAccueil boutique={'boutique' in profil ? profil.boutique : undefined} />

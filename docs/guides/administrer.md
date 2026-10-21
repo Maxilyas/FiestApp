@@ -139,6 +139,19 @@ Sous « Animer » : un message pour tous les profils, que chacun lit une fois, e
 
 Une réponse perdue en route ne fait pas offrir deux fois : refait, le même envoi répond « Cette annonce est déjà partie : la voici dans la liste ».
 
+### Poser une question
+
+Sous le message, « Une question aux joueurs ? » : l'annonce devient une demande de retour. Le message est la question.
+
+- **Un vote** : deux à cinq choix, chacun de quarante caractères au plus (« Les duels », « La campagne »…). Chaque joueur en touche un.
+- **Une note** : de 1 à 5.
+- **Un mot libre** : jusqu'à 200 caractères.
+- **Des confettis pour avoir répondu** : de 0 à 500, donnés une fois à chaque profil qui répond, en plus de ceux que l'annonce offre à tous si tu en as mis. L'aperçu montre la carte telle qu'ils la liront.
+
+Les joueurs la voient sur leur accueil avec leurs boutons. « Plus tard » la laisse revenir à leur prochaine visite, jusqu'à ce qu'ils répondent, que tu la closes ou qu'un mois passe. Un joueur ne répond qu'une fois, et un profil créé après l'envoi n'est pas questionné.
+
+Dans « Les annonces faites », chaque question montre ses réponses : un décompte par choix ou par note, la moyenne d'une note, les mots libres avec le prénom de qui les a écrits. « Clore la question » la retire de l'accueil sans rien reprendre : les résultats et les confettis donnés restent. Retirer l'annonce ferme aussi les réponses.
+
 ## Les soirées
 
 « Les quiz, les questions et les prénoms des invités restent chez leur animateur : le QG n'en voit que les chiffres. »

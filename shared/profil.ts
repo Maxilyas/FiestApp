@@ -17,6 +17,7 @@
 // hauts faits et une mémoire — du prestige et de la durée, jamais de la
 // performance.
 
+import type { QuestionAPoser } from './annonces'
 import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
 import type { DivinDescendu } from './divins'
@@ -990,7 +991,7 @@ export type AnnonceDeLAdministrateur =
   | { id: string; sorte: 'confettis'; confettis: number; mot: string | null; le: number }
   | { id: string; sorte: 'prenom'; nom: string; le: number }
   | { id: string; sorte: 'merci'; mode: 'jour' | 'campagne'; issue: IssueQuiSert; question: string; le: number }
-  | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number }
+  | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number; question?: QuestionAPoser }
 
 /** Combien de temps une annonce attend sa prochaine visite : un mois, puis elle se tait. */
 export const ANNONCE_MS = 30 * 24 * 3_600_000

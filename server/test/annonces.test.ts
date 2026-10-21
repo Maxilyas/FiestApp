@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import React from 'react'
 import Database from 'better-sqlite3'
 import { connexionAnimateur, cookieDe, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
-import { ANNONCE_MAX, lireLeMessage, lireLesConfettis, type PageDesAnnonces } from '../../shared/annonces'
+import { ANNONCE_MAX, CHOIX_LONGUEUR_MAX, MOT_MAX, lireLaQuestion, lireLaReponse, lireLeMessage, lireLesConfettis, type PageDesAnnonces } from '../../shared/annonces'
 import type { AnnonceDeLAdministrateur, FicheDuJoueur, ProfilDAccueil } from '../../shared/profil'
 import type { JournalDuQg } from '../../shared/qg'
 
@@ -17,7 +17,7 @@ const lire = <T = any>(banc: Banc, cookie: string, chemin: string) =>
   fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as T }))
 const faire = (banc: Banc, cookie: string, chemin: string, corps: unknown = {}, methode = 'POST') =>
   ecrire(banc.url, chemin, corps, cookie, methode).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
-const annoncer = (banc: Banc, admin: string, corps: { id?: string; message?: unknown; confettis?: unknown }) => faire(banc, admin, '/api/admin/annonces', corps)
+const annoncer = (banc: Banc, admin: string, corps: { id?: string; message?: unknown; confettis?: unknown; question?: unknown }) => faire(banc, admin, '/api/admin/annonces', corps)
 const accueil = async (banc: Banc, cookie: string) => (await lire<{ profile: ProfilDAccueil }>(banc, cookie, '/api/joueur/moi?accueil')).corps.profile
 /** Ce que son accueil lui annonce, de ce que l'administrateur a dit à tous. */
 const sesAnnonces = async (banc: Banc, cookie: string) =>
@@ -181,4 +181,140 @@ test('sur l’accueil, une annonce dit ce qu’elle offre à lui — et « Compr
   assert.match(seule, />Compris<\/button>/)
   // À l'aperçu du QG, le bouton n'est qu'une image : rien ne s'y arrête au clavier.
   assert.doesNotMatch(carte({ id: 'apercu', sorte: 'annonce', message: 'Aperçu', confettis: 0, le: 0 }), /<button/)
+})
+
+// La question d'une annonce (le souhait du propriétaire du 21 octobre 2026) : demander un vote,
+// une note ou quelques mots aux joueurs, et leur donner des confettis pour avoir répondu.
+const repondre = (banc: Banc, cookie: string, annonce: string, reponse: unknown) =>
+  faire(banc, cookie, `/api/joueur/annonces/${annonce}/reponse`, { reponse })
+const sesQuestions = async (banc: Banc, cookie: string) =>
+  ((await accueil(banc, cookie)).annonces ?? []).flatMap((a: AnnonceDeLAdministrateur) => (a.sorte === 'annonce' && a.question ? [a.question] : []))
+
+test('la question d’une annonce : un vote de deux à cinq choix, une note de 1 à 5, un mot — refusés plutôt que corrigés', () => {
+  assert.equal(lireLaQuestion(undefined), null)
+  assert.deepEqual(lireLaQuestion({ sorte: 'note' }), { sorte: 'note', choix: [], recompense: 0 })
+  assert.deepEqual(lireLaQuestion({ sorte: 'vote', choix: [' Les duels ', 'La  campagne'], recompense: 20 }), { sorte: 'vote', choix: ['Les duels', 'La campagne'], recompense: 20 })
+  for (const [brut, motif] of [
+    [{ sorte: 'sondage' }, /vote, note ou mot libre/],
+    [{ sorte: 'vote', choix: ['Un seul'] }, /au moins 2 choix/],
+    [{ sorte: 'vote', choix: ['a', 'b', 'c', 'd', 'e', 'f'] }, /5 choix au plus/],
+    [{ sorte: 'vote', choix: ['a', ''] }, /Un choix est vide/],
+    [{ sorte: 'vote', choix: ['a', 'A'] }, /Deux choix sont les mêmes/],
+    [{ sorte: 'vote', choix: ['a', 'x'.repeat(CHOIX_LONGUEUR_MAX + 1)] }, /40 caractères/],
+    [{ sorte: 'note', recompense: 501 }, /Entre 0 et 500 confettis/],
+    ['vote', /mal formée/],
+  ] as const) assert.throws(() => lireLaQuestion(brut), motif, JSON.stringify(brut))
+
+  const vote = { sorte: 'vote' as const, choix: ['a', 'b'] }
+  assert.equal(lireLaReponse(vote, 1), '1')
+  for (const faux of [-1, 2, 0.5, '1', null]) assert.throws(() => lireLaReponse(vote, faux), /Choisis une des réponses/, String(faux))
+  assert.equal(lireLaReponse({ sorte: 'note', choix: [] }, 5), '5')
+  for (const faux of [0, 6, 2.5, '3']) assert.throws(() => lireLaReponse({ sorte: 'note', choix: [] }, faux), /note de 1 à 5/, String(faux))
+  assert.equal(lireLaReponse({ sorte: 'mot', choix: [] }, '  Plus  de duels \n'), 'Plus de duels')
+  assert.throws(() => lireLaReponse({ sorte: 'mot', choix: [] }, '   '), /Écris ta réponse/)
+  assert.throws(() => lireLaReponse({ sorte: 'mot', choix: [] }, 'x'.repeat(MOT_MAX + 1)), /200 caractères/)
+})
+
+test('un vote avec récompense : une réponse par profil, ses confettis une fois, ses résultats au QG, puis la question close', async () => {
+  const banc = await demarrer()
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+
+    // Une question mal formée ne part pas, et n'emporte pas l'annonce.
+    const mauvaise = await annoncer(banc, admin, { message: 'Quel mode en premier ?', question: { sorte: 'vote', choix: ['Les duels'] } })
+    assert.equal(mauvaise.status, 400)
+    assert.equal((await lire<PageDesAnnonces>(banc, admin, '/api/admin/annonces')).corps.annonces.length, 0)
+
+    const faite = await annoncer(banc, admin, {
+      id: 'sondage-des-modes',
+      message: 'Quel mode voulez-vous voir grandir ?',
+      question: { sorte: 'vote', choix: ['Les duels', 'La campagne', 'L’Expédition'], recompense: 10 },
+    })
+    assert.equal(faite.status, 200, faite.corps.error)
+    assert.equal((faite.corps as PageDesAnnonces).annonces[0].question?.resultats.reponses, 0)
+    assert.match((await lesGestes(banc, admin))[0], /avec un vote, 10 confettis par réponse/)
+
+    // L'accueil de Léa la pose avec ses choix et sa récompense — sans que rien ne soit donné avant la réponse.
+    assert.deepEqual(await sesQuestions(banc, lea), [{ sorte: 'vote', choix: ['Les duels', 'La campagne', 'L’Expédition'], recompense: 10 }])
+    assert.equal((await accueil(banc, lea)).boutique?.confettis.solde, 0)
+
+    // Une réponse hors des choix, ou sans compte : refusée, rien n'est écrit.
+    assert.equal((await repondre(banc, lea, 'sondage-des-modes', 3)).status, 400)
+    assert.equal((await repondre(banc, '', 'sondage-des-modes', 0)).status, 401)
+    assert.equal((await repondre(banc, lea, 'inconnue', 0)).status, 404)
+
+    // Elle répond : dix confettis, une fois. La question ne revient plus sur son accueil ; le message, oui, comme une annonce.
+    const reponse = await repondre(banc, lea, 'sondage-des-modes', 1)
+    assert.equal(reponse.status, 200, reponse.corps.error)
+    assert.deepEqual(reponse.corps, { confettis: 10 })
+    assert.equal((await accueil(banc, lea)).boutique?.confettis.solde, 10)
+    assert.deepEqual(await sesQuestions(banc, lea), [])
+    assert.deepEqual(await sesAnnonces(banc, lea), [['Quel mode voulez-vous voir grandir ?', 0]], 'son don de réponse ne se redit pas en « +10 confettis »')
+    const encore = await repondre(banc, lea, 'sondage-des-modes', 0)
+    assert.equal(encore.status, 409)
+    assert.match(encore.corps.error, /déjà répondu/)
+    assert.equal((await accueil(banc, lea)).boutique?.confettis.solde, 10, 'une seule récompense')
+
+    // Bob vote autrement ; le QG compte, dans l'ordre des choix.
+    assert.equal((await repondre(banc, bob, 'sondage-des-modes', 0)).status, 200)
+    const page = (await lire<PageDesAnnonces>(banc, admin, '/api/admin/annonces')).corps
+    assert.deepEqual(page.annonces[0].question?.resultats, { reponses: 2, comptes: [1, 1, 0], moyenne: null, mots: [] })
+
+    // Close : plus de réponse, les confettis donnés et les résultats restent.
+    const max = await inscrireProfil(banc.url, 'max', 'Max', '🐸')
+    assert.deepEqual(await sesQuestions(banc, max), [], 'une annonce d’avant lui ne le questionne pas')
+    assert.equal((await repondre(banc, max, 'sondage-des-modes', 0)).status, 404)
+    const close = await faire(banc, admin, '/api/admin/annonces/sondage-des-modes/cloturer')
+    assert.equal(close.status, 200, close.corps.error)
+    assert.notEqual((close.corps as PageDesAnnonces).annonces[0].question?.fermeeLe, null)
+    assert.equal((await faire(banc, admin, '/api/admin/annonces/sondage-des-modes/cloturer')).status, 400, 'déjà close')
+    assert.equal((await faire(banc, admin, '/api/admin/annonces/inconnue/cloturer')).status, 404)
+    assert.equal((await accueil(banc, lea)).boutique?.confettis.solde, 10)
+    assert.match((await lesGestes(banc, admin))[0], /Question close : « Quel mode voulez-vous voir grandir \? » — 2 réponses/)
+
+    // Un joueur ne clôt rien.
+    assert.equal((await faire(banc, lea, '/api/admin/annonces/sondage-des-modes/cloturer')).status, 401)
+  } finally {
+    await banc.close()
+  }
+})
+
+test('une note et un mot libre : la moyenne, les mots avec leur auteur — et une question rejouée ne s’ajoute pas à une annonce faite', async () => {
+  const banc = await demarrer()
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+
+    await annoncer(banc, admin, { id: 'note-expedition', message: 'Comment trouves-tu l’Expédition ?', question: { sorte: 'note' } })
+    await annoncer(banc, admin, { id: 'mot-libre-ideal', message: 'Une idée pour la prochaine version ?', question: { sorte: 'mot', recompense: 5 } })
+    // Une annonce seule, rejouée avec une question : l'annonce faite n'en gagne pas.
+    await annoncer(banc, admin, { id: 'message-seul-1', message: 'Bonne soirée !' })
+    assert.equal((await annoncer(banc, admin, { id: 'message-seul-1', message: 'Bonne soirée !', question: { sorte: 'note' } })).status, 409)
+    assert.equal((await repondre(banc, lea, 'message-seul-1', 3)).status, 404)
+
+    assert.equal((await repondre(banc, lea, 'note-expedition', 4)).status, 200)
+    assert.equal((await repondre(banc, bob, 'note-expedition', 5)).status, 200)
+    assert.equal((await repondre(banc, lea, 'note-expedition', 0)).status, 409, 'déjà répondu, même hors des bornes')
+
+    assert.equal((await repondre(banc, lea, 'mot-libre-ideal', '   ')).status, 400)
+    assert.equal((await repondre(banc, lea, 'mot-libre-ideal', '  Un mode   coopératif !  ')).status, 200)
+    assert.equal((await accueil(banc, lea)).boutique?.confettis.solde, 5)
+
+    const page = (await lire<PageDesAnnonces>(banc, admin, '/api/admin/annonces')).corps
+    const parId = new Map(page.annonces.map(a => [a.id, a.question]))
+    assert.deepEqual(parId.get('note-expedition')?.resultats, { reponses: 2, comptes: [0, 0, 0, 1, 1], moyenne: 4.5, mots: [] })
+    const mots = parId.get('mot-libre-ideal')?.resultats
+    assert.equal(mots?.reponses, 1)
+    assert.deepEqual(mots?.mots.map(m => [m.prenom, m.texte]), [['Léa', 'Un mode coopératif !']])
+    assert.equal(parId.get('message-seul-1'), null)
+
+    // Retirée, une annonce ne reçoit plus de réponse.
+    assert.equal((await faire(banc, admin, '/api/admin/annonces/mot-libre-ideal', {}, 'DELETE')).status, 200)
+    assert.equal((await repondre(banc, bob, 'mot-libre-ideal', 'Trop tard')).status, 404)
+  } finally {
+    await banc.close()
+  }
 })

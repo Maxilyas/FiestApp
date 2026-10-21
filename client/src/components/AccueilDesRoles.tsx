@@ -3,6 +3,7 @@ import { Icon } from './Icon'
 import { GrosBouton } from './Pieces'
 import { LienConsole } from './LienConsole'
 import { spacePath } from '../routes'
+import { api } from '../api'
 import { PAGE_DES_DUELS, adresseDuDuel } from '../views/adressesDesDuels'
 import type { PublicSpace } from '../../../shared/space'
 import { jourDe, type CarriereDuJour } from '../../../shared/jour'
@@ -362,11 +363,29 @@ function annoncesNouvelles(profileId: string, annonces: readonly AnnonceDeLAdmin
     const vues = new Set<string>(JSON.parse(localStorage.getItem(cleDesAnnoncesVues(profileId)) ?? '[]'))
     const nouvelles = annonces.filter(a => !vues.has(a.id))
     // On ne garde que celles que le serveur dit encore : un mois au plus, la liste ne grossit pas.
-    if (nouvelles.length > 0) localStorage.setItem(cleDesAnnoncesVues(profileId), JSON.stringify(annonces.map(a => a.id)))
+    // Une annonce qui pose une question n'est retenue qu'une fois répondue (`retenirUneAnnonce`) :
+    // « Plus tard » la laisse revenir à la prochaine visite.
+    if (nouvelles.length > 0) {
+      localStorage.setItem(
+        cleDesAnnoncesVues(profileId),
+        JSON.stringify(annonces.filter(a => vues.has(a.id) || !(a.sorte === 'annonce' && a.question)).map(a => a.id)),
+      )
+    }
     return nouvelles
   } catch {
     // Sans stockage, elles reviendraient à chaque passage : elles se taisent, comme la bannière des duels.
     return []
+  }
+}
+
+/** Une annonce à question à laquelle il a répondu : elle ne reviendra plus sur ce téléphone. */
+function retenirUneAnnonce(profileId: string, id: string) {
+  try {
+    const vues = new Set<string>(JSON.parse(localStorage.getItem(cleDesAnnoncesVues(profileId)) ?? '[]'))
+    vues.add(id)
+    localStorage.setItem(cleDesAnnoncesVues(profileId), JSON.stringify([...vues]))
+  } catch {
+    // Sans stockage, rien à retenir : le serveur ne redit pas une question à qui y a répondu.
   }
 }
 
@@ -379,7 +398,18 @@ function annoncesNouvelles(profileId: string, annonces: readonly AnnonceDeLAdmin
  * sont retenues dès qu'elles paraissent, et leur bouton les range
  * (`CarteDeLAdministrateur`).
  */
-export function AnnoncesDeLAdministrateur({ profileId, prenom, annonces }: { profileId: string; prenom: string; annonces?: readonly AnnonceDeLAdministrateur[] }) {
+export function AnnoncesDeLAdministrateur({
+  profileId,
+  prenom,
+  annonces,
+  onRepondu,
+}: {
+  profileId: string
+  prenom: string
+  annonces?: readonly AnnonceDeLAdministrateur[]
+  /** Une réponse est partie : la page relit son solde, la récompense s'y ajoute. */
+  onRepondu?: () => void
+}) {
   const [montrees, setMontrees] = useState<AnnonceDeLAdministrateur[]>([])
   const cle = annonces?.map(a => a.id).join('|') ?? ''
   useEffect(() => {
@@ -391,7 +421,22 @@ export function AnnoncesDeLAdministrateur({ profileId, prenom, annonces }: { pro
   return (
     <ul className="annonces-admin" aria-label="De l’administrateur">
       {montrees.map(a => (
-        <CarteDeLAdministrateur key={a.id} annonce={a} prenom={prenom} onRanger={() => setMontrees(m => m.filter(x => x.id !== a.id))} />
+        <CarteDeLAdministrateur
+          key={a.id}
+          annonce={a}
+          prenom={prenom}
+          onRanger={() => setMontrees(m => m.filter(x => x.id !== a.id))}
+          onRepondre={
+            a.sorte === 'annonce' && a.question
+              ? async reponse => {
+                  const { confettis } = await api.joueur.repondreALAnnonce(a.id.replace(/^annonce:/, ''), reponse)
+                  retenirUneAnnonce(profileId, a.id)
+                  onRepondu?.()
+                  return confettis
+                }
+              : undefined
+          }
+        />
       ))}
     </ul>
   )

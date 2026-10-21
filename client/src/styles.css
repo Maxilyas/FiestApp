@@ -4646,11 +4646,29 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .maintenance-testeurs-liste .salon-geste { flex: none; }
 /* Les annonces au QG : l'aperçu, la carte même de l'accueil (`CarteDeLAdministrateur`), puis celles faites. */
 .annonce-apercu-vide .annonce-admin-texte > span:not(.muted) { font-style: italic; opacity: 0.6; }
-.annonce-faite { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; }
-.annonce-faite-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.annonce-faite { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 12px 0; }
+.annonce-faite-texte { flex: 1 1 14rem; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
 .annonce-faite .salon-geste { flex: none; }
 .annonce-faite-tue .annonce-faite-texte b { color: var(--muted); }
 .annonce-faite-etat { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+.annonce-faite-gestes { flex: none; display: flex; flex-wrap: wrap; gap: 8px; }
+/* La question d'une annonce : le formulaire du QG, puis ses résultats — des barres, la moyenne, les mots. */
+.annonce-question-form { border: 0; margin: 12px 0 0; padding: 0; min-width: 0; }
+.annonce-sortes { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+.annonce-sorte { min-height: 40px; padding: 0 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.annonce-sorte.actif { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.15); }
+.annonce-choix-form { display: grid; gap: 8px; margin-bottom: 10px; }
+.annonce-choix-ligne { display: flex; gap: 8px; align-items: center; }
+.annonce-choix-ligne .input { flex: 1; min-width: 0; }
+.annonce-choix-ligne .salon-geste, .annonce-choix-form > .salon-geste { flex: none; }
+.annonce-resultats { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.annonce-barres, .annonce-mots { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.annonce-barres li { display: grid; grid-template-columns: minmax(0, 9rem) 1fr 2.5rem; align-items: center; gap: 8px; }
+.annonce-barre-nom { overflow-wrap: anywhere; }
+.annonce-barre { display: block; height: 10px; border-radius: var(--radius-pill); background: var(--surface-strong); overflow: hidden; }
+.annonce-barre > span { display: block; height: 100%; background: var(--accent); }
+.annonce-barre-n { text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+.annonce-mots li { display: flex; flex-direction: column; padding: 6px 10px; border-radius: var(--radius-xs); background: var(--surface-strong); overflow-wrap: anywhere; }
 
 /* ── Aperçu de l'import : les estimations lues ──────────────────────────
 
@@ -12612,6 +12630,16 @@ span.annonce-admin-merci { cursor: default; }
 .annonce-admin-pile { flex-wrap: wrap; }
 .annonce-admin-pile .annonce-admin-texte { flex-basis: calc(100% - 46px); }
 .annonce-admin-pile .annonce-admin-merci { margin-left: 46px; }
+/* La question d'une annonce, sous son message : des boutons larges au pouce, cinq notes sur une rangée, ou un champ. */
+.annonce-choix, .annonce-notes { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 2px; }
+.annonce-choix { flex-direction: column; align-items: stretch; }
+.annonce-notes { flex-wrap: nowrap; }
+.annonce-mot { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin: 6px 0 2px; }
+.annonce-choix-bouton { min-height: 44px; padding: 0 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--bg-raised); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; overflow-wrap: anywhere; }
+.annonce-choix-bouton:disabled { opacity: 0.6; cursor: default; }
+.annonce-note { flex: 1; min-width: 0; padding: 0; }
+.annonce-mot .annonce-choix-bouton { align-self: flex-end; }
+.annonce-question-merci { font-weight: 600; color: var(--accent-text); }
 /* Les signalements (`/admin#signalements`) : les onglets, d'où viennent les
    questions et le tri sur une rangée ; puis une carte par question — d'où
    elle vient et qui la signale, l'intitulé en grand, ses réponses en

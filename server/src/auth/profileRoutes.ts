@@ -537,6 +537,25 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     }),
   )
 
+  // Sa réponse à la question d'une annonce de l'administrateur (`shared/annonces.ts`) :
+  // `{ reponse }` — l'indice d'un choix, une note de 1 à 5, ou quelques mots —, une seule par
+  // profil. La récompense est écrite avec elle. 404 : l'accueil ne la dit plus ; 409 : close,
+  // ou déjà répondu.
+  app.post(
+    '/api/joueur/annonces/:id/reponse',
+    moyen,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const rendu = await profiles.repondreALAnnonce(me, String(req.params.id), req.body?.reponse)
+      if (rendu.etat === 'introuvable') return res.status(404).json({ error: 'Cette question n’existe plus' })
+      if (rendu.etat === 'fermee') return res.status(409).json({ error: 'Cette question est close : merci quand même' })
+      if (rendu.etat !== 'ok') return res.status(409).json({ error: 'Tu as déjà répondu : merci !' })
+      res.json(rendu.accuse)
+    }),
+  )
+
   // Sa propre carte, depuis sa page : la seule vitrine de ses cosmétiques
   // (titre, vitrine, écussons, fond) ne s'ouvrait qu'en soirée, sur son nom —
   // il composait sa carte sans jamais la voir. La même que la salle verra,
