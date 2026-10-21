@@ -184,7 +184,7 @@ test('une lecture restée en route ne retient plus les suivantes du profil : ell
       semainesDesCoffres: async () => new Set<string>(),
       soireesDepuis: async () => [],
     } as unknown as DepsDesMissions['profiles'],
-    jour: { activiteDepuis: async () => ({ jour: [], jourParCategorie: [] }) },
+    jour: { activiteDepuis: async () => ({ jour: [], jourParCategorie: [] }), coffresDuMois: async () => [] },
     campagne: { activiteDepuis: async () => ({ series: [], reponses: [] }), aRevoirDe: async () => 0 },
     maintenant: () => Date.UTC(2026, 9, 15, 8),
     dureeMaxMs: 150,

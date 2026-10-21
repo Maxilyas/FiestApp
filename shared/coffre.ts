@@ -92,12 +92,55 @@ export function lireLObjet(cle: unknown, confettis: number): ObjetDuTresor | nul
   return m ? { sorte: m[1] as 'fond' | 'gerbe' | 'theme' | 'compagnon', cle: m[2] } : null
 }
 
-/** Un coffre qui attend son lundi passé : la semaine de ses tampons, combien, et son rang. */
+/**
+ * Le coffre du mois (le souhait du propriétaire du 21 octobre 2026 : « à la
+ * fin du mois, une récompense du coffre, comme celui de la semaine ») : la
+ * place au classement du mois du quiz du jour fait le rang du coffre — le
+ * premier, royal ; du deuxième au quatrième, d'or ; du cinquième au
+ * dixième, d'argent ; au-delà, de bois. Ce sont les mêmes quatre coffres, le
+ * même tirage, la même scène que ceux de la semaine.
+ *
+ * La dernière place de chaque rang : un choix de produit
+ * (`docs/reference/baremes.md`), relu à chaque lecture — mais le rang d'un
+ * coffre déjà posé est figé à la clôture du mois (`jour_coffres_du_mois`).
+ */
+export const PLACES_DU_COFFRE_DU_MOIS: Readonly<Record<Exclude<RangDuCoffre, 'bois'>, number>> = { royal: 1, or: 4, argent: 10 }
+
+/**
+ * Le premier mois dont le classement paie un coffre : octobre 2026, qui se
+ * clôt le 1er novembre. Les mois d'avant sont clos et ne se relisent pas —
+ * un coffre qu'on n'avait pas annoncé ne vient pas après coup.
+ */
+export const PREMIER_MOIS_DES_COFFRES = '2026-10'
+
+/** Le coffre que mérite une place au classement du mois (1 pour le premier). */
+export function rangDuCoffreDuMois(place: number): RangDuCoffre {
+  if (place <= PLACES_DU_COFFRE_DU_MOIS.royal) return 'royal'
+  if (place <= PLACES_DU_COFFRE_DU_MOIS.or) return 'or'
+  if (place <= PLACES_DU_COFFRE_DU_MOIS.argent) return 'argent'
+  return 'bois'
+}
+
+/** Un mois bien écrit (« 2026-10 ») : la clé d'un coffre du mois, comme un lundi est celle d'un coffre de la semaine. */
+export function moisDuCoffreValide(mois: unknown): boolean {
+  return typeof mois === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(mois)
+}
+
+/**
+ * Un coffre qui attend son ouverture : celui d'une semaine passée (ses
+ * tampons, combien, et son rang) ou, avec `place`, celui d'un mois clos.
+ */
 export interface CoffreEnAttente {
-  /** Le lundi de la semaine dont les tampons l'ont rempli (« 2026-10-12 »). */
+  /**
+   * Sa clé : le lundi de la semaine dont les tampons l'ont rempli
+   * (« 2026-10-12 »), ou le mois dont le classement l'a rempli (« 2026-10 »).
+   */
   semaine: string
+  /** Les tampons de la semaine ; 0 pour un coffre du mois. */
   tampons: number
   rang: RangDuCoffre
+  /** Sa place au classement du mois du quiz du jour — présente seulement pour un coffre du mois. */
+  place?: number
 }
 
 /** Un coffre ouvert : ce qu'il a donné, tel que la scène de l'ouverture le dit. */

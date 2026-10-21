@@ -90,7 +90,7 @@ import {
 import { divin } from '../../../shared/divins'
 import { lireLesVus, type VusDeLaLoge } from '../../../shared/piecesDeLaLoge'
 import { gainsDesMissions, lireLaMission, RANG_DES_TROIS, type Mission } from '../../../shared/missions'
-import { cleDeLObjet, lireLObjet, rangDuCoffre, type CoffreOuvert, type ObjetDuTresor, type RangDuCoffre } from '../../../shared/coffre'
+import { cleDeLObjet, lireLObjet, moisDuCoffreValide, rangDuCoffre, rangDuCoffreDuMois, type CoffreOuvert, type ObjetDuTresor, type RangDuCoffre } from '../../../shared/coffre'
 import { ETOILES_DE_LA_CUEILLETTE, type Envie } from '../../../shared/soins'
 import { nomDeLObjet, phraseDeLObjet, tirerLeCoffre } from '../../../shared/tresor'
 import type { Rarete } from '../../../shared/badges'
@@ -1857,9 +1857,12 @@ export class ProfileStore {
     const r = res.rows[0]
     const objet = r ? lireLObjet(r.objet, Number(r.confettis)) : null
     if (!r || !objet) return null
+    // Un coffre du mois garde sa place dans la colonne des tampons : il n'en a pas.
+    const duMois = moisDuCoffreValide(String(r.semaine))
     return {
       semaine: String(r.semaine),
-      tampons: Number(r.tampons),
+      tampons: duMois ? 0 : Number(r.tampons),
+      ...(duMois && { place: Number(r.tampons) }),
       rang: String(r.rang) as RangDuCoffre,
       rarete: String(r.rarete) as Rarete,
       objet,
@@ -1888,7 +1891,9 @@ export class ProfileStore {
     return this.unAchatALaFois(profileId, async () => {
       const deja = await this.coffreDe(profileId, semaine)
       if (deja) return deja
-      const rang = rangDuCoffre(tampons)
+      // Un coffre du mois : sa clé est le mois, et `tampons` y est sa place au classement.
+      const duMois = moisDuCoffreValide(semaine)
+      const rang = duMois ? rangDuCoffreDuMois(tampons) : rangDuCoffre(tampons)
       if (!rang) throw new Error('Pas de coffre cette semaine-là : aucun tampon.')
       const rec = await this.require(profileId)
       const achetes = await this.client.execute({ sql: 'SELECT theme FROM profile_achats WHERE profile_id = ?', args: [profileId] })
@@ -1932,7 +1937,17 @@ export class ProfileStore {
         if (!ses.has(objet.cle as CleDeCompagnon)) ses.set(objet.cle as CleDeCompagnon, { rang: 0, nom: null, montree: null })
       }
       if (niche && !rec.niche) rec.niche = niche
-      return { semaine, tampons, rang, rarete, objet, nom: nomDeLObjet(objet), detail: phraseDeLObjet(objet), ouvertLe: quand }
+      return {
+        semaine,
+        tampons: duMois ? 0 : tampons,
+        ...(duMois && { place: tampons }),
+        rang,
+        rarete,
+        objet,
+        nom: nomDeLObjet(objet),
+        detail: phraseDeLObjet(objet),
+        ouvertLe: quand,
+      }
     })
   }
 

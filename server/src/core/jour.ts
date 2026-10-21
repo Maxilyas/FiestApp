@@ -58,6 +58,7 @@ import {
 } from '../../../shared/library'
 import { preparerPartie, suiteFixe } from '../../../shared/hasard'
 import { classer, rangDansLesTries } from '../../../shared/classement'
+import { PLACES_DU_COFFRE_DU_MOIS, PREMIER_MOIS_DES_COFFRES } from '../../../shared/coffre'
 import { nomsAffiches, sansAccent } from '../../../shared/homonymes'
 import { tronquer } from '../../../shared/avatars'
 import {
@@ -472,6 +473,17 @@ export class JourStore {
            PRIMARY KEY (jour, profile_id)
          )`,
         `CREATE INDEX IF NOT EXISTS idx_jour_podiums_profil ON jour_podiums(profile_id)`,
+        // Le coffre du mois de chacun, figé à la clôture du mois : sa place
+        // au classement (`shared/coffre.ts`). Écrit une fois, jamais modifié —
+        // un masquage ou une annulation d'après ne reprend pas un coffre.
+        `CREATE TABLE IF NOT EXISTS jour_coffres_du_mois (
+           mois       TEXT NOT NULL,
+           profile_id TEXT NOT NULL,
+           place      INTEGER NOT NULL,
+           points     INTEGER NOT NULL,
+           PRIMARY KEY (mois, profile_id)
+         )`,
+        `CREATE INDEX IF NOT EXISTS idx_jour_coffres_du_mois_profil ON jour_coffres_du_mois(profile_id)`,
         `CREATE TABLE IF NOT EXISTS jour_signalements (
            jour       TEXT NOT NULL,
            question   INTEGER NOT NULL,
@@ -2344,6 +2356,7 @@ export class JourStore {
       ],
       'read',
     )
+    if (mois >= PREMIER_MOIS_DES_COFFRES) await this.poserLesCoffresDuMois(mois)
     const jours = new Set(tirages.rows.map(t => String(t.jour)))
     if (jours.size >= JOURS_D_UN_MOIS_COMPLET) {
       const parProfil = new Map<string, Set<string>>()
@@ -2362,6 +2375,49 @@ export class JourStore {
       args: [`mois_clos:${mois}`, String(this.maintenant())],
     })
     console.log(`[jour] ${mois} clos`)
+  }
+
+  /**
+   * Pose le coffre de chaque joueur du mois qui se clôt : sa place au
+   * classement du mois, rang partagé (`classer`, comme partout), tous les
+   * joueurs et non les cinquante que l'écran montre. Comme pour le titre de
+   * champion, il faut être deux au moins ; un masqué n'est pas classé. Une
+   * partie à zéro point ne vaut que le coffre de bois : tous à zéro seraient
+   * sinon tous premiers, et royaux. Écrit une fois (`OR IGNORE`) : la clôture
+   * d'un mois qu'une panne a interrompue se rejoue sans doublon.
+   */
+  private async poserLesCoffresDuMois(mois: string): Promise<void> {
+    const res = await this.client.execute({
+      sql: `SELECT profile_id, SUM(points) AS points FROM jour_parties WHERE jour >= ? AND jour <= ? GROUP BY profile_id`,
+      args: [`${mois}-01`, `${mois}-31`],
+    })
+    const profils = await this.deps.profiles.byIds(res.rows.map(r => String(r.profile_id)))
+    const joueurs: { id: string; nom: string; points: number }[] = []
+    res.rows.forEach((r, i) => {
+      const profil = profils[i]
+      if (profil && !this.masques.has(profil.id)) joueurs.push({ id: profil.id, nom: profil.name, points: Number(r.points) })
+    })
+    if (joueurs.length < 2) return
+    const derniere = PLACES_DU_COFFRE_DU_MOIS.argent
+    await this.client.batch(
+      classer(joueurs, j => j.points, j => j.nom, j => j.id).map(({ item: j, rang }) => ({
+        sql: 'INSERT OR IGNORE INTO jour_coffres_du_mois (mois, profile_id, place, points) VALUES (?, ?, ?, ?)',
+        args: [mois, j.id, j.points > 0 ? rang : Math.max(rang, derniere + 1), j.points],
+      })),
+      'write',
+    )
+  }
+
+  /** Les coffres de mois qui l'attendent, un par mois clos où il était classé : sa place, de quoi en tirer le rang du coffre. */
+  async coffresDuMois(profileId: string): Promise<{ mois: string; place: number }[]> {
+    // Rien ne tourne à minuit : la ligne des missions est souvent la première
+    // demande du 1er du mois, et le coffre du mois serait sinon pour la suivante.
+    await this.clorePasses(jourDe(this.maintenant()))
+    const res = await this.client.execute({
+      sql: 'SELECT mois, place FROM jour_coffres_du_mois WHERE profile_id = ? ORDER BY mois',
+      args: [profileId],
+    })
+    return res.rows.map(r => ({ mois: String(r.mois), place: Number(r.place) }))
   }
 
   /** Relit les champions d'un mois clos : ceux que l'écran commun salue tout le mois suivant. */
@@ -3297,7 +3353,7 @@ export class JourStore {
     await this.avecVerrou(profileId, async () => {
       const jours = await this.client.execute({ sql: 'SELECT DISTINCT jour FROM jour_parties WHERE profile_id = ?', args: [profileId] })
       await this.client.batch(
-        ['jour_reponses', 'jour_parties', 'jour_podiums', 'jour_signalements', 'jour_masques'].map(table => ({
+        ['jour_reponses', 'jour_parties', 'jour_podiums', 'jour_coffres_du_mois', 'jour_signalements', 'jour_masques'].map(table => ({
           sql: `DELETE FROM ${table} WHERE profile_id = ?`,
           args: [profileId],
         })),

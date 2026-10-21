@@ -359,10 +359,10 @@ qui fait le tampon de la semaine.
 
 ### `profile_coffres`
 
-Les coffres de la semaine ouverts (`shared/coffre.ts`), un par profil et par
-semaine : le tirage, fait une fois, et ce qu'il a donné.
+Les coffres ouverts (`shared/coffre.ts`), un par profil et par semaine ou par mois :
+le tirage, fait une fois, et ce qu'il a donné.
 
-- **Colonnes clés** : `profile_id` et `semaine` (la clé ; le lundi de la semaine dont les tampons l'ont rempli), `tampons`, `rang` (`bois`, `argent`, `or`, `royal`), `rarete`, `objet` (`fond:dragon`, `gerbe:papillons`, `theme:jungle`, `compagnon:loup`, `confettis`), `confettis`, `ouvert_le` (indexée : la page de l'économie du QG).
+- **Colonnes clés** : `profile_id` et `semaine` (la clé ; le lundi de la semaine dont les tampons l'ont rempli, ou le mois « 2026-10 » du coffre du mois), `tampons` (pour un coffre du mois : sa place au classement), `rang` (`bois`, `argent`, `or`, `royal`), `rarete`, `objet` (`fond:dragon`, `gerbe:papillons`, `theme:jungle`, `compagnon:loup`, `confettis`), `confettis`, `ouvert_le` (indexée : la page de l'économie du QG).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore.ouvrirUnCoffre` (`POST /api/joueur/coffre`), jamais modifiée — un thème ou un compagnon tiré s'écrit aussi dans `profile_achats` ou `profile_compagnons`, à prix nul.
 - **Lue par** : `ProfileStore` — avec le profil (`byIds` : les fonds et les gerbes du trésor qu'il porte, `tresorsOf`), le solde (ses confettis), un coffre rouvert (`coffreDe`) ; la page de l'économie du QG.
@@ -639,6 +639,16 @@ Le podium de chaque jour clos, et l'expérience qu'il a payée.
 - **Espace** : non.
 - **Écrite par** : `JourStore`, à la clôture du jour.
 - **Lue par** : `JourStore`.
+- **Effacée par** : la suppression du profil.
+
+### `jour_coffres_du_mois`
+
+Le coffre du mois de chaque joueur classé, figé à la clôture du mois (`shared/coffre.ts`).
+
+- **Colonnes clés** : `mois` (« 2026-10 ») et `profile_id` (la clé), `place` (sa place au classement du mois, rang partagé ; onze au mieux pour une partie à zéro point), `points`. Index `profile_id`.
+- **Espace** : non.
+- **Écrite par** : `JourStore.poserLesCoffresDuMois`, à la clôture du mois (`INSERT OR IGNORE`), jamais modifiée — un mois à un seul joueur, un profil masqué ou un mois d'avant octobre 2026 n'en ont pas.
+- **Lue par** : `JourStore.coffresDuMois`, pour les missions (la ligne des missions et sa feuille) et l'ouverture du coffre.
 - **Effacée par** : la suppression du profil.
 
 ### `jour_signalements`
