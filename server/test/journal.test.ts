@@ -140,6 +140,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     // rouverte, son épreuve de sentier libérée, suspendue puis réactivée, et
     // son prénom changé en dernier — les phrases d'avant la nomment encore Léa.
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/confettis`, { confettis: 100, mot: 'Merci pour samedi !' }), 'confettis')
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/eclat`), 'éclat offert')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/secours`), 'code de secours')
     for (let i = 0; i < 5; i++) await ecrire(banc.url, '/api/joueur/connexion', { login: 'lea', password: 'pas-le-bon-1' })
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/connexion`), 'verrou')
@@ -235,6 +236,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Liste collée au quiz du jour : 1 question ajoutée',
       'Soirée laissée en plan close : Antoine — rien n’avait été joué',
       '100 confettis offerts : Léa (@lea) — « Merci pour samedi ! »',
+      'Éclat offert, en réserve : Léa (@lea)',
       'Code de secours neuf tiré : Léa (@lea)',
       'Verrou de connexion levé : Léa (@lea)',
       'Profil suspendu : Léa (@lea)',
@@ -312,6 +314,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
         'Épreuve de sentier libérée, sans coûter de vie : Léa (@lea) — …',
         'Verrou de connexion levé : Léa (@lea)',
         'Code de secours neuf tiré : Léa (@lea)',
+        'Éclat offert, en réserve : Léa (@lea)',
         '100 confettis offerts : Léa (@lea) — « Merci pour samedi ! »',
         'Profil supprimé : Tom (@tom)',
       ],

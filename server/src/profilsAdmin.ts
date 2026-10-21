@@ -171,6 +171,22 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
     }),
   )
 
+  // Offrir un Éclat : il arrive en réserve, et le joueur le dépense sur l'avatar
+  // de son choix (`ProfileStore.offrirUnEclat`). Pour tester le geste comme
+  // pour récompenser quelqu'un — à soi aussi, comme les confettis. Jamais à un
+  // profil suspendu, qui ne le verrait pas.
+  app.post(
+    '/api/admin/profils/:id/eclat',
+    wrap(async (req, res) => {
+      const p = await leProfil(req, res)
+      if (!p) return
+      if (p.disabledAt) return res.status(400).json({ error: 'Réactive d’abord ce profil' })
+      const enReserve = await deps.profiles.offrirUnEclat(p.id)
+      noterLeGeste(res, { sorte: 'profil', resume: `Éclat offert, en réserve : ${nomme(p)}`, cible: p.id })
+      res.json({ ok: true, enReserve })
+    }),
+  )
+
   // Aider à se reconnecter : un code de secours neuf, montré une fois ici,
   // que l'administrateur transmet ; le joueur le tape dans « Mot de passe
   // oublié ? », qui lui en rend un autre. Le code ne va jamais au journal.
