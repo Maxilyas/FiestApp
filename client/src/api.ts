@@ -446,6 +446,8 @@ export const api = {
       theme?: string | null
       gerbe?: string | null
       eclat?: { cle: string; brille: boolean }
+      /** Un Éclat en réserve dépensé sur cet avatar : définitif. */
+      eclatDeReserve?: string
       /** Le compagnon de sa niche, parmi ceux qu'il a adoptés ; null : la règle (`compagnonDeLaNiche`). */
       niche?: string | null
     }) =>

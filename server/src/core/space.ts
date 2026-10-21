@@ -761,8 +761,9 @@ export class SpaceRuntime {
       })
       if (tirage && ProfileStore.tirageEclat()) {
         // Sous un légendaire, c'est lui qui éclate : l'emoji caché dessous
-        // brillait sans que personne le voie.
-        await this.deps.profiles.grantEclat(g.profileId, this.deps.profiles.cibleEclatDe(g.profileId, g.avatar), soireeId)
+        // brillait sans que personne le voie. S'il avait déjà éclaté, l'Éclat
+        // attend en réserve : il ne se perd plus.
+        await this.deps.profiles.donnerUnEclat(g.profileId, g.avatar, soireeId)
       }
       // Ses bonnes réponses de ce quiz ont pu faire grandir son compagnon :
       // la salle le voit à la fin du quiz, jamais pendant une question. Une
