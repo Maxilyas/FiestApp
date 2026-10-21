@@ -12639,6 +12639,18 @@ span.annonce-admin-merci { cursor: default; }
 .annonce-choix-bouton:disabled { opacity: 0.6; cursor: default; }
 .annonce-note { flex: 1; min-width: 0; padding: 0; }
 .annonce-mot .annonce-choix-bouton { align-self: flex-end; }
+/* Une annonce qui pose une question : en colonne et centrée — l'icône de côté poussait le texte et les boutons hors de l'axe de la carte. */
+.annonce-admin-question { flex-direction: column; align-items: stretch; gap: 10px; padding: 16px 14px; text-align: center; }
+.annonce-admin-question .annonce-admin-icone { align-self: center; width: 40px; height: 40px; }
+.annonce-admin-question .annonce-admin-icone .icon { width: 20px; height: 20px; }
+.annonce-admin-question .annonce-admin-texte { flex: none; align-items: stretch; gap: 6px; }
+.annonce-admin-question .annonce-admin-texte > b { font-family: var(--serif); font-size: 1.05rem; }
+.annonce-admin-question .annonce-admin-texte > span:not([class]) { font-size: 1.05rem; line-height: 1.35; }
+.annonce-admin-question .annonce-choix { margin: 8px 0 2px; }
+.annonce-admin-question .annonce-choix-bouton { width: 100%; }
+.annonce-admin-question .annonce-mot .annonce-choix-bouton { align-self: stretch; }
+.annonce-admin-question .annonce-mot .input { text-align: left; }
+.annonce-admin-question .annonce-admin-merci { align-self: center; margin: 0; }
 .annonce-question-merci { font-weight: 600; color: var(--accent-text); }
 /* Les signalements (`/admin#signalements`) : les onglets, d'où viennent les
    questions et le tri sur une rangée ; puis une carte par question — d'où
