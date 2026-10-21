@@ -4,7 +4,8 @@ import type { JourStore } from './jour'
 import { jourAvant, jourDe, minutesAvantMinuit } from '../../../shared/jour'
 import { minuitDe } from '../../../shared/qg'
 import { releve } from './pouls'
-import { rangDuCoffre, semaineValide, type CoffreEnAttente, type CoffreOuvert } from '../../../shared/coffre'
+import { moisDuCoffreValide, rangDuCoffre, rangDuCoffreDuMois, semaineValide, type CoffreEnAttente, type CoffreOuvert } from '../../../shared/coffre'
+import { moisDe } from '../../../shared/jour'
 import {
   activiteDesJours,
   AUCUNE_ACTIVITE,
@@ -33,7 +34,7 @@ export interface DepsDesMissions {
     ProfileStore,
     'lignesDesMissions' | 'tirerLesMissions' | 'accomplirDesMissions' | 'joursAuxTrois' | 'semainesDesCoffres' | 'coffreDe' | 'ouvrirUnCoffre' | 'soireesDepuis'
   >
-  jour: Pick<JourStore, 'activiteDepuis'>
+  jour: Pick<JourStore, 'activiteDepuis' | 'coffresDuMois'>
   campagne: Pick<CampagneStore, 'activiteDepuis' | 'aRevoirDe'>
   /** L'horloge du quiz du jour, que les tests font passer minuit et lundi. */
   maintenant: () => number
@@ -127,6 +128,18 @@ export function coffresEnAttente(joursAuxTrois: readonly string[], ouverts: Read
     })
 }
 
+/**
+ * Les coffres de mois qui attendent : chaque mois clos où il était classé
+ * (`JourStore.coffresDuMois`) et dont il n'a pas encore ouvert le coffre, le
+ * plus ancien d'abord. Son rang vient de sa place, relue ici.
+ */
+export function coffresDuMoisEnAttente(classes: readonly { mois: string; place: number }[], ouverts: ReadonlySet<string>): CoffreEnAttente[] {
+  return classes
+    .filter(c => !ouverts.has(c.mois))
+    .sort((a, b) => a.mois.localeCompare(b.mois))
+    .map(c => ({ semaine: c.mois, tampons: 0, rang: rangDuCoffreDuMois(c.place), place: c.place }))
+}
+
 export class Missions {
   /** Une lecture à la fois par profil : deux onglets qui tirent et retiennent ensemble ne se croisent pas. */
   private enCours = new Map<string, Promise<unknown>>()
@@ -193,13 +206,14 @@ export class Missions {
       const depuis = jourAvant(lundi, 7)
       const debut = minuitDuJour(depuis)
       const carnet = this.tireesLe.get(profileId) === aujourdhui ? null : this.aRevoirDe(profileId)
-      const [lignes, duJour, deCampagne, soirees, auxTrois, ouverts] = await Promise.all([
+      const [lignes, duJour, deCampagne, soirees, auxTrois, ouverts, deMois] = await Promise.all([
         profiles.lignesDesMissions(profileId, depuis),
         jour.activiteDepuis(profileId, depuis),
         campagne.activiteDepuis(profileId, debut),
         profiles.soireesDepuis(profileId, debut),
         profiles.joursAuxTrois(profileId, lundi),
         profiles.semainesDesCoffres(profileId),
+        jour.coffresDuMois(profileId),
       ])
       const activites = activiteDesJours({ ...duJour, ...deCampagne, soirees })
       let siennes = lignes
@@ -227,7 +241,8 @@ export class Missions {
         trois: estFaite(aujourdhui, RANG_DES_TROIS),
         nouvelles: retenues.filter(r => r.jour === aujourdhui).map(r => r.rang),
         semaine: { lundi, tampons: joursDeLaSemaine(lundi).map(j => estFaite(j, RANG_DES_TROIS)) },
-        coffres: coffresEnAttente(joursAuxTrois, ouverts),
+        // Celui du mois d'abord : il vient de loin, et vaut plus qu'un lundi.
+        coffres: [...coffresDuMoisEnAttente(deMois, ouverts), ...coffresEnAttente(joursAuxTrois, ouverts)],
         minutesAvantMinuit: minutesAvantMinuit(maintenant),
       }
     })
@@ -267,13 +282,24 @@ export class Missions {
    * redonne ce qu'il a donné. Refusé en clair : une semaine qui n'est pas
    * finie, une semaine sans tampon.
    */
-  ouvrirLeCoffre(profileId: string, semaine: unknown): Promise<CoffreOuvert> {
-    if (!semaineValide(semaine)) return Promise.reject(new Error('Ce coffre n’existe pas : recharge la page.'))
+  ouvrirLeCoffre(profileId: string, brut: unknown): Promise<CoffreOuvert> {
+    if (typeof brut !== 'string' || !(moisDuCoffreValide(brut) || semaineValide(brut))) return Promise.reject(new Error('Ce coffre n’existe pas : recharge la page.'))
+    const semaine: string = brut
+    const duMois = moisDuCoffreValide(semaine)
     return this.unALaFois(profileId, async etape => {
-      const { profiles } = this.deps
+      const { profiles, jour } = this.deps
       const maintenant = this.deps.maintenant()
       const aujourdhui = jourDe(maintenant)
       etape('le coffre')
+      if (duMois) {
+        // Le coffre d'un mois clos : sa place, figée à la clôture, fait son rang.
+        const deja = await profiles.coffreDe(profileId, semaine)
+        if (deja) return deja
+        if (semaine >= moisDe(aujourdhui)) throw new Error('Ce coffre s’ouvre à la fin du mois : d’ici là, grimpe au classement.')
+        const place = (await jour.coffresDuMois(profileId)).find(c => c.mois === semaine)?.place
+        if (!place) throw new Error('Pas de coffre pour ce mois-là : tu n’étais pas classé au quiz du jour.')
+        return profiles.ouvrirUnCoffre(profileId, semaine, place, { hasard: this.deps.hasard ?? Math.random, jour: aujourdhui, quand: maintenant })
+      }
       if (semaine >= lundiDe(aujourdhui)) throw new Error('Ce coffre s’ouvre lundi : d’ici là, remplis ta carte.')
       const deja = await profiles.coffreDe(profileId, semaine)
       if (deja) return deja

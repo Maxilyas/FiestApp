@@ -22,7 +22,7 @@ import {
 } from '../../../shared/coffre'
 import { compagnon } from '../../../shared/compagnons'
 import { ALLURE_PAR_DEFAUT, gerbe as gerbeDuCatalogue } from '../../../shared/gerbes'
-import { jourEnToutesLettres } from '../../../shared/jour'
+import { duMois, jourEnToutesLettres } from '../../../shared/jour'
 import { nomDeLObjet, phraseDeLObjet, tirerLeCoffre } from '../../../shared/tresor'
 
 // L'ouverture du coffre de la semaine (le souhait du propriétaire du 14
@@ -364,14 +364,25 @@ export function SceneDuCoffre({
     <div className={`coffre-scene coffre-${acte}` + (rarete ? ` coffre-tire-${rarete}` : '')} style={style}>
       <div ref={boite} className="coffre-boite" role="dialog" aria-modal="true" aria-labelledby={titre} tabIndex={-1}>
         <header className="coffre-tete">
-          <span className="label">{`Ta semaine du ${jourEnToutesLettres(attente.semaine, true)}`}</span>
-          <h2 id={titre}>{NOM_DU_COFFRE[attente.rang]}</h2>
-          {/* Les tampons qui l'ont rempli, en étoiles : ce que la semaine a valu, d'un coup d'œil. */}
-          <span className="coffre-tampons" role="img" aria-label={`${attente.tampons} tampon${attente.tampons > 1 ? 's' : ''} sur ${TAMPONS_PAR_SEMAINE}`}>
-            {Array.from({ length: TAMPONS_PAR_SEMAINE }, (_, i) => (
-              <i key={i} className={i < attente.tampons ? 'coffre-tampon-plein' : undefined} />
-            ))}
-          </span>
+          {attente.place ? (
+            <>
+              <span className="label">{`Ton classement ${duMois(attente.semaine)}`}</span>
+              <h2 id={titre}>{NOM_DU_COFFRE[attente.rang]}</h2>
+              {/* Sa place, en toutes lettres : ce que le mois a valu. */}
+              <span className="coffre-place">{attente.place === 1 ? '1re place' : `${attente.place}e place`}</span>
+            </>
+          ) : (
+            <>
+              <span className="label">{`Ta semaine du ${jourEnToutesLettres(attente.semaine, true)}`}</span>
+              <h2 id={titre}>{NOM_DU_COFFRE[attente.rang]}</h2>
+              {/* Les tampons qui l'ont rempli, en étoiles : ce que la semaine a valu, d'un coup d'œil. */}
+              <span className="coffre-tampons" role="img" aria-label={`${attente.tampons} tampon${attente.tampons > 1 ? 's' : ''} sur ${TAMPONS_PAR_SEMAINE}`}>
+                {Array.from({ length: TAMPONS_PAR_SEMAINE }, (_, i) => (
+                  <i key={i} className={i < attente.tampons ? 'coffre-tampon-plein' : undefined} />
+                ))}
+              </span>
+            </>
+          )}
           <button type="button" className="coffre-fermer" onClick={fermer} aria-label={(acte === 'charge' || acte === 'eclat') && ouvert ? 'Passer l’animation' : 'Fermer'}>
             <Icon name="x" />
           </button>

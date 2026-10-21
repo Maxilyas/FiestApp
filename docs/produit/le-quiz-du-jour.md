@@ -63,6 +63,8 @@ Le vainqueur d'hier — tous les ex æquo en tête — porte **le laurier** tout
 
 **Le champion du mois** — le premier du classement du mois, ex æquo compris, à deux joueurs au moins — reçoit un titre daté, « Champion d'octobre 2026 », à porter sous son prénom. Sa carte le dit tout le mois suivant, et l'écran commun le salue quand il entre dans une soirée.
 
+**Le coffre du mois** — chaque joueur classé au classement du mois reçoit à la clôture un coffre selon sa place : royal pour le premier, d'or du deuxième au quatrième, d'argent du cinquième au dixième, de bois au-delà (`PLACES_DU_COFFRE_DU_MOIS`). Il s'ouvre comme le coffre de la semaine : [les missions](les-missions.md#le-coffre-du-mois).
+
 ### Le calendrier des Heures
 
 Douze enluminures, une par mois. **Vingt jours joués** dans un mois (`JOURS_POUR_UNE_PAGE`, une partie commencée compte) ouvrent sa page ; le champion du mois la reçoit dorée ; les douze ouvrent le thème « Les Très Riches Heures ». Le calendrier se regarde dans « Ma collection », sur la page « Quiz du jour » de l'album des trophées, avec tes titres de champion du mois.

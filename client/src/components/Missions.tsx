@@ -18,7 +18,7 @@ import {
   type SorteDeMission,
 } from '../../../shared/missions'
 import { NOM_DU_COFFRE, rangDuCoffre, TAMPONS_DU_RANG, TAMPONS_PAR_SEMAINE, type CoffreEnAttente } from '../../../shared/coffre'
-import { jourEnToutesLettres } from '../../../shared/jour'
+import { duMois, jourEnToutesLettres } from '../../../shared/jour'
 
 // Les missions du jour sur l'accueil, leur feuille, et ce que la fin d'une
 // partie en annonce (le plan d'action validé avec le propriétaire le 14
@@ -75,7 +75,7 @@ export function LigneDesMissions({ missions, onOuvrir }: { missions: MissionsDuJ
   const titre = coffre ? 'Ton coffre t’attend !' : 'Missions du jour'
   // Une ligne chacun, en 360 de large : le titre et ses anneaux, puis ce qui reste — sur trois colonnes, tout passait à la ligne.
   const detail = coffre
-    ? `${NOM_DU_COFFRE[coffre.rang]} de ta semaine`
+    ? `${NOM_DU_COFFRE[coffre.rang]} ${coffre.place ? `du classement ${duMois(coffre.semaine)}` : 'de ta semaine'}`
     : missions.trois
       ? 'Les trois sont faites : à demain'
       : `🎊 ${reste.confettis} et ${reste.xp} XP à gagner aujourd’hui`
@@ -191,7 +191,13 @@ function CoffreQuiAttend({ coffre, onOuvrir }: { coffre: CoffreEnAttente; onOuvr
       {peint ? <img className="coffre-attend-image" src={peint.ferme} alt="" width={96} height={Math.round(96 * peint.rapport)} /> : <Icon name="coffre" />}
       <span className="coffre-attend-texte">
         <b>{`${NOM_DU_COFFRE[coffre.rang]} t’attend`}</b>
-        <span>{espacesFines(`${coffre.tampons} tampon${coffre.tampons > 1 ? 's' : ''}, la semaine du ${jourEnToutesLettres(coffre.semaine, true)}`)}</span>
+        <span>
+          {espacesFines(
+            coffre.place
+              ? `${coffre.place === 1 ? '1re' : `${coffre.place}e`} place au classement ${duMois(coffre.semaine)}`
+              : `${coffre.tampons} tampon${coffre.tampons > 1 ? 's' : ''}, la semaine du ${jourEnToutesLettres(coffre.semaine, true)}`,
+          )}
+        </span>
       </span>
       <span className="btn btn-primary coffre-attend-ouvrir">Ouvrir</span>
     </button>

@@ -57,6 +57,19 @@ Puis un objet de cette rareté qu'il n'a pas :
 
 Une rareté où il a déjà tout descend d'un cran, jusqu'aux confettis. Le tirage se fait une fois, à l'ouverture, et ne se refait jamais : rouvert, le coffre redonne ce qu'il a donné. Un thème ou un compagnon offert est à lui comme acheté — le QG ne le compte pas comme une vente.
 
+### Le coffre du mois
+
+À la fin du mois, le classement du mois du quiz du jour ([le quiz du jour](le-quiz-du-jour.md)) a aussi son coffre — les mêmes quatre coffres, les mêmes chances, la même scène d'ouverture. Sa place le remplit :
+
+| Place au classement du mois | Coffre |
+|---|---|
+| 1re (tous les ex æquo en tête) | le coffre royal |
+| 2e à 4e | le coffre d'or |
+| 5e à 10e | le coffre d'argent |
+| au-delà | le coffre de bois |
+
+Il faut avoir joué au moins une partie ce mois-là, et être deux joueurs au moins au classement (comme pour le titre de champion) ; un profil masqué n'y est pas classé, et une partie à zéro point ne vaut que le coffre de bois. Il attend sur l'accueil dès la première visite du mois suivant — la ligne des missions s'allume d'or — et passe devant ceux de la semaine. Il s'ouvre comme eux, une seule fois, sans date limite. Le premier est celui d'octobre 2026 ; les mois d'avant n'en ont pas.
+
 ### L'ouverture
 
 Une scène à elle, par-dessus tout, dans une nuit qui ne dépend pas du thème porté :

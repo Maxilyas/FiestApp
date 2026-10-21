@@ -27,7 +27,7 @@ export const NOM_DE_LA_SOURCE: Record<SourceDeConfettis, string> = {
   ligues: 'Ligues des duels',
   etoiles: 'Étoiles des sentiers',
   missions: 'Missions du jour',
-  coffres: 'Coffres de la semaine',
+  coffres: 'Coffres de la semaine et du mois',
   // Le QG tutoie l'administrateur, comme son journal : ces dons sont les siens.
   dons: 'Tes dons',
 }
