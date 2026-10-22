@@ -10,7 +10,7 @@
 
 import { jourAvant, jourDe, jourEnToutesLettres, minutesDeParis } from './jour'
 import { espacesFines, formatNumber } from './typographie'
-import { MEMOIRE_DE_L_HEBERGEUR_MO, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
+import { MEMOIRE_DE_L_HEBERGEUR_MO, PART_DU_QUOTA_EN_ROUGE, enLignes, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
 import { lesModes } from './pannes'
 // Des types seulement : `qgCampagne.ts` et `qgDuels.ts` lisent leurs jours ici, et rien ne tourne en rond à l'exécution.
 import type { CampagneDeLaVue } from './qgCampagne'
@@ -471,6 +471,16 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
       alerte: true,
       titre: 'La mémoire approche du plafond',
       detail: `${formatNumber(serveur.memoireMo)} Mo sur ${MEMOIRE_DE_L_HEBERGEUR_MO} : au-delà, l’hébergeur arrête le serveur`,
+      ecran: 'serveur',
+    })
+  }
+  // Le quota de Turso, au rythme de la semaine : un mois qui le dépasse arrête la base de tous — la page « Le serveur » dit quelles requêtes le prennent.
+  if (serveur?.quota) {
+    choses.push({
+      cle: 'quota',
+      alerte: serveur.quota.part >= PART_DU_QUOTA_EN_ROUGE,
+      titre: 'Le quota de Turso',
+      detail: `${enLignes(serveur.quota.luesSurTrenteJours)} lues en trente jours à ce rythme : ${formatNumber(serveur.quota.part)} % du quota`,
       ecran: 'serveur',
     })
   }

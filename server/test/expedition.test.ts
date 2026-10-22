@@ -6,13 +6,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { connexionAnimateur, demarrer, ecrire, inscrireProfil, relireJusqua, type Banc } from './banc'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { expeditionOuverte } from '../src/expedition'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { xpDeLaBonneReponse } from '../../shared/campagne'
-import { GARDIEN, MARCHES_DES_ACTES, type CarteDUnActe, type VueDeLExpedition } from '../../shared/expedition'
+import { GARDIEN, MARCHES_DES_ACTES, inviteDuJour, type CarteDUnActe, type VueDeLExpedition } from '../../shared/expedition'
+import { jourDe } from '../../shared/jour'
 import { LEGENDAIRES_A_JOKER } from '../../shared/jokers'
 import { LEGENDAIRES, cleDeLExpedition, legendaire } from '../../shared/legendaires'
 
@@ -336,11 +337,15 @@ test('une source reprend une question du carnet : comme une révision, ni la pr�
     // Sa précision : les trois de la série et les escales d'avant posées nues, pas la question reprise.
     const fiche = (await lire(banc, lea, '/api/joueur/moi')).corps.profile.fiche
     assert.deepEqual([fiche.qcm, fiche.justes], [3 + nues, nues])
-    // Sa mesure : la seule réponse de la série — relue au plus toutes les dix minutes.
+    // Sa mesure : la seule réponse de la série — relue au plus toutes les dix minutes, en fond : la lecture qui
+    // la trouve périmée reçoit celle qu'il y a, une suivante la neuve.
     await poster(banc, lea, `/api/campagne/serie/${v.id}/signalement`, { index: v.question!.index, texte: 'Pour relire sa mesure.' })
     horloge.t += 11 * 60_000
     const admin = await connexionAnimateur(banc.url)
-    const signalee = (await lire(banc, admin, '/api/admin/campagne')).corps.signalements.find((s: any) => s.questionId === reprise.id)
+    const signalee = await relireJusqua(
+      async () => (await lire(banc, admin, '/api/admin/campagne')).corps.signalements.find((s: any) => s.questionId === reprise.id),
+      s => s.mesure.total > 0,
+    )
     assert.deepEqual(signalee.mesure, { justes: 0, total: 1 })
     assert.equal(signalee.rapports[0].ou, 'expedition', 'le QG dit où il l’a jouée')
   } finally {
@@ -349,12 +354,17 @@ test('une source reprend une question du carnet : comme une révision, ni la pr�
 })
 
 test('un gardien qu’il a déjà se dit avant le départ et en route : les places qui manquent se prennent parmi les siens', async () => {
-  const banc = await demarrer({ baseDeLaCampagne: BASE })
+  const jour = Date.UTC(2026, 9, 12, 8)
+  const banc = await demarrer({ horlogeDuJour: () => jour, baseDeLaCampagne: BASE })
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
     const id = (await lire(banc, lea, '/api/joueur/moi')).corps.profile.id
     // Tous les légendaires qu'une expédition peut lui faire garder, sauf deux — gagnés, disons, en expédition.
-    const possibles = LEGENDAIRES.filter(l => LEGENDAIRES_A_JOKER.includes(l.key) && !l.saison).map(l => l.key)
+    // L'invité du jour n'est jamais un gardien (`gardiensDe`) : les deux qui lui manquent se prennent hors de
+    // lui — pris parmi tous, à l'horloge de la machine, le test rougissait les jours où l'invité en était un
+    // (le 22 octobre 2026, le Dragon).
+    const invite = inviteDuJour(jourDe(jour))
+    const possibles = LEGENDAIRES.filter(l => LEGENDAIRES_A_JOKER.includes(l.key) && !l.saison && l.key !== invite).map(l => l.key)
     const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
     try {
       const ranger = db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#campagne:essai', '', '🧭', 'essai', 1)`)

@@ -7,7 +7,10 @@ import { jourAvant, jourDe } from '../../../shared/jour'
 import { JOURS_DE_LA_SEMAINE, dureeEcrite, graduations, heureEcrite, jourAbrege, jourDeLaSemaine, quandEcrit } from '../../../shared/qg'
 import {
   MEMOIRE_DE_L_HEBERGEUR_MO,
+  PART_DU_QUOTA_EN_ALERTE,
   PROCESSEUR_DE_L_HEBERGEUR_PCT,
+  QUOTA_DES_LIGNES_LUES,
+  enLignes,
   requetesServies,
   tempsDeReponse,
   type ErreurDeLaSemaine,
@@ -142,6 +145,7 @@ export function SanteDuServeurAuQg({ page, versLesErreurs }: { page: PageDuServe
         maintenant={maintenant}
       />
       <Turso heures={page.heures} maintenant={maintenant} />
+      <LeQuotaDeTurso page={page} />
       <LaCharge heures={page.heures} maintenant={maintenant} plafonds={page.plafonds} />
       <LeTrafic heures={page.heures} maintenant={maintenant} />
       <Heures
@@ -198,6 +202,7 @@ function Heures({
   heures,
   valeur,
   ecrire,
+  ecrireAxe,
   legende,
   classe,
   maintenant,
@@ -208,6 +213,8 @@ function Heures({
   heures: HeureDuServeur[]
   valeur: (h: HeureDuServeur) => number | null
   ecrire: (v: number) => string
+  /** L'axe, quand le chiffre écrit en entier n'y tiendrait pas. */
+  ecrireAxe?: (v: number) => string
   /** Ce que l'heure lue en dit, plus que son chiffre ; null, son chiffre seul. */
   legende?: (h: HeureDuServeur) => string | null
   classe: string
@@ -222,11 +229,102 @@ function Heures({
         <h2 id={id}>{titre}</h2>
         <span className="muted small">{sousTitre}</span>
       </div>
-      <GrapheDesHeures id={id} nom={titre} heures={heures} valeur={valeur} ecrire={ecrire} classe={classe} maintenant={maintenant} choisie={choisie} choisir={setChoisie} />
+      <GrapheDesHeures
+        id={id}
+        nom={titre}
+        heures={heures}
+        valeur={valeur}
+        ecrire={ecrire}
+        ecrireAxe={ecrireAxe}
+        classe={classe}
+        maintenant={maintenant}
+        choisie={choisie}
+        choisir={setChoisie}
+      />
       <p className="qg-legende-jour" aria-live="polite">
         {heureDuReleve(h.heure, maintenant)} : {!h.eveille ? 'endormi' : v === null ? 'rien de mesuré' : (legende?.(h) ?? ecrire(v))}
       </p>
     </section>
+  )
+}
+
+/** « 1,5 M », « 200 k », « 40 » : une graduation de l'axe, dans ses cinquante pixels. */
+function lignesEnBref(v: number): string {
+  if (v >= 1_000_000) return `${formatNumber(Math.round(v / 100_000) / 10)} M`
+  if (v >= 1_000) return `${formatNumber(Math.round(v / 100) / 10)} k`
+  return formatNumber(v)
+}
+
+/** « 4 812 lignes lues, 37 écrites » : ce que Turso a compté d'une heure. */
+const lignesDeLHeure = (h: HeureDuServeur) =>
+  h.lignesLues === null ? null : `${enLignes(h.lignesLues)} lues, ${formatNumber(h.lignesEcrites ?? 0)} écrite${(h.lignesEcrites ?? 0) > 1 ? 's' : ''}`
+
+/**
+ * Le quota de Turso (le 22 octobre 2026 : 333 millions de lignes lues sur
+ * les 500 du mois, et rien ne le disait) : ce que ce serveur lit heure par
+ * heure, ce que ce rythme ferait en trente jours, et les requêtes qui lisent
+ * le plus, par le début de leur texte — de quoi les retrouver dans le code.
+ * Ce serveur seul : la préproduction, les sauvegardes et les scripts lisent
+ * au même quota.
+ */
+function LeQuotaDeTurso({ page }: { page: PageDuServeur }) {
+  const q = page.quota
+  const nommees = q ? q.lourdes.reduce((s, l) => s + l.part, 0) : 0
+  return (
+    <>
+      <Heures
+        id="serveur-quota"
+        titre="Le quota de Turso"
+        sousTitre="les lignes que ses requêtes parcourent — pas celles qu’elles rendent —, heure par heure"
+        heures={page.heures}
+        valeur={h => h.lignesLues}
+        ecrire={enLignes}
+        ecrireAxe={lignesEnBref}
+        legende={lignesDeLHeure}
+        classe="qg-serveur-temps"
+        maintenant={page.maintenant}
+      />
+      <section className="qg-carte" aria-labelledby="serveur-ce-qui-lit">
+        <div className="qg-carte-tete">
+          <h2 id="serveur-ce-qui-lit">Ce qui lit le plus</h2>
+          {q && <span className="etiquette num">{formatNumber(q.part)} %</span>}
+        </div>
+        {!q ? (
+          <p className="muted small">Rien de compté encore : le serveur compte ce qu’il lit depuis cette version.</p>
+        ) : (
+          <>
+            <p className="muted small">
+              Depuis {quandDuServeur(q.depuis, page.maintenant)} : {enLignes(q.lues)} lues, {enLignes(q.ecrites)} écrites. À ce rythme, {enLignes(q.luesSurTrenteJours)}{' '}
+              lues en trente jours, {formatNumber(q.part)} % du quota de Turso ({enLignes(QUOTA_DES_LIGNES_LUES)} par mois) ; {formatNumber(q.partEcrite)} % de
+              celui des écritures. Ce serveur seul : la préproduction, les sauvegardes et les scripts lisent au même quota.
+            </p>
+            {q.part >= PART_DU_QUOTA_EN_ALERTE && (
+              <p className="qg-ecart qg-ecart-moins">
+                <Icon name="alert" />
+                Au-delà de la moitié du quota : les requêtes ci-dessous disent où chercher.
+              </p>
+            )}
+            {q.lourdes.length > 0 && (
+              <ul className="qg-liste qg-sources">
+                {q.lourdes.map(l => (
+                  <li key={l.requete}>
+                    <span className="qg-source">{l.requete}</span>
+                    <span className="num">
+                      {formatNumber(l.part)} % · {fois(l.n)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="muted small">
+              {q.lourdes.length === 0
+                ? 'Aucune requête n’a parcouru cent lignes d’un coup : tout se lit par sa clé.'
+                : `Le reste, ${formatNumber(Math.max(0, Math.round((100 - nommees) * 10) / 10))} % : les requêtes de moins de cent lignes, et celles qu’on ne nomme pas.`}
+            </p>
+          </>
+        )}
+      </section>
+    </>
   )
 }
 

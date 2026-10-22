@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
-import type { InStatement, ResultSet } from '@libsql/client'
+import type { InStatement, ResultSet, TransactionMode } from '@libsql/client'
 import { ajouterColonne, clientDistant, type Client } from './distante'
 import { BaseDeLaCampagne, entreeDeLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from './baseCampagne'
 import {
@@ -13,6 +13,7 @@ import {
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
 import { rendreLaMain } from './tourniquet'
+import { FENETRE_DES_RECENTES_MS, JournalDesReponses, REPONSES_PAR_LECTURE, lectureDuJournal, lireLeJournal } from './journalDesReponses'
 import { DejaPrises, type Intitule } from './jumelles'
 import {
   CHANCES_PAR_TRANCHE,
@@ -515,16 +516,17 @@ interface QuestionDeSerie {
 const HORS_DU_CARNET = "json_extract(s.questions, '$[' || r.position || '].carnet') IS NULL"
 
 /**
- * Une réponse `r` qui dit le savoir : nue — aucun joker de l'expédition ne l'a
- * aidée (`campagne_reponses.joker` : deux réponses effacées, un indice, deux
- * questions au choix), posée telle que la base l'a écrite
- * (`campagne_reponses.forme` : à six choix, en vrai ou faux tiré d'une autre,
- * dévoilée à mi-mot, une question n'a plus sa difficulté) — et qui ne reprend
- * pas le carnet. Les écussons, la précision et L'Érudit ne lisent qu'elle ;
- * la mesure et le modèle du savoir l'écrivent à leur façon (`mesuresBrutes`,
- * `PREMIERE_REPONSE`).
+ * Devant le profil d'une tentative qu'on cherche par le code de son duel
+ * (`s.duel = d.code`) : le `+` écarte l'index de ses séries par profil, et
+ * SQLite prend celui des duels (`idx_campagne_series_duel`), qui rend les
+ * deux tentatives du duel. La base de production n'a pas de statistiques
+ * (`ANALYZE`) : départagés à l'aveugle, les deux index se valaient, et il
+ * parcourait pour chaque duel toutes les tentatives de duel des deux joueurs
+ * — 50 000 lignes au quota de Turso, trois fois à chaque ouverture de la
+ * page des duels du plus fidèle (le 22 octobre 2026). `duels-index.test.ts`
+ * lit le plan de chaque requête qui joint les tentatives d'un duel.
  */
-const REPONSE_NUE = `r.joker IS NULL AND r.forme IS NULL AND ${HORS_DU_CARNET}`
+const PAR_SON_CODE = '+'
 
 /**
  * Une série de la campagne, ou une épreuve des sentiers (`mode`) : les mêmes
@@ -605,8 +607,6 @@ interface MesureGardee {
   premieres: Map<string, { justes: number; total: number }>
   base: BaseDeLaCampagne | null
   parQuestion: ReadonlyMap<string, MesureDUneQuestion>
-  /** Sa suivante est partie en fond (`MESURE_EN_AVANCE_MS`) : une fois, même ratée — une base muette ne se fait pas relire à chaque requête. */
-  relueEnFond?: boolean
 }
 
 /** Un défi entre amis, tel que sa table le garde : son tirage figé, ce qu'il fait jouer, quand il ferme. */
@@ -631,12 +631,15 @@ interface Duel {
 /** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
 const MESURES_GARDEES_MS = 10 * 60_000
 /**
- * Lue dans ses deux dernières minutes, elle se relit en fond (`mesures`) :
- * la requête qui l'aurait trouvée périmée — un tirage, un dé — attendait
- * l'aller-retour de toute la mesure et son calcul, 1,2 à 1,4 s au dixième
- * de cœur de l'hébergeur (le banc du 16 octobre 2026).
+ * Lue dès ses deux dernières minutes, elle se relit en fond (`mesures`), et
+ * personne ne l'attend plus : la requête qui l'aurait trouvée périmée — un
+ * tirage, un dé, un duel — attendait l'aller-retour de toute la mesure et
+ * son calcul, 1,2 à 1,4 s au dixième de cœur de l'hébergeur (le banc du
+ * 16 octobre 2026), 2,9 s pour un duel en production (le 22 octobre).
  */
 const MESURE_EN_AVANCE_MS = 2 * 60_000
+/** Une relecture de la mesure tentée — réussie ou ratée —, la suivante attend au moins ceci : une base muette ne se fait pas relire à chaque requête. */
+const MESURE_RETENTEE_MS = 2 * 60_000
 /**
  * Le modèle du savoir se refait au plus toutes les demi-heures, et seulement
  * quand un dé le demande : il relit les réponses de tout le monde, et ses
@@ -942,6 +945,30 @@ export class CampagneStore {
   private savoir: { a: number; modele: ModeleDuSavoir; dureeMs: number } | null = null
   private savoirEnRoute: Promise<void> | null = null
   private savoirRateLe = Number.NEGATIVE_INFINITY
+  /**
+   * Le journal des réponses (`core/journalDesReponses.ts`) : lu en entier une
+   * fois, puis seulement ce qui lui est arrivé depuis, dans le lot de la
+   * requête qui en a besoin (`lireAvecLeJournal`). La mesure, le modèle du
+   * savoir, l'expérience, les écussons, ce que chacun a vu et ses missions en
+   * relisaient chacun toute l'histoire, à chaque fois. Refait quand un profil
+   * part avec ses réponses (`oublierProfil`).
+   */
+  private journal = new JournalDesReponses(() => this.maintenant())
+  /** Sa première lecture en route, et le journal qu'elle remplit : un journal refait en demande une neuve. */
+  private journalEnLecture: { journal: JournalDesReponses; lecture: Promise<void> } | null = null
+  /**
+   * Chaque lecture du journal prend un numéro en partant
+   * (`JournalDesReponses.fraisDepuis`), et chaque réponse écrite ici un
+   * numéro en arrivant (`derniereReponse`) : une lecture partie après elle la
+   * sait.
+   */
+  private lecturesDuJournal = 0
+  /** Le numéro de la dernière réponse écrite ici (`reponseEcrite`). */
+  private derniereReponse = 0
+  /** Le rattrapage en route : qui commence avant lui l'attend, plutôt que d'en lancer un autre. */
+  private rattrapage: { numero: number; journal: JournalDesReponses; fait: Promise<unknown> } | null = null
+  /** Une relecture de la mesure tentée, ratée ou non : la suivante attend `MESURE_RETENTEE_MS`. */
+  private mesureTenteeLe = Number.NEGATIVE_INFINITY
   /** La série de référence du dé, refaite quand les jouables, leur mesure ou le modèle changent : onze mille questions à ranger. */
   private referenceGardee: {
     jouables: readonly QuestionDeLaBase[]
@@ -1030,12 +1057,13 @@ export class CampagneStore {
 
   /**
    * Ses bonnes réponses de campagne, jour par jour (Paris) : de quoi relire
-   * toute sa ligne d'expérience, et dire ce qu'aujourd'hui a rapporté. Relues
-   * en entier à chaque fois : un total tenu à côté se serait perdu au premier
-   * hoquet de la base, quand celui-ci se refait à la bonne réponse suivante.
+   * toute sa ligne d'expérience, et dire ce qu'aujourd'hui a rapporté. Du
+   * journal, rattrapé de ce qui lui est arrivé depuis : un total tenu à côté
+   * se serait perdu au premier hoquet de la base, quand le journal relit ce
+   * qu'il n'a pas encore lu.
    */
   private async justesParJour(profileId: string): Promise<Map<string, number>> {
-    return justesParJourDe((await this.client.execute(lectureDesJustes(profileId))).rows)
+    return justesParJourDesHeures((await this.rattraperLeJournal()).justesParHeureDe(profileId))
   }
 
   async init() {
@@ -1282,12 +1310,12 @@ export class CampagneStore {
     // son état se replie (`pliDeLExpedition`) : rien ne s'écrit à côté.
     await ajouterColonne(this.client, 'campagne_series', 'expedition', 'TEXT')
     // Le joker qui a aidé une réponse de l'expédition (l'étape 2) : vide partout ailleurs. Une réponse aidée ne dit
-    // plus le savoir — ni la mesure, ni le modèle, ni les écussons, ni L'Érudit ne la lisent (`REPONSE_NUE`).
+    // plus le savoir — ni la mesure, ni le modèle, ni les écussons, ni L'Érudit ne la lisent (`reponseNue`, `core/journalDesReponses.ts`).
     await ajouterColonne(this.client, 'campagne_reponses', 'joker', 'TEXT')
     // La forme d'une question de l'expédition (l'étape 3) — `six`, `vrai-faux`,
     // `devoilement` ; vide partout ailleurs, et pour une question posée telle
     // que la base l'a écrite. Une autre forme ne dit plus sa difficulté : rien
-    // de ce qui mesure ne la lit (`REPONSE_NUE`).
+    // de ce qui mesure ne la lit (`reponseNue`).
     await ajouterColonne(this.client, 'campagne_reponses', 'forme', 'TEXT')
     // Le thème pointu d'une question de l'expédition (le 18 octobre 2026) :
     // vide partout ailleurs. Trouvée, elle a mis son tampon au passeport — le
@@ -1408,16 +1436,21 @@ export class CampagneStore {
   async mesures(): Promise<ReadonlyMap<string, MesureDUneQuestion>> {
     const gardee = this.mesuresGardees
     const age = gardee ? this.maintenant() - gardee.a : Infinity
-    const perimee = age >= MESURES_GARDEES_MS
-    // Dans ses deux dernières minutes, elle se relit en fond, et ses tirages
-    // se préparent avec elle (`relireLaMesureEnFond`) : qui la demande d'ici
-    // là reçoit encore celle-ci.
-    const enAvance = !perimee && age >= MESURES_GARDEES_MS - MESURE_EN_AVANCE_MS && !gardee!.relueEnFond
-    // Une seule relecture pour ceux qui la trouvent périmée ensemble — le
-    // préchauffage, le modèle du savoir, deux tirages : chacun relisait tous
-    // les comptes, et chacun refaisait une mesure neuve, que les tirages
-    // préparés (`tirage`) prenaient pour une autre.
-    if ((perimee || enAvance) && !this.mesuresEnRoute) {
+    // Dès ses deux dernières minutes, elle se relit en fond, et ses tirages se
+    // préparent avec elle (`relireLaMesureEnFond`) : qui la demande reçoit
+    // celle qu'il y a, même périmée — seule la première, au réveil, s'attend.
+    // La requête qui la trouvait périmée attendait toute la mesure — 172 000
+    // lignes chez Turso, 3,2 s, sur le chemin d'un duel (le 22 octobre 2026) ;
+    // relue du journal, elle ne coûte plus qu'une lecture de ce qui est arrivé
+    // depuis, mais son calcul reste hors du chemin. Une seule relecture à la
+    // fois, pour ceux qui la demandent ensemble — le préchauffage, le modèle
+    // du savoir, deux tirages : chacun refaisait une mesure neuve, que les
+    // tirages préparés (`tirage`) prenaient pour une autre ; et une tentative
+    // par `MESURE_RETENTEE_MS` au plus, ratée ou non : une base muette ne se
+    // fait pas relire à chaque requête.
+    const aRelire = !gardee || (age >= MESURES_GARDEES_MS - MESURE_EN_AVANCE_MS && this.maintenant() - this.mesureTenteeLe >= MESURE_RETENTEE_MS)
+    if (aRelire && !this.mesuresEnRoute) {
+      this.mesureTenteeLe = this.maintenant()
       this.mesuresEnRoute = this.mesuresBrutes()
         .then(lues => {
           this.mesuresGardees = { a: this.maintenant(), ...lues, base: null, parQuestion: lues.brutes }
@@ -1425,16 +1458,12 @@ export class CampagneStore {
         .finally(() => {
           this.mesuresEnRoute = null
         })
-      if (enAvance) {
-        gardee!.relueEnFond = true
-        this.relireLaMesureEnFond(this.mesuresEnRoute)
-      }
+      if (gardee) this.relireLaMesureEnFond(this.mesuresEnRoute)
     }
-    const [base] = await Promise.all([this.base(), perimee ? this.mesuresEnRoute : null])
-    // Encore bonne, celle qu'il a trouvée : la neuve, arrivée pendant qu'il
-    // attendait, ferait ses familles sur son chemin — c'est la relecture en
-    // fond qui les fait.
-    const garde = perimee ? this.mesuresGardees! : gardee!
+    const [base] = await Promise.all([this.base(), gardee ? null : this.mesuresEnRoute])
+    // Celle qu'il a trouvée : la neuve, arrivée pendant qu'il attendait,
+    // ferait ses familles sur son chemin — c'est la relecture en fond qui les fait.
+    const garde = gardee ?? this.mesuresGardees!
     if (garde.base !== base) {
       await this.mettreEnFamille(garde, base)
       // Qui l'attendait repart à son tour : son tirage, sa série de référence
@@ -1464,11 +1493,10 @@ export class CampagneStore {
   }
 
   /**
-   * La mesure relue avant d'être due (`MESURE_EN_AVANCE_MS`), puis ses
-   * familles et la préparation des tirages de toutes les catégories : la
-   * requête suivante les trouve faits. Ratée, rien ne change — celle d'avant
-   * sert jusqu'à son heure, puis se relit sur le chemin de la requête, comme
-   * avant.
+   * La mesure relue en fond (`MESURE_EN_AVANCE_MS`), puis ses familles et la
+   * préparation des tirages de toutes les catégories : la requête suivante
+   * les trouve faits. Ratée, rien ne change — celle d'avant sert, et la
+   * relecture se retente au plus tôt `MESURE_RETENTEE_MS` après.
    */
   private relireLaMesureEnFond(enRoute: Promise<void>): void {
     enRoute
@@ -1480,65 +1508,128 @@ export class CampagneStore {
         if (!this.ferme) this.tirage(jouables, mesure)
       })
       .catch(e => {
-        if (!this.ferme) console.warn('[campagne] mesure non relue en fond — elle se relira à son heure :', e instanceof Error ? e.message : e)
+        if (!this.ferme) console.warn('[campagne] mesure non relue en fond — celle d’avant sert, la relecture se retentera :', e instanceof Error ? e.message : e)
       })
   }
 
   /**
-   * Les bonnes réponses et les réponses de chaque question, telles que le
-   * journal les dit (`brutes`) ; et les mêmes sur la seule première réponse
-   * de chacun (`premieres`), dont se comptent les familles. D'un aller-retour.
+   * Les bonnes réponses et les réponses de chaque question (`brutes`) ; et
+   * les mêmes sur la seule première réponse de chacun (`premieres`), dont se
+   * comptent les familles — du journal, rattrapé d'un aller-retour. Sans les
+   * révisions du carnet : elles ne reposent que ce qu'on a raté, dont on a lu
+   * la bonne réponse la veille — comptées, elles feraient passer pour faciles
+   * les questions que tout le monde rate une fois. Ni ce qu'une source de
+   * l'expédition reprend du carnet (`QuestionDeSerie.carnet`), ni ce qu'un
+   * joker a aidé à trouver, ni ce qu'une autre forme a posé — à six choix, en
+   * vrai ou faux, à mi-mot : la question n'y a plus la difficulté qu'on
+   * mesure. Une première réponse aidée ne compte pas, et aucune d'après ne la
+   * remplace (`premiereReponse`). Une réponse sans série — un test qui
+   * l'écrit à la main — compte pour un joueur à elle seule. Relue en entier,
+   * la mesure parcourait toutes les réponses deux fois : 172 000 lignes au
+   * quota de Turso toutes les dix minutes d'activité (le 22 octobre 2026).
    */
   private async mesuresBrutes(): Promise<{ brutes: Map<string, { justes: number; total: number }>; premieres: Map<string, { justes: number; total: number }> }> {
-    // Sans les révisions du carnet : elles ne reposent que ce qu'on a raté,
-    // dont on a lu la bonne réponse la veille — comptées, elles feraient
-    // passer pour faciles les questions que tout le monde rate une fois. En
-    // un seul texte, comme ce qu'il a vu (`lectureDesVues`) : une ligne par
-    // question jouée — onze mille — se décodait sur le chemin de la requête
-    // qui la trouvait périmée, le dé d'un joueur toutes les dix minutes. Une
-    // réponse sans série — un test qui l'écrit à la main — compte pour un
-    // joueur à elle seule. Un tableau de triplets plutôt qu'un objet : sept
-    // mille clés d'objet se décodaient trois fois plus lentement — 13 ms pour
-    // les deux textes, 4 en tableaux (le banc du 17 octobre 2026).
-    // Ni ce qu'une source de l'expédition reprend du carnet (`QuestionDeSerie.carnet`) :
-    // lues d'un coup, les quelques questions des expéditions, plutôt qu'une
-    // série relue par réponse. Les premières réponses n'en ont pas besoin :
-    // une question du carnet a toujours la sienne avant, celle qu'il a ratée.
-    // Ni ce qu'un joker a aidé à trouver (`joker`) : à deux réponses effacées,
-    // une question n'a plus la difficulté qu'on mesure ; ni ce qu'une autre
-    // forme a posé (`forme`) — à six choix, en vrai ou faux, à mi-mot. Une
-    // première réponse aidée ou d'une autre forme ne compte pas, et aucune
-    // d'après ne la remplace (`PREMIERE_REPONSE`).
-    const [brutes, premieres] = await this.client.batch(
-      [
-        `SELECT json_group_array(json_array(reserve_id, justes, total)) AS mesures FROM (
-           SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses
-           WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision')
-             AND joker IS NULL AND forme IS NULL
-             AND serie_id || ':' || position NOT IN (
-               SELECT e.id || ':' || j.key FROM campagne_series e, json_each(e.questions) j
-               WHERE e.mode = 'expedition' AND json_extract(j.value, '$.carnet') = 1
-             )
-           GROUP BY reserve_id
-         )`,
-        `SELECT json_group_array(json_array(reserve_id, justes, total)) AS mesures FROM (
-           SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM (
-             SELECT r.reserve_id AS reserve_id, ${PREMIERE_REPONSE} AS juste
-             FROM campagne_reponses r LEFT JOIN campagne_series s ON s.id = r.serie_id
-             WHERE COALESCE(s.mode, 'serie') <> 'revision'
-             GROUP BY COALESCE(s.profile_id, r.serie_id), r.reserve_id
-           ) WHERE juste IS NOT NULL GROUP BY reserve_id
-         )`,
-      ],
-      'read',
-    )
-    const lire = (texte: unknown) => {
-      const lues = new Map<string, { justes: number; total: number }>()
-      if (typeof texte !== 'string') return lues
-      for (const [id, justes, total] of JSON.parse(texte) as [unknown, unknown, unknown][]) lues.set(String(id), { justes: Number(justes), total: Number(total) })
-      return lues
+    return (await this.rattraperLeJournal()).mesures()
+  }
+
+  // ── Le journal des réponses (`core/journalDesReponses.ts`) ──────────────
+
+  /**
+   * Sa première lecture : toute l'histoire, par tranches, chacune décodée à
+   * son tour de boucle (`rendreLaMain`). Une seule à la fois ; ratée, la
+   * suivante qui en a besoin la refait.
+   */
+  private chargerLeJournal(): Promise<void> {
+    const journal = this.journal
+    if (journal.charge) return Promise.resolve()
+    if (this.journalEnLecture?.journal !== journal) {
+      const lecture = (async () => {
+        for (;;) {
+          if (this.ferme) throw new Error('la campagne est fermée')
+          const numero = ++this.lecturesDuJournal
+          const res = await this.client.execute(lectureDuJournal(journal.jusqua))
+          await rendreLaMain()
+          const lu = lireLeJournal(res.rows[0])
+          journal.appliquer(lu, numero)
+          if (!lu.aSuivre) break
+        }
+        journal.charge = true
+      })()
+      const enLecture = { journal, lecture }
+      this.journalEnLecture = enLecture
+      lecture.then(
+        () => {},
+        () => {
+          // Ratée, elle se refait à la demande suivante : gardée, la promesse la figerait.
+          if (this.journalEnLecture === enLecture) this.journalEnLecture = null
+        },
+      )
     }
-    return { brutes: lire(brutes.rows[0]?.mesures), premieres: lire(premieres.rows[0]?.mesures) }
+    return this.journalEnLecture!.lecture
+  }
+
+  /**
+   * Le journal à jour de tout ce qui était écrit quand on l'a demandé
+   * (`debut`, le numéro de la dernière lecture partie alors) : chargé s'il ne
+   * l'est pas, puis ce qui lui est arrivé depuis, lu à part — un aller-retour,
+   * qui ne parcourt que les réponses neuves. Une lecture partie après la
+   * demande suffit — la première lecture, au premier tour après un démarrage,
+   * ou le rattrapage d'un autre, encore en route : on l'attend. Pour ce qui
+   * ne part pas dans un lot (`lireAvecLeJournal`).
+   */
+  private async rattraperLeJournal(debut = this.lecturesDuJournal): Promise<JournalDesReponses> {
+    for (;;) {
+      const dejaCharge = this.journal.charge
+      await this.chargerLeJournal()
+      const journal = this.journal
+      // Refait pendant qu'on attendait (`oublierProfil`) : on attend le neuf.
+      if (!journal.charge) continue
+      if (journal.fraisDepuis > debut) return journal
+      // Tout juste chargé, et sa lecture partie après la dernière réponse écrite ici : il sait tout ce qu'on a écrit.
+      if (!dejaCharge && journal.fraisDepuis > this.derniereReponse) return journal
+      const enRoute = this.rattrapage
+      if (enRoute && enRoute.journal === journal && enRoute.numero > debut) {
+        await enRoute.fait
+        continue
+      }
+      const numero = ++this.lecturesDuJournal
+      const fait = this.client.execute(lectureDuJournal(journal.jusqua)).then(res => journal.appliquer(lireLeJournal(res.rows[0]), numero))
+      const rattrapage = { numero, journal, fait }
+      this.rattrapage = rattrapage
+      try {
+        await fait
+      } finally {
+        if (this.rattrapage === rattrapage) this.rattrapage = null
+      }
+    }
+  }
+
+  /** Une réponse vient de s'écrire ici : une lecture du journal la saura si elle part après. */
+  private reponseEcrite(): void {
+    this.derniereReponse = ++this.lecturesDuJournal
+  }
+
+  /**
+   * Un lot, et le journal rattrapé dans le même aller-retour : ce qui lui est
+   * arrivé depuis part au bout du lot — après l'écriture d'un lot qui écrit,
+   * qu'il lit donc aussi. Pas encore chargé, il se charge à côté et se
+   * rattrape derrière : au premier tour après un démarrage seulement. Rend
+   * les résultats du lot, sans celui du journal.
+   */
+  private async lireAvecLeJournal(lot: InStatement[], mode: TransactionMode = 'read'): Promise<{ lus: ResultSet[]; journal: JournalDesReponses }> {
+    const debut = this.lecturesDuJournal
+    if (lot.length === 0) return { lus: [], journal: await this.rattraperLeJournal(debut) }
+    const journal = this.journal
+    if (!journal.charge) {
+      const [lus] = await Promise.all([this.client.batch(lot, mode), this.chargerLeJournal()])
+      // Sa première lecture, partie après la dernière réponse écrite ici, sait tout ce qu'on a écrit ; un lot qui écrit se relit après lui.
+      if (mode === 'read' && journal === this.journal && journal.charge && journal.fraisDepuis > this.derniereReponse) return { lus, journal }
+      return { lus, journal: await this.rattraperLeJournal(mode === 'read' ? debut : this.lecturesDuJournal) }
+    }
+    const numero = ++this.lecturesDuJournal
+    const lus = await this.client.batch([...lot, lectureDuJournal(journal.jusqua)], mode)
+    journal.appliquer(lireLeJournal(lus[lus.length - 1].rows[0]), numero)
+    return { lus: lus.slice(0, -1), journal: journal === this.journal && journal.fraisDepuis >= numero ? journal : await this.rattraperLeJournal(debut) }
   }
 
   /**
@@ -1585,15 +1676,15 @@ export class CampagneStore {
   /**
    * L'ajustement du modèle du savoir, en fond et par tranches
    * (`ajusterSansBloquer`), reparti de celui d'avant : sur les premières
-   * réponses de tout le monde, d'une lecture (`LECTURE_DU_SAVOIR`), et sur
-   * toute la base — une question retirée depuis dit encore la force de qui
-   * l'a jouée.
+   * réponses de tout le monde, du journal (`premieresDuJournal` — relues en
+   * entier, 87 000 lignes au quota de Turso à chaque ajustement), et sur toute
+   * la base — une question retirée depuis dit encore la force de qui l'a jouée.
    */
   private async ajusterLeSavoir(): Promise<void> {
     const debut = performance.now()
-    const [base, jouables, mesure, lu] = await Promise.all([this.base(), this.jouables(), this.mesures(), this.client.execute(LECTURE_DU_SAVOIR)])
+    const [base, jouables, mesure, journal] = await Promise.all([this.base(), this.jouables(), this.mesures(), this.rattraperLeJournal()])
     const depart = this.savoir?.modele ?? null
-    const joueurs = await premieresDeTous(lu.rows)
+    const joueurs = await premieresDuJournal(journal)
     // Chaque étape à son tour de boucle (`rendreLaMain`) — les questions du
     // modèle, la préparation du tirage, la série de référence — : au réveil,
     // elles suivaient d'un bloc les familles de la mesure.
@@ -1649,9 +1740,9 @@ export class CampagneStore {
     return reference
   }
 
-  /** Les questions qu'il a vues — répondues, en série, en épreuve ou au défi —, et quand pour la dernière fois (`parFraicheur`). */
+  /** Les questions qu'il a vues — répondues, en série, en épreuve ou au défi —, et quand pour la dernière fois (`parFraicheur`), du journal. */
   private async vuesPar(profileId: string): Promise<Map<string, number>> {
-    return lireLesVues((await this.client.execute(lectureDesVues(profileId))).rows).vues
+    return (await this.rattraperLeJournal()).vuesDe(profileId).vues
   }
 
   /**
@@ -1892,31 +1983,27 @@ export class CampagneStore {
    * renommée, dans le même lot (`lecturesDeLaRenommee`).
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
-    const [record, justes, expertes, validees, passeport, ...renommee] = await this.client.batch(
-      [
-        {
-          sql: `SELECT COALESCE(MAX(justes), 0) AS n FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`,
-          args: [profileId],
-        },
-        { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
-        // Une experte retrouvée en révision — ou à une source de l'expédition,
-        // qui la reprend du carnet — ne compte pas pour L'Érudit : on en aurait
-        // fait trois d'une seule, ratée exprès. Ni trouvée par un joker.
-        {
-          sql: `SELECT COUNT(*) AS n FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-                WHERE s.profile_id = ? AND s.mode <> 'revision' AND ${REPONSE_NUE} AND r.juste = 1 AND json_extract(s.questions, '$[' || r.position || '].niveau') = 'expert'`,
-          args: [profileId],
-        },
-        this.lectureDesValidees(profileId),
-        lectureDuPasseport(profileId),
-        ...(this.rencontres ? lecturesDeLaRenommee(profileId) : []),
-      ],
-      'read',
-    )
+    const {
+      lus: [record, justes, validees, passeport, ...renommee],
+      journal,
+    } = await this.lireAvecLeJournal([
+      {
+        sql: `SELECT COALESCE(MAX(justes), 0) AS n FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`,
+        args: [profileId],
+      },
+      { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
+      this.lectureDesValidees(profileId),
+      lectureDuPasseport(profileId),
+      ...(this.rencontres ? lecturesDeLaRenommee(profileId) : []),
+    ])
     return {
       record: Number(record.rows[0]?.n ?? 0),
       justes: Number(justes.rows[0]?.n ?? 0),
-      expertes: Number(expertes.rows[0]?.n ?? 0),
+      // Ses expertes trouvées, du journal. Une experte retrouvée en révision —
+      // ou à une source de l'expédition, qui la reprend du carnet — ne compte
+      // pas pour L'Érudit : on en aurait fait trois d'une seule, ratée exprès.
+      // Ni trouvée par un joker.
+      expertes: journal.expertesDe(profileId),
       // Ses épreuves seules : un palier repris des portraits d'avant n'a pas d'étoile.
       ...statsDesSentiers(sentiersLus([], validees.rows)),
       // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun.
@@ -2311,7 +2398,8 @@ export class CampagneStore {
       const contre = finie && s.mode === 'duel' ? await this.duelDe(s.duel) : null
       const classe = !!contre?.adversaire
       const lectureDuDuel = finie && (s.mode === 'rencontre' || classe) ? lot.push(lectureDesDuels(profileId, this.maintenant())) - 1 : -1
-      if (juste) lot.push(...lecturesDeLExperience(profileId))
+      const experience = juste ? this.lecturesDeLExperience(profileId) : null
+      if (experience) lot.push(...experience.lectures)
       // Le tour de ses bordures, pris avant le lot qui les relit avec son duel.
       const tourDesBordures = ++this.tourDesBordures
       // Vue ici, elle l'est aussi pour son expédition en route.
@@ -2319,6 +2407,7 @@ export class CampagneStore {
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
+        this.reponseEcrite()
       } catch (e) {
         this.enCours.delete(profileId)
         throw e
@@ -2339,7 +2428,7 @@ export class CampagneStore {
       if (classe && duel && contre) this.relireLesBorduresDe(contre.auteur === profileId ? contre.adversaire : contre.auteur)
       const enFace = classe && duel && contre ? await this.enFaceDuDuel(contre, profileId) : null
       const avant = record ? Number(res[0].rows[0]?.record ?? 0) : 0
-      const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
+      const xp = experience ? await this.crediter(profileId, res.slice(-2), experience) : 0
       const revision = s.mode === 'revision'
       const gagnees = !finie
         ? {}
@@ -2414,16 +2503,44 @@ export class CampagneStore {
   }
 
   /**
-   * Une bonne réponse vient d'entrer : sa ligne d'expérience se relit en
-   * entier (`lecturesDeLExperience`, lues dans le lot qui l'écrit), sous le
-   * verrou du profil où l'on est déjà. Rend ce que cette réponse rapporte —
-   * double parmi les vingt premières du jour. Une base qui refuse d'écrire la
-   * ligne ne fait pas échouer la réponse, déjà rangée : la bonne réponse
-   * suivante réécrit la ligne entière.
+   * Ce que relit sa ligne d'expérience, au bout du lot qui écrit sa bonne
+   * réponse : ce qui est arrivé au journal depuis sa dernière lecture — elle
+   * comprise, écrite juste avant dans le même lot — et ses paliers validés.
+   * Ses bonnes réponses, relues toutes à chacune, coûtaient au quota de Turso
+   * autant de lignes que son histoire : douze mille pour un fidèle, à chaque
+   * bonne réponse (le 22 octobre 2026). Le journal pas encore chargé, sa
+   * lecture ne rapporte rien (`LIMIT 0`) : `crediter` le charge, puis le
+   * rattrape. Rend le journal qu'elle rattrape : refait entre-temps, c'est le
+   * neuf qu'il faudra lire.
    */
-  private async crediter(profileId: string, lues: readonly ResultSet[]): Promise<number> {
-    const { parJour, xp } = experienceLue(lues)
+  private lecturesDeLExperience(profileId: string): { lectures: InStatement[]; journal: JournalDesReponses; numero: number } {
+    const journal = this.journal
+    return {
+      lectures: [lectureDuJournal(journal.jusqua, journal.charge ? REPONSES_PAR_LECTURE : 0), lectureDesPaliersValides(profileId)],
+      journal,
+      numero: journal.charge ? ++this.lecturesDuJournal : 0,
+    }
+  }
+
+  /**
+   * Une bonne réponse vient d'entrer : sa ligne d'expérience se relit en
+   * entier — ses bonnes réponses du journal, que ce qu'a lu son lot
+   * (`lecturesDeLExperience`) a mis à jour, et ses paliers —, sous le verrou
+   * du profil où l'on est déjà. Rend ce que cette réponse rapporte — double
+   * parmi les vingt premières du jour. Une base qui refuse d'écrire la ligne
+   * ne fait pas échouer la réponse, déjà rangée : la bonne réponse suivante
+   * réécrit la ligne entière.
+   */
+  private async crediter(
+    profileId: string,
+    [lecture, paliers]: readonly ResultSet[],
+    { journal, numero }: { journal: JournalDesReponses; numero: number },
+  ): Promise<number> {
     try {
+      if (numero > 0) journal.appliquer(lireLeJournal(lecture.rows[0]), numero)
+      // Sa lecture n'a rien rapporté — le journal pas encore chargé —, ou pas tout : une lecture partie après l'écriture.
+      const aJour = numero > 0 && journal === this.journal && journal.fraisDepuis >= numero ? journal : await this.rattraperLeJournal(this.lecturesDuJournal)
+      const { parJour, xp } = experienceDuJournal(aJour.justesParHeureDe(profileId), paliers.rows)
       await this.ecrireXp(profileId, xp, parJour.size)
       return xpDeLaBonneReponse(parJour.get(jourDe(this.maintenant())) ?? 1)
     } catch (e) {
@@ -2443,7 +2560,8 @@ export class CampagneStore {
     const ids = joueurs.rows.map(r => String(r.profile_id))
     for (const id of ids) {
       await this.avecVerrou(id, async () => {
-        const { parJour, xp } = experienceLue(await this.client.batch(lecturesDeLExperience(id), 'read'))
+        const [journal, paliers] = await Promise.all([this.rattraperLeJournal(), this.client.execute(lectureDesPaliersValides(id))])
+        const { parJour, xp } = experienceDuJournal(journal.justesParHeureDe(id), paliers.rows)
         await this.ecrireXp(id, xp, parJour.size)
       })
     }
@@ -2545,6 +2663,8 @@ export class CampagneStore {
     // Les bordures de ligue de tous, d'une lecture : les classements du jour
     // et du défi les montrent sans rien attendre (`borduresEnMemoire`).
     this.toutesLesCotes().catch(e => console.warn('[campagne] bordures de ligue non lues en fond — chacune se relira à la demande :', e instanceof Error ? e.message : e))
+    // Le journal des réponses : la première page, la première bonne réponse le trouvent lu.
+    this.chargerLeJournal().catch(e => console.warn('[campagne] journal des réponses non lu en fond — la première demande le lira :', e instanceof Error ? e.message : e))
     // Le modèle du savoir : le premier dé le trouve ajusté.
     this.modeleDuSavoir()
   }
@@ -2598,15 +2718,38 @@ export class CampagneStore {
    */
   async activiteDepuis(profileId: string, depuis: number): Promise<Pick<JournauxDesJours, 'series' | 'reponses'>> {
     const commencees = depuis - MARGE_D_UNE_EPREUVE_MS
-    const [series, reponses] = await this.client.batch(
+    const series: InStatement = {
+      sql: `SELECT id, mode, issue, finie_le FROM campagne_series
+            WHERE profile_id = ? AND commencee_le >= ? AND (finie_le IS NULL OR finie_le >= ?)`,
+      args: [profileId, commencees, depuis],
+    }
+    const seriesLues = (lues: ResultSet) =>
+      lues.rows.map(r => ({
+        id: String(r.id),
+        mode: String(r.mode ?? 'serie'),
+        issue: r.issue == null ? null : String(r.issue),
+        finieLe: r.finie_le == null ? null : Number(r.finie_le),
+      }))
+    // Ses réponses, du journal (`recentesDe`) : relues de la base, elles
+    // parcouraient toutes celles des parties commencées depuis trois semaines
+    // — 7 500 lignes au quota de Turso pour un fidèle, à chaque ouverture de
+    // l'accueil (le 22 octobre 2026). Une question qu'une source de
+    // l'expédition reprend du carnet paie, mais ne dit rien de son savoir,
+    // comme une révision : sans catégorie, elle ne compte qu'en bonne réponse.
+    if (depuis >= this.maintenant() - FENETRE_DES_RECENTES_MS) {
+      const {
+        lus: [lues],
+        journal,
+      } = await this.lireAvecLeJournal([series])
+      return {
+        series: seriesLues(lues),
+        reponses: journal.recentesDe(profileId, depuis, commencees).map(r => ({ serie: r.serie, mode: r.mode, juste: r.juste, le: r.le, categorie: r.categorie })),
+      }
+    }
+    // Plus loin que ce que le journal garde : la lecture d'avant.
+    const [lues, reponses] = await this.client.batch(
       [
-        {
-          sql: `SELECT id, mode, issue, finie_le FROM campagne_series
-                WHERE profile_id = ? AND commencee_le >= ? AND (finie_le IS NULL OR finie_le >= ?)`,
-          args: [profileId, commencees, depuis],
-        },
-        // Une question qu'une source de l'expédition reprend du carnet paie, mais ne dit rien
-        // de son savoir, comme une révision : sans catégorie, elle ne compte qu'en bonne réponse.
+        series,
         {
           sql: `SELECT r.serie_id AS serie, s.mode AS mode, r.juste AS juste, r.repondue_le AS le,
                        CASE WHEN ${HORS_DU_CARNET} THEN json_extract(s.questions, '$[' || r.position || '].categorie') END AS categorie
@@ -2619,12 +2762,7 @@ export class CampagneStore {
       'read',
     )
     return {
-      series: series.rows.map(r => ({
-        id: String(r.id),
-        mode: String(r.mode ?? 'serie'),
-        issue: r.issue == null ? null : String(r.issue),
-        finieLe: r.finie_le == null ? null : Number(r.finie_le),
-      })),
+      series: seriesLues(lues),
       reponses: reponses.rows.map(r => ({
         serie: String(r.serie),
         mode: String(r.mode ?? 'serie'),
@@ -2663,25 +2801,15 @@ export class CampagneStore {
    * plus que son expérience ou ses confettis.
    */
   async savoirDe(profileId: string): Promise<Savoir> {
-    // La catégorie se lit dans la sous-requête, que `LIMIT -1` garde à part :
-    // aplatie dans le regroupement, SQLite recopiait dans son tri le JSON
-    // entier de la série — soixante questions — pour chacune de ses
-    // réponses. Six fois plus lent pour un joueur de cinq cents séries, et
-    // la carte la lit à chaque toucher sur son nom. Les révisions du carnet
-    // n'y sont pas : elles reposent ce qu'il a raté, réponse lue la veille,
-    // et sa précision y gagnait ce qu'il venait d'apprendre par cœur — ni ce
-    // qu'une source de l'expédition reprend du carnet, ni ce qu'un joker a
-    // aidé à trouver : deux réponses effacées font une précision qu'il n'a pas.
-    const res = await this.client.execute({
-      sql: `SELECT categorie, COUNT(*) AS questions, COUNT(choix) AS repondues, SUM(juste) AS justes
-            FROM (SELECT json_extract(s.questions, '$[' || r.position || '].categorie') AS categorie, r.choix AS choix, r.juste AS juste
-                  FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-                  WHERE s.profile_id = ? AND s.mode <> 'revision' AND ${REPONSE_NUE}
-                  LIMIT -1)
-            GROUP BY categorie`,
-      args: [profileId],
-    })
-    return savoirDesLignes(res.rows)
+    // Du journal, rattrapé d'un aller-retour qui ne parcourt que les réponses
+    // neuves : la page du profil et la carte le lisaient de toutes ses
+    // réponses, 13 600 lignes au quota de Turso pour un fidèle, à chaque
+    // ouverture (le 22 octobre 2026). Les révisions du carnet n'y sont pas :
+    // elles reposent ce qu'il a raté, réponse lue la veille, et sa précision
+    // y gagnait ce qu'il venait d'apprendre par cœur — ni ce qu'une source de
+    // l'expédition reprend du carnet, ni ce qu'un joker a aidé à trouver :
+    // deux réponses effacées font une précision qu'il n'a pas (`reponseNue`).
+    return savoirDesLignes((await this.rattraperLeJournal()).savoirDe(profileId))
   }
 
   // ── Le carnet de révision ───────────────────────────────────────────────
@@ -2707,11 +2835,34 @@ export class CampagneStore {
    * second essai (la colonne `joker` porte la carte de l'essai,
    * `CARTES_DU_SECOND_ESSAI`) y compte pour ratée : sa première réponse était
    * fausse — le journal des gestes l'a gardée, le carnet ne lit que les
-   * réponses (le détail, v15 ; à la version 14, elle n'y entrait pas). La
-   * forme se compare sans NULL (`COALESCE`) : `forme = 'vrai-faux'`, vide,
-   * rendait NULL tout le filtre, et écartait chaque bonne réponse nue.
+   * réponses (le détail, v15 ; à la version 14, elle n'y entrait pas).
+   *
+   * Tenu par le journal des réponses (`JournalDesReponses.carnetDe`),
+   * rattrapé d'un aller-retour — ou de rien, quand une lecture du journal
+   * partie après `debut` l'a déjà fait : relu de la base, il parcourait toute
+   * l'histoire du joueur à chaque accueil, 14 000 lignes au quota de Turso
+   * pour le plus assidu, le 22 octobre 2026, deux de plus par réponse qu'il
+   * donne.
    */
-  private async suivisDe(profileId: string): Promise<Map<string, SuiviDeRevision>> {
+  private async suivisDe(profileId: string, debut = this.lecturesDuJournal): Promise<Map<string, SuiviDeRevision>> {
+    // Pas encore chargé — le premier accueil après un réveil — : la base, pendant qu'il se charge en fond ; l'attendre ferait patienter l'accueil de toute sa lecture.
+    if (!this.journal.charge) {
+      this.chargerLeJournal().catch(() => {})
+      return this.suivisDeLaBase(profileId)
+    }
+    const journal = await this.rattraperLeJournal(debut)
+    return journal.carnetDe(profileId, this.semaineDeLHeure().semaine, this.maintenant()) ?? this.suivisDeLaBase(profileId)
+  }
+
+  /**
+   * Le carnet relu de la base, comme avant le journal : pour un joueur dont
+   * une réponse est arrivée au journal avant une plus ancienne à la même
+   * question (`carnetIncertain`) — et `journal-des-reponses.test.ts`, qui
+   * compare. La forme se compare sans NULL (`COALESCE`) : `forme =
+   * 'vrai-faux'`, vide, rendait NULL tout le filtre, et écartait chaque bonne
+   * réponse nue.
+   */
+  private async suivisDeLaBase(profileId: string): Promise<Map<string, SuiviDeRevision>> {
     const essais = CARTES_DU_SECOND_ESSAI.map(cle => `'${cle}'`).join(', ')
     const res = await this.client.execute({
       sql: `WITH miennes AS (
@@ -3454,25 +3605,20 @@ export class CampagneStore {
       // allers-retours l'un derrière l'autre, quatre quand sa fiche n'était pas
       // en mémoire — 3 à 6 s au 95ᵉ centile en production (le relevé de
       // l'heure, le 19 octobre 2026). L'écriture part après la réponse.
-      const [toutes, mesure, sesAmis, lus, lui] = await Promise.all([
+      const [toutes, mesure, sesAmis, { lus, journal }, lui] = await Promise.all([
         this.jouables(suivi ? undefined : categories),
         this.mesures(),
         voulus.size > 0 ? this.idsDesAmis(profileId) : Promise.resolve([]),
-        this.client.batch(
-          autre
-            ? [lectureDesVues(profileId), lectureDesVues(autre), lectureDuDuelOuvert(profileId, autre, maintenant), lectureDesDuels(profileId, maintenant), lectureDesDuels(autre, maintenant)]
-            : [lectureDesVues(profileId)],
-          'read',
-        ),
+        this.lireAvecLeJournal(autre ? [lectureDuDuelOuvert(profileId, autre, maintenant), lectureDesDuels(profileId, maintenant), lectureDesDuels(autre, maintenant)] : []),
         autre && this.profils ? this.profils.byIds([autre]).then(([p]) => p) : null,
       ])
-      const contre = autre ? this.adversaireDuDuel(lui, duelOuvertLu(lus[2].rows[0], profileId)) : null
-      const cotes = contre ? ([this.releveLu(profileId, lus[3].rows, tour), this.releveLu(contre, lus[4].rows, tour)] as const) : null
-      // Ce que l'un et l'autre ont vu : tiré pour personne, le duel reposait à
-      // son auteur la question vue dix minutes plus tôt dans son épreuve
-      // (l'experte du jeu solo, le 11 octobre 2026).
-      const vues = lireLesVues(lus[0].rows).vues
-      if (contre) for (const [id, le] of lireLesVues(lus[1].rows).vues) if (le > (vues.get(id) ?? -Infinity)) vues.set(id, le)
+      const contre = autre ? this.adversaireDuDuel(lui, duelOuvertLu(lus[0].rows[0], profileId)) : null
+      const cotes = contre ? ([this.releveLu(profileId, lus[1].rows, tour), this.releveLu(contre, lus[2].rows, tour)] as const) : null
+      // Ce que l'un et l'autre ont vu (le journal) : tiré pour personne, le duel
+      // reposait à son auteur la question vue dix minutes plus tôt dans son
+      // épreuve (l'experte du jeu solo, le 11 octobre 2026).
+      const vues = journal.vuesDe(profileId).vues
+      if (contre) for (const [id, le] of journal.vuesDe(contre).vues) if (le > (vues.get(id) ?? -Infinity)) vues.set(id, le)
       const prevus = contre ? [contre] : sesAmis.filter(id => voulus.has(id))
       const jouables = suivi ? this.duSujet(toutes, suivi.cle) : toutes
       if (jouables.length < QUESTIONS_POUR_JOUER) {
@@ -3942,10 +4088,10 @@ export class CampagneStore {
     // duel ouvert qu'il ne voyait nulle part.
     const retenus = await this.client.execute({
       sql: `SELECT d.code FROM campagne_duels d
-            JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL
+            JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code AND ${PAR_SON_CODE}s.profile_id = d.auteur AND s.finie_le IS NOT NULL
             WHERE d.auteur = ? AND d.adversaire = ? AND d.ferme_le > ?
               AND NOT EXISTS (SELECT 1 FROM campagne_envois e WHERE e.code = d.code AND e.profile_id = d.adversaire)
-              AND NOT EXISTS (SELECT 1 FROM campagne_series t WHERE t.mode = 'duel' AND t.duel = d.code AND t.profile_id = d.adversaire)`,
+              AND NOT EXISTS (SELECT 1 FROM campagne_series t WHERE t.mode = 'duel' AND t.duel = d.code AND ${PAR_SON_CODE}t.profile_id = d.adversaire)`,
       args: [lui.id, profileId, this.maintenant()],
     })
     if (retenus.rows.length > 0) {
@@ -3995,9 +4141,12 @@ export class CampagneStore {
       [
         { sql: 'SELECT ami, ajoute_le AS le FROM campagne_amis_ajoutes WHERE profile_id = ?', args: [profileId] },
         {
-          // Les défis entre amis joués ensemble, d'un côté ou de l'autre : chacun est l'ami de l'autre.
+          // Les défis entre amis joués ensemble, d'un côté ou de l'autre : chacun est l'ami de l'autre. Ses défis
+          // mènent la lecture, puis leurs tentatives par le code (`CROSS JOIN` : SQLite garde dehors la table de
+          // gauche). Laissé à lui-même, sans statistiques, il partait de toutes les tentatives de duel du
+          // serveur — 1 226 lignes au quota de Turso pour le plus fidèle, 279 ainsi (le 22 octobre 2026).
           sql: `SELECT ami, MAX(le) AS le FROM (
-                  SELECT s.profile_id AS ami, s.commencee_le AS le FROM campagne_duels d JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code
+                  SELECT s.profile_id AS ami, s.commencee_le AS le FROM campagne_duels d CROSS JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code
                    WHERE d.auteur = ? AND s.profile_id <> ? AND d.adversaire IS NULL
                   UNION ALL
                   SELECT d.auteur AS ami, s.commencee_le AS le FROM campagne_series s JOIN campagne_duels d ON d.code = s.duel
@@ -4421,8 +4570,9 @@ export class CampagneStore {
    * reprend, et elle ne s'abandonne pas.
    *
    * Tout ce qu'il lui faut de la base permanente part d'un seul aller-retour
-   * — sa rencontre laissée, sa cote, ce qu'il a vu et ses premières
-   * réponses, d'un même texte —, et le dé répond sans attendre que la
+   * — sa rencontre laissée, sa cote, et ce qui est arrivé au journal depuis
+   * sa dernière lecture, d'où ce qu'il a vu et ses premières réponses
+   * (`lireAvecLeJournal`) —, et le dé répond sans attendre que la
    * rencontre s'écrive : le verrou du profil tient jusque-là, et sa première
    * réponse l'attend (`avecVerrouJusquALEcriture`) — lire une question prend
    * plus longtemps qu'un aller-retour. Lu en deux fois, puis écrit, le dé
@@ -4449,14 +4599,14 @@ export class CampagneStore {
       // part avec celles du dé, que rien n'attend derrière elle.
       this.modeleDuSavoir()
       const tour = ++this.tourDesBordures
-      const [laissee, duels, vues] = await this.client.batch(
-        [
-          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
-          lectureDesDuels(profileId, maintenant),
-          lectureDesVues(profileId),
-        ],
-        'read',
-      )
+      // Ce qu'il a vu, et ses premières réponses : le journal, rattrapé dans le même lot.
+      const {
+        lus: [laissee, duels],
+        journal,
+      } = await this.lireAvecLeJournal([
+        { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+        lectureDesDuels(profileId, maintenant),
+      ])
       // Sa cote : ce que la rencontre met en jeu se redit à chaque question.
       const releve = this.releveLu(profileId, duels.rows, tour)
       const ouverte = laissee.rows[0] ? versSerie(laissee.rows[0]) : null
@@ -4484,7 +4634,7 @@ export class CampagneStore {
               : 'La campagne n’a pas encore de questions à poser : reviens bientôt',
         )
       }
-      const { vues: sesVues, premieres } = lireLesVues(vues.rows)
+      const { vues: sesVues, premieres } = journal.vuesDe(profileId)
       const tirees = this.tirage(jouables, mesure).tirer(sesVues, maintenant)
       // La série de référence d'Automate à son tour de boucle (`rendreLaMain`) :
       // à une mesure neuve, elle se refait derrière la préparation du tirage.
@@ -5197,30 +5347,27 @@ export class CampagneStore {
    * Tout ce que ses sentiers disent de lui — ses paliers, ses vies, l'épreuve
    * laissée — en un lot, à côté de ses vies achetées, qui sont chez le
    * profil : deux allers-retours de front, l'accueil les attend. La page des
-   * sentiers y ajoute ses premières réponses (`avecSesPremieres`), dans le
-   * même lot : sa chance sur chaque sentier ne coûte pas un aller-retour.
+   * sentiers y ajoute ses premières réponses (`avecSesPremieres`), du
+   * journal rattrapé dans le même lot : sa chance sur chaque sentier ne coûte
+   * pas un aller-retour — ni, au quota de Turso, toutes ses réponses.
    */
   private async lireLesSentiers(
     profileId: string,
     avecSesPremieres = false,
+    /** Le journal rattrapé dans le même lot : son carnet, lu ensuite, n'a plus d'aller-retour à faire (`accueilDesSentiers`). */
+    avecLeJournal = avecSesPremieres,
   ): Promise<{ sentiers: SentierDuJoueur[]; vies: VieDesSentiers; ouverte: Serie | null; premieres: Map<string, PremiereReponse> | null }> {
-    const [[acquis, validees, echecs, ouverte, premieres], achetees] = await Promise.all([
-      this.client.batch(
-        [
-          ...this.lecturesDesSentiers(profileId),
-          this.lectureDesEchecs(profileId),
-          this.lectureDeLEpreuveOuverte(profileId),
-          ...(avecSesPremieres ? [lectureDesPremieres(profileId)] : []),
-        ],
-        'read',
-      ),
+    const lectures = [...this.lecturesDesSentiers(profileId), this.lectureDesEchecs(profileId), this.lectureDeLEpreuveOuverte(profileId)]
+    const [lus, achetees] = await Promise.all([
+      avecLeJournal ? this.lireAvecLeJournal(lectures) : this.client.batch(lectures, 'read').then(lus => ({ lus, journal: null })),
       this.viesAchetees?.(profileId) ?? 0,
     ])
+    const [acquis, validees, echecs, ouverte] = lus.lus
     return {
       sentiers: sentiersLus(acquis.rows, validees.rows),
       vies: this.viesLues(echecs.rows, achetees),
       ouverte: ouverte.rows[0] ? versSerie(ouverte.rows[0]) : null,
-      premieres: premieres ? lireLesPremieres(premieres.rows) : null,
+      premieres: avecSesPremieres && lus.journal ? lus.journal.premieresDe(profileId) : null,
     }
   }
 
@@ -5412,9 +5559,12 @@ export class CampagneStore {
    * des amis le bouton des duels (`accueilDesDuels`).
    */
   async accueilDesSentiers(profileId: string): Promise<SentiersDAccueil> {
-    const [{ sentiers, vies, ouverte }, suivis] = await Promise.all([this.lireLesSentiers(profileId), this.suivisDe(profileId)])
+    // Le journal chargé, rattrapé dans le lot des sentiers : le carnet le lit ensuite, sans un aller-retour de plus.
+    const debut = this.lecturesDuJournal
+    const avecLeJournal = this.journal.charge
+    const [{ sentiers, vies, ouverte }, deLaBase] = await Promise.all([this.lireLesSentiers(profileId, false, avecLeJournal), avecLeJournal ? null : this.suivisDe(profileId)])
     const laissee = ouverte?.branche && ouverte.palier ? { branche: ouverte.branche, palier: ouverte.palier } : null
-    const aRevoir = this.compterARevoir(suivis)
+    const aRevoir = this.compterARevoir(deLaBase ?? (await this.suivisDe(profileId, debut)))
     return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee), ...(aRevoir > 0 && { aRevoir }) }
   }
 
@@ -5501,12 +5651,8 @@ export class CampagneStore {
         const vies = await this.vies(profileId)
         if (vies.jour + vies.reserve <= 0) throw new Error('Plus de vies pour aujourd’hui : elles reviennent à minuit, ou rachètes-en en confettis')
       }
-      // Ce qu'il a vu, et sa première réponse à chacune : le tirage lit l'un, sa chance l'autre.
-      const [jouables, mesure, lues] = await Promise.all([
-        this.jouables([b.categorie]),
-        this.mesures(),
-        this.client.execute(lectureDesVues(profileId)).then(r => lireLesVues(r.rows)),
-      ])
+      // Ce qu'il a vu, et sa première réponse à chacune (le journal) : le tirage lit l'un, sa chance l'autre.
+      const [jouables, mesure, lues] = await Promise.all([this.jouables([b.categorie]), this.mesures(), this.rattraperLeJournal().then(j => j.vuesDe(profileId))])
       // Les huit premiers paliers posent le thème de leur chapitre (`shared/chapitres.ts`).
       const chapitre = chapitreDuPalier(b.key, regle.n)?.sousThemes ?? []
       const questions = tirerUneEpreuve(jouables, regle, lues.vues, mesure, this.maintenant(), chapitre).map(x => versQuestionDeSerie(x.question, x.niveau))
@@ -5586,12 +5732,14 @@ export class CampagneStore {
           args: [profileId, e.branche, e.palier, e.id],
         })
       }
-      if (juste) lot.push(...lecturesDeLExperience(profileId))
+      const experience = juste ? this.lecturesDeLExperience(profileId) : null
+      if (experience) lot.push(...experience.lectures)
       // Vue ici, elle l'est aussi pour son expédition en route.
       this.vuAilleurs(profileId)
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
+        this.reponseEcrite()
       } catch (err) {
         this.enCours.delete(profileId)
         throw err
@@ -5599,7 +5747,7 @@ export class CampagneStore {
       const apres: Serie = { ...e, index: position, justes, issue, finieLe: finie ? maintenant : null }
       if (finie) this.enCours.delete(profileId)
       else this.garderEnCours(apres)
-      const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
+      const xp = experience ? await this.crediter(profileId, res.slice(-2), experience) : 0
       const reponse: ReponseDEpreuve = { juste, bonne: q.bonne, anecdote: q.anecdote, xp, epreuve: vueDEpreuve(apres) }
       // Validé pour la première fois : sa ligne, que la bonne réponse vient
       // de réécrire, le compte déjà ; la réponse le dit.
@@ -5849,12 +5997,14 @@ export class CampagneStore {
           args: [profileId, e.sujet, e.palier, e.id],
         })
       }
-      if (juste) lot.push(...lecturesDeLExperience(profileId))
+      const experience = juste ? this.lecturesDeLExperience(profileId) : null
+      if (experience) lot.push(...experience.lectures)
       // Vue ici, elle l'est aussi pour son expédition en route.
       this.vuAilleurs(profileId)
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
+        this.reponseEcrite()
       } catch (err) {
         this.enCours.delete(profileId)
         throw err
@@ -5862,7 +6012,7 @@ export class CampagneStore {
       const apres: Serie = { ...e, index: position, justes, issue, finieLe: finie ? maintenant : null }
       if (finie) this.enCours.delete(profileId)
       else this.garderEnCours(apres)
-      const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
+      const xp = experience ? await this.crediter(profileId, res.slice(-2), experience) : 0
       const reponse: ReponseDuSujet = { juste, bonne: q.bonne, anecdote: q.anecdote, xp, epreuve: vueDEpreuveDeSujet(apres) }
       if (finie && issue === 'validee') {
         const avant = Math.max(0, ...res[0].rows.map(r => Number(r.justes)))
@@ -6476,7 +6626,7 @@ export class CampagneStore {
       const res = await this.client.execute({
         sql: `SELECT d.cree_le AS quand,
                      (SELECT COUNT(DISTINCT s.profile_id) FROM campagne_series s
-                       WHERE s.mode = 'duel' AND s.duel = d.code AND s.profile_id IN (d.auteur, d.adversaire) AND s.finie_le IS NOT NULL) = 2 AS joue
+                       WHERE s.mode = 'duel' AND s.duel = d.code AND ${PAR_SON_CODE}s.profile_id IN (d.auteur, d.adversaire) AND s.finie_le IS NOT NULL) = 2 AS joue
               FROM campagne_duels d WHERE d.cree_le >= ? AND d.adversaire IS NOT NULL`,
         args: [minuits[0]],
       })
@@ -6509,7 +6659,7 @@ export class CampagneStore {
       sql: `SELECT d.code, d.auteur, d.adversaire, d.ferme_le, e.envoye_le
             FROM campagne_duels d JOIN campagne_envois e ON e.code = d.code AND e.profile_id = d.adversaire
             WHERE d.cree_le > ? AND d.adversaire IS NOT NULL AND d.ferme_le > ?
-              AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.profile_id = d.adversaire)
+              AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND ${PAR_SON_CODE}s.profile_id = d.adversaire)
             ORDER BY d.ferme_le, d.code`,
       args: [maintenant - 2 * DUREE_D_UN_DUEL_MS, maintenant - 7 * 24 * HEURE_MS],
     })
@@ -6557,8 +6707,9 @@ export class CampagneStore {
       })
       if (commence.rows.length > 0) throw new Error('Ce duel est commencé des deux côtés : il compte déjà, il ne s’annule plus')
       await this.client.execute({ sql: 'UPDATE campagne_duels SET ferme_le = ? WHERE code = ? AND ferme_le > ?', args: [maintenant, duel.code, maintenant] })
-      // Le duel gardé en mémoire se ferme avec : la page de l'un et de l'autre le lit là.
+      // Le duel gardé en mémoire se ferme avec : la page de l'un et de l'autre le lit là, le carnet de qui l'a lancé dans le journal.
       duel.fermeLe = maintenant
+      this.journal.fermerLeDuel(duel.code, maintenant)
       return { code: duel.code, auteur: duel.auteur, adversaire }
     })
   }
@@ -7158,20 +7309,17 @@ export class CampagneStore {
     if (!equipee) return Promise.reject(new Error('Ton équipe ne se lit pas : recharge la page'))
     if (rencontres && fetiche !== undefined && !(CATEGORIES as readonly unknown[]).includes(fetiche)) return Promise.reject(new Error('Choisis ta catégorie fétiche parmi les douze'))
     return this.avecVerrou(profileId, async () => {
-      // Ce qu'il a vu, dans le même lot : ses chances en lisent ses premières
-      // réponses, et ses premières escales s'en tirent sans le relire.
-      const lu = await this.client.batch(
-        [
-          { sql: `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL LIMIT 1`, args: [profileId] },
-          { sql: `SELECT COUNT(*) AS n FROM campagne_series WHERE profile_id = ? AND mode = 'expedition'`, args: [profileId] },
-          lectureDesVues(profileId),
-          lectureDuPasseport(profileId),
-          // Aux rencontres, sa renommée : son codex se fige au départ (v7).
-          ...(rencontres ? lecturesDeLaRenommee(profileId) : []),
-        ],
-        'read',
-      )
-      const [ouverte, compte, lues, passeport] = lu
+      // Ce qu'il a vu, du journal rattrapé dans le même lot : ses chances en
+      // lisent ses premières réponses, et ses premières escales s'en tirent
+      // sans le relire.
+      const { lus: lu, journal } = await this.lireAvecLeJournal([
+        { sql: `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL LIMIT 1`, args: [profileId] },
+        { sql: `SELECT COUNT(*) AS n FROM campagne_series WHERE profile_id = ? AND mode = 'expedition'`, args: [profileId] },
+        lectureDuPasseport(profileId),
+        // Aux rencontres, sa renommée : son codex se fige au départ (v7).
+        ...(rencontres ? lecturesDeLaRenommee(profileId) : []),
+      ])
+      const [ouverte, compte, passeport] = lu
       if (ouverte.rows.length > 0) throw new Error('Ton expédition t’attend : reprends-la, ou abandonne-la d’abord')
       const jouables = await this.jouables()
       if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('L’expédition n’a pas encore de questions à poser : reviens bientôt')
@@ -7190,7 +7338,7 @@ export class CampagneStore {
       // Aux rencontres (v7), plus d'équipe à choisir : l'invité du jour prête sa carte, ses légendaires ouvrent la leur au codex.
       const refus = rencontres ? null : refusDeLEquipee(equipee, siens, invite)
       if (refus) throw new Error(refus)
-      const codex = rencontres ? await this.codexLu(lu.slice(4), siens, v) : undefined
+      const codex = rencontres ? await this.codexLu(lu.slice(3), siens, v) : undefined
       // Sa saison : sa fête — si une carte peut la tirer — tient la moitié des thèmes pointus, son légendaire garde l'acte 3.
       const saison = this.saisonDuDepart()
       const fete = saison && sujets.includes(saison.key) ? saison.key : undefined
@@ -7216,7 +7364,7 @@ export class CampagneStore {
       const cartes = Array.from({ length: ACTES }, (_, acte) =>
         carteDUnActe(graine, acte, sujets, fete, rencontres ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES, formes, v >= VERSION_DES_CURIOSITES),
       )
-      const vues = lireLesVues(lues.rows)
+      const vues = journal.vuesDe(profileId)
       const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres, v)
       const depart: DepartDExpedition = {
         // Les rencontres partent en version 9 : le codex — ses cartes, ses règles —, figé avec elle, le jeu complet —
@@ -7289,7 +7437,7 @@ export class CampagneStore {
     profileId: string,
     cartes: CarteDUnActe[],
     jouables: readonly QuestionDeLaBase[],
-    /** Ses premières réponses, lues avec ce qu'il a vu dans le lot du départ (`lectureDesVues`). */
+    /** Ses premières réponses, lues avec ce qu'il a vu du journal rattrapé dans le lot du départ (`lireAvecLeJournal`). */
     premieres: ReadonlyMap<string, boolean>,
     /** La version du départ : ses marches (plus dures depuis le détail, v15). */
     v: number,
@@ -7418,6 +7566,7 @@ export class CampagneStore {
           : { sql: 'UPDATE campagne_series SET position = ?, vies = ?, justes = ?, finie_le = ?, issue = ?, bilan = ? WHERE id = ?', args: [apres.enAttente ?? apres.passees, apres.vies, apres.justes, ...fin, l.serie.id] },
       )
       await this.ecrireLExpedition(profileId, lot)
+      if (traversee !== null) this.reponseEcrite()
       const ecrite: ExpeditionLue = { ...l, serie: { ...l.serie, questions, finieLe: finie ? maintenant : null }, gestes, reponses, reponduesLe }
       this.garderLExpedition(profileId, ecrite, vues)
       if (!finie) return { expedition: vueDeLExpedition(ecrite, apres, this.legendairesDe(profileId)) }
@@ -7621,12 +7770,14 @@ export class CampagneStore {
               args: [position_, apres.vies, apres.justes, finie ? maintenant : null, finie ? 'perdue' : null, bilan, l.serie.id],
             },
       ]
-      if (juste) lot.push(...lecturesDeLExperience(profileId))
+      const experience = juste ? this.lecturesDeLExperience(profileId) : null
+      if (experience) lot.push(...experience.lectures)
       const res = await this.ecrireLExpedition(profileId, lot)
+      this.reponseEcrite()
       const tampons = tampon ? new Set([...l.tampons, tampon]) : l.tampons
       const ecrite: ExpeditionLue = { ...l, serie: { ...l.serie, questions, finieLe: finie ? maintenant : null }, reponses, reponduesLe, tampons }
       this.garderLExpedition(profileId, ecrite, vues)
-      const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
+      const xp = experience ? await this.crediter(profileId, res.slice(-2), experience) : 0
       const gains = finie ? await this.recompenserLExpedition(profileId, l.serie.id, maintenant) : {}
       if (finie) await this.faireGrandir(profileId)
       const vaincu = apres.vaincus > avant.vaincus ? l.depart.gardiens[avant.acte] : undefined
@@ -7789,7 +7940,7 @@ export class CampagneStore {
     const [toutes, mesure, lues, suivis] = await Promise.all([
       this.jouables(),
       this.mesures(),
-      vuesGardees ?? this.client.execute(lectureDesVues(profileId)).then(r => lireLesVues(r.rows).vues),
+      vuesGardees ?? this.rattraperLeJournal().then(j => j.vuesDe(profileId).vues),
       source ? this.suivisDe(profileId) : null,
     ])
     const dejaPosees = new Set(posees.map(q => q.id))
@@ -7900,6 +8051,9 @@ export class CampagneStore {
       this.cotes = null
       this.bordures.delete(profileId)
       this.bordureDuTour.delete(profileId)
+      // Le journal se relit sans ses réponses : effacées, elles laissent leur
+      // `rowid` à reprendre, et une lecture par différence passerait à côté.
+      this.journal = new JournalDesReponses(() => this.maintenant())
       // Ses réponses aussi : le modèle du savoir l'oublie, et se refera sans elles au prochain dé.
       if (this.savoir) {
         const forces = new Map(this.savoir.modele.forces)
@@ -7916,137 +8070,33 @@ export class CampagneStore {
 }
 
 /**
- * La lecture de ses bonnes réponses, comptées par heure : une ligne par
- * bonne réponse — des milliers pour un fidèle — repartait de Turso à chaque
- * bonne réponse. Seule (`justesParJour`), ou au bout du lot qui écrit une
- * réponse.
+ * Sa première réponse à une question : quand, et si elle était juste — celle
+ * de son premier instant, du journal (`JournalDesReponses.premieresDe`). Pas
+ * nue — un joker l'a aidée, une autre forme l'a posée —, elle ne dit rien de
+ * son savoir, et aucune d'après ne la remplace : il avait vu la correction.
  */
-function lectureDesJustes(profileId: string): InStatement {
-  return {
-    sql: `SELECT CAST(r.repondue_le / ${HEURE_MS} AS INTEGER) AS heure, COUNT(*) AS n
-          FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-          WHERE s.profile_id = ? AND r.juste = 1 GROUP BY heure`,
-    args: [profileId],
-  }
-}
-
-/**
- * Sa première réponse à une question, dans une agrégation SQL : celle de son
- * premier instant — `MIN(repondue_le * 4 + aidée * 2 + juste)` range par
- * instant, et ses deux derniers bits disent si l'expédition l'a posée
- * autrement que nue — un joker l'a aidée, ou une autre forme l'a posée —, et
- * si elle était juste. Une révision ne pose que ce qu'il a déjà vu : sa
- * première réponse n'y est jamais. Pas nue, la première ne dit rien de son
- * savoir — deux réponses effacées, deux questions au choix, un vrai ou faux,
- * un intitulé à mi-mot — : NULL, et aucune d'après ne la remplace, il avait
- * vu la correction. La question reste vue (`lectureDesVues`).
- */
-const PREMIERE = 'MIN(r.repondue_le * 4 + (r.joker IS NOT NULL OR r.forme IS NOT NULL) * 2 + r.juste)'
-const PREMIERE_REPONSE = `CASE WHEN ${PREMIERE} % 4 >= 2 THEN NULL ELSE ${PREMIERE} % 2 END`
-
-/**
- * Les questions qu'il a vues, quand pour la dernière fois, et sa première
- * réponse à chacune — le modèle du savoir la lit au dé (`forceDuJoueur`) et
- * au départ d'une épreuve, pour la chance qu'elle garde (`chanceAuDepart`) :
- * seule (`vuesPar`), ou dans le lot qui prépare le dé
- * (`commencerUneRencontre`). En un seul texte (`json_group_object`) : une
- * ligne par question — des milliers pour un fidèle — se décodait ligne à
- * ligne à chaque série et à chaque dé, 235 Ko et 9,6 ms pour trois mille,
- * quatre à dix fois plus au dixième de cœur de l'hébergeur ; en un texte,
- * 79 Ko et 2,3 ms. Sa première réponse y passe dans le même texte : lue à
- * part, elle reparcourait toutes ses réponses une seconde fois.
- */
-function lectureDesVues(profileId: string): InStatement {
-  return {
-    sql: `SELECT json_group_object(reserve_id, json_array(le, juste)) AS vues FROM (
-            SELECT r.reserve_id, MAX(r.repondue_le) AS le, ${PREMIERE_REPONSE} AS juste
-            FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-            WHERE s.profile_id = ? GROUP BY r.reserve_id
-          )`,
-    args: [profileId],
-  }
-}
-
-/** Sa première réponse à une question : quand, et si elle était juste. */
 interface PremiereReponse {
   le: number
   juste: boolean
-}
-
-/**
- * Ses premières réponses, chacune avec son instant : la page des sentiers y
- * relit sa force d'aujourd'hui et celle d'il y a une semaine
- * (`chancesPourLui`). `PREMIERE` dit tout d'un nombre — l'instant de la
- * première, si un joker l'a aidée, si elle était juste —, comme
- * `PREMIERE_REPONSE` ; et en un seul texte, comme ce qu'il a vu
- * (`lectureDesVues`).
- */
-function lectureDesPremieres(profileId: string): InStatement {
-  return {
-    sql: `SELECT json_group_object(reserve_id, k) AS premieres FROM (
-            SELECT r.reserve_id, ${PREMIERE} AS k
-            FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-            WHERE s.profile_id = ? GROUP BY r.reserve_id
-          )`,
-    args: [profileId],
-  }
-}
-
-/** Le texte de `lectureDesPremieres`, question par question — sans celles qu'un joker a aidées. */
-function lireLesPremieres(lignes: readonly Record<string, unknown>[]): Map<string, PremiereReponse> {
-  const texte = lignes[0]?.premieres
-  const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {}
-  const premieres = new Map<string, PremiereReponse>()
-  for (const [id, k] of Object.entries(lu)) {
-    const n = Number(k)
-    if (Number.isFinite(n) && Math.floor(n / 2) % 2 === 0) premieres.set(id, { le: Math.floor(n / 4), juste: n % 2 === 1 })
-  }
-  return premieres
 }
 
 /** Sa chance de valider un palier d'une catégorie, à sa force (`chanceDeLEpreuve`) : celle que la page écrit, et que l'épreuve garde. */
 const saChanceSur = (reference: SerieDeReference, c: number, f: Pick<ForceDUnJoueur, 'force' | 'ecarts'>, regle: RegleDuPalier): number =>
   arrondiDeChance(chanceDeLEpreuve(reference, c, f.force + (f.ecarts[c] ?? 0), regle.melange, regle.seuil))
 
-/** Le texte de `lectureDesVues` : ce qu'il a vu, question par question (`parFraicheur`), et sa première réponse à chacune. */
-function lireLesVues(lignes: readonly Record<string, unknown>[]): { vues: Map<string, number>; premieres: Map<string, boolean> } {
-  const texte = lignes[0]?.vues
-  const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {}
-  const vues = new Map<string, number>()
-  const premieres = new Map<string, boolean>()
-  for (const [id, valeur] of Object.entries(lu)) {
-    if (!Array.isArray(valeur)) continue
-    vues.set(id, Number(valeur[0]))
-    // Une première réponse aidée par un joker (null) : vue, et rien de plus.
-    if (valeur[1] !== null) premieres.set(id, Number(valeur[1]) === 1)
-  }
-  return { vues, premieres }
-}
-
 /**
  * Les premières réponses de tout le monde, pour ajuster le modèle du savoir
- * (`ajusterLeSavoir`) : une ligne par joueur, ses réponses en un texte. En un
- * seul texte, cent mille réponses se décodaient d'un bloc, et le serveur ne
- * répondait plus à personne ; une ligne par réponse, chacune se décodait à
- * coups de `defineProperty`. Une ligne par joueur se lit entre deux tranches
- * (`premieresDeTous`).
+ * (`ajusterLeSavoir`), joueur par joueur, du journal — en rendant la main de
+ * temps en temps : des milliers chacun. Relues en entier, elles parcouraient
+ * toutes les réponses à chaque ajustement : 87 000 lignes au quota de Turso
+ * (le 22 octobre 2026).
  */
-const LECTURE_DU_SAVOIR = `SELECT profile_id, json_group_object(reserve_id, juste) AS premieres FROM (
-    SELECT s.profile_id AS profile_id, r.reserve_id AS reserve_id, ${PREMIERE_REPONSE} AS juste
-    FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-    GROUP BY s.profile_id, r.reserve_id
-  ) WHERE juste IS NOT NULL GROUP BY profile_id`
-
-/** Les lignes de `LECTURE_DU_SAVOIR`, joueur par joueur — en rendant la main de temps en temps : des milliers de réponses chacun. */
-async function premieresDeTous(lignes: readonly Record<string, unknown>[]): Promise<Map<string, Map<string, boolean>>> {
+async function premieresDuJournal(journal: JournalDesReponses): Promise<Map<string, Map<string, boolean>>> {
   const joueurs = new Map<string, Map<string, boolean>>()
   let lues = 0
-  for (const r of lignes) {
-    const texte = r.premieres
-    const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {}
-    const siennes = new Map<string, boolean>()
-    for (const [id, juste] of Object.entries(lu)) siennes.set(id, Number(juste) === 1)
-    joueurs.set(String(r.profile_id), siennes)
+  for (const qui of journal.joueurs()) {
+    const siennes = journal.premieresJustesDe(qui)
+    if (siennes.size > 0) joueurs.set(qui, siennes)
     lues += siennes.size
     if (lues >= CHANCES_PAR_TRANCHE) {
       lues = 0
@@ -8186,7 +8236,7 @@ function sesDuelsContre(profileId: string, maintenant: number): { sql: string; a
     sql: `WITH siens AS (
             SELECT d.code, d.cree_le, d.ferme_le > ? AS ouvert, d.auteur = ? AND d.vu_le IS NULL AS a_voir,
                    (SELECT COUNT(DISTINCT s.profile_id) FROM campagne_series s
-                     WHERE s.mode = 'duel' AND s.duel = d.code AND s.profile_id IN (d.auteur, d.adversaire)
+                     WHERE s.mode = 'duel' AND s.duel = d.code AND ${PAR_SON_CODE}s.profile_id IN (d.auteur, d.adversaire)
                        AND (s.finie_le IS NOT NULL OR d.ferme_le <= ?)) = 2 AS joue
             FROM campagne_duels d
             WHERE d.adversaire IS NOT NULL AND (d.auteur = ? OR d.adversaire = ?) AND d.cree_le > ?
@@ -8256,36 +8306,27 @@ export const duelsLus = (lignes: readonly Record<string, unknown>[]): DuelJoue[]
 /** La semaine de Paris d'un instant : la clé sous laquelle ses duels se comptent. */
 const semaineDeLInstant = (instant: number) => semaineDe(jourDe(instant))
 
-/**
- * Tout ce que sa ligne d'expérience compte : ses bonnes réponses, heure par
- * heure, et les paliers des sentiers qu'il a validés en jouant — une fois
- * chacun (`xpDuPalier`). Lues ensemble, au bout du lot qui écrit une bonne
- * réponse : la ligne se réécrit toujours en entier, et une ligne sans ses
- * paliers les aurait repris.
- */
-function lecturesDeLExperience(profileId: string): InStatement[] {
-  return [
-    lectureDesJustes(profileId),
-    {
-      sql: `SELECT DISTINCT branche, palier FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND issue = 'validee'`,
-      args: [profileId],
-    },
-  ]
+/** Les paliers des sentiers qu'il a validés en jouant : sa ligne d'expérience paie chacun une fois (`xpDuPalier`). */
+function lectureDesPaliersValides(profileId: string): InStatement {
+  return {
+    sql: `SELECT DISTINCT branche, palier FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND issue = 'validee'`,
+    args: [profileId],
+  }
 }
 
-/** Sa ligne d'expérience de campagne, de ce que `lecturesDeLExperience` a lu. */
-function experienceLue([justes, paliers]: readonly ResultSet[]): { parJour: Map<string, number>; xp: number } {
-  const parJour = justesParJourDe(justes.rows)
-  const xp = xpDeCampagne(parJour.values()) + paliers.rows.reduce((n, r) => n + xpDuPalier(Number(r.palier)), 0)
+/** Sa ligne d'expérience de campagne : ses bonnes réponses, heure par heure (du journal), et ses paliers validés (`lectureDesPaliersValides`). */
+function experienceDuJournal(parHeure: ReadonlyMap<number, number>, paliers: readonly Record<string, unknown>[]): { parJour: Map<string, number>; xp: number } {
+  const parJour = justesParJourDesHeures(parHeure)
+  const xp = xpDeCampagne(parJour.values()) + paliers.reduce((n, r) => n + xpDuPalier(Number(r.palier)), 0)
   return { parJour, xp }
 }
 
 /** Des heures aux jours de Paris : il change de jour à une heure pile, hiver comme été — une heure n'est jamais à cheval sur deux jours. */
-function justesParJourDe(lignes: readonly Record<string, unknown>[]): Map<string, number> {
+function justesParJourDesHeures(parHeure: ReadonlyMap<number, number>): Map<string, number> {
   const parJour = new Map<string, number>()
-  for (const r of lignes) {
-    const jour = jourDe(Number(r.heure) * HEURE_MS)
-    parJour.set(jour, (parJour.get(jour) ?? 0) + Number(r.n))
+  for (const [heure, n] of parHeure) {
+    const jour = jourDe(heure * HEURE_MS)
+    parJour.set(jour, (parJour.get(jour) ?? 0) + n)
   }
   return parJour
 }
@@ -8675,7 +8716,7 @@ interface ExpeditionLue {
 interface ExpeditionGardee {
   lue: ExpeditionLue
   /**
-   * Ce qu'il avait vu, et quand (`lectureDesVues`), lu à son départ ou à son
+   * Ce qu'il avait vu, et quand (le journal, `vuesDe`), lu à son départ ou à son
    * dernier tirage relu : null, à relire — rien encore, ou une réponse
    * ailleurs dans la campagne l'a changé (`vuAilleurs`). Ce que l'expédition
    * pose s'y ajoute au tirage, vu à l'instant.
@@ -9084,10 +9125,10 @@ function lectureDuDuelOuvert(profileId: string, autre: string, maintenant: numbe
   return {
     sql: `SELECT d.code, d.auteur,
             EXISTS (SELECT 1 FROM campagne_envois e WHERE e.code = d.code AND e.profile_id = ?) AS recu,
-            EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL) AS joue
+            EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND ${PAR_SON_CODE}s.profile_id = d.auteur AND s.finie_le IS NOT NULL) AS joue
           FROM campagne_duels d
           WHERE d.ferme_le > ? AND ((d.auteur = ? AND d.adversaire = ?) OR (d.auteur = ? AND d.adversaire = ?))
-            AND (SELECT COUNT(*) FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.finie_le IS NOT NULL AND s.profile_id IN (d.auteur, d.adversaire)) < 2
+            AND (SELECT COUNT(*) FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.finie_le IS NOT NULL AND ${PAR_SON_CODE}s.profile_id IN (d.auteur, d.adversaire)) < 2
           ORDER BY d.cree_le, d.code
           LIMIT 1`,
     args: [profileId, maintenant, profileId, autre, autre, profileId],
@@ -9117,7 +9158,8 @@ const REFUS_D_UN_SECOND_DUEL: Record<OuEnEstLeDuel, (nom: string) => string> = {
  * Ses amis, à lire d'un lot (`amisLus`) : ceux qu'il a ajoutés, les tentatives
  * des autres à ses défis entre amis et les siennes aux leurs, puis ceux qu'il
  * a retirés. Un duel classé contre quelqu'un du classement n'en fait pas un
- * ami : il l'ajoute, s'il veut.
+ * ami : il l'ajoute, s'il veut. Ses défis mènent la lecture (`CROSS JOIN`,
+ * comme `cercleDe`) : pas toutes les tentatives de duel du serveur.
  */
 function lectureDesAmis(profileId: string): InStatement[] {
   return [
@@ -9125,7 +9167,7 @@ function lectureDesAmis(profileId: string): InStatement[] {
       sql: `SELECT ami, MAX(le) AS le FROM (
               SELECT ami, ajoute_le AS le FROM campagne_amis_ajoutes WHERE profile_id = ?
               UNION ALL
-              SELECT s.profile_id AS ami, s.commencee_le AS le FROM campagne_duels d JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code
+              SELECT s.profile_id AS ami, s.commencee_le AS le FROM campagne_duels d CROSS JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code
                WHERE d.auteur = ? AND s.profile_id <> ? AND d.adversaire IS NULL
               UNION ALL
               SELECT d.auteur AS ami, s.commencee_le AS le FROM campagne_series s JOIN campagne_duels d ON d.code = s.duel

@@ -86,11 +86,13 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
 - **Une réponse aidée ne mesure rien** : `campagne_reponses.joker` porte la
   clé de son joker (`JOKERS_QUI_AIDENT`) ; la mesure des difficultés, le
   modèle du savoir, les écussons, la précision et L'Érudit ne lisent que
-  les réponses nues (`REPONSE_NUE`, `PREMIERE_REPONSE` nulle quand la
-  première était aidée), et une bonne réponse aidée ne retrouve rien au
-  carnet — une erreur aidée y entre. Échange et La mue posent une autre
-  question, nue. Une lecture neuve de `campagne_reponses` qui mesure un
-  savoir écarte les réponses aidées.
+  les réponses nues (`reponseNue`, `premiereReponse` nulle quand la
+  première était aidée — le journal des réponses,
+  `core/journalDesReponses.ts`), et une bonne réponse aidée ne retrouve
+  rien au carnet — une erreur aidée y entre. Échange et La mue posent une
+  autre question, nue. Une lecture neuve de `campagne_reponses`, ou une
+  dérivation de plus du journal, qui mesure un savoir écarte les réponses
+  aidées.
 - **Les cartes et leurs chances se figent au départ.** Une retouche du
   générateur, des marches ou du modèle du savoir ne vaut que pour les
   expéditions qui commencent : elle ne déplace pas une escale sous les pieds
@@ -286,8 +288,8 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
   `devoileLe`. Une forme qu'aucune question du thème ne prend se pose à
   quatre choix, et une question née vrai ou faux telle qu'elle est écrite :
   sa forme vide. Une réponse porte la forme de sa question
-  (`campagne_reponses.forme`), que `REPONSE_NUE`, la mesure et
-  `PREMIERE_REPONSE` écartent ; le carnet n'écarte que la bonne réponse
+  (`campagne_reponses.forme`), que `reponseNue`, la mesure et
+  `premiereReponse` écartent ; le carnet n'écarte que la bonne réponse
   d'un vrai ou faux tiré d'une autre. **Une comparaison à une forme se fait
   sans NULL** : `forme = 'vrai-faux'`, vide, rendait NULL tout le filtre du
   carnet, et chaque bonne réponse nue en sortait — `COALESCE`, ou `IS`.

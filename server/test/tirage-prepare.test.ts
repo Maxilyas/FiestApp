@@ -462,21 +462,26 @@ test('ceux qui trouvent la mesure périmée ensemble n’en relisent qu’une, e
   const campagne = new CampagneStore(url, undefined, { base: baseDEssai(200), maintenant: () => horloge.t })
   try {
     await campagne.init()
-    const client = (campagne as unknown as { client: { batch: (...args: unknown[]) => Promise<unknown> } }).client
-    const batch = client.batch.bind(client)
+    // Chaque relecture des comptes : celle du journal des réponses (`mesuresBrutes`).
+    const prive = campagne as unknown as { mesuresBrutes: () => Promise<unknown>; mesuresEnRoute: Promise<void> | null }
+    const relire = prive.mesuresBrutes.bind(campagne)
     let relectures = 0
-    client.batch = (...args: unknown[]) => {
-      if (JSON.stringify(args[0]).includes('COUNT(*) AS total FROM campagne_reponses')) relectures++
-      return batch(...args)
+    prive.mesuresBrutes = () => {
+      relectures++
+      return relire()
     }
     const [a, b, c] = await Promise.all([campagne.mesures(), campagne.mesures(), campagne.mesures()])
     assert.equal(relectures, 1, 'une seule relecture pour trois demandes')
     assert.ok(a === b && b === c, 'la même mesure pour tous')
     assert.equal(await campagne.mesures(), a, 'gardée dix minutes')
     horloge.t += 11 * 60_000
+    // Périmée, elle se relit en fond : qui la demande pendant ce temps reçoit celle qu'il y a.
     const [d, e] = await Promise.all([campagne.mesures(), campagne.mesures()])
     assert.equal(relectures, 2, 'périmée : une relecture de plus, une seule')
-    assert.ok(d === e && d !== a)
+    assert.ok(d === a && e === a, 'personne ne l’attend : celle qu’il y a, la même pour tous')
+    for (let tour = 0; tour < 500 && prive.mesuresEnRoute; tour++) await new Promise(rendre => setTimeout(rendre, 2))
+    assert.notEqual(await campagne.mesures(), a, 'la neuve, relue en fond')
+    assert.equal(relectures, 2, 'et pas une de plus')
   } finally {
     campagne.close()
     effacer()

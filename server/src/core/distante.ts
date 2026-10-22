@@ -2,6 +2,7 @@ import { createClient, LibsqlError, type Client, type InArgs, type InStatement, 
 import { tronquer } from '../../../shared/avatars'
 import { noterLaReponse, noterUnEchec, refermerLesAttardees, suivreLaBase, unAllerRetourPart } from './connexions'
 import { pouls, releve } from './pouls'
+import { coutDeLAllerRetour } from './quotaDeTurso'
 import { fetchLeger } from './transportLeger'
 
 export type { Client }
@@ -275,12 +276,37 @@ export async function ajouterColonne(client: Client, table: string, colonne: str
   return true
 }
 
+/**
+ * La réponse, dont le client libsql lira le corps par `json()` : ce que
+ * l'aller-retour a coûté au quota de Turso se relève à ce moment-là, sur ce
+ * qu'il vient de décoder — rien ne se décode deux fois (`coutDeLAllerRetour`,
+ * `releve.quota`). Sous son propre filet : le compte qui tombe se tait, la
+ * réponse part.
+ */
+function compterLeQuota<R extends { json(): Promise<unknown> }>(reponse: R, corps: string | null): R {
+  const json = reponse.json.bind(reponse)
+  reponse.json = async () => {
+    const lu = await json()
+    try {
+      const cout = coutDeLAllerRetour(lu, () => corps)
+      if (cout) releve.quota(cout)
+    } catch (e) {
+      console.error('[base] le coût d’un aller-retour ne se lit pas :', e)
+    }
+    return lu
+  }
+  return reponse
+}
+
 export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {}) {
   return async (requete: Request): Promise<Response> => {
     // Une connexion que la boucle gelée a gardée au-delà de la garde de Node
     // ne porte plus rien : Turso l'a peut-être fermée pendant le gel
     // (`connexions.ts`).
     refermerLesAttardees()
+    // Son corps, lu une fois : la requête part avec, et le relevé du quota y
+    // lit le texte d'une instruction lourde (`compterLeQuota`).
+    const corps = requete.body ? await requete.text() : null
     const debut = performance.now()
     // Un battement de l'entretien (`connexions.ts`) n'est pas un aller-retour
     // qu'on attend : ses trente millisecondes feraient passer Turso pour plus
@@ -302,10 +328,13 @@ export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {
     try {
       // Le transport léger rend ce que le client libsql lit d'une réponse, sans
       // ses objets du web : c'est tout ce qu'il en lit (`ReponseLegere`).
-      if (transport === 'leger') return (await fetchLeger(requete, delaiMs, entetes)) as unknown as Response
-      const reponse = await fetch(requete, { signal: AbortSignal.timeout(delaiMs) })
+      if (transport === 'leger') return compterLeQuota(await fetchLeger(requete, delaiMs, entetes, corps), corps) as unknown as Response
+      const reponse =
+        corps === null
+          ? await fetch(requete, { signal: AbortSignal.timeout(delaiMs) })
+          : await fetch(requete.url, { method: requete.method, headers: requete.headers, body: corps, signal: AbortSignal.timeout(delaiMs) })
       entetes(reponse.headers)
-      return reponse
+      return compterLeQuota(reponse, corps)
     } catch (e) {
       // Une connexion que la base avait fermée se verrait ici d'abord, et la
       // requête qui tombe avec. Un battement tombé, l'entretien le compte.

@@ -133,17 +133,19 @@ function reponseDe(statut: number, entetes: ReponseLegere['headers'], corps: Buf
  * `quandLesEntetes` : ses en-têtes, dès qu'ils arrivent — le `fetch` de Node
  * rend sa réponse à ce moment-là, et `avecDelai` y lit le délai que la base
  * annonce et le temps de l'aller-retour ; ce transport, qui rend la réponse
- * une fois lue, les lui dit en route.
+ * une fois lue, les lui dit en route. `dejaLu` : son corps, quand `avecDelai`
+ * l'a lu avant — on ne lit un corps qu'une fois.
  */
 export async function fetchLeger(
   requete: Request,
   delaiMs: number,
   quandLesEntetes?: (entetes: ReponseLegere['headers']) => void,
+  dejaLu?: string | null,
 ): Promise<ReponseLegere> {
   const url = new URL(requete.url)
   const agent = url.protocol === 'https:' ? agents['https:'] : url.protocol === 'http:' ? agents['http:'] : null
   if (!agent) throw new TypeError(`transport léger : adresse en ${url.protocol} — seules http: et https: passent par le réseau`)
-  const corps = Buffer.from(await requete.arrayBuffer())
+  const corps = typeof dejaLu === 'string' ? Buffer.from(dejaLu, 'utf8') : Buffer.from(await requete.arrayBuffer())
   const entetes: Record<string, string> = {}
   requete.headers.forEach((valeur, nom) => {
     entetes[nom] = valeur
