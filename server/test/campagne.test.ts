@@ -14,7 +14,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, relireJusqua, type Banc } from './banc'
 import {
   NIVEAUX,
   QUESTIONS_PAR_MARCHE,
@@ -235,10 +235,12 @@ test('la série monte de marche en marche, sur la difficulté estimée à l’é
     const ratee = db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, 0, ?, 1, 0, ?)')
     for (let i = 0; i < 40; i++) ratee.run(`ailleurs-${i}`, cible.id, DEBUT)
     db.close()
-    // La mesure se relit au plus toutes les dix minutes.
+    // La mesure se relit au plus toutes les dix minutes, en fond : la série qui la trouve périmée joue sur
+    // celle qu'il y a — personne ne l'attend —, une suivante sur la neuve.
     horloge.t += 11 * 60_000
-    const apres = questionsDe(banc, (await poster(banc, lea, '/api/campagne/serie')).corps.id)
-    assert.equal(apres.find(q => q.id === cible.id)?.niveau, 'difficile')
+    const niveauDeLaCible = async () => questionsDe(banc, (await poster(banc, lea, '/api/campagne/serie')).corps.id).find(q => q.id === cible.id)?.niveau
+    assert.equal(await niveauDeLaCible(), 'facile', 'la série qui la trouve périmée joue sur celle qu’il y a')
+    assert.equal(await relireJusqua(niveauDeLaCible, niveau => niveau === 'difficile'), 'difficile')
   } finally {
     await banc.close()
   }

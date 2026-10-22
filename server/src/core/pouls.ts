@@ -7,16 +7,19 @@ import {
   APPELS_POUR_UNE_LENTE,
   ERREURS_EN_DETAIL,
   GARDE_DE_NODE_MS,
+  REQUETES_PAR_HEURE,
   cleDeLErreur,
   debutDeLHeure,
   type ChargeDeLHeure,
   type ErreurEnDetail,
   type HeureDeSante,
   type PlafondsDuConteneur,
+  type QuotaDeLHeure,
   type Releve,
   type RequetesDeLHeure,
 } from '../../../shared/santeDuServeur'
 import { detailDeLErreur, type DetailDUneErreur } from './erreurs'
+import type { CoutDUnAllerRetour } from './quotaDeTurso'
 
 // Le pouls du serveur : ce que `/healthz` dit de la charge, pour savoir, sur
 // l'hébergeur, si le serveur tient. Rien ne le disait : la tablée du 24
@@ -262,6 +265,9 @@ const ECHANTILLON_HORAIRE = 400
 const ECHANTILLON_PAR_ROUTE = 60
 /** Les sources d'erreur suivies dans une heure, au plus : au-delà, elles comptent sous « autre ». */
 const SOURCES_SUIVIES = 20
+/** Les requêtes lourdes suivies dans une heure, au plus : au-delà, elles comptent sous `AUTRES_REQUETES`. L'heure n'en écrit que les plus gourmandes (`REQUETES_PAR_HEURE`). */
+const REQUETES_SUIVIES = 60
+const AUTRES_REQUETES = 'autres requêtes'
 
 /** Une grandeur sur une heure : combien, la pire, et un échantillon borné pour ses centiles. */
 class Mesure {
@@ -314,6 +320,7 @@ class Heure {
     recus: null as number | null,
   }
   private requetes: RequetesDeLHeure = { reussies: 0, redirigees: 0, refusees: 0, enErreur: 0 }
+  private quota = { appels: 0, lues: 0, ecrites: 0, lourdes: new Map<string, { n: number; lues: number }>() }
   private liaison = {
     ouvertes: 0,
     refermeesParLaBase: 0,
@@ -382,6 +389,31 @@ class Heure {
     else if (statut >= 400) r.refusees++
     else if (statut >= 300) r.redirigees++
     else r.reussies++
+  }
+
+  noterQuota(c: CoutDUnAllerRetour) {
+    const q = this.quota
+    q.appels++
+    q.lues += c.lues
+    q.ecrites += c.ecrites
+    for (const l of c.lourdes) {
+      const cle = q.lourdes.has(l.requete) || q.lourdes.size < REQUETES_SUIVIES ? l.requete : AUTRES_REQUETES
+      const avant = q.lourdes.get(cle)
+      if (avant) {
+        avant.n++
+        avant.lues += l.lues
+      } else q.lourdes.set(cle, { n: 1, lues: l.lues })
+    }
+  }
+
+  private quotaLu(): QuotaDeLHeure | null {
+    const q = this.quota
+    if (q.appels === 0) return null
+    const lourdes = [...q.lourdes]
+      .map(([requete, l]) => ({ requete, n: l.n, lues: l.lues }))
+      .sort((a, b) => b.lues - a.lues || (a.requete < b.requete ? -1 : 1))
+      .slice(0, REQUETES_PAR_HEURE)
+    return { appels: q.appels, lues: q.lues, ecrites: q.ecrites, lourdes }
   }
 
   private chargeLue(): ChargeDeLHeure | null {
@@ -459,6 +491,7 @@ class Heure {
         ouvertesParUnBattement: l.ouvertesParUnBattement,
       },
       requetes: { ...this.requetes },
+      quota: this.quotaLu(),
     }
   }
 }
@@ -543,6 +576,11 @@ export class ReleveHoraire {
 
   echecDuMiroir() {
     this.heure().miroir++
+  }
+
+  /** Ce qu'un aller-retour vers Turso a coûté au quota (`compterLeQuota`, `distante.ts`) : ses lignes lues et écrites, et ses instructions lourdes. */
+  quota(c: CoutDUnAllerRetour) {
+    this.heure().noterQuota(c)
   }
 
   charge(c: ReleveDeCharge) {

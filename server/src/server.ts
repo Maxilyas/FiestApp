@@ -570,6 +570,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // La carrière d'un profil compte son quiz du jour, pour ses paliers : le
   // quiz du jour dépend des profils, et se branche donc sur eux après coup.
   profiles.statsDuJour = id => jour.statsDuJour(id)
+  profiles.suspensionChangee = () => jour.suspensionChangee()
   // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion — et le
   // champion du mois dernier, que l'écran commun salue à son entrée.
   profiles.laurierDe = id => jour.laureats().has(id)

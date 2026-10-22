@@ -3,7 +3,7 @@
 // (invariant 1) ; et ce qu'une réponse aidée compte — son confetti, son
 // expérience, Le Marathonien —, mais ni la précision et les écussons, ni la
 // mesure des difficultés, ni le carnet, qui ne la tient pas pour retrouvée
-// (`campagne_reponses.joker`, `REPONSE_NUE`). Une erreur aidée, elle, entre au
+// (`campagne_reponses.joker`, `reponseNue`). Une erreur aidée, elle, entre au
 // carnet. Et aucun autre mode n'accepte un joker (invariant 8).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

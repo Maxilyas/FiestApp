@@ -195,15 +195,32 @@ const lireDAvant = (texte: unknown) => {
   return new Map(Object.entries(lu).map(([id, [justes, total]]) => [id, { justes: Number(justes), total: Number(total) }]))
 }
 
-/** Ce que la lecture de la mesure dit, d'avant comme d'aujourd'hui : de quoi la compter. */
-const LA_MESURE = 'COUNT(*) AS total FROM campagne_reponses'
+type MesuresBrutes = { brutes: Map<string, { justes: number; total: number }>; premieres: Map<string, { justes: number; total: number }> }
 
 type Prive = {
   client: { batch: (...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }[]> }
-  mesuresBrutes(): Promise<{ brutes: Map<string, { justes: number; total: number }>; premieres: Map<string, { justes: number; total: number }> }>
+  mesuresBrutes(): Promise<MesuresBrutes>
   jouables(): Promise<readonly QuestionDeLaBase[]>
   preparations: WeakMap<object, PreparationDuTirage>
   mesuresEnRoute: Promise<void> | null
+}
+
+/** Chaque relecture de la mesure, comptée — et ratée sur demande. */
+function compterLesRelectures(campagne: CampagneStore) {
+  const prive = campagne as unknown as Prive
+  const relire = prive.mesuresBrutes.bind(campagne)
+  const compte = { relectures: 0, echouer: false }
+  prive.mesuresBrutes = () => {
+    compte.relectures++
+    return compte.echouer ? Promise.reject(new Error('base muette')) : relire()
+  }
+  return compte
+}
+
+/** Attend que la relecture en fond soit arrivée au bout. */
+async function relectureFinie(prive: Prive) {
+  for (let tour = 0; tour < 500 && prive.mesuresEnRoute; tour++) await new Promise(rendre => setTimeout(rendre, 2))
+  await new Promise(rendre => setTimeout(rendre, 5))
 }
 
 test('la mesure se lit en tableau : les mêmes comptes qu’avant, révisions écartées et premières réponses comprises', async () => {
@@ -244,53 +261,54 @@ test('la mesure se lit en tableau : les mêmes comptes qu’avant, révisions é
   }
 })
 
-test('dans ses deux dernières minutes, la mesure se relit en fond : la requête de la onzième minute la trouve prête, ses tirages préparés', async () => {
+test('dès ses deux dernières minutes, la mesure se relit en fond, et personne ne l’attend plus : la requête suivante la trouve prête, ses tirages préparés', async () => {
   // La requête qui la trouvait périmée attendait l'aller-retour de toute la
   // mesure et son calcul : 1,2 à 1,4 s pour un tirage ou un dé au dixième de
-  // cœur de l'hébergeur (le banc du 16 octobre 2026).
+  // cœur de l'hébergeur (le banc du 16 octobre 2026), 2,9 s pour un duel en
+  // production (le 22 octobre 2026).
   const { url, effacer } = basePermanente()
   const horloge = { t: MAINTENANT }
   const campagne = new CampagneStore(url, undefined, { base: baseDEssai(200), maintenant: () => horloge.t })
   try {
     await campagne.init()
     const prive = campagne as unknown as Prive
-    const batch = prive.client.batch.bind(prive.client)
-    let relectures = 0
-    prive.client.batch = (...args: unknown[]) => {
-      if (JSON.stringify(args[0]).includes(LA_MESURE)) relectures++
-      return batch(...args)
-    }
+    const compte = compterLesRelectures(campagne)
     const jouables = await prive.jouables()
     const premiere = await campagne.mesures()
-    assert.equal(relectures, 1)
+    assert.equal(compte.relectures, 1)
     // À la septième minute, rien : elle sert telle quelle.
     horloge.t += 7 * 60_000
     assert.equal(await campagne.mesures(), premiere)
-    assert.equal(relectures, 1, 'rien à relire avant ses deux dernières minutes')
+    assert.equal(compte.relectures, 1, 'rien à relire avant ses deux dernières minutes')
     // À la neuvième : celle-ci tout de suite, la suivante en fond — une seule, même demandée deux fois.
     horloge.t += 2 * 60_000
     const [a, b] = await Promise.all([campagne.mesures(), campagne.mesures()])
     assert.ok(a === premiere && b === premiere, 'qui la demande reçoit encore celle-ci, sans attendre la relecture')
     for (let tour = 0; tour < 500 && prive.preparations.get(jouables)?.mesure === undefined; tour++) await new Promise(rendre => setTimeout(rendre, 2))
-    assert.equal(relectures, 2, 'relue une fois, en fond')
+    assert.equal(compte.relectures, 2, 'relue une fois, en fond')
     const preparee = prive.preparations.get(jouables)
     assert.ok(preparee && preparee.mesure !== premiere, 'le tirage de toutes les catégories préparé à la mesure neuve')
     // À la onzième minute de la première : la neuve, sans un aller-retour de plus.
     horloge.t += 2 * 60_000
     const neuve = await campagne.mesures()
-    assert.equal(relectures, 2, 'la requête qui l’aurait trouvée périmée ne la relit pas')
+    assert.equal(compte.relectures, 2, 'la requête qui l’aurait trouvée périmée ne la relit pas')
     assert.equal(neuve, preparee.mesure, 'la mesure que ses tirages ont préparée')
-    // Et la suivante, à son heure, si personne ne l'a demandée avant : sur le chemin de la requête, comme avant.
+    // Et la suivante, si personne ne l'a demandée avant son heure : celle
+    // qu'il y a d'abord, même périmée — la neuve se relit en fond, pour la
+    // requête d'après.
     horloge.t += 11 * 60_000
-    assert.notEqual(await campagne.mesures(), neuve)
-    assert.equal(relectures, 3)
+    assert.equal(await campagne.mesures(), neuve, 'personne n’attend la relecture : la mesure qu’il y a, même périmée')
+    await relectureFinie(prive)
+    assert.equal(compte.relectures, 3)
+    assert.notEqual(await campagne.mesures(), neuve, 'la requête d’après lit la neuve')
+    assert.equal(compte.relectures, 3)
   } finally {
     campagne.close()
     effacer()
   }
 })
 
-test('une relecture en fond qui échoue ne change rien : la mesure sert jusqu’à son heure, puis se relit', async () => {
+test('une relecture en fond qui échoue ne change rien : la mesure d’avant sert, et la relecture se retente deux minutes plus tard', async () => {
   const { url, effacer } = basePermanente()
   const horloge = { t: MAINTENANT }
   const campagne = new CampagneStore(url, undefined, { base: baseDEssai(60), maintenant: () => horloge.t })
@@ -300,31 +318,23 @@ test('une relecture en fond qui échoue ne change rien : la mesure sert jusqu’
   try {
     await campagne.init()
     const prive = campagne as unknown as Prive
-    const batch = prive.client.batch.bind(prive.client)
-    let echouer = false
-    let relectures = 0
-    prive.client.batch = (...args: unknown[]) => {
-      if (JSON.stringify(args[0]).includes(LA_MESURE)) {
-        relectures++
-        if (echouer) return Promise.reject(new Error('base muette'))
-      }
-      return batch(...args)
-    }
+    const compte = compterLesRelectures(campagne)
     const premiere = await campagne.mesures()
     horloge.t += 9 * 60_000
-    echouer = true
+    compte.echouer = true
     assert.equal(await campagne.mesures(), premiere)
-    for (let tour = 0; tour < 500 && prive.mesuresEnRoute; tour++) await new Promise(rendre => setTimeout(rendre, 2))
-    await new Promise(rendre => setTimeout(rendre, 5))
-    assert.equal(relectures, 2)
+    await relectureFinie(prive)
+    assert.equal(compte.relectures, 2)
     assert.ok(avertissements.some(a => a.includes('mesure non relue en fond')), 'le journal le dit')
     assert.equal(await campagne.mesures(), premiere, 'celle d’avant sert encore')
-    assert.equal(relectures, 2, 'sans retenter à chaque requête : une base muette ne se fait pas relire en boucle')
-    echouer = false
+    assert.equal(compte.relectures, 2, 'sans retenter à chaque requête : une base muette ne se fait pas relire en boucle')
+    compte.echouer = false
+    // Deux minutes plus tard, elle se retente, en fond : celle d'avant sert encore, la neuve sert ensuite.
     horloge.t += 2 * 60_000
-    const relue = await campagne.mesures()
-    assert.notEqual(relue, premiere, 'à son heure, elle se relit')
-    assert.equal(relectures, 3)
+    assert.equal(await campagne.mesures(), premiere, 'personne n’attend la relecture')
+    await relectureFinie(prive)
+    assert.equal(compte.relectures, 3)
+    assert.notEqual(await campagne.mesures(), premiere, 'relue, la neuve sert')
   } finally {
     console.warn = avertir
     campagne.close()

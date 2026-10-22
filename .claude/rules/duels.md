@@ -7,7 +7,7 @@ paths:
   - "client/src/views/{Rencontre.tsx,adressesDesDuels.ts}"
   - "client/src/components/{Blason,GestesDuJoueur,CarteDUnProfil,FeuilleDesAmisADemande}.tsx"
   - "server/scripts/{rendu-duels,rendu-bordures,duelsDEssai,calibrage-automate,calibrage-duels}.ts"
-  - "server/test/{duels,duels-attente,duels-contre,duels-de,duels-enjeu,duels-historique,duels-montee,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
+  - "server/test/{duels,duels-attente,duels-index,duels-contre,duels-de,duels-enjeu,duels-historique,duels-montee,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
 ---
 
 # Les duels : la cote, les ligues, Automate, défier quelqu'un, les amis
@@ -66,7 +66,7 @@ jour a sa notification (règle `rappel-et-installation.md`).
   `sentiers.md`) — les marches des séries, des sentiers et du quiz tout prêt
   gardent `tauxLisse` : une force par joueur et par catégorie, une
   difficulté par question, ajustées sur la première réponse de chacun
-  (`PREMIERE_REPONSE`), et ce que vaut chaque difficulté estimée, en bloc
+  (`premiereReponse`, lue du journal des réponses : `premieresJustesDe`), et ce que vaut chaque difficulté estimée, en bloc
   (`decalages`, `ECART_DES_ESTIMATIONS` ; la 3 tient l'échelle — le
   15 octobre 2026, les 5 se trouvaient à 42 %, pas à 10 %) ;
   `ajusterSansBloquer`, `forceDuJoueur`, `serieDeReference`,
@@ -262,8 +262,10 @@ jour a sa notification (règle `rappel-et-installation.md`).
   cours » ne le comptent plus. Ne la précharge pas, ne la lis pas « pour
   voir » : le résultat serait vu sans l'avoir été.
 - **Le dé : un aller-retour avant de répondre, pas un de plus** — un
-  `batch` de lectures (sa rencontre laissée, son journal, ses vues et ses
-  premières réponses d'un même texte, `lectureDesVues`). L'écriture de la
+  `batch` de lectures (sa rencontre laissée, son journal des duels, et ce
+  qui est arrivé au journal des réponses depuis sa dernière lecture, d'où
+  ses vues et ses premières réponses : `lireAvecLeJournal`, règle
+  `campagne.md`). L'écriture de la
   rencontre part ensuite, sous le verrou du profil relâché seulement une fois
   écrite (`avecVerrouJusquALEcriture`) : relâché avant, sa première réponse
   chercherait une rencontre que la base n'a pas, et un second dé en tirerait
@@ -279,7 +281,8 @@ jour a sa notification (règle `rappel-et-installation.md`).
   classé fait comme le dé** (`creerUnDuel`, le choix du propriétaire du
   19 octobre 2026 : « homogénéiser et faire pareil que pour les dés ») : un
   lot de lectures — le duel déjà ouvert entre eux (`lectureDuDuelOuvert`, la
-  règle du refus), leurs deux journaux, ce que chacun a vu —, la fiche de
+  règle du refus), leurs deux journaux des duels, et le journal des réponses
+  rattrapé, d'où ce que chacun a vu —, la fiche de
   l'adversaire de front (`byIds`), et la réponse ; le duel, ses envois prévus
   et sa première tentative s'écrivent ensuite, d'un lot, sous le même
   verrou. Gardé (`duels`, `enCours`) une fois écrit ; raté — une base qui
@@ -288,6 +291,21 @@ jour a sa notification (règle `rappel-et-installation.md`).
   attendre trois allers-retours, quatre au réveil — 3 à 6 s au 95ᵉ centile,
   le même soir. Une lecture de plus pour lancer un duel rejoint ce lot.
   `duels-attente.test.ts` compte ceux qui se suivent.
+- **Une tentative se cherche par le code de son duel, jamais par son
+  profil** : `s.duel = d.code AND ${PAR_SON_CODE}s.profile_id = …`. Le `+`
+  unaire écarte l'index des séries par profil, et SQLite prend celui des
+  duels (`idx_campagne_series_duel`), qui rend les deux tentatives. La base
+  de production n'a pas de statistiques (`sqlite_stat1`) : départagés à
+  l'aveugle, il prenait l'index du profil et parcourait, pour chaque duel,
+  toutes les tentatives de duel des deux joueurs — 50 000 lignes au quota de
+  Turso, trois fois à chaque ouverture de la page du plus fidèle (le
+  22 octobre 2026). Une jointure neuve sur les tentatives d'un duel prend le
+  même `+`. Et les duels d'un seul joueur mènent la lecture : le cercle de
+  ses amis (`cercleDe`, `lectureDesAmis`) partait de toutes les tentatives
+  de duel du serveur (`mode = 'duel'`, 1 226 lignes) avant d'y chercher les
+  siennes ; `CROSS JOIN` garde ses défis dehors (279). `duels-index.test.ts`
+  lit le plan de chaque requête qui joint les tentatives d'un duel, sur
+  chaque chemin qui en lance une — sans statistiques, comme la production.
 - **Le dé demande avant de tirer, et ne se relance pas.** Sa feuille
   (`LeDe`, `FeuilleDuDe`) dit l'enjeu — à chances égales, lu de la seule
   cote qu'on voit (`enjeuDuDe`) — et sur quoi il jouera ; rien ne part au

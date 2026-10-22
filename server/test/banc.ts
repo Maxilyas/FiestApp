@@ -212,6 +212,21 @@ export function attendre<T = any>(
 }
 
 /**
+ * Relit jusqu'à ce que la lecture dise ce qu'on attend : ce que le serveur
+ * fait en fond, sa réponse partie — la mesure des difficultés, relue derrière
+ * la requête qui l'a trouvée périmée, que personne n'attend. Au bout du délai,
+ * rend la dernière lecture : les assertions la jugeront.
+ */
+export async function relireJusqua<T>(lecture: () => Promise<T>, pret: (lu: T) => boolean, delaiMs = 5_000): Promise<T> {
+  const fin = Date.now() + delaiMs
+  for (;;) {
+    const lu = await lecture()
+    if (pret(lu) || Date.now() > fin) return lu
+    await new Promise(rendre => setTimeout(rendre, 10))
+  }
+}
+
+/**
  * Une écriture telle que la page la ferait : avec l'en-tête maison qui la
  * distingue d'un formulaire piégé.
  */

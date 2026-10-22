@@ -141,10 +141,12 @@ test('le dé répond d’un aller-retour — sa rencontre laissée, sa cote, ses
     // Ce qu'il a vu, et ce que tous ont trouvé, en un texte chacun : une ligne par
     // question — des milliers pour un fidèle — se décodait ligne à ligne, à
     // chaque dé (2,3 ms au lieu de 9,6 pour trois mille, et trois fois moins à
-    // transférer).
+    // transférer). Ce qu'il a vu vient du journal des réponses
+    // (`core/journalDesReponses.ts`), dont la lecture rapporte, d'un texte
+    // aussi, ce qui lui est arrivé depuis.
     const parQuestion = m.lectures.filter(l => l.lignes >= 100)
     assert.deepEqual(parQuestion, [], `une ligne par question vue ou mesurée :\n${m.lectures.map(l => `${l.lignes} · ${l.sql}`).join('\n')}`)
-    assert.ok(m.lectures.some(l => /json_group_object/.test(l.sql) && l.lignes === 1), 'ce qu’il a vu, d’un seul texte')
+    assert.ok(m.lectures.some(l => /MAX\(n\) AS jusqua, json_group_array/.test(l.sql) && l.lignes === 1), 'ce qu’il a vu, du journal lu d’un seul texte')
 
     // Sa première réponse, elle, attend l'écriture — le verrou du profil la
     // retient : elle compterait sur une rencontre que la base n'a pas.

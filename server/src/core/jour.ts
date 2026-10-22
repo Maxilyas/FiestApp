@@ -323,6 +323,17 @@ export class JourStore {
   private masques = new Set<string>()
   /** Monte à chaque masquage : ce qui a été lu sans un masqué ne vaut plus (`sonsHier`). */
   private versionDesMasques = 0
+  /** Monte à chaque suspension, à chaque réactivation (`suspensionChangee`) : le premier quart de chaque jour ne compte pas les suspendus. */
+  private versionDesSuspensions = 0
+  /**
+   * Ses jours dans le premier quart (L'Élite), comptés jusqu'à la dernière
+   * nuit close (`EliteGardee`) : relus en entier, ils parcouraient chaque
+   * jour qu'il a joué avec tous ses joueurs — 2 400 lignes au quota de Turso
+   * pour le plus assidu, le 22 octobre 2026, à chaque page du profil, chaque
+   * partie, chaque nuit, et davantage chaque jour. Une nuit close ne se
+   * réécrit plus (`annuler`) : seules les nuits d'après se lisent.
+   */
+  private elitesGardees = new Map<string, EliteGardee>()
   /**
    * Son jour d'hier, par profil : clos, il ne bouge plus qu'à une annulation
    * (la révision du jour) ou un masquage. Relu à chaque « Question
@@ -1040,6 +1051,7 @@ export class JourStore {
       // Commencée, relue, et ses jours comptés pour ses paliers, dans le même
       // lot. Sa première question ne se sert qu'après eux (plus bas) : servie
       // ici, son chronomètre courait pendant les paliers et la vue.
+      const elite = this.eliteGardee(profil.id)
       const [res, lue, ...stats] = await this.client.batch(
         [
           {
@@ -1047,7 +1059,7 @@ export class JourStore {
             args: [profil.id, jour, this.maintenant()],
           },
           { sql: 'SELECT * FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profil.id, jour] },
-          ...lecturesDesStats(profil.id),
+          ...lecturesDesStats(profil.id, elite.jusqua),
         ],
         'write',
       )
@@ -1055,7 +1067,7 @@ export class JourStore {
         this.reviser(jour)
         // Son bonus de série d'abord : versé avant ses paliers, il compte
         // déjà dans le niveau que La Légende lit.
-        await this.payerLaSerie(profil.id, jour, serieLue(stats.slice(4), jour).serie)
+        await this.payerLaSerie(profil.id, jour, serieLue(stats.slice(LECTURES_AVANT_LA_SERIE), jour).serie)
         // Une partie commencée compte — pour la jauge de L'Assidu comme pour
         // celle de la saison : ce qu'elle fait atteindre tombe maintenant.
         // Décerné seulement à la fin de la partie, le troisième jour
@@ -1064,7 +1076,7 @@ export class JourStore {
         // Citrouille : le lendemain, la saison était finie, pour un an. La
         // fin de la partie les fête toujours : elle lit ce que ce jour a fait
         // tomber (`recompensesDuJour`).
-        await this.deps.profiles.accorderPaliersDuJour(profil.id, jour, statsDe(stats, jour))
+        await this.deps.profiles.accorderPaliersDuJour(profil.id, jour, this.garderLElite(profil.id, statsDe(stats, jour, elite)))
         await this.accorderSaison(profil.id, jour)
         await this.decernerAuDebut(profil.id, jour, this.maintenant())
       }
@@ -1725,7 +1737,35 @@ export class JourStore {
    * encore).
    */
   async statsDuJour(profileId: string): Promise<StatsDuJour> {
-    return statsDe(await this.client.batch(lecturesDesStats(profileId), 'read'), jourDe(this.maintenant()))
+    const garde = this.eliteGardee(profileId)
+    return this.garderLElite(profileId, statsDe(await this.client.batch(lecturesDesStats(profileId, garde.jusqua), 'read'), jourDe(this.maintenant()), garde))
+  }
+
+  /**
+   * Ses jours dans le premier quart déjà comptés, s'ils valent encore : sous
+   * la version des masquages (une suppression la monte aussi) et celle des
+   * suspensions où ils l'ont été — l'une ou l'autre changée, le rang de
+   * chacun a pu bouger sur tous ses jours, et tout se recompte.
+   */
+  private eliteGardee(profileId: string): EliteGardee {
+    const version = `${this.versionDesMasques}#${this.versionDesSuspensions}`
+    const garde = this.elitesGardees.get(profileId)
+    return garde?.version === version ? garde : { version, jusqua: '', n: 0 }
+  }
+
+  /** Garde ce que la lecture a compté — sauf si un masquage ou une suspension est passé pendant : elle ne vaut plus. */
+  private garderLElite(profileId: string, { stats, elite }: { stats: StatsDuJour; elite: EliteGardee }): StatsDuJour {
+    if (elite.version === `${this.versionDesMasques}#${this.versionDesSuspensions}`) this.elitesGardees.set(profileId, elite)
+    return stats
+  }
+
+  /**
+   * Un profil suspendu ou réactivé (`ProfileStore`, branché par `server.ts`) :
+   * le premier quart de chaque jour se compte sans les suspendus, et chacun
+   * recompte ses jours dans l'élite.
+   */
+  suspensionChangee(): void {
+    this.versionDesSuspensions++
   }
 
   /**
@@ -3460,16 +3500,25 @@ function nommer(joueurs: readonly Joueur[], profils: Pick<ProfileStore, 'avatarP
   return j => marques.get(j.profil.id) ?? j.profil.name
 }
 
+/** Ses jours dans le premier quart, comptés jusqu'à une nuit close (`jusqua`), sous une version des masquages et des suspensions (`JourStore.elitesGardees`). */
+interface EliteGardee {
+  version: string
+  jusqua: string
+  n: number
+}
+
 /** Une ligne de `jour_parties`, telle que la partie se lit — null s'il n'y en a pas. */
 /**
  * Ce que ses paliers du quiz du jour comptent (`statsDuJour`) : seules, ou
  * dans le lot qui commence sa partie. Le premier quart se lit sur les jours
  * clos — la nuit fige le classement —, les masqués écartés, à huit joueurs
  * au moins (`SALLE_DU_JOUR`) : le rang de chacun est celui du classement,
- * rang partagé (invariant 15). La série lit ses jours joués, ses soirées et
- * ses sabliers (`serieAvecSabliers`).
+ * rang partagé (invariant 15) ; seulement ceux d'après `depuis`, qu'il n'a
+ * pas encore comptés, et la dernière nuit close, jusqu'où il les a comptés
+ * (`EliteGardee`). La série lit ses jours joués, ses soirées et ses sabliers
+ * (`serieAvecSabliers`).
  */
-function lecturesDesStats(profileId: string): InStatement[] {
+function lecturesDesStats(profileId: string, depuis = ''): InStatement[] {
   return [
     { sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
     { sql: 'SELECT COUNT(*) AS n FROM jour_podiums WHERE profile_id = ? AND rang = 1', args: [profileId] },
@@ -3488,11 +3537,12 @@ function lecturesDesStats(profileId: string): InStatement[] {
               FROM jour_parties p
               JOIN jour_clotures c ON c.jour = p.jour
               JOIN profiles pr ON pr.id = p.profile_id AND pr.disabled_at IS NULL
-              WHERE p.jour IN (SELECT jour FROM jour_parties WHERE profile_id = ?)
+              WHERE p.jour IN (SELECT jour FROM jour_parties WHERE profile_id = ? AND jour > ?)
                 AND p.profile_id NOT IN (SELECT profile_id FROM jour_masques)
             ) WHERE id = ? AND joueurs >= ? AND points > 0 AND rang * 4 <= joueurs`,
-      args: [profileId, profileId, SALLE_DU_JOUR],
+      args: [profileId, depuis, profileId, SALLE_DU_JOUR],
     },
+    { sql: 'SELECT MAX(jour) AS jour FROM jour_clotures', args: [] },
     ...lecturesDeLaSerie(profileId),
   ]
 }
@@ -3526,13 +3576,22 @@ function seriesLues([jours, soirees, sabliers]: readonly ResultSet[]): Map<strin
   )
 }
 
-function statsDe([joues, victoires, sansFautes, elite, ...serie]: readonly ResultSet[], aujourdhui: string): StatsDuJour {
+/** Les lectures de `lecturesDesStats` qui précèdent celles de sa série. */
+const LECTURES_AVANT_LA_SERIE = 5
+
+/** Ses paliers du quiz du jour, de ce que `lecturesDesStats` a lu ; ses jours dans l'élite ajoutés à ceux qu'il avait comptés (`garde`), et jusqu'où ils le sont désormais. */
+function statsDe(lus: readonly ResultSet[], aujourdhui: string, garde: EliteGardee): { stats: StatsDuJour; elite: EliteGardee } {
+  const [joues, victoires, sansFautes, elite, nuit] = lus
+  const comptee = { version: garde.version, jusqua: nuit.rows[0]?.jour == null ? garde.jusqua : String(nuit.rows[0].jour), n: garde.n + Number(elite.rows[0]?.n ?? 0) }
   return {
-    joues: Number(joues.rows[0]?.n ?? 0),
-    victoires: Number(victoires.rows[0]?.n ?? 0),
-    sansFautes: Number(sansFautes.rows[0]?.n ?? 0),
-    elite: Number(elite.rows[0]?.n ?? 0),
-    serieRecord: serieLue(serie, aujourdhui).record,
+    stats: {
+      joues: Number(joues.rows[0]?.n ?? 0),
+      victoires: Number(victoires.rows[0]?.n ?? 0),
+      sansFautes: Number(sansFautes.rows[0]?.n ?? 0),
+      elite: comptee.n,
+      serieRecord: serieLue(lus.slice(LECTURES_AVANT_LA_SERIE), aujourdhui).record,
+    },
+    elite: comptee,
   }
 }
 

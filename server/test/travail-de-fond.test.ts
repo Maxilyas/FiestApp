@@ -173,15 +173,17 @@ test('la mesure relue en fond, dans ses deux dernières minutes : ses familles e
   }
 })
 
-test('un dé tombé sur une mesure périmée : ses familles, son tirage et la série de référence d’Automate, chacun à son tour', async () => {
-  const { campagne, horloge, etapes, fermer } = magasinObserve()
+test('un dé tombé sur une mesure périmée : son tirage et la série de référence d’Automate, puis, en fond, les familles de la neuve et son tirage, chacun à son tour', async () => {
+  const { campagne, prive, horloge, etapes, fermer } = magasinObserve()
   try {
     await campagne.init()
-    await campagne.mesures()
+    const jouables = await prive.jouables()
+    const premiere = await campagne.mesures()
     etapes.length = 0
-    // Onze minutes sans personne : la mesure se relit sur le chemin du dé.
+    // Onze minutes sans personne : le dé joue sur la mesure qu'il y a, et la neuve se relit en fond — personne ne l'attend.
     horloge.t += 11 * 60_000
     await campagne.commencerUneRencontre('profil-du-de')
+    await quand(() => (prive.preparations.get(jouables)?.mesure ?? premiere) !== premiere, 'la mesure neuve, relue en fond, prépare ses tirages')
     uneParTour(etapes, ['en famille', 'préparation du tirage', 'série de référence'])
     // Son écriture, qui part derrière la réponse, avant de fermer la base : la rencontre n'entre en mémoire qu'écrite.
     await quand(() => (campagne as unknown as { enCours: Map<string, unknown> }).enCours.has('profil-du-de'), 'la rencontre s’écrit')

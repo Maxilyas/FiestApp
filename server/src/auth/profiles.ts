@@ -787,6 +787,13 @@ export class ProfileStore {
   statsDuJour?: (profileId: string) => Promise<StatsDuJour>
 
   /**
+   * Un profil suspendu ou réactivé : le quiz du jour recompte le premier
+   * quart de chacun, qui ne compte pas les suspendus (`JourStore.suspensionChangee`,
+   * branché au démarrage comme `statsDuJour`).
+   */
+  suspensionChangee?: () => void
+
+  /**
    * A-t-il gagné le quiz du jour d'hier (`JourStore.laureats`) ? Branché au
    * démarrage, comme `statsDuJour`, et lu en mémoire : il sert à chaque
    * diffusion à toute la salle.
@@ -4970,6 +4977,7 @@ export class ProfileStore {
     const maintenant = Date.now()
     await this.client.execute({ sql: 'UPDATE profiles SET disabled_at = ? WHERE id = ?', args: [maintenant, id] })
     rec.disabledAt = maintenant
+    this.suspensionChangee?.()
     await this.revokeAll(id)
     this.annuaire = null
     this.porteurs = null
@@ -4980,6 +4988,7 @@ export class ProfileStore {
     if (!rec) throw new Error('Ce profil est introuvable')
     await this.client.execute({ sql: 'UPDATE profiles SET disabled_at = NULL WHERE id = ?', args: [id] })
     rec.disabledAt = null
+    this.suspensionChangee?.()
     this.annuaire = null
     this.porteurs = null
   }

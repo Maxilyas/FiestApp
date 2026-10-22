@@ -16,13 +16,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, relireJusqua, type Banc } from './banc'
 import { bonneReponseChange, niveauDeQuestion } from '../../shared/campagne'
 import { leurresApres } from '../src/core/campagne'
 
 /** Samedi 26 septembre 2026, 10 h à Paris. */
 const DEBUT = Date.UTC(2026, 8, 26, 8, 0)
-/** La difficulté mesurée se relit toutes les dix minutes : on avance l'horloge d'autant pour la lire à jour. */
+/**
+ * La difficulté mesurée se relit toutes les dix minutes : on avance l'horloge
+ * d'autant pour la lire à jour — en fond : la lecture qui la trouve périmée
+ * reçoit celle qu'il y a, une suivante la neuve (`relireJusqua`).
+ */
 const RELECTURE_DES_MESURES = 11 * 60_000
 
 type Reponse = { status: number; corps: any }
@@ -136,7 +140,10 @@ test('l’administrateur voit qui signale une question, où il l’a jouée, ce 
     assert.equal((await signaler(banc, bob, epreuve.id, la, 'L’anecdote se trompe de siècle')).status, 200)
 
     horloge.t += RELECTURE_DES_MESURES
-    const etat = await lire(banc, admin, '/api/admin/campagne')
+    const etat = await relireJusqua(
+      () => lire(banc, admin, '/api/admin/campagne'),
+      e => e.status !== 200 || e.corps.signalements?.[0]?.mesure?.total > 0,
+    )
     assert.equal(etat.status, 200, etat.corps.error)
     assert.equal(etat.corps.signalements.length, 1)
     const s = etat.corps.signalements[0]

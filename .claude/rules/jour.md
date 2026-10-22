@@ -93,3 +93,19 @@ paths:
   préparation de ses tirages (`tirage-prepare.test.ts`). Un apport ou une
   correction l'efface (`empreintesGardees = null`) : la relecture suivante
   en fait un neuf.
+- **L'Élite se compte une fois par nuit close** (`elitesGardees`,
+  `EliteGardee`) : ses jours dans le premier quart, comptés jusqu'à la
+  dernière nuit close (`MAX(jour)` de `jour_clotures`, lu dans le même
+  lot), puis seulement ceux d'après. Relus en entier, ils parcouraient
+  chaque jour qu'il avait joué avec tous ses joueurs — 2 400 lignes au
+  quota de Turso pour le plus assidu, à chaque page du profil, chaque
+  partie, chaque nuit (le 22 octobre 2026). Ce qui le tient : une nuit
+  close ne se réécrit plus (`annuler` refuse un jour clos), les nuits se
+  closent dans l'ordre (`clorePasses`), et ce qui change la salle d'un
+  jour passé monte une version — un masquage ou une suppression
+  `versionDesMasques`, une suspension ou une réactivation
+  `versionDesSuspensions` (le crochet `ProfileStore.suspensionChangee`,
+  branché par `server.ts`). Un geste de plus qui ferait bouger le rang d'un
+  jour clos — rouvrir une nuit, recompter ses points — monte l'une
+  d'elles, ou L'Élite de chacun resterait à l'ancien compte
+  (`jour-nuit.test.ts`).

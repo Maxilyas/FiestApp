@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ProfileStore, cleDuJour } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -163,6 +163,18 @@ test('dans une salle de huit, la nuit voit qui était seul, le plus rapide, le d
     assert.equal(await elite('alice'), 1)
     assert.equal(await elite('bob'), 1)
     assert.equal(await elite('carole'), 0)
+    // Gardés par profil, ses jours dans l'élite se recomptent quand le premier quart change sous eux :
+    // un masqué, un suspendu ne comptent pas — et la salle de huit tombe à sept, la veille comme ce jour-là.
+    const admin = await connexionAnimateur(banc.url)
+    const hugo = idDe(banc, 'hugo')
+    assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: hugo })).status, 200)
+    assert.equal(await elite('alice'), 0, 'Hugo masqué : une salle de sept')
+    assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: hugo, masque: false })).status, 200)
+    assert.equal(await elite('alice'), 1, 'remis au classement')
+    assert.equal((await poster(banc, admin, `/api/admin/profils/${hugo}/suspendre`)).status, 200)
+    assert.equal(await elite('alice'), 0, 'Hugo suspendu : une salle de sept')
+    assert.equal((await poster(banc, admin, `/api/admin/profils/${hugo}/reactiver`)).status, 200)
+    assert.equal(await elite('alice'), 1, 'réactivé')
   }))
 
 test('une petite salle ne mesure rien aux autres : pas de Seul au monde ni de Lanterne à trois', () =>

@@ -577,6 +577,9 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     tempsReel: 22,
     envoyesMo: 2,
     recusMo: 0.5,
+    // Des lignes d'avant le compte du quota de Turso : rien n'en dit les lignes lues.
+    lignesLues: null,
+    lignesEcrites: null,
   })
   // La nuit, l'hébergeur dort ; le matin, le réveil de 7 h 02 compte son heure.
   assert.equal(heure(a(0, 3)).eveille, false)
@@ -601,6 +604,8 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     tempsReel: null,
     envoyesMo: null,
     recusMo: null,
+    lignesLues: null,
+    lignesEcrites: null,
   })
   // Une heure d'avant le compte des connexions : ni part, ni détail.
   assert.deepEqual([heure(a(3, 19)).connexionsNeuves, heure(a(3, 19)).connexions], [null, null])
@@ -826,6 +831,8 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
     erreurs: { n: 4, depuis: cetteHeure - H, source: 'POST /api/x' },
     tursoLent: { p95: 1400, depuis: cetteHeure - H },
     memoireMo: 462,
+    // Le quota de Turso se juge sur la semaine, qu'on ne lui a pas donnée.
+    quota: null,
   })
   assert.deepEqual(alertesDuServeur({ recentes: [], demarrages: [], memoireMo: 300, maintenant, courant: 'g' }), {
     pannes: [],
@@ -833,6 +840,7 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
     erreurs: null,
     tursoLent: null,
     memoireMo: null,
+    quota: null,
   })
 
   // Dans « À traiter » : après le miroir, avant la réserve — trois en rouge, Turso lent en sourdine. Les

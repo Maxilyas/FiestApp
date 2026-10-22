@@ -15,19 +15,24 @@ import {
   alertesDuServeur,
   debutDeLHeure,
   pageDuServeur,
+  quotaDuMois,
   type AlertesDuServeur,
   type DemarrageDuServeur,
   type ErreurDeLaSemaine,
   type ErreurEnDetail,
   type HeureDeSante,
+  type LecturesDUneRequete,
   type PageDuServeur,
   type PlafondsDuConteneur,
+  type QuotaDeLHeure,
 } from '../../../shared/santeDuServeur'
 
 /** La page se relit au plus une fois la minute : un rechargement ne coûte rien au quota. */
 const PAGE_GARDEE_MS = 60_000
 /** Les démarrages des alertes se relisent au plus toutes les dix minutes : la vue d'ensemble les demande toutes les cinq. */
 const DEMARRAGES_GARDES_MS = 10 * 60_000
+/** Le quota de la semaine, pour les alertes, se relit au plus toutes les heures : il se juge sur des jours. */
+const QUOTA_GARDE_MS = HEURE_MS
 
 const nombreOuNull = (v: unknown) => (v === null || v === undefined ? null : Number(v))
 
@@ -72,6 +77,27 @@ function lireTri(r: Row): [string, TriDUneErreur] | null {
   return [String(r.cle), { etat: r.etat, note: r.note === null ? null : String(r.note), depuis: Number(r.depuis), versions }]
 }
 
+/** Le quota d'une heure, s'il se lit : un relevé de travers ôte son quota, pas la page. */
+function quotaLu(v: unknown): QuotaDeLHeure | null {
+  if (!v || typeof v !== 'object') return null
+  const q = v as Record<string, unknown>
+  if (!['appels', 'lues', 'ecrites'].every(cle => Number.isFinite(q[cle]))) return null
+  const lourdes = Array.isArray(q.lourdes)
+    ? q.lourdes.filter((l): l is LecturesDUneRequete => !!l && typeof l.requete === 'string' && Number.isFinite(l.n) && Number.isFinite(l.lues))
+    : []
+  return { appels: Number(q.appels), lues: Number(q.lues), ecrites: Number(q.ecrites), lourdes }
+}
+
+/** Le quota d'une heure tel que `json_extract` le rend, un texte ; null s'il ne se lit pas. */
+function quotaDuTexte(v: unknown): QuotaDeLHeure | null {
+  if (typeof v !== 'string') return null
+  try {
+    return quotaLu(JSON.parse(v))
+  } catch {
+    return null
+  }
+}
+
 /** Une ligne de `qg_sante` ; null si son relevé ne se lit plus — une ligne illisible ôte son heure, pas la page. */
 function lireHeure(r: Row): HeureDeSante | null {
   try {
@@ -89,6 +115,7 @@ function lireHeure(r: Row): HeureDeSante | null {
       charge: releve.charge ?? null,
       connexions: releve.connexions ?? null,
       requetes: releve.requetes ?? null,
+      quota: quotaLu(releve.quota),
     }
   } catch {
     return null
@@ -118,6 +145,8 @@ export class SanteDuServeur {
   private purgeeLe = 0
   private lue: { le: number; lecture: Promise<{ heures: HeureDeSante[]; demarrages: DemarrageDuServeur[] }> } | null = null
   private recents: { le: number; lecture: Promise<DemarrageDuServeur[]> } | null = null
+  /** Le quota de chaque heure de la semaine, sans le reste du relevé : les alertes n'ont besoin que de lui. */
+  private quotas: { le: number; lecture: Promise<Pick<HeureDeSante, 'heure' | 'demarrage' | 'quota'>[]> } | null = null
   /**
    * Ce que l'administrateur a dit des erreurs (`/admin#erreurs`), lu au
    * démarrage et tenu en mémoire : les alertes de la vue d'ensemble le lisent
@@ -369,9 +398,10 @@ export class SanteDuServeur {
   /**
    * Ce qui, du serveur, attend un geste dans « À traiter » : les modes en
    * panne, que la veille voit tomber ; les erreurs à regarder et Turso lus
-   * dans le relevé, la mémoire mesurée à l'instant, et les démarrages de ce
-   * dernier jour relus au plus toutes les dix minutes. Une base qui se tait
-   * ôte l'arrêt net, pas le reste.
+   * dans le relevé, la mémoire mesurée à l'instant, les démarrages de ce
+   * dernier jour relus au plus toutes les dix minutes, et le quota de la
+   * semaine au plus toutes les heures. Une base qui se tait ôte l'arrêt net
+   * et le quota, pas le reste.
    */
   async alertes(memoireMo: number | null): Promise<AlertesDuServeur> {
     const maintenant = this.now()
@@ -384,12 +414,33 @@ export class SanteDuServeur {
         if (this.recents?.lecture === lecture) this.recents = null
       })
     }
-    const demarrages = await this.recents.lecture.catch((e: unknown) => {
-      console.error('[santé] les démarrages ne se lisent pas :', e)
-      return []
-    })
+    if (!this.quotas || maintenant - this.quotas.le > QUOTA_GARDE_MS) {
+      const lecture = this.client
+        .execute({
+          sql: `SELECT heure, demarrage, json_extract(releve, '$.quota') AS quota FROM qg_sante WHERE heure >= ? AND json_valid(releve)`,
+          args: [debutDeLHeure(maintenant) - (HEURES_DE_SANTE - 1) * HEURE_MS],
+        })
+        .then(r => r.rows.map(l => ({ heure: Number(l.heure), demarrage: String(l.demarrage), quota: quotaDuTexte(l.quota) })))
+      this.quotas = { le: maintenant, lecture }
+      lecture.catch(() => {
+        if (this.quotas?.lecture === lecture) this.quotas = null
+      })
+    }
+    const [demarrages, quotas] = await Promise.all([
+      this.recents.lecture.catch((e: unknown) => {
+        console.error('[santé] les démarrages ne se lisent pas :', e)
+        return []
+      }),
+      this.quotas.lecture.catch((e: unknown) => {
+        console.error('[santé] le quota de la semaine ne se lit pas :', e)
+        return null
+      }),
+    ])
+    const recentes = this.releve.lignes(this.id)
+    // Les heures de ce démarrage se lisent dans son relevé, plus frais que la base.
+    const quota = quotas && quotaDuMois([...quotas.filter(h => h.demarrage !== this.id || !recentes.some(m => m.heure === h.heure)), ...recentes], maintenant)
     return alertesDuServeur({
-      recentes: this.releve.lignes(this.id),
+      recentes,
       demarrages,
       memoireMo,
       maintenant,
@@ -397,6 +448,7 @@ export class SanteDuServeur {
       version: this.moi?.version ?? null,
       tri: this.tris,
       pannes: this.veille.pannes(),
+      quota,
     })
   }
 }

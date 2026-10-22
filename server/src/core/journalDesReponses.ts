@@ -1,0 +1,537 @@
+import type { InStatement } from '@libsql/client'
+import { PREFIXE_DU_REBUS } from '../../../shared/curiosites'
+import { PREFIXE_DE_LA_FRISE } from '../../../shared/frise'
+import { jourDe } from '../../../shared/jour'
+import { CARTES_DU_SECOND_ESSAI } from '../../../shared/rencontres'
+import { apresUnPassage, type SuiviDeRevision } from '../../../shared/revision'
+
+// Le journal des réponses de campagne, gardé en mémoire et lu par différence.
+//
+// Turso compte au quota chaque ligne qu'une requête parcourt, pas celles
+// qu'elle rend : 500 millions par mois, 333 déjà lus le 22 octobre 2026, sur
+// une base de vingt-deux mille réponses. Chaque lecture relisait toute une
+// histoire — la mesure des difficultés, 172 000 lignes toutes les dix minutes
+// d'activité (et 3,2 s chez Turso, sur le chemin du duel qui la trouvait
+// périmée) ; le modèle du savoir, 87 000 à chaque ajustement ; l'expérience
+// d'un fidèle, 12 000 à chaque bonne réponse ; ses écussons, ce qu'il a vu,
+// ses premières réponses, ses missions, à chaque page ; son carnet, 14 000 à
+// chaque accueil du plus assidu. Le coût de chaque page grandissait avec
+// l'histoire, et celui de la journée avec son carré.
+//
+// Une réponse ne change jamais — `oublierProfil` seul en efface —, et son
+// `rowid` ne fait que croître : le journal lit une fois ce qui est écrit,
+// puis seulement ce qui est arrivé depuis le plus grand qu'il a lu
+// (`lectureDuJournal`), dans le lot de la requête qui en a besoin. Ce qu'il
+// garde sont les dérivations mêmes que relisaient les requêtes d'avant —
+// chacune avec ses filtres, `journal-des-reponses.test.ts` les compare au
+// SQL d'avant sur une base au hasard. Rien de neuf ne s'écrit : il se relit
+// en entier au démarrage, et une règle changée vaut toujours pour tout ce
+// qui a été joué.
+
+const HEURE_MS = 3600_000
+
+/**
+ * Ce que le journal garde des réponses récentes, une à une : de quoi juger
+ * les missions (`activiteDepuis`), qui remontent au lundi d'il y a deux
+ * semaines — treize jours et demi au plus. Au-delà, la requête d'avant.
+ */
+export const FENETRE_DES_RECENTES_MS = 16 * 24 * HEURE_MS
+
+/**
+ * Combien de réponses une lecture du journal rapporte au plus : la première
+ * le relit par tranches, chacune décodée à son tour de boucle — deux mille
+ * réponses font 300 Ko de texte, quelques millisecondes à décoder.
+ */
+export const REPONSES_PAR_LECTURE = 2000
+
+/** Une réponse telle que le journal la lit : ce que chaque lecture d'avant prenait dans sa ligne et dans sa série. */
+export interface ReponseDuJournal {
+  /** Son `rowid` : la lecture suivante part du plus grand lu. */
+  n: number
+  /** Le profil de sa série ; null quand la série n'existe plus (une réponse écrite à la main, dans un test). */
+  qui: string | null
+  serie: string
+  question: string
+  juste: boolean
+  le: number
+  /** Un choix donné (`choix IS NOT NULL`) : sans, le temps a fini la question. */
+  repondue: boolean
+  /** Un joker de l'expédition l'a aidée, ou une autre forme l'a posée (`joker`, `forme`). */
+  aidee: boolean
+  /** Lesquels : le carnet tient pour ratée une réponse qu'une carte du second essai a aidée, et écarte un vrai ou faux trouvé. */
+  joker: string | null
+  forme: string | null
+  mode: string | null
+  commencee: number | null
+  /** Le défi de sa série, et le duel avec sa fermeture : ouverts, ils tiennent sa réponse hors du carnet (`suivisDe`). */
+  semaine: string | null
+  duel: string | null
+  fermeLe: number | null
+  /** Ce que sa série a gardé de la question : reprise du carnet (`HORS_DU_CARNET`), catégorie, marche. */
+  carnet: unknown
+  categorie: string | null
+  niveau: string | null
+}
+
+/**
+ * Ce qui est arrivé depuis `depuis`, en un seul texte JSON — une ligne par
+ * réponse se décodait à coups de `defineProperty` (règle `campagne.md`). Le
+ * `rowid` mène la lecture (`LEFT JOIN` : la réponse d'abord, sa série par sa
+ * clé, le duel de sa série par la sienne) : Turso ne parcourt que les
+ * réponses neuves, leurs séries et leurs duels. Ce que la série a gardé de
+ * chaque question, d'un seul `json_extract` à trois chemins, sous
+ * `json_valid` : la lecture part aussi dans le lot qui écrit une réponse, et
+ * un JSON illisible n'y doit rien faire échouer.
+ */
+export function lectureDuJournal(depuis: number, limite = REPONSES_PAR_LECTURE): InStatement {
+  return {
+    sql: `SELECT COUNT(*) AS lues, MAX(n) AS jusqua,
+                 json_group_array(json_array(n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, json(detail))) AS lignes
+          FROM (SELECT r.rowid AS n, s.profile_id AS qui, r.serie_id AS serie, r.reserve_id AS question, r.juste AS juste, r.repondue_le AS le,
+                       r.choix IS NOT NULL AS repondue, r.joker AS joker, r.forme AS forme, s.mode AS mode, s.commencee_le AS commencee,
+                       s.semaine AS semaine, s.duel AS duel, d.ferme_le AS ferme,
+                       CASE WHEN json_valid(s.questions)
+                            THEN json_extract(s.questions, '$[' || r.position || '].carnet', '$[' || r.position || '].categorie', '$[' || r.position || '].niveau')
+                       END AS detail
+                FROM campagne_reponses r LEFT JOIN campagne_series s ON s.id = r.serie_id LEFT JOIN campagne_duels d ON d.code = s.duel
+                WHERE r.rowid > ? ORDER BY r.rowid LIMIT ?)`,
+    args: [depuis, limite],
+  }
+}
+
+/** Une lecture du journal, décodée : ses réponses, le plus grand `rowid` lu, et s'il en reste derrière. */
+export interface LectureDuJournal {
+  reponses: ReponseDuJournal[]
+  jusqua: number
+  /** La lecture a rendu sa limite : il en reste peut-être, la suivante les lira. */
+  aSuivre: boolean
+}
+
+const texteOuNull = (v: unknown): string | null => (v === null || v === undefined ? null : String(v))
+const nombreOuNull = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v))
+
+/** La ligne que rend `lectureDuJournal`, décodée. */
+export function lireLeJournal(ligne: Record<string, unknown> | undefined, limite = REPONSES_PAR_LECTURE): LectureDuJournal {
+  const lues = Number(ligne?.lues ?? 0)
+  const texte = ligne?.lignes
+  const brutes = typeof texte === 'string' ? (JSON.parse(texte) as unknown[][]) : []
+  const reponses = brutes.map(([n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, detail]): ReponseDuJournal => {
+    const [carnet, categorie, niveau] = Array.isArray(detail) ? detail : [null, null, null]
+    const sonJoker = texteOuNull(joker)
+    const saForme = texteOuNull(forme)
+    return {
+      n: Number(n),
+      qui: texteOuNull(qui),
+      serie: String(serie),
+      question: String(question),
+      juste: Number(juste) === 1,
+      le: Number(le),
+      repondue: Number(repondue) === 1,
+      aidee: sonJoker !== null || saForme !== null,
+      joker: sonJoker,
+      forme: saForme,
+      mode: texteOuNull(mode),
+      commencee: nombreOuNull(commencee),
+      semaine: texteOuNull(semaine),
+      duel: texteOuNull(duel),
+      fermeLe: nombreOuNull(ferme),
+      carnet: carnet ?? null,
+      categorie: texteOuNull(categorie),
+      niveau: texteOuNull(niveau),
+    }
+  })
+  return { reponses, jusqua: ligne?.jusqua === null || ligne?.jusqua === undefined ? 0 : Number(ligne.jusqua), aSuivre: lues >= limite }
+}
+
+/**
+ * Sa première réponse à une question, d'un nombre : `repondue_le * 4 + aidée
+ * * 2 + juste`, le plus petit de ses réponses — l'instant d'abord, puis si un
+ * joker ou une autre forme l'a aidée, puis si elle était juste. Une révision
+ * ne pose que ce qu'il a déjà vu : sa première réponse n'y est jamais. Rend
+ * sa justesse, ou null : pas nue — deux réponses effacées, deux questions au
+ * choix, un vrai ou faux, un intitulé à mi-mot —, elle ne dit rien de son
+ * savoir, et aucune d'après ne la remplace : il avait vu la correction.
+ */
+export function premiereReponse(code: number): 0 | 1 | null {
+  if (!Number.isFinite(code)) return null
+  return code % 4 >= 2 ? null : code % 2 === 1 ? 1 : 0
+}
+
+/** Reprise du carnet par une source de l'expédition, comme `json_extract(...) = 1` la lisait. */
+const carnetUn = (carnet: unknown) => carnet === 1 || carnet === true
+
+/**
+ * Une réponse qui dit le savoir : nue — aucun joker de l'expédition ne l'a
+ * aidée (`campagne_reponses.joker` : deux réponses effacées, un indice, deux
+ * questions au choix), posée telle que la base l'a écrite
+ * (`campagne_reponses.forme` : à six choix, en vrai ou faux tiré d'une autre,
+ * dévoilée à mi-mot, une question n'a plus sa difficulté) — et qui ne reprend
+ * pas le carnet (`HORS_DU_CARNET`). Les écussons, la précision et L'Érudit ne
+ * lisent qu'elle ; la mesure et le modèle du savoir l'écrivent à leur façon
+ * (`mesures`, `premiereReponse`).
+ */
+export const reponseNue = (r: Pick<ReponseDuJournal, 'aidee' | 'carnet'>): boolean => !r.aidee && r.carnet === null
+
+/** Ses justes et ses réponses, pour une question. */
+export interface Compte {
+  justes: number
+  total: number
+}
+
+/** Ses écussons d'une catégorie : ses questions, celles qu'il a répondues, ses justes (`savoirDesLignes`). */
+interface CompteDeSavoir {
+  questions: number
+  repondues: number
+  justes: number
+}
+
+/** Une question qu'il a vue : quand la dernière fois, sa première réponse, et la première hors révision (la mesure). */
+interface Paire {
+  le: number
+  premiere: number
+  premiereHorsRevision: number
+}
+
+/** Une réponse récente, comme les missions la jugent (`JournauxDesJours.reponses`). */
+export interface ReponseRecente {
+  serie: string
+  mode: string
+  juste: boolean
+  le: number
+  categorie: string | null
+  commencee: number
+}
+
+/**
+ * Une réponse comptée au carnet (`suivisDe`) : son instant, son jour de Paris,
+ * sa justesse — fausse quand une carte du second essai l'a aidée : sa
+ * première était fausse —, et ce qui la tient à l'écart tant qu'il est
+ * ouvert, son défi ou son duel : ouverts, ils souffleraient leurs réponses.
+ */
+interface PassageAuCarnet {
+  le: number
+  jour: string
+  juste: boolean
+  /** Un défi : à l'écart tant que sa semaine n'est pas passée — sans semaine, toujours. */
+  semaine?: string | null
+  /** Un duel : à l'écart tant qu'il n'est pas fermé. */
+  duel?: string | null
+}
+
+/**
+ * Une question de son carnet : ses passages depuis sa dernière erreur qui
+ * compte d'office — une erreur la remet au premier rendez-vous, quoi qu'il en
+ * soit (`apresUnPassage`), et ce qui la précède ne change plus rien —, et son
+ * suivi replié, gardé tant qu'aucun de ses passages n'attend son défi ou son
+ * duel.
+ */
+interface QuestionAuCarnet {
+  passages: PassageAuCarnet[]
+  /** Ses passages à l'écart d'un défi ou d'un duel, peut-être encore ouverts : son suivi se replie à chaque lecture. */
+  enAttente: number
+  /** Son suivi replié ; undefined : à replier. */
+  suivi?: SuiviDeRevision | null
+}
+
+/** Les cartes du second essai : leur réponse juste compte pour ratée au carnet (`suivisDe`). */
+const ESSAIS = new Set(CARTES_DU_SECOND_ESSAI)
+
+const aLEcartDUnDefiOuDUnDuel = (p: PassageAuCarnet) => p.semaine !== undefined || p.duel !== undefined
+
+/** Ce que le journal sait d'un joueur. */
+class Dossier {
+  readonly paires = new Map<string, Paire>()
+  readonly justesParHeure = new Map<number, number>()
+  readonly savoir = new Map<string | null, CompteDeSavoir>()
+  expertes = 0
+  recentes: ReponseRecente[] = []
+  /** Son carnet : les questions qu'il a ratées (`carnetDe`). */
+  readonly carnet = new Map<string, QuestionAuCarnet>()
+  /**
+   * Une de ses réponses lue après une plus récente à la même question — une
+   * réponse écrite à la main, une horloge qui recule — : les passages
+   * qu'on a laissés en route ne se rattrapent pas, son carnet se relit de la
+   * base (`carnetDe` rend null).
+   */
+  carnetIncertain = false
+}
+
+function compter(comptes: Map<string, Compte>, question: string, juste: boolean) {
+  const c = comptes.get(question)
+  if (c) {
+    c.total++
+    if (juste) c.justes++
+  } else comptes.set(question, { justes: juste ? 1 : 0, total: 1 })
+}
+
+export class JournalDesReponses {
+  /** Le plus grand `rowid` lu : la lecture suivante part de là. */
+  jusqua = 0
+  /** Lu en entier une fois : avant, rien de ce qu'il dit ne vaut. */
+  charge = false
+  /**
+   * Le numéro de la dernière lecture complète qu'il a reçue (chaque lecture
+   * en prend un en partant, `CampagneStore.lecturesDuJournal`) : tout ce qui
+   * était écrit avant qu'elle parte, il le sait. Une requête qui commence
+   * n'a donc rien à relire si une lecture est partie après elle.
+   */
+  fraisDepuis = 0
+  /** Combien de réponses il a lues. */
+  reponses = 0
+  private readonly dossiers = new Map<string, Dossier>()
+  /** Les premières réponses hors révision des réponses sans série, par série (la mesure les comptait par `COALESCE(profile_id, serie_id)`). */
+  private readonly orphelines = new Map<string, Map<string, number>>()
+  /** La mesure : chaque réponse nue hors révision, et chaque première réponse hors révision, question par question. */
+  private readonly brutes = new Map<string, Compte>()
+  private readonly premieres = new Map<string, Compte>()
+  /** La fermeture de chaque duel que ses réponses ont nommé : ouvert, il tient ses réponses hors du carnet. */
+  private readonly fermetures = new Map<string, number>()
+
+  constructor(private readonly maintenant: () => number = Date.now) {}
+
+  /**
+   * Les réponses d'une lecture : celles au-delà du plus grand `rowid` déjà
+   * lu, une fois chacune. Deux lectures parties du même endroit — deux
+   * requêtes de front — ne comptent pas deux fois : la seconde ne prend que
+   * ce que la première n'avait pas.
+   */
+  appliquer(lecture: Pick<LectureDuJournal, 'reponses' | 'jusqua' | 'aSuivre'>, numero = 0): void {
+    const depuis = this.jusqua
+    for (const r of lecture.reponses) if (r.n > depuis) this.une(r)
+    if (lecture.jusqua > this.jusqua) this.jusqua = lecture.jusqua
+    // Partie de ce qu'il savait déjà, elle ne laisse pas de trou : complète, elle dit tout ce qui était écrit avant elle.
+    if (!lecture.aSuivre && numero > this.fraisDepuis) this.fraisDepuis = numero
+  }
+
+  private dossier(qui: string): Dossier {
+    let d = this.dossiers.get(qui)
+    if (!d) this.dossiers.set(qui, (d = new Dossier()))
+    return d
+  }
+
+  /** Une première réponse hors révision qui change : la mesure retire l'ancienne, compte la nouvelle. */
+  private nouvellePremiere(question: string, avant: number, apres: number) {
+    const a = premiereReponse(avant)
+    if (a !== null) {
+      const c = this.premieres.get(question)!
+      c.total--
+      c.justes -= a
+      if (c.total === 0) this.premieres.delete(question)
+    }
+    const b = premiereReponse(apres)
+    if (b !== null) compter(this.premieres, question, b === 1)
+  }
+
+  private une(r: ReponseDuJournal) {
+    this.reponses++
+    if (r.duel !== null && r.fermeLe !== null) this.fermerLeDuel(r.duel, r.fermeLe)
+    const code = r.le * 4 + (r.aidee ? 2 : 0) + (r.juste ? 1 : 0)
+    // Une série disparue lisait `COALESCE(s.mode, 'serie')` : elle n'est pas une révision.
+    const revision = r.mode === 'revision'
+    // La mesure : les réponses nues hors révision, sans ce qu'une source de l'expédition reprend du carnet (`mesuresBrutes`).
+    if (!revision && !r.aidee && !(r.mode === 'expedition' && carnetUn(r.carnet))) compter(this.brutes, r.question, r.juste)
+    if (r.qui === null) {
+      if (revision) return
+      let siennes = this.orphelines.get(r.serie)
+      if (!siennes) this.orphelines.set(r.serie, (siennes = new Map()))
+      const avant = siennes.get(r.question) ?? Infinity
+      if (code < avant) {
+        siennes.set(r.question, code)
+        this.nouvellePremiere(r.question, avant, code)
+      }
+      return
+    }
+    const d = this.dossier(r.qui)
+    let p = d.paires.get(r.question)
+    // Son carnet, avant que la question ne retienne l'instant de cette réponse : il dit si elle arrive dans l'ordre.
+    this.auCarnet(d, r, p?.le)
+    if (!p) d.paires.set(r.question, (p = { le: r.le, premiere: code, premiereHorsRevision: Infinity }))
+    else {
+      if (r.le > p.le) p.le = r.le
+      if (code < p.premiere) p.premiere = code
+    }
+    if (!revision && code < p.premiereHorsRevision) {
+      this.nouvellePremiere(r.question, p.premiereHorsRevision, code)
+      p.premiereHorsRevision = code
+    }
+    // Son expérience : ses bonnes réponses, heure par heure, révisions comprises.
+    if (r.juste) {
+      const heure = Math.floor(r.le / HEURE_MS)
+      d.justesParHeure.set(heure, (d.justesParHeure.get(heure) ?? 0) + 1)
+    }
+    // Ses écussons et L'Érudit : les réponses nues hors révision.
+    if (!revision && reponseNue(r)) {
+      const s = d.savoir.get(r.categorie)
+      if (s) {
+        s.questions++
+        if (r.repondue) s.repondues++
+        if (r.juste) s.justes++
+      } else d.savoir.set(r.categorie, { questions: 1, repondues: r.repondue ? 1 : 0, justes: r.juste ? 1 : 0 })
+      if (r.juste && r.niveau === 'expert') d.expertes++
+    }
+    // Ses missions : ses réponses données des derniers jours, une à une.
+    if (r.repondue && r.commencee !== null && r.le >= this.maintenant() - FENETRE_DES_RECENTES_MS) {
+      d.recentes.push({
+        serie: r.serie,
+        mode: r.mode ?? 'serie',
+        juste: r.juste,
+        le: r.le,
+        categorie: r.carnet === null ? r.categorie : null,
+        commencee: r.commencee,
+      })
+    }
+  }
+
+  /**
+   * Une réponse de plus à son carnet, aux règles de la requête d'avant
+   * (`suivisDe`) : ni un rébus, ni une frise ; une bonne réponse aidée — un
+   * joker, un vrai ou faux tiré d'une autre — ne prouve rien, et une carte du
+   * second essai la tient pour ratée. `avant` : l'instant de sa dernière
+   * réponse lue à la même question.
+   */
+  private auCarnet(d: Dossier, r: ReponseDuJournal, avant: number | undefined) {
+    if (r.question.startsWith(PREFIXE_DU_REBUS) || r.question.startsWith(PREFIXE_DE_LA_FRISE)) return
+    const essai = r.joker !== null && ESSAIS.has(r.joker)
+    if (r.juste && !essai && (r.joker !== null || r.forme === 'vrai-faux')) return
+    if (avant !== undefined && r.le < avant) d.carnetIncertain = true
+    const juste = r.juste && !essai
+    let q = d.carnet.get(r.question)
+    if (!q) {
+      // Une bonne réponse avant toute erreur ne change rien à son suivi.
+      if (juste) return
+      d.carnet.set(r.question, (q = { passages: [], enAttente: 0 }))
+    }
+    const passage: PassageAuCarnet = {
+      le: r.le,
+      jour: jourDe(r.le),
+      juste,
+      ...(r.mode === 'defi' ? { semaine: r.semaine } : r.mode === 'duel' ? { duel: r.duel } : {}),
+    }
+    const passages = q.passages
+    let i = passages.length
+    while (i > 0 && passages[i - 1].le > r.le) i--
+    passages.splice(i, 0, passage)
+    if (aLEcartDUnDefiOuDUnDuel(passage)) q.enAttente++
+    else if (!juste) {
+      // Une erreur qui compte d'office remet tout à zéro : ce qui la précède ne sert plus — deux réponses au même instant, au même jour, se replient dans n'importe quel ordre.
+      for (const x of passages.splice(0, passages.findIndex(x => x.le >= r.le))) if (aLEcartDUnDefiOuDUnDuel(x)) q.enAttente--
+    }
+    q.suivi = undefined
+  }
+
+  /**
+   * Son carnet (`suivisDe`) : le suivi de chaque question qu'il a ratée,
+   * replié de ses passages dans l'ordre du temps, sans ceux d'un défi de la
+   * semaine `semaine` — ou d'après —, ni d'un duel encore ouvert à
+   * `maintenant`. Null : une de ses réponses est arrivée dans le désordre, la
+   * base le dira (`carnetIncertain`).
+   */
+  carnetDe(qui: string, semaine: string, maintenant: number): Map<string, SuiviDeRevision> | null {
+    const suivis = new Map<string, SuiviDeRevision>()
+    const d = this.dossiers.get(qui)
+    if (!d) return suivis
+    if (d.carnetIncertain) return null
+    for (const [question, q] of d.carnet) {
+      let suivi = q.enAttente === 0 ? q.suivi : undefined
+      if (suivi === undefined) {
+        suivi = null
+        for (const p of q.passages) if (!this.aLEcart(p, semaine, maintenant)) suivi = apresUnPassage(suivi, p.jour, p.juste)
+        if (q.enAttente === 0) q.suivi = suivi
+      }
+      if (suivi) suivis.set(question, suivi)
+    }
+    return suivis
+  }
+
+  /** Un passage d'un défi pas encore passé, ou d'un duel encore ouvert — comme la requête d'avant, sans semaine ni duel, à l'écart. */
+  private aLEcart(p: PassageAuCarnet, semaine: string, maintenant: number): boolean {
+    if (p.semaine !== undefined) return p.semaine === null || p.semaine >= semaine
+    if (p.duel === undefined) return false
+    if (p.duel !== null) return (this.fermetures.get(p.duel) ?? -Infinity) > maintenant
+    // `s.duel IN (…)` sans duel : nul, donc à l'écart, dès qu'un duel est ouvert.
+    for (const f of this.fermetures.values()) if (f > maintenant) return true
+    return false
+  }
+
+  /** La fermeture d'un duel, lue avec ses réponses ou avancée par l'administrateur (`annulerUnDuel`) : elle ne se repousse jamais. */
+  fermerLeDuel(code: string, le: number): void {
+    const avant = this.fermetures.get(code)
+    if (avant === undefined || le < avant) this.fermetures.set(code, le)
+  }
+
+  /** Ce qu'il a vu, et quand pour la dernière fois — « jamais vues d'abord » — ; sa première réponse à chacune, sauf aidée. */
+  vuesDe(qui: string): { vues: Map<string, number>; premieres: Map<string, boolean> } {
+    const vues = new Map<string, number>()
+    const premieres = new Map<string, boolean>()
+    for (const [question, p] of this.dossiers.get(qui)?.paires ?? []) {
+      vues.set(question, p.le)
+      const juste = premiereReponse(p.premiere)
+      if (juste !== null) premieres.set(question, juste === 1)
+    }
+    return { vues, premieres }
+  }
+
+  /** Ses premières réponses, chacune avec son instant, sauf aidées : sa chance sur les sentiers (`forceSurLesSentiers`). */
+  premieresDe(qui: string): Map<string, { le: number; juste: boolean }> {
+    const premieres = new Map<string, { le: number; juste: boolean }>()
+    for (const [question, p] of this.dossiers.get(qui)?.paires ?? []) {
+      const juste = premiereReponse(p.premiere)
+      if (juste !== null) premieres.set(question, { le: Math.floor(p.premiere / 4), juste: juste === 1 })
+    }
+    return premieres
+  }
+
+  /** Ses bonnes réponses, heure par heure : son expérience de campagne (`justesParJourDesHeures`). */
+  justesParHeureDe(qui: string): ReadonlyMap<number, number> {
+    return this.dossiers.get(qui)?.justesParHeure ?? new Map()
+  }
+
+  /** Ses écussons, comme les lignes que `savoirDesLignes` lit. */
+  savoirDe(qui: string): { categorie: string | null; questions: number; repondues: number; justes: number }[] {
+    return [...(this.dossiers.get(qui)?.savoir ?? [])].map(([categorie, c]) => ({ categorie, ...c }))
+  }
+
+  /** Ses questions expertes trouvées, nues, hors révision (L'Érudit). */
+  expertesDe(qui: string): number {
+    return this.dossiers.get(qui)?.expertes ?? 0
+  }
+
+  /** Les plus anciennes de ses réponses récentes : on ne peut lui demander plus loin. */
+  debutDesRecentes(): number {
+    return this.maintenant() - FENETRE_DES_RECENTES_MS
+  }
+
+  /**
+   * Ses réponses données depuis `depuis`, dans les parties commencées depuis
+   * `commencees` (`activiteDepuis`). Les plus vieilles, sorties de la
+   * fenêtre, s'oublient au passage.
+   */
+  recentesDe(qui: string, depuis: number, commencees: number): ReponseRecente[] {
+    const d = this.dossiers.get(qui)
+    if (!d) return []
+    const debut = this.debutDesRecentes()
+    if (d.recentes.length > 0 && d.recentes[0].le < debut) d.recentes = d.recentes.filter(r => r.le >= debut)
+    return d.recentes.filter(r => r.le >= depuis && r.commencee >= commencees)
+  }
+
+  /** La mesure des difficultés, recopiée : celle qu'on garde dix minutes ne bouge pas sous ceux qui la lisent. */
+  mesures(): { brutes: Map<string, Compte>; premieres: Map<string, Compte> } {
+    const copie = (comptes: Map<string, Compte>) => new Map([...comptes].map(([q, c]) => [q, { justes: c.justes, total: c.total }]))
+    return { brutes: copie(this.brutes), premieres: copie(this.premieres) }
+  }
+
+  /** Les joueurs, pour les premières réponses de chacun (`premieresJustesDe`, le modèle du savoir) : ceux qui en ont au moins une. */
+  joueurs(): string[] {
+    return [...this.dossiers.keys()]
+  }
+
+  /** Ses premières réponses non aidées, justes ou non : ce que le modèle du savoir lit de lui (`ajusterLeSavoir`). */
+  premieresJustesDe(qui: string): Map<string, boolean> {
+    const siennes = new Map<string, boolean>()
+    for (const [question, p] of this.dossiers.get(qui)?.paires ?? []) {
+      const juste = premiereReponse(p.premiere)
+      if (juste !== null) siennes.set(question, juste === 1)
+    }
+    return siennes
+  }
+}

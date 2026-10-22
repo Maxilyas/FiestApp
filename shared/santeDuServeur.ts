@@ -218,6 +218,57 @@ export function cleDeLErreur(e: Pick<ErreurEnDetail, 'source' | 'nom' | 'message
   return `${e.source}|${e.nom}|${message}`
 }
 
+/**
+ * Le quota de Turso, en lignes par mois — celui de l'offre gratuite, pour
+ * toute l'organisation : la préproduction, les sauvegardes et les scripts y
+ * lisent aussi. Une requête compte chaque ligne qu'elle parcourt, pas celles
+ * qu'elle rend : le 22 octobre 2026, 333 millions de lignes lues sur les 500
+ * du mois, sans que rien ne le dise (`server/src/core/quotaDeTurso.ts`).
+ */
+export const QUOTA_DES_LIGNES_LUES = 500_000_000
+export const QUOTA_DES_LIGNES_ECRITES = 10_000_000
+/**
+ * La part du quota que ce serveur prendrait en trente jours, au rythme de
+ * la semaine, au-delà de laquelle « À traiter » le dit : la moitié — il
+ * n'est pas seul à le lire, et un mois qui dépasse arrête la base de tous.
+ */
+export const PART_DU_QUOTA_EN_ALERTE = 50
+/** Au-delà, l'alerte passe au rouge : à ce rythme, le mois ne tient plus qu'avec une préproduction qui ne lit rien. */
+export const PART_DU_QUOTA_EN_ROUGE = 80
+/** Un rythme ne se juge pas sur moins d'un jour : un réveil relit d'un coup tout le journal des réponses. */
+export const HEURES_POUR_PROJETER = 24
+
+/** « 312 millions de lignes », « 1,5 million de lignes », « 48 000 lignes » : un compte du quota, lisible d'un coup d'œil. */
+export function enLignes(n: number): string {
+  if (n >= 1_000_000) {
+    const millions = Math.round(n / 100_000) / 10
+    return `${formatNumber(millions)} million${millions >= 2 ? 's' : ''} de lignes`
+  }
+  return `${formatNumber(Math.round(n))} ligne${n >= 2 ? 's' : ''}`
+}
+/** Les requêtes lourdes qu'une heure garde, et que la page nomme, au plus : au-delà, elles comptent sans leur nom. */
+export const REQUETES_PAR_HEURE = 8
+export const REQUETES_MONTREES = 8
+
+/** Une instruction lourde (`LIGNES_D_UNE_LOURDE`, au serveur), par le début de son texte : combien de fois, et ce qu'elle a lu en tout. */
+export interface LecturesDUneRequete {
+  requete: string
+  n: number
+  lues: number
+}
+
+/**
+ * Ce que Turso a compté d'une heure : les allers-retours, les lignes lues et
+ * écrites, et les requêtes qui ont lu le plus — le reste, petites
+ * lectures comprises, se lit par différence.
+ */
+export interface QuotaDeLHeure {
+  appels: number
+  lues: number
+  ecrites: number
+  lourdes: LecturesDUneRequete[]
+}
+
 /** Une heure d'un démarrage, telle que la base la garde (`qg_sante`). */
 export interface HeureDeSante {
   heure: number
@@ -240,6 +291,8 @@ export interface HeureDeSante {
   connexions: ConnexionsDeLHeure | null
   /** Null pour une ligne d'avant le compte des requêtes, le 17 octobre 2026. */
   requetes: RequetesDeLHeure | null
+  /** Ce que Turso a compté au quota ; absent d'une ligne d'avant le 22 octobre 2026, null d'une heure sans aller-retour. */
+  quota?: QuotaDeLHeure | null
 }
 
 /** Un démarrage du serveur, tel que la base le garde (`qg_demarrages`). */
@@ -304,6 +357,30 @@ export interface HeureDuServeur {
   /** Ce que la machine a envoyé et reçu, en mégaoctets ; null sans relevé qui le dise. */
   envoyesMo: number | null
   recusMo: number | null
+  /** Les lignes que Turso a comptées à ce serveur, lues et écrites ; null pour une heure d'avant leur compte, ou sans aller-retour. */
+  lignesLues: number | null
+  lignesEcrites: number | null
+}
+
+/**
+ * Le quota de Turso vu de ce serveur, sur les heures de la semaine qu'il a
+ * comptées : ce qu'il a lu et écrit, ce que ce rythme ferait en trente jours
+ * — les heures endormies, où rien ne se lit, comptent pour rien —, sa part
+ * du quota, et les requêtes qui lisent le plus.
+ */
+export interface QuotaDuMois {
+  /** Le début de la première heure comptée : avant, le serveur ne comptait pas. */
+  depuis: number
+  lues: number
+  ecrites: number
+  luesSurTrenteJours: number
+  ecritesSurTrenteJours: number
+  /** La part du quota des lignes lues que ce rythme prendrait, en pour cent. */
+  part: number
+  /** La part du quota des lignes écrites, de même. */
+  partEcrite: number
+  /** Les requêtes qui ont lu le plus, chacune sa part de tout ce qui a été lu, en pour cent. */
+  lourdes: (LecturesDUneRequete & { part: number })[]
 }
 
 /**
@@ -348,6 +425,8 @@ export interface PageDuServeur {
    * 17 octobre 2026, ou au-delà de douze par heure. Comptées, jamais perdues.
    */
   erreursSansDetail: { source: string; n: number }[]
+  /** Le quota de Turso, au rythme de la semaine ; null avant la première heure comptée. */
+  quota: QuotaDuMois | null
 }
 
 /** Une erreur de la semaine : ses heures et ses versions, les mêmes de chaque heure fondues. */
@@ -380,6 +459,12 @@ export interface AlertesDuServeur {
   tursoLent: { p95: number; depuis: number } | null
   /** La mémoire du processus, quand elle approche le plafond de l'hébergeur. */
   memoireMo: number | null
+  /**
+   * Le quota de Turso, quand ce serveur en prendrait la moitié en trente
+   * jours au rythme de la semaine (`PART_DU_QUOTA_EN_ALERTE`), jugé sur un
+   * jour au moins ; absent d'un serveur qui ne le dit pas encore.
+   */
+  quota?: { part: number; luesSurTrenteJours: number } | null
 }
 
 // ── Les dérivations ───────────────────────────────────────────────────────
@@ -437,6 +522,57 @@ export function fondreRequetes(a: RequetesDeLHeure | null, b: RequetesDeLHeure |
 /** Toutes les requêtes servies d'une heure. */
 export const requetesServies = (r: RequetesDeLHeure) => r.reussies + r.redirigees + r.refusees + r.enErreur
 
+/** Des requêtes lourdes, les mêmes fondues par leur texte, la plus gourmande d'abord, `auPlus`. */
+function fondreLesLourdes(lourdes: readonly LecturesDUneRequete[], auPlus: number): LecturesDUneRequete[] {
+  const parTexte = new Map<string, LecturesDUneRequete>()
+  for (const l of lourdes) {
+    const avant = parTexte.get(l.requete)
+    parTexte.set(l.requete, avant ? { requete: l.requete, n: avant.n + l.n, lues: avant.lues + l.lues } : { ...l })
+  }
+  return [...parTexte.values()].sort((a, b) => b.lues - a.lues || (a.requete < b.requete ? -1 : 1)).slice(0, auPlus)
+}
+
+/** Le quota de deux démarrages dans la même heure : les comptes s'ajoutent, leurs requêtes lourdes se fondent par leur texte. */
+export function fondreQuotas(a: QuotaDeLHeure | null, b: QuotaDeLHeure | null): QuotaDeLHeure | null {
+  if (!a) return b
+  if (!b) return a
+  return { appels: a.appels + b.appels, lues: a.lues + b.lues, ecrites: a.ecrites + b.ecrites, lourdes: fondreLesLourdes([...a.lourdes, ...b.lourdes], REQUETES_PAR_HEURE) }
+}
+
+/** Une part, en pour cent, au dixième. */
+const partDe = (n: number, sur: number) => (sur > 0 ? Math.round((n / sur) * 1000) / 10 : 0)
+
+/**
+ * Le quota de Turso au rythme des heures comptées (`QuotaDuMois`) : tout ce
+ * qui a été lu depuis la première, ramené à trente jours — les heures d'un
+ * serveur endormi, sans ligne, comptent pour rien, comme elles comptent au
+ * quota. Null sans une heure comptée.
+ */
+export function quotaDuMois(lignes: readonly Pick<HeureDeSante, 'heure' | 'quota'>[], maintenant: number): QuotaDuMois | null {
+  const comptees = lignes.flatMap(l => (l.quota && l.quota.appels > 0 ? [{ heure: l.heure, quota: l.quota }] : []))
+  if (comptees.length === 0) return null
+  const depuis = comptees.reduce((min, l) => Math.min(min, l.heure), Infinity)
+  const lues = comptees.reduce((s, l) => s + l.quota.lues, 0)
+  const ecrites = comptees.reduce((s, l) => s + l.quota.ecrites, 0)
+  const duree = Math.max(HEURE_MS, maintenant - depuis)
+  const surTrenteJours = (n: number) => Math.round((n / duree) * 30 * 24 * HEURE_MS)
+  const luesSurTrenteJours = surTrenteJours(lues)
+  const ecritesSurTrenteJours = surTrenteJours(ecrites)
+  return {
+    depuis,
+    lues,
+    ecrites,
+    luesSurTrenteJours,
+    ecritesSurTrenteJours,
+    part: partDe(luesSurTrenteJours, QUOTA_DES_LIGNES_LUES),
+    partEcrite: partDe(ecritesSurTrenteJours, QUOTA_DES_LIGNES_ECRITES),
+    lourdes: fondreLesLourdes(
+      comptees.flatMap(l => l.quota.lourdes),
+      REQUETES_MONTREES,
+    ).map(l => ({ ...l, part: partDe(l.lues, lues) })),
+  }
+}
+
 /** Des kilo-octets en mégaoctets, au dixième : le graphique gradue en mégaoctets ronds. */
 const enMo = (ko: number | undefined) => (typeof ko === 'number' ? Math.round((ko / 1024) * 10) / 10 : null)
 
@@ -490,14 +626,16 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
   let charge: ChargeDeLHeure | null = null
   let connexions: ConnexionsDeLHeure | null = null
   let requetes: RequetesDeLHeure | null = null
+  let quota: QuotaDeLHeure | null = null
   let miroir = 0
   for (const l of lignes) {
     base = fondreReleves(base, l.base)
     routes = fondreReleves(routes, l.routes)
-    // Une ligne d'avant la charge n'en porte pas, ni d'avant le compte des connexions, ni d'avant celui des requêtes.
+    // Une ligne d'avant la charge n'en porte pas, ni d'avant le compte des connexions, ni d'avant celui des requêtes, ni du quota.
     charge = fondreCharges(charge, l.charge ?? null)
     connexions = fondreConnexions(connexions, l.connexions ?? null)
     requetes = fondreRequetes(requetes, l.requetes ?? null)
+    quota = fondreQuotas(quota, l.quota ?? null)
     miroir += l.miroir
     for (const [source, n] of Object.entries(l.erreurs)) erreurs[source] = (erreurs[source] ?? 0) + n
     for (const r of l.lentes) {
@@ -515,6 +653,7 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
     charge,
     connexions,
     requetes,
+    quota,
   }
 }
 
@@ -661,6 +800,8 @@ export function pageDuServeur(
       tempsReel: h?.charge?.tempsReelMax ?? null,
       envoyesMo: enMo(h?.charge?.envoyesKo),
       recusMo: enMo(h?.charge?.recusKo),
+      lignesLues: h?.quota?.lues ?? null,
+      lignesEcrites: h?.quota?.ecrites ?? null,
     })
   }
 
@@ -728,6 +869,10 @@ export function pageDuServeur(
     evenements,
     erreurs: enDetail.erreurs,
     erreursSansDetail: enDetail.sansDetail,
+    quota: quotaDuMois(
+      lignes.filter(l => l.heure >= debut && l.heure <= derniere),
+      maintenant,
+    ),
   }
 }
 
@@ -769,6 +914,7 @@ export function alertesDuServeur({
   version = null,
   tri = new Map(),
   pannes = [],
+  quota = null,
 }: {
   recentes: readonly HeureDeSante[]
   demarrages: readonly DemarrageDuServeur[]
@@ -778,6 +924,8 @@ export function alertesDuServeur({
   version?: string | null
   tri?: ReadonlyMap<string, TriDUneErreur>
   pannes?: readonly PanneDUnMode[]
+  /** Le quota de Turso au rythme de la semaine (`quotaDuMois`), relu au plus toutes les heures. */
+  quota?: QuotaDuMois | null
 }): AlertesDuServeur {
   const cetteHeure = debutDeLHeure(maintenant)
   const lues = recentes.filter(h => h.heure === cetteHeure || h.heure === cetteHeure - HEURE_MS).sort((a, b) => a.heure - b.heure)
@@ -802,5 +950,9 @@ export function alertesDuServeur({
     erreurs: total > 0 && premiere ? { n: total, depuis: depuis ?? cetteHeure, source: premiere[0] } : null,
     tursoLent: jugee?.base && jugee.base.p95 > TURSO_LENT_MS ? { p95: jugee.base.p95, depuis: jugee.heure } : null,
     memoireMo: memoireMo !== null && memoireMo > MEMOIRE_PLAFOND_MO ? memoireMo : null,
+    quota:
+      quota && quota.part >= PART_DU_QUOTA_EN_ALERTE && maintenant - quota.depuis >= HEURES_POUR_PROJETER * HEURE_MS
+        ? { part: quota.part, luesSurTrenteJours: quota.luesSurTrenteJours }
+        : null,
   }
 }
