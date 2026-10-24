@@ -1,7 +1,7 @@
 # La maquette jouable du Cabinet de curiosités
 
-La maquette de la proposition `../le-cabinet.md`, troisième version, après
-trois tours de tests par des agents. Une page, sans dépendance, hors de
+La maquette de la proposition `../le-cabinet.md`, quatrième version, après
+trois tours de tests par des agents et une passe de bugs. Une page, sans dépendance, hors de
 l'application : rien ici n'est servi par FiestApp.
 
 - `cabinet.html` : la page et ses styles.

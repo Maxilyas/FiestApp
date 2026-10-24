@@ -85,7 +85,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .carte-emportee.passive { cursor: default; border-style: dashed; }
 .bandeau { padding: 10px 12px; border-radius: 12px; background: rgba(127,183,232,.12); border: 1px solid rgba(127,183,232,.4); font-size: 13px; }
 .bandeau.or { background: var(--or-voile); border-color: rgba(217,181,106,.5); }
-.verdict { font-family: var(--serif); font-size: 30px; font-weight: 700; line-height: 1; }
+.verdict { font-family: var(--serif); font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: lining-nums; }
 .carte-france { width: 100%; height: auto; display: block; touch-action: manipulation; cursor: crosshair; }
 .zone-carte { background: #16202a; border-radius: 18px; padding: 6px; position: relative; }
 .mot-grille { display: flex; flex-direction: column; gap: 5px; align-items: center; }
@@ -105,7 +105,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .frise { position: relative; display: flex; flex-direction: column; gap: 4px; }
 .frise::before { content: ""; position: absolute; left: 61px; top: 10px; bottom: 10px; width: 2px; background: rgba(217,181,106,.3); }
 .evt { display: flex; align-items: center; gap: 10px; }
-.evt .an { width: 46px; flex: none; text-align: right; font-family: var(--serif); font-size: 19px; font-weight: 700; color: var(--or); }
+.evt .an { font-variant-numeric: lining-nums; width: 46px; flex: none; text-align: right; font-family: var(--serif); font-size: 19px; font-weight: 700; color: var(--or); }
 .evt .pt { width: 12px; height: 12px; flex: none; border-radius: 50%; background: var(--or); border: 3px solid var(--bg); z-index: 1; }
 .evt .lb { flex: 1; padding: 8px 12px; border-radius: 10px; background: var(--bois); font-size: 14px; line-height: 1.25; }
 .evt.neuf .lb { background: var(--creme); color: var(--encre); font-weight: 600; }

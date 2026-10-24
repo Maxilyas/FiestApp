@@ -61,6 +61,7 @@ const AUTRES_LEGENDAIRES = {
   bouquet: { comment: 'Une œuvre gagnée pendant la semaine du Nouvel An', pouvoir: 'temps' }
 };
 const NOM_DU_LEGENDAIRE = { chouette: "La Chouette d'Argent", lion: 'Le Lion', sphinx: 'Le Sphinx', oracle: "L'Oracle", phenix: 'Le Phénix', ouroboros: "L'Ouroboros", tigre: 'Le Tigre', comete: 'La Comète', janus: 'Janus', serpent: 'Le Serpent', dragon: 'Le Dragon', renard: 'Le Renard', fantome: 'Le Fantôme', 'chauve-souris': 'La Chauve-souris', salamandre: 'La Salamandre', kraken: 'Le Kraken', coq: 'Le Coq', chimere: 'La Chimère', scarabee: 'Le Scarabée', 'trou-noir': 'Le Trou noir', citrouille: 'La Citrouille', sapin: 'Le Sapin', bouquet: 'Le Bouquet' };
+const ilOuElle = lg => /^La /.test(NOM_DU_LEGENDAIRE[lg]) ? 'Elle' : 'Il';
 const salleDuGardien = lg => Object.keys(GARDIENS).find(f => GARDIENS[f].includes(lg));
 
 const CARTES = window.CARTES;
@@ -278,11 +279,11 @@ function ecranSalle(f) {
   const [g1, g2] = GARDIENS[f];
   const a1 = S.legendaires.includes(g1), a2 = S.legendaires.includes(g2);
   return `${barre('hall', 'Le Cabinet', `<span class="petit muet">${n} / ${l.length}</span>`)}
-  <div class="pile" style="gap:4px"><h1>${esc(fam.nom)}</h1><p class="petit muet">${f === 'neutre' ? 'Des cartes de toutes sortes : chacune a son pouvoir.' : `Les cartes de cette salle ont le pouvoir « ${POUVOIRS[POUVOIR_DE_LA_FAMILLE[f]].nom} ». ${POUVOIRS[POUVOIR_DE_LA_FAMILLE[f]].dit}`}</p></div>
+  <div class="pile" style="gap:4px"><h1>${esc(fam.nom)}</h1><p class="petit muet">${f === 'neutre' ? 'Des cartes de toutes sortes : chacune a son pouvoir.' : typo(`Les cartes de cette salle ont le pouvoir « ${POUVOIRS[POUVOIR_DE_LA_FAMILLE[f]].nom} ». ${POUVOIRS[POUVOIR_DE_LA_FAMILLE[f]].dit}`)}</p></div>
   <div class="grille2">${cadres}</div>
   <div class="bloc pile">
-    <div class="ligne"><img class="medaillon ${a1 ? '' : 'endormi'}" src="medaillons/${g1}.webp" alt=""><span style="flex:1"><b>${NOM_DU_LEGENDAIRE[g1]}</b>, gardien de la salle<br><span class="petit muet">${a1 ? 'Réveillé : il t’accompagne.' : `Il dort. Il se réveille quand la salle est complète : encore ${pluriel(l.length - n, 'œuvre', 'œuvres')}.`}</span></span></div>
-    <div class="ligne"><img class="medaillon ${a2 ? '' : 'endormi'}" src="medaillons/${g2}.webp" alt=""><span style="flex:1"><b>${NOM_DU_LEGENDAIRE[g2]}</b>, second gardien<br><span class="petit muet">${a2 ? 'Réveillé.' : `Il se réveille quand tous les cadres sont dorés : ${dorees} sur ${l.length}.`}</span></span></div>
+    <div class="ligne"><img class="medaillon ${a1 ? '' : 'endormi'}" src="medaillons/${g1}.webp" alt=""><span style="flex:1"><b>${NOM_DU_LEGENDAIRE[g1]}</b>, gardien de la salle<br><span class="petit muet">${a1 ? `Réveillé : ${ilOuElle(g1).toLowerCase()} t’accompagne.` : `${ilOuElle(g1)} dort. ${ilOuElle(g1)} se réveille quand la salle est complète : encore ${pluriel(l.length - n, 'œuvre', 'œuvres')}.`}</span></span></div>
+    <div class="ligne"><img class="medaillon ${a2 ? '' : 'endormi'}" src="medaillons/${g2}.webp" alt=""><span style="flex:1"><b>${NOM_DU_LEGENDAIRE[g2]}</b>, second gardien<br><span class="petit muet">${a2 ? 'Réveillé.' : `${ilOuElle(g2)} se réveille quand tous les cadres sont dorés : ${dorees} sur ${l.length}.`}</span></span></div>
   </div>`;
 }
 
@@ -335,7 +336,7 @@ function ecranGalerie() {
 function ecranEveil() {
   const l = S.eveils.splice(0); sauver();
   return `<div class="pile" style="align-items:center;text-align:center;gap:10px;margin-top:20px">
-    ${l.map(lg => `<img class="medaillon eveil" style="width:150px;height:150px;border-width:3px" src="medaillons/${lg}.webp" alt=""><span class="etiquette">Un gardien se réveille</span><h1>${NOM_DU_LEGENDAIRE[lg]}</h1><p class="petit muet">${salleDuGardien(lg) ? `Il veille désormais sur ${FAM[salleDuGardien(lg)].salle}.` : `Gardien de saison : ${AUTRES_LEGENDAIRES[lg].comment.toLowerCase()}.`} Sa carte-bonus : ${POUVOIRS[pouvoirDe(CARTE_DU_LEGENDAIRE[lg])].nom}, ${forceDite(CARTE_DU_LEGENDAIRE[lg])}.</p>`).join('<hr style="width:60%;border:none;border-top:1px solid rgba(255,255,255,.1)">')}
+    ${l.map(lg => `<img class="medaillon eveil" style="width:150px;height:150px;border-width:3px" src="medaillons/${lg}.webp" alt=""><span class="etiquette">Un gardien se réveille</span><h1>${NOM_DU_LEGENDAIRE[lg]}</h1><p class="petit muet">${salleDuGardien(lg) ? `${ilOuElle(lg)} veille désormais sur ${FAM[salleDuGardien(lg)].salle}.` : `Réveillé par : ${AUTRES_LEGENDAIRES[lg].comment}.`} Sa carte-bonus&nbsp;: ${POUVOIRS[pouvoirDe(CARTE_DU_LEGENDAIRE[lg])].nom}, ${forceDite(CARTE_DU_LEGENDAIRE[lg])}.</p>`).join('<hr style="width:60%;border:none;border-top:1px solid rgba(255,255,255,.1)">')}
   </div><button class="bouton" data-a="aller" data-v="galerie">Voir les gardiens</button><button class="bouton second" data-a="aller" data-v="hall">Retour au Cabinet</button>`;
 }
 
@@ -352,7 +353,7 @@ function ecranMurs() {
 function ecranLibre() {
   const r = libresQuiPaient();
   return `${barre('hall', 'Le Cabinet')}
-  <div class="pile" style="gap:4px"><h1>Jouer librement</h1><p class="petit muet">Les neuf jeux, autant que tu veux, sans œuvre à gagner. ${r ? `Tes ${pluriel(r, 'prochaine partie rapporte', 'prochaines parties rapportent')} de la poussière d’or ; ensuite, c’est pour le plaisir.` : 'Pour aujourd’hui, c’est pour le plaisir : la poussière d’or revient demain.'}</p></div>
+  <div class="pile" style="gap:4px"><h1>Jouer librement</h1><p class="petit muet">Les neuf jeux, autant que tu veux, sans œuvre à gagner. ${r ? `${r > 1 ? `Tes ${r} prochaines parties rapportent` : 'Ta prochaine partie rapporte'} de la poussière d’or ; ensuite, c’est pour le plaisir.` : 'Pour aujourd’hui, c’est pour le plaisir : la poussière d’or revient demain.'}</p></div>
   ${JEUX.map(j => `<button class="tuile" data-a="partie-libre" data-v="${j.id}"><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span class="titre-tuile">${j.nom}</span><span class="mini muet">${j.geste}</span></span>${fleche()}</button>`).join('')}`;
 }
 
@@ -364,7 +365,7 @@ function ecranRegles() {
   <div class="bloc pile" style="gap:6px"><b>Chaque jour</b><p class="petit muet">La visite du jour te propose trois parties. Tu as aussi deux chasses : tu choisis une œuvre qui te manque et tu joues au jeu où elle se trouve. Et tu peux jouer librement autant que tu veux.</p></div>
   <div class="bloc pile" style="gap:8px"><b>Les mots du Cabinet</b>
     ${mot('Œuvre', 'Une carte peinte, à exposer dans sa salle.')}
-    ${mot('Rareté', 'Commune, rare, épique : plus une œuvre est rare, plus il faut d’étoiles pour la gagner (5, 6 ou 7 sur 9).')}
+    ${mot('Rareté', 'Commune, rare, maudite, épique : plus une œuvre est rare, plus il faut d’étoiles pour la gagner (5, 6, 6 ou 7 sur 9).')}
     ${mot('Cadre doré', 'Une œuvre gagnée sans faute — trois manches parfaites, sans qu’un pouvoir ait servi — ou dorée avec de la poussière d’or.')}
     ${mot('Poussière d’or', 'La monnaie du Cabinet. Chaque partie en rapporte, même ratée. Elle achète une œuvre précise ou dore un cadre.')}
     ${mot('Gardien', 'Un légendaire qui veille sur une salle. Il se réveille quand la salle est complète ; un second, quand elle est toute dorée.')}
@@ -503,7 +504,7 @@ function mancheSuivante() {
 }
 // Quitter compte la partie avec ses étoiles : on ne relance pas une chasse jusqu'à tomber sur du facile.
 function quitter(confirme) {
-  if (!confirme) { P.quitter = true; if (P.phase === 'jouer' && P.fin) { P.resteAvantQuitter = Math.max(1, (P.fin - Date.now()) / 1000); arreterMinuteur(); } return rendre(); }
+  if (!confirme) { P.quitter = true; if (P.phase === 'jouer' && P.fin && minuteur) { P.resteAvantQuitter = Math.max(1, (P.fin - Date.now()) / 1000); arreterMinuteur(); } return rendre(); }
   arreterMinuteur();
   if (P.origine === 'libre') { if (S.libres.jour !== S.jour) S.libres = { jour: S.jour, n: 0 }; S.libres.n++; S.enCours = null; sauver(); P = null; return aller('libre'); }
   for (let i = 0; i < 3; i++) if (P.etoiles[i] == null) { P.etoiles[i] = 0; P.naturel[i] = 0; }
@@ -519,14 +520,15 @@ function ecranJeu() {
     ${P.quitter ? `<div class="bandeau or pile" style="gap:8px"><span class="petit">${P.origine === 'libre' ? 'Quitter cette partie libre ?' : 'Quitter ? La partie compte avec les étoiles déjà gagnées, et ' + (P.origine === 'chasse' ? 'la chasse est utilisée.' : 'elle sera faite pour aujourd’hui.')}</span><div class="grille2"><button class="bouton second" data-a="rester">Continuer</button><button class="bouton" data-a="quitter-oui">Quitter</button></div></div>` : ''}</div>`;
   if (P.phase === 'avant') {
     const c = empCarte();
-    return `${haut}<div class="pile" style="align-items:center;text-align:center;gap:12px;margin-top:24px"><span class="etiquette">Manche ${P.manche + 1} sur 3</span><img src="${imgCarte(c)}" alt="" style="width:160px;border-radius:6px;border:4px solid var(--cadre)"><h2>Miser sur cette manche ?</h2><p class="petit muet">Tu ne la vois pas encore. Parfaite (trois étoiles) : +${bonusDeMise(c)} étoiles en plus. Sinon : elle ne rapporte rien. Une seule mise par partie.</p></div>
+    return `${haut}<div class="pile" style="align-items:center;text-align:center;gap:12px;margin-top:24px"><span class="etiquette">Manche ${P.manche + 1} sur 3</span><img src="${imgCarte(c)}" alt="" style="width:160px;border-radius:6px;border:4px solid var(--cadre)"><h2>Miser sur cette manche ?</h2><p class="petit muet">Tu ne la vois pas encore. Parfaite (trois étoiles) : +${bonusDeMise(c)} étoiles en plus. Sinon : elle ne rapporte rien. Une seule mise par partie, et une mise empêche le cadre doré.</p></div>
       <div class="grille2"><button class="bouton second" data-a="ne-pas-miser">Pas cette fois</button><button class="bouton" data-a="miser">Miser</button></div>`;
   }
   const corps = MODULES[P.jeu].rendre();
+  const puce = P.phase === 'jouer' ? puceDuPouvoir() : '';
   const pied = P.phase === 'revele'
     ? `<div class="pied-collant pile">${P.note ? `<div class="bandeau or">${P.note}</div>` : ''}<button class="bouton" data-a="suivante">${P.manche >= 2 ? 'Voir le bilan' : 'Manche suivante'}</button></div>`
-    : `<div class="ligne" style="justify-content:flex-start">${puceDuPouvoir()}</div>`;
-  return `${haut}${corps}${pied}`;
+    : '';
+  return `${haut}${puce ? `<div class="ligne">${puce}</div>` : ''}${corps}${pied}`;
 }
 const revelation = (e, titre, sous) => `<div class="entre"><span class="verdict">${titre}</span><span class="etoiles" style="font-size:22px" aria-label="${e} étoiles sur 3">${etoiles(e)}</span></div>${sous ? `<p class="petit muet" style="margin-top:-6px">${sous}</p>` : ''}`;
 const leSavais = s => s && s.txt ? `<div class="cartel"><span class="etiquette">Le savais-tu ?</span><p class="phrase">${typo(s.txt)}</p></div>` : '';
@@ -541,7 +543,7 @@ function finirLaPartie() {
   const savais = P.savais.find(s => s && s.txt) || null;
   const r = { total, carte: null, dore: false, nouvelle: false, double: false, poussiere: 0, eveils: [], lieuxNeufs: 0, datesNeuves: 0 };
   if (P.origine === 'libre') {
-    if (libresQuiPaient()) { r.poussiere = POUSSIERE_PAR_ETOILE * total; if (S.libres.jour !== S.jour) S.libres = { jour: S.jour, n: 0 }; S.libres.n++; }
+    if (libresQuiPaient()) { r.payee = true; r.poussiere = POUSSIERE_PAR_ETOILE * total; if (S.libres.jour !== S.jour) S.libres = { jour: S.jour, n: 0 }; S.libres.n++; }
   } else {
     r.poussiere = Math.max(4, POUSSIERE_PAR_ETOILE * total);
     if (c) {
@@ -552,6 +554,8 @@ function finirLaPartie() {
         const sa = saison(); if (sa && !S.legendaires.includes(sa)) { S.legendaires.push(sa); r.eveils.push(sa); }
       } else if (deja && parfaite && !S.oeuvres[c.k].dore) {
         S.oeuvres[c.k].dore = true; r.carte = c.k; r.dore = true;
+      } else if (deja && P.origine === 'chasse') {
+        r.rateDorure = true;
       } else if (deja && total >= SEUIL[c.r]) {
         S.oeuvres[c.k].n++; r.carte = c.k; r.double = true; r.poussiere += POUSSIERE_DU_DOUBLE[c.r];
         if (!S.oeuvres[c.k].cartel && savais) S.oeuvres[c.k].cartel = { ...savais, jeu: P.jeu, theme: P.theme, etoiles: total, jour: S.jour };
@@ -563,6 +567,7 @@ function finirLaPartie() {
   for (const l of P.lieux) if (!S.murs.lieux.some(x => x.nom === l.nom)) { S.murs.lieux.push(l); r.lieuxNeufs++; }
   for (const d of P.dates) if (!S.murs.dates.some(x => x.lb === d.lb)) { S.murs.dates.push(d); r.datesNeuves++; }
   if (P.origine === 'visite') { const v = S.visite.parties[P.index]; v.faite = true; v.etoiles = total; v.gagnee = r.nouvelle || r.dore; }
+  if (P.origine === 'chasse' && r.nouvelle && S.visite && S.visite.jour === S.jour) for (const v of S.visite.parties) if (v.cible === c.k) v.gagnee = true;
   if (P.origine === 'chasse') { if (S.chasses.jour !== S.jour) S.chasses = { jour: S.jour, n: 0 }; S.chasses.n++; }
   if (P.origine !== 'libre' && !S.jours.includes(S.jour)) S.jours.push(S.jour);
   r.eveils.push(...verifierLesGardiens());
@@ -592,8 +597,9 @@ function ecranBilan() {
   if (r.nouvelle && r.dore) message = `<b>Sans faute : tu la gagnes, et son cadre est doré.</b>`;
   else if (r.nouvelle) message = `<b>${r.total} étoiles : c'est gagné.</b><br><span class="petit muet">Une œuvre t’attend. Pour son cadre doré : trois manches parfaites, sans qu’un pouvoir ait servi.</span>`;
   else if (r.dore) message = `<b>Trois manches parfaites : le cadre se dore.</b>`;
+  else if (r.rateDorure) message = `<b>Pas de dorure cette fois.</b><br><span class="petit muet">Il faut trois manches parfaites, sans qu’un pouvoir ait servi.</span>`;
   else if (r.double) message = `<b>Gagnée, mais tu l’avais déjà.</b><br><span class="petit muet">Le double devient de la poussière d’or.</span>`;
-  else if (P.origine === 'libre') message = r.poussiere ? `<b>Partie libre : +${r.poussiere} poussière d’or.</b>` : `<b>Partie libre, pour le plaisir.</b><br><span class="petit muet">Ta poussière d’or du jour est déjà gagnée.</span>`;
+  else if (P.origine === 'libre') message = r.payee ? `<b>Partie libre : +${r.poussiere} poussière d’or.</b>` : `<b>Partie libre, pour le plaisir.</b><br><span class="petit muet">Ta poussière d’or du jour est déjà gagnée.</span>`;
   else if (!c) message = `<b>Bien joué.</b>`;
   else message = `<b>Pas assez d’étoiles cette fois.</b><br><span class="petit muet">Il en fallait ${SEUIL[c.r]}. L’œuvre reste à gagner.</span>`;
   const peutRetenter = P.origine === 'visite' && c && !r.nouvelle && !possede(c.k) && chassesRestantes() > 0;
@@ -611,13 +617,13 @@ function ecranBilan() {
 function ecranAcquisition() {
   const r = P.resultat, c = CARTE[r.carte];
   const salle = oeuvresDe(c.f), n = salle.filter(x => possede(x.k)).length;
-  const reste = salle.filter(x => !possede(x.k)).map(x => JEU[jeuDeLaCarte(x)].a);
+  const reste = Object.entries(salle.filter(x => !possede(x.k)).reduce((o, x) => { const a = JEU[jeuDeLaCarte(x)].a; o[a] = (o[a] || 0) + 1; return o; }, {})).map(([a, n]) => n > 1 ? `${n} ${a}` : a);
   const g = GARDIENS[c.f][0];
   return `<div class="pile apparait" style="align-items:center;gap:4px;margin-top:6px;text-align:center"><span class="etiquette">${r.nouvelle ? 'Nouvelle œuvre' : r.dore ? 'Cadre doré' : 'Un double'}</span><h1 style="font-size:40px">${esc(c.n)}</h1><span class="petit muet">${RARETE[c.r]} · ${esc(FAM[c.f].salle)}</span></div>
   <div class="cadre ${S.oeuvres[c.k].dore ? 'dore' : ''} apparait" style="padding:12px;box-shadow:0 18px 50px rgba(217,181,106,.25)"><img src="${c.img}" alt="${esc(c.n)}"></div>
   ${r.nouvelle ? blocCartel(S.oeuvres[c.k], c) : ''}
   <div class="bloc pile" style="gap:8px"><div class="entre"><b>${esc(FAM[c.f].nom)}</b><span class="or">${n} / ${salle.length}</span></div><div class="jauge"><span style="width:${100 * n / salle.length}%"></span></div>
-    <span class="petit muet">${n === salle.length ? 'Salle complète !' : `Encore ${pluriel(salle.length - n, 'œuvre', 'œuvres')} à trouver : ${[...new Set(reste)].join(', ')}. ${NOM_DU_LEGENDAIRE[g]}, le gardien, ${n >= salle.length - 2 ? 's’étire' : 'dort encore'}.`}</span></div>
+    <span class="petit muet">${n === salle.length ? 'Salle complète !' : `Encore ${pluriel(salle.length - n, 'œuvre', 'œuvres')} à trouver : ${reste.join(', ')}. ${NOM_DU_LEGENDAIRE[g]}, le gardien, ${n >= salle.length - 2 ? 's’étire' : 'dort encore'}.`}</span></div>
   ${r.nouvelle ? `<div class="bloc pile" style="gap:4px"><b>Sa carte-bonus : ${POUVOIRS[pouvoirDe(c)].nom}</b><span class="petit muet">${POUVOIRS[pouvoirDe(c)].dit} ${forceDite(c)}.</span></div>` : ''}
   <button class="bouton" data-a="${r.eveils.length ? 'eveil' : 'apres'}">${r.eveils.length ? NOM_DU_LEGENDAIRE[r.eveils[0]] + ' se réveille' : 'Continuer'}</button>`;
 }
@@ -646,7 +652,7 @@ const MODULES = {};
 const qcmSavais = q => ({ sujet: q.t, rep: q.r[q.b], txt: q.a });
 
 MODULES.epingle = {
-  preparer() { const g = pioche('epingle', window.EPINGLES, x => x.theme); P.theme = g.theme; P.groupe = melanger(g.lieux); P.reserve = melanger(window.EPINGLES.filter(x => x !== g).flatMap(x => x.lieux)); },
+  preparer() { const g = pioche('epingle', window.EPINGLES, x => x.theme); P.theme = g.theme; P.groupe = melanger(g.lieux); P.reserve = melanger(window.EPINGLES.filter(x => x !== g).flatMap(x => x.lieux.map(l => ({ ...l, theme: x.theme })))); },
   manche(i, change) { return { lieu: change ? P.reserve.pop() : P.groupe[i], pin: null, zone: null, touche: false }; },
   etoiles(km) { return km < 40 ? 3 : km < 120 ? 2 : km < 300 ? 1 : 0; },
   peutEclairer() { return !P.m.zone; },
@@ -664,7 +670,7 @@ MODULES.epingle = {
     if (P.phase === 'revele') {
       return `${revelation(Math.min(3, P.naturel[P.manche]), m.km == null ? 'Pas d’épingle' : 'À ' + nombre(Math.round(m.km)) + ' km', esc(l.ville) + ' · ' + esc(l.date))}<div class="zone-carte">${carteSvg(dessus, false)}</div>${leSavais({ txt: l.savais })}`;
     }
-    return `<div class="cartel" style="gap:4px"><span class="etiquette">${esc(l.date)} · ${esc(P.theme)}</span><p class="petit">${typo(l.recit)}</p><p class="phrase" style="font-size:22px">${typo(l.q)}</p></div>
+    return `<div class="cartel" style="gap:4px"><span class="etiquette">${esc(l.date)} · ${esc(l.theme || P.theme)}</span><p class="petit">${typo(l.recit)}</p><p class="phrase" style="font-size:22px">${typo(l.q)}</p></div>
       ${m.zone ? '<div class="bandeau">Indice : c’est quelque part dans la zone entourée.</div>' : ''}
       <p class="mini muet">${m.pin ? 'Touche ailleurs pour déplacer ton épingle.' : 'Touche la carte pour planter ton épingle.'}</p>
       <div class="zone-carte">${carteSvg(dessus, true)}</div>
@@ -727,7 +733,7 @@ const AZERTY = ['AZERTYUIOP', 'QSDFGHJKLM', 'WXCVBN'];
 MODULES.mot = {
   manche() { const q = pioche('mot', B.mots); return { q, essais: [], saisie: '', souffle: [], touche: false }; },
   peutEclairer() { return P.m.souffle.length < P.m.q.m.length - 1; },
-  eclairer() { const m = P.m; const libres = [...m.q.m].map((_, i) => i).filter(i => !m.souffle.includes(i)); m.souffle.push(auHasard(libres)); },
+  eclairer() { const m = P.m; const libres = [...m.q.m].map((_, i) => i).filter(i => !m.souffle.includes(i) && i >= m.saisie.length); m.souffle.push(auHasard(libres.length ? libres : [...m.q.m].map((_, i) => i).filter(i => !m.souffle.includes(i)))); while (m.saisie.length < m.q.m.length && m.souffle.includes(m.saisie.length)) m.saisie += m.q.m[m.saisie.length]; },
   couleurs(essai, mot) {
     const r = Array(mot.length).fill('absente'), reste = {};
     [...mot].forEach((c, i) => { if (essai[i] === c) r[i] = 'bien'; else reste[c] = (reste[c] || 0) + 1; });
@@ -736,9 +742,11 @@ MODULES.mot = {
   },
   touche(t) {
     const m = P.m; if (P.phase !== 'jouer') return;
-    if (t === 'EFFACER') m.saisie = m.saisie.slice(0, -1);
+    const L = m.q.m.length, remplir = () => { while (m.saisie.length < L && m.souffle.includes(m.saisie.length)) m.saisie += m.q.m[m.saisie.length]; };
+    if (t === 'EFFACER') { m.saisie = m.saisie.slice(0, -1); while (m.saisie.length && m.souffle.includes(m.saisie.length - 1)) m.saisie = m.saisie.slice(0, -1); }
     else if (t === 'VALIDER') { if (m.saisie.length === m.q.m.length) { m.essais.push(m.saisie); m.saisie = ''; m.touche = true; if (m.essais[m.essais.length - 1] === m.q.m || m.essais.length >= 5) return this.fin(); } else toast(`Il faut ${m.q.m.length} lettres.`); }
-    else if (m.saisie.length < m.q.m.length) m.saisie += t;
+    else if (m.saisie.length < L) { remplir(); if (m.saisie.length < L) { m.saisie += t; remplir(); } }
+    if (t !== 'VALIDER' || m.saisie === '') remplir();
     rendre();
   },
   fin() { const m = P.m, ok = m.essais.includes(m.q.m), n = m.essais.length; jugerLaManche(!ok ? 0 : n <= 2 ? 3 : n <= 4 ? 2 : 1, { sujet: m.q.t, rep: m.q.aff, txt: m.q.a }); },
@@ -807,7 +815,8 @@ MODULES.filet = {
   peutEclairer() { return !P.m.chaud; },
   eclairer() { const m = P.m, w = (m.max - m.min) * 0.3, d = Math.random() * w * 0.8; m.chaud = [Math.max(m.min, m.q.v - d), Math.min(m.max, m.q.v - d + w)]; },
   bouger(v) { const m = P.m; m.x = Math.max(m.min, Math.min(m.max, Number(v))); m.touche = true; const t = document.querySelector('.filet-valeur'); if (t) t.textContent = this.dire(m.x); const c = document.getElementById('curseur'); if (c && +c.value !== m.x) c.value = m.x; this.majMaille(); },
-  majMaille() { const m = P.m, w = (m.max - m.min) * this.LARGEURS[m.largeur][0], el = document.querySelector('.maille'); if (el) { el.style.left = this.pct(m.x - w) + '%'; el.style.width = (this.pct(m.x + w) - this.pct(m.x - w)) + '%'; } const b = document.querySelector('.filet-bornes'); if (b) b.textContent = `ton filet : de ${this.dire(Math.round(m.x - w))} à ${this.dire(Math.round(m.x + w))}`; },
+  majMaille() { const m = P.m, w = (m.max - m.min) * this.LARGEURS[m.largeur][0], el = document.querySelector('.maille'); if (el) { el.style.left = this.pct(m.x - w) + '%'; el.style.width = (this.pct(m.x + w) - this.pct(m.x - w)) + '%'; } const b = document.querySelector('.filet-bornes'); if (b) b.textContent = this.bornes(); },
+  bornes() { const m = P.m, w = (m.max - m.min) * this.LARGEURS[m.largeur][0]; return `ton filet : de ${this.dire(Math.max(m.min, Math.round(m.x - w)))} à ${this.dire(Math.min(m.max, Math.round(m.x + w)))}`; },
   pct(v) { const m = P.m; return Math.max(0, Math.min(100, 100 * (v - m.min) / (m.max - m.min))); },
   dire(v) { return P.m.q.annee ? String(v) : nombre(v) + (P.m.q.u ? ' ' + P.m.q.u : ''); },
   lancer() { const m = P.m, [f, e] = this.LARGEURS[m.largeur], w = (m.max - m.min) * f; m.dedans = Math.abs(m.q.v - m.x) <= w; jugerLaManche(m.dedans ? e : 0, { sujet: m.q.t, rep: this.dire(m.q.v), txt: m.q.a }); },
@@ -819,7 +828,7 @@ MODULES.filet = {
       return `${revelation(Math.min(3, P.naturel[P.manche]), m.dedans ? 'Dans le filet' : 'À côté', 'La réponse : ' + this.dire(m.q.v) + ' · tu visais ' + this.dire(m.x) + '.')}<div class="bloc"><p class="petit">${typo(m.q.t)}</p>${piste}</div>${leSavais({ txt: m.q.a })}`;
     }
     return `<div class="bloc"><span class="etiquette">${esc(m.q.c)}</span><p class="question">${typo(m.q.t)}</p></div>
-      <div class="pile" style="align-items:center;gap:2px"><span class="verdict filet-valeur" style="font-size:44px">${this.dire(m.x)}</span><span class="petit muet filet-bornes">ton filet : de ${this.dire(Math.round(m.x - w))} à ${this.dire(Math.round(m.x + w))}</span></div>
+      <div class="pile" style="align-items:center;gap:2px"><span class="verdict filet-valeur" style="font-size:44px">${this.dire(m.x)}</span><span class="petit muet filet-bornes">${this.bornes()}</span></div>
       ${piste}
       ${m.chaud ? '<div class="bandeau">Indice : la réponse est dans la zone dorée.</div>' : ''}
       <div class="ligne"><button class="touche-fine" data-a="m" data-v="moins" aria-label="Un cran de moins">−</button><input id="curseur" type="range" min="${m.min}" max="${m.max}" step="${this.pas()}" value="${m.x}" data-i="curseur" aria-label="Ton estimation"><button class="touche-fine" data-a="m" data-v="plus" aria-label="Un cran de plus">+</button></div>
@@ -904,7 +913,7 @@ MODULES.indices = {
   rendre() {
     const m = P.m, n = m.vus - m.gratuits + m.faux.length;
     const l = m.p.ind.map((x, i) => i < m.vus || P.phase === 'revele' ? `<div class="indice"><b>${i + 1}</b><span>${typo(x)}</span></div>` : `<div class="indice cache"><b>${i + 1}</b><span class="petit">${i === m.vus ? 'Indice suivant' : ''}</span></div>`).join('');
-    if (P.phase === 'revele') return `${revelation(Math.min(3, P.naturel[P.manche]), m.ok ? 'Trouvé' : 'C’était ' + esc(m.p.rep), m.ok ? `${esc(m.p.rep)}, en ${pluriel(n, 'indice', 'indices')}.` : '')}<div class="pile" style="gap:6px">${l}</div>${leSavais({ txt: m.p.savais })}`;
+    if (P.phase === 'revele') return `${revelation(Math.min(3, P.naturel[P.manche]), m.ok ? 'Trouvé' : 'C’était ' + esc(m.p.rep), m.ok ? `${esc(m.p.rep)}, avec ${pluriel(m.vus, 'indice', 'indices')} sous les yeux${m.gratuits ? ` (dont ${m.gratuits} offert${m.gratuits > 1 ? 's' : ''})` : ''}${m.faux.length ? ` et ${pluriel(m.faux.length, 'erreur', 'erreurs')}` : ''}.` : '')}<div class="pile" style="gap:6px">${l}</div>${leSavais({ txt: m.p.savais })}`;
     const msg = m.msg; m.msg = '';
     return `<div class="entre"><span class="etiquette">Qui suis-je ?</span><span class="petit or">ta réponse vaut ${etoiles(n <= 2 ? 3 : n === 3 ? 2 : 1)}</span></div>
       <div class="pile" style="gap:6px">${m.p.ind.slice(0, m.vus).map((x, i) => `<div class="indice"><b>${i + 1}</b><span>${typo(x)}</span></div>`).join('')}</div>
@@ -952,7 +961,7 @@ function reveilAuBesoin(g, message) { sauver(); if (g.length) { S.eveils.push(..
 
 document.addEventListener('click', ev => {
   const svg = ev.target.closest('svg[data-a="carte"]');
-  if (svg && P && P.jeu === 'epingle') { const r = svg.getBoundingClientRect(); MODULES.epingle.clic((ev.clientX - r.left) * LARGEUR / r.width, (ev.clientY - r.top) * HAUTEUR / r.height); return; }
+  if (svg && P && P.jeu === 'epingle' && !P.quitter) { const r = svg.getBoundingClientRect(); MODULES.epingle.clic((ev.clientX - r.left) * LARGEUR / r.width, (ev.clientY - r.top) * HAUTEUR / r.height); return; }
   const b = ev.target.closest('[data-a]'); if (!b) return;
   const a = b.dataset.a, v = b.dataset.v;
   if (!a) return;
@@ -971,7 +980,7 @@ document.addEventListener('click', ev => {
     case 'emporter': S.emportee = v; sauver(); toast(`${CARTE[v].lg ? NOM_DU_LEGENDAIRE[CARTE[v].lg] : CARTE[v].n} est ta carte-bonus.`); return rendre();
     case 'choisir-emportee': P.emportee = v || null; S.emportee = v || null; sauver(); return rendre();
     case 'commencer': return commencer();
-    case 'pouvoir': return jouerLePouvoir();
+    case 'pouvoir': return P.quitter ? undefined : jouerLePouvoir();
     case 'miser': P.mise = true; P.miseFaite = true; return demarrerLaManche();
     case 'ne-pas-miser': if (P.manche === 2) P.miseFaite = true; return demarrerLaManche();
     case 'suivante': return mancheSuivante();
@@ -993,7 +1002,7 @@ document.addEventListener('click', ev => {
   }
 });
 function action(v) {
-  if (!P || !P.m || P.phase !== 'jouer') return;
+  if (!P || !P.m || P.phase !== 'jouer' || P.quitter) return;
   const [k, ...r] = v.split(':'); const x = r.join(':');
   const M = MODULES[P.jeu];
   switch (P.jeu) {
@@ -1019,7 +1028,7 @@ document.addEventListener('submit', ev => {
 });
 // Le clavier physique sert aussi au Mot mystère, sur ordinateur.
 document.addEventListener('keydown', ev => {
-  if (!P || P.jeu !== 'mot' || P.phase !== 'jouer' || ev.target.tagName === 'INPUT') return;
+  if (!P || P.jeu !== 'mot' || P.phase !== 'jouer' || P.quitter || ev.target.tagName === 'INPUT') return;
   const k = sansAccent(ev.key).toUpperCase();
   if (/^[A-Z]$/.test(k)) MODULES.mot.touche(k); else if (ev.key === 'Backspace') MODULES.mot.touche('EFFACER'); else if (ev.key === 'Enter') MODULES.mot.touche('VALIDER');
 });
