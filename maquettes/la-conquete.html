@@ -1,0 +1,1795 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- La maquette de la Conquête (CONQUETE.md) : une page seule, à ouvrir dans un navigateur.
+     Tout y est simulé ; rien ne part au serveur. Les polices viennent de Google Fonts :
+     les mêmes que celles que l'application sert elle-même (client/public/fonts). -->
+<title>La Conquête</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Figtree:wght@300..800&display=swap">
+<style>
+/* Mise en page : une colonne d'application de téléphone, la carte des Terres au milieu, une feuille
+   qui monte du bas ; sur grand écran, les notes de la maquette à côté. L'habit est celui de FiestApp
+   en Velours (ses jetons, recopiés de client/src/styles.css) : la nuit chaude, l'or champagne,
+   Cormorant Garamond pour les titres, Figtree pour le reste. Les provinces prennent la lueur de
+   leur branche (client/src/components/Atlas.tsx). */
+:root {
+  --bg: #1a1412;
+  --bg-halo: #2b211b;
+  --bg-raised: #241c18;
+  --ink: #f3ece2;
+  --muted: #a89b8a;
+  --accent: #d9b56a;
+  --accent-rgb: 217, 181, 106;
+  --accent-hover: #e8cb8a;
+  --on-accent: #1a1412;
+  --alert: #e06c6c;
+  --alert-rgb: 224, 108, 108;
+  --surface: rgba(255, 255, 255, 0.035);
+  --surface-strong: rgba(255, 255, 255, 0.06);
+  --track: rgba(255, 255, 255, 0.1);
+  --edge: rgba(217, 181, 106, 0.22);
+  --edge-strong: rgba(217, 181, 106, 0.55);
+  --accent-soft: rgba(217, 181, 106, 0.12);
+  --backdrop: rgba(12, 8, 7, 0.72);
+  --shadow-toast: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --shadow-dialog: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --shape-0: #d98a9a;
+  --shape-1: #d9b56a;
+  --shape-2: #a99ad6;
+  --shape-3: #8fbfa8;
+  --mer: #0e161c;
+  --mer-halo: #16242f;
+  --radius: 16px;
+  --radius-sm: 14px;
+  --radius-xs: 10px;
+  --radius-pill: 999px;
+  --t-label: 0.6875rem;
+  --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --sans: Figtree, 'Segoe UI', system-ui, sans-serif;
+  color-scheme: dark;
+  accent-color: var(--accent);
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--ink);
+  background-color: var(--bg);
+  background-image: radial-gradient(120% 60% at 50% -10%, var(--bg-halo) 0%, var(--bg) 60%);
+  -webkit-tap-highlight-color: transparent;
+}
+* { box-sizing: border-box; }
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.1; text-wrap: balance; margin: 0; }
+p, ul, ol { margin: 0; }
+button { font: inherit; color: inherit; touch-action: manipulation; }
+:where(:not([tabindex='-1'])):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); }
+.small { font-size: 0.82rem; }
+.label { font-size: var(--t-label); font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+.icon { width: 18px; height: 18px; flex: none; }
+
+/* ── Les boutons de l'application ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(var(--accent-rgb), 0.26);
+  background: transparent; color: var(--ink);
+  font-size: 0.9rem; font-weight: 500; white-space: nowrap; cursor: pointer; text-decoration: none;
+  transition: transform 0.12s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.btn:hover { border-color: var(--edge-strong); }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-accent { border-color: var(--edge-strong); color: var(--accent); }
+.btn-ghost { color: var(--muted); border-color: transparent; }
+.btn-ghost:hover { color: var(--ink); }
+.btn-small { min-height: 36px; padding: 0 14px; font-size: 0.82rem; }
+.btn-block { width: 100%; }
+.btn-icon { width: 44px; padding: 0; color: var(--muted); border-color: transparent; }
+.btn-icon:hover { color: var(--ink); }
+
+/* ── La page ── */
+.page { height: 100%; display: flex; justify-content: center; gap: 28px; }
+.app { position: relative; width: 100%; max-width: 440px; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+@media (min-width: 900px) {
+  .page { padding-block: 20px; }
+  .app { border: 1px solid var(--edge); border-radius: 22px; background: var(--bg); box-shadow: var(--shadow-dialog); }
+}
+
+.apropos > *, .dialogue > *, .feuille-corps > *, .vue > :not(.carte-cadre) { flex-shrink: 0; }
+.maquette-bandeau {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 0 16px;
+  background: var(--accent-soft); border-bottom: 1px solid var(--edge);
+  font-size: var(--t-label); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
+}
+.maquette-bandeau button { border: 0; background: none; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: var(--t-label); letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 4px; }
+@media (min-width: 900px) { .maquette-bandeau { display: none; } }
+
+.tete { display: flex; flex-direction: column; align-items: flex-start; padding: 2px 8px 0 10px; }
+.sortie { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 6px; border: 0; background: none; color: var(--muted); font-size: 0.9rem; cursor: pointer; margin-bottom: -6px; }
+.sortie:hover { color: var(--ink); }
+.tete-titre { align-self: stretch; display: flex; align-items: center; gap: 8px; padding-left: 6px; }
+.tete h1 { font-size: 1.75rem; margin-right: auto; white-space: nowrap; }
+.saison {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 3px 10px; border: 1px solid var(--edge); border-radius: var(--radius-pill);
+  background: transparent; cursor: pointer; font-size: 0.78rem; color: var(--muted);
+}
+.saison b { color: var(--accent); font-weight: 600; }
+.saison:hover { border-color: var(--edge-strong); color: var(--ink); }
+
+.bandeau {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 6px 16px 0; padding: 7px 12px;
+  border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface);
+}
+.etendards { display: flex; align-items: center; gap: 1px; color: var(--accent); }
+.etendards .drapeau { width: 20px; height: 20px; }
+.etendards .vide { color: var(--track); }
+.etendards-texte { margin-left: 6px; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.influence { text-align: right; line-height: 1.15; }
+.influence b { font-size: 1.05rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+.influence small { display: block; font-size: 0.74rem; color: var(--muted); }
+
+/* Les onglets de la campagne : une rangée de pilules. */
+.onglets {
+  display: flex; gap: 4px; margin: 10px 16px 0; padding: 4px;
+  border: 1px solid var(--edge); border-radius: 26px; background: var(--surface);
+}
+.onglet {
+  flex: 1 1 0; min-height: 40px; padding: 0 6px;
+  border: 0; border-radius: var(--radius-pill); background: none;
+  color: var(--muted); font-size: 0.84rem; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.onglet[aria-selected='true'] { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--edge-strong); }
+.onglet .pastille { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 9px; background: var(--alert); color: var(--on-accent); font-size: 0.7rem; font-weight: 700; line-height: 18px; }
+
+.defile { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.vue { padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+#vue-terres { height: 100%; padding-bottom: 12px; }
+
+/* ── La carte des Terres ── */
+.carte-cadre {
+  position: relative; flex: 1; min-height: 280px;
+  border: 1px solid var(--edge); border-radius: var(--radius); overflow: hidden;
+  background: radial-gradient(90% 70% at 50% 45%, var(--mer-halo) 0%, var(--mer) 70%);
+}
+#carte { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+#carte:active { cursor: grabbing; }
+#carte .tuile { stroke: rgba(10, 8, 7, 0.6); stroke-width: 1; vector-effect: non-scaling-stroke; }
+#carte .calque-brume *, #carte .calque-traits *, #carte .calque-icones *, #carte .calque-marques *, #carte .calque-selection * { pointer-events: none; }
+#carte .ico { text-anchor: middle; dominant-baseline: central; }
+#carte .ico-terrain { font-size: 21px; }
+#carte .ico-oubli { opacity: 0.4; }
+#carte .ico-special { font-size: 27px; }
+#carte .capitale-fond { stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+#carte .capitale { font-size: 22px; }
+#carte .trait { fill: none; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+#carte .trait-cote { stroke: rgba(222, 196, 150, 0.5); stroke-width: 2; }
+#carte .trait-province { stroke: rgba(243, 236, 226, 0.22); stroke-width: 1.2; stroke-dasharray: 3 4; }
+#carte .trait-maitre { stroke-width: 2.2; }
+#carte .trait-moi { stroke: #fff6dd; stroke-width: 2.6; }
+#carte .trait-portee { stroke: rgba(var(--accent-rgb), 0.75); stroke-width: 1.4; stroke-dasharray: 2 4; }
+#carte .selection { fill: none; stroke: #fff; stroke-width: 3; vector-effect: non-scaling-stroke; }
+#carte .pulse { fill: none; stroke: var(--alert); stroke-width: 3; vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: center; animation: pulse 1.6s ease-out infinite; }
+#carte .jauge-fond { fill: none; stroke: rgba(0, 0, 0, 0.5); stroke-width: 5; }
+#carte .jauge { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; }
+#carte .onde { fill: none; stroke: var(--accent); stroke-width: 3; vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: center; animation: onde 1.1s ease-out forwards; }
+#carte.loin .ico-terrain, #carte.loin .capitale-groupe, #carte.loin .trait-portee { display: none; }
+@keyframes pulse { 0% { transform: scale(0.85); opacity: 1; } 100% { transform: scale(1.35); opacity: 0; } }
+@keyframes onde { 0% { transform: scale(0.9); opacity: 1; } 100% { transform: scale(2.2); opacity: 0; } }
+
+.etiquettes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.etiquette {
+  position: absolute; left: 0; top: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px; border-radius: var(--radius-pill); background: rgba(14, 22, 28, 0.78);
+  font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 0.98rem; white-space: nowrap; color: var(--ink);
+}
+.etiquette i { width: 8px; height: 8px; border-radius: 50%; }
+
+.alerte {
+  position: absolute; top: 8px; left: 8px; right: 8px; z-index: 2;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px;
+  padding: 7px 10px 7px 12px;
+  border: 1px solid rgba(var(--alert-rgb), 0.6); border-radius: var(--radius-sm);
+  background: rgba(40, 20, 20, 0.92); text-align: left; cursor: pointer;
+}
+.alerte .ico { font-size: 1.15rem; }
+.alerte p { font-size: 0.8rem; line-height: 1.3; }
+.alerte .agir { color: var(--alert); font-weight: 600; font-size: 0.82rem; white-space: nowrap; }
+.outils-bas { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; gap: 6px; align-items: center; pointer-events: none; }
+.outils-bas button {
+  pointer-events: auto; min-width: 40px; min-height: 40px; padding: 0 12px;
+  border: 1px solid var(--edge); border-radius: var(--radius-pill);
+  background: rgba(26, 20, 18, 0.88); color: var(--ink); font-size: 0.82rem; font-weight: 600; cursor: pointer;
+}
+.outils-bas button:hover { border-color: var(--edge-strong); }
+.outils-bas .zoom { margin-left: auto; display: flex; gap: 6px; }
+.outils-bas .zoom button { padding: 0; width: 40px; font-size: 1.1rem; }
+
+/* ── La feuille d'une tuile : celle de l'application (Pieces.tsx, .carte-feuille) ── */
+.feuille {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 20;
+  max-height: 72%; display: flex; flex-direction: column;
+  border: 1px solid var(--edge-strong); border-bottom: 0; border-radius: 22px 22px 0 0;
+  background: var(--bg); box-shadow: 0 -18px 40px rgba(0, 0, 0, 0.5);
+  transform: translateY(105%); transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.feuille.ouverte { transform: none; }
+.feuille-barre { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px 9px 16px; border-bottom: 1px solid var(--edge); }
+.feuille-tete-texte { min-width: 0; display: flex; flex-direction: column; }
+.feuille-titre { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; min-width: 0; }
+.feuille-sous { font-size: 0.8rem; color: var(--muted); }
+.detail { border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); }
+.detail summary { min-height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 12px; cursor: pointer; font-size: 0.84rem; font-weight: 600; list-style: none; }
+.detail summary::-webkit-details-marker { display: none; }
+.detail summary::after { content: '▾'; margin-left: auto; color: var(--muted); }
+.detail[open] summary::after { content: '▴'; }
+.detail-corps { display: flex; flex-direction: column; gap: 10px; padding: 0 10px 10px; }
+.fermer { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--surface); font-weight: 600; font-size: 0.84rem; cursor: pointer; flex: none; }
+.feuille-corps { overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+.feuille-pied { padding: 8px 16px max(12px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--edge); }
+.feuille-pied:empty { display: none; }
+.lieu { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+.lieu-ico { width: 46px; height: 46px; display: grid; place-items: center; font-size: 1.55rem; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+.lieu p { font-size: 0.84rem; color: var(--muted); }
+.lieu p b { color: var(--ink); font-weight: 600; }
+.puce { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.faits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.fait { padding: 7px 9px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); min-width: 0; }
+.fait .label { display: block; letter-spacing: 0.12em; }
+.fait b { display: block; margin-top: 1px; font-size: 0.9rem; font-weight: 600; white-space: nowrap; }
+.danger { color: #e3a06e; letter-spacing: 1px; }
+.danger .off { opacity: 0.25; }
+.statut { padding: 9px 11px; border-radius: var(--radius-xs); border: 1px solid var(--edge); background: var(--surface); font-size: 0.86rem; line-height: 1.38; }
+.statut.mal { border-color: rgba(var(--alert-rgb), 0.55); background: rgba(var(--alert-rgb), 0.09); }
+.statut.bien { border-color: var(--edge-strong); background: var(--accent-soft); }
+.regle { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; font-size: 0.86rem; }
+.regle .rond { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-strong); font-size: 1rem; }
+.raison { font-size: 0.82rem; color: var(--muted); text-align: center; }
+.qui { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ── L'épreuve : l'écran des sentiers (EcranDEpreuve), en plus court ── */
+.epreuve {
+  position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; overflow-y: auto;
+  background-color: var(--bg); background-image: radial-gradient(120% 50% at 50% -10%, var(--bg-halo) 0%, var(--bg) 60%);
+}
+.ep-tete { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; padding: 8px 14px 4px 8px; }
+.ep-titre { min-width: 0; text-align: right; }
+.ep-titre .label { display: block; letter-spacing: 0.12em; }
+.ep-enjeu { margin: 4px 16px 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; }
+.ep-enjeu .rond { width: 38px; height: 38px; display: grid; place-items: center; font-size: 1.3rem; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+.ep-enjeu b { display: block; font-family: var(--serif); font-size: 1.15rem; line-height: 1.15; }
+.ep-enjeu span { font-size: 0.82rem; color: var(--muted); }
+.ep-suivi { padding: 10px 16px 6px; display: flex; flex-direction: column; gap: 6px; }
+.cases { position: relative; display: grid; gap: 4px; }
+.case { height: 12px; border-radius: 3px; background: var(--track); }
+.case.ok { background: var(--shape-3); }
+.case.ko { background: var(--alert); }
+.seuil { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--accent); border-radius: 1px; }
+.suivi-texte { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); }
+.suivi-texte b { color: var(--ink); }
+.coeurs { display: inline-flex; gap: 2px; color: var(--alert); }
+.coeurs svg { width: 20px; height: 20px; }
+.coeurs .perdu { color: var(--muted); }
+.chrono { height: 6px; margin: 2px 16px 4px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.chrono div { height: 100%; width: 100%; background: var(--accent); transform-origin: left center; }
+.chrono div.presse { background: var(--alert); }
+.ep-corps { flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 6px 16px 20px; }
+.quiz-categorie { display: block; }
+.quiz-question { margin-top: 6px; font-size: 1.65rem; }
+.ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ans-btn {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 64px; padding: 8px 12px;
+  border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface);
+  text-align: left; cursor: pointer; font-size: 0.95rem; font-weight: 500; line-height: 1.2;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.2s ease;
+}
+.ans-btn:hover:not(:disabled) { border-color: var(--edge-strong); }
+.ans-btn svg { width: 22px; height: 22px; flex: none; }
+.ans-btn.bonne { border-color: var(--shape-3); background: rgba(143, 191, 168, 0.16); }
+.ans-btn.mauvaise { border-color: var(--alert); background: rgba(var(--alert-rgb), 0.12); }
+.ans-btn.eteinte { opacity: 0.38; }
+.ans-btn:disabled { cursor: default; }
+.ep-retour { min-height: 1.4em; text-align: center; font-size: 0.92rem; font-weight: 600; }
+.ep-retour.juste { color: var(--shape-3); }
+.ep-retour.faux { color: var(--alert); }
+.ep-fin { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px 20px 28px; text-align: center; }
+.ep-fin .grand { font-size: 3.6rem; line-height: 1; animation: planter 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.ep-fin h2 { font-size: 2rem; }
+.gains { list-style: none; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.gains li { padding: 6px 12px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: var(--surface); font-size: 0.86rem; font-weight: 600; }
+.ep-fin .boutons { width: 100%; max-width: 320px; margin-top: 6px; }
+@keyframes planter { 0% { transform: translateY(-40px) scale(0.6); opacity: 0; } 100% { transform: none; opacity: 1; } }
+
+/* ── Les autres onglets ── */
+.bloc { padding: 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.bloc h2 { font-size: 1.35rem; }
+.bloc h3 { font-size: 1.15rem; }
+.guilde-tete { display: grid; grid-template-columns: 76px 1fr; gap: 14px; align-items: center; }
+.guilde-tete h2 { font-size: 1.7rem; }
+.blasonnement { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.02rem; color: var(--accent); }
+.chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.chiffre { text-align: center; padding: 8px 4px; border-radius: var(--radius-xs); background: var(--surface-strong); }
+.chiffre b { display: block; font-size: 1.12rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+.chiffre span { font-size: 0.74rem; color: var(--muted); }
+.liste { list-style: none; padding: 0; display: flex; flex-direction: column; }
+.liste li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid rgba(var(--accent-rgb), 0.12); }
+.liste li:last-child { border-bottom: 0; }
+.liste .av { font-size: 1.4rem; width: 32px; text-align: center; }
+.liste .nom { font-weight: 600; font-size: 0.95rem; }
+.liste .sous { font-size: 0.78rem; color: var(--muted); }
+.liste .val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.92rem; }
+.liste .val small { display: block; font-weight: 400; font-size: 0.74rem; color: var(--muted); }
+.liste li.moi { background: var(--accent-soft); margin-inline: -10px; padding-inline: 10px; border-radius: var(--radius-xs); }
+.rang { width: 24px; text-align: center; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.jauge-barre { height: 10px; border-radius: 5px; background: var(--track); overflow: hidden; }
+.jauge-barre div { height: 100%; background: var(--accent); border-radius: 5px; }
+.membres-siege { display: flex; gap: 6px; flex-wrap: wrap; }
+.membre-siege { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-pill); border: 1px solid var(--edge); font-size: 0.82rem; }
+.membre-siege.fait { border-color: var(--shape-3); color: var(--shape-3); }
+.signal { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; font-size: 0.88rem; }
+.code { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: 1.3rem; letter-spacing: 0.18em; color: var(--accent); }
+.segments { display: flex; gap: 6px; flex-wrap: wrap; }
+.segments button { min-height: 36px; padding: 0 14px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: transparent; color: var(--muted); font-size: 0.84rem; font-weight: 500; cursor: pointer; }
+.segments button[aria-pressed='true'] { border-color: var(--edge-strong); color: var(--accent); background: var(--accent-soft); }
+.nouvelle { display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(var(--accent-rgb), 0.12); }
+.nouvelle:last-child { border-bottom: 0; }
+.nouvelle .ico { font-size: 1.25rem; text-align: center; }
+.nouvelle p { font-size: 0.9rem; line-height: 1.38; }
+.nouvelle time { display: block; font-size: 0.74rem; color: var(--muted); margin-top: 2px; }
+.nouvelle.perso { background: rgba(var(--accent-rgb), 0.06); margin-inline: -10px; padding-inline: 10px; border-radius: var(--radius-xs); }
+.tribut { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+.tribut .grand { font-size: 2rem; color: var(--accent); }
+
+/* ── Les dialogues ── */
+.voile { position: absolute; inset: 0; z-index: 30; background: var(--backdrop); }
+.dialogue {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 35; max-height: 88%; overflow-y: auto;
+  border: 1px solid var(--edge-strong); border-bottom: 0; border-radius: 22px 22px 0 0;
+  background: var(--bg); padding: 0 0 22px; display: flex; flex-direction: column; gap: 14px;
+}
+.dialogue > :not(.feuille-barre) { margin-inline: 16px; }
+.dialogue .feuille-barre { position: sticky; top: 0; background: var(--bg); z-index: 1; }
+.dialogue p, .dialogue li { font-size: 0.9rem; line-height: 1.45; }
+.dialogue ol, .dialogue ul { padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+.phases { display: grid; grid-template-columns: 7fr 20fr 4fr; gap: 3px; }
+.phase { padding: 8px 4px; border-radius: 6px; background: var(--surface-strong); font-size: 0.74rem; text-align: center; min-width: 0; }
+.phase b { display: block; font-size: 0.8rem; }
+.phase.active { background: var(--accent-soft); outline: 1px solid var(--edge-strong); color: var(--accent); }
+.frise { position: relative; height: 18px; }
+.frise span { position: absolute; top: 0; margin-left: -60px; width: 120px; text-align: center; font-size: 0.72rem; color: var(--accent); }
+.tableau { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.tableau th, .tableau td { text-align: left; padding: 6px; border-bottom: 1px solid rgba(var(--accent-rgb), 0.14); vertical-align: top; }
+.tableau th { font-size: var(--t-label); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.boite-tableau { overflow-x: auto; }
+.legende { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.82rem; color: var(--muted); }
+.legende span { display: inline-flex; align-items: center; gap: 6px; }
+.legende i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.portee-liste { list-style: none; padding: 0 !important; display: flex; flex-direction: column; gap: 6px; }
+.portee-liste button { width: 100%; display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); text-align: left; cursor: pointer; }
+.portee-liste button:hover { border-color: var(--edge-strong); }
+.portee-liste .sous { display: block; font-size: 0.76rem; color: var(--muted); }
+
+.toast {
+  position: absolute; left: 16px; right: 16px; bottom: 22px; z-index: 50;
+  margin-inline: auto; width: max-content; max-width: calc(100% - 32px);
+  padding: 12px 20px; border: 1px solid var(--edge-strong); border-radius: 22px;
+  background: var(--bg-raised); box-shadow: var(--shadow-toast); font-size: 0.92rem; text-align: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+}
+.toast.visible { opacity: 1; }
+
+/* ── Les notes de la maquette, à côté sur grand écran ── */
+.apropos { display: none; }
+@media (min-width: 900px) {
+  .apropos { display: flex; flex-direction: column; gap: 16px; width: 340px; height: 100%; overflow-y: auto; padding: 8px 4px 24px; }
+}
+.apropos h2 { font-size: 2.1rem; }
+.apropos p, .apropos li { font-size: 0.9rem; line-height: 1.5; color: var(--muted); }
+.apropos b { color: var(--ink); font-weight: 600; }
+.apropos ul { padding-left: 1.1em; display: flex; flex-direction: column; gap: 6px; }
+.gros-bouton {
+  display: flex; align-items: center; gap: 14px; min-height: 76px; padding: 14px 14px 14px 16px;
+  border: 1px solid var(--accent); border-radius: 16px; background: var(--accent-soft);
+}
+.gros-icone { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: rgba(var(--accent-rgb), 0.16); color: var(--accent); flex: none; }
+.gros-icone .icon { width: 24px; height: 24px; }
+.gros-texte { flex: 1; min-width: 0; }
+.gros-texte b { display: block; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; color: var(--ink); }
+.gros-detail { font-size: 0.88rem; color: var(--muted); }
+.pastille-attente { padding: 2px 8px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; white-space: nowrap; }
+.chevron { color: var(--muted); transform: rotate(-90deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  #carte .pulse, #carte .onde, .ep-fin .grand { animation: none; }
+  .feuille, .toast { transition: none; }
+}
+</style>
+<style>[hidden] { display: none !important; }</style>
+</head>
+<body>
+<div class="page">
+  <div class="app" id="app">
+    <div class="maquette-bandeau">Maquette · tout est simulé <button type="button" id="ouvrir-apropos">À propos</button></div>
+    <header class="tete">
+      <button class="sortie" type="button" id="retour"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>Accueil</button>
+      <div class="tete-titre">
+        <h1>La Conquête</h1>
+        <button class="saison" type="button" id="ouvrir-saison" aria-label="La Mêlée, encore 12 jours : voir le mois"><b>La Mêlée</b><span>· J−12</span></button>
+        <button class="btn btn-icon" type="button" id="ouvrir-regles" aria-label="Comment ça marche ?"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6M12 17.2h.01"/></svg></button>
+      </div>
+    </header>
+
+    <section class="bandeau" aria-label="Ta journée">
+      <div class="etendards" id="etendards"></div>
+      <div class="influence"><b id="influence">1 870 ✦</b><small id="influence-sous"></small></div>
+    </section>
+
+    <div class="onglets" role="tablist" aria-label="La Conquête">
+      <button class="onglet" role="tab" type="button" aria-selected="true" aria-controls="vue-terres" data-vue="terres" id="onglet-terres">Les Terres</button>
+      <button class="onglet" role="tab" type="button" aria-selected="false" aria-controls="vue-guilde" data-vue="guilde" id="onglet-guilde">Guilde</button>
+      <button class="onglet" role="tab" type="button" aria-selected="false" aria-controls="vue-classement" data-vue="classement" id="onglet-classement">Classement</button>
+      <button class="onglet" role="tab" type="button" aria-selected="false" aria-controls="vue-gazette" data-vue="gazette" id="onglet-gazette">Gazette<span class="pastille" id="pastille-gazette">3</span></button>
+    </div>
+
+    <div class="defile" id="defile">
+      <section class="vue" id="vue-terres" role="tabpanel" aria-labelledby="onglet-terres">
+        <div class="carte-cadre" id="cadre">
+          <svg id="carte" role="img" aria-label="La carte des Terres du Savoir. Touche une tuile pour la voir ; le bouton Liste donne les tuiles à ta portée.">
+            <defs>
+              <pattern id="p-brume" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(28)">
+                <rect width="18" height="18" fill="rgba(200,205,215,0.04)"/>
+                <line x1="0" y1="4" x2="18" y2="4" stroke="rgba(220,225,235,0.11)" stroke-width="3"/>
+                <line x1="0" y1="13" x2="18" y2="13" stroke="rgba(220,225,235,0.05)" stroke-width="2"/>
+              </pattern>
+              <pattern id="p-eau" width="20" height="12" patternUnits="userSpaceOnUse">
+                <rect width="20" height="12" fill="#163447"/>
+                <path d="M0 7 Q5 3 10 7 T20 7" fill="none" stroke="rgba(160,210,235,0.28)" stroke-width="1.2"/>
+              </pattern>
+              <pattern id="p-assaut" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="4" height="10" fill="rgba(180,156,245,0.75)"/>
+              </pattern>
+            </defs>
+            <g id="monde"></g>
+          </svg>
+          <div class="etiquettes" id="etiquettes" hidden></div>
+          <button class="alerte" type="button" id="alerte">
+            <span class="ico" aria-hidden="true">⚔️</span>
+            <p><b>Léa assiège La Crête des Lynx.</b> Fais au moins 6 sur 8 avant minuit demain.</p>
+            <span class="agir">Repousser</span>
+          </button>
+          <div class="outils-bas">
+            <button type="button" id="voir-mes-terres">Mes terres</button>
+            <button type="button" id="voir-tout">Tout</button>
+            <button type="button" id="voir-liste">Liste</button>
+            <span class="zoom">
+              <button type="button" id="zoom-moins" aria-label="Éloigner">−</button>
+              <button type="button" id="zoom-plus" aria-label="Rapprocher">+</button>
+            </span>
+          </div>
+        </div>
+      </section>
+      <section class="vue" id="vue-guilde" role="tabpanel" aria-labelledby="onglet-guilde" hidden></section>
+      <section class="vue" id="vue-classement" role="tabpanel" aria-labelledby="onglet-classement" hidden></section>
+      <section class="vue" id="vue-gazette" role="tabpanel" aria-labelledby="onglet-gazette" hidden></section>
+    </div>
+
+    <div class="feuille" id="feuille" role="region" aria-labelledby="feuille-titre" aria-hidden="true">
+      <header class="feuille-barre">
+        <div class="feuille-tete-texte"><b class="feuille-titre" id="feuille-titre"></b><span class="feuille-sous" id="feuille-sous"></span></div>
+        <button class="fermer" type="button" id="fermer-feuille"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>Fermer</button>
+      </header>
+      <div class="feuille-corps" id="feuille-corps"></div>
+      <footer class="feuille-pied" id="feuille-pied"></footer>
+    </div>
+
+    <div class="voile" id="voile" hidden></div>
+    <div class="dialogue" id="dialogue" role="dialog" aria-modal="true" aria-labelledby="dialogue-titre" hidden></div>
+    <section class="epreuve" id="epreuve" aria-label="Épreuve" hidden></section>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <aside class="apropos" id="apropos-cote" aria-label="À propos de la maquette"></aside>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ═══════════════ Les données de la maquette ═══════════════ */
+
+const R = 9;            // le rayon des Terres : 271 tuiles, pour une vingtaine de joueurs
+const S = 30;           // la taille d'une tuile à l'échelle 1
+const RAC3 = Math.sqrt(3);
+// Les six voisins, dans l'ordre des arêtes de l'hexagone (pointe en haut) : 0-1 est l'arête de droite.
+const DIRS = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
+
+// Douze provinces, une par branche du savoir (leur nom et leur lueur sont ceux de l'application),
+// dans le sens des aiguilles d'une montre depuis le haut.
+const PROVINCES = [
+  { cle: 'monde', nom: 'Le tour du monde', cat: 'Culture générale', lueur: '#5fb8ff' },
+  { cle: 'mythes', nom: 'Les mythologies', cat: 'Histoire', lueur: '#e8b04a' },
+  { cle: 'contes', nom: 'Les contes', cat: 'Arts & lettres', lueur: '#c48bff' },
+  { cle: 'scene', nom: 'La scène', cat: 'Musique', lueur: '#ff9f5a' },
+  { cle: 'ecran', nom: 'Le grand écran', cat: 'Cinéma & séries', lueur: '#ff6b8a' },
+  { cle: 'arcade', nom: 'L’arcade', cat: 'Jeux & pop culture', lueur: '#ff5fd2' },
+  { cle: 'carnaval', nom: 'Le carnaval', cat: 'Autour de la fête', lueur: '#ffb347' },
+  { cle: 'brigade', nom: 'La brigade', cat: 'Cuisine', lueur: '#f2c14e' },
+  { cle: 'stade', nom: 'Le stade', cat: 'Sport', lueur: '#4fd18b' },
+  { cle: 'foret', nom: 'La forêt', cat: 'Nature', lueur: '#7ccf6a' },
+  { cle: 'oceans', nom: 'Les océans', cat: 'Géographie', lueur: '#3fd0d4' },
+  { cle: 'espace', nom: 'L’espace', cat: 'Sciences', lueur: '#a08bff' },
+];
+const COEUR = { cle: 'coeur', nom: 'Le Cœur', cat: 'Toutes les catégories', lueur: '#b9a6ff' };
+
+const TERRAINS = {
+  plaine: { nom: 'Plaine', emoji: '🌾', format: 'escarmouche' },
+  bois: { nom: 'Bois', emoji: '🌲', format: 'traque' },
+  mont: { nom: 'Mont', emoji: '⛰️', format: 'ascension' },
+  dunes: { nom: 'Dunes', emoji: '🏜️', format: 'course' },
+  ruines: { nom: 'Ruines', emoji: '🏚️', format: 'enigme' },
+  citadelle: { nom: 'Citadelle', emoji: '🏰', format: 'siege' },
+  merveille: { nom: 'Merveille', emoji: '🏛️', format: 'grande' },
+  coeur: { nom: 'Le Cœur des Terres', emoji: '🌟', format: 'grande' },
+  eau: { nom: 'Lac', emoji: '', format: null },
+};
+
+const FORMATS = {
+  escarmouche: { nom: 'L’Escarmouche', court: '5 questions · 4 bonnes', regle: 'Cinq questions : quatre bonnes réponses pour la prendre.', n: 5, besoin: 4, ico: '🌾' },
+  traque: { nom: 'La Traque', court: '3 vies · 6 bonnes', regle: 'Trois vies : six bonnes réponses avant la troisième erreur.', vies: 3, besoin: 6, ico: '🌲' },
+  ascension: { nom: 'L’Ascension', court: '8 questions · 6 bonnes', regle: 'Huit questions qui durcissent : six bonnes réponses pour la prendre.', n: 8, besoin: 6, ico: '⛰️' },
+  course: { nom: 'La Course', court: '6 questions · 15 s · 4 à temps', regle: 'Six questions, quinze secondes chacune : quatre bonnes réponses à temps.', n: 6, besoin: 4, chrono: 15, ico: '🏜️' },
+  enigme: { nom: 'L’Énigme', court: '3 difficiles · 2 bonnes', regle: 'Trois questions parmi les plus dures : deux bonnes réponses, et le butin des ruines.', n: 3, besoin: 2, ico: '🏚️' },
+  siege: { nom: 'Le Siège', court: '3 membres · une Ascension chacun', regle: 'Trois membres de la guilde réussissent chacun L’Ascension, dans les vingt-quatre heures.', guilde: 3, ico: '🏰' },
+  grande: { nom: 'La Grande Épreuve', court: '4 membres · 40 bonnes à eux tous', regle: 'Quatre membres au moins, quarante bonnes réponses à eux tous, en deux jours.', guilde: 4, ico: '🏛️' },
+};
+
+// L'influence qu'une tuile verse chaque nuit, selon son danger ; les lieux à part en versent plus.
+const RAPPORT = [0, 10, 20, 30, 50, 80];
+const RAPPORT_SPECIAL = { citadelle: 150, merveille: 300, coeur: 500 };
+const BONUS_DES_RUINES = 20;
+const DIFFICULTE = ['', 'faciles', 'faciles et moyennes', 'moyennes', 'moyennes et difficiles', 'difficiles', 'difficiles', 'difficiles et expertes', 'difficiles et expertes', 'expertes'];
+const DIFFICULTE_UNE = ['', 'facile', 'facile', 'moyenne', 'moyenne', 'difficile', 'difficile', 'difficile', 'experte', 'experte'];
+
+const PREFIXES = {
+  plaine: ['La Plaine', 'Le Pré', 'Les Champs', 'La Lande'],
+  bois: ['Les Bois', 'La Futaie', 'Le Bosquet', 'La Sylve'],
+  mont: ['Le Mont', 'La Crête', 'Le Pic', 'Les Hauts'],
+  dunes: ['Les Dunes', 'L’Erg', 'Les Sables', 'Le Plateau'],
+  ruines: ['Les Ruines', 'Les Vestiges', 'Le Temple oublié', 'La Tour brisée'],
+  eau: ['Le Lac', 'L’Étang', 'Le Lac', 'Les Eaux'],
+};
+const COMPLEMENTS = {
+  monde: ['des Voyageurs', 'des Boussoles', 'du Globe', 'des Escales', 'des Passeports', 'des Cartographes'],
+  mythes: ['du Minotaure', 'des Pharaons', 'd’Ulysse', 'des Titans', 'des Oracles', 'de Charlemagne'],
+  contes: ['des Fables', 'du Petit Poucet', 'des Plumes', 'des Encriers', 'de Cendrillon', 'des Poètes'],
+  scene: ['des Ménestrels', 'des Violons', 'des Troubadours', 'du Diapason', 'des Chœurs', 'des Cymbales'],
+  ecran: ['des Projecteurs', 'des Studios', 'des Bobines', 'du Clap', 'des Doublures', 'des Cascadeurs'],
+  arcade: ['des Manettes', 'des Pixels', 'du Joker', 'des Dés', 'des Échecs', 'des Boss'],
+  carnaval: ['des Masques', 'des Lampions', 'des Confettis', 'des Fanfares', 'des Cotillons', 'des Farandoles'],
+  brigade: ['des Marmitons', 'des Épices', 'du Fournil', 'des Truffes', 'des Croissants', 'du Safran'],
+  stade: ['des Coureurs', 'du Podium', 'des Lutteurs', 'des Arbitres', 'du Maillot jaune', 'des Marathoniens'],
+  foret: ['du Cerf', 'des Chênes', 'aux Lucioles', 'de la Hulotte', 'des Lynx', 'des Fougères'],
+  oceans: ['des Mouettes', 'des Atolls', 'des Phares', 'des Coraux', 'des Marées', 'des Sirènes'],
+  espace: ['des Comètes', 'd’Euclide', 'des Quanta', 'de Curie', 'des Satellites', 'des Nébuleuses'],
+  coeur: ['du Savoir', 'des Sages', 'de la Mémoire', 'des Énigmes', 'des Lumières', 'de l’Aube'],
+};
+const CITADELLES = {
+  monde: 'La Citadelle des Explorateurs', mythes: 'La Citadelle des Titans', contes: 'La Citadelle des Fables',
+  scene: 'La Citadelle des Troubadours', ecran: 'La Citadelle des Studios', arcade: 'La Citadelle des Pixels',
+  carnaval: 'La Citadelle des Masques', brigade: 'La Citadelle des Marmitons', stade: 'La Citadelle des Athlètes',
+  foret: 'La Citadelle des Druides', oceans: 'La Citadelle des Sirènes', espace: 'La Citadelle des Astronomes',
+};
+const MERVEILLES = [
+  [3, 0, 'La Bibliothèque d’Alexandrie'], [0, 3, 'Le Colisée'], [-3, 3, 'Les Jardins suspendus'],
+  [-3, 0, 'Le Colosse de Rhodes'], [0, -3, 'Le Grand Phare'], [3, -3, 'Le Labyrinthe'],
+];
+
+const GUILDES = {
+  lanternes: { nom: 'Les Lanternes', charge: '🏮', hex: '#d9b56a', champs: ['#2a201b', '#d9b56a'], partition: 'parti', blasonne: 'Parti de sable et d’or, à la lanterne', devise: 'Nous portons la lumière' },
+  corsaires: { nom: 'Les Corsaires', charge: '⚓', hex: '#45b4bd', champs: ['#2f6f9e', '#cfd6dd'], partition: 'coupe', blasonne: 'Coupé d’azur et d’argent, à l’ancre', devise: 'Toutes voiles dehors' },
+};
+const JOUEURS = {
+  moi: { nom: 'Toi', avatar: '🦊', guilde: 'lanternes' },
+  camille: { nom: 'Camille', avatar: '🐼', guilde: 'lanternes', role: 'Cheffe' },
+  hugo: { nom: 'Hugo', avatar: '🐙', guilde: 'lanternes' },
+  karim: { nom: 'Karim', avatar: '🦁', guilde: 'corsaires', role: 'Chef' },
+  nadia: { nom: 'Nadia', avatar: '🦄', guilde: 'corsaires' },
+  sofia: { nom: 'Sofia', avatar: '🐸', guilde: 'corsaires' },
+  lucas: { nom: 'Lucas', avatar: '🐯', guilde: 'corsaires' },
+  lea: { nom: 'Léa', avatar: '🦉', guilde: null, hex: '#b49cf5' },
+  jeanne: { nom: 'Jeanne', avatar: '🍉', guilde: null, hex: '#e68aa8' },
+  marc: { nom: 'Marc', avatar: '🐨', guilde: null, hex: '#8f8472', absent: 6 },
+};
+// Ce que chacun a amassé depuis le 1er octobre (la maquette l'écrit d'avance).
+const INFLUENCE_DU_MOIS = { karim: 2310, lea: 2140, nadia: 1960, moi: 1870, camille: 1720, sofia: 1490, hugo: 1380, lucas: 990, jeanne: 860, marc: 540 };
+
+/* Les questions de la démo : vraies, simples, une poignée par catégorie. La bonne réponse est la première. */
+const QUESTIONS = {
+  'Nature': [
+    ['Quel est le plus grand mammifère du monde ?', 'La baleine bleue', 'L’éléphant d’Afrique', 'Le cachalot', 'La girafe'],
+    ['Combien de pattes a une araignée ?', 'Huit', 'Six', 'Dix', 'Douze'],
+    ['Quel arbre donne les glands ?', 'Le chêne', 'Le hêtre', 'Le châtaignier', 'Le noisetier'],
+    ['Comment s’appelle le petit de la biche ?', 'Le faon', 'Le marcassin', 'Le levraut', 'L’ourson'],
+    ['Quel animal terrestre est le plus rapide ?', 'Le guépard', 'Le lion', 'Le lévrier', 'L’antilope'],
+    ['Combien de cœurs a une pieuvre ?', 'Trois', 'Un', 'Deux', 'Quatre'],
+    ['Quel oiseau sait voler en arrière ?', 'Le colibri', 'L’hirondelle', 'Le martinet', 'La mésange'],
+    ['Quel pigment donne leur couleur verte aux feuilles ?', 'La chlorophylle', 'La mélanine', 'Le carotène', 'L’hémoglobine'],
+    ['Quel animal est l’emblème du WWF ?', 'Le panda géant', 'Le tigre', 'L’ours polaire', 'Le koala'],
+  ],
+  'Histoire': [
+    ['En quelle année a eu lieu la prise de la Bastille ?', '1789', '1776', '1792', '1815'],
+    ['Quel roi de France était surnommé le Roi-Soleil ?', 'Louis XIV', 'Louis XVI', 'François Ier', 'Henri IV'],
+    ['Quelle ville fut ensevelie par le Vésuve en 79 ?', 'Pompéi', 'Rome', 'Carthage', 'Athènes'],
+    ['Dans la mythologie grecque, qui règne sur la mer ?', 'Poséidon', 'Hadès', 'Apollon', 'Arès'],
+    ['En quelle année l’homme a-t-il marché sur la Lune ?', '1969', '1965', '1972', '1961'],
+    ['Quel dieu nordique manie le marteau Mjöllnir ?', 'Thor', 'Odin', 'Loki', 'Freyr'],
+    ['Qui fut le premier empereur des Français ?', 'Napoléon Ier', 'Charlemagne', 'Napoléon III', 'Louis XVIII'],
+  ],
+  'Géographie': [
+    ['Quel est le plus grand océan du monde ?', 'Le Pacifique', 'L’Atlantique', 'L’océan Indien', 'L’Arctique'],
+    ['Quelle est la capitale de l’Australie ?', 'Canberra', 'Sydney', 'Melbourne', 'Perth'],
+    ['Quel est le plus long fleuve de France ?', 'La Loire', 'La Seine', 'Le Rhône', 'La Garonne'],
+    ['Dans quel pays se trouve le Kilimandjaro ?', 'La Tanzanie', 'Le Kenya', 'L’Ouganda', 'L’Éthiopie'],
+    ['Quel détroit sépare l’Espagne du Maroc ?', 'Gibraltar', 'Le Bosphore', 'Béring', 'Magellan'],
+    ['Quelle est la capitale du Canada ?', 'Ottawa', 'Toronto', 'Montréal', 'Vancouver'],
+    ['Quelle mer borde Marseille ?', 'La Méditerranée', 'La Manche', 'La mer du Nord', 'La Baltique'],
+  ],
+  'Sciences': [
+    ['Quelle planète est la plus proche du Soleil ?', 'Mercure', 'Vénus', 'Mars', 'La Terre'],
+    ['Quel est le symbole chimique de l’or ?', 'Au', 'Or', 'Ag', 'Go'],
+    ['Combien de planètes compte le système solaire ?', 'Huit', 'Neuf', 'Sept', 'Dix'],
+    ['Quelle planète surnomme-t-on la planète rouge ?', 'Mars', 'Jupiter', 'Vénus', 'Saturne'],
+    ['Quel gaz les plantes absorbent-elles pour la photosynthèse ?', 'Le dioxyde de carbone', 'L’oxygène', 'L’azote', 'L’hélium'],
+    ['Quelle est la plus grosse planète du système solaire ?', 'Jupiter', 'Saturne', 'Neptune', 'Uranus'],
+    ['Qui a formulé la théorie de la relativité ?', 'Albert Einstein', 'Isaac Newton', 'Marie Curie', 'Niels Bohr'],
+  ],
+  'Cuisine': [
+    ['De quel pays la paella est-elle originaire ?', 'L’Espagne', 'L’Italie', 'Le Portugal', 'Le Mexique'],
+    ['Quel est l’ingrédient principal du guacamole ?', 'L’avocat', 'La tomate', 'Le concombre', 'Le poivron'],
+    ['Le roquefort se fait avec du lait de…', 'Brebis', 'Vache', 'Chèvre', 'Bufflonne'],
+    ['Quelle épice est la plus chère au poids ?', 'Le safran', 'La vanille', 'La cardamome', 'Le poivre'],
+    ['La bouillabaisse est une spécialité de…', 'Marseille', 'Lyon', 'Bordeaux', 'Brest'],
+    ['Le houmous se prépare avec des…', 'Pois chiches', 'Lentilles', 'Haricots rouges', 'Fèves'],
+    ['La tarte Tatin est une tarte aux…', 'Pommes', 'Poires', 'Prunes', 'Abricots'],
+  ],
+  'Sport': [
+    ['Combien de joueurs une équipe de football aligne-t-elle sur le terrain ?', 'Onze', 'Dix', 'Neuf', 'Douze'],
+    ['Tous les combien d’années ont lieu les Jeux olympiques d’été ?', 'Quatre ans', 'Deux ans', 'Trois ans', 'Cinq ans'],
+    ['Quel pays a gagné la Coupe du monde de football 2018 ?', 'La France', 'La Croatie', 'L’Allemagne', 'Le Brésil'],
+    ['Dans quel sport utilise-t-on un volant ?', 'Le badminton', 'Le squash', 'Le tennis de table', 'Le padel'],
+    ['Quelle distance court-on dans un marathon ?', '42,195 km', '40 km', '21,1 km', '50 km'],
+    ['Combien de trous compte un parcours de golf classique ?', 'Dix-huit', 'Douze', 'Neuf', 'Vingt-quatre'],
+  ],
+  'Musique': [
+    ['Combien de cordes a une guitare classique ?', 'Six', 'Quatre', 'Cinq', 'Sept'],
+    ['Qui chantait « La Vie en rose » ?', 'Édith Piaf', 'Dalida', 'Barbara', 'Juliette Gréco'],
+    ['De quel pays vient le groupe ABBA ?', 'La Suède', 'La Norvège', 'Le Danemark', 'La Finlande'],
+    ['Quel compositeur, devenu sourd, a écrit la Neuvième Symphonie ?', 'Beethoven', 'Mozart', 'Bach', 'Chopin'],
+  ],
+  'Cinéma & séries': [
+    ['Qui a réalisé « Jurassic Park » ?', 'Steven Spielberg', 'James Cameron', 'George Lucas', 'Ridley Scott'],
+    ['Dans « Le Roi Lion », comment s’appelle le père de Simba ?', 'Mufasa', 'Scar', 'Rafiki', 'Zazu'],
+    ['Quel acteur joue Jack dans « Titanic » ?', 'Leonardo DiCaprio', 'Brad Pitt', 'Matt Damon', 'Tom Cruise'],
+    ['Dans quelle saga croise-t-on Dark Vador ?', 'Star Wars', 'Star Trek', 'Dune', 'Alien'],
+  ],
+  'Arts & lettres': [
+    ['Qui a écrit « Les Misérables » ?', 'Victor Hugo', 'Émile Zola', 'Honoré de Balzac', 'Alexandre Dumas'],
+    ['Qui a peint « La Joconde » ?', 'Léonard de Vinci', 'Michel-Ange', 'Raphaël', 'Botticelli'],
+    ['Qui a écrit « Le Petit Prince » ?', 'Antoine de Saint-Exupéry', 'Jules Verne', 'Albert Camus', 'Marcel Pagnol'],
+    ['Dans quel conte perd-on une pantoufle de verre ?', 'Cendrillon', 'Blanche-Neige', 'La Belle au bois dormant', 'Peau d’Âne'],
+  ],
+  'Jeux & pop culture': [
+    ['Quel plombier moustachu est la mascotte de Nintendo ?', 'Mario', 'Luigi', 'Wario', 'Link'],
+    ['Combien de cases compte un échiquier ?', '64', '49', '81', '100'],
+    ['Combien de faces a un dé classique ?', 'Six', 'Quatre', 'Huit', 'Douze'],
+    ['De quelle couleur est Pac-Man ?', 'Jaune', 'Rouge', 'Bleu', 'Vert'],
+  ],
+  'Autour de la fête': [
+    ['Quelle ville est célèbre pour son carnaval et ses écoles de samba ?', 'Rio de Janeiro', 'Venise', 'Nice', 'La Nouvelle-Orléans'],
+    ['Quelle période suit le Mardi gras ?', 'Le Carême', 'L’Avent', 'Pâques', 'La Pentecôte'],
+    ['Quel pays fête le Jour des morts avec des crânes en sucre ?', 'Le Mexique', 'L’Espagne', 'Le Pérou', 'Cuba'],
+    ['Combien de bougies sur le gâteau des dix ans ?', 'Dix', 'Neuf', 'Onze', 'Douze'],
+  ],
+  'Culture générale': [
+    ['Combien de jours compte une année bissextile ?', '366', '365', '364', '367'],
+    ['Combien de côtés a un hexagone ?', 'Six', 'Cinq', 'Huit', 'Sept'],
+    ['Quelle langue parle-t-on au Brésil ?', 'Le portugais', 'L’espagnol', 'Le brésilien', 'L’italien'],
+    ['Quelle couleur obtient-on en mélangeant du bleu et du jaune ?', 'Le vert', 'Le violet', 'L’orange', 'Le marron'],
+  ],
+};
+
+/* ═══════════════ Les Terres : tirées d'une graine, une fois par mois ═══════════════ */
+
+const cleDe = (q, r) => q + ',' + r;
+const anneauDe = (q, r) => (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+const distance = (a, b) => anneauDe(a.q - b.q, a.r - b.r);
+const centreDe = (q, r) => [S * RAC3 * (q + r / 2), S * 1.5 * r];
+const coin = (t, i) => {
+  const a = (60 * i - 30) * Math.PI / 180;
+  return [t.x + S * Math.cos(a), t.y + S * Math.sin(a)];
+};
+
+// Le hasard d'un mois : une graine, et tout le reste s'en déduit.
+function h01(q, r, sel) {
+  let h = Math.imul(q | 0, 374761393) ^ Math.imul(r | 0, 668265263) ^ Math.imul((sel | 0) + 1013, 1274126177);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function lisse(q, r, sel) {
+  let s = h01(q, r, sel) * 2;
+  for (const [dq, dr] of DIRS) s += h01(q + dq, r + dr, sel);
+  return s / 8;
+}
+const versRvb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const melange = (a, b, t) => {
+  const [x, y] = [versRvb(a), versRvb(b)];
+  return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
+};
+
+const tuiles = new Map();
+for (let q = -R; q <= R; q++) {
+  for (let r = Math.max(-R, -q - R); r <= Math.min(R, -q + R); r++) {
+    const [x, y] = centreDe(q, r);
+    const anneau = anneauDe(q, r);
+    const ang = (Math.atan2(y, x) * 180 / Math.PI + 90 + 360) % 360;
+    tuiles.set(cleDe(q, r), {
+      q, r, k: cleDe(q, r), x, y, anneau, ang,
+      prov: anneau <= 2 ? -1 : Math.floor(ang / 30) % 12,
+      danger: anneau <= 2 ? 5 : anneau === 3 ? 4 : anneau <= 5 ? 3 : anneau <= 7 ? 2 : 1,
+      terrain: null, nom: '', maitre: null, garnison: 0,
+    });
+  }
+}
+const voisins = t => DIRS.map(([dq, dr]) => tuiles.get(cleDe(t.q + dq, t.r + dr))).filter(Boolean);
+const provinceDe = t => (t.prov >= 0 ? PROVINCES[t.prov] : COEUR);
+
+// Le Cœur, les six merveilles à sa lisière, une citadelle par province.
+const coeur = tuiles.get(cleDe(0, 0));
+coeur.terrain = 'coeur';
+coeur.nom = 'Le Cœur des Terres';
+for (const [q, r, nom] of MERVEILLES) { const t = tuiles.get(cleDe(q, r)); t.terrain = 'merveille'; t.nom = nom; }
+PROVINCES.forEach((p, i) => {
+  const milieu = i * 30 + 15;
+  let mieux = null, ecart = 1e9;
+  for (const t of tuiles.values()) {
+    if (t.anneau !== 5) continue;
+    const d = Math.abs(((t.ang - milieu + 540) % 360) - 180);
+    if (d < ecart) { ecart = d; mieux = t; }
+  }
+  mieux.terrain = 'citadelle';
+  mieux.nom = CITADELLES[p.cle];
+});
+// Quelques lacs, qui font des cols et des détours.
+for (const t of tuiles.values()) {
+  if (t.terrain || t.anneau < 4 || t.anneau > 7) continue;
+  if (h01(t.q, t.r, 99) < 0.04) {
+    t.terrain = 'eau';
+    for (const v of voisins(t)) if (!v.terrain && v.anneau >= 3 && h01(v.q, v.r, 98) < 0.5) v.terrain = 'eau';
+  }
+}
+for (const t of tuiles.values()) {
+  if (t.terrain && t.terrain !== 'eau') continue;
+  const p = provinceDe(t);
+  if (!t.terrain) {
+    const alt = lisse(t.q, t.r, 1);
+    const hum = lisse(t.q, t.r, 2) + (p.cle === 'foret' ? 0.07 : 0) - (p.cle === 'espace' ? 0.04 : 0);
+    t.terrain = h01(t.q, t.r, 5) < 0.045 && t.anneau >= 3 && t.anneau <= 8 ? 'ruines'
+      : alt > 0.6 ? 'mont' : hum > 0.56 ? 'bois' : hum < 0.43 ? 'dunes' : 'plaine';
+  }
+  const pre = PREFIXES[t.terrain];
+  const comp = COMPLEMENTS[p.cle];
+  t.nom = pre[Math.floor(h01(t.q, t.r, 21) * pre.length)] + ' ' + comp[Math.floor(h01(t.q, t.r, 22) * comp.length)];
+}
+
+/* ═══════════════ Le 19 octobre (simulé) ═══════════════ */
+
+const estLibre = t => t && t.terrain !== 'eau' && !t.maitre && !['citadelle', 'merveille', 'coeur'].includes(t.terrain);
+function surLaCote(prov, decalage = 0) {
+  const milieu = prov * 30 + 15 + decalage;
+  let mieux = null, ecart = 1e9;
+  for (const t of tuiles.values()) {
+    if (t.anneau !== R || !estLibre(t)) continue;
+    const d = Math.abs(((t.ang - milieu + 540) % 360) - 180);
+    if (d < ecart) { ecart = d; mieux = t; }
+  }
+  return mieux;
+}
+function etendre(id, depart, taille, cible) {
+  const mes = [depart];
+  depart.maitre = id;
+  depart.capitale = id;
+  while (mes.length < taille) {
+    let mieux = null, score = -Infinity;
+    for (const t of mes) for (const v of voisins(t)) {
+      if (!estLibre(v)) continue;
+      const s = (cible ? -distance(v, cible) * 1.3 : v.anneau * 0.8) + h01(v.q, v.r, id.length * 7 + 3) * 1.6;
+      if (s > score) { score = s; mieux = v; }
+    }
+    if (!mieux) break;
+    mieux.maitre = id;
+    mes.push(mieux);
+  }
+}
+// Rapproche deux territoires jusqu'à ce qu'ils se touchent (la maquette veut une frontière).
+function rejoindre(id, vers) {
+  for (let tour = 0; tour < 12; tour++) {
+    const miens = [...tuiles.values()].filter(t => t.maitre === id);
+    if (miens.some(t => voisins(t).some(v => v === vers || v.maitre === vers))) return;
+    const cibles = typeof vers === 'string' ? [...tuiles.values()].filter(t => t.maitre === vers) : [vers];
+    let mieux = null, d = 1e9;
+    for (const m of miens) for (const v of voisins(m)) {
+      if (!estLibre(v)) continue;
+      for (const c of cibles) { const dd = distance(v, c); if (dd < d) { d = dd; mieux = v; } }
+    }
+    if (!mieux) return;
+    mieux.maitre = id;
+  }
+}
+
+const P = Object.fromEntries(PROVINCES.map((p, i) => [p.cle, i]));
+const citadelleDe = cle => [...tuiles.values()].find(t => t.terrain === 'citadelle' && t.nom === CITADELLES[cle]);
+const lieuNomme = nom => [...tuiles.values()].find(t => t.nom === nom);
+
+const capMoi = surLaCote(P.foret);
+etendre('moi', capMoi, 12, citadelleDe('foret'));
+const capHugo = surLaCote(P.stade);
+etendre('hugo', capHugo, 8, capMoi);
+etendre('camille', surLaCote(P.brigade), 9, capHugo);
+etendre('lea', surLaCote(P.oceans, 4), 11, capMoi);
+const capKarim = surLaCote(P.espace);
+etendre('karim', capKarim, 12, lieuNomme('Le Grand Phare'));
+const capNadia = surLaCote(P.monde);
+etendre('nadia', capNadia, 9, capKarim);
+const capSofia = surLaCote(P.mythes);
+etendre('sofia', capSofia, 8, capNadia);
+etendre('lucas', surLaCote(P.mythes, 12), 6, capSofia);
+etendre('jeanne', surLaCote(P.carnaval), 7);
+etendre('marc', surLaCote(P.scene), 5);
+rejoindre('moi', 'lea');
+rejoindre('moi', citadelleDe('foret'));
+rejoindre('karim', lieuNomme('Le Grand Phare'));
+rejoindre('jeanne', 'camille');
+lieuNomme('Le Grand Phare').maitre = 'g:corsaires';
+for (const t of tuiles.values()) if (t.maitre) t.garnison = t.capitale ? 2 : Math.floor(h01(t.q, t.r, 41) * 2.4);
+
+// Le siège que Léa a posé hier soir, sur une crête des Lanternes qui touche ses terres.
+const crete = [...tuiles.values()]
+  .filter(t => t.maitre === 'moi' && !t.capitale && voisins(t).some(v => v.maitre === 'lea'))
+  .sort((a, b) => b.anneau - a.anneau)[0];
+if (crete) {
+  crete.terrain = 'mont';
+  crete.nom = 'La Crête des Lynx';
+  crete.garnison = 1;
+  crete.assaut = { par: 'lea', score: 6, sur: 8 };
+}
+// Le siège de la Citadelle des Druides, que la guilde a ouvert hier.
+const druides = citadelleDe('foret');
+druides.siege = { guilde: 'lanternes', faits: [['camille', 7], ['hugo', 6]] };
+// Une tuile de Jeanne sous trêve : elle vient de changer de mains.
+const treveJeanne = [...tuiles.values()].find(t => t.maitre === 'jeanne' && !t.capitale);
+if (treveJeanne) treveJeanne.treve = 'jusqu’à 21 h';
+
+/* ═══════════════ L'état de la journée ═══════════════ */
+
+let etendards = 3;
+const ETENDARDS_PAR_JOUR = 5;
+let selection = null;
+const gazette = [
+  { ico: '⚔️', perso: true, quand: 'Hier, 21 h 12', texte: '<b>Léa</b> assiège <b>La Crête des Lynx</b> : 6 bonnes réponses sur 8. Elle tombe à minuit demain si personne des Lanternes ne fait aussi bien.' },
+  { ico: '🏰', perso: true, quand: 'Hier, 19 h 40', texte: '<b>Camille</b> et <b>Hugo</b> ont ouvert le siège de <b>La Citadelle des Druides</b> : il manque un membre.' },
+  { ico: '✦', perso: true, quand: 'Cette nuit', texte: 'Le tribut de la nuit : <b>+160 ✦</b> pour toi, <b>+410 ✦</b> pour Les Lanternes.' },
+  { ico: '🌫️', quand: 'Cette nuit', texte: 'L’Oubli a repris deux tuiles de <b>Marc</b>, absent depuis six jours.' },
+  { ico: '🏛️', quand: 'Hier, 18 h 05', texte: '<b>Les Corsaires</b> tiennent <b>Le Grand Phare</b> depuis quatre jours.' },
+  { ico: '🛡️', quand: 'Hier, 12 h 30', texte: '<b>Jeanne</b> a repoussé <b>Sofia</b> sur La Plaine des Masques : 7 sur 8 contre 6.' },
+  { ico: '🚩', quand: 'Avant-hier', texte: '<b>Lucas</b> a débarqué sur la côte des mythologies : 48 h de protection.' },
+];
+
+/* ═══════════════ Qui tient quoi ═══════════════ */
+
+const guildeDe = id => (!id ? null : id.startsWith('g:') ? id.slice(2) : JOUEURS[id]?.guilde ?? null);
+const couleurDe = id => {
+  if (!id) return null;
+  const g = guildeDe(id);
+  return g ? GUILDES[g].hex : JOUEURS[id].hex;
+};
+const nomDuMaitre = id => (id.startsWith('g:') ? GUILDES[id.slice(2)].nom : id === 'moi' ? 'toi' : JOUEURS[id].nom);
+const estAMaGuilde = t => !!t.maitre && guildeDe(t.maitre) === 'lanternes';
+const toucheMaGuilde = t => voisins(t).some(estAMaGuilde);
+const territoire = id => [...tuiles.values()].filter(t => t.maitre === id).length;
+const territoireDeGuilde = g => [...tuiles.values()].filter(t => guildeDe(t.maitre) === g).length;
+const rapportDe = t => RAPPORT_SPECIAL[t.terrain] ?? RAPPORT[t.danger] + (t.terrain === 'ruines' ? BONUS_DES_RUINES : 0);
+const parNuit = id => [...tuiles.values()].filter(t => t.maitre === id).reduce((s, t) => s + rapportDe(t), 0);
+// Le code d'honneur : on n'assiège pas qui pèse moins du tiers de soi (sa guilde comptée).
+const poidsDe = id => { const g = guildeDe(id); return g ? territoireDeGuilde(g) : territoire(id); };
+const niveauDe = t => Math.min(9, t.danger + (t.maitre ? t.garnison : 0) + (t.maitre && voisins(t).filter(v => v.maitre && guildeDe(v.maitre) === guildeDe(t.maitre)).length >= 4 ? 1 : 0));
+
+const fr = n => n.toLocaleString('fr-FR').replace(/[  ]/g, ' ');
+const etoiles = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+const echapper = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+const ICONE_DRAPEAU = plein => `<svg class="drapeau ${plein ? '' : 'vide'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5" ${plein ? 'fill="currentColor"' : ''}/></svg>`;
+const COEUR_SVG = plein => `<svg viewBox="0 0 24 24" class="${plein ? '' : 'perdu'}" fill="${plein ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2Z"/></svg>`;
+const FORMES = [
+  '<path d="M12 3 22 21H2Z" fill="var(--shape-0)"/>',
+  '<path d="M12 2 22 12 12 22 2 12Z" fill="var(--shape-1)"/>',
+  '<circle cx="12" cy="12" r="10" fill="var(--shape-2)"/>',
+  '<rect x="3" y="3" width="18" height="18" rx="2" fill="var(--shape-3)"/>',
+];
+
+/* ═══════════════ Le dessin de la carte ═══════════════ */
+
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('carte');
+const monde = document.getElementById('monde');
+const nouveau = (nom, attrs, parent) => {
+  const n = document.createElementNS(NS, nom);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+};
+const calques = {};
+for (const nom of ['tuiles', 'brume', 'traits', 'icones', 'marques', 'selection']) calques[nom] = nouveau('g', { class: 'calque-' + nom }, monde);
+
+const polygone = t => [0, 1, 2, 3, 4, 5].map(i => coin(t, i).map(v => v.toFixed(1)).join(',')).join(' ');
+const cheminHex = t => 'M' + [0, 1, 2, 3, 4, 5].map(i => coin(t, i).map(v => v.toFixed(1)).join(' ')).join('L') + 'Z';
+// L'Oubli prend la lueur de sa province, éteinte, et s'assombrit vers le Cœur.
+const couleurDOubli = t => melange(melange('#2a2320', provinceDe(t).lueur, 0.2), '#0b0908', (t.danger - 1) * 0.13);
+
+const formes = new Map();
+for (const t of tuiles.values()) formes.set(t.k, nouveau('polygon', { points: polygone(t), class: 'tuile', 'data-k': t.k }, calques.tuiles));
+
+function arete(t, i) {
+  const [x1, y1] = coin(t, i), [x2, y2] = coin(t, (i + 1) % 6);
+  return `M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}`;
+}
+// Ce qui ne bouge pas du mois : la côte et les frontières des provinces.
+(function traitsFixes() {
+  let cote = '', provinces = '';
+  for (const t of tuiles.values()) {
+    DIRS.forEach(([dq, dr], i) => {
+      const v = tuiles.get(cleDe(t.q + dq, t.r + dr));
+      if (!v) cote += arete(t, i);
+      else if (v.prov !== t.prov && t.k < v.k) provinces += arete(t, i);
+    });
+  }
+  nouveau('path', { d: provinces, class: 'trait trait-province' }, calques.traits);
+  nouveau('path', { d: cote, class: 'trait trait-cote' }, calques.traits);
+})();
+const traitsMobiles = nouveau('g', {}, calques.traits);
+
+function dessiner() {
+  let brume = '';
+  for (const t of tuiles.values()) {
+    const f = formes.get(t.k);
+    if (t.terrain === 'eau') { f.setAttribute('fill', 'url(#p-eau)'); f.removeAttribute('fill-opacity'); continue; }
+    const c = couleurDe(t.maitre);
+    if (c) {
+      const fane = JOUEURS[t.maitre]?.absent;
+      f.setAttribute('fill', c);
+      f.setAttribute('fill-opacity', t.maitre === 'moi' ? '0.92' : fane ? '0.4' : '0.74');
+      if (fane) brume += cheminHex(t);
+    } else {
+      f.setAttribute('fill', couleurDOubli(t));
+      f.removeAttribute('fill-opacity');
+      brume += cheminHex(t);
+    }
+  }
+  calques.brume.replaceChildren();
+  nouveau('path', { d: brume, fill: 'url(#p-brume)' }, calques.brume);
+
+  // Les frontières de chaque maître, la tienne plus claire ; ce qui est à ta portée, en pointillé.
+  traitsMobiles.replaceChildren();
+  const parCouleur = new Map();
+  let miennes = '', portee = '';
+  for (const t of tuiles.values()) {
+    if (t.maitre) {
+      const c = couleurDe(t.maitre);
+      DIRS.forEach(([dq, dr], i) => {
+        const v = tuiles.get(cleDe(t.q + dq, t.r + dr));
+        if (!v || couleurDe(v.maitre) !== c) parCouleur.set(c, (parCouleur.get(c) || '') + arete(t, i));
+        if (t.maitre === 'moi' && (!v || v.maitre !== 'moi')) miennes += arete(t, i);
+      });
+    }
+    if (t.terrain !== 'eau' && !estAMaGuilde(t) && toucheMaGuilde(t)) portee += cheminHex(t);
+  }
+  for (const [c, d] of parCouleur) nouveau('path', { d, class: 'trait trait-maitre', stroke: c }, traitsMobiles);
+  nouveau('path', { d: portee, class: 'trait trait-portee' }, traitsMobiles);
+  nouveau('path', { d: miennes, class: 'trait trait-moi' }, traitsMobiles);
+
+  // Les icônes : le terrain, les lieux à part, les capitales et leurs avatars.
+  calques.icones.replaceChildren();
+  calques.marques.replaceChildren();
+  for (const t of tuiles.values()) {
+    if (t.terrain === 'eau') continue;
+    const special = ['citadelle', 'merveille', 'coeur'].includes(t.terrain);
+    if (t.capitale && t.maitre === t.capitale) {
+      const g = nouveau('g', { class: 'capitale-groupe' }, calques.icones);
+      nouveau('circle', { cx: t.x, cy: t.y, r: 17, fill: '#1a1412', stroke: couleurDe(t.maitre), class: 'capitale-fond' }, g);
+      nouveau('text', { x: t.x, y: t.y + 1, class: 'ico capitale' }, g).textContent = JOUEURS[t.capitale].avatar;
+      continue;
+    }
+    nouveau('text', { x: t.x, y: t.y + 1, class: 'ico ' + (special ? 'ico-special' : 'ico-terrain' + (t.maitre ? '' : ' ico-oubli')) }, calques.icones)
+      .textContent = TERRAINS[t.terrain].emoji;
+    if (t.assaut) {
+      nouveau('path', { d: cheminHex(t), fill: 'url(#p-assaut)' }, calques.marques);
+      nouveau('polygon', { points: polygone(t), class: 'pulse' }, calques.marques);
+      nouveau('text', { x: t.x + 14, y: t.y - 16, class: 'ico', 'font-size': 18 }, calques.marques).textContent = '⚔️';
+    }
+    if (t.siege) {
+      const part = t.siege.faits.length / FORMATS.siege.guilde;
+      const r = 24, tour = 2 * Math.PI * r;
+      nouveau('circle', { cx: t.x, cy: t.y, r, class: 'jauge-fond' }, calques.marques);
+      nouveau('circle', { cx: t.x, cy: t.y, r, class: 'jauge', 'stroke-dasharray': `${(tour * part).toFixed(1)} ${tour.toFixed(1)}`, transform: `rotate(-90 ${t.x} ${t.y})` }, calques.marques);
+    }
+  }
+  dessinerSelection();
+  majBandeau();
+}
+function dessinerSelection() {
+  calques.selection.replaceChildren();
+  if (selection) nouveau('polygon', { points: polygone(selection), class: 'selection' }, calques.selection);
+}
+const mouvementReduit = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function onde(t) {
+  if (mouvementReduit()) return;
+  const o = nouveau('polygon', { points: polygone(t), class: 'onde' }, calques.selection);
+  setTimeout(() => o.remove(), 1200);
+}
+
+/* Les étiquettes des provinces : du texte HTML posé sur la carte, lisible à toute échelle. */
+const etiquettes = document.getElementById('etiquettes');
+const posEtiquettes = [...PROVINCES.map((p, i) => ({ p, zone: [...tuiles.values()].filter(t => t.prov === i && t.anneau >= 5 && t.anneau <= 8) })), { p: COEUR, zone: [coeur] }]
+  .sort((a, b) => (b.p.cle === 'foret') - (a.p.cle === 'foret'))
+  .map(({ p, zone }) => {
+    const e = document.createElement('span');
+    e.className = 'etiquette';
+    e.innerHTML = `<i style="background:${p.lueur}"></i>${p.nom}`;
+    etiquettes.appendChild(e);
+    return { e, x: zone.reduce((s, t) => s + t.x, 0) / zone.length, y: zone.reduce((s, t) => s + t.y, 0) / zone.length };
+  });
+
+/* ═══════════════ Bouger sur la carte : glisser, pincer, la molette ═══════════════ */
+
+const vue = { x: 0, y: 0, k: 1 };
+const K_MIN = 0.26, K_MAX = 2.4;
+const borner = k => Math.min(K_MAX, Math.max(K_MIN, k));
+function appliquer() {
+  monde.setAttribute('transform', `translate(${vue.x.toFixed(1)} ${vue.y.toFixed(1)}) scale(${vue.k.toFixed(4)})`);
+  const loin = vue.k < 0.6;
+  svg.classList.toggle('loin', loin);
+  etiquettes.hidden = !loin;
+  if (!loin) return;
+  // Douze noms autour d'un cercle de trois cents pixels se marchent dessus : on pose d'abord le sien,
+  // puis ceux qui ont la place, et l'alerte compte comme une place prise.
+  const pris = [];
+  const alerte = document.getElementById('alerte');
+  if (!alerte.hidden) {
+    const a = alerte.getBoundingClientRect(), b = cadre();
+    pris.push({ x: a.left - b.left, y: a.top - b.top, w: a.width, h: a.height });
+  }
+  for (const p of posEtiquettes) {
+    if (!p.w) { p.w = p.e.offsetWidth; p.h = p.e.offsetHeight; }
+    const x = vue.x + p.x * vue.k - p.w / 2, y = vue.y + p.y * vue.k - p.h / 2;
+    const choc = pris.some(r => x < r.x + r.w + 6 && x + p.w + 6 > r.x && y < r.y + r.h + 3 && y + p.h + 3 > r.y);
+    p.e.style.visibility = choc ? 'hidden' : 'visible';
+    p.e.style.transform = `translate(${x.toFixed(0)}px, ${y.toFixed(0)}px)`;
+    if (!choc) pris.push({ x, y, w: p.w, h: p.h });
+  }
+}
+const cadre = () => svg.getBoundingClientRect();
+let anim = null;
+function glisserVers(x, y, k, haut = 0.5, instant = false) {
+  const b = cadre();
+  const cible = { k: borner(k) };
+  cible.x = b.width / 2 - x * cible.k;
+  cible.y = b.height * haut - y * cible.k;
+  cancelAnimationFrame(anim);
+  if (instant || mouvementReduit()) { Object.assign(vue, cible); appliquer(); return; }
+  const depart = { ...vue }, t0 = performance.now();
+  const pas = now => {
+    const p = Math.min(1, (now - t0) / 420), e = 1 - Math.pow(1 - p, 3);
+    vue.x = depart.x + (cible.x - depart.x) * e;
+    vue.y = depart.y + (cible.y - depart.y) * e;
+    vue.k = depart.k + (cible.k - depart.k) * e;
+    appliquer();
+    if (p < 1) anim = requestAnimationFrame(pas);
+  };
+  anim = requestAnimationFrame(pas);
+}
+function zoomAutour(cx, cy, k) {
+  const b = cadre();
+  const sx = cx - b.left, sy = cy - b.top;
+  const wx = (sx - vue.x) / vue.k, wy = (sy - vue.y) / vue.k;
+  vue.k = borner(k);
+  vue.x = sx - wx * vue.k;
+  vue.y = sy - wy * vue.k;
+  appliquer();
+}
+const centreDeMesTerres = () => {
+  const miennes = [...tuiles.values()].filter(t => t.maitre === 'moi');
+  return [miennes.reduce((s, t) => s + t.x, 0) / miennes.length, miennes.reduce((s, t) => s + t.y, 0) / miennes.length];
+};
+function voirMesTerres(instant = false) { const [x, y] = centreDeMesTerres(); glisserVers(x, y, 0.95, 0.55, instant); }
+function voirTout() {
+  const b = cadre();
+  glisserVers(0, 0, Math.min(b.width / (2 * (R + 0.6) * RAC3 * S), b.height / ((3 * R + 2.4) * S)));
+}
+
+const pointeurs = new Map();
+let geste = null;
+svg.addEventListener('pointerdown', e => {
+  svg.setPointerCapture(e.pointerId);
+  pointeurs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  cancelAnimationFrame(anim);
+  if (pointeurs.size === 1) {
+    geste = { x0: e.clientX, y0: e.clientY, vx: vue.x, vy: vue.y, bouge: false };
+  } else if (pointeurs.size === 2) {
+    const [a, b] = [...pointeurs.values()];
+    const bb = cadre();
+    const mx = (a.x + b.x) / 2 - bb.left, my = (a.y + b.y) / 2 - bb.top;
+    geste = { pince: true, d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, k0: vue.k, wx: (mx - vue.x) / vue.k, wy: (my - vue.y) / vue.k, bouge: true };
+  }
+});
+svg.addEventListener('pointermove', e => {
+  if (!pointeurs.has(e.pointerId) || !geste) return;
+  pointeurs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (geste.pince && pointeurs.size >= 2) {
+    const [a, b] = [...pointeurs.values()];
+    const bb = cadre();
+    const mx = (a.x + b.x) / 2 - bb.left, my = (a.y + b.y) / 2 - bb.top;
+    vue.k = borner(geste.k0 * Math.hypot(a.x - b.x, a.y - b.y) / geste.d0);
+    vue.x = mx - geste.wx * vue.k;
+    vue.y = my - geste.wy * vue.k;
+    appliquer();
+  } else if (!geste.pince) {
+    const dx = e.clientX - geste.x0, dy = e.clientY - geste.y0;
+    if (!geste.bouge && Math.hypot(dx, dy) > 7) geste.bouge = true;
+    if (geste.bouge) { vue.x = geste.vx + dx; vue.y = geste.vy + dy; appliquer(); }
+  }
+});
+function finDuGeste(e) {
+  if (!pointeurs.has(e.pointerId)) return;
+  pointeurs.delete(e.pointerId);
+  if (geste && !geste.bouge && !geste.pince && e.type === 'pointerup') {
+    const cible = document.elementFromPoint(e.clientX, e.clientY);
+    const k = cible?.getAttribute?.('data-k');
+    if (k) choisir(tuiles.get(k));
+    else fermerFeuille();
+  }
+  if (pointeurs.size === 0) geste = null;
+  else if (pointeurs.size === 1 && geste?.pince) {
+    const [p] = [...pointeurs.values()];
+    geste = { x0: p.x, y0: p.y, vx: vue.x, vy: vue.y, bouge: true };
+  }
+}
+svg.addEventListener('pointerup', finDuGeste);
+svg.addEventListener('pointercancel', finDuGeste);
+svg.addEventListener('wheel', e => { e.preventDefault(); zoomAutour(e.clientX, e.clientY, vue.k * Math.exp(-e.deltaY * 0.0016)); }, { passive: false });
+const zoomCentre = f => { const b = cadre(); zoomAutour(b.left + b.width / 2, b.top + b.height / 2, vue.k * f); };
+document.getElementById('zoom-plus').addEventListener('click', () => zoomCentre(1.35));
+document.getElementById('zoom-moins').addEventListener('click', () => zoomCentre(1 / 1.35));
+document.getElementById('voir-mes-terres').addEventListener('click', () => voirMesTerres());
+document.getElementById('voir-tout').addEventListener('click', voirTout);
+document.getElementById('voir-liste').addEventListener('click', ouvrirListe);
+
+/* ═══════════════ La feuille d'une tuile ═══════════════ */
+
+const feuille = document.getElementById('feuille');
+const corpsFeuille = document.getElementById('feuille-corps');
+const piedFeuille = document.getElementById('feuille-pied');
+
+function choisir(t) {
+  if (!t) return;
+  selection = t;
+  dessinerSelection();
+  ouvrirFeuille(t);
+  // La tuile reste visible entre le haut de la carte et la feuille.
+  const b = cadre();
+  const app = document.getElementById('app').getBoundingClientRect();
+  const hautFeuille = app.bottom - feuille.offsetHeight;
+  const visibleBas = Math.min(b.bottom, hautFeuille);
+  const y = Math.max(36, (visibleBas - b.top) / 2);
+  glisserVers(t.x, t.y, Math.max(vue.k, 0.85), y / b.height);
+}
+function fermerFeuille() {
+  feuille.classList.remove('ouverte');
+  feuille.setAttribute('aria-hidden', 'true');
+  selection = null;
+  dessinerSelection();
+}
+document.getElementById('fermer-feuille').addEventListener('click', fermerFeuille);
+
+const dangerHtml = n => `<span class="danger" aria-label="danger ${n} sur 5">${'●'.repeat(n)}<span class="off">${'●'.repeat(5 - n)}</span></span>`;
+function maitreHtml(id) {
+  const g = guildeDe(id);
+  if (id.startsWith('g:')) return `<span class="qui"><span class="puce" style="background:${couleurDe(id)}"></span>${GUILDES[g].charge} ${GUILDES[g].nom}</span>`;
+  const j = JOUEURS[id];
+  return `<span class="qui"><span class="puce" style="background:${couleurDe(id)}"></span>${j.avatar} ${id === 'moi' ? 'Toi' : j.nom}${g ? ` · ${GUILDES[g].nom}` : ''}</span>`;
+}
+const PLUS_D_ETENDARDS = 'Plus d’étendards aujourd’hui : ils reviennent à minuit.';
+
+function ouvrirFeuille(t) {
+  const p = provinceDe(t);
+  const terrain = TERRAINS[t.terrain];
+  const f = terrain.format ? FORMATS[terrain.format] : null;
+  const niveau = niveauDe(t);
+  document.getElementById('feuille-titre').textContent = t.nom;
+  document.getElementById('feuille-sous').innerHTML = `<span class="puce" style="background:${p.lueur}"></span>${p.nom} · ${p.cat}`;
+  if (t.terrain === 'eau') {
+    corpsFeuille.innerHTML = '<p class="statut">On ne plante pas d’étendard sur l’eau : les lacs font des cols et des détours.</p>';
+    piedFeuille.innerHTML = '';
+    return montrerFeuille();
+  }
+  // La feuille s'ouvre courte — ce qui se passe, et le geste —, pour laisser voir la tuile sur la carte ;
+  // le détail se déplie.
+  const fond = couleurDe(t.maitre) || couleurDOubli(t);
+  const regle = f ? `<div class="regle"><div class="rond" aria-hidden="true">${f.ico}</div><div><b>${f.nom}</b> · ${f.regle}${f.guilde ? '' : ` <span class="muted">Questions ${p.cat === 'Toutes les catégories' ? 'de toutes les catégories' : 'de ' + p.cat}, plutôt ${DIFFICULTE[niveau]} (niveau ${niveau}).</span>`}</div></div>` : '';
+  const detail = `<details class="detail">
+      <summary><span class="lieu-ico" style="background:${fond};width:26px;height:26px;font-size:.9rem" aria-hidden="true">${terrain.emoji}</span>${terrain.nom}${f ? ' · ' + f.nom : ''} · ${rapportDe(t)} ✦ par nuit</summary>
+      <div class="detail-corps">
+        <div class="faits">
+          <div class="fait"><span class="label">Danger</span><b>${dangerHtml(t.danger)}</b></div>
+          <div class="fait"><span class="label">Garnison</span><b>${t.maitre ? etoiles(t.garnison) : '—'}</b></div>
+          <div class="fait"><span class="label">Par nuit</span><b>${rapportDe(t)} ✦</b></div>
+        </div>
+        ${regle}
+      </div>
+    </details>`;
+
+  let statut = '', action = '', raison = '';
+  if (t.assaut && t.maitre === 'moi') {
+    statut = `<p class="statut mal"><b>Léa l’assiège</b> : ${t.assaut.score} sur ${t.assaut.sur} à L’Ascension. Fais au moins autant <b>avant minuit demain</b>, ou elle est à elle.</p>`;
+    action = '<button class="btn btn-primary btn-block" type="button" data-agir="repousser">Repousser l’assaut · gratuit</button>';
+  } else if (t.siege) {
+    const qui = t.siege.faits.map(([id, n]) => `${JOUEURS[id].nom} (${n} sur 8)`).join(' et ');
+    statut = `<p class="statut bien"><b>Ta guilde l’assiège.</b> ${qui} ont réussi ; il manque un membre : toi. Encore 14 h.</p>`;
+    if (etendards > 0) { action = '<button class="btn btn-primary btn-block" type="button" data-agir="siege">Rejoindre le siège · 1 étendard</button>'; raison = 'Réussis L’Ascension : la citadelle tombe aux Lanternes.'; }
+    else raison = PLUS_D_ETENDARDS;
+  } else if (t.terrain === 'merveille' || t.terrain === 'coeur') {
+    statut = t.maitre
+      ? `<p class="statut">Tenue par ${maitreHtml(t.maitre)} depuis quatre jours : ${rapportDe(t)} ✦ chaque nuit, et sa relique à chaque membre qui la tient le dernier soir.</p>`
+      : `<p class="statut">${t.terrain === 'coeur' ? 'Le Cœur ne s’ouvre qu’au Crépuscule.' : 'Personne ne la tient.'} Il faut une guilde de quatre : <b>Les Lanternes sont trois.</b></p>`;
+    raison = 'Une merveille ne tombe qu’à plusieurs.';
+  } else if (t.terrain === 'citadelle') {
+    statut = '<p class="statut">Libre. Une citadelle ne tombe qu’à trois membres d’une même guilde.</p>';
+    raison = toucheMaGuilde(t) ? 'Ouvre le siège depuis l’onglet Guilde.' : 'Elle ne touche pas encore les terres de ta guilde.';
+  } else if (t.maitre === 'moi') {
+    statut = `<p class="statut bien">À toi${t.capitale ? ' : ta capitale, là où tu as débarqué le 3' : ''}. Une étoile de garnison de plus, et qui l’assiège joue un niveau au-dessus.</p>`;
+    if (t.garnison >= 3) raison = 'Garnison au complet.';
+    else if (etendards === 0) raison = PLUS_D_ETENDARDS;
+    else action = '<button class="btn btn-accent btn-block" type="button" data-agir="fortifier">Fortifier · 1 étendard</button>';
+  } else if (estAMaGuilde(t)) {
+    statut = `<p class="statut">À ${maitreHtml(t.maitre)}. Si on l’assiège, tout membre de la guilde peut la défendre.</p>`;
+  } else if (t.maitre) {
+    const absent = JOUEURS[t.maitre]?.absent;
+    statut = `<p class="statut">À ${maitreHtml(t.maitre)}.${absent ? ` Absent depuis ${absent} jours : l’Oubli lui en reprend une chaque nuit.` : ''}</p>`;
+    const honneur = poidsDe(t.maitre) * 3 < territoireDeGuilde('lanternes');
+    if (!toucheMaGuilde(t)) raison = 'Trop loin : il faut qu’elle touche les terres de ta guilde.';
+    else if (t.treve) raison = `Sous trêve ${t.treve} : elle vient de changer de mains.`;
+    else if (honneur) raison = `Code d’honneur : ${nomDuMaitre(t.maitre)} pèse moins du tiers de ta guilde. On ne l’assiège que s’il vous a attaqués.`;
+    else if (t.repos) raison = 'Repoussé aujourd’hui : tu y retournes demain.';
+    else if (etendards < 2) raison = 'Un assaut coûte deux étendards : ils reviennent à minuit.';
+    else {
+      action = '<button class="btn btn-primary btn-block" type="button" data-agir="assaut">Assiéger · 2 étendards</button>';
+      raison = `${nomDuMaitre(t.maitre)} aura jusqu’à minuit demain pour faire aussi bien.`;
+    }
+  } else {
+    statut = `<p class="statut">L’Oubli la recouvre.${t.terrain === 'ruines' ? ' Des ruines : la première main qui la reprend touche leur butin, 🎊 20.' : ''}</p>`;
+    if (!toucheMaGuilde(t)) {
+      const d = Math.min(...[...tuiles.values()].filter(estAMaGuilde).map(m => distance(m, t)));
+      raison = `Trop loin : à ${d} tuiles des terres de ta guilde. Avance de proche en proche.`;
+    } else if (t.repos) raison = 'Repoussé aujourd’hui : tu y retournes demain.';
+    else if (etendards === 0) raison = PLUS_D_ETENDARDS;
+    else action = `<button class="btn btn-primary btn-block" type="button" data-agir="conquerir">Conquérir · 1 étendard</button>`;
+  }
+  corpsFeuille.innerHTML = statut + detail;
+  piedFeuille.innerHTML = action + (raison ? `<p class="raison">${raison}</p>` : '');
+  montrerFeuille();
+}
+function montrerFeuille() {
+  feuille.classList.add('ouverte');
+  feuille.setAttribute('aria-hidden', 'false');
+  corpsFeuille.scrollTop = 0;
+}
+piedFeuille.addEventListener('click', e => {
+  const b = e.target.closest('[data-agir]');
+  if (b && selection) agir(b.dataset.agir, selection);
+});
+
+/* ═══════════════ Les gestes : conquérir, assiéger, repousser, fortifier, le siège ═══════════════ */
+
+function agir(quoi, t) {
+  const p = provinceDe(t);
+  const f = FORMATS[TERRAINS[t.terrain].format];
+  const but = ff => `${ff.besoin} bonnes réponses${ff.n ? ' sur ' + ff.n : ' avant la troisième erreur'}`;
+  if (quoi === 'conquerir') {
+    depenser(1);
+    lancerEpreuve({ t, format: f, cat: p.cat, titre: 'Conquérir', but: but(f) }, gagne => {
+      if (gagne) {
+        t.maitre = 'moi';
+        t.garnison = 0;
+        const butin = t.terrain === 'ruines';
+        gazette.unshift({ ico: '🚩', perso: true, quand: 'À l’instant', texte: `Tu as repris <b>${echapper(t.nom)}</b> à l’Oubli.${butin ? ' Le butin des ruines : 🎊 20.' : ''}` });
+        return { titre: `${t.nom} est à toi`, gains: [`✦ +${rapportDe(t)} chaque nuit`].concat(butin ? ['🎊 +20 de butin'] : []) };
+      }
+      t.repos = true;
+      return { titre: 'L’Oubli tient bon', texte: 'Ton étendard est tombé. Tu y retournes demain.' };
+    });
+  } else if (quoi === 'assaut') {
+    depenser(2);
+    lancerEpreuve({ t, format: f, cat: p.cat, titre: 'Assiéger', but: but(f) }, (gagne, bilan) => {
+      if (gagne) {
+        gazette.unshift({ ico: '⚔️', perso: true, quand: 'À l’instant', texte: `Tu assièges <b>${echapper(t.nom)}</b> (${bilan.justes} bonnes). ${nomDuMaitre(t.maitre)} a jusqu’à minuit demain pour faire aussi bien.` });
+        return { titre: 'L’assaut a porté', texte: `${nomDuMaitre(t.maitre)} a jusqu’à minuit demain pour faire au moins ${bilan.justes}. Sinon, la tuile est à toi.` };
+      }
+      t.repos = true;
+      return { titre: 'Repoussé', texte: `${nomDuMaitre(t.maitre)} garde sa tuile. Tu y retournes demain.` };
+    });
+  } else if (quoi === 'repousser') {
+    const a = t.assaut;
+    lancerEpreuve({ t, format: FORMATS.ascension, cat: p.cat, titre: 'Repousser Léa', but: `au moins ${a.score} bonnes réponses sur ${a.sur}`, besoin: a.score }, gagne => {
+      if (gagne) {
+        delete t.assaut;
+        t.garnison = Math.min(3, t.garnison + 1);
+        document.getElementById('alerte').hidden = true;
+        gazette.unshift({ ico: '🛡️', perso: true, quand: 'À l’instant', texte: 'Tu as repoussé <b>Léa</b> sur <b>La Crête des Lynx</b>. Sa garnison gagne une étoile.' });
+        return { titre: 'Le siège est levé', texte: 'La Crête des Lynx reste aux Lanternes, et sa garnison gagne une étoile.', gains: [`Garnison ${etoiles(t.garnison)}`] };
+      }
+      return { titre: 'Pas assez', texte: 'La Crête des Lynx tombera à minuit, sauf si Camille ou Hugo font mieux d’ici là.' };
+    });
+  } else if (quoi === 'fortifier') {
+    depenser(1);
+    lancerEpreuve({ t, format: f, cat: p.cat, titre: 'Fortifier', but: but(f) }, gagne => {
+      if (gagne) {
+        t.garnison = Math.min(3, t.garnison + 1);
+        return { titre: 'Une étoile de plus', texte: `${t.nom} : garnison ${etoiles(t.garnison)}. Qui l’assiège jouera un niveau au-dessus.` };
+      }
+      return { titre: 'Les murs n’ont pas pris', texte: 'L’étendard est dépensé ; la garnison ne bouge pas.' };
+    });
+  } else if (quoi === 'siege') {
+    depenser(1);
+    lancerEpreuve({ t, format: FORMATS.ascension, cat: p.cat, titre: 'Le Siège, ton tour', but: '6 bonnes réponses sur 8' }, gagne => {
+      if (gagne) {
+        delete t.siege;
+        t.maitre = 'g:lanternes';
+        gazette.unshift({ ico: '🏰', perso: true, quand: 'À l’instant', texte: '<b>La Citadelle des Druides</b> tombe aux <b>Lanternes</b> : Camille, Hugo et toi.' });
+        return { titre: 'La citadelle est à vous', texte: 'Camille, Hugo et toi : La Citadelle des Druides est aux Lanternes.', gains: [`✦ +${RAPPORT_SPECIAL.citadelle} chaque nuit pour la guilde`] };
+      }
+      return { titre: 'Pas cette fois', texte: 'Le siège tient encore 14 h : retente demain, ou un autre membre de la guilde prendra le relais.' };
+    });
+  }
+}
+function depenser(n) { etendards = Math.max(0, etendards - n); majBandeau(); }
+
+/* ═══════════════ L'épreuve : une série de questions, comme en campagne ═══════════════ */
+
+const epreuve = document.getElementById('epreuve');
+let partie = null;
+const melanger = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+
+function lancerEpreuve(o, fin) {
+  fermerFeuille();
+  const pool = o.cat === 'Toutes les catégories' ? Object.values(QUESTIONS).flat() : (QUESTIONS[o.cat] || QUESTIONS['Culture générale']);
+  let tirage = melanger(pool);
+  while (tirage.length < 14) tirage = tirage.concat(melanger(pool));
+  partie = { o, f: o.format, besoin: o.besoin ?? o.format.besoin, tirage, i: 0, justes: 0, fautes: 0, fin, suivi: [], verrou: false, chrono: 0 };
+  epreuve.hidden = false;
+  poserQuestion();
+}
+function issue() {
+  const { f, besoin, justes, fautes, i } = partie;
+  if (justes >= besoin) return true;
+  if (f.vies && fautes >= f.vies) return false;
+  if (f.n && (f.n - i) + justes < besoin) return false; // la faute de trop : il n'en reste plus assez
+  return null;
+}
+function suiviHtml() {
+  const { f, besoin, justes, fautes, suivi } = partie;
+  if (f.vies) {
+    const coeurs = Array.from({ length: f.vies }, (_, k) => COEUR_SVG(k >= fautes)).join('');
+    const cases = Array.from({ length: besoin }, (_, k) => `<span class="case ${k < justes ? 'ok' : ''}"></span>`).join('');
+    return `<div class="cases" style="grid-template-columns:repeat(${besoin},1fr)">${cases}</div>
+      <div class="suivi-texte"><span class="coeurs" role="img" aria-label="${f.vies - fautes} vies sur ${f.vies}">${coeurs}</span><span><b>${justes}</b> sur ${besoin}</span></div>`;
+  }
+  const cases = Array.from({ length: f.n }, (_, k) => `<span class="case ${suivi[k] === true ? 'ok' : suivi[k] === false ? 'ko' : ''}"></span>`).join('');
+  return `<div class="cases" style="grid-template-columns:repeat(${f.n},1fr)">${cases}<span class="seuil" style="left:${(besoin / f.n) * 100}%"></span></div>
+    <div class="suivi-texte"><span>${besoin} bonnes pour passer la ligne d’or</span><span><b>${justes}</b> sur ${besoin}</span></div>`;
+}
+function poserQuestion() {
+  const { o, f, tirage, i } = partie;
+  const [enonce, bonne, ...fausses] = tirage[i];
+  const reponses = melanger([bonne, ...fausses]);
+  partie.bonne = bonne;
+  partie.verrou = false;
+  const p = provinceDe(o.t);
+  const niveau = Math.min(9, niveauDe(o.t) + (f === FORMATS.ascension ? Math.floor(i / 3) : 0));
+  const fond = couleurDe(o.t.maitre) || couleurDOubli(o.t);
+  epreuve.innerHTML = `
+    <header class="ep-tete">
+      <button class="sortie" type="button" id="ep-quitter">Abandonner</button>
+      <div class="ep-titre"><span class="label">${echapper(o.titre)} · ${f.nom}</span></div>
+    </header>
+    <div class="ep-enjeu"><span class="rond" style="background:${fond}" aria-hidden="true">${TERRAINS[o.t.terrain].emoji}</span><div><b>${echapper(o.t.nom)}</b><span>${echapper(o.but)}</span></div></div>
+    <div class="ep-suivi" id="ep-suivi">${suiviHtml()}</div>
+    ${f.chrono ? '<div class="chrono" aria-hidden="true"><div id="ep-barre"></div></div>' : ''}
+    <div class="ep-corps">
+      <div>
+        <span class="label quiz-categorie">${p.cat === 'Toutes les catégories' ? 'Le Cœur' : p.cat} · ${DIFFICULTE_UNE[niveau]}</span>
+        <h2 class="quiz-question" id="ep-enonce" tabindex="-1">${echapper(enonce)}</h2>
+      </div>
+      <div class="ans-grid">
+        ${reponses.map((r, k) => `<button class="ans-btn" type="button" data-r="${echapper(r)}"><svg viewBox="0 0 24 24" aria-hidden="true">${FORMES[k]}</svg><span>${echapper(r)}</span></button>`).join('')}
+      </div>
+      <p class="ep-retour" id="ep-retour" aria-live="polite"></p>
+    </div>`;
+  document.getElementById('ep-quitter').addEventListener('click', () => conclure(false, true));
+  epreuve.querySelectorAll('.ans-btn').forEach(b => b.addEventListener('click', () => repondre(b.dataset.r)));
+  document.getElementById('ep-enonce').focus({ preventScroll: true });
+  if (f.chrono) lancerChrono(f.chrono);
+}
+function lancerChrono(sec) {
+  const barre = document.getElementById('ep-barre');
+  const t0 = performance.now();
+  cancelAnimationFrame(partie.chrono);
+  const pas = now => {
+    if (!partie || partie.verrou) return;
+    const reste = Math.max(0, 1 - (now - t0) / (sec * 1000));
+    barre.style.transform = `scaleX(${reste.toFixed(3)})`;
+    barre.classList.toggle('presse', reste < 0.3);
+    if (reste <= 0) { repondre(null); return; }
+    partie.chrono = requestAnimationFrame(pas);
+  };
+  partie.chrono = requestAnimationFrame(pas);
+}
+function repondre(choix) {
+  if (!partie || partie.verrou) return;
+  partie.verrou = true;
+  cancelAnimationFrame(partie.chrono);
+  const juste = choix === partie.bonne;
+  epreuve.querySelectorAll('.ans-btn').forEach(b => {
+    b.disabled = true;
+    if (b.dataset.r === partie.bonne) b.classList.add('bonne');
+    else if (b.dataset.r === choix) b.classList.add('mauvaise');
+    else b.classList.add('eteinte');
+  });
+  const retour = document.getElementById('ep-retour');
+  retour.className = 'ep-retour ' + (juste ? 'juste' : 'faux');
+  retour.textContent = juste ? 'Bonne réponse · 🎊 +1' : (choix === null ? 'Trop tard' : 'Raté') + ' : c’était « ' + partie.bonne + ' »';
+  if (juste) partie.justes++; else partie.fautes++;
+  partie.suivi[partie.i] = juste;
+  partie.i++;
+  document.getElementById('ep-suivi').innerHTML = suiviHtml();
+  const fin = issue();
+  setTimeout(() => {
+    if (!partie) return;
+    if (fin === null) poserQuestion(); else conclure(fin, false);
+  }, juste ? 850 : 1500);
+}
+function conclure(gagne, abandon) {
+  const p = partie;
+  if (!p) return;
+  cancelAnimationFrame(p.chrono);
+  const reussi = gagne && !abandon;
+  const r = p.fin(reussi, { justes: p.justes, fautes: p.fautes }) || {};
+  const gains = [`🎊 +${p.justes} confetti${p.justes > 1 ? 's' : ''}`, `+${p.justes * 10} XP`].concat(reussi ? (r.gains || []) : []);
+  epreuve.innerHTML = `
+    <div class="ep-fin">
+      <div class="grand" aria-hidden="true">${reussi ? '🚩' : abandon ? '🏳️' : '🌫️'}</div>
+      <h2 tabindex="-1" id="ep-fin-titre">${abandon ? 'Tu as quitté l’épreuve' : echapper(r.titre || '')}</h2>
+      <p class="muted">${abandon ? 'Quitter compte comme un échec : l’étendard est dépensé.' : echapper(r.texte || `${p.justes} bonnes réponses.`)}</p>
+      <ul class="gains">${gains.map(g => `<li>${g}</li>`).join('')}</ul>
+      <div class="boutons"><button class="btn btn-primary btn-block" type="button" id="ep-retour-carte">Revenir aux Terres</button></div>
+    </div>`;
+  document.getElementById('ep-fin-titre').focus({ preventScroll: true });
+  const t = p.o.t;
+  partie = null;
+  document.getElementById('ep-retour-carte').addEventListener('click', () => {
+    epreuve.hidden = true;
+    epreuve.innerHTML = '';
+    montrerVue('terres');
+    dessiner();
+    if (reussi) { onde(t); toast(r.titre); }
+    choisir(t);
+  });
+}
+
+/* ═══════════════ Le bandeau, les onglets, les dialogues ═══════════════ */
+
+function majBandeau() {
+  const e = document.getElementById('etendards');
+  e.innerHTML = Array.from({ length: ETENDARDS_PAR_JOUR }, (_, i) => ICONE_DRAPEAU(i < etendards)).join('')
+    + `<span class="etendards-texte">${etendards} étendard${etendards > 1 ? 's' : ''}</span>`;
+  e.setAttribute('role', 'img');
+  e.setAttribute('aria-label', `${etendards} étendards sur ${ETENDARDS_PAR_JOUR} aujourd’hui`);
+  document.getElementById('influence-sous').textContent = `4ᵉ · +${fr(parNuit('moi'))} cette nuit`;
+  document.getElementById('pastille-gazette').textContent = gazette.filter(n => n.perso).length;
+}
+
+const VUES = ['terres', 'guilde', 'classement', 'gazette'];
+function montrerVue(nom) {
+  for (const v of VUES) {
+    document.getElementById('vue-' + v).hidden = v !== nom;
+    document.getElementById('onglet-' + v).setAttribute('aria-selected', String(v === nom));
+  }
+  if (nom !== 'terres') fermerFeuille();
+  if (nom === 'guilde') vueGuilde();
+  if (nom === 'classement') vueClassement();
+  if (nom === 'gazette') vueGazette();
+  document.getElementById('defile').scrollTop = 0;
+}
+document.querySelectorAll('.onglets [data-vue]').forEach(b => b.addEventListener('click', () => montrerVue(b.dataset.vue)));
+
+// La bannière d'une guilde : un gonfanon, pas un bouclier — les écussons de savoir en sont déjà.
+function banniereSvg(g, largeur = 76) {
+  const G = GUILDES[g];
+  const forme = 'M6 4H94V92L72 80L50 112L28 80L6 92Z';
+  const id = 'clip-' + g;
+  const champs = G.partition === 'parti'
+    ? `<rect x="0" y="0" width="50" height="120" fill="${G.champs[0]}"/><rect x="50" y="0" width="50" height="120" fill="${G.champs[1]}"/>`
+    : `<rect x="0" y="0" width="100" height="50" fill="${G.champs[0]}"/><rect x="0" y="50" width="100" height="70" fill="${G.champs[1]}"/>`;
+  return `<svg width="${largeur}" height="${Math.round(largeur * 1.18)}" viewBox="0 0 100 118" role="img" aria-label="Bannière des ${G.nom} : ${G.blasonne}">
+    <defs><clipPath id="${id}"><path d="${forme}"/></clipPath></defs>
+    <g clip-path="url(#${id})">${champs}</g>
+    <path d="${forme}" fill="none" stroke="#d9b56a" stroke-width="4" stroke-linejoin="round"/>
+    <text x="50" y="50" text-anchor="middle" dominant-baseline="central" font-size="38">${G.charge}</text>
+  </svg>`;
+}
+
+function vueGuilde() {
+  const g = GUILDES.lanternes;
+  const membres = Object.entries(JOUEURS).filter(([, j]) => j.guilde === 'lanternes');
+  const siege = druides.siege;
+  const fait = siege ? siege.faits.length : 3;
+  document.getElementById('vue-guilde').innerHTML = `
+    <div class="bloc">
+      <div class="guilde-tete">
+        ${banniereSvg('lanternes')}
+        <div><span class="label">Ta guilde</span><h2>${g.nom}</h2><p class="blasonnement">${g.blasonne}</p><p class="muted small">« ${g.devise} »</p></div>
+      </div>
+      <div class="chiffres">
+        <div class="chiffre"><b>${membres.length}<span class="small"> / 6</span></b><span>membres</span></div>
+        <div class="chiffre"><b>${territoireDeGuilde('lanternes')}</b><span>tuiles</span></div>
+        <div class="chiffre"><b>2ᵉ</b><span>des guildes</span></div>
+      </div>
+    </div>
+    <div class="bloc">
+      <h3>🏰 ${siege ? 'Le siège en cours' : 'La citadelle est à vous'}</h3>
+      <p class="small"><b>La Citadelle des Druides</b> · La forêt · ${siege ? 'encore 14 h' : 'tombée à l’instant'}</p>
+      <div class="jauge-barre" role="progressbar" aria-valuemin="0" aria-valuemax="3" aria-valuenow="${fait}" aria-label="Membres qui ont réussi"><div style="width:${(fait / 3) * 100}%"></div></div>
+      <div class="membres-siege">
+        <span class="membre-siege fait">🐼 Camille · 7 sur 8</span>
+        <span class="membre-siege fait">🐙 Hugo · 6 sur 8</span>
+        <span class="membre-siege ${siege ? '' : 'fait'}">🦊 Toi · ${siege ? 'à faire' : 'réussi'}</span>
+      </div>
+      ${siege ? '<button class="btn btn-primary btn-block" type="button" id="aller-siege">Voir la citadelle</button>' : ''}
+    </div>
+    <div class="bloc">
+      <h3>Les membres</h3>
+      <ul class="liste">
+        ${membres.map(([id, j]) => `
+          <li class="${id === 'moi' ? 'moi' : ''}">
+            <span class="av" aria-hidden="true">${j.avatar}</span>
+            <span><span class="nom">${j.nom}</span><br><span class="sous">${j.role || 'Membre'} · ${territoire(id)} tuiles · +${fr(parNuit(id))} ✦ par nuit</span></span>
+            <span class="val">${fr(INFLUENCE_DU_MOIS[id])}<small>✦ ce mois</small></span>
+          </li>`).join('')}
+      </ul>
+    </div>
+    <div class="bloc">
+      <h3>Les signaux</h3>
+      <p class="muted small">Pas de discussion dans l’application : des signaux tout faits, posés sur les Terres.</p>
+      <div class="signal"><span aria-hidden="true">⚔️</span><p><b>Camille</b> · « On vise celle-ci » → La Citadelle des Druides</p></div>
+      <div class="signal"><span aria-hidden="true">🛡️</span><p><b>Hugo</b> · « À défendre » → La Crête des Lynx</p></div>
+      <button class="btn btn-accent btn-block" type="button" id="poser-signal">Poser un signal</button>
+    </div>
+    <div class="bloc">
+      <h3>Recruter</h3>
+      <p class="small">Il vous faut <b>un quatrième membre</b> pour tenter une merveille.</p>
+      <p><span class="code">482 913</span> <span class="muted small">· valable 7 jours</span></p>
+    </div>`;
+  document.getElementById('aller-siege')?.addEventListener('click', () => { montrerVue('terres'); choisir(druides); });
+  document.getElementById('poser-signal').addEventListener('click', () => toast('Dans la maquette, les signaux sont déjà posés.'));
+}
+
+let segment = 'joueurs';
+function vueClassement() {
+  const joueurs = Object.entries(INFLUENCE_DU_MOIS).sort((a, b) => b[1] - a[1]).map(([id, v], i) => {
+    const j = JOUEURS[id];
+    const g = j.guilde ? GUILDES[j.guilde] : null;
+    return `<li class="${id === 'moi' ? 'moi' : ''}"><span class="rang">${i + 1}</span>
+      <span><span class="nom">${j.avatar} ${j.nom}</span><br><span class="sous">${g ? g.charge + ' ' + g.nom : 'Seul'}${j.absent ? ' · absent' : ''} · ${territoire(id)} tuiles</span></span>
+      <span class="val">${fr(v)}<small>✦</small></span></li>`;
+  }).join('');
+  const guildes = Object.keys(GUILDES).map(k => {
+    const membres = Object.entries(JOUEURS).filter(([, j]) => j.guilde === k);
+    return { k, membres, total: membres.reduce((s, [id]) => s + INFLUENCE_DU_MOIS[id], 0) };
+  }).sort((a, b) => b.total - a.total).map((x, i) => {
+    const g = GUILDES[x.k];
+    const merv = [...tuiles.values()].filter(t => t.maitre === 'g:' + x.k && t.terrain === 'merveille').length;
+    return `<li class="${x.k === 'lanternes' ? 'moi' : ''}"><span class="rang">${i + 1}</span>
+      <span><span class="nom">${g.charge} ${g.nom}</span><br><span class="sous">${x.membres.length} membres · ${territoireDeGuilde(x.k)} tuiles${merv ? ` · ${merv} merveille` : ''}</span></span>
+      <span class="val">${fr(x.total)}<small>✦</small></span></li>`;
+  }).join('');
+  const couronnes = { monde: 'nadia', mythes: 'sofia', contes: null, scene: 'marc', ecran: null, arcade: null, carnaval: 'jeanne', brigade: 'camille', stade: 'hugo', foret: 'moi', oceans: 'lea', espace: 'karim' };
+  const provinces = PROVINCES.map(p => {
+    const s = couronnes[p.cle];
+    const j = s ? JOUEURS[s] : null;
+    return `<li class="${s === 'moi' ? 'moi' : ''}"><span class="av" aria-hidden="true"><span class="puce" style="background:${p.lueur};width:12px;height:12px;margin:0"></span></span>
+      <span><span class="nom">${p.nom}</span><br><span class="sous">${p.cat}</span></span>
+      <span class="val">${j ? j.avatar + ' ' + (s === 'moi' ? 'Toi' : j.nom) : '<span class="muted">personne</span>'}<small>${j ? 'en tête ce mois' : 'à prendre'}</small></span></li>`;
+  }).join('');
+  document.getElementById('vue-classement').innerHTML = `
+    <div class="segments" role="group" aria-label="Classement">
+      <button type="button" data-seg="joueurs" aria-pressed="${segment === 'joueurs'}">Joueurs</button>
+      <button type="button" data-seg="guildes" aria-pressed="${segment === 'guildes'}">Guildes</button>
+      <button type="button" data-seg="provinces" aria-pressed="${segment === 'provinces'}">Provinces</button>
+    </div>
+    <div class="bloc">
+      <p class="muted small">${segment === 'provinces'
+        ? 'La couronne d’une province va à qui y a amassé le plus d’influence ce mois-ci : douze titres par mois, à qui connaît sa catégorie.'
+        : 'L’influence amassée depuis le 1er : chaque nuit, chaque tuile verse la sienne. Tenir longtemps compte plus que finir gros.'}</p>
+      <ul class="liste">${segment === 'joueurs' ? joueurs : segment === 'guildes' ? guildes : provinces}</ul>
+    </div>`;
+  document.querySelectorAll('[data-seg]').forEach(b => b.addEventListener('click', () => { segment = b.dataset.seg; vueClassement(); }));
+}
+
+function vueGazette() {
+  document.getElementById('vue-gazette').innerHTML = `
+    <div class="bloc tribut">
+      <span class="grand" aria-hidden="true">✦</span>
+      <div><span class="label">À minuit</span><p>Tes ${territoire('moi')} tuiles te verseront <b>${fr(parNuit('moi'))} ✦</b>. La nuit dernière : +160 ✦.</p></div>
+    </div>
+    <div class="bloc">
+      <h3>La Gazette des Terres</h3>
+      <div>${gazette.map(n => `<div class="nouvelle ${n.perso ? 'perso' : ''}"><span class="ico" aria-hidden="true">${n.ico}</span><p>${n.texte}<time>${n.quand}</time></p></div>`).join('')}</div>
+    </div>`;
+}
+
+const voile = document.getElementById('voile');
+const dialogue = document.getElementById('dialogue');
+let dernierFocus = null;
+function ouvrirDialogue(titre, html) {
+  dernierFocus = document.activeElement;
+  dialogue.innerHTML = `<header class="feuille-barre"><b class="feuille-titre" id="dialogue-titre" tabindex="-1">${titre}</b><button class="fermer" type="button" id="fermer-dialogue"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>Fermer</button></header>` + html;
+  voile.hidden = false;
+  dialogue.hidden = false;
+  dialogue.scrollTop = 0;
+  document.getElementById('fermer-dialogue').addEventListener('click', fermerDialogue);
+  document.getElementById('dialogue-titre').focus({ preventScroll: true });
+}
+function fermerDialogue() {
+  voile.hidden = true;
+  dialogue.hidden = true;
+  dernierFocus?.focus?.({ preventScroll: true });
+}
+voile.addEventListener('click', fermerDialogue);
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!dialogue.hidden) fermerDialogue();
+  else if (feuille.classList.contains('ouverte')) fermerFeuille();
+});
+
+document.getElementById('ouvrir-saison').addEventListener('click', () => ouvrirDialogue('La Conquête d’octobre', `
+  <div>
+    <div class="frise"><span style="left:${(18.5 / 31) * 100}%">▼ aujourd’hui, le 19</span></div>
+    <div class="phases">
+      <div class="phase"><b>L’Éveil</b>1 → 7</div>
+      <div class="phase active"><b>La Mêlée</b>8 → 28</div>
+      <div class="phase"><b>Crépuscule</b>29 → 31</div>
+    </div>
+  </div>
+  <ul>
+    <li><b>L’Éveil</b> : chacun débarque et reprend des terres à l’Oubli. Personne n’assiège personne ; les guildes se forment, et les citadelles s’ouvrent le 4.</li>
+    <li><b>La Mêlée</b> : on peut assiéger ses voisins ; les merveilles s’ouvrent le 10.</li>
+    <li><b>Le Crépuscule</b> : l’influence compte double, les guildes ne bougent plus, et le Cœur s’ouvre.</li>
+  </ul>
+  <h3>Ce que le mois rapporte</h3>
+  <ul>
+    <li>Chaque bonne réponse : 🎊 un confetti et son expérience, comme en campagne.</li>
+    <li>À qui tient encore une tuile le 31 au soir : 🎊 30.</li>
+    <li>Le premier : « Le Sceptre d’octobre 2026 », 🎊 200, et le sceptre sur sa carte tout novembre.</li>
+    <li>Chaque province : sa couronne, « La Couronne de la forêt · octobre 2026 ».</li>
+    <li>La guilde première : la bannière d’or.</li>
+    <li>Une merveille tenue le dernier soir : sa relique, à chacun de ses membres.</li>
+  </ul>
+  <p class="muted">Le 1er novembre, les Terres s’effacent et d’autres naissent. Tes titres, tes reliques, ta guilde et sa bannière restent.</p>`));
+
+document.getElementById('ouvrir-regles').addEventListener('click', () => ouvrirDialogue('Comment ça marche ?', `
+  <ol>
+    <li>Chaque jour, <b>cinq étendards</b>. Un étendard, une épreuve ; ils reviennent à minuit.</li>
+    <li>Une tuile se prend en réussissant <b>l’épreuve de son terrain</b>, dans la catégorie de sa province. Plus on va vers le Cœur, plus c’est dangereux, et plus elle rapporte.</li>
+    <li>On ne prend que ce qui <b>touche</b> les terres de sa guilde (ou les siennes, seul).</li>
+    <li>Chaque nuit, tes tuiles te versent leur <b>influence ✦</b>. Le classement du mois, c’est l’influence amassée.</li>
+    <li>Dès le 8, on peut <b>assiéger</b> un voisin : la tuile tombe à minuit le lendemain, sauf si son maître fait aussi bien. Se défendre ne coûte rien.</li>
+    <li>Les <b>citadelles</b> et les <b>merveilles</b> ne tombent qu’à plusieurs : c’est l’affaire des guildes.</li>
+  </ol>
+  <div class="boite-tableau"><table class="tableau">
+    <thead><tr><th>Terrain</th><th>Épreuve</th><th>Règle</th></tr></thead>
+    <tbody>${['plaine', 'bois', 'mont', 'dunes', 'ruines', 'citadelle', 'merveille'].map(k => { const f = FORMATS[TERRAINS[k].format]; return `<tr><td>${TERRAINS[k].emoji} ${TERRAINS[k].nom}</td><td>${f.nom}</td><td>${f.court}</td></tr>`; }).join('')}</tbody>
+  </table></div>
+  <h3>Sur les Terres</h3>
+  <div class="legende">
+    <span><i style="background:#d9b56a"></i>Les Lanternes : toi, Camille, Hugo</span>
+    <span><i style="background:#45b4bd"></i>Les Corsaires</span>
+    <span><i style="background:#b49cf5"></i>Léa</span>
+    <span><i style="background:#e68aa8"></i>Jeanne</span>
+    <span><i style="background:${couleurDOubli(capMoi)}"></i>L’Oubli, teinté de sa province</span>
+    <span>┄ à ta portée</span>
+  </div>
+  <p class="muted"><b>Le code d’honneur</b> : on n’assiège pas qui pèse moins du tiers de soi, sauf s’il vous a attaqués. <b>L’Oubli</b> reprend une tuile par nuit à qui ne joue plus depuis cinq jours.</p>`));
+
+function ouvrirListe() {
+  const portee = [...tuiles.values()].filter(t => t.terrain !== 'eau' && !estAMaGuilde(t) && toucheMaGuilde(t))
+    .sort((a, b) => a.danger - b.danger || a.nom.localeCompare(b.nom, 'fr'));
+  ouvrirDialogue('À ta portée', `
+    <p class="muted">Les ${portee.length} tuiles qui touchent les terres de ta guilde, des plus sûres aux plus dangereuses : la carte, en liste.</p>
+    <ul class="portee-liste">
+      ${portee.map(t => `<li><button type="button" data-k="${t.k}"><span aria-hidden="true">${TERRAINS[t.terrain].emoji}</span>
+        <span><b>${echapper(t.nom)}</b><span class="sous">${provinceDe(t).cat} · ${FORMATS[TERRAINS[t.terrain].format].nom} · ${t.maitre ? 'à ' + nomDuMaitre(t.maitre) : 'l’Oubli'}</span></span>
+        <span class="danger" aria-label="danger ${t.danger} sur 5">${'●'.repeat(t.danger)}</span></button></li>`).join('')}
+    </ul>`);
+  dialogue.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => { fermerDialogue(); choisir(tuiles.get(b.dataset.k)); }));
+}
+
+const DRAPEAU_ICONE = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg>';
+const APROPOS = `
+  <p>Le troisième mode, pour les profils : douze provinces, une par catégorie, que l’Oubli recouvre. Chaque tuile se prend par une épreuve de quiz de sa catégorie ; plus on approche du Cœur, plus c’est dangereux et plus ça rapporte.</p>
+  <p><b>Le bouton de l’accueil</b>, tel qu’il se lirait :</p>
+  <div class="gros-bouton">
+    <span class="gros-icone">${DRAPEAU_ICONE}</span>
+    <span class="gros-texte"><b>La Conquête</b><span class="gros-detail">3 étendards · Léa assiège ta Crête des Lynx</span></span>
+    <span class="pastille-attente">À défendre</span>
+  </div>
+  <p><b>À essayer</b></p>
+  <ul>
+    <li><b>Repousser Léa</b> : le bandeau rouge sur la carte, puis L’Ascension.</li>
+    <li><b>Conquérir</b> une tuile en pointillé, à côté des terres dorées.</li>
+    <li><b>Rejoindre le siège</b> de la Citadelle des Druides (🏰 cerclée d’or).</li>
+    <li>Toucher une tuile de Jeanne : le code d’honneur.</li>
+    <li>Pincer, glisser, « Tout », « Liste ».</li>
+    <li>Les onglets Guilde, Classement, Gazette ; « La Mêlée » en haut.</li>
+  </ul>
+  <p>Ce qui est simulé : les Terres sont tirées d’une graine, l’état du 19 octobre est inventé, les questions sont une poignée par catégorie, et rien n’est enregistré. Les nombres (étendards, seuils, influence) sont des points de départ, à mesurer.</p>`;
+document.getElementById('apropos-cote').innerHTML = '<div><span class="label">Maquette · FiestApp</span><h2>La Conquête</h2></div>' + APROPOS;
+document.getElementById('ouvrir-apropos').addEventListener('click', () => ouvrirDialogue('La maquette', APROPOS));
+
+document.getElementById('alerte').addEventListener('click', () => { if (crete) choisir(crete); });
+document.getElementById('retour').addEventListener('click', () => toast('La maquette s’arrête là : l’accueil reste celui de l’application.'));
+
+let minuterieToast = 0;
+function toast(texte) {
+  const el = document.getElementById('toast');
+  el.textContent = texte;
+  el.classList.add('visible');
+  clearTimeout(minuterieToast);
+  minuterieToast = setTimeout(() => el.classList.remove('visible'), 2600);
+}
+
+/* ═══════════════ Le départ ═══════════════ */
+
+dessiner();
+requestAnimationFrame(() => voirMesTerres(true));
+let largeurAvant = 0;
+new ResizeObserver(() => {
+  const b = cadre();
+  if (largeurAvant && Math.abs(b.width - largeurAvant) > 1) appliquer();
+  largeurAvant = b.width;
+}).observe(svg);
+})();
+</script>
+</body>
+</html>
