@@ -19,7 +19,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
-import { createClient, type Client } from '@libsql/client'
+import { createClient, type Client, type InStatement } from '@libsql/client'
 import { baseDEssai } from './banc'
 import { CampagneStore, duelsLus, lectureDesDuels } from '../src/core/campagne'
 import type { DuelsARelire, JournalDesDuels } from '../src/core/journalDesDuels'
@@ -109,7 +109,11 @@ test('le journal des duels dit ce que disait la lecture de chacun — lu une foi
   const url = `file:${fichier.replace(/\\/g, '/')}`
   const horloge = { t: MAINTENANT }
   const campagne = new CampagneStore(url, undefined, { base: baseDEssai(30), maintenant: () => horloge.t, fraicheurDesDuelsMs: 0 })
-  const interne = campagne as unknown as { lesDuels(): Promise<JournalDesDuels>; relireLesDuels(cible: DuelsARelire): Promise<void> }
+  const interne = campagne as unknown as {
+    lesDuels(): Promise<JournalDesDuels>
+    relireLesDuels(cible: DuelsARelire): Promise<void>
+    duelsEnLecture: Promise<JournalDesDuels> | null
+  }
   const client = createClient({ url })
   try {
     await campagne.init()
@@ -135,13 +139,25 @@ test('le journal des duels dit ce que disait la lecture de chacun — lu une foi
       const tentatives = enRoute('duel')
       for (const t of tentatives) finir.run(horloge.t, t.id)
       await interne.relireLesDuels({ duels: tentatives.map(t => t.duel!) })
+      await comparer(client, await interne.lesDuels(), horloge.t, 'des séries finies sous ses yeux')
+
+      // Une fin écrite sans lui — l'ancien serveur, le temps d'une mise en
+      // ligne — : sur sa ligne, sans `rowid` neuf, le rattrapage par différence
+      // ne la voit pas. La première relecture d'ensemble du démarrage, trois
+      // minutes après sa première lecture, si.
+      const ailleurs = db.prepare("SELECT id FROM campagne_series WHERE mode = 'rencontre' AND finie_le IS NULL AND json_valid(adversaire) ORDER BY id LIMIT 1").get() as { id: string }
+      finir.run(horloge.t, ailleurs.id)
+      horloge.t = MAINTENANT + 4 * 60_000
+      await interne.lesDuels()
+      await interne.duelsEnLecture
+      await comparer(client, await interne.lesDuels(), horloge.t, 'une fin écrite ailleurs, la relecture du démarrage passée')
     } finally {
       db.close()
     }
-    await comparer(client, await interne.lesDuels(), horloge.t, 'des séries finies sous ses yeux')
 
-    // Quarante minutes plus tard — avant sa relecture d'ensemble — : six duels
-    // ont fermé, leurs tentatives commencées comptent sans que rien s'écrive.
+    // Quarante minutes après le démarrage — avant la relecture d'ensemble
+    // suivante, une heure après la première — : six duels ont fermé, leurs
+    // tentatives commencées comptent sans que rien s'écrive.
     const avant = await comparer(client, await interne.lesDuels(), horloge.t, 'avant leur fermeture')
     horloge.t = MAINTENANT + 40 * 60_000
     assert.equal(await comparer(client, await interne.lesDuels(), horloge.t, 'les duels fermés dans la demi-heure'), avant + 12)
@@ -162,3 +178,171 @@ test('le journal des duels dit ce que disait la lecture de chacun — lu une foi
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// ── Ce que les relectures ne perdent pas en route ───────────────────────────
+//
+// Ce qu'une relecture lit peut arriver trop tard, ou pas du tout : un lot
+// qui écrit sa fin et ne répond pas, une réponse écrite juste après la
+// fermeture de son duel, une relecture qui tombe, un profil qui part pendant
+// qu'elle revient (la revue du 24 octobre 2026). Chaque cas, la fraîcheur de
+// la production — rien ne se rattrape par différence —, l'horloge à la main,
+// et ce qui revient trop tard retenu par une porte : jamais une pause.
+
+interface Interne {
+  lesDuels(): Promise<JournalDesDuels>
+  duelsEnLecture: Promise<JournalDesDuels> | null
+  client: Client
+}
+
+const DUEL = "INSERT INTO campagne_duels (code, auteur, questions, cree_le, ferme_le, adversaire, cote_auteur, cote_adversaire) VALUES (?, ?, '[]', ?, ?, ?, 1000, 1000)"
+const SERIE =
+  'INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, duel, adversaire) VALUES (?, ?, ?, ?, 3, ?, ?, ?, ?, ?, ?)'
+/** Trois questions à jouer, la bonne réponse la première. */
+const QUESTIONS = JSON.stringify(['q1', 'q2', 'q3'].map(id => ({ id, question: '?', reponses: ['oui', 'non'], bonne: 0 })))
+
+async function surUneBase(
+  faire: (o: { campagne: CampagneStore; interne: Interne; horloge: { t: number }; ecrire: (sql: string, args: (string | number | null)[]) => Promise<unknown>; attendu: (p: string) => Promise<unknown> }) => Promise<void>,
+) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-duels-'))
+  const url = `file:${path.join(dir, 'permanente.db').replace(/\\/g, '/')}`
+  const horloge = { t: MAINTENANT }
+  const campagne = new CampagneStore(url, undefined, { base: baseDEssai(30), maintenant: () => horloge.t, fraicheurDesDuelsMs: 3_600_000 })
+  const client = createClient({ url })
+  try {
+    await campagne.init()
+    await faire({
+      campagne,
+      interne: campagne as unknown as Interne,
+      horloge,
+      ecrire: (sql, args) => client.execute({ sql, args }),
+      attendu: async p => duelsLus((await client.execute(lectureDesDuels(p, horloge.t))).rows),
+    })
+  } finally {
+    client.close()
+    campagne.close()
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+/** La prochaine lecture que `vise` reconnaît : lue tout de suite, sa réponse ne revient qu'à `laisser()`. */
+function retenir(client: Client, vise: (stmt: InStatement) => boolean) {
+  const execute = client.execute.bind(client) as (stmt: InStatement) => ReturnType<Client['execute']>
+  let laisser!: () => void
+  let signaler!: () => void
+  const porte = new Promise<void>(r => (laisser = r))
+  const lue = new Promise<void>(r => (signaler = r))
+  client.execute = (async (stmt: InStatement) => {
+    const res = await execute(stmt)
+    if (vise(stmt)) {
+      signaler()
+      await porte
+    }
+    return res
+  }) as Client['execute']
+  return { lue, laisser }
+}
+
+const relitLeDuel = (code: string) => (stmt: InStatement) => typeof stmt !== 'string' && stmt.sql.includes('d.code IN') && (stmt.args as unknown[]).includes(code)
+
+/** Le journal relu en entier trois minutes après le démarrage : la relecture suivante est dans une heure. */
+async function apresLaRelectureDuDemarrage(interne: Interne, horloge: { t: number }) {
+  await interne.lesDuels()
+  horloge.t = MAINTENANT + 4 * 60_000
+  await interne.lesDuels()
+  await interne.duelsEnLecture
+}
+
+test('une relecture lue avant le départ d’un profil ne le remet pas dans le journal refait, et qui l’attendait lit le neuf', () =>
+  surUneBase(async ({ campagne, interne, horloge, ecrire, attendu }) => {
+    // Un duel fini des deux côtés entre p3 et p4 ; un entre p3 et p7 qui ferme dans dix minutes, commencé des deux côtés.
+    await ecrire(DUEL, ['d34', 'p3', MAINTENANT - 7200_000, MAINTENANT + 5 * JOUR_MS, 'p4'])
+    await ecrire(SERIE, ['a3', 'p3', '[]', 0, 6, MAINTENANT - 7100_000, MAINTENANT - 7000_000, 'duel', 'd34', null])
+    await ecrire(SERIE, ['a4', 'p4', '[]', 0, 3, MAINTENANT - 6900_000, MAINTENANT - 6800_000, 'duel', 'd34', null])
+    await ecrire(DUEL, ['d37', 'p3', MAINTENANT - 7 * JOUR_MS + 600_000, MAINTENANT + 600_000, 'p7'])
+    await ecrire(SERIE, ['b3', 'p3', '[]', 0, 4, MAINTENANT - 3600_000, null, 'duel', 'd37', null])
+    await ecrire(SERIE, ['b7', 'p7', '[]', 0, 2, MAINTENANT - 3500_000, null, 'duel', 'd37', null])
+    await apresLaRelectureDuDemarrage(interne, horloge)
+    assert.equal((await interne.lesDuels()).duelsDe('p4').length, 1)
+
+    // La fermeture de d37 se relit, lue tout de suite ; sa réponse revient
+    // après que p3 est parti et que le journal s'est relu sans lui.
+    const { lue, laisser } = retenir(interne.client, relitLeDuel('d37'))
+    horloge.t = MAINTENANT + 11 * 60_000
+    const premiere = interne.lesDuels()
+    await lue
+    await campagne.oublierProfil('p3')
+    const neuve = interne.lesDuels()
+    await interne.duelsEnLecture
+    laisser()
+    const [rendu, refait] = await Promise.all([premiere, neuve])
+    for (const p of ['p4', 'p7']) {
+      const sql = await attendu(p)
+      assert.deepEqual(rendu.duelsDe(p), sql, `qui attendait la relecture lit le journal refait · ${p}`)
+      assert.deepEqual(refait.duelsDe(p), sql, `les lignes lues avant son départ ne le remettent pas · ${p}`)
+    }
+  }))
+
+test('une relecture ratée ne fait échouer personne, et se refait à la lecture suivante', () =>
+  surUneBase(async ({ interne, horloge, ecrire, attendu }) => {
+    await ecrire(DUEL, ['d12', 'p1', MAINTENANT - 7 * JOUR_MS + 600_000, MAINTENANT + 600_000, 'p2'])
+    await ecrire(SERIE, ['b1', 'p1', '[]', 0, 4, MAINTENANT - 3600_000, null, 'duel', 'd12', null])
+    await ecrire(SERIE, ['b2', 'p2', '[]', 0, 2, MAINTENANT - 3500_000, null, 'duel', 'd12', null])
+    await apresLaRelectureDuDemarrage(interne, horloge)
+    const client = interne.client
+    const execute = client.execute.bind(client) as (stmt: InStatement) => ReturnType<Client['execute']>
+    client.execute = ((stmt: InStatement) => {
+      if (relitLeDuel('d12')(stmt)) {
+        client.execute = execute as Client['execute']
+        return Promise.reject(new Error('fetch failed'))
+      }
+      return execute(stmt)
+    }) as Client['execute']
+    horloge.t = MAINTENANT + 11 * 60_000
+    // Deux demandes de front — le solde et le dé — : la relecture tombe, elles lisent le journal qu'il y a.
+    await assert.doesNotReject(Promise.all([interne.lesDuels(), interne.lesDuels()]))
+    assert.deepEqual((await interne.lesDuels()).duelsDe('p1'), await attendu('p1'), 'relue à la lecture suivante')
+    assert.equal((await attendu('p1') as unknown[]).length, 1)
+  }))
+
+test('une fin de partie dont le lot n’a pas répondu — écrite ou non — se relit à la lecture suivante', () =>
+  surUneBase(async ({ campagne, interne, ecrire, attendu }) => {
+    // Une rencontre au dé, sa dernière question à jouer ; Automate n'en a trouvé aucune.
+    const automate = JSON.stringify({ serie: 'x', profil: '', simule: true, reponses: [false, false, false] })
+    await ecrire(SERIE, ['r1', 'p1', JSON.stringify([JSON.parse(QUESTIONS)[0]]), 0, 0, MAINTENANT - 60_000, null, 'rencontre', null, automate])
+    assert.deepEqual((await interne.lesDuels()).duelsDe('p1'), [])
+    // Le lot de sa dernière réponse s'écrit, puis ne répond pas.
+    const client = interne.client
+    const batch = client.batch.bind(client)
+    client.batch = (async (...args: Parameters<Client['batch']>) => {
+      client.batch = batch
+      await batch(...args)
+      throw new Error('fetch failed')
+    }) as Client['batch']
+    await assert.rejects(campagne.repondre('p1', 'r1', 0, 0))
+    // Sa ligne n'est pas neuve : le rattrapage par différence ne la verrait pas. Relue par sa clé.
+    assert.equal((await attendu('p1') as unknown[]).length, 1)
+    assert.deepEqual((await interne.lesDuels()).duelsDe('p1'), await attendu('p1'))
+  }))
+
+test('une réponse acceptée juste avant la fermeture de son duel, écrite juste après, se relit', () =>
+  surUneBase(async ({ campagne, interne, horloge, ecrire, attendu }) => {
+    // Un duel qui ferme dans dix minutes : p1 en est à sa deuxième question, p2 a commencé.
+    const ferme = MAINTENANT + 10 * 60_000
+    await ecrire(DUEL, ['d12', 'p1', ferme - 7 * JOUR_MS, ferme, 'p2'])
+    await ecrire(SERIE, ['t1', 'p1', QUESTIONS, 1, 1, MAINTENANT - 3600_000, null, 'duel', 'd12', null])
+    await ecrire(SERIE, ['t2', 'p2', QUESTIONS, 1, 0, MAINTENANT - 3500_000, null, 'duel', 'd12', null])
+    await apresLaRelectureDuDemarrage(interne, horloge)
+    // Acceptée une milliseconde avant la fermeture ; pendant que son lot part,
+    // la fermeture passe et une autre demande relit le duel — avant elle.
+    horloge.t = ferme - 1
+    const client = interne.client
+    const batch = client.batch.bind(client)
+    client.batch = (async (...args: Parameters<Client['batch']>) => {
+      client.batch = batch
+      horloge.t = ferme + 1
+      await interne.lesDuels()
+      return batch(...args)
+    }) as Client['batch']
+    await campagne.repondre('p1', 't1', 1, 0)
+    assert.deepEqual((await interne.lesDuels()).duelsDe('p1'), await attendu('p1'), 'sa bonne réponse comptée')
+  }))

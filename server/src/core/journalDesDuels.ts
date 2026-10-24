@@ -27,7 +27,13 @@ import type { DuelJoue } from '../../../shared/duels'
 // joueurs finissent ensemble — ne le font pas disparaître. Seule la
 // suppression d'un profil en retire, et le journal repart alors de zéro. Une
 // série finie ailleurs qu'ici — l'ancien serveur, le temps d'une mise en
-// ligne — attend la relecture d'ensemble (`JOURNAL_DES_DUELS_RELU_MS`).
+// ligne — n'a pas de `rowid` neuf : la relecture d'ensemble la voit, trois
+// minutes après la première lecture d'un démarrage
+// (`DUELS_RELUS_APRES_LE_DEMARRAGE_MS`), puis toutes les heures
+// (`JOURNAL_DES_DUELS_RELU_MS`). Et ce qui a peut-être bougé ici sans être
+// rangé — un lot resté sans réponse, une réponse écrite juste après la
+// fermeture de son duel, une relecture ratée — se relit par sa clé à la
+// lecture suivante (`CampagneStore.duelsARelire`).
 
 /** Une ligne du journal : une rencontre finie (sans duel), ou sa tentative d'un duel classé joué des deux côtés (son code). */
 export interface LigneDuJournalDesDuels {

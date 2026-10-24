@@ -542,6 +542,18 @@ const HORS_DU_CARNET = "json_extract(s.questions, '$[' || r.position || '].carne
 const PAR_SON_CODE = '+'
 
 /**
+ * Devant le mode d'une série qu'on cherche depuis un `rowid` (le rattrapage
+ * du journal des duels, `lecturesDuJournalDesDuels`) : le `+` écarte les
+ * index qui commencent par le mode, et SQLite parcourt la plage de `rowid`
+ * — rien, ou presque, quand rien n'est arrivé. Sans statistiques, il
+ * préférait l'égalité sur le mode, et chaque rattrapage, deux fois par minute
+ * de jeu, parcourait toutes les rencontres et deux fois toutes les tentatives
+ * de duel : autant qu'une lecture d'ensemble (la revue du 24 octobre 2026,
+ * `duels-index.test.ts`).
+ */
+const DEPUIS_SON_ROWID = '+'
+
+/**
  * Une série de la campagne, ou une épreuve des sentiers (`mode`) : les mêmes
  * tables, le même journal de réponses — l'expérience, les confettis, la
  * mesure des difficultés et « jamais vues d'abord » les comptent ensemble,
@@ -713,6 +725,14 @@ const RENCONTRES_MONTREES = 10
  * mise en ligne. Le reste, il le sait de ce qui bouge ici (`journalDesDuels.ts`).
  */
 const JOURNAL_DES_DUELS_RELU_MS = 60 * 60_000
+/**
+ * La première relecture d'ensemble d'un démarrage vient plus tôt : le serveur
+ * d'avant a fini ses dernières réponses, la mise en ligne passée — une fin de
+ * partie s'écrit sur sa ligne, sans `rowid` neuf, et le rattrapage par
+ * différence ne la verrait pas. Une heure durant, sa cote mentait, et un duel
+ * lancé entre-temps figeait la fausse (`creerUnDuel`).
+ */
+const DUELS_RELUS_APRES_LE_DEMARRAGE_MS = 3 * 60_000
 /**
  * Ce que ce serveur écrit, le journal des duels le range aussitôt ; ce qui
  * s'écrit sans lui — une série insérée ailleurs — il le relit au plus toutes
@@ -913,7 +933,19 @@ export class CampagneStore {
   private readonly fraicheurDesDuels: number
   /** Les duels fermés qu'une demande relit en ce moment (`lesDuels`) : celles de front les attendent. */
   private fermeturesEnRoute = new Set<Promise<void>>()
+  /**
+   * Ce qui a peut-être bougé sans que le journal des duels l'ait rangé : une
+   * fin de partie dont le lot n'a pas répondu — écrite ou non, on ne le sait
+   * pas —, une réponse écrite après la fermeture de son duel, une relecture
+   * ratée. La lecture suivante le relit par sa clé (`lesDuels`), comme une
+   * fermeture.
+   */
+  private duelsARelire: DuelsARelire[] = []
   private rattrapageDesDuels: { numero: number; journal: JournalDesDuels; fait: Promise<void> } | null = null
+  /** Quand le journal des duels se relit en entier, en fond (`DUELS_RELUS_APRES_LE_DEMARRAGE_MS`, puis `JOURNAL_DES_DUELS_RELU_MS`). */
+  private relireLesDuelsLe = Number.POSITIVE_INFINITY
+  /** Le journal des duels a déjà été lu par ce processus : sa première relecture d'ensemble est passée. */
+  private duelsDejaLus = false
   /**
    * Les cotes de tous, pour le classement (`classementDesDuels`), tirées du
    * journal des duels : refaites quand une de ses lignes change.
@@ -2602,18 +2634,28 @@ export class CampagneStore {
       const tourDesBordures = ++this.tourDesBordures
       // Vue ici, elle l'est aussi pour son expédition en route.
       this.vuAilleurs(profileId)
+      const generation = this.generationDesDuels
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
         this.reponseEcrite()
       } catch (e) {
         this.enCours.delete(profileId)
+        // Un lot qui n'a pas répondu a peut-être écrit sa fin : le journal des duels la relira.
+        if (cibleDuDuel) this.duelsARelire.push(cibleDuDuel)
         throw e
       }
       if (finie) this.enCours.delete(profileId)
       else this.garderEnCours({ ...s, index: position, vies, justes })
       // Sa cote vient de bouger : le journal des duels range ce duel, le classement se refait.
-      if (cibleDuDuel) this.rangerLesDuels(cibleDuDuel, res[lectureDuDuel].rows)
+      if (cibleDuDuel) this.rangerLesDuels(cibleDuDuel, res[lectureDuDuel].rows, generation)
+      else if (s.mode === 'duel') {
+        // Acceptée juste avant la fermeture de son duel, écrite juste après :
+        // la relecture de sa fermeture (`fermes`) a pu partir avant elle, et
+        // garder sa tentative d'avant cette réponse.
+        const d = await this.duelDe(s.duel)
+        if (d?.adversaire && this.maintenant() >= d.fermeLe) this.duelsARelire.push({ duels: [d.code] })
+      }
       const releve = cibleDuDuel ? releverLesDuels((await this.lesDuels()).duelsDe(profileId), semaineDeLInstant) : null
       // Un cran de plus à sa bordure, peut-être : la salle où il joue le verra.
       if (releve) this.retenirLesBordures(profileId, releve.bordures, tourDesBordures)
@@ -5009,26 +5051,34 @@ export class CampagneStore {
         continue
       }
       const maintenant = this.maintenant()
-      if (maintenant - journal.luLe >= JOURNAL_DES_DUELS_RELU_MS && !this.duelsEnLecture && !this.ferme) {
+      if (maintenant >= this.relireLesDuelsLe && !this.duelsEnLecture && !this.ferme) {
         this.lireLesDuels().catch(e => {
           if (!this.ferme) console.warn('[campagne] journal des duels non relu en fond — celui d’avant sert :', e instanceof Error ? e.message : e)
         })
       }
+      // Ses duels fermés depuis, et ce qui a peut-être bougé sans lui (`duelsARelire`) : relus par leur clé.
+      const cibles = this.duelsARelire.splice(0)
       const fermes = journal.fermes(maintenant)
-      if (fermes.length > 0) {
-        const relue = this.relireLesDuels({ duels: fermes }).catch((e: unknown) => {
-          // Ratée, leur fermeture se relira à la lecture suivante.
-          for (const code of fermes) journal.ouvrir(code, maintenant)
-          throw e
+      if (fermes.length > 0) cibles.push({ duels: fermes })
+      for (const cible of cibles) {
+        const relue = this.relireLesDuels(cible).catch((e: unknown) => {
+          // Ratée, elle se relira à la lecture suivante : d'ici là, chacun lit
+          // le journal qu'il y a — une relecture qui tombait faisait échouer
+          // toutes les demandes qui l'attendaient, le solde comme le dé.
+          this.duelsARelire.push(cible)
+          if (!this.ferme) console.warn('[campagne] duels non relus — la lecture suivante les relira :', e instanceof Error ? e.message : e)
         })
         this.fermeturesEnRoute.add(relue)
-        const fin = () => this.fermeturesEnRoute.delete(relue)
-        relue.then(fin, fin)
+        void relue.then(() => this.fermeturesEnRoute.delete(relue))
       }
       // Celles qu'une demande de front a prises au journal avant nous : on les
       // attend — la page qui lit sa cote et le classement à la fois rendait
-      // l'une sans le duel que l'autre relisait.
-      if (this.fermeturesEnRoute.size > 0) await Promise.all([...this.fermeturesEnRoute])
+      // l'une sans le duel que l'autre relisait. Remplacé pendant ce temps —
+      // relu en entier, refait sans un profil —, c'est le neuf qu'on lit.
+      if (this.fermeturesEnRoute.size > 0) {
+        await Promise.all([...this.fermeturesEnRoute])
+        if (journal !== this.journalDesDuels) continue
+      }
       // Ce que ce serveur écrit, il l'a déjà rangé : seul ce qui s'écrit sans
       // lui attend sa fraîcheur (`fraicheurDesDuels`) — trente secondes en
       // ligne, aucune au banc, qui écrit des duels à la main.
@@ -5088,6 +5138,8 @@ export class CampagneStore {
       if (generation === this.generationDesDuels) {
         neuf.reprendreLesOuverts(this.journalDesDuels)
         this.journalDesDuels = neuf
+        this.relireLesDuelsLe = maintenant + (this.duelsDejaLus ? JOURNAL_DES_DUELS_RELU_MS : DUELS_RELUS_APRES_LE_DEMARRAGE_MS)
+        this.duelsDejaLus = true
       }
       return this.journalDesDuels
     })()
@@ -5103,16 +5155,23 @@ export class CampagneStore {
 
   /** Ce qui vient de bouger, relu par sa clé (`DuelsARelire`) et rangé au journal des duels. */
   private async relireLesDuels(cible: DuelsARelire): Promise<void> {
+    const generation = this.generationDesDuels
     const lus = await this.client.execute(lectureDesDuels(null, this.maintenant(), cible))
-    this.rangerLesDuels(cible, lus.rows)
+    this.rangerLesDuels(cible, lus.rows, generation)
   }
 
   /**
    * Des lignes lues de ce qui vient de bouger — par `relireLesDuels`, ou dans
    * le lot qui l'écrit — rangées au journal des duels, s'il est lu ; une
-   * lecture d'ensemble en route la relira derrière elle.
+   * lecture d'ensemble en route la relira derrière elle. Lues avant qu'un
+   * profil parte (`generation`), elles le nomment peut-être encore : le
+   * journal refait sans lui ne les prend pas, la lecture suivante les relit.
    */
-  private rangerLesDuels(cible: DuelsARelire, lignes: readonly Record<string, unknown>[]): void {
+  private rangerLesDuels(cible: DuelsARelire, lignes: readonly Record<string, unknown>[], generation: number): void {
+    if (generation !== this.generationDesDuels) {
+      this.duelsARelire.push(cible)
+      return
+    }
     this.duelsTouches?.push(cible)
     if (this.journalDesDuels.charge) this.journalDesDuels.ranger(lignes.map(ligneDesDuels))
   }
@@ -8459,7 +8518,7 @@ export function lectureDesDuels(qui: string | readonly string[] | null, maintena
     parties.push(`SELECT id, profile_id, justes, finie_le, (SELECT COUNT(*) FROM json_each(adversaire, '$.reponses') WHERE type = 'true') AS ses_justes,
                    NULL AS cote_adverse, NULL AS cote_cachee_adverse, 0 AS lance, NULL AS duel
             FROM campagne_series
-            WHERE ${rencontre !== null ? 'id = ? AND ' : apres !== null ? 'rowid > ? AND ' : ''}${parmi ? `profile_id ${parmi} AND ` : ''}mode = 'rencontre' AND finie_le IS NOT NULL AND adversaire IS NOT NULL AND json_valid(adversaire)`)
+            WHERE ${rencontre !== null ? 'id = ? AND ' : apres !== null ? `rowid > ? AND ${DEPUIS_SON_ROWID}` : ''}${parmi ? `profile_id ${parmi} AND ` : ''}mode = 'rencontre' AND finie_le IS NOT NULL AND adversaire IS NOT NULL AND json_valid(adversaire)`)
     args.push(...(rencontre !== null ? [rencontre] : apres !== null ? [apres] : []), ...(ids ?? []))
   }
   if (rencontre === null) {
@@ -8468,7 +8527,7 @@ export function lectureDesDuels(qui: string | readonly string[] | null, maintena
     const lesquels = codes
       ? ` AND d.code IN (${codes.map(() => '?').join(', ')})`
       : apres !== null
-        ? ` AND d.code IN (SELECT duel FROM campagne_series WHERE rowid > ? AND mode = 'duel')`
+        ? ` AND d.code IN (SELECT duel FROM campagne_series WHERE rowid > ? AND ${DEPUIS_SON_ROWID}mode = 'duel')`
         : ''
     parties.push(`SELECT m.id, m.profile_id, m.justes, MAX(COALESCE(m.finie_le, d.ferme_le), COALESCE(o.finie_le, d.ferme_le)) AS finie_le, o.justes AS ses_justes,
                    CASE WHEN m.profile_id = d.auteur THEN d.cote_adversaire ELSE d.cote_auteur END AS cote_adverse,
@@ -8517,7 +8576,7 @@ function lecturesDuJournalDesDuels(apres: number, maintenant: number): InStateme
     lectureDesDuels(null, maintenant, { apres }),
     {
       sql: `SELECT code, ferme_le FROM campagne_duels
-            WHERE code IN (SELECT duel FROM campagne_series WHERE rowid > ? AND mode = 'duel') AND ferme_le > ? AND adversaire IS NOT NULL`,
+            WHERE code IN (SELECT duel FROM campagne_series WHERE rowid > ? AND ${DEPUIS_SON_ROWID}mode = 'duel') AND ferme_le > ? AND adversaire IS NOT NULL`,
       args: [apres, maintenant],
     },
   ]

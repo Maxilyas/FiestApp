@@ -358,8 +358,20 @@ jour a sa notification (règle `rappel-et-installation.md`).
   `fermeturesEnRoute`) ; les séries arrivées depuis la plus grande qu'il a
   vue (`seriesVues`, leur `rowid`) : ce qu'un autre serveur, un test ou une
   main ont écrit y paraît, au plus tard après `FRAICHEUR_DES_DUELS_MS`
-  (trente secondes ; zéro au banc, `fraicheurDesDuelsMs`) ; et tout, de
-  nouveau, toutes les heures (`JOURNAL_DES_DUELS_RELU_MS`), en fond. Une
+  (trente secondes ; zéro au banc, `fraicheurDesDuelsMs`) — le `+` devant le
+  mode (`DEPUIS_SON_ROWID`) fait partir ce rattrapage de la plage de
+  `rowid` : sans statistiques, SQLite préférait l'index du mode, et chaque
+  rattrapage parcourait toutes les rencontres et deux fois toutes les
+  tentatives (la revue du 24 octobre 2026, `duels-index.test.ts`) ; ce qui a
+  peut-être bougé sans être rangé — un lot resté sans réponse, une réponse
+  écrite juste après la fermeture de son duel, une relecture ratée, des
+  lignes lues avant le départ d'un profil — se relit par sa clé à la
+  lecture suivante (`duelsARelire`), et une relecture ratée ne fait échouer
+  personne ; une fin écrite ailleurs, sur sa ligne, sans `rowid` neuf, ne se
+  voit qu'à la relecture d'ensemble, trois minutes après la première d'un
+  démarrage (`DUELS_RELUS_APRES_LE_DEMARRAGE_MS` : le serveur d'avant a
+  fini sa mise en ligne), puis toutes les heures (`JOURNAL_DES_DUELS_RELU_MS`),
+  en fond. Une
   ligne ne fait qu'arriver — une rencontre finie, les tentatives d'un duel
   fini ou fermé ne bougent plus — : une relecture ne retire rien (`ranger`),
   et seul `oublierProfil` refait le journal (`generationDesDuels` : une
@@ -367,7 +379,9 @@ jour a sa notification (règle `rappel-et-installation.md`).
   tant qu'il ne change pas (`cotes`, sa `version`), et la fin de chaque duel
   dit la place (`rangAuxDuels`) du journal que son lot vient de ranger. `journal-des-duels.test.ts`
   le compare à `lectureDesDuels` — la lecture d'avant, la règle même —,
-  joueur par joueur, sur une base au hasard. Une porte neuve qui finit une
+  joueur par joueur, sur une base au hasard, et joue chaque relecture qui
+  arrive trop tard ou pas du tout. Qui attend une relecture lit le journal
+  d'après elle : remplacé pendant l'attente, c'est le neuf. Une porte neuve qui finit une
   série de duel ou de rencontre relit sa cible (`relireLesDuels`) ; une
   donnée de plus d'un duel s'ajoute à `lectureDesDuels` et à la ligne du
   journal (`LigneDuJournalDesDuels`).
