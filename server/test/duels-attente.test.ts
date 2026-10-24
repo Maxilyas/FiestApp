@@ -99,7 +99,9 @@ const premier = (requete: Promise<unknown>, ms: number) =>
 before(async () => {
   // Le préchauffage de la campagne lit la base : loin des mesures.
   const base = baseDEssai(12 * CATEGORIES.length, { categories: [...CATEGORIES] })
-  banc = await demarrer({ baseDeLaCampagne: base, prechauffageCampagneMs: 3_600_000 })
+  // Le journal des duels frais comme en ligne : ces épreuves comptent ce que
+  // la production attend, et n'écrivent de duel que par le serveur.
+  banc = await demarrer({ baseDeLaCampagne: base, prechauffageCampagneMs: 3_600_000, fraicheurDesDuelsMs: 3_600_000 })
   cookie = await inscrireProfil(banc.url, 'lea', 'Léa')
   const profileId = ((await lire('/api/joueur/moi?leger')) as any).profile.id as string
   // Trois séries finies d'avant, écrites dans la base permanente : son niveau,

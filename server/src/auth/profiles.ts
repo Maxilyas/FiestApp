@@ -517,6 +517,9 @@ function nomDeCompagnon(brut: unknown): string | null {
 /** Les prénoms qu'une recherche parcourt (`chercher`), relus au plus une fois la minute. */
 const ANNUAIRE_GARDE_MS = 60_000
 
+/** La rareté de chaque badge (`populationBadges`), relue au plus toutes les dix minutes : elle bouge lentement. */
+const POPULATION_GARDEE_MS = 10 * 60_000
+
 /** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
 const SESSION_MS = 365 * 24 * 3600 * 1000
 const SLIDE_EVERY_MS = 7 * 24 * 3600 * 1000
@@ -744,6 +747,8 @@ export class ProfileStore {
    * aller-retour.
    */
   private recompenses = new Map<string, Map<string, number>>()
+  /** Son étagère (`etagereDe`), par la table de ses récompenses qu'elle a lue : une écriture qui les recompte en pose une neuve. */
+  private etageres = new WeakMap<ReadonlyMap<string, number>, Promise<readonly Omit<BadgePorte, 'porteurs' | 'rarete'>[]>>()
   /**
    * Ses compagnons achetés, le rang de la plus haute forme atteinte par
    * chacun — jamais perdue —, son nom et la forme qu'il montre dans sa niche.
@@ -4574,8 +4579,33 @@ export class ProfileStore {
     })
   }
 
-  /** Les lignes de son étagère, sans leur rareté : ce que sa loge compte (`ceQueLaLogeLit`) n'en a pas besoin. */
-  private async etagereDe(profileId: string): Promise<Omit<BadgePorte, 'porteurs' | 'rarete'>[]> {
+  /**
+   * Les lignes de son étagère, sans leur rareté : ce que sa loge compte
+   * (`ceQueLaLogeLit`) n'en a pas besoin. Gardées tant que ses récompenses
+   * ne changent pas : chaque écriture les recompte (`recompterRecompenses`)
+   * et pose une table neuve, la clé de cette mémoire (`etageres`). Relues,
+   * elles parcouraient toutes ses récompenses à chaque page du profil, chaque
+   * carte, chaque loge — 934 lignes au quota de Turso pour le plus fidèle,
+   * 5 % du quota à elles seules, le 23 octobre 2026.
+   */
+  private etagereDe(profileId: string): Promise<readonly Omit<BadgePorte, 'porteurs' | 'rarete'>[]> {
+    const cle = this.recompenses.get(profileId)
+    // Pas en mémoire : relue, sans rien garder — sa table viendra avec lui.
+    if (!cle) return this.lireLEtagere(profileId)
+    let gardee = this.etageres.get(cle)
+    if (!gardee) {
+      const lue = this.lireLEtagere(profileId)
+      this.etageres.set(cle, lue)
+      // Ratée, elle se relit à la demande suivante : gardée, la promesse figerait l'échec.
+      lue.catch(() => {
+        if (this.etageres.get(cle) === lue) this.etageres.delete(cle)
+      })
+      gardee = lue
+    }
+    return gardee
+  }
+
+  private async lireLEtagere(profileId: string): Promise<Omit<BadgePorte, 'porteurs' | 'rarete'>[]> {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
     // Les saisons non plus : elles ne se montrent que par leur légendaire,
@@ -4610,15 +4640,16 @@ export class ProfileStore {
   /**
    * Combien de profils portent chaque badge, et combien il y a de profils en
    * tout. La rareté se calcule, elle ne se décrète pas — mais elle bouge
-   * lentement : on la garde une minute plutôt que de la recompter à chaque
-   * ouverture d'une page.
+   * lentement : on la garde dix minutes (`POPULATION_GARDEE_MS`) plutôt que
+   * de la recompter à chaque ouverture d'une page — chaque recompte parcourt
+   * toutes les récompenses de tous.
    */
   private porteurs: { at: number; porteurs: Map<string, number>; profils: number } | null = null
   /** Les prénoms sans accents et les identifiants de tous, pour `chercher`. */
   private annuaire: { lu: number; lignes: { id: string; nom: string; login: string }[] } | null = null
 
   private async populationBadges(): Promise<{ porteurs: Map<string, number>; profils: number }> {
-    const frais = this.porteurs && Date.now() - this.porteurs.at < 60_000
+    const frais = this.porteurs && Date.now() - this.porteurs.at < POPULATION_GARDEE_MS
     if (frais && this.porteurs) return this.porteurs
     const [compte, parBadge] = await Promise.all([
       this.client.execute('SELECT COUNT(*) AS n FROM profiles WHERE disabled_at IS NULL'),

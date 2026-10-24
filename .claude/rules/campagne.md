@@ -67,9 +67,15 @@ paths:
   (`lireAvecLeJournal`) ou d'un aller-retour à lui (`rattraperLeJournal`).
   Il garde les dérivations mêmes que relisaient les requêtes d'avant, avec
   leurs filtres (`vuesDe`, `premieresDe`, `justesParHeureDe`, `savoirDe`,
-  `expertesDe`, `recentesDe`, `mesures`, `premieresJustesDe`, `carnetDe`) :
-  une dérivation de plus s'y écrit, et se compare au SQL d'avant dans
-  `journal-des-reponses.test.ts`, sur une base au hasard. **Une lecture
+  `expertesDe`, `recentesDe`, `mesures`, `premieresJustesDe`, `carnetDe` ;
+  depuis le 24 octobre 2026, `compagnonsDe` — 38 % du quota de Turso à lui
+  seul, la veille —, `justesDe` — la somme des `justes` des séries, égale en
+  production, profil par profil et mode par mode, au compte de leurs bonnes
+  réponses — et `reponsesDesEpreuves`, l'administration des sentiers, 150 000
+  lignes par page) : une dérivation de plus s'y écrit, et se compare au SQL
+  d'avant dans `journal-des-reponses.test.ts`, sur une base au hasard. Un
+  test qui efface une réponse derrière le dos du serveur le redémarre
+  (`banc.redemarrer()`) : le journal ne l'apprend pas. **Une lecture
   sait ce qu'on a écrit avant elle** : chaque lecture du journal prend un
   numéro en partant (`lecturesDuJournal`), le journal retient la dernière
   complète qu'il a reçue (`fraisDepuis`) ; une requête qui commence n'a
@@ -78,6 +84,34 @@ paths:
   écrit dans `campagne_reponses` l'appelle après son lot, comme
   `vuAilleurs`. Une réponse ne change jamais : seul `oublierProfil` en
   efface, et refait le journal entier.
+- **Le réveil relit les tranches gardées du journal, pas toute la base**
+  (`campagne_tranches`, le 24 octobre 2026 : la première lecture de chaque
+  démarrage parcourait 47 000 lignes au quota de Turso, sept réveils par
+  jour, deux fois plus à chaque doublement des réponses). Chaque tranche est
+  une lecture du journal telle qu'elle est partie — deux mille réponses, le
+  texte même de `lectureDuJournal`, 412 Ko — rangée sous le `rowid` d'où
+  elle partait ; le réveil les relit dans l'ordre, quatre par aller-retour
+  (`reprendreLesTranches`), puis la base pour ce qui suit, moins de deux
+  mille réponses — sans tranche au démarrage (`tranchesAuDemarrage`, lu
+  dans le lot d'`init`), il ne les cherche pas : la première demande d'un
+  réveil n'attend pas un aller-retour de plus (`duels-attente.test.ts`) ;
+  et ce que le journal lit au-delà s'y range en fond, deux
+  mille à la fois, écrit par la base elle-même (`garderLesTranches`,
+  `ecritureDUneTranche`). Elles ne valent que tant que la base dit la même
+  chose : une réponse effacée ou modifiée, une série effacée les effacent
+  toutes, par des déclencheurs (`DECLENCHEURS_DES_TRANCHES` — un test, une
+  main, `oublierProfil`) ; les duels qu'elles disent ouverts se relisent au
+  réveil, la fermeture d'un duel étant la seule chose que leurs lignes
+  puissent avoir manquée (`annulerUnDuel`) ; une lecture qui change de forme
+  ne relit pas celles d'avant (`VERSION_DES_TRANCHES`, l'empreinte de son
+  texte : rien à monter) ; une tranche illisible ou hors du chemin arrête la
+  relecture, et s'efface avec celles qui la suivent. Une colonne de plus que
+  le journal lit d'une ligne qui peut changer — un champ d'une série qu'on
+  modifie après coup — se relit au réveil comme les duels, ou ajoute son
+  déclencheur. La sauvegarde n'en recopie pas les lignes : la restauration
+  renumérote les `rowid` qu'elles citent (`REFAITES`,
+  `scripts/sauvegarde.ts`). `journal-des-reponses.test.ts` réveille la
+  campagne sur ses tranches et la compare au SQL d'avant.
 - **Une réponse de campagne écrite prévient l'expédition** (`vuAilleurs`,
   avant le lot de la série et de ses modes, de l'épreuve, du parcours) :
   l'expédition en route garde en mémoire ce qu'il a vu, lu à son départ, et

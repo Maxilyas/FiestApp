@@ -46,6 +46,15 @@ paths:
   requête de chacun après chaque réveil de l'hébergeur (le 13 octobre 2026,
   `duels-attente.test.ts`). Une fiche lue avant un changement n'écrase pas
   celle qui est arrivée à jour pendant l'aller-retour (`jour-charge.test.ts`).
+- **Son étagère se garde tant que ses récompenses ne bougent pas**
+  (`etagereDe`, le 23 octobre 2026 : relue à chaque page du profil, chaque
+  carte, chaque loge, 5 % du quota de Turso). Sa clé est la table de ses
+  récompenses en mémoire (`etageres`, une `WeakMap`), que chaque écriture
+  dans `profile_badges` remplace en les recomptant (`recompterRecompenses`) :
+  une écriture de plus qui n'y passerait pas laisserait l'étagère d'avant —
+  et le niveau, les légendaires, tout ce que la table dit avec elle. La
+  rareté de chaque haut fait, la population qui le porte, se garde dix
+  minutes (`POPULATION_GARDEE_MS`).
 - **Le cookie, lui, ne glisse pas** : `setSessionCookie` et `setPlayerCookie`
   posent un `Max-Age` fixe (trente jours, un an) à l'ouverture ; seule
   l'échéance en base glisse (`resolveSession`, `sessionProfileId`). Une

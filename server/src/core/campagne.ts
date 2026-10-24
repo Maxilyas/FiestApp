@@ -13,7 +13,20 @@ import {
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
 import { rendreLaMain } from './tourniquet'
-import { FENETRE_DES_RECENTES_MS, JournalDesReponses, REPONSES_PAR_LECTURE, lectureDuJournal, lireLeJournal } from './journalDesReponses'
+import {
+  DECLENCHEURS_DES_TRANCHES,
+  FENETRE_DES_RECENTES_MS,
+  JournalDesReponses,
+  REPONSES_PAR_LECTURE,
+  TRANCHES_PAR_LECTURE,
+  VERSION_DES_TRANCHES,
+  ecritureDUneTranche,
+  lectureDesTranches,
+  lectureDuJournal,
+  lireLeJournal,
+  type LectureDuJournal,
+} from './journalDesReponses'
+import { JournalDesDuels, type DuelsARelire, type LigneDuJournalDesDuels } from './journalDesDuels'
 import { DejaPrises, type Intitule } from './jumelles'
 import {
   CHANCES_PAR_TRANCHE,
@@ -694,8 +707,19 @@ const DUELS_MONTRES = 10
 const FAITS_MONTRES = 100
 /** Ses rencontres qu'on lui rappelle : les plus récentes. */
 const RENCONTRES_MONTREES = 10
-/** Les cotes du classement des duels se relisent au plus toutes les dix minutes, et à chaque duel fini ici. */
-const COTES_GARDEES_MS = 10 * 60_000
+/**
+ * Le journal des duels se relit en entier au plus toutes les heures, en fond :
+ * ce qu'un autre processus aurait écrit — l'ancien serveur, le temps d'une
+ * mise en ligne. Le reste, il le sait de ce qui bouge ici (`journalDesDuels.ts`).
+ */
+const JOURNAL_DES_DUELS_RELU_MS = 60 * 60_000
+/**
+ * Ce que ce serveur écrit, le journal des duels le range aussitôt ; ce qui
+ * s'écrit sans lui — une série insérée ailleurs — il le relit au plus toutes
+ * les trente secondes, d'un aller-retour de trois lignes (`lesDuels`) :
+ * chaque page, chaque dé l'aurait attendu.
+ */
+const FRAICHEUR_DES_DUELS_MS = 30_000
 /** Les bordures demandées à quelques millisecondes d'écart se lisent ensemble : une vague d'arrivées, une requête. */
 const BORDURES_GROUPEES_MS = 30
 const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
@@ -874,12 +898,27 @@ export class CampagneStore {
   private argent: { semaine: string; ids: ReadonlySet<string> } = { semaine: '', ids: AUCUN_VAINQUEUR }
   private argentEnRoute: Promise<void> | null = null
   /**
-   * Les duels classés de tout le monde, relus pour le classement
-   * (`classementDesDuels`) : une lecture de toutes les rencontres finies,
-   * gardée jusqu'au prochain duel fini ici — ou dix minutes au plus, le temps
-   * que les quatre semaines du classement glissent.
+   * Les duels classés de tout le monde, gardés en mémoire
+   * (`core/journalDesDuels.ts`) : lus une fois, puis seulement ce qui bouge.
+   * Rien avant sa première lecture (`lesDuels`).
    */
-  private cotes: { lu: number; parProfil: Promise<Map<string, ReleveDesDuels>> } | null = null
+  private journalDesDuels = new JournalDesDuels()
+  private duelsEnLecture: Promise<JournalDesDuels> | null = null
+  /** Ce qui a bougé pendant une lecture d'ensemble en route : relu derrière elle, qui l'a peut-être lu avant. */
+  private duelsTouches: DuelsARelire[] | null = null
+  /** Monte quand le journal des duels repart de zéro (`oublierProfil`) : une lecture partie avant ne s'installe pas. */
+  private generationDesDuels = 0
+  /** Chaque lecture du journal des duels prend un numéro en partant : une demande sait si une lecture est partie après elle (`fraisDepuis`). */
+  private lecturesDesDuels = 0
+  private readonly fraicheurDesDuels: number
+  /** Les duels fermés qu'une demande relit en ce moment (`lesDuels`) : celles de front les attendent. */
+  private fermeturesEnRoute = new Set<Promise<void>>()
+  private rattrapageDesDuels: { numero: number; journal: JournalDesDuels; fait: Promise<void> } | null = null
+  /**
+   * Les cotes de tous, pour le classement (`classementDesDuels`), tirées du
+   * journal des duels : refaites quand une de ses lignes change.
+   */
+  private cotes: { journal: JournalDesDuels; version: number; parProfil: Map<string, ReleveDesDuels> } | null = null
   /**
    * Les bordures de ligue déjà relues, pour la salle et les classements
    * (`borduresEnMemoire`) : l'instantané les lit à chaque diffusion, et ni
@@ -967,6 +1006,21 @@ export class CampagneStore {
   private derniereReponse = 0
   /** Le rattrapage en route : qui commence avant lui l'attend, plutôt que d'en lancer un autre. */
   private rattrapage: { numero: number; journal: JournalDesReponses; fait: Promise<unknown> } | null = null
+  /**
+   * Les tranches gardées du journal (`campagne_tranches`) : où elles
+   * s'arrêtent pour le journal qu'on lit, et combien de réponses il avait
+   * lues là — ce qu'il lit au-delà s'y range en fond (`garderLesTranches`).
+   */
+  private tranches: { journal: JournalDesReponses; jusqua: number; reponses: number } | null = null
+  /** Une tranche à la fois ; ratée, la suivante attend `MESURE_RETENTEE_MS`. */
+  private trancheEnRoute: Promise<void> | null = null
+  private trancheRateeLe = Number.NEGATIVE_INFINITY
+  /**
+   * La base en gardait au démarrage (`init`). Sans, la première lecture du
+   * journal ne les cherche pas : un aller-retour de moins avant la première
+   * page — celles d'après, si (`oublierProfil`).
+   */
+  private tranchesAuDemarrage = true
   /** Une relecture de la mesure tentée, ratée ou non : la suivante attend `MESURE_RETENTEE_MS`. */
   private mesureTenteeLe = Number.NEGATIVE_INFINITY
   /** La série de référence du dé, refaite quand les jouables, leur mesure ou le modèle changent : onze mille questions à ranger. */
@@ -1004,11 +1058,14 @@ export class CampagneStore {
       recompenses?: RecompensesDeCampagne
       /** Les rencontres de l'expédition s'ouvrent sur ce serveur (`rencontresOuvertes`) : le niveau d'explorateur compte pour L'Explorateur. */
       rencontres?: boolean
+      /** Combien de temps le journal des duels se croit à jour de ce qui s'écrit sans ce serveur (`FRAICHEUR_DES_DUELS_MS`) ; le banc, 0. */
+      fraicheurDesDuelsMs?: number
     } = {},
   ) {
     this.client = clientDistant(url, authToken)
     this.recompenses = opts.recompenses ?? null
     this.rencontres = opts.rencontres ?? false
+    this.fraicheurDesDuels = opts.fraicheurDesDuelsMs ?? FRAICHEUR_DES_DUELS_MS
     this.maintenant = opts.maintenant ?? Date.now
     const donnee = opts.base
     let lue: Promise<BaseDeLaCampagne> | null = null
@@ -1196,7 +1253,7 @@ export class CampagneStore {
     ] as const) {
       await ajouterColonne(this.client, 'campagne_series', colonne, type)
     }
-    await this.client.batch(
+    const creees = await this.client.batch(
       [
         'CREATE INDEX IF NOT EXISTS idx_campagne_series_sentiers ON campagne_series(profile_id, mode, branche, palier)',
         // Les paliers que chacun tenait de ses portraits d'avant les sentiers
@@ -1212,6 +1269,21 @@ export class CampagneStore {
            cle    TEXT PRIMARY KEY,
            valeur TEXT NOT NULL
          )`,
+        // Les lectures du journal des réponses, gardées telles quelles : un
+        // réveil les relit au lieu de toute l'histoire (`reprendreLesTranches`,
+        // `core/journalDesReponses.ts`). Une réponse ou une série effacée les
+        // efface toutes ; celles d'une lecture d'avant ne se relisent plus.
+        `CREATE TABLE IF NOT EXISTS campagne_tranches (
+           version   TEXT NOT NULL,
+           debut     INTEGER NOT NULL,
+           jusqua    INTEGER NOT NULL,
+           lues      INTEGER NOT NULL,
+           lignes    TEXT NOT NULL,
+           ecrite_le INTEGER NOT NULL,
+           PRIMARY KEY (version, debut)
+         )`,
+        ...DECLENCHEURS_DES_TRANCHES,
+        { sql: 'DELETE FROM campagne_tranches WHERE version <> ?', args: [VERSION_DES_TRANCHES] },
         // Le défi de chaque semaine : ses questions, tirées au premier qui
         // l'ouvre et figées — la même série pour tous —, et sa clôture, qui
         // range ses vainqueurs.
@@ -1274,9 +1346,12 @@ export class CampagneStore {
         // (`cercleDe`) : sans index, la table entière.
         'CREATE INDEX IF NOT EXISTS idx_campagne_amis_ajoutes_ami ON campagne_amis_ajoutes(ami)',
         'CREATE INDEX IF NOT EXISTS idx_campagne_amis_retires_ami ON campagne_amis_retires(ami)',
+        // En dernier, dans le même aller-retour : y a-t-il des tranches à relire (`tranchesAuDemarrage`) ?
+        { sql: 'SELECT 1 FROM campagne_tranches WHERE version = ? LIMIT 1', args: [VERSION_DES_TRANCHES] },
       ],
       'write',
     )
+    this.tranchesAuDemarrage = creees[creees.length - 1].rows.length > 0
     // Un duel classé contre quelqu'un (`shared/duels.ts`) : qui a été défié,
     // et les deux cotes au lancement — chacun bouge contre celle de l'autre.
     // Puis quand qui l'a lancé a vu son résultat : joué le second, l'autre le
@@ -1536,24 +1611,35 @@ export class CampagneStore {
 
   /**
    * Sa première lecture : toute l'histoire, par tranches, chacune décodée à
-   * son tour de boucle (`rendreLaMain`). Une seule à la fois ; ratée, la
-   * suivante qui en a besoin la refait.
+   * son tour de boucle (`rendreLaMain`) — ses tranches gardées d'abord
+   * (`reprendreLesTranches`), une ligne au quota de Turso pour deux mille
+   * réponses, puis la base, pour ce qu'elles n'ont pas encore. Une seule à la
+   * fois ; ratée, la suivante qui en a besoin la refait.
    */
   private chargerLeJournal(): Promise<void> {
     const journal = this.journal
     if (journal.charge) return Promise.resolve()
     if (this.journalEnLecture?.journal !== journal) {
       const lecture = (async () => {
+        // Les duels que les tranches disent ouverts se relisent avec la première lecture de la base.
+        let fermetures = await this.reprendreLesTranches(journal)
         for (;;) {
           if (this.ferme) throw new Error('la campagne est fermée')
           const numero = ++this.lecturesDuJournal
-          const res = await this.client.execute(lectureDuJournal(journal.jusqua))
+          let res: ResultSet
+          if (fermetures) {
+            const [fermes, lus] = await this.client.batch([fermetures, lectureDuJournal(journal.jusqua)], 'read')
+            for (const d of fermes.rows) journal.fermerLeDuel(String(d.code), Number(d.ferme_le))
+            fermetures = null
+            res = lus
+          } else res = await this.client.execute(lectureDuJournal(journal.jusqua))
           await rendreLaMain()
           const lu = lireLeJournal(res.rows[0])
           journal.appliquer(lu, numero)
           if (!lu.aSuivre) break
         }
         journal.charge = true
+        this.garderLesTranches(journal)
       })()
       const enLecture = { journal, lecture }
       this.journalEnLecture = enLecture
@@ -1566,6 +1652,114 @@ export class CampagneStore {
       )
     }
     return this.journalEnLecture!.lecture
+  }
+
+  /**
+   * Les tranches gardées du journal, dans l'ordre, chacune là où s'arrête la
+   * précédente : le journal les relit comme la base les lui avait données,
+   * quatre par aller-retour. Elles ne disent rien de ce qui s'est écrit après
+   * elles : appliquées sans numéro, elles ne passent pour fraîches auprès de
+   * personne. Un trou — une tranche pas encore écrite, ou illisible — arrête
+   * là : la base lit la suite, et les tranches hors du chemin s'effacent,
+   * sans quoi chaque réveil les relirait. Rend la relecture des duels
+   * qu'elles disent encore ouverts : une annulation a pu les fermer depuis
+   * (`annulerUnDuel`), et la fermeture d'un duel est la seule chose qu'une
+   * ligne gardée puisse avoir manquée.
+   */
+  private async reprendreLesTranches(journal: JournalDesReponses): Promise<InStatement | null> {
+    const horsDuChemin: number[] = []
+    let auDela = false
+    // Aucune au démarrage : la base lit tout, comme avant elles, et les écrit.
+    for (let encore = this.tranchesAuDemarrage; encore; ) {
+      if (this.ferme) throw new Error('la campagne est fermée')
+      let rows: ResultSet['rows']
+      try {
+        rows = (await this.client.execute(lectureDesTranches(journal.jusqua))).rows
+      } catch (e) {
+        // Une base qui hoquette, une réponse trop lourde : la base relit ce qui suit, comme avant les tranches.
+        console.warn('[campagne] tranches du journal non relues — la base relit la suite :', e instanceof Error ? e.message : e)
+        break
+      }
+      encore = rows.length === TRANCHES_PAR_LECTURE
+      for (const t of rows) {
+        const debut = Number(t.debut)
+        // Écrite pour un journal d'avant — une réponse effacée pendant qu'elle partait : elle ne mène nulle part.
+        if (debut < journal.jusqua) {
+          horsDuChemin.push(debut)
+          continue
+        }
+        let lu: LectureDuJournal | null = null
+        if (debut === journal.jusqua) {
+          await rendreLaMain()
+          try {
+            lu = lireLeJournal(t)
+          } catch (e) {
+            console.warn('[campagne] tranche du journal illisible — la base relit la suite :', e instanceof Error ? e.message : e)
+          }
+        }
+        if (!lu || lu.jusqua <= journal.jusqua) {
+          auDela = true
+          encore = false
+          break
+        }
+        journal.appliquer(lu)
+      }
+    }
+    // Attendu : effacée après coup, elle emporterait la tranche neuve que la suite écrit au même endroit.
+    if (auDela || horsDuChemin.length > 0) {
+      const ailleurs = horsDuChemin.length > 0 ? ` OR debut IN (${horsDuChemin.map(() => '?').join(', ')})` : ''
+      await this.client
+        .execute({ sql: `DELETE FROM campagne_tranches WHERE version = ? AND (debut >= ?${ailleurs})`, args: [VERSION_DES_TRANCHES, journal.jusqua, ...horsDuChemin] })
+        .catch(e => console.warn('[campagne] tranches hors du chemin non effacées :', e instanceof Error ? e.message : e))
+    }
+    this.tranches = { journal, jusqua: journal.jusqua, reponses: journal.reponses }
+    this.tranchesAuDemarrage = true
+    const ouverts = journal.duelsOuverts(this.maintenant())
+    return ouverts.length === 0 ? null : { sql: `SELECT code, ferme_le FROM campagne_duels WHERE code IN (${ouverts.map(() => '?').join(', ')})`, args: ouverts }
+  }
+
+  /**
+   * Ce que le journal a lu au-delà de ses tranches gardées s'y range, deux
+   * mille réponses à la fois, l'une après l'autre, en fond — écrit par la
+   * base elle-même (`ecritureDUneTranche`) : le texte ne fait pas le voyage.
+   * Le réveil suivant ne relit de la base que ce qui reste, moins de deux
+   * mille réponses. Une tranche que la base n'a pas de quoi remplir — des
+   * réponses effacées sans que ce journal le sache — arrête là : le prochain
+   * réveil, qui relira la base, les refera.
+   */
+  private garderLesTranches(journal: JournalDesReponses): void {
+    const t = this.tranches
+    if (!t || t.journal !== journal || !journal.charge || this.trancheEnRoute || this.ferme) return
+    if (journal.reponses - t.reponses < REPONSES_PAR_LECTURE || this.maintenant() - this.trancheRateeLe < MESURE_RETENTEE_MS) return
+    const enRoute: Promise<void> = this.client
+      .execute(ecritureDUneTranche(t.jusqua, this.maintenant()))
+      .then(
+        res => {
+          if (this.tranches !== t) return
+          const jusqua = res.rows[0]?.jusqua
+          if (jusqua === null || jusqua === undefined) {
+            this.tranches = null
+            return
+          }
+          t.jusqua = Number(jusqua)
+          t.reponses += REPONSES_PAR_LECTURE
+        },
+        e => {
+          this.trancheRateeLe = this.maintenant()
+          if (!this.ferme) console.warn('[campagne] tranche du journal non gardée — elle se retentera :', e instanceof Error ? e.message : e)
+        },
+      )
+      .finally(() => {
+        if (this.trancheEnRoute === enRoute) this.trancheEnRoute = null
+        this.garderLesTranches(journal)
+      })
+    this.trancheEnRoute = enRoute
+  }
+
+  /** Une lecture appliquée au journal ; ce qu'il a lu au-delà de ses tranches s'y range (`garderLesTranches`). */
+  private appliquerAuJournal(journal: JournalDesReponses, lu: LectureDuJournal, numero: number): void {
+    journal.appliquer(lu, numero)
+    this.garderLesTranches(journal)
   }
 
   /**
@@ -1593,7 +1787,7 @@ export class CampagneStore {
         continue
       }
       const numero = ++this.lecturesDuJournal
-      const fait = this.client.execute(lectureDuJournal(journal.jusqua)).then(res => journal.appliquer(lireLeJournal(res.rows[0]), numero))
+      const fait = this.client.execute(lectureDuJournal(journal.jusqua)).then(res => this.appliquerAuJournal(journal, lireLeJournal(res.rows[0]), numero))
       const rattrapage = { numero, journal, fait }
       this.rattrapage = rattrapage
       try {
@@ -1628,7 +1822,7 @@ export class CampagneStore {
     }
     const numero = ++this.lecturesDuJournal
     const lus = await this.client.batch([...lot, lectureDuJournal(journal.jusqua)], mode)
-    journal.appliquer(lireLeJournal(lus[lus.length - 1].rows[0]), numero)
+    this.appliquerAuJournal(journal, lireLeJournal(lus[lus.length - 1].rows[0]), numero)
     return { lus: lus.slice(0, -1), journal: journal === this.journal && journal.fraisDepuis >= numero ? journal : await this.rattraperLeJournal(debut) }
   }
 
@@ -1984,21 +2178,22 @@ export class CampagneStore {
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
     const {
-      lus: [record, justes, validees, passeport, ...renommee],
+      lus: [record, validees, passeport, ...renommee],
       journal,
     } = await this.lireAvecLeJournal([
       {
         sql: `SELECT COALESCE(MAX(justes), 0) AS n FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`,
         args: [profileId],
       },
-      { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
       this.lectureDesValidees(profileId),
       lectureDuPasseport(profileId),
       ...(this.rencontres ? lecturesDeLaRenommee(profileId) : []),
     ])
     return {
       record: Number(record.rows[0]?.n ?? 0),
-      justes: Number(justes.rows[0]?.n ?? 0),
+      // Toutes ses bonnes réponses, du journal : la somme des `justes` de ses
+      // séries parcourait chacune d'elles, à chaque fin de partie et chaque page.
+      justes: journal.justesDe(profileId),
       // Ses expertes trouvées, du journal. Une experte retrouvée en révision —
       // ou à une source de l'expédition, qui la reprend du carnet — ne compte
       // pas pour L'Érudit : on en aurait fait trois d'une seule, ratée exprès.
@@ -2397,7 +2592,10 @@ export class CampagneStore {
       // aussi : joué des deux côtés, il compte, et sa fin la dit de même.
       const contre = finie && s.mode === 'duel' ? await this.duelDe(s.duel) : null
       const classe = !!contre?.adversaire
-      const lectureDuDuel = finie && (s.mode === 'rencontre' || classe) ? lot.push(lectureDesDuels(profileId, this.maintenant())) - 1 : -1
+      // Seulement ce duel-ci, ou cette rencontre, relu après sa fin : le reste
+      // de ses duels est au journal des duels (`lesDuels`).
+      const cibleDuDuel: DuelsARelire | null = finie && s.mode === 'rencontre' ? { rencontre: s.id } : finie && classe && contre ? { duels: [contre.code] } : null
+      const lectureDuDuel = cibleDuDuel ? lot.push(lectureDesDuels(null, this.maintenant(), cibleDuDuel)) - 1 : -1
       const experience = juste ? this.lecturesDeLExperience(profileId) : null
       if (experience) lot.push(...experience.lectures)
       // Le tour de ses bordures, pris avant le lot qui les relit avec son duel.
@@ -2414,9 +2612,9 @@ export class CampagneStore {
       }
       if (finie) this.enCours.delete(profileId)
       else this.garderEnCours({ ...s, index: position, vies, justes })
-      // Le classement des duels se relira : sa cote vient de bouger.
-      if (lectureDuDuel >= 0) this.cotes = null
-      const releve = lectureDuDuel >= 0 ? releverLesDuels(duelsLus(res[lectureDuDuel].rows), semaineDeLInstant) : null
+      // Sa cote vient de bouger : le journal des duels range ce duel, le classement se refait.
+      if (cibleDuDuel) this.rangerLesDuels(cibleDuDuel, res[lectureDuDuel].rows)
+      const releve = cibleDuDuel ? releverLesDuels((await this.lesDuels()).duelsDe(profileId), semaineDeLInstant) : null
       // Un cran de plus à sa bordure, peut-être : la salle où il joue le verra.
       if (releve) this.retenirLesBordures(profileId, releve.bordures, tourDesBordures)
       const coteApres = releve ? this.coteApres(releve, s.id) : null
@@ -2537,7 +2735,7 @@ export class CampagneStore {
     { journal, numero }: { journal: JournalDesReponses; numero: number },
   ): Promise<number> {
     try {
-      if (numero > 0) journal.appliquer(lireLeJournal(lecture.rows[0]), numero)
+      if (numero > 0) this.appliquerAuJournal(journal, lireLeJournal(lecture.rows[0]), numero)
       // Sa lecture n'a rien rapporté — le journal pas encore chargé —, ou pas tout : une lecture partie après l'écriture.
       const aJour = numero > 0 && journal === this.journal && journal.fraisDepuis >= numero ? journal : await this.rattraperLeJournal(this.lecturesDuJournal)
       const { parJour, xp } = experienceDuJournal(aJour.justesParHeureDe(profileId), paliers.rows)
@@ -2689,19 +2887,20 @@ export class CampagneStore {
    */
   async duProfil(profileId: string): Promise<CampagneDuProfil> {
     const tour = ++this.tourDesBordures
-    const [justes, acquis, validees, duels] = await this.client.batch(
-      [
-        { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
-        ...this.lecturesDesSentiers(profileId),
-        lectureDesDuels(profileId, this.maintenant()),
-      ],
-      'read',
-    )
+    // Ses bonnes réponses — un confetti chacune — du journal des réponses,
+    // rattrapé dans le lot ; ses duels, du journal des duels.
+    const [
+      {
+        lus: [acquis, validees],
+        journal,
+      },
+      duels,
+    ] = await Promise.all([this.lireAvecLeJournal(this.lecturesDesSentiers(profileId)), this.lesDuels()])
     const sentiers = sentiersLus(acquis.rows, validees.rows)
-    const releve = this.releveLu(profileId, duels.rows, tour)
+    const releve = this.releveLu(profileId, duels.duelsDe(profileId), tour)
     const ligues = confettisDesLigues(releve, this.semaineDeLHeure().semaine)
     return {
-      confettis: Number(justes.rows[0]?.n ?? 0) + confettisDesEtoiles(sentiers) + ligues,
+      confettis: journal.justesDe(profileId) + confettisDesEtoiles(sentiers) + ligues,
       paliers: paliersCommences(sentiers),
       duels: coteDuReleve(releve),
     }
@@ -2778,17 +2977,13 @@ export class CampagneStore {
    * (`loup` → 42) — séries, épreuves, parcours, révisions, défis et duels,
    * comme ses confettis : elles le font grandir (`shared/compagnons.ts`).
    * Les étoiles et les ligues, qui paient sans être des réponses, n'y
-   * comptent pas.
+   * comptent pas. Du journal, rattrapé d'un aller-retour : relues de la
+   * base, elles parcouraient toutes ses réponses à chaque fin de partie,
+   * chaque boutique, chaque niche — 38 % du quota de Turso, le 23 octobre
+   * 2026, 5 000 lignes à chaque fois pour le plus fidèle.
    */
   async compagnonsDe(profileId: string): Promise<Record<string, number>> {
-    const res = await this.client.execute({
-      sql: `SELECT r.compagnon AS compagnon, COUNT(*) AS n
-            FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-            WHERE s.profile_id = ? AND r.juste = 1 AND r.compagnon IS NOT NULL
-            GROUP BY r.compagnon`,
-      args: [profileId],
-    })
-    return Object.fromEntries(res.rows.map(r => [String(r.compagnon), Number(r.n)]))
+    return (await this.rattraperLeJournal()).compagnonsDe(profileId)
   }
 
   /**
@@ -3605,15 +3800,17 @@ export class CampagneStore {
       // allers-retours l'un derrière l'autre, quatre quand sa fiche n'était pas
       // en mémoire — 3 à 6 s au 95ᵉ centile en production (le relevé de
       // l'heure, le 19 octobre 2026). L'écriture part après la réponse.
-      const [toutes, mesure, sesAmis, { lus, journal }, lui] = await Promise.all([
+      const [toutes, mesure, sesAmis, { lus, journal }, lui, duels] = await Promise.all([
         this.jouables(suivi ? undefined : categories),
         this.mesures(),
         voulus.size > 0 ? this.idsDesAmis(profileId) : Promise.resolve([]),
-        this.lireAvecLeJournal(autre ? [lectureDuDuelOuvert(profileId, autre, maintenant), lectureDesDuels(profileId, maintenant), lectureDesDuels(autre, maintenant)] : []),
+        this.lireAvecLeJournal(autre ? [lectureDuDuelOuvert(profileId, autre, maintenant)] : []),
         autre && this.profils ? this.profils.byIds([autre]).then(([p]) => p) : null,
+        // Leurs deux cotes, du journal des duels : chacun bougera contre celle de l'autre.
+        autre ? this.lesDuels() : null,
       ])
       const contre = autre ? this.adversaireDuDuel(lui, duelOuvertLu(lus[0].rows[0], profileId)) : null
-      const cotes = contre ? ([this.releveLu(profileId, lus[1].rows, tour), this.releveLu(contre, lus[2].rows, tour)] as const) : null
+      const cotes = contre && duels ? ([this.releveLu(profileId, duels.duelsDe(profileId), tour), this.releveLu(contre, duels.duelsDe(contre), tour)] as const) : null
       // Ce que l'un et l'autre ont vu (le journal) : tiré pour personne, le duel
       // reposait à son auteur la question vue dix minutes plus tôt dans son
       // épreuve (l'experte du jeu solo, le 11 octobre 2026).
@@ -3683,6 +3880,8 @@ export class CampagneStore {
           () => {
             this.duels.set(duel.code, duel)
             this.garderEnCours(serie)
+            // Contre quelqu'un : à sa fermeture, leurs tentatives commencées compteront.
+            if (duel.adversaire) this.journalDesDuels.ouvrir(duel.code, duel.fermeLe)
           },
           (e: unknown) => {
             this.partiesPerdues.set(profileId, { serie: serie.id, relancer: 'Ce duel n’a pas pu commencer : lance-le de nouveau' })
@@ -4599,16 +4798,21 @@ export class CampagneStore {
       // part avec celles du dé, que rien n'attend derrière elle.
       this.modeleDuSavoir()
       const tour = ++this.tourDesBordures
-      // Ce qu'il a vu, et ses premières réponses : le journal, rattrapé dans le même lot.
-      const {
-        lus: [laissee, duels],
-        journal,
-      } = await this.lireAvecLeJournal([
-        { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
-        lectureDesDuels(profileId, maintenant),
+      // Ce qu'il a vu, et ses premières réponses : le journal, rattrapé dans le même lot ; ses duels, de leur journal.
+      const [
+        {
+          lus: [laissee],
+          journal,
+        },
+        duels,
+      ] = await Promise.all([
+        this.lireAvecLeJournal([
+          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+        ]),
+        this.lesDuels(),
       ])
       // Sa cote : ce que la rencontre met en jeu se redit à chaque question.
-      const releve = this.releveLu(profileId, duels.rows, tour)
+      const releve = this.releveLu(profileId, duels.duelsDe(profileId), tour)
       const ouverte = laissee.rows[0] ? versSerie(laissee.rows[0]) : null
       if (ouverte?.adversaire) {
         this.garderEnCours(ouverte)
@@ -4701,24 +4905,27 @@ export class CampagneStore {
    * (`racontes`), dans le même lot : son bilan et son historique.
    */
   private async rencontresEtDuels(profileId: string, racontes = false): Promise<{ rencontres: MesRencontres; releve: ReleveDesDuels; racontes: DuelRaconte[] }> {
-    const [res, duels, adversaires] = await this.client.batch(
-      [
-        // Les questions de la seule rencontre en route, qui se reprend : une
-        // finie n'en dit que son score. Les soixante de chacune — vingt
-        // kilo-octets — faisaient décoder trois cents kilo-octets à chaque
-        // ouverture de la page (le banc du 16 octobre 2026).
-        {
-          sql: `SELECT id, profile_id, position, vies, justes, finie_le, mode, categories, sujet, adversaire,
-                       CASE WHEN finie_le IS NULL THEN questions ELSE '[]' END AS questions
-                FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' ORDER BY commencee_le DESC LIMIT ?`,
-          args: [profileId, RENCONTRES_MONTREES + 1],
-        },
-        lectureDesDuels(profileId, this.maintenant()),
-        ...(racontes ? [lectureDesAdversaires(profileId)] : []),
-      ],
-      'read',
-    )
-    const joues = duelsLus(duels.rows)
+    const [[res, adversaires], duels] = await Promise.all([
+      this.client.batch(
+        [
+          // Les questions de la seule rencontre en route, qui se reprend : une
+          // finie n'en dit que son score. Les soixante de chacune — vingt
+          // kilo-octets — faisaient décoder trois cents kilo-octets à chaque
+          // ouverture de la page (le banc du 16 octobre 2026).
+          {
+            sql: `SELECT id, profile_id, position, vies, justes, finie_le, mode, categories, sujet, adversaire,
+                         CASE WHEN finie_le IS NULL THEN questions ELSE '[]' END AS questions
+                  FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' ORDER BY commencee_le DESC LIMIT ?`,
+            args: [profileId, RENCONTRES_MONTREES + 1],
+          },
+          ...(racontes ? [lectureDesAdversaires(profileId)] : []),
+        ],
+        'read',
+      ),
+      // Ses duels classés, de leur journal.
+      this.lesDuels(),
+    ])
+    const joues = duels.duelsDe(profileId)
     const releve = releverLesDuels(joues, semaineDeLInstant)
     const rencontres = res.rows.map(versSerie).filter(s => s.adversaire)
     // Les joueurs qu'il a affrontés au dé, avant Automate : Automate n'a pas de
@@ -4774,14 +4981,140 @@ export class CampagneStore {
   /** Ses duels classés, relus : sa cote, ses semaines — et ses bordures, retenues pour la salle. */
   private async releveDesDuels(profileId: string): Promise<ReleveDesDuels> {
     const tour = ++this.tourDesBordures
-    return this.releveLu(profileId, (await this.client.execute(lectureDesDuels(profileId, this.maintenant()))).rows, tour)
+    return this.releveLu(profileId, (await this.lesDuels()).duelsDe(profileId), tour)
   }
 
-  /** Ses duels classés, de lignes de `lectureDesDuels` parties au tour `tour` — seules, ou dans un lot : ses bordures retenues avec. */
-  private releveLu(profileId: string, lignes: readonly Record<string, unknown>[], tour: number): ReleveDesDuels {
-    const r = releverLesDuels(duelsLus(lignes), semaineDeLInstant)
+  /** Ses duels classés, du journal des duels lu au tour `tour` : sa cote, ses semaines — ses bordures retenues avec. */
+  private releveLu(profileId: string, duels: readonly DuelJoue[], tour: number): ReleveDesDuels {
+    const r = releverLesDuels(duels, semaineDeLInstant)
     this.retenirLesBordures(profileId, r.bordures, tour)
     return r
+  }
+
+  /**
+   * Le journal des duels, à jour de tout ce qui était écrit quand on l'a
+   * demandé (`core/journalDesDuels.ts`) : lu en entier la première fois —
+   * et relu en fond de loin en loin (`JOURNAL_DES_DUELS_RELU_MS`) —, puis
+   * ses duels classés fermés depuis, par leur code, et les séries arrivées
+   * depuis la plus grande qu'il a vue, d'un aller-retour de trois lignes.
+   * Une lecture partie après la demande suffit : on l'attend.
+   */
+  private async lesDuels(): Promise<JournalDesDuels> {
+    const debut = this.lecturesDesDuels
+    for (;;) {
+      const journal = this.journalDesDuels
+      if (!journal.charge) {
+        // Repartie de zéro pendant la lecture (`oublierProfil`) : la suivante s'installera.
+        await this.lireLesDuels()
+        continue
+      }
+      const maintenant = this.maintenant()
+      if (maintenant - journal.luLe >= JOURNAL_DES_DUELS_RELU_MS && !this.duelsEnLecture && !this.ferme) {
+        this.lireLesDuels().catch(e => {
+          if (!this.ferme) console.warn('[campagne] journal des duels non relu en fond — celui d’avant sert :', e instanceof Error ? e.message : e)
+        })
+      }
+      const fermes = journal.fermes(maintenant)
+      if (fermes.length > 0) {
+        const relue = this.relireLesDuels({ duels: fermes }).catch((e: unknown) => {
+          // Ratée, leur fermeture se relira à la lecture suivante.
+          for (const code of fermes) journal.ouvrir(code, maintenant)
+          throw e
+        })
+        this.fermeturesEnRoute.add(relue)
+        const fin = () => this.fermeturesEnRoute.delete(relue)
+        relue.then(fin, fin)
+      }
+      // Celles qu'une demande de front a prises au journal avant nous : on les
+      // attend — la page qui lit sa cote et le classement à la fois rendait
+      // l'une sans le duel que l'autre relisait.
+      if (this.fermeturesEnRoute.size > 0) await Promise.all([...this.fermeturesEnRoute])
+      // Ce que ce serveur écrit, il l'a déjà rangé : seul ce qui s'écrit sans
+      // lui attend sa fraîcheur (`fraicheurDesDuels`) — trente secondes en
+      // ligne, aucune au banc, qui écrit des duels à la main.
+      if (journal.fraisDepuis > debut || maintenant - journal.rattrapeLe < this.fraicheurDesDuels) return journal
+      const enRoute = this.rattrapageDesDuels
+      if (enRoute && enRoute.journal === journal && enRoute.numero > debut) {
+        await enRoute.fait
+        continue
+      }
+      const numero = ++this.lecturesDesDuels
+      const fait = this.client.batch(lecturesDuJournalDesDuels(journal.seriesVues, maintenant), 'read').then(([derniere, lus, ouverts]) =>
+        journal.rattraper(
+          lus.rows.map(ligneDesDuels),
+          ouverts.rows.map(r => [String(r.code), Number(r.ferme_le)] as const),
+          Number(derniere.rows[0]?.n ?? 0),
+          numero,
+          maintenant,
+        ),
+      )
+      const rattrapage = { numero, journal, fait }
+      this.rattrapageDesDuels = rattrapage
+      try {
+        await fait
+      } finally {
+        if (this.rattrapageDesDuels === rattrapage) this.rattrapageDesDuels = null
+      }
+    }
+  }
+
+  /**
+   * Tout le journal des duels, d'une lecture, jusqu'à la plus grande série
+   * écrite, et les duels classés encore ouverts ; puis ce qui a bougé pendant
+   * qu'elle était en route (`duelsTouches`), relu derrière elle — elle l'a
+   * peut-être lu avant.
+   */
+  private lireLesDuels(): Promise<JournalDesDuels> {
+    if (this.duelsEnLecture) return this.duelsEnLecture
+    const generation = this.generationDesDuels
+    const touches: DuelsARelire[] = []
+    this.duelsTouches = touches
+    const lecture = (async () => {
+      const maintenant = this.maintenant()
+      const numero = ++this.lecturesDesDuels
+      const [derniere, lus, ouverts] = await this.client.batch([LECTURE_DE_LA_DERNIERE_SERIE, lectureDesDuels(null, maintenant), lectureDesDuelsOuverts(maintenant)], 'read')
+      const neuf = new JournalDesDuels()
+      neuf.charger(
+        lus.rows.map(ligneDesDuels),
+        ouverts.rows.map(r => [String(r.code), Number(r.ferme_le)] as const),
+        maintenant,
+        Number(derniere.rows[0]?.n ?? 0),
+        numero,
+      )
+      while (touches.length > 0) {
+        const cible = touches.shift()!
+        neuf.ranger((await this.client.execute(lectureDesDuels(null, this.maintenant(), cible))).rows.map(ligneDesDuels))
+      }
+      if (generation === this.generationDesDuels) {
+        neuf.reprendreLesOuverts(this.journalDesDuels)
+        this.journalDesDuels = neuf
+      }
+      return this.journalDesDuels
+    })()
+    this.duelsEnLecture = lecture
+    const fin = () => {
+      if (this.duelsEnLecture !== lecture) return
+      this.duelsEnLecture = null
+      this.duelsTouches = null
+    }
+    lecture.then(fin, fin)
+    return lecture
+  }
+
+  /** Ce qui vient de bouger, relu par sa clé (`DuelsARelire`) et rangé au journal des duels. */
+  private async relireLesDuels(cible: DuelsARelire): Promise<void> {
+    const lus = await this.client.execute(lectureDesDuels(null, this.maintenant(), cible))
+    this.rangerLesDuels(cible, lus.rows)
+  }
+
+  /**
+   * Des lignes lues de ce qui vient de bouger — par `relireLesDuels`, ou dans
+   * le lot qui l'écrit — rangées au journal des duels, s'il est lu ; une
+   * lecture d'ensemble en route la relira derrière elle.
+   */
+  private rangerLesDuels(cible: DuelsARelire, lignes: readonly Record<string, unknown>[]): void {
+    this.duelsTouches?.push(cible)
+    if (this.journalDesDuels.charge) this.journalDesDuels.ranger(lignes.map(ligneDesDuels))
   }
 
   /**
@@ -4837,13 +5170,11 @@ export class CampagneStore {
     if (ids.length === 0 || this.ferme) return
     const tour = ++this.tourDesBordures
     try {
-      const res = await this.client.execute(lectureDesDuels(ids, this.maintenant()))
-      // Chacun ses lignes, dans l'ordre du journal ; sans duel, aucune : il est connu quand même.
-      const parJoueur = new Map<string, Record<string, unknown>[]>(ids.map(id => [id, []]))
-      for (const r of res.rows) parJoueur.get(String(r.profile_id))?.push(r)
-      for (const [id, lignes] of parJoueur) {
+      const journal = await this.lesDuels()
+      // Chacun ses duels, du journal ; sans duel, aucun : il est connu quand même.
+      for (const id of ids) {
         this.borduresEnRoute.delete(id)
-        this.retenirLesBordures(id, releverLesDuels(duelsLus(lignes), semaineDeLInstant).bordures, tour)
+        this.retenirLesBordures(id, releverLesDuels(journal.duelsDe(id), semaineDeLInstant).bordures, tour)
       }
     } catch (e) {
       console.warn('[campagne] les bordures de ligue de la salle ne se lisent pas :', e instanceof Error ? e.message : e)
@@ -4886,34 +5217,19 @@ export class CampagneStore {
     return { avant: e.avant, apres, ecart: e.ecart, ligueAvant: ligueDe(e.avant).cle, ligue: ligueDe(apres).cle, semaine: this.semaineDesDuels(r) }
   }
 
-  /** Les cotes de tous, pour le classement : relues d'une lecture, gardées jusqu'au prochain duel fini (`COTES_GARDEES_MS` au plus). */
-  private toutesLesCotes(): Promise<Map<string, ReleveDesDuels>> {
-    const maintenant = this.maintenant()
-    if (this.cotes && maintenant - this.cotes.lu < COTES_GARDEES_MS) return this.cotes.parProfil
-    const parProfil = (async () => {
-      const tour = ++this.tourDesBordures
-      const res = await this.client.execute(lectureDesDuels(null, this.maintenant()))
-      const parJoueur = new Map<string, Record<string, unknown>[]>()
-      for (const r of res.rows) {
-        const id = String(r.profile_id)
-        const lignes = parJoueur.get(id)
-        if (lignes) lignes.push(r)
-        else parJoueur.set(id, [r])
-      }
-      const releves = new Map([...parJoueur].map(([id, lignes]) => [id, releverLesDuels(duelsLus(lignes), semaineDeLInstant)]))
-      // Les bordures de tous, au passage : la salle et les classements les
-      // lisent de mémoire, et qui n'est pas ici n'a joué aucun duel classé.
-      for (const [id, r] of releves) this.retenirLesBordures(id, r.bordures, tour)
-      this.borduresChaudes = true
-      return releves
-    })()
-    const garde = { lu: maintenant, parProfil }
-    this.cotes = garde
-    // Ratée, elle se relit à la demande suivante : gardée, la promesse figerait l'échec.
-    parProfil.catch(() => {
-      if (this.cotes === garde) this.cotes = null
-    })
-    return parProfil
+  /** Les cotes de tous, pour le classement : tirées du journal des duels, refaites quand une de ses lignes change. */
+  private async toutesLesCotes(): Promise<Map<string, ReleveDesDuels>> {
+    const journal = await this.lesDuels()
+    const garde = this.cotes
+    if (garde && garde.journal === journal && garde.version === journal.version) return garde.parProfil
+    const tour = ++this.tourDesBordures
+    const releves = new Map(journal.joueurs().map(id => [id, releverLesDuels(journal.duelsDe(id), semaineDeLInstant)] as const))
+    // Les bordures de tous, au passage : la salle et les classements les
+    // lisent de mémoire, et qui n'est pas ici n'a joué aucun duel classé.
+    for (const [id, r] of releves) this.retenirLesBordures(id, r.bordures, tour)
+    this.borduresChaudes = true
+    this.cotes = { journal, version: journal.version, parProfil: releves }
+    return releves
   }
 
   /**
@@ -5022,7 +5338,7 @@ export class CampagneStore {
     const [{ rencontres, releve, racontes }, classement, sesDuels] = await Promise.all([
       this.rencontresEtDuels(profileId, true),
       this.classementDesDuels(profileId),
-      this.client.batch(lecturesDesDuelsContre(profileId, maintenant), 'read'),
+      this.client.execute(lectureDesDuelsContre(profileId, maintenant)).then(res => duelsContreLus(res.rows)),
     ])
     // Les cotes de tous, que le classement vient de lire : la ligue de chacun de ses adversaires.
     const cotes = await this.toutesLesCotes()
@@ -5110,8 +5426,8 @@ export class CampagneStore {
     const apres = { le: typeof le === 'string' ? Number(le) : NaN, cle: typeof cle === 'string' ? tronquer(cle, 64) : '' }
     if (!Number.isFinite(apres.le) || !apres.cle) throw new Error('Cette page de ton historique est introuvable : recharge la page')
     const maintenant = this.maintenant()
-    const [duels, adversaires] = await this.client.batch([lectureDesDuels(profileId, maintenant), lectureDesAdversaires(profileId)], 'read')
-    const joues = duelsLus(duels.rows)
+    const [duels, adversaires] = await Promise.all([this.lesDuels(), this.client.execute(lectureDesAdversaires(profileId))])
+    const joues = duels.duelsDe(profileId)
     const releve = releverLesDuels(joues, semaineDeLInstant)
     const page = pageDeLHistoire(duelsRacontes(joues, adversaires.rows), releve.ecarts, maintenant - JOURS_DE_L_HISTOIRE * 24 * HEURE_MS, DUELS_PAR_SUITE, apres)
     const qui = await this.quiAffrontes(page.duels.map(d => d.contre), await this.toutesLesCotes())
@@ -5125,19 +5441,19 @@ export class CampagneStore {
    * qu'une fois parti : avant la dernière réponse de qui le défie, il
    * n'existe pas pour lui. Le score d'en face ne s'y lit qu'une fois sa
    * propre tentative finie ; chaque adversaire, sa ligue (`cotes`). Lus d'un
-   * lot (`lecturesDesDuelsContre`).
+   * seule requête (`lectureDesDuelsContre`).
    */
   private async duelsContre(
     profileId: string,
     maintenant: number,
-    [lignes, tentatives, recus]: readonly ResultSet[],
+    { duels: lignes, tentatives, recus }: DuelsContreLus,
     releve: ReleveDesDuels,
     cotes?: ReadonlyMap<string, ReleveDesDuels>,
   ): Promise<DuelContre[]> {
-    const duels = lignes.rows.map(duelContreLu).filter(d => d.adversaire)
+    const duels = lignes.map(duelContreLu).filter(d => d.adversaire)
     if (duels.length === 0) return []
-    const recu = new Set(recus.rows.map(r => String(r.code)))
-    const tentative = (code: string, id: string) => tentatives.rows.find(r => String(r.duel) === code && String(r.profile_id) === id)
+    const recu = new Set(recus.map(r => String(r.code)))
+    const tentative = (code: string, id: string) => tentatives.find(r => String(r.duel) === code && String(r.profile_id) === id)
     const autres = [...new Set(duels.map(d => (d.auteur === profileId ? d.adversaire! : d.auteur)))]
     const profils = this.profils ? await this.profils.byIds(autres) : []
     const parId = new Map(autres.map((id, i) => [id, profils[i] ?? null]))
@@ -5198,21 +5514,24 @@ export class CampagneStore {
   async accueilDesDuels(profileId: string): Promise<DuelsDAccueil> {
     const maintenant = this.maintenant()
     const siens = sesDuelsContre(profileId, maintenant)
-    const [duels, recus, ouverte, resultats] = await this.client.batch(
-      [
-        lectureDesDuels(profileId, maintenant),
-        lectureDesDefisRecus(profileId, maintenant),
-        { sql: `SELECT adversaire FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
-        // Ses duels joués des deux côtés dont il n'a pas vu le résultat — lus de la règle
-        // qui les montre sur la page (`lecturesDesDuelsContre`) : compté ici, chacun y paraît.
-        {
-          sql: `${siens.sql} SELECT code, adversaire FROM campagne_duels WHERE code IN (${RESULTATS_A_VOIR}) ORDER BY cree_le DESC`,
-          args: [...siens.args, DUELS_MONTRES],
-        },
-      ],
-      'read',
-    )
-    const releve = releverLesDuels(duelsLus(duels.rows), semaineDeLInstant)
+    const [[recus, ouverte, resultats], duels] = await Promise.all([
+      this.client.batch(
+        [
+          lectureDesDefisRecus(profileId, maintenant),
+          { sql: `SELECT adversaire FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+          // Ses duels joués des deux côtés dont il n'a pas vu le résultat — lus de la règle
+          // qui les montre sur la page (`lectureDesDuelsContre`) : compté ici, chacun y paraît.
+          {
+            sql: `${siens.sql} SELECT code, adversaire FROM campagne_duels WHERE code IN (${RESULTATS_A_VOIR}) ORDER BY cree_le DESC`,
+            args: [...siens.args, DUELS_MONTRES],
+          },
+        ],
+        'read',
+      ),
+      // Ses duels classés, de leur journal.
+      this.lesDuels(),
+    ])
+    const releve = releverLesDuels(duels.duelsDe(profileId), semaineDeLInstant)
     const passee = releve.semaines.get(this.semaineDeLHeure().passee)
     const payee = recompenseDeLaSemaine(passee)
     // Ni un masqué, ni un ami qu'il a retiré : ce que la page des duels montre (`mesAmis`), sans relire toute sa liste d'amis.
@@ -6071,47 +6390,43 @@ export class CampagneStore {
     const depuis = maintenant - STATS_DES_SENTIERS_MS
     const filtre = b ? ' AND branche = ?' : ''
     const avec = (...args: number[]) => (b ? [...args, b.key] : args)
-    const [[lignes, recentes, parNiveau, resumes, acquis], achetees] = await Promise.all([
-      this.client.batch(
-        [
-          {
-            sql: `SELECT profile_id, branche, palier, issue, rejeu, seuil, position, justes, commencee_le FROM campagne_series
-                  WHERE mode = 'sentier' AND issue IS NOT NULL AND commencee_le > ?${filtre}
-                  ORDER BY commencee_le`,
-            args: avec(depuis),
-          },
-          {
-            sql: `SELECT COUNT(*) AS n, COUNT(DISTINCT profile_id) AS joueurs,
-                         SUM(CASE WHEN rejeu = 0 AND issue = 'ratee' THEN 1 ELSE 0 END) AS perdues,
-                         SUM(CASE WHEN rejeu = 0 AND issue = 'validee' THEN 1 ELSE 0 END) AS validees
-                  FROM campagne_series WHERE mode = 'sentier' AND commencee_le > ?${filtre}`,
-            args: avec(semaine),
-          },
-          // Chaque réponse retrouve la marche de sa question dans l'épreuve
-          // qui la gardait : le JSON de l'épreuve se lit une fois pour ses
-          // seize réponses (`CROSS JOIN` garde cet ordre-là).
-          // Palier par palier : de quoi estimer, au QG, un autre mélange (`tauxDuPalier`).
-          {
-            sql: `SELECT s.palier AS palier, json_extract(q.value, '$.niveau') AS niveau, COUNT(*) AS n, SUM(r.juste) AS justes
-                  FROM campagne_series s CROSS JOIN json_each(s.questions) q
-                  JOIN campagne_reponses r ON r.serie_id = s.id AND r.position = q.key
-                  WHERE s.mode = 'sentier' AND s.rejeu = 0 AND s.commencee_le > ?${b ? ' AND s.branche = ?' : ''}
-                  GROUP BY s.palier, niveau`,
-            args: avec(depuis),
-          },
-          // Où chacun en est, sur toutes ses épreuves : un résumé par joueur, sentier et palier.
-          {
-            sql: `SELECT profile_id, branche, palier, rejeu, issue, COUNT(*) AS n, MAX(commencee_le) AS dernier
-                  FROM campagne_series WHERE mode = 'sentier'${filtre}
-                  GROUP BY profile_id, branche, palier, rejeu, issue`,
-            args: avec(),
-          },
-          { sql: `SELECT profile_id, branche, paliers FROM sentier_acquis${b ? ' WHERE branche = ?' : ''}`, args: avec() },
-        ],
-        'read',
-      ),
+    const [
+      {
+        lus: [lignes, recentes, resumes, acquis],
+        journal,
+      },
+      achetees,
+    ] = await Promise.all([
+      this.lireAvecLeJournal([
+        {
+          sql: `SELECT profile_id, branche, palier, issue, rejeu, seuil, position, justes, commencee_le FROM campagne_series
+                WHERE mode = 'sentier' AND issue IS NOT NULL AND commencee_le > ?${filtre}
+                ORDER BY commencee_le`,
+          args: avec(depuis),
+        },
+        {
+          sql: `SELECT COUNT(*) AS n, COUNT(DISTINCT profile_id) AS joueurs,
+                       SUM(CASE WHEN rejeu = 0 AND issue = 'ratee' THEN 1 ELSE 0 END) AS perdues,
+                       SUM(CASE WHEN rejeu = 0 AND issue = 'validee' THEN 1 ELSE 0 END) AS validees
+                FROM campagne_series WHERE mode = 'sentier' AND commencee_le > ?${filtre}`,
+          args: avec(semaine),
+        },
+        // Où chacun en est, sur toutes ses épreuves : un résumé par joueur, sentier et palier.
+        {
+          sql: `SELECT profile_id, branche, palier, rejeu, issue, COUNT(*) AS n, MAX(commencee_le) AS dernier
+                FROM campagne_series WHERE mode = 'sentier'${filtre}
+                GROUP BY profile_id, branche, palier, rejeu, issue`,
+          args: avec(),
+        },
+        { sql: `SELECT profile_id, branche, paliers FROM sentier_acquis${b ? ' WHERE branche = ?' : ''}`, args: avec() },
+      ]),
       this.viesAcheteesDepuis?.(semaine) ?? 0,
     ])
+    // Palier par palier et marche par marche, les bonnes réponses des
+    // épreuves : de quoi estimer, au QG, un autre mélange (`tauxDuPalier`).
+    // Du journal des réponses — relues de la base, chacune retrouvait sa
+    // marche dans le JSON de son épreuve : 150 000 lignes pour une page.
+    const parNiveau = journal.reponsesDesEpreuves(depuis, b?.key ?? null)
 
     // Les essais de chacun sur chaque palier, dans l'ordre : le premier dit « du premier coup ».
     const essais = new Map<string, { issue: IssueDEpreuve; seuil: number; abandon: boolean; questions: number; justes: number }[]>()
@@ -6219,12 +6534,10 @@ export class CampagneStore {
       branche: b?.key ?? null,
       paliers,
       niveaux: NIVEAUX.map(niveau => {
-        const lignes = parNiveau.rows.filter(x => x.niveau === niveau)
-        return { niveau, questions: lignes.reduce((n, r) => n + Number(r.n ?? 0), 0), justes: lignes.reduce((n, r) => n + Number(r.justes ?? 0), 0) }
+        const lignes = parNiveau.filter(x => x.niveau === niveau)
+        return { niveau, questions: lignes.reduce((n, r) => n + r.n, 0), justes: lignes.reduce((n, r) => n + r.justes, 0) }
       }),
-      niveauxParPalier: parNiveau.rows.flatMap(r =>
-        NIVEAUX.includes(r.niveau as Niveau) ? [{ palier: Number(r.palier), niveau: r.niveau as Niveau, questions: Number(r.n ?? 0), justes: Number(r.justes ?? 0) }] : [],
-      ),
+      niveauxParPalier: parNiveau.flatMap(r => (NIVEAUX.includes(r.niveau as Niveau) ? [{ palier: r.palier, niveau: r.niveau as Niveau, questions: r.n, justes: r.justes }] : [])),
       reglages: reglages.sort((x, y) => x.palier - y.palier),
       bloques: bloques.slice(0, BLOQUES_MONTRES),
     }
@@ -6710,6 +7023,8 @@ export class CampagneStore {
       // Le duel gardé en mémoire se ferme avec : la page de l'un et de l'autre le lit là, le carnet de qui l'a lancé dans le journal.
       duel.fermeLe = maintenant
       this.journal.fermerLeDuel(duel.code, maintenant)
+      // Et le journal des duels le relira fermé (commencé d'un seul côté, il ne compte pour personne).
+      this.journalDesDuels.ouvrir(duel.code, maintenant)
       return { code: duel.code, auteur: duel.auteur, adversaire }
     })
   }
@@ -6748,11 +7063,10 @@ export class CampagneStore {
    * la circulation du QG, relue une fois par jour.
    */
   async confettisDeTous(): Promise<Map<string, number>> {
-    const [justes, payes] = await Promise.all([
-      this.client.execute('SELECT profile_id, SUM(justes) AS n FROM campagne_series GROUP BY profile_id'),
-      this.etoilesEtLigues(),
-    ])
-    const tous = new Map(justes.rows.map(r => [String(r.profile_id), Number(r.n ?? 0)]))
+    // Leurs bonnes réponses du journal, comme `duProfil` : la somme des
+    // `justes` de toutes les séries parcourait toute la table.
+    const [journal, payes] = await Promise.all([this.rattraperLeJournal(), this.etoilesEtLigues()])
+    const tous = new Map(journal.joueurs().map(id => [id, journal.justesDe(id)] as const))
     for (const parProfil of [payes.etoiles.parProfil, payes.ligues.parProfil]) {
       for (const [id, n] of parProfil) tous.set(id, (tous.get(id) ?? 0) + n)
     }
@@ -8047,13 +8361,20 @@ export class CampagneStore {
         ],
         'write',
       )
-      // Ses duels sont partis avec ses séries : le classement se relira sans lui, et ses bordures sont oubliées.
+      // Ses duels sont partis avec ses séries, et ceux qu'il a joués contre
+      // d'autres ne comptent plus pour eux : le journal des duels se relit en
+      // entier — une lecture partie avant ne s'installe pas —, le classement
+      // sans lui, et ses bordures sont oubliées.
+      this.generationDesDuels++
+      this.journalDesDuels = new JournalDesDuels()
       this.cotes = null
       this.bordures.delete(profileId)
       this.bordureDuTour.delete(profileId)
       // Le journal se relit sans ses réponses : effacées, elles laissent leur
       // `rowid` à reprendre, et une lecture par différence passerait à côté.
+      // Ses tranches gardées sont parties avec elles (`DECLENCHEURS_DES_TRANCHES`).
       this.journal = new JournalDesReponses(() => this.maintenant())
+      this.tranches = null
       // Ses réponses aussi : le modèle du savoir l'oublie, et se refera sans elles au prochain dé.
       if (this.savoir) {
         const forces = new Map(this.savoir.modele.forces)
@@ -8112,9 +8433,11 @@ async function premieresDuJournal(journal: JournalDesReponses): Promise<Map<stri
  * battre, comptées dans la base sans faire voyager les réponses de
  * l'adversaire. Une rencontre au gardé illisible ne compte pas : elle ne dit
  * pas ce qu'elle affrontait. `scripts/calibrage-duels.ts` la lit telle quelle :
- * il mesure sur une vraie base le journal même que la cote relit.
+ * il mesure sur une vraie base le journal même que la cote relit. Ou
+ * `seulement` une rencontre, ou des duels classés par leur code — ce qui vient
+ * de bouger, que le journal des duels relit (`JournalDesDuels`).
  */
-export function lectureDesDuels(qui: string | readonly string[] | null, maintenant: number): InStatement {
+export function lectureDesDuels(qui: string | readonly string[] | null, maintenant: number, seulement: DuelsARelire | null = null): InStatement {
   // Et ses duels contre quelqu'un, joués des deux côtés : chacun sa tentative,
   // celle d'en face, la cote d'en face figée au lancement — datés du second
   // qui a fini, quand le duel s'est joué. Un seul des deux n'en fait pas un.
@@ -8127,26 +8450,85 @@ export function lectureDesDuels(qui: string | readonly string[] | null, maintena
   // lancé : qui provoque y gagne un point de plus (`shared/duels.ts`).
   const ids = qui === null ? null : typeof qui === 'string' ? [qui] : qui
   const parmi = ids && (ids.length === 1 ? '= ?' : `IN (${ids.map(() => '?').join(', ')})`)
-  return {
-    sql: `SELECT id, profile_id, justes, finie_le, ses_justes, cote_adverse, cote_cachee_adverse, lance FROM (
-            SELECT id, profile_id, justes, finie_le, (SELECT COUNT(*) FROM json_each(adversaire, '$.reponses') WHERE type = 'true') AS ses_justes,
-                   NULL AS cote_adverse, NULL AS cote_cachee_adverse, 0 AS lance
+  const rencontre = seulement && 'rencontre' in seulement ? seulement.rencontre : null
+  const codes = seulement && 'duels' in seulement ? seulement.duels : null
+  const apres = seulement && 'apres' in seulement ? seulement.apres : null
+  const parties: string[] = []
+  const args: (string | number)[] = []
+  if (!codes) {
+    parties.push(`SELECT id, profile_id, justes, finie_le, (SELECT COUNT(*) FROM json_each(adversaire, '$.reponses') WHERE type = 'true') AS ses_justes,
+                   NULL AS cote_adverse, NULL AS cote_cachee_adverse, 0 AS lance, NULL AS duel
             FROM campagne_series
-            WHERE ${parmi ? `profile_id ${parmi} AND ` : ''}mode = 'rencontre' AND finie_le IS NOT NULL AND adversaire IS NOT NULL AND json_valid(adversaire)
-            UNION ALL
-            SELECT m.id, m.profile_id, m.justes, MAX(COALESCE(m.finie_le, d.ferme_le), COALESCE(o.finie_le, d.ferme_le)) AS finie_le, o.justes AS ses_justes,
+            WHERE ${rencontre !== null ? 'id = ? AND ' : apres !== null ? 'rowid > ? AND ' : ''}${parmi ? `profile_id ${parmi} AND ` : ''}mode = 'rencontre' AND finie_le IS NOT NULL AND adversaire IS NOT NULL AND json_valid(adversaire)`)
+    args.push(...(rencontre !== null ? [rencontre] : apres !== null ? [apres] : []), ...(ids ?? []))
+  }
+  if (rencontre === null) {
+    // Des duels par leur code : leurs tentatives s'y cherchent par lui (`PAR_SON_CODE`).
+    const parLeCode = codes || apres !== null ? PAR_SON_CODE : ''
+    const lesquels = codes
+      ? ` AND d.code IN (${codes.map(() => '?').join(', ')})`
+      : apres !== null
+        ? ` AND d.code IN (SELECT duel FROM campagne_series WHERE rowid > ? AND mode = 'duel')`
+        : ''
+    parties.push(`SELECT m.id, m.profile_id, m.justes, MAX(COALESCE(m.finie_le, d.ferme_le), COALESCE(o.finie_le, d.ferme_le)) AS finie_le, o.justes AS ses_justes,
                    CASE WHEN m.profile_id = d.auteur THEN d.cote_adversaire ELSE d.cote_auteur END AS cote_adverse,
                    CASE WHEN m.profile_id = d.auteur THEN d.cote_cachee_adversaire ELSE d.cote_cachee_auteur END AS cote_cachee_adverse,
-                   CASE WHEN m.profile_id = d.auteur THEN 1 ELSE 0 END AS lance
+                   CASE WHEN m.profile_id = d.auteur THEN 1 ELSE 0 END AS lance, d.code AS duel
             FROM campagne_duels d
-            JOIN campagne_series m ON m.mode = 'duel' AND m.duel = d.code AND m.profile_id IN (d.auteur, d.adversaire) AND (m.finie_le IS NOT NULL OR d.ferme_le <= ?)
-            JOIN campagne_series o ON o.mode = 'duel' AND o.duel = d.code AND o.profile_id IN (d.auteur, d.adversaire) AND o.profile_id <> m.profile_id
+            JOIN campagne_series m ON m.mode = 'duel' AND m.duel = d.code AND ${parLeCode}m.profile_id IN (d.auteur, d.adversaire) AND (m.finie_le IS NOT NULL OR d.ferme_le <= ?)
+            JOIN campagne_series o ON o.mode = 'duel' AND o.duel = d.code AND ${parLeCode}o.profile_id IN (d.auteur, d.adversaire) AND o.profile_id <> m.profile_id
                                   AND (o.finie_le IS NOT NULL OR d.ferme_le <= ?)
-            WHERE d.adversaire IS NOT NULL${parmi ? ` AND m.profile_id ${parmi}` : ''}
+            WHERE d.adversaire IS NOT NULL${lesquels}${parmi ? ` AND m.profile_id ${parmi}` : ''}`)
+    args.push(maintenant, maintenant, ...(codes ?? []), ...(apres !== null ? [apres] : []), ...(ids ?? []))
+  }
+  return {
+    sql: `SELECT id, profile_id, justes, finie_le, ses_justes, cote_adverse, cote_cachee_adverse, lance, duel FROM (
+            ${parties.join('\n            UNION ALL\n            ')}
           ) ORDER BY finie_le, id`,
-    args: ids ? [...ids, maintenant, maintenant, ...ids] : [maintenant, maintenant],
+    args,
   }
 }
+
+/**
+ * Les duels classés encore ouverts, et quand ils ferment : leurs tentatives
+ * commencées compteront à leur fermeture (`JournalDesDuels.fermes`). Lus par
+ * leur date de lancement — un duel ouvert a été lancé il y a moins d'une
+ * semaine (`DUREE_D_UN_DUEL_MS`) —, avec la même marge que le QG.
+ */
+function lectureDesDuelsOuverts(maintenant: number): InStatement {
+  return {
+    sql: 'SELECT code, ferme_le FROM campagne_duels WHERE cree_le > ? AND ferme_le > ? AND adversaire IS NOT NULL',
+    args: [maintenant - 2 * DUREE_D_UN_DUEL_MS, maintenant],
+  }
+}
+
+/** La plus grande série écrite : une lecture du journal des duels lit jusque-là, la suivante part de là. */
+const LECTURE_DE_LA_DERNIERE_SERIE: InStatement = { sql: 'SELECT COALESCE(MAX(rowid), 0) AS n FROM campagne_series', args: [] }
+
+/**
+ * Ce qui est arrivé au journal des duels depuis la série `apres` (son
+ * `rowid`) — trois lignes au quota quand rien n'est arrivé : la plus grande
+ * série, les rencontres finies d'après, les duels classés de leurs tentatives
+ * — et ceux d'entre eux encore ouverts, qu'il relira à leur fermeture.
+ */
+function lecturesDuJournalDesDuels(apres: number, maintenant: number): InStatement[] {
+  return [
+    LECTURE_DE_LA_DERNIERE_SERIE,
+    lectureDesDuels(null, maintenant, { apres }),
+    {
+      sql: `SELECT code, ferme_le FROM campagne_duels
+            WHERE code IN (SELECT duel FROM campagne_series WHERE rowid > ? AND mode = 'duel') AND ferme_le > ? AND adversaire IS NOT NULL`,
+      args: [apres, maintenant],
+    },
+  ]
+}
+
+/** Une ligne de `lectureDesDuels`, pour le journal des duels : à qui, de quel duel classé, et ce qu'elle raconte. */
+const ligneDesDuels = (r: Record<string, unknown>): LigneDuJournalDesDuels => ({
+  qui: String(r.profile_id),
+  duel: r.duel === null || r.duel === undefined ? null : String(r.duel),
+  joue: duelsLus([r])[0],
+})
 
 /**
  * Contre qui il a joué chacun de ses duels classés, sous sa série : un profil
@@ -8265,22 +8647,45 @@ const RESULTATS_A_VOIR = 'SELECT code FROM siens WHERE joue AND a_voir ORDER BY 
  * retour du propriétaire du 13 octobre 2026 : « j'ai deux notifications mais
  * je les vois pas dans "En cours" ni dans l'historique »).
  */
-function lecturesDesDuelsContre(profileId: string, maintenant: number): InStatement[] {
+function lectureDesDuelsContre(profileId: string, maintenant: number): InStatement {
+  // D'une seule requête, ses duels montrés une seule fois (`MATERIALIZED`) :
+  // trois lectures — les duels, leurs tentatives, ses envois — refaisaient
+  // chacune ses duels des trente derniers jours et leurs tentatives, 1 200
+  // lignes au quota de Turso chacune pour le plus fidèle (le 23 octobre 2026).
   const siens = sesDuelsContre(profileId, maintenant)
-  const montres = `${siens.sql}, montres AS (
+  const sql = `${siens.sql}, montres AS MATERIALIZED (
       SELECT code FROM siens WHERE ouvert AND NOT joue
       UNION SELECT code FROM (${RESULTATS_A_VOIR})
       UNION SELECT code FROM (SELECT code FROM siens WHERE NOT (ouvert AND NOT joue) AND NOT (joue AND a_voir) ORDER BY cree_le DESC LIMIT ?)
-    )`
-  const args = [...siens.args, DUELS_MONTRES, DUELS_MONTRES]
-  return [
-    { sql: `${montres} SELECT code, auteur, adversaire, categories, sujet, ferme_le, vu_le FROM campagne_duels WHERE code IN (SELECT code FROM montres) ORDER BY cree_le DESC`, args },
-    { sql: `${montres} SELECT id, duel, profile_id, justes, finie_le FROM campagne_series WHERE mode = 'duel' AND duel IN (SELECT code FROM montres)`, args },
-    { sql: `${montres} SELECT code FROM campagne_envois WHERE profile_id = ? AND code IN (SELECT code FROM montres)`, args: [...args, profileId] },
-  ]
+    )
+    SELECT 'duel' AS sorte, code, auteur, adversaire, categories, sujet, ferme_le, vu_le, cree_le, NULL AS id, NULL AS profile_id, NULL AS justes, NULL AS finie_le
+      FROM campagne_duels WHERE code IN (SELECT code FROM montres)
+    UNION ALL
+    SELECT 'tentative', duel, NULL, NULL, NULL, NULL, NULL, NULL, NULL, id, profile_id, justes, finie_le
+      FROM campagne_series WHERE mode = 'duel' AND duel IN (SELECT code FROM montres)
+    UNION ALL
+    SELECT 'recu', code, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+      FROM campagne_envois WHERE profile_id = ? AND code IN (SELECT code FROM montres)`
+  return { sql, args: [...siens.args, DUELS_MONTRES, DUELS_MONTRES, profileId] }
 }
 
-/** Un duel contre quelqu'un, tel que `lecturesDesDuelsContre` le lit : ce que sa ligne dit de lui. */
+/** Ce que `lectureDesDuelsContre` rend, par sorte : ses duels — les plus récents d'abord —, leurs tentatives, ceux qui lui sont partis. */
+function duelsContreLus(lignes: readonly Record<string, unknown>[]): DuelsContreLus {
+  const deLaSorte = (sorte: string) => lignes.filter(r => r.sorte === sorte)
+  return {
+    duels: deLaSorte('duel').sort((a, b) => Number(b.cree_le) - Number(a.cree_le)),
+    tentatives: deLaSorte('tentative').map(r => ({ ...r, duel: r.code })),
+    recus: deLaSorte('recu'),
+  }
+}
+
+interface DuelsContreLus {
+  duels: readonly Record<string, unknown>[]
+  tentatives: readonly Record<string, unknown>[]
+  recus: readonly Record<string, unknown>[]
+}
+
+/** Un duel contre quelqu'un, tel que `lectureDesDuelsContre` le lit : ce que sa ligne dit de lui. */
 const duelContreLu = (r: Record<string, unknown>): Pick<Duel, 'code' | 'auteur' | 'categories' | 'sujet' | 'fermeLe' | 'vuLe'> & { adversaire: string } => ({
   code: String(r.code),
   auteur: String(r.auteur),

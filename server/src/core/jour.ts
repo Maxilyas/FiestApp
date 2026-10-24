@@ -335,6 +335,16 @@ export class JourStore {
    */
   private elitesGardees = new Map<string, EliteGardee>()
   /**
+   * Ses bonnes réponses par compagnon (`compagnonsDe`), gardées par profil :
+   * relues, elles parcouraient toutes ses réponses du quiz du jour à chaque
+   * fin de partie, chaque boutique, chaque niche (le 23 octobre 2026). Elles
+   * ne changent qu'à une bonne réponse de lui (`enregistrer`) ou à une
+   * annulation pour tous (`annuler`) : l'une l'oublie, l'autre monte la
+   * version, et une lecture partie avant ne se garde pas.
+   */
+  private compagnonsGardes = new Map<string, { version: number; lus: Promise<Record<string, number>> }>()
+  private versionDesCompagnons = 0
+  /**
    * Son jour d'hier, par profil : clos, il ne bouge plus qu'à une annulation
    * (la révision du jour) ou un masquage. Relu à chaque « Question
    * suivante », il coûtait trois allers-retours en série sous les doigts du
@@ -1246,7 +1256,9 @@ export class JourStore {
       ],
       'write',
     )
-    const [, avance, parties, podiums, ...revelation] = res
+    const [ecrite, avance, parties, podiums, ...revelation] = res
+    // Une bonne réponse avec son compagnon le fait grandir : ses comptes se relisent (`compagnonsDe`).
+    if (ecrite.rowsAffected > 0 && juste && compagnon !== null && !annulee) this.oublierSesCompagnons(partie.profileId)
     const lu = { revelation: this.revelation(tirage, index, revelation), suite: lirePartie(partie.profileId, partie.jour, revelation[2].rows[0]) }
     if (avance.rowsAffected === 0) return lu
     this.reviser(partie.jour)
@@ -1796,17 +1808,37 @@ export class JourStore {
    * Ses bonnes réponses au quiz du jour données avec chaque compagnon
    * (`loup` → 42) : elles le font grandir (`shared/compagnons.ts`), comme
    * elles paient ses confettis. Une question annulée pour tous ne compte pas.
+   * Gardées par profil (`compagnonsGardes`).
    */
-  async compagnonsDe(profileId: string): Promise<Record<string, number>> {
-    const res = await this.client.execute({
-      sql: `SELECT r.compagnon AS compagnon, COUNT(*) AS n
-            FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
-            WHERE r.profile_id = ? AND r.juste = 1 AND r.compagnon IS NOT NULL
-              AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
-            GROUP BY r.compagnon`,
-      args: [profileId],
+  compagnonsDe(profileId: string): Promise<Record<string, number>> {
+    const version = this.versionDesCompagnons
+    const garde = this.compagnonsGardes.get(profileId)
+    if (garde?.version === version) return garde.lus
+    const lus = this.client
+      .execute({
+        sql: `SELECT r.compagnon AS compagnon, COUNT(*) AS n
+              FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
+              WHERE r.profile_id = ? AND r.juste = 1 AND r.compagnon IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
+              GROUP BY r.compagnon`,
+        args: [profileId],
+      })
+      .then(res => Object.fromEntries(res.rows.map(r => [String(r.compagnon), Number(r.n)])) as Record<string, number>)
+    const entree = { version, lus }
+    this.compagnonsGardes.set(profileId, entree)
+    // Ratée, elle se relit à la demande suivante : gardée, la promesse figerait l'échec.
+    lus.catch(() => {
+      if (this.compagnonsGardes.get(profileId) === entree) this.compagnonsGardes.delete(profileId)
     })
-    return Object.fromEntries(res.rows.map(r => [String(r.compagnon), Number(r.n)]))
+    return lus
+  }
+
+  /** Une bonne réponse de plus, ou une annulation : ses compagnons se relisent, et une lecture partie avant ne se garde pas. */
+  private oublierSesCompagnons(profileId: string | null) {
+    if (profileId === null) {
+      this.versionDesCompagnons++
+      this.compagnonsGardes.clear()
+    } else this.compagnonsGardes.delete(profileId)
   }
 
   /**
@@ -3238,6 +3270,8 @@ export class JourStore {
       // en base. Lui passer le tirage de cette annulation-ci laissait payée
       // la question d'une autre, annulée juste après.
       this.garderTirage({ ...tirage, annulees })
+      // Ses bonnes réponses ne font plus grandir personne.
+      this.oublierSesCompagnons(null)
     })
     // Chacun se recompte sous son propre verrou. Recompté d'un seul coup pour
     // tout le jour, une réponse partie avant l'annulation et écrite après
@@ -3402,6 +3436,7 @@ export class JourStore {
       for (const r of jours.rows) this.reviser(String(r.jour))
       this.masques.delete(profileId)
       this.versionDesMasques++
+      this.oublierSesCompagnons(profileId)
     })
   }
 

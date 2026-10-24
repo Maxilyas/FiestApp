@@ -330,7 +330,11 @@ test('ses paliers se gagnent avec lui, se gardent — même quand une soirée re
     assert.equal(enBase(banc, db => (db.prepare('SELECT ornements FROM profile_compagnons WHERE profile_id = ?').get(alice) as { ornements: string | null }).ornements), null)
 
     // La série d'où venaient ses bonnes réponses retirée : le palier reste, la jauge repart d'où il en est.
+    // Retirée dans le dos du serveur — une réponse de campagne ne s'efface
+    // qu'avec son profil, qui refait le journal des réponses —, elle ne part
+    // de sa mémoire qu'au réveil, qui le relit de la base.
     retirer(banc, 's2')
+    await banc.redemarrer()
     fiche = await laNiche(banc, cookie)
     assert.deepEqual(fiche.niche, { compagnon: 'loup', rang: 3, montree: 1, paliers: 1, justes: 600 })
 

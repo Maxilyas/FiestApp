@@ -138,6 +138,12 @@ export interface QuizServerOptions {
    */
   prechauffageAuProfil?: boolean
   /**
+   * Combien de temps le journal des duels se croit à jour de ce qui s'écrit
+   * sans ce serveur (`CampagneStore`, trente secondes d'office). Le banc le
+   * met à 0 : ses épreuves écrivent des duels à la main, dans la base.
+   */
+  fraicheurDesDuelsMs?: number
+  /**
    * Le rappel du soir du quiz du jour (`core/rappels.ts`) : les tests
    * regardent l'heure plus souvent, et ouvrent leur propre service de push,
    * sur la machine — en ligne, seuls ceux des navigateurs sont acceptés.
@@ -483,6 +489,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     ecrireXp: (profileId, xp, jours) => profiles.ecrireXpDeCampagne(profileId, xp, jours),
     recompenses: profiles,
     rencontres,
+    ...(opts.fraicheurDesDuelsMs !== undefined && { fraicheurDesDuelsMs: opts.fraicheurDesDuelsMs }),
   })
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.

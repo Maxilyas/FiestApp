@@ -109,3 +109,14 @@ paths:
   jour clos — rouvrir une nuit, recompter ses points — monte l'une
   d'elles, ou L'Élite de chacun resterait à l'ancien compte
   (`jour-nuit.test.ts`).
+- **Ses bonnes réponses avec chaque compagnon se gardent**
+  (`compagnonsGardes`, `JourStore.compagnonsDe`, le 23 octobre 2026 : relues
+  de la base à chaque fin de partie, chaque boutique, chaque niche, 2,4 % du
+  quota de Turso) : elles ne bougent qu'à une bonne réponse comptée avec un
+  compagnon dans sa niche (`enregistrer`, quand la ligne s'écrit vraiment),
+  à l'annulation d'une question — tous oubliés, sous le verrou du tirage —
+  et au départ d'un profil (`oublierSesCompagnons`). Une lecture en route
+  quand l'un d'eux tombe ne sert plus à la suivante : oubliée, ou d'une
+  version d'avant (`versionDesCompagnons`, l'annulation). Un
+  geste de plus qui écrit ou efface une ligne de `jour_reponses` portant un
+  compagnon l'oublie aussi (`compagnons.test.ts`).

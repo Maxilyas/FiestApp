@@ -401,7 +401,8 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/campagne-abandon.test.ts` — abandonner une série décerne ce qu'elle a joué.
 - `server/test/campagne-carnet.test.ts` — le carnet de révision, relu du journal des réponses.
 - `server/test/campagne-charge.test.ts` — ce qu'une réponse de campagne coûte à Turso.
-- `server/test/journal-des-reponses.test.ts` — le journal des réponses gardé en mémoire : chaque dérivation — la mesure, le modèle, l'expérience, les vues, les écussons, les missions, le carnet — comparée au SQL d'avant sur une base au hasard, lue par tranches, en double et en retard.
+- `server/test/journal-des-reponses.test.ts` — le journal des réponses gardé en mémoire : chaque dérivation — la mesure, le modèle, l'expérience, les vues, les écussons, les missions, le carnet, les compagnons, les épreuves des sentiers — comparée au SQL d'avant sur une base au hasard, lue par tranches, en double et en retard ; puis ses tranches gardées (`campagne_tranches`) : un réveil qui les relit au lieu de toute la base, un duel annulé depuis, une tranche égarée, illisible ou d'avant, une réponse effacée ou modifiée et une série effacée, qui les effacent.
+- `server/test/journal-des-duels.test.ts` — le journal des duels gardé en mémoire, comparé joueur par joueur à la lecture d'avant (`lectureDesDuels`) sur une base au hasard : lu une fois, puis ce qui ferme sans rien écrire, ce qui finit sous ses yeux, et ce qui s'écrit sans lui.
 - `server/test/campagne-defi.test.ts` — le défi de la semaine, son vainqueur, le laurier d'argent.
 - `server/test/campagne-en-tete.test.ts` — les bonnes réponses sous le numéro de la question.
 - `server/test/campagne-ouverture.test.ts` — la page s'ouvre avant la réponse du serveur.
