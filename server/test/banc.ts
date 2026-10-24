@@ -102,7 +102,8 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
   // rencontres d'avant elle partent en version 9, telles que la production les joue ; les siennes la rouvrent.
   // Et le préchauffage au premier profil : parti en fond derrière un accueil, il lirait la base et ses mesures au
   // milieu des allers-retours qu'une épreuve compte (`campagne-charge.test.ts` le rouvre).
-  const lancer = () => createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, prechauffageAuProfil: false, ...opts })
+  // Et le journal des duels relu à chaque lecture : les épreuves écrivent des duels à la main, dans la base, entre deux requêtes.
+  const lancer = () => createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, ...opts })
   let server = await lancer()
   port = server.port
   const banc: Banc = {

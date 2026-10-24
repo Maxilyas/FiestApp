@@ -9,6 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
+import { Sqlite3Client } from '@libsql/client/sqlite3'
 import {
   attendre,
   baseDEssai,
@@ -412,7 +413,11 @@ test('il grandit avec les bonnes réponses données avec lui ; qui le portait à
     assert.equal((await porter(banc, cookie, { legendaire: 'cp:loup-adulte' })).status, 200)
 
     // Ses bonnes réponses s'en vont (une série effacée) : la forme reste.
+    // Effacées dans le dos du serveur — une réponse de campagne ne s'efface
+    // qu'avec son profil, qui refait le journal des réponses —, elles ne
+    // partent de sa mémoire qu'au réveil, qui le relit de la base.
     enBase(banc, db => db.prepare('DELETE FROM campagne_reponses').run())
+    await banc.redemarrer()
     moi = await lire(banc, cookie)
     assert.deepEqual(moi.boutique.compagnons, [{ compagnon: 'loup', rang: 2, justes: 0 }])
     assert.equal(moi.legendaire, 'cp:loup-adulte')
@@ -547,6 +552,58 @@ test('en campagne et au quiz du jour, chaque réponse retient le compagnon de sa
     )
     // Deux justes en campagne, dix au quiz du jour.
     assert.deepEqual((await lire(banc, cookie)).boutique.compagnons, [{ compagnon: 'tortue', rang: 0, justes: 12 }])
+  }))
+
+/** Les lectures de ses bonnes réponses du quiz du jour par compagnon (`JourStore.compagnonsDe`), comptées. */
+const lecturesDuJour = { n: 0 }
+{
+  const proto = Sqlite3Client.prototype as unknown as Record<'execute', (...args: unknown[]) => Promise<unknown>>
+  const origine = proto.execute
+  proto.execute = function (this: unknown, ...args: unknown[]) {
+    const sql = typeof args[0] === 'string' ? args[0] : (args[0] as { sql?: string } | undefined)?.sql
+    if (typeof sql === 'string' && /r\.compagnon AS compagnon[\s\S]*FROM jour_reponses/.test(sql)) lecturesDuJour.n++
+    return origine.apply(this, args)
+  }
+}
+
+// Relues de la base, elles parcouraient toutes ses réponses du quiz du jour à
+// chaque fin de partie, chaque boutique, chaque niche (le 23 octobre 2026).
+test('ses bonnes réponses du quiz du jour se gardent : relues après une bonne réponse avec lui, ou une annulation, jamais sinon', () =>
+  avecBanc(async banc => {
+    const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const alice = idDe(banc, 'alice')
+    confettis(banc, alice, '2026-09-20', 1000)
+    assert.equal((await acheter(banc, cookie, 'tortue')).status, 200)
+    const justes = async () => (await lire(banc, cookie)).boutique.compagnons[0].justes as number
+
+    let etat = (await (await ecrire(banc.url, '/api/jour/commencer', {}, cookie)).json()) as any
+    const questions = enBase(banc, db =>
+      JSON.parse((db.prepare('SELECT questions FROM jour_tirages WHERE jour = ?').get(etat.jour) as { questions: string }).questions),
+    ) as { bonne: number }[]
+    const repondre = async (juste: boolean) => {
+      const i = etat.question.index
+      const r = await ecrire(banc.url, '/api/jour/repondre', { jour: etat.jour, index: i, choix: juste ? questions[i].bonne : (questions[i].bonne + 1) % 2 }, cookie)
+      assert.equal(r.status, 200)
+      etat = await (await ecrire(banc.url, '/api/jour/suivante', {}, cookie)).json()
+    }
+    await repondre(true)
+    await repondre(true)
+    assert.equal(await justes(), 2)
+
+    // Rien de neuf : rien ne repart vers la base, une fausse réponse non plus.
+    const avant = lecturesDuJour.n
+    assert.equal(await justes(), 2)
+    await repondre(false)
+    assert.equal(await justes(), 2)
+    assert.equal(lecturesDuJour.n, avant, 'relues sans qu’une bonne réponse ait changé leur compte')
+
+    // Une bonne réponse de plus les fait relire.
+    await repondre(true)
+    assert.equal(await justes(), 3)
+    // Une question annulée pour tous ne compte plus.
+    const admin = await connexionAnimateur(banc.url)
+    assert.equal((await ecrire(banc.url, '/api/admin/jour/annuler', { jour: etat.jour, index: 0 }, admin)).status, 200)
+    assert.equal(await justes(), 2, 'la première question annulée')
   }))
 
 // ── Une vraie soirée ──────────────────────────────────────────────────────

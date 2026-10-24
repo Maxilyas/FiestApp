@@ -182,10 +182,16 @@ test('une épreuve à thème finie, même ratée, fait tomber les paliers de la 
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
     // 249 bonnes réponses d'avant, dans une révision finie : ni record ni experte.
+    // Chacune a sa ligne, comme le serveur les écrit : Le Marathonien les compte
+    // au journal des réponses.
     const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
     try {
       const id = (db.prepare(`SELECT id FROM profiles WHERE login = 'lea'`).get() as { id: string }).id
       db.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES ('avant', ?, '[]', 0, 0, 249, 1, 2, 'revision')`).run(id)
+      const reponse = db.prepare(`INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES ('avant', ?, ?, 0, 1, 2)`)
+      db.transaction(() => {
+        for (let i = 0; i < 249; i++) reponse.run(i, `avant-${i}`)
+      })()
     } finally {
       db.close()
     }

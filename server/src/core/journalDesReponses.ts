@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { InStatement } from '@libsql/client'
 import { PREFIXE_DU_REBUS } from '../../../shared/curiosites'
 import { PREFIXE_DE_LA_FRISE } from '../../../shared/frise'
@@ -24,9 +25,9 @@ import { apresUnPassage, type SuiviDeRevision } from '../../../shared/revision'
 // (`lectureDuJournal`), dans le lot de la requête qui en a besoin. Ce qu'il
 // garde sont les dérivations mêmes que relisaient les requêtes d'avant —
 // chacune avec ses filtres, `journal-des-reponses.test.ts` les compare au
-// SQL d'avant sur une base au hasard. Rien de neuf ne s'écrit : il se relit
-// en entier au démarrage, et une règle changée vaut toujours pour tout ce
-// qui a été joué.
+// SQL d'avant sur une base au hasard. Rien de ce qu'il en tire ne s'écrit :
+// il se relit en entier au démarrage — de ses tranches gardées, plus bas —,
+// et une règle changée vaut toujours pour tout ce qui a été joué.
 
 const HEURE_MS = 3600_000
 
@@ -71,6 +72,10 @@ export interface ReponseDuJournal {
   carnet: unknown
   categorie: string | null
   niveau: string | null
+  /** Le compagnon de sa niche quand il a répondu (`campagne_reponses.compagnon`) : une bonne réponse le fait grandir. */
+  compagnon: string | null
+  /** Son épreuve d'un sentier (`mode = 'sentier'`) : son palier, sa branche, et si c'est un rejeu ; null hors des sentiers. */
+  epreuve: { palier: number; branche: string | null; rejeu: boolean } | null
 }
 
 /**
@@ -81,21 +86,92 @@ export interface ReponseDuJournal {
  * réponses neuves, leurs séries et leurs duels. Ce que la série a gardé de
  * chaque question, d'un seul `json_extract` à trois chemins, sous
  * `json_valid` : la lecture part aussi dans le lot qui écrit une réponse, et
- * un JSON illisible n'y doit rien faire échouer.
+ * un JSON illisible n'y doit rien faire échouer. D'une épreuve des sentiers,
+ * son palier, sa branche et son rejeu (`reponsesDesEpreuves`).
  */
 export function lectureDuJournal(depuis: number, limite = REPONSES_PAR_LECTURE): InStatement {
-  return {
-    sql: `SELECT COUNT(*) AS lues, MAX(n) AS jusqua,
-                 json_group_array(json_array(n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, json(detail))) AS lignes
+  return { sql: LECTURE_DU_JOURNAL, args: [depuis, limite] }
+}
+
+const LECTURE_DU_JOURNAL = `SELECT COUNT(*) AS lues, MAX(n) AS jusqua,
+                 json_group_array(json_array(n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, json(detail), compagnon, json(epreuve))) AS lignes
           FROM (SELECT r.rowid AS n, s.profile_id AS qui, r.serie_id AS serie, r.reserve_id AS question, r.juste AS juste, r.repondue_le AS le,
-                       r.choix IS NOT NULL AS repondue, r.joker AS joker, r.forme AS forme, s.mode AS mode, s.commencee_le AS commencee,
+                       r.choix IS NOT NULL AS repondue, r.joker AS joker, r.forme AS forme, r.compagnon AS compagnon, s.mode AS mode, s.commencee_le AS commencee,
                        s.semaine AS semaine, s.duel AS duel, d.ferme_le AS ferme,
                        CASE WHEN json_valid(s.questions)
                             THEN json_extract(s.questions, '$[' || r.position || '].carnet', '$[' || r.position || '].categorie', '$[' || r.position || '].niveau')
-                       END AS detail
+                       END AS detail,
+                       CASE WHEN s.mode = 'sentier' THEN json_array(s.palier, s.branche, s.rejeu) END AS epreuve
                 FROM campagne_reponses r LEFT JOIN campagne_series s ON s.id = r.serie_id LEFT JOIN campagne_duels d ON d.code = s.duel
-                WHERE r.rowid > ? ORDER BY r.rowid LIMIT ?)`,
-    args: [depuis, limite],
+                WHERE r.rowid > ? ORDER BY r.rowid LIMIT ?)`
+
+// ── Les tranches gardées ─────────────────────────────────────────────────
+//
+// Le journal se relisait en entier à chaque démarrage : 47 000 lignes au
+// quota de Turso pour vingt-deux mille réponses, sept réveils par jour le 23
+// octobre 2026 — 6 % du quota à lui seul, et deux fois plus à chaque
+// doublement de l'histoire. Ses lectures se gardent donc dans la base telles
+// qu'elles sont parties (`campagne_tranches`) : deux mille réponses par
+// ligne, le texte même que `lectureDuJournal` rend, rangé sous le `rowid`
+// d'où elle partait. Un réveil relit ses tranches — une ligne chacune —, puis
+// seulement ce qui est arrivé après la dernière, moins de deux mille
+// réponses ; ce que le journal relit ensuite se range à son tour en fond,
+// deux mille réponses à la fois (`CampagneStore.garderLesTranches`).
+//
+// Ce qu'une tranche dit ne bouge pas, tant que rien ne s'efface : une
+// réponse ne change jamais — et une réponse effacée ou modifiée, ou une
+// série effacée, efface toutes les tranches (`DECLENCHEURS_DES_TRANCHES`,
+// quoi qu'il l'efface : `oublierProfil`, un test, une main). Seule la
+// fermeture d'un duel se lit dans sa ligne et peut avancer depuis
+// (`annulerUnDuel`) : les duels que les tranches disent ouverts se relisent
+// au réveil. Une lecture qui change de forme n'en relit pas une d'avant
+// (`VERSION_DES_TRANCHES`). Et des tranches qu'on ne peut relire ne coûtent
+// que la relecture d'avant elles : la base relit tout ce qui les suit.
+
+/**
+ * La version des tranches : l'empreinte du texte de la lecture qui les a
+ * écrites. Une colonne de plus, un chemin de plus, et les tranches d'avant
+ * ne se relisent plus — rien à penser à monter.
+ */
+export const VERSION_DES_TRANCHES = createHash('sha256').update(LECTURE_DU_JOURNAL).digest('hex').slice(0, 16)
+
+/**
+ * Combien de tranches un aller-retour rapporte au plus : quatre, moins de
+ * deux mégaoctets — une réponse de Turso a sa limite, la sauvegarde lit par
+ * pages de deux (`PAGE_OCTETS`, `scripts/sauvegarde.ts`).
+ */
+export const TRANCHES_PAR_LECTURE = 4
+
+/**
+ * Une réponse effacée, une réponse qui change ou une série effacée : les
+ * tranches ne disent plus ce que dirait la base, elles s'effacent toutes, dans
+ * la même transaction.
+ */
+export const DECLENCHEURS_DES_TRANCHES = [
+  'CREATE TRIGGER IF NOT EXISTS campagne_tranches_reponse_effacee AFTER DELETE ON campagne_reponses BEGIN DELETE FROM campagne_tranches; END',
+  'CREATE TRIGGER IF NOT EXISTS campagne_tranches_reponse_changee AFTER UPDATE ON campagne_reponses BEGIN DELETE FROM campagne_tranches; END',
+  'CREATE TRIGGER IF NOT EXISTS campagne_tranches_serie_effacee AFTER DELETE ON campagne_series BEGIN DELETE FROM campagne_tranches; END',
+]
+
+/** Les tranches de la version du jour à partir de `debut`, dans l'ordre. */
+export function lectureDesTranches(debut: number): InStatement {
+  return {
+    sql: 'SELECT debut, jusqua, lues, lignes FROM campagne_tranches WHERE version = ? AND debut >= ? ORDER BY debut LIMIT ?',
+    args: [VERSION_DES_TRANCHES, debut, TRANCHES_PAR_LECTURE],
+  }
+}
+
+/**
+ * La tranche qui part de `debut`, écrite par la base elle-même : la lecture
+ * du journal, rangée telle quelle sans faire le voyage — pleine seulement.
+ * Rend son `jusqua`, ou rien.
+ */
+export function ecritureDUneTranche(debut: number, le: number): InStatement {
+  return {
+    sql: `INSERT OR REPLACE INTO campagne_tranches (version, debut, jusqua, lues, lignes, ecrite_le)
+          SELECT ?, ?, jusqua, lues, lignes, ? FROM (${LECTURE_DU_JOURNAL}) WHERE lues = ?
+          RETURNING jusqua`,
+    args: [VERSION_DES_TRANCHES, debut, le, debut, REPONSES_PAR_LECTURE, REPONSES_PAR_LECTURE],
   }
 }
 
@@ -115,7 +191,7 @@ export function lireLeJournal(ligne: Record<string, unknown> | undefined, limite
   const lues = Number(ligne?.lues ?? 0)
   const texte = ligne?.lignes
   const brutes = typeof texte === 'string' ? (JSON.parse(texte) as unknown[][]) : []
-  const reponses = brutes.map(([n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, detail]): ReponseDuJournal => {
+  const reponses = brutes.map(([n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, detail, compagnon, epreuve]): ReponseDuJournal => {
     const [carnet, categorie, niveau] = Array.isArray(detail) ? detail : [null, null, null]
     const sonJoker = texteOuNull(joker)
     const saForme = texteOuNull(forme)
@@ -138,6 +214,8 @@ export function lireLeJournal(ligne: Record<string, unknown> | undefined, limite
       carnet: carnet ?? null,
       categorie: texteOuNull(categorie),
       niveau: texteOuNull(niveau),
+      compagnon: texteOuNull(compagnon),
+      epreuve: Array.isArray(epreuve) ? { palier: Number(epreuve[0]), branche: texteOuNull(epreuve[1]), rejeu: Number(epreuve[2]) === 1 } : null,
     }
   })
   return { reponses, jusqua: ligne?.jusqua === null || ligne?.jusqua === undefined ? 0 : Number(ligne.jusqua), aSuivre: lues >= limite }
@@ -244,7 +322,11 @@ class Dossier {
   readonly justesParHeure = new Map<number, number>()
   readonly savoir = new Map<string | null, CompteDeSavoir>()
   expertes = 0
+  /** Ses bonnes réponses, tous les modes, révisions comprises : ses confettis de campagne (`justesDe`). */
+  justes = 0
   recentes: ReponseRecente[] = []
+  /** Ses bonnes réponses données avec chaque compagnon dans sa niche, tous les modes de la campagne (`compagnonsDe`). */
+  readonly compagnons = new Map<string, number>()
   /** Son carnet : les questions qu'il a ratées (`carnetDe`). */
   readonly carnet = new Map<string, QuestionAuCarnet>()
   /**
@@ -286,6 +368,8 @@ export class JournalDesReponses {
   private readonly premieres = new Map<string, Compte>()
   /** La fermeture de chaque duel que ses réponses ont nommé : ouvert, il tient ses réponses hors du carnet. */
   private readonly fermetures = new Map<string, number>()
+  /** Les épreuves des sentiers jouées pour de bon — pas les rejeux — : leurs réponses, marche par marche (`reponsesDesEpreuves`). */
+  private readonly epreuves = new Map<string, { palier: number; branche: string | null; commencee: number; niveaux: Map<string, Compte> }>()
 
   constructor(private readonly maintenant: () => number = Date.now) {}
 
@@ -325,6 +409,12 @@ export class JournalDesReponses {
   private une(r: ReponseDuJournal) {
     this.reponses++
     if (r.duel !== null && r.fermeLe !== null) this.fermerLeDuel(r.duel, r.fermeLe)
+    // L'administration des sentiers : chaque épreuve jouée pour de bon, ses réponses à chaque marche.
+    if (r.epreuve !== null && !r.epreuve.rejeu && r.niveau !== null && r.commencee !== null) {
+      let e = this.epreuves.get(r.serie)
+      if (!e) this.epreuves.set(r.serie, (e = { palier: r.epreuve.palier, branche: r.epreuve.branche, commencee: r.commencee, niveaux: new Map() }))
+      compter(e.niveaux, r.niveau, r.juste)
+    }
     const code = r.le * 4 + (r.aidee ? 2 : 0) + (r.juste ? 1 : 0)
     // Une série disparue lisait `COALESCE(s.mode, 'serie')` : elle n'est pas une révision.
     const revision = r.mode === 'revision'
@@ -356,8 +446,11 @@ export class JournalDesReponses {
     }
     // Son expérience : ses bonnes réponses, heure par heure, révisions comprises.
     if (r.juste) {
+      d.justes++
       const heure = Math.floor(r.le / HEURE_MS)
       d.justesParHeure.set(heure, (d.justesParHeure.get(heure) ?? 0) + 1)
+      // Ses compagnons : chaque bonne réponse fait grandir celui de sa niche, dans tous les modes.
+      if (r.compagnon !== null) d.compagnons.set(r.compagnon, (d.compagnons.get(r.compagnon) ?? 0) + 1)
     }
     // Ses écussons et L'Érudit : les réponses nues hors révision.
     if (!revision && reponseNue(r)) {
@@ -459,6 +552,11 @@ export class JournalDesReponses {
     if (avant === undefined || le < avant) this.fermetures.set(code, le)
   }
 
+  /** Les duels que ses réponses disent encore ouverts à `maintenant` : lus dans des tranches gardées, ils ont pu fermer depuis. */
+  duelsOuverts(maintenant: number): string[] {
+    return [...this.fermetures].filter(([, le]) => le > maintenant).map(([code]) => code)
+  }
+
   /** Ce qu'il a vu, et quand pour la dernière fois — « jamais vues d'abord » — ; sa première réponse à chacune, sauf aidée. */
   vuesDe(qui: string): { vues: Map<string, number>; premieres: Map<string, boolean> } {
     const vues = new Map<string, number>()
@@ -479,6 +577,22 @@ export class JournalDesReponses {
       if (juste !== null) premieres.set(question, { le: Math.floor(p.premiere / 4), juste: juste === 1 })
     }
     return premieres
+  }
+
+  /**
+   * Ses bonnes réponses de campagne, tous les modes : ce que la somme des
+   * `justes` de ses séries comptait (ses confettis, Le Marathonien). Chaque
+   * mode écrit la réponse et sa série dans le même lot — le 24 octobre 2026,
+   * en production, 15 985 des deux côtés, sans un écart pour aucun profil ni
+   * aucun mode.
+   */
+  justesDe(qui: string): number {
+    return this.dossiers.get(qui)?.justes ?? 0
+  }
+
+  /** Ses bonnes réponses de campagne données avec chaque compagnon (`loup` → 42) : elles le font grandir (`ProfileStore.compagnonsDe`). */
+  compagnonsDe(qui: string): Record<string, number> {
+    return Object.fromEntries(this.dossiers.get(qui)?.compagnons ?? [])
   }
 
   /** Ses bonnes réponses, heure par heure : son expérience de campagne (`justesParJourDesHeures`). */
@@ -518,6 +632,30 @@ export class JournalDesReponses {
   mesures(): { brutes: Map<string, Compte>; premieres: Map<string, Compte> } {
     const copie = (comptes: Map<string, Compte>) => new Map([...comptes].map(([q, c]) => [q, { justes: c.justes, total: c.total }]))
     return { brutes: copie(this.brutes), premieres: copie(this.premieres) }
+  }
+
+  /**
+   * Les réponses des épreuves des sentiers commencées après `depuis`, d'une
+   * branche ou de toutes, sans les rejeux : combien, et combien de justes,
+   * palier par palier et marche par marche — ce que l'administration des
+   * sentiers relisait de chaque épreuve de trois mois, son JSON déplié pour
+   * ses seize réponses (`adminDesSentiers`) : 150 000 lignes au quota de
+   * Turso pour une page du QG, le 24 octobre 2026.
+   */
+  reponsesDesEpreuves(depuis: number, branche: string | null): { palier: number; niveau: string; n: number; justes: number }[] {
+    const lignes = new Map<string, { palier: number; niveau: string; n: number; justes: number }>()
+    for (const e of this.epreuves.values()) {
+      if (e.commencee <= depuis || (branche !== null && e.branche !== branche)) continue
+      for (const [niveau, c] of e.niveaux) {
+        const cle = `${e.palier}|${niveau}`
+        const l = lignes.get(cle)
+        if (l) {
+          l.n += c.total
+          l.justes += c.justes
+        } else lignes.set(cle, { palier: e.palier, niveau, n: c.total, justes: c.justes })
+      }
+    }
+    return [...lignes.values()]
   }
 
   /** Les joueurs, pour les premières réponses de chacun (`premieresJustesDe`, le modèle du savoir) : ceux qui en ont au moins une. */

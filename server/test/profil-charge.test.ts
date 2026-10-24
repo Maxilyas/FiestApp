@@ -79,7 +79,9 @@ const lire = (chemin: string) =>
   })
 
 before(async () => {
-  banc = await demarrer({ baseDeLaCampagne: BASE, prechauffageCampagneMs: 3_600_000 })
+  // Le journal des duels frais comme en ligne : ces épreuves comptent ce que
+  // la production attend, et n'écrivent leurs duels qu'avant le réveil.
+  banc = await demarrer({ baseDeLaCampagne: BASE, prechauffageCampagneMs: 3_600_000, fraicheurDesDuelsMs: 3_600_000 })
   cookie = await inscrireProfil(banc.url, 'jeanne', 'Jeanne')
   const id = (await lire('/api/joueur/moi?leger')).profile.id as string
   // Ce qu'elle a, écrit dans la base permanente : un thème et un fond achetés,
@@ -143,7 +145,9 @@ test('la page du profil lit ses sentiers et ses duels une fois, d’un seul lot 
   const sentiers = m.lectures.filter(l => /FROM sentier_acquis/.test(l.sql))
   const duels = m.lectures.filter(l => /ses_justes/.test(l.sql))
   assert.equal(sentiers.length, 1, `ses sentiers lus ${sentiers.length} fois :\n${enClair(m)}`)
-  assert.equal(duels.length, 1, `ses duels lus ${duels.length} fois :\n${enClair(m)}`)
+  // Ses duels, du journal des duels gardé en mémoire (`core/journalDesDuels.ts`) :
+  // lus une fois par page jusqu'au 24 octobre 2026, plus du tout depuis.
+  assert.equal(duels.length, 0, `ses duels relus ${duels.length} fois :\n${enClair(m)}`)
   assert.ok(m.appels <= 12, `${m.appels} allers-retours — seize avant :\n${enClair(m)}`)
   // Ce qu'elle en voit ne change pas : ses portraits, son solde, sa bordure.
   const { profile } = m.resultat

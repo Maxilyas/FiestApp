@@ -23,6 +23,10 @@ const JOINTURE = /\b(\w+)\.duel = d\.code\b/
 /** Chaque requête qui en a une, avec ses arguments : le plan se lit tel que le serveur l'a demandé. */
 const vues = new Map<string, unknown[]>()
 
+/** Le rattrapage du journal des duels : ce qui est arrivé depuis une série, par son `rowid` (`lecturesDuJournalDesDuels`). */
+const DEPUIS_UNE_SERIE = /FROM campagne_series\s+WHERE rowid > \?/
+const rattrapages = new Map<string, unknown[]>()
+
 /** Une ligne du plan (`EXPLAIN QUERY PLAN`) : un arbre, chaque bloc ses boucles dans l'ordre, la plus extérieure d'abord. */
 interface Etape {
   id: number
@@ -56,6 +60,7 @@ for (const methode of ['execute', 'batch'] as const) {
     for (const i of instructions) {
       const { sql, args: valeurs } = typeof i === 'string' ? { sql: i, args: [] } : (i as { sql: string; args?: unknown })
       if (JOINTURE.test(sql)) vues.set(sql, Array.isArray(valeurs) ? valeurs : [])
+      if (DEPUIS_UNE_SERIE.test(sql)) rattrapages.set(sql, Array.isArray(valeurs) ? valeurs : [])
     }
     return origine.apply(this, args)
   }
@@ -108,6 +113,20 @@ test('les tentatives d’un duel se cherchent par son code — lancer un duel, l
       }
     }
     assert.ok(jugees >= 6, `${jugees} recherches des tentatives d’un duel seulement`)
+
+    // Le rattrapage du journal des duels part du `rowid` de la dernière série
+    // vue : rien, ou presque, quand rien n'est arrivé. Sans statistiques,
+    // SQLite préférait l'index du mode, et parcourait toutes les rencontres et
+    // deux fois toutes les tentatives de duel, deux fois par minute de jeu (la
+    // revue du 24 octobre 2026). Le banc le relit à chaque lecture.
+    assert.ok(rattrapages.size >= 2, `${rattrapages.size} lectures du rattrapage seulement`)
+    for (const [sql, args] of rattrapages) {
+      const plan = db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...args) as Etape[]
+      const dit = `${plan.map(e => `${e.id}<${e.parent} ${e.detail}`).join('\n')}\n— ${sql.replace(/\s+/g, ' ')}`
+      const series = plan.filter(e => /^(SCAN|SEARCH) campagne_series\b/.test(e.detail))
+      assert.ok(series.length > 0, `les séries absentes du plan :\n${dit}`)
+      for (const e of series) assert.equal(e.detail, 'SEARCH campagne_series USING INTEGER PRIMARY KEY (rowid>?)', `le rattrapage ne part pas de son rowid :\n${dit}`)
+    }
   } finally {
     db.close()
     await banc.close()

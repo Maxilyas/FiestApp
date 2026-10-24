@@ -1,13 +1,13 @@
 ---
 paths:
   - "shared/duels.ts"
-  - "server/src/core/{campagne,modeleDuSavoir}.ts"
+  - "server/src/core/{campagne,modeleDuSavoir,journalDesDuels}.ts"
   - "server/src/campagne.ts"
   - "client/src/views/{Duels,Duel,LancerUnDefi,Joueurs,Amis}.tsx"
   - "client/src/views/{Rencontre.tsx,adressesDesDuels.ts}"
   - "client/src/components/{Blason,GestesDuJoueur,CarteDUnProfil,FeuilleDesAmisADemande}.tsx"
   - "server/scripts/{rendu-duels,rendu-bordures,duelsDEssai,calibrage-automate,calibrage-duels}.ts"
-  - "server/test/{duels,duels-attente,duels-index,duels-contre,duels-de,duels-enjeu,duels-historique,duels-montee,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
+  - "server/test/{duels,duels-attente,duels-index,journal-des-duels,duels-contre,duels-de,duels-enjeu,duels-historique,duels-montee,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
 ---
 
 # Les duels : la cote, les ligues, Automate, défier quelqu'un, les amis
@@ -53,14 +53,18 @@ jour a sa notification (règle `rappel-et-installation.md`).
   `classementDesDuels`, `rangsAuLundi`, `aSaPortee`, `rangAuxDuels`) ; la page
   et l'accueil (`etatDesDuels`, `duelsContre`, `bilanEtHistoire`,
   `accueilDesDuels`) ; les bordures tenues en mémoire pour la salle
-  (`borduresEnMemoire`, `connaitreLesBordures`) ; les lectures du journal
+  (`borduresEnMemoire`, `connaitreLesBordures`) ; le journal des duels
+  (`lesDuels`, `lireLesDuels`, `relireLesDuels`, plus bas) et ses lectures
   (`lectureDesDuels`, `lectureDesAdversaires`, `sesDuelsContre`,
-  `lecturesDesDuelsContre`, `lectureDesDefisRecus`). Ses tables, dans la base
+  `lectureDesDuelsContre`, `lectureDesDefisRecus`). Ses tables, dans la base
   permanente : `campagne_duels` (les cotes de chacun figées au lancement —
   `cote_auteur`, `cote_adversaire`, et depuis la montée leurs cachées
   `cote_cachee_auteur`, `cote_cachee_adversaire` —, `vu_le`),
   `campagne_envois`, `campagne_envois_prevus`, `campagne_amis_ajoutes`,
   `campagne_amis_retires`
+- `core/journalDesDuels.ts` — le journal des duels classés de tout le monde,
+  en mémoire (`JournalDesDuels` : `duelsDe`, `joueurs`, `ranger`,
+  `rattraper`, `fermes`) — ses pièges plus bas
 - `core/modeleDuSavoir.ts` — le modèle du savoir, qu'Automate lit, et la
   page des sentiers pour dire à chacun sa chance (`chanceDeLEpreuve`, règle
   `sentiers.md`) — les marches des séries, des sentiers et du quiz tout prêt
@@ -152,7 +156,7 @@ jour a sa notification (règle `rappel-et-installation.md`).
 
 - **Rien ne s'écrit que le journal.** Les deux cotes, le plancher, les
   ligues, les semaines, leurs confettis et les crans des bordures se relisent
-  à chaque lecture (`releverLesDuels` sur `lectureDesDuels`) : une donnée de
+  à chaque lecture (`releverLesDuels` sur le journal des duels, plus bas) : une donnée de
   plus se dérive du journal, jamais d'une colonne tenue à côté — qui a lancé
   un duel aussi (`DuelJoue.lance`, lu de `campagne_duels.auteur`). Changer
   une constante de la cote, de la montée ou des ligues change donc tout, pour
@@ -237,7 +241,7 @@ jour a sa notification (règle `rappel-et-installation.md`).
   `joue`, `a_voir`) et `RESULTATS_A_VOIR` pour les résultats, `DEFI_A_LUI`
   pour les défis reçus — un duel classé n'est qu'à qui il défie. La page lit
   tous ses duels en route, ses résultats à voir, puis les dix plus récents
-  des autres (`lecturesDesDuelsContre`) : ne lisant que ses dix derniers,
+  des autres (`lectureDesDuelsContre`) : ne lisant que ses dix derniers,
   elle perdait un duel plus ancien encore compté en rouge. Un compteur neuf
   lit la règle de ce qu'il compte, jamais une requête à lui.
 - **Un seul duel ouvert entre deux joueurs, et une seule règle pour le
@@ -262,10 +266,10 @@ jour a sa notification (règle `rappel-et-installation.md`).
   cours » ne le comptent plus. Ne la précharge pas, ne la lis pas « pour
   voir » : le résultat serait vu sans l'avoir été.
 - **Le dé : un aller-retour avant de répondre, pas un de plus** — un
-  `batch` de lectures (sa rencontre laissée, son journal des duels, et ce
-  qui est arrivé au journal des réponses depuis sa dernière lecture, d'où
-  ses vues et ses premières réponses : `lireAvecLeJournal`, règle
-  `campagne.md`). L'écriture de la
+  `batch` de lectures (sa rencontre laissée, et ce qui est arrivé au journal
+  des réponses depuis sa dernière lecture, d'où ses vues et ses premières
+  réponses : `lireAvecLeJournal`, règle `campagne.md`), et de front son
+  journal des duels, en mémoire (`lesDuels`, plus bas). L'écriture de la
   rencontre part ensuite, sous le verrou du profil relâché seulement une fois
   écrite (`avecVerrouJusquALEcriture`) : relâché avant, sa première réponse
   chercherait une rencontre que la base n'a pas, et un second dé en tirerait
@@ -281,8 +285,8 @@ jour a sa notification (règle `rappel-et-installation.md`).
   classé fait comme le dé** (`creerUnDuel`, le choix du propriétaire du
   19 octobre 2026 : « homogénéiser et faire pareil que pour les dés ») : un
   lot de lectures — le duel déjà ouvert entre eux (`lectureDuDuelOuvert`, la
-  règle du refus), leurs deux journaux des duels, et le journal des réponses
-  rattrapé, d'où ce que chacun a vu —, la fiche de
+  règle du refus), et le journal des réponses rattrapé, d'où ce que chacun a
+  vu —, leurs deux journaux des duels, en mémoire (`lesDuels`), la fiche de
   l'adversaire de front (`byIds`), et la réponse ; le duel, ses envois prévus
   et sa première tentative s'écrivent ensuite, d'un lot, sous le même
   verrou. Gardé (`duels`, `enCours`) une fois écrit ; raté — une base qui
@@ -341,12 +345,46 @@ jour a sa notification (règle `rappel-et-installation.md`).
   chaque tranche, comme ses étapes d'avant — les questions du modèle, la
   préparation du tirage, la série de référence —, passe par le tourniquet
   (`rendreLaMain`, règle `campagne.md`).
-- **Le classement relit toutes les rencontres finies** de tout le monde :
-  gardé (`cotes`) dix minutes au plus (`COTES_GARDEES_MS`), vidé à chaque duel
-  fini ici et au départ d'un profil — et la fin de chaque duel le relit
-  aussitôt pour dire la place (`rangAuxDuels`). Une lecture de plus par fin
-  de duel coûte tout le journal ; celle d'un joueur se lit d'une requête à
-  lui.
+- **Le journal des duels se garde en mémoire, et se lit par différence**
+  (`core/journalDesDuels.ts`, le 23 octobre 2026 : 13 % du quota de Turso —
+  chaque dé, chaque page des duels, chaque solde relisait toute l'histoire
+  du joueur, 849 lignes pour le plus fidèle, et le classement celle de tous,
+  4 038, toutes les dix minutes et après chaque duel fini). Lu en entier une
+  fois (`lireLesDuels`), puis seulement ce qui bouge, par sa clé
+  (`DuelsARelire`) : une rencontre ou un duel classé qu'une réponse vient de
+  finir, relus dans le lot qui l'écrit (`cibleDuDuel`, dans `repondre`) ; un
+  duel classé fermé depuis, dont les tentatives commencées comptent sans que
+  rien ne s'écrive (`fermes` — qui lit pendant la relecture l'attend,
+  `fermeturesEnRoute`) ; les séries arrivées depuis la plus grande qu'il a
+  vue (`seriesVues`, leur `rowid`) : ce qu'un autre serveur, un test ou une
+  main ont écrit y paraît, au plus tard après `FRAICHEUR_DES_DUELS_MS`
+  (trente secondes ; zéro au banc, `fraicheurDesDuelsMs`) — le `+` devant le
+  mode (`DEPUIS_SON_ROWID`) fait partir ce rattrapage de la plage de
+  `rowid` : sans statistiques, SQLite préférait l'index du mode, et chaque
+  rattrapage parcourait toutes les rencontres et deux fois toutes les
+  tentatives (la revue du 24 octobre 2026, `duels-index.test.ts`) ; ce qui a
+  peut-être bougé sans être rangé — un lot resté sans réponse, une réponse
+  écrite juste après la fermeture de son duel, une relecture ratée, des
+  lignes lues avant le départ d'un profil — se relit par sa clé à la
+  lecture suivante (`duelsARelire`), et une relecture ratée ne fait échouer
+  personne ; une fin écrite ailleurs, sur sa ligne, sans `rowid` neuf, ne se
+  voit qu'à la relecture d'ensemble, trois minutes après la première d'un
+  démarrage (`DUELS_RELUS_APRES_LE_DEMARRAGE_MS` : le serveur d'avant a
+  fini sa mise en ligne), puis toutes les heures (`JOURNAL_DES_DUELS_RELU_MS`),
+  en fond. Une
+  ligne ne fait qu'arriver — une rencontre finie, les tentatives d'un duel
+  fini ou fermé ne bougent plus — : une relecture ne retire rien (`ranger`),
+  et seul `oublierProfil` refait le journal (`generationDesDuels` : une
+  lecture partie avant ne s'installe pas). Le classement s'en dérive, gardé
+  tant qu'il ne change pas (`cotes`, sa `version`), et la fin de chaque duel
+  dit la place (`rangAuxDuels`) du journal que son lot vient de ranger. `journal-des-duels.test.ts`
+  le compare à `lectureDesDuels` — la lecture d'avant, la règle même —,
+  joueur par joueur, sur une base au hasard, et joue chaque relecture qui
+  arrive trop tard ou pas du tout. Qui attend une relecture lit le journal
+  d'après elle : remplacé pendant l'attente, c'est le neuf. Une porte neuve qui finit une
+  série de duel ou de rencontre relit sa cible (`relireLesDuels`) ; une
+  donnée de plus d'un duel s'ajoute à `lectureDesDuels` et à la ligne du
+  journal (`LigneDuJournalDesDuels`).
 - **Un masqué, un retiré, un homonyme : partout.** Toute liste de joueurs
   écarte les masqués du quiz du jour (`masque`) — sauf pour eux-mêmes — et
   marque les homonymes à l'affichage (`nomsAffiches`, invariant 17) ; la

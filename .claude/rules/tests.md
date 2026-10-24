@@ -72,6 +72,17 @@ paths:
   `smoke.ts` ferment donc le calendrier des soirées (`calendrierDesSoirees`,
   `core/saisons.ts`) ; un test qui date ses soirées lui-même le rouvre
   (`saisons.test.ts`).
+- **Les journaux en mémoire ne relisent que ce qui arrive.** Le banc lit
+  les duels sans délai (`fraicheurDesDuelsMs: 0`, `banc.ts`) : une série
+  écrite à la main y paraît à la lecture suivante, comme une réponse au
+  journal des réponses. Un test qui compte les allers-retours démarre le
+  sien à la fraîcheur de la production (`fraicheurDesDuelsMs: 3_600_000`,
+  `duels-attente.test.ts`, `profil-charge.test.ts`), sinon chaque lecture
+  des duels en compte un de plus. Ce qu'un test efface ou modifie derrière
+  le dos du serveur — une réponse, une série — ne se voit qu'après
+  `banc.redemarrer()` ; au réveil, les tranches gardées du journal des
+  réponses se sont effacées d'elles-mêmes, par leurs déclencheurs (règle
+  `campagne.md`).
 - **Un joueur seul ne rapporte rien.** Un test qui veut de l'expérience
   invite un figurant au moins (`figurants()`, `faux()` dans
   `soiree.test.ts`) ; un test de hauts faits, quatre joueurs au moins. Et

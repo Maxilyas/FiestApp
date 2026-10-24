@@ -19,15 +19,15 @@
 | Ce qu'elle garde | la soirée en cours de chaque espace, et rien d'autre | tout ce qui doit survivre — comptes, profils, quiz, historique, quiz du jour, campagne, QG — et le **miroir** de la soirée |
 | Sa durée de vie | **jetable** : le disque de l'hébergeur gratuit s'efface à chaque réveil | permanente |
 | Qui l'ouvre | `initDb` (`server/src/core/db.ts`), une seule connexion synchrone | chaque magasin ouvre son client (`clientDistant`, `server/src/core/distante.ts`), avec un délai de dix secondes par aller-retour |
-| Ses tables | 7 | 64, plus `soirees_v2`, qui ne vit que le temps d'une migration |
+| Ses tables | 7 | 65, plus `soirees_v2`, qui ne vit que le temps d'une migration |
 
 Chaque table se crée au démarrage, dans le magasin qui la possède
 (`CREATE TABLE IF NOT EXISTS`) ; une colonne venue après coup s'ajoute par
 `addColumn` dans la base locale (`server/src/core/db.ts`) et par
 `ajouterColonne` dans la permanente (`server/src/core/distante.ts`), qui lit
 le schéma au lieu de deviner, et dont l'échec arrête le démarrage. `meta` est
-créée par trois magasins, d'où soixante-quatorze `CREATE TABLE` pour
-soixante-douze tables.
+créée par trois magasins, d'où soixante-quinze `CREATE TABLE` pour
+soixante-treize tables.
 
 **L'espace.** Un compte d'animateur **est** un espace : `accounts.id` sert de
 `space_id` à tout ce qui appartient à une soirée ou à une bibliothèque. Ce
@@ -49,7 +49,7 @@ se range par `profile_id`, sans espace. Le pourquoi :
 | « Reposer » une question, « Annuler les points » | les réponses de la question (`answer_log`) ; les gains, en ajout seul, ne s'effacent pas | les mêmes réponses | — |
 | Retirer un prix remis, une équipe | sa ligne (`team_bonus`, `teams`) | la même ligne | — |
 | Supprimer un espace (« Les salons », au QG) | tout ce que l'espace avait (`wipeSpace`) | tout ce que l'espace avait | ses quiz, ses photos, ses programmes, ses partages, son entrée au catalogue, son code de salon, son historique, ses sessions et liens d'activation, son compte — et, si l'administrateur le choisit, ce que ses soirées avaient crédité |
-| Supprimer un profil (« Les profils », au QG) | — | — | sa fiche et ses sessions, son expérience, son étagère, ses Éclats, ses achats, les dons reçus, ses missions du jour et ses coffres, ses parties du quiz du jour et ses podiums, ses signalements, son masque, ses rappels du soir, ses séries de campagne et leurs réponses, ses paliers repris, ses envois et ses listes d'amis |
+| Supprimer un profil (« Les profils », au QG) | — | — | sa fiche et ses sessions, son expérience, son étagère, ses Éclats, ses achats, les dons reçus, ses missions du jour et ses coffres, ses parties du quiz du jour et ses podiums, ses signalements, son masque, ses rappels du soir, ses séries de campagne et leurs réponses — et, avec elles, les tranches gardées du journal des réponses de tous (`campagne_tranches`), que le réveil suivant refait —, ses paliers repris, ses envois et ses listes d'amis |
 
 Et ce qui s'efface tout seul : au démarrage, les sessions et les liens
 d'activation expirés, les sessions de profil expirées, les codes de salon
@@ -738,6 +738,22 @@ Les réponses de chaque partie.
 - **Écrite par** : `CampagneStore`.
 - **Lue par** : `CampagneStore` (le carnet, la difficulté mesurée, le modèle du savoir, les confettis ; le passeport de l'expédition et le Globe-trotter, ses thèmes pointus trouvés — `lectureDuPasseport`, dans le lot qui lit déjà l'expédition, la page, le départ ou les paliers). La mesure, le modèle du savoir, les écussons, la précision et L'Érudit n'en lisent que les réponses nues — ni joker ni autre forme (`reponseNue`, le journal des réponses) —, et une bonne réponse aidée, ou trouvée en vrai ou faux tiré d'une question à quatre choix, ne retrouve rien au carnet ; une erreur aidée y entre.
 - **Effacée par** : la suppression du profil, avec ses parties.
+
+### `campagne_tranches`
+
+Les lectures du journal des réponses (`server/src/core/journalDesReponses.ts`),
+gardées telles qu'elles sont parties : un réveil les relit au lieu de toute
+l'histoire. Le 23 octobre 2026, la relecture de chaque démarrage parcourait
+47 000 lignes au quota de Turso, sept fois par jour, et deux fois plus à
+chaque doublement des réponses ; ses tranches en coûtent une chacune. Une
+copie, que le serveur refait seul.
+
+- **Colonnes clés** : `version` et `debut` (la clé : l'empreinte du texte de la lecture qui l'a écrite, `VERSION_DES_TRANCHES` — une lecture qui change de forme ne relit pas les tranches d'avant, qui s'effacent au démarrage —, et le `rowid` de `campagne_reponses` d'où elle part), `jusqua` (le plus grand qu'elle lit : la tranche suivante part de là), `lues` (deux mille : seule une tranche pleine s'écrit), `lignes` (le texte JSON même que rend `lectureDuJournal` — 412 Ko pour deux mille réponses, en production), `ecrite_le`.
+- **Déclencheurs** : `campagne_tranches_reponse_effacee` et `campagne_tranches_reponse_changee` (une ligne de `campagne_reponses` effacée ou modifiée), `campagne_tranches_serie_effacee` (une ligne de `campagne_series` effacée) les effacent toutes, dans la même transaction : elles ne diraient plus ce que dit la base. Seule la fermeture d'un duel, que ses lignes citent, peut avancer sans elles (`annulerUnDuel`) : les duels qu'elles disent ouverts se relisent au réveil.
+- **Espace** : non.
+- **Écrite par** : `CampagneStore.garderLesTranches`, en fond, dès que le journal a lu deux mille réponses au-delà de la dernière tranche — par la base elle-même (`INSERT … SELECT`, `ecritureDUneTranche`) : le texte ne fait pas le voyage.
+- **Lue par** : `CampagneStore.reprendreLesTranches`, à la première lecture du journal après un démarrage, quatre par aller-retour ; la base ne relit que ce qui suit la dernière, moins de deux mille réponses.
+- **Effacée par** : ses déclencheurs ; au réveil qui la trouve, une tranche hors du chemin — illisible, après un trou, écrite pour un journal d'avant — et celles qui la suivent. La sauvegarde en garde la table, pas les lignes (`server/scripts/sauvegarde.ts`) : la restauration renumérote les `rowid` qu'elles citent.
 
 ### `expedition_gestes`
 

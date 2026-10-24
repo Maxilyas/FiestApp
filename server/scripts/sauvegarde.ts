@@ -139,6 +139,16 @@ const nom = (identifiant: string) => `"${identifiant.replace(/"/g, '""')}"`
 const INTERNES = /^(sqlite_|_litestream|libsql_|_cf_)/
 
 /**
+ * Les tables que le serveur refait seul, sans leurs lignes : les tranches
+ * gardées du journal des réponses citent les `rowid` de `campagne_reponses`,
+ * que la restauration renumérote — elle n'en recopie que les colonnes.
+ * Recopiées, elles feraient manquer des réponses au journal du premier
+ * réveil ; vides, il relit la base et les refait. Leur table reste : ses
+ * déclencheurs la nomment.
+ */
+const REFAITES = new Set(['campagne_tranches'])
+
+/**
  * Le poids visé d'une page. Une photo pèse ~150 Ko, une soirée archivée
  * jusqu'à quelques mégaoctets, et une réponse de la base a sa limite : tout
  * lire d'un coup échouerait sur une vraie base. On lit donc par pages,
@@ -230,6 +240,10 @@ try {
   let total = 0
   for (const table of tables) {
     await ecrire(`${table.sql};\n`)
+    if (REFAITES.has(table.name)) {
+      console.log(`   ${table.name.padEnd(18)}       — refaite par le serveur`)
+      continue
+    }
     const n = await copier(table)
     total += n
     console.log(`   ${table.name.padEnd(18)} ${String(n).padStart(7)} ligne${n > 1 ? 's' : ''}`)

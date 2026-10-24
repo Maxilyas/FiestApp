@@ -14,16 +14,29 @@
 // (`suivisDeLaBase`) : les défis de la semaine et d'avant, des duels
 // ouverts, fermés, annulés ou inconnus, les cartes du second essai, des
 // rébus et des frises — à l'heure de la base, puis une semaine plus tard.
+//
+// Puis ses tranches gardées (`campagne_tranches`) : un réveil les relit au
+// lieu de toute la base, et dit encore ce que dit le SQL d'avant — un duel
+// annulé depuis qu'elles ont été écrites, une tranche égarée, une illisible,
+// une d'une lecture d'avant ; une réponse effacée les efface toutes.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
-import { createClient, type Client } from '@libsql/client'
+import { createClient, type Client, type InStatement, type TransactionMode } from '@libsql/client'
 import { baseDEssai } from './banc'
 import { CampagneStore } from '../src/core/campagne'
-import { FENETRE_DES_RECENTES_MS, JournalDesReponses, lectureDuJournal, lireLeJournal, type LectureDuJournal, type ReponseDuJournal } from '../src/core/journalDesReponses'
+import {
+  FENETRE_DES_RECENTES_MS,
+  JournalDesReponses,
+  VERSION_DES_TRANCHES,
+  lectureDuJournal,
+  lireLeJournal,
+  type LectureDuJournal,
+  type ReponseDuJournal,
+} from '../src/core/journalDesReponses'
 import { semaineDe } from '../../shared/campagne'
 import { jourDe } from '../../shared/jour'
 import type { SuiviDeRevision } from '../../shared/revision'
@@ -89,6 +102,17 @@ const AVANT = {
                             GROUP BY COALESCE(s.profile_id, r.serie_id), r.reserve_id
                           ) WHERE juste IS NOT NULL GROUP BY reserve_id
                         )`,
+  // Celui-ci tel qu'il était le 23 octobre 2026 : 38 % du quota de Turso à lui seul.
+  compagnons: `SELECT r.compagnon AS compagnon, COUNT(*) AS n
+               FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+               WHERE s.profile_id = ? AND r.juste = 1 AND r.compagnon IS NOT NULL
+               GROUP BY r.compagnon`,
+  // Et celui-ci tel qu'il était le 24 octobre 2026 : 150 000 lignes pour une page du QG.
+  epreuves: (branche: boolean) => `SELECT s.palier AS palier, json_extract(q.value, '$.niveau') AS niveau, COUNT(*) AS n, SUM(r.juste) AS justes
+             FROM campagne_series s CROSS JOIN json_each(s.questions) q
+             JOIN campagne_reponses r ON r.serie_id = s.id AND r.position = q.key
+             WHERE s.mode = 'sentier' AND s.rejeu = 0 AND s.commencee_le > ?${branche ? ' AND s.branche = ?' : ''}
+             GROUP BY s.palier, niveau`,
 }
 
 const objet = (texte: unknown) => (typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {})
@@ -107,10 +131,14 @@ function hasardDe(graine: number) {
 
 const MODES = ['serie', 'serie', 'revision', 'sentier', 'rencontre', 'defi', 'duel', 'expedition', 'sujet']
 const CATEGORIES = ['Histoire', 'Sport', 'Musique', 'Cuisine']
+/** Les sentiers d'une épreuve ; un parcours de thème (`sujet`) a un palier, pas de branche. */
+const BRANCHES = ['foret', 'ocean', 'cosmos']
 const NIVEAUX = ['facile', 'moyen', 'difficile', 'expert']
 // « parade » et « bastion » : des cartes du second essai, que le carnet tient pour ratées.
 const JOKERS = ['parade', 'cinquante', 'indice', 'bastion']
 const FORMES = ['vrai-faux', 'six', 'devoilement', '']
+/** Le compagnon de sa niche quand il a répondu : souvent aucun. */
+const COMPAGNONS = [null, null, 'loup', 'chat', 'tortue']
 /** Le lundi d'un défi : celui de la semaine qui court à `MAINTENANT` — le jeudi 22 octobre 2026 —, deux d'avant, et pas de semaine. */
 const SEMAINES = ['2026-10-19', '2026-10-12', '2026-10-05', null]
 /** Les duels : ouverts à `MAINTENANT`, fermé, et un que la table n'a pas. */
@@ -138,12 +166,13 @@ function remplir(fichier: string, hasard: () => number, { series: nombre, depart
   const db = new Database(fichier)
   try {
     const serie = db.prepare(
-      `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, semaine, duel) VALUES (?, ?, ?, 0, 3, 0, ?, NULL, ?, ?, ?)`,
+      `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, semaine, duel, branche, palier, rejeu)
+       VALUES (?, ?, ?, 0, 3, 0, ?, NULL, ?, ?, ?, ?, ?, ?)`,
     )
-    const reponse = db.prepare(`INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, joker, forme) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    const reponse = db.prepare(`INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, joker, forme, compagnon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     const duel = db.prepare(`INSERT OR IGNORE INTO campagne_duels (code, auteur, questions, cree_le, ferme_le) VALUES (?, 'p0', '[]', ?, ?)`)
     const tire = <T>(liste: readonly T[]) => liste[Math.floor(hasard() * liste.length)]
-    const reponses: [string, number, string, number | null, number, number, string | null, string | null][] = []
+    const reponses: [string, number, string, number | null, number, number, string | null, string | null, string | null][] = []
     db.transaction(() => {
       for (const d of DUELS) if (d.fermeLe !== null) duel.run(d.code, d.fermeLe - 7 * JOUR_MS, d.fermeLe)
       for (let k = 0; k < nombre; k++) {
@@ -153,12 +182,26 @@ function remplir(fichier: string, hasard: () => number, { series: nombre, depart
         const questions = Array.from({ length: 12 }, (_, p) => ({
           id: `q${p}`,
           ...(hasard() < 0.9 && { categorie: tire(CATEGORIES) }),
-          niveau: tire(NIVEAUX),
+          // Une question sans marche, parfois : les lectures d'avant la lisaient nulle.
+          ...(hasard() < 0.95 && { niveau: tire(NIVEAUX) }),
           // Les reprises du carnet : à l'expédition, et quelques autres valeurs, que les lectures d'avant distinguaient.
           ...(mode === 'expedition' && hasard() < 0.4 && { carnet: hasard() < 0.7 ? true : 1 }),
           ...(mode !== 'expedition' && hasard() < 0.03 && { carnet: 2 }),
         }))
-        serie.run(id, `p${Math.floor(hasard() * 7)}`, JSON.stringify(questions), commencee, mode, mode === 'defi' ? tire(SEMAINES) : null, mode === 'duel' ? tire(DUELS).code : null)
+        // Une épreuve des sentiers ou d'un parcours : son palier, et parfois un rejeu, que l'administration des sentiers écarte.
+        const epreuve = mode === 'sentier' || mode === 'sujet'
+        serie.run(
+          id,
+          `p${Math.floor(hasard() * 7)}`,
+          JSON.stringify(questions),
+          commencee,
+          mode,
+          mode === 'defi' ? tire(SEMAINES) : null,
+          mode === 'duel' ? tire(DUELS).code : null,
+          mode === 'sentier' ? tire(BRANCHES) : null,
+          epreuve ? 1 + Math.floor(hasard() * 12) : null,
+          epreuve && hasard() < 0.3 ? 1 : 0,
+        )
         const combien = Math.floor(hasard() * 12)
         let le = commencee
         for (let p = 0; p < combien; p++) {
@@ -175,13 +218,14 @@ function remplir(fichier: string, hasard: () => number, { series: nombre, depart
             le,
             aide < 0.1 ? tire(JOKERS) : null,
             aide > 0.9 ? tire(FORMES) : null,
+            tire(COMPAGNONS),
           ])
         }
       }
       // Dans l'ordre du temps, comme les écrit le serveur : chaque joueur répond l'une après l'autre.
       for (const r of reponses.sort((a, b) => a[5] - b[5])) reponse.run(...r)
       // Sans série : leur profil est la série même (`COALESCE(profile_id, serie_id)`), et elles ne sont pas une révision.
-      for (let k = 0; k < 15; k++) reponse.run(`orpheline${k % 4}`, depart + k, `r${Math.floor(hasard() * 45)}`, 0, hasard() < 0.5 ? 1 : 0, MAINTENANT - Math.floor(hasard() * 5 * JOUR_MS), null, null)
+      for (let k = 0; k < 15; k++) reponse.run(`orpheline${k % 4}`, depart + k, `r${Math.floor(hasard() * 45)}`, 0, hasard() < 0.5 ? 1 : 0, MAINTENANT - Math.floor(hasard() * 5 * JOUR_MS), null, null, tire(COMPAGNONS))
     })()
   } finally {
     db.close()
@@ -234,6 +278,9 @@ async function comparer(client: Client, journal: JournalDesReponses, profils: re
       `${nom} · ${p} : ses écussons`,
     )
     assert.equal(journal.expertesDe(p), Number((await client.execute({ sql: AVANT.expertes, args: [p] })).rows[0]?.n ?? 0), `${nom} · ${p} : ses expertes`)
+    // Ses compagnons : ses bonnes réponses avec chacun dans sa niche.
+    const compagnons = Object.fromEntries((await client.execute({ sql: AVANT.compagnons, args: [p] })).rows.map(r => [String(r.compagnon), Number(r.n)]))
+    assert.deepEqual(journal.compagnonsDe(p), compagnons, `${nom} · ${p} : ses compagnons`)
     // Ses missions, depuis le lundi d'il y a deux semaines.
     const depuis = MAINTENANT - 13 * JOUR_MS
     const commencees = depuis - 7 * JOUR_MS
@@ -262,6 +309,20 @@ async function comparer(client: Client, journal: JournalDesReponses, profils: re
   const mesures = journal.mesures()
   assert.deepEqual(mesures.brutes, comptesLus(brutes.rows[0]?.mesures), `${nom} : la mesure, réponse par réponse`)
   assert.deepEqual(mesures.premieres, comptesLus(premieres.rows[0]?.mesures), `${nom} : la mesure, première réponse par première réponse`)
+  // L'administration des sentiers : les réponses des épreuves de trois mois, ou des derniers jours, d'un sentier ou de tous.
+  const ordre = (a: { palier: number; niveau: string }, b: { palier: number; niveau: string }) => a.palier - b.palier || a.niveau.localeCompare(b.niveau)
+  for (const [depuis, branche] of [
+    [MAINTENANT - 90 * JOUR_MS, null],
+    [MAINTENANT - 15 * JOUR_MS, null],
+    [MAINTENANT - 90 * JOUR_MS, 'foret'],
+  ] as const) {
+    const attendues = (await client.execute({ sql: AVANT.epreuves(branche !== null), args: branche === null ? [depuis] : [depuis, branche] })).rows
+      // Une marche nulle ne se montrait nulle part.
+      .filter(r => r.niveau !== null)
+      .map(r => ({ palier: Number(r.palier), niveau: String(r.niveau), n: Number(r.n), justes: Number(r.justes) }))
+    assert.ok(attendues.length > 0, `${nom} : des épreuves à comparer`)
+    assert.deepEqual(journal.reponsesDesEpreuves(depuis, branche).sort(ordre), attendues.sort(ordre), `${nom} : les épreuves des sentiers depuis ${new Date(depuis).toISOString()}, ${branche ?? 'tous'}`)
+  }
 }
 
 /** Le carnet de chacun, au journal et à la requête que la campagne garde quand il doute, à l'heure de la campagne : rend combien de questions il compte en tout. */
@@ -292,6 +353,8 @@ const reponseDuJournal = (r: Pick<ReponseDuJournal, 'n' | 'question' | 'juste' |
   carnet: null,
   categorie: 'Sport',
   niveau: 'facile',
+  compagnon: null,
+  epreuve: null,
   ...r,
 })
 
@@ -347,6 +410,151 @@ test('le journal dit ce que disaient les lectures d’avant — toute la base lu
   } finally {
     client.close()
     campagne.close()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ── Les tranches gardées ────────────────────────────────────────────────────
+
+/** Ce qu'une campagne demande à la base pour son journal : d'où part chaque lecture, et les duels qu'elle relit. */
+function espionner(campagne: CampagneStore): { depuis: number[]; duels: unknown[] } {
+  const lu = { depuis: [] as number[], duels: [] as unknown[] }
+  const client = (campagne as unknown as { client: Client }).client
+  const noter = (stmt: InStatement) => {
+    if (typeof stmt === 'string' || !Array.isArray(stmt.args)) return
+    if (stmt.sql.startsWith('SELECT COUNT(*) AS lues')) lu.depuis.push(Number(stmt.args[0]))
+    else if (stmt.sql.startsWith('SELECT code, ferme_le FROM campagne_duels')) lu.duels.push(...stmt.args)
+  }
+  const execute = client.execute.bind(client) as (stmt: InStatement) => ReturnType<Client['execute']>
+  const batch = client.batch.bind(client)
+  client.execute = ((stmt: InStatement) => (noter(stmt), execute(stmt))) as Client['execute']
+  client.batch = ((stmts: InStatement[], mode?: TransactionMode) => (stmts.forEach(noter), batch(stmts, mode))) as Client['batch']
+  return lu
+}
+
+const journalDe = (campagne: CampagneStore) => (campagne as unknown as { rattraperLeJournal(): Promise<JournalDesReponses> }).rattraperLeJournal()
+
+/** Les tranches qu'elle range en fond, l'une après l'autre : rangées. */
+async function tranchesRangees(campagne: CampagneStore): Promise<void> {
+  const interne = campagne as unknown as { trancheEnRoute: Promise<void> | null }
+  while (interne.trancheEnRoute) await interne.trancheEnRoute
+}
+
+const tranchesEnBase = async (client: Client) =>
+  (await client.execute('SELECT version, debut, jusqua, lues FROM campagne_tranches ORDER BY debut')).rows.map(r => ({
+    version: String(r.version),
+    debut: Number(r.debut),
+    jusqua: Number(r.jusqua),
+    lues: Number(r.lues),
+  }))
+
+/** Pleines, de la version du jour, et chacune là où s'arrête la précédente : le chemin qu'un réveil suit. */
+function enChemin(tranches: Awaited<ReturnType<typeof tranchesEnBase>>, nom: string) {
+  assert.ok(tranches.length > 0, `${nom} : des tranches`)
+  tranches.forEach((t, i) => {
+    assert.deepEqual([t.version, t.debut, t.lues], [VERSION_DES_TRANCHES, i === 0 ? 0 : tranches[i - 1].jusqua, 2000], `${nom} : la tranche ${i}`)
+  })
+}
+
+function enBase(fichier: string, faire: (db: Database.Database) => void) {
+  const db = new Database(fichier)
+  try {
+    faire(db)
+  } finally {
+    db.close()
+  }
+}
+
+test('un réveil relit ses tranches gardées, puis la base pour ce qui les suit — un duel annulé, une tranche égarée, illisible ou d’avant, une réponse effacée', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-tranches-'))
+  const fichier = path.join(dir, 'permanente.db')
+  const url = `file:${fichier.replace(/\\/g, '/')}`
+  const ouvertes: CampagneStore[] = []
+  /** Un démarrage : une campagne neuve sur la même base, ses lectures épiées. */
+  const reveil = async () => {
+    for (const c of ouvertes.splice(0)) c.close()
+    const campagne = new CampagneStore(url, undefined, { base: baseDEssai(30), maintenant: () => MAINTENANT })
+    ouvertes.push(campagne)
+    await campagne.init()
+    return { campagne, lu: espionner(campagne) }
+  }
+  const client = createClient({ url })
+  const profils = Array.from({ length: 7 }, (_, i) => `p${i}`)
+  try {
+    let { campagne, lu } = await reveil()
+    const hasard = hasardDe(5)
+    remplir(fichier, hasard, { series: 1100, depart: 0, debut: MAINTENANT - 24 * JOUR_MS, fin: MAINTENANT - 7 * JOUR_MS })
+
+    // Rien de gardé : le premier réveil lit toute la base, puis range ce qu'il a lu, deux mille réponses par tranche.
+    let journal = await journalDe(campagne)
+    assert.equal(lu.depuis[0], 0)
+    await tranchesRangees(campagne)
+    let tranches = await tranchesEnBase(client)
+    enChemin(tranches, 'le premier réveil')
+    assert.ok(tranches.length >= 2 && journal.reponses - 2000 * tranches.length < 2000, `${tranches.length} tranches pour ${journal.reponses} réponses`)
+
+    // L'administrateur annule un duel que les tranches disent ouvert (`annulerUnDuel`) ; puis le serveur se rendort.
+    enBase(fichier, db => db.prepare('UPDATE campagne_duels SET ferme_le = ? WHERE code = ?').run(MAINTENANT - 1, 'duel-ouvert'))
+    ;({ campagne, lu } = await reveil())
+    journal = await journalDe(campagne)
+    const fin = tranches[tranches.length - 1].jusqua
+    assert.ok(lu.depuis.length > 0 && lu.depuis.every(d => d >= fin), `la base relue depuis ${lu.depuis.join(', ')} : ses tranches vont jusqu’à ${fin}`)
+    assert.ok(lu.duels.includes('duel-ouvert'), 'les duels qu’elles disent ouverts se relisent')
+    await comparer(client, journal, profils, 'relu de ses tranches')
+    await comparerLesCarnets(campagne, journal, profils, MAINTENANT, 'relu de ses tranches, un duel annulé depuis')
+
+    // Des réponses arrivent : dès deux mille de plus, elles se rangent en tranches à leur tour.
+    remplir(fichier, hasard, { series: 500, depart: 1100, debut: MAINTENANT - 6 * JOUR_MS, fin: MAINTENANT })
+    journal = await journalDe(campagne)
+    await tranchesRangees(campagne)
+    const avant = tranches.length
+    tranches = await tranchesEnBase(client)
+    enChemin(tranches, 'des réponses arrivées')
+    assert.ok(tranches.length > avant && journal.reponses - 2000 * tranches.length < 2000, `${tranches.length} tranches pour ${journal.reponses} réponses`)
+    ;({ campagne, lu } = await reveil())
+    journal = await journalDe(campagne)
+    assert.ok(lu.depuis.every(d => d >= tranches[tranches.length - 1].jusqua), 'seulement ce qui suit ses tranches')
+    await comparer(client, journal, profils, 'des réponses arrivées, relues de leurs tranches')
+
+    // Une tranche égarée — écrite pour un journal d'avant —, une illisible, une d'une lecture d'avant : la première se passe,
+    // la seconde arrête le chemin — la base relit de là —, la dernière s'efface au démarrage ; les deux premières, ensuite.
+    const illisible = tranches[1]
+    enBase(fichier, db => {
+      const tranche = db.prepare('INSERT INTO campagne_tranches (version, debut, jusqua, lues, lignes, ecrite_le) VALUES (?, ?, ?, 2000, ?, 0)')
+      tranche.run(VERSION_DES_TRANCHES, 3, 10, '[]')
+      tranche.run('une-lecture-d-avant', 0, 10, '[]')
+      db.prepare("UPDATE campagne_tranches SET lignes = '[[1,' WHERE debut = ?").run(illisible.debut)
+    })
+    ;({ campagne, lu } = await reveil())
+    assert.ok((await tranchesEnBase(client)).every(t => t.version === VERSION_DES_TRANCHES), 'celle d’une lecture d’avant, effacée au démarrage')
+    journal = await journalDe(campagne)
+    assert.equal(lu.depuis[0], illisible.debut, 'la base relue depuis la tranche illisible')
+    await comparer(client, journal, profils, 'une tranche égarée, une illisible')
+    await tranchesRangees(campagne)
+    enChemin(await tranchesEnBase(client), 'refaites')
+
+    // Une réponse effacée — ici à la main, comme `oublierProfil` — efface toutes les tranches ; le réveil suivant relit toute la base.
+    enBase(fichier, db => db.prepare('DELETE FROM campagne_reponses WHERE rowid = (SELECT MIN(rowid) FROM campagne_reponses)').run())
+    assert.deepEqual(await tranchesEnBase(client), [], 'une réponse effacée')
+    ;({ campagne, lu } = await reveil())
+    journal = await journalDe(campagne)
+    assert.equal(lu.depuis[0], 0)
+    await comparer(client, journal, profils, 'une réponse effacée')
+    await comparerLesCarnets(campagne, journal, profils, MAINTENANT, 'une réponse effacée')
+    await tranchesRangees(campagne)
+    enChemin(await tranchesEnBase(client), 'refaites sans elle')
+    // Une réponse qui change, une série effacée : de même.
+    enBase(fichier, db => db.prepare('UPDATE campagne_reponses SET juste = 1 - juste WHERE rowid = (SELECT MAX(rowid) FROM campagne_reponses)').run())
+    assert.deepEqual(await tranchesEnBase(client), [], 'une réponse qui change')
+    ;({ campagne } = await reveil())
+    await journalDe(campagne)
+    await tranchesRangees(campagne)
+    assert.ok((await tranchesEnBase(client)).length > 0)
+    enBase(fichier, db => db.prepare('DELETE FROM campagne_series WHERE id = ?').run('s3'))
+    assert.deepEqual(await tranchesEnBase(client), [], 'une série effacée')
+  } finally {
+    client.close()
+    for (const c of ouvertes) c.close()
     rmSync(dir, { recursive: true, force: true })
   }
 })
