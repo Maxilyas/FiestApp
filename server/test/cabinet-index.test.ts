@@ -15,8 +15,9 @@ import assert from 'node:assert/strict'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
-import { DIX_HEURES, departEnBase, dossierDEssai, fermerLesMagasins, magasinDEssai } from './cabinet-banc'
+import { DIX_HEURES, aLaMain, departEnBase, dossierDEssai, fermerLesMagasins, magasinDEssai } from './cabinet-banc'
 import { partiesDuJour } from '../src/core/cabinet/tables'
+import { prixDe } from '../../shared/cabinet/musee'
 
 /** Chaque instruction du Cabinet envoyée à la base, avec ses arguments : le plan se lit tel qu'elle est partie. */
 const envoyees = new Map<string, unknown[]>()
@@ -60,8 +61,11 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
   const horloge = { t: DIX_HEURES }
   const fichier = path.join(dossierDEssai(), 'cabinet.db')
   const { cabinet } = await magasinDEssai(fichier, horloge)
-  // Une page froide, un départ libre, sa première réponse, « Quitter » ; puis une case de la visite et une chasse :
-  // chaque lecture et chaque garde que le magasin envoie.
+  // De la poussière d'or, posée avant sa première page, pour qu'il ait de quoi dépenser.
+  aLaMain(fichier, "INSERT INTO cabinet_profils (profile_id, poussiere, cree_le, maj_le) VALUES ('qui', 1000, 0, 0)")
+  // Une page froide, un départ libre, sa première réponse, « Quitter » ; puis une case de la visite et une chasse ;
+  // un achat, deux dorures, un échange, un cartel, une partie finie relue : chaque lecture et chaque garde que le
+  // magasin envoie.
   await cabinet.page('qui')
   const libre = await cabinet.commencer('qui', { origine: 'libre', jeu: 'pari', carte: null })
   const plan = departEnBase(fichier, libre.id)
@@ -73,6 +77,12 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
   assert.ok('partie' in (await cabinet.geste('qui', visite.id, 2, { quoi: 'quitter' })))
   const chasse = await cabinet.commencer('qui', { origine: 'chasse', oeuvre: 'lecon', carte: null })
   assert.ok('partie' in (await cabinet.geste('qui', chasse.id, 2, { quoi: 'quitter' })))
+  await cabinet.acheter('qui', 'lancee', prixDe('lancee', 'achat'))
+  await cabinet.dorer('qui', 'lancee', prixDe('lancee', 'dorure'))
+  await cabinet.dorer('qui', 'prudence', prixDe('prudence', 'dorure'))
+  await cabinet.echanger('qui', 1)
+  assert.ok('cartel' in (await cabinet.cartel('qui', 'lancee')))
+  assert.equal((await cabinet.partie('qui', libre.id))?.etat.fin?.pourquoi, 'quittee')
 
   const db = new Database(fichier, { readonly: true })
   try {

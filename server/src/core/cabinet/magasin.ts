@@ -12,10 +12,13 @@
 // mémoire, les légendaires se lisent dans les profils. Froid, un seul lot de
 // lectures, le journal rattrapé au bout. Un geste coûte un aller-retour, son
 // verdict compris ; la fin en ajoute pour l'expérience, les paliers et le
-// compagnon (la porte). À tout échec d'écriture, et à toute garde qui n'a rien
-// écrit (`rowsAffected = 0`), le musée et la partie s'oublient : écrite ou non,
-// on ne le sait pas, et la base fait foi — le magasin relit à froid et rejoue
-// le geste une fois sur l'état vrai (le gabarit `ecrireLExpedition`).
+// compagnon (la porte). Un achat, une dorure, un échange, un aller-retour
+// chacun, le solde ou la visite revérifiés par la base ; le cartel d'une
+// partie et « Mes réponses » d'une partie finie, un, par sa clé. À tout échec
+// d'écriture, et à toute garde qui n'a rien écrit (`rowsAffected = 0`), le
+// musée et la partie s'oublient : écrite ou non, on ne le sait pas, et la base
+// fait foi — le magasin relit à froid et rejoue le geste une fois sur l'état
+// vrai (le gabarit `ecrireLExpedition`).
 //
 // L'heure est celle de la campagne (`maintenant`, que le banc règle) : jamais
 // l'horloge de la machine ici (`cabinet-chronos.test.ts`). Le plafond des départs, lui,
@@ -26,7 +29,7 @@ import { Budget } from '../budget'
 import type { QuestionDeLaBase } from '../baseCampagne'
 import type { FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites } from '../porteDeLaCampagne'
 import type { calendrierDuCabinet } from '../saisons'
-import { lotDeLOubli, lotDuDepart, lotDuGeste, type FinAEcrire, type OeuvreAEcrire } from './ecriture'
+import { instructionDeLAchat, instructionDeLaDorure, lotDeLEchange, lotDeLOubli, lotDuDepart, lotDuGeste, type FinAEcrire, type OeuvreAEcrire } from './ecriture'
 import { lecturesDeLaPartie, lecturesDuMusee, laPartieLue, lireLeMusee, type PartieLueEnBase } from './tables'
 import { fichierDuCadrage } from '../details'
 import { preparerLesTas } from './tirages/tas'
@@ -34,12 +37,20 @@ import { themeDuPlan, tirerLePlan } from './tirages/index'
 import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE } from '../../../../shared/cabinet/bareme'
 import { lireLeBilan, lireUnGeste } from '../../../../shared/cabinet/lecture'
 import {
+  AUCUN_AUTRE_JEU,
+  PAS_AU_CABINET,
+  PAS_ENCORE_A_TOI,
   cadreDuDepart,
   dorees,
   jeuDeLEchange,
   museeDe,
   possedees,
+  prixDe,
+  refusDeLAchat,
+  refusDeLEchange,
+  soldeDe,
   visiteDuJour,
+  visiteEchangee,
   visitesAGarder,
   type DemandeDeDepart,
   type LigneDOeuvre,
@@ -62,8 +73,9 @@ import {
   type EtatDeLaPartie,
   type GesteDuCabinet,
   type GesteEcrit,
+  type Manche,
 } from '../../../../shared/cabinet/partie'
-import { estUneOeuvre } from '../../../../shared/cabinet/oeuvres'
+import { OEUVRES_DE_DEPART, estUneOeuvre, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
 import { vuesDuCabinet } from '../../../../shared/cabinet/vues'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { refusDuCadrage, type DetailTire, type EtatDuDetail } from '../../../../shared/cabinet/jeux/detail'
@@ -156,6 +168,26 @@ export const RIEN_A_TIRER = 'Ce jeu n’a pas de quoi jouer aujourd’hui : choi
 export const DEPART_CROISE = 'Une autre partie a commencé en même temps : recharge la page'
 export const GESTE_CROISE = 'Ce geste en a croisé un autre : recharge la page'
 export const TABLEAU_INTROUVABLE = 'Ce tableau n’est pas dans ta partie : recharge la page'
+export const DEPENSE_CROISEE = 'Ta poussière d’or a servi ailleurs en même temps : recharge la page'
+export const ECHANGE_CROISE = 'Ta visite a changé en même temps : recharge la page'
+
+/** Ce que l'achat et la dorure dépensent : une œuvre manquante, ou le cadre d'une œuvre qu'il a. */
+export type SorteDeDepense = 'achat' | 'dorure'
+
+/** Le cartel d'une œuvre à lui, tel que le magasin le lit (`cartelDe`, `vue.ts`) : sa ligne, et la partie que son cartel garde. */
+export interface CartelLu {
+  oeuvre: CleDOeuvre
+  /** Null : une œuvre de départ, à lui par règle, sans ligne. */
+  ligne: LigneDOeuvre | null
+  /** La partie relue, son bilan figé : null sans cartel de partie, ou si elle ne se relit plus. */
+  partie: PartieGardee | null
+}
+
+/** Pourquoi une œuvre n'a pas de cartel à lire : une clé qui n'est pas une œuvre, ou une œuvre qui lui manque. */
+export type IssueDuCartel = { cartel: CartelLu } | { introuvable: string }
+
+/** Une ligne de reflets neuve : un profil qui n'a jamais rien écrit au Cabinet. */
+const PROFIL_NEUF: LigneDuProfil = { poussiere: 0, serie: 0, serieJour: null, serieRecord: 0, visites: [], partie: null }
 
 /** Ce que la route d'un cadrage du Détail sert : son fichier, ou pourquoi pas. */
 export type IssueDuCadrage =
@@ -211,6 +243,29 @@ function cadrageDeLaPartie(p: PartieGardee, tirage: number, cadrage: number): Ex
   const refus = refusDuCadrage(m.etat as EtatDuDetail, cadrage, m.verdict !== null || p.etat.fin !== null)
   if (refus) return { refus }
   return { fichier: fichierDuCadrage((p.depart.tirages[m.tirage] as DetailTire).tableau.qid, cadrage) }
+}
+
+/**
+ * La dépense est-elle déjà faite ? Une œuvre déjà achetée, un cadre déjà doré
+ * à la poussière : la même requête rejouée rend la page sans rien payer. Une
+ * œuvre à lui par une autre voie, un cadre doré en jouant, se refusent en
+ * mots (« Elle est déjà à toi », « Son cadre est déjà doré ») : ce n'est pas
+ * la même requête.
+ */
+function dejaPayee(g: MuseeGarde, cle: string, sorte: SorteDeDepense): boolean {
+  const ligne = g.oeuvres.get(cle)
+  return sorte === 'achat' ? ligne?.origine === 'achat' : ligne?.dorure === 'poussiere'
+}
+
+/**
+ * Ce refus, la base pourrait-elle le démentir ? Le prix montré est bien celui
+ * du jour, mais la mémoire dit la poussière qui manque, ou l'œuvre à dorer pas
+ * encore à lui — l'autre serveur d'une mise en ligne a pu les lui donner.
+ */
+function seDementirait(m: Musee, cle: string, prixMontre: unknown, sorte: SorteDeDepense): boolean {
+  const prix = prixDe(cle, sorte)
+  if (prix === null || prixMontre !== prix || !estUneOeuvre(cle)) return false
+  return soldeDe(m) < prix || (sorte === 'dorure' && !possedees(m).has(cle))
 }
 
 /**
@@ -376,34 +431,40 @@ export class CabinetStore {
    * par sa garde, sous le verrou du profil, un aller-retour, une fois.
    */
   async page(profileId: string): Promise<LectureDuCabinet> {
-    return this.porte.avecVerrou(profileId, async () => {
-      const t = this.maintenant()
-      let garde = await this.musee(profileId, t)
-      let enCours = garde.enCours ? await this.partieDe(profileId, garde.enCours.id) : null
-      if (enCours?.etat.fin) {
-        // Finie par l'autre serveur : son musée vient de s'oublier (`partieDe`), il se relit pour cette page-ci.
-        garde = await this.musee(profileId, t)
-        enCours = null
-      }
-      if (enCours && !enCours.etat.fin && estDUnJourDAvant(enCours.depart, jourDe(t))) {
-        await this.clore(profileId, enCours, t)
-        garde = await this.musee(profileId, t)
-        enCours = null
-      }
-      const musee = this.museeVu(profileId, garde)
-      const visite = this.visiteDe(profileId, musee, t)
-      return {
-        maintenant: t,
-        jour: jourDe(t),
-        musee,
-        visite,
-        jeuDeLEchange: jeuDeLEchange(musee, visite, { graine: this.graineDe(profileId), jeux: JEUX_PRETS }),
-        enCours: enCours && !enCours.etat.fin ? { ...enCours, lueA: t } : null,
-        expeditionEnRoute: garde.expeditionEnRoute !== null,
-        fete: this.reglages.calendrier.periodeDu(jourDe(t))?.saison ?? null,
-        jeux: JEUX_PRETS,
-      }
-    })
+    return this.porte.avecVerrou(profileId, () => this.lecture(profileId, this.maintenant()))
+  }
+
+  /**
+   * La page, sous le verrou du profil que l'appelant tient déjà — la page même,
+   * ou ce qui rend la page d'après : un achat, une dorure, un échange. Rien à
+   * lire chaud ; la mémoire porte déjà ce que le lot vient d'écrire.
+   */
+  private async lecture(profileId: string, t: number): Promise<LectureDuCabinet> {
+    let garde = await this.musee(profileId, t)
+    let enCours = garde.enCours ? await this.partieDe(profileId, garde.enCours.id) : null
+    if (enCours?.etat.fin) {
+      // Finie par l'autre serveur : son musée vient de s'oublier (`partieDe`), il se relit pour cette page-ci.
+      garde = await this.musee(profileId, t)
+      enCours = null
+    }
+    if (enCours && !enCours.etat.fin && estDUnJourDAvant(enCours.depart, jourDe(t))) {
+      await this.clore(profileId, enCours, t)
+      garde = await this.musee(profileId, t)
+      enCours = null
+    }
+    const musee = this.museeVu(profileId, garde)
+    const visite = this.visiteDe(profileId, musee, t)
+    return {
+      maintenant: t,
+      jour: jourDe(t),
+      musee,
+      visite,
+      jeuDeLEchange: jeuDeLEchange(musee, visite, { graine: this.graineDe(profileId), jeux: JEUX_PRETS }),
+      enCours: enCours && !enCours.etat.fin ? { ...enCours, lueA: t } : null,
+      expeditionEnRoute: garde.expeditionEnRoute !== null,
+      fete: this.reglages.calendrier.periodeDu(jourDe(t))?.saison ?? null,
+      jeux: JEUX_PRETS,
+    }
   }
 
   /** La partie d'hier, close par le serveur (`clore`) : le pli la finit comme un « Quitter », et la fin s'écrit. */
@@ -716,6 +777,181 @@ export class CabinetStore {
         if ('fichier' in issue || !enMemoire || essai > 0 || !peutSeServir(p.depart, tirage, cadrage)) return issue
         this.parties.delete(serie)
       }
+    })
+  }
+
+  // ── La poussière d'or : acheter, dorer ────────────────────────────────
+
+  /** Acheter une œuvre qui lui manque, au prix que la page a montré : la page d'après, ou le refus en mots. */
+  acheter(profileId: string, cle: string, prixMontre: unknown): Promise<LectureDuCabinet> {
+    return this.depenser(profileId, cle, prixMontre, 'achat')
+  }
+
+  /** Dorer le cadre d'une œuvre qu'il a, au prix que la page a montré. */
+  dorer(profileId: string, cle: string, prixMontre: unknown): Promise<LectureDuCabinet> {
+    return this.depenser(profileId, cle, prixMontre, 'dorure')
+  }
+
+  /**
+   * Une dépense de poussière d'or, sous le verrou du profil : la règle des
+   * refus sur le musée (`refusDeLAchat` — un gardien, une clé inconnue, déjà à
+   * lui, pas encore à lui, déjà doré, le prix changé, ce qu'il manque), puis une
+   * seule instruction, qui revérifie le solde dans la base même (D8). Un aller-
+   * retour ; la page d'après se lit en mémoire.
+   *
+   * Rejouée — la réponse perdue en route, l'écriture qui attend le réveil de
+   * l'hébergeur (`auReveil`) —, elle ne paie pas deux fois : une œuvre déjà
+   * achetée, un cadre déjà doré à la poussière rendent la page, sans rien
+   * écrire. Écrite chez l'autre serveur d'une mise en ligne, la ligne que la
+   * clé garde ne s'écrit pas ici (`rowsAffected = 0`) : le musée s'oublie, se
+   * relit, et la dépense se rejoue une fois sur l'état vrai — faite, ou
+   * refusée en mots.
+   *
+   * La mémoire n'est jamais en avance sur la base, mais elle peut retarder :
+   * l'autre serveur a pu lui faire gagner de la poussière, ou l'œuvre. Un refus
+   * que la base pourrait démentir — le solde, une œuvre pas encore à lui — se
+   * relit donc une fois avant de se dire ; aucun autre ne coûte un aller-retour.
+   */
+  private depenser(profileId: string, cle: string, prixMontre: unknown, sorte: SorteDeDepense): Promise<LectureDuCabinet> {
+    return this.porte.avecVerrou(profileId, async () => {
+      for (let essai = 0; ; essai++) {
+        const t = this.maintenant()
+        const enMemoire = this.musees.has(profileId)
+        const g = await this.musee(profileId, t)
+        if (dejaPayee(g, cle, sorte)) return this.lecture(profileId, t)
+        const musee = this.museeVu(profileId, g)
+        const refus = refusDeLAchat(musee, cle, prixMontre, sorte)
+        if (refus) {
+          if (enMemoire && essai === 0 && seDementirait(musee, cle, prixMontre, sorte)) {
+            this.oublier(profileId)
+            continue
+          }
+          throw new Error(refus)
+        }
+        // La règle l'a dit : une œuvre du Cabinet, au prix du jour.
+        const oeuvre = cle as CleDOeuvre
+        const prix = prixMontre as number
+        const depense = { profileId, oeuvre, prix, t }
+        const instruction = sorte === 'achat' ? instructionDeLAchat(depense) : instructionDeLaDorure({ ...depense, deDepart: OEUVRES_DE_DEPART.includes(oeuvre) })
+        let ecrite: ResultSet
+        try {
+          ecrite = await this.porte.client.execute(instruction)
+        } catch (e) {
+          this.oublier(profileId)
+          throw e
+        }
+        if (ecrite.rowsAffected !== 1) {
+          // Devancé : la même dépense, ou une autre qui a pris la poussière. Le refus juste se dit sur l'état vrai.
+          this.oublier(profileId)
+          if (essai === 0) continue
+          throw new Error(DEPENSE_CROISEE)
+        }
+        this.retenirLaDepense(g, oeuvre, sorte, prix, t)
+        return this.lecture(profileId, t)
+      }
+    })
+  }
+
+  /** Ce que l'instruction a écrit, appliqué au musée gardé : la ligne neuve d'un achat, la dorure posée sur la sienne. */
+  private retenirLaDepense(g: MuseeGarde, cle: CleDOeuvre, sorte: SorteDeDepense, prix: number, t: number) {
+    const avant = g.oeuvres.get(cle)
+    if (sorte === 'achat') {
+      g.oeuvres.set(cle, { oeuvre: cle, origine: 'achat', gagneeLe: t, saison: null, serieId: null, prix, doreeLe: null, dorure: null, prixDorure: null, serieDoree: null })
+      return
+    }
+    g.oeuvres.set(
+      cle,
+      avant
+        ? { ...avant, doreeLe: t, dorure: 'poussiere', prixDorure: prix }
+        : { oeuvre: cle, origine: 'depart', gagneeLe: t, saison: null, serieId: null, prix: null, doreeLe: t, dorure: 'poussiere', prixDorure: prix, serieDoree: null },
+    )
+  }
+
+  // ── L'échange d'un jeu de la visite ───────────────────────────────────
+
+  /**
+   * « Changer de jeu » sur une case de la visite pas encore jouée, une fois
+   * par jour : le jeu neuf, celui que la règle des échanges donne
+   * (`jeuDeLEchange`), l'œuvre en jeu gardée. Un lot gardé, d'un aller-retour :
+   * la visite se fige si rien ne l'a encore fait, puis la case change, sous la
+   * base même. Devancé — l'autre serveur d'une mise en ligne, un autre onglet a
+   * échangé, ou commencé la case —, le musée s'oublie, se relit, et l'échange
+   * se rejoue une fois : il passe, ou se refuse en mots. La mémoire n'est
+   * jamais en avance : son refus se dit sans relire.
+   */
+  echanger(profileId: string, k: unknown): Promise<LectureDuCabinet> {
+    return this.porte.avecVerrou(profileId, async () => {
+      for (let essai = 0; ; essai++) {
+        const t = this.maintenant()
+        const jour = jourDe(t)
+        const g = await this.musee(profileId, t)
+        const musee = this.museeVu(profileId, g)
+        const visite = this.visiteDe(profileId, musee, t)
+        const jeu = jeuDeLEchange(musee, visite, { graine: this.graineDe(profileId), jeux: JEUX_PRETS })
+        // Sans jeu à proposer, la règle refuse déjà : `jeu` n'est nul qu'avec ce refus.
+        const refus = refusDeLEchange(musee, visite, k, jeu)
+        if (refus !== null || jeu === null) throw new Error(refus ?? AUCUN_AUTRE_JEU)
+        const kase = k as Manche
+        const lot = lotDeLEchange({
+          profileId,
+          t,
+          jour,
+          minuit: minuitDe(t),
+          visites: JSON.stringify(visitesAGarder(visite, g.profil?.visites ?? [])),
+          case: kase,
+          avant: visite.cases[kase].jeu,
+          jeu,
+        })
+        let lus: ResultSet[]
+        try {
+          lus = await this.porte.client.batch(lot, 'write')
+        } catch (e) {
+          this.oublier(profileId)
+          throw e
+        }
+        if (lus[1].rowsAffected !== 1) {
+          this.oublier(profileId)
+          if (essai === 0) continue
+          throw new Error(ECHANGE_CROISE)
+        }
+        // La même règle que la base : la visite du jour figée, sa case à son jeu neuf, l'échange du jour pris.
+        const avant = g.profil ?? PROFIL_NEUF
+        g.profil = { ...avant, visites: visitesAGarder(visiteEchangee(visite, kase, jeu), avant.visites) }
+        return this.lecture(profileId, t)
+      }
+    })
+  }
+
+  // ── Ce qui se relit : le cartel, « Mes réponses » ─────────────────────
+
+  /**
+   * Le cartel d'une œuvre à lui : sa ligne, de la mémoire, et la partie que
+   * son cartel garde, relue de sa clé — un aller-retour, deux lignes — pour le
+   * même pli que la partie en cours (invariant 14). Une œuvre sans cartel de
+   * partie — offerte, achetée, rapportée — ne lit rien de plus. Une clé qui
+   * n'est pas une œuvre, ou une œuvre qui lui manque : pas de cartel.
+   */
+  cartel(profileId: string, cle: string): Promise<IssueDuCartel> {
+    if (!estUneOeuvre(cle)) return Promise.resolve({ introuvable: PAS_AU_CABINET })
+    return this.porte.avecVerrou(profileId, async () => {
+      const g = await this.musee(profileId, this.maintenant())
+      if (!possedees(this.museeVu(profileId, g)).has(cle)) return { introuvable: PAS_ENCORE_A_TOI }
+      const ligne = g.oeuvres.get(cle) ?? null
+      const partie = ligne?.serieId ? await this.partieDe(profileId, ligne.serieId) : null
+      if (ligne?.serieId && !partie) console.error(`[cabinet] le cartel de ${cle} nomme la partie ${ligne.serieId}, qui ne se relit pas`)
+      return { cartel: { oeuvre: cle, ligne, partie } }
+    })
+  }
+
+  /**
+   * Une partie de ce profil, en cours ou finie — « Mes réponses » —, par le même
+   * pli que la page (invariant 14) : en cours, de la mémoire ; finie, de sa clé,
+   * un aller-retour. Celle d'un autre profil, ou qui n'existe pas : null.
+   */
+  partie(profileId: string, serie: string): Promise<PartieLue | null> {
+    return this.porte.avecVerrou(profileId, async () => {
+      const p = await this.partieDe(profileId, serie)
+      return p && { ...p, lueA: this.maintenant() }
     })
   }
 

@@ -369,12 +369,15 @@ export function jeuDeLEchange(m: Musee, v: VisiteDuJour, o: Pick<GraineDeLaVisit
   return ordre.find(j => !dansLaVisite.has(j) && !recents.has(j)) ?? ordre.find(j => !dansLaVisite.has(j)) ?? null
 }
 
+/** Pas plus de jeux livrés que de cases : la visite les prend tous, et aucun ne reste pour en remplacer un. */
+export const AUCUN_AUTRE_JEU = 'Aucun autre jeu à proposer aujourd’hui'
+
 /** Pourquoi la case `k` ne s'échange pas ; null : elle s'échange, une fois par jour, tant qu'elle n'est pas jouée. */
 export function refusDeLEchange(m: Musee, v: VisiteDuJour, k: unknown, jeu: CleDeJeu | null): string | null {
   if (!Number.isInteger(k) || (k as number) < 0 || (k as number) >= v.cases.length) return 'Choisis une partie de la visite'
   if (v.echange !== null) return 'Tu as déjà changé un jeu aujourd’hui'
   if (caseCommencee(m, k as number)) return 'Cette partie de la visite est déjà jouée'
-  return jeu === null ? 'Aucun autre jeu à proposer aujourd’hui' : null
+  return jeu === null ? AUCUN_AUTRE_JEU : null
 }
 
 /** La visite après l'échange de sa case `k` : le jeu change, l'œuvre en jeu reste. */
@@ -419,6 +422,10 @@ export const libresQuiPaientEncore = (m: Musee): number => Math.max(0, LIBRES_QU
  */
 export const JEU_PAS_LIVRE = 'Ce jeu arrive bientôt'
 export const PLUS_DE_CHASSE = 'Plus de chasse pour aujourd’hui : elles reviennent à minuit'
+/** Une clé qui n'est pas une des œuvres : une chasse, un achat, un cartel la refusent dans les mêmes mots. */
+export const PAS_AU_CABINET = 'Cette œuvre n’est pas au Cabinet'
+/** Une œuvre qui lui manque encore : ni dorure, ni cartel. */
+export const PAS_ENCORE_A_TOI = 'Elle n’est pas encore à toi : gagne-la ou achète-la d’abord'
 
 /** La carte-bonus qu'il emporte : une œuvre qu'il a, les quatre de départ comprises, ou un gardien réveillé — jamais un Divin. */
 function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
@@ -452,7 +459,7 @@ export function cadreDuDepart(m: Musee, demande: DemandeDeDepart, visite: Visite
     case 'chasse': {
       if (chassesRestantes(m) === 0) return PLUS_DE_CHASSE
       const cle = demande.oeuvre
-      if (!estUneOeuvre(cle)) return 'Cette œuvre n’est pas au Cabinet'
+      if (!estUneOeuvre(cle)) return PAS_AU_CABINET
       if (dorees(m).has(cle)) return 'Cette œuvre est déjà dorée'
       let jeu = JEU_DE_L_OEUVRE[cle]
       if (demande.retente) {
@@ -504,10 +511,10 @@ export function prixDe(cle: unknown, sorte: 'achat' | 'dorure'): number | null {
 export function refusDeLAchat(m: Musee, cle: unknown, prixMontre: unknown, sorte: 'achat' | 'dorure'): string | null {
   if (pouvoirDuGardien(cle) !== undefined || (typeof cle === 'string' && cle.startsWith('lg:'))) return 'Un gardien ne s’achète pas : il se réveille'
   const prix = prixDe(cle, sorte)
-  if (prix === null || !estUneOeuvre(cle)) return 'Cette œuvre n’est pas au Cabinet'
+  if (prix === null || !estUneOeuvre(cle)) return PAS_AU_CABINET
   const aLui = possedees(m).has(cle)
   if (sorte === 'achat' && aLui) return 'Elle est déjà à toi'
-  if (sorte === 'dorure' && !aLui) return 'Elle n’est pas encore à toi : gagne-la ou achète-la d’abord'
+  if (sorte === 'dorure' && !aLui) return PAS_ENCORE_A_TOI
   if (sorte === 'dorure' && dorees(m).has(cle)) return 'Son cadre est déjà doré'
   if (prixMontre !== prix) return `Le prix a changé : ${poussieresDites(prix)}. Réessaie.`
   const solde = soldeDe(m)

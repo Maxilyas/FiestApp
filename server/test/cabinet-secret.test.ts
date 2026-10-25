@@ -30,6 +30,7 @@ import {
   magasinDEssai,
   ok,
   pariDe,
+  poster,
   vraiesDe,
   type BancDuCabinet,
 } from './cabinet-banc'
@@ -41,7 +42,7 @@ import type { EclairTire } from '../../shared/cabinet/jeux/eclair'
 import type { DetailTire } from '../../shared/cabinet/jeux/detail'
 import type { FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { QuestionTiree } from '../../shared/cabinet/jeux/outils'
-import type { VueDeLaPartie } from '../../shared/cabinet/vues'
+import type { PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 
 let b: BancDuCabinet
 before(async () => {
@@ -233,5 +234,39 @@ test('la visite : ni l’œuvre visée d’une case, ni sa graine, ni le secret 
     assert.ok(!texte(page.visite).includes(`"${cible}"`), `la visite nomme ${cible}`)
     assert.ok(!texte(v).includes(`"${cible}"`), `la partie de la visite nomme ${cible}`)
     assert.ok(!texte(page.enCours).includes(`"${cible}"`), `la partie en cours nomme ${cible}`)
+  }
+})
+
+test('« Mes réponses », le cartel, la page d’après un échange : rien du départ figé, ni l’œuvre visée d’une case', async () => {
+  const noe = await inscrireProfil(b.banc.url, 'noe', 'Noé')
+  const id = (await lire(b, noe, '/api/joueur/moi?leger')).corps.profile.id as string
+  // Une case manquée, relue : l'œuvre qu'elle visait reste à découvrir.
+  const v = ok(await commencer(b, noe, { origine: 'visite', case: 0, carte: null }), 'la visite')
+  const d = departEnBase(b.fichier, v.id)
+  ok(await jouer(b, noe, v, { quoi: 'quitter' }), 'quitter')
+  const relue = ok(await lire<VueDeLaPartie>(b, noe, `/api/cabinet/partie/${v.id}`), '« Mes réponses »')
+  jamais(d, relue, '« Mes réponses »')
+  if (d.cible !== null) assert.ok(!texte(relue).includes(`"${d.cible}"`), '« Mes réponses » nomme l’œuvre visée')
+  // Une chasse gagnée : son cartel dit sa manche, rien de plus.
+  let chasse = ok(await commencer(b, noe, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse')
+  const plan = departEnBase(b.fichier, chasse.id)
+  for (let k = 0; k < 3; k++) {
+    const t = plan.tirages[k] as PariTire
+    if (k > 0) chasse = ok(await jouer(b, noe, chasse, { quoi: 'ouvrir', manche: k as 0 | 1 | 2 }), 'ouvrir')
+    chasse = ok(await jouer(b, noe, chasse, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { pari: { choix: t.q1.bonne } } }), 'q1')
+    chasse = ok(await jouer(b, noe, chasse, { quoi: 'parier', manche: k as 0 | 1 | 2 }), 'parier')
+    chasse = ok(await jouer(b, noe, chasse, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { pari: { choix: t.q2.bonne } } }), 'q2')
+  }
+  jamais(plan, ok(await lire(b, noe, '/api/cabinet/oeuvre/lecon'), 'le cartel'), 'le cartel')
+  // Un échange : la page d'après ne nomme pas plus les œuvres visées que la page d'avant.
+  const apres = ok(await poster<PageDuCabinet>(b, noe, '/api/cabinet/visite/echange', { case: 1 }), 'l’échange')
+  const figee = enBase(b.fichier, db => JSON.parse((db.prepare('SELECT visites FROM cabinet_profils WHERE profile_id = ?').get(id) as { visites: string }).visites)) as {
+    cases: { cible: string | null }[]
+  }[]
+  const graine = createHmac('sha256', enBase(b.fichier, db => (db.prepare('SELECT valeur FROM campagne_meta WHERE cle = ?').get(SECRET_DU_CABINET) as { valeur: string }).valeur)).update(id).digest('hex')
+  assert.ok(!texte(apres).includes(graine), 'la page d’après : la graine de la visite')
+  // Seule la Leçon, gagnée depuis, peut s'y nommer — « pour dorer » — si une case la visait.
+  for (const cible of figee[0].cases.map(c => c.cible).filter((c): c is string => c !== null && c !== 'lecon')) {
+    assert.ok(!texte(apres.visite).includes(`"${cible}"`), `la visite échangée nomme ${cible}`)
   }
 })

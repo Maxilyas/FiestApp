@@ -14,12 +14,14 @@
 // tient lieu de Turso (le gabarit d'`expedition-charge.test.ts`) : la page
 // froide en coûte un, chaude aucun ; un départ un, deux si le journal n'est
 // pas frais ; un geste un, son verdict compris ; la fin, son lot et le rituel
-// de la campagne (la conception, § 2.9).
+// de la campagne (la conception, § 2.9) ; un achat, une dorure, un échange un
+// chacun, rejoués aucun ; le cartel d'une partie et « Mes réponses » d'une
+// partie finie un, par leur clé.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
-import { inscrireProfil } from './banc'
+import { ecrire, inscrireProfil } from './banc'
 import {
   DIX_HEURES,
   aLaMain,
@@ -40,6 +42,7 @@ import {
 } from './cabinet-banc'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import { ETOILES_DU_PARI, POUSSIERE_MIN, POUSSIERE_PAR_ETOILE } from '../../shared/cabinet/bareme'
+import { prixDe } from '../../shared/cabinet/musee'
 import { CATEGORIES } from '../../shared/categories'
 import { PARTIES_GARDEES, type PartieLue } from '../src/core/cabinet/magasin'
 import { ProfileStore } from '../src/auth/profiles'
@@ -370,6 +373,56 @@ test('par les routes : la page froide un aller-retour, chaude aucun ; un départ
     const apres = await mesurer(() => commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null }))
     ok(apres.resultat, 'le départ d’après')
     assert.equal(apres.appels, 1)
+  } finally {
+    await b.banc.close()
+  }
+})
+
+test('par les routes : acheter, dorer, changer de jeu, un aller-retour chacun ; le cartel d’une partie et « Mes réponses » d’une finie, un ; le reste, aucun', async () => {
+  const b = await bancDuCabinet({ fraicheurDesDuelsMs: 3_600_000 })
+  try {
+    const chaud = await inscrireProfil(b.banc.url, 'chaud', 'Chaud')
+    ok(await laPage(b, chaud), 'la page du premier')
+    ok(await jouer(b, chaud, ok(await commencer(b, chaud, { origine: 'libre', jeu: 'pari', carte: null }), 'son départ'), { quoi: 'quitter' }), 'sa fin')
+
+    const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
+    const id = (await fetch(`${b.banc.url}/api/joueur/moi?leger`, { headers: { Cookie: lea } }).then(r => r.json() as Promise<{ profile: { id: string } }>)).profile.id
+    // De la poussière d'or posée en base avant sa première page : le musée la lit à froid.
+    aLaMain(b.fichier, `INSERT INTO cabinet_profils (profile_id, poussiere, cree_le, maj_le) VALUES ('${id}', 2000, 0, 0)`)
+    ok(await laPage(b, lea), 'sa page froide')
+    // Une chasse gagnée : la Leçon entre, son cartel garde une manche.
+    let v = ok(await commencer(b, lea, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse')
+    for (let k = 0; k < 3; k++) {
+      if (k > 0) v = await ouvrir(b, lea, v, k)
+      const t = pariDe(b, v.id, k)
+      v = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { pari: { choix: t.q1.bonne } } }), 'q1')
+      v = ok(await jouer(b, lea, v, { quoi: 'parier', manche: k as 0 | 1 | 2 }), 'parier')
+      v = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { pari: { choix: t.q2.bonne } } }), 'q2')
+    }
+    assert.equal(v.bilan?.issue, 'gagnee-doree')
+    const finie = v.id
+
+    const poster = (chemin: string, corps: unknown) => ecrire(b.banc.url, chemin, corps, lea).then(async r => ({ status: r.status, corps: await r.json() }))
+    const lire = (chemin: string) => fetch(`${b.banc.url}${chemin}`, { headers: { Cookie: lea, 'X-Requested-With': 'quizz' } }).then(async r => ({ status: r.status, corps: await r.json() }))
+    const etapes: [string, () => Promise<{ status: number }>, number][] = [
+      ['acheter', () => poster('/api/cabinet/oeuvre/bastion/achat', { prix: prixDe('bastion', 'achat') }), 1],
+      ['acheter, rejoué : rien à écrire', () => poster('/api/cabinet/oeuvre/bastion/achat', { prix: prixDe('bastion', 'achat') }), 0],
+      ['dorer une œuvre de départ', () => poster('/api/cabinet/oeuvre/prudence/dorure', { prix: prixDe('prudence', 'dorure') }), 1],
+      ['dorer l’achetée', () => poster('/api/cabinet/oeuvre/bastion/dorure', { prix: prixDe('bastion', 'dorure') }), 1],
+      ['changer de jeu', () => poster('/api/cabinet/visite/echange', { case: 0 }), 1],
+      ['un refus que la mémoire dit sûr : le prix changé', () => poster('/api/cabinet/oeuvre/lancee/achat', { prix: 1 }), 0],
+      ['le cartel d’une partie : sa ligne et ses gestes, par sa clé', () => lire('/api/cabinet/oeuvre/lecon'), 1],
+      ['le cartel d’une œuvre achetée : la mémoire', () => lire('/api/cabinet/oeuvre/bastion'), 0],
+      ['« Mes réponses » d’une partie finie, par sa clé', () => lire(`/api/cabinet/partie/${finie}`), 1],
+      ['la page après tout cela', () => laPage(b, lea), 0],
+    ]
+    for (const [quoi, faire, attendus] of etapes) {
+      const { appels, resultat } = await mesurer(faire)
+      assert.ok(resultat.status === 200 || (quoi.startsWith('un refus') && resultat.status === 400), `${quoi} : ${resultat.status}`)
+      assert.equal(appels, attendus, quoi)
+    }
+    const enCours = ok(await commencer(b, lea, { origine: 'libre', jeu: 'eclair', carte: null }), 'une libre')
+    assert.equal((await mesurer(() => lire(`/api/cabinet/partie/${enCours.id}`))).appels, 0, '« Mes réponses » d’une partie en cours : la mémoire')
   } finally {
     await b.banc.close()
   }

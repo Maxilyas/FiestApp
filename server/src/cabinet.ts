@@ -3,7 +3,7 @@ import type { ProfileStore } from './auth/profiles'
 import { readPlayerToken } from './auth/http'
 import { repondreErreur, wrap } from './core/http'
 import { PARTIE_INTROUVABLE, TABLEAU_INTROUVABLE, type CabinetStore } from './core/cabinet/magasin'
-import { pageDuCabinet, vueDeLaPartie } from './core/cabinet/vue'
+import { cartelDe, pageDuCabinet, vueDeLaPartie } from './core/cabinet/vue'
 
 /**
  * Un indice d'une adresse, écrit comme la page l'écrit (`adresseDUnCadrage`) :
@@ -31,10 +31,12 @@ interface CabinetDeps {
 /**
  * Les routes du Cabinet de curiosités (`shared/cabinet/vues.ts`), pour les
  * profils — un invité anonyme n'a pas de musée, et le serveur le lui dit :
- * la page, commencer une partie, un geste, un cadrage du Détail. Chaque
- * réponse porte l'heure du serveur (`maintenant`), que la page mesure, et ne
- * se garde nulle part (`no-store`) — sauf l'image d'un cadrage, qui ne change
- * jamais sous son adresse. Ses signalements passent par la route de la série
+ * la page, commencer une partie, un geste, la partie relue, un cadrage du
+ * Détail, le cartel d'une œuvre, l'achat, la dorure, l'échange d'un jeu de la
+ * visite. Chaque réponse qui sert un chrono ou la page porte l'heure du
+ * serveur (`maintenant`), que la page mesure, et aucune ne se garde
+ * (`no-store`) — sauf l'image d'un cadrage, qui ne change jamais sous son
+ * adresse. Ses signalements passent par la route de la série
  * (`/api/campagne/serie/:id/signalement`), à la position de la pièce.
  */
 export function mountCabinet(app: Express, deps: CabinetDeps) {
@@ -86,6 +88,62 @@ export function mountCabinet(app: Express, deps: CabinetDeps) {
       if ('introuvable' in issue) res.status(404).json({ error: PARTIE_INTROUVABLE })
       else if ('passe' in issue) res.status(409).json({ error: issue.pourquoi, partie: vueDeLaPartie(issue.passe) })
       else res.json(vueDeLaPartie(issue.partie))
+    }),
+  )
+
+  // « Mes réponses » : une partie, en cours ou finie, par le même pli et la même vue que la page (invariant 14) — finie,
+  // chaque manche révélée ; celle d'un autre profil est introuvable, comme une partie qui n'existe pas (invariant 3).
+  app.get(
+    '/api/cabinet/partie/:id',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const partie = await deps.cabinet.partie(profil.id, String(req.params.id))
+      if (partie) res.json(vueDeLaPartie(partie))
+      else res.status(404).json({ error: PARTIE_INTROUVABLE })
+    }),
+  )
+
+  // Le cartel d'une œuvre à lui : ce que la partie qui l'a fait entrer lui a appris, ou comment elle est entrée. Une œuvre
+  // qui lui manque n'en a pas — on la découvre en la gagnant.
+  app.get(
+    '/api/cabinet/oeuvre/:cle',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const issue = await deps.cabinet.cartel(profil.id, String(req.params.cle))
+      if ('cartel' in issue) res.json(cartelDe(issue.cartel))
+      else res.status(404).json({ error: issue.introuvable })
+    }),
+  )
+
+  // Acheter une œuvre qui manque, dorer le cadre d'une œuvre à lui : le prix que la page a montré (`{ prix }`) — changé
+  // depuis, il se refuse —, le solde vérifié par la base même. Rejoués (`auReveil`), ils ne paient pas deux fois. Ils
+  // rendent la page du musée d'après.
+  app.post(
+    '/api/cabinet/oeuvre/:cle/achat',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(pageDuCabinet(await deps.cabinet.acheter(profil.id, String(req.params.cle), req.body?.prix)))
+    }),
+  )
+  app.post(
+    '/api/cabinet/oeuvre/:cle/dorure',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(pageDuCabinet(await deps.cabinet.dorer(profil.id, String(req.params.cle), req.body?.prix)))
+    }),
+  )
+
+  // « Changer de jeu » sur une case de la visite pas encore jouée (`{ case }`), une fois par jour : la page d'après.
+  app.post(
+    '/api/cabinet/visite/echange',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(pageDuCabinet(await deps.cabinet.echanger(profil.id, req.body?.case)))
     }),
   )
 

@@ -116,7 +116,7 @@ Un légendaire que tu as déjà, par n'importe quelle voie, est un gardien réve
 
 ## Ce qu'on apprend
 
-- **Le cartel** : chaque œuvre gagnée garde la question, la réponse et l'anecdote de la manche que tu as le mieux réussie, avec le jeu, le jour et les étoiles. Il se lit seul. Une œuvre achetée, rapportée de l'Expédition ou offerte à l'arrivée le dit à sa place, et la gagner en jouant lui donne le sien.
+- **Le cartel** : chaque œuvre gagnée garde la question, la réponse et l'anecdote de la manche que tu as le mieux réussie, avec le jeu, le jour et les étoiles. Il se lit seul. Une œuvre achetée, rapportée de l'Expédition ou offerte à l'arrivée le dit à sa place, et la rejouer pour dorer son cadre lui donne le sien.
 - **Tes murs** : une carte de France où chaque lieu de l'Épingle reste épinglé, et une frise personnelle où chaque date apprise trouve sa place — rien ne s'écrit pour eux, ils se lisent de ce que tu as joué.
 - **Le carnet** : les erreurs du Pari, du Mot mystère et du Filet y entrent, comme partout en campagne, et s'y signalent. Les affirmations de l'Éclair n'y vont pas — cinq questions récrites, dont aucune n'est plus celle de la base —, et l'écran le dit.
 - **Rien ne revient avant sept jours**, d'un jeu à l'autre : le Pari et l'Éclair puisent dans le même tas.

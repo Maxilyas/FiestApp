@@ -6,7 +6,10 @@
 // ce serveur pour ce lot (`ON CONFLICT DO NOTHING`), et chaque autre
 // instruction n'agit que si ce geste-là est en base (`gesteEcrit`). Le geste
 // est toujours la première instruction de son lot : la fin d'une partie se dit
-// écrite sur sa ligne (`FinDUnePartie.ecrite`, la porte de la campagne).
+// écrite sur sa ligne (`FinDUnePartie.ecrite`, la porte de la campagne). Un
+// achat et une dorure ne paient que si le solde, relu dans l'instruction même,
+// les couvre ; un échange ne change la visite que si la base la dit pas encore
+// échangée, et sa case pas encore jouée.
 //
 // Le seul fichier qui écrit la colonne `joker` : elle porte le pouvoir qui a
 // aidé une pièce (`pouvoir:eclairer`, `pouvoir:temps`), jamais la clé d'une
@@ -215,6 +218,121 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
     }
   }
   return lot
+}
+
+// ── La poussière d'or : acheter, dorer ────────────────────────────────────
+
+/**
+ * Le solde de poussière d'or d'un profil, relu par la base dans l'instruction
+ * qui le dépense : ce qu'il a gagné (le reflet `cabinet_profils.poussiere`),
+ * moins ce que ses œuvres ont coûté, chacune au prix qu'elle a payé — 84 lignes
+ * au plus, par la clé. Sans ligne du profil, rien : `NULL` n'est jamais assez.
+ * La mémoire du serveur ne suffit pas à le dire : l'autre serveur d'une mise en
+ * ligne, ou un autre onglet, a pu dépenser la même poussière l'instant d'avant.
+ * Aucune `CHECK` ne le garde : elle lèverait une erreur de la base, un 500, là
+ * où le refus doit se dire en mots (D8).
+ */
+const SOLDE = `(SELECT poussiere FROM cabinet_profils WHERE profile_id = ?)
+             - (SELECT COALESCE(SUM(COALESCE(prix, 0) + COALESCE(prix_dorure, 0)), 0) FROM cabinet_oeuvres WHERE profile_id = ?)`
+
+export interface DepenseAEcrire {
+  profileId: string
+  oeuvre: string
+  /** Le prix du jour, que la page a montré : il s'écrit avec la ligne, et l'achat le garde. */
+  prix: number
+  t: number
+}
+
+/**
+ * Un achat, une seule instruction : la ligne de l'œuvre, seulement si le solde
+ * la paie et qu'elle n'est pas déjà là. `rowsAffected = 0` dit l'un ou l'autre,
+ * sans rien écrire — le magasin relit et dit lequel. Rejoué (la réponse perdue
+ * en route, `auReveil`), il ne paie pas deux fois : la clé de la ligne le garde.
+ */
+export function instructionDeLAchat(a: DepenseAEcrire): InStatement {
+  return {
+    sql: `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, prix)
+          SELECT ?, ?, 'achat', ?, ? WHERE ${SOLDE} >= ?
+          ON CONFLICT (profile_id, oeuvre) DO NOTHING`,
+    args: [a.profileId, a.oeuvre, a.t, a.prix, a.profileId, a.profileId, a.prix],
+  }
+}
+
+/**
+ * Une dorure à la poussière, une seule instruction, sous le solde et sous un
+ * cadre pas encore doré. Une œuvre de départ n'a pas toujours de ligne — elle
+ * est à tous par règle : la sienne naît ici, d'origine `depart`, ou prend sa
+ * dorure si un cartel la lui a déjà donnée. Toute autre œuvre à lui a sa ligne,
+ * qui garde son origine et son prix : rien ne s'y efface.
+ */
+export function instructionDeLaDorure(d: DepenseAEcrire & { deDepart: boolean }): InStatement {
+  if (d.deDepart) {
+    return {
+      sql: `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, doree_le, dorure, prix_dorure)
+            SELECT ?, ?, 'depart', ?, ?, 'poussiere', ? WHERE ${SOLDE} >= ?
+            ON CONFLICT (profile_id, oeuvre) DO UPDATE SET doree_le = excluded.doree_le, dorure = excluded.dorure, prix_dorure = excluded.prix_dorure
+             WHERE cabinet_oeuvres.doree_le IS NULL`,
+      args: [d.profileId, d.oeuvre, d.t, d.t, d.prix, d.profileId, d.profileId, d.prix],
+    }
+  }
+  return {
+    sql: `UPDATE cabinet_oeuvres SET doree_le = ?, dorure = 'poussiere', prix_dorure = ?
+           WHERE profile_id = ? AND oeuvre = ? AND doree_le IS NULL AND ${SOLDE} >= ?`,
+    args: [d.t, d.prix, d.profileId, d.oeuvre, d.profileId, d.profileId, d.prix],
+  }
+}
+
+// ── L'échange d'un jeu de la visite ───────────────────────────────────────
+
+export interface EchangeAEcrire {
+  profileId: string
+  t: number
+  /** Le jour de Paris, et son minuit : la visite figée y vit, les parties du jour s'y recomptent. */
+  jour: string
+  minuit: number
+  /** Les visites que la ligne garde, celle du jour en tête, telle qu'avant l'échange (`visitesAGarder`) : elle s'y fige si elle ne l'est pas. */
+  visites: string
+  case: number
+  /** Le jeu que la case avait, et celui qu'elle prend (`jeuDeLEchange`). */
+  avant: string
+  jeu: string
+}
+
+/**
+ * L'échange d'un jeu de la visite (« Changer de jeu », une fois par jour, une
+ * case pas encore jouée), d'un seul aller-retour — deux instructions :
+ *
+ * 1. la visite du jour se fige, si aucun lot ne l'a encore fait (D17) : la
+ *    ligne du profil naît au besoin ;
+ * 2. la case prend son jeu neuf, sous la base même : la visite figée est
+ *    celle du jour, pas encore échangée, la case a toujours le jeu qu'on lui
+ *    connaît et le jeu neuf n'y est pas déjà, et aucune partie n'a commencé
+ *    sur elle aujourd'hui — l'autre serveur d'une mise en ligne, ou un autre
+ *    onglet, a pu la jouer ou l'échanger l'instant d'avant.
+ *
+ * `rowsAffected` de la seconde dit si l'échange a eu lieu ; sinon le magasin
+ * relit, et dit pourquoi en mots.
+ */
+export function lotDeLEchange(e: EchangeAEcrire): InStatement[] {
+  const chemin = `$[0].cases[${e.case}].jeu`
+  return [
+    {
+      sql: `INSERT INTO cabinet_profils (profile_id, visites, cree_le, maj_le) VALUES (?1, ?2, ?3, ?3)
+            ON CONFLICT (profile_id) DO UPDATE SET
+              visites = CASE WHEN json_valid(visites) AND json_extract(visites, '$[0].jour') = ?4 THEN visites ELSE ?2 END`,
+      args: [e.profileId, e.visites, e.t, e.jour],
+    },
+    {
+      sql: `UPDATE cabinet_profils SET visites = json_set(visites, ?2, ?3, '$[0].echange', ?4), maj_le = ?5
+             WHERE profile_id = ?1 AND json_valid(visites) AND json_extract(visites, '$[0].jour') = ?6
+               AND json_extract(visites, '$[0].echange') IS NULL
+               AND json_extract(visites, ?2) = ?8
+               AND NOT EXISTS (SELECT 1 FROM json_each(visites, '$[0].cases') WHERE json_extract(value, '$.jeu') = ?3)
+               AND (SELECT COUNT(*) FROM campagne_series
+                     WHERE ${partiesDuJour('?1', '?7')} AND ${champDuDepart('origine')} = 'visite' AND ${champDuDepart('visite')} = ?4) = 0`,
+      args: [e.profileId, chemin, e.jeu, e.case, e.t, e.jour, e.minuit, e.avant],
+    },
+  ]
 }
 
 // ── La suppression d'un profil ────────────────────────────────────────────

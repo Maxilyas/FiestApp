@@ -3,7 +3,8 @@
 // serveur le lui dit (`<meta name="cabinet" content="ferme">`), et chacune de
 // ses routes répond 404 en mots. Puis la maintenance du QG : le Cabinet en
 // maintenance, ou bientôt disponible, ferme son départ (`POST
-// /api/cabinet/partie`) — jamais un geste : une partie commencée se finit.
+// /api/cabinet/partie`), ses achats, ses dorures et son échange — jamais un
+// geste : une partie commencée se finit.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -59,6 +60,11 @@ test('fermé, chaque route du Cabinet répond 404 en mots, à tous — et la pag
       ['la page', await laPage(ferme, lea)],
       ['commencer', await commencer(ferme, lea, { origine: 'libre', jeu: 'pari', carte: null })],
       ['un geste', await poster(ferme, lea, '/api/cabinet/partie/une-partie/geste', { rang: 2, geste: { quoi: 'quitter' } })],
+      ['une partie relue', await lire(ferme, lea, '/api/cabinet/partie/une-partie')],
+      ['un cartel', await lire(ferme, lea, '/api/cabinet/oeuvre/prudence')],
+      ['un achat', await poster(ferme, lea, '/api/cabinet/oeuvre/bastion/achat', { prix: 400 })],
+      ['une dorure', await poster(ferme, lea, '/api/cabinet/oeuvre/prudence/dorure', { prix: 100 })],
+      ['un échange', await poster(ferme, lea, '/api/cabinet/visite/echange', { case: 0 })],
     ] as const) {
       assert.deepEqual([r.status, r.corps], [404, { error: CABINET_FERME }], quoi)
       assert.equal(r.entetes.get('cache-control'), 'no-store', quoi)
@@ -90,11 +96,14 @@ test('fermé, sa page ne prépare rien : ni la base de la campagne, ni les tas d
   }
 })
 
-test('en maintenance, le Cabinet ferme son départ — jamais un geste : la partie commencée se finit', async () => {
+test('en maintenance, le Cabinet ferme son départ, ses achats et son échange — jamais un geste : la partie commencée se finit', async () => {
   assert.ok(PAGES_EN_MAINTENANCE.includes('cabinet'))
-  assert.deepEqual(PORTES_DES_PAGES.cabinet, ['POST /api/cabinet/partie'])
-  // Sa panne se dit sous son nom : la page, son départ, un geste.
-  for (const source of ['GET /api/cabinet', 'POST /api/cabinet/partie', 'POST /api/cabinet/partie/:id/geste']) assert.equal(modeDeLaSource(source), 'cabinet', source)
+  // Ce qui recommence quelque chose : une partie, une dépense de poussière d'or, un jeu de la visite changé (le lot C3 y a
+  // ajouté l'achat, la dorure et l'échange, nés avec leurs routes).
+  assert.deepEqual(PORTES_DES_PAGES.cabinet, ['POST /api/cabinet/partie', 'POST /api/cabinet/oeuvre/:cle/achat', 'POST /api/cabinet/oeuvre/:cle/dorure', 'POST /api/cabinet/visite/echange'])
+  // Sa panne se dit sous son nom : la page, son départ, un geste, et ce qui dépense la poussière.
+  for (const source of ['GET /api/cabinet', 'POST /api/cabinet/partie', 'POST /api/cabinet/partie/:id/geste', 'GET /api/cabinet/oeuvre/:cle', 'POST /api/cabinet/oeuvre/:cle/achat'])
+    assert.equal(modeDeLaSource(source), 'cabinet', source)
 
   const b = await bancDuCabinet()
   try {
@@ -107,7 +116,18 @@ test('en maintenance, le Cabinet ferme son départ — jamais un geste : la part
     assert.equal((await changer('maintenance')).status, 200)
 
     const refus = await commencer(b, tom, { origine: 'libre', jeu: 'pari', carte: null })
-    assert.deepEqual([refus.status, refus.corps], [423, { error: `${PAGES_FERMABLES.cabinet.titre} : reviens un peu plus tard`, maintenance: 'cabinet' }])
+    const enMaintenance = [423, { error: `${PAGES_FERMABLES.cabinet.titre} : reviens un peu plus tard`, maintenance: 'cabinet' }]
+    assert.deepEqual([refus.status, refus.corps], enMaintenance)
+    for (const [chemin, corps] of [
+      ['/api/cabinet/oeuvre/bastion/achat', { prix: 400 }],
+      ['/api/cabinet/oeuvre/prudence/dorure', { prix: 100 }],
+      ['/api/cabinet/visite/echange', { case: 0 }],
+    ] as const) {
+      const r = await poster(b, tom, chemin, corps)
+      assert.deepEqual([r.status, r.corps], enMaintenance, chemin)
+    }
+    // Se relire ne recommence rien : le cartel d'une œuvre, la page.
+    assert.equal((await lire(b, tom, '/api/cabinet/oeuvre/prudence')).status, 200)
     // L'administrateur passe la porte, reconnu par sa console : sans profil, c'est le Cabinet qui le lui dit.
     assert.equal((await commencer(b, admin, { origine: 'libre', jeu: 'pari', carte: null })).status, 401)
     // Ce qui est commencé passe : la page, le geste, la fin.

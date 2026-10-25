@@ -1,5 +1,6 @@
 // Ce que le téléphone reçoit du Cabinet de curiosités : la page du musée
-// (`pageDuCabinet`) et une partie (`vueDeLaPartie`), bâties champ par champ
+// (`pageDuCabinet`), une partie (`vueDeLaPartie`) et le cartel d'une œuvre
+// (`cartelDe`), bâtis champ par champ
 // des types nés complets de `shared/cabinet/vues.ts` (invariant 1). Rien ne
 // s'y étale : un champ neuf du départ figé — sa graine, ses rechanges, la
 // bonne réponse d'une manche pas encore tranchée — n'y part jamais de
@@ -9,9 +10,10 @@
 // en base et le cherche dans chaque réponse).
 //
 // La partie en cours et une partie finie passent par le même pli et la même
-// vue (invariant 14) : « Mes réponses » révèlera chaque manche d'une partie
-// finie comme la partie l'a révélée.
-import type { LectureDuCabinet, PartieLue } from './magasin'
+// vue (invariant 14) : « Mes réponses » révèle chaque manche d'une partie
+// finie comme la partie l'a révélée, et le cartel d'une œuvre relit la manche
+// que son bilan garde comme le bilan l'a dite.
+import type { CartelLu, LectureDuCabinet, PartieGardee, PartieLue } from './magasin'
 import { CHANGEMENTS_PAR_PARTIE, CHASSES_PAR_JOUR, ECLAIRAGES_PAR_PARTIE, LIBRES_QUI_PAIENT, MANCHES_PAR_PARTIE, SEUILS_DES_RARETES } from '../../../../shared/cabinet/bareme'
 import { echeanceDe, pauseEnCours, pauseResteMs } from '../../../../shared/cabinet/chrono'
 import { regleDe } from '../../../../shared/cabinet/jeux/index'
@@ -30,6 +32,7 @@ import {
   soldeDe,
   type EnjeuDUneCase,
   type Musee,
+  type OrigineDUneOeuvre,
 } from '../../../../shared/cabinet/musee'
 import { JEU_DE_L_OEUVRE, OEUVRES_DE_DEPART, estUneOeuvre, oeuvre, oeuvresDeLaSalle, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
 import {
@@ -50,6 +53,8 @@ import { ceQueFaitLaCarte } from '../../../../shared/cabinet/pouvoirs'
 import { AUTRES_GARDIENS, GARDIENS, GARDIENS_DES_SALLES, SALLES, conditionDuGardien, pouvoirDuGardien, salle } from '../../../../shared/cabinet/salles'
 import type {
   BilanVu,
+  Cartel,
+  CartelDuBilan,
   CarteVue,
   CaseVue,
   FeteVue,
@@ -63,6 +68,7 @@ import type {
   VueDeLaPartie,
 } from '../../../../shared/cabinet/vues'
 import { horsDeLaBase } from '../../../../shared/horsDeLaBase'
+import { jourDe, jourEnToutesLettres } from '../../../../shared/jour'
 import { legendaire } from '../../../../shared/legendaires'
 
 // ── Les mots ──────────────────────────────────────────────────────────────
@@ -179,6 +185,19 @@ function gainsDe(p: PartieLue): GainsDuCabinet | undefined {
 }
 
 /**
+ * Ce que le cartel d'une partie garde, en clair : la manche que son bilan figé
+ * désigne, relue par la règle de son jeu sur son tirage et son verdict — la
+ * question telle que la partie l'a lue, sa réponse, « Le savais-tu ? ». Le
+ * même chemin pour le bilan qui vient de tomber et pour le cartel relu des
+ * semaines après (invariant 14).
+ */
+function cartelDuBilan(p: PartieGardee): CartelDuBilan | null {
+  const b = p.bilan
+  const m = b?.cartel === null || b?.cartel === undefined ? undefined : p.etat.manches[b.cartel]
+  return m?.verdict ? { manche: m.manche, ...regleDe(p.depart.jeu).cartel(p.depart.tirages[m.tirage], m.verdict) } : null
+}
+
+/**
  * Le bilan à l'écran : le bilan figé, champ par champ — un champ ajouté au
  * bilan n'y part pas de lui-même, comme le reste de la vue —, son cartel en
  * clair (la manche qu'il garde, relue de son jeu), l'œuvre, et les gains de la
@@ -187,8 +206,7 @@ function gainsDe(p: PartieLue): GainsDuCabinet | undefined {
 function bilanVu(p: PartieLue): BilanVu | undefined {
   const b = p.bilan
   if (!b) return undefined
-  const m = b.cartel === null ? undefined : p.etat.manches[b.cartel]
-  const cartel = m?.verdict ? { manche: m.manche, ...regleDe(p.depart.jeu).cartel(p.depart.tirages[m.tirage], m.verdict) } : null
+  const cartel = cartelDuBilan(p)
   const gains = gainsDe(p)
   return {
     etoiles: b.etoiles,
@@ -243,6 +261,60 @@ export function vueDeLaPartie(p: PartieLue): VueDeLaPartie {
     ...(revelation && { revelation }),
     ...(bilan && { bilan }),
   }
+}
+
+// ── Le cartel d'une œuvre ─────────────────────────────────────────────────
+
+/** « le 24 octobre 2026 », « le 1er novembre 2026 » : le jour de Paris d'une partie, en clair — sans `Intl`, que la page n'a pas à charger. */
+const leJourDit = (jour: string): string => `le ${jourEnToutesLettres(jour, true)} ${jour.slice(0, 4)}`
+
+/** Comment une œuvre sans cartel de partie est entrée, en une phrase : son cartel d'office. */
+const ENTREES_D_OFFICE: Readonly<Record<Exclude<OrigineDUneOeuvre, 'partie'>, string>> = {
+  depart: 'Offerte à ton arrivée.',
+  achat: 'Achetée avec ta poussière d’or.',
+  expedition: 'Rapportée de l’Expédition.',
+}
+
+/**
+ * Ce que son cartel promet, tant que son cadre n'est pas doré : rejouée en
+ * chasse pour le dorer, elle prendra le cartel de cette partie-là. Doré, rien
+ * ne le lui donnera plus — la phrase se tait plutôt que de promettre.
+ */
+const CE_QUE_GARDERA_LE_CARTEL ='Rejoue-la pour dorer son cadre : elle gardera ici ce que tu auras appris.'
+
+/**
+ * Le cartel d'une œuvre à lui, champ par champ : la manche que sa partie a
+ * gardée (`cartelDuBilan`, le même pli que le bilan tombé), son jeu, son
+ * thème, son total, son jour ; sinon la phrase de son entrée — offerte,
+ * achetée, rapportée, ou gagnée par une partie qui n'avait rien à raconter.
+ * Rien de la partie que la page ne voyait déjà à son bilan : ni le plan, ni
+ * la graine, ni une rechange.
+ */
+export function cartelDe(lu: CartelLu): Cartel {
+  const { oeuvre, ligne, partie } = lu
+  const origine = ligne?.origine ?? 'depart'
+  const doree = (ligne?.doreeLe ?? null) !== null
+  const garde = partie?.bilan ? cartelDuBilan(partie) : null
+  if (partie?.bilan && garde) {
+    return {
+      oeuvre,
+      origine,
+      doree,
+      partie: {
+        id: partie.id,
+        jeu: partie.depart.jeu,
+        ...(partie.depart.theme !== undefined && { theme: partie.depart.theme }),
+        jour: leJourDit(partie.depart.jour),
+        total: partie.bilan.total,
+        issue: partie.bilan.issue,
+        sujet: garde.sujet,
+        reponse: garde.reponse,
+        anecdote: garde.anecdote,
+      },
+    }
+  }
+  const entree = origine === 'partie' ? `Gagnée en jouant, ${leJourDit(jourDe(ligne?.gagneeLe ?? 0))}.` : ENTREES_D_OFFICE[origine]
+  return { oeuvre, origine, doree, dit: doree ? entree : `${entree} ${CE_QUE_GARDERA_LE_CARTEL}` }
 }
 
 // ── La page du musée ──────────────────────────────────────────────────────

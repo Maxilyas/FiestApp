@@ -18,10 +18,13 @@
 // la visite tant qu'elle n'est pas gagnée.
 //
 // Ces types naissent complets (lot B3) : la chaîne du serveur les remplit,
-// celle de la page les lit, sans y toucher. Un seul champ s'y est ajouté
+// celle de la page les lit, sans y toucher. Deux champs s'y sont ajoutés
 // depuis, du côté du serveur : l'indice du tirage d'une manche
 // (`VueDeLaPartie.tirage`, `RevelationVue.tirage`), sans lequel la page ne
-// compose pas l'adresse d'une image du Détail (`adresseDUnCadrage`).
+// compose pas l'adresse d'une image du Détail (`adresseDUnCadrage`) ; et ce
+// que la partie d'un cartel a fait à son œuvre (`Cartel.partie.issue`), sans
+// lequel le cartel d'une œuvre achetée puis dorée en jouant se disait
+// « Gagnée ».
 
 import type { CleDeCompagnon } from '../compagnons'
 import { PREFIXE_DE_LA_FRISE } from '../frise'
@@ -263,6 +266,14 @@ export interface Cartel {
     jour: string
     /** « 7 sur 9 ». */
     total: number
+    /**
+     * Ce que cette partie a fait à l'œuvre : la gagner (`gagnee`, `gagnee-doree`),
+     * ou, l'œuvre déjà à lui — achetée, rapportée, offerte, ou gagnée par une
+     * partie sans rien à raconter —, la dorer ou la doubler (`doree`, `double`).
+     * Le serveur le dit toujours ; facultatif pour les cartels écrits à la main
+     * des épreuves de la page.
+     */
+    issue?: IssueDUnePartie
     sujet: string
     reponse: string
     anecdote: string | null
