@@ -710,7 +710,12 @@ export function resultatDe(d: DepartDUnePartie, e: EtatDeLaPartie): ResultatDUne
 export type IssueDUnePartie = 'gagnee' | 'gagnee-doree' | 'doree' | 'double' | 'manquee' | 'libre'
 export const ISSUES: readonly IssueDUnePartie[] = ['gagnee', 'gagnee-doree', 'doree', 'double', 'manquee', 'libre']
 
-/** L'œuvre en jeu, telle que son musée la tient à la fin de la partie — une chasse du matin, un achat entre-temps l'ont pu changer. */
+/**
+ * L'œuvre en jeu, telle que son musée la tient à la fin de la partie — une
+ * chasse du matin l'a pu faire entrer avant la visite. Pendant la partie, rien
+ * ne la change : achetée ou dorée en route, une chasse arrivée au seuil se
+ * serait dite manquée (`refusDeLAchat` le refuse).
+ */
 export interface LOeuvreALui {
   possedee: boolean
   doree: boolean

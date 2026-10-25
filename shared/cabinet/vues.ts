@@ -22,9 +22,9 @@
 // depuis, du côté du serveur : l'indice du tirage d'une manche
 // (`VueDeLaPartie.tirage`, `RevelationVue.tirage`), sans lequel la page ne
 // compose pas l'adresse d'une image du Détail (`adresseDUnCadrage`) ; et ce
-// que la partie d'un cartel a fait à son œuvre (`Cartel.partie.issue`), sans
-// lequel le cartel d'une œuvre achetée puis dorée en jouant se disait
-// « Gagnée ».
+// que la partie d'un cartel a fait à son œuvre (`Cartel.partie.issue`) : une
+// œuvre achetée puis dorée en jouant ne l'a pas gagnée, et son cartel n'a pas
+// à le dire.
 
 import type { CleDeCompagnon } from '../compagnons'
 import { PREFIXE_DE_LA_FRISE } from '../frise'
@@ -278,7 +278,7 @@ export interface Cartel {
     reponse: string
     anecdote: string | null
   }
-  /** « Rapportée de l'Expédition », « Achetée avec ta poussière d'or… », « Offerte à ton arrivée… ». */
+  /** « Rapportée de l'Expédition », « Achetée avec ta poussière d'or… », « Offerte à ton arrivée… », « Entrée dans ton musée le …, gagnée en jouant. ». */
   dit?: string
   doree: boolean
 }

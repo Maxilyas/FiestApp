@@ -427,6 +427,9 @@ export const PAS_AU_CABINET = 'Cette œuvre n’est pas au Cabinet'
 /** Une œuvre qui lui manque encore : ni dorure, ni cartel. */
 export const PAS_ENCORE_A_TOI = 'Elle n’est pas encore à toi : gagne-la ou achète-la d’abord'
 
+/** Une partie à la fois, et rien ne se dépense pendant qu'elle attend : un départ, un achat, une dorure le disent dans les mêmes mots. */
+export const laPartieAttend = (jeu: CleDeJeu): string => `Ta partie ${JEUX[jeu].a} t’attend : reprends-la ou quitte-la d’abord`
+
 /** La carte-bonus qu'il emporte : une œuvre qu'il a, les quatre de départ comprises, ou un gardien réveillé — jamais un Divin. */
 function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
   if (cle === null) return null
@@ -443,7 +446,7 @@ function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
  * manquée ; un jeu livré ; une carte-bonus qu'il a.
  */
 export function cadreDuDepart(m: Musee, demande: DemandeDeDepart, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS): CadreDuDepart | string {
-  if (m.enCours) return `Ta partie ${JEUX[m.enCours.jeu].a} t’attend : reprends-la ou quitte-la d’abord`
+  if (m.enCours) return laPartieAttend(m.enCours.jeu)
   const a = possedees(m)
   let cadre: Omit<CadreDuDepart, 'carte'>
   switch (demande.origine) {
@@ -496,6 +499,9 @@ export function refusDuDepart(m: Musee, demande: DemandeDeDepart, visite: Visite
 /** « 1 poussière d'or », « 120 poussières d'or ». */
 export const poussieresDites = (n: number): string => `${formatNumber(n)} poussière${n > 1 ? 's' : ''} d’or`
 
+/** Ce qui manque au solde pour une dépense : « Il te manque 120 poussières d'or ». */
+export const ilTeManque = (n: number): string => `Il te manque ${poussieresDites(n)}`
+
 /** Le prix d'une œuvre manquante, ou de la dorure d'une œuvre qu'il a : celui du jour, que la ligne gardera. */
 export function prixDe(cle: unknown, sorte: 'achat' | 'dorure'): number | null {
   const o = oeuvre(cle)
@@ -506,7 +512,8 @@ export function prixDe(cle: unknown, sorte: 'achat' | 'dorure'): number | null {
  * Pourquoi cet achat ou cette dorure se refuse ; null : il passe — la base
  * revérifie le solde dans son instruction même. La page envoie le prix qu'elle
  * a montré : un prix changé depuis se refuse, plutôt que de payer ce qu'il n'a
- * pas vu.
+ * pas vu. Ce qui ne se ferait jamais se dit d'abord ; puis ce qui attend — une
+ * partie en cours ; puis le prix et le solde.
  */
 export function refusDeLAchat(m: Musee, cle: unknown, prixMontre: unknown, sorte: 'achat' | 'dorure'): string | null {
   if (pouvoirDuGardien(cle) !== undefined || (typeof cle === 'string' && cle.startsWith('lg:'))) return 'Un gardien ne s’achète pas : il se réveille'
@@ -516,7 +523,12 @@ export function refusDeLAchat(m: Musee, cle: unknown, prixMontre: unknown, sorte
   if (sorte === 'achat' && aLui) return 'Elle est déjà à toi'
   if (sorte === 'dorure' && !aLui) return PAS_ENCORE_A_TOI
   if (sorte === 'dorure' && dorees(m).has(cle)) return 'Son cadre est déjà doré'
+  // Ce qu'une partie fait à son œuvre se décide à sa fin, sur le musée de ce moment : achetée en pleine chasse,
+  // l'œuvre visée entrait sans elle, et la chasse arrivée au seuil finissait « Pas assez d'étoiles cette fois… L'œuvre
+  // reste à gagner. ». Refusée pour cette œuvre seule, la dépense aurait nommé celle qu'une case de la visite met en jeu
+  // sans la dire (invariant 1) : toute dépense attend la fin de la partie, comme un départ.
+  if (m.enCours) return laPartieAttend(m.enCours.jeu)
   if (prixMontre !== prix) return `Le prix a changé : ${poussieresDites(prix)}. Réessaie.`
   const solde = soldeDe(m)
-  return solde < prix ? `Il te manque ${poussieresDites(prix - solde)}` : null
+  return solde < prix ? ilTeManque(prix - solde) : null
 }

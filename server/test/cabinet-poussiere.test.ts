@@ -4,7 +4,9 @@
 // réponses ») — et ce que la base garde seule : le solde vérifié dans
 // l'instruction même (jamais sous zéro, même par deux serveurs), le prix
 // montré par la page, un achat rejoué qui ne paie pas deux fois, un échange
-// par jour. Puis ce que la poussière ne touche pas : ni les confettis, ni
+// par jour, et la case échangée qui part à son jeu neuf ; rien ne se dépense
+// pendant qu'une partie attend, sans que la visite trahisse l'œuvre qu'elle
+// vise. Puis ce que la poussière ne touche pas : ni les confettis, ni
 // l'économie du QG (D15). « Retenter » et les cinq libres payées, comptés par
 // la base, ont leur place ici aussi : ce sont des droits du jour, comme
 // l'échange. Et les fonctions mêmes de la page (`api.cabinet`, chargées dans
@@ -40,9 +42,11 @@ import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, oeuvre, type CleDOeuvre } 
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
 import { poussieresDites } from '../../shared/cabinet/musee'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
+import { JEUX } from '../../shared/cabinet/jeux/regle'
 import type { Cartel, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
 import { CABINET_SANS_PROFIL } from '../src/cabinet'
+import { cartelDe } from '../src/core/cabinet/vue'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -95,6 +99,14 @@ const communeDuPari = manquantes.find(o => o.rarete === 'commun' && JEU_DE_L_OEU
 
 const refus = <T>(r: { status: number; corps: T }) => [r.status, r.corps]
 
+/** Le solde tel que la base le compte : la poussière gagnée, moins chaque prix payé. */
+const soldeEnBase = (fichier: string, profil: string) =>
+  enBase(fichier, db =>
+    db
+      .prepare('SELECT p.poussiere - (SELECT COALESCE(SUM(COALESCE(prix, 0) + COALESCE(prix_dorure, 0)), 0) FROM cabinet_oeuvres WHERE profile_id = p.profile_id) AS solde FROM cabinet_profils p WHERE profile_id = ?')
+      .get(profil),
+  )
+
 // ── Acheter ───────────────────────────────────────────────────────────────
 
 test('acheter : le prix montré, le solde vérifié, et rejoué il ne paie pas deux fois', async () => {
@@ -146,12 +158,7 @@ test('le solde ne passe jamais sous zéro : deux serveurs, chacun sa mémoire, l
   await a.cabinet.acheter('qui', communeA, prix)
   // L'autre, devancé : sa mémoire dit assez, la base non — il relit, et le dit en mots.
   await assert.rejects(autre.cabinet.acheter('qui', communeB, prix), { message: `Il te manque ${poussieresDites(prix / 2)}` })
-  const solde = () =>
-    enBase(fichier, db =>
-      db
-        .prepare('SELECT p.poussiere - (SELECT COALESCE(SUM(COALESCE(prix, 0) + COALESCE(prix_dorure, 0)), 0) FROM cabinet_oeuvres WHERE profile_id = p.profile_id) AS solde FROM cabinet_profils p WHERE profile_id = ?')
-        .get('qui'),
-    )
+  const solde = () => soldeEnBase(fichier, 'qui')
   assert.deepEqual(solde(), { solde: prix / 2 })
   // Le même achat, rejoué par l'autre serveur : il le trouve fait, et ne paie rien.
   assert.equal((await autre.cabinet.acheter('qui', communeA, prix)).musee.oeuvres.get(communeA)?.prix, prix)
@@ -206,6 +213,122 @@ test('une œuvre dorée en jouant ne se dore pas à la poussière', async () => 
   const fin = await unPariParfait(b, ana.cookie, chasse)
   assert.equal(fin.bilan?.issue, 'gagnee-doree')
   assert.deepEqual(refus(await dorer(ana.cookie, 'lecon', prixDeDorure('lecon'))), [400, { error: 'Son cadre est déjà doré' }])
+})
+
+test('deux serveurs : chaque garde de la dépense tient dans la base même, la mémoire de l’autre en retard', async () => {
+  const horloge = { t: DIX_HEURES }
+  const fichier = path.join(dossierDEssai(), 'cabinet.db')
+  const a = await magasinDEssai(fichier, horloge)
+  const autre = await magasinDEssai(fichier, horloge)
+  const prix = prixDAchat(communeA)
+  const initiale = 2 * prix + 1000
+  donnerALaMain(fichier, 'qui', initiale)
+  await a.cabinet.page('qui')
+  await autre.cabinet.page('qui')
+  const ligne = (cle: string) =>
+    enBase(fichier, db => db.prepare('SELECT origine, serie_id, prix, doree_le, dorure, prix_dorure FROM cabinet_oeuvres WHERE profile_id = ? AND oeuvre = ?').get('qui', cle))
+
+  // Le même achat sur les deux : l'autre croit l'œuvre à acheter, et assez pour deux. La clé de la ligne refuse la
+  // seconde (`ON CONFLICT DO NOTHING`) — sans elle, une erreur de la base, un 500 — ; il relit, la trouve achetée,
+  // et rend la page sans rien payer de plus.
+  await a.cabinet.acheter('qui', communeA, prix)
+  const page = await autre.cabinet.acheter('qui', communeA, prix)
+  assert.equal(page.musee.oeuvres.get(communeA)?.origine, 'achat')
+  assert.deepEqual(soldeEnBase(fichier, 'qui'), { solde: initiale - prix })
+
+  // Son cadre doré en jouant chez l'autre — ici à la main — : la dorure à la poussière se refuse sans rien payer, et la
+  // dorure de la partie reste la sienne (`doree_le IS NULL`).
+  aLaMain(fichier, `UPDATE cabinet_oeuvres SET doree_le = 1, dorure = 'partie', serie_doree = 'ailleurs' WHERE profile_id = 'qui' AND oeuvre = '${communeA}'`)
+  await assert.rejects(a.cabinet.dorer('qui', communeA, prixDeDorure(communeA)), { message: 'Son cadre est déjà doré' })
+  assert.deepEqual(ligne(communeA), { origine: 'achat', serie_id: null, prix, doree_le: 1, dorure: 'partie', prix_dorure: null })
+  assert.deepEqual(soldeEnBase(fichier, 'qui'), { solde: initiale - prix })
+
+  // Une œuvre de départ qui a déjà sa ligne chez l'autre — le cartel d'un double — prend sa dorure sur cette ligne,
+  // son cartel gardé ; dorée en jouant là-bas, elle se refuse de même.
+  aLaMain(
+    fichier,
+    `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, serie_id) VALUES ('qui', 'prudence', 'depart', 1, 'un-double');
+     INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, doree_le, dorure, serie_doree) VALUES ('qui', 'echange', 'depart', 1, 1, 'partie', 'ailleurs')`,
+  )
+  await a.cabinet.dorer('qui', 'prudence', prixDeDorure('prudence'))
+  assert.deepEqual(ligne('prudence'), { origine: 'depart', serie_id: 'un-double', prix: null, doree_le: horloge.t, dorure: 'poussiere', prix_dorure: prixDeDorure('prudence') })
+  await assert.rejects(a.cabinet.dorer('qui', 'echange', prixDeDorure('echange')), { message: 'Son cadre est déjà doré' })
+  assert.deepEqual(soldeEnBase(fichier, 'qui'), { solde: initiale - prix - prixDeDorure('prudence') })
+
+  // Une œuvre gagnée chez l'autre, que cette mémoire dit encore manquante : « pas encore à toi » se relit une fois, et
+  // la dorure passe.
+  aLaMain(fichier, `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le) VALUES ('qui', '${communeB}', 'partie', 1)`)
+  await a.cabinet.dorer('qui', communeB, prixDeDorure(communeB))
+  assert.equal((ligne(communeB) as { dorure: string }).dorure, 'poussiere')
+  assert.deepEqual(soldeEnBase(fichier, 'qui'), { solde: initiale - prix - prixDeDorure('prudence') - prixDeDorure(communeB) })
+})
+
+// ── Pendant une partie ────────────────────────────────────────────────────
+
+test('pendant une partie, rien ne s’achète ni ne se dore — ni l’œuvre qu’elle met en jeu, ni une autre : une case de la visite ne trahit pas la sienne', async () => {
+  const paul = await avecDeLaPoussiere('paul', 2000)
+  const attend = 'Ta partie au Pari t’attend : reprends-la ou quitte-la d’abord'
+  // Achetée en pleine chasse, la Leçon entrait sans la partie : arrivée au seuil, la chasse se disait « Pas assez
+  // d'étoiles cette fois… L'œuvre reste à gagner. ». La dépense attend la fin, comme un départ.
+  const chasse = ok(await commencer(b, paul.cookie, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse')
+  assert.deepEqual(refus(await acheter(paul.cookie, 'lecon', prixDAchat('lecon'))), [400, { error: attend }])
+  assert.deepEqual(refus(await acheter(paul.cookie, communeA, prixDAchat(communeA))), [400, { error: attend }])
+  assert.deepEqual(refus(await dorer(paul.cookie, 'prudence', prixDeDorure('prudence'))), [400, { error: attend }])
+  // Ce qui ne se ferait jamais garde son refus à lui.
+  assert.deepEqual(refus(await acheter(paul.cookie, 'prudence', prixDAchat('prudence'))), [400, { error: 'Elle est déjà à toi' }])
+  assert.deepEqual(refus(await dorer(paul.cookie, communeA, prixDeDorure(communeA))), [400, { error: 'Elle n’est pas encore à toi : gagne-la ou achète-la d’abord' }])
+  const fin = await unPariParfait(b, paul.cookie, chasse)
+  assert.deepEqual([fin.bilan?.issue, fin.bilan?.oeuvre], ['gagnee-doree', 'lecon'], 'la Leçon entre en jouant, sans rien payer')
+  const apres = ok(await laPage(b, paul.cookie), 'la page')
+  assert.equal(apres.poussiere, 2000 + fin.bilan!.poussiere)
+  // Finie, la poussière se dépense.
+  assert.equal(ok(await acheter(paul.cookie, communeA, prixDAchat(communeA)), 'l’achat, la partie finie').poussiere, apres.poussiere - prixDAchat(communeA))
+
+  // En visite : l'œuvre que la case met en jeu ne se nomme pas (invariant 1). Refusée pour elle seule, son achat
+  // l'aurait dite ; elle se refuse dans les mêmes mots que toute autre.
+  const rose = await avecDeLaPoussiere('rose', 2000)
+  const visite = ok(await commencer(b, rose.cookie, { origine: 'visite', case: 0, carte: null }), 'la visite')
+  const cible = departEnBase(b.fichier, visite.id).cible as CleDOeuvre
+  assert.ok(cible && !OEUVRES_DE_DEPART.includes(cible), 'une œuvre à gagner')
+  const autre = manquantes.find(o => o.cle !== cible)!.cle
+  const attendLaVisite = `Ta partie ${JEUX[visite.jeu].a} t’attend : reprends-la ou quitte-la d’abord`
+  for (const cle of [cible, autre]) assert.deepEqual(refus(await acheter(rose.cookie, cle, prixDAchat(cle))), [400, { error: attendLaVisite }], cle)
+  const quittee = ok(await jouer(b, rose.cookie, visite, { quoi: 'quitter' }), 'quitter')
+  assert.equal(ok(await acheter(rose.cookie, cible, prixDAchat(cible)), 'l’achat, la visite quittée').poussiere, 2000 + quittee.bilan!.poussiere - prixDAchat(cible))
+})
+
+test('deux serveurs : une partie commencée chez l’autre retient la dépense, que cette mémoire ne la connaisse pas encore', async () => {
+  const horloge = { t: DIX_HEURES }
+  const fichier = path.join(dossierDEssai(), 'cabinet.db')
+  const a = await magasinDEssai(fichier, horloge)
+  const autre = await magasinDEssai(fichier, horloge)
+  donnerALaMain(fichier, 'qui', 2000)
+  await autre.cabinet.page('qui')
+  // L'autre ne sait rien de la chasse : sa règle laisse passer, la base non (`partie IS NULL`) — il relit, et le dit.
+  const chasse = await a.cabinet.commencer('qui', { origine: 'chasse', oeuvre: 'lecon', carte: null })
+  await assert.rejects(autre.cabinet.acheter('qui', 'lecon', prixDAchat('lecon')), { message: 'Ta partie au Pari t’attend : reprends-la ou quitte-la d’abord' })
+  await assert.rejects(autre.cabinet.dorer('qui', 'prudence', prixDeDorure('prudence')), { message: 'Ta partie au Pari t’attend : reprends-la ou quitte-la d’abord' })
+  assert.equal(enBase(fichier, db => (db.prepare('SELECT COUNT(*) AS n FROM cabinet_oeuvres WHERE profile_id = ?').get('qui') as { n: number }).n), 0, 'rien d’acheté ni de doré')
+  assert.deepEqual(soldeEnBase(fichier, 'qui'), { solde: 2000 })
+  // Quittée, sa poussière au solde : la dépense passe.
+  const fin = await a.cabinet.geste('qui', chasse.id, chasse.etat.rang, { quoi: 'quitter' })
+  assert.ok('partie' in fin)
+  await a.cabinet.acheter('qui', 'lecon', prixDAchat('lecon'))
+  assert.deepEqual(soldeEnBase(fichier, 'qui'), { solde: 2000 + fin.partie.bilan!.poussiere - prixDAchat('lecon') })
+})
+
+test('une partie d’un jour d’avant ne retient pas la poussière : la dépense la clôt d’abord, comme la page et le départ', async () => {
+  const jo = await avecDeLaPoussiere('jo', 1000)
+  const hier = ok(await commencer(b, jo.cookie, { origine: 'libre', jeu: 'pari', carte: null }), 'la libre d’hier')
+  b.horloge.t += 24 * 3_600_000
+  try {
+    const page = ok(await acheter(jo.cookie, communeA, prixDAchat(communeA)), 'l’achat du lendemain')
+    assert.equal(page.enCours, null)
+    assert.equal(oeuvreVue(page, communeA).possedee, true)
+    assert.equal(ok(await laPartie(jo.cookie, hier.id), 'la partie d’hier').bilan?.lendemain, true, 'close par le serveur, comme « Quitter »')
+  } finally {
+    b.horloge.t = DIX_HEURES
+  }
 })
 
 // ── Échanger ──────────────────────────────────────────────────────────────
@@ -268,6 +391,25 @@ test('deux serveurs : un seul échange par jour, et pas sur une case que l’aut
   await autre.cabinet.echanger('deux', 1)
 })
 
+test('deux serveurs : une case échangée chez l’autre part à son jeu neuf, jamais au jeu que la mémoire lui donnait', async () => {
+  const horloge = { t: DIX_HEURES }
+  const fichier = path.join(dossierDEssai(), 'cabinet.db')
+  const a = await magasinDEssai(fichier, horloge)
+  const autre = await magasinDEssai(fichier, horloge)
+  // L'autre fige la visite en jouant sa case 0 : sa mémoire la garde telle quelle.
+  const p = await autre.cabinet.commencer('qui', { origine: 'visite', case: 0, carte: null })
+  assert.ok('partie' in (await autre.cabinet.geste('qui', p.id, p.etat.rang, { quoi: 'quitter' })))
+  const avant = (await autre.cabinet.page('qui')).visite.cases[1].jeu
+  // Celui-ci change le jeu de la case 1, en base.
+  const neuf = (await a.cabinet.echanger('qui', 1)).visite.cases[1].jeu
+  assert.notEqual(neuf, avant)
+  // L'autre la commence sur sa mémoire d'avant : la base dit la case à un autre jeu, il relit, et la partie part au
+  // jeu que la visite figée lui donne — celui que la page de l'autre serveur montrait.
+  const partie = await autre.cabinet.commencer('qui', { origine: 'visite', case: 1, carte: null })
+  assert.equal(partie.depart.jeu, neuf)
+  assert.equal(departEnBase(fichier, partie.id).jeu, neuf)
+})
+
 // ── Le cartel ─────────────────────────────────────────────────────────────
 
 test('le cartel : la manche que la partie lui a gardée, relue par le même pli ; sinon ce qui l’a fait entrer', async () => {
@@ -323,6 +465,18 @@ test('le cartel : la manche que la partie lui a gardée, relue par le même pli 
   assert.deepEqual(refus(await leCartel(max.cookie, epique)), [404, { error: 'Elle n’est pas encore à toi : gagne-la ou achète-la d’abord' }])
   assert.deepEqual(refus(await leCartel(max.cookie, 'nulle-part')), [404, { error: 'Cette œuvre n’est pas au Cabinet' }])
   assert.deepEqual(refus(await leCartel(undefined, 'lecon')), [401, { error: CABINET_SANS_PROFIL }])
+})
+
+test('le cartel d’une œuvre gagnée sans rien à raconter dit le jour où elle est entrée, pas celui de sa partie', () => {
+  // Gagnée à 0 h 30 le 25 à Paris : sa partie a pu partir la veille, ou attendre que la page d'un autre jour la close.
+  // La ligne ne garde que l'heure de son entrée (`gagnee_le`) : la phrase dit donc l'entrée, jamais « gagnée le 24 ».
+  const entree = Date.UTC(2026, 9, 24, 22, 30)
+  const ligne = { oeuvre: communeA, origine: 'partie', gagneeLe: entree, saison: null, serieId: null, prix: null, doreeLe: null, dorure: null, prixDorure: null, serieDoree: null } as const
+  assert.equal(
+    cartelDe({ oeuvre: communeA, ligne, partie: null }).dit,
+    'Entrée dans ton musée le 25 octobre 2026, gagnée en jouant. Rejoue-la pour dorer son cadre : elle gardera ici ce que tu auras appris.',
+  )
+  assert.equal(cartelDe({ oeuvre: communeA, ligne: { ...ligne, doreeLe: entree, dorure: 'partie' }, partie: null }).dit, 'Entrée dans ton musée le 25 octobre 2026, gagnée en jouant.')
 })
 
 // ── « Mes réponses » ──────────────────────────────────────────────────────

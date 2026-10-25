@@ -39,6 +39,7 @@ import {
   jeuDeLEchange,
   museeDe,
   possedees,
+  prixDe,
   prochainGardien,
   refusDeLAchat,
   refusDeLEchange,
@@ -869,6 +870,13 @@ test('acheter, dorer : les refus en mots, le prix montré, le solde', () => {
   assert.equal(refusDeLAchat(m, 'plume', B.PRIX_D_UNE_DORURE.commun, 'dorure'), 'Son cadre est déjà doré')
   assert.equal(refusDeLAchat(m, 'prudence', B.PRIX_D_UNE_DORURE.commun, 'dorure'), null)
   assert.equal(refusDeLAchat(museeDe({ jour: JOUR, profil: profil({ poussiere: 199 }) }), 'memoire', 200, 'achat'), 'Il te manque 1 poussière d’or')
+  // Une partie qui attend : rien ne se dépense, quelle que soit l'œuvre — celle qu'elle vise ne se distingue pas des
+  // autres. Ce qui ne se ferait jamais garde son refus à lui.
+  const enPartie = museeDe({ jour: JOUR, profil: profil({ poussiere: 2000 }), oeuvres: [ligne('plume', { doreeLe: MIDI })], enCours: { id: 'p', jeu: 'filet' } })
+  for (const [cle, sorte] of [['memoire', 'achat'], ['bastion', 'achat'], ['prudence', 'dorure']] as const)
+    assert.equal(refusDeLAchat(enPartie, cle, prixDe(cle, sorte), sorte), 'Ta partie au Filet t’attend : reprends-la ou quitte-la d’abord', cle)
+  assert.equal(refusDeLAchat(enPartie, 'prudence', 200, 'achat'), 'Elle est déjà à toi')
+  assert.equal(refusDeLAchat(enPartie, 'plume', B.PRIX_D_UNE_DORURE.commun, 'dorure'), 'Son cadre est déjà doré')
 })
 
 test('les vues dépliées : un composé de l’Éclair vaut une vue de chacune de ses questions, la plus récente l’emporte', () => {

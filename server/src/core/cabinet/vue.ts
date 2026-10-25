@@ -280,7 +280,7 @@ const ENTREES_D_OFFICE: Readonly<Record<Exclude<OrigineDUneOeuvre, 'partie'>, st
  * chasse pour le dorer, elle prendra le cartel de cette partie-là. Doré, rien
  * ne le lui donnera plus — la phrase se tait plutôt que de promettre.
  */
-const CE_QUE_GARDERA_LE_CARTEL ='Rejoue-la pour dorer son cadre : elle gardera ici ce que tu auras appris.'
+const CE_QUE_GARDERA_LE_CARTEL = 'Rejoue-la pour dorer son cadre : elle gardera ici ce que tu auras appris.'
 
 /**
  * Le cartel d'une œuvre à lui, champ par champ : la manche que sa partie a
@@ -289,6 +289,13 @@ const CE_QUE_GARDERA_LE_CARTEL ='Rejoue-la pour dorer son cadre : elle gardera i
  * achetée, rapportée, ou gagnée par une partie qui n'avait rien à raconter.
  * Rien de la partie que la page ne voyait déjà à son bilan : ni le plan, ni
  * la graine, ni une rechange.
+ *
+ * Gagnée sans rien à raconter, sa ligne ne nomme pas sa partie (`serie_id`
+ * garde un cartel, et un double pourra encore lui en donner un) : la phrase
+ * dit le jour de son entrée (`gagnee_le`), pas celui de la partie — une
+ * partie commencée la veille, ou close par la page d'un autre jour, la fait
+ * entrer ce jour-là : « Gagnée en jouant, le 27 » datait du jour de la
+ * clôture une partie jouée le 24.
  */
 export function cartelDe(lu: CartelLu): Cartel {
   const { oeuvre, ligne, partie } = lu
@@ -313,7 +320,7 @@ export function cartelDe(lu: CartelLu): Cartel {
       },
     }
   }
-  const entree = origine === 'partie' ? `Gagnée en jouant, ${leJourDit(jourDe(ligne?.gagneeLe ?? 0))}.` : ENTREES_D_OFFICE[origine]
+  const entree = origine === 'partie' ? `Entrée dans ton musée ${leJourDit(jourDe(ligne?.gagneeLe ?? 0))}, gagnée en jouant.` : ENTREES_D_OFFICE[origine]
   return { oeuvre, origine, doree, dit: doree ? entree : `${entree} ${CE_QUE_GARDERA_LE_CARTEL}` }
 }
 

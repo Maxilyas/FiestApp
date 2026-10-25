@@ -96,8 +96,15 @@ export const PRIX_D_UNE_DORURE: Readonly<Record<Rarete, number>> = { commun: 100
 
 /** La visite du jour : trois parties, trois jeux différents, chacune une œuvre à gagner sans la nommer. */
 export const CASES_DE_LA_VISITE = 3
-/** Un jeu de la visite qu'on peut changer chaque jour, tant que sa case n'est pas jouée. */
-export const ECHANGES_PAR_JOUR = 1
+/**
+ * Un jeu de la visite qu'on peut changer chaque jour, tant que sa case n'est
+ * pas jouée. Un seul, et son type le tient : la visite figée ne garde qu'une
+ * case échangée (`VisiteFigee.echange`), que la règle des échanges et la garde
+ * de la base lisent (`refusDeLEchange`, `lotDeLEchange`). Monté seul, le chiffre
+ * ferait promettre à la page un second échange que le serveur refuserait : en
+ * permettre deux change d'abord la forme de la visite figée.
+ */
+export const ECHANGES_PAR_JOUR: 1 = 1
 /** Les jeux des visites des deux jours d'avant passent après les autres : la visite varie d'un jour à l'autre. */
 export const JOURS_QUI_PASSENT_APRES = 2
 /**

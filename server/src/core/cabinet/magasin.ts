@@ -42,6 +42,7 @@ import {
   PAS_ENCORE_A_TOI,
   cadreDuDepart,
   dorees,
+  ilTeManque,
   jeuDeLEchange,
   museeDe,
   possedees,
@@ -258,14 +259,16 @@ function dejaPayee(g: MuseeGarde, cle: string, sorte: SorteDeDepense): boolean {
 }
 
 /**
- * Ce refus, la base pourrait-elle le démentir ? Le prix montré est bien celui
- * du jour, mais la mémoire dit la poussière qui manque, ou l'œuvre à dorer pas
- * encore à lui — l'autre serveur d'une mise en ligne a pu les lui donner.
+ * Ce refus, la base pourrait-elle le démentir ? Deux seulement : la poussière
+ * qui manque, ou l'œuvre à dorer pas encore à lui — l'autre serveur d'une mise
+ * en ligne a pu les lui donner. Le refus même le dit, tel que la règle l'a
+ * rendu : ce qu'elle dit avant — déjà à lui, déjà doré, une partie qui
+ * attend, le prix changé — la mémoire, jamais en avance, ne le dément pas, et
+ * ne coûte pas un aller-retour.
  */
-function seDementirait(m: Musee, cle: string, prixMontre: unknown, sorte: SorteDeDepense): boolean {
+function seDementirait(m: Musee, cle: string, refus: string, sorte: SorteDeDepense): boolean {
   const prix = prixDe(cle, sorte)
-  if (prix === null || prixMontre !== prix || !estUneOeuvre(cle)) return false
-  return soldeDe(m) < prix || (sorte === 'dorure' && !possedees(m).has(cle))
+  return refus === PAS_ENCORE_A_TOI || (prix !== null && refus === ilTeManque(prix - soldeDe(m)))
 }
 
 /**
@@ -473,6 +476,21 @@ export class CabinetStore {
     if ('refus' in issue) console.error(`[cabinet] la partie ${p.id} d’un jour d’avant ne se clôt pas : ${issue.refus}`)
   }
 
+  /**
+   * Son musée, la partie d'un jour d'avant close d'abord : un départ ou une
+   * dépense ne s'arrête pas sur une partie que le joueur a laissée hier
+   * (« Ta partie au Pari t'attend »), et ce qu'elle rapporte — sa poussière, son
+   * œuvre — compte avant eux. Relue finie, une partie que ce musée disait en
+   * cours l'a emporté avec elle (`partieDe`) : il se relit.
+   */
+  private async museeDuJour(profileId: string, t: number): Promise<MuseeGarde> {
+    const garde = await this.musee(profileId, t)
+    if (!garde.enCours) return garde
+    const p = await this.partieDe(profileId, garde.enCours.id)
+    if (p && !p.etat.fin && estDUnJourDAvant(p.depart, jourDe(t))) await this.clore(profileId, p, t)
+    return this.musee(profileId, t)
+  }
+
   // ── Commencer ─────────────────────────────────────────────────────────
 
   /**
@@ -500,12 +518,7 @@ export class CabinetStore {
       for (let essai = 0; ; essai++) {
         const t = recueLe
         const jour = jourDe(t)
-        const garde = await this.musee(profileId, t)
-        if (garde.enCours) {
-          const p = await this.partieDe(profileId, garde.enCours.id)
-          if (p && !p.etat.fin && estDUnJourDAvant(p.depart, jour)) await this.clore(profileId, p, t)
-        }
-        const g = await this.musee(profileId, t)
+        const g = await this.museeDuJour(profileId, t)
         const musee = this.museeVu(profileId, g)
         const visite = this.visiteDe(profileId, musee, t)
         const cadre = cadreDuDepart(musee, demande, visite, JEUX_PRETS)
@@ -693,7 +706,12 @@ export class CabinetStore {
     return { partie: { ...suite, lueA: this.maintenant() } }
   }
 
-  /** Ce que la fin écrit : le bilan, l'œuvre telle que son musée la tient à présent — une chasse du matin, un achat entre-temps l'ont pu changer. */
+  /**
+   * Ce que la fin écrit : le bilan, l'œuvre telle que son musée la tient à
+   * présent — une chasse du matin l'a pu faire entrer avant la visite ; pendant
+   * la partie, ni achat ni dorure ne la changent (`refusDeLAchat`, et la base
+   * sous `partie IS NULL`).
+   */
   private laFin(profileId: string, garde: MuseeGarde, p: PartieGardee, apres: EtatDeLaPartie): { aEcrire: FinAEcrire } {
     const musee = this.museeVu(profileId, garde)
     const cible = p.depart.cible
@@ -793,11 +811,12 @@ export class CabinetStore {
   }
 
   /**
-   * Une dépense de poussière d'or, sous le verrou du profil : la règle des
-   * refus sur le musée (`refusDeLAchat` — un gardien, une clé inconnue, déjà à
-   * lui, pas encore à lui, déjà doré, le prix changé, ce qu'il manque), puis une
-   * seule instruction, qui revérifie le solde dans la base même (D8). Un aller-
-   * retour ; la page d'après se lit en mémoire.
+   * Une dépense de poussière d'or, sous le verrou du profil : la partie d'un
+   * jour d'avant close d'abord (`museeDuJour`), la règle des refus sur le musée
+   * (`refusDeLAchat` — un gardien, une clé inconnue, déjà à lui, pas encore à
+   * lui, déjà doré, une partie qui attend, le prix changé, ce qu'il manque),
+   * puis une seule instruction, qui revérifie le solde dans la base même (D8).
+   * Un aller-retour ; la page d'après se lit en mémoire.
    *
    * Rejouée — la réponse perdue en route, l'écriture qui attend le réveil de
    * l'hébergeur (`auReveil`) —, elle ne paie pas deux fois : une œuvre déjà
@@ -817,12 +836,12 @@ export class CabinetStore {
       for (let essai = 0; ; essai++) {
         const t = this.maintenant()
         const enMemoire = this.musees.has(profileId)
-        const g = await this.musee(profileId, t)
+        const g = await this.museeDuJour(profileId, t)
         if (dejaPayee(g, cle, sorte)) return this.lecture(profileId, t)
         const musee = this.museeVu(profileId, g)
         const refus = refusDeLAchat(musee, cle, prixMontre, sorte)
         if (refus) {
-          if (enMemoire && essai === 0 && seDementirait(musee, cle, prixMontre, sorte)) {
+          if (enMemoire && essai === 0 && seDementirait(musee, cle, refus, sorte)) {
             this.oublier(profileId)
             continue
           }

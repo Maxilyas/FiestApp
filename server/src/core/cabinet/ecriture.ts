@@ -8,8 +8,9 @@
 // est toujours la première instruction de son lot : la fin d'une partie se dit
 // écrite sur sa ligne (`FinDUnePartie.ecrite`, la porte de la campagne). Un
 // achat et une dorure ne paient que si le solde, relu dans l'instruction même,
-// les couvre ; un échange ne change la visite que si la base la dit pas encore
-// échangée, et sa case pas encore jouée.
+// les couvre, et qu'aucune partie n'attend ; un échange ne change la visite que
+// si la base la dit pas encore échangée, et sa case pas encore jouée ; une case
+// de la visite ne part qu'au jeu que la base lui garde.
 //
 // Le seul fichier qui écrit la colonne `joker` : elle porte le pouvoir qui a
 // aidé une pièce (`pouvoir:eclairer`, `pouvoir:temps`), jamais la clé d'une
@@ -57,9 +58,12 @@ export interface DepartAEcrire {
  * 1. la ligne du profil prend la partie — seulement s'il n'en a pas en cours,
  *    qu'il lui reste une chasse, ou que sa case de la visite n'est pas déjà
  *    commencée aujourd'hui, recomptés par la base même : la mémoire d'un
- *    serveur ne sait pas ce que l'autre vient d'écrire. La série compte le
- *    jour d'un départ en visite ou en chasse ; la visite du jour se fige au
- *    premier lot du jour qui écrit (D17). La première fois, la ligne naît ;
+ *    serveur ne sait pas ce que l'autre vient d'écrire. Une case d'une visite
+ *    déjà figée en base part au jeu que la base lui garde, ou ne part pas :
+ *    l'autre serveur a pu l'échanger, et la mémoire d'ici l'aurait lancée à son
+ *    jeu d'avant. La série compte le jour d'un départ en visite ou en chasse ;
+ *    la visite du jour se fige au premier lot du jour qui écrit (D17). La
+ *    première fois, la ligne naît ;
  * 2. la partie, seulement si la ligne la nomme — une partie libre parmi les
  *    cinq du jour qui paient, comptée là aussi (elle se relit par `RETURNING`) ;
  * 3. l'ouverture de la première manche, seulement si la partie est née.
@@ -85,8 +89,14 @@ export function lotDuDepart(d: DepartAEcrire): InStatement[] {
             visites = CASE WHEN json_valid(visites) AND json_extract(visites, '$[0].jour') = ?4 THEN visites ELSE ?6 END
           WHERE cabinet_profils.partie IS NULL
             AND (?8 <> 'chasse' OR (${duJour('chasse', '?1', '?9')}) < ${CHASSES_PAR_JOUR})
-            AND (?8 <> 'visite' OR (${duJour('visite', '?1', '?9')} AND ${champDuDepart('visite')} = ?10) = 0)`,
-    args: [d.profileId, d.serie, compte, d.jour, d.veille, d.visites, d.t, d.depart.origine, d.minuit, d.depart.visite ?? -1],
+            AND (?8 <> 'visite' OR (${duJour('visite', '?1', '?9')} AND ${champDuDepart('visite')} = ?10) = 0)
+            AND CASE WHEN ?8 = 'visite' AND json_valid(cabinet_profils.visites) AND json_extract(cabinet_profils.visites, '$[0].jour') = ?4
+                     THEN json_extract(cabinet_profils.visites, '$[0].cases[' || CAST(?10 AS INTEGER) || '].jeu') = ?11
+                     ELSE 1 END`,
+    // Le jeu ne sert qu'à la garde de la case. Un `CASE`, et non un `OR` : le chemin d'une case −1 (une chasse, une
+    // libre) ne se lit jamais, et une visite pas encore figée — `NULL` au jour — n'a rien à garder. L'indice se lie en
+    // réel (`1.0`), que le chemin d'un tableau refuse : il se coupe en entier.
+    args: [d.profileId, d.serie, compte, d.jour, d.veille, d.visites, d.t, d.depart.origine, d.minuit, d.depart.visite ?? -1, d.depart.jeu],
   }
   // La partie libre se dit payée ou non par la base : deux onglets qui partent ensemble ne paient pas six fois.
   const cabinet =
@@ -235,6 +245,14 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
 const SOLDE = `(SELECT poussiere FROM cabinet_profils WHERE profile_id = ?)
              - (SELECT COALESCE(SUM(COALESCE(prix, 0) + COALESCE(prix_dorure, 0)), 0) FROM cabinet_oeuvres WHERE profile_id = ?)`
 
+/**
+ * Aucune partie n'attend, dit la base : ce qu'une partie fait à son œuvre se
+ * décide à sa fin, et l'autre serveur d'une mise en ligne a pu en commencer une
+ * que la mémoire d'ici ne connaît pas encore (`refusDeLAchat` le dit en mots,
+ * une fois relue). Par la clé du profil, la même ligne que le solde.
+ */
+const SANS_PARTIE = '(SELECT partie FROM cabinet_profils WHERE profile_id = ?) IS NULL'
+
 export interface DepenseAEcrire {
   profileId: string
   oeuvre: string
@@ -245,40 +263,42 @@ export interface DepenseAEcrire {
 
 /**
  * Un achat, une seule instruction : la ligne de l'œuvre, seulement si le solde
- * la paie et qu'elle n'est pas déjà là. `rowsAffected = 0` dit l'un ou l'autre,
- * sans rien écrire — le magasin relit et dit lequel. Rejoué (la réponse perdue
- * en route, `auReveil`), il ne paie pas deux fois : la clé de la ligne le garde.
+ * la paie, qu'aucune partie n'attend et qu'elle n'est pas déjà là.
+ * `rowsAffected = 0` dit l'un ou l'autre, sans rien écrire — le magasin relit
+ * et dit lequel. Rejoué (la réponse perdue en route, `auReveil`), il ne paie
+ * pas deux fois : la clé de la ligne le garde.
  */
 export function instructionDeLAchat(a: DepenseAEcrire): InStatement {
   return {
     sql: `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, prix)
-          SELECT ?, ?, 'achat', ?, ? WHERE ${SOLDE} >= ?
+          SELECT ?, ?, 'achat', ?, ? WHERE ${SOLDE} >= ? AND ${SANS_PARTIE}
           ON CONFLICT (profile_id, oeuvre) DO NOTHING`,
-    args: [a.profileId, a.oeuvre, a.t, a.prix, a.profileId, a.profileId, a.prix],
+    args: [a.profileId, a.oeuvre, a.t, a.prix, a.profileId, a.profileId, a.prix, a.profileId],
   }
 }
 
 /**
- * Une dorure à la poussière, une seule instruction, sous le solde et sous un
- * cadre pas encore doré. Une œuvre de départ n'a pas toujours de ligne — elle
- * est à tous par règle : la sienne naît ici, d'origine `depart`, ou prend sa
- * dorure si un cartel la lui a déjà donnée. Toute autre œuvre à lui a sa ligne,
- * qui garde son origine et son prix : rien ne s'y efface.
+ * Une dorure à la poussière, une seule instruction, sous le solde, sans partie
+ * qui attende, et sous un cadre pas encore doré. Une œuvre de départ n'a pas
+ * toujours de ligne — elle est à tous par règle : la sienne naît ici, d'origine
+ * `depart`, ou prend sa dorure si un cartel la lui a déjà donnée. Toute autre
+ * œuvre à lui a sa ligne, qui garde son origine et son prix : rien ne s'y
+ * efface.
  */
 export function instructionDeLaDorure(d: DepenseAEcrire & { deDepart: boolean }): InStatement {
   if (d.deDepart) {
     return {
       sql: `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, doree_le, dorure, prix_dorure)
-            SELECT ?, ?, 'depart', ?, ?, 'poussiere', ? WHERE ${SOLDE} >= ?
+            SELECT ?, ?, 'depart', ?, ?, 'poussiere', ? WHERE ${SOLDE} >= ? AND ${SANS_PARTIE}
             ON CONFLICT (profile_id, oeuvre) DO UPDATE SET doree_le = excluded.doree_le, dorure = excluded.dorure, prix_dorure = excluded.prix_dorure
              WHERE cabinet_oeuvres.doree_le IS NULL`,
-      args: [d.profileId, d.oeuvre, d.t, d.t, d.prix, d.profileId, d.profileId, d.prix],
+      args: [d.profileId, d.oeuvre, d.t, d.t, d.prix, d.profileId, d.profileId, d.prix, d.profileId],
     }
   }
   return {
     sql: `UPDATE cabinet_oeuvres SET doree_le = ?, dorure = 'poussiere', prix_dorure = ?
-           WHERE profile_id = ? AND oeuvre = ? AND doree_le IS NULL AND ${SOLDE} >= ?`,
-    args: [d.t, d.prix, d.profileId, d.oeuvre, d.profileId, d.profileId, d.prix],
+           WHERE profile_id = ? AND oeuvre = ? AND doree_le IS NULL AND ${SOLDE} >= ? AND ${SANS_PARTIE}`,
+    args: [d.t, d.prix, d.profileId, d.oeuvre, d.profileId, d.profileId, d.prix, d.profileId],
   }
 }
 
