@@ -18,9 +18,13 @@
 // la visite tant qu'elle n'est pas gagnée.
 //
 // Ces types naissent complets (lot B3) : la chaîne du serveur les remplit,
-// celle de la page les lit, sans y toucher.
+// celle de la page les lit, sans y toucher. Un seul champ s'y est ajouté
+// depuis, du côté du serveur : l'indice du tirage d'une manche
+// (`VueDeLaPartie.tirage`, `RevelationVue.tirage`), sans lequel la page ne
+// compose pas l'adresse d'une image du Détail (`adresseDUnCadrage`).
 
 import type { CleDeCompagnon } from '../compagnons'
+import { PREFIXE_DE_LA_FRISE } from '../frise'
 import type { PalierTombe } from '../jour'
 import type { CleDeSaison } from '../saisons'
 import type { CleDOeuvre, Rarete } from './oeuvres'
@@ -143,7 +147,13 @@ export interface CarteVue {
 /** La révélation d'une manche tranchée : le corps de son jeu, et ce qu'en dit la partie. */
 export interface RevelationVue {
   manche: Manche
-  /** L'indice, dans le plan figé, du contenu que la manche a joué — après « Changer », une rechange : l'adresse du tableau entier du Détail le porte (`adresseDUnCadrage`). Toujours posé par la vue. */
+  /**
+   * L'indice, dans le plan figé, du contenu que la manche a joué — après
+   * « Changer », une rechange : l'adresse du tableau entier du Détail le porte
+   * (`adresseDUnCadrage`), jamais l'indice de la manche à sa place — le cache du
+   * téléphone rendrait l'image d'avant. Toujours posé par la vue ; facultatif
+   * pour les révélations écrites à la main des épreuves de la page.
+   */
   tirage?: number
   fin: FinDUneManche
   /** Les positions de ses pièces que « Signaler une erreur » vise : les seules questions de la base — le Pari, le Mot, le Filet. */
@@ -281,13 +291,19 @@ export interface CabinetDAccueil {
 /**
  * Ce qu'il a vu, déplié pour le Cabinet : un composé de l'Éclair ou d'une
  * frise de sujet vaut une vue de chacune de ses questions, à la même heure —
- * une question vue à l'Éclair ne revient pas au Pari avant sept jours. Le plus
- * récent l'emporte. La série, elle, lit `vuesDe` tel quel : une question vue
- * dans un composé du Cabinet peut y revenir, sans danger — la série ne reprend
- * pas ce que l'Éclair a récrit.
+ * une question vue à l'Éclair ne revient pas au Pari avant sept jours. Une
+ * frise de l'Expédition aussi (`frise:<id>+<id>…`, une ligne pour toute la
+ * frise) : elle a dit l'année de chacun de ses événements, et sans elle un
+ * événement rangé hier là-bas repassait pour frais dans la Frise du Cabinet.
+ * Le plus récent l'emporte. La série, elle, lit `vuesDe` tel quel : une
+ * question vue dans un composé peut y revenir, sans danger — la série ne
+ * reprend pas ce que l'Éclair a récrit.
  */
 export function vuesDuCabinet(vues: ReadonlyMap<string, number>): Map<string, number> {
   const depliees = new Map<string, number>()
-  for (const [id, le] of vues) for (const q of deplier(id)) depliees.set(q, Math.max(le, depliees.get(q) ?? Number.NEGATIVE_INFINITY))
+  for (const [id, le] of vues) {
+    const questions = id.startsWith(PREFIXE_DE_LA_FRISE) ? id.slice(PREFIXE_DE_LA_FRISE.length).split('+') : deplier(id)
+    for (const q of questions) depliees.set(q, Math.max(le, depliees.get(q) ?? Number.NEGATIVE_INFINITY))
+  }
   return depliees
 }

@@ -55,6 +55,7 @@ import {
   type VisiteFigee,
 } from '../../shared/cabinet/musee'
 import { vuesDuCabinet } from '../../shared/cabinet/vues'
+import { PREFIXE_DE_LA_FRISE } from '../../shared/frise'
 import { REGLES } from '../../shared/cabinet/jeux/index'
 import { CLES_DES_JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import * as Outils from '../../shared/cabinet/jeux/outils'
@@ -873,6 +874,10 @@ test('acheter, dorer : les refus en mots, le prix montré, le solde', () => {
 test('les vues dépliées : un composé de l’Éclair vaut une vue de chacune de ses questions, la plus récente l’emporte', () => {
   const vues = vuesDuCabinet(new Map([['cab:eclair:a+b+c', 10], ['b', 20], ['cab:lieu:x', 5], ['cab:frise:s:d+e', 7]]))
   assert.deepEqual(Object.fromEntries(vues), { a: 10, b: 20, c: 10, 'cab:lieu:x': 5, d: 7, e: 7 })
+  // Une frise de l'Expédition tient en une ligne, ses questions jointes : ses événements, dévoilés avec leur année, sont
+  // vus comme ceux d'une frise du Cabinet — le Pari ne repose pas la semaine même la question dont elle a dit l'année.
+  const avecLExpedition = vuesDuCabinet(new Map([[`${PREFIXE_DE_LA_FRISE}f+g+b`, 30], ['g', 40]]))
+  assert.deepEqual(Object.fromEntries(avecLExpedition), { f: 30, g: 40, b: 30 })
 })
 
 test('le pouvoir de la carte-bonus, maintenant : la vue le porte, la page grise sans rien recopier', () => {

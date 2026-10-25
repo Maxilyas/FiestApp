@@ -89,8 +89,8 @@ export function mountCabinet(app: Express, deps: CabinetDeps) {
     }),
   )
 
-  // Un cadrage d'un tableau du Détail (la conception, § 3.4) : jamais `client/public`, où le tableau entier se serait
-  // téléchargé avant la réponse (invariant 1). L'adresse dit la partie, l'indice du tableau dans son plan figé et le
+  // Un cadrage d'un tableau du Détail, servi par la partie et pas par `client/public`, où n'importe qui aurait pu demander
+  // le tableau entier avant la réponse (invariant 1). L'adresse dit la partie, l'indice du tableau dans son plan figé et le
   // cadrage — ni son identifiant, ni son titre ; une image par adresse, gardée un jour par le téléphone, comme celles de
   // l'Expédition. Un refus, lui, ne se garde pas (`no-store`) : après « Reculer », la même adresse sert.
   app.get(

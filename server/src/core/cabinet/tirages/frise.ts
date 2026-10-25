@@ -10,7 +10,8 @@
 // L'une et l'autre en alternance de fraîcheur : une frise à thème est fraîche
 // s'il ne l'a pas rangée ces sept jours (`JOURS_SANS_REDITE`), celle d'un sujet
 // si aucune question de ses sept événements n'a été vue ces sept jours — au
-// Cabinet, dépliée de sa pièce, ou ailleurs dans la campagne. Fraîches toutes
+// Cabinet, dépliée de sa pièce, ou ailleurs dans la campagne, une frise de
+// l'Expédition comprise (`vuesDuCabinet` les déplie toutes). Fraîches toutes
 // deux, le hasard du serveur choisit ; une seule, c'est elle ; aucune, le
 // hasard encore, parmi la moins vue de chaque sorte. Un sujet se tire dans un
 // ordre battu, le premier qui donne sept événements frais l'emporte : un ou

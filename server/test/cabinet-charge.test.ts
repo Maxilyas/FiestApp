@@ -41,7 +41,7 @@ import {
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import { ETOILES_DU_PARI, POUSSIERE_MIN, POUSSIERE_PAR_ETOILE } from '../../shared/cabinet/bareme'
 import { CATEGORIES } from '../../shared/categories'
-import type { PartieLue } from '../src/core/cabinet/magasin'
+import { PARTIES_GARDEES, type PartieLue } from '../src/core/cabinet/magasin'
 import { ProfileStore } from '../src/auth/profiles'
 
 after(fermerLesMagasins)
@@ -166,6 +166,20 @@ test('deux serveurs : un rang en avance sur la mémoire la relit, et le geste se
   assert.equal(double.appels, 0)
 })
 
+test('deux serveurs : une partie sortie de la mémoire, finie chez l’autre puis relue à la page, emporte son musée avec elle', async () => {
+  // Deux cents parties en cours plus récentes l'ont poussée hors de la mémoire de ce serveur (`PARTIES_GARDEES`) ; son
+  // musée, lui, y est resté (`MUSEES_GARDES`). L'autre la finit. Relue finie à la page, elle laissait son musée la croire
+  // en cours : la page ne la montrait plus, et tout départ se refusait derrière elle, jusqu'au redémarrage.
+  const { a, b } = await deuxServeurs()
+  const p = await a.cabinet.commencer('qui', { origine: 'libre', jeu: 'pari', carte: null })
+  assert.equal((await b.cabinet.page('qui')).enCours?.id, p.id, 'ce serveur la garde, avec son musée')
+  for (let i = 0; i < PARTIES_GARDEES; i++) await b.cabinet.commencer(`joueur-${i}`, { origine: 'libre', jeu: 'pari', carte: null })
+  assert.ok('partie' in (await a.cabinet.geste('qui', p.id, p.etat.rang, { quoi: 'quitter' })))
+  const page = await b.cabinet.page('qui')
+  assert.deepEqual([page.enCours, page.musee.enCours], [null, null], 'ni la page, ni son musée ne la disent en cours')
+  assert.equal((await b.cabinet.commencer('qui', { origine: 'libre', jeu: 'eclair', carte: null })).depart.jeu, 'eclair')
+})
+
 test('la fin rend la poussière au solde même quand la ligne du profil ne nomme plus sa partie, et ne rend que la sienne', async () => {
   // Un serveur qui ne relit pas une partie — le départ d'une version que l'autre serveur d'une mise en ligne connaît déjà
   // — rend la ligne du profil (`rendreLaPartieIllisible`) ; l'autre finit la partie. Gardée par `partie = ?`, la
@@ -224,13 +238,13 @@ test('la suppression d’un profil attend ce qui est en route : un départ, un g
   assert.deepEqual(reste('fini'), { profils: 0, series: 0, gestes: 0, oeuvres: 0 })
 })
 
-test('les tas d’une liste de jouables neuve se préparent une catégorie par tour de boucle, même sous un départ', async () => {
+test('les tas d’une liste de jouables neuve se préparent une étape par tour de boucle — chaque catégorie, les tableaux, les frises —, même sous un départ', async () => {
   // La liste des jouables change d'identité — la réserve du jour, un retrait, une base relue — et ses tas avec. Préparés
   // une fois par processus, le départ suivant passait toute la base au crible d'un bloc, sur son chemin : près d'une
   // seconde sur la vraie base ici, dix fois plus au dixième de cœur de l'hébergeur.
   const { a } = await deuxServeurs()
   const porte = a.campagne.porte()
-  const avant = { jouables: porte.jouables, deLaCategorie: porte.deLaCategorie }
+  const avant = { jouables: porte.jouables, deLaCategorie: porte.deLaCategorie, parIdDe: porte.parIdDe, evenementsDe: porte.evenementsDe }
   let liste = await avant.jouables()
   porte.jouables = async () => liste
   // Chaque catégorie passée au crible, et le tour de boucle où elle l'a été.
@@ -243,19 +257,43 @@ test('les tas d’une liste de jouables neuve se préparent une catégorie par t
   setImmediate(tic)
   const cribles: number[] = []
   porte.deLaCategorie = (jouables, categorie) => (cribles.push(tour), avant.deLaCategorie(jouables, categorie))
+  // Ce que le Détail et la Frise lisent de la base, au tour où ils l'ont lu : la question de chaque tableau (`parIdDe`,
+  // `questionsDesTableaux`), puis les sujets qui font une frise (`parIdDe` et `evenementsDe`, `frisesDesSujets` — quinze
+  // millisecondes sur la base livrée ici, dix fois plus chez l'hébergeur : sur le chemin d'un départ, on le verrait).
+  const lus = { parIdDe: [] as number[], evenementsDe: [] as number[] }
+  porte.parIdDe = jouables => (lus.parIdDe.push(tour), avant.parIdDe(jouables))
+  porte.evenementsDe = jouables => (lus.evenementsDe.push(tour), avant.evenementsDe(jouables))
+  /** Les étapes d'une préparation : chaque catégorie, la question des tableaux, les sujets des frises — chacune son tour. */
+  const chacuneSonTour = () => {
+    const [tableaux, sujets] = lus.parIdDe
+    assert.deepEqual([lus.parIdDe.length, lus.evenementsDe], [2, [sujets]], 'les tableaux, puis les sujets, une fois chacun')
+    const tours = [...cribles, tableaux, sujets]
+    assert.equal(new Set(tours).size, CATEGORIES.length + 2, `chaque étape à son tour de boucle, jamais d'un bloc : ${tours.join(', ')}`)
+  }
   try {
     // La page les prépare en fond ; le départ qui suit les trouve prêts.
     await a.cabinet.prechauffer()
     assert.equal(cribles.length, CATEGORIES.length)
+    chacuneSonTour()
     const premier = await a.cabinet.commencer('qui', { origine: 'libre', jeu: 'pari', carte: null })
     assert.equal(cribles.length, CATEGORIES.length, 'prêts : le départ ne fait que tirer')
     assert.ok('partie' in (await a.cabinet.geste('qui', premier.id, 2, { quoi: 'quitter' })))
-    // Une liste neuve sans page : le départ attend leur préparation, qui rend la main entre deux catégories.
+    // Le Détail et la Frise de même : ni la question d'un tableau, ni les sujets ne se refont sous leur départ.
+    for (const jeu of ['detail', 'frise'] as const) {
+      const p = await a.cabinet.commencer('qui', { origine: 'libre', jeu, carte: null })
+      assert.deepEqual([cribles.length, lus.evenementsDe.length], [CATEGORIES.length, 1], `prêts : le départ ${jeu === 'detail' ? 'du Détail' : 'de la Frise'} ne fait que tirer`)
+      if (jeu === 'detail') assert.equal(lus.parIdDe.length, 2, 'la question de chaque tableau, déjà lue')
+      assert.ok('partie' in (await a.cabinet.geste('qui', p.id, p.etat.rang, { quoi: 'quitter' })))
+    }
+    // Une liste neuve sans page : le départ attend leur préparation, qui rend la main entre deux étapes.
     liste = [...liste]
     cribles.length = 0
+    lus.parIdDe.length = 0
+    lus.evenementsDe.length = 0
     await a.cabinet.commencer('qui', { origine: 'libre', jeu: 'eclair', carte: null })
     assert.equal(cribles.length, CATEGORIES.length)
     assert.equal(new Set(cribles).size, CATEGORIES.length, `chaque catégorie à son tour de boucle, jamais d'un bloc : ${cribles.join(', ')}`)
+    chacuneSonTour()
   } finally {
     tourne = false
     Object.assign(porte, avant)

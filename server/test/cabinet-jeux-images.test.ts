@@ -10,10 +10,14 @@
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import net from 'node:net'
 import path from 'node:path'
+import express from 'express'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { hasardDe } from '../../shared/missions'
-import { anneeDite, choisirLaFriseSansRepli } from '../../shared/frise'
+import { PREFIXE_DE_LA_FRISE, anneeDite, choisirLaFriseSansRepli } from '../../shared/frise'
+import { ERREUR_SERVEUR } from '../src/core/http'
+import { releve } from '../src/core/pouls'
 import { lireLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { detailsDeLaBase, fichierDuCadrage, tableauxDuDetail } from '../src/core/details'
 import { evenementsDeLaBase } from '../src/core/frises'
@@ -63,9 +67,11 @@ import { effacablesAuPlus, refusDuPouvoir } from '../../shared/cabinet/pouvoirs'
 import { PREFIXE_DU_CABINET, deplier, idDeLaFriseATheme, idDeLaFriseDeSujet, idDuTableau } from '../../shared/cabinet/pieces'
 import { JEUX, justeDeLaPiece } from '../../shared/cabinet/jeux/regle'
 import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/outils'
+import { vuesDuCabinet } from '../../shared/cabinet/vues'
 import {
   QUESTION_DU_TABLEAU,
   REGLE_DU_DETAIL,
+  adresseDUnCadrage,
   detailTire,
   refusDuCadrage,
   type DetailTire,
@@ -845,7 +851,8 @@ test('la Frise : la révélation range tout à sa vraie année, et dit le savais
 })
 
 test('le Détail et la Frise sont purs : ni horloge, ni hasard à eux', () => {
-  // Le hasard vient de la graine de la partie (Éclairer, le tirage), l'heure du serveur : rejoué, le pli redonne tout.
+  // Le hasard vient de qui appelle — le serveur au tirage, la graine secrète de la partie pour Éclairer —, l'heure aussi :
+  // rejoué, le pli redonne tout.
   for (const f of ['detail.ts', 'frise.ts', 'outils.ts']) {
     const texte = readFileSync(new URL(`../../shared/cabinet/jeux/${f}`, import.meta.url), 'utf8')
     assert.ok(!/Date\.now|new Date|Math\.random|performance\.now/.test(texte), f)
@@ -910,12 +917,24 @@ test('le tirage du Détail : un tableau de la fiche, jamais vu d’abord, ni le 
       if (t.anecdote) avecAnecdote++
     }
     assert.equal(new Set(plan.map(t => t.tableau.qid)).size, plan.length, 'jamais deux fois le même tableau, rechanges comprises')
+    // Et un leurre ne reprend jamais le tableau d'une autre manche — ni d'avant, ni d'une rechange : sa manche se répondrait
+    // d'avoir vu l'autre.
+    plan.forEach((t, k) => {
+      const ailleurs = new Set(plan.filter((_, j) => j !== k).map(x => x.titres[x.bonne].titre))
+      for (const [i, x] of t.titres.entries()) assert.ok(i === t.bonne || !ailleurs.has(x.titre), `${x.titre}, leurre de la manche ${k}, est la réponse d’une autre`)
+    })
   }
   assert.ok(avecAnecdote > 0)
 
   // Le jamais vu d'abord : tous vus sauf deux — au Cabinet, ou par une question de la base qui le demande —, puis le plus
-  // anciennement vu, parmi ceux dont le titre n'a pas encore été proposé.
-  const [a, b, c, ...autres] = tableaux
+  // anciennement vu, parmi ceux dont le titre n'a pas encore été proposé. Les deux jamais vus aux deux bouts du temps :
+  // voisins en années, le titre de l'un, proposé en leurre à l'autre, l'écarterait de la réponse — par la règle, pas par
+  // le hasard de l'ordre du fichier.
+  const parAnnee = [...tableaux].sort((x, y) => x.annee - y.annee)
+  const [a, b] = [parAnnee[0], parAnnee[parAnnee.length - 1]]
+  const [c, ...autres] = tableaux.filter(t => t !== a && t !== b)
+  const prochesDe = (t: typeof a) => parAnnee.filter(x => x !== t).sort((x, y) => Math.abs(x.annee - t.annee) - Math.abs(y.annee - t.annee)).slice(0, VOISINS_EN_ANNEES)
+  assert.ok(!prochesDe(a).includes(b) && !prochesDe(b).includes(a), 'aucun des deux parmi les voisins de l’autre')
   const vues = new Map<string, number>(autres.map((t, i) => [idDuTableau(t.qid), DIX_HEURES - (i + 2) * UNE_HEURE]))
   vues.set(c.questions[0], DIX_HEURES - UNE_HEURE)
   const vuLe = (qid: string) => (qid === c.qid ? DIX_HEURES - UNE_HEURE : vues.get(idDuTableau(qid)))
@@ -973,9 +992,14 @@ test('le tirage de la Frise : trois vagues d’une même frise, à thème ou d�
   const ceMatin = DIX_HEURES - UNE_HEURE
   const themesRanges = new Map([...themes.keys()].flatMap(id => [0, 1, 2].map(k => [idDeLaFriseATheme(id, k), ceMatin] as const)))
   const evenementsVus = new Map(evenements.map(e => [e.id, ceMatin]))
+  // Rangées par l'Expédition aussi : ses frises tiennent en une ligne, leurs questions jointes (`frise:<id>+<id>…`), que
+  // les vues du Cabinet déplient comme les siennes — sans quoi un événement rangé hier là-bas repassait ici pour frais.
+  const ids = evenements.map(e => e.id)
+  const frisesDeLExpedition = new Map(Array.from({ length: Math.ceil(ids.length / 4) }, (_, i) => [PREFIXE_DE_LA_FRISE + ids.slice(4 * i, 4 * i + 4).join('+'), ceMatin] as const))
   for (let essai = 0; essai < 20; essai++) {
     assert.equal((tirerLePlan('frise', surLaBaseLivree(themesRanges), 0) as FriseTiree[])[0].sorte, 'sujet')
     assert.equal((tirerLePlan('frise', surLaBaseLivree(evenementsVus), 0) as FriseTiree[])[0].sorte, 'theme')
+    assert.equal((tirerLePlan('frise', surLaBaseLivree(vuesDuCabinet(frisesDeLExpedition)), 0) as FriseTiree[])[0].sorte, 'theme', 'vues dans une frise de l’Expédition')
   }
 })
 
@@ -1047,6 +1071,33 @@ test('deux serveurs pendant une mise en ligne : un cadrage atteint chez l’autr
   assert.deepEqual(await b.cabinet.cadrage('qui', p.id, 0, 3), { refus: 'Recule d’un pas pour voir plus' })
   const horsDesQuatre = await allersRetours(() => b.cabinet.cadrage('qui', p.id, 0, 5))
   assert.deepEqual([horsDesQuatre.appels, horsDesQuatre.resultat], [0, { refus: 'Ce cadrage n’existe pas' }])
+  // Ce que le plan figé suffit à refuser ne se relit pas non plus, quoi que l'autre ait joué : un indice hors du plan ou
+  // illisible, la partie d'un autre jeu. Une page qui se trompe ne paie pas un aller-retour par demande, sous le verrou.
+  for (const tirage of [3, 9, Number.NaN, -1, 0.5]) {
+    const r = await allersRetours(() => b.cabinet.cadrage('qui', p.id, tirage, 1))
+    assert.deepEqual([r.appels, r.resultat], [0, { introuvable: 'tableau' }], `le tirage ${tirage}`)
+  }
+  const pari = await b.cabinet.commencer('autre', { origine: 'libre', jeu: 'pari', carte: null })
+  const auPari = await allersRetours(() => b.cabinet.cadrage('autre', pari.id, 0, 1))
+  assert.deepEqual([auPari.appels, auPari.resultat], [0, { introuvable: 'tableau' }], 'une partie du Pari n’a pas de tableau')
+})
+
+test('deux serveurs : une partie finie chez l’autre, relue pour un cadrage, ne laisse pas son musée la croire en cours', async () => {
+  // L'autre serveur finit la partie ; la page demande à celui-ci le tableau entier de la révélation. Relue pour le
+  // servir, la partie est finie : le musée gardé ici, qui la disait en cours, ne dit plus vrai — gardé, il refusait tout
+  // départ (« Ta partie au Détail t'attend ») à une partie que plus rien ne pouvait finir.
+  const fichier = path.join(dossierDEssai(), 'finie-ailleurs.db')
+  const horloge = { t: DIX_HEURES }
+  const a = await magasinDEssai(fichier, horloge)
+  const b = await magasinDEssai(fichier, horloge)
+  const p = await a.cabinet.commencer('qui', { origine: 'libre', jeu: 'detail', carte: null })
+  assert.equal((await b.cabinet.page('qui')).enCours?.id, p.id, 'l’autre la garde, avec son musée')
+  assert.ok('partie' in (await a.cabinet.geste('qui', p.id, p.etat.rang, { quoi: 'quitter' })))
+  assert.ok('fichier' in (await b.cabinet.cadrage('qui', p.id, 0, 4)), 'refusé sur sa mémoire, il relit la partie, finie : tout se sert')
+  const page = await b.cabinet.page('qui')
+  assert.deepEqual([page.enCours, page.musee.enCours], [null, null], 'son musée ne la dit plus en cours')
+  const suivante = await b.cabinet.commencer('qui', { origine: 'libre', jeu: 'pari', carte: null })
+  assert.equal(suivante.depart.jeu, 'pari', 'une autre partie part')
 })
 
 /** Les octets d'un cadrage tel que le serveur le garde, à côté de la route. */
@@ -1143,6 +1194,75 @@ test('par les routes : après « Changer », l’adresse dit la rechange — l�
   assert.equal((await unCadrage(b, ines, v.id, 3, 4)).status, 200)
   assert.equal((await unCadrage(b, ines, v.id, 0, 1)).status, 404)
   assert.equal((await unCadrage(b, ines, v.id, 1, 1)).status, 404, 'une manche jamais ouverte n’a pas de tableau')
+})
+
+test('par les routes : un cadrage que le téléphone n’attend plus n’est pas une panne ; une vraie panne se dit, et ne se garde pas', async () => {
+  const b = await unBanc()
+  const zoe = await inscrireProfil(b.banc.url, 'zoe-detail', 'Zoé')
+  const v = ok(await commencer(b, zoe, { origine: 'libre', jeu: 'detail', carte: null }), 'le Détail')
+  const route = 'GET /api/cabinet/partie/:id/detail/:tirage/:cadrage'
+  const auReleve = () => releve.lignes('banc').reduce((n, l) => n + (l.erreurs[route] ?? 0), 0)
+  const releveAvant = auReleve()
+  const journal: string[] = []
+  const errorAvant = console.error
+  const warnAvant = console.warn
+  console.error = console.warn = (...args: unknown[]) => void journal.push(args.map(String).join(' '))
+  // Ce que `sendFile` dit à la route, guetté sans rien y changer : on attend chaque fin plutôt qu'un délai.
+  const reponse = express.response as unknown as { sendFile: (...args: unknown[]) => void }
+  const sendFileAvant = reponse.sendFile
+  const ABANDONS = 4
+  const codes: unknown[] = []
+  let tousServis!: () => void
+  const servis = new Promise<void>(r => (tousServis = r))
+  reponse.sendFile = function (this: unknown, ...args: unknown[]) {
+    const fin = args.pop() as (e?: Error) => void
+    sendFileAvant.call(this, ...args, (e?: Error) => {
+      try {
+        fin(e)
+      } finally {
+        codes.push((e as NodeJS.ErrnoException | undefined)?.code)
+        if (codes.length === ABANDONS) tousServis()
+      }
+    })
+  }
+  try {
+    // Un téléphone qui change d'écran ou perd le réseau, sa demande à peine partie : la route lit la partie, puis
+    // `sendFile` ne trouve plus personne à qui répondre (ECONNABORTED).
+    const { port } = new URL(b.banc.url)
+    for (let i = 0; i < ABANDONS; i++) {
+      await new Promise<void>((resolve, reject) => {
+        const socket = net.connect(Number(port), 'localhost', () => {
+          socket.write(`GET ${adresseDUnCadrage(v.id, 0, 1)} HTTP/1.1\r\nHost: localhost\r\nCookie: ${zoe}\r\nX-Requested-With: quizz\r\n\r\n`, () => {
+            socket.destroy()
+            resolve()
+          })
+        })
+        socket.on('error', reject)
+      })
+    }
+    await servis
+    assert.deepEqual(codes, Array(ABANDONS).fill('ECONNABORTED'), 'chaque téléchargement parti en route')
+    assert.deepEqual(journal, [], 'rien au journal du serveur')
+    assert.equal(auReleve(), releveAvant, 'aucune erreur serveur au relevé de l’heure')
+    // Un disque qui ne rend pas l'image : une erreur serveur, dite au journal et au relevé — et sa réponse ne se garde
+    // pas sous l'adresse de l'image, que le téléphone redemandera.
+    reponse.sendFile = (...args: unknown[]) => {
+      const fin = args.pop() as (e?: Error) => void
+      setImmediate(() => fin(Object.assign(new Error('lecture impossible'), { code: 'EIO' })))
+    }
+    const panne = await unCadrage(b, zoe, v.id, 0, 1)
+    assert.deepEqual([panne.status, panne.erreur], [500, ERREUR_SERVEUR])
+    assert.equal(panne.entetes.get('cache-control'), 'no-store')
+    assert.match(panne.entetes.get('content-type') ?? '', /json/)
+    assert.equal(auReleve(), releveAvant + 1)
+    assert.equal(journal.length, 1, journal.join('\n'))
+  } finally {
+    reponse.sendFile = sendFileAvant
+    console.error = errorAvant
+    console.warn = warnAvant
+  }
+  // Rien de cassé : la même adresse sert, ensuite.
+  assert.equal((await unCadrage(b, zoe, v.id, 0, 1)).status, 200)
 })
 
 test('par les routes : la Frise d’un bout à l’autre — trois, puis deux, puis deux nouveaux venus, sans faute, neuf étoiles ; Changer n’y sert jamais', async () => {

@@ -213,6 +213,18 @@ function cadrageDeLaPartie(p: PartieGardee, tirage: number, cadrage: number): Ex
   return { fichier: fichierDuCadrage((p.depart.tirages[m.tirage] as DetailTire).tableau.qid, cadrage) }
 }
 
+/**
+ * Ce cadrage se servira-t-il jamais de cette partie, quoi que l'autre serveur
+ * d'une mise en ligne y ait joué ? Un autre jeu, un indice hors de son plan
+ * figé, un cadrage hors des quatre : jamais — le départ seul le dit, et un
+ * refus n'a rien à relire. Une page qui se trompe ne paie donc pas un
+ * aller-retour par demande, sous le verrou du profil.
+ */
+function peutSeServir(d: DepartDUnePartie, tirage: number, cadrage: number): boolean {
+  if (d.jeu !== 'detail' || !Number.isInteger(tirage) || tirage < 0 || tirage >= d.tirages.length) return false
+  return refusDuCadrage({ cadrage: 0, effaces: [] }, cadrage, true) === null
+}
+
 export class CabinetStore {
   private readonly musees = new Map<string, MuseeGarde>()
   private readonly parties = new Map<string, PartieGardee>()
@@ -319,7 +331,18 @@ export class CabinetStore {
     return etat.fin ? partie : this.garder(this.parties, lue.id, partie, PARTIES_GARDEES)
   }
 
-  /** Une partie de ce profil : en mémoire, sinon d'un lot de deux lectures cloisonnées ; null pour celle d'un autre, ou qui n'existe pas. */
+  /**
+   * Une partie de ce profil : en mémoire, sinon d'un lot de deux lectures
+   * cloisonnées ; null pour celle d'un autre, ou qui n'existe pas.
+   *
+   * Relue finie quand son musée gardé la dit encore en cours, l'autre serveur
+   * d'une mise en ligne l'a finie — un cadrage, une page relisent ici la partie
+   * qu'il a jouée — : ce musée ne dit plus vrai (la partie rendue, sa
+   * poussière, son œuvre), et s'oublie. Gardé, il refusait tout départ
+   * (« Ta partie au Détail t'attend ») derrière une partie que plus rien ne
+   * pouvait finir, jusqu'au redémarrage. Ici seulement : la fin écrite par ce
+   * serveur a déjà rendu la partie à son musée (`retenirLaFin`).
+   */
   private async partieDe(profileId: string, serie: string): Promise<PartieGardee | null> {
     const gardee = this.parties.get(serie)
     if (gardee) return gardee.profileId === profileId ? this.garder(this.parties, serie, gardee, PARTIES_GARDEES) : null
@@ -330,7 +353,9 @@ export class CabinetStore {
       if (brute) console.error(`[cabinet] la partie ${serie} ne se relit pas`)
       return null
     }
-    return this.garderLaPartie(profileId, lue, brute?.bilan ? lireLeBilan(brute.bilan) : null)
+    const partie = this.garderLaPartie(profileId, lue, brute?.bilan ? lireLeBilan(brute.bilan) : null)
+    if (partie.etat.fin && this.musees.get(profileId)?.enCours?.id === serie) this.musees.delete(profileId)
+    return partie
   }
 
   /** La graine de sa visite du jour : `HMAC-SHA256(secret du Cabinet, profil)` — au serveur seul, faite d'un secret que la page n'a pas. */
@@ -355,6 +380,11 @@ export class CabinetStore {
       const t = this.maintenant()
       let garde = await this.musee(profileId, t)
       let enCours = garde.enCours ? await this.partieDe(profileId, garde.enCours.id) : null
+      if (enCours?.etat.fin) {
+        // Finie par l'autre serveur : son musée vient de s'oublier (`partieDe`), il se relit pour cette page-ci.
+        garde = await this.musee(profileId, t)
+        enCours = null
+      }
       if (enCours && !enCours.etat.fin && estDUnJourDAvant(enCours.depart, jourDe(t))) {
         await this.clore(profileId, enCours, t)
         garde = await this.musee(profileId, t)
@@ -385,7 +415,7 @@ export class CabinetStore {
   // ── Commencer ─────────────────────────────────────────────────────────
 
   /**
-   * Une partie qui commence (la conception, § 2.3) : le plafond des départs,
+   * Une partie qui commence : le plafond des départs,
    * le verrou du profil, la partie d'hier close d'abord, la règle des départs
    * en mots, le plan tiré sur le journal rattrapé, puis un seul lot gardé —
    * l'ouverture de la première manche comprise, son chrono parti avec la
@@ -515,7 +545,7 @@ export class CabinetStore {
   // ── Un geste ──────────────────────────────────────────────────────────
 
   /**
-   * Un geste de la page (la conception, § 2.4) : l'heure d'arrivée prise avant
+   * Un geste de la page : l'heure d'arrivée prise avant
    * le verrou, la partie cloisonnée au profil, son rang (invariant 12), le
    * geste relu champ par champ, la seule règle des refus (le pli), puis ce que
    * le pli a tranché, en un lot gardé par le geste. Le rang déjà pris par
@@ -655,24 +685,26 @@ export class CabinetStore {
   // ── Un cadrage du Détail ──────────────────────────────────────────────
 
   /**
-   * Un cadrage d'un tableau du Détail (la conception, § 3.4), par l'indice du
-   * tableau dans le plan figé — jamais la manche : après « Changer », la même
-   * manche joue un autre tableau, et l'adresse d'avant aurait rendu du cache
-   * l'image d'avant. Seul se sert le tableau qu'une manche joue — ni une
-   * rechange pas encore prise, ni celui que Changer a remplacé, ni celui d'une
-   * manche pas ouverte : tirés d'avance, ils se verraient avant leur tour —, et
-   * de lui le cadrage déjà atteint, le premier à l'ouverture, un de plus à
-   * chaque « Reculer », tous la manche tranchée (`refusDuCadrage`, invariant 1).
-   * La partie se lit en mémoire, zéro aller-retour ; finie, elle n'y est plus et
-   * se relit d'un lot, par sa clé. Sous le verrou du profil, comme tout ce qui
-   * lit sa partie : la mémoire ne se remplit jamais derrière un geste en route.
+   * Un cadrage d'un tableau du Détail, par l'indice du tableau dans le plan
+   * figé — jamais la manche : après « Changer », la même manche joue un autre
+   * tableau, et l'adresse d'avant aurait rendu du cache l'image d'avant. Seul
+   * se sert le tableau qu'une manche joue — ni une rechange pas encore prise,
+   * ni celui que Changer a remplacé, ni celui d'une manche pas ouverte : tirés
+   * d'avance, ils se verraient avant leur tour —, et de lui le cadrage déjà
+   * atteint, le premier à l'ouverture, un de plus à chaque « Reculer », tous la
+   * manche tranchée (`refusDuCadrage`, invariant 1). La partie se lit en
+   * mémoire, zéro aller-retour ; finie, elle n'y est plus et se relit d'un lot,
+   * par sa clé. Sous le verrou du profil, comme tout ce qui lit sa partie : la
+   * mémoire ne se remplit jamais derrière un geste en route.
    *
-   * Refusé sur la mémoire, un cadrage qui existe se relit une fois : l'autre
-   * serveur d'une mise en ligne a pu jouer la partie depuis — « Reculer »,
-   * « Changer » —, et la page tient sa vue de lui. La mémoire n'est jamais en
-   * avance sur la base (elle ne prend que ce qui s'est écrit) : relue, la
-   * partie ne recule pas, et la base fait foi. Une page qui suit sa vue n'est
-   * jamais refusée : ce rattrapage ne coûte rien d'ordinaire.
+   * Refusé sur la mémoire, un cadrage qui peut se servir (`peutSeServir`) se
+   * relit une fois : l'autre serveur d'une mise en ligne a pu jouer la partie
+   * depuis — « Reculer », « Changer », la manche suivante, la fin —, et la page
+   * tient sa vue de lui. La mémoire n'est jamais en avance sur la base (elle ne
+   * prend que ce qui s'est écrit) : relue, la partie ne recule pas, et la base
+   * fait foi ; relue finie, son musée s'oublie avec elle (`partieDe`). Une page
+   * qui suit sa vue n'est jamais refusée : ce rattrapage ne coûte rien
+   * d'ordinaire.
    */
   async cadrage(profileId: string, serie: string, tirage: number, cadrage: number): Promise<IssueDuCadrage> {
     return this.porte.avecVerrou(profileId, async () => {
@@ -681,9 +713,7 @@ export class CabinetStore {
         const p = await this.partieDe(profileId, serie)
         if (!p) return { introuvable: 'partie' }
         const issue = cadrageDeLaPartie(p, tirage, cadrage)
-        // Un cadrage hors de ses quatre ne se sert jamais, partie relue ou non : rien à relire.
-        const existe = refusDuCadrage({ cadrage: 0, effaces: [] }, cadrage, true) === null
-        if ('fichier' in issue || !enMemoire || !existe || essai > 0) return issue
+        if ('fichier' in issue || !enMemoire || essai > 0 || !peutSeServir(p.depart, tirage, cadrage)) return issue
         this.parties.delete(serie)
       }
     })

@@ -618,6 +618,19 @@ test('chaque chiffre de `bareme.ts` a sa ligne dans les barèmes', () => {
   assert.deepEqual(Object.keys(B).filter(nom => !dites.has(nom)), [], 'sans ligne dans docs/reference/baremes.md')
 })
 
+test('la ligne de `JEUX_PRETS` dans les barèmes nomme les jeux livrés, ni plus ni moins', () => {
+  // Restée « aucun » deux lots durant, quand le Pari, l'Éclair, puis le Détail et la Frise s'ouvraient : la valeur dite
+  // change avec la constante, à chaque jeu livré.
+  const page = readFileSync(new URL('../../docs/reference/baremes.md', import.meta.url), 'utf8')
+  const sansApostropheCourbe = (t: string) => t.replace(/’/g, "'").toLowerCase()
+  const valeur = sansApostropheCourbe(/^\|\s*`JEUX_PRETS`\s*\|([^|\n]*)\|/m.exec(page)?.[1] ?? '')
+  assert.deepEqual(
+    CLES_DES_JEUX.filter(j => valeur.includes(sansApostropheCourbe(JEUX[j].nom))),
+    CLES_DES_JEUX.filter(j => JEUX_PRETS.includes(j)),
+    `« ${valeur.trim()} »`,
+  )
+})
+
 /** Les modules qu'un fichier importe pour leurs valeurs : `import type` s'efface à la compilation, rien ne se tire. */
 function importsDeValeurs(fichier: URL): URL[] {
   const texte = readFileSync(fichier, 'utf8')
