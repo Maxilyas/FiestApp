@@ -5,15 +5,16 @@
 // la référence, et chaque sortie se compare à la sienne au même hasard (règle
 // `campagne.md`). Ce qui s'y ajoute ne vaut que pour qui le demande : la
 // fenêtre de sept jours du Cabinet (`fenetreMs`), deux marches qui se valent
-// (`aussi`), sept événements à une frise (`choisirLaFrise(…, n)`).
+// (`aussi`), sept événements à une frise qui ne descend jamais sous l'écart
+// (`choisirLaFriseSansRepli`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as campagne from '../src/core/campagne'
 import { DejaPrises, jumelles, type Intitule } from '../src/core/jumelles'
 import { VUE_RECENTE_MS, laMoinsVue, tirerPourUneEscale, versQuestionDeSerie } from '../src/core/tirageALaPiece'
 import type { QuestionDeLaBase } from '../src/core/baseCampagne'
-import { choisirLaFrise, type EvenementDeLaFrise } from '../../shared/frise'
-import { JOURS_SANS_REDITE } from '../../shared/cabinet/bareme'
+import { choisirLaFrise, choisirLaFriseSansRepli, type EvenementDeLaFrise } from '../../shared/frise'
+import { ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, JOURS_SANS_REDITE } from '../../shared/cabinet/bareme'
 import { NIVEAUX, niveauDeQuestion, type MesureDUneQuestion, type Niveau } from '../../shared/campagne'
 
 // ── Le tirage à la pièce d'avant, tel que `core/campagne.ts` l'avait le 25 octobre 2026 : la référence ──
@@ -373,10 +374,15 @@ test('deux marches qui se valent, vides : les emprunts de la sienne, sans elles'
   // La seconde question du Pari, difficile ou experte : la jamais vue des deux, l'experte s'il le faut, puis la moyenne.
   assert.deepEqual(tirer([question('experte', 5)], 'difficile', ['expert']), [['experte', 'expert']])
   assert.deepEqual(tirer([question('moyenne', 3), question('facile', 2)], 'difficile', ['expert']), [['moyenne', 'moyen']])
+  // La marche qui vaut la sienne passe avant tout emprunt : facile ou moyenne, la facile plutôt que la difficile — sans
+  // elle, la difficile, le premier emprunt de la moyenne.
+  assert.deepEqual(tirer([question('facile', 2), question('difficile', 4)], 'moyen', ['facile']), [['facile', 'facile']])
+  assert.deepEqual(tirer([question('facile', 2), question('difficile', 4)], 'moyen', []), [['difficile', 'difficile']])
 })
 
-test('un tas de QCM d’une même catégorie, pour l’Éclair : cinq d’un coup, distinctes, sans vrai ou faux, sans jumelles tant qu’il en a d’autres', () => {
-  // Un tas comme le Cabinet le garde : une catégorie, quatre réponses, des intitulés qui se ressemblent, quelques vrai ou faux.
+test('cinq QCM d’un coup pour l’Éclair, faciles ou moyens : distincts, sans vrai ou faux, sans jumelles tant qu’il en a d’autres, rien de la semaine tant qu’il en reste', () => {
+  // Un tas comme le Cabinet pourrait le garder : quatre réponses, des intitulés qui se ressemblent, quelques vrai ou faux. Sa
+  // catégorie unique est l'affaire du tas (`tirages/tas.ts`) : le tirage ne la lit pas.
   const film = (i: number) => question(`film${i}`, 2 + (i % 2), { texte: `Qui a réalisé le film « Titre ${i} » ?`, sousTheme: 'realisateurs', categorie: 'Cinéma' })
   const autre = (i: number) => question(`autre${i}`, 2 + (i % 2), { sousTheme: `st${i % 4}`, categorie: 'Cinéma' })
   const vraiFaux = (i: number) => question(`vf${i}`, 2, { texte: `Vrai ou faux numéro ${i} : est-ce bien ça ?`, reponses: ['Vrai', 'Faux'], categorie: 'Cinéma' })
@@ -386,14 +392,27 @@ test('un tas de QCM d’une même catégorie, pour l’Éclair : cinq d’un cou
     assert.equal(tirees.length, 5)
     assert.equal(new Set(tirees.map(t => t.question.id)).size, 5, 'cinq questions distinctes')
     assert.ok(
-      tirees.every(t => t.question.reponses.length === 4 && t.question.meta.categorie === 'Cinéma'),
-      'cinq QCM de la catégorie',
+      tirees.every(t => t.question.reponses.length === 4),
+      'aucun vrai ou faux',
     )
     assert.ok(
       tirees.every(t => t.niveau === 'facile' || t.niveau === 'moyen'),
       'faciles ou moyennes',
     )
     for (const [i, a] of tirees.entries()) for (const b of tirees.slice(i + 1)) assert.ok(!jumelles(a.question, b.question), `${a.question.id} et ${b.question.id}, jumelles`)
+  }
+  // La fenêtre vaut pour chacune des cinq. Tout est vu : cinq d'il y a trois semaines, d'un même sous-thème, et cinq de cette
+  // semaine, chacune le sien. Sur sept jours, celles de la semaine passent après ; sur vingt-quatre heures, une ancienne sort,
+  // puis les sous-thèmes encore à servir.
+  const anciennes = Array.from({ length: 5 }, (_, i) => question(`ancienne${i}`, 2 + (i % 2), { sousTheme: 'servi' }))
+  const deLaSemaine = Array.from({ length: 5 }, (_, i) => question(`semaine${i}`, 2 + (i % 2), { sousTheme: `st${i}` }))
+  const vues = new Map([...anciennes.map(q => [q.id, MAINTENANT - 21 * JOUR_MS] as const), ...deLaSemaine.map(q => [q.id, MAINTENANT - 3 * JOUR_MS] as const)])
+  const anciennesTirees = (fenetreMs?: number) =>
+    tirerPourUneEscale([[...anciennes, ...deLaSemaine]], 'moyen', 5, { sansVraiFaux: true, vues, mesure: new Map(), maintenant: MAINTENANT, aussi: ['facile'], ...(fenetreMs !== undefined && { fenetreMs }) })
+      .filter(t => t.question.id.startsWith('ancienne')).length
+  for (let essai = 0; essai < 20; essai++) {
+    assert.equal(anciennesTirees(SEPT_JOURS_MS), 5, 'sept jours : les cinq d’il y a trois semaines')
+    assert.equal(anciennesTirees(), 1, 'vingt-quatre heures : une seule, puis les sous-thèmes encore à servir')
   }
 })
 
@@ -417,35 +436,90 @@ test('la moins vue : une jamais vue au hasard, puis la plus anciennement vue —
   assert.equal(laMoinsVue([], id => id, vues), undefined)
 })
 
-// ── Sept événements à une frise ─────────────────────────────────────────────
+// ── Sept événements à une frise, sans repli ─────────────────────────────────
 
 /** Des événements d'essai, chacun d'une année ; l'identifiant dit l'année. */
 const evenements = (annees: readonly number[]): EvenementDeLaFrise[] => annees.map((annee, i) => ({ id: `e${i}-${annee}`, evenement: `L'événement numéro ${i}`, annee, categorie: 'Histoire' }))
 
-test('choisirLaFrise(…, 7) : sept événements à trois ans d’écart au moins, dans l’ordre du temps, jamais vus d’abord', () => {
+/** Une frise du Cabinet : ses sept événements, à l'écart que sa règle demande (`friseEnVagues`), rien de recopié. */
+const friseDuCabinet = (candidats: readonly EvenementDeLaFrise[], hasard: () => number, dejaVu?: (id: string) => boolean) =>
+  choisirLaFriseSansRepli(candidats, ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, hasard, dejaVu)
+
+/** Elle tient : autant d'événements que la frise en pose, chacun une fois, dans l'ordre du temps, à l'écart au moins. */
+function tient(frise: readonly EvenementDeLaFrise[] | null, dit: string): readonly EvenementDeLaFrise[] {
+  assert.ok(frise, `${dit} : une frise`)
+  assert.equal(frise.length, EVENEMENTS_D_UNE_FRISE_A_THEME, dit)
+  assert.equal(new Set(frise.map(e => e.id)).size, frise.length, dit)
+  for (let i = 1; i < frise.length; i++) assert.ok(frise[i].annee - frise[i - 1].annee >= ECART_DES_ANNEES_DE_LA_FRISE, `${dit} : ${frise.map(e => e.annee).join(', ')}`)
+  return frise
+}
+
+test('la frise sans repli : sept événements à trois ans d’écart au moins, dans l’ordre du temps — même serrés, si la suite existe', () => {
   const hasard = inventeur(31)
   for (let essai = 0; essai < 300; essai++) {
-    // Sept à dix grappes d'années, à dix ans au moins l'une de l'autre, d'un à quatre événements serrés chacune : sept à trois
-    // ans d'écart se trouvent toujours — un événement retenu n'écarte que ceux de sa grappe —, et rien n'oblige à moins.
+    // Sept à dix grappes d'années, à dix ans au moins l'une de l'autre, d'un à quatre événements serrés chacune.
     const grappes = Array.from({ length: 7 + Math.floor(hasard() * 4) }, (_, i) => 1600 + 40 * i + Math.floor(hasard() * 20))
     const candidats = evenements(grappes.flatMap(centre => Array.from({ length: 1 + Math.floor(hasard() * 4) }, () => centre + Math.floor(hasard() * 5) - 2)))
-    const frise = choisirLaFrise(candidats, 3, hasard, undefined, 7)
-    assert.ok(frise, `essai ${essai} : une frise`)
-    assert.equal(frise.length, 7)
-    assert.equal(new Set(frise.map(e => e.id)).size, 7)
-    for (let i = 1; i < frise.length; i++) assert.ok(frise[i].annee - frise[i - 1].annee >= 3, `essai ${essai} : ${frise.map(e => e.annee).join(', ')}`)
+    tient(friseDuCabinet(candidats, hasard), `essai ${essai}`)
   }
+  // Un tous les deux ans, de 1900 à 1924 : une seule suite tient. Gardés un à un dans un ordre tiré, puis l'écart divisé
+  // (`choisirLaFrise`), neuf frises sur dix sortaient à deux ans — 1900, 1904, 1906… — sur un sujet que le tas accepte.
+  const deuxAns = evenements(Array.from({ length: 13 }, (_, i) => 1900 + 2 * i))
+  const chaqueAnnee = evenements(Array.from({ length: 19 }, (_, i) => 1900 + i))
+  for (let essai = 0; essai < 300; essai++) {
+    assert.deepEqual(tient(friseDuCabinet(deuxAns, hasard), 'tous les deux ans').map(e => e.annee), [1900, 1904, 1908, 1912, 1916, 1920, 1924])
+    // Chaque année de 1900 à 1918, comme le sujet « 1900-1918 » de la base : la seule suite, de trois en trois.
+    assert.deepEqual(tient(friseDuCabinet(chaqueAnnee, hasard), 'chaque année').map(e => e.annee), [1900, 1903, 1906, 1909, 1912, 1915, 1918])
+  }
+  // Trop serrés : rien, plutôt qu'une frise que sa règle refuserait ensuite (`friseEnVagues`). Ni un an d'écart, ni deux.
+  assert.equal(friseDuCabinet(evenements(Array.from({ length: 18 }, (_, i) => 1900 + i)), hasard), null, 'de 1900 à 1917, il manque un an')
+  assert.equal(friseDuCabinet(evenements([1900, 1901, 1902, 1903, 1904, 1905, 1906]), hasard), null, 'sept années de suite')
+  // Six années différentes ne font pas sept événements.
+  assert.equal(friseDuCabinet(evenements([1900, 1900, 1910, 1920, 1930, 1940, 1950, 1950]), hasard), null)
+  assert.equal(friseDuCabinet([], hasard), null)
+})
+
+test('la frise sans repli : le plus de jamais vus possible, puis chaque suite qui tient a la même chance', () => {
+  const hasard = inventeur(37)
   // Sept jamais vus, bien écartés, parmi des vus : ce sont eux.
   const jamais = evenements([1800, 1810, 1820, 1830, 1840, 1850, 1860])
   const vus = evenements([1801, 1812, 1823, 1834, 1845, 1856, 1867, 1878]).map(e => ({ ...e, id: `vu-${e.id}` }))
+  for (let essai = 0; essai < 50; essai++) assert.deepEqual(friseDuCabinet([...vus, ...jamais], hasard, id => id.startsWith('vu-'))!.map(e => e.id), jamais.map(e => e.id))
+  // Les jamais vus tous de la même année : un seul y tient, et six vus l'entourent.
+  const serres = evenements([1950, 1950, 1950, 1950, 1950]).map(e => ({ ...e, id: `neuf-${e.id}` }))
+  const autour = evenements([1900, 1910, 1920, 1930, 1940, 1960, 1970, 1980, 1990, 2000])
   for (let essai = 0; essai < 50; essai++) {
-    assert.deepEqual(
-      choisirLaFrise([...vus, ...jamais], 3, hasard, id => id.startsWith('vu-'), 7)!.map(e => e.id),
-      jamais.map(e => e.id),
-    )
+    const frise = tient(friseDuCabinet([...autour, ...serres], hasard, id => !id.startsWith('neuf-')), `essai ${essai}`)
+    assert.deepEqual(frise.filter(e => e.id.startsWith('neuf-')).map(e => e.annee), [1950])
   }
-  // Six années différentes ne font pas sept événements : pas de frise, même à un an d'écart.
-  assert.equal(choisirLaFrise(evenements([1900, 1900, 1910, 1920, 1930, 1940, 1950, 1950]), 3, hasard, undefined, 7), null)
+  // Huit événements à dix ans l'un de l'autre font huit frises de sept : chacune sort une fois sur huit.
+  const huit = evenements(Array.from({ length: 8 }, (_, i) => 1900 + 10 * i))
+  const sorties = new Map<string, number>()
+  for (let essai = 0; essai < 4000; essai++) {
+    const cle = tient(friseDuCabinet(huit, hasard), `essai ${essai}`).map(e => e.annee).join(' ')
+    sorties.set(cle, (sorties.get(cle) ?? 0) + 1)
+  }
+  assert.equal(sorties.size, 8)
+  for (const [cle, n] of sorties) assert.ok(n > 380 && n < 620, `${cle} : ${n} sur 4000, une sur huit attendue`)
+  // Sur des tas au hasard, contre toutes les suites possibles : une frise dès qu'il en existe une, aucune sinon, et autant de
+  // jamais vus que la meilleure.
+  for (let essai = 0; essai < 400; essai++) {
+    const candidats = evenements(Array.from({ length: Math.floor(hasard() * 13) }, () => 1900 + Math.floor(hasard() * 30)))
+    const vu = new Set(candidats.filter(() => hasard() < 0.5).map(e => e.id))
+    const tries = [...candidats].sort((a, b) => a.annee - b.annee)
+    let meilleure = -1
+    const suites = (depuis: number, prises: EvenementDeLaFrise[]) => {
+      if (prises.length === EVENEMENTS_D_UNE_FRISE_A_THEME) meilleure = Math.max(meilleure, prises.filter(e => !vu.has(e.id)).length)
+      else
+        for (let i = depuis; i < tries.length; i++)
+          if (prises.length === 0 || tries[i].annee - prises[prises.length - 1].annee >= ECART_DES_ANNEES_DE_LA_FRISE) suites(i + 1, [...prises, tries[i]])
+    }
+    suites(0, [])
+    const frise = friseDuCabinet(candidats, hasard, id => vu.has(id))
+    const dit = `essai ${essai} : ${tries.map(e => `${e.annee}${vu.has(e.id) ? '' : '*'}`).join(' ')}`
+    if (meilleure < 0) assert.equal(frise, null, dit)
+    else assert.equal(tient(frise, dit).filter(e => !vu.has(e.id)).length, meilleure, dit)
+  }
 })
 
 test('choisirLaFrise d’office : quatre événements, au même hasard qu’avant — la frise de l’Expédition ne change pas', () => {

@@ -37,7 +37,9 @@ export function melanger<T>(liste: readonly T[]): T[] {
  * Ce qu'une partie garde d'une question de la base qu'elle a tirée : le cœur
  * d'une question de série — ce que le journal y relit (`categorie`, `niveau`)
  * et ce que le signalement compare à la base. Une série, une expédition y
- * ajoutent leurs champs ; une pièce du Cabinet a la même forme.
+ * ajoutent leurs champs (`QuestionDeSerie` l'étend, `core/campagne.ts`) ; une
+ * question du Cabinet a la même forme, et s'y lie par le typage, pas par une
+ * copie.
  */
 export interface QuestionDeLaPartie {
   id: string

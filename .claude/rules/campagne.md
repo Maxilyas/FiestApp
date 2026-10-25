@@ -115,12 +115,25 @@ paths:
   eux, le tirage d'avant, au même hasard — `tirage-a-la-piece.test.ts` garde
   le code d'avant et l'y compare. `laMoinsVue` n'a pas de fenêtre : le plus
   anciennement vu d'abord ne repose rien de récent tant qu'il reste autre
-  chose. Aucune fonction n'y prend de graine : le hasard d'un tirage est
-  celui du serveur, et une graine que la page connaît lui dirait ce que la
-  partie va poser (invariant 1). Les formes de l'Expédition (`aSaForme`,
-  `seLaissePoser`) restent au magasin : le tirage à la pièce n'en sait rien,
-  et l'Éclair du Cabinet récrit ses affirmations par sa règle à lui
-  (`affirmationDe`).
+  chose. Le tirage d'une escale ne bat pas son tas : il s'arrête à la
+  première question au rang tout à zéro — jamais vue, d'un sous-thème
+  encore à servir, sans jumelle. Une composante de rang neuve vaut donc 0
+  pour une question jamais vue et pas encore servie, ou chaque tirage relit
+  le tas entier — le gardien, vingt-cinq mille questions
+  (`expedition-tirage.test.ts` compte ce qu'il lit, règle `expedition.md`).
+  La frise n'y passe pas : elle se tire avec ses règles (`shared/frise.ts`).
+  Les sept événements du Cabinet tiennent l'écart, ou ne se tirent pas
+  (`choisirLaFriseSansRepli`) ; `choisirLaFrise`, celle de l'Expédition,
+  resserre l'écart plutôt que de rendre null, et la Frise du Cabinet
+  refuserait ensuite deux années trop proches (`friseEnVagues`). Une
+  question tirée par une partie a un seul cœur (`QuestionDeLaPartie`) :
+  `QuestionDeSerie` l'étend, et ce que le Cabinet en garde s'y lie par le
+  typage, pas par une copie. Aucune fonction n'y prend de graine : le
+  hasard d'un tirage est celui du serveur, et une graine que la page connaît
+  lui dirait ce que la partie va poser (invariant 1). Les formes de
+  l'Expédition (`aSaForme`, `seLaissePoser`) restent au magasin : le tirage
+  à la pièce n'en sait rien, et l'Éclair du Cabinet récrit ses affirmations
+  par sa règle à lui (`affirmationDe`).
 - **Le journal des réponses se garde en mémoire, et se lit par
   différence** (`core/journalDesReponses.ts`, `JournalDesReponses`, le
   22 octobre 2026 : 333 millions de lignes lues au quota de Turso sur les

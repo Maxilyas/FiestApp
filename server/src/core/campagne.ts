@@ -28,7 +28,17 @@ import {
 } from './journalDesReponses'
 import { JournalDesDuels, type DuelsARelire, type LigneDuJournalDesDuels } from './journalDesDuels'
 import { DejaPrises } from './jumelles'
-import { EMPRUNTS, classeDeFraicheur, fraicheurDe, laMoinsVue, melanger, passeAvant, tirerPourUneEscale, versQuestionDeSerie } from './tirageALaPiece'
+import {
+  EMPRUNTS,
+  classeDeFraicheur,
+  fraicheurDe,
+  laMoinsVue,
+  melanger,
+  passeAvant,
+  tirerPourUneEscale,
+  versQuestionDeSerie,
+  type QuestionDeLaPartie,
+} from './tirageALaPiece'
 // Le tirage à la pièce vit à part depuis le 25 octobre 2026 : le Cabinet de curiosités y tire sans ce magasin. Ce que ce
 // fichier en exportait s'y lit encore, le temps que ses lecteurs d'avant — des tests — aillent le chercher là-bas.
 export { VUE_RECENTE_MS, tirerPourUneEscale } from './tirageALaPiece'
@@ -416,22 +426,16 @@ import {
   type CleDeFiole,
 } from '../../../shared/rencontres'
 
-/** Une question de la série, telle que le serveur la garde : la bonne réponse avec. */
-interface QuestionDeSerie {
-  /**
-   * Son identifiant dans la base de la campagne (`baseCampagne.ts`). Une
-   * série d'avant la base (le 3 octobre 2026) gardait celui de la réserve du
-   * quiz du jour, sous le nom `reserveId` : `versSerie` le relit.
-   */
-  id: string
-  texte: string
-  reponses: string[]
-  bonne: number
-  categorie: string | null
-  anecdote: string | null
-  niveau: Niveau
-  /** Son sous-thème : une série d'avant les sentiers ne le gardait pas. */
-  sousTheme?: string
+/**
+ * Une question de la série, telle que le serveur la garde : la bonne réponse
+ * avec. Son cœur est celui de toute partie (`QuestionDeLaPartie`, que le
+ * tirage à la pièce rend) : un champ de plus s'y écrit une fois, et le typage
+ * suit des deux côtés. Son identifiant est celui de la base de la campagne
+ * (`baseCampagne.ts`) — une série d'avant la base (le 3 octobre 2026) gardait
+ * celui de la réserve du quiz du jour, sous le nom `reserveId` : `versSerie`
+ * le relit — ; une série d'avant les sentiers ne gardait pas son sous-thème.
+ */
+interface QuestionDeSerie extends QuestionDeLaPartie {
   /**
    * Une révision : ses rendez-vous réussis quand elle l'a tirée — de quoi dire
    * après chaque réponse où en est la question sans relire tout le journal.
