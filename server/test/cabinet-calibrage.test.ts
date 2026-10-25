@@ -226,7 +226,7 @@ test('le calibrage joue les règles du code, sans en recopier une', () => {
   assert.deepEqual(redites, [], 'constantes du barème redéclarées dans le calibrage')
   // Avant l'essai d'un barème, rien qui le lise : de proche en proche, ses imports statiques ne chargent du
   // Cabinet que le barème lui-même, qui n'importe que des types — une règle chargée avant l'essai aurait tiré
-  // d'une valeur d'avant ce qu'elle en garde (l'étoile gardée du Pari, le recul d'une année du Filet).
+  // d'une valeur d'avant ce qu'elle en garde (les étoiles gardées du Pari, le recul d'une année du Filet).
   const racine = path.join(SERVEUR, '..')
   const charges = [...importsStatiques(path.join(SERVEUR, SCRIPT))].map(f => path.relative(racine, f).split(path.sep).join('/'))
   assert.deepEqual(charges.filter(f => f.startsWith('shared/cabinet/') || f.startsWith('server/src/')), ['shared/cabinet/bareme.ts'])

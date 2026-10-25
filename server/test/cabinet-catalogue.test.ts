@@ -66,7 +66,7 @@ import {
 } from '../../shared/cabinet/pieces'
 import { DANS_LA_FRANCE, dansLaFrance, distanceKm, projeter, deprojeter, LARGEUR_DE_LA_CARTE, HAUTEUR_DE_LA_CARTE } from '../../shared/cabinet/france'
 import { FORME_D_UN_IDENTIFIANT, FORME_D_UNE_CLE } from '../../shared/cabinet/contenu'
-import { CLES_DES_JEUX, JEUX, baremeDesErreurs, justeDeLaPiece, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
+import { CLES_DES_JEUX, JEUX, MOTS_DU_PARI, baremeDesErreurs, justeDeLaPiece, motsDuPari, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 
 /** La table des cartes peintes, telle que la chaîne `peindre` l'écrit — un fichier du client, lu par son adresse. */
 const peintes = async (): Promise<Record<string, unknown>> =>
@@ -446,6 +446,30 @@ test('le barème des erreurs dit à l’annonce ne dit jamais un palier vide', (
   for (const bornes of [[0, 1, 1], [0, 0, 1], [1, 1, 3], [0, 0, 0]]) assert.doesNotMatch(baremeDesErreurs(bornes), /\b(\S+) à (\S+)\b/, `${bornes}`)
 })
 
+test('les mots du Pari disent ses étoiles au nombre du barème, d’une seule source', () => {
+  // Garder valait une étoile jusqu'au calibrage du 25 octobre 2026, deux depuis. L'accord se décidait à deux
+  // endroits, chacun à sa façon — l'annonce (`regle.ts`), le refus et la révélation (`pari.ts`) —, et les
+  // boutons de la page, que la conception dicte « Garder ★ », en auraient fait une troisième copie, en dur.
+  assert.deepEqual(motsDuPari({ garder: 1, parier: 3 }), {
+    geste: 'Juste : garde une étoile, ou parie-la sur une question plus difficile.',
+    auChoix: 'Juste ! Tu gardes ★, ou tu paries pour ★★★ sur une question plus difficile. Raté, la manche ne rapporte rien.',
+    garder: 'Garder ★',
+    parier: 'Parier → ★★★',
+    gardeOuParie: 'Garde ton étoile, ou parie-la',
+    gardees: 'Étoile gardée',
+  })
+  assert.deepEqual(motsDuPari({ garder: 2, parier: 3 }), {
+    geste: 'Juste : garde deux étoiles, ou parie-les sur une question plus difficile.',
+    auChoix: 'Juste ! Tu gardes ★★, ou tu paries pour ★★★ sur une question plus difficile. Raté, la manche ne rapporte rien.',
+    garder: 'Garder ★★',
+    parier: 'Parier → ★★★',
+    gardeOuParie: 'Garde tes étoiles, ou parie-les',
+    gardees: 'Étoiles gardées',
+  })
+  assert.deepEqual(MOTS_DU_PARI, motsDuPari(B.ETOILES_DU_PARI), 'les mots du barème du code')
+  assert.equal(JEUX.pari.geste, MOTS_DU_PARI.geste, 'l’annonce les lit')
+})
+
 test('une pièce est juste dès deux étoiles naturelles ; au Pari, à sa bonne réponse', () => {
   assert.equal(B.ETOILES_D_UNE_JUSTE, 2)
   assert.equal(justeDeLaPiece(3, 'epingle'), true)
@@ -466,7 +490,8 @@ test('les chiffres se tiennent entre eux', () => {
   }
   assert.deepEqual(B.PRIX_D_UNE_OEUVRE, { commun: 200, rare: 400, maudit: 400, epique: 700 })
   // Doublées, et le double divisé par deux, au calibrage du 25 octobre 2026 : le complétionniste dorait tout en
-  // trente jours, quand la maquette le voulait en mois — trente-neuf désormais, deux cent vingt-quatre à l'occasionnel.
+  // trente jours, quand la maquette le voulait en mois — quarante et un et demi désormais, cent quatre-vingt-treize à
+  // l'occasionnel, avec les autres retouches du jour (trente-neuf et deux cent vingt-quatre, les dorures essayées seules).
   assert.deepEqual(B.PRIX_D_UNE_DORURE, { commun: 100, rare: 200, maudit: 200, epique: 320 })
   assert.deepEqual(B.POUSSIERE_DU_DOUBLE, { commun: 15, rare: 30, maudit: 30, epique: 60 })
   assert.ok(B.POUSSIERE_MIN <= B.POUSSIERE_PAR_ETOILE * B.ETOILES_D_UNE_PARTIE)
@@ -572,6 +597,7 @@ test('les mots du Cabinet : une œuvre, une carte-bonus, la carte de France — 
   // « Carte » a déjà forcé l'Expédition à rebaptiser « le plan » : ici, trois mots pour trois choses.
   const textes: string[] = [
     ...CLES_DES_JEUX.flatMap(j => [JEUX[j].nom, JEUX[j].a, JEUX[j].geste, JEUX[j].bareme, JEUX[j].eclairer]),
+    ...Object.values(MOTS_DU_PARI),
     ...Object.values(POUVOIRS).flatMap(p => [p.nom, p.dit]),
     ...(['eclairer', 'proteger', 'temps', 'miser', 'changer'] as const).flatMap(p => ([1, 2, 3] as const).map(f => forceDite(p, f))),
     ...SALLES.flatMap(s => [s.nom, s.laSalle, s.deLaSalle, s.dansLaSalle, s.devise]),

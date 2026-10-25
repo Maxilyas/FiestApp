@@ -426,7 +426,7 @@ function avancer(d: DepartDUnePartie, etat: EtatDeLaPartie, t: number): EtatDeLa
 /**
  * La partie qui finit à `t` : la manche ouverte et pas tranchée compte ce
  * qu'en dit son jeu, quittée — zéro, `choix` NULL, sa pièce écrite (il l'a
- * vue) ; un Pari juste au premier coup, laissé au choix, garde son étoile.
+ * vue) ; un Pari juste au premier coup, laissé au choix, garde ses étoiles.
  * Une manche jamais ouverte compte zéro, sans pièce. Une partie que le temps a
  * déjà finie — sa dernière manche expirée avant « Quitter » ou la page du
  * lendemain — reste jouée, à l'heure où elle a fini : la réécrire quittée

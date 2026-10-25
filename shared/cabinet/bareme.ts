@@ -212,7 +212,9 @@ export const ECART_DES_ANNEES_DE_LA_FRISE = 3
  * valaient ★ jusqu'au calibrage du 25 octobre 2026 : avec des vagues de deux,
  * une manche où les deux nouveaux venus sont posés ne descendait jamais sous
  * ★, et qui rangeait au hasard gagnait une commune 28,2 fois sur cent — 12,2
- * désormais, quand l'occasionnel en garde 86,7.
+ * désormais, quand l'occasionnel en garde 86,7. La première manche, sans
+ * ancre, se joue ainsi tout ou rien : deux voisins dans le désordre y sont faux
+ * tous deux, un oubli en compte deux, et une seule erreur n'y est pas possible.
  */
 export const ERREURS_DE_LA_FRISE: readonly [number, number, number] = [0, 1, 1]
 /** La Frise : un nouveau venu laissé de côté compte autant que la pire place — la sienne, et celle du voisin qu'il contredit : poser n'est jamais pire que s'abstenir. */
@@ -271,7 +273,8 @@ export const MARCHES_DU_FILET: readonly Niveau[] = ['facile', 'moyen']
  * commune exigeait trois premières questions justes et un pari gagné sur une
  * question difficile — 3,1 % des parties de l'occasionnel. À deux, trois
  * premières justes la font : 24,6 %, au hasard 3,7 %, et pas un confetti de
- * plus (une pièce est juste à sa bonne réponse, pas aux étoiles).
+ * plus (une pièce est juste à sa bonne réponse, pas aux étoiles). Ses mots
+ * s'accordent au nombre d'ici, d'une seule source (`MOTS_DU_PARI`).
  */
 export const ETOILES_DU_PARI: Readonly<Record<'garder' | 'parier', number>> = { garder: 2, parier: 3 }
 /** Le Pari : la marche mesurée de sa première question, puis de celle du pari — « difficile » doit l'être vraiment. */
@@ -291,7 +294,9 @@ export const MARCHES_DE_L_ECLAIR: readonly Niveau[] = ['facile', 'moyen']
  * — les indices vus, moins ceux qu'Éclairer offre, plus les erreurs. Un cran
  * plus large depuis le calibrage du 25 octobre 2026 : à deux et trois,
  * l'occasionnel n'y gagnait une commune qu'une partie sur cinq (21,2 %) ;
- * 37 % désormais, au hasard 0,3 % (0,2 avant).
+ * 37 % désormais, au hasard 0,3 % (0,2 avant). La pièce juste s'élargit avec,
+ * de trois à quatre au compte : les Indices paient un peu plus de confettis,
+ * toujours le moins des neuf jeux.
  */
 export const INDICES_DES_ETOILES: readonly [number, number] = [3, 4]
 /** Les Indices : une faute de frappe se tolère dans un mot dès tant de lettres. */

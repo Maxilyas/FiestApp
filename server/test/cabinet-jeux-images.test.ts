@@ -530,6 +530,44 @@ test('la Frise : sans faute ★★★, une erreur ★★, deux rien — un laiss
   assert.equal(REGLE_DE_LA_FRISE.juger(troisieme, e, repondre(troisieme, tout)).naturel, 3)
 })
 
+test('la Frise : à la première manche, sans ancre, une seule erreur ne se peut pas — tout ou rien', () => {
+  // Sans ancre, deux voisins dans le désordre se contredisent l'un l'autre, faux tous les deux, et un oubli compte
+  // deux erreurs (`ERREURS_D_UN_OUBLI`) : la première manche n'a que zéro erreur, ou deux au moins. Depuis que deux
+  // erreurs ne valent plus une étoile (le calibrage du 25 octobre 2026), elle se joue ★★★ ou rien — deux voisins
+  // échangés y valaient ★. Le palier ★★ que l'annonce dit ne s'atteint qu'aux manches 2 et 3, parmi des ancres.
+  const annees = EVENEMENTS.map(x => x.annee)
+  const [premiere, deuxieme, troisieme] = uneFrise('tout ou rien')
+  const nouveaux = premiere.vagues[0]
+  // Toutes les réponses où quelque chose est posé : un, deux ou les trois nouveaux venus, dans chaque ordre.
+  const ordres = (reste: readonly number[]): number[][] => reste.flatMap(x => [[x], ...ordres(reste.filter(y => y !== x)).map(o => [x, ...o])])
+  const etoiles = new Map<number, number>()
+  for (const rangs of ordres(nouveaux)) {
+    const compte = erreursComptees(rangs, erreursDeLaFrise(rangs, annees, nouveaux))
+    assert.notEqual(compte, 1, `${rangs} : une seule erreur à la première manche`)
+    const v = REGLE_DE_LA_FRISE.juger(premiere, REGLE_DE_LA_FRISE.ouvrir(premiere), repondre(premiere, rangs))
+    assert.equal(v.naturel, compte === 0 ? 3 : 0, `${rangs}`)
+    etoiles.set(v.naturel, (etoiles.get(v.naturel) ?? 0) + 1)
+  }
+  assert.deepEqual(Object.fromEntries(etoiles), { 0: 14, 3: 1 }, 'quinze réponses : une seule à ★★★, les quatorze autres à rien')
+  // Parmi des ancres, une erreur se peut : l'un des deux nouveaux venus à sa place, l'autre qu'une ancre contredit.
+  for (const t of [deuxieme, troisieme]) {
+    const ancres = t.vagues.slice(0, t.vague).flat().sort((a, b) => a - b)
+    const [a, b] = t.vagues[t.vague]
+    let uneErreur = 0
+    for (let i = 0; i <= ancres.length; i++) {
+      for (let j = 0; j <= ancres.length + 1; j++) {
+        const rangs = [...ancres]
+        rangs.splice(i, 0, a)
+        rangs.splice(j, 0, b)
+        if (erreursComptees(rangs, erreursDeLaFrise(rangs, annees, [a, b])) !== 1) continue
+        assert.equal(REGLE_DE_LA_FRISE.juger(t, REGLE_DE_LA_FRISE.ouvrir(t), repondre(t, rangs)).naturel, 2, `${rangs}`)
+        uneErreur++
+      }
+    }
+    assert.ok(uneErreur > 0, `manche ${t.vague + 1} : une erreur s’y fait, ★★`)
+  }
+})
+
 test('la Frise : deux nouveaux venus collés au bout, sans rien savoir des ancres, ne sont justes qu’à leur vraie place', () => {
   // La faille de la relecture : jugés par leurs seuls voisins, deux nouveaux venus collés en tête ou en queue, dans
   // leur ordre, faisaient une erreur au plus — ★★ et une pièce juste aux manches 2 et 3, quelles que soient les ancres.

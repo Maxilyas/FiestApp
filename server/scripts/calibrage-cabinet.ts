@@ -116,7 +116,7 @@ const SANS_MUSEE = ARGS.includes('--sans-musee')
 /**
  * La constante prend la valeur essayée en mémoire — le fichier ne change pas.
  * Les règles se chargent après (leurs `import()`) : ce qu'un module en tire à
- * son chargement (la valeur d'une étoile gardée du Pari, le recul d'une année
+ * son chargement (les étoiles gardées du Pari et leurs mots, le recul d'une année
  * du Filet) se tire alors de la valeur essayée.
  */
 function essayer(texte: string): string {
@@ -665,7 +665,7 @@ function mancheDuPari(p: Partie, m: Manche): void {
 /**
  * Garder ou parier : pour dorer, parier toujours (trois parfaites), et pour les
  * confettis aussi (une pièce de plus) ; en partie libre, parier quand le pari
- * rapporte plus que l'étoile gardée ; vers un
+ * rapporte plus que les étoiles gardées ; vers un
  * seuil, le choix qui lui donne le plus de chances de l'atteindre, les
  * manches qui restent comprises — garder trois fois ne fait que trois étoiles.
  */

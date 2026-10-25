@@ -101,10 +101,32 @@ export function baremeDesErreurs(bornes: readonly number[]): string {
     .join(' · ')
 }
 
-/** « garde deux étoiles, ou parie-les » : les étoiles gardées au Pari, au nombre du barème — une, puis deux depuis le calibrage du 25 octobre 2026. */
-function etoilesGardees(n: number): string {
-  return n === 1 ? 'garde une étoile, ou parie-la' : `garde ${enLettres(n, 'feminin')} étoiles, ou parie-les`
+/**
+ * Les mots du Pari qui comptent ses étoiles, au nombre du barème : une étoile
+ * gardée, puis deux depuis le calibrage du 25 octobre 2026. Une seule source,
+ * que l'annonce, le refus et la révélation du jeu (`pari.ts`) lisent, et la page
+ * pour ses boutons : l'accord se décidait à deux endroits, chacun à sa façon,
+ * et « Garder ★ » écrit en dur à l'écran en aurait promis une de moins.
+ */
+export function motsDuPari(e: Readonly<Record<'garder' | 'parier', number>>) {
+  const une = e.garder === 1
+  return {
+    /** L'annonce : « Juste : garde deux étoiles, ou parie-les sur une question plus difficile. » */
+    geste: `Juste : ${une ? 'garde une étoile, ou parie-la' : `garde ${enLettres(e.garder, 'feminin')} étoiles, ou parie-les`} sur une question plus difficile.`,
+    /** La première question juste, au choix. */
+    auChoix: `Juste ! Tu gardes ${etoiles(e.garder)}, ou tu paries pour ${etoiles(e.parier)} sur une question plus difficile. Raté, la manche ne rapporte rien.`,
+    /** Les deux boutons du choix. */
+    garder: `Garder ${etoiles(e.garder)}`,
+    parier: `Parier → ${etoiles(e.parier)}`,
+    /** Le refus d'une réponse de plus, au choix. */
+    gardeOuParie: une ? 'Garde ton étoile, ou parie-la' : 'Garde tes étoiles, ou parie-les',
+    /** La révélation d'une manche gardée. */
+    gardees: une ? 'Étoile gardée' : 'Étoiles gardées',
+  }
 }
+
+/** Les mots du Pari, au barème du code. */
+export const MOTS_DU_PARI = motsDuPari(ETOILES_DU_PARI)
 
 /** « au premier coup d’œil ★★★ · un pas ★★ · deux ★ » : les étoiles de chaque cadrage ; un cadrage qui ne vaut rien ne se dit pas — en deçà, zéro. */
 function baremeDesCadrages(parCadrage: readonly number[]): string {
@@ -164,7 +186,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     cle: 'pari',
     nom: 'Le Pari',
     a: 'au Pari',
-    geste: `Juste : ${etoilesGardees(ETOILES_DU_PARI.garder)} sur une question plus difficile.`,
+    geste: MOTS_DU_PARI.geste,
     bareme: `garder ${etoiles(ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(ETOILES_DU_PARI.parier)}`,
     eclairer: 'efface une mauvaise réponse',
     changeable: true,

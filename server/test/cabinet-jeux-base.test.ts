@@ -33,7 +33,7 @@ import { decimales, ecartEstimation } from '../../shared/classement'
 import * as B from '../../shared/cabinet/bareme'
 import { refusDuPouvoir, effacablesAuPlus } from '../../shared/cabinet/pouvoirs'
 import { deplier, idDeLEclair, PREFIXE_DU_CABINET } from '../../shared/cabinet/pieces'
-import { justeDeLaPiece, trancheLaManche, type RegleDuJeu, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
+import { MOTS_DU_PARI, justeDeLaPiece, trancheLaManche, type RegleDuJeu, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
 import { GESTE_A_JUGER, eclairerSertEncore, type QuestionTiree } from '../../shared/cabinet/jeux/outils'
 import { REGLE_DU_PARI, type EtatDuPari, type PariTire } from '../../shared/cabinet/jeux/pari'
 import { REGLE_DE_L_ECLAIR, affirmationDe, type EclairTire } from '../../shared/cabinet/jeux/eclair'
@@ -206,6 +206,7 @@ test('le Pari : chaque geste à son moment, refusé en mots sinon', () => {
   // Deux étoiles gardées depuis le calibrage du 25 octobre 2026 : le refus les dit au nombre du barème.
   assert.equal(B.ETOILES_DU_PARI.garder, 2)
   assert.equal(refusDe(jouer(r, PARI, auChoix, repondre(2))), 'Garde tes étoiles, ou parie-les')
+  assert.equal(refusDe(jouer(r, PARI, auChoix, repondre(2))), MOTS_DU_PARI.gardeOuParie, 'les mots du Pari, d’une seule source')
   assert.equal(refusDe(jouer(r, PARI, pari, { quoi: 'garder' })), 'Le pari est fait : réponds à la question')
   assert.equal(refusDe(jouer(r, PARI, pari, { quoi: 'parier' })), 'Le pari est fait : réponds à la question')
   // Un geste qui tranche ne passe jamais par `apresLeGeste` : s'il s'y perd, il se refuse sans rien changer.
@@ -322,6 +323,13 @@ test('le Pari : la révélation dit ce qui s’est passé, chaque réponse marqu
   const titre = (e: EtatDuPari, v: VerdictDUneManche) => r.reveler(PARI, e, v).titre
   // Les étoiles gardées, au nombre du barème : deux depuis le calibrage du 25 octobre 2026.
   assert.equal(titre(auChoix, verdictDe(jouer(r, PARI, auChoix, { quoi: 'garder' }))), 'Étoiles gardées')
+  assert.equal(titre(auChoix, verdictDe(jouer(r, PARI, auChoix, { quoi: 'garder' }))), MOTS_DU_PARI.gardees, 'les mots du Pari, d’une seule source')
+  // Le jeu ne les recopie pas : un mot qui compte ses étoiles (« Étoile gardée ») n'y est écrit nulle part — l'accord
+  // s'y décidait à part de l'annonce, et une phrase de plus en aurait fait une troisième copie (`motsDuPari`).
+  const code = readFileSync(new URL('../../shared/cabinet/jeux/pari.ts', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+  assert.doesNotMatch(code, /['"`][^'"`\n]*[ée]toile/i, 'pari.ts écrit ses étoiles en dur')
   assert.equal(titre(pari, verdictDe(jouer(r, PARI, pari, repondre(3)))), 'Pari gagné !')
   assert.equal(titre(pari, verdictDe(jouer(r, PARI, pari, repondre(0)))), 'Pari perdu')
   assert.equal(titre(ouvert, verdictDe(jouer(r, PARI, ouvert, repondre(0)))), 'Raté')
