@@ -1,0 +1,639 @@
+// Le Détail et la Frise du Cabinet de curiosités, purs (lot B2b, la
+// conception du 24 octobre 2026, § 3.2 et § 3.4) : leurs règles, sans serveur.
+// Le Détail — un tableau en quatre cadrages emboîtés ; « Reculer d'un pas » en
+// montre plus et coûte une étoile ; quatre titres d'époques voisines. La Frise
+// — une seule frise qui grandit, trois événements, puis cinq, puis sept, du
+// plus ancien au plus récent. Les lots C2 et D3 y ajouteront le tirage, la
+// route des cadrages et l'écran.
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { hasardDe } from '../../shared/missions'
+import { anneeDite } from '../../shared/frise'
+import {
+  DUREES_DES_JEUX,
+  ECART_DES_ANNEES_DE_LA_FRISE,
+  EFFACES_AU_PLUS,
+  ERREURS_DE_LA_FRISE,
+  ETOILES_AU_CADRAGE,
+  EVENEMENTS_D_UNE_FRISE_A_THEME,
+  TITRES_DU_DETAIL,
+  VAGUES_DE_LA_FRISE,
+  VOISINS_EN_ANNEES,
+} from '../../shared/cabinet/bareme'
+import { effacablesAuPlus, refusDuPouvoir } from '../../shared/cabinet/pouvoirs'
+import { PREFIXE_DU_CABINET, deplier, idDeLaFriseATheme, idDeLaFriseDeSujet, idDuTableau } from '../../shared/cabinet/pieces'
+import { justeDeLaPiece } from '../../shared/cabinet/jeux/regle'
+import {
+  QUESTION_DU_TABLEAU,
+  REGLE_DU_DETAIL,
+  detailTire,
+  refusDuCadrage,
+  type DetailTire,
+  type EtatDuDetail,
+  type TableauDuCabinet,
+} from '../../shared/cabinet/jeux/detail'
+import {
+  REGLE_DE_LA_FRISE,
+  erreursDeLaFrise,
+  etoilesDeLaFrise,
+  friseEnVagues,
+  type EtatDeLaFrise,
+  type FriseAPartager,
+  type FriseTiree,
+} from '../../shared/cabinet/jeux/frise'
+
+/** La phrase que dit la seule règle des refus quand le jeu n'a plus rien à souffler : les jeux ne la recopient pas. */
+const RIEN_A_ECLAIRER = refusDuPouvoir({ pouvoir: 'eclairer', force: 3, jeu: 'detail', servi: 0, aEclairer: false })
+
+// ── Le Détail ─────────────────────────────────────────────────────────────
+
+const CIBLE: TableauDuCabinet = { qid: 'Q100', titre: 'La Cible', peintre: 'Anne Peintre', annee: 1600 }
+/** Les cinq plus proches de 1600 sont à 1, 2, 5, 10 et 12 ans ; les autres, plus loin. */
+const AUTRES: TableauDuCabinet[] = [
+  { qid: 'Q1', titre: 'Le Voisin', peintre: 'Bruno', annee: 1601 },
+  { qid: 'Q2', titre: 'La Voisine', peintre: 'Carla', annee: 1598 },
+  { qid: 'Q3', titre: 'Le Port', peintre: 'Bruno', annee: 1605 },
+  { qid: 'Q4', titre: 'La Moisson', peintre: 'Denis', annee: 1590 },
+  { qid: 'Q5', titre: 'Le Concert', peintre: 'Emma', annee: 1612 },
+  { qid: 'Q6', titre: 'La Tempête', peintre: 'Fanny', annee: 1580 },
+  { qid: 'Q7', titre: 'Le Pont', peintre: 'Gilles', annee: 1650 },
+  { qid: 'Q8', titre: 'Les Nymphéas', peintre: 'Hugo', annee: 1700 },
+  { qid: 'Q9', titre: 'La Madone', peintre: 'Inès', annee: 1400 },
+]
+const LES_CINQ = ['Le Voisin', 'La Voisine', 'Le Port', 'La Moisson', 'Le Concert']
+
+function unDetail(graine = 'detail', anecdote: string | null = null): DetailTire {
+  const t = detailTire(CIBLE, AUTRES, hasardDe(graine), { anecdote, categorie: 'Arts & lettres' })
+  assert.ok(t, 'le tableau a de quoi proposer trois voisins')
+  return t
+}
+
+/** Reculer tant de pas depuis l'ouverture. */
+function reculer(t: DetailTire, pas: number): EtatDuDetail {
+  let e = REGLE_DU_DETAIL.ouvrir(t)
+  for (let i = 0; i < pas; i++) {
+    const apres = REGLE_DU_DETAIL.apresLeGeste(t, e, { quoi: 'reculer' })
+    assert.equal(typeof apres, 'object', `le pas ${i + 1} se fait`)
+    e = apres as EtatDuDetail
+  }
+  return e
+}
+
+const unAutreTitre = (t: DetailTire) => t.titres.findIndex((_, i) => i !== t.bonne)
+
+test('le Détail : chaque pas en arrière vaut une étoile de moins, juste au deuxième cadrage au plus', () => {
+  const t = unDetail()
+  const cadrages = ETOILES_AU_CADRAGE.length
+  assert.deepEqual([...ETOILES_AU_CADRAGE], [3, 2, 1, 0], 'au 1er cadrage ★★★, au 2e ★★, au 3e ★, au tableau entier rien')
+  for (let pas = 0; pas < cadrages; pas++) {
+    const e = reculer(t, pas)
+    const vu = REGLE_DU_DETAIL.montrer(t, e)
+    assert.equal(vu.cadrage, pas + 1)
+    assert.equal(vu.cadrages, cadrages)
+    assert.equal(vu.vaut, ETOILES_AU_CADRAGE[pas], 'la vue dit ce que vaut la réponse maintenant')
+    assert.equal(vu.peutReculer, pas + 1 < cadrages)
+    const v = REGLE_DU_DETAIL.juger(t, e, { quoi: 'repondre', titre: t.bonne })
+    assert.equal(v.naturel, ETOILES_AU_CADRAGE[pas])
+    assert.equal(v.pieces.length, 1, 'une pièce par manche')
+    const juste = justeDeLaPiece(v.naturel, 'detail')
+    assert.equal(v.pieces[0].juste, juste)
+    assert.equal(juste, pas + 1 <= 2, 'reconnu au deuxième cadrage au plus')
+    // La colonne `choix` suit la juste : 0, la réponse dite ; −1, une réponse qui ne paie pas.
+    assert.equal(v.pieces[0].choix, juste ? 0 : -1)
+    assert.equal(v.pieces[0].composee, `${pas + 1}|${t.bonne}`, 'le cadrage, puis le titre choisi')
+  }
+  // Le tableau entier : plus rien à reculer.
+  assert.equal(REGLE_DU_DETAIL.apresLeGeste(t, reculer(t, cadrages - 1), { quoi: 'reculer' }), 'Tu vois déjà le tableau entier')
+})
+
+test('le Détail : un faux titre, le temps écoulé ou la partie quittée ne valent rien', () => {
+  const t = unDetail()
+  const e = reculer(t, 1)
+  const faux = REGLE_DU_DETAIL.juger(t, e, { quoi: 'repondre', titre: unAutreTitre(t) })
+  assert.equal(faux.naturel, 0)
+  assert.deepEqual(faux.pieces, [{ juste: false, choix: -1, composee: `2|${unAutreTitre(t)}` }])
+  // Sans réponse, le serveur sait seulement jusqu'où il avait reculé : `.` dit « pas répondu », comme à l'Éclair.
+  for (const r of ['expiree', 'quittee', { quoi: 'repondre', titre: null }] as const) {
+    const v = REGLE_DU_DETAIL.juger(t, e, r)
+    assert.equal(v.naturel, 0, JSON.stringify(r))
+    assert.deepEqual(v.pieces, [{ juste: false, choix: null, composee: '2|.' }], JSON.stringify(r))
+  }
+})
+
+test('le Détail : trois titres d’époques voisines, tirés parmi les cinq plus proches en années, dans un ordre figé au départ', () => {
+  assert.equal(TITRES_DU_DETAIL, 4)
+  assert.equal(VOISINS_EN_ANNEES, 5)
+  const vusEnLeurre = new Set<string>()
+  const places = new Set<number>()
+  for (let i = 0; i < 300; i++) {
+    const t = unDetail(`detail:${i}`)
+    assert.equal(t.jeu, 'detail')
+    assert.equal(t.titres.length, TITRES_DU_DETAIL)
+    assert.equal(new Set(t.titres.map(x => x.titre)).size, TITRES_DU_DETAIL, 'quatre titres différents')
+    assert.deepEqual(t.titres[t.bonne], { titre: CIBLE.titre, peintre: CIBLE.peintre }, 'le bon, avec son peintre')
+    const leurres = t.titres.filter((_, k) => k !== t.bonne)
+    for (const l of leurres) {
+      assert.ok(LES_CINQ.includes(l.titre), `${l.titre} n’est pas parmi les cinq plus proches en années`)
+      vusEnLeurre.add(l.titre)
+      assert.equal(l.peintre, AUTRES.find(x => x.titre === l.titre)!.peintre, 'chaque titre avec son peintre')
+    }
+    places.add(t.bonne)
+  }
+  assert.deepEqual([...vusEnLeurre].sort(), [...LES_CINQ].sort(), 'chacun des cinq plus proches finit par être proposé')
+  assert.deepEqual([...places].sort(), [0, 1, 2, 3], 'le bon titre n’a pas de place à lui')
+  // La même graine redonne la même manche : une reprise après un redémarrage redonne les mêmes titres, au même ordre.
+  assert.deepEqual(unDetail('reprise'), unDetail('reprise'))
+})
+
+test('le Détail : pas de manche sans trois voisins, et jamais deux fois le même titre', () => {
+  assert.equal(detailTire(CIBLE, AUTRES.slice(0, 2), hasardDe('peu'), { anecdote: null, categorie: 'Arts & lettres' }), null)
+  // Le tableau lui-même, ou un autre du même titre, ne se propose pas en leurre ; deux voisins homonymes, une fois.
+  const homonymes: TableauDuCabinet[] = [
+    CIBLE,
+    { qid: 'Q50', titre: CIBLE.titre, peintre: 'Un autre', annee: 1600 },
+    { qid: 'Q51', titre: 'Le Double', peintre: 'Jean', annee: 1601 },
+    { qid: 'Q52', titre: 'Le Double', peintre: 'Jeanne', annee: 1602 },
+    { qid: 'Q53', titre: 'Le Tiers', peintre: 'Karl', annee: 1603 },
+  ]
+  assert.equal(detailTire(CIBLE, homonymes, hasardDe('homonymes'), { anecdote: null, categorie: 'Arts & lettres' }), null, 'deux titres seulement à proposer')
+  const t = detailTire(CIBLE, [...homonymes, { qid: 'Q54', titre: 'Le Quart', peintre: 'Léa', annee: 1640 }], hasardDe('homonymes'), { anecdote: null, categorie: 'Arts & lettres' })
+  assert.ok(t)
+  assert.deepEqual(t.titres.map(x => x.titre).sort(), ['La Cible', 'Le Double', 'Le Quart', 'Le Tiers'])
+})
+
+test('le Détail : Éclairer efface un mauvais titre, deux au plus, et le même à chaque relecture', () => {
+  assert.equal(EFFACES_AU_PLUS, 2)
+  assert.equal(effacablesAuPlus(TITRES_DU_DETAIL), 2, 'deux titres restent toujours')
+  const efface = new Set<string>()
+  for (let i = 0; i < 120; i++) {
+    const t = unDetail(`eclairer:${i}`)
+    const hasard = hasardDe(`graine:eclairer:${i}`)
+    let e = REGLE_DU_DETAIL.ouvrir(t)
+    for (let n = 1; n <= effacablesAuPlus(t.titres.length); n++) {
+      const apres = REGLE_DU_DETAIL.eclairer(t, e, hasard)
+      assert.equal(typeof apres, 'object', `le ${n}e éclairage sert`)
+      e = apres as EtatDuDetail
+      assert.equal(e.effaces.length, n)
+      assert.ok(!e.effaces.includes(t.bonne), 'jamais le bon titre')
+      assert.equal(new Set(e.effaces).size, n, 'jamais deux fois le même')
+    }
+    for (const k of e.effaces) efface.add(t.titres[k].titre)
+    // Plus rien à souffler : la phrase de la seule règle des refus, que le pli porte (`aEclairer: false`).
+    assert.equal(REGLE_DU_DETAIL.eclairer(t, e, hasard), RIEN_A_ECLAIRER)
+    const vu = REGLE_DU_DETAIL.montrer(t, e)
+    assert.deepEqual(vu.titres.map(x => x.efface), t.titres.map((_, k) => e.effaces.includes(k)))
+    assert.equal(vu.titres.filter(x => !x.efface).length, 2)
+    // Un titre effacé est un mauvais titre : y répondre ne paie rien.
+    assert.equal(REGLE_DU_DETAIL.juger(t, e, { quoi: 'repondre', titre: e.effaces[0] }).naturel, 0)
+    // Le hasard rejoué de la graine redonne les mêmes titres effacés.
+    const rejoue = hasardDe(`graine:eclairer:${i}`)
+    const e1 = REGLE_DU_DETAIL.eclairer(t, REGLE_DU_DETAIL.ouvrir(t), rejoue) as EtatDuDetail
+    assert.deepEqual((REGLE_DU_DETAIL.eclairer(t, e1, rejoue) as EtatDuDetail).effaces, e.effaces)
+  }
+  assert.equal(efface.size, LES_CINQ.length, 'chaque mauvais titre peut s’effacer')
+})
+
+test('le Détail : un cadrage ne se montre qu’atteint, ou tous une fois la manche tranchée', () => {
+  const t = unDetail()
+  const ouverte = REGLE_DU_DETAIL.ouvrir(t)
+  assert.equal(refusDuCadrage(ouverte, 1, false), null, 'le premier, dès l’ouverture')
+  assert.equal(refusDuCadrage(ouverte, 2, false), 'Recule d’un pas pour voir plus')
+  assert.equal(refusDuCadrage(ouverte, 4, false), 'Recule d’un pas pour voir plus')
+  const unPas = reculer(t, 1)
+  assert.equal(refusDuCadrage(unPas, 2, false), null, 'après « Reculer », un de plus')
+  assert.equal(refusDuCadrage(unPas, 3, false), 'Recule d’un pas pour voir plus')
+  for (let k = 1; k <= ETOILES_AU_CADRAGE.length; k++) assert.equal(refusDuCadrage(ouverte, k, true), null, `tranchée, le cadrage ${k}`)
+  for (const k of [0, 5, 1.5, Number.NaN]) assert.equal(refusDuCadrage(ouverte, k, true), 'Ce cadrage n’existe pas', String(k))
+})
+
+test('le Détail : la page n’envoie que ses gestes, relus champ par champ', () => {
+  const t = unDetail()
+  const lire = (brut: unknown) => REGLE_DU_DETAIL.lireLeGeste(brut, t)
+  assert.deepEqual(lire({ quoi: 'reculer', manche: 1 }), { quoi: 'reculer' })
+  assert.deepEqual(lire({ quoi: 'repondre', manche: 0, reponse: { detail: { titre: 2 } } }), { quoi: 'repondre', titre: 2 })
+  // À l'échéance, la page envoie ce qu'elle a : parfois rien.
+  assert.deepEqual(lire({ quoi: 'repondre', manche: 0, auto: true }), { quoi: 'repondre', titre: null })
+  for (const brut of [
+    null,
+    'reculer',
+    [],
+    { quoi: 'clore', pourquoi: 'lendemain' },
+    { quoi: 'essai', lettres: 'PLUME' },
+    { quoi: 'repondre', reponse: { detail: { titre: 4 } } },
+    { quoi: 'repondre', reponse: { detail: { titre: -1 } } },
+    { quoi: 'repondre', reponse: { detail: { titre: 1.5 } } },
+    { quoi: 'repondre', reponse: { detail: { titre: '2' } } },
+    { quoi: 'repondre', reponse: { detail: {} } },
+    { quoi: 'repondre', reponse: { frise: { ordre: [0] } } },
+    { quoi: 'repondre', reponse: 'Q100' },
+  ]) {
+    assert.equal(lire(brut), null, JSON.stringify(brut))
+  }
+})
+
+test('le Détail : la manche ne dit jamais quel titre est le bon, ni rien du tableau (invariant 1)', () => {
+  const t = unDetail('secret', 'Une anecdote qui nommerait le tableau.')
+  // Le même jeu de titres, un autre tableau derrière : ce que la page reçoit ne change pas d'un signe.
+  const autre: DetailTire = {
+    ...t,
+    bonne: unAutreTitre(t),
+    tableau: { qid: 'Q999', titre: t.titres[unAutreTitre(t)].titre, peintre: t.titres[unAutreTitre(t)].peintre, annee: 1234 },
+    anecdote: 'Une tout autre anecdote.',
+    categorie: 'Histoire',
+  }
+  for (const pas of [0, 1, 3]) {
+    const e = reculer(t, pas)
+    assert.deepEqual(REGLE_DU_DETAIL.montrer(t, e), REGLE_DU_DETAIL.montrer(autre, e))
+    const vu = JSON.stringify(REGLE_DU_DETAIL.montrer(t, e))
+    for (const secret of [CIBLE.qid, String(CIBLE.annee), 'anecdote', 'bonne']) assert.ok(!vu.includes(secret), `« ${secret} » dans ${vu}`)
+  }
+})
+
+test('le Détail : la révélation, la pièce et le cartel', () => {
+  const t = unDetail('revelation')
+  const e = reculer(t, 1)
+  const juste = REGLE_DU_DETAIL.juger(t, e, { quoi: 'repondre', titre: t.bonne })
+  const r = REGLE_DU_DETAIL.reveler(t, e, juste)
+  assert.equal(r.jeu, 'detail')
+  assert.equal(r.titre, 'Reconnu')
+  assert.equal(r.reconnu, true)
+  assert.equal(r.repondu, null)
+  assert.equal(r.cadrage, 2)
+  assert.deepEqual(r.tableau, { titre: CIBLE.titre, peintre: CIBLE.peintre, annee: CIBLE.annee })
+  // Sans anecdote de sa question de la base, il dit ce qu'il est.
+  assert.equal(r.savais, 'La Cible, peint par Anne Peintre en 1600.')
+  assert.deepEqual(r.titres.map(x => x.bon), t.titres.map((_, k) => k === t.bonne))
+  assert.deepEqual(r.titres.map(x => x.choisi), t.titres.map((_, k) => k === t.bonne))
+
+  const k = unAutreTitre(t)
+  const rate = REGLE_DU_DETAIL.reveler(t, e, REGLE_DU_DETAIL.juger(t, e, { quoi: 'repondre', titre: k }))
+  assert.equal(rate.titre, 'C’était…')
+  assert.equal(rate.reconnu, false)
+  assert.equal(rate.repondu, t.titres[k].titre, '« Tu avais répondu « … » »')
+  assert.equal(rate.titres[k].choisi, true)
+  const sans = REGLE_DU_DETAIL.reveler(t, e, REGLE_DU_DETAIL.juger(t, e, 'expiree'))
+  assert.equal(sans.titre, 'C’était…')
+  assert.equal(sans.repondu, null)
+  assert.ok(sans.titres.every(x => !x.choisi))
+
+  const avecAnecdote = unDetail('revelation', 'Il l’a peint de nuit, sur place.')
+  assert.equal(REGLE_DU_DETAIL.reveler(avecAnecdote, e, juste).savais, 'Il l’a peint de nuit, sur place.')
+
+  const p = REGLE_DU_DETAIL.piece(t, e, juste, { manche: 1, tirage: 4 })
+  assert.equal(p.id, idDuTableau(CIBLE.qid))
+  assert.ok(p.id.startsWith(PREFIXE_DU_CABINET), 'un tableau n’est pas la question « Qui a peint… ? » de la base')
+  assert.deepEqual(deplier(p.id), [p.id])
+  assert.equal(p.forme, 'detail')
+  assert.equal(p.texte, QUESTION_DU_TABLEAU)
+  assert.deepEqual(p.reponses, ['La Cible — Anne Peintre, 1600'])
+  assert.equal(p.bonne, 0)
+  assert.equal(p.niveau, 'moyen', 'un tableau n’a pas de marche')
+  assert.equal(p.categorie, 'Arts & lettres')
+  assert.equal(p.anecdote, r.savais)
+  assert.deepEqual(p.cabinet, { jeu: 'detail', manche: 1, tirage: 4 })
+
+  assert.deepEqual(REGLE_DU_DETAIL.cartel(t, juste), { sujet: QUESTION_DU_TABLEAU, reponse: 'La Cible — Anne Peintre, 1600', anecdote: r.savais })
+  assert.equal(REGLE_DU_DETAIL.cle, 'detail')
+  assert.equal(REGLE_DU_DETAIL.etapes, 1)
+  assert.equal(REGLE_DU_DETAIL.dureeMs(1), DUREES_DES_JEUX.detail * 1000)
+})
+
+// ── La Frise ──────────────────────────────────────────────────────────────
+
+const EVENEMENTS = [
+  { libelle: 'Premier vol motorisé', annee: 1903 },
+  { libelle: 'Traversée de la Manche en avion', annee: 1909 },
+  { libelle: 'Premier vol commercial régulier', annee: 1919 },
+  { libelle: 'Traversée de l’Atlantique en solitaire', annee: 1927 },
+  { libelle: 'Création d’Air France', annee: 1933 },
+  { libelle: 'Mur du son franchi', annee: 1947 },
+  { libelle: 'Premier vol du Concorde', annee: 1969 },
+]
+const A_THEME: FriseAPartager = {
+  sorte: 'theme',
+  cle: 'aviation',
+  theme: 'L’aviation',
+  // Dans le désordre : le partage les range lui-même dans le temps.
+  evenements: [EVENEMENTS[4], EVENEMENTS[0], EVENEMENTS[6], EVENEMENTS[2], EVENEMENTS[1], EVENEMENTS[5], EVENEMENTS[3]],
+  savais: 'Le Concorde reliait Paris à New York en trois heures et demie.',
+  categorie: 'Histoire',
+}
+const DE_SUJET: FriseAPartager = {
+  sorte: 'sujet',
+  cle: 'inventions',
+  theme: 'Les inventions',
+  evenements: [
+    { libelle: 'La lampe à incandescence', annee: 1879, id: 'q-lampe' },
+    { libelle: 'Le téléphone', annee: 1876, id: 'q-telephone' },
+    { libelle: 'Le cinématographe', annee: 1895, id: 'q-cinema' },
+    { libelle: 'La première radio', annee: 1901, id: 'q-radio' },
+    { libelle: 'La télévision', annee: 1926, id: 'q-tele' },
+    { libelle: 'Le transistor', annee: 1947, id: 'q-transistor' },
+    { libelle: 'La roue', annee: -3500, id: 'q-roue' },
+  ],
+  savais: null,
+  categorie: 'Sciences',
+  niveau: 'difficile',
+}
+
+function uneFrise(graine = 'frise', frise: FriseAPartager = A_THEME): FriseTiree[] {
+  const ts = friseEnVagues(frise, hasardDe(graine))
+  assert.ok(ts, 'sept événements bien écartés font une frise')
+  return ts
+}
+
+/** Les jetons de la manche dans l'ordre où il les pose, à partir des rangs dans le temps qu'il croit justes. */
+function jetonsDe(t: FriseTiree, rangs: readonly number[]): number[] {
+  const vu = REGLE_DE_LA_FRISE.montrer(t, REGLE_DE_LA_FRISE.ouvrir(t))
+  const ancres = t.vagues.slice(0, t.vague).flat().sort((a, b) => a - b)
+  return rangs.map(r => {
+    const a = ancres.indexOf(r)
+    return a >= 0 ? vu.ancres[a].jeton : vu.nouveaux[t.vagues[t.vague].indexOf(r)].jeton
+  })
+}
+
+/** La réponse d'une manche, des rangs dans le temps à ce que la page envoie, relue comme le serveur la relit. */
+function repondre(t: FriseTiree, rangs: readonly number[]) {
+  const g = REGLE_DE_LA_FRISE.lireLeGeste({ quoi: 'repondre', manche: t.vague, reponse: { frise: { ordre: jetonsDe(t, rangs) } } }, t)
+  assert.ok(g, `${rangs} se lit`)
+  return g
+}
+
+test('la Frise : trois, puis deux, puis deux nouveaux venus, chacun une fois, dans un ordre montré au hasard', () => {
+  assert.deepEqual([...VAGUES_DE_LA_FRISE], [3, 2, 2])
+  assert.equal(EVENEMENTS_D_UNE_FRISE_A_THEME, 7)
+  const ordresDeLaPremiere = new Set<string>()
+  let chronologiques = 0
+  const premiers = new Set<number>()
+  for (let i = 0; i < 400; i++) {
+    const ts = uneFrise(`vagues:${i}`)
+    assert.equal(ts.length, VAGUES_DE_LA_FRISE.length, 'une tirée par manche')
+    ts.forEach((t, k) => {
+      assert.equal(t.jeu, 'frise')
+      assert.equal(t.vague, k)
+      assert.deepEqual(t.vagues, ts[0].vagues, 'les trois manches partagent la même frise')
+      assert.deepEqual(t.evenements, ts[0].evenements)
+    })
+    const t = ts[0]
+    assert.deepEqual(t.evenements.map(e => e.annee), EVENEMENTS.map(e => e.annee), 'les événements dans l’ordre du temps')
+    assert.deepEqual(t.vagues.map(v => v.length), [...VAGUES_DE_LA_FRISE])
+    assert.deepEqual(t.vagues.flat().sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6], 'chaque événement dans une vague, une fois')
+    ordresDeLaPremiere.add(t.vagues[0].join(''))
+    premiers.add(t.vagues[0][0])
+    // Une vague de deux montrée toujours à rebours dirait l'ordre : il faut les deux.
+    if (t.vagues[1][0] < t.vagues[1][1]) chronologiques++
+  }
+  assert.ok(chronologiques > 120 && chronologiques < 280, `${chronologiques} sur 400 montrées dans l’ordre du temps`)
+  assert.equal(premiers.size, 7, 'n’importe quel événement peut ouvrir la frise')
+  assert.ok(ordresDeLaPremiere.size > 120, `${ordresDeLaPremiere.size} premières vagues différentes : elles se partagent au hasard`)
+  assert.deepEqual(uneFrise('reprise'), uneFrise('reprise'), 'la même graine, la même frise : une reprise redonne tout')
+})
+
+test('la Frise : une frise qui grandit — les ancres à leur vraie place, leur année dite, les nouveaux venus sans la leur', () => {
+  const ts = uneFrise('grandit')
+  for (const t of ts) {
+    const vu = REGLE_DE_LA_FRISE.montrer(t, REGLE_DE_LA_FRISE.ouvrir(t))
+    assert.equal(vu.jeu, 'frise')
+    assert.equal(vu.theme, 'L’aviation')
+    assert.equal(vu.vague, t.vague)
+    const ancres = t.vagues.slice(0, t.vague).flat().sort((a, b) => a - b)
+    assert.deepEqual(vu.ancres.map(a => a.annee), ancres.map(r => EVENEMENTS[r].annee), 'les ancres dans l’ordre du temps')
+    assert.deepEqual(vu.ancres.map(a => a.libelle), ancres.map(r => EVENEMENTS[r].libelle))
+    assert.deepEqual(vu.nouveaux.map(n => n.libelle), t.vagues[t.vague].map(r => EVENEMENTS[r].libelle), 'les nouveaux venus dans l’ordre montré')
+    assert.deepEqual([...vu.ancres, ...vu.nouveaux].map(j => j.jeton), [...Array(ancres.length + VAGUES_DE_LA_FRISE[t.vague]).keys()])
+    // Invariant 1 : ni l'année d'un nouveau venu, ni rien qui la dise.
+    for (const n of vu.nouveaux) assert.ok(!('annee' in n), n.libelle)
+    const texte = JSON.stringify(vu)
+    for (const r of t.vagues[t.vague]) assert.ok(!texte.includes(String(EVENEMENTS[r].annee)), `${EVENEMENTS[r].annee} dans ${texte}`)
+  }
+  assert.deepEqual(
+    ts.map(t => REGLE_DE_LA_FRISE.montrer(t, REGLE_DE_LA_FRISE.ouvrir(t)).ancres.length),
+    [0, 3, 5],
+    'trois événements, puis cinq, puis sept',
+  )
+})
+
+test('la Frise : un nouveau venu est faux si un voisin le contredit, et pas posé il est faux', () => {
+  const annees = [1800, 1850, 1900, 1950, 2000]
+  // Les rangs 1 et 3 sont les nouveaux venus ; 0, 2 et 4, les ancres.
+  assert.deepEqual(erreursDeLaFrise([0, 1, 2, 3, 4], annees, [1, 3]), [], 'tout à sa place')
+  assert.deepEqual(erreursDeLaFrise([0, 2, 1, 3, 4], annees, [1, 3]), [1], 'un plus récent juste avant lui')
+  assert.deepEqual(erreursDeLaFrise([0, 1, 2, 4, 3], annees, [1, 3]), [3], 'un plus ancien juste après lui')
+  assert.deepEqual(erreursDeLaFrise([0, 3, 2, 1, 4], annees, [1, 3]), [1, 3], 'croisés')
+  assert.deepEqual(erreursDeLaFrise([0, 2, 3, 4], annees, [1, 3]), [1], 'pas posé, il est faux')
+  assert.deepEqual(erreursDeLaFrise([0, 2, 4], annees, [1, 3]), [1, 3])
+  // Ses voisins seuls le jugent : bien posé entre deux ancres, il reste juste quand un autre s'égare au loin.
+  assert.deepEqual(erreursDeLaFrise([3, 0, 1, 2, 4], annees, [1, 3]), [3])
+  // Deux nouveaux venus échangés côte à côte se contredisent l'un l'autre : deux erreurs.
+  assert.deepEqual(erreursDeLaFrise([0, 2, 1], [1800, 1850, 1900], [0, 1, 2]), [1, 2])
+  // Une ancre ne compte jamais : elle est à sa vraie place, son année dite.
+  assert.deepEqual(erreursDeLaFrise([4, 3, 2, 1, 0], annees, []), [])
+  // Les années, pas les rangs : des années quelconques, dans le désordre de la liste.
+  assert.deepEqual(erreursDeLaFrise([1, 2, 0], [1969, 1903, 1927], [0, 1, 2]), [], '1903, 1927, 1969')
+  assert.deepEqual(erreursDeLaFrise([2, 1, 0], [1969, 1903, 1927], [0, 1, 2]), [1, 2], '1927 avant 1903 : les deux se contredisent')
+})
+
+test('la Frise : sans faute ★★★, une erreur ★★, deux ★, trois rien — et rien de posé, rien', () => {
+  assert.deepEqual([...ERREURS_DE_LA_FRISE], [0, 1, 2])
+  assert.deepEqual([0, 1, 2, 3, 4].map(etoilesDeLaFrise), [3, 2, 1, 0, 0])
+  const [premiere, , troisieme] = uneFrise('bareme')
+  const juste = [...premiere.vagues[0]].sort((a, b) => a - b)
+  // La première manche : trois nouveaux venus, aucune ancre.
+  const cas: [number[], number, boolean][] = [
+    [juste, 3, true],
+    [[juste[0], juste[2], juste[1]], 1, false], // deux voisins échangés : deux erreurs
+    [[juste[1], juste[2]], 2, true], // un pas posé : une erreur
+    [[juste[2], juste[1], juste[0]], 0, false],
+  ]
+  for (const [rangs, etoiles, estJuste] of cas) {
+    const v = REGLE_DE_LA_FRISE.juger(premiere, REGLE_DE_LA_FRISE.ouvrir(premiere), repondre(premiere, rangs))
+    assert.equal(v.naturel, etoiles, `${rangs}`)
+    assert.equal(v.pieces.length, 1)
+    assert.equal(v.pieces[0].juste, estJuste, 'juste à une erreur au plus')
+    assert.equal(v.pieces[0].juste, justeDeLaPiece(v.naturel, 'frise'))
+    assert.equal(v.pieces[0].choix, estJuste ? 0 : -1)
+    assert.equal(v.pieces[0].composee, rangs.join(''), 'l’ordre posé, en rangs dans le temps')
+  }
+  // Rien de posé — le temps écoulé sans un geste, une partie quittée, une manche en retard : rien. Sans quoi
+  // deux nouveaux venus laissés en plan vaudraient deux erreurs, une étoile, pour n'avoir rien fait.
+  const e = REGLE_DE_LA_FRISE.ouvrir(troisieme)
+  const ancres = troisieme.vagues.slice(0, 2).flat().sort((a, b) => a - b)
+  for (const r of [repondre(troisieme, ancres), { quoi: 'repondre' as const, rangs: null }, 'expiree' as const, 'quittee' as const]) {
+    assert.deepEqual(REGLE_DE_LA_FRISE.juger(troisieme, e, r), { naturel: 0, pieces: [{ juste: false, choix: null, composee: null }] }, JSON.stringify(r))
+  }
+  // Un posé sur deux, à sa place, parmi les ancres : une erreur, ★★.
+  const [n1, n2] = troisieme.vagues[2]
+  const unSeul = [...ancres, n1].sort((a, b) => a - b)
+  assert.equal(REGLE_DE_LA_FRISE.juger(troisieme, e, repondre(troisieme, unSeul)).naturel, 2)
+  const tout = [...ancres, n1, n2].sort((a, b) => a - b)
+  assert.equal(REGLE_DE_LA_FRISE.juger(troisieme, e, repondre(troisieme, tout)).naturel, 3)
+})
+
+test('la Frise : la page envoie ses jetons, les ancres dans leur ordre, relus en rangs dans le temps', () => {
+  const t = uneFrise('gestes')[1]
+  const ancres = t.vagues[0].slice().sort((a, b) => a - b)
+  const [a, b] = t.vagues[1]
+  const lire = (ordre: unknown) => REGLE_DE_LA_FRISE.lireLeGeste({ quoi: 'repondre', manche: 1, reponse: { frise: { ordre } } }, t)
+  // Les jetons : les ancres d'abord (0 à 2, dans le temps), puis les nouveaux venus dans l'ordre montré (3 et 4).
+  assert.deepEqual(lire([0, 3, 1, 2, 4]), { quoi: 'repondre', rangs: [ancres[0], a, ancres[1], ancres[2], b] })
+  assert.deepEqual(lire([0, 1, 2, 4]), { quoi: 'repondre', rangs: [...ancres, b] }, 'un nouveau venu peut manquer : il est faux')
+  assert.deepEqual(REGLE_DE_LA_FRISE.lireLeGeste({ quoi: 'repondre', manche: 1, auto: true }, t), { quoi: 'repondre', rangs: null })
+  for (const ordre of [
+    [1, 0, 2, 3, 4], // deux ancres échangées : elles ne bougent pas
+    [0, 1, 3, 4], // une ancre manque
+    [0, 1, 2, 3, 3],
+    [0, 1, 2, 3, 5],
+    [0, 1, 2, 3, -1],
+    [0, 1, 2, 3, 1.5],
+    [0, 1, 2, 3, '4'],
+    [0, 1, 2, 3, 4, 4],
+    '01234',
+    null,
+  ]) {
+    assert.equal(lire(ordre), null, JSON.stringify(ordre))
+  }
+  for (const brut of [null, { quoi: 'reculer' }, { quoi: 'repondre', reponse: { detail: { titre: 0 } } }, { quoi: 'clore', pourquoi: 'lendemain' }]) {
+    assert.equal(REGLE_DE_LA_FRISE.lireLeGeste(brut, t), null, JSON.stringify(brut))
+  }
+  assert.equal(REGLE_DE_LA_FRISE.apresLeGeste(t, REGLE_DE_LA_FRISE.ouvrir(t), { quoi: 'repondre', rangs: null }), 'Ce geste ne sert pas à la Frise')
+})
+
+test('la Frise : Éclairer dévoile l’année du premier nouveau venu pas encore dévoilé, jamais de tous', () => {
+  for (const t of uneFrise('eclairer')) {
+    let e: EtatDeLaFrise = REGLE_DE_LA_FRISE.ouvrir(t)
+    const nouveaux = t.vagues[t.vague]
+    // Tous dévoilés, la manche se rangerait seule parmi des ancres datées : il en reste toujours un à placer de mémoire.
+    for (let n = 1; n < nouveaux.length; n++) {
+      const apres = REGLE_DE_LA_FRISE.eclairer(t, e, hasardDe('inutile'))
+      assert.equal(typeof apres, 'object')
+      e = apres as EtatDeLaFrise
+      assert.deepEqual(e.devoiles, nouveaux.slice(0, n), 'dans l’ordre montré')
+      const vu = REGLE_DE_LA_FRISE.montrer(t, e)
+      assert.deepEqual(
+        vu.nouveaux.map(x => x.annee),
+        nouveaux.map((r, k) => (k < n ? EVENEMENTS[r].annee : undefined)),
+      )
+    }
+    assert.equal(REGLE_DE_LA_FRISE.eclairer(t, e, hasardDe('inutile')), RIEN_A_ECLAIRER)
+  }
+})
+
+test('la Frise : sept années distinctes, à trois ans d’écart au moins', () => {
+  assert.equal(ECART_DES_ANNEES_DE_LA_FRISE, 3)
+  const avec = (annees: number[]): FriseAPartager => ({ ...A_THEME, evenements: annees.map((annee, i) => ({ libelle: `Événement ${i}`, annee })) })
+  assert.ok(friseEnVagues(avec([1900, 1903, 1906, 1909, 1912, 1915, 1918]), hasardDe('juste')), 'trois ans pile')
+  assert.equal(friseEnVagues(avec([1900, 1902, 1906, 1909, 1912, 1915, 1918]), hasardDe('serre')), null, 'deux ans : au hasard')
+  assert.equal(friseEnVagues(avec([1900, 1900, 1906, 1909, 1912, 1915, 1918]), hasardDe('double')), null)
+  assert.equal(friseEnVagues(avec([1900, 1906, 1909, 1912, 1915, 1918]), hasardDe('six')), null, 'six ne font pas trois vagues')
+  assert.equal(friseEnVagues(avec([1890, 1900, 1906, 1909, 1912, 1915, 1918, 1930]), hasardDe('huit')), null)
+  // Une frise d'un sujet de la base dit la question de chaque événement : ses pièces les nomment.
+  const sansQuestion = { ...DE_SUJET, evenements: DE_SUJET.evenements.map((e, i) => (i === 3 ? { libelle: e.libelle, annee: e.annee } : e)) }
+  assert.equal(friseEnVagues(sansQuestion, hasardDe('sujet')), null)
+})
+
+test('la Frise : une pièce par manche, unique dans sa partie', () => {
+  // Une frise à thème : son identifiant et la manche.
+  const ts = uneFrise('pieces')
+  const ids = ts.map((t, k) => {
+    const juste = [...t.vagues.slice(0, k + 1).flat()].sort((a, b) => a - b)
+    const v = REGLE_DE_LA_FRISE.juger(t, REGLE_DE_LA_FRISE.ouvrir(t), repondre(t, juste))
+    const p = REGLE_DE_LA_FRISE.piece(t, REGLE_DE_LA_FRISE.ouvrir(t), v, { manche: k as 0 | 1 | 2, tirage: k })
+    assert.equal(p.id, idDeLaFriseATheme('aviation', k))
+    assert.deepEqual(deplier(p.id), [p.id], 'une frise à thème n’a pas de question de la base')
+    assert.equal(p.forme, 'frise')
+    assert.equal(p.bonne, 0)
+    assert.equal(p.categorie, 'Histoire')
+    assert.equal(p.niveau, 'moyen', 'sans marche, une frise à thème est moyenne')
+    assert.equal(p.anecdote, A_THEME.savais)
+    assert.deepEqual(p.cabinet, { jeu: 'frise', manche: k, tirage: k })
+    const nouveaux = [...t.vagues[k]].sort((a, b) => a - b)
+    assert.deepEqual(p.reponses, [nouveaux.map(r => `${EVENEMENTS[r].annee} : ${EVENEMENTS[r].libelle}`).join(' · ')])
+    assert.equal(v.pieces[0].composee, juste.join(''))
+    return p.id
+  })
+  assert.equal(new Set(ids).size, 3)
+  // Un rang par chiffre au journal, comme la frise de l'Expédition : il en faut moins de onze.
+  assert.ok(EVENEMENTS_D_UNE_FRISE_A_THEME <= 10)
+
+  // Une frise d'un sujet : les questions de ses nouveaux venus, dans l'ordre du temps — déplié, ce qu'il a vu.
+  const ss = uneFrise('pieces', DE_SUJET)
+  const parRang = ss[0].evenements.map(e => e.id!)
+  const vues = ss.map((t, k) => {
+    const v = REGLE_DE_LA_FRISE.juger(t, REGLE_DE_LA_FRISE.ouvrir(t), 'quittee')
+    const p = REGLE_DE_LA_FRISE.piece(t, REGLE_DE_LA_FRISE.ouvrir(t), v, { manche: k as 0 | 1 | 2, tirage: k })
+    const ids = [...t.vagues[k]].sort((a, b) => a - b).map(r => parRang[r])
+    assert.equal(p.id, idDeLaFriseDeSujet(ids))
+    assert.deepEqual(deplier(p.id), ids)
+    assert.equal(p.niveau, 'difficile', 'la marche de son sujet')
+    assert.equal(p.anecdote, null)
+    return deplier(p.id)
+  })
+  assert.deepEqual(vues.flat().sort(), DE_SUJET.evenements.map(e => e.id!).sort(), 'ses sept questions, une fois chacune')
+  assert.equal(ss[0].evenements[0].annee, -3500)
+  const premiere = ss.find(t => t.vagues[t.vague].includes(0))!
+  const piece = REGLE_DE_LA_FRISE.piece(premiere, REGLE_DE_LA_FRISE.ouvrir(premiere), REGLE_DE_LA_FRISE.juger(premiere, REGLE_DE_LA_FRISE.ouvrir(premiere), 'expiree'), { manche: premiere.vague as 0 | 1 | 2, tirage: 0 })
+  assert.ok(piece.reponses[0].startsWith(`${anneeDite(-3500)} : La roue`), piece.reponses[0])
+})
+
+test('la Frise : la révélation range tout à sa vraie année, et dit le savais-tu à la dernière manche', () => {
+  const ts = uneFrise('revelation')
+  const t = ts[2]
+  const ancres = t.vagues.slice(0, 2).flat().sort((a, b) => a - b)
+  const [n1, n2] = t.vagues[2]
+  const juste = [...ancres, n1, n2].sort((a, b) => a - b)
+  const e = REGLE_DE_LA_FRISE.ouvrir(t)
+  // n2 égaré entre deux ancres qui le contredisent : il est faux, n1 reste à sa place.
+  const sansN2 = juste.filter(r => r !== n2)
+  const egare = [...Array(sansN2.length + 1).keys()]
+    .map(p => [...sansN2.slice(0, p), n2, ...sansN2.slice(p)])
+    .find(o => erreursDeLaFrise(o, EVENEMENTS.map(x => x.annee), [n1, n2]).join() === String(n2))
+  assert.ok(egare, 'une place où n2 seul est faux')
+  const v = REGLE_DE_LA_FRISE.juger(t, e, repondre(t, egare))
+  const r = REGLE_DE_LA_FRISE.reveler(t, e, v)
+  assert.equal(r.jeu, 'frise')
+  assert.equal(r.theme, 'L’aviation')
+  assert.equal(r.erreurs, 1)
+  assert.equal(r.titre, '1 erreur')
+  assert.deepEqual(r.rangee.map(x => x.annee), EVENEMENTS.map(x => x.annee), 'toute la frise, dans l’ordre du temps')
+  assert.deepEqual(
+    r.rangee.map(x => x.place),
+    EVENEMENTS.map((_, k) => (k === n1 ? 'juste' : k === n2 ? 'faux' : null)),
+    'les nouveaux venus marqués, les ancres non',
+  )
+  assert.deepEqual(r.rangee.map(x => x.nouveau), EVENEMENTS.map((_, k) => k === n1 || k === n2))
+  assert.equal(r.savais, A_THEME.savais, 'à la troisième manche, le savais-tu de la frise')
+
+  const parfaite = REGLE_DE_LA_FRISE.reveler(t, e, REGLE_DE_LA_FRISE.juger(t, e, repondre(t, juste)))
+  assert.equal(parfaite.titre, 'Sans faute')
+  assert.equal(parfaite.erreurs, 0)
+  const rien = REGLE_DE_LA_FRISE.reveler(t, e, REGLE_DE_LA_FRISE.juger(t, e, 'expiree'))
+  assert.equal(rien.titre, 'Rien de rangé')
+  assert.deepEqual(rien.rangee.filter(x => x.nouveau).map(x => x.place), ['pas-pose', 'pas-pose'])
+
+  // Les deux premières manches ne montrent que ce qui est posé jusqu'à elles, sans le savais-tu.
+  const premiere = ts[0]
+  const vagueUn = [...premiere.vagues[0]].sort((a, b) => a - b)
+  const r0 = REGLE_DE_LA_FRISE.reveler(premiere, REGLE_DE_LA_FRISE.ouvrir(premiere), REGLE_DE_LA_FRISE.juger(premiere, REGLE_DE_LA_FRISE.ouvrir(premiere), repondre(premiere, vagueUn)))
+  assert.deepEqual(r0.rangee.map(x => x.annee), vagueUn.map(k => EVENEMENTS[k].annee))
+  assert.equal(r0.savais, null)
+
+  // Le cartel : la frise et ce que la manche a daté.
+  const nouveaux = [n1, n2].sort((a, b) => a - b)
+  assert.deepEqual(REGLE_DE_LA_FRISE.cartel(t, v), {
+    sujet: 'La frise : L’aviation',
+    reponse: nouveaux.map(k => `${EVENEMENTS[k].annee} : ${EVENEMENTS[k].libelle}`).join(' · '),
+    anecdote: A_THEME.savais,
+  })
+  assert.equal(REGLE_DE_LA_FRISE.cle, 'frise')
+  assert.equal(REGLE_DE_LA_FRISE.etapes, 1)
+  assert.equal(REGLE_DE_LA_FRISE.dureeMs(1), DUREES_DES_JEUX.frise * 1000)
+})
+
+test('le Détail et la Frise sont purs : ni horloge, ni hasard à eux', () => {
+  // Le hasard vient de la graine de la partie (Éclairer, le tirage), l'heure du serveur : rejoué, le pli redonne tout.
+  for (const f of ['detail.ts', 'frise.ts']) {
+    const texte = readFileSync(new URL(`../../shared/cabinet/jeux/${f}`, import.meta.url), 'utf8')
+    assert.ok(!/Date\.now|new Date|Math\.random|performance\.now/.test(texte), f)
+  }
+})
