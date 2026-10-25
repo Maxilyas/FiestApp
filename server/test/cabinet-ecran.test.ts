@@ -59,10 +59,10 @@ import { etatDesTouches, type MotMontre, type MotRevele } from '../../shared/cab
 import type { FriseMontree, FriseRevelee } from '../../shared/cabinet/jeux/frise'
 import { anneeDite } from '../../shared/frise'
 import { CLES_DES_JEUX, JEUX, MOTS_DU_PARI, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
-import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, laPartieAttend } from '../../shared/cabinet/musee'
+import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, laPartieAttend, museeDe, type CaseFigee, type PartieDuJour, type VisiteDuJour } from '../../shared/cabinet/musee'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, RARETES, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
-import { PLUS_DE_PAUSE } from '../../shared/cabinet/partie'
+import { PLUS_DE_PAUSE, type Manche } from '../../shared/cabinet/partie'
 import { POUVOIRS, ceQueFaitLaCarte, forceDite } from '../../shared/cabinet/pouvoirs'
 import { GARDIENS, GARDIENS_DES_SALLES, SALLES } from '../../shared/cabinet/salles'
 import { fondreLesReveils, type Cartel, type PageDuCabinet, type ReveilDesGardiens, type SalleVue, type VueDeLaPartie } from '../../shared/cabinet/vues'
@@ -74,6 +74,8 @@ import { legendaire } from '../../shared/legendaires'
 import { pageDeLAdresse } from '../../shared/maintenance'
 import { espacesFines, formatNumber } from '../../shared/typographie'
 import { CABINET_SANS_PROFIL } from '../src/cabinet'
+import type { LectureDeLAccueil } from '../src/core/cabinet/magasin'
+import { accueilDuCabinet } from '../src/core/cabinet/vue'
 
 // Le client compile son JSX pour un `React` global, et `state.ts` lit son adresse à l'import : posés avant tout composant.
 Object.assign(globalThis, { React, window: { location: { pathname: '/cabinet', search: '', hash: '', origin: 'http://banc' }, addEventListener: () => {} } })
@@ -848,6 +850,44 @@ test('le bouton de l’accueil dit son musée — « Ton musée : 27 œuvres sur
   assert.doesNotMatch(bientot, /À jouer|Ton musée/)
   // La page lit ce que l'accueil du serveur porte, sans rien demander de plus.
   assert.match(source('views/ProfilApp.tsx'), /musee=\{'cabinet' in profil \? profil\.cabinet : undefined\}/)
+})
+
+test('« À jouer » : une seule règle, au musée et sur l’accueil — une case d’un jeu pas livré n’attend que si l’échange peut la changer', async () => {
+  // L'accueil du serveur (`accueilDuCabinet`), sur une journée faite à la main : deux cases jouées, la troisième à l'Épingle.
+  const jour = '2026-10-25'
+  const cases: CaseFigee[] = [
+    { jeu: 'pari', cible: null, but: null },
+    { jeu: 'frise', cible: null, but: null },
+    { jeu: 'epingle', cible: null, but: null },
+  ]
+  const jouee = (k: Manche): PartieDuJour => ({ id: `p${k}`, commenceeLe: 0, finieLe: 1, issue: 'manquee', origine: 'visite', visite: k, jeu: cases[k].jeu, cible: null, payee: false, total: 0 })
+  const leMusee = museeDe({ jour, parties: [jouee(0), jouee(1)] })
+  const visite: VisiteDuJour = { jour, cases, echange: null, figee: true }
+  const sansLEpingle = JEUX_PRETS.filter(j => j !== 'epingle')
+  const aJouer = (plus: Partial<LectureDeLAccueil>) => accueilDuCabinet({ musee: leMusee, visite, jeux: JEUX_PRETS, jeuDeLEchange: 'mot', ...plus }).aJouer
+  assert.equal(aJouer({}), true, 'la troisième case se joue')
+  assert.equal(aJouer({ jeux: sansLEpingle }), true, 'pas livrée, elle se change encore : « Changer de jeu » la rend jouable')
+  assert.equal(aJouer({ jeux: sansLEpingle, visite: { ...visite, echange: 0 } }), false, 'l’échange du jour déjà fait : elle ne se joue plus')
+  assert.equal(aJouer({ jeux: sansLEpingle, jeuDeLEchange: null }), false, 'aucun autre jeu à lui donner')
+  assert.equal(aJouer({ musee: museeDe({ jour, parties: [jouee(0), jouee(1), jouee(2)] }) }), false, 'la visite faite')
+  // Le musée, de même : sa pastille et son bouton en avant ne promettaient qu'une case pas faite, même d'un jeu qui ne se joue pas.
+  const derniere = (echange: PageDuCabinet['visite']['echange']): PageDuCabinet => ({
+    ...page,
+    enCours: null,
+    visite: { ...page.visite, echange, cases: page.visite.cases.map((c, k, toutes) => (k < toutes.length - 1 ? { ...c, faite: true } : { ...c, faite: false, bientot: true as const })) },
+  })
+  const laVisite = async (p: PageDuCabinet) => /<a class="gros-bouton[^"]*" href="#visite">.*?<\/a>/.exec(await musee(p))?.[0] ?? ''
+  const changeable = await laVisite(derniere({ possible: true }))
+  assert.match(changeable, /^<a class="gros-bouton gros-principal"/)
+  assert.match(changeable, /<span class="pastille-attente">À jouer<\/span>/)
+  const perdue = await laVisite(derniere({ possible: false, refus: 'Tu as déjà changé un jeu aujourd’hui' }))
+  assert.match(perdue, /^<a class="gros-bouton"/)
+  assert.doesNotMatch(perdue, /À jouer/)
+  // Elle dit encore où elle en est : deux sur trois, la troisième ne se fera pas aujourd'hui.
+  assert.match(texte(perdue), new RegExp(`${page.visite.cases.length - 1} sur ${page.visite.cases.length} faites`))
+  // Une seule copie de la règle : `shared/cabinet/vues.ts`, que la page et le serveur importent.
+  assert.match(source('views/cabinet/Musee.tsx'), /const aJouer = visiteAJouer\(page\.visite\)/)
+  assert.match(readFileSync(path.resolve(client, '../../server/src/core/cabinet/vue.ts'), 'utf8'), /aJouer: visiteAJouer\(visiteVue\(l\)\)/)
 })
 
 // ── 13. La feuille ────────────────────────────────────────────────────────
@@ -2224,15 +2264,15 @@ test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en
   assert.doesNotMatch(source('views/cabinet/Bilan.tsx'), /en la gagnant/)
   // Le glossaire de « Comment ça marche ? » non plus ne dit pas qu'un cartel vient toujours de la partie qui l'a gagnée.
   assert.match(GLOSSAIRE.cartel.sens, /en la gagnant ou en la rejouant/)
-  // Et le champ partagé dit la règle que la page lit : la fin le pose, mais le bilan relu sans elle dit encore « Son cartel » d'une
-  // œuvre gagnée. « Le bilan ne dit « Son cartel » que là » se lisait comme une règle, et la contredisait.
+  // Ce que la page dit d'un bilan relu, la boucle plus haut l'éprouve : le commentaire du champ partagé n'a qu'à ne pas le
+  // contredire, et à dire où vit la règle. « Le bilan ne dit « Son cartel » que là » se lisait comme une règle, et la page la
+  // démentait ; ses mots, eux, restent libres.
   const lesVues = readFileSync(path.resolve(client, '../..', 'shared/cabinet/vues.ts'), 'utf8')
   const commentaire = /\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*devientSonCartel\?: true/.exec(lesVues)?.[1] ?? ''
   assert.ok(commentaire, 'le champ a son commentaire')
   assert.doesNotMatch(commentaire, /que là/)
   assert.match(commentaire, /`titreAuBilan`/)
-  assert.match(commentaire, /relu/)
-  assert.match(commentaire, /gagnée/)
+  assert.match(source('views/cabinet/Cartel.tsx'), /export function titreAuBilan\b/)
 })
 
 /** Les boutons d'un rendu : leur texte, en sourdine ou non, et la raison qu'ils désignent à l'oreille (`aria-describedby`). */

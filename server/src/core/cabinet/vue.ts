@@ -14,7 +14,7 @@
 // vue (invariant 14) : « Mes réponses » révèle chaque manche d'une partie
 // finie comme la partie l'a révélée, et le cartel d'une œuvre relit la manche
 // que son bilan garde comme le bilan l'a dite.
-import type { CartelLu, LectureDesMurs, LectureDuCabinet, PartieGardee, PartieLue } from './magasin'
+import type { CartelLu, LectureDeLAccueil, LectureDesMurs, LectureDuCabinet, PartieGardee, PartieLue } from './magasin'
 import { themeDuTirage } from './tirages/index'
 import { CHANGEMENTS_PAR_PARTIE, CHASSES_PAR_JOUR, ECLAIRAGES_PAR_PARTIE, LIBRES_QUI_PAIENT, MANCHES_PAR_PARTIE, SEUILS_DES_RARETES, VAGUES_DE_LA_FRISE } from '../../../../shared/cabinet/bareme'
 import { deplier, estUneFriseDeSujet, idDeLaFriseATheme, idDuLieu } from '../../../../shared/cabinet/pieces'
@@ -38,7 +38,6 @@ import {
   type EnjeuDUneCase,
   type Musee,
   type OrigineDUneOeuvre,
-  type VisiteDuJour,
 } from '../../../../shared/cabinet/musee'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, estUneOeuvre, oeuvre, oeuvresDeLaSalle, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
 import {
@@ -75,6 +74,7 @@ import type {
   SalleVue,
   VueDeLaPartie,
 } from '../../../../shared/cabinet/vues'
+import { visiteAJouer } from '../../../../shared/cabinet/vues'
 import { horsDeLaBase } from '../../../../shared/horsDeLaBase'
 import { jourDe, jourEnToutesLettres } from '../../../../shared/jour'
 import { legendaire } from '../../../../shared/legendaires'
@@ -460,8 +460,11 @@ function sallesDe(m: Musee, jeux: readonly string[], sait: CeQueSaitLeCabinet): 
   })
 }
 
-/** La visite du jour, case par case : son jeu, son enjeu — jamais l'œuvre visée d'une case pas gagnée —, et ce qu'elle a donné. */
-function visiteVue(l: LectureDuCabinet): PageDuCabinet['visite'] {
+/**
+ * La visite du jour, case par case : son jeu, son enjeu — jamais l'œuvre visée d'une case pas gagnée —, et ce qu'elle a donné.
+ * La page la lit, et le bouton de l'accueil aussi (`accueilDuCabinet`) : la même visite, la même règle de « À jouer ».
+ */
+function visiteVue(l: LectureDeLAccueil): PageDuCabinet['visite'] {
   const m = l.musee
   const cases = l.visite.cases.map((c, k): CaseVue => {
     const jouee = m.duJour.parties.find(p => p.origine === 'visite' && p.visite === k)
@@ -523,15 +526,12 @@ export function pageDuCabinet(l: LectureDuCabinet): PageDuCabinet {
 }
 
 /**
- * Le gros bouton de l'accueil : ses œuvres sur toutes, et si une case de la
- * visite du jour attend — pas commencée, et d'un jeu livré : une case d'un jeu
- * « bientôt » ne se joue pas, et la pastille aurait promis ce que le musée
- * refuse. Rien de la visite au-delà : ni son jeu, ni l'œuvre qu'elle vise.
+ * Le gros bouton de l'accueil : ses œuvres sur toutes, et si la visite du jour
+ * attend un geste — sa vue même, que la page reçoit, lue par la règle du musée
+ * (`visiteAJouer`) : une case d'un jeu « bientôt » n'attend que si l'échange
+ * du jour peut encore la changer. Rien de la visite au-delà : ni son jeu, ni
+ * l'œuvre qu'elle vise.
  */
-export function accueilDuCabinet(m: Musee, visite: VisiteDuJour, jeux: readonly string[]): CabinetDAccueil {
-  return {
-    oeuvres: possedees(m).size,
-    sur: OEUVRES.length,
-    aJouer: visite.cases.some((c, k) => jeux.includes(c.jeu) && !caseCommencee(m, k)),
-  }
+export function accueilDuCabinet(l: LectureDeLAccueil): CabinetDAccueil {
+  return { oeuvres: possedees(l.musee).size, sur: OEUVRES.length, aJouer: visiteAJouer(visiteVue(l)) }
 }

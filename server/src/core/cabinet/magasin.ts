@@ -37,9 +37,8 @@ import type { calendrierDuCabinet } from '../saisons'
 import { instructionDeLAchat, instructionDeLaDorure, lotDeLEchange, lotDeLOubli, lotDuDepart, lotDuGeste, type FinAEcrire, type OeuvreAEcrire } from './ecriture'
 import { reconcilier, type EtagereDuCabinet } from './gardiens'
 import { GARDIENS_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
-import { fondreLesReveils, vuesDuCabinet, type CabinetDAccueil, type ReveilDesGardiens } from '../../../../shared/cabinet/vues'
+import { fondreLesReveils, vuesDuCabinet, type ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 import { laLigneDOeuvre, lecturesDeLaPartie, lecturesDuMusee, laPartieLue, lireLeMusee, type PartieLueEnBase } from './tables'
-import { accueilDuCabinet } from './vue'
 import { fichierDuCadrage } from '../details'
 import { contenuDuCabinet } from './contenu'
 import { preparerLesTas } from './tirages/tas'
@@ -187,6 +186,9 @@ export interface LectureDuCabinet {
   /** Ce que la dépense qui rend la page vient de réveiller, et la partie d'hier que le serveur a close depuis la dernière page ; rien d'autre. */
   reveil?: ReveilDesGardiens
 }
+
+/** Ce que le bouton de l'accueil lit (`accueilDuCabinet`) : le musée et sa visite, comme la page les lit. */
+export type LectureDeLAccueil = Pick<LectureDuCabinet, 'musee' | 'visite' | 'jeuDeLEchange' | 'jeux'>
 
 /** Un geste reçu : la partie d'après, ou ce qui le refuse sans rien écrire. */
 export type IssueDuGeste =
@@ -551,14 +553,16 @@ export class CabinetStore {
    * plupart des profils qui ouvrent l'accueil n'ouvrent pas le Cabinet, et
    * chacun aurait payé son lot froid à chaque réveil, au quota de Turso
    * (`cabinet-charge.test.ts`). L'accueil ne garde pas non plus le musée en
-   * vie : il ne le fait pas passer au bout de la mémoire.
+   * vie : il ne le fait pas passer au bout de la mémoire. Le magasin rend la
+   * lecture, la route bâtit la vue (`accueilDuCabinet`), comme pour la page.
    */
-  accueil(profileId: string): CabinetDAccueil | null {
+  accueil(profileId: string): LectureDeLAccueil | null {
     const g = this.musees.get(profileId)
     if (!g) return null
     const t = this.maintenant()
     const musee = this.museeVu(profileId, g, jourDe(t))
-    return accueilDuCabinet(musee, this.visiteDe(profileId, musee, t), JEUX_PRETS)
+    const visite = this.visiteDe(profileId, musee, t)
+    return { musee, visite, jeuDeLEchange: jeuDeLEchange(musee, visite, { graine: this.graineDe(profileId), jeux: JEUX_PRETS }), jeux: JEUX_PRETS }
   }
 
   // ── La page ───────────────────────────────────────────────────────────

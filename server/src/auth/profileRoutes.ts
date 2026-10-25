@@ -24,6 +24,7 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import { carteDuProfil } from '../core/carte'
 import type { CampagneStore } from '../core/campagne'
 import type { CabinetStore } from '../core/cabinet/magasin'
+import { accueilDuCabinet } from '../core/cabinet/vue'
 import type { CabinetDAccueil } from '../../../shared/cabinet/vues'
 import { jourDe } from '../../../shared/jour'
 import { lireEquipesPreparees, type EquipePreparee } from '../../../shared/teams'
@@ -58,9 +59,9 @@ interface ProfileApiDeps {
    */
   campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'defiDAccueil' | 'accueilDesDuels' | 'duProfil' | 'mercisDe'>
   /**
-   * Son musée, pour le bouton du Cabinet sur l'accueil (`CabinetStore.accueil`) :
-   * lu en mémoire seulement, sans un aller-retour. Absent là où le Cabinet est
-   * fermé : le bouton ne s'y montre pas.
+   * Son musée, pour le bouton du Cabinet sur l'accueil (`CabinetStore.accueil`,
+   * puis `accueilDuCabinet`) : lu en mémoire seulement, sans un aller-retour.
+   * Absent là où le Cabinet est fermé : le bouton ne s'y montre pas.
    */
   cabinet?: Pick<CabinetStore, 'accueil'>
 }
@@ -223,9 +224,11 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // téléphone retient le reste.
     const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now(), mercis, lue?.aTous ?? [])
     // Et son musée, de la mémoire du Cabinet — un musée qu'il n'a pas encore lu ne dit rien. Ce qui y tomberait n'ôte que lui.
+    // Le magasin rend sa lecture, la vue se bâtit ici, comme la page du Cabinet se bâtit dans sa route.
     let musee: CabinetDAccueil | null = null
     try {
-      musee = deps.cabinet?.accueil(rec.id) ?? null
+      const lecture = deps.cabinet?.accueil(rec.id)
+      musee = lecture ? accueilDuCabinet(lecture) : null
     } catch (e) {
       console.error('[profil] musée de l’accueil illisible :', e)
     }

@@ -1634,6 +1634,15 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 
 *Fichiers : `client/src/components/AccueilDesRoles.tsx`, `retours/2026-10-24/le-cabinet.md`*
 
+### Le bouton de l'accueil ne lit le musée qu'en mémoire
+**Contexte** : la conception promet sur le bouton « Ton musée : 27 œuvres sur 84 » et la pastille « À jouer » tant que la visite du jour n'est pas faite. Le dire de chaque profil, c'est lire son musée à chaque accueil : un lot froid par profil et par réveil de l'hébergeur, au quota de Turso, pour des profils dont la plupart n'ouvrent jamais le Cabinet. L'accueil ne devait coûter aucun aller-retour de plus (`jour-charge.test.ts`, `profil-charge.test.ts`).
+
+**Décision** : prise pendant la construction, le 25 octobre 2026, pour la sobriété — à confirmer par le propriétaire. Le serveur ne dit le musée que s'il l'a en mémoire (`CabinetStore.accueil`, `accueilDuCabinet`, `ProfilDAccueil.cabinet`) ; sinon, le bouton garde sa ligne de toujours, « Un musée à remplir, des œuvres à gagner en jouant ». La pastille suit la règle même du musée (`visiteAJouer`).
+
+**Conséquence** : la production dort chaque nuit, la préproduction dès qu'on la laisse : après chaque réveil, le bouton se tait jusqu'à la première page du Cabinet, et le premier passage du jour à l'accueil — celui où le rappel servirait le plus — n'a pas son « À jouer » ; le texte du bouton change d'un passage à l'autre pour un même musée. Si la pastille compte plus que l'aller-retour, l'accueil peut ajouter à ses lectures de front une lecture minimale du Cabinet (le compte de ses œuvres et ses parties du jour) : une décision du propriétaire, qui réécrit l'épreuve « pas un aller-retour de plus » de `cabinet-charge.test.ts`.
+
+*Fichiers : `server/src/core/cabinet/magasin.ts`, `server/src/auth/profileRoutes.ts`, `client/src/components/AccueilDesRoles.tsx`, `server/test/cabinet-charge.test.ts`*
+
 ### Une partie est une série de la campagne, et ses pièces jugées s'ajoutent à son journal
 **Contexte** : les réponses du Cabinet doivent compter comme toutes les autres — l'expérience, les confettis, le compagnon, les missions, le carnet, « jamais vues d'abord » —, et le signalement lit la question d'une réponse à sa position dans sa série.
 

@@ -1,9 +1,9 @@
 // Ce que la page du Cabinet reçoit du serveur : la page du musée, une partie,
 // le cartel d'une œuvre, les murs, le bouton de l'accueil. Des types, que la
-// page lit en `import type` — elle ne juge rien —, et deux fonctions pures :
-// les vues dépliées (`vuesDuCabinet`), que le tirage du serveur lit, et des
-// réveils fondus en un (`fondreLesReveils`), que le serveur et la page lisent
-// tous deux.
+// page lit en `import type` — elle ne juge rien —, et trois fonctions pures :
+// les vues dépliées (`vuesDuCabinet`), que le tirage du serveur lit ; des
+// réveils fondus en un (`fondreLesReveils`) et une visite qui attend encore un
+// geste (`visiteAJouer`), que le serveur et la page lisent tous deux.
 //
 // La vue du serveur (`core/cabinet/vue.ts`) choisit chaque champ un à un, et
 // délègue le corps d'une manche à `montrer` du jeu, sa révélation à `reveler`
@@ -106,6 +106,17 @@ export interface VisiteVue {
   /** « Changer de jeu », une fois par jour, une case pas encore jouée : la seule règle des refus le dit. */
   echange: { possible: boolean; refus?: string }
 }
+
+/**
+ * La visite attend-elle encore un geste ? Une case pas faite, d'un jeu livré —
+ * ou d'un jeu « bientôt » que l'échange du jour peut encore changer : sa case
+ * le propose (« Changer de jeu », `Visite.tsx`), et c'est ce qui la rend
+ * jouable. La seule règle de « À jouer », au musée (`Musee.tsx`) comme sur
+ * l'accueil (`accueilDuCabinet`) : chacun avait la sienne, et le musée
+ * promettait une case qui ne se jouait plus, l'accueil taisait celle qu'un
+ * échange rendait jouable.
+ */
+export const visiteAJouer = (v: Pick<VisiteVue, 'cases' | 'echange'>): boolean => v.cases.some(c => !c.faite && (!c.bientot || v.echange.possible))
 
 /** Ce qu'une fête fait au Cabinet, pendant elle seulement : son nom, et son gardien tant qu'il dort. */
 export interface FeteVue {
@@ -355,9 +366,10 @@ export interface MursDuCabinet {
 
 /**
  * Le gros bouton de l'accueil (`ProfilDAccueil.cabinet`) : « Ton musée :
- * 27 œuvres sur 84 », et « À jouer » tant qu'une case de la visite du jour
- * attend. Le serveur ne le dit que d'un musée qu'il a en mémoire : l'accueil
- * ne lui paie pas son lot froid.
+ * 27 œuvres sur 84 », et « À jouer » tant que la visite attend un geste
+ * (`visiteAJouer`). Le serveur ne le dit que d'un musée qu'il a en mémoire :
+ * l'accueil ne lui paie pas son lot froid — après chaque réveil, le bouton
+ * garde sa ligne de toujours jusqu'à la première page du Cabinet.
  */
 export interface CabinetDAccueil {
   oeuvres: number

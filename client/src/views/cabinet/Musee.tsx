@@ -8,7 +8,7 @@ import { JEUX } from '../../../../shared/cabinet/jeux/regle'
 import { laPartieAttend, poussieresDites } from '../../../../shared/cabinet/musee'
 import { OEUVRES, RARETES } from '../../../../shared/cabinet/oeuvres'
 import { GARDIENS, salleDuGardien } from '../../../../shared/cabinet/salles'
-import type { OeuvreVue, PageDuCabinet, SalleVue } from '../../../../shared/cabinet/vues'
+import { visiteAJouer, type OeuvreVue, type PageDuCabinet, type SalleVue } from '../../../../shared/cabinet/vues'
 import { adresseDe } from './ecrans'
 
 // Le musée : l'entrée du Cabinet (la maquette jouable, `retours/2026-10-24/
@@ -105,6 +105,8 @@ export function Musee({
   const reveilles = page.gardiens.tous.filter(g => g.reveille).length
   const visite = page.visite.cases
   const faites = visite.filter(c => c.faite).length
+  // « À jouer » par la règle de l'accueil : une case d'un jeu pas encore livré n'attend que si l'échange peut la changer.
+  const aJouer = visiteAJouer(page.visite)
   const prochain = page.gardiens.prochain
   const salleDuProchain = prochain && salleDuGardien(prochain.legendaire)
   const enCours = page.enCours
@@ -181,7 +183,7 @@ export function Musee({
         />
       )}
       <GrosBouton
-        principal={!enCours && faites < visite.length}
+        principal={!enCours && aJouer}
         icone={<Icon name="sun" />}
         titre="La visite du jour"
         detail={
@@ -189,7 +191,7 @@ export function Musee({
             ? espacesFines('Faite : reviens demain, ou pars à la chasse dans une salle')
             : espacesFines(`${compte(visite.length, 'partie')} de deux minutes · ${faites} sur ${visite.length} faite${faites > 1 ? 's' : ''}`)
         }
-        pastille={faites < visite.length ? 'À jouer' : undefined}
+        pastille={aJouer ? 'À jouer' : undefined}
         href={adresseDe({ e: 'visite' })}
       />
       {prochain && (

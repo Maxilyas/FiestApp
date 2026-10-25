@@ -33,6 +33,7 @@ import { importsStatiques } from './chemin-des-imports'
 import { GRACE_D_UNE_MANCHE_MS, SIGNES_D_UN_GESTE_MAX } from '../../shared/cabinet/bareme'
 import { DANS_LA_FRANCE, HAUTEUR_DE_LA_CARTE, LARGEUR_DE_LA_CARTE, distanceKm, projeter, type Point } from '../../shared/cabinet/france'
 import { pointADistance, type EpingleMontree, type EpingleRevelee } from '../../shared/cabinet/jeux/epingle'
+import type { Lieu } from '../../shared/cabinet/contenu'
 import type { IndicesMontres, IndicesReveles } from '../../shared/cabinet/jeux/indices'
 import type { RepliqueMontree, RepliqueRevelee } from '../../shared/cabinet/jeux/replique'
 import { CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
@@ -207,6 +208,38 @@ async function surLeDessin(p: Point): Promise<{ x: number; y: number }> {
   return (await import(url('views/cabinet/contourDeLaFrance.ts'))).surLeDessin(p)
 }
 
+/** Le dessin de la carte de France d'une page rendue — la mer, la terre, les villes repères. */
+const dessinDe = (html: string) => /<svg class="cab-carte-dessin"[\s\S]*?<\/svg>/.exec(html)?.[0] ?? ''
+/** La tête d'une partie rendue : ses comptes, « Quitter » et le chrono. */
+const teteDe = (html: string) => /<header class="cab-tete-partie">[\s\S]*?<\/header>/.exec(html)?.[0] ?? ''
+
+/**
+ * Ce qu'une page rendue écrit du lieu d'une manche : sa commune, son département, sa latitude, sa longitude, sa place sur le
+ * dessin. Hors de ce qui ne dépend pas du lieu mais en écrit les mots — le dessin (« Lyon », le 85.3,243.6 de son contour), la
+ * tête (« Manche 1 sur 3 »), les tracés des icônes —, et un mot entre ses lettres, un nombre entre ses chiffres : cherché en
+ * sous-chaîne dans la page entière, le lieu rougissait l'épreuve selon le tirage, huit sur quatre-vingt-dix — l'affaire Calas
+ * (43.6), la mère Brazier (Lyon), la fonderie de Villedieu (la Manche).
+ */
+async function ceQuiDitLeLieu(html: string, lieu: Lieu): Promise<string[]> {
+  const reste = html
+    .replace(dessinDe(html), '')
+    .replace(teteDe(html), '')
+    .replace(/<svg class="icon"[\s\S]*?<\/svg>/g, '')
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+  const mot = (s: string) => new RegExp(`(?<![\\p{L}\\p{N}])${echapper(s)}(?![\\p{L}\\p{N}])`, 'u')
+  const nombre = (n: number) => `(?<![\\w.])${echapper(String(n))}(?!\\w|\\.\\d)`
+  const ici = await surLeDessin(lieu)
+  const secrets: [string, RegExp][] = [
+    [lieu.commune, mot(lieu.commune)],
+    [lieu.departement, mot(lieu.departement)],
+    [String(lieu.lat), new RegExp(nombre(lieu.lat))],
+    [String(lieu.lon), new RegExp(nombre(lieu.lon))],
+    [`${ici.x} ${ici.y}`, new RegExp(`${nombre(ici.x)}[ ,]${nombre(ici.y)}`)],
+  ]
+  return secrets.filter(([, r]) => r.test(reste)).map(([s]) => s)
+}
+
 // ── 1. Les écrans, au registre ────────────────────────────────────────────
 
 test('les neuf jeux ont leur écran, chacun à la demande — sans le pli ni la lecture des gestes, sans l’heure du téléphone, sans un chiffre du barème recopié', () => {
@@ -360,11 +393,19 @@ test('une manche de l’Épingle : la date, le thème, le récit, la question, l
   assert.ok(pied.startsWith('<div class="cab-pied-partie"><button type="button" class="btn btn-block cab-pouvoir">'), 'la carte-bonus d’abord')
   assert.match(pied, /<p class="cab-ou-est" aria-live="polite"><\/p>/)
   assert.match(pied, /<button type="button" class="btn btn-primary btn-big btn-block cab-planter" aria-disabled="true">Planter ici<\/button>/)
-  // Jamais le lieu : ni sa commune, ni son département, ni ses coordonnées, ni sa place sur le dessin.
+  // Jamais le lieu : ni sa commune, ni son département, ni ses coordonnées, ni sa place sur le dessin. Le dessin et la tête n'en
+  // disent rien — le même dessin à la troisième manche, d'un autre lieu ; la même tête aux Indices, qui n'en ont pas —, et la
+  // recherche les écarte (`ceQuiDitLeLieu`) ; elle trouve pourtant chacun des cinq secrets glissé dans la page.
   const lieu = epingleDe(b, v.id, v.tirage!).lieu
-  for (const secret of [lieu.commune, lieu.departement, String(lieu.lat), String(lieu.lon)]) assert.doesNotMatch(html, new RegExp(echapper(secret)), secret)
+  const ailleurs = vues.epingleTroisieme
+  assert.notEqual(epingleDe(b, ailleurs.id, ailleurs.tirage!).lieu.id, lieu.id, 'la troisième manche a un autre lieu')
+  assert.equal(dessinDe(await laPartie(ailleurs)), dessinDe(html), 'le dessin ne dépend pas du lieu')
+  // Au même chrono : rendues à l'heure du téléphone, deux échéances différentes y écriraient deux secondes différentes.
+  assert.equal(teteDe(await laPartie({ ...vues.indices, chrono: v.chrono, maintenant: v.maintenant })), teteDe(html), 'la tête ne dépend pas du jeu')
+  assert.deepEqual(await ceQuiDitLeLieu(html, lieu), [], 'la manche ne dit rien du lieu')
   const ici = await surLeDessin(lieu)
-  assert.doesNotMatch(html, new RegExp(`${ici.x}[ ,]${ici.y}\\b`))
+  const fuite = `<p data-lieu="${lieu.lat},${lieu.lon}">${lieu.commune} (${lieu.departement})</p><g transform="translate(${ici.x} ${ici.y})"></g>`
+  assert.equal((await ceQuiDitLeLieu(html.replace('</h2>', `</h2>${fuite}`), lieu)).length, 5, 'chaque secret glissé se trouve')
   sansJargon(html, 'une manche de l’Épingle', [m.recit, m.question, m.theme])
 })
 
