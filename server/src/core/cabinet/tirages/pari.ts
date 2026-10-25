@@ -4,19 +4,14 @@
 // reprise redonne la même (D4). Les trois manches tournent sur les catégories.
 import { MARCHES_DU_PARI } from '../../../../../shared/cabinet/bareme'
 import type { Categorie } from '../../../../../shared/categories'
-import { CATEGORIES } from '../../../../../shared/categories'
 import type { PariTire } from '../../../../../shared/cabinet/jeux/pari'
-import { commeLaPartieLaGarde, tirerDesQuestions } from './communs'
+import { commeLaPartieLaGarde, tirerDesQuestions, uneQuestionDesCategories } from './communs'
 import type { ContexteDuTirage, Posees } from './communs'
 import { qcmDeLaCategorie } from './tas'
 
 export function tirerUnPari(ctx: ContexteDuTirage, posees: Posees): PariTire | null {
   const tasDe = (c: Categorie) => qcmDeLaCategorie(ctx.porte, ctx.jouables, c)
-  // Les catégories que la partie n'a pas encore jouées d'abord, puis toutes : trois Paris d'histoire se ressemblent.
-  const neuves = CATEGORIES.filter(c => !posees.categories.includes(c))
-  const premiere =
-    tirerDesQuestions(ctx, posees, neuves.map(tasDe), MARCHES_DU_PARI.question, 1)[0] ??
-    tirerDesQuestions(ctx, posees, CATEGORIES.map(tasDe), MARCHES_DU_PARI.question, 1)[0]
+  const premiere = uneQuestionDesCategories(ctx, posees, tasDe, MARCHES_DU_PARI.question)
   if (!premiere) return null
   const q1 = commeLaPartieLaGarde(premiere)
   posees.prendre(q1)

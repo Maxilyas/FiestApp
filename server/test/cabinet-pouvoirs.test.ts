@@ -331,14 +331,29 @@ test('un Divin parmi ses légendaires ne part pas davantage : la règle des cart
   assert.deepEqual(chouette.depart.carte, { cle: 'lg:chouette', pouvoir: 'eclairer', force: 3 })
 })
 
-test('la colonne `joker` des pièces du Cabinet ne porte que le pouvoir qui a aidé — jamais la clé d’une carte, jamais un joker de l’Expédition', () => {
-  // Les parties de ce fichier y ont écrit : Coup d'œil et Échange, des œuvres de départ, sont aussi des jokers de l'Expédition.
-  const jokers = enBase(b.fichier, db =>
-    (db.prepare("SELECT DISTINCT r.joker FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id WHERE s.mode = 'cabinet'").all() as { joker: string | null }[]).map(l => l.joker),
-  )
-  assert.deepEqual(new Set(jokers), new Set([null, JOKER_D_ECLAIRER, JOKER_DU_TEMPS]))
+test('la colonne `joker` des pièces du Cabinet ne porte que le pouvoir qui a aidé — jamais la clé d’une carte, jamais un joker de l’Expédition', async () => {
+  // Ses parties à elle, une par pouvoir qui joue seul ou se joue : Coup d'œil et Échange, des œuvres de départ, sont aussi
+  // des jokers de l'Expédition ; Prudence protège et Échange change sans rien marquer.
+  const ines = await inscrireProfil(b.banc.url, 'ines', 'Inès')
+  const series: string[] = []
+  const unePartie = async (jeu: 'mot' | 'filet', carte: string, jouerLa: (v: VueDeLaPartie) => Promise<VueDeLaPartie>) => {
+    const v = ok(await commencer(b, ines, { origine: 'libre', jeu, carte }), `${jeu}, ${carte}`)
+    series.push(v.id)
+    ok(await jouer(b, ines, await jouerLa(v), { quoi: 'quitter' }), 'quitter')
+  }
+  await unePartie('mot', 'coup-d-oeil', async v => jouerUnMot(b, ines, ok(await jouer(b, ines, v, { quoi: 'eclairer', manche: 0 }), 'éclairer'), 0, 1))
+  await unePartie('mot', 'echange', async v => jouerUnMot(b, ines, ok(await jouer(b, ines, v, { quoi: 'changer', manche: 0 }), 'changer'), 0, 1))
+  await unePartie('mot', 'prudence', v => jouerUnMot(b, ines, v, 0, 3))
+  await unePartie('filet', 'concentration', v => {
+    // Au-delà de la durée normale et de sa grâce, dans le temps en plus.
+    b.horloge.t = v.chrono!.echeance - 5_000
+    return jouerUnFilet(b, ines, v, 0, 'petit')
+  })
+  const jokers = series.map(s => lignesDe(s).map(l => l.joker))
+  assert.deepEqual(jokers, [[JOKER_D_ECLAIRER], [null], [null], [JOKER_DU_TEMPS]])
+  // Ni la clé d'une carte, ni un joker qui aide à l'Expédition (`JOKERS_QUI_AIDENT`, que le carnet lit) : `coup-d-oeil` est l'un et l'autre.
   assert.deepEqual(
-    jokers.filter(j => j !== null && JOKERS_QUI_AIDENT.has(j)),
+    jokers.flat().filter(j => j !== null && (JOKERS_QUI_AIDENT.has(j) || ['coup-d-oeil', 'echange', 'prudence', 'concentration'].includes(j))),
     [],
   )
 })

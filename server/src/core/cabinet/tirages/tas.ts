@@ -54,32 +54,62 @@ export interface ValeurDuFilet {
   unite?: string
 }
 
-/**
- * Les nombres qu'un intitulé écrit, « 1 450 » compris : une valeur qu'il dit
- * se lirait sans rien savoir — « Le traité de 1919 fut signé en quelle
- * année ? ».
- */
-function nombresEcrits(texte: string): number[] {
-  const colles = texte.replace(/(\d)[   ](?=\d{3}(?!\d))/g, '$1')
-  return [...colles.matchAll(/\d+(?:[.,]\d+)?/g)].map(m => Number(m[0].replace(',', '.')))
+/** Ce que vaut chaque chiffre romain. */
+const CHIFFRES_ROMAINS = new Map([...'IVXLCDM'].map((c, i) => [c, [1, 5, 10, 50, 100, 500, 1000][i]]))
+
+/** « MDCCLXXXIX » : 1789 — un chiffre plus petit devant un plus grand se retranche. */
+function enChiffresArabes(romain: string): number {
+  let total = 0
+  for (let i = 0; i < romain.length; i++) {
+    const ici = CHIFFRES_ROMAINS.get(romain[i])!
+    total += ici < (CHIFFRES_ROMAINS.get(romain[i + 1]) ?? 0) ? -ici : ici
+  }
+  return total
 }
 
 /**
+ * Les nombres qu'un intitulé écrit, « 1 450 » compris, et ceux qu'il écrit en
+ * chiffres romains : une valeur qu'il dit se lirait sans rien savoir — « Le
+ * traité de 1919 fut signé en quelle année ? », « Quel nombre s'écrit MCM en
+ * chiffres romains ? ». Un mot en capitales romaines qui n'en est pas un
+ * (« XL » d'un calibre, « CD ») n'écarte que la question dont il dirait la
+ * valeur.
+ */
+function nombresEcrits(texte: string): number[] {
+  const colles = texte.replace(/(\d)[   ](?=\d{3}(?!\d))/g, '$1')
+  const arabes = [...colles.matchAll(/\d+(?:[.,]\d+)?/g)].map(m => Number(m[0].replace(',', '.')))
+  const romains = [...texte.matchAll(/(?<![\p{L}\p{N}])[IVXLCDM]+(?![\p{L}\p{N}])/gu)].map(m => enChiffresArabes(m[0]))
+  return [...arabes, ...romains]
+}
+
+/**
+ * L'intitulé demande-t-il une année ? Une réponse de 1000 à 2099 sans unité a
+ * la forme d'une année (`formeDeReponse`), sans en être toujours une : « Quel
+ * est le plus petit entier qui s'écrit de deux façons comme somme de deux
+ * cubes ? » (1729), « 12 en binaire » (1100) se posaient sur une piste
+ * d'années, an par an.
+ */
+const DEMANDE_UNE_ANNEE = /\bann[ée]e\b/i
+
+/**
  * Ce qu'une question de la base pose au Filet, ou null : une année entière —
- * sa bonne réponse ne dit qu'elle (`formeDeReponse`) — ou une estimation que
- * le quiz tout prêt jouerait au plus près (`cibleDeLEstimation` : ni un
- * numéro, ni un petit entier facile) ; un intitulé qui se lit sans ses choix
- * (`supposeDesChoix`, qu'une estimation juge déjà), et qui ne dit pas la
- * valeur. Le recul d'une année et le plancher d'une estimation, la règle du
+ * sa bonne réponse ne dit qu'elle (`formeDeReponse`), et l'intitulé la demande
+ * — ou une estimation que le quiz tout prêt jouerait au plus près
+ * (`cibleDeLEstimation` : ni un numéro, ni un petit entier facile) ; un
+ * intitulé qui se lit sans ses choix (`supposeDesChoix`, qu'une estimation
+ * juge déjà), et qui ne dit pas la valeur, ni en chiffres arabes ni en
+ * romains. Le recul d'une année et le plancher d'une estimation, la règle du
  * jeu les juge au tirage, à l'année du départ (`seTendAuFilet`) : le tas ne
  * dépend pas du jour où il se prépare.
  */
 export function valeurDuFilet(q: QuestionDeLaBase): ValeurDuFilet | null {
   if (q.reponses.length !== 4) return null
   const annee = formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur }) === 'annee'
+  // Une forme d'année que l'intitulé ne demande pas n'est ni une année sûre, ni une estimation : elle ne se pose pas.
+  if (annee && (!DEMANDE_UNE_ANNEE.test(q.texte) || supposeDesChoix(q.texte))) return null
   const cible = annee ? null : cibleDeLEstimation(q)
   const valeur = annee ? Number(q.reponses[q.bonne].trim()) : cible?.target
-  if (valeur === undefined || (annee && supposeDesChoix(q.texte)) || nombresEcrits(q.texte).includes(valeur)) return null
+  if (valeur === undefined || nombresEcrits(q.texte).includes(valeur)) return null
   return { valeur, annee, ...(cible?.unit && { unite: cible.unit }) }
 }
 

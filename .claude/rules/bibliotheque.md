@@ -1,7 +1,7 @@
 ---
 paths:
   - "shared/{library,echange,liste,modeles,emojis,partage,brouillon,categories,nombres,quizToutPret}.ts"
-  - "server/src/core/{memoire,partages,quizStore,quizToutPret,seed}.ts"
+  - "server/src/core/{estimation,memoire,partages,quizStore,quizToutPret,seed}.ts"
   - "server/src/partages.ts"
   - "server/content/quiz/**"
   - "server/scripts/{migrate-library,rendu-quiz-tout-pret}.ts"

@@ -17,8 +17,12 @@ const FORMULE_DE_QCM = /\b(parmi|de ces|lequel|laquelle|lesquels|lesquelles|ci-d
 /** L'intitulé suppose-t-il des choix ? Sans eux — une estimation, la piste du Filet —, il ne se pose pas. */
 export const supposeDesChoix = (texte: string): boolean => FORMULE_DE_QCM.test(texte)
 
-/** Un numéro ne s'estime pas : 814 n'est pas « presque » le vol 815 de « Lost », ni 74 le département de Paris. */
-const NUMERO = /^quel(?:le)?\s+(?:est\s+)?(?:le\s+|l['’])?(?:num[ée]ro|indicatif|code)\b/i
+/**
+ * Un numéro ne s'estime pas : 814 n'est pas « presque » le vol 815 de « Lost », ni 74 le département de Paris. Cherché
+ * partout dans l'intitulé, pas seulement en tête : « Au rugby à XV, quel numéro de maillot porte l'arrière ? » se jouait
+ * au plus près, au quiz tout prêt comme au Filet.
+ */
+const NUMERO = /\bquel(?:le)?\s+(?:est\s+)?(?:le\s+|l['’])?(?:num[ée]ro|indicatif|code)\b/i
 
 /**
  * Jusqu'où un entier facile se sait par cœur : soixante minutes, vingt-six

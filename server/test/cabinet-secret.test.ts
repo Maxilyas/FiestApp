@@ -255,19 +255,41 @@ test('le Mot mystère : ni le mot, ni sa réponse écrite, ni les autres répons
   assert.equal(soufflee.lettre, te.lettres[soufflee.position])
 })
 
-test('le Filet : ni la valeur, ni les réponses de sa question, ni son anecdote avant le verdict — sa piste seule —, et la zone d’Éclairer, que la page ne rejoue pas', async () => {
+test('le Filet : ni la valeur, ni les réponses de sa question, ni son anecdote avant le verdict — sa piste seule —, ni la rechange de Changer, et la zone d’Éclairer, que la page ne rejoue pas', async () => {
   const sam = await inscrireProfil(b.banc.url, 'sam', 'Sam')
   const id = (await lire(b, sam, '/api/joueur/moi?leger')).corps.profile.id as string
-  const v0 = ok(await commencer(b, sam, { origine: 'libre', jeu: 'filet', carte: 'coup-d-oeil' }), 'commencer')
-  const d = departEnBase(b.fichier, v0.id)
-  const t = d.tirages[0] as FiletTire
   /** Ce que la manche du Filet garde jusqu'à son verdict : la valeur, les réponses de sa question — la bonne écrite —, son anecdote. */
-  const sansLaValeur = (x: unknown, ou: string) => {
+  const sansLaValeur = (t: FiletTire, x: unknown, ou: string) => {
     const s = texte(x)
     assert.doesNotMatch(s, /"valeur"|"reponses"|"reponse"|"lancer"/, `${ou} : un champ de la réponse`)
     for (const r of t.question.reponses) assert.ok(!s.includes(`"${r}"`), `${ou} : « ${r} », une réponse de la question`)
     sansSaReponse(t.question, x, ou)
   }
+
+  // L'Échange : une rechange au plan, sa question et sa piste, qu'aucune vue ne montre avant que Changer la prenne.
+  const e0 = ok(await commencer(b, sam, { origine: 'libre', jeu: 'filet', carte: 'echange' }), 'commencer sous l’Échange')
+  const de = departEnBase(b.fichier, e0.id)
+  const rechange = de.tirages[3] as FiletTire
+  assert.ok(rechange, 'une rechange au plan')
+  for (const [ou, x] of [
+    ['le départ', e0],
+    ['la page', ok(await laPage(b, sam), 'la page').enCours!],
+  ] as const) {
+    jamais(de, x, ou)
+    sansLaValeur(de.tirages[0] as FiletTire, x, ou)
+    sansLaValeur(rechange, x, `${ou}, la rechange`)
+    assert.ok(!texte(x).includes(rechange.question.texte), `${ou} : la question de la rechange`)
+  }
+  // Prise, la rechange se montre comme une manche : sa question et sa piste, rien de sa valeur.
+  const changee = ok(await jouer(b, sam, e0, { quoi: 'changer', manche: 0 }), 'changer')
+  jamais(de, changee, 'changée')
+  sansLaValeur(rechange, changee, 'changée')
+  assert.deepEqual([(changee.enCours as FiletMontre).texte, (changee.enCours as FiletMontre).piste], [rechange.question.texte, rechange.piste])
+  ok(await jouer(b, sam, changee, { quoi: 'quitter' }), 'quitter')
+
+  const v0 = ok(await commencer(b, sam, { origine: 'libre', jeu: 'filet', carte: 'coup-d-oeil' }), 'commencer')
+  const d = departEnBase(b.fichier, v0.id)
+  const t = d.tirages[0] as FiletTire
   const eclairee = ok(await jouer(b, sam, v0, { quoi: 'eclairer', manche: 0 }), 'éclairer')
   for (const [ou, x] of [
     ['le départ', v0],
@@ -275,16 +297,19 @@ test('le Filet : ni la valeur, ni les réponses de sa question, ni son anecdote 
     ['éclairée', eclairee],
   ] as const) {
     jamais(d, x, ou)
-    sansLaValeur(x, ou)
+    sansLaValeur(t, x, ou)
     assert.deepEqual((x.enCours as FiletMontre).piste, t.piste, `${ou} : la piste, elle, se montre`)
   }
   // La zone contient la réponse : rejouée de la graine du départ — un secret du serveur —, elle se retrouve ; de ce que la page
   // connaît, son profil, sa partie, le rang du geste (la graine que la conception proposait), jamais.
   const zone = (eclairee.enCours as FiletMontre).zone!
   assert.ok(zone.de <= t.valeur && t.valeur <= zone.a)
-  const rejouee = (graine: string) => (REGLE_DU_FILET.eclairer(t, { zone: null }, hasardDe(`${graine}:eclairer:${v0.rang}`)) as EtatDuFilet).zone
-  assert.deepEqual(rejouee(d.graine), zone, 'le hasard d’Éclairer vient de la graine du départ')
-  for (const devinee of [`${id}:${v0.id}`, v0.id, id, '']) assert.notDeepEqual(rejouee(devinee), zone, `rejouée de « ${devinee} »`)
+  const rejouee = (tirage: FiletTire, graine: string) => (REGLE_DU_FILET.eclairer(tirage, { zone: null }, hasardDe(`${graine}:eclairer:${v0.rang}`)) as EtatDuFilet).zone
+  assert.deepEqual(rejouee(t, d.graine), zone, 'le hasard d’Éclairer vient de la graine du départ')
+  // Ramenée sur la piste, une zone collée à une borne est la même quel que soit le hasard — une réponse à moins de 30 % d'un
+  // bout, une fois sur six : les graines se comparent sur une piste où la réponse est au milieu, que la zone ne touche jamais.
+  const auMilieu: FiletTire = { ...t, piste: { min: t.valeur - 100, max: t.valeur + 100, pas: 1 } }
+  for (const devinee of [`${id}:${v0.id}`, v0.id, id, '']) assert.notDeepEqual(rejouee(auMilieu, devinee), rejouee(auMilieu, d.graine), `rejouée de « ${devinee} »`)
   // Le verdict : la révélation dit la valeur.
   const revelee = ok(await jouer(b, sam, eclairee, { quoi: 'repondre', manche: 0, reponse: { filet: { x: t.valeur, taille: 'moyen' } } }), 'lancer')
   jamais(d, revelee, 'révélée')

@@ -317,6 +317,8 @@ test('ni un numéro, ni un petit entier que tout le monde sait, ni une unité qu
   // Un numéro : 814 n'est pas « presque » le vol 815.
   assert.equal(cibleDeLEstimation(aNombre('e0000011', 815, { texte: 'Quel numéro de vol porte l’avion qui s’écrase dans « Lost » ?', difficulte: 4 })), null)
   assert.equal(cibleDeLEstimation(aNombre('e0000012', 33, { texte: 'Quel est l’indicatif téléphonique de la France ?', difficulte: 3 })), null)
+  // Au milieu de l'intitulé aussi : le maillot de l'arrière n'est pas « presque » le 14.
+  assert.equal(cibleDeLEstimation(aNombre('e0000019', 15, { texte: 'Au rugby, quel numéro de maillot porte l’arrière ?', difficulte: 3 })), null)
   // Compter des chiffres n'est pas un numéro.
   assert.deepEqual(cibleDeLEstimation(aNombre('e0000013', 15, { texte: 'Combien de chiffres compte un numéro de Sécurité sociale ?', unite: 'chiffres', difficulte: 4 })), {
     target: 15,

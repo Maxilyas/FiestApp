@@ -987,6 +987,24 @@ test('le tirage du Filet : une année ou une estimation de la base, sa piste au 
   const places = (h: number) => (tirerLePlan('filet', surCesQuestions(trois, { hasard: () => h }), 0) as FiletTire[]).map(t => (t.valeur - t.piste.min) / (t.piste.max - t.piste.min))
   for (const x of places(0)) assert.ok(x >= B.POSITION_DE_LA_REPONSE[0] && x < 0.1, `en bas : ${x}`)
   for (const x of places(0.9999)) assert.ok(x > 0.8 && x <= B.POSITION_DE_LA_REPONSE[1], `en haut : ${x}`)
+
+  // Deux questions de la base qui visent la même valeur — la base en a plus de deux cents, 1789 en tête — : une seule par
+  // partie, la révélation de l'une donnait l'autre. Les valeurs d'essai sont toutes distinctes : il y faut un jumeau.
+  const [a, b, c, d] = CATEGORIES
+  const bastille = anneeDuCabinet(80, a, 1789)
+  const jumelle = anneeDuCabinet(81, b, 1789)
+  for (let essai = 0; essai < 20; essai++) {
+    const plan = tirerLePlan('filet', surCesQuestions([bastille, jumelle, valeurDuCabinet(1, c), valeurDuCabinet(3, d)]), 1) as FiletTire[]
+    assert.equal(plan.length, 3, 'trois valeurs distinctes, et pas de rechange : la quatrième redirait la première')
+    assert.equal(new Set(plan.map(t => t.valeur)).size, 3)
+  }
+  // Sans trois valeurs à viser, pas de partie.
+  assert.equal(tirerLePlan('filet', surCesQuestions([bastille, jumelle, valeurDuCabinet(1, c)]), 0), null)
+  // Les manches tournent sur les catégories : deux valeurs d'une même catégorie n'en font qu'une manche, tant qu'une autre a de quoi.
+  for (let essai = 0; essai < 20; essai++) {
+    const plan = tirerLePlan('filet', surCesQuestions([anneeDuCabinet(82, a, 1600), anneeDuCabinet(84, a, 1650), valeurDuCabinet(1, b), valeurDuCabinet(3, c)]), 0) as FiletTire[]
+    assert.equal(new Set(plan.map(t => t.question.categorie)).size, 3, JSON.stringify(plan.map(t => t.question.id)))
+  }
 })
 
 test('le tirage du Filet lit l’année du jour de Paris du départ, jamais l’horloge : une année trop récente se remplace par une autre', () => {
@@ -1018,11 +1036,23 @@ test('le tas du Filet : une année entière, ou une estimation jouée au plus pr
   assert.deepEqual(valeurDuFilet(anneeDuCabinet(0, a, 1789)), { valeur: 1789, annee: true })
   assert.deepEqual(valeurDuFilet(valeurDuCabinet(1, a)), { valeur: 1231, annee: false, unite: 'km' })
   const avec = (q: QuestionDeLaBase, texte: string): QuestionDeLaBase => ({ ...q, texte })
-  assert.equal(valeurDuFilet(avec(anneeDuCabinet(0, a, 1789), 'La prise de la Bastille, en 1789, eut lieu quel jour ?')), null, 'l’intitulé dit l’année')
+  assert.equal(valeurDuFilet(avec(anneeDuCabinet(0, a, 1789), 'La Bastille tombe en 1789 : en quelle année ?')), null, 'l’intitulé dit l’année')
   assert.equal(valeurDuFilet(avec(valeurDuCabinet(1, a), 'Combien de kilomètres, 1 231 environ, le Cabinet compte-t-il ?')), null, 'l’intitulé dit le nombre, une espace dedans')
   assert.equal(valeurDuFilet(avec(anneeDuCabinet(0, a, 1789), 'Laquelle de ces années vit la prise de la Bastille ?')), null, 'il suppose ses choix')
   assert.equal(valeurDuFilet(motDuCabinet(0, a)), null, 'un mot ne se vise pas')
   assert.equal(valeurDuFilet(BASE_DU_TIRAGE.questions[0]), null, 'une question sans valeur')
+  // En chiffres romains aussi, l'intitulé dit sa valeur (hfc1jqv0, wbwha5mi dans la base) ; un mot romain qui en dit une
+  // autre — Louis XVI, et non 1793 — ne retire rien.
+  assert.equal(valeurDuFilet(avec(anneeDuCabinet(0, a, 1789), 'Quelle année s’écrit MDCCLXXXIX en chiffres romains ?')), null, 'MDCCLXXXIX, 1789')
+  assert.deepEqual(valeurDuFilet(avec(anneeDuCabinet(0, a, 1793), 'En quelle année Louis XVI est-il guillotiné ?')), { valeur: 1793, annee: true })
+  assert.equal(valeurDuFilet(avec(valeurDuCabinet(1, a), 'Combien de kilomètres font MCCXXXI pas du Cabinet ?')), null, 'MCCXXXI, 1231')
+  // Une réponse de 1000 à 2099 a la forme d'une année sans en être une, si l'intitulé ne la demande pas : ni piste
+  // d'années, ni estimation (kvw7f8ri, 1729 ; 62wo2j0e, 12 en binaire).
+  assert.equal(valeurDuFilet(avec(anneeDuCabinet(0, a, 1729), 'Quel est le plus petit entier qui s’écrit de deux façons comme somme de deux cubes ?')), null)
+  assert.deepEqual(valeurDuFilet(avec(anneeDuCabinet(0, a, 1940), 'Quelle est l’année de la découverte de la grotte de Lascaux ?')), { valeur: 1940, annee: true })
+  // Un numéro ne se vise pas plus qu'il ne s'estime, même au milieu de l'intitulé (b700w4ib : le maillot de l'arrière).
+  const maillot = { ...valeurDuCabinet(1, a), texte: 'Au rugby, quel numéro de maillot porte l’arrière ?' }
+  assert.equal(valeurDuFilet(maillot), null)
 })
 
 test('par les routes : le Pari et l’Éclair d’un bout à l’autre — neuf étoiles et le cadre doré, le pari perdu, les étoiles gardées', async () => {

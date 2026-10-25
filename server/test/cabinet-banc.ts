@@ -74,12 +74,17 @@ const MOTS_D_ESSAI = ['Balcon', 'Cerise', 'Domino', 'Falaise', 'Girafe', 'Harpe'
  * un mot à taper, ses autres réponses d'autres mots, un intitulé sans chiffre
  * qui ne le dit pas (`motDeLaQuestion`). Facile aux rangs pairs, moyenne aux
  * impairs.
+ *
+ * Les intitulés d'essai n'ont pas d'inversion à trait d'union (« cache-t-il ») :
+ * le Pari et l'Éclair les tirent aussi, et la page y colle un gluon
+ * (`espacesFines`) que la lecture du rendu de `cabinet-ecran.test.ts` change en
+ * espace — l'épreuve qui y cherche l'intitulé échouait une fois sur deux.
  */
 export function motDuCabinet(n: number, categorie: Categorie): QuestionDeLaBase {
   const mot = (k: number) => MOTS_D_ESSAI[(n + k) % MOTS_D_ESSAI.length]
   return questionDEssai({
     id: `mot${String(n).padStart(5, '0')}`,
-    texte: `Quel mot le Cabinet cache-t-il en ${categorie}, à la marche ${n % 2 === 0 ? 'facile' : 'moyenne'} ?`,
+    texte: `Quel mot cache le Cabinet en ${categorie}, à la marche ${n % 2 === 0 ? 'facile' : 'moyenne'} ?`,
     reponses: [mot(0), mot(1), mot(2), mot(3)],
     leurres: [mot(1), mot(2), mot(3), mot(4), mot(5), mot(6)],
     categorie,
@@ -92,7 +97,7 @@ export function anneeDuCabinet(n: number, categorie: Categorie, annee: number): 
   const ans = (ecarts: number[]) => ecarts.map(e => String(annee + e))
   return questionDEssai({
     id: `fil${String(n).padStart(5, '0')}`,
-    texte: `En quelle année le Cabinet date-t-il son essai en ${categorie} ?`,
+    texte: `En quelle année date l’essai du Cabinet en ${categorie} ?`,
     reponses: ans([0, 13, 29, 41]),
     leurres: ans([13, 29, 41, 5, 19, 37]),
     categorie,
@@ -114,7 +119,7 @@ export function valeurDuCabinet(n: number, categorie: Categorie): QuestionDeLaBa
   const kms = (ecarts: number[]) => ecarts.map(e => `${km + e} km`)
   return questionDEssai({
     id: `fil${String(n).padStart(5, '0')}`,
-    texte: `Combien de kilomètres le Cabinet compte-t-il en ${categorie} ?`,
+    texte: `Combien de kilomètres compte le Cabinet en ${categorie} ?`,
     reponses: kms([0, 250, 500, 750]),
     leurres: kms([250, 500, 750, 100, 350, 600]),
     categorie,

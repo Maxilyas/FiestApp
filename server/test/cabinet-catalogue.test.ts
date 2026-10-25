@@ -643,6 +643,22 @@ function importsDeValeurs(fichier: URL): URL[] {
   })
 }
 
+test('le serveur du Cabinet ne tire ni la campagne, ni le quiz du jour, ni les Divins, même de proche en proche', () => {
+  // Tout passe par la porte (`porteDeLaCampagne.ts`, des types) ; la règle d'une estimation vit dans `core/estimation.ts` :
+  // lue par `core/quizToutPret.ts`, elle faisait tirer au Filet le quiz du jour (`core/jour.ts`) et les règles des Divins.
+  const dossier = new URL('../src/core/cabinet/', import.meta.url)
+  const interdits = ['campagne.ts', 'jour.ts', 'divins.ts', 'quizToutPret.ts'].map(f => new URL(`../${f}`, dossier).href)
+  const vus = new Set<string>()
+  const aVoir = readdirSync(dossier, { recursive: true, encoding: 'utf8' }).filter(f => f.endsWith('.ts')).map(f => new URL(f, dossier))
+  for (let u = aVoir.pop(); u; u = aVoir.pop()) {
+    if (vus.has(u.href)) continue
+    vus.add(u.href)
+    assert.ok(!interdits.includes(u.href), `le Cabinet tire ${u.pathname}`)
+    aVoir.push(...importsDeValeurs(u))
+  }
+  assert.ok(vus.size >= 20, `${vus.size} modules relus`)
+})
+
 test('le journal, l’accueil et la page lisent le Cabinet sans tirer les rencontres', () => {
   const dossier = new URL('../../shared/cabinet/', import.meta.url)
   // Leurs en-têtes le promettent : le journal des réponses lit `pieces.ts`, l'accueil et le serveur `ouverture.ts`,

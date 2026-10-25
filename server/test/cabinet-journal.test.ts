@@ -189,9 +189,24 @@ test('le Mot mystère et le Filet écrivent la question de la base, à la forme 
   // Les deux erreurs, des questions de la base : au carnet, relues par le journal en mémoire puis par la base au réveil.
   const carnet = async () => (await lire(b, rose, '/api/campagne/carnet')).corps as { aRevoir: number; demain: number; plusTard: number }
   assert.deepEqual(await carnet().then(c => [c.aRevoir, c.demain, c.plusTard]), [0, 2, 0])
-  // « Signaler une erreur » passe par la route de la série, à la position de la pièce.
-  const signale = await poster(b, rose, `/api/campagne/serie/${mot.id}/signalement`, { index: 1, texte: 'Le mot me semble faux.' })
-  assert.deepEqual([signale.status, signale.corps], [200, { ok: true }])
+  // « Signaler une erreur » passe par la route de la série, à la position de la pièce : la question de la base qu'elle a posée.
+  for (const [serie, texte] of [
+    [mot.id, 'Le mot me semble faux.'],
+    [filet.id, 'La valeur me semble fausse.'],
+  ]) {
+    const signale = await poster(b, rose, `/api/campagne/serie/${serie}/signalement`, { index: 1, texte })
+    assert.deepEqual([signale.status, signale.corps], [200, { ok: true }], serie)
+  }
+  const signalees = enBase(b.fichier, db =>
+    db.prepare('SELECT question_id, serie_id FROM campagne_signalements WHERE serie_id IN (?, ?) ORDER BY question_id').all(mot.id, filet.id),
+  )
+  assert.deepEqual(
+    signalees,
+    [
+      { question_id: m1.question.id, serie_id: mot.id },
+      { question_id: f1.question.id, serie_id: filet.id },
+    ].sort((x, y) => x.question_id.localeCompare(y.question_id)),
+  )
   await b.banc.redemarrer()
   assert.deepEqual(await carnet().then(c => [c.aRevoir, c.demain, c.plusTard]), [0, 2, 0], 'relu de la base au réveil')
 })
