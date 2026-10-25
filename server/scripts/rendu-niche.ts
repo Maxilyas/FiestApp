@@ -3,7 +3,10 @@
 // la collection, la boutique et ses compagnons, le quiz du jour — sa page, une
 // question, une révélation —, la campagne et ses onglets, les duels — la
 // carte du verdict d'un duel au dé, un duel classé face cachée, « Duel
-// envoyé » —, l'expédition, le salon, et une soirée — la salle d'attente, une
+// envoyé » —, l'expédition, le Cabinet de curiosités — le musée, une salle,
+// une œuvre et un cadre vide, la visite, les gardiens, tes murs, les jeux
+// libres, et une partie du Pari : l'annonce, une manche, sa révélation, le
+// bilan —, le salon, et une soirée — la salle d'attente, une
 // question, la révélation, le podium. Puis le repli quand la page défile. À
 // chaque page, ce qui passe sous la niche se dit : un texte, un bouton, une
 // image que la page ne lui a pas laissé (« sous la niche »).
@@ -45,6 +48,7 @@ import {
 import { VERSION_BAREME } from '../src/auth/profiles'
 import { xpDuNiveau } from '../../shared/profil'
 import { PALIERS_DE_LA_NICHE } from '../../shared/ornements'
+import { SOUS_LA_NICHE } from './a-l-ecran'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-niche')
 mkdirSync(sortie, { recursive: true })
@@ -62,50 +66,6 @@ function chargerPlaywright(): any {
   return createRequire(path.join(globale, 'rendu.js'))('playwright')
 }
 const { chromium } = chargerPlaywright()
-
-/**
- * Ce qui passe sous la niche, page en haut : chaque ligne de texte (ses
- * boîtes de ligne, pas son bloc entier), chaque bouton, lien, champ ou image
- * dont la boîte la touche. En texte : `tsx` glisserait des `__name` dans une
- * fonction passée à la page.
- */
-const SOUS_LA_NICHE = `(() => {
-  const niche = document.querySelector('.niche')
-  if (!niche) return ['(pas de niche)']
-  // Repliée et effacée — la page a défilé sous une tête collée — : rien ne passe dessous.
-  if (Number(getComputedStyle(niche).opacity) === 0) return []
-  const n = niche.getBoundingClientRect()
-  const touche = r => r.width > 0 && r.height > 0 && r.right > n.left + 1 && r.left < n.right - 1 && r.bottom > n.top + 1 && r.top < n.bottom - 1
-  const visible = el => {
-    for (let e = el; e && e !== document.body; e = e.parentElement) {
-      const s = getComputedStyle(e)
-      if (s.visibility === 'hidden' || s.display === 'none' || Number(s.opacity) === 0) return false
-    }
-    return true
-  }
-  const nom = el => {
-    const classe = (el.getAttribute('class') || '').split(/\\s+/).filter(Boolean).slice(0, 2).join('.')
-    return el.tagName.toLowerCase() + (classe ? '.' + classe : '')
-  }
-  const vus = []
-  const marcheur = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
-  for (let t = marcheur.nextNode(); t; t = marcheur.nextNode()) {
-    const el = t.parentElement
-    if (!el || !t.textContent.trim() || el.closest('.niche, .sr-only, script, style') || !visible(el)) continue
-    const plage = document.createRange()
-    plage.selectNodeContents(t)
-    if ([...plage.getClientRects()].some(touche)) vus.push('texte « ' + t.textContent.trim().slice(0, 40) + ' » (' + nom(el) + ')')
-  }
-  for (const el of document.querySelectorAll('a, button, input, select, textarea, img, svg, [role=button]')) {
-    if (el.closest('.niche') || !visible(el)) continue
-    if (el.tagName === 'svg' && el.closest('a, button')) continue
-    const r = el.getBoundingClientRect()
-    // Une grande illustration (le cadran des duels) touche par sa boîte, pas par son dessin.
-    if (el.tagName === 'svg' && r.width > 120 && r.height > 120) continue
-    if (touche(r)) vus.push(nom(el))
-  }
-  return [...new Set(vus)]
-})()`
 
 const banc = await demarrer()
 const navigateur = await chromium.launch({ headless: true })
@@ -174,7 +134,9 @@ async function nouvellePage(ctx: any) {
 /** La photo d'une page, en haut, sa niche arrivée — et ce qui passe dessous. */
 async function photo(page: any, nom: string, { pleine = false, attente = 600 } = {}) {
   await page.waitForSelector('.niche .niche-bete img', { timeout: 8000 }).catch(() => {})
-  await page.evaluate('Promise.all([...document.images].map(i => i.decode().catch(() => {})))')
+  // Trois secondes au plus : une image `loading="lazy"` hors de l'écran — les portes du musée du Cabinet — ne se charge pas, et son
+  // `decode()` attendait toujours.
+  await page.evaluate('Promise.race([Promise.all([...document.images].map(i => i.decode().catch(() => {}))), new Promise(r => setTimeout(r, 3000))])')
   await page.waitForTimeout(attente)
   const fichier = path.join(sortie, `${nom}.png`)
   await page.screenshot({ path: fichier, fullPage: pleine })
@@ -222,7 +184,11 @@ async function solo() {
   const fiche = (nom: string) => page.screenshot({ path: path.join(sortie, `${nom}.png`) })
   const ouvrirLaFiche = async () => {
     await page.locator('.niche').click()
-    await page.waitForFunction(`document.querySelector('.niche-fiche-jauge')?.textContent !== '…' && !!document.querySelector('.niche-fiche-envies')`)
+    // Une fonction, jamais un texte : la politique de sécurité de la page refuse `eval` (skill `regarder-le-rendu`).
+    await page.waitForFunction(() => {
+      const d = (globalThis as any).document
+      return d.querySelector('.niche-fiche-jauge')?.textContent !== '…' && !!d.querySelector('.niche-fiche-envies')
+    })
     await patienter(700)
   }
   await ouvrirLaFiche()
@@ -351,6 +317,45 @@ async function solo() {
   await photo(page, '19d-duel-envoye')
   await aller('/expedition', '.expedition')
   await photo(page, '20-expedition', { attente: 1200 })
+  // Le Cabinet de curiosités : chaque écran du musée, puis une partie du Pari jouée au doigt — la tête d'une partie et son chrono
+  // laissent leur coin à la niche (`.cab-tete-partie .timer`), sa révélation et son bilan aussi.
+  for (const [adresse, attendu, nom] of [
+    ['', '.cab-portes', '20a-cabinet-musee'],
+    ['#salle-vestibule', '.cab-mur', '20b-cabinet-salle'],
+    ['#oeuvre-coup-d-oeil', '.cab-oeuvre-levee', '20c-cabinet-oeuvre'],
+    ['#oeuvre-pioche', '.cab-cadre-grand', '20d-cabinet-cadre-vide'],
+    ['#visite', '.cab-cases', '20e-cabinet-visite'],
+    ['#gardiens', '.cab-gardiens', '20f-cabinet-gardiens'],
+    ['#murs', '.cab-murs', '20g-cabinet-murs'],
+    ['#libre', '.cab-jeux', '20h-cabinet-jeux-libres'],
+  ] as const) {
+    await aller(`/cabinet${adresse}`, attendu)
+    await photo(page, nom, { attente: 900 })
+  }
+  // Au doigt, chaque toucher une demi-seconde après l'écran qu'il vise (`gesteAccepte`) : plus tôt, la page l'ignore.
+  const auDoigt = async (cible: any) => {
+    await cible.waitFor()
+    await patienter(650)
+    await cible.tap()
+  }
+  await auDoigt(page.locator('.cab-jeu', { hasText: 'Le Pari' }))
+  await page.waitForSelector('.cab-annonce')
+  await photo(page, '20i-cabinet-annonce')
+  await auDoigt(page.locator('.cab-annonce .btn-primary.btn-big'))
+  await page.waitForSelector('.cab-tete-partie .timer')
+  await photo(page, '20j-cabinet-manche')
+  // Une réponse au hasard : fausse, la manche se révèle ; juste, il garde ses deux étoiles plutôt que de parier.
+  await auDoigt(page.locator('.ans-btn').first())
+  await page.waitForSelector('.cab-titre-revele, .cab-choix-du-pari')
+  if (await page.locator('.cab-choix-du-pari').count()) await auDoigt(page.locator('.cab-choix-du-pari .btn:not(.btn-primary)'))
+  await page.waitForSelector('.cab-titre-revele')
+  await photo(page, '20k-cabinet-revelation', { attente: 1200 })
+  await auDoigt(page.locator('.cab-quitter'))
+  await page.waitForSelector('.dialog')
+  await patienter(300)
+  await auDoigt(page.locator('.dialog button[type="submit"]'))
+  await page.waitForSelector('.cab-bilan')
+  await photo(page, '20l-cabinet-bilan', { attente: 1200 })
   await aller('/salon', '.player-shell')
   await photo(page, '21-salon', { attente: 1500 })
   await ctx.close()

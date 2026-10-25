@@ -39,6 +39,7 @@ import {
   type BancDuCabinet,
 } from './cabinet-banc'
 import { importsStatiques } from './chemin-des-imports'
+import { contraste, surFond, teinte, themesDuClient } from './teintes'
 import {
   CHASSES_PAR_JOUR,
   ERREURS_D_UN_OUBLI,
@@ -940,6 +941,129 @@ test('la section du Cabinet dans la feuille : préfixe cab-, un texte qui se lit
   // La tête d'une partie laisse son coin à la niche, et la niche repliée s'efface sous elle.
   assert.match(css, /body\.avec-niche \.cab-tete-ligne \{ padding-right: var\(--niche-place\); \}/)
   assert.match(css, /body:has\([^)]*\.cab-tete-partie\) \.niche\.repliee \{ opacity: 0; visibility: hidden; \}/)
+})
+
+test('la tête d’une partie tient en 360 de large la niche posée : ses écarts se serrent, jamais un texte, et le total ne passe pas sous « Quitter »', () => {
+  // Le rendu du 25 octobre 2026 (`rendu-cabinet.ts`, `[chevauche]`) : la niche prend 60 px au coin, il restait 49 px au total
+  // pour ses 72, et « 0 / 9 ★ », rétréci, passait sous « Quitter ». Serrés, les trois cercles, le total et le bouton tiennent les
+  // 260 px de la rangée, et leurs textes gardent leur taille.
+  const section = sectionDuCabinet()
+  const regle = (sel: string) => new RegExp(`(?:^|\\n)${echapper(sel)} \\{([^}]*)\\}`).exec(section)?.[1] ?? ''
+  const px = (decl: string, prop: string) => Number(new RegExp(`(?:^|;)\\s*${prop}:\\s*([\\d.]+)px`).exec(decl)?.[1] ?? NaN)
+  const sansNiche = {
+    ligne: px(regle('.cab-tete-ligne'), 'gap'),
+    points: px(regle('.cab-points'), 'gap'),
+    point: px(regle('.cab-point'), 'width'),
+    quitter: Number(/padding:\s*[\d.]+px\s+([\d.]+)px/.exec(regle('.cab-page .cab-quitter'))?.[1]),
+  }
+  const avecNiche = {
+    ligne: px(regle('body.avec-niche .cab-tete-ligne'), 'gap'),
+    points: px(regle('body.avec-niche .cab-points'), 'gap'),
+    point: px(regle('body.avec-niche .cab-point'), 'width'),
+    quitter: px(regle('body.avec-niche .cab-page .cab-quitter'), 'padding-left'),
+  }
+  for (const [quand, valeurs] of Object.entries({ sansNiche, avecNiche })) {
+    for (const [cle, v] of Object.entries(valeurs)) assert.ok(Number.isFinite(v), `${cle}, ${quand} : se lit dans la feuille`)
+  }
+  assert.equal(px(regle('body.avec-niche .cab-point'), 'height'), avecNiche.point, 'un cercle reste un cercle')
+  assert.equal(px(regle('body.avec-niche .cab-page .cab-quitter'), 'padding-right'), avecNiche.quitter)
+  // La rangée : trois cercles et leurs deux écarts, puis deux écarts entre les cercles, le total et « Quitter », et les deux bords
+  // du bouton. Ce qu'elle gagne doit couvrir ce qui manquait au total, avec un peu de marge pour une police qui chasse plus.
+  const gagne = 2 * (sansNiche.ligne - avecNiche.ligne) + 2 * (sansNiche.points - avecNiche.points) + 3 * (sansNiche.point - avecNiche.point) + 2 * (sansNiche.quitter - avecNiche.quitter)
+  assert.ok(gagne >= 23 + 3, `${gagne} px gagnés, pour 23 qui manquaient`)
+  // Le bouton garde la cible d'un doigt.
+  assert.match(regle('.cab-page .cab-quitter'), /min-height: 44px/)
+  for (const sel of ['body.avec-niche .cab-tete-ligne', 'body.avec-niche .cab-points', 'body.avec-niche .cab-point', 'body.avec-niche .cab-page .cab-quitter']) {
+    assert.doesNotMatch(regle(sel), /font/, `${sel} ne touche pas aux textes`)
+  }
+})
+
+test('ce qui s’écrit sur l’or pâle se lit sous chaque thème : les gestes choisis, « Poser ici », le détail du gros bouton, le légendaire', () => {
+  // Le rendu du 25 octobre 2026 (`rendu-cabinet.ts`, `[contraste]`), sous l'Ivoire : « Reprends-la où tu l’as laissée », en gris sur
+  // le gros bouton principal, tenait 4,19:1 ; « Poser ici », 4,48:1 ; « Avatar légendaire débloqué », sur le halo de son médaillon,
+  // 4,41:1. L'or du texte (`--accent-text`) tient sur le fond de la page sous chaque thème (`design.test.ts`), pas sur l'or pâle
+  // (`--accent-soft`) : 4,09:1 sous le Film noir. Le seuil est celui de WCAG — 4,5:1, 3:1 pour un grand texte.
+  const section = sectionDuCabinet()
+  const themes = themesDuClient()
+  const lit = (quoi: string, couleur: string, fondDe: (j: Map<string, string>) => string, seuil = 4.5) => {
+    for (const { cle, jetons } of themes) {
+      const c = contraste(teinte(jetons, couleur), surFond(fondDe(jetons), teinte(jetons, '--bg')))
+      assert.ok(c >= seuil, `${cle} : ${quoi} (${couleur}) tient ${c.toFixed(2)}:1`)
+    }
+  }
+  const accentSoft = (j: Map<string, string>) => j.get('--accent-soft')!
+  // Chaque règle de la section qui pose un texte sur l'or pâle : sa couleur, à sa taille.
+  let vues = 0
+  for (const [, selecteur, corps] of section.matchAll(/(?:^|\n)([^{}\n]+?) \{([^}]*)\}/g)) {
+    if (!/background: var\(--accent-soft\)/.test(corps)) continue
+    const couleur = /(?:^|;)\s*color: var\((--[\w-]+)\)/.exec(corps)?.[1]
+    if (!couleur) continue
+    vues++
+    const rem = Number(/font-size: ([\d.]+)rem/.exec(corps)?.[1] ?? 1.0625)
+    const grand = rem * 16 >= 24 || (/font-weight: 700/.test(corps) && rem * 16 >= 18.66)
+    lit(selecteur.trim(), couleur, accentSoft, grand ? 3 : 4.5)
+  }
+  assert.ok(vues >= 4, `les textes sur l’or pâle sont bien trouvés (${vues})`)
+  // Le détail d'un gros bouton prend son fond d'une règle de toute l'application (`.gros-principal`), et le gris de la sienne.
+  lit('le détail du gros bouton qui mène', /(?:^|\n)\.cab-page \.gros-principal \.gros-detail \{[^}]*color: var\((--[\w-]+)\)/.exec(section)?.[1] ?? '--muted', accentSoft)
+  // L'étiquette d'un légendaire qui s'éveille, sur le halo de son médaillon : l'accent à 18 % au plus fort (`.fin-legendaire`).
+  const halo = (j: Map<string, string>) => `rgba(${j.get('--accent-rgb')}, 0.18)`
+  lit('l’étiquette d’un légendaire', /(?:^|\n)[^{}\n]*\.cab-page \.fin-legendaire \.label[^{}\n]* \{[^}]*color: var\((--[\w-]+)\)/.exec(section)?.[1] ?? '--muted', halo)
+  // Et à dix-sept pixels, dans la feuille d'un réveil aussi : en capitales de onze, elle y avait gardé la taille d'une soirée.
+  assert.match(section, /(?:^|\n)[^{}\n]*\.cab-feuille \.label[^{}\n]* \{[^}]*font-size: 1\.0625rem;[^}]*text-transform: none;/)
+})
+
+test('la carte d’une mission accomplie, au bilan, se relève à dix-sept pixels comme les autres pièces partagées', () => {
+  // Le rendu du 25 octobre 2026 : au bilan d'une partie qui fait une mission du jour (`MissionsAccomplies`, `Missions.tsx`), son
+  // gain, sa mission, son lien et les jours de sa carte des tampons s'écrivaient de 11 à 14 px — la taille de l'accueil.
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  const section = sectionDuCabinet()
+  const enPixels = (taille: string) => (taille === 'var(--t-label)' ? 11 : taille.endsWith('rem') ? parseFloat(taille) * 16 : parseFloat(taille))
+  const petits = [...css.matchAll(/(?:^|\n)(\.(?:mission-accomplie|tampon)[\w-]*(?: [a-z]+)?) \{[^}]*font-size: ([^;]+);/g)]
+    .filter(([, , taille]) => enPixels(taille) < 17)
+    .map(([, selecteur]) => selecteur)
+  assert.ok(petits.length >= 5, `les petits textes de la carte sont bien trouvés (${petits.join(', ')})`)
+  for (const selecteur of petits) {
+    const releve = new RegExp(`\\.cab-page ${echapper(selecteur)}[,\\s][^{}]*\\{[^}]*font-size: 1\\.0625rem;`)
+    assert.match(section, releve, `${selecteur} se relève sous .cab-page`)
+  }
+})
+
+test('sur une tablette ou un portable, la niche suit la colonne élargie d’une partie : son coin, pas celui des 560 pixels', () => {
+  // Le rendu du 25 octobre 2026 en 1366 × 768 (`[sous la niche]`) : la colonne d'une question s'élargit à 760 pixels
+  // (`.player-shell:has(.quiz-player)`), la niche restait au coin de celle de 560 — au milieu de la tête, sur « Quitter ».
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  const [, condition, large] = /@media (\([^)]*\) and \([^)]*\)) \{\n {2}\.player-shell:has\(\.quiz-player\) \{ max-width: (\d+)px;/.exec(css) ?? []
+  assert.ok(condition && large, 'la colonne élargie d’une question se lit')
+  const regle = new RegExp(`@media ${echapper(condition)} \\{\\s*body\\.avec-niche:has\\(\\.cab-partie \\.quiz-player\\) \\.niche \\{ right: max\\(16px, calc\\(\\(100vw - (\\d+)px\\) / 2 \\+ 16px\\)\\); \\}`)
+  const colonne = regle.exec(css)?.[1]
+  assert.equal(colonne, large, 'la niche se pose au coin de la colonne élargie, sous la même condition')
+  // Le reste de la niche ne bouge pas : son coin d'ordinaire est celui des 560 pixels.
+  assert.match(css, /\n\.niche \{[^}]*right: max\(16px, calc\(\(100vw - 560px\) \/ 2 \+ 16px\)\);/)
+})
+
+test('la tête collée d’une partie ne laisse rien passer derrière son chrono : son fondu tient dans sa marge du bas', () => {
+  // Le rendu du 25 octobre 2026 : la tête s'effaçait sur ses 16 derniers pour cent, et ses secondes, sur la dernière ligne, se
+  // lisaient sur le récit de l'Épingle ou la carte de la Frise qui défilaient dessous (« 57 » à 2,99:1, `[contraste]`).
+  const regle = /(?:^|\n)\.cab-tete-partie \{([^}]*)\}/.exec(sectionDuCabinet())?.[1] ?? ''
+  const bas = Number(/padding: [^;]*? (\d+)px;/.exec(regle)?.[1])
+  assert.ok(Number.isFinite(bas) && bas > 0, `la marge du bas de la tête se lit (${regle})`)
+  const plein = /background: linear-gradient\(180deg, var\(--bg\) calc\(100% - (\d+)px\), transparent\);/.exec(regle)?.[1]
+  assert.ok(plein !== undefined && Number(plein) <= bas, `le fond plein descend jusqu’à la marge du bas (${bas} px) : ${regle}`)
+})
+
+test('la peinture levée d’une œuvre laisse son ombre au-dessus de la ligne qui la nomme', () => {
+  // Le rendu du 25 octobre 2026 : « Œuvre commune · Le Rempart », juste sous la peinture, se lisait dans son ombre portée — 4,03:1
+  // sous l'Ivoire, l'or du texte à 5:1 sur la page nue. L'ombre (`.exp-vc-levee`, sa dernière couche) est un flou gaussien d'écart
+  // type la moitié de son flou, décalé vers le bas : à 1,25 écart type sous son bord, il ne lui reste qu'un dixième de sa force.
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  const levee = /(?:^|\n)\.exp-vc-levee \{[^}]*box-shadow: ([^;]*);/.exec(css)?.[1] ?? ''
+  const [, decale, flou] = /, 0 (\d+)px (\d+)px color-mix\([^;]*\)$/.exec(levee) ?? []
+  assert.ok(decale && flou, `l’ombre de la peinture levée se lit (${levee})`)
+  const ecart = /(?:^|\n)\.player-shell \{[^}]*gap: (\d+)px;/.exec(css)?.[1]
+  const marge = /(?:^|\n)\.cab-page > \.cab-oeuvre-levee \{[^}]*margin-bottom: (\d+)px;/.exec(sectionDuCabinet())?.[1] ?? '0'
+  const dessous = Number(ecart) + Number(marge)
+  assert.ok(dessous >= Number(decale) + 1.25 * (Number(flou) / 2), `${dessous} px sous la peinture, pour une ombre de ${decale} px et ${flou} px de flou`)
 })
 
 // ── 14. Une partie à l'écran ──────────────────────────────────────────────

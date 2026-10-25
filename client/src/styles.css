@@ -10340,13 +10340,19 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-page > .jour-sortie { font-size: 1.0625rem; }
 .cab-page .piece-tete .label { color: var(--accent-text); font-size: 1.0625rem; font-weight: 600; letter-spacing: 0.02em; text-transform: none; }
 .cab-page .gros-detail { font-size: 1.0625rem; }
+/* Le gros bouton qui mène — la visite du jour, la partie qui t'attend — pose son détail sur l'or pâle (`--accent-soft`) : le gris
+   n'y tenait que 4,2:1 sous l'Ivoire, 3,8:1 sous la Game Boy (le rendu du 25 octobre 2026). Le bronze du survol y tient sous
+   chaque thème, comme sur la tuile allumée des duels. */
+.cab-page .gros-principal .gros-detail { color: var(--accent-text-hover); }
 .cab-page .pastille-attente { font-size: 1.0625rem; }
 .cab-page .btn,
 .cab-feuille .btn { min-height: 52px; padding: 8px 18px; font-size: 1.0625rem; font-weight: 600; letter-spacing: 0.01em; line-height: 1.25; text-align: center; text-transform: none; white-space: normal; }
 /* Un geste que la page sait refusé reste un bouton qu'on peut toucher — il dit pourquoi dessous —, en sourdine sans perdre son texte. */
 .cab-page .btn[aria-disabled='true'] { border-color: var(--edge); background: var(--surface-strong); color: var(--muted); cursor: default; }
+/* Sur l'or pâle (`--accent-soft`), un texte s'écrit au bronze du survol : l'or du texte n'y tient pas sous chaque thème — 4,09:1
+   sous le Film noir, 4,48:1 pour « Poser ici » sous l'Ivoire (le rendu du 25 octobre 2026). */
 .cab-page .btn[aria-pressed='true'],
-.cab-feuille .btn[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+.cab-feuille .btn[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); }
 .cab-ligne { line-height: 1.45; }
 .cab-surtitre { color: var(--accent-text); font-weight: 700; letter-spacing: 0.02em; }
 /* Une question qui tient en un surtitre — « Quel est ce tableau ? », le thème d'une frise — reste le titre de sa manche, où le
@@ -10402,7 +10408,7 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 
 /* Une salle : sa devise, ses œuvres au mur — trois par rangée, plus hautes que dans la main de l'Expédition —, ses gardiens. */
 .cab-devise { color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-style: italic; font-weight: 600; line-height: 1.2; }
-.cab-nouvelle { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+.cab-nouvelle { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent-text-hover); font-weight: 700; }
 .cab-nouvelle .icon { width: 18px; height: 18px; }
 .cab-mur { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 10px; }
 .cab-oeuvre { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; color: var(--ink); text-align: center; text-decoration: none; }
@@ -10424,6 +10430,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-cadre-grand { align-self: center; width: min(252px, 100%); height: 180px; }
 .cab-cadre-grand .cab-inconnue { font-size: 4rem; }
 .cab-oeuvre-levee { display: flex; justify-content: center; }
+/* Son ombre portée (`.exp-vc-levee`, 12 px plus bas, 32 de flou) passait sous « Œuvre commune · Le Rempart » : l'or du texte y
+   tombait à 4:1 sous l'Ivoire (le rendu du 25 octobre 2026). La ligne descend là où l'ombre s'est presque éteinte. */
+.cab-page > .cab-oeuvre-levee { margin-bottom: 14px; }
 .cab-oeuvre-levee .exp-vc-art { height: 176px; }
 /* Sa rareté se dit déjà sur la ligne du titre, à dix-sept pixels : la pastille de la carte, en capitales de onze, s'efface ici. */
 .cab-oeuvre-levee .exp-vc-rarete-dite { display: none; }
@@ -10498,8 +10507,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 
 /* Une partie (`Partie.tsx`) : la tête collée — les trois manches, les étoiles sur neuf, « Quitter », le chrono —, la manche, le
    pied collé — la carte-bonus et son geste, la suite. Tête et pied posent `--bg` sous eux : les thèmes repeignent `.card` d'un
-   verre, et la question défilait au travers. La tête laisse son coin à la niche (le bloc « Sa place, page par page »). */
-.cab-tete-partie { position: sticky; top: 0; z-index: 3; display: flex; flex-direction: column; gap: 2px; margin: -24px -20px 0; padding: max(14px, env(safe-area-inset-top)) 20px 8px; background: linear-gradient(180deg, var(--bg) 84%, transparent); }
+   verre, et la question défilait au travers. La tête laisse son coin à la niche (le bloc « Sa place, page par page »). Son fondu
+   tient dans sa marge du bas : sur ses 16 derniers pour cent, il passait sous les secondes du chrono, qui se lisaient sur le récit
+   de l'Épingle défilant dessous (le rendu du 25 octobre 2026). */
+.cab-tete-partie { position: sticky; top: 0; z-index: 3; display: flex; flex-direction: column; gap: 2px; margin: -24px -20px 0; padding: max(14px, env(safe-area-inset-top)) 20px 8px; background: linear-gradient(180deg, var(--bg) calc(100% - 8px), transparent); }
 .cab-tete-ligne { display: flex; align-items: center; gap: 12px; min-height: 48px; }
 .cab-points { display: inline-flex; gap: 6px; }
 .cab-point { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 2px solid var(--edge-strong); border-radius: 50%; color: var(--muted); font-family: var(--serif); font-size: 1.0625rem; font-weight: 700; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
@@ -10508,11 +10519,21 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-total { flex: 1; min-width: 0; color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-weight: 600; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .cab-total b { font-size: 1.75rem; }
 .cab-page .cab-quitter { flex: none; min-height: 44px; padding: 6px 16px; }
+/* La niche posée, la rangée perd ses 60 px de coin : en 360 de large, il restait 49 px au total pour ses 72, et « 0 / 9 ★ »,
+   rétréci, passait sous « Quitter » (le rendu du 25 octobre 2026, `rendu-cabinet.ts`). Les écarts se serrent, les cercles et le
+   bouton aussi un peu — jamais un texte. */
+body.avec-niche .cab-tete-ligne { gap: 8px; }
+body.avec-niche .cab-points { gap: 4px; }
+body.avec-niche .cab-point { width: 26px; height: 26px; }
+body.avec-niche .cab-page .cab-quitter { padding-left: 10px; padding-right: 10px; }
 .cab-tete-partie .timer { gap: 10px; }
 .cab-tete-partie .timer-seconds { min-width: 36px; font-size: 1.75rem; }
 .cab-manche { gap: 14px; }
 .cab-tete-question { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
-.cab-page .label { font-size: 1.0625rem; letter-spacing: 0.02em; text-transform: none; }
+.cab-page .label, .cab-feuille .label { font-size: 1.0625rem; letter-spacing: 0.02em; text-transform: none; }
+/* « Avatar légendaire débloqué », au bilan et dans la feuille d'un réveil, se pose sur le halo de son médaillon : le gris y tenait
+   4,41:1 sous l'Ivoire, et la feuille, hors de la page, l'écrivait en capitales de onze pixels. */
+.cab-page .fin-legendaire .label, .cab-feuille .fin-legendaire .label { color: var(--accent-text-hover); }
 .cab-pied-partie { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 8px; margin: auto -20px -28px; padding: 14px 20px max(16px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 14px); }
 /* Le téléphone tient une question en un écran (`.player-shell:has(.ans-grid)` : les réponses se partagent ce qui reste) ; la
    partie y ajoute sa tête et sa carte-bonus, et la grille, serrée sous la hauteur de ses réponses, débordait sous le pied — la
@@ -10603,7 +10624,7 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-sans-annee { color: var(--muted); }
 .cab-libelle { line-height: 1.3; overflow-wrap: break-word; }
 .cab-place { display: flex; }
-.cab-poser-ici { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: 2px dashed var(--accent); border-radius: var(--radius-xs); background: var(--accent-soft); color: var(--accent-text); font: inherit; font-weight: 700; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.cab-poser-ici { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: 2px dashed var(--accent); border-radius: var(--radius-xs); background: var(--accent-soft); color: var(--accent-text-hover); font: inherit; font-weight: 700; cursor: pointer; user-select: none; -webkit-user-select: none; }
 .cab-poser-ici .icon { width: 18px; height: 18px; }
 .cab-frise-vide { padding: 14px; border: 2px dashed var(--edge); border-radius: var(--radius-xs); color: var(--muted); text-align: center; }
 .cab-reserve { display: flex; flex-direction: column; gap: 8px; }
@@ -10814,6 +10835,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-page .result-banner p { font-size: 1.0625rem; }
 .cab-page .anecdote { font-size: 1.0625rem; }
 .cab-page .small { font-size: 1.0625rem; }
+/* La carte d'une mission accomplie, au bilan (`MissionsAccomplies`) : de 11 à 14 px, la taille de l'accueil. */
+.cab-page .mission-accomplie-gain, .cab-page .mission-accomplie-liste li, .cab-page .mission-accomplie-trois, .cab-page .mission-accomplie-lien,
+.cab-page .tampons-rang, .cab-page .tampon-jour, .cab-page .tampons-texte { font-size: 1.0625rem; }
 .cab-page .corrige-texte { font-size: 1.0625rem; }
 .cab-page .corrige-legende { font-size: 1.0625rem; letter-spacing: 0.02em; text-transform: none; }
 .cab-corrige { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
@@ -12597,6 +12621,12 @@ body.avec-niche .cab-tete-partie .timer { padding-right: var(--niche-place); }
 /* Au Cabinet, la peinture levée et le cadre vide en grand suivent « ← Le Rempart » : leur coin haut passait sous le bas de la niche. */
 body.avec-niche .cab-page > .cab-oeuvre-levee,
 body.avec-niche .cab-page > .cab-cadre-grand { margin-top: 10px; }
+/* Au Cabinet, sur une tablette ou un portable, la colonne d'une partie s'élargit avec sa question (760 pixels, « La tablette
+   n'est pas un téléphone étiré ») : la niche suit son coin. Au coin de la colonne de 560, elle se posait au milieu de la tête,
+   sur « Quitter » (le rendu du 25 octobre 2026, en 1366 × 768). */
+@media (min-width: 700px) and (min-height: 600px) {
+  body.avec-niche:has(.cab-partie .quiz-player) .niche { right: max(16px, calc((100vw - 760px) / 2 + 16px)); }
+}
 /* Le jour et les points du quiz du jour, l'un sous l'autre : sur une ligne, « 200 pts » se cassait contre elle. */
 body.avec-niche .jour-bandeau { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; padding-right: var(--niche-place); }
 /* Les rangées d'onglets passent sous elle, sans la toucher. */

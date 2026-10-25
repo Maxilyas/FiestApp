@@ -10,6 +10,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import React from 'react'
 import { partsDuNom } from '../../shared/homonymes'
+import { IVOIRE, VELOURS, contraste, surFond, teinte } from './teintes'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
 Object.assign(globalThis, { React })
@@ -186,40 +187,8 @@ test('un bouton bascule garde son nom : l’état ne passe que par aria-pressed'
 })
 
 // ── Les jetons des deux thèmes : focus, survol, contrôles natifs ─────────
-
-/** Les variables d'un bloc de thème, telles qu'écrites. */
-function jetons(ouverture: string): Map<string, string> {
-  const debut = CSS.indexOf(ouverture)
-  assert.ok(debut >= 0, `le bloc ${ouverture} existe`)
-  const corps = CSS.slice(debut, CSS.indexOf('\n}', debut))
-  return new Map([...corps.matchAll(/^\s*(--[\w-]+|color-scheme):\s*([^;]+);/gm)].map(m => [m[1], m[2].trim()]))
-}
-// Ses couleurs se posent aussi sur un fond de carte, qui reste nocturne sous
-// tous les thèmes ; ses formes et ses polices, sur la racine seule.
-const VELOURS = new Map([...jetons(':root, .carte-fond {'), ...jetons(':root {')])
-const IVOIRE = new Map([...VELOURS, ...jetons(":root[data-theme='ivoire'] {")])
-
-/** La couleur d'un jeton, `var(--autre)` suivi jusqu'à un #rrggbb. */
-function teinte(theme: Map<string, string>, nom: string): string {
-  let valeur = theme.get(nom)
-  for (let i = 0; valeur && i < 5; i++) {
-    const renvoi = /^var\((--[\w-]+)\)$/.exec(valeur)
-    if (!renvoi) break
-    valeur = theme.get(renvoi[1])
-  }
-  assert.match(valeur ?? '', /^#[0-9a-f]{6}$/i, `${nom} se résout en une couleur`)
-  return valeur!
-}
-
-/** Le contraste WCAG entre deux couleurs. */
-function contraste(a: string, b: string): number {
-  const lum = (hex: string) => {
-    const [r, g, v] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
-    return 0.2126 * r + 0.7152 * g + 0.0722 * v
-  }
-  const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m)
-  return (x + 0.05) / (y + 0.05)
-}
+//
+// Leurs couleurs et leur contraste se lisent par `teintes.ts`, que le Cabinet partage.
 
 test('A2 · un seul anneau de focus, qui se voit sur les deux thèmes', () => {
   // Neuf sélecteurs recopiaient l'anneau, six composants gardaient celui du
@@ -253,15 +222,6 @@ test('S2 · les contrôles natifs suivent le thème', () => {
 })
 
 // ── Les thèmes des profils : chacun sa feuille, les mêmes seuils ───────────
-
-/** Une couleur `rgba(…)` posée sur un fond opaque : la carte telle qu'on la voit. */
-function surFond(couleur: string, fond: string): string {
-  const m = /^rgba?\(([^)]+)\)$/.exec(couleur)
-  if (!m) return couleur
-  const [r, g, b, a = 1] = m[1].split(',').map(Number)
-  const f = [1, 3, 5].map(i => parseInt(fond.slice(i, i + 2), 16))
-  return '#' + [r, g, b].map((c, i) => Math.round(a * c + (1 - a) * f[i]).toString(16).padStart(2, '0')).join('')
-}
 
 test('chaque thème d’un profil se lit comme Velours et Ivoire : texte, accent, focus, alertes, métaux, formes', async () => {
   // Trente habillages que personne ne relit tous à l'écran : les seuils
