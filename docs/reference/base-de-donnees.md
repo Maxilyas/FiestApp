@@ -920,9 +920,12 @@ gardent ce que la campagne n'a pas, borné par profil — aucune lecture qui
 grandisse avec l'histoire. Elles naissent au réveil de la campagne, dans son
 premier lot (`REVEIL_DU_CABINET`, `server/src/core/cabinet/tables.ts`) : le
 Cabinet n'a pas d'`init` à lui, et un réveil n'attend pas un aller-retour de
-plus. En construction : elles naissent vides, et rien ne les lit ni ne les
-écrit encore. Ce qui suit dit ce que son magasin en fera, en préproduction
-d'abord ; fermé en production (`CABINET_EN_PRODUCTION`).
+plus. Son magasin (`CabinetStore`, `server/src/core/cabinet/magasin.ts`) les
+lit en un lot froid par profil et par réveil (`lecturesDuMusee`, `tables.ts`),
+et les écrit dans des lots gardés (`server/src/core/cabinet/ecriture.ts`) : un
+départ par sa ligne de `cabinet_profils`, un geste par son rang — chaque autre
+instruction du lot n'agit que si ce geste-là est en base. En construction, en
+préproduction d'abord ; fermé en production (`CABINET_EN_PRODUCTION`).
 
 ### `cabinet_gestes`
 
@@ -936,9 +939,9 @@ redémarrage où elle en était.
 
 - **Colonnes clés** : `serie_id` et `rang` (la clé : un geste dit le rang qu'il croit suivre, un second au même rang — un double toucher, l'autre serveur d'une mise en ligne — n'entre pas), `geste` (JSON `GesteDuCabinet`, tel que relu par `lireUnGeste`), `fait_le` (l'heure du serveur à l'arrivée de la requête, prise avant le verrou du profil), `uid` (tiré par le serveur pour le lot qui l'écrit : chaque autre instruction du lot n'agit que si ce geste-là est en base).
 - **Espace** : non ; pas de `profile_id`, comme `expedition_gestes`.
-- **Écrite par** : rien encore ; le magasin du Cabinet, un geste par requête, dans le lot qui le juge.
-- **Lue par** : rien encore ; le magasin du Cabinet — une partie relue après un redémarrage, sa page, « Mes réponses ».
-- **Effacée par** : rien encore ; avec le magasin du Cabinet, la suppression du profil, par la sous-requête de ses parties (`serie_id IN (SELECT id FROM campagne_series WHERE profile_id = ?)`), avant que la campagne efface les séries — sans `profile_id`, la relecture des tables d'un profil supprimé (`profils-admin.test.ts`) ne la voit pas.
+- **Écrite par** : `CabinetStore`, un geste par requête, en tête du lot qui le juge (`lotDuGeste`, `INSERT … ON CONFLICT DO NOTHING`) — l'ouverture de la première manche dans le lot du départ (`lotDuDepart`) ; la clôture d'une partie de la veille, à la page du lendemain.
+- **Lue par** : `CabinetStore` — la partie en cours dans le lot froid du profil, une partie qu'on lui nomme par sa clé (`lecturesDeLaPartie`) ; les gestes de chaque autre instruction de leur lot, par sa clé (`gesteEcrit`).
+- **Effacée par** : la suppression du profil (`CabinetStore.oublierProfil`, `lotDeLOubli`), par la sous-requête de ses parties (`serie_id IN (SELECT id FROM campagne_series WHERE profile_id = ?)`), avant que la campagne efface les séries — sans `profile_id`, la relecture des tables d'un profil supprimé (`profils-admin.test.ts`) ne la voit pas.
 
 ### `cabinet_profils`
 
@@ -948,9 +951,9 @@ quota de Turso, le 22 octobre 2026).
 
 - **Colonnes clés** : `profile_id` (la clé), `poussiere` (la poussière d'or gagnée, la somme des bilans de ses parties : le solde en retire ce que ses œuvres ont coûté), `serie`, `serie_jour` et `serie_record` (ses jours de visite ou de chasse d'affilée, le dernier compté, la plus longue), `visites` (JSON : les visites figées de ses trois derniers jours, échange compris), `partie` (celle en cours, NULL sinon : une partie à la fois), `v` (la version de ces reflets, `VERSION_DU_CABINET`), `cree_le`, `maj_le`.
 - **Espace** : non.
-- **Écrite par** : rien encore ; le magasin du Cabinet, au départ d'une partie, à sa fin, à l'échange d'un jeu de la visite.
-- **Lue par** : rien encore ; le magasin du Cabinet, une fois par réveil et par profil.
-- **Effacée par** : rien encore ; avec le magasin du Cabinet, la suppression du profil.
+- **Écrite par** : `CabinetStore` — au départ d'une partie, son instruction gardée (`partie IS NULL`, les chasses et la case de la visite recomptées par la base) ; à sa fin, la poussière et `partie` remise à NULL ; à l'échange d'un jeu de la visite, quand sa route viendra.
+- **Lue par** : `CabinetStore`, une fois par réveil et par profil, dans son lot froid ; la partie en cours par sa clé, dans la garde du lot qui la crée.
+- **Effacée par** : la suppression du profil (`CabinetStore.oublierProfil`).
 
 ### `cabinet_oeuvres`
 
@@ -962,9 +965,9 @@ cadre doré.
 
 - **Colonnes clés** : `profile_id` et `oeuvre` (la clé), `origine` (`partie`, `achat`, `expedition` — rapportée de l'Expédition — ou `depart`), `gagnee_le`, `saison` (la fête du jour où elle est entrée en jouant ; NULL sinon), `serie_id` (la partie dont son cartel garde une manche), `prix` (la poussière payée pour l'acheter), `doree_le`, `dorure` (`partie` ou `poussiere`), `prix_dorure`, `serie_doree`. Aucune `CHECK` sur le solde : un achat le vérifie dans son instruction même, et son refus se dit en mots.
 - **Espace** : non.
-- **Écrite par** : rien encore ; le magasin du Cabinet — une œuvre gagnée, dorée, achetée —, et la migration des œuvres de l'Expédition.
-- **Lue par** : rien encore ; le magasin du Cabinet (le musée, le solde).
-- **Effacée par** : rien encore ; avec le magasin du Cabinet, la suppression du profil.
+- **Écrite par** : `CabinetStore`, dans le lot du geste qui finit la partie — une œuvre gagnée, son cartel, un cadre doré en jouant (`ON CONFLICT … COALESCE` : un cartel ou une dorure écrits ne se réécrivent pas) ; l'achat, la dorure à la poussière et la migration des œuvres de l'Expédition, quand leurs lots viendront.
+- **Lue par** : `CabinetStore`, dans son lot froid (le musée, le solde).
+- **Effacée par** : la suppression du profil (`CabinetStore.oublierProfil`).
 
 **Le QG** — ce que l'administrateur a fait, et la santé du serveur.
 

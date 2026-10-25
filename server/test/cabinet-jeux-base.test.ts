@@ -13,11 +13,19 @@
 //
 // Le moule commun (`RegleDuJeu`, `regle.ts`) dit comment le pli s'en sert :
 // `trancheLaManche` d'abord — oui, le geste va à `juger` ; non, à
-// `apresLeGeste`. Ces épreuves jouent les règles comme le pli les jouera. Les
-// mêmes jeux par les routes viendront avec le serveur du Cabinet.
+// `apresLeGeste`. Ces épreuves jouent les règles comme le pli les jouera ; puis
+// le tirage du Pari et de l'Éclair au serveur (`core/cabinet/tirages/`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { DIX_HEURES, baseDuCabinet } from './cabinet-banc'
+import type { QuestionDeLaBase } from '../src/core/baseCampagne'
+import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
+import { estUnQcmDuCabinet } from '../src/core/cabinet/tirages/tas'
+import { niveauDeQuestion, type MesureDUneQuestion } from '../../shared/campagne'
+import type { Categorie } from '../../shared/categories'
+import { vuesDuCabinet } from '../../shared/cabinet/vues'
+import type { ContenuTire } from '../../shared/cabinet/jeux/index'
 import { hasardDe } from '../../shared/missions'
 import { decimales, ecartEstimation } from '../../shared/classement'
 import * as B from '../../shared/cabinet/bareme'
@@ -790,4 +798,91 @@ test('Éclairer sert-il encore ? Le jeu le dit par le refus des pouvoirs, mot po
   assert.equal(eclairerSertEncore(REGLE_DE_L_ECLAIR, ECLAIR, { soufflees: [0, 1, 2, 3, 4] }), false)
   assert.equal(eclairerSertEncore(REGLE_DU_MOT, MOT, REGLE_DU_MOT.ouvrir(MOT)), true)
   assert.equal(eclairerSertEncore(REGLE_DU_MOT, MOT, { essais: [], soufflees: [0, 1, 2, 3, 4, 5] }), false, 'jamais le mot entier')
+})
+
+// ── Le tirage, au serveur ─────────────────────────────────────────────────
+// Ce que les tireurs du Pari et de l'Éclair tirent au départ, sur une base
+// d'essai — huit questions de chaque marche dans chaque catégorie —, le hasard
+// celui du serveur : les marches mesurées, la catégorie, rien deux fois dans le
+// plan, et « rien ne revient avant sept jours », d'un jeu à l'autre.
+
+const BASE_DU_TIRAGE = baseDuCabinet()
+const PORTE_D_ESSAI = { deLaCategorie: (jouables: readonly QuestionDeLaBase[], c: Categorie) => jouables.filter(q => q.meta.categorie === c) }
+const MESURE = new Map<string, MesureDUneQuestion>()
+const niveauDe = (id: string) => niveauDeQuestion(BASE_DU_TIRAGE.parId.get(id)!.meta.difficulte, MESURE.get(id))
+const contexte = (vues: ReadonlyMap<string, number> = new Map(), maintenant = DIX_HEURES): ContexteDuTirage => ({
+  porte: PORTE_D_ESSAI,
+  jouables: BASE_DU_TIRAGE.questions,
+  mesures: MESURE,
+  vues,
+  maintenant,
+  hasard: Math.random,
+})
+const idsDuPlan = (plan: readonly ContenuTire[]) =>
+  plan.flatMap(t => (t.jeu === 'pari' ? [t.q1.id, t.q2.id] : t.jeu === 'eclair' ? t.affirmations.map(a => a.question.id) : []))
+
+test('le tirage du Pari : une facile ou moyenne, sa seconde difficile ou experte de la même catégorie, rien deux fois dans le plan', () => {
+  for (let essai = 0; essai < 20; essai++) {
+    // Trois manches et trois rechanges : la force 3 de Changer.
+    const plan = tirerLePlan('pari', contexte(), 3) as PariTire[]
+    assert.equal(plan.length, 6)
+    for (const t of plan) {
+      assert.ok(['facile', 'moyen'].includes(t.q1.niveau) && t.q1.niveau === niveauDe(t.q1.id), `${t.q1.id} : ${t.q1.niveau}`)
+      assert.ok(['difficile', 'expert'].includes(t.q2.niveau) && t.q2.niveau === niveauDe(t.q2.id), `${t.q2.id} : ${t.q2.niveau}`)
+      assert.equal(t.q2.categorie, t.q1.categorie, 'la seconde, de la même catégorie')
+      // Telle que la partie la garde : ses réponses mélangées pour elle, sa bonne suivie.
+      const base = BASE_DU_TIRAGE.parId.get(t.q1.id)!
+      assert.equal(t.q1.reponses[t.q1.bonne], base.reponses[base.bonne])
+    }
+    const ids = idsDuPlan(plan)
+    assert.equal(new Set(ids).size, ids.length, 'jamais deux fois la même question, rechanges comprises')
+    assert.equal(new Set(plan.slice(0, 3).map(t => t.q1.categorie)).size, 3, 'les trois manches tournent sur les catégories')
+  }
+})
+
+test('le tirage de l’Éclair : cinq affirmations d’une même catégorie, faciles ou moyennes, récrites par la règle du jeu', () => {
+  for (let essai = 0; essai < 20; essai++) {
+    const plan = tirerLePlan('eclair', contexte(), 1) as EclairTire[]
+    assert.equal(plan.length, 4)
+    for (const t of plan) {
+      assert.equal(t.affirmations.length, B.AFFIRMATIONS_DE_L_ECLAIR)
+      assert.equal(new Set(t.affirmations.map(a => a.question.categorie)).size, 1, 'une seule catégorie : sa pièce en a une')
+      for (const a of t.affirmations) {
+        assert.ok(['facile', 'moyen'].includes(a.question.niveau))
+        assert.ok(Number.isInteger(a.proposee) && a.proposee >= 0 && a.proposee < 4)
+      }
+    }
+    const ids = idsDuPlan(plan)
+    assert.equal(new Set(ids).size, ids.length)
+  }
+})
+
+test('rien ne revient avant sept jours, d’un jeu à l’autre : un composé de l’Éclair se déplie, et le Pari ne le repose pas', () => {
+  // Il a vu, il y a six jours, à l'Éclair, toutes les faciles et moyennes de toutes les catégories sauf cinq.
+  const faciles = BASE_DU_TIRAGE.questions.filter(q => ['facile', 'moyen'].includes(niveauDe(q.id)))
+  const neuves = new Set(faciles.slice(0, 5).map(q => q.id))
+  const vuesAvant = faciles.filter(q => !neuves.has(q.id)).map(q => q.id)
+  const ilYA = (jours: number) => DIX_HEURES - jours * 24 * 3_600_000
+  const composes = new Map<string, number>()
+  for (let i = 0; i < vuesAvant.length; i += 5) composes.set(idDeLEclair(vuesAvant.slice(i, i + 5)), ilYA(6))
+  const vues = vuesDuCabinet(composes)
+  for (let essai = 0; essai < 10; essai++) {
+    const [t] = tirerLePlan('pari', contexte(vues), 0) as PariTire[]
+    assert.ok(neuves.has(t.q1.id), `${t.q1.id} vue il y a six jours, reposée devant une jamais vue`)
+  }
+  // Les jamais vues épuisées, la moins récemment vue revient : celle d'il y a huit jours devant celle d'il y a six.
+  const toutes = new Map<string, number>(faciles.map(q => [q.id, ilYA(neuves.has(q.id) ? 8 : 6)]))
+  for (let essai = 0; essai < 10; essai++) {
+    const [t] = tirerLePlan('pari', contexte(toutes), 0) as PariTire[]
+    assert.ok(neuves.has(t.q1.id), `${t.q1.id} : vue il y a six jours, passée devant une vue il y a huit`)
+  }
+})
+
+test('le tas des QCM du Cabinet : quatre réponses courtes, un intitulé court, et aucune réponse dite dans l’intitulé', () => {
+  const q = (texte: string, reponses: string[]) => ({ texte, reponses })
+  assert.equal(estUnQcmDuCabinet(q('Quelle est la capitale de la Lituanie ?', ['Riga', 'Vilnius', 'Tallinn', 'Minsk'])), true)
+  assert.equal(estUnQcmDuCabinet(q('La Terre est-elle ronde ?', ['Vrai', 'Faux'])), false, 'un vrai ou faux de la base')
+  assert.equal(estUnQcmDuCabinet(q(`${'Une question bien trop longue pour se lire chrono en marche. '.repeat(3)}?`, ['a', 'b', 'c', 'd'])), false)
+  assert.equal(estUnQcmDuCabinet(q('Qui ?', ['Une réponse bien trop longue pour tenir sur un bouton', 'b', 'c', 'd'])), false)
+  assert.equal(estUnQcmDuCabinet(q('Quel fleuve traverse Lyon, le Rhône ou la Seine ?', ['le Rhône', 'la Loire', 'la Seine', 'la Garonne'])), false, 'l’intitulé la dit')
 })
