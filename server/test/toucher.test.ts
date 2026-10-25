@@ -7,7 +7,7 @@
 // les cases du téléphone arrivent sur place.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 
 const client = (f: string) => new URL(`../../client/src/${f}`, import.meta.url)
 const { toucher } = (await import(client('toucher.ts').href)) as typeof import('../../client/src/toucher')
@@ -88,8 +88,11 @@ test('« Effacer » et « Valider » des formes qui se posent passent par touche
 test('au Cabinet, chaque geste d’une partie passe par toucher : une réponse, le choix du Pari, la carte-bonus, la suite, le bilan', () => {
   // Une réponse touchée change l'écran au lever du doigt : « Garder » et « Parier » prennent la place des réponses, « Manche
   // suivante » celle de la dernière, « Faux » et « Vrai » restent sous lui d'une affirmation à l'autre. Le `click` qui suit tombait
-  // sur ce qui avait glissé là : au Pari, il gardait des étoiles qu'on voulait parier.
-  for (const f of ['views/cabinet/jeux/Pari.tsx', 'views/cabinet/jeux/Eclair.tsx', 'views/cabinet/Partie.tsx', 'views/cabinet/Bilan.tsx']) {
+  // sur ce qui avait glissé là : au Pari, il gardait des étoiles qu'on voulait parier. Chaque écran de jeu, d'office : à la Frise,
+  // « Poser ici » se retire sous le doigt qui vient de poser, et un `click` seul aurait pris l'événement remonté à sa place.
+  const jeux = readdirSync(client('views/cabinet/jeux')).map(f => `views/cabinet/jeux/${f}`)
+  for (const jeu of ['Pari', 'Eclair', 'Detail', 'Frise']) assert.ok(jeux.includes(`views/cabinet/jeux/${jeu}.tsx`), jeu)
+  for (const f of [...jeux, 'views/cabinet/Partie.tsx', 'views/cabinet/Bilan.tsx']) {
     const balises = readFileSync(client(f), 'utf8')
       .replaceAll('=>', '⇒')
       .split('<button')

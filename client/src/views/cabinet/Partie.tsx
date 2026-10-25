@@ -38,7 +38,8 @@ import type { BilanDeLaPartie } from './Bilan'
 // double toucher, un autre onglet) rend la vue d'à présent, où elle se range.
 // Le chrono se lit à l'heure du serveur (`serverNow`, invariant 6), jamais à
 // celle du téléphone ; à l'échéance, la page envoie d'elle-même ce qu'elle
-// tenait (`repondre`, `auto`) — l'Éclair, ses réponses ; le Pari, rien —, et
+// tenait (`repondre`, `auto`) — l'Éclair, ses réponses ; la Frise, ce qu'elle a
+// rangé ; le Pari et le Détail, rien —, et
 // insiste tant que le réseau manque : son rang la garde d'un double. Le
 // serveur a une grâce pour le réseau ; la page ne la recopie pas, elle n'en
 // a pas besoin.
@@ -55,9 +56,22 @@ export type GesteDuJeu = SansManche<Extract<GesteDuCabinet, { manche: Manche }>>
 /** `Omit` geste par geste : sur l'union entière, il n'en gardait que les clés communes. */
 type SansManche<T> = T extends unknown ? Omit<T, 'manche'> : never
 
-export interface PropsDUneManche<M, L> {
+/**
+ * Où une manche trouve ses images : sa partie, et l'indice de son contenu dans
+ * le plan figé (`VueDeLaPartie.tirage`, `RevelationVue.tirage`) — l'adresse
+ * d'un cadrage du Détail les porte (`adresseDUnCadrage`), jamais la manche :
+ * après « Changer », la même manche joue un autre tableau, et le cache du
+ * téléphone aurait rendu l'image d'avant. Absent, pour les révélations écrites
+ * à la main des épreuves : pas d'image à demander.
+ */
+export interface OuEstLaManche {
+  partie: string
+  tirage?: number
+}
+
+export interface PropsDUneManche<M, L> extends OuEstLaManche {
   montree: M
-  /** Ce que la page tient seule de la manche : les réponses de l'Éclair, l'affirmation sous les yeux. */
+  /** Ce que la page tient seule de la manche : les réponses de l'Éclair, l'affirmation sous les yeux, la frise rangée à moitié. */
   local: L
   setLocal: (l: L) => void
   envoyer: (g: GesteDuJeu) => void
@@ -90,7 +104,7 @@ export interface JeuALEcran<M, R, L> {
    */
   sousEcranDe?(m: M, l: L): string
   Manche(p: PropsDUneManche<M, L>): ReactNode
-  Revelation(p: { corps: R }): ReactNode
+  Revelation(p: { corps: R } & OuEstLaManche): ReactNode
 }
 
 /** L'écran d'un jeu, ses types effacés : le cadre ne le lit que pour le jeu de sa partie, avec la manche que la vue de ce jeu montre. */
@@ -105,6 +119,8 @@ export type EcranEfface = JeuALEcran<MancheMontree, RevelationDUneManche, unknow
 const ECRANS: Partial<Record<CleDeJeu, ALaDemande<EcranEfface>>> = {
   pari: aLaDemande(() => import('./jeux/Pari').then(m => m.PARI as unknown as EcranEfface)),
   eclair: aLaDemande(() => import('./jeux/Eclair').then(m => m.ECLAIR as unknown as EcranEfface)),
+  detail: aLaDemande(() => import('./jeux/Detail').then(m => m.DETAIL as unknown as EcranEfface)),
+  frise: aLaDemande(() => import('./jeux/Frise').then(m => m.FRISE as unknown as EcranEfface)),
 }
 
 export const ecranDuJeu = (jeu: CleDeJeu): ALaDemande<EcranEfface> | undefined => ECRANS[jeu]
@@ -364,7 +380,7 @@ export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: 
         {r.fin === 'quittee' && <p>Manche quittée</p>}
         {fete.gerbe && <GerbeDeJuste />}
       </div>
-      <ecran.Revelation corps={r.corps} />
+      <ecran.Revelation corps={r.corps} partie={vue.id} tirage={r.tirage} />
       {r.corps.savais && (
         <p className="card anecdote">
           <Icon name="message" />
@@ -441,7 +457,18 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
   } else if (vue.phase === 'pause') {
     corps = <VoileDeLaPause busy={p.busy} onReprendre={p.onReprendre} />
   } else if (vue.enCours) {
-    corps = <ecran.Manche montree={vue.enCours} local={p.local} setLocal={p.setLocal} envoyer={g => p.onGeste({ ...g, manche: vue.manche } as GesteDuCabinet)} garde={p.garde} busy={p.busy} />
+    corps = (
+      <ecran.Manche
+        montree={vue.enCours}
+        partie={vue.id}
+        tirage={vue.tirage}
+        local={p.local}
+        setLocal={p.setLocal}
+        envoyer={g => p.onGeste({ ...g, manche: vue.manche } as GesteDuCabinet)}
+        garde={p.garde}
+        busy={p.busy}
+      />
+    )
     // La carte-bonus reste sous le pouce tant qu'elle peut servir ; sans carte, pas de pied, qui collait un bandeau vide au bas de l'écran.
     if (vue.carte) {
       pied = <CarteDeLaManche vue={vue} ecran={ecran} local={p.local} busy={p.busy} onGeste={p.onGeste} />

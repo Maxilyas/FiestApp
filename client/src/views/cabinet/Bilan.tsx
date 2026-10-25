@@ -55,15 +55,19 @@ function LigneDeLaManche({ m, k }: { m: MancheVue; k: number }) {
   )
 }
 
-/** « Mes réponses » : chaque manche révélée, comme la partie l'a révélée (le même pli, invariant 14). */
-function MesReponses({ vue, ecran, onFermer }: { vue: VueDeLaPartie; ecran: EcranEfface; onFermer: () => void }) {
+/**
+ * « Mes réponses » : chaque manche révélée, comme la partie l'a révélée (le
+ * même pli, invariant 14) — au Détail, chacune son tableau entier, à l'indice
+ * de son tirage : celui que « Changer » a pris, pas celui de sa manche.
+ */
+export function MesReponses({ vue, ecran, onFermer }: { vue: VueDeLaPartie; ecran: EcranEfface; onFermer: () => void }) {
   return (
     <Feuille titre="Mes réponses" onFermer={onFermer} className="cab-feuille">
       {vue.manches.map((m, k) =>
         m.revelation ? (
           <section key={k} className="cab-reponses-manche" aria-label={`Manche ${k + 1}`}>
             <span className="cab-surtitre">{`Manche ${k + 1} · ${espacesFines(m.revelation.corps.titre)}`}</span>
-            <ecran.Revelation corps={m.revelation.corps} />
+            <ecran.Revelation corps={m.revelation.corps} partie={vue.id} tirage={m.revelation.tirage} />
             {m.revelation.corps.savais && (
               <p className="card anecdote">
                 <Icon name="message" />

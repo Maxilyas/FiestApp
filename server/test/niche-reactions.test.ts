@@ -8,7 +8,7 @@
 // (`client/src/niche.ts`, `components/NicheReagit.tsx`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import React from 'react'
 import {
   PART_RARE,
@@ -225,9 +225,12 @@ test('chaque écran de révélation la dit à la niche, et chaque réponse lui f
     const s = source(fichier)
     assert.ok((s.match(/result-banner/g) ?? []).length >= 1, fichier)
   }
-  // Les écrans des jeux du Cabinet passent par le cadre : une révélation ou un souffle à eux doublerait ceux de la partie.
-  for (const jeu of ['Pari', 'Eclair']) {
-    const s = source(`views/cabinet/jeux/${jeu}.tsx`)
+  // Les écrans des jeux du Cabinet passent par le cadre : une révélation ou un souffle à eux doublerait ceux de la partie. Chaque
+  // écran de jeu, d'office : un jeu de plus n'y ajoute rien.
+  const jeux = readdirSync(client('views/cabinet/jeux'))
+  for (const jeu of ['Pari', 'Eclair', 'Detail', 'Frise']) assert.ok(jeux.includes(`${jeu}.tsx`), jeu)
+  for (const jeu of jeux) {
+    const s = source(`views/cabinet/jeux/${jeu}`)
     assert.doesNotMatch(s, /<NicheALaRevelation |nicheRetientSonSouffle\(\)/, jeu)
   }
   // Le podium d'un quiz : s'il y monte, il sort.

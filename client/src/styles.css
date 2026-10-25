@@ -10547,6 +10547,69 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-vrai-faux .icon { width: 26px; height: 26px; }
 .cab-vrai-faux .cab-vrai .icon { color: var(--accent-text); }
 .cab-vrai-faux .cab-faux .icon { color: var(--alert); }
+/* Le Détail : le tableau dans un cadre de hauteur fixe — un détail en largeur puis un en hauteur ne font pas sauter les titres sous
+   le doigt —, l'image entière dedans, ses pas en jauge au pied du cadre ; ce que vaut la réponse, « Reculer d'un pas » ; les quatre
+   titres, un par ligne, le peintre sous chacun. La révélation dit le nom avant le tableau : dessous, il tombait sous le pli. */
+.cab-detail-cadre { position: relative; height: min(36dvh, 240px); min-height: 150px; overflow: hidden; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.cab-detail-cadre img { position: absolute; inset: 0; width: 100%; height: calc(100% - 18px); object-fit: contain; }
+.cab-detail-pas { position: absolute; left: 10px; right: 10px; bottom: 6px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.cab-detail-pas > i { height: 6px; border-radius: var(--radius-pill); background: var(--surface-strong); box-shadow: inset 0 0 0 1px var(--edge); }
+.cab-detail-pas > i.cab-detail-vu { background: var(--accent); box-shadow: none; }
+.cab-detail-gestes { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.cab-vaut { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 600; }
+.cab-vaut .sentier-etoiles svg { width: 22px; height: 22px; }
+.cab-page .cab-reculer { flex: none; min-height: 48px; padding: 6px 14px; }
+.cab-reculer .icon { width: 20px; height: 20px; margin-right: 6px; }
+.cab-titres { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.cab-page .ans-btn.cab-titre { width: 100%; min-height: 64px; padding: 10px 16px; }
+.cab-titre .ans-text { display: flex; flex-direction: column; gap: 2px; }
+.cab-titre-nom { font-family: var(--serif); font-size: 1.3rem; font-weight: 700; line-height: 1.15; font-variant-numeric: lining-nums; }
+.cab-titre-peintre { color: var(--muted); font-size: 1.0625rem; line-height: 1.3; }
+.cab-tableau-revele { display: flex; flex-direction: column; gap: 10px; }
+.cab-tableau-revele .tableau-entier { flex-direction: column-reverse; gap: 10px; margin: 0; }
+.cab-tableau-revele .tableau-entier figcaption b,
+.cab-tableau-nom { font-family: var(--serif); font-size: 1.45rem; font-weight: 700; line-height: 1.2; text-wrap: balance; font-variant-numeric: lining-nums; }
+.cab-tableau-revele .tableau-entier figcaption .muted { font-size: 1.0625rem; font-variant-numeric: lining-nums tabular-nums; }
+/* La Frise : du plus ancien en haut au plus récent en bas, l'année dans sa colonne — en Cormorant, ses chiffres droits —, le libellé
+   à côté. Les ancres sont posées pour de bon ; un nouveau venu posé est un bouton qu'on reprend ; « Poser ici » s'ouvre entre chaque
+   quand il en tient un. Ce qui reste à poser vient au-dessus, « Valider la frise » au-dessous, dans le fil de la page : collés au
+   bas de l'écran, ils en prenaient les trois quarts à la première manche. */
+.cab-sens { color: var(--muted); font-weight: 700; }
+.cab-consigne { font-weight: 600; }
+.cab-frise { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cab-evenement,
+.cab-pose,
+.cab-a-poser:has(.cab-annee) { display: grid; grid-template-columns: 3.6em minmax(0, 1fr); align-items: baseline; gap: 2px 10px; }
+.cab-evenement { padding: 8px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); }
+.cab-evenement.cab-nouveau { display: block; padding: 0; border: none; background: none; }
+.cab-pose,
+.cab-a-poser { width: 100%; padding: 10px 12px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-xs); background: var(--surface-strong); color: var(--ink); font: inherit; text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.cab-a-poser { display: block; }
+/* Ce qu'il tient se voit sous le doigt : un cadre d'accent plein, et `aria-pressed` le dit à l'oreille. */
+.cab-pose[aria-pressed='true'],
+.cab-a-poser[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cab-annee { color: var(--accent-text); font-family: var(--serif); font-size: 1.2rem; font-weight: 700; line-height: 1.15; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+.cab-sans-annee { color: var(--muted); }
+.cab-libelle { line-height: 1.3; overflow-wrap: break-word; }
+.cab-place { display: flex; }
+.cab-poser-ici { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: 2px dashed var(--accent); border-radius: var(--radius-xs); background: var(--accent-soft); color: var(--accent-text); font: inherit; font-weight: 700; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.cab-poser-ici .icon { width: 18px; height: 18px; }
+.cab-frise-vide { padding: 14px; border: 2px dashed var(--edge); border-radius: var(--radius-xs); color: var(--muted); text-align: center; }
+.cab-reserve { display: flex; flex-direction: column; gap: 8px; }
+.cab-a-poser-liste { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+/* La révélation : chaque nouveau venu marqué d'un dessin et de ses mots — à sa place, pas à sa place, pas posé —, jamais la
+   couleur seule ; un cadre plein, en tirets ou en pointillés. */
+.cab-frise-revelee { display: flex; flex-direction: column; gap: 8px; }
+.cab-marque { grid-column: 2; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.cab-marque .icon { flex: none; width: 18px; height: 18px; }
+.cab-evenement.cab-a-sa-place { border: 1.5px solid var(--accent); }
+.cab-a-sa-place .cab-marque { color: var(--accent-text); }
+.cab-evenement.cab-mal-place { border: 1.5px dashed var(--alert); }
+.cab-mal-place .cab-marque,
+.cab-mal-place .cab-annee { color: var(--alert); }
+.cab-evenement.cab-pas-pose { border: 1.5px dotted var(--edge-strong); }
+.cab-pas-pose .cab-marque { color: var(--muted); }
+.cab-oubli { color: var(--muted); }
 
 /* La mise, avant une manche ; le voile de la pause, plein — la manche ne se lit pas au travers, sous aucun thème. */
 .cab-mise h2 { font-size: 1.6rem; }
