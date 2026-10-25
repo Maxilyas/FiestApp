@@ -168,6 +168,8 @@ export const VAGUES_DE_LA_FRISE: readonly number[] = [3, 2, 2]
 export const ECART_DES_ANNEES_DE_LA_FRISE = 3
 /** La Frise : au plus tant d'erreurs pour ★★★, ★★, ★ — sans faute, une erreur, deux. */
 export const ERREURS_DE_LA_FRISE: readonly [number, number, number] = [0, 1, 2]
+/** La Frise : un nouveau venu laissé de côté compte autant que la pire place — la sienne, et celle du voisin qu'il contredit : poser n'est jamais pire que s'abstenir. */
+export const ERREURS_D_UN_OUBLI = 2
 
 /** Le Mot mystère : ses essais. */
 export const ESSAIS_DU_MOT = 5

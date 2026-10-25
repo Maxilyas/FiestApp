@@ -3,8 +3,8 @@
 // Le Détail — un tableau en quatre cadrages emboîtés ; « Reculer d'un pas » en
 // montre plus et coûte une étoile ; quatre titres d'époques voisines. La Frise
 // — une seule frise qui grandit, trois événements, puis cinq, puis sept, du
-// plus ancien au plus récent. Les lots C2 et D3 y ajouteront le tirage, la
-// route des cadrages et l'écran.
+// plus ancien au plus récent. Le lot C2 y ajoutera le tirage, la route des
+// cadrages et le plancher des frises de sujets.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -15,6 +15,7 @@ import {
   ECART_DES_ANNEES_DE_LA_FRISE,
   EFFACES_AU_PLUS,
   ERREURS_DE_LA_FRISE,
+  ERREURS_D_UN_OUBLI,
   ETOILES_AU_CADRAGE,
   EVENEMENTS_D_UNE_FRISE_A_THEME,
   TITRES_DU_DETAIL,
@@ -24,6 +25,7 @@ import {
 import { effacablesAuPlus, refusDuPouvoir } from '../../shared/cabinet/pouvoirs'
 import { PREFIXE_DU_CABINET, deplier, idDeLaFriseATheme, idDeLaFriseDeSujet, idDuTableau } from '../../shared/cabinet/pieces'
 import { justeDeLaPiece } from '../../shared/cabinet/jeux/regle'
+import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/aides'
 import {
   QUESTION_DU_TABLEAU,
   REGLE_DU_DETAIL,
@@ -35,6 +37,7 @@ import {
 } from '../../shared/cabinet/jeux/detail'
 import {
   REGLE_DE_LA_FRISE,
+  erreursComptees,
   erreursDeLaFrise,
   etoilesDeLaFrise,
   friseEnVagues,
@@ -107,6 +110,17 @@ test('le Détail : chaque pas en arrière vaut une étoile de moins, juste au de
   assert.equal(REGLE_DU_DETAIL.apresLeGeste(t, reculer(t, cadrages - 1), { quoi: 'reculer' }), 'Tu vois déjà le tableau entier')
 })
 
+test('le Détail : « Reculer » ne tranche pas la manche, une réponse si — égarée hors du jugement, elle ne change rien', () => {
+  // Le pli demande d'abord au jeu si un geste tranche : sans quoi « Reculer » se jugerait, et la manche tomberait à zéro.
+  const t = unDetail()
+  const e = reculer(t, 1)
+  assert.equal(REGLE_DU_DETAIL.tranche(t, e, { quoi: 'reculer' }), false)
+  assert.equal(REGLE_DU_DETAIL.tranche(t, e, { quoi: 'repondre', titre: t.bonne }), true)
+  assert.equal(REGLE_DU_DETAIL.tranche(t, e, { quoi: 'repondre', titre: null }), true, 'à l’échéance, sans réponse aussi')
+  // La même phrase que les autres jeux du Cabinet : un geste qui se juge ne passe jamais par `apresLeGeste`.
+  assert.equal(REGLE_DU_DETAIL.apresLeGeste(t, e, { quoi: 'repondre', titre: t.bonne }), GESTE_A_JUGER)
+})
+
 test('le Détail : un faux titre, le temps écoulé ou la partie quittée ne valent rien', () => {
   const t = unDetail()
   const e = reculer(t, 1)
@@ -144,6 +158,27 @@ test('le Détail : trois titres d’époques voisines, tirés parmi les cinq plu
   assert.deepEqual([...places].sort(), [0, 1, 2, 3], 'le bon titre n’a pas de place à lui')
   // La même graine redonne la même manche : une reprise après un redémarrage redonne les mêmes titres, au même ordre.
   assert.deepEqual(unDetail('reprise'), unDetail('reprise'))
+})
+
+test('le Détail : à écart égal en années, l’identifiant départage — l’ordre du fichier ne change rien à la manche', () => {
+  // Deux à deux à la même distance de 1600 : sans départage, l'ordre où le serveur lit ses tableaux choisirait les
+  // voisins, et une graine rejouée après un fichier réordonné ne redonnerait plus la même manche.
+  const egaux: TableauDuCabinet[] = [
+    { qid: 'Q31', titre: 'L’Aube', peintre: 'Jean', annee: 1599 },
+    { qid: 'Q32', titre: 'Le Midi', peintre: 'Karl', annee: 1601 },
+    { qid: 'Q33', titre: 'Le Soir', peintre: 'Léa', annee: 1598 },
+    { qid: 'Q34', titre: 'La Nuit', peintre: 'Marc', annee: 1602 },
+    { qid: 'Q35', titre: 'Le Printemps', peintre: 'Nina', annee: 1597 },
+    { qid: 'Q36', titre: 'L’Hiver', peintre: 'Omar', annee: 1603 },
+  ]
+  const tirer = (autres: readonly TableauDuCabinet[], graine: string) => detailTire(CIBLE, autres, hasardDe(graine), { anecdote: null, categorie: 'Arts & lettres' })
+  for (let i = 0; i < 60; i++) {
+    const t = tirer(egaux, `egaux:${i}`)
+    assert.ok(t)
+    assert.deepEqual(tirer([...egaux].reverse(), `egaux:${i}`), t, 'le même tirage, le fichier à rebours')
+    // À trois ans, Q35 passe avant Q36 : L'Hiver n'est jamais parmi les cinq plus proches.
+    assert.ok(!t.titres.some(x => x.titre === 'L’Hiver'), JSON.stringify(t.titres))
+  }
 })
 
 test('le Détail : pas de manche sans trois voisins, et jamais deux fois le même titre', () => {
@@ -414,7 +449,7 @@ test('la Frise : une frise qui grandit — les ancres à leur vraie place, leur 
   )
 })
 
-test('la Frise : un nouveau venu est faux si un voisin le contredit, et pas posé il est faux', () => {
+test('la Frise : un nouveau venu est faux si une ancre le contredit, ou, entre les mêmes ancres, son voisin — et pas posé il est faux', () => {
   const annees = [1800, 1850, 1900, 1950, 2000]
   // Les rangs 1 et 3 sont les nouveaux venus ; 0, 2 et 4, les ancres.
   assert.deepEqual(erreursDeLaFrise([0, 1, 2, 3, 4], annees, [1, 3]), [], 'tout à sa place')
@@ -423,10 +458,20 @@ test('la Frise : un nouveau venu est faux si un voisin le contredit, et pas pos�
   assert.deepEqual(erreursDeLaFrise([0, 3, 2, 1, 4], annees, [1, 3]), [1, 3], 'croisés')
   assert.deepEqual(erreursDeLaFrise([0, 2, 3, 4], annees, [1, 3]), [1], 'pas posé, il est faux')
   assert.deepEqual(erreursDeLaFrise([0, 2, 4], annees, [1, 3]), [1, 3])
-  // Ses voisins seuls le jugent : bien posé entre deux ancres, il reste juste quand un autre s'égare au loin.
-  assert.deepEqual(erreursDeLaFrise([3, 0, 1, 2, 4], annees, [1, 3]), [3])
-  // Deux nouveaux venus échangés côte à côte se contredisent l'un l'autre : deux erreurs.
-  assert.deepEqual(erreursDeLaFrise([0, 2, 1], [1800, 1850, 1900], [0, 1, 2]), [1, 2])
+  // Une ancre le juge de n'importe quel côté : collés au bout de la frise, dans leur ordre, ils sont faux tous les deux.
+  // Jugés par leurs seuls voisins, l'un passait pour juste — ★★ et une pièce juste, sans rien savoir des ancres.
+  assert.deepEqual(erreursDeLaFrise([0, 2, 4, 1, 3], annees, [1, 3]), [1, 3], 'collés en queue')
+  assert.deepEqual(erreursDeLaFrise([1, 3, 0, 2, 4], annees, [1, 3]), [1, 3], 'collés en tête')
+  assert.deepEqual(erreursDeLaFrise([1, 3, 0, 2], [10, 15, 20, 25], [1, 3]), [1, 3], '15 posé avant 10')
+  assert.deepEqual(erreursDeLaFrise([0, 3, 1, 2], [1800, 1850, 1900, 2000], [1, 2]), [1, 2], 'tous deux après 2000')
+  // Bien posé entre ses ancres, il reste juste quand un autre s'égare — au loin, ou collé à lui : la révélation ne le
+  // marque pas pour la faute d'un autre. Comparé à tout ce qui l'entoure, il était faux dans les deux cas.
+  assert.deepEqual(erreursDeLaFrise([3, 0, 1, 2, 4], annees, [1, 3]), [3], 'un égaré au loin')
+  assert.deepEqual(erreursDeLaFrise([0, 3, 1, 2, 4], annees, [1, 3]), [3], 'un égaré collé à lui')
+  // Entre les mêmes ancres, deux nouveaux venus échangés se contredisent l'un l'autre : deux erreurs.
+  assert.deepEqual(erreursDeLaFrise([0, 2, 1, 3], [1800, 1850, 1860, 1900], [1, 2]), [1, 2], 'échangés entre 1800 et 1900')
+  assert.deepEqual(erreursDeLaFrise([0, 2, 1], [1800, 1850, 1900], [0, 1, 2]), [1, 2], 'sans ancre, côte à côte')
+  assert.deepEqual(erreursDeLaFrise([2, 0, 1], [1800, 1850, 1900], [0, 1, 2]), [0, 2], 'un bloc décalé : celui qui passe devant, et celui qu’il contredit')
   // Une ancre ne compte jamais : elle est à sa vraie place, son année dite.
   assert.deepEqual(erreursDeLaFrise([4, 3, 2, 1, 0], annees, []), [])
   // Les années, pas les rangs : des années quelconques, dans le désordre de la liste.
@@ -434,17 +479,26 @@ test('la Frise : un nouveau venu est faux si un voisin le contredit, et pas pos�
   assert.deepEqual(erreursDeLaFrise([2, 1, 0], [1969, 1903, 1927], [0, 1, 2]), [1, 2], '1927 avant 1903 : les deux se contredisent')
 })
 
-test('la Frise : sans faute ★★★, une erreur ★★, deux ★, trois rien — et rien de posé, rien', () => {
+test('la Frise : sans faute ★★★, une erreur ★★, deux ★, trois rien — un laissé de côté en compte deux, et rien de posé, rien', () => {
   assert.deepEqual([...ERREURS_DE_LA_FRISE], [0, 1, 2])
+  assert.equal(ERREURS_D_UN_OUBLI, 2)
   assert.deepEqual([0, 1, 2, 3, 4].map(etoilesDeLaFrise), [3, 2, 1, 0, 0])
+  assert.equal(erreursComptees([0, 2], [1, 2]), 1 + ERREURS_D_UN_OUBLI, 'un faux posé, un laissé de côté')
   const [premiere, , troisieme] = uneFrise('bareme')
   const juste = [...premiere.vagues[0]].sort((a, b) => a - b)
   // La première manche : trois nouveaux venus, aucune ancre.
   const cas: [number[], number, boolean][] = [
     [juste, 3, true],
     [[juste[0], juste[2], juste[1]], 1, false], // deux voisins échangés : deux erreurs
-    [[juste[1], juste[2]], 2, true], // un pas posé : une erreur
+    [[juste[2], juste[0], juste[1]], 1, false], // un bloc décalé : deux erreurs
     [[juste[2], juste[1], juste[0]], 0, false],
+    // Laissé de côté, il compte autant que la pire place : à une erreur, ne pas poser celui dont on doute valait
+    // ★★ et une pièce juste, quand le poser n'importe où ailleurs qu'à sa place en coûtait deux.
+    [[juste[1], juste[2]], 1, false],
+    // Un seul jeton posé n'a personne pour le contredire : à une erreur par oubli, il valait ★ sans rien ranger.
+    [[juste[0]], 0, false],
+    [[juste[1]], 0, false],
+    [[juste[2]], 0, false],
   ]
   for (const [rangs, etoiles, estJuste] of cas) {
     const v = REGLE_DE_LA_FRISE.juger(premiere, REGLE_DE_LA_FRISE.ouvrir(premiere), repondre(premiere, rangs))
@@ -462,12 +516,70 @@ test('la Frise : sans faute ★★★, une erreur ★★, deux ★, trois rien �
   for (const r of [repondre(troisieme, ancres), { quoi: 'repondre' as const, rangs: null }, 'expiree' as const, 'quittee' as const]) {
     assert.deepEqual(REGLE_DE_LA_FRISE.juger(troisieme, e, r), { naturel: 0, pieces: [{ juste: false, choix: null, composee: null }] }, JSON.stringify(r))
   }
-  // Un posé sur deux, à sa place, parmi les ancres : une erreur, ★★.
+  // Un posé sur deux, à sa place, parmi les ancres : l'autre laissé de côté compte deux erreurs, ★ — une pièce fausse.
   const [n1, n2] = troisieme.vagues[2]
   const unSeul = [...ancres, n1].sort((a, b) => a - b)
-  assert.equal(REGLE_DE_LA_FRISE.juger(troisieme, e, repondre(troisieme, unSeul)).naturel, 2)
+  const v = REGLE_DE_LA_FRISE.juger(troisieme, e, repondre(troisieme, unSeul))
+  assert.deepEqual(v, { naturel: 1, pieces: [{ juste: false, choix: -1, composee: unSeul.join('') }] })
   const tout = [...ancres, n1, n2].sort((a, b) => a - b)
   assert.equal(REGLE_DE_LA_FRISE.juger(troisieme, e, repondre(troisieme, tout)).naturel, 3)
+})
+
+test('la Frise : deux nouveaux venus collés au bout, sans rien savoir des ancres, ne sont justes qu’à leur vraie place', () => {
+  // La faille de la relecture : jugés par leurs seuls voisins, deux nouveaux venus collés en tête ou en queue, dans
+  // leur ordre, faisaient une erreur au plus — ★★ et une pièce juste aux manches 2 et 3, quelles que soient les ancres.
+  const annees = EVENEMENTS.map(x => x.annee)
+  let manches = 0
+  let justes = 0
+  for (let i = 0; i < 400; i++) {
+    for (const t of uneFrise(`colles:${i}`).slice(1)) {
+      const ancres = t.vagues.slice(0, t.vague).flat().sort((a, b) => a - b)
+      const [a, b] = [...t.vagues[t.vague]].sort((x, y) => x - y)
+      for (const bout of ['tete', 'queue'] as const) {
+        const rangs = bout === 'tete' ? [a, b, ...ancres] : [...ancres, a, b]
+        // Un rang est une place dans le temps : en tête, à sa place s'il précède toutes les ancres ; en queue, s'il les suit.
+        const aSaPlace = [a, b].filter(x => (bout === 'tete' ? x < ancres[0] : x > ancres[ancres.length - 1])).length
+        assert.equal(erreursDeLaFrise(rangs, annees, [a, b]).length, 2 - aSaPlace, `${bout} : ${rangs}`)
+        const v = REGLE_DE_LA_FRISE.juger(t, REGLE_DE_LA_FRISE.ouvrir(t), repondre(t, rangs))
+        assert.equal(v.naturel, 3 - (2 - aSaPlace), `${bout} : ${rangs}`)
+        assert.equal(v.pieces[0].juste, aSaPlace > 0, 'juste seulement si l’un des deux est vraiment au bout')
+        manches++
+        if (v.pieces[0].juste) justes++
+      }
+    }
+  }
+  // Collés au hasard d'un bout, ils y sont rarement : la stratégie ne paie plus.
+  assert.ok(justes < manches / 2, `${justes} justes sur ${manches} manches`)
+})
+
+test('la Frise : poser n’est jamais pire que s’abstenir, et sans faute veut dire dans l’ordre', () => {
+  // Chaque nouveau venu laissé de côté, posé à n'importe quelle place : le compte du barème ne monte jamais — la pire
+  // place coûte la sienne et celle du voisin qu'il contredit, autant qu'un oubli (`ERREURS_D_UN_OUBLI`).
+  const annees = EVENEMENTS.map(x => x.annee)
+  const hasard = hasardDe('poser ou pas')
+  let essais = 0
+  let enOrdre = 0
+  for (let i = 0; i < 300; i++) {
+    for (const t of uneFrise(`poser:${i}`)) {
+      const nouveaux = t.vagues[t.vague]
+      // Une réponse au hasard : chaque nouveau venu posé, ou laissé, à une place tirée parmi ceux déjà posés.
+      const rangs = t.vagues.slice(0, t.vague).flat().sort((a, b) => a - b)
+      for (const x of nouveaux) if (hasard() < 0.7) rangs.splice(Math.floor(hasard() * (rangs.length + 1)), 0, x)
+      const compte = (o: readonly number[]) => erreursComptees(o, erreursDeLaFrise(o, annees, nouveaux))
+      for (const x of nouveaux.filter(r => !rangs.includes(r))) {
+        for (let p = 0; p <= rangs.length; p++) {
+          const pose = [...rangs.slice(0, p), x, ...rangs.slice(p)]
+          assert.ok(compte(pose) <= compte(rangs), `${pose} compte ${compte(pose)}, ${rangs} sans ${x} ${compte(rangs)}`)
+          essais++
+        }
+      }
+      // Sans faute si et seulement si tout est posé, dans l'ordre du temps.
+      const dansLOrdre = rangs.length === t.vagues.slice(0, t.vague + 1).flat().length && rangs.every((r, k) => k === 0 || r > rangs[k - 1])
+      if (dansLOrdre) enOrdre++
+      assert.equal(erreursDeLaFrise(rangs, annees, nouveaux).length === 0, dansLOrdre, `${rangs}`)
+    }
+  }
+  assert.ok(essais > 300 && enOrdre > 20, `${essais} places essayées, ${enOrdre} frises dans l’ordre`)
 })
 
 test('la Frise : la page envoie ses jetons, les ancres dans leur ordre, relus en rangs dans le temps', () => {
@@ -477,7 +589,7 @@ test('la Frise : la page envoie ses jetons, les ancres dans leur ordre, relus en
   const lire = (ordre: unknown) => REGLE_DE_LA_FRISE.lireLeGeste({ quoi: 'repondre', manche: 1, reponse: { frise: { ordre } } }, t)
   // Les jetons : les ancres d'abord (0 à 2, dans le temps), puis les nouveaux venus dans l'ordre montré (3 et 4).
   assert.deepEqual(lire([0, 3, 1, 2, 4]), { quoi: 'repondre', rangs: [ancres[0], a, ancres[1], ancres[2], b] })
-  assert.deepEqual(lire([0, 1, 2, 4]), { quoi: 'repondre', rangs: [...ancres, b] }, 'un nouveau venu peut manquer : il est faux')
+  assert.deepEqual(lire([0, 1, 2, 4]), { quoi: 'repondre', rangs: [...ancres, b] }, 'un nouveau venu peut manquer : il compte deux erreurs')
   assert.deepEqual(REGLE_DE_LA_FRISE.lireLeGeste({ quoi: 'repondre', manche: 1, auto: true }, t), { quoi: 'repondre', rangs: null })
   for (const ordre of [
     [1, 0, 2, 3, 4], // deux ancres échangées : elles ne bougent pas
@@ -496,7 +608,9 @@ test('la Frise : la page envoie ses jetons, les ancres dans leur ordre, relus en
   for (const brut of [null, { quoi: 'reculer' }, { quoi: 'repondre', reponse: { detail: { titre: 0 } } }, { quoi: 'clore', pourquoi: 'lendemain' }]) {
     assert.equal(REGLE_DE_LA_FRISE.lireLeGeste(brut, t), null, JSON.stringify(brut))
   }
-  assert.equal(REGLE_DE_LA_FRISE.apresLeGeste(t, REGLE_DE_LA_FRISE.ouvrir(t), { quoi: 'repondre', rangs: null }), 'Ce geste ne sert pas à la Frise')
+  // Sa seule réponse tranche la manche : égarée hors du jugement, elle se refuse comme aux autres jeux, sans rien changer.
+  assert.equal(REGLE_DE_LA_FRISE.tranche(t, REGLE_DE_LA_FRISE.ouvrir(t), { quoi: 'repondre', rangs: null }), true)
+  assert.equal(REGLE_DE_LA_FRISE.apresLeGeste(t, REGLE_DE_LA_FRISE.ouvrir(t), { quoi: 'repondre', rangs: null }), GESTE_A_JUGER)
 })
 
 test('la Frise : Éclairer dévoile l’année du premier nouveau venu pas encore dévoilé, jamais de tous', () => {
@@ -530,6 +644,10 @@ test('la Frise : sept années distinctes, à trois ans d’écart au moins', () 
   // Une frise d'un sujet de la base dit la question de chaque événement : ses pièces les nomment.
   const sansQuestion = { ...DE_SUJET, evenements: DE_SUJET.evenements.map((e, i) => (i === 3 ? { libelle: e.libelle, annee: e.annee } : e)) }
   assert.equal(friseEnVagues(sansQuestion, hasardDe('sujet')), null)
+  // Celle d'un sujet aussi, autant d'événements que les vagues en posent.
+  const huit = { ...DE_SUJET, evenements: [...DE_SUJET.evenements, { libelle: 'Le laser', annee: 1960, id: 'q-laser' }] }
+  assert.equal(friseEnVagues(huit, hasardDe('sujet')), null)
+  assert.equal(friseEnVagues({ ...DE_SUJET, evenements: DE_SUJET.evenements.slice(1) }, hasardDe('sujet')), null)
 })
 
 test('la Frise : une pièce par manche, unique dans sa partie', () => {
@@ -593,7 +711,8 @@ test('la Frise : la révélation range tout à sa vraie année, et dit le savais
   const r = REGLE_DE_LA_FRISE.reveler(t, e, v)
   assert.equal(r.jeu, 'frise')
   assert.equal(r.theme, 'L’aviation')
-  assert.equal(r.erreurs, 1)
+  assert.equal(r.faux, 1)
+  assert.equal(r.pasPoses, 0)
   assert.equal(r.titre, '1 erreur')
   assert.deepEqual(r.rangee.map(x => x.annee), EVENEMENTS.map(x => x.annee), 'toute la frise, dans l’ordre du temps')
   assert.deepEqual(
@@ -606,10 +725,24 @@ test('la Frise : la révélation range tout à sa vraie année, et dit le savais
 
   const parfaite = REGLE_DE_LA_FRISE.reveler(t, e, REGLE_DE_LA_FRISE.juger(t, e, repondre(t, juste)))
   assert.equal(parfaite.titre, 'Sans faute')
-  assert.equal(parfaite.erreurs, 0)
+  assert.equal(parfaite.faux, 0)
+  assert.equal(parfaite.pasPoses, 0)
   const rien = REGLE_DE_LA_FRISE.reveler(t, e, REGLE_DE_LA_FRISE.juger(t, e, 'expiree'))
   assert.equal(rien.titre, 'Rien de rangé')
+  assert.equal(rien.pasPoses, 2)
   assert.deepEqual(rien.rangee.filter(x => x.nouveau).map(x => x.place), ['pas-pose', 'pas-pose'])
+  // Laissé de côté, il se dit à part : « 1 erreur » quand il en compte deux au barème tromperait.
+  const sansN2Pose = REGLE_DE_LA_FRISE.reveler(t, e, REGLE_DE_LA_FRISE.juger(t, e, repondre(t, sansN2)))
+  assert.deepEqual([sansN2Pose.titre, sansN2Pose.faux, sansN2Pose.pasPoses], ['1 pas posé', 0, 1])
+  assert.deepEqual(
+    sansN2Pose.rangee.map(x => x.place),
+    EVENEMENTS.map((_, k) => (k === n1 ? 'juste' : k === n2 ? 'pas-pose' : null)),
+  )
+  // n2 seul faux, c'est qu'une ancre le contredit — deux échangés le seraient tous deux : sans n1, il le reste.
+  const egareSansN1 = egare.filter(r => r !== n1)
+  assert.deepEqual(erreursDeLaFrise(egareSansN1, EVENEMENTS.map(x => x.annee), [n1, n2]), [n1, n2])
+  const deux = REGLE_DE_LA_FRISE.reveler(t, e, REGLE_DE_LA_FRISE.juger(t, e, repondre(t, egareSansN1)))
+  assert.deepEqual([deux.titre, deux.faux, deux.pasPoses], ['1 erreur, 1 pas posé', 1, 1])
 
   // Les deux premières manches ne montrent que ce qui est posé jusqu'à elles, sans le savais-tu.
   const premiere = ts[0]
@@ -632,7 +765,7 @@ test('la Frise : la révélation range tout à sa vraie année, et dit le savais
 
 test('le Détail et la Frise sont purs : ni horloge, ni hasard à eux', () => {
   // Le hasard vient de la graine de la partie (Éclairer, le tirage), l'heure du serveur : rejoué, le pli redonne tout.
-  for (const f of ['detail.ts', 'frise.ts']) {
+  for (const f of ['detail.ts', 'frise.ts', 'aides.ts']) {
     const texte = readFileSync(new URL(`../../shared/cabinet/jeux/${f}`, import.meta.url), 'utf8')
     assert.ok(!/Date\.now|new Date|Math\.random|performance\.now/.test(texte), f)
   }

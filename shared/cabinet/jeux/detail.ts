@@ -19,8 +19,9 @@
 
 import { DUREES_DES_JEUX, ETOILES_AU_CADRAGE, TITRES_DU_DETAIL, VOISINS_EN_ANNEES } from '../bareme'
 import { idDuTableau, type PieceDuCabinet } from '../pieces'
-import { effacablesAuPlus, refusDuPouvoir } from '../pouvoirs'
-import { justeDeLaPiece, type RegleDuJeu, type VerdictDUneManche } from './regle'
+import { effacablesAuPlus } from '../pouvoirs'
+import { GESTE_A_JUGER, auHasard, battre, champsDuGeste, estUnIndex, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './aides'
+import { justeDeLaPiece, type VerdictDUneManche } from './regle'
 
 /** Un tableau tel que le tirage le connaît : son identifiant Wikidata nomme ses cadrages, et ne quitte jamais le serveur. */
 export interface TableauDuCabinet {
@@ -96,18 +97,6 @@ const CADRAGES = ETOILES_AU_CADRAGE.length
 /** Les étoiles d'une bonne réponse à ce cadrage (de 1 à `CADRAGES`). */
 const etoilesAuCadrage = (cadrage: number) => (ETOILES_AU_CADRAGE[cadrage - 1] ?? 0) as VerdictDUneManche['naturel']
 
-/** La phrase de la seule règle des refus quand il n'y a plus rien à effacer : la règle du jeu ne la recopie pas. */
-const RIEN_A_ECLAIRER = refusDuPouvoir({ pouvoir: 'eclairer', force: 1, jeu: 'detail', servi: 0, aEclairer: false })!
-
-/** Fisher-Yates, sur le hasard qu'on lui donne : celui de la graine de la partie, qu'une reprise rejoue. */
-function battre<T>(tas: T[], hasard: () => number): T[] {
-  for (let i = tas.length - 1; i > 0; i--) {
-    const j = Math.min(i, Math.floor(hasard() * (i + 1)))
-    ;[tas[i], tas[j]] = [tas[j], tas[i]]
-  }
-  return tas
-}
-
 /**
  * La manche tirée d'un tableau que le serveur a choisi : trois autres titres
  * pris au hasard parmi les `VOISINS_EN_ANNEES` tableaux les plus proches en
@@ -170,10 +159,7 @@ const savaisDuDetail = (t: DetailTire) => t.anecdote ?? `${t.tableau.titre}, pei
 /** La réponse dite, au journal et au cartel. */
 const reponseDite = (t: DetailTire) => `${t.tableau.titre} — ${t.tableau.peintre}, ${t.tableau.annee}`
 
-/** Un objet venu du téléphone, lu champ par champ. */
-const objet = (x: unknown): Record<string, unknown> | null => (typeof x === 'object' && x !== null && !Array.isArray(x) ? (x as Record<string, unknown>) : null)
-
-export const REGLE_DU_DETAIL: RegleDuJeu<DetailTire, EtatDuDetail, GesteDuDetail, DetailMontre, DetailRevele> = {
+export const REGLE_DU_DETAIL: RegleQuiTranche<DetailTire, EtatDuDetail, GesteDuDetail, DetailMontre, DetailRevele> = {
   cle: 'detail',
   etapes: 1,
   dureeMs: () => DUREES_DES_JEUX.detail * 1000,
@@ -181,17 +167,20 @@ export const REGLE_DU_DETAIL: RegleDuJeu<DetailTire, EtatDuDetail, GesteDuDetail
   ouvrir: () => ({ cadrage: 1, effaces: [] }),
 
   lireLeGeste(brut, t) {
-    const g = objet(brut)
+    const g = champsDuGeste(brut)
     if (g?.quoi === 'reculer') return { quoi: 'reculer' }
     if (g?.quoi !== 'repondre') return null
+    const r = reponseEnvoyee(g, 'detail')
     // Sans réponse, la page envoie ce qu'elle a à l'échéance : rien, qui ne vaut rien.
-    if (g.reponse === undefined || g.reponse === null) return { quoi: 'repondre', titre: null }
-    const titre = objet(objet(g.reponse)?.detail)?.titre
-    return Number.isInteger(titre) && (titre as number) >= 0 && (titre as number) < t.titres.length ? { quoi: 'repondre', titre: titre as number } : null
+    if (r === undefined) return { quoi: 'repondre', titre: null }
+    return r !== null && estUnIndex(r.titre, t.titres.length) ? { quoi: 'repondre', titre: r.titre } : null
   },
 
+  // « Reculer » coûte une étoile et laisse la manche ouverte ; une réponse, même vide à l'échéance, la tranche.
+  tranche: (_t, _e, g) => g.quoi === 'repondre',
+
   apresLeGeste(_t, e, g) {
-    if (g.quoi !== 'reculer') return 'Une réponse tranche la manche'
+    if (g.quoi !== 'reculer') return GESTE_A_JUGER
     return e.cadrage >= CADRAGES ? 'Tu vois déjà le tableau entier' : { ...e, cadrage: e.cadrage + 1 }
   },
 
@@ -207,9 +196,8 @@ export const REGLE_DU_DETAIL: RegleDuJeu<DetailTire, EtatDuDetail, GesteDuDetail
   eclairer(t, e, hasard) {
     // Deux titres restent toujours : un seul serait la réponse, donnée par la carte-bonus.
     const restants = t.titres.map((_, i) => i).filter(i => i !== t.bonne && !e.effaces.includes(i))
-    if (e.effaces.length >= effacablesAuPlus(t.titres.length) || restants.length === 0) return RIEN_A_ECLAIRER
-    const efface = restants[Math.min(restants.length - 1, Math.floor(hasard() * restants.length))]
-    return { ...e, effaces: [...e.effaces, efface] }
+    if (e.effaces.length >= effacablesAuPlus(t.titres.length) || restants.length === 0) return rienAEclairer('detail')
+    return { ...e, effaces: [...e.effaces, auHasard(restants, hasard)] }
   },
 
   montrer: (t, e) => ({

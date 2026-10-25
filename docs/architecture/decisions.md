@@ -1821,6 +1821,24 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 
 *Fichiers : `shared/cabinet/bareme.ts`, `shared/cabinet/pouvoirs.ts`*
 
+### La Frise : les ancres jugent d'abord, puis les voisins ; un oubli compte deux erreurs
+**Contexte** : la conception dit « un nouveau venu est faux si un voisin le contredit ; pas posé, il est une erreur ». La maquette comparait chaque nouveau venu à tout ce qui l'entoure : bien posé entre deux ancres, il tombait parce qu'un autre s'égarait au loin (`[1950, 1800, 1850, 1900, 2000]` : deux erreurs pour un seul égaré). Le premier jet du lot ne regardait que les deux voisins immédiats, et la relecture du 25 octobre 2026 l'a pris en défaut : deux nouveaux venus collés au bout de la frise, dans leur ordre, s'y couvraient l'un l'autre — une erreur au plus, ★★ et une pièce juste aux manches 2 et 3 sans rien savoir des ancres. Et laisser de côté celui dont on doute valait mieux que le poser : deux échangés font deux erreurs, un oubli une seule ; un jeton posé seul à la première manche rapportait ★ sans rien ranger. Un joueur qui ne savait rien faisait au moins cinq étoiles sur neuf à chaque partie, deux pièces justes.
+
+**Décision** : les ancres jugent d'abord, de n'importe quel côté — elles sont la vérité affichée, leur année dite : un nouveau venu qu'une ancre contredit n'est pas entre les bonnes. Puis, entre les mêmes ancres, ses voisins, l'égaré mis de côté : deux échangés sont faux tous deux, un égaré collé à un nouveau venu bien posé ne le fait pas tomber. Un nouveau venu laissé de côté compte deux erreurs (`ERREURS_D_UN_OUBLI`), autant que la pire place — la sienne, et celle du voisin qu'il contredit : poser n'est jamais pire que s'abstenir. Le compter un seul ne se pouvait pas sans changer l'autre règle : si un oubli coûte une erreur et que poser ne doit jamais coûter plus, insérer `b` devant `a` dans `a, c` bien rangés ne coûte qu'une erreur — et deux voisins échangés n'en font plus qu'une, ce qui rend la première manche presque toujours juste au hasard. Rien de posé reste une manche sans réponse, `composee` NULL. La révélation dit à part les faux et les pas posés (« 1 erreur, 1 pas posé ») : « 2 erreurs » sous un seul événement marqué tromperait.
+
+**Conséquence** : sans faute si et seulement si la frise est dans l'ordre ; un joueur qui ne sait rien fait de deux à six étoiles, 0,7 pièce juste par partie (4 000 parties simulées). Il reste ce que le barème de la conception implique : avec des vagues de deux et « deux erreurs ★ », une manche où les deux nouveaux venus sont posés ne descend jamais sous ★, et un joueur qui range au hasard fait cinq étoiles sur neuf plus d'une partie sur quatre — à trancher avant l'ouverture, comme un choix de produit. Aucune partie n'était jouée : rien ne se reprend.
+
+*Fichiers : `shared/cabinet/jeux/frise.ts`, `shared/cabinet/bareme.ts`, `server/test/cabinet-jeux-images.test.ts`*
+
+### La Frise : un ordre montré au hasard, et Éclairer qui laisse toujours un nouveau venu à placer
+**Contexte** : la conception montrait les nouveaux venus d'une vague dans l'ordre de l'Expédition (`ordreMontre`, « jamais le bon »), et Éclairer y dévoilait l'année « du premier pas encore dévoilé ».
+
+**Décision** : l'ordre montré est celui du battage, au hasard : sur une vague de deux, « jamais le bon », c'est toujours à rebours, et l'ordre se lirait sans rien savoir. Éclairer date tous les nouveaux venus d'une manche sauf un : datés parmi des ancres datées, ils se rangeraient seuls — comme le Mot mystère garde toujours une lettre à trouver, et Éclairer deux propositions ailleurs. Une manche qui n'en a plus qu'un à dater refuse l'éclairage, par la seule règle des refus.
+
+**Conséquence** : un éclairage de plus se refuse sans se dépenser ; une vague d'un seul ne s'éclairerait pas, ce que la ligne des vagues dit dans les barèmes.
+
+*Fichiers : `shared/cabinet/jeux/frise.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).
