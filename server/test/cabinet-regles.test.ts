@@ -1,5 +1,6 @@
 // Une partie du Cabinet de curiosités jouée en pur, de son départ à son bilan
-// (lot B3, la conception du 24 octobre 2026, § 1.3 à § 4.9) : le pli des
+// (la règle `.claude/rules/cabinet.md` ; le pourquoi de chaque choix,
+// `docs/architecture/decisions.md`, « Le Cabinet de curiosités ») : le pli des
 // gestes, les pièces qu'il range, les étoiles après les pouvoirs, le cadre
 // doré, l'issue et la poussière, la lecture d'un départ, d'un geste et d'un
 // bilan, le musée — la visite, la série, les gardiens dus, les refus. Le
@@ -23,11 +24,15 @@ import {
   pouvoirMaintenant,
   refusDuGeste,
   resultatDe,
+  VERSIONS_DU_BILAN_DU_CABINET,
+  VERSIONS_DU_DEPART,
+  VERSION_DU_BILAN_DU_CABINET,
   type DepartDUnePartie,
   type GesteDuCabinet,
+  type GesteEcrit,
   type Manche,
 } from '../../shared/cabinet/partie'
-import { lireLeBilan, lireLeDepart, lireUnGeste } from '../../shared/cabinet/lecture'
+import { BORNES_DES_BILANS, lireLeBilan, lireLeDepart, lireUnGeste } from '../../shared/cabinet/lecture'
 import {
   cadreDuDepart,
   gardiensDus,
@@ -178,16 +183,46 @@ test('une partie entière de chaque jeu se joue en pur : trois manches, une piè
   }
 })
 
+/** Ce que la base rend d'une partie, relu comme le serveur le relira : le départ et chaque geste écrits en JSON, puis leurs lecteurs. */
+function relueDeLaBase(p: Partie): { depart: DepartDUnePartie; gestes: GesteEcrit[] } {
+  const depart = lireLeDepart(JSON.stringify(p.depart))
+  assert.ok(depart, 'le départ écrit se relit')
+  const gestes = p.gestes.map(({ geste, faitLe }) => {
+    const relu = lireUnGeste(JSON.stringify(geste), { duServeur: true })
+    assert.ok(relu, `${JSON.stringify(geste)} écrit, illisible`)
+    return { geste: relu, faitLe }
+  })
+  return { depart, gestes }
+}
+
 test('le pli rejoué est le pli d’une traite : un rechargement, un réveil, un autre serveur retrouvent la même partie', () => {
   for (const jeu of CLES_DES_JEUX) {
     const p = jouerLeScenario(jeu)
-    assert.deepEqual(pliDeLaPartie(p.depart, p.gestes), p.etat, jeu)
+    // Par le chemin d'un rechargement : le JSON de la base, puis `lireLeDepart` et `lireUnGeste` — un champ
+    // qu'un lecteur perdrait (la mise, `auto`, une réponse) y changerait la partie.
+    const relue = relueDeLaBase(p)
+    assert.deepEqual(pliDeLaPartie(relue.depart, relue.gestes), p.etat, jeu)
     // Et à chaque geste : la partie en cours relue à n'importe quel instant est celle qu'on jouait.
     for (let n = 0; n <= p.gestes.length; n++) {
       const relue = pliDeLaPartie(p.depart, p.gestes.slice(0, n))
       assert.equal(relue.rang, n + 1, `${jeu} : le rang suit les gestes écrits`)
     }
   }
+  // La mise, une réponse envoyée d'elle-même à l'échéance, Éclairer : chacun survit au passage par la base.
+  const misee = new Partie(departDe('mot', { carte: carte('miser', 2, 'quitte-ou-double') }))
+  auMot(misee, 0, 3, MIDI, { miser: true })
+  auMot(misee, 1, 2, MIDI + 20 * S)
+  auMot(misee, 2, 3, MIDI + 40 * S)
+  const auto = new Partie(departDe('filet', { carte: carte('eclairer', 2, 'repere') }))
+  auto.joue(ouvrir(0), MIDI)
+  auto.joue({ quoi: 'eclairer', manche: 0 }, MIDI + S)
+  auto.joue({ quoi: 'repondre', manche: 0, auto: true, reponse: { filet: { x: 1852, taille: 'moyen' } } }, MIDI + B.DUREES_DES_JEUX.filet * S)
+  for (const p of [misee, auto]) {
+    const relue = relueDeLaBase(p)
+    assert.deepEqual(pliDeLaPartie(relue.depart, relue.gestes), p.etat)
+  }
+  assert.equal(misee.etat.misee, 0)
+  assert.equal(auto.etat.pieces[0].joker, JOKER_D_ECLAIRER)
   // Un geste écrit que la relecture refuse ne change rien, mais compte à son rang : le suivant reste celui de la base.
   const p = jouerLeScenario('mot')
   const avecUnIntrus = [...p.gestes.slice(0, 2), { geste: essai(1, 'VILNIUS'), faitLe: MIDI + 3 * S }, ...p.gestes.slice(2)]
@@ -253,6 +288,31 @@ test('quitter compte zéro et `choix` NULL partout, sauf le Pari gardé ; une ma
     pari.etat.pieces.map(x => [x.juste, x.choix]),
     [[true, 1]],
   )
+})
+
+test('quitter après une dernière manche expirée : la partie était déjà jouée, à l’heure de son échéance', () => {
+  const filet = B.DUREES_DES_JEUX.filet * S
+  const jouee = (fin: GesteDuCabinet) => {
+    const p = new Partie(departDe('filet'))
+    p.joue(ouvrir(0), MIDI)
+    p.joue(repondre(0, { filet: { x: 1852, taille: 'petit' } }), MIDI + S)
+    p.joue(ouvrir(1), MIDI + 2 * S)
+    p.joue(repondre(1, { filet: { x: 1852, taille: 'moyen' } }), MIDI + 3 * S)
+    // La troisième s'ouvre, puis le téléphone s'éteint : elle expire sans un geste.
+    p.joue(ouvrir(2), MIDI + 4 * S)
+    p.joue(fin, MIDI + 4 * S + filet + 120 * S)
+    return p
+  }
+  const limite = MIDI + 4 * S + filet + B.GRACE_D_UNE_MANCHE_MS
+  for (const fin of [{ quoi: 'quitter' }, { quoi: 'clore', pourquoi: 'lendemain' }] as GesteDuCabinet[]) {
+    const p = jouee(fin)
+    assert.deepEqual(p.etat.manches.map(m => m.fin), ['jugee', 'jugee', 'expiree'], fin.quoi)
+    // « Quitter » arrive sur une partie finie : il ne la réécrit pas en partie quittée.
+    assert.deepEqual(p.etat.fin, { le: limite, pourquoi: 'jouee' }, fin.quoi)
+    const r = resultatDe(p.depart, p.etat)
+    assert.deepEqual([r.quittee, r.lendemain], [false, false], fin.quoi)
+    assert.equal(bilanDe(p.depart, p.etat, null).quittee, undefined, fin.quoi)
+  }
 })
 
 test('la page du lendemain clôt la partie : la manche ouverte expirée à son heure, la partie close, rangée au jour du départ', () => {
@@ -481,6 +541,13 @@ test('un départ se relit variante par variante — la zone de l’Épingle et l
   assert.equal(casse(x => (x.origine = 'visite')), null, 'une visite sans sa case')
   assert.equal(casse(x => (x.tirages[0].lettres = 'vilnius')), null)
   assert.equal(lireLeDepart('{pas du json'), null)
+  // Son chrono, figé : une étape par étape de son jeu, du temps en plus seulement sous la carte qui le donne.
+  assert.equal(casse(x => delete x.chrono), null, 'sans son chrono')
+  assert.equal(casse(x => (x.chrono.etapesMs = [120_000, 25_000])), null, 'deux étapes au Mot mystère')
+  assert.equal(casse(x => (x.chrono.etapesMs = [0])), null)
+  assert.equal(casse(x => (x.chrono.enPlusMs = 10_000)), null, 'du temps en plus sans la carte qui le donne')
+  assert.equal(casse(x => (x.chrono.graceMs = -1)), null)
+  assert.equal(lireLeDepart(JSON.stringify(departDe('pari', { chrono: { etapesMs: [35_000], enPlusMs: 0, graceMs: 1_500, pauseMs: 30_000 } }))), null, 'une seule étape au Pari')
   // Un champ que le format n'a pas ne voyage pas.
   const relu = casse(x => (x.reponse = 'VILNIUS'))!
   assert.ok(!('reponse' in relu))
@@ -491,14 +558,56 @@ test('un départ se relit variante par variante — la zone de l’Épingle et l
   const sansOrdre = JSON.parse(JSON.stringify(replique))
   sansOrdre.tirages[0].ordreDesEffaces = [[0, 0], []]
   assert.equal(lireLeDepart(sansOrdre), null)
-  // Le Filet relit sa piste à l'année du départ : une année trop récente pour une piste qui ne la trahisse pas.
+  // Le Filet : une piste d'années coupée à l'année du départ — une réponse dans l'avenir ne se relit pas. Ce que le
+  // barème pose ou non (`seTendAuFilet`), le tireur l'a jugé au départ : relu au barème du jour, un recul allongé
+  // aurait rendu illisibles les parties déjà jouées, et leur cartel avec.
   const filet = JSON.parse(JSON.stringify(departDe('filet')))
-  filet.tirages[0] = { ...filet.tirages[0], valeur: 2015, piste: { min: 1990, max: 2026, pas: 1 } }
-  assert.equal(lireLeDepart(filet), null)
+  filet.tirages[0] = { ...filet.tirages[0], valeur: 2015, piste: { min: 1990, max: 2027, pas: 1 } }
+  assert.equal(lireLeDepart(filet), null, 'une piste qui passe l’année du départ')
+  filet.tirages[0].piste.max = 2026
+  assert.ok(lireLeDepart(filet), 'un départ écrit est un fait : le barème du jour ne le rejuge pas')
   // La Frise : trois vagues d'une même frise, chacune à sa manche, jamais de rechange.
   const frise = JSON.parse(JSON.stringify(departDe('frise')))
   frise.tirages = [frise.tirages[1], frise.tirages[0], frise.tirages[2]]
   assert.equal(lireLeDepart(frise), null)
+})
+
+/**
+ * Un départ et un bilan de chaque version connue, tels que la base les garde : écrits à la main, jamais par
+ * `departDe` ni les constantes du jour — sinon l'épreuve suivrait le code, et une version retirée de la liste, ou
+ * relue au barème d'aujourd'hui, passerait inaperçue (l'Expédition a perdu ses bilans à une v8 oubliée).
+ */
+const MOT_ECRIT = (id: string) =>
+  `{"jeu":"mot","question":{"id":"${id}","texte":"Quelle est la capitale de la Lituanie ?","reponses":["Riga","Vilnius","Tallinn","Minsk"],"bonne":1,"categorie":"Géographie","anecdote":null,"niveau":"facile"},"lettres":"VILNIUS","affiche":"Vilnius"}`
+const DEPARTS_ECRITS: Record<number, string> = {
+  1: `{"v":1,"jeu":"mot","origine":"chasse","jour":"2026-10-24","cible":"plume","but":"gagner","seuil":5,"payee":true,"carte":{"cle":"concentration","pouvoir":"temps","force":1},"graine":"8c1d2e7a-3b4f-4c5d-9e6f-0a1b2c3d4e5f","chrono":{"etapesMs":[120000],"enPlusMs":10000,"graceMs":1500,"pauseMs":30000},"tirages":[${MOT_ECRIT('m-a')},${MOT_ECRIT('m-b')},${MOT_ECRIT('m-c')}]}`,
+}
+const BILANS_ECRITS: Record<number, string> = {
+  1: '{"v":1,"etoiles":[7,3,0],"naturel":[3,3,0],"aidee":true,"total":9,"quittee":true,"issue":"gagnee","poussiere":18,"oeuvre":"plume","cartel":0}',
+}
+
+test('chaque version connue se relit, écrite en dur : le départ et son chrono figé, le bilan et ses bornes figées', () => {
+  for (const v of VERSIONS_DU_DEPART) {
+    const d = lireLeDepart(DEPARTS_ECRITS[v])
+    assert.ok(d, `le départ v${v} ne se relit plus`)
+    assert.equal(d.v, v, 'sa version, telle qu’écrite : le pli la lit')
+    // Il se joue à son chrono : le Mot à 120 s, dix secondes de « Prendre son temps », la grâce et la pause d'alors.
+    const p = new Partie(d)
+    p.joue(ouvrir(0), MIDI)
+    p.joue(essai(0, 'VILNIUS'), MIDI + 131 * S)
+    assert.deepEqual([p.etat.manches[0].fin, p.etat.pieces[0].juste, p.etat.pieces[0].joker], ['jugee', true, JOKER_DU_TEMPS])
+  }
+  for (const v of VERSIONS_DU_BILAN_DU_CABINET) {
+    const b = lireLeBilan(BILANS_ECRITS[v])
+    assert.ok(b, `le bilan v${v} ne se relit plus`)
+    assert.equal(b.v, v)
+  }
+  assert.deepEqual(lireLeBilan(BILANS_ECRITS[1])?.etoiles, [7, 3, 0], 'une mise gagnée de son temps : trois et quatre')
+  // Les bornes d'un bilan sont celles de sa version, figées avec elle : le barème du jour doit tenir dans celles de la
+  // version qu'il écrit — une mise relevée, sans version neuve, écrirait des bilans que la relecture refuserait.
+  const bornes = BORNES_DES_BILANS[VERSION_DU_BILAN_DU_CABINET]
+  assert.ok(B.ETOILES_PAR_MANCHE + Math.max(...Object.values(B.BONUS_DE_MISE)) <= bornes.etoiles, 'une mise plus forte : monter VERSION_DU_BILAN_DU_CABINET')
+  assert.ok(B.ETOILES_PAR_MANCHE <= bornes.naturel && B.ETOILES_D_UNE_PARTIE <= bornes.total)
 })
 
 test('un geste se relit champ par champ : un nom de cinq mille signes se coupe, `clore` ne vient jamais de la page', () => {
@@ -520,6 +629,11 @@ test('un geste se relit champ par champ : un nom de cinq mille signes se coupe, 
   assert.deepEqual(lireUnGeste({ quoi: 'quitter', manche: 9 }), { quoi: 'quitter' })
   assert.equal(lireUnGeste({ quoi: 'clore', pourquoi: 'lendemain' }), null)
   assert.deepEqual(lireUnGeste({ quoi: 'clore', pourquoi: 'lendemain' }, { duServeur: true }), { quoi: 'clore', pourquoi: 'lendemain' })
+  // Un geste écrit se relit tel qu'il a été écrit : coupé à son arrivée, il ne se recoupe pas au barème du jour — un
+  // nom jugé sur soixante signes le resterait, même la borne abaissée.
+  const ecrit = lireUnGeste(JSON.stringify({ quoi: 'nom', manche: 0, texte: 'Victor Hugo'.padEnd(B.SIGNES_D_UN_GESTE_MAX + 10, '.') }), { duServeur: true })
+  assert.ok(ecrit && ecrit.quoi === 'nom')
+  assert.equal(ecrit.texte.length, B.SIGNES_D_UN_GESTE_MAX + 10)
   // Une réponse : une seule clé de jeu, ses champs relus ; rien d'envoyé, la page à l'échéance.
   assert.deepEqual(lireUnGeste({ quoi: 'repondre', manche: 0, auto: true }), { quoi: 'repondre', manche: 0, auto: true })
   assert.deepEqual(lireUnGeste({ quoi: 'repondre', manche: 0, reponse: { filet: { x: 1852.5, taille: 'moyen', y: 3 } } }), {
@@ -776,7 +890,17 @@ test('le pli ne garde aucune trace de sa graine dans ce qu’il range : les piè
   const p = jouerLeScenario('pari', departDe('pari', { graine: 'secret-du-serveur-1234' }))
   assert.ok(!JSON.stringify(p.etat.pieces).includes('secret-du-serveur-1234'))
   assert.ok(!JSON.stringify(bilanDe(p.depart, p.etat, null)).includes('secret-du-serveur-1234'))
-  // Et le moule dit d'où vient le hasard d'Éclairer : jamais de ce que la page connaît.
-  const moule = readFileSync(new URL('../../shared/cabinet/jeux/regle.ts', import.meta.url), 'utf8')
-  assert.match(moule, /secret du serveur/)
+  // Et chaque hasard que les règles rejouent part d'une graine que le serveur tient — celle de la partie, celle de la
+  // visite —, jamais de ce que la page connaît seul : son profil, sa partie, un rang.
+  const dossier = new URL('../../shared/cabinet/', import.meta.url)
+  const appels = readdirSync(dossier, { recursive: true, encoding: 'utf8' })
+    .filter(f => f.endsWith('.ts'))
+    .flatMap(f =>
+      readFileSync(new URL(f, dossier), 'utf8')
+        .split('\n')
+        .filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l))
+        .flatMap(l => [...l.matchAll(/hasardDe\(([^)]*)\)/g)].map(a => `${f} : ${a[1]}`)),
+    )
+  assert.ok(appels.length >= 3, appels.join('\n'))
+  for (const a of appels) assert.match(a, /: `\$\{(?:\w+\.)?graine\}:/, `un hasard qui ne part pas d'une graine secrète — ${a}`)
 })

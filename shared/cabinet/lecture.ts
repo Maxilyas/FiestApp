@@ -5,10 +5,17 @@
 // un champ mal formé rend le tout illisible plutôt que de tromper le pli.
 //
 // Une version qu'on ne connaît pas se refuse (le gabarit de
-// `lireDepartDExpedition`) : relue à une autre règle, une manche en route
-// changerait d'échéance ou de barème. Chaque version connue a son épreuve
-// (`cabinet-regles.test.ts`) — l'Expédition a perdu ses bilans à une v8
-// oubliée de la liste.
+// `lireDepartDExpedition`), et chaque version connue se relit telle qu'elle
+// s'est écrite, sa version gardée : le pli joue la règle de la sienne. Chacune
+// a son épreuve, écrite en dur (`cabinet-regles.test.ts`) — l'Expédition a
+// perdu ses bilans à une v8 oubliée de la liste.
+//
+// Un départ, un geste écrit, un bilan sont des faits : ils se relisent à leur
+// forme, jamais aux chiffres du jour. Le cartel d'une œuvre et « Mes réponses »
+// relisent des parties finies depuis des mois ; un recul du Filet allongé, une
+// mise baissée, un nom coupé plus court les auraient rendues illisibles — ou
+// rejouées autrement que le journal ne les a écrites. Ce que le barème pose ou
+// non, le tireur l'a jugé au départ, la règle du jeu au geste.
 //
 // Ce que la page envoie passe ici avant tout : un geste de cinq mille signes,
 // un objet pris pour un nombre, une clé du prototype, `clore` qu'elle n'a pas
@@ -20,18 +27,31 @@ import { CATEGORIES } from '../categories'
 import { NIVEAUX, type Niveau } from '../campagne'
 import { tronquer } from '../avatars'
 import { jourValide } from '../jour'
-import { ETOILES_D_UNE_PARTIE, ETOILES_PAR_MANCHE, EVENEMENTS_D_UNE_FRISE_A_THEME, MANCHES_PAR_PARTIE, SIGNES_D_UN_GESTE_MAX, BONUS_DE_MISE } from './bareme'
+import { ETOILES_D_UNE_PARTIE, MANCHES_PAR_PARTIE, SIGNES_D_UN_GESTE_MAX } from './bareme'
 import type { Fiche, Lieu, Replique } from './contenu'
 import { estUneOeuvre } from './oeuvres'
 import { POUVOIRS, type CleDePouvoir, type Force } from './pouvoirs'
-import { ISSUES, VERSION_DU_BILAN, VERSION_DU_DEPART, type BilanDUnePartie, type CarteDuDepart, type DepartDUnePartie, type GesteDuCabinet, type Manche, type ReponseDUnJeu } from './partie'
-import type { ContenuTire } from './jeux/index'
+import {
+  ISSUES,
+  VERSIONS_DU_BILAN_DU_CABINET,
+  VERSIONS_DU_DEPART,
+  type BilanDUnePartie,
+  type CarteDuDepart,
+  type ChronoDuDepart,
+  type DepartDUnePartie,
+  type GesteDuCabinet,
+  type Manche,
+  type ReponseDUnJeu,
+  type VersionDuBilan,
+  type VersionDuDepart,
+} from './partie'
+import { regleDe, type ContenuTire } from './jeux/index'
 import { CLES_DES_JEUX, type CleDeJeu } from './jeux/regle'
 import type { QuestionTiree } from './jeux/outils'
 import type { AffirmationTiree, EclairTire } from './jeux/eclair'
 import type { DetailTire } from './jeux/detail'
 import type { EpingleTiree } from './jeux/epingle'
-import { TAILLES_DU_FILET, seTendAuFilet, type FiletTire } from './jeux/filet'
+import { TAILLES_DU_FILET, type FiletTire } from './jeux/filet'
 import type { EvenementTire, FriseTiree } from './jeux/frise'
 import type { IndicesTires } from './jeux/indices'
 import type { MotTire } from './jeux/mot'
@@ -49,8 +69,16 @@ const entier = (x: unknown, min: number, max: number): x is number => Number.isI
 const chaineOuNull = (x: unknown): x is string | null => x === null || chaine(x)
 const chaines = (x: unknown, min = 0): x is string[] => Array.isArray(x) && x.length >= min && x.every(chaine)
 /** Une clé lue parmi celles d'une liste, jamais par `TABLE[cle]` : un objet répond aussi de son prototype. */
-const parmi = <T extends string>(x: unknown, liste: readonly T[]): x is T => chaine(x) && (liste as readonly string[]).includes(x)
+const parmi = <T extends string | number>(x: unknown, liste: readonly T[]): x is T => (chaine(x) || fini(x)) && (liste as readonly unknown[]).includes(x)
 const estUneManche = (x: unknown): x is Manche => entier(x, 0, MANCHES_PAR_PARTIE - 1)
+/**
+ * Ce qu'une réponse de la page porte d'éléments, au plus : les affirmations de
+ * l'Éclair, les jetons de la Frise. Une borne de taille, pas une règle — la
+ * règle du jeu borne ensuite à ce qu'elle a montré —, et assez large pour ne
+ * jamais suivre le barème : abaissée avec lui, elle aurait rendu illisibles les
+ * gestes déjà écrits.
+ */
+const ELEMENTS_D_UNE_REPONSE_MAX = 20
 
 /** Le texte d'une colonne, ou l'objet d'une requête : une colonne se relit d'abord en JSON. */
 function json(brut: unknown): unknown {
@@ -99,13 +127,19 @@ function leMot(x: Brut): MotTire | null {
   return { jeu: 'mot', question, lettres: x.lettres, affiche: x.affiche }
 }
 
-/** Le Filet relit sa piste contre l'année du départ : une année plus récente que son recul ne s'y pose pas (`seTendAuFilet`). */
+/**
+ * Le Filet : une piste qui contient sa réponse ; une année, entière, sur une
+ * piste coupée à l'année du départ — une réponse dans l'avenir n'a jamais été
+ * tirée. Le recul qu'une année doit avoir pour se poser (`seTendAuFilet`), le
+ * tireur l'a jugé au départ ; relu ici au barème du jour, un recul allongé
+ * aurait rendu illisibles les parties déjà jouées.
+ */
 function leFilet(x: Brut, annee: number): FiletTire | null {
   const question = laQuestion(x.question)
   const p = x.piste
   if (!question || !fini(x.valeur) || typeof x.annee !== 'boolean' || (x.unite !== undefined && !chaine(x.unite)) || !objet(p)) return null
   if (!fini(p.min) || !fini(p.max) || !fini(p.pas) || p.pas <= 0 || p.max <= p.min || x.valeur < p.min || x.valeur > p.max) return null
-  if (!seTendAuFilet(x.valeur, x.annee, annee)) return null
+  if (x.annee && (!Number.isInteger(x.valeur) || p.max > annee)) return null
   return { jeu: 'filet', question, valeur: x.valeur, annee: x.annee, ...(x.unite !== undefined && { unite: x.unite }), piste: { min: p.min, max: p.max, pas: p.pas } }
 }
 
@@ -121,7 +155,7 @@ function leDetail(x: Brut): DetailTire | null {
 function laFrise(x: Brut): FriseTiree | null {
   if (!parmi(x.sorte, ['theme', 'sujet'] as const) || !chaine(x.cle) || !chaine(x.theme) || !chaineOuNull(x.savais) || !chaine(x.categorie)) return null
   if (x.niveau !== undefined && !parmi<Niveau>(x.niveau, NIVEAUX)) return null
-  if (!Array.isArray(x.evenements) || x.evenements.length === 0 || x.evenements.length > EVENEMENTS_D_UNE_FRISE_A_THEME) return null
+  if (!Array.isArray(x.evenements) || x.evenements.length === 0) return null
   const evenements = tous(
     x.evenements.map((e: unknown): EvenementTire | null =>
       objet(e) && chaine(e.libelle) && Number.isInteger(e.annee) && (e.id === undefined || chaine(e.id))
@@ -131,8 +165,10 @@ function laFrise(x: Brut): FriseTiree | null {
   )
   if (!evenements || !Array.isArray(x.vagues) || x.vagues.length === 0) return null
   const vagues = tous(x.vagues.map((v: unknown) => (Array.isArray(v) && v.every(r => entier(r, 0, evenements.length - 1)) ? [...(v as number[])] : null)))
-  // Chaque événement une fois, dans une seule vague : un rang posé deux fois serait ancre et nouveau venu.
-  if (!vagues || new Set(vagues.flat()).size !== vagues.flat().length || !entier(x.vague, 0, vagues.length - 1)) return null
+  // Chaque événement une fois, dans une seule vague : un rang posé deux fois serait ancre et nouveau venu, un rang
+  // oublié ne se poserait jamais. Leur nombre est celui de la frise tirée, jamais relu au barème du jour.
+  const poses = vagues?.flat() ?? []
+  if (!vagues || new Set(poses).size !== poses.length || poses.length !== evenements.length || !entier(x.vague, 0, vagues.length - 1)) return null
   return {
     jeu: 'frise',
     sorte: x.sorte,
@@ -213,39 +249,54 @@ function leContenu(x: unknown, jeu: CleDeJeu, annee: number): ContenuTire | null
 
 // ── Le départ ─────────────────────────────────────────────────────────────
 
-/** Les versions de départ que ce code relit : chacune la sienne, et son épreuve. */
-export const VERSIONS_DU_DEPART_LUES: readonly number[] = [VERSION_DU_DEPART]
-
 function laCarte(c: unknown): CarteDuDepart | null | undefined {
   if (c === null) return null
   if (!objet(c) || !chaine(c.cle) || !parmi<CleDePouvoir>(c.pouvoir, Object.keys(POUVOIRS) as CleDePouvoir[]) || !entier(c.force, 1, 3)) return undefined
   return { cle: c.cle, pouvoir: c.pouvoir, force: c.force as Force }
 }
 
+/** Une durée du chrono, en millisecondes entières. */
+const duree = (x: unknown, min: number): x is number => entier(x, min, Number.MAX_SAFE_INTEGER)
+
+/**
+ * Le chrono figé d'un départ : une durée par étape de son jeu, et du temps en
+ * plus seulement sous la carte qui le donne. Ses chiffres sont ceux de son
+ * départ, jamais comparés au barème du jour (`ChronoDuDepart`).
+ */
+function leChrono(c: unknown, jeu: CleDeJeu, carte: CarteDuDepart | null): ChronoDuDepart | null {
+  if (!objet(c) || !Array.isArray(c.etapesMs) || c.etapesMs.length !== regleDe(jeu).etapes || !c.etapesMs.every(x => duree(x, 1))) return null
+  if (!duree(c.enPlusMs, 0) || (c.enPlusMs > 0 && carte?.pouvoir !== 'temps') || !duree(c.graceMs, 0) || !duree(c.pauseMs, 0)) return null
+  return { etapesMs: [...(c.etapesMs as number[])], enPlusMs: c.enPlusMs, graceMs: c.graceMs, pauseMs: c.pauseMs }
+}
+
 /**
  * Le départ figé d'une partie, relu ; null : illisible, ou d'une version que
- * ce code ne joue pas. Chaque contenu tiré se relit à la variante de son jeu —
+ * ce code ne joue pas. Sa version se garde telle qu'écrite : le pli joue la
+ * règle de la sienne. Chaque contenu tiré se relit à la variante de son jeu —
  * l'épingle et son décalage, la réplique et l'ordre de ses effacés compris —,
  * tous du jeu de la partie ; la Frise, trois vagues d'une même frise, aucune
- * rechange.
+ * rechange ; le chrono, à ses chiffres d'alors.
  */
 export function lireLeDepart(brut: unknown): DepartDUnePartie | null {
   const d = json(brut)
-  if (!objet(d) || !VERSIONS_DU_DEPART_LUES.includes(d.v as number)) return null
-  const { jeu, origine, visite, jour, cible, but, retente, seuil, payee, graine, theme } = d
-  if (!parmi<CleDeJeu>(jeu, CLES_DES_JEUX) || !parmi(origine, ['visite', 'chasse', 'libre'] as const) || !jourValide(jour)) return null
+  if (!objet(d)) return null
+  const { v, jeu, origine, visite, jour, cible, but, retente, seuil, payee, graine, theme } = d
+  if (!parmi<VersionDuDepart>(v, VERSIONS_DU_DEPART) || !parmi<CleDeJeu>(jeu, CLES_DES_JEUX) || !parmi(origine, ['visite', 'chasse', 'libre'] as const) || !jourValide(jour)) return null
   if (origine === 'visite' ? !estUneManche(visite) : visite !== undefined) return null
   if (!(cible === null || estUneOeuvre(cible)) || !(but === null || parmi(but, ['gagner', 'dorer'] as const)) || !(retente === undefined || retente === true)) return null
+  // Le seuil se lit sur les étoiles d'une partie, trois manches de trois : la forme du jeu, pas un barème qui bouge.
   if (!(seuil === null || entier(seuil, 0, ETOILES_D_UNE_PARTIE)) || typeof payee !== 'boolean' || !chaine(graine) || graine === '' || !(theme === undefined || chaine(theme))) return null
   const carte = laCarte(d.carte)
-  if (carte === undefined || !Array.isArray(d.tirages) || d.tirages.length < MANCHES_PAR_PARTIE) return null
+  if (carte === undefined) return null
+  const chrono = leChrono(d.chrono, jeu, carte)
+  if (!chrono || !Array.isArray(d.tirages) || d.tirages.length < MANCHES_PAR_PARTIE) return null
   const annee = Number(jour.slice(0, 4))
   const tirages = tous(d.tirages.map((t: unknown) => leContenu(t, jeu, annee)))
   if (!tirages) return null
   // La Frise se construit d'un bout à l'autre : ses trois vagues, chacune à sa manche, et jamais de rechange.
   if (jeu === 'frise' && (tirages.length !== MANCHES_PAR_PARTIE || tirages.some((t, k) => (t as FriseTiree).vague !== k))) return null
   return {
-    v: VERSION_DU_DEPART,
+    v,
     jeu,
     origine,
     ...(origine === 'visite' && { visite: visite as Manche }),
@@ -256,6 +307,7 @@ export function lireLeDepart(brut: unknown): DepartDUnePartie | null {
     seuil,
     payee,
     carte,
+    chrono,
     graine,
     ...(theme !== undefined && { theme }),
     tirages,
@@ -284,7 +336,7 @@ function laReponse(r: unknown): ReponseDUnJeu | null | undefined {
     case 'pari':
       return unIndex(x.choix) ? { pari: { choix: x.choix } } : undefined
     case 'eclair':
-      return Array.isArray(x.reponses) && x.reponses.length <= 20 && x.reponses.every(v => v === null || typeof v === 'boolean')
+      return Array.isArray(x.reponses) && x.reponses.length <= ELEMENTS_D_UNE_REPONSE_MAX && x.reponses.every(v => v === null || typeof v === 'boolean')
         ? { eclair: { reponses: [...(x.reponses as (boolean | null)[])] } }
         : undefined
     case 'filet':
@@ -292,7 +344,7 @@ function laReponse(r: unknown): ReponseDUnJeu | null | undefined {
     case 'detail':
       return unIndex(x.titre) ? { detail: { titre: x.titre } } : undefined
     case 'frise':
-      return Array.isArray(x.ordre) && x.ordre.length <= EVENEMENTS_D_UNE_FRISE_A_THEME && x.ordre.every(unIndex) && new Set(x.ordre).size === x.ordre.length
+      return Array.isArray(x.ordre) && x.ordre.length <= ELEMENTS_D_UNE_REPONSE_MAX && x.ordre.every(unIndex) && new Set(x.ordre).size === x.ordre.length
         ? { frise: { ordre: [...(x.ordre as number[])] } }
         : undefined
     case 'epingle':
@@ -310,8 +362,11 @@ function laReponse(r: unknown): ReponseDUnJeu | null | undefined {
  * capitales sans accents, une épingle en nombres finis, un curseur fini, des
  * index entiers ; le nom tapé coupé par `tronquer` à `SIGNES_D_UN_GESTE_MAX`
  * — jamais par `slice`, un emoji à la frontière laisserait sa moitié —, avant
- * d'être jugé et écrit. `clore` ne se lit que d'un geste écrit par le serveur
- * (`duServeur`) : la page n'a pas à clore une partie.
+ * d'être jugé et écrit. Un geste écrit (`duServeur`) se relit tel qu'il s'est
+ * écrit : coupé à son arrivée, il ne se recoupe pas au barème du jour — un nom
+ * jugé sur soixante signes, recoupé à cinquante, se serait jugé autrement à la
+ * relecture. `clore` ne se lit que d'un geste écrit par le serveur : la page
+ * n'a pas à clore une partie.
  */
 export function lireUnGeste(brut: unknown, o: { duServeur?: boolean } = {}): GesteDuCabinet | null {
   const g = json(brut)
@@ -320,6 +375,7 @@ export function lireUnGeste(brut: unknown, o: { duServeur?: boolean } = {}): Ges
   if (g.quoi === 'clore') return o.duServeur && g.pourquoi === 'lendemain' ? { quoi: 'clore', pourquoi: 'lendemain' } : null
   const { manche } = g
   if (!estUneManche(manche)) return null
+  const signes = o.duServeur ? Number.POSITIVE_INFINITY : SIGNES_D_UN_GESTE_MAX
   switch (g.quoi) {
     case 'ouvrir':
       if (!(g.miser === undefined || typeof g.miser === 'boolean')) return null
@@ -336,9 +392,9 @@ export function lireUnGeste(brut: unknown, o: { duServeur?: boolean } = {}): Ges
       if (!(g.affirmation === undefined || unIndex(g.affirmation))) return null
       return { quoi: 'eclairer', manche, ...(g.affirmation !== undefined && { affirmation: g.affirmation as number }) }
     case 'essai':
-      return chaine(g.lettres) && g.lettres.length <= SIGNES_D_UN_GESTE_MAX && /^[A-Z]+$/.test(g.lettres) ? { quoi: 'essai', manche, lettres: g.lettres } : null
+      return chaine(g.lettres) && g.lettres.length <= signes && /^[A-Z]+$/.test(g.lettres) ? { quoi: 'essai', manche, lettres: g.lettres } : null
     case 'nom':
-      return chaine(g.texte) ? { quoi: 'nom', manche, texte: tronquer(g.texte, SIGNES_D_UN_GESTE_MAX) } : null
+      return chaine(g.texte) ? { quoi: 'nom', manche, texte: tronquer(g.texte, signes) } : null
     case 'mot':
       return unIndex(g.choix) ? { quoi: 'mot', manche, choix: g.choix } : null
     case 'repondre': {
@@ -354,23 +410,33 @@ export function lireUnGeste(brut: unknown, o: { duServeur?: boolean } = {}): Ges
 
 // ── Le bilan ──────────────────────────────────────────────────────────────
 
-/** Les versions de bilan que ce code relit. */
-export const VERSIONS_DU_BILAN_LUES: readonly number[] = [VERSION_DU_BILAN]
+/**
+ * Ce qu'un bilan de chaque version peut porter, figé avec elle : les étoiles
+ * d'une manche après les pouvoirs — trois, et la plus forte mise de son temps,
+ * quatre —, ses étoiles naturelles, le total. Jamais lues au barème du jour :
+ * une mise baissée aurait rendu illisible chaque bilan qui en portait une plus
+ * forte, écrit et jamais réécrit. Le barème du jour doit tenir dans les bornes
+ * de la version qu'il écrit (`cabinet-regles.test.ts`) : une mise relevée en
+ * monte la version (`VERSIONS_DU_BILAN_DU_CABINET`), avec ses bornes.
+ */
+export const BORNES_DES_BILANS: Readonly<Record<VersionDuBilan, { etoiles: number; naturel: number; total: number }>> = {
+  1: { etoiles: 7, naturel: 3, total: 9 },
+}
 
-/** Les étoiles d'une manche après les pouvoirs : au plus trois, ou trois et la plus forte mise. */
-const ETOILES_MAX_D_UNE_MANCHE = ETOILES_PAR_MANCHE + Math.max(...Object.values(BONUS_DE_MISE))
-
-/** Le bilan figé d'une partie finie ; null : illisible, ou d'une version que ce code ne lit pas. */
+/** Le bilan figé d'une partie finie, sa version gardée ; null : illisible, ou d'une version que ce code ne lit pas. */
 export function lireLeBilan(brut: unknown): BilanDUnePartie | null {
   const b = json(brut)
-  if (!objet(b) || !VERSIONS_DU_BILAN_LUES.includes(b.v as number)) return null
+  if (!objet(b)) return null
+  const { v } = b
+  if (!parmi<VersionDuBilan>(v, VERSIONS_DU_BILAN_DU_CABINET)) return null
+  const bornes = BORNES_DES_BILANS[v]
   const troisEntiers = (x: unknown, max: number): x is [number, number, number] => Array.isArray(x) && x.length === MANCHES_PAR_PARTIE && x.every(n => entier(n, 0, max))
   const { etoiles, naturel, aidee, total, quittee, lendemain, issue, poussiere, oeuvre, cartel } = b
-  if (!troisEntiers(etoiles, ETOILES_MAX_D_UNE_MANCHE) || !troisEntiers(naturel, ETOILES_PAR_MANCHE) || typeof aidee !== 'boolean' || !entier(total, 0, ETOILES_D_UNE_PARTIE)) return null
+  if (!troisEntiers(etoiles, bornes.etoiles) || !troisEntiers(naturel, bornes.naturel) || typeof aidee !== 'boolean' || !entier(total, 0, bornes.total)) return null
   if (!(quittee === undefined || quittee === true) || !(lendemain === undefined || lendemain === true) || !parmi(issue, ISSUES) || !entier(poussiere, 0, Number.MAX_SAFE_INTEGER)) return null
   if (!(oeuvre === undefined || estUneOeuvre(oeuvre)) || !(cartel === null || estUneManche(cartel))) return null
   return {
-    v: VERSION_DU_BILAN,
+    v,
     etoiles: [...etoiles],
     naturel: [...naturel],
     aidee,

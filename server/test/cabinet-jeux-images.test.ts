@@ -1,5 +1,5 @@
-// Le Détail et la Frise du Cabinet de curiosités, purs (lot B2b, la
-// conception du 24 octobre 2026, § 3.2 et § 3.4) : leurs règles, sans serveur.
+// Le Détail et la Frise du Cabinet de curiosités, purs (`shared/cabinet/jeux/`,
+// la règle `.claude/rules/cabinet.md`) : leurs règles, sans serveur.
 // Le Détail — un tableau en quatre cadrages emboîtés ; « Reculer d'un pas » en
 // montre plus et coûte une étoile ; quatre titres d'époques voisines. La Frise
 // — une seule frise qui grandit, trois événements, puis cinq, puis sept, du

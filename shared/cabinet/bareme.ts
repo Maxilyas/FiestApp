@@ -16,10 +16,11 @@
 // sa ligne de `baremes.md` dit : un seuil se fige au départ d'une partie ; la
 // juste de chaque pièce s'écrit avec sa ligne au journal des réponses ; les
 // étoiles et la poussière d'une partie finie, avec son bilan ; un prix, avec
-// l'achat. Une partie en route, elle, se relit au barème du code : ce qui
-// changerait ce qu'elle tire ou juge — une durée, un barème de manche — monte
-// la version de son départ. Rien ne reprend une œuvre déjà entrée
-// (invariant 22).
+// l'achat ; une durée, la grâce et la pause, avec le chrono du départ. Ce que
+// le pli juge au barème du code — un barème de manche, ce que fait un
+// pouvoir — monte la version du départ, qui garde la règle d'avant sous la
+// sienne : le cartel et « Mes réponses » repassent par le pli d'une partie
+// finie. Rien ne reprend une œuvre déjà entrée (invariant 22).
 //
 // Ce fichier n'importe que des types : tout le Cabinet le lit sans rien tirer.
 
@@ -115,7 +116,7 @@ export const ECLAIRAGES_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2:
  * faille que les agents ont fermée.
  */
 export const BONUS_DE_PROTECTION: Readonly<Record<Force, number>> = { 1: 1, 2: 1, 3: 2 }
-/** Prendre son temps : les secondes de plus à chaque manche et à chaque étape, par point de force. */
+/** Prendre son temps : les secondes de plus à chaque manche et à chaque étape, par point de force — figées au départ avec le chrono. */
 export const SECONDES_PAR_FORCE = 10
 /**
  * Miser : les étoiles en plus d'une manche misée sans l'avoir vue, si elle est
@@ -130,11 +131,10 @@ export const CHANGEMENTS_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2
 /**
  * La durée de chaque jeu, en secondes : par manche, par étape au Pari et à la
  * Réplique, pour les cinq affirmations à l'Éclair, pour les cinq essais au Mot
- * mystère. « Prendre son temps » s'y ajoute. Ni le départ ni le geste qui
- * ouvre une manche ne la figent : le pli la relit ici à chaque relecture d'une
- * partie — un réveil, une mise en ligne. Changer une durée monte donc la
- * version du départ (`DepartDUnePartie.v`), sans quoi une manche en route
- * changerait d'échéance.
+ * mystère. « Prendre son temps » s'y ajoute. Figée au départ de chaque partie
+ * (`DepartDUnePartie.chrono`), avec la grâce et la pause : relue ici à chaque
+ * réveil, une durée changée aurait fait changer d'échéance une manche en
+ * route. Changée, elle ne vaut que pour les parties qui commencent.
  */
 export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
   epingle: 45,
@@ -147,9 +147,15 @@ export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
   indices: 75,
   replique: 25,
 }
-/** Le réseau d'un téléphone : une réponse arrivée jusqu'à tant après l'échéance compte encore. La page l'importe, elle ne la recopie pas. */
+/**
+ * Le réseau d'un téléphone : un geste arrivé jusqu'à tant après l'échéance est
+ * encore à l'heure — une réponse, Éclairer, un essai —, et « Prendre son
+ * temps » ne sert qu'au-delà de la durée normale et de cette grâce. Figée au
+ * départ avec les durées ; la page lit l'échéance dans la vue, elle ne recopie
+ * pas ce chiffre.
+ */
 export const GRACE_D_UNE_MANCHE_MS = 1_500
-/** La pause de « Quitter ? », au plus, par manche, sous un voile : la confirmation ne s'achète pas du temps de recherche. */
+/** La pause de « Quitter ? », au plus, par manche, sous un voile : la confirmation ne s'achète pas du temps de recherche. Figée au départ avec les durées. */
 export const PAUSE_MAX_MS = 30_000
 
 // ── Les neuf jeux ─────────────────────────────────────────────────────────

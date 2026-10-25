@@ -211,7 +211,7 @@ export interface RegleDuJeu<Tiree, Etat, Geste, Montree, Revelee> {
    * « Qui l'a dit ? », le mot perdu.
    */
   etapes: 1 | 2
-  /** La durée d'une étape, « Prendre son temps » à part (`DUREES_DES_JEUX`). */
+  /** La durée d'une étape, « Prendre son temps » à part (`DUREES_DES_JEUX`) : le départ la fige (`chronoDuDepart`), le pli ne la relit jamais ici. */
   dureeMs: (etape: 1 | 2) => number
   /** L'état d'une manche qui s'ouvre. */
   ouvrir(t: Tiree): Etat

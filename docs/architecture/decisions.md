@@ -1720,18 +1720,27 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 
 **Décision** : le contenu se tire au départ et le chrono court au serveur : recharger reprend la partie au même instant de son chrono. Quitter la compte avec ses étoiles, après une confirmation qui met le chrono en pause — trente secondes au plus par manche, la manche voilée (`PAUSE_MAX_MS`). Une partie d'un jour d'avant se clôt à la première page qui la trouve.
 
-**Conséquence** : rien ne se gagne à recharger ni à hésiter sur « Quitter ? » ; une case de visite ne se perd jamais sans l'avoir voulu — commencer une autre partie se refuse en mots tant que la première attend.
+**Conséquence** : rien ne se gagne à recharger ni à hésiter sur « Quitter ? » ; une case de visite ne se perd jamais sans l'avoir voulu — commencer une autre partie se refuse en mots tant que la première attend. Sous la confirmation, seule la réponse passe : laissée ouverte au-delà des trente secondes, la manche reprend sous le voile, et la réponse que la page envoie d'elle-même à l'échéance ferme la pause et se juge sur ce qu'elle porte — refusée, l'épingle partie à l'heure aurait compté pour rien (la relecture du lot B3, le 25 octobre 2026). « Quitter » sur une partie que le temps a déjà finie la laisse jouée, à l'heure de sa dernière échéance.
 
-*Fichiers : `shared/cabinet/bareme.ts`*
+*Fichiers : `shared/cabinet/bareme.ts`, `shared/cabinet/partie.ts`, `server/test/cabinet-chronos.test.ts`*
 
 ### La graine d'une partie est un secret du serveur ; quitter compte zéro, sauf l'étoile gardée du Pari
 **Contexte** : la conception faisait la graine du hasard d'Éclairer du profil et de la partie (`${profileId}:${serieId}`), que la page connaît : elle aurait rejoué Éclairer et lu, de la mauvaise réponse effacée, où est la bonne. Et les jeux, écrits par trois lots, ne quittaient pas de la même façon : le Mot mystère quitté comptait ses essais pour une réponse fausse, l'Épingle ou les Indices quittés n'en comptaient aucune (décisions du 25 octobre 2026, en construisant les jeux).
 
 **Décision** : la graine se tire au départ, au serveur (`randomUUID`), se garde dans le départ figé et ne part dans aucune vue ; l'Épingle et la Réplique figent en plus l'effet d'Éclairer dans leur tirage — les deux remèdes se cumulent —, et le hasard des tirages vient du tireur, jamais d'elle. Une manche quittée compte zéro, sans réponse, partout — sauf le Pari juste au premier coup, laissé au choix, qui garde son étoile ; une manche expirée garde ce que le serveur savait.
 
-**Conséquence** : la même graine redonne le même effet à chaque rechargement, sans que rien ne s'en devine ; une manche quittée n'entre au carnet que comme une question laissée. Une règle qui change ce qu'une partie en route tire ou juge monte la version de son départ (`VERSION_DU_DEPART`).
+**Conséquence** : la même graine redonne le même effet à chaque rechargement, sans que rien ne s'en devine ; une manche quittée n'entre au carnet que comme une question laissée. La graine de la visite du jour suit la même règle (« La visite du jour se dérive, puis se fige au premier départ »).
 
 *Fichiers : `shared/cabinet/partie.ts`, `shared/cabinet/jeux/outils.ts`, `server/test/cabinet-regles.test.ts`*
+
+### Le chrono se fige au départ ; une version de départ ne quitte jamais la liste
+**Contexte** : le cartel d'une œuvre et « Mes réponses » repassent par le départ et les gestes d'une partie finie, aussi vieille soit-elle (invariant 14). Relue aux durées du jour, une partie aurait changé d'échéance : un geste arrivé à l'heure passait en retard, et la révélation ne disait plus ce que le journal avait écrit. Et une liste des versions lues dérivée de la dernière (`[VERSION_DU_DEPART]`) cessait, à la première montée, de relire toutes les parties d'avant — le piège de la v8 oubliée de l'Expédition, cette fois automatique (la relecture du lot B3, le 25 octobre 2026).
+
+**Décision** : le départ fige son chrono comme son seuil — la durée de chaque étape, le temps en plus de sa carte, la grâce, la pause (`DepartDUnePartie.chrono`, `chronoDuDepart`) : un chiffre du chrono changé ne vaut que pour les parties qui commencent, sans version. Les versions qui se relisent s'écrivent en dur (`VERSIONS_DU_DEPART`, `VERSIONS_DU_BILAN_DU_CABINET`) et chaque relecture garde la sienne. Ce que le pli juge au barème du code — un barème de manche, ce que fait un pouvoir — se fige de préférence dans le tirage, comme le décalage de l'Épingle ; sinon la version monte, la règle d'avant se garde sous la sienne (une entrée par version, comme `COURBES_D_AVANT`), le pli la choisit par `d.v`, et une partie en route finit à la sienne. Un départ, un geste écrit et un bilan se relisent à leur forme, jamais aux chiffres du jour : un bilan à des bornes figées avec sa version (`BORNES_DES_BILANS`), que le barème du jour doit tenir.
+
+**Conséquence** : une durée se règle sans rien relire ; un départ et un bilan de chaque version, écrits en dur, se relisent à chaque test ; la piste du Filet se juge au tirage, plus à la relecture.
+
+*Fichiers : `shared/cabinet/partie.ts`, `shared/cabinet/lecture.ts`, `shared/cabinet/chrono.ts`, `server/test/cabinet-regles.test.ts`*
 
 ### Les gardiens se rangent sous une clé fixe, réconciliés du musée
 **Contexte** : un gardien réveillé est un légendaire gagné, une ligne de l'étagère ; une ligne rangée ne se reprend jamais (invariant 22), et un rangement doit pouvoir se rejouer sans doublon, d'où qu'il vienne — une partie, un achat, la migration, une relecture.
@@ -1781,11 +1790,11 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 ### La visite du jour se dérive, puis se fige au premier départ
 **Contexte** : la visite doit être la même toute la journée, ne rien coûter à qui ne vient pas, et faire passer après les autres les jeux des deux derniers jours — ceux qui ont vraiment été joués, échange compris.
 
-**Décision** : elle se dérive d'une graine et du musée de minuit, et se fige dans le reflet du profil au premier lot du jour qui écrit — un départ, un échange.
+**Décision** : elle se dérive d'une graine et du musée de minuit, et se fige dans le reflet du profil au premier lot du jour qui écrit — un départ, un échange. La graine est un secret du serveur, comme celle d'une partie : faite du profil et du jour, que la page connaît, elle aurait laissé la page refaire le tirage et lire l'œuvre visée de chaque case. Elle vaut `HMAC-SHA256(secret du Cabinet, profileId)` ; le secret se tire une fois, se range dans `campagne_meta` (`INSERT … ON CONFLICT DO NOTHING`, puis relu, dans le premier lot d'`init` — le gabarit de `jour_rappels_cles`), jamais dans une variable d'environnement ni en mémoire seule (le lot C1 l'écrit, la relecture du lot B3 l'a tranché le 25 octobre 2026).
 
-**Conséquence** : un jeu livré dans la journée ne change pas la visite d'un joueur qui l'a commencée ; rien ne s'écrit pour un jour où il ne joue pas.
+**Conséquence** : un jeu livré dans la journée ne change pas la visite d'un joueur qui l'a commencée ; rien ne s'écrit pour un jour où il ne joue pas. La visite d'un profil qui n'a pas encore joué, écrite nulle part, reste la même d'un réveil à l'autre — la production dort chaque nuit — et sur deux serveurs pendant une mise en ligne : tirée d'un secret neuf à chaque démarrage, elle aurait changé entre deux pages.
 
-*Fichiers : `shared/cabinet/bareme.ts`*
+*Fichiers : `shared/cabinet/bareme.ts`, `shared/cabinet/musee.ts`*
 
 ### Le préfixe `cab-`, et les mots de l'écran : jamais « carte » seule
 **Contexte** : `.fond-cabinet` et `.fond-musee` existent déjà dans la feuille de style ; et « carte » a déjà forcé l'Expédition à rebaptiser « le plan » la carte d'un acte, que le même mot confondait avec les cartes de la main.

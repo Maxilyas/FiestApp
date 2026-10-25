@@ -140,15 +140,6 @@ export interface CarteVue {
   dit: string
 }
 
-/** Ce qu'une manche vaut, à présent : ses étoiles après les pouvoirs, et pourquoi elles diffèrent (« +4 : mise gagnée »). */
-export interface MancheVue {
-  etoiles: number | null
-  naturel: number | null
-  note?: string
-  /** Comment elle s'est tranchée : la révélation d'une manche quittée le dit, même au bon mot. */
-  fin?: FinDUneManche
-}
-
 /** La révélation d'une manche tranchée : le corps de son jeu, et ce qu'en dit la partie. */
 export interface RevelationVue {
   manche: Manche
@@ -156,6 +147,30 @@ export interface RevelationVue {
   /** Les positions de ses pièces que « Signaler une erreur » vise : les seules questions de la base — le Pari, le Mot, le Filet. */
   signalables: number[]
   corps: RevelationDUneManche
+}
+
+/** Ce qu'une manche vaut, à présent : ses étoiles après les pouvoirs, et pourquoi elles diffèrent (« +4 : mise gagnée »). */
+export interface MancheVue {
+  etoiles: number | null
+  naturel: number | null
+  note?: string
+  /** Comment elle s'est tranchée : la révélation d'une manche quittée le dit, même au bon mot. */
+  fin?: FinDUneManche
+  /**
+   * Sa révélation, tranchée : « Mes réponses » d'une partie finie montre la
+   * même vue que la partie en cours, chaque manche révélée (le même pli). La
+   * partie en cours ne la porte pas ici : seule la manche qu'elle vient de
+   * trancher se révèle, dans `VueDeLaPartie.revelation`.
+   */
+  revelation?: RevelationVue
+}
+
+/** Le cartel que garde la partie, en clair : la manche, sa question telle que la partie l'a lue, la réponse, « Le savais-tu ? ». */
+export interface CartelDuBilan {
+  manche: Manche
+  sujet: string
+  reponse: string
+  anecdote: string | null
 }
 
 /** Ce que la fin d'une partie a rapporté : l'écran des gains de la campagne (`CeQueTuGagnes`, `NouveauxTrophees`, `APorter`). */
@@ -171,7 +186,9 @@ export interface GainsDuCabinet {
 }
 
 /** Le bilan à l'écran : le bilan figé, l'œuvre et son cartel, et ce que la fin a rapporté (la fin seule le sait). */
-export interface BilanVu extends Omit<BilanDUnePartie, 'v'> {
+export interface BilanVu extends Omit<BilanDUnePartie, 'v' | 'cartel'> {
+  /** Le cartel de l'œuvre, en clair — le bilan figé n'en garde que la manche (`BilanDUnePartie.cartel`) ; null : aucune manche n'a d'anecdote. */
+  cartel: CartelDuBilan | null
   seuil: number | null
   /** « Pas assez d'étoiles cette fois. Il en fallait 6. L'œuvre reste à gagner. » */
   dit: string
@@ -188,8 +205,12 @@ export interface VueDeLaPartie {
   rang: number
   jeu: CleDeJeu
   origine: OrigineDUnePartie
-  /** Ce qui est en jeu, sans nommer l'œuvre visée d'une visite tant qu'elle n'est pas gagnée. */
-  enJeu: { rarete: Rarete; salle: CleDeSalle } | { oeuvre: CleDOeuvre; pourDorer: true } | { poussiere: true } | null
+  /**
+   * Ce qui est en jeu, sans nommer l'œuvre visée d'une visite tant qu'elle
+   * n'est pas gagnée : la forme même d'une case de la visite (`EnjeuDUneCase`),
+   * que la page dessine d'une seule façon ; null en partie libre.
+   */
+  enJeu: EnjeuDUneCase | null
   seuil: number | null
   carte: CarteVue | null
   manche: Manche

@@ -250,6 +250,17 @@ export interface VisiteDuJour {
  * doit pas savoir avant de l'avoir gagnée.
  */
 export interface GraineDeLaVisite {
+  /**
+   * `HMAC-SHA256(secret du Cabinet, profileId)`, en hexadécimal : le secret se
+   * tire une fois et se garde en base (`campagne_meta`, lu dans le premier lot
+   * d'`init`, le gabarit de `jour_rappels_cles`), jamais dans une variable
+   * d'environnement ni en mémoire seule. La visite d'un profil qui n'a pas
+   * encore joué n'est écrite nulle part : tirée d'un secret neuf à chaque
+   * réveil — la production dort chaque nuit —, elle aurait changé entre deux
+   * pages, et deux serveurs pendant une mise en ligne en auraient montré deux.
+   * Le serveur la calcule (`core/cabinet/`) ; ce module ne connaît que son
+   * résultat.
+   */
   graine: string
   jour: string
   /** Minuit de Paris, ce jour-là : les œuvres en jeu se tirent parmi ce qui lui manquait à cette heure. */

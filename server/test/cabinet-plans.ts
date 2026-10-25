@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict'
 import { hasardDe } from '../../shared/missions'
 import type { Fiche, Lieu, Replique } from '../../shared/cabinet/contenu'
-import { jouerUnGeste, type CarteDuDepart, type DepartDUnePartie, type EtatDeLaPartie, type GesteDuCabinet, type GesteEcrit, ETAT_DU_DEPART } from '../../shared/cabinet/partie'
+import { chronoDuDepart, jouerUnGeste, type CarteDuDepart, type DepartDUnePartie, type EtatDeLaPartie, type GesteDuCabinet, type GesteEcrit, ETAT_DU_DEPART } from '../../shared/cabinet/partie'
 import type { ContenuTire } from '../../shared/cabinet/jeux/index'
 import type { CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import type { QuestionTiree } from '../../shared/cabinet/jeux/outils'
@@ -126,10 +126,14 @@ export function tirageDe(jeu: CleDeJeu, k: number): ContenuTire {
   }
 }
 
-/** Un départ d'essai : trois manches du jeu, et `rechanges` de plus pour « Changer » (jamais à la Frise). */
+/**
+ * Un départ d'essai : trois manches du jeu, et `rechanges` de plus pour « Changer » (jamais à la Frise) ; son
+ * chrono figé aux chiffres du jour et à sa carte, comme le serveur l'écrira (`chronoDuDepart`), sauf s'il le dit.
+ */
 export function departDe(jeu: CleDeJeu, o: Partial<DepartDUnePartie> & { rechanges?: number } = {}): DepartDUnePartie {
-  const { rechanges = 0, ...reste } = o
+  const { rechanges = 0, chrono, ...reste } = o
   const n = jeu === 'frise' ? 3 : 3 + rechanges
+  const carte = reste.carte ?? null
   return {
     v: 1,
     jeu,
@@ -139,7 +143,8 @@ export function departDe(jeu: CleDeJeu, o: Partial<DepartDUnePartie> & { rechang
     but: null,
     seuil: null,
     payee: true,
-    carte: null,
+    carte,
+    chrono: chrono ?? chronoDuDepart(jeu, carte),
     graine: 'graine-d-essai',
     tirages: Array.from({ length: n }, (_, k) => tirageDe(jeu, k)),
     ...reste,

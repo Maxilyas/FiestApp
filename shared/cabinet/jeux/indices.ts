@@ -222,7 +222,7 @@ export const REGLE_DES_INDICES: RegleQuiTranche<IndicesTires, EtatDesIndices, Ge
     switch (g?.quoi) {
       case 'indice':
         return { quoi: 'indice' }
-      // Pas recoupé ici : la lecture du geste de la partie (`lireUnGeste`, `shared/cabinet/partie.ts`) coupe le
+      // Pas recoupé ici : la lecture du geste de la partie (`lireUnGeste`, `shared/cabinet/lecture.ts`) coupe le
       // texte par `tronquer`, avant la règle du jeu et avant de l'écrire : tous les textes d'un geste, d'un seul endroit.
       case 'nom':
         return typeof g.texte === 'string' ? { quoi: 'nom', texte: g.texte } : null

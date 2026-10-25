@@ -8,7 +8,8 @@
 //
 // Le départ (`DepartDUnePartie`) fige tout ce qui se tire, réponses comprises :
 // les trois manches et les rechanges de « Changer » (`tirages`), la carte-bonus
-// et sa force, le seuil, et la graine du hasard d'Éclairer. Cette graine est
+// et sa force, le seuil, le chrono — chaque durée, la grâce, la pause —, et la
+// graine du hasard d'Éclairer. Cette graine est
 // un secret du serveur, tirée au départ (`randomUUID`) : jamais envoyée, ni
 // faite de ce que la page connaît — son profil, sa partie, le rang de ses
 // gestes. Faite d'eux (la conception d'abord : `${profileId}:${serieId}`), la
@@ -33,10 +34,12 @@
 // Pur : jamais l'horloge de la machine ni un hasard qui ne se rejoue pas. Une
 // partie finie et la partie en cours passent par le même pli, la même vue, le
 // même cartel (invariant 14) : une amélioration de la révélation profite aux
-// parties d'avant. Une règle qui change ce qu'une partie en route tire ou juge
-// — une durée, un barème de manche, ce que fait un pouvoir — monte la version
-// du départ (`VERSION_DU_DEPART`) : `lireLeDepart` refuse ce qu'il ne connaît
-// pas, plutôt que de relire une manche en route à une autre règle.
+// parties d'avant — le cartel d'une œuvre et « Mes réponses » repassent par le
+// départ et les gestes d'une partie finie, aussi vieille soit-elle. Ce qu'un
+// barème changé ferait à une partie déjà commencée se règle donc au départ :
+// ce qui se fige s'y fige (le seuil, le chrono) ; ce que le pli juge au barème
+// du code — un barème de manche, ce que fait un pouvoir — monte la version du
+// départ (`VERSIONS_DU_DEPART`) et garde la règle d'avant sous la sienne.
 
 import { hasardDe } from '../missions'
 import {
@@ -53,7 +56,7 @@ import { dansLesTemps, etapeOuverte, limiteDe, pauseCompteeMs, pauseEnCours, pau
 import { oeuvre } from './oeuvres'
 import { JOKER_DU_TEMPS, JOKER_D_ECLAIRER, type PieceDuCabinet } from './pieces'
 import { etoilesApresLesPouvoirs, mancheProtegee, refusDuPouvoir, type CleDePouvoir, type Force } from './pouvoirs'
-import { regleDe, type ContenuTire, type RegleEffacee } from './jeux/index'
+import { regleDe, type ContenuTire } from './jeux/index'
 import { eclairerSertEncore } from './jeux/outils'
 import type { TailleDuFilet } from './jeux/filet'
 import { trancheLaManche, type CleDeJeu, type VerdictDUneManche } from './jeux/regle'
@@ -61,15 +64,33 @@ import { trancheLaManche, type CleDeJeu, type VerdictDUneManche } from './jeux/r
 // ── Le départ ─────────────────────────────────────────────────────────────
 
 /**
- * La version des départs que ce code joue. Elle monte quand une règle change
- * ce qu'une partie en route tire ou juge : une durée (`DUREES_DES_JEUX`), un
- * barème de manche, ce que fait un pouvoir, une forme de tirage. Ni le départ
- * ni ses gestes ne figent une durée : le pli la relit au barème à chaque
- * relecture, et une manche en route changerait d'échéance.
+ * Les versions de départ que ce code relit et joue, de la première à celle des
+ * parties qui commencent — écrites en dur, jamais dérivées de la dernière : le
+ * cartel d'une œuvre et « Mes réponses » relisent le départ d'une partie finie,
+ * et une version qui quitterait la liste les rendrait illisibles (l'Expédition
+ * a perdu ses bilans à une v8 oubliée). Une version s'ajoute quand une règle
+ * change ce qu'une partie déjà commencée juge au barème du code — un barème de
+ * manche, ce que fait un pouvoir, une forme de tirage, toute retouche de la
+ * Frise — ; la règle d'avant se garde alors sous la sienne, et le pli la
+ * choisit par `d.v`. Une durée, la grâce, la pause n'en demandent pas : elles
+ * se figent au départ (`ChronoDuDepart`).
  */
-export const VERSION_DU_DEPART = 1
-/** La version des bilans que ce code écrit et relit (`lireLeBilan`). */
-export const VERSION_DU_BILAN = 1
+export const VERSIONS_DU_DEPART = [1] as const
+export type VersionDuDepart = (typeof VERSIONS_DU_DEPART)[number]
+/** Celle des parties qui commencent : la dernière de la liste. */
+export const VERSION_DU_DEPART: VersionDuDepart = VERSIONS_DU_DEPART[VERSIONS_DU_DEPART.length - 1]
+
+/**
+ * Les versions de bilan que ce code relit, de la même façon : écrites en dur.
+ * Un bilan est un fait de sa partie, jamais réécrit ; sa version monte quand sa
+ * forme change, ou quand le barème du jour sortirait des bornes de la sienne
+ * (`BORNES_DES_BILANS`, `lecture.ts`). Son nom dit le Cabinet : l'Expédition a
+ * la sienne (`VERSION_DU_BILAN`, `shared/codex.ts`).
+ */
+export const VERSIONS_DU_BILAN_DU_CABINET = [1] as const
+export type VersionDuBilan = (typeof VERSIONS_DU_BILAN_DU_CABINET)[number]
+/** Celle des bilans qui s'écrivent. */
+export const VERSION_DU_BILAN_DU_CABINET: VersionDuBilan = VERSIONS_DU_BILAN_DU_CABINET[VERSIONS_DU_BILAN_DU_CABINET.length - 1]
 
 export type Manche = 0 | 1 | 2
 export type OrigineDUnePartie = 'visite' | 'chasse' | 'libre'
@@ -81,9 +102,41 @@ export interface CarteDuDepart {
   force: Force
 }
 
+/**
+ * Le chrono d'une partie, figé à son départ comme son seuil : la durée de
+ * chaque étape de son jeu, ce que « Prendre son temps » y ajoute, la grâce et
+ * la pause. Le pli le relit à chaque relecture — un réveil, une mise en ligne,
+ * « Mes réponses » — : relu au barème du code, une durée changée aurait fait
+ * changer d'échéance une manche en route, et passer en retard un geste arrivé
+ * à l'heure. Un chiffre du chrono changé ne vaut donc que pour les parties qui
+ * commencent, sans version.
+ */
+export interface ChronoDuDepart {
+  /** La durée de chaque étape, sans le temps en plus : une, ou deux au Pari et à la Réplique (`DUREES_DES_JEUX`). */
+  etapesMs: readonly number[]
+  /** Ce que « Prendre son temps » ajoute à chaque étape (`SECONDES_PAR_FORCE` × la force de la carte) ; zéro sans elle. */
+  enPlusMs: number
+  /** Le réseau d'un téléphone (`GRACE_D_UNE_MANCHE_MS`). */
+  graceMs: number
+  /** La pause de « Quitter ? », au plus, par manche (`PAUSE_MAX_MS`). */
+  pauseMs: number
+}
+
+/** Le chrono qu'un départ fige, aux chiffres du jour : le serveur l'écrit avec le plan. */
+export function chronoDuDepart(jeu: CleDeJeu, carte: CarteDuDepart | null): ChronoDuDepart {
+  const regle = regleDe(jeu)
+  return {
+    etapesMs: Array.from({ length: regle.etapes }, (_, i) => regle.dureeMs(i === 0 ? 1 : 2)),
+    enPlusMs: carte?.pouvoir === 'temps' ? SECONDES_PAR_FORCE * carte.force * 1000 : 0,
+    graceMs: GRACE_D_UNE_MANCHE_MS,
+    pauseMs: PAUSE_MAX_MS,
+  }
+}
+
 /** Ce qu'un départ fige : `campagne_series.cabinet`, jamais réécrit, jamais envoyé au téléphone (invariant 1). */
 export interface DepartDUnePartie {
-  v: typeof VERSION_DU_DEPART
+  /** Sa version, telle qu'écrite : le pli joue la règle de la sienne. */
+  v: VersionDuDepart
   jeu: CleDeJeu
   origine: OrigineDUnePartie
   /** Sa case de la visite du jour. */
@@ -101,6 +154,8 @@ export interface DepartDUnePartie {
   /** Une partie libre parmi les cinq du jour qui paient, comptée par la base au départ ; vrai en visite et en chasse. */
   payee: boolean
   carte: CarteDuDepart | null
+  /** Le chrono de ses manches, figé (`chronoDuDepart`). */
+  chrono: ChronoDuDepart
   /**
    * La graine du hasard d'Éclairer, tirée au départ par le serveur
    * (`randomUUID`) : recharger redonne la même réponse effacée, la même lettre
@@ -115,7 +170,7 @@ export interface DepartDUnePartie {
   tirages: readonly ContenuTire[]
 }
 
-/** L'année du jour de Paris du départ : la borne des pistes d'années du Filet, que le tireur lit et que `lireLeDepart` revérifie. */
+/** L'année du jour de Paris du départ : la borne des pistes d'années du Filet, que le tireur lit — `lireLeDepart` n'y relit que la coupe de la piste. */
 export const anneeDuDepart = (d: Pick<DepartDUnePartie, 'jour'>): number => Number(d.jour.slice(0, 4))
 
 /** Une partie d'un jour d'avant, que la première page du jour clôt (`clore`) : un téléphone éteint en pleine manche, un joueur jamais revenu. */
@@ -271,16 +326,10 @@ const auChoix = (etat: unknown): boolean => (etat as { auChoix?: unknown }).auCh
 /** Le chrono de la manche court-il ? Ni tranchée, ni au choix du Pari. */
 const chronoActif = (m: MancheDuPli): boolean => m.verdict === null && !auChoix(m.etat)
 
-/** La durée d'une étape à ce départ : celle du barème, « Prendre son temps » en plus. */
-function dureesDeLEtape(d: DepartDUnePartie, regle: RegleEffacee, etape: 1 | 2): { dureeMs: number; dureeNormaleMs: number } {
-  const normale = regle.dureeMs(etape)
-  const enPlus = d.carte?.pouvoir === 'temps' ? SECONDES_PAR_FORCE * d.carte.force * 1000 : 0
-  return { dureeMs: normale + enPlus, dureeNormaleMs: normale }
-}
-
-function etapeNeuve(d: DepartDUnePartie, regle: RegleEffacee, etape: 1 | 2, t: number, pauseDisponibleMs: number): EtapeDUneManche {
-  const { dureeMs, dureeNormaleMs } = dureesDeLEtape(d, regle, etape)
-  return { ...etapeOuverte(t, dureeMs, pauseDisponibleMs), dureeNormaleMs, eclairee: false, tempsEnPlus: false }
+/** Une étape qui s'ouvre à `t`, au chrono figé de son départ — jamais au barème du jour. */
+function etapeNeuve(d: DepartDUnePartie, etape: 1 | 2, t: number, pauseDisponibleMs: number): EtapeDUneManche {
+  const dureeNormaleMs = d.chrono.etapesMs[etape - 1]
+  return { ...etapeOuverte(t, dureeNormaleMs + d.chrono.enPlusMs, pauseDisponibleMs, d.chrono.graceMs), dureeNormaleMs, eclairee: false, tempsEnPlus: false }
 }
 
 /** Une étape qui s'arrête à `t` : sa pause en cours se ferme — une étape tranchée ne recule plus son échéance. */
@@ -289,10 +338,10 @@ function arretee(e: EtapeDUneManche, t: number): EtapeDUneManche {
 }
 
 /** Le nouvel état du jeu d'une manche, à `t` : la seconde étape s'ouvre si le jeu y passe, avec ce qui reste de la pause. */
-function avecLEtat(d: DepartDUnePartie, regle: RegleEffacee, m: MancheDuPli, etat: unknown, t: number): MancheDuPli {
+function avecLEtat(d: DepartDUnePartie, m: MancheDuPli, etat: unknown, t: number): MancheDuPli {
   if (etapeDuJeu(etat) <= m.etapes.length) return { ...m, etat }
   const avant = arretee(derniere(m), t)
-  const etapes = [...m.etapes.slice(0, -1), avant, etapeNeuve(d, regle, 2, t, pauseLaisseeMs(avant, t))]
+  const etapes = [...m.etapes.slice(0, -1), avant, etapeNeuve(d, 2, t, pauseLaisseeMs(avant, t))]
   return { ...m, etat, etapes }
 }
 
@@ -304,7 +353,7 @@ function avecLEtat(d: DepartDUnePartie, regle: RegleEffacee, m: MancheDuPli, eta
 function marquerLeTemps(d: DepartDUnePartie, m: MancheDuPli, t: number): MancheDuPli {
   if (d.carte?.pouvoir !== 'temps' || !chronoActif(m)) return m
   const e = derniere(m)
-  if (e.tempsEnPlus || t <= e.ouverteLe + e.dureeNormaleMs + pauseCompteeMs(e, t) + GRACE_D_UNE_MANCHE_MS) return m
+  if (e.tempsEnPlus || t <= e.ouverteLe + e.dureeNormaleMs + pauseCompteeMs(e, t) + e.graceMs) return m
   return { ...m, etapes: [...m.etapes.slice(0, -1), { ...e, tempsEnPlus: true }] }
 }
 
@@ -363,7 +412,7 @@ function avancer(d: DepartDUnePartie, etat: EtatDeLaPartie, t: number): EtatDeLa
     if (vide && !trancheLaManche(regle, tiree, m.etat, vide)) {
       const apres = regle.apresLeGeste(tiree, m.etat, vide)
       if (typeof apres !== 'string' && etapeDuJeu(apres) > m.etapes.length) {
-        e = remplacer(e, avecLEtat(d, regle, m, apres, limite))
+        e = remplacer(e, avecLEtat(d, m, apres, limite))
         continue
       }
     }
@@ -376,9 +425,13 @@ function avancer(d: DepartDUnePartie, etat: EtatDeLaPartie, t: number): EtatDeLa
  * La partie qui finit à `t` : la manche ouverte et pas tranchée compte ce
  * qu'en dit son jeu, quittée — zéro, `choix` NULL, sa pièce écrite (il l'a
  * vue) ; un Pari juste au premier coup, laissé au choix, garde son étoile.
- * Une manche jamais ouverte compte zéro, sans pièce.
+ * Une manche jamais ouverte compte zéro, sans pièce. Une partie que le temps a
+ * déjà finie — sa dernière manche expirée avant « Quitter » ou la page du
+ * lendemain — reste jouée, à l'heure où elle a fini : la réécrire quittée
+ * aurait mis `quittee` au bilan d'une partie menée au bout.
  */
 function finir(d: DepartDUnePartie, etat: EtatDeLaPartie, t: number, pourquoi: FinDUnePartie['pourquoi']): EtatDeLaPartie {
+  if (etat.fin) return etat
   const m = courante(etat)
   let e = etat
   if (m && m.verdict === null) e = trancher(d, e, m, regleDe(d.jeu).juger(tireeDe(d, m), m.etat, 'quittee'), t, 'quittee')
@@ -400,7 +453,7 @@ function ouvrir(d: DepartDUnePartie, e: EtatDeLaPartie, g: Extract<GesteDuCabine
     manche: g.manche,
     tirage: g.manche,
     etat: regle.ouvrir(d.tirages[g.manche]),
-    etapes: [etapeNeuve(d, regle, 1, t, PAUSE_MAX_MS)],
+    etapes: [etapeNeuve(d, 1, t, d.chrono.pauseMs)],
     aJoue: false,
     misee: g.miser === true,
     verdict: null,
@@ -456,19 +509,25 @@ export function jouerUnGeste(d: DepartDUnePartie, avant: EtatDeLaPartie, g: Gest
     case 'ouvrir':
       return suiteOuRefus(ouvrir(d, avant, g, t))
   }
-  const m = courante(avant)
-  if (!m) return PAS_ENCORE_OUVERTE
-  if (g.manche !== m.manche) return AUTRE_MANCHE
-  if (m.verdict) return MANCHE_JOUEE
-  const etape = derniere(m)
-  const enRetard = chronoActif(m) && !dansLesTemps(etape, t)
+  const ouverte = courante(avant)
+  if (!ouverte) return PAS_ENCORE_OUVERTE
+  if (g.manche !== ouverte.manche) return AUTRE_MANCHE
+  if (ouverte.verdict) return MANCHE_JOUEE
+  const etape = derniere(ouverte)
+  const enRetard = chronoActif(ouverte) && !dansLesTemps(etape, t)
   // La réponse que la page envoie à l'échéance, arrivée après la grâce : elle porte l'expiration, rien de ce qu'elle tient.
   if (g.quoi === 'repondre' && enRetard) return suite(avancer(d, avant, t))
+  const sansPause = (): MancheDuPli => ({ ...ouverte, etapes: [...ouverte.etapes.slice(0, -1), arretee(etape, t)] })
+  let m = ouverte
   if (pauseEnCours(etape)) {
-    if (g.quoi !== 'reprendre') return g.quoi === 'pause' ? DEJA_EN_PAUSE : EN_PAUSE
-    return suite(remplacer(avant, { ...m, etapes: [...m.etapes.slice(0, -1), arretee(etape, t)] }))
-  }
-  if (g.quoi === 'reprendre') return PAS_EN_PAUSE
+    if (g.quoi === 'reprendre') return suite(remplacer(avant, sansPause()))
+    // Sous la confirmation de « Quitter ? », seule la réponse passe : au bout des trente secondes, le chrono a
+    // repris sous le voile, et à l'échéance la page envoie d'elle-même ce qu'elle tenait — l'épingle, la frise, le
+    // curseur. Arrivée à l'heure, elle ferme la pause et se juge sur ce qu'elle porte ; refusée, l'épingle partie
+    // à temps aurait compté pour rien. Une réponse n'achète pas de temps : la pause s'arrête à son arrivée.
+    if (g.quoi !== 'repondre') return g.quoi === 'pause' ? DEJA_EN_PAUSE : EN_PAUSE
+    m = sansPause()
+  } else if (g.quoi === 'reprendre') return PAS_EN_PAUSE
   if (enRetard) return TEMPS_ECOULE
   switch (g.quoi) {
     case 'pause':
@@ -488,7 +547,7 @@ export function jouerUnGeste(d: DepartDUnePartie, avant: EtatDeLaPartie, g: Gest
   if (trancheLaManche(regle, tiree, m.etat, lu)) return suite(trancher(d, remplacer(avant, jouee), jouee, regle.juger(tiree, m.etat, lu), t, 'jugee'))
   const etat = regle.apresLeGeste(tiree, m.etat, lu)
   if (typeof etat === 'string') return etat
-  return suite(remplacer(avant, avecLEtat(d, regle, jouee, etat, t)))
+  return suite(remplacer(avant, avecLEtat(d, jouee, etat, t)))
 }
 
 /** Le refus de ce geste, maintenant ; null : il passe. */
@@ -683,7 +742,8 @@ export function poussiereDeLaPartie(d: DepartDUnePartie, r: { total: number; iss
 
 /** Le bilan d'une partie finie (`campagne_series.bilan`), écrit dans le lot qui la clôt : jamais réécrit. */
 export interface BilanDUnePartie {
-  v: typeof VERSION_DU_BILAN
+  /** Sa version, telle qu'écrite. */
+  v: VersionDuBilan
   /** Après les pouvoirs : une manche misée parfaite peut valoir 3 + 4. */
   etoiles: [number, number, number]
   /** Avant les pouvoirs : le cadre doré et la juste les lisent. */
@@ -705,7 +765,7 @@ export function bilanDe(d: DepartDUnePartie, e: EtatDeLaPartie, aLui: LOeuvreALu
   const r = resultatDe(d, e)
   const issue = issueDe(d, r, aLui)
   return {
-    v: VERSION_DU_BILAN,
+    v: VERSION_DU_BILAN_DU_CABINET,
     etoiles: r.etoiles,
     naturel: r.naturel,
     aidee: r.aidee,

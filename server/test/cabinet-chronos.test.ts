@@ -1,5 +1,5 @@
-// Le chrono des manches du Cabinet, à l'heure du serveur (lot B3, la
-// conception du 24 octobre 2026, § 2.7), en pur : dans les temps, dans la
+// Le chrono des manches du Cabinet, à l'heure du serveur (`shared/cabinet/chrono.ts`,
+// la règle `.claude/rules/cabinet.md`), en pur : figé au départ ; dans les temps, dans la
 // grâce, en retard ; la réponse que la page envoie d'elle-même à l'échéance ;
 // la pause de « Quitter ? », bornée et voilée ; le Pari sans chrono entre ses
 // étapes ; la Réplique, dont « Qui l'a dit ? » s'ouvre aussi à l'échéance du
@@ -13,7 +13,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { DUREES_DES_JEUX, GRACE_D_UNE_MANCHE_MS, PAUSE_MAX_MS, SECONDES_PAR_FORCE } from '../../shared/cabinet/bareme'
 import { dansLesTemps, echeanceDe, etapeOuverte, limiteDe, pauseCompteeMs, pauseResteMs } from '../../shared/cabinet/chrono'
 import { JOKER_DU_TEMPS } from '../../shared/cabinet/pieces'
-import { phaseDe, pouvoirMaintenant, resultatDe, type GesteDuCabinet, type Manche } from '../../shared/cabinet/partie'
+import { chronoDuDepart, phaseDe, pouvoirMaintenant, resultatDe, type GesteDuCabinet, type Manche } from '../../shared/cabinet/partie'
+import type { EpingleTiree } from '../../shared/cabinet/jeux/epingle'
 import type { RepliqueTiree } from '../../shared/cabinet/jeux/replique'
 import { MIDI, Partie, S, carte, departDe, ouvrir } from './cabinet-plans'
 
@@ -40,6 +41,36 @@ test('le chrono d’une étape : son échéance, la grâce du réseau, la pause 
   assert.equal(pauseResteMs(enCours, MIDI + 10 * 60 * S), 0)
   // Une étape d'après n'a que ce que la première n'a pas pris.
   assert.equal(etapeOuverte(MIDI, 25 * S, 12 * S).pauseDisponibleMs, 12 * S)
+})
+
+test('le chrono se lit au départ, figé, jamais au barème du jour : une durée changée ne touche pas une manche en route', () => {
+  // Une partie commencée sous un autre barème — le Mot à 90 s, une grâce d'une seconde, dix secondes de pause —, relue
+  // aujourd'hui : chacune de ses manches court à ce qu'elle avait au départ.
+  // Ce que le serveur fige au départ : les chiffres du jour, une durée par étape, le temps en plus de sa carte.
+  assert.deepEqual(chronoDuDepart('pari', carte('temps', 2, 'pioche')), {
+    etapesMs: [DUREES_DES_JEUX.pari * S, DUREES_DES_JEUX.pari * S],
+    enPlusMs: 2 * SECONDES_PAR_FORCE * S,
+    graceMs: GRACE_D_UNE_MANCHE_MS,
+    pauseMs: PAUSE_MAX_MS,
+  })
+  assert.deepEqual(chronoDuDepart('mot', carte('eclairer')).etapesMs, [MOT_MS])
+  assert.equal(chronoDuDepart('mot', carte('eclairer')).enPlusMs, 0, 'une autre carte ne donne pas de temps')
+  const avant = { etapesMs: [90 * S], enPlusMs: 0, graceMs: S, pauseMs: 10 * S }
+  const p = new Partie(departDe('mot', { chrono: avant }))
+  p.joue(ouvrir(0), MIDI)
+  assert.equal(p.etat.manches[0].etapes[0].dureeMs, 90 * S)
+  p.joue({ quoi: 'pause', manche: 0 }, MIDI + 10 * S)
+  p.joue({ quoi: 'reprendre', manche: 0 }, MIDI + 40 * S)
+  assert.equal(echeanceDe(p.etat.manches[0].etapes[0], MIDI + 41 * S), MIDI + 100 * S, 'dix secondes de pause, pas trente')
+  p.joue(essai(0, 'KAUNASS'), MIDI + 101 * S)
+  assert.equal(p.refuse(essai(0, 'VILNIUS'), MIDI + 101 * S + 1), 'Le temps de cette manche est écoulé', 'une seconde de grâce')
+  // « Prendre son temps » aussi : ce qu'il ajoutait au départ, quelle que soit sa force aujourd'hui.
+  const temps = new Partie(departDe('pari', { carte: carte('temps', 3, 'maitrise'), chrono: { etapesMs: [20 * S, 20 * S], enPlusMs: 5 * S, graceMs: S, pauseMs: 30 * S } }))
+  temps.joue(ouvrir(0), MIDI)
+  assert.deepEqual([temps.etat.manches[0].etapes[0].dureeMs, temps.etat.manches[0].etapes[0].dureeNormaleMs], [25 * S, 20 * S])
+  temps.joue(repondre(0, { pari: { choix: 1 } }), MIDI + 23 * S)
+  temps.joue({ quoi: 'garder', manche: 0 }, MIDI + 30 * S)
+  assert.equal(temps.etat.pieces[0].joker, JOKER_DU_TEMPS, 'arrivée après sa durée normale et sa grâce d’alors')
 })
 
 test('dans les temps, dans la grâce, en retard : un geste après la grâce se refuse, une réponse la juge expirée', () => {
@@ -108,6 +139,33 @@ test('la pause de « Quitter ? » : trente secondes au plus par manche, la manch
   q.joue({ quoi: 'quitter' }, MIDI + 15 * S)
   assert.equal(q.etat.manches[0].fin, 'quittee')
   assert.equal(q.etat.manches[0].etapes[0].pauses[0].jusqua, MIDI + 15 * S, 'la pause se ferme avec la manche')
+})
+
+test('la pause oubliée : la réponse que la page envoie à l’échéance reculée se juge sur ce qu’elle porte, et ferme la pause', () => {
+  // Le téléphone reste sur « Quitter ? » : au bout des trente secondes, le chrono reprend sous le voile, et à
+  // l'échéance la page envoie d'elle-même l'épingle qu'elle tenait. Elle était à l'heure : elle compte.
+  const epingle = DUREES_DES_JEUX.epingle * S
+  const planter = (t: number) => {
+    const p = new Partie(departDe('epingle'))
+    const { lieu } = p.depart.tirages[0] as EpingleTiree
+    p.joue(ouvrir(0), MIDI)
+    p.joue({ quoi: 'pause', manche: 0 }, MIDI + 10 * S)
+    p.joue(repondre(0, { epingle: { lat: lieu.lat, lon: lieu.lon } }, true), t)
+    return p.etat
+  }
+  const aLHeure = planter(MIDI + epingle + PAUSE_MAX_MS)
+  assert.deepEqual([aLHeure.manches[0].fin, aLHeure.manches[0].verdict?.naturel], ['jugee', 3], 'l’épingle posée compte')
+  assert.equal(aLHeure.manches[0].etapes[0].pauses[0].jusqua, MIDI + epingle + PAUSE_MAX_MS, 'la réponse ferme la pause')
+  assert.equal(phaseDe(aLHeure), 'revele')
+  // Dans la grâce aussi ; après, la manche a expiré sous le voile, et rien de ce qu'elle porte ne compte.
+  assert.equal(planter(MIDI + epingle + PAUSE_MAX_MS + GRACE_D_UNE_MANCHE_MS).manches[0].fin, 'jugee')
+  const tard = planter(MIDI + epingle + PAUSE_MAX_MS + GRACE_D_UNE_MANCHE_MS + 1)
+  assert.deepEqual([tard.manches[0].fin, tard.manches[0].verdict?.naturel], ['expiree', 0])
+  // Sous la pause, seule la réponse passe : un essai, Éclairer attendent « Continuer ».
+  const mot = new Partie(departDe('mot'))
+  mot.joue(ouvrir(0), MIDI)
+  mot.joue({ quoi: 'pause', manche: 0 }, MIDI + 10 * S)
+  assert.equal(mot.refuse(essai(0, 'VILNIUS'), MIDI + 60 * S), 'La partie est en pause : reprends-la d’abord')
 })
 
 test('le Pari : un chrono par étape, aucun entre « Juste ! » et « Garder » ou « Parier »', () => {

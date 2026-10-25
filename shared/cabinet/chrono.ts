@@ -16,8 +16,12 @@
 // chrono reprend sous le voile ; une pause oubliée — un téléphone qui s'endort
 // sur la confirmation — n'est qu'une pause de trente secondes.
 //
-// La grâce et la pause sont des chiffres du barème : la page les importe de
-// `bareme.ts`, elle ne les recopie pas.
+// La durée, la grâce et la pause sont des chiffres du barème, figés au départ
+// de chaque partie (`DepartDUnePartie.chrono`) : chaque étape porte ceux de sa
+// partie, et un barème changé ne touche que les parties qui commencent — relue
+// au barème du jour, une manche en route aurait changé d'échéance, et un geste
+// arrivé à l'heure serait passé en retard. La page lit l'échéance dans la vue ;
+// elle ne recopie aucun de ces chiffres.
 
 import { GRACE_D_UNE_MANCHE_MS, PAUSE_MAX_MS } from './bareme'
 
@@ -39,11 +43,16 @@ export interface EtapeChronometree {
    * n'a pas pris. Toute la pause, à la première étape.
    */
   pauseDisponibleMs: number
+  /** La grâce du réseau, celle de sa partie : un geste arrivé jusqu'à tant après l'échéance est encore à l'heure. */
+  graceMs: number
 }
 
-/** Une étape qui s'ouvre à `t`, avec ce qui reste de la pause de sa manche. */
-export function etapeOuverte(t: number, dureeMs: number, pauseDisponibleMs: number = PAUSE_MAX_MS): EtapeChronometree {
-  return { ouverteLe: t, dureeMs, pauses: [], pauseDisponibleMs: Math.max(0, Math.min(PAUSE_MAX_MS, pauseDisponibleMs)) }
+/**
+ * Une étape qui s'ouvre à `t`, avec ce qui reste de la pause de sa manche et
+ * la grâce de sa partie — figées à son départ ; le barème du jour, à défaut.
+ */
+export function etapeOuverte(t: number, dureeMs: number, pauseDisponibleMs: number = PAUSE_MAX_MS, graceMs: number = GRACE_D_UNE_MANCHE_MS): EtapeChronometree {
+  return { ouverteLe: t, dureeMs, pauses: [], pauseDisponibleMs: Math.max(0, pauseDisponibleMs), graceMs }
 }
 
 /**
@@ -64,10 +73,11 @@ export function echeanceDe(e: EtapeChronometree, t: number): number {
 
 /**
  * Un geste arrivé à `t` est-il dans les temps ? Jusqu'à l'échéance et la
- * grâce (`GRACE_D_UNE_MANCHE_MS`) : le réseau d'un téléphone. Après, la manche
- * se juge expirée — ce qu'un geste en retard portait ne compte pas.
+ * grâce de l'étape (`GRACE_D_UNE_MANCHE_MS` à son départ) : le réseau d'un
+ * téléphone. Après, la manche se juge expirée — ce qu'un geste en retard
+ * portait ne compte pas.
  */
-export const dansLesTemps = (e: EtapeChronometree, t: number): boolean => t <= echeanceDe(e, t) + GRACE_D_UNE_MANCHE_MS
+export const dansLesTemps = (e: EtapeChronometree, t: number): boolean => t <= echeanceDe(e, t) + e.graceMs
 
 /**
  * L'instant où l'étape cesse d'attendre : son échéance et sa grâce, la pause
@@ -77,7 +87,7 @@ export const dansLesTemps = (e: EtapeChronometree, t: number): boolean => t <= e
  * Réplique s'ouvre.
  */
 export function limiteDe(e: EtapeChronometree): number {
-  return echeanceDe(e, Number.POSITIVE_INFINITY) + GRACE_D_UNE_MANCHE_MS
+  return echeanceDe(e, Number.POSITIVE_INFINITY) + e.graceMs
 }
 
 /** La pause en cours, s'il y en a une. */
