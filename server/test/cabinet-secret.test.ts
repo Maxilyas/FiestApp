@@ -5,7 +5,9 @@
 // question du Pari avant « Parier », ni le vrai ou faux d'une affirmation de
 // l'Éclair, ni le tableau du Détail — son identifiant, son année, lequel des
 // quatre titres est le bon —, ni l'année d'un nouveau venu de la Frise, ni les
-// événements des vagues à venir, ni une rechange de « Changer ». Jamais la graine de la partie,
+// événements des vagues à venir, ni le mot du Mot mystère — sa longueur seule,
+// et les couleurs de ce qu'il a tapé —, ni la valeur du Filet, ni la zone
+// d'Éclairer rejouée de ce que la page connaît, ni une rechange de « Changer ». Jamais la graine de la partie,
 // jamais celle de la visite, ni le secret dont elle est faite ; jamais
 // l'œuvre visée d'une case de la visite. Chaque réponse se lit en entier
 // (`JSON.stringify`) : un champ neuf qui s'y glisserait de lui-même s'y
@@ -41,6 +43,9 @@ import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import type { EclairTire } from '../../shared/cabinet/jeux/eclair'
 import type { DetailTire } from '../../shared/cabinet/jeux/detail'
 import type { FriseTiree } from '../../shared/cabinet/jeux/frise'
+import type { MotMontre, MotRevele, MotTire } from '../../shared/cabinet/jeux/mot'
+import { REGLE_DU_FILET, type EtatDuFilet, type FiletMontre, type FiletRevele, type FiletTire } from '../../shared/cabinet/jeux/filet'
+import { hasardDe } from '../../shared/missions'
 import type { QuestionTiree } from '../../shared/cabinet/jeux/outils'
 import type { PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 
@@ -194,6 +199,96 @@ test('la Frise : ni l’année d’un nouveau venu, ni l’ordre du temps, ni le
   assert.match(texte(revelee.revelation), /"annee"/, 'la révélation dit les années')
   const suivante = ok(await jouer(b, leo, revelee, { quoi: 'ouvrir', manche: 1 }), 'la manche suivante')
   aSaManche(suivante, 1, 0, 'la manche 2')
+})
+
+test('le Mot mystère : ni le mot, ni sa réponse écrite, ni les autres réponses, ni son anecdote avant le verdict — sa longueur, ses couleurs, la lettre soufflée — ni la rechange de Changer', async () => {
+  const mia = await inscrireProfil(b.banc.url, 'mia', 'Mia')
+  /** Ce que la manche du Mot garde jusqu'à son verdict : le mot, ce qu'il écrit, les réponses de sa question, son anecdote. */
+  const sansLeMot = (t: MotTire, x: unknown, ou: string) => {
+    const s = texte(x)
+    assert.ok(!s.includes(t.lettres), `${ou} : le mot`)
+    for (const r of [t.affiche, ...t.question.reponses]) assert.ok(!s.includes(`"${r}"`), `${ou} : « ${r} », une réponse de la question`)
+    assert.doesNotMatch(s, /"affiche"|"reponses"|"reponse"/, `${ou} : un champ de la réponse`)
+    sansSaReponse(t.question, x, ou)
+  }
+  /** La manche montrée, rien de plus que ce que la règle montre : sa longueur, ses essais et leurs couleurs, les lettres soufflées. */
+  const aSaManche = (x: VueDeLaPartie, t: MotTire, ou: string) => {
+    const m = x.enCours as MotMontre
+    assert.deepEqual(Object.keys(m).sort(), ['categorie', 'essais', 'essaisMax', 'jeu', 'longueur', 'soufflees', 'texte'], ou)
+    assert.equal(m.longueur, t.lettres.length, ou)
+    for (const e of m.essais) assert.deepEqual(Object.keys(e).sort(), ['couleurs', 'lettres'], ou)
+  }
+  // L'Échange, une œuvre de départ : il change, et le plan garde sa rechange.
+  const v0 = ok(await commencer(b, mia, { origine: 'libre', jeu: 'mot', carte: 'echange' }), 'commencer')
+  const d = departEnBase(b.fichier, v0.id)
+  const t = d.tirages[0] as MotTire
+  const rechange = d.tirages[3] as MotTire
+  assert.ok(rechange, 'une rechange au plan')
+  const essaye = ok(await jouer(b, mia, v0, { quoi: 'essai', manche: 0, lettres: 'X'.repeat(t.lettres.length) }), 'un essai')
+  for (const [ou, x] of [
+    ['le départ', v0],
+    ['la page', ok(await laPage(b, mia), 'la page').enCours!],
+    ['un essai', essaye],
+  ] as const) {
+    jamais(d, x, ou)
+    sansLeMot(t, x, ou)
+    aSaManche(x, t, ou)
+    assert.ok(!texte(x).includes(rechange.question.texte) && !texte(x).includes(rechange.lettres), `${ou} : la rechange`)
+  }
+  // Le verdict dit le mot ; la rechange, jamais prise, ne se dit toujours pas.
+  const trouve = ok(await jouer(b, mia, essaye, { quoi: 'essai', manche: 0, lettres: t.lettres }), 'le mot')
+  jamais(d, trouve, 'révélée')
+  assert.equal((trouve.revelation?.corps as MotRevele).lettres, t.lettres)
+  assert.ok(!texte(trouve).includes(rechange.question.texte), 'la rechange, même après')
+  ok(await jouer(b, mia, trouve, { quoi: 'quitter' }), 'quitter')
+
+  // Éclairer souffle une lettre, à sa place : elle seule, rien du reste du mot.
+  const e0 = ok(await commencer(b, mia, { origine: 'libre', jeu: 'mot', carte: 'coup-d-oeil' }), 'commencer')
+  const de = departEnBase(b.fichier, e0.id)
+  const te = de.tirages[0] as MotTire
+  const eclairee = ok(await jouer(b, mia, e0, { quoi: 'eclairer', manche: 0 }), 'éclairer')
+  jamais(de, eclairee, 'éclairée')
+  sansLeMot(te, eclairee, 'éclairée')
+  aSaManche(eclairee, te, 'éclairée')
+  const [soufflee] = (eclairee.enCours as MotMontre).soufflees
+  assert.equal((eclairee.enCours as MotMontre).soufflees.length, 1)
+  assert.equal(soufflee.lettre, te.lettres[soufflee.position])
+})
+
+test('le Filet : ni la valeur, ni les réponses de sa question, ni son anecdote avant le verdict — sa piste seule —, et la zone d’Éclairer, que la page ne rejoue pas', async () => {
+  const sam = await inscrireProfil(b.banc.url, 'sam', 'Sam')
+  const id = (await lire(b, sam, '/api/joueur/moi?leger')).corps.profile.id as string
+  const v0 = ok(await commencer(b, sam, { origine: 'libre', jeu: 'filet', carte: 'coup-d-oeil' }), 'commencer')
+  const d = departEnBase(b.fichier, v0.id)
+  const t = d.tirages[0] as FiletTire
+  /** Ce que la manche du Filet garde jusqu'à son verdict : la valeur, les réponses de sa question — la bonne écrite —, son anecdote. */
+  const sansLaValeur = (x: unknown, ou: string) => {
+    const s = texte(x)
+    assert.doesNotMatch(s, /"valeur"|"reponses"|"reponse"|"lancer"/, `${ou} : un champ de la réponse`)
+    for (const r of t.question.reponses) assert.ok(!s.includes(`"${r}"`), `${ou} : « ${r} », une réponse de la question`)
+    sansSaReponse(t.question, x, ou)
+  }
+  const eclairee = ok(await jouer(b, sam, v0, { quoi: 'eclairer', manche: 0 }), 'éclairer')
+  for (const [ou, x] of [
+    ['le départ', v0],
+    ['la page', ok(await laPage(b, sam), 'la page').enCours!],
+    ['éclairée', eclairee],
+  ] as const) {
+    jamais(d, x, ou)
+    sansLaValeur(x, ou)
+    assert.deepEqual((x.enCours as FiletMontre).piste, t.piste, `${ou} : la piste, elle, se montre`)
+  }
+  // La zone contient la réponse : rejouée de la graine du départ — un secret du serveur —, elle se retrouve ; de ce que la page
+  // connaît, son profil, sa partie, le rang du geste (la graine que la conception proposait), jamais.
+  const zone = (eclairee.enCours as FiletMontre).zone!
+  assert.ok(zone.de <= t.valeur && t.valeur <= zone.a)
+  const rejouee = (graine: string) => (REGLE_DU_FILET.eclairer(t, { zone: null }, hasardDe(`${graine}:eclairer:${v0.rang}`)) as EtatDuFilet).zone
+  assert.deepEqual(rejouee(d.graine), zone, 'le hasard d’Éclairer vient de la graine du départ')
+  for (const devinee of [`${id}:${v0.id}`, v0.id, id, '']) assert.notDeepEqual(rejouee(devinee), zone, `rejouée de « ${devinee} »`)
+  // Le verdict : la révélation dit la valeur.
+  const revelee = ok(await jouer(b, sam, eclairee, { quoi: 'repondre', manche: 0, reponse: { filet: { x: t.valeur, taille: 'moyen' } } }), 'lancer')
+  jamais(d, revelee, 'révélée')
+  assert.equal((revelee.revelation?.corps as FiletRevele).valeur, t.valeur)
 })
 
 test('le bilan se choisit champ par champ : un champ de plus au bilan figé ne part pas de lui-même, ni l’œuvre visée d’une visite manquée', async () => {

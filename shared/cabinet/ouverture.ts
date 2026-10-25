@@ -27,6 +27,7 @@ export function cabinetOuvert({ online, env }: { online: boolean; env: string })
  * s'ouvrent un à un, chacun avec son tireur (`server/src/core/cabinet/tirages/`)
  * et son écran : le Pari et l'Éclair d'abord, qui tirent leurs questions de la
  * base de la campagne ; puis le Détail, ses cent tableaux, et la Frise, ses
- * frises à thème et celles des sujets de la base.
+ * frises à thème et celles des sujets de la base ; puis le Mot mystère et le
+ * Filet, qui y tirent un mot à taper et une valeur à viser.
  */
-export const JEUX_PRETS: readonly CleDeJeu[] = ['pari', 'eclair', 'detail', 'frise']
+export const JEUX_PRETS: readonly CleDeJeu[] = ['pari', 'eclair', 'detail', 'frise', 'mot', 'filet']

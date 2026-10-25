@@ -20,7 +20,9 @@ import type { CleDeJeu } from '../../../../../shared/cabinet/jeux/regle'
 import { Posees, type ContexteDuTirage } from './communs'
 import { tirerUnDetail } from './detail'
 import { tirerUnEclair } from './eclair'
+import { tirerUnFilet } from './filet'
 import { tirerUneFrise } from './frise'
+import { tirerUnMot } from './mot'
 import { tirerUnPari } from './pari'
 
 export { FENETRE_DU_CABINET_MS, Posees, type CeQueLesTireursLisent, type ContexteDuTirage } from './communs'
@@ -58,6 +60,8 @@ export const TIREURS: Readonly<Partial<Record<CleDeJeu, Tireur>>> = {
   eclair: { manche: tirerUnEclair },
   detail: { manche: tirerUnDetail },
   frise: { partie: tirerUneFrise },
+  mot: { manche: tirerUnMot },
+  filet: { manche: tirerUnFilet },
 }
 
 /**

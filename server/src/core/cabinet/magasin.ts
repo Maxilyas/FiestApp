@@ -114,7 +114,8 @@ export interface ReglagesDuCabinet {
   /**
    * Le hasard que le Cabinet tire lui-même — l'ordre des catégories de
    * l'Éclair, l'affirmation proposée, les voisins et l'ordre des titres du
-   * Détail, le sujet d'une frise, ses sept événements et leurs vagues — :
+   * Détail, le sujet d'une frise, ses sept événements et leurs vagues, la
+   * piste du Filet — :
    * celui du serveur, `Math.random` à défaut. Le tirage à la pièce garde le
    * sien (`tirerPourUneEscale`, `laMoinsVue`, `versQuestionDeSerie`,
    * `core/tirageALaPiece.ts`), le même que les autres modes : aucun des deux

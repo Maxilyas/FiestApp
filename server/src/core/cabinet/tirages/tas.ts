@@ -10,15 +10,22 @@
 //
 // Le Pari et l'Éclair puisent dans le même tas : des QCM de quatre réponses qui
 // se lisent en 360 pixels, chrono en marche, et ne se trahissent pas d'eux-mêmes.
+// Le Mot mystère, dans les questions dont la bonne réponse est un mot à taper ;
+// le Filet, dans celles dont elle est une année ou un nombre à viser. Les trois
+// tas d'une catégorie se font d'une seule lecture de ses questions, à la même
+// étape du tourniquet.
 // Le Détail lit la question qui demande le peintre de chacun de ses tableaux,
 // pour son anecdote ; la Frise, les sujets de la base qui font une frise.
 import type { QuestionDeLaBase } from '../../baseCampagne'
 import { detailsDeLaBase, tableauxDuDetail } from '../../details'
+import { cibleDeLEstimation, supposeDesChoix } from '../../estimation'
 import type { PorteDeLaCampagne } from '../../porteDeLaCampagne'
 import { rendreLaMain } from '../../tourniquet'
 import { contenuDuCabinet, ecritDans } from '../contenu'
 import type { CeQueLesTireursLisent } from './communs'
 import { ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, INTITULE_MAX_DU_QCM, REPONSE_MAX_DU_QCM } from '../../../../../shared/cabinet/bareme'
+import { motDeLaQuestion } from '../../../../../shared/cabinet/jeux/mot'
+import { formeDeReponse } from '../../../../../shared/campagne'
 import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
 import { choisirLaFriseSansRepli, type EvenementDeLaFrise } from '../../../../../shared/frise'
 import { estRemplace, sujetParCle, sujetsDe } from '../../../../../shared/sujets'
@@ -39,17 +46,77 @@ export function estUnQcmDuCabinet(q: Pick<QuestionDeLaBase, 'texte' | 'reponses'
   return q.reponses.every(r => signes(r) <= REPONSE_MAX_DU_QCM && !ecritDans(q.texte, r))
 }
 
-/** Les tas d'une liste de jouables : chaque catégorie préparée une fois. */
-const TAS = new WeakMap<readonly QuestionDeLaBase[], Map<Categorie, readonly QuestionDeLaBase[]>>()
+/** Ce que le Filet vise d'une question de la base : sa valeur, une année ou un nombre, et l'unité qu'il dit. */
+export interface ValeurDuFilet {
+  valeur: number
+  annee: boolean
+  /** L'unité d'une estimation qui tient à l'écran (« km ») ; une année n'en a pas. */
+  unite?: string
+}
 
-/** Les QCM du Cabinet d'une catégorie, de cette liste de jouables. */
-export function qcmDeLaCategorie(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], categorie: Categorie): readonly QuestionDeLaBase[] {
+/**
+ * Les nombres qu'un intitulé écrit, « 1 450 » compris : une valeur qu'il dit
+ * se lirait sans rien savoir — « Le traité de 1919 fut signé en quelle
+ * année ? ».
+ */
+function nombresEcrits(texte: string): number[] {
+  const colles = texte.replace(/(\d)[   ](?=\d{3}(?!\d))/g, '$1')
+  return [...colles.matchAll(/\d+(?:[.,]\d+)?/g)].map(m => Number(m[0].replace(',', '.')))
+}
+
+/**
+ * Ce qu'une question de la base pose au Filet, ou null : une année entière —
+ * sa bonne réponse ne dit qu'elle (`formeDeReponse`) — ou une estimation que
+ * le quiz tout prêt jouerait au plus près (`cibleDeLEstimation` : ni un
+ * numéro, ni un petit entier facile) ; un intitulé qui se lit sans ses choix
+ * (`supposeDesChoix`, qu'une estimation juge déjà), et qui ne dit pas la
+ * valeur. Le recul d'une année et le plancher d'une estimation, la règle du
+ * jeu les juge au tirage, à l'année du départ (`seTendAuFilet`) : le tas ne
+ * dépend pas du jour où il se prépare.
+ */
+export function valeurDuFilet(q: QuestionDeLaBase): ValeurDuFilet | null {
+  if (q.reponses.length !== 4) return null
+  const annee = formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur }) === 'annee'
+  const cible = annee ? null : cibleDeLEstimation(q)
+  const valeur = annee ? Number(q.reponses[q.bonne].trim()) : cible?.target
+  if (valeur === undefined || (annee && supposeDesChoix(q.texte)) || nombresEcrits(q.texte).includes(valeur)) return null
+  return { valeur, annee, ...(cible?.unit && { unite: cible.unit }) }
+}
+
+/** Ce que les jeux de la base savent poser d'une catégorie : ses QCM (le Pari, l'Éclair), ses mots (le Mot mystère), ses valeurs (le Filet). */
+interface TasDeLaCategorie {
+  qcm: readonly QuestionDeLaBase[]
+  mots: readonly QuestionDeLaBase[]
+  valeurs: readonly QuestionDeLaBase[]
+}
+
+/** Les tas d'une liste de jouables : chaque catégorie préparée une fois. */
+const TAS = new WeakMap<readonly QuestionDeLaBase[], Map<Categorie, TasDeLaCategorie>>()
+
+/** Les trois tas d'une catégorie, d'une seule lecture de ses questions. */
+function tasDeLaCategorie(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], categorie: Categorie): TasDeLaCategorie {
   let parCategorie = TAS.get(jouables)
   if (!parCategorie) TAS.set(jouables, (parCategorie = new Map()))
   let tas = parCategorie.get(categorie)
-  if (!tas) parCategorie.set(categorie, (tas = porte.deLaCategorie(jouables, categorie).filter(estUnQcmDuCabinet)))
+  if (!tas) {
+    const siennes = porte.deLaCategorie(jouables, categorie)
+    tas = { qcm: siennes.filter(estUnQcmDuCabinet), mots: siennes.filter(q => motDeLaQuestion(q) !== null), valeurs: siennes.filter(q => valeurDuFilet(q) !== null) }
+    parCategorie.set(categorie, tas)
+  }
   return tas
 }
+
+/** Les QCM du Cabinet d'une catégorie, de cette liste de jouables. */
+export const qcmDeLaCategorie = (porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], categorie: Categorie): readonly QuestionDeLaBase[] =>
+  tasDeLaCategorie(porte, jouables, categorie).qcm
+
+/** Les questions d'une catégorie dont la bonne réponse se tape au Mot mystère (`motDeLaQuestion`). */
+export const motsDeLaCategorie = (porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], categorie: Categorie): readonly QuestionDeLaBase[] =>
+  tasDeLaCategorie(porte, jouables, categorie).mots
+
+/** Les questions d'une catégorie qui se visent au Filet (`valeurDuFilet`). */
+export const valeursDeLaCategorie = (porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], categorie: Categorie): readonly QuestionDeLaBase[] =>
+  tasDeLaCategorie(porte, jouables, categorie).valeurs
 
 /** Les QCM de toutes les catégories, en morceaux : le tirage d'une escale les lit comme un seul tas. */
 export function qcmDeToutes(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[]): (readonly QuestionDeLaBase[])[] {
@@ -134,7 +201,7 @@ export function frisesDesSujets(porte: CeQueLaBaseDonne, jouables: readonly Ques
 export async function preparerLesTas(porte: CeQueLesTireursLisent, jouables: readonly QuestionDeLaBase[]): Promise<void> {
   for (const c of CATEGORIES) {
     await rendreLaMain()
-    qcmDeLaCategorie(porte, jouables, c)
+    tasDeLaCategorie(porte, jouables, c)
   }
   await rendreLaMain()
   tableauxDuDetail()

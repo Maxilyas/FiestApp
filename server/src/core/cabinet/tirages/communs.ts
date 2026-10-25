@@ -9,6 +9,7 @@ import type { PorteDeLaCampagne } from '../../porteDeLaCampagne'
 import { tirerPourUneEscale, versQuestionDeSerie } from '../../tirageALaPiece'
 import { JOURS_SANS_REDITE } from '../../../../../shared/cabinet/bareme'
 import type { MesureDUneQuestion, Niveau } from '../../../../../shared/campagne'
+import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
 import type { QuestionTiree } from '../../../../../shared/cabinet/jeux/outils'
 
 /** La fenêtre de fraîcheur du Cabinet : une question vue depuis moins de sept jours ne revient qu'en dernier recours. */
@@ -31,6 +32,11 @@ export interface ContexteDuTirage {
   mesures: ReadonlyMap<string, MesureDUneQuestion>
   /** Ce qu'il a vu, déplié (`vuesDuCabinet`), et quand pour la dernière fois. */
   vues: ReadonlyMap<string, number>
+  /**
+   * L'heure du serveur à l'arrivée du départ, celle qui le date : son jour de
+   * Paris est celui du départ (`DepartDUnePartie.jour`), dont le Filet lit
+   * l'année de ses pistes — jamais l'horloge de la machine.
+   */
   maintenant: number
   /** Le hasard du tirage : celui du serveur, jamais rejoué d'une graine que la page connaîtrait. */
   hasard: () => number
@@ -47,6 +53,13 @@ export class Posees {
    * parmi quatre, il se désignerait, ou se croirait faux de l'avoir été.
    */
   readonly titres = new Set<string>()
+  /**
+   * Les réponses que la partie fait déjà taper ou viser — un mot du Mot
+   * mystère, une valeur du Filet : deux questions de la base y mènent parfois
+   * au même « VILNIUS », au même 1789, et la révélation d'une manche aurait
+   * donné la réponse de la suivante.
+   */
+  readonly reponses = new Set<string>()
 
   prendre(q: QuestionTiree) {
     this.ids.add(q.id)
@@ -57,7 +70,9 @@ export class Posees {
 /**
  * Des questions de ces tas, à l'une de ces marches mesurées — la première, et
  * celles qui la valent (`aussi`) : entre elles, la fraîcheur départage —, ni
- * déjà posées par la partie, ni un vrai ou faux.
+ * déjà posées par la partie, ni un vrai ou faux ; et, si le jeu le demande,
+ * qui passent sa garde (`garde`) : le Mot mystère n'y prend pas un mot déjà
+ * posé, le Filet que ce qui se tend à l'année du départ.
  */
 export function tirerDesQuestions(
   ctx: ContexteDuTirage,
@@ -65,10 +80,11 @@ export function tirerDesQuestions(
   tas: readonly (readonly QuestionDeLaBase[])[],
   marches: readonly Niveau[],
   combien: number,
+  garde: (q: QuestionDeLaBase) => boolean = () => true,
 ): { question: QuestionDeLaBase; niveau: Niveau }[] {
   return tirerPourUneEscale(tas, marches[0], combien, {
     sansVraiFaux: true,
-    garde: q => !posees.ids.has(q.id),
+    garde: q => !posees.ids.has(q.id) && garde(q),
     vues: ctx.vues,
     mesure: ctx.mesures,
     maintenant: ctx.maintenant,
@@ -76,6 +92,22 @@ export function tirerDesQuestions(
     fenetreMs: FENETRE_DU_CABINET_MS,
     aussi: marches.slice(1),
   })
+}
+
+/**
+ * Une question de ces tas pour une manche : des catégories que la partie n'a
+ * pas encore jouées d'abord, puis de toutes — trois manches d'histoire se
+ * ressemblent. Null : rien à poser qui passe la garde du jeu.
+ */
+export function uneQuestionDesCategories(
+  ctx: ContexteDuTirage,
+  posees: Posees,
+  tasDe: (c: Categorie) => readonly QuestionDeLaBase[],
+  marches: readonly Niveau[],
+  garde?: (q: QuestionDeLaBase) => boolean,
+): { question: QuestionDeLaBase; niveau: Niveau } | null {
+  const neuves = CATEGORIES.filter(c => !posees.categories.includes(c))
+  return tirerDesQuestions(ctx, posees, neuves.map(tasDe), marches, 1, garde)[0] ?? tirerDesQuestions(ctx, posees, CATEGORIES.map(tasDe), marches, 1, garde)[0] ?? null
 }
 
 /** La question telle que la partie la garde : ses réponses mélangées pour elle, sa marche mesurée. */

@@ -14,18 +14,39 @@
 // Le moule commun (`RegleDuJeu`, `regle.ts`) dit comment le pli s'en sert :
 // `trancheLaManche` d'abord — oui, le geste va à `juger` ; non, à
 // `apresLeGeste`. Ces épreuves jouent les règles comme le pli les jouera ; puis
-// le tirage du Pari et de l'Éclair au serveur (`core/cabinet/tirages/`), et
-// les deux par les routes, d'une partie entière.
+// le tirage des quatre au serveur (`core/cabinet/tirages/`) — le mot que la
+// règle lit de la question, jamais deux fois le même ; la valeur du Filet, sa
+// piste au hasard du serveur, à l'année du jour de Paris du départ —, et les
+// quatre par les routes, d'une partie entière.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { inscrireProfil } from './banc'
-import { DIX_HEURES, bancDuCabinet, baseDuCabinet, commencer, jouerUnEclair, jouerUnPari, ok, ouvrir as ouvrirLaManche, unPariParfait } from './cabinet-banc'
+import {
+  DIX_HEURES,
+  bancDuCabinet,
+  baseDuCabinet,
+  commencer,
+  anneeDuCabinet,
+  filetDe,
+  jouer as unGeste,
+  jouerUnEclair,
+  jouerUnFilet,
+  jouerUnMot,
+  jouerUnPari,
+  motDe,
+  motDuCabinet,
+  ok,
+  ouvrir as ouvrirLaManche,
+  unPariParfait,
+  valeurDuCabinet,
+} from './cabinet-banc'
 import type { QuestionDeLaBase } from '../src/core/baseCampagne'
 import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
-import { estUnQcmDuCabinet } from '../src/core/cabinet/tirages/tas'
+import { estUnQcmDuCabinet, valeurDuFilet } from '../src/core/cabinet/tirages/tas'
+import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART } from '../../shared/cabinet/oeuvres'
 import { niveauDeQuestion, type MesureDUneQuestion } from '../../shared/campagne'
-import type { Categorie } from '../../shared/categories'
+import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { vuesDuCabinet } from '../../shared/cabinet/vues'
 import type { ContenuTire } from '../../shared/cabinet/jeux/index'
 import { hasardDe } from '../../shared/missions'
@@ -37,7 +58,7 @@ import { MOTS_DU_PARI, justeDeLaPiece, trancheLaManche, type RegleDuJeu, type Ve
 import { GESTE_A_JUGER, eclairerSertEncore, type QuestionTiree } from '../../shared/cabinet/jeux/outils'
 import { REGLE_DU_PARI, type EtatDuPari, type PariTire } from '../../shared/cabinet/jeux/pari'
 import { REGLE_DE_L_ECLAIR, affirmationDe, type EclairTire } from '../../shared/cabinet/jeux/eclair'
-import { REGLE_DU_MOT, couleursDuMot, etatDesTouches, motDeLaQuestion, type MotTire } from '../../shared/cabinet/jeux/mot'
+import { REGLE_DU_MOT, couleursDuMot, etatDesTouches, motDeLaQuestion, type MotMontre, type MotRevele, type MotTire } from '../../shared/cabinet/jeux/mot'
 import {
   REGLE_DU_FILET,
   TAILLES_DU_FILET,
@@ -46,6 +67,7 @@ import {
   milieuDeLaPiste,
   pisteDuFilet,
   seTendAuFilet,
+  type FiletRevele,
   type FiletTire,
   type PisteDuFilet,
   type TailleDuFilet,
@@ -902,6 +924,107 @@ test('le tas des QCM du Cabinet : quatre réponses courtes, un intitulé court, 
   assert.equal(estUnQcmDuCabinet(q('Quel fleuve traverse Lyon, le Rhône ou la Seine ?', ['le Rhône', 'la Loire', 'la Seine', 'la Garonne'])), false, 'l’intitulé la dit')
 })
 
+/** Un contexte de tirage sur ces seules questions, à cette heure, au hasard qu'on lui donne. */
+const surCesQuestions = (jouables: readonly QuestionDeLaBase[], o: { maintenant?: number; vues?: ReadonlyMap<string, number>; hasard?: () => number } = {}): ContexteDuTirage => ({
+  porte: PORTE_D_ESSAI,
+  jouables,
+  mesures: MESURE,
+  vues: o.vues ?? new Map(),
+  maintenant: o.maintenant ?? DIX_HEURES,
+  hasard: o.hasard ?? Math.random,
+})
+
+test('le tirage du Mot mystère : le mot que la règle du jeu lit de la question, facile ou moyen — jamais deux fois le même dans un plan', () => {
+  for (let essai = 0; essai < 20; essai++) {
+    // Trois manches et trois rechanges : la force 3 de Changer.
+    const plan = tirerLePlan('mot', contexte(), 3) as MotTire[]
+    assert.equal(plan.length, 6)
+    for (const t of plan) {
+      const base = BASE_DU_TIRAGE.parId.get(t.question.id)!
+      // Ses lettres et ce qu'elle écrit, de la seule règle du jeu : le tireur n'a pas la sienne.
+      assert.deepEqual({ lettres: t.lettres, affiche: t.affiche }, motDeLaQuestion(base))
+      assert.ok(t.lettres.length >= B.LETTRES_DU_MOT_MIN && t.lettres.length <= B.LETTRES_DU_MOT_MAX)
+      assert.ok(B.MARCHES_DU_MOT.includes(t.question.niveau) && t.question.niveau === niveauDe(t.question.id), `${t.question.id} : ${t.question.niveau}`)
+      // Telle que la partie la garde : ses réponses mélangées pour elle, sa bonne suivie.
+      assert.equal(t.question.reponses[t.question.bonne], t.affiche)
+    }
+    assert.equal(new Set(plan.map(t => t.lettres)).size, plan.length, 'jamais deux fois le même mot, rechanges comprises')
+    assert.equal(new Set(plan.slice(0, 3).map(t => t.question.categorie)).size, 3, 'les trois manches tournent sur les catégories')
+  }
+  // Deux questions de la base qui mènent au même mot : une seule par partie — la révélation de l'une donnait l'autre.
+  const [a, b, c] = CATEGORIES
+  const balcon = motDuCabinet(0, a)
+  const jumeau = { ...motDuCabinet(0, b), id: 'mot90000' }
+  assert.equal(motDeLaQuestion(jumeau)?.lettres, motDeLaQuestion(balcon)?.lettres)
+  for (let essai = 0; essai < 20; essai++) {
+    const plan = tirerLePlan('mot', surCesQuestions([balcon, jumeau, motDuCabinet(2, b), motDuCabinet(4, c)]), 1) as MotTire[]
+    assert.equal(plan.length, 3, 'trois mots distincts, et pas de rechange : le quatrième redirait le premier')
+    assert.equal(new Set(plan.map(t => t.lettres)).size, 3)
+  }
+  // Sans trois mots à poser, pas de partie : le départ le dit (« Ce jeu n’a pas de quoi jouer aujourd’hui »).
+  assert.equal(tirerLePlan('mot', surCesQuestions([balcon, jumeau, motDuCabinet(2, b)]), 0), null)
+})
+
+test('le tirage du Filet : une année ou une estimation de la base, sa piste au hasard du serveur — jamais deux fois la même valeur', () => {
+  for (let essai = 0; essai < 20; essai++) {
+    const plan = tirerLePlan('filet', contexte(), 3) as FiletTire[]
+    assert.equal(plan.length, 6)
+    for (const t of plan) {
+      const v = valeurDuFilet(BASE_DU_TIRAGE.parId.get(t.question.id)!)!
+      assert.deepEqual({ valeur: t.valeur, annee: t.annee, ...(t.unite !== undefined && { unite: t.unite }) }, v, 'la valeur que dit la question de la base')
+      assert.ok(t.piste.min <= t.valeur && t.valeur <= t.piste.max, `${t.valeur} hors de ${JSON.stringify(t.piste)}`)
+      if (t.annee) assert.ok(t.piste.max <= 2026, 'une piste d’années s’arrête à l’année du départ')
+      assert.ok(B.MARCHES_DU_FILET.includes(t.question.niveau) && t.question.niveau === niveauDe(t.question.id))
+      assert.equal(t.question.reponses[t.question.bonne], BASE_DU_TIRAGE.parId.get(t.question.id)!.reponses[0])
+    }
+    assert.equal(new Set(plan.map(t => t.valeur)).size, plan.length, 'jamais deux fois la même valeur')
+    assert.ok(plan.some(t => t.annee) && plan.some(t => !t.annee && t.unite === 'km'), 'des années et des estimations, l’unité dite')
+  }
+  // La piste vient du hasard du tirage — celui du serveur, que le magasin lui donne —, jamais d'une graine : au plus bas,
+  // la réponse tombe en bas de sa piste ; au plus haut, en haut — une estimation un peu moins, sa borne arrondie au-dessus
+  // pour se lire (`borneRonde`). Une année comme une estimation.
+  const trois = [valeurDuCabinet(0, CATEGORIES[0]), valeurDuCabinet(1, CATEGORIES[1]), valeurDuCabinet(2, CATEGORIES[2])]
+  const places = (h: number) => (tirerLePlan('filet', surCesQuestions(trois, { hasard: () => h }), 0) as FiletTire[]).map(t => (t.valeur - t.piste.min) / (t.piste.max - t.piste.min))
+  for (const x of places(0)) assert.ok(x >= B.POSITION_DE_LA_REPONSE[0] && x < 0.1, `en bas : ${x}`)
+  for (const x of places(0.9999)) assert.ok(x > 0.8 && x <= B.POSITION_DE_LA_REPONSE[1], `en haut : ${x}`)
+})
+
+test('le tirage du Filet lit l’année du jour de Paris du départ, jamais l’horloge : une année trop récente se remplace par une autre', () => {
+  // 1981 se pose dès 2027 — quarante-six ans de recul (`seTendAuFilet`). Le 31 décembre 2026 à 23 h 30 à Paris (22 h 30 en
+  // temps universel), elle ne se pose pas ; une heure plus tard, le 1er janvier 2027 à Paris — encore 2026 en temps universel —, si.
+  const [a, b, c, d] = CATEGORIES
+  const recente = anneeDuCabinet(90, a, 1981)
+  const autres = [valeurDuCabinet(1, b), valeurDuCabinet(3, c)]
+  const avant = Date.UTC(2026, 11, 31, 22, 30)
+  const apres = Date.UTC(2026, 11, 31, 23, 30)
+  assert.equal(new Date(apres).getUTCFullYear(), 2026)
+  assert.equal(tirerLePlan('filet', surCesQuestions([recente, ...autres], { maintenant: avant }), 0), null, 'trop récente en 2026 : deux questions, pas de partie')
+  for (let essai = 0; essai < 10; essai++) {
+    const plan = tirerLePlan('filet', surCesQuestions([recente, ...autres], { maintenant: apres }), 0) as FiletTire[]
+    const la = plan.find(t => t.question.id === recente.id)
+    assert.ok(la, 'posée en 2027')
+    assert.ok(la.piste.max <= 2027 && la.piste.min <= 1981, JSON.stringify(la.piste))
+  }
+  // Une année trop récente ne bloque rien : jamais vue, elle passe après une vue il y a trois jours — elle ne se tire pas.
+  const vueIlYA = new Map([[valeurDuCabinet(0, d).id, DIX_HEURES - 3 * 24 * 3_600_000]])
+  for (let essai = 0; essai < 10; essai++) {
+    const plan = tirerLePlan('filet', surCesQuestions([anneeDuCabinet(91, a, 2001), valeurDuCabinet(0, d), ...autres], { vues: vueIlYA }), 0) as FiletTire[]
+    assert.deepEqual(plan.map(t => t.question.id).sort(), [valeurDuCabinet(0, d).id, ...autres.map(q => q.id)].sort())
+  }
+})
+
+test('le tas du Filet : une année entière, ou une estimation jouée au plus près — jamais un intitulé qui dit sa valeur ou suppose ses choix', () => {
+  const [a] = CATEGORIES
+  assert.deepEqual(valeurDuFilet(anneeDuCabinet(0, a, 1789)), { valeur: 1789, annee: true })
+  assert.deepEqual(valeurDuFilet(valeurDuCabinet(1, a)), { valeur: 1231, annee: false, unite: 'km' })
+  const avec = (q: QuestionDeLaBase, texte: string): QuestionDeLaBase => ({ ...q, texte })
+  assert.equal(valeurDuFilet(avec(anneeDuCabinet(0, a, 1789), 'La prise de la Bastille, en 1789, eut lieu quel jour ?')), null, 'l’intitulé dit l’année')
+  assert.equal(valeurDuFilet(avec(valeurDuCabinet(1, a), 'Combien de kilomètres, 1 231 environ, le Cabinet compte-t-il ?')), null, 'l’intitulé dit le nombre, une espace dedans')
+  assert.equal(valeurDuFilet(avec(anneeDuCabinet(0, a, 1789), 'Laquelle de ces années vit la prise de la Bastille ?')), null, 'il suppose ses choix')
+  assert.equal(valeurDuFilet(motDuCabinet(0, a)), null, 'un mot ne se vise pas')
+  assert.equal(valeurDuFilet(BASE_DU_TIRAGE.questions[0]), null, 'une question sans valeur')
+})
+
 test('par les routes : le Pari et l’Éclair d’un bout à l’autre — neuf étoiles et le cadre doré, le pari perdu, les étoiles gardées', async () => {
   const b = await bancDuCabinet()
   try {
@@ -930,6 +1053,65 @@ test('par les routes : le Pari et l’Éclair d’un bout à l’autre — neuf 
     }
     assert.deepEqual([e.phase, e.bilan?.total, e.bilan?.naturel], ['finie', 9, [3, 3, 3]])
     assert.equal(e.bilan?.cartel?.manche, 0, 'le cartel garde la plus étoilée qui a une anecdote, la première à égalité')
+  } finally {
+    await b.banc.close()
+  }
+})
+
+test('par les routes : le Mot mystère et le Filet d’un bout à l’autre — les couleurs que rend le serveur, la longueur refusée en mots, le filet lancé', async () => {
+  const b = await bancDuCabinet()
+  try {
+    const zoe = await inscrireProfil(b.banc.url, 'zoe', 'Zoé')
+    // Le Mot : trouvé au deuxième essai, au troisième, puis jamais — 3, 2, 0.
+    let m = ok(await commencer(b, zoe, { origine: 'libre', jeu: 'mot', carte: null }), 'le Mot')
+    const t0 = motDe(b, m.id, 0)
+    assert.deepEqual(m.enCours, { jeu: 'mot', categorie: t0.question.categorie, texte: t0.question.texte, longueur: t0.lettres.length, essaisMax: B.ESSAIS_DU_MOT, essais: [], soufflees: [] })
+    // Une longueur fausse se refuse en mots, sans rien dépenser ; des minuscules ne se lisent pas.
+    const court = await unGeste(b, zoe, m, { quoi: 'essai', manche: 0, lettres: 'AB' })
+    assert.deepEqual([court.status, court.corps], [400, { error: `Il faut ${t0.lettres.length} lettres` }])
+    assert.deepEqual((await unGeste(b, zoe, m, { quoi: 'essai', manche: 0, lettres: t0.lettres.toLowerCase() })).corps, { error: 'Ce geste ne se lit pas : recharge la page' })
+    // Un essai aux lettres doubles : ses couleurs, rendues par le serveur, ne colorent pas plus de fois la lettre que le mot ne l'a.
+    const doubles = t0.lettres[0].repeat(t0.lettres.length)
+    m = ok(await unGeste(b, zoe, m, { quoi: 'essai', manche: 0, lettres: doubles }), 'l’essai aux doubles')
+    const [essai] = (m.enCours as MotMontre).essais
+    assert.deepEqual(essai, { lettres: doubles, couleurs: couleursDuMot(doubles, t0.lettres) })
+    assert.equal(essai.couleurs.filter(c => c !== 'absente').length, [...t0.lettres].filter(l => l === t0.lettres[0]).length)
+    m = ok(await unGeste(b, zoe, m, { quoi: 'essai', manche: 0, lettres: t0.lettres }), 'le mot')
+    assert.equal((m.revelation?.corps as MotRevele).titre, 'Trouvé en 2 essais')
+    m = await ouvrirLaManche(b, zoe, m, 1)
+    m = await jouerUnMot(b, zoe, m, 1, 3)
+    m = await ouvrirLaManche(b, zoe, m, 2)
+    m = await jouerUnMot(b, zoe, m, 2, null)
+    assert.equal((m.revelation?.corps as MotRevele).titre, `C’était « ${motDe(b, m.id, 2).affiche} »`)
+    assert.deepEqual([m.phase, m.bilan?.naturel, m.bilan?.total], ['finie', [3, 2, 0], 5])
+
+    // Le Filet : dans le petit, puis le moyen, puis à côté du grand — 3, 2, 0.
+    let f = ok(await commencer(b, zoe, { origine: 'libre', jeu: 'filet', carte: null }), 'le Filet')
+    const f0 = filetDe(b, f.id, 0)
+    assert.deepEqual(f.enCours, { jeu: 'filet', categorie: f0.question.categorie, texte: f0.question.texte, annee: f0.annee, ...(f0.unite !== undefined && { unite: f0.unite }), piste: f0.piste, zone: null })
+    assert.equal((await unGeste(b, zoe, f, { quoi: 'repondre', manche: 0, reponse: { filet: { x: f0.piste.max + 1, taille: 'petit' } } })).status, 400, 'hors de la piste')
+    f = await jouerUnFilet(b, zoe, f, 0, 'petit')
+    assert.equal((f.revelation?.corps as FiletRevele).titre, 'Dans le filet')
+    f = await ouvrirLaManche(b, zoe, f, 1)
+    f = await jouerUnFilet(b, zoe, f, 1, 'moyen')
+    f = await ouvrirLaManche(b, zoe, f, 2)
+    f = await jouerUnFilet(b, zoe, f, 2, 'grand', false)
+    assert.equal((f.revelation?.corps as FiletRevele).titre, 'À côté')
+    assert.deepEqual([f.phase, f.bilan?.naturel, f.bilan?.total], ['finie', [3, 2, 0], 5])
+    // Laissé au temps : la page envoie sa réponse vide à l'échéance, passée la grâce — la manche se juge sans lancer.
+    const x = ok(await commencer(b, zoe, { origine: 'libre', jeu: 'filet', carte: null }), 'le Filet laissé au temps')
+    b.horloge.t = x.chrono!.echeance + B.GRACE_D_UNE_MANCHE_MS + 1
+    const expire = ok(await unGeste(b, zoe, x, { quoi: 'repondre', manche: 0, auto: true }), 'l’échéance')
+    assert.equal((expire.revelation?.corps as FiletRevele).titre, 'Pas de lancer')
+    ok(await unGeste(b, zoe, expire, { quoi: 'quitter' }), 'quitter')
+
+    // Une œuvre qui se trouve au Mot mystère, au Filet, se chasse à son jeu.
+    for (const jeu of ['mot', 'filet'] as const) {
+      const oeuvre = OEUVRES.find(o => JEU_DE_L_OEUVRE[o.cle] === jeu && !OEUVRES_DE_DEPART.includes(o.cle))!
+      const chasse = ok(await commencer(b, zoe, { origine: 'chasse', oeuvre: oeuvre.cle, carte: null }), `la chasse au jeu ${jeu}`)
+      assert.equal(chasse.jeu, jeu)
+      ok(await unGeste(b, zoe, chasse, { quoi: 'quitter' }), 'quitter la chasse')
+    }
   } finally {
     await b.banc.close()
   }

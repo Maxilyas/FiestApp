@@ -17,14 +17,19 @@ import {
   commencer,
   departEnBase,
   enBase,
+  filetDe,
   jouer,
   jouerUnEclair,
+  jouerUnFilet,
+  jouerUnMot,
   jouerUnPari,
   laPage,
   lire,
+  motDe,
   ok,
   ouvrir,
   pariDe,
+  poster,
   questionDuCabinet,
   unPariParfait,
   type BancDuCabinet,
@@ -156,6 +161,39 @@ test('le carnet reçoit la question de la base ratée au Pari, jamais une pièce
   assert.deepEqual(await carnet().then(c => [c.aRevoir, c.demain, c.plusTard]), [0, 1, 0])
   await b.banc.redemarrer()
   assert.deepEqual(await carnet().then(c => [c.aRevoir, c.demain, c.plusTard]), [0, 1, 0], 'relu de la base au réveil')
+})
+
+test('le Mot mystère et le Filet écrivent la question de la base, à la forme de leur jeu : une erreur entre au carnet, et se signale', async () => {
+  const rose = await inscrireProfil(b.banc.url, 'rose', 'Rose')
+  // Le Mot trouvé du premier coup, puis jamais ; le Filet dans le moyen filet, puis à côté.
+  let mot = ok(await commencer(b, rose, { origine: 'libre', jeu: 'mot', carte: null }), 'le Mot')
+  mot = await jouerUnMot(b, rose, mot, 0, 1)
+  mot = await ouvrir(b, rose, mot, 1)
+  mot = await jouerUnMot(b, rose, mot, 1, null)
+  ok(await jouer(b, rose, mot, { quoi: 'quitter' }), 'quitter le Mot')
+  let filet = ok(await commencer(b, rose, { origine: 'libre', jeu: 'filet', carte: null }), 'le Filet')
+  filet = await jouerUnFilet(b, rose, filet, 0, 'moyen')
+  filet = await ouvrir(b, rose, filet, 1)
+  filet = await jouerUnFilet(b, rose, filet, 1, 'petit', false)
+  ok(await jouer(b, rose, filet, { quoi: 'quitter' }), 'quitter le Filet')
+  const [m0, m1] = [0, 1].map(k => motDe(b, mot.id, k))
+  const [f0, f1] = [0, 1].map(k => filetDe(b, filet.id, k))
+  assert.deepEqual(lignesDe(mot.id), [
+    { position: 0, reserve_id: m0.question.id, choix: 0, juste: 1, forme: 'mot', joker: null },
+    { position: 1, reserve_id: m1.question.id, choix: -1, juste: 0, forme: 'mot', joker: null },
+  ])
+  assert.deepEqual(lignesDe(filet.id), [
+    { position: 0, reserve_id: f0.question.id, choix: 0, juste: 1, forme: 'filet', joker: null },
+    { position: 1, reserve_id: f1.question.id, choix: -1, juste: 0, forme: 'filet', joker: null },
+  ])
+  // Les deux erreurs, des questions de la base : au carnet, relues par le journal en mémoire puis par la base au réveil.
+  const carnet = async () => (await lire(b, rose, '/api/campagne/carnet')).corps as { aRevoir: number; demain: number; plusTard: number }
+  assert.deepEqual(await carnet().then(c => [c.aRevoir, c.demain, c.plusTard]), [0, 2, 0])
+  // « Signaler une erreur » passe par la route de la série, à la position de la pièce.
+  const signale = await poster(b, rose, `/api/campagne/serie/${mot.id}/signalement`, { index: 1, texte: 'Le mot me semble faux.' })
+  assert.deepEqual([signale.status, signale.corps], [200, { ok: true }])
+  await b.banc.redemarrer()
+  assert.deepEqual(await carnet().then(c => [c.aRevoir, c.demain, c.plusTard]), [0, 2, 0], 'relu de la base au réveil')
 })
 
 test('rien ne revient avant sept jours, d’un jeu à l’autre : l’Éclair ne repose pas ce que le Pari vient de poser', async () => {
