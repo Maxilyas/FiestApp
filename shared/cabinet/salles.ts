@@ -157,6 +157,19 @@ export function salleDuGardien(legendaire: string): CleDeSalle | undefined {
 export const PREFIXE_DE_LA_VOIE_DU_CABINET = 'cabinet:'
 
 /**
+ * Le rangement des gardiens du Cabinet sur l'étagère (`cabinet:<clé>`, et la
+ * saison d'une œuvre gagnée à sa fête, `saison:<clé>`) : une clé fixe, jamais
+ * une soirée ni une partie. Le remplacement des récompenses d'une soirée et
+ * son retrait ne la touchent pas, et la clé primaire rend chaque rangement
+ * idempotent d'où qu'il vienne — la fin d'une partie, un achat, une dorure,
+ * la page qui rattrape, la migration. Elle vit ici, pas dans
+ * `auth/profiles.ts` qui la réexporte : importée de là, elle faisait tirer au
+ * serveur du Cabinet tout le magasin des profils, et les Divins avec
+ * (`cabinet-catalogue.test.ts`).
+ */
+export const RANGEMENT_DU_CABINET = '#cabinet'
+
+/**
  * Ce que le Cabinet range sur l'étagère quand un gardien se réveille : sa voie
  * (`cabinet:phenix`) pour les vingt, la condition principale de sa saison
  * (`saison:halloween`) pour les trois de saison ; null pour ce qui n'est pas

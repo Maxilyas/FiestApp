@@ -657,15 +657,8 @@ export const cleDuMois = (mois: string) => `#mois:${mois}`
 /** Le rangement des récompenses d'une série de campagne. */
 export const cleDeSerie = (serieId: string) => `#campagne:${serieId}`
 
-/**
- * Le rangement des gardiens du Cabinet de curiosités (`cabinet:<clé>`, et la
- * saison d'une œuvre gagnée à sa fête, `saison:<clé>`) : une clé fixe, jamais
- * une soirée ni une partie. Le remplacement des récompenses d'une soirée et
- * son retrait ne la touchent pas, et la clé primaire rend chaque rangement
- * idempotent d'où qu'il vienne — la fin d'une partie, un achat, une dorure,
- * la page qui rattrape, la migration (`core/cabinet/gardiens.ts`).
- */
-export const RANGEMENT_DU_CABINET = '#cabinet'
+/** Le rangement des gardiens du Cabinet de curiosités : sa clé fixe vit avec les salles (`shared/cabinet/salles.ts`). */
+export { RANGEMENT_DU_CABINET } from '../../../shared/cabinet/salles'
 
 /** Le rangement des récompenses d'un défi de la semaine, sous son lundi : la clôture y range son vainqueur. */
 export const cleDuDefi = (semaine: string) => `#defi:${semaine}`

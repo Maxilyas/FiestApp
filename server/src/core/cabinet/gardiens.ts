@@ -28,10 +28,9 @@
 //
 // L'heure est celle du serveur (`quand`), jamais l'horloge de la machine
 // (`cabinet-chronos.test.ts`).
-import { RANGEMENT_DU_CABINET } from '../../auth/profiles'
 import { COMPAGNON_DE_L_EXPEDITION, type CleDeCompagnon } from '../../../../shared/compagnons'
 import { gardiensDus, sallesCompletes, type GardienDu, type Musee } from '../../../../shared/cabinet/musee'
-import { GARDIENS_DE_SAISON } from '../../../../shared/cabinet/salles'
+import { GARDIENS_DE_SAISON, RANGEMENT_DU_CABINET } from '../../../../shared/cabinet/salles'
 import type { ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 
 /**
