@@ -28,7 +28,7 @@ import {
   vraiesDe,
 } from './cabinet-banc'
 import { vueDeLaPartie } from '../src/core/cabinet/vue'
-import { DUREES_DES_JEUX, GRACE_D_UNE_MANCHE_MS, PAUSE_MAX_MS, PAUSES_PAR_MANCHE, SECONDES_PAR_FORCE } from '../../shared/cabinet/bareme'
+import { DUREES_DES_JEUX, ETOILES_DU_PARI, GRACE_D_UNE_MANCHE_MS, PAUSE_MAX_MS, PAUSES_PAR_MANCHE, SECONDES_PAR_FORCE } from '../../shared/cabinet/bareme'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import { dansLesTemps, echeanceDe, etapeOuverte, limiteDe, pauseCompteeMs, pauseResteMs } from '../../shared/cabinet/chrono'
 import { JOKER_DU_TEMPS } from '../../shared/cabinet/pieces'
@@ -239,13 +239,15 @@ test('le Pari : un chrono par étape, aucun entre « Juste ! » et « Garder » 
   g.joue(ouvrir(0), MIDI)
   g.joue(repondre(0, { pari: { choix: 1 } }), MIDI + S)
   g.joue({ quoi: 'garder', manche: 0 }, MIDI + 3600 * S)
-  assert.deepEqual([g.etat.manches[0].verdict?.naturel, g.etat.manches[0].fin], [1, 'jugee'])
-  // Laissé au choix, la partie close le lendemain : l'étoile gardée.
+  // Ses étoiles gardées, au barème du code : deux depuis le calibrage du 25 octobre 2026.
+  assert.deepEqual([g.etat.manches[0].verdict?.naturel, g.etat.manches[0].fin], [ETOILES_DU_PARI.garder, 'jugee'])
+  // Laissé au choix, la partie close le lendemain : les étoiles gardées.
   const l = new Partie(departDe('pari'))
   l.joue(ouvrir(0), MIDI)
   l.joue(repondre(0, { pari: { choix: 1 } }), MIDI + S)
   l.joue({ quoi: 'clore', pourquoi: 'lendemain' }, MIDI + 86_400 * S)
-  assert.deepEqual(resultatDe(l.depart, l.etat).naturel, [1, 0, 0])
+  assert.deepEqual(resultatDe(l.depart, l.etat).naturel, [ETOILES_DU_PARI.garder, 0, 0])
+  assert.equal(ETOILES_DU_PARI.garder, 2)
 })
 
 test('la Réplique : « Qui l’a dit ? » s’ouvre au mot choisi, ou à l’échéance du mot — le mot perdu, son chrono à elle', () => {

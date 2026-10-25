@@ -55,18 +55,18 @@ Après chaque manche, **la révélation** : les étoiles et ce qui les a faites 
 | Jeu | Le geste | Une manche | Éclairer |
 |---|---|---|---|
 | **L'Épingle** | un récit daté, puis « Où ? » : on plante l'épingle sur la carte de France | à moins de 40 km ★★★ · 120 km ★★ · 300 km ★ | entoure une zone de 170 km qui contient le lieu |
-| **La Frise** | une seule frise qui grandit — trois événements, puis cinq, puis sept —, du plus ancien au plus récent | sans faute ★★★ · une erreur ★★ · deux ★ | dévoile l'année d'un nouveau venu |
+| **La Frise** | une seule frise qui grandit — trois événements, puis cinq, puis sept —, du plus ancien au plus récent | sans faute ★★★ · une erreur ★★ | dévoile l'année d'un nouveau venu |
 | **Le Mot mystère** | un mot à trouver, la question pour indice, cinq essais, les couleurs de chaque essai | en 1 ou 2 essais ★★★ · 3 ou 4 ★★ · 5 ★ | souffle une lettre à sa place |
 | **Le Détail** | un tableau en quatre cadrages ; « Reculer d'un pas » en montre plus et coûte une étoile ; quatre titres d'époques voisines | au premier coup d'œil ★★★ · un pas ★★ · deux ★ | efface un mauvais titre |
 | **Le Filet** | un curseur sur une piste, puis la taille du filet | petit ★★★ · moyen ★★ · grand ★ | montre une zone où est la réponse |
-| **Le Pari** | une question ; juste, on garde l'étoile ou on la parie sur une question plus difficile | garder ★ · parier et réussir ★★★ | efface une mauvaise réponse |
-| **L'Éclair** | cinq affirmations, vraies ou fausses, en 45 secondes | 5 justes ★★★ · 4 ★★ · 3 ★ | souffle la réponse de l'affirmation en cours |
-| **Les Indices** | « Qui suis-je ? » : cinq indices du plus obscur au plus évident, un nom à taper | en 1 ou 2 indices ★★★ · 3 ★★ · 4 et plus ★ ; chaque erreur compte, et en montre un de plus | un indice gratuit |
+| **Le Pari** | une question ; juste, on garde ses deux étoiles ou on les parie sur une question plus difficile | garder ★★ · parier et réussir ★★★ | efface une mauvaise réponse |
+| **L'Éclair** | cinq affirmations, vraies ou fausses, en 55 secondes | 5 justes ★★★ · 4 ★★ · 3 ★ | souffle la réponse de l'affirmation en cours |
+| **Les Indices** | « Qui suis-je ? » : cinq indices du plus obscur au plus évident, un nom à taper | en 1 à 3 indices ★★★ · 4 ★★ · 5 et plus ★ ; chaque erreur compte, et en montre un de plus | un indice gratuit |
 | **La Réplique** | le mot qui manque d'une réplique culte, puis « Qui l'a dit ? » | le bon mot ★★ · la bonne personne ★ | efface une mauvaise proposition |
 
 Le Pari, l'Éclair, le Mot mystère et le Filet puisent dans la base de questions de la campagne ; le Détail dans ses cent tableaux ; la Frise dans les événements datés de la base et des frises à thème. L'Épingle, les Indices et la Réplique ont **un contenu neuf**, écrit et relu par des agents : des lieux datés de France, des fiches de personnages, des répliques de films, de théâtre et de chansons.
 
-Ce que les tests de la maquette ont fait changer : l'Épingle plus tolérante, l'Éclair à 45 secondes, un chrono par étape à la Réplique, « ↑ Plus ancien » sur la frise, des boutons − et + au Filet, un en-tête et un pied collés — le chrono, le clavier, « Valider » — et des textes plus gros pour la grand-mère en 360 × 640.
+Ce que les tests de la maquette ont fait changer : l'Épingle plus tolérante, l'Éclair à 45 secondes, un chrono par étape à la Réplique, « ↑ Plus ancien » sur la frise, des boutons − et + au Filet, un en-tête et un pied collés — le chrono, le clavier, « Valider » — et des textes plus gros pour la grand-mère en 360 × 640. Puis ce que le calibrage sur le vrai code a fait changer le 25 octobre 2026, pour que les neuf jeux se valent : deux étoiles gardées au Pari, où une œuvre commune était presque hors d'atteinte ; deux erreurs qui ne valent plus une étoile à la Frise, qu'on gagnait en rangeant au hasard ; un indice de plus à chaque étoile des Indices ; l'Éclair à 55 secondes, qui prenait de court un joueur occasionnel une manche sur neuf.
 
 ## Les cartes-bonus
 
@@ -97,11 +97,11 @@ Rien ne coûte avant de jouer : un joueur qui ne vient pas n'a rien écrit, et l
 
 La monnaie du Cabinet, **qui n'en sort jamais** : ni confettis, ni écus, ni boutique — la décision du propriétaire, pour que l'achat d'une œuvre ne fasse pas concurrence aux thèmes et aux compagnons.
 
-- **Ce qui en rapporte** : toute partie de visite ou de chasse, même ratée — deux par étoile, quatre au moins ; un double — une œuvre que tu avais déjà, regagnée en visite — 30, 60, 60 ou 120 selon sa rareté ; les cinq premières parties libres du jour, deux par étoile.
-- **Ce qu'elle achète** : une œuvre précise qui te manque — 200, 400, 400 ou 700 selon sa rareté (commune, rare, maudite, épique) — ou un cadre doré — 50, 100, 100 ou 160. Un gardien ne s'achète pas : il se réveille.
+- **Ce qui en rapporte** : toute partie de visite ou de chasse, même ratée — deux par étoile, quatre au moins ; un double — une œuvre que tu avais déjà, regagnée en visite — 15, 30, 30 ou 60 selon sa rareté ; les cinq premières parties libres du jour, deux par étoile.
+- **Ce qu'elle achète** : une œuvre précise qui te manque — 200, 400, 400 ou 700 selon sa rareté (commune, rare, maudite, épique) — ou un cadre doré — 100, 200, 200 ou 320. Un gardien ne s'achète pas : il se réveille.
 - **Ce que paie une partie, en plus** : chaque manche réussie (deux étoiles au moins) est une bonne réponse de la campagne — un confetti, l'expérience d'une bonne réponse, un pas pour le compagnon, les missions du jour. Trois au plus par partie, six au Pari.
 
-Les rythmes simulés de la maquette : **tout posséder**, 18 à 24 jours pour un bon joueur, 19 à 39 pour un joueur moyen ; **tout dorer**, plusieurs mois — la longue traîne du complétionniste, et les dorures ont baissé de 40 % pour qu'elle reste atteignable. Ils se remesureront sur le vrai code avant l'ouverture.
+Les rythmes simulés de la maquette : **tout posséder**, 18 à 24 jours pour un bon joueur, 19 à 39 pour un joueur moyen ; **tout dorer**, plusieurs mois — la longue traîne du complétionniste, et les dorures ont baissé de 40 % pour qu'elle reste atteignable. Remesurés sur le vrai code le 25 octobre 2026, tout doré ne prenait plus qu'un mois au complétionniste : les dorures ont doublé, et le double a été divisé par deux. Tout posséder prend 17 jours au bon joueur, 18 au moyen ; tout dorer, 47 et 61 jours, plus de six mois à qui vient quatre jours sur sept ([le calibrage](../reference/baremes.md#le-calibrage-du-cabinet)).
 
 ## Les gardiens
 
@@ -168,9 +168,9 @@ Le gros bouton de l'accueil d'un profil deviendra « Le Cabinet de curiosités �
 | Le seuil d'une œuvre | commune 5, rare 6, maudite 6, épique 7 étoiles |
 | Une manche réussie | 2 étoiles naturelles au moins ; au Pari, la bonne réponse |
 | La journée | une visite de 3 parties, 1 jeu à changer, 2 chasses, 5 parties libres qui paient |
-| La poussière | 2 par étoile, 4 au moins ; un double 30 · 60 · 60 · 120 |
-| Les prix | une œuvre 200 · 400 · 400 · 700 ; un cadre doré 50 · 100 · 100 · 160 |
-| Les durées | l'Épingle 45 s, la Frise 60, le Mot mystère 120, le Détail 45, le Filet 45, le Pari 35 par étape, l'Éclair 45, les Indices 75, la Réplique 25 par étape |
+| La poussière | 2 par étoile, 4 au moins ; un double 15 · 30 · 30 · 60 |
+| Les prix | une œuvre 200 · 400 · 400 · 700 ; un cadre doré 100 · 200 · 200 · 320 |
+| Les durées | l'Épingle 45 s, la Frise 60, le Mot mystère 120, le Détail 45, le Filet 45, le Pari 35 par étape, l'Éclair 55, les Indices 75, la Réplique 25 par étape |
 | La grâce, la pause | 1,5 s après l'échéance ; 30 s de pause au plus par manche |
 | La fraîcheur | rien ne revient avant 7 jours |
 | Le Scarabée | 30 jours d'affilée |

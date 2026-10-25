@@ -27,7 +27,7 @@ import { importsStatiques } from './chemin-des-imports'
 const SERVEUR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCRIPT = 'scripts/calibrage-cabinet.ts'
 const SOURCE = readFileSync(path.join(SERVEUR, SCRIPT), 'utf8')
-/** Le code sans ses commentaires : l'exemple d'un essai (`ERREURS_DE_LA_FRISE=0/1/1`) ne déclare rien. */
+/** Le code sans ses commentaires : l'exemple d'un essai (`ERREURS_DE_LA_FRISE=0/1/2`) ne déclare rien. */
 const sansCommentaires = (texte: string) => texte.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
 type Lancement = { code: number | null; sortie: string; erreurs: string }
@@ -170,12 +170,14 @@ test('une mesure ne dépend pas des joueurs simulés avant elle', async () => {
 })
 
 test('un barème s’essaie en mémoire, et ce sont les règles du code qui le lisent', async () => {
-  const [avant, essai] = await Promise.all([auHasardSeul(), calibrer([...AU_HASARD, '--essai', 'ERREURS_DE_LA_FRISE=0/1/1'])])
+  // Le barème d'avant le calibrage du 25 octobre 2026, essayé contre celui du code : deux erreurs y valaient ★.
+  assert.deepEqual([...BAREME.ERREURS_DE_LA_FRISE], [0, 1, 1], 'le barème du code')
+  const [avant, essai] = await Promise.all([auHasardSeul(), calibrer([...AU_HASARD, '--essai', 'ERREURS_DE_LA_FRISE=0/1/2'])])
   assert.equal(essai.code, 0, essai.erreurs)
-  assert.match(essai.sortie, /Essai : ERREURS_DE_LA_FRISE = \[0,1,1\]/)
+  assert.match(essai.sortie, /Essai : ERREURS_DE_LA_FRISE = \[0,1,2\]/)
   const frise = (s: string) => auHasard(s).get(JEUX.frise.nom)!
-  // Deux erreurs ne valent plus une étoile : la frise rangée au hasard ne tient plus si souvent la commune.
-  assert.ok(frise(essai.sortie) < frise(avant.sortie) - 0.05, `la Frise au hasard : ${frise(avant.sortie)} au barème du code, ${frise(essai.sortie)} à l’essai`)
+  // Deux erreurs valent de nouveau une étoile : la frise rangée au hasard tient bien plus souvent la commune.
+  assert.ok(frise(essai.sortie) > frise(avant.sortie) + 0.05, `la Frise au hasard : ${frise(avant.sortie)} au barème du code, ${frise(essai.sortie)} à l’essai`)
   // Le reste n'a pas bougé : la même graine, les mêmes parties.
   assert.equal(auHasard(essai.sortie).get(JEUX.detail.nom), auHasard(avant.sortie).get(JEUX.detail.nom))
 })

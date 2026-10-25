@@ -119,6 +119,8 @@ function scenario(jeu: CleDeJeu, d: DepartDUnePartie): GesteDuCabinet[] {
         ouvrir(0),
         { quoi: 'nom', manche: 0, texte: 'Victor Hugo' },
         ouvrir(1),
+        // Un indice, une erreur : quatre au compte, ★★ (`INDICES_DES_ETOILES`) — l'erreur seule n'en fait plus que trois.
+        { quoi: 'indice', manche: 1 },
         { quoi: 'nom', manche: 1, texte: 'Zola' },
         { quoi: 'nom', manche: 1, texte: 'Hugo' },
         ouvrir(2),
@@ -142,7 +144,8 @@ function scenario(jeu: CleDeJeu, d: DepartDUnePartie): GesteDuCabinet[] {
 
 /** Les étoiles naturelles que chaque scénario donne, manche par manche. */
 const NATUREL_DU_SCENARIO: Record<CleDeJeu, [number, number, number]> = {
-  pari: [3, 0, 1],
+  // La troisième manche gardée : deux étoiles depuis le calibrage du 25 octobre 2026 (`ETOILES_DU_PARI`).
+  pari: [3, 0, 2],
   eclair: [3, 1, 0],
   mot: [3, 2, 0],
   filet: [3, 2, 0],
@@ -278,12 +281,13 @@ test('quitter compte zéro et `choix` NULL partout, sauf le Pari gardé ; une ma
     assert.equal(v.naturel, 0, jeu)
     assert.ok(v.pieces.every(y => y.choix === null), jeu)
   }
-  // Le Pari juste au premier coup, laissé au choix : il l'avait gagnée, l'étoile est gardée.
+  // Le Pari juste au premier coup, laissé au choix : il les avait gagnées, ses étoiles sont gardées.
   const pari = new Partie(departDe('pari'))
   pari.joue(ouvrir(0), MIDI)
   pari.joue(repondre(0, { pari: { choix: 1 } }), MIDI + S)
   pari.joue({ quoi: 'quitter' }, MIDI + 2 * S)
-  assert.deepEqual(resultatDe(pari.depart, pari.etat).naturel, [1, 0, 0])
+  assert.deepEqual(resultatDe(pari.depart, pari.etat).naturel, [B.ETOILES_DU_PARI.garder, 0, 0])
+  assert.equal(B.ETOILES_DU_PARI.garder, 2)
   assert.deepEqual(
     pari.etat.pieces.map(x => [x.juste, x.choix]),
     [[true, 1]],

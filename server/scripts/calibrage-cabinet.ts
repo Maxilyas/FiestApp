@@ -51,7 +51,7 @@
 //
 //   npx tsx scripts/calibrage-cabinet.ts [--parcours 4] [--jours 365] [--parties 1000] [--mesures 100]
 //     [--joueurs moyen,bon] [--arrivees neuf,30,60] [--graine cabinet] [--sans-musee]
-//     [--essai ERREURS_DE_LA_FRISE=0/1/1] [--essai SEUILS_DES_RARETES=commun:6/rare:7]
+//     [--essai ERREURS_DE_LA_FRISE=0/1/2] [--essai SEUILS_DES_RARETES=commun:6/rare:7]
 //     [--essai MARCHES_DU_PARI=pari:moyen+difficile]
 //
 // Une quarantaine de secondes d'office ; `--sans-musee` n'en garde que les

@@ -66,7 +66,7 @@ import {
 } from '../../shared/cabinet/pieces'
 import { DANS_LA_FRANCE, dansLaFrance, distanceKm, projeter, deprojeter, LARGEUR_DE_LA_CARTE, HAUTEUR_DE_LA_CARTE } from '../../shared/cabinet/france'
 import { FORME_D_UN_IDENTIFIANT, FORME_D_UNE_CLE } from '../../shared/cabinet/contenu'
-import { CLES_DES_JEUX, JEUX, justeDeLaPiece, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
+import { CLES_DES_JEUX, JEUX, baremeDesErreurs, justeDeLaPiece, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 
 /** La table des cartes peintes, telle que la chaîne `peindre` l'écrit — un fichier du client, lu par son adresse. */
 const peintes = async (): Promise<Record<string, unknown>> =>
@@ -403,28 +403,47 @@ test('neuf jeux, chacun ses mots, son chrono et son barème dit', () => {
   // Le barème dit à l'annonce est celui du code, pour les neuf : chacun se compose des chiffres de `bareme.ts`.
   const etoiles = (n: number) => '★'.repeat(n)
   assert.equal(JEUX.epingle.bareme, `à moins de ${B.KM_DE_L_EPINGLE[0]} km ★★★ · ${B.KM_DE_L_EPINGLE[1]} km ★★ · ${B.KM_DE_L_EPINGLE[2]} km ★`)
-  assert.equal(JEUX.frise.bareme, 'sans faute ★★★ · une erreur ★★ · deux ★')
+  // La Frise, depuis le calibrage du 25 octobre 2026 : deux erreurs ne valent plus une étoile, et l'annonce ne dit
+  // pas le palier qui n'existe plus (« deux à une ★ », lu tel quel des bornes [0, 1, 1]).
+  assert.equal(JEUX.frise.bareme, 'sans faute ★★★ · une erreur ★★')
   assert.equal(JEUX.mot.bareme, 'en 1 ou 2 essais ★★★ · 3 ou 4 ★★ · 5 ★')
   assert.equal(JEUX.detail.bareme, 'au premier coup d’œil ★★★ · un pas ★★ · deux ★')
   assert.equal(JEUX.filet.bareme, `petit filet ${etoiles(B.ETOILES_DU_FILET.petit)} · moyen ${etoiles(B.ETOILES_DU_FILET.moyen)} · grand ${etoiles(B.ETOILES_DU_FILET.grand)}`)
   assert.equal(JEUX.pari.bareme, `garder ${etoiles(B.ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(B.ETOILES_DU_PARI.parier)}`)
+  assert.equal(JEUX.pari.bareme, 'garder ★★ · parier et réussir ★★★')
+  // Le geste du Pari dit les étoiles gardées au nombre du barème : « garde une étoile » en promettait une de moins.
+  assert.equal(JEUX.pari.geste, 'Juste : garde deux étoiles, ou parie-les sur une question plus difficile.')
   assert.equal(JEUX.eclair.bareme, '5 justes ★★★ · 4 ★★ · 3 ★')
+  // L'Éclair à 55 s : à 45, l'échéance prenait l'occasionnel de court à une manche sur neuf (le calibrage du 25 octobre 2026).
+  assert.equal(B.DUREES_DES_JEUX.eclair, 55)
+  assert.equal(JEUX.eclair.geste, '5 affirmations en 55 secondes : vraies ou fausses ?')
   // Les Indices comptent les indices vus et les erreurs, et chaque erreur en montre un de plus : le compte monte
   // au-delà des cinq indices d'une fiche, jusqu'à neuf. La dernière étoile n'a pas de plafond.
-  assert.equal(JEUX.indices.bareme, 'en 1 ou 2 indices ★★★ · 3 ★★ · 4 et plus ★')
+  assert.equal(JEUX.indices.bareme, 'en 1 à 3 indices ★★★ · 4 ★★ · 5 et plus ★')
   assert.match(JEUX.indices.geste, /erreur/, 'l’annonce dit qu’une erreur compte')
   assert.equal(JEUX.replique.bareme, `le bon mot ${etoiles(B.ETOILES_DE_LA_REPLIQUE.mot)} · la bonne personne ${etoiles(B.ETOILES_DE_LA_REPLIQUE.qui)}`)
   assert.deepEqual(B.ESSAIS_DES_ETOILES, [2, 4, 5])
   assert.equal(B.ESSAIS_DU_MOT, B.ESSAIS_DES_ETOILES[2])
   assert.deepEqual(B.JUSTES_DE_L_ECLAIR, [5, 4, 3])
   assert.equal(B.AFFIRMATIONS_DE_L_ECLAIR, B.JUSTES_DE_L_ECLAIR[0])
-  assert.deepEqual(B.INDICES_DES_ETOILES, [2, 3])
+  assert.deepEqual(B.INDICES_DES_ETOILES, [3, 4])
   assert.equal(B.INDICES_D_UNE_FICHE, 5)
-  assert.deepEqual(B.ERREURS_DE_LA_FRISE, [0, 1, 2])
+  assert.deepEqual(B.ERREURS_DE_LA_FRISE, [0, 1, 1])
   assert.deepEqual(B.ETOILES_AU_CADRAGE, [3, 2, 1, 0])
   assert.deepEqual(B.ETOILES_DU_FILET, { petit: 3, moyen: 2, grand: 1 })
-  assert.deepEqual(B.ETOILES_DU_PARI, { garder: 1, parier: 3 })
+  assert.deepEqual(B.ETOILES_DU_PARI, { garder: 2, parier: 3 })
   assert.deepEqual(B.ETOILES_DE_LA_REPLIQUE, { mot: 2, qui: 1 })
+})
+
+test('le barème des erreurs dit à l’annonce ne dit jamais un palier vide', () => {
+  // Des bornes qui ne montent pas laissent une étoile que rien n'atteint : [0, 1, 1] n'a pas de ★ — deux erreurs
+  // valent zéro (`etoilesDeLaFrise`) —, et la lire telle quelle faisait écrire « deux à une ★ ».
+  assert.equal(baremeDesErreurs([0, 1, 2]), 'sans faute ★★★ · une erreur ★★ · deux ★')
+  assert.equal(baremeDesErreurs([0, 1, 1]), 'sans faute ★★★ · une erreur ★★')
+  assert.equal(baremeDesErreurs([0, 2, 4]), 'sans faute ★★★ · une ou deux erreurs ★★ · trois ou quatre ★')
+  assert.equal(baremeDesErreurs([0, 0, 1]), 'sans faute ★★★ · une erreur ★')
+  assert.equal(baremeDesErreurs([1, 1, 3]), 'au plus une erreur ★★★ · deux ou trois ★')
+  for (const bornes of [[0, 1, 1], [0, 0, 1], [1, 1, 3], [0, 0, 0]]) assert.doesNotMatch(baremeDesErreurs(bornes), /\b(\S+) à (\S+)\b/, `${bornes}`)
 })
 
 test('une pièce est juste dès deux étoiles naturelles ; au Pari, à sa bonne réponse', () => {
@@ -446,8 +465,10 @@ test('les chiffres se tiennent entre eux', () => {
     assert.ok(B.POUSSIERE_DU_DOUBLE[r] < B.PRIX_D_UNE_OEUVRE[r], r)
   }
   assert.deepEqual(B.PRIX_D_UNE_OEUVRE, { commun: 200, rare: 400, maudit: 400, epique: 700 })
-  assert.deepEqual(B.PRIX_D_UNE_DORURE, { commun: 50, rare: 100, maudit: 100, epique: 160 })
-  assert.deepEqual(B.POUSSIERE_DU_DOUBLE, { commun: 30, rare: 60, maudit: 60, epique: 120 })
+  // Doublées, et le double divisé par deux, au calibrage du 25 octobre 2026 : le complétionniste dorait tout en
+  // trente jours, quand la maquette le voulait en mois — trente-neuf désormais, deux cent vingt-quatre à l'occasionnel.
+  assert.deepEqual(B.PRIX_D_UNE_DORURE, { commun: 100, rare: 200, maudit: 200, epique: 320 })
+  assert.deepEqual(B.POUSSIERE_DU_DOUBLE, { commun: 15, rare: 30, maudit: 30, epique: 60 })
   assert.ok(B.POUSSIERE_MIN <= B.POUSSIERE_PAR_ETOILE * B.ETOILES_D_UNE_PARTIE)
   // La Frise : trois vagues, une par manche, qui font une frise de sept.
   assert.equal(B.VAGUES_DE_LA_FRISE.length, B.MANCHES_PAR_PARTIE)

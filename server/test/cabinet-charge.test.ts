@@ -39,7 +39,7 @@ import {
   type MagasinDEssai,
 } from './cabinet-banc'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
-import { POUSSIERE_MIN } from '../../shared/cabinet/bareme'
+import { ETOILES_DU_PARI, POUSSIERE_MIN, POUSSIERE_PAR_ETOILE } from '../../shared/cabinet/bareme'
 import { CATEGORIES } from '../../shared/categories'
 import type { PartieLue } from '../src/core/cabinet/magasin'
 import { ProfileStore } from '../src/auth/profiles'
@@ -113,15 +113,15 @@ test('deux serveurs : un seul geste par rang — le second relit la partie et re
   assert.equal(second.passe.etat.rang, 3, 'la vue d’à présent : le rang suivant')
   assert.equal(compter(fichier, 'SELECT COUNT(*) AS n FROM cabinet_gestes WHERE serie_id = ?', partie.id), 2, 'l’ouverture et une réponse')
   assert.equal(compter(fichier, 'SELECT COUNT(*) AS n FROM campagne_reponses WHERE serie_id = ?', partie.id), 0, 'juste au premier coup : la pièce attend « Garder » ou « Parier »')
-  // Puis la fin, d'un seul serveur aussi : quitter compte l'étoile gardée, une pièce, une fois.
+  // Puis la fin, d'un seul serveur aussi : quitter compte les étoiles gardées, une pièce, une fois.
   const fin = await b.cabinet.geste('qui', partie.id, 3, { quoi: 'quitter' })
   assert.ok('partie' in fin)
   assert.ok('passe' in (await a.cabinet.geste('qui', partie.id, 3, { quoi: 'quitter' })))
   assert.equal(compter(fichier, 'SELECT COUNT(*) AS n FROM campagne_reponses WHERE serie_id = ?', partie.id), 1)
   assert.deepEqual(
     enBase(fichier, db => db.prepare('SELECT poussiere, partie FROM cabinet_profils WHERE profile_id = ?').get('qui')),
-    { poussiere: 2, partie: null },
-    'la poussière d’une libre payée, une fois',
+    { poussiere: ETOILES_DU_PARI.garder * POUSSIERE_PAR_ETOILE, partie: null },
+    'la poussière d’une libre payée, une fois : deux étoiles gardées, deux poussières chacune',
   )
 })
 

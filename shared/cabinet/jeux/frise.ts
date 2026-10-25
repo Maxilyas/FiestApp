@@ -157,7 +157,12 @@ export function erreursDeLaFrise(ordre: readonly number[], annees: readonly numb
 export const erreursComptees = (ordre: readonly number[], faux: readonly number[]) =>
   faux.reduce((n, x) => n + (ordre.includes(x) ? 1 : ERREURS_D_UN_OUBLI), 0)
 
-/** Les étoiles de tant d'erreurs comptées : sans faute ★★★, une ★★, deux ★, au-delà rien (`ERREURS_DE_LA_FRISE`). */
+/**
+ * Les étoiles de tant d'erreurs comptées, au premier palier qui les tolère
+ * (`ERREURS_DE_LA_FRISE`) : sans faute ★★★, une ★★, au-delà rien — deux ne
+ * valent plus ★ depuis le calibrage du 25 octobre 2026. Un palier que sa borne
+ * ne fait pas monter n'est jamais atteint.
+ */
 export function etoilesDeLaFrise(erreurs: number): VerdictDUneManche['naturel'] {
   const palier = ERREURS_DE_LA_FRISE.findIndex(au => erreurs <= au)
   return (palier < 0 ? 0 : 3 - palier) as VerdictDUneManche['naturel']

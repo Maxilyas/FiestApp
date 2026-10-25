@@ -426,12 +426,15 @@ function jouer(t: IndicesTires, gestes: unknown[]): EtatDesIndices {
   return e
 }
 
-test('les Indices : les indices vus, moins les offerts, plus les erreurs — 2 ★★★, 3 ★★, au-delà ★', () => {
-  assert.deepEqual(INDICES_DES_ETOILES, [2, 3])
+test('les Indices : les indices vus, moins les offerts, plus les erreurs — 3 ★★★, 4 ★★, au-delà ★', () => {
+  // Un cran plus large depuis le calibrage du 25 octobre 2026 : à deux et trois, l'occasionnel n'y gagnait une
+  // commune qu'une partie sur cinq, le plus dur des jeux après le Pari ; au hasard, presque rien ne change (0,3 %).
+  assert.deepEqual(INDICES_DES_ETOILES, [3, 4])
   assert.equal(etoilesDesIndices(1), 3)
   assert.equal(etoilesDesIndices(2), 3)
-  assert.equal(etoilesDesIndices(3), 2)
-  assert.equal(etoilesDesIndices(4), 1)
+  assert.equal(etoilesDesIndices(3), 3)
+  assert.equal(etoilesDesIndices(4), 2)
+  assert.equal(etoilesDesIndices(5), 1)
   assert.equal(etoilesDesIndices(9), 1)
 
   const t = fiche(HUGO)
@@ -444,22 +447,29 @@ test('les Indices : les indices vus, moins les offerts, plus les erreurs — 2 �
   const ouverte = REGLE_DES_INDICES.ouvrir(t)
   assert.deepEqual(ouverte, { vus: 1, offerts: 0, essais: [] })
   assert.equal(trouver(ouverte).naturel, 3)
-  // Un indice de plus : deux vus, encore ★★★ ; un troisième, ★★.
+  // Un indice de plus : deux vus, encore ★★★ ; un troisième, encore ★★★ ; un quatrième, ★★.
   assert.equal(trouver(jouer(t, [{ quoi: 'indice' }])).naturel, 3)
   const trois = jouer(t, [{ quoi: 'indice' }, { quoi: 'indice' }])
   assert.equal(comptesDesIndices(trois), 3)
-  assert.equal(trouver(trois).naturel, 2)
-  // Une erreur : une erreur et un indice de plus — deux de plus au compte, une étoile de moins.
+  assert.equal(trouver(trois).naturel, 3)
+  const quatre = jouer(t, [{ quoi: 'indice' }, { quoi: 'indice' }, { quoi: 'indice' }])
+  assert.equal(comptesDesIndices(quatre), 4)
+  assert.equal(trouver(quatre).naturel, 2)
+  // Une erreur : une erreur et un indice de plus — deux de plus au compte. Au premier indice, trois au compte :
+  // encore ★★★ ; après un indice de plus, quatre, ★★ — une étoile de moins.
   const uneErreur = jouer(t, [{ quoi: 'nom', texte: 'Zola' }])
   assert.deepEqual(uneErreur, { vus: 2, offerts: 0, essais: ['Zola'] })
   assert.equal(comptesDesIndices(uneErreur), 3)
-  const v = trouver(uneErreur)
+  assert.equal(trouver(uneErreur).naturel, 3)
+  const erreurPuisIndice = jouer(t, [{ quoi: 'indice' }, { quoi: 'nom', texte: 'Zola' }])
+  assert.equal(comptesDesIndices(erreurPuisIndice), 4)
+  const v = trouver(erreurPuisIndice)
   assert.equal(v.naturel, 2)
-  assert.deepEqual(piece0(v), { juste: true, choix: 0, composee: '2|1' })
-  // L'indice qu'Éclairer offre ne compte pas : trois vus dont un offert, ★★★.
-  const offert = REGLE_DES_INDICES.eclairer(t, jouer(t, [{ quoi: 'indice' }]), toujours(0.5))
+  assert.deepEqual(piece0(v), { juste: true, choix: 0, composee: '3|1' })
+  // L'indice qu'Éclairer offre ne compte pas : quatre vus dont un offert, ★★★.
+  const offert = REGLE_DES_INDICES.eclairer(t, jouer(t, [{ quoi: 'indice' }, { quoi: 'indice' }]), toujours(0.5))
   assert.ok(typeof offert !== 'string')
-  assert.deepEqual(offert, { vus: 3, offerts: 1, essais: [] })
+  assert.deepEqual(offert, { vus: 4, offerts: 1, essais: [] })
   assert.equal(trouver(offert).naturel, 3)
   // Tout vu, sans aide : cinq au compte, ★ — trouvé, mais pas « su » : la pièce n'est pas juste.
   const tout = jouer(t, [{ quoi: 'indice' }, { quoi: 'indice' }, { quoi: 'indice' }, { quoi: 'indice' }])
@@ -524,7 +534,7 @@ test('les Indices : la manche ne montre que les indices vus, jamais la réponse 
   assert.deepEqual(montree.indices, HUGO.indices.slice(0, 3))
   assert.equal(montree.caches, 2)
   assert.deepEqual(montree.essayes, ['Zola'])
-  assert.equal(montree.vaut, 1, 'trois vus et une erreur : la réponse vaut ★')
+  assert.equal(montree.vaut, 2, 'trois vus et une erreur, quatre au compte : la réponse vaut ★★')
   const vue = JSON.stringify(montree)
   for (const secret of ['Hugo', 'hugo', HUGO.indices[3], HUGO.indices[4], HUGO.savais]) assert.ok(!vue.includes(secret), `la manche montre « ${secret} »`)
   // Au premier indice, elle vaut ★★★.
@@ -536,7 +546,7 @@ test('les Indices : la révélation, la pièce, le cartel', () => {
   const offert = REGLE_DES_INDICES.eclairer(t, jouer(t, [{ quoi: 'nom', texte: 'Zola' }]), toujours(0)) as EtatDesIndices
   const g = geste(t, { quoi: 'nom', texte: 'hugo' })
   const v = REGLE_DES_INDICES.juger(t, offert, g)
-  assert.equal(v.naturel, 2, 'trois vus dont un offert, une erreur : trois au compte')
+  assert.equal(v.naturel, 3, 'trois vus dont un offert, une erreur : trois au compte, ★★★')
   const revele = REGLE_DES_INDICES.reveler(t, offert, v)
   assert.equal(revele.titre, 'Trouvé')
   assert.equal(revele.trouve, true)

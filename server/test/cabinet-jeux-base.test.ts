@@ -1,7 +1,7 @@
 // Les quatre jeux du Cabinet qui posent une question de la base de la
 // campagne — le Pari, l'Éclair, le Mot mystère, le Filet —, par leurs règles
 // pures (`shared/cabinet/jeux/`). Ce que la conception exige d'eux : les deux
-// étapes du Pari, l'étoile gardée à « Quitter », sa seconde question tirée au
+// étapes du Pari, les étoiles gardées à « Quitter », sa seconde question tirée au
 // départ et jamais montrée avant « Parier » ; l'Éclair, ses cinq affirmations
 // jugées ensemble et rien de leur vérité avant le verdict ; les couleurs du
 // Mot mystère et leurs lettres doubles, le souffle, la longueur d'un mot ; la
@@ -138,7 +138,7 @@ const PARI: PariTire = {
 }
 const repondre = (choix?: number) => ({ quoi: 'repondre', ...(choix !== undefined && { reponse: { pari: { choix } } }) })
 
-test('le Pari : juste, il garde une étoile ou la parie — deux étapes, chacune sa question', () => {
+test('le Pari : juste, il garde ses étoiles ou les parie — deux étapes, chacune sa question', () => {
   const r = REGLE_DU_PARI
   const ouvert = r.ouvrir(PARI)
   assert.equal(ouvert.etape, 1)
@@ -149,7 +149,7 @@ test('le Pari : juste, il garde une étoile ou la parie — deux étapes, chacun
   assert.equal(auChoix.auChoix, true, 'juste : il garde ou il parie')
   assert.equal(auChoix.etape, 1)
 
-  // Garder : une étoile, une pièce — la première, juste.
+  // Garder : ses étoiles (`ETOILES_DU_PARI.garder`), une pièce — la première, juste.
   const garde = verdictDe(jouer(r, PARI, auChoix, { quoi: 'garder' }))
   assert.equal(garde.naturel, B.ETOILES_DU_PARI.garder)
   assert.deepEqual(garde.pieces, [{ juste: true, choix: 1, composee: null, etape: 1 }])
@@ -178,12 +178,12 @@ test('le Pari : juste, il garde une étoile ou la parie — deux étapes, chacun
   assert.deepEqual(verdictDe(jouer(r, PARI, ouvert, repondre())).pieces, [{ juste: false, choix: null, composee: null, etape: 1 }])
 })
 
-test('le Pari : laissé au choix puis quitté, l’étoile est gardée ; quitté ailleurs, rien', () => {
+test('le Pari : laissé au choix puis quitté, ses étoiles sont gardées ; quitté ailleurs, rien', () => {
   const r = REGLE_DU_PARI
   const ouvert = r.ouvrir(PARI)
   const auChoix = etatDe(jouer(r, PARI, ouvert, repondre(1)))
   for (const fin of ['quittee', 'expiree'] as const) {
-    // Il l'avait gagnée : quitter au choix, ou la partie close le lendemain, la garde.
+    // Il les avait gagnées : quitter au choix, ou la partie close le lendemain, les garde.
     assert.deepEqual(r.juger(PARI, auChoix, fin), { naturel: B.ETOILES_DU_PARI.garder, pieces: [{ juste: true, choix: 1, composee: null, etape: 1 }] }, fin)
     // Pas encore répondu : zéro, et la pièce s'écrit sans choix — il l'a vue.
     assert.deepEqual(r.juger(PARI, ouvert, fin), { naturel: 0, pieces: [{ juste: false, choix: null, composee: null, etape: 1 }] }, fin)
@@ -203,7 +203,9 @@ test('le Pari : chaque geste à son moment, refusé en mots sinon', () => {
   const pari = etatDe(jouer(r, PARI, auChoix, { quoi: 'parier' }))
   assert.equal(refusDe(jouer(r, PARI, ouvert, { quoi: 'garder' })), 'Réponds d’abord à la question')
   assert.equal(refusDe(jouer(r, PARI, ouvert, { quoi: 'parier' })), 'Réponds d’abord à la question')
-  assert.equal(refusDe(jouer(r, PARI, auChoix, repondre(2))), 'Garde ton étoile, ou parie-la')
+  // Deux étoiles gardées depuis le calibrage du 25 octobre 2026 : le refus les dit au nombre du barème.
+  assert.equal(B.ETOILES_DU_PARI.garder, 2)
+  assert.equal(refusDe(jouer(r, PARI, auChoix, repondre(2))), 'Garde tes étoiles, ou parie-les')
   assert.equal(refusDe(jouer(r, PARI, pari, { quoi: 'garder' })), 'Le pari est fait : réponds à la question')
   assert.equal(refusDe(jouer(r, PARI, pari, { quoi: 'parier' })), 'Le pari est fait : réponds à la question')
   // Un geste qui tranche ne passe jamais par `apresLeGeste` : s'il s'y perd, il se refuse sans rien changer.
@@ -318,7 +320,8 @@ test('le Pari : la révélation dit ce qui s’est passé, chaque réponse marqu
   const auChoix = etatDe(jouer(r, PARI, ouvert, repondre(1)))
   const pari = etatDe(jouer(r, PARI, auChoix, { quoi: 'parier' }))
   const titre = (e: EtatDuPari, v: VerdictDUneManche) => r.reveler(PARI, e, v).titre
-  assert.equal(titre(auChoix, verdictDe(jouer(r, PARI, auChoix, { quoi: 'garder' }))), 'Étoile gardée')
+  // Les étoiles gardées, au nombre du barème : deux depuis le calibrage du 25 octobre 2026.
+  assert.equal(titre(auChoix, verdictDe(jouer(r, PARI, auChoix, { quoi: 'garder' }))), 'Étoiles gardées')
   assert.equal(titre(pari, verdictDe(jouer(r, PARI, pari, repondre(3)))), 'Pari gagné !')
   assert.equal(titre(pari, verdictDe(jouer(r, PARI, pari, repondre(0)))), 'Pari perdu')
   assert.equal(titre(ouvert, verdictDe(jouer(r, PARI, ouvert, repondre(0)))), 'Raté')
@@ -891,7 +894,7 @@ test('le tas des QCM du Cabinet : quatre réponses courtes, un intitulé court, 
   assert.equal(estUnQcmDuCabinet(q('Quel fleuve traverse Lyon, le Rhône ou la Seine ?', ['le Rhône', 'la Loire', 'la Seine', 'la Garonne'])), false, 'l’intitulé la dit')
 })
 
-test('par les routes : le Pari et l’Éclair d’un bout à l’autre — neuf étoiles et le cadre doré, le pari perdu, l’étoile gardée', async () => {
+test('par les routes : le Pari et l’Éclair d’un bout à l’autre — neuf étoiles et le cadre doré, le pari perdu, les étoiles gardées', async () => {
   const b = await bancDuCabinet()
   try {
     const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
@@ -900,7 +903,7 @@ test('par les routes : le Pari et l’Éclair d’un bout à l’autre — neuf 
     assert.equal(parfait.bilan?.issue, 'libre', 'une partie libre ne gagne pas d’œuvre')
     assert.equal(parfait.bilan?.poussiere, 9 * B.POUSSIERE_PAR_ETOILE)
 
-    // Le pari perdu, puis l'étoile gardée, puis une manche ratée : 0, 1, 0.
+    // Le pari perdu, puis les étoiles gardées, puis une manche ratée : 0, 2, 0.
     let v = ok(await commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null }), 'le Pari')
     v = await jouerUnPari(b, lea, v, 0, 'parier-faux')
     assert.equal(v.revelation?.corps.jeu, 'pari')

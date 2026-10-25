@@ -34,7 +34,7 @@ import { TIREURS } from '../src/core/cabinet/tirages/index'
 import { CABINET_SANS_PROFIL } from '../src/cabinet'
 import { DEMANDE_ILLISIBLE } from '../src/core/cabinet/magasin'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
-import { CASES_DE_LA_VISITE, CHASSES_PAR_JOUR, DEPARTS_PAR_HEURE, ECLAIRAGES_PAR_PARTIE, LIBRES_QUI_PAIENT, POUSSIERE_MIN } from '../../shared/cabinet/bareme'
+import { CASES_DE_LA_VISITE, CHASSES_PAR_JOUR, DEPARTS_PAR_HEURE, ECLAIRAGES_PAR_PARTIE, ETOILES_DU_PARI, LIBRES_QUI_PAIENT, POUSSIERE_MIN, POUSSIERE_PAR_ETOILE } from '../../shared/cabinet/bareme'
 import { JEUX } from '../../shared/cabinet/jeux/regle'
 import { forceDite } from '../../shared/cabinet/pouvoirs'
 import { GARDIENS, SALLES } from '../../shared/cabinet/salles'
@@ -313,18 +313,22 @@ test('l’œuvre gagnée d’une partie close le lendemain prend la fête du jou
   }
 })
 
-test('une partie libre au Pari, juste au premier coup et gardée : une étoile, une pièce, sa poussière', async () => {
+test('une partie libre au Pari, juste au premier coup et gardée : ses étoiles, une pièce, sa poussière', async () => {
+  // Deux étoiles gardées depuis le calibrage du 25 octobre 2026 (`ETOILES_DU_PARI`) ; une libre payée en rapporte
+  // deux poussières chacune (`POUSSIERE_PAR_ETOILE`).
+  assert.equal(ETOILES_DU_PARI.garder, 2)
   const eva = await inscrireProfil(b.banc.url, 'eva', 'Éva')
   let v = ok(await commencer(b, eva, { origine: 'libre', jeu: 'pari', carte: null }), 'commencer')
   v = await jouerUnPari(b, eva, v, 0, 'garder')
   assert.equal(v.phase, 'revele')
-  assert.equal(v.manches[0].etoiles, 1)
+  assert.equal(v.manches[0].etoiles, ETOILES_DU_PARI.garder)
   assert.equal(v.revelation?.manche, 0)
   assert.equal(v.revelation?.fin, 'jugee')
   assert.equal(v.revelation?.signalables.length, 1, 'la question de la base se signale')
   v = ok(await jouer(b, eva, v, { quoi: 'quitter' }), 'quitter')
-  assert.equal(v.bilan?.total, 1)
+  assert.equal(v.bilan?.total, ETOILES_DU_PARI.garder)
   assert.equal(v.bilan?.issue, 'libre')
-  assert.equal(v.bilan?.poussiere, 2)
+  assert.equal(v.bilan?.poussiere, ETOILES_DU_PARI.garder * POUSSIERE_PAR_ETOILE)
+  assert.equal(v.bilan?.poussiere, 4)
   assert.ok(v.manches[0].revelation, '« Mes réponses » : chaque manche tranchée révélée, la partie finie')
 })

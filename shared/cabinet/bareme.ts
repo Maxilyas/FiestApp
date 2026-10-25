@@ -10,7 +10,12 @@
 // Les valeurs sont celles de la maquette que trois agents ont jouée deux fois
 // chacun avant la proposition (`retours/2026-10-24/maquette/jeu.js`), et ce
 // que ces tours ont fait changer : l'Épingle plus tolérante, l'Éclair à 45 s,
-// un chrono par étape à la Réplique, les dorures baissées de 40 %.
+// un chrono par étape à la Réplique, les dorures baissées de 40 %. Puis ce que
+// le calibrage sur le vrai code (`server/scripts/calibrage-cabinet.ts`) a fait
+// changer le 25 octobre 2026, avant qu'une partie se joue hors des bases
+// jetables : deux étoiles gardées au Pari, deux erreurs qui ne valent plus une
+// étoile à la Frise, un indice de plus à chaque étoile des Indices, l'Éclair à
+// 55 s, les dorures doublées et le double divisé par deux.
 //
 // Ce qu'un changement fait au passé dépend du chemin de chaque chiffre, que
 // sa ligne de `baremes.md` dit : un seuil se fige au départ d'une partie ; la
@@ -61,8 +66,13 @@ export const SEUILS_DES_RARETES: Readonly<Record<Rarete, number>> = { commun: 5,
 export const POUSSIERE_PAR_ETOILE = 2
 /** … et quatre au moins, même ratée : une partie de deux minutes fait toujours avancer. */
 export const POUSSIERE_MIN = 4
-/** Une œuvre qu'il avait déjà, regagnée en visite sans cadre doré : ce double paie en plus. */
-export const POUSSIERE_DU_DOUBLE: Readonly<Record<Rarete, number>> = { commun: 30, rare: 60, maudit: 60, epique: 120 }
+/**
+ * Une œuvre qu'il avait déjà, regagnée en visite sans cadre doré : ce double
+ * paie en plus. Divisé par deux au calibrage du 25 octobre 2026, avec les
+ * dorures doublées : un double épique payait les trois quarts de sa dorure
+ * (120 pour 160), et tout dorer ne prenait qu'un mois au complétionniste.
+ */
+export const POUSSIERE_DU_DOUBLE: Readonly<Record<Rarete, number>> = { commun: 15, rare: 30, maudit: 30, epique: 60 }
 /**
  * Les parties libres qui paient chaque jour (deux poussières par étoile) ; les
  * suivantes se jouent pour le plaisir — la maquette donnait une poussière
@@ -71,8 +81,16 @@ export const POUSSIERE_DU_DOUBLE: Readonly<Record<Rarete, number>> = { commun: 3
 export const LIBRES_QUI_PAIENT = 5
 /** Acheter une œuvre précise qui lui manque. */
 export const PRIX_D_UNE_OEUVRE: Readonly<Record<Rarete, number>> = { commun: 200, rare: 400, maudit: 400, epique: 700 }
-/** Dorer le cadre d'une œuvre qu'il a : baissés de 40 % après la simulation, pour que tout dorer reste atteignable. */
-export const PRIX_D_UNE_DORURE: Readonly<Record<Rarete, number>> = { commun: 50, rare: 100, maudit: 100, epique: 160 }
+/**
+ * Dorer le cadre d'une œuvre qu'il a. La maquette les avait baissés de 40 %
+ * pour que tout dorer reste atteignable en quelques mois ; sur le vrai code,
+ * le complétionniste dorait tout en trente jours, le moyen en quarante : la
+ * longue traîne n'existait plus. Doublés au calibrage du 25 octobre 2026,
+ * avec les autres retouches du jour : 41,5 jours au complétionniste, 61 au
+ * moyen, 193 à l'occasionnel — tout posséder ne bouge qu'à deux jours près,
+ * sauf pour qui joue au hasard, que la Frise ne nourrit plus.
+ */
+export const PRIX_D_UNE_DORURE: Readonly<Record<Rarete, number>> = { commun: 100, rare: 200, maudit: 200, epique: 320 }
 
 // ── La journée ────────────────────────────────────────────────────────────
 
@@ -135,6 +153,11 @@ export const CHANGEMENTS_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2
  * (`DepartDUnePartie.chrono`), avec la grâce et la pause : relue ici à chaque
  * réveil, une durée changée aurait fait changer d'échéance une manche en
  * route. Changée, elle ne vaut que pour les parties qui commencent.
+ *
+ * L'Éclair, passé de 45 à 55 s au calibrage du 25 octobre 2026 : cinq
+ * affirmations à lire, l'échéance prenait l'occasionnel de court à une manche
+ * sur neuf (11,1 %), quand aucun autre jeu ne dépassait 1,1 % ; 2,9 % à 55 s,
+ * sans rien changer à ses étoiles.
  */
 export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
   epingle: 45,
@@ -143,7 +166,7 @@ export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
   detail: 45,
   filet: 45,
   pari: 35,
-  eclair: 45,
+  eclair: 55,
   indices: 75,
   replique: 25,
 }
@@ -182,8 +205,16 @@ export const DECALAGE_DE_LA_ZONE_KM: readonly [number, number] = [40, 140]
 export const VAGUES_DE_LA_FRISE: readonly number[] = [3, 2, 2]
 /** La Frise : l'écart, en années, entre deux événements voisins — deux années trop proches se rangeraient au hasard. */
 export const ECART_DES_ANNEES_DE_LA_FRISE = 3
-/** La Frise : au plus tant d'erreurs pour ★★★, ★★, ★ — sans faute, une erreur, deux. */
-export const ERREURS_DE_LA_FRISE: readonly [number, number, number] = [0, 1, 2]
+/**
+ * La Frise : au plus tant d'erreurs pour ★★★, ★★, ★ — sans faute, une erreur ;
+ * deux ne valent plus rien. Une borne qui ne monte pas laisse une étoile que
+ * rien n'atteint, et l'annonce la tait (`baremeDesErreurs`). Deux erreurs
+ * valaient ★ jusqu'au calibrage du 25 octobre 2026 : avec des vagues de deux,
+ * une manche où les deux nouveaux venus sont posés ne descendait jamais sous
+ * ★, et qui rangeait au hasard gagnait une commune 28,2 fois sur cent — 12,2
+ * désormais, quand l'occasionnel en garde 86,7.
+ */
+export const ERREURS_DE_LA_FRISE: readonly [number, number, number] = [0, 1, 1]
 /** La Frise : un nouveau venu laissé de côté compte autant que la pire place — la sienne, et celle du voisin qu'il contredit : poser n'est jamais pire que s'abstenir. */
 export const ERREURS_D_UN_OUBLI = 2
 
@@ -233,8 +264,16 @@ export const VALEUR_MIN_DU_FILET = 10
 /** Le Filet : la marche des questions qu'il pose. */
 export const MARCHES_DU_FILET: readonly Niveau[] = ['facile', 'moyen']
 
-/** Le Pari : garder l'étoile, ou la parier sur une question plus difficile — réussie, ★★★ ; ratée, rien. */
-export const ETOILES_DU_PARI: Readonly<Record<'garder' | 'parier', number>> = { garder: 1, parier: 3 }
+/**
+ * Le Pari : garder ses étoiles, ou les parier sur une question plus difficile —
+ * réussie, ★★★ ; ratée, rien. Garder en valait une jusqu'au calibrage du
+ * 25 octobre 2026 : trois manches gardées faisaient trois étoiles, et une
+ * commune exigeait trois premières questions justes et un pari gagné sur une
+ * question difficile — 3,1 % des parties de l'occasionnel. À deux, trois
+ * premières justes la font : 24,6 %, au hasard 3,7 %, et pas un confetti de
+ * plus (une pièce est juste à sa bonne réponse, pas aux étoiles).
+ */
+export const ETOILES_DU_PARI: Readonly<Record<'garder' | 'parier', number>> = { garder: 2, parier: 3 }
 /** Le Pari : la marche mesurée de sa première question, puis de celle du pari — « difficile » doit l'être vraiment. */
 export const MARCHES_DU_PARI: Readonly<Record<'question' | 'pari', readonly Niveau[]>> = { question: ['facile', 'moyen'], pari: ['difficile', 'expert'] }
 
@@ -249,9 +288,12 @@ export const MARCHES_DE_L_ECLAIR: readonly Niveau[] = ['facile', 'moyen']
 
 /**
  * Les Indices : au plus tant d'indices comptés pour ★★★, puis ★★ ; au-delà, ★
- * — les indices vus, moins ceux qu'Éclairer offre, plus les erreurs.
+ * — les indices vus, moins ceux qu'Éclairer offre, plus les erreurs. Un cran
+ * plus large depuis le calibrage du 25 octobre 2026 : à deux et trois,
+ * l'occasionnel n'y gagnait une commune qu'une partie sur cinq (21,2 %) ;
+ * 37 % désormais, au hasard 0,3 % (0,2 avant).
  */
-export const INDICES_DES_ETOILES: readonly [number, number] = [2, 3]
+export const INDICES_DES_ETOILES: readonly [number, number] = [3, 4]
 /** Les Indices : une faute de frappe se tolère dans un mot dès tant de lettres. */
 export const LETTRES_POUR_UNE_FAUTE = 5
 /** Les Indices : une réponse tient en tant de mots au plus — la réponse fourre-tout reste fermée. */

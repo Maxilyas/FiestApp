@@ -479,22 +479,26 @@ test('la Frise : un nouveau venu est faux si une ancre le contredit, ou, entre l
   assert.deepEqual(erreursDeLaFrise([2, 1, 0], [1969, 1903, 1927], [0, 1, 2]), [1, 2], '1927 avant 1903 : les deux se contredisent')
 })
 
-test('la Frise : sans faute ★★★, une erreur ★★, deux ★, trois rien — un laissé de côté en compte deux, et rien de posé, rien', () => {
-  assert.deepEqual([...ERREURS_DE_LA_FRISE], [0, 1, 2])
+test('la Frise : sans faute ★★★, une erreur ★★, deux rien — un laissé de côté en compte deux, et rien de posé, rien', () => {
+  // Deux erreurs valaient ★ jusqu'au calibrage du 25 octobre 2026 : avec des vagues de deux, une manche où les deux
+  // nouveaux venus sont posés ne descendait jamais sous ★, et qui rangeait au hasard gagnait une commune plus
+  // d'une partie sur quatre (28,2 %, près du double du Détail, le suivant). Sans faute ou une erreur, désormais ;
+  // au-delà, rien.
+  assert.deepEqual([...ERREURS_DE_LA_FRISE], [0, 1, 1])
   assert.equal(ERREURS_D_UN_OUBLI, 2)
-  assert.deepEqual([0, 1, 2, 3, 4].map(etoilesDeLaFrise), [3, 2, 1, 0, 0])
+  assert.deepEqual([0, 1, 2, 3, 4].map(etoilesDeLaFrise), [3, 2, 0, 0, 0])
   assert.equal(erreursComptees([0, 2], [1, 2]), 1 + ERREURS_D_UN_OUBLI, 'un faux posé, un laissé de côté')
   const [premiere, , troisieme] = uneFrise('bareme')
   const juste = [...premiere.vagues[0]].sort((a, b) => a - b)
   // La première manche : trois nouveaux venus, aucune ancre.
   const cas: [number[], number, boolean][] = [
     [juste, 3, true],
-    [[juste[0], juste[2], juste[1]], 1, false], // deux voisins échangés : deux erreurs
-    [[juste[2], juste[0], juste[1]], 1, false], // un bloc décalé : deux erreurs
+    [[juste[0], juste[2], juste[1]], 0, false], // deux voisins échangés : deux erreurs
+    [[juste[2], juste[0], juste[1]], 0, false], // un bloc décalé : deux erreurs
     [[juste[2], juste[1], juste[0]], 0, false],
     // Laissé de côté, il compte autant que la pire place : à une erreur, ne pas poser celui dont on doute valait
     // ★★ et une pièce juste, quand le poser n'importe où ailleurs qu'à sa place en coûtait deux.
-    [[juste[1], juste[2]], 1, false],
+    [[juste[1], juste[2]], 0, false],
     // Un seul jeton posé n'a personne pour le contredire : à une erreur par oubli, il valait ★ sans rien ranger.
     [[juste[0]], 0, false],
     [[juste[1]], 0, false],
@@ -516,11 +520,12 @@ test('la Frise : sans faute ★★★, une erreur ★★, deux ★, trois rien �
   for (const r of [repondre(troisieme, ancres), { quoi: 'repondre' as const, rangs: null }, 'expiree' as const, 'quittee' as const]) {
     assert.deepEqual(REGLE_DE_LA_FRISE.juger(troisieme, e, r), { naturel: 0, pieces: [{ juste: false, choix: null, composee: null }] }, JSON.stringify(r))
   }
-  // Un posé sur deux, à sa place, parmi les ancres : l'autre laissé de côté compte deux erreurs, ★ — une pièce fausse.
+  // Un posé sur deux, à sa place, parmi les ancres : l'autre laissé de côté compte deux erreurs, rien — une pièce
+  // fausse, sa réponse gardée (`choix` −1, l'ordre posé) : il a répondu, ce n'est pas une manche sans réponse.
   const [n1, n2] = troisieme.vagues[2]
   const unSeul = [...ancres, n1].sort((a, b) => a - b)
   const v = REGLE_DE_LA_FRISE.juger(troisieme, e, repondre(troisieme, unSeul))
-  assert.deepEqual(v, { naturel: 1, pieces: [{ juste: false, choix: -1, composee: unSeul.join('') }] })
+  assert.deepEqual(v, { naturel: 0, pieces: [{ juste: false, choix: -1, composee: unSeul.join('') }] })
   const tout = [...ancres, n1, n2].sort((a, b) => a - b)
   assert.equal(REGLE_DE_LA_FRISE.juger(troisieme, e, repondre(troisieme, tout)).naturel, 3)
 })
@@ -541,7 +546,8 @@ test('la Frise : deux nouveaux venus collés au bout, sans rien savoir des ancre
         const aSaPlace = [a, b].filter(x => (bout === 'tete' ? x < ancres[0] : x > ancres[ancres.length - 1])).length
         assert.equal(erreursDeLaFrise(rangs, annees, [a, b]).length, 2 - aSaPlace, `${bout} : ${rangs}`)
         const v = REGLE_DE_LA_FRISE.juger(t, REGLE_DE_LA_FRISE.ouvrir(t), repondre(t, rangs))
-        assert.equal(v.naturel, 3 - (2 - aSaPlace), `${bout} : ${rangs}`)
+        // Deux erreurs, rien ; une, ★★ ; aucune, ★★★ (`ERREURS_DE_LA_FRISE`).
+        assert.equal(v.naturel, [0, 2, 3][aSaPlace], `${bout} : ${rangs}`)
         assert.equal(v.pieces[0].juste, aSaPlace > 0, 'juste seulement si l’un des deux est vraiment au bout')
         manches++
         if (v.pieces[0].juste) justes++

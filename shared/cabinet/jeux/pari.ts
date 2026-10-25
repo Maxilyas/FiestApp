@@ -1,6 +1,9 @@
-// Le Pari : une question facile ou moyenne ; juste, il garde une étoile, ou la
-// parie sur une question difficile de la même catégorie — réussie, trois
-// étoiles ; ratée, rien. Pur : la partie tire les deux questions au départ
+// Le Pari : une question facile ou moyenne ; juste, il garde deux étoiles, ou
+// les parie sur une question difficile de la même catégorie — réussie, trois
+// étoiles ; ratée, rien. Garder n'en valait qu'une jusqu'au calibrage du
+// 25 octobre 2026 : une commune y était presque hors d'atteinte, et les mots
+// de l'écran suivent le barème (`ETOILES_DU_PARI`), jamais un nombre écrit en
+// dur. Pur : la partie tire les deux questions au départ
 // (`PariTire`), et rien ne se tire à « Parier » — la seconde est figée, et une
 // reprise après un redémarrage redonne la même.
 //
@@ -68,7 +71,7 @@ export interface PariMontre {
 
 export interface PariRevele {
   jeu: 'pari'
-  /** « Étoile gardée », « Pari gagné ! », « Pari perdu », « Raté », « Pas de réponse ». */
+  /** « Étoiles gardées », « Pari gagné ! », « Pari perdu », « Raté », « Pas de réponse ». */
   titre: string
   /** Les questions de la manche — la seconde, s'il a parié —, chacune ses réponses, la bonne et la sienne. */
   questions: { texte: string; reponses: string[]; bonne: number; choix: number | null }[]
@@ -80,6 +83,10 @@ type PieceJugee = VerdictDUneManche['pieces'][number]
 
 const GARDER = naturelDe(ETOILES_DU_PARI.garder)
 const PARIER = naturelDe(ETOILES_DU_PARI.parier)
+/** Ce qu'il garde se dit au nombre du barème : « Étoile gardée » sous deux étoiles en promettait une de moins. */
+const PLUSIEURS_GARDEES = ETOILES_DU_PARI.garder > 1
+const GARDE_OU_PARIE = PLUSIEURS_GARDEES ? 'Garde tes étoiles, ou parie-les' : 'Garde ton étoile, ou parie-la'
+const GARDEES = PLUSIEURS_GARDEES ? 'Étoiles gardées' : 'Étoile gardée'
 
 const enJeu = (t: PariTire, e: EtatDuPari) => (e.etape === 2 ? t.q2 : t.q1)
 const pieceJugee = (q: QuestionTiree, choix: number | null, etape: 1 | 2): PieceJugee => ({ juste: choix === q.bonne, choix, composee: null, etape })
@@ -127,7 +134,7 @@ export const REGLE_DU_PARI: RegleDuJeu<PariTire, EtatDuPari, GesteDuPari, PariMo
     if (tranche(t, e, g)) return GESTE_A_JUGER
     switch (g.quoi) {
       case 'repondre':
-        return e.auChoix ? 'Garde ton étoile, ou parie-la' : { ...e, auChoix: true, choix1: g.choix }
+        return e.auChoix ? GARDE_OU_PARIE : { ...e, auChoix: true, choix1: g.choix }
       case 'garder':
         return e.etape === 2 ? APRES_LE_PARI : AVANT_LE_CHOIX
       case 'parier':
@@ -143,7 +150,7 @@ export const REGLE_DU_PARI: RegleDuJeu<PariTire, EtatDuPari, GesteDuPari, PariMo
       const q2 = pieceJugee(t.q2, repondue, 2)
       return { naturel: q2.juste ? PARIER : 0, pieces: [pieceJugee(t.q1, e.choix1, 1), q2] }
     }
-    // Juste au premier coup, laissée au choix : il l'avait gagnée, l'étoile est gardée.
+    // Juste au premier coup, laissée au choix : il les avait gagnées, les étoiles sont gardées.
     if (e.auChoix) return { naturel: GARDER, pieces: [pieceJugee(t.q1, e.choix1, 1)] }
     const q1 = pieceJugee(t.q1, repondue, 1)
     return { naturel: q1.juste ? GARDER : 0, pieces: [q1] }
@@ -175,7 +182,7 @@ export const REGLE_DU_PARI: RegleDuJeu<PariTire, EtatDuPari, GesteDuPari, PariMo
     const p1 = pieceDeLEtape(v, 1)
     const p2 = pieceDeLEtape(v, 2)
     const vue = (q: QuestionTiree, p: PieceJugee | undefined) => ({ texte: q.texte, reponses: [...q.reponses], bonne: q.bonne, choix: p?.choix ?? null })
-    const titre = p2 ? (p2.juste ? 'Pari gagné !' : 'Pari perdu') : p1?.juste ? 'Étoile gardée' : p1?.choix == null ? 'Pas de réponse' : 'Raté'
+    const titre = p2 ? (p2.juste ? 'Pari gagné !' : 'Pari perdu') : p1?.juste ? GARDEES : p1?.choix == null ? 'Pas de réponse' : 'Raté'
     return {
       jeu: 'pari',
       titre,

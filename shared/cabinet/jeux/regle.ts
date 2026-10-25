@@ -79,17 +79,31 @@ function baremeCompte(bornes: readonly number[], mot: string): string {
   return tranches.map((t, i) => `${i === 0 ? `en ${t} ${mot}` : t} ${etoiles(3 - i)}`).join(' · ')
 }
 
-/** « sans faute ★★★ · une erreur ★★ · deux ★ » : les erreurs tolérées pour chaque étoile ; le premier palier qui en tolère les nomme. */
-function baremeDesErreurs(bornes: readonly number[]): string {
+/**
+ * « sans faute ★★★ · une erreur ★★ · deux ★ » : les erreurs tolérées pour
+ * chaque étoile ; le premier palier qui en tolère les nomme. Une borne qui ne
+ * monte pas laisse un palier vide — aucune erreur ne vaut cette étoile — et il
+ * ne se dit pas : la Frise à [0, 1, 1] (le calibrage du 25 octobre 2026) se
+ * lisait « sans faute ★★★ · une erreur ★★ · deux à une ★ ». En deçà du dernier
+ * palier dit, zéro.
+ */
+export function baremeDesErreurs(bornes: readonly number[]): string {
   return bornes
     .map((a, i) => {
       const de = i === 0 ? 0 : bornes[i - 1] + 1
+      if (a < de) return null
       const nombre = deA(de, a, n => enLettres(n, 'feminin'))
       const premiere = i === 0 || bornes[i - 1] === 0
       const dit = a === 0 ? 'sans faute' : !premiere ? nombre : `${de === 0 ? `au plus ${enLettres(a, 'feminin')}` : nombre} erreur${a > 1 ? 's' : ''}`
       return `${dit} ${etoiles(3 - i)}`
     })
+    .filter(t => t !== null)
     .join(' · ')
+}
+
+/** « garde deux étoiles, ou parie-les » : les étoiles gardées au Pari, au nombre du barème — une, puis deux depuis le calibrage du 25 octobre 2026. */
+function etoilesGardees(n: number): string {
+  return n === 1 ? 'garde une étoile, ou parie-la' : `garde ${enLettres(n, 'feminin')} étoiles, ou parie-les`
 }
 
 /** « au premier coup d’œil ★★★ · un pas ★★ · deux ★ » : les étoiles de chaque cadrage ; un cadrage qui ne vaut rien ne se dit pas — en deçà, zéro. */
@@ -150,7 +164,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     cle: 'pari',
     nom: 'Le Pari',
     a: 'au Pari',
-    geste: 'Juste : garde une étoile, ou parie-la sur une question plus difficile.',
+    geste: `Juste : ${etoilesGardees(ETOILES_DU_PARI.garder)} sur une question plus difficile.`,
     bareme: `garder ${etoiles(ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(ETOILES_DU_PARI.parier)}`,
     eclairer: 'efface une mauvaise réponse',
     changeable: true,

@@ -166,7 +166,7 @@ export function bonneIdentite(saisie: string, fiche: Pick<Fiche, 'reponse' | 'cl
 export const comptesDesIndices = (e: EtatDesIndices) => e.vus - e.offerts + e.essais.length
 
 /**
- * Les étoiles d'une bonne réponse à ce compte : au plus deux ★★★, trois ★★,
+ * Les étoiles d'une bonne réponse à ce compte : au plus trois ★★★, quatre ★★,
  * au-delà ★ (`INDICES_DES_ETOILES`). Trouvé, il gagne toujours une étoile au
  * moins — la révélation le relit ainsi, et seul un nom faux tranche à zéro.
  */
@@ -245,7 +245,9 @@ export const REGLE_DES_INDICES: RegleQuiTranche<IndicesTires, EtatDesIndices, Ge
       case 'nom':
         if (vide(g.texte)) return 'Écris un nom'
         if (dejaEssaye(e, g.texte)) return 'Tu as déjà essayé ce nom'
-        // « Non : une étoile de moins, et un indice de plus. »
+        // « Non : un indice de plus. » Deux de plus au compte — l'erreur, et l'indice qu'elle montre —, ce qui ne
+        // coûte pas toujours une étoile (au premier indice, trois au compte valent encore ★★★) : la manche dit ce
+        // que vaut sa réponse (`vaut`), la page n'en promet pas plus.
         return { ...e, vus: e.vus + 1, essais: [...e.essais, g.texte.trim()] }
     }
   },
