@@ -288,6 +288,50 @@ test('la carte de France : un toucher relu dans le cadre de l’Épingle, les fl
   assert.equal(ouEstLEpingle(pointADistance(lyon, 63, 90)), 'À 60 km à l’est de Lyon')
 })
 
+test('la carte de France prend le doigt comme `toucher` : son écho ne rejoue ni la carte ni un bouton venu sous lui, et hors du dessin rien ne se plante', async () => {
+  const { gestesDeLaCarte } = await import(url('views/cabinet/CarteDeFrance.tsx'))
+  const { VILLES_REPERES } = await import(url('views/cabinet/contourDeLaFrance.ts'))
+  const { toucher } = await import(url('toucher.ts'))
+  const poses: Point[] = []
+  let plantee = 0
+  const gestes = gestesDeLaCarte({ epingle: null, poser: (p: Point) => poses.push(p), planter: () => plantee++, aide: '' })
+  // En 1366 × 768, le dessin s'arrête à 460 pixels ; une page plus large que lui laisserait une bande de chaque côté.
+  const hauteur = (460 * HAUTEUR_DE_LA_CARTE) / LARGEUR_DE_LA_CARTE
+  const dessin = { left: 532, top: 300, right: 992, bottom: 300 + hauteur, width: 460, height: hauteur }
+  const cadre = { ...dessin, left: 500, right: 1024, width: 524 }
+  const currentTarget = { querySelector: () => ({ getBoundingClientRect: () => dessin }), getBoundingClientRect: () => cadre }
+  const lyon = VILLES_REPERES.find((v: { nom: string }) => v.nom === 'Lyon')!
+  const { x, y } = projeter(lyon)
+  const surLyon = { clientX: dessin.left + (x * dessin.width) / LARGEUR_DE_LA_CARTE, clientY: dessin.top + (y * dessin.height) / HAUTEUR_DE_LA_CARTE, currentTarget }
+  const doigt = (ou: object, timeStamp: number) => gestes.onPointerUp({ pointerType: 'touch', button: 0, timeStamp, ...ou })
+  doigt(surLyon, 10_000)
+  assert.equal(poses.length, 1)
+  assert.ok(distanceKm(poses[0], lyon) < 1, 'le doigt levé sur Lyon y pose l’épingle')
+  // Le `click` qui suit n'est que l'écho du doigt : il ne repose pas l'épingle, et le pied, qui a grandi d'une ligne, a pu faire
+  // venir « Éclairer » sous lui — l'écho ne le joue pas non plus : il aurait dépensé la carte-bonus sans qu'on le veuille.
+  gestes.onClick({ ...surLyon, timeStamp: 10_200 })
+  assert.equal(poses.length, 1, 'l’écho ne repose pas l’épingle')
+  let eclaire = 0
+  toucher(() => eclaire++).onClick({ timeStamp: 10_200 } as never)
+  assert.equal(eclaire, 0, 'l’écho du doigt sur la carte ne joue pas le bouton venu sous lui')
+  // La souris garde son clic, bien après.
+  gestes.onClick({ ...surLyon, timeStamp: 20_000 })
+  assert.equal(poses.length, 2)
+  // À côté du dessin — la bande vide, ou la marge d'un cadre plus large que lui —, ni le doigt ni la souris ne plantent : ramené
+  // dans le cadre de l'Épingle, le point serait parti au bord de l'Atlantique, à des centaines de kilomètres de l'épingle posée.
+  const aCote = { clientX: cadre.left + 10, clientY: surLyon.clientY, currentTarget }
+  doigt(aCote, 30_000)
+  gestes.onClick({ ...aCote, timeStamp: 40_000 })
+  doigt({ ...surLyon, clientY: dessin.bottom + 4 }, 50_000)
+  assert.equal(poses.length, 2, 'rien hors du dessin')
+  // Au clavier : une flèche part du milieu de la France, Entrée plante.
+  const touche = (key: string) => gestes.onKeyDown({ key, shiftKey: false, preventDefault: () => {} })
+  touche('ArrowUp')
+  assert.equal(poses.length, 3)
+  touche('Enter')
+  assert.equal(plantee, 1)
+})
+
 // ── 3. L'Épingle ──────────────────────────────────────────────────────────
 
 test('une manche de l’Épingle : la date, le thème, le récit, la question, la carte de toute la largeur, « Planter ici » sous le pouce — jamais le lieu', async () => {
@@ -338,6 +382,9 @@ test('l’Épingle posée : sur la carte à sa place, dite par sa ville repère,
   assert.match(pied, /<button type="button" class="btn btn-primary btn-big btn-block cab-planter">Planter ici<\/button>/)
   // La consigne garde sa place d'une épingle à l'autre : la carte ne glisse pas sous le doigt qui corrige (sa feuille, plus bas).
   assert.match(html, /<p class="cab-ligne cab-consigne-carte">/)
+  // Revenu sur la carte, le lecteur d'écran entend la consigne, puis où est l'épingle — que le pied a dite en la posant.
+  const aide = /aria-describedby="([^"]+)"/.exec(html)![1]
+  assert.match(texte(new RegExp(`<p id="${echapper(aide)}" class="sr-only">(.*?)</p>`).exec(html)![1]), /Entrée la plante\. Ton épingle : Près de Lyon\./)
   // Ce que la page tient part à l'échéance ; sans épingle, rien : la manche se juge « Pas d'épingle ».
   assert.deepEqual(EPINGLE.aLEcheance(m, { epingle: lyon }), { epingle: lyon })
   assert.equal(EPINGLE.aLEcheance(m, { epingle: null }), undefined)
@@ -483,6 +530,25 @@ test('la révélation des Indices : trouvé, et avec quoi sous les yeux ; ou qui
   sansJargon(trouve, 'la révélation des Indices', [...fiche.indices, fiche.savais])
 })
 
+test('chaque nom des Indices retient le souffle de la niche — juste, ou faux au dernier indice, il tranche —, et le nom refusé le relâche', async () => {
+  const { leGesteRetientLeSouffle, leSouffleSeRelache } = (await import(url('views/cabinet/Partie.tsx'))) as {
+    leGesteRetientLeSouffle: (g: { quoi: string }) => boolean
+    leSouffleSeRelache: (g: { quoi: string }, apres: VueDeLaPartie) => boolean
+  }
+  // Aux Indices, c'est un nom qui trouve la personne : sans souffle retenu, la partie ne se jouait pas pour la niche, et une forme
+  // du compagnon atteinte au bilan ne le faisait pas sortir — le défaut que l'essai du Mot avait eu.
+  const nom = { quoi: 'nom', manche: 0, texte: 'Personne Inconnue' }
+  assert.ok(leGesteRetientLeSouffle(nom))
+  // Refusé, il revient la manche encore à jouer, un indice de plus : le souffle se relâche jusqu'au nom suivant.
+  assert.equal(vues.indicesFaux.phase, 'jouer')
+  assert.ok(leSouffleSeRelache(nom, vues.indicesFaux))
+  // Trouvé, ou faux quand tous les indices sont là : la révélation dit le verdict.
+  assert.ok(!leSouffleSeRelache(nom, vues.indicesTrouve))
+  assert.ok(!leSouffleSeRelache(nom, vues.indicesRate))
+  // Un indice demandé ne tranche jamais, ni le mot de la Réplique : il ouvre « Qui l'a dit ? ».
+  for (const quoi of ['indice', 'mot']) assert.ok(!leGesteRetientLeSouffle({ quoi }), quoi)
+})
+
 // ── 5. La Réplique ────────────────────────────────────────────────────────
 
 test('la Réplique, première étape : la réplique et son trou, les quatre mots — rien de qui l’a dite', async () => {
@@ -552,8 +618,9 @@ test('la révélation de la Réplique : la réplique entière, qui l’a dite et
   assert.match(t, new RegExp(`Qui l’a dit : ${lu(r.repondu.qui!)}, juste`))
   assert.doesNotMatch(t, /quittée/i)
   sansJargon(html, 'la révélation de la Réplique', [r.entiere, r.source, r.qui, r.savais])
-  // « Mes réponses » d'une partie quittée au bon mot : la troisième manche se titre « Le bon mot », et ne rapporte rien — le corps
-  // le dit, de ce que la vue en sait (`fin`).
+  // La partie relue — celle de « Mes réponses » —, quittée au bon mot : la troisième manche se titre « Le bon mot », et ne rapporte
+  // rien. L'écran de la Réplique le dit, de ce que la vue en sait (`RevelationVue.fin`) — à condition qu'on le lui passe : le cadre
+  // le fait, « Mes réponses » (`Bilan.tsx`) pas encore, et c'est le seul écran qui montre une manche quittée.
   const relue = vues.repliqueRelue
   const derniere = relue.manches[2].revelation!
   assert.equal(derniere.fin, 'quittee')
@@ -564,7 +631,8 @@ test('la révélation de la Réplique : la réplique entière, qui l’a dite et
   const quittee = renderToStaticMarkup(React.createElement(REPLIQUE.Revelation as React.FC<Record<string, unknown>>, { corps: derniere.corps, fin: derniere.fin, partie: relue.id }))
   assert.match(texte(quittee), /Manche quittée avant « Qui l’a dit \? » : même le bon mot ne compte pas\./)
   assert.match(texte(quittee), /Qui l’a dit : pas de réponse/)
-  // Le cadre la lui passe : dans la révélation d'une partie, le bandeau et le corps le disent.
+  // Le cadre la lui passe : le bandeau et le corps le disent. (Une partie quittée s'ouvre sur son bilan : le cadre ne montre une
+  // manche quittée qu'ici, rendu à la main.)
   const cadre = await rendu('views/cabinet/Partie', 'RevelationDeLaManche', { vue: relue, revelation: derniere, ecran: REPLIQUE, onSignaler: rien })
   assert.match(texte(cadre), /Manche quittée .*même le bon mot ne compte pas/)
 })
@@ -594,11 +662,14 @@ test('tes murs ont leur adresse, `api.cabinet.murs` les demande au serveur, et l
   assert.match(source('views/cabinet/Regles.tsx'), /<Regles jeux=\{jeux\} parties=\{parties\} onMurs=\{onFermer\} \/>/)
 })
 
+/** Le dessin de tes murs, tel que la page le charge à la demande. */
+const dessinDesMurs = async () => (await import(url('views/cabinet/Murs.tsx'))).LesMurs
+
 test('tes murs : chaque lieu épinglé sur la carte de France et en mots, ta frise du plus ancien au plus récent', async () => {
   const murs = ok(await lire<MursDuCabinet>(b, rose, '/api/cabinet/murs'), 'les murs de Rose')
   assert.equal(murs.lieux.length, 3)
   assert.equal(murs.dates.length, 7)
-  const html = await rendu('views/cabinet/Murs', 'EcranDesMurs', { etat: { etat: 'lus', murs } })
+  const html = await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'lus', murs }, dessin: await dessinDesMurs() })
   const t = texte(html)
   assert.match(html, /<h1>Tes murs<\/h1>/)
   assert.match(html, /<svg class="cab-carte-dessin" viewBox="[^"]+" role="img" aria-label="Ta carte de France : 3 lieux épinglés">/)
@@ -618,15 +689,41 @@ test('tes murs : chaque lieu épinglé sur la carte de France et en mots, ta fri
 test('des murs vides le disent, la page qui les attend aussi, et une panne a son « Réessayer »', async () => {
   const vides = ok(await lire<MursDuCabinet>(b, zoe, '/api/cabinet/murs'), 'les murs de Zoé')
   assert.deepEqual(vides, { lieux: [], dates: [] })
-  const html = await rendu('views/cabinet/Murs', 'EcranDesMurs', { etat: { etat: 'lus', murs: vides } })
+  const dessin = await dessinDesMurs()
+  const html = await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'lus', murs: vides }, dessin })
   const t = texte(html)
   assert.match(t, /Encore vide : une partie de l’Épingle la commencera\./)
   assert.match(t, /Encore vide : une partie de la Frise la commencera\./)
   assert.match(html, /aria-label="Ta carte de France : 0 lieu épinglé"/)
-  assert.match(await rendu('views/cabinet/Murs', 'EcranDesMurs', { etat: { etat: 'chargement' } }), /aria-busy="true">Chargement…/)
-  const perdu = await rendu('views/cabinet/Murs', 'EcranDesMurs', { etat: { etat: 'perdu', motif: 'Pas de réseau' }, onRelire: rien })
+  // En route : les murs que le serveur n'a pas encore dits, ou leur dessin pas encore venu.
+  assert.match(await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'chargement' }, dessin }), /aria-busy="true">Chargement…/)
+  assert.match(await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'lus', murs: vides }, dessin: null }), /aria-busy="true">Chargement…/)
+  const perdu = await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'perdu', motif: 'Pas de réseau' }, dessin, onRelire: rien })
   assert.match(perdu, /<p class="error">Pas de réseau<\/p>/)
   assert.match(perdu, />Réessayer<\/button>/)
+  // Le dessin perdu en route — le navigateur garde l'échec d'un `import()` : recharger seul le redemande.
+  assert.match(texte(await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'lus', murs: vides }, dessin: 'perdu' })), /Tes murs ne se sont pas chargés : recharge la page\./)
+})
+
+test('tes murs gardent leur titre quand leur dessin arrive : le focus que la page y a posé ne tombe pas sur la page', async () => {
+  // La page pose le focus au titre de l'écran qui s'ouvre (`rendreLeFocus`), le dessin encore en route ; s'il remplaçait l'écran
+  // d'attente à son arrivée, React démontait le titre, et le lecteur d'écran perdait sa place. Le cadre est le même élément, d'un
+  // bout à l'autre : seul ce qu'il y a sous le titre change.
+  const app = source('views/CabinetApp.tsx')
+  const corps = /\nfunction MursALaDemande\(\) \{\n([^]*?)\n\}\n/.exec(app)?.[1] ?? ''
+  assert.ok(corps, 'MursALaDemande')
+  assert.equal([...corps.matchAll(/\breturn\s*(?:<|\(\s*<)/g)].length, 1, 'un seul rendu, quoi qu’il soit venu')
+  assert.match(corps, /return <EcranDesMurs etat=\{etat\} dessin=\{dessin\} onRelire=\{lire\} \/>/)
+  // Ce qui précède ce qui change — la sortie, le titre — s'écrit pareil avant et après.
+  const vides = { lieux: [], dates: [] }
+  const avant = await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'chargement' }, dessin: null })
+  const apres = await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'lus', murs: vides }, dessin: await dessinDesMurs() })
+  const tete = (html: string) => html.slice(0, html.indexOf('</h1>'))
+  assert.ok(tete(avant).includes('Tes murs'))
+  assert.equal(tete(avant), tete(apres))
+  // Les murs se demandent avec leur dessin, pas après lui : l'un n'attend pas l'autre.
+  assert.match(corps, /useALaDemande\(LES_MURS\)/)
+  assert.match(corps, /api\.cabinet\.murs\(\)/)
 })
 
 // ── 7. La feuille ─────────────────────────────────────────────────────────
@@ -635,9 +732,14 @@ test('la feuille de la carte et des trois jeux : la carte de toute la largeur, s
   const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
   const debut = css.indexOf('/* ── Le Cabinet de curiosités')
   const section = css.slice(debut, css.indexOf('/* ── ', debut + 10)).replace(/\/\*[\s\S]*?\*\//g, '')
-  // Toute la largeur : 320 pixels de page en 360 × 640, deux de plus de chaque côté — 324 pour le dessin.
-  assert.match(section, /\.cab-carte-de-france \{ margin: 0 -2px; \}/)
-  assert.match(section, /\.cab-carte-dessin \{ display: block; width: 100%; height: auto;/)
+  // Toute la largeur : 320 pixels de page en 360 × 640, deux de plus de chaque côté — 324 pour le dessin ; 460 au plus, centrée,
+  // la carte qu'on touche aussi large que son dessin : plus large, elle laissait de chaque côté une bande vide où le doigt plantait
+  // au bord du cadre de l'Épingle, dans l'Atlantique.
+  assert.match(section, /\.cab-carte-de-france \{ margin: 0 max\(-2px, \(100% - 460px\) \/ 2\); \}/)
+  assert.match(section, /\.cab-carte-dessin \{ display: block; width: 100%; height: auto; \}/)
+  // Où est l'épingle, au pied : une ligne gardée dès avant la première — remplie, elle faisait monter le pied de 25 pixels sur la
+  // carte, et l'écho du doigt tombait sur la carte-bonus venue sous lui.
+  assert.match(section, /\.cab-ou-est \{[^}]*min-height: [^;]+;/)
   // Les noms des villes, en unités du dessin : rendus à 324 pixels de large, dix-sept pixels au moins.
   const nom = /\.cab-carte-ville text \{[^}]*font-size: (\d+)px;/.exec(section)
   assert.ok(nom, 'les noms des villes ont leur taille')

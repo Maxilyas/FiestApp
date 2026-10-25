@@ -130,8 +130,10 @@ export interface JeuALEcran<M, R, L> {
   /**
    * La révélation d'une manche, et comment elle s'est tranchée (`fin`) :
    * quittée au bon mot, la Réplique se titre « Le bon mot » et ne rapporte
-   * rien — son corps ne le savait pas, et ne disait pas pourquoi. Absente, pour
-   * les révélations écrites à la main des épreuves.
+   * rien — son corps ne le savait pas, et ne disait pas pourquoi. Le cadre la
+   * passe (`RevelationDeLaManche`) ; « Mes réponses » (`Bilan.tsx`) pas encore,
+   * et c'est là seulement qu'une manche quittée se montre — une partie quittée
+   * s'ouvre sur son bilan.
    */
   Revelation(p: { corps: R; fin?: FinDUneManche } & OuEstLaManche): ReactNode
 }
@@ -252,23 +254,25 @@ export function ceQueFeteLaRevelation(naturel: number, etoiles: number): { gerbe
 /**
  * Le geste peut-il trancher la manche ? La niche retient alors son souffle
  * jusqu'au verdict : une réponse, touchée ou partie d'elle-même à l'échéance ;
- * les étoiles gardées du Pari ; chaque essai du Mot mystère — la page ne sait
- * pas s'il trouve le mot (invariant 1), et le cinquième tranche même faux.
- * Sans l'essai, le Mot ne la retenait jamais : la partie, pour elle, ne se
- * jouait pas, et une forme atteinte au bilan ne la faisait pas sortir.
+ * les étoiles gardées du Pari ; chaque essai du Mot mystère et chaque nom des
+ * Indices — la page ne sait pas s'il trouve (invariant 1), et le dernier
+ * tranche même faux. Sans eux, ces deux jeux ne la retenaient jamais : la
+ * partie, pour elle, ne se jouait pas, et une forme atteinte au bilan ne la
+ * faisait pas sortir.
  */
 export function leGesteRetientLeSouffle(g: Pick<GesteDuCabinet, 'quoi'>): boolean {
-  return g.quoi === 'repondre' || g.quoi === 'garder' || g.quoi === 'essai'
+  return g.quoi === 'repondre' || g.quoi === 'garder' || g.quoi === 'essai' || g.quoi === 'nom'
 }
 
 /**
- * L'essai revenu sans verdict — la manche encore à jouer — relâche le souffle :
- * ses couleurs ne sont pas une révélation, et retenu d'un essai à l'autre, il
- * assombrissait la niche jusqu'à deux minutes. Une réponse attend toujours son
- * verdict : au Pari juste, la mise se décide le souffle retenu.
+ * L'essai ou le nom revenu sans verdict — la manche encore à jouer — relâche le
+ * souffle : des couleurs, un indice de plus ne sont pas une révélation, et
+ * retenu d'un essai à l'autre, il assombrissait la niche jusqu'à deux minutes.
+ * Une réponse attend toujours son verdict : au Pari juste, la mise se décide le
+ * souffle retenu.
  */
 export function leSouffleSeRelache(g: Pick<GesteDuCabinet, 'quoi'>, apres: Pick<VueDeLaPartie, 'phase'>): boolean {
-  return g.quoi === 'essai' && (apres.phase === 'jouer' || apres.phase === 'pause')
+  return (g.quoi === 'essai' || g.quoi === 'nom') && (apres.phase === 'jouer' || apres.phase === 'pause')
 }
 
 // ── Les pièces du cadre ───────────────────────────────────────────────────
@@ -668,14 +672,15 @@ export function Partie({
         if (auto) throw new Error('Un geste est déjà en route')
         return
       }
-      // Un geste qui peut trancher la manche — une réponse, les étoiles gardées, un essai du Mot — : la niche retient son souffle.
+      // Un geste qui peut trancher la manche — une réponse, les étoiles gardées, un essai du Mot, un nom des Indices — : la niche
+      // retient son souffle.
       if (leGesteRetientLeSouffle(geste)) nicheRetientSonSouffle()
       enVol.current = true
       setBusy(true)
       try {
         const r = await api.cabinet.geste(v.id, v.rang, geste)
         ranger(r.partie)
-        // L'essai revenu sans verdict, le mot pas encore trouvé : elle reprend son souffle jusqu'au suivant.
+        // L'essai ou le nom revenu sans verdict, pas encore trouvé : elle reprend son souffle jusqu'au suivant.
         if (leSouffleSeRelache(geste, r.partie)) nicheRelacheSonSouffle()
         // Partie d'elle-même à l'échéance, la réponse a tourné la page sous la confirmation ouverte : elle se ferme.
         if (auto && enQuestion.current && laReponseTourneLaPage(v, r.partie)) fermerLeDialogue()
@@ -683,7 +688,7 @@ export function Partie({
         if (r.passe && !auto) showToast({ kind: 'info', message: r.passe })
       } catch (e) {
         if (auto && !refusDuServeur(e)) throw e
-        // L'essai perdu en route, ou refusé, n'a pas de verdict non plus ; la page relue dira le sien, s'il en a un.
+        // L'essai ou le nom perdu en route, ou refusé, n'a pas de verdict non plus ; la page relue dira le sien, s'il en a un.
         if (leSouffleSeRelache(geste, vueRef.current)) nicheRelacheSonSouffle()
         showToast({ kind: 'error', message: motifDe(e) })
         if (refusDuServeur(e)) onRelire()

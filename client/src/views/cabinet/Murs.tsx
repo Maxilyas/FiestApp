@@ -1,11 +1,7 @@
-import { useCallback, useContext, useEffect, useState } from 'react'
-import { api, motifDe } from '../../api'
-import { PieceTete, Sortie } from '../../components/Pieces'
 import { espacesFines } from '../../format'
 import { anneeDite } from '../../../../shared/frise'
 import type { MursDuCabinet } from '../../../../shared/cabinet/vues'
 import { CarteDeFrance, DessinDuLieu } from './CarteDeFrance'
-import { RetourAuMusee } from './ecrans'
 import { compte } from './Musee'
 
 // Tes murs (§ 3.10, `#murs`) : ce que tes parties t'ont appris trouve sa place
@@ -15,41 +11,14 @@ import { compte } from './Musee'
 // journal des réponses et du contenu livré (`GET /api/cabinet/murs`), et ne dit
 // rien qu'une révélation n'ait dit.
 //
-// Chargés à la demande (`CabinetApp.tsx`), comme la carte qu'ils dessinent : le
-// musée ne les télécharge pas. Relus à chaque visite : une partie finie entre
-// deux y a posé un lieu ou des dates.
+// Ce fichier n'est que leur dessin, chargé à la demande comme la carte qu'il
+// pose : le musée ne le télécharge pas. Leur écran — la sortie, le titre, les
+// murs demandés à chaque visite, ce qu'on attend — est dans `CabinetApp.tsx`
+// (`EcranDesMurs`), qui le rend une fois : remplacé à l'arrivée du dessin, son
+// titre emportait le focus que la page venait d'y poser.
 
-export type EtatDesMurs = { etat: 'chargement' } | { etat: 'lus'; murs: MursDuCabinet } | { etat: 'perdu'; motif: string }
-
-/** Tes murs, tels que le serveur les dit — pur : `TesMurs` les demande. */
-export function EcranDesMurs({ etat, onRelire }: { etat: EtatDesMurs; onRelire?: () => void }) {
-  const auMusee = useContext(RetourAuMusee)
-  return (
-    <div className="player-shell cab-page cab-murs">
-      <Sortie vers="Le Cabinet" href="/cabinet" onClick={auMusee} />
-      <PieceTete piece="Le Cabinet de curiosités" titre="Tes murs" />
-      <p className="cab-ligne">{espacesFines('Ce que tes parties t’ont appris trouve sa place ici : un lieu sur ta carte de France, une date sur ta frise.')}</p>
-      {etat.etat === 'chargement' && (
-        <p className="cab-ligne" aria-busy="true">
-          Chargement…
-        </p>
-      )}
-      {etat.etat === 'perdu' && (
-        <>
-          <p className="error">{espacesFines(etat.motif)}</p>
-          {onRelire && (
-            <button type="button" className="btn btn-block" onClick={onRelire}>
-              Réessayer
-            </button>
-          )}
-        </>
-      )}
-      {etat.etat === 'lus' && <LesMurs murs={etat.murs} />}
-    </div>
-  )
-}
-
-function LesMurs({ murs }: { murs: MursDuCabinet }) {
+/** Tes murs, tels que le serveur les dit — pur : tes lieux sur la carte de France et en mots, ta frise. */
+export function LesMurs({ murs }: { murs: MursDuCabinet }) {
   const lieux = compte(murs.lieux.length, 'lieu épinglé', 'lieux épinglés')
   return (
     <>
@@ -100,22 +69,4 @@ function LesMurs({ murs }: { murs: MursDuCabinet }) {
       </section>
     </>
   )
-}
-
-/** Tes murs, demandés à l'ouverture de leur écran ; perdus en route, « Réessayer » les redemande. */
-export function TesMurs() {
-  const [etat, setEtat] = useState<EtatDesMurs>({ etat: 'chargement' })
-  const lire = useCallback(() => {
-    let vivant = true
-    setEtat({ etat: 'chargement' })
-    api.cabinet.murs().then(
-      murs => vivant && setEtat({ etat: 'lus', murs }),
-      (e: unknown) => vivant && setEtat({ etat: 'perdu', motif: motifDe(e) }),
-    )
-    return () => {
-      vivant = false
-    }
-  }, [])
-  useEffect(lire, [lire])
-  return <EcranDesMurs etat={etat} onRelire={() => void lire()} />
 }

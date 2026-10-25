@@ -21,6 +21,17 @@ type Cible = { disabled?: boolean; getBoundingClientRect(): { left: number; righ
 export const estLEchoDUnDoigt = (e: { timeStamp: number }): boolean => e.timeStamp - dernierDoigt < ECHO_MS
 
 /**
+ * Un geste pris au lever du doigt hors de `toucher` — la carte de France de
+ * l'Épingle, qui lit où il s'est levé — marque la même heure : le `click` qui
+ * le suit, où qu'il tombe, n'en est que l'écho. Avec une heure à elle, la
+ * carte ignorait le sien, mais pas « Éclairer », venu sous le doigt quand le
+ * pied grandissait d'une ligne.
+ */
+export function prendreLeDoigt(e: { timeStamp: number }): void {
+  dernierDoigt = e.timeStamp
+}
+
+/**
  * Une réponse prise au lever du doigt, et non au `click` du navigateur.
  *
  * Les invités le disaient : « parfois, ça sélectionne la réponse au lieu de
@@ -44,7 +55,7 @@ export function toucher(agir: () => void) {
       if (cible.disabled) return
       const r = cible.getBoundingClientRect()
       if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return
-      dernierDoigt = e.timeStamp
+      prendreLeDoigt(e)
       agir()
     },
     onClick: (e: MouseEvent<HTMLElement>) => {

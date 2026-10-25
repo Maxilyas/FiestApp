@@ -114,7 +114,10 @@ paths:
   (`estLEchoDUnDoigt`, `Dialog.tsx`) : ouvert au lever du doigt — « Quitter »
   entre deux manches du Cabinet, sans pause à demander d'abord —, il se
   refermait aussitôt sous l'écho, et rien ne s'ouvrait au doigt. Le voile
-  d'une feuille (`Feuille`, `.carte-voile`) ne le reconnaît pas encore.
+  d'une feuille (`Feuille`, `.carte-voile`) ne le reconnaît pas encore. Ce
+  qui prend le doigt au lever sans passer par `toucher` marque la même
+  heure (`prendreLeDoigt`) — la carte de France de l'Épingle : avec une
+  heure à elle, elle ignorait son écho, mais pas le bouton venu sous lui.
 - **Une clé du stockage du navigateur se lit et s'écrit sous try/catch**
   (comme `writeSafe`) : un stockage refusé au chargement d'un module rendait
   la page de jeu noire, et rien ne le vérifie partout. Les clés commencent

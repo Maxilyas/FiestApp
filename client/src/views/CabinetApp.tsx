@@ -10,11 +10,12 @@ import { porterGerbe } from '../gerbe'
 import { porterNiche } from '../niche'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
+import { toucher } from '../toucher'
 import { JEUX, type CleDeJeu } from '../../../shared/cabinet/jeux/regle'
 import { poussieresDites, type DemandeDeDepart } from '../../../shared/cabinet/musee'
 import { oeuvre as oeuvreDe } from '../../../shared/cabinet/oeuvres'
 import type { Manche } from '../../../shared/cabinet/partie'
-import type { PageDuCabinet, ReveilDesGardiens, VueDeLaPartie } from '../../../shared/cabinet/vues'
+import type { MursDuCabinet, PageDuCabinet, ReveilDesGardiens, VueDeLaPartie } from '../../../shared/cabinet/vues'
 import { Annonce, annonceDe, estLaPartieDemandee } from './cabinet/Annonce'
 import { cartelArrive, cartelDemande, cartelsQuiTiennent, sansLesPerdus, type EtatDuCartel } from './cabinet/Cartel'
 import {
@@ -31,6 +32,7 @@ import {
 } from './cabinet/ecrans'
 import { Gardiens } from './cabinet/Gardiens'
 import { Musee, enDebutDeLigne } from './cabinet/Musee'
+import type { LesMurs } from './cabinet/Murs'
 import { Oeuvre, oeuvreDeLaPage } from './cabinet/Oeuvre'
 import { Partie, ecranDuJeu } from './cabinet/Partie'
 import { FeuilleDesRegles } from './cabinet/Regles'
@@ -80,21 +82,75 @@ export function nicheApresLeReveil(p: Pick<PageDuCabinet, 'reveil'>): Promise<vo
   )
 }
 
-/** Tes murs, à la demande : leur carte de France et leur frise ne servent qu'à qui les ouvre. */
+/** Le dessin de tes murs, à la demande : leur carte de France et leur frise ne servent qu'à qui les ouvre. */
 const LES_MURS = aLaDemande(() => import('./cabinet/Murs'))
 
-/** Tes murs, quand leur écran est venu ; perdu en route, la page le dit — rien n'y est perdu, ils se dérivent du journal. */
-function MursALaDemande() {
-  const ecran = useALaDemande(LES_MURS)
+/** Ce que la page sait de tes murs : demandés au serveur, lus, ou perdus en route. */
+export type EtatDesMurs = { etat: 'chargement' } | { etat: 'lus'; murs: MursDuCabinet } | { etat: 'perdu'; motif: string }
+
+/**
+ * Tes murs à l'écran (`#murs`) — pur : la sortie, le titre, ce qu'ils sont,
+ * puis ce qui est venu — les murs que le serveur dit, et leur dessin
+ * (`Murs.tsx`, à la demande). Un seul cadre, quoi qu'il soit venu : rendu à
+ * part pour l'attente, il était remplacé à l'arrivée du dessin, et son titre
+ * emportait le focus que la page venait d'y poser (`rendreLeFocus`) — le
+ * lecteur d'écran perdait sa place. Le dessin perdu en route, la page le dit :
+ * rien n'y est perdu, les murs se dérivent du journal.
+ */
+export function EcranDesMurs({ etat, dessin, onRelire }: { etat: EtatDesMurs; dessin: typeof LesMurs | null | 'perdu'; onRelire?: () => void }) {
   const auMusee = useContext(RetourAuMusee)
-  if (ecran && ecran !== 'perdu') return <ecran.TesMurs />
+  const Dessin = dessin === 'perdu' ? null : dessin
   return (
-    <div className="player-shell cab-page" aria-busy={!ecran || undefined}>
+    <div className="player-shell cab-page cab-murs">
       <Sortie vers="Le Cabinet" href="/cabinet" onClick={auMusee} />
       <PieceTete piece="Le Cabinet de curiosités" titre="Tes murs" />
-      <p className="cab-ligne">{ecran ? espacesFines('Tes murs ne se sont pas chargés : recharge la page.') : 'Chargement…'}</p>
+      <p className="cab-ligne">{espacesFines('Ce que tes parties t’ont appris trouve sa place ici : un lieu sur ta carte de France, une date sur ta frise.')}</p>
+      {dessin === 'perdu' ? (
+        <p className="error">{espacesFines('Tes murs ne se sont pas chargés : recharge la page.')}</p>
+      ) : etat.etat === 'perdu' ? (
+        <>
+          <p className="error">{espacesFines(etat.motif)}</p>
+          {onRelire && (
+            <button type="button" className="btn btn-block" {...toucher(onRelire)}>
+              Réessayer
+            </button>
+          )}
+        </>
+      ) : etat.etat === 'lus' && Dessin ? (
+        <Dessin murs={etat.murs} />
+      ) : (
+        <p className="cab-ligne" aria-busy="true">
+          Chargement…
+        </p>
+      )}
     </div>
   )
+}
+
+/** Tes murs, demandés au serveur à chaque visite — une partie finie entre deux y a posé un lieu ou des dates —, avec leur dessin. */
+function MursALaDemande() {
+  // Le module, jamais son composant seul : une fonction rangée dans un état se jouerait comme sa mise à jour.
+  const charge = useALaDemande(LES_MURS)
+  const dessin = charge && charge !== 'perdu' ? charge.LesMurs : charge
+  const [etat, setEtat] = useState<EtatDesMurs>({ etat: 'chargement' })
+  // Chaque demande a son numéro : seule la dernière se range — « Réessayer » touché deux fois, ou l'écran déjà quitté.
+  const demande = useRef(0)
+  const lire = useCallback(() => {
+    const n = ++demande.current
+    setEtat({ etat: 'chargement' })
+    api.cabinet.murs().then(
+      murs => n === demande.current && setEtat({ etat: 'lus', murs }),
+      (e: unknown) => n === demande.current && setEtat({ etat: 'perdu', motif: motifDe(e) }),
+    )
+  }, [])
+  // Demandés à l'ouverture, en même temps que leur dessin : l'un n'attend pas l'autre.
+  useEffect(() => {
+    lire()
+    return () => {
+      demande.current++
+    }
+  }, [lire])
+  return <EcranDesMurs etat={etat} dessin={dessin} onRelire={lire} />
 }
 
 /** Le réveil à dire, quand son écran est venu ; perdu en route, il se tait — la page des gardiens le montre réveillé. */

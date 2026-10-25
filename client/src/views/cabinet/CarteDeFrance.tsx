@@ -1,4 +1,5 @@
-import { useId, useRef, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
+import { estLEchoDUnDoigt, prendreLeDoigt } from '../../toucher'
 import { HAUTEUR_DE_LA_CARTE, LARGEUR_DE_LA_CARTE, type Point } from '../../../../shared/cabinet/france'
 import { CONTOUR_DE_LA_CORSE, CONTOUR_DE_LA_FRANCE, MILIEU_DE_LA_FRANCE, VILLES_REPERES, deplacer, estUneFleche, pointDuToucher, surLeDessin, traceDe } from './contourDeLaFrance'
 
@@ -18,9 +19,6 @@ import { CONTOUR_DE_LA_CORSE, CONTOUR_DE_LA_FRANCE, MILIEU_DE_LA_FRANCE, VILLES_
 // Toute la largeur de l'écran : en 360 × 640, 324 pixels pour un dessin de 362,
 // un pixel du doigt fait quatre kilomètres, et la grand-mère vise à quarante.
 
-/** Le `click` qui suit un doigt déjà pris au lever n'est que son écho : il ne replante pas. La durée de `toucher`. */
-const ECHO_MS = 800
-
 /** Le dessin entier, et ce qu'il couvre : `pointDuToucher` relit un toucher à ses mesures. */
 const DESSIN = { largeur: LARGEUR_DE_LA_CARTE, hauteur: HAUTEUR_DE_LA_CARTE } as const
 
@@ -30,8 +28,58 @@ export interface CarteJouable {
   epingle: Point | null
   poser: (p: Point) => void
   planter: () => void
-  /** Ce que l'oreille entend de la carte, et de l'épingle : la consigne, puis où elle est. */
+  /** Ce que l'oreille entend de la carte quand elle y revient : la consigne, puis où est l'épingle — le pied le dit en la posant. */
   aide: string
+}
+
+/** Un toucher, un clic, tels que la carte les lit : où, quand, et sur quoi — la carte, dont le dessin dit les mesures. */
+interface ToucherDeLaCarte {
+  clientX: number
+  clientY: number
+  timeStamp: number
+  currentTarget: { querySelector(s: 'svg'): { getBoundingClientRect(): Rect } | null; getBoundingClientRect(): Rect }
+}
+type Rect = { left: number; top: number; right: number; bottom: number; width: number; height: number }
+
+/**
+ * Ce que la carte fait d'un geste, ce qu'on étale sur elle, comme `toucher`
+ * sur un bouton. Le doigt plante au lever et marque l'heure de `toucher`
+ * (`prendreLeDoigt`) : le `click` qui le suit n'en est que l'écho, sur la carte
+ * comme sur ce qui a glissé sous le doigt — avec une heure à elle, la carte
+ * ignorait le sien, et le pied qui grandissait d'une ligne faisait venir
+ * « Éclairer » sous lui, que l'écho jouait. Un point se lit sur le dessin même,
+ * jamais sur son cadre : hors du dessin, rien ne se plante — ramené dans le
+ * cadre de l'Épingle, il serait parti au bord, dans l'Atlantique.
+ */
+export function gestesDeLaCarte(jouable: CarteJouable) {
+  /** Le point du dessin que vise un toucher ou un clic, dans le cadre de la France ; rien hors du dessin. */
+  const viser = (e: ToucherDeLaCarte): boolean => {
+    const r = (e.currentTarget.querySelector('svg') ?? e.currentTarget).getBoundingClientRect()
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return false
+    jouable.poser(pointDuToucher({ x: e.clientX, y: e.clientY }, r, DESSIN))
+    return true
+  }
+  return {
+    onPointerUp: (e: ToucherDeLaCarte & { pointerType: string; button: number }) => {
+      // La souris garde son clic ; un doigt levé hors du dessin (un toucher capturé suit le doigt) ne plante rien.
+      if (e.pointerType === 'mouse' || e.button > 0) return
+      if (viser(e)) prendreLeDoigt(e)
+    },
+    onClick: (e: ToucherDeLaCarte) => {
+      if (!estLEchoDUnDoigt(e)) viser(e)
+    },
+    onKeyDown: (e: { key: string; shiftKey: boolean; preventDefault(): void }) => {
+      if (estUneFleche(e.key)) {
+        e.preventDefault()
+        jouable.poser(jouable.epingle ? deplacer(jouable.epingle, e.key, e.shiftKey) : MILIEU_DE_LA_FRANCE)
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        jouable.planter()
+      }
+    },
+    // L'appui long ouvrait le menu de l'image (l'enregistrer, la partager) par-dessus la carte.
+    onContextMenu: (e: { preventDefault(): void }) => e.preventDefault(),
+  }
 }
 
 /**
@@ -42,7 +90,6 @@ export interface CarteJouable {
  */
 export function CarteDeFrance({ nom, jouable, children }: { nom: string; jouable?: CarteJouable; children?: ReactNode }) {
   const aide = useId()
-  const dernierDoigt = useRef(Number.NEGATIVE_INFINITY)
   const dessin = (
     <svg className="cab-carte-dessin" viewBox={`0 0 ${LARGEUR_DE_LA_CARTE} ${HAUTEUR_DE_LA_CARTE}`} {...(jouable ? { 'aria-hidden': true } : { role: 'img', 'aria-label': nom })}>
       <rect className="cab-carte-mer" x="0" y="0" width={LARGEUR_DE_LA_CARTE} height={HAUTEUR_DE_LA_CARTE} rx="12" />
@@ -69,46 +116,10 @@ export function CarteDeFrance({ nom, jouable, children }: { nom: string; jouable
     </svg>
   )
   if (!jouable) return <div className="cab-carte-de-france">{dessin}</div>
-
-  /** Un toucher, un clic : le point du dessin qu'il vise, dans le cadre de la France — mesuré sur le dessin même, pas sur son cadre. */
-  const viser = (e: { clientX: number; clientY: number; currentTarget: Element }) =>
-    jouable.poser(pointDuToucher({ x: e.clientX, y: e.clientY }, (e.currentTarget.querySelector('svg') ?? e.currentTarget).getBoundingClientRect(), DESSIN))
-  const auLever = (e: PointerEvent<HTMLDivElement>) => {
-    // La souris garde son clic ; un doigt levé hors de la carte (un toucher capturé suit le doigt) ne plante rien.
-    if (e.pointerType === 'mouse' || e.button > 0) return
-    const r = e.currentTarget.getBoundingClientRect()
-    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return
-    dernierDoigt.current = e.timeStamp
-    viser(e)
-  }
-  const auClic = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.timeStamp - dernierDoigt.current < ECHO_MS) return
-    viser(e)
-  }
-  const auClavier = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (estUneFleche(e.key)) {
-      e.preventDefault()
-      jouable.poser(jouable.epingle ? deplacer(jouable.epingle, e.key, e.shiftKey) : MILIEU_DE_LA_FRANCE)
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      jouable.planter()
-    }
-  }
   return (
     <>
       {/* Une carte qu'on touche et qu'on mène aux flèches : `application`, pour que le lecteur d'écran lui laisse ses flèches. */}
-      <div
-        className="cab-carte-de-france cab-carte-jouable"
-        role="application"
-        tabIndex={0}
-        aria-label="La carte de France"
-        aria-describedby={aide}
-        onPointerUp={auLever}
-        onClick={auClic}
-        onKeyDown={auClavier}
-        // L'appui long ouvrait le menu de l'image (l'enregistrer, la partager) par-dessus la carte.
-        onContextMenu={e => e.preventDefault()}
-      >
+      <div className="cab-carte-de-france cab-carte-jouable" role="application" tabIndex={0} aria-label="La carte de France" aria-describedby={aide} {...gestesDeLaCarte(jouable)}>
         {dessin}
       </div>
       <p id={aide} className="sr-only">

@@ -67,6 +67,8 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
   // suivante » tombe sur la carte.
   const poser = (p: Point) => !busy && gardeDeLEcran() && setLocal({ epingle: p })
   const planter = () => !busy && local.epingle && envoyer({ quoi: 'repondre', reponse: { epingle: local.epingle } })
+  // Revenu sur la carte, le lecteur d'écran entend la consigne, puis où est l'épingle : le pied l'a dite en la posant, une fois.
+  const aide = `Touche-la pour planter ton épingle. Au clavier, les flèches la mènent, Maj à grands pas, et Entrée la plante.${local.epingle ? ` Ton épingle : ${ouEstLEpingle(local.epingle)}.` : ''}`
   return (
     <>
       <div className="cab-tete-question">
@@ -75,10 +77,7 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
       <p className="cab-ligne cab-recit">{espacesFines(m.recit)}</p>
       <h2 className={'quiz-question cab-question' + questionSizeClass(m.question)}>{espacesFines(m.question)}</h2>
       <Consigne m={m} epingle={local.epingle} />
-      <CarteDeFrance
-        nom="La carte de France"
-        jouable={{ epingle: local.epingle, poser, planter, aide: 'Touche-la pour planter ton épingle. Au clavier, les flèches la mènent, Maj à grands pas, et Entrée la plante.' }}
-      >
+      <CarteDeFrance nom="La carte de France" jouable={{ epingle: local.epingle, poser, planter, aide }}>
         {m.zone && <DessinDeLaZone tour={tourDeLaZone(m.zone)} />}
         {local.epingle && <DessinDeLEpingle point={local.epingle} />}
       </CarteDeFrance>
