@@ -273,10 +273,12 @@ test('une salle : ses œuvres peintes, ses cadres vides qui disent où chercher,
   const expose = /<a class="cab-oeuvre[^"]*" href="#oeuvre-expose"[^>]*>.*?<\/a>/.exec(html)?.[0] ?? ''
   assert.doesNotMatch(expose, /<img|Exposé/)
   assert.match(texte(expose), new RegExp(`Rare .*${JEUX.eclair.a}`))
-  // Un jeu pas encore livré le dit.
-  const plume = /<a class="cab-oeuvre[^"]*" href="#oeuvre-plume"[^>]*>.*?<\/a>/.exec(html)?.[0] ?? ''
-  assert.ok(!JEUX_PRETS.includes(JEU_DE_L_OEUVRE.plume))
-  assert.match(texte(plume), new RegExp(`${JEUX[JEU_DE_L_OEUVRE.plume].a} .*bientôt`))
+  // Un jeu pas encore livré le dit — l'œuvre de la salle qui s'y trouve, lue de la règle : les jeux s'ouvrent un à un.
+  const bientot = erudit.oeuvres.find(o => !o.possedee && !JEUX_PRETS.includes(JEU_DE_L_OEUVRE[o.cle]))
+  assert.ok(bientot, 'une œuvre de l’Érudit à un jeu pas encore livré')
+  assert.ok(!JEUX_PRETS.includes(JEU_DE_L_OEUVRE[bientot.cle]))
+  const cadre = new RegExp(`<a class="cab-oeuvre[^"]*" href="#oeuvre-${bientot.cle}"[^>]*>.*?</a>`).exec(html)?.[0] ?? ''
+  assert.match(texte(cadre), new RegExp(`${JEUX[JEU_DE_L_OEUVRE[bientot.cle]].a} .*bientôt`))
   // Ses deux gardiens, endormis : leur nom, ce qui les réveille.
   const [premier, second] = GARDIENS_DES_SALLES.erudit
   assert.match(t, new RegExp(`${nom(premier)} .*La salle de l’Érudit complète`))
@@ -351,8 +353,10 @@ test('une œuvre qui manque : où elle se trouve, ce qu’il faut pour la gagner
   assert.match(texte(sansChasse), new RegExp(PLUS_DE_CHASSE))
   assert.match(sansChasse, /aria-disabled="true"[^>]*>[^<]*Partir à sa recherche/)
   assert.doesNotMatch(html, /aria-disabled="true"[^>]*>[^<]*Partir à sa recherche/, 'une chasse qui reste, le bouton répond')
-  // Un jeu pas encore livré : la chasse attend.
-  assert.match(texte(await lOeuvre('plume')), new RegExp(`Elle se trouve ${JEUX.frise.a} .*${JEU_PAS_LIVRE}`))
+  // Un jeu pas encore livré : la chasse attend — une œuvre qui manque, à un jeu que la règle ne livre pas encore.
+  const aVenir = page.salles.flatMap(s => s.oeuvres).find(o => !o.possedee && !JEUX_PRETS.includes(JEU_DE_L_OEUVRE[o.cle]))
+  assert.ok(aVenir, 'une œuvre qui manque, à un jeu pas encore livré')
+  assert.match(texte(await lOeuvre(aVenir.cle)), new RegExp(`Elle se trouve ${JEUX[JEU_DE_L_OEUVRE[aVenir.cle]].a} .*${JEU_PAS_LIVRE}`))
   // Les phrases des refus viennent de la règle du départ (`cadreDuDepart`) : la page ne les recopie pas.
   for (const f of ['views/cabinet/Oeuvre.tsx', 'views/cabinet/Visite.tsx']) {
     assert.doesNotMatch(source(f), new RegExp(`${JEU_PAS_LIVRE}|${PLUS_DE_CHASSE}`), f)
@@ -427,13 +431,16 @@ test('la visite du jour : chaque case, son jeu, ce qu’elle met en jeu sans nom
   assert.ok(faite.faite && !aJouer.faite)
   assert.match(t, new RegExp(`Faite .*${JEUX[faite.jeu].nom}`))
   assert.match(t, new RegExp(`À jouer .*${JEUX[aJouer.jeu].nom} .*Peut te faire gagner une œuvre (commune|rare|maudite|épique) (de la salle|du Vestibule)`))
-  // Une seule case se joue : la faite n'a plus de bouton.
-  assert.equal([...html.matchAll(/>Jouer<\/button>/g)].length, 1)
-  // Changer de jeu, quand la règle le permet ; sinon rien à toucher.
-  assert.equal(page.visite.echange.possible, false, 'deux jeux livrés, deux cases : rien à proposer d’autre')
-  assert.doesNotMatch(html, /Changer de jeu/)
+  // Seules les cases à jouer se jouent : la faite n'a plus de bouton.
+  const aJouerToutes = page.visite.cases.filter(c => !c.faite && !c.bientot)
+  assert.ok(aJouerToutes.length < page.visite.cases.length)
+  assert.equal([...html.matchAll(/>Jouer<\/button>/g)].length, aJouerToutes.length)
+  // Changer de jeu, quand la règle le permet — un jeu livré que la visite n'a pas — ; sinon rien à toucher.
+  const unAutreJeu = JEUX_PRETS.length > page.visite.cases.length
+  assert.equal(page.visite.echange.possible, unAutreJeu, `${JEUX_PRETS.length} jeux livrés, ${page.visite.cases.length} cases`)
+  assert.equal([...html.matchAll(/>Changer de jeu<\/button>/g)].length, unAutreJeu ? aJouerToutes.length : 0)
   const echange = await rendu('views/cabinet/Visite', 'Visite', { page: { ...page, visite: { ...page.visite, echange: { possible: true } } }, busy: false, onJouer: rien, onEchanger: rien })
-  assert.equal([...echange.matchAll(/Changer de jeu/g)].length, 1, 'sur la seule case pas jouée')
+  assert.equal([...echange.matchAll(/Changer de jeu/g)].length, aJouerToutes.length, 'sur chaque case pas jouée')
   // Une œuvre à dorer se nomme — elle est à lui ; la poussière d'or, rien à gagner.
   const deuxCases = [{ jeu: 'pari', enJeu: { pourDorer: 'bastion' }, faite: false }, { jeu: 'eclair', enJeu: { poussiere: true }, faite: false }]
   const aDorer = { ...page, visite: { ...page.visite, cases: deuxCases } }
