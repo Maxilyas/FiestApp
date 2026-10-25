@@ -51,7 +51,7 @@
 import { clePalier } from './hautsfaits'
 import { portrait } from './branches'
 import { formeDeCompagnon } from './compagnons'
-import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE, LEGENDAIRES_A_JOKER } from './jokers'
+import { EXPEDITION_REMPLACEE, LEGENDAIRES_A_JOKER, voieDeLExpeditionDite } from './jokers'
 import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 import type { CleDeSaison } from './saisons'
 
@@ -415,10 +415,12 @@ export function voiesDe(l: Legendaire): readonly Condition[] {
  * aussi d'ici l'ouverture : un drapeau du code ne la sait pas, et c'est un
  * texte. Elles comptent quand même : qui garde ou réveille un légendaire en
  * préproduction l'a (`legendairesDebloques`). `cabinet` et `remplacee` forcent
- * les deux drapeaux, pour qui veut lire l'album tel qu'il sera.
+ * les deux drapeaux, pour qui veut lire l'album tel qu'il sera. La voie de
+ * l'Expédition se décide par `voieDeLExpeditionDite` (`shared/jokers.ts`), que
+ * le chemin de la luciole lit aussi : l'un ne la tait pas sans l'autre.
  */
 export function voiesMontrees(l: Legendaire, cabinet: boolean = CABINET_EN_PRODUCTION, remplacee: boolean = EXPEDITION_REMPLACEE): readonly Condition[] {
-  const expedition = EXPEDITION_EN_PRODUCTION && !remplacee
+  const expedition = voieDeLExpeditionDite(remplacee)
   return voiesDe(l).filter(v => (expedition || !estUneVoieDExpedition(v)) && (cabinet || !estUneVoieDuCabinet(v)))
 }
 

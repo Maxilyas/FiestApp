@@ -16,7 +16,7 @@
 // plus rien ne se rapporte de l'Expédition au Cabinet.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import React from 'react'
@@ -32,6 +32,8 @@ import { PAGES_EN_MAINTENANCE, PAGES_FERMABLES } from '../../shared/maintenance'
 import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE } from '../../shared/jokers'
 import { cleDeLExpedition, estUneVoieDExpedition, legendaire, legendairesDebloques, voiesMontrees } from '../../shared/legendaires'
 import { DEPART_FERME, type PageDeLExpedition, type VueDeLExpedition } from '../../shared/expedition'
+import { cheminDeLaLuciole } from '../../shared/compagnons'
+import type { PageDuCabinet } from '../../shared/cabinet/vues'
 
 after(fermerLesMagasins)
 
@@ -177,6 +179,11 @@ const versUneQuestion = (v: VueDeLExpedition) => v.permises.find(id => v.carte?.
 test('le banc garde le départ de l’Expédition ouvert à ses tests ; sans l’option, le serveur suit le drapeau du code', async () => {
   // Les vingt-trois fichiers qui partent en expédition ne bougent pas le jour où le drapeau ferme le départ : le banc pose
   // l'option à faux (`banc.ts`). Sans elle, ce que dit le drapeau — fermé à l'ouverture du Cabinet, partout.
+  // Tant que le drapeau du code est faux, les deux essais répondent pareil, et la garde du banc ne mordrait qu'à
+  // l'ouverture : elle se lit donc aussi dans son lancement — l'option à faux, avant les réglages de l'épreuve, qui
+  // gardent le dernier mot (celles d'ici la ferment, ou la rendent au drapeau).
+  const lancement = readFileSync(new URL('./banc.ts', import.meta.url), 'utf8').match(/createQuizServer\(\{[^}]*\}\)/)?.[0] ?? ''
+  assert.match(lancement, /expeditionRemplacee: false,[^}]*\.\.\.reglages \}\)$/, lancement)
   const essais: [string, Partial<QuizServerOptions>][] = [
     ['le banc', {}],
     ['le drapeau du code', { expeditionRemplacee: undefined }],
@@ -248,6 +255,33 @@ test('remplacée, l’Expédition refuse son seul départ en mots — après « 
   }
 })
 
+test('la page du Cabinet suit l’expédition qui part et qui finit : « Ton expédition t’attend » ne mène pas à un départ fermé', async () => {
+  // Le musée gardé en mémoire lit l'expédition en route au lot froid, une fois par réveil : sans rien qui le lui dise,
+  // une expédition finie laissait la ligne « Ton expédition t'attend : la finir » jusqu'au redémarrage — et, le départ
+  // fermé, elle menait à `/expedition`, qui renvoie au Cabinet : une boucle. La campagne le lui dit (`expeditionChange`),
+  // en mémoire, sous le verrou du profil, sans un aller-retour.
+  const banc = await demarrer({ baseDeLaCampagne: baseDuCabinet(), horlogeDuJour: () => DIX_HEURES })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    const page = async () => ((await lireDu(banc, lea, '/api/cabinet')).corps as PageDuCabinet).expedition
+    assert.equal(await page(), null, 'rien en route : le musée se garde')
+    // Partie (le départ encore ouvert) : la page chaude le sait aussitôt.
+    const partie = await posterAu(banc, lea, '/api/expedition')
+    assert.equal(partie.status, 200, partie.corps.error)
+    assert.equal(await page(), 'en-route', 'partie après la page : la mémoire le sait')
+
+    // La mise en ligne qui ferme le départ : relue à froid, elle l'attend toujours.
+    await banc.redemarrer({ reglages: { expeditionRemplacee: true } })
+    assert.equal(await page(), 'en-route')
+    assert.equal((await posterAu(banc, lea, `/api/expedition/${partie.corps.id}/abandon`)).status, 200)
+    assert.equal(await page(), null, 'finie, la ligne s’éteint — sans attendre le réveil suivant')
+    const expedition: PageDeLExpedition = (await lireDu(banc, lea, '/api/expedition')).corps
+    assert.deepEqual([expedition.expedition, expedition.departFerme], [null, 'cabinet'], 'la page de l’Expédition et celle du Cabinet disent la même chose')
+  } finally {
+    await banc.close()
+  }
+})
+
 test('remplacée, l’album tait la voie de l’Expédition — et un légendaire gardé là-bas reste à lui', () => {
   const kraken = legendaire('lg:kraken')!
   const dite = (remplacee: boolean) => voiesMontrees(kraken, true, remplacee).some(estUneVoieDExpedition)
@@ -259,6 +293,9 @@ test('remplacée, l’album tait la voie de l’Expédition — et un légendair
   assert.deepEqual(autres(true), autres(false))
   // Une voie tue n'est qu'un texte : rangée, elle donne toujours son légendaire (invariant 22).
   assert.ok(legendairesDebloques(new Map([[cleDeLExpedition('lg:kraken'), 1]])).includes('lg:kraken'))
+  // La luciole suit la même règle : chaque refus qui dit où l'avoir (`pourLAvoir`, l'achat refusé) tait l'expédition
+  // quand l'album la tait — sans quoi il enverrait au départ fermé qu'aucune page ne propose plus.
+  for (const remplacee of [false, true]) assert.equal(cheminDeLaLuciole(true, remplacee).includes('expédition'), dite(remplacee), `remplacée : ${remplacee}`)
 })
 
 /** Un composant du client, rendu en HTML : son JSX est compilé pour un `React` global, posé avant d'importer le premier. */

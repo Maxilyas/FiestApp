@@ -518,6 +518,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // (`REVEIL_DU_CABINET`) — pas d'`init` à lui —, et il lit l'heure de la campagne et le calendrier de ses fêtes.
   const cabinetEstOuvert = opts.cabinet ?? cabinetOuvert({ online: !!opts.online, env: opts.appEnv ?? 'production' })
   const cabinet = new CabinetStore(campagne.porte(), profiles, { maintenant: maintenantDuJour, calendrier: calendrierDuCabinet })
+  // L'expédition qui part ou finit, dite à la page du Cabinet (« Ton expédition t'attend ») : en mémoire, un crochet
+  // de sa porte, comme ses paliers — sans lui, la ligne restait jusqu'au réveil suivant.
+  campagne.expeditionChange = (profileId, enRoute) => cabinet.expeditionChange(profileId, enRoute)
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)

@@ -35,6 +35,7 @@
 import type { Rarete } from './badges'
 import type { ReglageDesOrnements } from './ornements'
 import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
+import { EXPEDITION_REMPLACEE, voieDeLExpeditionDite } from './jokers'
 
 /** Le prix d'un compagnon, à sa première forme : un objet qui se mérite. */
 export const PRIX_D_UN_COMPAGNON = 1000
@@ -286,18 +287,22 @@ export const avecLui = (c: Compagnon) => (c.le === 'la' ? 'avec elle' : 'avec lu
  * Le Cabinet fermé en production (`CABINET_EN_PRODUCTION`), sa voie ne se dit
  * pas : elle enverrait chercher une page qui n'y répond pas — la préproduction
  * la tait donc aussi d'ici l'ouverture, comme la voie de ses gardiens dans
- * l'album (`voiesMontrees`). `cabinet` force le drapeau.
+ * l'album (`voiesMontrees`). L'expédition, elle, se tait quand l'album la tait
+ * (`voieDeLExpeditionDite`, son départ fermé : `EXPEDITION_REMPLACEE`) — le
+ * Cabinet ouvert seulement : sans lui, elle reste la seule à dire, comme dans
+ * la galerie (`venuesDeLaLuciole`). Écrite en dur, elle se serait dite au refus
+ * le jour où l'album la tait. `cabinet` et `remplacee` forcent les drapeaux.
  */
-export const cheminDeLaLuciole = (cabinet: boolean = CABINET_EN_PRODUCTION): string =>
-  `mène une expédition au bout${cabinet ? ', ou complète une salle du Cabinet' : ''}`
+export const cheminDeLaLuciole = (cabinet: boolean = CABINET_EN_PRODUCTION, remplacee: boolean = EXPEDITION_REMPLACEE): string =>
+  [!cabinet || voieDeLExpeditionDite(remplacee) ? 'mène une expédition au bout' : '', cabinet ? 'complète une salle du Cabinet' : ''].filter(Boolean).join(', ou ')
 
 /**
  * Le refus fait à qui règle, porte ou installe un compagnon qu'il n'a pas :
  * où l'obtenir. « À la boutique » aurait envoyé chercher la luciole là où
  * elle n'est pas.
  */
-export const pourLAvoir = (c: Compagnon, cabinet: boolean = CABINET_EN_PRODUCTION): string =>
-  c.gagne === 'expedition' ? `${c.nom} se gagne d’abord : ${cheminDeLaLuciole(cabinet)}` : `${c.nom} s’achète d’abord, à la boutique`
+export const pourLAvoir = (c: Compagnon, cabinet: boolean = CABINET_EN_PRODUCTION, remplacee: boolean = EXPEDITION_REMPLACEE): string =>
+  c.gagne === 'expedition' ? `${c.nom} se gagne d’abord : ${cheminDeLaLuciole(cabinet, remplacee)}` : `${c.nom} s’achète d’abord, à la boutique`
 
 /** Le rang de la plus haute forme que ces bonnes réponses, données avec lui, font atteindre. */
 export function rangAtteint(justes: number): number {

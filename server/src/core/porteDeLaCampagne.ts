@@ -9,11 +9,13 @@
 // suivante. Le Cabinet ne l'importe donc pas : il reçoit cette porte
 // (`CampagneStore.porte()`), des fermetures sur ses privés, où le rituel d'une
 // réponse tient en une fonction (`ecrireDesReponses`). Et la campagne ne
-// connaît du Cabinet que deux crochets, déclarés ici : ce qu'il ajoute à son
-// réveil et à ses paliers. La fin d'une expédition en avait un troisième, pour
-// la migration des œuvres : le propriétaire l'a abandonnée le 25 octobre 2026
-// (chacun commence son musée à zéro), et rien ne s'en rapporte. Ce fichier
-// n'importe que des types : le Cabinet le lit sans tirer la campagne.
+// connaît du Cabinet que trois crochets, déclarés ici : ce qu'il ajoute à son
+// réveil et à ses paliers, et l'expédition qui part ou finit — pour la seule
+// ligne « Ton expédition t'attend » de sa page, en mémoire. Rien ne s'en
+// rapporte : la migration des œuvres, que ce crochet devait porter, le
+// propriétaire l'a abandonnée le 25 octobre 2026 (chacun commence son musée à
+// zéro). Ce fichier n'importe que des types : le Cabinet le lit sans tirer la
+// campagne.
 import type { InStatement, ResultSet } from '@libsql/client'
 import type { Client } from './distante'
 import type { QuestionDeLaBase } from './baseCampagne'
@@ -179,3 +181,17 @@ export interface StatsEnPlus {
   /** Ce que disent ses lectures, dans leur ordre : ses champs, ajoutés à ce que la campagne a compté. */
   lire(lus: readonly ResultSet[]): StatsDuCabinet
 }
+
+/**
+ * L'expédition d'un profil part (son identifiant) ou finit (null) — menée au
+ * bout, perdue, abandonnée —, écrite : le Cabinet le dit sur sa page (« Ton
+ * expédition t'attend : la finir »), qu'il lit au lot froid de son musée, une
+ * fois par réveil. Sans ce mot, une expédition finie gardait la ligne jusqu'au
+ * redémarrage, et, le départ fermé, elle menait à `/expedition`, qui renvoie au
+ * Cabinet. En mémoire seulement : appelé sous le verrou du profil, qui garde
+ * aussi le lot froid du musée, il n'écrit rien, ne lit rien, ne rend pas de
+ * promesse ; ce qui y tombe se dit au journal sans faire tomber le geste, déjà
+ * écrit. L'autre serveur d'une mise en ligne ne l'apprend pas : son musée le
+ * relira au réveil suivant.
+ */
+export type ExpeditionQuiChange = (profileId: string, enRoute: string | null) => void

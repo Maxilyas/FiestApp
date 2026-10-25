@@ -134,6 +134,7 @@ interface MuseeGarde {
   oeuvres: Map<string, LigneDOeuvre>
   duJour: { jour: string; parties: PartieDuJour[] }
   enCours: { id: string; jeu: CleDeJeu } | null
+  /** L'expédition qui l'attend, lue au lot froid, puis tenue à jour par la campagne quand elle part ou finit (`expeditionChange`). */
   expeditionEnRoute: string | null
   /** Les saisons rangées sous `#cabinet`, relues à froid puis tenues à jour par la réconciliation (`reconcilier`). */
   sousLeCabinet: Set<string>
@@ -1191,6 +1192,20 @@ export class CabinetStore {
       this.tas = { jouables, prets }
     }
     return this.tas.prets
+  }
+
+  /**
+   * Son expédition part ou finit (`ExpeditionQuiChange`, que la campagne
+   * appelle sous le verrou du profil) : la ligne « Ton expédition t'attend »
+   * de sa page suit, en mémoire. Le lot froid la lit une fois par réveil ;
+   * gardée telle quelle, une expédition finie la laissait jusqu'au
+   * redémarrage — et, le départ fermé, elle menait à une page qui renvoie ici.
+   * Un musée qui n'est pas en mémoire n'a rien à oublier : son lot froid lira
+   * la base, écrite avant ce mot.
+   */
+  expeditionChange(profileId: string, enRoute: string | null): void {
+    const garde = this.musees.get(profileId)
+    if (garde) garde.expeditionEnRoute = enRoute
   }
 
   /**

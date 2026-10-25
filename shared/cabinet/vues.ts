@@ -137,7 +137,10 @@ export interface PageDuCabinet {
    * Les œuvres rapportées de l'Expédition : zéro, toujours — plus rien ne s'en
    * rapporte (la décision du propriétaire du 25 octobre 2026, chacun commence
    * son musée à zéro). Gardé le temps que la page cesse de lire son annonce
-   * (`Musee.tsx`, `retenu.ts`), puis retiré avec elle.
+   * (`Musee.tsx`, `CabinetApp.tsx`, `retenu.ts` et sa clé
+   * `quizz.cabinet.accueil-vu` — le lot qui retire la page de la migration),
+   * puis retiré du même geste, avec le zéro de `pageDuCabinet` (`vue.ts`) :
+   * retiré avant, la page ne se construirait plus.
    */
   rapportees: number
   /** Les jeux livrés : un cadre vide d'un autre jeu dit « bientôt ». */

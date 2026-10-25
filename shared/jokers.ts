@@ -46,6 +46,17 @@ export const EXPEDITION_EN_PRODUCTION = true
  */
 export const EXPEDITION_REMPLACEE = false
 
+/**
+ * La voie de l'Expédition se dit-elle encore — dans l'album (`voiesMontrees`),
+ * la galerie des compagnons, et chaque refus qui dit où gagner la luciole
+ * (`cheminDeLaLuciole`) ? Ses routes ouvertes en production, et son départ pas
+ * encore fermé : un texte qui y enverrait mènerait à un départ qui se refuse.
+ * Une seule règle, que chacun lit : la luciole disait encore « mène une
+ * expédition au bout » quand l'album taisait la voie. `remplacee` force le
+ * drapeau, pour qui veut lire les textes tels qu'ils seront.
+ */
+export const voieDeLExpeditionDite = (remplacee: boolean = EXPEDITION_REMPLACEE): boolean => EXPEDITION_EN_PRODUCTION && !remplacee
+
 /** À jouer sur une question, puis défaussé ; à poser, il agit jusqu'au bout de l'acte ; sur la carte, entre deux escales. */
 export type SorteDeJoker = 'jouer' | 'poser' | 'carte'
 

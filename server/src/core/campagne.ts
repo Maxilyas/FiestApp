@@ -28,7 +28,7 @@ import {
 } from './journalDesReponses'
 import { JournalDesDuels, type DuelsARelire, type LigneDuJournalDesDuels } from './journalDesDuels'
 import { DejaPrises } from './jumelles'
-import type { CeQueLeReveilAjoute, FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from './porteDeLaCampagne'
+import type { CeQueLeReveilAjoute, ExpeditionQuiChange, FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from './porteDeLaCampagne'
 import {
   EMPRUNTS,
   classeDeFraicheur,
@@ -1053,12 +1053,14 @@ export class CampagneStore {
   laurierChange?: (profileId: string) => void
   /**
    * Ce que le Cabinet de curiosités ajoute aux paliers de la campagne
-   * (`statsDe`) : l'un des deux crochets de sa porte (`core/porteDeLaCampagne.ts` ;
-   * l'autre, `init`), branché par le serveur. La campagne n'importe rien du
-   * Cabinet. La fin d'une expédition ne lui dit rien : plus rien ne s'en
-   * rapporte (la décision du propriétaire du 25 octobre 2026).
+   * (`statsDe`), et l'expédition qui part ou finit, qu'il dit sur sa page
+   * (`expeditionChange`, en mémoire : rien ne s'en rapporte — la décision du
+   * propriétaire du 25 octobre 2026) : deux des trois crochets de sa porte
+   * (`core/porteDeLaCampagne.ts` ; le troisième, `init`), branchés par le
+   * serveur. La campagne n'importe rien du Cabinet.
    */
   statsEnPlus?: StatsEnPlus
+  expeditionChange?: ExpeditionQuiChange
   /** Le secret du Cabinet, relu au réveil (`init`) ; null tant qu'aucun réveil ne l'a tiré. */
   private secretLu: string | null = null
   /** La porte du Cabinet, ouverte une fois (`porte`). */
@@ -7996,6 +7998,7 @@ export class CampagneStore {
       }
       const lue: ExpeditionLue = { serie, depart, gestes: [], reponses: new Map(), reponduesLe: new Map(), tampons: tamponsLus(passeport.rows) }
       this.garderLExpedition(profileId, lue, vues.vues)
+      this.direAuCabinet(profileId, id)
       return vueDeLExpedition(lue, plier(lue), siens)
     })
   }
@@ -8478,12 +8481,30 @@ export class CampagneStore {
 
   /**
    * Ce que la fin d'une expédition fait tomber : les paliers de la campagne
-   * que ses bonnes réponses font atteindre — Le Marathonien. Rien au Cabinet :
-   * chacun y commence son musée à zéro (la décision du propriétaire du
-   * 25 octobre 2026), et une expédition finie n'y rapporte aucune œuvre.
+   * que ses bonnes réponses font atteindre — Le Marathonien —, toute fin y
+   * passe, écrite. Le Cabinet apprend seulement que plus rien ne l'attend
+   * (`direAuCabinet`) : il n'en rapporte aucune œuvre, chacun y commence son
+   * musée à zéro (la décision du propriétaire du 25 octobre 2026).
    */
   private recompenserLExpedition(profileId: string, serieId: string, quand: number): Promise<Recompenses> {
+    this.direAuCabinet(profileId, null)
     return this.recompenserLaFin(profileId, serieId, quand, 'expedition')
+  }
+
+  /**
+   * L'expédition de ce profil part ou finit, écrite : le Cabinet le dit sur sa
+   * page (`expeditionChange`, branché par le serveur). En mémoire, sous le
+   * verrou du profil que le geste tient — le lot froid du musée l'attend, et ne
+   * relit pas derrière lui une expédition d'avant. Ce qui y tombe se dit au
+   * journal : le geste est écrit, sa réponse ne tombe pas pour une ligne de la
+   * page d'un autre mode.
+   */
+  private direAuCabinet(profileId: string, enRoute: string | null): void {
+    try {
+      this.expeditionChange?.(profileId, enRoute)
+    } catch (e) {
+      console.error('[cabinet] l’expédition qui part ou finit ne s’est pas dite à sa page — elle se relira au réveil :', e)
+    }
   }
 
   /** Les paliers qu'une partie finie fait atteindre, rangés sous elle ; une étagère muette n'y change rien : la partie est rangée, la fin suivante les relira. */

@@ -100,7 +100,7 @@ function arreter(message: string): never {
   process.exit(1)
 }
 
-/** Les parcours de chaque joueur, à chaque arrivée : un musée rempli jour après jour, de son premier matin à la fin. */
+/** Les parcours de chaque joueur : un musée rempli jour après jour, de son premier matin — les quatre œuvres de départ — à la fin. */
 const PARCOURS = entier('parcours', 4)
 /** L'horizon d'un parcours, en jours de calendrier : au-delà, « plus d'un an ». */
 const JOURS = entier('jours', 365)

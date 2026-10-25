@@ -274,11 +274,28 @@ test('une réponse écrite par la porte : l’expédition en route relit ce qu�
   }
 
   // Une première expédition, un pas puis abandonnée : la base, la mesure et le journal se lisent une fois — ce n'est pas
-  // ce qu'on compte. Sa fin ne dit rien au Cabinet : plus rien ne s'en rapporte (la décision du propriétaire du
-  // 25 octobre 2026), et la campagne n'en a plus le crochet.
+  // ce qu'on compte. Rien ne s'en rapporte au Cabinet (la décision du propriétaire du 25 octobre 2026) ; il apprend
+  // seulement qu'elle part et qu'elle finit, pour la ligne « Ton expédition t'attend » de sa page (`expeditionChange`) :
+  // en mémoire, sur-le-champ — aucun aller-retour de plus, le compte d'après le dit.
+  const dites: [string, string | null][] = []
+  jeu.expeditionChange = (profileId, enRoute) => dites.push([profileId, enRoute])
   const essai = await jeu.partirEnExpedition(QUI)
+  assert.deepEqual(dites, [[QUI, essai.id]], 'partie : elle l’attend')
   await avancer(essai)
   await jeu.abandonnerLExpedition(QUI, essai.id)
+  assert.deepEqual(dites, [[QUI, essai.id], [QUI, null]], 'finie : plus rien ne l’attend')
+  // Un crochet qui tombe ne fait tomber ni le départ ni la fin, déjà écrits : il se dit au journal du serveur.
+  jeu.expeditionChange = () => {
+    throw new Error('le Cabinet est muet')
+  }
+  const { resultat: muette, dits } = await enEcoutantLeJournal(async () => {
+    const e = await jeu.partirEnExpedition(QUI)
+    await jeu.abandonnerLExpedition(QUI, e.id)
+    return e
+  })
+  assert.ok(muette.id)
+  assert.equal(dits.filter(d => d.includes('le Cabinet est muet')).length, 2, dits.join('\n'))
+  jeu.expeditionChange = undefined
 
   const v = await jeu.partirEnExpedition(QUI)
   const escale = await mesurer(() => avancer(v))
