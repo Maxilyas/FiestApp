@@ -130,12 +130,41 @@ test('l’œuvre peinte, pièce à part : sa peinture à ses deux tailles, le ca
   assert.doesNotMatch(phenix, /exp-vc-peinture/)
 })
 
+test('une œuvre se teinte de la salle du Cabinet qui l’expose : le Vestibule, celle des neutres', async () => {
+  // Le Cabinet range ses œuvres par salle — les huit de famille sous la clé de leur famille, et le Vestibule, qui expose les
+  // neutres —, et la passe telle quelle : traduite à la main ou forcée en famille, le Vestibule n'avait plus de teinte, React
+  // omettait le `--famille` indéfini, et chaque `color-mix` de la fenêtre tombait.
+  const peindre = await rendu('components/OeuvrePeinte.tsx', 'OeuvrePeinte')
+  const teinte = (famille: string) => /--famille:([^;"]+)/.exec(peindre({ oeuvre: { cle: 'concentration', nom: 'Concentration', famille, rarete: 'commun' }, taille: 'rangee' }))?.[1]
+  assert.ok(teinte('neutre'), 'une carte neutre a sa teinte')
+  assert.equal(teinte('vestibule'), teinte('neutre'))
+  // Une salle de famille, sa famille : rien à traduire.
+  assert.equal(/--famille:([^;"]+)/.exec(peindre({ oeuvre: BASTION, taille: 'rangee' }))?.[1], teinte('rempart'))
+})
+
+/** Le corps d'une règle de la feuille commune, tel qu'il est écrit. */
+const regleCss = (selecteur: string) => {
+  const css = readFileSync(client('styles.css'), 'utf8')
+  const debut = css.indexOf(`\n${selecteur} {`)
+  return debut < 0 ? '' : css.slice(debut + selecteur.length + 3, css.indexOf('}', debut))
+}
+
 test('le cadre doré : sa marque et son or écrits en dur, jamais la couleur seule — « cadre doré » se dit à l’oreille, la rareté garde sa gemme', async () => {
   const peindre = await rendu('components/OeuvrePeinte.tsx', 'OeuvrePeinte')
   const nue = peindre({ oeuvre: BASTION, taille: 'levee' })
   const doree = peindre({ oeuvre: BASTION, taille: 'levee', doree: true })
-  // Sa marque — le liseré que la page lui dessine — et son or, qu'aucun thème ne repeint, comme la teinte d'une famille.
+  // Sa marque et son or, qu'aucun thème ne repeint, comme la teinte d'une famille.
   assert.match(doree, /^(<link [^>]*\/>)*<span class="exp-vc exp-vc-levee exp-vc-doree" style="[^"]*--dorure:#[0-9a-f]{6}"/)
+  // Le liseré que sa marque dessine : un second cadre, d'or, au-dedans de celui de la rareté — une forme en plus, que voit qui
+  // distingue mal les couleurs. Posé par la pièce, la classe ne dessinait rien : une œuvre dorée en petit ressemblait à une autre.
+  const lisere = regleCss('.exp-vc-doree::after')
+  assert.match(lisere, /border: \d+(\.\d+)?px solid var\(--dorure\)/, 'un filet d’or')
+  assert.match(lisere, /position: absolute/)
+  // Au-dedans du cadre : rien qui déborde de côté (règle `css.md`), ni qui passe pour l'anneau du focus ou le cadre d'une carte choisie.
+  assert.match(lisere, /inset: \d+px;/)
+  assert.match(lisere, /pointer-events: none/)
+  // L'or ne repeint ni la gemme ni le cadre de la rareté.
+  assert.doesNotMatch(regleCss('.exp-vc-doree') + lisere, /--gemme|border-color/)
   // L'or s'ajoute au cadre, il ne prend pas la place de l'épique : la rareté se lit encore à sa gemme.
   const gemme = (html: string) => /--gemme:([^;"]+)/.exec(html)?.[1]
   assert.ok(gemme(nue))

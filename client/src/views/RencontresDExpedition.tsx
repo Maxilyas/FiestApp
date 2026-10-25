@@ -342,11 +342,11 @@ function CoutEnEnergie({ c, manque }: { c: CarteDeRencontre; manque?: boolean })
  * (`components/OeuvrePeinte.tsx` — son cadre, sa peinture, son nom, sa
  * gemme, que le Cabinet de curiosités montre aussi), et ce que la rencontre
  * y ajoute : l'orbe de son coût au coin, son dessin quand elle n'a pas de
- * peinture, son chiffre en médaillon sous l'illustration (`valeur`), sa
- * phrase levée. Aucun mot dans la main, son nom seul dans une rangée —
- * « Y'a trop de détails écrits en dessous de chaque icône, ne pas les mettre
- * direct mais les faire apparaître si on clique dessus » (la revue du même
- * soir) — ; levée, sa phrase entière, et ce que `children` ajoute.
+ * peinture, son chiffre en médaillon sous l'illustration (`valeur`). Aucun
+ * mot dans la main, son nom seul dans une rangée — « Y'a trop de détails
+ * écrits en dessous de chaque icône, ne pas les mettre direct mais les faire
+ * apparaître si on clique dessus » (la revue du même soir) — ; levée, sa
+ * phrase entière, puis ce que `children` ajoute.
  */
 export function CarteDessinee({
   c,

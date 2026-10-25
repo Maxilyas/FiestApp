@@ -818,9 +818,12 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
   la page qui ne fait que montrer une œuvre (`cartes-peintes.test.ts` suit
   ses imports, `server/test/chemin-des-imports.ts`). Le cadre doré (`doree`)
   ne sert pas à l'Expédition : sa classe (`exp-vc-doree`), son or écrit en
-  dur (`--dorure`), et levée « cadre doré » à l'oreille — l'or s'ajoute au
-  cadre, la rareté garde sa gemme ; son liseré se dessine avec la page qui le
-  montre.
+  dur (`--dorure`), un second cadre d'or au-dedans de celui de la rareté, qui
+  garde sa gemme (`.exp-vc-doree::after` : une forme de plus, jamais la
+  couleur seule), et levée « cadre doré » à l'oreille — en petit, c'est au
+  bouton qui la porte de le dire. Sa famille prend aussi la salle du Cabinet
+  qui l'expose, telle quelle (`FamilleDOeuvre`) : le Vestibule y a la teinte
+  des neutres ; forcé en famille, il n'en avait plus.
 - **La question au centre se lit à sa version, partout** (la version 10, le
   19 octobre 2026) : une carte qui s'y montre ou s'y juge passe par
   `carteALaVersion(cle, v)` — `carteDeRencontre` rendrait ses points et son

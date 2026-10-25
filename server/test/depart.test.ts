@@ -397,7 +397,7 @@ test('la partie du jour que la page a préchargée ne fausse pas son chrono : l�
   }
 })
 
-test('toute réponse qui porte l’heure du serveur la remesure, et repart telle quelle : la partie du jour comme le Cabinet qui vient', async () => {
+test('une réponse qui sert un chrono remesure l’heure du serveur, et repart telle quelle : la partie du jour comme le Cabinet qui vient', async () => {
   // L'horloge de la page n'était qu'au quiz du jour (`avecLHeure`, privée à son groupe) : le Cabinet de curiosités, qui a de
   // vrais chronos, mesurera la sienne à chacune de ses réponses, par la même pièce.
   const { avecLHeure } = await import(client('api.ts').href)
@@ -412,6 +412,9 @@ test('toute réponse qui porte l’heure du serveur la remesure, et repart telle
   resetClock()
   const ici = Date.now()
   applySample({ serverTime: ici, sentAt: ici, receivedAt: ici })
+  // Générique, pour toute réponse qui porte l'heure : `tsx` efface les types et le typage du serveur ne voit pas le client —
+  // seule sa signature le dit, tant qu'aucun mode à chrono ne l'appelle encore avec la sienne.
+  assert.match(source('api.ts'), /export async function avecLHeure<T extends \{ maintenant: number; prechargee\?: true \}>\(appel: \(\) => Promise<T>, adresse\?: string\): Promise<T>/)
   // Et le quiz du jour la demande toujours par elle, préchargée comprise.
   assert.match(source('api.ts'), /suivante: \(\) => avecLHeure\(\(\) => req<PartieDuJour>\('\/api\/jour\/suivante', \{ method: 'POST' \}\)\)/)
 })

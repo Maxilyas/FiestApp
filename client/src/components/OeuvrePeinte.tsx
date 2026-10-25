@@ -20,14 +20,30 @@ import type { CarteDeRencontre, FamilleDeCartes } from '../../../shared/rencontr
 // cadre retouché l'est des deux côtés.
 
 /**
+ * Où l'œuvre se range, ce qui fait sa teinte : la famille de sa carte, ou la
+ * salle du Cabinet de curiosités qui l'expose — les huit salles de famille
+ * portent la clé de leur famille, et le Vestibule, qui expose les neutres,
+ * prend leur teinte. Le Cabinet passe sa salle telle quelle : traduite à la
+ * main ou forcée en famille, le Vestibule n'aurait plus de teinte, sans un
+ * bruit — React omet un `--famille` indéfini, et chaque `color-mix` de la
+ * fenêtre tombe.
+ */
+export type FamilleDOeuvre = FamilleDeCartes | 'vestibule'
+
+/**
  * Ce qu'une peinture montre d'une œuvre : la clé de sa peinture
  * (`CARTES_PEINTES` — celle de sa carte, sans le « + » d'une améliorée), son
- * nom, sa famille, sa rareté, et le légendaire qu'elle montre à la place d'une
- * peinture — une carte de légendaire, un gardien.
+ * nom, sa famille ou sa salle, sa rareté, et le légendaire qu'elle montre à
+ * la place d'une peinture — une carte de légendaire, un gardien.
  */
-export type OeuvreMontree = Pick<CarteDeRencontre, 'cle' | 'nom' | 'famille' | 'rarete' | 'legendaire'>
+export type OeuvreMontree = Pick<CarteDeRencontre, 'cle' | 'nom' | 'rarete' | 'legendaire'> & { famille: FamilleDOeuvre }
 
-/** Sa rareté. */
+/**
+ * Les raretés d'une carte des rencontres — celles d'une œuvre du Cabinet en
+ * sont, sans la légendaire, qui est aux gardiens —, lues en type seulement :
+ * effacé à la compilation, il ne fait pas télécharger les règles des
+ * rencontres à la page qui montre une œuvre.
+ */
 export type RareteDOeuvre = OeuvreMontree['rarete']
 
 /** Sa taille : en petit, sans un mot (la main) ; dans une rangée, son nom ; levée, en grand. */
@@ -65,13 +81,16 @@ export const TEINTE_DE_LA_FAMILLE: Record<FamilleDeCartes, string> = {
   temeraire: '#d63a4a',
 }
 
+const teinteDe = (f: FamilleDOeuvre) => TEINTE_DE_LA_FAMILLE[f === 'vestibule' ? 'neutre' : f]
+
 /**
  * L'or du cadre doré (le Cabinet : trois manches parfaites sans qu'un pouvoir
  * ait servi, ou de la poussière d'or). Écrit en dur, comme la teinte d'une
  * famille — aucun thème ne le repeint —, et jamais seul, pour qui distingue
- * mal les couleurs : il s'ajoute au cadre de la rareté, qui garde sa gemme ;
- * son liseré se dessine par sa classe (`.exp-vc-doree`), avec la page qui le
- * montre ; levée, l'œuvre dit « cadre doré » à l'oreille.
+ * mal les couleurs : il s'ajoute au cadre de la rareté, qui garde sa gemme,
+ * en second cadre au-dedans du sien (`.exp-vc-doree::after`, la section « Les
+ * rencontres » de `styles.css`) — une forme de plus, pas une couleur à la
+ * place ; levée, l'œuvre dit « cadre doré » à l'oreille.
  */
 const OR_DU_CADRE = '#e3b448'
 
@@ -123,7 +142,7 @@ export function OeuvrePeinte({
 }: {
   oeuvre: OeuvreMontree
   taille: TailleDOeuvre
-  /** Son cadre est doré : un liseré d'or, et levée, « cadre doré » à l'oreille. */
+  /** Son cadre est doré : un second cadre d'or, et levée, « cadre doré » à l'oreille. */
   doree?: boolean
   /** Une classe de plus sur le cadre : `exp-vc-amelioree`. */
   classe?: string
@@ -143,7 +162,7 @@ export function OeuvrePeinte({
 }) {
   const style = {
     ...gemmeDeLaRarete(oeuvre.rarete),
-    '--famille': TEINTE_DE_LA_FAMILLE[oeuvre.famille],
+    '--famille': teinteDe(oeuvre.famille),
     ...(doree && { '--dorure': OR_DU_CADRE }),
   } as CSSProperties
   // Peinte, son illustration (`server/scripts/anime/cartes.ts`) : la grande levée, la petite ailleurs. La teinte de sa famille

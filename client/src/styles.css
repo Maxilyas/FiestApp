@@ -10114,6 +10114,12 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-vc-ameliore { position: absolute; right: -7px; bottom: -7px; z-index: 1; display: grid; place-items: center; width: 22px; height: 22px; border: 2px solid var(--bg-raised); border-radius: 50%; background: #2f9a44; color: #fff; font-size: 1rem; font-weight: 800; line-height: 1; }
 .exp-vc-amelioree .exp-vc-valeur { border-color: #2f9a44; }
 .exp-vc-levee > .exp-vc-ameliore { right: -9px; bottom: -9px; width: 32px; height: 32px; font-size: 1.35rem; }
+/* Le cadre doré du Cabinet (`OeuvrePeinte`, `doree`) : un second cadre, d'or, au-dedans de celui de la rareté, qui garde sa gemme —
+   une forme de plus, pas une couleur à la place : qui distingue mal les couleurs voit deux cadres, et levée, l'œuvre le dit à
+   l'oreille. Au-dedans, il ne déborde pas de côté, ni ne se prend pour l'anneau du focus ou le cadre d'une carte choisie, posés
+   dehors. Son or (`--dorure`) vient de la pièce, en dur : aucun thème ne le repeint. */
+.exp-vc-doree::after { content: ''; position: absolute; inset: 2px; border: 2px solid var(--dorure); border-radius: 6px; pointer-events: none; }
+.exp-vc-levee.exp-vc-doree::after { border-radius: 9px; }
 /* Avant et après une amélioration, au campement et à l'échoppe : les deux cartes côte à côte, la flèche entre elles, chacune sa
    phrase dessous — sa colonne pas plus large qu'une carte et demie, que la phrase reste sous sa carte —, puis ce qu'elle gagne. */
 /* Le pied collé (`.exp-depart-pied`) tient jusqu'à deux boutons : la page défile assez pour la montrer au-dessus de lui. */

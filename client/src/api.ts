@@ -932,13 +932,14 @@ export interface CorrectionDuJour {
 /**
  * Une requête qui remesure l'heure du serveur : l'envoi, l'heure qu'il a
  * écrite en répondant (l'en-tête `Date` n'a que la seconde), et le retour —
- * la mesure la plus rapide l'emporte (`shared/clock.ts`). Toute réponse qui
- * porte `maintenant` passe par elle, d'où qu'elle vienne : sans mesure, un
- * chrono lirait `serverNow()` à l'heure du téléphone (invariant 6). Le
- * Cabinet de curiosités, qui a de vrais chronos, mesurera chacune des siennes
- * ici ; l'Expédition, dont aucune réponse ne porte l'heure, n'est pas son
- * modèle. Une réponse préchargée le dit (`prechargee`) : son `adresse` la
- * fait lire dans le préchargement.
+ * la mesure la plus rapide l'emporte (`shared/clock.ts`). Toute réponse dont
+ * la page tient un chrono passe par elle — le quiz du jour, et le Cabinet de
+ * curiosités, qui mesurera chacune des siennes ici : sans mesure, le chrono
+ * lirait `serverNow()` à l'heure du téléphone (invariant 6). L'Expédition,
+ * dont aucune réponse ne porte l'heure, n'est pas son modèle ; le QG, dont
+ * les pages portent `maintenant` sans rien chronométrer, n'y passe pas.
+ * Une réponse préchargée le dit (`prechargee`) : son `adresse` la fait lire
+ * dans le préchargement.
  */
 export async function avecLHeure<T extends { maintenant: number; prechargee?: true }>(appel: () => Promise<T>, adresse?: string): Promise<T> {
   const sentAt = Date.now()
