@@ -9,6 +9,12 @@
 // Les Divins n'y ont que leur nom et leur mystère : leurs règles et leurs
 // légendes ne quittent jamais le serveur (invariant 21), et `mots.test.ts`
 // vérifie qu'aucune n'a glissé ici.
+//
+// Les mots du Cabinet de curiosités (« œuvre », « carte-bonus »…) disent leurs
+// chiffres par son barème, jamais recopiés : un barème changé change aussi ce
+// que le glossaire promet.
+
+import { ETOILES_PAR_MANCHE, MANCHES_PAR_PARTIE } from './cabinet/bareme'
 
 export type Mot =
   | 'souvenir'
@@ -34,6 +40,17 @@ export type Mot =
   | 'serie'
   | 'fond'
   | 'ligue'
+  // Les mots du Cabinet de curiosités.
+  | 'oeuvre'
+  | 'salle'
+  | 'gardien'
+  | 'cartel'
+  | 'poussiere'
+  | 'cadreDore'
+  | 'carteBonus'
+  | 'visite'
+  | 'chasse'
+  | 'manche'
 
 export interface Definition {
   /** Le mot tel qu'il s'affiche. */
@@ -66,4 +83,14 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   serie: { terme: 'Série', sens: 'Les jours d’affilée où tu as joué, au quiz du jour ou en soirée. Minuit la casse.' },
   fond: { terme: 'Fond de carte', sens: 'Le décor derrière ta carte, quand on touche ton prénom. Il se gagne, comme un titre.' },
   ligue: { terme: 'Ligue', sens: 'Ta place aux duels, selon ta cote : du bronze aux maîtres, une tous les cent points.' },
+  oeuvre: { terme: 'Œuvre', sens: 'Une peinture de ton musée, gagnée en jouant ou achetée. Une œuvre à toi ne se perd jamais.' },
+  salle: { terme: 'Salle', sens: 'Un mur du Cabinet : une famille de huit œuvres, ou les vingt du Vestibule.' },
+  gardien: { terme: 'Gardien', sens: 'Un légendaire qui veille sur une salle : complète, elle le réveille ; toute dorée, un second.' },
+  cartel: { terme: 'Cartel', sens: 'La plaque sous une œuvre : ce que tu as appris en la gagnant.' },
+  poussiere: { terme: 'Poussière d’or', sens: 'La monnaie du Cabinet, qui n’en sort jamais : chaque partie en rapporte, même ratée.' },
+  cadreDore: { terme: 'Cadre doré', sens: 'Trois manches parfaites sans qu’un pouvoir ait servi, ou de la poussière d’or.' },
+  carteBonus: { terme: 'Carte-bonus', sens: 'Une œuvre ou un gardien que tu emportes en partie pour son pouvoir. Elle ne s’use jamais.' },
+  visite: { terme: 'Visite du jour', sens: 'Les parties proposées chaque jour : chacune peut te faire gagner une œuvre, gardée secrète.' },
+  chasse: { terme: 'Chasse', sens: 'Partir chercher l’œuvre de ton choix au jeu où elle se trouve, ou rejouer une œuvre à dorer.' },
+  manche: { terme: 'Manche', sens: `Un tour d’un jeu du Cabinet : ${MANCHES_PAR_PARTIE} par partie, ${ETOILES_PAR_MANCHE} étoiles au plus chacune.` },
 }

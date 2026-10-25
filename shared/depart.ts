@@ -44,8 +44,9 @@ export const DEPART = {
   expedition: '/api/expedition',
   /**
    * Le musée, la visite du jour, la partie en cours — sa réponse remesure
-   * l'heure (`avecLHeure`) et se dit préchargée sans `X-Requested-With`. La
-   * page qui la demandera (`/cabinet`) la précharge avec elle.
+   * l'heure (`avecLHeure`) et se dit préchargée sans `X-Requested-With`. Sa
+   * page (`/cabinet`) la précharge avec elle, quel que soit l'écran que dit
+   * son fragment : tous lisent la même.
    */
   cabinet: '/api/cabinet',
   /** Les sentiers du savoir — préchargés par la page, pas par le serveur (`donneesDuFragment`). */
@@ -115,6 +116,8 @@ export function donneesDeDepart(route: Route): string[] {
         return [DEPART.duels, DEPART.moiLeger]
       case 'expedition':
         return [DEPART.expedition, DEPART.moiLeger]
+      case 'cabinet':
+        return [DEPART.cabinet, DEPART.moiLeger]
       case 'edit':
         return [DEPART.quiz, DEPART.console, DEPART.theme]
       default:

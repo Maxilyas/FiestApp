@@ -20,7 +20,7 @@ import type { AnnonceDeLAdministrateur } from '../../../shared/profil'
 import { CarteDeLAdministrateur } from './CarteDeLAdministrateur'
 // Ils n'importent rien : le premier script de chaque page les lit déjà (`main.tsx`).
 import { BOUTON_BIENTOT, BOUTON_EN_MAINTENANCE, PASTILLE_AVANT_PREMIERE, type BoutonDeLaPage, type PageEnMaintenance } from '../../../shared/maintenance'
-import { boutonEteint } from '../maintenance'
+import { boutonEteint, cabinetIci } from '../maintenance'
 import { BlasonDeLigue } from './Blason'
 import { JourEtDefi } from './JourEtDefi'
 
@@ -198,7 +198,8 @@ const RIEN_DE_FERME: Partial<Record<PageEnMaintenance, BoutonDeLaPage>> = {}
  * L'accueil d'un profil : ce qu'on vient faire, en gros boutons — une soirée
  * où l'on joue déjà passe devant tout (« Revenir chez Hugo »), puis la
  * campagne, le quiz du jour et le défi de la semaine — une tuile, deux
- * onglets (`JourEtDefi`) —, les duels, créer un salon, rejoindre une soirée.
+ * onglets (`JourEtDefi`) —, les duels, l'Expédition, le Cabinet de
+ * curiosités, créer un salon, rejoindre une soirée.
  * Chacun ouvre sa page, qui en dit plus : un toucher de plus qu'une carte qui
  * montrait tout, mais un écran qu'on lit d'un coup d'œil.
  *
@@ -221,6 +222,7 @@ export function AccueilJouer({
   defi,
   duels,
   etats = RIEN_DE_FERME,
+  cabinet = cabinetIci(),
 }: {
   enCours: { nom: string; slug: string }[]
   onRejoindre: () => void
@@ -237,6 +239,8 @@ export function AccueilJouer({
   duels?: DuelsDAccueil
   /** Ce que dit le bouton de chaque page fermée, pour lui (`boutonsDesPages`, `client/src/maintenance.ts`). */
   etats?: Partial<Record<PageEnMaintenance, BoutonDeLaPage>>
+  /** Le Cabinet de curiosités répond-il sur ce serveur ? Le serveur le dit dans la page (`cabinetIci`) ; fermé, pas de bouton. */
+  cabinet?: boolean
 }) {
   // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
   // Le jour vient du serveur : calculé ici, son `Intl` chargeait les données
@@ -339,6 +343,18 @@ export function AccueilJouer({
             pastille={enAvantPremiere('expedition')}
             ferme={eteinte('expedition')}
             href="/expedition"
+          />
+        )}
+        {/* Le musée à remplir, là où le serveur l'ouvre — la préproduction d'abord : une constante du code ne la
+            distingue pas de la production. Il prendra la place de l'Expédition quand elle cédera la sienne. */}
+        {cabinet && (
+          <GrosBouton
+            icone={<Icon name="landmark" />}
+            titre="Le Cabinet de curiosités"
+            detail={eteinte('cabinet') ? pourquoi('cabinet') : 'Un musée à remplir, des œuvres à gagner en jouant'}
+            pastille={enAvantPremiere('cabinet')}
+            ferme={eteinte('cabinet')}
+            href="/cabinet"
           />
         )}
       </section>

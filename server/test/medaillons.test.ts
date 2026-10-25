@@ -125,6 +125,17 @@ test('le téléphone de l’invité ne télécharge pas avant l’entrée ce qui
   }
 })
 
+test('le Cabinet de curiosités n’importe les dessins de ses gardiens qu’à la demande', () => {
+  // Ses vingt-trois gardiens se montrent partout — le musée, les salles, leur galerie — par `Dessin` : les médaillons
+  // viennent avec eux, pas avec la page, que l'accueil d'un profil précharge en fond (`ProfilApp.tsx`).
+  const chemin = importsStatiques(path.join(client, 'views/CabinetApp.tsx'))
+  assert.ok(chemin.has(path.join(client, 'components/Avatar.tsx')), 'Avatar est sur le chemin')
+  assert.ok(chemin.has(path.join(client, 'components/medaillons.ts')), 'medaillons est sur le chemin')
+  for (const dessin of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Lumiere.tsx', 'components/Compagnon.tsx', 'components/compagnons-peints.ts']) {
+    assert.ok(!chemin.has(path.join(client, dessin)), `${dessin} ne part pas avec le Cabinet`)
+  }
+})
+
 test('le quiz du jour ne télécharge pas la fin de soirée pour ses cartes de fin', () => {
   // Il l'importait pour la collection, les portraits et le médaillon
   // ouverts : toute la fin de soirée (17 Ko) à chaque ouverture de sa page.

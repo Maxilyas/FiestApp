@@ -94,11 +94,11 @@ const leBandeau = (html: string) => /<div class="bandeau-du-service" role="statu
 
 test('chaque adresse dit sa page à fermer, et le bandeau se montre partout hors d’une soirée', () => {
   assert.deepEqual(
-    ['/jour', '/campagne', '/duels', '/expedition', '/boutique', '/', '/profil', '/salon', '/admin', '/host'].map(a => pageDeLAdresse(parseRoute(a))),
-    ['jour', 'campagne', 'duels', 'expedition', 'boutique', null, null, null, null, null],
+    ['/jour', '/campagne', '/duels', '/expedition', '/cabinet', '/boutique', '/', '/profil', '/salon', '/admin', '/host'].map(a => pageDeLAdresse(parseRoute(a))),
+    ['jour', 'campagne', 'duels', 'expedition', 'cabinet', 'boutique', null, null, null, null, null],
     'le défi n’a pas d’adresse à lui : son onglet se dit dans le fragment, que le serveur ne reçoit pas',
   )
-  for (const a of ['/', '/profil', '/boutique', '/jour', '/campagne', '/duels', '/expedition', '/salon', '/edit', '/compte', '/admin', '/connexion', '/nulle/part/ici']) {
+  for (const a of ['/', '/profil', '/boutique', '/jour', '/campagne', '/duels', '/expedition', '/cabinet', '/salon', '/edit', '/compte', '/admin', '/connexion', '/nulle/part/ici']) {
     assert.equal(montreLeBandeau(parseRoute(a)), true, a)
   }
   // Ni le téléphone d'un invité, ni l'écran commun, ni les pages publiques d'une soirée.

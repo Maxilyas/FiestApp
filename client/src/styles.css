@@ -10317,7 +10317,159 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
   .exp-sceaux-jauge i, .exp-courage-jauge i, .exp-face, .exp-a-prendre-carte { transition: none; }
 }
 
-/* ── L'atlas ─────────────────────────────────────────────────────────────
+/* ── Le Cabinet de curiosités (`CabinetApp.tsx`, `views/cabinet/`) ────────
+   La maquette jouable du 24 octobre 2026 (`retours/2026-10-24/maquette/`) :
+   un musée la nuit — des portes en arche, des œuvres au mur, des cadres
+   vides en pointillé, le cartel crème sous la peinture. Les couleurs sont
+   celles du thème porté ; le cartel, une convention, s'écrit en dur. Une page
+   de téléphone, lue par qui tient le sien à bout de bras : aucun texte sous
+   dix-sept pixels — les pièces partagées qu'elle pose (la tête, la sortie, les
+   gros boutons, les boutons, une feuille) y sont relevées —, et une rareté se
+   dit toujours en mots, jamais par sa couleur seule. Les œuvres peintes
+   gardent leurs classes (`exp-vc-*`, « Les rencontres » plus haut), retaillées
+   ici. Rien pour l'écran commun. */
+.cab-page { font-size: 1.0625rem; line-height: 1.45; }
+.cab-page p { margin: 0; }
+/* Le titre d'un écran reçoit le focus par programme, au changement d'écran (`rendreLeFocus`) : sans l'anneau du navigateur, qui
+   l'encadrait de noir sous l'Ivoire. */
+.cab-page h1:focus { outline: none; }
+.cab-page h2 { margin: 0; font-size: 1.45rem; font-variant-numeric: lining-nums; }
+/* Les pièces partagées, à la taille du Cabinet : « ← Accueil », la petite ligne au-dessus du titre, le détail des gros boutons et
+   leur pastille, les boutons — ceux de l'inscription, en capitales espacées, ne tenaient pas sur une ligne à dix-sept pixels. */
+.cab-page > .jour-sortie { font-size: 1.0625rem; }
+.cab-page .piece-tete .label { color: var(--accent-text); font-size: 1.0625rem; font-weight: 600; letter-spacing: 0.02em; text-transform: none; }
+.cab-page .gros-detail { font-size: 1.0625rem; }
+.cab-page .pastille-attente { font-size: 1.0625rem; }
+.cab-page .btn,
+.cab-feuille .btn { min-height: 52px; padding: 8px 18px; font-size: 1.0625rem; font-weight: 600; letter-spacing: 0.01em; line-height: 1.25; text-align: center; text-transform: none; white-space: normal; }
+/* Un geste que la page sait refusé reste un bouton qu'on peut toucher — il dit pourquoi dessous —, en sourdine sans perdre son texte. */
+.cab-page .btn[aria-disabled='true'] { border-color: var(--edge); background: var(--surface-strong); color: var(--muted); cursor: default; }
+.cab-page .btn[aria-pressed='true'],
+.cab-feuille .btn[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+.cab-ligne { line-height: 1.45; }
+.cab-surtitre { color: var(--accent-text); font-weight: 700; letter-spacing: 0.02em; }
+.cab-compte { color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+.cab-raison { display: block; margin-top: -8px; color: var(--muted); text-align: center; }
+.cab-bloc .cab-raison, .cab-case .cab-raison { margin-top: -2px; text-align: left; }
+/* Sous les cases de la visite, pourquoi « Changer de jeu » n'y est pas : une ligne à elles, pas une raison sous un bouton. */
+.cab-cases + .cab-raison { margin-top: -6px; text-align: left; }
+.cab-pastille { display: inline-flex; align-items: center; min-height: 28px; margin-left: 8px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--accent-text); font-weight: 700; line-height: 1; vertical-align: middle; white-space: nowrap; }
+.cab-gestes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.cab-lien { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent-text); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.cab-bloc { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.cab-medaillon { flex: none; display: inline-grid; place-items: center; font-size: 52px; line-height: 0; }
+.cab-medaillon-petit { font-size: 36px; }
+.cab-medaillon-grand { font-size: 132px; }
+.cab-inconnue { font-family: var(--serif); font-size: 2.25rem; font-weight: 600; line-height: 1; color: var(--accent-text); }
+.cab-toast { font-size: 1.0625rem; }
+
+/* Le musée : ce qu'il possède, une jauge et sa poussière d'or ; les lignes qui se disent une fois ; puis les gestes et les salles. */
+.cab-possede { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.cab-possede .cab-ligne { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.cab-jauge { display: block; height: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-strong); box-shadow: inset 0 0 0 1px var(--edge); }
+.cab-jauge > span { display: block; height: 100%; min-width: 8px; border-radius: inherit; background: var(--accent); }
+.cab-poussiere { display: flex; align-items: center; gap: 8px; color: var(--accent-text); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.cab-poussiere .icon { flex: none; width: 20px; height: 20px; }
+.cab-bandeau { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius); background: var(--accent-soft); }
+.cab-bandeau-icone { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-strong); color: var(--accent-text); }
+.cab-bandeau-icone .icon { width: 22px; height: 22px; }
+.cab-bandeau-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.cab-chiffre { font-family: var(--serif); font-size: 1.6rem; font-weight: 700; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.cab-tuile { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); text-decoration: none; }
+.cab-tuile:hover { border-color: var(--edge-strong); }
+.cab-tuile-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cab-salles { display: flex; flex-direction: column; gap: 12px; }
+.cab-entre { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+/* Les neuf salles en portes, trois par rangée au téléphone : en arche, la plus rare de ses œuvres à lui, sinon un « ? ». Complète,
+   l'arche prend l'or, et son compte le dit à l'oreille. */
+.cab-portes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; }
+.cab-porte { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; color: var(--ink); text-align: center; text-decoration: none; }
+.cab-arche { display: grid; place-items: center; width: 100%; height: 104px; overflow: hidden; border: 3px solid var(--edge-strong); border-radius: 60px 60px 10px 10px; background: var(--surface-strong); }
+.cab-arche img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cab-porte.cab-complete .cab-arche { border-color: var(--accent); box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.35); }
+.cab-porte:hover .cab-arche { border-color: var(--accent); }
+.cab-porte-nom { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.1; text-wrap: balance; }
+.cab-comment { margin-top: 2px; }
+
+/* Une salle : sa devise, ses œuvres au mur — trois par rangée, plus hautes que dans la main de l'Expédition —, ses gardiens. */
+.cab-devise { color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-style: italic; font-weight: 600; line-height: 1.2; }
+.cab-nouvelle { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+.cab-nouvelle .icon { width: 18px; height: 18px; }
+.cab-mur { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 10px; }
+.cab-oeuvre { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; color: var(--ink); text-align: center; text-decoration: none; }
+.cab-mur .exp-vc { height: 124px; }
+.cab-mur .exp-vc-art { height: 94px; }
+.cab-oeuvre-nom { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.1; overflow-wrap: break-word; hyphens: auto; text-wrap: balance; }
+.cab-oeuvre-detail { color: var(--muted); line-height: 1.25; }
+.cab-oeuvre.cab-doree .cab-oeuvre-detail { color: var(--accent-text); }
+.cab-bientot { display: block; font-style: italic; }
+/* Le cadre vide : en pointillé, à la couleur de sa rareté (`--gemme`, posé sur la case), et sa rareté écrite dessous — la couleur
+   ne dit jamais seule ce qu'elle est. */
+.cab-cadre-vide { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 124px; border: 2px dashed var(--gemme, var(--edge-strong)); border-radius: 10px; background: var(--surface); }
+.cab-oeuvre:hover .cab-cadre-vide { background: var(--surface-strong); }
+.cab-gemme { flex: none; width: 10px; height: 10px; rotate: 45deg; background: var(--gemme, var(--muted)); box-shadow: 0 0 6px var(--gemme, transparent); }
+.cab-gardien-ligne { display: flex; align-items: center; gap: 12px; }
+.cab-gardien-ligne b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
+
+/* Une œuvre : en grand, son cartel dessous ; ou son cadre vide, en grand, et où la chercher. */
+.cab-cadre-grand { align-self: center; width: min(252px, 100%); height: 180px; }
+.cab-cadre-grand .cab-inconnue { font-size: 4rem; }
+.cab-oeuvre-levee { display: flex; justify-content: center; }
+.cab-oeuvre-levee .exp-vc-art { height: 176px; }
+/* Sa rareté se dit déjà sur la ligne du titre, à dix-sept pixels : la pastille de la carte, en capitales de onze, s'efface ici. */
+.cab-oeuvre-levee .exp-vc-rarete-dite { display: none; }
+.cab-dore { display: flex; align-items: center; gap: 8px; color: var(--accent-text); font-weight: 700; }
+.cab-dore .icon { width: 20px; height: 20px; }
+/* Le cartel, comme au musée : une plaque crème, l'encre brune. Écrit en dur, sous tous les thèmes — une convention, pas une couleur
+   du décor (règle `css.md`) —, l'encre à plus de six contre un sur sa crème. Sa place se garde pendant qu'il arrive. */
+.cab-cartel { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border: 1px solid rgba(42, 32, 27, 0.14); border-radius: 6px; background: #efe6d3; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); color: #2a201b; }
+.cab-cartel-attente { min-height: 150px; opacity: 0.55; }
+.cab-cartel-titre { color: #5c4e40; font-weight: 700; letter-spacing: 0.02em; }
+.cab-cartel-sujet { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.25; font-variant-numeric: lining-nums; }
+.cab-cartel-reponse { font-family: var(--serif); font-size: 1.55rem; font-weight: 700; line-height: 1.15; font-variant-numeric: lining-nums; }
+.cab-cartel-phrase { font-family: var(--serif); font-size: 1.2rem; font-style: italic; font-weight: 500; line-height: 1.35; font-variant-numeric: lining-nums; }
+.cab-cartel-ligne { color: #5c4e40; font-variant-numeric: lining-nums tabular-nums; }
+.cab-cartel-jour { display: block; }
+
+/* Les gardiens : deux colonnes de médaillons, endormis en silhouette dorée ; touché, sa fiche en feuille. */
+.cab-gardiens { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.cab-gardiens > li { display: flex; }
+.cab-gardien { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 12px 8px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
+.cab-gardien:hover { border-color: var(--edge-strong); }
+.cab-gardien-nom { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; text-wrap: balance; }
+.cab-gardien-detail { color: var(--muted); line-height: 1.3; }
+.cab-feuille { font-size: 1.0625rem; }
+.cab-feuille .carte-corps { gap: 16px; }
+.cab-feuille .glossaire > summary { font-size: 1.0625rem; }
+.cab-fiche-gardien { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+
+/* La visite du jour : une case par partie — sa vignette, son jeu, ce qu'elle met en jeu sans le nommer, « Jouer ». */
+.cab-cases { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.cab-case { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.cab-case.cab-faite { background: none; }
+.cab-faite .cab-surtitre { color: var(--muted); }
+.cab-vignette { flex: none; width: 76px; }
+.cab-vignette .exp-vc { height: 98px; }
+.cab-vignette .exp-vc-art { height: 70px; }
+.cab-vignette > .cab-inconnue { display: grid; place-items: center; height: 98px; border: 2px dashed var(--edge-strong); border-radius: 10px; }
+.cab-case-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.cab-case-jeu { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; line-height: 1.15; }
+/* Jouer librement : les neuf jeux, ceux qui arrivent en pointillé et le disant. */
+.cab-jeux { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.cab-jeu { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; padding: 12px 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.cab-jeu:hover { border-color: var(--edge-strong); }
+.cab-jeu[aria-disabled='true'] { border-style: dashed; background: none; cursor: default; }
+.cab-jeu .cab-pastille { margin: 4px 0 0; }
+
+/* Les règles : une ligne chacune, son icône devant. */
+.cab-regles-section { display: flex; flex-direction: column; gap: 10px; }
+.cab-regles-section h3 { margin: 0; font-size: 1.4rem; }
+.cab-regles { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.cab-regles li { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 10px; line-height: 1.4; }
+.cab-regles li > .icon { width: 20px; height: 20px; margin-top: 2px; color: var(--accent-text); }
+.cab-bareme { display: block; margin-top: 4px; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+
+/* ── L'atlas─────────────────────────────────────────────────────────────
    Un rail d'orbes — l'anneau de chaque collection se remplit à chaque pièce
    gagnée —, puis la collection choisie sur une trame fine, comme un écran de
    navigation. Tout bouge par `transform` et `opacity`, et s'arrête si le
@@ -12075,7 +12227,11 @@ body.avec-niche .jour-barre,
 body.avec-niche .me-header,
 body.avec-niche .quiz-topbar,
 body.avec-niche .exp-barre,
-body.avec-niche .exp-haut-du-depart { padding-right: var(--niche-place); }
+body.avec-niche .exp-haut-du-depart,
+body.avec-niche .cab-page > .piece-tete { padding-right: var(--niche-place); }
+/* Au Cabinet, la peinture levée et le cadre vide en grand suivent « ← Le Rempart » : leur coin haut passait sous le bas de la niche. */
+body.avec-niche .cab-page > .cab-oeuvre-levee,
+body.avec-niche .cab-page > .cab-cadre-grand { margin-top: 10px; }
 /* Le jour et les points du quiz du jour, l'un sous l'autre : sur une ligne, « 200 pts » se cassait contre elle. */
 body.avec-niche .jour-bandeau { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; padding-right: var(--niche-place); }
 /* Les rangées d'onglets passent sous elle, sans la toucher. */

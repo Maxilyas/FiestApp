@@ -32,7 +32,7 @@ import { porterGerbe } from '../gerbe'
 import { abonnerNiche, nicheActuelle, porterNiche } from '../niche'
 import { laNiche } from '../components/NicheHost'
 import { relireLesMissions } from '../missions'
-import { boutonsDesPages } from '../maintenance'
+import { boutonsDesPages, cabinetIci } from '../maintenance'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
 
@@ -341,6 +341,8 @@ export function ProfilApp() {
       void import('./CampagneApp').catch(() => {})
       void import('./Duels').catch(() => {})
       void import('./JourApp').catch(() => {})
+      // Le Cabinet, là où le serveur l'ouvre : son bouton ouvre la page sans la télécharger d'abord.
+      if (cabinetIci()) void import('./CabinetApp').catch(() => {})
       void panneaux.charger().catch(() => {})
       void lesAmis.charger().catch(() => {})
       void carteJoueur.charger().catch(() => {})
@@ -586,6 +588,7 @@ export function ProfilApp() {
           defi={'defi' in profil ? profil.defi : undefined}
           duels={'duels' in profil ? profil.duels : undefined}
           etats={boutonsDesPages()}
+          cabinet={cabinetIci()}
         />
         {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
         <Installer avecProfil />

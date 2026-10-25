@@ -68,7 +68,7 @@ export const PAGES_FERMABLES: Record<PageEnMaintenance, { nom: string; ferme: st
   expedition: { nom: 'L’Expédition', ferme: 'Sa page et le départ', titre: 'L’Expédition est en maintenance', bientot: 'L’Expédition arrive bientôt' },
   cabinet: {
     nom: 'Le Cabinet de curiosités',
-    ferme: 'Le départ d’une partie ; celle en cours se finit',
+    ferme: 'Sa page et le départ d’une partie ; celle en cours se finit',
     titre: 'Le Cabinet de curiosités est en maintenance',
     bientot: 'Le Cabinet de curiosités arrive bientôt',
   },
@@ -127,6 +127,7 @@ export function pageDeLAdresse(route: Route): PageEnMaintenance | null {
     case 'campagne':
     case 'duels':
     case 'expedition':
+    case 'cabinet':
     case 'boutique':
       return route.page
     default:

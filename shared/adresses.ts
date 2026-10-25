@@ -17,9 +17,10 @@ export type PublicPage = 'souvenir' | 'stats' | 'bilan' | 'bilan/fiches' | 'soir
  * « boutique » : les thèmes d'un profil, une pièce du menu ; « campagne » : la
  * série solo d'un profil ; « duels » : ses duels classés et ses défis entre
  * amis, sortis de la campagne ; « expedition » : l'Expédition, trois actes et
- * un légendaire au bout.
+ * un légendaire au bout ; « cabinet » : le Cabinet de curiosités, un musée à
+ * remplir en jouant.
  */
-export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil' | 'jour' | 'salon' | 'tele' | 'boutique' | 'campagne' | 'duels' | 'expedition'
+export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil' | 'jour' | 'salon' | 'tele' | 'boutique' | 'campagne' | 'duels' | 'expedition' | 'cabinet'
 
 export type Route =
   | { kind: 'landing' }
@@ -28,7 +29,7 @@ export type Route =
   | { kind: 'public'; slug: string; page: PublicPage; archiveId: string | null }
   | { kind: 'unknown' }
 
-export const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil', 'jour', 'salon', 'tele', 'boutique', 'campagne', 'duels', 'expedition']
+export const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil', 'jour', 'salon', 'tele', 'boutique', 'campagne', 'duels', 'expedition', 'cabinet']
 const PUBLIC_PAGES: PublicPage[] = ['souvenir', 'stats', 'bilan', 'bilan/fiches', 'soirees']
 const ARCHIVE_ID = /^[\w-]{1,64}$/
 

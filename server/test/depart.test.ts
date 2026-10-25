@@ -85,18 +85,19 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   // L'entrée d'un invité, son état de départ ; l'écran commun attend sa liaison temps réel, pas une donnée.
   assert.deepEqual(de('/banc'), ['/s/banc/entree.json'])
   for (const c of ['/host', '/tele', '/compte', '/nulle/part/ici']) assert.deepEqual(de(c), [], c)
-  // Le Cabinet de curiosités : ses routes avant sa page. Son adresse est réservée — un espace « cabinet » n'aurait plus
-  // d'adresse le jour où elle arrive —, et sa donnée de départ, celle que sa page demandera et que le serveur
-  // préchargera alors avec elle ; d'ici là, `/cabinet` n'ouvre rien, et ne précharge rien.
+  // Le Cabinet de curiosités : son adresse, réservée dès ses routes — un espace « cabinet » n'aurait plus d'adresse —,
+  // ouvre sa page, qui demande son musée à son ouverture, quel que soit le visiteur, et le serveur le précharge avec
+  // elle, son profil léger aussi ; quel que soit l'écran que dit son fragment, tous lisent la même page.
   assert.equal(DEPART.cabinet, '/api/cabinet')
   assert.ok(RESERVED_SLUGS.has('cabinet'))
-  assert.deepEqual(parseRoute('/cabinet'), { kind: 'unknown' })
-  assert.deepEqual(de('/cabinet'), [])
+  assert.deepEqual(parseRoute('/cabinet'), { kind: 'account', page: 'cabinet' })
+  assert.deepEqual(de('/cabinet'), ['/api/cabinet', '/api/joueur/moi?leger'])
+  assert.deepEqual(donneesDuFragment(parseRoute('/cabinet'), '#salle-rempart'), [])
 
   // Le préchargement ne sert que si l'adresse est la même, lettre pour
   // lettre : la page les prend au même module.
   const api = source('api.ts')
-  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'missions', 'jour', 'campagne', 'sentiers', 'carnet', 'sujets', 'quiz', 'expedition']) {
+  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'missions', 'jour', 'campagne', 'sentiers', 'carnet', 'sujets', 'quiz', 'expedition', 'cabinet']) {
     assert.match(api, new RegExp(`DEPART\\.${cle}\\b`), `api.ts demande DEPART.${cle}`)
   }
   // L'accueil demande ses missions à son ouverture, quel que soit le visiteur
@@ -224,7 +225,7 @@ test('la page servie fait précharger ce que sa vue demandera ; l’entrée d’
   try {
     const lire = async (chemin: string) => (await fetch(banc.url + chemin)).text()
     const s = ADMIN.slug
-    for (const chemin of ['/', '/profil', '/boutique', '/jour', '/campagne', '/edit', `/${s}/souvenir`, `/${s}/bilan`, `/${s}/bilan/fiches`, `/${s}/soirees`]) {
+    for (const chemin of ['/', '/profil', '/boutique', '/jour', '/campagne', '/cabinet', '/edit', `/${s}/souvenir`, `/${s}/bilan`, `/${s}/bilan/fiches`, `/${s}/soirees`]) {
       const html = await lire(chemin)
       assert.ok(de(chemin).length > 0, chemin)
       assert.deepEqual(prechargees(html), de(chemin), chemin)

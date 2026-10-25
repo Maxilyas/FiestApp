@@ -20,6 +20,10 @@ import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, 
 import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
 import type { ApresUnGeste, ArticleDeLEchoppe, GesteAvecSesCartes, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
 import type { CleDeFiole } from '../../shared/rencontres'
+// Des types seulement : la page du Cabinet ne télécharge ni le pli ni les règles des jeux, elle lit la vue du serveur.
+import type { Cartel, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
+import type { DemandeDeDepart } from '../../shared/cabinet/musee'
+import type { GesteDuCabinet } from '../../shared/cabinet/partie'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
@@ -60,9 +64,11 @@ import { DEPART } from '../../shared/depart'
 /**
  * Une erreur d'API qui porte ce que le serveur a joint au message.
  *
- * Pour l'instant une seule chose y voyage : l'identifiant libre proposé quand
- * celui qu'on voulait est pris. Sans lui, une invitée qui n'y connaît rien
- * resterait devant un refus qu'elle ne sait pas contourner.
+ * L'identifiant libre proposé quand celui qu'on voulait est pris : sans lui,
+ * une invitée qui n'y connaît rien resterait devant un refus qu'elle ne sait
+ * pas contourner. Et le corps entier du refus, pour une route qui y joint
+ * plus qu'un motif — un geste du Cabinet passé y rend la partie d'à présent,
+ * où la page se range (`api.cabinet.geste`).
  */
 export class ApiError extends Error {
   constructor(
@@ -72,6 +78,8 @@ export class ApiError extends Error {
     readonly passager = false,
     /** Le statut HTTP, quand le serveur a répondu ; rien quand la requête n'est pas revenue. */
     readonly statut?: number,
+    /** Le corps du refus, tel que le serveur l'a écrit ; rien quand il n'en a pas lu. */
+    readonly corps?: unknown,
   ) {
     super(message)
   }
@@ -175,6 +183,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       typeof suggestion === 'string' ? suggestion : undefined,
       statutPassager(res.status),
       res.status,
+      corps,
     )
   }
   if (corps === undefined) throw new ApiError(MOTIFS.illisible)
@@ -209,6 +218,37 @@ const gesteDExpedition = (id: string, rang: number, geste: GesteDExpedition, car
     ...(cartes.length > 0 && { avant: cartes.map(joker => ({ quoi: 'jouer' as const, joker, ...(position !== undefined && { position }) })) }),
   }
   return req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify(corps) })
+}
+
+/** Ce qu'un geste du Cabinet rend : la partie d'après — ou, le geste passé, celle d'à présent et pourquoi. */
+export interface ApresUnGesteDuCabinet {
+  partie: VueDeLaPartie
+  /** « Ce geste est passé : ta partie a continué sans lui », « Cette partie est finie » : rien n'a été joué. */
+  passe?: string
+}
+
+/**
+ * Un geste du Cabinet, au rang qu'il croit suivre (invariant 12). Passé — un
+ * double toucher, l'autre onglet, la réponse perdue en route puis rejouée —,
+ * le serveur répond 409 avec la partie telle qu'elle est : ce n'est pas une
+ * panne, la page s'y range et dit pourquoi rien n'a bougé. Tout autre refus
+ * reste un refus.
+ */
+async function gesteDuCabinet(id: string, rang: number, geste: GesteDuCabinet): Promise<ApresUnGesteDuCabinet> {
+  let passe: string | undefined
+  // Le refus porte l'heure du serveur comme une réponse : l'horloge se mesure autour de la requête entière, refus compris —
+  // remesurée après coup, sur une promesse déjà tenue, elle aurait cru à un aller-retour de zéro (`bestSample`).
+  const partie = await avecLHeure(async () => {
+    try {
+      return await req<VueDeLaPartie>(`/api/cabinet/partie/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify({ rang, geste }) })
+    } catch (e) {
+      const aPresent = e instanceof ApiError && e.statut === 409 ? (e.corps as { partie?: VueDeLaPartie } | undefined)?.partie : undefined
+      if (!aPresent) throw e
+      passe = (e as ApiError).message
+      return aPresent
+    }
+  })
+  return passe === undefined ? { partie } : { partie, passe }
 }
 
 /**
@@ -641,6 +681,32 @@ export const api = {
       req<ReponseDExpedition>(`/api/expedition/${encodeURIComponent(id)}/reponse`, { method: 'POST', body: JSON.stringify({ position, choix }) }),
     abandonner: (id: string) => req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/abandon`, { method: 'POST' }),
     devoilement: lireLeDevoilement,
+  },
+  /**
+   * Le Cabinet de curiosités (`shared/cabinet/vues.ts`) : sa page, préchargée
+   * avec `/cabinet` ; commencer une partie, un geste à son rang, une partie
+   * relue (« Mes réponses ») ; une œuvre et son cartel ; l'achat, la dorure,
+   * l'échange d'un jeu de la visite, qui rendent la page du musée d'après.
+   * Chaque réponse qui porte `maintenant` remesure l'heure du serveur : ses
+   * manches ont de vrais chronos (invariant 6). Un achat ou une dorure portent
+   * le prix montré — un prix changé depuis se refuse plutôt que de payer ce
+   * qu'il n'a pas vu — et attendent le réveil de l'hébergeur : rejoués, ils ne
+   * paient pas deux fois, la base garde chaque œuvre sous sa clé. Ses
+   * signalements passent par ceux de la série (`api.campagne.signaler`), à la
+   * position de la pièce.
+   */
+  cabinet: {
+    page: () => avecLHeure(() => req<PageDuCabinet>(DEPART.cabinet), DEPART.cabinet),
+    commencer: (demande: DemandeDeDepart) => avecLHeure(() => req<VueDeLaPartie>('/api/cabinet/partie', { method: 'POST', body: JSON.stringify(demande) })),
+    geste: gesteDuCabinet,
+    partie: (id: string) => avecLHeure(() => req<VueDeLaPartie>(`/api/cabinet/partie/${encodeURIComponent(id)}`)),
+    oeuvre: (cle: string) => req<Cartel>(`/api/cabinet/oeuvre/${encodeURIComponent(cle)}`),
+    acheter: (cle: string, prix: number) =>
+      auReveil(() => avecLHeure(() => req<PageDuCabinet>(`/api/cabinet/oeuvre/${encodeURIComponent(cle)}/achat`, { method: 'POST', body: JSON.stringify({ prix }) }))),
+    dorer: (cle: string, prix: number) =>
+      auReveil(() => avecLHeure(() => req<PageDuCabinet>(`/api/cabinet/oeuvre/${encodeURIComponent(cle)}/dorure`, { method: 'POST', body: JSON.stringify({ prix }) }))),
+    /** Changer le jeu d'une case de la visite pas encore jouée, une fois par jour. */
+    echanger: (k: number) => avecLHeure(() => req<PageDuCabinet>('/api/cabinet/visite/echange', { method: 'POST', body: JSON.stringify({ case: k }) })),
   },
   /** Les duels classés (`shared/duels.ts`) : sa cote, sa ligue, sa semaine, le classement — leur page, `/duels`. */
   duels: {

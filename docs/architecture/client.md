@@ -84,7 +84,7 @@ Pas de routeur. Une adresse se lit une seule fois, **de la même façon des deux
 | Sorte (`Route`) | Adresses | Page |
 |---|---|---|
 | `landing` | `/` | `ProfilApp`, l'accueil |
-| `account` | les treize pages sans espace (`ACCOUNT_PAGES`) : `/host`, `/edit`, `/profil`… | une par page (`ACCOUNT`, `client/src/main.tsx`) |
+| `account` | les quinze pages sans espace (`ACCOUNT_PAGES`) : `/host`, `/edit`, `/profil`… | une par page (`ACCOUNT`, `client/src/main.tsx`) |
 | `join` | `/<espace>` | `PlayerApp`, le téléphone de l'invité |
 | `public` | `/<espace>/souvenir`, `/stats`, `/bilan`, `/bilan/fiches`, `/soirees`, et `/<espace>/soirees/<id>/…` | `RecapApp`, `BilanApp`, `ArchivesApp` |
 | `unknown` | tout le reste | `LandingApp` : « Rejoindre une soirée » |

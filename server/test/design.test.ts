@@ -655,7 +655,7 @@ test('A4 · chaque page d’animateur a son nom d’onglet', async () => {
   const { titreDePage } = (await import(new URL('../../client/src/titres.ts', import.meta.url).href)) as {
     titreDePage: (page: string) => string
   }
-  const pages = ['connexion', 'activer', 'compte', 'edit', 'admin', 'host', 'profil']
+  const pages = ['connexion', 'activer', 'compte', 'edit', 'admin', 'host', 'profil', 'cabinet']
   const titres = pages.map(p => titreDePage(p))
   assert.equal(new Set(titres).size, pages.length, titres.join(' / '))
   for (const t of titres) assert.notEqual(t, 'FiestApp')

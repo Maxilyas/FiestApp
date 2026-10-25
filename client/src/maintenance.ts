@@ -44,6 +44,28 @@ export function boutonsDesPages(): Partial<Record<PageEnMaintenance, BoutonDeLaP
   return Object.fromEntries(PAGES_EN_MAINTENANCE.flatMap(p => (boutonDeLaPage(vu, p) ? [[p, boutonDeLaPage(vu, p)]] : [])))
 }
 
+let cabinet: boolean | null = null
+
+/**
+ * Le Cabinet de curiosités répond-il sur ce serveur ? La page ne le déduit
+ * jamais d'une constante (`CABINET_EN_PRODUCTION`) : la préproduction sert le
+ * même code, et seul le serveur sait où il est ouvert — il le dit dans la page
+ * qu'il sert (`<meta name="cabinet" content="ferme">`, `fermerLeCabinet`,
+ * `server/src/core/page.ts`). Sans la balise — un serveur où il est ouvert,
+ * `npm run dev`, un rendu de test —, ouvert. Lu une fois, comme le reste.
+ */
+export function cabinetIci(): boolean {
+  if (cabinet !== null) return cabinet
+  let balise: string | null = null
+  try {
+    balise = document.querySelector('meta[name="cabinet"]')?.getAttribute('content') ?? null
+  } catch {
+    // Hors d'une vraie page, rien n'est fermé.
+  }
+  cabinet = balise !== 'ferme'
+  return cabinet
+}
+
 /** Son bouton de l'accueil est éteint : ce qui y mène se tait — la bannière d'un résultat de duel. */
 export const boutonEteint = (page: PageEnMaintenance): boolean => {
   const bouton = boutonDeLaPage(lire(), page)
