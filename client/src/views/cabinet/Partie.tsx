@@ -46,8 +46,11 @@ import type { BilanDeLaPartie } from './Bilan'
 //
 // Chaque jeu a son écran, chargé à la demande (`ECRANS`, demandé dès
 // l'annonce) : un module de `jeux/` qui dit ce que la page tient seule d'une
-// manche, ce qui part à l'échéance, la manche et sa révélation. La page n'en
-// importe que des types de ses règles (`shared/cabinet/jeux/`) — elles jugent.
+// manche, ce qui part à l'échéance, la manche et sa révélation. De ses règles
+// (`shared/cabinet/jeux/`), qui jugent, la page ne prend que des types et ce
+// qu'une règle exporte pour elle — les mots du Pari (`MOTS_DU_PARI`), la
+// question du tableau et l'adresse d'un cadrage du Détail —, que le paquet
+// garde seuls : jamais le pli, ni la lecture d'un geste.
 
 // ── L'écran d'un jeu ──────────────────────────────────────────────────────
 
@@ -98,9 +101,11 @@ export interface JeuALEcran<M, R, L> {
   aJoueSurPlace?(m: M, l: L): boolean
   /**
    * Ce qui change sous le doigt sans que la vue change : l'affirmation de
-   * l'Éclair, sous les mêmes « Faux » et « Vrai ». Le cadre y relance la
-   * demi-seconde de garde — un double toucher répondait aussi à l'affirmation
-   * suivante, sans qu'on l'ait lue.
+   * l'Éclair, sous les mêmes « Faux » et « Vrai » ; la frise qui s'allonge
+   * d'une pose. Le cadre y relance la demi-seconde de garde — un double
+   * toucher répondait aussi à l'affirmation suivante, sans qu'on l'ait lue.
+   * Ce que change une vue neuve (« Reculer », Éclairer, « Changer ») n'a rien
+   * à y dire : le cadre la relance à chaque vue (`sousLeDoigtDe`).
    */
   sousEcranDe?(m: M, l: L): string
   Manche(p: PropsDUneManche<M, L>): ReactNode
@@ -220,6 +225,19 @@ export function ceQueFeteLaRevelation(naturel: number, etoiles: number): { gerbe
 const ICONE_DU_POUVOIR: Record<CleDePouvoir, IconName> = { eclairer: 'bulb', proteger: 'shield', temps: 'hourglass', miser: 'dice', changer: 'shuffle' }
 
 const etoilesDites = (n: number) => `${n} étoile${n > 1 ? 's' : ''} sur ${ETOILES_D_UNE_PARTIE}`
+
+/**
+ * Ce qui change sous le doigt sans changer d'écran, et relance la demi-seconde
+ * de garde : chaque vue que le serveur accepte (son rang) — Éclairer efface un
+ * titre, « Changer » pose un autre tableau, « Reculer » l'élargit, sous les
+ * mêmes boutons —, et ce que l'écran du jeu change sans elle (`sousEcranDe`).
+ * Sans le rang, un double toucher sur la carte-bonus en jouait deux usages :
+ * la réponse du premier revenue avant le second, rien n'avait relancé la garde.
+ */
+export function sousLeDoigtDe(vue: Pick<VueDeLaPartie, 'rang' | 'enCours'>, ecran: EcranEfface | null, local: unknown): string {
+  const duJeu = ecran && vue.enCours ? (ecran.sousEcranDe?.(vue.enCours, local) ?? '') : ''
+  return `${vue.rang}|${duJeu}`
+}
 
 /** L'étape où en est la manche, pour les jeux qui en ont deux : le cadre change d'écran avec elle. */
 const etapeDe = (vue: VueDeLaPartie) => {
@@ -599,9 +617,9 @@ export function Partie({
   const changement = useRef<number | null>(null)
   const premiere = useRef(true)
   const cleDEcran = `${vue.phase}:${vue.manche}:${etapeDe(vue)}:${miser ?? ''}:${bilanOuvert}`
-  // Ce qui change sous le doigt sans changer d'écran — l'affirmation suivante de l'Éclair — relance la garde, sans défiler : les
-  // mêmes « Faux » et « Vrai » restent sous le pouce, et le second toucher d'un double répondait à une affirmation pas lue.
-  const sousLeDoigt = pret && vue.enCours ? (pret.sousEcranDe?.(vue.enCours, valeur) ?? '') : ''
+  // Ce qui change sous le doigt sans changer d'écran — une vue neuve, l'affirmation suivante de l'Éclair — relance la garde, sans
+  // défiler : les mêmes « Faux » et « Vrai » restent sous le pouce, et le second toucher d'un double répondait à une affirmation pas lue.
+  const sousLeDoigt = sousLeDoigtDe(vue, pret, valeur)
   useEffect(() => {
     changement.current = performance.now()
   }, [cleDEcran, sousLeDoigt])

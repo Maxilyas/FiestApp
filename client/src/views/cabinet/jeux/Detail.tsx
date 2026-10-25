@@ -30,27 +30,50 @@ import type { JeuALEcran, OuEstLaManche, PropsDUneManche } from '../Partie'
 /** Les cadrages d'un tableau, du détail au tableau entier : autant que le barème en compte — la règle les compte ainsi (`detail.ts`). */
 const CADRAGES = ETOILES_AU_CADRAGE.length
 
-/** Un cadrage perdu en route — le réseau d'un téléphone — se redemande, un peu plus tard chaque fois, puis la page attend la suivante. */
-const ESSAIS_D_UNE_IMAGE = 5
+/** Un cadrage perdu en route — le réseau d'un téléphone — se redemande cinq fois, un peu plus tard chaque fois, puis la page attend la suivante. */
+export const ESSAIS_D_UNE_IMAGE = 5
+
+/** L'attente avant le premier nouvel essai d'un cadrage perdu ; le n-ième attend n fois plus : un réseau qui revient a le temps de revenir. */
+export const ATTENTE_D_UN_ESSAI_MS = 600
 
 /**
- * L'adresse où l'image d'un cadrage se demande, et sa reprise après un échec :
- * une adresse neuve à chaque essai (`?essai=`, que la route ignore), comme le
- * détail de l'Expédition (`TableauDuDetail.tsx`) — la même `src` ne relance
- * pas une balise d'image. Au cadrage suivant, la première adresse.
+ * L'adresse du n-ième essai d'un cadrage : la première telle quelle, puis une
+ * neuve à chaque essai (`?essai=n`, que la route ignore), comme le détail de
+ * l'Expédition (`TableauDuDetail.tsx`) — la même `src` ne relance pas une
+ * balise d'image.
  */
+export const adresseDeLEssai = (adresse: string, n: number) => (n === 0 ? adresse : `${adresse}?essai=${n}`)
+
+/** Un essai raté : l'adresse qu'il demandait, et son rang (0, la première demande). */
+export interface EssaiRate {
+  readonly adresse: string | null
+  readonly n: number
+}
+
+/**
+ * Après l'échec d'un essai, le suivant et quand le tenter — ou rien : les
+ * essais sont épuisés, ou l'adresse d'à présent n'est plus celle qui a raté —
+ * un pas de plus entre-temps en a posé une autre, qui n'a rien raté, et elle
+ * ne se redemanderait pas à l'adresse d'un cadrage qu'il a quitté.
+ */
+export function essaiApresLEchec(rate: EssaiRate | null, adresse: string | null): { n: number; dansMs: number } | null {
+  if (!rate || adresse === null || rate.adresse !== adresse || rate.n >= ESSAIS_D_UNE_IMAGE) return null
+  const n = rate.n + 1
+  return { n, dansMs: ATTENTE_D_UN_ESSAI_MS * n }
+}
+
+/** L'image d'un cadrage et sa reprise après un échec (`essaiApresLEchec`) ; au cadrage suivant, la première adresse. */
 function useAdresseQuiInsiste(adresse: string | null): { src: string | null; rate: () => void } {
   const [essai, setEssai] = useState({ adresse, n: 0 })
-  const [rate, setRate] = useState<{ adresse: string | null; n: number } | null>(null)
+  const [rate, setRate] = useState<EssaiRate | null>(null)
   const n = essai.adresse === adresse ? essai.n : 0
   useEffect(() => {
-    // Seul l'échec de l'adresse d'à présent se redemande : un pas de plus entre-temps en a posé une autre, qui n'a rien raté.
-    if (!rate || rate.adresse !== adresse || rate.n >= ESSAIS_D_UNE_IMAGE) return
-    const suivant = rate.n + 1
-    const id = setTimeout(() => setEssai({ adresse, n: suivant }), 600 * suivant)
+    const suivant = essaiApresLEchec(rate, adresse)
+    if (!suivant) return
+    const id = setTimeout(() => setEssai({ adresse, n: suivant.n }), suivant.dansMs)
     return () => clearTimeout(id)
   }, [rate, adresse])
-  return { src: adresse === null ? null : n === 0 ? adresse : `${adresse}?essai=${n}`, rate: () => setRate({ adresse, n }) }
+  return { src: adresse === null ? null : adresseDeLEssai(adresse, n), rate: () => setRate({ adresse, n }) }
 }
 
 /**
@@ -81,8 +104,9 @@ function MancheDuDetail({ montree: m, partie, tirage, envoyer, garde, busy }: Pr
   const reculer = () => m.peutReculer && !busy && garde() && envoyer({ quoi: 'reculer' })
   return (
     <>
+      {/* La question en titre, à la taille d'un surtitre : le focus s'y pose quand la manche s'ouvre (`rendreLeFocus`), et le tableau garde la place. */}
       <div className="cab-tete-question">
-        <span className="cab-surtitre">{espacesFines(QUESTION_DU_TABLEAU)}</span>
+        <h2 className="cab-question cab-surtitre">{espacesFines(QUESTION_DU_TABLEAU)}</h2>
       </div>
       <TableauSousLesYeux m={m} partie={partie} tirage={tirage} />
       <div className="cab-detail-gestes">
@@ -122,8 +146,14 @@ function MancheDuDetail({ montree: m, partie, tirage, envoyer, garde, busy }: Pr
   )
 }
 
-/** Où il en était à sa réponse : « Au premier coup d'œil », « Après 2 pas en arrière ». */
-const ouIlEnEtait = (cadrage: number) => (cadrage <= 1 ? 'Au premier coup d’œil' : `Après ${cadrage - 1} pas en arrière`)
+/**
+ * Où il en était à sa réponse : « Au premier coup d'œil », « Après 2 pas en
+ * arrière » — rien sans réponse : le temps écoulé au premier cadrage se lisait
+ * « Au premier coup d'œil », comme s'il avait répondu d'emblée. Le bandeau dit
+ * déjà ce qui s'est passé (« Temps écoulé », « Manche quittée »).
+ */
+const ouIlEnEtait = (r: DetailRevele): string | null =>
+  !r.titres.some(x => x.choisi) ? null : r.cadrage <= 1 ? 'Au premier coup d’œil' : `Après ${r.cadrage - 1} pas en arrière`
 
 /**
  * La révélation : le tableau entier — à l'adresse de son tirage, la manche
@@ -135,9 +165,10 @@ const ouIlEnEtait = (cadrage: number) => (cadrage <= 1 ? 'Au premier coup d’œ
  * à la main), son nom seul : rien à demander.
  */
 function RevelationDuDetail({ corps: r, partie, tirage }: { corps: DetailRevele } & OuEstLaManche) {
+  const ou = ouIlEnEtait(r)
   return (
     <section className="cab-tableau-revele" aria-label="Le tableau">
-      <span className="cab-surtitre">{ouIlEnEtait(r.cadrage)}</span>
+      {ou && <span className="cab-surtitre">{ou}</span>}
       {tirage !== undefined ? (
         <TableauEntier src={adresseDUnCadrage(partie, tirage, CADRAGES)} titre={r.tableau.titre} peintre={r.tableau.peintre} annee={r.tableau.annee} />
       ) : (
@@ -163,9 +194,8 @@ export const DETAIL: JeuALEcran<DetailMontre, DetailRevele, null> = {
   // Le contenu d'une manche, ce sont ses quatre titres : « Changer » en pose d'autres, le cadrage n'en change aucun.
   cleDe: m => m.titres.map(x => `${x.titre}|${x.peintre}`).join('·'),
   aLEcheance: () => undefined,
-  // « Reculer » élargit le tableau sous les mêmes titres et le même bouton : la demi-seconde de garde repart — un double toucher
-  // sur « Reculer » coûtait deux étoiles, et le second toucher d'un titre tombait sur un tableau qu'on n'avait pas regardé.
-  sousEcranDe: m => String(m.cadrage),
+  // Pas de `sousEcranDe` : la page ne change rien d'elle-même. « Reculer », Éclairer et « Changer » rendent une vue neuve, et le
+  // cadre relance la demi-seconde de garde à chacune (`sousLeDoigtDe`) — un double toucher sur « Reculer » coûtait deux étoiles.
   Manche: MancheDuDetail,
   Revelation: RevelationDuDetail,
 }

@@ -91,14 +91,17 @@ test('au Cabinet, chaque geste d’une partie passe par toucher : une réponse, 
   // sur ce qui avait glissé là : au Pari, il gardait des étoiles qu'on voulait parier. Chaque écran de jeu, d'office : à la Frise,
   // « Poser ici » se retire sous le doigt qui vient de poser, et un `click` seul aurait pris l'événement remonté à sa place.
   const jeux = readdirSync(client('views/cabinet/jeux')).map(f => `views/cabinet/jeux/${f}`)
-  for (const jeu of ['Pari', 'Eclair', 'Detail', 'Frise']) assert.ok(jeux.includes(`views/cabinet/jeux/${jeu}.tsx`), jeu)
+  // Un écran de jeu exporte son `JeuALEcran` ; un module d'outils du dossier, s'il en vient un, peut n'avoir aucun bouton — ceux
+  // qu'il a passent par toucher comme les autres.
+  const estUnEcran = (f: string) => /export const \w+: JeuALEcran</.test(readFileSync(client(f), 'utf8'))
+  for (const jeu of ['Pari', 'Eclair', 'Detail', 'Frise']) assert.ok(estUnEcran(`views/cabinet/jeux/${jeu}.tsx`), jeu)
   for (const f of [...jeux, 'views/cabinet/Partie.tsx', 'views/cabinet/Bilan.tsx']) {
     const balises = readFileSync(client(f), 'utf8')
       .replaceAll('=>', '⇒')
       .split('<button')
       .slice(1)
       .map(b => b.slice(0, b.indexOf('>')))
-    assert.ok(balises.length > 0, f)
+    if (!f.startsWith('views/cabinet/jeux/') || estUnEcran(f)) assert.ok(balises.length > 0, f)
     for (const b of balises) {
       assert.doesNotMatch(b, /onClick=/, `${f} : un geste qui répond au click seul`)
       assert.match(b, /toucher\(/, `${f} : un geste sans toucher`)

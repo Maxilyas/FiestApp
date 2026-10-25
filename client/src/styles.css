@@ -10348,6 +10348,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-feuille .btn[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--accent-soft); color: var(--accent-text); }
 .cab-ligne { line-height: 1.45; }
 .cab-surtitre { color: var(--accent-text); font-weight: 700; letter-spacing: 0.02em; }
+/* Une question qui tient en un surtitre — « Quel est ce tableau ? », le thème d'une frise — reste le titre de sa manche, où le
+   focus se pose à l'ouverture et que l'oreille entend, à la taille du surtitre : le tableau et la frise gardent la place. */
+.cab-page h2.cab-surtitre { font-family: inherit; font-size: inherit; font-weight: 700; line-height: inherit; }
 .cab-compte { color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
 .cab-raison { display: block; margin-top: -8px; color: var(--muted); text-align: center; }
 .cab-bloc .cab-raison, .cab-case .cab-raison { margin-top: -2px; text-align: left; }
@@ -10575,7 +10578,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    quand il en tient un. Ce qui reste à poser vient au-dessus, « Valider la frise » au-dessous, dans le fil de la page : collés au
    bas de l'écran, ils en prenaient les trois quarts à la première manche. */
 .cab-sens { color: var(--muted); font-weight: 700; }
-.cab-consigne { font-weight: 600; }
+/* La consigne garde deux lignes, quelle que soit la sienne : au-dessus de la réserve, elle passait de deux lignes à une à la prise
+   d'un événement, et la réserve remontait de 25 px sous le doigt — le second toucher d'un double prenait son voisin. */
+.cab-consigne { min-height: calc(2 * 1.45em); font-weight: 600; }
 .cab-frise { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .cab-evenement,
 .cab-pose,

@@ -195,7 +195,8 @@ export function CabinetApp() {
     return () => document.removeEventListener('visibilitychange', auRetour)
   }, [relire])
 
-  // Chaque écran commence en haut, et le focus perdu avec l'écran quitté revient à son titre, sans défiler.
+  // Chaque écran commence en haut, et le focus perdu avec l'écran quitté revient à son titre, sans défiler — dans une partie, la
+  // question de sa manche (`.cab-question`), ou la mise (`h2`) : « Commencer » disparu, il tombait sur la page, faute d'un `h1`.
   const precedent = useRef<string | null>(null)
   const cleDEcran = enPartie ? `partie:${enPartie.e}` : (adresseDe(ecran) || 'musee')
   useEffect(() => {
@@ -205,7 +206,7 @@ export function CabinetApp() {
     // Le premier écran garde où le navigateur l'a posé : un rechargement en bas d'une salle y reste.
     if (premiereFois) return
     window.scrollTo(0, 0)
-    rendreLeFocus(document.querySelector('.cab-page'), ['h1'])
+    rendreLeFocus(document.querySelector('.cab-page'), ['.cab-question', 'h1', 'h2'])
   }, [cleDEcran, etat.e])
 
   // Le cartel d'une œuvre à lui, demandé quand on l'ouvre, une fois par page : la peinture s'ouvre sans l'attendre.

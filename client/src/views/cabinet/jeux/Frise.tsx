@@ -40,14 +40,34 @@ export interface LocalDeLaFrise {
   readonly choisi: number | null
 }
 
+/** Le nouveau venu qu'il tient est-il déjà sur la frise — qu'il déplace —, plutôt que dans la réserve ? */
+const tientUnPose = (l: LocalDeLaFrise) => l.choisi !== null && l.ordre.includes(l.choisi)
+
 /**
- * Toucher un nouveau venu le prend ; le toucher encore le lâche. Une ancre ne
- * se prend pas : elle est à sa vraie place, et le serveur refuserait une frise
- * qui l'aurait bougée.
+ * Toucher un nouveau venu le prend. Touché encore, un posé se lâche et reste
+ * où il était — c'est ainsi qu'on renonce à le déplacer ; un nouveau venu de
+ * la réserve reste pris : un double toucher le prenait puis le lâchait, et
+ * le lâcher ne servait à rien — un autre toucher en prend un autre, « Poser
+ * ici » le pose. Une ancre ne se prend pas : elle est à sa vraie place, et le
+ * serveur refuserait une frise qui l'aurait bougée.
  */
 export function choisirSurLaFrise(m: FriseMontree, l: LocalDeLaFrise, jeton: number): LocalDeLaFrise {
   if (!m.nouveaux.some(n => n.jeton === jeton)) return l
-  return { ordre: l.ordre, choisi: l.choisi === jeton ? null : jeton }
+  if (l.choisi !== jeton) return { ordre: l.ordre, choisi: jeton }
+  return tientUnPose(l) ? { ordre: l.ordre, choisi: null } : l
+}
+
+/**
+ * Les places où « Poser ici » s'ouvre, de 0 (tout en haut) au nombre de
+ * posés (tout en bas) : entre chaque événement et aux deux bouts — sauf, pour
+ * un posé qu'il déplace, juste au-dessus et juste au-dessous de lui : elles
+ * le laissaient où il était, et l'oreille l'y entendait « entre » lui-même et
+ * son voisin.
+ */
+export function placesOuvertes(l: LocalDeLaFrise): number[] {
+  if (l.choisi === null) return []
+  const ici = l.ordre.indexOf(l.choisi)
+  return Array.from({ length: l.ordre.length + 1 }, (_, k) => k).filter(k => ici < 0 || (k !== ici && k !== ici + 1))
 }
 
 /**
@@ -102,15 +122,19 @@ function MancheDeLaFrise({ montree: m, local: l, setLocal, envoyer, garde, busy 
   const reste = m.nouveaux.filter(n => !l.ordre.includes(n.jeton))
   const attend = reste.length !== 0
   const valider = () => !attend && !busy && garde() && envoyer({ quoi: 'repondre', reponse: { frise: { ordre: [...l.ordre] } } })
+  // Un posé repris n'a pas de place à côté de lui : la consigne dit comment le laisser où il est.
   const consigne =
     l.choisi !== null
-      ? 'Touche « Poser ici » à l’endroit où il va.'
+      ? tientUnPose(l)
+        ? 'Touche « Poser ici » où il va, ou touche-le pour le laisser.'
+        : 'Touche « Poser ici » à l’endroit où il va.'
       : attend
         ? 'Touche un événement à poser, puis l’endroit où il va.'
         : 'Tout est posé : valide, ou touche un événement pour le déplacer.'
-  // Les places où poser ce qu'il tient : entre chaque événement, et aux deux bouts.
+  // Les places où poser ce qu'il tient : entre chaque événement, et aux deux bouts (`placesOuvertes`).
+  const ouvertes = placesOuvertes(l)
   const place = (k: number) =>
-    l.choisi !== null && (
+    ouvertes.includes(k) && (
       <li key={`place:${k}`} className="cab-place">
         <button type="button" className="cab-poser-ici" aria-disabled={busy || undefined} {...toucher(() => agir(poserIci(l, k)))}>
           <Icon name="plus" />
@@ -121,8 +145,9 @@ function MancheDeLaFrise({ montree: m, local: l, setLocal, envoyer, garde, busy 
     )
   return (
     <>
+      {/* Le thème en titre, à la taille d'un surtitre : le focus s'y pose quand la manche s'ouvre (`rendreLeFocus`), et la frise garde la place. */}
       <div className="cab-tete-question">
-        <span className="cab-surtitre">{espacesFines(m.theme)}</span>
+        <h2 className="cab-question cab-surtitre">{espacesFines(m.theme)}</h2>
       </div>
       <p className="cab-ligne cab-consigne" aria-live="polite">
         {espacesFines(consigne)}
@@ -235,9 +260,11 @@ export const FRISE: JeuALEcran<FriseMontree, FriseRevelee, LocalDeLaFrise> = {
   // Les libellés seuls : Éclairer date un nouveau venu sans changer la manche, et la frise rangée à moitié ne repart pas de zéro.
   cleDe: m => `${m.vague}:${[...m.ancres, ...m.nouveaux].map(e => e.libelle).join('|')}`,
   aLEcheance: (_m, l) => ({ frise: { ordre: [...l.ordre] } }),
-  // Chaque événement pris ou posé change ce qui est sous le doigt — les places s'ouvrent, la frise s'allonge — sans que l'écran
-  // change : la demi-seconde de garde repart, et un double toucher ne prend pas l'événement remonté sous lui.
-  sousEcranDe: (_m, l) => `${l.ordre.join(',')}|${l.choisi ?? ''}`,
+  // Ce qui bouge sous le doigt sans que l'écran change relance la demi-seconde de garde : une pose — l'événement remonte là où était
+  // « Poser ici », la réserve s'en va, « Valider » remonte —, un posé repris — les places s'ouvrent au-dessus de lui, il descend sous
+  // le doigt. Un double toucher ne reprend pas l'événement remonté, ne valide pas une frise qu'on rangeait. Pris dans la réserve,
+  // rien ne bouge sous lui — les places s'ouvrent plus bas, sur la frise — : « Poser ici » touché aussitôt après se prend.
+  sousEcranDe: (_m, l) => `${l.ordre.join(',')}|${tientUnPose(l) ? l.choisi : ''}`,
   Manche: MancheDeLaFrise,
   Revelation: RevelationDeLaFrise,
 }

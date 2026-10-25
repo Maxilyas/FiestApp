@@ -37,6 +37,7 @@ import {
   ERREURS_D_UN_OUBLI,
   ETOILES_AU_CADRAGE,
   ETOILES_D_UNE_PARTIE,
+  GRACE_D_UNE_MANCHE_MS,
   LIBRES_QUI_PAIENT,
   PRIX_D_UNE_DORURE,
   PRIX_D_UNE_OEUVRE,
@@ -1398,8 +1399,37 @@ test('d’une affirmation de l’Éclair à la suivante, la demi-seconde de gard
   // Le Pari n'a rien sous le doigt qui change sans la vue : chaque étape en est une.
   assert.equal(pari.sousEcranDe, undefined)
   const partie = source('views/cabinet/Partie.tsx')
-  assert.match(partie, /const sousLeDoigt = pret && vue\.enCours \? \(pret\.sousEcranDe\?\.\(vue\.enCours, valeur\) \?\? ''\) : ''/)
+  assert.match(partie, /const sousLeDoigt = sousLeDoigtDe\(vue, pret, valeur\)/)
   assert.match(partie, /changement\.current = performance\.now\(\)\s*\}, \[cleDEcran, sousLeDoigt\]\)/)
+})
+
+test('chaque vue que le serveur accepte relance la demi-seconde de garde : Éclairer, « Changer », « Reculer » — un double toucher sur la carte-bonus n’en joue pas deux usages', async () => {
+  const e = await ecrans()
+  const { sousLeDoigtDe } = await import(url('views/cabinet/Partie.tsx'))
+  const { gesteAccepte } = await import('../../shared/console')
+  const cle = (v: VueDeLaPartie) => sousLeDoigtDe(v, e[v.jeu], v.enCours ? e[v.jeu].localDe(v.enCours) : null)
+  // Le même écran — la même phase, la même manche, la même étape —, mais pas ce qui est sous le doigt : un titre effacé, un autre
+  // tableau au même cadrage, le tableau élargi, une année dévoilée, une réponse effacée, une affirmation soufflée.
+  for (const [avant, apres, quoi] of [
+    [vues.detail, vues.detailEclaire, 'Éclairer au Détail'],
+    [vues.detailEclaire, vues.detailRecule, '« Reculer »'],
+    [vues.detailEchange, vues.detailChange, '« Changer » au Détail'],
+    [vues.frise, vues.friseEclairee, 'Éclairer à la Frise'],
+    [vues.pari, vues.eclaire, 'Éclairer au Pari'],
+    [vues.eclair, vues.souffle, 'Éclairer à l’Éclair'],
+  ] as const) {
+    assert.deepEqual([apres.phase, apres.manche], [avant.phase, avant.manche], quoi)
+    assert.notEqual(cle(apres), cle(avant), quoi)
+  }
+  // Ce que fait le cadre : Éclairer touché, sa réponse revenue 150 ms plus tard — un titre effacé, Éclairer encore là d'une carte de
+  // force 2 —, puis le second toucher du double, 250 ms après le premier : il tombe dans la garde.
+  let changement: number | null = 0
+  const t0 = 60_000
+  assert.ok(gesteAccepte(changement, t0))
+  if (cle(vues.detailEclaire) !== cle(vues.detail)) changement = t0 + 150
+  assert.equal(gesteAccepte(changement, t0 + 250), false)
+  // Une vue qui n'a rien changé — le même rang, une relecture — ne la relance pas.
+  assert.equal(cle({ ...vues.detail, maintenant: vues.detail.maintenant + 1000 }), cle(vues.detail))
 })
 
 test('« Commencer » ouvre la partie sur son entrée, et la retrouve quand sa réponse s’est perdue en route', async () => {
@@ -1459,11 +1489,15 @@ test('une partie dit son heure au serveur : l’échéance lue à serverNow, la 
 //
 // Noé joue par les vraies routes, Coup d'œil emporté : un Détail — éclairé, un pas en arrière, un mauvais titre ; puis jusqu'au
 // tableau entier ; puis reconnu d'emblée —, une Frise — un nouveau venu daté, deux posés à rebours et un laissé de côté ; puis sans
-// faute deux fois —, et chacun avec Échange. Chaque écran se rend sur la vue même que le serveur lui a rendue.
+// faute deux fois —, et chacun avec Échange ; enfin un Détail laissé au temps. Chaque écran se rend sur la vue même que le serveur
+// lui a rendue.
+
+/** Le témoin de Noé : les images du Détail se demandent avec lui. */
+let noe: string
 
 /** Joué à la fin du `before` du fichier, après Hugo : le même banc, un autre profil. */
 async function lesTableauxEtLesFrisesDeNoe() {
-  const noe = await inscrireProfil(b.banc.url, 'noe', 'Noé')
+  noe = await inscrireProfil(b.banc.url, 'noe', 'Noé')
   let d = (vues.detail = ok(await commencer(b, noe, { origine: 'libre', jeu: 'detail', carte: 'coup-d-oeil' }), 'le Détail'))
   d = vues.detailEclaire = ok(await jouer(b, noe, d, { quoi: 'eclairer', manche: 0 }), 'éclairer le Détail')
   d = vues.detailRecule = ok(await jouer(b, noe, d, { quoi: 'reculer', manche: 0 }), 'reculer')
@@ -1478,9 +1512,9 @@ async function lesTableauxEtLesFrisesDeNoe() {
   d = await ouvrir(b, noe, d, 2)
   vues.detailFini = await jouerUnDetail(b, noe, d, 2)
   // Échange emporté : « Changer » joue la rechange du plan, et l'adresse de son image le dit.
-  const c = ok(await commencer(b, noe, { origine: 'libre', jeu: 'detail', carte: 'echange' }), 'le Détail et l’Échange')
+  const c = (vues.detailEchange = ok(await commencer(b, noe, { origine: 'libre', jeu: 'detail', carte: 'echange' }), 'le Détail et l’Échange'))
   vues.detailChange = ok(await jouer(b, noe, c, { quoi: 'changer', manche: 0 }), 'changer')
-  ok(await jouer(b, noe, vues.detailChange, { quoi: 'quitter' }), 'quitter le Détail')
+  vues.detailQuitte = ok(await jouer(b, noe, vues.detailChange, { quoi: 'quitter' }), 'quitter le Détail')
 
   let f = (vues.frise = ok(await commencer(b, noe, { origine: 'libre', jeu: 'frise', carte: 'coup-d-oeil' }), 'la Frise'))
   f = vues.friseEclairee = ok(await jouer(b, noe, f, { quoi: 'eclairer', manche: 0 }), 'éclairer la Frise')
@@ -1494,20 +1528,46 @@ async function lesTableauxEtLesFrisesDeNoe() {
   vues.friseFinie = await jouerUneFrise(b, noe, f, 2)
   vues.friseEchange = ok(await commencer(b, noe, { origine: 'libre', jeu: 'frise', carte: 'echange' }), 'la Frise et l’Échange')
   ok(await jouer(b, noe, vues.friseEchange, { quoi: 'quitter' }), 'quitter la Frise')
+
+  // Un Détail laissé au temps, au premier cadrage : la page envoie sa réponse vide à l'échéance, passée la grâce. En dernier — l'heure
+  // du banc avance d'une manche.
+  const x = ok(await commencer(b, noe, { origine: 'libre', jeu: 'detail', carte: null }), 'le Détail laissé au temps')
+  b.horloge.t = x.chrono!.echeance + GRACE_D_UNE_MANCHE_MS + 1
+  vues.detailExpire = ok(await jouer(b, noe, x, { quoi: 'repondre', manche: 0, auto: true }), 'l’échéance')
+  ok(await jouer(b, noe, vues.detailExpire, { quoi: 'quitter' }), 'quitter le Détail laissé au temps')
 }
 
 /** Ce que la page tient d'une manche de la Frise : les jetons posés, du plus ancien au plus récent selon lui, et le nouveau venu touché. */
 type LocalDeLaFrise = { ordre: number[]; choisi: number | null }
 
-/** Les textes tirés qu'une vue porte — titres, peintres, libellés, thème, anecdote — : du contenu, pas des mots de l'écran. */
+/**
+ * Les textes tirés qu'une vue porte, champ par champ — les titres et les peintres des tableaux, le thème et les libellés d'une
+ * frise, une anecdote venue de la base — : du contenu, pas des mots de l'écran. Rien d'autre : le titre d'une révélation
+ * (« C’était… », « 2 erreurs, 1 pas posé »), la clé du jeu, l'anecdote qu'un tableau sans question compose (« …, peint par … en
+ * … ») restent sous la garde du jargon — cueillis en bloc, ils y échappaient.
+ */
 function contenuDe(v: VueDeLaPartie): string[] {
   const textes: string[] = []
-  const cueillir = (x: unknown): void => {
-    if (typeof x === 'string') textes.push(x)
-    else if (Array.isArray(x)) x.forEach(cueillir)
-    else if (x && typeof x === 'object') Object.values(x).forEach(cueillir)
+  const corps = [
+    { c: v.enCours, tirage: v.tirage },
+    { c: v.revelation?.corps, tirage: v.revelation?.tirage },
+    ...v.manches.map(m => ({ c: m.revelation?.corps, tirage: m.revelation?.tirage })),
+  ] as { c?: DetailMontre | DetailRevele | FriseMontree | FriseRevelee; tirage?: number }[]
+  for (const { c, tirage } of corps) {
+    if (c?.jeu === 'detail') {
+      for (const x of c.titres) textes.push(x.titre, x.peintre)
+      if ('tableau' in c) {
+        textes.push(c.tableau.titre, c.tableau.peintre, ...(c.repondu ? [c.repondu] : []))
+        // L'anecdote de sa question de la base, quand le tirage en porte une : sinon, la phrase est du serveur.
+        const anecdote = tirage === undefined ? null : detailDe(b, v.id, tirage).anecdote
+        if (anecdote) textes.push(anecdote)
+      }
+    } else if (c?.jeu === 'frise') {
+      textes.push(c.theme)
+      if ('rangee' in c) textes.push(...c.rangee.map(e => e.libelle), ...(c.savais ? [c.savais] : []))
+      else textes.push(...c.ancres.map(e => e.libelle), ...c.nouveaux.map(e => e.libelle))
+    }
   }
-  cueillir([v.enCours, v.revelation?.corps, v.manches.map(m => m.revelation?.corps)])
   // Les plus longs d'abord : un titre ôté avant la phrase qui le contient la laisserait en morceaux.
   return textes.sort((a, c) => c.length - a.length)
 }
@@ -1558,8 +1618,11 @@ test('le Détail qui s’élargit : un pas en arrière, son cadrage et ce que va
   assert.match(recule, /aria-valuenow="2"/)
   assert.match(recule, new RegExp(`aria-label="${m.vaut} étoiles? sur 3"`))
   // Le cadrage change sous le doigt sans que l'écran change : la demi-seconde de garde repart — un double toucher sur « Reculer »
-  // coûtait deux étoiles. Le contenu reste le même tableau.
-  assert.notEqual(detail.sousEcranDe!(vues.detail.enCours, null), detail.sousEcranDe!(m, null))
+  // coûtait deux étoiles. C'est une vue neuve : le cadre la relance (`sousLeDoigtDe`), le Détail n'a rien à y ajouter. Le contenu
+  // reste le même tableau.
+  const { sousLeDoigtDe } = await import(url('views/cabinet/Partie.tsx'))
+  assert.notEqual(sousLeDoigtDe(vues.detailEclaire, detail, null), sousLeDoigtDe(vues.detailRecule, detail, null))
+  assert.equal(detail.sousEcranDe, undefined)
   assert.equal(detail.cleDe(vues.detail.enCours), detail.cleDe(m))
   // Éclairé : un mauvais titre effacé — en sourdine, barré, dit à l'oreille.
   const eclaire = await laPartie(vues.detailEclaire)
@@ -1606,9 +1669,12 @@ test('la révélation du Détail : le tableau entier à l’adresse de son tirag
   // Le nom d'abord, puis le tableau : sous lui, il tombait sous le pli, derrière « Manche suivante ».
   assert.match(html, /<figure class="tableau-entier">/)
   assert.ok(t.indexOf(corps.tableau.titre.replace(/'/g, '’')) < t.indexOf('Ta réponse'))
-  // Reconnu au tableau entier : juste, sans étoile — rien de barré.
+  // Reconnu au tableau entier : le bon titre, mais plus une étoile — la pièce est fausse au journal (`justeDeLaPiece`), le bandeau
+  // sans fête — ; rien de barré.
   const reconnu = await laPartie(vues.detailReconnu)
+  assert.equal(vues.detailReconnu.manches[1].naturel, ETOILES_AU_CADRAGE.at(-1))
   assert.match(texte(reconnu), /Reconnu/)
+  assert.match(reconnu, /class="card result-banner result-ko"/)
   assert.doesNotMatch(reconnu, /corrige-sienne/)
   assert.match(texte(reconnu), new RegExp(`Après ${ETOILES_AU_CADRAGE.length - 1} pas en arrière`))
   // Reconnu d'emblée : au premier coup d'œil.
@@ -1630,6 +1696,71 @@ test('« Mes réponses » d’un Détail : chaque manche son tableau entier, à 
   const tirages = v.manches.map(m => m.revelation!.tirage!)
   assert.deepEqual(images(html), tirages.map(k => adresseDUnCadrage(v.id, k, ETOILES_AU_CADRAGE.length)))
   assert.equal([...html.matchAll(/class="cab-reponses-manche"/g)].length, 3)
+})
+
+test('la révélation d’un Détail sans réponse — le temps écoulé, la manche quittée — ne dit pas où il en était : il n’avait rien répondu', async () => {
+  // Le temps écoulé au premier cadrage : « Au premier coup d’œil » s'y lisait comme une réponse donnée d'emblée.
+  const v = vues.detailExpire
+  const corps = v.revelation!.corps as DetailRevele
+  assert.deepEqual([v.manches[0].fin, corps.cadrage, corps.titres.some(x => x.choisi)], ['expiree', 1, false])
+  const t = texte(await laPartie(v))
+  assert.match(t, /Temps écoulé/)
+  assert.doesNotMatch(t, /coup d’œil|pas en arrière/)
+  // Le tableau quand même, et son nom.
+  assert.match(t, new RegExp(`« ${lu(corps.tableau.titre)} »`))
+  // Quittée : « Mes réponses » la montre, sans dire non plus où il en était.
+  const q = vues.detailQuitte
+  assert.equal(q.manches[0].fin, 'quittee')
+  assert.ok(q.manches[0].revelation, 'la manche quittée se révèle')
+  const reponses = texte(await rendu('views/cabinet/Bilan', 'MesReponses', { vue: q, ecran: (await ecrans()).detail, onFermer: rien }))
+  assert.match(reponses, new RegExp(lu((q.manches[0].revelation!.corps as DetailRevele).tableau.titre)))
+  assert.doesNotMatch(reponses, /coup d’œil|pas en arrière/)
+})
+
+test('un cadrage perdu en route se redemande à une adresse neuve, un peu plus tard chaque fois, puis la page attend — et la route ignore l’essai', async () => {
+  type Essai = { n: number; dansMs: number }
+  const { adresseDeLEssai, essaiApresLEchec, ESSAIS_D_UNE_IMAGE, ATTENTE_D_UN_ESSAI_MS } = (await import(url('views/cabinet/jeux/Detail.tsx'))) as {
+    adresseDeLEssai: (adresse: string, n: number) => string
+    essaiApresLEchec: (rate: { adresse: string | null; n: number } | null, adresse: string | null) => Essai | null
+    ESSAIS_D_UNE_IMAGE: number
+    ATTENTE_D_UN_ESSAI_MS: number
+  }
+  const v = vues.detailFini
+  const premier = adresseDUnCadrage(v.id, v.tirage!, 1)
+  const second = adresseDUnCadrage(v.id, v.tirage!, 2)
+  // La première demande telle quelle ; chaque essai, une adresse neuve : la même `src` ne relance pas une balise d'image.
+  assert.equal(adresseDeLEssai(premier, 0), premier)
+  assert.equal(adresseDeLEssai(premier, 2), `${premier}?essai=2`)
+  // Chaque échec, l'essai suivant, n fois l'attente ; le dernier raté, plus rien.
+  const essais: Essai[] = []
+  for (let rate: { adresse: string; n: number } | null = { adresse: premier, n: 0 }; rate; ) {
+    const suivant = essaiApresLEchec(rate, premier)
+    if (suivant) essais.push(suivant)
+    rate = suivant && { adresse: premier, n: suivant.n }
+  }
+  assert.deepEqual(
+    essais,
+    Array.from({ length: ESSAIS_D_UNE_IMAGE }, (_, i) => ({ n: i + 1, dansMs: (i + 1) * ATTENTE_D_UN_ESSAI_MS })),
+  )
+  // Seul l'échec de l'adresse d'à présent se redemande : un pas de plus entre-temps en a posé une autre, qui n'a rien raté.
+  assert.equal(essaiApresLEchec({ adresse: premier, n: 0 }, second), null)
+  assert.equal(essaiApresLEchec(null, premier), null)
+  assert.equal(essaiApresLEchec({ adresse: premier, n: 0 }, null), null)
+  // Par le vrai serveur : l'essai sert la même image, et le téléphone la garde à son adresse à elle.
+  const lireLImage = async (adresse: string) => {
+    const r = await fetch(`${b.banc.url}${adresse}`, { headers: { Cookie: noe, 'X-Requested-With': 'quizz' } })
+    return { status: r.status, type: r.headers.get('content-type') ?? '', octets: Buffer.from(await r.arrayBuffer()) }
+  }
+  const tel = await lireLImage(premier)
+  const essai = await lireLImage(adresseDeLEssai(premier, 3))
+  assert.deepEqual([tel.status, essai.status], [200, 200])
+  assert.match(essai.type, /^image\//)
+  assert.ok(essai.octets.equals(tel.octets), 'la même image')
+  // Une seule balise d'image par tableau, gardée d'un cadrage à l'autre ; un autre tableau, une autre (`key`).
+  const s = source('views/cabinet/jeux/Detail.tsx')
+  assert.equal([...s.matchAll(/<img /g)].length, 1)
+  assert.match(s, /<img key=\{tirage\} src=\{src\}[^>]*onError=\{rate\} \/>/)
+  assert.match(s, /const suivant = essaiApresLEchec\(rate, adresse\)/)
 })
 
 test('une manche de la Frise : « ↑ Plus ancien » et « ↓ Plus récent », les nouveaux venus à poser sans leur année, « Valider la frise » qui attend — et ce que coûte un événement laissé de côté', async () => {
@@ -1677,11 +1808,13 @@ test('une manche de la Frise : « ↑ Plus ancien » et « ↓ Plus récent », 
   sansJargon(html, 'une manche de la Frise', contenuDe(v))
 })
 
-test('ranger au doigt, sans glisser : toucher un événement, puis « Poser ici » ; un posé se déplace ; la demi-seconde de garde repart à chaque geste', async () => {
+test('ranger au doigt, sans glisser : toucher un événement, puis « Poser ici » ; un posé se déplace ; la demi-seconde de garde repart de ce qui bouge sous le doigt', async () => {
   const { frise } = await ecrans()
-  const { choisirSurLaFrise, poserIci } = (await import(url('views/cabinet/jeux/Frise.tsx'))) as {
+  const { gesteAccepte } = await import('../../shared/console')
+  const { choisirSurLaFrise, poserIci, placesOuvertes } = (await import(url('views/cabinet/jeux/Frise.tsx'))) as {
     choisirSurLaFrise: (m: FriseMontree, l: LocalDeLaFrise, jeton: number) => LocalDeLaFrise
     poserIci: (l: LocalDeLaFrise, place: number) => LocalDeLaFrise
+    placesOuvertes: (l: LocalDeLaFrise) => number[]
   }
   const m = vues.frise2.enCours as FriseMontree
   assert.deepEqual([m.ancres.length, m.nouveaux.length], [3, 2])
@@ -1689,27 +1822,56 @@ test('ranger au doigt, sans glisser : toucher un événement, puis « Poser ici 
   const depart = frise.localDe(m) as LocalDeLaFrise
   // Les ancres d'abord, dans leur ordre : elles ne bougent pas.
   assert.deepEqual(depart, { ordre: m.ancres.map(x => x.jeton), choisi: null })
-  // Toucher un nouveau venu le prend ; le toucher encore le lâche, sans rien poser.
+  // Toucher un nouveau venu de la réserve le prend ; le toucher encore le garde : un double toucher le prenait puis le lâchait. Un
+  // autre toucher en prend un autre.
   let l = choisirSurLaFrise(m, depart, a)
   assert.equal(l.choisi, a)
-  assert.deepEqual(choisirSurLaFrise(m, l, a), depart)
+  assert.deepEqual(choisirSurLaFrise(m, l, a), l)
+  assert.deepEqual(choisirSurLaFrise(m, l, z), { ordre: depart.ordre, choisi: z })
+  // Pris dans la réserve, il peut aller partout : entre chaque événement, et aux deux bouts.
+  assert.deepEqual(placesOuvertes(l), [0, 1, 2, 3])
+  assert.deepEqual(placesOuvertes(depart), [])
   // « Poser ici », entre la première et la deuxième ancre : il y est, plus rien n'est touché.
   l = poserIci(l, 1)
   assert.deepEqual(l, { ordre: [0, a, 1, 2], choisi: null })
   // Sans rien de touché, « Poser ici » ne pose rien ; une ancre ne se prend pas.
   assert.deepEqual(poserIci(l, 0), l)
   assert.deepEqual(choisirSurLaFrise(m, l, 0), l)
+  // Un posé touché se prend ; touché encore, il se lâche et reste où il était — on renonce à le déplacer.
+  const repris = choisirSurLaFrise(m, l, a)
+  assert.deepEqual(repris, { ordre: [0, a, 1, 2], choisi: a })
+  assert.deepEqual(choisirSurLaFrise(m, repris, a), l)
+  // Pas de place juste au-dessus ni juste au-dessous de lui : elles le laissaient où il était. Les autres le déplacent.
+  assert.deepEqual(placesOuvertes(repris), [0, 3, 4])
+  assert.deepEqual(poserIci(repris, 3).ordre, [0, 1, a, 2])
   // Le second, tout en bas ; puis le premier, déplacé tout en haut.
   l = poserIci(choisirSurLaFrise(m, l, z), 4)
   assert.deepEqual(l.ordre, [0, a, 1, 2, z])
   l = poserIci(choisirSurLaFrise(m, l, a), 0)
   assert.deepEqual(l, { ordre: [a, 0, 1, 2, z], choisi: null })
-  // Reposé à sa place même : rien ne bouge.
+  // Reposé à sa place même — l'écran n'en offre pas la place, la règle le permet : rien ne bouge.
   assert.deepEqual(poserIci(choisirSurLaFrise(m, l, z), 5).ordre, l.ordre)
-  // Chaque geste change ce qui est sous le doigt sans changer l'écran : la garde repart, et un double toucher ne pose pas deux fois.
+  // La garde repart de ce qui bouge sous le doigt sans changer l'écran : une pose — l'événement remonte là où était « Poser ici » —,
+  // un posé repris — les places s'ouvrent au-dessus de lui. Un double toucher ne reprend pas l'événement remonté, ne valide pas une
+  // frise qu'on rangeait. Pris dans la réserve, rien ne bouge sous lui : « Poser ici » touché aussitôt après se prend.
   const sous = frise.sousEcranDe!
   const pris = choisirSurLaFrise(m, depart, a)
-  assert.equal(new Set([depart, pris, poserIci(pris, 1)].map(e => sous(m, e))).size, 3)
+  const pose = poserIci(pris, 1)
+  assert.equal(sous(m, pris), sous(m, depart), 'pris dans la réserve')
+  assert.notEqual(sous(m, pose), sous(m, pris), 'posé')
+  assert.notEqual(sous(m, choisirSurLaFrise(m, pose, a)), sous(m, pose), 'repris sur la frise')
+  // Ce que fait le cadre : la manche ouverte depuis longtemps, un événement pris, puis « Poser ici » 350 ms après — il pose ; puis un
+  // second toucher 100 ms après la pose — il tombe dans la garde.
+  let changement: number | null = 0
+  const t0 = 60_000
+  const toucherA = (avant: LocalDeLaFrise, apres: LocalDeLaFrise, t: number) => {
+    if (!gesteAccepte(changement, t)) return false
+    if (sous(m, avant) !== sous(m, apres)) changement = t
+    return true
+  }
+  assert.ok(toucherA(depart, pris, t0), 'la prise')
+  assert.ok(toucherA(pris, pose, t0 + 350), '« Poser ici » juste après la prise')
+  assert.equal(toucherA(pose, choisirSurLaFrise(m, pose, a), t0 + 450), false, 'le second toucher d’un double sur « Poser ici »')
   // À l'écran : les ancres à leur place, leur année dite ; un posé se touche pour se déplacer ; « Poser ici » entre chaque, et
   // l'oreille sait où.
   const html = await laPartie(vues.frise2, { local: { ordre: [0, a, 1, 2], choisi: z } satisfies LocalDeLaFrise })
@@ -1723,6 +1885,16 @@ test('ranger au doigt, sans glisser : toucher un événement, puis « Poser ici 
   assert.equal([...html.matchAll(/>Poser ici</g)].length, 5)
   assert.match(t, new RegExp(`Poser ici , tout en haut, avant « ${lu(m.ancres[0].libelle)} »`))
   assert.match(t, new RegExp(`Poser ici , tout en bas, après « ${lu(m.ancres[2].libelle)} »`))
+  // Un posé repris : ses trois places, et aucune ne le dit « entre » lui-même et son voisin.
+  const deplace = await laPartie(vues.frise2, { local: { ordre: [0, a, 1, 2], choisi: a } satisfies LocalDeLaFrise })
+  assert.equal([...deplace.matchAll(/<button type="button" class="cab-pose" aria-pressed="true">/g)].length, 1)
+  const dites = [...deplace.matchAll(/Poser ici<span class="sr-only">([^<]*)<\/span>/g)].map(x => texte(x[1]))
+  assert.equal(dites.length, 3)
+  const libelleDeA = m.nouveaux.find(n => n.jeton === a)!.libelle.replace(/'/g, '’')
+  for (const d of dites) assert.ok(!d.includes(libelleDeA), d)
+  assert.match(dites[1], new RegExp(`entre « ${lu(m.ancres[1].libelle)} » et « ${lu(m.ancres[2].libelle)} »`))
+  // Sans place à côté de lui, la consigne dit comment le laisser où il est.
+  assert.match(texte(deplace), /Touche « Poser ici » où il va, ou touche-le pour le laisser\./)
   sansJargon(html, 'la frise qui grandit', contenuDe(vues.frise2))
 })
 
@@ -1777,7 +1949,23 @@ test('une carte-bonus qui ne sert pas à la Frise se pose sous « Valider la fri
   assert.match(texte(html.slice(pose)), new RegExp(`Changer ne sert pas ${echapper(JEUX.frise.a)}`))
 })
 
-test('les écrans du Détail et de la Frise : à la demande, sans les règles qui jugent, sans l’heure du téléphone, sans champ qui prend le focus', () => {
+test('chaque manche a sa question en titre (`.cab-question`) : le focus s’y pose quand elle s’ouvre, et le lecteur d’écran la dit', async () => {
+  // « Manche suivante » touché disparaît avec la révélation : sans titre où se poser (`rendreLeFocus`), le focus tombait sur la page,
+  // le lecteur d'écran ne disait rien de la manche qui s'ouvrait pendant que le chrono courait, et le Tab suivant repartait du haut.
+  assert.match(source('views/cabinet/Partie.tsx'), /rendreLeFocus\(document\.querySelector\('\.cab-page'\), \['\.cab-question', 'h2', 'h1'\]\)/)
+  // La première manche, ouverte par « Commencer » : c'est la page qui change d'écran, et elle cherchait un `h1`, qu'une partie n'a pas.
+  assert.match(source('views/CabinetApp.tsx'), /rendreLeFocus\(document\.querySelector\('\.cab-page'\), \['\.cab-question', 'h1', 'h2'\]\)/)
+  const question = (html: string) => texte(/<h2 class="[^"]*\bcab-question\b[^"]*">(.*?)<\/h2>/.exec(html)?.[1] ?? '').trim()
+  for (const v of [vues.pari, vues.etape2, vues.eclair, vues.detail, vues.detailEntier, vues.frise, vues.frise2]) {
+    assert.ok(question(await laPartie(v)), `${v.jeu}, manche ${v.manche + 1}`)
+  }
+  // Le Détail, sa question ; la Frise, son thème — à la taille d'un surtitre : le tableau et la frise gardent la place.
+  assert.equal(question(await laPartie(vues.detail)), QUESTION_DU_TABLEAU)
+  assert.equal(question(await laPartie(vues.frise)), texte((vues.frise.enCours as FriseMontree).theme.replace(/'/g, '’')).trim())
+  assert.match(await laPartie(vues.frise), /<h2 class="cab-question cab-surtitre">/)
+})
+
+test('les écrans du Détail et de la Frise : à la demande, sans le pli ni la lecture des gestes, sans l’heure du téléphone, sans champ qui prend le focus', () => {
   const partie = source('views/cabinet/Partie.tsx')
   assert.match(partie, /detail: aLaDemande\(\(\) => import\('\.\/jeux\/Detail'\)/)
   assert.match(partie, /frise: aLaDemande\(\(\) => import\('\.\/jeux\/Frise'\)/)
@@ -1799,6 +1987,15 @@ test('les écrans du Détail et de la Frise : à la demande, sans les règles qu
     assert.doesNotMatch(code, /\b\d erreurs?\b|★/, jeu)
   }
   assert.ok(importsStatiques(path.join(client, 'views/cabinet/jeux/Detail.tsx')).has(path.resolve(client, '../..', 'shared/cabinet/jeux/detail.ts')))
+  // De la règle du Détail, qui juge, l'écran ne prend que des types, la question et l'adresse d'un cadrage : le paquet ne garde
+  // qu'elles, jamais le jugement ni Éclairer.
+  const deLaRegle = /import \{([^}]*)\} from '\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/shared\/cabinet\/jeux\/detail'/.exec(source('views/cabinet/jeux/Detail.tsx'))
+  assert.ok(deLaRegle, 'Detail.tsx importe sa règle')
+  const valeurs = deLaRegle[1]
+    .split(',')
+    .map(s => s.trim())
+    .filter(s => s && !s.startsWith('type '))
+  assert.deepEqual(valeurs.sort(), ['QUESTION_DU_TABLEAU', 'adresseDUnCadrage'])
   // Le cadre passe à chaque jeu où sont ses images, et « Mes réponses » aussi.
   assert.match(partie, /<ecran\.Revelation corps=\{r\.corps\} partie=\{vue\.id\} tirage=\{r\.tirage\} \/>/)
   assert.match(source('views/cabinet/Bilan.tsx'), /<ecran\.Revelation corps=\{m\.revelation\.corps\} partie=\{vue\.id\} tirage=\{m\.revelation\.tirage\} \/>/)
@@ -1817,4 +2014,9 @@ test('la feuille du Détail et de la Frise : le cadre du tableau à hauteur fixe
   assert.match(annee[1], /font-variant-numeric: lining-nums tabular-nums/)
   // À la révélation, le nom du tableau passe avant lui : dessous, il tombait sous le pli du 360 × 640.
   assert.match(section, /\.cab-tableau-revele \.tableau-entier \{ flex-direction: column-reverse;/)
+  // La consigne de la Frise garde deux lignes d'un état à l'autre : passée à une à la prise, elle remontait la réserve de 25 px sous
+  // le doigt (mesuré en 360 × 640). Et une question en surtitre reste à sa taille.
+  assert.match(section, /\.cab-consigne \{ min-height: calc\(2 \* 1\.45em\);/)
+  assert.match(section, /\.cab-ligne \{ line-height: 1\.45; \}/)
+  assert.match(section, /\.cab-page h2\.cab-surtitre \{ font-family: inherit; font-size: inherit;/)
 })
