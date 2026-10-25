@@ -62,12 +62,18 @@ export interface EclairRevele {
 /**
  * Une question de la base récrite en affirmation, du hasard du tirage : elle
  * propose sa bonne réponse une fois sur deux (`PART_DES_VRAIES`), sinon une des
- * mauvaises. Tirée au départ : la reprise redonne la même.
+ * mauvaises. Tirée au départ : la reprise redonne la même. La règle du vrai ou
+ * faux de l'Expédition (`aSaForme`), écrite ici pure et rejouable : le tireur
+ * de l'Éclair passe par elle, avec le hasard du tirage — jamais celui
+ * d'Éclairer, que la page ne doit pas pouvoir rejouer (invariant 1). Null pour
+ * une question à deux réponses ou moins, comme là-bas : une fausse ne
+ * proposerait que l'autre, et un vrai ou faux de la base se lirait « Vrai ? ».
  */
-export function affirmationDe(question: QuestionTiree, hasard: () => number): AffirmationTiree {
+export function affirmationDe(question: QuestionTiree, hasard: () => number): AffirmationTiree | null {
+  if (question.reponses.length <= 2) return null
   const vraie = hasard() < PART_DES_VRAIES
   const mauvaises = question.reponses.map((_, k) => k).filter(k => k !== question.bonne)
-  return { question, proposee: vraie || mauvaises.length === 0 ? question.bonne : auHasard(mauvaises, hasard) }
+  return { question, proposee: vraie ? question.bonne : auHasard(mauvaises, hasard) }
 }
 
 const estVraie = (a: AffirmationTiree) => a.proposee === a.question.bonne
@@ -121,8 +127,7 @@ export const REGLE_DE_L_ECLAIR: RegleDuJeu<EclairTire, EtatDeLEclair, GesteDeLEc
     return { quoi: 'repondre', reponses: Array.from({ length: n }, (_, i) => (brutes[i] as boolean | null | undefined) ?? null) }
   },
 
-  // Un seul geste à l'Éclair, l'envoi : il tranche toujours.
-  tranche: () => true,
+  // Un seul geste à l'Éclair, l'envoi — `repondre`, qui tranche : la règle commune suffit (`trancheLaManche`).
   apresLeGeste: () => GESTE_A_JUGER,
 
   juger(t, _e, reponse) {

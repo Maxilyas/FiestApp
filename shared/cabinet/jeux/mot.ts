@@ -9,7 +9,7 @@
 // l'échéance, ce qu'il avait essayé dans les temps compte, rien d'autre.
 
 import { DUREES_DES_JEUX, ESSAIS_DES_ETOILES, ESSAIS_DU_MOT, LETTRES_DU_MOT_MAX, LETTRES_DU_MOT_MIN } from '../bareme'
-import { gabaritDe, seCompose, sonArticle } from '../../lettres'
+import { capitalesSansAccents, gabaritDe, seCompose, sonArticle } from '../../lettres'
 import { GESTE_A_JUGER, auHasard, champsDuGeste, naturelDe, pieceDeLaQuestion, rienAEclairer, type QuestionTiree } from './deLaBase'
 import { justeDeLaPiece, type RegleDuJeu, type VerdictDUneManche } from './regle'
 
@@ -94,9 +94,8 @@ export function etatDesTouches(essais: readonly EssaiColore[]): Record<string, C
   return touches
 }
 
-/** Les mots d'un texte, en capitales sans accents : de quoi voir si l'intitulé dit déjà la réponse. */
-const motsEnCapitales = (texte: string) =>
-  texte.normalize('NFD').replace(/\p{M}/gu, '').toUpperCase().replace(/Œ/g, 'OE').replace(/Æ/g, 'AE').split(/[^A-Z]+/)
+/** Les mots d'un texte, lus comme les lettres du mot (`capitalesSansAccents`) : de quoi voir si l'intitulé dit déjà la réponse. */
+const motsEnCapitales = (texte: string) => capitalesSansAccents(texte).split(/[^A-Z]+/)
 
 /**
  * Le mot d'une question de la base, ou null si elle ne se pose pas au Mot

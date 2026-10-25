@@ -3,9 +3,11 @@
 // lance. La valeur ne part qu'avec le verdict (invariant 1).
 //
 // La piste se tire au départ (`pisteDuFilet`) : la réponse tombe n'importe où
-// entre 8 et 92 % de sa longueur, et le curseur part du milieu. Dans la
-// maquette d'avant les tests, la réponse était au milieu : rester au centre
-// payait toujours.
+// entre 8 et 92 % de sa longueur — jamais au milieu d'office —, et le curseur
+// part du milieu. Dans la maquette d'avant les tests, la réponse était au
+// milieu : rester au centre payait toujours. Une piste d'années s'arrête à
+// l'année du départ : elle passait dans l'avenir (« 1990 – 2109 »), et qui
+// savait seulement que la réponse n'y est pas visait mieux que les autres.
 //
 // Dedans se juge par `ecartEstimation` (invariant 15), contre une demi-largeur
 // arrondie à ce que ses chiffres écrivent : en virgule flottante, 0,09 × 20 vaut
@@ -87,13 +89,38 @@ export interface FiletRevele {
   savais: string | null
 }
 
-/** Ce que le Filet pose : une année entière dès `ANNEE_MIN_DU_FILET`, une estimation dès `VALEUR_MIN_DU_FILET` — sous dix, la piste n'a pas de quoi tendre un filet. */
-export function seTendAuFilet(valeur: number, annee: boolean): boolean {
-  return annee ? Number.isInteger(valeur) && valeur >= ANNEE_MIN_DU_FILET : Number.isFinite(valeur) && valeur >= VALEUR_MIN_DU_FILET
+/** Un entier tiré entre deux bornes comprises. */
+const entreDeux = (de: number, a: number, hasard: () => number) => Math.min(a, de + Math.floor(hasard() * (a - de + 1)))
+
+/** Les places de la réponse sur une piste d'années de tant d'ans : le nombre d'années entre sa borne basse et elle, au plus bas et au plus haut. */
+function placesDeLaReponse(longueur: number): readonly [number, number] {
+  const [bas, haut] = POSITION_DE_LA_REPONSE
+  return [Math.ceil(bas * longueur), Math.floor(haut * longueur)]
 }
 
-/** Un entier tiré entre deux bornes comprises, du hasard rejoué de la graine. */
-const entreDeux = (de: number, a: number, hasard: () => number) => Math.min(a, de + Math.floor(hasard() * (a - de + 1)))
+/**
+ * Ce qu'une année doit avoir d'âge au départ pour se poser — 46 ans, aux
+ * chiffres d'aujourd'hui. Coupée à l'année du départ, la plus courte des
+ * pistes, sa réponse au plus bas, en tient encore autant après elle : ses
+ * cinquante ans et la réponse sous 92 % (`PISTE_DES_ANNEES`,
+ * `POSITION_DE_LA_REPONSE`) tiennent pour toutes. Plus récente, aucune piste
+ * ne la pose sans dire où elle est : il faudrait la tirer selon la réponse, ou
+ * la raccourcir.
+ */
+const RECUL_D_UNE_ANNEE = PISTE_DES_ANNEES[0] - placesDeLaReponse(PISTE_DES_ANNEES[0])[0]
+
+/**
+ * Ce que le Filet pose : une année entière dès `ANNEE_MIN_DU_FILET` et jusqu'à
+ * `RECUL_D_UNE_ANNEE` ans avant le départ, une estimation dès
+ * `VALEUR_MIN_DU_FILET` — sous dix, la piste n'a pas de quoi tendre un filet.
+ * `anneeDuDepart` : l'année du jour de Paris du départ, que le tireur lit à
+ * l'heure du serveur — jamais l'horloge ici. Le tas, préparé en fond, la relit
+ * au tirage : une piste nulle se remplace.
+ */
+export function seTendAuFilet(valeur: number, annee: boolean, anneeDuDepart: number): boolean {
+  if (!annee) return Number.isFinite(valeur) && valeur >= VALEUR_MIN_DU_FILET
+  return Number.isInteger(valeur) && valeur >= ANNEE_MIN_DU_FILET && valeur <= anneeDuDepart - RECUL_D_UNE_ANNEE
+}
 
 /**
  * La borne haute d'une piste d'estimation : la piste brute arrondie à deux
@@ -107,28 +134,51 @@ function borneRonde(valeur: number, brute: number): number {
   return valeur / dessus >= POSITION_DE_LA_REPONSE[0] ? dessus : Math.floor(brute / ordre) * ordre
 }
 
+/** Les pas ronds d'une piste courte, du plus grand au plus fin. */
+const PAS_RONDS = [0.5, 0.2, 0.1, 0.05, 0.02, 0.01]
+
 /**
- * La piste d'une valeur, tirée au départ du hasard du tirage : la réponse y
- * tombe entre `POSITION_DE_LA_REPONSE`, jamais au milieu d'office. Une année :
- * une piste de `PISTE_DES_ANNEES` ans, an par an, la réponse à un an entier de
- * sa borne basse. Une estimation : de zéro à une borne ronde, en
- * `PAS_DE_LA_PISTE` pas. Null : le Filet ne la pose pas.
+ * Le pas du curseur sur une piste d'estimation : un deux-centième, un au
+ * moins. Sur une piste courte, un pas d'un enjamberait le petit filet (7 % de
+ * la piste) : pour 12,5 sur une piste de 0 à 14, aucune place du curseur ne le
+ * prenait, et ★★★ était hors d'atteinte. Le pas s'y affine au plus grand pas
+ * rond qui tient dans le petit filet ; une réponse entière, elle, tombe sur un
+ * pas d'un.
  */
-export function pisteDuFilet(valeur: number, annee: boolean, hasard: () => number): PisteDuFilet | null {
-  if (!seTendAuFilet(valeur, annee)) return null
-  const [bas, haut] = POSITION_DE_LA_REPONSE
+function pasDeLaPiste(valeur: number, max: number): number {
+  const pas = Math.max(1, Math.round(max / PAS_DE_LA_PISTE))
+  const petit = 2 * LARGEURS_DU_FILET.petit * max
+  if (Number.isInteger(valeur) || pas <= petit) return pas
+  return PAS_RONDS.find(p => p <= petit) ?? PAS_RONDS[PAS_RONDS.length - 1]
+}
+
+/**
+ * La piste d'une valeur, tirée au départ du hasard du tirage — celui du
+ * serveur, que la page ne rejoue pas : la place de la réponse s'en déduirait.
+ * La réponse y tombe entre `POSITION_DE_LA_REPONSE`, jamais au milieu d'office.
+ * Une année : une piste de `PISTE_DES_ANNEES` ans, an par an, la réponse à un
+ * an entier de sa borne basse, coupée à l'année du départ. Une estimation : de
+ * zéro à une borne ronde, en `PAS_DE_LA_PISTE` pas. Null : le Filet ne la pose
+ * pas (`seTendAuFilet`).
+ */
+export function pisteDuFilet(valeur: number, annee: boolean, hasard: () => number, anneeDuDepart: number): PisteDuFilet | null {
+  if (!seTendAuFilet(valeur, annee, anneeDuDepart)) return null
   if (annee) {
     const longueur = entreDeux(PISTE_DES_ANNEES[0], PISTE_DES_ANNEES[1], hasard)
     // Le nombre d'années entre la borne basse et la réponse : toutes ses places possibles, au même poids.
-    const avant = entreDeux(Math.ceil(bas * longueur), Math.floor(haut * longueur), hasard)
-    return { min: valeur - avant, max: valeur - avant + longueur, pas: 1 }
+    const min = valeur - entreDeux(...placesDeLaReponse(longueur), hasard)
+    // Coupée, pas tirée pour s'arrêter avant : tirée selon la réponse, la piste s'y serait collée —
+    // pour 2015, qui le sait l'aurait prise neuf fois sur dix. Coupée, elle ne dit rien de plus que ce
+    // qu'il sait déjà : la réponse n'est pas dans l'avenir (`RECUL_D_UNE_ANNEE`).
+    return { min, max: Math.min(min + longueur, anneeDuDepart), pas: 1 }
   }
+  const [bas, haut] = POSITION_DE_LA_REPONSE
   const max = borneRonde(valeur, valeur / (bas + hasard() * (haut - bas)))
-  return { min: 0, max, pas: Math.max(1, Math.round(max / PAS_DE_LA_PISTE)) }
+  return { min: 0, max, pas: pasDeLaPiste(valeur, max) }
 }
 
-/** Où le curseur part : le milieu de la piste, sur un pas. */
-export const milieuDeLaPiste = (p: PisteDuFilet): number => p.min + Math.round((p.max - p.min) / 2 / p.pas) * p.pas
+/** Où le curseur part : le milieu de la piste, sur un pas — écrit comme il se lit, sans le reste d'une virgule flottante. */
+export const milieuDeLaPiste = (p: PisteDuFilet): number => Number((p.min + Math.round((p.max - p.min) / 2 / p.pas) * p.pas).toFixed(decimales(p.pas)))
 
 /**
  * La demi-largeur d'un filet sur une piste, arrondie à ce que ses deux
@@ -176,8 +226,7 @@ export const REGLE_DU_FILET: RegleDuJeu<FiletTire, EtatDuFilet, GesteDuFilet, Fi
     return { quoi: 'repondre', lancer: { x, taille } }
   },
 
-  // Un seul geste au Filet, le lancer : il tranche toujours.
-  tranche: () => true,
+  // Un seul geste au Filet, le lancer — `repondre`, qui tranche : la règle commune suffit (`trancheLaManche`).
   apresLeGeste: () => GESTE_A_JUGER,
 
   juger(t, _e, reponse) {
@@ -193,6 +242,7 @@ export const REGLE_DU_FILET: RegleDuJeu<FiletTire, EtatDuFilet, GesteDuFilet, Fi
     if (e.zone) return rienAEclairer('filet')
     // Une zone de trente pour cent de la piste, la réponse n'importe où dedans, puis ramenée sur la piste :
     // décalée vers l'intérieur, elle la contient encore — elle était à gauche du bord droit, à droite du gauche.
+    // La valeur s'en déduirait de `hasard` : il vient d'une graine que la page ne connaît pas (`RegleDuJeu.eclairer`).
     const largeur = ZONE_DU_FILET * (t.piste.max - t.piste.min)
     const de = Math.min(Math.max(t.valeur - hasard() * largeur, t.piste.min), t.piste.max - largeur)
     return { zone: { de, a: de + largeur } }

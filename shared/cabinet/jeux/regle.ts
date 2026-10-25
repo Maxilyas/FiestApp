@@ -210,10 +210,10 @@ export interface RegleDuJeu<Tiree, Etat, Geste, Montree, Revelee> {
   /** Relit ce que la page envoie pour ce jeu ; null : illisible. */
   lireLeGeste(brut: unknown, t: Tiree): Geste | null
   /**
-   * Ce geste tranche-t-il la manche ? Le pli le demande d'abord : oui, il va à
-   * `juger` ; non, à `apresLeGeste`. Le jeu seul le sait — l'essai qui trouve
-   * le mot ou le cinquième, « Garder » au Pari, quand la juste de sa première
-   * question attend son choix. Absent : tout geste du jeu tranche. L'état
+   * Ce geste tranche-t-il la manche, quand `repondre` ne suffit pas à le dire ?
+   * Le jeu seul le sait — l'essai qui trouve le mot ou le cinquième, « Garder »
+   * au Pari, quand la juste de sa première question attend son choix. Absent :
+   * seul `repondre` tranche (`trancheLaManche`, le contrat des gestes). L'état
    * reste celui d'avant le geste qui tranche : ce qu'il portait, le verdict le
    * garde (`choix`, `composee`), et la révélation l'y relit.
    */
@@ -222,16 +222,42 @@ export interface RegleDuJeu<Tiree, Etat, Geste, Montree, Revelee> {
   apresLeGeste(t: Tiree, e: Etat, g: Geste): Etat | string
   /** Les étoiles naturelles et ce que la pièce écrit ; « expiree » : rien de ce qu'elle portait ne compte. */
   juger(t: Tiree, e: Etat, reponse: Geste | 'expiree' | 'quittee'): VerdictDUneManche
-  /** Éclairer, propre au jeu : son effet, tiré du hasard rejoué de la graine, ou son refus. */
+  /**
+   * Éclairer, propre au jeu : son effet, ou son refus. Rien à souffler se dit
+   * d'abord, quelle que soit la cible, par le refus des pouvoirs
+   * (`rienAEclairer`) : le pli y lit si Éclairer sert encore. `hasard` est
+   * rejoué — recharger redonne la même zone — mais imprévisible pour la
+   * page : la zone du Filet, la réponse effacée du Pari se tirent de la
+   * réponse, et qui rejouerait le hasard la retrouverait. Sa graine est un
+   * secret du serveur, jamais faite de ce que la page connaît (son profil, sa
+   * partie, le rang).
+   */
   eclairer(t: Tiree, e: Etat, hasard: () => number, cible?: number): Etat | string
   /** Ce que la manche montre, sans la réponse ; la vue n'en ajoute rien. */
   montrer(t: Tiree, e: Etat): Montree
   /** La révélation : la réponse entière, et « Le savais-tu ? ». */
   reveler(t: Tiree, e: Etat, v: VerdictDUneManche): Revelee
-  /** Ce que la pièce garde au journal : son identifiant, sa forme, `composee`. */
-  piece(t: Tiree, e: Etat, v: VerdictDUneManche, i: { manche: 0 | 1 | 2; tirage: number; etape?: 1 | 2 }): PieceDuCabinet
+  /**
+   * Ce que la pièce garde au journal : son identifiant, sa forme, `composee`.
+   * `aidee` : le pli marque la ligne d'un pouvoir (`joker` : Éclairer, ou le
+   * verdict arrivé dans le temps en plus) — le jeu ne sait pas l'échéance. Une
+   * pièce aidée porte la forme de son jeu : seule la première question du
+   * Pari, sans aide, sort nue (D4).
+   */
+  piece(t: Tiree, e: Etat, v: VerdictDUneManche, i: { manche: 0 | 1 | 2; tirage: number; etape?: 1 | 2; aidee?: boolean }): PieceDuCabinet
   /** Ce que le cartel d'une œuvre gagnée dit de cette manche. */
   cartel(t: Tiree, v: VerdictDUneManche): { sujet: string; reponse: string; anecdote: string | null }
+}
+
+/**
+ * Où va un geste : à `juger` s'il tranche la manche, sinon à `apresLeGeste`.
+ * Le pli ne le demande qu'ici. Ce que le jeu en dit (`tranche`), ou le contrat
+ * des gestes : `repondre` tranche, le reste attend sa réponse — « Reculer d'un
+ * pas » au Détail, un indice, le mot de la Réplique. Le défaut inverse aurait
+ * tranché à zéro le Détail dès son premier pas en arrière.
+ */
+export function trancheLaManche<T, E, G extends { quoi: string }>(r: Pick<RegleDuJeu<T, E, G, unknown, unknown>, 'tranche'>, t: T, e: E, g: G): boolean {
+  return r.tranche ? r.tranche(t, e, g) : g.quoi === 'repondre'
 }
 
 /**

@@ -3,17 +3,18 @@
 // question telle que la partie l'a tirée, la pièce qu'elle laisse au journal
 // des réponses, et la lecture de ce que la page envoie.
 //
-// Le contrat avec le pli, le même pour les quatre : `tranche` dit d'abord où
-// va un geste — à `juger`, qui rend le verdict, ou à `apresLeGeste`, qui rend
-// l'état d'après ou son refus en mots. Un geste qui tranche ne passe jamais
-// par `apresLeGeste` : s'il s'y perd, il s'y refuse (`GESTE_A_JUGER`) sans rien
-// changer, plutôt que d'être compté deux fois. Et l'état reste celui d'avant
-// le geste qui tranche : la révélation relit ce qu'il portait dans le verdict
-// (`choix`, `composee`), que le journal garde aussi.
+// Le contrat avec le pli, le même pour les quatre : `trancheLaManche`
+// (`regle.ts`) dit d'abord où va un geste — à `juger`, qui rend le verdict, ou
+// à `apresLeGeste`, qui rend l'état d'après ou son refus en mots. Un geste qui
+// tranche ne passe jamais par `apresLeGeste` : s'il s'y perd, il s'y refuse
+// (`GESTE_A_JUGER`) sans rien changer, plutôt que d'être compté deux fois. Et
+// l'état reste celui d'avant le geste qui tranche : la révélation relit ce
+// qu'il portait dans le verdict (`choix`, `composee`), que le journal garde
+// aussi.
 
 import type { PieceDuCabinet } from '../pieces'
 import { refusDuPouvoir } from '../pouvoirs'
-import type { CleDeJeu, VerdictDUneManche } from './regle'
+import type { CleDeJeu, RegleDuJeu, VerdictDUneManche } from './regle'
 
 /**
  * Une question de la base telle que la partie l'a tirée au départ : le cœur
@@ -39,9 +40,11 @@ export function pieceDeLaQuestion(q: QuestionTiree, cabinet: PieceDuCabinet['cab
 }
 
 /**
- * Un élément tiré du hasard rejoué de la graine (`hasardDe`) : la même graine
- * redonne le même — recharger ne change ni la réponse effacée, ni la lettre
- * soufflée. Le dernier si le hasard rend 1, qu'un hasard d'essai peut rendre.
+ * Un élément tiré d'un hasard rejoué (`hasardDe`) : la même graine redonne le
+ * même — recharger ne change ni la réponse effacée, ni la lettre soufflée. Le
+ * dernier si le hasard rend 1, qu'un hasard d'essai peut rendre. La graine ne
+ * doit rien à ce que la page connaît : qui la rejouerait saurait, de la
+ * mauvaise réponse effacée, où est la bonne (`RegleDuJeu.eclairer`).
  */
 export function auHasard<T>(liste: readonly T[], hasard: () => number): T {
   return liste[Math.min(liste.length - 1, Math.floor(hasard() * liste.length))]
@@ -50,14 +53,25 @@ export function auHasard<T>(liste: readonly T[], hasard: () => number): T {
 /**
  * Le refus d'Éclairer quand la manche n'a plus rien à souffler, dit par la
  * seule règle des pouvoirs (`refusDuPouvoir`) : ses comptes à zéro, il n'y
- * reste que `aEclairer`. Le pli sait ainsi, en demandant Éclairer à la règle du
- * jeu, s'il sert encore — la page grise sans rien recopier.
+ * reste que `aEclairer`. Chaque jeu le rend d'abord, quelle que soit la cible
+ * — d'où `eclairerSertEncore`, la page grise sans rien recopier.
  */
 export function rienAEclairer(jeu: CleDeJeu): string {
   const refus = refusDuPouvoir({ pouvoir: 'eclairer', force: 1, jeu, servi: 0, aEclairer: false })
   // Sans refus, le pli prendrait la réponse pour un état : une règle des pouvoirs changée doit se voir.
   if (refus === null) throw new TypeError('refusDuPouvoir ne refuse plus Éclairer quand il ne reste rien à éclairer')
   return refus
+}
+
+/**
+ * Éclairer sert-il encore dans cette manche ? Ce que le pli pose dans
+ * `UsageDUnPouvoir.aEclairer`. Le jeu le dit en refusant mot pour mot
+ * `rienAEclairer` ; tout autre refus — « Choisis l'affirmation à éclairer » à
+ * l'Éclair, appelé sans cible — laisse Éclairer jouable. Un essai pur, au
+ * hasard nul : rien ne s'en garde.
+ */
+export function eclairerSertEncore<T, E>(r: Pick<RegleDuJeu<T, E, never, unknown, unknown>, 'cle' | 'eclairer'>, t: T, e: E): boolean {
+  return r.eclairer(t, e, () => 0) !== rienAEclairer(r.cle)
 }
 
 /** Ce que rend `apresLeGeste` d'un geste qui tranche : il se juge, et rien ne change. Le pli ne l'y envoie pas. */

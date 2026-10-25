@@ -5,29 +5,32 @@
 // départ et jamais montrée avant « Parier » ; l'Éclair, ses cinq affirmations
 // jugées ensemble et rien de leur vérité avant le verdict ; les couleurs du
 // Mot mystère et leurs lettres doubles, le souffle, la longueur d'un mot ; la
-// piste du Filet qui ne met jamais la réponse sous le curseur, le bord du
-// filet que la virgule flottante ne départage pas (invariant 15), la zone
-// d'Éclairer qui contient toujours la réponse.
+// piste du Filet, qui ne met jamais la réponse au milieu d'office — y rester
+// ne rapporte que la part de la piste que couvre le filet — et ne passe
+// jamais l'année du départ, le bord du filet que la virgule flottante ne
+// départage pas (invariant 15), la zone d'Éclairer qui contient toujours la
+// réponse.
 //
 // Le moule commun (`RegleDuJeu`, `regle.ts`) dit comment le pli s'en sert :
-// `tranche` d'abord — oui, le geste va à `juger` ; non, à `apresLeGeste`. Ces
-// épreuves jouent les règles comme le pli les jouera. Les mêmes jeux par les
-// routes viendront avec le serveur du Cabinet.
+// `trancheLaManche` d'abord — oui, le geste va à `juger` ; non, à
+// `apresLeGeste`. Ces épreuves jouent les règles comme le pli les jouera. Les
+// mêmes jeux par les routes viendront avec le serveur du Cabinet.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { hasardDe } from '../../shared/missions'
-import { ecartEstimation } from '../../shared/classement'
+import { decimales, ecartEstimation } from '../../shared/classement'
 import * as B from '../../shared/cabinet/bareme'
 import { refusDuPouvoir, effacablesAuPlus } from '../../shared/cabinet/pouvoirs'
 import { deplier, idDeLEclair, PREFIXE_DU_CABINET } from '../../shared/cabinet/pieces'
-import { justeDeLaPiece, type RegleDuJeu, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
-import { GESTE_A_JUGER, type QuestionTiree } from '../../shared/cabinet/jeux/deLaBase'
+import { justeDeLaPiece, trancheLaManche, type RegleDuJeu, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
+import { GESTE_A_JUGER, eclairerSertEncore, type QuestionTiree } from '../../shared/cabinet/jeux/deLaBase'
 import { REGLE_DU_PARI, type EtatDuPari, type PariTire } from '../../shared/cabinet/jeux/pari'
 import { REGLE_DE_L_ECLAIR, affirmationDe, type EclairTire } from '../../shared/cabinet/jeux/eclair'
 import { REGLE_DU_MOT, couleursDuMot, etatDesTouches, motDeLaQuestion, type MotTire } from '../../shared/cabinet/jeux/mot'
 import {
   REGLE_DU_FILET,
+  TAILLES_DU_FILET,
   dansLeFilet,
   demiLargeur,
   milieuDeLaPiste,
@@ -35,6 +38,7 @@ import {
   seTendAuFilet,
   type FiletTire,
   type PisteDuFilet,
+  type TailleDuFilet,
 } from '../../shared/cabinet/jeux/filet'
 
 // ── Les pièces d'essai ──────────────────────────────────────────────────
@@ -53,14 +57,17 @@ const qcm = (id: string, bonne: number, o: Partial<QuestionTiree> = {}): Questio
 /** Le refus d'Éclairer quand la manche n'a plus rien à souffler : celui de la seule règle des pouvoirs. */
 const RIEN_A_ECLAIRER = refusDuPouvoir({ pouvoir: 'eclairer', force: 1, jeu: 'pari', servi: 0, aEclairer: false })
 
+/** L'année du départ de la partie : le tireur la lit au jour de Paris du départ, jamais à l'horloge. */
+const DEPART = 2026
+
 /**
- * Un geste joué comme le pli le jouera : lu, puis `tranche` dit s'il va à
- * `juger` (le verdict) ou à `apresLeGeste` (l'état d'après, ou son refus).
+ * Un geste joué comme le pli le jouera : lu, puis `trancheLaManche` dit s'il
+ * va à `juger` (le verdict) ou à `apresLeGeste` (l'état d'après, ou son refus).
  */
-function jouer<T, E, G>(r: RegleDuJeu<T, E, G, unknown, unknown>, t: T, e: E, brut: unknown): { etat: E } | { verdict: VerdictDUneManche } | { refus: string } {
+function jouer<T, E, G extends { quoi: string }>(r: RegleDuJeu<T, E, G, unknown, unknown>, t: T, e: E, brut: unknown): { etat: E } | { verdict: VerdictDUneManche } | { refus: string } {
   const g = r.lireLeGeste(brut, t)
   assert.ok(g !== null, `illisible : ${JSON.stringify(brut)}`)
-  if (r.tranche!(t, e, g)) return { verdict: r.juger(t, e, g) }
+  if (trancheLaManche(r, t, e, g)) return { verdict: r.juger(t, e, g) }
   const apres = r.apresLeGeste(t, e, g)
   return typeof apres === 'string' ? { refus: apres } : { etat: apres }
 }
@@ -91,7 +98,6 @@ test('les quatre règles suivent le moule : leur clé, leurs étapes, leurs dur�
   for (const r of regles) {
     assert.equal(r.etapes, r.cle === 'pari' ? 2 : 1, r.cle)
     assert.equal(r.dureeMs(1), B.DUREES_DES_JEUX[r.cle] * 1000, `${r.cle} : sa durée vient du barème`)
-    assert.equal(typeof r.tranche, 'function', `${r.cle} : le pli demande d'abord si le geste tranche`)
   }
   // Le Pari a un chrono par étape, le même.
   assert.equal(REGLE_DU_PARI.dureeMs(2), B.DUREES_DES_JEUX.pari * 1000)
@@ -248,7 +254,12 @@ test('le Pari : Éclairer efface une mauvaise réponse, deux au plus à chaque �
   // Le hasard vient de la graine : rejoué, le même effacement.
   assert.deepEqual(eclaire(r, PARI, ouvert, 'p:eclairer:2'), une)
   assert.deepEqual(r.montrer(PARI, deux).effacees, deux.effacees[0])
-  // Au choix, rien à souffler ; au pari, deux de plus, sur la seconde question.
+  // Au choix, rien à souffler — même sans rien d'effacé : la question est répondue, et Éclairer
+  // y dépenserait un usage et ôterait à la première sa nudité (D4).
+  const choixNu = etatDe(jouer(r, PARI, ouvert, repondre(1)))
+  assert.equal(r.eclairer(PARI, choixNu, hasardDe('x')), RIEN_A_ECLAIRER)
+  assert.deepEqual(choixNu.effacees, [[], []])
+  // Au pari, deux de plus, sur la seconde question.
   const auChoix = etatDe(jouer(r, PARI, deux, repondre(1)))
   assert.equal(r.eclairer(PARI, auChoix, hasardDe('x')), RIEN_A_ECLAIRER)
   const pari = etatDe(jouer(r, PARI, auChoix, { quoi: 'parier' }))
@@ -281,6 +292,12 @@ test('le Pari : seule la première question, répondue dans les temps et sans ai
   const eclairee = eclaire(r, PARI, ouvert, 'p:eclairer:2')
   const juste = verdictDe(jouer(r, PARI, etatDe(jouer(r, PARI, eclairee, repondre(1))), { quoi: 'garder' }))
   assert.equal(r.piece(PARI, eclairee, juste, { manche: 0, tirage: 0, etape: 1 }).forme, 'pari')
+  // Arrivée dans le temps en plus de « Prendre son temps » : seul le pli le sait, et il le dit (`aidee`).
+  // Nue, la ligne compterait à la mesure, à la précision et à L'Érudit.
+  const garde = verdictDe(jouer(r, PARI, auChoix, { quoi: 'garder' }))
+  assert.equal(r.piece(PARI, auChoix, garde, { manche: 0, tirage: 0, etape: 1 }).forme, undefined)
+  assert.equal(r.piece(PARI, auChoix, garde, { manche: 0, tirage: 0, etape: 1, aidee: true }).forme, 'pari')
+  assert.equal(r.piece(PARI, pari, gagne, { manche: 0, tirage: 0, etape: 1, aidee: false }).forme, undefined)
   // La pièce garde ses réponses à part : la retoucher ne retouche pas le plan figé.
   assert.notEqual(p1.reponses, PARI.q1.reponses)
 })
@@ -317,13 +334,17 @@ const eclair = (reponses?: (boolean | null)[]) => ({ quoi: 'repondre', ...(repon
 test('l’Éclair : une affirmation propose la bonne réponse une fois sur deux, sinon une des mauvaises', () => {
   let vraies = 0
   for (let n = 0; n < 1000; n++) {
-    const a = affirmationDe(CINQ[0], hasardDe(`affirmation:${n}`))
+    const a = affirmationDe(CINQ[0], hasardDe(`affirmation:${n}`))!
     if (a.proposee === CINQ[0].bonne) vraies++
     else assert.ok(a.proposee >= 0 && a.proposee < 4)
     assert.equal(a.question, CINQ[0])
   }
   assert.ok(Math.abs(vraies / 1000 - B.PART_DES_VRAIES) < 0.05, `${vraies} vraies sur 1000`)
   assert.deepEqual(affirmationDe(CINQ[0], hasardDe('même')), affirmationDe(CINQ[0], hasardDe('même')), 'la même graine, la même affirmation')
+  // Deux réponses : une fausse ne proposerait que l'autre, et un vrai ou faux de la base se lirait
+  // « Vrai ? — Faux ». Elle ne se récrit pas, comme à l'Expédition (`aSaForme`).
+  for (const reponses of [['Vrai', 'Faux'], ['Riga'], []]) assert.equal(affirmationDe(qcm('vf', 0, { reponses }), hasardDe('vf')), null, JSON.stringify(reponses))
+  assert.ok(affirmationDe(qcm('trois', 0, { reponses: ['A', 'B', 'C'] }), hasardDe('trois')))
 })
 
 test('l’Éclair : les cinq se jugent ensemble — les non répondues comptent fausses', () => {
@@ -447,6 +468,10 @@ test('le Mot mystère : un seul mot de cinq à sept lettres, que l’intitulé n
   ])
     assert.equal(motDeLaQuestion(q(bonne)), null, pourquoi)
   assert.equal(motDeLaQuestion(q('Vilnius', 'Combien d’habitants compte Vilnius ?')), null, 'soufflé par l’intitulé')
+  // L'intitulé se lit en capitales sans accents comme la réponse — une seule règle, `capitalesSansAccents` :
+  // « cœur » y fait COEUR, « Éphèse » EPHESE, et le mot soufflé se voit.
+  assert.equal(motDeLaQuestion(q('Le cœur', 'Quel organe appelle-t-on aussi « le Cœur » ?')), null, 'Œ soufflé')
+  assert.equal(motDeLaQuestion(q('Éphèse', 'Où se trouvait le temple d’Artémis, à EPHÈSE ?')), null, 'accent soufflé')
   assert.equal(motDeLaQuestion(q('Vilnius', 'Quelle capitale compte 600 000 habitants ?')), null, 'un chiffre dans l’intitulé')
   assert.equal(motDeLaQuestion(q('Vilnius', 'Laquelle de ces villes est en Lituanie ?')), null, 'un intitulé qui parle de ses choix')
   for (const n of [B.LETTRES_DU_MOT_MIN, B.LETTRES_DU_MOT_MAX]) assert.ok(motDeLaQuestion(q('A'.repeat(n))))
@@ -536,41 +561,112 @@ test('le Mot mystère : la page ne reçoit ni le mot ni les réponses, seulement
 
 const position = (valeur: number, p: PisteDuFilet) => (valeur - p.min) / (p.max - p.min)
 
-test('le Filet : la piste se tire au départ, et la réponse n’est jamais sous le curseur d’office', () => {
+test('le Filet : la piste se tire au départ, la réponse n’y est jamais au milieu d’office', () => {
   const [bas, haut] = B.POSITION_DE_LA_REPONSE
-  for (const [valeur, annee] of [[1845, true], [1001, true], [2024, true], [42, false], [8848, false], [10, false], [67_000_000, false], [12.5, false]] as const) {
-    let centre = 0
+  // La part des places de la réponse que couvre chaque filet posé au milieu : 7, 18 et 40 % de la
+  // piste, sur les 84 % où elle peut tomber — ce que rapporte un lancer qui ne sait rien.
+  const part = (t: TailleDuFilet) => (2 * B.LARGEURS_DU_FILET[t]) / (haut - bas)
+  for (const [valeur, annee] of [[1845, true], [1001, true], [1950, true], [42, false], [8848, false], [10, false], [67_000_000, false], [12.5, false]] as const) {
+    const auMilieu: Record<TailleDuFilet, number> = { petit: 0, moyen: 0, grand: 0 }
     let gauche = 0
     let droite = 0
     for (let n = 0; n < 1000; n++) {
-      const p = pisteDuFilet(valeur, annee, hasardDe(`piste:${valeur}:${n}`))
+      const p = pisteDuFilet(valeur, annee, hasardDe(`piste:${valeur}:${n}`), DEPART)
       assert.ok(p, `${valeur}`)
       const x = position(valeur, p)
       assert.ok(x >= bas && x <= haut, `${valeur} à ${x} de la piste ${JSON.stringify(p)}`)
       if (annee) {
         assert.ok(Number.isInteger(p.min) && p.pas === 1)
         assert.ok(p.max - p.min >= B.PISTE_DES_ANNEES[0] && p.max - p.min <= B.PISTE_DES_ANNEES[1], `${p.max - p.min} ans`)
+        assert.ok(p.max <= DEPART, `${valeur} : la piste passe ${DEPART}, ${JSON.stringify(p)}`)
       } else {
         assert.equal(p.min, 0)
-        assert.equal(p.pas, Math.max(1, Math.round(p.max / B.PAS_DE_LA_PISTE)))
+        if (Number.isInteger(valeur)) assert.equal(p.pas, Math.max(1, Math.round(p.max / B.PAS_DE_LA_PISTE)))
       }
-      // Le curseur part du milieu : la réponse dans son petit filet d'office, c'était la faille de la maquette.
-      if (dansLeFilet(milieuDeLaPiste(p), 'petit', valeur, p)) centre++
+      // Le curseur part du milieu : la réponse dans son filet d'office, c'était la faille de la maquette.
+      const milieu = milieuDeLaPiste(p)
+      for (const t of TAILLES_DU_FILET) if (dansLeFilet(milieu, t, valeur, p)) auMilieu[t]++
       if (x < 0.4) gauche++
       if (x > 0.6) droite++
     }
-    // Une fois sur douze environ, au hasard de sa place ; les bornes rondes d'une estimation, qui
-    // rapprochent ses places possibles, l'emmènent vers une sur dix. La maquette d'avant : toujours.
-    assert.ok(centre < 150, `${valeur} : ${centre} fois sur 1000 sous le curseur`)
+    // Au milieu, rien de plus que la part du filet, au hasard de sa place — les bornes rondes d'une
+    // estimation, qui rapprochent ses places possibles, en ajoutent un peu : 8 848 m prend le petit
+    // filet une fois sur neuf au lieu d'une sur douze. La maquette d'avant : toujours. Qu'un lancer
+    // au milieu, sans rien savoir, prenne encore une étoile au grand filet près d'une fois sur deux,
+    // c'est le barème même (`LARGEURS_DU_FILET`) : le calibrage du Cabinet le mesure.
+    for (const t of TAILLES_DU_FILET)
+      assert.ok(auMilieu[t] <= 1000 * (part(t) + 0.06), `${valeur} : ${auMilieu[t]} fois sur 1000 dans le ${t} filet du milieu`)
     assert.ok(gauche > 250 && droite > 250, `${valeur} : ${gauche} à gauche, ${droite} à droite`)
   }
   // La même graine, la même piste.
-  assert.deepEqual(pisteDuFilet(1845, true, hasardDe('même')), pisteDuFilet(1845, true, hasardDe('même')))
+  assert.deepEqual(pisteDuFilet(1845, true, hasardDe('même'), DEPART), pisteDuFilet(1845, true, hasardDe('même'), DEPART))
   // Ce que le Filet pose : une année entière dès 1001, une estimation dès dix.
-  assert.ok(seTendAuFilet(1001, true) && seTendAuFilet(10, false) && seTendAuFilet(12.5, false))
+  assert.ok(seTendAuFilet(1001, true, DEPART) && seTendAuFilet(10, false, DEPART) && seTendAuFilet(12.5, false, DEPART))
   for (const [valeur, annee] of [[1000, true], [1845.5, true], [9.9, false], [Number.NaN, false], [Infinity, false]] as const) {
-    assert.equal(seTendAuFilet(valeur, annee), false, `${valeur}`)
-    assert.equal(pisteDuFilet(valeur, annee, hasardDe('x')), null, `${valeur}`)
+    assert.equal(seTendAuFilet(valeur, annee, DEPART), false, `${valeur}`)
+    assert.equal(pisteDuFilet(valeur, annee, hasardDe('x'), DEPART), null, `${valeur}`)
+  }
+})
+
+test('le Filet : une piste d’années s’arrête à l’année du départ, et ne trahit pas la réponse', () => {
+  // Pour 2015, neuf pistes sur dix passaient 2026, jusqu'à 2124 : qui savait seulement que la
+  // réponse n'est pas dans l'avenir visait le milieu du passé, et prenait le petit ou le moyen
+  // filet une fois sur trois au lieu d'une sur cinq. Tirer la piste pour qu'elle s'arrête avant
+  // l'année du départ aurait été pire : sa place dépendrait de la réponse, collée à son bout — pour
+  // 2015, un joueur qui le sait l'aurait prise neuf fois sur dix (sa loi a posteriori). Coupée à
+  // l'année du départ, la piste ne dit rien de plus que ce qu'il sait déjà, et garde ses cinquante
+  // ans et sa réponse sous 92 % tant que l'année a quarante-six ans ; plus récente, elle ne se pose pas.
+  const [bas, haut] = B.POSITION_DE_LA_REPONSE
+  const recul = B.PISTE_DES_ANNEES[0] - Math.ceil(bas * B.PISTE_DES_ANNEES[0])
+  assert.equal(recul, 46)
+  for (const valeur of [1900, 1950, 1960, DEPART - 50, DEPART - recul]) {
+    let coupees = 0
+    let auMilieu = 0
+    for (let n = 0; n < 1000; n++) {
+      const p = pisteDuFilet(valeur, true, hasardDe(`depart:${valeur}:${n}`), DEPART)
+      assert.ok(p, `${valeur}`)
+      assert.ok(p.max <= DEPART, `${valeur} : ${JSON.stringify(p)}`)
+      assert.ok(p.max - p.min >= B.PISTE_DES_ANNEES[0] && p.max - p.min <= B.PISTE_DES_ANNEES[1], `${valeur} : ${p.max - p.min} ans`)
+      const x = position(valeur, p)
+      assert.ok(x >= bas && x <= haut, `${valeur} à ${x} de ${JSON.stringify(p)}`)
+      if (p.max === DEPART) coupees++
+      if (dansLeFilet(milieuDeLaPiste(p), 'moyen', valeur, p)) auMilieu++
+    }
+    if (valeur >= 1960) assert.ok(coupees > 0, `${valeur} : aucune piste coupée`)
+    // Le prix de la coupe : une piste coupée rapproche la réponse de son milieu. Rien avant 1950 ;
+    // à quarante-six ans du départ, le moyen filet du milieu la prend 28 fois sur 100 au lieu de 21.
+    // Le calibrage du Cabinet le pèse contre les années récentes que le Filet ne pose plus.
+    assert.ok(auMilieu <= 1000 * ((2 * B.LARGEURS_DU_FILET.moyen) / (haut - bas) + 0.09), `${valeur} : ${auMilieu} fois sur 1000 dans le moyen filet du milieu`)
+  }
+  // Une piste qui ne l'atteint pas est celle d'avant : la coupe ne change rien d'autre au tirage.
+  for (let n = 0; n < 200; n++)
+    assert.deepEqual(pisteDuFilet(1845, true, hasardDe(`avant:${n}`), DEPART), pisteDuFilet(1845, true, hasardDe(`avant:${n}`), 3000))
+  // Plus récente, ou dans l'avenir : ni piste, ni filet.
+  for (const valeur of [DEPART - recul + 1, DEPART - 4, DEPART, DEPART + 6]) {
+    assert.equal(seTendAuFilet(valeur, true, DEPART), false, `${valeur}`)
+    assert.equal(pisteDuFilet(valeur, true, hasardDe('x'), DEPART), null, `${valeur}`)
+  }
+  // L'année du départ ne touche pas une estimation.
+  assert.deepEqual(pisteDuFilet(2024, false, hasardDe('e'), DEPART), pisteDuFilet(2024, false, hasardDe('e'), 1000))
+  assert.ok(seTendAuFilet(2024, false, DEPART))
+})
+
+test('le Filet : sur une piste courte, le pas s’affine — le petit filet atteint toujours la réponse', () => {
+  // 12,5 sur une piste de 0 à 14, au pas d'un : le petit filet n'y tient que 0,49 de chaque côté,
+  // aucune place du curseur ne prenait la réponse, et ★★★ était hors d'atteinte.
+  const courte: PisteDuFilet = { min: 0, max: 14, pas: 1 }
+  assert.ok(!dansLeFilet(12, 'petit', 12.5, courte) && !dansLeFilet(13, 'petit', 12.5, courte), 'le piège existe')
+  for (const valeur of [10.5, 11.5, 12.5, 12.25, 10, 11, 42.5, 8848.5]) {
+    for (let n = 0; n < 2000; n++) {
+      const p = pisteDuFilet(valeur, false, hasardDe(`court:${valeur}:${n}`), DEPART)!
+      // La place du curseur la plus proche de la réponse, telle que la page la poserait.
+      const k = Math.round((valeur - p.min) / p.pas)
+      assert.ok(dansLeFilet(p.min + k * p.pas, 'petit', valeur, p), `${valeur} hors d'atteinte sur ${JSON.stringify(p)}`)
+      // Le milieu tombe sur un pas, écrit comme il se lit.
+      assert.ok(decimales(milieuDeLaPiste(p)) <= decimales(p.pas), `${milieuDeLaPiste(p)} au pas de ${p.pas}`)
+      // Un pas plus fin seulement là où il le faut : une réponse entière garde le sien.
+      if (Number.isInteger(valeur) || p.max >= 15) assert.equal(p.pas, Math.max(1, Math.round(p.max / B.PAS_DE_LA_PISTE)), `${valeur} : ${JSON.stringify(p)}`)
+    }
   }
 })
 
@@ -654,4 +750,44 @@ test('le Filet : la page ne reçoit jamais la valeur ; la révélation la dit', 
   assert.equal(piece.id, 'f1', 'une question de la base : carnet et signalement')
   assert.equal(piece.forme, 'filet', 'une estimation n’est jamais « juste » au sens d’un QCM')
   assert.deepEqual(r.cartel(FILET, v), { sujet: FILET.question.texte, reponse: '1829', anecdote: FILET.question.anecdote })
+})
+
+// ── Le contrat avec le pli ──────────────────────────────────────────────
+
+test('le pli demande d’abord si un geste tranche : ce que le jeu en dit, sinon seul « repondre »', () => {
+  // Un jeu qui n'en dit rien — le Détail, la Frise, codés à côté — suit le contrat des gestes :
+  // `repondre` tranche, « Reculer d'un pas », un indice, le mot de la Réplique attendent leur réponse.
+  // Pris dans l'autre sens, le premier « Reculer » du Détail aurait tranché la manche à zéro.
+  const muet: Pick<RegleDuJeu<null, null, { quoi: string }, unknown, unknown>, 'tranche'> = {}
+  assert.equal(trancheLaManche(muet, null, null, { quoi: 'repondre' }), true)
+  for (const quoi of ['reculer', 'indice', 'nom', 'mot', 'essai', 'garder', 'parier'])
+    assert.equal(trancheLaManche(muet, null, null, { quoi }), false, quoi)
+  // Le Filet et l'Éclair n'ont qu'un geste, `repondre` : la règle commune leur suffit.
+  assert.equal(REGLE_DU_FILET.tranche, undefined)
+  assert.equal(REGLE_DE_L_ECLAIR.tranche, undefined)
+  assert.equal(trancheLaManche(REGLE_DU_FILET, FILET, REGLE_DU_FILET.ouvrir(FILET), { quoi: 'repondre', lancer: null }), true)
+  assert.equal(trancheLaManche(REGLE_DE_L_ECLAIR, ECLAIR, REGLE_DE_L_ECLAIR.ouvrir(ECLAIR), { quoi: 'repondre', reponses: [] }), true)
+  // Le Pari et le Mot disent les leurs : une juste à la première question attend son choix,
+  // et « Garder » tranche ; l'essai qui trouve tranche, l'essai qui ne trouve pas, non.
+  const ouvert = REGLE_DU_PARI.ouvrir(PARI)
+  assert.equal(trancheLaManche(REGLE_DU_PARI, PARI, ouvert, { quoi: 'repondre', choix: PARI.q1.bonne }), false)
+  assert.equal(trancheLaManche(REGLE_DU_PARI, PARI, ouvert, { quoi: 'repondre', choix: 0 }), true)
+  assert.equal(trancheLaManche(REGLE_DU_PARI, PARI, { ...ouvert, auChoix: true, choix1: 1 }, { quoi: 'garder' }), true)
+  const mot = REGLE_DU_MOT.ouvrir(MOT)
+  assert.equal(trancheLaManche(REGLE_DU_MOT, MOT, mot, { quoi: 'essai', lettres: 'VILNIUS' }), true)
+  assert.equal(trancheLaManche(REGLE_DU_MOT, MOT, mot, { quoi: 'essai', lettres: 'KAUNASS' }), false)
+  assert.equal(trancheLaManche(REGLE_DU_MOT, MOT, mot, { quoi: 'repondre' }), true)
+})
+
+test('Éclairer sert-il encore ? Le jeu le dit par le refus des pouvoirs, mot pour mot', () => {
+  // Le pli pose `aEclairer` de là : la page grise le bouton sans rien recopier.
+  assert.equal(eclairerSertEncore(REGLE_DU_FILET, FILET, REGLE_DU_FILET.ouvrir(FILET)), true)
+  assert.equal(eclairerSertEncore(REGLE_DU_FILET, FILET, { zone: { de: 1800, a: 1830 } }), false)
+  assert.equal(eclairerSertEncore(REGLE_DU_PARI, PARI, REGLE_DU_PARI.ouvrir(PARI)), true)
+  assert.equal(eclairerSertEncore(REGLE_DU_PARI, PARI, { ...REGLE_DU_PARI.ouvrir(PARI), auChoix: true, choix1: 1 }), false, 'au choix')
+  // L'Éclair a besoin d'une cible : sans elle, il refuse autrement tant qu'il en reste une à souffler.
+  assert.equal(eclairerSertEncore(REGLE_DE_L_ECLAIR, ECLAIR, REGLE_DE_L_ECLAIR.ouvrir(ECLAIR)), true)
+  assert.equal(eclairerSertEncore(REGLE_DE_L_ECLAIR, ECLAIR, { soufflees: [0, 1, 2, 3, 4] }), false)
+  assert.equal(eclairerSertEncore(REGLE_DU_MOT, MOT, REGLE_DU_MOT.ouvrir(MOT)), true)
+  assert.equal(eclairerSertEncore(REGLE_DU_MOT, MOT, { essais: [], soufflees: [0, 1, 2, 3, 4, 5] }), false, 'jamais le mot entier')
 })

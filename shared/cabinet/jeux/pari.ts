@@ -14,8 +14,9 @@
 // est nue (D4) : la seconde n'est répondue que par qui parie — des joueurs
 // sûrs d'eux —, et une première expirée ou quittée compterait fausse à la
 // mesure, qui ne lit pas si elle a été répondue. Le temps en plus de « Prendre
-// son temps », seul le pli le sait : il marque la ligne `pouvoir:temps`, et une
-// pièce aidée porte toujours la forme de son jeu.
+// son temps », seul le pli le sait : il marque la ligne `pouvoir:temps` et le
+// dit à `piece` (`aidee`) — nue, une réponse aidée compterait à la mesure, à la
+// précision et à L'Érudit.
 
 import { DUREES_DES_JEUX, ETOILES_DU_PARI } from '../bareme'
 import { effacablesAuPlus } from '../pouvoirs'
@@ -187,8 +188,9 @@ export const REGLE_DU_PARI: RegleDuJeu<PariTire, EtatDuPari, GesteDuPari, PariMo
     const etape = i.etape ?? 1
     const cabinet = { jeu: 'pari' as const, manche: i.manche, tirage: i.tirage, etape }
     if (etape === 2) return pieceDeLaQuestion(t.q2, cabinet, 'pari')
-    // Nue : répondue dans les temps — expirée ou quittée, elle n'a pas de choix — et rien d'effacé.
-    const nue = pieceDeLEtape(v, 1)?.choix != null && e.effacees[0].length === 0
+    // Nue : répondue — expirée ou quittée, elle n'a pas de choix —, rien d'effacé, et dans la durée
+    // normale : le pli marque `aidee` une réponse venue dans le temps en plus, ou éclairée.
+    const nue = !i.aidee && pieceDeLEtape(v, 1)?.choix != null && e.effacees[0].length === 0
     return pieceDeLaQuestion(t.q1, cabinet, nue ? undefined : 'pari')
   },
 
