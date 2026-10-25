@@ -32,6 +32,30 @@ export const QUESTIONS_PAR_MARCHE = 5
 /** Sous ce nombre de questions jouables, la campagne attend : une série de trois questions n'en est pas une. */
 export const QUESTIONS_POUR_JOUER = 10
 
+/**
+ * Les modes d'une partie de la campagne (`campagne_series.mode`), une seule
+ * liste : le type d'une partie, sa lecture et le lieu d'un signalement la
+ * lisent tous trois — ils se recopiaient, et un mode oublié dans la lecture
+ * s'y lisait en série, que les routes de la série acceptaient. Une série, une
+ * épreuve d'un sentier, le défi de la semaine, un défi entre amis ou un duel
+ * classé, une révision du carnet, une rencontre contre Automate, un parcours
+ * de thème (`sujet`), une expédition, une partie du Cabinet de curiosités. Un
+ * mode de plus s'écrit ici avant sa première partie (`campagne-modes.test.ts`
+ * relit chaque insertion du serveur).
+ */
+export const MODES_DE_SERIE = ['serie', 'sentier', 'defi', 'duel', 'revision', 'rencontre', 'sujet', 'expedition', 'cabinet'] as const
+export type ModeDeSerie = (typeof MODES_DE_SERIE)[number]
+
+/**
+ * Le mode d'une ligne lue. La colonne est `NOT NULL DEFAULT 'serie'` depuis
+ * qu'elle existe : aucune ligne n'en est privée, et un mode hors de la liste
+ * ne viendrait que d'une écriture qui l'y aurait oublié — il se lit en série,
+ * comme avant la liste.
+ */
+export function modeDeSerieLu(brut: unknown): ModeDeSerie {
+  return (MODES_DE_SERIE as readonly unknown[]).includes(brut) ? (brut as ModeDeSerie) : 'serie'
+}
+
 export type Niveau = 'facile' | 'moyen' | 'difficile' | 'expert'
 
 export const NIVEAUX: readonly Niveau[] = ['facile', 'moyen', 'difficile', 'expert']
@@ -502,8 +526,8 @@ export interface RapportDeSignalement {
   traiteLe: number | null
   /** Ce qui en a été fait, quand il a été relu (`shared/qgSignalements.ts`) ; null : relu avant qu'on l'écrive, le 14 octobre 2026. */
   issue: IssueDUnSignalement | null
-  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis, une révision de son carnet, une rencontre, un parcours de thème (`sujet`), une expédition. */
-  ou: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet' | 'expedition'
+  /** Où il l'a jouée : le mode de sa partie (`MODES_DE_SERIE`) — d'une épreuve d'un sentier, sa branche et son palier. */
+  ou: ModeDeSerie
   branche?: string
   palier?: number
   /** Sa réponse, telle qu'il l'a lue, et si c'était la bonne ; null si elle n'est plus au journal. */

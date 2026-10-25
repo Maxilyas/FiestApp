@@ -9,8 +9,13 @@ import { compteDuJour, jourDeLInstant, joursDesMinuits, type CompteDuJour } from
 import { VIES_PAR_JOUR } from './sentiers'
 import type { ApparenceDeLAvatar } from './profil'
 
-/** Les parties de la campagne que le QG suit, sous-mode par sous-mode — les duels ont leur page. */
-export const SOUS_MODES_DE_CAMPAGNE = ['serie', 'sentier', 'sujet', 'revision', 'defi'] as const
+/**
+ * Les parties de la campagne que le QG suit, sous-mode par sous-mode — les
+ * duels ont leur page. Le Cabinet de curiosités en est un : il compte en
+ * campagne (`modeDeLaSerie`), ses parties à part des séries, dès avant son
+ * ouverture — une page du QG à lui n'est pas de sa première version.
+ */
+export const SOUS_MODES_DE_CAMPAGNE = ['serie', 'sentier', 'sujet', 'revision', 'defi', 'cabinet'] as const
 export type SousModeDeCampagne = (typeof SOUS_MODES_DE_CAMPAGNE)[number]
 
 /** Leurs noms, tels que les joueurs les lisent : un sentier à thème est un parcours de thème. */
@@ -20,9 +25,10 @@ export const NOM_DU_SOUS_MODE: Record<SousModeDeCampagne, string> = {
   sujet: 'Parcours de thème',
   revision: 'Révisions',
   defi: 'Défi de la semaine',
+  cabinet: 'Cabinet',
 }
 
-/** Le sous-mode d'une ligne de `campagne_series` : une série d'avant les modes n'en dit pas ; null, un duel ou une rencontre. */
+/** Le sous-mode d'une ligne de `campagne_series` : sans mode, une série ; null, un duel, une rencontre ou une expédition. */
 export function sousModeDe(mode: string | null): SousModeDeCampagne | null {
   if (mode === null) return 'serie'
   return (SOUS_MODES_DE_CAMPAGNE as readonly string[]).includes(mode) ? (mode as SousModeDeCampagne) : null

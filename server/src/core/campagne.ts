@@ -160,6 +160,7 @@ import {
   marcheContredite,
   mesuresEnFamille,
   minutesAvantLundi,
+  modeDeSerieLu,
   niveauDeQuestion,
   semaineAvant,
   semaineDe,
@@ -173,6 +174,7 @@ import {
   type AjoutsDeLaRoutine,
   type CoupDeLaRencontre,
   type MesRencontres,
+  type ModeDeSerie,
   type RencontreDeCampagne,
   type ResumeDeRencontre,
   type CommandeDeLaBase,
@@ -572,8 +574,10 @@ interface Serie {
    * erreurs remettent la question au lendemain, rien de plus. Une rencontre
    * rejoue la série finie d'un autre joueur, contre son score. Une épreuve
    * d'un sentier à thème (`sujet`) monte un sujet en six paliers, sans vies.
+   * Une partie du Cabinet a ses routes à elle : celles de la série ne la
+   * jouent pas (`repondre`, `abandonnerSerie`), ne la corrigent pas.
    */
-  mode: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet' | 'expedition'
+  mode: ModeDeSerie
   /** L'épreuve d'un sentier : sa branche, son palier, son seuil figé au départ — un seuil réglé ensuite ne change pas une épreuve en cours. */
   branche: CleDeBranche | null
   palier: number | null
@@ -689,8 +693,22 @@ const CHOIX_GARDES = 64
  */
 const EXPEDITIONS_GARDEES = 100
 const HEURE_MS = 3600_000
-/** Les séries de la campagne, sans les épreuves des sentiers : une ligne d'avant les sentiers n'a pas de mode. */
-const SERIES = "COALESCE(mode, 'serie') = 'serie'"
+/**
+ * Les séries de la campagne, sans les autres modes — les épreuves, les
+ * révisions, les duels, les expéditions, les parties du Cabinet. Écrit
+ * `COALESCE(mode, 'serie') = 'serie'`, le filtre ne servait aucun index : le
+ * record, la page, la série en cours relisaient toutes les parties du profil,
+ * de tous les modes, par l'index du profil — et le Cabinet en ajoute une
+ * dizaine par jour et par joueur. Sur le mode même, il prend l'index des
+ * sentiers `(profile_id, mode, …)`, qui ne mène qu'à ses séries
+ * (`campagne-index.test.ts` lit les plans, sans statistiques comme la
+ * production). Aucune ligne n'a de mode NULL — le `COALESCE` d'avant n'en
+ * attrapait aucune : la colonne est née `NOT NULL DEFAULT 'serie'`
+ * (`ajouterColonne`, dans `init`), et SQLite donne ce défaut aux lignes qui
+ * existaient à l'`ALTER`, puis refuse tout NULL qu'on écrirait. Sans
+ * colonne `mode`, une insertion fait une série (`commencer`).
+ */
+const SERIES = "mode = 'serie'"
 /** Ce que l'administration relit des épreuves : trois mois suffisent à régler un palier. */
 const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
 /** Les plus bloqués que l'administration nomme : de quoi voir qui décroche, pas un annuaire. */
@@ -2539,10 +2557,16 @@ export class CampagneStore {
     if (this.enCours.size > SERIES_GARDEES) this.enCours.delete(this.enCours.keys().next().value!)
   }
 
-  /** La série en cours de ce profil, s'il en a une. */
+  /**
+   * La série en cours de ce profil, s'il en a une. Le `+` du tri : sans
+   * statistiques, SQLite prenait l'index du profil, rangé par date, pour
+   * s'épargner de trier — et sans série en cours, le cas ordinaire, il
+   * relisait toutes les parties du profil pour n'en trouver aucune. Par
+   * l'index des sentiers, il ne lit que ses séries, et n'en trie qu'une.
+   */
   async serieEnCours(profileId: string): Promise<Serie | null> {
     const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND finie_le IS NULL AND ${SERIES} ORDER BY commencee_le DESC LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND finie_le IS NULL AND ${SERIES} ORDER BY +commencee_le DESC LIMIT 1`,
       args: [profileId],
     })
     return res.rows[0] ? versSerie(res.rows[0]) : null
@@ -2812,6 +2836,10 @@ export class CampagneStore {
   async correction(profileId: string, id: string): Promise<CorrectionDeCampagne[]> {
     const s = await this.serie(profileId, id)
     if (!s) throw new Error('Cette série est introuvable')
+    // Une partie du Cabinet garde des pièces, pas des questions de série — cinq
+    // affirmations de l'Éclair, un lieu, une frise — : relue ici, elle se
+    // dirait de travers. Ses réponses se relisent au Cabinet, par le pli de sa partie.
+    if (s.mode === 'cabinet') throw new Error('Cette partie se relit au Cabinet')
     // En cours, la correction donnerait les réponses de la question qu'on a sous les yeux.
     if (s.finieLe === null) throw new Error('La correction attend la fin de la série')
     // Le défi de la semaine se corrige à sa clôture : finie, la sienne
@@ -6760,8 +6788,8 @@ export class CampagneStore {
    * épreuve, parcours, révision, défi, duel, rencontre — : qui, quand, dans
    * quel mode, et combien de questions jouées (`position`, qui avance à
    * chaque réponse). Le QG en tire ses chiffres du jour, ses participations
-   * et l'activité de chaque mode ; une série d'avant les modes n'en a pas
-   * (null) : c'est une série. `qui` : celles d'un seul profil, sa fiche au
+   * et l'activité de chaque mode — une partie du Cabinet compte ses pièces
+   * jugées. `qui` : celles d'un seul profil, sa fiche au
    * QG — par l'index `(profile_id, commencee_le)`. Une expédition compte ses
    * réponses : sa position saute les questions de reste d'un gardien vaincu,
    * tirées d'avance pour lui et jamais posées (`questionsDuGardien`).
@@ -8930,11 +8958,8 @@ function versSerie(r: Record<string, unknown>): Serie {
     vies: Number(r.vies),
     justes: Number(r.justes),
     finieLe: r.finie_le === null || r.finie_le === undefined ? null : Number(r.finie_le),
-    // Un mode inconnu se lit en série — une ligne d'avant les modes n'en a pas ; l'expédition garde le sien, ou une série l'accepterait.
-    mode:
-      r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' || r.mode === 'expedition'
-        ? r.mode
-        : 'serie',
+    // Chaque mode garde le sien, ou une série l'accepterait : les routes de la série jouent tout ce qui se lit en série.
+    mode: modeDeSerieLu(r.mode),
     branche: brancheParCle(r.branche)?.key ?? null,
     palier: r.palier === null || r.palier === undefined ? null : Number(r.palier),
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
@@ -10154,7 +10179,7 @@ export function leurresApres(avant: QuestionDeLaBase, apres: CorrectionDeQuestio
 function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSignalement {
   const vue = lireLaVersionJouee(r.vue)
   const choix = r.choix === null || r.choix === undefined ? null : Number(r.choix)
-  const ou = r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' || r.mode === 'expedition' ? r.mode : 'serie'
+  const ou = modeDeSerieLu(r.mode)
   return {
     profileId: String(r.profile_id),
     prenom: null,

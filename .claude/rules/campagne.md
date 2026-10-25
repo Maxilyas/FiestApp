@@ -7,7 +7,7 @@ paths:
   - "client/src/components/{ChoixDuTheme,SerieCorrigee}.tsx"
   - "client/src/iconeDuSujet.ts"
   - "server/scripts/rendu-campagne.ts"
-  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-mesure,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,bareme-du-solo,journal-des-reponses}.test.ts"
+  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,bareme-du-solo,journal-des-reponses}.test.ts"
 ---
 
 # La campagne solo et le défi de la semaine
@@ -20,6 +20,38 @@ paths:
 
 ## Les pièges
 
+- **Le mode d'une partie se lit dans une seule liste** (`MODES_DE_SERIE`,
+  `shared/campagne.ts`, le 25 octobre 2026, avant le Cabinet de
+  curiosités) : le type d'une partie (`Serie.mode`), sa lecture
+  (`versSerie`, `modeDeSerieLu`) et le lieu d'un signalement (`rapportDe`)
+  se recopiaient leur liste, et un mode oublié dans la lecture s'y lisait en
+  série — les routes de la série l'auraient répondu, abandonné, corrigé. Un
+  mode neuf la rejoint avant sa première partie, écrit en toutes lettres
+  dans son insertion : `campagne-modes.test.ts` relit chaque `INSERT INTO
+  campagne_series` du serveur. Une partie du Cabinet (`cabinet`) a ses
+  routes à elle : celles de la série la refusent (« Cette série est
+  introuvable »), sa correction aussi (« Cette partie se relit au
+  Cabinet ») ; seul le signalement d'une question de la base y passe, à sa
+  position, et le QG la dit « au Cabinet ». Le QG la compte en campagne,
+  sous-mode à part (`SOUS_MODES_DE_CAMPAGNE`, règle `qg.md`).
+- **Les lectures des séries filtrent sur le mode même** (`SERIES = "mode =
+  'serie'"`) : écrit `COALESCE(mode, 'serie') = 'serie'`, le filtre ne
+  servait aucun index, et le record, la page, les records par catégorie, la
+  série en cours relisaient toutes les parties du profil, de tous les modes
+  — le Cabinet en ajoute une dizaine par jour et par joueur ; sur le mode,
+  ils prennent l'index des sentiers `(profile_id, mode, branche, palier)`,
+  qui ne mène qu'à ses séries. Le `COALESCE` n'attrapait aucune ligne, et
+  le compte en production des modes NULL, que la conception du Cabinet
+  demandait d'abord, se tient par le code : la colonne est née `NOT NULL
+  DEFAULT 'serie'` (`ajouterColonne`, dans `init`) — SQLite donne ce défaut
+  aux lignes qui existaient à l'`ALTER` et refuse tout NULL écrit ensuite ;
+  aucune écriture ne pose le mode à NULL, et une insertion sans lui fait
+  une série (`commencer`). La série en cours trie par `+commencee_le` : sans
+  statistiques, l'index du profil, rangé par date, épargnait le tri à
+  SQLite, qui parcourait alors toutes les parties d'un profil sans série en
+  cours — le cas ordinaire. `campagne-index.test.ts` lit le plan de chaque
+  lecture des séries telle que le magasin l'envoie, sans statistiques comme
+  la production : une lecture de plus y passe d'elle-même.
 - **Un tirage ne repasse plus toute la base**, à chaque série, défi, duel
   ou dé : vingt-cinq mille questions (25 529 le 17 octobre 2026), au
   dixième de cœur de l'hébergeur. La liste des jouables se garde tant que
