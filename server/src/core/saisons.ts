@@ -1,4 +1,7 @@
-// Les saisons d'une soirée : Halloween, Noël, le Nouvel An (`shared/saisons.ts`).
+// Les saisons côté serveur : Halloween, Noël, le Nouvel An (`shared/saisons.ts`),
+// lues par trois modes — les soirées, les expéditions, le Cabinet de
+// curiosités —, chacun par son calendrier : un test qui rouvre l'un ne doit
+// pas rouvrir les autres.
 //
 // Une soirée jouée pendant l'une d'elles ouvre son légendaire à chaque profil
 // qui y a joué — une soirée qui compte, à deux au moins (`soireeQuiCompte`) :
@@ -19,7 +22,8 @@ import type { PrixDeSoiree } from '../auth/profiles'
  * légendaire de saison, et celles qui comptent ce qui tombe à la clôture
  * (`cloture.test.ts`, `soiree.test.ts`) voyaient une Citrouille de trop : la
  * CI de toutes les PR rougissait dix-neuf jours par an. Le banc et le smoke
- * le ferment, comme ils neutralisent l'Éclat (`ProfileStore.tirageEclat`) ;
+ * le ferment, comme le smoke neutralise l'Éclat (`ProfileStore.tirageEclat`
+ * — sous le banc, chaque fichier qui compte au point près le fait lui-même) ;
  * `saisons.test.ts`, qui date ses soirées lui-même, le rouvre.
  */
 export const calendrierDesSoirees: { periodeDu: typeof periodeDu } = { periodeDu }

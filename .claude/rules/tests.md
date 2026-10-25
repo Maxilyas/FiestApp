@@ -75,8 +75,10 @@ paths:
   25 octobre 2026, premier jour d'Halloween : la première œuvre gagnée
   pendant la fête réveille son gardien). Un test qui date ses parties
   lui-même rouvre le sien (`saisons.test.ts`, `expedition-saison.test.ts`) ;
-  un calendrier de plus se ferme aux deux bouts, une ligne chacun, ce que
-  `calendrier.test.ts` vérifie — et qu'il reste ouvert hors du banc.
+  un calendrier de plus — tout objet `{ periodeDu }` que le module exporte,
+  quel que soit son nom — se ferme aux deux bouts, une ligne chacun, celle du
+  smoke avant son premier serveur, ce que `calendrier.test.ts` vérifie — et
+  qu'il reste ouvert hors du banc.
 - **Les journaux en mémoire ne relisent que ce qui arrive.** Le banc lit
   les duels sans délai (`fraicheurDesDuelsMs: 0`, `banc.ts`) : une série
   écrite à la main y paraît à la lecture suivante, comme une réponse au

@@ -9,7 +9,8 @@
 // deux lauréats de trop. La CI de toutes les PR serait passée au rouge le
 // 24 octobre 2026 à 22 h UTC, dix-neuf jours par an, sans que rien ait changé.
 //
-// Le banc ferme le calendrier des soirées, comme il neutralise l'Éclat ;
+// Le banc ferme le calendrier des soirées — l'Éclat, lui, chaque fichier qui
+// compte au point près le neutralise lui-même, comme celui-ci ;
 // `saisons.test.ts`, qui date ses soirées lui-même, le rouvre. Ici, une
 // soirée redatée du soir d'Halloween — ce que ferait l'horloge le 31 octobre —
 // ne doit rien ouvrir.
@@ -46,8 +47,17 @@ import { calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
 
 ProfileStore.tirageEclat = () => false
 
-/** Les calendriers de `core/saisons.ts` : chaque `{ periodeDu }` qu'il exporte, celui d'un mode à venir compris. */
-const CALENDRIERS = Object.keys(saisons).filter(nom => nom.startsWith('calendrier'))
+type Calendrier = { periodeDu: (jour: string) => unknown }
+
+/**
+ * Les calendriers de `core/saisons.ts` : chaque objet `{ periodeDu }` qu'il
+ * exporte, celui d'un mode à venir compris. Choisis par leur forme, pas par
+ * leur nom : un `saisonDuDefi` passait sous un filtre sur « calendrier… »,
+ * jamais fermé, et aucune épreuve ne rougissait.
+ */
+const CALENDRIERS = Object.entries(saisons)
+  .filter(([, v]) => typeof v === 'object' && v !== null && typeof (v as Calendrier).periodeDu === 'function')
+  .map(([nom]) => nom)
 
 test('sous le banc, le calendrier des soirées est fermé', () => {
   assert.equal(calendrierDesSoirees.periodeDu('2026-10-31'), null)
@@ -62,14 +72,22 @@ test('sous le banc, le calendrier du Cabinet est fermé', () => {
 })
 
 test('le banc et le smoke ferment chaque calendrier de core/saisons.ts', () => {
-  assert.ok(CALENDRIERS.includes('calendrierDuCabinet'), `les calendriers lus : ${CALENDRIERS.join(', ')}`)
-  // Le smoke ne lance pas le banc : il ferme les siens à son début, une ligne chacun.
+  for (const connu of ['calendrierDesSoirees', 'calendrierDesExpeditions', 'calendrierDuCabinet']) {
+    assert.ok(CALENDRIERS.includes(connu), `${connu} parmi les calendriers lus : ${CALENDRIERS.join(', ')}`)
+  }
+  // Le smoke ne lance pas le banc : il ferme les siens à son début, une ligne
+  // chacun, avant son premier serveur. Fermé plus bas, un calendrier serait
+  // ouvert pendant tout ce qui précède — et pour de bon dans un magasin qui
+  // garderait `periodeDu` à sa construction.
   const smoke = readFileSync(new URL('../scripts/smoke.ts', import.meta.url), 'utf8')
+  const premierServeur = smoke.indexOf('createQuizServer(')
+  assert.ok(premierServeur > 0, 'le smoke démarre ses serveurs par createQuizServer')
   for (const nom of CALENDRIERS) {
-    const calendrier = (saisons as Record<string, unknown>)[nom] as { periodeDu: (jour: string) => unknown }
+    const calendrier = (saisons as Record<string, unknown>)[nom] as Calendrier
     assert.equal(calendrier.periodeDu('2026-10-31'), null, `le banc ferme ${nom}`)
+    const fermeture = smoke.search(new RegExp(`^${nom}\\.periodeDu = \\(\\) => null$`, 'm'))
     // `ok` plutôt que `match` : en échec, la phrase seule, pas les 130 Ko du smoke.
-    assert.ok(new RegExp(`^${nom}\\.periodeDu = \\(\\) => null$`, 'm').test(smoke), `le smoke ferme ${nom} à son début`)
+    assert.ok(fermeture >= 0 && fermeture < premierServeur, `le smoke ferme ${nom} avant son premier serveur`)
   }
 })
 
@@ -77,12 +95,12 @@ test('hors du banc, chaque calendrier suit les dates de shared/saisons.ts', () =
   // Le banc les ferme tous à son import : ce qu'ils valent en ligne se lit
   // dans un processus qui ne l'a pas chargé. Un calendrier fermé dans le code
   // même ne ferait plus tomber une seule Citrouille, et aucune épreuve sous
-  // le banc ne le verrait.
+  // le banc ne le verrait. L'enfant lit les noms choisis ici : un seul filtre,
+  // que les deux processus ne peuvent pas lire chacun à sa façon.
   const script = `
     const saisons = await import(${JSON.stringify(new URL('../src/core/saisons.ts', import.meta.url).href)})
-    const lus = Object.entries(saisons)
-      .filter(([nom]) => nom.startsWith('calendrier'))
-      .map(([nom, c]) => [nom, c.periodeDu('2026-10-25')?.saison.key ?? null, c.periodeDu('2026-10-24')?.saison.key ?? null])
+    const lus = ${JSON.stringify(CALENDRIERS)}
+      .map(nom => [nom, saisons[nom].periodeDu('2026-10-25')?.saison.key ?? null, saisons[nom].periodeDu('2026-10-24')?.saison.key ?? null])
     process.stdout.write(JSON.stringify(lus))
   `
   const sortie = execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '--eval', script], {

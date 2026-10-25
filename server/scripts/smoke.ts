@@ -25,7 +25,8 @@ import { calendrierDesExpeditions, calendrierDesSoirees, calendrierDuCabinet } f
 ProfileStore.tirageEclat = () => false
 // Le calendrier non plus : une soirée jouée pendant une saison ouvrirait son
 // légendaire, une œuvre du Cabinet son gardien, et le smoke ne dépend pas du
-// jour où il tourne (`calendrier.test.ts` vérifie que chacun est fermé ici).
+// jour où il tourne. Ici, avant le premier serveur : `calendrier.test.ts`
+// vérifie que chacun y est fermé.
 calendrierDesSoirees.periodeDu = () => null
 calendrierDesExpeditions.periodeDu = () => null
 calendrierDuCabinet.periodeDu = () => null
