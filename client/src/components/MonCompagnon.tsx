@@ -8,7 +8,7 @@ import { ApercuDOrnement } from './Ornements'
 import { Jardin, useEchelle } from './Jardin'
 import { NICHE } from './jardin'
 import { Decorer } from './Decorer'
-import { GalerieDesCompagnons } from './GalerieDesCompagnons'
+import { GalerieDesCompagnons, venuesDeLaLuciole } from './GalerieDesCompagnons'
 import { Cueillette, DessinDeFriandise, FRIANDISES } from './Cueillette'
 import { CadeauDuCompagnon } from './CadeauDuCompagnon'
 import { useModale } from '../modale'
@@ -36,6 +36,7 @@ import { ORNEMENTS, ornementsMontres, styleDeLOrnement, type CleDOrnement, type 
 import { ENVIES, NOM_DE_L_ENVIE, prochainCadeauGrand, prochainGrandCadeau, toursAppris, type CadeauOuvert, type Envie, type SoinsDuProfil } from '../../../shared/soins'
 import { TERRAINS, TROUVAILLES, niveauDuTerrain, placeLibre, trouvailleDe } from '../../../shared/trouvailles'
 import type { PublicProfile, PublicProfileDetail } from '../../../shared/profil'
+import { CABINET_EN_PRODUCTION } from '../../../shared/cabinet/ouverture'
 
 // « Mon compagnon », chez lui (la maquette validée par le propriétaire le 20
 // octobre 2026, `retours/2026-10-20/mon-compagnon/` : « trop de texte et pas
@@ -983,9 +984,12 @@ export function MonCompagnon({
  * « Tes compagnons », sur sa page : les siens d'abord, chacun sous la forme
  * qu'il montre — celui de la niche pressé, les autres à installer d'un
  * toucher : c'est celui de la niche qui grandit —, puis ceux qu'il n'a pas,
- * leur prix ou l'expédition, qui ouvrent leur fiche dans la galerie, où l'on
- * adopte sur place. Un nom fixe : celui de la niche se dit par
- * `aria-pressed`, jamais par son libellé (`design.test.ts`).
+ * leur prix ou là où la luciole se gagne — l'expédition, ou le Cabinet ouvert,
+ * comme la galerie (`venuesDeLaLuciole`) : la rangée disait « Expédition » quand
+ * la fiche qu'elle ouvre disait « Cabinet » —, qui ouvrent leur fiche dans la
+ * galerie, où l'on adopte sur place. Un nom fixe : celui de la niche se dit par
+ * `aria-pressed`, jamais par son libellé (`design.test.ts`). `cabinet` force le
+ * drapeau du Cabinet, comme la galerie.
  */
 export function TesCompagnons({
   siens,
@@ -993,12 +997,14 @@ export function TesCompagnons({
   busy,
   onInstaller,
   onVoir,
+  cabinet = CABINET_EN_PRODUCTION,
 }: {
   siens: readonly CompagnonPossede[]
   niche: NicheVue
   busy: boolean
   onInstaller: (cle: CleDeCompagnon) => void
   onVoir: (cle: CleDeCompagnon) => void
+  cabinet?: boolean
 }) {
   const amis = [...COMPAGNONS.filter(x => siens.some(a => a.compagnon === x.key)), ...COMPAGNONS.filter(x => !siens.some(a => a.compagnon === x.key))]
   return (
@@ -1008,7 +1014,7 @@ export function TesCompagnons({
         const f = a ? formeDansLaNiche(a) : lui.formes[0]
         const dessin = f && DESSINS[f.key]
         const lA = lui.key === niche.compagnon
-        const nomLu = a ? (a.nom ?? lui.nom) : lui.gagne ? `${lui.nom} : se gagne en expédition` : `${lui.nom} : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis, voir comment l’avoir`
+        const nomLu = a ? (a.nom ?? lui.nom) : lui.gagne ? `${lui.nom} : se gagne ${venuesDeLaLuciole(cabinet).dites}` : `${lui.nom} : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis, voir comment l’avoir`
         return (
           <button
             key={lui.key}
@@ -1028,7 +1034,8 @@ export function TesCompagnons({
               </span>
             )}
             <span className="chez-ami-nom">{a?.nom ?? sansArticle(lui.nom)}</span>
-            {!a && <span className={'chez-ami-cond' + (lui.gagne ? ' en-expedition' : '')}>{lui.gagne ? 'Expédition' : `🎊 ${formatNumber(PRIX_D_UN_COMPAGNON)}`}</span>}
+            {/* Le mot seul, sans l'arche de la galerie : dans cinquante-trois pixels, elle touchait le « C ». */}
+            {!a && <span className={'chez-ami-cond' + (lui.gagne ? ' en-expedition' : '')}>{lui.gagne ? venuesDeLaLuciole(cabinet).mot : `🎊 ${formatNumber(PRIX_D_UN_COMPAGNON)}`}</span>}
             {a && !lA && <span className="chez-ami-cond">L’installer</span>}
           </button>
         )

@@ -246,7 +246,9 @@ test('sa fiche, une bulle : lui, le caresser, chez lui — rien à y régler ; s
 
 test('« Tes compagnons », chez lui : celui qui y vit, les autres à installer d’un toucher, puis ceux à adopter — leur prix, ou l’expédition', async () => {
   const { DESSINS } = await import(client('components/compagnons-peints.ts'))
-  const tes = (siens: object[], niche: object) => rendreChezLui('TesCompagnons', { siens, niche, busy: false, onInstaller: () => {}, onVoir: () => {} })
+  // Le Cabinet fermé, en le disant : ouvert, la luciole s'y gagne (`album-des-avatars.test.ts`), et le jour où il ouvre
+  // en production, le drapeau du code ne doit pas faire rougir ce que la rangée dit sans lui.
+  const tes = (siens: object[], niche: object) => rendreChezLui('TesCompagnons', { siens, niche, busy: false, onInstaller: () => {}, onVoir: () => {}, cabinet: false })
   const deux = await tes(
     [
       { compagnon: 'loup', rang: 2, justes: 320, montree: 0, nom: 'Nox' },

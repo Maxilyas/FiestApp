@@ -19,6 +19,7 @@ import {
   type CompagnonAcquis,
 } from '../../../shared/compagnons'
 import { CONFETTIS_D_UNE_MISSION, CONFETTIS_DES_TROIS, MISSIONS_PAR_JOUR } from '../../../shared/missions'
+import { LEGENDAIRES, estUneVoieDExpedition, voiesMontrees } from '../../../shared/legendaires'
 import { CABINET_EN_PRODUCTION } from '../../../shared/cabinet/ouverture'
 
 // « Tous les voir » (la maquette validée le 20 octobre 2026 : « cliquer sur
@@ -35,6 +36,26 @@ import { CABINET_EN_PRODUCTION } from '../../../shared/cabinet/ouverture'
 // le même jour, et n'y mènerait plus personne de neuf. Fermé, il se tait, comme
 // dans l'album (`voiesDeLAvatar`, le drapeau du code : la préproduction, qui le
 // sert, le tait aussi d'ici l'ouverture). `cabinet` force le drapeau.
+
+/**
+ * D'où vient la luciole, qui ne s'achète pas (`Compagnon.gagne`) : la grille,
+ * sa fiche et « Tes compagnons » (`MonCompagnon.tsx`) le disent de même. Le
+ * Cabinet ouvert, sa première salle complète d'abord ; l'expédition tant que
+ * l'album dit sa voie — ce que `voiesMontrees` en décide pour les légendaires
+ * qu'elle garde, la lecture de l'album (`lieuxDeSaVenue`, `shared/album.ts`),
+ * qui ne se tire pas ici : le jour où son départ ferme, la luciole la tait avec
+ * eux. Le Cabinet fermé, l'expédition seule, comme avant lui.
+ */
+export function venuesDeLaLuciole(cabinet: boolean): { enExpedition: boolean; dites: string; mot: string } {
+  const enExpedition = !cabinet || LEGENDAIRES.some(l => voiesMontrees(l, cabinet).some(estUneVoieDExpedition))
+  return {
+    enExpedition,
+    dites: [cabinet ? 'au Cabinet' : '', enExpedition ? 'en expédition' : ''].filter(Boolean).join(' ou '),
+    // Un seul mot sous elle, ce qui l'amène d'abord : « Expédition ou Cabinet » (143 pixels pour 129) débordait de sa
+    // carte en 360.
+    mot: cabinet ? 'Cabinet' : 'Expédition',
+  }
+}
 
 const enConfettis = (n: number) => `🎊 ${formatNumber(n)}`
 
@@ -214,7 +235,7 @@ export function GalerieDesCompagnons({
                       type="button"
                       className="galerie-carte"
                       style={{ '--a': fond[0], '--b': fond[1], '--c': fond[2] } as CSSProperties}
-                      aria-label={`${sien?.nom ?? lui.nom} : ${condition === 'dans-la-niche' ? 'dans ta niche' : condition === 'chez' ? 'chez toi' : condition === 'en-expedition' ? (cabinet ? 'se gagne au Cabinet ou en expédition' : 'se gagne en expédition') : `${formatNumber(PRIX_D_UN_COMPAGNON)} confettis`}`}
+                      aria-label={`${sien?.nom ?? lui.nom} : ${condition === 'dans-la-niche' ? 'dans ta niche' : condition === 'chez' ? 'chez toi' : condition === 'en-expedition' ? `se gagne ${venuesDeLaLuciole(cabinet).dites}` : `${formatNumber(PRIX_D_UN_COMPAGNON)} confettis`}`}
                       onClick={() => ouvrir(lui.key)}
                     >
                       <span className="galerie-scene" aria-hidden="true">
@@ -235,16 +256,11 @@ export function GalerieDesCompagnons({
                               Chez toi
                             </>
                           ) : condition === 'en-expedition' ? (
-                            cabinet ? (
-                              // Un seul mot : « Expédition ou Cabinet » (143 pixels pour 129) débordait de sa carte en 360.
-                              // L'arche du Cabinet, celle de l'accueil.
-                              <>
-                                <Icon name="landmark" />
-                                Cabinet
-                              </>
-                            ) : (
-                              'Expédition'
-                            )
+                            // L'arche du Cabinet, celle de l'accueil, quand il l'amène.
+                            <>
+                              {cabinet && <Icon name="landmark" />}
+                              {venuesDeLaLuciole(cabinet).mot}
+                            </>
                           ) : (
                             enConfettis(PRIX_D_UN_COMPAGNON)
                           )}
@@ -325,7 +341,7 @@ function FicheDuCompagnon({
         {formes.map((f, i) => {
           const atteinte = !!sien && (f.metamorphose ? ouverte : sien.rang >= f.rang)
           // Sous sa première forme, ce qui l'amène : le mot de sa pastille dans la grille.
-          const seuil = f.metamorphose ? 'Éclat' : i === 0 ? (c.gagne ? (cabinet ? 'Cabinet' : 'Expédition') : 'Adoption') : formatNumber(JUSTES_DES_FORMES[f.rang])
+          const seuil = f.metamorphose ? 'Éclat' : i === 0 ? (c.gagne ? venuesDeLaLuciole(cabinet).mot : 'Adoption') : formatNumber(JUSTES_DES_FORMES[f.rang])
           // Son nom dit la forme et où elle est, jamais si on la regarde : `aria-pressed` le dit (`design.test.ts`).
           const nomLu = `${f.nom}${atteinte ? ', à toi' : f.metamorphose ? ', sa métamorphose, que l’Éclat ouvre à sa forme ultime' : i === 0 ? '' : `, à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses`}`
           return (
@@ -376,16 +392,18 @@ function FicheDuCompagnon({
                 <span className="muted small">{espacesFines(`Ta première salle complète : ${c.le === 'la' ? 'elle' : 'il'} te rejoint. ${Il} ne s’achète pas.`)}</span>
               </span>
             </li>
-            {/* L'expédition en route l'amène encore : elle se dit, sans chemin — son départ ferme quand le Cabinet ouvre. */}
-            <li>
-              <span className="galerie-etape-icone bleu" aria-hidden="true">
-                <Icon name="globe" />
-              </span>
-              <span>
-                <b>Ou mène une expédition au bout</b>
-                <span className="muted small">{espacesFines(`Les trois gardiens vaincus, ${c.le === 'la' ? 'elle' : 'il'} te rejoint aussi.`)}</span>
-              </span>
-            </li>
+            {/* Tant que l'album dit la voie de l'Expédition, elle se dit aussi, sans chemin : celui du Cabinet passe devant. */}
+            {venuesDeLaLuciole(cabinet).enExpedition && (
+              <li>
+                <span className="galerie-etape-icone bleu" aria-hidden="true">
+                  <Icon name="globe" />
+                </span>
+                <span>
+                  <b>Ou mène une expédition au bout</b>
+                  <span className="muted small">{espacesFines(`Les trois gardiens vaincus, ${c.le === 'la' ? 'elle' : 'il'} te rejoint aussi.`)}</span>
+                </span>
+              </li>
+            )}
           </>
         ) : c.gagne ? (
           <li>

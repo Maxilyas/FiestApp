@@ -46,10 +46,10 @@ import {
   type SimpleCondition,
 } from './legendaires'
 // Les salles et leurs mots, pour dire ce qui réveille un gardien : l'album vient à la demande, dans « Ma collection »
-// et la loge — l'accueil et la soirée ne le tirent pas (`medaillons.test.ts`), le Cabinet n'y part pas avec eux.
-import { AUTRES_GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, salle, salleDuGardien } from './cabinet/salles'
-import { OEUVRES, oeuvresDeLaSalle } from './cabinet/oeuvres'
-import { JOURS_DU_SCARABEE } from './cabinet/bareme'
+// et la loge — l'accueil, la soirée et la page du profil ne le tirent pas (`album-des-avatars.test.ts` parcourt leurs
+// imports), le Cabinet n'y part pas avec eux.
+import { AUTRES_GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, conditionDuGardien, salle, salleDuGardien } from './cabinet/salles'
+import { OEUVRES_DE_DEPART, oeuvresDeLaSalle } from './cabinet/oeuvres'
 import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 import { NOM_PALIER, clePalier, hautFait, origineDe, regleDuPalier } from './hautsfaits'
 import { saison } from './saisons'
@@ -130,14 +130,25 @@ export const lieuxDuLegendaire = (l: Legendaire, cabinet: boolean = CABINET_EN_P
 ]
 
 /**
+ * L'album dit-il encore la voie de l'Expédition ? Ce qu'en décide
+ * `voiesMontrees` pour les légendaires qu'elle garde, et rien d'autre : la
+ * luciole, qu'elle amène aussi, ne dit jamais une voie qu'ils taisent. Le jour
+ * où son départ ferme et où leur voie se tait, la sienne se tait avec, sans un
+ * drapeau de plus à suivre ici. La galerie des compagnons lit la même chose
+ * (`venuesDeLaLuciole`, `GalerieDesCompagnons.tsx`).
+ */
+const laVoieDeLExpeditionSeDit = (cabinet: boolean): boolean => LEGENDAIRES.some(l => voiesMontrees(l, cabinet).some(estUneVoieDExpedition))
+
+/**
  * D'où vient la première forme d'un compagnon : la boutique ; la luciole, au
  * bout d'une expédition — et, le Cabinet ouvert, de la première salle
  * complète (`cheminDeLaLuciole`, `shared/compagnons.ts`), dite d'abord :
  * l'Expédition ferme son départ le jour où le Cabinet ouvre en production,
- * c'est lui qui l'amène désormais — l'expédition en route l'amène encore.
+ * c'est lui qui l'amène désormais. L'expédition se dit ensuite tant que
+ * l'album dit sa voie. Le Cabinet fermé, rien ne change.
  */
 const lieuxDeSaVenue = (c: Compagnon, cabinet: boolean): LieuDAvatar[] =>
-  c.gagne === 'expedition' && cabinet ? ['cabinet', 'expedition'] : [c.gagne ?? 'boutique']
+  c.gagne === 'expedition' && cabinet ? ['cabinet', ...(laVoieDeLExpeditionSeDit(cabinet) ? (['expedition'] as const) : [])] : [c.gagne ?? 'boutique']
 
 const avatar = (cle: string, sorte: SorteDAvatar, rarete: RareteDAvatar, lieux: readonly LieuDAvatar[]): AvatarDeLAlbum => ({ cle, sorte, rarete, lieux })
 
@@ -165,18 +176,21 @@ function lAlbum(cabinet: boolean): readonly AvatarDeLAlbum[] {
 }
 
 /** L'album sous chaque drapeau, bâti une fois : celui du code tout de suite, l'autre à la première lecture qui le demande. */
-const ALBUMS = new Map<boolean, ReadonlyMap<string, AvatarDeLAlbum>>()
-function albumSous(cabinet: boolean): ReadonlyMap<string, AvatarDeLAlbum> {
+const ALBUMS = new Map<boolean, { liste: readonly AvatarDeLAlbum[]; parCle: ReadonlyMap<string, AvatarDeLAlbum> }>()
+function albumSous(cabinet: boolean) {
   let album = ALBUMS.get(cabinet)
-  if (!album) ALBUMS.set(cabinet, (album = new Map(lAlbum(cabinet).map(a => [a.cle, a]))))
+  if (!album) {
+    const liste = lAlbum(cabinet)
+    ALBUMS.set(cabinet, (album = { liste, parCle: new Map(liste.map(a => [a.cle, a])) }))
+  }
   return album
 }
 
-export const AVATARS_DE_L_ALBUM: readonly AvatarDeLAlbum[] = [...albumSous(CABINET_EN_PRODUCTION).values()]
+export const AVATARS_DE_L_ALBUM: readonly AvatarDeLAlbum[] = albumSous(CABINET_EN_PRODUCTION).liste
 
 /** Un avatar de l'album ; `cabinet` force le drapeau du Cabinet, ce qui ne change que ses lieux. */
 export function avatarDeLAlbum(cle: unknown, cabinet: boolean = CABINET_EN_PRODUCTION): AvatarDeLAlbum | undefined {
-  return typeof cle === 'string' ? albumSous(cabinet).get(cle) : undefined
+  return typeof cle === 'string' ? albumSous(cabinet).parCle.get(cle) : undefined
 }
 
 const DANS: Record<LieuDAvatar, string> = {
@@ -254,11 +268,15 @@ export interface PageDeLAlbum {
   total: number
 }
 
-/** Les six pages de l'album, de la commune aux Divins. */
-export function pagesDeLAlbum(p: ProfilDeLAlbum): PageDeLAlbum[] {
+/**
+ * Les six pages de l'album, de la commune aux Divins. `cabinet` force le
+ * drapeau du Cabinet : les mêmes avatars, aux mêmes places, seuls leurs lieux
+ * changent — la pastille de leur case.
+ */
+export function pagesDeLAlbum(p: ProfilDeLAlbum, cabinet: boolean = CABINET_EN_PRODUCTION): PageDeLAlbum[] {
   const siens = avatarsALui(p)
   return RARETES_D_AVATAR.map(rarete => {
-    const tous = AVATARS_DE_L_ALBUM.filter(a => a.rarete === rarete).map(a => ({ avatar: a, aLui: siens.has(a.cle) }))
+    const tous = albumSous(cabinet).liste.filter(a => a.rarete === rarete).map(a => ({ avatar: a, aLui: siens.has(a.cle) }))
     const aLui = tous.filter(a => a.aLui)
     return { rarete, avatars: [...aLui, ...tous.filter(a => !a.aLui)], acquis: aLui.length, total: tous.length }
   })
@@ -350,21 +368,27 @@ const compte = (acquis: number, requis: number, avant = '') => ({ acquis, requis
 /**
  * Ce que le Cabinet demande pour réveiller un gardien, en mots : sa salle à
  * compléter — le premier —, ou à dorer — le second —, la série, le musée
- * entier. Les chiffres viennent du Cabinet (ses salles, ses œuvres, son
- * barème) : une œuvre peinte de plus se compte d'elle-même. Null pour ce qui
- * ne garde rien.
+ * entier. Les chiffres viennent du Cabinet (ses salles, ses œuvres) : une
+ * œuvre peinte de plus se compte d'elle-même. La série et le musée entier se
+ * disent dans les mots du Cabinet (`conditionDuGardien`) : une série qui
+ * compterait autre chose ne laisserait pas l'album dire l'ancienne. Null pour
+ * ce qui ne garde rien.
  */
 function ceQueDemandeLeCabinet(gardien: string): { quoi: string; regle: string } | null {
   const s = salle(salleDuGardien(gardien))
   if (s) {
-    const oeuvres = oeuvresDeLaSalle(s.cle).length
-    return GARDIENS_DES_SALLES[s.cle][0] === gardien
-      ? { quoi: `compléter ${s.laSalle}`, regle: `Ses ${oeuvres} œuvres, gagnées en jouant ou achetées avec la poussière d’or` }
-      : { quoi: `dorer ${s.laSalle}`, regle: `Ses ${oeuvres} cadres dorés, chacun en jouant sans faute ou avec la poussière d’or` }
+    const oeuvres = oeuvresDeLaSalle(s.cle)
+    if (GARDIENS_DES_SALLES[s.cle][1] === gardien) return { quoi: `dorer ${s.laSalle}`, regle: `Ses ${oeuvres.length} cadres dorés, chacun en jouant sans faute ou avec la poussière d’or` }
+    // Les œuvres de départ sont au Vestibule, à tout le monde sans rien faire : « gagnées en jouant ou achetées » ne
+    // les disait pas — leur cartel dit « Offerte à ton arrivée ».
+    const offertes = oeuvres.filter(o => OEUVRES_DE_DEPART.includes(o.cle)).length
+    const facons = 'gagnées en jouant ou achetées avec la poussière d’or'
+    return { quoi: `compléter ${s.laSalle}`, regle: offertes ? `Ses ${oeuvres.length} œuvres : ${offertes} offertes à ton arrivée, les autres ${facons}` : `Ses ${oeuvres.length} œuvres, ${facons}` }
   }
   const reveil = AUTRES_GARDIENS.find(a => a.legendaire === gardien)?.reveil
-  if (reveil && 'serie' in reveil) return { quoi: `${JOURS_DU_SCARABEE} jours d’affilée`, regle: 'Une partie de la visite ou une chasse chaque jour, sans en manquer un' }
-  if (reveil && 'tout' in reveil) return { quoi: `les ${OEUVRES.length} œuvres`, regle: 'Toutes ses salles complètes, le Vestibule compris' }
+  const regle = conditionDuGardien(gardien)
+  if (reveil && regle && 'serie' in reveil) return { quoi: 'revenir chaque jour', regle }
+  if (reveil && regle && 'tout' in reveil) return { quoi: 'compléter tout le musée', regle }
   return null
 }
 

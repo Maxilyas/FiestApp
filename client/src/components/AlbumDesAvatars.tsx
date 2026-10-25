@@ -93,11 +93,11 @@ function nomDe(a: AvatarDeLAlbum): string {
  * et où. Un Divin pas encore descendu ne dit rien de lui, pas même son nom
  * (invariant 21).
  */
-function ceQueDitLaCase(a: AvatarDeLAlbum, aLui: boolean, porte: boolean): string {
+function ceQueDitLaCase(a: AvatarDeLAlbum, aLui: boolean, porte: boolean, cabinet: boolean | undefined): string {
   if (a.sorte === 'divin' && !aLui) return 'Un Divin, inconnu'
   const rarete = NOM_DE_RARETE_D_AVATAR[a.rarete].toLowerCase()
   if (aLui) return `${nomDe(a)}, ${rarete}${porte ? ', porté' : ', à toi'}`
-  return `${nomDe(a)}, ${rarete}, à gagner ${ouIlSeGagne(a)}`
+  return `${nomDe(a)}, ${rarete}, à gagner ${ouIlSeGagne(a, cabinet)}`
 }
 
 /**
@@ -278,10 +278,21 @@ export function FicheDeLAvatar({
  * la légende de ses pastilles. `page`, celle qu'une adresse demande
  * (`#collection-avatars-legendaire`) ; sinon celle de ce qu'il porte.
  * `onPage` écrit la page choisie dans l'adresse : revenu d'un écran qu'elle a
- * ouvert, on la retrouve.
+ * ouvert, on la retrouve. `cabinet` force le drapeau du Cabinet, comme sa
+ * fiche : ses pastilles, ce que ses cases disent à l'oreille, sa légende.
  */
-export function AlbumDesAvatars({ profil, page, onPage }: { profil: PublicProfileDetail; page: RareteDAvatar; onPage: (r: RareteDAvatar) => void }) {
-  const pages = pagesDeLAlbum(profil)
+export function AlbumDesAvatars({
+  profil,
+  page,
+  onPage,
+  cabinet,
+}: {
+  profil: PublicProfileDetail
+  page: RareteDAvatar
+  onPage: (r: RareteDAvatar) => void
+  cabinet?: boolean
+}) {
+  const pages = pagesDeLAlbum(profil, cabinet)
   const [ouvert, setOuvert] = useState<string | null>(null)
   // Une autre page demandée par l'adresse, l'album déjà là : sa fiche se referme.
   useEffect(() => setOuvert(null), [page])
@@ -330,7 +341,7 @@ export function AlbumDesAvatars({ profil, page, onPage }: { profil: PublicProfil
                 className={'album-case' + (aLui ? '' : ' album-manque') + (a.sorte === 'emoji' ? ' album-emoji' : '')}
                 aria-expanded={ouvert === a.cle}
                 aria-controls={ouvert === a.cle ? 'fiche-avatar' : undefined}
-                aria-label={ceQueDitLaCase(a, aLui, lePorte)}
+                aria-label={ceQueDitLaCase(a, aLui, lePorte, cabinet)}
                 onClick={() => toucher(a.cle)}
               >
                 <span className="album-medaillon" aria-hidden="true">
@@ -354,7 +365,7 @@ export function AlbumDesAvatars({ profil, page, onPage }: { profil: PublicProfil
               </button>
               {ouvert === a.cle && (
                 <div id="fiche-avatar" className="fiche-case album-fiche" ref={detail}>
-                  <FicheDeLAvatar a={a} aLui={aLui} porte={lePorte} profil={profil} dessin={dessin(a, aLui, true)} />
+                  <FicheDeLAvatar a={a} aLui={aLui} porte={lePorte} profil={profil} dessin={dessin(a, aLui, true)} cabinet={cabinet} />
                 </div>
               )}
             </Fragment>

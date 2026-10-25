@@ -302,7 +302,8 @@ test('touché dans l’album, un légendaire ou un Divin se montre en grand en t
   // fiche vit dans la collection, qui raconte d'où il vient.
   const album = source('components/AlbumDesAvatars.tsx')
   // Gagné ou non, éclaté ou non, en grand : ses grands fichiers, et le reflet qui suit le doigt.
-  assert.match(album, /<FicheDeLAvatar a=\{a\} aLui=\{aLui\} porte=\{lePorte\} profil=\{profil\} dessin=\{dessin\(a, aLui, true\)\} \/>/)
+  // Le drapeau du Cabinet suit l'album jusqu'à elle (`cabinet`, le 25 octobre 2026).
+  assert.match(album, /<FicheDeLAvatar a=\{a\} aLui=\{aLui\} porte=\{lePorte\} profil=\{profil\} dessin=\{dessin\(a, aLui, true\)\} cabinet=\{cabinet\} \/>/)
   assert.match(album, /<Legendaire cle=\{a\.cle\} verrouille=\{!aLui\} eclat=\{aLui && brille\(a\.cle\)\} grand=\{grand\} \/>/)
   assert.match(album, /<Divin cle=\{a\.cle\} verrouille=\{!aLui\} grand=\{grand\} \/>/)
 

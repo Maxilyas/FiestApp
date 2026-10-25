@@ -68,8 +68,13 @@ const loge = { ...rien, essai: {}, essayer: () => {} }
 const laLoge = (piece: string, p: object = complet) =>
   rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: p, piece, onPiece: () => {}, busy: false, enregistrer: async () => true })
 
-/** L'album des avatars de « Ma collection », ouvert sur une page. */
-const album = (page: string, p: object = profil) => rendu('components/AlbumDesAvatars', 'AlbumDesAvatars', { profil: p, page, onPage: () => {} })
+/**
+ * L'album des avatars de « Ma collection », ouvert sur une page — le Cabinet
+ * fermé, en le disant : ouvert, la luciole s'y gagne aussi
+ * (`album-des-avatars.test.ts`), et le jour où il ouvre en production, le
+ * drapeau du code ne doit pas faire rougir ce que ces pages disent sans lui.
+ */
+const album = (page: string, p: object = profil) => rendu('components/AlbumDesAvatars', 'AlbumDesAvatars', { profil: p, page, onPage: () => {}, cabinet: false })
 
 /** Les cases d'une page de l'album, par ce qu'elles disent à l'oreille. */
 const casesDeLAlbum = (html: string) => [...html.matchAll(/class="album-case([^"]*)" aria-expanded="false" aria-label="([^"]+)"/g)].map(m => ({ aLui: !m[1].includes('album-manque'), nom: m[2] }))

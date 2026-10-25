@@ -67,8 +67,9 @@ paths:
   voie du Cabinet se disait « En soirée : « cabinet:phenix » ». L'album dit ce
   que le Cabinet demande, sans jauge — il ne reçoit pas le musée —, d'après
   ses salles (`ceQueDemandeLeCabinet` : « Au Cabinet : compléter la salle du
-  Rempart », « dorer… », la série, les 84 œuvres) ; un gardien de saison n'y
-  a pas de voie, sa règle dit l'œuvre gagnée à sa fête.
+  Rempart », « dorer… », le Vestibule et ses œuvres offertes à l'arrivée ; la
+  série et le musée entier dans les mots du Cabinet, `conditionDuGardien`) ;
+  un gardien de saison n'y a pas de voie, sa règle dit l'œuvre gagnée à sa fête.
 - **Un trophée réservé à certains serveurs se tait aux deux bouts**
   (`montreParLeServeur` — L'Explorateur, le 19 octobre 2026, là où les
   rencontres de l'expédition s'ouvrent) : ce qu'il compte vaut 0 ailleurs,
