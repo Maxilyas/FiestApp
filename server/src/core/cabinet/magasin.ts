@@ -22,7 +22,8 @@
 //
 // La fin d'une partie, un achat, une dorure et le musée lu à froid
 // réconcilient ses gardiens (`gardiens.ts`) : rien de dû et pas rangé, rien
-// ne coûte ; un rangement raté se refait à la page suivante.
+// ne coûte ; un rangement raté se refait à la page suivante, et ce que la
+// partie d'hier close par le serveur réveille, la page qui suit le dit.
 //
 // L'heure est celle de la campagne (`maintenant`, que le banc règle) : jamais
 // l'horloge de la machine ici (`cabinet-chronos.test.ts`). Le plafond des départs, lui,
@@ -34,7 +35,7 @@ import type { QuestionDeLaBase } from '../baseCampagne'
 import type { FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites } from '../porteDeLaCampagne'
 import type { calendrierDuCabinet } from '../saisons'
 import { instructionDeLAchat, instructionDeLaDorure, lotDeLEchange, lotDeLOubli, lotDuDepart, lotDuGeste, type FinAEcrire, type OeuvreAEcrire } from './ecriture'
-import { reconcilier, type EtagereDuCabinet } from './gardiens'
+import { fondreLesReveils, reconcilier, type EtagereDuCabinet } from './gardiens'
 import { GARDIENS_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
 import type { ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 import { lecturesDeLaPartie, lecturesDuMusee, laPartieLue, lireLeMusee, type PartieLueEnBase } from './tables'
@@ -129,6 +130,8 @@ interface MuseeGarde {
   duJour: { jour: string; parties: PartieDuJour[] }
   enCours: { id: string; jeu: CleDeJeu } | null
   expeditionEnRoute: string | null
+  /** Les saisons rangées sous `#cabinet`, relues à froid puis tenues à jour par la réconciliation (`reconcilier`). */
+  sousLeCabinet: Set<string>
 }
 
 /** Une partie en mémoire : son départ figé, ses gestes écrits, le pli qui en dit l'état. */
@@ -169,7 +172,7 @@ export interface LectureDuCabinet {
    * sait (« Une œuvre nouvelle est arrivée »). Lues en mémoire.
    */
   rangees: ReadonlySet<string>
-  /** Ce que la dépense qui rend la page vient de réveiller ; rien pour une page lue. */
+  /** Ce que la dépense qui rend la page vient de réveiller, et la partie d'hier que le serveur a close depuis la dernière page ; rien d'autre. */
   reveil?: ReveilDesGardiens
 }
 
@@ -348,6 +351,14 @@ export class CabinetStore {
    * dû attendait le prochain changement du musée ou le prochain réveil.
    */
   private readonly aReveiller = new Set<string>()
+  /**
+   * Ce que la clôture d'une partie d'un jour d'avant a réveillé (`clore`) :
+   * rien ne l'attendait — la page, un départ, une dépense passaient par là —,
+   * et la page qui suit le dit, une fois. Sans cela, le gardien neuf qu'une
+   * chasse laissée la veille au seuil faisait entrer se rangeait sans un mot,
+   * et la réconciliation suivante, le trouvant rangé, ne le disait jamais.
+   */
+  private readonly aAnnoncer = new Map<string, ReveilDesGardiens>()
 
   constructor(
     private readonly porte: PorteDeLaCampagne,
@@ -401,8 +412,10 @@ export class CabinetStore {
       if (garde.duJour.jour !== jour) garde.duJour = { jour, parties: [] }
       return this.garder(this.musees, profileId, garde, MUSEES_GARDES)
     }
-    const { lus } = await this.porte.lireAvecLeJournal(lecturesDuMusee(profileId, minuitDe(t)))
-    const lu = lireLeMusee(lus)
+    // Sans étagère — un magasin d'essai, sans profils —, ni ses saisons à relire, ni la table qui les tient.
+    const avecLEtagere = !!(this.profils.recompensesOf && this.profils.ranger)
+    const { lus } = await this.porte.lireAvecLeJournal(lecturesDuMusee(profileId, minuitDe(t), avecLEtagere))
+    const lu = lireLeMusee(lus, avecLEtagere)
     if (lu.partieIllisible) await this.rendreLaPartieIllisible(profileId, lu.partieIllisible)
     const enCours = lu.enCours ? this.garderLaPartie(profileId, lu.enCours, null) : null
     const g = this.garder(
@@ -414,12 +427,13 @@ export class CabinetStore {
         duJour: { jour, parties: lu.parties },
         enCours: enCours ? { id: enCours.id, jeu: enCours.depart.jeu } : null,
         expeditionEnRoute: lu.expeditionEnRoute,
+        sousLeCabinet: new Set(lu.saisonsSousLeCabinet),
       },
       MUSEES_GARDES,
     )
     // Lu à froid — le premier passage d'un réveil, des œuvres rapportées de l'Expédition, un rangement qui avait
     // échoué —, le musée réconcilie ses gardiens, en silence : il les avait peut-être déjà, rien ne s'annonce.
-    await this.reveiller(profileId, this.museeVu(profileId, g), t)
+    await this.reveiller(profileId, this.museeVu(profileId, g), t, g)
     return g
   }
 
@@ -427,9 +441,10 @@ export class CabinetStore {
    * Réveille les gardiens que ce musée doit et que son étagère n'a pas
    * (`reconcilier`, `gardiens.ts`) : rien à ranger, rien ne coûte. Ce qui
    * échoue se refera à la page suivante (`aReveiller`) ; ne rejette jamais.
+   * `g`, le musée gardé dont `m` est la vue, tient les saisons rangées.
    */
-  private async reveiller(profileId: string, m: Musee, t: number): Promise<ReveilDesGardiens | null> {
-    const { reveil, echec } = await reconcilier(this.profils, profileId, m, t)
+  private async reveiller(profileId: string, m: Musee, t: number, g: MuseeGarde): Promise<ReveilDesGardiens | null> {
+    const { reveil, echec } = await reconcilier(this.profils, profileId, m, t, g.sousLeCabinet)
     if (echec) this.aReveiller.add(profileId)
     else this.aReveiller.delete(profileId)
     return reveil
@@ -500,10 +515,11 @@ export class CabinetStore {
   // ── La page ───────────────────────────────────────────────────────────
 
   /**
-   * Ce que la page du Cabinet lit : chaud, rien ; froid, un lot. Une partie
-   * d'un jour d'avant — un téléphone éteint en pleine manche, un joueur
-   * jamais revenu — se clôt ici, la seule écriture d'une lecture : idempotente
-   * par sa garde, sous le verrou du profil, un aller-retour, une fois.
+   * Ce que la page du Cabinet lit : chaud, rien ; froid, un lot. Ses seules
+   * écritures : une partie d'un jour d'avant — un téléphone éteint en pleine
+   * manche, un joueur jamais revenu — se clôt ici, idempotente par sa garde,
+   * sous le verrou du profil, un aller-retour, une fois ; et la réconciliation
+   * des gardiens, au seul changement (`reveiller`).
    */
   async page(profileId: string): Promise<LectureDuCabinet> {
     return this.porte.avecVerrou(profileId, () => this.lecture(profileId, this.maintenant()))
@@ -513,12 +529,15 @@ export class CabinetStore {
    * La page, sous le verrou du profil que l'appelant tient déjà — la page même,
    * ou ce qui rend la page d'après : un achat, une dorure, un échange. Rien à
    * lire chaud ; la mémoire porte déjà ce que le lot vient d'écrire. Une
-   * dépense dit ce qu'elle vient de réveiller (`apres.reveil`) ; une page lue
-   * refait la réconciliation qui avait échoué, en silence.
+   * dépense dit ce qu'elle vient de réveiller (`apres.reveil`), et toute page
+   * ce que la clôture d'une partie d'hier a réveillé depuis la dernière
+   * (`aAnnoncer`) ; une page lue refait la réconciliation qui avait échoué, en
+   * silence — chaude seulement : à froid, le musée vient de la faire.
    */
   private async lecture(profileId: string, t: number, apres?: { reveil: ReveilDesGardiens | null }): Promise<LectureDuCabinet> {
+    const chaud = this.musees.has(profileId)
     let garde = await this.musee(profileId, t)
-    if (!apres && this.aReveiller.has(profileId)) await this.reveiller(profileId, this.museeVu(profileId, garde), t)
+    if (!apres && chaud && this.aReveiller.has(profileId)) await this.reveiller(profileId, this.museeVu(profileId, garde), t, garde)
     let enCours = garde.enCours ? await this.partieDe(profileId, garde.enCours.id) : null
     if (enCours?.etat.fin) {
       // Finie par l'autre serveur : son musée vient de s'oublier (`partieDe`), il se relit pour cette page-ci.
@@ -532,6 +551,8 @@ export class CabinetStore {
     }
     const musee = this.museeVu(profileId, garde)
     const visite = this.visiteDe(profileId, musee, t)
+    const reveil = fondreLesReveils(this.aAnnoncer.get(profileId), apres?.reveil)
+    this.aAnnoncer.delete(profileId)
     return {
       maintenant: t,
       jour: jourDe(t),
@@ -543,14 +564,21 @@ export class CabinetStore {
       fete: this.reglages.calendrier.periodeDu(jourDe(t))?.saison ?? null,
       jeux: JEUX_PRETS,
       rangees: this.rangeesDe(profileId),
-      ...(apres?.reveil && { reveil: apres.reveil }),
+      ...(reveil && { reveil }),
     }
   }
 
-  /** La partie d'hier, close par le serveur (`clore`) : le pli la finit comme un « Quitter », et la fin s'écrit. */
+  /**
+   * La partie d'hier, close par le serveur (`clore`) : le pli la finit comme un
+   * « Quitter », et la fin s'écrit. Ses manches tranchées gardent leurs
+   * étoiles : au seuil, elle gagne son œuvre et peut compléter une salle — ce
+   * qu'elle réveille attend la page qui suit (`aAnnoncer`).
+   */
   private async clore(profileId: string, p: PartieGardee, t: number) {
     const issue = await this.ecrireUnGeste(profileId, p, { quoi: 'clore', pourquoi: 'lendemain' }, p.etat.rang, t)
     if ('refus' in issue) console.error(`[cabinet] la partie ${p.id} d’un jour d’avant ne se clôt pas : ${issue.refus}`)
+    const reveil = 'partie' in issue ? issue.partie.gains?.reveil : undefined
+    if (reveil) this.garder(this.aAnnoncer, profileId, fondreLesReveils(this.aAnnoncer.get(profileId), reveil) ?? reveil, MUSEES_GARDES)
   }
 
   /**
@@ -770,7 +798,7 @@ export class CabinetStore {
                 ecrite: ([g]) => g.rowsAffected === 1,
                 // La porte ne l'appelle que si le lot a écrit la fin : le musée qu'elle laisse est vrai.
                 avantLesPaliers: async () => {
-                  capte.reveil = await this.reveiller(profileId, this.museeApresLaFin(profileId, garde, p.id, fin.aEcrire, t), t)
+                  capte.reveil = await this.reveiller(profileId, this.museeApresLaFin(profileId, garde, p.id, fin.aEcrire, t), t, garde)
                 },
               }
             : undefined
@@ -957,7 +985,7 @@ export class CabinetStore {
         }
         this.retenirLaDepense(g, oeuvre, sorte, prix, t)
         // Une œuvre achetée peut compléter une salle, ou le Cabinet ; une dorure, dorer une salle entière : la page d'après le dit.
-        const reveil = await this.reveiller(profileId, this.museeVu(profileId, g), t)
+        const reveil = await this.reveiller(profileId, this.museeVu(profileId, g), t, g)
         return this.lecture(profileId, t, { reveil })
       }
     })
@@ -1119,6 +1147,9 @@ export class CabinetStore {
       this.oublier(profileId)
       await this.porte.client.batch(lotDeLOubli(profileId), 'write')
       this.oublier(profileId)
+      // Ses gardiens à refaire ou à dire partent avec lui : gardés, ils ne servaient plus personne.
+      this.aReveiller.delete(profileId)
+      this.aAnnoncer.delete(profileId)
     })
   }
 }

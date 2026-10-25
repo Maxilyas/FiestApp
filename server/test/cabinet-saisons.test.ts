@@ -28,8 +28,22 @@ const PENDANT_HALLOWEEN = Date.UTC(2026, 9, 26, 9, 0)
 const APRES_HALLOWEEN = Date.UTC(2026, 10, 3, 9, 0)
 
 let b: BancDuCabinet
+/** La Citrouille d'une soirée d'Halloween (`laureatsDeSaison`), rangée sous elle, posée à la main avant le redémarrage ; Gil a aussi gagné une œuvre de la fête. */
+let fee: { cookie: string; id: string }
+let gil: { cookie: string; id: string }
+const UNE_SOIREE = 'une-soiree-d-halloween'
 before(async () => {
   b = await bancDuCabinet()
+  fee = await joueuse('fee')
+  gil = await joueuse('gil')
+  for (const j of [fee, gil])
+    aLaMain(
+      b.fichier,
+      `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES ('${j.id}', 'saison:halloween', '${UNE_SOIREE}', 'un-espace', '🎃', 'Saison : Halloween', 1)`,
+    )
+  aLaMain(b.fichier, `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, saison) VALUES ('${gil.id}', 'lecon', 'partie', 0, 'halloween')`)
+  // L'étagère se relit au réveil : ce qui a été écrit derrière son dos ne se voit qu'ensuite.
+  await b.banc.redemarrer()
 })
 after(() => b?.banc.close())
 after(fermerLesMagasins)
@@ -84,6 +98,27 @@ test('la première œuvre gagnée en jouant pendant Halloween réveille la Citro
   const encore = await gagner(ana.cookie, 'troisieme-oeil')
   assert.equal(encore.bilan!.gardiens, undefined)
   assert.equal(saisonsDe(ana.id).length, 1)
+})
+
+test('la Citrouille déjà gagnée en soirée : le Cabinet range quand même sa saison sous #cabinet — la soirée retirée, elle veille encore', async () => {
+  b.horloge.t = PENDANT_HALLOWEEN
+  assert.ok((await legendairesDe(fee.cookie)).includes('lg:citrouille'), 'la Citrouille d’une soirée')
+  const fin = await gagner(fee.cookie, 'lecon')
+  assert.deepEqual(fin.bilan!.gardiens, [{ legendaire: 'lg:citrouille', neuf: false }], 'elle veillait déjà')
+  assert.equal(fin.bilan!.gains?.legendaires, undefined, 'rien d’annoncé en grand')
+  // Gil la tenait de même, et une œuvre de la fête : son musée lu à froid range la saison, en silence.
+  assert.equal(ok(await laPage(b, gil.cookie), 'la page froide').reveil, undefined)
+  for (const j of [fee, gil])
+    assert.deepEqual(
+      saisonsDe(j.id).map(s => (s as { soiree_id: string }).soiree_id).sort(),
+      [RANGEMENT_DU_CABINET, UNE_SOIREE].sort(),
+      j.id,
+    )
+  // La soirée retirée (« C'était un essai », une archive effacée) emporte sa ligne : celle du Cabinet reste, et la
+  // Citrouille avec. Tenue pour rangée parce qu'une soirée la tenait, elle s'en allait avec elle.
+  aLaMain(b.fichier, `DELETE FROM profile_badges WHERE soiree_id = '${UNE_SOIREE}'`)
+  await b.banc.redemarrer()
+  for (const j of [fee, gil]) assert.ok((await legendairesDe(j.cookie)).includes('lg:citrouille'), j.id)
 })
 
 test('pendant la fête, un achat, une dorure, une œuvre rapportée de l’Expédition ne rangent pas de saison', async () => {

@@ -16,8 +16,9 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { DIX_HEURES, aLaMain, departEnBase, dossierDEssai, fermerLesMagasins, magasinDEssai } from './cabinet-banc'
-import { partiesDuJour } from '../src/core/cabinet/tables'
+import { lecturesDuMusee, partiesDuJour } from '../src/core/cabinet/tables'
 import { prixDe } from '../../shared/cabinet/musee'
+import { ProfileStore } from '../src/auth/profiles'
 
 /** Chaque instruction du Cabinet envoyée à la base, avec ses arguments : le plan se lit tel qu'elle est partie. */
 const envoyees = new Map<string, unknown[]>()
@@ -100,6 +101,27 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
         }
       }
     }
+  } finally {
+    db.close()
+  }
+})
+
+test('les saisons que le lot froid relit de l’étagère : trois clés, chacune par la clé primaire, jamais l’étagère entière', async () => {
+  // Le magasin d'essai n'a pas d'étagère, et ne la lit pas : la table vient des profils, sur leur base. Sa clé
+  // `(profile_id, badge, soiree_id)` sert les trois colonnes ; par le profil seul, la lecture parcourrait tout ce que
+  // le plus fidèle a jamais gagné — des centaines de lignes, à chaque musée lu à froid.
+  const fichier = path.join(dossierDEssai(), 'etagere.db')
+  const profils = new ProfileStore(`file:${fichier}`)
+  await profils.init()
+  profils.close()
+  const etagere = (avec: boolean) => lecturesDuMusee('qui', DIX_HEURES, avec).flatMap(i => (typeof i !== 'string' && /\bprofile_badges\b/.test(i.sql) ? [i] : []))
+  assert.equal(etagere(false).length, 0, 'sans étagère, rien ne la lit')
+  const [saisons] = etagere(true)
+  assert.ok(saisons)
+  const db = new Database(fichier, { readonly: true })
+  try {
+    const plan = (db.prepare(`EXPLAIN QUERY PLAN ${saisons.sql}`).all(...((saisons.args ?? []) as unknown[])) as Etape[]).map(e => e.detail).join('\n')
+    assert.match(plan, /^SEARCH profile_badges USING (PRIMARY KEY|(COVERING )?INDEX sqlite_autoindex_profile_badges_1) \(profile_id=\? AND badge=\? AND soiree_id=\?\)$/, plan)
   } finally {
     db.close()
   }

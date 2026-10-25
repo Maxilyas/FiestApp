@@ -245,7 +245,7 @@ se filtre par une seule liste (`PREFIXES_DES_VOIES_RANGEES`,
 - **Colonnes clés** : `profile_id`, `badge`, `soiree_id` (la clé à trois ; `soiree_id` vaut le nom de la soirée, ou `#jour:…`, `#mois:…`, `#campagne:…`, `#defi:…`, `#cabinet` hors des soirées — une expédition range son légendaire sous `#campagne:<son id>`, le Cabinet ses gardiens sous `#cabinet`), `space_id`, `emoji`, `title`, `created_at`.
 - **Espace** : oui pour une soirée.
 - **Écrite par** : `ProfileStore` — la clôture (`remplacerRecompensesDeSoiree`, remplacée en un lot), les paliers, le quiz du jour, la campagne, le Cabinet (ses gardiens, `core/cabinet/gardiens.ts` par `ranger`), le recalcul.
-- **Lue par** : `ProfileStore` ; `JourStore`.
+- **Lue par** : `ProfileStore` ; `JourStore` ; le lot froid du musée du Cabinet (`lecturesDuMusee`, `core/cabinet/tables.ts`), ses seules saisons sous `#cabinet`, par la clé : tenue sous une soirée, une saison s'en irait avec elle.
 - **Effacée par** : le remplacement des récompenses d'une soirée, l'essai effacé, une soirée retirée, la suppression du profil.
 
 ### `profile_eclats`
@@ -313,11 +313,11 @@ Les sabliers qui protègent la série du quiz du jour, une ligne par sablier.
 
 ### `profile_compagnons`
 
-Les compagnons achetés — ou offerts à prix nul : tirés d'un coffre, ou la luciole, que la Première traversée amène —, la plus haute forme que chacun a atteinte, les paliers de sa niche, et ce qu'il en a réglé depuis sa niche.
+Les compagnons achetés — ou offerts à prix nul : tirés d'un coffre, ou la luciole, que la Première traversée amène, ou la première salle complète du Cabinet (`core/cabinet/gardiens.ts`) —, la plus haute forme que chacun a atteinte, les paliers de sa niche, et ce qu'il en a réglé depuis sa niche.
 
 - **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date) ; `nom`, le nom qu'il lui a donné (NULL : aucun ; l'instantané de la salle ne le dit jamais, la carte qu'on ouvre en touchant son nom, si — depuis le 19 octobre 2026), et `montree`, le rang de la forme qu'il montre dans sa niche quand ce n'est pas la plus haute, ou 4 pour sa métamorphose (`MONTREE_DE_LA_METAMORPHOSE` : relu à sa forme ultime, montré tant que l'Éclat brille sur lui) (NULL : la plus haute, qui suit sa croissance — une forme atteinte la remet à NULL) ; `paliers`, les paliers de sa niche atteints avec lui après sa forme ultime, de 0 à 4 (`PALIERS_DE_LA_NICHE`, NULL vaut 0 : ne fait que monter, comme `rang`, et ne remet pas `montree` à NULL), et `ornements`, ce qu'il a réglé de ses ornements quand ce n'est pas le style d'office, en JSON (`{"guirlande":"cache","lierre":"dessin"}` : caché, ou dessiné comme sur la maquette ; NULL : tous montrés, peints — le Féerique, `STYLE_D_OFFICE`, depuis le 20 octobre 2026 ; un style inconnu s'y lit comme celui d'office) ; `jardin`, son jardin autour de sa niche, en JSON — la trouvaille de chaque place occupée (`{"s1":"lanterne","s5":"cerfvolant"}`, `shared/trouvailles.ts` ; NULL : rien de posé), lu par sa page seule (`GET /api/joueur/soins`), jamais avec le profil, et relu à sa complicité du jour (`jardinMontre`).
 - **Espace** : non.
-- **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche`, sauf `installer: false` —, le coffre, `offrirUnCompagnon` — la luciole, à la fin d'une expédition menée au bout et au rattrapage du démarrage, dans une niche vide seulement —, la croissance et les paliers, `reglerCompagnon` pour `nom`, `montree` et `ornements`, `ecrireLeJardin` pour `jardin`, vérifié par `core/soins.ts`).
+- **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche`, sauf `installer: false` —, le coffre, `offrirUnCompagnon` — la luciole, à la fin d'une expédition menée au bout et au rattrapage du démarrage, ou à la première salle complète du Cabinet (`core/cabinet/gardiens.ts`), dans une niche vide seulement —, la croissance et les paliers, `reglerCompagnon` pour `nom`, `montree` et `ornements`, `ecrireLeJardin` pour `jardin`, vérifié par `core/soins.ts`).
 - **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`) ; les soins (`lignesDesSoins`).
 - **Effacée par** : la suppression du profil.
 

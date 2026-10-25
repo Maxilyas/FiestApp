@@ -6,24 +6,45 @@
 // pas rangé, aucun aller-retour. À la fin d'une partie, à un achat, à une
 // dorure, l'annonce : le gardien neuf en grand, celui qui veillait déjà sans
 // cérémonie, la luciole à la première salle complète ; à la page froide, en
-// silence. Un rangement raté se rattrape à la page suivante ; une œuvre de
+// silence ; à la partie d'hier que le serveur clôt, la page qui suit. Un
+// rangement raté se rattrape à la page suivante, une réponse perdue se relit
+// sans rien réécrire ; une œuvre de
 // plus dans une salle complète n'endort pas son gardien ; jamais un Divin
 // (invariant 21). Les saisons ont leur fichier (`cabinet-saisons.test.ts`) :
 // elles rouvrent un calendrier que celui-ci garde fermé.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
+import path from 'node:path'
+import type { Client, InStatement } from '@libsql/client'
 import { inscrireProfil } from './banc'
-import { aLaMain, bancDuCabinet, commencer, enBase, fermerLesMagasins, jouer, laPage, lire, ok, poster, unPariParfait, type BancDuCabinet } from './cabinet-banc'
+import {
+  aLaMain,
+  bancDuCabinet,
+  commencer,
+  dossierDEssai,
+  enBase,
+  fermerLesMagasins,
+  jouer,
+  jouerUnPari,
+  laPage,
+  lire,
+  ok,
+  ouvrir,
+  poster,
+  unPariParfait,
+  type BancDuCabinet,
+} from './cabinet-banc'
 import { JOURS_DU_SCARABEE, PRIX_D_UNE_DORURE, PRIX_D_UNE_OEUVRE } from '../../shared/cabinet/bareme'
 import { OEUVRES, OEUVRES_DE_DEPART, oeuvresDeLaSalle, type CleDOeuvre } from '../../shared/cabinet/oeuvres'
 import { GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DU_CABINET, PREFIXE_DE_LA_VOIE_DU_CABINET, voieDuGardien } from '../../shared/cabinet/salles'
 import { museeDe, type LigneDOeuvre } from '../../shared/cabinet/musee'
+import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
 import type { PageDuCabinet, ReveilDesGardiens, VueDeLaPartie } from '../../shared/cabinet/vues'
-import { LEGENDAIRES_DU_CABINET, PREFIXES_DES_VOIES_RANGEES, cleDuCabinet, legendaireDuCabinet } from '../../shared/legendaires'
+import { LEGENDAIRES_DU_CABINET, PREFIXES_DES_VOIES_RANGEES, cleDuCabinet, estUneVoieDuCabinet, legendaire, legendaireDuCabinet, voiesMontrees } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
 import { COMPAGNON_DE_L_EXPEDITION } from '../../shared/compagnons'
 import { ProfileStore, RANGEMENT_DU_CABINET } from '../src/auth/profiles'
-import { reconcilier, voiesQuiManquent, type EtagereDuCabinet } from '../src/core/cabinet/gardiens'
+import { fondreLesReveils, reconcilier, voiesQuiManquent, type EtagereDuCabinet } from '../src/core/cabinet/gardiens'
 
 ProfileStore.tirageEclat = () => false
 
@@ -42,6 +63,11 @@ test('la voie du Cabinet : vingt gardiens, la même clé des deux côtés, une v
   assert.equal(legendaireDuCabinet('cabinet:citrouille'), undefined)
   assert.equal(legendaireDuCabinet('cabinet:licorne'), undefined, 'un légendaire sans joker ne garde rien')
   assert.equal(legendaireDuCabinet('expedition:phenix'), undefined)
+  // L'album la tait tant que le Cabinet est fermé en production ; forcé, il la lit telle qu'elle sera à l'ouverture.
+  const phenix = legendaire('lg:phenix')!
+  assert.ok(voiesMontrees(phenix, true).some(v => estUneVoieDuCabinet(v) && !('toutes' in v) && v.hautFait === 'cabinet:phenix'))
+  assert.ok(!voiesMontrees(phenix, false).some(estUneVoieDuCabinet))
+  assert.equal(voiesMontrees(phenix).some(estUneVoieDuCabinet), CABINET_EN_PRODUCTION, 'le drapeau du code d’office')
 })
 
 /** Une ligne d'œuvre écrite comme le lot froid la lit. */
@@ -116,6 +142,63 @@ test('la réconciliation : un gardien qui veillait déjà se range sans s’anno
   assert.deepEqual(p.reveil, { gardiens: [], compagnon: COMPAGNON_DE_L_EXPEDITION }, 'la luciole a sa propre écriture : elle passe quand même')
   // Sans étagère — un magasin d'essai, sans profils —, rien ne se range, rien ne casse.
   assert.deepEqual(await reconcilier({}, 'p', musee, 7), { reveil: null, echec: false })
+})
+
+test('deux réveils en un — la partie d’hier close, puis la dépense : chaque gardien une fois, la luciole d’où qu’elle vienne', () => {
+  assert.equal(fondreLesReveils(undefined, null), undefined, 'rien à dire : rien')
+  assert.deepEqual(
+    fondreLesReveils({ gardiens: [{ legendaire: 'lg:phenix', neuf: true }], compagnon: COMPAGNON_DE_L_EXPEDITION }, { gardiens: [{ legendaire: 'lg:fantome', neuf: false }] }),
+    { gardiens: [{ legendaire: 'lg:phenix', neuf: true }, { legendaire: 'lg:fantome', neuf: false }], compagnon: COMPAGNON_DE_L_EXPEDITION },
+  )
+  assert.deepEqual(fondreLesReveils({ gardiens: [{ legendaire: 'lg:phenix', neuf: false }] }, { gardiens: [{ legendaire: 'lg:phenix', neuf: true }] }), {
+    gardiens: [{ legendaire: 'lg:phenix', neuf: true }],
+  })
+})
+
+test('rangée ailleurs entre-temps — l’autre serveur d’une mise en ligne — : la voie ne s’annonce pas ici', async () => {
+  const musee = museeDe({ jour: '2026-10-24', oeuvres: pasDeDepart('rempart').map(o => ligne(o.cle)) })
+  // La mémoire ne l'a pas, la base l'avait déjà : rien de neuf. L'autre serveur l'a annoncée ; annoncée ici, elle le serait deux fois.
+  const e = etagereDEssai()
+  assert.deepEqual(await reconcilier({ ...e.etagere, ranger: async () => [] }, 'p', musee, 7), { reveil: null, echec: false })
+})
+
+test('la réponse d’un rangement perdue après l’écriture : la réconciliation suivante relit l’étagère, puis ne paie plus rien', async () => {
+  // Un vrai `ProfileStore`, sur un fichier : sa mémoire et sa base, que la réponse perdue sépare.
+  const profils = new ProfileStore(`file:${path.join(dossierDEssai(), 'etagere.db')}`)
+  try {
+    await profils.init()
+    const { profile } = await profils.register({ login: 'lea', password: 'motdepasse1', name: 'Léa', avatar: '🦊' })
+    const musee = museeDe({ jour: '2026-10-24', oeuvres: pasDeDepart('rempart').map(o => ligne(o.cle)) })
+    // Le lot de l'étagère sous `#cabinet` passe en base, puis sa réponse se perd, une fois.
+    const client = (profils as unknown as { client: Client }).client
+    const batch = client.batch.bind(client)
+    let perdue = false
+    let lots = 0
+    client.batch = (async (lot: InStatement[], mode?: Parameters<Client['batch']>[1]) => {
+      const sousLeCabinet = JSON.stringify(lot).includes(RANGEMENT_DU_CABINET)
+      if (sousLeCabinet) lots++
+      const lus = await batch(lot, mode)
+      if (sousLeCabinet && !perdue) {
+        perdue = true
+        throw new Error('fetch failed')
+      }
+      return lus
+    }) as Client['batch']
+
+    const premiere = await reconcilier(profils, profile.id, musee, 1)
+    assert.equal(premiere.echec, true, 'la page suivante la refera')
+    assert.ok(!profils.legendairesOf(profile.id).includes('lg:phenix'), 'la mémoire ignore ce que la base vient d’écrire')
+    // La ligne est là, la mémoire en retard : rien ne s'écrit de neuf, l'étagère se relit — sans rien annoncer, comme
+    // toute réconciliation ratée qui se rattrape. Sans la relecture, le Phénix restait endormi jusqu'au redémarrage,
+    // refusé à qui voulait le porter, et chaque fin, chaque achat, chaque page froide réécrivait la même ligne.
+    assert.deepEqual(await reconcilier(profils, profile.id, musee, 2), { reveil: null, echec: false })
+    assert.ok(profils.legendairesOf(profile.id).includes('lg:phenix'), 'le Phénix est à elle')
+    assert.equal(lots, 2)
+    assert.deepEqual(await reconcilier(profils, profile.id, musee, 3), { reveil: null, echec: false })
+    assert.equal(lots, 2, 'ensuite, plus une écriture')
+  } finally {
+    profils.close()
+  }
 })
 
 test('les autres gardiens : tous les cadres dorés, les 84 œuvres, trente jours d’affilée — dans l’ordre des salles, jamais un Divin', async () => {
@@ -375,6 +458,32 @@ test('un rangement raté ne fait pas tomber la partie, et la page suivante le ra
   assert.ok((await legendairesDe(rat.cookie)).includes('lg:phenix'))
 })
 
+test('une page froide dont l’étagère est en panne ne la réconcilie qu’une fois', async () => {
+  // Sa salle du Rempart est complète, posée à la main : la première page lit le musée à froid, et réconcilie.
+  const wes = await joueuse('wes', pasDeDepart('rempart').map(o => o.cle))
+  aLaMain(
+    b.fichier,
+    `CREATE TRIGGER etagere_en_panne BEFORE INSERT ON profile_badges WHEN NEW.soiree_id = '${RANGEMENT_DU_CABINET}' BEGIN SELECT RAISE(ABORT, 'panne'); END`,
+  )
+  const dits: string[] = []
+  const journal = console.error
+  console.error = (...quoi: unknown[]) => void dits.push(quoi.map(String).join(' '))
+  try {
+    ok(await laPage(b, wes.cookie), 'la page froide')
+  } finally {
+    console.error = journal
+    aLaMain(b.fichier, 'DROP TRIGGER etagere_en_panne')
+  }
+  // Ratée à la lecture froide, elle se refaisait aussitôt dans la même page : deux écritures perdues, deux lignes au journal.
+  assert.equal(dits.filter(d => d.includes(`gardiens de ${wes.id}`)).length, 1, 'une tentative par page')
+  // La page suivante, chaude, la refait : la panne passée, le gardien se range.
+  ok(await laPage(b, wes.cookie), 'la page d’après')
+  assert.deepEqual(
+    rangeesDe(wes.id).map(r => r.badge),
+    ['cabinet:phenix'],
+  )
+})
+
 test('une œuvre de plus dans une salle complète la rouvre, et son gardien veille encore', async () => {
   const page = ok(await laPage(b, noe.cookie), 'la page')
   const rempart = page.salles.find(s => s.cle === 'rempart')!
@@ -393,8 +502,57 @@ test('une œuvre de plus dans une salle complète la rouvre, et son gardien veil
 })
 
 test('l’étagère et le compte des badges taisent les voies rangées du Cabinet', async () => {
+  assert.deepEqual(
+    rangeesDe(kim.id).map(r => r.badge),
+    ['cabinet:phenix'],
+    'sa voie est en base',
+  )
   const moi = (await lire(b, kim.cookie, '/api/joueur/moi?leger')).corps.profile as { badges: number }
   // Le haut fait de soirée seul : sa voie du Cabinet, rangée, ne compte pas.
   assert.equal(moi.badges, 1)
+  // La forme SQL de la liste (`sqlHorsDesVoiesRangees`) écarte `cabinet:%` : sans ses deux-points, un préfixe
+  // écarterait aussi une clé qui ne fait que commencer comme lui.
   for (const p of PREFIXES_DES_VOIES_RANGEES) assert.ok(p.endsWith(':'), p)
+  // L'étagère même, que sa page, sa vitrine et ses plus beaux lisent : le haut fait seul — « Le Cabinet : Le Phénix »
+  // n'y paraît pas.
+  const detail = (await lire(b, kim.cookie, '/api/joueur/moi')).corps.profile as { vitrine: { key: string }[] }
+  assert.deepEqual(
+    detail.vitrine.map(v => v.key),
+    ['hf:phenix'],
+  )
+})
+
+test('la partie d’hier close par le serveur : ce qu’elle réveille, la page qui suit le dit — une fois', async () => {
+  // Deux manches parfaites au Pari, puis plus rien : la chasse attend au seuil de sa commune, que le temps ne finit pas.
+  const ugo = await joueuse('ugo', REMPART_SANS_PANSEMENT)
+  const vic = await joueuse('vic', REMPART_SANS_PANSEMENT)
+  for (const j of [ugo, vic]) {
+    let v = ok(await commencer(b, j.cookie, { origine: 'chasse', oeuvre: 'pansement', carte: null }), 'la chasse')
+    v = await jouerUnPari(b, j.cookie, v, 0)
+    v = await jouerUnPari(b, j.cookie, await ouvrir(b, j.cookie, v, 1), 1)
+    assert.notEqual(v.phase, 'finie')
+  }
+  const aujourdhui = b.horloge.t
+  b.horloge.t += 24 * 3_600_000
+  const attendu: ReveilDesGardiens = { gardiens: [{ legendaire: 'lg:phenix', neuf: true }], compagnon: COMPAGNON_DE_L_EXPEDITION }
+  try {
+    // La page du lendemain la clôt, gagnée : la salle complète, son gardien neuf et la luciole se disent sur elle. Sans
+    // cela, ils se rangeaient sans un mot, et la seconde réconciliation, les trouvant rangés, ne les disait jamais.
+    const page = ok(await laPage(b, ugo.cookie), 'la page du lendemain')
+    assert.equal(page.salles.find(s => s.cle === 'rempart')!.complete, true, 'Pansement est entrée')
+    assert.deepEqual(page.reveil, attendu)
+    sansDivin(page.reveil)
+    assert.equal(ok(await laPage(b, ugo.cookie), 'la page relue').reveil, undefined, 'une fois')
+
+    // Un départ du lendemain la clôt aussi : sa réponse est la partie neuve, et la page qui suit le dit.
+    ok(await commencer(b, vic.cookie, { origine: 'libre', jeu: 'pari', carte: null }), 'une partie libre')
+    assert.deepEqual(
+      rangeesDe(vic.id).map(r => r.badge),
+      ['cabinet:phenix'],
+    )
+    assert.deepEqual(ok(await laPage(b, vic.cookie), 'la page d’après').reveil, attendu)
+    assert.equal(ok(await laPage(b, vic.cookie), 'la page relue').reveil, undefined, 'une fois')
+  } finally {
+    b.horloge.t = aujourdhui
+  }
 })

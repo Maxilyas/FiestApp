@@ -108,7 +108,7 @@ const avecLExpedition = (legendaires: Legendaire[]): Legendaire[] =>
  * Les vingt gardiens du Cabinet qui ne sont pas de saison : les deux de chaque
  * salle, le Scarabée et le Trou noir. Écrits ici, sans lire
  * `shared/cabinet/salles.ts` : l'album et l'accueil lisent ce fichier sans
- * tirer le Cabinet (`cabinet-catalogue.test.ts` compare les deux listes). Les
+ * tirer le Cabinet (`cabinet-gardiens.test.ts` compare les deux listes). Les
  * trois de saison n'ont pas de voie à eux : le Cabinet range leur condition
  * principale (`saison:halloween`).
  */

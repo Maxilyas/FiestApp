@@ -4400,11 +4400,19 @@ export class ProfileStore {
    * titre, un Divin — n'en rapporte pas. `quand` est l'heure du quiz du jour,
    * celle qui dit ce qu'une partie a fait tomber (`created_at` comparé à son
    * début), et que les tests font passer minuit.
+   *
+   * Une clé que la mémoire n'avait pas et que la base avait déjà dit une
+   * mémoire en retard — la réponse d'un lot d'avant perdue après l'écriture, un
+   * recompte tombé derrière, l'autre serveur d'une mise en ligne : elle se
+   * relit. Sans cela, rien ne la rattrapait avant le redémarrage — le
+   * légendaire rangé restait refusé à qui voulait le porter, et chaque appel
+   * réécrivait la même ligne pour rien (`cabinet-gardiens.test.ts`).
    */
   async ranger(profileId: string, sous: string, cles: readonly string[], quand = Date.now()): Promise<string[]> {
     const uniques = [...new Set(cles)]
     if (uniques.length === 0) return []
     const now = quand
+    const enMemoire = this.recompenses.get(profileId)
     const res = await this.client.batch(
       uniques.map(cle => {
         const { emoji, title } = etiquetteDe(cle)
@@ -4417,11 +4425,13 @@ export class ProfileStore {
       'write',
     )
     const neuves = uniques.filter((_, i) => res[i].rowsAffected > 0)
-    if (neuves.length > 0) {
+    const rattrapees = enMemoire ? uniques.filter((cle, i) => res[i].rowsAffected === 0 && !enMemoire.has(cle)) : []
+    if (neuves.length > 0 || rattrapees.length > 0) {
       this.porteurs = null
       await this.recompterRecompenses([profileId])
     }
-    if (neuves.some(cle => xpDe(cle) > 0)) {
+    // Une rattrapée paie aussi : la ligne des paliers se dérive de la base, et le lot perdu ne l'avait pas refaite.
+    if ([...neuves, ...rattrapees].some(cle => xpDe(cle) > 0)) {
       await this.ecrireXpDesPaliers(profileId)
       await this.recalculerTotal(profileId)
     }

@@ -23,6 +23,8 @@ import { ISSUES } from '../../../../shared/cabinet/partie'
 import type { CaseFigee, LigneDOeuvre, LigneDuProfil, OrigineDUneOeuvre, PartieDuJour, VisiteFigee } from '../../../../shared/cabinet/musee'
 import { CLES_DES_JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { estUneOeuvre } from '../../../../shared/cabinet/oeuvres'
+import { GARDIENS_DE_SAISON, voieDuGardien } from '../../../../shared/cabinet/salles'
+import { RANGEMENT_DU_CABINET } from '../../auth/profiles'
 import { saison as saisonDe } from '../../../../shared/saisons'
 import { jourValide } from '../../../../shared/jour'
 
@@ -149,15 +151,24 @@ export const partiesDuJour = (profil = '?', minuit = '?') => `profile_id = ${pro
  */
 export const EXPEDITION_ENCORE_LUE = true
 
+/** Les voies des gardiens de saison (`saison:halloween`…) : les seules que le Cabinet range et qu'on gagne aussi ailleurs. */
+const VOIES_DE_SAISON: readonly string[] = GARDIENS_DE_SAISON.map(g => voieDuGardien(g)!)
+
 /**
  * Le musée d'un profil, à froid, d'un seul aller-retour (la conception, § 1.10) :
  * sa ligne de reflets, ses œuvres — 84 au plus —, ses parties du jour sans
  * leur plan, la partie en cours et ses gestes — par la clé de sa ligne, sans
- * chercher `finie_le IS NULL` —, l'expédition qui l'attend. Au pire cent
- * cinquante lignes, une fois par réveil et par joueur ; rien qui grandisse
- * avec son histoire (D7).
+ * chercher `finie_le IS NULL` —, les saisons que le Cabinet a rangées sous
+ * `#cabinet`, l'expédition qui l'attend. Au pire cent cinquante lignes, une
+ * fois par réveil et par joueur ; rien qui grandisse avec son histoire (D7).
+ *
+ * Les saisons, trois clés de l'étagère au plus, se lisent chacune par la clé
+ * primaire : tenue sous une soirée, une saison ne dit pas que le Cabinet l'a
+ * rangée (`voiesQuiManquent`, `gardiens.ts`). L'étagère vit dans la même
+ * base ; sans elle — un magasin d'essai, sans profils (`avecLEtagere`) —, rien
+ * ne s'y range, et rien ne s'en relit.
  */
-export function lecturesDuMusee(profileId: string, minuit: number): InStatement[] {
+export function lecturesDuMusee(profileId: string, minuit: number, avecLEtagere: boolean): InStatement[] {
   return [
     { sql: 'SELECT poussiere, serie, serie_jour, serie_record, visites, partie FROM cabinet_profils WHERE profile_id = ?', args: [profileId] },
     {
@@ -177,6 +188,14 @@ export function lecturesDuMusee(profileId: string, minuit: number): InStatement[
       args: [profileId, profileId],
     },
     { sql: 'SELECT rang, geste, fait_le FROM cabinet_gestes WHERE serie_id = (SELECT partie FROM cabinet_profils WHERE profile_id = ?) ORDER BY rang', args: [profileId] },
+    ...(avecLEtagere
+      ? [
+          {
+            sql: `SELECT badge FROM profile_badges WHERE profile_id = ? AND badge IN (${VOIES_DE_SAISON.map(() => '?').join(', ')}) AND soiree_id = ?`,
+            args: [profileId, ...VOIES_DE_SAISON, RANGEMENT_DU_CABINET],
+          },
+        ]
+      : []),
     ...(EXPEDITION_ENCORE_LUE
       ? [{ sql: "SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL LIMIT 1", args: [profileId] }]
       : []),
@@ -201,6 +220,8 @@ export interface MuseeLuEnBase {
   enCours: PartieLueEnBase | null
   /** La ligne nomme une partie que la base ne relit pas : le magasin la referme. */
   partieIllisible: string | null
+  /** Les voies de saison rangées sous `#cabinet` (`saison:halloween`). */
+  saisonsSousLeCabinet: string[]
   expeditionEnRoute: string | null
 }
 
@@ -309,9 +330,11 @@ export function laPartieLue(ligne: Record<string, unknown> | undefined, gestes: 
   return depart && lus ? { id: ligne.id, depart, gestes: lus, position: nombre(ligne.position) } : null
 }
 
-/** Le lot froid relu (`lecturesDuMusee`), dans son ordre. */
-export function lireLeMusee(lus: readonly ResultSet[]): MuseeLuEnBase {
-  const [profils, oeuvres, parties, partie, gestes, expedition] = lus
+/** Le lot froid relu (`lecturesDuMusee`, de la même `avecLEtagere`), dans son ordre. */
+export function lireLeMusee(lus: readonly ResultSet[], avecLEtagere: boolean): MuseeLuEnBase {
+  const [profils, oeuvres, parties, partie, gestes, ...suite] = lus
+  const saisons = avecLEtagere ? suite.shift() : undefined
+  const [expedition] = suite
   const profil = laLigneDuProfil(profils.rows[0] as Record<string, unknown> | undefined)
   const enCours = profil?.partie ? laPartieLue(partie.rows[0] as Record<string, unknown> | undefined, gestes.rows as Record<string, unknown>[]) : null
   return {
@@ -320,6 +343,7 @@ export function lireLeMusee(lus: readonly ResultSet[]): MuseeLuEnBase {
     parties: parties.rows.flatMap(r => laPartieDuJour(r as Record<string, unknown>) ?? []),
     enCours,
     partieIllisible: profil?.partie && !enCours ? profil.partie : null,
+    saisonsSousLeCabinet: (saisons?.rows ?? []).flatMap(r => (VOIES_DE_SAISON.includes(String(r.badge)) ? [String(r.badge)] : [])),
     expeditionEnRoute: texte(expedition?.rows[0]?.id),
   }
 }

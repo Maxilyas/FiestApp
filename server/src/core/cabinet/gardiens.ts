@@ -5,7 +5,8 @@
 // son premier gardien, tous ses cadres dorés le second, les 84 œuvres le Trou
 // noir, trente jours d'affilée le Scarabée, une œuvre gagnée en jouant pendant
 // une fête son gardien de saison —, et se compare à ce que l'étagère du profil
-// a déjà rangé, en mémoire (`recompensesOf`) : seul ce qui manque se range,
+// a déjà rangé, en mémoire (`recompensesOf` ; une saison, sous `#cabinet`
+// seulement, que le lot froid relit) : seul ce qui manque se range,
 // sous la clé fixe `#cabinet` (`RANGEMENT_DU_CABINET`), la voie de chacun
 // (`cabinet:phenix`, `saison:halloween`). Rien de dû et pas rangé — le cas
 // ordinaire —, pas un aller-retour : une page, une fin, un achat ne paient
@@ -30,6 +31,7 @@
 import { RANGEMENT_DU_CABINET } from '../../auth/profiles'
 import { COMPAGNON_DE_L_EXPEDITION, type CleDeCompagnon } from '../../../../shared/compagnons'
 import { gardiensDus, sallesCompletes, type GardienDu, type Musee } from '../../../../shared/cabinet/musee'
+import { GARDIENS_DE_SAISON } from '../../../../shared/cabinet/salles'
 import type { ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 
 /**
@@ -54,8 +56,31 @@ export interface IssueDuReveil {
   echec: boolean
 }
 
-/** Les gardiens dus dont la voie n'est pas encore rangée, dans leur ordre. */
-export const voiesQuiManquent = (dus: readonly GardienDu[], rangees: ReadonlyMap<string, number>): GardienDu[] => dus.filter(d => !rangees.has(d.voie))
+/**
+ * Les gardiens dus dont la voie n'est pas encore rangée, dans leur ordre. Celle
+ * d'un gardien de saison (`saison:halloween`) se gagne aussi en soirée et au
+ * quiz du jour : tenue sous une soirée, elle s'en irait avec elle — « C'était
+ * un essai », une archive effacée, un barème relu —, et la Citrouille que le
+ * musée doit encore avec. Elle ne se lit donc rangée que sous `#cabinet`
+ * (`sousLeCabinet`, que le lot froid relit) ; les autres, que le Cabinet seul
+ * range, à l'étagère en mémoire.
+ */
+export const voiesQuiManquent = (dus: readonly GardienDu[], rangees: ReadonlyMap<string, number>, sousLeCabinet: ReadonlySet<string> = new Set()): GardienDu[] =>
+  dus.filter(d => !(GARDIENS_DE_SAISON.includes(d.legendaire) ? sousLeCabinet.has(d.voie) : rangees.has(d.voie)))
+
+/**
+ * Deux réveils en un — la partie d'hier que le serveur a close, puis la
+ * dépense qui rend la page : chaque gardien une fois, dans leur ordre, neuf
+ * s'il l'est dans l'un ; la luciole d'où qu'elle vienne. Rien : absent.
+ */
+export function fondreLesReveils(...reveils: (ReveilDesGardiens | null | undefined)[]): ReveilDesGardiens | undefined {
+  const tous = reveils.filter((r): r is ReveilDesGardiens => !!r)
+  if (tous.length === 0) return undefined
+  const neufs = new Map<string, boolean>()
+  for (const r of tous) for (const g of r.gardiens) neufs.set(g.legendaire, (neufs.get(g.legendaire) ?? false) || g.neuf)
+  const compagnon = tous.find(r => r.compagnon)?.compagnon
+  return { gardiens: [...neufs].map(([legendaire, neuf]) => ({ legendaire, neuf })), ...(compagnon && { compagnon }) }
+}
 
 /**
  * Réveille ce que le musée doit et que l'étagère n'a pas : ranger ce qui
@@ -63,11 +88,20 @@ export const voiesQuiManquent = (dus: readonly GardienDu[], rangees: ReadonlyMap
  * pas qui tombe se dit au journal du serveur et laisse passer le suivant :
  * une étagère muette ne fait jamais échouer ce qui la réveillait — la partie
  * est écrite, l'achat payé —, et l'appelant refera la réconciliation à la page
- * suivante (`echec`). Ne rejette jamais.
+ * suivante (`echec`). Ne rejette jamais. `sousLeCabinet`, les saisons que ce
+ * musée sait rangées sous `#cabinet`, se tient à jour : ce que le lot vient de
+ * ranger s'y ajoute. Sans lui, une saison due se range à chaque passage :
+ * idempotente par la clé, mais une écriture chaque fois.
  */
-export async function reconcilier(etagere: Partial<EtagereDuCabinet>, profileId: string, musee: Musee, quand: number): Promise<IssueDuReveil> {
+export async function reconcilier(
+  etagere: Partial<EtagereDuCabinet>,
+  profileId: string,
+  musee: Musee,
+  quand: number,
+  sousLeCabinet: Set<string> = new Set(),
+): Promise<IssueDuReveil> {
   if (!etagere.recompensesOf || !etagere.ranger) return { reveil: null, echec: false }
-  const manquent = voiesQuiManquent(gardiensDus(musee), etagere.recompensesOf(profileId))
+  const manquent = voiesQuiManquent(gardiensDus(musee), etagere.recompensesOf(profileId), sousLeCabinet)
   const salleComplete = sallesCompletes(musee).length > 0
   if (manquent.length === 0 && !salleComplete) return { reveil: null, echec: false }
   let echec = false
@@ -75,8 +109,11 @@ export async function reconcilier(etagere: Partial<EtagereDuCabinet>, profileId:
   if (manquent.length > 0) {
     try {
       const neuves = await etagere.ranger(profileId, RANGEMENT_DU_CABINET, manquent.map(d => d.voie), quand)
+      for (const d of manquent) if (GARDIENS_DE_SAISON.includes(d.legendaire)) sousLeCabinet.add(d.voie)
       const ouverts = new Set(etagere.legendairesOuverts?.(profileId, neuves) ?? [])
-      // Rangée ailleurs entre-temps — l'autre serveur d'une mise en ligne —, une voie n'est pas neuve ici : il l'annonce, pas nous.
+      // Déjà en base — rangée par l'autre serveur d'une mise en ligne, ou par un lot d'ici dont la réponse s'est
+      // perdue : l'étagère s'est relue (`ranger`) —, une voie n'est pas neuve ici. L'autre serveur l'a annoncée ; la
+      // panne l'a tue, comme toute réconciliation ratée qui se rattrape. Annoncée ici, elle le serait deux fois.
       for (const d of manquent) if (neuves.includes(d.voie)) gardiens.push({ legendaire: d.legendaire, neuf: ouverts.has(d.legendaire) })
     } catch (e) {
       echec = true

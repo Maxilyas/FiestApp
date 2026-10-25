@@ -140,7 +140,9 @@ export interface PageDuCabinet {
    * entière : la réponse de ce seul geste le porte, une fois ; la page le dit
    * comme le bilan d'une partie (`BilanVu.gardiens`, `GainsDuCabinet`). Rien
    * de réveillé : absent. Une page lue, un échange, une dépense rejouée ne le
-   * portent jamais.
+   * portent que pour la partie d'un jour d'avant que le serveur vient de clore
+   * — à cette page, ou au départ ou à la dépense d'avant : sa fin n'avait
+   * personne à qui le dire, la première page qui suit le dit, une fois.
    */
   reveil?: ReveilDesGardiens
 }
