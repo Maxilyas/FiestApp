@@ -169,16 +169,21 @@ paths:
   même en SQL (`suivisDeLaBase`, `sqlDansLaBase`) et le signalement
   (`signaler`, `refusDuSignalement` — les phrases du rébus et de la frise
   mot pour mot, le Cabinet la sienne) la lisent. Chacun recopiait ses
-  préfixes : oublié des deux côtés du carnet, que ce test compare, un
-  préfixe ne se serait pas vu — une pièce du Cabinet ratée y entrait, et
-  « À revoir », sur l'accueil, la comptait chaque jour sans qu'aucune
-  révision ne la repose (`compterARevoir` ne lit que les retraits). Un
-  préfixe neuf la rejoint, avec sa phrase (le typage la réclame), en
-  minuscules et fini par un deux-points : aucun identifiant de la base n'en
-  porte, et `LIKE`, qui ignore la casse, ne lui prend rien
-  (`hors-de-la-base.test.ts`, qui interdit aussi de recopier un filtre ou
-  une phrase). La lecture du journal n'en dépend pas — le carnet les écarte
-  au repli : un préfixe de plus ne relit rien au réveil
+  préfixes : oublié des deux côtés du carnet, que
+  `journal-des-reponses.test.ts` compare, un préfixe ne se serait pas vu —
+  une pièce du Cabinet ratée y serait entrée, et « À revoir », sur
+  l'accueil, l'aurait comptée chaque jour sans qu'aucune révision ne la
+  repose (`compterARevoir` ne lit que les retraits). Un préfixe neuf la
+  rejoint, avec sa phrase (le typage la réclame), en minuscules et fini par
+  un deux-points : aucun identifiant de la base n'en porte, et `LIKE`, qui
+  ignore la casse, ne lui prend rien (`hors-de-la-base.test.ts`). Une
+  lecture neuve de `campagne_reponses` qui joint la base ou reprend une
+  réponse pour la reposer écarte ce qui n'en est pas par `horsDeLaBase` en
+  mémoire, par `sqlDansLaBase` en SQL — jamais par un préfixe recopié : le
+  même test refuse, dans le code et pas dans un commentaire, un `LIKE` sur
+  un préfixe de la liste et une phrase de refus, mais un `startsWith` lui
+  échappe. La lecture du journal n'en dépend pas — le carnet les écarte au
+  repli : un préfixe de plus ne relit rien au réveil
   (`VERSION_DES_TRANCHES` ne bouge pas).
 - **Une réponse de campagne écrite prévient l'expédition** (`vuAilleurs`,
   avant le lot de la série et de ses modes, de l'épreuve, du parcours) :

@@ -6,8 +6,8 @@
 // recopiaient chacun leurs préfixes : le Cabinet en apportait un troisième,
 // et trois oublis possibles. Oublié des deux côtés du carnet, que
 // `journal-des-reponses.test.ts` compare, il ne se serait pas vu — une pièce
-// du Cabinet ratée entrait au carnet, et « À revoir », sur l'accueil, la
-// comptait chaque jour sans qu'aucune révision ne puisse la reposer.
+// du Cabinet ratée serait entrée au carnet, et « À revoir », sur l'accueil,
+// l'aurait comptée chaque jour sans qu'aucune révision ne puisse la reposer.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
@@ -67,8 +67,12 @@ test('le même partage en SQL qu’en mémoire ; un préfixe s’y écrit tel qu
     // Ni guillemet ni joker de LIKE (`%`, `_`) : le préfixe s'écrit dans le texte de la requête, et y vaut lui-même.
     assert.match(p, /^[a-z]+:$/, `« ${p} » : des minuscules et un deux-points`)
     // LIKE ignore la casse, `startsWith` non : sans conséquence tant qu'aucun identifiant de la base n'a de deux-points.
-    const lu = lireQuestionDeLaBase({ id: `${p}a1b2c3` })
-    assert.ok('refus' in lu && lu.refus.startsWith('identifiant invalide'), `« ${p} » ne peut être l’identifiant d’une question de la base`)
+    // Huit caractères, la longueur d'un identifiant de la base : le deux-points seul le refuse, et sans lui il passerait.
+    const id = (p + 'a1b2c3d4').slice(0, 8)
+    const lu = lireQuestionDeLaBase({ id })
+    assert.ok('refus' in lu && lu.refus.startsWith('identifiant invalide'), `« ${id} » ne peut être l’identifiant d’une question de la base`)
+    const sansDeuxPoints = lireQuestionDeLaBase({ id: id.replace(':', '0') })
+    assert.ok(!('refus' in sansDeuxPoints) || !sansDeuxPoints.refus.startsWith('identifiant invalide'), `« ${id} » n’est refusé que pour son deux-points`)
     // Aucun n'en commence un autre : la phrase d'un refus ne dépend pas de l'ordre de la liste.
     for (const q of PREFIXES_HORS_DE_LA_BASE) if (q !== p) assert.ok(!q.startsWith(p), `« ${q} » commence par « ${p} »`)
   }
@@ -97,19 +101,62 @@ const sources = (dossier: string) =>
     .filter(f => f.endsWith('.ts') && !f.includes('node_modules'))
     .map(f => path.join(dossier, f))
 
+// Un préfixe de la liste, par sa constante ou en toutes lettres ; les autres préfixes du dépôt (la réserve des légendaires…) ne la concernent pas.
+const FILTRE = /LIKE '(\$\{(PREFIXE_DU_REBUS|PREFIXE_DE_LA_FRISE|PREFIXE_DU_CABINET)\}|rebus:|frise:|cab:)/
+// Une chaîne fermée — ouverte et refermée par le même guillemet — qui porte la phrase. Lue sans fermeture, l'apostrophe
+// droite d'un commentaire (« l'Éclair ne se signale pas ») passait pour l'ouverture d'un refus recopié.
+const REFUS = /(['"`])(?:(?!\1).)*ne se signale pas(?:(?!\1).)*\1/
+/**
+ * Le code d'une ligne, sans ce qu'elle commente : un commentaire raconte un
+ * refus ou un filtre d'avant, il ne le recopie pas — et le dépôt les écrit en
+ * français, apostrophes comprises. Une ligne d'un bloc (`/*`, ` *`) ne compte
+ * pas ; un `//` derrière une espace coupe la ligne (une adresse, `https://`,
+ * n'en a pas devant).
+ */
+const codeDe = (ligne: string) => (/^\s*(\/\*|\*)/.test(ligne) ? '' : ligne.replace(/(^|\s)\/\/.*$/, ''))
+/** Ce que la ligne recopie de la liste : un filtre, une phrase de refus, ou rien. */
+function recopieDe(ligne: string): 'filtre' | 'refus' | null {
+  const code = codeDe(ligne)
+  if (FILTRE.test(code)) return 'filtre'
+  if (REFUS.test(code)) return 'refus'
+  return null
+}
+
+test('la garde contre les copies lit le code : un filtre ou un refus recopié, oui ; un commentaire qui en parle, non', () => {
+  // Les copies qu'elle doit arrêter — celles que le lot A2 a retirées de campagne.ts, et leurs cousines.
+  for (const [ligne, recopie] of [
+    ["                AND r.reserve_id NOT LIKE '${PREFIXE_DU_REBUS}%' AND r.reserve_id NOT LIKE '${PREFIXE_DE_LA_FRISE}%'", 'filtre'],
+    ["      WHERE reserve_id NOT LIKE 'cab:%'", 'filtre'],
+    ["    if (q.id.startsWith(PREFIXE_DU_REBUS)) throw new Error('Un rébus ne se signale pas : seules les questions de la campagne le peuvent')", 'refus'],
+    ['    throw new Error("Ce tableau ne se signale pas : seules les questions de la campagne le peuvent")', 'refus'],
+    ['    throw new Error(`${nom} ne se signale pas : seules les questions de la campagne le peuvent`)', 'refus'],
+  ] as const) {
+    assert.equal(recopieDe(ligne), recopie, ligne)
+  }
+  // Un commentaire du dépôt porte des apostrophes droites : il raconte un refus, il ne le recopie pas — et un lot à venir du Cabinet en écrira.
+  for (const ligne of [
+    "    // Une pièce de l'Éclair ne se signale pas : cinq questions récrites",
+    "  // Un tableau n'est pas la question de la base : il ne se signale pas",
+    "   * l'Épingle ne se signale pas, ni rien de ce qui porte `cab:`",
+    "  /** L'Épingle ne se signale pas : sa carte n'est pas une question */",
+    "    // Écrit autrefois `NOT LIKE 'rebus:%'`, recopié dans chaque lecture",
+    "    if (refus) throw new Error(refus) // l'Éclair ne se signale pas, c'est voulu",
+  ]) {
+    assert.equal(recopieDe(ligne), null, ligne)
+  }
+})
+
 test('personne ne recopie la liste : ni un filtre SQL sur un préfixe, ni une phrase de refus, ailleurs que dans shared/horsDeLaBase.ts', () => {
   const fichiers = [...sources('server/src'), ...sources('shared')].filter(f => f !== path.join('shared', 'horsDeLaBase.ts'))
   assert.ok(fichiers.length > 100, `${fichiers.length} fichiers relus`)
-  // Un préfixe de la liste, par sa constante ou en toutes lettres ; les autres préfixes du dépôt (la réserve des légendaires…) ne la concernent pas.
-  const filtre = /LIKE '(\$\{(PREFIXE_DU_REBUS|PREFIXE_DE_LA_FRISE|PREFIXE_DU_CABINET)\}|rebus:|frise:|cab:)/
-  const refus = /['"`][^'"`\n]*ne se signale pas/
   const recopies: string[] = []
   for (const f of fichiers) {
     readFileSync(path.join(RACINE, f), 'utf8')
       .split('\n')
       .forEach((ligne, i) => {
-        if (filtre.test(ligne)) recopies.push(`${f}:${i + 1} — un filtre sur un préfixe passe par sqlDansLaBase`)
-        if (refus.test(ligne)) recopies.push(`${f}:${i + 1} — un refus de signalement vit dans REFUS_DU_SIGNALEMENT`)
+        const recopie = recopieDe(ligne)
+        if (recopie === 'filtre') recopies.push(`${f}:${i + 1} — un filtre sur un préfixe passe par sqlDansLaBase`)
+        if (recopie === 'refus') recopies.push(`${f}:${i + 1} — un refus de signalement vit dans REFUS_DU_SIGNALEMENT`)
       })
   }
   assert.deepEqual(recopies, [])

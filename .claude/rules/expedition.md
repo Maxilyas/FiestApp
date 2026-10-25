@@ -900,12 +900,17 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
   plan. Une escale bonus neuve se pose de même, après le plan.
 - **Un rébus n'est pas une question de la base** : sa réponse s'écrit sous
   `rebus:<id>` (`PREFIXE_DU_REBUS`), avec la forme `lettres`. La mesure
-  l'écarte par sa forme ; le carnet par son identifiant, en SQL (`suivisDe`)
-  — `compterARevoir` compte sans relire la base, le filtre des « questions
-  que la campagne pose encore » ne l'aurait pas vu — ; le signalement le
-  refuse ; la correction porte ses emojis (`CorrectionDeCampagne.rebus`).
-  Une lecture neuve de `campagne_reponses` qui joint la base ou reprend une
-  réponse pour la reposer écarte `rebus:`.
+  l'écarte par sa forme ; le carnet par son identifiant, au journal en
+  mémoire (`auCarnet`) comme en SQL (`suivisDeLaBase`) — `compterARevoir`
+  compte sans relire la base, le filtre des « questions que la campagne
+  pose encore » ne l'aurait pas vu — ; le signalement le refuse ; la
+  correction porte ses emojis (`CorrectionDeCampagne.rebus`). Le carnet et
+  le signalement lisent son préfixe dans une seule liste, avec celui de la
+  frise et du Cabinet (`PREFIXES_HORS_DE_LA_BASE`, `shared/horsDeLaBase.ts`,
+  règle `campagne.md`) : une lecture neuve de `campagne_reponses` qui joint
+  la base ou reprend une réponse pour la reposer écarte ce qui n'en est pas
+  par `horsDeLaBase` en mémoire, par `sqlDansLaBase` en SQL — jamais par un
+  `rebus:` recopié, qui oublierait les deux autres.
 - **Un champ neuf de la correction se lit aussi à la page** : le serveur
   envoyait les emojis du rébus, et « Mes réponses » ne les montrait pas —
   « Quel personnage se cache derrière ces emojis ? » sans emojis (vu au
@@ -931,11 +936,11 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
 - **Une frise n'est pas une question de la base** (la version 13) : sa
   réponse s'écrit sous `frise:` suivi des identifiants de ses quatre
   questions dans l'ordre du temps (`PREFIXE_DE_LA_FRISE`), avec la forme
-  `frise`. La mesure l'écarte par sa forme ; le carnet par son préfixe, en
-  SQL, comme `rebus:` ; le signalement la refuse. Ce qu'il a déjà rangé se
-  relit de ces identifiants (`evenementsVus`) : un champ de plus pour le
-  dire serait une colonne à tenir. Une lecture neuve de `campagne_reponses`
-  qui joint la base écarte `frise:` avec `rebus:`.
+  `frise`. La mesure l'écarte par sa forme ; le carnet et le signalement par
+  son préfixe, de la même liste que `rebus:` (`PREFIXES_HORS_DE_LA_BASE`,
+  plus haut). Ce qu'il a déjà rangé se relit de ces identifiants
+  (`evenementsVus`) : un champ de plus pour le dire serait une colonne à
+  tenir.
 - **L'ordre du temps ne part jamais avant le verdict** (invariant 1) : la
   vue n'envoie que les lignes, dans l'ordre tiré avec la question
   (`QuestionDeSerie.frise.montre`, jamais le bon), et l'année de celles
