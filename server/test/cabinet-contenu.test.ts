@@ -46,6 +46,7 @@ import {
   SAVAIS_MAX,
 } from '../../shared/cabinet/bareme'
 import { CLES_DES_JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
+import { bonneIdentite } from '../../shared/cabinet/jeux/indices'
 import { distanceKm } from '../../shared/cabinet/france'
 import type { Fiche, FriseATheme, Lieu, Replique } from '../../shared/cabinet/contenu'
 
@@ -58,6 +59,13 @@ import type { Fiche, FriseATheme, Lieu, Replique } from '../../shared/cabinet/co
 const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 90, fiches: 66, repliques: 66, frises: 18 }
 
 const brut = (s: SorteDuContenu): unknown[] => JSON.parse(readFileSync(path.join(DOSSIER_DU_CONTENU, SORTES[s].fichier), 'utf8'))
+
+/** Les parties d'Épingle à thème que ces lieux font : ses trois lieux se tirent d'un même thème, chacun en fait autant qu'il a de fois trois lieux. */
+const partiesDEpingleATheme = (lieux: readonly Lieu[]) => {
+  const parTheme = new Map<string, number>()
+  for (const l of lieux) parTheme.set(l.theme, (parTheme.get(l.theme) ?? 0) + 1)
+  return [...parTheme.values()].reduce((s, n) => s + Math.floor(n / MANCHES_PAR_PARTIE), 0)
+}
 
 // ── Le contenu livré ────────────────────────────────────────────────────────
 
@@ -121,13 +129,11 @@ test('chaque jeu du contenu neuf tient sept jours sans redite, au rythme d’une
     assert.ok(n >= faut, `${jeu} : ${n} contenus pour ${faut}`)
   }
   // L'Épingle tire ses trois lieux d'un même thème : chaque thème fait autant de parties qu'il a de fois trois lieux.
-  const parTheme = new Map<string, number>()
-  for (const l of contenu.lieux) parTheme.set(l.theme, (parTheme.get(l.theme) ?? 0) + 1)
-  const parties = [...parTheme.values()].reduce((s, n) => s + Math.floor(n / MANCHES_PAR_PARTIE), 0)
+  const parties = partiesDEpingleATheme(contenu.lieux)
   assert.ok(parties >= JOURS_SANS_REDITE * partiesParJour, `${parties} parties d'Épingle à thème`)
 })
 
-test('l’Épingle, les Indices et la Réplique tiennent sept jours au pire réaliste : sa case de la visite et ses deux chasses au même jeu', () => {
+test('l’Épingle, les Indices et la Réplique tiennent sept jours de calendrier au pire réaliste : sa case de la visite et ses deux chasses au même jeu', () => {
   // La visite pose trois jeux différents — l'échange en prend un qui n'y est
   // pas —, mais deux chasses peuvent viser deux œuvres du même jeu : trois
   // parties par jour au même jeu, les libres à part (elles se jouent pour le
@@ -136,6 +142,15 @@ test('l’Épingle, les Indices et la Réplique tiennent sept jours au pire réa
   // que six jours et deux tiers : le joueur assidu y revoyait, au septième, ce
   // qu'il avait vu la semaine même. La Frise n'en est pas : ses frises à thème
   // alternent avec les frises des sujets de la base.
+  //
+  // Sept jours de calendrier, pas sept fois vingt-quatre heures : la fenêtre
+  // des sept jours glisse, et à cheval sur huit jours de calendrier, elle peut
+  // tenir les trois parties d'un premier soir et celles d'un huitième matin.
+  // Un joueur dont l'heure recule ainsi d'un jour à l'autre peut revoir, ce
+  // huitième matin, ce qu'il avait vu le premier soir — six jours et
+  // quelques heures plus tôt, le moins récemment vu revenant d'abord. Le
+  // tenir aussi demanderait un jour de plus de contenu, 72 manches : ce test
+  // ne le promet pas.
   const partiesAuPire = 1 + CHASSES_PAR_JOUR
   assert.equal(partiesAuPire, 3)
   const contenu = contenuDuCabinet()
@@ -148,9 +163,7 @@ test('l’Épingle, les Indices et la Réplique tiennent sept jours au pire réa
     assert.ok(n >= faut, `${jeu} : ${n} contenus pour ${faut}`)
   }
   // L'Épingle au pire aussi : ses parties à thème, trois lieux chacune.
-  const parTheme = new Map<string, number>()
-  for (const l of contenu.lieux) parTheme.set(l.theme, (parTheme.get(l.theme) ?? 0) + 1)
-  const parties = [...parTheme.values()].reduce((s, n) => s + Math.floor(n / MANCHES_PAR_PARTIE), 0)
+  const parties = partiesDEpingleATheme(contenu.lieux)
   assert.ok(parties >= JOURS_SANS_REDITE * partiesAuPire, `${parties} parties d'Épingle à thème`)
 })
 
@@ -171,6 +184,52 @@ test('une frise ne souffle pas l’Épingle : un événement de l’année d’u
     }
   }
   assert.deepEqual(souffles, [])
+})
+
+test('une fiche ni une réplique ne soufflent l’Épingle : la personne qu’un lieu nomme n’y dit ni sa commune ni son département', () => {
+  // « Où Georges Méliès fait-il bâtir son studio ? » : la fiche de Méliès,
+  // jouée aux Indices quelques jours plus tôt, disait à sa révélation « l'un
+  // des tout premiers studios de cinéma, à Montreuil ». La sœur de l'épreuve
+  // des frises : les sept jours comptent par identifiant et ne voient pas le
+  // même fait sous deux entrées. Un lieu nomme une personne dans ce qui dit de
+  // quoi il parle — son nom, son récit, sa question ; la personne d'une fiche,
+  // c'est sa réponse et ses clés, celle d'une réplique, qui l'a dite. Elles
+  // peuvent dire une ville, jamais celle d'un lieu qui les nomme.
+  const { lieux, fiches, repliques } = contenuDuCabinet()
+  const souffles: string[] = []
+  const lire = (id: string, personne: readonly string[], textes: readonly string[]) => {
+    for (const l of lieux) {
+      if (!personne.some(p => [l.nom, l.recit, l.question].some(t => ecritDans(t, p)))) continue
+      for (const nom of [l.commune, l.departement]) if (textes.some(t => ecritDans(t, nom))) souffles.push(`${id} : ${l.id} (${nom})`)
+    }
+  }
+  for (const f of fiches) lire(f.id, [f.reponse, ...f.cles], [...f.indices, f.savais])
+  for (const r of repliques) lire(r.id, [r.qui], [`${r.avant} ${r.mot}${r.apres}`, r.source, r.savais])
+  assert.deepEqual(souffles, [])
+})
+
+test('une fiche livrée trouve sa personne sous le nom qu’on tape : son surnom, sa forme française', () => {
+  // « Coco », tapé seul, coûtait une étoile et un indice à qui reconnaissait
+  // Chanel : le surnom sous lequel toute la France la connaît n'était pas une
+  // clé. « Johann Gutenberg », la forme qu'on lit le plus en français, est à
+  // deux lettres de « Johannes » : au cinquième indice, le refus mettait la
+  // manche à zéro. Une clé ouvre aussi le prénom seul — « Johann » trouve
+  // Gutenberg, comme « Mohandas » trouve Gandhi —, mais n'y ajoute pas un nom
+  // qui n'est pas le sien.
+  const fiche = (id: string) => {
+    const f = contenuDuCabinet().fiches.find(x => x.id === id)
+    assert.ok(f, id)
+    return f
+  }
+  for (const [id, saisie, trouve] of [
+    ['femmes-coco-chanel', 'Coco', true],
+    ['femmes-coco-chanel', 'Gabrielle Chanel', true],
+    ['femmes-coco-chanel', 'Coco Chanel', true],
+    ['sciences-gutenberg', 'Johann Gutenberg', true],
+    ['sciences-gutenberg', 'Gutemberg', true],
+    ['sciences-gutenberg', 'Johann Fust', false],
+    ['sciences-gutenberg', 'Johann Sebastian Bach', false],
+  ] as [string, string, boolean][]) assert.equal(bonneIdentite(saisie, fiche(id)), trouve, `${id} : « ${saisie} »`)
 })
 
 test('le serveur lit le contenu livré une fois, hors de client/public', () => {
