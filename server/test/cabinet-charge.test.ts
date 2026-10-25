@@ -6,14 +6,63 @@
 // le refus juste, en mots. Une écriture que la base refuse (un `RAISE(ABORT)`,
 // le gabarit d'`expedition-charge.test.ts`) ne laisse rien en mémoire : le même
 // geste, rejoué au même rang, passe une fois.
+//
+// Puis par les routes, chaque aller-retour compté sur le fichier `file:` qui
+// tient lieu de Turso (le gabarit d'`expedition-charge.test.ts`) : la page
+// froide en coûte un, chaude aucun ; un départ un, deux si le journal n'est
+// pas frais ; un geste un, son verdict compris ; la fin, son lot et le rituel
+// de la campagne (la conception, § 2.9).
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
-import { DIX_HEURES, aLaMain, departEnBase, dossierDEssai, enBase, fermerLesMagasins, magasinDEssai, type MagasinDEssai } from './cabinet-banc'
+import { Sqlite3Client } from '@libsql/client/sqlite3'
+import { inscrireProfil } from './banc'
+import {
+  DIX_HEURES,
+  aLaMain,
+  bancDuCabinet,
+  commencer,
+  departEnBase,
+  dossierDEssai,
+  enBase,
+  fermerLesMagasins,
+  jouer,
+  jouerUnEclair,
+  laPage,
+  magasinDEssai,
+  ok,
+  ouvrir,
+  pariDe,
+  type MagasinDEssai,
+} from './cabinet-banc'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import type { PartieLue } from '../src/core/cabinet/magasin'
+import { ProfileStore } from '../src/auth/profiles'
 
 after(fermerLesMagasins)
+
+ProfileStore.tirageEclat = () => false
+
+/** Ce que la base permanente a servi pendant une mesure : chaque `execute` et chaque `batch` est un aller-retour. */
+const compte = { actif: false, appels: 0 }
+const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', (...args: unknown[]) => Promise<unknown>>
+for (const methode of ['execute', 'batch'] as const) {
+  const origine = proto[methode]
+  proto[methode] = async function (this: unknown, ...args: unknown[]) {
+    if (compte.actif) compte.appels++
+    return origine.apply(this, args)
+  }
+}
+
+async function mesurer<T>(travail: () => Promise<T>): Promise<{ appels: number; resultat: T }> {
+  Object.assign(compte, { actif: true, appels: 0 })
+  try {
+    const resultat = await travail()
+    return { appels: compte.appels, resultat }
+  } finally {
+    compte.actif = false
+  }
+}
 
 /** Deux serveurs sur la même base, l'horloge commune. */
 async function deuxServeurs(): Promise<{ a: MagasinDEssai; b: MagasinDEssai; fichier: string; horloge: { t: number } }> {
@@ -115,4 +164,51 @@ test('une écriture refusée par la base : rien ne reste en mémoire, et le mêm
   const suivante = await a.cabinet.commencer('qui', { origine: 'libre', jeu: 'eclair', carte: null })
   assert.equal(compter(fichier, "SELECT COUNT(*) AS n FROM campagne_series WHERE mode = 'cabinet' AND finie_le IS NULL"), 1)
   assert.equal(enBase(fichier, db => (db.prepare('SELECT partie FROM cabinet_profils WHERE profile_id = ?').get('qui') as { partie: string }).partie), suivante.id)
+})
+
+test('par les routes : la page froide un aller-retour, chaude aucun ; un départ un ; un geste un, son verdict compris', async () => {
+  // La fraîcheur des duels de la production : le banc les relit à chaque lecture, ce qui compterait un aller-retour de plus.
+  const b = await bancDuCabinet({ fraicheurDesDuelsMs: 3_600_000 })
+  try {
+    // Un premier joueur réveille ce que tout le serveur partage : la base, sa mesure, le journal des réponses.
+    const chaud = await inscrireProfil(b.banc.url, 'chaud', 'Chaud')
+    ok(await laPage(b, chaud), 'la page du premier')
+    ok(await jouer(b, chaud, ok(await commencer(b, chaud, { origine: 'libre', jeu: 'pari', carte: null }), 'son départ'), { quoi: 'quitter' }), 'sa fin')
+
+    const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
+    const froide = await mesurer(() => laPage(b, lea))
+    assert.equal(froide.appels, 1, 'froide : son lot de lectures, le journal rattrapé au bout')
+    assert.equal((await mesurer(() => laPage(b, lea))).appels, 0, 'chaude : rien')
+    const depart = await mesurer(() => commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null }))
+    assert.equal(depart.appels, 1, 'le journal frais de la page : le lot du départ seul')
+    let v = ok(depart.resultat, 'le départ')
+    const t = pariDe(b, v.id, 0)
+    const etapes: [string, () => Promise<unknown>, number][] = [
+      ['juste au premier coup, sans pièce', async () => (v = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: t.q1.bonne } } }), 'q1')), 1],
+      ['parier', async () => (v = ok(await jouer(b, lea, v, { quoi: 'parier', manche: 0 }), 'parier')), 1],
+      ['le verdict et ses deux pièces', async () => (v = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: t.q2.bonne } } }), 'q2')), 1],
+      ['ouvrir la manche suivante', async () => (v = await ouvrir(b, lea, v, 1)), 1],
+      ['la page, en pleine partie', () => laPage(b, lea), 0],
+    ]
+    for (const [quoi, faire, attendus] of etapes) assert.equal((await mesurer(faire)).appels, attendus, quoi)
+    // La fin : son lot, l'expérience de ses justes, ses paliers — et le compagnon, s'il en a un.
+    const fin = await mesurer(() => jouer(b, lea, v, { quoi: 'quitter' }))
+    assert.equal(ok(fin.resultat, 'quitter').phase, 'finie')
+    assert.equal(fin.appels, 3, 'la fin : son lot et l’expérience lue au bout, l’expérience créditée, ses paliers')
+    // La fin a relu le journal au bout de son lot, après ses réponses : le départ suivant n'a rien à rattraper.
+    const suivant = await mesurer(() => commencer(b, lea, { origine: 'libre', jeu: 'eclair', carte: null }))
+    v = ok(suivant.resultat, 'le départ suivant')
+    assert.equal(suivant.appels, 1)
+    // Une fin sans bonne réponse ne lit pas l'expérience : son lot, et ses paliers, qui relisent le journal (`statsDe`) —
+    // le départ d'après n'a rien à rattraper non plus.
+    v = await jouerUnEclair(b, lea, v, 0, false)
+    const sansJuste = await mesurer(() => jouer(b, lea, v, { quoi: 'quitter' }))
+    assert.equal(ok(sansJuste.resultat, 'quitter').bilan?.total, 0)
+    assert.equal(sansJuste.appels, 2, 'son lot, ses paliers')
+    const apres = await mesurer(() => commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null }))
+    ok(apres.resultat, 'le départ d’après')
+    assert.equal(apres.appels, 1)
+  } finally {
+    await b.banc.close()
+  }
 })

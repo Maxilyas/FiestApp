@@ -13,8 +13,13 @@ import { REVEIL_DU_CABINET } from '../src/core/cabinet/tables'
 import { CabinetStore } from '../src/core/cabinet/magasin'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
-import type { DepartDUnePartie } from '../../shared/cabinet/partie'
+import type { DepartDUnePartie, GesteDuCabinet } from '../../shared/cabinet/partie'
 import { lireLeDepart } from '../../shared/cabinet/lecture'
+import type { PariTire } from '../../shared/cabinet/jeux/pari'
+import type { EclairTire } from '../../shared/cabinet/jeux/eclair'
+import type { PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
+import type { QuizServerOptions } from '../src/server'
+import { demarrer, ecrire, type Banc } from './banc'
 
 /** Une question d'essai de la catégorie et de la difficulté qu'on veut : 2 facile, 3 moyenne, 4 difficile. Quatre réponses courtes, que l'intitulé ne dit pas. */
 export function questionDuCabinet(i: number, categorie: Categorie, difficulte: number): QuestionDeLaBase {
@@ -116,4 +121,89 @@ export function departEnBase(fichier: string, serie: string): DepartDUnePartie {
   const d = ligne && lireLeDepart(ligne.cabinet)
   if (!d) throw new Error(`le départ de ${serie} ne se relit pas`)
   return d
+}
+
+// ── Par les routes ────────────────────────────────────────────────────────
+
+/** Un vrai serveur, la base d'essai du Cabinet, l'horloge du jour à la main ; `fichier` : la base permanente, à lire à côté. */
+export interface BancDuCabinet {
+  banc: Banc
+  horloge: { t: number }
+  fichier: string
+}
+
+export async function bancDuCabinet(opts: Partial<QuizServerOptions> = {}): Promise<BancDuCabinet> {
+  const horloge = { t: DIX_HEURES }
+  const banc = await demarrer({ baseDeLaCampagne: baseDuCabinet(), horlogeDuJour: () => horloge.t, ...opts })
+  return { banc, horloge, fichier: banc.quizDbUrl.replace(/^file:/, '') }
+}
+
+export interface Reponse<T> {
+  status: number
+  corps: T
+  entetes: Headers
+}
+
+/** Une lecture telle que la page la fait (`X-Requested-With`), ou telle que le navigateur la précharge (`prechargee`). */
+export async function lire<T = any>(b: BancDuCabinet, cookie: string | undefined, chemin: string, { prechargee = false } = {}): Promise<Reponse<T>> {
+  const r = await fetch(`${b.banc.url}${chemin}`, { headers: { ...(cookie && { Cookie: cookie }), ...(!prechargee && { 'X-Requested-With': 'quizz' }) } })
+  return { status: r.status, corps: (await r.json()) as T, entetes: r.headers }
+}
+
+export async function poster<T = any>(b: BancDuCabinet, cookie: string | undefined, chemin: string, corps: unknown): Promise<Reponse<T>> {
+  const r = await ecrire(b.banc.url, chemin, corps, cookie)
+  return { status: r.status, corps: (await r.json()) as T, entetes: r.headers }
+}
+
+export const laPage = (b: BancDuCabinet, cookie: string | undefined, opts?: { prechargee?: boolean }) => lire<PageDuCabinet>(b, cookie, '/api/cabinet', opts)
+export const commencer = (b: BancDuCabinet, cookie: string, demande: unknown) => poster<VueDeLaPartie>(b, cookie, '/api/cabinet/partie', demande)
+/** Un geste, au rang que la vue dit suivre. */
+export const jouer = (b: BancDuCabinet, cookie: string, vue: Pick<VueDeLaPartie, 'id' | 'rang'>, geste: GesteDuCabinet | Record<string, unknown>) =>
+  poster<VueDeLaPartie>(b, cookie, `/api/cabinet/partie/${vue.id}/geste`, { rang: vue.rang, geste })
+
+/** Ce qu'il faut savoir pour répondre juste, lu dans le plan en base : la page ne le voit jamais avant le verdict. */
+export const pariDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as PariTire
+export const eclairDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as EclairTire
+/** Les réponses justes d'une manche de l'Éclair : vraie quand la réponse proposée est la bonne. */
+export const vraiesDe = (t: EclairTire) => t.affirmations.map(a => a.proposee === a.question.bonne)
+
+/** Une réponse qui passe — sinon l'épreuve s'arrête là, en disant ce que le serveur a répondu. */
+export function ok<T>(r: Reponse<T>, quoi: string): T {
+  if (r.status !== 200) throw new Error(`${quoi} : ${r.status} ${JSON.stringify(r.corps)}`)
+  return r.corps
+}
+
+/**
+ * Une manche du Pari, la `k`-ième du plan, ouverte : juste à la première
+ * question, puis gardée, ou pariée — juste ou non à la seconde. Rend la vue
+ * de la manche tranchée.
+ */
+export async function jouerUnPari(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number, facon: 'garder' | 'parier-juste' | 'parier-faux' | 'rater' = 'parier-juste'): Promise<VueDeLaPartie> {
+  const t = pariDe(b, vue.id, k)
+  const manche = k as 0 | 1 | 2
+  if (facon === 'rater') return ok(await jouer(b, cookie, vue, { quoi: 'repondre', manche, reponse: { pari: { choix: (t.q1.bonne + 1) % 4 } } }), 'rater')
+  let v = ok(await jouer(b, cookie, vue, { quoi: 'repondre', manche, reponse: { pari: { choix: t.q1.bonne } } }), 'la première question')
+  if (facon === 'garder') return ok(await jouer(b, cookie, v, { quoi: 'garder', manche }), 'garder')
+  v = ok(await jouer(b, cookie, v, { quoi: 'parier', manche }), 'parier')
+  const choix = facon === 'parier-juste' ? t.q2.bonne : (t.q2.bonne + 1) % 4
+  return ok(await jouer(b, cookie, v, { quoi: 'repondre', manche, reponse: { pari: { choix } } }), 'la question du pari')
+}
+
+/** Une manche de l'Éclair, ouverte : ses cinq affirmations, toutes justes ou toutes fausses. */
+export async function jouerUnEclair(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number, juste = true): Promise<VueDeLaPartie> {
+  const reponses = vraiesDe(eclairDe(b, vue.id, k)).map(v => (juste ? v : !v))
+  return ok(await jouer(b, cookie, vue, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { eclair: { reponses } } }), 'l’Éclair')
+}
+
+/** La manche suivante ouverte, la précédente tranchée. */
+export const ouvrir = async (b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number) => ok(await jouer(b, cookie, vue, { quoi: 'ouvrir', manche: k as 0 | 1 | 2 }), `ouvrir la manche ${k}`)
+
+/** Une partie entière au Pari, chaque manche pariée et juste : neuf étoiles, le cadre doré. */
+export async function unPariParfait(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie): Promise<VueDeLaPartie> {
+  let v = vue
+  for (let k = 0; k < 3; k++) {
+    if (k > 0) v = await ouvrir(b, cookie, v, k)
+    v = await jouerUnPari(b, cookie, v, k)
+  }
+  return v
 }

@@ -23,7 +23,7 @@
 import type { Route } from './adresses'
 
 /** Les pages qui se mettent en maintenance, dans l'ordre où le QG les montre. */
-export const PAGES_EN_MAINTENANCE = ['jour', 'campagne', 'defi', 'duels', 'expedition', 'boutique'] as const
+export const PAGES_EN_MAINTENANCE = ['jour', 'campagne', 'defi', 'duels', 'expedition', 'cabinet', 'boutique'] as const
 export type PageEnMaintenance = (typeof PAGES_EN_MAINTENANCE)[number]
 
 export const estUnePageEnMaintenance = (x: unknown): x is PageEnMaintenance => (PAGES_EN_MAINTENANCE as readonly unknown[]).includes(x)
@@ -66,6 +66,12 @@ export const PAGES_FERMABLES: Record<PageEnMaintenance, { nom: string; ferme: st
     bientot: 'Les duels arrivent bientôt',
   },
   expedition: { nom: 'L’Expédition', ferme: 'Sa page et le départ', titre: 'L’Expédition est en maintenance', bientot: 'L’Expédition arrive bientôt' },
+  cabinet: {
+    nom: 'Le Cabinet de curiosités',
+    ferme: 'Le départ d’une partie ; celle en cours se finit',
+    titre: 'Le Cabinet de curiosités est en maintenance',
+    bientot: 'Le Cabinet de curiosités arrive bientôt',
+  },
   boutique: {
     nom: 'La boutique',
     ferme: 'Sa page et ses achats : thèmes, compagnons, fonds de carte',

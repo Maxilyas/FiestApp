@@ -34,8 +34,9 @@ import {
   type Socket,
 } from './banc'
 import { ecrireAttente, prechargerDonnees } from '../src/core/page'
-import { donneesDeDepart, donneesDuFragment, entreeUtilisable, versLesSentiers, type EntreeDeDepart } from '../../shared/depart'
+import { DEPART, donneesDeDepart, donneesDuFragment, entreeUtilisable, versLesSentiers, type EntreeDeDepart } from '../../shared/depart'
 import { parseRoute } from '../../shared/adresses'
+import { RESERVED_SLUGS } from '../../shared/space'
 import { BRANCHES } from '../../shared/branches'
 import { ProfileStore } from '../src/auth/profiles'
 
@@ -84,6 +85,13 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   // L'entrée d'un invité, son état de départ ; l'écran commun attend sa liaison temps réel, pas une donnée.
   assert.deepEqual(de('/banc'), ['/s/banc/entree.json'])
   for (const c of ['/host', '/tele', '/compte', '/nulle/part/ici']) assert.deepEqual(de(c), [], c)
+  // Le Cabinet de curiosités : ses routes avant sa page. Son adresse est réservée — un espace « cabinet » n'aurait plus
+  // d'adresse le jour où elle arrive —, et sa donnée de départ, celle que sa page demandera et que le serveur
+  // préchargera alors avec elle ; d'ici là, `/cabinet` n'ouvre rien, et ne précharge rien.
+  assert.equal(DEPART.cabinet, '/api/cabinet')
+  assert.ok(RESERVED_SLUGS.has('cabinet'))
+  assert.deepEqual(parseRoute('/cabinet'), { kind: 'unknown' })
+  assert.deepEqual(de('/cabinet'), [])
 
   // Le préchargement ne sert que si l'adresse est la même, lettre pour
   // lettre : la page les prend au même module.

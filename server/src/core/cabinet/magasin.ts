@@ -34,6 +34,7 @@ import { lireLeBilan, lireUnGeste } from '../../../../shared/cabinet/lecture'
 import {
   cadreDuDepart,
   dorees,
+  jeuDeLEchange,
   museeDe,
   possedees,
   visiteDuJour,
@@ -108,6 +109,8 @@ export interface PartieGardee {
 
 /** Une partie telle que la route la montre (`vueDeLaPartie`) — et, au geste qui la finit, ce que la fin a rapporté. */
 export interface PartieLue extends PartieGardee {
+  /** L'heure du serveur où la vue la dit : son chrono, son pouvoir, et l'heure que la page mesure (invariant 6). */
+  lueA: number
   gains?: { xp: readonly number[]; recompenses: ReponsesEcrites['recompenses'] }
 }
 
@@ -117,6 +120,8 @@ export interface LectureDuCabinet {
   jour: string
   musee: Musee
   visite: VisiteDuJour
+  /** Le jeu qu'un échange donnerait aujourd'hui (`jeuDeLEchange`) : la règle des échanges le lit, la graine reste ici. */
+  jeuDeLEchange: CleDeJeu | null
   enCours: PartieLue | null
   expeditionEnRoute: boolean
   /** La fête du jour, au calendrier du Cabinet. */
@@ -313,12 +318,14 @@ export class CabinetStore {
         enCours = null
       }
       const musee = this.museeVu(profileId, garde)
+      const visite = this.visiteDe(profileId, musee, t)
       return {
         maintenant: t,
         jour: jourDe(t),
         musee,
-        visite: this.visiteDe(profileId, musee, t),
-        enCours: enCours && !enCours.etat.fin ? enCours : null,
+        visite,
+        jeuDeLEchange: jeuDeLEchange(musee, visite, { graine: this.graineDe(profileId), jeux: JEUX_PRETS }),
+        enCours: enCours && !enCours.etat.fin ? { ...enCours, lueA: t } : null,
         expeditionEnRoute: garde.expeditionEnRoute !== null,
         fete: this.reglages.calendrier.periodeDu(jourDe(t))?.saison ?? null,
         jeux: JEUX_PRETS,
@@ -411,7 +418,7 @@ export class CabinetStore {
         this.retenirLeDepart(g, figee, serie, t, visite)
         const gestes: GesteEcrit[] = ouverture ? [{ geste: ouverture.geste, faitLe: t }] : []
         const partie: PartieGardee = { id: serie, profileId, depart: figee, gestes, etat: pliDeLaPartie(figee, gestes), bilan: null }
-        return this.garder(this.parties, serie, partie, PARTIES_GARDEES)
+        return { ...this.garder(this.parties, serie, partie, PARTIES_GARDEES), lueA: this.maintenant() }
       }
     })
   }
@@ -461,8 +468,8 @@ export class CabinetStore {
       for (let essai = 0; ; essai++) {
         const p = await this.partieDe(profileId, serie)
         if (!p) return { introuvable: true }
-        if (p.etat.fin) return { passe: p, pourquoi: PARTIE_FINIE }
-        if (rang !== p.etat.rang) return { passe: p, pourquoi: GESTE_PASSE }
+        if (p.etat.fin) return { passe: { ...p, lueA: this.maintenant() }, pourquoi: PARTIE_FINIE }
+        if (rang !== p.etat.rang) return { passe: { ...p, lueA: this.maintenant() }, pourquoi: GESTE_PASSE }
         const geste = lireUnGeste(brut)
         if (!geste) throw new Error('Ce geste ne se lit pas : recharge la page')
         const issue = await this.ecrireUnGeste(profileId, p, geste, p.etat.rang, recueLe)
@@ -516,10 +523,10 @@ export class CabinetStore {
     if (fin && garde) {
       this.retenirLaFin(garde, suite, fin.aEcrire, t)
       this.parties.delete(p.id)
-      return { partie: { ...suite, gains: { xp: ecrites.xp, recompenses: ecrites.recompenses } } }
+      return { partie: { ...suite, lueA: this.maintenant(), gains: { xp: ecrites.xp, recompenses: ecrites.recompenses } } }
     }
     this.garder(this.parties, p.id, suite, PARTIES_GARDEES)
-    return { partie: suite }
+    return { partie: { ...suite, lueA: this.maintenant() } }
   }
 
   /** Ce que la fin écrit : le bilan, l'œuvre telle que son musée la tient à présent — une chasse du matin, un achat entre-temps l'ont pu changer. */

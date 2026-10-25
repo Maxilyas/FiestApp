@@ -25,6 +25,8 @@ export const PORTES_DES_PAGES: Record<PageEnMaintenance, readonly string[]> = {
   defi: ['POST /api/campagne/defi'],
   duels: ['POST /api/campagne/duel', 'POST /api/campagne/duel/:code', 'POST /api/campagne/rencontre'],
   expedition: ['POST /api/expedition'],
+  // Le départ d'une partie ; jamais un geste : une partie commencée se finit, sa poussière et son œuvre avec.
+  cabinet: ['POST /api/cabinet/partie'],
   boutique: ['POST /api/joueur/themes', 'POST /api/joueur/compagnons', 'POST /api/joueur/fonds'],
 }
 

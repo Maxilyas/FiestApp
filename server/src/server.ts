@@ -17,6 +17,9 @@ import { ProgrammeStore } from './core/programmes'
 import { SalonStore } from './core/salons'
 import { CampagneStore } from './core/campagne'
 import { REVEIL_DU_CABINET } from './core/cabinet/tables'
+import { CabinetStore } from './core/cabinet/magasin'
+import { calendrierDuCabinet } from './core/saisons'
+import { cabinetOuvert } from '../../shared/cabinet/ouverture'
 import { Missions } from './core/missions'
 import { Soins } from './core/soins'
 import type { BaseDeLaCampagne } from './core/baseCampagne'
@@ -50,7 +53,7 @@ import { questionAuCentreOuverte, rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
 import { RappelStore } from './core/rappels'
 import { erreurDeRequete, repondreErreur } from './core/http'
-import { ecrireAttente, ecrireLeService, espaceDeLEntree, pageDEntree, prechargerDonnees } from './core/page'
+import { ecrireAttente, ecrireLeService, espaceDeLEntree, fermerLeCabinet, pageDEntree, prechargerDonnees } from './core/page'
 import { parseRoute } from '../../shared/adresses'
 import { donneesDeDepart, type EntreeDeDepart } from '../../shared/depart'
 import { fermeePour, pageDeLAdresse } from '../../shared/maintenance'
@@ -108,6 +111,12 @@ export interface QuizServerOptions {
    * le 20 octobre 2026. Un test la ferme pour voir le départ de la version 9.
    */
   questionAuCentre?: boolean
+  /**
+   * Le Cabinet de curiosités répond-il ici ? Absent : son drapeau le dit
+   * (`cabinetOuvert`, `shared/cabinet/ouverture.ts`) — partout hors de la
+   * production. Un test le ferme pour voir le serveur de la production.
+   */
+  cabinet?: boolean
   /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
   miroir?: Omit<ReglagesMiroir, 'base'>
   /** Le client compilé. Les tests en donnent un de trois lignes : `client/dist` n'existe qu'après le build. */
@@ -492,6 +501,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
     rencontres,
     ...(opts.fraicheurDesDuelsMs !== undefined && { fraicheurDesDuelsMs: opts.fraicheurDesDuelsMs }),
   })
+  // Le Cabinet de curiosités : il ne connaît la campagne que par sa porte, ses tables naissent dans son premier lot
+  // (`REVEIL_DU_CABINET`) — pas d'`init` à lui —, et il lit l'heure de la campagne et le calendrier de ses fêtes.
+  const cabinetEstOuvert = opts.cabinet ?? cabinetOuvert({ online: !!opts.online, env: opts.appEnv ?? 'production' })
+  const cabinet = new CabinetStore(campagne.porte(), profiles, { maintenant: maintenantDuJour, calendrier: calendrierDuCabinet })
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
@@ -803,8 +816,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
    * ce qui vit (ses sessions de joueur, les consoles qu'il a ouvertes), puis
    * l'espace qu'il tenait — détaché, jamais supprimé : son salon, ses quiz et
    * les souvenirs des soirées qu'on y a jouées restent, et l'administrateur
-   * le supprime à part s'il le veut —, le quiz du jour, la campagne, et sa
-   * fiche en tout dernier : une écriture qui échoue en route laisse un profil
+   * le supprime à part s'il le veut —, le quiz du jour, le Cabinet de
+   * curiosités, la campagne, et sa fiche en tout dernier : une écriture qui échoue en route laisse un profil
    * sur lequel réessayer, pas des lignes sans maître. Ce que ses soirées ont
    * rapporté aux autres joueurs leur reste.
    */
@@ -816,6 +829,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     if (salon) await auth.linkProfile(salon.id, null)
     await jour.oublierProfil(profileId)
     await rappels.oublierProfil(profileId)
+    // Le Cabinet avant la campagne : ses gestes se trouvent par les séries du profil, que la campagne efface.
+    await cabinet.oublierProfil(profileId)
     await campagne.oublierProfil(profileId)
     // Les pages bientôt disponibles qu'il testait (`core/maintenance.ts`).
     await maintenance.oublierProfil(profileId)
@@ -1215,10 +1230,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // latence en essayant de lancer une expédition », le propriétaire). Réveillé, le serveur ne la lisait que vingt secondes
   // après son démarrage, et le premier départ parti avant attendait sa lecture, ses sujets et ses tirages : une seconde de
   // processeur, une dizaine au dixième de cœur. Une fois la page servie, pour que la requête du réveil passe d'abord.
+  // Le Cabinet de même : son premier départ tire sur toute la base, et ses propres tas avec (`CabinetStore.prechauffer`).
   if (opts.prechauffageAuProfil !== false) {
-    app.get(['/api/joueur/moi', '/api/expedition'], (req, res, next) => {
-      const page = req.path === '/api/expedition' || req.query.accueil !== undefined
-      if (page && readPlayerToken(req.header('cookie'))) res.on('finish', () => campagne.prechauffer())
+    app.get(['/api/joueur/moi', '/api/expedition', '/api/cabinet'], (req, res, next) => {
+      const page = req.path === '/api/expedition' || req.path === '/api/cabinet' || req.query.accueil !== undefined
+      const prechauffer = req.path === '/api/cabinet' ? () => cabinet.prechauffer() : () => campagne.prechauffer()
+      if (page && readPlayerToken(req.header('cookie'))) res.on('finish', prechauffer)
       next()
     })
   }
@@ -1239,6 +1256,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
     rencontres,
     questionAuCentre,
+    cabinet: { magasin: cabinet, ouvert: cabinetEstOuvert },
     qg: {
       db,
       registry,
@@ -1358,6 +1376,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const meta = `<meta name="app-env" content="${opts.appEnv.replace(/[^\w.-]/g, '')}">`
       indexHtml = indexHtml.replace('</head>', `  ${meta}\n  </head>`)
     }
+    if (!cabinetEstOuvert && indexHtml) indexHtml = fermerLeCabinet(indexHtml)
     /**
      * Les codes manqués, par adresse : vingt d'affilée, puis deux par minute.
      * Une tablée qui se trompe d'un chiffre ne s'en aperçoit pas ; un script

@@ -3,6 +3,8 @@ import { composerUnQuiz, dejaDansLEspace, idDeLaBase, lireChoixDuQuiz, NOMBRE_MI
 import { dernieresFois } from './core/memoire'
 import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './campagne'
 import { expeditionOuverte, mountExpedition } from './expedition'
+import { mountCabinet } from './cabinet'
+import type { CabinetStore } from './core/cabinet/magasin'
 import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
@@ -88,6 +90,8 @@ interface ApiDeps {
   rencontres: boolean
   /** La question au centre de l'expédition (v10) s'offre au départ sur ce serveur (`questionAuCentreOuverte`, calculé de même). */
   questionAuCentre: boolean
+  /** Le Cabinet de curiosités : son magasin, et s'il répond sur ce serveur (`cabinetOuvert`, calculé une fois au démarrage). */
+  cabinet: { magasin: CabinetStore; ouvert: boolean }
   /** Les missions du jour et le coffre de la semaine, qui lisent les trois magasins. */
   missions: Missions
   /** Les soins de son compagnon : ses envies du jour, son cadeau, la cueillette, son jardin. */
@@ -162,6 +166,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
     rencontres: deps.rencontres,
     questionAuCentre: deps.questionAuCentre,
   })
+  // Le Cabinet de curiosités, qu'on joue seul avec son profil : en préproduction d'abord, fermé en production tant que son drapeau le ferme.
+  mountCabinet(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, ouvert: deps.cabinet.ouvert })
   // Ses missions du jour et le coffre de la semaine, de même.
   mountMissions(app, { missions: deps.missions, profiles: deps.profiles })
   // Les soins de son compagnon aussi : un profil et son compagnon, pas un animateur.

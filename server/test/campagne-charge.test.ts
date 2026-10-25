@@ -151,13 +151,13 @@ test('la base de la campagne se lit en fond après le démarrage : le premier jo
   }
 })
 
-test('un profil qui ouvre son accueil ou l’expédition la fait lire sans attendre le délai du démarrage', async () => {
+test('un profil qui ouvre son accueil, l’expédition ou le Cabinet la fait lire sans attendre le délai du démarrage', async () => {
   // Réveillé, le serveur ne la lisait que vingt secondes après son démarrage :
   // le premier départ en expédition parti avant attendait sa lecture, ses sujets
   // et ses tirages — une seconde de processeur, une dizaine au dixième de cœur
   // (« gros problème de latence en essayant de lancer une expédition », le
-  // propriétaire, le 20 octobre 2026).
-  for (const page of ['/api/joueur/moi?accueil', '/api/expedition']) {
+  // propriétaire, le 20 octobre 2026). Le premier départ du Cabinet de même.
+  for (const page of ['/api/joueur/moi?accueil', '/api/expedition', '/api/cabinet']) {
     let lectures = 0
     const reveille = await demarrer({
       horlogeDuJour: () => MAINTENANT,

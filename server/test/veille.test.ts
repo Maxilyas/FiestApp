@@ -45,6 +45,10 @@ test('le mode d’une source : la route sous son modèle, ou le temps réel — 
     ['POST /api/campagne/serie/:id/reponse', 'campagne'],
     ['POST /api/campagne/sentiers/epreuve', 'campagne'],
     ['POST /api/expedition/:id/reponse', 'expedition'],
+    // Le Cabinet de curiosités, sous son nom : sa page, son départ, ses gestes.
+    ['GET /api/cabinet', 'cabinet'],
+    ['POST /api/cabinet/partie', 'cabinet'],
+    ['POST /api/cabinet/partie/:id/geste', 'cabinet'],
     ['POST /api/joueur/compagnons/:cle', 'boutique'],
     ['POST /api/joueur/themes', 'boutique'],
     ['GET /api/joueur/moi', 'accueil'],

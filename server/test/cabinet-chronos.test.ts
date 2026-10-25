@@ -4,12 +4,15 @@
 // la pause de « Quitter ? », bornée et voilée ; le Pari sans chrono entre ses
 // étapes ; la Réplique, dont « Qui l'a dit ? » s'ouvre aussi à l'échéance du
 // mot ; « Prendre son temps », marqué seulement s'il a servi. Et jamais
-// l'horloge de la machine, ni dans les règles ni au serveur du Cabinet. Le
-// même chrono par les routes, l'horloge du banc à la main, viendra avec le
-// serveur du Cabinet.
+// l'horloge de la machine, ni dans les règles ni au serveur du Cabinet. Puis
+// le même chrono par les routes, l'horloge du banc à la main
+// (`horlogeDuJour`) : l'heure d'arrivée de la requête juge, jamais celle du
+// téléphone.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { inscrireProfil } from './banc'
+import { bancDuCabinet, commencer, eclairDe, jouer, ok, ouvrir as ouvrirLaManche, vraiesDe } from './cabinet-banc'
 import { DUREES_DES_JEUX, GRACE_D_UNE_MANCHE_MS, PAUSE_MAX_MS, SECONDES_PAR_FORCE } from '../../shared/cabinet/bareme'
 import { dansLesTemps, echeanceDe, etapeOuverte, limiteDe, pauseCompteeMs, pauseResteMs } from '../../shared/cabinet/chrono'
 import { JOKER_DU_TEMPS } from '../../shared/cabinet/pieces'
@@ -267,6 +270,31 @@ test('jamais l’horloge de la machine : ni dans les règles du Cabinet, ni dans
   const regles = lire(new URL('../../shared/cabinet/', import.meta.url))
   assert.ok(regles.length >= 20, `${regles.length} fichiers relus`)
   for (const [f, code] of regles) assert.doesNotMatch(code, /Date\.now\(|new Date\(|performance\.now\(|Math\.random\(/, `shared/cabinet/${f}`)
-  // Le serveur du Cabinet tire au hasard (le tirage), mais ne lit jamais l'horloge.
+  // Le serveur du Cabinet tire au hasard (le tirage), mais ne lit jamais l'horloge — ses routes non plus.
   for (const [f, code] of lire(new URL('../src/core/cabinet/', import.meta.url))) assert.doesNotMatch(code, /Date\.now\(|new Date\(\)/, `core/cabinet/${f}`)
+  assert.doesNotMatch(readFileSync(new URL('../src/cabinet.ts', import.meta.url), 'utf8'), /Date\.now\(|new Date\(\)/, 'src/cabinet.ts')
+})
+
+test('par les routes : à l’heure, dans la grâce, la manche se juge sur ce qu’elle porte ; après, elle expire', async () => {
+  const b = await bancDuCabinet()
+  try {
+    const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
+    let v = ok(await commencer(b, lea, { origine: 'libre', jeu: 'eclair', carte: null }), 'commencer')
+    assert.equal(v.chrono?.echeance, b.horloge.t + DUREES_DES_JEUX.eclair * S, 'l’échéance part de l’arrivée du départ, à l’heure du serveur')
+    // Au dernier instant de la grâce : jugée sur ses réponses.
+    b.horloge.t = v.chrono!.echeance + GRACE_D_UNE_MANCHE_MS
+    v = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 0, reponse: { eclair: { reponses: vraiesDe(eclairDe(b, v.id, 0)) } } }), 'à l’heure')
+    assert.deepEqual([v.manches[0].fin, v.manches[0].naturel], ['jugee', 3])
+    // Un instant après : expirée, ce qu'elle portait ne compte pas.
+    v = await ouvrirLaManche(b, lea, v, 1)
+    b.horloge.t = v.chrono!.echeance + GRACE_D_UNE_MANCHE_MS + 1
+    v = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 1, reponse: { eclair: { reponses: vraiesDe(eclairDe(b, v.id, 1)) } } }), 'en retard')
+    assert.deepEqual([v.manches[1].fin, v.manches[1].naturel], ['expiree', 0])
+    // Et un geste qui n'est pas une réponse, arrivé trop tard, se refuse en mots.
+    v = await ouvrirLaManche(b, lea, v, 2)
+    b.horloge.t = v.chrono!.echeance + GRACE_D_UNE_MANCHE_MS + 1
+    assert.deepEqual(await jouer(b, lea, v, { quoi: 'pause', manche: 2 }).then(r => [r.status, r.corps]), [400, { error: 'Le temps de cette manche est écoulé' }])
+  } finally {
+    await b.banc.close()
+  }
 })

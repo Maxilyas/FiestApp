@@ -42,6 +42,12 @@ export const DEPART = {
   duels: '/api/duels',
   /** L'expédition en route, sinon la prochaine et ses gardiens. */
   expedition: '/api/expedition',
+  /**
+   * Le musée, la visite du jour, la partie en cours — sa réponse remesure
+   * l'heure (`avecLHeure`) et se dit préchargée sans `X-Requested-With`. La
+   * page qui la demandera (`/cabinet`) la précharge avec elle.
+   */
+  cabinet: '/api/cabinet',
   /** Les sentiers du savoir — préchargés par la page, pas par le serveur (`donneesDuFragment`). */
   sentiers: '/api/campagne/sentiers',
   /** Le carnet de révision, en tête de l'onglet « Apprendre » — préchargé comme les sentiers. */

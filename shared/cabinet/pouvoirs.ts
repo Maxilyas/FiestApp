@@ -123,6 +123,18 @@ export function forceDite(pouvoir: CleDePouvoir, force: Force): string {
   }
 }
 
+/**
+ * Ce que la carte-bonus emportée fait à ce jeu, en une ligne — l'annonce et la
+ * partie la disent sous elle : Éclairer, ce qu'il éclaire ici ; Changer, s'il
+ * sert à ce jeu ; les autres, leur force. « Éclairer : efface une mauvaise
+ * réponse — 2 indices par partie ».
+ */
+export function ceQueFaitLaCarte(pouvoir: CleDePouvoir, force: Force, jeu: CleDeJeu): string {
+  if (pouvoir === 'eclairer') return `${POUVOIRS.eclairer.nom} : ${JEUX[jeu].eclairer} — ${forceDite(pouvoir, force)}`
+  if (pouvoir === 'changer' && !JEUX[jeu].changeable) return `Changer ne sert pas ${JEUX[jeu].a}`
+  return `${POUVOIRS[pouvoir].nom} : ${forceDite(pouvoir, force)}`
+}
+
 /** Ce qu'il faut savoir d'une partie pour dire si un pouvoir sert maintenant — le pli le tient. */
 export interface UsageDUnPouvoir {
   pouvoir: CleDePouvoir

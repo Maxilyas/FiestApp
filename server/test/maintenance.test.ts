@@ -107,7 +107,7 @@ test('chaque adresse dit sa page à fermer, et le bandeau se montre partout hors
   assert.equal(ecrireLesFermees(['boutique', 'jour', 'jour']), 'jour boutique')
   assert.deepEqual(lireLesFermees('jour  defi soirees <script>'), ['jour', 'defi'])
   assert.deepEqual(lireLesFermees(null), [])
-  assert.equal(ceQuiEstPose({ bandeau: { texte: 'x', depuis: 0 }, pages: { jour: 1, campagne: null, defi: 2, duels: null, expedition: null, boutique: null } }), 3)
+  assert.equal(ceQuiEstPose({ bandeau: { texte: 'x', depuis: 0 }, pages: { jour: 1, campagne: null, defi: 2, duels: null, expedition: null, cabinet: null, boutique: null } }), 3)
 })
 
 test('un bandeau se lit resserré, et trop long se refuse plutôt que de se couper au milieu d’un mot', () => {
@@ -208,7 +208,8 @@ test('une page bientôt disponible n’est fermée qu’à qui attend : ses test
   const joueur = vu({})
   assert.deepEqual(
     PAGES_EN_MAINTENANCE.map(p => [fermeePour(joueur, p), boutonDeLaPage(joueur, p)]),
-    [['maintenance', 'maintenance'], [null, null], [null, null], [null, null], ['bientot', 'bientot'], [null, null]],
+    // Dans l'ordre du QG : le quiz du jour, la campagne, le défi, les duels, l'Expédition, le Cabinet, la boutique.
+    [['maintenance', 'maintenance'], [null, null], [null, null], [null, null], ['bientot', 'bientot'], [null, null], [null, null]],
   )
   // Son testeur y entre, et son bouton le lui dit ; la page en maintenance lui reste fermée.
   const testeur = vu({ avantPremiere: ['expedition'] })

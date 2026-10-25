@@ -14,11 +14,13 @@
 // Le moule commun (`RegleDuJeu`, `regle.ts`) dit comment le pli s'en sert :
 // `trancheLaManche` d'abord — oui, le geste va à `juger` ; non, à
 // `apresLeGeste`. Ces épreuves jouent les règles comme le pli les jouera ; puis
-// le tirage du Pari et de l'Éclair au serveur (`core/cabinet/tirages/`).
+// le tirage du Pari et de l'Éclair au serveur (`core/cabinet/tirages/`), et
+// les deux par les routes, d'une partie entière.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { DIX_HEURES, baseDuCabinet } from './cabinet-banc'
+import { inscrireProfil } from './banc'
+import { DIX_HEURES, bancDuCabinet, baseDuCabinet, commencer, jouerUnEclair, jouerUnPari, ok, ouvrir as ouvrirLaManche, unPariParfait } from './cabinet-banc'
 import type { QuestionDeLaBase } from '../src/core/baseCampagne'
 import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
 import { estUnQcmDuCabinet } from '../src/core/cabinet/tirages/tas'
@@ -885,4 +887,37 @@ test('le tas des QCM du Cabinet : quatre réponses courtes, un intitulé court, 
   assert.equal(estUnQcmDuCabinet(q(`${'Une question bien trop longue pour se lire chrono en marche. '.repeat(3)}?`, ['a', 'b', 'c', 'd'])), false)
   assert.equal(estUnQcmDuCabinet(q('Qui ?', ['Une réponse bien trop longue pour tenir sur un bouton', 'b', 'c', 'd'])), false)
   assert.equal(estUnQcmDuCabinet(q('Quel fleuve traverse Lyon, le Rhône ou la Seine ?', ['le Rhône', 'la Loire', 'la Seine', 'la Garonne'])), false, 'l’intitulé la dit')
+})
+
+test('par les routes : le Pari et l’Éclair d’un bout à l’autre — neuf étoiles et le cadre doré, le pari perdu, l’étoile gardée', async () => {
+  const b = await bancDuCabinet()
+  try {
+    const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
+    const parfait = await unPariParfait(b, lea, ok(await commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null }), 'le Pari'))
+    assert.deepEqual([parfait.phase, parfait.bilan?.total, parfait.bilan?.naturel, parfait.bilan?.aidee], ['finie', 9, [3, 3, 3], false])
+    assert.equal(parfait.bilan?.issue, 'libre', 'une partie libre ne gagne pas d’œuvre')
+    assert.equal(parfait.bilan?.poussiere, 9 * B.POUSSIERE_PAR_ETOILE)
+
+    // Le pari perdu, puis l'étoile gardée, puis une manche ratée : 0, 1, 0.
+    let v = ok(await commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null }), 'le Pari')
+    v = await jouerUnPari(b, lea, v, 0, 'parier-faux')
+    assert.equal(v.revelation?.corps.jeu, 'pari')
+    assert.equal((v.revelation?.corps as { titre: string }).titre, 'Pari perdu')
+    v = await ouvrirLaManche(b, lea, v, 1)
+    v = await jouerUnPari(b, lea, v, 1, 'garder')
+    v = await ouvrirLaManche(b, lea, v, 2)
+    v = await jouerUnPari(b, lea, v, 2, 'rater')
+    assert.deepEqual(v.bilan?.etoiles, [0, B.ETOILES_DU_PARI.garder, 0])
+
+    // L'Éclair : trois manches justes, neuf étoiles.
+    let e = ok(await commencer(b, lea, { origine: 'libre', jeu: 'eclair', carte: null }), 'l’Éclair')
+    for (let k = 0; k < 3; k++) {
+      if (k > 0) e = await ouvrirLaManche(b, lea, e, k)
+      e = await jouerUnEclair(b, lea, e, k)
+    }
+    assert.deepEqual([e.phase, e.bilan?.total, e.bilan?.naturel], ['finie', 9, [3, 3, 3]])
+    assert.equal(e.bilan?.cartel?.manche, 0, 'le cartel garde la plus étoilée qui a une anecdote, la première à égalité')
+  } finally {
+    await b.banc.close()
+  }
 })
