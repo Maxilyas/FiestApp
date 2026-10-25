@@ -237,6 +237,27 @@ contre-expertises dans `verification/`, tous les constats et leur verdict
 dans un seul `constats.json`, et les épreuves qui les prouvent dans
 `reproductions/` — la première ébauche de l'épreuve de chaque correction.
 
+## Le Cabinet de curiosités
+
+Le Cabinet se joue seul, sans soirée : ni animatrice, ni écran commun. Ses
+joueurs suivent `consignes-cabinet.md` à la place de `consignes-invite.md`,
+et leurs fiches sont les `personas/cabinet-*.md` — la joueuse du métro
+(`ophelie`) et la grand-mère (`jeanne`) créent leur profil depuis l'accueil ;
+le complétionniste (`theo`), la daltonienne (`camille-d`), le lecteur d'écran
+(`hugo`) et l'ado qui cherche la faille (`lucas`) ont le leur :
+
+```bash
+npm run tablee -- --sans-animateur --profil "Théo/theo/🦉" \
+  --profil "Camille/camille.d/🦊" --profil "Hugo/hugo/🐺" --profil "Lucas/lucas/🐯"
+```
+
+Le prompt de chacun désigne `consignes-cabinet.md`, sa fiche et
+`modele-retour.md`. Le serveur de la régie n'est pas en ligne : le Cabinet
+y est ouvert, au calendrier du jour — une fête en cours réveille son gardien
+à la première œuvre gagnée. Ses experts du code (`experts/cabinet-*.md` : la
+triche et les secrets, la base et le quota, l'équilibre, la tenue du code)
+suivent `consignes-audit.md`, comme les autres.
+
 ## Adapter la tablée
 
 - **Une autre soirée** : une fiche de plus dans `personas/`, sur le modèle des
