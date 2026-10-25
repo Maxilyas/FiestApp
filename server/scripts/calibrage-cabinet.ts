@@ -5,9 +5,10 @@
 // par qui sait et par qui répond au hasard. Le Cabinet l'attend avant
 // d'ouvrir : les chiffres de la maquette (`retours/2026-10-24/maquette/jeu.js`)
 // se remesurent ici sur le vrai code, et le troisième des choix délégués —
-// les parties libres paient-elles plus qu'une série ? — se tranche sur eux
-// (`docs/architecture/decisions.md`, « Les sept choix laissés au
-// propriétaire »). Ses chiffres datés : `docs/reference/baremes.md`.
+// les parties libres paient-elles plus qu'une série ? — se mesure ici, à la
+// minute, avant que le propriétaire le tranche (`docs/architecture/decisions.md`,
+// « Les sept choix laissés au propriétaire »). Ses chiffres datés :
+// `docs/reference/baremes.md`.
 //
 // Des joueurs inventés jouent les règles partagées — aucune n'est recopiée.
 // Chaque partie part d'un départ que le serveur relirait (`lireLeDepart` en
@@ -33,15 +34,20 @@
 // `calibrage-sentiers.ts` —, et pour le reste un modèle, faute de parties
 // jouées à mesurer : la tablée, puis les vraies parties de la préproduction,
 // le corrigeront. Le joueur au hasard répond au hasard partout où il faut
-// savoir (une réponse, une épingle, un ordre, un nom), et prend ailleurs ce
-// qui rapporte le plus en moyenne — le grand filet, garder l'étoile du Pari
-// quand parier ne vaut pas la peine : c'est le plancher de chaque jeu.
+// savoir (une réponse, une épingle, un ordre, un nom), et choisit ailleurs ce
+// qui l'approche le plus de son but — le filet à lancer, garder ou parier au
+// Pari, vers le seuil qu'il vise : c'est le plancher de chaque jeu. Un seul
+// tient au modèle plus qu'aux règles : le Mot mystère, où il ne tape jamais le
+// mot (une chance sur douze millions à cinq lettres) — que cinq essais faux ne
+// rapportent rien, c'est le pli qui le juge.
 //
 // Un barème s'essaie sans toucher au fichier (`--essai NOM=…`) : la constante
 // de `shared/cabinet/bareme.ts` prend une autre valeur en mémoire, avant que
 // les règles ne se chargent — d'où leurs `import()` plus bas —, et ce sont
 // les règles du code qui la lisent. Un tableau ou une table seulement : un
-// nombre exporté ne se réécrit pas, il s'essaie dans le fichier.
+// nombre exporté ne se réécrit pas, il s'essaie dans le fichier ; et ce que
+// `bareme.ts` tire lui-même d'un tableau à son chargement ne suit pas l'essai
+// (`DERIVEES`).
 //
 //   npx tsx scripts/calibrage-cabinet.ts [--parcours 4] [--jours 365] [--parties 1000] [--mesures 100]
 //     [--joueurs moyen,bon] [--arrivees neuf,30,60] [--graine cabinet] [--sans-musee]
@@ -49,7 +55,7 @@
 //     [--essai MARCHES_DU_PARI=pari:moyen+difficile]
 //
 // Une quarantaine de secondes d'office ; `--sans-musee` n'en garde que les
-// jeux un à un et les confettis à la minute, une dizaine.
+// jeux un à un et les confettis à la minute, moins de vingt.
 import type { Niveau } from '../../shared/campagne'
 import type { Lieu, Fiche, Replique, FriseATheme } from '../../shared/cabinet/contenu'
 import type { ContenuTire } from '../../shared/cabinet/jeux/index'
@@ -124,7 +130,10 @@ function essayer(texte: string): string {
     // Un barème chiffré garde sa forme — trois paliers restent trois ; une liste de marches peut s'allonger.
     const marches = typeof cible[0] === 'string'
     if (!marches && morceaux.length !== cible.length) arreter(`--essai ${nom} : ${cible.length} valeurs attendues, séparées par « / »`)
-    cible.splice(0, cible.length, ...morceaux.map(x => valeurEssayee(nom, cible[0], x)))
+    const essai = morceaux.map(x => valeurEssayee(nom, cible[0], x))
+    const refus = DERIVEES.get(nom)?.(essai)
+    if (refus) arreter(`--essai ${nom} : ${refus}`)
+    cible.splice(0, cible.length, ...essai)
   } else {
     const table = cible as Record<string, unknown>
     for (const m of morceaux) {
@@ -135,6 +144,26 @@ function essayer(texte: string): string {
   }
   return `${nom} = ${JSON.stringify(cible)}`
 }
+/**
+ * Ce que `bareme.ts` tire lui-même d'un tableau, à son chargement — donc de la
+ * valeur d'avant l'essai —, et que le contenu livré suit : un essai qui
+ * changerait l'un sans l'autre jouerait une règle à moitié essayée, et
+ * s'arrêterait au premier départ en accusant le serveur. Les frises à thème
+ * comptent les événements que leurs vagues posent (`EVENEMENTS_D_UNE_FRISE_A_THEME`) :
+ * d'autres vagues, d'une autre somme, ne s'essaient qu'en récrivant les frises.
+ */
+const DERIVEES = new Map<string, (essai: readonly unknown[]) => string | null>([
+  [
+    'VAGUES_DE_LA_FRISE',
+    vagues => {
+      const posees = (vagues as readonly number[]).reduce((n, v) => n + v, 0)
+      const livrees = BAREME.EVENEMENTS_D_UNE_FRISE_A_THEME
+      return posees === livrees
+        ? null
+        : `ces vagues posent ${posees} événements, et les frises livrées en comptent ${livrees} (EVENEMENTS_D_UNE_FRISE_A_THEME, que bareme.ts tire des vagues à son chargement) — essaie des vagues qui en posent ${livrees}, ou récris les frises`
+    },
+  ],
+])
 /** Une valeur essayée, de la forme de celle qu'elle remplace : un nombre, une marche (`facile`), ou des marches (`moyen+difficile`). */
 function valeurEssayee(nom: string, avant: unknown, texte: string): number | string | string[] {
   if (Array.isArray(avant)) return texte.split('+').map(x => valeurEssayee(nom, avant[0], x) as string)
@@ -151,7 +180,7 @@ const P = await import('../../shared/cabinet/partie')
 const { lireLeDepart } = await import('../../shared/cabinet/lecture')
 const M = await import('../../shared/cabinet/musee')
 const { OEUVRES, OEUVRES_DE_DEPART, JEU_DE_L_OEUVRE, estUneOeuvre, oeuvre } = await import('../../shared/cabinet/oeuvres')
-const { pouvoirDe, forceDe } = await import('../../shared/cabinet/pouvoirs')
+const { POUVOIRS, pouvoirDe, forceDe, etoilesApresLesPouvoirs } = await import('../../shared/cabinet/pouvoirs')
 const { AUTRES_GARDIENS, pouvoirDuGardien, GARDIENS, GARDIENS_DE_SAISON, conditionDuGardien } = await import('../../shared/cabinet/salles')
 /** Le gardien de la série, qui se réveille aux jours d'affilée, pas au musée. */
 const SCARABEE = AUTRES_GARDIENS.find(g => 'serie' in g.reveil)!.legendaire
@@ -174,16 +203,24 @@ const { JUSTES_DOUBLEES_PAR_JOUR, QUESTIONS_PAR_SERIE, VIES, ordreDeSerie, xpDuJ
 const { codexDuNiveau } = await import('../../shared/codex')
 const { VERSION_DES_HUIT_FAMILLES } = await import('../../shared/rencontres')
 const { contenuDuCabinet } = await import('../src/core/cabinet/contenu')
+const { Budget } = await import('../src/core/budget')
+const { tronquer } = await import('../../shared/avatars')
 
 const {
+  CASES_DE_LA_VISITE,
   CHANGEMENTS_PAR_PARTIE,
+  CHASSES_PAR_JOUR,
   DEPARTS_PAR_HEURE,
+  ESSAIS_DU_MOT,
   ETOILES_AU_CADRAGE,
   ETOILES_DU_FILET,
   ETOILES_DU_PARI,
+  ETOILES_D_UNE_JUSTE,
   ETOILES_D_UNE_PARTIE,
+  ETOILES_PAR_MANCHE,
+  FORCES_DES_RARETES,
   LARGEURS_DU_FILET,
-  BONUS_DE_MISE,
+  LIBRES_QUI_PAIENT,
   MANCHES_PAR_PARTIE,
   MARCHES_DE_L_ECLAIR,
   MARCHES_DU_FILET,
@@ -240,7 +277,7 @@ const MODELE = {
   /** Le Mot mystère : sans savoir le mot, il le déduit de ses couleurs, une fois sur trois — mieux à chaque lettre soufflée (en logit). */
   motDeduit: 0.35,
   motParLettre: 0.8,
-  /** … et le trouve alors au troisième, quatrième ou cinquième essai. */
+  /** … et le trouve alors à l'un des trois derniers essais (`ESSAIS_DU_MOT`). */
   motAuxEssais: [0.4, 0.35, 0.25],
   /** Le Filet : il sait la valeur, à un centième et demi de piste près… */
   filetSait: 0.3,
@@ -290,8 +327,15 @@ const SECONDES = {
   revelation: 6,
   bilan: 8,
 }
-/** Une question de série, lecture de l'anecdote comprise — le chiffre de `calibrage-sentiers.ts`. */
+/** Une question de série au joueur moyen, lecture de l'anecdote comprise — le chiffre de `calibrage-sentiers.ts`. */
 const SECONDES_PAR_QUESTION_DE_SERIE = 20
+/**
+ * … et à chacun la sienne : la réponse à son allure, comme ses gestes au
+ * Cabinet, l'anecdote au temps d'une révélation, comme au Cabinet. Vingt
+ * secondes pour tous, la série du joueur rapide se lisait à l'allure du moyen
+ * quand son Cabinet allait à la sienne — de quoi lui faire passer la série.
+ */
+const secondesDUneQuestion = (j: Joueur) => (SECONDES_PAR_QUESTION_DE_SERIE - SECONDES.revelation) * j.vitesse + SECONDES.revelation
 
 // ── Le hasard ─────────────────────────────────────────────────────────────
 
@@ -409,8 +453,13 @@ function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number): Cont
 const RELUS = new Map<CleDeJeu, number>()
 const RELUS_PAR_JEU = 40
 
-/** Un départ, du cadre que le musée accepte : le plan entier, son chrono, sa graine. */
-function departDu(cadre: CadreDuDepart, jour: string, r: Hasard): DepartDUnePartie {
+/**
+ * Un départ, du cadre que le musée accepte : le plan entier, son chrono, sa
+ * graine — celle d'Éclairer, nommée par la mesure ou le parcours qui la joue et
+ * son rang : tirée d'un compteur commun, la même mesure changeait d'un
+ * lancement à l'autre selon les joueurs simulés avant elle.
+ */
+function departDu(cadre: CadreDuDepart, jour: string, r: Hasard, graine: string): DepartDUnePartie {
   const changer = cadre.carte?.pouvoir === 'changer' && JEUX[cadre.jeu].changeable
   const rechanges = changer ? CHANGEMENTS_PAR_PARTIE[cadre.carte!.force] : 0
   const d: DepartDUnePartie = {
@@ -418,12 +467,12 @@ function departDu(cadre: CadreDuDepart, jour: string, r: Hasard): DepartDUnePart
     v: P.VERSION_DU_DEPART,
     jour,
     chrono: P.chronoDuDepart(cadre.jeu, cadre.carte),
-    graine: `${GRAINE}:${numero++}`,
+    graine,
     tirages: tirer(cadre.jeu, MANCHES_PAR_PARTIE + rechanges, r, P.anneeDuDepart({ jour })),
   }
   const relus = RELUS.get(d.jeu) ?? 0
   if (relus < RELUS_PAR_JEU) {
-    if (!lireLeDepart(JSON.stringify(d))) arreter(`Le calibrage a tiré un départ ${d.jeu} que le serveur ne relirait pas : ${JSON.stringify(d).slice(0, 300)}…`)
+    if (!lireLeDepart(JSON.stringify(d))) arreter(`Le calibrage a tiré un départ ${d.jeu} que le serveur ne relirait pas : ${tronquer(JSON.stringify(d), 300)}…`)
     RELUS.set(d.jeu, relus + 1)
   }
   return d
@@ -454,7 +503,8 @@ function dansLeCadre(p: Point): Point {
  * Ce que veut le joueur de cette partie : atteindre un seuil, dorer, les
  * étoiles (une partie libre qui paie sa poussière), ou les confettis — une
  * partie libre au-delà de la cinquième ne paie plus que ses pièces justes, et
- * qui la joue pour elles parie toujours au Pari : chaque pari ajoute une pièce.
+ * qui la joue pour elles parie toujours au Pari (chaque pari ajoute une pièce),
+ * lance au Filet celui qui prend le plus souvent une pièce juste.
  */
 interface Objectif {
   seuil: number | null
@@ -504,6 +554,17 @@ class Partie {
     return regleDe(this.d.jeu).montrer(this.d.tirages[m.tirage], m.etat) as T
   }
   tranchee = () => this.e.fin !== null || this.manche.verdict !== null
+
+  /**
+   * Le seuil qu'il vise, que seuls lisent les jeux qui le déclarent
+   * (`MANCHES`) : les autres se jouent pareil vers cinq, six ou sept étoiles,
+   * et se mesurent une fois pour les trois. Un jeu qui le lirait sans le dire
+   * fausserait ses trois parts sans un mot : il s'arrête ici.
+   */
+  get seuil(): number | null {
+    if (!MANCHES[this.d.jeu].viseLeSeuil) throw new Error(`${this.d.jeu} lit le seuil visé sans le déclarer (MANCHES) : ses parts se mesureraient sur les parties d'un autre seuil`)
+    return this.objectif.seuil
+  }
 
   /** Le geste tel que la page l'envoie, joué par le vrai pli : un refus serait une erreur du calibrage. */
   private jouer(g: GesteDuCabinet) {
@@ -613,7 +674,7 @@ function parier(p: Partie, m: Manche): boolean {
   const p1 = surLesMarches(p.j, MARCHES_DU_PARI.question)
   const p2 = surLesMarches(p.j, MARCHES_DU_PARI.pari)
   const { garder, parier: pari } = ETOILES_DU_PARI
-  const seuil = p.objectif.seuil
+  const seuil = p.seuil
   if (seuil === null) return p2 * pari > garder
   const memo = new Map<string, number>()
   const V = (reste: number, s: number): number => {
@@ -661,13 +722,69 @@ function mancheDuMot(p: Partie, m: Manche): void {
   if (p.peut('eclairer')) p.eclairer(m)
   const soufflees = p.vue<MotMontre>().soufflees.length
   const deduit = p.j.theta !== null && p.oui(chance(MODELE.motDeduit, p.j.theta + MODELE.motParLettre * soufflees))
-  const trouveA = deduit ? 3 + selon(MODELE.motAuxEssais, p.r) : 0
+  const trouveA = deduit ? ESSAIS_DU_MOT - MODELE.motAuxEssais.length + 1 + selon(MODELE.motAuxEssais, p.r) : 0
   for (let essai = 1; essai <= BAREME.ESSAIS_DU_MOT && !p.tranchee(); essai++) {
     if (!p.geste({ quoi: 'essai', manche: m, lettres: essai === trouveA ? t.lettres : faux() }, SECONDES.motEssai)) return
   }
 }
 
-/** Le Filet : son estimation, puis le filet qui lui rapporte le plus en moyenne à ce qu'il sait d'elle. */
+/** Le meilleur d'un tas à cette aune ; à égalité, à un milliardième près, à la seconde. */
+function meilleurDes<T>(tas: readonly T[], aune: (x: T) => number, departage: (x: T) => number = () => 0): T {
+  return tas.reduce((a, b) => {
+    const d = aune(b) - aune(a)
+    return d > 1e-9 || (d > -1e-9 && departage(b) > departage(a)) ? b : a
+  })
+}
+
+const TAILLES = Object.keys(LARGEURS_DU_FILET) as TailleDuFilet[]
+/**
+ * La chance qu'il prenne la réponse dans ce filet, à l'écart type — en part de
+ * la piste — qu'il se sait de son estimation ; sans rien savoir, un curseur
+ * posé au hasard la prend à la part de piste que le filet couvre.
+ */
+const prise = (taille: TailleDuFilet, ecart: number) => (Number.isFinite(ecart) ? erf(LARGEURS_DU_FILET[taille] / (ecart * Math.SQRT2)) : 2 * LARGEURS_DU_FILET[taille])
+/** Son écart quand il estime sans savoir : plus fort, plus serré. */
+const flouDuFilet = (j: Joueur) => (j.theta === null ? Infinity : MODELE.filetFlou * Math.exp(-0.3 * j.theta))
+
+/**
+ * Le filet qu'il lance, à ce qu'il sait de son estimation. Pour ses confettis,
+ * celui qui prend le plus souvent une pièce juste ; vers un seuil — ou pour
+ * dorer, trois manches parfaites —, celui qui lui donne le plus de chances de
+ * l'atteindre, les manches qui restent comprises, comme au Pari ; en partie
+ * libre, le plus d'étoiles en moyenne, qui départage aussi le reste — le
+ * seuil déjà tenu, ou hors d'atteinte. Viser la moyenne seule, c'était lancer
+ * le grand filet sans savoir : une étoile par manche, jamais une commune,
+ * jamais une pièce juste — la stratégie, pas la règle.
+ */
+function filetLance(p: Partie, m: Manche, ecart: number): TailleDuFilet {
+  const moyenne = (t: TailleDuFilet) => ETOILES_DU_FILET[t] * prise(t, ecart)
+  if (p.objectif.confettis) return meilleurDes(TAILLES, t => (ETOILES_DU_FILET[t] >= ETOILES_D_UNE_JUSTE ? prise(t, ecart) : 0), moyenne)
+  const vise = p.objectif.dorer ? ETOILES_D_UNE_PARTIE : p.seuil
+  if (vise === null) return meilleurDes(TAILLES, moyenne)
+  // Les manches à venir : il saura la valeur, ou l'estimera — et lancera alors le filet qui lui va.
+  const sait = part(p.j, MODELE.filetSait)
+  const avenir = [
+    { part: sait, ecart: MODELE.filetPrecis },
+    { part: 1 - sait, ecart: flouDuFilet(p.j) },
+  ]
+  const memo = new Map<string, number>()
+  const V = (reste: number, s: number): number => {
+    if (reste === 0 || s >= vise) return s >= vise ? 1 : 0
+    const cle = `${reste}:${s}`
+    if (!memo.has(cle)) {
+      memo.set(
+        cle,
+        avenir.reduce((n, a) => n + a.part * Math.max(...TAILLES.map(t => prise(t, a.ecart) * V(reste - 1, s + ETOILES_DU_FILET[t]) + (1 - prise(t, a.ecart)) * V(reste - 1, s))), 0),
+      )
+    }
+    return memo.get(cle)!
+  }
+  const reste = MANCHES_PAR_PARTIE - 1 - m
+  const s = p.etoilesAvant(m)
+  return meilleurDes(TAILLES, t => prise(t, ecart) * V(reste, s + ETOILES_DU_FILET[t]) + (1 - prise(t, ecart)) * V(reste, s), moyenne)
+}
+
+/** Le Filet : son estimation, puis le filet qui l'approche le plus de son but (`filetLance`). */
 function mancheDuFilet(p: Partie, m: Manche): void {
   const t = p.tiree<FiletTire>()
   const s = p.savoir(p.manche.tirage, () => p.oui(part(p.j, MODELE.filetSait)))
@@ -675,17 +792,14 @@ function mancheDuFilet(p: Partie, m: Manche): void {
   if (!s && p.peut('eclairer')) p.eclairer(m)
   const { piste, zone } = p.vue<FiletMontre>()
   const longueur = piste.max - piste.min
-  const flou = p.j.theta === null ? Infinity : s ? MODELE.filetPrecis : MODELE.filetFlou * Math.exp(-0.3 * p.j.theta)
+  const flou = s ? MODELE.filetPrecis : flouDuFilet(p.j)
   let x = p.j.theta === null ? piste.min + p.r() * longueur : t.valeur + normale(p.r) * flou * longueur
   // Éclairé, il garde son estimation dans la zone dorée ; elle y borne son écart.
   const ecart = zone ? Math.min(flou, ZONE_DU_FILET / Math.sqrt(12)) : flou
   if (zone) x = Math.min(Math.max(x, zone.de), zone.a)
   const surLePas = Number((piste.min + Math.round((Math.min(Math.max(x, piste.min), piste.max) - piste.min) / piste.pas) * piste.pas).toFixed(decimales(piste.pas)))
   const lance = Math.min(Math.max(surLePas, piste.min), piste.max)
-  const tailles = Object.keys(LARGEURS_DU_FILET) as TailleDuFilet[]
-  const vaut = (taille: TailleDuFilet) => ETOILES_DU_FILET[taille] * (Number.isFinite(ecart) ? erf(LARGEURS_DU_FILET[taille] / (ecart * Math.SQRT2)) : 2 * LARGEURS_DU_FILET[taille])
-  const taille = tailles.reduce((a, b) => (vaut(b) > vaut(a) ? b : a))
-  p.repondre(m, { filet: { x: lance, taille } }, SECONDES.filet, true)
+  p.repondre(m, { filet: { x: lance, taille: filetLance(p, m, ecart) } }, SECONDES.filet, true)
 }
 
 /** Le Détail : il répond au cadrage où il reconnaît ; sinon il recule tant que reculer vaut mieux que deviner. */
@@ -818,16 +932,22 @@ function mancheDeLaReplique(p: Partie, m: Manche): void {
   p.repondre(m, { replique: { qui } }, SECONDES.repliqueEtape)
 }
 
-const MANCHES: { readonly [J in CleDeJeu]: (p: Partie, m: Manche) => void } = {
-  pari: mancheDuPari,
-  eclair: mancheDeLEclair,
-  mot: mancheDuMot,
-  filet: mancheDuFilet,
-  detail: mancheDuDetail,
-  frise: mancheDeLaFrise,
-  epingle: mancheDeLEpingle,
-  indices: mancheDesIndices,
-  replique: mancheDeLaReplique,
+/**
+ * Chaque jeu, et s'il se joue autrement selon le seuil visé : le Pari (garder
+ * ou parier) et le Filet (quel filet lancer) le lisent (`Partie.seuil`), les
+ * autres non — leurs parts à cinq, six et sept étoiles se lisent alors sur
+ * les mêmes parties, et ne se contredisent plus au seul bruit du tirage.
+ */
+const MANCHES: { readonly [J in CleDeJeu]: { jouer: (p: Partie, m: Manche) => void; viseLeSeuil: boolean } } = {
+  pari: { jouer: mancheDuPari, viseLeSeuil: true },
+  eclair: { jouer: mancheDeLEclair, viseLeSeuil: false },
+  mot: { jouer: mancheDuMot, viseLeSeuil: false },
+  filet: { jouer: mancheDuFilet, viseLeSeuil: true },
+  detail: { jouer: mancheDuDetail, viseLeSeuil: false },
+  frise: { jouer: mancheDeLaFrise, viseLeSeuil: false },
+  epingle: { jouer: mancheDeLEpingle, viseLeSeuil: false },
+  indices: { jouer: mancheDesIndices, viseLeSeuil: false },
+  replique: { jouer: mancheDeLaReplique, viseLeSeuil: false },
 }
 
 /** Une partie jouée : son état final, ce qu'elle a duré, ses pièces justes. */
@@ -845,11 +965,12 @@ interface PartieJouee {
  */
 function jouerLaPartie(d: DepartDUnePartie, j: Joueur, r: Hasard, t0: number, objectif: Objectif, allure: Allure | null): PartieJouee {
   const p = new Partie(d, j, r, t0 + SECONDES.annonce * 1000, objectif)
+  // Ce que vaut une manche misée et parfaite, par la règle des pouvoirs : une manche misée imparfaite ne vaut rien.
+  const misee = d.carte?.pouvoir === 'miser' ? etoilesApresLesPouvoirs([ETOILES_PAR_MANCHE], d.carte, 0)[0]! : 0
   for (let m = 0 as Manche; m < MANCHES_PAR_PARTIE; m = (m + 1) as Manche) {
-    const carte = d.carte
-    const miser = carte?.pouvoir === 'miser' && allure !== null && p.peut('miser') && allure.parfaites * (3 + BONUS_DE_MISE[carte.force]) > allure.moyenne
+    const miser = misee > 0 && allure !== null && p.peut('miser') && allure.parfaites * misee > allure.moyenne
     p.geste({ quoi: 'ouvrir', manche: m, ...(miser && { miser: true as const }) }, 0)
-    MANCHES[d.jeu](p, m)
+    MANCHES[d.jeu].jouer(p, m)
     if (!P.mancheEnCours(p.e)?.verdict) throw new Error(`${d.jeu} : la manche ${m} ne s'est pas tranchée`)
     p.t += SECONDES.revelation * 1000
   }
@@ -896,7 +1017,9 @@ const versLeSeuil = (seuil: number): Objectif => ({ seuil, dorer: false })
  * vers cinq étoiles ou vers sept, le Détail pas pareil pour dorer. Gardée : un
  * joueur qui choisit sa carte-bonus relit ce qu'il a déjà mesuré.
  */
-function mesurer(j: Joueur, jeu: CleDeJeu, c: CarteMesuree, objectif: Objectif, n = MESURES): Mesure {
+function mesurer(j: Joueur, jeu: CleDeJeu, c: CarteMesuree, vise: Objectif, n = MESURES): Mesure {
+  // Un jeu qui ne lit pas le seuil se joue vers lui comme en partie libre : les mêmes parties pour tous les seuils.
+  const objectif = vise.seuil !== null && !MANCHES[jeu].viseLeSeuil ? LIBRE : vise
   const cle = `${cleDuSavoir(j)}|${jeu}|${c ? `${c.pouvoir}${c.force}` : '-'}|${objectif.dorer ? 'dorer' : objectif.confettis ? 'confettis' : (objectif.seuil ?? 'libre')}|${n}`
   const deja = MESURES_FAITES.get(cle)
   if (deja) return deja
@@ -905,7 +1028,7 @@ function mesurer(j: Joueur, jeu: CleDeJeu, c: CarteMesuree, objectif: Objectif, 
   const allure = objectif.dorer || carte?.pouvoir !== 'miser' ? null : allureDe(j, jeu)
   const x: Mesure = { parties: 0, totaux: Array(ETOILES_D_UNE_PARTIE + 1).fill(0), dorees: 0, justes: 0, secondes: 0, parfaites: 0, etoiles: 0, enRetard: 0 }
   for (let i = 0; i < n; i++) {
-    const d = departDu({ jeu, origine: 'libre', cible: null, but: null, seuil: null, payee: false, carte }, JOUR_MESURE, r)
+    const d = departDu({ jeu, origine: 'libre', cible: null, but: null, seuil: null, payee: false, carte }, JOUR_MESURE, r, `${GRAINE}:mesure:${cle}:${i}`)
     const jouee = jouerLaPartie(d, j, r, T_MESURE, objectif, allure)
     const res = P.resultatDe(d, jouee.etat)
     x.parties++
@@ -913,7 +1036,7 @@ function mesurer(j: Joueur, jeu: CleDeJeu, c: CarteMesuree, objectif: Objectif, 
     if (res.cadreDore) x.dorees++
     x.justes += jouee.justes
     x.secondes += jouee.secondes
-    x.parfaites += res.naturel.filter(k => k === 3).length
+    x.parfaites += res.naturel.filter(k => k === ETOILES_PAR_MANCHE).length
     x.etoiles += res.naturel.reduce((a, b) => a + b, 0)
     x.enRetard += jouee.enRetard
   }
@@ -923,7 +1046,7 @@ function mesurer(j: Joueur, jeu: CleDeJeu, c: CarteMesuree, objectif: Objectif, 
 /** Ce que miser vaudrait : la part des manches parfaites, et les étoiles d'une manche, sans carte. */
 const allureDe = (j: Joueur, jeu: CleDeJeu): Allure => {
   const x = mesurer(j, jeu, null, LIBRE)
-  return { parfaites: x.parfaites / (3 * x.parties), moyenne: x.etoiles / (3 * x.parties) }
+  return { parfaites: x.parfaites / (MANCHES_PAR_PARTIE * x.parties), moyenne: x.etoiles / (MANCHES_PAR_PARTIE * x.parties) }
 }
 const auMoins = (x: Mesure, seuil: number) => x.totaux.slice(seuil).reduce((a, b) => a + b, 0) / x.parties
 const moyenneDe = (x: Mesure) => x.totaux.reduce((n, k, total) => n + k * total, 0) / x.parties
@@ -1071,7 +1194,7 @@ function parcourir(j: Joueur, arrivee: Arrivee, k: number): Parcours {
     const cadre = M.cadreDuDepart(m, demande, v, CLES_DES_JEUX)
     if (typeof cadre === 'string') throw new Error(`${j.nom} : départ refusé (${JSON.stringify(demande)}) — ${cadre}`)
     premierLotDuJour(v, cadre.origine !== 'libre')
-    const d = departDu(cadre, jour, r)
+    const d = departDu(cadre, jour, r, `${GRAINE}:parcours:${j.nom}:${arrivee.nom}:${k}:${jourDuParcours}:${parties.length}`)
     const allure = d.carte?.pouvoir === 'miser' ? allureDe(j, d.jeu) : null
     const jouee = jouerLaPartie(d, j, r, t, objectif, allure)
     const apres = musee()
@@ -1229,6 +1352,52 @@ function serieDe(j: Joueur, r: Hasard): { justes: number; questions: number } {
   return { justes, questions }
 }
 
+/** Ce qu'une partie du Cabinet dure et rapporte, en moyenne : ses minutes, ses pièces justes, et les deux à la minute. */
+interface Debit {
+  minutes: number
+  justes: number
+  parMinute: number
+}
+
+/**
+ * Le plafond des départs, au seau que le serveur tient en mémoire (`Budget`) :
+ * trente d'un coup, puis un toutes les deux minutes, comme `bareme.ts` le dit
+ * de `DEPARTS_PAR_HEURE` — la recharge est celle de `Budget`, pas une recopie.
+ * Il lit l'horloge de la machine : la séance lui tend la sienne, le temps
+ * d'un départ.
+ */
+function departPermis(seau: InstanceType<typeof Budget>, t: number): boolean {
+  const machine = Date.now
+  Date.now = () => t
+  try {
+    return seau.take('profil')
+  } finally {
+    Date.now = machine
+  }
+}
+/**
+ * Une séance de tant de minutes, le seau plein au début : une partie dès qu'un
+ * départ part, une série en attendant le suivant — par pas de six secondes —,
+ * et la série jusqu'au bout quand une partie n'y tient plus. Ses confettis.
+ */
+function seance(minutes: number, partie: Debit, serieParMinute: number): number {
+  const seau = new Budget(DEPARTS_PAR_HEURE, DEPARTS_PAR_HEURE / 60)
+  const PAS = 0.1
+  let t = 0
+  let confettis = 0
+  while (t < minutes - 1e-9) {
+    if (t + partie.minutes <= minutes && departPermis(seau, T_MESURE + t * 60_000)) {
+      confettis += partie.justes
+      t += partie.minutes
+    } else {
+      const attente = Math.min(PAS, minutes - t)
+      confettis += serieParMinute * attente
+      t += attente
+    }
+  }
+  return confettis
+}
+
 // ── L'affichage ───────────────────────────────────────────────────────────
 
 const enPourcent = (x: number) => `${formatNumber(Math.round(x * 1000) / 10)} %`
@@ -1254,7 +1423,11 @@ console.log('')
 const SAVOIRS = [...new Map(JOUEURS.map(j => [cleDuSavoir(j), j])).values()]
 const SEUILS_MONTRES = [...new Set(Object.values(SEUILS_DES_RARETES))].sort((a, b) => a - b)
 console.log('Les jeux, un à un — sans carte-bonus')
-console.log(`  la part des parties à ${SEUILS_MONTRES.join(', ')} étoiles ou plus, chacune jouée vers ce seuil (les seuils des raretés), puis, en partie libre, les étoiles en moyenne, les pièces justes, les minutes d'une partie, et les manches où l'échéance l'a pris de court`)
+console.log(
+  `  la part des parties à ${SEUILS_MONTRES.join(', ')} étoiles ou plus (les seuils des raretés), chacune jouée vers ce seuil — ${CLES_DES_JEUX.filter(jeu => MANCHES[jeu].viseLeSeuil)
+    .map(jeu => JEUX[jeu].nom)
+    .join(' et ')} s'y jouent autrement, les autres pareil, sur les mêmes parties —, puis, en partie libre, les étoiles en moyenne, les pièces justes, les minutes d'une partie, et les manches où l'échéance l'a pris de court`,
+)
 const LARGEURS = [14, 16, 26, 6, 7, 8, 7]
 console.log('  ' + colonnes(['jeu', 'joueur', SEUILS_MONTRES.map(s => `≥ ${s}`).join(' · '), '★/9', 'justes', 'minutes', 'retard'], LARGEURS))
 const TABLE = new Map<string, Mesure>()
@@ -1268,7 +1441,7 @@ for (const jeu of CLES_DES_JEUX) {
     console.log(
       '  ' +
         colonnes(
-          [JEUX[jeu].nom, j.nom, parts.map(enPourcent).join(' · '), arrondi(moyenneDe(x)), arrondi(x.justes / x.parties, 2), arrondi(x.secondes / x.parties / 60, 2), enPourcent(x.enRetard / (3 * x.parties))],
+          [JEUX[jeu].nom, j.nom, parts.map(enPourcent).join(' · '), arrondi(moyenneDe(x)), arrondi(x.justes / x.parties, 2), arrondi(x.secondes / x.parties / 60, 2), enPourcent(x.enRetard / (MANCHES_PAR_PARTIE * x.parties))],
           LARGEURS,
         ),
     )
@@ -1277,14 +1450,25 @@ for (const jeu of CLES_DES_JEUX) {
 if (AU_HASARD.length > 0) console.log(`  Au hasard, une commune (${SEUILS_MONTRES[0]} étoiles) : ${AU_HASARD.sort((a, b) => b.part - a.part).map(x => `${JEUX[x.jeu].nom} ${enPourcent(x.part)}`).join(' · ')}`)
 console.log('')
 
-// 2. Ce qu'une partie rapporte, à la minute, contre une série.
-console.log('Les confettis et l\'expérience, à la minute — une pièce juste est une bonne réponse de campagne')
-console.log(`  une partie libre jouée pour ses confettis (au-delà de la cinquième du jour, elle ne paie plus que ses pièces), sans carte-bonus, puis avec la meilleure d'un gardien ; une série à ${SECONDES_PAR_QUESTION_DE_SERIE} s la question ; à l'heure, le Cabinet borné à ${DEPARTS_PAR_HEURE} départs`)
+// 2. Ce qu'une partie rapporte, à la minute, contre une série. La minute fait
+// foi — « si leur débit dépasse celui d'une série », dit le troisième choix
+// délégué : le plafond des départs arrête le Cabinet, pas la série, et le
+// temps qu'il libère va à la série. Les séances le montrent : le Cabinet
+// d'abord, tant que le seau du serveur laisse partir, la série le reste du
+// temps. Borner l'heure à trente parties et compter le reste perdu faisait
+// passer le Cabinet sous la série quand il la dépassait à la minute.
+console.log("Les confettis et l'expérience, à la minute — une pièce juste est une bonne réponse de campagne")
+console.log(
+  `  une partie libre jouée pour ses confettis (au-delà de la ${formatNumber(LIBRES_QUI_PAIENT)}ᵉ du jour, elle ne paie plus que ses pièces), sans carte-bonus, puis avec le meilleur gardien ; une série à ${SECONDES_PAR_QUESTION_DE_SERIE} s la question au joueur moyen, la réponse à l'allure de chacun ; une séance d'une heure, de trois heures, le plafond des départs plein au début (${formatNumber(DEPARTS_PAR_HEURE)} d'un coup, puis un toutes les ${formatNumber(60 / DEPARTS_PAR_HEURE)} minutes) : le Cabinet d'abord, la série quand il ne laisse plus partir, contre la série seule`,
+)
 const SERIES = 4000
-const LARGEURS_2 = [16, 30, 30, 30, 18]
-console.log('  ' + colonnes(['joueur', 'série : justes · questions', 'série /min', 'Cabinet /min, son meilleur jeu', 'à l\'heure'], LARGEURS_2))
+const LARGEURS_2 = [16, 26, 11, 34, 16, 16]
+console.log('  ' + colonnes(['joueur', 'série : justes · questions', 'série /min', 'Cabinet /min, son meilleur jeu', 'une heure', 'trois heures'], LARGEURS_2))
 const DEBIT_DE_LA_SERIE = new Map<string, number>()
-const GARDIENS_DE_FORCE_3: CarteMesuree[] = (['eclairer', 'proteger', 'temps', 'miser', 'changer'] as const).map(pouvoir => ({ pouvoir, force: 3 }))
+/** Les cinq pouvoirs à la force d'un gardien : ce qu'un joueur qui en a réveillé un emporte de mieux. */
+const LES_GARDIENS: CarteMesuree[] = (Object.keys(POUVOIRS) as CleDePouvoir[]).map(pouvoir => ({ pouvoir, force: FORCES_DES_RARETES.legendaire }))
+/** Les parties qui paient chaque jour sans partie libre de plus : la visite, les chasses, les libres qui paient leur poussière. */
+const PARTIES_QUI_PAIENT_PAR_JOUR = CASES_DE_LA_VISITE + CHASSES_PAR_JOUR + LIBRES_QUI_PAIENT
 for (const j of SAVOIRS) {
   const r = hasardDe(`${GRAINE}:serie:${j.nom}`)
   let justes = 0
@@ -1294,33 +1478,47 @@ for (const j of SAVOIRS) {
     justes += s.justes
     questions += s.questions
   }
-  const parMinute = justes / ((questions * SECONDES_PAR_QUESTION_DE_SERIE) / 60)
+  const parMinute = justes / ((questions * secondesDUneQuestion(j)) / 60)
   DEBIT_DE_LA_SERIE.set(cleDuSavoir(j), parMinute)
-  const debit = (x: Mesure) => {
+  const debit = (x: Mesure): Debit => {
     const minutes = x.secondes / x.parties / 60
-    return { parMinute: x.justes / x.parties / minutes, parHeure: Math.min(DEPARTS_PAR_HEURE, 60 / minutes) * (x.justes / x.parties) }
+    const justesParPartie = x.justes / x.parties
+    return { minutes, justes: justesParPartie, parMinute: justesParPartie / minutes }
   }
   const parJeu = CLES_DES_JEUX.map(jeu => ({ jeu, ...debit(mesurer(j, jeu, null, CONFETTIS, PARTIES)) })).sort((a, b) => b.parMinute - a.parMinute)
-  const avecUnGardien = CLES_DES_JEUX.flatMap(jeu => GARDIENS_DE_FORCE_3.map(c => ({ jeu, c, ...debit(mesurer(j, jeu, c, CONFETTIS)) }))).sort((a, b) => b.parMinute - a.parMinute)
-  for (const [dit, best] of [
-    ['sans carte', parJeu[0]],
-    [`${avecUnGardien[0].c!.pouvoir} 3`, avecUnGardien[0]],
-  ] as const) {
+  // Chaque gardien sur autant de parties que sans carte : garder le meilleur de quarante-cinq mesures de cent parties le tirait vers le haut.
+  const avecUnGardien = CLES_DES_JEUX.flatMap(jeu =>
+    LES_GARDIENS.filter(c => c!.pouvoir !== 'changer' || JEUX[jeu].changeable).map(c => ({ jeu, c, ...debit(mesurer(j, jeu, c, CONFETTIS, PARTIES)) })),
+  ).sort((a, b) => b.parMinute - a.parMinute)
+  const lignes = [
+    { dit: 'sans carte', best: parJeu[0] },
+    { dit: `${POUVOIRS[avecUnGardien[0].c!.pouvoir].nom} ${avecUnGardien[0].c!.force}`, best: avecUnGardien[0] },
+  ]
+  for (const { dit, best } of lignes) {
+    const premiere = dit === 'sans carte'
     console.log(
       '  ' +
         colonnes(
           [
-            dit === 'sans carte' ? j.nom : '',
-            dit === 'sans carte' ? `${arrondi(justes / SERIES)} · ${arrondi(questions / SERIES)}` : '',
-            dit === 'sans carte' ? arrondi(parMinute, 2) : '',
+            premiere ? j.nom : '',
+            premiere ? `${arrondi(justes / SERIES)} · ${arrondi(questions / SERIES)}` : '',
+            premiere ? arrondi(parMinute, 2) : '',
             `${arrondi(best.parMinute, 2)} (${JEUX[best.jeu].nom}, ${dit})`,
-            `${arrondi(parMinute * 60, 0)} contre ${arrondi(best.parHeure, 0)}`,
+            ...[60, 180].map(minutes => `${arrondi(seance(minutes, best, parMinute), 0)} contre ${arrondi(parMinute * minutes, 0)}`),
           ],
           LARGEURS_2,
         ),
     )
   }
   console.log('    sans carte : ' + parJeu.map(x => `${JEUX[x.jeu].nom} ${arrondi(x.parMinute, 2)}`).join(' · '))
+  // Ce que la parade laisserait : la juste à zéro au-delà des libres qui paient, il ne reste chaque jour que les parties qui paient déjà.
+  const mieux = lignes.reduce((a, b) => (b.best.parMinute > a.best.parMinute ? b : a)).best
+  const enPlus = mieux.parMinute - parMinute
+  console.log(
+    enPlus > 0
+      ? `    de plus qu'une série au même temps, au mieux : ${arrondi(enPlus, 2)} la minute, ${arrondi(enPlus * 60, 0)} à l'heure, autant d'heures qu'il en joue ; la juste à zéro au-delà de la ${formatNumber(LIBRES_QUI_PAIENT)}ᵉ libre du jour ne laisserait payer que ses ${formatNumber(PARTIES_QUI_PAIENT_PAR_JOUR)} parties du jour — au plus ${arrondi(PARTIES_QUI_PAIENT_PAR_JOUR * mieux.minutes * enPlus, 0)} de plus par jour`
+      : `    moins qu'une série, à la minute comme à la séance : ${arrondi(-enPlus, 2)} de moins la minute, au mieux`,
+  )
 }
 console.log(`  L'expérience suit les confettis : ${formatNumber(xpDuJourDeCampagne(1))} points pour chacune des ${formatNumber(JUSTES_DOUBLEES_PAR_JOUR)} premières bonnes réponses du jour, ${formatNumber(xpDuJourDeCampagne(JUSTES_DOUBLEES_PAR_JOUR + 1) - xpDuJourDeCampagne(JUSTES_DOUBLEES_PAR_JOUR))} ensuite — la série et le Cabinet les partagent.`)
 console.log('')
