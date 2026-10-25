@@ -66,19 +66,45 @@ export const QUESTION_DES_INDICES = 'Qui suis-je ?'
 /**
  * Les mots qui ne désignent personne : « Jeanne d’Arc », « de Gaulle »,
  * « La Fayette ». Écartés de la saisie, ils ne comptent pas parmi les quatre
- * mots, et ne la rendent ni juste ni fausse.
+ * mots, et ne la rendent ni juste ni fausse : seuls, ils ne nomment personne.
  */
 const MOTS_VIDES: ReadonlySet<string> = new Set(['d', 'de', 'des', 'du', 'l', 'la', 'le', 'les'])
 
 /**
+ * Les lettres que l'effacement des accents n'ouvre pas : la décomposition
+ * sépare « é » en « e » et son accent, mais « ø », « ł » ou « ß » sont des
+ * lettres à part entière. Laissées telles, elles coupaient le mot (« Wałęsa »
+ * en « wa » et « esa »), et une fiche refusait sa propre réponse.
+ */
+const LETTRES_A_OUVRIR: ReadonlyMap<string, string> = new Map([
+  ['œ', 'oe'],
+  ['æ', 'ae'],
+  ['ø', 'o'],
+  ['ł', 'l'],
+  ['đ', 'd'],
+  ['ð', 'd'],
+  ['þ', 'th'],
+  ['ß', 'ss'],
+  ['ı', 'i'],
+])
+const A_OUVRIR = new RegExp(`[${[...LETTRES_A_OUVRIR.keys()].join('')}]`, 'g')
+
+/**
  * Les mots d'un texte, comparables : sans casse ni accents (`sansAccent`, la
- * règle des homonymes), les ligatures ouvertes, coupés à tout ce qui n'est ni
- * lettre ni chiffre — l'apostrophe, le trait d'union, la virgule. La saisie et
- * la fiche passent par la même règle : ce qui s'écrit pareil se compare pareil.
+ * règle des homonymes), ses lettres à part ouvertes, coupés à tout ce qui
+ * n'est ni lettre ni chiffre — l'apostrophe, le trait d'union, la virgule. La
+ * saisie et la fiche passent par la même règle : ce qui s'écrit pareil se
+ * compare pareil.
  */
 function motsDe(texte: string): string[] {
-  return sansAccent(texte).replace(/œ/g, 'oe').replace(/æ/g, 'ae').split(/[^a-z0-9]+/).filter(Boolean)
+  return sansAccent(texte)
+    .replace(A_OUVRIR, lettre => LETTRES_A_OUVRIR.get(lettre) ?? lettre)
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
 }
+
+/** Les mots d'une saisie qui nomment quelqu'un : les mots vides écartés. Le jugement, le refus d'un nom vide et le « déjà essayé » lisent les mêmes. */
+const motsUtiles = (texte: string) => motsDe(texte).filter(m => !MOTS_VIDES.has(m))
 
 /**
  * Une faute de frappe au plus entre deux mots : une lettre changée, oubliée,
@@ -123,7 +149,7 @@ function proches(tape: string, attendu: string): boolean {
  * et « Victor » seul, sans la clé `hugo`, trouverait tous les Victor.
  */
 export function bonneIdentite(saisie: string, fiche: Pick<Fiche, 'reponse' | 'cles'>): boolean {
-  const mots = motsDe(saisie).filter(m => !MOTS_VIDES.has(m))
+  const mots = motsUtiles(saisie)
   if (mots.length === 0 || mots.length > MOTS_D_UNE_IDENTITE_MAX) return false
   const cles = fiche.cles.flatMap(motsDe)
   const permis = [...motsDe(fiche.reponse), ...cles]
@@ -144,15 +170,17 @@ export function etoilesDesIndices(compte: number): VerdictDUneManche['naturel'] 
 }
 
 const lesIndices = (t: IndicesTires) => t.fiche.indices.length
-const vide = (texte: string) => motsDe(texte).length === 0
-const memeNom = (a: string, b: string) => motsDe(a).join(' ') === motsDe(b).join(' ')
+// Vide et « déjà essayé » se lisent comme le jugement : « De », envoyé en commençant « De Gaulle », ne coûtait
+// une erreur que parce qu'il ne les lisait pas pareil — et au cinquième indice, il tranchait la manche à zéro.
+const vide = (texte: string) => motsUtiles(texte).length === 0
+const memeNom = (a: string, b: string) => motsUtiles(a).join(' ') === motsUtiles(b).join(' ')
 const dejaEssaye = (e: EtatDesIndices, texte: string) => e.essais.some(x => memeNom(x, texte))
 
 /**
  * Le geste tranche-t-il ? L'échéance, toujours ; un nom, s'il est juste, ou
  * faux quand plus aucun indice ne reste à montrer — au cinquième, une erreur
- * tranche à zéro. Un nom vide ou déjà essayé ne coûte rien : il se refuse en
- * mots (un double toucher, un oubli).
+ * tranche à zéro. Un nom vide — des mots vides seuls compris — ou déjà essayé
+ * ne coûte rien : il se refuse en mots (un double toucher, un oubli).
  */
 function tranche(t: IndicesTires, e: EtatDesIndices, g: GesteDesIndices): boolean {
   switch (g.quoi) {
@@ -188,7 +216,8 @@ export const REGLE_DES_INDICES: RegleQuiTranche<IndicesTires, EtatDesIndices, Ge
     switch (g?.quoi) {
       case 'indice':
         return { quoi: 'indice' }
-      // Le texte arrive coupé à sa longueur par la lecture du geste, avant la règle du jeu.
+      // Pas recoupé ici : la lecture du geste de la partie (`lireUnGeste`, `shared/cabinet/partie.ts`) coupe le
+      // texte par `tronquer`, avant la règle du jeu et avant de l'écrire : tous les textes d'un geste, d'un seul endroit.
       case 'nom':
         return typeof g.texte === 'string' ? { quoi: 'nom', texte: g.texte } : null
       case 'repondre':
@@ -225,8 +254,10 @@ export const REGLE_DES_INDICES: RegleQuiTranche<IndicesTires, EtatDesIndices, Ge
       // Faux au dernier indice : l'erreur tranche à zéro, et compte avec les autres.
       return { naturel: 0, pieces: [{ juste: false, choix: -1, composee: composee(e.vus, e.essais.length + 1) }] }
     }
-    // L'échéance, quitter, une partie close le lendemain : rien de trouvé — ses erreurs disent s'il avait répondu.
-    return { naturel: 0, pieces: [{ juste: false, choix: choixDe(e.essais.length > 0, false), composee: composee(e.vus, e.essais.length) }] }
+    // L'échéance, une partie close le lendemain : rien de trouvé — ses erreurs disent s'il avait répondu. Quitter
+    // laisse la manche ouverte : zéro, `choix` nul, comme toute manche quittée. Ce qu'il a vu reste écrit.
+    const repondue = reponse !== 'quittee' && e.essais.length > 0
+    return { naturel: 0, pieces: [{ juste: false, choix: choixDe(repondue, false), composee: composee(e.vus, e.essais.length) }] }
   },
 
   // Un indice gratuit : il se montre comme les autres, et ne compte pas.

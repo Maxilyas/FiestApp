@@ -15,8 +15,14 @@
 // cours (invariant 14).
 //
 // Les outils de lecture (`champsDuGeste`, `reponseEnvoyee`, `rienAEclairer`,
-// `auHasard`…) ont les noms et le sens de ceux des jeux de la base : le
-// registre des neuf jeux les rassemblera en une seule copie.
+// `battre`…) ont les noms et le sens de ceux des jeux de la base : le registre
+// des neuf jeux les rassemblera en une seule copie.
+//
+// Aucun des trois ne tire Éclairer du hasard que le pli lui passe, rejoué de
+// la graine de la partie : la page sait la refaire (son profil, sa partie, le
+// rang qu'elle envoie), et ce qu'Éclairer en aurait tiré — le centre de la
+// zone, le mot effacé — l'aurait menée à la réponse. Ce qu'il dévoile se tire
+// au départ, du hasard du tireur, et se fige dans le plan, qui ne part jamais.
 
 import type { PieceDuCabinet } from '../pieces'
 import { refusDuPouvoir } from '../pouvoirs'
@@ -53,15 +59,10 @@ export function naturelDe(etoiles: number): VerdictDUneManche['naturel'] {
 export const choixDe = (repondue: boolean, juste: boolean): 0 | -1 | null => (!repondue ? null : juste ? 0 : -1)
 
 /**
- * Un élément tiré du hasard rejoué de la graine (`hasardDe`) : la même graine
- * redonne le même — recharger ne change ni la zone d'Éclairer, ni le mot
- * effacé. Le dernier si le hasard rend 1, qu'un hasard d'essai peut rendre.
+ * Fisher-Yates, sur le hasard qu'on lui donne : celui du tireur, au départ — la
+ * reprise relit le plan battu, elle ne rebat rien. Borné au dernier si le
+ * hasard rend 1, qu'un hasard d'essai peut rendre.
  */
-export function auHasard<T>(liste: readonly T[], hasard: () => number): T {
-  return liste[Math.min(liste.length - 1, Math.floor(hasard() * liste.length))]
-}
-
-/** Fisher-Yates, sur le hasard qu'on lui donne : celui de la graine de la partie, qu'une reprise rejoue. */
 export function battre<T>(tas: readonly T[], hasard: () => number): T[] {
   const battu = [...tas]
   for (let i = battu.length - 1; i > 0; i--) {

@@ -11,9 +11,10 @@
 // choix des trois lieux d'un thème, et la rechange d'un autre thème, restent
 // au serveur, qui lit le contenu et ce que le joueur a déjà vu.
 //
-// Rien ici ne lit l'heure ni ne tire au hasard de lui-même : le hasard
-// d'Éclairer vient de la graine de la partie, et le pli rejoué redonne la même
-// zone.
+// Rien ici ne lit l'heure ni ne tire au hasard de lui-même. La zone d'Éclairer
+// se tire au départ, avec le lieu (`epingleTiree`), du hasard du serveur, et se
+// fige dans le plan : le pli rejoué redonne la même, et le hasard qu'il passe à
+// Éclairer, rejoué d'une graine que la page sait refaire, n'y entre pas.
 
 import { DECALAGE_DE_LA_ZONE_KM, DUREES_DES_JEUX, KM_DE_L_EPINGLE, RAYON_D_ECLAIRER_KM } from '../bareme'
 import type { Lieu } from '../contenu'
@@ -23,11 +24,19 @@ import { formatNumber } from '../../typographie'
 import { GESTE_A_JUGER, champsDuGeste, choixDe, naturelDe, pieceDuContenu, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './duContenu'
 import { justeDeLaPiece, type VerdictDUneManche } from './regle'
 
-/** Ce que le départ fige d'une manche de l'Épingle : le lieu entier, sa réponse comprise — il ne quitte jamais le serveur avant le verdict. */
+/** Où Éclairer posera le centre de sa zone, depuis le lieu : une direction en degrés (le nord à 0, l'est à 90), une distance en kilomètres. */
+export interface DecalageDeLaZone {
+  cap: number
+  km: number
+}
+
+/** Ce que le départ fige d'une manche de l'Épingle : le lieu entier, sa réponse comprise, et le décalage de sa zone — rien ne quitte le serveur avant le verdict. */
 export interface EpingleTiree {
   jeu: 'epingle'
   /** Son thème est celui de la manche : une rechange de Changer vient d'un autre thème, et le dit. */
   lieu: Lieu
+  /** Avec le centre de la zone, que la page reçoit, il redonnerait le lieu : il ne part jamais. */
+  decalage: DecalageDeLaZone
 }
 
 /** La zone qu'Éclairer entoure : un cercle qui contient le lieu, sans être centré sur lui. */
@@ -113,16 +122,27 @@ export function pointADistance(depart: Point, km: number, capDegres: number): Po
 }
 
 /**
- * La zone qu'Éclairer entoure : `RAYON_D_ECLAIRER_KM` autour d'un centre
- * décalé du lieu d'une distance tirée dans `DECALAGE_DE_LA_ZONE_KM`, dans une
- * direction tirée. Le décalage reste sous le rayon : le lieu est toujours
- * dedans ; il n'est jamais nul : le centre ne dit pas où il est. Deux tirages,
- * dans cet ordre, du hasard de la graine.
+ * La manche tirée d'un lieu que le serveur a choisi : le lieu, et le décalage
+ * de sa zone d'Éclairer — une direction, puis une distance dans
+ * `DECALAGE_DE_LA_ZONE_KM`, deux tirages dans cet ordre. Tiré ici, au départ,
+ * même si Éclairer ne sert jamais. `hasard` est celui du tireur, que la page
+ * ne peut pas refaire — jamais celui de la graine de la partie : elle la
+ * connaît (son profil, sa partie), elle referait le décalage, et du centre de
+ * la zone remonterait au lieu.
  */
-export function zoneDEclairer(lieu: Point, hasard: () => number): ZoneDEclairer {
+export function epingleTiree(lieu: Lieu, hasard: () => number): EpingleTiree {
   const cap = hasard() * 360
   const [pres, loin] = DECALAGE_DE_LA_ZONE_KM
-  const centre = pointADistance(lieu, pres + hasard() * (loin - pres), cap)
+  return { jeu: 'epingle', lieu, decalage: { cap, km: pres + hasard() * (loin - pres) } }
+}
+
+/**
+ * La zone qu'Éclairer entoure : `RAYON_D_ECLAIRER_KM` autour du centre que le
+ * départ a décalé du lieu. Le décalage reste sous le rayon : le lieu est
+ * toujours dedans ; il n'est jamais nul : le centre ne dit pas où il est.
+ */
+export function zoneDEclairer(lieu: Point, decalage: DecalageDeLaZone): ZoneDEclairer {
+  const centre = pointADistance(lieu, decalage.km, decalage.cap)
   return { lat: centre.lat, lon: centre.lon, rayonKm: RAYON_D_ECLAIRER_KM }
 }
 
@@ -178,8 +198,8 @@ export const REGLE_DE_L_EPINGLE: RegleQuiTranche<EpingleTiree, EtatDeLEpingle, G
     return { naturel, pieces: [{ juste, choix: choixDe(true, juste), composee: composee(epingle, km) }] }
   },
 
-  // Une zone par manche : une seconde ne dirait rien de plus que la première.
-  eclairer: (t, e, hasard) => (e.zone ? rienAEclairer('epingle') : { ...e, zone: zoneDEclairer(t.lieu, hasard) }),
+  // Une zone par manche : une seconde ne dirait rien de plus que la première. Le hasard du pli n'y entre pas (`epingleTiree`).
+  eclairer: (t, e) => (e.zone ? rienAEclairer('epingle') : { ...e, zone: zoneDEclairer(t.lieu, t.decalage) }),
 
   montrer: (t, e) => ({
     jeu: 'epingle',

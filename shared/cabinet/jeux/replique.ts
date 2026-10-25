@@ -17,10 +17,10 @@ import { DUREES_DES_JEUX, ETOILES_DE_LA_REPLIQUE } from '../bareme'
 import type { Replique } from '../contenu'
 import { idDeLaReplique } from '../pieces'
 import { effacablesAuPlus } from '../pouvoirs'
-import { GESTE_A_JUGER, SANS_REPONSE, auHasard, battre, champsDuGeste, choixDe, estUnIndex, naturelDe, pieceDuContenu, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './duContenu'
+import { GESTE_A_JUGER, SANS_REPONSE, battre, champsDuGeste, choixDe, estUnIndex, naturelDe, pieceDuContenu, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './duContenu'
 import { justeDeLaPiece } from './regle'
 
-/** Ce que le départ fige d'une manche : la réplique, puis ses propositions dans l'ordre où la page les montre, et le rang des bonnes. */
+/** Ce que le départ fige d'une manche : la réplique, puis ses propositions dans l'ordre où la page les montre, le rang des bonnes, et ce qu'Éclairer effacera. */
 export interface RepliqueTiree {
   jeu: 'replique'
   replique: Replique
@@ -30,6 +30,11 @@ export interface RepliqueTiree {
   personnes: string[]
   bonMot: number
   bonneQui: number
+  /**
+   * Les mauvaises propositions de chaque étape, par leur rang, dans l'ordre où
+   * Éclairer les efface : il prend la suivante, jusqu'à `effacablesAuPlus`.
+   */
+  ordreDesEffaces: readonly [readonly number[], readonly number[]]
 }
 
 export interface EtatDeLaReplique {
@@ -100,21 +105,29 @@ export function repliqueEntiere(avant: string, mot: string, apres: string): stri
 
 /**
  * La question au journal et au cartel : la réplique, son trou en points de
- * suspension (« « Tonnerre de … ! » »). Le point final d'une réplique s'y
- * fond — « C’est pas …. » se serait lu quatre points.
+ * suspension (« « Tonnerre de … ! » »). La ponctuation qui suit le trou de
+ * près s'y fond, un point ou des points de suspension : « C’est pas …. » se
+ * serait lu quatre points, « blanchit la …… » deux fois.
  */
-const aTrou = (r: Replique) => `« ${repliqueEntiere(r.avant, '…', r.apres.replace(/^\.(?!\.)/, ''))} »`
+const aTrou = (r: Replique) => `« ${repliqueEntiere(r.avant, '…', r.apres.replace(/^(?:…|\.{1,3})/, ''))} »`
 
 /**
  * La manche tirée d'une réplique que le serveur a choisie : ses quatre mots et
- * ses trois personnes battus du hasard de la graine — une reprise après un
- * redémarrage redonne le même ordre. Le rang de la bonne proposition se suit
- * pendant qu'on bat, jamais retrouvé par son texte : un leurre écrit comme le
- * mot ne prendrait pas sa place.
+ * ses trois personnes battus, puis, à chaque étape, l'ordre où Éclairer
+ * effacera les mauvaises propositions — battues elles aussi : effacer la
+ * première mauvaise à l'écran aurait désigné la bonne. Tout se tire ici, au
+ * départ, et se fige dans le plan : une reprise le relit, elle ne rebat rien.
+ * `hasard` est celui du tireur, que la page ne peut pas refaire — jamais celui
+ * de la graine de la partie : elle la connaît (son profil, sa partie), elle
+ * rebattrait les mots et lirait le bon. Le rang de la bonne proposition se
+ * suit pendant qu'on bat, jamais retrouvé par son texte : un leurre écrit
+ * comme le mot ne prendrait pas sa place.
  */
 export function repliqueTiree(replique: Replique, hasard: () => number): RepliqueTiree {
   const mots = battre([{ texte: replique.mot, bon: true }, ...replique.leurres.map(texte => ({ texte, bon: false }))], hasard)
   const personnes = battre([{ texte: replique.qui, bon: true }, ...replique.autres.map(texte => ({ texte, bon: false }))], hasard)
+  // Les rangs des mauvaises, battus à leur tour : dans l'ordre de l'écran, le premier effacé dirait où est la bonne.
+  const mauvaises = (battues: readonly { bon: boolean }[]) => battre(battues.flatMap((p, rang) => (p.bon ? [] : [rang])), hasard)
   return {
     jeu: 'replique',
     replique,
@@ -122,6 +135,7 @@ export function repliqueTiree(replique: Replique, hasard: () => number): Repliqu
     personnes: personnes.map(p => p.texte),
     bonMot: mots.findIndex(m => m.bon),
     bonneQui: personnes.findIndex(p => p.bon),
+    ordreDesEffaces: [mauvaises(mots), mauvaises(personnes)],
   }
 }
 
@@ -169,9 +183,12 @@ export const REGLE_DE_LA_REPLIQUE: RegleQuiTranche<RepliqueTiree, EtatDeLaRepliq
   },
 
   juger(t, e, reponse) {
-    // Le mot, le serveur l'a dès la seconde étape : expirée ou quittée, il compte encore — ce que le serveur
-    // savait déjà, comme les essais du Mot mystère. Seul « qui » attend une réponse.
+    // Le mot, le serveur l'a dès la seconde étape : à l'échéance, il compte encore — ce que le serveur savait
+    // déjà, comme les essais du Mot mystère. Seul « qui » attend une réponse.
     const mot = e.etape === 2 ? e.mot : null
+    // Quitter laisse la manche ouverte : zéro, `choix` nul, comme toute manche quittée — seul le Pari gardé fait
+    // exception. Le mot choisi reste écrit : la révélation dit ce qu'il avait répondu.
+    if (reponse === 'quittee') return { naturel: 0, pieces: [{ juste: false, choix: null, composee: composee(mot, null) }] }
     const qui = typeof reponse === 'object' && reponse.quoi === 'repondre' ? reponse.qui : null
     const naturel = naturelDe((mot === t.bonMot ? ETOILES_DE_LA_REPLIQUE.mot : 0) + (qui === t.bonneQui ? ETOILES_DE_LA_REPLIQUE.qui : 0))
     // Juste au bon mot : la bonne personne seule ne fait qu'une étoile.
@@ -179,14 +196,18 @@ export const REGLE_DE_LA_REPLIQUE: RegleQuiTranche<RepliqueTiree, EtatDeLaRepliq
     return { naturel, pieces: [{ juste, choix: choixDe(mot !== null || qui !== null, juste), composee: composee(mot, qui) }] }
   },
 
-  eclairer(t, e, hasard) {
+  eclairer(t, e) {
     // Deux mots sur quatre, un nom sur trois : deux propositions restent toujours, une seule serait la réponse.
-    const etape = e.etape === 1 ? { propositions: t.mots.length, bonne: t.bonMot } : { propositions: t.personnes.length, bonne: t.bonneQui }
-    const deja = e.effaces[e.etape - 1]
-    const restants = Array.from({ length: etape.propositions }, (_, i) => i).filter(i => i !== etape.bonne && !deja.includes(i))
-    if (deja.length >= effacablesAuPlus(etape.propositions) || restants.length === 0) return rienAEclairer('replique')
-    const effaces = [...deja, auHasard(restants, hasard)]
-    return { ...e, effaces: e.etape === 1 ? [effaces, e.effaces[1]] : [e.effaces[0], effaces] }
+    const i = e.etape - 1
+    const etape = i === 0 ? { propositions: t.mots.length, bonne: t.bonMot } : { propositions: t.personnes.length, bonne: t.bonneQui }
+    const deja = e.effaces[i]
+    // La suivante de l'ordre tiré au départ : le hasard du pli, rejoué d'une graine que la page sait refaire, n'y
+    // entre pas — tirée de lui, la proposition effacée désignait souvent la bonne. Jamais la bonne, même d'un plan
+    // qui la porterait.
+    const suivante = t.ordreDesEffaces[i].find(r => r !== etape.bonne && !deja.includes(r))
+    if (deja.length >= effacablesAuPlus(etape.propositions) || suivante === undefined) return rienAEclairer('replique')
+    const effaces = [...deja, suivante]
+    return { ...e, effaces: i === 0 ? [effaces, e.effaces[1]] : [e.effaces[0], effaces] }
   },
 
   montrer(t, e) {

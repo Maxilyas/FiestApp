@@ -1,15 +1,16 @@
-// L'Épingle, les Indices et la Réplique du Cabinet de curiosités, purs (lot
-// B2c, la conception du 24 octobre 2026, § 3.1, § 3.8 et § 3.9) : leurs règles,
-// sans serveur. Les trois jeux du contenu neuf — des lieux datés, des fiches
-// « Qui suis-je ? », des répliques —, que la base de la campagne n'a pas.
-// L'Épingle : un récit, « Où ? », une épingle plantée sur la carte de France,
-// jugée à sa distance. Les Indices : cinq indices, du plus obscur au plus
-// évident ; chaque indice vu et chaque erreur coûtent. La Réplique : le mot qui
-// manque, puis qui l'a dite, chaque étape son chrono.
+// L'Épingle, les Indices et la Réplique du Cabinet de curiosités, purs : leurs
+// règles, sans serveur (les neuf jeux et leurs barèmes :
+// `docs/produit/le-cabinet.md` ; le pourquoi de chaque choix :
+// `docs/architecture/decisions.md`, « Le Cabinet de curiosités »). Les trois
+// jeux du contenu neuf — des lieux datés, des fiches « Qui suis-je ? », des
+// répliques —, que la base de la campagne n'a pas. L'Épingle : un récit,
+// « Où ? », une épingle plantée sur la carte de France, jugée à sa distance.
+// Les Indices : cinq indices, du plus obscur au plus évident ; chaque indice vu
+// et chaque erreur coûtent. La Réplique : le mot qui manque, puis qui l'a dite,
+// chaque étape son chrono.
 //
 // Les exemples sont fabriqués ici : le contenu livré a son juge et son test
-// (`cabinet-contenu.test.ts`, lot B4). Les lots C7 et D5 y ajouteront le
-// tirage, les routes et l'écran.
+// (`cabinet-contenu.test.ts`). Le lot C7 y ajoutera le tirage et les routes.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -32,6 +33,7 @@ import { justeDeLaPiece, type VerdictDUneManche } from '../../shared/cabinet/jeu
 import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/duContenu'
 import {
   REGLE_DE_L_EPINGLE,
+  epingleTiree,
   etoilesDeLaDistance,
   kmDits,
   pointADistance,
@@ -63,6 +65,15 @@ const RIEN_A_ECLAIRER = refusDuPouvoir({ pouvoir: 'eclairer', force: 3, jeu: 'ep
 
 /** Un hasard d'essai qui rend toujours le même nombre. */
 const toujours = (x: number) => () => x
+
+/**
+ * Le hasard qu'Éclairer reçoit du pli, rejoué de la graine de la partie
+ * (`${profileId}:${serieId}`) et du rang : la page connaît les trois. Ce qu'un
+ * jeu en tirerait, elle le tirerait aussi — ces trois-là n'en tirent rien.
+ */
+const HASARD_DE_LA_GRAINE = () => {
+  throw new Error('Éclairer a lu le hasard de la graine, que la page sait refaire')
+}
 
 /** Tous les nombres d'une vue, où qu'ils soient : une coordonnée ne se cherche pas en texte, une autre la contiendrait. */
 const nombresDe = (x: unknown): number[] =>
@@ -106,7 +117,8 @@ const COINS: Point[] = [
   { lat: 41.387, lon: 9.159 },
 ]
 
-const tireeA = (lieu: Lieu): EpingleTiree => ({ jeu: 'epingle', lieu })
+/** Un plan d'essai : le décalage de sa zone, d'un hasard quelconque — le serveur tire le sien. */
+const tireeA = (lieu: Lieu): EpingleTiree => epingleTiree(lieu, toujours(0.5))
 const planter = (p: Point | null) => REGLE_DE_L_EPINGLE.lireLeGeste(p ? { quoi: 'repondre', reponse: { epingle: p } } : { quoi: 'repondre' }, tireeA(ORLEANS))!
 
 test('l’Épingle : la distance à vol d’oiseau, et un point posé à tant de kilomètres', () => {
@@ -167,16 +179,22 @@ test('l’Épingle : la distance dite ne contredit jamais ses étoiles', () => {
   }
 })
 
+/** Des lieux d'essai : les coins, puis des lieux tirés partout dans le cadre de la France — la mer comprise : le cadre la touche. */
+function lieuxDEssai(n: number): Point[] {
+  const h = hasardDe('cabinet-epingle-zone')
+  return Array.from({ length: n }, (_, i) =>
+    i < COINS.length ? COINS[i] : { lat: DANS_LA_FRANCE.latMin + h() * (DANS_LA_FRANCE.latMax - DANS_LA_FRANCE.latMin), lon: DANS_LA_FRANCE.lonMin + h() * (DANS_LA_FRANCE.lonMax - DANS_LA_FRANCE.lonMin) },
+  )
+}
+
 test('l’Épingle : Éclairer entoure une zone de 170 km qui contient toujours le lieu, sans jamais le dire — mille hasards', () => {
   assert.equal(RAYON_D_ECLAIRER_KM, 170)
   const [loin, plusLoin] = DECALAGE_DE_LA_ZONE_KM
-  const h = hasardDe('cabinet-epingle-zone')
   let auNord = 0
-  for (let i = 0; i < 1000; i++) {
-    // Les coins, puis des lieux tirés partout dans le cadre de la France — la mer comprise : le cadre la touche.
-    const point = i < COINS.length ? COINS[i] : { lat: DANS_LA_FRANCE.latMin + h() * (DANS_LA_FRANCE.latMax - DANS_LA_FRANCE.latMin), lon: DANS_LA_FRANCE.lonMin + h() * (DANS_LA_FRANCE.lonMax - DANS_LA_FRANCE.lonMin) }
-    const t = tireeA(lieuEn(point, i))
-    const e = REGLE_DE_L_EPINGLE.eclairer(t, REGLE_DE_L_EPINGLE.ouvrir(t), hasardDe(`zone:${i}`))
+  for (const [i, point] of lieuxDEssai(1000).entries()) {
+    // Mille hasards du tireur : le décalage de la zone se tire au départ, avec le lieu.
+    const t = epingleTiree(lieuEn(point, i), hasardDe(`zone:${i}`))
+    const e = REGLE_DE_L_EPINGLE.eclairer(t, REGLE_DE_L_EPINGLE.ouvrir(t), HASARD_DE_LA_GRAINE)
     assert.ok(typeof e !== 'string', 'la première fois, Éclairer sert')
     const zone = e.zone!
     assert.equal(zone.rayonKm, RAYON_D_ECLAIRER_KM)
@@ -191,20 +209,45 @@ test('l’Épingle : Éclairer entoure une zone de 170 km qui contient toujours 
 
   // Aux deux bouts du hasard, la zone le contient encore.
   for (const x of [0, 0.999999]) {
-    const zone = zoneDEclairer(ORLEANS, toujours(x))
+    const zone = zoneDEclairer(ORLEANS, epingleTiree(ORLEANS, toujours(x)).decalage)
     assert.ok(distanceKm(zone, ORLEANS) <= RAYON_D_ECLAIRER_KM)
   }
 })
 
-test('l’Épingle : Éclairer se rejoue de la graine, et ne sert qu’une fois par manche', () => {
+test('l’Épingle : la zone se fige au départ — un rechargement la redonne, et la graine n’en dit rien', () => {
   const t = tireeA(ORLEANS)
   const e = REGLE_DE_L_EPINGLE.ouvrir(t)
-  // Un rechargement redonne la même zone : le hasard vient de la graine de la partie.
-  const a = REGLE_DE_L_EPINGLE.eclairer(t, e, hasardDe('partie:eclairer:3'))
+  // Un rechargement redonne la même zone : elle vient du plan, que la reprise relit — le hasard qu'on passe n'y entre pas.
+  const a = REGLE_DE_L_EPINGLE.eclairer(t, e, HASARD_DE_LA_GRAINE)
   const b = REGLE_DE_L_EPINGLE.eclairer(t, e, hasardDe('partie:eclairer:3'))
   assert.deepEqual(a, b)
   assert.ok(typeof a !== 'string')
-  assert.equal(REGLE_DE_L_EPINGLE.eclairer(t, a, hasardDe('encore')), RIEN_A_ECLAIRER, 'une zone par manche')
+  assert.equal(REGLE_DE_L_EPINGLE.eclairer(t, a, HASARD_DE_LA_GRAINE), RIEN_A_ECLAIRER, 'une zone par manche')
+
+  // La page sait sa graine — son profil, sa partie — et le rang qu'elle envoie. Tirée de ce hasard-là, la zone
+  // se défaisait : la page refaisait le cap et le décalage, remontait du centre, et retrouvait le lieu au
+  // kilomètre près, à chaque fois. Tirée au départ, du hasard du serveur, elle ne se défait plus.
+  const [pres, loin] = DECALAGE_DE_LA_ZONE_KM
+  const remonter = (centre: Point, km: number, cap: number): Point => {
+    let p = centre
+    for (let k = 0; k < 30; k++) {
+      const q = pointADistance(p, km, cap)
+      p = { lat: p.lat - (q.lat - centre.lat), lon: p.lon - (q.lon - centre.lon) }
+    }
+    return p
+  }
+  let retrouves = 0
+  const lieux = lieuxDEssai(300)
+  for (const [i, point] of lieux.entries()) {
+    const graine = `profil-${i}:serie-${i}`
+    const plan = epingleTiree(lieuEn(point, i), hasardDe(`le-serveur:${i}`))
+    const zone = (REGLE_DE_L_EPINGLE.eclairer(plan, REGLE_DE_L_EPINGLE.ouvrir(plan), hasardDe(`${graine}:eclairer:4`)) as EtatDeLEpingle).zone!
+    const h = hasardDe(`${graine}:eclairer:4`)
+    const cap = h() * 360
+    const devine = remonter(zone, pres + h() * (loin - pres), cap)
+    if (distanceKm(devine, point) < 5) retrouves++
+  }
+  assert.ok(retrouves <= lieux.length / 100, `${retrouves} lieux sur ${lieux.length} retrouvés de la zone et de la graine`)
 })
 
 test('l’Épingle : une épingle se plante en France, et la page n’en apprend rien avant la révélation', () => {
@@ -248,6 +291,8 @@ test('l’Épingle : une épingle se plante en France, et la page n’en apprend
     const vue = JSON.stringify(montree)
     for (const secret of [ORLEANS.nom, ORLEANS.commune, ORLEANS.departement, ORLEANS.savais]) assert.ok(!vue.includes(secret), `la manche montre « ${secret} »`)
     for (const n of nombresDe(montree)) assert.ok(n !== ORLEANS.lat && n !== ORLEANS.lon, `la manche montre ${n}, une coordonnée du lieu`)
+    // Ni le décalage de la zone : avec le centre, il redonnerait le lieu.
+    for (const n of nombresDe(montree)) assert.ok(n !== t.decalage.cap && n !== t.decalage.km, `la manche montre ${n}, le décalage de la zone`)
     assert.equal(montree.question, ORLEANS.question)
     assert.equal(montree.recit, ORLEANS.recit)
     assert.equal(montree.date, '1429')
@@ -332,6 +377,18 @@ test('les Indices : une bonne identité, sans casse ni accents, une faute de fra
   for (const ko of ['Hugi', 'Hgo', 'Hugoo', 'Victor Hugi']) assert.ok(!bonneIdentite(ko, HUGO), ko)
   // Et « Victir Hugo » : « victor » a six lettres, la faute passe.
   assert.ok(bonneIdentite('Victir Hugo', HUGO))
+})
+
+test('les Indices : les lettres que les accents ne décomposent pas s’ouvrent — une fiche accepte toujours sa propre réponse', () => {
+  // « ł », « ø », « ß » ne sont pas un « l », un « o », un « s » et leur accent : laissés tels, ils coupaient le mot
+  // (« Wałęsa » en « wa » et « esa »), et la réponse exacte se refusait.
+  const WALESA: Fiche = { ...HUGO, id: 'histoire-walesa', reponse: 'Lech Wałęsa', cles: ['walesa'] }
+  const KIERKEGAARD: Fiche = { ...HUGO, id: 'lettres-kierkegaard', reponse: 'Søren Kierkegaard', cles: ['kierkegaard'] }
+  const STRAUSS: Fiche = { ...HUGO, id: 'musique-strauss', reponse: 'Johann Strauß', cles: ['Strauß'] }
+  for (const ok of ['Lech Wałęsa', 'Wałęsa', 'Lech Walesa', 'walesa', 'WAŁĘSA']) assert.ok(bonneIdentite(ok, WALESA), ok)
+  for (const ok of ['Søren Kierkegaard', 'Soren Kierkegaard', 'Kierkegaard', 'SØREN KIERKEGAARD']) assert.ok(bonneIdentite(ok, KIERKEGAARD), ok)
+  for (const ok of ['Johann Strauß', 'Johann Strauss', 'Strauss', 'STRAUSS']) assert.ok(bonneIdentite(ok, STRAUSS), ok)
+  for (const f of [HUGO, VOLTAIRE, JEANNE, DE_GAULLE, WALESA, KIERKEGAARD, STRAUSS]) assert.ok(bonneIdentite(f.reponse, f), `« ${f.reponse} » pour sa propre fiche`)
 })
 
 test('les Indices : la réponse fourre-tout reste fermée — au moins une clé, rien d’autre que le nom, quatre mots au plus', () => {
@@ -429,13 +486,17 @@ test('les Indices : au cinquième indice, une erreur tranche à zéro ; avant, e
 test('les Indices : ce qui se refuse en mots, ce qui ne se lit pas', () => {
   const t = fiche(HUGO)
   const e = jouer(t, [{ quoi: 'nom', texte: 'Zola' }])
-  // Un nom vide ne coûte rien ; un nom déjà essayé non plus — un double toucher, ou l'oubli.
-  for (const texte of ['', '   ', '?!']) {
-    const g = geste(t, { quoi: 'nom', texte })
-    assert.equal(REGLE_DES_INDICES.tranche(t, e, g), false)
-    assert.equal(REGLE_DES_INDICES.apresLeGeste(t, e, g), 'Écris un nom')
+  // Un nom vide ne coûte rien ; un nom déjà essayé non plus — un double toucher, ou l'oubli. Vide comme
+  // `bonneIdentite` le lit : des mots vides seuls (« De », envoyé en commençant « De Gaulle ») ne nomment personne.
+  const auCinquieme = jouer(t, [{ quoi: 'indice' }, { quoi: 'indice' }, { quoi: 'indice' }, { quoi: 'indice' }])
+  for (const texte of ['', '   ', '?!', 'de', 'De', 'le', 'Le', "l'", 'L’', 'de la', 'du', 'des']) {
+    for (const etat of [e, auCinquieme]) {
+      const g = geste(t, { quoi: 'nom', texte })
+      assert.equal(REGLE_DES_INDICES.tranche(t, etat, g), false, `« ${texte} » au ${etat.vus}ᵉ indice`)
+      assert.equal(REGLE_DES_INDICES.apresLeGeste(t, etat, g), 'Écris un nom', `« ${texte} »`)
+    }
   }
-  for (const texte of ['Zola', ' zola ', 'ZOLA']) assert.equal(REGLE_DES_INDICES.apresLeGeste(t, e, geste(t, { quoi: 'nom', texte })), 'Tu as déjà essayé ce nom')
+  for (const texte of ['Zola', ' zola ', 'ZOLA', 'de Zola', 'Zola !']) assert.equal(REGLE_DES_INDICES.apresLeGeste(t, e, geste(t, { quoi: 'nom', texte })), 'Tu as déjà essayé ce nom', texte)
   for (const brut of [null, { quoi: 'nom' }, { quoi: 'nom', texte: 3 }, { quoi: 'essai', lettres: 'HUGO' }, { quoi: 'reculer' }, []]) assert.equal(REGLE_DES_INDICES.lireLeGeste(brut, t), null, JSON.stringify(brut))
   // L'envoi de l'échéance ne porte rien : il tranche, et la manche vaut ce qu'elle a trouvé — rien.
   const auto: GesteDesIndices = geste(t, { quoi: 'repondre', auto: true })
@@ -445,6 +506,12 @@ test('les Indices : ce qui se refuse en mots, ce qui ne se lit pas', () => {
   assert.deepEqual(piece0(v), { juste: false, choix: -1, composee: '2|1' })
   // Rien essayé, rien répondu : `choix` nul.
   for (const fin of ['expiree', 'quittee'] as const) assert.deepEqual(piece0(REGLE_DES_INDICES.juger(t, REGLE_DES_INDICES.ouvrir(t), fin)), { juste: false, choix: null, composee: '1|0' })
+  // L'échéance après une erreur : il avait répondu, faux. Quitter, lui, laisse la manche ouverte : zéro, `choix` nul,
+  // comme toute manche quittée — seul le Pari gardé fait exception. Ce qu'il a vu reste écrit.
+  assert.deepEqual(piece0(REGLE_DES_INDICES.juger(t, e, 'expiree')), { juste: false, choix: -1, composee: '2|1' })
+  const quittee = REGLE_DES_INDICES.juger(t, e, 'quittee')
+  assert.equal(quittee.naturel, 0)
+  assert.deepEqual(piece0(quittee), { juste: false, choix: null, composee: '2|1' })
 })
 
 test('les Indices : la manche ne montre que les indices vus, jamais la réponse ni ses clés', () => {
@@ -518,17 +585,38 @@ test('la Réplique : la réplique entière, le mot à sa place', () => {
   assert.equal(repliqueEntiere('', 'Rosebud', '…'), 'Rosebud…')
 })
 
-test('la Réplique : les quatre mots et les trois personnes, battus au départ, rejoués tels quels', () => {
-  const t = repliqueTiree(ARLETTY, hasardDe('partie:replique'))
+test('la Réplique : les quatre mots, les trois personnes et ce qu’Éclairer effacera, tirés au départ et figés', () => {
+  const t = repliqueTiree(ARLETTY, hasardDe('le-serveur:replique'))
   assert.deepEqual([...t.mots].sort(), [ARLETTY.mot, ...ARLETTY.leurres].sort())
   assert.deepEqual([...t.personnes].sort(), [ARLETTY.qui, ...ARLETTY.autres].sort())
   assert.equal(t.mots[t.bonMot], ARLETTY.mot)
   assert.equal(t.personnes[t.bonneQui], ARLETTY.qui)
-  assert.deepEqual(repliqueTiree(ARLETTY, hasardDe('partie:replique')), t, 'la même graine, le même ordre')
-  // Le bon mot n'est pas toujours au même rang.
+  // Ce qu'Éclairer effacera, dans l'ordre : chaque mauvaise proposition de chaque étape une fois, jamais la bonne.
+  assert.deepEqual([...t.ordreDesEffaces[0]].sort(), [0, 1, 2, 3].filter(i => i !== t.bonMot))
+  assert.deepEqual([...t.ordreDesEffaces[1]].sort(), [0, 1, 2].filter(i => i !== t.bonneQui))
+  // Pure : le même hasard, le même plan. Une reprise, elle, relit le plan — elle ne rebat rien.
+  assert.deepEqual(repliqueTiree(ARLETTY, hasardDe('le-serveur:replique')), t, 'le même hasard, le même ordre')
+  // Le bon mot n'est pas toujours au même rang, ni le premier effacé.
   const rangs = new Set<number>()
-  for (let i = 0; i < 200; i++) rangs.add(repliqueTiree(ARLETTY, hasardDe(`r:${i}`)).bonMot)
+  const premiers = new Set<number>()
+  for (let i = 0; i < 200; i++) {
+    const tiree = repliqueTiree(ARLETTY, hasardDe(`r:${i}`))
+    rangs.add(tiree.bonMot)
+    premiers.add(tiree.ordreDesEffaces[0][0])
+  }
   assert.deepEqual([...rangs].sort(), [0, 1, 2, 3])
+  assert.deepEqual([...premiers].sort(), [0, 1, 2, 3])
+
+  // Ce qu'Éclairer efface ne désigne pas le bon mot : parmi les trois qui restent, rangés comme la page les montre,
+  // il est aussi souvent le premier, le deuxième que le troisième. Effacer le premier mauvais à l'écran l'aurait
+  // désigné une fois sur deux au premier rang.
+  const places = [0, 0, 0]
+  for (let i = 0; i < 900; i++) {
+    const tiree = repliqueTiree(ARLETTY, hasardDe(`place:${i}`))
+    const restent = [0, 1, 2, 3].filter(r => r !== tiree.ordreDesEffaces[0][0])
+    places[restent.indexOf(tiree.bonMot)]++
+  }
+  for (const n of places) assert.ok(n > 240 && n < 360, `le bon mot à chaque place parmi ceux qui restent : ${places.join(', ')}`)
 })
 
 /** Une réplique tirée dans un ordre connu : le bon mot au rang 1, la bonne personne au rang 2. */
@@ -539,6 +627,10 @@ const T: RepliqueTiree = {
   personnes: ['Michèle Morgan', 'Danielle Darrieux', 'Arletty'],
   bonMot: 1,
   bonneQui: 2,
+  ordreDesEffaces: [
+    [3, 0, 2],
+    [1, 0],
+  ],
 }
 const lire = (brut: unknown) => REGLE_DE_LA_REPLIQUE.lireLeGeste(brut, T)!
 const mot = (choix: number) => lire({ quoi: 'mot', choix })
@@ -593,16 +685,20 @@ test('la Réplique : le bon mot ★★, la bonne personne ★, additionnés ; ju
     assert.deepEqual(piece0(v), { juste, choix, composee })
     assert.equal(juste, justeDeLaPiece(v.naturel, 'replique'))
   }
-  // Expirée ou quittée à la seconde : le mot, le serveur l'avait — il compte ; « qui » n'a pas de réponse.
-  for (const fin of ['expiree', 'quittee'] as const) {
-    const v = REGLE_DE_LA_REPLIQUE.juger(T, avance(e, mot(1)), fin)
-    assert.equal(v.naturel, 2)
-    assert.deepEqual(piece0(v), { juste: true, choix: 0, composee: '1|.' })
-    // À la première, rien n'est répondu.
-    assert.deepEqual(piece0(REGLE_DE_LA_REPLIQUE.juger(T, e, fin)), { juste: false, choix: null, composee: '.|.' })
-  }
+  // Expirée à la seconde : le mot, le serveur l'avait — il compte ; « qui » n'a pas de réponse.
+  const expiree = REGLE_DE_LA_REPLIQUE.juger(T, avance(e, mot(1)), 'expiree')
+  assert.equal(expiree.naturel, 2)
+  assert.deepEqual(piece0(expiree), { juste: true, choix: 0, composee: '1|.' })
   // L'échéance de la seconde, sans rien : le mot compte.
   assert.equal(REGLE_DE_LA_REPLIQUE.juger(T, avance(e, mot(1)), lire({ quoi: 'repondre', auto: true })).naturel, 2)
+  // Quittée à la seconde : la manche est laissée ouverte, elle compte zéro, `choix` nul — comme toute manche
+  // quittée ; seul le Pari gardé fait exception. Le mot choisi reste écrit : la révélation dit ce qu'il avait répondu.
+  const quittee = REGLE_DE_LA_REPLIQUE.juger(T, avance(e, mot(1)), 'quittee')
+  assert.equal(quittee.naturel, 0)
+  assert.deepEqual(piece0(quittee), { juste: false, choix: null, composee: '1|.' })
+  assert.deepEqual(REGLE_DE_LA_REPLIQUE.reveler(T, avance(e, mot(1)), quittee).repondu, { mot: 'atmosphère', qui: null })
+  // À la première, rien n'est répondu.
+  for (const fin of ['expiree', 'quittee'] as const) assert.deepEqual(piece0(REGLE_DE_LA_REPLIQUE.juger(T, e, fin)), { juste: false, choix: null, composee: '.|.' })
 })
 
 test('la Réplique : jamais le mot ni « qui » avant la révélation, ni si le mot choisi était bon', () => {
@@ -643,26 +739,34 @@ test('la Réplique : Éclairer efface une mauvaise proposition à chaque étape 
   assert.equal(effacablesAuPlus(4), 2)
   assert.equal(effacablesAuPlus(3), 1)
   for (let i = 0; i < 50; i++) {
-    const h = hasardDe(`replique:eclairer:${i}`)
-    let e: EtatDeLaReplique | string = REGLE_DE_LA_REPLIQUE.ouvrir(T)
-    e = REGLE_DE_LA_REPLIQUE.eclairer(T, e, h) as EtatDeLaReplique
-    e = REGLE_DE_LA_REPLIQUE.eclairer(T, e, h) as EtatDeLaReplique
+    const t = repliqueTiree(ARLETTY, hasardDe(`replique:tiree:${i}`))
+    // Le hasard que le pli passe vient de la graine, que la page sait refaire : ce qui s'efface n'en vient pas.
+    let e: EtatDeLaReplique | string = REGLE_DE_LA_REPLIQUE.ouvrir(t)
+    e = REGLE_DE_LA_REPLIQUE.eclairer(t, e, HASARD_DE_LA_GRAINE) as EtatDeLaReplique
+    e = REGLE_DE_LA_REPLIQUE.eclairer(t, e, HASARD_DE_LA_GRAINE) as EtatDeLaReplique
     assert.equal(e.effaces[0].length, 2)
-    assert.ok(!e.effaces[0].includes(T.bonMot), 'jamais le bon mot')
+    assert.ok(!e.effaces[0].includes(t.bonMot), 'jamais le bon mot')
     assert.equal(new Set(e.effaces[0]).size, 2)
-    assert.equal(REGLE_DE_LA_REPLIQUE.eclairer(T, e, h), RIEN_A_ECLAIRER, 'deux restent toujours')
-    const une = REGLE_DE_LA_REPLIQUE.montrer(T, e)
+    // Dans l'ordre que le départ a tiré.
+    assert.deepEqual(e.effaces[0], t.ordreDesEffaces[0].slice(0, 2))
+    assert.equal(REGLE_DE_LA_REPLIQUE.eclairer(t, e, HASARD_DE_LA_GRAINE), RIEN_A_ECLAIRER, 'deux restent toujours')
+    const une = REGLE_DE_LA_REPLIQUE.montrer(t, e)
     assert.ok(une.etape === 1 && une.mots.filter(m => m.efface).length === 2)
     // La seconde étape repart sans rien d'effacé ; un nom sur trois s'y efface.
-    let deux = avance(e, mot(0))
+    let deux = REGLE_DE_LA_REPLIQUE.apresLeGeste(t, e, { quoi: 'mot', choix: 0 }) as EtatDeLaReplique
     assert.deepEqual(deux.effaces, [e.effaces[0], []])
-    deux = REGLE_DE_LA_REPLIQUE.eclairer(T, deux, h) as EtatDeLaReplique
-    assert.equal(deux.effaces[1].length, 1)
-    assert.ok(!deux.effaces[1].includes(T.bonneQui), 'jamais la bonne personne')
-    assert.equal(REGLE_DE_LA_REPLIQUE.eclairer(T, deux, h), RIEN_A_ECLAIRER)
+    deux = REGLE_DE_LA_REPLIQUE.eclairer(t, deux, HASARD_DE_LA_GRAINE) as EtatDeLaReplique
+    assert.deepEqual(deux.effaces[1], t.ordreDesEffaces[1].slice(0, 1))
+    assert.ok(!deux.effaces[1].includes(t.bonneQui), 'jamais la bonne personne')
+    assert.equal(REGLE_DE_LA_REPLIQUE.eclairer(t, deux, HASARD_DE_LA_GRAINE), RIEN_A_ECLAIRER)
   }
+  // Un plan qui porterait la bonne proposition dans son ordre ne la fait pas effacer pour autant.
+  const mal: RepliqueTiree = { ...T, ordreDesEffaces: [[T.bonMot, 3, 0, 2], [T.bonneQui, 1, 0]] }
+  const e = REGLE_DE_LA_REPLIQUE.eclairer(mal, REGLE_DE_LA_REPLIQUE.ouvrir(mal), HASARD_DE_LA_GRAINE) as EtatDeLaReplique
+  assert.deepEqual(e.effaces[0], [3])
   // Un mot effacé reste un mauvais mot : le choisir ne rapporte rien.
-  const efface = REGLE_DE_LA_REPLIQUE.eclairer(T, REGLE_DE_LA_REPLIQUE.ouvrir(T), toujours(0)) as EtatDeLaReplique
+  const efface = REGLE_DE_LA_REPLIQUE.eclairer(T, REGLE_DE_LA_REPLIQUE.ouvrir(T), HASARD_DE_LA_GRAINE) as EtatDeLaReplique
+  assert.deepEqual(efface.effaces[0], [3])
   const v = REGLE_DE_LA_REPLIQUE.juger(T, avance(efface, mot(efface.effaces[0][0])), qui(2))
   assert.equal(v.naturel, 1)
 })
@@ -694,6 +798,18 @@ test('la Réplique : la révélation, la pièce, le cartel', () => {
   assert.equal(piece.categorie, 'Cinéma & séries')
   assert.deepEqual(piece.cabinet, { jeu: 'replique', manche: 0, tirage: 0 })
   assert.deepEqual(REGLE_DE_LA_REPLIQUE.cartel(T, v), { sujet: piece.texte, reponse: '« atmosphère » — Arletty, Hôtel du Nord, 1938', anecdote: ARLETTY.savais })
+
+  // Le trou s'écrit en points de suspension, où se fond la ponctuation qui le suit de près : un point, ou des
+  // points de suspension — « blanchit la …… » se serait lu deux fois.
+  const aTrou = (avant: string, apres: string) => REGLE_DE_LA_REPLIQUE.piece({ ...T, replique: { ...ARLETTY, avant, mot: 'campagne', apres } }, e, v, { manche: 0, tirage: 0 }).texte
+  assert.equal(aTrou('Demain, dès l’aube, à l’heure où blanchit la', '…'), '« Demain, dès l’aube, à l’heure où blanchit la … »')
+  assert.equal(aTrou('Demain, dès l’aube, à l’heure où blanchit la', '...'), '« Demain, dès l’aube, à l’heure où blanchit la … »')
+  assert.equal(aTrou('C’est pas', '.'), '« C’est pas … »')
+  assert.equal(aTrou('On ne voit bien qu’avec le', '. L’essentiel est invisible pour les yeux.'), '« On ne voit bien qu’avec le … L’essentiel est invisible pour les yeux. »')
+  assert.equal(aTrou('Tonnerre de', ' !'), '« Tonnerre de … ! »')
+  assert.equal(aTrou('Atmosphère ? Est-ce que j’ai une gueule d’', ' ?'), '« Atmosphère ? Est-ce que j’ai une gueule d’… ? »')
+  // La réplique entière, elle, garde sa ponctuation.
+  assert.equal(repliqueEntiere('Demain, dès l’aube, à l’heure où blanchit la', 'campagne', '…'), 'Demain, dès l’aube, à l’heure où blanchit la campagne…')
 })
 
 // ── Ce que les trois partagent ────────────────────────────────────────────
