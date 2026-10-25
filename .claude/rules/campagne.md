@@ -43,15 +43,32 @@ paths:
   qui ne mène qu'à ses séries. Le `COALESCE` n'attrapait aucune ligne, et
   le compte en production des modes NULL, que la conception du Cabinet
   demandait d'abord, se tient par le code : la colonne est née `NOT NULL
-  DEFAULT 'serie'` (`ajouterColonne`, dans `init`) — SQLite donne ce défaut
+  DEFAULT 'serie'` dès son premier `ajouterColonne` (le commit 37fb2a81 du
+  4 octobre 2026, « Les sentiers du savoir » ; celui d'avant sur
+  `core/campagne.ts`, 4b301c20, ne parlait d'aucun mode ; un clone
+  superficiel ne les a pas : `gh api repos/Maxilyas/FiestApp/commits/37fb2a81`
+  les lit) — SQLite donne ce défaut
   aux lignes qui existaient à l'`ALTER` et refuse tout NULL écrit ensuite ;
   aucune écriture ne pose le mode à NULL, et une insertion sans lui fait
-  une série (`commencer`). La série en cours trie par `+commencee_le` : sans
-  statistiques, l'index du profil, rangé par date, épargnait le tri à
-  SQLite, qui parcourait alors toutes les parties d'un profil sans série en
-  cours — le cas ordinaire. `campagne-index.test.ts` lit le plan de chaque
-  lecture des séries telle que le magasin l'envoie, sans statistiques comme
-  la production : une lecture de plus y passe d'elle-même.
+  une série (`commencer`).
+- **La partie en cours d'un mode se cherche par le profil et le mode**
+  (`LA_PLUS_RECENTE`, `ORDER BY +commencee_le DESC LIMIT 1`) : la série, la
+  révision laissée, la rencontre du dé — l'accueil et le dé —, l'épreuve,
+  l'étape d'un parcours, l'expédition en route. Triées par leur date, sans
+  statistiques, elles partaient de l'index du profil, rangé par date, qui
+  épargnait le tri à SQLite : sans partie en cours — le cas ordinaire —,
+  elles relisaient toutes les parties du profil, de tous les modes, à
+  chaque accueil (la relecture du lot A1 du Cabinet, le 25 octobre 2026).
+  Le `+` les mène à l'index des sentiers, qui ne lit que les parties du
+  mode. `campagne-index.test.ts` lit le plan de chaque lecture des séries
+  telle que le magasin l'envoie, et celui de chaque recherche d'une partie
+  en cours — profil, mode et `finie_le IS NULL` dans un même `WHERE` —
+  telle que le serveur l'envoie, sans statistiques comme la production :
+  une lecture de plus y passe d'elle-même. Seules les dernières rencontres
+  de la page des duels (`rencontresEtDuels`, sans `finie_le`) gardent
+  l'index du profil : il s'arrête aux plus récentes, quand celui des
+  sentiers lirait toutes les rencontres d'un fidèle du dé — mais un joueur
+  sans rencontre y relit toutes ses parties, celles du Cabinet comprises.
 - **Un tirage ne repasse plus toute la base**, à chaque série, défi, duel
   ou dé : vingt-cinq mille questions (25 529 le 17 octobre 2026), au
   dixième de cœur de l'hébergeur. La liste des jouables se garde tant que

@@ -703,12 +703,30 @@ const HEURE_MS = 3600_000
  * sentiers `(profile_id, mode, …)`, qui ne mène qu'à ses séries
  * (`campagne-index.test.ts` lit les plans, sans statistiques comme la
  * production). Aucune ligne n'a de mode NULL — le `COALESCE` d'avant n'en
- * attrapait aucune : la colonne est née `NOT NULL DEFAULT 'serie'`
- * (`ajouterColonne`, dans `init`), et SQLite donne ce défaut aux lignes qui
- * existaient à l'`ALTER`, puis refuse tout NULL qu'on écrirait. Sans
- * colonne `mode`, une insertion fait une série (`commencer`).
+ * attrapait aucune : la colonne est née `NOT NULL DEFAULT 'serie'`, dès son
+ * premier `ajouterColonne` (le commit 37fb2a81 du 4 octobre 2026, « Les
+ * sentiers du savoir » ; celui d'avant sur ce fichier, 4b301c20, ne parlait
+ * d'aucun mode), et SQLite donne ce défaut aux lignes qui existaient à
+ * l'`ALTER`, puis refuse tout NULL qu'on écrirait. Sans colonne `mode`, une
+ * insertion fait une série (`commencer`).
  */
 const SERIES = "mode = 'serie'"
+/**
+ * La partie en cours d'un mode — la série, la révision, la rencontre,
+ * l'épreuve, l'étape d'un parcours, l'expédition : la plus récente des
+ * siennes que rien n'a finie. Le `+` écarte la date du choix de l'index : sans
+ * statistiques, SQLite prenait l'index du profil, rangé par date, pour
+ * s'épargner de trier, et sans partie en cours — le cas ordinaire — relisait
+ * toutes les parties du profil, de tous les modes, pour n'en trouver aucune :
+ * à chaque accueil, page de la campagne ou des sentiers, dé, carnet, parcours
+ * ou Expédition, et le Cabinet en ajoute une dizaine par jour et par joueur.
+ * Par l'index des sentiers `(profile_id, mode, …)`, il ne lit que les parties
+ * du mode, et n'en trie qu'une poignée (`campagne-index.test.ts`). Les
+ * dernières rencontres de la page des duels (`rencontresEtDuels`) gardent
+ * l'index du profil : sans `finie_le`, il s'arrête aux plus récentes, quand
+ * l'index des sentiers lirait toutes les rencontres d'un fidèle du dé.
+ */
+const LA_PLUS_RECENTE = 'ORDER BY +commencee_le DESC LIMIT 1'
 /** Ce que l'administration relit des épreuves : trois mois suffisent à régler un palier. */
 const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
 /** Les plus bloqués que l'administration nomme : de quoi voir qui décroche, pas un annuaire. */
@@ -2557,16 +2575,10 @@ export class CampagneStore {
     if (this.enCours.size > SERIES_GARDEES) this.enCours.delete(this.enCours.keys().next().value!)
   }
 
-  /**
-   * La série en cours de ce profil, s'il en a une. Le `+` du tri : sans
-   * statistiques, SQLite prenait l'index du profil, rangé par date, pour
-   * s'épargner de trier — et sans série en cours, le cas ordinaire, il
-   * relisait toutes les parties du profil pour n'en trouver aucune. Par
-   * l'index des sentiers, il ne lit que ses séries, et n'en trie qu'une.
-   */
+  /** La série en cours de ce profil, s'il en a une — par ses seules séries (`LA_PLUS_RECENTE`). */
   async serieEnCours(profileId: string): Promise<Serie | null> {
     const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND finie_le IS NULL AND ${SERIES} ORDER BY +commencee_le DESC LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND finie_le IS NULL AND ${SERIES} ${LA_PLUS_RECENTE}`,
       args: [profileId],
     })
     return res.rows[0] ? versSerie(res.rows[0]) : null
@@ -3163,7 +3175,7 @@ export class CampagneStore {
   /** Sa révision laissée en route, s'il en a une : elle se reprend. */
   private async revisionEnCours(profileId: string): Promise<Serie | null> {
     const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'revision' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'revision' AND finie_le IS NULL ${LA_PLUS_RECENTE}`,
       args: [profileId],
     })
     return res.rows[0] ? versSerie(res.rows[0]) : null
@@ -4877,7 +4889,7 @@ export class CampagneStore {
         duels,
       ] = await Promise.all([
         this.lireAvecLeJournal([
-          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ${LA_PLUS_RECENTE}`, args: [profileId] },
         ]),
         this.lesDuels(),
       ])
@@ -5605,7 +5617,7 @@ export class CampagneStore {
       this.client.batch(
         [
           lectureDesDefisRecus(profileId, maintenant),
-          { sql: `SELECT adversaire FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+          { sql: `SELECT adversaire FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ${LA_PLUS_RECENTE}`, args: [profileId] },
           // Ses duels joués des deux côtés dont il n'a pas vu le résultat — lus de la règle
           // qui les montre sur la page (`lectureDesDuelsContre`) : compté ici, chacun y paraît.
           {
@@ -5722,7 +5734,7 @@ export class CampagneStore {
   /** L'épreuve qu'il a laissée en cours, s'il en a une : une seule à la fois. */
   private lectureDeLEpreuveOuverte(profileId: string): InStatement {
     return {
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND finie_le IS NULL ${LA_PLUS_RECENTE}`,
       args: [profileId],
     }
   }
@@ -6282,7 +6294,7 @@ export class CampagneStore {
       this.client.batch(
         [
           { sql: `SELECT sujet, palier, justes, seuil FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND issue = 'validee'`, args: [profileId] },
-          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND finie_le IS NULL ${LA_PLUS_RECENTE}`, args: [profileId] },
         ],
         'read',
       ),
@@ -7618,7 +7630,7 @@ export class CampagneStore {
    * le codex se lit à son échelle.
    */
   async pageDeLExpedition(profileId: string, { rencontres = false, questionAuCentre = false }: { rencontres?: boolean; questionAuCentre?: boolean } = {}): Promise<PageDeLExpedition> {
-    const enRoute = `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`
+    const enRoute = `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL ${LA_PLUS_RECENTE}`
     const lu = await this.client.batch(
       [
         { sql: `SELECT * FROM campagne_series WHERE id = (${enRoute})`, args: [profileId] },

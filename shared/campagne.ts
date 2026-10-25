@@ -48,7 +48,8 @@ export type ModeDeSerie = (typeof MODES_DE_SERIE)[number]
 
 /**
  * Le mode d'une ligne lue. La colonne est `NOT NULL DEFAULT 'serie'` depuis
- * qu'elle existe : aucune ligne n'en est privée, et un mode hors de la liste
+ * qu'elle existe (`SERIES`, `core/campagne.ts`, dit le commit qui l'a
+ * ajoutée) : aucune ligne n'en est privée, et un mode hors de la liste
  * ne viendrait que d'une écriture qui l'y aurait oublié — il se lit en série,
  * comme avant la liste.
  */
