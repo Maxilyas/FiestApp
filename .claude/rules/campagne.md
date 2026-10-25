@@ -1,13 +1,13 @@
 ---
 paths:
   - "shared/{campagne,sujets,revision,nomDuChoix,horsDeLaBase}.ts"
-  - "server/src/core/{campagne,baremeDuSolo,jumelles,journalDesReponses,tirageALaPiece}.ts"
+  - "server/src/core/{campagne,baremeDuSolo,jumelles,journalDesReponses,tirageALaPiece,porteDeLaCampagne}.ts"
   - "server/src/campagne.ts"
   - "client/src/views/{CampagneApp,Defi,Carnet}.tsx"
   - "client/src/components/{ChoixDuTheme,SerieCorrigee}.tsx"
   - "client/src/iconeDuSujet.ts"
   - "server/scripts/rendu-campagne.ts"
-  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,tirage-a-la-piece,bareme-du-solo,journal-des-reponses,hors-de-la-base}.test.ts"
+  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,tirage-a-la-piece,bareme-du-solo,journal-des-reponses,hors-de-la-base,porte-de-la-campagne}.test.ts"
 ---
 
 # La campagne solo et le défi de la semaine
@@ -226,6 +226,35 @@ paths:
   ne le relit qu'ainsi (règle `expedition.md`). Une porte neuve qui écrit
   dans `campagne_reponses` l'appelle aussi : sans, l'escale suivante
   pourrait reposer, comme jamais vue, la question qu'il vient de voir.
+- **Le Cabinet de curiosités passe par une porte** (`core/porteDeLaCampagne.ts`,
+  `CampagneStore.porte()`, le 25 octobre 2026) : il n'importe pas ce magasin,
+  et ce magasin ne connaît de lui que trois crochets, déclarés dans ce
+  fichier — son réveil (`init(REVEIL_DU_CABINET)` : ses trois tables, sa
+  colonne `campagne_series.cabinet` et son secret dans le **premier** lot, la
+  colonne dans la boucle des siennes : pas un aller-retour de plus au réveil,
+  et le schéma de la table lu une fois), ses paliers (`statsEnPlus` : ses
+  lectures dans le lot de `statsDe`, ce qu'il en tire ajouté aux stats) et la
+  fin d'une expédition (`apresLExpedition`, appelé par
+  `recompenserLExpedition`, où passe toute fin d'expédition : en fond, jamais
+  attendu, et ce qui y tombe se dit au journal sans faire tomber la fin). Le
+  rituel d'une réponse y tient en une fonction (`ecrireDesReponses`), dans
+  l'ordre de `repondre` : `vuAilleurs`, le lot — et à la fin d'une partie qui
+  a des justes, les lectures de l'expérience au bout —, `reponseEcrite` même
+  si le lot échoue (écrit ou non, on ne le sait pas), puis, à la fin
+  seulement, l'expérience créditée une fois pour toute la partie
+  (`crediterLaLigne` ; ce que chaque juste rapporte se lit à son rang dans son
+  jour, `xpDesJustes`), les paliers rangés sous la partie (`recompenser`), le
+  compagnon qui grandit. Une étape de plus au rituel s'écrit là, et
+  `porte-de-la-campagne.test.ts` compte ce que chacune coûte. Le journal seul
+  de la porte (`lireAvecLeJournal([])`) ne se relit que si une réponse s'est
+  écrite ici depuis la dernière lecture (`rattraperLeJournal(derniereReponse)`) :
+  le tirage d'un départ du Cabinet ne paie alors rien ; celui de la campagne
+  relit toujours. Le secret (`campagne_meta.secret_du_cabinet`) se propose à
+  chaque réveil et ne s'écrit qu'une fois (`INSERT … ON CONFLICT DO
+  NOTHING`, relu dans le même lot) ; une campagne ouverte sans lui le refuse
+  en `TypeError` — un branchement oublié est une erreur du serveur, pas un
+  refus à dire au joueur. `campagne_meta` naît donc au premier lot, pour que
+  le secret s'y relise.
 - **La mesure ne se fait jamais attendre** : demandée dès ses deux
   dernières minutes (`MESURE_EN_AVANCE_MS`), même périmée depuis des
   heures, la suivante part en fond — du journal, rattrapé d'un

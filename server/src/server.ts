@@ -16,6 +16,7 @@ import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
 import { SalonStore } from './core/salons'
 import { CampagneStore } from './core/campagne'
+import { REVEIL_DU_CABINET } from './core/cabinet/tables'
 import { Missions } from './core/missions'
 import { Soins } from './core/soins'
 import type { BaseDeLaCampagne } from './core/baseCampagne'
@@ -560,7 +561,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     })(),
     partages.init(),
     salons.init(),
-    campagne.init(),
+    // Les tables du Cabinet de curiosités, sa colonne et son secret, dans le premier lot de la campagne : pas un aller-retour de plus au réveil.
+    campagne.init(REVEIL_DU_CABINET),
     gestes.init(),
     sante.init(),
     // Les pannes qu'un serveur d'avant n'a pas vues se rétablir : la veille dira leur retour.

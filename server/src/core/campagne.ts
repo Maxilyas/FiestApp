@@ -28,6 +28,7 @@ import {
 } from './journalDesReponses'
 import { JournalDesDuels, type DuelsARelire, type LigneDuJournalDesDuels } from './journalDesDuels'
 import { DejaPrises } from './jumelles'
+import type { ApresLExpedition, CeQueLeReveilAjoute, FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from './porteDeLaCampagne'
 import {
   EMPRUNTS,
   classeDeFraicheur,
@@ -863,8 +864,12 @@ export interface CampagneDuProfil {
   duels: CoteDesDuels | null
 }
 
-/** Ce qu'une fin de série ou d'épreuve annonce : ce qui est tombé, et les légendaires que ça ouvre. */
-interface Recompenses {
+/**
+ * Ce qu'une fin de série ou d'épreuve annonce : ce qui est tombé, et les
+ * légendaires que ça ouvre. Celle d'une partie du Cabinet aussi, que la porte
+ * rend (`PorteDeLaCampagne.ecrireDesReponses`).
+ */
+export interface Recompenses {
   recompenses?: PalierTombe[]
   legendaires?: string[]
 }
@@ -1045,6 +1050,18 @@ export class CampagneStore {
     Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonDeLaNiche' | 'faireGrandir' | 'offrirUnCompagnon'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
+  /**
+   * Ce que le Cabinet de curiosités ajoute aux paliers de la campagne
+   * (`statsDe`), et ce qu'il fait de la fin d'une expédition : deux des trois
+   * crochets de sa porte (`core/porteDeLaCampagne.ts` ; le troisième,
+   * `init`), branchés par le serveur. La campagne n'importe rien du Cabinet.
+   */
+  statsEnPlus?: StatsEnPlus
+  apresLExpedition?: ApresLExpedition
+  /** Le secret du Cabinet, relu au réveil (`init`) ; null tant qu'aucun réveil ne l'a tiré. */
+  private secretLu: string | null = null
+  /** La porte du Cabinet, ouverte une fois (`porte`). */
+  private porteOuverte: PorteDeLaCampagne | null = null
   private mesuresGardees: MesureGardee | null = null
   /** La relecture des comptes en cours (`mesures`). */
   private mesuresEnRoute: Promise<void> | null = null
@@ -1200,7 +1217,14 @@ export class CampagneStore {
     return justesParJourDesHeures((await this.rattraperLeJournal()).justesParHeureDe(profileId))
   }
 
-  async init() {
+  /**
+   * Ses tables, en deux lots et une lecture de schéma par table (`ajouterColonne`) ;
+   * et ce que le Cabinet de curiosités y ajoute (`enPlus`, `REVEIL_DU_CABINET`) :
+   * ses tables, sa colonne et son secret dans les mêmes allers-retours — un
+   * réveil de l'hébergeur n'en paie pas un de plus pour lui.
+   */
+  async init(enPlus: CeQueLeReveilAjoute = {}) {
+    const secret = enPlus.secret
     const resultats = await this.client.batch(
       [
         `CREATE TABLE IF NOT EXISTS campagne_series (
@@ -1268,15 +1292,28 @@ export class CampagneStore {
            melange  TEXT NOT NULL,
            regle_le INTEGER NOT NULL
          )`,
+        // Les drapeaux de la campagne, et le secret du Cabinet : dès ce lot-ci,
+        // pour que le secret s'y relise — né au second, il en aurait coûté un
+        // aller-retour de plus à chaque réveil.
+        `CREATE TABLE IF NOT EXISTS campagne_meta (
+           cle    TEXT PRIMARY KEY,
+           valeur TEXT NOT NULL
+         )`,
+        ...(enPlus.tablesEnPlus ?? []),
+        // Chaque réveil en propose un neuf ; la base ne le prend que si elle n'en a pas : deux serveurs pendant une
+        // mise en ligne, un redémarrage relisent le même — jamais un secret neuf au réveil (règle `cabinet.md`).
+        ...(secret ? [{ sql: 'INSERT INTO campagne_meta (cle, valeur) VALUES (?, ?) ON CONFLICT (cle) DO NOTHING', args: [secret, randomBytes(32).toString('hex')] }] : []),
         // Dans le même aller-retour : un réveil de l'hébergeur n'en paie pas un de plus.
         'SELECT question_id FROM campagne_retraits',
         'SELECT entree, ajoutee_le FROM campagne_ajouts ORDER BY ajoutee_le',
         'SELECT question_id, entree, corrigee_le FROM campagne_corrections',
         'SELECT palier, melange, regle_le FROM sentier_melanges',
+        ...(secret ? [{ sql: 'SELECT valeur FROM campagne_meta WHERE cle = ?', args: [secret] }] : []),
       ],
       'write',
     )
-    const [retraits, ajouts, corrections, melanges] = resultats.slice(-4)
+    const [retraits, ajouts, corrections, melanges, secretLu] = resultats.slice(secret ? -5 : -4)
+    if (secret) this.secretLu = typeof secretLu.rows[0]?.valeur === 'string' ? secretLu.rows[0].valeur : null
     for (const r of retraits.rows) this.retirees.add(String(r.question_id))
     // Un mélange que les règles du jour refusent — une marche de plus, un palier de moins — se tait : le palier reprend celui du code.
     for (const r of melanges.rows) {
@@ -1327,6 +1364,8 @@ export class CampagneStore {
       // (`chanceAuDepart`). Ce qu'elle dit au joueur ne se reconstruit pas
       // après coup : le modèle se refait, ses réponses changent sa force.
       ['chance', 'REAL'],
+      // Celles du Cabinet de curiosités (le départ figé d'une partie), dans la même boucle : le schéma lu une fois.
+      ...(enPlus.colonnesEnPlus ?? []),
     ] as const) {
       await ajouterColonne(this.client, 'campagne_series', colonne, type)
     }
@@ -1341,10 +1380,6 @@ export class CampagneStore {
            paliers    INTEGER NOT NULL,
            retenu_le  INTEGER NOT NULL,
            PRIMARY KEY (profile_id, branche)
-         )`,
-        `CREATE TABLE IF NOT EXISTS campagne_meta (
-           cle    TEXT PRIMARY KEY,
-           valeur TEXT NOT NULL
          )`,
         // Les lectures du journal des réponses, gardées telles quelles : un
         // réveil les relit au lieu de toute l'histoire (`reprendreLesTranches`,
@@ -2088,6 +2123,13 @@ export class CampagneStore {
   /** Les événements des frises (v13) que ces jouables datent, gardés avec elles : une base neuve les relit. */
   private evenementsGardes = new WeakMap<readonly QuestionDeLaBase[], readonly EvenementDeLaFrise[]>()
 
+  /** Les événements des frises de ces jouables — l'expédition, la Frise du Cabinet —, lus une fois par liste. */
+  private evenementsDe(toutes: readonly QuestionDeLaBase[]): readonly EvenementDeLaFrise[] {
+    let evenements = this.evenementsGardes.get(toutes)
+    if (!evenements) this.evenementsGardes.set(toutes, (evenements = evenementsDeLaBase(this.parIdDe(toutes))))
+    return evenements
+  }
+
   /**
    * Une frise pour une escale (v13) : quatre événements de son tas — ceux dont
    * la question y est —, à l'écart de sa marche, jamais vus dans une frise
@@ -2097,8 +2139,7 @@ export class CampagneStore {
    * n'a pas de quoi.
    */
   private friseDe(toutes: readonly QuestionDeLaBase[], tas: readonly (readonly QuestionDeLaBase[])[], marche: Niveau, vus: ReadonlySet<string>): QuestionDeSerie | null {
-    let evenements = this.evenementsGardes.get(toutes)
-    if (!evenements) this.evenementsGardes.set(toutes, (evenements = evenementsDeLaBase(this.parIdDe(toutes))))
+    const evenements = this.evenementsDe(toutes)
     const parId = this.parIdDe(toutes)
     let candidats = evenements
     if (!(tas.length === 1 && tas[0] === toutes)) {
@@ -2251,11 +2292,16 @@ export class CampagneStore {
    * épreuves ont validé sur les sentiers (`statsDesSentiers`). Le niveau
    * d'une question est celui que la série lui donnait quand elle l'a posée.
    * Là où les rencontres s'ouvrent, son niveau d'explorateur aussi : sa
-   * renommée, dans le même lot (`lecturesDeLaRenommee`).
+   * renommée, dans le même lot (`lecturesDeLaRenommee`). Et ce que le Cabinet
+   * y ajoute (`statsEnPlus`), lu dans le même lot encore : `statsDe` se lit à
+   * chaque fin de partie et à chaque page du profil.
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
+    const enPlus = this.statsEnPlus
+    const lecturesDuCabinet = enPlus?.lectures(profileId) ?? []
+    const lecturesDuCodex = this.rencontres ? lecturesDeLaRenommee(profileId) : []
     const {
-      lus: [record, validees, passeport, ...renommee],
+      lus: [record, validees, passeport, ...suite],
       journal,
     } = await this.lireAvecLeJournal([
       {
@@ -2264,8 +2310,10 @@ export class CampagneStore {
       },
       this.lectureDesValidees(profileId),
       lectureDuPasseport(profileId),
-      ...(this.rencontres ? lecturesDeLaRenommee(profileId) : []),
+      ...lecturesDuCodex,
+      ...lecturesDuCabinet,
     ])
+    const renommee = suite.slice(0, lecturesDuCodex.length)
     return {
       record: Number(record.rows[0]?.n ?? 0),
       // Toutes ses bonnes réponses, du journal : la somme des `justes` de ses
@@ -2281,6 +2329,7 @@ export class CampagneStore {
       // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun.
       tampons: passeport.rows.length,
       explorateur: this.rencontres ? await this.niveauDExplorateur(renommee) : 0,
+      ...(enPlus && enPlus.lire(suite.slice(lecturesDuCodex.length))),
     }
   }
 
@@ -2816,22 +2865,118 @@ export class CampagneStore {
    * ne fait pas échouer la réponse, déjà rangée : la bonne réponse suivante
    * réécrit la ligne entière.
    */
-  private async crediter(
+  private async crediter(profileId: string, lus: readonly ResultSet[], experience: { journal: JournalDesReponses; numero: number }): Promise<number> {
+    const parJour = await this.crediterLaLigne(profileId, lus, experience)
+    return parJour ? xpDeLaBonneReponse(parJour.get(jourDe(this.maintenant())) ?? 1) : 0
+  }
+
+  /**
+   * Sa ligne d'expérience réécrite entière, de ce qu'a lu le lot de sa bonne
+   * réponse (`lecturesDeLExperience`) : rend ses bonnes réponses jour par jour,
+   * de quoi dire ce que chacune a rapporté — null si la base a refusé la ligne,
+   * que la bonne réponse suivante réécrira.
+   */
+  private async crediterLaLigne(
     profileId: string,
     [lecture, paliers]: readonly ResultSet[],
     { journal, numero }: { journal: JournalDesReponses; numero: number },
-  ): Promise<number> {
+  ): Promise<ReadonlyMap<string, number> | null> {
     try {
       if (numero > 0) this.appliquerAuJournal(journal, lireLeJournal(lecture.rows[0]), numero)
       // Sa lecture n'a rien rapporté — le journal pas encore chargé —, ou pas tout : une lecture partie après l'écriture.
       const aJour = numero > 0 && journal === this.journal && journal.fraisDepuis >= numero ? journal : await this.rattraperLeJournal(this.lecturesDuJournal)
       const { parJour, xp } = experienceDuJournal(aJour.justesParHeureDe(profileId), paliers.rows)
       await this.ecrireXp(profileId, xp, parJour.size)
-      return xpDeLaBonneReponse(parJour.get(jourDe(this.maintenant())) ?? 1)
+      return parJour
     } catch (e) {
       console.error('[campagne] expérience non écrite, la prochaine bonne réponse la réécrira :', e)
-      return 0
+      return null
     }
+  }
+
+  /**
+   * Le rituel d'une réponse de campagne, pour le Cabinet de curiosités
+   * (`PorteDeLaCampagne.ecrireDesReponses`, `core/porteDeLaCampagne.ts`) :
+   * celui de `repondre`, dans son ordre, en une seule fonction. Les portes de
+   * ce fichier qui écrivent des réponses — la série, l'épreuve, le parcours,
+   * l'expédition — le recopient chacune, et un pas oublié ne se voit pas :
+   * l'expédition en route reposait la question tout juste vue, ou la lecture
+   * suivante du journal passait pour fraîche. Le Cabinet n'en a qu'une copie,
+   * celle-ci.
+   */
+  private async ecrireDesReponses(profileId: string, lot: readonly InStatement[], fin?: FinDUnePartie): Promise<ReponsesEcrites> {
+    // L'expérience se crédite une fois par partie, à sa fin : la ligne se relit entière, exacte quel que soit le nombre de
+    // ses justes — créditée à chaque manche, elle coûtait un aller-retour par manche juste pour le même résultat. Ses
+    // lectures partent au bout du lot de la fin, après les réponses qu'elles comptent. Une partie laissée en plan voit les
+    // siennes créditées par la bonne réponse suivante de la campagne, quelle qu'elle soit.
+    const experience = fin && fin.justes.length > 0 ? this.lecturesDeLExperience(profileId) : null
+    const lectures = experience?.lectures ?? []
+    // Vue ici, elle l'est aussi pour son expédition en route.
+    this.vuAilleurs(profileId)
+    let res: ResultSet[]
+    try {
+      res = await this.client.batch([...lot, ...lectures], 'write')
+    } finally {
+      // Écrite ou non — un lot resté sans réponse a pu passer —, une lecture du journal partie avant elle ne la sait pas.
+      this.reponseEcrite()
+    }
+    const lus = res.slice(0, lot.length)
+    if (!fin) return { lus, xp: [], recompenses: {} }
+    let xp: number[] = []
+    if (experience) {
+      const parJour = await this.crediterLaLigne(profileId, res.slice(lot.length), experience)
+      xp = parJour ? xpDesJustes(parJour, fin.justes) : fin.justes.map(() => 0)
+    }
+    const recompenses = await this.recompenserLaFin(profileId, fin.serieId, fin.quand, 'cabinet')
+    await this.faireGrandir(profileId)
+    return { lus, xp, recompenses }
+  }
+
+  /**
+   * La porte du Cabinet de curiosités (`core/porteDeLaCampagne.ts`) : des
+   * fermetures sur ce magasin, rien de plus. Le Cabinet n'importe pas
+   * `CampagneStore` et ne voit de lui que ce qu'elle dit ; elle s'ouvre avant
+   * `init` — le serveur la lui donne en le construisant —, la même à chaque fois.
+   */
+  porte(): PorteDeLaCampagne {
+    if (this.porteOuverte) return this.porteOuverte
+    const campagne = this
+    this.porteOuverte = {
+      get client() {
+        return campagne.client
+      },
+      maintenant: () => this.maintenant(),
+      avecVerrou: (profileId, travail) => this.avecVerrou(profileId, travail),
+      jouables: () => this.jouables(),
+      mesures: () => this.mesures(),
+      parIdDe: jouables => this.parIdDe(jouables),
+      deLaCategorie: (jouables, categorie) => this.deLaCategorie(jouables, categorie),
+      evenementsDe: jouables => this.evenementsDe(jouables),
+      // Sans lecture, le journal seul, frais s'il a été lu depuis la dernière réponse écrite ici : le tirage d'un départ
+      // ne paie rien quand la page vient de le rattraper. Celui de la campagne (`lireAvecLeJournal([])`) le relit
+      // toujours ; le Cabinet, qui tire avant d'écrire, ne relit que ce qu'une réponse a pu changer.
+      lireAvecLeJournal: async lot => (lot.length === 0 ? { lus: [], journal: await this.rattraperLeJournal(this.derniereReponse) } : this.lireAvecLeJournal(lot)),
+      ecrireDesReponses: (profileId, lot, fin) => this.ecrireDesReponses(profileId, lot, fin),
+      compagnonDeLaNiche: profileId => this.compagnonDeLaNiche(profileId),
+      codexDuProfil: (profileId, v) => this.codexDuProfil(profileId, v),
+      prechauffer: () => this.prechauffer(),
+      secretDuCabinet: () => {
+        if (this.secretLu === null) throw new TypeError('le secret du Cabinet n’a pas été relu : la campagne s’est ouverte sans `REVEIL_DU_CABINET` (`CampagneStore.init`)')
+        return this.secretLu
+      },
+    }
+    return this.porteOuverte
+  }
+
+  /**
+   * Les cartes que son codex de l'Expédition ouvre aujourd'hui, à la version
+   * `v` d'un départ : sa renommée relue de ses bilans, ses exploits, ses
+   * légendaires (`codexLu`, le chemin de la page et du départ). Un aller-retour,
+   * et les bilans à refaire écrits une fois.
+   */
+  private async codexDuProfil(profileId: string, v: number): Promise<readonly string[]> {
+    const lus = await this.client.batch(lecturesDeLaRenommee(profileId), 'read')
+    return (await this.codexLu(lus, this.legendairesDe(profileId), v)).cartes
   }
 
   /**
@@ -8320,15 +8465,39 @@ export class CampagneStore {
     })
   }
 
-  /** Ce que la fin d'une expédition fait tomber : les paliers de la campagne que ses bonnes réponses font atteindre — Le Marathonien. */
+  /**
+   * Ce que la fin d'une expédition fait tomber : les paliers de la campagne
+   * que ses bonnes réponses font atteindre — Le Marathonien. Puis le Cabinet
+   * l'apprend (`apresLExpedition`) : ce qu'elle a ouvert devient des œuvres.
+   */
   private async recompenserLExpedition(profileId: string, serieId: string, quand: number): Promise<Recompenses> {
+    const gains = await this.recompenserLaFin(profileId, serieId, quand, 'expedition')
+    this.prevenirLeCabinet(profileId)
+    return gains
+  }
+
+  /** Les paliers qu'une partie finie fait atteindre, rangés sous elle ; une étagère muette n'y change rien : la partie est rangée, la fin suivante les relira. */
+  private async recompenserLaFin(profileId: string, serieId: string, quand: number, mode: 'expedition' | 'cabinet'): Promise<Recompenses> {
     try {
       return await this.recompenser(profileId, serieId, [], quand)
     } catch (e) {
-      // L'expédition est rangée : une étagère muette n'y change rien, la fin suivante les relira.
-      console.error('[expedition] récompenses non rangées :', e)
+      console.error(`[${mode}] récompenses non rangées :`, e)
       return {}
     }
+  }
+
+  /**
+   * La fin d'une expédition, dite au Cabinet (`apresLExpedition`) : en fond,
+   * jamais attendue — la fin ne l'attend pas, et ce qui tombe au Cabinet ne la
+   * fait pas tomber. Dite sous le verrou du profil, qui tient encore : un
+   * crochet qui l'y reprend passe après la fin du geste.
+   */
+  private prevenirLeCabinet(profileId: string): void {
+    const crochet = this.apresLExpedition
+    if (!crochet) return
+    void Promise.resolve()
+      .then(() => crochet(profileId))
+      .catch(e => console.error('[cabinet] fin d’expédition non rapportée — la fin suivante la rapportera avec la sienne :', e))
   }
 
   /**
@@ -8833,6 +9002,30 @@ function experienceDuJournal(parHeure: ReadonlyMap<number, number>, paliers: rea
   const parJour = justesParJourDesHeures(parHeure)
   const xp = xpDeCampagne(parJour.values()) + paliers.reduce((n, r) => n + xpDuPalier(Number(r.palier)), 0)
   return { parJour, xp }
+}
+
+/**
+ * Ce que chaque bonne réponse d'une partie du Cabinet a rapporté, dans son
+ * ordre, de ses bonnes réponses jour par jour (`experienceDuJournal`) : la
+ * n-ième d'un jour de Paris paie `xpDeLaBonneReponse(n)`, double parmi les
+ * vingt premières. La partie vient de finir : ses justes sont les dernières de
+ * leur jour, et une partie à cheval sur minuit paie chacune au compte du sien.
+ * Une réponse d'un autre mode glissée entre deux manches décalerait le rang
+ * dit, jamais la ligne, qui se relit exacte.
+ */
+function xpDesJustes(parJour: ReadonlyMap<string, number>, justes: readonly number[]): number[] {
+  const dansLaPartie = new Map<string, number>()
+  for (const t of justes) dansLaPartie.set(jourDe(t), (dansLaPartie.get(jourDe(t)) ?? 0) + 1)
+  const dejaComptees = new Map<string, number>()
+  return justes.map(t => {
+    const jour = jourDe(t)
+    const siennes = dansLaPartie.get(jour)!
+    const rang = dejaComptees.get(jour) ?? 0
+    dejaComptees.set(jour, rang + 1)
+    // Le journal les sait toutes, lues au bout du lot qui les écrit ; au pire, la partie seule fait sa journée.
+    const duJour = Math.max(parJour.get(jour) ?? 0, siennes)
+    return xpDeLaBonneReponse(duJour - siennes + rang + 1)
+  })
 }
 
 /** Des heures aux jours de Paris : il change de jour à une heure pile, hiver comme été — une heure n'est jamais à cheval sur deux jours. */

@@ -19,15 +19,15 @@
 | Ce qu'elle garde | la soirée en cours de chaque espace, et rien d'autre | tout ce qui doit survivre — comptes, profils, quiz, historique, quiz du jour, campagne, QG — et le **miroir** de la soirée |
 | Sa durée de vie | **jetable** : le disque de l'hébergeur gratuit s'efface à chaque réveil | permanente |
 | Qui l'ouvre | `initDb` (`server/src/core/db.ts`), une seule connexion synchrone | chaque magasin ouvre son client (`clientDistant`, `server/src/core/distante.ts`), avec un délai de dix secondes par aller-retour |
-| Ses tables | 7 | 65, plus `soirees_v2`, qui ne vit que le temps d'une migration |
+| Ses tables | 7 | 82, plus `soirees_v2`, qui ne vit que le temps d'une migration |
 
 Chaque table se crée au démarrage, dans le magasin qui la possède
 (`CREATE TABLE IF NOT EXISTS`) ; une colonne venue après coup s'ajoute par
 `addColumn` dans la base locale (`server/src/core/db.ts`) et par
 `ajouterColonne` dans la permanente (`server/src/core/distante.ts`), qui lit
 le schéma au lieu de deviner, et dont l'échec arrête le démarrage. `meta` est
-créée par trois magasins, d'où soixante-quinze `CREATE TABLE` pour
-soixante-treize tables.
+créée par trois magasins, d'où quatre-vingt-douze `CREATE TABLE` pour
+quatre-vingt-dix tables.
 
 **L'espace.** Un compte d'animateur **est** un espace : `accounts.id` sert de
 `space_id` à tout ce qui appartient à une soirée ou à une bibliothèque. Ce
@@ -142,7 +142,7 @@ Le nom de la soirée en cours, tiré une seule fois : une ligne par espace.
 
 ## La base permanente
 
-Soixante-quatre tables, rangées ici par famille, plus une table de migration. La
+Quatre-vingt-deux tables, rangées ici par famille, plus une table de migration. La
 plupart des magasins gardent ce qu'ils lisent en mémoire et écrivent d'abord
 en base ; chaque écriture qui doit tenir ensemble part en une transaction
 (`batch(…, 'write')`).
@@ -724,9 +724,9 @@ de sentier, parcours de thème, révision, défi de la semaine, duel, rencontre,
 expédition, partie du Cabinet de curiosités — connu du serveur avant qu'il
 en écrive une.
 
-- **Colonnes clés** : `id`, `profile_id`, `questions` (JSON : les questions telles que la partie les a lues — d'une expédition, chacune avec son escale et son acte, et `carnet` quand une source l'a reprise du carnet : ni la mesure, ni les écussons, ni L'Érudit ne comptent alors sa réponse), `position`, `vies`, `justes`, `commencee_le`, `finie_le`, `mode` (`NOT NULL DEFAULT 'serie'` depuis qu'il existe, le 4 octobre 2026 avec les sentiers — aucune ligne n'en est privée : `serie`, `sentier`, `sujet` pour un parcours de thème, `revision`, `defi`, `duel` — un défi entre amis ou un duel classé —, `rencontre`, `expedition`, `cabinet` ; une seule liste, `MODES_DE_SERIE` dans `shared/campagne.ts`, qu'un mode neuf rejoint avant sa première partie, sinon il se lirait en série ; les lectures des séries d'un profil filtrent `mode = 'serie'`, et la partie en cours de chaque mode se cherche par son mode, par l'index `(profile_id, mode, branche, palier)`, sans parcourir ses autres parties), et selon le mode `branche`, `palier`, `seuil`, `rejeu`, `issue`, `chance` (une épreuve en jeu : la chance de la valider que la page des sentiers annonçait à son départ, que Contre toute attente relit ; NULL sans annonce), `categories`, `sujet`, `semaine`, `duel`, `adversaire`, `expedition` (JSON versionné, `DepartDExpedition` : sa graine, son numéro, ses trois gardiens, ses trois cartes et la chance sur chaque escale, gardées telles qu'au départ ; depuis la version 2, les jokers, son équipe et l'invité du jour de son départ, sa chance sur chaque marche de chaque catégorie et sur une source — le Commandement et Il connaît la maison changent une escale en route ; la version 5, les rencontres — un prototype de la préproduction d'abord, le jeu partout depuis le 19 octobre 2026 —, et sa catégorie fétiche (`fetiche`) : ses questions gardent alors leur forme de tirage (`tiree`), leurs deux leurres (`six`) et leurs réponses en années ou en nombres (`reponseEn`) ; la version 7, le codex de son départ (`codex` : son niveau d'explorateur, les cartes qu'il a ouvertes, les règles ouvertes — les fioles comprises depuis le 19 octobre 2026 : un départ d'avant n'en a pas —, ses exploits faits — absents d'un départ d'avant les exploits —, la renommée qu'il avait, le plus haut cran de l'Ascension qu'il avait ouvert — `ascensionOuverte`, absent d'un départ d'avant l'Ascension), figé avec elle, le dos de son paquet (`dos` : `ordinaire`, `etoile` ou `dore`, absent d'un départ d'avant les dos) et son cran de l'Ascension (`ascension`, de 1 à 5 ; absent, aucun) et son style (`style` : `rempart`, `erudit`, `devin`, `flambeur`, `elan` ou `metamorphe`, depuis le 19 octobre 2026 — `sophiste` ou `temeraire` depuis la version 9 ; absent d'un départ d'avant lui, qui rejoue son paquet et ses offres tels quels) ; la version 8, le jeu complet — ses cartes de plus dans les offres, l'épique, l'énergie de chaque acte —, sans un champ de plus : un départ de la version 7 se rejoue à ses trois d'énergie et à ses offres d'alors ; la version 9, les huit familles — les seize cartes du Sophiste et du Téméraire dans les offres, le doute, le courage qu'on paie —, sans un champ de plus non plus : un départ de la version 8 n'en tire aucune ; `issue` y vaut `legendaire`, `perdue` ou `abandonnee`), `bilan` (d'une expédition finie, le 18 octobre 2026 : ce qu'elle a fait — ses escales, ses adversaires et ses élites tombés, ses gardiens, le bout, ses exploits —, en JSON à sa version, `{ v, escales, adversaires, elites, gardiens, auBout, exploits, ascension? }` — la version 2 ; la 1 n'avait pas les exploits ; `ascension`, le cran où elle est partie, absent sans cran, ne change pas la version —, écrit à sa fin, abandonnée aussi : la renommée du codex en est la somme, ses exploits l'union, les crans de l'Ascension ouverts ses victoires, relues au départ et à la page ; un reflet du pli, comme `position` et `vies` — une expédition finie sans bilan, ou d'une autre version, se replie une fois à la lecture suivante, qui l'écrit ; NULL ailleurs).
+- **Colonnes clés** : `id`, `profile_id`, `questions` (JSON : les questions telles que la partie les a lues — d'une expédition, chacune avec son escale et son acte, et `carnet` quand une source l'a reprise du carnet : ni la mesure, ni les écussons, ni L'Érudit ne comptent alors sa réponse), `position`, `vies`, `justes`, `commencee_le`, `finie_le`, `mode` (`NOT NULL DEFAULT 'serie'` depuis qu'il existe, le 4 octobre 2026 avec les sentiers — aucune ligne n'en est privée : `serie`, `sentier`, `sujet` pour un parcours de thème, `revision`, `defi`, `duel` — un défi entre amis ou un duel classé —, `rencontre`, `expedition`, `cabinet` ; une seule liste, `MODES_DE_SERIE` dans `shared/campagne.ts`, qu'un mode neuf rejoint avant sa première partie, sinon il se lirait en série ; les lectures des séries d'un profil filtrent `mode = 'serie'`, et la partie en cours de chaque mode se cherche par son mode, par l'index `(profile_id, mode, branche, palier)`, sans parcourir ses autres parties), et selon le mode `branche`, `palier`, `seuil`, `rejeu`, `issue`, `chance` (une épreuve en jeu : la chance de la valider que la page des sentiers annonçait à son départ, que Contre toute attente relit ; NULL sans annonce), `categories`, `sujet`, `semaine`, `duel`, `adversaire`, `expedition` (JSON versionné, `DepartDExpedition` : sa graine, son numéro, ses trois gardiens, ses trois cartes et la chance sur chaque escale, gardées telles qu'au départ ; depuis la version 2, les jokers, son équipe et l'invité du jour de son départ, sa chance sur chaque marche de chaque catégorie et sur une source — le Commandement et Il connaît la maison changent une escale en route ; la version 5, les rencontres — un prototype de la préproduction d'abord, le jeu partout depuis le 19 octobre 2026 —, et sa catégorie fétiche (`fetiche`) : ses questions gardent alors leur forme de tirage (`tiree`), leurs deux leurres (`six`) et leurs réponses en années ou en nombres (`reponseEn`) ; la version 7, le codex de son départ (`codex` : son niveau d'explorateur, les cartes qu'il a ouvertes, les règles ouvertes — les fioles comprises depuis le 19 octobre 2026 : un départ d'avant n'en a pas —, ses exploits faits — absents d'un départ d'avant les exploits —, la renommée qu'il avait, le plus haut cran de l'Ascension qu'il avait ouvert — `ascensionOuverte`, absent d'un départ d'avant l'Ascension), figé avec elle, le dos de son paquet (`dos` : `ordinaire`, `etoile` ou `dore`, absent d'un départ d'avant les dos) et son cran de l'Ascension (`ascension`, de 1 à 5 ; absent, aucun) et son style (`style` : `rempart`, `erudit`, `devin`, `flambeur`, `elan` ou `metamorphe`, depuis le 19 octobre 2026 — `sophiste` ou `temeraire` depuis la version 9 ; absent d'un départ d'avant lui, qui rejoue son paquet et ses offres tels quels) ; la version 8, le jeu complet — ses cartes de plus dans les offres, l'épique, l'énergie de chaque acte —, sans un champ de plus : un départ de la version 7 se rejoue à ses trois d'énergie et à ses offres d'alors ; la version 9, les huit familles — les seize cartes du Sophiste et du Téméraire dans les offres, le doute, le courage qu'on paie —, sans un champ de plus non plus : un départ de la version 8 n'en tire aucune ; `issue` y vaut `legendaire`, `perdue` ou `abandonnee`), `bilan` (d'une expédition finie, le 18 octobre 2026 : ce qu'elle a fait — ses escales, ses adversaires et ses élites tombés, ses gardiens, le bout, ses exploits —, en JSON à sa version, `{ v, escales, adversaires, elites, gardiens, auBout, exploits, ascension? }` — la version 2 ; la 1 n'avait pas les exploits ; `ascension`, le cran où elle est partie, absent sans cran, ne change pas la version —, écrit à sa fin, abandonnée aussi : la renommée du codex en est la somme, ses exploits l'union, les crans de l'Ascension ouverts ses victoires, relues au départ et à la page ; un reflet du pli, comme `position` et `vies` — une expédition finie sans bilan, ou d'une autre version, se replie une fois à la lecture suivante, qui l'écrit ; NULL ailleurs), `cabinet` (d'une partie du Cabinet de curiosités : son départ figé, en JSON versionné — `DepartDUnePartie`, `shared/cabinet/partie.ts` : son jeu, son origine, sa case de la visite, l'œuvre en jeu, le seuil, la carte-bonus et son chrono, ses trois manches et leurs rechanges, réponses comprises, et sa graine, que rien n'envoie à la page —, écrit au départ et jamais réécrit ; ajoutée au réveil de la campagne, dans la boucle de ses colonnes : le schéma ne se lit qu'une fois ; NULL ailleurs).
 - **Espace** : non.
-- **Écrite par** : `CampagneStore` (commencer, répondre, abandonner, clore un défi ou un duel ; l'administrateur qui libère une épreuve).
+- **Écrite par** : `CampagneStore` (commencer, répondre, abandonner, clore un défi ou un duel ; l'administrateur qui libère une épreuve) ; le Cabinet de curiosités, sur le client de la campagne que sa porte lui donne (`CampagneStore.porte()`, `server/src/core/porteDeLaCampagne.ts`).
 - **Lue par** : `CampagneStore` — records, carnet, sentiers, duels, écussons, expérience, QG.
 - **Effacée par** : la suppression du profil.
 
@@ -736,7 +736,7 @@ Les réponses de chaque partie.
 
 - **Colonnes clés** : `serie_id` et `position` (la clé), `reserve_id` (l'identifiant de la question dans la base de la campagne ; un rébus de l'expédition, depuis la version 12, `rebus:<id>` — l'identifiant de `server/content/curiosites/rebus.json`, qui n'est pas une question de la base : le carnet l'écarte, la mesure aussi, par sa forme `lettres` ; une frise, depuis la version 13, `frise:` suivi des identifiants de ses quatre questions, dans l'ordre du temps, joints par `+` — le carnet l'écarte par son préfixe, la mesure par sa forme `frise`, et l'expédition y relit les événements qu'il a déjà rangés ; ce qu'un jeu du Cabinet ne tire pas de la base, `cab:` — un lieu, une fiche, une réplique, un tableau, les cinq affirmations de l'Éclair, une frise —, les questions de la base qu'il pose gardant leur identifiant. Les trois préfixes forment une seule liste, `PREFIXES_HORS_DE_LA_BASE` (`shared/horsDeLaBase.ts`), que lisent le carnet, en mémoire comme en SQL, et le signalement : ni carnet, ni signalement), `choix` (à composer, la bonne réponse de la base si sa composition est juste, sinon −1 ; une frise, 0 rangée juste, sinon −1 : les lectures qui comptent les réponses données, `choix IS NOT NULL`, la comptent), `juste`, `repondue_le`, `compagnon`, `joker` (la clé du joker de l'expédition qui a aidé à répondre — Coup d'œil, Double chance, Passe-muraille… (`JOKERS_QUI_AIDENT`) —, `loupe`, le talisman qui a dit le siècle d'une question d'Histoire, ou, depuis la version 11, le coup de pouce qui a soufflé — `initiale`, `repere`, `lettre` ; depuis la version 14, les cartes des familles qui aident — `astrolabe`, `prisme`, `rythme`, `troisieme-oeil` — et la carte d'un second essai — `parade`, `second-souffle`, `bastion`, `cuirasse` : la réponse d'après l'essai raté, que la première réponse effacée aidait comme Double chance ; NULL : une réponse sans aide), `forme` (la forme où l'expédition l'a posée, quand ce n'est pas celle de la base — `six`, `vrai-faux`, `devoilement`, `lettres`, `frise` ; NULL : telle que la base l'a écrite, un vrai ou faux né tel compris), `composee` (à composer, depuis la version 11 : les lettres qu'il a posées, de A à Z, sans espace ni signe — « VICTORHUGO » ; une frise, depuis la version 13, l'ordre qu'il a donné, place par place, en rangs dans le temps — « 1032 » : à la première place l'événement le deuxième dans le temps, « 0123 » rangée juste ; NULL ailleurs), `sujet` (le thème pointu de l'escale où l'expédition l'a tirée — de son tas à lui, ni par un Commandement ni dans toute la base faute de quoi tirer ; NULL ailleurs, et pour la question que La boucle repose : trouvée, elle tamponne le passeport, depuis le 18 octobre 2026).
 - **Espace** : non.
-- **Écrite par** : `CampagneStore`.
+- **Écrite par** : `CampagneStore` ; celles du Cabinet de curiosités, par sa porte (`PorteDeLaCampagne.ecrireDesReponses`), qui tient le rituel de toute réponse de campagne en une fonction — l'expédition en route prévenue, la réponse numérotée pour le journal, l'expérience créditée une fois à la fin de la partie, ses paliers.
 - **Lue par** : `CampagneStore` (le carnet, la difficulté mesurée, le modèle du savoir, les confettis ; le passeport de l'expédition et le Globe-trotter, ses thèmes pointus trouvés — `lectureDuPasseport`, dans le lot qui lit déjà l'expédition, la page, le départ ou les paliers). La mesure, le modèle du savoir, les écussons, la précision et L'Érudit n'en lisent que les réponses nues — ni joker ni autre forme (`reponseNue`, le journal des réponses) —, et une bonne réponse aidée, ou trouvée en vrai ou faux tiré d'une question à quatre choix, ne retrouve rien au carnet ; une erreur aidée y entre.
 - **Effacée par** : la suppression du profil, avec ses parties.
 
@@ -820,12 +820,12 @@ Les questions corrigées ou reclassées par l'administrateur.
 
 ### `campagne_meta`
 
-Les drapeaux de la campagne.
+Les drapeaux de la campagne, et le secret du Cabinet de curiosités.
 
-- **Colonnes clés** : `cle`, `valeur` — `relecture_des_series` (la `VERSION_DES_SERIES` déjà relue), `relecture_des_epreuves` (la `VERSION_DES_EPREUVES`), `premieres_traversees` (la luciole rendue une fois, au démarrage, à qui avait déjà mené une expédition au bout : `rattraperLesPremieresTraversees`).
+- **Colonnes clés** : `cle`, `valeur` — `relecture_des_series` (la `VERSION_DES_SERIES` déjà relue), `relecture_des_epreuves` (la `VERSION_DES_EPREUVES`), `premieres_traversees` (la luciole rendue une fois, au démarrage, à qui avait déjà mené une expédition au bout : `rattraperLesPremieresTraversees`), `secret_du_cabinet` (64 chiffres hexadécimaux, tirés au premier réveil qui l'apporte : la graine de la visite du jour d'un profil en dérive, au serveur seul — `HMAC-SHA256(secret, profileId)` ; faite du seul profil, la page l'aurait refaite et lu l'œuvre visée de chaque case. Chaque réveil en propose un neuf, que la base ne prend que si elle n'en a pas — `INSERT … ON CONFLICT DO NOTHING`, puis sa lecture, dans le premier lot de la campagne : deux serveurs pendant une mise en ligne, un redémarrage relisent le même, sans un aller-retour de plus. Jamais une variable d'environnement : un secret, que la sauvegarde emporte).
 - **Espace** : non.
-- **Écrite par** : `CampagneStore`.
-- **Lue par** : `CampagneStore`.
+- **Écrite par** : `CampagneStore` — ses drapeaux ; le secret, une fois, à son réveil (`init`, `REVEIL_DU_CABINET`).
+- **Lue par** : `CampagneStore` ; le secret, à chaque réveil, que le Cabinet lit par sa porte (`secretDuCabinet`).
 - **Effacée par** : rien.
 
 ### `campagne_defis`
@@ -911,6 +911,59 @@ parvenir.
 - **Écrite par** : `CampagneStore`.
 - **Lue par** : `CampagneStore`.
 - **Effacée par** : un nouvel ajout du même ami ; la suppression du profil, d'un côté ou de l'autre.
+
+**Le Cabinet de curiosités** (`server/src/core/cabinet/`) — par profil, sans
+espace. Une partie est une série de la campagne (`campagne_series`, `mode =
+'cabinet'`) : son départ figé dans sa colonne `cabinet`, ses pièces jugées dans
+`questions`, leurs réponses dans `campagne_reponses`. Ses trois tables à lui
+gardent ce que la campagne n'a pas, borné par profil — aucune lecture qui
+grandisse avec l'histoire. Elles naissent au réveil de la campagne, dans son
+premier lot (`REVEIL_DU_CABINET`, `server/src/core/cabinet/tables.ts`) : le
+Cabinet n'a pas d'`init` à lui, et un réveil n'attend pas un aller-retour de
+plus. En construction : son magasin y écrira en préproduction d'abord ; fermé
+en production (`CABINET_EN_PRODUCTION`).
+
+### `cabinet_gestes`
+
+Les gestes d'une partie du Cabinet, dans l'ordre : ouvrir une manche, la
+pause de « Quitter ? », Éclairer, Changer, un essai, reculer, un indice, un
+nom, garder, parier, le mot, répondre, quitter — et la clôture du lendemain,
+écrite par le serveur seul. L'état d'une manche — son chrono, ses essais, ses
+indices — ne s'écrit nulle part : il se replie du départ et de ces gestes
+(`pliDeLaPartie`, `shared/cabinet/partie.ts`), et une manche reprend après un
+redémarrage où elle en était.
+
+- **Colonnes clés** : `serie_id` et `rang` (la clé : un geste dit le rang qu'il croit suivre, un second au même rang — un double toucher, l'autre serveur d'une mise en ligne — n'entre pas), `geste` (JSON `GesteDuCabinet`, tel que relu par `lireUnGeste`), `fait_le` (l'heure du serveur à l'arrivée de la requête, prise avant le verrou du profil), `uid` (tiré par le serveur pour le lot qui l'écrit : chaque autre instruction du lot n'agit que si ce geste-là est en base).
+- **Espace** : non ; pas de `profile_id`, comme `expedition_gestes`.
+- **Écrite par** : le magasin du Cabinet, un geste par requête, dans le lot qui le juge.
+- **Lue par** : le magasin du Cabinet — une partie relue après un redémarrage, sa page, « Mes réponses ».
+- **Effacée par** : la suppression du profil, par ses parties.
+
+### `cabinet_profils`
+
+Le Cabinet d'un profil, une ligne : ce qui se résume de ses parties, tenu à
+jour dans les lots qui le changent — jamais la somme relue à chaque page (le
+quota de Turso, le 22 octobre 2026).
+
+- **Colonnes clés** : `profile_id` (la clé), `poussiere` (la poussière d'or gagnée, la somme des bilans de ses parties : le solde en retire ce que ses œuvres ont coûté), `serie`, `serie_jour` et `serie_record` (ses jours de visite ou de chasse d'affilée, le dernier compté, la plus longue), `visites` (JSON : les visites figées de ses trois derniers jours, échange compris), `partie` (celle en cours, NULL sinon : une partie à la fois), `v` (la version de ces reflets, `VERSION_DU_CABINET`), `cree_le`, `maj_le`.
+- **Espace** : non.
+- **Écrite par** : le magasin du Cabinet, au départ d'une partie, à sa fin, à l'échange d'un jeu de la visite.
+- **Lue par** : le magasin du Cabinet, une fois par réveil et par profil.
+- **Effacée par** : la suppression du profil.
+
+### `cabinet_oeuvres`
+
+Les œuvres d'un profil : une ligne par œuvre entrée — 84 au plus —, jamais
+retirée hors de la suppression du profil. Ce qu'elle a coûté s'écrit avec
+elle, au prix du jour : un achat garde le prix payé. Les quatre œuvres de
+départ sont à tous sans ligne ; la leur ne s'écrit que pour un cartel ou un
+cadre doré.
+
+- **Colonnes clés** : `profile_id` et `oeuvre` (la clé), `origine` (`partie`, `achat`, `expedition` — rapportée de l'Expédition — ou `depart`), `gagnee_le`, `saison` (la fête du jour où elle est entrée en jouant ; NULL sinon), `serie_id` (la partie dont son cartel garde une manche), `prix` (la poussière payée pour l'acheter), `doree_le`, `dorure` (`partie` ou `poussiere`), `prix_dorure`, `serie_doree`. Aucune `CHECK` sur le solde : un achat le vérifie dans son instruction même, et son refus se dit en mots.
+- **Espace** : non.
+- **Écrite par** : le magasin du Cabinet — une œuvre gagnée, dorée, achetée —, et la migration des œuvres de l'Expédition.
+- **Lue par** : le magasin du Cabinet (le musée, le solde).
+- **Effacée par** : la suppression du profil.
 
 **Le QG** — ce que l'administrateur a fait, et la santé du serveur.
 
