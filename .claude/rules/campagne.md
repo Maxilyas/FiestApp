@@ -1,13 +1,13 @@
 ---
 paths:
   - "shared/{campagne,sujets,revision,nomDuChoix,horsDeLaBase}.ts"
-  - "server/src/core/{campagne,baremeDuSolo,jumelles,journalDesReponses}.ts"
+  - "server/src/core/{campagne,baremeDuSolo,jumelles,journalDesReponses,tirageALaPiece}.ts"
   - "server/src/campagne.ts"
   - "client/src/views/{CampagneApp,Defi,Carnet}.tsx"
   - "client/src/components/{ChoixDuTheme,SerieCorrigee}.tsx"
   - "client/src/iconeDuSujet.ts"
   - "server/scripts/rendu-campagne.ts"
-  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,bareme-du-solo,journal-des-reponses,hors-de-la-base}.test.ts"
+  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,tirage-a-la-piece,bareme-du-solo,journal-des-reponses,hors-de-la-base}.test.ts"
 ---
 
 # La campagne solo et le défi de la semaine
@@ -99,6 +99,28 @@ paths:
   `melanger`, et chaque rang ne se compare qu'à un rang de la même marche
   et de la même classe —, `duels-attente.test.ts` compare `parFraicheur`,
   l'ordre que le tirage suit, au tri d'avant.
+- **Le tirage à la pièce vit à part** (`core/tirageALaPiece.ts`, le
+  25 octobre 2026, pour que le Cabinet de curiosités tire sans
+  `CampagneStore`) : la fraîcheur que tous les tirages partagent
+  (`VUE_RECENTE_MS`, `classeDeFraicheur`, `fraicheurDe`), les emprunts
+  (`EMPRUNTS`), le rang (`passeAvant`), le battage (`melanger`), une
+  question de la base telle qu'une partie la garde (`versQuestionDeSerie`),
+  le tirage d'une escale (`tirerPourUneEscale`) et celui du contenu hors de
+  la base (`laMoinsVue`). `core/campagne.ts` le lit, jamais l'inverse, et
+  réexporte `tirerPourUneEscale` et `VUE_RECENTE_MS` à ses lecteurs d'avant.
+  Ce qu'il a appris ne vaut que pour qui le demande : une fenêtre à soi
+  (`fenetreMs` — sept jours au Cabinet, les vingt-quatre heures de toute la
+  campagne d'office) et des marches qui valent la sienne (`aussi`, « facile
+  ou moyenne » : la fraîcheur départage, chacune sort à sa marche) ; sans
+  eux, le tirage d'avant, au même hasard — `tirage-a-la-piece.test.ts` garde
+  le code d'avant et l'y compare. `laMoinsVue` n'a pas de fenêtre : le plus
+  anciennement vu d'abord ne repose rien de récent tant qu'il reste autre
+  chose. Aucune fonction n'y prend de graine : le hasard d'un tirage est
+  celui du serveur, et une graine que la page connaît lui dirait ce que la
+  partie va poser (invariant 1). Les formes de l'Expédition (`aSaForme`,
+  `seLaissePoser`) restent au magasin : le tirage à la pièce n'en sait rien,
+  et l'Éclair du Cabinet récrit ses affirmations par sa règle à lui
+  (`affirmationDe`).
 - **Le journal des réponses se garde en mémoire, et se lit par
   différence** (`core/journalDesReponses.ts`, `JournalDesReponses`, le
   22 octobre 2026 : 333 millions de lignes lues au quota de Turso sur les

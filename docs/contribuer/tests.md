@@ -413,6 +413,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/campagne-familles.test.ts` — une question part de la part que trouve sa famille : sa catégorie et sa difficulté, ou, pour une année, un nombre, un vrai ou faux, sa forme.
 - `server/test/bareme-du-solo.test.ts` — le barème du solo et son recompte au démarrage.
 - `server/test/tirage-sans-redite.test.ts` — pas deux jumelles dans une épreuve ou un duel.
+- `server/test/tirage-a-la-piece.test.ts` — le tirage à la pièce, sorti de `core/campagne.ts` (`core/tirageALaPiece.ts`) : comparé au code d'avant, gardé dans le test, au même hasard — l'escale, le battage d'une question, la moins vue, la frise de quatre ; puis ce qu'il apprend pour le Cabinet : la fenêtre de sept jours, deux marches qui se valent, cinq QCM d'une catégorie pour l'Éclair, sept événements à une frise.
 - `server/test/campagne-base.test.ts` — la base livrée : rien de défectueux n'y entre, elle ne recule jamais.
 - `server/test/campagne-routine.test.ts` — le dépôt du matin, relu par le juge, plafonné.
 - `server/test/campagne-signalements.test.ts` — les signalements : garder, retirer, corriger.

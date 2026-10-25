@@ -9,9 +9,10 @@
 // qui s'est passé, jamais quand.
 //
 // Ici, ce qui ne dépend que d'elle : ce qu'une ligne doit être, le choix de
-// quatre événements, l'ordre où la page les montre, ce que le téléphone envoie
-// et ce que le serveur juge. Le générateur pose la forme sur la carte
-// (`carteDUnActe`), le serveur tire la frise (`server/src/core/frises.ts`).
+// ses événements — quatre ; sept au Cabinet de curiosités, dont la frise
+// grandit de manche en manche —, l'ordre où la page les montre, ce que le
+// téléphone envoie et ce que le serveur juge. Le générateur pose la forme sur
+// la carte (`carteDUnActe`), le serveur tire la frise (`server/src/core/frises.ts`).
 
 import type { Niveau } from './campagne'
 
@@ -76,18 +77,21 @@ export function refusDuLibelle(brut: unknown): string | null {
 }
 
 /**
- * Quatre événements de ces candidats, assez écartés pour la marche — dans
- * l'ordre du temps. Ceux qu'il n'a jamais vus dans une frise d'abord, au
- * hasard, puis les autres ; un candidat se garde s'il est à `ecart` ans au
- * moins de chacun de ceux déjà gardés. Trop serrés, l'écart se divise par
- * deux, jamais sous un an : deux événements de la même année ne se rangent
- * pas. Null : ils n'en ont pas quatre d'années différentes.
+ * `n` événements de ces candidats — quatre d'office, ceux d'une frise de
+ * l'Expédition —, assez écartés pour la marche, dans l'ordre du temps. Ceux
+ * qu'il n'a jamais vus dans une frise d'abord, au hasard, puis les autres ; un
+ * candidat se garde s'il est à `ecart` ans au moins de chacun de ceux déjà
+ * gardés. Trop serrés, l'écart se divise par deux, jamais sous un an : deux
+ * événements de la même année ne se rangent pas. Null : ils n'en ont pas `n`
+ * d'années différentes. Le nombre ne change rien au hasard : quatre se tirent
+ * comme avant qu'on puisse en demander sept.
  */
 export function choisirLaFrise(
   candidats: readonly EvenementDeLaFrise[],
   ecart: number,
   hasard: () => number,
   dejaVu: (id: string) => boolean = () => false,
+  n = EVENEMENTS_D_UNE_FRISE,
 ): EvenementDeLaFrise[] | null {
   const melanges = (tas: EvenementDeLaFrise[]) => {
     for (let i = tas.length - 1; i > 0; i--) {
@@ -101,7 +105,7 @@ export function choisirLaFrise(
     const gardes: EvenementDeLaFrise[] = []
     for (const x of ordre) {
       if (gardes.every(g => Math.abs(g.annee - x.annee) >= e)) gardes.push(x)
-      if (gardes.length === EVENEMENTS_D_UNE_FRISE) return gardes.sort((a, b) => a.annee - b.annee)
+      if (gardes.length === n) return gardes.sort((a, b) => a.annee - b.annee)
     }
     if (e === 1) return null
   }

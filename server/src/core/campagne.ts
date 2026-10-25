@@ -27,7 +27,11 @@ import {
   type LectureDuJournal,
 } from './journalDesReponses'
 import { JournalDesDuels, type DuelsARelire, type LigneDuJournalDesDuels } from './journalDesDuels'
-import { DejaPrises, type Intitule } from './jumelles'
+import { DejaPrises } from './jumelles'
+import { EMPRUNTS, classeDeFraicheur, fraicheurDe, laMoinsVue, melanger, passeAvant, tirerPourUneEscale, versQuestionDeSerie } from './tirageALaPiece'
+// Le tirage à la pièce vit à part depuis le 25 octobre 2026 : le Cabinet de curiosités y tire sans ce magasin. Ce que ce
+// fichier en exportait s'y lit encore, le temps que ses lecteurs d'avant — des tests — aillent le chercher là-bas.
+export { VUE_RECENTE_MS, tirerPourUneEscale } from './tirageALaPiece'
 import {
   CHANCES_PAR_TRANCHE,
   ajusterSansBloquer,
@@ -9866,25 +9870,6 @@ function lireCategories(brut: unknown): string[] | null {
   }
 }
 
-/**
- * Une question de la base, telle que la série la garde : ses réponses
- * mélangées pour cette série-ci — on ne retient pas une place —, sauf
- * « Vrai » et « Faux », qui restent dans cet ordre.
- */
-function versQuestionDeSerie(q: QuestionDeLaBase, niveau: Niveau): QuestionDeSerie {
-  const ordre = q.reponses.length === 2 ? [0, 1] : melanger(q.reponses.map((_, i) => i))
-  return {
-    id: q.id,
-    texte: q.texte,
-    reponses: ordre.map(i => q.reponses[i]),
-    bonne: ordre.indexOf(q.bonne),
-    categorie: q.meta.categorie,
-    anecdote: q.anecdote,
-    niveau,
-    sousTheme: q.meta.sousTheme,
-  }
-}
-
 /** Une réponse comparable à une autre : sans casse ni accents, sans son article. */
 const reponseNette = (r: string) => sansAccent(r).replace(/^(le|la|les|l'|l’|un|une|des)\s*/, '')
 
@@ -10068,22 +10053,6 @@ export function detailPourUneEscale(
   return ancien
 }
 
-/** Parmi ces candidats, un jamais vu, au hasard ; sinon le plus anciennement vu. */
-function laMoinsVue<T>(candidats: readonly T[], idDe: (x: T) => string, vues: Pick<ReadonlyMap<string, number>, 'get'>): T | undefined {
-  const jamais: T[] = []
-  let ancienne: T | undefined
-  let le = Number.POSITIVE_INFINITY
-  for (const x of candidats) {
-    const v = vues.get(idDe(x))
-    if (v === undefined) jamais.push(x)
-    else if (v < le) {
-      le = v
-      ancienne = x
-    }
-  }
-  return jamais.length > 0 ? jamais[Math.floor(Math.random() * jamais.length)] : ancienne
-}
-
 /**
  * Ce qu'il fallait répondre à un vrai ou faux tiré d'une question à quatre
  * choix, quand la réponse proposée était fausse — pour son verdict et sa
@@ -10263,15 +10232,6 @@ function memeVersion(vue: VersionJouee, q: QuestionDeLaBase): boolean {
   return triees(vue.reponses) === triees(q.reponses) && vue.reponses[vue.bonne] === q.reponses[q.bonne]
 }
 
-function melanger<T>(liste: readonly T[]): T[] {
-  const copie = [...liste]
-  for (let i = copie.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[copie[i], copie[j]] = [copie[j], copie[i]]
-  }
-  return copie
-}
-
 /** Un identifiant neuf de huit caractères, comme ceux que le rangement du dépôt tire (`base-campagne.ts ranger`). */
 function nouvelIdentifiant(pris: Set<string>): string {
   for (;;) {
@@ -10382,44 +10342,6 @@ function paliersCommences(sentiers: readonly SentierDuJoueur[]): Paliers {
 function coteDuReleve(r: ReleveDesDuels): CoteDesDuels | null {
   return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote, bordures: r.bordures } : null
 }
-
-/**
- * D'où emprunter quand un niveau manque à la catégorie : le même, puis le
- * plus dur d'à côté, puis le plus facile. Une base qui grandit chaque matin
- * finit par remplir chaque niveau ; d'ici là, une épreuve se joue toujours.
- */
-const EMPRUNTS: Readonly<Record<Niveau, readonly Niveau[]>> = {
-  facile: ['facile', 'moyen', 'difficile', 'expert'],
-  moyen: ['moyen', 'difficile', 'facile', 'expert'],
-  difficile: ['difficile', 'expert', 'moyen', 'facile'],
-  expert: ['expert', 'difficile', 'moyen', 'facile'],
-}
-
-/**
- * Une question vue ces dernières vingt-quatre heures ne revient qu'en
- * dernier recours. Une fois les jamais vues d'une marche épuisées, le tirage
- * reprenait les déjà vues au hasard : celle d'il y a cinq minutes valait
- * celle d'il y a trois semaines, et qui usait ses douze vies sur un palier
- * revoyait le soir même les questions qu'il venait de rater (un retour de
- * joueur, le 10 octobre 2026). Une redite d'hier soir se remarque ; celle
- * d'il y a trois semaines est une révision.
- */
-export const VUE_RECENTE_MS = 24 * HEURE_MS
-
-/** Ce qu'un joueur a vu d'une question : jamais, ou quand pour la dernière fois — et si c'était ces dernières vingt-quatre heures. */
-function fraicheurDe(vues: Pick<ReadonlyMap<string, number>, 'get'>, maintenant: number) {
-  return (id: string): { recente: number; vue: number; le: number } => {
-    const le = vues.get(id)
-    return le === undefined ? { recente: 0, vue: 0, le: 0 } : { recente: classeDeFraicheur(le, maintenant) === 2 ? 1 : 0, vue: 1, le }
-  }
-}
-
-/**
- * La même fraîcheur en un chiffre, sans rien bâtir : 0 jamais vue, 1 vue,
- * 2 vue ces dernières vingt-quatre heures. Un tirage la lit pour chacune de
- * ses vues.
- */
-const classeDeFraicheur = (le: number | undefined, maintenant: number): 0 | 1 | 2 => (le === undefined ? 0 : maintenant - le < VUE_RECENTE_MS ? 2 : 1)
 
 /**
  * Les questions rangées par ce qu'un joueur en a vu : les jamais vues
@@ -10803,12 +10725,6 @@ export class PreparationDuTirage {
   }
 }
 
-/** `a` passe-t-il avant `b` ? Deux rangs se lisent de gauche à droite. */
-function passeAvant(a: readonly number[], b: readonly number[]): boolean {
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]
-  return false
-}
-
 /**
  * Les seize questions d'une épreuve, tirées dans la catégorie de son sentier
  * selon le mélange de son palier : jamais vues d'abord, puis les sous-thèmes
@@ -10888,134 +10804,6 @@ export function tirerUneEpreuve(
           tirees.push({ question: meilleure, niveau: n })
           break
         }
-      }
-    }
-  }
-  return melanger(tirees)
-}
-
-/**
- * Un ordre au hasard qui se tire à mesure qu'on le lit : le p-ième rang ne
- * se tire qu'au moment où on le demande (Fisher-Yates à l'endroit, ses
- * échanges dans une table). Aussi uniforme que `melanger`, sans recopier ni
- * battre tout un tas pour n'en lire que dix.
- */
-class OrdreParesseux {
-  private readonly echanges = new Map<number, number>()
-  private readonly tires: number[] = []
-
-  constructor(private readonly n: number) {}
-
-  /** Le p-ième indice de l'ordre ; undefined au-delà du tas. */
-  rang(p: number): number | undefined {
-    while (this.tires.length <= p && this.tires.length < this.n) {
-      const i = this.tires.length
-      const j = i + Math.floor(Math.random() * (this.n - i))
-      const aJ = this.echanges.get(j) ?? j
-      this.echanges.set(j, this.echanges.get(i) ?? i)
-      // Le rang i est tiré : on ne le relira plus.
-      this.echanges.delete(i)
-      this.tires.push(aJ)
-    }
-    return this.tires[p]
-  }
-}
-
-/**
- * Les questions d'une escale de l'expédition — une, ou celles d'un
- * gardien —, choisies comme celles d'une épreuve (`tirerUneEpreuve`) : à sa
- * marche, empruntée au voisin si elle est vide (`EMPRUNTS`) ; jamais vues
- * d'abord, une vue ces vingt-quatre heures en dernier ; puis le sous-thème le
- * moins servi du tirage ; puis la jumelle d'une question déjà prise après les
- * autres — celles que l'expédition a déjà posées comprises (`posees`) ; puis
- * la plus anciennement vue. Le tas se lit au hasard, dans un ordre tiré à
- * mesure (`OrdreParesseux`), et la lecture s'arrête à la première qui ne
- * peut être battue — une jamais vue, d'un sous-thème encore à servir, sans
- * jumelle : la même loi que le battage entier, quelques questions lues au
- * lieu de toutes. Une épreuve bat d'avance les deux mille questions de sa
- * catégorie pour en prendre seize ; une escale n'en prend qu'une, et le
- * gardien tirait dans les vingt-cinq mille de la base : 17 ms de
- * processeur à chaque gardien, dix fois plus au dixième de cœur de
- * l'hébergeur (le banc du 17 octobre 2026). Le tas vient en morceaux — les
- * catégories d'un mélange, chacune gardée (`deLaCategorie`) —, lus comme un
- * seul. `garde` écarte ce que la forme de l'escale ne sait pas poser : six
- * choix sans deux leurres, un dévoilement de trois mots.
- */
-export function tirerPourUneEscale(
-  tas: readonly (readonly QuestionDeLaBase[])[],
-  marche: Niveau,
-  combien: number,
-  {
-    sansVraiFaux,
-    garde,
-    vues,
-    mesure,
-    maintenant,
-    posees = [],
-  }: {
-    sansVraiFaux: boolean
-    garde?: (q: QuestionDeLaBase) => boolean
-    /** Ce qu'il a vu, et quand ; ce que l'expédition a posé, à l'instant. */
-    vues: Pick<ReadonlyMap<string, number>, 'get'>
-    mesure: ReadonlyMap<string, MesureDUneQuestion>
-    maintenant: number
-    /** Les questions que l'expédition a déjà posées : leurs jumelles passent après. */
-    posees?: readonly Intitule[]
-  },
-): { question: QuestionDeLaBase; niveau: Niveau }[] {
-  const n = tas.reduce((s, morceau) => s + morceau.length, 0)
-  const question = (k: number): QuestionDeLaBase => {
-    for (const morceau of tas) {
-      if (k < morceau.length) return morceau[k]
-      k -= morceau.length
-    }
-    throw new RangeError(`question ${k} hors du tas`)
-  }
-  const ordre = new OrdreParesseux(n)
-  // La marche de chaque question lue, une fois : une place relit le début de l'ordre.
-  const marches = new Map<number, Niveau>()
-  const marcheDeLa = (k: number, q: QuestionDeLaBase): Niveau => {
-    let m = marches.get(k)
-    if (m === undefined) marches.set(k, (m = niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))))
-    return m
-  }
-  const usage = new Map<string, number>()
-  const prises = new Set<number>()
-  const deja = new DejaPrises()
-  for (const q of posees) deja.prendre(q)
-  const fraicheur = fraicheurDe(vues, maintenant)
-  const rang = (q: QuestionDeLaBase): number[] => {
-    const f = fraicheur(q.id)
-    return [f.recente, f.vue, usage.get(q.meta.sousTheme) ?? 0, deja.jumelle(q) ? 1 : 0, f.le]
-  }
-  const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
-  for (let place = 0; place < combien; place++) {
-    for (const m of EMPRUNTS[marche]) {
-      let meilleure = -1
-      let sonRang: number[] | null = null
-      for (let p = 0; ; p++) {
-        const k = ordre.rang(p)
-        if (k === undefined) break
-        if (prises.has(k)) continue
-        const q = question(k)
-        if (sansVraiFaux && q.reponses.length === 2) continue
-        if (marcheDeLa(k, q) !== m) continue
-        if (garde && !garde(q)) continue
-        const r = rang(q)
-        if (!sonRang || passeAvant(r, sonRang)) {
-          meilleure = k
-          sonRang = r
-          // Jamais vue, d'un sous-thème encore à servir, sans jumelle : rien ne fera mieux.
-          if (r.every(x => x === 0)) break
-        }
-      }
-      if (meilleure >= 0) {
-        const q = question(meilleure)
-        prises.add(meilleure)
-        deja.prendre(q)
-        usage.set(q.meta.sousTheme, (usage.get(q.meta.sousTheme) ?? 0) + 1)
-        tirees.push({ question: q, niveau: m })
-        break
       }
     }
   }
