@@ -26,6 +26,7 @@ import {
 import { BRANCHES, brancheDe, portrait } from '../../../shared/branches'
 import { COLLECTION } from '../../../shared/avatars'
 import { legendaire } from '../../../shared/legendaires'
+import { salleDuGardien } from '../../../shared/cabinet/salles'
 import { divin } from '../../../shared/divins'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
@@ -65,6 +66,8 @@ const ICONE_DU_LIEU: Record<LieuDAvatar, IconName> = {
   niche: 'paw',
   eclat: 'spark',
   expedition: 'flag',
+  // L'arche du gros bouton de l'accueil : le même lieu, la même icône.
+  cabinet: 'landmark',
 }
 
 /** La légende des pastilles, sous la grille : un emoji dit son niveau en toutes lettres, il n'y est pas. */
@@ -76,6 +79,7 @@ const LEGENDE_DU_LIEU: Partial<Record<LieuDAvatar, string>> = {
   saison: 'à sa saison',
   boutique: 'en boutique',
   expedition: 'en expédition',
+  cabinet: 'au Cabinet',
 }
 
 /** Le nom d'un avatar de l'album, tel que sa case et sa fiche le disent. */
@@ -103,7 +107,8 @@ function ceQueDitLaCase(a: AvatarDeLAlbum, aLui: boolean, porte: boolean): strin
  * ses jours : « Jouer le quiz du jour » en juin ne la rapprocherait de rien.
  * Un compagnon à acheter mène à la boutique ; acheté, il grandit en le
  * portant — partout : rien à ouvrir de plus que « Mon avatar », que sa fiche
- * cite déjà.
+ * cite déjà. Un gardien du Cabinet mène à la salle qu'il garde, qui dit ce qui
+ * lui manque (`#salle-rempart`) ; les autres, au musée.
  */
 function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: string } | null {
   for (const e of voies.flat()) {
@@ -112,6 +117,10 @@ function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: st
     if (e.lieu === 'campagne') return { nom: 'Aller à la campagne', href: '/campagne' }
     if (e.lieu === 'sentiers') return { nom: 'Aller au sentier', href: `/campagne#sentier-${portrait(cle)?.branche ?? ''}` }
     if (e.lieu === 'expedition') return { nom: 'Partir en expédition', href: '/expedition' }
+    if (e.lieu === 'cabinet') {
+      const s = salleDuGardien(cle)
+      return { nom: 'Aller au Cabinet', href: s ? `/cabinet#salle-${s}` : '/cabinet' }
+    }
     if (e.lieu === 'boutique') {
       // La vitrine s'ouvre sur lui : les deux autres se font glisser.
       const f = formeDeCompagnon(cle)
@@ -156,10 +165,26 @@ const Etape = ({ etape: e, jauge }: { etape: EtapeDUneVoie; jauge: boolean }) =>
  * dont une suffit, chacune ses étapes, toutes demandées —, où il en est, et
  * le chemin de l'écran où le gagner. À lui, elle dit qu'il l'a et où le
  * porter. Rien ne s'y porte. Un Divin n'y dit que son récit, à qui l'a vu
- * descendre — et rien à qui l'attend (invariant 21).
+ * descendre — et rien à qui l'attend (invariant 21). Le Cabinet s'y dit
+ * selon le drapeau du code (`voiesDeLAvatar`) ; `cabinet` le force, pour la
+ * lire telle qu'elle sera à l'ouverture.
  */
-export function FicheDeLAvatar({ a, aLui, porte, profil, dessin }: { a: AvatarDeLAlbum; aLui: boolean; porte: boolean; profil: PublicProfileDetail; dessin: ReactNode }) {
-  const voies = voiesDeLAvatar(a.cle, profil)
+export function FicheDeLAvatar({
+  a,
+  aLui,
+  porte,
+  profil,
+  dessin,
+  cabinet,
+}: {
+  a: AvatarDeLAlbum
+  aLui: boolean
+  porte: boolean
+  profil: PublicProfileDetail
+  dessin: ReactNode
+  cabinet?: boolean
+}) {
+  const voies = voiesDeLAvatar(a.cle, profil, cabinet)
   const l = legendaire(a.cle)
   const p = portrait(a.cle)
   const f = formeDeCompagnon(a.cle)

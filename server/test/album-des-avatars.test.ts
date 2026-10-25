@@ -2,8 +2,9 @@
 // maquette 1, choisie le 13 octobre 2026). Trois lignes de « Ma collection »
 // séparaient les portraits, les légendaires et les emojis de collection, et
 // les gens étaient « confus » : ici, la règle pure de l'album — la rareté de
-// chaque avatar, où il se gagne, ses pages, et comment l'obtenir. L'écran :
-// `ma-collection.test.ts`.
+// chaque avatar, où il se gagne, ses pages, et comment l'obtenir —, et ce que
+// le Cabinet de curiosités y ajoute, son drapeau forcé : la règle, la fiche et
+// la galerie des compagnons, rendues en HTML. L'écran : `ma-collection.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -19,7 +20,11 @@ import {
   voiesDeLAvatar,
 } from '../../shared/album'
 import { compteDeLaCollection } from '../../shared/collection'
-import { LEGENDAIRES } from '../../shared/legendaires'
+import { LEGENDAIRES, LEGENDAIRES_DU_CABINET } from '../../shared/legendaires'
+import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
+import { GARDIENS_DE_SAISON } from '../../shared/cabinet/salles'
+import { OEUVRES, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
+import { JOURS_DU_SCARABEE } from '../../shared/cabinet/bareme'
 import { DIVINS } from '../../shared/divins'
 import { BRANCHES, PORTRAITS } from '../../shared/branches'
 import { AVATARS, COLLECTION } from '../../shared/avatars'
@@ -399,4 +404,210 @@ test('un Divin ne dit pas comment il descend : ni voie, ni lieu, ni progression 
   const source = readFileSync(new URL('../../shared/album.ts', import.meta.url), 'utf8')
   assert.doesNotMatch(source, /core\/divins|regleDuDivin|descend(re|u) si/)
   assert.match(source, /import \{ DIVINS \} from '\.\/divins'/)
+})
+
+// ── Le Cabinet de curiosités ───────────────────────────────────────────────
+// Vingt gardiens s'y réveillent, les trois de saison à leur fête, et la luciole
+// à la première salle complète (le 25 octobre 2026). L'album tait la voie tant
+// que le Cabinet est fermé en production (`voiesMontrees`, le drapeau du code,
+// comme l'Expédition) ; forcé, il se lit tel qu'il sera à l'ouverture.
+
+/** Les vingt-trois gardiens : les vingt à voie, et les trois de saison, dont le Cabinet range la condition même. */
+const GARDIENS = [...LEGENDAIRES_DU_CABINET, ...GARDIENS_DE_SAISON]
+
+test('le Cabinet ouvert, chaque gardien s’y gagne aussi : son lieu, sa phrase, voie après voie', () => {
+  assert.equal(GARDIENS.length, 23)
+  for (const l of LEGENDAIRES) {
+    const ferme = avatarDeLAlbum(l.key, false)!.lieux
+    const ouvert = avatarDeLAlbum(l.key, true)!.lieux
+    // Une voie de plus, au bout : rien de ce qu'il disait ne bouge, la pastille non plus (son premier lieu).
+    assert.deepEqual(ouvert, GARDIENS.includes(l.key) ? [...ferme, 'cabinet'] : ferme, l.key)
+  }
+  assert.deepEqual(avatarDeLAlbum('lg:phenix', true)!.lieux, ['soiree', 'jour', 'expedition', 'cabinet'])
+  assert.deepEqual(avatarDeLAlbum('lg:citrouille', true)!.lieux, ['saison', 'expedition', 'cabinet'], 'sa fête, au Cabinet aussi')
+  assert.deepEqual(avatarDeLAlbum('lg:licorne', true)!.lieux, ['soiree', 'jour'], 'sans joker, pas de gardien')
+  const dit = (cle: string) => ouIlSeGagne(avatarDeLAlbum(cle, true)!, true)
+  assert.equal(dit('lg:phenix'), 'en soirée, au quiz du jour, en expédition ou au Cabinet')
+  assert.equal(dit('lg:sphinx'), 'au quiz du jour, en expédition ou au Cabinet')
+  // Une voie de plusieurs lieux : chaque « ou » se dit, sans quoi le Cabinet se lisait dans la même voie que l'expédition.
+  assert.equal(dit('lg:chimere'), 'en soirée, au quiz du jour et en campagne, ou en expédition, ou au Cabinet')
+  assert.equal(dit('lg:janus'), 'en soirée et au quiz du jour, ou en expédition, ou au Cabinet')
+  assert.equal(dit('lg:licorne'), 'en soirée ou au quiz du jour')
+  assert.equal(dit('lg:citrouille'), 'pour Halloween', 'un légendaire de saison se dit par sa fête')
+})
+
+test('comment l’obtenir au Cabinet : la salle à compléter ou à dorer, la série, le musée entier — sans jauge, tenu s’il a le légendaire', () => {
+  const auCabinet = (cle: string, p = LEA) => voiesDeLAvatar(cle, p, true).flat().filter(e => e.lieu === 'cabinet')
+  // Le premier gardien d'une salle, quand elle est complète ; le second, ses cadres tous dorés.
+  const rempart = oeuvresDeLaSalle('rempart').length
+  assert.deepEqual(auCabinet('lg:phenix'), [
+    { lieu: 'cabinet', titre: 'Au Cabinet : compléter la salle du Rempart', regle: `Ses ${rempart} œuvres, gagnées en jouant ou achetées avec la poussière d’or`, tenue: true, progres: null },
+  ])
+  assert.deepEqual(auCabinet('lg:ouroboros'), [
+    { lieu: 'cabinet', titre: 'Au Cabinet : dorer la salle du Rempart', regle: `Ses ${rempart} cadres dorés, chacun en jouant sans faute ou avec la poussière d’or`, tenue: false, progres: null },
+  ])
+  // Le Vestibule se dit seul, au masculin, et compte ses vingt œuvres — les quatre de départ comprises.
+  const vestibule = oeuvresDeLaSalle('vestibule').length
+  assert.equal(auCabinet('lg:coq')[0].titre, 'Au Cabinet : compléter le Vestibule')
+  assert.equal(auCabinet('lg:coq')[0].regle, `Ses ${vestibule} œuvres, gagnées en jouant ou achetées avec la poussière d’or`)
+  assert.equal(auCabinet('lg:chimere')[0].titre, 'Au Cabinet : dorer le Vestibule')
+  assert.equal(auCabinet('lg:chouette')[0].titre, 'Au Cabinet : compléter la salle de l’Érudit')
+  assert.deepEqual(auCabinet('lg:scarabee')[0], {
+    lieu: 'cabinet',
+    titre: `Au Cabinet : ${JOURS_DU_SCARABEE} jours d’affilée`,
+    regle: 'Une partie de la visite ou une chasse chaque jour, sans en manquer un',
+    tenue: false,
+    progres: null,
+  })
+  assert.deepEqual(auCabinet('lg:trou-noir')[0], { lieu: 'cabinet', titre: `Au Cabinet : les ${OEUVRES.length} œuvres`, regle: 'Toutes ses salles complètes, le Vestibule compris', tenue: false, progres: null })
+  // Une voie à elle, au bout : celle de l'Expédition reste, l'une ou l'autre suffit.
+  const phenix = voiesDeLAvatar('lg:phenix', LEA, true)
+  assert.deepEqual(phenix.slice(0, -1), voiesDeLAvatar('lg:phenix', LEA, false))
+  assert.deepEqual(phenix.at(-1)!.map(e => e.lieu), ['cabinet'])
+  // Sa tenue se lit des légendaires qu'il a : la ligne `cabinet:kraken` n'est pas un haut fait que la page reçoive.
+  assert.equal(auCabinet('lg:kraken', { ...LEA, legendaires: ['lg:kraken'] })[0].tenue, true)
+  assert.equal(auCabinet('lg:kraken')[0].tenue, false)
+  // Chacun des vingt a la sienne, dite en mots — jamais « En soirée : « cabinet:phenix » », qu'un lieu oublié faisait lire.
+  for (const cle of LEGENDAIRES_DU_CABINET) {
+    const [e] = auCabinet(cle)
+    assert.ok(e && e.titre.startsWith('Au Cabinet : ') && e.regle && e.progres === null, cle)
+  }
+  for (const l of LEGENDAIRES) {
+    for (const e of voiesDeLAvatar(l.key, LEA, true).flat()) assert.doesNotMatch(e.titre, /\b(hf|saison|expedition|cabinet):/, l.key)
+  }
+  // Ceux de saison n'ont pas de voie à eux : leur fête se gagne aussi au Cabinet, dite dans ses dates.
+  assert.deepEqual(voiesDeLAvatar('lg:citrouille', LEA, true), [
+    [
+      {
+        lieu: 'saison',
+        titre: 'Pour Halloween, du 25 octobre au 1er novembre',
+        regle: '3 jours de quiz du jour, une soirée ces jours-là, une œuvre gagnée en jouant au Cabinet ces jours-là, ou le garder au bout d’une expédition partie ces jours-là',
+        tenue: false,
+        progres: null,
+      },
+    ],
+  ])
+  // Ni l'Aigle, ni la Licorne, ni l'Éléphant : ils ne gardent rien. Un Divin, toujours rien (invariant 21).
+  for (const cle of ['lg:aigle', 'lg:licorne', 'lg:elephant']) assert.deepEqual(voiesDeLAvatar(cle, LEA, true), voiesDeLAvatar(cle, LEA, false), cle)
+  for (const d of DIVINS) {
+    assert.deepEqual(voiesDeLAvatar(d.key, LEA, true), [], d.key)
+    assert.deepEqual(avatarDeLAlbum(d.key, true)!.lieux, [], d.key)
+  }
+})
+
+test('la luciole, le Cabinet ouvert : sa première salle complète l’amène, dite d’abord — l’une ou l’autre voie, puis sa niche', () => {
+  // Le Cabinet d'abord : l'Expédition ferme son départ le jour où il ouvre en production ; l'expédition en route
+  // l'amène encore, sa voie reste dite.
+  const premiere = voiesDeLAvatar('cp:luciole-ver', LEA, true)
+  assert.deepEqual(premiere, [
+    [{ lieu: 'cabinet', titre: 'Au Cabinet : compléter une salle', regle: 'Complète une salle de ton musée : elle te rejoint, puis grandit avec toi', tenue: false, progres: null }],
+    voiesDeLAvatar('cp:luciole-ver', LEA, false)[0],
+  ])
+  // Ses formes suivantes : chaque voie la fait venir, puis grandir — « ou » entre les voies, « et » entre leurs étapes.
+  assert.deepEqual(
+    voiesDeLAvatar('cp:luciole-aurore', LEA, true).map(v => v.map(e => e.lieu)),
+    [
+      ['cabinet', 'niche', 'eclat'],
+      ['expedition', 'niche', 'eclat'],
+    ],
+  )
+  const sienne = { ...LEA, compagnons: [{ compagnon: 'luciole' as const, rang: 0 }] }
+  assert.ok(voiesDeLAvatar('cp:luciole-ver', sienne, true).every(v => v[0].tenue), 'à lui : sa venue est tenue, par où qu’elle soit venue')
+  for (const f of FORMES_DES_COMPAGNONS.filter(f => f.compagnon === 'luciole')) {
+    assert.deepEqual(avatarDeLAlbum(f.key, true)!.lieux, f.rang === 0 ? ['cabinet', 'expedition'] : ['cabinet', 'expedition', 'niche'], f.key)
+  }
+  assert.deepEqual(avatarDeLAlbum('cp:luciole-aurore', true)!.lieux, ['cabinet', 'expedition', 'niche', 'eclat'])
+  const dit = (cle: string) => ouIlSeGagne(avatarDeLAlbum(cle, true)!, true)
+  assert.equal(dit('cp:luciole-ver'), 'au Cabinet ou en expédition')
+  assert.equal(dit('cp:luciole-constellation'), 'au Cabinet ou en expédition, puis à 500 bonnes réponses avec elle')
+  assert.equal(dit('cp:luciole-aurore'), 'au Cabinet ou en expédition, puis à 500 bonnes réponses avec elle et par l’Éclat')
+  // Ceux de la boutique ne changent pas.
+  assert.equal(dit('cp:loup-louveteau'), 'en boutique')
+  assert.deepEqual(voiesDeLAvatar('cp:tortue-bebe', LEA, true), voiesDeLAvatar('cp:tortue-bebe', LEA, false))
+})
+
+/** Un composant du client, rendu en HTML. Son JSX est compilé pour un `React` global : posé avant d'importer le premier. */
+async function rendu(fichier: string, composant: string, props: object): Promise<string> {
+  const React = (await import('react')).default
+  Object.assign(globalThis, { React })
+  const module = await import(`../../client/src/components/${fichier}.tsx`)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  return renderToStaticMarkup(React.createElement(module[composant], props))
+}
+
+/** La fiche d'un avatar dans l'album, le drapeau du Cabinet donné. */
+const ficheDeLAlbum = (cle: string, cabinet: boolean) =>
+  rendu('AlbumDesAvatars', 'FicheDeLAvatar', { a: avatarDeLAlbum(cle, cabinet), aLui: false, porte: false, profil: { ...LEA, eclats: [] }, dessin: null, cabinet })
+
+test('la fiche de l’album, le Cabinet ouvert : son étape sous l’arche du Cabinet, et son chemin', async () => {
+  // L'icône du lieu : l'arche du gros bouton de l'accueil.
+  const arche = await rendu('Icon', 'Icon', { name: 'landmark' })
+  // Les espaces insécables de `espacesFines`, lues comme des espaces.
+  const ouroboros = (await ficheDeLAlbum('lg:ouroboros', true)).replace(/[  ]/g, ' ')
+  assert.ok(ouroboros.includes(`<span class="album-etape-icone" aria-hidden="true">${arche}</span><span class="album-etape-texte"><b>Au Cabinet : dorer la salle du Rempart</b>`), 'l’étape du Cabinet, sous son arche')
+  assert.match(ouroboros, /<span class="album-ou">ou<\/span><div class="album-voie">(?:(?!album-ou).)*Au Cabinet/, 'une voie de plus, après un « ou »')
+  assert.doesNotMatch(await ficheDeLAlbum('lg:ouroboros', false), /Cabinet/)
+  // La luciole : le Cabinet d'abord, et son chemin.
+  assert.match(await ficheDeLAlbum('cp:luciole-ver', true), /<a class="btn btn-small album-aller" href="\/cabinet">Aller au Cabinet<\/a>/)
+  assert.match(await ficheDeLAlbum('cp:luciole-ver', false), /<a class="btn btn-small album-aller" href="\/expedition">Partir en expédition<\/a>/)
+})
+
+/** La galerie des compagnons (« Tous les voir ») : la grille, ou la fiche d'un compagnon. */
+const galerie = (cabinet: boolean | undefined, ouverteSur: string | null = null) =>
+  rendu('GalerieDesCompagnons', 'GalerieDesCompagnons', {
+    siens: [],
+    niche: null,
+    solde: 0,
+    busy: false,
+    ouverteSur,
+    onAdopter: async () => null,
+    onInstaller: () => {},
+    onNommer: async () => null,
+    onFermer: () => {},
+    cabinet,
+  })
+
+test('la galerie des compagnons : la luciole se gagne au Cabinet, le Cabinet ouvert — fermé, rien ne change', async () => {
+  // La grille : sa pastille dit où elle se gagne, et sa case à l'oreille.
+  const fermee = await galerie(false)
+  assert.match(fermee, /aria-label="La Luciole : se gagne en expédition"/)
+  assert.match(fermee, /<span class="galerie-condition en-expedition">Expédition<\/span>/)
+  assert.doesNotMatch(fermee, /Cabinet/)
+  const ouverte = await galerie(true)
+  assert.match(ouverte, /aria-label="La Luciole : se gagne au Cabinet ou en expédition"/)
+  assert.match(ouverte, /<span class="galerie-condition en-expedition"><svg[^>]*>[\s\S]*?<\/svg>Cabinet<\/span>/)
+  // Sa fiche : comment l'avoir, le Cabinet d'abord, puis l'expédition ; et le chemin du Cabinet.
+  const ficheFermee = await galerie(false, 'luciole')
+  assert.match(ficheFermee, /<b>Mène une expédition au bout<\/b>/)
+  assert.match(ficheFermee, /<a class="btn galerie-cta" href="\/expedition">Partir en expédition<\/a>/)
+  assert.doesNotMatch(ficheFermee, /Cabinet/)
+  const fiche = await galerie(true, 'luciole')
+  // Les espaces fines de `espacesFines` devant les deux-points.
+  assert.match(fiche, /<b>Complète une salle du Cabinet<\/b><span class="muted small">Ta première salle complète\s: elle te rejoint\. Elle ne s’achète pas\.<\/span>/)
+  assert.match(fiche, /<b>Ou mène une expédition au bout<\/b>/)
+  assert.ok(fiche.indexOf('Complète une salle du Cabinet') < fiche.indexOf('Ou mène une expédition au bout'), 'le Cabinet d’abord')
+  assert.match(fiche, /<a class="btn galerie-cta" href="\/cabinet">Aller au Cabinet<\/a>/)
+  assert.doesNotMatch(fiche, /href="\/expedition"/, 'un seul chemin : celui du Cabinet')
+  // Sous sa première forme, ce qui l'amène — le mot de sa pastille.
+  assert.match(fiche, /<span class="galerie-forme-seuil" aria-hidden="true">Cabinet<\/span>/)
+  assert.match(ficheFermee, /<span class="galerie-forme-seuil" aria-hidden="true">Expédition<\/span>/)
+  // D'office, le drapeau du code.
+  assert.equal(await galerie(undefined), CABINET_EN_PRODUCTION ? ouverte : fermee)
+  // Ceux de la boutique ne changent pas.
+  assert.equal(await galerie(true, 'loup'), await galerie(false, 'loup'))
+})
+
+test('le Cabinet fermé, l’album ne dit rien de lui — et le drapeau du code décide d’office', () => {
+  for (const a of AVATARS_DE_L_ALBUM) {
+    const ferme = avatarDeLAlbum(a.cle, false)!
+    assert.ok(!ferme.lieux.includes('cabinet'), a.cle)
+    assert.doesNotMatch(ouIlSeGagne(ferme, false), /Cabinet/, a.cle)
+    assert.ok(!voiesDeLAvatar(a.cle, LEA, false).flat().some(e => e.lieu === 'cabinet' || /Cabinet/.test(e.titre + e.regle)), a.cle)
+    // Le drapeau d'office, celui du code : l'album de la page est celui-là.
+    assert.deepEqual(avatarDeLAlbum(a.cle), avatarDeLAlbum(a.cle, CABINET_EN_PRODUCTION), a.cle)
+    assert.equal(ouIlSeGagne(a), ouIlSeGagne(avatarDeLAlbum(a.cle, CABINET_EN_PRODUCTION)!, CABINET_EN_PRODUCTION), a.cle)
+    assert.deepEqual(voiesDeLAvatar(a.cle, LEA), voiesDeLAvatar(a.cle, LEA, CABINET_EN_PRODUCTION), a.cle)
+  }
+  // Les pages et les comptes ne lisent pas les lieux : ouvert ou fermé, l'album compte autant.
+  assert.equal(AVATARS_DE_L_ALBUM.length, 141)
 })

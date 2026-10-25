@@ -62,7 +62,13 @@ paths:
   oubliée d'un seul, sa ligne serait passée pour un trophée à l'étagère, ou
   pour une piste à ouvrir. Sa tenue se lit des légendaires qu'il a, jamais
   des hauts faits que la page reçoit, qui ne la portent pas (`shared/album.ts`).
-  Un préfixe de plus s'y ajoute, avec son étiquette (`etiquetteDe`).
+  Un préfixe de plus s'y ajoute, avec son étiquette (`etiquetteDe`) et son
+  lieu dans l'album (`lieuDuHautFait`, `shared/album.ts`) : oubliée là, la
+  voie du Cabinet se disait « En soirée : « cabinet:phenix » ». L'album dit ce
+  que le Cabinet demande, sans jauge — il ne reçoit pas le musée —, d'après
+  ses salles (`ceQueDemandeLeCabinet` : « Au Cabinet : compléter la salle du
+  Rempart », « dorer… », la série, les 84 œuvres) ; un gardien de saison n'y
+  a pas de voie, sa règle dit l'œuvre gagnée à sa fête.
 - **Un trophée réservé à certains serveurs se tait aux deux bouts**
   (`montreParLeServeur` — L'Explorateur, le 19 octobre 2026, là où les
   rencontres de l'expédition s'ouvrent) : ce qu'il compte vaut 0 ailleurs,
