@@ -85,6 +85,26 @@ test('« Effacer » et « Valider » des formes qui se posent passent par touche
   }
 })
 
+test('au Cabinet, chaque geste d’une partie passe par toucher : une réponse, le choix du Pari, la carte-bonus, la suite, le bilan', () => {
+  // Une réponse touchée change l'écran au lever du doigt : « Garder » et « Parier » prennent la place des réponses, « Manche
+  // suivante » celle de la dernière, « Faux » et « Vrai » restent sous lui d'une affirmation à l'autre. Le `click` qui suit tombait
+  // sur ce qui avait glissé là : au Pari, il gardait des étoiles qu'on voulait parier.
+  for (const f of ['views/cabinet/jeux/Pari.tsx', 'views/cabinet/jeux/Eclair.tsx', 'views/cabinet/Partie.tsx', 'views/cabinet/Bilan.tsx']) {
+    const balises = readFileSync(client(f), 'utf8')
+      .replaceAll('=>', '⇒')
+      .split('<button')
+      .slice(1)
+      .map(b => b.slice(0, b.indexOf('>')))
+    assert.ok(balises.length > 0, f)
+    for (const b of balises) {
+      assert.doesNotMatch(b, /onClick=/, `${f} : un geste qui répond au click seul`)
+      assert.match(b, /toucher\(/, `${f} : un geste sans toucher`)
+    }
+  }
+  // Les réponses du Pari sont celles du téléphone : sous `.quiz-player`, elles arrivent sur place et ne se surlignent pas.
+  assert.match(readFileSync(client('views/cabinet/Partie.tsx'), 'utf8'), /<div className="quiz-player cab-manche">/)
+})
+
 test('chaque case de réponse du téléphone passe par toucher, et arrive sur place', () => {
   for (const f of ['games/quiz/PlayerView.tsx', 'views/CampagneApp.tsx']) {
     // La balise ouvrante de chaque bouton : jusqu'au premier « > » qui n'est pas une flèche.

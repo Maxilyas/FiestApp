@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { confirmDialog } from './components/Dialog'
 
 /**
@@ -12,17 +12,47 @@ import { confirmDialog } from './components/Dialog'
  * Sans piéger personne : pendant que la question est posée, un second retour
  * quitte pour de bon — l'entrée est déjà consommée —, et « Quitter » fait le
  * retour qu'on demandait.
+ *
+ * Une page peut dire elle-même ce que le retour demande (`auRetour`) : au
+ * Cabinet de curiosités, pendant une manche, c'est son « Quitter ? » — la
+ * pause, puis la partie comptée avec ses étoiles (`views/cabinet/Partie.tsx`).
+ * Sa garde porte alors un jeton à elle, tiré à son montage : une garde laissée
+ * par un rechargement (la page la garde, `effacerLaMarqueAuChargement`) ne se
+ * prend pas pour la sienne — sans quoi la manche suivante n'en posait pas, le
+ * retour fermait la partie sans rien demander, et la garde retirée en partant
+ * reculait d'une entrée de trop, parfois hors du Cabinet.
  */
 const GARDE = 'fiestappGarde'
 
-const gardee = () => (history.state as Record<string, unknown> | null)?.[GARDE] === true
+/** Ce que décide la question du retour : partir (la page s'en charge), ou rester — la garde se repose. */
+export type IssueDuRetour = 'parti' | 'reste'
 
 /** Combien de pages demandent la garde en ce moment : StrictMode monte deux fois. */
 let demandes = 0
 
-export function useGardeRetour(actif: boolean) {
+/** La question de la soirée : partir pour de bon, ou rester. */
+function quitterLaSoiree(): Promise<IssueDuRetour> {
+  return confirmDialog({
+    title: 'Quitter la soirée ?',
+    message: 'Ta place t’attend : en revenant à cette adresse, tu la retrouves avec tes points.',
+    cancelLabel: 'Rester',
+    confirmLabel: 'Quitter',
+    danger: true,
+  }).then(quitter => {
+    if (quitter) history.back()
+    return quitter ? 'parti' : 'reste'
+  })
+}
+
+export function useGardeRetour(actif: boolean, auRetour?: () => Promise<IssueDuRetour>) {
+  // La question du jour, lue au moment du retour : la page la refait à chaque rendu, la garde ne se repose pas pour autant.
+  const question = useRef(auRetour)
+  question.current = auRetour
+  // `true` pour la soirée, qui reprend la garde d'un rechargement ; un jeton à soi pour une page qui dit sa question.
+  const [marque] = useState<true | string>(() => (auRetour ? `garde-${Math.random().toString(36).slice(2, 10)}` : true))
   useEffect(() => {
     if (!actif) return
+    const gardee = () => (history.state as Record<string, unknown> | null)?.[GARDE] === marque
     demandes++
     // Entre deux entrées de la même page, le navigateur remettait le
     // défilement qu'il avait noté : la fin de soirée, qui retire la garde,
@@ -31,7 +61,7 @@ export function useGardeRetour(actif: boolean) {
     // Un rechargement garde l'état de l'entrée courante : on n'en empile pas
     // une de plus à chaque fois.
     const poser = () => {
-      if (!gardee()) history.pushState({ ...(history.state ?? {}), [GARDE]: true }, '')
+      if (!gardee()) history.pushState({ ...(history.state ?? {}), [GARDE]: marque }, '')
     }
     poser()
 
@@ -40,17 +70,12 @@ export function useGardeRetour(actif: boolean) {
       // Revenu en avant sur l'entrée gardée, ou déjà en train de demander.
       if (gardee() || enQuestion) return
       enQuestion = true
-      void confirmDialog({
-        title: 'Quitter la soirée ?',
-        message: 'Ta place t’attend : en revenant à cette adresse, tu la retrouves avec tes points.',
-        cancelLabel: 'Rester',
-        confirmLabel: 'Quitter',
-        danger: true,
-      }).then(quitter => {
-        enQuestion = false
-        if (quitter) history.back()
-        else poser()
-      })
+      void (question.current ?? quitterLaSoiree)()
+        .catch((): IssueDuRetour => 'reste')
+        .then(issue => {
+          enQuestion = false
+          if (issue === 'reste') poser()
+        })
     }
     window.addEventListener('popstate', onPop)
     return () => {
@@ -63,5 +88,5 @@ export function useGardeRetour(actif: boolean) {
         if (demandes === 0 && gardee()) history.back()
       }, 0)
     }
-  }, [actif])
+  }, [actif, marque])
 }

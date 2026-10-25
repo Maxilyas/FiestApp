@@ -10469,6 +10469,115 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-regles li > .icon { width: 20px; height: 20px; margin-top: 2px; color: var(--accent-text); }
 .cab-bareme { display: block; margin-top: 4px; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
 
+/* L'annonce d'une partie (`Annonce.tsx`) : ce qu'elle met en jeu, le jeu et son barème, le seuil, la carte-bonus emportée — sa
+   peinture ou son médaillon, ce qu'elle fait à ce jeu — et, dans sa feuille, les autres, chacune un bouton à `aria-pressed`. */
+.cab-enjeu { color: var(--accent-text); font-weight: 700; }
+.cab-bareme-annonce { font-variant-numeric: lining-nums tabular-nums; }
+.cab-seuil b { font-variant-numeric: lining-nums tabular-nums; }
+.cab-carte { display: flex; align-items: center; gap: 12px; min-width: 0; text-align: left; }
+.cab-carte-vignette { flex: none; display: grid; place-items: center; width: 64px; }
+.cab-carte-vignette .exp-vc { height: 84px; }
+.cab-carte-vignette .exp-vc-art { height: 60px; }
+.cab-carte-vignette.cab-sans-carte { height: 84px; border: 2px dashed var(--edge-strong); border-radius: 10px; color: var(--muted); font-family: var(--serif); font-size: 2rem; }
+.cab-carte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cab-carte-texte .cab-raison { margin-top: 2px; text-align: left; }
+.cab-carte-nom { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.15; }
+.cab-cartes { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cab-choix-carte { display: block; width: 100%; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.cab-choix-carte:hover { border-color: var(--edge-strong); }
+.cab-choix-carte[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--accent-soft); }
+
+/* Une partie (`Partie.tsx`) : la tête collée — les trois manches, les étoiles sur neuf, « Quitter », le chrono —, la manche, le
+   pied collé — la carte-bonus et son geste, la suite. Tête et pied posent `--bg` sous eux : les thèmes repeignent `.card` d'un
+   verre, et la question défilait au travers. La tête laisse son coin à la niche (le bloc « Sa place, page par page »). */
+.cab-tete-partie { position: sticky; top: 0; z-index: 3; display: flex; flex-direction: column; gap: 2px; margin: -24px -20px 0; padding: max(14px, env(safe-area-inset-top)) 20px 8px; background: linear-gradient(180deg, var(--bg) 84%, transparent); }
+.cab-tete-ligne { display: flex; align-items: center; gap: 12px; min-height: 48px; }
+.cab-points { display: inline-flex; gap: 6px; }
+.cab-point { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 2px solid var(--edge-strong); border-radius: 50%; color: var(--muted); font-family: var(--serif); font-size: 1.0625rem; font-weight: 700; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.cab-point.cab-point-ici { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cab-point.cab-point-joue { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.cab-total { flex: 1; min-width: 0; color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-weight: 600; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.cab-total b { font-size: 1.75rem; }
+.cab-page .cab-quitter { flex: none; min-height: 44px; padding: 6px 16px; }
+.cab-tete-partie .timer { gap: 10px; }
+.cab-tete-partie .timer-seconds { min-width: 36px; font-size: 1.75rem; }
+.cab-manche { gap: 14px; }
+.cab-tete-question { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.cab-page .label { font-size: 1.0625rem; letter-spacing: 0.02em; text-transform: none; }
+.cab-pied-partie { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 8px; margin: auto -20px -28px; padding: 14px 20px max(16px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 14px); }
+/* Le téléphone tient une question en un écran (`.player-shell:has(.ans-grid)` : les réponses se partagent ce qui reste) ; la
+   partie y ajoute sa tête et sa carte-bonus, et la grille, serrée sous la hauteur de ses réponses, débordait sous le pied — la
+   quatrième réponse de la question difficile, en 360 × 640. Ici, la grille part de la hauteur de ses réponses — jamais moins
+   que leur texte, 52 px au moins (`.quiz-player .ans-btn`) —, prend la place qui reste, et la page défile s'il n'en reste pas.
+   Sa rangée garde `auto` pour plafond : avec les 100 px du téléphone, Chromium mesurait la grille à quatre fois 100 px. */
+.cab-partie:has(.ans-grid) { height: auto; min-height: 100dvh; }
+.cab-partie:has(.ans-grid) .ans-grid { flex: 1 0 auto; min-height: auto; grid-auto-rows: minmax(min-content, auto); }
+/* Une carte-bonus qui ne sert plus — grisée, ou une ligne qui agit seule — se pose sous la manche, au lieu de couvrir la fin de
+   la grille au bas de l'écran. */
+.cab-pied-partie.cab-pied-pose { position: static; background: none; }
+/* Entre deux manches, « ← Le Cabinet » passe avant la tête : sa marge négative, faite pour coller la tête au haut de l'écran,
+   la remontait sur le lien, et son fond en mangeait le bas. Elle commence sous le lien, l'écart de la page repris (18 px). */
+.cab-partie > .jour-sortie { margin-bottom: 0; }
+.cab-partie > .jour-sortie + .cab-tete-partie { margin-top: -18px; }
+.cab-pouvoir .icon { width: 20px; height: 20px; margin-right: 6px; }
+.cab-reste { color: var(--muted); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
+.cab-carte-ligne { display: flex; align-items: flex-start; gap: 8px; color: var(--muted); }
+.cab-carte-ligne .icon { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--accent-text); }
+
+/* Le Pari : une réponse effacée par Éclairer, barrée et en sourdine — dite à l'oreille aussi ; juste, ce qu'il garde ou parie. */
+.cab-page .ans-btn.cab-effacee { opacity: 0.32; cursor: default; }
+.cab-page .ans-btn.cab-effacee .ans-text { text-decoration: line-through; }
+.cab-question-faite { opacity: 0.8; }
+.cab-juste { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border: 1.5px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--ink); }
+.cab-juste .icon { flex: none; width: 22px; height: 22px; color: var(--accent-text); }
+.cab-au-choix { font-variant-numeric: lining-nums; }
+.cab-choix-du-pari { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* L'Éclair : l'affirmation sous les yeux, sa réponse proposée en grand, « Faux » et « Vrai » côte à côte ; ses points disent celles
+   qui sont dites, jamais si elles sont justes. */
+.cab-cinq { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cab-cinq li { flex: 1; max-width: 44px; height: 8px; border-radius: 4px; background: var(--surface-strong); box-shadow: inset 0 0 0 1px var(--edge); }
+.cab-cinq li.cab-dite { background: var(--accent); box-shadow: none; }
+.cab-cinq li.cab-ici { box-shadow: inset 0 0 0 2px var(--accent); }
+.cab-proposee { color: var(--accent-text); font-family: var(--serif); font-size: 1.9rem; font-weight: 700; line-height: 1.15; text-align: center; text-wrap: balance; font-variant-numeric: lining-nums; }
+.cab-souffle { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--accent-text); font-weight: 700; }
+.cab-souffle .icon { width: 20px; height: 20px; }
+.cab-vrai-faux { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: auto; }
+.cab-vrai-faux .ans-btn { justify-content: center; gap: 10px; min-height: 92px; padding: 0 12px; font-size: 1.4rem; font-weight: 700; }
+.cab-vrai-faux .ans-btn .ans-text { flex: none; }
+.cab-vrai-faux .icon { width: 26px; height: 26px; }
+.cab-vrai-faux .cab-vrai .icon { color: var(--accent-text); }
+.cab-vrai-faux .cab-faux .icon { color: var(--alert); }
+
+/* La mise, avant une manche ; le voile de la pause, plein — la manche ne se lit pas au travers, sous aucun thème. */
+.cab-mise h2 { font-size: 1.6rem; }
+.cab-dit { font-weight: 600; }
+.cab-voile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 300px; padding: 24px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--bg-raised); color: var(--muted); text-align: center; }
+.cab-voile .icon { width: 36px; height: 36px; color: var(--accent-text); }
+.cab-voile b { color: var(--ink); font-family: var(--serif); font-size: 1.6rem; }
+
+/* La révélation : ses étoiles en grand, ce qui s'est passé, puis le corps du jeu, corrigé comme en série. Les pièces partagées
+   qu'elle pose — le bandeau, « Le savais-tu ? », le corrigé, « Signaler » — à la taille du Cabinet. */
+.cab-etoiles-manche .sentier-etoiles-grandes svg { width: 34px; height: 34px; }
+.cab-titre-revele { font-family: var(--serif); font-size: 1.6rem; font-weight: 700; line-height: 1.15; }
+.cab-note { color: var(--accent-text); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.cab-page .result-banner p { font-size: 1.0625rem; }
+.cab-page .anecdote { font-size: 1.0625rem; }
+.cab-page .small { font-size: 1.0625rem; }
+.cab-page .corrige-texte { font-size: 1.0625rem; }
+.cab-page .corrige-legende { font-size: 1.0625rem; letter-spacing: 0.02em; text-transform: none; }
+.cab-corrige { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.cab-hors-carnet { color: var(--muted); }
+
+/* Le bilan (`Bilan.tsx`) : le total en grand, les manches en une ligne chacune, ce que dit l'œuvre, l'œuvre et son cartel. */
+.cab-bilan-tete { display: flex; flex-direction: column; gap: 10px; }
+.cab-total-grand { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; line-height: 1.1; font-variant-numeric: lining-nums tabular-nums; }
+.cab-total-grand b { color: var(--accent-text); font-size: 3rem; }
+.cab-manches-du-bilan { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cab-manches-du-bilan li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.cab-manches-du-bilan .sentier-etoiles svg { width: 20px; height: 20px; }
+.cab-oeuvre-gagnee { display: flex; flex-direction: column; gap: 14px; }
+.cab-reponses-manche { display: flex; flex-direction: column; gap: 10px; }
+
 /* ── L'atlas ─────────────────────────────────────────────────────────────
    Un rail d'orbes — l'anneau de chaque collection se remplit à chaque pièce
    gagnée —, puis la collection choisie sur une trame fine, comme un écran de
@@ -11165,8 +11274,9 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
   transition: transform 0.32s cubic-bezier(0.3, 0.7, 0.3, 1), opacity 0.25s ease, visibility 0.25s;
 }
 .niche.repliee { transform: scale(0.62) translateY(-10px); }
-/* Une page qui colle sa tête en haut — la carte de la loge, la tête d'un sentier — : repliée, elle s'efface plutôt que d'en couvrir le coin. */
-body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility: hidden; }
+/* Une page qui colle sa tête en haut — la carte de la loge, la tête d'un sentier, celle d'une partie du Cabinet — : repliée, elle
+   s'efface plutôt que d'en couvrir le coin. */
+body:has(.loge-collante, .sentier-tete, .cab-tete-partie) .niche.repliee { opacity: 0; visibility: hidden; }
 .niche:focus-visible { outline-offset: 3px; }
 .niche-cadre {
   position: absolute;
@@ -12228,7 +12338,9 @@ body.avec-niche .me-header,
 body.avec-niche .quiz-topbar,
 body.avec-niche .exp-barre,
 body.avec-niche .exp-haut-du-depart,
-body.avec-niche .cab-page > .piece-tete { padding-right: var(--niche-place); }
+body.avec-niche .cab-page > .piece-tete,
+body.avec-niche .cab-page .cab-bilan-tete > .piece-tete,
+body.avec-niche .cab-tete-ligne { padding-right: var(--niche-place); }
 /* Au Cabinet, la peinture levée et le cadre vide en grand suivent « ← Le Rempart » : leur coin haut passait sous le bas de la niche. */
 body.avec-niche .cab-page > .cab-oeuvre-levee,
 body.avec-niche .cab-page > .cab-cadre-grand { margin-top: 10px; }

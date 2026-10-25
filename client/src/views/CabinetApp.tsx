@@ -9,11 +9,12 @@ import { porterGerbe } from '../gerbe'
 import { porterNiche } from '../niche'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
-import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../shared/cabinet/jeux/regle'
-import { poussieresDites } from '../../../shared/cabinet/musee'
+import { JEUX, type CleDeJeu } from '../../../shared/cabinet/jeux/regle'
+import { poussieresDites, type DemandeDeDepart } from '../../../shared/cabinet/musee'
 import { oeuvre as oeuvreDe } from '../../../shared/cabinet/oeuvres'
 import type { Manche } from '../../../shared/cabinet/partie'
 import type { PageDuCabinet, VueDeLaPartie } from '../../../shared/cabinet/vues'
+import { Annonce, annonceDe } from './cabinet/Annonce'
 import { sansLesPerdus, type EtatDuCartel } from './cabinet/Cartel'
 import {
   RetourAuMusee,
@@ -30,9 +31,10 @@ import {
 import { Gardiens } from './cabinet/Gardiens'
 import { Musee, enDebutDeLigne } from './cabinet/Musee'
 import { Oeuvre, oeuvreDeLaPage } from './cabinet/Oeuvre'
+import { Partie, ecranDuJeu } from './cabinet/Partie'
 import { FeuilleDesRegles } from './cabinet/Regles'
 import { Salle } from './cabinet/Salle'
-import { JouerLibrement, Visite, enJeuDit } from './cabinet/Visite'
+import { JouerLibrement, Visite } from './cabinet/Visite'
 import { carteRetenue, rapporteesVues, reglesLues, retenirLaCarte, retenirLesRapportees, retenirLesRegles } from './cabinet/retenu'
 
 // La page du Cabinet de curiosités (`/cabinet`) : le musée et ses écrans —
@@ -43,15 +45,17 @@ import { carteRetenue, rapporteesVues, reglesLues, retenirLaCarte, retenirLesRap
 // serveur (`GET /api/cabinet`, demandée d'emblée — l'adresse préchargée avec
 // la page), et chaque refus se dit dans les mots du serveur.
 //
-// La partie — l'annonce, les manches, le bilan — a ses écrans à part, qui ne
-// sont pas encore là : un départ demandé ouvre son annonce en attente, qui ne
-// consomme rien (rien ne coûte avant « Commencer »), par-dessus l'écran d'où
-// il part, sur une entrée d'historique à elle (`cabinet/ecrans.ts`).
+// La partie a ses écrans à part, par-dessus l'écran d'où elle part, sur une
+// entrée d'historique à elle (`cabinet/ecrans.ts`) : l'annonce, qui ne
+// consomme rien — tout part à « Commencer » (`cabinet/Annonce.tsx`) —, puis
+// ses manches et son bilan (`cabinet/Partie.tsx`). Un jeu que le serveur
+// livre avant que la page n'ait son écran s'annonce sans « Commencer »
+// (`AnnonceEnAttente`).
 
 type Etat = { e: 'chargement' } | { e: 'anonyme' | 'bientot' | 'erreur'; motif: string } | { e: 'pret'; page: PageDuCabinet }
 
-/** Une partie demandée, à son annonce ; ou celle qui l'attend, reprise. */
-type EnPartie = { e: 'annonce'; partie: PartieDemandee } | { e: 'reprise'; vue: VueDeLaPartie }
+/** Une partie demandée, à son annonce ; ou celle qui se joue — commencée, ou reprise du musée. */
+type EnPartie = { e: 'annonce'; partie: PartieDemandee } | { e: 'jeu'; vue: VueDeLaPartie }
 
 /** Ce qui se lit de la page sans profil, ou là où le Cabinet n'ouvre pas : la phrase du serveur, et comment entrer. */
 export function EcranSansMusee({ sorte, motif }: { sorte: 'anonyme' | 'bientot' | 'erreur'; motif: string }) {
@@ -78,9 +82,9 @@ export function EcranSansMusee({ sorte, motif }: { sorte: 'anonyme' | 'bientot' 
 }
 
 /**
- * Une partie demandée, en attendant ses écrans : son jeu, ce qu'elle met en
- * jeu, et rien de consommé — le départ ne part qu'à « Commencer », que
- * l'annonce portera avec la carte-bonus choisie.
+ * Une partie d'un jeu dont la page n'a pas encore l'écran (`ecranDuJeu`) :
+ * son jeu, ce qu'elle met en jeu, et rien de consommé — sans « Commencer ».
+ * Reprise, elle attend où il l'a laissée : le serveur la clora le lendemain.
  */
 export function AnnonceEnAttente({ jeu, enJeu, reprise, onRetour }: { jeu: CleDeJeu; enJeu: string | null; reprise?: boolean; onRetour: () => void }) {
   const j = JEUX[jeu]
@@ -91,7 +95,7 @@ export function AnnonceEnAttente({ jeu, enJeu, reprise, onRetour }: { jeu: CleDe
       <p className="cab-ligne">{espacesFines(j.geste)}</p>
       <p className="cab-ligne">{espacesFines(enDebutDeLigne(j.bareme))}</p>
       <p className="cab-raison">
-        {espacesFines(reprise ? 'Ses écrans arrivent ici très bientôt : elle t’attend où tu l’as laissée.' : 'Les parties du Cabinet s’ouvrent ici très bientôt : rien n’est encore joué.')}
+        {espacesFines(reprise ? 'Ses écrans arrivent ici très bientôt : elle t’attend où tu l’as laissée.' : 'Ce jeu s’ouvre ici très bientôt : rien n’est encore joué.')}
       </p>
     </div>
   )
@@ -255,6 +259,26 @@ export function CabinetApp() {
     if (oui) await ecrire(() => api.cabinet.dorer(cle, prix), `${nom} prend son cadre doré`)
   }
   const echanger = (k: Manche) => ecrire(() => api.cabinet.echanger(k), 'Le jeu de cette partie a changé')
+
+  /** « Commencer » : la partie part avec sa carte-bonus, et sa première manche s'ouvre ; refusée, le serveur dit pourquoi, et la page se relit. */
+  const commencer = async (demande: PartieDemandee, carteChoisie: string | null) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const vue = await api.cabinet.commencer({ ...demande, carte: carteChoisie } as DemandeDeDepart)
+      setEnPartie({ e: 'jeu', vue })
+    } catch (e) {
+      showToast({ kind: 'error', message: motifDe(e) })
+      relire()
+    } finally {
+      setBusy(false)
+    }
+  }
+  /** Le musée, après une partie ou entre deux manches : la page se relit — la poussière, l'œuvre gagnée, la partie qui l'attend. */
+  const revenirDeLaPartie = () => {
+    relire()
+    versLeMusee()
+  }
   const choisirLaCarte = (cle: string | null) => {
     if (profil) retenirLaCarte(profil, cle)
     setCarte(cle)
@@ -299,14 +323,30 @@ export function CabinetApp() {
   if (etat.e !== 'pret') return avecLeToast(<EcranSansMusee sorte={etat.e} motif={etat.motif} />)
   const p = etat.page
 
-  if (enPartie?.e === 'reprise') return avecLeToast(<AnnonceEnAttente jeu={enPartie.vue.jeu} enJeu={null} reprise onRetour={versLeMusee} />)
+  if (enPartie?.e === 'jeu') {
+    const vue = enPartie.vue
+    if (!ecranDuJeu(vue.jeu)) return avecLeToast(<AnnonceEnAttente jeu={vue.jeu} enJeu={null} reprise onRetour={versLeMusee} />)
+    return avecLeToast(
+      <Partie
+        key={vue.id}
+        depart={vue}
+        // La partie relue avec la page — au retour au premier plan, après un refus — : elle a pu continuer sans cet écran.
+        relue={p.enCours?.id === vue.id ? p.enCours : null}
+        onMusee={revenirDeLaPartie}
+        onRelire={relire}
+        onRejouer={vue.origine === 'libre' ? () => jouer({ origine: 'libre', jeu: vue.jeu }) : undefined}
+      />,
+    )
+  }
   if (enPartie?.e === 'annonce') {
     const demande = enPartie.partie
-    const deLaCase = demande.origine === 'visite' ? p.visite.cases[demande.case] : undefined
-    const deLaChasse = demande.origine === 'chasse' ? oeuvreDeLaPage(p, demande.oeuvre) : null
-    const jeu = demande.origine === 'libre' ? CLES_DES_JEUX.find(j => j === demande.jeu) : (deLaCase?.jeu ?? deLaChasse?.oeuvre.jeu)
-    const enJeu = deLaCase ? enJeuDit(deLaCase.enJeu) : deLaChasse ? (deLaChasse.oeuvre.possedee ? `Pour dorer ${deLaChasse.oeuvre.nom}` : 'Une chasse') : null
-    if (jeu) return avecLeToast(<AnnonceEnAttente jeu={jeu} enJeu={enJeu} onRetour={versLeMusee} />)
+    const a = annonceDe(p, demande)
+    if (a && ecranDuJeu(a.jeu)) {
+      return avecLeToast(
+        <Annonce page={p} demande={demande} carte={carte} busy={busy} onCarte={choisirLaCarte} onCommencer={c => void commencer(demande, c)} onRetour={versLeMusee} />,
+      )
+    }
+    if (a) return avecLeToast(<AnnonceEnAttente jeu={a.jeu} enJeu={a.enJeu} onRetour={versLeMusee} />)
   }
 
   switch (ecran.e) {
@@ -341,7 +381,7 @@ export function CabinetApp() {
       page={p}
       accueil={accueil}
       onRegles={ouvrirLesRegles}
-      onReprendre={() => p.enCours && ouvrir({ e: 'reprise', vue: p.enCours })}
+      onReprendre={() => p.enCours && ouvrir({ e: 'jeu', vue: p.enCours })}
       onLu={lu}
     />,
   )

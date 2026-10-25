@@ -208,6 +208,9 @@ test('chaque écran de révélation la dit à la niche, et chaque réponse lui f
     'views/Sentiers.tsx': { revelations: 1, souffles: 1 },
     'views/Parcours.tsx': { revelations: 1, souffles: 1 },
     'views/ExpeditionApp.tsx': { revelations: 1, souffles: 1 },
+    // Le Cabinet : le cadre d'une manche révèle pour tous ses jeux, et retient le souffle au seul geste qui envoie une réponse —
+    // touchée, ou partie d'elle-même à l'échéance. Ses jeux n'en disent rien : ils envoient leurs gestes par lui (plus bas).
+    'views/cabinet/Partie.tsx': { revelations: 1, souffles: 1 },
   }
   for (const [fichier, attendu] of Object.entries(ecrans)) {
     const s = source(fichier)
@@ -220,6 +223,11 @@ test('chaque écran de révélation la dit à la niche, et chaque réponse lui f
   for (const fichier of Object.keys(ecrans)) {
     const s = source(fichier)
     assert.ok((s.match(/result-banner/g) ?? []).length >= 1, fichier)
+  }
+  // Les écrans des jeux du Cabinet passent par le cadre : une révélation ou un souffle à eux doublerait ceux de la partie.
+  for (const jeu of ['Pari', 'Eclair']) {
+    const s = source(`views/cabinet/jeux/${jeu}.tsx`)
+    assert.doesNotMatch(s, /<NicheALaRevelation |nicheRetientSonSouffle\(\)/, jeu)
   }
   // Le podium d'un quiz : s'il y monte, il sort.
   assert.match(source('games/quiz/PlayerView.tsx'), /<NicheALaFin podium=\{v\.yourPodiumIndex !== undefined && !v\.horsClassement && total > 0\} \/>/)

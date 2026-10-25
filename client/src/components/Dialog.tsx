@@ -61,6 +61,17 @@ function close(value: Reponse | null) {
   pending?.resolve(value)
 }
 
+/**
+ * Ferme le dialogue ouvert comme si l'on renonçait : ce qu'il demandait ne se
+ * demande plus. Le « Quitter ? » d'une manche du Cabinet, quand la réponse
+ * partie d'elle-même à l'échéance vient de la trancher sous lui : laissé
+ * ouvert, il cachait la révélation, et « Continuer » aurait voulu reprendre
+ * une pause qui n'existait plus.
+ */
+export function fermerLeDialogue() {
+  if (current) close(null)
+}
+
 /** Vrai si l'animateur confirme. */
 export function confirmDialog(options: DialogOptions): Promise<boolean> {
   return open(options).then(v => v?.geste === 'confirmer')
