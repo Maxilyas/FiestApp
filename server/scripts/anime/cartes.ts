@@ -71,7 +71,7 @@ const STYLE =
   'toward the edges. The image fills the canvas edge to edge: no card frame, no border, no rounded corners, no margin, no text, no letters, no ' +
   'numerals, no runes, no symbols written anywhere, no signature, no watermark. An original design: imitate no existing game or card.'
 
-/** La teinte de chaque famille, celle du fond de la carte (`TEINTE_DE_LA_FAMILLE`, `RencontresDExpedition.tsx`) : la palette de son illustration. */
+/** La teinte de chaque famille, celle du fond de la carte (`TEINTE_DE_LA_FAMILLE`, `client/src/components/OeuvrePeinte.tsx`) : la palette de son illustration. */
 const PALETTE: Record<FamilleDeCartes, string> = {
   neutre: 'cool silver-blue, slate grey and pale steel, with warm gold highlights',
   erudit: 'deep indigo and violet-blue, with warm candle gold',

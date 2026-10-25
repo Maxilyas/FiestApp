@@ -932,9 +932,15 @@ export interface CorrectionDuJour {
 /**
  * Une requête qui remesure l'heure du serveur : l'envoi, l'heure qu'il a
  * écrite en répondant (l'en-tête `Date` n'a que la seconde), et le retour —
- * la mesure la plus rapide l'emporte (`shared/clock.ts`).
+ * la mesure la plus rapide l'emporte (`shared/clock.ts`). Toute réponse qui
+ * porte `maintenant` passe par elle, d'où qu'elle vienne : sans mesure, un
+ * chrono lirait `serverNow()` à l'heure du téléphone (invariant 6). Le
+ * Cabinet de curiosités, qui a de vrais chronos, mesurera chacune des siennes
+ * ici ; l'Expédition, dont aucune réponse ne porte l'heure, n'est pas son
+ * modèle. Une réponse préchargée le dit (`prechargee`) : son `adresse` la
+ * fait lire dans le préchargement.
  */
-async function avecLHeure(appel: () => Promise<PartieDuJour>, adresse?: string): Promise<PartieDuJour> {
+export async function avecLHeure<T extends { maintenant: number; prechargee?: true }>(appel: () => Promise<T>, adresse?: string): Promise<T> {
   const sentAt = Date.now()
   const reponse = await appel()
   // La première partie de la page peut être celle que le serveur a fait

@@ -5,9 +5,10 @@
 // Pas de serveur : des modules du client, rendus en HTML.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { importsStatiques } from './chemin-des-imports'
 
 const client = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/src')
 const url = (fichier: string) => new URL(`../../client/src/${fichier}`, import.meta.url).href
@@ -44,34 +45,6 @@ async function rendu(fichier: string, composant: string, props: object): Promise
 }
 
 // ── 1. Le chemin de l'invité ──────────────────────────────────────────────
-
-/** Les fichiers qu'une page importe statiquement, de proche en proche. */
-function importsStatiques(depart: string): Set<string> {
-  const vus = new Set<string>()
-  const pile = [depart]
-  while (pile.length) {
-    const fichier = pile.pop()!
-    if (vus.has(fichier)) continue
-    vus.add(fichier)
-    const texte = readFileSync(fichier, 'utf8')
-      // Un commentaire qui cite un import ne charge rien.
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '')
-    // `import type` s'efface à la compilation, et `import('…')` est justement
-    // le chargement à la demande : seuls comptent les imports de valeurs, et
-    // ceux qui ne gardent rien (`import './Legendaire'` l'évaluerait aussi).
-    const cibles = [
-      ...[...texte.matchAll(/^\s*(?:import|export)\s+(type\s+)?[^'"]*?from\s+['"](\.[^'"]+)['"]/gm)].filter(m => !m[1]).map(m => m[2]),
-      ...[...texte.matchAll(/^\s*import\s+['"](\.[^'"]+)['"]/gm)].map(m => m[1]),
-    ]
-    for (const cible of cibles) {
-      const base = path.resolve(path.dirname(fichier), cible)
-      const trouve = [base, `${base}.tsx`, `${base}.ts`].find(f => /\.tsx?$/.test(f) && existsSync(f))
-      if (trouve) pile.push(trouve)
-    }
-  }
-  return vus
-}
 
 test('le téléphone de l’invité n’importe les dessins qu’à la demande', () => {
   const chemin = importsStatiques(path.join(client, 'views/PlayerApp.tsx'))

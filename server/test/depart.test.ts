@@ -397,6 +397,25 @@ test('la partie du jour que la page a préchargée ne fausse pas son chrono : l�
   }
 })
 
+test('toute réponse qui porte l’heure du serveur la remesure, et repart telle quelle : la partie du jour comme le Cabinet qui vient', async () => {
+  // L'horloge de la page n'était qu'au quiz du jour (`avecLHeure`, privée à son groupe) : le Cabinet de curiosités, qui a de
+  // vrais chronos, mesurera la sienne à chacune de ses réponses, par la même pièce.
+  const { avecLHeure } = await import(client('api.ts').href)
+  const { applySample, resetClock, serverNow } = await import(client('clock.ts').href)
+  resetClock()
+  // Une réponse d'un autre mode : trente secondes d'avance sur ce téléphone, et ce qu'elle porte d'autre.
+  const reponse = { maintenant: Date.now() + 30_000, partie: 'p1', manche: 0 }
+  assert.equal(await avecLHeure(async () => reponse), reponse, 'la réponse repart telle qu’elle est venue')
+  const ecart = serverNow() - (Date.now() + 30_000)
+  assert.ok(Math.abs(ecart) < 200, `le chrono lit l’heure du serveur (écart ${ecart} ms)`)
+  // L'horloge rendue à celle de la machine, pour les épreuves qui suivent.
+  resetClock()
+  const ici = Date.now()
+  applySample({ serverTime: ici, sentAt: ici, receivedAt: ici })
+  // Et le quiz du jour la demande toujours par elle, préchargée comprise.
+  assert.match(source('api.ts'), /suivante: \(\) => avecLHeure\(\(\) => req<PartieDuJour>\('\/api\/jour\/suivante', \{ method: 'POST' \}\)\)/)
+})
+
 // ── 4. Plus de demande en file ────────────────────────────────────────────
 
 /** Joue un quiz de bout en bout depuis l'écran commun, puis le referme. */
