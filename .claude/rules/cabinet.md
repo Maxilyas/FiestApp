@@ -3,6 +3,7 @@ paths:
   - "shared/cabinet/**"
   - "shared/horsDeLaBase.ts"
   - "server/src/core/cabinet/**"
+  - "server/src/core/porteDeLaCampagne.ts"
   - "server/content/cabinet/*.json"
   - "server/scripts/cabinet-contenu.ts"
   - "server/test/cabinet*.ts"
@@ -32,6 +33,8 @@ La refonte de l'Expédition, validée le 24 octobre 2026 (`retours/2026-10-24/le
 - `shared/cabinet/musee.ts` — le musée d'un profil (`Musee`, `museeDe`) : ce qu'il possède, son solde, les gardiens dus et le prochain, la série montrée, la visite du jour et son échange, les refus d'un départ (`cadreDuDepart`), d'un achat, d'une dorure
 - `shared/cabinet/vues.ts` — ce que la page reçoit (`PageDuCabinet`, `VueDeLaPartie`, `Cartel`, `MursDuCabinet`, `CabinetDAccueil`), nés complets ; les vues dépliées (`vuesDuCabinet`)
 - `server/src/core/cabinet/contenu.ts` · `server/content/cabinet/*.json` · `server/scripts/cabinet-contenu.ts` — le contenu neuf, ses juges (`trier`), sa lecture une fois par processus, son rangement
+- `server/src/core/cabinet/tables.ts` — ses trois tables (`cabinet_gestes`, `cabinet_profils`, `cabinet_oeuvres`), sa colonne `campagne_series.cabinet` et la clé de son secret (`SECRET_DU_CABINET`), ce que `CampagneStore.init(REVEIL_DU_CABINET)` pose dans son premier lot
+- `server/src/core/porteDeLaCampagne.ts` — la porte (`PorteDeLaCampagne`, `CampagneStore.porte()`), le seul passage vers la campagne, et ses trois crochets : le réveil, les paliers (`statsEnPlus`), la fin d'une expédition (règle `campagne.md`) · `server/test/porte-de-la-campagne.test.ts`
 - `server/test/cabinet-catalogue.test.ts` — le catalogue relu contre les rencontres, les peintures, les légendaires et les saisons ; chaque constante de `bareme.ts` contre sa ligne des barèmes ; les imports des modules légers · `cabinet-jeux-{base,images,neufs}.test.ts` — les neuf jeux par leurs règles · `cabinet-regles.test.ts` — le pli, les pouvoirs, l'issue, la poussière, la lecture, le musée · `cabinet-chronos.test.ts` — le chrono, et jamais l'horloge de la machine · `cabinet-contenu.test.ts` — le contenu livré et ses juges · `cabinet-plans.ts` — les plans d'essai, et une partie qu'on joue geste à geste
 
 ## Les pièges
@@ -56,6 +59,7 @@ La refonte de l'Expédition, validée le 24 octobre 2026 (`retours/2026-10-24/le
 - **Ce qui se tire se tire au départ, et ce qui juge vit au serveur** : la vue choisit ses champs un à un (invariant 1). `vues.ts` est né complet : la chaîne du serveur le remplit, celle de la page le lit sans y toucher — « Mes réponses » révèle chaque manche (`MancheVue.revelation`), le bilan dit son cartel en clair (`BilanVu.cartel`), un enjeu n'a qu'une forme (`EnjeuDUneCase`).
 - **La visite se dérive, puis se fige** : de sa graine secrète et du musée de minuit (`visiteDuJour`), la même à chaque page sans rien écrire ; au premier lot du jour qui écrit — un départ, un échange —, elle se fige dans `cabinet_profils.visites` (`visitesAGarder` : le jour, et les deux d'avant que la rotation relit) et se relit ensuite telle quelle : un jeu livré dans la journée ne la change pas. La rotation lit les jours figés, échange compris, jamais l'ordre recalculé ; un jour sans partie, les premiers de son ordre.
 - **Jamais `Date.now()`** dans `shared/cabinet/` ni `core/cabinet/` (`cabinet-chronos.test.ts` relit les fichiers) : une échéance se lit à l'heure du serveur (invariant 6). La saison d'une œuvre se lit au calendrier du Cabinet (`core/saisons.ts`), jamais à `periodeDu` : le banc et le smoke le ferment.
+- **Le Cabinet n'importe pas `CampagneStore`** : tout passe par sa porte (`core/porteDeLaCampagne.ts`). Une table ou une colonne de plus entre dans `REVEIL_DU_CABINET`, jamais dans un `init` à lui : un aller-retour de plus à chaque réveil de l'hébergeur, que `porte-de-la-campagne.test.ts`, qui ne compte que celui de la campagne, ne verrait pas. Une réponse s'écrit par `porte.ecrireDesReponses`, jamais par `porte.client` : le rituel — l'expédition prévenue, le journal numéroté, l'expérience, les paliers, le compagnon — n'en a qu'une copie, que le Cabinet ne recopie pas. Sa fin dit si le lot l'a écrite (`FinDUnePartie.ecrite`, sur la ligne du geste : un rang déjà pris ne crédite rien), et ses gardiens passent entre l'expérience et les paliers (`avantLesPaliers`). Ce qu'il ajoute aux paliers (`statsEnPlus`) n'a que ses champs (`ChampsDuCabinet`), jamais un compte de la campagne.
 - **La page ne lit pas `CABINET_EN_PRODUCTION`** : la préproduction sert le même code, c'est le serveur qui sait.
 - **Rien d'un Divin** : ni carte-bonus, ni gardien, ni un mot de leurs règles (invariant 21, `divins.test.ts`).
 - **Les mots de l'écran** : « œuvre », « carte-bonus », « carte de France », jamais « carte » seule — `cabinet-catalogue.test.ts` relit les textes du catalogue ; les classes CSS en `cab-`.

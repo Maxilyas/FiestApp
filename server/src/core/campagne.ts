@@ -1364,7 +1364,8 @@ export class CampagneStore {
       // (`chanceAuDepart`). Ce qu'elle dit au joueur ne se reconstruit pas
       // après coup : le modèle se refait, ses réponses changent sa force.
       ['chance', 'REAL'],
-      // Celles du Cabinet de curiosités (le départ figé d'une partie), dans la même boucle : le schéma lu une fois.
+      // Celles du Cabinet de curiosités (le départ figé d'une partie) : le schéma de la table, déjà lu pour les
+      // nôtres, se garde (`schemaDe`) — un réveil ordinaire n'en paie rien, le premier son seul `ALTER`.
       ...(enPlus.colonnesEnPlus ?? []),
     ] as const) {
       await ajouterColonne(this.client, 'campagne_series', colonne, type)
@@ -2294,7 +2295,11 @@ export class CampagneStore {
    * Là où les rencontres s'ouvrent, son niveau d'explorateur aussi : sa
    * renommée, dans le même lot (`lecturesDeLaRenommee`). Et ce que le Cabinet
    * y ajoute (`statsEnPlus`), lu dans le même lot encore : `statsDe` se lit à
-   * chaque fin de partie et à chaque page du profil.
+   * chaque fin de partie et à chaque page du profil. Ses champs s'étalent
+   * d'abord, nos comptes par-dessus : un compte de la campagne qu'il rendrait
+   * par erreur — le typage le refuse déjà (`StatsDuCabinet`) — ne remplace pas
+   * le nôtre. Un champ à lui que `StatsDeCampagne` exige prend son défaut
+   * juste avant.
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
     const enPlus = this.statsEnPlus
@@ -2315,6 +2320,7 @@ export class CampagneStore {
     ])
     const renommee = suite.slice(0, lecturesDuCodex.length)
     return {
+      ...(enPlus && enPlus.lire(suite.slice(lecturesDuCodex.length))),
       record: Number(record.rows[0]?.n ?? 0),
       // Toutes ses bonnes réponses, du journal : la somme des `justes` de ses
       // séries parcourait chacune d'elles, à chaque fin de partie et chaque page.
@@ -2329,7 +2335,6 @@ export class CampagneStore {
       // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun.
       tampons: passeport.rows.length,
       explorateur: this.rencontres ? await this.niveauDExplorateur(renommee) : 0,
-      ...(enPlus && enPlus.lire(suite.slice(lecturesDuCodex.length))),
     }
   }
 
@@ -2921,12 +2926,18 @@ export class CampagneStore {
       this.reponseEcrite()
     }
     const lus = res.slice(0, lot.length)
-    if (!fin) return { lus, xp: [], recompenses: {} }
+    // Un lot gardé par son geste (D9) qui n'a rien écrit — le rang pris par l'autre serveur d'une mise en ligne, un
+    // double toucher — n'a rien fini : la fin écrite ailleurs a crédité, rangé, fait grandir. Le refaire réécrivait la
+    // ligne, relisait `statsDe` et rangeait des paliers que le Cabinet, rejouant le geste, jette avec sa réponse.
+    if (!fin || !fin.ecrite(lus)) return { lus, xp: [], recompenses: {} }
     let xp: number[] = []
     if (experience) {
       const parJour = await this.crediterLaLigne(profileId, res.slice(lot.length), experience)
       xp = parJour ? xpDesJustes(parJour, fin.justes) : fin.justes.map(() => 0)
     }
+    // Ses gardiens, entre l'expérience et les paliers (la conception du Cabinet, § 2.6) : la campagne ne les connaît
+    // pas, et une étagère muette ne fait pas tomber une partie écrite — la page suivante réconcilie.
+    if (fin.avantLesPaliers) await fin.avantLesPaliers().catch(e => console.error('[cabinet] gardiens non rangés, la page suivante les réconciliera :', e))
     const recompenses = await this.recompenserLaFin(profileId, fin.serieId, fin.quand, 'cabinet')
     await this.faireGrandir(profileId)
     return { lus, xp, recompenses }

@@ -55,13 +55,16 @@ export interface PorteDeLaCampagne {
    * Le rituel d'une réponse de campagne, dans l'ordre de `repondre` : prévenir
    * l'expédition en route (`vuAilleurs`), le lot — et au bout, à la fin d'une
    * partie qui a des justes, les lectures de son expérience —, la réponse
-   * écrite numérotée (`reponseEcrite`) ; puis, à la fin seulement, son
-   * expérience créditée une fois pour toute la partie, ses paliers de la
-   * campagne (`recompenser` : Le Marathonien…), le compagnon qui grandit. Sous
-   * le verrou du profil, que le Cabinet tient. Un lot refusé remonte tel quel :
-   * écrit ou non, on ne le sait pas — le Cabinet oublie sa partie gardée, la
-   * base fait foi, et le journal se relira. Ce qui suit le lot ne fait jamais
-   * échouer la réponse, déjà rangée.
+   * écrite numérotée (`reponseEcrite`) ; puis, à la fin seulement et si le lot
+   * l'a écrite (`FinDUnePartie.ecrite`), son expérience créditée une fois pour
+   * toute la partie, ce que le Cabinet y range avant les paliers (ses gardiens,
+   * `avantLesPaliers`), ses paliers de la campagne (`recompenser` : Le
+   * Marathonien…), le compagnon qui grandit. Sous le verrou du profil, que le
+   * Cabinet tient. Un lot refusé remonte tel quel : écrit ou non, on ne le sait
+   * pas — le Cabinet oublie sa partie gardée, la base fait foi, et le journal
+   * se relira. Ce qui suit le lot ne fait jamais échouer la réponse, déjà
+   * rangée : chaque pas qui tombe se dit au journal du serveur, et le suivant
+   * passe quand même.
    */
   ecrireDesReponses(profileId: string, lot: readonly InStatement[], fin?: FinDUnePartie): Promise<ReponsesEcrites>
   /** Le compagnon de sa niche, que la ligne d'une réponse retient (`campagne_reponses.compagnon`) ; null sans compagnon. */
@@ -97,14 +100,37 @@ export interface FinDUnePartie {
    * d'expérience ne change pas, et ne coûte pas un aller-retour.
    */
   justes: readonly number[]
+  /**
+   * Le lot a-t-il écrit la fin ? Lu sur ce qu'il a rendu (`lus`) — la ligne du
+   * geste qui le garde (D9), son `rowsAffected` —, que la porte ne sait pas
+   * lire : elle ne connaît pas le lot. Faux, le rang était déjà pris — l'autre
+   * serveur d'une mise en ligne qui tenait encore la partie, un double
+   * toucher — et rien ne s'est écrit : rien ne se crédite, ne se range ni ne
+   * grandit, la fin écrite ailleurs l'a fait. Sans cette question, le serveur
+   * qui perd réécrivait la ligne d'expérience, relisait `statsDe` et rangeait
+   * des paliers qu'il annonçait dans une réponse que le Cabinet jette.
+   */
+  ecrite(lus: readonly ResultSet[]): boolean
+  /**
+   * Ce que le Cabinet range entre l'expérience et les paliers : la
+   * réconciliation de ses gardiens, la saison, la luciole (sa conception,
+   * § 2.6). Ici et pas après la porte : le compagnon grandit en dernier, et la
+   * campagne ne connaît pas les gardiens. Ce qui y tombe se dit au journal
+   * sans faire tomber la fin : la page suivante réconcilie.
+   */
+  avantLesPaliers?(): Promise<void>
 }
 
 export interface ReponsesEcrites {
   /** Ce que le lot a lu, une entrée par instruction, dans son ordre — sans les lectures de l'expérience. */
   lus: ResultSet[]
-  /** L'expérience de chaque pièce juste, dans l'ordre de `FinDUnePartie.justes` ; vide hors de la fin, zéro si la base a refusé la ligne. */
+  /**
+   * L'expérience de chaque pièce juste, dans l'ordre de `FinDUnePartie.justes` ;
+   * vide hors de la fin et quand le lot ne l'a pas écrite, zéro si la base a
+   * refusé la ligne — la bonne réponse suivante la réécrira.
+   */
   xp: number[]
-  /** Ce que la fin fait tomber — les paliers de la campagne — et les légendaires que ça ouvre ; vide hors de la fin. */
+  /** Ce que la fin fait tomber — les paliers de la campagne — et les légendaires que ça ouvre ; vide hors de la fin, ou si elle ne s'est pas écrite. */
   recompenses: Recompenses
 }
 
@@ -117,7 +143,12 @@ export interface ReponsesEcrites {
 export interface CeQueLeReveilAjoute {
   /** Ses tables (`CREATE TABLE IF NOT EXISTS`), créées avec celles de la campagne. */
   tablesEnPlus?: readonly string[]
-  /** Ses colonnes de `campagne_series`, ajoutées dans la boucle des siennes : le schéma de la table ne se lit qu'une fois. */
+  /**
+   * Ses colonnes de `campagne_series`, ajoutées par `ajouterColonne` après
+   * celles de la campagne, dont le schéma de la table est déjà lu (`schemaDe`,
+   * gardé par client) : un réveil ordinaire n'en paie rien, le premier son
+   * seul `ALTER`.
+   */
   colonnesEnPlus?: readonly (readonly [colonne: string, type: string])[]
   /**
    * La clé, dans `campagne_meta`, d'un secret que le premier réveil tire et
@@ -128,14 +159,30 @@ export interface CeQueLeReveilAjoute {
 }
 
 /**
+ * Les champs de `StatsDeCampagne` que le Cabinet compte, et que la campagne ne
+ * compte pas : aucun encore. Les salles complètes de L'Explorateur (`salles`)
+ * y entreront quand ses paliers se reliront aux salles, avec leur champ et son
+ * défaut (`AUCUNE_CAMPAGNE`).
+ */
+export type ChampsDuCabinet = never
+
+/**
+ * Ce que le Cabinet tire de ses lectures pour les paliers : ses champs, jamais
+ * un de ceux que la campagne compte. Rendus par erreur, un `justes` ou des
+ * `tampons` changeraient en silence Le Marathonien ou le Globe-trotter de tout
+ * le monde : le typage les refuse, et `statsDe` étale ses comptes par-dessus.
+ */
+export type StatsDuCabinet = Partial<Pick<StatsDeCampagne, ChampsDuCabinet>> & { readonly [K in Exclude<keyof StatsDeCampagne, ChampsDuCabinet>]?: never }
+
+/**
  * Ce que le Cabinet ajoute aux paliers de la campagne (`statsDe`, lu à chaque
  * fin de partie et à chaque page du profil) : ses lectures dans le même lot,
  * jamais une requête à part, et ce qu'il en tire.
  */
 export interface StatsEnPlus {
   lectures(profileId: string): InStatement[]
-  /** Ce que disent ses lectures, dans leur ordre ; ajouté à ce que la campagne a compté. */
-  lire(lus: readonly ResultSet[]): Partial<StatsDeCampagne>
+  /** Ce que disent ses lectures, dans leur ordre : ses champs, ajoutés à ce que la campagne a compté. */
+  lire(lus: readonly ResultSet[]): StatsDuCabinet
 }
 
 /**

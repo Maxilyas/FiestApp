@@ -15,10 +15,11 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
-import type { InStatement } from '@libsql/client'
-import { patienter } from './banc'
+import type { InStatement, InValue } from '@libsql/client'
+import { patienter, relireJusqua } from './banc'
 import { CampagneStore, type RecompensesDeCampagne } from '../src/core/campagne'
 import { REVEIL_DU_CABINET, SECRET_DU_CABINET } from '../src/core/cabinet/tables'
+import type { FinDUnePartie, StatsDuCabinet, StatsEnPlus } from '../src/core/porteDeLaCampagne'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { cleDeSerie } from '../src/auth/profiles'
 import { SOUS_THEMES } from '../../shared/etiquettes'
@@ -119,36 +120,84 @@ function lire<T>(nom: string, sql: string, ...args: unknown[]): T[] {
   }
 }
 
-/** Une partie du Cabinet telle que son départ l'écrirait : une ligne de `campagne_series`, sans pièce encore. */
+/** Une partie du Cabinet telle que son départ l'écrirait, dix minutes avant l'heure de son magasin : une ligne de `campagne_series`, sans pièce encore. */
 function partie(c: CampagneStore, id: string) {
   return c.porte().client.execute({
     sql: `INSERT INTO campagne_series (id, profile_id, mode, commencee_le, questions, position, vies, justes, cabinet) VALUES (?, ?, 'cabinet', ?, '[]', 0, 0, 0, '{}')`,
-    args: [id, QUI, MAINTENANT - 120_000],
+    args: [id, QUI, c.porte().maintenant() - 10 * 60_000],
   })
 }
 
-/** Ce qu'une pièce jugée écrit, comme le lot d'un geste du Cabinet : sa réponse, et la pièce au bout de la partie. */
-function piece(c: CampagneStore, serie: string, position: number, q: QuestionDeLaBase, juste: boolean, le: number): InStatement[] {
-  const garde = { id: q.id, texte: q.texte, reponses: q.reponses, bonne: q.bonne, categorie: q.meta.categorie, anecdote: q.anecdote, niveau: 'moyen', forme: 'pari' }
+/** Une condition SQL et ses valeurs, à poser au bout d'un `WHERE`. */
+type Garde = { sql: string; args: InValue[] }
+
+/**
+ * La garde d'un lot du Cabinet (D9), telle que son magasin l'écrira : le geste au rang qu'il croit suivre, que la base
+ * ne prend qu'une fois (`ON CONFLICT DO NOTHING`), et chaque autre instruction du lot sous lui, par son `uid`. Le
+ * même rang déjà pris — l'autre serveur d'une mise en ligne, un double toucher —, le lot n'écrit rien.
+ */
+function geste(serie: string, rang: number, uid: string): { ecrire: InStatement; sousLui: Garde } {
+  return {
+    ecrire: {
+      sql: `INSERT INTO cabinet_gestes (serie_id, rang, geste, fait_le, uid) VALUES (?, ?, '{"quoi":"repondre","manche":2}', ?, ?) ON CONFLICT (serie_id, rang) DO NOTHING`,
+      args: [serie, rang, MAINTENANT, uid],
+    },
+    sousLui: { sql: 'EXISTS (SELECT 1 FROM cabinet_gestes WHERE serie_id = ? AND rang = ? AND uid = ?)', args: [serie, rang, uid] },
+  }
+}
+
+/** La fin d'une partie dont le lot commence par son geste : écrite si la base a pris le geste. */
+const ecriteSiLeGestePasse: FinDUnePartie['ecrite'] = ([geste]) => geste.rowsAffected === 1
+
+/** Ce qu'une pièce jugée écrit, comme le lot d'un geste du Cabinet : sa réponse, et la pièce au bout de la partie — sous le geste qui garde le lot. */
+function piece(c: CampagneStore, serie: string, position: number, q: QuestionDeLaBase, juste: boolean, le: number, garde: Garde = { sql: '1', args: [] }): InStatement[] {
+  const gardee = { id: q.id, texte: q.texte, reponses: q.reponses, bonne: q.bonne, categorie: q.meta.categorie, anecdote: q.anecdote, niveau: 'moyen', forme: 'pari' }
   return [
     {
-      sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, forme) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      args: [serie, position, q.id, juste ? q.bonne : (q.bonne + 1) % 4, juste ? 1 : 0, le, c.porte().compagnonDeLaNiche(QUI), 'pari'],
+      sql: `INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, forme) SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE ${garde.sql}`,
+      args: [serie, position, q.id, juste ? q.bonne : (q.bonne + 1) % 4, juste ? 1 : 0, le, c.porte().compagnonDeLaNiche(QUI), 'pari', ...garde.args],
     },
     {
-      sql: `UPDATE campagne_series SET questions = json_insert(questions, '$[#]', json(?)), position = position + 1, justes = justes + ? WHERE id = ?`,
-      args: [JSON.stringify(garde), juste ? 1 : 0, serie],
+      sql: `UPDATE campagne_series SET questions = json_insert(questions, '$[#]', json(?)), position = position + 1, justes = justes + ? WHERE id = ? AND ${garde.sql}`,
+      args: [JSON.stringify(gardee), juste ? 1 : 0, serie, ...garde.args],
     },
   ]
 }
 
+/** Ce que le serveur dit à son journal (`console.error`) pendant ce travail, qui le lit en route : un pas tombé ne se tait pas. */
+async function enEcoutantLeJournal<T>(travail: (dits: readonly string[]) => Promise<T>): Promise<{ resultat: T; dits: string[] }> {
+  const dits: string[] = []
+  const erreur = console.error
+  console.error = (...args: unknown[]) => void dits.push(args.map(String).join(' '))
+  try {
+    return { resultat: await travail(dits), dits }
+  } finally {
+    console.error = erreur
+  }
+}
+
+/**
+ * Ce que le Cabinet tirera de ses œuvres pour L'Explorateur : ses salles complètes, un champ que `StatsDeCampagne`
+ * n'a pas encore (`ChampsDuCabinet` n'en compte aucun) — d'où le transtypage. Il dit que ce qu'il rend arrive aux paliers.
+ */
+const sesSalles = (n: number) => ({ salles: n }) as unknown as StatsDuCabinet
+const sallesDe = (stats: object) => (stats as { salles?: number }).salles
+
 // ── Le réveil ─────────────────────────────────────────────────────────────
 
-test('le Cabinet naît dans le premier lot de la campagne : pas un aller-retour de plus au réveil, ni un schéma relu', async () => {
+/** Les `ALTER` qu'un réveil a envoyés : une colonne ajoutée, un aller-retour chacun. */
+const altersDe = (m: { lots: string[][] }) => m.lots.flat().filter(s => /^ALTER TABLE/.test(s))
+
+test('le Cabinet naît dans le premier lot de la campagne : pas un aller-retour de plus au réveil', async () => {
   // Une base neuve : la colonne du départ figé s'y ajoute, une fois — un `ALTER`, au premier réveil seulement.
   const neuve = await mesurer(() => magasin('reveil-avec.db').init(REVEIL_DU_CABINET))
   const neuveSans = await mesurer(() => magasin('reveil-sans.db').init())
   assert.equal(neuve.appels, neuveSans.appels + 1, `${neuve.appels} allers-retours au premier réveil, ${neuveSans.appels} sans le Cabinet`)
+  assert.deepEqual(
+    altersDe(neuve).filter(s => !altersDe(neuveSans).includes(s)),
+    ['ALTER TABLE campagne_series ADD COLUMN cabinet TEXT'],
+    'ce que le Cabinet ajoute au premier réveil : sa seule colonne',
+  )
 
   // Le réveil ordinaire, sur une base qui a déjà tout : autant qu'avant le Cabinet.
   const avec = await mesurer(() => magasin('reveil-avec.db').init(REVEIL_DU_CABINET))
@@ -166,8 +215,8 @@ test('le Cabinet naît dans le premier lot de la campagne : pas un aller-retour 
   }
   assert.ok(premier.some(s => /INSERT INTO campagne_meta .*ON CONFLICT \(cle\) DO NOTHING/.test(s)), 'le secret se propose dans le premier lot')
   assert.ok(premier.some(s => /SELECT valeur FROM campagne_meta WHERE cle = \?/.test(s)), 'et s’y relit')
-  // Sa colonne passe dans la boucle de celles de la campagne : le schéma de la table ne se lit qu'une fois.
-  assert.equal(avec.lots.filter(l => /^PRAGMA table_info\(campagne_series\)/.test(l[0])).length, 1, 'le schéma de campagne_series relu une seule fois')
+  // Sa colonne passe par `ajouterColonne`, qui a déjà le schéma de la table (`schemaDe`) : là, rien à ajouter, rien à payer.
+  assert.deepEqual(altersDe(avec), [], 'le réveil d’une base qui a tout n’ajoute aucune colonne')
 
   const tables = (nom: string) => lire<{ name: string }>(nom, `SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'cabinet\\_%' ESCAPE '\\' ORDER BY name`).map(t => t.name)
   assert.deepEqual(tables('reveil-avec.db'), ['cabinet_gestes', 'cabinet_oeuvres', 'cabinet_profils'])
@@ -238,7 +287,8 @@ test('une réponse écrite par la porte : l’expédition en route relit ce qu�
   await avancer(essai)
   const finie = await Promise.race([jeu.abandonnerLExpedition(QUI, essai.id).then(() => true), patienter(3_000).then(() => false)])
   assert.ok(finie, 'la fin de l’expédition n’attend pas le Cabinet')
-  await patienter(300)
+  // Dit en fond : on attend qu'il l'ait appris, jamais derrière une pause fixe (règle `tests.md`).
+  await relireJusqua(async () => rapportees.length, n => n > 0)
   assert.deepEqual(rapportees, [QUI], 'la fin d’une expédition prévient le Cabinet')
 
   const v = await jeu.partirEnExpedition(QUI)
@@ -270,30 +320,27 @@ test('une réponse écrite par la porte : l’expédition en route relit ce qu�
 
   // Un crochet qui tombe ne fait pas tomber la fin : il se dit au journal du serveur.
   jeu.apresLExpedition = () => Promise.reject(new Error('le Cabinet est muet'))
-  const dits: string[] = []
-  const erreur = console.error
-  console.error = (...args: unknown[]) => void dits.push(args.map(String).join(' '))
-  try {
+  const { dits } = await enEcoutantLeJournal(async dits => {
     await jeu.abandonnerLExpedition(QUI, v.id)
-    await patienter(50)
-  } finally {
-    console.error = erreur
-  }
+    await relireJusqua(async () => dits.length, n => n > 0)
+  })
   assert.ok(dits.some(d => d.includes('le Cabinet est muet')), dits.join('\n'))
 })
 
-/** L'étagère des profils, pour voir ce que la fin d'une partie y range. */
-function etagere() {
+/** L'étagère des profils, pour voir ce que la fin d'une partie y range — et dans quel ordre, avec ce qui s'y écrit d'autre (`ordre`). */
+function etagere(ordre: string[] = []) {
   const rangees: { sous: string; cles: string[]; quand: number | undefined }[] = []
-  const paliers: { sous: string; justes: number; tampons: number }[] = []
+  const paliers: { sous: string; justes: number; tampons: number; salles: number | undefined }[] = []
   const recompenses: RecompensesDeCampagne = {
     ranger: async (_id, sous, cles, quand) => {
+      ordre.push('ranger')
       rangees.push({ sous, cles: [...cles], quand })
       return []
     },
     recompensesOf: () => new Map(),
     accorderPaliersDeCampagne: async (_id, sous, stats) => {
-      paliers.push({ sous, justes: stats.justes, tampons: stats.tampons })
+      ordre.push('paliers')
+      paliers.push({ sous, justes: stats.justes, tampons: stats.tampons, salles: sallesDe(stats) })
       return ['hf:marathonien:1']
     },
     legendairesOuverts: () => [],
@@ -302,23 +349,35 @@ function etagere() {
   return { rangees, paliers, recompenses }
 }
 
-test('la fin d’une partie : son expérience créditée une fois, ses paliers rangés sous elle, son compagnon qui grandit', async () => {
+test('la fin d’une partie : son expérience créditée une fois, ses gardiens, ses paliers rangés sous elle, son compagnon qui grandit', async () => {
+  const ordre: string[] = []
   const lignes: { xp: number; jours: number }[] = []
-  const { rangees, paliers, recompenses } = etagere()
-  const fin = magasin('fin.db', { recompenses, ecrireXp: async (_id, xp, jours) => void lignes.push({ xp, jours }) })
+  const { rangees, paliers, recompenses } = etagere(ordre)
+  const fin = magasin('fin.db', {
+    recompenses,
+    ecrireXp: async (_id, xp, jours) => {
+      ordre.push('expérience')
+      lignes.push({ xp, jours })
+    },
+  })
   await fin.init(REVEIL_DU_CABINET)
   const grandis: string[] = []
   fin.profils = {
     cached: (id: string) => ({ id }),
     compagnonDeLaNiche: () => 'loup',
-    faireGrandir: async (id: string) => void grandis.push(id),
+    faireGrandir: async (id: string) => {
+      ordre.push('compagnon')
+      grandis.push(id)
+    },
   } as unknown as CampagneStore['profils']
-  // Ce que le Cabinet ajoute aux paliers, lu dans le lot de `statsDe` : ici ses œuvres, comptées dans un champ
-  // d'aujourd'hui — les salles complètes de L'Explorateur viendront après l'ouverture.
+  // Ce que le Cabinet ajoute aux paliers, lu dans le lot de `statsDe` : ici ses œuvres, comptées en salles.
+  let oeuvresLues: number | null = null
   fin.statsEnPlus = {
     lectures: id => [{ sql: 'SELECT COUNT(*) AS n FROM cabinet_oeuvres WHERE profile_id = ?', args: [id] }],
-    lire: ([oeuvres]) => ({ tampons: Number(oeuvres.rows[0].n) }),
+    lire: ([oeuvres]) => sesSalles((oeuvresLues = Number(oeuvres.rows[0].n))),
   }
+  // Les gardiens du Cabinet (§ 2.6 de sa conception) : entre l'expérience et les paliers, à chaque fin écrite.
+  const avantLesPaliers = async () => void ordre.push('gardiens')
   const porte = fin.porte()
   assert.equal(porte.compagnonDeLaNiche(QUI), 'loup', 'le compagnon de sa niche, que la ligne de chaque pièce retient')
 
@@ -337,13 +396,16 @@ test('la fin d’une partie : son expérience créditée une fois, ses paliers r
 
   await partie(fin, 'partie-fin')
   const [t1, t2] = [MAINTENANT - 90_000, MAINTENANT - 20_000]
+  const g = geste('partie-fin', 1, 'uid-du-geste')
   const lot = [
-    ...piece(fin, 'partie-fin', 0, BASE.questions[40], true, t1),
-    ...piece(fin, 'partie-fin', 1, BASE.questions[41], false, MAINTENANT - 50_000),
-    ...piece(fin, 'partie-fin', 2, BASE.questions[42], true, t2),
+    g.ecrire,
+    ...piece(fin, 'partie-fin', 0, BASE.questions[40], true, t1, g.sousLui),
+    ...piece(fin, 'partie-fin', 1, BASE.questions[41], false, MAINTENANT - 50_000, g.sousLui),
+    ...piece(fin, 'partie-fin', 2, BASE.questions[42], true, t2, g.sousLui),
     { sql: 'SELECT position, justes FROM campagne_series WHERE id = ?', args: ['partie-fin'] },
   ]
-  const ecrit = await mesurer(() => porte.ecrireDesReponses(QUI, lot, { serieId: 'partie-fin', quand: MAINTENANT, justes: [t1, t2] }))
+  const laFin = { serieId: 'partie-fin', quand: MAINTENANT, justes: [t1, t2], ecrite: ecriteSiLeGestePasse, avantLesPaliers }
+  const ecrit = await mesurer(() => porte.ecrireDesReponses(QUI, lot, laFin))
   // Le lot, l'expérience lue à son bout ; puis les paliers (`statsDe`), d'un lot qui lit aussi ce que le Cabinet y ajoute.
   // La ligne d'expérience et la croissance passent par les profils, que ce banc n'écrit pas.
   assert.equal(ecrit.appels, 2, `${ecrit.appels} allers-retours pour la fin d'une partie`)
@@ -359,9 +421,12 @@ test('la fin d’une partie : son expérience créditée une fois, ses paliers r
   assert.deepEqual(ecrit.resultat.xp, [xpDeLaBonneReponse(20), xpDeLaBonneReponse(21)])
   assert.deepEqual(ecrit.resultat.xp, [10, 5], 'la vingtième au double, la vingt et unième non')
 
+  // Dans l'ordre de la conception : l'expérience, les gardiens, l'étagère et ses paliers, puis le compagnon.
+  assert.deepEqual(ordre, ['expérience', 'gardiens', 'ranger', 'paliers', 'compagnon'])
   // Ses paliers, rangés sous la partie, sur des stats qui comptent ses justes et ce que le Cabinet y ajoute.
   assert.deepEqual(rangees, [{ sous: cleDeSerie('partie-fin'), cles: [], quand: MAINTENANT }])
-  assert.deepEqual(paliers, [{ sous: cleDeSerie('partie-fin'), justes: 21, tampons: 2 }])
+  assert.equal(oeuvresLues, 2, 'il lit ce que ses lectures ont rendu')
+  assert.deepEqual(paliers, [{ sous: cleDeSerie('partie-fin'), justes: 21, tampons: 0, salles: 2 }])
   assert.deepEqual(
     ecrit.resultat.recompenses.recompenses?.map(r => r.key),
     ['hf:marathonien:1'],
@@ -369,10 +434,28 @@ test('la fin d’une partie : son expérience créditée une fois, ses paliers r
   assert.deepEqual(grandis, [QUI], 'le compagnon grandit à la fin d’une partie, jamais pendant une manche')
   assert.deepEqual(lire('fin.db', `SELECT DISTINCT compagnon FROM campagne_reponses WHERE serie_id = 'partie-fin'`), [{ compagnon: 'loup' }])
 
+  // Le même geste, pris ailleurs — l'autre serveur d'une mise en ligne qui tient encore la partie, un double toucher — :
+  // son lot n'écrit rien, et la fin ne se refait pas. Ni l'expérience, ni les gardiens, ni l'étagère, ni le compagnon :
+  // la fin écrite les a eus. Son lot seul, un aller-retour.
+  const autre = geste('partie-fin', 1, 'uid-de-l-autre-serveur')
+  const ailleurs = await mesurer(() =>
+    porte.ecrireDesReponses(QUI, [autre.ecrire, ...piece(fin, 'partie-fin', 3, BASE.questions[45], true, MAINTENANT, autre.sousLui)], { ...laFin, justes: [MAINTENANT] }),
+  )
+  assert.equal(ailleurs.appels, 1, `${ailleurs.appels} allers-retours pour une fin que la base n'a pas prise`)
+  assert.equal(ailleurs.resultat.lus[0].rowsAffected, 0, 'le geste était déjà pris')
+  assert.deepEqual(ailleurs.resultat.xp, [], 'rien de crédité')
+  assert.deepEqual(ailleurs.resultat.recompenses, {}, 'rien de rangé')
+  assert.deepEqual(ordre, ['expérience', 'gardiens', 'ranger', 'paliers', 'compagnon'], 'rien ne se refait')
+  assert.deepEqual(
+    lire<{ position: number }>('fin.db', `SELECT position FROM campagne_reponses WHERE serie_id = 'partie-fin' ORDER BY position`).map(r => r.position),
+    [0, 1, 2],
+    'et rien ne s’est écrit sous le geste d’un autre',
+  )
+
   // Une partie sans une juste : rien à créditer, pas un aller-retour pour la ligne — ses paliers se relisent quand même.
   await partie(fin, 'partie-blanche')
   const blanche = await mesurer(() =>
-    porte.ecrireDesReponses(QUI, piece(fin, 'partie-blanche', 0, BASE.questions[43], false, MAINTENANT), { serieId: 'partie-blanche', quand: MAINTENANT, justes: [] }),
+    porte.ecrireDesReponses(QUI, piece(fin, 'partie-blanche', 0, BASE.questions[43], false, MAINTENANT), { serieId: 'partie-blanche', quand: MAINTENANT, justes: [], ecrite: () => true }),
   )
   assert.equal(blanche.appels, 2, `${blanche.appels} allers-retours pour une fin sans juste : le lot, les paliers`)
   assert.ok(!blanche.lots[0].some(s => s.includes('json_group_array')), 'aucune lecture de l’expérience au bout du lot')
@@ -380,6 +463,67 @@ test('la fin d’une partie : son expérience créditée une fois, ses paliers r
   assert.deepEqual(blanche.resultat.xp, [])
   assert.equal(rangees.length, 2)
   assert.deepEqual(grandis, [QUI, QUI])
+})
+
+test('une partie à cheval sur minuit : chaque juste paie au rang qu’elle a dans son jour de Paris', async () => {
+  // Mercredi 21 octobre 2026, 0 h 05 à Paris — 22 h 05 UTC la veille, à l'heure d'été.
+  const apresMinuit = Date.UTC(2026, 9, 20, 22, 5)
+  const lignes: { xp: number; jours: number }[] = []
+  const minuit = magasin('minuit.db', { recompenses: etagere().recompenses, maintenant: () => apresMinuit, ecrireXp: async (_id, xp, jours) => void lignes.push({ xp, jours }) })
+  await minuit.init(REVEIL_DU_CABINET)
+  const porte = minuit.porte()
+
+  // Vingt bonnes réponses mardi à 20 h : la juste de 23 h 59 est la vingt et unième de son jour, celle de 0 h 01 la première du sien.
+  const db = new Database(fichier('minuit.db'))
+  try {
+    const mardi = Date.UTC(2026, 9, 20, 18, 0)
+    db.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le) VALUES ('mardi', ?, '[]', 20, 3, 20, ?, ?)`).run(QUI, mardi, mardi + 30 * 60_000)
+    const reponse = db.prepare(`INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES ('mardi', ?, ?, 0, 1, ?)`)
+    for (let i = 0; i < 20; i++) reponse.run(i, BASE.questions[i].id, mardi + i * 60_000)
+  } finally {
+    db.close()
+  }
+  await porte.lireAvecLeJournal([])
+
+  await partie(minuit, 'partie-de-minuit')
+  const [avant, apres] = [Date.UTC(2026, 9, 20, 21, 59), Date.UTC(2026, 9, 20, 22, 1)]
+  const g = geste('partie-de-minuit', 1, 'uid-de-minuit')
+  const lot = [g.ecrire, ...piece(minuit, 'partie-de-minuit', 0, BASE.questions[46], true, avant, g.sousLui), ...piece(minuit, 'partie-de-minuit', 1, BASE.questions[47], true, apres, g.sousLui)]
+  const { xp } = await porte.ecrireDesReponses(QUI, lot, { serieId: 'partie-de-minuit', quand: apresMinuit, justes: [avant, apres], ecrite: ecriteSiLeGestePasse })
+  assert.deepEqual(xp, [xpDeLaBonneReponse(21), xpDeLaBonneReponse(1)])
+  assert.deepEqual(xp, [5, 10], 'la vingt et unième de mardi au simple, la première de mercredi au double')
+  // La ligne, elle, se relit jour par jour : deux jours, chacun à son compte.
+  assert.deepEqual(lignes, [{ xp: xpDuJourDeCampagne(21) + xpDuJourDeCampagne(1), jours: 2 }])
+})
+
+test('ce qui suit le lot ne fait jamais échouer la fin : la partie est écrite, et chaque pas qui tombe se dit au journal', async () => {
+  const ordre: string[] = []
+  const muet = (quoi: string, message: string) => async () => {
+    ordre.push(quoi)
+    throw new Error(message)
+  }
+  const recompenses: RecompensesDeCampagne = { ...etagere(ordre).recompenses, ranger: muet('ranger', 'étagère muette') }
+  const tombe = magasin('tombe.db', { recompenses, ecrireXp: muet('expérience', 'ligne d’expérience refusée') })
+  await tombe.init(REVEIL_DU_CABINET)
+  tombe.profils = { faireGrandir: muet('compagnon', 'niche muette') } as unknown as CampagneStore['profils']
+  const porte = tombe.porte()
+  await porte.lireAvecLeJournal([])
+
+  await partie(tombe, 'partie-tombee')
+  const [t1, t2] = [MAINTENANT - 60_000, MAINTENANT - 30_000]
+  const g = geste('partie-tombee', 1, 'uid-tombe')
+  const lot = [g.ecrire, ...piece(tombe, 'partie-tombee', 0, BASE.questions[48], true, t1, g.sousLui), ...piece(tombe, 'partie-tombee', 1, BASE.questions[49], true, t2, g.sousLui)]
+  const { resultat, dits } = await enEcoutantLeJournal(() =>
+    porte.ecrireDesReponses(QUI, lot, { serieId: 'partie-tombee', quand: MAINTENANT, justes: [t1, t2], ecrite: ecriteSiLeGestePasse, avantLesPaliers: muet('gardiens', 'gardiens muets') }),
+  )
+  // Chaque pas tombe, et chacun a sa chance : un pas tombé n'emporte pas les suivants.
+  assert.deepEqual(ordre, ['expérience', 'gardiens', 'ranger', 'compagnon'])
+  assert.deepEqual(resultat.xp, [0, 0], 'la ligne refusée : un zéro par juste, que la bonne réponse suivante réécrira')
+  assert.deepEqual(resultat.recompenses, {}, 'l’étagère muette ne range rien')
+  for (const message of ['ligne d’expérience refusée', 'gardiens muets', 'étagère muette', 'niche muette']) {
+    assert.ok(dits.some(d => d.includes(message)), `« ${message} » se dit au journal :\n${dits.join('\n')}`)
+  }
+  assert.equal(lire<{ n: number }>('tombe.db', `SELECT COUNT(*) AS n FROM campagne_reponses WHERE serie_id = 'partie-tombee'`)[0].n, 2, 'la partie est écrite')
 })
 
 test('un lot refusé remonte tel quel : rien n’est crédité ni rangé, et le journal se sait en retard', async () => {
@@ -398,7 +542,7 @@ test('un lot refusé remonte tel quel : rien n’est crédité ni rangé, et le 
   db.exec(`CREATE TRIGGER panne_piece BEFORE INSERT ON campagne_reponses BEGIN SELECT RAISE(ABORT, 'base permanente muette'); END`)
   db.close()
   await assert.rejects(
-    porte.ecrireDesReponses(QUI, piece(ratee, 'partie-ratee', 0, BASE.questions[44], true, MAINTENANT), { serieId: 'partie-ratee', quand: MAINTENANT, justes: [MAINTENANT] }),
+    porte.ecrireDesReponses(QUI, piece(ratee, 'partie-ratee', 0, BASE.questions[44], true, MAINTENANT), { serieId: 'partie-ratee', quand: MAINTENANT, justes: [MAINTENANT], ecrite: () => true }),
     /base permanente muette/,
   )
   assert.deepEqual(lignes, [], 'rien de crédité')
@@ -408,7 +552,7 @@ test('un lot refusé remonte tel quel : rien n’est crédité ni rangé, et le 
   assert.equal((await mesurer(() => porte.lireAvecLeJournal([]))).appels, 1, 'le journal se relit après un lot refusé')
 })
 
-test('ce que le Cabinet ajoute aux paliers part dans le lot de statsDe, sans un aller-retour de plus', async () => {
+test('ce que le Cabinet ajoute aux paliers part dans le lot de statsDe, sans un aller-retour de plus, et ne remplace rien de la campagne', async () => {
   const stats = magasin('stats.db')
   await stats.init(REVEIL_DU_CABINET)
   await stats.porte().lireAvecLeJournal([])
@@ -418,15 +562,25 @@ test('ce que le Cabinet ajoute aux paliers part dans le lot de statsDe, sans un 
     lectures: id => [{ sql: 'SELECT COUNT(*) AS n FROM cabinet_oeuvres WHERE profile_id = ?', args: [id] }],
     lire: ([oeuvres]) => {
       lu = Number(oeuvres.rows[0].n)
-      return { tampons: 7 }
+      return sesSalles(4)
     },
   }
   const avec = await mesurer(() => stats.statsDe(QUI))
   assert.equal(avec.appels, sans.appels, `${avec.appels} allers-retours avec ce que le Cabinet ajoute, ${sans.appels} sans`)
   assert.equal(avec.appels, 1)
   assert.equal(lu, 0, 'il lit ce que ses lectures ont rendu')
-  assert.equal(sans.resultat.tampons, 0)
-  assert.equal(avec.resultat.tampons, 7, 'et ce qu’il en tire s’ajoute aux paliers')
+  assert.equal(sallesDe(sans.resultat), undefined)
+  assert.equal(sallesDe(avec.resultat), 4, 'et ce qu’il en tire s’ajoute aux paliers')
+
+  // Un compte de la campagne rendu par erreur — les tampons du Globe-trotter, les bonnes réponses du Marathonien —
+  // changerait en silence les paliers de tout le monde. Le typage le refuse…
+  // @ts-expect-error — un compte de la campagne n'est pas un champ du Cabinet (`ChampsDuCabinet`)
+  const tricheur: StatsEnPlus['lire'] = () => ({ tampons: 7, justes: 900 })
+  // … et rendu quand même, la campagne compte par-dessus.
+  stats.statsEnPlus = { lectures: () => [], lire: tricheur }
+  const triche = await stats.statsDe(QUI)
+  assert.equal(triche.tampons, 0, 'les tampons restent ceux du passeport')
+  assert.equal(triche.justes, 0, 'les bonnes réponses, celles du journal')
 })
 
 test('la porte rend la base de la campagne telle qu’elle la garde, et son verrou', async () => {
@@ -449,20 +603,30 @@ test('la porte rend la base de la campagne telle qu’elle la garde, et son verr
   const mesure = await porte.mesures()
   assert.equal(await porte.mesures(), mesure)
 
-  // Le verrou du profil est celui de la campagne : une série qui commence attend le geste du Cabinet en cours.
+  // Le verrou du profil est celui de la campagne, dans les deux sens. Une série qui commence d'abord : le geste du
+  // Cabinet passe après elle, et la trouve écrite. Sous un verrou à part, il partirait avant son premier aller-retour.
+  const seriesDe = () => lire<{ n: number }>('garde.db', `SELECT COUNT(*) AS n FROM campagne_series WHERE profile_id = ? AND mode = 'serie'`, QUI)[0].n
+  const premiere = garde.commencer(QUI)
+  const vues = await porte.avecVerrou(QUI, async () => seriesDe())
+  await premiere
+  assert.equal(vues, 1, 'le geste du Cabinet attend la série commencée avant lui')
+
+  // Un geste du Cabinet d'abord : la série attend qu'il ait fini — quand celle d'un autre profil commence, elle.
   const ordre: string[] = []
   let relacher!: () => void
-  const geste = porte.avecVerrou(QUI, async () => {
+  const unGeste = porte.avecVerrou(QUI, async () => {
     ordre.push('geste du Cabinet')
     await new Promise<void>(r => (relacher = r))
     ordre.push('geste du Cabinet écrit')
   })
   const serie = garde.commencer(QUI).then(() => ordre.push('série commencée'))
-  await patienter(20)
-  assert.deepEqual(ordre, ['geste du Cabinet'])
+  await garde.commencer('un-autre-profil')
+  assert.deepEqual(ordre, ['geste du Cabinet'], 'la série d’un autre profil a commencé, la sienne attend')
+  assert.equal(seriesDe(), 1)
   relacher()
-  await Promise.all([geste, serie])
+  await Promise.all([unGeste, serie])
   assert.deepEqual(ordre, ['geste du Cabinet', 'geste du Cabinet écrit', 'série commencée'])
+  assert.equal(seriesDe(), 2)
 
   // Le codex qu'il ouvre aujourd'hui : sa renommée relue de ses bilans, d'un aller-retour — sans expédition, le premier niveau.
   const codex = await mesurer(() => porte.codexDuProfil(QUI, VERSION_DES_HUIT_FAMILLES))
