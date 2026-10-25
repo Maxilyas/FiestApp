@@ -12,7 +12,8 @@
 // série, son loup dans sa niche — : son musée, une salle complète et ses
 // cadres dorés, une œuvre et son cartel, une salle à une œuvre près, son cadre
 // vide, les gardiens et une fiche, la visite du jour ; l'annonce et le choix
-// de sa carte-bonus ; une manche et sa révélation de chacun des neuf jeux, en
+// de sa carte-bonus ; la fiche de sa niche, touchée en pleine manche (`[fiche]`
+// si elle ne sort pas sous la niche) ; une manche et sa révélation de chacun des neuf jeux, en
 // partie libre — le Pari parié, l'Éclair et ses cinq affirmations, le Détail
 // éclairé et un pas en arrière, la Frise rangée, le Mot mystère et la pause de
 // « Quitter ? », un essai et ses couleurs, le Filet éclairé, l'Épingle
@@ -34,13 +35,15 @@
 // à la fin, et le tout dans `rapport.txt`. Le client construit d'abord
 // (`npm run build -w client`).
 //
+// `THEME` : tout thème — offert, vendu ou gagné —, que Zoé et Léa portent d'office.
+//
 //   npx tsx scripts/rendu-cabinet.ts ../export/rendu-cabinet    (ECRAN=1366x768, THEME=ivoire, ENCOCHE=47)
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
-import { demarrer, ecrire, inscrireProfil } from '../test/banc'
+import { demarrer, inscrireProfil } from '../test/banc'
 import { DIX_HEURES, departEnBase } from '../test/cabinet-banc'
 import { CE_QUI_DEBORDE, CE_QUI_EST_COUPE, CE_QUI_SE_CHEVAUCHE, SOUS_LA_NICHE, contrasteDeLaPage } from './a-l-ecran'
 import { HAUTEUR_DE_LA_CARTE, LARGEUR_DE_LA_CARTE, projeter } from '../../shared/cabinet/france'
@@ -63,6 +66,8 @@ mkdirSync(sortie, { recursive: true })
 const [largeur, hauteur] = (process.env.ECRAN ?? '360x640').split('x').map(Number)
 const telephone = largeur < 600
 const theme = process.env.THEME ?? null
+// Une clé inconnue se dit d'emblée : écrite en base, le serveur la lirait comme le Velours, et le rendu photographierait l'autre.
+if (theme && !THEMES.some(t => t.key === theme)) throw new Error(`THEME=${theme} : aucun thème de ce nom (${THEMES.map(t => t.key).join(', ')})`)
 // L'encoche d'un iPhone, en pixels : Chromium sans écran la tient à zéro, et la niche descend avec elle (`rendu-niche.ts`).
 const encoche = Number(process.env.ENCOCHE ?? 0)
 
@@ -131,14 +136,20 @@ async function photo(page: any, nom: string, { pleine = false, attente = 500 } =
   console.log(ligne)
 }
 
+/** Au-delà, une feuille ne finit plus : son corps défile sans fin, ou ne défile pas. */
+const ECRANS_D_UNE_FEUILLE_AU_PLUS = 40
+
 /**
- * Une feuille entière, morceau par morceau : son corps défile en lui-même, et
- * la photo de la page n'en montre que le haut.
+ * Une feuille entière, morceau par morceau, jusqu'à son bas : son corps
+ * défile en lui-même, et la photo de la page n'en montre que le haut. Arrêtée
+ * à huit écrans, la feuille du choix de la carte-bonus de Léa — trente-neuf
+ * œuvres — taisait ses dernières cartes, et le rapport disait « rien à
+ * redire » (la relecture du lot).
  */
 async function photoDeLaFeuille(page: any, nom: string) {
   const corps = page.locator('.carte-feuille .carte-corps').last()
   await corps.waitFor()
-  for (let k = 0; k < 8; k++) {
+  for (let k = 0; k < ECRANS_D_UNE_FEUILLE_AU_PLUS; k++) {
     await photo(page, k === 0 ? nom : `${nom}-${k + 1}`)
     // Une fonction, pas un texte : une chaîne s'évalue en expression, et la fonction qu'elle écrit ne s'appelait pas.
     const fini: boolean = await corps.evaluate((c: any) => {
@@ -148,6 +159,7 @@ async function photoDeLaFeuille(page: any, nom: string) {
     })
     if (fini) return
   }
+  echecs.push(`[rendu] ${nom} : la feuille ne finit pas après ${ECRANS_D_UNE_FEUILLE_AU_PLUS} écrans`)
 }
 
 /** La page du téléphone qui joue l'étape en cours : son écran dit où une étape s'est arrêtée. */
@@ -220,8 +232,24 @@ function ecrireLeMuseeDeLea(id: string) {
     // Son loup, dans sa niche : la page qui lit le profil la pose (`porterNiche`), et ce qui passe dessous se mesure.
     db.prepare('UPDATE profiles SET niche = ? WHERE id = ?').run('loup', id)
     db.prepare('INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, 0, 1, 1)').run(id, 'loup')
-    // Le thème photographié, s'il se vend : à elle, sans payer.
-    if (theme && THEMES.find(t => t.key === theme)?.rarete !== 'offert') db.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, 1)').run(id, theme)
+  } finally {
+    db.close()
+  }
+}
+
+/**
+ * Le thème photographié, porté d'office par les deux profils, écrit en base :
+ * offert, vendu ou gagné, le serveur le lit tel quel (`themePorte`). Acheté
+ * pour Léa seule et demandé par la route, il laissait Zoé refusée (« s'achète
+ * d'abord »), et un thème qui se gagne se refusait à toutes deux, avant la
+ * première photo (la relecture du lot) ; ouvrir sa condition — des badges, des
+ * paliers de maître — aurait changé ce que leurs gardiens montrent.
+ */
+function porterLeTheme(ids: string[]) {
+  const db = new Database(fichier)
+  try {
+    const porter = db.prepare('UPDATE profiles SET theme = ? WHERE id = ?')
+    for (const id of ids) porter.run(theme === 'velours' ? null : theme, id)
   } finally {
     db.close()
   }
@@ -508,6 +536,24 @@ async function jouerLaManche(page: any, jeu: CleDeJeu, id: string, k: number, no
   }
 }
 
+/**
+ * La fiche de la niche, touchée en pleine manche : la bulle sort sous la niche, son bord droit au sien, sa pointe sous son
+ * milieu. En 1366 × 768, la niche suit la colonne élargie de la question, et sa fiche restait au coin d'avant, cent pixels plus
+ * loin (la relecture du lot). Le doigt sur la niche touche le voile, qui la referme ; la manche court pendant ce temps.
+ */
+async function laFicheDeLaNiche(page: any) {
+  if (!(await page.locator('.niche').count())) return
+  await toucher(page, page.locator('.niche'))
+  await page.waitForSelector('.niche-fiche')
+  await photo(page, 'la-fiche-de-la-niche-en-pleine-manche', { attente: 700 })
+  const niche = await page.locator('.niche').boundingBox()
+  const fiche = await page.locator('.niche-fiche').boundingBox()
+  const ecart = Math.round(niche.x + niche.width - (fiche.x + fiche.width))
+  if (Math.abs(ecart) > 2) rapport.push(`la fiche de la niche : [fiche] son bord droit à ${ecart} px de celui de la niche, sa pointe sous rien`)
+  await page.touchscreen.tap(niche.x + niche.width / 2, niche.y + niche.height / 2)
+  await page.waitForSelector('.niche-fiche', { state: 'detached' })
+}
+
 /** « Commencer » à l'annonce, et la première manche ouverte. */
 async function commencer(page: any) {
   await toucher(page, page.locator('.cab-annonce .btn-primary.btn-big'))
@@ -516,9 +562,10 @@ async function commencer(page: any) {
 
 /**
  * « Revenir au musée », au bas du bilan. Le bouton agit au lever du doigt (`toucher`) : le musée paraît avant le `click` qui
- * suit, et cet écho tombe sur ce qui est venu sous le doigt — la tuile « Le prochain gardien », un lien, qui n'ignore pas l'écho
- * comme un bouton : Léa arrivait dans la salle de l'Érudit (le rendu du 25 octobre 2026). Le défaut est à la page ; le rendu le
- * dit à chaque fois, le photographie la première, et rouvre le musée pour continuer.
+ * suit, et cet écho tombait sur ce qui était venu sous le doigt — la tuile « Le prochain gardien », un lien, qui n'ignore pas
+ * l'écho comme un bouton : Léa arrivait dans la salle de l'Érudit, ou à la visite du jour (le rendu du 25 octobre 2026). La page
+ * l'arrête désormais à la capture (`arreterLEcho`, `CabinetApp.tsx`) ; s'il revenait, le rendu le dirait, le photographierait
+ * la première fois, et rouvrirait le musée pour continuer.
  */
 async function revenirAuMusee(page: any) {
   await toucher(page, page.locator('.fin-actions .btn-primary'))
@@ -565,14 +612,9 @@ try {
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
   const idDeLea = await idDe(lea)
   ecrireLeMuseeDeLea(idDeLea)
-  // Le profil relu : son compagnon et son thème sont en mémoire du serveur.
+  if (theme) porterLeTheme([await idDe(zoe), idDeLea])
+  // Les profils relus : le compagnon de Léa et leur thème sont en mémoire du serveur.
   await banc.redemarrer()
-  if (theme) {
-    for (const cookie of [zoe, lea]) {
-      const r = await ecrire(banc.url, '/api/joueur/moi', { theme }, cookie, 'PUT')
-      if (!r.ok) throw new Error(`le thème ${theme} ne se porte pas (${r.status} ${await r.text()})`)
-    }
-  }
 
   // La page sans profil : la phrase du serveur, et comment entrer.
   await etape('sans profil', async () => {
@@ -656,6 +698,7 @@ try {
         await photo(page, 'annonce-avec-sa-carte-bonus')
       }
       await commencer(page)
+      if (jeu === 'pari') await laFicheDeLaNiche(page)
       await jouerLaManche(page, jeu, idDeLea, 0, jeu)
       await laRevelation(page, jeu)
       if (jeu === 'replique') {

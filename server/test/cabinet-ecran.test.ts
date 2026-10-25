@@ -946,9 +946,15 @@ test('la section du Cabinet dans la feuille : préfixe cab-, un texte qui se lit
 test('la tête d’une partie tient en 360 de large la niche posée : ses écarts se serrent, jamais un texte, et le total ne passe pas sous « Quitter »', () => {
   // Le rendu du 25 octobre 2026 (`rendu-cabinet.ts`, `[chevauche]`) : la niche prend 60 px au coin, il restait 49 px au total
   // pour ses 72, et « 0 / 9 ★ », rétréci, passait sous « Quitter ». Serrés, les trois cercles, le total et le bouton tiennent les
-  // 260 px de la rangée, et leurs textes gardent leur taille.
-  const section = sectionDuCabinet()
-  const regle = (sel: string) => new RegExp(`(?:^|\\n)${echapper(sel)} \\{([^}]*)\\}`).exec(section)?.[1] ?? ''
+  // 260 px de la rangée, et leurs textes gardent leur taille. Ce que la niche change se range dans le bloc de sa place (« Sa place,
+  // page par page »), le reste dans la section du Cabinet : la feuille entière, et pour un sélecteur, chaque règle qui le porte.
+  const feuille = readFileSync(path.join(client, 'styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const regle = (sel: string) => [...feuille.matchAll(new RegExp(`(?:^|\\n)${echapper(sel)} \\{([^}]*)\\}`, 'g'))].map(m => m[1]).join(';')
+  const place = feuille.slice(feuille.indexOf('\nbody.avec-niche { --niche-place:'))
+  for (const sel of ['body.avec-niche .cab-tete-ligne', 'body.avec-niche .cab-points', 'body.avec-niche .cab-point', 'body.avec-niche .cab-page .cab-quitter']) {
+    assert.match(place, new RegExp(`\\n${echapper(sel)} \\{`), `${sel} se range dans le bloc de la place de la niche`)
+    assert.doesNotMatch(sectionDuCabinet(), new RegExp(`(?:^|\\n)${echapper(sel)} \\{`), `${sel} n’est pas dans la section du Cabinet`)
+  }
   const px = (decl: string, prop: string) => Number(new RegExp(`(?:^|;)\\s*${prop}:\\s*([\\d.]+)px`).exec(decl)?.[1] ?? NaN)
   const sansNiche = {
     ligne: px(regle('.cab-tete-ligne'), 'gap'),
@@ -978,7 +984,7 @@ test('la tête d’une partie tient en 360 de large la niche posée : ses écart
   }
 })
 
-test('ce qui s’écrit sur l’or pâle se lit sous chaque thème : les gestes choisis, « Poser ici », le détail du gros bouton, le légendaire', () => {
+test('ce qui s’écrit sur l’or pâle se lit sous chaque thème : les gestes choisis, « Poser ici », le détail du gros bouton, la bonne réponse, le légendaire', () => {
   // Le rendu du 25 octobre 2026 (`rendu-cabinet.ts`, `[contraste]`), sous l'Ivoire : « Reprends-la où tu l’as laissée », en gris sur
   // le gros bouton principal, tenait 4,19:1 ; « Poser ici », 4,48:1 ; « Avatar légendaire débloqué », sur le halo de son médaillon,
   // 4,41:1. L'or du texte (`--accent-text`) tient sur le fond de la page sous chaque thème (`design.test.ts`), pas sur l'or pâle
@@ -1006,6 +1012,10 @@ test('ce qui s’écrit sur l’or pâle se lit sous chaque thème : les gestes 
   assert.ok(vues >= 4, `les textes sur l’or pâle sont bien trouvés (${vues})`)
   // Le détail d'un gros bouton prend son fond d'une règle de toute l'application (`.gros-principal`), et le gris de la sienne.
   lit('le détail du gros bouton qui mène', /(?:^|\n)\.cab-page \.gros-principal \.gros-detail \{[^}]*color: var\((--[\w-]+)\)/.exec(section)?.[1] ?? '--muted', accentSoft)
+  // « La bonne réponse · la tienne », à la révélation et dans « Mes réponses » : sa case pose l'or pâle d'une règle de toute
+  // l'application (`.corrige-bonne`), et sa légende l'or du texte d'une autre — 3,81:1 sous le Film noir (le rendu du 25 octobre
+  // 2026, `THEME=filmnoir`), que la lecture règle par règle ne voyait pas.
+  lit('la légende de la bonne réponse', /(?:^|\n)\.cab-page \.corrige-bonne \.corrige-legende \{[^}]*color: var\((--[\w-]+)\)/.exec(section)?.[1] ?? '--accent-text', accentSoft)
   // L'étiquette d'un légendaire qui s'éveille, sur le halo de son médaillon : l'accent à 18 % au plus fort (`.fin-legendaire`).
   const halo = (j: Map<string, string>) => `rgba(${j.get('--accent-rgb')}, 0.18)`
   lit('l’étiquette d’un légendaire', /(?:^|\n)[^{}\n]*\.cab-page \.fin-legendaire \.label[^{}\n]* \{[^}]*color: var\((--[\w-]+)\)/.exec(section)?.[1] ?? '--muted', halo)
@@ -1029,17 +1039,27 @@ test('la carte d’une mission accomplie, au bilan, se relève à dix-sept pixel
   }
 })
 
-test('sur une tablette ou un portable, la niche suit la colonne élargie d’une partie : son coin, pas celui des 560 pixels', () => {
+test('sur une tablette ou un portable, la niche et sa fiche suivent la colonne élargie d’une question : son coin, pas celui des 560 pixels', () => {
   // Le rendu du 25 octobre 2026 en 1366 × 768 (`[sous la niche]`) : la colonne d'une question s'élargit à 760 pixels
-  // (`.player-shell:has(.quiz-player)`), la niche restait au coin de celle de 560 — au milieu de la tête, sur « Quitter ».
-  const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  // (`.player-shell:has(.quiz-player)`), la niche restait au coin de celle de 560 — au milieu de la tête d'une partie du Cabinet,
+  // sur « Quitter », et cent pixels dans la page au quiz du jour. Déplacée seule, elle laissait sa fiche au coin d'avant : la bulle
+  // sortait 100 pixels plus loin, sa pointe sous rien (la relecture du lot). Un seul coin, que les deux lisent.
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const coin = (colonne: string) => `max(16px, calc((100vw - ${colonne}px) / 2 + 16px))`
+  const ordinaire = /\n\.player-shell \{[^}]*max-width: (\d+)px;/.exec(css)?.[1]
+  assert.ok(ordinaire, 'la colonne d’ordinaire se lit')
+  assert.match(css, new RegExp(`\\nbody \\{ --coin-de-la-niche: ${echapper(coin(ordinaire))}; \\}`), 'le coin d’ordinaire est celui de la colonne')
+  for (const sel of ['.niche', '.niche-fiche']) {
+    const regle = new RegExp(`\\n${echapper(sel)} \\{([^}]*)\\}`).exec(css)?.[1] ?? ''
+    assert.match(regle, /\n\s*right: var\(--coin-de-la-niche\);/, `${sel} se pose au coin de la niche`)
+  }
+  assert.doesNotMatch(css.replace(/--coin-de-la-niche: [^;]*;/g, ''), /100vw - \d+px\) \/ 2 \+ 16px/, 'aucun autre coin écrit à la main')
   const [, condition, large] = /@media (\([^)]*\) and \([^)]*\)) \{\n {2}\.player-shell:has\(\.quiz-player\) \{ max-width: (\d+)px;/.exec(css) ?? []
   assert.ok(condition && large, 'la colonne élargie d’une question se lit')
-  const regle = new RegExp(`@media ${echapper(condition)} \\{\\s*body\\.avec-niche:has\\(\\.cab-partie \\.quiz-player\\) \\.niche \\{ right: max\\(16px, calc\\(\\(100vw - (\\d+)px\\) / 2 \\+ 16px\\)\\); \\}`)
-  const colonne = regle.exec(css)?.[1]
-  assert.equal(colonne, large, 'la niche se pose au coin de la colonne élargie, sous la même condition')
-  // Le reste de la niche ne bouge pas : son coin d'ordinaire est celui des 560 pixels.
-  assert.match(css, /\n\.niche \{[^}]*right: max\(16px, calc\(\(100vw - 560px\) \/ 2 \+ 16px\)\);/)
+  // Sous la même condition, et pour la même colonne : chaque page qui pose une question — le Cabinet, le quiz du jour, la
+  // campagne, les sentiers, l'expédition, une soirée.
+  const elargie = new RegExp(`@media ${echapper(condition)} \\{\\s*body\\.avec-niche:has\\(\\.player-shell \\.quiz-player\\) \\{ --coin-de-la-niche: ${echapper(coin(large))}; \\}`)
+  assert.match(css, elargie, 'la niche se pose au coin de la colonne élargie, sous la même condition')
 })
 
 test('la tête collée d’une partie ne laisse rien passer derrière son chrono : son fondu tient dans sa marge du bas', () => {

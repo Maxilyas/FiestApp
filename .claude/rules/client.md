@@ -118,6 +118,12 @@ paths:
   qui prend le doigt au lever sans passer par `toucher` marque la même
   heure (`prendreLeDoigt`) — la carte de France de l'Épingle : avec une
   heure à elle, elle ignorait son écho, mais pas le bouton venu sous lui.
+  Un lien, lui, ne lit pas l'heure : le Cabinet arrête l'écho à la capture
+  du document (`arreterLEcho`, posé par `CabinetApp.tsx`) — le premier
+  `click` qui suit le doigt, dans les 800 ms, jamais un `click` du code —,
+  sans quoi « Revenir au musée » ouvrait la tuile du musée venue sous le
+  doigt. Les autres pages ne l'ont pas : un lien qui y paraît sous un
+  doigt pris au lever reçoit encore son écho.
 - **Une clé du stockage du navigateur se lit et s'écrit sous try/catch**
   (comme `writeSafe`) : un stockage refusé au chargement d'un module rendait
   la page de jeu noire, et rien ne le vérifie partout. Les clés commencent

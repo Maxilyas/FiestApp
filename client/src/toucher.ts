@@ -21,6 +21,12 @@ type Cible = { disabled?: boolean; getBoundingClientRect(): { left: number; righ
 export const estLEchoDUnDoigt = (e: { timeStamp: number }): boolean => e.timeStamp - dernierDoigt < ECHO_MS
 
 /**
+ * Le doigt dont l'écho n'est pas encore venu (`arreterLEcho`) : un doigt n'en
+ * fait suivre qu'un.
+ */
+let echoAttendu = false
+
+/**
  * Un geste pris au lever du doigt hors de `toucher` — la carte de France de
  * l'Épingle, qui lit où il s'est levé — marque la même heure : le `click` qui
  * le suit, où qu'il tombe, n'en est que l'écho. Avec une heure à elle, la
@@ -29,6 +35,28 @@ export const estLEchoDUnDoigt = (e: { timeStamp: number }): boolean => e.timeSta
  */
 export function prendreLeDoigt(e: { timeStamp: number }): void {
   dernierDoigt = e.timeStamp
+  echoAttendu = true
+}
+
+/**
+ * L'écho arrêté avant tout ce qui l'écouterait, posé à la capture du
+ * document par une page dont les gestes changent l'écran au lever du doigt
+ * (`CabinetApp.tsx`) : ni un lien suivi, ni un bouton au seul `onClick`.
+ * « Revenir au musée », au bas du bilan, faisait paraître le musée sous le
+ * doigt, et l'écho ouvrait la tuile venue sous lui — la salle de l'Érudit au
+ * lieu du musée (le rendu du 25 octobre 2026) ; un lien ne lit pas
+ * `estLEchoDUnDoigt`, et la page en a des dizaines. Seul le premier `click`
+ * qui suit le doigt en est l'écho : un toucher franc sur un lien, juste
+ * après, l'ouvre. Un `click` lancé par le code (`isTrusted` faux) n'est
+ * l'écho de rien.
+ */
+export function arreterLEcho(e: { isTrusted: boolean; timeStamp: number; preventDefault(): void; stopPropagation(): void }): void {
+  if (!e.isTrusted) return
+  const echo = echoAttendu && estLEchoDUnDoigt(e)
+  echoAttendu = false
+  if (!echo) return
+  e.preventDefault()
+  e.stopPropagation()
 }
 
 /**

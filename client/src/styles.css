@@ -10519,13 +10519,6 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-total { flex: 1; min-width: 0; color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-weight: 600; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .cab-total b { font-size: 1.75rem; }
 .cab-page .cab-quitter { flex: none; min-height: 44px; padding: 6px 16px; }
-/* La niche posée, la rangée perd ses 60 px de coin : en 360 de large, il restait 49 px au total pour ses 72, et « 0 / 9 ★ »,
-   rétréci, passait sous « Quitter » (le rendu du 25 octobre 2026, `rendu-cabinet.ts`). Les écarts se serrent, les cercles et le
-   bouton aussi un peu — jamais un texte. */
-body.avec-niche .cab-tete-ligne { gap: 8px; }
-body.avec-niche .cab-points { gap: 4px; }
-body.avec-niche .cab-point { width: 26px; height: 26px; }
-body.avec-niche .cab-page .cab-quitter { padding-left: 10px; padding-right: 10px; }
 .cab-tete-partie .timer { gap: 10px; }
 .cab-tete-partie .timer-seconds { min-width: 36px; font-size: 1.75rem; }
 .cab-manche { gap: 14px; }
@@ -10787,7 +10780,7 @@ body.avec-niche .cab-page .cab-quitter { padding-left: 10px; padding-right: 10px
 .cab-indices { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .cab-indice { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: start; gap: 10px; padding: 10px 14px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); }
 .cab-indice.cab-indice-neuf { border-color: var(--accent); }
-.cab-indice-rang { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font-family: var(--serif); font-size: 1.2rem; font-weight: 700; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.cab-indice-rang { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text-hover); font-family: var(--serif); font-size: 1.2rem; font-weight: 700; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
 .cab-essayes { color: var(--muted); }
 .cab-indices-reveles { display: flex; flex-direction: column; gap: 10px; }
 .join.cab-nom { width: 100%; min-height: 0; margin: 0; padding: 0; gap: 8px; }
@@ -10840,6 +10833,9 @@ body.avec-niche .cab-page .cab-quitter { padding-left: 10px; padding-right: 10px
 .cab-page .tampons-rang, .cab-page .tampon-jour, .cab-page .tampons-texte { font-size: 1.0625rem; }
 .cab-page .corrige-texte { font-size: 1.0625rem; }
 .cab-page .corrige-legende { font-size: 1.0625rem; letter-spacing: 0.02em; text-transform: none; }
+/* « La bonne réponse · la tienne » se pose sur l'or pâle de sa case (`.corrige-bonne`) : l'or du texte y tenait 3,81:1 sous le Film
+   noir, à la révélation et dans « Mes réponses » (le rendu du 25 octobre 2026). */
+.cab-page .corrige-bonne .corrige-legende { color: var(--accent-text-hover); }
 .cab-corrige { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .cab-hors-carnet { color: var(--muted); }
 
@@ -11527,14 +11523,17 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
    (`--l`) : 54 pixels au coin, le double dans sa fiche. Un objet peint —
    son cadre d'or, son ciel de nuit — : aucun thème ne la repeint.
    ═══════════════════════════════════════════════════════════════════ */
+/* Son coin, une seule fois, que lisent la niche et sa fiche : le bord droit de la colonne (`.player-shell`, 560 pixels au plus),
+   pas celui de l'écran — sur une tablette, elle reste à côté de la page. Une colonne qui s'élargit le redit (le bloc « Sa place,
+   page par page ») : la niche déplacée seule laissait sa fiche sortir 100 pixels plus loin, la pointe sous rien. */
+body { --coin-de-la-niche: max(16px, calc((100vw - 560px) / 2 + 16px)); }
 .niche {
   --l: 54px;
   position: fixed;
   z-index: 35;
   /* Quatre pixels au-dessus de la première ligne de la page (`.player-shell`), encoche comprise. */
   top: max(20px, calc(env(safe-area-inset-top) - 4px));
-  /* Le bord droit de la colonne (`.player-shell`, 560 pixels au plus), pas celui de l'écran : sur une tablette, elle reste à côté de la page. */
-  right: max(16px, calc((100vw - 560px) / 2 + 16px));
+  right: var(--coin-de-la-niche);
   width: var(--l);
   height: calc(var(--l) * 62 / 54);
   padding: 0;
@@ -11793,7 +11792,7 @@ body:has(.loge-collante, .sentier-tete, .cab-tete-partie) .niche.repliee { opaci
   position: fixed;
   /* Sous la niche dépliée (62 pixels de haut), à son bord droit : celui de la colonne du téléphone. */
   top: calc(max(20px, calc(env(safe-area-inset-top) - 4px)) + 74px);
-  right: max(16px, calc((100vw - 560px) / 2 + 16px));
+  right: var(--coin-de-la-niche);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -12621,12 +12620,20 @@ body.avec-niche .cab-tete-partie .timer { padding-right: var(--niche-place); }
 /* Au Cabinet, la peinture levée et le cadre vide en grand suivent « ← Le Rempart » : leur coin haut passait sous le bas de la niche. */
 body.avec-niche .cab-page > .cab-oeuvre-levee,
 body.avec-niche .cab-page > .cab-cadre-grand { margin-top: 10px; }
-/* Au Cabinet, sur une tablette ou un portable, la colonne d'une partie s'élargit avec sa question (760 pixels, « La tablette
-   n'est pas un téléphone étiré ») : la niche suit son coin. Au coin de la colonne de 560, elle se posait au milieu de la tête,
-   sur « Quitter » (le rendu du 25 octobre 2026, en 1366 × 768). */
+/* Sur une tablette ou un portable, la colonne d'une question s'élargit (760 pixels, « La tablette n'est pas un téléphone
+   étiré ») : la niche et sa fiche suivent son coin, sous la même condition. Au coin de la colonne de 560, la niche se posait au
+   milieu de la tête d'une partie du Cabinet, sur « Quitter », et cent pixels dans la page du quiz du jour (le rendu du
+   25 octobre 2026, en 1366 × 768). */
 @media (min-width: 700px) and (min-height: 600px) {
-  body.avec-niche:has(.cab-partie .quiz-player) .niche { right: max(16px, calc((100vw - 760px) / 2 + 16px)); }
+  body.avec-niche:has(.player-shell .quiz-player) { --coin-de-la-niche: max(16px, calc((100vw - 760px) / 2 + 16px)); }
 }
+/* La tête d'une partie du Cabinet, la niche posée, perd ses 60 pixels de coin : en 360 de large, il restait 49 pixels au total
+   pour ses 72, et « 0 / 9 ★ », rétréci, passait sous « Quitter » (le rendu du 25 octobre 2026, `rendu-cabinet.ts`). Les écarts se
+   serrent, les cercles et le bouton aussi un peu — jamais un texte. */
+body.avec-niche .cab-tete-ligne { gap: 8px; }
+body.avec-niche .cab-points { gap: 4px; }
+body.avec-niche .cab-point { width: 26px; height: 26px; }
+body.avec-niche .cab-page .cab-quitter { padding-left: 10px; padding-right: 10px; }
 /* Le jour et les points du quiz du jour, l'un sous l'autre : sur une ligne, « 200 pts » se cassait contre elle. */
 body.avec-niche .jour-bandeau { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; padding-right: var(--niche-place); }
 /* Les rangées d'onglets passent sous elle, sans la toucher. */

@@ -70,7 +70,16 @@ paths:
   lisibilité se mesure sur ce qui est vraiment peint derrière chaque ligne
   (`scripts/rendu-themes.ts <clé> --contraste`), pas sur ses jetons
   (`--bg`, `--surface`, `--accent`…), les seuls que compare
-  `design.test.ts`, jamais au décor peint.
+  `design.test.ts`, jamais au décor peint. La mesure vit dans
+  `server/scripts/a-l-ecran.ts` (`contrasteDeLaPage`, que
+  `rendu-cabinet.ts` partage) et, depuis le 25 octobre 2026, ne lit plus
+  que ce que l'œil lit : la photo à la densité de l'écran (écrite à 2, elle
+  mesurait un autre coin que la ligne en 1366 × 768), une ligne entière à
+  l'écran et visible en entier — ni coupée par le bord (lue sur du vide,
+  elle se disait illisible à 1,3:1), ni couverte même en partie, ni défilée
+  hors de son cadre —, le fond derrière les lettres, pas dans tout
+  l'interligne (le bas d'une ombre portée), et jamais un geste éteint
+  (`aria-disabled`, `:disabled`), dont WCAG ne demande rien.
 - **Un achat de plus** s'écrit avec son prix, sur une ligne jamais
   modifiée, et touche cinq endroits de `ProfileStore` : sa table, `achatsDe`,
   les dépenses de `boutiqueEtDons`, `unAchatALaFois` et la liste de

@@ -11,7 +11,7 @@ import { porterNiche } from '../niche'
 import { retenirLeNiveau } from '../niveauVu'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
-import { toucher } from '../toucher'
+import { arreterLEcho, toucher } from '../toucher'
 import { JEUX, type CleDeJeu } from '../../../shared/cabinet/jeux/regle'
 import { poussieresDites, type DemandeDeDepart } from '../../../shared/cabinet/musee'
 import { oeuvre as oeuvreDe } from '../../../shared/cabinet/oeuvres'
@@ -309,6 +309,14 @@ export function CabinetApp() {
       window.removeEventListener('hashchange', suivre)
       window.removeEventListener('popstate', suivre)
     }
+  }, [])
+
+  // Un geste du Cabinet change l'écran au lever du doigt (`toucher`) — « Revenir au musée », une réponse, « Quitter » — : le
+  // `click` qui le suit tombe sur ce qui vient sous le doigt, une tuile du musée, un lien, et ne doit rien y jouer. Arrêté à la
+  // capture du document, avant React et avant le lien (`arreterLEcho`).
+  useEffect(() => {
+    document.addEventListener('click', arreterLEcho, true)
+    return () => document.removeEventListener('click', arreterLEcho, true)
   }, [])
 
   // Au retour au premier plan, l'horloge repart de zéro — un téléphone endormi a pu dériver — et la page se relit :

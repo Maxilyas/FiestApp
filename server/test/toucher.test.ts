@@ -78,6 +78,46 @@ test('un dialogue ouvert au lever du doigt ne se referme pas sous son écho : le
   assert.match(readFileSync(client('components/Dialog.tsx'), 'utf8'), /<div className="dialog-backdrop" onClick=\{e => !estLEchoDUnDoigt\(e\) && close\(null\)\}>/)
 })
 
+test('au Cabinet, l’écho du doigt ne suit pas le lien venu sous lui : le premier click qui suit le doigt s’arrête à la capture', async () => {
+  // « Revenir au musée », au bas du bilan, au doigt (le rendu du 25 octobre 2026, `rendu-cabinet.ts`) : le musée paraissait au
+  // lever du doigt, et le `click` qui suit tombait sur la tuile venue sous lui — un lien, qui n'ignore pas l'écho comme un bouton
+  // passé par `toucher` : Léa arrivait dans la salle de l'Érudit, ou à la visite du jour, au lieu du musée.
+  const { arreterLEcho, prendreLeDoigt } = (await import(client('toucher.ts').href)) as typeof import('../../client/src/toucher')
+  const natif = (timeStamp: number, isTrusted = true) => {
+    const vu = { suivi: true, remonte: true }
+    return { vu, evenement: { isTrusted, timeStamp, preventDefault: () => void (vu.suivi = false), stopPropagation: () => void (vu.remonte = false) } }
+  }
+  toucher(() => {}).onPointerUp(doigt(70_000))
+  const echo = natif(70_040)
+  arreterLEcho(echo.evenement)
+  assert.deepEqual(echo.vu, { suivi: false, remonte: false }, 'ni le lien suivi, ni son onClick')
+  // Un doigt n'a qu'un écho : un toucher franc juste après, sur un lien du musée, l'ouvre.
+  const franc = natif(70_500)
+  arreterLEcho(franc.evenement)
+  assert.deepEqual(franc.vu, { suivi: true, remonte: true }, 'le toucher suivant passe')
+  // Sans doigt, la souris et le clavier gardent leur click.
+  const souris = natif(90_000)
+  arreterLEcho(souris.evenement)
+  assert.deepEqual(souris.vu, { suivi: true, remonte: true })
+  // Un click que le code lance n'est l'écho de rien, et ne prend pas sa place : celui du navigateur, après lui, s'arrête.
+  toucher(() => {}).onPointerUp(doigt(100_000))
+  const parLeCode = natif(100_010, false)
+  arreterLEcho(parLeCode.evenement)
+  assert.deepEqual(parLeCode.vu, { suivi: true, remonte: true }, 'un click du code passe')
+  const echoApres = natif(100_030)
+  arreterLEcho(echoApres.evenement)
+  assert.deepEqual(echoApres.vu, { suivi: false, remonte: false })
+  // Le doigt pris hors de `toucher` — la carte de France — a son écho de même ; bien après, rien n'est plus un écho.
+  prendreLeDoigt({ timeStamp: 110_000 })
+  const tardif = natif(111_000)
+  arreterLEcho(tardif.evenement)
+  assert.deepEqual(tardif.vu, { suivi: true, remonte: true }, 'au-delà de 800 ms, un autre geste')
+  // La page du Cabinet le pose à la capture du document — avant React, et avant le lien — tant qu'elle est là.
+  const page = readFileSync(client('views/CabinetApp.tsx'), 'utf8')
+  assert.match(page, /document\.addEventListener\('click', arreterLEcho, true\)/)
+  assert.match(page, /document\.removeEventListener\('click', arreterLEcho, true\)/)
+})
+
 test('« Effacer » et « Valider » des formes qui se posent passent par toucher — la forme à composer, la frise, et celles à venir', () => {
   const source = readFileSync(client('views/ExpeditionApp.tsx'), 'utf8').replaceAll('=>', '⇒')
   const rangees = source

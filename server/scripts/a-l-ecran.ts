@@ -7,7 +7,10 @@
 // vieillirait seule.
 //
 // Les mesures partent dans la page en texte, jamais en fonction : `tsx`
-// glisserait dans une fonction des `__name` que la page ne connaît pas.
+// glisserait dans une fonction des `__name` que la page ne connaît pas. Un
+// texte relevé s'y coupe par points de code (`[...texte].slice(0, 40)`) :
+// `tronquer()` n'y est pas, et `slice` laissait la moitié d'un emoji à la
+// frontière, qui sortait en losange dans le rapport.
 
 /**
  * Ce qui passe sous la niche, page en haut : chaque ligne de texte (ses
@@ -43,7 +46,7 @@ export const SOUS_LA_NICHE = `(() => {
     if (!el || !t.textContent.trim() || el.closest('.niche, .sr-only, script, style') || !visible(el)) continue
     const plage = document.createRange()
     plage.selectNodeContents(t)
-    if ([...plage.getClientRects()].some(touche)) vus.push('texte « ' + t.textContent.trim().slice(0, 40) + ' » (' + nom(el) + ')')
+    if ([...plage.getClientRects()].some(touche)) vus.push('texte « ' + [...t.textContent.trim()].slice(0, 40).join('') + ' » (' + nom(el) + ')')
   }
   for (const el of document.querySelectorAll('a, button, input, select, textarea, img, svg, [role=button]')) {
     if (el.closest('.niche') || !visible(el)) continue
@@ -119,7 +122,7 @@ export const CE_QUI_EST_COUPE = `(() => {
       if (boites.some(x => (parX && (x.right > d + 1 || x.left < g - 1)) || (parY && (x.bottom > b + 1 || x.top < h - 1)))) coupe = nom(a)
     }
     if (!coupe && !defile && boites.some(x => x.right > ecran + 1 || x.left < -1)) coupe = 'le bord de l’écran'
-    if (coupe) coupes.push('« ' + t.textContent.trim().slice(0, 40) + ' » (' + nom(el) + ', par ' + coupe + ')')
+    if (coupe) coupes.push('« ' + [...t.textContent.trim()].slice(0, 40).join('') + ' » (' + nom(el) + ', par ' + coupe + ')')
   }
   return [...new Set(coupes)]
 })()`
@@ -171,7 +174,7 @@ export const CE_QUI_SE_CHEVAUCHE = `(() => {
       if (!p || !(p.contains(el) || (p.parentElement && p.parentElement.contains(el) && p.parentElement !== document.body))) continue
       const r = g.getBoundingClientRect()
       const dedans = b => Math.min(b.right, r.right) - Math.max(b.left, r.left) > 2 && Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top) > 2
-      if (boites.some(dedans)) vus.push('« ' + t.textContent.trim().slice(0, 30) + ' » (' + nom(el) + ') sous ' + nom(g))
+      if (boites.some(dedans)) vus.push('« ' + [...t.textContent.trim()].slice(0, 30).join('') + ' » (' + nom(el) + ') sous ' + nom(g))
     }
   }
   return [...new Set(vus)]
@@ -235,7 +238,7 @@ export async function contrasteDeLaPage(page: any): Promise<ContrasteDUneLigne[]
         // Le fond se lit derrière les lettres, pas dans tout l'interligne : la boîte d'une ligne déborde de sa police, et ce qui
         // n'est peint que dans l'interligne — le bas d'une ombre portée — ne gêne pas la lecture.
         const h = Math.min(b.height, taille)
-        out.push({ texte: texte.slice(0, 30), couleur: s.color, grand: taille >= 24 || (gras && taille >= 18.66), x: b.left, y: b.top + (b.height - h) / 2, l: b.width, h })
+        out.push({ texte: [...texte].slice(0, 30).join(''), couleur: s.color, grand: taille >= 24 || (gras && taille >= 18.66), x: b.left, y: b.top + (b.height - h) / 2, l: b.width, h })
       }
     }
     return out

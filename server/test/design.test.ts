@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import React from 'react'
 import { partsDuNom } from '../../shared/homonymes'
-import { IVOIRE, VELOURS, contraste, surFond, teinte } from './teintes'
+import { IVOIRE, VELOURS, contraste, surFond, teinte, themesDuClient } from './teintes'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
 Object.assign(globalThis, { React })
@@ -213,6 +213,43 @@ test('S3 · le survol d’un texte reste lisible, en Ivoire aussi', () => {
     const c = contraste(teinte(theme, '--accent-text-hover'), teinte(theme, '--bg'))
     assert.ok(c >= 4.5, `${nom} : le survol tient ${c.toFixed(2)}:1`)
   }
+})
+
+test('sur l’or pâle, un texte s’écrit au bronze du survol, sous chaque thème — et ce qui l’écrit encore à l’or du texte ne fait que baisser', () => {
+  // Le rendu du Cabinet du 25 octobre 2026 : l'or du texte (`--accent-text`) est fait pour le fond de la page ; sur l'or pâle
+  // (`--accent-soft`) il tombe à 4,09:1 sous le Film noir, 4,26 sous la Forêt rousse, 4,35 sous le Carnet. Le bronze du survol
+  // (`--accent-text-hover`) y tient sous chacun.
+  for (const { cle, jetons } of themesDuClient()) {
+    const c = contraste(teinte(jetons, '--accent-text-hover'), surFond(jetons.get('--accent-soft')!, teinte(jetons, '--bg')))
+    assert.ok(c >= 4.5, `${cle} : le bronze du survol sur l’or pâle tient ${c.toFixed(2)}:1`)
+  }
+  // Ce qui l'écrivait encore à l'or du texte hors du Cabinet, relevé le même jour : chacun se corrige à son écran, regardé (skill
+  // `regarder-le-rendu`), et sort de la liste ; aucune règle n'y entre.
+  const restent = [
+    '.pill-btn.active',
+    '.regie-revele',
+    '.niveau',
+    '.jour-pastille',
+    '.installer-numero',
+    '.corrige.ok .corrige-marque',
+    '.onglet.actif',
+    '.pause-bandeau',
+    '.titre-choix.selected',
+    '.quoi-toutes.active, .quoi-case.active',
+    '.quoi-tuile.active',
+    '.quoi-epoque.active',
+    '.quoi-fil.active',
+    '.parcours-icone',
+    '.epreuve-rejeu',
+    '.exp-pastille-or',
+    '.exp-rarete-talisman',
+    '.exp-rarete-fiole',
+    '.exp-guide-icone',
+  ]
+  const ecrivent = [...CSS.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(?:^|\n)([^{}\n]+?) \{([^}]*)\}/g)]
+    .filter(([, , corps]) => /background(?:-color)?: var\(--accent-soft\)/.test(corps) && /(?:^|;)\s*color: var\(--accent-text\)/.test(corps))
+    .map(([, selecteur]) => selecteur.trim())
+  assert.deepEqual(ecrivent, restent)
 })
 
 test('S2 · les contrôles natifs suivent le thème', () => {

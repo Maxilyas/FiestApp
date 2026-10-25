@@ -17,7 +17,18 @@ paths:
   sur `.carte-fond` (`design.test.ts` y veille) ; le focus n'a qu'un
   anneau, `--focus`, posé une fois pour tout élément
   (`:where(…):focus-visible`) — un composant n'en règle que
-  l'`outline-offset`. Aucun texte ne descend sous `--t-label` (0,6875 rem,
+  l'`outline-offset`. **Sur l'or pâle (`--accent-soft`), un texte s'écrit
+  en `--accent-text-hover`** : `--accent-text`, fait pour le fond de la
+  page, y tombe à 4,09:1 sous le Film noir, 4,26 sous la Forêt rousse,
+  4,35 sous le Carnet (le rendu du Cabinet, le 25 octobre 2026) ;
+  `design.test.ts` le mesure sous chaque thème, et tient la liste des
+  dix-neuf règles qui l'écrivent encore à l'or du texte hors du Cabinet
+  (`.pill-btn.active`, `.onglet.actif`, `.titre-choix.selected`, les
+  `.quoi-*.active`, `.exp-pastille-or`…) : chacune se corrige à son écran,
+  regardée, et en sort ; aucune n'y entre. La garde ne lit qu'une règle à
+  la fois : l'or pâle posé par l'une et le texte par une autre lui
+  échappent — `.corrige-bonne` et sa légende (« La bonne réponse · la
+  tienne »), relevées au Cabinet seulement. Aucun texte ne descend sous `--t-label` (0,6875 rem,
   les 11 px de `.label`, en `rem` pour suivre le texte agrandi) : la garde
   ne relit que sa liste de sélecteurs, et `.chiffre dt` (10 px) comme
   `.bilan-you` (0,68 rem) y échappent encore.
