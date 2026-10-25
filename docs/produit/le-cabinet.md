@@ -131,7 +131,7 @@ Les mots de l'écran, que le glossaire de la page reprend. **Jamais « carte » 
 | **Une salle** | une famille et ses huit œuvres ; **le Vestibule**, les vingt neutres |
 | **Une œuvre** | une des 84 cartes peintes, à gagner ; **un cadre vide**, une œuvre qui te manque, et le jeu où la chercher |
 | **Le cadre doré** | une œuvre gagnée sans faute, ou dorée à la poussière |
-| **Le cartel** | ce qu'une œuvre garde de la partie qui l'a gagnée |
+| **Le cartel** | ce qu'une œuvre garde de la partie qui l'a gagnée — ou, entrée sans rien à raconter, de celle qui l'a dorée ou rejouée |
 | **Une partie** | trois **manches** d'un même jeu, trois **étoiles** chacune |
 | **La visite du jour** | trois parties, trois jeux, trois œuvres à gagner |
 | **Une chasse** | une partie pour aller chercher une œuvre précise, ou la dorer |

@@ -86,7 +86,8 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   oeuvre: { terme: 'Œuvre', sens: 'Une peinture de ton musée, gagnée en jouant ou achetée. Une œuvre à toi ne se perd jamais.' },
   salle: { terme: 'Salle', sens: 'Un mur du Cabinet : une famille de huit œuvres, ou les vingt du Vestibule.' },
   gardien: { terme: 'Gardien', sens: 'Un légendaire qui veille sur une salle : complète, elle le réveille ; toute dorée, un second.' },
-  cartel: { terme: 'Cartel', sens: 'La plaque sous une œuvre : ce que tu as appris en la gagnant.' },
+  // « ou en la rejouant » : dorée en jouant, ou doublée en visite, une œuvre achetée prend le cartel de cette partie-là.
+  cartel: { terme: 'Cartel', sens: 'La plaque sous une œuvre : ce que tu as appris en la gagnant ou en la rejouant.' },
   // Pas « chaque partie » : au-delà des premières du jour, une partie libre ne rapporte plus rien (`poussiereDeLaPartie`).
   poussiere: { terme: 'Poussière d’or', sens: 'La monnaie du Cabinet, qui n’en sort jamais : chaque visite ou chasse en rapporte, même ratée.' },
   cadreDore: { terme: 'Cadre doré', sens: 'Toutes les manches parfaites sans qu’un pouvoir ait servi, ou de la poussière d’or.' },

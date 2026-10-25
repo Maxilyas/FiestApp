@@ -5,13 +5,13 @@ import { PieceTete, Sortie } from '../../components/Pieces'
 import { espacesFines } from '../../format'
 import { ETOILES_D_UNE_PARTIE } from '../../../../shared/cabinet/bareme'
 import { JEUX } from '../../../../shared/cabinet/jeux/regle'
-import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, ilTeManque, laPartieAttend, poussieresDites } from '../../../../shared/cabinet/musee'
+import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, ilTeManque, poussieresDites } from '../../../../shared/cabinet/musee'
 import { POUVOIRS, forceDe, forceDite, pouvoirDe } from '../../../../shared/cabinet/pouvoirs'
 import { salle as salleDe } from '../../../../shared/cabinet/salles'
 import type { OeuvreVue, PageDuCabinet, SalleVue } from '../../../../shared/cabinet/vues'
 import { CartelDeLOeuvre, type EtatDuCartel } from './Cartel'
 import { RetourAuMusee, adresseDe, type PartieDemandee } from './ecrans'
-import { apresDeuxPoints, compte } from './Musee'
+import { apresDeuxPoints, compte, laPartieQuiAttend } from './Musee'
 import { oeuvreMontree } from './Salle'
 
 // Une œuvre, touchée sur son mur. À lui : sa peinture en grand, son cartel
@@ -36,15 +36,18 @@ export function oeuvreDeLaPage(page: PageDuCabinet, cle: string): { oeuvre: Oeuv
   return null
 }
 
-/** La partie qui attend, dans les mots du serveur : tant qu'elle n'est pas finie, rien ne part ni ne se dépense. */
-const quiAttend = (page: PageDuCabinet): string | null => (page.enCours ? laPartieAttend(page.enCours.jeu) : null)
-
-/** Pourquoi la chasse de cette œuvre ne part pas, dit sous son bouton dans les mots du serveur, dans son ordre (`cadreDuDepart`) ; null : elle part. */
+/**
+ * Pourquoi la chasse de cette œuvre ne part pas, dit sous son bouton dans les
+ * mots du serveur et dans son ordre (`cadreDuDepart`) : la partie qui attend,
+ * puis les chasses comptées, puis le jeu qui n'est pas livré — sans chasse,
+ * dire d'abord le jeu à venir contredisait le toast que le départ aurait
+ * rendu. Null : elle part.
+ */
 function refusDeLaChasse(page: PageDuCabinet, o: OeuvreVue): string | null {
-  const attend = quiAttend(page)
+  const attend = laPartieQuiAttend(page)
   if (attend) return attend
-  if (o.bientot) return JEU_PAS_LIVRE
   if (page.chasses.restent === 0) return PLUS_DE_CHASSE
+  if (o.bientot) return JEU_PAS_LIVRE
   return null
 }
 
@@ -55,7 +58,7 @@ function refusDeLaChasse(page: PageDuCabinet, o: OeuvreVue): string | null {
  */
 function refusDeLaDepense(page: PageDuCabinet, prix: number | undefined): string | null {
   if (prix === undefined) return null
-  return quiAttend(page) ?? (prix > page.poussiere ? ilTeManque(prix - page.poussiere) : null)
+  return laPartieQuiAttend(page) ?? (prix > page.poussiere ? ilTeManque(prix - page.poussiere) : null)
 }
 
 /**

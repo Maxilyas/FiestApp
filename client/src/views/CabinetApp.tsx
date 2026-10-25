@@ -15,7 +15,7 @@ import { oeuvre as oeuvreDe } from '../../../shared/cabinet/oeuvres'
 import type { Manche } from '../../../shared/cabinet/partie'
 import type { PageDuCabinet, VueDeLaPartie } from '../../../shared/cabinet/vues'
 import { Annonce, annonceDe, estLaPartieDemandee } from './cabinet/Annonce'
-import { sansLesPerdus, type EtatDuCartel } from './cabinet/Cartel'
+import { cartelArrive, cartelDemande, cartelsQuiTiennent, sansLesPerdus, type EtatDuCartel } from './cabinet/Cartel'
 import {
   RetourAuMusee,
   adresseDe,
@@ -113,18 +113,15 @@ export function CabinetApp() {
   const [carte, setCarte] = useState<string | null>(null)
   const [accueil, setAccueil] = useState({ bienvenue: false, rapportees: Number.POSITIVE_INFINITY })
   const [cartels, setCartels] = useState<Record<string, EtatDuCartel>>({})
-  // L'âge des cartels gardés, que chaque oubli monte : un cartel demandé avant l'oubli ne se range pas en arrivant.
-  const ageDesCartels = useRef(0)
+  // Chaque demande de cartel a son numéro : seule celle qu'une place attend encore s'y range (`cartelArrive`).
+  const demandesDeCartel = useRef(0)
   /**
-   * Ce qu'un achat, une dorure ou une partie font à une œuvre change son cartel : dorée, il ne promet plus « Rejoue-la… » ;
-   * dorée ou doublée en jouant, il prend une manche de sa partie — sans que la page le voie toujours : un double ne change ni
-   * `possedee` ni `doree`. Après chacun d'eux, la page les oublie tous, et l'œuvre ouverte redemande le sien ; demandé avant, il
-   * dirait l'œuvre d'avant.
+   * Ce qu'une partie fait à une œuvre change son cartel — dorée ou doublée en jouant, il prend une manche de sa partie — sans que
+   * la page le voie toujours : un double ne change ni `possedee` ni `doree`. Finie ici, la partie les fait tous oublier, et
+   * l'œuvre ouverte redemande le sien ; un achat, une dorure, ce qui a changé ailleurs, la page neuve le dit
+   * (`cartelsQuiTiennent`).
    */
-  const oublierLesCartels = useCallback(() => {
-    ageDesCartels.current += 1
-    setCartels({})
-  }, [])
+  const oublierLesCartels = useCallback(() => setCartels({}), [])
   const { toast } = useAppState()
   const page = etat.e === 'pret' ? etat.page : null
 
@@ -221,24 +218,30 @@ export function CabinetApp() {
     rendreLeFocus(document.querySelector('.cab-page'), ['.cab-question', 'h1', 'h2'])
   }, [cleDEcran, etat.e])
 
-  // Le cartel d'une œuvre à lui, demandé quand on l'ouvre, une fois — jusqu'à ce qu'un achat, une dorure ou une partie le fasse
-  // oublier (`oublierLesCartels`) : la peinture s'ouvre sans l'attendre.
+  // Le cartel d'une œuvre à lui, demandé quand on l'ouvre, une fois — jusqu'à ce qu'une partie finie ou une page neuve le fasse
+  // oublier : la peinture s'ouvre sans l'attendre.
   const oeuvreOuverte = ecran.e === 'oeuvre' && page ? oeuvreDeLaPage(page, ecran.oeuvre) : null
   const aSonCartel = oeuvreOuverte?.oeuvre.possedee ? oeuvreOuverte.oeuvre.cle : null
+  // Chaque page neuve — d'un achat, d'une dorure, du retour au premier plan — dit ce qui a changé, ici ou ailleurs : les cartels
+  // qu'elle dément s'oublient (`cartelsQuiTiennent`). Avant la demande de l'œuvre ouverte, qui part alors sous la page neuve.
+  const pageDesCartels = useRef<PageDuCabinet | null>(null)
+  useEffect(() => {
+    if (!page) return
+    const avant = pageDesCartels.current
+    pageDesCartels.current = page
+    setCartels(c => cartelsQuiTiennent(c, avant, page))
+  }, [page])
   // Un cartel perdu se redemande quand on rouvre une œuvre, et à chaque page relue (le retour au premier plan, un échange).
   useEffect(() => {
     setCartels(sansLesPerdus)
   }, [aSonCartel, page])
   useEffect(() => {
     if (!aSonCartel || cartels[aSonCartel]) return
-    const age = ageDesCartels.current
-    const ranger = (lu: EtatDuCartel) => {
-      if (age === ageDesCartels.current) setCartels(c => ({ ...c, [aSonCartel]: lu }))
-    }
-    setCartels(c => ({ ...c, [aSonCartel]: { etat: 'chargement' } }))
+    const demande = ++demandesDeCartel.current
+    setCartels(c => cartelDemande(c, aSonCartel, demande))
     api.cabinet.oeuvre(aSonCartel).then(
-      cartel => ranger({ etat: 'lu', cartel }),
-      (e: unknown) => ranger({ etat: 'perdu', motif: motifDe(e) }),
+      cartel => setCartels(c => cartelArrive(c, aSonCartel, demande, { etat: 'lu', cartel })),
+      (e: unknown) => setCartels(c => cartelArrive(c, aSonCartel, demande, { etat: 'perdu', motif: motifDe(e) })),
     )
   }, [aSonCartel, cartels])
 
@@ -257,11 +260,11 @@ export function CabinetApp() {
   const jouer = (partie: PartieDemandee) => ouvrir({ e: 'annonce', partie })
 
   /**
-   * Un geste qui écrit — un achat, une dorure, un échange — : la page d'après, sinon le refus du serveur et la page relue. Une
-   * dépense change le cartel de son œuvre, et les cartels s'oublient avec la page d'avant — refusée aussi : « Son cadre est déjà
-   * doré » dit qu'elle a changé ailleurs.
+   * Un geste qui écrit — un achat, une dorure, un échange — : la page d'après, sinon le refus du serveur et la page relue. Ce
+   * que la dépense change au cartel de son œuvre, la page neuve le dit (`cartelsQuiTiennent`) — refusée aussi : « Son cadre est
+   * déjà doré » dit qu'elle a changé ailleurs, et la page relue le montre.
    */
-  const ecrire = async (geste: () => Promise<PageDuCabinet>, reussi: string, o: { changeSonCartel?: boolean } = {}) => {
+  const ecrire = async (geste: () => Promise<PageDuCabinet>, reussi: string) => {
     if (busy) return
     setBusy(true)
     try {
@@ -271,7 +274,6 @@ export function CabinetApp() {
       showToast({ kind: 'error', message: motifDe(e) })
       relire()
     } finally {
-      if (o.changeSonCartel) oublierLesCartels()
       setBusy(false)
     }
   }
@@ -279,12 +281,12 @@ export function CabinetApp() {
   const acheter = async (cle: string, prix: number) => {
     const nom = oeuvreDe(cle)?.nom ?? 'cette œuvre'
     const oui = await confirmDialog({ title: 'Acheter cette œuvre ?', message: `Elle coûte ${poussieresDites(prix)}.`, confirmLabel: 'L’acheter' })
-    if (oui) await ecrire(() => api.cabinet.acheter(cle, prix), `${nom} entre dans ton musée`, { changeSonCartel: true })
+    if (oui) await ecrire(() => api.cabinet.acheter(cle, prix), `${nom} entre dans ton musée`)
   }
   const dorer = async (cle: string, prix: number) => {
     const nom = oeuvreDe(cle)?.nom ?? 'Cette œuvre'
     const oui = await confirmDialog({ title: 'Dorer son cadre ?', message: `La dorure coûte ${poussieresDites(prix)}.`, confirmLabel: 'La dorer' })
-    if (oui) await ecrire(() => api.cabinet.dorer(cle, prix), `${nom} prend son cadre doré`, { changeSonCartel: true })
+    if (oui) await ecrire(() => api.cabinet.dorer(cle, prix), `${nom} prend son cadre doré`)
   }
   const echanger = (k: Manche) => ecrire(() => api.cabinet.echanger(k), 'Le jeu de cette partie a changé')
 

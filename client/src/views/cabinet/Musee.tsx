@@ -5,7 +5,7 @@ import { GrosBouton, PieceTete, Sortie } from '../../components/Pieces'
 import { CARTES_PEINTES } from '../../components/cartes-peintes'
 import { espacesFines, formatNumber } from '../../format'
 import { JEUX } from '../../../../shared/cabinet/jeux/regle'
-import { poussieresDites } from '../../../../shared/cabinet/musee'
+import { laPartieAttend, poussieresDites } from '../../../../shared/cabinet/musee'
 import { OEUVRES, RARETES } from '../../../../shared/cabinet/oeuvres'
 import { GARDIENS, salleDuGardien } from '../../../../shared/cabinet/salles'
 import type { OeuvreVue, PageDuCabinet, SalleVue } from '../../../../shared/cabinet/vues'
@@ -30,6 +30,15 @@ export const enDebutDeLigne = (phrase: string) => phrase.replace(/^./, c => c.to
 
 /** Les œuvres qu'il a dans une salle. */
 export const possedeesDe = (s: SalleVue) => s.oeuvres.filter(o => o.possedee).length
+
+/**
+ * La partie qui attend, dans les mots du serveur (`laPartieAttend`) : tant
+ * qu'elle n'est pas finie, rien ne part ni ne se dépense — le premier refus du
+ * départ (`cadreDuDepart`) et de la dépense (`refusDeLAchat`). Chaque écran qui
+ * fait partir ou dépenser en éteint ses gestes, et le dit une fois ; null :
+ * rien n'attend.
+ */
+export const laPartieQuiAttend = (page: PageDuCabinet): string | null => (page.enCours ? laPartieAttend(page.enCours.jeu) : null)
 
 /**
  * La plus rare des œuvres qu'il a dans une salle, à l'ordre des raretés

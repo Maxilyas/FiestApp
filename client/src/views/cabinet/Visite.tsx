@@ -1,4 +1,4 @@
-import { useContext } from 'react'
+import { useContext, useId } from 'react'
 import { OeuvrePeinte, RARETE_DITE } from '../../components/OeuvrePeinte'
 import { PieceTete, Sortie } from '../../components/Pieces'
 import { espacesFines } from '../../format'
@@ -9,7 +9,7 @@ import type { IssueDUnePartie, Manche } from '../../../../shared/cabinet/partie'
 import { salle } from '../../../../shared/cabinet/salles'
 import type { CaseVue, PageDuCabinet } from '../../../../shared/cabinet/vues'
 import { RetourAuMusee, type PartieDemandee } from './ecrans'
-import { compte } from './Musee'
+import { compte, laPartieQuiAttend } from './Musee'
 import { oeuvreMontree } from './Salle'
 
 // Ce que la journée propose : la visite du jour — trois parties, trois jeux,
@@ -39,7 +39,28 @@ function issueDite(c: CaseVue): string {
   return c.issue ? issues[c.issue] : 'Commencée'
 }
 
-function CaseDeLaVisite({ c, k, echange, busy, onJouer, onEchanger }: { c: CaseVue; k: Manche; echange: boolean; busy: boolean; onJouer: (p: PartieDemandee) => void; onEchanger: (k: Manche) => void }) {
+/**
+ * Une case de la visite. `attend` : l'identifiant de la raison qui éteint son
+ * « Jouer » — une partie attend, et rien d'autre ne part —, dite une fois
+ * au-dessus des cases, et que chaque « Jouer » désigne à l'oreille.
+ */
+function CaseDeLaVisite({
+  c,
+  k,
+  echange,
+  attend,
+  busy,
+  onJouer,
+  onEchanger,
+}: {
+  c: CaseVue
+  k: Manche
+  echange: boolean
+  attend: string | null
+  busy: boolean
+  onJouer: (p: PartieDemandee) => void
+  onEchanger: (k: Manche) => void
+}) {
   const jeu = JEUX[c.jeu]
   // Montrée seulement quand elle est à lui : gagnée, ou la case qui la dore.
   const montree = c.oeuvre ?? ('pourDorer' in c.enJeu ? c.enJeu.pourDorer : undefined)
@@ -58,10 +79,17 @@ function CaseDeLaVisite({ c, k, echange, busy, onJouer, onEchanger }: { c: CaseV
         {!c.faite && (!c.bientot || echange) && (
           <span className="cab-gestes">
             {!c.bientot && (
-              <button type="button" className="btn btn-primary" aria-disabled={busy || undefined} onClick={() => !busy && onJouer({ origine: 'visite', case: k })}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                aria-disabled={busy || attend !== null || undefined}
+                aria-describedby={attend ?? undefined}
+                onClick={() => !busy && attend === null && onJouer({ origine: 'visite', case: k })}
+              >
                 Jouer
               </button>
             )}
+            {/* Changer de jeu ne fait rien partir : le serveur l'accepte pendant une partie (`refusDeLEchange`). */}
             {echange && (
               <button type="button" className="btn" aria-disabled={busy || undefined} onClick={() => !busy && onEchanger(k)}>
                 Changer de jeu
@@ -76,19 +104,29 @@ function CaseDeLaVisite({ c, k, echange, busy, onJouer, onEchanger }: { c: CaseV
 
 export function Visite({ page, busy, onJouer, onEchanger }: { page: PageDuCabinet; busy: boolean; onJouer: (p: PartieDemandee) => void; onEchanger: (k: Manche) => void }) {
   const auMusee = useContext(RetourAuMusee)
+  const idDeLAttente = useId()
   const { cases, echange } = page.visite
   // « Changer de jeu » : sur chaque case pas encore jouée, tant que la règle des échanges (`refusDeLEchange`, au serveur) le
   // permet — une fois par jour, la case de son choix. Elle ne dépend de la case que par « déjà jouée », que `faite` dit déjà.
   const aJouerEncore = cases.some(c => !c.faite)
+  // Une partie qui attend éteint chaque « Jouer », comme la chasse d'une œuvre : sinon l'annonce s'ouvrait, et « Commencer » ne
+  // le disait qu'en toast. Sa raison se dit une fois, s'il reste une case qu'elle éteint, au-dessus des cases : sous la
+  // troisième, elle tombait sous le pli en 360 × 640, et les « Jouer » en sourdine ne disaient pas pourquoi.
+  const attend = cases.some(c => !c.faite && !c.bientot) ? laPartieQuiAttend(page) : null
   const { jours, aJouer } = page.serie
   return (
     <div className="player-shell cab-page">
       <Sortie vers="Le Cabinet" href="/cabinet" onClick={auMusee} />
       <PieceTete piece={`${cases.filter(c => c.faite).length} sur ${cases.length} faite${cases.filter(c => c.faite).length > 1 ? 's' : ''}`} titre="La visite du jour" />
       <p className="cab-ligne">{espacesFines('Chacune peut te faire gagner une œuvre : tu la découvres en la gagnant.')}</p>
+      {attend && (
+        <p id={idDeLAttente} className="cab-raison cab-raison-en-tete">
+          {espacesFines(attend)}
+        </p>
+      )}
       <ol className="cab-cases">
         {cases.map((c, k) => (
-          <CaseDeLaVisite key={k} c={c} k={k as Manche} echange={echange.possible && !c.faite} busy={busy} onJouer={onJouer} onEchanger={onEchanger} />
+          <CaseDeLaVisite key={k} c={c} k={k as Manche} echange={echange.possible && !c.faite} attend={attend === null ? null : idDeLAttente} busy={busy} onJouer={onJouer} onEchanger={onEchanger} />
         ))}
       </ol>
       {!echange.possible && echange.refus && aJouerEncore && <p className="cab-raison">{espacesFines(echange.refus)}</p>}
@@ -103,7 +141,11 @@ export function Visite({ page, busy, onJouer, onEchanger }: { page: PageDuCabine
 
 export function JouerLibrement({ page, onJouer }: { page: PageDuCabinet; onJouer: (p: PartieDemandee) => void }) {
   const auMusee = useContext(RetourAuMusee)
+  const idDeLAttente = useId()
   const paient = page.libres.paientEncore
+  // Une partie qui attend éteint les neuf jeux : sa raison se dit une fois, au-dessus — sous le dernier des neuf, elle tombait
+  // loin sous le pli.
+  const attend = laPartieQuiAttend(page)
   return (
     <div className="player-shell cab-page">
       <Sortie vers="Le Cabinet" href="/cabinet" onClick={auMusee} />
@@ -117,13 +159,24 @@ export function JouerLibrement({ page, onJouer }: { page: PageDuCabinet; onJouer
               : 'Pour aujourd’hui, c’est pour le plaisir : la poussière d’or revient à minuit.',
         )}
       </p>
+      {attend && (
+        <p id={idDeLAttente} className="cab-raison cab-raison-en-tete">
+          {espacesFines(attend)}
+        </p>
+      )}
       {/* Ceux qui se jouent d'abord, dans l'ordre du Cabinet : au milieu des sept qui arrivent, le Pari et l'Éclair se cherchaient. */}
       <ul className="cab-jeux">
         {[...CLES_DES_JEUX].sort((a, c) => Number(!page.jeux.includes(a)) - Number(!page.jeux.includes(c))).map(j => {
           const pret = page.jeux.includes(j)
           return (
             <li key={j}>
-              <button type="button" className="cab-jeu" aria-disabled={!pret || undefined} onClick={() => pret && onJouer({ origine: 'libre', jeu: j })}>
+              <button
+                type="button"
+                className="cab-jeu"
+                aria-disabled={!pret || attend !== null || undefined}
+                aria-describedby={attend === null ? undefined : idDeLAttente}
+                onClick={() => pret && attend === null && onJouer({ origine: 'libre', jeu: j })}
+              >
                 <b className="cab-case-jeu">{JEUX[j].nom}</b>
                 <span className="cab-ligne">{espacesFines(JEUX[j].geste)}</span>
                 {!pret && <span className="cab-pastille">bientôt</span>}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Dessin } from '../../components/Avatar'
 import { OeuvrePeinte, type OeuvreMontree } from '../../components/OeuvrePeinte'
 import { Feuille, PieceTete, Sortie } from '../../components/Pieces'
@@ -9,7 +9,7 @@ import { POUVOIRS, ceQueFaitLaCarte, forceDe, pouvoirDe, type CleDePouvoir, type
 import type { PageDuCabinet, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { legendaire } from '../../../../shared/legendaires'
 import type { PartieDemandee } from './ecrans'
-import { enDebutDeLigne } from './Musee'
+import { enDebutDeLigne, laPartieQuiAttend } from './Musee'
 import { oeuvreDeLaPage } from './Oeuvre'
 import { ecranDuJeu } from './Partie'
 import { oeuvreMontree } from './Salle'
@@ -186,6 +186,7 @@ export function Annonce({
   onRetour: () => void
 }) {
   const [choisir, setChoisir] = useState(false)
+  const idDeLAttente = useId()
   const a = annonceDe(page, demande)
   const jeu = a?.jeu
   useEffect(() => {
@@ -203,6 +204,9 @@ export function Annonce({
   const j = JEUX[a.jeu]
   const cartes = cartesBonusDe(page)
   const choisie = cartes.find(c => c.cle === carte) ?? null
+  // Une partie qui attend — commencée d'un autre onglet, et que la page relue vient d'apprendre — : « Commencer » s'éteint, sa
+  // raison dessous à la place de ce qu'il coûterait, comme les départs du musée (`laPartieQuiAttend`).
+  const attend = laPartieQuiAttend(page)
   const avant = avantDeCommencer(demande)
   return (
     <div className="player-shell cab-page cab-annonce">
@@ -235,10 +239,22 @@ export function Annonce({
           </button>
         )}
       </section>
-      <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => !busy && onCommencer(choisie?.cle ?? null)}>
+      <button
+        type="button"
+        className="btn btn-primary btn-big btn-block"
+        aria-disabled={busy || attend !== null || undefined}
+        aria-describedby={attend === null ? undefined : idDeLAttente}
+        onClick={() => !busy && attend === null && onCommencer(choisie?.cle ?? null)}
+      >
         Commencer
       </button>
-      {avant && <p className="cab-raison">{espacesFines(avant)}</p>}
+      {attend ? (
+        <p id={idDeLAttente} className="cab-raison">
+          {espacesFines(attend)}
+        </p>
+      ) : (
+        avant && <p className="cab-raison">{espacesFines(avant)}</p>
+      )}
       {choisir && (
         <Feuille titre="Ta carte-bonus" onFermer={() => setChoisir(false)} className="cab-feuille">
           <ChoixDeLaCarte

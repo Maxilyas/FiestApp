@@ -36,6 +36,7 @@ import {
   lire,
   magasinDEssai,
   ok,
+  ouvrir,
   poster,
   unPariParfait,
   type BancDuCabinet,
@@ -319,6 +320,17 @@ test('pendant une partie, rien ne s’achète ni ne se dore — ni l’œuvre qu
     ['Dorer son cadre', 'La rejouer'],
   )
   assert.match(texteDe(aLui), new RegExp(attend))
+  // Ni un autre départ : la visite et les jeux libres mettent les leurs en sourdine, la raison dite une fois — celle du refus que
+  // le serveur rend au départ demandé quand même.
+  const jouerPendant = await ecranDeLaPage('views/cabinet/Visite', 'Visite', { page: pendant, busy: false, onJouer: () => {}, onEchanger: () => {} })
+  const jouables = [...jouerPendant.matchAll(/>Jouer<\/button>/g)].length
+  assert.ok(jouables > 0, 'des cases à jouer')
+  assert.equal(enSourdine(jouerPendant).filter(t => t === 'Jouer').length, jouables)
+  assert.equal([...texteDe(jouerPendant).matchAll(new RegExp(attend, 'g'))].length, 1)
+  const libresPendant = await ecranDeLaPage('views/cabinet/Visite', 'JouerLibrement', { page: pendant, onJouer: () => {} })
+  assert.equal(enSourdine(libresPendant).length, [...libresPendant.matchAll(/class="cab-jeu"/g)].length)
+  assert.equal([...texteDe(libresPendant).matchAll(new RegExp(attend, 'g'))].length, 1)
+  assert.deepEqual(refus(await commencer(b, paul.cookie, { origine: 'libre', jeu: 'pari', carte: null })), [400, { error: attend }])
   const fin = await unPariParfait(b, paul.cookie, chasse)
   assert.deepEqual([fin.bilan?.issue, fin.bilan?.oeuvre], ['gagnee-doree', 'lecon'], 'la Leçon entre en jouant, sans rien payer')
   const apres = ok(await laPage(b, paul.cookie), 'la page')
@@ -332,6 +344,9 @@ test('pendant une partie, rien ne s’achète ni ne se dore — ni l’œuvre qu
     assert.ok(!enSourdine(html).some(t => t.startsWith(geste)), geste)
     assert.doesNotMatch(texteDe(html), new RegExp(attend))
   }
+  const jouerApres = await ecranDeLaPage('views/cabinet/Visite', 'Visite', { page: apres, busy: false, onJouer: () => {}, onEchanger: () => {} })
+  assert.ok(!enSourdine(jouerApres).includes('Jouer'), 'la visite répond')
+  assert.doesNotMatch(texteDe(jouerApres), new RegExp(attend))
   // Finie, la poussière se dépense.
   assert.equal(ok(await acheter(paul.cookie, communeA, prixDAchat(communeA)), 'l’achat, la partie finie').poussiere, apres.poussiere - prixDAchat(communeA))
 
@@ -526,6 +541,73 @@ test('le cartel : la manche que la partie lui a gardée, relue par le même pli 
   assert.deepEqual(refus(await leCartel(max.cookie, epique)), [404, { error: 'Elle n’est pas encore à toi : gagne-la ou achète-la d’abord' }])
   assert.deepEqual(refus(await leCartel(max.cookie, 'nulle-part')), [404, { error: 'Cette œuvre n’est pas au Cabinet' }])
   assert.deepEqual(refus(await leCartel(undefined, 'lecon')), [401, { error: CABINET_SANS_PROFIL }])
+})
+
+test('gagnée avec son cartel, puis dorée en jouant : l’œuvre garde le premier, et ni le bilan ni la page ne disent l’autre', async () => {
+  const { cookie } = await avecDeLaPoussiere('nina', 0)
+  const cle = communeDuPari
+  // Gagnée sans cadre doré — parier juste, garder, parier juste : huit étoiles —, d'une partie qui raconte : son cartel.
+  let v = ok(await commencer(b, cookie, { origine: 'chasse', oeuvre: cle, carte: null }), 'la chasse')
+  v = await jouerUnPari(b, cookie, v, 0)
+  v = await jouerUnPari(b, cookie, await ouvrir(b, cookie, v, 1), 1, 'garder')
+  const gagnee = await jouerUnPari(b, cookie, await ouvrir(b, cookie, v, 2), 2)
+  assert.equal(gagnee.bilan?.issue, 'gagnee')
+  assert.ok(gagnee.bilan?.cartel, 'sa partie a de quoi raconter')
+  const avant = ok(await laPage(b, cookie), 'la page, gagnée')
+  const premier = ok(await leCartel(cookie, cle), 'son cartel')
+  assert.deepEqual([premier.doree, premier.partie?.id, premier.partie?.issue], [false, gagnee.id, 'gagnee'])
+  const offerte = ok(await leCartel(cookie, 'coup-d-oeil'), 'le cartel d’une œuvre de départ')
+
+  // Rejouée pour sa dorure, parfaite : son cadre se dore, et la partie a sa manche à raconter, elle aussi.
+  const chasse = ok(await commencer(b, cookie, { origine: 'chasse', oeuvre: cle, carte: null }), 'la chasse pour la dorer')
+  const pendant = ok(await laPage(b, cookie), 'la page pendant la chasse')
+  const doree = await unPariParfait(b, cookie, chasse)
+  assert.equal(doree.bilan?.issue, 'doree')
+  const raconte = doree.bilan?.cartel
+  assert.ok(raconte && raconte.sujet !== premier.partie!.sujet, 'deux parties, deux manches')
+  // L'œuvre garde le cartel de la partie qui l'a gagnée : le serveur ne remplace pas le premier.
+  const garde = ok(await leCartel(cookie, cle), 'son cartel, dorée')
+  assert.deepEqual([garde.doree, garde.partie?.id, garde.partie?.issue, garde.partie?.sujet], [true, gagnee.id, 'gagnee', premier.partie!.sujet])
+  // Le bilan ne promet pas « Son cartel » d'une manche que l'œuvre rouverte ne montrera pas : il dit ce que la partie a appris.
+  const bilan = texteDe(await ecranDeLaPage('views/cabinet/Bilan', 'BilanDeLaPartie', { vue: doree, ecran: null, onMusee: () => {} }))
+  assert.doesNotMatch(bilan, /Son cartel/)
+  // Un texte du contenu tel que `texteDe` le lit : son apostrophe droite y devient la typographique.
+  const lu = (s: string) => texteDe(s.replace(/'/g, '’')).trim()
+  assert.ok(bilan.includes(`Ce que tu as appris en la dorant ${lu(raconte.sujet)}`), bilan)
+  const rouverte = texteDe(await ecranDeLaPage('views/cabinet/Cartel', 'CartelDeLOeuvre', { lu: { etat: 'lu', cartel: garde } }))
+  assert.ok(rouverte.includes(`Ce que tu as appris en la gagnant ${lu(premier.partie!.sujet)}`), rouverte)
+
+  // La page, gardant les cartels qu'elle a lus : la page d'après les dément — le cadre doré que le cartel lu n'avait pas, la
+  // partie qui attendait et n'attend plus (elle a pu doubler une œuvre sans rien changer de ce que la page montre) —, et la page
+  // relue sans rien de neuf les laisse tenir.
+  // Le module de la page, chargé dans Node : le typage du serveur ne lit pas le JSX, sa signature se dit ici.
+  type Gardes = Record<string, { etat: 'lu'; cartel: Cartel }>
+  const { cartelsQuiTiennent } = (await import(new URL('../../client/src/views/cabinet/Cartel.tsx', import.meta.url).href)) as {
+    cartelsQuiTiennent: (cartels: Gardes, avant: PageDuCabinet | null, apres: PageDuCabinet) => Gardes
+  }
+  const apres = ok(await laPage(b, cookie), 'la page, dorée')
+  assert.deepEqual(cartelsQuiTiennent({ [cle]: { etat: 'lu', cartel: premier } }, avant, apres), {}, 'dorée depuis')
+  const deDepart = { 'coup-d-oeil': { etat: 'lu' as const, cartel: offerte } }
+  assert.equal(cartelsQuiTiennent(deDepart, avant, apres), deDepart, 'rien de changé pour elle')
+  assert.deepEqual(cartelsQuiTiennent(deDepart, pendant, apres), {}, 'la partie qui attendait est finie')
+  const relus = { [cle]: { etat: 'lu' as const, cartel: garde }, ...deDepart }
+  assert.equal(cartelsQuiTiennent(relus, apres, ok(await laPage(b, cookie), 'la page relue')), relus)
+})
+
+test('plus de chasse, pour une œuvre d’un jeu pas livré : la page dit le refus que le serveur rend, dans son ordre', async () => {
+  const { cookie } = await avecDeLaPoussiere('ugo', 0)
+  for (let n = 0; n < 2; n++) ok(await jouer(b, cookie, ok(await commencer(b, cookie, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'une chasse'), { quoi: 'quitter' }), 'quitter')
+  const page = ok(await laPage(b, cookie), 'la page sans chasse')
+  assert.equal(page.chasses.restent, 0)
+  // Coup d'œil, à elle, se trouve à un jeu que la règle ne livre pas encore ; le serveur compte d'abord les chasses (`cadreDuDepart`).
+  assert.ok(!JEUX_PRETS.includes(JEU_DE_L_OEUVRE['coup-d-oeil']))
+  const depart = await commencer(b, cookie, { origine: 'chasse', oeuvre: 'coup-d-oeil', carte: null })
+  assert.equal(depart.status, 400)
+  const { error } = depart.corps as unknown as { error: string }
+  const html = await lOeuvreDe(page, 'coup-d-oeil')
+  const raison = /<button [^>]*aria-describedby="([^"]+)"[^>]*>La rejouer/.exec(html)?.[1]
+  assert.ok(raison, 'la rejouer, en sourdine, désigne sa raison')
+  assert.equal(texteDe(new RegExp(`<p id="${raison}" class="cab-raison">(.*?)</p>`).exec(html)![1]).trim(), texteDe(error).trim())
 })
 
 test('le cartel d’une œuvre gagnée sans rien à raconter dit le jour où elle est entrée, pas celui de sa partie', () => {

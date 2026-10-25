@@ -15,13 +15,14 @@ import type { IssueDUnePartie, OrigineDUnePartie } from '../../../../shared/cabi
 import type { MancheVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees, type Tombe } from '../../../../shared/gains'
 import { legendaire } from '../../../../shared/legendaires'
-import { ceQueLaPartieAFait } from './Cartel'
+import { titreAuBilan } from './Cartel'
 import type { EcranEfface } from './Partie'
 import { oeuvreMontree } from './Salle'
 
 // Le bilan d'une partie (§ 2.6) : ce qu'elle a fait à son œuvre, en clair —
 // les étoiles manche par manche et leurs notes, le total sur neuf, la
-// poussière d'or —, l'œuvre gagnée et son cartel, le gardien réveillé en
+// poussière d'or —, l'œuvre gagnée et son cartel (dorée ou doublée, ce que la
+// partie lui a appris : elle peut garder le cartel d'avant), le gardien réveillé en
 // grand (`LegendaireOuvert`, avant les gains, comme à la fin d'une
 // expédition), puis l'écran des gains de tous les modes : « Ce que tu
 // gagnes », « Nouveaux trophées », « À porter » (`Gains.tsx`, `gains.test.ts`).
@@ -135,8 +136,9 @@ export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDe
           </div>
           {b.cartel && (
             <div className="cab-cartel">
-              {/* Les mots du cartel du musée : dorée en jouant, une œuvre achetée ne se dit pas gagnée. */}
-              <span className="cab-cartel-titre">{`Son cartel : ce que tu as appris ${ceQueLaPartieAFait(b.issue).appris}`}</span>
+              {/* Les mots du cartel du musée — dorée en jouant, une œuvre achetée ne se dit pas gagnée —, et « Son cartel » seulement
+                  quand l'œuvre le prend à coup sûr : gagnée (`titreAuBilan`). */}
+              <span className="cab-cartel-titre">{titreAuBilan(b.issue)}</span>
               <p className="cab-cartel-sujet">{espacesFines(b.cartel.sujet)}</p>
               <p className="cab-cartel-reponse">{espacesFines(b.cartel.reponse)}</p>
               {b.cartel.anecdote && <p className="cab-cartel-phrase">{espacesFines(b.cartel.anecdote)}</p>}

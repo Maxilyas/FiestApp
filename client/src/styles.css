@@ -10330,9 +10330,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    ici. Rien pour l'écran commun. */
 .cab-page { font-size: 1.0625rem; line-height: 1.45; }
 .cab-page p { margin: 0; }
-/* Le titre d'un écran reçoit le focus par programme, au changement d'écran (`rendreLeFocus`) : sans l'anneau du navigateur, qui
-   l'encadrait de noir sous l'Ivoire. */
-.cab-page h1:focus { outline: none; }
+/* Le titre d'un écran, la question d'une manche, le verdict d'une révélation reçoivent le focus par programme (`rendreLeFocus`,
+   qui leur pose `tabindex="-1"`) : sans l'anneau du navigateur, qui les encadrait de noir sous l'Ivoire — au clavier,
+   `:focus-visible` le leur donnait, et la règle de l'application n'écarte que le sien. */
+.cab-page [tabindex='-1']:focus { outline: none; }
 .cab-page h2 { margin: 0; font-size: 1.45rem; font-variant-numeric: lining-nums; }
 /* Les pièces partagées, à la taille du Cabinet : « ← Accueil », la petite ligne au-dessus du titre, le détail des gros boutons et
    leur pastille, les boutons — ceux de l'inscription, en capitales espacées, ne tenaient pas sur une ligne à dix-sept pixels. */
@@ -10356,6 +10357,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-bloc .cab-raison, .cab-case .cab-raison { margin-top: -2px; text-align: left; }
 /* Sous les cases de la visite, pourquoi « Changer de jeu » n'y est pas : une ligne à elles, pas une raison sous un bouton. */
 .cab-cases + .cab-raison { margin-top: -6px; text-align: left; }
+/* La partie qui attend, au-dessus de ce qu'elle éteint — les cases de la visite, les neuf jeux libres — : une ligne de l'écran,
+   alignée comme lui ; sous la liste, elle tombait sous le pli. */
+.cab-raison-en-tete { margin-top: -6px; text-align: left; }
 .cab-pastille { display: inline-flex; align-items: center; min-height: 28px; margin-left: 8px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--accent-text); font-weight: 700; line-height: 1; vertical-align: middle; white-space: nowrap; }
 .cab-gestes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .cab-lien { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent-text); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }

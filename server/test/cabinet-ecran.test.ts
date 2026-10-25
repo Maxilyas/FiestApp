@@ -2039,7 +2039,7 @@ const cartelDeLaPartie = (issue?: string): Cartel =>
     partie: { id: 'p', jeu: 'pari', jour: 'le 24 octobre 2026', total: 9, ...(issue && { issue }), sujet: 'Quelle est la capitale de la Lituanie ?', reponse: 'Vilnius', anecdote: null },
   }) as Cartel
 
-test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en jouant, rejouée —, au musée comme au bilan', async () => {
+test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en jouant, rejouée — ; le bilan ne promet que le cartel qu’elle prend', async () => {
   const cartel = async (issue?: string) => texte(await rendu('views/cabinet/Cartel', 'CartelDeLOeuvre', { lu: { etat: 'lu', cartel: cartelDeLaPartie(issue) } }))
   for (const [issue, titre, ligne] of [
     [undefined, 'en la gagnant', 'Gagnée'],
@@ -2054,20 +2054,27 @@ test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en
   }
   // Achetée, puis dorée en jouant ou rejouée en visite : elle ne l'a pas gagnée, et son cartel ne le dit plus.
   for (const issue of ['doree', 'double']) assert.doesNotMatch(await cartel(issue), /gagn/i, issue)
-  // Au bilan, les mêmes mots : la partie qui la dore ne dit pas « en la gagnant ».
+  // Au bilan, les mêmes mots — la partie qui la dore ne dit pas « en la gagnant » —, et « Son cartel » seulement quand l'œuvre le
+  // prend : gagnée, toujours ; dorée en jouant ou doublée, seulement si elle n'en avait pas — le serveur garde le premier, et la
+  // vue du bilan ne dit pas lequel. Gagnée avec le sien puis dorée à 9 sur 9, le bilan disait « Son cartel » d'une manche que
+  // l'œuvre rouverte ne montrait pas (`cabinet-poussiere.test.ts`, par le vrai serveur).
   const ecran = (await ecrans()).pari
   const g = vues.gagnee
   for (const [issue, titre] of [
-    ['gagnee-doree', 'en la gagnant'],
-    ['doree', 'en la dorant'],
-    ['double', 'en la rejouant'],
+    ['gagnee', 'Son cartel : ce que tu as appris en la gagnant'],
+    ['gagnee-doree', 'Son cartel : ce que tu as appris en la gagnant'],
+    ['doree', 'Ce que tu as appris en la dorant'],
+    ['double', 'Ce que tu as appris en la rejouant'],
   ] as const) {
     const vue = { ...g, bilan: { ...g.bilan!, issue } } as VueDeLaPartie
     const t = texte(await rendu('views/cabinet/Bilan', 'BilanDeLaPartie', { vue, ecran, onMusee: rien }))
-    assert.match(t, new RegExp(`Son cartel : ce que tu as appris ${titre} ${lu(g.bilan!.cartel!.sujet)}`), issue)
+    assert.match(t, new RegExp(`${titre} ${lu(g.bilan!.cartel!.sujet)}`), issue)
+    if (issue === 'doree' || issue === 'double') assert.doesNotMatch(t, /Son cartel/, issue)
   }
   // Les mots d'une seule source : le bilan ne les recopie pas.
   assert.doesNotMatch(source('views/cabinet/Bilan.tsx'), /en la gagnant/)
+  // Le glossaire de « Comment ça marche ? » non plus ne dit pas qu'un cartel vient toujours de la partie qui l'a gagnée.
+  assert.match(GLOSSAIRE.cartel.sens, /en la gagnant ou en la rejouant/)
 })
 
 /** Les boutons d'un rendu : leur texte, en sourdine ou non, et la raison qu'ils désignent à l'oreille (`aria-describedby`). */
@@ -2079,7 +2086,7 @@ function boutonsDe(html: string) {
   }))
 }
 /** Les raisons d'un rendu, par leur identifiant : ce qu'un bouton en sourdine dit dessous. */
-const raisonsDe = (html: string) => new Map([...html.matchAll(/<p id="([^"]+)" class="cab-raison">(.*?)<\/p>/g)].map(([, id, dedans]) => [id, texte(dedans).trim()]))
+const raisonsDe = (html: string) => new Map([...html.matchAll(/<p id="([^"]+)" class="cab-raison(?: [^"]*)?">(.*?)<\/p>/g)].map(([, id, dedans]) => [id, texte(dedans).trim()]))
 
 test('pendant une partie, l’œuvre ne s’achète, ne se dore ni ne se chasse : chaque geste en sourdine, la raison du serveur dite une fois, que chacun désigne', async () => {
   const riche = { ...page, poussiere: 100_000 }
@@ -2117,22 +2124,113 @@ test('pendant une partie, l’œuvre ne s’achète, ne se dore ni ne se chasse 
   sansJargon(manque, 'une œuvre pendant une partie')
 })
 
-test('la page oublie ses cartels quand un achat, une dorure ou une partie ont pu les changer — et un cartel parti avant ne s’y range plus', () => {
+test('la chasse d’une œuvre se refuse dans l’ordre du serveur : la partie qui attend, puis plus de chasse, puis le jeu qui n’est pas livré', async () => {
+  // `cadreDuDepart` compte les chasses avant de chercher le jeu : la page qui disait d'abord « Ce jeu arrive bientôt » contredisait
+  // le toast que le même départ aurait rendu (`cabinet-poussiere.test.ts`, par le vrai serveur).
+  const sansChasse = { ...page, chasses: { ...page.chasses, restent: 0 } }
+  const raisonDe = (html: string, debut: string) => raisonsDe(html).get(boutonsDe(html).find(x => x.texte.startsWith(debut))!.raison!)
+  // À lui, à un jeu pas livré (l'Épingle) : la raison est qu'il n'a plus de chasse, et le jeu à venir ne se dit pas.
+  assert.ok(!JEUX_PRETS.includes(JEU_DE_L_OEUVRE['coup-d-oeil']))
+  const aLui = await lOeuvre('coup-d-oeil', {}, sansChasse)
+  assert.equal(raisonDe(aLui, 'La rejouer'), PLUS_DE_CHASSE)
+  assert.doesNotMatch(texte(aLui), new RegExp(JEU_PAS_LIVRE))
+  // Une œuvre qui manque, à un jeu pas livré : de même.
+  const aVenir = page.salles.flatMap(s => s.oeuvres).find(o => !o.possedee && o.bientot)!
+  assert.equal(raisonDe(await lOeuvre(aVenir.cle, {}, sansChasse), 'Partir à sa recherche'), PLUS_DE_CHASSE)
+  // Une partie qui attend se dit avant tout.
+  assert.equal(raisonDe(await lOeuvre('coup-d-oeil', {}, { ...sansChasse, enCours: vues.pari }), 'La rejouer'), texte(laPartieAttend(vues.pari.jeu)).trim())
+  // Des chasses qui restent : le jeu qui n'est pas livré.
+  assert.equal(raisonDe(await lOeuvre('coup-d-oeil'), 'La rejouer'), JEU_PAS_LIVRE)
+})
+
+test('pendant une partie, rien d’autre ne part : la visite, les jeux libres et l’annonce mettent leur départ en sourdine, la raison du serveur dite une fois', async () => {
+  // Le même refus que la chasse d'une œuvre (`cadreDuDepart`) : « Jouer » ouvrait l'annonce, et « Commencer » ne disait qu'en
+  // toast ce que l'écran d'une œuvre disait d'avance.
+  const attend = { ...page, enCours: vues.pari }
+  const raison = texte(laPartieAttend(vues.pari.jeu)).trim()
+  const uneFois = (html: string) => assert.equal([...texte(html).matchAll(new RegExp(echapper(raison), 'g'))].length, 1, 'dite une fois')
+  const eteints = (boutons: ReturnType<typeof boutonsDe>, html: string) => {
+    assert.ok(boutons.length > 0)
+    assert.ok(boutons.every(x => x.eteint && x.raison !== null && x.raison === boutons[0].raison), 'chacun en sourdine, et la même raison')
+    assert.equal(raisonsDe(html).get(boutons[0].raison!), raison)
+    uneFois(html)
+  }
+  // La visite : chaque « Jouer » ; « Changer de jeu », que le serveur accepte pendant une partie, répond.
+  const avecEchange = (p: PageDuCabinet) => ({ ...p, visite: { ...p.visite, echange: { possible: true } } })
+  const visite = await rendu('views/cabinet/Visite', 'Visite', { page: avecEchange(attend), busy: false, onJouer: rien, onEchanger: rien })
+  eteints(boutonsDe(visite).filter(x => x.texte === 'Jouer'), visite)
+  assert.ok(boutonsDe(visite).filter(x => x.texte === 'Changer de jeu').every(x => !x.eteint))
+  const visiteLibre = await rendu('views/cabinet/Visite', 'Visite', { page: avecEchange(page), busy: false, onJouer: rien, onEchanger: rien })
+  assert.ok(boutonsDe(visiteLibre).filter(x => x.texte === 'Jouer').every(x => !x.eteint && x.raison === null))
+  // Les jeux libres : chacun, les livrés comme ceux qui arrivent bientôt.
+  const libres = await rendu('views/cabinet/Visite', 'JouerLibrement', { page: attend, onJouer: rien })
+  eteints(boutonsDe(libres), libres)
+  // Au-dessus de ce qu'elle éteint, une ligne de l'écran : sous la troisième case ou le neuvième jeu, elle tombait sous le pli.
+  for (const [html, liste] of [
+    [visite, '<ol class="cab-cases"'],
+    [libres, '<ul class="cab-jeux"'],
+  ] as const) {
+    assert.ok(html.indexOf('class="cab-raison cab-raison-en-tete"') >= 0 && html.indexOf('class="cab-raison cab-raison-en-tete"') < html.indexOf(liste), liste)
+  }
+  const sansPartie = await rendu('views/cabinet/Visite', 'JouerLibrement', { page, onJouer: rien })
+  assert.equal(boutonsDe(sansPartie).filter(x => x.eteint).length, CLES_DES_JEUX.length - JEUX_PRETS.length)
+  assert.equal(raisonsDe(sansPartie).size, 0)
+  // L'annonce relue sous une partie partie d'ailleurs : « Commencer » en sourdine, et rien de ce qu'il coûterait.
+  const annonce = await rendu('views/cabinet/Annonce', 'Annonce', { page: attend, demande: { origine: 'chasse', oeuvre: 'expose' }, carte: null, busy: false, onCarte: rien, onCommencer: rien, onRetour: rien })
+  eteints(boutonsDe(annonce).filter(x => x.texte === 'Commencer'), annonce)
+  assert.doesNotMatch(texte(annonce), /Rien ne compte avant/)
+  // Les mots du serveur, importés : la page ne les recopie pas.
+  for (const f of ['views/cabinet/Visite.tsx', 'views/cabinet/Annonce.tsx']) assert.doesNotMatch(source(f), /t’attend|reprends-la/, f)
+  sansJargon(libres, 'les jeux libres pendant une partie')
+})
+
+test('la page oublie ses cartels quand un achat, une dorure ou une partie ont pu les changer — ici ou ailleurs —, et un cartel parti avant ne s’y range plus', async () => {
+  const { cartelDemande, cartelArrive, cartelsQuiTiennent } = await import(url('views/cabinet/Cartel.tsx'))
+  const lu = (doree: boolean) => ({ etat: 'lu', cartel: { oeuvre: 'coup-d-oeil', origine: 'depart', doree, dit: 'Offerte à ton arrivée.' } })
+  // Une demande, et sa réponse rangée à sa place.
+  const demande = cartelDemande({}, 'coup-d-oeil', 1)
+  assert.deepEqual(demande, { 'coup-d-oeil': { etat: 'chargement', demande: 1 } })
+  assert.deepEqual(cartelArrive(demande, 'coup-d-oeil', 1, lu(false)), { 'coup-d-oeil': lu(false) })
+  // Oubliés pendant qu'elle était en route — un achat, une dorure, une partie —, l'œuvre ouverte en a fait partir une neuve : la
+  // réponse d'avant, qui dirait l'œuvre d'avant, ne se range pas ; celle de la neuve, si. L'œuvre fermée, aucune.
+  const neuve = cartelDemande({}, 'coup-d-oeil', 2)
+  assert.equal(cartelArrive(neuve, 'coup-d-oeil', 1, lu(false)), neuve)
+  assert.deepEqual(cartelArrive(neuve, 'coup-d-oeil', 2, lu(true)), { 'coup-d-oeil': lu(true) })
+  const aucun = {}
+  assert.equal(cartelArrive(aucun, 'coup-d-oeil', 1, lu(false)), aucun)
+  // La page neuve dit ce qui a changé ailleurs — un autre onglet, un autre téléphone, la clôture du lendemain.
+  const dore = (p: PageDuCabinet, cle: string): PageDuCabinet => ({ ...p, salles: p.salles.map(s => ({ ...s, oeuvres: s.oeuvres.map(o => (o.cle === cle ? { ...o, doree: true } : o)) })) })
+  const gardes = { 'coup-d-oeil': lu(false) }
+  assert.ok(!page.salles.flatMap(s => s.oeuvres).find(o => o.cle === 'coup-d-oeil')!.doree)
+  // Rien de changé : les mêmes, le même objet — la page ne se redessine pas pour rien. La première page n'a rien à démentir.
+  assert.equal(cartelsQuiTiennent(gardes, page, { ...page }), gardes)
+  assert.equal(cartelsQuiTiennent(gardes, null, page), gardes)
+  // Dorée ailleurs : le cartel lu promettait encore « Rejoue-la pour dorer son cadre », il s'oublie.
+  assert.deepEqual(cartelsQuiTiennent(gardes, page, dore(page, 'coup-d-oeil')), {})
+  // Lu après la dorure, sous une page d'avant : la page neuve le confirme, il tient — et ne se redemande pas en boucle.
+  const dejaDore = { 'coup-d-oeil': lu(true) }
+  assert.equal(cartelsQuiTiennent(dejaDore, page, dore(page, 'coup-d-oeil')), dejaDore)
+  // En route pendant que l'œuvre changeait entre les deux pages : parti avant, il dirait l'œuvre d'avant ; sans changement, il tient.
+  const enRoute = { 'coup-d-oeil': { etat: 'chargement', demande: 3 } }
+  assert.deepEqual(cartelsQuiTiennent(enRoute, page, dore(page, 'coup-d-oeil')), {})
+  assert.equal(cartelsQuiTiennent(enRoute, page, { ...page }), enRoute)
+  // Une partie qui attendait et n'attend plus — finie ici ou ailleurs — a pu doubler une œuvre sans rien changer de ce que la page
+  // en montre : tous s'oublient. Toujours la même qui attend : ils tiennent.
+  assert.deepEqual(cartelsQuiTiennent(gardes, { ...page, enCours: vues.pari }, page), {})
+  assert.equal(cartelsQuiTiennent(gardes, { ...page, enCours: vues.pari }, { ...page, enCours: vues.pari }), gardes)
+  // Le branchement : chaque page neuve passe par `cartelsQuiTiennent`, une partie finie ici par `Partie.onFinie` — la partie encore
+  // à l'écran : le retour du navigateur fait reparaître l'œuvre de la chasse —, chaque demande par son numéro ; un perdu se
+  // redemande à chaque page relue.
   const app = source('views/CabinetApp.tsx')
-  // Un oubli monte l'âge des cartels et les vide tous ; un cartel demandé ne se range qu'à l'âge où il est parti.
-  assert.match(app, /const oublierLesCartels = useCallback\(\(\) => \{\s*ageDesCartels\.current \+= 1\s*setCartels\(\{\}\)\s*\}, \[\]\)/)
-  assert.match(app, /const age = ageDesCartels\.current/)
-  assert.match(app, /if \(age === ageDesCartels\.current\) setCartels/)
-  // Une dépense, réussie ou refusée ; l'échange ne touche aucun cartel.
-  for (const geste of ['acheter', 'dorer']) assert.match(app, new RegExp(`ecrire\\(\\(\\) => api\\.cabinet\\.${geste}\\(cle, prix\\), [^\\n]*, \\{ changeSonCartel: true \\}\\)`), geste)
-  assert.match(app, /ecrire\(\(\) => api\.cabinet\.echanger\(k\), '[^']*'\)/)
-  assert.match(app, /finally \{\s*if \(o\.changeSonCartel\) oublierLesCartels\(\)/)
-  // Une partie finie — sa dernière manche, « Quitter », ou relue finie d'un autre onglet — le dit à la page, encore à l'écran : le
-  // retour du navigateur fait reparaître l'œuvre de la chasse, son cartel déjà oublié.
+  assert.match(app, /const oublierLesCartels = useCallback\(\(\) => setCartels\(\{\}\), \[\]\)/)
+  assert.match(app, /setCartels\(c => cartelsQuiTiennent\(c, avant, page\)\)\s*\}, \[page\]\)/)
   assert.match(app, /onFinie=\{oublierLesCartels\}/)
   assert.match(source('views/cabinet/Partie.tsx'), /const finie = vue\.phase === 'finie'\s*useEffect\(\(\) => \{\s*if \(finie\) onFinie\?\.\(\)\s*\}, \[finie, onFinie\]\)/)
-  // Un perdu se redemande toujours à chaque page relue.
+  assert.match(app, /const demande = \+\+demandesDeCartel\.current\s*setCartels\(c => cartelDemande\(c, aSonCartel, demande\)\)/)
+  for (const etat of ["\\{ etat: 'lu', cartel \\}", "\\{ etat: 'perdu', motif: motifDe\\(e\\) \\}"]) assert.match(app, new RegExp(`setCartels\\(c => cartelArrive\\(c, aSonCartel, demande, ${etat}\\)\\)`), etat)
   assert.match(app, /setCartels\(sansLesPerdus\)\s*\}, \[aSonCartel, page\]\)/)
+  // L'échange ne touche aucune œuvre : il n'oublie rien.
+  assert.match(app, /ecrire\(\(\) => api\.cabinet\.echanger\(k\), '[^']*'\)/)
 })
 
 test('les règles : un jeu de la visite se change une fois par jour — le type du barème le tient, sans branche qui ne sert jamais', async () => {
@@ -2160,4 +2258,8 @@ test('chaque révélation a son titre où poser le focus : ce qui s’est passé
   // Le titre garde sa taille de verdict : un `h2` de la page en prendrait une autre (`.cab-page h2`).
   const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
   assert.match(css, /\n\.cab-page h2\.cab-titre-revele \{ font-size: 1\.6rem; \}/)
+  // Un titre qui reçoit le focus par programme — celui d'un écran, la question d'une manche, le verdict — ne prend pas l'anneau
+  // noir du navigateur : au clavier, `:focus-visible` le lui donnait, que la règle de l'application n'écarte que pour le sien.
+  assert.match(css, /\n\.cab-page \[tabindex='-1'\]:focus \{ outline: none; \}/)
+  assert.doesNotMatch(css, /\.cab-page h1:focus/)
 })

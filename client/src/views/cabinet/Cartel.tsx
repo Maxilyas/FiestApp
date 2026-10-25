@@ -2,7 +2,7 @@ import { espacesFines } from '../../format'
 import { ETOILES_D_UNE_PARTIE } from '../../../../shared/cabinet/bareme'
 import { JEUX } from '../../../../shared/cabinet/jeux/regle'
 import type { IssueDUnePartie } from '../../../../shared/cabinet/partie'
-import type { Cartel } from '../../../../shared/cabinet/vues'
+import type { Cartel, OeuvreVue, PageDuCabinet } from '../../../../shared/cabinet/vues'
 import { enDebutDeLigne } from './Musee'
 
 // Le cartel d'une œuvre : la plaque crème sous la peinture, comme au musée.
@@ -20,7 +20,7 @@ import { enDebutDeLigne } from './Musee'
  * l'appris (« en la dorant ») et la ligne de sa partie (« Dorée au Pari »). Une
  * œuvre achetée, rapportée ou offerte, puis dorée en jouant ou rejouée à une
  * visite qui la doublait, ne l'a pas gagnée — « en la gagnant » le lui faisait
- * dire. Le bilan d'une partie dit son cartel des mêmes mots (`Bilan.tsx`). Sans
+ * dire. Le bilan d'une partie le dit des mêmes mots (`titreAuBilan`). Sans
  * issue — un cartel écrit à la main —, ou d'une issue qui ne garde pas de
  * cartel, elle l'a gagnée.
  */
@@ -35,8 +35,90 @@ export function ceQueLaPartieAFait(issue: IssueDUnePartie | undefined): { appris
   }
 }
 
-/** Le cartel, en chemin, lu, ou perdu : sa place se garde, son motif se dit. */
-export type EtatDuCartel = { etat: 'chargement' } | { etat: 'lu'; cartel: Cartel } | { etat: 'perdu'; motif: string }
+/**
+ * Le titre de ce qu'une partie a appris, au bilan. Gagnée, l'œuvre prend le
+ * cartel de cette partie : « Son cartel : … ». Dorée en jouant, ou doublée,
+ * elle ne le prend que si elle n'en avait pas — le serveur garde le premier, et
+ * la vue du bilan ne dit pas lequel elle garde : la page ne le promet pas, elle
+ * dit ce que la partie lui a appris. Gagnée avec le sien puis dorée à 9 sur 9,
+ * le bilan disait « Son cartel » d'une manche que l'œuvre rouverte ne montrait
+ * pas.
+ */
+export function titreAuBilan(issue: IssueDUnePartie): string {
+  const { appris } = ceQueLaPartieAFait(issue)
+  return issue === 'gagnee' || issue === 'gagnee-doree' ? `Son cartel : ce que tu as appris ${appris}` : `Ce que tu as appris ${appris}`
+}
+
+/**
+ * Le cartel, en chemin, lu, ou perdu : sa place se garde, son motif se dit. En
+ * chemin, il porte le numéro de sa demande (`cartelArrive`).
+ */
+export type EtatDuCartel = { etat: 'chargement'; demande?: number } | { etat: 'lu'; cartel: Cartel } | { etat: 'perdu'; motif: string }
+
+// ── Les cartels que la page garde ────────────────────────────────────────
+//
+// Un cartel se demande à l'ouverture de son œuvre, une fois, et la page le
+// garde, œuvre par œuvre (`CabinetApp.tsx`) — jusqu'à ce qu'un geste ou une
+// page neuve dise qu'il a pu changer : un achat, une dorure, une partie finie,
+// ici ou ailleurs. Chaque décision est une fonction pure, éprouvée seule
+// (`cabinet-ecran.test.ts`, et sur les pages du vrai serveur,
+// `cabinet-poussiere.test.ts`) : la page n'en garde que le branchement.
+
+/** Le cartel d'une œuvre, demandé : sa place se garde, marquée du numéro de sa demande. */
+export const cartelDemande = (cartels: Readonly<Record<string, EtatDuCartel>>, cle: string, demande: number): Record<string, EtatDuCartel> => ({
+  ...cartels,
+  [cle]: { etat: 'chargement', demande },
+})
+
+/**
+ * Le cartel arrivé — lu ou perdu —, rangé à sa place si elle attend encore
+ * cette demande-là ; sinon rien ne change. Oubliés pendant qu'il était en
+ * route, les cartels ont fait partir une demande neuve pour l'œuvre ouverte, ou
+ * aucune : parti avant un achat, une dorure ou une partie, il dirait l'œuvre
+ * d'avant.
+ */
+export function cartelArrive(cartels: Readonly<Record<string, EtatDuCartel>>, cle: string, demande: number, lu: EtatDuCartel): Record<string, EtatDuCartel> {
+  const attend = cartels[cle]
+  return attend?.etat === 'chargement' && attend.demande === demande ? { ...cartels, [cle]: lu } : (cartels as Record<string, EtatDuCartel>)
+}
+
+/** Les œuvres d'une page, par leur clé. */
+const oeuvresDe = (page: PageDuCabinet): Map<string, OeuvreVue> => new Map(page.salles.flatMap(s => s.oeuvres.map(o => [o.cle, o] as const)))
+
+/**
+ * Les cartels gardés que la page neuve laisse tenir : tous, ou aucun — seule
+ * l'œuvre ouverte redemande le sien. Ce qu'un geste d'ici change, il le fait
+ * oublier lui-même (une partie finie, `Partie.onFinie`) ; ce qui a changé
+ * ailleurs — un autre onglet, un autre téléphone, la clôture du lendemain —, la
+ * page neuve le dément : un cartel lu dont l'œuvre n'a plus le cadre qu'il a lu
+ * (dorée ailleurs, il promettait encore « Rejoue-la pour dorer son cadre ») ;
+ * un cartel en route quand l'œuvre a changé entre les deux pages (lu avant, il
+ * dirait l'œuvre d'avant) ; tous, dès qu'une partie qui attendait n'attend
+ * plus — finie, elle a pu doubler une œuvre sans changer ni `possedee` ni
+ * `doree`. Un cartel lu se compare à la page neuve, pas à celle d'avant : lu
+ * après une dorure qu'une page en retard ne montrait pas, il tient, et ne se
+ * redemande pas en boucle. Rien de démenti : le même objet, et la page ne se
+ * redessine pas pour rien.
+ */
+export function cartelsQuiTiennent(cartels: Readonly<Record<string, EtatDuCartel>>, avant: PageDuCabinet | null, apres: PageDuCabinet): Record<string, EtatDuCartel> {
+  const gardes = cartels as Record<string, EtatDuCartel>
+  const cles = Object.keys(cartels)
+  if (cles.length === 0 || avant === null || avant === apres) return gardes
+  if (avant.enCours && avant.enCours.id !== apres.enCours?.id) return {}
+  const neuves = oeuvresDe(apres)
+  const vieilles = oeuvresDe(avant)
+  const dementi = cles.some(cle => {
+    const garde = cartels[cle]
+    const neuve = neuves.get(cle)
+    if (garde.etat === 'lu') return !neuve?.possedee || neuve.doree !== garde.cartel.doree
+    if (garde.etat === 'chargement') {
+      const vieille = vieilles.get(cle)
+      return vieille?.possedee !== neuve?.possedee || vieille?.doree !== neuve?.doree
+    }
+    return false
+  })
+  return dementi ? {} : gardes
+}
 
 /**
  * Les cartels que la page garde, sans les perdus : seul un cartel lu vaut
