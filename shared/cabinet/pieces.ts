@@ -80,6 +80,8 @@ export const idDeLaFriseATheme = (frise: string, manche: number) => `${PREFIXE_D
 export const idDeLaFriseDeSujet = (ids: readonly string[]) => FRISE_DE_SUJET + ids.join('+')
 
 export const estDuCabinet = (id: string) => id.startsWith(PREFIXE_DU_CABINET)
+/** Une manche d'une frise d'un sujet de la base : ses questions sont datées, et tes murs y lisent ses dates — jamais l'Éclair, qui se déplie aussi. */
+export const estUneFriseDeSujet = (id: string) => id.startsWith(FRISE_DE_SUJET)
 
 /**
  * Les questions de la base qu'une pièce a posées : un composé de l'Éclair ou

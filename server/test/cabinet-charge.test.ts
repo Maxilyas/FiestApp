@@ -16,7 +16,7 @@
 // pas frais ; un geste un, son verdict compris ; la fin, son lot et le rituel
 // de la campagne (la conception, § 2.9) ; un achat, une dorure, un échange un
 // chacun, rejoués aucun ; le cartel d'une partie et « Mes réponses » d'une
-// partie finie un, par leur clé.
+// partie finie un, par leur clé ; tes murs aucun, un si le journal a du retard.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
@@ -33,6 +33,7 @@ import {
   fermerLesMagasins,
   jouer,
   jouerUnEclair,
+  jouerUneEpingle,
   laPage,
   magasinDEssai,
   ok,
@@ -41,6 +42,7 @@ import {
   type MagasinDEssai,
 } from './cabinet-banc'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
+import type { MursDuCabinet } from '../../shared/cabinet/vues'
 import { ETOILES_DU_PARI, POUSSIERE_MIN, POUSSIERE_PAR_ETOILE } from '../../shared/cabinet/bareme'
 import { prixDe } from '../../shared/cabinet/musee'
 import { CATEGORIES } from '../../shared/categories'
@@ -423,6 +425,29 @@ test('par les routes : acheter, dorer, changer de jeu, un aller-retour chacun ; 
     }
     const enCours = ok(await commencer(b, lea, { origine: 'libre', jeu: 'eclair', carte: null }), 'une libre')
     assert.equal((await mesurer(() => lire(`/api/cabinet/partie/${enCours.id}`))).appels, 0, '« Mes réponses » d’une partie en cours : la mémoire')
+  } finally {
+    await b.banc.close()
+  }
+})
+
+test('par les routes : tes murs, aucun aller-retour quand le journal est frais, un pour le rattraper — rien ne s’écrit pour eux', async () => {
+  const b = await bancDuCabinet({ fraicheurDesDuelsMs: 3_600_000 })
+  try {
+    const chaud = await inscrireProfil(b.banc.url, 'chaud', 'Chaud')
+    ok(await laPage(b, chaud), 'la page du premier')
+    ok(await jouer(b, chaud, ok(await commencer(b, chaud, { origine: 'libre', jeu: 'pari', carte: null }), 'son départ'), { quoi: 'quitter' }), 'sa fin')
+
+    const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
+    ok(await laPage(b, lea), 'sa page')
+    const murs = () => fetch(`${b.banc.url}/api/cabinet/murs`, { headers: { Cookie: lea, 'X-Requested-With': 'quizz' } }).then(async r => ({ status: r.status, corps: (await r.json()) as MursDuCabinet }))
+    assert.equal((await mesurer(murs)).appels, 0, 'la page vient de rattraper le journal')
+    // Une pièce écrite depuis : le journal se rattrape, d'un aller-retour — puis plus rien.
+    const v = await jouerUneEpingle(b, lea, ok(await commencer(b, lea, { origine: 'libre', jeu: 'epingle', carte: null }), 'l’Épingle'), 0)
+    const apres = await mesurer(murs)
+    assert.equal(apres.appels, 1)
+    assert.equal(apres.resultat.corps.lieux.length, 1, 'le lieu épinglé')
+    assert.equal((await mesurer(murs)).appels, 0)
+    assert.equal(compter(b.fichier, 'SELECT COUNT(*) AS n FROM cabinet_gestes WHERE serie_id = ?', v.id), 2, 'l’ouverture et la réponse : les murs n’écrivent rien')
   } finally {
     await b.banc.close()
   }

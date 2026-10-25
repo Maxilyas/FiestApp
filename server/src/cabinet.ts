@@ -3,7 +3,7 @@ import type { ProfileStore } from './auth/profiles'
 import { readPlayerToken } from './auth/http'
 import { repondreErreur, wrap } from './core/http'
 import { PARTIE_INTROUVABLE, TABLEAU_INTROUVABLE, type CabinetStore } from './core/cabinet/magasin'
-import { cartelDe, pageDuCabinet, vueDeLaPartie } from './core/cabinet/vue'
+import { cartelDe, mursDe, pageDuCabinet, vueDeLaPartie } from './core/cabinet/vue'
 
 /**
  * Un indice d'une adresse, écrit comme la page l'écrit (`adresseDUnCadrage`) :
@@ -32,8 +32,8 @@ interface CabinetDeps {
  * Les routes du Cabinet de curiosités (`shared/cabinet/vues.ts`), pour les
  * profils — un invité anonyme n'a pas de musée, et le serveur le lui dit :
  * la page, commencer une partie, un geste, la partie relue, un cadrage du
- * Détail, le cartel d'une œuvre, l'achat, la dorure, l'échange d'un jeu de la
- * visite. Chaque réponse qui sert un chrono ou la page porte l'heure du
+ * Détail, le cartel d'une œuvre, tes murs, l'achat, la dorure, l'échange d'un
+ * jeu de la visite. Chaque réponse qui sert un chrono ou la page porte l'heure du
  * serveur (`maintenant`), que la page mesure, et aucune ne se garde
  * (`no-store`) — sauf l'image d'un cadrage, qui ne change jamais sous son
  * adresse. Ses signalements passent par la route de la série
@@ -114,6 +114,16 @@ export function mountCabinet(app: Express, deps: CabinetDeps) {
       const issue = await deps.cabinet.cartel(profil.id, String(req.params.cle))
       if ('cartel' in issue) res.json(cartelDe(issue.cartel))
       else res.status(404).json({ error: issue.introuvable })
+    }),
+  )
+
+  // Tes murs : les lieux qu'il a épinglés, les dates qu'il a rangées, d'où qu'elles viennent — dérivés du journal des réponses et
+  // du contenu livré, rien ne s'écrit pour eux. Une manche en jeu n'y est pas : sa pièce n'entre au journal qu'à son verdict.
+  app.get(
+    '/api/cabinet/murs',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(mursDe(await deps.cabinet.murs(profil.id)))
     }),
   )
 

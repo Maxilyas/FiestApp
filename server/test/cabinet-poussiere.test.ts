@@ -44,7 +44,7 @@ import {
 import { LIBRES_QUI_PAIENT, PRIX_D_UNE_DORURE, PRIX_D_UNE_OEUVRE } from '../../shared/cabinet/bareme'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, oeuvre, type CleDOeuvre } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
-import { laPartieAttend, poussieresDites } from '../../shared/cabinet/musee'
+import { PLUS_DE_CHASSE, laPartieAttend, poussieresDites } from '../../shared/cabinet/musee'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import { JEUX } from '../../shared/cabinet/jeux/regle'
 import type { Cartel, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
@@ -553,6 +553,8 @@ test('gagnée avec son cartel, puis dorée en jouant : l’œuvre garde le premi
   const gagnee = await jouerUnPari(b, cookie, await ouvrir(b, cookie, v, 2), 2)
   assert.equal(gagnee.bilan?.issue, 'gagnee')
   assert.ok(gagnee.bilan?.cartel, 'sa partie a de quoi raconter')
+  // Le bilan dit si la fin a fait de la partie le cartel de son œuvre : gagnée, oui ; la page n'y dit « Son cartel » que là.
+  assert.equal(gagnee.bilan?.devientSonCartel, true)
   const avant = ok(await laPage(b, cookie), 'la page, gagnée')
   const premier = ok(await leCartel(cookie, cle), 'son cartel')
   assert.deepEqual([premier.doree, premier.partie?.id, premier.partie?.issue], [false, gagnee.id, 'gagnee'])
@@ -568,6 +570,9 @@ test('gagnée avec son cartel, puis dorée en jouant : l’œuvre garde le premi
   // L'œuvre garde le cartel de la partie qui l'a gagnée : le serveur ne remplace pas le premier.
   const garde = ok(await leCartel(cookie, cle), 'son cartel, dorée')
   assert.deepEqual([garde.doree, garde.partie?.id, garde.partie?.issue, garde.partie?.sujet], [true, gagnee.id, 'gagnee', premier.partie!.sujet])
+  // Le bilan le savait : la fin n'a pas écrit son cartel — et « Mes réponses », que la fin seule renseigne, ne le dit jamais.
+  assert.equal(doree.bilan?.devientSonCartel, undefined)
+  assert.equal(ok(await laPartie(cookie, gagnee.id), '« Mes réponses »').bilan?.devientSonCartel, undefined)
   // Le bilan ne promet pas « Son cartel » d'une manche que l'œuvre rouverte ne montrera pas : il dit ce que la partie a appris.
   const bilan = texteDe(await ecranDeLaPage('views/cabinet/Bilan', 'BilanDeLaPartie', { vue: doree, ecran: null, onMusee: () => {} }))
   assert.doesNotMatch(bilan, /Son cartel/)
@@ -594,16 +599,19 @@ test('gagnée avec son cartel, puis dorée en jouant : l’œuvre garde le premi
   assert.equal(cartelsQuiTiennent(relus, apres, ok(await laPage(b, cookie), 'la page relue')), relus)
 })
 
-test('plus de chasse, pour une œuvre d’un jeu pas livré : la page dit le refus que le serveur rend, dans son ordre', async () => {
+test('plus de chasse : la page dit le refus que le serveur rend, dans son ordre', async () => {
   const { cookie } = await avecDeLaPoussiere('ugo', 0)
   for (let n = 0; n < 2; n++) ok(await jouer(b, cookie, ok(await commencer(b, cookie, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'une chasse'), { quoi: 'quitter' }), 'quitter')
   const page = ok(await laPage(b, cookie), 'la page sans chasse')
   assert.equal(page.chasses.restent, 0)
-  // Coup d'œil, à elle, se trouve à un jeu que la règle ne livre pas encore ; le serveur compte d'abord les chasses (`cadreDuDepart`).
-  assert.ok(!JEUX_PRETS.includes(JEU_DE_L_OEUVRE['coup-d-oeil']))
+  // Coup d'œil, à elle, se trouve à l'Épingle ; le serveur compte d'abord les chasses (`cadreDuDepart`). Tant que l'Épingle n'était
+  // pas livrée, le refus des chasses passait devant celui du jeu : depuis que les neuf le sont, la règle seule le garde, pure
+  // (`cabinet-regles.test.ts`), et le serveur rend celui des chasses.
+  assert.equal(JEU_DE_L_OEUVRE['coup-d-oeil'], 'epingle')
   const depart = await commencer(b, cookie, { origine: 'chasse', oeuvre: 'coup-d-oeil', carte: null })
   assert.equal(depart.status, 400)
   const { error } = depart.corps as unknown as { error: string }
+  assert.equal(error, PLUS_DE_CHASSE)
   const html = await lOeuvreDe(page, 'coup-d-oeil')
   const raison = /<button [^>]*aria-describedby="([^"]+)"[^>]*>La rejouer/.exec(html)?.[1]
   assert.ok(raison, 'la rejouer, en sourdine, désigne sa raison')

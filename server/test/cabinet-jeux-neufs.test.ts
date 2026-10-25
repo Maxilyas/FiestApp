@@ -10,10 +10,35 @@
 // chaque étape son chrono.
 //
 // Les exemples sont fabriqués ici : le contenu livré a son juge et son test
-// (`cabinet-contenu.test.ts`). Le lot C7 y ajoutera le tirage et les routes.
+// (`cabinet-contenu.test.ts`). Puis le tirage des trois au serveur, sur le
+// contenu livré (`core/cabinet/tirages/`) — le jamais vu d'abord, l'Épingle
+// à thème —, les trois par les routes, d'une partie entière, et tes murs : ce
+// qu'il a épinglé et rangé, d'où qu'il vienne.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { inscrireProfil } from './banc'
+import {
+  DIX_HEURES,
+  bancDuCabinet,
+  commencer,
+  enBase,
+  epingleDe,
+  ficheDe,
+  friseDe,
+  jouer as unGeste,
+  jouerDesIndices,
+  jouerUneEpingle,
+  jouerUneFrise,
+  jouerUneReplique,
+  lire as lireLaRoute,
+  ok,
+  ouvrir as ouvrirLaManche,
+  repliqueDe,
+} from './cabinet-banc'
+import { tirerLePlan, themeDuPlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
+import { contenuDuCabinet } from '../src/core/cabinet/contenu'
+import { mursDe } from '../src/core/cabinet/vue'
 import { hasardDe } from '../../shared/missions'
 import type { Fiche, Lieu, Replique } from '../../shared/cabinet/contenu'
 import { DANS_LA_FRANCE, distanceKm, type Point } from '../../shared/cabinet/france'
@@ -21,14 +46,18 @@ import {
   DECALAGE_DE_LA_ZONE_KM,
   DUREES_DES_JEUX,
   ETOILES_DE_LA_REPLIQUE,
+  GRACE_D_UNE_MANCHE_MS,
   INDICES_DES_ETOILES,
   KM_DE_L_EPINGLE,
   LETTRES_POUR_UNE_FAUTE,
   MOTS_D_UNE_IDENTITE_MAX,
   RAYON_D_ECLAIRER_KM,
+  VAGUES_DE_LA_FRISE,
 } from '../../shared/cabinet/bareme'
 import { effacablesAuPlus, refusDuPouvoir } from '../../shared/cabinet/pouvoirs'
-import { PREFIXE_DU_CABINET, deplier, idDeLaFiche, idDeLaReplique, idDuLieu } from '../../shared/cabinet/pieces'
+import { PREFIXE_DU_CABINET, deplier, idDeLEclair, idDeLaFiche, idDeLaFriseATheme, idDeLaFriseDeSujet, idDeLaReplique, idDuLieu } from '../../shared/cabinet/pieces'
+import type { MursDuCabinet } from '../../shared/cabinet/vues'
+import type { EvenementDeLaFrise } from '../../shared/frise'
 import { justeDeLaPiece, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
 import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/outils'
 import {
@@ -38,6 +67,8 @@ import {
   kmDits,
   pointADistance,
   zoneDEclairer,
+  type EpingleMontree,
+  type EpingleRevelee,
   type EpingleTiree,
   type EtatDeLEpingle,
 } from '../../shared/cabinet/jeux/epingle'
@@ -49,6 +80,8 @@ import {
   etoilesDesIndices,
   type EtatDesIndices,
   type GesteDesIndices,
+  type IndicesMontres,
+  type IndicesReveles,
   type IndicesTires,
 } from '../../shared/cabinet/jeux/indices'
 import {
@@ -57,6 +90,8 @@ import {
   repliqueTiree,
   type EtatDeLaReplique,
   type GesteDeLaReplique,
+  type RepliqueMontreeAQui,
+  type RepliqueRevelee,
   type RepliqueTiree,
 } from '../../shared/cabinet/jeux/replique'
 
@@ -849,5 +884,315 @@ test('les trois jeux du contenu neuf : leur clé, leurs pièces hors de la base,
   for (const f of ['epingle', 'indices', 'replique', 'outils']) {
     const code = readFileSync(new URL(`../../shared/cabinet/jeux/${f}.ts`, import.meta.url), 'utf8')
     for (const interdit of ['Date.now', 'new Date', 'Math.random']) assert.ok(!code.includes(interdit), `${f}.ts : ${interdit}`)
+  }
+})
+
+// ── Le tirage, au serveur ─────────────────────────────────────────────────
+// Ce que les tireurs des trois tirent au départ, sur le contenu livré
+// (`server/content/cabinet/`) : le jamais vu d'abord, puis le plus
+// anciennement vu, par son identifiant — rien ne revient avant sept jours,
+// d'un jeu à l'autre — ; rien deux fois dans un plan, rechanges comprises ;
+// l'Épingle, trois lieux d'un même thème, ses rechanges d'un autre. Et ce qui
+// se tire au hasard — le décalage de la zone d'Éclairer, l'ordre des mots et
+// des noms — du hasard du serveur, jamais d'une graine que la page saurait.
+
+const CONTENU = contenuDuCabinet()
+const THEMES = [...new Set(CONTENU.lieux.map(l => l.theme))]
+const lieuxDuTheme = (theme: string) => CONTENU.lieux.filter(l => l.theme === theme)
+const JOUR_MS = 24 * 3_600_000
+const ilYA = (jours: number) => DIX_HEURES - jours * JOUR_MS
+
+/** Un contexte de tirage sur le contenu livré : les trois jeux n'y lisent rien de la base. */
+const surLeContenu = (o: { vues?: ReadonlyMap<string, number>; hasard?: () => number } = {}): ContexteDuTirage => ({
+  porte: { deLaCategorie: () => [] },
+  jouables: [],
+  mesures: new Map(),
+  vues: o.vues ?? new Map(),
+  maintenant: DIX_HEURES,
+  hasard: o.hasard ?? Math.random,
+})
+const lEpingle = (o?: Parameters<typeof surLeContenu>[0], rechanges = 0) => tirerLePlan('epingle', surLeContenu(o), rechanges) as EpingleTiree[]
+
+test('le tirage de l’Épingle : trois lieux d’un même thème, ses rechanges d’un autre, rien deux fois — le thème figé au départ', () => {
+  for (let essai = 0; essai < 20; essai++) {
+    // Trois manches et trois rechanges : la force 3 de Changer.
+    const plan = lEpingle({}, 3)
+    assert.equal(plan.length, 6)
+    const theme = plan[0].lieu.theme
+    assert.ok(plan.slice(0, 3).every(t => t.lieu.theme === theme), 'les trois manches, d’un même thème')
+    assert.equal(themeDuPlan(plan), theme, 'le thème que le départ fige, celui de ses trois manches')
+    assert.ok(plan.slice(3).every(t => t.lieu.theme !== theme), 'une rechange de Changer vient d’un autre thème')
+    assert.equal(new Set(plan.map(t => t.lieu.id)).size, plan.length, 'jamais deux fois le même lieu, rechanges comprises')
+    for (const t of plan) {
+      assert.deepEqual(t.lieu, CONTENU.lieux.find(l => l.id === t.lieu.id), 'le lieu tel que le contenu livré le dit')
+      assert.ok(t.decalage.km >= DECALAGE_DE_LA_ZONE_KM[0] && t.decalage.km <= DECALAGE_DE_LA_ZONE_KM[1])
+    }
+  }
+  // Le décalage de sa zone et l'ordre des propositions de la Réplique viennent du hasard du tirage — celui du serveur, que le
+  // magasin lui donne —, par la règle du jeu : le même hasard, le même tirage.
+  const [e] = lEpingle({ hasard: toujours(0.25) })
+  assert.deepEqual(e, epingleTiree(e.lieu, toujours(0.25)))
+  const [r] = tirerLePlan('replique', surLeContenu({ hasard: toujours(0.25) }), 0) as RepliqueTiree[]
+  assert.deepEqual(r, repliqueTiree(r.replique, toujours(0.25)))
+})
+
+test('le tirage de l’Épingle : le thème le moins vu — ses lieux jamais vus d’abord, puis le thème visité le plus anciennement', () => {
+  const [a, b, c] = THEMES
+  const tousVusSauf = (themes: string[], le: number) => new Map(CONTENU.lieux.filter(l => !themes.includes(l.theme)).map(l => [idDuLieu(l.id), le]))
+  // Tout vu il y a trois jours, sauf le thème a : c'est lui.
+  for (let essai = 0; essai < 10; essai++) assert.equal(themeDuPlan(lEpingle({ vues: tousVusSauf([a], ilYA(3)) })), a)
+  // Le thème b garde six lieux jamais vus, trois vus hier ; tout le reste a été vu il y a dix jours : ses jamais vus passent devant
+  // une révision, et la partie ne prend qu'eux.
+  const avecB = tousVusSauf([b], ilYA(10))
+  for (const l of lieuxDuTheme(b).slice(0, 3)) avecB.set(idDuLieu(l.id), ilYA(1))
+  for (let essai = 0; essai < 10; essai++) {
+    const plan = lEpingle({ vues: avecB })
+    assert.equal(themeDuPlan(plan), b)
+    assert.ok(plan.every(t => !avecB.has(idDuLieu(t.lieu.id))), 'trois lieux jamais vus')
+  }
+  // Chaque thème a gardé des lieux jamais vus : le moins récemment visité passe devant — deux parties d'un même thème ne
+  // s'enchaînent pas tant qu'un autre attend.
+  const visites = new Map<string, number>()
+  THEMES.forEach((th, i) => lieuxDuTheme(th).slice(0, 3).forEach(l => visites.set(idDuLieu(l.id), ilYA(2) + i * 3_600_000)))
+  for (let essai = 0; essai < 10; essai++) assert.equal(themeDuPlan(lEpingle({ vues: visites })), THEMES[0])
+  // Tout vu : un thème vu il y a plus de sept jours passe devant ceux de la semaine.
+  const semaine = tousVusSauf([c], ilYA(2))
+  for (const l of lieuxDuTheme(c)) semaine.set(idDuLieu(l.id), ilYA(9))
+  for (let essai = 0; essai < 10; essai++) assert.equal(themeDuPlan(lEpingle({ vues: semaine })), c)
+})
+
+test('le tirage des Indices et de la Réplique : le jamais vu d’abord, puis le plus anciennement vu — rien deux fois dans un plan, rechanges comprises', () => {
+  const sortes = [
+    { jeu: 'indices' as const, ids: CONTENU.fiches.map(f => idDeLaFiche(f.id)), idDe: (t: IndicesTires | RepliqueTiree) => (t.jeu === 'indices' ? idDeLaFiche(t.fiche.id) : '') },
+    { jeu: 'replique' as const, ids: CONTENU.repliques.map(r => idDeLaReplique(r.id)), idDe: (t: IndicesTires | RepliqueTiree) => (t.jeu === 'replique' ? idDeLaReplique(t.replique.id) : '') },
+  ]
+  for (const { jeu, ids, idDe } of sortes) {
+    for (let essai = 0; essai < 20; essai++) {
+      const plan = tirerLePlan(jeu, surLeContenu(), 3) as (IndicesTires | RepliqueTiree)[]
+      assert.equal(plan.length, 6, jeu)
+      assert.equal(new Set(plan.map(idDe)).size, 6, `${jeu} : jamais deux fois le même, rechanges comprises`)
+      for (const t of plan) assert.ok(ids.includes(idDe(t)), `${jeu} : du contenu livré`)
+    }
+    // Tout vu ces jours-ci sauf trois : ce sont elles. Puis, tout vu, les trois plus anciennement vues — il y a huit jours.
+    const neuves = ids.slice(0, 3)
+    const recentes = new Map(ids.slice(3).map(id => [id, ilYA(2)]))
+    const anciennes = new Map(ids.map(id => [id, neuves.includes(id) ? ilYA(8) : ilYA(2)]))
+    for (const vues of [recentes, anciennes]) {
+      for (let essai = 0; essai < 5; essai++) assert.deepEqual((tirerLePlan(jeu, surLeContenu({ vues }), 0) as (IndicesTires | RepliqueTiree)[]).map(idDe).sort(), [...neuves].sort(), jeu)
+    }
+  }
+  // La fiche, telle que le contenu livré la dit : ses indices dans leur ordre, du plus obscur au plus évident.
+  const [t] = tirerLePlan('indices', surLeContenu(), 0) as IndicesTires[]
+  assert.deepEqual(t, { jeu: 'indices', fiche: CONTENU.fiches.find(f => f.id === t.fiche.id) })
+})
+
+// ── Par les routes ────────────────────────────────────────────────────────
+
+test('par les routes : l’Épingle d’un bout à l’autre — sur le lieu, à cinquante kilomètres, hors de France refusée en mots, puis laissée au temps', async () => {
+  const b = await bancDuCabinet()
+  try {
+    const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
+    let v = ok(await commencer(b, lea, { origine: 'libre', jeu: 'epingle', carte: null }), 'l’Épingle')
+    const t0 = epingleDe(b, v.id, 0)
+    // La date, le thème, le récit, la question : ni le lieu, ni rien qui le situe.
+    assert.deepEqual(v.enCours, { jeu: 'epingle', date: t0.lieu.date, theme: t0.lieu.theme, recit: t0.lieu.recit, question: t0.lieu.question, zone: null })
+    // Hors de France — Madrid —, l'épingle se refuse en mots, et la manche continue : rien ne s'écrit.
+    const MADRID = { lat: 40.4168, lon: -3.7038 }
+    const dehors = await unGeste(b, lea, v, { quoi: 'repondre', manche: 0, reponse: { epingle: MADRID } })
+    assert.deepEqual([dehors.status, dehors.corps], [400, { error: 'Plante ton épingle en France' }])
+    v = await jouerUneEpingle(b, lea, v, 0)
+    const r0 = v.revelation?.corps as EpingleRevelee
+    assert.deepEqual([r0.titre, r0.km, v.manches[0].naturel], ['À 0 km', 0, 3])
+    const l = t0.lieu
+    assert.deepEqual(r0.lieu, { nom: l.nom, commune: l.commune, departement: l.departement, date: l.date, lat: l.lat, lon: l.lon })
+    assert.equal(r0.savais, l.savais)
+    // À cinquante kilomètres : deux étoiles.
+    v = await ouvrirLaManche(b, lea, v, 1)
+    assert.equal((v.enCours as EpingleMontree).theme, t0.lieu.theme, 'la manche suivante, du même thème')
+    v = await jouerUneEpingle(b, lea, v, 1, 50)
+    assert.equal(v.manches[1].naturel, 2)
+    // Laissée au temps, une épingle hors de France que la page envoie d'elle-même ne compte pas : « Pas d'épingle ».
+    v = await ouvrirLaManche(b, lea, v, 2)
+    b.horloge.t = v.chrono!.echeance + 1
+    v = ok(await unGeste(b, lea, v, { quoi: 'repondre', manche: 2, auto: true, reponse: { epingle: MADRID } }), 'l’échéance')
+    assert.equal((v.revelation?.corps as EpingleRevelee).titre, 'Pas d’épingle')
+    assert.deepEqual([v.phase, v.bilan?.naturel, v.bilan?.total], ['finie', [3, 2, 0], 5])
+    // Au journal : une pièce par manche, hors de la base, à la forme de son jeu — l'épingle et la distance dite, ou rien.
+    const pieces = enBase(b.fichier, db => db.prepare('SELECT reserve_id, forme, juste, composee FROM campagne_reponses WHERE serie_id = ? ORDER BY position').all(v.id)) as {
+      reserve_id: string
+      forme: string
+      juste: number
+      composee: string | null
+    }[]
+    const plan = [0, 1, 2].map(k => epingleDe(b, v.id, k).lieu.id)
+    assert.deepEqual(
+      pieces.map(p => [p.reserve_id, p.forme, Number(p.juste)]),
+      plan.map((id, k) => [idDuLieu(id), 'epingle', k < 2 ? 1 : 0]),
+    )
+    assert.match(pieces[0].composee ?? '', /\|0$/)
+    assert.equal(pieces[2].composee, null)
+  } finally {
+    await b.banc.close()
+  }
+})
+
+test('par les routes : les Indices — un indice de plus, un nom faux qui en montre un autre, puis le bon ; un nom vide ou déjà essayé se refuse en mots', async () => {
+  const b = await bancDuCabinet()
+  try {
+    const leo = await inscrireProfil(b.banc.url, 'leo', 'Léo')
+    let v = ok(await commencer(b, leo, { origine: 'libre', jeu: 'indices', carte: null }), 'les Indices')
+    const t0 = ficheDe(b, v.id, 0)
+    // Le premier indice d'office, et ce que vaut une bonne réponse maintenant : rien de la fiche, ni sa réponse ni ses clés.
+    assert.deepEqual(v.enCours, { jeu: 'indices', indices: [t0.fiche.indices[0]], caches: t0.fiche.indices.length - 1, vaut: 3, essayes: [], offerts: 0 })
+    const vide = await unGeste(b, leo, v, { quoi: 'nom', manche: 0, texte: 'de la' })
+    assert.deepEqual([vide.status, vide.corps], [400, { error: 'Écris un nom' }])
+    v = ok(await unGeste(b, leo, v, { quoi: 'indice', manche: 0 }), 'un indice de plus')
+    assert.deepEqual((v.enCours as IndicesMontres).indices, t0.fiche.indices.slice(0, 2))
+    v = ok(await unGeste(b, leo, v, { quoi: 'nom', manche: 0, texte: 'Personne Inconnue' }), 'un nom faux')
+    assert.deepEqual([(v.enCours as IndicesMontres).indices.length, (v.enCours as IndicesMontres).essayes], [3, ['Personne Inconnue']])
+    const deja = await unGeste(b, leo, v, { quoi: 'nom', manche: 0, texte: 'personne inconnue' })
+    assert.deepEqual([deja.status, deja.corps], [400, { error: 'Tu as déjà essayé ce nom' }])
+    v = ok(await unGeste(b, leo, v, { quoi: 'nom', manche: 0, texte: t0.fiche.reponse }), 'la réponse')
+    assert.equal((v.revelation?.corps as IndicesReveles).titre, 'Trouvé')
+    // Trois indices vus, une erreur : quatre au compte.
+    assert.equal(v.manches[0].naturel, etoilesDesIndices(4))
+    // Trouvée d'emblée, la suivante vaut trois étoiles ; la dernière, laissée au temps, rien — sa révélation dit qui c'était.
+    v = await ouvrirLaManche(b, leo, v, 1)
+    v = await jouerDesIndices(b, leo, v, 1)
+    assert.equal(v.manches[1].naturel, 3)
+    v = await ouvrirLaManche(b, leo, v, 2)
+    b.horloge.t = v.chrono!.echeance + GRACE_D_UNE_MANCHE_MS + 1
+    v = ok(await unGeste(b, leo, v, { quoi: 'repondre', manche: 2, auto: true }), 'l’échéance')
+    assert.equal((v.revelation?.corps as IndicesReveles).titre, `C’était ${ficheDe(b, v.id, 2).fiche.reponse}`)
+    assert.deepEqual([v.phase, v.bilan?.naturel], ['finie', [etoilesDesIndices(4), 3, 0]])
+  } finally {
+    await b.banc.close()
+  }
+})
+
+test('par les routes : la Réplique — le mot, puis qui l’a dite, chacun son chrono ; le temps du mot écoulé, « Qui l’a dit ? » s’ouvre quand même', async () => {
+  const b = await bancDuCabinet()
+  try {
+    const mia = await inscrireProfil(b.banc.url, 'mia', 'Mia')
+    let v = ok(await commencer(b, mia, { origine: 'libre', jeu: 'replique', carte: null }), 'la Réplique')
+    const t0 = repliqueDe(b, v.id, 0)
+    const r0 = t0.replique
+    assert.deepEqual(v.enCours, { jeu: 'replique', etape: 1, avant: r0.avant, apres: r0.apres, mots: t0.mots.map(mot => ({ mot, efface: false })) })
+    // « Qui » avant le mot : la page ne montre pas encore les noms.
+    const tot = await unGeste(b, mia, v, { quoi: 'repondre', manche: 0, reponse: { replique: { qui: 0 } } })
+    assert.deepEqual([tot.status, tot.corps], [400, { error: 'Choisis d’abord le mot qui manque' }])
+    // Le mot choisi ouvre la seconde étape et son chrono à elle — sans dire s'il était bon.
+    b.horloge.t += 10_000
+    v = ok(await unGeste(b, mia, v, { quoi: 'mot', manche: 0, choix: t0.bonMot }), 'le mot')
+    assert.deepEqual(v.enCours, { jeu: 'replique', etape: 2, avant: r0.avant, apres: r0.apres, motChoisi: t0.mots[t0.bonMot], personnes: t0.personnes.map(nom => ({ nom, efface: false })) })
+    assert.deepEqual([v.chrono?.dureeMs, v.chrono!.echeance - b.horloge.t], [DUREES_DES_JEUX.replique * 1000, DUREES_DES_JEUX.replique * 1000])
+    v = ok(await unGeste(b, mia, v, { quoi: 'repondre', manche: 0, reponse: { replique: { qui: t0.bonneQui } } }), 'qui l’a dite')
+    assert.equal((v.revelation?.corps as RepliqueRevelee).titre, 'Le bon mot')
+    assert.equal(v.manches[0].naturel, ETOILES_DE_LA_REPLIQUE.mot + ETOILES_DE_LA_REPLIQUE.qui)
+    // Un autre mot, la bonne personne : une étoile.
+    v = await ouvrirLaManche(b, mia, v, 1)
+    v = await jouerUneReplique(b, mia, v, 1, { mot: false })
+    assert.equal((v.revelation?.corps as RepliqueRevelee).titre, `C’était « ${repliqueDe(b, v.id, 1).replique.mot} »`)
+    assert.equal(v.manches[1].naturel, ETOILES_DE_LA_REPLIQUE.qui)
+    // Le temps du mot écoulé : la page envoie sa réponse vide, le mot est perdu, et « Qui l'a dit ? » s'ouvre.
+    v = await ouvrirLaManche(b, mia, v, 2)
+    b.horloge.t = v.chrono!.echeance + GRACE_D_UNE_MANCHE_MS + 1
+    v = ok(await unGeste(b, mia, v, { quoi: 'repondre', manche: 2, auto: true }), 'le temps du mot')
+    assert.equal((v.enCours as RepliqueMontreeAQui).etape, 2)
+    assert.equal((v.enCours as RepliqueMontreeAQui).motChoisi, null)
+    v = ok(await unGeste(b, mia, v, { quoi: 'repondre', manche: 2, reponse: { replique: { qui: repliqueDe(b, v.id, 2).bonneQui } } }), 'qui, quand même')
+    assert.deepEqual([v.phase, v.bilan?.naturel], ['finie', [3, ETOILES_DE_LA_REPLIQUE.qui, ETOILES_DE_LA_REPLIQUE.qui]])
+  } finally {
+    await b.banc.close()
+  }
+})
+
+// ── Tes murs ──────────────────────────────────────────────────────────────
+
+/** Un événement daté de la base, tel que les frises le lisent. */
+const evenement = (id: string, annee: number): EvenementDeLaFrise => ({ id, evenement: `L’événement ${id}`, annee, categorie: 'Histoire' })
+
+test('tes murs : chaque lieu épinglé, chaque date rangée — d’où qu’elle vienne, une fois, du plus ancien au plus récent ; rien de ce qui a quitté le contenu', () => {
+  const [l1, l2] = CONTENU.lieux
+  const f = CONTENU.frises[0]
+  const evenements = new Map(['q1', 'q2', 'q3'].map((id, k) => [id, evenement(id, [1789, 1492, 1969][k])]))
+  const vues = new Map<string, number>([
+    [idDuLieu(l1.id), ilYA(3)],
+    [idDuLieu(l2.id), ilYA(1)],
+    // Un lieu qui a quitté le contenu ne s'y montre plus.
+    [idDuLieu('un-lieu-retire'), ilYA(2)],
+    // Une frise à thème rangée à moitié : on ne sait pas lesquelles de ses dates il a vues.
+    [idDeLaFriseATheme(f.id, 0), ilYA(5)],
+    // Une frise de l'Expédition (q4 a quitté la base), puis une frise d'un sujet au Cabinet, qui revoit q1 plus tard.
+    ['frise:q1+q2+q4', ilYA(4)],
+    [idDeLaFriseDeSujet(['q1', 'q3']), ilYA(2)],
+    // L'Éclair, une question de la base vue en série : pas des dates.
+    [idDeLEclair(['q2', 'q3', 'q5', 'q6', 'q7']), ilYA(1)],
+    ['q2', ilYA(0)],
+  ])
+  const murs = (v = vues) => mursDe({ vues: v, lieux: CONTENU.lieux, frises: CONTENU.frises, evenements })
+  const m = murs()
+  assert.deepEqual(m.lieux.map(x => x.id), [l2.id, l1.id], 'le plus récemment épinglé d’abord')
+  assert.deepEqual(m.lieux[0], { id: l2.id, nom: l2.nom, commune: l2.commune, departement: l2.departement, date: l2.date, annee: l2.annee, lat: l2.lat, lon: l2.lon, vuLe: ilYA(1) })
+  assert.deepEqual(m.dates, [
+    { libelle: 'L’événement q2', annee: 1492, de: 'expedition', vuLe: ilYA(4) },
+    { libelle: 'L’événement q1', annee: 1789, de: 'cabinet', vuLe: ilYA(2) },
+    { libelle: 'L’événement q3', annee: 1969, de: 'cabinet', vuLe: ilYA(2) },
+  ])
+  // Rangée jusqu'à sa dernière vague, la frise à thème donne ses sept dates — du plus ancien au plus récent avec les autres.
+  const entiere = murs(new Map([...vues, [idDeLaFriseATheme(f.id, VAGUES_DE_LA_FRISE.length - 1), ilYA(5)]]))
+  assert.equal(entiere.dates.length, 3 + f.evenements.length)
+  for (const e of f.evenements) assert.ok(entiere.dates.some(d => d.libelle === e.libelle && d.annee === e.annee && d.de === 'cabinet' && d.vuLe === ilYA(5)), e.libelle)
+  assert.deepEqual(entiere.dates.map(d => d.annee), [...entiere.dates.map(d => d.annee)].sort((x, y) => x - y))
+  // Champ par champ : un champ de plus du contenu n'y part pas de lui-même.
+  const enTrop = mursDe({ vues, lieux: [{ ...l1, cle: 'un-champ-neuf' } as Lieu], frises: [], evenements: new Map() })
+  assert.ok(!JSON.stringify(enTrop).includes('un-champ-neuf'))
+  assert.deepEqual(mursDe({ vues: new Map(), lieux: CONTENU.lieux, frises: CONTENU.frises, evenements }), { lieux: [], dates: [] })
+})
+
+test('par les routes : tes murs — chaque lieu épinglé, chaque frise rangée jusqu’au bout ; rien d’une manche pas tranchée, rien d’un autre profil', async () => {
+  const b = await bancDuCabinet()
+  try {
+    const ana = await inscrireProfil(b.banc.url, 'ana', 'Ana')
+    const tom = await inscrireProfil(b.banc.url, 'tom', 'Tom')
+    const lesMurs = async (cookie: string | undefined) => lireLaRoute<MursDuCabinet>(b, cookie, '/api/cabinet/murs')
+    const anonyme = await lesMurs(undefined)
+    assert.equal(anonyme.status, 401)
+    assert.equal(anonyme.entetes.get('cache-control'), 'no-store')
+    assert.deepEqual(ok(await lesMurs(ana), 'des murs vides'), { lieux: [], dates: [] })
+
+    // Un lieu épinglé y entre à son verdict ; celui de la manche en jeu attend le sien.
+    let v = ok(await commencer(b, ana, { origine: 'libre', jeu: 'epingle', carte: null }), 'l’Épingle')
+    const [t0, t1, t2] = [0, 1, 2].map(k => epingleDe(b, v.id, k))
+    v = await jouerUneEpingle(b, ana, v, 0)
+    const epinglee = b.horloge.t
+    v = await ouvrirLaManche(b, ana, v, 1)
+    let murs = ok(await lesMurs(ana), 'les murs en pleine partie')
+    assert.deepEqual(murs.lieux, [{ id: t0.lieu.id, nom: t0.lieu.nom, commune: t0.lieu.commune, departement: t0.lieu.departement, date: t0.lieu.date, annee: t0.lieu.annee, lat: t0.lieu.lat, lon: t0.lieu.lon, vuLe: epinglee }])
+    // Quittée, la manche ouverte compte et se révèle : son lieu rejoint les murs ; la troisième, jamais ouverte, non.
+    b.horloge.t += 1_000
+    v = ok(await unGeste(b, ana, v, { quoi: 'quitter' }), 'quitter')
+    murs = ok(await lesMurs(ana), 'les murs après la partie')
+    assert.deepEqual(murs.lieux.map(x => x.id), [t1.lieu.id, t0.lieu.id])
+    assert.ok(!murs.lieux.some(x => x.id === t2.lieu.id))
+    assert.deepEqual(murs.dates, [])
+
+    // Une frise rangée jusqu'au bout : ses sept dates, du plus ancien au plus récent.
+    let f = ok(await commencer(b, ana, { origine: 'libre', jeu: 'frise', carte: null }), 'la Frise')
+    for (let k = 0; k < 3; k++) {
+      if (k > 0) f = await ouvrirLaManche(b, ana, f, k)
+      f = await jouerUneFrise(b, ana, f, k)
+      if (k < 2) assert.deepEqual(ok(await lesMurs(ana), 'une frise à moitié rangée').dates, [], 'ses vagues à venir sont encore à ranger')
+    }
+    const frise = friseDe(b, f.id, 0)
+    murs = ok(await lesMurs(ana), 'les murs après la frise')
+    assert.deepEqual(
+      murs.dates.map(d => [d.libelle, d.annee, d.de]),
+      [...frise.evenements].sort((x, y) => x.annee - y.annee).map(e => [e.libelle, e.annee, 'cabinet']),
+    )
+    // Ceux d'un autre profil : rien des siens.
+    assert.deepEqual(ok(await lesMurs(tom), 'les murs d’un autre'), { lieux: [], dates: [] })
+  } finally {
+    await b.banc.close()
   }
 })

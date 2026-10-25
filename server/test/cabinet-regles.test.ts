@@ -825,6 +825,11 @@ test('commencer : les refus en mots, une seule règle que la page lit pour grise
   assert.equal(refus(m, { origine: 'visite', case: 3, carte: null }), 'Choisis une partie de la visite')
   const deuxChasses = museeDe({ jour: JOUR, parties: [partieDuJour({ origine: 'chasse' }), partieDuJour({ origine: 'chasse' })] })
   assert.equal(refus(deuxChasses, { origine: 'chasse', oeuvre: 'bastion', carte: null }), 'Plus de chasse pour aujourd’hui : elles reviennent à minuit')
+  // Les chasses se comptent avant le jeu : une œuvre d'un jeu pas encore livré se refuse d'abord faute de chasse — l'ordre que la
+  // page suit, et que le serveur, ses neuf jeux livrés, ne peut plus montrer (`cabinet-poussiere.test.ts`).
+  const sansSonJeu = NEUF.filter(j => j !== JEU_DE_L_OEUVRE.bastion)
+  assert.equal(refus(deuxChasses, { origine: 'chasse', oeuvre: 'bastion', carte: null }, sansSonJeu), 'Plus de chasse pour aujourd’hui : elles reviennent à minuit')
+  assert.equal(refus(m, { origine: 'chasse', oeuvre: 'bastion', carte: null }, sansSonJeu), 'Ce jeu arrive bientôt')
   assert.equal(refus(m, { origine: 'chasse', oeuvre: 'bastion', carte: null, jeu: 'pari' }), `Cette œuvre se trouve à l’Épingle`)
   assert.equal(refus(m, { origine: 'chasse', oeuvre: 'bastion', carte: null, retente: true }), 'Retenter ne sert qu’après une visite manquée de cette œuvre')
   assert.equal(refus(museeDe({ jour: JOUR, oeuvres: [ligne('bastion', { doreeLe: MIDI })] }), { origine: 'chasse', oeuvre: 'bastion', carte: null }), 'Cette œuvre est déjà dorée')

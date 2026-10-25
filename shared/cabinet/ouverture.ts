@@ -24,10 +24,13 @@ export function cabinetOuvert({ online, env }: { online: boolean; env: string })
 /**
  * Les jeux livrés : la visite, la chasse et les parties libres ne tirent
  * qu'eux, et le cadre vide d'une œuvre d'un autre jeu dit « bientôt ». Ils
- * s'ouvrent un à un, chacun avec son tireur (`server/src/core/cabinet/tirages/`)
+ * se sont ouverts un à un, chacun avec son tireur (`server/src/core/cabinet/tirages/`)
  * et son écran : le Pari et l'Éclair d'abord, qui tirent leurs questions de la
  * base de la campagne ; puis le Détail, ses cent tableaux, et la Frise, ses
  * frises à thème et celles des sujets de la base ; puis le Mot mystère et le
- * Filet, qui y tirent un mot à taper et une valeur à viser.
+ * Filet, qui y tirent un mot à taper et une valeur à viser ; enfin l'Épingle,
+ * les Indices et la Réplique, du contenu écrit pour le Cabinet
+ * (`server/content/cabinet/`) — les neuf. Un dixième jeu y entre de même,
+ * et la page dit « bientôt » de ses œuvres tant qu'il n'y est pas.
  */
-export const JEUX_PRETS: readonly CleDeJeu[] = ['pari', 'eclair', 'detail', 'frise', 'mot', 'filet']
+export const JEUX_PRETS: readonly CleDeJeu[] = ['pari', 'eclair', 'detail', 'frise', 'mot', 'filet', 'epingle', 'indices', 'replique']

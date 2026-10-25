@@ -29,6 +29,9 @@ import {
   type SorteDuContenu,
 } from '../src/core/cabinet/contenu'
 import { traiterLesLots } from '../scripts/cabinet-contenu'
+import { tirerLePlan } from '../src/core/cabinet/tirages/index'
+import { regleDe } from '../../shared/cabinet/jeux/index'
+import type { EpingleTiree } from '../../shared/cabinet/jeux/epingle'
 import {
   CASES_DE_LA_VISITE,
   CHASSES_PAR_JOUR,
@@ -165,6 +168,35 @@ test('l’Épingle, les Indices et la Réplique tiennent sept jours de calendrie
   // L'Épingle au pire aussi : ses parties à thème, trois lieux chacune.
   const parties = partiesDEpingleATheme(contenu.lieux)
   assert.ok(parties >= JOURS_SANS_REDITE * partiesAuPire, `${parties} parties d'Épingle à thème`)
+})
+
+test('l’Épingle, les Indices et la Réplique tiennent sept jours, joués par leurs tireurs : au pire réaliste, rien ne revient par son identifiant', () => {
+  // Les comptes d'au-dessus disent qu'il y a de quoi ; ici, les tireurs mêmes (`core/cabinet/tirages/`) jouent les sept jours —
+  // trois parties par jour au même jeu, sa case de la visite et ses deux chasses —, chaque manche vue à son heure, telle que sa
+  // pièce l'écrit au journal (`piece`, la règle du jeu). Aucune ne revient : le jamais vu passe d'abord, d'un jeu à l'autre
+  // par son identifiant. L'Épingle tire ses trois lieux d'un même thème : c'est d'elle que les comptes ne disaient qu'à peu près.
+  const JOUR = 24 * 3_600_000
+  const debut = Date.UTC(2026, 9, 24, 8, 0)
+  for (const jeu of ['epingle', 'indices', 'replique'] as const) {
+    const vues = new Map<string, number>()
+    const regle = regleDe(jeu)
+    for (let jour = 0; jour < JOURS_SANS_REDITE; jour++) {
+      for (let p = 0; p < 1 + CHASSES_PAR_JOUR; p++) {
+        const t = debut + jour * JOUR + p * 3_600_000
+        const plan = tirerLePlan(jeu, { porte: { deLaCategorie: () => [] }, jouables: [], mesures: new Map(), vues, maintenant: t, hasard: Math.random }, 0)
+        assert.ok(plan, `${jeu}, jour ${jour + 1}, partie ${p + 1} : rien à tirer`)
+        if (jeu === 'epingle') assert.equal(new Set(plan.map(x => (x as EpingleTiree).lieu.theme)).size, 1, 'trois lieux d’un même thème')
+        plan.forEach((tiree, k) => {
+          const manche = k as 0 | 1 | 2
+          const ouverte = regle.ouvrir(tiree)
+          const { id } = regle.piece(tiree, ouverte, regle.juger(tiree, ouverte, 'expiree'), { manche, tirage: manche })
+          const avant = vues.get(id)
+          assert.equal(avant, undefined, `${jeu} : ${id} revient le jour ${jour + 1}, vu ${avant === undefined ? '' : Math.round((t - avant) / JOUR)} jour(s) plus tôt`)
+          vues.set(id, t + manche * 60_000)
+        })
+      }
+    }
+  }
 })
 
 test('une frise ne souffle pas l’Épingle : un événement de l’année d’un lieu ne dit ni sa commune ni son département', () => {

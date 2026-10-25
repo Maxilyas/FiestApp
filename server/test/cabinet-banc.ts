@@ -21,6 +21,10 @@ import { adresseDUnCadrage, type DetailTire } from '../../shared/cabinet/jeux/de
 import type { FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { MotTire } from '../../shared/cabinet/jeux/mot'
 import type { FiletTire, TailleDuFilet } from '../../shared/cabinet/jeux/filet'
+import { pointADistance, type EpingleTiree } from '../../shared/cabinet/jeux/epingle'
+import { dansLaFrance, type Point } from '../../shared/cabinet/france'
+import type { IndicesTires } from '../../shared/cabinet/jeux/indices'
+import type { RepliqueTiree } from '../../shared/cabinet/jeux/replique'
 import type { PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import type { QuizServerOptions } from '../src/server'
 import { demarrer, ecrire, type Banc } from './banc'
@@ -259,6 +263,9 @@ export const detailDe = (b: BancDuCabinet, serie: string, tirage: number) => dep
 export const friseDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as FriseTiree
 export const motDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as MotTire
 export const filetDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as FiletTire
+export const epingleDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as EpingleTiree
+export const ficheDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as IndicesTires
+export const repliqueDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as RepliqueTiree
 
 /** Un essai du Mot mystère de la bonne longueur qui n'est pas le mot : des X — aucun mot d'essai n'en a. */
 export const unEssaiFaux = (t: MotTire) => 'X'.repeat(t.lettres.length)
@@ -353,6 +360,45 @@ export async function jouerUnFilet(b: BancDuCabinet, cookie: string, vue: VueDeL
   const loin = t.valeur - t.piste.min > t.piste.max - t.valeur ? t.piste.min : t.piste.max
   const x = juste ? t.valeur : loin
   return ok(await jouer(b, cookie, vue, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { filet: { x, taille } } }), 'le Filet')
+}
+
+/**
+ * Un point de la France à tant de kilomètres du lieu d'une manche de l'Épingle, à vol d'oiseau : dans la première direction —
+ * le nord, l'est, le sud, l'ouest — qui ne sort pas du cadre de la France (`dansLaFrance`), qu'une épingle doit tenir.
+ */
+export function enFranceA(t: EpingleTiree, km: number): Point {
+  const p = [0, 90, 180, 270].map(cap => pointADistance(t.lieu, km, cap)).find(dansLaFrance)
+  if (!p) throw new Error(`aucun point de la France à ${km} km de ${t.lieu.id}`)
+  return p
+}
+
+/** Une manche de l'Épingle, ouverte : l'épingle plantée à tant de kilomètres du lieu — sur lui, d'office. */
+export async function jouerUneEpingle(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number, km = 0): Promise<VueDeLaPartie> {
+  const t = epingleDe(b, vue.id, vue.tirage ?? k)
+  const epingle = km === 0 ? { lat: t.lieu.lat, lon: t.lieu.lon } : enFranceA(t, km)
+  return ok(await jouer(b, cookie, vue, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { epingle } }), 'l’Épingle')
+}
+
+/**
+ * Une manche des Indices, ouverte : tant d'indices de plus demandés, tant de noms faux, puis la réponse de la fiche — ou un nom
+ * faux de plus, qui ne la trouve pas.
+ */
+export async function jouerDesIndices(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number, { indices = 0, erreurs = 0, juste = true } = {}): Promise<VueDeLaPartie> {
+  const t = ficheDe(b, vue.id, vue.tirage ?? k)
+  const manche = k as 0 | 1 | 2
+  let v = vue
+  for (let i = 0; i < indices; i++) v = ok(await jouer(b, cookie, v, { quoi: 'indice', manche }), 'un indice de plus')
+  // Des noms que personne ne porte : chacun le sien, un nom déjà essayé se refuserait.
+  for (let i = 0; i < erreurs; i++) v = ok(await jouer(b, cookie, v, { quoi: 'nom', manche, texte: `Personne Inconnue ${'xyz'.repeat(i + 1)}` }), 'un nom faux')
+  return ok(await jouer(b, cookie, v, { quoi: 'nom', manche, texte: juste ? t.fiche.reponse : 'Quelqu’un Dautre' }), 'la réponse')
+}
+
+/** Une manche de la Réplique, ouverte : le mot, puis qui l'a dite — chacun le bon, ou un autre. */
+export async function jouerUneReplique(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number, { mot = true, qui = true } = {}): Promise<VueDeLaPartie> {
+  const t = repliqueDe(b, vue.id, vue.tirage ?? k)
+  const manche = k as 0 | 1 | 2
+  const v = ok(await jouer(b, cookie, vue, { quoi: 'mot', manche, choix: mot ? t.bonMot : (t.bonMot + 1) % t.mots.length }), 'le mot')
+  return ok(await jouer(b, cookie, v, { quoi: 'repondre', manche, reponse: { replique: { qui: qui ? t.bonneQui : (t.bonneQui + 1) % t.personnes.length } } }), 'qui l’a dite')
 }
 
 /** La manche suivante ouverte, la précédente tranchée. */

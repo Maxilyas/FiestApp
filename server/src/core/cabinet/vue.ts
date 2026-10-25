@@ -1,6 +1,6 @@
 // Ce que le téléphone reçoit du Cabinet de curiosités : la page du musée
-// (`pageDuCabinet`), une partie (`vueDeLaPartie`) et le cartel d'une œuvre
-// (`cartelDe`), bâtis champ par champ
+// (`pageDuCabinet`), une partie (`vueDeLaPartie`), le cartel d'une œuvre
+// (`cartelDe`) et tes murs (`mursDe`), bâtis champ par champ
 // des types nés complets de `shared/cabinet/vues.ts` (invariant 1). Rien ne
 // s'y étale : un champ neuf du départ figé — sa graine, ses rechanges, la
 // bonne réponse d'une manche pas encore tranchée — n'y part jamais de
@@ -13,8 +13,10 @@
 // vue (invariant 14) : « Mes réponses » révèle chaque manche d'une partie
 // finie comme la partie l'a révélée, et le cartel d'une œuvre relit la manche
 // que son bilan garde comme le bilan l'a dite.
-import type { CartelLu, LectureDuCabinet, PartieGardee, PartieLue } from './magasin'
-import { CHANGEMENTS_PAR_PARTIE, CHASSES_PAR_JOUR, ECLAIRAGES_PAR_PARTIE, LIBRES_QUI_PAIENT, MANCHES_PAR_PARTIE, SEUILS_DES_RARETES } from '../../../../shared/cabinet/bareme'
+import type { CartelLu, LectureDesMurs, LectureDuCabinet, PartieGardee, PartieLue } from './magasin'
+import { CHANGEMENTS_PAR_PARTIE, CHASSES_PAR_JOUR, ECLAIRAGES_PAR_PARTIE, LIBRES_QUI_PAIENT, MANCHES_PAR_PARTIE, SEUILS_DES_RARETES, VAGUES_DE_LA_FRISE } from '../../../../shared/cabinet/bareme'
+import { deplier, estUneFriseDeSujet, idDeLaFriseATheme, idDuLieu } from '../../../../shared/cabinet/pieces'
+import { PREFIXE_DE_LA_FRISE } from '../../../../shared/frise'
 import { echeanceDe, pauseEnCours, pauseResteMs } from '../../../../shared/cabinet/chrono'
 import { regleDe } from '../../../../shared/cabinet/jeux/index'
 import {
@@ -62,6 +64,7 @@ import type {
   GainsDuCabinet,
   GardienVu,
   MancheVue,
+  MursDuCabinet,
   OeuvreVue,
   PageDuCabinet,
   RevelationVue,
@@ -232,6 +235,7 @@ function bilanVu(p: PartieLue): BilanVu | undefined {
     seuil: p.depart.seuil,
     dit: bilanDit(p.depart, b),
     ...(b.oeuvre !== undefined && estUneOeuvre(b.oeuvre) && { oeuvre: b.oeuvre }),
+    ...(p.cartelDeSonOeuvre && { devientSonCartel: true as const }),
     ...(gardiens.length > 0 && { gardiens: gardiens.map(g => ({ legendaire: g.legendaire, neuf: g.neuf })) }),
     ...(gains && { gains }),
   }
@@ -334,6 +338,49 @@ export function cartelDe(lu: CartelLu): Cartel {
   }
   const entree = origine === 'partie' ? `Entrée dans ton musée ${leJourDit(jourDe(ligne?.gagneeLe ?? 0))}, gagnée en jouant.` : ENTREES_D_OFFICE[origine]
   return { oeuvre, origine, doree, dit: doree ? entree : `${entree} ${CE_QUE_GARDERA_LE_CARTEL}` }
+}
+
+// ── Tes murs ──────────────────────────────────────────────────────────────
+
+type DateDuMur = MursDuCabinet['dates'][number]
+
+/**
+ * Tes murs, champ par champ : chaque lieu épinglé — son nom, sa commune, sa
+ * date, ses coordonnées —, le plus récemment épinglé d'abord ; et la frise
+ * personnelle, chaque date une fois, du plus ancien au plus récent : les sept
+ * d'une frise à thème rangée jusqu'à sa dernière vague — avant, rien ne dit
+ * lesquelles il a vues, sa pièce ne nomme que sa manche —, celles des nouveaux
+ * venus d'une frise d'un sujet, celles d'une frise de l'Expédition. Ce qu'il a
+ * appris trouve sa place, d'où qu'il vienne ; la même date vue deux fois garde
+ * sa dernière vue, et dit où. Ce qui a quitté le contenu livré ou la base ne
+ * s'y montre plus.
+ */
+export function mursDe(l: LectureDesMurs): MursDuCabinet {
+  const lieux = l.lieux
+    .flatMap(x => {
+      const vuLe = l.vues.get(idDuLieu(x.id))
+      return vuLe === undefined ? [] : [{ id: x.id, nom: x.nom, commune: x.commune, departement: x.departement, date: x.date, annee: x.annee, lat: x.lat, lon: x.lon, vuLe }]
+    })
+    .sort((a, b) => b.vuLe - a.vuLe || (a.id < b.id ? -1 : 1))
+  const dates = new Map<string, DateDuMur>()
+  const poser = (cle: string, d: DateDuMur) => {
+    const avant = dates.get(cle)
+    if (!avant || d.vuLe > avant.vuLe) dates.set(cle, d)
+  }
+  const derniere = VAGUES_DE_LA_FRISE.length - 1
+  for (const f of l.frises) {
+    const vuLe = l.vues.get(idDeLaFriseATheme(f.id, derniere))
+    if (vuLe !== undefined) f.evenements.forEach((e, k) => poser(`theme:${f.id}:${k}`, { libelle: e.libelle, annee: e.annee, de: 'cabinet', vuLe }))
+  }
+  for (const [id, vuLe] of l.vues) {
+    const de = estUneFriseDeSujet(id) ? 'cabinet' : id.startsWith(PREFIXE_DE_LA_FRISE) ? 'expedition' : null
+    if (!de) continue
+    for (const q of de === 'cabinet' ? deplier(id) : id.slice(PREFIXE_DE_LA_FRISE.length).split('+')) {
+      const e = l.evenements.get(q)
+      if (e) poser(q, { libelle: e.evenement, annee: e.annee, de, vuLe })
+    }
+  }
+  return { lieux, dates: [...dates.values()].sort((a, b) => a.annee - b.annee || a.libelle.localeCompare(b.libelle, 'fr')) }
 }
 
 // ── La page du musée ──────────────────────────────────────────────────────

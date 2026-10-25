@@ -26,7 +26,10 @@
 // œuvre achetée puis dorée en jouant ne l'a pas gagnée, et son cartel n'a pas
 // à le dire. Et ce qu'un achat ou une dorure réveille (`PageDuCabinet.reveil`,
 // lot C4) : la fin d'une partie le dit dans son bilan, une dépense n'avait que
-// la page d'après.
+// la page d'après. Et si la fin a fait de la partie le cartel de son œuvre
+// (`BilanVu.devientSonCartel`, lot C7) : dorée ou doublée, une œuvre ne le
+// prend que si elle n'en avait pas, et le bilan n'en disait rien — la page
+// promettait « Son cartel » d'une manche que l'œuvre ne montrerait pas.
 
 import type { CleDeCompagnon } from '../compagnons'
 import { PREFIXE_DE_LA_FRISE } from '../frise'
@@ -238,6 +241,13 @@ export interface BilanVu extends Omit<BilanDUnePartie, 'v' | 'cartel'> {
   /** « Pas assez d'étoiles cette fois. Il en fallait 6. L'œuvre reste à gagner. » */
   dit: string
   oeuvre?: CleDOeuvre
+  /**
+   * La fin a fait de cette partie le cartel de son œuvre : gagnée, ou dorée
+   * et doublée quand elle n'en avait pas encore — le serveur garde le premier
+   * (`cabinet_oeuvres.serie_id`). Le bilan ne dit « Son cartel » que là. La
+   * fin seule le sait, comme `gains` : « Mes réponses » ne le porte pas.
+   */
+  devientSonCartel?: true
   /** Une salle complète, un gardien qui veillait déjà : « Salle complète ! Le Phénix veillait déjà sur elle. » */
   gardiens?: { legendaire: string; neuf: boolean }[]
   gains?: GainsDuCabinet

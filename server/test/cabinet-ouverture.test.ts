@@ -65,6 +65,7 @@ test('fermé, chaque route du Cabinet répond 404 en mots, à tous — et la pag
       ['un achat', await poster(ferme, lea, '/api/cabinet/oeuvre/bastion/achat', { prix: 400 })],
       ['une dorure', await poster(ferme, lea, '/api/cabinet/oeuvre/prudence/dorure', { prix: 100 })],
       ['un échange', await poster(ferme, lea, '/api/cabinet/visite/echange', { case: 0 })],
+      ['les murs', await lire(ferme, lea, '/api/cabinet/murs')],
     ] as const) {
       assert.deepEqual([r.status, r.corps], [404, { error: CABINET_FERME }], quoi)
       assert.equal(r.entetes.get('cache-control'), 'no-store', quoi)
@@ -126,8 +127,9 @@ test('en maintenance, le Cabinet ferme son départ, ses achats et son échange �
       const r = await poster(b, tom, chemin, corps)
       assert.deepEqual([r.status, r.corps], enMaintenance, chemin)
     }
-    // Se relire ne recommence rien : le cartel d'une œuvre, la page.
+    // Se relire ne recommence rien : le cartel d'une œuvre, les murs, la page.
     assert.equal((await lire(b, tom, '/api/cabinet/oeuvre/prudence')).status, 200)
+    assert.equal((await lire(b, tom, '/api/cabinet/murs')).status, 200)
     // L'administrateur passe la porte, reconnu par sa console : sans profil, c'est le Cabinet qui le lui dit.
     assert.equal((await commencer(b, admin, { origine: 'libre', jeu: 'pari', carte: null })).status, 401)
     // Ce qui est commencé passe : la page, le geste, la fin.

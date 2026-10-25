@@ -40,6 +40,7 @@ import { GARDIENS_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/s
 import type { ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 import { lecturesDeLaPartie, lecturesDuMusee, laPartieLue, lireLeMusee, type PartieLueEnBase } from './tables'
 import { fichierDuCadrage } from '../details'
+import { contenuDuCabinet } from './contenu'
 import { preparerLesTas } from './tirages/tas'
 import { themeDuPlan, tirerLePlan } from './tirages/index'
 import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE } from '../../../../shared/cabinet/bareme'
@@ -85,7 +86,10 @@ import {
   type Manche,
 } from '../../../../shared/cabinet/partie'
 import { OEUVRES_DE_DEPART, estUneOeuvre, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
+import type { FriseATheme, Lieu } from '../../../../shared/cabinet/contenu'
+import { estUneFriseDeSujet } from '../../../../shared/cabinet/pieces'
 import { vuesDuCabinet } from '../../../../shared/cabinet/vues'
+import { PREFIXE_DE_LA_FRISE, type EvenementDeLaFrise } from '../../../../shared/frise'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { refusDuCadrage, type DetailTire, type EtatDuDetail } from '../../../../shared/cabinet/jeux/detail'
 import { jourAvant, jourDe } from '../../../../shared/jour'
@@ -152,6 +156,11 @@ export interface PartieLue extends PartieGardee {
   lueA: number
   /** Ce que la fin a rapporté : l'expérience, les paliers — et les gardiens qu'elle a réveillés (`reveil`). */
   gains?: { xp: readonly number[]; recompenses: ReponsesEcrites['recompenses']; reveil?: ReveilDesGardiens }
+  /**
+   * La fin a écrit cette partie au cartel de son œuvre (`oeuvreDeLaFin`, la
+   * ligne qu'elle tient en mémoire) : le bilan le dit (`BilanVu.devientSonCartel`).
+   */
+  cartelDeSonOeuvre?: true
 }
 
 /** Ce que la page du Cabinet lit (`pageDuCabinet`). */
@@ -210,6 +219,16 @@ export interface CartelLu {
 
 /** Pourquoi une œuvre n'a pas de cartel à lire : une clé qui n'est pas une œuvre, ou une œuvre qui lui manque. */
 export type IssueDuCartel = { cartel: CartelLu } | { introuvable: string }
+
+/** Ce que tes murs lisent (`mursDe`, `vue.ts`) : ce qu'il a vu, et ce que le contenu livré et la base en disent encore. */
+export interface LectureDesMurs {
+  /** Ce qu'il a vu au journal des réponses, et quand pour la dernière fois — tel quel, rien de déplié : chaque frise dit d'où elle vient. */
+  vues: ReadonlyMap<string, number>
+  lieux: readonly Lieu[]
+  frises: readonly FriseATheme[]
+  /** Les événements datés de la base, par l'identifiant de leur question — lus seulement s'il a rangé une frise qui en est faite. */
+  evenements: ReadonlyMap<string, EvenementDeLaFrise>
+}
 
 /** Une ligne de reflets neuve : un profil qui n'a jamais rien écrit au Cabinet. */
 const PROFIL_NEUF: LigneDuProfil = { poussiere: 0, serie: 0, serieJour: null, serieRecord: 0, visites: [], partie: null }
@@ -360,6 +379,8 @@ export class CabinetStore {
    * et la réconciliation suivante, le trouvant rangé, ne le disait jamais.
    */
   private readonly aAnnoncer = new Map<string, ReveilDesGardiens>()
+  /** Les événements datés des jouables, par question, rangés une fois par liste : la porte garde la liste, tes murs la lisent. */
+  private evenementsGardes: { de: readonly EvenementDeLaFrise[]; parId: ReadonlyMap<string, EvenementDeLaFrise> } | null = null
 
   constructor(
     private readonly porte: PorteDeLaCampagne,
@@ -819,7 +840,14 @@ export class CabinetStore {
       this.retenirLaFin(garde, suite, fin.aEcrire, t)
       this.parties.delete(p.id)
       const reveil = capte.reveil
-      return { partie: { ...suite, lueA: this.maintenant(), gains: { xp: ecrites.xp, recompenses: ecrites.recompenses, ...(reveil && { reveil }) } } }
+      return {
+        partie: {
+          ...suite,
+          lueA: this.maintenant(),
+          gains: { xp: ecrites.xp, recompenses: ecrites.recompenses, ...(reveil && { reveil }) },
+          ...(fin.aEcrire.oeuvre?.cartel && { cartelDeSonOeuvre: true as const }),
+        },
+      }
     }
     this.garder(this.parties, p.id, suite, PARTIES_GARDEES)
     return { partie: { ...suite, lueA: this.maintenant() } }
@@ -1093,6 +1121,30 @@ export class CabinetStore {
       const p = await this.partieDe(profileId, serie)
       return p && { ...p, lueA: this.maintenant() }
     })
+  }
+
+  /**
+   * Tes murs : ce qu'il a épinglé et rangé, d'où qu'il vienne — rien ne
+   * s'écrit pour eux. Le journal des réponses, rattrapé d'un aller-retour au
+   * plus — aucun s'il est frais —, et le contenu livré ; la base jouable
+   * seulement s'il a rangé une frise faite de ses questions — celle d'un sujet,
+   * celle de l'Expédition —, la liste que la porte garde, comme au tirage. Une
+   * pièce n'entre au journal qu'à son verdict : la manche en jeu n'y est pas,
+   * et les murs ne disent rien qu'une révélation n'ait dit (invariant 1). Sans
+   * le verrou du profil : ni sa partie ni son musée n'y sont touchés.
+   */
+  async murs(profileId: string): Promise<LectureDesMurs> {
+    const { journal } = await this.porte.lireAvecLeJournal([])
+    const { vues } = journal.vuesDe(profileId)
+    const { lieux, frises } = contenuDuCabinet()
+    const datees = [...vues.keys()].some(id => estUneFriseDeSujet(id) || id.startsWith(PREFIXE_DE_LA_FRISE))
+    return { vues, lieux, frises, evenements: datees ? this.evenementsParQuestion(await this.porte.jouables()) : new Map() }
+  }
+
+  private evenementsParQuestion(jouables: readonly QuestionDeLaBase[]): ReadonlyMap<string, EvenementDeLaFrise> {
+    const de = this.porte.evenementsDe(jouables)
+    if (this.evenementsGardes?.de !== de) this.evenementsGardes = { de, parId: new Map(de.map(e => [e.id, e])) }
+    return this.evenementsGardes.parId
   }
 
   // ── Le reste ──────────────────────────────────────────────────────────

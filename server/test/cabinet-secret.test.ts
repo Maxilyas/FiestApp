@@ -7,11 +7,15 @@
 // quatre titres est le bon —, ni l'année d'un nouveau venu de la Frise, ni les
 // événements des vagues à venir, ni le mot du Mot mystère — sa longueur seule,
 // et les couleurs de ce qu'il a tapé —, ni la valeur du Filet, ni la zone
-// d'Éclairer rejouée de ce que la page connaît, ni une rechange de « Changer ». Jamais la graine de la partie,
+// d'Éclairer rejouée de ce que la page connaît, ni une rechange de « Changer ».
+// Ni le lieu de l'Épingle — sa commune, son département, ses coordonnées —, ni
+// le décalage de sa zone d'Éclairer, figé au tirage ; ni la personne d'une
+// fiche des Indices, ses clés, ses indices encore cachés ; ni le mot d'une
+// réplique, ni qui l'a dite, ni si le mot choisi était le bon. Jamais la graine de la partie,
 // jamais celle de la visite, ni le secret dont elle est faite ; jamais
 // l'œuvre visée d'une case de la visite. Chaque réponse se lit en entier
 // (`JSON.stringify`) : un champ neuf qui s'y glisserait de lui-même s'y
-// verrait. Un jeu de plus ajoute ses secrets ici (la conception, § 2.5).
+// verrait. Un jeu de plus ajoute ses secrets ici.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
@@ -45,9 +49,15 @@ import type { DetailTire } from '../../shared/cabinet/jeux/detail'
 import type { FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { MotMontre, MotRevele, MotTire } from '../../shared/cabinet/jeux/mot'
 import { REGLE_DU_FILET, type EtatDuFilet, type FiletMontre, type FiletRevele, type FiletTire } from '../../shared/cabinet/jeux/filet'
+import { epingleTiree, zoneDEclairer, type EpingleMontree, type EpingleRevelee, type EpingleTiree } from '../../shared/cabinet/jeux/epingle'
+import type { IndicesMontres, IndicesReveles, IndicesTires } from '../../shared/cabinet/jeux/indices'
+import type { RepliqueMontreeAuMot, RepliqueRevelee, RepliqueTiree } from '../../shared/cabinet/jeux/replique'
+import { distanceKm } from '../../shared/cabinet/france'
+import { DECALAGE_DE_LA_ZONE_KM } from '../../shared/cabinet/bareme'
+import { ecritDans } from '../src/core/cabinet/contenu'
 import { hasardDe } from '../../shared/missions'
 import type { QuestionTiree } from '../../shared/cabinet/jeux/outils'
-import type { PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
+import type { MursDuCabinet, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 
 let b: BancDuCabinet
 before(async () => {
@@ -314,6 +324,168 @@ test('le Filet : ni la valeur, ni les réponses de sa question, ni son anecdote 
   const revelee = ok(await jouer(b, sam, eclairee, { quoi: 'repondre', manche: 0, reponse: { filet: { x: t.valeur, taille: 'moyen' } } }), 'lancer')
   jamais(d, revelee, 'révélée')
   assert.equal((revelee.revelation?.corps as FiletRevele).valeur, t.valeur)
+})
+
+/** Tous les nombres d'une réponse, où qu'ils soient : une coordonnée ne se cherche pas en texte, une autre la contiendrait. */
+const nombresDe = (x: unknown): number[] => (typeof x === 'number' ? [x] : typeof x === 'object' && x !== null ? Object.values(x).flatMap(nombresDe) : [])
+/** La forme d'une réponse, ses textes et ses nombres effacés : deux réponses de même forme ne disent rien de plus l'une que l'autre. */
+const formeDe = (x: unknown) => JSON.stringify(x, (_k, v: unknown) => (typeof v === 'string' || typeof v === 'number' ? 0 : v))
+
+test('l’Épingle : ni le lieu, ni sa commune, ni son département, ni ses coordonnées, ni son « Le savais-tu ? » avant le verdict — ni la rechange de Changer, ni le décalage de la zone d’Éclairer, figé au tirage', async () => {
+  const eva = await inscrireProfil(b.banc.url, 'eva', 'Éva')
+  const id = (await lire(b, eva, '/api/joueur/moi?leger')).corps.profile.id as string
+  /** Ses coordonnées et le décalage de sa zone : jamais un de ces nombres dans une réponse, avant le verdict. */
+  const sansSesNombres = (t: EpingleTiree, x: unknown, ou: string) =>
+    assert.ok(!nombresDe(x).some(n => n === t.lieu.lat || n === t.lieu.lon || n === t.decalage.cap || n === t.decalage.km), `${ou} : ses coordonnées, son décalage`)
+  /** Ce que la manche de l'Épingle garde jusqu'à son verdict : tout ce qui situe son lieu, et le décalage de sa zone. */
+  const sansLeLieu = (t: EpingleTiree, x: unknown, ou: string) => {
+    const s = texte(x)
+    // En mots entiers, comme le juge du contenu les cherche dans le récit et la question : « Ain » n'est pas dans « Ainsi ».
+    for (const dit of [t.lieu.commune, t.lieu.departement]) assert.ok(!ecritDans(s, dit), `${ou} : « ${dit} »`)
+    assert.ok(!s.includes(t.lieu.savais), `${ou} : son « Le savais-tu ? »`)
+    assert.doesNotMatch(s, /"(lieu|nom|commune|departement|decalage|cap|km|savais)":/, `${ou} : un champ du lieu`)
+    sansSesNombres(t, x, ou)
+  }
+  // L'Échange : une rechange au plan, d'un autre thème, qu'aucune vue ne montre avant que Changer la prenne. Son récit pourrait
+  // nommer, d'un autre thème, la commune de la rechange : celle-ci se cherche par ce qu'elle-même montrerait.
+  const e0 = ok(await commencer(b, eva, { origine: 'libre', jeu: 'epingle', carte: 'echange' }), 'commencer sous l’Échange')
+  const de = departEnBase(b.fichier, e0.id)
+  const rechange = de.tirages[3] as EpingleTiree
+  assert.ok(rechange, 'une rechange au plan')
+  for (const [ou, x] of [
+    ['le départ', e0],
+    ['la page', ok(await laPage(b, eva), 'la page').enCours!],
+  ] as const) {
+    jamais(de, x, ou)
+    sansLeLieu(de.tirages[0] as EpingleTiree, x, ou)
+    sansSesNombres(rechange, x, `${ou}, la rechange`)
+    assert.ok(!texte(x).includes(rechange.lieu.recit) && !texte(x).includes(rechange.lieu.question), `${ou} : la rechange`)
+  }
+  ok(await jouer(b, eva, e0, { quoi: 'quitter' }), 'quitter')
+
+  // Éclairer : la zone, du décalage que le tirage a figé — la même à chaque relecture, le lieu toujours dedans, jamais au centre.
+  const v0 = ok(await commencer(b, eva, { origine: 'libre', jeu: 'epingle', carte: 'coup-d-oeil' }), 'commencer')
+  const d = departEnBase(b.fichier, v0.id)
+  const t = d.tirages[0] as EpingleTiree
+  const eclairee = ok(await jouer(b, eva, v0, { quoi: 'eclairer', manche: 0 }), 'éclairer')
+  const zone = (eclairee.enCours as EpingleMontree).zone!
+  assert.deepEqual(zone, zoneDEclairer(t.lieu, t.decalage))
+  assert.ok(distanceKm(zone, t.lieu) <= zone.rayonKm && distanceKm(zone, t.lieu) > DECALAGE_DE_LA_ZONE_KM[0] - 1)
+  const relue = ok(await laPage(b, eva), 'la page relue').enCours!
+  assert.deepEqual((relue.enCours as EpingleMontree).zone, zone, 'rechargée, la même zone')
+  for (const [ou, x] of [
+    ['le départ', v0],
+    ['éclairée', eclairee],
+    ['la page relue', relue],
+  ] as const) {
+    jamais(d, x, ou)
+    sansLeLieu(t, x, ou)
+  }
+  // Les murs disent les lieux révélés — celui de la partie quittée —, jamais celui d'une manche qui attend son verdict.
+  const murs = ok(await lire<MursDuCabinet>(b, eva, '/api/cabinet/murs'), 'les murs, en pleine manche')
+  assert.deepEqual(
+    murs.lieux.map(l => l.id),
+    [(de.tirages[0] as EpingleTiree).lieu.id],
+  )
+  sansSesNombres(t, murs, 'les murs')
+  // Le décalage ne se rejoue d'aucune graine : ni de ce que la page connaît — son profil, sa partie, le rang du geste —, ni du
+  // secret de la partie. Il vient du hasard du tireur, au serveur, et le plan figé le garde.
+  for (const graine of [`${id}:${v0.id}`, v0.id, id, '', d.graine, `${d.graine}:eclairer:${v0.rang}`]) {
+    assert.notDeepEqual(epingleTiree(t.lieu, hasardDe(graine)).decalage, t.decalage, `rejoué de « ${graine} »`)
+  }
+  // Le verdict : la révélation dit le lieu.
+  const revelee = ok(await jouer(b, eva, eclairee, { quoi: 'repondre', manche: 0, reponse: { epingle: { lat: t.lieu.lat, lon: t.lieu.lon } } }), 'planter')
+  jamais(d, revelee, 'révélée')
+  assert.deepEqual([(revelee.revelation?.corps as EpingleRevelee).lieu.commune, (revelee.revelation?.corps as EpingleRevelee).savais], [t.lieu.commune, t.lieu.savais])
+})
+
+test('les Indices : ni la personne, ni ses clés, ni les indices encore cachés, ni son « Le savais-tu ? » avant le verdict — ni la rechange de Changer', async () => {
+  const ugo = await inscrireProfil(b.banc.url, 'ugo', 'Ugo')
+  /** Ce qu'une fiche garde jusqu'à son verdict : ses indices encore cachés, son savais-tu. */
+  const sansSesCaches = (t: IndicesTires, vus: number, x: unknown, ou: string) => {
+    const s = texte(x)
+    for (const cache of t.fiche.indices.slice(vus)) assert.ok(!s.includes(cache), `${ou} : un indice encore caché`)
+    assert.ok(!s.includes(t.fiche.savais), `${ou} : son « Le savais-tu ? »`)
+  }
+  /** Ce que la manche des Indices garde jusqu'à son verdict : la fiche, sauf les indices déjà vus. */
+  const sansLaFiche = (t: IndicesTires, vus: number, x: unknown, ou: string) => {
+    const s = texte(x)
+    // En mots entiers, comme le juge du contenu les cherche dans les indices.
+    for (const dit of [t.fiche.reponse, ...t.fiche.cles]) assert.ok(!ecritDans(s, dit), `${ou} : « ${dit} »`)
+    sansSesCaches(t, vus, x, ou)
+    assert.doesNotMatch(s, /"(fiche|reponse|cles|savais)":/, `${ou} : un champ de la fiche`)
+  }
+  const v0 = ok(await commencer(b, ugo, { origine: 'libre', jeu: 'indices', carte: 'echange' }), 'commencer sous l’Échange')
+  const d = departEnBase(b.fichier, v0.id)
+  const t = d.tirages[0] as IndicesTires
+  const rechange = d.tirages[3] as IndicesTires
+  assert.ok(rechange, 'une rechange au plan')
+  const plus = ok(await jouer(b, ugo, v0, { quoi: 'indice', manche: 0 }), 'un indice de plus')
+  const faux = ok(await jouer(b, ugo, plus, { quoi: 'nom', manche: 0, texte: 'Personne Inconnue' }), 'un nom faux')
+  for (const [ou, x, vus] of [
+    ['le départ', v0, 1],
+    ['la page', ok(await laPage(b, ugo), 'la page').enCours!, 3],
+    ['un indice de plus', plus, 2],
+    ['un nom faux', faux, 3],
+  ] as const) {
+    jamais(d, x, ou)
+    sansLaFiche(t, vus, x, ou)
+    // Une fiche peut nommer la personne d'une autre : la rechange se cherche par ce qu'elle-même montrerait.
+    sansSesCaches(rechange, 0, x, `${ou}, la rechange`)
+    assert.equal((x.enCours as IndicesMontres).indices.length, vus, ou)
+  }
+  // Le verdict dit la personne et ses cinq indices.
+  const trouve = ok(await jouer(b, ugo, faux, { quoi: 'nom', manche: 0, texte: t.fiche.reponse }), 'la réponse')
+  jamais(d, trouve, 'révélée')
+  assert.deepEqual([(trouve.revelation?.corps as IndicesReveles).reponse, (trouve.revelation?.corps as IndicesReveles).indices], [t.fiche.reponse, [...t.fiche.indices]])
+  sansSesCaches(rechange, 0, trouve, 'révélée, la rechange')
+})
+
+test('la Réplique : ni qui l’a dite avant « Qui l’a dit ? », ni sa source, ni son « Le savais-tu ? », ni si le mot choisi était le bon, ni ce qu’Éclairer effacera', async () => {
+  const [zoe, max] = [await inscrireProfil(b.banc.url, 'zoe', 'Zoé'), await inscrireProfil(b.banc.url, 'max', 'Max')]
+  /** Ce que la manche de la Réplique garde jusqu'à sa révélation : les rangs des bonnes, l'ordre des effacés, la source, le savais-tu. */
+  const sansLaReponse = (t: RepliqueTiree, x: unknown, ou: string) => {
+    const s = texte(x)
+    assert.doesNotMatch(s, /"(replique|bonMot|bonneQui|ordreDesEffaces|leurres|qui|autres|source|savais)":/, `${ou} : un champ de la réponse`)
+    assert.ok(!s.includes(t.replique.source) && !s.includes(t.replique.savais), `${ou} : sa source, son savais-tu`)
+  }
+  // Au mot : ni qui l'a dite, ni les deux autres — les noms attendent « Qui l'a dit ? ».
+  const v0 = ok(await commencer(b, zoe, { origine: 'libre', jeu: 'replique', carte: 'coup-d-oeil' }), 'commencer')
+  const d = departEnBase(b.fichier, v0.id)
+  const t = d.tirages[0] as RepliqueTiree
+  const eclairee = ok(await jouer(b, zoe, v0, { quoi: 'eclairer', manche: 0 }), 'éclairer')
+  for (const [ou, x] of [
+    ['le départ', v0],
+    ['éclairée', eclairee],
+    ['la page', ok(await laPage(b, zoe), 'la page').enCours!],
+  ] as const) {
+    jamais(d, x, ou)
+    sansLaReponse(t, x, ou)
+    for (const nom of t.personnes) assert.ok(!texte(x).includes(`"${nom}"`), `${ou} : « ${nom} » avant « Qui l’a dit ? »`)
+  }
+  // Éclairer efface un mauvais mot, celui que le tirage a figé — jamais le bon.
+  const effaces = (eclairee.enCours as RepliqueMontreeAuMot).mots.flatMap((m, k) => (m.efface ? [k] : []))
+  assert.deepEqual(effaces, [t.ordreDesEffaces[0].find(k => k !== t.bonMot)])
+  // Le bon mot ou un autre : deux réponses de la même forme — rien ne dit lequel était le bon avant la révélation.
+  const autre = ok(await commencer(b, max, { origine: 'libre', jeu: 'replique', carte: null }), 'une autre partie')
+  const ta = departEnBase(b.fichier, autre.id).tirages[0] as RepliqueTiree
+  const bon = ok(await jouer(b, zoe, eclairee, { quoi: 'mot', manche: 0, choix: t.bonMot }), 'le bon mot')
+  const leurre = ok(await jouer(b, max, autre, { quoi: 'mot', manche: 0, choix: (ta.bonMot + 1) % ta.mots.length }), 'un leurre')
+  // La carte-bonus de l'une n'est pas celle de l'autre : la forme se compare sans elle.
+  const sansCarte = (x: VueDeLaPartie) => ({ ...x, carte: null, pouvoir: undefined })
+  assert.equal(formeDe(sansCarte(bon)), formeDe(sansCarte(leurre)))
+  for (const [ou, x, tt] of [
+    ['le bon mot', bon, t],
+    ['un leurre', leurre, ta],
+  ] as const) {
+    sansLaReponse(tt, x, ou)
+    assert.deepEqual([x.manches[0].etoiles, x.total], [null, 0], `${ou} : aucune étoile avant la révélation`)
+  }
+  // La révélation dit tout : le mot, qui l'a dite, d'où.
+  const revelee = ok(await jouer(b, zoe, bon, { quoi: 'repondre', manche: 0, reponse: { replique: { qui: t.bonneQui } } }), 'qui l’a dite')
+  jamais(d, revelee, 'révélée')
+  const r = revelee.revelation?.corps as RepliqueRevelee
+  assert.deepEqual([r.qui, r.source, r.savais], [t.replique.qui, t.replique.source, t.replique.savais])
 })
 
 test('le bilan se choisit champ par champ : un champ de plus au bilan figé ne part pas de lui-même, ni l’œuvre visée d’une visite manquée', async () => {
