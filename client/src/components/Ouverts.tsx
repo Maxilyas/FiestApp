@@ -88,9 +88,11 @@ export function LegendaireOuvert({ cle, dejaPorte }: { cle: string; dejaPorte: b
  * propriétaire, le 19 octobre 2026 : « ça serait mieux que dans la niche ») ;
  * il s'installe dans sa niche si elle est vide, sinon il attend son tour —
  * celui qui y vit la garde, comme au coffre —, et « Mon compagnon », au
- * profil, l'y installe : la fiche de la niche ne règle plus rien.
+ * profil, l'y installe : la fiche de la niche ne règle plus rien. `pourquoi`
+ * dit ce qui l'amène : la Première traversée d'une expédition, ou, au Cabinet
+ * de curiosités, la première salle complète.
  */
-export function CompagnonRejoint({ cle }: { cle: CleDeCompagnon }) {
+export function CompagnonRejoint({ cle, pourquoi = 'Première traversée' }: { cle: CleDeCompagnon; pourquoi?: string }) {
   const ici = useSyncExternalStore(abonnerNiche, nicheActuelle, () => null)
   const c = leCompagnon(cle)
   if (!c) return null
@@ -98,7 +100,7 @@ export function CompagnonRejoint({ cle }: { cle: CleDeCompagnon }) {
   const attend = ici !== null && ici.compagnon !== cle
   return (
     <section className="card fin-legendaire fin-compagnon">
-      <span className="label">Première traversée</span>
+      <span className="label">{pourquoi}</span>
       <Medaillon cle={c.formes[0].key} className="fin-medaillon" />
       <h2>{`${c.nom} te rejoint`}</h2>
       <p className="serif-note">{espacesFines(c.phrase)}</p>

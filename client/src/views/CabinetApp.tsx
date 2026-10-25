@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ApiError, UnauthorizedError, api, motifDe } from '../api'
 import { resetClock } from '../clock'
 import { confirmDialog } from '../components/Dialog'
@@ -13,7 +14,7 @@ import { JEUX, type CleDeJeu } from '../../../shared/cabinet/jeux/regle'
 import { poussieresDites, type DemandeDeDepart } from '../../../shared/cabinet/musee'
 import { oeuvre as oeuvreDe } from '../../../shared/cabinet/oeuvres'
 import type { Manche } from '../../../shared/cabinet/partie'
-import type { PageDuCabinet, VueDeLaPartie } from '../../../shared/cabinet/vues'
+import type { PageDuCabinet, ReveilDesGardiens, VueDeLaPartie } from '../../../shared/cabinet/vues'
 import { Annonce, annonceDe, estLaPartieDemandee } from './cabinet/Annonce'
 import { cartelArrive, cartelDemande, cartelsQuiTiennent, sansLesPerdus, type EtatDuCartel } from './cabinet/Cartel'
 import {
@@ -33,6 +34,7 @@ import { Musee, enDebutDeLigne } from './cabinet/Musee'
 import { Oeuvre, oeuvreDeLaPage } from './cabinet/Oeuvre'
 import { Partie, ecranDuJeu } from './cabinet/Partie'
 import { FeuilleDesRegles } from './cabinet/Regles'
+import { fondreDesReveils } from './cabinet/reveils'
 import { Salle } from './cabinet/Salle'
 import { JouerLibrement, Visite } from './cabinet/Visite'
 import { carteRetenue, rapporteesVues, reglesLues, retenirLaCarte, retenirLesRapportees, retenirLesRegles } from './cabinet/retenu'
@@ -51,6 +53,23 @@ import { carteRetenue, rapporteesVues, reglesLues, retenirLaCarte, retenirLesRap
 // ses manches et son bilan (`cabinet/Partie.tsx`). Un jeu que le serveur
 // livre avant que la page n'ait son écran s'annonce sans « Commencer »
 // (`AnnonceEnAttente`).
+//
+// Un gardien qu'une dépense réveille — l'achat qui complète une salle, la
+// dorure du dernier cadre —, ou que la partie d'hier close par le serveur a
+// réveillé, la page qui revient le porte, une fois (`PageDuCabinet.reveil`) :
+// la page le garde jusqu'à ce qu'on l'ait lu, et l'annonce en grand par-dessus
+// l'écran, jamais par-dessus une partie (`Reveil.tsx`, à la demande : rare,
+// ses cartes font venir de quoi dessiner un médaillon).
+
+/** L'annonce d'un gardien qui s'éveille, à la demande. */
+const LE_REVEIL = aLaDemande(() => import('./cabinet/Reveil'))
+
+/** Le réveil à dire, quand son écran est venu ; perdu en route, il se tait — la page des gardiens le montre réveillé. */
+function ReveilALaDemande({ reveil, onFermer }: { reveil: ReveilDesGardiens; onFermer: () => void }) {
+  const ecran = useALaDemande(LE_REVEIL)
+  if (!ecran || ecran === 'perdu') return null
+  return <ecran.AnnonceDuReveil reveil={reveil} onFermer={onFermer} />
+}
 
 type Etat = { e: 'chargement' } | { e: 'anonyme' | 'bientot' | 'erreur'; motif: string } | { e: 'pret'; page: PageDuCabinet }
 
@@ -124,18 +143,27 @@ export function CabinetApp() {
   const oublierLesCartels = useCallback(() => setCartels({}), [])
   const { toast } = useAppState()
   const page = etat.e === 'pret' ? etat.page : null
+  // Ce qu'une page a dit s'éveiller, gardé jusqu'à ce qu'on l'ait lu : la page suivante — le retour au premier plan, un geste — ne
+  // le porte plus, le serveur ne le dit qu'une fois.
+  const [reveil, setReveil] = useState<ReveilDesGardiens | null>(null)
+
+  /** Une page neuve du serveur : elle prend la place de l'autre, et ce qu'elle dit s'éveiller attend d'être lu. */
+  const recevoir = useCallback((p: PageDuCabinet) => {
+    setEtat({ e: 'pret', page: p })
+    if (p.reveil) setReveil(r => fondreDesReveils(r, p.reveil))
+  }, [])
 
   /** La page lue, ou ce qu'en dit le refus : sans profil, fermé ici, ou une panne. */
   const lirePage = useCallback((lue: Promise<PageDuCabinet>) => {
     lue.then(
-      p => setEtat({ e: 'pret', page: p }),
+      p => recevoir(p),
       (e: unknown) => {
         if (e instanceof UnauthorizedError) setEtat({ e: 'anonyme', motif: e.message })
         else if (e instanceof ApiError && e.statut === 404) setEtat({ e: 'bientot', motif: e.message })
         else setEtat(avant => (avant.e === 'pret' ? avant : { e: 'erreur', motif: motifDe(e) }))
       },
     )
-  }, [])
+  }, [recevoir])
   const relire = useCallback(() => lirePage(api.cabinet.page()), [lirePage])
 
   useEffect(() => {
@@ -268,7 +296,7 @@ export function CabinetApp() {
     if (busy) return
     setBusy(true)
     try {
-      setEtat({ e: 'pret', page: await geste() })
+      recevoir(await geste())
       showToast({ kind: 'info', message: reussi })
     } catch (e) {
       showToast({ kind: 'error', message: motifDe(e) })
@@ -341,6 +369,8 @@ export function CabinetApp() {
     <RetourAuMusee.Provider value={versLeMusee}>
       {contenu}
       {regles && page && <FeuilleDesRegles jeux={page.jeux} parties={page.visite.cases.length} onFermer={() => setRegles(false)} />}
+      {/* Jamais par-dessus une partie : le chrono y courrait sous la feuille. Il attend le musée. */}
+      {reveil && !enPartie && <ReveilALaDemande reveil={reveil} onFermer={() => setReveil(null)} />}
       {toast && (
         <div className={`toast toast-${toast.kind} cab-toast`} role={toast.kind === 'error' ? 'alert' : 'status'}>
           {espacesFines(toast.message)}

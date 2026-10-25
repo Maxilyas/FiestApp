@@ -39,7 +39,8 @@ import type { BilanDeLaPartie } from './Bilan'
 // Le chrono se lit à l'heure du serveur (`serverNow`, invariant 6), jamais à
 // celle du téléphone ; à l'échéance, la page envoie d'elle-même ce qu'elle
 // tenait (`repondre`, `auto`) — l'Éclair, ses réponses ; la Frise, ce qu'elle a
-// rangé ; le Pari et le Détail, rien —, et
+// rangé ; le Filet, son curseur et sa taille, s'il y a touché ; le Pari, le
+// Détail et le Mot mystère, rien : le serveur a déjà ce qui compte —, et
 // insiste tant que le réseau manque : son rang la garde d'un double. Le
 // serveur a une grâce pour le réseau ; la page ne la recopie pas, elle n'en
 // a pas besoin.
@@ -109,6 +110,14 @@ export interface JeuALEcran<M, R, L> {
    */
   sousEcranDe?(m: M, l: L): string
   Manche(p: PropsDUneManche<M, L>): ReactNode
+  /**
+   * Ce que le jeu colle au bas de l'écran, sous le pouce, pendant la manche :
+   * le clavier du Mot mystère. Le cadre le pose dans son pied collé, sous la
+   * carte-bonus qui sert encore — une qui ne sert plus se pose sous la manche,
+   * et le clavier reste collé. Rendu dans la manche même, il aurait collé au
+   * même bas que la carte-bonus, et l'un aurait couvert l'autre.
+   */
+  Pied?(p: PropsDUneManche<M, L>): ReactNode
   Revelation(p: { corps: R } & OuEstLaManche): ReactNode
 }
 
@@ -126,6 +135,8 @@ const ECRANS: Partial<Record<CleDeJeu, ALaDemande<EcranEfface>>> = {
   eclair: aLaDemande(() => import('./jeux/Eclair').then(m => m.ECLAIR as unknown as EcranEfface)),
   detail: aLaDemande(() => import('./jeux/Detail').then(m => m.DETAIL as unknown as EcranEfface)),
   frise: aLaDemande(() => import('./jeux/Frise').then(m => m.FRISE as unknown as EcranEfface)),
+  mot: aLaDemande(() => import('./jeux/MotMystere').then(m => m.MOT as unknown as EcranEfface)),
+  filet: aLaDemande(() => import('./jeux/Filet').then(m => m.FILET as unknown as EcranEfface)),
 }
 
 export const ecranDuJeu = (jeu: CleDeJeu): ALaDemande<EcranEfface> | undefined => ECRANS[jeu]
@@ -451,6 +462,8 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
   let corps: ReactNode
   let pied: ReactNode = null
   let colle = true
+  // Une carte-bonus qui ne sert plus, sous la manche, quand le jeu garde le bas de l'écran pour lui (le clavier du Mot).
+  let pose: ReactNode = null
   if (ecran === 'perdu') {
     corps = (
       <div className="cab-bloc">
@@ -478,22 +491,32 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
   } else if (vue.phase === 'pause') {
     corps = <VoileDeLaPause busy={p.busy} onReprendre={p.onReprendre} />
   } else if (vue.enCours) {
-    corps = (
-      <ecran.Manche
-        montree={vue.enCours}
-        partie={vue.id}
-        tirage={vue.tirage}
-        local={p.local}
-        setLocal={p.setLocal}
-        envoyer={g => p.onGeste({ ...g, manche: vue.manche } as GesteDuCabinet)}
-        garde={p.garde}
-        busy={p.busy}
-      />
-    )
+    const manche: PropsDUneManche<MancheMontree, unknown> = {
+      montree: vue.enCours,
+      partie: vue.id,
+      tirage: vue.tirage,
+      local: p.local,
+      setLocal: p.setLocal,
+      envoyer: g => p.onGeste({ ...g, manche: vue.manche } as GesteDuCabinet),
+      garde: p.garde,
+      busy: p.busy,
+    }
+    corps = <ecran.Manche {...manche} />
     // La carte-bonus reste sous le pouce tant qu'elle peut servir ; sans carte, pas de pied, qui collait un bandeau vide au bas de l'écran.
-    if (vue.carte) {
-      pied = <CarteDeLaManche vue={vue} ecran={ecran} local={p.local} busy={p.busy} onGeste={p.onGeste} />
-      colle = !!vue.pouvoir?.jouable
+    const carte = vue.carte ? <CarteDeLaManche vue={vue} ecran={ecran} local={p.local} busy={p.busy} onGeste={p.onGeste} /> : null
+    const sert = !!vue.pouvoir?.jouable
+    if (ecran.Pied) {
+      // Le pied du jeu reste collé, la carte-bonus qui sert encore au-dessus de lui ; une qui ne sert plus se pose sous la manche.
+      pied = (
+        <>
+          {sert && carte}
+          <ecran.Pied {...manche} />
+        </>
+      )
+      pose = sert ? null : carte
+    } else if (carte) {
+      pied = carte
+      colle = sert
     }
   }
   // Rien ne court entre deux manches, ni avant la mise : on peut repartir au musée, la partie l'y attend.
@@ -503,6 +526,7 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
       {sansChrono && <Sortie vers="Le Cabinet" href="/cabinet" onClick={p.onMusee} />}
       <TeteDeLaPartie vue={vue} chrono={p.chrono} onQuitter={p.onQuitter} />
       <div className="quiz-player cab-manche">{corps}</div>
+      {pose && <div className="cab-pied-partie cab-pied-pose">{pose}</div>}
       {pied && <div className={colle ? 'cab-pied-partie' : 'cab-pied-partie cab-pied-pose'}>{pied}</div>}
     </div>
   )

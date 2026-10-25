@@ -10619,6 +10619,107 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-evenement.cab-pas-pose { border: 1.5px dotted var(--edge-strong); }
 .cab-pas-pose .cab-marque { color: var(--muted); }
 .cab-oubli { color: var(--muted); }
+/* Le Mot mystère : la question en plus petit — le clavier collé prend le bas de l'écran —, ce que disent les marques, la grille —
+   une ligne par essai, des cases carrées à la largeur que la longueur du mot laisse (`--lettres`, sept tiennent en 360 × 640) —,
+   et le clavier AZERTY, trois rangées de 44 px, collé avec la carte-bonus. Les couleurs des lettres sont une convention, écrite
+   en dur comme les pistes des sentiers : vert bien placée, ocre ailleurs, gris absente, qu'aucun thème ne repeint ; et jamais
+   seules — un trait sous la lettre bien placée, un point sous celle qui est ailleurs, la daltonienne ne distinguait pas le vert
+   de l'ocre ; une touche absente se barre. */
+.cab-page .quiz-question.cab-question-du-mot { font-size: 1.3rem; }
+.cab-legende { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 0; padding: 0; list-style: none; color: var(--muted); }
+.cab-legende li { display: inline-flex; align-items: center; gap: 6px; }
+.cab-marque-bien,
+.cab-marque-ailleurs,
+.cab-marque-absente { position: relative; flex: none; width: 18px; height: 18px; border-radius: 4px; }
+.cab-mot-grille { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cab-mot-ligne,
+.cab-mot-reponse { display: grid; grid-template-columns: repeat(var(--lettres), minmax(0, 44px)); justify-content: center; gap: 6px; margin: 0; }
+/* Une case à venir a le bord discret ; la ligne en cours, celui de l'accent : bordées pareil, les lignes vides se lisaient comme
+   autant de lignes à remplir. */
+.cab-lettre { position: relative; display: grid; place-items: center; aspect-ratio: 1; border: 2px solid var(--edge); border-radius: 8px; background: var(--surface); color: var(--ink); font-size: 1.45rem; font-weight: 700; line-height: 1; }
+.cab-mot-en-cours .cab-lettre { border-color: var(--accent); }
+.cab-lettre.cab-tapee { border-color: var(--ink); background: var(--surface-strong); }
+/* Une lettre soufflée par Éclairer : en pointillé, à l'accent — et « , soufflée » à l'oreille. */
+.cab-lettre.cab-soufflee { border-style: dashed; color: var(--accent-text); }
+.cab-lettre.cab-revelee { border-style: dashed; border-color: var(--accent); color: var(--accent-text); }
+.cab-lettre.cab-bien,
+.cab-touche.cab-bien,
+.cab-marque-bien { border-color: #2f7d4f; background: #2f7d4f; color: #fff; }
+.cab-lettre.cab-ailleurs,
+.cab-touche.cab-ailleurs,
+.cab-marque-ailleurs { border-color: #c99a1e; background: #c99a1e; color: #1d1608; }
+.cab-lettre.cab-absente,
+.cab-touche.cab-absente,
+.cab-marque-absente { border-color: #5a5e66; background: #5a5e66; color: #fff; }
+.cab-lettre.cab-bien::after,
+.cab-touche.cab-bien::after,
+.cab-marque-bien::after { content: ''; position: absolute; left: 24%; right: 24%; bottom: 11%; height: 4px; border-radius: 2px; background: currentColor; }
+.cab-lettre.cab-ailleurs::after,
+.cab-touche.cab-ailleurs::after,
+.cab-marque-ailleurs::after { content: ''; position: absolute; left: 50%; bottom: 10%; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: currentColor; }
+/* La lettre marquée remonte un peu : le point de « ailleurs » touchait le bas du A. */
+.cab-lettre.cab-bien,
+.cab-lettre.cab-ailleurs,
+.cab-touche.cab-bien,
+.cab-touche.cab-ailleurs { padding-bottom: 8px; }
+.cab-marque-bien::after { height: 3px; bottom: 3px; }
+.cab-marque-ailleurs::after { width: 5px; height: 5px; margin-left: -2.5px; bottom: 3px; }
+.cab-touche.cab-absente { text-decoration: line-through; }
+/* Le pied collé du Mot : la carte-bonus qui sert encore, un peu moins haute, et le clavier presque bord à bord — dix touches sur
+   348 pixels font 31 pixels chacune ; « Valider », plus large, au bout de la dernière rangée, sous le pouce. */
+.cab-pied-partie:has(.cab-clavier) { gap: 6px; padding: 10px 6px max(10px, env(safe-area-inset-bottom)); }
+.cab-pied-partie:has(.cab-clavier) .cab-pouvoir { min-height: 44px; padding-top: 4px; padding-bottom: 4px; }
+/* La carte-bonus qui ne sert plus se pose sous la manche, juste au-dessus du clavier collé : la marge qui la pousse au bas de la
+   page, et celle qui la colle au bord, reviennent au clavier. */
+.cab-pied-pose:has(+ .cab-pied-partie) { margin-bottom: 0; }
+.cab-pied-pose + .cab-pied-partie { margin-top: 0; }
+.cab-longueur { margin: 0; color: var(--alert); font-weight: 700; text-align: center; }
+.cab-clavier { display: flex; flex-direction: column; gap: 6px; }
+.cab-clavier-rang { display: flex; justify-content: center; gap: 4px; }
+.cab-touche { position: relative; flex: 1 1 0; min-width: 0; max-width: 40px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid var(--edge-strong); border-radius: 6px; background: var(--surface-strong); color: var(--ink); font: inherit; font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.cab-touche[aria-disabled='true'] { cursor: default; }
+.cab-touche .icon { width: 24px; height: 24px; }
+.cab-touche-large { flex: 1.4 1 0; max-width: 64px; font-size: 1.0625rem; }
+.cab-valider-le-mot { flex: 2.4 1 0; max-width: 96px; border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.cab-valider-le-mot[aria-disabled='true'] { border-color: var(--edge); background: var(--surface-strong); color: var(--muted); }
+.cab-mot-revele { display: flex; flex-direction: column; gap: 10px; }
+.cab-rappel { color: var(--muted); }
+/* Le Filet : la valeur visée en grand, ce que le filet couvre en mots ; la piste — son rail, la zone dorée d'Éclairer, le filet à
+   sa vraie largeur, la vraie valeur à la révélation — et ses bornes ; le curseur entre « − » et « + » de 44 px ; les trois filets,
+   chacun ses étoiles, l'état par `aria-pressed` ; « Lancer le filet ». La zone est d'or, le filet à l'accent, la valeur à l'encre :
+   et chacun se dit aussi en mots. */
+.cab-filet-vise { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.cab-filet-valeur { color: var(--accent-text); font-family: var(--serif); font-size: 2.6rem; font-weight: 700; line-height: 1.05; font-variant-numeric: lining-nums tabular-nums; }
+.cab-filet-couvre { color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+/* Le rail laisse à chaque bout la moitié du mât du curseur (5 px) : le centre du mât y court du premier cran au dernier, comme
+   le navigateur le pose sur sa piste, et le filet dessiné reste centré sous lui. */
+.cab-filet-piste { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cab-filet-rail { position: relative; height: 44px; margin: 0 5px; }
+.cab-filet-rail::before { content: ''; position: absolute; left: 0; right: 0; top: 20px; height: 4px; border-radius: 2px; background: var(--track); }
+.cab-filet-zone { position: absolute; top: 13px; height: 18px; border: 1.5px dashed var(--or-text); border-radius: 9px; background: color-mix(in srgb, var(--or-text) 26%, transparent); }
+.cab-filet-maille { position: absolute; top: 7px; height: 30px; border: 2px solid var(--accent); border-radius: 9px; background: var(--accent-soft); }
+.cab-filet-vrai { position: absolute; top: 2px; width: 4px; height: 40px; margin-left: -2px; border-radius: 2px; background: var(--ink); }
+.cab-filet-bornes { display: flex; justify-content: space-between; margin: 0 2px; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+/* − et + se posent à la hauteur du rail, pas au milieu de la piste et de ses bornes. */
+.cab-filet-curseur { display: flex; align-items: flex-start; gap: 8px; }
+.cab-cran { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 12px; background: var(--surface-strong); color: var(--ink); font: inherit; font-size: 1.6rem; font-weight: 700; line-height: 1; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.cab-cran[aria-disabled='true'] { opacity: 0.4; cursor: default; }
+/* Le curseur se pose sur le rail, sa propre piste transparente : on ne voit que son bouton, un mât au milieu du filet qu'il tient
+   — rond de 28 px, il cachait le petit filet d'une piste de 3000 km, large de 14 px. La piste se prend au doigt sur 44 px de haut :
+   le pouce n'attrape pas un trait de 4, et un toucher n'importe où sur elle y pose le mât. */
+.cab-curseur { position: absolute; top: 0; left: 0; width: 100%; height: 44px; margin: 0; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.cab-curseur::-webkit-slider-runnable-track { height: 44px; background: transparent; }
+.cab-curseur::-webkit-slider-thumb { box-sizing: border-box; width: 10px; height: 40px; margin-top: 2px; border: 2px solid var(--bg); border-radius: 5px; background: var(--accent); -webkit-appearance: none; appearance: none; }
+.cab-curseur::-moz-range-track { height: 44px; background: transparent; }
+.cab-curseur::-moz-range-thumb { box-sizing: border-box; width: 10px; height: 40px; border: 2px solid var(--bg); border-radius: 5px; background: var(--accent); }
+.cab-tailles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cab-taille { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 8px 6px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; touch-action: manipulation; }
+.cab-taille[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cab-taille .sentier-etoiles svg,
+.cab-filet-lance .sentier-etoiles svg { width: 18px; height: 18px; }
+.cab-filet-revele { display: flex; flex-direction: column; gap: 10px; }
+.cab-filet-reponse { font-family: var(--serif); font-size: 1.45rem; font-weight: 700; line-height: 1.2; font-variant-numeric: lining-nums tabular-nums; }
+.cab-filet-lance { display: flex; align-items: center; gap: 8px; }
 
 /* La mise, avant une manche ; le voile de la pause, plein — la manche ne se lit pas au travers, sous aucun thème. */
 .cab-mise h2 { font-size: 1.6rem; }

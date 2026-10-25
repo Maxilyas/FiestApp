@@ -3,7 +3,6 @@ import { Etoiles } from '../../components/Etoiles'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../../components/Gains'
 import { Icon } from '../../components/Icon'
 import { OeuvrePeinte } from '../../components/OeuvrePeinte'
-import { LegendaireOuvert } from '../../components/Ouverts'
 import { Feuille, PieceTete } from '../../components/Pieces'
 import { espacesFines } from '../../format'
 import { toucher } from '../../toucher'
@@ -14,9 +13,9 @@ import { oeuvre as oeuvreDe } from '../../../../shared/cabinet/oeuvres'
 import type { IssueDUnePartie, OrigineDUnePartie } from '../../../../shared/cabinet/partie'
 import type { MancheVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees, type Tombe } from '../../../../shared/gains'
-import { legendaire } from '../../../../shared/legendaires'
 import { titreAuBilan } from './Cartel'
 import type { EcranEfface } from './Partie'
+import { GardiensQuiSEveillent } from './Reveil'
 import { oeuvreMontree } from './Salle'
 
 // Le bilan d'une partie (§ 2.6) : ce qu'elle a fait à son œuvre, en clair —
@@ -24,8 +23,9 @@ import { oeuvreMontree } from './Salle'
 // poussière d'or —, l'œuvre gagnée et son cartel (dorée ou doublée, ce que la
 // partie lui a appris : elle peut garder le cartel d'avant), le gardien réveillé en
 // grand (`LegendaireOuvert`, avant les gains, comme à la fin d'une
-// expédition), puis l'écran des gains de tous les modes : « Ce que tu
-// gagnes », « Nouveaux trophées », « À porter » (`Gains.tsx`, `gains.test.ts`).
+// expédition) et la luciole qui rejoint (`Reveil.tsx`), puis l'écran des
+// gains de tous les modes : « Ce que tu gagnes », « Nouveaux trophées »,
+// « À porter » (`Gains.tsx`, `gains.test.ts`).
 // Ce que dit l'œuvre (« Pas assez d'étoiles cette fois. Il en fallait 6 »)
 // est la phrase du serveur (`BilanVu.dit`) : la page ne recompte rien.
 //
@@ -104,7 +104,8 @@ export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDe
   }
   const o = b.oeuvre ? oeuvreDe(b.oeuvre) : undefined
   const doree = b.issue === 'gagnee-doree' || b.issue === 'doree'
-  // Une salle complète dont le gardien veillait déjà : rien de neuf à fêter, la fin le dit (§ 5.3).
+  // Un gardien qui veillait déjà — une salle complète, trente jours d'affilée, un légendaire gagné ailleurs : rien de neuf à
+  // fêter, la fin le dit (§ 5.3), par ce qui l'a réveillé.
   const veillaient = (b.gardiens ?? []).filter(x => !x.neuf)
   return (
     <div className="player-shell cab-page cab-bilan">
@@ -146,14 +147,9 @@ export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDe
           )}
         </section>
       )}
-      {veillaient.map(x => (
-        <p key={x.legendaire} className="cab-ligne cab-dit">
-          {espacesFines(`Salle complète ! ${legendaire(x.legendaire)?.nom ?? 'Son gardien'} veillait déjà sur elle.`)}
-        </p>
-      ))}
-      {(g?.legendaires ?? []).map(cle => (
-        <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
-      ))}
+      {/* Le gardien que la partie réveille, en grand, avant les gains ; celui qui veillait déjà, sa ligne ; la luciole, à la
+          première salle complète. Les légendaires que ses paliers ouvrent passent par les mêmes cartes, sans raison au-dessus. */}
+      <GardiensQuiSEveillent neufs={g?.legendaires ?? []} veillaient={veillaient.map(x => x.legendaire)} compagnon={g?.compagnon} />
       {g && (
         <CeQueTuGagnes
           parts={partsDeLXp([
