@@ -21,7 +21,7 @@ import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
 import type { ApresUnGeste, ArticleDeLEchoppe, GesteAvecSesCartes, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
 import type { CleDeFiole } from '../../shared/rencontres'
 // Des types seulement : la page du Cabinet ne télécharge ni le pli ni les règles des jeux, elle lit la vue du serveur.
-import type { Cartel, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
+import type { Cartel, MursDuCabinet, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import type { DemandeDeDepart } from '../../shared/cabinet/musee'
 import type { GesteDuCabinet } from '../../shared/cabinet/partie'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
@@ -685,7 +685,7 @@ export const api = {
   /**
    * Le Cabinet de curiosités (`shared/cabinet/vues.ts`) : sa page, préchargée
    * avec `/cabinet` ; commencer une partie, un geste à son rang, une partie
-   * relue (« Mes réponses ») ; une œuvre et son cartel ; l'achat, la dorure,
+   * relue (« Mes réponses ») ; une œuvre et son cartel ; tes murs ; l'achat, la dorure,
    * l'échange d'un jeu de la visite, qui rendent la page du musée d'après.
    * Chaque réponse qui porte `maintenant` remesure l'heure du serveur : ses
    * manches ont de vrais chronos (invariant 6). Un achat ou une dorure portent
@@ -707,6 +707,8 @@ export const api = {
       auReveil(() => avecLHeure(() => req<PageDuCabinet>(`/api/cabinet/oeuvre/${encodeURIComponent(cle)}/dorure`, { method: 'POST', body: JSON.stringify({ prix }) }))),
     /** Changer le jeu d'une case de la visite pas encore jouée, une fois par jour. */
     echanger: (k: number) => avecLHeure(() => req<PageDuCabinet>('/api/cabinet/visite/echange', { method: 'POST', body: JSON.stringify({ case: k }) })),
+    /** Tes murs : les lieux épinglés et les dates rangées — rien n'y court, ils ne portent pas l'heure. */
+    murs: () => req<MursDuCabinet>('/api/cabinet/murs'),
   },
   /** Les duels classés (`shared/duels.ts`) : sa cote, sa ligue, sa semaine, le classement — leur page, `/duels`. */
   duels: {

@@ -23,7 +23,7 @@ import { ETOILES_D_UNE_JUSTE, ETOILES_D_UNE_PARTIE, MANCHES_PAR_PARTIE } from '.
 import type { CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { POUVOIRS, refusDuPouvoir, type CleDePouvoir } from '../../../../shared/cabinet/pouvoirs'
 import type { MancheMontree, RevelationDUneManche } from '../../../../shared/cabinet/jeux/index'
-import type { GesteDuCabinet, Manche, ReponseDUnJeu } from '../../../../shared/cabinet/partie'
+import type { FinDUneManche, GesteDuCabinet, Manche, ReponseDUnJeu } from '../../../../shared/cabinet/partie'
 import type { RevelationVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import type { BilanDeLaPartie } from './Bilan'
 
@@ -39,8 +39,9 @@ import type { BilanDeLaPartie } from './Bilan'
 // Le chrono se lit à l'heure du serveur (`serverNow`, invariant 6), jamais à
 // celle du téléphone ; à l'échéance, la page envoie d'elle-même ce qu'elle
 // tenait (`repondre`, `auto`) — l'Éclair, ses réponses ; la Frise, ce qu'elle a
-// rangé ; le Filet, son curseur et sa taille, tels qu'ils sont ; le Pari, le
-// Détail et le Mot mystère, rien : le serveur a déjà ce qui compte —, et
+// rangé ; le Filet, son curseur et sa taille, tels qu'ils sont ; l'Épingle,
+// celle qu'il a posée ; le Pari, le Détail, le Mot mystère, les Indices et la
+// Réplique, rien : le serveur a déjà ce qui compte —, et
 // insiste tant que le réseau manque : son rang la garde d'un double. Le
 // serveur a une grâce pour le réseau ; la page ne la recopie pas, elle n'en
 // a pas besoin.
@@ -126,7 +127,13 @@ export interface JeuALEcran<M, R, L> {
    * même bas que la carte-bonus, et l'un aurait couvert l'autre.
    */
   Pied?(p: PropsDUneManche<M, L>): ReactNode
-  Revelation(p: { corps: R } & OuEstLaManche): ReactNode
+  /**
+   * La révélation d'une manche, et comment elle s'est tranchée (`fin`) :
+   * quittée au bon mot, la Réplique se titre « Le bon mot » et ne rapporte
+   * rien — son corps ne le savait pas, et ne disait pas pourquoi. Absente, pour
+   * les révélations écrites à la main des épreuves.
+   */
+  Revelation(p: { corps: R; fin?: FinDUneManche } & OuEstLaManche): ReactNode
 }
 
 /** L'écran d'un jeu, ses types effacés : le cadre ne le lit que pour le jeu de sa partie, avec la manche que la vue de ce jeu montre. */
@@ -145,6 +152,9 @@ const ECRANS: Partial<Record<CleDeJeu, ALaDemande<EcranEfface>>> = {
   frise: aLaDemande(() => import('./jeux/Frise').then(m => m.FRISE as unknown as EcranEfface)),
   mot: aLaDemande(() => import('./jeux/MotMystere').then(m => m.MOT as unknown as EcranEfface)),
   filet: aLaDemande(() => import('./jeux/Filet').then(m => m.FILET as unknown as EcranEfface)),
+  epingle: aLaDemande(() => import('./jeux/Epingle').then(m => m.EPINGLE as unknown as EcranEfface)),
+  indices: aLaDemande(() => import('./jeux/Indices').then(m => m.INDICES as unknown as EcranEfface)),
+  replique: aLaDemande(() => import('./jeux/Replique').then(m => m.REPLIQUE as unknown as EcranEfface)),
 }
 
 export const ecranDuJeu = (jeu: CleDeJeu): ALaDemande<EcranEfface> | undefined => ECRANS[jeu]
@@ -442,7 +452,7 @@ export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: 
         {r.fin === 'quittee' && <p>Manche quittée</p>}
         {fete.gerbe && <GerbeDeJuste />}
       </div>
-      <ecran.Revelation corps={r.corps} partie={vue.id} tirage={r.tirage} />
+      <ecran.Revelation corps={r.corps} partie={vue.id} tirage={r.tirage} fin={r.fin} />
       {r.corps.savais && (
         <p className="card anecdote">
           <Icon name="message" />

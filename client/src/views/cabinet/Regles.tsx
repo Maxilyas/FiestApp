@@ -23,6 +23,7 @@ import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/j
 import { OEUVRES, RARETES, type Rarete } from '../../../../shared/cabinet/oeuvres'
 import { POUVOIRS } from '../../../../shared/cabinet/pouvoirs'
 import { SALLES } from '../../../../shared/cabinet/salles'
+import { adresseDe } from './ecrans'
 import { apresDeuxPoints, compte, enDebutDeLigne } from './Musee'
 
 // « Comment ça marche ? » : les règles du Cabinet en une feuille, une ligne
@@ -88,7 +89,7 @@ function Ligne({ icone, children }: { icone: IconName; children: ReactNode }) {
  * `parties` : les cases de la visite du jour, telles que la page les montre — tant que des jeux ne sont pas livrés, il y en a
  * moins que le barème n'en promet, et le musée disait « 2 parties » au-dessus d'une règle qui en disait trois.
  */
-export function Regles({ jeux, parties = CASES_DE_LA_VISITE }: { jeux: readonly CleDeJeu[]; parties?: number }) {
+export function Regles({ jeux, parties = CASES_DE_LA_VISITE, onMurs }: { jeux: readonly CleDeJeu[]; parties?: number; /** Mener à tes murs : la feuille qui les montre se ferme. */ onMurs?: () => void }) {
   return (
     <>
       <Section titre="Ton musée">
@@ -138,6 +139,14 @@ export function Regles({ jeux, parties = CASES_DE_LA_VISITE }: { jeux: readonly 
       </Section>
       <Section titre="Ce que tu apprends">
         <Ligne icone="book">Chaque œuvre gagnée garde sur son cartel ce que la partie t’a appris.</Ligne>
+        {/* Le chemin de tes murs : la feuille se ferme en y menant, sans quoi elle restait ouverte par-dessus eux. */}
+        <Ligne icone="repere">
+          {espacesFines('Chaque lieu épinglé, chaque date rangée prend sa place sur ')}
+          <a className="cab-lien-en-ligne" href={adresseDe({ e: 'murs' })} onClick={onMurs}>
+            tes murs
+          </a>
+          .
+        </Ligne>
         <Ligne icone="clock">{`Ce que tu as vu ne revient pas avant ${JOURS_SANS_REDITE} jours, d’un jeu à l’autre.`}</Ligne>
       </Section>
       <Glossaire mots={[...MOTS]} titre="Les mots du Cabinet" />
@@ -149,7 +158,7 @@ export function Regles({ jeux, parties = CASES_DE_LA_VISITE }: { jeux: readonly 
 export function FeuilleDesRegles({ jeux, parties, onFermer }: { jeux: readonly CleDeJeu[]; parties?: number; onFermer: () => void }) {
   return (
     <Feuille titre="Comment ça marche ?" onFermer={onFermer} className="cab-feuille">
-      <Regles jeux={jeux} parties={parties} />
+      <Regles jeux={jeux} parties={parties} onMurs={onFermer} />
     </Feuille>
   )
 }

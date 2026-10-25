@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ApiError, UnauthorizedError, api, motifDe } from '../api'
 import { resetClock } from '../clock'
@@ -41,7 +41,7 @@ import { carteRetenue, rapporteesVues, reglesLues, retenirLaCarte, retenirLesRap
 
 // La page du Cabinet de curiosités (`/cabinet`) : le musée et ses écrans —
 // une salle, une œuvre et son cartel, les gardiens, la visite du jour, les
-// jeux libres —, chacun à son fragment (`cabinet/ecrans.ts`), et ce que la
+// jeux libres, tes murs —, chacun à son fragment (`cabinet/ecrans.ts`), et ce que la
 // page y fait : retenir sa carte-bonus, acheter une œuvre, dorer un cadre,
 // changer un jeu de la visite. Tout ce qu'elle montre vient de la page du
 // serveur (`GET /api/cabinet`, demandée d'emblée — l'adresse préchargée avec
@@ -77,6 +77,23 @@ export function nicheApresLeReveil(p: Pick<PageDuCabinet, 'reveil'>): Promise<vo
   return api.joueur.moiLeger().then(
     moi => porterNiche(moi.profile),
     () => {},
+  )
+}
+
+/** Tes murs, à la demande : leur carte de France et leur frise ne servent qu'à qui les ouvre. */
+const LES_MURS = aLaDemande(() => import('./cabinet/Murs'))
+
+/** Tes murs, quand leur écran est venu ; perdu en route, la page le dit — rien n'y est perdu, ils se dérivent du journal. */
+function MursALaDemande() {
+  const ecran = useALaDemande(LES_MURS)
+  const auMusee = useContext(RetourAuMusee)
+  if (ecran && ecran !== 'perdu') return <ecran.TesMurs />
+  return (
+    <div className="player-shell cab-page" aria-busy={!ecran || undefined}>
+      <Sortie vers="Le Cabinet" href="/cabinet" onClick={auMusee} />
+      <PieceTete piece="Le Cabinet de curiosités" titre="Tes murs" />
+      <p className="cab-ligne">{ecran ? espacesFines('Tes murs ne se sont pas chargés : recharge la page.') : 'Chargement…'}</p>
+    </div>
   )
 }
 
@@ -462,6 +479,8 @@ export function CabinetApp() {
       return avecLeToast(<Visite page={p} busy={busy} onJouer={jouer} onEchanger={k => void echanger(k)} />)
     case 'libre':
       return avecLeToast(<JouerLibrement page={p} onJouer={jouer} />)
+    case 'murs':
+      return avecLeToast(<MursALaDemande />)
   }
   return avecLeToast(
     <Musee

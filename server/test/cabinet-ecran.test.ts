@@ -218,6 +218,7 @@ test('chaque écran du musée a son adresse, et une adresse inconnue ouvre le mu
     { e: 'gardiens' },
     { e: 'visite' },
     { e: 'libre' },
+    { e: 'murs' },
     ...SALLES.map(s => ({ e: 'salle', salle: s.cle })),
     ...OEUVRES.map(o => ({ e: 'oeuvre', oeuvre: o.cle })),
   ]
@@ -2055,8 +2056,9 @@ test('les écrans du Détail et de la Frise : à la demande, sans le pli ni la l
     .map(s => s.trim())
     .filter(s => s && !s.startsWith('type '))
   assert.deepEqual(valeurs.sort(), ['QUESTION_DU_TABLEAU', 'adresseDUnCadrage'])
-  // Le cadre passe à chaque jeu où sont ses images, et « Mes réponses » aussi.
-  assert.match(partie, /<ecran\.Revelation corps=\{r\.corps\} partie=\{vue\.id\} tirage=\{r\.tirage\} \/>/)
+  // Le cadre passe à chaque jeu où sont ses images, et « Mes réponses » aussi ; le cadre y ajoute comment la manche s'est tranchée
+  // (`fin` : la Réplique quittée au bon mot le dit, `cabinet-ecran-neufs.test.ts`).
+  assert.match(partie, /<ecran\.Revelation corps=\{r\.corps\} partie=\{vue\.id\} tirage=\{r\.tirage\} fin=\{r\.fin\} \/>/)
   assert.match(source('views/cabinet/Bilan.tsx'), /<ecran\.Revelation corps=\{m\.revelation\.corps\} partie=\{vue\.id\} tirage=\{m\.revelation\.tirage\} \/>/)
 })
 

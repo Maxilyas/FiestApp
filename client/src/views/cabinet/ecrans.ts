@@ -1,12 +1,14 @@
 // Les écrans du musée et leurs adresses : le fragment de `/cabinet` dit ce
 // qu'on regarde — une salle (`#salle-rempart`), une œuvre (`#oeuvre-bastion`),
-// les gardiens, la visite du jour, les jeux libres —, pour que le retour du
+// les gardiens, la visite du jour, les jeux libres, tes murs —, pour que le retour du
 // navigateur ramène d'où l'on vient, qu'un écran se recharge sur lui-même et
 // qu'un lien y mène tout droit. Le musée lui-même n'a pas de fragment.
 //
 // Toutes ces adresses lisent la même page (`GET /api/cabinet`, préchargée
 // avec `/cabinet`) : le fragment ne demande rien de plus au serveur, et
-// `donneesDuFragment` (`shared/depart.ts`) n'a rien à précharger pour lui.
+// `donneesDuFragment` (`shared/depart.ts`) n'a rien à précharger pour lui —
+// sauf tes murs, qui se demandent à l'ouverture de leur écran (`Murs.tsx`) :
+// rares, ils n'alourdissent pas l'arrivée de tous.
 // Sans effet ni navigateur — `cabinet-ecran.test.ts` les lit tels quels, et
 // l'historique d'une partie ouverte se joue sur un faux `history` — ; le seul
 // morceau de React est le retour au musée (`RetourAuMusee`), un contexte.
@@ -33,8 +35,9 @@ export type EcranDuMusee =
   | { e: 'gardiens' }
   | { e: 'visite' }
   | { e: 'libre' }
+  | { e: 'murs' }
 
-const SIMPLES = ['gardiens', 'visite', 'libre'] as const
+const SIMPLES = ['gardiens', 'visite', 'libre', 'murs'] as const
 
 /**
  * L'écran d'un fragment. Une clé venue de l'adresse se lit par sa fonction
