@@ -2,8 +2,8 @@
 // le Bouquet final —, à leur seule fête (la décision du propriétaire du
 // 24 octobre 2026) : la première œuvre gagnée en jouant pendant Halloween
 // range `saison:halloween` sous `#cabinet`, la condition même du légendaire ;
-// un achat, une dorure, une œuvre rapportée de l'Expédition n'en rangent
-// jamais ; hors de la fête, rien. La saison se lit au jour du départ de la
+// un achat, une dorure n'en rangent jamais ; hors de la fête, rien. La
+// saison se lit au jour du départ de la
 // partie, au calendrier du Cabinet (`calendrierDuCabinet`) : le banc le ferme
 // pour tous les autres fichiers — sans quoi, du 25 octobre au 1er novembre,
 // chaque test qui gagne une œuvre réveillerait la Citrouille —, celui-ci le
@@ -121,12 +121,12 @@ test('la Citrouille déjà gagnée en soirée : le Cabinet range quand même sa 
   for (const j of [fee, gil]) assert.ok((await legendairesDe(j.cookie)).includes('lg:citrouille'), j.id)
 })
 
-test('pendant la fête, un achat, une dorure, une œuvre rapportée de l’Expédition ne rangent pas de saison', async () => {
+test('pendant la fête, un achat, une dorure ne rangent pas de saison', async () => {
+  // Rien ne se rapporte plus de l'Expédition (la décision du propriétaire du 25 octobre 2026) : l'œuvre rapportée,
+  // que cette épreuve posait à la main, n'a plus d'origine qui l'écrive (`cabinet-ouverture.test.ts`).
   b.horloge.t = PENDANT_HALLOWEEN
   const bob = await joueuse('bob')
   aLaMain(b.fichier, `INSERT INTO cabinet_profils (profile_id, poussiere, cree_le, maj_le) VALUES ('${bob.id}', ${PRIX_D_UNE_OEUVRE.commun + PRIX_D_UNE_DORURE.commun}, 0, 0)`)
-  // Rapportée de l'Expédition (la migration des œuvres) : jamais de saison.
-  aLaMain(b.fichier, `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le) VALUES ('${bob.id}', 'plume', 'expedition', 0)`)
   const page = ok(await laPage(b, bob.cookie), 'la page')
   assert.equal(page.fete?.gardien?.legendaire, 'lg:citrouille')
 
@@ -138,7 +138,6 @@ test('pendant la fête, un achat, une dorure, une œuvre rapportée de l’Expé
   assert.equal(dorure.corps.reveil, undefined)
 
   assert.equal(saisonDeLOeuvre(bob.id, 'pansement'), null)
-  assert.equal(saisonDeLOeuvre(bob.id, 'plume'), null)
   assert.deepEqual(saisonsDe(bob.id), [])
   assert.ok(!(await legendairesDe(bob.cookie)).includes('lg:citrouille'))
   assert.equal(dorure.corps.fete?.gardien?.legendaire, 'lg:citrouille', 'la fête l’attend encore')

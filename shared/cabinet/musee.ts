@@ -36,14 +36,19 @@ import { CLES_DES_JEUX, JEUX, type CleDeJeu } from './jeux/regle'
 
 // ── Ce que le musée lit ───────────────────────────────────────────────────
 
-export type OrigineDUneOeuvre = 'partie' | 'achat' | 'expedition' | 'depart'
+/**
+ * Comment une œuvre est entrée : gagnée en jouant, achetée, ou l'une des quatre
+ * offertes à l'arrivée. Rien ne se rapporte de l'Expédition : chacun commence
+ * son musée à zéro (la décision du propriétaire du 25 octobre 2026).
+ */
+export type OrigineDUneOeuvre = 'partie' | 'achat' | 'depart'
 
 /** Une ligne de `cabinet_oeuvres` : une œuvre entrée, et ce qu'elle a coûté, au prix du jour. */
 export interface LigneDOeuvre {
   oeuvre: string
   origine: OrigineDUneOeuvre
   gagneeLe: number
-  /** La fête du jour où elle est entrée en jouant ; jamais pour un achat, une dorure, une migration. */
+  /** La fête du jour où elle est entrée en jouant ; jamais pour un achat ni une dorure. */
   saison: CleDeSaison | null
   /** La partie dont son cartel garde une manche. */
   serieId: string | null

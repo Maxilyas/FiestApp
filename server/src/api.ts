@@ -90,6 +90,8 @@ interface ApiDeps {
   rencontres: boolean
   /** La question au centre de l'expédition (v10) s'offre au départ sur ce serveur (`questionAuCentreOuverte`, calculé de même). */
   questionAuCentre: boolean
+  /** L'Expédition a laissé place au Cabinet : son seul départ fermé (`EXPEDITION_REMPLACEE`, lu de même — le banc le garde ouvert). */
+  expeditionRemplacee: boolean
   /** Le Cabinet de curiosités : son magasin, et s'il répond sur ce serveur (`cabinetOuvert`, calculé une fois au démarrage). */
   cabinet: { magasin: CabinetStore; ouvert: boolean }
   /** Les missions du jour et le coffre de la semaine, qui lisent les trois magasins. */
@@ -158,13 +160,15 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // La campagne aussi : seul, avec son profil.
   mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
   // L'expédition, une partie de la campagne d'un autre mode : ouverte en production depuis ses jokers, tant que son drapeau l'ouvre.
-  // Ses rencontres sont le jeu partout depuis le 19 octobre 2026 — le même calcul que L'Explorateur lit (`server.ts`).
+  // Ses rencontres sont le jeu partout depuis le 19 octobre 2026 — le même calcul que L'Explorateur lit (`server.ts`). Le
+  // Cabinet venu, son seul départ se ferme (`remplacee`) : une expédition en route se finit par ses autres routes.
   mountExpedition(app, {
     campagne: deps.campagne,
     profiles: deps.profiles,
     ouverte: expeditionOuverte({ online: deps.online, env: deps.qg.env }),
     rencontres: deps.rencontres,
     questionAuCentre: deps.questionAuCentre,
+    remplacee: deps.expeditionRemplacee,
   })
   // Le Cabinet de curiosités, qu'on joue seul avec son profil : en préproduction d'abord, fermé en production tant que son drapeau le ferme.
   mountCabinet(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, ouvert: deps.cabinet.ouvert })

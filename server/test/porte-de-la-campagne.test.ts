@@ -16,7 +16,6 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import type { InStatement, InValue } from '@libsql/client'
-import { patienter, relireJusqua } from './banc'
 import { CampagneStore, type RecompensesDeCampagne } from '../src/core/campagne'
 import { REVEIL_DU_CABINET, SECRET_DU_CABINET } from '../src/core/cabinet/tables'
 import type { FinDUnePartie, StatsDuCabinet, StatsEnPlus } from '../src/core/porteDeLaCampagne'
@@ -25,8 +24,6 @@ import { cleDeSerie } from '../src/auth/profiles'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { xpDeLaBonneReponse, xpDuJourDeCampagne } from '../../shared/campagne'
-import { codexDuNiveau, niveauDe } from '../../shared/codex'
-import { VERSION_DES_HUIT_FAMILLES } from '../../shared/rencontres'
 import type { VueDeLExpedition } from '../../shared/expedition'
 
 // ── Le compteur ───────────────────────────────────────────────────────────
@@ -277,19 +274,11 @@ test('une réponse écrite par la porte : l’expédition en route relit ce qu�
   }
 
   // Une première expédition, un pas puis abandonnée : la base, la mesure et le journal se lisent une fois — ce n'est pas
-  // ce qu'on compte. Sa fin, le Cabinet l'apprend — et elle ne l'attend pas : son crochet ne rend jamais la main.
-  const rapportees: string[] = []
-  jeu.apresLExpedition = id => {
-    rapportees.push(id)
-    return new Promise<void>(() => {})
-  }
+  // ce qu'on compte. Sa fin ne dit rien au Cabinet : plus rien ne s'en rapporte (la décision du propriétaire du
+  // 25 octobre 2026), et la campagne n'en a plus le crochet.
   const essai = await jeu.partirEnExpedition(QUI)
   await avancer(essai)
-  const finie = await Promise.race([jeu.abandonnerLExpedition(QUI, essai.id).then(() => true), patienter(3_000).then(() => false)])
-  assert.ok(finie, 'la fin de l’expédition n’attend pas le Cabinet')
-  // Dit en fond : on attend qu'il l'ait appris, jamais derrière une pause fixe (règle `tests.md`).
-  await relireJusqua(async () => rapportees.length, n => n > 0)
-  assert.deepEqual(rapportees, [QUI], 'la fin d’une expédition prévient le Cabinet')
+  await jeu.abandonnerLExpedition(QUI, essai.id)
 
   const v = await jeu.partirEnExpedition(QUI)
   const escale = await mesurer(() => avancer(v))
@@ -317,14 +306,6 @@ test('une réponse écrite par la porte : l’expédition en route relit ce qu�
   // L'escale suivante relit ce qu'il a vu : la question du Cabinet ne revient pas comme jamais vue.
   const suivante = await mesurer(() => avancer(apres))
   assert.equal(suivante.appels, 2, `${suivante.appels} allers-retours : ce qu'il a vu se relit, puis l'escale s'écrit`)
-
-  // Un crochet qui tombe ne fait pas tomber la fin : il se dit au journal du serveur.
-  jeu.apresLExpedition = () => Promise.reject(new Error('le Cabinet est muet'))
-  const { dits } = await enEcoutantLeJournal(async dits => {
-    await jeu.abandonnerLExpedition(QUI, v.id)
-    await relireJusqua(async () => dits.length, n => n > 0)
-  })
-  assert.ok(dits.some(d => d.includes('le Cabinet est muet')), dits.join('\n'))
 })
 
 /** L'étagère des profils, pour voir ce que la fin d'une partie y range — et dans quel ordre, avec ce qui s'y écrit d'autre (`ordre`). */
@@ -627,9 +608,4 @@ test('la porte rend la base de la campagne telle qu’elle la garde, et son verr
   await Promise.all([unGeste, serie])
   assert.deepEqual(ordre, ['geste du Cabinet', 'geste du Cabinet écrit', 'série commencée'])
   assert.equal(seriesDe(), 2)
-
-  // Le codex qu'il ouvre aujourd'hui : sa renommée relue de ses bilans, d'un aller-retour — sans expédition, le premier niveau.
-  const codex = await mesurer(() => porte.codexDuProfil(QUI, VERSION_DES_HUIT_FAMILLES))
-  assert.equal(codex.appels, 1)
-  assert.deepEqual(codex.resultat, codexDuNiveau(niveauDe(0), [], [], VERSION_DES_HUIT_FAMILLES).cartes)
 })

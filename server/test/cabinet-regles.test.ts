@@ -716,7 +716,7 @@ test('les gardiens dus : salle complète, salle dorée, le Cabinet entier, trent
   assert.deepEqual(voies(museeDe({ jour: JOUR, profil: profil({ serieRecord: B.JOURS_DU_SCARABEE }) })), ['cabinet:scarabee'])
   assert.deepEqual(voies(museeDe({ jour: JOUR, profil: profil({ serieRecord: B.JOURS_DU_SCARABEE - 1 }) })), [])
   assert.deepEqual(voies(museeDe({ jour: JOUR, oeuvres: [ligne('plume', { saison: 'halloween' })] })), ['saison:halloween'])
-  // Un achat, une œuvre rapportée n'ont pas de saison qui compte : seule une œuvre gagnée en jouant.
+  // Un achat n'a pas de saison qui compte : seule une œuvre gagnée en jouant.
   assert.deepEqual(voies(museeDe({ jour: JOUR, oeuvres: [ligne('plume', { saison: 'noel', origine: 'achat' })] })), [])
 })
 

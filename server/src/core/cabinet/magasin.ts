@@ -454,8 +454,9 @@ export class CabinetStore {
       },
       MUSEES_GARDES,
     )
-    // Lu à froid — le premier passage d'un réveil, des œuvres rapportées de l'Expédition, un rangement qui avait
-    // échoué —, le musée réconcilie ses gardiens, en silence : il les avait peut-être déjà, rien ne s'annonce.
+    // Lu à froid — le premier passage d'un réveil, une règle de gardien changée depuis, un rangement qui avait échoué —,
+    // le musée réconcilie ses gardiens, en silence : il les avait peut-être déjà, rien ne s'annonce. C'est la relecture
+    // du Cabinet : une par réveil et par joueur, sans version à monter.
     await this.reveiller(profileId, this.museeVu(profileId, g), t, g)
     return g
   }
@@ -1104,7 +1105,7 @@ export class CabinetStore {
    * Le cartel d'une œuvre à lui : sa ligne, de la mémoire, et la partie que
    * son cartel garde, relue de sa clé — un aller-retour, deux lignes — pour le
    * même pli que la partie en cours (invariant 14). Une œuvre sans cartel de
-   * partie — offerte, achetée, rapportée — ne lit rien de plus. Une clé qui
+   * partie — offerte, achetée — ne lit rien de plus. Une clé qui
    * n'est pas une œuvre, ou une œuvre qui lui manque : pas de cartel.
    */
   cartel(profileId: string, cle: string): Promise<IssueDuCartel> {

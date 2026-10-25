@@ -48,7 +48,10 @@ const GESTES = `CREATE TABLE IF NOT EXISTS cabinet_gestes (
  * jour dans les lots qui le changent — jamais la somme relue à chaque page.
  * `poussiere` est la poussière d'or gagnée, la somme des bilans ; le solde en
  * retire ce que ses œuvres ont coûté. `visites` garde les visites figées des
- * trois derniers jours, échange compris ; `partie`, celle en cours.
+ * trois derniers jours, échange compris ; `partie`, celle en cours. Pas de
+ * version des reflets à relire au démarrage : les gardiens dus se réconcilient
+ * à la lecture froide de chaque musée (`reconcilier`, `gardiens.ts`), et une
+ * règle de gardien changée vaut à la page suivante de chacun.
  */
 const PROFILS = `CREATE TABLE IF NOT EXISTS cabinet_profils (
   profile_id   TEXT PRIMARY KEY,
@@ -58,7 +61,6 @@ const PROFILS = `CREATE TABLE IF NOT EXISTS cabinet_profils (
   serie_record INTEGER NOT NULL DEFAULT 0,
   visites      TEXT NOT NULL DEFAULT '[]',
   partie       TEXT,
-  v            INTEGER NOT NULL DEFAULT 1,
   cree_le      INTEGER NOT NULL,
   maj_le       INTEGER NOT NULL
 )`
@@ -68,12 +70,15 @@ const PROFILS = `CREATE TABLE IF NOT EXISTS cabinet_profils (
  * de la suppression du profil (invariant 22). Ce qu'elle a coûté s'écrit avec
  * elle, au prix du jour : un achat garde le prix payé. Les quatre œuvres de
  * départ sont à tous sans ligne ; la leur ne s'écrit que pour un cartel ou un
- * cadre doré.
+ * cadre doré. Gagnée en jouant, achetée, ou de départ : rien ne se rapporte de
+ * l'Expédition (la décision du propriétaire du 25 octobre 2026, chacun commence
+ * à zéro) — la `CHECK` s'est resserrée sans rien migrer, le schéma n'ayant
+ * servi que sur des bases jetables.
  */
 const OEUVRES = `CREATE TABLE IF NOT EXISTS cabinet_oeuvres (
   profile_id  TEXT NOT NULL,
   oeuvre      TEXT NOT NULL,
-  origine     TEXT NOT NULL CHECK (origine IN ('partie', 'achat', 'expedition', 'depart')),
+  origine     TEXT NOT NULL CHECK (origine IN ('partie', 'achat', 'depart')),
   gagnee_le   INTEGER NOT NULL,
   saison      TEXT,
   serie_id    TEXT,
@@ -223,7 +228,7 @@ export interface MuseeLuEnBase {
 
 const texte = (x: unknown): string | null => (typeof x === 'string' ? x : null)
 const nombre = (x: unknown): number => Number(x ?? 0)
-const ORIGINES_D_UNE_OEUVRE: readonly OrigineDUneOeuvre[] = ['partie', 'achat', 'expedition', 'depart']
+const ORIGINES_D_UNE_OEUVRE: readonly OrigineDUneOeuvre[] = ['partie', 'achat', 'depart']
 
 /** Les visites figées, relues : le jour, trois cases d'un jeu chacune, l'œuvre en jeu, l'échange ; une visite abîmée s'écarte. */
 export function lireLesVisites(brut: unknown): VisiteFigee[] {

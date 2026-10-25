@@ -50,7 +50,7 @@
 // (`DERIVEES`).
 //
 //   npx tsx scripts/calibrage-cabinet.ts [--parcours 4] [--jours 365] [--parties 1000] [--mesures 100]
-//     [--joueurs moyen,bon] [--arrivees neuf,30,60] [--graine cabinet] [--sans-musee]
+//     [--joueurs moyen,bon] [--graine cabinet] [--sans-musee]
 //     [--essai ERREURS_DE_LA_FRISE=0/1/2] [--essai SEUILS_DES_RARETES=commun:6/rare:7]
 //     [--essai MARCHES_DU_PARI=pari:moyen+difficile]
 //
@@ -179,7 +179,7 @@ const { regleDe } = await import('../../shared/cabinet/jeux/index')
 const P = await import('../../shared/cabinet/partie')
 const { lireLeDepart } = await import('../../shared/cabinet/lecture')
 const M = await import('../../shared/cabinet/musee')
-const { OEUVRES, OEUVRES_DE_DEPART, JEU_DE_L_OEUVRE, estUneOeuvre, oeuvre } = await import('../../shared/cabinet/oeuvres')
+const { OEUVRES, OEUVRES_DE_DEPART, JEU_DE_L_OEUVRE, oeuvre } = await import('../../shared/cabinet/oeuvres')
 const { POUVOIRS, pouvoirDe, forceDe, etoilesApresLesPouvoirs } = await import('../../shared/cabinet/pouvoirs')
 const { AUTRES_GARDIENS, pouvoirDuGardien, GARDIENS, GARDIENS_DE_SAISON, conditionDuGardien } = await import('../../shared/cabinet/salles')
 /** Le gardien de la série, qui se réveille aux jours d'affilée, pas au musée. */
@@ -200,8 +200,6 @@ const { minuitDe } = await import('../../shared/qg')
 const { formatNumber } = await import('../../shared/typographie')
 const { TAUX_DU_CALIBRAGE } = await import('../../shared/sentiers')
 const { JUSTES_DOUBLEES_PAR_JOUR, QUESTIONS_PAR_SERIE, VIES, ordreDeSerie, xpDuJourDeCampagne } = await import('../../shared/campagne')
-const { codexDuNiveau } = await import('../../shared/codex')
-const { VERSION_DES_HUIT_FAMILLES } = await import('../../shared/rencontres')
 const { contenuDuCabinet } = await import('../src/core/cabinet/contenu')
 const { Budget } = await import('../src/core/budget')
 const { tronquer } = await import('../../shared/avatars')
@@ -1053,26 +1051,15 @@ const moyenneDe = (x: Mesure) => x.totaux.reduce((n, k, total) => n + k * total,
 
 // ── Le musée d'un joueur, jour après jour ─────────────────────────────────
 
-/** Une arrivée au Cabinet : un profil neuf, ou un explorateur qui rapporte les œuvres de son codex. */
-interface Arrivee {
-  nom: string
-  oeuvres: readonly CleDOeuvre[]
-}
 /**
- * Ce qu'un explorateur rapporte : les œuvres que son codex ouvre (la version 9
- * des huit familles, celle des plus vieux départs, sans exploit) — trente au
- * niveau 3, soixante au niveau 6. La migration (lot C5) prend l'union des
- * codex de ses départs : celui du plus haut niveau atteint en est la part
- * sûre.
+ * Chaque joueur arrive neuf : les quatre œuvres de départ, rien d'autre. Le
+ * calibrage du 25 octobre 2026 mesurait aussi un explorateur qui rapportait les
+ * trente ou soixante œuvres de son codex : la migration s'est abandonnée le
+ * même jour (la décision du propriétaire, chacun commence à zéro), et ces
+ * arrivées avec elle. Le nom de l'arrivée reste dans la graine de chaque
+ * parcours : ils se rejouent tels qu'ils ont été mesurés.
  */
-const rapportees = (niveau: number) => codexDuNiveau(niveau, [], [], VERSION_DES_HUIT_FAMILLES).cartes.filter(estUneOeuvre)
-const TOUTES_LES_ARRIVEES: readonly Arrivee[] = [
-  { nom: 'neuf', oeuvres: [] },
-  { nom: '30', oeuvres: rapportees(3) },
-  { nom: '60', oeuvres: rapportees(6) },
-]
-const filtreDesArrivees = liste('arrivees')
-const ARRIVEES = filtreDesArrivees ? TOUTES_LES_ARRIVEES.filter(a => filtreDesArrivees.includes(a.nom)) : TOUTES_LES_ARRIVEES
+const ARRIVEE = 'neuf'
 
 interface Parcours {
   toutPossede: number | null
@@ -1097,9 +1084,9 @@ const JOUR_MS = 24 * 3_600_000
 /** Le premier soir de chaque parcours : un lundi de février, loin des fêtes — le calendrier des saisons n'y joue pas. */
 const T0 = Date.UTC(2027, 1, 1, 18)
 
-function parcourir(j: Joueur, arrivee: Arrivee, k: number): Parcours {
-  const r = hasardDe(`${GRAINE}:parcours:${j.nom}:${arrivee.nom}:${k}`)
-  const graineDeLaVisite = `${GRAINE}:visite:${j.nom}:${arrivee.nom}:${k}`
+function parcourir(j: Joueur, k: number): Parcours {
+  const r = hasardDe(`${GRAINE}:parcours:${j.nom}:${ARRIVEE}:${k}`)
+  const graineDeLaVisite = `${GRAINE}:visite:${j.nom}:${ARRIVEE}:${k}`
   const lignes = new Map<string, LigneDOeuvre>()
   const ligne = (cle: string, o: Partial<LigneDOeuvre> & Pick<LigneDOeuvre, 'origine' | 'gagneeLe'>): LigneDOeuvre => ({
     oeuvre: cle,
@@ -1112,7 +1099,6 @@ function parcourir(j: Joueur, arrivee: Arrivee, k: number): Parcours {
     serieDoree: null,
     ...o,
   })
-  for (const cle of arrivee.oeuvres) lignes.set(cle, ligne(cle, { origine: 'expedition', gagneeLe: T0 - JOUR_MS }))
   let profil: LigneDuProfil | null = null
   const legendaires = new Set<string>()
   let parties: PartieDuJour[] = []
@@ -1194,7 +1180,7 @@ function parcourir(j: Joueur, arrivee: Arrivee, k: number): Parcours {
     const cadre = M.cadreDuDepart(m, demande, v, CLES_DES_JEUX)
     if (typeof cadre === 'string') throw new Error(`${j.nom} : départ refusé (${JSON.stringify(demande)}) — ${cadre}`)
     premierLotDuJour(v, cadre.origine !== 'libre')
-    const d = departDu(cadre, jour, r, `${GRAINE}:parcours:${j.nom}:${arrivee.nom}:${k}:${jourDuParcours}:${parties.length}`)
+    const d = departDu(cadre, jour, r, `${GRAINE}:parcours:${j.nom}:${ARRIVEE}:${k}:${jourDuParcours}:${parties.length}`)
     const allure = d.carte?.pouvoir === 'miser' ? allureDe(j, d.jeu) : null
     const jouee = jouerLaPartie(d, j, r, t, objectif, allure)
     const apres = musee()
@@ -1525,30 +1511,27 @@ console.log('')
 
 // 3. Le musée, jour après jour.
 if (!SANS_MUSEE) {
-  console.log(`Le musée, jour après jour — ${PARCOURS} parcours par joueur et par arrivée ; la médiane, puis le plus court et le plus long`)
-  console.log(`  arrivées : neuf (les ${OEUVRES_DE_DEPART.length} œuvres de départ), un explorateur au niveau 3 (${TOUTES_LES_ARRIVEES[1].oeuvres.length} œuvres rapportées), au niveau 6 (${TOUTES_LES_ARRIVEES[2].oeuvres.length})`)
+  console.log(`Le musée, jour après jour — ${PARCOURS} parcours par joueur ; la médiane, puis le plus court et le plus long`)
+  console.log(`  chacun arrive neuf : les ${OEUVRES_DE_DEPART.length} œuvres de départ, rien de l'Expédition`)
   const SEMAINES = [1, 2, 4, 8, 13, 26, 52]
   for (const j of JOUEURS) {
-    for (const a of ARRIVEES) {
-      const parcours = Array.from({ length: PARCOURS }, (_, k) => parcourir(j, a, k))
-      const parJour = (f: (x: Parcours) => number, sur: (x: Parcours) => number = x => x.joursJoues) => arrondi(mediane(parcours.map(x => f(x) / Math.max(1, sur(x)))), 0)
-      const justes = (x: Parcours) => x.parOrigine.visite.justes + x.parOrigine.chasse.justes + x.parOrigine.libre.justes
-      const minutes = (x: Parcours) => (x.parOrigine.visite.secondes + x.parOrigine.chasse.secondes + x.parOrigine.libre.secondes) / 60
-      const nParties = (x: Parcours) => x.parOrigine.visite.parties + x.parOrigine.chasse.parties + x.parOrigine.libre.parties
-      console.log(`  ${j.nom}, ${a.nom === 'neuf' ? 'neuf' : `${a.nom} œuvres rapportées`}`)
-      console.log(`    tout posséder : ${jours(parcours.map(x => x.toutPossede))} · tout dorer : ${jours(parcours.map(x => x.toutDore))}`)
-      const serie = DEBIT_DE_LA_SERIE.get(cleDuSavoir(j))
-      const alaMinute = mediane(parcours.map(x => justes(x) / Math.max(1, minutes(x))))
-      console.log(
-        `    par jour joué : ${parJour(nParties)} parties, ${parJour(minutes)} min, ${parJour(x => x.poussiere)} poussières (${parJour(x => x.poussiereAvant, x => x.joursAvant)} avant de tout posséder), ${parJour(justes)} confettis — ${arrondi(alaMinute, 2)} la minute${serie ? `, ${arrondi(serie, 2)} en série` : ''} —, ${parJour(x => x.xp)} d'expérience`,
-      )
-      console.log(
-        `    œuvres : ${arrondi(mediane(parcours.map(x => x.gagnees)), 0)} gagnées en jouant, ${arrondi(mediane(parcours.map(x => x.achetees)), 0)} achetées ; cadres dorés : ${arrondi(mediane(parcours.map(x => x.doreesEnJouant)), 0)} en jouant, ${arrondi(mediane(parcours.map(x => x.doreesALaPoussiere)), 0)} à la poussière`,
-      )
-      console.log(`    gardiens réveillés, semaine ${SEMAINES.join(', ')} : ${SEMAINES.map(s => arrondi(mediane(parcours.map(x => x.gardiens.filter(g => g <= s * 7).length)), 1)).join(' · ')} (sur ${GARDIENS.length - GARDIENS_DE_SAISON.length}, ceux de saison à part)`)
-      const premiers = parcours.map(x => x.gardiens.find(g => g > 0) ?? null)
-      console.log(`    le premier gardien réveillé en jouant : ${jours(premiers)}${parcours.some(x => x.gardiens.includes(0)) ? ` ; dès l'arrivée : ${arrondi(mediane(parcours.map(x => x.gardiens.filter(g => g === 0).length)), 0)}` : ''}`)
-    }
+    const parcours = Array.from({ length: PARCOURS }, (_, k) => parcourir(j, k))
+    const parJour = (f: (x: Parcours) => number, sur: (x: Parcours) => number = x => x.joursJoues) => arrondi(mediane(parcours.map(x => f(x) / Math.max(1, sur(x)))), 0)
+    const justes = (x: Parcours) => x.parOrigine.visite.justes + x.parOrigine.chasse.justes + x.parOrigine.libre.justes
+    const minutes = (x: Parcours) => (x.parOrigine.visite.secondes + x.parOrigine.chasse.secondes + x.parOrigine.libre.secondes) / 60
+    const nParties = (x: Parcours) => x.parOrigine.visite.parties + x.parOrigine.chasse.parties + x.parOrigine.libre.parties
+    console.log(`  ${j.nom}`)
+    console.log(`    tout posséder : ${jours(parcours.map(x => x.toutPossede))} · tout dorer : ${jours(parcours.map(x => x.toutDore))}`)
+    const serie = DEBIT_DE_LA_SERIE.get(cleDuSavoir(j))
+    const alaMinute = mediane(parcours.map(x => justes(x) / Math.max(1, minutes(x))))
+    console.log(
+      `    par jour joué : ${parJour(nParties)} parties, ${parJour(minutes)} min, ${parJour(x => x.poussiere)} poussières (${parJour(x => x.poussiereAvant, x => x.joursAvant)} avant de tout posséder), ${parJour(justes)} confettis — ${arrondi(alaMinute, 2)} la minute${serie ? `, ${arrondi(serie, 2)} en série` : ''} —, ${parJour(x => x.xp)} d'expérience`,
+    )
+    console.log(
+      `    œuvres : ${arrondi(mediane(parcours.map(x => x.gagnees)), 0)} gagnées en jouant, ${arrondi(mediane(parcours.map(x => x.achetees)), 0)} achetées ; cadres dorés : ${arrondi(mediane(parcours.map(x => x.doreesEnJouant)), 0)} en jouant, ${arrondi(mediane(parcours.map(x => x.doreesALaPoussiere)), 0)} à la poussière`,
+    )
+    console.log(`    gardiens réveillés, semaine ${SEMAINES.join(', ')} : ${SEMAINES.map(s => arrondi(mediane(parcours.map(x => x.gardiens.filter(g => g <= s * 7).length)), 1)).join(' · ')} (sur ${GARDIENS.length - GARDIENS_DE_SAISON.length}, ceux de saison à part)`)
+    console.log(`    le premier gardien réveillé en jouant : ${jours(parcours.map(x => x.gardiens.find(g => g > 0) ?? null))}`)
   }
   console.log(`  Les ${GARDIENS_DE_SAISON.length} gardiens de saison ne jouent pas : les parcours commencent en février, et leurs fêtes n'y comptent pas (${GARDIENS_DE_SAISON.map(conditionDuGardien).join(' ; ')}).`)
   console.log('')

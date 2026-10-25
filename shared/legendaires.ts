@@ -51,7 +51,7 @@
 import { clePalier } from './hautsfaits'
 import { portrait } from './branches'
 import { formeDeCompagnon } from './compagnons'
-import { EXPEDITION_EN_PRODUCTION, LEGENDAIRES_A_JOKER } from './jokers'
+import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE, LEGENDAIRES_A_JOKER } from './jokers'
 import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 import type { CleDeSaison } from './saisons'
 
@@ -98,8 +98,9 @@ export const estUneVoieDExpedition = (c: Condition): boolean => !('toutes' in c)
  * expédition partie à leur saison (`gardiensDe`), la voie ne s'ouvre donc
  * qu'à elle. Une voie de plus ne reprend rien à personne (invariant 22) ; ce
  * qu'elle change aux Divins se lit dans `server/src/core/divins.ts`.
- * L'expédition fermée en production (`EXPEDITION_EN_PRODUCTION`), elle ne se
- * montre pas (`voiesMontrees`).
+ * L'expédition fermée en production (`EXPEDITION_EN_PRODUCTION`), ou son départ
+ * fermé quand le Cabinet de curiosités prend sa place (`EXPEDITION_REMPLACEE`),
+ * elle ne se montre pas (`voiesMontrees`) — et compte toujours.
  */
 const avecLExpedition = (legendaires: Legendaire[]): Legendaire[] =>
   legendaires.map(l => (LEGENDAIRES_A_JOKER.includes(l.key) ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDeLExpedition(l.key), fois: 1 }] } : l))
@@ -107,10 +108,12 @@ const avecLExpedition = (legendaires: Legendaire[]): Legendaire[] =>
 /**
  * Les vingt gardiens du Cabinet qui ne sont pas de saison : les deux de chaque
  * salle, le Scarabée et le Trou noir. Écrits ici, sans lire
- * `shared/cabinet/salles.ts` : l'album et l'accueil lisent ce fichier sans
- * tirer le Cabinet (`cabinet-gardiens.test.ts` compare les deux listes). Les
- * trois de saison n'ont pas de voie à eux : le Cabinet range leur condition
- * principale (`saison:halloween`).
+ * `shared/cabinet/salles.ts` : l'accueil, la soirée et la page du profil
+ * lisent ce fichier sans tirer le Cabinet — l'album, lui, vient à la demande et
+ * tire ses salles pour dire ce qui réveille un gardien (`shared/album.ts`,
+ * `ceQueDemandeLeCabinet`) ; `cabinet-gardiens.test.ts` compare les deux
+ * listes. Les trois de saison n'ont pas de voie à eux : le Cabinet range leur
+ * condition principale (`saison:halloween`).
  */
 export const LEGENDAIRES_DU_CABINET: readonly string[] = [
   'lg:chouette',
@@ -405,15 +408,18 @@ export function voiesDe(l: Legendaire): readonly Condition[] {
 /**
  * Les voies qu'on montre : toutes — sauf celle de l'Expédition quand elle est
  * fermée en production (`EXPEDITION_EN_PRODUCTION`, ouverte depuis ses
- * jokers), et celle du Cabinet tant qu'il l'est (`CABINET_EN_PRODUCTION`) :
+ * jokers) ou que son départ a laissé place au Cabinet (`EXPEDITION_REMPLACEE`,
+ * partout : on ne garde plus de gardien au bout d'une expédition qu'on ne peut
+ * plus commencer), et celle du Cabinet tant qu'il l'est (`CABINET_EN_PRODUCTION`) :
  * l'album mènerait à une page qui n'y répond pas. La préproduction la tait donc
  * aussi d'ici l'ouverture : un drapeau du code ne la sait pas, et c'est un
  * texte. Elles comptent quand même : qui garde ou réveille un légendaire en
- * préproduction l'a (`legendairesDebloques`). `cabinet` force le drapeau du
- * Cabinet, pour qui veut lire l'album tel qu'il sera.
+ * préproduction l'a (`legendairesDebloques`). `cabinet` et `remplacee` forcent
+ * les deux drapeaux, pour qui veut lire l'album tel qu'il sera.
  */
-export function voiesMontrees(l: Legendaire, cabinet: boolean = CABINET_EN_PRODUCTION): readonly Condition[] {
-  return voiesDe(l).filter(v => (EXPEDITION_EN_PRODUCTION || !estUneVoieDExpedition(v)) && (cabinet || !estUneVoieDuCabinet(v)))
+export function voiesMontrees(l: Legendaire, cabinet: boolean = CABINET_EN_PRODUCTION, remplacee: boolean = EXPEDITION_REMPLACEE): readonly Condition[] {
+  const expedition = EXPEDITION_EN_PRODUCTION && !remplacee
+  return voiesDe(l).filter(v => (expedition || !estUneVoieDExpedition(v)) && (cabinet || !estUneVoieDuCabinet(v)))
 }
 
 /** Le haut fait de sa première voie, si elle n'en demande qu'un : ce qu'une ligne en dit d'un mot. Null pour la Chimère. */

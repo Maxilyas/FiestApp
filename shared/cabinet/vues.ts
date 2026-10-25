@@ -53,7 +53,7 @@ export interface OeuvreVue {
   rarete: Rarete
   possedee: boolean
   doree: boolean
-  /** Comment elle est entrée : son cartel le dit (« Rapportée de l'Expédition ») ; `depart` pour les quatre offertes. */
+  /** Comment elle est entrée : son cartel le dit (« Achetée avec ta poussière d'or ») ; `depart` pour les quatre offertes. */
   origine?: OrigineDUneOeuvre
   /** Le jeu où elle se trouve (« Elle se trouve au Filet »), et s'il est livré (« bientôt » sinon). */
   jeu: CleDeJeu
@@ -133,7 +133,12 @@ export interface PageDuCabinet {
   fete: FeteVue | null
   /** Une expédition l'attend encore : « Ton expédition t'attend : la finir ». */
   expedition: 'en-route' | null
-  /** Les œuvres rapportées de l'Expédition, pour l'annonce d'un seul coup. */
+  /**
+   * Les œuvres rapportées de l'Expédition : zéro, toujours — plus rien ne s'en
+   * rapporte (la décision du propriétaire du 25 octobre 2026, chacun commence
+   * son musée à zéro). Gardé le temps que la page cesse de lire son annonce
+   * (`Musee.tsx`, `retenu.ts`), puis retiré avec elle.
+   */
   rapportees: number
   /** Les jeux livrés : un cadre vide d'un autre jeu dit « bientôt ». */
   jeux: CleDeJeu[]
@@ -310,7 +315,7 @@ export interface Cartel {
     total: number
     /**
      * Ce que cette partie a fait à l'œuvre : la gagner (`gagnee`, `gagnee-doree`),
-     * ou, l'œuvre déjà à lui — achetée, rapportée, offerte, ou gagnée par une
+     * ou, l'œuvre déjà à lui — achetée, offerte, ou gagnée par une
      * partie sans rien à raconter —, la dorer ou la doubler (`doree`, `double`).
      * Le serveur le dit toujours ; facultatif pour les cartels écrits à la main
      * des épreuves de la page.
@@ -320,7 +325,7 @@ export interface Cartel {
     reponse: string
     anecdote: string | null
   }
-  /** « Rapportée de l'Expédition », « Achetée avec ta poussière d'or… », « Offerte à ton arrivée… », « Entrée dans ton musée le …, gagnée en jouant. ». */
+  /** « Achetée avec ta poussière d'or… », « Offerte à ton arrivée… », « Entrée dans ton musée le …, gagnée en jouant. ». */
   dit?: string
   doree: boolean
 }

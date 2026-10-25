@@ -14,7 +14,7 @@ import type { DefiDAccueil } from '../../../shared/campagne'
 import { placeDuJour } from '../../../shared/course'
 import { DUELS_POUR_LA_RECOMPENSE, ligueParCle, type DuelsDAccueil } from '../../../shared/duels'
 // Il n'importe rien, et l'en-tête de l'accueil le tire déjà par `shared/legendaires.ts` (`Identite.tsx`).
-import { EXPEDITION_EN_PRODUCTION } from '../../../shared/jokers'
+import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE } from '../../../shared/jokers'
 import type { AnnonceDeLAdministrateur } from '../../../shared/profil'
 // Ses cartes n'importent que ce que l'accueil a déjà : l'en-tête tire `shared/profil.ts` (`Identite.tsx`).
 import { CarteDeLAdministrateur } from './CarteDeLAdministrateur'
@@ -223,6 +223,7 @@ export function AccueilJouer({
   duels,
   etats = RIEN_DE_FERME,
   cabinet = cabinetIci(),
+  remplacee = EXPEDITION_REMPLACEE,
 }: {
   enCours: { nom: string; slug: string }[]
   onRejoindre: () => void
@@ -241,6 +242,12 @@ export function AccueilJouer({
   etats?: Partial<Record<PageEnMaintenance, BoutonDeLaPage>>
   /** Le Cabinet de curiosités répond-il sur ce serveur ? Le serveur le dit dans la page (`cabinetIci`) ; fermé, pas de bouton. */
   cabinet?: boolean
+  /**
+   * L'Expédition a-t-elle laissé place au Cabinet (`EXPEDITION_REMPLACEE`) ?
+   * Son départ est fermé partout, la préproduction comprise : un drapeau du
+   * code le sait. Une épreuve le force, pour lire l'accueil tel qu'il sera.
+   */
+  remplacee?: boolean
 }) {
   // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
   // Le jour vient du serveur : calculé ici, son `Intl` chargeait les données
@@ -334,8 +341,9 @@ export function AccueilJouer({
             href="/duels"
           />
         )}
-        {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec — et le QG l'annonce pour bientôt. */}
-        {EXPEDITION_EN_PRODUCTION && (
+        {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec — et le QG l'annonce pour bientôt.
+            Remplacée, son départ fermé : le bouton s'en va, et le Cabinet, juste dessous, prend sa place. */}
+        {EXPEDITION_EN_PRODUCTION && !remplacee && (
           <GrosBouton
             icone={<Icon name="flag" />}
             titre="L’Expédition"
@@ -346,7 +354,7 @@ export function AccueilJouer({
           />
         )}
         {/* Le musée à remplir, là où le serveur l'ouvre — la préproduction d'abord : une constante du code ne la
-            distingue pas de la production. Il prendra la place de l'Expédition quand elle cédera la sienne. */}
+            distingue pas de la production. Il prend la place de l'Expédition quand elle cède la sienne (`remplacee`). */}
         {cabinet && (
           <GrosBouton
             icone={<Icon name="landmark" />}

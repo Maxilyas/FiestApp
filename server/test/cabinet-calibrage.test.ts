@@ -209,10 +209,13 @@ test('ce qui ne s’essaie pas se refuse en mots, avant de jouer', async () => {
 })
 
 test('le musée se remplit jour après jour, par les règles du musée', async () => {
-  // Un explorateur qui rapporte soixante œuvres et joue chaque jour : tout est à lui en une semaine ou deux.
-  const { code, sortie, erreurs } = await calibrer(['--parties', '100', '--mesures', '20', '--parcours', '1', '--jours', '30', '--joueurs', 'moyen', '--arrivees', '60'])
+  // Un joueur moyen qui arrive neuf et joue chaque jour : tout est à lui en moins d'un mois. Jusqu'au 25 octobre 2026,
+  // l'épreuve faisait arriver un explorateur avec soixante œuvres de l'Expédition : la migration s'est abandonnée
+  // (la décision du propriétaire, chacun commence à zéro), et chacun arrive neuf.
+  const { code, sortie, erreurs } = await calibrer(['--parties', '100', '--mesures', '20', '--parcours', '1', '--jours', '30', '--joueurs', 'moyen'])
   assert.equal(code, 0, erreurs)
-  assert.match(sortie, /un explorateur au niveau 3 \(30 œuvres rapportées\), au niveau 6 \(60\)/)
+  assert.match(sortie, /chacun arrive neuf : les 4 œuvres de départ, rien de l'Expédition/)
+  assert.doesNotMatch(sortie, /rapportées/)
   const jours = /tout posséder : (\d+) j/.exec(sortie)
   assert.ok(jours && lireNombre(jours[1])! <= 30, `tout posséder :\n${sortie}`)
   assert.match(sortie, /par jour joué : \d+ parties/)

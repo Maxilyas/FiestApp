@@ -30,6 +30,15 @@ interface ExpeditionDeps {
    * reste en version 9.
    */
   questionAuCentre?: boolean
+  /**
+   * L'Expédition a-t-elle laissé place au Cabinet de curiosités
+   * (`EXPEDITION_REMPLACEE`, lu une fois par `server.ts`, que l'option du
+   * serveur force au banc) ? Son seul départ se ferme — refusé en mots, et la
+   * page le dit (`departFerme`) — ; toutes les autres routes servent : une
+   * expédition en route se finit, ou s'abandonne, et « Mes réponses » se
+   * relit. Obligatoire : un montage qui l'oublierait rouvrirait le départ.
+   */
+  remplacee: boolean
 }
 
 /**
@@ -73,17 +82,19 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
     return profil
   }
 
-  // Celle qu'il a en route, sinon la prochaine : son numéro et ses gardiens.
+  // Celle qu'il a en route, sinon la prochaine : son numéro et ses gardiens — et, le départ fermé, qu'il ne part plus.
   app.get(
     '/api/expedition',
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(await deps.campagne.pageDeLExpedition(profil.id, { rencontres: deps.rencontres === true, questionAuCentre: deps.questionAuCentre === true }))
+      if (profil)
+        res.json(await deps.campagne.pageDeLExpedition(profil.id, { rencontres: deps.rencontres === true, questionAuCentre: deps.questionAuCentre === true, remplacee: deps.remplacee }))
     }),
   )
 
   // Partir, avec son équipée : deux légendaires au plus, les siens ou l'invité du jour —
   // et, là où elles s'ouvrent, aux rencontres, son style, sa catégorie fétiche, le dos de son paquet et son cran de l'Ascension avec.
+  // Le départ fermé (`remplacee`), le magasin le refuse après avoir lu l'expédition en route : « t'attend » d'abord.
   app.post(
     '/api/expedition',
     petit,
@@ -100,6 +111,7 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
       const style = typeof req.body?.style === 'string' ? req.body.style : undefined
       res.json(
         await deps.campagne.partirEnExpedition(profil.id, req.body?.equipee ?? [], {
+          remplacee: deps.remplacee,
           rencontres,
           questionAuCentre,
           ...(rencontres && fetiche !== undefined && { fetiche }),

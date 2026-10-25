@@ -116,7 +116,7 @@ Un légendaire que tu as déjà, par n'importe quelle voie, est un gardien réve
 
 ## Ce qu'on apprend
 
-- **Le cartel** : chaque œuvre gagnée garde la question, la réponse et l'anecdote de la manche que tu as le mieux réussie, avec le jeu, le jour et les étoiles. Il se lit seul. Une œuvre achetée, rapportée de l'Expédition ou offerte à l'arrivée le dit à sa place, et la rejouer pour dorer son cadre lui donne le sien.
+- **Le cartel** : chaque œuvre gagnée garde la question, la réponse et l'anecdote de la manche que tu as le mieux réussie, avec le jeu, le jour et les étoiles. Il se lit seul. Une œuvre achetée ou offerte à l'arrivée le dit à sa place, et la rejouer pour dorer son cadre lui donne le sien.
 - **Tes murs** : une carte de France où chaque lieu de l'Épingle reste épinglé, et une frise personnelle où chaque date apprise trouve sa place — rien ne s'écrit pour eux, ils se lisent de ce que tu as joué.
 - **Le carnet** : les erreurs du Pari, du Mot mystère et du Filet y entrent, comme partout en campagne, et s'y signalent. Les affirmations de l'Éclair n'y vont pas — cinq questions récrites, dont aucune n'est plus celle de la base —, et l'écran le dit.
 - **Rien ne revient avant sept jours**, d'un jeu à l'autre : le Pari et l'Éclair puisent dans le même tas.
@@ -145,19 +145,18 @@ Les mots de l'écran, que le glossaire de la page reprend. **Jamais « carte » 
 
 L'Expédition était devenue un jeu de cartes à la Slay the Spire — quinze versions en quatre jours, une partie de vingt à trente questions qui pouvait se perdre, le pire format pour un joueur de cinq minutes. Elle laisse au Cabinet ses 84 peintures, ses 23 légendaires à joker et leurs médaillons, ses formes de question devenues des jeux (le vrai ou faux de l'Éclair, les lettres du Mot mystère, la frise, le détail, les valeurs du Filet), et sa saison des fêtes devenue les gardiens de saison.
 
-**Les joueurs de l'Expédition ne perdent rien** :
+**Chacun commence son Cabinet à zéro** — les quatre œuvres de départ, rien de rapporté de l'Expédition, qui n'était qu'en essai (la décision du propriétaire du 25 octobre 2026, `docs/architecture/decisions.md`) —, **et ce qu'elle a donné reste** :
 
-- toute carte que leur codex leur avait ouverte devient une œuvre possédée, au cartel « Rapportée de l'Expédition » ;
-- tout légendaire qu'ils possèdent est un gardien réveillé, sans cérémonie ;
+- tout légendaire qu'ils possèdent est un gardien qui veillait déjà, sans cérémonie ;
 - une expédition en route se finit à ses règles, ou s'abandonne sans rien reprendre ;
 - le trophée L'Explorateur garde ses détenteurs, ses paliers relus aux salles complètes ; Le Globe-trotter reste montré, figé ; la luciole, qui rejoignait qui menait une expédition au bout, rejoint qui complète sa première salle.
 
-Le gros bouton de l'accueil d'un profil deviendra « Le Cabinet de curiosités », à la place de « L'Expédition » (la décision du propriétaire), quand le Cabinet ouvrira.
+Le gros bouton de l'accueil d'un profil deviendra « Le Cabinet de curiosités », à la place de « L'Expédition » (la décision du propriétaire), quand le Cabinet ouvrira : le départ de l'Expédition se ferme alors, d'un seul drapeau (`EXPEDITION_REMPLACEE`) — sa page dit « L'Expédition a laissé place au Cabinet de curiosités » et y mène, et une expédition en route se finit.
 
 ## Ce qui vient ensuite
 
 - **La construction** : les règles des neuf jeux, puis le serveur — une partie s'écrit dans la campagne, comme une série d'un autre mode —, puis la page, un jeu après l'autre en préproduction ; le Pari et l'Éclair d'abord, puis le Détail et la Frise, le Mot mystère et le Filet, enfin l'Épingle, les Indices et la Réplique.
-- **L'ouverture** : le calibrage sur le vrai code, une tablée d'agents en préproduction, la migration mesurée à blanc sur la production en lecture seule ; puis le Cabinet ouvert, et le seul départ de l'Expédition fermé.
+- **L'ouverture** : le calibrage sur le vrai code, une tablée d'agents en préproduction ; puis le Cabinet ouvert, et le seul départ de l'Expédition fermé.
 - **Après la V1** : l'Épingle du monde ; le dévoilement, le rébus et les curiosités en jeux ; un dictionnaire pour le Mot mystère ; le signalement du contenu neuf ; une page du QG pour le Cabinet.
 
 ## Les règles chiffrées

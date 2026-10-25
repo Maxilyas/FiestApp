@@ -20,6 +20,7 @@ import { REVEIL_DU_CABINET } from './core/cabinet/tables'
 import { CabinetStore } from './core/cabinet/magasin'
 import { calendrierDuCabinet } from './core/saisons'
 import { cabinetOuvert } from '../../shared/cabinet/ouverture'
+import { EXPEDITION_REMPLACEE } from '../../shared/jokers'
 import { Missions } from './core/missions'
 import { Soins } from './core/soins'
 import type { BaseDeLaCampagne } from './core/baseCampagne'
@@ -117,6 +118,15 @@ export interface QuizServerOptions {
    * production. Un test le ferme pour voir le serveur de la production.
    */
   cabinet?: boolean
+  /**
+   * L'Expédition a-t-elle laissé place au Cabinet ici — son seul départ
+   * fermé ? Absent : son drapeau le dit (`EXPEDITION_REMPLACEE`,
+   * `shared/jokers.ts`), partout pareil, la production comme la préproduction.
+   * Le banc le pose à faux : les fichiers qui partent en expédition ne
+   * tomberont pas le jour où le drapeau passe à vrai ; les épreuves de la
+   * fermeture le passent à vrai (`cabinet-ouverture.test.ts`).
+   */
+  expeditionRemplacee?: boolean
   /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
   miroir?: Omit<ReglagesMiroir, 'base'>
   /** Le client compilé. Les tests en donnent un de trois lignes : `client/dist` n'existe qu'après le build. */
@@ -490,6 +500,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const rencontres = opts.rencontres ?? rencontresOuvertes({ online: !!opts.online, env: opts.appEnv ?? 'production' })
   // La question au centre (la version 10), de même : la préproduction d'abord.
   const questionAuCentre = opts.questionAuCentre ?? questionAuCentreOuverte({ online: !!opts.online, env: opts.appEnv ?? 'production' })
+  // Le départ de l'Expédition, fermé quand le Cabinet prend sa place (`EXPEDITION_REMPLACEE`) : lu une fois, comme les
+  // autres drapeaux, et le même partout — ses autres routes servent toujours, une expédition en route se finit.
+  const expeditionRemplacee = opts.expeditionRemplacee ?? EXPEDITION_REMPLACEE
   // La campagne solo : ses séries, tirées de sa base à elle (`core/baseCampagne.ts`),
   // loin de la réserve du quiz du jour.
   const campagne = new CampagneStore(opts.quizDbUrl, opts.quizDbToken, {
@@ -1257,6 +1270,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
     rencontres,
     questionAuCentre,
+    expeditionRemplacee,
     cabinet: { magasin: cabinet, ouvert: cabinetEstOuvert },
     qg: {
       db,

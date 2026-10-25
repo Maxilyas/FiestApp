@@ -3714,7 +3714,23 @@ export interface PageDeLExpedition {
   }
   /** Son passeport : les thèmes pointus qu'il a trouvés en expédition, chacun une fois — leurs clés (`shared/sujets.ts`). */
   passeport: string[]
+  /**
+   * L'Expédition a laissé place au Cabinet de curiosités (`EXPEDITION_REMPLACEE`,
+   * `shared/jokers.ts`) : le départ ne se propose plus, et la page mène au
+   * Cabinet. Celle en route se reprend comme avant. Absent : on part.
+   */
+  departFerme?: 'cabinet'
 }
+
+/**
+ * Ce que dit l'Expédition qui a laissé place au Cabinet de curiosités : le
+ * refus de son départ (`POST /api/expedition`) et sa page sans expédition en
+ * route, des mêmes mots — un mot retouché d'un côté seulement, la page
+ * contredirait son toast. Pas « tes œuvres t'y attendent », que la conception
+ * promettait : personne n'en rapporte (la décision du propriétaire du
+ * 25 octobre 2026, chacun commence son musée à zéro).
+ */
+export const DEPART_FERME = 'L’Expédition a laissé place au Cabinet de curiosités : va remplir ton musée.'
 
 /** Ce qu'une réponse rend : son verdict, et ce qui est tombé si l'expédition finit là. */
 export interface ReponseDExpedition {

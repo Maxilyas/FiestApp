@@ -513,7 +513,9 @@ test('les chiffres se tiennent entre eux', () => {
   assert.deepEqual(Object.keys(B.POIDS_DES_CIBLES).sort(), [...RARETES].sort())
   for (const m of [B.MARCHES_DU_PARI.question, B.MARCHES_DU_PARI.pari, B.MARCHES_DE_L_ECLAIR, B.MARCHES_DU_MOT, B.MARCHES_DU_FILET]) assert.ok(m.length > 0)
   assert.ok(!B.MARCHES_DU_PARI.question.some(m => B.MARCHES_DU_PARI.pari.includes(m)), 'la question du pari est plus difficile que la première')
-  assert.equal(Number.isInteger(B.VERSION_DU_CABINET) && B.VERSION_DU_CABINET >= 1, true)
+  // Pas de version du musée à relire au démarrage (la décision du propriétaire du 25 octobre 2026, sans migration) : la
+  // réconciliation des gardiens à la lecture froide de chaque musée en tient lieu, une fois par réveil et par joueur.
+  assert.equal('VERSION_DU_CABINET' in B, false)
 })
 
 test('un seul préfixe pour ce qui n’est pas une question de la base : cab:', () => {

@@ -162,7 +162,7 @@ export interface GesteAEcrire {
  * réponse, et la pièce au bout de la partie (`json_insert`, jamais réécrite
  * en entier) — et, au dernier geste, la fin : le bilan, la poussière au
  * reflet et la partie rendue, l'œuvre en une seule instruction pour le gain,
- * la dorure et le cartel. Une œuvre déjà là — achetée, rapportée — prend son
+ * la dorure et le cartel. Une œuvre déjà là — achetée, offerte — prend son
  * cartel et sa dorure sans changer d'origine ni de saison, et rien de ce
  * qu'elle avait ne s'efface (`COALESCE`). L'œuvre vient en dernier, et rend sa
  * ligne telle que la base l'a gardée (`RETURNING`) : la mémoire d'un serveur

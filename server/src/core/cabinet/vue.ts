@@ -289,7 +289,6 @@ const leJourDit = (jour: string): string => `le ${jourEnToutesLettres(jour, true
 const ENTREES_D_OFFICE: Readonly<Record<Exclude<OrigineDUneOeuvre, 'partie'>, string>> = {
   depart: 'Offerte à ton arrivée.',
   achat: 'Achetée avec ta poussière d’or.',
-  expedition: 'Rapportée de l’Expédition.',
 }
 
 /**
@@ -303,7 +302,7 @@ const CE_QUE_GARDERA_LE_CARTEL = 'Rejoue-la pour dorer son cadre : elle gardera 
  * Le cartel d'une œuvre à lui, champ par champ : la manche que sa partie a
  * gardée (`cartelDuBilan`, le même pli que le bilan tombé), son jeu, son
  * thème, son total, son jour ; sinon la phrase de son entrée — offerte,
- * achetée, rapportée, ou gagnée par une partie qui n'avait rien à raconter.
+ * achetée, ou gagnée par une partie qui n'avait rien à raconter.
  * Rien de la partie que la page ne voyait déjà à son bilan : ni le plan, ni
  * la graine, ni une rechange.
  *
@@ -512,7 +511,9 @@ export function pageDuCabinet(l: LectureDuCabinet): PageDuCabinet {
     enCours: l.enCours ? vueDeLaPartie(l.enCours) : null,
     fete: feteVue(l),
     expedition: l.expeditionEnRoute ? 'en-route' : null,
-    rapportees: [...m.oeuvres.values()].filter(o => o.origine === 'expedition').length,
+    // Plus rien ne se rapporte de l'Expédition (la décision du propriétaire du 25 octobre 2026) : zéro, tant que la page
+    // lit encore le champ de son annonce.
+    rapportees: 0,
     jeux: [...l.jeux],
     // Champ par champ, comme le reste : ce que la dépense vient de réveiller, et rien d'autre.
     ...(l.reveil && {

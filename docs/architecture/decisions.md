@@ -1610,7 +1610,7 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 ### Les gardiens de saison ne s'éveillent qu'à leur fête
 **Contexte** : la Citrouille, le Sapin et le Bouquet se réveillent à la première œuvre gagnée pendant leur fête. Un joueur arrivé en février attendrait dix mois la Citrouille : fallait-il un rattrapage, par un défi ?
 
-**Décision** : leur fête seulement, aux dates de toutes les saisons de FiestApp (`shared/saisons.ts` : Halloween du 25 octobre au 1ᵉʳ novembre, Noël du 20 au 26 décembre, le Nouvel An du 30 décembre au 2 janvier) — pas celles, plus larges, de la maquette. Une œuvre gagnée **en jouant** : un achat, une dorure ou la migration n'en réveillent aucun.
+**Décision** : leur fête seulement, aux dates de toutes les saisons de FiestApp (`shared/saisons.ts` : Halloween du 25 octobre au 1ᵉʳ novembre, Noël du 20 au 26 décembre, le Nouvel An du 30 décembre au 2 janvier) — pas celles, plus larges, de la maquette. Une œuvre gagnée **en jouant** : un achat ou une dorure n'en réveillent aucun.
 
 **Conséquence** : une fête qui revient chaque année est une bonne raison de revenir. Le banc et le smoke ferment le calendrier du Cabinet, comme ceux des soirées et des expéditions : sans quoi, du 25 octobre au 1ᵉʳ novembre, chaque test qui gagne une œuvre réveillerait la Citrouille.
 
@@ -1693,9 +1693,9 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 
 **Décision** : une ligne par profil pour ce qui se résume — la poussière gagnée, la série, les visites figées, la partie en cours —, tenue à jour dans les lots qui la changent ; ses œuvres (84 lignes au plus) avec leurs prix payés ; les gestes de chaque partie. La page froide se lit d'un lot, environ cent cinquante lignes au pire ; chaude, rien.
 
-**Conséquence** : un reflet se relit et se vérifie au démarrage quand la version du Cabinet monte (`VERSION_DU_CABINET`), sans rien reprendre.
+**Conséquence** : rien ne se relit au démarrage. Une règle de gardien qui change vaut à la lecture froide suivante de chaque musée — une fois par réveil et par joueur —, qui réconcilie ses gardiens sans rien reprendre : elle tient lieu de relecture. La conception promettait une version du Cabinet (`VERSION_DU_CABINET`) qui relirait chaque profil et vérifierait la poussière contre ses bilans ; elle est partie avec la migration (« Pas de migration : chacun commence son Cabinet à zéro », plus bas) — le reflet de la poussière, tenu dans les lots gardés de chaque partie, ne se revérifie pas.
 
-*Fichiers : `shared/cabinet/bareme.ts`*
+*Fichiers : `server/src/core/cabinet/tables.ts`, `server/src/core/cabinet/gardiens.ts`*
 
 ### La poussière gagnée se fige dans le bilan ; un achat vérifie le solde dans son instruction même
 **Contexte** : un barème de poussière changé ne doit valoir que pour la suite, et un achat ne doit jamais mettre le solde sous zéro, même lancé deux fois par deux onglets.
@@ -1743,7 +1743,7 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 *Fichiers : `shared/cabinet/partie.ts`, `shared/cabinet/lecture.ts`, `shared/cabinet/chrono.ts`, `server/test/cabinet-regles.test.ts`*
 
 ### Les gardiens se rangent sous une clé fixe, réconciliés du musée
-**Contexte** : un gardien réveillé est un légendaire gagné, une ligne de l'étagère ; une ligne rangée ne se reprend jamais (invariant 22), et un rangement doit pouvoir se rejouer sans doublon, d'où qu'il vienne — une partie, un achat, la migration, une relecture.
+**Contexte** : un gardien réveillé est un légendaire gagné, une ligne de l'étagère ; une ligne rangée ne se reprend jamais (invariant 22), et un rangement doit pouvoir se rejouer sans doublon, d'où qu'il vienne — une partie, un achat, une dorure, un musée relu à froid.
 
 **Décision** : les vingt gardiens qui ne sont pas de saison gagnent une voie `cabinet:<clé>` ; les trois de saison rangent leur condition principale, `saison:<clé>`. Tous sous une clé fixe, jamais sous une soirée, et réconciliés par une fonction pure à chaque changement du musée : ce qui est dû, moins ce qui est rangé. La voie de l'Expédition reste pour toujours.
 
@@ -1763,20 +1763,20 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 ### Deux drapeaux : l'un ouvre le Cabinet, l'autre ne ferme que le départ de l'Expédition
 **Contexte** : tirer la fermeture de l'Expédition de l'ouverture du Cabinet l'aurait fermée partout hors production dès le premier lot, et aurait cassé les vingt-trois fichiers de tests qui partent en expédition.
 
-**Décision** : `CABINET_EN_PRODUCTION` ouvre le Cabinet en production (`cabinetOuvert`, le gabarit de l'Expédition) ; un second drapeau, à l'ouverture, fermera le seul départ de l'Expédition, partout — le banc d'essai le gardant ouvert à ses tests. La page apprend du serveur si le Cabinet est ouvert : une constante ne sait pas la préproduction.
+**Décision** : `CABINET_EN_PRODUCTION` ouvre le Cabinet en production (`cabinetOuvert`, le gabarit de l'Expédition) ; un second drapeau, `EXPEDITION_REMPLACEE` — posé à non, prêt, le 25 octobre 2026 —, à l'ouverture, fermera le seul départ de l'Expédition, partout, la préproduction comprise : le serveur le lit une fois (`QuizServerOptions.expeditionRemplacee`), et le banc d'essai le garde ouvert à ses tests. Fermé, `POST /api/expedition` se refuse en mots (`DEPART_FERME`), après « Ton expédition t'attend » ; sa page le dit (`departFerme`) et mène au Cabinet ; l'accueil perd son bouton, l'album tait sa voie. La page apprend du serveur si le Cabinet est ouvert : une constante ne sait pas la préproduction — le départ fermé, lui, est le même partout, et l'accueil lit son drapeau.
 
-**Conséquence** : tout se construit en préproduction, sans rien changer à la production ; les expéditions en route se finissent à leurs règles.
+**Conséquence** : tout se construit en préproduction, sans rien changer à la production ; les expéditions en route se finissent à leurs règles, par toutes leurs autres routes. `cabinet-ouverture.test.ts` ferme le départ par l'option du banc ; les fichiers qui partent en expédition ne changent pas.
 
-*Fichiers : `shared/cabinet/ouverture.ts`, `shared/jokers.ts`, `server/src/expedition.ts`*
+*Fichiers : `shared/cabinet/ouverture.ts`, `shared/jokers.ts`, `server/src/expedition.ts`, `server/test/banc.ts`*
 
-### La migration des joueurs de l'Expédition : une passe de fond, une fois, sur l'union des codex
-**Contexte** : « les joueurs actuels ne perdent rien » (la proposition) : toute carte que leur codex leur avait ouverte devient une œuvre possédée. Mais le codex d'aujourd'hui n'ouvre que 59 des 84 cartes, quand celui d'un joueur d'une version d'avant en ouvrait 81.
+### Pas de migration : chacun commence son Cabinet à zéro
+**Contexte** : « les joueurs actuels ne perdent rien », disait la proposition : toute carte que leur codex de l'Expédition leur avait ouverte devait devenir une œuvre possédée, « Rapportée de l'Expédition ». La conception en faisait une passe de fond, une fois, sur l'union des codex figés de chaque départ — le codex d'aujourd'hui n'ouvre que 59 des 84 cartes, quand celui d'un joueur d'une version d'avant en ouvrait 81 —, puis chaque expédition finie rapportait encore ce qu'elle ouvrait, par un crochet de la campagne ; une version du Cabinet relirait les profils au démarrage, et la migration se mesurerait à blanc sur la production avant l'ouverture.
 
-**Décision** : une passe de fond, une fois, après l'ouverture du port, sous un drapeau lu au démarrage ; elle lit l'union des codex figés au départ de chaque expédition et du codex lu à la version du dernier départ. Rien ne se donne deux fois, rien ne se reprend. Chaque expédition qui finit ensuite rapporte encore ce qu'elle ouvre. Jamais paresseuse : une lecture des codex à chaque page deviendrait un code éternel.
+**Décision** : le propriétaire l'a abandonnée le 25 octobre 2026, avant qu'une ligne en soit écrite : « La gestion de la migration de l'expédition n'est pas nécessaire car ce n'est qu'une fonctionnalité en test et je veux que tous les joueurs repartent à zéro. » Tout le monde commence le Cabinet avec les quatre œuvres de départ, et rien ne se rapporte de l'Expédition : l'origine `expedition` d'une œuvre et son cartel se retirent, la `CHECK` de `cabinet_oeuvres` se resserre sans rien migrer — la table n'avait servi que sur des bases jetables —, le crochet de la fin d'une expédition et la lecture du codex quittent la porte de la campagne, et `VERSION_DU_CABINET` avec la relecture qu'elle promettait : la réconciliation des gardiens à la lecture froide de chaque musée en tient lieu.
 
-**Conséquence** : elle se mesure à blanc sur la production, en lecture seule, avant l'ouverture ; ses totaux s'écriront ici.
+**Conséquence** : ce que l'Expédition a déjà donné reste sur le profil (invariant 22) — les légendaires gardés (leur voie `expedition:<clé>`), la luciole, les trophées ; un gardien qu'il a déjà par là se montre « il veillait déjà », sans cérémonie, et ne rapporte aucune œuvre. L'Expédition se ferme comme prévu (le drapeau plus haut) : son départ fermé, les expéditions en route se finissent, sans rien rapporter au Cabinet. Plus rien à mesurer sur la production avant l'ouverture, et le calibrage du Cabinet ne fait plus arriver d'explorateur avec ses œuvres.
 
-*Fichiers : `shared/codex.ts`, `retours/2026-10-24/le-cabinet.md`*
+*Fichiers : `server/src/core/cabinet/tables.ts`, `server/src/core/porteDeLaCampagne.ts`, `shared/cabinet/musee.ts`, `server/scripts/calibrage-cabinet.ts`*
 
 ### Toutes les parties libres s'écrivent ; les cinq premières paient ; trente départs par heure
 **Contexte** : une partie libre qui ne s'écrirait pas mentirait au carnet, aux sept jours sans redite et aux murs ; une partie libre qui paierait sans fin se trairait.
@@ -1823,7 +1823,7 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 3. **Les parties libres paient** confettis et expérience, trois au plus par partie, trente parties par heure au plus ; le calibrage le mesure avant l'ouverture, et si leur débit dépasse celui d'une série, la juste y passera à zéro au-delà de la cinquième libre du jour. Mesuré le 25 octobre 2026, le débit la dépasse de 8 % au mieux : la parade n'est pas posée (plus bas, « Le calibrage retouche cinq barèmes ; la parade des parties libres n'est pas posée »).
 4. **Le Mot mystère se joue sans dictionnaire**, noms propres compris : un essai qui n'est pas un mot se dépense. Mesuré en tablée.
 5. **La pause de « Quitter ? »** que la proposition voulait se borne à trente secondes par manche, la manche voilée (`PAUSE_MAX_MS`) : elle ne vend pas le temps que « Prendre son temps » vend.
-6. **La luciole** — la Première traversée, qui rejoignait qui menait une expédition au bout — rejoint qui complète sa première salle du Cabinet, migration comprise.
+6. **La luciole** — la Première traversée, qui rejoignait qui menait une expédition au bout — rejoint qui complète sa première salle du Cabinet.
 7. **Les erreurs de l'Éclair n'entrent pas au carnet** — sa pièce est un composé de cinq questions récrites —, et l'écran le dit.
 
 **Conséquence** : aucun ne reprend rien à personne. Le troisième se tranche sur les chiffres du calibrage, datés dans les barèmes ; le quatrième et le cinquième, en tablée.

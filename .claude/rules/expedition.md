@@ -212,6 +212,20 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
   l'accueil éteint sur « Bientôt disponible » — le drapeau, lui, reste
   ouvert. La voie de l'album ne se referme pas avec : elle dit d'où vient un
   légendaire, pas ce qu'on peut jouer ce soir.
+- **Le Cabinet la remplace par un second drapeau** (`EXPEDITION_REMPLACEE`,
+  `shared/jokers.ts`, `false` jusqu'à l'ouverture du Cabinet — le pourquoi,
+  `decisions.md`, « Deux drapeaux ») : il ne ferme que le départ, partout.
+  `POST /api/expedition` refuse en mots (`DEPART_FERME`, après « Ton
+  expédition t'attend » : une expédition en route se finit), la page le dit
+  (`PageDeLExpedition.departFerme`, `Depart` sans « Partir », ni gardiens, ni
+  rien d'un départ à préparer — son passeport reste —, un chemin vers le
+  Cabinet, et la fin d'une expédition aussi), le bouton de l'accueil devient
+  celui du Cabinet, l'album tait la voie (`voiesMontrees`). Le reste sert
+  toujours — reprendre, jouer, abandonner, « Mes réponses » ; ce qu'elle a
+  donné reste (invariant 22). Le serveur le lit une fois
+  (`QuizServerOptions.expeditionRemplacee`) ; le banc le force à `false`,
+  sans quoi les fichiers `expedition*.test.ts` ne partiraient plus ;
+  `cabinet-ouverture.test.ts` le passe à `true`.
 - **Les escales de la carte portent la classe de leur sorte**
   (`exp-question`, `exp-elite`, `exp-source`, `exp-coffre`,
   `exp-campement`, `exp-gardien`) : une règle CSS de ce nom, faite pour

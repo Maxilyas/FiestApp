@@ -228,17 +228,16 @@ paths:
   pourrait reposer, comme jamais vue, la question qu'il vient de voir.
 - **Le Cabinet de curiosités passe par une porte** (`core/porteDeLaCampagne.ts`,
   `CampagneStore.porte()`, le 25 octobre 2026) : il n'importe pas ce magasin,
-  et ce magasin ne connaît de lui que trois crochets, déclarés dans ce
+  et ce magasin ne connaît de lui que deux crochets, déclarés dans ce
   fichier — son réveil (`init(REVEIL_DU_CABINET)` : ses trois tables et son
   secret dans le **premier** lot, sa colonne `campagne_series.cabinet` par
   `ajouterColonne`, qui garde le schéma déjà lu pour les nôtres : pas un
-  aller-retour de plus au réveil, un `ALTER` au premier), ses paliers
+  aller-retour de plus au réveil, un `ALTER` au premier) et ses paliers
   (`statsEnPlus` : ses lectures dans le lot de `statsDe`, et ce qu'il en tire
   — ses seuls champs, `ChampsDuCabinet` : aucun compte de la campagne, que le
-  typage refuse et que `statsDe` étale par-dessus) et la
-  fin d'une expédition (`apresLExpedition`, appelé par
-  `recompenserLExpedition`, où passe toute fin d'expédition : en fond, jamais
-  attendu, et ce qui y tombe se dit au journal sans faire tomber la fin). Le
+  typage refuse et que `statsDe` étale par-dessus). Le troisième, la fin
+  d'une expédition qui rapportait ses œuvres, est parti avec la migration
+  (abandonnée le 25 octobre 2026, `decisions.md`) : n'en remets pas. Le
   rituel d'une réponse y tient en une fonction (`ecrireDesReponses`), dans
   l'ordre de `repondre` : `vuAilleurs`, le lot — et à la fin d'une partie qui
   a des justes, les lectures de l'expérience au bout —, `reponseEcrite` même

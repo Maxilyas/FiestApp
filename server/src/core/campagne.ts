@@ -28,7 +28,7 @@ import {
 } from './journalDesReponses'
 import { JournalDesDuels, type DuelsARelire, type LigneDuJournalDesDuels } from './journalDesDuels'
 import { DejaPrises } from './jumelles'
-import type { ApresLExpedition, CeQueLeReveilAjoute, FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from './porteDeLaCampagne'
+import type { CeQueLeReveilAjoute, FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from './porteDeLaCampagne'
 import {
   EMPRUNTS,
   classeDeFraicheur,
@@ -301,6 +301,7 @@ import {
   POIDS_DES_FORMES_A_LA_FRISE,
   POIDS_DES_FORMES_AU_DETAIL,
   CADRAGES_DU_DETAIL,
+  DEPART_FERME,
   QUESTION_DU_DETAIL,
   adresseDuCadrage,
   arrondiDeChance,
@@ -1052,12 +1053,12 @@ export class CampagneStore {
   laurierChange?: (profileId: string) => void
   /**
    * Ce que le Cabinet de curiosités ajoute aux paliers de la campagne
-   * (`statsDe`), et ce qu'il fait de la fin d'une expédition : deux des trois
-   * crochets de sa porte (`core/porteDeLaCampagne.ts` ; le troisième,
-   * `init`), branchés par le serveur. La campagne n'importe rien du Cabinet.
+   * (`statsDe`) : l'un des deux crochets de sa porte (`core/porteDeLaCampagne.ts` ;
+   * l'autre, `init`), branché par le serveur. La campagne n'importe rien du
+   * Cabinet. La fin d'une expédition ne lui dit rien : plus rien ne s'en
+   * rapporte (la décision du propriétaire du 25 octobre 2026).
    */
   statsEnPlus?: StatsEnPlus
-  apresLExpedition?: ApresLExpedition
   /** Le secret du Cabinet, relu au réveil (`init`) ; null tant qu'aucun réveil ne l'a tiré. */
   private secretLu: string | null = null
   /** La porte du Cabinet, ouverte une fois (`porte`). */
@@ -2969,7 +2970,6 @@ export class CampagneStore {
       lireAvecLeJournal: async lot => (lot.length === 0 ? { lus: [], journal: await this.rattraperLeJournal(this.derniereReponse) } : this.lireAvecLeJournal(lot)),
       ecrireDesReponses: (profileId, lot, fin) => this.ecrireDesReponses(profileId, lot, fin),
       compagnonDeLaNiche: profileId => this.compagnonDeLaNiche(profileId),
-      codexDuProfil: (profileId, v) => this.codexDuProfil(profileId, v),
       prechauffer: () => this.prechauffer(),
       secretDuCabinet: () => {
         if (this.secretLu === null) throw new TypeError('le secret du Cabinet n’a pas été relu : la campagne s’est ouverte sans `REVEIL_DU_CABINET` (`CampagneStore.init`)')
@@ -2977,17 +2977,6 @@ export class CampagneStore {
       },
     }
     return this.porteOuverte
-  }
-
-  /**
-   * Les cartes que son codex de l'Expédition ouvre aujourd'hui, à la version
-   * `v` d'un départ : sa renommée relue de ses bilans, ses exploits, ses
-   * légendaires (`codexLu`, le chemin de la page et du départ). Un aller-retour,
-   * et les bilans à refaire écrits une fois.
-   */
-  private async codexDuProfil(profileId: string, v: number): Promise<readonly string[]> {
-    const lus = await this.client.batch(lecturesDeLaRenommee(profileId), 'read')
-    return (await this.codexLu(lus, this.legendairesDe(profileId), v)).cartes
   }
 
   /**
@@ -7793,9 +7782,14 @@ export class CampagneStore {
    * (`graineDe`). Un aller-retour. `rencontres` : le prototype des rencontres
    * s'offre au départ — hors de la production (`rencontresOuvertes`) ;
    * `questionAuCentre` : la version 10 aussi (`questionAuCentreOuverte`), et
-   * le codex se lit à son échelle.
+   * le codex se lit à son échelle. `remplacee` : l'Expédition a laissé place au
+   * Cabinet (`EXPEDITION_REMPLACEE`) — la page garde sa forme, celle en route
+   * se reprend, et elle dit que le départ est fermé (`departFerme`).
    */
-  async pageDeLExpedition(profileId: string, { rencontres = false, questionAuCentre = false }: { rencontres?: boolean; questionAuCentre?: boolean } = {}): Promise<PageDeLExpedition> {
+  async pageDeLExpedition(
+    profileId: string,
+    { rencontres = false, questionAuCentre = false, remplacee = false }: { rencontres?: boolean; questionAuCentre?: boolean; remplacee?: boolean } = {},
+  ): Promise<PageDeLExpedition> {
     const enRoute = `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL ${LA_PLUS_RECENTE}`
     const lu = await this.client.batch(
       [
@@ -7833,6 +7827,7 @@ export class CampagneStore {
         ...(codex && { codex }),
       },
       passeport: [...tampons].sort(),
+      ...(remplacee && { departFerme: 'cabinet' as const }),
     }
   }
 
@@ -7869,19 +7864,23 @@ export class CampagneStore {
    * laissée l'attend. `rencontres` : les rencontres (v5 et suivantes), là où
    * la route les accorde — avec son style, sa catégorie fétiche, le dos de son
    * paquet et son cran de l'Ascension ; `questionAuCentre` : en version 10, là
-   * où la route l'accorde.
+   * où la route l'accorde. `remplacee` : l'Expédition a laissé place au Cabinet
+   * (`EXPEDITION_REMPLACEE`) — le départ se refuse en mots (`DEPART_FERME`),
+   * mais après « t'attend », qui reste le premier mot pour qui en a une en
+   * route : le refus du départ ne doit pas lui faire croire la sienne perdue.
    */
   partirEnExpedition(
     profileId: string,
     equipeeBrute: unknown = [],
     {
+      remplacee = false,
       rencontres = false,
       questionAuCentre = false,
       fetiche,
       dos,
       ascension: cran,
       style: styleDemande,
-    }: { rencontres?: boolean; questionAuCentre?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown; style?: unknown } = {},
+    }: { remplacee?: boolean; rencontres?: boolean; questionAuCentre?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown; style?: unknown } = {},
   ): Promise<VueDeLExpedition> {
     const v = versionDuDepart(rencontres, questionAuCentre)
     const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
@@ -7900,6 +7899,7 @@ export class CampagneStore {
       ])
       const [ouverte, compte, passeport] = lu
       if (ouverte.rows.length > 0) throw new Error('Ton expédition t’attend : reprends-la, ou abandonne-la d’abord')
+      if (remplacee) throw new Error(DEPART_FERME)
       const jouables = await this.jouables()
       if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('L’expédition n’a pas encore de questions à poser : reviens bientôt')
       const graine = graineDe(profileId, Number(compte.rows[0]?.n ?? 0))
@@ -8478,13 +8478,12 @@ export class CampagneStore {
 
   /**
    * Ce que la fin d'une expédition fait tomber : les paliers de la campagne
-   * que ses bonnes réponses font atteindre — Le Marathonien. Puis le Cabinet
-   * l'apprend (`apresLExpedition`) : ce qu'elle a ouvert devient des œuvres.
+   * que ses bonnes réponses font atteindre — Le Marathonien. Rien au Cabinet :
+   * chacun y commence son musée à zéro (la décision du propriétaire du
+   * 25 octobre 2026), et une expédition finie n'y rapporte aucune œuvre.
    */
-  private async recompenserLExpedition(profileId: string, serieId: string, quand: number): Promise<Recompenses> {
-    const gains = await this.recompenserLaFin(profileId, serieId, quand, 'expedition')
-    this.prevenirLeCabinet(profileId)
-    return gains
+  private recompenserLExpedition(profileId: string, serieId: string, quand: number): Promise<Recompenses> {
+    return this.recompenserLaFin(profileId, serieId, quand, 'expedition')
   }
 
   /** Les paliers qu'une partie finie fait atteindre, rangés sous elle ; une étagère muette n'y change rien : la partie est rangée, la fin suivante les relira. */
@@ -8495,20 +8494,6 @@ export class CampagneStore {
       console.error(`[${mode}] récompenses non rangées :`, e)
       return {}
     }
-  }
-
-  /**
-   * La fin d'une expédition, dite au Cabinet (`apresLExpedition`) : en fond,
-   * jamais attendue — la fin ne l'attend pas, et ce qui tombe au Cabinet ne la
-   * fait pas tomber. Dite sous le verrou du profil, qui tient encore : un
-   * crochet qui l'y reprend passe après la fin du geste.
-   */
-  private prevenirLeCabinet(profileId: string): void {
-    const crochet = this.apresLExpedition
-    if (!crochet) return
-    void Promise.resolve()
-      .then(() => crochet(profileId))
-      .catch(e => console.error('[cabinet] fin d’expédition non rapportée — la fin suivante la rapportera avec la sienne :', e))
   }
 
   /**

@@ -366,14 +366,3 @@ export const EVENEMENTS_D_UNE_FRISE_A_THEME = VAGUES_DE_LA_FRISE.reduce((n, vagu
  * 3,4 km (la Rance et le départ de la Route du Rhum).
  */
 export const LIEUX_VOISINS_KM = 2
-
-// ── Les reflets ───────────────────────────────────────────────────────────
-
-/**
- * La version des règles qui se dérivent du musée — les gardiens dus, les
- * reflets d'un profil. Une règle de gardien qui change la monte : au
- * démarrage suivant, chaque profil se relit et range ce qui lui manque, sans
- * rien reprendre (invariant 20). `VERSION_BAREME` ne bouge pas : elle ne relit
- * que les soirées.
- */
-export const VERSION_DU_CABINET = 1

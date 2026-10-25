@@ -9,9 +9,11 @@
 // suivante. Le Cabinet ne l'importe donc pas : il reçoit cette porte
 // (`CampagneStore.porte()`), des fermetures sur ses privés, où le rituel d'une
 // réponse tient en une fonction (`ecrireDesReponses`). Et la campagne ne
-// connaît du Cabinet que trois crochets, déclarés ici : ce qu'il ajoute à son
-// réveil, à ses paliers et à la fin d'une expédition. Ce fichier n'importe que
-// des types : le Cabinet le lit sans tirer la campagne.
+// connaît du Cabinet que deux crochets, déclarés ici : ce qu'il ajoute à son
+// réveil et à ses paliers. La fin d'une expédition en avait un troisième, pour
+// la migration des œuvres : le propriétaire l'a abandonnée le 25 octobre 2026
+// (chacun commence son musée à zéro), et rien ne s'en rapporte. Ce fichier
+// n'importe que des types : le Cabinet le lit sans tirer la campagne.
 import type { InStatement, ResultSet } from '@libsql/client'
 import type { Client } from './distante'
 import type { QuestionDeLaBase } from './baseCampagne'
@@ -69,13 +71,6 @@ export interface PorteDeLaCampagne {
   ecrireDesReponses(profileId: string, lot: readonly InStatement[], fin?: FinDUnePartie): Promise<ReponsesEcrites>
   /** Le compagnon de sa niche, que la ligne d'une réponse retient (`campagne_reponses.compagnon`) ; null sans compagnon. */
   compagnonDeLaNiche(profileId: string): string | null
-  /**
-   * Les cartes que son codex de l'Expédition ouvre aujourd'hui, à une version
-   * du départ — sa renommée relue de ses bilans, ses exploits, ses légendaires
-   * (`codexLu`) : la migration des œuvres en tire celles qui en sont. Un
-   * aller-retour, plus l'écriture des bilans à refaire.
-   */
-  codexDuProfil(profileId: string, v: number): Promise<readonly string[]>
   /** La base, ses mesures, ses tirages et le journal lus en fond, une fois par processus : la page du Cabinet la lance comme l'accueil. */
   prechauffer(): void
   /**
@@ -184,10 +179,3 @@ export interface StatsEnPlus {
   /** Ce que disent ses lectures, dans leur ordre : ses champs, ajoutés à ce que la campagne a compté. */
   lire(lus: readonly ResultSet[]): StatsDuCabinet
 }
-
-/**
- * La fin d'une expédition — menée au bout, perdue, abandonnée — : le Cabinet
- * rapporte ce qu'elle a ouvert (la migration des œuvres, D14). Appelé en fond,
- * jamais attendu, et ce qui y tombe ne fait pas tomber la fin.
- */
-export type ApresLExpedition = (profileId: string) => void | Promise<void>

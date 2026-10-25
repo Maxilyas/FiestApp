@@ -55,6 +55,7 @@ import type { CleDeCompagnon } from '../../../shared/compagnons'
 import {
   ACTES,
   CADRAGES_DU_DETAIL,
+  DEPART_FERME,
   ECUS_D_UN_COFFRE_LAISSE,
   ECUS_D_UN_GARDIEN,
   ETAGES,
@@ -645,8 +646,14 @@ export function ExpeditionApp() {
     window.scrollTo(0, 0)
   }
 
+  // Le départ fermé, comme la dernière page lue le dit : la fin d'une expédition en route mène alors au Cabinet.
+  const [departFerme, setDepartFerme] = useState(false)
+
   /** L'expédition en route reprend où elle en est ; sans elle — ou en partant —, le départ. */
-  const montrer = (page: PageDeLExpedition, enPartant = false) => setEcran(ecranDeLaPage(page, enPartant))
+  const montrer = (page: PageDeLExpedition, enPartant = false) => {
+    setDepartFerme(page.departFerme === 'cabinet')
+    setEcran(ecranDeLaPage(page, enPartant))
+  }
 
   const relire = async (enPartant = false) => {
     try {
@@ -987,7 +994,7 @@ export function ExpeditionApp() {
         setErreur(motifDe(e))
       }
     }
-    return <FinDeLExpedition fin={ecran} gains={gains} erreur={erreur} onCorrection={() => void voirCorrection()} onAutre={() => void relire()} />
+    return <FinDeLExpedition fin={ecran} gains={gains} erreur={erreur} onCorrection={() => void voirCorrection()} onAutre={() => void relire()} departFerme={departFerme} />
   }
 
   // La vue du serveur, et les cartes jouées sur place depuis : la main, l'énergie, l'aperçu qu'elles laissent.
@@ -1212,6 +1219,12 @@ const regleDuGardien = (acte: number) => {
  * « ← Partir », d'où viennent les tampons — est dans les règles, au « ? »
  * d'en haut : « Trop d'infos écrites sur la page on s'y perd » (la revue du
  * 18 octobre 2026).
+ *
+ * L'Expédition remplacée par le Cabinet de curiosités (`departFerme`, que le
+ * serveur dit) : plus de « Partir », ni de gardiens annoncés, d'équipe, de
+ * style, de codex à préparer pour un départ qui se refuserait — la phrase du
+ * refus, la même (`DEPART_FERME`), et le chemin du Cabinet ; ses tampons
+ * restent à lui. Celle qui l'attend se reprend, ou s'abandonne, comme avant.
  */
 export function Depart({
   page,
@@ -1231,6 +1244,8 @@ export function Depart({
   onAbandonner: (vue: VueDeLExpedition) => void
 }) {
   const vue = page.expedition
+  // Le départ fermé ne touche que qui n'a rien en route : celle qui l'attend se finit à ses règles.
+  const ferme = !vue && page.departFerme === 'cabinet'
   const gardiens = vue ? vue.gardiens : page.prochaine.gardiens.map(cle => ({ cle, vaincu: false, ...(page.prochaine.aLui.includes(cle) && { aLui: true as const }) }))
   const [equipee, setEquipee] = useState<string[]>(() => equipeeDeDepart(page.prochaine))
   const [choisir, setChoisir] = useState(false)
@@ -1240,7 +1255,7 @@ export function Depart({
   const [voirLeCodex, setCodex] = useState(false)
   // Les rencontres, là où elles s'ouvrent — partout, depuis qu'elles sont le jeu : le départ ne les demande plus (« ne plus
   // demander ça, c'est vraiment le jeu maintenant », le 19 octobre 2026), il les prend. Sa catégorie fétiche, retenue.
-  const ouvertes = !vue && !!page.prochaine.rencontres
+  const ouvertes = !vue && !ferme && !!page.prochaine.rencontres
   const [fetiche, setFetiche] = useState(feticheRetenue)
   // Le dos de son paquet (le codex) : celui qu'il a choisi la dernière fois, s'il l'a encore — sinon le plus rare des siens.
   const [dos, setDos] = useState(() => (page.prochaine.codex ? dosRetenu(page.prochaine.codex.dos) : null))
@@ -1261,14 +1276,14 @@ export function Depart({
   const auCodex = vue ? !!vue.cartes?.codex : enRencontres && !!codex
   const feticheOuverte = !codex || codex.regles.includes('fetiche')
   // Celle qui l'attend dit l'équipée qu'elle a emmenée ; une expédition de l'étape 1 n'en avait pas. Au codex, l'invité du jour seul.
-  const montree = vue ? (vue.jokers || vue.cartes ? vue.equipee : null) : auCodex ? [page.prochaine.invite] : equipee
+  const montree = vue ? (vue.jokers || vue.cartes ? vue.equipee : null) : ferme ? null : auCodex ? [page.prochaine.invite] : equipee
   // Sans légendaire à lui, rien à choisir : l'invité du jour part d'office, et une ligne le dit. Deux places, dont une libre,
   // demandaient de choisir ce qu'il n'avait pas (« c'est pas clair de devoir mettre des légendaires sur la première page, surtout
   // qu'au début on n'a pas forcément ça », le 18 octobre 2026). Au codex, plus d'équipe à choisir pour personne : ses légendaires
   // ouvrent leur carte au codex, et l'invité du jour prête la sienne.
-  const invite = auCodex ? (vue ? vue.invite : page.prochaine.invite) : !vue && page.prochaine.equipables.length === 0 ? page.prochaine.invite : undefined
-  // La saison de son départ — celle qu'elle a eue, en route ; celle d'aujourd'hui, avant de partir.
-  const s = laSaison(vue ? vue.saison : page.prochaine.saison)
+  const invite = ferme ? undefined : auCodex ? (vue ? vue.invite : page.prochaine.invite) : !vue && page.prochaine.equipables.length === 0 ? page.prochaine.invite : undefined
+  // La saison de son départ — celle qu'elle a eue, en route ; celle d'aujourd'hui, avant de partir — ; aucune sans départ.
+  const s = ferme ? null : laSaison(vue ? vue.saison : page.prochaine.saison)
   const tampons = page.passeport.length
   // Le paquet qui partirait : en rencontres, il s'ouvre en vraies cartes — les deux de son style comprises ; aux règles d'avant, il
   // se dit en une ligne.
@@ -1283,37 +1298,41 @@ export function Depart({
     <div className="player-shell expedition">
       <div className="exp-haut-du-depart">
         <Sortie />
-        <BoutonDesRegles onOuvrir={() => setRegles(true)} />
+        {/* Sans départ, pas de règles à lire : rien ne se joue plus d'ici. */}
+        {!ferme && <BoutonDesRegles onOuvrir={() => setRegles(true)} />}
       </div>
       <header className="exp-tete">
         <h1>L’Expédition</h1>
-        <p className="muted">{espacesFines('Bats les trois gardiens : tu repars avec l’un d’eux.')}</p>
+        <p className="muted">{espacesFines(ferme ? DEPART_FERME : 'Bats les trois gardiens : tu repars avec l’un d’eux.')}</p>
       </header>
       {s && <BandeauDeLaSaison saison={s} gardiens={gardiens.map(g => g.cle)} enRoute={!!vue} />}
-      <section className="card exp-gardiens" aria-labelledby="exp-gardiens-titre">
-        <h2 className="label" id="exp-gardiens-titre">
-          {vue ? `Ton expédition n° ${formatNumber(vue.numero)}` : 'Ce qui t’attend'}
-        </h2>
-        {/* Côte à côte, sans leur règle : ce qu'il faut pour les vaincre est dans les règles, au « ? » d'en haut. */}
-        <ol className="exp-trois-gardiens">
-          {gardiens.map((g, acte) => (
-            <li key={g.cle} className={'exp-gardien-col' + (g.vaincu ? ' exp-vaincu-ligne' : '')}>
-              <Medaillon cle={g.cle} className="exp-medaillon" />
-              <span className="label">{`Acte ${acte + 1}`}</span>
-              <b className="exp-gardien-nom">{nomDuGardien(g.cle)}</b>
-              {g.vaincu ? (
-                <span className="exp-pastille">{gardienAuFeminin(g.cle) ? 'vaincue' : 'vaincu'}</span>
-              ) : g.aLui ? (
-                <span className="exp-pastille">déjà à toi</span>
-              ) : vue && acte === vue.acte ? (
-                <span className="exp-pastille exp-pastille-or">en route</span>
-              ) : (
-                s?.legendaire === g.cle && <span className="exp-pastille exp-pastille-or">de saison</span>
-              )}
-            </li>
-          ))}
-        </ol>
-      </section>
+      {/* Le départ fermé, plus de gardiens à annoncer : ils ne se combattront pas. */}
+      {!ferme && (
+        <section className="card exp-gardiens" aria-labelledby="exp-gardiens-titre">
+          <h2 className="label" id="exp-gardiens-titre">
+            {vue ? `Ton expédition n° ${formatNumber(vue.numero)}` : 'Ce qui t’attend'}
+          </h2>
+          {/* Côte à côte, sans leur règle : ce qu'il faut pour les vaincre est dans les règles, au « ? » d'en haut. */}
+          <ol className="exp-trois-gardiens">
+            {gardiens.map((g, acte) => (
+              <li key={g.cle} className={'exp-gardien-col' + (g.vaincu ? ' exp-vaincu-ligne' : '')}>
+                <Medaillon cle={g.cle} className="exp-medaillon" />
+                <span className="label">{`Acte ${acte + 1}`}</span>
+                <b className="exp-gardien-nom">{nomDuGardien(g.cle)}</b>
+                {g.vaincu ? (
+                  <span className="exp-pastille">{gardienAuFeminin(g.cle) ? 'vaincue' : 'vaincu'}</span>
+                ) : g.aLui ? (
+                  <span className="exp-pastille">déjà à toi</span>
+                ) : vue && acte === vue.acte ? (
+                  <span className="exp-pastille exp-pastille-or">en route</span>
+                ) : (
+                  s?.legendaire === g.cle && <span className="exp-pastille exp-pastille-or">de saison</span>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
       {invite ? (
         <p className="card exp-invite-seul">
           <Medaillon cle={invite} className="exp-medaillon" />
@@ -1415,6 +1434,12 @@ export function Depart({
               Abandonner cette expédition
             </button>
           </>
+        ) : ferme ? (
+          // À la place de « Partir », le chemin du mode qui a pris la sienne.
+          <a className="btn btn-primary btn-big btn-block" href="/cabinet">
+            <Icon name="landmark" />
+            Le Cabinet de curiosités
+          </a>
         ) : (
           <>
             <button
@@ -4083,7 +4108,9 @@ function ChoixDuLegendaire({ vue, busy, erreur, onGarder }: { vue: VueDeLExpedit
  * La fin d'une expédition — gardée, perdue, abandonnée — par l'écran des
  * gains de tous les modes (l'écran A) : le légendaire gardé d'abord, puis ce
  * que la visite a rapporté, les trophées, ce qu'ils ouvrent ; le corrigé, et
- * une autre expédition. Exportée pour `gains.test.ts`, qui la rend.
+ * une autre expédition — ou, son départ fermé (`departFerme`), le Cabinet de
+ * curiosités, qui a pris sa place : « Une autre expédition » mènerait à un
+ * départ qui se refuse. Exportée pour `gains.test.ts`, qui la rend.
  */
 export function FinDeLExpedition({
   fin,
@@ -4091,12 +4118,14 @@ export function FinDeLExpedition({
   erreur,
   onCorrection,
   onAutre,
+  departFerme = false,
 }: {
   fin: Extract<Ecran, { e: 'fin' }>
   gains: GainsDeLExpedition
   erreur: string
   onCorrection: () => void
   onAutre: () => void
+  departFerme?: boolean
 }) {
   const { vue, tombe } = fin
   const recompenses = tombe.recompenses ?? []
@@ -4168,10 +4197,17 @@ export function FinDeLExpedition({
       )}
       {erreur && <p className="error">{espacesFines(erreur)}</p>}
       <div className="fin-actions">
-        <button type="button" className="btn btn-primary btn-big btn-block" onClick={onAutre}>
-          <Icon name="flag" />
-          Une autre expédition
-        </button>
+        {departFerme ? (
+          <a className="btn btn-primary btn-big btn-block" href="/cabinet">
+            <Icon name="landmark" />
+            Le Cabinet de curiosités
+          </a>
+        ) : (
+          <button type="button" className="btn btn-primary btn-big btn-block" onClick={onAutre}>
+            <Icon name="flag" />
+            Une autre expédition
+          </button>
+        )}
         {fin.correction ? (
           <SerieCorrigee correction={fin.correction} />
         ) : (
