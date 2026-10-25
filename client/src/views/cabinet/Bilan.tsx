@@ -11,7 +11,7 @@ import { JEUX } from '../../../../shared/cabinet/jeux/regle'
 import { poussieresDites } from '../../../../shared/cabinet/musee'
 import { oeuvre as oeuvreDe } from '../../../../shared/cabinet/oeuvres'
 import type { IssueDUnePartie, OrigineDUnePartie } from '../../../../shared/cabinet/partie'
-import type { MancheVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
+import type { GainsDuCabinet, MancheVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees, type Tombe } from '../../../../shared/gains'
 import { titreAuBilan } from './Cartel'
 import type { EcranEfface } from './Partie'
@@ -85,13 +85,23 @@ export function MesReponses({ vue, ecran, onFermer }: { vue: VueDeLaPartie; ecra
   )
 }
 
+/**
+ * Le profil se relit-il après la partie ? Dès qu'elle a rapporté quelque
+ * chose : le niveau qu'elle a fait monter, la forme que son compagnon a
+ * atteinte (`useNiveauRelu`) — et la luciole seule, qui s'installe dans la
+ * niche de la page : sans la relecture, la fin la promettait « en haut de
+ * chaque page », et la niche restait vide jusqu'au rechargement.
+ */
+export function aRelireApresLaPartie(g: GainsDuCabinet | undefined): boolean {
+  return !!g && (g.xp > 0 || g.confettis > 0 || (g.recompenses?.length ?? 0) > 0 || !!g.compagnon)
+}
+
 export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDeLaPartie; ecran: EcranEfface | null; onMusee: () => void; onRejouer?: () => void }) {
   const [reponses, setReponses] = useState(false)
   const b = vue.bilan
   const g = b?.gains
   const cles = (g?.recompenses ?? []).map(r => r.key)
-  // Le niveau relu après la partie, s'il a gagné quelque chose : la niche y prend aussi la forme atteinte (`useNiveauRelu`).
-  const niveau = useNiveauRelu(!!g && (g.xp > 0 || g.confettis > 0 || cles.length > 0))
+  const niveau = useNiveauRelu(aRelireApresLaPartie(g))
   if (!b) {
     return (
       <div className="player-shell cab-page">
@@ -107,6 +117,8 @@ export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDe
   // Un gardien qui veillait déjà — une salle complète, trente jours d'affilée, un légendaire gagné ailleurs : rien de neuf à
   // fêter, la fin le dit (§ 5.3), par ce qui l'a réveillé.
   const veillaient = (b.gardiens ?? []).filter(x => !x.neuf)
+  // Ceux que la fin a réveillés, le verdict du serveur : eux seuls disent leur raison.
+  const reveilles = (b.gardiens ?? []).filter(x => x.neuf).map(x => x.legendaire)
   return (
     <div className="player-shell cab-page cab-bilan">
       <section className="cab-bilan-tete" role="status">
@@ -147,9 +159,10 @@ export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDe
           )}
         </section>
       )}
-      {/* Le gardien que la partie réveille, en grand, avant les gains ; celui qui veillait déjà, sa ligne ; la luciole, à la
-          première salle complète. Les légendaires que ses paliers ouvrent passent par les mêmes cartes, sans raison au-dessus. */}
-      <GardiensQuiSEveillent neufs={g?.legendaires ?? []} veillaient={veillaient.map(x => x.legendaire)} compagnon={g?.compagnon} />
+      {/* Le gardien que la partie réveille, en grand, avant les gains, sa raison au-dessus — celle d'un gardien que le serveur dit
+          neuf (`BilanVu.gardiens`) ; celui qui veillait déjà, sa ligne ; la luciole, à la première salle complète. Les légendaires
+          que ses paliers ouvrent passent par les mêmes cartes, sans raison : un gardien a d'autres voies que le Cabinet. */}
+      <GardiensQuiSEveillent neufs={g?.legendaires ?? []} parLeCabinet={reveilles} veillaient={veillaient.map(x => x.legendaire)} compagnon={g?.compagnon} />
       {g && (
         <CeQueTuGagnes
           parts={partsDeLXp([

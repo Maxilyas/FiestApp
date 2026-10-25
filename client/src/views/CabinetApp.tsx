@@ -64,6 +64,22 @@ import { carteRetenue, rapporteesVues, reglesLues, retenirLaCarte, retenirLesRap
 /** L'annonce d'un gardien qui s'éveille, à la demande. */
 const LE_REVEIL = aLaDemande(() => import('./cabinet/Reveil'))
 
+/**
+ * La luciole qu'une page dit venue — l'achat ou la dorure qui complète une
+ * première salle, la partie d'hier close par le serveur — s'installe dans la
+ * niche de la page : la feuille le promet (« en haut de chaque page »), et le
+ * profil lu au montage ne l'avait pas encore. Le serveur l'a déjà installée
+ * dans une niche vide (`offrirUnCompagnon`) ; la page relit le profil léger,
+ * comme une fin de partie, et rien d'autre ne le fait relire.
+ */
+export function nicheApresLeReveil(p: Pick<PageDuCabinet, 'reveil'>): Promise<void> {
+  if (!p.reveil?.compagnon) return Promise.resolve()
+  return api.joueur.moiLeger().then(
+    moi => porterNiche(moi.profile),
+    () => {},
+  )
+}
+
 /** Le réveil à dire, quand son écran est venu ; perdu en route, il se tait — la page des gardiens le montre réveillé. */
 function ReveilALaDemande({ reveil, onFermer }: { reveil: ReveilDesGardiens; onFermer: () => void }) {
   const ecran = useALaDemande(LE_REVEIL)
@@ -147,10 +163,11 @@ export function CabinetApp() {
   // le porte plus, le serveur ne le dit qu'une fois.
   const [reveil, setReveil] = useState<ReveilDesGardiens | null>(null)
 
-  /** Une page neuve du serveur : elle prend la place de l'autre, et ce qu'elle dit s'éveiller attend d'être lu. */
+  /** Une page neuve du serveur : elle prend la place de l'autre, ce qu'elle dit s'éveiller attend d'être lu, et la luciole entre dans sa niche. */
   const recevoir = useCallback((p: PageDuCabinet) => {
     setEtat({ e: 'pret', page: p })
     if (p.reveil) setReveil(r => fondreDesReveils(r, p.reveil))
+    void nicheApresLeReveil(p)
   }, [])
 
   /** La page lue, ou ce qu'en dit le refus : sans profil, fermé ici, ou une panne. */

@@ -23,16 +23,17 @@ import type { JeuALEcran, PropsDUneManche } from '../Partie'
 // une année qu'il ne prenait pas.
 //
 // Ce que la page tient — le curseur et la taille — part d'elle-même à
-// l'échéance, s'il y a touché : le curseur part du milieu, et le milieu
-// d'office n'est pas un lancer (la règle de la maquette, qui a fermé « la
-// réponse toujours au milieu de la piste »). Recharger le perd : rien de cela
-// ne disait la réponse (§ 2.8).
+// l'échéance, tel qu'il est, comme la maquette lançait au temps écoulé : au
+// milieu et moyen s'il n'y a pas touché. « Lancer le filet » touché d'emblée
+// joue ce même lancer, et la piste tirée — la réponse n'importe où sur elle
+// (`POSITION_DE_LA_REPONSE`) — ne paie plus le milieu ; refusé, ce lancer
+// donnait « Pas de lancer » à qui laissait le curseur là où il croyait la
+// réponse. Recharger le perd : rien de cela ne disait la réponse (§ 2.8).
 
-/** Ce que la page tient d'une manche du Filet : où est le curseur, la taille de son filet, et s'il y a touché. */
+/** Ce que la page tient d'une manche du Filet : où est le curseur, et la taille de son filet. */
 export interface LocalDuFilet {
   readonly x: number
   readonly taille: TailleDuFilet
-  readonly touche: boolean
 }
 
 /** Les trois filets, en mots : la page dit leur taille, leurs étoiles viennent du barème. */
@@ -45,7 +46,7 @@ const surLaPiste = (p: PisteDuFilet, x: number) => Math.min(p.max, Math.max(p.mi
 
 /** Le curseur posé à `x` : sur le cran le plus proche, dans la piste. */
 export function bouger(m: FiletMontre, l: LocalDuFilet, x: number): LocalDuFilet {
-  return { ...l, x: surLaPiste(m.piste, auCran(m.piste, x, Math.round)), touche: true }
+  return { ...l, x: surLaPiste(m.piste, auCran(m.piste, x, Math.round)) }
 }
 
 /** « − » et « + » : un cran de la piste, jamais au-delà de ses bornes. */
@@ -163,7 +164,7 @@ function MancheDuFilet({ montree: m, local: l, setLocal, envoyer, garde, busy }:
       <ZoneDite m={m} />
       <div className="cab-tailles" role="group" aria-label="La taille de ton filet">
         {TAILLES_DU_FILET.map(t => (
-          <button key={t} type="button" className="cab-taille" aria-pressed={l.taille === t} {...toucher(() => !busy && garde() && setLocal({ ...l, taille: t, touche: true }))}>
+          <button key={t} type="button" className="cab-taille" aria-pressed={l.taille === t} {...toucher(() => !busy && garde() && setLocal({ ...l, taille: t }))}>
             <b>{NOMS[t]}</b>
             <Etoiles n={ETOILES_DU_FILET[t]} />
           </button>
@@ -201,10 +202,10 @@ function RevelationDuFilet({ corps: r }: { corps: FiletRevele }) {
 
 export const FILET: JeuALEcran<FiletMontre, FiletRevele, LocalDuFilet> = {
   // Le curseur part du milieu, comme la règle le pose (`milieuDeLaPiste`), et le moyen filet d'office, comme la maquette.
-  localDe: m => ({ x: milieuDeLaPiste(m.piste), taille: 'moyen', touche: false }),
+  localDe: m => ({ x: milieuDeLaPiste(m.piste), taille: 'moyen' }),
   // La question et sa piste : « Changer » en pose d'autres ; la zone d'Éclairer n'y change rien, le curseur reste où il est.
   cleDe: m => `${m.texte}|${m.piste.min}|${m.piste.max}|${m.piste.pas}`,
-  aLEcheance: (_m, l) => (l.touche ? { filet: { x: l.x, taille: l.taille } } : undefined),
+  aLEcheance: (_m, l) => ({ filet: { x: l.x, taille: l.taille } }),
   // Pas de `sousEcranDe` : rien ne bouge sous le doigt sans une vue neuve — le curseur et le filet glissent sous lui, il les y mène.
   Manche: MancheDuFilet,
   Revelation: RevelationDuFilet,

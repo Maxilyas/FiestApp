@@ -282,6 +282,16 @@ export function nicheRetientSonSouffle(): void {
 }
 
 /**
+ * La réponse envoyée revient sans verdict — l'essai du Mot mystère qui ne
+ * trouve pas encore : ses couleurs n'en sont pas un —, il reprend son souffle.
+ * La partie, elle, se joue toujours : une forme atteinte le fera sortir.
+ * Retenu jusqu'à l'essai suivant, il restait assombri deux minutes.
+ */
+export function nicheRelacheSonSouffle(): void {
+  annoncer({ sorte: 'calme' })
+}
+
+/**
  * La révélation d'une question (`cle` : laquelle), et le bandeau d'où partent
  * ses étincelles quand elle le nourrit. Le même bandeau remonté dans le même
  * instant — React, en développement, monte deux fois — ne la rejoue pas.

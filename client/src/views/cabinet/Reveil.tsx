@@ -21,8 +21,25 @@ import { ceQuiLeReveille, seReveille, veillaitDeja } from './reveils'
 /** Ce que la luciole vient faire ici : elle rejoignait qui menait une expédition au bout, elle rejoint qui complète une salle. */
 const POURQUOI_LA_LUCIOLE = 'Ta première salle complète'
 
-/** Les gardiens neufs en grand, chacun sa raison au-dessus de lui ; ceux qui veillaient déjà, une ligne ; la luciole. */
-export function GardiensQuiSEveillent({ neufs, veillaient, compagnon }: { neufs: readonly string[]; veillaient: readonly string[]; compagnon?: CleDeCompagnon }) {
+/**
+ * Les légendaires neufs en grand ; au-dessus de chacun que le Cabinet a
+ * réveillé (`parLeCabinet`, le verdict du serveur), sa raison ; ceux qui
+ * veillaient déjà, une ligne ; la luciole. Un légendaire qu'un palier ouvre
+ * pendant la partie passe par les mêmes cartes, sans raison : les vingt-trois
+ * gardiens ont d'autres voies — la Chimère par L'Alpiniste —, et déduite de la
+ * seule clé, la raison la disait réveillée par une salle toute dorée.
+ */
+export function GardiensQuiSEveillent({
+  neufs,
+  parLeCabinet,
+  veillaient,
+  compagnon,
+}: {
+  neufs: readonly string[]
+  parLeCabinet: readonly string[]
+  veillaient: readonly string[]
+  compagnon?: CleDeCompagnon
+}) {
   return (
     <>
       {veillaient.map(cle => (
@@ -32,8 +49,7 @@ export function GardiensQuiSEveillent({ neufs, veillaient, compagnon }: { neufs:
       ))}
       {neufs.map(cle => (
         <div key={cle} className="cab-reveil">
-          {/* Un légendaire qu'un palier ouvre n'est pas un gardien : pas de raison, sa carte seule. */}
-          {ceQuiLeReveille(cle) && <p className="cab-ligne cab-dit">{espacesFines(seReveille(cle))}</p>}
+          {parLeCabinet.includes(cle) && ceQuiLeReveille(cle) && <p className="cab-ligne cab-dit">{espacesFines(seReveille(cle))}</p>}
           <LegendaireOuvert cle={cle} dejaPorte={false} />
         </div>
       ))}
@@ -63,7 +79,7 @@ export function AnnonceDuReveil({ reveil, onFermer }: { reveil: ReveilDesGardien
         </button>
       }
     >
-      <GardiensQuiSEveillent neufs={neufs} veillaient={veillaient} compagnon={reveil.compagnon} />
+      <GardiensQuiSEveillent neufs={neufs} parLeCabinet={neufs} veillaient={veillaient} compagnon={reveil.compagnon} />
     </Feuille>
   )
 }

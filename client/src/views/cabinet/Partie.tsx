@@ -12,7 +12,7 @@ import { TimerBar } from '../../components/TimerBar'
 import { rendreLeFocus } from '../../focus'
 import { espacesFines } from '../../format'
 import { insister } from '../../insister'
-import { nicheRetientSonSouffle } from '../../niche'
+import { nicheRelacheSonSouffle, nicheRetientSonSouffle } from '../../niche'
 import { useGardeRetour, type IssueDuRetour } from '../../retour'
 import { showToast } from '../../state'
 import { toucher } from '../../toucher'
@@ -39,7 +39,7 @@ import type { BilanDeLaPartie } from './Bilan'
 // Le chrono se lit à l'heure du serveur (`serverNow`, invariant 6), jamais à
 // celle du téléphone ; à l'échéance, la page envoie d'elle-même ce qu'elle
 // tenait (`repondre`, `auto`) — l'Éclair, ses réponses ; la Frise, ce qu'elle a
-// rangé ; le Filet, son curseur et sa taille, s'il y a touché ; le Pari, le
+// rangé ; le Filet, son curseur et sa taille, tels qu'ils sont ; le Pari, le
 // Détail et le Mot mystère, rien : le serveur a déjà ce qui compte —, et
 // insiste tant que le réseau manque : son rang la garde d'un double. Le
 // serveur a une grâce pour le réseau ; la page ne la recopie pas, elle n'en
@@ -79,8 +79,16 @@ export interface PropsDUneManche<M, L> extends OuEstLaManche {
   local: L
   setLocal: (l: L) => void
   envoyer: (g: GesteDuJeu) => void
-  /** La demi-seconde après un changement d'écran : un toucher qui y tombe était destiné à l'écran d'avant. */
+  /**
+   * La demi-seconde après un changement d'écran, ou après ce qui change sous le doigt (`sousLeDoigtDe` : chaque vue que le
+   * serveur accepte) : un toucher qui y tombe était destiné à l'écran d'avant.
+   */
   garde: () => boolean
+  /**
+   * La demi-seconde après un changement d'écran seulement — « Manche suivante » qui laisse sa place au clavier —, pas après une
+   * vue neuve de la même manche : les lettres du Mot, tapées dès que les couleurs d'un essai paraissent, s'y perdaient sans un mot.
+   */
+  gardeDeLEcran: () => boolean
   busy: boolean
 }
 
@@ -229,6 +237,28 @@ export function laReponseTourneLaPage(avant: VueDeLaPartie, apres: VueDeLaPartie
 export function ceQueFeteLaRevelation(naturel: number, etoiles: number): { gerbe: boolean; niche: ReactionALaRevelation } {
   const juste = naturel >= ETOILES_D_UNE_JUSTE
   return { gerbe: juste && etoiles >= ETOILES_D_UNE_JUSTE, niche: reactionDuSolo(juste ? true : naturel === 0 ? false : null) }
+}
+
+/**
+ * Le geste peut-il trancher la manche ? La niche retient alors son souffle
+ * jusqu'au verdict : une réponse, touchée ou partie d'elle-même à l'échéance ;
+ * les étoiles gardées du Pari ; chaque essai du Mot mystère — la page ne sait
+ * pas s'il trouve le mot (invariant 1), et le cinquième tranche même faux.
+ * Sans l'essai, le Mot ne la retenait jamais : la partie, pour elle, ne se
+ * jouait pas, et une forme atteinte au bilan ne la faisait pas sortir.
+ */
+export function leGesteRetientLeSouffle(g: Pick<GesteDuCabinet, 'quoi'>): boolean {
+  return g.quoi === 'repondre' || g.quoi === 'garder' || g.quoi === 'essai'
+}
+
+/**
+ * L'essai revenu sans verdict — la manche encore à jouer — relâche le souffle :
+ * ses couleurs ne sont pas une révélation, et retenu d'un essai à l'autre, il
+ * assombrissait la niche jusqu'à deux minutes. Une réponse attend toujours son
+ * verdict : au Pari juste, la mise se décide le souffle retenu.
+ */
+export function leSouffleSeRelache(g: Pick<GesteDuCabinet, 'quoi'>, apres: Pick<VueDeLaPartie, 'phase'>): boolean {
+  return g.quoi === 'essai' && (apres.phase === 'jouer' || apres.phase === 'pause')
 }
 
 // ── Les pièces du cadre ───────────────────────────────────────────────────
@@ -441,6 +471,7 @@ export interface PropsDeLEcran {
   /** La manche dont la mise se décide, ouverte d'une révélation ; la phase `avant` décide de la première. */
   miser: Manche | null
   garde: () => boolean
+  gardeDeLEcran: () => boolean
   onGeste: (g: GesteDuCabinet) => void
   onQuitter: () => void
   /** La pause sans question à qui la reprendre : « Continuer » sous le voile. Absent, « Quitter ? » est ouvert et répondra. */
@@ -499,6 +530,7 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
       setLocal: p.setLocal,
       envoyer: g => p.onGeste({ ...g, manche: vue.manche } as GesteDuCabinet),
       garde: p.garde,
+      gardeDeLEcran: p.gardeDeLEcran,
       busy: p.busy,
     }
     corps = <ecran.Manche {...manche} />
@@ -626,19 +658,23 @@ export function Partie({
         if (auto) throw new Error('Un geste est déjà en route')
         return
       }
-      // Une réponse touchée — ou les étoiles gardées, qui tranchent la manche : la niche retient son souffle jusqu'au verdict.
-      if (geste.quoi === 'repondre' || geste.quoi === 'garder') nicheRetientSonSouffle()
+      // Un geste qui peut trancher la manche — une réponse, les étoiles gardées, un essai du Mot — : la niche retient son souffle.
+      if (leGesteRetientLeSouffle(geste)) nicheRetientSonSouffle()
       enVol.current = true
       setBusy(true)
       try {
         const r = await api.cabinet.geste(v.id, v.rang, geste)
         ranger(r.partie)
+        // L'essai revenu sans verdict, le mot pas encore trouvé : elle reprend son souffle jusqu'au suivant.
+        if (leSouffleSeRelache(geste, r.partie)) nicheRelacheSonSouffle()
         // Partie d'elle-même à l'échéance, la réponse a tourné la page sous la confirmation ouverte : elle se ferme.
         if (auto && enQuestion.current && laReponseTourneLaPage(v, r.partie)) fermerLeDialogue()
         // Passé : un double toucher, l'autre onglet. À l'échéance, la réponse a croisé la sienne : rien à dire.
         if (r.passe && !auto) showToast({ kind: 'info', message: r.passe })
       } catch (e) {
         if (auto && !refusDuServeur(e)) throw e
+        // L'essai perdu en route, ou refusé, n'a pas de verdict non plus ; la page relue dira le sien, s'il en a un.
+        if (leSouffleSeRelache(geste, vueRef.current)) nicheRelacheSonSouffle()
         showToast({ kind: 'error', message: motifDe(e) })
         if (refusDuServeur(e)) onRelire()
       } finally {
@@ -660,6 +696,11 @@ export function Partie({
   useEffect(() => {
     changement.current = performance.now()
   }, [cleDEcran, sousLeDoigt])
+  // L'écran seul, pour ce qui ne bouge pas avec une vue neuve de la même manche — les lettres du Mot (`gardeDeLEcran`).
+  const changementDEcran = useRef<number | null>(null)
+  useEffect(() => {
+    changementDEcran.current = performance.now()
+  }, [cleDEcran])
   useEffect(() => {
     if (premiere.current) {
       premiere.current = false
@@ -669,6 +710,7 @@ export function Partie({
     rendreLeFocus(document.querySelector('.cab-page'), ['.cab-question', 'h2', 'h1'])
   }, [cleDEcran])
   const garde = useCallback(() => gesteAccepte(changement.current, performance.now()), [])
+  const gardeDeLEcran = useCallback(() => gesteAccepte(changementDEcran.current, performance.now()), [])
 
   const agir = (geste: GesteDuCabinet) => {
     if (garde()) void jouer(geste)
@@ -812,6 +854,7 @@ export function Partie({
       busy={busy}
       miser={miser}
       garde={garde}
+      gardeDeLEcran={gardeDeLEcran}
       onGeste={agir}
       onQuitter={() => void demanderAQuitter()}
       onReprendre={vue.phase === 'pause' && !question ? reprendre : undefined}

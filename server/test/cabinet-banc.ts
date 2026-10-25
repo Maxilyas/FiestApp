@@ -82,8 +82,10 @@ const MOTS_D_ESSAI = ['Balcon', 'Cerise', 'Domino', 'Falaise', 'Girafe', 'Harpe'
  *
  * Les intitulés d'essai n'ont pas d'inversion à trait d'union (« cache-t-il ») :
  * le Pari et l'Éclair les tirent aussi, et la page y colle un gluon
- * (`espacesFines`) que la lecture du rendu de `cabinet-ecran.test.ts` change en
- * espace — l'épreuve qui y cherche l'intitulé échouait une fois sur deux.
+ * (`espacesFines`, U+2060). La lecture du rendu de `cabinet-ecran.test.ts`
+ * l'efface désormais ; elle le changeait en espace, et l'épreuve qui y
+ * cherchait l'intitulé échouait une fois sur deux. Le banc garde ses intitulés
+ * sans inversion : rien ne lui en demande.
  */
 export function motDuCabinet(n: number, categorie: Categorie): QuestionDeLaBase {
   const mot = (k: number) => MOTS_D_ESSAI[(n + k) % MOTS_D_ESSAI.length]

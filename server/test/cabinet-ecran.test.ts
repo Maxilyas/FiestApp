@@ -883,10 +883,11 @@ const echapper = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** Un texte du contenu tel que `texte()` le lit : son apostrophe droite y devient la typographique. */
 const lu = (s: string) => echapper(s.replace(/'/g, '’'))
 /**
- * Un nombre dit tel que `texte()` le lit : ses espaces insécables y deviennent des espaces. Cherché tel que `formatNumber`
- * l'écrit, « 16 000 km » ne se trouvait jamais — et la piste tirée au hasard ne passe les dix mille qu'une fois sur deux.
+ * Un nombre dit tel que `texte()` le lit — par `texte()` même : ses espaces insécables y deviennent des espaces. Cherché tel que
+ * `formatNumber` l'écrit, « 16 000 km » ne se trouvait jamais — et la piste tirée au hasard ne passe les dix mille qu'une fois
+ * sur deux. Une seconde copie de la lecture, ses caractères invisibles écrits en clair, ne se relisait pas à l'œil.
  */
-const enTexte = (s: string) => echapper(s.replace(/⁠/g, '').replace(/[  ]/g, ' '))
+const enTexte = (s: string) => echapper(texte(s))
 
 /** Les écrans des jeux, tels que la page les charge à la demande. */
 async function ecrans() {
@@ -922,6 +923,7 @@ async function laPartie(vue: VueDeLaPartie, plus: Record<string, unknown> = {}) 
     busy: false,
     miser: null,
     garde: () => true,
+    gardeDeLEcran: () => true,
     onGeste: rien,
     onQuitter: rien,
     onSuivante: rien,
@@ -2523,6 +2525,84 @@ test('taper le mot entier par-dessus une lettre soufflée : retapée, elle passe
   assert.equal(essaiDe(m, tape(m, 'ABEIXLE')), 'ABEILXL')
 })
 
+test('chaque essai du Mot retient le souffle de la niche — la page ne sait pas s’il trouve le mot —, et l’essai revenu sans verdict le relâche', async () => {
+  const { leGesteRetientLeSouffle, leSouffleSeRelache } = (await import(url('views/cabinet/Partie.tsx'))) as {
+    leGesteRetientLeSouffle: (g: { quoi: string }) => boolean
+    leSouffleSeRelache: (g: { quoi: string }, apres: VueDeLaPartie) => boolean
+  }
+  // Au Mot, c'est un essai qui tranche la manche — le mot trouvé, ou le dernier permis — : sans souffle, la niche passait du calme
+  // au verdict, et la partie, pour elle, ne se jouait pas (une forme atteinte au bilan ne la faisait pas sortir).
+  const essai = { quoi: 'essai', manche: 0, lettres: 'NUAGE' }
+  for (const geste of [essai, { quoi: 'repondre', manche: 0 }, { quoi: 'garder', manche: 0 }]) assert.ok(leGesteRetientLeSouffle(geste), geste.quoi)
+  for (const quoi of ['ouvrir', 'eclairer', 'changer', 'pause', 'reprendre', 'parier', 'reculer', 'quitter']) assert.ok(!leGesteRetientLeSouffle({ quoi }), quoi)
+  // Sur les vues d'Inès : l'essai mêlé revient la manche encore à jouer, le souffle se relâche — sinon la niche restait assombrie
+  // d'un essai à l'autre, deux minutes ; le mot trouvé et le cinquième essai faux rendent la révélation, qui le dit.
+  assert.equal(vues.motMele.phase, 'jouer')
+  assert.ok(leSouffleSeRelache(essai, vues.motMele))
+  assert.ok(!leSouffleSeRelache(essai, vues.motTrouve))
+  assert.ok(!leSouffleSeRelache(essai, vues.motRate))
+  // Une réponse attend toujours son verdict : au Pari juste, la mise se décide le souffle retenu, comme avant.
+  assert.ok(!leSouffleSeRelache({ quoi: 'repondre' }, vues.auChoix))
+  // Le cadre les lit au geste même, une seule fois chacun (`niche-reactions.test.ts` compte ses souffles).
+  const partie = source('views/cabinet/Partie.tsx')
+  assert.match(partie, /if \(leGesteRetientLeSouffle\(geste\)\) nicheRetientSonSouffle\(\)/)
+  assert.match(partie, /ranger\(r\.partie\)[^]{0,300}?if \(leSouffleSeRelache\(geste, r\.partie\)\) nicheRelacheSonSouffle\(\)/)
+})
+
+test('les lettres du Mot se tapent dès que les couleurs d’un essai paraissent : la demi-seconde de garde ne les retient qu’à un écran neuf, « Valider » à chaque vue neuve', async () => {
+  const { laGardeDeLaTouche } = (await import(url('views/cabinet/jeux/MotMystere.tsx'))) as { laGardeDeLaTouche: (quoi: string) => 'ecran' | 'vue' }
+  // Chaque essai rend une vue neuve, que le cadre garde une demi-seconde (`sousLeDoigtDe`) : qui commençait le mot suivant dès
+  // les couleurs perdait ses premières lettres, sans un mot. Une lettre, « Effacer » : la garde d'un écran neuf seulement —
+  // « Manche suivante » à leur place, le second toucher d'un double ne tape rien. « Valider », la garde entière : touché deux
+  // fois, il redisait « Il faut 6 lettres » sur la ligne que l'essai venait de vider.
+  for (const lettre of 'AZERTYUIOPQSDFGHJKLMWXCVBN') assert.equal(laGardeDeLaTouche(lettre), 'ecran', lettre)
+  assert.equal(laGardeDeLaTouche('effacer'), 'ecran')
+  assert.equal(laGardeDeLaTouche('valider'), 'vue')
+  // Le cadre tient les deux gardes : celle d'un écran neuf ne repart qu'avec lui, celle de la vue aussi avec ce qui change sous le doigt.
+  const partie = source('views/cabinet/Partie.tsx')
+  assert.match(partie, /useEffect\(\(\) => \{\s*changementDEcran\.current = performance\.now\(\)\s*\}, \[cleDEcran\]\)/)
+  assert.match(partie, /useEffect\(\(\) => \{\s*changement\.current = performance\.now\(\)\s*\}, \[cleDEcran, sousLeDoigt\]\)/)
+  assert.match(partie, /gardeDeLEcran: p\.gardeDeLEcran,/)
+  assert.match(source('views/cabinet/jeux/MotMystere.tsx'), /auDoigt && !\(laGardeDeLaTouche\(quoi\) === 'vue' \? garde : gardeDeLEcran\)\(\)/)
+})
+
+test('le clavier de l’ordinateur ne tape au Mot ni dans un champ, ni sous un dialogue, ni avec Ctrl ; « Entrée » sur un autre bouton reste à ce bouton', async () => {
+  type Touche = { ctrlKey: boolean; metaKey: boolean; altKey: boolean; defaultPrevented: boolean }
+  type Cible = { closest: (sel: string) => unknown }
+  const { pourLeClavier } = (await import(url('views/cabinet/jeux/MotMystere.tsx'))) as { pourLeClavier: (e: Touche, cible: Cible | null, dialogue: boolean) => 'tout' | 'sans-entree' | null }
+  const touche = (o: Partial<Touche> = {}): Touche => ({ ctrlKey: false, metaKey: false, altKey: false, defaultPrevented: false, ...o })
+  /** Un élément de la page, par ce qu'il est et ce qui le contient : `closest` le trouve s'il est l'un des sélecteurs demandés. */
+  const element = (...dans: string[]): Cible => ({ closest: sel => (sel.split(',').some(s => dans.includes(s.trim())) ? {} : null) })
+  // La page, ou une touche du clavier de l'écran : tout se tape, « Entrée » valide.
+  assert.equal(pourLeClavier(touche(), null, false), 'tout')
+  assert.equal(pourLeClavier(touche(), element(), false), 'tout')
+  assert.equal(pourLeClavier(touche(), element('button', '.cab-clavier'), false), 'tout')
+  // Un autre bouton, un lien : les lettres passent, « Entrée » est à lui — « Signaler », « Quitter », la carte-bonus.
+  assert.equal(pourLeClavier(touche(), element('button'), false), 'sans-entree')
+  assert.equal(pourLeClavier(touche(), element('a'), false), 'sans-entree')
+  // Un champ, un dialogue ouvert (« Quitter ? », « Signaler une erreur »), un raccourci : rien.
+  for (const champ of ['input', 'textarea', 'select', '[contenteditable="true"]']) assert.equal(pourLeClavier(touche(), element(champ), false), null, champ)
+  assert.equal(pourLeClavier(touche(), element(), true), null, 'sous un dialogue')
+  for (const k of ['ctrlKey', 'metaKey', 'altKey', 'defaultPrevented'] as const) assert.equal(pourLeClavier(touche({ [k]: true }), element(), false), null, k)
+  // Le clavier les lit sur l'événement même : sa cible, et le dialogue ouvert dans la page.
+  assert.match(source('views/cabinet/jeux/MotMystere.tsx'), /pourLeClavier\(e, e\.target instanceof Element \? e\.target : null, !!document\.querySelector\('\[aria-modal="true"\]'\)\)/)
+})
+
+test('« Valider » trop tôt dit la longueur dans les mots mêmes du serveur, qui refuse l’essai trop court', async () => {
+  // La phrase vit dans la règle du Mot (`shared/cabinet/jeux/mot.ts`), qui ne l'exporte pas encore : la page la recopie, et cette
+  // épreuve les tient ensemble — un mot retouché d'un seul côté, la page contredisait le serveur.
+  const v = ok(await commencer(b, ines, { origine: 'libre', jeu: 'mot', carte: null }), 'un Mot de plus')
+  const m = v.enCours as MotMontre
+  const refus = await jouer(b, ines, v, { quoi: 'essai', manche: 0, lettres: 'AB' })
+  assert.equal(refus.status, 400)
+  const { MOT } = (await import(url('views/cabinet/jeux/MotMystere.tsx'))) as { MOT: { localDe: (m: MotMontre) => object } }
+  const html = await laPartie(v, { local: { ...MOT.localDe(m), dit: true } })
+  const dit = /<p class="cab-raison cab-longueur" role="status">(.*?)<\/p>/.exec(html)?.[1]
+  assert.ok(dit, 'la longueur dite')
+  assert.equal(texte(dit).trim(), (refus.corps as unknown as { error: string }).error)
+  ok(await jouer(b, ines, v, { quoi: 'quitter' }), 'quitter ce Mot')
+})
+
 test('la révélation du Mot : trouvé, ou ce qu’il fallait trouver — la grille de ses essais, la question, « Signaler »', async () => {
   const trouve = vues.motTrouve
   const r = trouve.revelation!.corps as MotRevele
@@ -2593,16 +2673,31 @@ test('une manche du Filet : la question, la piste et ses bornes, le curseur au m
   assert.match(html, /<span class="cab-filet-maille" style="left:[\d.]+%;width:[\d.]+%"><\/span>/)
   assert.match(t, new RegExp(`Ton filet : de ${enTexte(dire(filet.de))} à ${enTexte(dire(filet.a))}`))
   assert.match(html, /<button type="button" class="btn btn-primary btn-big btn-block cab-lancer">Lancer le filet<\/button>/)
-  // Ni la valeur — sauf à tomber pile sur un nombre que la piste montre déjà —, ni la réponse telle que la base l'écrit.
+  // Ni la valeur, ni la réponse telle que la base l'écrit. Les nœuds qui disent la piste — ses bornes, le curseur, ce que son
+  // filet prend — se relisent mot pour mot ; hors d'eux, aucun nombre de la page n'est la valeur. Cherchée partout, elle se
+  // trouvait une fois sur trente dans « Ton filet : de 1666 à 1676 », quand la piste tirée la posait sur un bord du filet (et
+  // l'épreuve, qui n'écartait que les bornes et le milieu, échouait sans raison).
   const plan = filetDe(b, v.id, v.tirage!)
-  const montres = new Set([m.piste.min, m.piste.max, milieu].map(dire))
-  if (!montres.has(dire(plan.valeur))) assert.doesNotMatch(t, new RegExp(`(^|\\s)${enTexte(formatNumber(plan.valeur))}(\\s|$)`))
+  const noeuds = [
+    [/<output class="cab-filet-valeur"[^>]*>.*?<\/output>/, dire(milieu)],
+    [/<span class="cab-filet-couvre">.*?<\/span>/, `Ton filet : de ${dire(filet.de)} à ${dire(filet.a)}`],
+    [/<p class="cab-filet-bornes">.*?<\/p>/, `${dire(m.piste.min)} ${dire(m.piste.max)}`],
+  ] as const
+  let horsDeLaPiste = html.replace(/<input [^>]*type="range"[^>]*>/, '')
+  for (const [noeud, dit] of noeuds) {
+    const trouve = noeud.exec(html)?.[0]
+    assert.ok(trouve, `${noeud}`)
+    assert.equal(texte(trouve).trim(), texte(dit).trim())
+    horsDeLaPiste = horsDeLaPiste.replace(trouve, '')
+  }
+  assert.doesNotMatch(texte(horsDeLaPiste), new RegExp(`(^|\\s)${enTexte(formatNumber(plan.valeur))}(\\s|$)`))
+  assert.doesNotMatch(horsDeLaPiste, new RegExp(`"${echapper(String(plan.valeur))}"`), 'ni dans un attribut')
   assert.doesNotMatch(html, /valeur="|data-valeur/)
   sansJargon(html, 'une manche du Filet')
 })
 
 test('le Filet en jeu : le curseur et ses crans, le filet choisi, la zone dorée d’Éclairer dite en mots — ce que la page tient part à l’échéance', async () => {
-  type Local = { x: number; taille: TailleDuFilet; touche: boolean }
+  type Local = { x: number; taille: TailleDuFilet }
   const { FILET, bouger, cran, ouEstLeFilet } = (await import(url('views/cabinet/jeux/Filet.tsx'))) as {
     FILET: { localDe: (m: FiletMontre) => Local; cleDe: (m: FiletMontre) => string; aLEcheance: (m: FiletMontre, l: Local) => unknown }
     bouger: (m: FiletMontre, l: Local, x: number) => Local
@@ -2612,20 +2707,23 @@ test('le Filet en jeu : le curseur et ses crans, le filet choisi, la zone dorée
   const m = vues.filet.enCours as FiletMontre
   const p = m.piste
   const depart = FILET.localDe(m)
-  assert.deepEqual(depart, { x: milieuDeLaPiste(p), taille: 'moyen', touche: false })
+  assert.deepEqual(depart, { x: milieuDeLaPiste(p), taille: 'moyen' })
   // Un cran : un pas, jamais hors de la piste ; le curseur se pose sur un pas.
   assert.equal(cran(m, depart, 1).x, Number((depart.x + p.pas).toFixed(6)))
   assert.equal(cran(m, bouger(m, depart, p.max), 1).x, p.max)
   assert.equal(cran(m, bouger(m, depart, p.min), -1).x, p.min)
   assert.equal(bouger(m, depart, p.max + 1000).x, p.max)
   assert.equal(bouger(m, depart, p.min + p.pas * 2.4).x, Number((p.min + p.pas * 2).toFixed(6)))
-  assert.equal(cran(m, depart, -1).touche, true)
+  // La page ne tient que le curseur et son filet : rien n'y dit s'il y a touché, l'échéance envoie ce qu'il a sous les yeux.
+  assert.deepEqual(Object.keys(cran(m, depart, -1)).sort(), ['taille', 'x'])
   // Le filet sur la piste, en pour cent, coupé à ses bords.
   const auBord = ouEstLeFilet(p.min, 'grand', p)
   assert.equal(auBord.de, 0)
   assert.ok(auBord.a > 0 && auBord.a <= 100)
-  // À l'échéance : ce qu'il a choisi s'il a touché à quelque chose ; rien sinon — le milieu d'office n'est pas un lancer.
-  assert.equal(FILET.aLEcheance(m, depart), undefined)
+  // À l'échéance : le curseur et le filet qu'il a sous les yeux, au milieu et moyen s'il n'y a pas touché — la maquette lançait
+  // au temps écoulé. « Lancer le filet » touché d'emblée joue le même lancer : le refuser ne fermait rien, et « Pas de lancer »
+  // punissait qui laissait le curseur là où il croyait la réponse.
+  assert.deepEqual(FILET.aLEcheance(m, depart), { filet: { x: milieuDeLaPiste(p), taille: 'moyen' } })
   const vise = { ...cran(m, depart, 1), taille: 'petit' as const }
   assert.deepEqual(FILET.aLEcheance(m, vise), { filet: { x: vise.x, taille: 'petit' } })
   // Le petit choisi : il est pressé, les deux autres non.
@@ -2737,6 +2835,10 @@ test('la feuille du Mot et du Filet : le clavier de trois rangées de 44 px, −
   }
   // Une touche se tape vite : ni double-toucher qui zoome, ni texte qui se surligne.
   assert.match(section, /\.cab-touche \{[^}]*touch-action: manipulation;[^}]*user-select: none;/)
+  // Le chrono de la tête, sous la ligne des manches, arrive au bas de la niche : ses secondes s'arrêtent avant elle (la photo du
+  // 25 octobre 2026 : « 120 » sous la luciole, à chaque manche, dans tous les jeux).
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  assert.match(css, /body\.avec-niche \.cab-tete-partie \.timer \{ padding-right: var\(--niche-place\); \}/)
 })
 
 /** La section du Cabinet dans la feuille, sans ses commentaires. */
@@ -2747,7 +2849,7 @@ function sectionDuCabinet() {
 }
 
 test('l’inversion d’un intitulé se lit telle quelle : le gluon que `espacesFines` y pose s’efface à la lecture du rendu', () => {
-  assert.match(espacesFines('Que cache-t-il ?'), /⁠/)
+  assert.match(espacesFines('Que cache-t-il ?'), /\u2060/)
   assert.match(texte(espacesFines('Que cache-t-il ?')), /Que cache-t-il \?/)
 })
 
@@ -2779,13 +2881,13 @@ test('ce qui réveille un gardien, en mots : la salle complète, la salle dorée
 
 test('un gardien qui s’éveille : en grand s’il est neuf, une ligne s’il veillait déjà, la luciole qui rejoint — et rien d’un Divin', async () => {
   const { GardiensQuiSEveillent } = (await import(url('views/cabinet/Reveil.tsx'))) as {
-    GardiensQuiSEveillent: (p: { neufs: string[]; veillaient: string[]; compagnon?: string }) => React.ReactNode
+    GardiensQuiSEveillent: (p: { neufs: string[]; parLeCabinet: string[]; veillaient: string[]; compagnon?: string }) => React.ReactNode
   }
   const { fondreDesReveils } = (await import(url('views/cabinet/reveils.ts'))) as {
     fondreDesReveils: (a: ReveilDesGardiens | null | undefined, b: ReveilDesGardiens | null | undefined) => ReveilDesGardiens | null
   }
   const { renderToStaticMarkup } = await import('react-dom/server')
-  const html = renderToStaticMarkup(React.createElement(GardiensQuiSEveillent, { neufs: ['lg:oracle'], veillaient: ['lg:phenix', 'lg:scarabee'], compagnon: COMPAGNON_DE_L_EXPEDITION }))
+  const html = renderToStaticMarkup(React.createElement(GardiensQuiSEveillent, { neufs: ['lg:oracle'], parLeCabinet: ['lg:oracle'], veillaient: ['lg:phenix', 'lg:scarabee'], compagnon: COMPAGNON_DE_L_EXPEDITION }))
   const t = texte(html)
   // Ceux qui veillaient, une ligne chacun ; le neuf, sa raison puis en grand — on le porte d'ici ; la luciole, qui s'installe.
   assert.match(t, new RegExp(`Salle complète ! ${lu(nom('lg:phenix'))} veillait déjà sur elle\\. .*${JOURS_DU_SCARABEE} jours d’affilée ! ${lu(nom('lg:scarabee'))} veillait déjà sur toi\\.`))
@@ -2841,4 +2943,88 @@ test('au bilan, le gardien qui veillait déjà se dit par ce qui l’a réveill�
   // Avant les gains, comme le gardien neuf.
   assert.ok(html.indexOf('fin-compagnon') < html.indexOf('class="card gains"'))
   assert.match(source('views/cabinet/Bilan.tsx'), /<GardiensQuiSEveillent /)
+})
+
+test('au bilan, seul ce que le Cabinet a réveillé dit sa raison : un légendaire qu’un palier ouvre — la Chimère, par L’Alpiniste — montre sa carte seule', async () => {
+  const ecran = (await ecrans()).pari
+  const g = vues.gagnee
+  // Les légendaires du bilan mêlent les gardiens neufs et ceux que les paliers ouvrent (`GainsDuCabinet.legendaires`) : les
+  // vingt-trois ont d'autres voies, et la raison se déduisait de la seule clé — la Chimère d'un palier s'y disait réveillée par
+  // une salle toute dorée.
+  const avec = (gardiens: { legendaire: string; neuf: boolean }[]) =>
+    ({ ...g, bilan: { ...g.bilan!, gardiens, gains: { ...g.bilan!.gains!, legendaires: ['lg:chimere'] } } }) as VueDeLaPartie
+  const duPalier = texte(await rendu('views/cabinet/Bilan', 'BilanDeLaPartie', { vue: avec([]), ecran, onMusee: rien }))
+  assert.match(duPalier, new RegExp(`Avatar légendaire débloqué .*${lu(nom('lg:chimere'))}`))
+  assert.doesNotMatch(duPalier, /se réveille|Salle toute dorée|Salle complète/)
+  // Réveillée par le Cabinet — le serveur le dit (`BilanVu.gardiens`, `neuf`) —, sa raison au-dessus d'elle.
+  const duCabinet = texte(await rendu('views/cabinet/Bilan', 'BilanDeLaPartie', { vue: avec([{ legendaire: 'lg:chimere', neuf: true }]), ecran, onMusee: rien }))
+  assert.match(duCabinet, new RegExp(`Salle toute dorée ! ${lu(nom('lg:chimere'))} se réveille\\. Avatar légendaire débloqué`))
+  // Le profil se relit après la partie dès qu'elle a rapporté quelque chose — la luciole seule comprise : la niche de la page la prend.
+  const { aRelireApresLaPartie } = (await import(url('views/cabinet/Bilan.tsx'))) as { aRelireApresLaPartie: (g: object | undefined) => boolean }
+  assert.ok(aRelireApresLaPartie({ xp: 0, confettis: 0, compagnon: COMPAGNON_DE_L_EXPEDITION }))
+  assert.ok(aRelireApresLaPartie({ xp: 0, confettis: 0, recompenses: [{ key: 'hf:alpiniste' }] }))
+  assert.ok(aRelireApresLaPartie({ xp: 12, confettis: 0 }))
+  assert.ok(!aRelireApresLaPartie({ xp: 0, confettis: 0 }))
+  assert.ok(!aRelireApresLaPartie(undefined))
+})
+
+test('deux réveils se fondent à la page comme au serveur : chaque gardien une fois, neuf s’il l’était dans l’un, la première luciole', async () => {
+  // Deux copies d'une même dérivation, tant que `shared/cabinet/` n'en a pas une seule : l'une évoluée seule, la page et le serveur
+  // ne fondaient plus deux réveils de la même façon.
+  const { fondreLesReveils } = await import('../src/core/cabinet/gardiens')
+  const { fondreDesReveils } = (await import(url('views/cabinet/reveils.ts'))) as {
+    fondreDesReveils: (a: ReveilDesGardiens | null | undefined, b: ReveilDesGardiens | null | undefined) => ReveilDesGardiens | null
+  }
+  const phenix = { gardiens: [{ legendaire: 'lg:phenix', neuf: false }] }
+  const deux = { gardiens: [{ legendaire: 'lg:phenix', neuf: true }, { legendaire: 'lg:oracle', neuf: true }], compagnon: COMPAGNON_DE_L_EXPEDITION }
+  const scarabee = { gardiens: [{ legendaire: 'lg:scarabee', neuf: true }] }
+  const cas: [ReveilDesGardiens | null, ReveilDesGardiens | null][] = [
+    [phenix, deux],
+    [deux, phenix],
+    [scarabee, deux],
+    [deux, deux],
+    [phenix, null],
+    [null, scarabee],
+    [null, null],
+  ]
+  for (const [x, y] of cas) assert.deepEqual(fondreDesReveils(x, y) ?? undefined, fondreLesReveils(x, y), JSON.stringify([x, y]))
+})
+
+test('la luciole qu’annonce la page d’un achat s’installe dans la niche de la page, par le vrai serveur : la feuille la promet « en haut de chaque page »', async () => {
+  // Lou n'a pas de compagnon, et toute la salle de l'Érudit sauf une œuvre : l'acheter complète sa première salle.
+  const lou = await inscrireProfil(b.banc.url, 'lou', 'Lou')
+  const id = (await lire(b, lou, '/api/joueur/moi?leger')).corps.profile.id as string
+  const erudit = oeuvresDeLaSalle('erudit').filter(o => !OEUVRES_DE_DEPART.includes(o.cle))
+  const aAcheter = erudit.find(o => o.rarete === 'commun')!
+  const lignes = erudit.filter(o => o.cle !== aAcheter.cle).map(o => `('${id}', '${o.cle}', 'partie', 0, NULL, NULL)`)
+  aLaMain(b.fichier, `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, doree_le, dorure) VALUES ${lignes.join(', ')}`)
+  const prix = PRIX_D_UNE_OEUVRE[aAcheter.rarete]
+  aLaMain(b.fichier, `INSERT INTO cabinet_profils (profile_id, poussiere, cree_le, maj_le) VALUES ('${id}', ${prix}, 0, 0)`)
+  assert.equal(ok(await laPage(b, lou), 'la page de Lou').reveil, undefined, 'la salle n’est pas encore complète')
+  const { api } = await import(url('api.ts'))
+  const { nicheApresLeReveil } = (await import(url('views/CabinetApp.tsx'))) as { nicheApresLeReveil: (p: Pick<PageDuCabinet, 'reveil'>) => Promise<void> }
+  const niche = (await import(url('niche.ts'))) as { nicheActuelle: () => { compagnon: string; rang: number } | null }
+  const avant = globalThis.fetch
+  // La page parle au serveur par des adresses relatives, avec son cookie : le banc les lui prête.
+  globalThis.fetch = ((u: string, init: RequestInit = {}) => avant(`${b.banc.url}${u}`, { ...init, headers: { ...(init.headers as object), Cookie: lou } })) as typeof fetch
+  try {
+    const achetee = (await api.cabinet.acheter(aAcheter.cle, prix)) as PageDuCabinet
+    assert.deepEqual(achetee.reveil, { gardiens: [{ legendaire: GARDIENS_DES_SALLES.erudit[0], neuf: true }], compagnon: COMPAGNON_DE_L_EXPEDITION })
+    assert.notEqual(niche.nicheActuelle()?.compagnon, COMPAGNON_DE_L_EXPEDITION, 'la niche de la page ne la connaît pas encore')
+    // La page relit le profil léger, comme une fin de partie : le serveur l'a installée dans la niche vide (`offrirUnCompagnon`).
+    await nicheApresLeReveil(achetee)
+    assert.equal(niche.nicheActuelle()?.compagnon, COMPAGNON_DE_L_EXPEDITION)
+    assert.equal(niche.nicheActuelle()?.rang, 0)
+    // Une page sans luciole ne relit rien.
+    let lus = 0
+    const compter = globalThis.fetch
+    globalThis.fetch = ((u: string, init?: RequestInit) => (lus++, compter(u, init))) as typeof fetch
+    await nicheApresLeReveil({ reveil: { gardiens: [{ legendaire: 'lg:phenix', neuf: true }] } })
+    await nicheApresLeReveil({})
+    assert.equal(lus, 0)
+  } finally {
+    globalThis.fetch = avant
+  }
+  // Chaque page neuve qui la porte la fait relire : celle d'un achat, d'une dorure, de la partie d'hier close.
+  assert.match(source('views/CabinetApp.tsx'), /if \(p\.reveil\) setReveil\(r => fondreDesReveils\(r, p\.reveil\)\)\s+void nicheApresLeReveil\(p\)/)
 })

@@ -12518,6 +12518,8 @@ body.avec-niche .exp-haut-du-depart,
 body.avec-niche .cab-page > .piece-tete,
 body.avec-niche .cab-page .cab-bilan-tete > .piece-tete,
 body.avec-niche .cab-tete-ligne { padding-right: var(--niche-place); }
+/* Au Cabinet, le chrono de la tête passe sous la ligne des manches, au bas de la niche : ses secondes s'y cachaient, à chaque manche. */
+body.avec-niche .cab-tete-partie .timer { padding-right: var(--niche-place); }
 /* Au Cabinet, la peinture levée et le cadre vide en grand suivent « ← Le Rempart » : leur coin haut passait sous le bas de la niche. */
 body.avec-niche .cab-page > .cab-oeuvre-levee,
 body.avec-niche .cab-page > .cab-cadre-grand { margin-top: 10px; }

@@ -224,26 +224,46 @@ function MancheDuMot({ montree: m, local }: PropsDUneManche<MotMontre, LocalDuMo
   )
 }
 
-/** Le clavier de l'ordinateur ne tape pas dans un champ, ni sous un dialogue ; « Entrée » sur un autre bouton est à ce bouton. */
-function pourLeClavier(e: KeyboardEvent): 'tout' | 'sans-entree' | null {
-  if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return null
-  if (document.querySelector('[aria-modal="true"]')) return null
-  const cible = e.target instanceof Element ? e.target : null
+/**
+ * Une touche de l'ordinateur tape-t-elle au Mot ? Ni avec Ctrl, Cmd ou Alt (un
+ * raccourci du navigateur), ni dans un champ, ni sous un dialogue ouvert
+ * (« Quitter ? », « Signaler une erreur ») ; sur un autre bouton ou un lien,
+ * les lettres passent mais « Entrée » reste à lui — « Signaler », « Quitter »
+ * auraient validé le mot. Pur : la cible et le dialogue se lisent sur
+ * l'événement, par qui l'écoute.
+ */
+export function pourLeClavier(
+  e: Pick<KeyboardEvent, 'ctrlKey' | 'metaKey' | 'altKey' | 'defaultPrevented'>,
+  cible: Pick<Element, 'closest'> | null,
+  dialogueOuvert: boolean,
+): 'tout' | 'sans-entree' | null {
+  if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || dialogueOuvert) return null
   if (cible?.closest('input, textarea, select, [contenteditable="true"]')) return null
   if (cible?.closest('button, a') && !cible.closest('.cab-clavier')) return 'sans-entree'
   return 'tout'
 }
 
 /**
+ * La demi-seconde de garde qu'attend une touche de l'écran. Une lettre et
+ * « Effacer », celle d'un écran neuf seulement (`gardeDeLEcran`) : « Manche
+ * suivante » était à la même place, et le second toucher d'un double tapait
+ * une lettre ; mais chaque essai rend une vue neuve, et qui commençait le mot
+ * suivant dès les couleurs perdait ses premières lettres sans un mot.
+ * « Valider », la garde de chaque vue neuve (`garde`) : touché deux fois, il
+ * redisait la longueur sur la ligne que l'essai venait de vider.
+ */
+export function laGardeDeLaTouche(quoi: string): 'ecran' | 'vue' {
+  return quoi === 'valider' ? 'vue' : 'ecran'
+}
+
+/**
  * Le clavier collé au bas de l'écran : trois rangées de 44 px, « Effacer » et
  * « Valider » aux deux bouts de la dernière. Chaque touche au lever du doigt
- * (`toucher`) et sous la demi-seconde de garde (`garde`) — « Manche
- * suivante » était à la même place : le second toucher d'un double tapait une
- * lettre. Deux lettres de suite, elles, passent : « LL » se tape. « Valider »
- * attend la ligne pleine ; touché trop tôt, il dit la longueur, et rien ne part
- * au serveur.
+ * (`toucher`) et sous sa demi-seconde de garde (`laGardeDeLaTouche`). Deux
+ * lettres de suite passent : « LL » se tape. « Valider » attend la ligne
+ * pleine ; touché trop tôt, il dit la longueur, et rien ne part au serveur.
  */
-function ClavierDuMot({ montree: m, local, setLocal, envoyer, garde, busy }: PropsDUneManche<MotMontre, LocalDuMot>) {
+function ClavierDuMot({ montree: m, local, setLocal, envoyer, garde, gardeDeLEcran, busy }: PropsDUneManche<MotMontre, LocalDuMot>) {
   const touches = etatDesTouches(m.essais)
   // Ce que tient la ligne au moment du geste : deux touches entre deux rendus partaient de la même ligne, et la première se perdait.
   const ligne = useRef(local)
@@ -253,7 +273,7 @@ function ClavierDuMot({ montree: m, local, setLocal, envoyer, garde, busy }: Pro
     setLocal(l)
   }
   const agir = (quoi: string, auDoigt: boolean) => {
-    if (busy || (auDoigt && !garde())) return
+    if (busy || (auDoigt && !(laGardeDeLaTouche(quoi) === 'vue' ? garde : gardeDeLEcran)())) return
     if (quoi === 'effacer') return poser(effacer(m, ligne.current))
     if (quoi !== 'valider') return poser(taper(m, ligne.current, quoi))
     const essai = essaiDe(m, ligne.current)
@@ -265,7 +285,7 @@ function ClavierDuMot({ montree: m, local, setLocal, envoyer, garde, busy }: Pro
   // Le clavier de l'ordinateur, le temps de la manche : une lettre, « Retour arrière », « Entrée ».
   useEffect(() => {
     const clavier = (e: KeyboardEvent) => {
-      const ici = pourLeClavier(e)
+      const ici = pourLeClavier(e, e.target instanceof Element ? e.target : null, !!document.querySelector('[aria-modal="true"]'))
       if (!ici) return
       const quoi = lettreDuClavier(e.key) ?? (e.key === 'Backspace' ? 'effacer' : e.key === 'Enter' && ici === 'tout' ? 'valider' : null)
       if (!quoi) return
@@ -278,6 +298,8 @@ function ClavierDuMot({ montree: m, local, setLocal, envoyer, garde, busy }: Pro
   const complet = essaiDe(m, local) !== null
   return (
     <>
+      {/* La phrase même du refus du serveur (`shared/cabinet/jeux/mot.ts`), recopiée tant que sa règle ne l'exporte pas :
+          `cabinet-ecran.test.ts` la compare au refus d'un essai trop court, par la route. */}
       {local.dit && !complet && (
         <p className="cab-raison cab-longueur" role="status">
           {`Il faut ${m.longueur} lettres`}
@@ -343,7 +365,8 @@ export const MOT: JeuALEcran<MotMontre, MotRevele, LocalDuMot> = {
   // une autre question. Une lettre soufflée ne la change pas : ce qu'il avait tapé reste sous ses yeux.
   cleDe: m => `${m.texte}|${m.longueur}|${m.essais.length}`,
   aLEcheance: () => undefined,
-  // Pas de `sousEcranDe` : une lettre tapée ne bouge rien sous le doigt, et chaque essai rend une vue neuve, que le cadre garde.
+  // Pas de `sousEcranDe` : une lettre tapée ne bouge rien sous le doigt, et chaque essai rend une vue neuve, que le cadre garde —
+  // pour « Valider » et la carte-bonus ; les lettres n'attendent qu'un écran neuf (`laGardeDeLaTouche`).
   Manche: MancheDuMot,
   Pied: ClavierDuMot,
   Revelation: RevelationDuMot,
