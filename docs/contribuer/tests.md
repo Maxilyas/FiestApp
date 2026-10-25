@@ -42,7 +42,7 @@ node --import tsx --test --test-name-pattern="panne" test/miroir.test.ts    # le
 
 ### Le test de bout en bout
 
-`npm run smoke` lance `server/scripts/smoke.ts` : un seul `try`, et la première assertion fausse écrit `❌` et sort en code 1 — rien de ce qui suit n'est joué. Au bout, « ✅ Smoke test OK — 41 étapes ». Il neutralise l'Éclat, ferme le calendrier des soirées, démarre huit serveurs (administrateur `antoine` / `smoke-pass-1`, espace `smoke`) et laisse ses dossiers `quizz-smoke-*` et `quizz-legacy-*` dans le dossier temporaire du système.
+`npm run smoke` lance `server/scripts/smoke.ts` : un seul `try`, et la première assertion fausse écrit `❌` et sort en code 1 — rien de ce qui suit n'est joué. Au bout, « ✅ Smoke test OK — 41 étapes ». Il neutralise l'Éclat, ferme les calendriers de saison (des soirées, des expéditions, du Cabinet), démarre huit serveurs (administrateur `antoine` / `smoke-pass-1`, espace `smoke`) et laisse ses dossiers `quizz-smoke-*` et `quizz-legacy-*` dans le dossier temporaire du système.
 
 | § | Ce qu'elle joue |
 |---|---|
@@ -69,7 +69,7 @@ Trois modules de `server/test/` ne sont pas des tests.
 - `demarrer(options)` passe ses options au serveur (`QuizServerOptions`, `server/src/server.ts` : `clientDist`, `baseDeLaCampagne`, `horlogeDuJour`, `miroir`, `rappels`…) et rend `{ url, server, dir, dbPath, quizDbUrl, redemarrer, close }`. `redemarrer({ disqueEfface: true })` rejoue le réveil de l'hébergeur — la base locale effacée, la permanente gardée, le même port ; `close()`, dans un `after()`, ferme tout et efface le dossier.
 - Parler : `connecter`, `instantane` (le dernier instantané reçu qui convient, ou le prochain), `emitAck` (l'accusé, 5 s au plus), `attendre` (un événement, 8 s au plus), `ecrire` (avec l'en-tête `X-Requested-With: quizz`), `cookieDe`, `connexionAnimateur`, `inscrireProfil`.
 - Préparer : `qcm`, `estimation`, `creerQuiz`, `ecranCommun`, `invite` (anonyme, profil, jeton qui se re-présente, hors classement), `lancerQuiz` (la première question trois secondes après), `patienter`, et `baseDEssai(n, …)`, une petite base de campagne valide.
-- Son administrateur : `antoine` / `banc-pass-1`, espace `banc`. Il ferme le calendrier des soirées dès son import ; il ne touche pas à l'Éclat.
+- Son administrateur : `antoine` / `banc-pass-1`, espace `banc`. Il ferme les calendriers de saison dès son import — des soirées, des expéditions, du Cabinet ; il ne touche pas à l'Éclat.
 
 Les scripts de rendu et `server/scripts/mesure-pages.ts` démarrent leur serveur par lui.
 
@@ -155,7 +155,7 @@ Un écran se teste rendu : pose `React` sur `globalThis` avant d'importer le com
 - **On compte, on ne chronomètre pas** : une machine chargée ferait échouer qui mesure des millisecondes. `server/test/grande-salle.test.ts` compte vues, écritures et messages, `server/test/jour-charge.test.ts` les allers-retours vers le fichier qui tient lieu de Turso ; les bornes de temps qui restent sont larges — un calcul (`server/test/protocole.test.ts`, au meilleur de trois essais) ou un délai qui doit tomber (`server/test/liaison-morte.test.ts`).
 - **L'instantané arrive juste derrière l'accusé** de `host:hello` ou de `party:watch`, souvent dans le même paquet : un écouteur posé après l'accusé le rate. Lis-le par `instantane()`.
 - **L'Éclat est un tirage** (`CHANCE_ECLAT`, et ses cousins du jour et du défi) dont le premier fait tomber un palier : un test qui compte l'expérience au point près neutralise `ProfileStore.tirageEclat`, ou il échoue une fois sur quarante. Le smoke le fait, pas le banc.
-- **Le calendrier aussi** : close pendant Halloween, Noël ou le Nouvel An, une soirée ouvrait son légendaire de saison, et la CI aurait rougi dix-neuf jours par an. Le banc et le smoke ferment le calendrier des soirées (`calendrierDesSoirees`, `server/src/core/saisons.ts`) ; `server/test/saisons.test.ts` le rouvre.
+- **Le calendrier aussi** : close pendant Halloween, Noël ou le Nouvel An, une soirée ouvrait son légendaire de saison, et la CI aurait rougi dix-neuf jours par an. Le banc et le smoke ferment chaque calendrier de `server/src/core/saisons.ts` — des soirées (`calendrierDesSoirees`), des expéditions (`calendrierDesExpeditions`) et du Cabinet (`calendrierDuCabinet`, né le 25 octobre 2026, premier jour d'Halloween : la première œuvre gagnée pendant la fête réveille son gardien) ; `server/test/saisons.test.ts` et `server/test/expedition-saison.test.ts` rouvrent le leur. Un calendrier de plus se ferme aux deux bouts, ce que `server/test/calendrier.test.ts` vérifie.
 - **Un joueur seul ne rapporte rien** : un figurant au moins pour de l'expérience, quatre joueurs pour des hauts faits. Deux bonnes réponses font un réflexe au plus rapide, à la milliseconde : qui compte au point près fait se tromper l'autre.
 - **Un banc qui vit plus de vingt secondes lit la vraie base de la campagne** en fond, sauf `baseDeLaCampagne` (souvent `baseDEssai(…)`), que toute épreuve de la campagne donne : celle du dépôt grandit à chaque lot.
 - **Simuler une panne** : un déclencheur `RAISE(ABORT)` sur le fichier de la base permanente (`server/test/miroir.test.ts`, `server/test/retrait.test.ts`) ; un démarrage, un SIGTERM ou le paquet construit, en processus enfant (`server/test/exploitation.test.ts`) ; un SIGKILL après une révélation (`server/test/miroir.test.ts`) ; une liaison morte, par le relais.
@@ -171,7 +171,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/notes-pour-claude.test.ts` — `CLAUDE.md` sous 200 lignes et 24 000 caractères, l'en-tête `paths:` de chaque règle, la carte, les fichiers cités.
 - `server/test/documentation.test.ts` — `README.md` et `docs/` relus contre le code : fichiers cités, liens, sommaire, `npm run`, et la référence des routes, événements, variables, tables, adresses et barèmes.
 - `server/test/vitrine.test.ts` — la vitrine publiée telle quelle sur GitHub Pages : chaque image et chaque lien dans le site, et l'aperçu d'un lien partagé publié avec la page, à la taille dite, sous 300 Ko.
-- `server/test/calendrier.test.ts` — la suite ne dépend pas du jour où elle tourne.
+- `server/test/calendrier.test.ts` — la suite ne dépend pas du jour où elle tourne : chaque calendrier de saison fermé au banc et au smoke, ouvert partout ailleurs.
 - `server/test/emojis.test.ts` — aucun emoji postérieur à Unicode 12 dans le client, `shared/`, `server/src/` et `server/content/`.
 - `server/test/divins.test.ts` — les Divins rares, et leurs règles hors du navigateur, des réponses d'API, de l'étagère et de la documentation.
 

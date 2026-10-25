@@ -35,6 +35,19 @@ export const calendrierDesSoirees: { periodeDu: typeof periodeDu } = { periodeDu
 export const calendrierDesExpeditions: { periodeDu: typeof periodeDu } = { periodeDu }
 
 /**
+ * Le calendrier du Cabinet de curiosités : la saison d'une œuvre gagnée en
+ * jouant, au jour de Paris de la fin de sa partie — la première de la fête
+ * réveille son gardien (la Citrouille, le Sapin, le Bouquet). Un achat, une
+ * dorure, une œuvre rapportée de l'Expédition ne le lisent jamais. Le sien,
+ * pas celui des expéditions : il survivra à leur départ fermé, et un test
+ * qui rouvre l'un ne doit pas réveiller l'autre. Le banc et le smoke le
+ * ferment avec les deux autres — Halloween commence le 25 octobre 2026, et
+ * sans eux, chaque épreuve qui gagne une œuvre ces jours-là réveillerait la
+ * Citrouille ; un test qui date ses parties lui-même le rouvre.
+ */
+export const calendrierDuCabinet: { periodeDu: typeof periodeDu } = { periodeDu }
+
+/**
  * Les récompenses de saison d'une soirée, profil par profil. Elle se date à
  * sa première question jouée, comme son nom (`soireeDesInvites`) : l'heure
  * de Paris, que le quiz du jour suit aussi.

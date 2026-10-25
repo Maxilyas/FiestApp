@@ -13,8 +13,19 @@
 // `saisons.test.ts`, qui date ses soirées lui-même, le rouvre. Ici, une
 // soirée redatée du soir d'Halloween — ce que ferait l'horloge le 31 octobre —
 // ne doit rien ouvrir.
+//
+// Chaque mode qui lit une saison a le sien, le Cabinet de curiosités
+// compris : la première œuvre gagnée pendant une fête y réveille son gardien.
+// Son calendrier est né le 25 octobre 2026, premier jour d'Halloween. Le banc
+// et le smoke ferment donc chaque calendrier de `core/saisons.ts` — un
+// oublié, et chaque épreuve qui gagne une œuvre ces jours-là réveillerait la
+// Citrouille —, et rien d'autre ne les ferme : en ligne, ils suivent
+// `shared/saisons.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 import {
   attendre,
@@ -30,14 +41,56 @@ import {
   type Socket,
 } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
-import { calendrierDesSoirees } from '../src/core/saisons'
+import * as saisons from '../src/core/saisons'
+import { calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
 
 ProfileStore.tirageEclat = () => false
+
+/** Les calendriers de `core/saisons.ts` : chaque `{ periodeDu }` qu'il exporte, celui d'un mode à venir compris. */
+const CALENDRIERS = Object.keys(saisons).filter(nom => nom.startsWith('calendrier'))
 
 test('sous le banc, le calendrier des soirées est fermé', () => {
   assert.equal(calendrierDesSoirees.periodeDu('2026-10-31'), null)
   assert.equal(calendrierDesSoirees.periodeDu('2026-12-24'), null)
   assert.equal(calendrierDesSoirees.periodeDu('2027-01-01'), null)
+})
+
+test('sous le banc, le calendrier du Cabinet est fermé', () => {
+  for (const jour of ['2026-10-25', '2026-10-31', '2026-11-01', '2026-12-24', '2027-01-01']) {
+    assert.equal(calendrierDuCabinet.periodeDu(jour), null, `le ${jour}, aucune œuvre du banc ne réveille son gardien`)
+  }
+})
+
+test('le banc et le smoke ferment chaque calendrier de core/saisons.ts', () => {
+  assert.ok(CALENDRIERS.includes('calendrierDuCabinet'), `les calendriers lus : ${CALENDRIERS.join(', ')}`)
+  // Le smoke ne lance pas le banc : il ferme les siens à son début, une ligne chacun.
+  const smoke = readFileSync(new URL('../scripts/smoke.ts', import.meta.url), 'utf8')
+  for (const nom of CALENDRIERS) {
+    const calendrier = (saisons as Record<string, unknown>)[nom] as { periodeDu: (jour: string) => unknown }
+    assert.equal(calendrier.periodeDu('2026-10-31'), null, `le banc ferme ${nom}`)
+    // `ok` plutôt que `match` : en échec, la phrase seule, pas les 130 Ko du smoke.
+    assert.ok(new RegExp(`^${nom}\\.periodeDu = \\(\\) => null$`, 'm').test(smoke), `le smoke ferme ${nom} à son début`)
+  }
+})
+
+test('hors du banc, chaque calendrier suit les dates de shared/saisons.ts', () => {
+  // Le banc les ferme tous à son import : ce qu'ils valent en ligne se lit
+  // dans un processus qui ne l'a pas chargé. Un calendrier fermé dans le code
+  // même ne ferait plus tomber une seule Citrouille, et aucune épreuve sous
+  // le banc ne le verrait.
+  const script = `
+    const saisons = await import(${JSON.stringify(new URL('../src/core/saisons.ts', import.meta.url).href)})
+    const lus = Object.entries(saisons)
+      .filter(([nom]) => nom.startsWith('calendrier'))
+      .map(([nom, c]) => [nom, c.periodeDu('2026-10-25')?.saison.key ?? null, c.periodeDu('2026-10-24')?.saison.key ?? null])
+    process.stdout.write(JSON.stringify(lus))
+  `
+  const sortie = execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '--eval', script], {
+    cwd: fileURLToPath(new URL('..', import.meta.url)),
+    encoding: 'utf8',
+  })
+  // Le 25 octobre ouvre Halloween ; la veille, rien.
+  assert.deepEqual(JSON.parse(sortie), CALENDRIERS.map(nom => [nom, 'halloween', null]))
 })
 
 test('une soirée close le soir d’Halloween n’ouvre pas la Citrouille dans une épreuve', async () => {

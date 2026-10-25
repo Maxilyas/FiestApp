@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createQuizServer, type QuizServerOptions } from '../src/server'
-import { calendrierDesExpeditions, calendrierDesSoirees } from '../src/core/saisons'
+import { calendrierDesExpeditions, calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
 import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { Categorie } from '../../shared/categories'
@@ -24,9 +24,13 @@ export type { Socket }
 // épreuve qui compte ce qui tombe à la clôture échouerait dix-neuf jours par
 // an. Le banc ferme le calendrier des soirées ; `saisons.test.ts` le rouvre.
 // Celui des expéditions aussi, qui mettrait le légendaire de la saison au
-// bout de l'acte 3 ; `expedition-saison.test.ts` le rouvre.
+// bout de l'acte 3 ; `expedition-saison.test.ts` le rouvre. Et celui du
+// Cabinet, où la première œuvre gagnée pendant la fête réveillerait la
+// Citrouille — du 25 octobre au 1er novembre 2026, dès son premier jour.
+// `calendrier.test.ts` vérifie que chacun est fermé, ici et au smoke.
 calendrierDesSoirees.periodeDu = () => null
 calendrierDesExpeditions.periodeDu = () => null
+calendrierDuCabinet.periodeDu = () => null
 
 /**
  * Une petite base de campagne, inventée et valide (`lireQuestionDeLaBase`) :

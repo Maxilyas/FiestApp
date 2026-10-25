@@ -69,9 +69,14 @@ paths:
   **Le calendrier aussi** : une soirée se date à l'horloge de la machine, et
   close pendant Halloween, Noël ou le Nouvel An, elle ouvrait son légendaire
   de saison — la CI rougissait dix-neuf jours par an. `banc.ts` et
-  `smoke.ts` ferment donc le calendrier des soirées (`calendrierDesSoirees`,
-  `core/saisons.ts`) ; un test qui date ses soirées lui-même le rouvre
-  (`saisons.test.ts`).
+  `smoke.ts` ferment donc chaque calendrier de `core/saisons.ts` : celui des
+  soirées (`calendrierDesSoirees`), des expéditions — la fête sur les cartes,
+  son légendaire à l'acte 3 — et du Cabinet (`calendrierDuCabinet`, né le
+  25 octobre 2026, premier jour d'Halloween : la première œuvre gagnée
+  pendant la fête réveille son gardien). Un test qui date ses parties
+  lui-même rouvre le sien (`saisons.test.ts`, `expedition-saison.test.ts`) ;
+  un calendrier de plus se ferme aux deux bouts, une ligne chacun, ce que
+  `calendrier.test.ts` vérifie — et qu'il reste ouvert hors du banc.
 - **Les journaux en mémoire ne relisent que ce qui arrive.** Le banc lit
   les duels sans délai (`fraicheurDesDuelsMs: 0`, `banc.ts`) : une série
   écrite à la main y paraît à la lecture suivante, comme une réponse au
