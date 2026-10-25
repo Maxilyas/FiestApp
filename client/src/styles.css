@@ -10554,11 +10554,12 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-voile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 300px; padding: 24px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--bg-raised); color: var(--muted); text-align: center; }
 .cab-voile .icon { width: 36px; height: 36px; color: var(--accent-text); }
 .cab-voile b { color: var(--ink); font-family: var(--serif); font-size: 1.6rem; }
+.cab-voile .btn { margin-top: 8px; min-width: 60%; }
 
 /* La révélation : ses étoiles en grand, ce qui s'est passé, puis le corps du jeu, corrigé comme en série. Les pièces partagées
    qu'elle pose — le bandeau, « Le savais-tu ? », le corrigé, « Signaler » — à la taille du Cabinet. */
 .cab-etoiles-manche .sentier-etoiles-grandes svg { width: 34px; height: 34px; }
-.cab-titre-revele { font-family: var(--serif); font-size: 1.6rem; font-weight: 700; line-height: 1.15; }
+.cab-titre-revele { font-family: var(--serif); font-size: 1.6rem; font-weight: 700; line-height: 1.15; font-variant-numeric: lining-nums; }
 .cab-note { color: var(--accent-text); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
 .cab-page .result-banner p { font-size: 1.0625rem; }
 .cab-page .anecdote { font-size: 1.0625rem; }

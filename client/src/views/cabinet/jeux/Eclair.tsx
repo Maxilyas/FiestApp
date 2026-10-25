@@ -107,6 +107,8 @@ export const ECLAIR: JeuALEcran<EclairMontre, EclairRevele, LocalDeLEclair> = {
   aLEcheance: (_m, l) => ({ eclair: { reponses: [...l.reponses] } }),
   cibleDEclairer: (_m, l) => l.ici,
   aJoueSurPlace: (_m, l) => l.reponses.some(r => r !== null),
+  // L'affirmation sous les yeux change sous les mêmes « Faux » et « Vrai » : le cadre y relance la demi-seconde de garde.
+  sousEcranDe: (_m, l) => String(l.ici),
   Manche: MancheDeLEclair,
   Revelation: RevelationDeLEclair,
 }

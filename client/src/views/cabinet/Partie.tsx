@@ -18,7 +18,7 @@ import { showToast } from '../../state'
 import { toucher } from '../../toucher'
 import { SIGNALEMENT_MAX } from '../../../../shared/campagne'
 import { gesteAccepte } from '../../../../shared/console'
-import { reactionDuSolo } from '../../../../shared/niche'
+import { reactionDuSolo, type ReactionALaRevelation } from '../../../../shared/niche'
 import { ETOILES_D_UNE_JUSTE, ETOILES_D_UNE_PARTIE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
 import type { CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { POUVOIRS, refusDuPouvoir, type CleDePouvoir } from '../../../../shared/cabinet/pouvoirs'
@@ -82,6 +82,13 @@ export interface JeuALEcran<M, R, L> {
   cibleDEclairer?(m: M, l: L): number | undefined
   /** Un geste fait sur place, que le serveur ne connaît pas encore : « Changer » vient avant (l'Éclair, une réponse donnée). */
   aJoueSurPlace?(m: M, l: L): boolean
+  /**
+   * Ce qui change sous le doigt sans que la vue change : l'affirmation de
+   * l'Éclair, sous les mêmes « Faux » et « Vrai ». Le cadre y relance la
+   * demi-seconde de garde — un double toucher répondait aussi à l'affirmation
+   * suivante, sans qu'on l'ait lue.
+   */
+  sousEcranDe?(m: M, l: L): string
   Manche(p: PropsDUneManche<M, L>): ReactNode
   Revelation(p: { corps: R }): ReactNode
 }
@@ -143,8 +150,53 @@ export function messageDuQuitter(vue: Pick<VueDeLaPartie, 'origine'>, o: { pause
     vue.origine === 'libre'
       ? 'Elle compte avec ses étoiles.'
       : `La partie compte avec les étoiles déjà gagnées, et ${vue.origine === 'chasse' ? 'ta chasse est utilisée' : 'cette partie de la visite est faite'}.`
-  const chrono = o.pauseMs !== undefined && o.pauseMs > 0 ? ` Le chrono t’attend ${Math.round(o.pauseMs / 1000)} secondes au plus, la manche cachée.` : o.refus ? ` ${o.refus}.` : ''
+  const chrono = o.pauseMs !== undefined && o.pauseMs > 0 ? ` Le chrono t’attend ${secondesAuPlus(o.pauseMs)} au plus, la manche cachée.` : o.refus ? ` ${o.refus}.` : ''
   return { titre: vue.origine === 'libre' ? 'Quitter cette partie ?' : 'Quitter ?', message: compte + chrono }
+}
+
+/** Ce qui reste de pause, en secondes entières vers le haut : arrondies, 300 ms se lisaient « 0 secondes », et une seule « 1 secondes ». */
+function secondesAuPlus(ms: number): string {
+  const s = Math.max(1, Math.ceil(ms / 1000))
+  return `${s} seconde${s > 1 ? 's' : ''}`
+}
+
+/**
+ * La vue `b` remplace-t-elle `a` ? Jamais une plus ancienne : deux réponses
+ * se croisent — un geste et la page relue au retour au premier plan, la
+ * réponse « auto » et un toucher —, et la dernière arrivée n'est pas toujours
+ * la plus récente. Le rang d'abord ; à rang égal, l'heure où le serveur l'a
+ * dite (une pause qui s'écoule ne change pas le rang).
+ */
+export function plusRecente(a: Pick<VueDeLaPartie, 'rang' | 'maintenant'>, b: Pick<VueDeLaPartie, 'rang' | 'maintenant'>): boolean {
+  return b.rang > a.rang || (b.rang === a.rang && b.maintenant >= a.maintenant)
+}
+
+/**
+ * La réponse partie d'elle-même à l'échéance, « Quitter ? » ouvert, a-t-elle
+ * tourné la page sous lui ? Arrivée, elle a fermé la pause (§ 2.7) : la
+ * manche tranchée, ou l'étape suivante ouverte — à la Réplique, « Qui l'a
+ * dit ? » —, la confirmation ne promet plus rien de vrai (« le chrono
+ * t'attend, la manche cachée »), et « Continuer » n'aurait plus de pause à
+ * reprendre : elle se ferme. Revenue sur la même étape (passée : l'autre
+ * onglet l'a rejouée), elle reste ouverte.
+ */
+export function laReponseTourneLaPage(avant: VueDeLaPartie, apres: VueDeLaPartie): boolean {
+  if (apres.phase !== 'jouer' && apres.phase !== 'pause') return true
+  return apres.manche !== avant.manche || etapeDe(apres) !== etapeDe(avant)
+}
+
+/**
+ * Ce que la révélation fête (§ 3.0). La niche dit ce que le journal retient :
+ * la pièce juste dès deux étoiles naturelles (D3) nourrit le compagnon, quoi
+ * qu'en fassent les pouvoirs — ravie, dépitée à zéro, calme à une. La gerbe
+ * ne fête que ce que le bandeau fête : une juste qu'il dit à deux étoiles et
+ * plus. Ni une mise perdue (une juste, zéro étoile : la gerbe éclatait sur un
+ * bandeau rouge), ni une manche que Protéger porte d'une étoile à deux (pas
+ * une juste : elle ne paie pas un confetti de plus, § 4.2).
+ */
+export function ceQueFeteLaRevelation(naturel: number, etoiles: number): { gerbe: boolean; niche: ReactionALaRevelation } {
+  const juste = naturel >= ETOILES_D_UNE_JUSTE
+  return { gerbe: juste && etoiles >= ETOILES_D_UNE_JUSTE, niche: reactionDuSolo(juste ? true : naturel === 0 ? false : null) }
 }
 
 // ── Les pièces du cadre ───────────────────────────────────────────────────
@@ -262,13 +314,25 @@ export function MiserOuPas({ vue, manche, busy, onMiser }: { vue: VueDeLaPartie;
   )
 }
 
-/** Sous la confirmation de « Quitter ? », la manche se cache : la pause n'achète pas de temps pour chercher (D10). */
-function VoileDeLaPause() {
+/**
+ * Sous la confirmation de « Quitter ? », la manche se cache : la pause n'achète
+ * pas de temps pour chercher (D10). Une pause sans question — la page
+ * rechargée sous « Quitter ? » puis reprise du musée, « Continuer » perdu en
+ * route, la pause écrite dont la réponse s'est perdue — a son « Continuer »
+ * sous le voile (`onReprendre`) : sans lui, la manche restait cachée, sans un
+ * bouton, jusqu'à son échéance, et ne valait rien.
+ */
+export function VoileDeLaPause({ busy = false, onReprendre }: { busy?: boolean; onReprendre?: () => void }) {
   return (
     <div className="cab-voile" role="note">
       <Icon name="pause" />
       <b>En pause</b>
-      <span>{espacesFines('La manche se cache le temps de ta réponse.')}</span>
+      <span>{espacesFines(onReprendre ? 'Ta manche t’attend, cachée.' : 'La manche se cache le temps de ta réponse.')}</span>
+      {onReprendre && (
+        <button type="button" className="btn btn-primary btn-big" aria-disabled={busy || undefined} {...toucher(() => !busy && onReprendre())}>
+          Continuer
+        </button>
+      )}
     </div>
   )
 }
@@ -280,18 +344,17 @@ const ceQuOnSignale = (positions: readonly number[], i: number) => (positions.le
  * La révélation d'une manche (§ 3.0) : ses étoiles et pourquoi elles
  * diffèrent (« +4 : mise gagnée »), un titre qui dit ce qui s'est passé, le
  * corps de son jeu, « Le savais-tu ? », « Signaler une erreur » pour les
- * seules questions de la base. La niche la dit — ravie à deux étoiles et
- * plus, dépitée à zéro, calme à une —, et la gerbe éclate à deux et plus.
+ * seules questions de la base. La niche et la gerbe la fêtent, chacune ce
+ * qu'elle sait (`ceQueFeteLaRevelation`).
  */
 export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: { vue: VueDeLaPartie; revelation: RevelationVue; ecran: EcranEfface; onSignaler: (position: number) => void }) {
   const m = vue.manches[r.manche]
   const etoiles = m?.etoiles ?? 0
-  const naturel = m?.naturel ?? 0
-  const juste = naturel >= ETOILES_D_UNE_JUSTE
+  const fete = ceQueFeteLaRevelation(m?.naturel ?? 0, etoiles)
   return (
     <>
       <div className={'card result-banner ' + (etoiles > 0 ? 'result-ok' : 'result-ko')} role="status">
-        <NicheALaRevelation cle={`cabinet:${vue.id}:${r.manche}`} reaction={reactionDuSolo(juste ? true : naturel === 0 ? false : null)} />
+        <NicheALaRevelation cle={`cabinet:${vue.id}:${r.manche}`} reaction={fete.niche} />
         <span className="big cab-etoiles-manche">
           <Etoiles n={Math.min(3, etoiles)} grandes />
         </span>
@@ -299,7 +362,7 @@ export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: 
         {m?.note && <p className="cab-note">{espacesFines(m.note)}</p>}
         {r.fin === 'expiree' && <p>Temps écoulé</p>}
         {r.fin === 'quittee' && <p>Manche quittée</p>}
-        {juste && <GerbeDeJuste />}
+        {fete.gerbe && <GerbeDeJuste />}
       </div>
       <ecran.Revelation corps={r.corps} />
       {r.corps.savais && (
@@ -332,6 +395,8 @@ export interface PropsDeLEcran {
   garde: () => boolean
   onGeste: (g: GesteDuCabinet) => void
   onQuitter: () => void
+  /** La pause sans question à qui la reprendre : « Continuer » sous le voile. Absent, « Quitter ? » est ouvert et répondra. */
+  onReprendre?: () => void
   onSuivante: () => void
   onMiser: (oui: boolean) => void
   onSignaler: (position: number) => void
@@ -374,7 +439,7 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
       </button>
     )
   } else if (vue.phase === 'pause') {
-    corps = <VoileDeLaPause />
+    corps = <VoileDeLaPause busy={p.busy} onReprendre={p.onReprendre} />
   } else if (vue.enCours) {
     corps = <ecran.Manche montree={vue.enCours} local={p.local} setLocal={p.setLocal} envoyer={g => p.onGeste({ ...g, manche: vue.manche } as GesteDuCabinet)} garde={p.garde} busy={p.busy} />
     // La carte-bonus reste sous le pouce tant qu'elle peut servir ; sans carte, pas de pied, qui collait un bandeau vide au bas de l'écran.
@@ -423,6 +488,8 @@ export function Partie({
   const [bilanOuvert, setBilanOuvert] = useState(false)
   const [local, setLocalBrut] = useState<{ cle: string; valeur: unknown } | null>(null)
   const [, setTic] = useState(0)
+  // « Quitter ? » posé — la pause demandée, la confirmation ouverte, sa réponse en route — : la pause a sa question.
+  const [question, setQuestion] = useState(false)
   const ecran = useALaDemande(ecranDuJeu(depart.jeu)!)
   const bilan = useALaDemande(LE_BILAN)
   const pret = ecran && ecran !== 'perdu' ? ecran : null
@@ -431,6 +498,17 @@ export function Partie({
   const vueRef = useRef(vue)
   const enVol = useRef(false)
   const enQuestion = useRef(false)
+  const monte = useRef(true)
+
+  // Démontée « Quitter ? » ouvert — un second retour ferme la partie —, elle emporte sa question : laissée là, la confirmation
+  // restait par-dessus le musée, et « Quitter » y aurait clos une partie que la page ne montrait plus, sans la relire.
+  useEffect(() => {
+    monte.current = true
+    return () => {
+      monte.current = false
+      if (enQuestion.current) fermerLeDialogue()
+    }
+  }, [])
 
   const cleDuLocal = pret && vue.enCours ? `${vue.manche}:${pret.cleDe(vue.enCours)}` : null
   const valeur = local && local.cle === cleDuLocal ? local.valeur : pret && vue.enCours ? pret.localDe(vue.enCours) : null
@@ -442,10 +520,9 @@ export function Partie({
     setLocalBrut({ cle: cleDuLocal, valeur: v })
   }
 
-  /** La vue d'après — jamais une vue plus ancienne que celle qu'on tient : deux réponses peuvent se croiser. */
+  /** La vue d'après — jamais une vue plus ancienne que celle qu'on tient (`plusRecente`). */
   const ranger = useCallback((v: VueDeLaPartie) => {
-    const a = vueRef.current
-    if (v.rang < a.rang || (v.rang === a.rang && v.maintenant < a.maintenant)) return
+    if (!plusRecente(vueRef.current, v)) return
     vueRef.current = v
     setVue(v)
   }, [])
@@ -474,8 +551,8 @@ export function Partie({
       try {
         const r = await api.cabinet.geste(v.id, v.rang, geste)
         ranger(r.partie)
-        // Partie d'elle-même à l'échéance, la réponse tranche la manche sous la confirmation ouverte : elle se ferme.
-        if (auto && enQuestion.current) fermerLeDialogue()
+        // Partie d'elle-même à l'échéance, la réponse a tourné la page sous la confirmation ouverte : elle se ferme.
+        if (auto && enQuestion.current && laReponseTourneLaPage(v, r.partie)) fermerLeDialogue()
         // Passé : un double toucher, l'autre onglet. À l'échéance, la réponse a croisé la sienne : rien à dire.
         if (r.passe && !auto) showToast({ kind: 'info', message: r.passe })
       } catch (e) {
@@ -495,8 +572,13 @@ export function Partie({
   const changement = useRef<number | null>(null)
   const premiere = useRef(true)
   const cleDEcran = `${vue.phase}:${vue.manche}:${etapeDe(vue)}:${miser ?? ''}:${bilanOuvert}`
+  // Ce qui change sous le doigt sans changer d'écran — l'affirmation suivante de l'Éclair — relance la garde, sans défiler : les
+  // mêmes « Faux » et « Vrai » restent sous le pouce, et le second toucher d'un double répondait à une affirmation pas lue.
+  const sousLeDoigt = pret && vue.enCours ? (pret.sousEcranDe?.(vue.enCours, valeur) ?? '') : ''
   useEffect(() => {
     changement.current = performance.now()
+  }, [cleDEcran, sousLeDoigt])
+  useEffect(() => {
     if (premiere.current) {
       premiere.current = false
       return
@@ -547,6 +629,7 @@ export function Partie({
   const demanderAQuitter = useCallback(async (): Promise<IssueDuRetour> => {
     if (enQuestion.current) return 'reste'
     enQuestion.current = true
+    setQuestion(true)
     try {
       const v = vueRef.current
       let pauseMs: number | undefined
@@ -567,14 +650,23 @@ export function Partie({
       }
       const { titre, message } = messageDuQuitter(vueRef.current, { pauseMs, refus })
       const oui = await confirmDialog({ title: titre, message, confirmLabel: 'Quitter', cancelLabel: 'Continuer', danger: true })
+      // Fermée par la partie qui se démonte : rien ne part d'un écran qui n'est plus là. La partie attend au musée, en pause —
+      // « Reprendre » la rouvre sous son voile, qui a son « Continuer » —, et le chrono n'attend pas plus de trente secondes.
+      if (!monte.current) return 'parti'
       const apres = vueRef.current
       if (oui && apres.phase !== 'finie') await jouer({ quoi: 'quitter' })
       else if (!oui && apres.phase === 'pause') await jouer({ quoi: 'reprendre', manche: apres.manche })
       return vueRef.current.phase === 'finie' ? 'parti' : 'reste'
     } finally {
       enQuestion.current = false
+      setQuestion(false)
     }
   }, [ranger, jouer])
+
+  // Une pause sans question : « Continuer » sous le voile la reprend.
+  const reprendre = () => {
+    if (garde()) void jouer({ quoi: 'reprendre', manche: vueRef.current.manche })
+  }
 
   // Pendant une manche, le retour du navigateur demande lui aussi « Quitter ? » : un pouce qui glisse du bord coûtait la manche.
   // Sa garde se pose par-dessus l'entrée de la partie (`poserLEntreeDeLaPartie`), qu'elle recopie : le retour qui la consomme laisse
@@ -640,6 +732,7 @@ export function Partie({
       garde={garde}
       onGeste={agir}
       onQuitter={() => void demanderAQuitter()}
+      onReprendre={vue.phase === 'pause' && !question ? reprendre : undefined}
       onSuivante={suivante}
       onMiser={oui => void decider(oui)}
       onSignaler={position => void signaler(position)}

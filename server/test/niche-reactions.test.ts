@@ -208,8 +208,9 @@ test('chaque écran de révélation la dit à la niche, et chaque réponse lui f
     'views/Sentiers.tsx': { revelations: 1, souffles: 1 },
     'views/Parcours.tsx': { revelations: 1, souffles: 1 },
     'views/ExpeditionApp.tsx': { revelations: 1, souffles: 1 },
-    // Le Cabinet : le cadre d'une manche révèle pour tous ses jeux, et retient le souffle au seul geste qui envoie une réponse —
-    // touchée, ou partie d'elle-même à l'échéance. Ses jeux n'en disent rien : ils envoient leurs gestes par lui (plus bas).
+    // Le Cabinet : le cadre d'une manche révèle pour tous ses jeux, et retient le souffle au geste qui tranche la manche — une
+    // réponse, touchée ou partie d'elle-même à l'échéance, ou les étoiles gardées du Pari. Ses jeux n'en disent rien : ils envoient
+    // leurs gestes par lui (plus bas).
     'views/cabinet/Partie.tsx': { revelations: 1, souffles: 1 },
   }
   for (const [fichier, attendu] of Object.entries(ecrans)) {

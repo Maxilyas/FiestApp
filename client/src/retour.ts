@@ -27,7 +27,23 @@ const GARDE = 'fiestappGarde'
 /** Ce que décide la question du retour : partir (la page s'en charge), ou rester — la garde se repose. */
 export type IssueDuRetour = 'parti' | 'reste'
 
-/** Combien de pages demandent la garde en ce moment : StrictMode monte deux fois. */
+/** Ce que la garde fait de `history` : le vrai, ou un faux dans les tests. */
+export type HistoriqueGarde = Pick<History, 'state' | 'pushState' | 'back'> & { scrollRestoration?: ScrollRestoration }
+
+/** Ce qu'elle écoute : la fenêtre, et son `popstate`. */
+type Ecoute = Pick<EventTarget, 'addEventListener' | 'removeEventListener'>
+
+/**
+ * La marque d'une garde : `true` pour la soirée, qui reprend celle d'un
+ * rechargement — l'invité y revient au même endroit, sous la même question —,
+ * un jeton tiré une fois par montage pour une page qui dit sa question.
+ */
+export const marqueDeLaGarde = (aSaQuestion: boolean): true | string => (aSaQuestion ? `garde-${Math.random().toString(36).slice(2, 10)}` : true)
+
+/** L'entrée porte-t-elle cette garde-là — et non celle d'un autre montage ? */
+export const porteLaGarde = (etat: unknown, marque: true | string): boolean => (etat as Record<string, unknown> | null)?.[GARDE] === marque
+
+/** Combien de gardes tiennent en ce moment : StrictMode monte deux fois, et la dernière seule retire l'entrée gardée. */
 let demandes = 0
 
 /** La question de la soirée : partir pour de bon, ou rester. */
@@ -44,49 +60,66 @@ function quitterLaSoiree(): Promise<IssueDuRetour> {
   })
 }
 
+/**
+ * Pose la garde sur `history` et écoute le retour sur `ecoute` ; rend de quoi
+ * la lever. Sans React ni navigateur : `cabinet-ecran.test.ts` la joue sur un
+ * faux historique, que le paramètre substitue au vrai.
+ *
+ * La question vit plus longtemps que la garde — au Cabinet, elle attend le
+ * réseau (la pause) puis le joueur, et la partie peut se fermer entre-temps :
+ * un second retour, la manche tranchée par un geste déjà en route. Levée, la
+ * garde ne se repose plus quand une question finit après elle : elle
+ * empilait une entrée que plus personne ne surveillait, et le retour suivant
+ * tombait dans le vide.
+ */
+export function garder(history: HistoriqueGarde, ecoute: Ecoute, marque: true | string, question: () => Promise<IssueDuRetour>): () => void {
+  let levee = false
+  const gardee = () => porteLaGarde(history.state, marque)
+  demandes++
+  // Entre deux entrées de la même page, le navigateur remettait le
+  // défilement qu'il avait noté : la fin de soirée, qui retire la garde,
+  // s'ouvrait au milieu. Ici, chaque écran choisit le sien.
+  history.scrollRestoration = 'manual'
+  // Un rechargement garde l'état de l'entrée courante : on n'en empile pas
+  // une de plus à chaque fois.
+  const poser = () => {
+    if (!levee && !gardee()) history.pushState({ ...((history.state as object | null) ?? {}), [GARDE]: marque }, '')
+  }
+  poser()
+
+  let enQuestion = false
+  const onPop = () => {
+    // Revenu en avant sur l'entrée gardée, ou déjà en train de demander.
+    if (gardee() || enQuestion) return
+    enQuestion = true
+    void question()
+      .catch((): IssueDuRetour => 'reste')
+      .then(issue => {
+        enQuestion = false
+        if (issue === 'reste') poser()
+      })
+  }
+  ecoute.addEventListener('popstate', onPop)
+  return () => {
+    levee = true
+    ecoute.removeEventListener('popstate', onPop)
+    demandes--
+    // La soirée finie ou l'invité parti, l'entrée gardée ne protège plus
+    // rien : laissée là, elle ferait tomber le prochain retour dans le vide.
+    // Au tour suivant, pour laisser StrictMode remonter la page d'abord.
+    setTimeout(() => {
+      if (demandes === 0 && gardee()) history.back()
+    }, 0)
+  }
+}
+
 export function useGardeRetour(actif: boolean, auRetour?: () => Promise<IssueDuRetour>) {
   // La question du jour, lue au moment du retour : la page la refait à chaque rendu, la garde ne se repose pas pour autant.
   const question = useRef(auRetour)
   question.current = auRetour
-  // `true` pour la soirée, qui reprend la garde d'un rechargement ; un jeton à soi pour une page qui dit sa question.
-  const [marque] = useState<true | string>(() => (auRetour ? `garde-${Math.random().toString(36).slice(2, 10)}` : true))
+  const [marque] = useState(() => marqueDeLaGarde(auRetour !== undefined))
   useEffect(() => {
     if (!actif) return
-    const gardee = () => (history.state as Record<string, unknown> | null)?.[GARDE] === marque
-    demandes++
-    // Entre deux entrées de la même page, le navigateur remettait le
-    // défilement qu'il avait noté : la fin de soirée, qui retire la garde,
-    // s'ouvrait au milieu. Ici, chaque écran choisit le sien.
-    history.scrollRestoration = 'manual'
-    // Un rechargement garde l'état de l'entrée courante : on n'en empile pas
-    // une de plus à chaque fois.
-    const poser = () => {
-      if (!gardee()) history.pushState({ ...(history.state ?? {}), [GARDE]: marque }, '')
-    }
-    poser()
-
-    let enQuestion = false
-    const onPop = () => {
-      // Revenu en avant sur l'entrée gardée, ou déjà en train de demander.
-      if (gardee() || enQuestion) return
-      enQuestion = true
-      void (question.current ?? quitterLaSoiree)()
-        .catch((): IssueDuRetour => 'reste')
-        .then(issue => {
-          enQuestion = false
-          if (issue === 'reste') poser()
-        })
-    }
-    window.addEventListener('popstate', onPop)
-    return () => {
-      window.removeEventListener('popstate', onPop)
-      demandes--
-      // La soirée finie ou l'invité parti, l'entrée gardée ne protège plus
-      // rien : laissée là, elle ferait tomber le prochain retour dans le vide.
-      // Au tour suivant, pour laisser StrictMode remonter la page d'abord.
-      setTimeout(() => {
-        if (demandes === 0 && gardee()) history.back()
-      }, 0)
-    }
+    return garder(window.history, window, marque, () => (question.current ?? quitterLaSoiree)())
   }, [actif, marque])
 }

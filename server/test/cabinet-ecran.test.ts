@@ -777,6 +777,13 @@ test('la section du Cabinet dans la feuille : préfixe cab-, un texte qui se lit
   assert.match(section, /\.cab-partie > \.jour-sortie \+ \.cab-tete-partie \{ margin-top: -18px; \}/)
   // Le voile de la pause est plein : la manche ne se lit pas au travers, sous aucun thème.
   assert.match(section, /\.cab-voile \{[^}]*background: var\(--bg-raised\)/)
+  // Cormorant écrit ses chiffres à l'ancienne (règle `css.md`) : les pièces d'une partie qui portent un nombre — les points des
+  // manches, le total, le titre d'une révélation (« 4 sur 5 »), la réponse proposée, le total du bilan — posent `lining-nums`.
+  for (const sel of ['.cab-point', '.cab-total', '.cab-titre-revele', '.cab-proposee', '.cab-total-grand']) {
+    const regle = new RegExp(`(?:^|\\n)${echapper(sel)} \\{([^}]*)\\}`).exec(section)
+    assert.ok(regle, `${sel} a sa règle`)
+    assert.match(regle[1], /font-variant-numeric: lining-nums/, sel)
+  }
   assert.doesNotMatch(section, /min-width:\s*1101px/, 'une page de téléphone : rien pour l’écran commun')
   // La tête d'une partie laisse son coin à la niche, et la niche repliée s'efface sous elle.
   assert.match(css, /body\.avec-niche \.cab-tete-ligne \{ padding-right: var\(--niche-place\); \}/)
@@ -828,7 +835,16 @@ const lu = (s: string) => echapper(s.replace(/'/g, '’'))
 async function ecrans() {
   const pari = (await import(url('views/cabinet/jeux/Pari.tsx'))).PARI
   const eclair = (await import(url('views/cabinet/jeux/Eclair.tsx'))).ECLAIR
-  return { pari, eclair } as Record<string, { localDe: (m: unknown) => unknown; aLEcheance: (m: unknown, l: unknown) => unknown; cibleDEclairer?: (m: unknown, l: unknown) => unknown; aJoueSurPlace?: (m: unknown, l: unknown) => boolean }>
+  return { pari, eclair } as Record<
+    string,
+    {
+      localDe: (m: unknown) => unknown
+      aLEcheance: (m: unknown, l: unknown) => unknown
+      cibleDEclairer?: (m: unknown, l: unknown) => unknown
+      aJoueSurPlace?: (m: unknown, l: unknown) => boolean
+      sousEcranDe?: (m: unknown, l: unknown) => string
+    }
+  >
 }
 
 /** Une partie à l'écran, sur la vue du serveur : le chrono lu à son heure, ce que la page tient au départ de la manche. */
@@ -1027,6 +1043,10 @@ test('la pause de « Quitter ? » : la manche voilée, le chrono figé trente se
   for (const r of q.reponses) assert.doesNotMatch(texte(html), new RegExp(lu(r)))
   // Ce que demande « Quitter ? » : la partie comptée, ce que le départ a consommé, et le chrono — figé, ou qui continue.
   assert.deepEqual(messageDuQuitter({ origine: 'libre' }, { pauseMs: 30_000 }), { titre: 'Quitter cette partie ?', message: 'Elle compte avec ses étoiles. Le chrono t’attend 30 secondes au plus, la manche cachée.' })
+  // Ce qui reste de pause se dit en secondes entières, vers le haut, et accordées : arrondies, 300 ms faisaient « 0 secondes ».
+  for (const [ms, dit] of [[300, '1 seconde'], [1_000, '1 seconde'], [1_001, '2 secondes'], [29_400, '30 secondes']] as const) {
+    assert.match(messageDuQuitter({ origine: 'libre' }, { pauseMs: ms }).message, new RegExp(`t’attend ${dit} au plus`), `${ms} ms`)
+  }
   const chasse = messageDuQuitter({ origine: 'chasse' }, { refus: PLUS_DE_PAUSE })
   assert.equal(chasse.titre, 'Quitter ?')
   assert.match(chasse.message, /La partie compte avec les étoiles déjà gagnées, et ta chasse est utilisée\./)
@@ -1036,6 +1056,33 @@ test('la pause de « Quitter ? » : la manche voilée, le chrono figé trente se
   const partie = source('views/cabinet/Partie.tsx')
   assert.match(partie, /refus = motifDe\(e\)/)
   assert.match(partie, /const oui = await confirmDialog\(\{ title: titre, message, confirmLabel: 'Quitter', cancelLabel: 'Continuer', danger: true \}\)/)
+  // Sous la confirmation, le voile n'a pas de bouton : « Quitter ? » répondra.
+  assert.doesNotMatch(html, />Continuer<\/button>/)
+})
+
+test('une pause sans question — rechargée sous « Quitter ? », sa reprise perdue — a son « Continuer » sous le voile, qui la reprend', async () => {
+  // Zoé touche « Quitter » (la pause s'écrit), puis son téléphone jette l'onglet : le musée relu propose sa partie, en pause.
+  const zoe = await inscrireProfil(b.banc.url, 'zoe', 'Zoé')
+  const v = ok(await commencer(b, zoe, { origine: 'libre', jeu: 'pari', carte: null }), 'le Pari de Zoé')
+  ok(await jouer(b, zoe, v, { quoi: 'pause', manche: 0 }), 'la pause')
+  const relue = ok(await laPage(b, zoe), 'la page relue').enCours!
+  assert.equal(relue.phase, 'pause')
+  // Reprise du musée sans question ouverte : la manche reste cachée, et « Continuer » la rouvre — sans lui, le voile n'avait
+  // aucun bouton, le chrono repartait dessous passé trente secondes, et la manche partait vide à son échéance.
+  const orpheline = await laPartie(relue, { onReprendre: rien })
+  assert.match(orpheline, /class="cab-voile" role="note">.*<button type="button" class="btn btn-primary btn-big">Continuer<\/button>/)
+  assert.match(texte(orpheline), /En pause Ta manche t’attend, cachée\./)
+  const q = (v.enCours as { question: { texte: string } }).question
+  assert.doesNotMatch(texte(orpheline), new RegExp(lu(q.texte)))
+  // Le geste qu'il envoie, au rang de la vue relue : la manche se rejoue.
+  const reprise = ok(await jouer(b, zoe, relue, { quoi: 'reprendre', manche: relue.manche }), 'reprendre')
+  assert.equal(reprise.phase, 'jouer')
+  ok(await jouer(b, zoe, reprise, { quoi: 'quitter' }), 'quitter')
+  // La page ne le pose que sans question : sous « Quitter ? », c'est la confirmation qui reprend.
+  const partie = source('views/cabinet/Partie.tsx')
+  assert.match(partie, /onReprendre=\{vue\.phase === 'pause' && !question \? reprendre : undefined\}/)
+  assert.match(partie, /const reprendre = \(\) => \{\s*if \(garde\(\)\) void jouer\(\{ quoi: 'reprendre', manche: vueRef\.current\.manche \}\)/)
+  assert.match(partie, /setQuestion\(true\)[\s\S]*finally \{\s*enQuestion\.current = false\s*setQuestion\(false\)/)
 })
 
 test('la révélation : les étoiles de la manche, ce qui s’est passé, le corps du jeu, « Le savais-tu ? », la niche, et « Signaler » pour la base seule', async () => {
@@ -1067,6 +1114,38 @@ test('la révélation : les étoiles de la manche, ce qui s’est passé, le cor
   assert.match(e, /Les affirmations ne vont pas au carnet\./)
   assert.doesNotMatch(e, /Signaler/)
   sansJargon(gagne, 'la révélation')
+})
+
+test('ce que la révélation fête : la niche dit la pièce juste, la gerbe ce que fête le bandeau — ni une mise perdue, ni une manche protégée', async () => {
+  const { ceQueFeteLaRevelation } = await import(url('views/cabinet/Partie.tsx'))
+  const fete = (naturel: number, etoiles: number) => ceQueFeteLaRevelation(naturel, etoiles) as { gerbe: boolean; niche: { verdict: string; nourri: boolean } }
+  // Sans pouvoir : à deux étoiles et plus, la gerbe et la niche ravie ; à une, calme ; à zéro, dépitée.
+  assert.deepEqual([3, 2, 1, 0].map(n => fete(n, n).gerbe), [true, true, false, false])
+  assert.deepEqual([3, 2, 1, 0].map(n => fete(n, n).niche.verdict), ['juste', 'juste', 'calme', 'ratee'])
+  // Une mise gagnée : trois naturelles, et le bonus par-dessus.
+  assert.ok(fete(3, 7).gerbe)
+  // Une mise perdue à deux naturelles : zéro étoile, le bandeau rouge — la gerbe n'y éclate plus. La pièce reste juste (D3) : le
+  // journal la retient, le compagnon en est nourri, et la niche le dit.
+  assert.equal(fete(2, 0).gerbe, false)
+  assert.deepEqual([fete(2, 0).niche.verdict, fete(2, 0).niche.nourri], ['juste', true])
+  // Protégée d'une étoile à deux : le bandeau vert, mais pas une juste — ni gerbe, ni compagnon nourri (§ 4.2).
+  assert.equal(fete(1, 2).gerbe, false)
+  assert.deepEqual([fete(1, 2).niche.verdict, fete(1, 2).niche.nourri], ['calme', false])
+  // À l'écran : la mise perdue en rouge, zéro étoile, sa note ; la manche protégée en vert, ses deux étoiles.
+  const g = vues.gagne
+  const avec = (m: object) => ({ ...g, manches: g.manches.map((x, k) => (k === g.revelation!.manche ? { ...x, ...m } : x)) }) as VueDeLaPartie
+  const perdue = await laPartie(avec({ etoiles: 0, naturel: 2, note: 'Mise perdue' }))
+  assert.match(perdue, /class="card result-banner result-ko"/)
+  assert.match(perdue, /aria-label="0 étoile sur 3"/)
+  assert.match(texte(perdue), /Mise perdue/)
+  const protegee = await laPartie(avec({ etoiles: 2, naturel: 1, note: 'Rempart protège la manche : +1 étoile' }))
+  assert.match(protegee, /class="card result-banner result-ok"/)
+  assert.match(protegee, /aria-label="2 étoiles sur 3"/)
+  // La révélation ne lit que lui.
+  const partie = source('views/cabinet/Partie.tsx')
+  assert.match(partie, /const fete = ceQueFeteLaRevelation\(m\?\.naturel \?\? 0, etoiles\)/)
+  assert.match(partie, /reaction=\{fete\.niche\}/)
+  assert.match(partie, /\{fete\.gerbe && <GerbeDeJuste \/>\}/)
 })
 
 test('la mise : avant la manche, sans l’avoir vue — « Miser » ou « Pas cette fois »', async () => {
@@ -1141,13 +1220,182 @@ test('le retour du navigateur pendant une manche : sa garde se pose par-dessus l
   n.h.pushState({ ...(n.h.state as object), fiestappGarde: 'garde-manche' }, '')
   effacerLaMarqueAuChargement(n.h)
   assert.deepEqual(n.h.state, { fiestappGarde: 'garde-manche' })
-  const retour = readFileSync(path.join(client, 'retour.ts'), 'utf8')
-  assert.match(retour, /const gardee = \(\) => \(history\.state as Record<string, unknown> \| null\)\?\.\[GARDE\] === marque/)
-  assert.match(retour, /auRetour \? `garde-\$\{/)
+  // Le hook lit sa marque une fois par montage, et pose la garde par `garder` (épreuve suivante, sur un faux historique).
+  const retour = source('retour.ts')
+  assert.match(retour, /const \[marque\] = useState\(\(\) => marqueDeLaGarde\(auRetour !== undefined\)\)/)
+  assert.match(retour, /return garder\(window\.history, window, marque, \(\) => \(question\.current \?\? quitterLaSoiree\)\(\)\)/)
   // La partie la pose pendant une manche seulement — rien ne court entre deux manches —, avec son « Quitter ? » pour question.
   assert.match(source('views/cabinet/Partie.tsx'), /useGardeRetour\(vue\.phase === 'jouer' \|\| vue\.phase === 'pause', demanderAQuitter\)/)
   // La soirée garde la sienne, telle quelle.
   assert.match(source('views/PlayerApp.tsx'), /useGardeRetour\([^,)]*\)/)
+})
+
+test('la garde du retour : un jeton par montage, la question posée une fois, « reste » la repose, « parti » non — et levée, plus rien', async () => {
+  const { garder, marqueDeLaGarde, porteLaGarde } = await import(url('retour.ts'))
+  const tour = () => new Promise(r => setTimeout(r, 0))
+  /** Une question qu'on tranche à la main, comme le joueur sous « Quitter ? ». */
+  const enAttente: ((issue: 'parti' | 'reste') => void)[] = []
+  const question = () => new Promise<'parti' | 'reste'>(r => enAttente.push(r))
+  const retourDuNavigateur = (n: ReturnType<typeof historique>, ecoute: EventTarget) => {
+    n.h.back()
+    ecoute.dispatchEvent(new Event('popstate'))
+  }
+  // La marque : la soirée garde `true`, une page qui dit sa question un jeton neuf à chaque montage.
+  assert.equal(marqueDeLaGarde(false), true)
+  const marque = marqueDeLaGarde(true) as string
+  assert.match(marque, /^garde-[a-z0-9]+$/)
+  assert.notEqual(marqueDeLaGarde(true), marque)
+
+  // Rechargée sur une garde d'un autre montage, la page ne la prend pas pour la sienne : elle pose la sienne par-dessus.
+  const n = historique('/cabinet')
+  n.h.replaceState({ fiestappGarde: 'garde-ancien' }, '')
+  const ecoute = new EventTarget()
+  const lever = garder(n.h, ecoute, marque, question)
+  assert.equal(n.longueur(), 2)
+  assert.ok(porteLaGarde(n.h.state, marque))
+  assert.ok(!porteLaGarde({ fiestappGarde: 'garde-ancien' }, marque))
+  assert.equal((n.h as { scrollRestoration?: string }).scrollRestoration, 'manual')
+  // Le retour consomme la garde : la question se pose, une fois — un second retour pendant qu'elle attend n'en pose pas d'autre.
+  retourDuNavigateur(n, ecoute)
+  assert.equal(enAttente.length, 1)
+  ecoute.dispatchEvent(new Event('popstate'))
+  assert.equal(enAttente.length, 1)
+  // « Reste » : la garde se repose, une seule entrée au-dessus de la partie.
+  enAttente[0]('reste')
+  await tour()
+  assert.ok(porteLaGarde(n.h.state, marque))
+  assert.equal(n.longueur(), 2)
+  // « Parti » : la page s'en charge, la garde ne revient pas.
+  retourDuNavigateur(n, ecoute)
+  enAttente[1]('parti')
+  await tour()
+  assert.ok(!porteLaGarde(n.h.state, marque))
+  assert.equal(n.ici(), 0)
+  // La question qui finit après la garde — la partie fermée sous elle — ne la repose plus : elle empilait une entrée orpheline.
+  n.h.pushState({ fiestappGarde: marque }, '')
+  retourDuNavigateur(n, ecoute)
+  assert.equal(enAttente.length, 3)
+  lever()
+  enAttente[2]('reste')
+  await tour()
+  assert.ok(!porteLaGarde(n.h.state, marque))
+  assert.equal(n.ici(), 0)
+  // Levée, elle n'écoute plus rien.
+  ecoute.dispatchEvent(new Event('popstate'))
+  assert.equal(enAttente.length, 3)
+
+  // Levée sur son entrée, la garde recule d'elle-même, au tour suivant : laissée là, le retour suivant tombait dans le vide.
+  const m = historique('/cabinet')
+  const leverM = garder(m.h, new EventTarget(), marqueDeLaGarde(true), question)
+  assert.equal(m.ici(), 1)
+  leverM()
+  await tour()
+  assert.equal(m.ici(), 0)
+  // La soirée reprend la garde d'un rechargement, sans en empiler une seconde.
+  const s = historique('/chez-bruno')
+  s.h.replaceState({ fiestappGarde: true }, '')
+  const leverS = garder(s.h, new EventTarget(), true, question)
+  assert.equal(s.longueur(), 1)
+  leverS()
+  await tour()
+})
+
+test('« Quitter ? » se ferme quand la réponse partie d’elle-même tourne la page, et une partie démontée emporte sa question', async () => {
+  const { confirmDialog, promptDialog, fermerLeDialogue } = await import(url('components/Dialog.tsx'))
+  // Fermer le dialogue ouvert vaut renoncer : la confirmation rend non, la saisie rien.
+  const quitter = confirmDialog({ title: 'Quitter ?' })
+  fermerLeDialogue()
+  assert.equal(await quitter, false)
+  const saisie = promptDialog({ title: 'Signaler', input: { value: 'x' } })
+  fermerLeDialogue()
+  assert.equal(await saisie, null)
+  // Sans dialogue ouvert, rien : le suivant s'ouvre et se ferme comme les autres.
+  fermerLeDialogue()
+  const encore = confirmDialog({ title: 'Quitter ?' })
+  fermerLeDialogue()
+  assert.equal(await encore, false)
+
+  const { laReponseTourneLaPage } = await import(url('views/cabinet/Partie.tsx'))
+  // La manche tranchée sous la confirmation : le Pari parié, l'Éclair et ses cinq affirmations, la dernière manche, la partie finie.
+  assert.equal(laReponseTourneLaPage(vues.etape2, vues.gagne), true)
+  assert.equal(laReponseTourneLaPage(vues.souffle, vues.eclairRevele), true)
+  assert.equal(laReponseTourneLaPage(vues.pari, vues.fini), true)
+  // L'étape suivante ouverte — à la Réplique, « Qui l'a dit ? » —, la pause close avec elle : la confirmation ne promet plus rien de vrai.
+  assert.equal(laReponseTourneLaPage(vues.pari, vues.etape2), true)
+  // Revenue sur la même étape (passée : l'autre onglet l'a rejouée), elle reste ouverte.
+  assert.equal(laReponseTourneLaPage(vues.pause, vues.eclaire), false)
+  assert.equal(laReponseTourneLaPage(vues.pari, vues.pause), false)
+
+  const partie = source('views/cabinet/Partie.tsx')
+  // Seule la réponse « auto » la ferme, et seulement si elle a tourné la page.
+  assert.match(partie, /if \(auto && enQuestion\.current && laReponseTourneLaPage\(v, r\.partie\)\) fermerLeDialogue\(\)/)
+  // Démontée sous la question (un second retour), la partie la ferme, et n'envoie plus rien de l'écran disparu.
+  assert.match(partie, /return \(\) => \{\s*monte\.current = false\s*if \(enQuestion\.current\) fermerLeDialogue\(\)\s*\}/)
+  assert.match(partie, /if \(!monte\.current\) return 'parti'/)
+})
+
+test('la vue la plus récente gagne : un rang plus vieux, ou au même rang une heure plus vieille, ne remplace rien', async () => {
+  const { plusRecente } = await import(url('views/cabinet/Partie.tsx'))
+  // Le rang d'abord : la page relue au retour au premier plan, partie avant le geste, n'efface pas sa réponse.
+  assert.ok(vues.eclaire.rang > vues.pari.rang)
+  assert.equal(plusRecente(vues.eclaire, vues.pari), false)
+  assert.equal(plusRecente(vues.pari, vues.eclaire), true)
+  // À rang égal, l'heure où le serveur l'a dite : la pause qui s'écoule ne change pas le rang.
+  const plusTard = { ...vues.pause, maintenant: vues.pause.maintenant + 1_000 }
+  assert.equal(plusRecente(vues.pause, plusTard), true)
+  assert.equal(plusRecente(plusTard, vues.pause), false)
+  // La même vue relue la remplace : rien n'y change.
+  assert.equal(plusRecente(vues.pause, { ...vues.pause }), true)
+  assert.match(source('views/cabinet/Partie.tsx'), /if \(!plusRecente\(vueRef\.current, v\)\) return/)
+})
+
+test('d’une affirmation de l’Éclair à la suivante, la demi-seconde de garde repart : un double toucher ne répond pas à celle qu’on n’a pas lue', async () => {
+  const { eclair, pari } = await ecrans()
+  const { gesteAccepte } = await import('../../shared/console')
+  const m = vues.eclair.enCours
+  const sous = eclair.sousEcranDe!
+  const avant = { reponses: [null, null, null, null, null], ici: 0 }
+  const apres = { reponses: [true, null, null, null, null], ici: 1 }
+  assert.notEqual(sous(m, avant), sous(m, apres))
+  // Ce que fait le cadre : la manche ouverte depuis longtemps, le premier toucher passe ; il change l'affirmation, la garde repart,
+  // et le second, cent millisecondes plus tard, tombe dedans.
+  let changement: number | null = 0
+  const t = 60_000
+  assert.ok(gesteAccepte(changement, t))
+  if (sous(m, avant) !== sous(m, apres)) changement = t
+  assert.equal(gesteAccepte(changement, t + 100), false)
+  // Le Pari n'a rien sous le doigt qui change sans la vue : chaque étape en est une.
+  assert.equal(pari.sousEcranDe, undefined)
+  const partie = source('views/cabinet/Partie.tsx')
+  assert.match(partie, /const sousLeDoigt = pret && vue\.enCours \? \(pret\.sousEcranDe\?\.\(vue\.enCours, valeur\) \?\? ''\) : ''/)
+  assert.match(partie, /changement\.current = performance\.now\(\)\s*\}, \[cleDEcran, sousLeDoigt\]\)/)
+})
+
+test('« Commencer » ouvre la partie sur son entrée, et la retrouve quand sa réponse s’est perdue en route', async () => {
+  const { estLaPartieDemandee } = await import(url('views/cabinet/Annonce.tsx'))
+  // Par le vrai serveur : la partie commencée — sa réponse perdue —, un second « Commencer » se refuse, et la page relue la montre.
+  const yann = await inscrireProfil(b.banc.url, 'yann', 'Yann')
+  const demande = { origine: 'libre', jeu: 'eclair' } as const
+  const v = ok(await commencer(b, yann, { ...demande, carte: null }), 'l’Éclair de Yann')
+  const encore = await commencer(b, yann, { ...demande, carte: null })
+  assert.notEqual(encore.status, 200)
+  const attend = ok(await laPage(b, yann), 'la page relue').enCours!
+  assert.equal(attend.id, v.id)
+  assert.equal(estLaPartieDemandee(attend, demande, 'eclair'), true)
+  // Une autre demande ne la prend pas pour la sienne.
+  assert.equal(estLaPartieDemandee(attend, { origine: 'libre', jeu: 'pari' }, 'pari'), false)
+  assert.equal(estLaPartieDemandee(attend, { origine: 'chasse', oeuvre: 'expose' }, 'eclair'), false)
+  assert.equal(estLaPartieDemandee(vues.gagnee, { origine: 'chasse', oeuvre: 'lecon' }, 'pari'), true)
+  ok(await jouer(b, yann, attend, { quoi: 'quitter' }), 'quitter')
+  const app = source('views/CabinetApp.tsx')
+  const debut = app.indexOf('const commencer = async')
+  const commencerSrc = app.slice(debut, app.indexOf('\n  }\n', debut))
+  // Réussi, sur une entrée marquée — le retour a pu fermer l'annonce pendant la requête — ; perdu, la page relue la trouve.
+  assert.match(commencerSrc, /ouvrir\(\{ e: 'jeu', vue \}\)/)
+  assert.doesNotMatch(commencerSrc, /setEnPartie\(/)
+  assert.match(commencerSrc, /if \(attend && jeu && estLaPartieDemandee\(attend, demande, jeu\)\) ouvrir\(\{ e: 'jeu', vue: attend \}\)/)
+  // Fermée par le retour en pleine partie, la page se relit : « Reprendre » la rouvre telle qu'elle est devenue.
+  assert.match(app, /if \(enPartieRef\.current\?\.e === 'jeu' && !partieDansLEntree\(window\.history\.state\)\) relire\(\)/)
 })
 
 test('une partie dit son heure au serveur : l’échéance lue à serverNow, la réponse « auto » à l’échéance, chaque geste à son rang, la demi-seconde de garde', () => {

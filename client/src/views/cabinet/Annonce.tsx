@@ -6,7 +6,7 @@ import { espacesFines } from '../../format'
 import { ETOILES_D_UNE_PARTIE, SEUILS_DES_RARETES } from '../../../../shared/cabinet/bareme'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { POUVOIRS, ceQueFaitLaCarte, forceDe, pouvoirDe, type CleDePouvoir, type Force } from '../../../../shared/cabinet/pouvoirs'
-import type { PageDuCabinet } from '../../../../shared/cabinet/vues'
+import type { PageDuCabinet, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { legendaire } from '../../../../shared/legendaires'
 import type { PartieDemandee } from './ecrans'
 import { enDebutDeLigne } from './Musee'
@@ -63,6 +63,16 @@ export function annonceDe(page: PageDuCabinet, demande: PartieDemandee): CeQuEll
       return jeu ? { jeu, piece: 'Partie libre', enJeu: null, seuil: null, dorer: false } : null
     }
   }
+}
+
+/**
+ * La partie qui attend est-elle celle qu'on demandait ? « Commencer » dont la
+ * réponse s'est perdue a pu la laisser commencée, son chrono parti : la page
+ * relue la trouve. Une seule partie à la fois, que le serveur refuse de
+ * doubler : la même origine et le même jeu suffisent à la reconnaître.
+ */
+export function estLaPartieDemandee(attend: Pick<VueDeLaPartie, 'origine' | 'jeu'>, demande: PartieDemandee, jeu: CleDeJeu): boolean {
+  return attend.origine === demande.origine && attend.jeu === jeu
 }
 
 /** Une carte-bonus qu'il peut emporter : une œuvre à lui, les quatre de départ comprises, ou un gardien réveillé. */

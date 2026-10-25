@@ -14,7 +14,7 @@ import { poussieresDites, type DemandeDeDepart } from '../../../shared/cabinet/m
 import { oeuvre as oeuvreDe } from '../../../shared/cabinet/oeuvres'
 import type { Manche } from '../../../shared/cabinet/partie'
 import type { PageDuCabinet, VueDeLaPartie } from '../../../shared/cabinet/vues'
-import { Annonce, annonceDe } from './cabinet/Annonce'
+import { Annonce, annonceDe, estLaPartieDemandee } from './cabinet/Annonce'
 import { sansLesPerdus, type EtatDuCartel } from './cabinet/Cartel'
 import {
   RetourAuMusee,
@@ -160,9 +160,14 @@ export function CabinetApp() {
 
   // Le fragment dit l'écran : un lien vers `#salle-rempart`, le retour du navigateur, tout passe par lui. Une partie
   // ouverte par-dessus a son entrée d'historique (`poserLEntreeDeLaPartie`) : un retour qui la quitte la ferme.
+  const enPartieRef = useRef(enPartie)
+  enPartieRef.current = enPartie
   useEffect(() => {
     effacerLaMarqueAuChargement(window.history)
     const suivre = () => {
+      // Fermée par le retour en pleine partie, elle continue sans cet écran — une pause laissée sous « Quitter ? », une manche qui
+      // court à son échéance — : la page se relit, et « Reprendre » la rouvre telle qu'elle est, pas telle qu'au départ.
+      if (enPartieRef.current?.e === 'jeu' && !partieDansLEntree(window.history.state)) relire()
       if (!partieDansLEntree(window.history.state)) setEnPartie(null)
       setEcranBrut(avant => {
         const neuf = ecranDeLAdresse(window.location.hash)
@@ -263,13 +268,21 @@ export function CabinetApp() {
   /** « Commencer » : la partie part avec sa carte-bonus, et sa première manche s'ouvre ; refusée, le serveur dit pourquoi, et la page se relit. */
   const commencer = async (demande: PartieDemandee, carteChoisie: string | null) => {
     if (busy) return
+    const jeu = page ? annonceDe(page, demande)?.jeu : undefined
     setBusy(true)
     try {
       const vue = await api.cabinet.commencer({ ...demande, carte: carteChoisie } as DemandeDeDepart)
-      setEnPartie({ e: 'jeu', vue })
+      // Sur une entrée marquée, même si le retour a fermé l'annonce pendant la requête : la partie est partie, son chrono court,
+      // et posée sur l'écran d'en dessous, le retour suivant la fermait sans rien demander pendant que sa garde posait « Quitter ? ».
+      ouvrir({ e: 'jeu', vue })
     } catch (e) {
       showToast({ kind: 'error', message: motifDe(e) })
-      relire()
+      // La réponse perdue en route a pu laisser la partie commencée, sa première manche ouverte — et « Commencer » se refusait
+      // désormais : la page relue la trouve, et la partie demandée s'ouvre.
+      const lue = api.cabinet.page()
+      lirePage(lue)
+      const attend = (await lue.catch(() => null))?.enCours
+      if (attend && jeu && estLaPartieDemandee(attend, demande, jeu)) ouvrir({ e: 'jeu', vue: attend })
     } finally {
       setBusy(false)
     }
