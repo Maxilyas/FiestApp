@@ -8,6 +8,7 @@ import { rendreLeFocus } from '../focus'
 import { espacesFines } from '../format'
 import { porterGerbe } from '../gerbe'
 import { porterNiche } from '../niche'
+import { retenirLeNiveau } from '../niveauVu'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
 import { toucher } from '../toucher'
@@ -39,7 +40,7 @@ import { FeuilleDesRegles } from './cabinet/Regles'
 import { fondreDesReveils } from './cabinet/reveils'
 import { Salle } from './cabinet/Salle'
 import { JouerLibrement, Visite } from './cabinet/Visite'
-import { carteRetenue, rapporteesVues, reglesLues, retenirLaCarte, retenirLesRapportees, retenirLesRegles } from './cabinet/retenu'
+import { carteRetenue, reglesLues, retenirLaCarte, retenirLesRegles } from './cabinet/retenu'
 
 // La page du Cabinet de curiosités (`/cabinet`) : le musée et ses écrans —
 // une salle, une œuvre et son cartel, les gardiens, la visite du jour, les
@@ -219,7 +220,7 @@ export function CabinetApp() {
   // Sans lui, rien ne se retient, et ce qui ne se dit qu'une fois se tait : redit à chaque visite, il lasserait.
   const [profil, setProfil] = useState<string | null>(null)
   const [carte, setCarte] = useState<string | null>(null)
-  const [accueil, setAccueil] = useState({ bienvenue: false, rapportees: Number.POSITIVE_INFINITY })
+  const [bienvenue, setBienvenue] = useState(false)
   const [cartels, setCartels] = useState<Record<string, EtatDuCartel>>({})
   // Chaque demande de cartel a son numéro : seule celle qu'une place attend encore s'y range (`cartelArrive`).
   const demandesDeCartel = useRef(0)
@@ -269,11 +270,13 @@ export function CabinetApp() {
         void porterTheme(moi.profile?.theme)
         porterGerbe(moi.profile?.gerbe)
         porterNiche(moi.profile)
+        // Le niveau d'où part la visite : le premier bilan dit la montée qu'il a faite en s'y comparant — sans lui, il la taisait.
+        retenirLeNiveau(moi.profile?.niveau)
         const id = moi.profile?.id
         if (id) {
           setProfil(id)
           setCarte(carteRetenue(id))
-          setAccueil({ bienvenue: !reglesLues(id), rapportees: rapporteesVues(id) })
+          setBienvenue(!reglesLues(id))
         }
       } catch {
         // Sans le profil léger, le musée s'ouvre quand même : le thème attendra.
@@ -439,18 +442,15 @@ export function CabinetApp() {
     if (profil) retenirLaCarte(profil, cle)
     setCarte(cle)
   }
-  const lu = (quoi: 'bienvenue' | 'rapportees') => {
-    if (profil) {
-      if (quoi === 'bienvenue') retenirLesRegles(profil)
-      else if (page) retenirLesRapportees(profil, page.rapportees)
-    }
-    setAccueil(a => (quoi === 'bienvenue' ? { ...a, bienvenue: false } : { ...a, rapportees: page?.rapportees ?? a.rapportees }))
+  /** « C'est parti » : la bienvenue ne se redit plus, comme les règles lues. */
+  const bienvenueLue = () => {
+    if (profil) retenirLesRegles(profil)
+    setBienvenue(false)
   }
   const ouvrirLesRegles = () => {
     setRegles(true)
     // Lues une fois, la bienvenue n'a plus à les proposer.
-    if (profil) retenirLesRegles(profil)
-    setAccueil(a => ({ ...a, bienvenue: false }))
+    bienvenueLue()
   }
 
   // Le toast, rendu par la page elle-même, en bas de l'écran (aucune réponse à y cacher) : l'Expédition n'en rendait aucun, et ses
@@ -541,10 +541,10 @@ export function CabinetApp() {
   return avecLeToast(
     <Musee
       page={p}
-      accueil={accueil}
+      bienvenue={bienvenue}
       onRegles={ouvrirLesRegles}
       onReprendre={() => p.enCours && ouvrir({ e: 'jeu', vue: p.enCours })}
-      onLu={lu}
+      onBienvenueLue={bienvenueLue}
     />,
   )
 }

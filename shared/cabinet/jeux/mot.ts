@@ -131,6 +131,15 @@ function etoilesDesEssais(essais: readonly string[], mot: string): VerdictDUneMa
   return palier < 0 ? 0 : naturelDe(3 - palier)
 }
 
+/**
+ * Le refus d'un essai qui n'a pas la longueur du mot, en mots : « Il faut 7
+ * lettres ». La page le dit d'elle-même quand « Valider » est touché sur une
+ * ligne incomplète, sans rien envoyer — la même phrase que le serveur, qu'elle
+ * importe : recopiée, un mot retouché d'un seul côté, la page contredisait son
+ * refus.
+ */
+export const longueurRefusee = (lettres: number) => `Il faut ${lettres} lettres`
+
 const finie = (t: MotTire, e: EtatDuMot) => e.essais.length >= ESSAIS_DU_MOT || e.essais.includes(t.lettres)
 const aLaLongueur = (t: MotTire, lettres: string) => lettres.length === t.lettres.length
 const colores = (t: MotTire, essais: readonly string[]): EssaiColore[] => essais.map(lettres => ({ lettres, couleurs: couleursDuMot(lettres, t.lettres) }))
@@ -161,7 +170,7 @@ export const REGLE_DU_MOT: RegleDuJeu<MotTire, EtatDuMot, GesteDuMot, MotMontre,
   apresLeGeste(t, e, g) {
     if (tranche(t, e, g)) return GESTE_A_JUGER
     if (g.quoi !== 'essai') return GESTE_A_JUGER
-    if (!aLaLongueur(t, g.lettres)) return `Il faut ${t.lettres.length} lettres`
+    if (!aLaLongueur(t, g.lettres)) return longueurRefusee(t.lettres.length)
     return { ...e, essais: [...e.essais, g.lettres] }
   },
 

@@ -3,6 +3,7 @@ import { Icon } from './Icon'
 import { Avatar } from './Avatar'
 import { api } from '../api'
 import { porterNiche } from '../niche'
+import { niveauVu, retenirLeNiveau } from '../niveauVu'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { gemme } from '../gemmes'
 import { apercuDe } from '../apercus'
@@ -26,17 +27,10 @@ import { TROPHEES_MONTRES, totalDeLXp, type ObjetAPorter, type PartDeLXp, type T
 
 // ── Le niveau ─────────────────────────────────────────────────────────────
 
-/**
- * Le dernier niveau que cette page a vu : celui du profil à son ouverture,
- * puis celui de chaque fin. Une fin de série ou d'épreuve dit la montée de
- * niveau qu'elle a faite en s'y comparant (`useNiveauRelu`).
- */
-let niveauVu: number | null = null
-
-/** La page vient de lire le profil : son niveau sert de point de départ. */
-export function retenirLeNiveau(niveau: number | undefined): void {
-  if (niveau !== undefined) niveauVu = niveau
-}
+// Le dernier niveau que la page a vu vit dans un module léger (`niveauVu.ts`) :
+// le musée du Cabinet le retient à son ouverture sans télécharger cet écran.
+// Les pages qui ont déjà l'écran des gains le retiennent par lui.
+export { retenirLeNiveau }
 
 /**
  * Ce que l'écran de gains sait du niveau : celui d'après la partie, celui
@@ -69,7 +63,7 @@ export const niveauDe = (p: Pick<PublicProfile, 'niveau' | 'acquis' | 'requis'>,
  */
 export function useNiveauRelu(actif = true): NiveauDeLaFin | null {
   // Le niveau d'avant se lit au premier rendu : la relecture le remplace.
-  const [avant] = useState(() => niveauVu)
+  const [avant] = useState(() => niveauVu())
   const [lu, setLu] = useState<PublicProfile | null>(null)
   useEffect(() => {
     if (!actif) return
@@ -78,7 +72,7 @@ export function useNiveauRelu(actif = true): NiveauDeLaFin | null {
       .moiLeger()
       .then(({ profile }) => {
         if (!vivant || !profile) return
-        niveauVu = profile.niveau
+        retenirLeNiveau(profile.niveau)
         setLu(profile)
         porterNiche(profile)
       })

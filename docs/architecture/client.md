@@ -206,7 +206,6 @@ Ce que l'appareil garde n'est qu'une commodité : tout ce qui compte est au serv
 | `quizz.campagne.sujet` | local | le sujet de la dernière série | `client/src/views/CampagneApp.tsx` |
 | `quizz.cabinet.carte.<profil>` | local | la carte-bonus choisie la dernière fois au Cabinet, que l'annonce propose d'abord | `client/src/views/cabinet/retenu.ts` |
 | `quizz.cabinet.regles-lues.<profil>` | local | les règles du Cabinet déjà ouvertes : le musée ne souhaite plus la bienvenue | `client/src/views/cabinet/retenu.ts` |
-| `quizz.cabinet.accueil-vu.<profil>` | local | le nombre d'œuvres rapportées de l'Expédition déjà annoncé | `client/src/views/cabinet/retenu.ts` |
 | `quizz.nouveautes` | session | le dernier compte de ce qu'il a de neuf à porter, que la barre du menu montre en attendant le serveur — ce qu'il a vu, lui, se retient au serveur (`profile_loge_vus`) | `client/src/nouveautes.ts` |
 | `quizz.annonces.vues.<profil>` | local | les annonces de l'administrateur déjà montrées | `client/src/components/AccueilDesRoles.tsx` |
 | `quizz.duels.resultatAnnonce` | local | le dernier résultat de duel annoncé par la bannière de l'accueil | `client/src/components/AccueilDesRoles.tsx` |

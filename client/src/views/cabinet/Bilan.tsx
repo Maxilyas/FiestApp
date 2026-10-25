@@ -21,7 +21,8 @@ import { oeuvreMontree } from './Salle'
 // Le bilan d'une partie (§ 2.6) : ce qu'elle a fait à son œuvre, en clair —
 // les étoiles manche par manche et leurs notes, le total sur neuf, la
 // poussière d'or —, l'œuvre gagnée et son cartel (dorée ou doublée, ce que la
-// partie lui a appris : elle peut garder le cartel d'avant), le gardien réveillé en
+// partie lui a appris : elle garde le cartel d'avant si elle en avait un, et la
+// fin dit lequel — `BilanVu.devientSonCartel`), le gardien réveillé en
 // grand (`LegendaireOuvert`, avant les gains, comme à la fin d'une
 // expédition) et la luciole qui rejoint (`Reveil.tsx`), puis l'écran des
 // gains de tous les modes : « Ce que tu gagnes », « Nouveaux trophées »,
@@ -150,8 +151,8 @@ export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDe
           {b.cartel && (
             <div className="cab-cartel">
               {/* Les mots du cartel du musée — dorée en jouant, une œuvre achetée ne se dit pas gagnée —, et « Son cartel » seulement
-                  quand l'œuvre le prend à coup sûr : gagnée (`titreAuBilan`). */}
-              <span className="cab-cartel-titre">{titreAuBilan(b.issue)}</span>
+                  quand la fin dit que l'œuvre le prend (`titreAuBilan`, `devientSonCartel`). */}
+              <span className="cab-cartel-titre">{titreAuBilan(b)}</span>
               <p className="cab-cartel-sujet">{espacesFines(b.cartel.sujet)}</p>
               <p className="cab-cartel-reponse">{espacesFines(b.cartel.reponse)}</p>
               {b.cartel.anecdote && <p className="cab-cartel-phrase">{espacesFines(b.cartel.anecdote)}</p>}

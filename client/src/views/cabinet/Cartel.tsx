@@ -2,7 +2,7 @@ import { espacesFines } from '../../format'
 import { ETOILES_D_UNE_PARTIE } from '../../../../shared/cabinet/bareme'
 import { JEUX } from '../../../../shared/cabinet/jeux/regle'
 import type { IssueDUnePartie } from '../../../../shared/cabinet/partie'
-import type { Cartel, OeuvreVue, PageDuCabinet } from '../../../../shared/cabinet/vues'
+import type { BilanVu, Cartel, OeuvreVue, PageDuCabinet } from '../../../../shared/cabinet/vues'
 import { enDebutDeLigne } from './Musee'
 
 // Le cartel d'une œuvre : la plaque crème sous la peinture, comme au musée.
@@ -10,15 +10,15 @@ import { enDebutDeLigne } from './Musee'
 // rejouée : il le dit (`ceQueLaPartieAFait`) — lui a appris — la question
 // telle que la partie l'a lue, sa réponse, « Le savais-tu ? », le jeu, les
 // étoiles, le jour —, relu par le serveur au même pli que la partie
-// (invariant 14, `cartelDe`) ; sinon ce qui l'a fait entrer (« Rapportée de
-// l'Expédition », « Achetée avec ta poussière d'or… »), dit par le serveur
-// lui aussi : la page ne recopie aucune de ces phrases. Il arrive sous la
+// (invariant 14, `cartelDe`) ; sinon ce qui l'a fait entrer (« Offerte à ton
+// arrivée… », « Achetée avec ta poussière d'or… »), dit par le serveur lui
+// aussi : la page ne recopie aucune de ces phrases. Il arrive sous la
 // peinture, qui s'ouvre sans l'attendre.
 
 /**
  * Ce que la partie d'un cartel a fait à son œuvre, en mots (`Cartel.partie.issue`) :
  * l'appris (« en la dorant ») et la ligne de sa partie (« Dorée au Pari »). Une
- * œuvre achetée, rapportée ou offerte, puis dorée en jouant ou rejouée à une
+ * œuvre achetée ou offerte, puis dorée en jouant ou rejouée à une
  * visite qui la doublait, ne l'a pas gagnée — « en la gagnant » le lui faisait
  * dire. Le bilan d'une partie le dit des mêmes mots (`titreAuBilan`). Sans
  * issue — un cartel écrit à la main —, ou d'une issue qui ne garde pas de
@@ -36,17 +36,20 @@ export function ceQueLaPartieAFait(issue: IssueDUnePartie | undefined): { appris
 }
 
 /**
- * Le titre de ce qu'une partie a appris, au bilan. Gagnée, l'œuvre prend le
- * cartel de cette partie : « Son cartel : … ». Dorée en jouant, ou doublée,
- * elle ne le prend que si elle n'en avait pas — le serveur garde le premier, et
- * la vue du bilan ne dit pas lequel elle garde : la page ne le promet pas, elle
- * dit ce que la partie lui a appris. Gagnée avec le sien puis dorée à 9 sur 9,
- * le bilan disait « Son cartel » d'une manche que l'œuvre rouverte ne montrait
- * pas.
+ * Le titre de ce qu'une partie a appris, au bilan : « Son cartel : … » quand
+ * la fin a fait de cette partie le cartel de son œuvre, sinon ce qu'elle lui a
+ * appris. Gagnée, l'œuvre le prend ; dorée en jouant, ou doublée, seulement si
+ * elle n'en avait pas — le serveur garde le premier, et la fin seule le sait
+ * (`BilanVu.devientSonCartel`, de la ligne que la base rend) : la page ne le
+ * devine pas de l'issue. Gagnée avec le sien puis dorée à 9 sur 9, le bilan
+ * disait « Son cartel » d'une manche que l'œuvre rouverte ne montrait pas ;
+ * achetée puis dorée en jouant, il taisait le cartel qu'elle venait de prendre.
+ * Le bilan relu sans la fin — un geste rejoué, dont la réponse s'était perdue —
+ * ne le porte pas : il dit ce que la partie a appris, sans rien promettre.
  */
-export function titreAuBilan(issue: IssueDUnePartie): string {
-  const { appris } = ceQueLaPartieAFait(issue)
-  return issue === 'gagnee' || issue === 'gagnee-doree' ? `Son cartel : ce que tu as appris ${appris}` : `Ce que tu as appris ${appris}`
+export function titreAuBilan(b: Pick<BilanVu, 'issue' | 'devientSonCartel'>): string {
+  const { appris } = ceQueLaPartieAFait(b.issue)
+  return b.devientSonCartel ? `Son cartel : ce que tu as appris ${appris}` : `Ce que tu as appris ${appris}`
 }
 
 /**

@@ -2,7 +2,7 @@ import { useEffect, useRef, type CSSProperties, type RefObject } from 'react'
 import { Icon } from '../../../components/Icon'
 import { espacesFines } from '../../../format'
 import { toucher } from '../../../toucher'
-import { etatDesTouches, type CouleurDUneLettre, type EssaiColore, type MotMontre, type MotRevele } from '../../../../../shared/cabinet/jeux/mot'
+import { etatDesTouches, longueurRefusee, type CouleurDUneLettre, type EssaiColore, type MotMontre, type MotRevele } from '../../../../../shared/cabinet/jeux/mot'
 import { capitalesSansAccents } from '../../../../../shared/lettres'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
 
@@ -298,11 +298,11 @@ function ClavierDuMot({ montree: m, local, setLocal, envoyer, garde, gardeDeLEcr
   const complet = essaiDe(m, local) !== null
   return (
     <>
-      {/* La phrase même du refus du serveur (`shared/cabinet/jeux/mot.ts`), recopiée tant que sa règle ne l'exporte pas :
-          `cabinet-ecran.test.ts` la compare au refus d'un essai trop court, par la route. */}
+      {/* La phrase même du refus du serveur, importée de sa règle (`longueurRefusee`) : recopiée, un mot retouché d'un seul côté,
+          la page contredisait le serveur — `cabinet-ecran.test.ts` la compare au refus d'un essai trop court, par la route. */}
       {local.dit && !complet && (
         <p className="cab-raison cab-longueur" role="status">
-          {`Il faut ${m.longueur} lettres`}
+          {longueurRefusee(m.longueur)}
         </p>
       )}
       <div className="cab-clavier" role="group" aria-label="Le clavier">

@@ -234,7 +234,7 @@ test('chaque écran du musée a son adresse, et une adresse inconnue ouvre le mu
 // ── 3. Le musée ───────────────────────────────────────────────────────────
 
 const musee = (p: PageDuCabinet, plus: object = {}) =>
-  rendu('views/cabinet/Musee', 'Musee', { page: p, accueil: { bienvenue: false, rapportees: 0 }, onRegles: rien, onReprendre: rien, onLu: rien, ...plus })
+  rendu('views/cabinet/Musee', 'Musee', { page: p, bienvenue: false, onRegles: rien, onReprendre: rien, onBienvenueLue: rien, ...plus })
 
 test('le musée : ce qu’il possède, la visite du jour, les neuf salles, les gardiens, les jeux libres, les règles', async () => {
   const html = await musee(page)
@@ -270,16 +270,18 @@ test('le musée : ce qu’il possède, la visite du jour, les neuf salles, les g
   sansJargon(html, 'le musée')
 })
 
-test('le musée dit une fois la bienvenue, les œuvres rapportées, la partie qui l’attend, l’expédition en route, sa fête et sa série', async () => {
+test('le musée dit une fois la bienvenue, la partie qui l’attend, l’expédition en route, sa fête et sa série — et aucune œuvre rapportée', async () => {
   // Une joueuse qui arrive : la bienvenue, et les règles à un toucher.
-  const bienvenue = texte(await musee(neuf, { accueil: { bienvenue: true, rapportees: 0 } }))
+  const bienvenue = texte(await musee(neuf, { bienvenue: true }))
   assert.match(bienvenue, /Bienvenue au Cabinet/)
   assert.match(bienvenue, /Comment ça marche/)
   assert.doesNotMatch(texte(await musee(neuf)), /Bienvenue au Cabinet/)
-  // Les œuvres rapportées de l'Expédition, dites d'un coup, une fois.
-  const rapportees = { ...neuf, rapportees: 41 }
-  assert.match(texte(await musee(rapportees, { accueil: { bienvenue: false, rapportees: 0 } })), /Tu as rapporté 41 œuvres de l’Expédition/)
-  assert.doesNotMatch(texte(await musee(rapportees, { accueil: { bienvenue: false, rapportees: 41 } })), /rapporté/)
+  // Tout le monde commence le Cabinet vide, ses quatre œuvres offertes à l'arrivée : l'Expédition n'y rapporte rien (le choix du
+  // propriétaire du 25 octobre 2026). Le musée n'a plus d'œuvres rapportées à annoncer, et ne lit plus leur compte — même d'une page
+  // d'un serveur d'avant qui le porterait encore.
+  const davant = { ...neuf, rapportees: 41 }
+  for (const p of [neuf, davant]) assert.doesNotMatch(texte(await musee(p, { bienvenue: true })), /rapporté|de l’Expédition/)
+  assert.doesNotMatch(source('views/cabinet/Musee.tsx'), /rapportees/)
   // Une partie en cours passe devant tout : on la reprend.
   const enCours = { ...neuf, enCours: { id: 'p', jeu: 'pari', origine: 'chasse' } as VueDeLaPartie }
   const t = texte(await musee(enCours))
@@ -362,7 +364,7 @@ test('une salle ne promet pas de réveiller un gardien qui veille déjà', async
   assert.ok(!rempart.complete)
   const [premier, second] = rempart.gardiens
   assert.match(texte(await laSalle(rempart)), /Encore \d+ œuvres? pour réveiller le premier/)
-  // Le Phénix rapporté de l'Expédition veille déjà sur le Rempart : « réveillé », et rien à promettre dessous.
+  // Le Phénix gardé au bout d'une expédition veille déjà sur le Rempart : « réveillé », et rien à promettre dessous.
   const veille = texte(await laSalle({ ...rempart, gardiens: [{ ...premier, reveille: true }, second] }))
   assert.match(veille, /Premier gardien · réveillé/)
   assert.doesNotMatch(veille, /pour réveiller le premier/)
@@ -683,15 +685,16 @@ test('ce que le téléphone retient du Cabinet, il le retient profil par profil 
     const r = await import(url('views/cabinet/retenu.ts'))
     r.retenirLaCarte('lea', 'lecon')
     r.retenirLesRegles('lea')
-    r.retenirLesRapportees('lea', 41)
     assert.equal(r.carteRetenue('lea'), 'lecon')
     assert.equal(r.reglesLues('lea'), true)
-    assert.equal(r.rapporteesVues('lea'), 41)
-    // Hugo, sur le même téléphone : ni la carte-bonus de Léa, ni ses règles lues — et ses douze œuvres rapportées s'annonceront.
+    // Hugo, sur le même téléphone : ni la carte-bonus de Léa, ni ses règles lues.
     assert.equal(r.carteRetenue('hugo'), null)
     assert.equal(r.reglesLues('hugo'), false)
-    assert.equal(r.rapporteesVues('hugo'), 0)
     for (const k of memoire.keys()) assert.match(k, /^quizz\.cabinet\.[a-z-]+\.lea$/, k)
+    // Deux commodités, rien de plus : l'annonce des œuvres rapportées de l'Expédition est partie avec elles, et sa clé avec elle.
+    assert.deepEqual([...memoire.keys()].sort(), ['quizz.cabinet.carte.lea', 'quizz.cabinet.regles-lues.lea'])
+    assert.deepEqual(Object.keys(r).sort(), ['carteRetenue', 'reglesLues', 'retenirLaCarte', 'retenirLesRegles'])
+    assert.doesNotMatch(source('views/cabinet/retenu.ts'), /accueil-vu/)
     r.retenirLaCarte('lea', null)
     assert.equal(r.carteRetenue('lea'), null)
     Object.defineProperty(globalThis, 'localStorage', {
@@ -1290,6 +1293,40 @@ test('le bilan : l’issue en clair, les étoiles manche par manche, la poussiè
   assert.ok(ordre.every(i => i >= 0), ordre.join(','))
   assert.deepEqual(ordre, [...ordre].sort((a, c) => a - c))
   sansJargon(html, 'le bilan')
+})
+
+test('la page retient le niveau à son ouverture : le premier bilan dit la montée de niveau — sans télécharger l’écran des gains', async () => {
+  // La fin compare le niveau relu après la partie à celui que la page a vu (`useNiveauRelu`, au premier rendu du bilan) : rien
+  // retenu au montage, le premier bilan de la visite ne savait pas d'où il partait, et taisait « Niveau 8 ! », la finition et
+  // l'avatar de collection que la montée ouvrait. Une seule mémoire, dans un module léger que l'écran des gains lit aussi.
+  const leger = (await import(url('niveauVu.ts'))) as { retenirLeNiveau: (n: number | undefined) => void; niveauVu: () => number | null }
+  const gains = (await import(url('components/Gains.tsx'))) as {
+    retenirLeNiveau: unknown
+    niveauDe: (p: { niveau: number; acquis?: number; requis?: number }, avant: number | null) => unknown
+  }
+  assert.equal(gains.retenirLeNiveau, leger.retenirLeNiveau, 'la campagne et l’Expédition le retiennent par l’écran des gains : la même mémoire')
+  const montee = async (avant: number | null) =>
+    texte(await rendu('components/Gains', 'CeQueTuGagnes', { parts: [{ nom: 'ta partie', xp: 10 }], niveau: gains.niveauDe({ niveau: 8, acquis: 5, requis: 900 }, avant) }))
+  // Une page neuve n'a rien retenu : la montée ne se dit pas.
+  const neuve = (await import(`${url('niveauVu.ts')}?neuve`)) as typeof leger
+  assert.equal(neuve.niveauVu(), null)
+  assert.doesNotMatch(await montee(neuve.niveauVu()), /Niveau 8 !/)
+  leger.retenirLeNiveau(7)
+  assert.equal(leger.niveauVu(), 7)
+  assert.match(await montee(leger.niveauVu()), /Niveau 8 !/)
+  // Un profil léger sans niveau n'efface pas ce qui est retenu.
+  leger.retenirLeNiveau(undefined)
+  assert.equal(leger.niveauVu(), 7)
+  // La page le retient dès le profil léger lu, avant que le musée paraisse ; l'écran des gains part de lui au premier rendu.
+  const page_ = source('views/CabinetApp.tsx')
+  assert.match(page_, /import \{ retenirLeNiveau \} from '\.\.\/niveauVu'/)
+  assert.match(page_, /const moi = await api\.joueur\.moiLeger\(\)[^]*?retenirLeNiveau\(moi\.profile\?\.niveau\)[^]*?if \(vivant\) lirePage\(premiere\)/)
+  assert.match(source('components/Gains.tsx'), /const \[avant\] = useState\(\(\) => niveauVu\(\)\)/)
+  // Le musée ne télécharge pas l'écran des gains pour autant : le module du niveau n'importe rien.
+  const chemin = importsStatiques(path.join(client, 'views/CabinetApp.tsx'))
+  assert.ok(chemin.has(path.join(client, 'niveauVu.ts')), 'niveauVu.ts est sur le chemin')
+  assert.ok(!chemin.has(path.join(client, 'components/Gains.tsx')), 'Gains.tsx ne part pas avec le musée')
+  assert.deepEqual([...importsStatiques(path.join(client, 'niveauVu.ts'))], [path.join(client, 'niveauVu.ts')])
 })
 
 test('le retour du navigateur pendant une manche : sa garde se pose par-dessus l’entrée de la partie, et la consommer laisse la partie ouverte', async () => {
@@ -2113,21 +2150,24 @@ test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en
   // Achetée, puis dorée en jouant ou rejouée en visite : elle ne l'a pas gagnée, et son cartel ne le dit plus.
   for (const issue of ['doree', 'double']) assert.doesNotMatch(await cartel(issue), /gagn/i, issue)
   // Au bilan, les mêmes mots — la partie qui la dore ne dit pas « en la gagnant » —, et « Son cartel » seulement quand l'œuvre le
-  // prend : gagnée, toujours ; dorée en jouant ou doublée, seulement si elle n'en avait pas — le serveur garde le premier, et la
-  // vue du bilan ne dit pas lequel. Gagnée avec le sien puis dorée à 9 sur 9, le bilan disait « Son cartel » d'une manche que
-  // l'œuvre rouverte ne montrait pas (`cabinet-poussiere.test.ts`, par le vrai serveur).
+  // prend : dorée en jouant ou doublée, elle ne le prend que si elle n'en avait pas — le serveur garde le premier, et la fin le
+  // dit (`BilanVu.devientSonCartel`, lu de la ligne que la base rend). Gagnée avec le sien puis dorée à 9 sur 9, le bilan disait
+  // « Son cartel » d'une manche que l'œuvre rouverte ne montrait pas ; achetée puis dorée en jouant, il taisait celui qu'elle
+  // venait de prendre (`cabinet-poussiere.test.ts`, par le vrai serveur).
   const ecran = (await ecrans()).pari
   const g = vues.gagnee
-  for (const [issue, titre] of [
-    ['gagnee', 'Son cartel : ce que tu as appris en la gagnant'],
-    ['gagnee-doree', 'Son cartel : ce que tu as appris en la gagnant'],
-    ['doree', 'Ce que tu as appris en la dorant'],
-    ['double', 'Ce que tu as appris en la rejouant'],
-  ] as const) {
-    const vue = { ...g, bilan: { ...g.bilan!, issue } } as VueDeLaPartie
-    const t = texte(await rendu('views/cabinet/Bilan', 'BilanDeLaPartie', { vue, ecran, onMusee: rien }))
-    assert.match(t, new RegExp(`${titre} ${lu(g.bilan!.cartel!.sujet)}`), issue)
-    if (issue === 'doree' || issue === 'double') assert.doesNotMatch(t, /Son cartel/, issue)
+  // La chasse gagnée de Hugo : la fin a dit que la partie devient son cartel.
+  assert.equal(g.bilan!.devientSonCartel, true)
+  const appris = { gagnee: 'en la gagnant', 'gagnee-doree': 'en la gagnant', doree: 'en la dorant', double: 'en la rejouant' } as const
+  for (const issue of ['gagnee', 'gagnee-doree', 'doree', 'double'] as const) {
+    for (const devient of [true, false]) {
+      const { devientSonCartel: _, ...sans } = g.bilan!
+      const vue = { ...g, bilan: { ...sans, issue, ...(devient && { devientSonCartel: true as const }) } } as VueDeLaPartie
+      const t = texte(await rendu('views/cabinet/Bilan', 'BilanDeLaPartie', { vue, ecran, onMusee: rien }))
+      const titre = `${devient ? 'Son cartel : ce' : 'Ce'} que tu as appris ${appris[issue]}`
+      assert.match(t, new RegExp(`${titre} ${lu(g.bilan!.cartel!.sujet)}`), `${issue}, ${devient}`)
+      if (!devient) assert.doesNotMatch(t, /Son cartel/, `${issue}, sans le cartel`)
+    }
   }
   // Les mots d'une seule source : le bilan ne les recopie pas.
   assert.doesNotMatch(source('views/cabinet/Bilan.tsx'), /en la gagnant/)
@@ -2619,8 +2659,9 @@ test('le clavier de l’ordinateur ne tape au Mot ni dans un champ, ni sous un d
 })
 
 test('« Valider » trop tôt dit la longueur dans les mots mêmes du serveur, qui refuse l’essai trop court', async () => {
-  // La phrase vit dans la règle du Mot (`shared/cabinet/jeux/mot.ts`), qui ne l'exporte pas encore : la page la recopie, et cette
-  // épreuve les tient ensemble — un mot retouché d'un seul côté, la page contredisait le serveur.
+  // La phrase vit dans la règle du Mot (`longueurRefusee`, `shared/cabinet/jeux/mot.ts`), que la page importe : recopiée, un mot
+  // retouché d'un seul côté, la page contredisait le serveur. Cette épreuve les tient ensemble, par la route.
+  assert.doesNotMatch(source('views/cabinet/jeux/MotMystere.tsx'), /Il faut/, 'la page ne recopie pas la phrase')
   const v = ok(await commencer(b, ines, { origine: 'libre', jeu: 'mot', carte: null }), 'un Mot de plus')
   const m = v.enCours as MotMontre
   const refus = await jouer(b, ines, v, { quoi: 'essai', manche: 0, lettres: 'AB' })
@@ -2630,6 +2671,8 @@ test('« Valider » trop tôt dit la longueur dans les mots mêmes du serveur, q
   const dit = /<p class="cab-raison cab-longueur" role="status">(.*?)<\/p>/.exec(html)?.[1]
   assert.ok(dit, 'la longueur dite')
   assert.equal(texte(dit).trim(), (refus.corps as unknown as { error: string }).error)
+  const { longueurRefusee } = await import('../../shared/cabinet/jeux/mot')
+  assert.equal(texte(dit).trim(), longueurRefusee(m.longueur))
   ok(await jouer(b, ines, v, { quoi: 'quitter' }), 'quitter ce Mot')
 })
 
@@ -2813,7 +2856,7 @@ test('les écrans du Mot et du Filet : à la demande, de leurs règles des types
   // Le pied du jeu — le clavier du Mot — se colle au bas de l'écran avec la carte-bonus, par le cadre.
   assert.match(partie, /Pied\?\(p: PropsDUneManche<M, L>\): ReactNode/)
   for (const [jeu, regle, valeurs] of [
-    ['MotMystere', 'mot', ['etatDesTouches']],
+    ['MotMystere', 'mot', ['etatDesTouches', 'longueurRefusee']],
     ['Filet', 'filet', ['TAILLES_DU_FILET', 'demiLargeur', 'milieuDeLaPiste']],
   ] as const) {
     const s = source(`views/cabinet/jeux/${jeu}.tsx`)

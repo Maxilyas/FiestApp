@@ -89,17 +89,17 @@ function Bandeau({ icone, children, geste }: { icone: ReactNode; children: React
 
 export function Musee({
   page,
-  accueil,
+  bienvenue,
   onRegles,
   onReprendre,
-  onLu,
+  onBienvenueLue,
 }: {
   page: PageDuCabinet
-  /** Ce que le musée ne dit qu'une fois : la bienvenue, tant que les règles ne sont pas lues ; les œuvres rapportées déjà annoncées. */
-  accueil: { bienvenue: boolean; rapportees: number }
+  /** Ce que le musée ne dit qu'une fois : la bienvenue, tant que les règles ne sont pas lues. */
+  bienvenue: boolean
   onRegles: () => void
   onReprendre: () => void
-  onLu: (quoi: 'bienvenue' | 'rapportees') => void
+  onBienvenueLue: () => void
 }) {
   const oeuvres = page.salles.reduce((n, s) => n + possedeesDe(s), 0)
   const reveilles = page.gardiens.tous.filter(g => g.reveille).length
@@ -107,7 +107,6 @@ export function Musee({
   const faites = visite.filter(c => c.faite).length
   const prochain = page.gardiens.prochain
   const salleDuProchain = prochain && salleDuGardien(prochain.legendaire)
-  const rapportees = page.rapportees > accueil.rapportees ? page.rapportees : 0
   const enCours = page.enCours
   return (
     <div className="player-shell cab-page">
@@ -126,7 +125,7 @@ export function Musee({
         </p>
       </div>
 
-      {accueil.bienvenue && (
+      {bienvenue && (
         <Bandeau
           icone={<Icon name="landmark" />}
           geste={
@@ -134,7 +133,7 @@ export function Musee({
               <button type="button" className="btn btn-primary" onClick={onRegles}>
                 Comment ça marche ?
               </button>
-              <button type="button" className="btn" onClick={() => onLu('bienvenue')}>
+              <button type="button" className="btn" onClick={onBienvenueLue}>
                 C’est parti
               </button>
             </span>
@@ -144,18 +143,8 @@ export function Musee({
           <span>{espacesFines('Chaque œuvre peinte se gagne en jouant à de petits jeux de deux minutes : remplis tes salles, réveille leurs gardiens.')}</span>
         </Bandeau>
       )}
-      {rapportees > 0 && (
-        <Bandeau
-          icone={<Icon name="flag" />}
-          geste={
-            <button type="button" className="btn" onClick={() => onLu('rapportees')}>
-              Compris
-            </button>
-          }
-        >
-          <span>{espacesFines(`Tu as rapporté ${compte(rapportees, 'œuvre')} de l’Expédition : elles t’attendent dans leurs salles.`)}</span>
-        </Bandeau>
-      )}
+      {/* Une expédition en route se finit à ses règles, sans rien rapporter au Cabinet : tout le monde y commence avec ses quatre
+          œuvres offertes (le choix du propriétaire du 25 octobre 2026). */}
       {page.expedition === 'en-route' && (
         <Bandeau icone={<Icon name="flag" />}>
           <a className="cab-lien" href="/expedition">

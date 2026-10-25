@@ -58,7 +58,7 @@ import { MOTS_DU_PARI, justeDeLaPiece, trancheLaManche, type RegleDuJeu, type Ve
 import { GESTE_A_JUGER, eclairerSertEncore, type QuestionTiree } from '../../shared/cabinet/jeux/outils'
 import { REGLE_DU_PARI, type EtatDuPari, type PariTire } from '../../shared/cabinet/jeux/pari'
 import { REGLE_DE_L_ECLAIR, affirmationDe, type EclairTire } from '../../shared/cabinet/jeux/eclair'
-import { REGLE_DU_MOT, couleursDuMot, etatDesTouches, motDeLaQuestion, type MotMontre, type MotRevele, type MotTire } from '../../shared/cabinet/jeux/mot'
+import { REGLE_DU_MOT, couleursDuMot, etatDesTouches, longueurRefusee, motDeLaQuestion, type MotMontre, type MotRevele, type MotTire } from '../../shared/cabinet/jeux/mot'
 import {
   REGLE_DU_FILET,
   TAILLES_DU_FILET,
@@ -525,6 +525,9 @@ test('le Mot mystère : trouvé tôt, il vaut plus — l’essai qui trouve ou l
   let e = r.ouvrir(MOT)
   // Une longueur fausse ne se dépense pas.
   assert.equal(refusDe(jouer(r, MOT, e, essai('RIGA'))), 'Il faut 7 lettres')
+  // Sa phrase s'exporte (`longueurRefusee`) : la page la dit avant d'envoyer l'essai, dans les mots mêmes du refus, sans les recopier.
+  assert.equal(refusDe(jouer(r, MOT, e, essai('VILNIUSS'))), longueurRefusee(MOT.lettres.length))
+  for (const n of [B.LETTRES_DU_MOT_MIN, B.LETTRES_DU_MOT_MAX]) assert.equal(longueurRefusee(n), `Il faut ${n} lettres`)
   // Trouvé au premier ou au deuxième : trois étoiles.
   assert.deepEqual(verdictDe(jouer(r, MOT, e, essai('VILNIUS'))), { naturel: 3, pieces: [{ juste: true, choix: 0, composee: 'VILNIUS' }] })
   e = etatDe(jouer(r, MOT, e, essai('KAUNASS')))
