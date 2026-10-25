@@ -7,23 +7,32 @@
 // deux serveurs sur la même base, `cabinet-charge.test.ts`.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
+import path from 'node:path'
 import { connexionAnimateur, ecrire, inscrireProfil } from './banc'
 import {
+  DIX_HEURES,
   bancDuCabinet,
   commencer,
   departEnBase,
+  dossierDEssai,
   enBase,
+  fermerLesMagasins,
   jouer,
   jouerUnPari,
   laPage,
   lire,
+  magasinDEssai,
   ok,
   pariDe,
   unPariParfait,
   type BancDuCabinet,
 } from './cabinet-banc'
+import type { PariTire } from '../../shared/cabinet/jeux/pari'
+import { jourDe } from '../../shared/jour'
+import { saison } from '../../shared/saisons'
 import { TIREURS } from '../src/core/cabinet/tirages/index'
 import { CABINET_SANS_PROFIL } from '../src/cabinet'
+import { DEMANDE_ILLISIBLE } from '../src/core/cabinet/magasin'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
 import { CASES_DE_LA_VISITE, CHASSES_PAR_JOUR, DEPARTS_PAR_HEURE, ECLAIRAGES_PAR_PARTIE, LIBRES_QUI_PAIENT, POUSSIERE_MIN } from '../../shared/cabinet/bareme'
 import { JEUX } from '../../shared/cabinet/jeux/regle'
@@ -37,6 +46,7 @@ before(async () => {
   b = await bancDuCabinet()
 })
 after(() => b?.banc.close())
+after(fermerLesMagasins)
 
 const idDe = async (cookie: string) => (await lire(b, cookie, '/api/joueur/moi?leger')).corps.profile.id as string
 const compter = (sql: string, ...args: unknown[]) => enBase(b.fichier, db => (db.prepare(sql).get(...args) as { n: number }).n)
@@ -229,8 +239,15 @@ test('la suppression d’un profil efface ses gestes, son Cabinet et ses œuvres
 
 test('trente départs, puis un toutes les deux minutes : le plafond se dit en mots', async () => {
   const vif = await inscrireProfil(b.banc.url, 'vif', 'Vif')
-  // Chaque demande compte, lisible ou non : le plafond se prend avant de rien lire.
-  for (let i = 0; i < DEPARTS_PAR_HEURE; i++) assert.equal((await commencer(b, vif, { origine: 'nulle-part' })).status, 400)
+  // Chaque demande compte, lisible ou non : le plafond se prend avant de rien lire. Chacune dit pourquoi elle se
+  // refuse — un plafond tombé plus tôt les refuserait toutes en 400 aussi, avec ses mots à lui.
+  for (let i = 0; i < DEPARTS_PAR_HEURE - 1; i++) {
+    const r = await commencer(b, vif, { origine: 'nulle-part' })
+    assert.deepEqual([r.status, r.corps], [400, { error: DEMANDE_ILLISIBLE }], `la demande ${i + 1}`)
+  }
+  // La trentième, un vrai départ, passe.
+  const trentieme = ok(await commencer(b, vif, { origine: 'libre', jeu: 'pari', carte: null }), 'la trentième')
+  ok(await jouer(b, vif, trentieme, { quoi: 'quitter' }), 'quitter')
   const refus = await commencer(b, vif, { origine: 'libre', jeu: 'pari', carte: null })
   assert.deepEqual([refus.status, refus.corps], [400, { error: 'Tu joues vite : souffle une minute, puis reprends' }])
 })
@@ -257,6 +274,42 @@ test('la partie d’hier se clôt à la première page du jour : comme un « Qui
     assert.equal(enBase(hier.fichier, db => (db.prepare('SELECT COUNT(*) AS n FROM cabinet_gestes WHERE serie_id = ?').get(partie.id) as { n: number }).n), 2)
   } finally {
     await hier.banc.close()
+  }
+})
+
+test('l’œuvre gagnée d’une partie close le lendemain prend la fête du jour de son départ, jamais celle de sa clôture', async () => {
+  // Une chasse à la Leçon, rare : deux manches parfaites au Pari font ses six étoiles, puis plus rien. La page du
+  // lendemain la clôt, gagnée : sa saison se lit au jour de son départ, comme sa case et sa poussière — une partie de la
+  // veille d'Halloween n'en est pas, une partie de son dernier jour l'est encore.
+  const veille = jourDe(DIX_HEURES)
+  const lendemain = jourDe(DIX_HEURES + 24 * 3_600_000)
+  const halloween = saison('halloween')!
+  for (const [fete, attendue] of [
+    [veille, 'halloween'],
+    [lendemain, null],
+  ] as const) {
+    const horloge = { t: DIX_HEURES }
+    const calendrier = { periodeDu: (jour: string) => (jour === fete ? { saison: halloween, debut: jour, fin: jour } : null) }
+    const m = await magasinDEssai(path.join(dossierDEssai(), 'fete.db'), horloge, undefined, { calendrier })
+    let p = await m.cabinet.commencer('qui', { origine: 'chasse', oeuvre: 'lecon', carte: null })
+    for (let k = 0; k < 2; k++) {
+      const t = departEnBase(m.fichier, p.id).tirages[k] as PariTire
+      const gestes = [
+        ...(k > 0 ? [{ quoi: 'ouvrir', manche: k }] : []),
+        { quoi: 'repondre', manche: k, reponse: { pari: { choix: t.q1.bonne } } },
+        { quoi: 'parier', manche: k },
+        { quoi: 'repondre', manche: k, reponse: { pari: { choix: t.q2.bonne } } },
+      ]
+      for (const geste of gestes) {
+        const r = await m.cabinet.geste('qui', p.id, p.etat.rang, geste)
+        assert.ok('partie' in r, JSON.stringify(r))
+        p = r.partie
+      }
+    }
+    horloge.t += 24 * 3_600_000
+    await m.cabinet.page('qui')
+    const oeuvre = enBase(m.fichier, db => db.prepare("SELECT origine, saison FROM cabinet_oeuvres WHERE profile_id = 'qui' AND oeuvre = 'lecon'").get())
+    assert.deepEqual(oeuvre, { origine: 'partie', saison: attendue }, `la fête le ${fete}`)
   }
 })
 

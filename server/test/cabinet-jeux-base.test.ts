@@ -860,6 +860,8 @@ test('le tirage de l’Éclair : cinq affirmations d’une même catégorie, fac
 })
 
 test('rien ne revient avant sept jours, d’un jeu à l’autre : un composé de l’Éclair se déplie, et le Pari ne le repose pas', () => {
+  // Le tireur, sur des vues déjà dépliées : que le magasin les déplie avant de tirer, c'est `cabinet-journal.test.ts`
+  // qui l'éprouve, par les routes.
   // Il a vu, il y a six jours, à l'Éclair, toutes les faciles et moyennes de toutes les catégories sauf cinq.
   const faciles = BASE_DU_TIRAGE.questions.filter(q => ['facile', 'moyen'].includes(niveauDe(q.id)))
   const neuves = new Set(faciles.slice(0, 5).map(q => q.id))

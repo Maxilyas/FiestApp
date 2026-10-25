@@ -40,7 +40,8 @@ export const calendrierDesExpeditions: { periodeDu: typeof periodeDu } = { perio
 
 /**
  * Le calendrier du Cabinet de curiosités : la saison d'une œuvre gagnée en
- * jouant, au jour de Paris de la fin de sa partie — la première de la fête
+ * jouant, au jour de Paris du départ de sa partie — comme sa case et sa
+ * poussière, même close à la page du lendemain —, et la première de la fête
  * réveille son gardien (la Citrouille, le Sapin, le Bouquet). Un achat, une
  * dorure, une œuvre rapportée de l'Expédition ne le lisent jamais. Le sien,
  * pas celui des expéditions : il survivra à leur départ fermé, et un test

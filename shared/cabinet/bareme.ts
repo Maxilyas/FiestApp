@@ -157,6 +157,16 @@ export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
 export const GRACE_D_UNE_MANCHE_MS = 1_500
 /** La pause de « Quitter ? », au plus, par manche, sous un voile : la confirmation ne s'achète pas du temps de recherche. Figée au départ avec les durées. */
 export const PAUSE_MAX_MS = 30_000
+/**
+ * Les pauses de « Quitter ? » qu'une manche accepte, ses trente secondes
+ * partagées entre elles ; au-delà, ou ses trente secondes passées, la pause se
+ * refuse et le chrono continue. Une garde des écritures autant qu'un choix :
+ * chaque pause et sa reprise s'écrivent, et rien ne bornait leur nombre — une
+ * page qui les enchaînait écrivait des centaines de gestes par manche, que
+ * chaque relecture repliait. Lue par le pli au barème du code : relevée, rien
+ * ne change aux parties jouées ; abaissée, elle monte la version du départ.
+ */
+export const PAUSES_PAR_MANCHE = 3
 
 // ── Les neuf jeux ─────────────────────────────────────────────────────────
 // Chaque barème dit ce qui vaut ★★★, ★★ puis ★ ; en deçà, zéro.

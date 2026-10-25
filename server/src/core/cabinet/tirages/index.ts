@@ -26,11 +26,13 @@ export { FENETRE_DU_CABINET_MS, Posees, type ContexteDuTirage } from './communs'
 /**
  * Une question tirée par une partie n'a qu'un cœur (`QuestionDeLaPartie`,
  * `core/tirageALaPiece.ts`) : celle que garde le Cabinet (`QuestionTiree`) est
- * la même, et s'y lie par le typage, dans les deux sens — un champ ajouté à
- * l'une sans l'autre ne compile plus, plutôt que de se perdre en route vers la
- * pièce que le journal relit.
+ * la même, et s'y lie par le typage — chacune s'affecte à l'autre, et elles ont
+ * les mêmes champs : un champ ajouté à l'une sans l'autre ne compile plus,
+ * plutôt que de se perdre en route vers la pièce que le journal relit.
+ * L'affectation seule laissait passer un champ facultatif de plus d'un côté.
  */
-type LaMemeQuestion = [QuestionDeLaPartie] extends [QuestionTiree] ? ([QuestionTiree] extends [QuestionDeLaPartie] ? true : false) : false
+type Egales<A, B> = [A] extends [B] ? ([B] extends [A] ? ([keyof A] extends [keyof B] ? ([keyof B] extends [keyof A] ? true : false) : false) : false) : false
+type LaMemeQuestion = Egales<QuestionDeLaPartie, QuestionTiree>
 export const LA_MEME_QUESTION: LaMemeQuestion = true
 
 /** Un tireur : le contenu d'une manche, ou null — rien à poser qui tienne ses règles. */

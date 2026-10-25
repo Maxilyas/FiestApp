@@ -1,10 +1,12 @@
 // Les tas où le Cabinet tire ses questions de la base : ce que chaque jeu sait
 // poser, catégorie par catégorie, gardé par identité de la liste des jouables
 // (`WeakMap`) — une base qui change, une question retirée refont la liste, et
-// ses tas avec elle. Préparés en fond (`preparerLesTas`), une catégorie par
-// tour de boucle (`rendreLaMain`) : un départ qui les trouve prêts ne fait que
-// tirer ; sinon il ne prépare que la catégorie qu'il lit, deux mille questions
-// passées au crible une fois.
+// ses tas avec elle. Préparés une fois par liste (`preparerLesTas`), une
+// catégorie par tour de boucle (`rendreLaMain`), en fond derrière la page du
+// Cabinet ou sous le départ qui trouve une liste neuve — il les attend, et le
+// serveur lit les autres requêtes entre deux catégories. Le tireur, lui, prend
+// des tas prêts : ce qui lui manquerait encore (une préparation ratée), il le
+// passe au crible d'un bloc, deux mille questions par catégorie qu'il lit.
 //
 // Le Pari et l'Éclair puisent dans le même tas : des QCM de quatre réponses qui
 // se lisent en 360 pixels, chrono en marche, et ne se trahissent pas d'eux-mêmes.
@@ -49,13 +51,13 @@ export function qcmDeToutes(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jou
 }
 
 /**
- * Les tas préparés en fond, une catégorie par tour de boucle : la première
- * page du Cabinet d'un réveil les lance, derrière sa réponse, comme la base de
- * la campagne (`porte.prechauffer`). Une étape lourde passe son tour avant de
- * calculer, puis relit ce qu'une autre a pu faire pendant qu'elle attendait.
+ * Les tas d'une liste de jouables, une catégorie par tour de boucle : la page
+ * du Cabinet les lance derrière sa réponse, comme la base de la campagne
+ * (`porte.prechauffer`), et le départ qui trouve une liste neuve les attend
+ * (`CabinetStore.tasDe`). Une étape lourde passe son tour avant de calculer,
+ * puis relit ce qu'une autre a pu faire pendant qu'elle attendait.
  */
-export async function preparerLesTas(porte: Pick<PorteDeLaCampagne, 'jouables' | 'deLaCategorie'>): Promise<void> {
-  const jouables = await porte.jouables()
+export async function preparerLesTas(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[]): Promise<void> {
   for (const c of CATEGORIES) {
     await rendreLaMain()
     qcmDeLaCategorie(porte, jouables, c)

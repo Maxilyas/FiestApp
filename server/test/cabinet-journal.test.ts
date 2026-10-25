@@ -12,8 +12,26 @@ import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { inscrireProfil } from './banc'
-import { bancDuCabinet, commencer, departEnBase, enBase, jouer, jouerUnEclair, jouerUnPari, laPage, lire, ok, ouvrir, pariDe, unPariParfait, type BancDuCabinet } from './cabinet-banc'
+import {
+  bancDuCabinet,
+  commencer,
+  departEnBase,
+  enBase,
+  jouer,
+  jouerUnEclair,
+  jouerUnPari,
+  laPage,
+  lire,
+  ok,
+  ouvrir,
+  pariDe,
+  questionDuCabinet,
+  unPariParfait,
+  type BancDuCabinet,
+} from './cabinet-banc'
 import { ProfileStore } from '../src/auth/profiles'
+import { BaseDeLaCampagne } from '../src/core/baseCampagne'
+import { CATEGORIES } from '../../shared/categories'
 import { JOKER_D_ECLAIRER, PREFIXE_DU_CABINET } from '../../shared/cabinet/pieces'
 import { JUSTES_DOUBLEES_PAR_JOUR, XP_PAR_JUSTE } from '../../shared/campagne'
 import type { EclairTire } from '../../shared/cabinet/jeux/eclair'
@@ -154,6 +172,53 @@ test('rien ne revient avant sept jours, d’un jeu à l’autre : l’Éclair ne
   )
   ok(await jouer(b, eva, eclair, { quoi: 'quitter' }), 'quitter')
   assert.equal(ok(await laPage(b, eva), 'la page').enCours, null)
+})
+
+test('le magasin déplie les composés avant de tirer : les questions d’un Éclair ne reviennent pas au Pari de la semaine', async () => {
+  // Une catégorie, dix-huit faciles ou moyennes, quatre difficiles : le hasard n'a plus de place. Le Pari d'hier en voit
+  // trois ; l'Éclair d'aujourd'hui prend les quinze autres, jamais vues, sous trois pièces composées
+  // (`cab:eclair:a+…+e`) ; le Pari qui suit ne peut plus reprendre que celles d'hier, vues avant — à condition que le
+  // magasin déplie les composés. Sans le dépliage, les quinze de l'Éclair passaient pour jamais vues, et revenaient les
+  // premières : l'épreuve d'au-dessus, dans l'autre sens et sur une base large, ne le voyait qu'une fois sur quelques-unes.
+  const [categorie] = CATEGORIES
+  const base = new BaseDeLaCampagne([
+    ...Array.from({ length: 18 }, (_, i) => questionDuCabinet(i, categorie, i % 2 === 0 ? 2 : 3)),
+    ...Array.from({ length: 4 }, (_, i) => questionDuCabinet(100 + i, categorie, 4)),
+  ])
+  const c = await bancDuCabinet({ baseDeLaCampagne: base })
+  try {
+    const ana = await inscrireProfil(c.banc.url, 'ana', 'Ana')
+    const premieres = (serie: string) => (departEnBase(c.fichier, serie).tirages as PariTire[]).map(t => t.q1.id)
+    let hier = ok(await commencer(c, ana, { origine: 'libre', jeu: 'pari', carte: null }), 'le Pari d’hier')
+    const vuesHier = new Set(premieres(hier.id))
+    for (let k = 0; k < 3; k++) {
+      if (k > 0) hier = await ouvrir(c, ana, hier, k)
+      hier = await jouerUnPari(c, ana, hier, k, 'garder')
+    }
+    assert.equal(hier.phase, 'finie')
+
+    c.horloge.t += 24 * 3_600_000
+    let eclair = ok(await commencer(c, ana, { origine: 'libre', jeu: 'eclair', carte: null }), 'l’Éclair')
+    const vuesALEclair = new Set((departEnBase(c.fichier, eclair.id).tirages as EclairTire[]).flatMap(t => t.affirmations.map(a => a.question.id)))
+    assert.equal(vuesALEclair.size, 15)
+    assert.deepEqual([...vuesALEclair].filter(id => vuesHier.has(id)), [], 'l’Éclair passe celles d’hier après les jamais vues')
+    for (let k = 0; k < 3; k++) {
+      if (k > 0) eclair = await ouvrir(c, ana, eclair, k)
+      eclair = await jouerUnEclair(c, ana, eclair, k)
+    }
+    assert.equal(eclair.phase, 'finie')
+
+    const pari = ok(await commencer(c, ana, { origine: 'libre', jeu: 'pari', carte: null }), 'le Pari d’aujourd’hui')
+    const reprises = premieres(pari.id)
+    assert.deepEqual(
+      reprises.filter(id => vuesALEclair.has(id)),
+      [],
+      'une question de l’Éclair, vue tout à l’heure dans un composé, reposée devant une vue hier',
+    )
+    assert.deepEqual(new Set(reprises), vuesHier, 'toutes vues : la moins récemment vue revient d’abord')
+  } finally {
+    await c.banc.close()
+  }
 })
 
 test('le Cabinet ne modifie ni n’efface jamais une réponse : les tranches du journal s’effaceraient toutes', () => {

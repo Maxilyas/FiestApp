@@ -23,6 +23,7 @@
 import { createHmac, randomUUID } from 'node:crypto'
 import type { ResultSet } from '@libsql/client'
 import { Budget } from '../budget'
+import type { QuestionDeLaBase } from '../baseCampagne'
 import type { FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites } from '../porteDeLaCampagne'
 import type { calendrierDuCabinet } from '../saisons'
 import { lotDeLOubli, lotDuDepart, lotDuGeste, type FinAEcrire, type OeuvreAEcrire } from './ecriture'
@@ -83,7 +84,13 @@ export interface ReglagesDuCabinet {
   maintenant: () => number
   /** Le calendrier des fêtes du Cabinet (`calendrierDuCabinet`) : le banc et le smoke le ferment. */
   calendrier: Pick<typeof calendrierDuCabinet, 'periodeDu'>
-  /** Le hasard des tirages : celui du serveur. Un test le fixe. */
+  /**
+   * Le hasard que le Cabinet tire lui-même — l'ordre des catégories de
+   * l'Éclair, l'affirmation proposée — : celui du serveur, `Math.random` à
+   * défaut. Le tirage à la pièce garde le sien (`tirerPourUneEscale`,
+   * `versQuestionDeSerie`, `core/tirageALaPiece.ts`), le même que les autres
+   * modes : aucun des deux ne vient d'une graine que la page connaîtrait.
+   */
   hasard?: () => number
 }
 
@@ -184,7 +191,14 @@ export class CabinetStore {
   private readonly departs = new Budget(DEPARTS_PAR_HEURE, DEPARTS_PAR_HEURE / 60)
   private readonly maintenant: () => number
   private readonly hasard: () => number
-  private tasEnRoute: Promise<void> | null = null
+  /**
+   * Les tas de la dernière liste de jouables, et leur préparation : la liste
+   * change d'identité — la réserve du jour, un retrait, une base relue —, et
+   * ses tas, gardés par elle (`tirages/tas.ts`), avec. Une liste neuve se
+   * prépare une fois, en rendant la main entre deux catégories, qu'elle
+   * vienne d'une page (`prechauffer`) ou d'un départ, qui l'attend.
+   */
+  private tas: { jouables: readonly QuestionDeLaBase[]; prets: Promise<void> } | null = null
 
   constructor(
     private readonly porte: PorteDeLaCampagne,
@@ -349,6 +363,13 @@ export class CabinetStore {
    * réponse. Devancé par un autre onglet ou l'autre serveur d'une mise en
    * ligne, le musée s'oublie, se relit, et le départ se rejoue une fois sur
    * l'état vrai : il part, ou se refuse en mots.
+   *
+   * Deux heures : l'arrivée de la requête (`recueLe`, avant le verrou) dit le
+   * jour, minuit et la date de la partie ; l'ouverture de la première manche
+   * se prend une fois le plan tiré, juste avant le lot. Datée de l'arrivée, la
+   * manche courait déjà pendant le verrou, le lot froid, la base de la
+   * campagne au premier départ d'un réveil — des secondes au dixième de cœur
+   * de l'hébergeur —, et le joueur voyait sa question le chrono entamé.
    */
   async commencer(profileId: string, brut: unknown): Promise<PartieLue> {
     const recueLe = this.maintenant()
@@ -372,6 +393,8 @@ export class CabinetStore {
         // Le journal rattrapé : rien à relire si une lecture est partie après la dernière réponse écrite ici.
         const { journal } = await this.porte.lireAvecLeJournal([])
         const [jouables, mesures] = await Promise.all([this.porte.jouables(), this.porte.mesures()])
+        // Les tas d'une liste neuve se préparent en rendant la main : le tireur ne passe jamais toute la base d'un bloc.
+        await this.tasDe(jouables)
         const rechanges = cadre.carte?.pouvoir === 'changer' ? CHANGEMENTS_PAR_PARTIE[cadre.carte.force] : 0
         const tirages = tirerLePlan(
           cadre.jeu,
@@ -400,9 +423,14 @@ export class CabinetStore {
         // Sous une carte de Miser, la mise se décide avant de voir la manche : la page l'ouvre elle-même.
         const ouverture = cadre.carte?.pouvoir === 'miser' ? null : { geste: { quoi: 'ouvrir', manche: 0 } as GesteDuCabinet, uid: randomUUID() }
         const visites = JSON.stringify(visitesAGarder(visite, g.profil?.visites ?? []))
+        // Le zéro du chrono de la première manche : le plan tiré, à l'heure du serveur (invariant 6).
+        const ouverteLe = this.maintenant()
         let lus: ResultSet[]
         try {
-          lus = await this.porte.client.batch(lotDuDepart({ profileId, serie, depart, t, jour, veille: jourAvant(jour), minuit: minuitDe(t), visites, ouverture }), 'write')
+          lus = await this.porte.client.batch(
+            lotDuDepart({ profileId, serie, depart, t, ouverteLe, jour, veille: jourAvant(jour), minuit: minuitDe(t), visites, ouverture }),
+            'write',
+          )
         } catch (e) {
           this.oublier(profileId)
           throw e
@@ -416,7 +444,7 @@ export class CabinetStore {
         const payee = depart.origine === 'libre' ? Number(lus[1].rows[0].payee) === 1 : true
         const figee: DepartDUnePartie = { ...depart, payee }
         this.retenirLeDepart(g, figee, serie, t, visite)
-        const gestes: GesteEcrit[] = ouverture ? [{ geste: ouverture.geste, faitLe: t }] : []
+        const gestes: GesteEcrit[] = ouverture ? [{ geste: ouverture.geste, faitLe: ouverteLe }] : []
         const partie: PartieGardee = { id: serie, profileId, depart: figee, gestes, etat: pliDeLaPartie(figee, gestes), bilan: null }
         return { ...this.garder(this.parties, serie, partie, PARTIES_GARDEES), lueA: this.maintenant() }
       }
@@ -461,14 +489,27 @@ export class CabinetStore {
    * le pli a tranché, en un lot gardé par le geste. Le rang déjà pris par
    * l'autre serveur, la partie s'oublie, se relit, et le geste se rejoue une
    * fois sur l'état vrai : il rend alors la vue de ce qui était déjà fait.
+   *
+   * Un rang en avance sur la mémoire dit que l'autre serveur d'une mise en
+   * ligne a joué la partie depuis : la page tient sa vue de lui. Elle s'oublie
+   * et se relit une fois — un aller-retour, sur ce seul cas —, et le geste se
+   * joue sur l'état vrai ; sinon le refus rendait la vue de la mémoire, une
+   * manche déjà tranchée encore « à jouer », que la page reprenait. Un rang en
+   * retard (un double toucher, une réponse perdue puis rejouée, le cas
+   * ordinaire) ne relit rien : c'est la page qui est en retard.
    */
   async geste(profileId: string, serie: string, rang: unknown, brut: unknown): Promise<IssueDuGeste> {
     const recueLe = this.maintenant()
     return this.porte.avecVerrou(profileId, async () => {
       for (let essai = 0; ; essai++) {
+        const enMemoire = this.parties.has(serie)
         const p = await this.partieDe(profileId, serie)
         if (!p) return { introuvable: true }
         if (p.etat.fin) return { passe: { ...p, lueA: this.maintenant() }, pourquoi: PARTIE_FINIE }
+        if (rang !== p.etat.rang && enMemoire && essai === 0 && typeof rang === 'number' && rang > p.etat.rang) {
+          this.oublier(profileId, serie)
+          continue
+        }
         if (rang !== p.etat.rang) return { passe: { ...p, lueA: this.maintenant() }, pourquoi: GESTE_PASSE }
         const geste = lireUnGeste(brut)
         if (!geste) throw new Error('Ce geste ne se lit pas : recharge la page')
@@ -499,7 +540,7 @@ export class CabinetStore {
     const finit = apres.fin !== null && p.etat.fin === null
     const uid = randomUUID()
     const garde = finit ? await this.musee(profileId, t) : null
-    const fin = garde ? this.laFin(profileId, garde, p, apres, t) : null
+    const fin = garde ? this.laFin(profileId, garde, p, apres) : null
     const lot = lotDuGeste({ serie: p.id, rang, geste, faitLe: t, uid, pieces, compagnon: this.porte.compagnonDeLaNiche(profileId), fin: fin?.aEcrire ?? null })
     let ecrites: ReponsesEcrites
     try {
@@ -530,23 +571,24 @@ export class CabinetStore {
   }
 
   /** Ce que la fin écrit : le bilan, l'œuvre telle que son musée la tient à présent — une chasse du matin, un achat entre-temps l'ont pu changer. */
-  private laFin(profileId: string, garde: MuseeGarde, p: PartieGardee, apres: EtatDeLaPartie, t: number): { aEcrire: FinAEcrire } {
+  private laFin(profileId: string, garde: MuseeGarde, p: PartieGardee, apres: EtatDeLaPartie): { aEcrire: FinAEcrire } {
     const musee = this.museeVu(profileId, garde)
     const cible = p.depart.cible
     const aLui = cible !== null && estUneOeuvre(cible) ? { possedee: possedees(musee).has(cible), doree: dorees(musee).has(cible) } : null
     const bilan = bilanDe(p.depart, apres, aLui)
-    return { aEcrire: { profileId, bilan, oeuvre: this.oeuvreDeLaFin(garde, bilan, t) } }
+    return { aEcrire: { profileId, bilan, oeuvre: this.oeuvreDeLaFin(garde, bilan, p.depart.jour) } }
   }
 
   /** L'œuvre que la fin touche, en une seule instruction : le gain, la dorure, le cartel d'un double. */
-  private oeuvreDeLaFin(garde: MuseeGarde, bilan: BilanDUnePartie, t: number): OeuvreAEcrire | null {
+  private oeuvreDeLaFin(garde: MuseeGarde, bilan: BilanDUnePartie, jourDuDepart: string): OeuvreAEcrire | null {
     const cle = bilan.oeuvre
     if (cle === undefined || !estUneOeuvre(cle)) return null
     const ligne = garde.oeuvres.get(cle)
     const cartel = bilan.cartel !== null && !ligne?.serieId
     if (bilan.issue === 'gagnee' || bilan.issue === 'gagnee-doree') {
-      // La saison se lit au jour de Paris de la fin de sa partie, au calendrier du Cabinet — que le banc ferme.
-      const saison = this.reglages.calendrier.periodeDu(jourDe(t))?.saison.key ?? null
+      // La saison se lit au jour de son départ, comme sa case et sa poussière, au calendrier du Cabinet — que le banc
+      // ferme : une partie du 24 octobre close à la page du 25 n'est pas d'Halloween, celle du 31 finie après minuit l'est.
+      const saison = this.reglages.calendrier.periodeDu(jourDuDepart)?.saison.key ?? null
       return { cle, origine: 'partie', saison, cartel: bilan.cartel !== null, doree: bilan.issue === 'gagnee-doree' }
     }
     const doree = bilan.issue === 'doree'
@@ -555,10 +597,10 @@ export class CabinetStore {
     return { cle, origine: ligne ? 'partie' : 'depart', saison: null, cartel, doree }
   }
 
-  /** Ce que le lot de fin a écrit, appliqué au musée gardé : la poussière au reflet, la partie rendue, l'œuvre, la partie du jour. */
+  /** Ce que le lot de fin a écrit, appliqué au musée gardé : la poussière au reflet, la partie rendue si c'est la sienne, l'œuvre, la partie du jour. */
   private retenirLaFin(g: MuseeGarde, p: PartieGardee, fin: FinAEcrire, t: number) {
-    if (g.profil) g.profil = { ...g.profil, poussiere: g.profil.poussiere + fin.bilan.poussiere, partie: null }
-    g.enCours = null
+    if (g.profil) g.profil = { ...g.profil, poussiere: g.profil.poussiere + fin.bilan.poussiere, partie: g.profil.partie === p.id ? null : g.profil.partie }
+    if (g.enCours?.id === p.id) g.enCours = null
     const duJour = g.duJour.parties.find(x => x.id === p.id)
     if (duJour) Object.assign(duJour, { finieLe: t, issue: fin.bilan.issue, total: fin.bilan.total })
     const o = fin.oeuvre
@@ -583,24 +625,54 @@ export class CabinetStore {
   /**
    * La base de la campagne et les tas du Cabinet, lus en fond : la page du
    * Cabinet la lance derrière sa réponse, comme l'accueil (`prechauffageAuProfil`,
-   * `server.ts`) — le premier départ d'un réveil ne les attend pas.
+   * `server.ts`) — le premier départ d'un réveil ne les attend pas. Chaque
+   * page la relance : une liste de jouables neuve depuis la dernière refait
+   * ses tas en fond, avant que le départ qui suit ne les demande. Ne rejette
+   * jamais : ce qui manque, le départ le refera.
    */
-  prechauffer(): void {
+  prechauffer(): Promise<void> {
     this.porte.prechauffer()
-    this.tasEnRoute ??= preparerLesTas(this.porte).catch(e => {
-      this.tasEnRoute = null
-      console.error('[cabinet] tas non préparés, le premier départ les fera :', e)
-    })
+    return this.porte.jouables().then(
+      jouables => this.tasDe(jouables),
+      e => console.error('[cabinet] base de la campagne non lue, le premier départ la lira :', e),
+    )
+  }
+
+  /**
+   * Les tas de cette liste de jouables, prêts : rien si c'est la dernière
+   * préparée, sinon sa préparation — une catégorie par tour de boucle
+   * (`preparerLesTas`), jamais d'un bloc. Un départ l'attend plutôt que de
+   * passer vingt-cinq mille questions au crible sur son chemin (près d'une
+   * seconde ici, dix fois plus au dixième de cœur de l'hébergeur). Ne rejette
+   * jamais : ratée, elle se redemande, et le tireur fait ce qui manque.
+   */
+  private tasDe(jouables: readonly QuestionDeLaBase[]): Promise<void> {
+    if (this.tas?.jouables !== jouables) {
+      const prets: Promise<void> = preparerLesTas(this.porte, jouables).catch(e => {
+        if (this.tas?.prets === prets) this.tas = null
+        console.error('[cabinet] tas non préparés, le tireur fera ce qui manque :', e)
+      })
+      this.tas = { jouables, prets }
+    }
+    return this.tas.prets
   }
 
   /**
    * Un profil supprimé : ses gestes, ses reflets et ses œuvres, **avant** que
    * la campagne efface ses séries — les gestes se trouvent par elles
-   * (`supprimerProfil`, `server.ts`).
+   * (`supprimerProfil`, `server.ts`). Sous le verrou du profil, comme la
+   * campagne : un départ ou un geste déjà en route — authentifié avant que
+   * ses sessions tombent — finit d'abord, et ce qu'il a écrit s'efface avec
+   * le reste ; sans lui, il recréait `cabinet_profils` derrière l'oubli, et
+   * laissait des gestes sans partie au nom d'un profil supprimé. Le verrou
+   * n'est pas réentrant : `supprimerProfil` appelle la campagne ensuite, qui
+   * le reprend.
    */
-  async oublierProfil(profileId: string): Promise<void> {
-    this.oublier(profileId)
-    await this.porte.client.batch(lotDeLOubli(profileId), 'write')
-    this.oublier(profileId)
+  oublierProfil(profileId: string): Promise<void> {
+    return this.porte.avecVerrou(profileId, async () => {
+      this.oublier(profileId)
+      await this.porte.client.batch(lotDeLOubli(profileId), 'write')
+      this.oublier(profileId)
+    })
   }
 }

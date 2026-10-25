@@ -10,7 +10,7 @@ import Database from 'better-sqlite3'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { CampagneStore } from '../src/core/campagne'
 import { REVEIL_DU_CABINET } from '../src/core/cabinet/tables'
-import { CabinetStore } from '../src/core/cabinet/magasin'
+import { CabinetStore, type ReglagesDuCabinet } from '../src/core/cabinet/magasin'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import type { DepartDUnePartie, GesteDuCabinet } from '../../shared/cabinet/partie'
@@ -80,13 +80,19 @@ export function dossierDEssai(): string {
 /**
  * Un magasin du Cabinet sur la base `fichier` — la même pour deux magasins :
  * deux serveurs, deux mémoires, une base. Ni profils ni étagère : aucun
- * légendaire, rien à ranger.
+ * légendaire, rien à ranger ; le calendrier des fêtes fermé, sauf à en donner
+ * un (`calendrier`).
  */
-export async function magasinDEssai(fichier: string, horloge: { t: number }, base: BaseDeLaCampagne = baseDuCabinet()): Promise<MagasinDEssai> {
+export async function magasinDEssai(
+  fichier: string,
+  horloge: { t: number },
+  base: BaseDeLaCampagne = baseDuCabinet(),
+  { calendrier = { periodeDu: () => null } }: Partial<Pick<ReglagesDuCabinet, 'calendrier'>> = {},
+): Promise<MagasinDEssai> {
   const campagne = new CampagneStore(`file:${fichier.replace(/\\/g, '/')}`, undefined, { base, maintenant: () => horloge.t })
   ouverts.campagnes.push(campagne)
   await campagne.init(REVEIL_DU_CABINET)
-  const cabinet = new CabinetStore(campagne.porte(), { legendairesOf: () => [] }, { maintenant: () => horloge.t, calendrier: { periodeDu: () => null } })
+  const cabinet = new CabinetStore(campagne.porte(), { legendairesOf: () => [] }, { maintenant: () => horloge.t, calendrier })
   return { campagne, cabinet, fichier }
 }
 

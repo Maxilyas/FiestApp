@@ -16,6 +16,7 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { DIX_HEURES, departEnBase, dossierDEssai, fermerLesMagasins, magasinDEssai } from './cabinet-banc'
+import { partiesDuJour } from '../src/core/cabinet/tables'
 
 /** Chaque instruction du Cabinet envoyée à la base, avec ses arguments : le plan se lit tel qu'elle est partie. */
 const envoyees = new Map<string, unknown[]>()
@@ -91,5 +92,39 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
     }
   } finally {
     db.close()
+  }
+})
+
+test('le `+` devant le mode tient les parties du jour à l’index du profil, même quand des statistiques feraient préférer celui des sentiers', async () => {
+  // Sans statistiques, SQLite prend déjà l'index du profil et de la date pour `mode = 'cabinet'` : le plan
+  // d'aujourd'hui ne dit pas à quoi sert le `+`. Qu'un `ANALYZE` passe, ou que le planificateur change d'avis, et un
+  // mode très sélectif sur l'index des sentiers `(profile_id, mode, …)` l'emporterait — il parcourt alors toutes les
+  // parties du Cabinet du profil depuis toujours. Des statistiques qui le disent, et le `+` qui l'écarte.
+  const fichier = path.join(dossierDEssai(), 'statistiques.db')
+  await magasinDEssai(fichier, { t: DIX_HEURES })
+  const db = new Database(fichier)
+  try {
+    db.exec('ANALYZE')
+    db.exec('DELETE FROM sqlite_stat1')
+    const stat = db.prepare('INSERT INTO sqlite_stat1 (tbl, idx, stat) VALUES (?, ?, ?)')
+    stat.run('campagne_series', null, '100000')
+    // Cent parties par profil, deux par instant ; trois par profil et par mode — dix modes, des milliers de séries chacun.
+    stat.run('campagne_series', 'idx_campagne_series_profil', '100000 100 2')
+    stat.run('campagne_series', 'idx_campagne_series_sentiers', '100000 100 3 3 3')
+    stat.run('campagne_series', 'idx_campagne_series_commencee', '100000 2')
+    stat.run('campagne_series', 'idx_campagne_series_defi', '100000 10000 10')
+    stat.run('campagne_series', 'idx_campagne_series_duel', '100000 10000 1')
+  } finally {
+    db.close()
+  }
+  // Les statistiques se lisent à l'ouverture.
+  const lue = new Database(fichier, { readonly: true })
+  try {
+    const planDe = (filtre: string) =>
+      (lue.prepare(`EXPLAIN QUERY PLAN SELECT id FROM campagne_series WHERE ${filtre}`).all('qui', DIX_HEURES) as Etape[]).map(e => e.detail).join('\n')
+    assert.match(planDe(partiesDuJour()), /^SEARCH campagne_series USING INDEX idx_campagne_series_profil \(profile_id=\? AND commencee_le>\?\)/m)
+    assert.match(planDe(partiesDuJour().replace('+mode', 'mode')), /idx_campagne_series_sentiers \(profile_id=\? AND mode=\?\)/, 'sans le `+`, ces statistiques mènent bien aux sentiers')
+  } finally {
+    lue.close()
   }
 })

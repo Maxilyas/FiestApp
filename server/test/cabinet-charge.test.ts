@@ -3,9 +3,12 @@
 // une mise en ligne, chacun sa mémoire : la base seule dit qui a gagné — un
 // seul geste par rang, une seule partie en cours, un seul droit du jour (D9) —,
 // et le perdant s'oublie, relit, et rend la vue de ce qui était déjà fait ou
-// le refus juste, en mots. Une écriture que la base refuse (un `RAISE(ABORT)`,
-// le gabarit d'`expedition-charge.test.ts`) ne laisse rien en mémoire : le même
-// geste, rejoué au même rang, passe une fois.
+// le refus juste, en mots ; un rang en avance sur sa mémoire la lui fait
+// relire. Une écriture que la base refuse (un `RAISE(ABORT)`, le gabarit
+// d'`expedition-charge.test.ts`) ne laisse rien en mémoire : le même geste,
+// rejoué au même rang, passe une fois. La suppression d'un profil attend ce
+// qui est en route, et les tas d'une liste de jouables neuve se préparent une
+// catégorie par tour de boucle, jamais d'un bloc sous un départ.
 //
 // Puis par les routes, chaque aller-retour compté sur le fichier `file:` qui
 // tient lieu de Turso (le gabarit d'`expedition-charge.test.ts`) : la page
@@ -36,6 +39,8 @@ import {
   type MagasinDEssai,
 } from './cabinet-banc'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
+import { POUSSIERE_MIN } from '../../shared/cabinet/bareme'
+import { CATEGORIES } from '../../shared/categories'
 import type { PartieLue } from '../src/core/cabinet/magasin'
 import { ProfileStore } from '../src/auth/profiles'
 
@@ -136,6 +141,125 @@ test('deux serveurs : un seul droit du jour — deux chasses, pas une de plus, r
   assert.ok('partie' in (await a.cabinet.geste('qui', visite.id, 2, { quoi: 'quitter' })))
   await assert.rejects(c.cabinet.commencer('qui', { origine: 'visite', case: 0, carte: null }), { message: 'Cette partie de la visite est déjà faite' })
   assert.equal(compter(fichier, "SELECT COUNT(*) AS n FROM campagne_series WHERE mode = 'cabinet'"), 3)
+})
+
+test('deux serveurs : un rang en avance sur la mémoire la relit, et le geste se joue sur l’état vrai', async () => {
+  const { a, b, fichier } = await deuxServeurs()
+  const partie = await a.cabinet.commencer('qui', { origine: 'libre', jeu: 'pari', carte: null })
+  const t = departEnBase(fichier, partie.id).tirages[0] as PariTire
+  // Le geste suivant passe par l'autre serveur : la première manche, ratée, est tranchée.
+  const surB = await b.cabinet.geste('qui', partie.id, 2, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: (t.q1.bonne + 1) % 4 } } })
+  assert.ok('partie' in surB)
+  assert.equal(surB.partie.etat.rang, 3)
+  // Le suivant revient au premier, au rang que la page tient de l'autre : sa mémoire en est restée au rang 2. Sans la
+  // relire, il refusait le geste avec la vue de sa mémoire — la manche tranchée encore « à jouer », que la page reprenait.
+  const surA = await mesurer(() => a.cabinet.geste('qui', partie.id, 3, { quoi: 'ouvrir', manche: 1 }))
+  assert.ok('partie' in surA.resultat, JSON.stringify(surA.resultat))
+  assert.equal(surA.resultat.partie.etat.rang, 4)
+  assert.equal(surA.resultat.partie.etat.manches[0].fin, 'jugee')
+  assert.equal(surA.appels, 2, 'sa relecture, puis le geste')
+  assert.equal(compter(fichier, 'SELECT COUNT(*) AS n FROM cabinet_gestes WHERE serie_id = ?', partie.id), 3)
+  // Un rang en retard — le double toucher — ne relit rien : c'est la page qui est en retard.
+  const double = await mesurer(() => a.cabinet.geste('qui', partie.id, 3, { quoi: 'ouvrir', manche: 1 }))
+  assert.ok('passe' in double.resultat)
+  assert.equal(double.resultat.passe.etat.rang, 4)
+  assert.equal(double.appels, 0)
+})
+
+test('la fin rend la poussière au solde même quand la ligne du profil ne nomme plus sa partie, et ne rend que la sienne', async () => {
+  // Un serveur qui ne relit pas une partie — le départ d'une version que l'autre serveur d'une mise en ligne connaît déjà
+  // — rend la ligne du profil (`rendreLaPartieIllisible`) ; l'autre finit la partie. Gardée par `partie = ?`, la
+  // poussière du bilan n'entrait plus au solde.
+  const { a, fichier } = await deuxServeurs()
+  const poussiere = () => enBase(fichier, db => db.prepare('SELECT poussiere, partie FROM cabinet_profils WHERE profile_id = ?').get('qui'))
+  const visite = await a.cabinet.commencer('qui', { origine: 'visite', case: 0, carte: null })
+  aLaMain(fichier, "UPDATE cabinet_profils SET partie = NULL WHERE profile_id = 'qui'")
+  const fin = await a.cabinet.geste('qui', visite.id, 2, { quoi: 'quitter' })
+  assert.ok('partie' in fin)
+  assert.equal(fin.partie.bilan?.poussiere, POUSSIERE_MIN)
+  assert.deepEqual(poussiere(), { poussiere: POUSSIERE_MIN, partie: null })
+  // Une autre partie posée entre-temps sur la ligne y reste : la fin ne rend que la sienne.
+  const chasse = await a.cabinet.commencer('qui', { origine: 'chasse', oeuvre: 'lecon', carte: null })
+  aLaMain(fichier, "UPDATE cabinet_profils SET partie = 'une-autre' WHERE profile_id = 'qui'")
+  assert.ok('partie' in (await a.cabinet.geste('qui', chasse.id, 2, { quoi: 'quitter' })))
+  assert.deepEqual(poussiere(), { poussiere: 2 * POUSSIERE_MIN, partie: 'une-autre' })
+})
+
+test('la suppression d’un profil attend ce qui est en route : un départ, un geste qui finit, puis rien ne reste à son nom', async () => {
+  const { a, fichier } = await deuxServeurs()
+  const reste = (id: string) => ({
+    profils: compter(fichier, 'SELECT COUNT(*) AS n FROM cabinet_profils WHERE profile_id = ?', id),
+    series: compter(fichier, 'SELECT COUNT(*) AS n FROM campagne_series WHERE profile_id = ?', id),
+    gestes: compter(fichier, 'SELECT COUNT(*) AS n FROM cabinet_gestes'),
+    oeuvres: compter(fichier, 'SELECT COUNT(*) AS n FROM cabinet_oeuvres WHERE profile_id = ?', id),
+  })
+  const supprimer = async (id: string) => {
+    await a.cabinet.oublierProfil(id)
+    await a.campagne.oublierProfil(id)
+  }
+  // Un départ authentifié avant que ses sessions tombent : sans le verrou, il recréait sa ligne derrière l'oubli, une
+  // partie nommée qui n'existait plus, et un geste sans partie.
+  const depart = a.cabinet.commencer('parti', { origine: 'libre', jeu: 'pari', carte: null })
+  await Promise.all([depart, supprimer('parti')])
+  assert.deepEqual(reste('parti'), { profils: 0, series: 0, gestes: 0, oeuvres: 0 })
+  // Un geste qui finit une chasse gagnée : l'œuvre ne reste pas au nom d'un profil supprimé.
+  let p = await a.cabinet.commencer('fini', { origine: 'chasse', oeuvre: 'lecon', carte: null })
+  for (let k = 0; k < 3; k++) {
+    const tire = departEnBase(fichier, p.id).tirages[k] as PariTire
+    const joue = async (geste: Record<string, unknown>) => {
+      const r = await a.cabinet.geste('fini', p.id, p.etat.rang, geste)
+      assert.ok('partie' in r, JSON.stringify(r))
+      p = r.partie
+    }
+    if (k > 0) await joue({ quoi: 'ouvrir', manche: k })
+    await joue({ quoi: 'repondre', manche: k, reponse: { pari: { choix: tire.q1.bonne } } })
+    await joue({ quoi: 'parier', manche: k })
+    if (k === 2) break
+    await joue({ quoi: 'repondre', manche: k, reponse: { pari: { choix: tire.q2.bonne } } })
+  }
+  const derniere = (departEnBase(fichier, p.id).tirages[2] as PariTire).q2.bonne
+  const fin = a.cabinet.geste('fini', p.id, p.etat.rang, { quoi: 'repondre', manche: 2, reponse: { pari: { choix: derniere } } })
+  const [gagnee] = await Promise.all([fin, supprimer('fini')])
+  assert.ok('partie' in gagnee && gagnee.partie.bilan?.issue === 'gagnee-doree', JSON.stringify(gagnee))
+  assert.deepEqual(reste('fini'), { profils: 0, series: 0, gestes: 0, oeuvres: 0 })
+})
+
+test('les tas d’une liste de jouables neuve se préparent une catégorie par tour de boucle, même sous un départ', async () => {
+  // La liste des jouables change d'identité — la réserve du jour, un retrait, une base relue — et ses tas avec. Préparés
+  // une fois par processus, le départ suivant passait toute la base au crible d'un bloc, sur son chemin : près d'une
+  // seconde sur la vraie base ici, dix fois plus au dixième de cœur de l'hébergeur.
+  const { a } = await deuxServeurs()
+  const porte = a.campagne.porte()
+  const avant = { jouables: porte.jouables, deLaCategorie: porte.deLaCategorie }
+  let liste = await avant.jouables()
+  porte.jouables = async () => liste
+  // Chaque catégorie passée au crible, et le tour de boucle où elle l'a été.
+  let tour = 0
+  let tourne = true
+  const tic = () => {
+    tour++
+    if (tourne) setImmediate(tic)
+  }
+  setImmediate(tic)
+  const cribles: number[] = []
+  porte.deLaCategorie = (jouables, categorie) => (cribles.push(tour), avant.deLaCategorie(jouables, categorie))
+  try {
+    // La page les prépare en fond ; le départ qui suit les trouve prêts.
+    await a.cabinet.prechauffer()
+    assert.equal(cribles.length, CATEGORIES.length)
+    const premier = await a.cabinet.commencer('qui', { origine: 'libre', jeu: 'pari', carte: null })
+    assert.equal(cribles.length, CATEGORIES.length, 'prêts : le départ ne fait que tirer')
+    assert.ok('partie' in (await a.cabinet.geste('qui', premier.id, 2, { quoi: 'quitter' })))
+    // Une liste neuve sans page : le départ attend leur préparation, qui rend la main entre deux catégories.
+    liste = [...liste]
+    cribles.length = 0
+    await a.cabinet.commencer('qui', { origine: 'libre', jeu: 'eclair', carte: null })
+    assert.equal(cribles.length, CATEGORIES.length)
+    assert.equal(new Set(cribles).size, CATEGORIES.length, `chaque catégorie à son tour de boucle, jamais d'un bloc : ${cribles.join(', ')}`)
+  } finally {
+    tourne = false
+    Object.assign(porte, avant)
+  }
 })
 
 test('une écriture refusée par la base : rien ne reste en mémoire, et le même geste, au même rang, passe une fois', async () => {

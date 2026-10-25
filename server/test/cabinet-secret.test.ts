@@ -11,10 +11,29 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
+import path from 'node:path'
 import { inscrireProfil } from './banc'
-import { bancDuCabinet, commencer, departEnBase, eclairDe, enBase, jouer, laPage, lire, ok, pariDe, vraiesDe, type BancDuCabinet } from './cabinet-banc'
+import {
+  DIX_HEURES,
+  bancDuCabinet,
+  commencer,
+  departEnBase,
+  dossierDEssai,
+  eclairDe,
+  enBase,
+  fermerLesMagasins,
+  jouer,
+  laPage,
+  lire,
+  magasinDEssai,
+  ok,
+  pariDe,
+  vraiesDe,
+  type BancDuCabinet,
+} from './cabinet-banc'
 import { SECRET_DU_CABINET } from '../src/core/cabinet/tables'
-import type { DepartDUnePartie } from '../../shared/cabinet/partie'
+import { vueDeLaPartie } from '../src/core/cabinet/vue'
+import type { BilanDUnePartie, DepartDUnePartie } from '../../shared/cabinet/partie'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import type { EclairTire } from '../../shared/cabinet/jeux/eclair'
 import type { QuestionTiree } from '../../shared/cabinet/jeux/outils'
@@ -24,6 +43,7 @@ before(async () => {
   b = await bancDuCabinet()
 })
 after(() => b?.banc.close())
+after(fermerLesMagasins)
 
 const texte = (x: unknown) => JSON.stringify(x)
 
@@ -94,6 +114,19 @@ test('l’Éclair : ni le vrai ou faux d’une affirmation, ni la bonne réponse
   const revelee = ok(await jouer(b, tom, v0, { quoi: 'repondre', manche: 0, reponse: { eclair: { reponses: vraiesDe(eclairDe(b, v0.id, 0)) } } }), 'répondre')
   jamais(d, revelee, 'révélée')
   assert.match(texte(revelee.revelation), /"vraie"/, 'la révélation le dit')
+})
+
+test('le bilan se choisit champ par champ : un champ de plus au bilan figé ne part pas de lui-même, ni l’œuvre visée d’une visite manquée', async () => {
+  // Le piège `montree` de l'Expédition : étalé, le bilan figé aurait envoyé au téléphone tout champ qu'on lui ajoute.
+  const m = await magasinDEssai(path.join(dossierDEssai(), 'bilan.db'), { t: DIX_HEURES })
+  const p = await m.cabinet.commencer('qui', { origine: 'visite', case: 0, carte: null })
+  const fin = await m.cabinet.geste('qui', p.id, 2, { quoi: 'quitter' })
+  assert.ok('partie' in fin && fin.partie.bilan)
+  assert.equal(fin.partie.bilan.issue, 'manquee')
+  const vue = vueDeLaPartie({ ...fin.partie, bilan: { ...fin.partie.bilan, laVisee: 'un-champ-neuf' } as BilanDUnePartie })
+  assert.equal(vue.bilan?.issue, 'manquee')
+  assert.ok(!texte(vue).includes('un-champ-neuf'), 'un champ du bilan figé que la vue n’a pas choisi')
+  if (p.depart.cible !== null) assert.ok(!texte(vue).includes(`"${p.depart.cible}"`), 'la visite manquée nomme l’œuvre visée')
 })
 
 test('la visite : ni l’œuvre visée d’une case, ni sa graine, ni le secret dont elle est faite', async () => {

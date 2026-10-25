@@ -8,18 +8,36 @@
 // le même chrono par les routes, l'horloge du banc à la main
 // (`horlogeDuJour`) : l'heure d'arrivée de la requête juge, jamais celle du
 // téléphone.
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 import { inscrireProfil } from './banc'
-import { bancDuCabinet, commencer, eclairDe, jouer, ok, ouvrir as ouvrirLaManche, vraiesDe } from './cabinet-banc'
-import { DUREES_DES_JEUX, GRACE_D_UNE_MANCHE_MS, PAUSE_MAX_MS, SECONDES_PAR_FORCE } from '../../shared/cabinet/bareme'
+import {
+  DIX_HEURES,
+  bancDuCabinet,
+  commencer,
+  dossierDEssai,
+  eclairDe,
+  enBase,
+  fermerLesMagasins,
+  jouer,
+  magasinDEssai,
+  ok,
+  ouvrir as ouvrirLaManche,
+  vraiesDe,
+} from './cabinet-banc'
+import { vueDeLaPartie } from '../src/core/cabinet/vue'
+import { DUREES_DES_JEUX, GRACE_D_UNE_MANCHE_MS, PAUSE_MAX_MS, PAUSES_PAR_MANCHE, SECONDES_PAR_FORCE } from '../../shared/cabinet/bareme'
+import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import { dansLesTemps, echeanceDe, etapeOuverte, limiteDe, pauseCompteeMs, pauseResteMs } from '../../shared/cabinet/chrono'
 import { JOKER_DU_TEMPS } from '../../shared/cabinet/pieces'
 import { chronoDuDepart, phaseDe, pouvoirMaintenant, resultatDe, type GesteDuCabinet, type Manche } from '../../shared/cabinet/partie'
 import type { EpingleTiree } from '../../shared/cabinet/jeux/epingle'
 import type { RepliqueTiree } from '../../shared/cabinet/jeux/replique'
 import { MIDI, Partie, S, carte, departDe, ouvrir } from './cabinet-plans'
+
+after(fermerLesMagasins)
 
 const essai = (manche: Manche, lettres: string): GesteDuCabinet => ({ quoi: 'essai', manche, lettres })
 const repondre = (manche: Manche, reponse?: object, auto?: true): GesteDuCabinet => ({ quoi: 'repondre', manche, ...(auto && { auto }), ...(reponse && { reponse }) }) as GesteDuCabinet
@@ -171,6 +189,38 @@ test('la pause oubliée : la réponse que la page envoie à l’échéance recul
   assert.equal(mot.refuse(essai(0, 'VILNIUS'), MIDI + 60 * S), 'La partie est en pause : reprends-la d’abord')
 })
 
+test('la pause a ses bornes : trois par manche, ses étapes comprises, et aucune quand ses trente secondes sont passées', () => {
+  // Chaque pause et sa reprise s'écrivent : une page qui les enchaînait au même instant écrivait des centaines de
+  // gestes par manche sans rien consommer de ses trente secondes, et chaque relecture les repliait (la relecture du
+  // lot C1, le 25 octobre 2026 : 200 paires, 401 gestes, pas un refus).
+  const pari = new Partie(departDe('pari'))
+  const { q1 } = pari.depart.tirages[0] as PariTire
+  pari.joue(ouvrir(0), MIDI)
+  for (let k = 0; k < PAUSES_PAR_MANCHE - 1; k++) {
+    pari.joue({ quoi: 'pause', manche: 0 }, MIDI + S)
+    pari.joue({ quoi: 'reprendre', manche: 0 }, MIDI + S)
+  }
+  assert.equal(echeanceDe(pari.etat.manches[0].etapes[0], MIDI + 2 * S), MIDI + DUREES_DES_JEUX.pari * S, 'des pauses vides ne reculent rien')
+  // La seconde étape du Pari a ce qui reste à sa manche : une pause, la dernière.
+  pari.joue(repondre(0, { pari: { choix: q1.bonne } }), MIDI + 2 * S)
+  pari.joue({ quoi: 'parier', manche: 0 }, MIDI + 3 * S)
+  pari.joue({ quoi: 'pause', manche: 0 }, MIDI + 4 * S)
+  pari.joue({ quoi: 'reprendre', manche: 0 }, MIDI + 5 * S)
+  assert.equal(pari.refuse({ quoi: 'pause', manche: 0 }, MIDI + 6 * S), 'Plus de pause pour cette manche : le chrono continue')
+  // La manche d'après a les siennes.
+  pari.joue(repondre(0, { pari: { choix: 0 } }), MIDI + 7 * S)
+  pari.joue(ouvrir(1), MIDI + 8 * S)
+  pari.joue({ quoi: 'pause', manche: 1 }, MIDI + 9 * S)
+
+  // Ses trente secondes passées, une pause ne figerait plus rien : elle se refuse, même la première de trop.
+  const mot = new Partie(departDe('mot'))
+  mot.joue(ouvrir(0), MIDI)
+  mot.joue({ quoi: 'pause', manche: 0 }, MIDI + S)
+  mot.joue({ quoi: 'reprendre', manche: 0 }, MIDI + S + PAUSE_MAX_MS)
+  assert.equal(mot.refuse({ quoi: 'pause', manche: 0 }, MIDI + 2 * S + PAUSE_MAX_MS), 'Plus de pause pour cette manche : le chrono continue')
+  assert.ok(PAUSES_PAR_MANCHE > 1, 'une seule pause : la seconde ne serait pas refusée pour son temps')
+})
+
 test('le Pari : un chrono par étape, aucun entre « Juste ! » et « Garder » ou « Parier »', () => {
   const pari = DUREES_DES_JEUX.pari * S
   const p = new Partie(departDe('pari'))
@@ -280,7 +330,7 @@ test('par les routes : à l’heure, dans la grâce, la manche se juge sur ce qu
   try {
     const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
     let v = ok(await commencer(b, lea, { origine: 'libre', jeu: 'eclair', carte: null }), 'commencer')
-    assert.equal(v.chrono?.echeance, b.horloge.t + DUREES_DES_JEUX.eclair * S, 'l’échéance part de l’arrivée du départ, à l’heure du serveur')
+    assert.equal(v.chrono?.echeance, b.horloge.t + DUREES_DES_JEUX.eclair * S, 'l’échéance part de l’ouverture de la manche, à l’heure du serveur')
     // Au dernier instant de la grâce : jugée sur ses réponses.
     b.horloge.t = v.chrono!.echeance + GRACE_D_UNE_MANCHE_MS
     v = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 0, reponse: { eclair: { reponses: vraiesDe(eclairDe(b, v.id, 0)) } } }), 'à l’heure')
@@ -297,4 +347,28 @@ test('par les routes : à l’heure, dans la grâce, la manche se juge sur ce qu
   } finally {
     await b.banc.close()
   }
+})
+
+test('la première manche s’ouvre une fois le plan tiré : ni le verrou, ni le lot froid, ni la base de la campagne ne mangent son chrono', async () => {
+  const horloge = { t: DIX_HEURES }
+  const m = await magasinDEssai(path.join(dossierDEssai(), 'chrono.db'), horloge)
+  // La base de la campagne qui se lit au premier départ d'un réveil : vingt secondes au dixième de cœur, avant le tirage.
+  const porte = m.campagne.porte()
+  const jouables = porte.jouables
+  porte.jouables = async () => {
+    const j = await jouables()
+    horloge.t += 20 * S
+    return j
+  }
+  const p = await m.cabinet.commencer('qui', { origine: 'libre', jeu: 'eclair', carte: null })
+  const v = vueDeLaPartie(p)
+  assert.equal(v.chrono?.echeance, DIX_HEURES + 20 * S + DUREES_DES_JEUX.eclair * S, 'le chrono part de l’ouverture, le plan tiré')
+  assert.equal(v.chrono!.echeance - v.maintenant, v.chrono!.dureeMs, 'toute la manche devant lui à la réponse')
+  // La partie date de l'arrivée de la requête : son jour, sa ligne, le recompte du jour.
+  assert.equal(enBase(m.fichier, db => (db.prepare('SELECT commencee_le AS t FROM campagne_series WHERE id = ?').get(p.id) as { t: number }).t), DIX_HEURES)
+  // L'ouverture s'écrit à son heure : relue par l'autre serveur, la même échéance.
+  porte.jouables = jouables
+  const autre = await magasinDEssai(m.fichier, horloge)
+  const page = await autre.cabinet.page('qui')
+  assert.equal(page.enCours && vueDeLaPartie(page.enCours).chrono?.echeance, v.chrono?.echeance)
 })

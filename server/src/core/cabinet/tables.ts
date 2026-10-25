@@ -130,8 +130,12 @@ export const champDuDepart = (champ: 'origine' | 'visite') => `CASE WHEN json_va
  * sentiers `(profile_id, mode, …)`, qui parcourrait toutes ses parties du
  * Cabinet depuis toujours — dix par jour et par joueur — pour n'en garder
  * qu'une poignée (le patron `PAR_SON_CODE` des duels, règle `duels.md`).
- * `cabinet-index.test.ts` lit le plan de chaque lecture qui la porte. Ses
- * deux paramètres se nomment par leur place quand un lot les réutilise (`?1`).
+ * Sans statistiques — la production —, SQLite prend déjà l'index du profil :
+ * le `+` tient le jour où un `ANALYZE` ou le planificateur en déciderait
+ * autrement. `cabinet-index.test.ts` lit le plan de chaque lecture qui la
+ * porte, et celui-ci sous des statistiques qui feraient préférer les
+ * sentiers. Ses deux paramètres se nomment par leur place quand un lot les
+ * réutilise (`?1`).
  */
 export const partiesDuJour = (profil = '?', minuit = '?') => `profile_id = ${profil} AND commencee_le >= ${minuit} AND +mode = 'cabinet'`
 

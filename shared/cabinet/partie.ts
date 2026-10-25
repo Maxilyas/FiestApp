@@ -47,6 +47,7 @@ import {
   GRACE_D_UNE_MANCHE_MS,
   MANCHES_PAR_PARTIE,
   PAUSE_MAX_MS,
+  PAUSES_PAR_MANCHE,
   POUSSIERE_DU_DOUBLE,
   POUSSIERE_MIN,
   POUSSIERE_PAR_ETOILE,
@@ -304,6 +305,7 @@ export const EN_PAUSE = 'La partie est en pause : reprends-la d’abord'
 export const DEJA_EN_PAUSE = 'La partie est déjà en pause'
 export const PAS_EN_PAUSE = 'La partie n’est pas en pause'
 export const AUCUN_CHRONO = 'Aucun chrono ne court : rien à mettre en pause'
+export const PLUS_DE_PAUSE = 'Plus de pause pour cette manche : le chrono continue'
 export const SANS_CARTE = 'Tu n’as emporté aucune carte-bonus'
 export const PAS_CE_POUVOIR = 'Ta carte-bonus n’a pas ce pouvoir'
 export const ILLISIBLE = 'Ce geste ne se lit pas : recharge la page'
@@ -532,6 +534,9 @@ export function jouerUnGeste(d: DepartDUnePartie, avant: EtatDeLaPartie, g: Gest
   switch (g.quoi) {
     case 'pause':
       if (!chronoActif(m)) return AUCUN_CHRONO
+      // Une pause qui ne fige plus rien — ses trente secondes passées — ou une de trop : chacune s'écrit avec sa reprise,
+      // et une page qui les enchaînait au même instant écrivait des centaines de gestes par manche sans rien consommer.
+      if (pauseLaisseeMs(etape, t) <= 0 || m.etapes.reduce((n, e) => n + e.pauses.length, 0) >= PAUSES_PAR_MANCHE) return PLUS_DE_PAUSE
       return suite(remplacer(avant, { ...m, etapes: [...m.etapes.slice(0, -1), { ...etape, pauses: [...etape.pauses, { depuis: t }] }] }))
     case 'eclairer':
       return suiteOuRefus(eclairer(d, avant, m, g.affirmation, t))

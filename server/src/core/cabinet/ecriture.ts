@@ -29,8 +29,14 @@ export interface DepartAEcrire {
   profileId: string
   serie: string
   depart: DepartDUnePartie
-  /** L'heure d'arrivée de la requête, prise avant le verrou : le zéro du chrono de la première manche. */
+  /** L'heure d'arrivée de la requête, prise avant le verrou : la date de la partie et de la ligne du profil. */
   t: number
+  /**
+   * Le zéro du chrono de la première manche : l'heure du serveur une fois le
+   * plan tiré, juste avant ce lot — la manche ne court pas pendant le verrou,
+   * le lot froid et le tirage.
+   */
+  ouverteLe: number
   /** Le jour de Paris du départ, la veille, et minuit : la série et le recompte du jour s'y lisent. */
   jour: string
   veille: string
@@ -96,7 +102,7 @@ export function lotDuDepart(d: DepartAEcrire): InStatement[] {
   if (d.ouverture) {
     lot.push({
       sql: 'INSERT INTO cabinet_gestes (serie_id, rang, geste, fait_le, uid) SELECT ?, 1, ?, ?, ? WHERE EXISTS (SELECT 1 FROM campagne_series WHERE id = ?)',
-      args: [d.serie, JSON.stringify(d.ouverture.geste), d.t, d.ouverture.uid, d.serie],
+      args: [d.serie, JSON.stringify(d.ouverture.geste), d.ouverteLe, d.ouverture.uid, d.serie],
     })
   }
   return lot
@@ -116,7 +122,7 @@ export interface OeuvreAEcrire {
   cle: string
   /** `partie` pour une œuvre gagnée, `depart` pour une œuvre de départ sans ligne qui prend un cartel ou un cadre ; une œuvre déjà là garde la sienne. */
   origine: 'partie' | 'depart'
-  /** La fête du jour de sa fin, pour une œuvre gagnée en jouant (`calendrierDuCabinet`) ; jamais pour une dorure ni un cartel. */
+  /** La fête du jour de son départ, pour une œuvre gagnée en jouant (`calendrierDuCabinet`) ; jamais pour une dorure ni un cartel. */
   saison: CleDeSaison | null
   /** Le cartel de cette partie, si elle en garde un et que l'œuvre n'en a pas. */
   cartel: boolean
@@ -176,8 +182,12 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
         args: [g.faitLe, bilan.issue, JSON.stringify(bilan), g.serie, ...garde.args],
       },
       {
-        sql: `UPDATE cabinet_profils SET poussiere = poussiere + ?, partie = NULL, maj_le = ? WHERE profile_id = ? AND partie = ? AND ${garde.sql}`,
-        args: [bilan.poussiere, g.faitLe, profileId, g.serie, ...garde.args],
+        // La poussière sous le seul geste (D9), qui ne s'écrit qu'une fois ; la partie rendue si c'est encore la sienne.
+        // Gardée par `partie = ?`, elle se perdait quand un serveur avait rendu la ligne d'une partie qu'il ne relit pas
+        // (`rendreLaPartieIllisible` : un départ d'une version que l'autre serveur d'une mise en ligne connaît déjà) —
+        // le bilan disait la poussière, le solde ne l'avait pas.
+        sql: `UPDATE cabinet_profils SET poussiere = poussiere + ?, partie = CASE WHEN partie = ? THEN NULL ELSE partie END, maj_le = ? WHERE profile_id = ? AND ${garde.sql}`,
+        args: [bilan.poussiere, g.serie, g.faitLe, profileId, ...garde.args],
       },
     )
     if (oeuvre) {

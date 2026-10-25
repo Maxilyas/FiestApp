@@ -9,8 +9,8 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { connexionAnimateur, ecrire, inscrireProfil } from './banc'
-import { bancDuCabinet, commencer, jouer, laPage, lire, ok, poster, type BancDuCabinet } from './cabinet-banc'
+import { connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter } from './banc'
+import { baseDuCabinet, bancDuCabinet, commencer, jouer, laPage, lire, ok, poster, type BancDuCabinet } from './cabinet-banc'
 import { CABINET_FERME } from '../src/cabinet'
 import { BALISE_DU_CABINET_FERME } from '../src/core/page'
 import { PORTES_DES_PAGES } from '../src/maintenance'
@@ -72,6 +72,21 @@ test('fermé, chaque route du Cabinet répond 404 en mots, à tous — et la pag
     assert.ok(!(await ouvert.page('/')).includes('name="cabinet"'), 'ouvert, aucune balise')
   } finally {
     await ouvert.fermer()
+  }
+})
+
+test('fermé, sa page ne prépare rien : ni la base de la campagne, ni les tas d’un mode qui ne répond pas', async () => {
+  // Ouvert, la page du Cabinet lance la lecture de la base derrière sa réponse (`campagne-charge.test.ts`) ; fermé —
+  // la production —, une requête avec un cookie de profil la lançait encore après son 404.
+  let lectures = 0
+  const ferme = await demarrer({ cabinet: false, baseDeLaCampagne: () => (lectures++, baseDuCabinet()), prechauffageCampagneMs: 3_600_000, prechauffageAuProfil: true })
+  try {
+    const lea = await inscrireProfil(ferme.url, 'lea', 'Léa')
+    assert.equal((await fetch(`${ferme.url}/api/cabinet`, { headers: { Cookie: lea } })).status, 404)
+    await patienter(100)
+    assert.equal(lectures, 0)
+  } finally {
+    await ferme.close()
   }
 })
 

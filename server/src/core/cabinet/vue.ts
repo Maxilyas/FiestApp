@@ -177,16 +177,27 @@ function gainsDe(p: PartieLue): GainsDuCabinet | undefined {
   }
 }
 
-/** Le bilan à l'écran : le bilan figé, son cartel en clair — la manche qu'il garde, relue de son jeu —, l'œuvre, et les gains de la fin. */
+/**
+ * Le bilan à l'écran : le bilan figé, champ par champ — un champ ajouté au
+ * bilan n'y part pas de lui-même, comme le reste de la vue —, son cartel en
+ * clair (la manche qu'il garde, relue de son jeu), l'œuvre, et les gains de la
+ * fin.
+ */
 function bilanVu(p: PartieLue): BilanVu | undefined {
   const b = p.bilan
   if (!b) return undefined
-  const { v: _v, cartel: manche, oeuvre: _oeuvre, ...figes } = b
-  const m = manche === null ? undefined : p.etat.manches[manche]
+  const m = b.cartel === null ? undefined : p.etat.manches[b.cartel]
   const cartel = m?.verdict ? { manche: m.manche, ...regleDe(p.depart.jeu).cartel(p.depart.tirages[m.tirage], m.verdict) } : null
   const gains = gainsDe(p)
   return {
-    ...figes,
+    etoiles: b.etoiles,
+    naturel: b.naturel,
+    aidee: b.aidee,
+    total: b.total,
+    ...(b.quittee && { quittee: true as const }),
+    ...(b.lendemain && { lendemain: true as const }),
+    issue: b.issue,
+    poussiere: b.poussiere,
     cartel,
     seuil: p.depart.seuil,
     dit: bilanDit(p.depart, b),
