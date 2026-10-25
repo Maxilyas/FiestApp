@@ -16,7 +16,7 @@ Il ne change que pour une commande, un invariant ou une convention de tout le d�
 
 ### Les règles de `.claude/rules/`
 
-Vingt-sept règles, une par domaine — le moteur du quiz, la salle, la clôture, les deux bases, les récompenses, le QG, l'expédition, les tests, la tablée… La carte de `CLAUDE.md` les nomme toutes. La plupart ont deux parties, « Les fichiers » (chaque fichier du domaine et ce qu'il tient, avec le pourquoi) et « Les pièges » ; certaines portent un invariant en entier, que la racine résume ; d'autres renvoient seulement à leur skill.
+Vingt-huit règles, une par domaine — le moteur du quiz, la salle, la clôture, les deux bases, les récompenses, le QG, l'expédition, le Cabinet de curiosités, les tests, la tablée… La carte de `CLAUDE.md` les nomme toutes. La plupart ont deux parties, « Les fichiers » (chaque fichier du domaine et ce qu'il tient, avec le pourquoi) et « Les pièges » ; certaines portent un invariant en entier, que la racine résume ; d'autres renvoient seulement à leur skill.
 
 Une règle se charge **quand Claude ouvre, avec l'outil Read, un fichier que désigne son en-tête** :
 

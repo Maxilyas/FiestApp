@@ -1,10 +1,10 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 145 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : deux cents décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
-**Dans cette page** : [L'ensemble](#lensemble) · [Le quiz](#le-quiz) · [La salle et le temps réel](#la-salle-et-le-temps-réel) · [La fin de soirée et les archives](#la-fin-de-soirée-et-les-archives) · [Les données et la mise en ligne](#les-données-et-la-mise-en-ligne) · [Les comptes, la sécurité et le QG](#les-comptes-la-sécurité-et-le-qg) · [La page](#la-page) · [L'expérience et les récompenses](#lexpérience-et-les-récompenses) · [Le profil](#le-profil) · [Les confettis et la boutique](#les-confettis-et-la-boutique) · [Les quiz](#les-quiz) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne) · [Les sentiers du savoir](#les-sentiers-du-savoir) · [Les duels](#les-duels) · [L'Expédition](#lexpédition) · [L'outillage](#loutillage)
+**Dans cette page** : [L'ensemble](#lensemble) · [Le quiz](#le-quiz) · [La salle et le temps réel](#la-salle-et-le-temps-réel) · [La fin de soirée et les archives](#la-fin-de-soirée-et-les-archives) · [Les données et la mise en ligne](#les-données-et-la-mise-en-ligne) · [Les comptes, la sécurité et le QG](#les-comptes-la-sécurité-et-le-qg) · [La page](#la-page) · [L'expérience et les récompenses](#lexpérience-et-les-récompenses) · [Le profil](#le-profil) · [Les confettis et la boutique](#les-confettis-et-la-boutique) · [Les quiz](#les-quiz) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne) · [Les sentiers du savoir](#les-sentiers-du-savoir) · [Les duels](#les-duels) · [L'Expédition](#lexpédition) · [Le Cabinet de curiosités](#le-cabinet-de-curiosités) · [L'outillage](#loutillage)
 
 ## L'ensemble
 
@@ -1593,6 +1593,224 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 **Conséquence** : la cible a changé en route — le propriétaire, relayé par la session qui avait lancé la version : « Je veux qu'avec les cartes plus rares, et du coup le fait de jouer, ça aide vraiment à gagner. Je suis d'accord pour avoir un faible pourcentage de victoire au début » ; les marches n'y suffisaient plus. Ce qui ne dépend pas des cartes s'est durci d'abord — le soin rendu à moitié (`SOIN_DU_DETAIL`) —, puis la rareté s'est fait sentir : **une rare jouée sur la question pare la moitié de l'attaque d'une erreur, une épique toute** (`PARADE_DE_LA_RARETE`). Des crans de plus à l'épique, deux réponses effacées, une épique jouée en plus de la carte de la question, plus d'épiques dans les offres : sans effet mesurable, retirés. Mesuré (`calibrage-rencontres.ts --version 15`, cinq cents expéditions par case), le faible, le moyen et le fort vont au bout 1, 6 et 30 fois sur cent au niveau 1, 3, 17 et 50 au 3, 4, 22 et 59 au 6 et au 10 ; sans prendre une carte, au niveau 10, 1, 5 et 26. Le niveau 3 reste un peu au-dessus de la cible, le fort du niveau 10 six à onze points en dessous : passé le niveau 3, une carte de plus aide moins — une par question, et le joueur en a déjà une qui sert. Cinq rares et épiques n'y valent pas encore clairement plus qu'une commune, à retoucher (le brief). Le joueur simulé doit prendre les cartes dans l'ordre de leur mesure à la version mesurée : avec l'ordre de la version 14, l'acte 3 « difficile en haut » semblait suffire, et le joueur remis à jour y allait au bout huit fois sur dix. Une expédition de la version 14 finit à ses règles : ses plans n'ont aucun détail, ses marches, son soin, son Élan restent les siens, et ses rares ne parent rien. Une lecture de `campagne_reponses` qui veut savoir si une question a été ratée lit aussi la colonne `joker` : une carte d'essai y dit une première réponse fausse.
 
 *Fichiers : `shared/expedition.ts`, `shared/rencontres.ts`, `shared/campagne.ts`, `server/src/core/details.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/components/TableauDuDetail.tsx`, `client/src/components/TableauEntier.tsx`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/scripts/rendu-detail.ts`, `server/test/expedition-detail.test.ts`*
+
+## Le Cabinet de curiosités
+
+Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la proposition validée avec sa maquette, `retours/2026-10-24/le-cabinet.md`. D'abord les quatre questions que la proposition laissait au propriétaire, tranchées le 24 octobre 2026 — « Suit tes recommandations pour les 4 » ; puis les choix qui structurent sa construction, pris en comparant trois conceptions (la sobriété, le jeu, l'intégration) jugées l'une contre l'autre ; enfin les sept choix de produit que la conception laissait ouverts, que le propriétaire a délégués le 25 octobre 2026 : chacun a pris son défaut. Le Cabinet se construit en préproduction, fermé en production ; ce qui suit vaut pour la V1.
+
+### La poussière d'or, monnaie propre au Cabinet, n'en sort jamais
+**Contexte** : la proposition demandait de quoi acheter une œuvre précise ou un cadre doré : des confettis, ou une monnaie à part ? Les confettis achètent les thèmes et les compagnons de la boutique ; un achat d'œuvre les mettrait en concurrence.
+
+**Décision** : la poussière d'or, gagnée et dépensée au seul Cabinet — ni confettis, ni écus. Elle ne rejoint ni la boutique, ni les sources et dépenses de confettis que le QG lit. Les manches réussies, elles, paient comme toute bonne réponse de campagne : leurs confettis comptent sous la campagne.
+
+**Conséquence** : l'économie de la boutique ne bouge pas ; le solde de poussière se lit à part, des parties et des achats. Changer d'avis demanderait une conversion, à décider : rien n'y est prêt.
+
+*Fichiers : `shared/cabinet/bareme.ts`, `retours/2026-10-24/le-cabinet.md`*
+
+### Les gardiens de saison ne s'éveillent qu'à leur fête
+**Contexte** : la Citrouille, le Sapin et le Bouquet se réveillent à la première œuvre gagnée pendant leur fête. Un joueur arrivé en février attendrait dix mois la Citrouille : fallait-il un rattrapage, par un défi ?
+
+**Décision** : leur fête seulement, aux dates de toutes les saisons de FiestApp (`shared/saisons.ts` : Halloween du 25 octobre au 1ᵉʳ novembre, Noël du 20 au 26 décembre, le Nouvel An du 30 décembre au 2 janvier) — pas celles, plus larges, de la maquette. Une œuvre gagnée **en jouant** : un achat, une dorure ou la migration n'en réveillent aucun.
+
+**Conséquence** : une fête qui revient chaque année est une bonne raison de revenir. Le banc et le smoke ferment le calendrier du Cabinet, comme ceux des soirées et des expéditions : sans quoi, du 25 octobre au 1ᵉʳ novembre, chaque test qui gagne une œuvre réveillerait la Citrouille.
+
+*Fichiers : `shared/cabinet/salles.ts`, `shared/saisons.ts`, `server/src/core/saisons.ts`*
+
+### L'Épingle joue la France en V1
+**Contexte** : « J'aime beaucoup l'idée de deviner / mettre sur une carte où se trouve une anecdote » (le propriétaire, le 24 octobre 2026). La France seulement, ou le monde ?
+
+**Décision** : la France métropolitaine et la Corse, sur une carte dessinée sans bibliothèque de cartographie : un cadre (`DANS_LA_FRANCE`), une distance à vol d'oiseau, la projection de la maquette. Le monde attend une V2 : le même jeu, une autre carte, des lieux d'ailleurs.
+
+**Conséquence** : quatre-vingt-dix lieux datés suffisent à ouvrir le jeu ; une épingle hors du cadre se refuse en le disant. La carte au lecteur d'écran reste à améliorer (les flèches et la ville repère la plus proche, en V1).
+
+*Fichiers : `shared/cabinet/france.ts`, `shared/cabinet/bareme.ts`*
+
+### « Le Cabinet de curiosités » remplacera « L'Expédition » sur l'accueil
+**Contexte** : la refonte remplace un mode : le gros bouton de l'accueil d'un profil devait-il garder le nom de l'Expédition ?
+
+**Décision** : il prend le nom du Cabinet, à l'ouverture, et l'Expédition disparaît de l'accueil ; ses routes restent servies pour qui a une expédition en route.
+
+**Conséquence** : « L'Expédition » ne se lit plus que dans les expéditions qui finissent et dans la voie de leurs légendaires. Le test de navigation de l'accueil change de règle à l'ouverture, par cette décision, et le dit.
+
+*Fichiers : `client/src/components/AccueilDesRoles.tsx`, `retours/2026-10-24/le-cabinet.md`*
+
+### Une partie est une série de la campagne, et ses pièces jugées s'ajoutent à son journal
+**Contexte** : les réponses du Cabinet doivent compter comme toutes les autres — l'expérience, les confettis, le compagnon, les missions, le carnet, « jamais vues d'abord » —, et le signalement lit la question d'une réponse à sa position dans sa série.
+
+**Décision** : une partie est une ligne de `campagne_series` (`mode = 'cabinet'`) ; son départ s'y fige — le plan des trois manches et de leurs rechanges, réponses comprises —, ses gestes vivent dans leur journal, et chaque pièce jugée s'ajoute au bout de ses questions et de ses réponses. Une pièce n'entre aux questions qu'à son verdict : la position d'une réponse reste celle de sa pièce. Les lectures des séries ne parcourent plus le mode (`SERIES = "mode = 'serie'"`) : dix parties par jour et par joueur alourdiraient le record et les statistiques de tous.
+
+**Conséquence** : le journal des réponses compte le Cabinet sans en savoir rien — pas une ligne de plus dans ses dérivations. Une réponse ne change jamais : aucune modification ni suppression de `campagne_reponses`, dont les déclencheurs effaceraient tout le journal gardé.
+
+*Fichiers : `shared/cabinet/pieces.ts`, `server/src/core/campagne.ts`*
+
+### L'état d'une partie est le pli de son départ et de ses gestes, et chaque geste s'écrit avant sa réponse
+**Contexte** : le serveur redémarre souvent — la production dort la nuit, la préproduction dès qu'on la laisse, une mise en ligne fait vivre deux serveurs un instant. Une manche montrée ne doit jamais se rouvrir avec un chrono neuf, ni rendre les essais ou les indices déjà vus.
+
+**Décision** : l'état d'une partie se replie, pur, de son départ et de ses gestes, gardé en mémoire et refait à la relecture ; tout geste reçu s'écrit avant que sa réponse parte, l'ouverture de chaque manche comprise (invariants 5, 12 et 14). Aucune minuterie au serveur : une manche expirée se juge au geste suivant.
+
+**Conséquence** : un aller-retour par geste, et un redémarrage qui reprend chaque manche à son échéance. La partie en cours et une partie finie passent par le même pli : une amélioration de la révélation profite aux parties d'avant.
+
+*Fichiers : `shared/cabinet/bareme.ts`, `retours/2026-10-24/le-cabinet.md`*
+
+### Une pièce par verdict, juste dès deux étoiles naturelles
+**Contexte** : chaque ligne juste du journal paie un confetti, l'expérience d'une bonne réponse et un pas du compagnon, sans plafond. Une manche de la Frise ou de l'Éclair juge plusieurs choses à la fois.
+
+**Décision** : une pièce est ce qu'un verdict juge d'un coup — une par manche, deux au Pari parié. Elle est juste dès deux étoiles naturelles (`ETOILES_D_UNE_JUSTE`, « il a su ») — jamais les étoiles après les pouvoirs ; au Pari, à sa bonne réponse.
+
+**Conséquence** : trois confettis au plus par partie, six au Pari, quel que soit le jeu ; Protéger, qui porte une manche de ★ à ★★, ne paie pas un confetti de plus.
+
+*Fichiers : `shared/cabinet/jeux/regle.ts`, `shared/cabinet/bareme.ts`*
+
+### Seule la première réponse du Pari, nue, mesure le savoir
+**Contexte** : la mesure des difficultés, le modèle du savoir, les écussons, la précision et L'Érudit ne lisent que les réponses nues. La seconde question du Pari n'est répondue que par ceux qui parient : un échantillon de joueurs sûrs d'eux.
+
+**Décision** : seule une réponse du Pari à sa première question, donnée dans les temps, sans Éclairer ni temps en plus, est nue. Toute autre pièce porte sa forme — la clé de son jeu.
+
+**Conséquence** : le Cabinet n'apprend rien de faux à la mesure ; une manche expirée, qui compterait fausse, ne la touche pas.
+
+*Fichiers : `shared/cabinet/pieces.ts`*
+
+### Un seul préfixe pour ce qui n'est pas une question de la base : `cab:`
+**Contexte** : le rébus et la frise de l'Expédition ont chacun leur préfixe, que trois endroits du serveur recopient — le carnet en mémoire, le carnet en SQL, le signalement. Cinq préfixes neufs en auraient fait quinze à tenir.
+
+**Décision** : un seul, `PREFIXE_DU_CABINET` — le lieu, la fiche, la réplique, le tableau, l'Éclair, la frise —, dans une seule liste des préfixes hors de la base que ces trois lecteurs liront. Un composé de l'Éclair ou d'une frise de sujet se déplie en ses questions (`deplier`) pour la fraîcheur du Cabinet ; la série ne déplie pas.
+
+**Conséquence** : ni carnet, ni signalement, ni mesure pour un contenu `cab:`. Une question récrite par l'Éclair peut revenir en série : sans danger, la série ne reprend pas ce que l'Éclair a récrit.
+
+*Fichiers : `shared/cabinet/pieces.ts`, `shared/frise.ts`, `shared/curiosites.ts`*
+
+### La colonne `joker` porte un pouvoir, jamais la clé d'une carte
+**Contexte** : une réponse aidée porte de quoi l'aider dans `campagne_reponses.joker`, que la mesure écarte. Or Bastion et Cuirasse sont aussi des cartes du second essai de l'Expédition : écrite en clé, une juste du Cabinet passerait pour ratée au carnet.
+
+**Décision** : `pouvoir:eclairer` si Éclairer a servi sur la pièce, sinon `pouvoir:temps` si le verdict est arrivé dans le temps en plus, sinon rien. Changer, Protéger et Miser ne marquent pas la ligne : Changer pose une autre question, nue ; les deux autres ne changent que les étoiles.
+
+**Conséquence** : le carnet et la mesure lisent juste sans connaître le Cabinet.
+
+*Fichiers : `shared/cabinet/pieces.ts`, `shared/rencontres.ts`*
+
+### Trois tables neuves, et aucune lecture qui grandisse avec l'histoire
+**Contexte** : le quota de Turso compte les lignes parcourues — 333 millions lues au 22 octobre 2026. Une somme relue sur toutes les parties à chaque page grandirait avec chaque joueur fidèle.
+
+**Décision** : une ligne par profil pour ce qui se résume — la poussière gagnée, la série, les visites figées, la partie en cours —, tenue à jour dans les lots qui la changent ; ses œuvres (84 lignes au plus) avec leurs prix payés ; les gestes de chaque partie. La page froide se lit d'un lot, environ cent cinquante lignes au pire ; chaude, rien.
+
+**Conséquence** : un reflet se relit et se vérifie au démarrage quand la version du Cabinet monte (`VERSION_DU_CABINET`), sans rien reprendre.
+
+*Fichiers : `shared/cabinet/bareme.ts`*
+
+### La poussière gagnée se fige dans le bilan ; un achat vérifie le solde dans son instruction même
+**Contexte** : un barème de poussière changé ne doit valoir que pour la suite, et un achat ne doit jamais mettre le solde sous zéro, même lancé deux fois par deux onglets.
+
+**Décision** : ce qu'une partie rapporte s'écrit dans son bilan, et le reflet du profil s'incrémente dans le lot qui la clôt. Un achat s'insère seulement si le solde suffit, vérifié par la base dans l'instruction même ; rien inséré, le refus part en mots (« Il te manque 120 poussières d'or »), un 400. Aucune contrainte `CHECK` sur le solde : son échec serait un 500, compté aux erreurs du QG.
+
+**Conséquence** : rejoué, un achat ne fait rien — il peut se rejouer au réveil du serveur. Le solde se lit d'une ligne et de 84 au plus.
+
+*Fichiers : `shared/cabinet/bareme.ts`*
+
+### Chaque lot d'écriture est gardé par son geste
+**Contexte** : deux onglets, deux serveurs pendant une mise en ligne, une réponse perdue puis rejouée : rien ne doit compter deux fois.
+
+**Décision** : le geste s'insère à son rang avec une marque tirée par le serveur pour ce lot, sans écraser ; chaque autre instruction du lot n'agit que si ce geste-là est en base. Le départ ne pose une partie que si le profil n'en a aucune en cours et s'il a encore le droit du jour, recompté par la base. Au moindre échec, et à toute garde qui n'a rien écrit, la mémoire s'oublie : la base fait foi.
+
+**Conséquence** : le perdant d'une course relit et rejoue une fois sur l'état vrai — il réussit, se refuse en mots, ou rend la vue de ce qui était déjà fait.
+
+*Fichiers : `retours/2026-10-24/le-cabinet.md`*
+
+### Recharger reprend la partie ; Quitter la compte, après une pause bornée et voilée
+**Contexte** : « On ne relance pas jusqu'à tomber sur des questions faciles » (la proposition) ; la maquette clôturait la partie au rechargement, et un téléphone qui s'endort coûtait une partie.
+
+**Décision** : le contenu se tire au départ et le chrono court au serveur : recharger reprend la partie au même instant de son chrono. Quitter la compte avec ses étoiles, après une confirmation qui met le chrono en pause — trente secondes au plus par manche, la manche voilée (`PAUSE_MAX_MS`). Une partie d'un jour d'avant se clôt à la première page qui la trouve.
+
+**Conséquence** : rien ne se gagne à recharger ni à hésiter sur « Quitter ? » ; une case de visite ne se perd jamais sans l'avoir voulu — commencer une autre partie se refuse en mots tant que la première attend.
+
+*Fichiers : `shared/cabinet/bareme.ts`*
+
+### Les gardiens se rangent sous une clé fixe, réconciliés du musée
+**Contexte** : un gardien réveillé est un légendaire gagné, une ligne de l'étagère ; une ligne rangée ne se reprend jamais (invariant 22), et un rangement doit pouvoir se rejouer sans doublon, d'où qu'il vienne — une partie, un achat, la migration, une relecture.
+
+**Décision** : les vingt gardiens qui ne sont pas de saison gagnent une voie `cabinet:<clé>` ; les trois de saison rangent leur condition principale, `saison:<clé>`. Tous sous une clé fixe, jamais sous une soirée, et réconciliés par une fonction pure à chaque changement du musée : ce qui est dû, moins ce qui est rangé. La voie de l'Expédition reste pour toujours.
+
+**Conséquence** : un rangement raté se rattrape à la page suivante ; un légendaire déjà à lui par une autre voie est un gardien réveillé, sans cérémonie. Les vingt-trois gardiens sont exactement les légendaires à joker, jamais un Divin (`cabinet-catalogue.test.ts`).
+
+*Fichiers : `shared/cabinet/salles.ts`, `shared/legendaires.ts`, `shared/jokers.ts`, `server/test/cabinet-catalogue.test.ts`*
+
+### Le Cabinet vit hors de la campagne, derrière une porte étroite ; un module pur par jeu
+**Contexte** : `server/src/core/campagne.ts` fait près de onze mille lignes, et ses règles en chargent 170 Ko ; oublier une étape du rituel d'une réponse de campagne est un piège documenté.
+
+**Décision** : le Cabinet vit à part, côté serveur derrière une interface typée qui porte en une fonction le rituel d'écriture d'une réponse ; côté règles, dans `shared/cabinet/`, un module pur par jeu, rassemblés par un registre typé par `CleDeJeu` — un jeu de plus qui oublie une pièce ne compile pas (`RegleDuJeu`). Les quatre pouvoirs autres qu'Éclairer s'appliquent autour du jugement, sans que le jeu en sache rien.
+
+**Conséquence** : un agent qui touche au Cabinet ne charge que sa règle, courte. Un jeu de plus, c'est un module, son tireur, son écran et ses tests.
+
+*Fichiers : `shared/cabinet/jeux/regle.ts`, `shared/cabinet/pouvoirs.ts`, `.claude/rules/cabinet.md`*
+
+### Deux drapeaux : l'un ouvre le Cabinet, l'autre ne ferme que le départ de l'Expédition
+**Contexte** : tirer la fermeture de l'Expédition de l'ouverture du Cabinet l'aurait fermée partout hors production dès le premier lot, et aurait cassé les vingt-trois fichiers de tests qui partent en expédition.
+
+**Décision** : `CABINET_EN_PRODUCTION` ouvre le Cabinet en production (`cabinetOuvert`, le gabarit de l'Expédition) ; un second drapeau, à l'ouverture, fermera le seul départ de l'Expédition, partout — le banc d'essai le gardant ouvert à ses tests. La page apprend du serveur si le Cabinet est ouvert : une constante ne sait pas la préproduction.
+
+**Conséquence** : tout se construit en préproduction, sans rien changer à la production ; les expéditions en route se finissent à leurs règles.
+
+*Fichiers : `shared/cabinet/ouverture.ts`, `shared/jokers.ts`, `server/src/expedition.ts`*
+
+### La migration des joueurs de l'Expédition : une passe de fond, une fois, sur l'union des codex
+**Contexte** : « les joueurs actuels ne perdent rien » (la proposition) : toute carte que leur codex leur avait ouverte devient une œuvre possédée. Mais le codex d'aujourd'hui n'ouvre que 59 des 84 cartes, quand celui d'un joueur d'une version d'avant en ouvrait 81.
+
+**Décision** : une passe de fond, une fois, après l'ouverture du port, sous un drapeau lu au démarrage ; elle lit l'union des codex figés au départ de chaque expédition et du codex lu à la version du dernier départ. Rien ne se donne deux fois, rien ne se reprend. Chaque expédition qui finit ensuite rapporte encore ce qu'elle ouvre. Jamais paresseuse : une lecture des codex à chaque page deviendrait un code éternel.
+
+**Conséquence** : elle se mesure à blanc sur la production, en lecture seule, avant l'ouverture ; ses totaux s'écriront ici.
+
+*Fichiers : `shared/codex.ts`, `retours/2026-10-24/le-cabinet.md`*
+
+### Toutes les parties libres s'écrivent ; les cinq premières paient ; trente départs par heure
+**Contexte** : une partie libre qui ne s'écrirait pas mentirait au carnet, aux sept jours sans redite et aux murs ; une partie libre qui paierait sans fin se trairait.
+
+**Décision** : un seul chemin de code — toute partie s'écrit, libres comprises. Les cinq premières libres du jour paient la poussière (`LIBRES_QUI_PAIENT`), les suivantes non. Au-delà de trente départs par heure (`DEPARTS_PAR_HEURE`), un départ se refuse.
+
+**Conséquence** : ses manches réussies paient les confettis et l'expérience comme les autres, trois au plus par partie : le calibrage le mesurera avant l'ouverture (plus bas, les sept choix délégués).
+
+*Fichiers : `shared/cabinet/bareme.ts`*
+
+### La visite du jour se dérive, puis se fige au premier départ
+**Contexte** : la visite doit être la même toute la journée, ne rien coûter à qui ne vient pas, et faire passer après les autres les jeux des deux derniers jours — ceux qui ont vraiment été joués, échange compris.
+
+**Décision** : elle se dérive d'une graine et du musée de minuit, et se fige dans le reflet du profil au premier lot du jour qui écrit — un départ, un échange.
+
+**Conséquence** : un jeu livré dans la journée ne change pas la visite d'un joueur qui l'a commencée ; rien ne s'écrit pour un jour où il ne joue pas.
+
+*Fichiers : `shared/cabinet/bareme.ts`*
+
+### Le préfixe `cab-`, et les mots de l'écran : jamais « carte » seule
+**Contexte** : `.fond-cabinet` et `.fond-musee` existent déjà dans la feuille de style ; et « carte » a déjà forcé l'Expédition à rebaptiser « le plan » la carte d'un acte, que le même mot confondait avec les cartes de la main.
+
+**Décision** : les classes du Cabinet portent le préfixe `cab-` ; l'écran dit « œuvre », « carte-bonus », « carte de France », jamais « carte » seule.
+
+**Conséquence** : `cabinet-catalogue.test.ts` relit les textes du catalogue ; les écrans le feront à leur tour.
+
+*Fichiers : `shared/cabinet/jeux/regle.ts`, `server/test/cabinet-catalogue.test.ts`*
+
+### Les œuvres recopient les cartes des rencontres ; le jeu de chacune est une table gelée
+**Contexte** : la page du musée lit les 84 œuvres ; le catalogue des rencontres fait 4 782 lignes et partira avec l'Expédition. La maquette tirait le jeu d'une œuvre d'un hachage de sa clé : trois œuvres d'une salle tombaient au même jeu, et un dixième jeu aurait déplacé toutes les œuvres.
+
+**Décision** : une copie légère (`OEUVRES` : clé, nom, salle, rareté), que le test relit carte par carte contre les rencontres et les peintures. Le jeu de chaque œuvre est une table écrite (`JEU_DE_L_OEUVRE`) : chaque famille saute un jeu, à tour de rôle, la rareté tournant avec ; le Vestibule complète chaque jeu à neuf ou dix œuvres, des communes aux épiques. Tous les chiffres du Cabinet vivent dans un fichier, `shared/cabinet/bareme.ts`, la grâce et la pause du chrono comprises.
+
+**Conséquence** : la table est gelée, et écrite en entier dans le test : changer le jeu d'une œuvre déplace la chasse de qui la cherche, un choix à dire. Les quatre œuvres de départ, possédées par règle, se gèlent de même (invariant 22).
+
+*Fichiers : `shared/cabinet/oeuvres.ts`, `shared/cabinet/bareme.ts`, `server/test/cabinet-catalogue.test.ts`*
+
+### Les sept choix laissés au propriétaire : les défauts, pris le 25 octobre 2026
+**Contexte** : la conception laissait sept choix de produit hors de la proposition, chacun avec un défaut codé ; le propriétaire les a délégués le 25 octobre 2026.
+
+**Décision** : chacun prend son défaut.
+1. **Le Globe-trotter**, dont les tampons du passeport ne monteront plus, est figé : montré, ses paliers gardés, sa jauge arrêtée. L'autre voie — le relire aux lieux de l'Épingle — attend qu'ils soient plus de cent : 90 n'atteindraient pas son dernier palier.
+2. **Le fond « Cabinet de curiosités »** de la boutique, qui se lirait comme venu du mode, garde son nom et sa clé : rien ne se reprend.
+3. **Les parties libres paient** confettis et expérience, trois au plus par partie, trente parties par heure au plus ; le calibrage le mesure avant l'ouverture, et si leur débit dépasse celui d'une série, la juste y passera à zéro au-delà de la cinquième libre du jour.
+4. **Le Mot mystère se joue sans dictionnaire**, noms propres compris : un essai qui n'est pas un mot se dépense. Mesuré en tablée.
+5. **La pause de « Quitter ? »** que la proposition voulait se borne à trente secondes par manche, la manche voilée (`PAUSE_MAX_MS`) : elle ne vend pas le temps que « Prendre son temps » vend.
+6. **La luciole** — la Première traversée, qui rejoignait qui menait une expédition au bout — rejoint qui complète sa première salle du Cabinet, migration comprise.
+7. **Les erreurs de l'Éclair n'entrent pas au carnet** — sa pièce est un composé de cinq questions récrites —, et l'écran le dit.
+
+**Conséquence** : aucun ne reprend rien à personne. Le troisième se tranche sur les chiffres du calibrage, datés dans les barèmes ; le quatrième et le cinquième, en tablée.
+
+*Fichiers : `shared/cabinet/bareme.ts`, `shared/hautsfaits.ts`, `shared/fonds.ts`, `shared/compagnons.ts`*
 
 ## L'outillage
 
