@@ -16,7 +16,7 @@ import { pageDuTrophee } from '../../shared/pagesDesTrophees'
 import { FONDS, fondsOuverts, type CeQuOuvreUnFond } from '../../shared/fonds'
 import { GERBES } from '../../shared/gerbes'
 import { THEMES, themeGagne } from '../../shared/themes'
-import { LEGENDAIRES, partiesDe, voiesDe } from '../../shared/legendaires'
+import { LEGENDAIRES, PREFIXES_DES_VOIES_RANGEES, estUneVoieRangee, partiesDe, voiesDe } from '../../shared/legendaires'
 import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_REGAGNABLES, clePalier, hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 import { SEUILS_DU_LAURIER } from '../../shared/jour'
 
@@ -96,11 +96,16 @@ test('chaque thème qui se gagne, chaque gerbe et chaque légendaire sont sur la
     const surLesTrophees = HAUTS_FAITS_REGAGNABLES.flatMap(h => ceQuOuvreLeTrophee(h.key)).filter(x => x.recompense.sorte === 'gerbe' && x.recompense.cle === g.key).length
     assert.equal(surLesPistes + surLesTrophees, 'tresor' in g.par ? 0 : 1, g.key)
   }
-  // Les légendaires : chaque partie de chaque voie dit ce qu'elle ouvre — hors des saisons et de l'expédition, qui n'ont pas de piste.
+  // Les légendaires : chaque partie de chaque voie dit ce qu'elle ouvre — hors des voies rangées (les saisons,
+  // l'expédition, le Cabinet), qui n'ont pas de piste : on les a, ou non.
+  assert.deepEqual([...PREFIXES_DES_VOIES_RANGEES], ['saison:', 'expedition:', 'cabinet:'])
   for (const l of LEGENDAIRES) {
     for (const voie of voiesDe(l)) {
       for (const c of partiesDe(voie)) {
-        if (c.hautFait.startsWith('saison:') || c.hautFait.startsWith('expedition:')) continue
+        if (estUneVoieRangee(c.hautFait)) {
+          assert.deepEqual(ceQuOuvreLeTrophee(c.hautFait), [], `${c.hautFait} n’est pas un trophée`)
+          continue
+        }
         const ouvre =
           'palier' in c
             ? ceQuIlOuvre(clePalier(c.hautFait, c.palier))

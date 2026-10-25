@@ -32,7 +32,18 @@ import {
   XP_PALIER,
   type HautFaitDeCarriere,
 } from '../../shared/hautsfaits'
-import { LEGENDAIRES, cleDeLExpedition, estUneVoieDExpedition, legendairesDebloques, partiesDe, progresVers, voiesDe } from '../../shared/legendaires'
+import {
+  LEGENDAIRES,
+  LEGENDAIRES_DU_CABINET,
+  cleDeLExpedition,
+  cleDuCabinet,
+  estUneVoieDExpedition,
+  estUneVoieDuCabinet,
+  legendairesDebloques,
+  partiesDe,
+  progresVers,
+  voiesDe,
+} from '../../shared/legendaires'
 import { saison } from '../../shared/saisons'
 
 // ── De quoi écrire une soirée ─────────────────────────────────────────────
@@ -353,10 +364,15 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
       continue
     }
     // La voie de l'expédition lit une ligne rangée au bout de l'acte 3, pas un
-    // haut fait du catalogue : `expedition-legendaires.test.ts` la vérifie.
-    for (const voie of voiesDe(l).filter(v => !estUneVoieDExpedition(v))) {
+    // haut fait du catalogue : `expedition-legendaires.test.ts` la vérifie ;
+    // celle du Cabinet, une ligne rangée au réveil d'un gardien
+    // (`cabinet-gardiens.test.ts`). Toute autre, un haut fait qui existe.
+    for (const voie of voiesDe(l).filter(v => !estUneVoieDExpedition(v) && !estUneVoieDuCabinet(v))) {
       for (const c of partiesDe(voie)) assert.ok(cles.has(c.hautFait), `${l.key} se gagne par ${c.hautFait}, qui existe`)
     }
+    // Un gardien du Cabinet qui n'est pas de saison en a une, la sienne, et une seule ; les autres légendaires, aucune.
+    const auCabinet = voiesDe(l).filter(estUneVoieDuCabinet)
+    assert.deepEqual(auCabinet, LEGENDAIRES_DU_CABINET.includes(l.key) ? [{ hautFait: cleDuCabinet(l.key), fois: 1 }] : [], `${l.key} : sa voie du Cabinet`)
   }
   // Les ombres ont leurs légendaires aussi : la malchance assumée a son trophée.
   assert.ok(LEGENDAIRES.some(l => l.ton === 'ombre'))

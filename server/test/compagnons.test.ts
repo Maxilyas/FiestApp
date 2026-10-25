@@ -44,10 +44,12 @@ import {
   formesOuvertes,
   metamorphoseOuverte,
   nomDeLaForme,
+  pourLAvoir,
   prochaineForme,
   rangAtteint,
   type CleDeCompagnon,
 } from '../../shared/compagnons'
+import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
 import { brilleChez } from '../../shared/profil'
 import { cibleEclat } from '../../shared/legendaires'
 import { ceQuIlAPorter, cibleDeLEclat, lignesDeLEssai } from '../../shared/loge'
@@ -70,6 +72,12 @@ test('cinq compagnons — quatre en boutique, la luciole en expédition —, qua
     ['loup', 'chat', 'tortue', 'panda'],
   )
   assert.equal(compagnon('luciole')!.gagne, 'expedition')
+  // Où l'avoir : la boutique, ou ce qui amène la luciole — et, le Cabinet ouvert, sa première salle complète (le
+  // 25 octobre 2026). Fermé en production, il ne s'y dit pas : la phrase d'avant, mot pour mot.
+  assert.equal(pourLAvoir(compagnon('loup')!), 'Le Loup s’achète d’abord, à la boutique')
+  assert.equal(pourLAvoir(compagnon('luciole')!, false), 'La Luciole se gagne d’abord : mène une expédition au bout')
+  assert.equal(pourLAvoir(compagnon('luciole')!, true), 'La Luciole se gagne d’abord : mène une expédition au bout, ou complète une salle du Cabinet')
+  assert.equal(pourLAvoir(compagnon('luciole')!), pourLAvoir(compagnon('luciole')!, CABINET_EN_PRODUCTION), 'le drapeau du Cabinet d’office')
   assert.equal(FORMES_DES_COMPAGNONS.length, 20)
   assert.equal(new Set(FORMES_DES_COMPAGNONS.map(f => f.key)).size, 20, 'une clé par forme')
   for (const c of COMPAGNONS) {

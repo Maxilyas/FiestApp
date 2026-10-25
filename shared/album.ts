@@ -282,8 +282,15 @@ const OU: Record<LieuDAvatar, string> = {
 
 const compte = (acquis: number, requis: number, avant = '') => ({ acquis, requis, dit: `${avant}${formatNumber(acquis)} sur ${formatNumber(requis)}` })
 
-/** Une étape d'un légendaire : un haut fait à décrocher tant de fois, ou un palier de carrière à atteindre. */
-function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, number>, valeurs: ReadonlyMap<string, number>): EtapeDUneVoie {
+/**
+ * Une étape d'un légendaire : un haut fait à décrocher tant de fois, ou un
+ * palier de carrière à atteindre — ou une voie rangée, qui n'a pas de jauge.
+ * Celle-ci se dit tenue s'il a le légendaire (`tenu`) : une ligne
+ * `expedition:<clé>` n'est pas un haut fait, les hauts faits que la page reçoit
+ * ne la portent jamais, et l'étape lue d'eux se disait à faire, le légendaire
+ * gardé au bout de l'acte 3 en main.
+ */
+function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, number>, valeurs: ReadonlyMap<string, number>, tenu: boolean): EtapeDUneVoie {
   const lieu = lieuDuHautFait(c.hautFait)
   if (lieu === 'expedition') {
     // Pas de jauge : il garde l'acte d'une expédition, ou non — on le garde au bout, une fois.
@@ -291,7 +298,7 @@ function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, nu
       lieu,
       titre: 'En expédition : le garder au bout de l’acte 3',
       regle: 'Quand il garde un acte, va au bout des trois, puis choisis-le parmi les gardiens vaincus',
-      tenue: (recompenses.get(c.hautFait) ?? 0) > 0,
+      tenue: tenu,
       progres: null,
     }
   }
@@ -413,5 +420,5 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
   }
   const recompenses = recompensesDe(p.hautsFaits)
   const valeurs = new Map(p.hautsFaits.filter(h => h.famille === 'carriere').map(h => [h.key, h.valeur ?? 0]))
-  return voiesMontrees(l).map(v => partiesDe(v).map(c => etapeDuHautFait(c, recompenses, valeurs)))
+  return voiesMontrees(l).map(v => partiesDe(v).map(c => etapeDuHautFait(c, recompenses, valeurs, p.legendaires.includes(l.key))))
 }

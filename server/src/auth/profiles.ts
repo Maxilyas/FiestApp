@@ -74,17 +74,20 @@ import {
   type BoutiqueDuProfil,
   type ConfettisDeLaFin,
 } from '../../../shared/themes'
-import { cleDeSaison, type Saison } from '../../../shared/saisons'
+import { cleDeSaison, saison, type Saison } from '../../../shared/saisons'
 import {
   cibleEclat,
   conditionTenue,
   estEnReserve,
+  estUneVoieRangee,
   legendaire,
   legendaireDeLExpedition,
+  legendaireDuCabinet,
   PREFIXE_DE_LA_RESERVE,
   PREFIXE_DES_DONS_D_ECLAT,
   legendairesDebloques,
   legendairesOuvertsPar,
+  sqlHorsDesVoiesRangees,
   type Condition,
 } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
@@ -104,6 +107,7 @@ import {
   compagnon as compagnonDuCatalogue,
   compagnonDe,
   avecLui,
+  cheminDeLaLuciole,
   compagnonDeLaNiche,
   formeDeCompagnon,
   formesOuvertes,
@@ -653,8 +657,21 @@ export const cleDuMois = (mois: string) => `#mois:${mois}`
 /** Le rangement des récompenses d'une série de campagne. */
 export const cleDeSerie = (serieId: string) => `#campagne:${serieId}`
 
+/**
+ * Le rangement des gardiens du Cabinet de curiosités (`cabinet:<clé>`, et la
+ * saison d'une œuvre gagnée à sa fête, `saison:<clé>`) : une clé fixe, jamais
+ * une soirée ni une partie. Le remplacement des récompenses d'une soirée et
+ * son retrait ne la touchent pas, et la clé primaire rend chaque rangement
+ * idempotent d'où qu'il vienne — la fin d'une partie, un achat, une dorure,
+ * la page qui rattrape, la migration (`core/cabinet/gardiens.ts`).
+ */
+export const RANGEMENT_DU_CABINET = '#cabinet'
+
 /** Le rangement des récompenses d'un défi de la semaine, sous son lundi : la clôture y range son vainqueur. */
 export const cleDuDefi = (semaine: string) => `#defi:${semaine}`
+
+/** L'étiquette d'une saison gagnée, d'où qu'elle vienne : son emoji, que rien n'affiche, et son nom. */
+const etiquetteDeSaison = (s: Saison) => ({ emoji: s.emoji, title: `Saison : ${s.nom}` })
 
 /**
  * L'emoji et le titre d'une clé rangée hors d'une soirée, recopiés sur sa
@@ -674,6 +691,11 @@ function etiquetteDe(cle: string): { emoji: string; title: string } {
   if (d) return { emoji: '✨', title: d.nom }
   const l = legendaireDeLExpedition(cle)
   if (l) return { emoji: '🧭', title: `L’Expédition : ${l.nom}` }
+  const g = legendaireDuCabinet(cle)
+  if (g) return { emoji: '🏛️', title: `Le Cabinet : ${g.nom}` }
+  // Une saison rangée hors du quiz du jour — le Cabinet, sa fête : la même étiquette qu'`accorderSaison` lui donne.
+  const s = cle.startsWith('saison:') ? saison(cle) : undefined
+  if (s) return etiquetteDeSaison(s)
   return { emoji: '✨', title: cle }
 }
 
@@ -2160,7 +2182,7 @@ export class ProfileStore {
       if (!c) throw new Error('Ce compagnon n’existe pas')
       if (this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} est déjà à toi`)
       // La luciole ne se vend pas : seul un appel forgé la demanderait, la boutique ne la montre pas.
-      if (c.gagne) throw new Error(`${c.nom} ne s’achète pas : ${c.le === 'la' ? 'elle' : 'il'} rejoint qui mène une expédition au bout`)
+      if (c.gagne) throw new Error(`${c.nom} ne s’achète pas : ${c.le === 'la' ? 'elle' : 'il'} rejoint qui ${cheminDeLaLuciole()}`)
       const manque = PRIX_D_UN_COMPAGNON - (await this.boutiqueDe(rec, jour)).confettis.solde
       if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${nomDansLaPhrase(c.nom)}`)
       // Celui qui y vit la garde en toutes lettres : laissée à la règle, la
@@ -3043,10 +3065,10 @@ export class ProfileStore {
       eclatsEnReserve: this.reserveOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
       // de neuf sur l'étagère dirait qu'il s'est passé quelque chose. Ni une
-      // saison, ni un légendaire gardé au bout de l'expédition : ils ne se
-      // montrent que par leur légendaire.
-      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:') && !k.startsWith('expedition:') && !moisDeLaPage(k))
-        .length,
+      // voie rangée — une saison, un légendaire gardé au bout de
+      // l'expédition, un gardien réveillé au Cabinet : ils ne se montrent que
+      // par leur légendaire.
+      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !estUneVoieRangee(k) && !moisDeLaPage(k)).length,
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
       divins: raconter(this.divinsOf(p.id)),
@@ -4441,10 +4463,11 @@ export class ProfileStore {
   async accorderSaison(profileId: string, s: Saison, jour: string): Promise<boolean> {
     const cle = cleDeSaison(s)
     if (this.recompensesOf(profileId).has(cle)) return false
+    const { emoji, title } = etiquetteDeSaison(s)
     await this.client.execute({
       sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
             VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
-      args: [profileId, cle, cleDuJour(jour), s.emoji, `Saison : ${s.nom}`, Date.now()],
+      args: [profileId, cle, cleDuJour(jour), emoji, title, Date.now()],
     })
     this.porteurs = null
     await this.recompterRecompenses([profileId])
@@ -4608,8 +4631,9 @@ export class ProfileStore {
   private async lireLEtagere(profileId: string): Promise<Omit<BadgePorte, 'porteurs' | 'rarete'>[]> {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
-    // Les saisons non plus : elles ne se montrent que par leur légendaire,
-    // comme un légendaire gardé au bout de l'expédition ; ni les pages du
+    // Les voies rangées non plus — les saisons, un légendaire gardé au bout
+    // de l'expédition, un gardien réveillé au Cabinet : elles ne se montrent
+    // que par leur légendaire (`sqlHorsDesVoiesRangees`) ; ni les pages du
     // calendrier, qui ont leur page.
     const rows = await this.client.execute({
       // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
@@ -4621,7 +4645,7 @@ export class ProfileStore {
                      COUNT(*) OVER (PARTITION BY badge) AS fois,
                      MAX(created_at) OVER (PARTITION BY badge) AS dernier,
                      ROW_NUMBER() OVER (PARTITION BY badge ORDER BY created_at DESC, soiree_id DESC) AS n
-              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%' AND badge NOT LIKE 'expedition:%' AND badge NOT LIKE '${PREFIXE_DES_PAGES}%'
+              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND ${sqlHorsDesVoiesRangees('badge')} AND badge NOT LIKE '${PREFIXE_DES_PAGES}%'
             ) WHERE n = 1 ORDER BY dernier DESC`,
       args: [profileId],
     })

@@ -199,7 +199,10 @@ function dernierDuQuiz(q: QuizJoue, id: string, plusBas: number, plusHaut: numbe
  * ses récompenses rangées, comme les hauts faits ; l'Arbre-Monde se déduit
  * des légendaires — ceux qu'il garde d'avant leur durcissement (`acquis`)
  * compris. Il n'a pas de soirée à lui, et part avec le premier légendaire
- * qu'une soirée retirée lui reprendrait.
+ * qu'une soirée retirée lui reprendrait. Les voies rangées — l'Expédition, le
+ * Cabinet de curiosités et ses gardiens, le 25 octobre 2026 — l'approchent
+ * comme elles approchent ces légendaires : une ligne rangée sous `#cabinet` ne
+ * se reprend pas, et ne le reprend donc pas non plus. Le Cabinet n'en dit rien.
  */
 export function divinsDebloques(recompenses: ReadonlyMap<string, number>, acquis?: ReadonlyMap<string, Condition>): string[] {
   const legendaires = new Set(legendairesDebloques(recompenses, acquis))

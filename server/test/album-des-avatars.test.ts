@@ -368,12 +368,26 @@ test('comment l’obtenir : ses voies — l’une suffit —, chacune ses étape
   assert.deepEqual(voiesDeLAvatar('🐳', LEA)[0][0].progres, { acquis: 8, requis: 12, dit: 'niveau 8 sur 12' })
   assert.equal(voiesDeLAvatar('🐝', LEA)[0][0].tenue, true)
   // Chaque légendaire a au moins une voie, chaque étape son titre ; ni l'emoji de l'inscription ni une clé inconnue n'en ont.
+  // Un titre ne dit jamais une clé brute — un haut fait, une voie rangée : une voie montrée que l'album ne sait pas
+  // dire tombait sur « En soirée : « cabinet:phenix » » (la voie du Cabinet, que l'album tait tant qu'il est fermé).
   for (const l of LEGENDAIRES) {
     const voies = voiesDeLAvatar(l.key, LEA)
-    assert.ok(voies.length > 0 && voies.every(v => v.length > 0 && v.every(e => e.titre && !e.titre.includes('hf:'))), l.key)
+    assert.ok(voies.length > 0 && voies.every(v => v.length > 0 && v.every(e => e.titre && !/\b(hf|saison|expedition|cabinet):/.test(e.titre))), l.key)
   }
   assert.deepEqual(voiesDeLAvatar('🦊', LEA), [])
   assert.deepEqual(voiesDeLAvatar('lg:inconnu', LEA), [])
+})
+
+test('une voie rangée se dit tenue s’il a le légendaire : les hauts faits que la page reçoit ne la portent jamais', () => {
+  // Le Kraken gardé au bout de l'acte 3 : une ligne `expedition:kraken`, qu'aucun haut fait ne dit. Lue des hauts faits,
+  // l'étape se disait à faire, le légendaire en main.
+  const kraken = (legendaires: string[]) => voiesDeLAvatar('lg:kraken', { ...LEA, legendaires }).flat().find(e => e.lieu === 'expedition')!
+  assert.equal(kraken(['lg:phenix', 'lg:kraken']).tenue, true)
+  assert.equal(kraken(['lg:phenix']).tenue, false)
+  // Une voie qui se compte, elle, se lit toujours de ses hauts faits : le Kraken à lui n'en fait pas trois lanternes rouges.
+  const lanterne = voiesDeLAvatar('lg:kraken', { ...LEA, legendaires: ['lg:kraken'] })[0][0]
+  assert.equal(lanterne.lieu, 'soiree')
+  assert.equal(lanterne.tenue, false)
 })
 
 test('un Divin ne dit pas comment il descend : ni voie, ni lieu, ni progression — descendu ou non (invariant 21)', () => {

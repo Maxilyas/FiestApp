@@ -20,6 +20,10 @@
 // fait foi — le magasin relit à froid et rejoue le geste une fois sur l'état
 // vrai (le gabarit `ecrireLExpedition`).
 //
+// La fin d'une partie, un achat, une dorure et le musée lu à froid
+// réconcilient ses gardiens (`gardiens.ts`) : rien de dû et pas rangé, rien
+// ne coûte ; un rangement raté se refait à la page suivante.
+//
 // L'heure est celle de la campagne (`maintenant`, que le banc règle) : jamais
 // l'horloge de la machine ici (`cabinet-chronos.test.ts`). Le plafond des départs, lui,
 // compte en temps de la machine (`Budget`) : ce n'est pas une échéance.
@@ -30,6 +34,9 @@ import type { QuestionDeLaBase } from '../baseCampagne'
 import type { FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites } from '../porteDeLaCampagne'
 import type { calendrierDuCabinet } from '../saisons'
 import { instructionDeLAchat, instructionDeLaDorure, lotDeLEchange, lotDeLOubli, lotDuDepart, lotDuGeste, type FinAEcrire, type OeuvreAEcrire } from './ecriture'
+import { reconcilier, type EtagereDuCabinet } from './gardiens'
+import { GARDIENS_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
+import type { ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 import { lecturesDeLaPartie, lecturesDuMusee, laPartieLue, lireLeMusee, type PartieLueEnBase } from './tables'
 import { fichierDuCadrage } from '../details'
 import { preparerLesTas } from './tirages/tas'
@@ -89,8 +96,12 @@ export const MUSEES_GARDES = 500
 /** Les parties en cours gardées en mémoire, au plus, de même. */
 export const PARTIES_GARDEES = 200
 
-/** Ce que le Cabinet lit des profils : les légendaires qu'il a, par quelque voie que ce soit, en mémoire. */
-export interface ProfilsDuCabinet {
+/**
+ * Ce que le Cabinet lit des profils : les légendaires qu'il a, par quelque voie
+ * que ce soit, en mémoire — et l'étagère où ses gardiens se rangent
+ * (`EtagereDuCabinet`, `gardiens.ts`) ; sans elle, rien ne se range.
+ */
+export interface ProfilsDuCabinet extends Partial<EtagereDuCabinet> {
   legendairesOf(profileId: string): readonly string[]
 }
 
@@ -135,7 +146,8 @@ export interface PartieGardee {
 export interface PartieLue extends PartieGardee {
   /** L'heure du serveur où la vue la dit : son chrono, son pouvoir, et l'heure que la page mesure (invariant 6). */
   lueA: number
-  gains?: { xp: readonly number[]; recompenses: ReponsesEcrites['recompenses'] }
+  /** Ce que la fin a rapporté : l'expérience, les paliers — et les gardiens qu'elle a réveillés (`reveil`). */
+  gains?: { xp: readonly number[]; recompenses: ReponsesEcrites['recompenses']; reveil?: ReveilDesGardiens }
 }
 
 /** Ce que la page du Cabinet lit (`pageDuCabinet`). */
@@ -151,6 +163,14 @@ export interface LectureDuCabinet {
   /** La fête du jour, au calendrier du Cabinet. */
   fete: Saison | null
   jeux: readonly CleDeJeu[]
+  /**
+   * Les voies des gardiens que l'étagère tient (`cabinet:phenix`) : un gardien
+   * réveillé au Cabinet le dit, et une salle rouverte par une œuvre de plus le
+   * sait (« Une œuvre nouvelle est arrivée »). Lues en mémoire.
+   */
+  rangees: ReadonlySet<string>
+  /** Ce que la dépense qui rend la page vient de réveiller ; rien pour une page lue. */
+  reveil?: ReveilDesGardiens
 }
 
 /** Un geste reçu : la partie d'après, ou ce qui le refuse sans rien écrire. */
@@ -189,6 +209,30 @@ export type IssueDuCartel = { cartel: CartelLu } | { introuvable: string }
 
 /** Une ligne de reflets neuve : un profil qui n'a jamais rien écrit au Cabinet. */
 const PROFIL_NEUF: LigneDuProfil = { poussiere: 0, serie: 0, serieJour: null, serieRecord: 0, visites: [], partie: null }
+
+/** Les voies que le Cabinet seul range (`cabinet:phenix`) : celles de saison viennent aussi d'ailleurs, et ne disent pas le Cabinet. */
+const VOIES_DU_CABINET: readonly string[] = GARDIENS_DU_CABINET.map(g => voieDuGardien(g)!)
+
+/**
+ * La ligne d'une œuvre après la fin qui la touche — la même règle que
+ * l'instruction de fin (`lotDuGeste`) : un gain entre avec sa saison, son
+ * cartel, sa dorure ; une œuvre déjà là prend son cartel et sa dorure sans
+ * changer d'origine ni de saison, et rien de ce qu'elle avait ne s'efface.
+ */
+function ligneApresLaFin(avant: LigneDOeuvre | undefined, o: OeuvreAEcrire, serie: string, t: number): LigneDOeuvre {
+  return {
+    oeuvre: o.cle,
+    origine: avant?.origine ?? o.origine,
+    gagneeLe: avant?.gagneeLe ?? t,
+    saison: avant ? avant.saison : o.origine === 'partie' ? o.saison : null,
+    serieId: avant?.serieId ?? (o.cartel ? serie : null),
+    prix: avant?.prix ?? null,
+    doreeLe: avant?.doreeLe ?? (o.doree ? t : null),
+    dorure: avant?.dorure ?? (o.doree ? 'partie' : null),
+    prixDorure: avant?.prixDorure ?? null,
+    serieDoree: avant?.serieDoree ?? (o.doree ? serie : null),
+  }
+}
 
 /** Ce que la route d'un cadrage du Détail sert : son fichier, ou pourquoi pas. */
 export type IssueDuCadrage =
@@ -298,6 +342,12 @@ export class CabinetStore {
    * vienne d'une page (`prechauffer`) ou d'un départ, qui l'attend.
    */
   private tas: { jouables: readonly QuestionDeLaBase[]; prets: Promise<void> } | null = null
+  /**
+   * Les profils dont une réconciliation des gardiens a échoué — l'étagère
+   * muette : leur page suivante la refait, même chaude. Sans cela, le gardien
+   * dû attendait le prochain changement du musée ou le prochain réveil.
+   */
+  private readonly aReveiller = new Set<string>()
 
   constructor(
     private readonly porte: PorteDeLaCampagne,
@@ -355,7 +405,7 @@ export class CabinetStore {
     const lu = lireLeMusee(lus)
     if (lu.partieIllisible) await this.rendreLaPartieIllisible(profileId, lu.partieIllisible)
     const enCours = lu.enCours ? this.garderLaPartie(profileId, lu.enCours, null) : null
-    return this.garder(
+    const g = this.garder(
       this.musees,
       profileId,
       {
@@ -367,6 +417,28 @@ export class CabinetStore {
       },
       MUSEES_GARDES,
     )
+    // Lu à froid — le premier passage d'un réveil, des œuvres rapportées de l'Expédition, un rangement qui avait
+    // échoué —, le musée réconcilie ses gardiens, en silence : il les avait peut-être déjà, rien ne s'annonce.
+    await this.reveiller(profileId, this.museeVu(profileId, g), t)
+    return g
+  }
+
+  /**
+   * Réveille les gardiens que ce musée doit et que son étagère n'a pas
+   * (`reconcilier`, `gardiens.ts`) : rien à ranger, rien ne coûte. Ce qui
+   * échoue se refera à la page suivante (`aReveiller`) ; ne rejette jamais.
+   */
+  private async reveiller(profileId: string, m: Musee, t: number): Promise<ReveilDesGardiens | null> {
+    const { reveil, echec } = await reconcilier(this.profils, profileId, m, t)
+    if (echec) this.aReveiller.add(profileId)
+    else this.aReveiller.delete(profileId)
+    return reveil
+  }
+
+  /** Les voies des gardiens du Cabinet que son étagère tient, en mémoire. */
+  private rangeesDe(profileId: string): Set<string> {
+    const r = this.profils.recompensesOf?.(profileId)
+    return new Set(r ? VOIES_DU_CABINET.filter(v => r.has(v)) : [])
   }
 
   /**
@@ -440,10 +512,13 @@ export class CabinetStore {
   /**
    * La page, sous le verrou du profil que l'appelant tient déjà — la page même,
    * ou ce qui rend la page d'après : un achat, une dorure, un échange. Rien à
-   * lire chaud ; la mémoire porte déjà ce que le lot vient d'écrire.
+   * lire chaud ; la mémoire porte déjà ce que le lot vient d'écrire. Une
+   * dépense dit ce qu'elle vient de réveiller (`apres.reveil`) ; une page lue
+   * refait la réconciliation qui avait échoué, en silence.
    */
-  private async lecture(profileId: string, t: number): Promise<LectureDuCabinet> {
+  private async lecture(profileId: string, t: number, apres?: { reveil: ReveilDesGardiens | null }): Promise<LectureDuCabinet> {
     let garde = await this.musee(profileId, t)
+    if (!apres && this.aReveiller.has(profileId)) await this.reveiller(profileId, this.museeVu(profileId, garde), t)
     let enCours = garde.enCours ? await this.partieDe(profileId, garde.enCours.id) : null
     if (enCours?.etat.fin) {
       // Finie par l'autre serveur : son musée vient de s'oublier (`partieDe`), il se relit pour cette page-ci.
@@ -467,6 +542,8 @@ export class CabinetStore {
       expeditionEnRoute: garde.expeditionEnRoute !== null,
       fete: this.reglages.calendrier.periodeDu(jourDe(t))?.saison ?? null,
       jeux: JEUX_PRETS,
+      rangees: this.rangeesDe(profileId),
+      ...(apres?.reveil && { reveil: apres.reveil }),
     }
   }
 
@@ -679,12 +756,24 @@ export class CabinetStore {
     const fin = garde ? this.laFin(profileId, garde, p, apres) : null
     const lot = lotDuGeste({ serie: p.id, rang, geste, faitLe: t, uid, pieces, compagnon: this.porte.compagnonDeLaNiche(profileId), fin: fin?.aEcrire ?? null })
     let ecrites: ReponsesEcrites
+    // Ce que ses gardiens annoncent, capté par la fermeture que la porte appelle entre l'expérience et les paliers.
+    const capte: { reveil?: ReveilDesGardiens | null } = {}
     try {
       if (pieces.length === 0 && !fin) ecrites = { lus: await this.porte.client.batch(lot, 'write'), xp: [], recompenses: {} }
       else {
-        const finDuRituel: FinDUnePartie | undefined = fin
-          ? { serieId: p.id, quand: t, justes: apres.pieces.filter(x => x.juste).map(x => x.repondueLe), ecrite: ([g]) => g.rowsAffected === 1 }
-          : undefined
+        const finDuRituel: FinDUnePartie | undefined =
+          fin && garde
+            ? {
+                serieId: p.id,
+                quand: t,
+                justes: apres.pieces.filter(x => x.juste).map(x => x.repondueLe),
+                ecrite: ([g]) => g.rowsAffected === 1,
+                // La porte ne l'appelle que si le lot a écrit la fin : le musée qu'elle laisse est vrai.
+                avantLesPaliers: async () => {
+                  capte.reveil = await this.reveiller(profileId, this.museeApresLaFin(profileId, garde, p.id, fin.aEcrire, t), t)
+                },
+              }
+            : undefined
         ecrites = await this.porte.ecrireDesReponses(profileId, lot, finDuRituel)
       }
     } catch (e) {
@@ -700,7 +789,8 @@ export class CabinetStore {
     if (fin && garde) {
       this.retenirLaFin(garde, suite, fin.aEcrire, t)
       this.parties.delete(p.id)
-      return { partie: { ...suite, lueA: this.maintenant(), gains: { xp: ecrites.xp, recompenses: ecrites.recompenses } } }
+      const reveil = capte.reveil
+      return { partie: { ...suite, lueA: this.maintenant(), gains: { xp: ecrites.xp, recompenses: ecrites.recompenses, ...(reveil && { reveil }) } } }
     }
     this.garder(this.parties, p.id, suite, PARTIES_GARDEES)
     return { partie: { ...suite, lueA: this.maintenant() } }
@@ -744,21 +834,21 @@ export class CabinetStore {
     if (g.enCours?.id === p.id) g.enCours = null
     const duJour = g.duJour.parties.find(x => x.id === p.id)
     if (duJour) Object.assign(duJour, { finieLe: t, issue: fin.bilan.issue, total: fin.bilan.total })
-    const o = fin.oeuvre
-    if (!o) return
-    const avant = g.oeuvres.get(o.cle)
-    g.oeuvres.set(o.cle, {
-      oeuvre: o.cle,
-      origine: avant?.origine ?? o.origine,
-      gagneeLe: avant?.gagneeLe ?? t,
-      saison: avant ? avant.saison : o.origine === 'partie' ? o.saison : null,
-      serieId: avant?.serieId ?? (o.cartel ? p.id : null),
-      prix: avant?.prix ?? null,
-      doreeLe: avant?.doreeLe ?? (o.doree ? t : null),
-      dorure: avant?.dorure ?? (o.doree ? 'partie' : null),
-      prixDorure: avant?.prixDorure ?? null,
-      serieDoree: avant?.serieDoree ?? (o.doree ? p.id : null),
-    })
+    if (fin.oeuvre) g.oeuvres.set(fin.oeuvre.cle, ligneApresLaFin(g.oeuvres.get(fin.oeuvre.cle), fin.oeuvre, p.id, t))
+  }
+
+  /**
+   * Le musée tel que la fin le laisse, sans toucher la mémoire : ses gardiens se
+   * réconcilient entre l'expérience et les paliers (`avantLesPaliers`), avant
+   * que la mémoire prenne la fin (`retenirLaFin`). Seule l'œuvre change ce
+   * qu'ils lisent — la série a compté au départ.
+   */
+  private museeApresLaFin(profileId: string, g: MuseeGarde, serie: string, fin: FinAEcrire, t: number): Musee {
+    const m = this.museeVu(profileId, g)
+    if (!fin.oeuvre) return m
+    const oeuvres = new Map(m.oeuvres)
+    oeuvres.set(fin.oeuvre.cle, ligneApresLaFin(m.oeuvres.get(fin.oeuvre.cle), fin.oeuvre, serie, t))
+    return { ...m, oeuvres }
   }
 
   // ── Un cadrage du Détail ──────────────────────────────────────────────
@@ -866,7 +956,9 @@ export class CabinetStore {
           throw new Error(DEPENSE_CROISEE)
         }
         this.retenirLaDepense(g, oeuvre, sorte, prix, t)
-        return this.lecture(profileId, t)
+        // Une œuvre achetée peut compléter une salle, ou le Cabinet ; une dorure, dorer une salle entière : la page d'après le dit.
+        const reveil = await this.reveiller(profileId, this.museeVu(profileId, g), t)
+        return this.lecture(profileId, t, { reveil })
       }
     })
   }

@@ -22,6 +22,7 @@ import {
   chassesRestantes,
   dorees,
   enjeuDe,
+  gardiensDus,
   libresQuiPaientEncore,
   possedees,
   poussieresDites,
@@ -50,7 +51,7 @@ import {
   type MancheDuPli,
 } from '../../../../shared/cabinet/partie'
 import { ceQueFaitLaCarte } from '../../../../shared/cabinet/pouvoirs'
-import { AUTRES_GARDIENS, GARDIENS, GARDIENS_DES_SALLES, SALLES, conditionDuGardien, pouvoirDuGardien, salle } from '../../../../shared/cabinet/salles'
+import { AUTRES_GARDIENS, GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, SALLES, conditionDuGardien, pouvoirDuGardien, salle, voieDuGardien } from '../../../../shared/cabinet/salles'
 import type {
   BilanVu,
   Cartel,
@@ -172,15 +173,23 @@ function bilanDit(d: DepartDUnePartie, b: BilanDUnePartie): string {
   }
 }
 
-/** Ce que la fin a rapporté, tel que l'écran des gains de la campagne le lit. */
+/**
+ * Ce que la fin a rapporté, tel que l'écran des gains de la campagne le lit :
+ * les légendaires à annoncer en grand — les gardiens neufs qu'elle a
+ * réveillés, puis ceux que ses paliers ouvrent, chacun une fois —, et la
+ * luciole qu'une première salle complète amène.
+ */
 function gainsDe(p: PartieLue): GainsDuCabinet | undefined {
   if (!p.gains) return undefined
-  const { recompenses, legendaires } = p.gains.recompenses
+  const { recompenses, legendaires: desPaliers } = p.gains.recompenses
+  const reveil = p.gains.reveil
+  const legendaires = [...new Set([...(reveil?.gardiens.filter(g => g.neuf).map(g => g.legendaire) ?? []), ...(desPaliers ?? [])])]
   return {
     xp: p.gains.xp.reduce((a, b) => a + b, 0),
     confettis: p.etat.pieces.filter(x => x.juste).length,
     ...(recompenses && recompenses.length > 0 && { recompenses }),
-    ...(legendaires && legendaires.length > 0 && { legendaires }),
+    ...(legendaires.length > 0 && { legendaires }),
+    ...(reveil?.compagnon && { compagnon: reveil.compagnon }),
   }
 }
 
@@ -208,6 +217,8 @@ function bilanVu(p: PartieLue): BilanVu | undefined {
   if (!b) return undefined
   const cartel = cartelDuBilan(p)
   const gains = gainsDe(p)
+  // Chaque gardien que la fin a rangé, neuf ou non : « Salle complète ! Le Phénix veillait déjà sur elle. »
+  const gardiens = p.gains?.reveil?.gardiens ?? []
   return {
     etoiles: b.etoiles,
     naturel: b.naturel,
@@ -221,6 +232,7 @@ function bilanVu(p: PartieLue): BilanVu | undefined {
     seuil: p.depart.seuil,
     dit: bilanDit(p.depart, b),
     ...(b.oeuvre !== undefined && estUneOeuvre(b.oeuvre) && { oeuvre: b.oeuvre }),
+    ...(gardiens.length > 0 && { gardiens: gardiens.map(g => ({ legendaire: g.legendaire, neuf: g.neuf })) }),
     ...(gains && { gains }),
   }
 }
@@ -327,16 +339,34 @@ export function cartelDe(lu: CartelLu): Cartel {
 // ── La page du musée ──────────────────────────────────────────────────────
 
 /**
- * Un gardien, réveillé ou non. La voie se dira gardien par gardien quand ils
- * se rangeront sur l'étagère (le lot des gardiens) : d'ici là, un gardien
- * qu'il a vient d'ailleurs — l'Expédition, une saison.
+ * Ce qui dit qu'un gardien s'est réveillé au Cabinet : sa voie rangée
+ * (`cabinet:phenix`), ou ce que le musée lui doit à présent — sa salle
+ * complète, sa fête jouée. La voie d'un gardien de saison (`saison:halloween`)
+ * se gagne aussi au quiz du jour : rangée, elle ne dit pas le Cabinet, seul
+ * son musée le dit.
  */
-function gardienVu(m: Musee, cle: string): GardienVu {
-  const reveille = m.legendaires.has(cle)
-  return { legendaire: cle, reveille, ...(reveille && { voie: 'ailleurs' as const }), condition: conditionDuGardien(cle) ?? '', pouvoir: pouvoirDuGardien(cle)! }
+interface CeQueSaitLeCabinet {
+  rangees: ReadonlySet<string>
+  dus: ReadonlySet<string>
 }
 
-function sallesDe(m: Musee, jeux: readonly string[]): SalleVue[] {
+/**
+ * Un gardien, réveillé ou non, et par quelle voie : le Cabinet, ou une autre —
+ * l'Expédition, une soirée, le quiz du jour : « il veillait déjà sur toi ».
+ */
+function gardienVu(m: Musee, cle: string, sait: CeQueSaitLeCabinet): GardienVu {
+  const reveille = m.legendaires.has(cle)
+  const parLeCabinet = sait.dus.has(cle) || (!GARDIENS_DE_SAISON.includes(cle) && sait.rangees.has(voieDuGardien(cle) ?? ''))
+  return {
+    legendaire: cle,
+    reveille,
+    ...(reveille && { voie: parLeCabinet ? ('cabinet' as const) : ('ailleurs' as const) }),
+    condition: conditionDuGardien(cle) ?? '',
+    pouvoir: pouvoirDuGardien(cle)!,
+  }
+}
+
+function sallesDe(m: Musee, jeux: readonly string[], sait: CeQueSaitLeCabinet): SalleVue[] {
   const a = possedees(m)
   const d = dorees(m)
   return SALLES.map(s => {
@@ -360,14 +390,18 @@ function sallesDe(m: Musee, jeux: readonly string[]): SalleVue[] {
       }
     })
     const [premier, second] = GARDIENS_DES_SALLES[s.cle]
+    const complete = oeuvres.every(o => o.possedee)
     return {
       cle: s.cle,
       nom: s.nom,
       devise: s.devise,
       oeuvres,
-      complete: oeuvres.every(o => o.possedee),
+      complete,
       doree: oeuvres.every(o => o.doree),
-      gardiens: [gardienVu(m, premier), gardienVu(m, second)],
+      gardiens: [gardienVu(m, premier, sait), gardienVu(m, second, sait)],
+      // Complète un jour — son premier gardien s'est rangé —, puis rouverte : une œuvre peinte de plus est arrivée, et
+      // son gardien veille encore (invariant 22).
+      ...(!complete && sait.rangees.has(voieDuGardien(premier) ?? '') && { nouvelle: true as const }),
     }
   })
 }
@@ -409,11 +443,12 @@ export function pageDuCabinet(l: LectureDuCabinet): PageDuCabinet {
   const m = l.musee
   const prochain = prochainGardien(m)
   const ou = prochain ? salle(prochain.salle) : undefined
+  const sait: CeQueSaitLeCabinet = { rangees: l.rangees, dus: new Set(gardiensDus(m).map(d => d.legendaire)) }
   return {
     maintenant: l.maintenant,
-    salles: sallesDe(m, l.jeux),
+    salles: sallesDe(m, l.jeux, sait),
     gardiens: {
-      tous: GARDIENS.map(g => gardienVu(m, g)),
+      tous: GARDIENS.map(g => gardienVu(m, g, sait)),
       ...(prochain &&
         ou && { prochain: { legendaire: prochain.legendaire, dit: `${legendaire(prochain.legendaire)?.nom ?? prochain.legendaire} : encore ${pluriel(prochain.manquent, 'œuvre')} ${ou.dansLaSalle}` } }),
     },
@@ -427,5 +462,9 @@ export function pageDuCabinet(l: LectureDuCabinet): PageDuCabinet {
     expedition: l.expeditionEnRoute ? 'en-route' : null,
     rapportees: [...m.oeuvres.values()].filter(o => o.origine === 'expedition').length,
     jeux: [...l.jeux],
+    // Champ par champ, comme le reste : ce que la dépense vient de réveiller, et rien d'autre.
+    ...(l.reveil && {
+      reveil: { gardiens: l.reveil.gardiens.map(g => ({ legendaire: g.legendaire, neuf: g.neuf })), ...(l.reveil.compagnon && { compagnon: l.reveil.compagnon }) },
+    }),
   }
 }

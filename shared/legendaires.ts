@@ -42,11 +42,17 @@
 // demandent les trois mondes à la fois, la Chimère et Janus (`toutes`).
 // Ce que ces voies changent aux Divins se lit dans `server/src/core/divins.ts`,
 // et nulle part ailleurs (invariant 21) : le client importe ce fichier.
+//
+// Depuis le 25 octobre 2026, vingt d'entre eux veillent aussi sur le Cabinet
+// de curiosités : une salle complète, ses cadres tous dorés, le Cabinet
+// entier, trente jours d'affilée les réveillent (`avecLeCabinet`) — une voie de
+// plus, rangée comme celle de l'Expédition, qui reste.
 
 import { clePalier } from './hautsfaits'
 import { portrait } from './branches'
 import { formeDeCompagnon } from './compagnons'
 import { EXPEDITION_EN_PRODUCTION, LEGENDAIRES_A_JOKER } from './jokers'
+import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 import type { CleDeSaison } from './saisons'
 
 /**
@@ -98,7 +104,71 @@ export const estUneVoieDExpedition = (c: Condition): boolean => !('toutes' in c)
 const avecLExpedition = (legendaires: Legendaire[]): Legendaire[] =>
   legendaires.map(l => (LEGENDAIRES_A_JOKER.includes(l.key) ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDeLExpedition(l.key), fois: 1 }] } : l))
 
-export const LEGENDAIRES: Legendaire[] = avecLExpedition([
+/**
+ * Les vingt gardiens du Cabinet qui ne sont pas de saison : les deux de chaque
+ * salle, le Scarabée et le Trou noir. Écrits ici, sans lire
+ * `shared/cabinet/salles.ts` : l'album et l'accueil lisent ce fichier sans
+ * tirer le Cabinet (`cabinet-catalogue.test.ts` compare les deux listes). Les
+ * trois de saison n'ont pas de voie à eux : le Cabinet range leur condition
+ * principale (`saison:halloween`).
+ */
+export const LEGENDAIRES_DU_CABINET: readonly string[] = [
+  'lg:chouette',
+  'lg:lion',
+  'lg:sphinx',
+  'lg:oracle',
+  'lg:phenix',
+  'lg:ouroboros',
+  'lg:tigre',
+  'lg:comete',
+  'lg:janus',
+  'lg:serpent',
+  'lg:dragon',
+  'lg:renard',
+  'lg:fantome',
+  'lg:chauve-souris',
+  'lg:salamandre',
+  'lg:kraken',
+  'lg:coq',
+  'lg:chimere',
+  'lg:scarabee',
+  'lg:trou-noir',
+]
+
+/** La clé que le Cabinet range sur le profil quand ce gardien se réveille : `cabinet:phenix`. */
+export const cleDuCabinet = (legendaireCle: string) => `cabinet:${legendaireCle.replace(/^lg:/, '')}`
+
+/** Une voie du Cabinet : réveiller ce gardien dans son musée, une fois. */
+export const estUneVoieDuCabinet = (c: Condition): boolean => !('toutes' in c) && c.hautFait.startsWith('cabinet:')
+
+/**
+ * Chaque gardien du Cabinet qui n'est pas de saison se gagne aussi en le
+ * réveillant (le 25 octobre 2026) : une voie de plus (`aussi`), qui lit la
+ * ligne `cabinet:…` que la réconciliation range (`core/cabinet/gardiens.ts`),
+ * comme celle de l'Expédition — qui reste, pour qui l'a gardé là-bas
+ * (invariant 22). Le Cabinet fermé en production (`CABINET_EN_PRODUCTION`), elle
+ * ne se montre pas (`voiesMontrees`).
+ */
+const avecLeCabinet = (legendaires: Legendaire[]): Legendaire[] =>
+  legendaires.map(l => (LEGENDAIRES_DU_CABINET.includes(l.key) ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDuCabinet(l.key), fois: 1 }] } : l))
+
+/**
+ * Les préfixes des voies rangées — une saison, un légendaire gardé au bout de
+ * l'Expédition, un gardien réveillé au Cabinet : des lignes de l'étagère qui ne
+ * sont pas des trophées. L'étagère et le compte des badges les taisent
+ * (`ProfileStore`, `sqlHorsDesVoiesRangees`), les pistes et « le plus proche »
+ * n'en font rien : on les a, ou non. Un préfixe de plus s'ajoute ici, et
+ * partout il est écarté d'un coup.
+ */
+export const PREFIXES_DES_VOIES_RANGEES = ['saison:', 'expedition:', 'cabinet:'] as const
+
+/** Une clé rangée qui n'est pas un trophée : une saison, une voie de l'Expédition ou du Cabinet. */
+export const estUneVoieRangee = (cle: string): boolean => PREFIXES_DES_VOIES_RANGEES.some(p => cle.startsWith(p))
+
+/** La même règle en SQL : `badge NOT LIKE 'saison:%' AND …`. */
+export const sqlHorsDesVoiesRangees = (colonne: string): string => PREFIXES_DES_VOIES_RANGEES.map(p => `${colonne} NOT LIKE '${p}%'`).join(' AND ')
+
+export const LEGENDAIRES: Legendaire[] = avecLeCabinet(avecLExpedition([
   {
     key: 'lg:phenix',
     nom: 'Le Phénix',
@@ -308,13 +378,19 @@ export const LEGENDAIRES: Legendaire[] = avecLExpedition([
     },
     ton: 'eclat',
   },
-])
+]))
 
 const PAR_CLE = new Map(LEGENDAIRES.map(l => [l.key, l]))
 
 /** Le légendaire derrière une clé rangée par l'Expédition (`expedition:kraken`), s'il en est une. */
 export function legendaireDeLExpedition(cle: string): Legendaire | undefined {
   return cle.startsWith('expedition:') ? PAR_CLE.get(`lg:${cle.slice('expedition:'.length)}`) : undefined
+}
+
+/** Le gardien derrière une clé rangée par le Cabinet (`cabinet:phenix`), s'il en est un — jamais un de saison, qui n'en a pas. */
+export function legendaireDuCabinet(cle: string): Legendaire | undefined {
+  const l = cle.startsWith('cabinet:') ? PAR_CLE.get(`lg:${cle.slice('cabinet:'.length)}`) : undefined
+  return l && LEGENDAIRES_DU_CABINET.includes(l.key) ? l : undefined
 }
 
 export function legendaire(key: unknown): Legendaire | undefined {
@@ -329,11 +405,15 @@ export function voiesDe(l: Legendaire): readonly Condition[] {
 /**
  * Les voies qu'on montre : toutes — sauf celle de l'Expédition quand elle est
  * fermée en production (`EXPEDITION_EN_PRODUCTION`, ouverte depuis ses
- * jokers) : l'album mènerait à une page qui n'y répond pas. Elle compte quand
- * même : qui garde un légendaire en préproduction l'a (`legendairesDebloques`).
+ * jokers), et celle du Cabinet tant qu'il l'est (`CABINET_EN_PRODUCTION`) :
+ * l'album mènerait à une page qui n'y répond pas. La préproduction la tait donc
+ * aussi d'ici l'ouverture : un drapeau du code ne la sait pas, et c'est un
+ * texte. Elles comptent quand même : qui garde ou réveille un légendaire en
+ * préproduction l'a (`legendairesDebloques`). `cabinet` force le drapeau du
+ * Cabinet, pour qui veut lire l'album tel qu'il sera.
  */
-export function voiesMontrees(l: Legendaire): readonly Condition[] {
-  return EXPEDITION_EN_PRODUCTION ? voiesDe(l) : voiesDe(l).filter(v => !estUneVoieDExpedition(v))
+export function voiesMontrees(l: Legendaire, cabinet: boolean = CABINET_EN_PRODUCTION): readonly Condition[] {
+  return voiesDe(l).filter(v => (EXPEDITION_EN_PRODUCTION || !estUneVoieDExpedition(v)) && (cabinet || !estUneVoieDuCabinet(v)))
 }
 
 /** Le haut fait de sa première voie, si elle n'en demande qu'un : ce qu'une ligne en dit d'un mot. Null pour la Chimère. */

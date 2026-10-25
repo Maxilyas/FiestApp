@@ -9,7 +9,7 @@
 // serveur, et rien ne s'écrit.
 
 import { HAUTS_FAITS_DE_CARRIERE, clePalier, hautFait, palierDe, type HautFaitVu } from './hautsfaits'
-import { LEGENDAIRES, progresSur, voiesDe, voiesMontrees } from './legendaires'
+import { LEGENDAIRES, estUneVoieRangee, progresSur, voiesDe, voiesMontrees } from './legendaires'
 
 /** Un objectif commencé : un légendaire (`lg:…`) ou un palier de carrière (`hf:…:2`), et où il en est. */
 export interface Proche {
@@ -62,6 +62,9 @@ export function lesPlusProches(hautsFaits: readonly HautFaitVu[], legendaires: r
     // tenues.
     let meilleure: (Proche & { legendaire: boolean }) | null = null
     for (const c of voiesDe(l)) {
+      // Une voie rangée — la saison, l'Expédition, le Cabinet — n'a pas de jauge : on l'a, ou non. Lue ici, elle ne
+      // tenait à l'écart que parce que les hauts faits ne la comptent pas (zéro sur un).
+      if (!('toutes' in c) && estUneVoieRangee(c.hautFait)) continue
       let voie: { acquis: number; requis: number } | null = null
       if ('toutes' in c) {
         voie = progresSur(c, recompenses)
@@ -75,7 +78,7 @@ export function lesPlusProches(hautsFaits: readonly HautFaitVu[], legendaires: r
       }
       if (voie.acquis <= 0 || voie.acquis >= voie.requis) continue
       if (meilleure && voie.acquis / voie.requis <= meilleure.acquis / meilleure.requis) continue
-      // Le haut fait de la voie qui avance, quand il en a plusieurs à montrer : la voie cachée de l'expédition n'en fait pas une seconde.
+      // Le haut fait de la voie qui avance, quand il en a plusieurs à montrer : une voie cachée — l'Expédition, le Cabinet fermé — n'en fait pas une seconde.
       meilleure = { key: l.key, ...voie, legendaire: true, ...(voiesMontrees(l).length > 1 && !('toutes' in c) && { hautFait: c.hautFait }) }
     }
     if (meilleure) candidats.push(meilleure)

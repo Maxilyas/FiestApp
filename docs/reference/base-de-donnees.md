@@ -234,11 +234,17 @@ hauts faits hors des soirées), `#jour`, `#campagne`, `#rattrapage`,
 L'étagère : prix du palmarès, hauts faits, paliers de carrière, Divins,
 saisons, titres et pages du mois — et les légendaires gardés au bout d'une
 expédition (`expedition:<légendaire>`), comme les saisons hors de l'étagère
-et du compte des badges.
+et du compte des badges ; les gardiens réveillés au Cabinet de curiosités
+aussi (`cabinet:<légendaire>`, et `saison:<clé>` pour ceux de saison), rangés
+sous la clé fixe `#cabinet` (`RANGEMENT_DU_CABINET`) — jamais une soirée, que
+le remplacement des récompenses ou le retrait d'une soirée toucherait : la clé
+primaire rend chaque rangement idempotent, d'où qu'il vienne. Une voie rangée
+se filtre par une seule liste (`PREFIXES_DES_VOIES_RANGEES`,
+`sqlHorsDesVoiesRangees`, `shared/legendaires.ts`).
 
-- **Colonnes clés** : `profile_id`, `badge`, `soiree_id` (la clé à trois ; `soiree_id` vaut le nom de la soirée, ou `#jour:…`, `#mois:…`, `#campagne:…`, `#defi:…` hors des soirées — une expédition range son légendaire sous `#campagne:<son id>`), `space_id`, `emoji`, `title`, `created_at`.
+- **Colonnes clés** : `profile_id`, `badge`, `soiree_id` (la clé à trois ; `soiree_id` vaut le nom de la soirée, ou `#jour:…`, `#mois:…`, `#campagne:…`, `#defi:…`, `#cabinet` hors des soirées — une expédition range son légendaire sous `#campagne:<son id>`, le Cabinet ses gardiens sous `#cabinet`), `space_id`, `emoji`, `title`, `created_at`.
 - **Espace** : oui pour une soirée.
-- **Écrite par** : `ProfileStore` — la clôture (`remplacerRecompensesDeSoiree`, remplacée en un lot), les paliers, le quiz du jour, la campagne, le recalcul.
+- **Écrite par** : `ProfileStore` — la clôture (`remplacerRecompensesDeSoiree`, remplacée en un lot), les paliers, le quiz du jour, la campagne, le Cabinet (ses gardiens, `core/cabinet/gardiens.ts` par `ranger`), le recalcul.
 - **Lue par** : `ProfileStore` ; `JourStore`.
 - **Effacée par** : le remplacement des récompenses d'une soirée, l'essai effacé, une soirée retirée, la suppression du profil.
 

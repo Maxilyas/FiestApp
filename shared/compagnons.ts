@@ -12,9 +12,10 @@
 // rien, on la choisit (`Compagnon.lumiere`, le 19 octobre 2026).
 //
 // La luciole, elle, ne s'achète pas : elle rejoint qui mène une expédition au
-// bout, la Première traversée (`Compagnon.gagne`, le 20 octobre 2026), et ne
-// se montre que dans « Ma collection » — ni en boutique, ni au coffre, ni « À
-// la une » (`COMPAGNONS_DE_LA_BOUTIQUE`).
+// bout, la Première traversée (`Compagnon.gagne`, le 20 octobre 2026) — ou,
+// depuis le 25 octobre 2026, qui complète une salle du Cabinet de curiosités
+// (`cheminDeLaLuciole`) —, et ne se montre que dans « Ma collection » — ni en
+// boutique, ni au coffre, ni « À la une » (`COMPAGNONS_DE_LA_BOUTIQUE`).
 //
 // Il vit dans sa niche, en haut de chaque page du téléphone (le choix du 18
 // octobre 2026, `retours/2026-10-16/compagnon/principe.md`), et c'est celui
@@ -33,6 +34,7 @@
 
 import type { Rarete } from './badges'
 import type { ReglageDesOrnements } from './ornements'
+import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 
 /** Le prix d'un compagnon, à sa première forme : un objet qui se mérite. */
 export const PRIX_D_UN_COMPAGNON = 1000
@@ -278,12 +280,24 @@ export function compagnonDe(f: FormeDeCompagnon): Compagnon {
 export const avecLui = (c: Compagnon) => (c.le === 'la' ? 'avec elle' : 'avec lui')
 
 /**
+ * Ce qui amène la luciole, en mots : la Première traversée, et depuis le
+ * 25 octobre 2026 la première salle complète du Cabinet de curiosités : son
+ * départ fermé, l'Expédition ne l'amènerait plus à personne de neuf.
+ * Le Cabinet fermé en production (`CABINET_EN_PRODUCTION`), sa voie ne se dit
+ * pas : elle enverrait chercher une page qui n'y répond pas — la préproduction
+ * la tait donc aussi d'ici l'ouverture, comme la voie de ses gardiens dans
+ * l'album (`voiesMontrees`). `cabinet` force le drapeau.
+ */
+export const cheminDeLaLuciole = (cabinet: boolean = CABINET_EN_PRODUCTION): string =>
+  `mène une expédition au bout${cabinet ? ', ou complète une salle du Cabinet' : ''}`
+
+/**
  * Le refus fait à qui règle, porte ou installe un compagnon qu'il n'a pas :
  * où l'obtenir. « À la boutique » aurait envoyé chercher la luciole là où
  * elle n'est pas.
  */
-export const pourLAvoir = (c: Compagnon): string =>
-  c.gagne === 'expedition' ? `${c.nom} se gagne d’abord : mène une expédition au bout` : `${c.nom} s’achète d’abord, à la boutique`
+export const pourLAvoir = (c: Compagnon, cabinet: boolean = CABINET_EN_PRODUCTION): string =>
+  c.gagne === 'expedition' ? `${c.nom} se gagne d’abord : ${cheminDeLaLuciole(cabinet)}` : `${c.nom} s’achète d’abord, à la boutique`
 
 /** Le rang de la plus haute forme que ces bonnes réponses, données avec lui, font atteindre. */
 export function rangAtteint(justes: number): number {

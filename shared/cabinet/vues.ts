@@ -24,7 +24,9 @@
 // compose pas l'adresse d'une image du Détail (`adresseDUnCadrage`) ; et ce
 // que la partie d'un cartel a fait à son œuvre (`Cartel.partie.issue`) : une
 // œuvre achetée puis dorée en jouant ne l'a pas gagnée, et son cartel n'a pas
-// à le dire.
+// à le dire. Et ce qu'un achat ou une dorure réveille (`PageDuCabinet.reveil`,
+// lot C4) : la fin d'une partie le dit dans son bilan, une dépense n'avait que
+// la page d'après.
 
 import type { CleDeCompagnon } from '../compagnons'
 import { PREFIXE_DE_LA_FRISE } from '../frise'
@@ -132,6 +134,32 @@ export interface PageDuCabinet {
   rapportees: number
   /** Les jeux livrés : un cadre vide d'un autre jeu dit « bientôt ». */
   jeux: CleDeJeu[]
+  /**
+   * Ce que la dépense qui rend cette page vient de réveiller — l'achat qui
+   * complète une salle, ou le Cabinet entier, la dorure qui dore une salle
+   * entière : la réponse de ce seul geste le porte, une fois ; la page le dit
+   * comme le bilan d'une partie (`BilanVu.gardiens`, `GainsDuCabinet`). Rien
+   * de réveillé : absent. Une page lue, un échange, une dépense rejouée ne le
+   * portent jamais.
+   */
+  reveil?: ReveilDesGardiens
+}
+
+/**
+ * Ce qu'un changement du musée vient de réveiller : une salle complète, tous
+ * ses cadres dorés, les quatre-vingt-quatre œuvres, trente jours d'affilée,
+ * une œuvre gagnée en jouant pendant une fête. Jamais un Divin (invariant 21).
+ */
+export interface ReveilDesGardiens {
+  /**
+   * Chaque gardien que ce changement a rangé, dans l'ordre des salles :
+   * `neuf`, le légendaire est à lui de ce jour — il s'annonce en grand ;
+   * sinon il veillait déjà, gagné ailleurs (« Salle complète ! Le Phénix
+   * veillait déjà sur elle. »).
+   */
+  gardiens: { legendaire: string; neuf: boolean }[]
+  /** La luciole, à la première salle complète. */
+  compagnon?: CleDeCompagnon
 }
 
 // ── Une partie — `POST /api/cabinet/partie`, son geste, sa relecture ──────
