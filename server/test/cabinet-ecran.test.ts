@@ -47,7 +47,7 @@ import { QUESTION_DU_TABLEAU, adresseDUnCadrage, type DetailMontre, type DetailR
 import type { FriseMontree, FriseRevelee } from '../../shared/cabinet/jeux/frise'
 import { anneeDite } from '../../shared/frise'
 import { CLES_DES_JEUX, JEUX, MOTS_DU_PARI } from '../../shared/cabinet/jeux/regle'
-import { JEU_PAS_LIVRE, PLUS_DE_CHASSE } from '../../shared/cabinet/musee'
+import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, laPartieAttend } from '../../shared/cabinet/musee'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, RARETES } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
 import { PLUS_DE_PAUSE } from '../../shared/cabinet/partie'
@@ -1674,6 +1674,9 @@ test('la révélation du Détail : le tableau entier à l’adresse de son tirag
   const reconnu = await laPartie(vues.detailReconnu)
   assert.equal(vues.detailReconnu.manches[1].naturel, ETOILES_AU_CADRAGE.at(-1))
   assert.match(texte(reconnu), /Reconnu/)
+  // Le bandeau le dit : « Reconnu » seul, sans étoile, se lisait comme une victoire.
+  assert.match(texte(reconnu), /Reconnu, au tableau entier/)
+  assert.doesNotMatch(texte(await laPartie(vues.detailFini)), /tableau entier/)
   assert.match(reconnu, /class="card result-banner result-ko"/)
   assert.doesNotMatch(reconnu, /corrige-sienne/)
   assert.match(texte(reconnu), new RegExp(`Après ${ETOILES_AU_CADRAGE.length - 1} pas en arrière`))
@@ -2019,4 +2022,142 @@ test('la feuille du Détail et de la Frise : le cadre du tableau à hauteur fixe
   assert.match(section, /\.cab-consigne \{ min-height: calc\(2 \* 1\.45em\);/)
   assert.match(section, /\.cab-ligne \{ line-height: 1\.45; \}/)
   assert.match(section, /\.cab-page h2\.cab-surtitre \{ font-family: inherit; font-size: inherit;/)
+})
+
+// ── 16. Ce que la poussière demande à la page ─────────────────────────────
+//
+// Le cartel dit ce que sa partie a fait à l'œuvre, la page oublie ses cartels quand un achat, une dorure ou une partie ont pu
+// les changer, et pendant une partie, l'œuvre ne propose ni de l'acheter ni de la dorer — le serveur le refuse (`laPartieAttend`).
+// Et chaque révélation a son titre, où le focus se pose.
+
+/** Le cartel d'une partie, écrit à la main : la Leçon achetée, puis la partie qui lui a donné le sien. */
+const cartelDeLaPartie = (issue?: string): Cartel =>
+  ({
+    oeuvre: 'lecon',
+    origine: 'achat',
+    doree: true,
+    partie: { id: 'p', jeu: 'pari', jour: 'le 24 octobre 2026', total: 9, ...(issue && { issue }), sujet: 'Quelle est la capitale de la Lituanie ?', reponse: 'Vilnius', anecdote: null },
+  }) as Cartel
+
+test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en jouant, rejouée —, au musée comme au bilan', async () => {
+  const cartel = async (issue?: string) => texte(await rendu('views/cabinet/Cartel', 'CartelDeLOeuvre', { lu: { etat: 'lu', cartel: cartelDeLaPartie(issue) } }))
+  for (const [issue, titre, ligne] of [
+    [undefined, 'en la gagnant', 'Gagnée'],
+    ['gagnee', 'en la gagnant', 'Gagnée'],
+    ['gagnee-doree', 'en la gagnant', 'Gagnée'],
+    ['doree', 'en la dorant', 'Dorée'],
+    ['double', 'en la rejouant', 'Rejouée'],
+  ] as const) {
+    const t = await cartel(issue)
+    assert.match(t, new RegExp(`Ce que tu as appris ${titre} `), String(issue))
+    assert.match(t, new RegExp(`${ligne} ${echapper(JEUX.pari.a)} · 9 sur 9`), String(issue))
+  }
+  // Achetée, puis dorée en jouant ou rejouée en visite : elle ne l'a pas gagnée, et son cartel ne le dit plus.
+  for (const issue of ['doree', 'double']) assert.doesNotMatch(await cartel(issue), /gagn/i, issue)
+  // Au bilan, les mêmes mots : la partie qui la dore ne dit pas « en la gagnant ».
+  const ecran = (await ecrans()).pari
+  const g = vues.gagnee
+  for (const [issue, titre] of [
+    ['gagnee-doree', 'en la gagnant'],
+    ['doree', 'en la dorant'],
+    ['double', 'en la rejouant'],
+  ] as const) {
+    const vue = { ...g, bilan: { ...g.bilan!, issue } } as VueDeLaPartie
+    const t = texte(await rendu('views/cabinet/Bilan', 'BilanDeLaPartie', { vue, ecran, onMusee: rien }))
+    assert.match(t, new RegExp(`Son cartel : ce que tu as appris ${titre} ${lu(g.bilan!.cartel!.sujet)}`), issue)
+  }
+  // Les mots d'une seule source : le bilan ne les recopie pas.
+  assert.doesNotMatch(source('views/cabinet/Bilan.tsx'), /en la gagnant/)
+})
+
+/** Les boutons d'un rendu : leur texte, en sourdine ou non, et la raison qu'ils désignent à l'oreille (`aria-describedby`). */
+function boutonsDe(html: string) {
+  return [...html.matchAll(/<button ([^>]*)>(.*?)<\/button>/g)].map(([, attributs, dedans]) => ({
+    texte: texte(dedans).trim(),
+    eteint: /aria-disabled="true"/.test(attributs),
+    raison: /aria-describedby="([^"]+)"/.exec(attributs)?.[1] ?? null,
+  }))
+}
+/** Les raisons d'un rendu, par leur identifiant : ce qu'un bouton en sourdine dit dessous. */
+const raisonsDe = (html: string) => new Map([...html.matchAll(/<p id="([^"]+)" class="cab-raison">(.*?)<\/p>/g)].map(([, id, dedans]) => [id, texte(dedans).trim()]))
+
+test('pendant une partie, l’œuvre ne s’achète, ne se dore ni ne se chasse : chaque geste en sourdine, la raison du serveur dite une fois, que chacun désigne', async () => {
+  const riche = { ...page, poussiere: 100_000 }
+  const attend = { ...riche, enCours: vues.pari }
+  const raison = texte(laPartieAttend(vues.pari.jeu)).trim()
+  const bouton = (html: string, debut: string) => boutonsDe(html).find(x => x.texte.startsWith(debut))!
+  // Une œuvre qui manque : la chasse et l'achat s'éteignent, la raison se dit une fois, sous le second.
+  const manque = await lOeuvre('expose', {}, attend)
+  const [chasse, achat] = [bouton(manque, 'Partir à sa recherche'), bouton(manque, 'L’acheter')]
+  assert.ok(chasse.eteint && achat.eteint, 'la chasse et l’achat en sourdine')
+  assert.ok(chasse.raison && chasse.raison === achat.raison, 'les deux désignent la même raison')
+  assert.equal(raisonsDe(manque).get(chasse.raison!), raison)
+  assert.equal([...texte(manque).matchAll(new RegExp(echapper(raison), 'g'))].length, 1, 'dite une fois')
+  // Sans partie, tout répond : rien en sourdine, aucune raison.
+  const libre = await lOeuvre('expose', {}, riche)
+  assert.ok(!bouton(libre, 'Partir à sa recherche').eteint && !bouton(libre, 'L’acheter').eteint)
+  assert.equal(raisonsDe(libre).size, 0)
+  // Une œuvre à lui, pas dorée : la dorure et « La rejouer » s'éteignent — la partie qui attend se dit d'abord, comme au serveur
+  // (`cadreDuDepart`, `refusDeLAchat`), avant le jeu qui n'est pas livré.
+  assert.ok(!JEUX_PRETS.includes(JEU_DE_L_OEUVRE['coup-d-oeil']))
+  const aLui = await lOeuvre('coup-d-oeil', {}, attend)
+  const [dorure, rejouer] = [bouton(aLui, 'Dorer son cadre'), bouton(aLui, 'La rejouer')]
+  assert.ok(dorure.eteint && rejouer.eteint)
+  assert.ok(dorure.raison && dorure.raison === rejouer.raison)
+  assert.equal(raisonsDe(aLui).get(dorure.raison!), raison)
+  assert.doesNotMatch(texte(aLui), new RegExp(JEU_PAS_LIVRE))
+  // Sa carte-bonus, elle, se choisit toujours : ce n'est qu'une préférence du téléphone.
+  assert.ok(!bouton(aLui, 'En faire ma carte-bonus').eteint)
+  // Sans partie : la dorure répond, et « La rejouer » dit sous lui le jeu qui arrive bientôt.
+  const sans = await lOeuvre('coup-d-oeil', {}, riche)
+  assert.ok(!bouton(sans, 'Dorer son cadre').eteint)
+  assert.equal(raisonsDe(sans).get(bouton(sans, 'La rejouer').raison!), JEU_PAS_LIVRE)
+  // Les mots du serveur, importés : la page ne les recopie pas.
+  assert.doesNotMatch(source('views/cabinet/Oeuvre.tsx'), /t’attend|reprends-la/)
+  sansJargon(manque, 'une œuvre pendant une partie')
+})
+
+test('la page oublie ses cartels quand un achat, une dorure ou une partie ont pu les changer — et un cartel parti avant ne s’y range plus', () => {
+  const app = source('views/CabinetApp.tsx')
+  // Un oubli monte l'âge des cartels et les vide tous ; un cartel demandé ne se range qu'à l'âge où il est parti.
+  assert.match(app, /const oublierLesCartels = useCallback\(\(\) => \{\s*ageDesCartels\.current \+= 1\s*setCartels\(\{\}\)\s*\}, \[\]\)/)
+  assert.match(app, /const age = ageDesCartels\.current/)
+  assert.match(app, /if \(age === ageDesCartels\.current\) setCartels/)
+  // Une dépense, réussie ou refusée ; l'échange ne touche aucun cartel.
+  for (const geste of ['acheter', 'dorer']) assert.match(app, new RegExp(`ecrire\\(\\(\\) => api\\.cabinet\\.${geste}\\(cle, prix\\), [^\\n]*, \\{ changeSonCartel: true \\}\\)`), geste)
+  assert.match(app, /ecrire\(\(\) => api\.cabinet\.echanger\(k\), '[^']*'\)/)
+  assert.match(app, /finally \{\s*if \(o\.changeSonCartel\) oublierLesCartels\(\)/)
+  // Une partie finie — sa dernière manche, « Quitter », ou relue finie d'un autre onglet — le dit à la page, encore à l'écran : le
+  // retour du navigateur fait reparaître l'œuvre de la chasse, son cartel déjà oublié.
+  assert.match(app, /onFinie=\{oublierLesCartels\}/)
+  assert.match(source('views/cabinet/Partie.tsx'), /const finie = vue\.phase === 'finie'\s*useEffect\(\(\) => \{\s*if \(finie\) onFinie\?\.\(\)\s*\}, \[finie, onFinie\]\)/)
+  // Un perdu se redemande toujours à chaque page relue.
+  assert.match(app, /setCartels\(sansLesPerdus\)\s*\}, \[aSonCartel, page\]\)/)
+})
+
+test('les règles : un jeu de la visite se change une fois par jour — le type du barème le tient, sans branche qui ne sert jamais', async () => {
+  assert.match(texte(await rendu('views/cabinet/Regles', 'Regles', { jeux: page.jeux })), /Un jeu de la visite se change, une fois par jour\./)
+  assert.doesNotMatch(source('views/cabinet/Regles.tsx'), /ECHANGES_PAR_JOUR === 1|\$\{ECHANGES_PAR_JOUR\} fois/)
+})
+
+/** Là où `rendreLeFocus` poserait le focus sur ce rendu : la première `.cab-question`, sinon le premier `h2`, sinon le `h1` — l'ordre de `Partie.tsx`. */
+function cibleDuFocus(html: string): { balise: string; classe: string; texte: string } | null {
+  const trouve =
+    /<(\w+) class="([^"]*\bcab-question\b[^"]*)"[^>]*>(.*?)<\/\1>/.exec(html) ?? /<(h2)(?: class="([^"]*)")?[^>]*>(.*?)<\/h2>/.exec(html) ?? /<(h1)(?: class="([^"]*)")?[^>]*>(.*?)<\/h1>/.exec(html)
+  return trouve ? { balise: trouve[1], classe: trouve[2] ?? '', texte: texte(trouve[3]).trim() } : null
+}
+
+test('chaque révélation a son titre où poser le focus : ce qui s’est passé, que le lecteur d’écran dit', async () => {
+  // La réponse touchée disparaît avec la manche : sans titre où se poser, le focus tombait sur la page, et le lecteur d'écran ne
+  // disait rien du verdict. Le titre de la révélation est un `h2`, au cadre de chaque jeu — le Pari, l'Éclair, le Détail, la Frise.
+  for (const v of [vues.gagne, vues.garde, vues.fini, vues.eclairRevele, vues.detailRate, vues.detailReconnu, vues.friseRatee, vues.friseJuste]) {
+    const ou = `${v.jeu}, manche ${v.revelation!.manche + 1}`
+    const cible = cibleDuFocus(await laPartie(v))
+    assert.ok(cible, ou)
+    assert.deepEqual([cible.balise, cible.classe], ['h2', 'cab-titre-revele'], ou)
+    assert.equal(cible.texte, texte(v.revelation!.corps.titre.replace(/'/g, '’')).trim(), ou)
+  }
+  // Le titre garde sa taille de verdict : un `h2` de la page en prendrait une autre (`.cab-page h2`).
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  assert.match(css, /\n\.cab-page h2\.cab-titre-revele \{ font-size: 1\.6rem; \}/)
 })

@@ -42,6 +42,15 @@ const deA = (prix: Readonly<Record<string, number>>) => `${formatNumber(Math.min
 const RARETE_AU_FEMININ: Readonly<Record<Rarete, string>> = { commun: 'commune', rare: 'rare', maudit: 'maudite', epique: 'épique' }
 
 /**
+ * « Une fois par jour » : le barème ne permet qu'un échange, et son type le
+ * tient (`ECHANGES_PAR_JOUR: 1`) — la visite figée n'a place que pour un. La
+ * ligne lisait encore « N fois », une branche qui ne servait jamais ; un barème
+ * qui en permettrait deux ne compilerait plus ici, et la feuille ne promettra
+ * pas un échange que le serveur refuse.
+ */
+const ECHANGES_DITS: Readonly<Record<1, string>> = { 1: 'une fois' }
+
+/**
  * « 5 étoiles si elle est commune, 6 rare ou maudite, 7 épique » : chaque
  * rareté à son seuil, lu au barème ; deux voisines ne se disent ensemble que
  * si leurs seuils sont égaux — la ligne lisait celui des rares pour les
@@ -92,7 +101,7 @@ export function Regles({ jeux, parties = CASES_DE_LA_VISITE }: { jeux: readonly 
       </Section>
       <Section titre="Chaque jour">
         <Ligne icone="sun">{`La visite du jour : ${compte(parties, 'partie')}, chacune une œuvre en jeu que tu découvres en la gagnant.`}</Ligne>
-        <Ligne icone="shuffle">{`Un jeu de la visite se change, ${ECHANGES_PAR_JOUR === 1 ? 'une fois' : `${ECHANGES_PAR_JOUR} fois`} par jour.`}</Ligne>
+        <Ligne icone="shuffle">{`Un jeu de la visite se change, ${ECHANGES_DITS[ECHANGES_PAR_JOUR]} par jour.`}</Ligne>
         <Ligne icone="search">{`${CHASSES_PAR_JOUR} chasses : touche un cadre vide, et joue au jeu où se trouve son œuvre.`}</Ligne>
         <Ligne icone="dice">{`Jouer librement, autant que tu veux : les ${LIBRES_QUI_PAIENT} premières parties libres paient leur poussière d’or.`}</Ligne>
         <Ligne icone="calendar">{`Une visite ou une chasse chaque jour fait ta série ; au ${JOURS_DU_SCARABEE}ᵉ jour, le Scarabée se réveille.`}</Ligne>

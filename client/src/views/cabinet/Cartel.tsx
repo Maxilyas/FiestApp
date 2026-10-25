@@ -1,17 +1,39 @@
 import { espacesFines } from '../../format'
 import { ETOILES_D_UNE_PARTIE } from '../../../../shared/cabinet/bareme'
 import { JEUX } from '../../../../shared/cabinet/jeux/regle'
+import type { IssueDUnePartie } from '../../../../shared/cabinet/partie'
 import type { Cartel } from '../../../../shared/cabinet/vues'
 import { enDebutDeLigne } from './Musee'
 
 // Le cartel d'une œuvre : la plaque crème sous la peinture, comme au musée.
-// Il garde ce que la partie qui l'a fait entrer lui a appris — la question
+// Il garde ce que la partie qui l'a fait entrer — ou qui l'a dorée, ou
+// rejouée : il le dit (`ceQueLaPartieAFait`) — lui a appris — la question
 // telle que la partie l'a lue, sa réponse, « Le savais-tu ? », le jeu, les
 // étoiles, le jour —, relu par le serveur au même pli que la partie
 // (invariant 14, `cartelDe`) ; sinon ce qui l'a fait entrer (« Rapportée de
 // l'Expédition », « Achetée avec ta poussière d'or… »), dit par le serveur
 // lui aussi : la page ne recopie aucune de ces phrases. Il arrive sous la
 // peinture, qui s'ouvre sans l'attendre.
+
+/**
+ * Ce que la partie d'un cartel a fait à son œuvre, en mots (`Cartel.partie.issue`) :
+ * l'appris (« en la dorant ») et la ligne de sa partie (« Dorée au Pari »). Une
+ * œuvre achetée, rapportée ou offerte, puis dorée en jouant ou rejouée à une
+ * visite qui la doublait, ne l'a pas gagnée — « en la gagnant » le lui faisait
+ * dire. Le bilan d'une partie dit son cartel des mêmes mots (`Bilan.tsx`). Sans
+ * issue — un cartel écrit à la main —, ou d'une issue qui ne garde pas de
+ * cartel, elle l'a gagnée.
+ */
+export function ceQueLaPartieAFait(issue: IssueDUnePartie | undefined): { appris: string; partie: string } {
+  switch (issue) {
+    case 'doree':
+      return { appris: 'en la dorant', partie: 'Dorée' }
+    case 'double':
+      return { appris: 'en la rejouant', partie: 'Rejouée' }
+    default:
+      return { appris: 'en la gagnant', partie: 'Gagnée' }
+  }
+}
 
 /** Le cartel, en chemin, lu, ou perdu : sa place se garde, son motif se dit. */
 export type EtatDuCartel = { etat: 'chargement' } | { etat: 'lu'; cartel: Cartel } | { etat: 'perdu'; motif: string }
@@ -49,15 +71,16 @@ export function CartelDeLOeuvre({ lu }: { lu: EtatDuCartel }) {
       </div>
     )
   }
+  const fait = ceQueLaPartieAFait(p.issue)
   return (
     <div className="cab-cartel">
-      <span className="cab-cartel-titre">Ce que tu as appris en la gagnant</span>
+      <span className="cab-cartel-titre">{`Ce que tu as appris ${fait.appris}`}</span>
       <p className="cab-cartel-sujet">{espacesFines(p.sujet)}</p>
       <p className="cab-cartel-reponse">{espacesFines(p.reponse)}</p>
       {p.anecdote && <p className="cab-cartel-phrase">{espacesFines(p.anecdote)}</p>}
       {/* Le jour sur sa ligne : à la suite, « · le 25 octobre 2026 » passait à la ligne son point en tête. */}
       <span className="cab-cartel-ligne">
-        {espacesFines(`Gagnée ${JEUX[p.jeu].a}${p.theme ? ` · ${p.theme}` : ''} · ${p.total} sur ${ETOILES_D_UNE_PARTIE}`)}
+        {espacesFines(`${fait.partie} ${JEUX[p.jeu].a}${p.theme ? ` · ${p.theme}` : ''} · ${p.total} sur ${ETOILES_D_UNE_PARTIE}`)}
         <span className="sr-only">, </span>
         <span className="cab-cartel-jour">{enDebutDeLigne(p.jour)}</span>
       </span>

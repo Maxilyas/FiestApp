@@ -110,7 +110,11 @@ paths:
   doigt —, et « Valider » aurait jugé une frise qu'on ne lui avait pas
   donnée (le retour du propriétaire du 20 octobre 2026). `toucher` ignore
   cet écho pendant 800 ms, pour tout bouton qui passe par lui
-  (`toucher.test.ts`).
+  (`toucher.test.ts`) — et le voile d'un dialogue aussi
+  (`estLEchoDUnDoigt`, `Dialog.tsx`) : ouvert au lever du doigt — « Quitter »
+  entre deux manches du Cabinet, sans pause à demander d'abord —, il se
+  refermait aussitôt sous l'écho, et rien ne s'ouvrait au doigt. Le voile
+  d'une feuille (`Feuille`, `.carte-voile`) ne le reconnaît pas encore.
 - **Une clé du stockage du navigateur se lit et s'écrit sous try/catch**
   (comme `writeSafe`) : un stockage refusé au chargement d'un module rendait
   la page de jeu noire, et rien ne le vérifie partout. Les clés commencent

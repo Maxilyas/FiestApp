@@ -13,10 +13,13 @@
 // Node) lisent ce que ces routes rendent. Le pli, la visite et les refus en
 // mots ont leurs épreuves pures (`cabinet-regles.test.ts`) ; les allers-retours
 // de chaque route, `cabinet-charge.test.ts` ; le plan de chaque instruction,
-// `cabinet-index.test.ts`.
+// `cabinet-index.test.ts`. Ce que la page en montre — le cartel, l'œuvre
+// pendant une partie — se rend ici aussi, sur ce que ces routes rendent : les
+// écrans écrits à la main ont leurs épreuves (`cabinet-ecran.test.ts`).
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
+import React from 'react'
 import { connexionAnimateur, inscrireProfil } from './banc'
 import {
   DIX_HEURES,
@@ -40,7 +43,7 @@ import {
 import { LIBRES_QUI_PAIENT, PRIX_D_UNE_DORURE, PRIX_D_UNE_OEUVRE } from '../../shared/cabinet/bareme'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, oeuvre, type CleDOeuvre } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
-import { poussieresDites } from '../../shared/cabinet/musee'
+import { laPartieAttend, poussieresDites } from '../../shared/cabinet/musee'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import { JEUX } from '../../shared/cabinet/jeux/regle'
 import type { Cartel, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
@@ -50,6 +53,28 @@ import { cartelDe } from '../src/core/cabinet/vue'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
+
+// Le client compile son JSX pour un `React` global, et `state.ts` lit son adresse à l'import : posés avant tout écran rendu.
+Object.assign(globalThis, { React, window: { location: { pathname: '/cabinet', search: '', hash: '', origin: 'http://banc' }, addEventListener: () => {} } })
+
+/** Un écran de la page, rendu en HTML sur ce que le serveur a rendu. */
+async function ecranDeLaPage(fichier: string, composant: string, props: object): Promise<string> {
+  const module = await import(new URL(`../../client/src/${fichier}.tsx`, import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  return renderToStaticMarkup(React.createElement(module[composant], props))
+}
+/** Ce qu'on lit d'un rendu : son texte, sans balises, les espaces insécables en espaces. */
+const texteDe = (html: string) =>
+  html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&#39;/g, '’')
+    .replace(/&amp;/g, '&')
+    .replace(/[  ⁠]/g, ' ')
+    .replace(/\s+/g, ' ')
+/** Une œuvre, à l'écran, sur une page du serveur ; et ses boutons — leur texte, en sourdine ou non. */
+const lOeuvreDe = (page: PageDuCabinet, cle: string) =>
+  ecranDeLaPage('views/cabinet/Oeuvre', 'Oeuvre', { page, cle, cartel: { etat: 'chargement' }, carte: null, busy: false, onCarte: () => {}, onAcheter: () => {}, onDorer: () => {}, onJouer: () => {} })
+const enSourdine = (html: string) => [...html.matchAll(/<button ([^>]*)>(.*?)<\/button>/g)].filter(([, a]) => /aria-disabled="true"/.test(a)).map(([, , t]) => texteDe(t).trim())
 
 let b: BancDuCabinet
 before(async () => {
@@ -277,10 +302,36 @@ test('pendant une partie, rien ne s’achète ni ne se dore — ni l’œuvre qu
   // Ce qui ne se ferait jamais garde son refus à lui.
   assert.deepEqual(refus(await acheter(paul.cookie, 'prudence', prixDAchat('prudence'))), [400, { error: 'Elle est déjà à toi' }])
   assert.deepEqual(refus(await dorer(paul.cookie, communeA, prixDeDorure(communeA))), [400, { error: 'Elle n’est pas encore à toi : gagne-la ou achète-la d’abord' }])
+  // La page le dit d'avance, dans les mots du refus : sur la page que le serveur rend pendant la chasse, une œuvre qui manque
+  // n'offre ni sa chasse ni son achat, une œuvre à lui ni sa dorure ni de la rejouer — en sourdine, la raison dite dessous.
+  const pendant = ok(await laPage(b, paul.cookie), 'la page pendant la chasse')
+  assert.equal(pendant.enCours?.id, chasse.id)
+  assert.equal(laPartieAttend(pendant.enCours!.jeu), attend)
+  const manque = await lOeuvreDe(pendant, communeA)
+  assert.deepEqual(
+    enSourdine(manque).map(t => ['Partir à sa recherche', 'L’acheter'].find(d => t.startsWith(d))),
+    ['Partir à sa recherche', 'L’acheter'],
+  )
+  assert.equal([...texteDe(manque).matchAll(new RegExp(attend, 'g'))].length, 1)
+  const aLui = await lOeuvreDe(pendant, 'prudence')
+  assert.deepEqual(
+    enSourdine(aLui).map(t => ['Dorer son cadre', 'La rejouer'].find(d => t.startsWith(d))),
+    ['Dorer son cadre', 'La rejouer'],
+  )
+  assert.match(texteDe(aLui), new RegExp(attend))
   const fin = await unPariParfait(b, paul.cookie, chasse)
   assert.deepEqual([fin.bilan?.issue, fin.bilan?.oeuvre], ['gagnee-doree', 'lecon'], 'la Leçon entre en jouant, sans rien payer')
   const apres = ok(await laPage(b, paul.cookie), 'la page')
   assert.equal(apres.poussiere, 2000 + fin.bilan!.poussiere)
+  // La partie finie, l'achat et la dorure répondent, sans raison.
+  for (const [cle, geste] of [
+    [communeA, 'L’acheter'],
+    ['prudence', 'Dorer son cadre'],
+  ] as const) {
+    const html = await lOeuvreDe(apres, cle)
+    assert.ok(!enSourdine(html).some(t => t.startsWith(geste)), geste)
+    assert.doesNotMatch(texteDe(html), new RegExp(attend))
+  }
   // Finie, la poussière se dépense.
   assert.equal(ok(await acheter(paul.cookie, communeA, prixDAchat(communeA)), 'l’achat, la partie finie').poussiere, apres.poussiere - prixDAchat(communeA))
 
@@ -446,6 +497,11 @@ test('le cartel : la manche que la partie lui a gardée, relue par le même pli 
   // Relu après un redémarrage : le même, par le même pli (invariant 14).
   await b.banc.redemarrer()
   assert.deepEqual(ok(await leCartel(max.cookie, 'lecon'), 'relu'), cartel)
+  // À l'écran : ce que la partie lui a appris en la gagnant, et la partie qui l'a fait entrer.
+  const ecran = async (c: Cartel) => texteDe(await ecranDeLaPage('views/cabinet/Cartel', 'CartelDeLOeuvre', { lu: { etat: 'lu', cartel: c } }))
+  const gagnee = await ecran(cartel)
+  assert.match(gagnee, /Ce que tu as appris en la gagnant/)
+  assert.match(gagnee, new RegExp(`Gagnée ${JEUX.pari.a} · 9 sur 9`))
 
   // Les cartels d'office : offerte, achetée — et une achetée rejouée pour sa dorure prend la manche de sa partie.
   const offerte = ok(await leCartel(max.cookie, 'coup-d-oeil'), 'une œuvre de départ')
@@ -460,6 +516,11 @@ test('le cartel : la manche que la partie lui a gardée, relue par le même pli 
   const rejouee = ok(await leCartel(max.cookie, communeDuPari), 'l’achetée, dorée en jouant')
   // Son cartel dit ce que la partie lui a fait : la dorer, pas la gagner — achetée, elle l'était déjà.
   assert.deepEqual([rejouee.origine, rejouee.doree, rejouee.partie?.id, rejouee.partie?.issue, rejouee.dit], ['achat', true, dorure.id, 'doree', undefined])
+  // À l'écran aussi : ce qu'elle lui a appris en la dorant — pas « en la gagnant ».
+  const doree = await ecran(rejouee)
+  assert.match(doree, /Ce que tu as appris en la dorant/)
+  assert.match(doree, new RegExp(`Dorée ${JEUX.pari.a} · ${rejouee.partie!.total} sur 9`))
+  assert.doesNotMatch(doree, /gagn/i)
 
   // Une œuvre qui n'est pas à lui n'a pas de cartel ; une clé inconnue non plus ; sans profil, le Cabinet le dit.
   assert.deepEqual(refus(await leCartel(max.cookie, epique)), [404, { error: 'Elle n’est pas encore à toi : gagne-la ou achète-la d’abord' }])

@@ -1,11 +1,11 @@
-import { useContext } from 'react'
+import { useContext, useId } from 'react'
 import { Icon } from '../../components/Icon'
 import { OeuvrePeinte, RARETE_DITE, gemmeDeLaRarete } from '../../components/OeuvrePeinte'
 import { PieceTete, Sortie } from '../../components/Pieces'
 import { espacesFines } from '../../format'
 import { ETOILES_D_UNE_PARTIE } from '../../../../shared/cabinet/bareme'
 import { JEUX } from '../../../../shared/cabinet/jeux/regle'
-import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, poussieresDites } from '../../../../shared/cabinet/musee'
+import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, ilTeManque, laPartieAttend, poussieresDites } from '../../../../shared/cabinet/musee'
 import { POUVOIRS, forceDe, forceDite, pouvoirDe } from '../../../../shared/cabinet/pouvoirs'
 import { salle as salleDe } from '../../../../shared/cabinet/salles'
 import type { OeuvreVue, PageDuCabinet, SalleVue } from '../../../../shared/cabinet/vues'
@@ -21,7 +21,11 @@ import { oeuvreMontree } from './Salle'
 // l'achat. Les prix et les chasses qui restent viennent de la page ; le
 // serveur revérifie tout, et ses refus se disent dans ses mots. Ce que la
 // page en dit d'avance n'est qu'un bouton grisé et sa raison dessous :
-// `aria-disabled`, jamais `disabled` — le focus resterait sur un bouton mort.
+// `aria-disabled`, jamais `disabled` — le focus resterait sur un bouton mort —,
+// et la raison qu'il désigne à l'oreille (`aria-describedby`). Pendant qu'une
+// partie attend, rien ne se dépense ni ne part (`refusDeLAchat`,
+// `cadreDuDepart`) : chaque geste s'éteint, et leur raison commune ne se dit
+// qu'une fois, sous le dernier.
 
 /** L'œuvre et sa salle, lues dans la page ; rien pour une clé que la page ne montre pas. */
 export function oeuvreDeLaPage(page: PageDuCabinet, cle: string): { oeuvre: OeuvreVue; salle: SalleVue } | null {
@@ -32,14 +36,48 @@ export function oeuvreDeLaPage(page: PageDuCabinet, cle: string): { oeuvre: Oeuv
   return null
 }
 
-/** Ce qui manque à son solde pour ce prix ; zéro s'il l'a. */
-const manque = (page: PageDuCabinet, prix: number | undefined) => (prix === undefined ? 0 : Math.max(0, prix - page.poussiere))
+/** La partie qui attend, dans les mots du serveur : tant qu'elle n'est pas finie, rien ne part ni ne se dépense. */
+const quiAttend = (page: PageDuCabinet): string | null => (page.enCours ? laPartieAttend(page.enCours.jeu) : null)
 
-/** Pourquoi la chasse de cette œuvre ne part pas, dit sous son bouton dans les mots du serveur (`cadreDuDepart`) ; null : elle part. */
+/** Pourquoi la chasse de cette œuvre ne part pas, dit sous son bouton dans les mots du serveur, dans son ordre (`cadreDuDepart`) ; null : elle part. */
 function refusDeLaChasse(page: PageDuCabinet, o: OeuvreVue): string | null {
+  const attend = quiAttend(page)
+  if (attend) return attend
   if (o.bientot) return JEU_PAS_LIVRE
   if (page.chasses.restent === 0) return PLUS_DE_CHASSE
   return null
+}
+
+/**
+ * Pourquoi cet achat ou cette dorure ne passe pas, dans les mots du serveur et
+ * dans son ordre (`refusDeLAchat`) : la partie qui attend, puis le solde — elle
+ * attend aussi qui a de quoi payer. Null : il passe, ou rien à payer.
+ */
+function refusDeLaDepense(page: PageDuCabinet, prix: number | undefined): string | null {
+  if (prix === undefined) return null
+  return quiAttend(page) ?? (prix > page.poussiere ? ilTeManque(prix - page.poussiere) : null)
+}
+
+/**
+ * Un geste de l'œuvre : en sourdine s'il est refusé (`aria-disabled`), sa
+ * raison dessous, qu'il désigne à l'oreille. `apres` : la raison du geste qui le
+ * suit — la même (la partie qui attend), elle ne se dit qu'une fois, sous le
+ * suivant, et les deux la désignent.
+ */
+function Geste({ id, refus, apres, busy, classe, onGeste, children }: { id: string; refus: string | null; apres?: { id: string; refus: string | null }; busy: boolean; classe: string; onGeste: () => void; children: string }) {
+  const dite = refus !== null && apres?.refus === refus ? apres.id : id
+  return (
+    <>
+      <button type="button" className={classe} aria-disabled={refus !== null || busy || undefined} aria-describedby={refus === null ? undefined : dite} onClick={() => refus === null && !busy && onGeste()}>
+        {espacesFines(children)}
+      </button>
+      {refus !== null && dite === id && (
+        <p id={id} className="cab-raison">
+          {espacesFines(refus)}
+        </p>
+      )}
+    </>
+  )
 }
 
 export function Oeuvre({
@@ -65,6 +103,8 @@ export function Oeuvre({
   onJouer: (partie: PartieDemandee) => void
 }) {
   const auMusee = useContext(RetourAuMusee)
+  // Les raisons des gestes, que chaque bouton éteint désigne à l'oreille.
+  const id = useId()
   const lue = oeuvreDeLaPage(page, cle)
   if (!lue) {
     return (
@@ -82,9 +122,12 @@ export function Oeuvre({
   const pourLaChasse = compte(page.chasses.restent, 'chasse')
   const retour = <Sortie vers={salle.nom} href={adresseDe({ e: 'salle', salle: salle.cle })} />
 
+  const laChasse = { id: `${id}-chasse`, refus: chasse }
+  const chasser = () => onJouer({ origine: 'chasse', oeuvre: o.cle })
+
   if (!o.possedee) {
     const prix = o.prix
-    const ilManque = manque(page, prix)
+    const achat = { id: `${id}-achat`, refus: refusDeLaDepense(page, prix) }
     return (
       <div className="player-shell cab-page">
         {retour}
@@ -106,22 +149,13 @@ export function Oeuvre({
             pour la gagner.
           </p>
         </section>
-        <button
-          type="button"
-          className="btn btn-primary btn-big btn-block"
-          aria-disabled={chasse !== null || busy || undefined}
-          onClick={() => !chasse && !busy && onJouer({ origine: 'chasse', oeuvre: o.cle })}
-        >
-          {espacesFines(`Partir à sa recherche · ${pourLaChasse} aujourd’hui`)}
-        </button>
-        {chasse && <p className="cab-raison">{espacesFines(chasse)}</p>}
+        <Geste {...laChasse} apres={prix === undefined ? undefined : achat} busy={busy} classe="btn btn-primary btn-big btn-block" onGeste={chasser}>
+          {`Partir à sa recherche · ${pourLaChasse} aujourd’hui`}
+        </Geste>
         {prix !== undefined && (
-          <>
-            <button type="button" className="btn btn-block" aria-disabled={ilManque > 0 || busy || undefined} onClick={() => ilManque === 0 && !busy && onAcheter(o.cle, prix)}>
-              {espacesFines(`L’acheter · ${poussieresDites(prix)}`)}
-            </button>
-            {ilManque > 0 && <p className="cab-raison">{espacesFines(`Il te manque ${poussieresDites(ilManque)}`)}</p>}
-          </>
+          <Geste {...achat} busy={busy} classe="btn btn-block" onGeste={() => onAcheter(o.cle, prix)}>
+            {`L’acheter · ${poussieresDites(prix)}`}
+          </Geste>
         )}
         {/* Pas « chaque partie » : au-delà des premières du jour, une partie libre ne rapporte plus rien (`poussiereDeLaPartie`). */}
         <p className="cab-ligne">{espacesFines(`Tu as ${poussieresDites(page.poussiere)}. Chaque visite ou chasse en rapporte, même ratée.`)}</p>
@@ -133,7 +167,7 @@ export function Oeuvre({
   const force = forceDe(o.cle)
   const emportee = carte === o.cle
   const prixDorure = o.prix
-  const ilManque = manque(page, prixDorure)
+  const dorure = { id: `${id}-dorure`, refus: refusDeLaDepense(page, prixDorure) }
   return (
     <div className="player-shell cab-page">
       {retour}
@@ -165,22 +199,13 @@ export function Oeuvre({
         <section className="cab-bloc" aria-labelledby="cab-son-cadre">
           <h2 id="cab-son-cadre">Son cadre</h2>
           {prixDorure !== undefined && (
-            <>
-              <button type="button" className="btn btn-block" aria-disabled={ilManque > 0 || busy || undefined} onClick={() => ilManque === 0 && !busy && onDorer(o.cle, prixDorure)}>
-                {espacesFines(`Dorer son cadre · ${poussieresDites(prixDorure)}`)}
-              </button>
-              {ilManque > 0 && <p className="cab-raison">{espacesFines(`Il te manque ${poussieresDites(ilManque)}`)}</p>}
-            </>
+            <Geste {...dorure} apres={laChasse} busy={busy} classe="btn btn-block" onGeste={() => onDorer(o.cle, prixDorure)}>
+              {`Dorer son cadre · ${poussieresDites(prixDorure)}`}
+            </Geste>
           )}
-          <button
-            type="button"
-            className="btn btn-block"
-            aria-disabled={chasse !== null || busy || undefined}
-            onClick={() => !chasse && !busy && onJouer({ origine: 'chasse', oeuvre: o.cle })}
-          >
-            {espacesFines(`La rejouer ${jeu.a} pour la dorer · une chasse`)}
-          </button>
-          {chasse && <p className="cab-raison">{espacesFines(chasse)}</p>}
+          <Geste {...laChasse} busy={busy} classe="btn btn-block" onGeste={chasser}>
+            {`La rejouer ${jeu.a} pour la dorer · une chasse`}
+          </Geste>
           <p className="cab-ligne">{espacesFines('Doré en jouant : toutes ses manches parfaites, sans qu’un pouvoir ait servi.')}</p>
         </section>
       )}

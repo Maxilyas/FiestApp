@@ -15,6 +15,7 @@ import type { IssueDUnePartie, OrigineDUnePartie } from '../../../../shared/cabi
 import type { MancheVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees, type Tombe } from '../../../../shared/gains'
 import { legendaire } from '../../../../shared/legendaires'
+import { ceQueLaPartieAFait } from './Cartel'
 import type { EcranEfface } from './Partie'
 import { oeuvreMontree } from './Salle'
 
@@ -134,7 +135,8 @@ export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDe
           </div>
           {b.cartel && (
             <div className="cab-cartel">
-              <span className="cab-cartel-titre">Son cartel : ce que tu as appris en la gagnant</span>
+              {/* Les mots du cartel du musée : dorée en jouant, une œuvre achetée ne se dit pas gagnée. */}
+              <span className="cab-cartel-titre">{`Son cartel : ce que tu as appris ${ceQueLaPartieAFait(b.issue).appris}`}</span>
               <p className="cab-cartel-sujet">{espacesFines(b.cartel.sujet)}</p>
               <p className="cab-cartel-reponse">{espacesFines(b.cartel.reponse)}</p>
               {b.cartel.anecdote && <p className="cab-cartel-phrase">{espacesFines(b.cartel.anecdote)}</p>}

@@ -13,6 +13,14 @@ const ECHO_MS = 800
 type Cible = { disabled?: boolean; getBoundingClientRect(): { left: number; right: number; top: number; bottom: number } }
 
 /**
+ * Ce `click` n'est-il que l'écho d'un doigt déjà pris au lever ? Il tombe sur
+ * ce qui a paru sous le doigt entre-temps : le voile d'un dialogue que le
+ * geste vient d'ouvrir le recevait et le refermait aussitôt — « Quitter »
+ * entre deux manches du Cabinet ne s'ouvrait pas au doigt (`Dialog.tsx`).
+ */
+export const estLEchoDUnDoigt = (e: { timeStamp: number }): boolean => e.timeStamp - dernierDoigt < ECHO_MS
+
+/**
  * Une réponse prise au lever du doigt, et non au `click` du navigateur.
  *
  * Les invités le disaient : « parfois, ça sélectionne la réponse au lieu de
@@ -40,7 +48,7 @@ export function toucher(agir: () => void) {
       agir()
     },
     onClick: (e: MouseEvent<HTMLElement>) => {
-      if (e.timeStamp - dernierDoigt < ECHO_MS) return
+      if (estLEchoDUnDoigt(e)) return
       agir()
     },
     // L'appui long ouvrait le menu du texte (copier, rechercher) par-dessus la question.

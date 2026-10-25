@@ -355,6 +355,17 @@ test('le Détail : la révélation, la pièce et le cartel', () => {
   assert.equal(sans.repondu, null)
   assert.ok(sans.titres.every(x => !x.choisi))
 
+  // Reconnu au tableau entier : le bon titre, mais plus une étoile — « Reconnu » seul, sur un bandeau sans étoile, se lisait
+  // comme une victoire. Au cadrage d'avant, il l'est encore tout court ; un mauvais titre au tableau entier reste « C'était… ».
+  const entier = reculer(t, ETOILES_AU_CADRAGE.length - 1)
+  const tard = REGLE_DU_DETAIL.juger(t, entier, { quoi: 'repondre', titre: t.bonne })
+  assert.equal(tard.naturel, 0)
+  assert.equal(REGLE_DU_DETAIL.reveler(t, entier, tard).titre, 'Reconnu, au tableau entier')
+  assert.equal(REGLE_DU_DETAIL.reveler(t, entier, tard).reconnu, true)
+  const avant = reculer(t, ETOILES_AU_CADRAGE.length - 2)
+  assert.equal(REGLE_DU_DETAIL.reveler(t, avant, REGLE_DU_DETAIL.juger(t, avant, { quoi: 'repondre', titre: t.bonne })).titre, 'Reconnu')
+  assert.equal(REGLE_DU_DETAIL.reveler(t, entier, REGLE_DU_DETAIL.juger(t, entier, { quoi: 'repondre', titre: k })).titre, 'C’était…')
+
   const avecAnecdote = unDetail('revelation', 'Il l’a peint de nuit, sur place.')
   assert.equal(REGLE_DU_DETAIL.reveler(avecAnecdote, e, juste).savais, 'Il l’a peint de nuit, sur place.')
 

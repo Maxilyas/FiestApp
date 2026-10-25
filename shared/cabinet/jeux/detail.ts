@@ -77,7 +77,7 @@ export interface DetailMontre {
 /** La révélation : le tableau nommé, où il en était, ce qu'il avait répondu. */
 export interface DetailRevele {
   jeu: 'detail'
-  /** « Reconnu », ou « C’était… ». */
+  /** « Reconnu » — « Reconnu, au tableau entier », quand il ne valait plus d'étoile —, ou « C’était… ». */
   titre: string
   reconnu: boolean
   tableau: { titre: string; peintre: string; annee: number }
@@ -227,12 +227,15 @@ export const REGLE_DU_DETAIL: RegleQuiTranche<DetailTire, EtatDuDetail, GesteDuD
     const lu = relue(v.pieces[0]?.composee)
     const choisi = lu?.titre ?? null
     const reconnu = choisi === t.bonne
+    const cadrage = lu?.cadrage ?? e.cadrage
     return {
       jeu: 'detail',
-      titre: reconnu ? 'Reconnu' : 'C’était…',
+      // Reconnu au tableau entier, le bon titre ne vaut plus d'étoile : « Reconnu » seul, sur un bandeau sans étoile, se lisait
+      // comme une victoire.
+      titre: !reconnu ? 'C’était…' : cadrage >= CADRAGES ? 'Reconnu, au tableau entier' : 'Reconnu',
       reconnu,
       tableau: { titre: t.tableau.titre, peintre: t.tableau.peintre, annee: t.tableau.annee },
-      cadrage: lu?.cadrage ?? e.cadrage,
+      cadrage,
       repondu: choisi !== null && !reconnu ? (t.titres[choisi]?.titre ?? null) : null,
       titres: t.titres.map((x, i) => ({ titre: x.titre, peintre: x.peintre, bon: i === t.bonne, choisi: i === choisi, efface: e.effaces.includes(i) })),
       savais: savaisDuDetail(t),

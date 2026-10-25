@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { espacesFines } from '../format'
+import { estLEchoDUnDoigt } from '../toucher'
 
 /**
  * Boîtes de confirmation et de saisie de l'application.
@@ -159,7 +160,9 @@ function DialogBox({ pending }: { pending: Pending }) {
   }
 
   return (
-    <div className="dialog-backdrop" onClick={() => close(null)}>
+    // Le voile se touche pour renoncer — mais pas sous l'écho du doigt qui vient d'ouvrir le dialogue (`toucher`) : ouvert au
+    // lever du doigt, il se refermait aussitôt sous le click que le navigateur fait suivre.
+    <div className="dialog-backdrop" onClick={e => !estLEchoDUnDoigt(e) && close(null)}>
       <form
         ref={box}
         className="card dialog"

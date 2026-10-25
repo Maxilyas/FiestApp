@@ -376,7 +376,8 @@ const ceQuOnSignale = (positions: readonly number[], i: number) => (positions.le
 
 /**
  * La révélation d'une manche (§ 3.0) : ses étoiles et pourquoi elles
- * diffèrent (« +4 : mise gagnée »), un titre qui dit ce qui s'est passé, le
+ * diffèrent (« +4 : mise gagnée »), un titre qui dit ce qui s'est passé — le
+ * `h2` de l'écran, pour tous les jeux —, le
  * corps de son jeu, « Le savais-tu ? », « Signaler une erreur » pour les
  * seules questions de la base. La niche et la gerbe la fêtent, chacune ce
  * qu'elle sait (`ceQueFeteLaRevelation`).
@@ -392,7 +393,9 @@ export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: 
         <span className="big cab-etoiles-manche">
           <Etoiles n={Math.min(3, etoiles)} grandes />
         </span>
-        <p className="cab-titre-revele">{espacesFines(r.corps.titre)}</p>
+        {/* Le titre de la révélation, où le focus se pose quand elle prend la place de la manche (`rendreLeFocus`) : la réponse
+            touchée disparue, il tombait sur la page, et le lecteur d'écran ne disait rien du verdict. */}
+        <h2 className="cab-titre-revele">{espacesFines(r.corps.titre)}</h2>
         {m?.note && <p className="cab-note">{espacesFines(m.note)}</p>}
         {r.fin === 'expiree' && <p>Temps écoulé</p>}
         {r.fin === 'quittee' && <p>Manche quittée</p>}
@@ -519,12 +522,15 @@ export function Partie({
   relue,
   onMusee,
   onRelire,
+  onFinie,
   onRejouer,
 }: {
   depart: VueDeLaPartie
   relue: VueDeLaPartie | null
   onMusee: () => void
   onRelire: () => void
+  /** Elle vient de finir — sa dernière manche, « Quitter », ou relue finie d'un autre onglet : son œuvre a pu changer. */
+  onFinie?: () => void
   onRejouer?: () => void
 }) {
   const [vue, setVue] = useState(depart)
@@ -576,6 +582,13 @@ export function Partie({
   useEffect(() => {
     if (relue && relue.id === vueRef.current.id && !enVol.current) ranger(relue)
   }, [relue, ranger])
+
+  // Finie, elle a pu gagner, dorer ou doubler son œuvre : la page l'apprend aussitôt, la partie encore à l'écran — à sa sortie,
+  // l'œuvre d'une chasse reparue par le retour du navigateur aurait montré un instant le cartel d'avant.
+  const finie = vue.phase === 'finie'
+  useEffect(() => {
+    if (finie) onFinie?.()
+  }, [finie, onFinie])
 
   /**
    * Un geste, au rang de la vue d'à présent. Un seul à la fois ; celui que la

@@ -65,6 +65,19 @@ test('le click qui suit un doigt ne touche pas le bouton qui a glissé sous lui'
   assert.equal(effacees, 1)
 })
 
+test('un dialogue ouvert au lever du doigt ne se referme pas sous son écho : le voile ignore le click qui suit', async () => {
+  // « Quitter » entre deux manches du Cabinet, au doigt (regardé en 360 × 640, le 25 octobre 2026) : sans chrono à mettre en
+  // pause, la confirmation s'ouvrait au lever du doigt, et le click que le navigateur fait suivre tombait sur son voile, qui la
+  // refermait — rien ne s'ouvrait, et à la souris, si. Le voile reconnaît cet écho.
+  const { estLEchoDUnDoigt } = (await import(client('toucher.ts').href)) as typeof import('../../client/src/toucher')
+  let ouvert = 0
+  toucher(() => ouvert++).onPointerUp(doigt(60_000))
+  assert.equal(ouvert, 1)
+  assert.equal(estLEchoDUnDoigt(clic(60_030)), true, 'l’écho du doigt')
+  assert.equal(estLEchoDUnDoigt(clic(61_000)), false, 'un toucher du voile pour de bon le ferme')
+  assert.match(readFileSync(client('components/Dialog.tsx'), 'utf8'), /<div className="dialog-backdrop" onClick=\{e => !estLEchoDUnDoigt\(e\) && close\(null\)\}>/)
+})
+
 test('« Effacer » et « Valider » des formes qui se posent passent par toucher — la forme à composer, la frise, et celles à venir', () => {
   const source = readFileSync(client('views/ExpeditionApp.tsx'), 'utf8').replaceAll('=>', '⇒')
   const rangees = source

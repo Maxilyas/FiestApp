@@ -10627,7 +10627,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* La révélation : ses étoiles en grand, ce qui s'est passé, puis le corps du jeu, corrigé comme en série. Les pièces partagées
    qu'elle pose — le bandeau, « Le savais-tu ? », le corrigé, « Signaler » — à la taille du Cabinet. */
 .cab-etoiles-manche .sentier-etoiles-grandes svg { width: 34px; height: 34px; }
-.cab-titre-revele { font-family: var(--serif); font-size: 1.6rem; font-weight: 700; line-height: 1.15; font-variant-numeric: lining-nums; }
+.cab-titre-revele { font-family: var(--serif); font-weight: 700; line-height: 1.15; font-variant-numeric: lining-nums; }
+/* Le titre d'une révélation est le `h2` où le focus se pose : à la taille du verdict, pas à celle des titres de section
+   (`.cab-page h2`). En paragraphe, la règle du bandeau (`.cab-page .result-banner p`) le ramenait à dix-sept pixels. */
+.cab-page h2.cab-titre-revele { font-size: 1.6rem; }
 .cab-note { color: var(--accent-text); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
 .cab-page .result-banner p { font-size: 1.0625rem; }
 .cab-page .anecdote { font-size: 1.0625rem; }
