@@ -209,7 +209,16 @@ export interface RegleDuJeu<Tiree, Etat, Geste, Montree, Revelee> {
   ouvrir(t: Tiree): Etat
   /** Relit ce que la page envoie pour ce jeu ; null : illisible. */
   lireLeGeste(brut: unknown, t: Tiree): Geste | null
-  /** Un geste qui ne tranche pas (un essai, reculer, un indice, garder, le mot…) ; une chaîne : son refus, en mots. */
+  /**
+   * Ce geste tranche-t-il la manche ? Le pli le demande d'abord : oui, il va à
+   * `juger` ; non, à `apresLeGeste`. Le jeu seul le sait — l'essai qui trouve
+   * le mot ou le cinquième, « Garder » au Pari, quand la juste de sa première
+   * question attend son choix. Absent : tout geste du jeu tranche. L'état
+   * reste celui d'avant le geste qui tranche : ce qu'il portait, le verdict le
+   * garde (`choix`, `composee`), et la révélation l'y relit.
+   */
+  tranche?(t: Tiree, e: Etat, g: Geste): boolean
+  /** Un geste qui ne tranche pas (un essai, reculer, un indice, parier, le mot…) ; une chaîne : son refus, en mots. */
   apresLeGeste(t: Tiree, e: Etat, g: Geste): Etat | string
   /** Les étoiles naturelles et ce que la pièce écrit ; « expiree » : rien de ce qu'elle portait ne compte. */
   juger(t: Tiree, e: Etat, reponse: Geste | 'expiree' | 'quittee'): VerdictDUneManche
