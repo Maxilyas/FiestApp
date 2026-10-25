@@ -55,7 +55,7 @@ import type { Fiche, FriseATheme, Lieu, Replique } from '../../shared/cabinet/co
  * maladroite ferait rougir ce test, pas un joueur qui retombe sur les mêmes
  * lieux.
  */
-const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 90, fiches: 60, repliques: 60, frises: 18 }
+const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 90, fiches: 66, repliques: 66, frises: 18 }
 
 const brut = (s: SorteDuContenu): unknown[] => JSON.parse(readFileSync(path.join(DOSSIER_DU_CONTENU, SORTES[s].fichier), 'utf8'))
 
@@ -106,11 +106,7 @@ test('chaque jeu du contenu neuf tient sept jours sans redite, au rythme d’une
   //
   // Une moyenne, pas un plafond : chaque œuvre se chasse à son jeu, et une case
   // de la visite et deux chasses au même jeu en font trois dans la journée,
-  // les libres à part. À ce rythme, soixante fiches ou répliques tiennent six
-  // jours et deux tiers — c'est celui de la conception, qui compte « une
-  // dizaine de jours » à l'Épingle —, puis le tirage reprend le moins
-  // récemment vu. Le tenir au pire, ce serait trois fiches et trois répliques
-  // de plus : un choix laissé au propriétaire.
+  // les libres à part — c'est le pire qu'on tient, plus bas.
   const partiesParJour = Math.ceil((CASES_DE_LA_VISITE + CHASSES_PAR_JOUR + LIBRES_QUI_PAIENT) / CLES_DES_JEUX.length)
   assert.equal(partiesParJour, 2)
   const contenu = contenuDuCabinet()
@@ -129,6 +125,33 @@ test('chaque jeu du contenu neuf tient sept jours sans redite, au rythme d’une
   for (const l of contenu.lieux) parTheme.set(l.theme, (parTheme.get(l.theme) ?? 0) + 1)
   const parties = [...parTheme.values()].reduce((s, n) => s + Math.floor(n / MANCHES_PAR_PARTIE), 0)
   assert.ok(parties >= JOURS_SANS_REDITE * partiesParJour, `${parties} parties d'Épingle à thème`)
+})
+
+test('l’Épingle, les Indices et la Réplique tiennent sept jours au pire réaliste : sa case de la visite et ses deux chasses au même jeu', () => {
+  // La visite pose trois jeux différents — l'échange en prend un qui n'y est
+  // pas —, mais deux chasses peuvent viser deux œuvres du même jeu : trois
+  // parties par jour au même jeu, les libres à part (elles se jouent pour le
+  // plaisir, à volonté : aucun contenu ne les tiendrait). Ces trois jeux ne
+  // tirent que du contenu neuf, et soixante fiches ou répliques n'en tenaient
+  // que six jours et deux tiers : le joueur assidu y revoyait, au septième, ce
+  // qu'il avait vu la semaine même. La Frise n'en est pas : ses frises à thème
+  // alternent avec les frises des sujets de la base.
+  const partiesAuPire = 1 + CHASSES_PAR_JOUR
+  assert.equal(partiesAuPire, 3)
+  const contenu = contenuDuCabinet()
+  const faut = JOURS_SANS_REDITE * partiesAuPire * MANCHES_PAR_PARTIE
+  for (const [jeu, n] of [
+    ['epingle', contenu.lieux.length],
+    ['indices', contenu.fiches.length],
+    ['replique', contenu.repliques.length],
+  ] as [CleDeJeu, number][]) {
+    assert.ok(n >= faut, `${jeu} : ${n} contenus pour ${faut}`)
+  }
+  // L'Épingle au pire aussi : ses parties à thème, trois lieux chacune.
+  const parTheme = new Map<string, number>()
+  for (const l of contenu.lieux) parTheme.set(l.theme, (parTheme.get(l.theme) ?? 0) + 1)
+  const parties = [...parTheme.values()].reduce((s, n) => s + Math.floor(n / MANCHES_PAR_PARTIE), 0)
+  assert.ok(parties >= JOURS_SANS_REDITE * partiesAuPire, `${parties} parties d'Épingle à thème`)
 })
 
 test('une frise ne souffle pas l’Épingle : un événement de l’année d’un lieu ne dit ni sa commune ni son département', () => {
