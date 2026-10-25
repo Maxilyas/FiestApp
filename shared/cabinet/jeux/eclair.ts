@@ -17,7 +17,7 @@
 import { DUREES_DES_JEUX, JUSTES_DE_L_ECLAIR, PART_DES_VRAIES } from '../bareme'
 import type { Niveau } from '../../campagne'
 import { idDeLEclair } from '../pieces'
-import { GESTE_A_JUGER, auHasard, champsDuGeste, naturelDe, reponseEnvoyee, rienAEclairer, type QuestionTiree } from './deLaBase'
+import { GESTE_A_JUGER, auHasard, champsDuGeste, naturelDe, reponseEnvoyee, rienAEclairer, type QuestionTiree } from './outils'
 import { justeDeLaPiece, type RegleDuJeu, type VerdictDUneManche } from './regle'
 
 /** Une affirmation : une question de la base et la réponse qu'elle propose, un index de ses réponses. */

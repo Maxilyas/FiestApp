@@ -17,7 +17,7 @@ import { DUREES_DES_JEUX, ETOILES_DE_LA_REPLIQUE } from '../bareme'
 import type { Replique } from '../contenu'
 import { idDeLaReplique } from '../pieces'
 import { effacablesAuPlus } from '../pouvoirs'
-import { GESTE_A_JUGER, SANS_REPONSE, battre, champsDuGeste, choixDe, estUnIndex, naturelDe, pieceDuContenu, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './duContenu'
+import { GESTE_A_JUGER, SANS_REPONSE, battre, champsDuGeste, choixDe, estUnIndex, naturelDe, pieceDuContenu, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './outils'
 import { justeDeLaPiece } from './regle'
 
 /** Ce que le départ fige d'une manche : la réplique, puis ses propositions dans l'ordre où la page les montre, le rang des bonnes, et ce qu'Éclairer effacera. */
@@ -94,9 +94,10 @@ export interface RepliqueRevelee {
 
 /**
  * La réplique, un mot dans son trou. Le contenu écrit ce qui précède sans
- * espace au bout, et ce qui suit avec la sienne quand il en faut une
- * (« Tonnerre de » · « Brest » · « ! ») : un mot se pose après une espace,
- * collé seulement derrière une apostrophe (« c'est l'atterrissage »).
+ * blanc au bout, et ce qui suit avec le sien quand il en faut un —
+ * `'Tonnerre de'`, `'Brest'`, `' !'` — ou soudé au mot (`','`, `'-moi !'`) :
+ * un mot se pose après une espace, collé seulement derrière une apostrophe
+ * (`'Vers l’'`, `'infini'`).
  */
 export function repliqueEntiere(avant: string, mot: string, apres: string): string {
   const joint = avant === '' || /['’]$/.test(avant) ? '' : ' '
@@ -118,8 +119,9 @@ const aTrou = (r: Replique) => `« ${repliqueEntiere(r.avant, '…', r.apres.rep
  * première mauvaise à l'écran aurait désigné la bonne. Tout se tire ici, au
  * départ, et se fige dans le plan : une reprise le relit, elle ne rebat rien.
  * `hasard` est celui du tireur, que la page ne peut pas refaire — jamais celui
- * de la graine de la partie : elle la connaît (son profil, sa partie), elle
- * rebattrait les mots et lirait le bon. Le rang de la bonne proposition se
+ * de la graine de la partie : qui la saurait rebattrait les mots et lirait le
+ * bon ; elle est un secret du serveur, et le plan figé ne tient même pas à ce
+ * secret. Le rang de la bonne proposition se
  * suit pendant qu'on bat, jamais retrouvé par son texte : un leurre écrit
  * comme le mot ne prendrait pas sa place.
  */
@@ -201,9 +203,8 @@ export const REGLE_DE_LA_REPLIQUE: RegleQuiTranche<RepliqueTiree, EtatDeLaRepliq
     const i = e.etape - 1
     const etape = i === 0 ? { propositions: t.mots.length, bonne: t.bonMot } : { propositions: t.personnes.length, bonne: t.bonneQui }
     const deja = e.effaces[i]
-    // La suivante de l'ordre tiré au départ : le hasard du pli, rejoué d'une graine que la page sait refaire, n'y
-    // entre pas — tirée de lui, la proposition effacée désignait souvent la bonne. Jamais la bonne, même d'un plan
-    // qui la porterait.
+    // La suivante de l'ordre tiré au départ : le hasard du pli n'y entre pas — tirée d'une graine qu'elle saurait
+    // refaire, la proposition effacée désignait souvent la bonne. Jamais la bonne, même d'un plan qui la porterait.
     const suivante = t.ordreDesEffaces[i].find(r => r !== etape.bonne && !deja.includes(r))
     if (deja.length >= effacablesAuPlus(etape.propositions) || suivante === undefined) return rienAEclairer('replique')
     const effaces = [...deja, suivante]

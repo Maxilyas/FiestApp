@@ -32,12 +32,15 @@ import {
   INDICES_D_UNE_FICHE,
   INDICE_MAX,
   LEURRES_D_UNE_REPLIQUE,
+  LIEUX_VOISINS_KM,
+  MOTS_D_UNE_IDENTITE_MAX,
   MOTS_D_UNE_REPLIQUE_MAX,
   QUESTION_MAX,
   RECIT_MAX,
   SAVAIS_MAX,
 } from '../../../../shared/cabinet/bareme'
 import { FORME_D_UN_IDENTIFIANT, FORME_D_UNE_CLE, type Fiche, type FriseATheme, type Lieu, type Replique } from '../../../../shared/cabinet/contenu'
+import { bonneIdentite, motsUtiles, proches } from '../../../../shared/cabinet/jeux/indices'
 
 export const DOSSIER_DU_CONTENU = path.join(SERVEUR, 'content/cabinet')
 
@@ -53,17 +56,6 @@ export type SorteDuContenu = keyof ContenuDuCabinet
 export type EntreeDuContenu<S extends SorteDuContenu> = ContenuDuCabinet[S][number]
 
 export const SORTES_DU_CONTENU: readonly SorteDuContenu[] = ['lieux', 'fiches', 'repliques', 'frises']
-
-/**
- * Deux lieux à moins de tant de kilomètres sont le même : deux épingles au
- * même endroit, deux fois la même réponse sous deux récits. Une borne du
- * contenu comme celles de `bareme.ts` — le chargement l'applique aussi, et
- * relevée, elle écarterait des lieux servis —, qui ira y vivre avec sa ligne
- * de `baremes.md` : pendant le lot qui l'a posée, d'autres tenaient ces deux
- * fichiers. Le 25 octobre 2026, les deux lieux livrés les plus proches étaient
- * à 3,4 km (la Rance et le départ de la Route du Rhum).
- */
-export const LIEUX_VOISINS_KM = 2
 
 // ── Ce qu'un texte peut être ────────────────────────────────────────────────
 
@@ -193,15 +185,17 @@ const CHAMPS_DE_LA_FICHE = ['id', 'reponse', 'cles', 'indices', 'savais', 'categ
 
 /**
  * Pourquoi cette fiche ne se pose pas — null : elle se pose. Cinq indices
- * courts, du plus obscur au plus évident, dont aucun n'écrit la réponse ni une
- * de ses clés en mots entiers ; des clés en minuscules sans accents, de trois
- * lettres au moins (`arc` en est une). Une saisie ne trouve la personne que si
- * elle tient une clé — sans quoi « un roi » trouverait tout le monde — : une
- * clé au moins se lit donc dans la réponse, ou la réponse tapée en entier ne
- * trouverait personne. C'est une condition, pas toute la règle : ce qu'une
- * saisie doit être pour trouver — ses mots comptés, la faute de frappe
- * tolérée, les petits mots qu'elle laisse — est la règle du jeu des Indices,
- * que ce juge ne recopie pas ; il passera par elle.
+ * courts, du plus obscur au plus évident ; des clés en minuscules sans accents,
+ * de trois lettres au moins (`arc` en est une). Une saisie ne trouve la
+ * personne que si elle tient une clé — sans quoi « un roi » trouverait tout le
+ * monde. Ce qu'elle doit être pour trouver — ses mots comptés, la faute de
+ * frappe tolérée, les petits mots qu'elle laisse — est la règle du jeu des
+ * Indices (`bonneIdentite`, `shared/cabinet/jeux/indices.ts`), et ce juge
+ * passe par elle, sans la recopier : la réponse tapée en entier trouve la
+ * personne, chaque clé tapée seule aussi — « des », un petit mot que la saisie
+ * écarte, ne trouverait rien —, et aucun indice n'écrit la réponse, ni un mot
+ * qu'une saisie prendrait pour une clé : « Césars », à une faute de `cesar`,
+ * la soufflerait.
  */
 export function refusDeLaFiche(brut: unknown): string | null {
   const champs = refusDesChamps(brut, CHAMPS_DE_LA_FICHE)
@@ -215,8 +209,13 @@ export function refusDeLaFiche(brut: unknown): string | null {
       if (!Array.isArray(cles) || cles.length < 1 || cles.length > CLES_MAX) return `ses clés : de une à ${CLES_MAX}`
       if (!cles.every(c => typeof c === 'string' && FORME_D_UNE_CLE.test(c))) return 'ses clés : des minuscules sans accents, trois lettres au moins'
       if (new Set(cles).size !== cles.length) return 'ses clés : chacune une fois'
-      const mots = new Set(motsDe(f.reponse as string))
-      return cles.some(c => mots.has(c)) ? null : 'ses clés : une au moins se lit dans la réponse, sinon la réponse tapée en entier ne trouverait personne'
+      const fiche = { reponse: f.reponse as string, cles: cles as string[] }
+      // Tapée seule, une clé doit trouver la personne : un petit mot (« des », « les »), la saisie l'écarte.
+      const muette = fiche.cles.find(c => !bonneIdentite(c, fiche))
+      if (muette !== undefined) return `ses clés : « ${muette} » ne désigne personne — un petit mot, que la saisie écarte`
+      const mots = motsUtiles(fiche.reponse).length
+      if (mots > MOTS_D_UNE_IDENTITE_MAX) return `sa réponse : ${mots} mots, pour ${MOTS_D_UNE_IDENTITE_MAX} au plus — tapée en entier, elle ne trouverait personne`
+      return bonneIdentite(fiche.reponse, fiche) ? null : 'ses clés : une au moins se lit dans la réponse, sinon la réponse tapée en entier ne trouverait personne'
     },
     () => {
       const indices = f.indices
@@ -226,6 +225,11 @@ export function refusDeLaFiche(brut: unknown): string | null {
         if (refus) return refus
         for (const dit of [f.reponse as string, ...(f.cles as string[])]) {
           if (ecritDans(indice as string, dit)) return `son indice ${k + 1} dit « ${dit} » : il donnerait la réponse`
+        }
+        // Lu comme une saisie le lirait : un mot à une faute d'une clé, tapé, trouverait la personne.
+        for (const mot of motsUtiles(indice as string)) {
+          const cle = (f.cles as string[]).find(c => proches(mot, c))
+          if (cle !== undefined) return `son indice ${k + 1} dit « ${mot} », à une faute de la clé « ${cle} » : tapé, il trouverait la personne`
         }
       }
       return null

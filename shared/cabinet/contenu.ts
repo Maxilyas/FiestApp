@@ -53,7 +53,14 @@ export interface Fiche {
 /** Une réplique : le mot qui manque, puis qui l'a dite. */
 export interface Replique {
   id: string
-  /** Ce qui précède le trou, puis ce qui le suit : « Tu me fends le » … « ! ». */
+  /**
+   * Ce qui précède le trou, puis ce qui le suit. `avant` finit sans blanc — la
+   * page met une espace avant le mot, sauf après une apostrophe (`'Vers l’'`)
+   * —, et `apres` porte le sien quand il en faut un (`' !'`, `' et Paris.'`) ou
+   * commence par ce qui se soude au mot (`','`, `'-moi !'`) : `'Tu me fends
+   * le'`, `'cœur'`, `' !'`. Écrit sans le blanc de `apres`, l'exemple d'avant
+   * (« Tu me fends le » … « ! ») se lisait « cœur! ».
+   */
   avant: string
   mot: string
   apres: string

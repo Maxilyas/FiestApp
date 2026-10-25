@@ -30,7 +30,7 @@ import {
 import { effacablesAuPlus, refusDuPouvoir } from '../../shared/cabinet/pouvoirs'
 import { PREFIXE_DU_CABINET, deplier, idDeLaFiche, idDeLaReplique, idDuLieu } from '../../shared/cabinet/pieces'
 import { justeDeLaPiece, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
-import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/duContenu'
+import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/outils'
 import {
   REGLE_DE_L_EPINGLE,
   epingleTiree,
@@ -67,12 +67,15 @@ const RIEN_A_ECLAIRER = refusDuPouvoir({ pouvoir: 'eclairer', force: 3, jeu: 'ep
 const toujours = (x: number) => () => x
 
 /**
- * Le hasard qu'Éclairer reçoit du pli, rejoué de la graine de la partie
- * (`${profileId}:${serieId}`) et du rang : la page connaît les trois. Ce qu'un
- * jeu en tirerait, elle le tirerait aussi — ces trois-là n'en tirent rien.
+ * Le hasard qu'Éclairer reçoit du pli, rejoué de la graine de la partie et du
+ * rang. Quand ces trois jeux se sont écrits, la graine était faite du profil
+ * et de la partie (`${profileId}:${serieId}`), que la page connaît : ce qu'un
+ * jeu en aurait tiré, elle l'aurait tiré aussi. Elle est devenue un secret du
+ * serveur (`DepartDUnePartie.graine`, `cabinet-regles.test.ts`) ; ces trois-là
+ * n'en tirent toujours rien — les deux remèdes se cumulent.
  */
 const HASARD_DE_LA_GRAINE = () => {
-  throw new Error('Éclairer a lu le hasard de la graine, que la page sait refaire')
+  throw new Error('Éclairer a lu le hasard de la graine : ce qu’il dévoile se fige au départ')
 }
 
 /** Tous les nombres d'une vue, où qu'ils soient : une coordonnée ne se cherche pas en texte, une autre la contiendrait. */
@@ -740,7 +743,7 @@ test('la Réplique : Éclairer efface une mauvaise proposition à chaque étape 
   assert.equal(effacablesAuPlus(3), 1)
   for (let i = 0; i < 50; i++) {
     const t = repliqueTiree(ARLETTY, hasardDe(`replique:tiree:${i}`))
-    // Le hasard que le pli passe vient de la graine, que la page sait refaire : ce qui s'efface n'en vient pas.
+    // Le hasard que le pli passe vient de la graine de la partie : ce qui s'efface n'en vient pas, il est figé au départ.
     let e: EtatDeLaReplique | string = REGLE_DE_LA_REPLIQUE.ouvrir(t)
     e = REGLE_DE_LA_REPLIQUE.eclairer(t, e, HASARD_DE_LA_GRAINE) as EtatDeLaReplique
     e = REGLE_DE_LA_REPLIQUE.eclairer(t, e, HASARD_DE_LA_GRAINE) as EtatDeLaReplique
@@ -833,7 +836,7 @@ test('les trois jeux du contenu neuf : leur clé, leurs pièces hors de la base,
     assert.equal(p.reponses.length, 1)
   }
   // Pur : l'échéance se lit à l'heure du serveur, le hasard vient de la graine — rejoué, le pli redonne la même manche.
-  for (const f of ['epingle', 'indices', 'replique', 'duContenu']) {
+  for (const f of ['epingle', 'indices', 'replique', 'outils']) {
     const code = readFileSync(new URL(`../../shared/cabinet/jeux/${f}.ts`, import.meta.url), 'utf8')
     for (const interdit of ['Date.now', 'new Date', 'Math.random']) assert.ok(!code.includes(interdit), `${f}.ts : ${interdit}`)
   }

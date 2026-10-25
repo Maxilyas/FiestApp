@@ -240,6 +240,14 @@ export const INDICES_DES_ETOILES: readonly [number, number] = [2, 3]
 export const LETTRES_POUR_UNE_FAUTE = 5
 /** Les Indices : une réponse tient en tant de mots au plus — la réponse fourre-tout reste fermée. */
 export const MOTS_D_UNE_IDENTITE_MAX = 4
+/**
+ * Un texte venu du téléphone dans un geste, au plus, en signes : le nom tapé
+ * aux Indices se coupe là (`tronquer`, `lireUnGeste`) avant d'être jugé et
+ * écrit, et des lettres du Mot mystère au-delà ne se lisent pas. Un nom de
+ * cinq mille signes s'écrivait tel quel au journal des gestes, et revenait à
+ * chaque relecture de la partie.
+ */
+export const SIGNES_D_UN_GESTE_MAX = 60
 
 /** La Réplique : le bon mot ★★, puis la bonne personne ★, additionnés. */
 export const ETOILES_DE_LA_REPLIQUE: Readonly<Record<'mot' | 'qui', number>> = { mot: 2, qui: 1 }
@@ -280,6 +288,14 @@ export const LEURRES_D_UNE_REPLIQUE = 3
 export const AUTRES_D_UNE_REPLIQUE = 2
 /** Les événements d'une frise à thème : autant que ses trois vagues en posent — la somme, jamais un chiffre recopié. */
 export const EVENEMENTS_D_UNE_FRISE_A_THEME = VAGUES_DE_LA_FRISE.reduce((n, vague) => n + vague, 0)
+/**
+ * Deux lieux de l'Épingle à moins de tant de kilomètres sont le même : deux
+ * épingles au même endroit, deux fois la même réponse sous deux récits. Le
+ * chargement du serveur l'applique aussi : relevée, elle écarterait des lieux
+ * servis. Le 25 octobre 2026, les deux lieux livrés les plus proches étaient à
+ * 3,4 km (la Rance et le départ de la Route du Rhum).
+ */
+export const LIEUX_VOISINS_KM = 2
 
 // ── Les reflets ───────────────────────────────────────────────────────────
 

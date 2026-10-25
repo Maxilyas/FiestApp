@@ -15,7 +15,6 @@ import os from 'node:os'
 import path from 'node:path'
 import {
   DOSSIER_DU_CONTENU,
-  LIEUX_VOISINS_KM,
   SORTES,
   SORTES_DU_CONTENU,
   contenuDuCabinet,
@@ -39,6 +38,7 @@ import {
   INDICE_MAX,
   JOURS_SANS_REDITE,
   LIBRES_QUI_PAIENT,
+  LIEUX_VOISINS_KM,
   MANCHES_PAR_PARTIE,
   MOTS_D_UNE_REPLIQUE_MAX,
   QUESTION_MAX,
@@ -278,6 +278,25 @@ test('une fiche : cinq indices courts, ni la réponse ni une clé, et des clés 
     [{ ...FICHE, savais: 'Une annulation.'.padEnd(SAVAIS_MAX + 1, '.') }, /^son « Le savais-tu \? » : \d+ signes/, 'un savais trop long'],
     [{ ...FICHE, categorie: 'Moyen Âge' }, /^sa catégorie/, 'une catégorie inconnue'],
   ] as [unknown, RegExp, string][]) assert.match(refusDeLaFiche(fiche) ?? 'elle se pose', motif, pourquoi)
+})
+
+test('une fiche se juge à la règle même des Indices : sa réponse tapée la trouve, chaque clé seule aussi, et aucun indice ne souffle une clé à une faute près', () => {
+  // Le juge ne recopie pas ce qu'une saisie doit être pour trouver : il passe par `bonneIdentite`, la règle du jeu.
+  // Avant, il se contentait d'une clé lue dans la réponse : « Jeanne Romée Pucelle Domrémy Arc » se posait, et
+  // tapée en entier — cinq mots, pour quatre au plus —, la réponse ne trouvait personne.
+  const indices = (k: number, indice: string) => FICHE.indices.map((x, i) => (i === k ? indice : x))
+  const CESAR = { ...FICHE, reponse: 'Jules César', cles: ['cesar'] }
+  assert.equal(refusDeLaFiche(CESAR), null)
+  for (const [fiche, motif, pourquoi] of [
+    [{ ...FICHE, reponse: 'Jeanne Romée Pucelle Domrémy Arc' }, /^sa réponse : 5 mots, pour 4 au plus/, 'une réponse que la saisie ne tient pas'],
+    [{ ...FICHE, cles: ['arc', 'des'] }, /^ses clés : « des » ne désigne personne/, 'un petit mot, que la saisie écarte : tapé seul, il ne trouve rien'],
+    [{ ...FICHE, reponse: "Les Mille et Une Nuits d'Arc", cles: ['les', 'arc'] }, /^ses clés : « les » ne désigne personne/, 'un article en clé'],
+    // `cesar` a cinq lettres : une faute y est tolérée, et « Césars » tapé trouverait César — l'indice le soufflerait.
+    [{ ...CESAR, indices: indices(1, 'Après moi, les empereurs se sont dits Césars.') }, /^son indice 2 dit « cesars », à une faute de la clé « cesar »/, 'une clé à une lettre près'],
+    [{ ...CESAR, indices: indices(3, 'On écrivait parfois mon nom Cézar.') }, /^son indice 4 dit « cezar », à une faute de la clé « cesar »/, 'une clé à une lettre changée'],
+  ] as [unknown, RegExp, string][]) assert.match(refusDeLaFiche(fiche) ?? 'elle se pose', motif, pourquoi)
+  // Sous cinq lettres, chaque lettre est la clé : « arcs » tapé ne trouve pas Jeanne, l'indice peut le dire.
+  assert.equal(refusDeLaFiche({ ...FICHE, indices: indices(1, 'Je suis née loin des tirs et des arcs, au bord de la Meuse.') }), null)
 })
 
 const REPLIQUE: Replique = {

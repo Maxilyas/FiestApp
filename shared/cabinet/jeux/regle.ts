@@ -201,7 +201,15 @@ export interface VerdictDUneManche {
  */
 export interface RegleDuJeu<Tiree, Etat, Geste, Montree, Revelee> {
   cle: CleDeJeu
-  /** Le Pari et la Réplique ont deux étapes, chacune son chrono. */
+  /**
+   * Le Pari et la Réplique ont deux étapes, chacune son chrono. Leur état le
+   * dit au pli, qui tient les chronos (`shared/cabinet/partie.ts`) : `etape`
+   * (1 ou 2), et au Pari `auChoix` — juste à la première question, il garde
+   * ou il parie, et aucun chrono ne court. L'échéance d'une étape, le pli la
+   * joue comme la page : une réponse vide (`lireLeGeste({ quoi: 'repondre' })`)
+   * qui tranche se juge expirée ; qui ne tranche pas ouvre l'étape suivante —
+   * « Qui l'a dit ? », le mot perdu.
+   */
   etapes: 1 | 2
   /** La durée d'une étape, « Prendre son temps » à part (`DUREES_DES_JEUX`). */
   dureeMs: (etape: 1 | 2) => number

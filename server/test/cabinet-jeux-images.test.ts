@@ -25,7 +25,7 @@ import {
 import { effacablesAuPlus, refusDuPouvoir } from '../../shared/cabinet/pouvoirs'
 import { PREFIXE_DU_CABINET, deplier, idDeLaFriseATheme, idDeLaFriseDeSujet, idDuTableau } from '../../shared/cabinet/pieces'
 import { justeDeLaPiece } from '../../shared/cabinet/jeux/regle'
-import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/aides'
+import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/outils'
 import {
   QUESTION_DU_TABLEAU,
   REGLE_DU_DETAIL,
@@ -765,7 +765,7 @@ test('la Frise : la révélation range tout à sa vraie année, et dit le savais
 
 test('le Détail et la Frise sont purs : ni horloge, ni hasard à eux', () => {
   // Le hasard vient de la graine de la partie (Éclairer, le tirage), l'heure du serveur : rejoué, le pli redonne tout.
-  for (const f of ['detail.ts', 'frise.ts', 'aides.ts']) {
+  for (const f of ['detail.ts', 'frise.ts', 'outils.ts']) {
     const texte = readFileSync(new URL(`../../shared/cabinet/jeux/${f}`, import.meta.url), 'utf8')
     assert.ok(!/Date\.now|new Date|Math\.random|performance\.now/.test(texte), f)
   }

@@ -21,7 +21,7 @@ import type { Niveau } from '../../campagne'
 import { QUESTION_DE_LA_FRISE, anneeDite } from '../../frise'
 import { DUREES_DES_JEUX, ECART_DES_ANNEES_DE_LA_FRISE, ERREURS_DE_LA_FRISE, ERREURS_D_UN_OUBLI, VAGUES_DE_LA_FRISE } from '../bareme'
 import { idDeLaFriseATheme, idDeLaFriseDeSujet, type PieceDuCabinet } from '../pieces'
-import { GESTE_A_JUGER, battre, champsDuGeste, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './aides'
+import { GESTE_A_JUGER, battre, champsDuGeste, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './outils'
 import { justeDeLaPiece, type VerdictDUneManche } from './regle'
 
 /** Un événement d'une frise : sa ligne, qui ne dit jamais quand (`refusDuLibelle`), et son année. */
@@ -241,8 +241,12 @@ function relue(c: string | null | undefined, t: FriseTiree): number[] | null {
   return new Set(rangs).size === rangs.length && rangs.every(r => poses.includes(r)) ? rangs : null
 }
 
-/** Une manche sans rien de posé : rien, comme partout ailleurs une manche sans réponse — et rien au journal (`composee` NULL). */
-const SANS_REPONSE: VerdictDUneManche = { naturel: 0, pieces: [{ juste: false, choix: null, composee: null }] }
+/**
+ * Une manche sans rien de posé : rien, comme partout ailleurs une manche sans
+ * réponse — et rien au journal (`composee` NULL). Pas `SANS_REPONSE`, le nom
+ * de ce qu'une `composee` écrit pour une réponse pas venue (`outils.ts`).
+ */
+const RIEN_DE_RANGE: VerdictDUneManche = { naturel: 0, pieces: [{ juste: false, choix: null, composee: null }] }
 
 /** « 1 erreur, 1 pas posé » : ce que la révélation dit de la manche, chaque sorte de faute à part. */
 function titreDeLaFrise(faux: number, pasPoses: number): string {
@@ -285,10 +289,10 @@ export const REGLE_DE_LA_FRISE: RegleQuiTranche<FriseTiree, EtatDeLaFrise, Geste
   apresLeGeste: () => GESTE_A_JUGER,
 
   juger(t, _e, reponse) {
-    if (typeof reponse === 'string' || reponse.rangs === null) return SANS_REPONSE
+    if (typeof reponse === 'string' || reponse.rangs === null) return RIEN_DE_RANGE
     const { nouveaux } = enJeu(t)
     // Les ancres seules, c'est n'avoir rien posé : rien, et `composee` NULL — rien de rangé au journal.
-    if (!reponse.rangs.some(r => nouveaux.includes(r))) return SANS_REPONSE
+    if (!reponse.rangs.some(r => nouveaux.includes(r))) return RIEN_DE_RANGE
     const faux = erreursDeLaFrise(reponse.rangs, t.evenements.map(e => e.annee), nouveaux)
     const naturel = etoilesDeLaFrise(erreursComptees(reponse.rangs, faux))
     const juste = justeDeLaPiece(naturel, 'frise') === true

@@ -24,7 +24,7 @@ import * as B from '../../shared/cabinet/bareme'
 import { refusDuPouvoir, effacablesAuPlus } from '../../shared/cabinet/pouvoirs'
 import { deplier, idDeLEclair, PREFIXE_DU_CABINET } from '../../shared/cabinet/pieces'
 import { justeDeLaPiece, trancheLaManche, type RegleDuJeu, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
-import { GESTE_A_JUGER, eclairerSertEncore, type QuestionTiree } from '../../shared/cabinet/jeux/deLaBase'
+import { GESTE_A_JUGER, eclairerSertEncore, type QuestionTiree } from '../../shared/cabinet/jeux/outils'
 import { REGLE_DU_PARI, type EtatDuPari, type PariTire } from '../../shared/cabinet/jeux/pari'
 import { REGLE_DE_L_ECLAIR, affirmationDe, type EclairTire } from '../../shared/cabinet/jeux/eclair'
 import { REGLE_DU_MOT, couleursDuMot, etatDesTouches, motDeLaQuestion, type MotTire } from '../../shared/cabinet/jeux/mot'
@@ -108,7 +108,7 @@ test('les quatre règles suivent le moule : leur clé, leurs étapes, leurs dur�
 test('les règles sont pures : ni horloge, ni hasard que la graine ne redonne', () => {
   // Une échéance se lit à l'heure du serveur (invariant 6), le hasard d'Éclairer à la graine de la partie :
   // recharger redonne la même réponse effacée, la même lettre, la même zone.
-  for (const f of ['deLaBase', 'pari', 'eclair', 'mot', 'filet']) {
+  for (const f of ['outils', 'pari', 'eclair', 'mot', 'filet']) {
     const texte = readFileSync(new URL(`../../shared/cabinet/jeux/${f}.ts`, import.meta.url), 'utf8')
     assert.doesNotMatch(texte, /Date\.now\(|new Date\(|Math\.random\(/, `${f}.ts`)
   }

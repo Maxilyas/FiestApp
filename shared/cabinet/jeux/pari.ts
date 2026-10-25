@@ -30,7 +30,7 @@ import {
   reponseEnvoyee,
   rienAEclairer,
   type QuestionTiree,
-} from './deLaBase'
+} from './outils'
 import type { RegleDuJeu, VerdictDUneManche } from './regle'
 
 /** Les deux questions d'une manche du Pari, tirées au départ : la seconde, difficile ou experte, de la même catégorie. */

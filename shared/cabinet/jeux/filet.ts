@@ -26,7 +26,7 @@ import {
   ZONE_DU_FILET,
 } from '../bareme'
 import { decimales, ecartEstimation } from '../../classement'
-import { GESTE_A_JUGER, champsDuGeste, naturelDe, pieceDeLaQuestion, reponseEnvoyee, rienAEclairer, type QuestionTiree } from './deLaBase'
+import { GESTE_A_JUGER, champsDuGeste, naturelDe, pieceDeLaQuestion, reponseEnvoyee, rienAEclairer, type QuestionTiree } from './outils'
 import { justeDeLaPiece, type RegleDuJeu } from './regle'
 
 export type TailleDuFilet = keyof typeof LARGEURS_DU_FILET

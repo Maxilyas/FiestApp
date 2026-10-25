@@ -14,14 +14,16 @@
 // Rien ici ne lit l'heure ni ne tire au hasard de lui-même. La zone d'Éclairer
 // se tire au départ, avec le lieu (`epingleTiree`), du hasard du serveur, et se
 // fige dans le plan : le pli rejoué redonne la même, et le hasard qu'il passe à
-// Éclairer, rejoué d'une graine que la page sait refaire, n'y entre pas.
+// Éclairer n'y entre pas. Deux remèdes qui se cumulent : la graine de ce
+// hasard est un secret du serveur (`DepartDUnePartie.graine`), et la zone ne
+// tient même pas à elle.
 
 import { DECALAGE_DE_LA_ZONE_KM, DUREES_DES_JEUX, KM_DE_L_EPINGLE, RAYON_D_ECLAIRER_KM } from '../bareme'
 import type { Lieu } from '../contenu'
 import { dansLaFrance, distanceKm, type Point } from '../france'
 import { idDuLieu } from '../pieces'
 import { formatNumber } from '../../typographie'
-import { GESTE_A_JUGER, champsDuGeste, choixDe, naturelDe, pieceDuContenu, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './duContenu'
+import { GESTE_A_JUGER, champsDuGeste, choixDe, naturelDe, pieceDuContenu, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './outils'
 import { justeDeLaPiece, type VerdictDUneManche } from './regle'
 
 /** Où Éclairer posera le centre de sa zone, depuis le lieu : une direction en degrés (le nord à 0, l'est à 90), une distance en kilomètres. */
@@ -126,9 +128,10 @@ export function pointADistance(depart: Point, km: number, capDegres: number): Po
  * de sa zone d'Éclairer — une direction, puis une distance dans
  * `DECALAGE_DE_LA_ZONE_KM`, deux tirages dans cet ordre. Tiré ici, au départ,
  * même si Éclairer ne sert jamais. `hasard` est celui du tireur, que la page
- * ne peut pas refaire — jamais celui de la graine de la partie : elle la
- * connaît (son profil, sa partie), elle referait le décalage, et du centre de
- * la zone remonterait au lieu.
+ * ne peut pas refaire — jamais celui de la graine de la partie : qui la
+ * saurait referait le décalage, et du centre de la zone remonterait au lieu.
+ * Elle est un secret du serveur ; figé ici, le décalage ne tient même pas à ce
+ * secret.
  */
 export function epingleTiree(lieu: Lieu, hasard: () => number): EpingleTiree {
   const cap = hasard() * 360

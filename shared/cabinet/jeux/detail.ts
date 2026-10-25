@@ -20,7 +20,7 @@
 import { DUREES_DES_JEUX, ETOILES_AU_CADRAGE, TITRES_DU_DETAIL, VOISINS_EN_ANNEES } from '../bareme'
 import { idDuTableau, type PieceDuCabinet } from '../pieces'
 import { effacablesAuPlus } from '../pouvoirs'
-import { GESTE_A_JUGER, auHasard, battre, champsDuGeste, estUnIndex, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './aides'
+import { GESTE_A_JUGER, auHasard, battre, champsDuGeste, estUnIndex, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './outils'
 import { justeDeLaPiece, type VerdictDUneManche } from './regle'
 
 /** Un tableau tel que le tirage le connaît : son identifiant Wikidata nomme ses cadrages, et ne quitte jamais le serveur. */

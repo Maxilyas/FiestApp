@@ -10,7 +10,7 @@
 
 import { DUREES_DES_JEUX, ESSAIS_DES_ETOILES, ESSAIS_DU_MOT, LETTRES_DU_MOT_MAX, LETTRES_DU_MOT_MIN } from '../bareme'
 import { capitalesSansAccents, gabaritDe, seCompose, sonArticle } from '../../lettres'
-import { GESTE_A_JUGER, auHasard, champsDuGeste, naturelDe, pieceDeLaQuestion, rienAEclairer, type QuestionTiree } from './deLaBase'
+import { GESTE_A_JUGER, auHasard, champsDuGeste, naturelDe, pieceDeLaQuestion, rienAEclairer, type QuestionTiree } from './outils'
 import { justeDeLaPiece, type RegleDuJeu, type VerdictDUneManche } from './regle'
 
 /** La question de la base et son mot : `VILNIUS`, en capitales sans accents, et la réponse telle qu'elle s'écrit (« Vilnius »). */
@@ -170,6 +170,10 @@ export const REGLE_DU_MOT: RegleDuJeu<MotTire, EtatDuMot, GesteDuMot, MotMontre,
     const dernier = typeof reponse === 'object' && reponse.quoi === 'essai' && aLaLongueur(t, reponse.lettres) && !finie(t, e) ? [reponse.lettres] : []
     const essais = [...e.essais, ...dernier]
     if (essais.length === 0) return { naturel: 0, pieces: [{ juste: false, choix: null, composee: null }] }
+    // Quitter laisse la manche sans réponse : zéro, `choix` nul, comme toute manche quittée — seul le Pari gardé
+    // fait exception. Ses essais restent écrits : la révélation montre la grille. Une manche quittée comptait ses
+    // essais faux pour une réponse fausse, quand l'Épingle ou les Indices quittés n'en comptaient aucune.
+    if (reponse === 'quittee') return { naturel: 0, pieces: [{ juste: false, choix: null, composee: essais.join(',') }] }
     const naturel = etoilesDesEssais(essais, t.lettres)
     const juste = justeDeLaPiece(naturel, 'mot') === true
     return { naturel, pieces: [{ juste, choix: juste ? 0 : -1, composee: essais.join(',') }] }

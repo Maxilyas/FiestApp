@@ -1724,6 +1724,15 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 
 *Fichiers : `shared/cabinet/bareme.ts`*
 
+### La graine d'une partie est un secret du serveur ; quitter compte zéro, sauf l'étoile gardée du Pari
+**Contexte** : la conception faisait la graine du hasard d'Éclairer du profil et de la partie (`${profileId}:${serieId}`), que la page connaît : elle aurait rejoué Éclairer et lu, de la mauvaise réponse effacée, où est la bonne. Et les jeux, écrits par trois lots, ne quittaient pas de la même façon : le Mot mystère quitté comptait ses essais pour une réponse fausse, l'Épingle ou les Indices quittés n'en comptaient aucune (décisions du 25 octobre 2026, en construisant les jeux).
+
+**Décision** : la graine se tire au départ, au serveur (`randomUUID`), se garde dans le départ figé et ne part dans aucune vue ; l'Épingle et la Réplique figent en plus l'effet d'Éclairer dans leur tirage — les deux remèdes se cumulent —, et le hasard des tirages vient du tireur, jamais d'elle. Une manche quittée compte zéro, sans réponse, partout — sauf le Pari juste au premier coup, laissé au choix, qui garde son étoile ; une manche expirée garde ce que le serveur savait.
+
+**Conséquence** : la même graine redonne le même effet à chaque rechargement, sans que rien ne s'en devine ; une manche quittée n'entre au carnet que comme une question laissée. Une règle qui change ce qu'une partie en route tire ou juge monte la version de son départ (`VERSION_DU_DEPART`).
+
+*Fichiers : `shared/cabinet/partie.ts`, `shared/cabinet/jeux/outils.ts`, `server/test/cabinet-regles.test.ts`*
+
 ### Les gardiens se rangent sous une clé fixe, réconciliés du musée
 **Contexte** : un gardien réveillé est un légendaire gagné, une ligne de l'étagère ; une ligne rangée ne se reprend jamais (invariant 22), et un rangement doit pouvoir se rejouer sans doublon, d'où qu'il vienne — une partie, un achat, la migration, une relecture.
 

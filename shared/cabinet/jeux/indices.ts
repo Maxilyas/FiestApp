@@ -14,7 +14,7 @@ import { DUREES_DES_JEUX, INDICES_DES_ETOILES, LETTRES_POUR_UNE_FAUTE, MOTS_D_UN
 import type { Fiche } from '../contenu'
 import { idDeLaFiche } from '../pieces'
 import { sansAccent } from '../../homonymes'
-import { GESTE_A_JUGER, champsDuGeste, choixDe, naturelDe, pieceDuContenu, rienAEclairer, type RegleQuiTranche } from './duContenu'
+import { GESTE_A_JUGER, champsDuGeste, choixDe, naturelDe, pieceDuContenu, rienAEclairer, type RegleQuiTranche } from './outils'
 import { justeDeLaPiece, type VerdictDUneManche } from './regle'
 
 /** Ce que le départ fige d'une manche des Indices : la fiche entière, sa réponse et ses clés comprises. */
@@ -103,8 +103,13 @@ function motsDe(texte: string): string[] {
     .filter(Boolean)
 }
 
-/** Les mots d'une saisie qui nomment quelqu'un : les mots vides écartés. Le jugement, le refus d'un nom vide et le « déjà essayé » lisent les mêmes. */
-const motsUtiles = (texte: string) => motsDe(texte).filter(m => !MOTS_VIDES.has(m))
+/**
+ * Les mots d'une saisie qui nomment quelqu'un : les mots vides écartés. Le
+ * jugement, le refus d'un nom vide et le « déjà essayé » lisent les mêmes —
+ * et le juge des fiches (`server/src/core/cabinet/contenu.ts`), qui compte
+ * ceux d'une réponse et lit ceux d'un indice comme une saisie les lirait.
+ */
+export const motsUtiles = (texte: string) => motsDe(texte).filter(m => !MOTS_VIDES.has(m))
 
 /**
  * Une faute de frappe au plus entre deux mots : une lettre changée, oubliée,
@@ -134,9 +139,10 @@ function uneFauteAuPlus(a: string, b: string): boolean {
  * près dès que l'attendu a `LETTRES_POUR_UNE_FAUTE` lettres. La faute se
  * compte au mot de la fiche : sous cinq lettres, chaque lettre est le mot —
  * « Hugi » n'est pas Hugo —, mais « Csar », une lettre oubliée de « cesar »,
- * l'est.
+ * l'est. Le juge des fiches la lit aussi : un indice dont un mot est proche
+ * d'une clé la soufflerait — tapé, ce mot trouverait la personne.
  */
-function proches(tape: string, attendu: string): boolean {
+export function proches(tape: string, attendu: string): boolean {
   if (tape === attendu) return true
   return attendu.length >= LETTRES_POUR_UNE_FAUTE && uneFauteAuPlus(tape, attendu)
 }
