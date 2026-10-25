@@ -1,9 +1,16 @@
 import express, { type Express, type Request, type Response } from 'express'
 import type { ProfileStore } from './auth/profiles'
 import { readPlayerToken } from './auth/http'
-import { wrap } from './core/http'
-import { PARTIE_INTROUVABLE, type CabinetStore } from './core/cabinet/magasin'
+import { repondreErreur, wrap } from './core/http'
+import { PARTIE_INTROUVABLE, TABLEAU_INTROUVABLE, type CabinetStore } from './core/cabinet/magasin'
 import { pageDuCabinet, vueDeLaPartie } from './core/cabinet/vue'
+
+/**
+ * Un indice d'une adresse, écrit comme la page l'écrit (`adresseDUnCadrage`) :
+ * un entier sans zéro de tête ni signe. « 01 », « 1.5 », « -1 » ne désignent
+ * rien — une même image sous deux adresses se garderait deux fois.
+ */
+const indiceDe = (brut: string): number => (/^(?:0|[1-9]\d{0,2})$/.test(brut) ? Number(brut) : Number.NaN)
 
 /** Ce que dit une route du Cabinet là où il n'ouvre pas encore — la production, tant que son drapeau ne l'ouvre pas. */
 export const CABINET_FERME = 'Le Cabinet de curiosités ouvre bientôt : reviens dans quelques jours'
@@ -24,9 +31,10 @@ interface CabinetDeps {
 /**
  * Les routes du Cabinet de curiosités (`shared/cabinet/vues.ts`), pour les
  * profils — un invité anonyme n'a pas de musée, et le serveur le lui dit :
- * la page, commencer une partie, un geste. Chaque réponse porte l'heure du
- * serveur (`maintenant`), que la page mesure, et ne se garde nulle part
- * (`no-store`). Ses signalements passent par la route de la série
+ * la page, commencer une partie, un geste, un cadrage du Détail. Chaque
+ * réponse porte l'heure du serveur (`maintenant`), que la page mesure, et ne
+ * se garde nulle part (`no-store`) — sauf l'image d'un cadrage, qui ne change
+ * jamais sous son adresse. Ses signalements passent par la route de la série
  * (`/api/campagne/serie/:id/signalement`), à la position de la pièce.
  */
 export function mountCabinet(app: Express, deps: CabinetDeps) {
@@ -78,6 +86,39 @@ export function mountCabinet(app: Express, deps: CabinetDeps) {
       if ('introuvable' in issue) res.status(404).json({ error: PARTIE_INTROUVABLE })
       else if ('passe' in issue) res.status(409).json({ error: issue.pourquoi, partie: vueDeLaPartie(issue.passe) })
       else res.json(vueDeLaPartie(issue.partie))
+    }),
+  )
+
+  // Un cadrage d'un tableau du Détail (la conception, § 3.4) : jamais `client/public`, où le tableau entier se serait
+  // téléchargé avant la réponse (invariant 1). L'adresse dit la partie, l'indice du tableau dans son plan figé et le
+  // cadrage — ni son identifiant, ni son titre ; une image par adresse, gardée un jour par le téléphone, comme celles de
+  // l'Expédition. Un refus, lui, ne se garde pas (`no-store`) : après « Reculer », la même adresse sert.
+  app.get(
+    '/api/cabinet/partie/:id/detail/:tirage/:cadrage',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const issue = await deps.cabinet.cadrage(profil.id, String(req.params.id), indiceDe(String(req.params.tirage)), indiceDe(String(req.params.cadrage)))
+      if ('introuvable' in issue) {
+        res.status(404).json({ error: issue.introuvable === 'partie' ? PARTIE_INTROUVABLE : TABLEAU_INTROUVABLE })
+        return
+      }
+      if ('refus' in issue) {
+        res.status(400).json({ error: issue.refus })
+        return
+      }
+      res.set('Cache-Control', 'private, max-age=86400').type('image/webp')
+      res.sendFile(issue.fichier, e => {
+        // Un téléphone qui change d'écran, qu'on ferme ou qui perd le réseau laisse son téléchargement en route : plus
+        // personne à qui répondre, et rien de cassé — dit au journal, il compterait aux erreurs serveur du QG (`ECONNABORTED`,
+        // règle `exploitation.md`). Une autre panne se dit, sans que sa réponse se garde.
+        if (!e || (e as NodeJS.ErrnoException).code === 'ECONNABORTED') return
+        if (!res.headersSent) {
+          res.set('Cache-Control', 'no-store')
+          res.removeHeader('Content-Type')
+        }
+        repondreErreur(req, res, e)
+      })
     }),
   )
 }

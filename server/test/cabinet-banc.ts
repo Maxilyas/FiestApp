@@ -17,6 +17,8 @@ import type { DepartDUnePartie, GesteDuCabinet } from '../../shared/cabinet/part
 import { lireLeDepart } from '../../shared/cabinet/lecture'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import type { EclairTire } from '../../shared/cabinet/jeux/eclair'
+import { adresseDUnCadrage, type DetailTire } from '../../shared/cabinet/jeux/detail'
+import type { FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import type { QuizServerOptions } from '../src/server'
 import { demarrer, ecrire, type Banc } from './banc'
@@ -172,6 +174,19 @@ export const pariDe = (b: BancDuCabinet, serie: string, tirage: number) => depar
 export const eclairDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as EclairTire
 /** Les réponses justes d'une manche de l'Éclair : vraie quand la réponse proposée est la bonne. */
 export const vraiesDe = (t: EclairTire) => t.affirmations.map(a => a.proposee === a.question.bonne)
+export const detailDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as DetailTire
+export const friseDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as FriseTiree
+
+/**
+ * Les jetons d'une manche de la Frise dans l'ordre du temps, tels que la page
+ * les renverrait rangés sans faute : les ancres d'abord numérotées dans le
+ * temps, puis les nouveaux venus dans l'ordre montré (`REGLE_DE_LA_FRISE.montrer`).
+ */
+export function jetonsDansLeTemps(t: FriseTiree): number[] {
+  const ancres = t.vagues.slice(0, t.vague).flat().sort((a, b) => a - b)
+  const nouveaux = t.vagues[t.vague]
+  return [...ancres, ...nouveaux].sort((a, b) => a - b).map(r => (ancres.includes(r) ? ancres.indexOf(r) : ancres.length + nouveaux.indexOf(r)))
+}
 
 /** Une réponse qui passe — sinon l'épreuve s'arrête là, en disant ce que le serveur a répondu. */
 export function ok<T>(r: Reponse<T>, quoi: string): T {
@@ -199,6 +214,35 @@ export async function jouerUnPari(b: BancDuCabinet, cookie: string, vue: VueDeLa
 export async function jouerUnEclair(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number, juste = true): Promise<VueDeLaPartie> {
   const reponses = vraiesDe(eclairDe(b, vue.id, k)).map(v => (juste ? v : !v))
   return ok(await jouer(b, cookie, vue, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { eclair: { reponses } } }), 'l’Éclair')
+}
+
+/** Une manche de la Frise, ouverte : rangée sans faute, ou rien de posé — les ancres seules, qui ne bougent pas. */
+export async function jouerUneFrise(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number, juste = true): Promise<VueDeLaPartie> {
+  const t = friseDe(b, vue.id, k)
+  const ordre = juste ? jetonsDansLeTemps(t) : t.vagues.slice(0, k).flat().map((_, j) => j)
+  return ok(await jouer(b, cookie, vue, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { frise: { ordre } } }), 'la Frise')
+}
+
+/** Une manche du Détail, ouverte : tant de pas en arrière, puis le bon titre — ou un autre. */
+export async function jouerUnDetail(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number, { pas = 0, juste = true } = {}): Promise<VueDeLaPartie> {
+  const t = detailDe(b, vue.id, vue.tirage ?? k)
+  let v = vue
+  for (let i = 0; i < pas; i++) v = ok(await jouer(b, cookie, v, { quoi: 'reculer', manche: k as 0 | 1 | 2 }), 'reculer')
+  const titre = juste ? t.bonne : (t.bonne + 1) % t.titres.length
+  return ok(await jouer(b, cookie, v, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { detail: { titre } } }), 'le Détail')
+}
+
+/**
+ * Un cadrage du Détail, tel que la page le demande (`adresseDUnCadrage`) : ses
+ * octets, ou le refus du serveur. Un indice qui n'est pas un nombre, la page ne
+ * l'enverrait pas : son adresse s'écrit alors à la main.
+ */
+export async function unCadrage(b: BancDuCabinet, cookie: string | undefined, partie: string, tirage: number | string, cadrage: number | string) {
+  const adresse = typeof tirage === 'number' && typeof cadrage === 'number' ? adresseDUnCadrage(partie, tirage, cadrage) : `/api/cabinet/partie/${partie}/detail/${tirage}/${cadrage}`
+  const r = await fetch(`${b.banc.url}${adresse}`, { headers: { ...(cookie && { Cookie: cookie }), 'X-Requested-With': 'quizz' } })
+  const octets = Buffer.from(await r.arrayBuffer())
+  const json = (r.headers.get('content-type') ?? '').includes('json') ? (JSON.parse(octets.toString('utf8')) as { error?: string }) : null
+  return { status: r.status, entetes: r.headers, octets, erreur: json?.error }
 }
 
 /** La manche suivante ouverte, la précédente tranchée. */

@@ -15,7 +15,8 @@
 // remplacer une manche défairait les deux autres.
 //
 // Rien ici ne lit l'heure ni ne tire au hasard de lui-même : le hasard vient
-// de la graine de la partie, et le pli rejoué redonne la même frise.
+// de qui l'appelle — celui du serveur pour le partage en vagues, au départ —,
+// et le pli rejoué redonne la même frise.
 
 import type { Niveau } from '../../campagne'
 import { QUESTION_DE_LA_FRISE, anneeDite } from '../../frise'
@@ -179,7 +180,8 @@ const EVENEMENTS_DES_VAGUES = VAGUES_DE_LA_FRISE.reduce((n, vague) => n + vague,
 
 /**
  * La frise partagée en vagues, au départ : une tirée par manche, qui portent
- * toutes la même frise. Les sept événements se battent sur la graine ; les
+ * toutes la même frise. Les sept événements se battent au hasard du tireur,
+ * au serveur — jamais d'une graine que la page connaîtrait ; les
  * trois premiers font la première vague, les deux suivants la deuxième, les
  * deux derniers la troisième — chaque vague dans l'ordre même du battage, qui
  * est l'ordre montré. Pas l'ordre montré de l'Expédition (`ordreMontre`),

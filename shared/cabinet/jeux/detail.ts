@@ -9,13 +9,15 @@
 // qu'Éclairer efface, ce que la manche montre et ce que la révélation dit,
 // la pièce que le journal garde — un tableau n'est pas la question « Qui a
 // peint… ? » de la base : `cab:tableau:<QID>`, ni carnet ni signalement. Et
-// deux règles que le serveur appelle sans les recopier : la manche tirée d'un
+// trois règles que le serveur appelle sans les recopier : la manche tirée d'un
 // tableau choisi (`detailTire`, ses voisins et l'ordre des titres, figés au
-// départ) et la garde de la route des images (`refusDuCadrage`). Le choix du
-// tableau — jamais vu d'abord — et ses fichiers restent au serveur.
+// départ), la garde de la route des images (`refusDuCadrage`) et son adresse
+// (`adresseDUnCadrage`), que la page lit aussi. Le choix du tableau — jamais vu
+// d'abord — et ses fichiers restent au serveur.
 //
 // Rien ici ne lit l'heure ni ne tire au hasard de lui-même : le hasard vient
-// de la graine de la partie, et le pli rejoué redonne la même manche.
+// de qui l'appelle — celui du serveur pour le tirage, la graine secrète de la
+// partie pour Éclairer —, et le pli rejoué redonne la même manche.
 
 import { DUREES_DES_JEUX, ETOILES_AU_CADRAGE, TITRES_DU_DETAIL, VOISINS_EN_ANNEES } from '../bareme'
 import { idDuTableau, type PieceDuCabinet } from '../pieces'
@@ -143,6 +145,18 @@ export function refusDuCadrage(e: EtatDuDetail, cadrage: number, tranchee: boole
   if (!Number.isInteger(cadrage) || cadrage < 1 || cadrage > CADRAGES) return 'Ce cadrage n’existe pas'
   return tranchee || cadrage <= e.cadrage ? null : 'Recule d’un pas pour voir plus'
 }
+
+/**
+ * L'adresse d'un cadrage, que la route sert (`server/src/cabinet.ts`) : la
+ * partie, l'indice du tableau dans son plan figé (`DepartDUnePartie.tirages`,
+ * que la vue dit — `VueDeLaPartie.tirage`), le cadrage. Ni l'identifiant du
+ * tableau, ni son titre. Un indice du plan plutôt que la manche : après
+ * « Changer », la même manche joue un autre tableau, et son adresse d'avant
+ * aurait rendu du cache du téléphone l'image d'avant — un indice du plan ne
+ * désigne jamais deux tableaux, et chaque adresse, une seule image, gardée
+ * un jour par le téléphone.
+ */
+export const adresseDUnCadrage = (partie: string, tirage: number, cadrage: number) => `/api/cabinet/partie/${encodeURIComponent(partie)}/detail/${tirage}/${cadrage}`
 
 /** « 2|1 » : le cadrage atteint, puis le titre choisi — `.` sans réponse, comme une affirmation pas répondue à l'Éclair. */
 const composee = (cadrage: number, titre: number | null) => `${cadrage}|${titre ?? '.'}`

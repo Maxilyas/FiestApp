@@ -28,8 +28,9 @@ import type { FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites } from '../porte
 import type { calendrierDuCabinet } from '../saisons'
 import { lotDeLOubli, lotDuDepart, lotDuGeste, type FinAEcrire, type OeuvreAEcrire } from './ecriture'
 import { lecturesDeLaPartie, lecturesDuMusee, laPartieLue, lireLeMusee, type PartieLueEnBase } from './tables'
+import { fichierDuCadrage } from '../details'
 import { preparerLesTas } from './tirages/tas'
-import { tirerLePlan } from './tirages/index'
+import { themeDuPlan, tirerLePlan } from './tirages/index'
 import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE } from '../../../../shared/cabinet/bareme'
 import { lireLeBilan, lireUnGeste } from '../../../../shared/cabinet/lecture'
 import {
@@ -64,7 +65,8 @@ import {
 } from '../../../../shared/cabinet/partie'
 import { estUneOeuvre } from '../../../../shared/cabinet/oeuvres'
 import { vuesDuCabinet } from '../../../../shared/cabinet/vues'
-import { CLES_DES_JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
+import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
+import { refusDuCadrage, type DetailTire, type EtatDuDetail } from '../../../../shared/cabinet/jeux/detail'
 import { jourAvant, jourDe } from '../../../../shared/jour'
 import { minuitDe } from '../../../../shared/qg'
 import type { Saison } from '../../../../shared/saisons'
@@ -86,10 +88,12 @@ export interface ReglagesDuCabinet {
   calendrier: Pick<typeof calendrierDuCabinet, 'periodeDu'>
   /**
    * Le hasard que le Cabinet tire lui-même — l'ordre des catégories de
-   * l'Éclair, l'affirmation proposée — : celui du serveur, `Math.random` à
-   * défaut. Le tirage à la pièce garde le sien (`tirerPourUneEscale`,
-   * `versQuestionDeSerie`, `core/tirageALaPiece.ts`), le même que les autres
-   * modes : aucun des deux ne vient d'une graine que la page connaîtrait.
+   * l'Éclair, l'affirmation proposée, les voisins et l'ordre des titres du
+   * Détail, le sujet d'une frise, ses sept événements et leurs vagues — :
+   * celui du serveur, `Math.random` à défaut. Le tirage à la pièce garde le
+   * sien (`tirerPourUneEscale`, `laMoinsVue`, `versQuestionDeSerie`,
+   * `core/tirageALaPiece.ts`), le même que les autres modes : aucun des deux
+   * ne vient d'une graine que la page connaîtrait.
    */
   hasard?: () => number
 }
@@ -151,6 +155,17 @@ export const DEMANDE_ILLISIBLE = 'Choisis une partie de la visite, une chasse ou
 export const RIEN_A_TIRER = 'Ce jeu n’a pas de quoi jouer aujourd’hui : choisis-en un autre'
 export const DEPART_CROISE = 'Une autre partie a commencé en même temps : recharge la page'
 export const GESTE_CROISE = 'Ce geste en a croisé un autre : recharge la page'
+export const TABLEAU_INTROUVABLE = 'Ce tableau n’est pas dans ta partie : recharge la page'
+
+/** Ce que la route d'un cadrage du Détail sert : son fichier, ou pourquoi pas. */
+export type IssueDuCadrage =
+  | { fichier: string }
+  /** La partie d'un autre profil, ou qui n'existe pas (invariant 3). */
+  | { introuvable: 'partie' }
+  /** Un tableau qu'aucune manche de sa partie ne joue : une rechange pas prise, un tableau que Changer a remplacé, une manche pas ouverte, un autre jeu. */
+  | { introuvable: 'tableau' }
+  /** Un cadrage pas encore atteint, ou qui n'existe pas : la phrase de la règle (`refusDuCadrage`). */
+  | { refus: string }
 
 /** Une clé courte venue du téléphone, ou rien : une carte-bonus, une œuvre, un jeu se lisent ensuite par leur règle. */
 const cle = (x: unknown): string | null => (typeof x === 'string' && x.length > 0 && x.length <= 40 ? x : null)
@@ -182,6 +197,20 @@ export function lireLaDemande(brut: unknown): DemandeDeDepart | null {
     default:
       return null
   }
+}
+
+/**
+ * Ce que la route sert d'un tableau de cette partie : le fichier du cadrage,
+ * si une manche joue ce tableau — son indice dans le plan figé — et l'a
+ * atteint, ou tous la manche tranchée (`refusDuCadrage`, la règle du jeu).
+ */
+function cadrageDeLaPartie(p: PartieGardee, tirage: number, cadrage: number): Exclude<IssueDuCadrage, { introuvable: 'partie' }> {
+  const m = p.depart.jeu === 'detail' ? p.etat.manches.find(x => x.tirage === tirage) : undefined
+  if (!m) return { introuvable: 'tableau' }
+  // Une manche du Détail tient l'état de son jeu : le cadrage atteint, les titres effacés.
+  const refus = refusDuCadrage(m.etat as EtatDuDetail, cadrage, m.verdict !== null || p.etat.fin !== null)
+  if (refus) return { refus }
+  return { fichier: fichierDuCadrage((p.depart.tirages[m.tirage] as DetailTire).tableau.qid, cadrage) }
 }
 
 export class CabinetStore {
@@ -395,13 +424,15 @@ export class CabinetStore {
         const [jouables, mesures] = await Promise.all([this.porte.jouables(), this.porte.mesures()])
         // Les tas d'une liste neuve se préparent en rendant la main : le tireur ne passe jamais toute la base d'un bloc.
         await this.tasDe(jouables)
-        const rechanges = cadre.carte?.pouvoir === 'changer' ? CHANGEMENTS_PAR_PARTIE[cadre.carte.force] : 0
+        // Des rechanges pour Changer, là seulement où il sert : la Frise n'en tire aucune, et sa relecture n'en admet pas.
+        const rechanges = cadre.carte?.pouvoir === 'changer' && JEUX[cadre.jeu].changeable ? CHANGEMENTS_PAR_PARTIE[cadre.carte.force] : 0
         const tirages = tirerLePlan(
           cadre.jeu,
           { porte: this.porte, jouables, mesures, vues: vuesDuCabinet(journal.vuesDe(profileId).vues), maintenant: t, hasard: this.hasard },
           rechanges,
         )
         if (!tirages) throw new Error(RIEN_A_TIRER)
+        const theme = themeDuPlan(tirages)
         const depart: DepartDUnePartie = {
           v: VERSION_DU_DEPART,
           jeu: cadre.jeu,
@@ -417,6 +448,7 @@ export class CabinetStore {
           chrono: chronoDuDepart(cadre.jeu, cadre.carte),
           // La graine du hasard d'Éclairer : un secret du serveur, tiré ici, jamais envoyé (`cabinet-secret.test.ts`).
           graine: randomUUID(),
+          ...(theme !== undefined && { theme }),
           tirages,
         }
         const serie = randomUUID()
@@ -617,6 +649,43 @@ export class CabinetStore {
       dorure: avant?.dorure ?? (o.doree ? 'partie' : null),
       prixDorure: avant?.prixDorure ?? null,
       serieDoree: avant?.serieDoree ?? (o.doree ? p.id : null),
+    })
+  }
+
+  // ── Un cadrage du Détail ──────────────────────────────────────────────
+
+  /**
+   * Un cadrage d'un tableau du Détail (la conception, § 3.4), par l'indice du
+   * tableau dans le plan figé — jamais la manche : après « Changer », la même
+   * manche joue un autre tableau, et l'adresse d'avant aurait rendu du cache
+   * l'image d'avant. Seul se sert le tableau qu'une manche joue — ni une
+   * rechange pas encore prise, ni celui que Changer a remplacé, ni celui d'une
+   * manche pas ouverte : tirés d'avance, ils se verraient avant leur tour —, et
+   * de lui le cadrage déjà atteint, le premier à l'ouverture, un de plus à
+   * chaque « Reculer », tous la manche tranchée (`refusDuCadrage`, invariant 1).
+   * La partie se lit en mémoire, zéro aller-retour ; finie, elle n'y est plus et
+   * se relit d'un lot, par sa clé. Sous le verrou du profil, comme tout ce qui
+   * lit sa partie : la mémoire ne se remplit jamais derrière un geste en route.
+   *
+   * Refusé sur la mémoire, un cadrage qui existe se relit une fois : l'autre
+   * serveur d'une mise en ligne a pu jouer la partie depuis — « Reculer »,
+   * « Changer » —, et la page tient sa vue de lui. La mémoire n'est jamais en
+   * avance sur la base (elle ne prend que ce qui s'est écrit) : relue, la
+   * partie ne recule pas, et la base fait foi. Une page qui suit sa vue n'est
+   * jamais refusée : ce rattrapage ne coûte rien d'ordinaire.
+   */
+  async cadrage(profileId: string, serie: string, tirage: number, cadrage: number): Promise<IssueDuCadrage> {
+    return this.porte.avecVerrou(profileId, async () => {
+      for (let essai = 0; ; essai++) {
+        const enMemoire = this.parties.has(serie)
+        const p = await this.partieDe(profileId, serie)
+        if (!p) return { introuvable: 'partie' }
+        const issue = cadrageDeLaPartie(p, tirage, cadrage)
+        // Un cadrage hors de ses quatre ne se sert jamais, partie relue ou non : rien à relire.
+        const existe = refusDuCadrage({ cadrage: 0, effaces: [] }, cadrage, true) === null
+        if ('fichier' in issue || !enMemoire || !existe || essai > 0) return issue
+        this.parties.delete(serie)
+      }
     })
   }
 

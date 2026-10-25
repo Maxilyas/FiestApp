@@ -3,7 +3,9 @@
 // rien de ce qui juge n'arrive au téléphone avant le verdict de sa manche —
 // ni l'index de la bonne réponse, ni « Le savais-tu ? », ni la seconde
 // question du Pari avant « Parier », ni le vrai ou faux d'une affirmation de
-// l'Éclair, ni une rechange de « Changer ». Jamais la graine de la partie,
+// l'Éclair, ni le tableau du Détail — son identifiant, son année, lequel des
+// quatre titres est le bon —, ni l'année d'un nouveau venu de la Frise, ni les
+// événements des vagues à venir, ni une rechange de « Changer ». Jamais la graine de la partie,
 // jamais celle de la visite, ni le secret dont elle est faite ; jamais
 // l'œuvre visée d'une case de la visite. Chaque réponse se lit en entier
 // (`JSON.stringify`) : un champ neuf qui s'y glisserait de lui-même s'y
@@ -36,7 +38,10 @@ import { vueDeLaPartie } from '../src/core/cabinet/vue'
 import type { BilanDUnePartie, DepartDUnePartie } from '../../shared/cabinet/partie'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import type { EclairTire } from '../../shared/cabinet/jeux/eclair'
+import type { DetailTire } from '../../shared/cabinet/jeux/detail'
+import type { FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { QuestionTiree } from '../../shared/cabinet/jeux/outils'
+import type { VueDeLaPartie } from '../../shared/cabinet/vues'
 
 let b: BancDuCabinet
 before(async () => {
@@ -114,6 +119,80 @@ test('l’Éclair : ni le vrai ou faux d’une affirmation, ni la bonne réponse
   const revelee = ok(await jouer(b, tom, v0, { quoi: 'repondre', manche: 0, reponse: { eclair: { reponses: vraiesDe(eclairDe(b, v0.id, 0)) } } }), 'répondre')
   jamais(d, revelee, 'révélée')
   assert.match(texte(revelee.revelation), /"vraie"/, 'la révélation le dit')
+})
+
+test('le Détail : ni le tableau, ni le bon titre, ni son année, ni son anecdote avant le verdict — ni la rechange de Changer, ni la mauvaise réponse qu’Éclairer efface', async () => {
+  const ana = await inscrireProfil(b.banc.url, 'ana', 'Ana')
+  /** Ce que la manche du Détail garde jusqu'à son verdict : le tableau, l'index du bon titre, l'année, « Le savais-tu ? ». */
+  const sansLeTableau = (t: DetailTire, x: unknown, ou: string) => {
+    const s = texte(x)
+    assert.ok(!s.includes(t.tableau.qid), `${ou} : l’identifiant du tableau, qui nomme ses images`)
+    assert.doesNotMatch(s, /"bonne"|"tableau"|"qid"|"annee"|"anecdote"|"savais"/, `${ou} : un champ de la réponse`)
+    if (t.anecdote) assert.ok(!s.includes(t.anecdote), `${ou} : l’anecdote`)
+  }
+  // L'Échange : une rechange au plan, qu'aucune vue ne montre avant que Changer la prenne.
+  const v0 = ok(await commencer(b, ana, { origine: 'libre', jeu: 'detail', carte: 'echange' }), 'commencer')
+  const d = departEnBase(b.fichier, v0.id)
+  const t = d.tirages[0] as DetailTire
+  const rechange = d.tirages[3] as DetailTire
+  for (const [ou, x] of [
+    ['le départ', v0],
+    ['la page', ok(await laPage(b, ana), 'la page')],
+    ['un pas en arrière', ok(await jouer(b, ana, v0, { quoi: 'reculer', manche: 0 }), 'reculer')],
+  ] as const) {
+    jamais(d, x, ou)
+    sansLeTableau(t, x, ou)
+    assert.ok(!texte(x).includes(`"${rechange.tableau.titre}"`) && !texte(x).includes(rechange.tableau.qid), `${ou} : la rechange`)
+  }
+  assert.ok(t.titres.every(x => texte(v0).includes(x.titre)), 'les quatre titres, eux, se montrent — sans dire lequel')
+  ok(await jouer(b, ana, { id: v0.id, rang: 3 }, { quoi: 'quitter' }), 'quitter')
+
+  // Éclairer efface un mauvais titre : la vue dit lequel est effacé, jamais lequel est le bon.
+  const e0 = ok(await commencer(b, ana, { origine: 'libre', jeu: 'detail', carte: 'coup-d-oeil' }), 'commencer')
+  const de = departEnBase(b.fichier, e0.id)
+  const te = de.tirages[0] as DetailTire
+  const eclairee = ok(await jouer(b, ana, e0, { quoi: 'eclairer', manche: 0 }), 'éclairer')
+  jamais(de, eclairee, 'éclairée')
+  sansLeTableau(te, eclairee, 'éclairée')
+  const effaces = eclairee.enCours?.jeu === 'detail' ? eclairee.enCours.titres.filter(x => x.efface) : []
+  assert.equal(effaces.length, 1)
+  assert.notEqual(effaces[0].titre, te.tableau.titre)
+  // Le verdict : la révélation nomme le tableau, son peintre et son année.
+  const revelee = ok(await jouer(b, ana, eclairee, { quoi: 'repondre', manche: 0, reponse: { detail: { titre: te.bonne } } }), 'répondre')
+  jamais(de, revelee, 'révélée')
+  assert.match(texte(revelee.revelation), new RegExp(`"annee":${te.tableau.annee}`), 'la révélation dit son année')
+})
+
+test('la Frise : ni l’année d’un nouveau venu, ni l’ordre du temps, ni les événements des vagues à venir avant leur manche — sauf l’année qu’Éclairer dévoile', async () => {
+  const leo = await inscrireProfil(b.banc.url, 'leo', 'Léo')
+  const v0 = ok(await commencer(b, leo, { origine: 'libre', jeu: 'frise', carte: 'coup-d-oeil' }), 'commencer')
+  const d = departEnBase(b.fichier, v0.id)
+  const t = d.tirages[0] as FriseTiree
+  /** Ce qu'une manche montre de la frise : ses ancres datées, ses nouveaux venus sans leur année, dans l'ordre montré — rien de la suite. */
+  const aSaManche = (x: VueDeLaPartie, k: number, devoiles: number, ou: string) => {
+    jamais(d, x, ou)
+    const s = texte(x)
+    assert.doesNotMatch(s, /"vagues"|"evenements"|"rangs"|"savais"|"sorte"/, `${ou} : le plan de la frise`)
+    const montre = x.enCours?.jeu === 'frise' ? x.enCours : null
+    assert.ok(montre, ou)
+    // L'ordre montré, jamais celui du temps à dessein : les nouveaux venus tels que le départ les a battus.
+    assert.deepEqual(montre.nouveaux.map(n => n.libelle), t.vagues[k].map(r => t.evenements[r].libelle), `${ou} : l’ordre montré`)
+    assert.equal(montre.nouveaux.filter(n => 'annee' in n).length, devoiles, `${ou} : l’année d’un nouveau venu`)
+    for (const r of t.vagues.slice(k + 1).flat()) assert.ok(!s.includes(t.evenements[r].libelle), `${ou} : « ${t.evenements[r].libelle} », d’une vague à venir`)
+    if (t.savais) assert.ok(!s.includes(t.savais), `${ou} : le savais-tu de la frise`)
+  }
+  aSaManche(v0, 0, 0, 'le départ')
+  aSaManche(ok(await laPage(b, leo), 'la page').enCours!, 0, 0, 'la page')
+  // Éclairer dévoile l'année d'un nouveau venu, une seule — la vue la porte, et rien d'autre.
+  const eclairee = ok(await jouer(b, leo, v0, { quoi: 'eclairer', manche: 0 }), 'éclairer')
+  aSaManche(eclairee, 0, 1, 'éclairée')
+  // Rangée : la révélation range la manche ; la suivante montre ses ancres datées, ses nouveaux venus sans année.
+  const ordre = [...t.vagues[0]].sort((a, z) => a - z).map(r => t.vagues[0].indexOf(r))
+  const revelee = ok(await jouer(b, leo, eclairee, { quoi: 'repondre', manche: 0, reponse: { frise: { ordre } } }), 'répondre')
+  jamais(d, revelee, 'révélée')
+  assert.match(texte(revelee.revelation), /"annee"/, 'la révélation dit les années')
+  const suivante = ok(await jouer(b, leo, revelee, { quoi: 'ouvrir', manche: 1 }), 'la manche suivante')
+  aSaManche(suivante, 1, 0, 'la manche 2')
 })
 
 test('le bilan se choisit champ par champ : un champ de plus au bilan figé ne part pas de lui-même, ni l’œuvre visée d’une visite manquée', async () => {

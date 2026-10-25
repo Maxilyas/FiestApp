@@ -112,6 +112,7 @@ function revelationDe(d: DepartDUnePartie, e: EtatDeLaPartie, m: MancheDuPli): R
   if (!m.verdict || !m.fin) return undefined
   return {
     manche: m.manche,
+    tirage: m.tirage,
     fin: m.fin,
     signalables: e.pieces.filter(p => p.manche === m.manche && !horsDeLaBase(p.piece.id)).map(p => p.position),
     corps: regleDe(d.jeu).reveler(d.tirages[m.tirage], m.etat, m.verdict) as RevelationVue['corps'],
@@ -231,6 +232,8 @@ export function vueDeLaPartie(p: PartieLue): VueDeLaPartie {
     seuil: d.seuil,
     carte: carteDe(d, e),
     manche: mancheDe(e),
+    // L'adresse des images du Détail le porte : un indice du plan, que la vue dit — jamais ce qu'il désigne.
+    ...(m && { tirage: m.tirage }),
     phase: phaseDe(e),
     manches: manchesDe(d, e),
     total: resultatDe(d, e).total,

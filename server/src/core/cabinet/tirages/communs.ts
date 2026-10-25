@@ -14,9 +14,19 @@ import type { QuestionTiree } from '../../../../../shared/cabinet/jeux/outils'
 /** La fenêtre de fraîcheur du Cabinet : une question vue depuis moins de sept jours ne revient qu'en dernier recours. */
 export const FENETRE_DU_CABINET_MS = JOURS_SANS_REDITE * 24 * 3_600_000
 
+/**
+ * Ce que les tireurs lisent de la porte : les QCM d'une catégorie (le Pari,
+ * l'Éclair) ; les questions par leur identifiant — celle qui demande le peintre
+ * d'un tableau du Détail, son anecdote — et les événements datés de la base —
+ * les frises des sujets. Sans ces deux-là, un essai qui ne tire que des QCM
+ * s'en passe : le Détail dit alors ce qu'est son tableau, la Frise ne tire que
+ * ses frises à thème. Le magasin donne toujours la porte entière.
+ */
+export type CeQueLesTireursLisent = Pick<PorteDeLaCampagne, 'deLaCategorie'> & Partial<Pick<PorteDeLaCampagne, 'parIdDe' | 'evenementsDe'>>
+
 /** Ce qu'un tireur lit : la base jouable, sa mesure, ce que le joueur a vu, et le hasard du serveur. */
 export interface ContexteDuTirage {
-  porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>
+  porte: CeQueLesTireursLisent
   jouables: readonly QuestionDeLaBase[]
   mesures: ReadonlyMap<string, MesureDUneQuestion>
   /** Ce qu'il a vu, déplié (`vuesDuCabinet`), et quand pour la dernière fois. */
@@ -31,6 +41,12 @@ export class Posees {
   readonly ids = new Set<string>()
   readonly intitules: Intitule[] = []
   readonly categories: string[] = []
+  /**
+   * Les titres que le Détail a déjà proposés, leurres compris : un titre montré
+   * en leurre à une manche ne revient pas en réponse à la suivante — revu
+   * parmi quatre, il se désignerait, ou se croirait faux de l'avoir été.
+   */
+  readonly titres = new Set<string>()
 
   prendre(q: QuestionTiree) {
     this.ids.add(q.id)

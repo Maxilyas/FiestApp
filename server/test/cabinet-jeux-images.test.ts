@@ -1,15 +1,52 @@
-// Le Détail et la Frise du Cabinet de curiosités, purs (`shared/cabinet/jeux/`,
-// la règle `.claude/rules/cabinet.md`) : leurs règles, sans serveur.
-// Le Détail — un tableau en quatre cadrages emboîtés ; « Reculer d'un pas » en
-// montre plus et coûte une étoile ; quatre titres d'époques voisines. La Frise
-// — une seule frise qui grandit, trois événements, puis cinq, puis sept, du
-// plus ancien au plus récent. Le lot C2 y ajoutera le tirage, la route des
-// cadrages et le plancher des frises de sujets.
-import { test } from 'node:test'
+// Le Détail et la Frise du Cabinet de curiosités (`shared/cabinet/jeux/`, la
+// règle `.claude/rules/cabinet.md`) : leurs règles, sans serveur, puis au
+// serveur. Le Détail — un tableau en quatre cadrages emboîtés ; « Reculer d'un
+// pas » en montre plus et coûte une étoile ; quatre titres d'époques voisines.
+// La Frise — une seule frise qui grandit, trois événements, puis cinq, puis
+// sept, du plus ancien au plus récent. Au serveur (le lot C2) : leur tirage, sur
+// la base livrée, le plancher des frises de sujets, la route des cadrages — rien
+// avant d'être atteint, l'adresse d'un tirage, jamais celle d'une manche — et
+// une partie de chacun par les routes.
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { hasardDe } from '../../shared/missions'
-import { anneeDite } from '../../shared/frise'
+import { anneeDite, choisirLaFriseSansRepli } from '../../shared/frise'
+import { lireLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
+import { detailsDeLaBase, fichierDuCadrage, tableauxDuDetail } from '../src/core/details'
+import { evenementsDeLaBase } from '../src/core/frises'
+import { contenuDuCabinet } from '../src/core/cabinet/contenu'
+import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
+import { frisesDesSujets } from '../src/core/cabinet/tirages/tas'
+import { PARTIE_INTROUVABLE, TABLEAU_INTROUVABLE } from '../src/core/cabinet/magasin'
+import { CABINET_SANS_PROFIL } from '../src/cabinet'
+import { inscrireProfil } from './banc'
+import {
+  DIX_HEURES,
+  bancDuCabinet,
+  commencer,
+  departEnBase,
+  detailDe,
+  dossierDEssai,
+  enBase,
+  fermerLesMagasins,
+  friseDe,
+  magasinDEssai,
+  jouer,
+  jouerUnDetail,
+  jouerUneFrise,
+  laPage,
+  ok,
+  ouvrir,
+  unCadrage,
+  type BancDuCabinet,
+} from './cabinet-banc'
+import { CATEGORIES } from '../../shared/categories'
+import { NIVEAUX } from '../../shared/campagne'
+import { sujetParCle, estRemplace } from '../../shared/sujets'
+import { CATEGORIE_DU_DETAIL } from '../../shared/expedition'
 import {
   DUREES_DES_JEUX,
   ECART_DES_ANNEES_DE_LA_FRISE,
@@ -24,7 +61,7 @@ import {
 } from '../../shared/cabinet/bareme'
 import { effacablesAuPlus, refusDuPouvoir } from '../../shared/cabinet/pouvoirs'
 import { PREFIXE_DU_CABINET, deplier, idDeLaFriseATheme, idDeLaFriseDeSujet, idDuTableau } from '../../shared/cabinet/pieces'
-import { justeDeLaPiece } from '../../shared/cabinet/jeux/regle'
+import { JEUX, justeDeLaPiece } from '../../shared/cabinet/jeux/regle'
 import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/outils'
 import {
   QUESTION_DU_TABLEAU,
@@ -813,4 +850,333 @@ test('le Détail et la Frise sont purs : ni horloge, ni hasard à eux', () => {
     const texte = readFileSync(new URL(`../../shared/cabinet/jeux/${f}`, import.meta.url), 'utf8')
     assert.ok(!/Date\.now|new Date|Math\.random|performance\.now/.test(texte), f)
   }
+})
+
+// ── Le tirage, au serveur, sur la base livrée ─────────────────────────────
+// Ce que les tireurs du Détail et de la Frise tirent au départ : les cent
+// tableaux de `server/content/details/`, les frises à thème de
+// `server/content/cabinet/frises.json`, et celles des sujets de la base — ses
+// événements datés (`server/content/frises/`), regroupés par sujet. La base
+// d'essai du banc n'a ni tableau demandé ni événement daté : la base livrée,
+// lue une fois pour ces épreuves.
+
+let livree: { questions: readonly QuestionDeLaBase[]; parId: ReadonlyMap<string, QuestionDeLaBase>; evenements: ReturnType<typeof evenementsDeLaBase> } | null = null
+function laBaseLivree() {
+  if (!livree) {
+    const { questions } = lireLaBase()
+    const parId = new Map(questions.map(q => [q.id, q]))
+    livree = { questions, parId, evenements: evenementsDeLaBase(parId) }
+  }
+  return livree
+}
+
+/** Ce qu'un tireur lit, sur la base livrée : la porte n'y donne que ce que les tireurs demandent. */
+function surLaBaseLivree(vues: ReadonlyMap<string, number> = new Map()): ContexteDuTirage {
+  const { questions, parId, evenements } = laBaseLivree()
+  return {
+    porte: { deLaCategorie: (j, c) => j.filter(q => q.meta.categorie === c), parIdDe: () => parId, evenementsDe: () => evenements },
+    jouables: questions,
+    mesures: new Map(),
+    vues,
+    maintenant: DIX_HEURES,
+    hasard: Math.random,
+  }
+}
+
+const UNE_HEURE = 3_600_000
+
+test('le tirage du Détail : un tableau de la fiche, jamais vu d’abord, ni le même tableau ni le même titre deux fois dans le plan, l’anecdote de sa question de la base', () => {
+  const tableaux = tableauxDuDetail()
+  assert.ok(tableaux.length >= 80, `${tableaux.length} tableaux livrés`)
+  const parQid = new Map(tableaux.map(t => [t.qid, t]))
+  const anecdotes = new Map(detailsDeLaBase(laBaseLivree().parId).map(d => [d.tableau.qid, d.question.anecdote]))
+  assert.ok(anecdotes.size > 50, `${anecdotes.size} tableaux que demande une question de la base`)
+  let avecAnecdote = 0
+  for (let essai = 0; essai < 30; essai++) {
+    // Trois manches et trois rechanges : la force 3 de Changer.
+    const plan = tirerLePlan('detail', surLaBaseLivree(), 3) as DetailTire[]
+    assert.equal(plan.length, 6)
+    const proposes = new Set<string>()
+    for (const t of plan) {
+      const fiche = parQid.get(t.tableau.qid)
+      assert.ok(fiche, `${t.tableau.qid} n’est pas un tableau livré`)
+      assert.deepEqual(t.tableau, { qid: fiche.qid, titre: fiche.titre, peintre: fiche.peintre, annee: fiche.annee })
+      assert.equal(t.titres[t.bonne].titre, fiche.titre)
+      // Un titre proposé — un leurre comme une réponse — ne revient pas en réponse plus loin dans le plan.
+      assert.ok(!proposes.has(fiche.titre), `${fiche.titre}, déjà proposé, revient en réponse`)
+      for (const x of t.titres) proposes.add(x.titre)
+      assert.equal(t.categorie, CATEGORIE_DU_DETAIL, 'la catégorie des tableaux : les missions la lisent')
+      assert.equal(t.anecdote, anecdotes.get(fiche.qid) ?? null, 'l’anecdote de sa question « Qui a peint… ? », sinon rien : la règle dit alors ce qu’il est')
+      if (t.anecdote) avecAnecdote++
+    }
+    assert.equal(new Set(plan.map(t => t.tableau.qid)).size, plan.length, 'jamais deux fois le même tableau, rechanges comprises')
+  }
+  assert.ok(avecAnecdote > 0)
+
+  // Le jamais vu d'abord : tous vus sauf deux — au Cabinet, ou par une question de la base qui le demande —, puis le plus
+  // anciennement vu, parmi ceux dont le titre n'a pas encore été proposé.
+  const [a, b, c, ...autres] = tableaux
+  const vues = new Map<string, number>(autres.map((t, i) => [idDuTableau(t.qid), DIX_HEURES - (i + 2) * UNE_HEURE]))
+  vues.set(c.questions[0], DIX_HEURES - UNE_HEURE)
+  const vuLe = (qid: string) => (qid === c.qid ? DIX_HEURES - UNE_HEURE : vues.get(idDuTableau(qid)))
+  for (let essai = 0; essai < 20; essai++) {
+    const [p, q, r] = tirerLePlan('detail', surLaBaseLivree(vues), 0) as DetailTire[]
+    assert.deepEqual([p, q].map(t => t.tableau.qid).sort(), [a.qid, b.qid].sort(), 'les deux jamais vus d’abord')
+    const proposes = new Set([p, q].flatMap(t => t.titres.map(x => x.titre)))
+    const restants = tableaux.filter(t => t.qid !== a.qid && t.qid !== b.qid && !proposes.has(t.titre))
+    const plusAncien = restants.reduce((x, y) => (vuLe(y.qid)! < vuLe(x.qid)! ? y : x))
+    assert.equal(r.tableau.qid, plusAncien.qid, 'puis le plus anciennement vu')
+  }
+})
+
+test('le tirage de la Frise : trois vagues d’une même frise, à thème ou d’un sujet de la base, en alternance de fraîcheur — jamais de rechange', () => {
+  const themes = new Map(contenuDuCabinet().frises.map(f => [f.id, f]))
+  const { parId, evenements } = laBaseLivree()
+  const libelleDe = new Map(evenements.map(e => [e.id, e]))
+  const sortes = { theme: 0, sujet: 0 }
+  for (let essai = 0; essai < 60; essai++) {
+    // Une carte de Changer en demanderait trois : la Frise n'en a jamais — sa règle relit un départ à trois tirages.
+    const plan = tirerLePlan('frise', surLaBaseLivree(), 3) as FriseTiree[]
+    assert.ok(plan)
+    assert.equal(plan.length, 3, 'ses trois manches, sans rechange')
+    plan.forEach((t, k) => {
+      assert.equal(t.vague, k)
+      assert.deepEqual(t.evenements, plan[0].evenements, 'une seule frise, qui grandit')
+      assert.deepEqual(t.vagues, plan[0].vagues)
+    })
+    const t = plan[0]
+    sortes[t.sorte]++
+    assert.equal(t.evenements.length, EVENEMENTS_D_UNE_FRISE_A_THEME)
+    t.evenements.forEach((e, i) => i > 0 && assert.ok(e.annee - t.evenements[i - 1].annee >= ECART_DES_ANNEES_DE_LA_FRISE, `${t.cle} : ${t.evenements.map(x => x.annee)}`))
+    assert.ok((CATEGORIES as readonly string[]).includes(t.categorie), t.categorie)
+    if (t.sorte === 'theme') {
+      const f = themes.get(t.cle)
+      assert.ok(f, `${t.cle} : une frise à thème livrée`)
+      assert.equal(t.theme, f.theme)
+      assert.equal(t.savais, f.savais)
+      assert.deepEqual(t.evenements.map(e => `${e.annee} ${e.libelle}`).sort(), f.evenements.map(e => `${e.annee} ${e.libelle}`).sort())
+    } else {
+      const s = sujetParCle(t.cle)
+      assert.ok(s && !estRemplace(t.cle), `${t.cle} : un sujet qu’on peut encore jouer`)
+      assert.equal(t.theme, s.nom, 'le nom du sujet pour thème')
+      assert.ok(t.niveau && NIVEAUX.includes(t.niveau), 'la marche de son sujet')
+      for (const e of t.evenements) {
+        assert.ok(e.id && parId.has(e.id), 'chaque événement, sa question de la base : ses pièces la nomment')
+        assert.deepEqual([e.libelle, e.annee], [libelleDe.get(e.id)!.evenement, libelleDe.get(e.id)!.annee], 'sa ligne et l’année de sa question')
+      }
+    }
+  }
+  assert.ok(sortes.theme > 10 && sortes.sujet > 10, `l’une et l’autre, tant que tout est frais : ${JSON.stringify(sortes)}`)
+
+  // Les frises à thème toutes rangées ce matin : celle d'un sujet passe devant. Et les questions des événements toutes vues
+  // ce matin — en série, ou rangées au Cabinet, dépliées —, la frise à thème.
+  const ceMatin = DIX_HEURES - UNE_HEURE
+  const themesRanges = new Map([...themes.keys()].flatMap(id => [0, 1, 2].map(k => [idDeLaFriseATheme(id, k), ceMatin] as const)))
+  const evenementsVus = new Map(evenements.map(e => [e.id, ceMatin]))
+  for (let essai = 0; essai < 20; essai++) {
+    assert.equal((tirerLePlan('frise', surLaBaseLivree(themesRanges), 0) as FriseTiree[])[0].sorte, 'sujet')
+    assert.equal((tirerLePlan('frise', surLaBaseLivree(evenementsVus), 0) as FriseTiree[])[0].sorte, 'theme')
+  }
+})
+
+test('un plancher de frises de sujets : la base livrée en fait au moins cinquante-cinq, chacune ses sept années à trois ans d’écart', () => {
+  const { questions, parId, evenements } = laBaseLivree()
+  const sujets = frisesDesSujets({ parIdDe: () => parId, evenementsDe: () => evenements }, questions)
+  // Soixante et un le 25 octobre 2026 — les époques redécoupées écartées : un sujet de moins se dit ici, il ne se perd pas en silence.
+  assert.ok(sujets.length >= 55, `${sujets.length} sujets font une frise`)
+  assert.equal(new Set(sujets.map(s => s.cle)).size, sujets.length)
+  for (const s of sujets) {
+    assert.ok(sujetParCle(s.cle) && !estRemplace(s.cle), s.cle)
+    assert.ok(choisirLaFriseSansRepli(s.evenements, ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, Math.random), `${s.cle} : trop serré pour sept années`)
+  }
+})
+
+// ── Par les routes ────────────────────────────────────────────────────────
+// Un vrai serveur, la base d'essai du Cabinet : les tableaux et les frises à
+// thème sont livrés avec le serveur, la base n'y est pour rien.
+
+let leBanc: BancDuCabinet | undefined
+const unBanc = async () => (leBanc ??= await bancDuCabinet())
+after(() => leBanc?.banc.close())
+after(fermerLesMagasins)
+
+/** Les allers-retours vers la base permanente pendant un travail : chaque `execute` et chaque `batch` (le compteur de `cabinet-charge.test.ts`). */
+const compte = { actif: false, appels: 0 }
+const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', (...args: unknown[]) => Promise<unknown>>
+for (const methode of ['execute', 'batch'] as const) {
+  const origine = proto[methode]
+  proto[methode] = async function (this: unknown, ...args: unknown[]) {
+    if (compte.actif) compte.appels++
+    return origine.apply(this, args)
+  }
+}
+async function allersRetours<T>(travail: () => Promise<T>): Promise<{ appels: number; resultat: T }> {
+  Object.assign(compte, { actif: true, appels: 0 })
+  try {
+    const resultat = await travail()
+    return { appels: compte.appels, resultat }
+  } finally {
+    compte.actif = false
+  }
+}
+
+test('un cadrage ne coûte rien à la base tant que sa partie vit en mémoire ; finie, un aller-retour, par sa clé', async () => {
+  const m = await magasinDEssai(path.join(dossierDEssai(), 'detail.db'), { t: DIX_HEURES })
+  const p = await m.cabinet.commencer('qui', { origine: 'libre', jeu: 'detail', carte: null })
+  const enCours = await allersRetours(() => m.cabinet.cadrage('qui', p.id, 0, 1))
+  assert.deepEqual([enCours.appels, 'fichier' in enCours.resultat], [0, true], 'la partie en mémoire, l’image sur disque')
+  assert.ok('partie' in (await m.cabinet.geste('qui', p.id, p.etat.rang, { quoi: 'quitter' })))
+  const finie = await allersRetours(() => m.cabinet.cadrage('qui', p.id, 0, 4))
+  assert.deepEqual([finie.appels, 'fichier' in finie.resultat], [1, true], 'finie, elle ne vit plus en mémoire : sa ligne et ses gestes, d’un lot')
+  // La partie d'un autre profil : rien ne la distingue d'une partie qui n'existe pas (invariant 3).
+  assert.deepEqual(await m.cabinet.cadrage('autre', p.id, 0, 1), { introuvable: 'partie' })
+})
+
+test('deux serveurs pendant une mise en ligne : un cadrage atteint chez l’autre se sert ici, la partie relue une fois', async () => {
+  // Chacun sa mémoire, une base : la page tient sa vue du serveur qui a joué « Reculer », et demande l'image à l'autre.
+  const fichier = path.join(dossierDEssai(), 'deux.db')
+  const horloge = { t: DIX_HEURES }
+  const a = await magasinDEssai(fichier, horloge)
+  const b = await magasinDEssai(fichier, horloge)
+  const p = await a.cabinet.commencer('qui', { origine: 'libre', jeu: 'detail', carte: null })
+  assert.ok('fichier' in (await b.cabinet.cadrage('qui', p.id, 0, 1)), 'l’autre la lit, et la garde au premier cadrage')
+  assert.ok('partie' in (await a.cabinet.geste('qui', p.id, p.etat.rang, { quoi: 'reculer', manche: 0 })))
+  const relu = await allersRetours(() => b.cabinet.cadrage('qui', p.id, 0, 2))
+  assert.deepEqual([relu.appels, 'fichier' in relu.resultat], [1, true], 'refusé sur sa mémoire, il relit la partie, et sert')
+  // Relue, la base fait foi : ce qui n'est pas atteint reste refusé ; hors des quatre cadrages, rien à relire.
+  assert.deepEqual(await b.cabinet.cadrage('qui', p.id, 0, 3), { refus: 'Recule d’un pas pour voir plus' })
+  const horsDesQuatre = await allersRetours(() => b.cabinet.cadrage('qui', p.id, 0, 5))
+  assert.deepEqual([horsDesQuatre.appels, horsDesQuatre.resultat], [0, { refus: 'Ce cadrage n’existe pas' }])
+})
+
+/** Les octets d'un cadrage tel que le serveur le garde, à côté de la route. */
+const octetsDe = (qid: string, cadrage: number) => readFileSync(fichierDuCadrage(qid, cadrage))
+
+test('par les routes : un cadrage du Détail ne se sert qu’atteint — 400 avant « Reculer », 200 après, tous après le verdict — et à sa seule partie', async () => {
+  const b = await unBanc()
+  const lea = await inscrireProfil(b.banc.url, 'lea-detail', 'Léa')
+  const tom = await inscrireProfil(b.banc.url, 'tom-detail', 'Tom')
+  let v = ok(await commencer(b, lea, { origine: 'libre', jeu: 'detail', carte: null }), 'le Détail')
+  assert.equal(v.jeu, 'detail')
+  assert.equal(v.tirage, 0, 'la première manche joue le premier tirage du plan')
+  assert.equal(v.enCours?.jeu === 'detail' && v.enCours.cadrage, 1)
+  const t = detailDe(b, v.id, 0)
+
+  // Le premier cadrage, dès l'ouverture : ses octets, gardés par le téléphone — son adresse ne désigne qu'eux.
+  const premier = await unCadrage(b, lea, v.id, 0, 1)
+  assert.equal(premier.status, 200, premier.erreur)
+  assert.equal(premier.entetes.get('content-type'), 'image/webp')
+  assert.equal(premier.entetes.get('cache-control'), 'private, max-age=86400')
+  assert.ok(premier.octets.equals(octetsDe(t.tableau.qid, 1)))
+  // Le suivant attend « Reculer » : servi d'avance, le tableau entier se téléchargerait avant la réponse (invariant 1).
+  for (const k of [2, 4]) {
+    const tot = await unCadrage(b, lea, v.id, 0, k)
+    assert.deepEqual([tot.status, tot.erreur], [400, 'Recule d’un pas pour voir plus'], `le cadrage ${k}`)
+    assert.equal(tot.entetes.get('cache-control'), 'no-store', 'un refus ne se garde pas : après « Reculer », la même adresse sert')
+  }
+  v = ok(await jouer(b, lea, v, { quoi: 'reculer', manche: 0 }), 'reculer')
+  assert.equal(v.enCours?.jeu === 'detail' && v.enCours.cadrage, 2)
+  const deuxieme = await unCadrage(b, lea, v.id, 0, 2)
+  assert.equal(deuxieme.status, 200)
+  assert.ok(deuxieme.octets.equals(octetsDe(t.tableau.qid, 2)))
+  assert.equal((await unCadrage(b, lea, v.id, 0, 3)).status, 400)
+
+  // La partie d'un autre profil, ou qui n'existe pas : introuvable (invariant 3) ; sans profil, rien.
+  for (const [qui, id] of [
+    [tom, v.id],
+    [lea, 'nulle-part'],
+  ] as const) {
+    const r = await unCadrage(b, qui, id, 0, 1)
+    assert.deepEqual([r.status, r.erreur], [404, PARTIE_INTROUVABLE])
+  }
+  assert.deepEqual(await unCadrage(b, undefined, v.id, 0, 1).then(r => [r.status, r.erreur]), [401, CABINET_SANS_PROFIL])
+  // Un tableau qu'aucune manche ne joue — la manche suivante pas encore ouverte, au-delà du plan — ; un cadrage qui n'existe pas.
+  for (const tirage of [1, 2, 9, 'x', '-1', '0.5']) {
+    const r = await unCadrage(b, lea, v.id, tirage, 1)
+    assert.deepEqual([r.status, r.erreur], [404, TABLEAU_INTROUVABLE], `le tirage ${tirage}`)
+  }
+  for (const cadrage of [0, 5, 'x', '1.5', '01']) {
+    const r = await unCadrage(b, lea, v.id, 0, cadrage)
+    assert.deepEqual([r.status, r.erreur], [400, 'Ce cadrage n’existe pas'], `le cadrage ${cadrage}`)
+  }
+
+  // Le verdict : tous les cadrages, pour la révélation et « Mes réponses ».
+  v = await jouerUnDetail(b, lea, v, 0)
+  assert.equal(v.revelation?.corps.jeu, 'detail')
+  assert.equal(v.revelation?.tirage, 0, 'la révélation dit son tirage : la page y demande le tableau entier')
+  for (let k = 1; k <= 4; k++) {
+    const r = await unCadrage(b, lea, v.id, 0, k)
+    assert.equal(r.status, 200, `le cadrage ${k} après le verdict`)
+    assert.ok(r.octets.equals(octetsDe(t.tableau.qid, k)))
+  }
+  // Une partie qui n'est pas au Détail n'a pas de tableau.
+  ok(await jouer(b, lea, v, { quoi: 'quitter' }), 'quitter')
+  const pari = ok(await commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null }), 'le Pari')
+  assert.deepEqual(await unCadrage(b, lea, pari.id, 0, 1).then(r => [r.status, r.erreur]), [404, TABLEAU_INTROUVABLE])
+  ok(await jouer(b, lea, pari, { quoi: 'quitter' }), 'quitter le Pari')
+})
+
+test('par les routes : après « Changer », l’adresse dit la rechange — l’image d’avant ne revient pas du cache, et la partie finie sert la sienne', async () => {
+  const b = await unBanc()
+  const ines = await inscrireProfil(b.banc.url, 'ines-detail', 'Inès')
+  // L'Échange, une œuvre de départ : Changer une fois, une rechange au plan.
+  let v = ok(await commencer(b, ines, { origine: 'libre', jeu: 'detail', carte: 'echange' }), 'le Détail')
+  const plan = departEnBase(b.fichier, v.id).tirages as DetailTire[]
+  assert.equal(plan.length, 4)
+  assert.equal(v.tirage, 0)
+  v = ok(await jouer(b, ines, v, { quoi: 'changer', manche: 0 }), 'changer')
+  assert.equal(v.tirage, 3, 'la manche joue la rechange : l’indice du tirage dans le plan figé, jamais celui de la manche')
+  assert.deepEqual(
+    v.enCours?.jeu === 'detail' && v.enCours.titres.map(x => x.titre),
+    plan[3].titres.map(x => x.titre),
+  )
+  const neuf = await unCadrage(b, ines, v.id, 3, 1)
+  assert.equal(neuf.status, 200)
+  assert.ok(neuf.octets.equals(octetsDe(plan[3].tableau.qid, 1)))
+  assert.ok(!neuf.octets.equals(octetsDe(plan[0].tableau.qid, 1)), 'un autre tableau')
+  assert.deepEqual(await unCadrage(b, ines, v.id, 0, 1).then(r => [r.status, r.erreur]), [404, TABLEAU_INTROUVABLE], 'le tableau d’avant n’est plus en jeu')
+  v = await jouerUnDetail(b, ines, v, 0, { pas: 1, juste: false })
+  assert.equal(v.revelation?.tirage, 3)
+  // Finie, la partie ne vit plus en mémoire : elle se relit, et sert encore le tableau de chaque manche jouée.
+  v = ok(await jouer(b, ines, v, { quoi: 'quitter' }), 'quitter')
+  assert.equal(v.phase, 'finie')
+  assert.equal((await unCadrage(b, ines, v.id, 3, 4)).status, 200)
+  assert.equal((await unCadrage(b, ines, v.id, 0, 1)).status, 404)
+  assert.equal((await unCadrage(b, ines, v.id, 1, 1)).status, 404, 'une manche jamais ouverte n’a pas de tableau')
+})
+
+test('par les routes : la Frise d’un bout à l’autre — trois, puis deux, puis deux nouveaux venus, sans faute, neuf étoiles ; Changer n’y sert jamais', async () => {
+  const b = await unBanc()
+  const noe = await inscrireProfil(b.banc.url, 'noe-frise', 'Noé')
+  let v = ok(await commencer(b, noe, { origine: 'libre', jeu: 'frise', carte: null }), 'la Frise')
+  const d = departEnBase(b.fichier, v.id)
+  assert.equal(d.tirages.length, 3)
+  const t = d.tirages[0] as FriseTiree
+  assert.equal(d.theme, t.theme, 'le thème se fige au départ, avec le plan')
+  for (let k = 0; k < 3; k++) {
+    if (k > 0) v = await ouvrir(b, noe, v, k)
+    const montre = v.enCours?.jeu === 'frise' ? v.enCours : null
+    assert.ok(montre, `la manche ${k}`)
+    assert.equal(montre.theme, t.theme)
+    assert.deepEqual([montre.ancres.length, montre.nouveaux.length], [[0, 3], [3, 2], [5, 2]][k])
+    v = await jouerUneFrise(b, noe, v, k)
+    assert.equal(v.revelation?.corps.jeu === 'frise' && v.revelation.corps.titre, 'Sans faute')
+  }
+  assert.deepEqual([v.phase, v.bilan?.total, v.bilan?.naturel, v.bilan?.aidee], ['finie', 9, [3, 3, 3], false])
+  const pieces = enBase(b.fichier, db => db.prepare('SELECT reserve_id, forme, juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position').all(v.id)) as { reserve_id: string; forme: string; juste: number }[]
+  assert.deepEqual(
+    pieces.map(p => [p.reserve_id, p.forme, p.juste]),
+    [0, 1, 2].map(k => [idDeLaFriseATheme(t.cle, k), 'frise', 1]),
+    'une pièce par manche, unique dans sa partie : la base d’essai n’a que des frises à thème',
+  )
+  // Une carte de Changer s'emporte à la Frise — elle ne coûte rien — mais n'y sert pas, et le plan n'a pas de rechange.
+  let c = ok(await commencer(b, noe, { origine: 'libre', jeu: 'frise', carte: 'echange' }), 'la Frise et l’Échange')
+  assert.equal(departEnBase(b.fichier, c.id).tirages.length, 3)
+  const changer = await jouer(b, noe, c, { quoi: 'changer', manche: 0 })
+  assert.deepEqual([changer.status, (changer.corps as unknown as { error: string }).error], [400, `Changer ne sert pas ${JEUX.frise.a}`])
+  c = ok(await jouer(b, noe, c, { quoi: 'quitter' }), 'quitter')
+  // Rien de posé à la manche quittée : sa pièce s'écrit, sans rien de rangé.
+  assert.equal(c.bilan?.total, 0)
+  assert.ok(friseDe(b, c.id, 0))
+  assert.equal(ok(await laPage(b, noe), 'la page').enCours, null)
 })

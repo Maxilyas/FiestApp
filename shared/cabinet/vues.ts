@@ -143,6 +143,8 @@ export interface CarteVue {
 /** La révélation d'une manche tranchée : le corps de son jeu, et ce qu'en dit la partie. */
 export interface RevelationVue {
   manche: Manche
+  /** L'indice, dans le plan figé, du contenu que la manche a joué — après « Changer », une rechange : l'adresse du tableau entier du Détail le porte (`adresseDUnCadrage`). Toujours posé par la vue. */
+  tirage?: number
   fin: FinDUneManche
   /** Les positions de ses pièces que « Signaler une erreur » vise : les seules questions de la base — le Pari, le Mot, le Filet. */
   signalables: number[]
@@ -214,6 +216,14 @@ export interface VueDeLaPartie {
   seuil: number | null
   carte: CarteVue | null
   manche: Manche
+  /**
+   * L'indice, dans le plan figé, du contenu de la manche où il en est — la
+   * sienne, ou la rechange que « Changer » a prise ; absent avant la première
+   * manche. L'adresse d'une image du Détail le porte (`adresseDUnCadrage`) : il
+   * ne désigne jamais deux tableaux, et le cache du téléphone ne rend pas
+   * l'image d'avant. Rien d'une rechange à venir : seulement combien ont servi.
+   */
+  tirage?: number
   phase: PhaseDeLaPartie
   manches: MancheVue[]
   /** Sur neuf. */
