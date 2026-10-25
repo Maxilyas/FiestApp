@@ -37,19 +37,29 @@ export function ceQueLaPartieAFait(issue: IssueDUnePartie | undefined): { appris
 
 /**
  * Le titre de ce qu'une partie a appris, au bilan : « Son cartel : … » quand
- * la fin a fait de cette partie le cartel de son œuvre, sinon ce qu'elle lui a
- * appris. Gagnée, l'œuvre le prend ; dorée en jouant, ou doublée, seulement si
- * elle n'en avait pas — le serveur garde le premier, et la fin seule le sait
+ * cette partie est devenue le cartel de son œuvre, sinon ce qu'elle lui a
+ * appris. Dorée en jouant, ou doublée, l'œuvre ne le prend que si elle n'en
+ * avait pas — le serveur garde le premier, et la fin seule le sait
  * (`BilanVu.devientSonCartel`, de la ligne que la base rend) : la page ne le
  * devine pas de l'issue. Gagnée avec le sien puis dorée à 9 sur 9, le bilan
  * disait « Son cartel » d'une manche que l'œuvre rouverte ne montrait pas ;
  * achetée puis dorée en jouant, il taisait le cartel qu'elle venait de prendre.
- * Le bilan relu sans la fin — un geste rejoué, dont la réponse s'était perdue —
- * ne le porte pas : il dit ce que la partie a appris, sans rien promettre.
+ *
+ * Le bilan relu sans la fin — un geste rejoué, sa réponse perdue en route :
+ * le 409 rend la partie relue en base — ne porte ni `devientSonCartel` ni
+ * `gains`, que la fin seule porte. Gagnée, l'œuvre a pris ce cartel à coup sûr
+ * — elle n'était pas à lui, sans quoi la partie l'aurait doublée, donc sans
+ * cartel, et rien ne s'achète ni ne se dore pendant qu'une partie attend — : il
+ * le dit encore, sans quoi il taisait un fait. Dorée ou doublée, il ne promet
+ * rien. La fin dite, seule la base décide, gagnée comprise : un serveur en
+ * retard sur l'autre d'une mise en ligne peut dire gagnée une œuvre qui avait
+ * déjà le sien.
  */
-export function titreAuBilan(b: Pick<BilanVu, 'issue' | 'devientSonCartel'>): string {
+export function titreAuBilan(b: Pick<BilanVu, 'issue' | 'devientSonCartel' | 'gains'>): string {
   const { appris } = ceQueLaPartieAFait(b.issue)
-  return b.devientSonCartel ? `Son cartel : ce que tu as appris ${appris}` : `Ce que tu as appris ${appris}`
+  const relu = b.gains === undefined
+  const sonCartel = b.devientSonCartel === true || (relu && (b.issue === 'gagnee' || b.issue === 'gagnee-doree'))
+  return sonCartel ? `Son cartel : ce que tu as appris ${appris}` : `Ce que tu as appris ${appris}`
 }
 
 /**

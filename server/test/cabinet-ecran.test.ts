@@ -2153,22 +2153,40 @@ test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en
   // prend : dorée en jouant ou doublée, elle ne le prend que si elle n'en avait pas — le serveur garde le premier, et la fin le
   // dit (`BilanVu.devientSonCartel`, lu de la ligne que la base rend). Gagnée avec le sien puis dorée à 9 sur 9, le bilan disait
   // « Son cartel » d'une manche que l'œuvre rouverte ne montrait pas ; achetée puis dorée en jouant, il taisait celui qu'elle
-  // venait de prendre (`cabinet-poussiere.test.ts`, par le vrai serveur).
+  // venait de prendre (`cabinet-poussiere.test.ts`, par le vrai serveur). Relu sans la fin — ni `gains` ni `devientSonCartel` :
+  // un geste rejoué, sa réponse perdue —, il le dit encore d'une œuvre gagnée, qui l'a pris à coup sûr, et ne promet rien d'une
+  // dorée ou d'une doublée ; la fin dite, la base seule en décide, gagnée comprise.
   const ecran = (await ecrans()).pari
   const g = vues.gagnee
-  // La chasse gagnée de Hugo : la fin a dit que la partie devient son cartel.
+  // La chasse gagnée de Hugo : la fin a dit que la partie devient son cartel, et ses gains, que seule la fin porte.
   assert.equal(g.bilan!.devientSonCartel, true)
+  assert.ok(g.bilan!.gains, 'la fin porte ses gains')
   const appris = { gagnee: 'en la gagnant', 'gagnee-doree': 'en la gagnant', doree: 'en la dorant', double: 'en la rejouant' } as const
   for (const issue of ['gagnee', 'gagnee-doree', 'doree', 'double'] as const) {
     for (const devient of [true, false]) {
-      const { devientSonCartel: _, ...sans } = g.bilan!
-      const vue = { ...g, bilan: { ...sans, issue, ...(devient && { devientSonCartel: true as const }) } } as VueDeLaPartie
-      const t = texte(await rendu('views/cabinet/Bilan', 'BilanDeLaPartie', { vue, ecran, onMusee: rien }))
-      const titre = `${devient ? 'Son cartel : ce' : 'Ce'} que tu as appris ${appris[issue]}`
-      assert.match(t, new RegExp(`${titre} ${lu(g.bilan!.cartel!.sujet)}`), `${issue}, ${devient}`)
-      if (!devient) assert.doesNotMatch(t, /Son cartel/, `${issue}, sans le cartel`)
+      for (const fin of [true, false]) {
+        const { devientSonCartel: _, gains, ...sans } = g.bilan!
+        const vue = { ...g, bilan: { ...sans, issue, ...(fin && { gains }), ...(devient && { devientSonCartel: true as const }) } } as VueDeLaPartie
+        const t = texte(await rendu('views/cabinet/Bilan', 'BilanDeLaPartie', { vue, ecran, onMusee: rien }))
+        const sonCartel = devient || (!fin && (issue === 'gagnee' || issue === 'gagnee-doree'))
+        const titre = `${sonCartel ? 'Son cartel : ce' : 'Ce'} que tu as appris ${appris[issue]}`
+        const ou = `${issue}, ${devient ? 'son cartel dit' : 'sans le dire'}, ${fin ? 'la fin' : 'relu'}`
+        assert.match(t, new RegExp(`${titre} ${lu(g.bilan!.cartel!.sujet)}`), ou)
+        if (!sonCartel) assert.doesNotMatch(t, /Son cartel/, ou)
+      }
     }
   }
+  // Par les routes : la chasse gagnée de Basile, la réponse de son dernier geste perdue en route. Renvoyé, le geste reçoit 409 et
+  // la partie relue en base — la mémoire l'a oubliée à la fin —, sans la fin : le bilan redit pourtant « Son cartel ».
+  const basile = await inscrireProfil(b.banc.url, 'basile', 'Basile')
+  const finie = await unPariParfait(b, basile, ok(await commencer(b, basile, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse de Basile'))
+  assert.deepEqual([finie.bilan?.issue, finie.bilan?.devientSonCartel], ['gagnee-doree', true])
+  const renvoi = await jouer(b, basile, { id: finie.id, rang: finie.rang - 1 }, { quoi: 'repondre', manche: 2, reponse: { pari: { choix: 0 } } })
+  assert.equal(renvoi.status, 409)
+  const relue = (renvoi.corps as unknown as { partie: VueDeLaPartie }).partie
+  assert.deepEqual([relue.bilan?.issue, relue.bilan?.devientSonCartel, relue.bilan?.gains], ['gagnee-doree', undefined, undefined], 'relue sans la fin')
+  const t = texte(await rendu('views/cabinet/Bilan', 'BilanDeLaPartie', { vue: relue, ecran, onMusee: rien }))
+  assert.match(t, new RegExp(`Son cartel : ce que tu as appris en la gagnant ${lu(relue.bilan!.cartel!.sujet)}`))
   // Les mots d'une seule source : le bilan ne les recopie pas.
   assert.doesNotMatch(source('views/cabinet/Bilan.tsx'), /en la gagnant/)
   // Le glossaire de « Comment ça marche ? » non plus ne dit pas qu'un cartel vient toujours de la partie qui l'a gagnée.

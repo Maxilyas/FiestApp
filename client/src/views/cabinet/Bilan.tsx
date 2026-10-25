@@ -151,7 +151,7 @@ export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDe
           {b.cartel && (
             <div className="cab-cartel">
               {/* Les mots du cartel du musée — dorée en jouant, une œuvre achetée ne se dit pas gagnée —, et « Son cartel » seulement
-                  quand la fin dit que l'œuvre le prend (`titreAuBilan`, `devientSonCartel`). */}
+                  quand la fin dit que l'œuvre le prend, ou, relue sans la fin, gagnée (`titreAuBilan`, `devientSonCartel`). */}
               <span className="cab-cartel-titre">{titreAuBilan(b)}</span>
               <p className="cab-cartel-sujet">{espacesFines(b.cartel.sujet)}</p>
               <p className="cab-cartel-reponse">{espacesFines(b.cartel.reponse)}</p>

@@ -5,6 +5,7 @@ paths:
   - "server/src/auth/profiles.ts"
   - "server/scripts/calibrage.ts"
   - "client/src/components/{Ecusson,Trophees,Trophies,Carriere,CarriereAtlas,Niveau,Gains,Etoiles}.tsx"
+  - "client/src/niveauVu.ts"
   - "server/test/{hautsfaits,legendaires,divins,eclat,eclat-hors-soiree,experience,niveaux,recalcul,saisons,saisons-relues,sphinx,ecussons,bareme,recompenses-montrees,gains}.test.ts"
 ---
 
