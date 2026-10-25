@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import type { InStatement } from '@libsql/client'
-import { PREFIXE_DU_REBUS } from '../../../shared/curiosites'
-import { PREFIXE_DE_LA_FRISE } from '../../../shared/frise'
+import { horsDeLaBase } from '../../../shared/horsDeLaBase'
 import { jourDe } from '../../../shared/jour'
 import { CARTES_DU_SECOND_ESSAI } from '../../../shared/rencontres'
 import { apresUnPassage, type SuiviDeRevision } from '../../../shared/revision'
@@ -477,13 +476,14 @@ export class JournalDesReponses {
 
   /**
    * Une réponse de plus à son carnet, aux règles de la requête d'avant
-   * (`suivisDe`) : ni un rébus, ni une frise ; une bonne réponse aidée — un
-   * joker, un vrai ou faux tiré d'une autre — ne prouve rien, et une carte du
-   * second essai la tient pour ratée. `avant` : l'instant de sa dernière
-   * réponse lue à la même question.
+   * (`suivisDeLaBase`) : rien qui ne soit une question de la base — un rébus,
+   * une frise, un jeu du Cabinet, la même liste qu'en SQL (`horsDeLaBase`) ;
+   * une bonne réponse aidée — un joker, un vrai ou faux tiré d'une autre — ne
+   * prouve rien, et une carte du second essai la tient pour ratée. `avant` :
+   * l'instant de sa dernière réponse lue à la même question.
    */
   private auCarnet(d: Dossier, r: ReponseDuJournal, avant: number | undefined) {
-    if (r.question.startsWith(PREFIXE_DU_REBUS) || r.question.startsWith(PREFIXE_DE_LA_FRISE)) return
+    if (horsDeLaBase(r.question)) return
     const essai = r.joker !== null && ESSAIS.has(r.joker)
     if (r.juste && !essai && (r.joker !== null || r.forme === 'vrai-faux')) return
     if (avant !== undefined && r.le < avant) d.carnetIncertain = true

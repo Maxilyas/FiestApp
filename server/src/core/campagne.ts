@@ -368,6 +368,7 @@ import { EFFACE, JOKERS_QUI_AIDENT, LEGENDAIRES_A_JOKER } from '../../../shared/
 import { cleDeLExpedition } from '../../../shared/legendaires'
 import { compositionDite, gabaritDe, lireUneComposition, seCompose, tuilesDe } from '../../../shared/lettres'
 import { PREFIXE_DU_REBUS, QUESTION_DU_REBUS, type SorteDeCuriosite } from '../../../shared/curiosites'
+import { refusDuSignalement, sqlDansLaBase } from '../../../shared/horsDeLaBase'
 import { contenuDesCuriosites, type ContenuDesCuriosites } from './curiosites'
 import {
   ECART_DE_LA_FRISE,
@@ -3137,7 +3138,9 @@ export class CampagneStore {
    * question (`carnetIncertain`) — et `journal-des-reponses.test.ts`, qui
    * compare. La forme se compare sans NULL (`COALESCE`) : `forme =
    * 'vrai-faux'`, vide, rendait NULL tout le filtre, et écartait chaque bonne
-   * réponse nue.
+   * réponse nue. Ce qui n'est pas une question de la base s'écarte par la
+   * liste que le journal lit aussi (`sqlDansLaBase`) : recopiée ici, un
+   * préfixe oublié des deux côtés se serait comparé égal.
    */
   private async suivisDeLaBase(profileId: string): Promise<Map<string, SuiviDeRevision>> {
     const essais = CARTES_DU_SECOND_ESSAI.map(cle => `'${cle}'`).join(', ')
@@ -3147,7 +3150,7 @@ export class CampagneStore {
                      r.repondue_le AS le, r.serie_id AS serie, r.position AS position
               FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
               WHERE s.profile_id = ?
-                AND r.reserve_id NOT LIKE '${PREFIXE_DU_REBUS}%' AND r.reserve_id NOT LIKE '${PREFIXE_DE_LA_FRISE}%'
+                AND ${sqlDansLaBase('r.reserve_id')}
                 AND NOT (r.juste = 1 AND COALESCE(r.joker, '') NOT IN (${essais}) AND (r.joker IS NOT NULL OR COALESCE(r.forme, '') = 'vrai-faux'))
                 AND NOT (s.mode = 'defi' AND s.semaine >= ?)
                 AND NOT (s.mode = 'duel' AND s.duel IN (SELECT code FROM campagne_duels WHERE ferme_le > ?))
@@ -7211,10 +7214,9 @@ export class CampagneStore {
     if (!s) throw new Error('Cette série est introuvable')
     if (!Number.isInteger(index) || index < 0 || index >= s.index) throw new Error('Réponds d’abord à cette question')
     const q = s.questions[index]
-    // Un rébus (v12) n'est pas une question de la base : le QG n'aurait ni version à relire ni réponse à corriger.
-    if (q.id.startsWith(PREFIXE_DU_REBUS)) throw new Error('Un rébus ne se signale pas : seules les questions de la campagne le peuvent')
-    // Une frise (v13) non plus : quatre questions récrites en une ligne chacune, aucune n'est celle qu'il a jouée.
-    if (q.id.startsWith(PREFIXE_DE_LA_FRISE)) throw new Error('Une frise ne se signale pas : seules les questions de la campagne le peuvent')
+    // Un rébus, une frise, un jeu du Cabinet ne sont pas des questions de la base : le QG n'aurait ni version à relire ni réponse à corriger. Chacun le dit à sa façon.
+    const refus = refusDuSignalement(q.id)
+    if (refus) throw new Error(refus)
     if (!(await this.base()).parId.has(q.id)) throw new Error('Cette question n’est plus dans la campagne')
     // Signalée de nouveau après une relecture, elle revient à relire : l'issue d'avant ne la suit pas.
     await this.client.execute({

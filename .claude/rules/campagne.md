@@ -1,13 +1,13 @@
 ---
 paths:
-  - "shared/{campagne,sujets,revision,nomDuChoix}.ts"
+  - "shared/{campagne,sujets,revision,nomDuChoix,horsDeLaBase}.ts"
   - "server/src/core/{campagne,baremeDuSolo,jumelles,journalDesReponses}.ts"
   - "server/src/campagne.ts"
   - "client/src/views/{CampagneApp,Defi,Carnet}.tsx"
   - "client/src/components/{ChoixDuTheme,SerieCorrigee}.tsx"
   - "client/src/iconeDuSujet.ts"
   - "server/scripts/rendu-campagne.ts"
-  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,bareme-du-solo,journal-des-reponses}.test.ts"
+  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,bareme-du-solo,journal-des-reponses,hors-de-la-base}.test.ts"
 ---
 
 # La campagne solo et le défi de la semaine
@@ -161,6 +161,25 @@ paths:
   renumérote les `rowid` qu'elles citent (`REFAITES`,
   `scripts/sauvegarde.ts`). `journal-des-reponses.test.ts` réveille la
   campagne sur ses tranches et la compare au SQL d'avant.
+- **Ce qui n'est pas une question de la base se lit dans une seule liste**
+  (`PREFIXES_HORS_DE_LA_BASE`, `shared/horsDeLaBase.ts`, le 25 octobre
+  2026, avant le Cabinet de curiosités) : un rébus (`rebus:`), une frise
+  (`frise:`), ce qu'un jeu du Cabinet tire d'ailleurs (`cab:`). Ni carnet
+  ni signalement : le carnet du journal (`auCarnet`, `horsDeLaBase`), le
+  même en SQL (`suivisDeLaBase`, `sqlDansLaBase`) et le signalement
+  (`signaler`, `refusDuSignalement` — les phrases du rébus et de la frise
+  mot pour mot, le Cabinet la sienne) la lisent. Chacun recopiait ses
+  préfixes : oublié des deux côtés du carnet, que ce test compare, un
+  préfixe ne se serait pas vu — une pièce du Cabinet ratée y entrait, et
+  « À revoir », sur l'accueil, la comptait chaque jour sans qu'aucune
+  révision ne la repose (`compterARevoir` ne lit que les retraits). Un
+  préfixe neuf la rejoint, avec sa phrase (le typage la réclame), en
+  minuscules et fini par un deux-points : aucun identifiant de la base n'en
+  porte, et `LIKE`, qui ignore la casse, ne lui prend rien
+  (`hors-de-la-base.test.ts`, qui interdit aussi de recopier un filtre ou
+  une phrase). La lecture du journal n'en dépend pas — le carnet les écarte
+  au repli : un préfixe de plus ne relit rien au réveil
+  (`VERSION_DES_TRANCHES` ne bouge pas).
 - **Une réponse de campagne écrite prévient l'expédition** (`vuAilleurs`,
   avant le lot de la série et de ses modes, de l'épreuve, du parcours) :
   l'expédition en route garde en mémoire ce qu'il a vu, lu à son départ, et

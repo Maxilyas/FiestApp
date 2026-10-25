@@ -13,7 +13,9 @@
 // requête que la campagne garde pour un journal qui doute
 // (`suivisDeLaBase`) : les défis de la semaine et d'avant, des duels
 // ouverts, fermés, annulés ou inconnus, les cartes du second essai, des
-// rébus et des frises — à l'heure de la base, puis une semaine plus tard.
+// rébus, des frises et des pièces du Cabinet, qu'aucun des deux ne garde
+// (`PREFIXES_HORS_DE_LA_BASE`) — à l'heure de la base, puis une semaine plus
+// tard.
 //
 // Puis ses tranches gardées (`campagne_tranches`) : un réveil les relit au
 // lieu de toute la base, et dit encore ce que dit le SQL d'avant — un duel
@@ -38,6 +40,8 @@ import {
   type ReponseDuJournal,
 } from '../src/core/journalDesReponses'
 import { semaineDe } from '../../shared/campagne'
+import { idDeLEclair, idDeLaFiche, idDeLaFriseATheme, idDeLaFriseDeSujet, idDeLaReplique, idDuLieu, idDuTableau } from '../../shared/cabinet/pieces'
+import { PREFIXES_HORS_DE_LA_BASE, horsDeLaBase } from '../../shared/horsDeLaBase'
 import { jourDe } from '../../shared/jour'
 import type { SuiviDeRevision } from '../../shared/revision'
 
@@ -129,7 +133,7 @@ function hasardDe(graine: number) {
   return () => (g = (g * 16807) % 2147483647) / 2147483647
 }
 
-const MODES = ['serie', 'serie', 'revision', 'sentier', 'rencontre', 'defi', 'duel', 'expedition', 'sujet']
+const MODES = ['serie', 'serie', 'revision', 'sentier', 'rencontre', 'defi', 'duel', 'expedition', 'sujet', 'cabinet']
 const CATEGORIES = ['Histoire', 'Sport', 'Musique', 'Cuisine']
 /** Les sentiers d'une épreuve ; un parcours de thème (`sujet`) a un palier, pas de branche. */
 const BRANCHES = ['foret', 'ocean', 'cosmos']
@@ -149,11 +153,27 @@ const DUELS = [
   { code: 'duel-inconnu', fermeLe: null },
 ]
 
-/** Une question : de la base, le plus souvent ; parfois un rébus ou une frise, que le carnet écarte. */
+/**
+ * Ce que le Cabinet ne tire pas de la base, chaque sorte sous le nom qu'il lui
+ * donne — l'Éclair et la frise d'un sujet portent des questions de la base
+ * dans leur identifiant, qui n'en restent pas moins hors du carnet.
+ */
+const DU_CABINET = [
+  idDuLieu('orleans-siege'),
+  idDeLaFiche('victor-hugo'),
+  idDeLaReplique('hotel-du-nord'),
+  idDuTableau('Q12418'),
+  idDeLEclair(['r1', 'r2', 'r3', 'r4', 'r5']),
+  idDeLaFriseATheme('grands-sieges', 1),
+  idDeLaFriseDeSujet(['r6', 'r7']),
+]
+
+/** Une question : de la base, le plus souvent ; parfois un rébus, une frise ou une pièce du Cabinet, que le carnet écarte. */
 function questionAuHasard(hasard: () => number): string {
   const h = hasard()
   if (h < 0.03) return `rebus:${Math.floor(hasard() * 3)}`
   if (h < 0.06) return `frise:r1|r2|r3|r${Math.floor(hasard() * 3)}`
+  if (h < 0.09) return DU_CABINET[Math.floor(hasard() * DU_CABINET.length)]
   return `r${Math.floor(hasard() * 45)}`
 }
 
@@ -333,8 +353,24 @@ async function comparerLesCarnets(campagne: CampagneStore, journal: JournalDesRe
     const attendu = await deLaBase(p)
     questions += attendu.size
     assert.deepEqual(journal.carnetDe(p, semaineDe(jourDe(maintenant)), maintenant), attendu, `${nom} · ${p} : son carnet`)
+    // Égaux, les deux carnets pourraient garder ensemble ce qu'aucun ne doit : un préfixe oublié des deux côtés.
+    assert.deepEqual([...attendu.keys()].filter(horsDeLaBase), [], `${nom} · ${p} : rien que des questions de la base`)
   }
   return questions
+}
+
+/** Les erreurs de ces joueurs sous chaque préfixe hors de la base : sans elles, que leurs carnets s'en passent ne prouverait rien. */
+function erreursHorsDeLaBase(fichier: string, profils: readonly string[]): Record<string, number> {
+  const db = new Database(fichier, { readonly: true })
+  try {
+    const compter = db.prepare(
+      `SELECT COUNT(*) AS n FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+       WHERE r.juste = 0 AND substr(r.reserve_id, 1, length(?)) = ? AND s.profile_id IN (SELECT value FROM json_each(?))`,
+    )
+    return Object.fromEntries(PREFIXES_HORS_DE_LA_BASE.map(p => [p, (compter.get(p, p, JSON.stringify(profils)) as { n: number }).n]))
+  } finally {
+    db.close()
+  }
 }
 
 /** Une réponse telle que le journal la lit, pour les épreuves qui la posent à la main. */
@@ -378,6 +414,8 @@ test('le journal dit ce que disaient les lectures d’avant — toute la base lu
     assert.ok(journal.reponses > 500, `${journal.reponses} réponses lues`)
     const auCarnet = await comparerLesCarnets(campagne, journal, profils, horloge.t, 'la base entière')
     assert.ok(auCarnet > 50, `${auCarnet} questions aux carnets`)
+    const erreurs = erreursHorsDeLaBase(fichier, profils)
+    assert.ok(Object.values(erreurs).every(n => n > 0), `des erreurs sous chaque préfixe hors de la base : ${JSON.stringify(erreurs)}`)
 
     // Ce qui arrive ensuite, lu par différence ; une lecture en double, et une en retard sur une plus récente, ne comptent rien de plus.
     remplir(fichier, hasard, { series: 40, depart: 160, debut: MAINTENANT - 6 * JOUR_MS, fin: MAINTENANT })
