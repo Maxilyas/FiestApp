@@ -39,11 +39,18 @@ function lire(fichier: string): Ligne[] {
   return brut as Ligne[]
 }
 
+/**
+ * Les lignes déjà rangées ; rien si le fichier n'existe pas encore. Un fichier
+ * qui ne se lit pas — un conflit de fusion, une virgule de trop — arrête tout :
+ * compté pour vide, `verifier` n'y aurait plus vu les doublons, et `ranger`
+ * l'aurait réécrit avec le seul lot.
+ */
 function contenu(): Ligne[] {
   try {
     return lire(CONTENU)
-  } catch {
-    return []
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return []
+    throw new Error(`${CONTENU} ne se lit pas (${e instanceof Error ? e.message : String(e)}) : corrige-le d'abord, rien n'est écrit`)
   }
 }
 

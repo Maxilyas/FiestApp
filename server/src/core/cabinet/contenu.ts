@@ -56,14 +56,24 @@ export const SORTES_DU_CONTENU: readonly SorteDuContenu[] = ['lieux', 'fiches', 
 
 /**
  * Deux lieux à moins de tant de kilomètres sont le même : deux épingles au
- * même endroit, deux fois la même réponse sous deux récits. Pas un choix de
- * produit — ce que relit le rangement d'un lot.
+ * même endroit, deux fois la même réponse sous deux récits. Une borne du
+ * contenu comme celles de `bareme.ts` — le chargement l'applique aussi, et
+ * relevée, elle écarterait des lieux servis —, qui ira y vivre avec sa ligne
+ * de `baremes.md` : pendant le lot qui l'a posée, d'autres tenaient ces deux
+ * fichiers. Le 25 octobre 2026, les deux lieux livrés les plus proches étaient
+ * à 3,4 km (la Rance et le départ de la Route du Rhum).
  */
 export const LIEUX_VOISINS_KM = 2
 
 // ── Ce qu'un texte peut être ────────────────────────────────────────────────
 
-const EMOJI = /\p{Extended_Pictographic}/u
+/**
+ * Un emoji, quel que soit son âge : un pictogramme, mais aussi un drapeau
+ * (deux indicateurs régionaux) et une touche chiffrée (« 1️⃣ », un chiffre et
+ * son cadre) — ni l'un ni l'autre n'est un pictogramme pour Unicode, et
+ * `emojis.test.ts`, qui ne garde que l'âge, laisse passer les drapeaux.
+ */
+const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}|\u{20E3}/u
 /** Un « Où … ? » : l'Épingle demande où, la carte de France répond. */
 const DEMANDE_OU = /^Où .+ \?$/
 /** Un seul mot : des lettres, une apostrophe ou un trait d'union entre elles (« sûr », « chef-d'œuvre »). */
@@ -99,7 +109,7 @@ const motsDe = (texte: string) =>
  * garde la capitale d'un nom propre ; ici, un récit qui écrirait « beaune »
  * sans elle dirait la réponse tout autant.
  */
-function ecritDans(texte: string, nom: string): boolean {
+export function ecritDans(texte: string, nom: string): boolean {
   const mots = motsDe(texte)
   let cherche = motsDe(nom)
   while (cherche.length > 1 && ARTICLES.has(cherche[0])) cherche = cherche.slice(1)
@@ -183,12 +193,15 @@ const CHAMPS_DE_LA_FICHE = ['id', 'reponse', 'cles', 'indices', 'savais', 'categ
 
 /**
  * Pourquoi cette fiche ne se pose pas — null : elle se pose. Cinq indices
- * courts, du plus obscur au plus évident, dont aucun ne dit la réponse ni une
- * de ses clés ; des clés en minuscules sans accents, de trois lettres au moins
- * (`arc` en est une). Une saisie ne trouve la personne que si elle tient une
- * clé — sans quoi « un roi » trouverait tout le monde — : une clé au moins se
- * lit donc dans la réponse, ou la réponse tapée en entier ne trouverait
- * personne.
+ * courts, du plus obscur au plus évident, dont aucun n'écrit la réponse ni une
+ * de ses clés en mots entiers ; des clés en minuscules sans accents, de trois
+ * lettres au moins (`arc` en est une). Une saisie ne trouve la personne que si
+ * elle tient une clé — sans quoi « un roi » trouverait tout le monde — : une
+ * clé au moins se lit donc dans la réponse, ou la réponse tapée en entier ne
+ * trouverait personne. C'est une condition, pas toute la règle : ce qu'une
+ * saisie doit être pour trouver — ses mots comptés, la faute de frappe
+ * tolérée, les petits mots qu'elle laisse — est la règle du jeu des Indices,
+ * que ce juge ne recopie pas ; il passera par elle.
  */
 export function refusDeLaFiche(brut: unknown): string | null {
   const champs = refusDesChamps(brut, CHAMPS_DE_LA_FICHE)
@@ -232,8 +245,10 @@ const toutesDistinctes = (propositions: readonly string[]) => new Set(propositio
  * qui manque, trois leurres d'un mot qui ne se confondent pas avec lui, la
  * personne qui l'a dite et deux autres, distinctes ; la réplique entière tient
  * en quinze mots — elle se lit d'un coup, chrono en marche. Le trou se pose
- * entre `avant` et `apres` : `avant` finit sur un mot ou une apostrophe,
- * `apres` commence par un blanc ou par ce qui colle au mot (« , », « -moi »).
+ * entre `avant` et `apres` : `avant` finit sans blanc — la page met une espace
+ * avant le mot, sauf après une apostrophe (`'Vers l’'`, `'infini'`) —, et
+ * `apres` porte le sien quand il en faut un (`' et Paris.'`, `' !'`) ou
+ * commence par ce qui se soude au mot (`','`, `'-moi !'`).
  */
 export function refusDeLaReplique(brut: unknown): string | null {
   const champs = refusDesChamps(brut, CHAMPS_DE_LA_REPLIQUE)

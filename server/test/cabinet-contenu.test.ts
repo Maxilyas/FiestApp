@@ -19,6 +19,7 @@ import {
   SORTES,
   SORTES_DU_CONTENU,
   contenuDuCabinet,
+  ecritDans,
   ligneDe,
   lireLeContenu,
   refusDeLaFiche,
@@ -28,6 +29,7 @@ import {
   trier,
   type SorteDuContenu,
 } from '../src/core/cabinet/contenu'
+import { traiterLesLots } from '../scripts/cabinet-contenu'
 import {
   CASES_DE_LA_VISITE,
   CHASSES_PAR_JOUR,
@@ -95,12 +97,20 @@ test('chaque thème de l’Épingle a de quoi faire une partie : trois lieux d�
 
 test('chaque jeu du contenu neuf tient sept jours sans redite, au rythme d’une visite, deux chasses et cinq libres', () => {
   // Le rythme d'un joueur assidu : les trois parties de sa visite, ses deux
-  // chasses, ses cinq parties libres qui paient — dix parties par jour, que la
-  // visite fait tourner sur les neuf jeux (ceux des deux jours d'avant passent
-  // après). Chaque jeu en reçoit donc deux par jour au plus, en moyenne
-  // arrondie au-dessus ; sur sept jours sans redite, il lui faut autant de
-  // contenus que de manches — une frise à thème, elle, fait une partie entière
-  // (ses trois vagues sont les trois manches).
+  // chasses, ses cinq parties libres qui paient — dix parties par jour sur les
+  // neuf jeux, que la visite fait tourner (ceux des deux jours d'avant passent
+  // après). Chaque jeu en reçoit deux par jour en moyenne, arrondie au-dessus ;
+  // sur sept jours sans redite, il lui faut autant de contenus que de manches
+  // — une frise à thème, elle, fait une partie entière (ses trois vagues sont
+  // ses trois manches).
+  //
+  // Une moyenne, pas un plafond : chaque œuvre se chasse à son jeu, et une case
+  // de la visite et deux chasses au même jeu en font trois dans la journée,
+  // les libres à part. À ce rythme, soixante fiches ou répliques tiennent six
+  // jours et deux tiers — c'est celui de la conception, qui compte « une
+  // dizaine de jours » à l'Épingle —, puis le tirage reprend le moins
+  // récemment vu. Le tenir au pire, ce serait trois fiches et trois répliques
+  // de plus : un choix laissé au propriétaire.
   const partiesParJour = Math.ceil((CASES_DE_LA_VISITE + CHASSES_PAR_JOUR + LIBRES_QUI_PAIENT) / CLES_DES_JEUX.length)
   assert.equal(partiesParJour, 2)
   const contenu = contenuDuCabinet()
@@ -121,6 +131,25 @@ test('chaque jeu du contenu neuf tient sept jours sans redite, au rythme d’une
   assert.ok(parties >= JOURS_SANS_REDITE * partiesParJour, `${parties} parties d'Épingle à thème`)
 })
 
+test('une frise ne souffle pas l’Épingle : un événement de l’année d’un lieu ne dit ni sa commune ni son département', () => {
+  // « Napoléon III est fait prisonnier à Sedan », 1870 : la frise jouée la
+  // veille répondait à « Où Napoléon III fut-il fait prisonnier en 1870 ? ».
+  // Les sept jours sans redite comptent par identifiant, d'un jeu à l'autre :
+  // ils ne voient pas le même fait sous deux entrées. Le même événement peut
+  // se dire aux deux — la frise demande quand, l'Épingle où —, jamais l'endroit.
+  const { lieux, frises } = contenuDuCabinet()
+  const souffles: string[] = []
+  for (const f of frises) {
+    for (const e of f.evenements) {
+      for (const l of lieux) {
+        if (e.annee !== l.annee) continue
+        for (const nom of [l.commune, l.departement]) if (ecritDans(e.libelle, nom)) souffles.push(`${f.id}, « ${e.libelle} » : ${l.id} (${nom})`)
+      }
+    }
+  }
+  assert.deepEqual(souffles, [])
+})
+
 test('le serveur lit le contenu livré une fois, hors de client/public', () => {
   const contenu = contenuDuCabinet()
   assert.equal(contenuDuCabinet(), contenu, 'lu une fois par processus')
@@ -137,14 +166,16 @@ test('un fichier qui manque, une entrée qui ne se pose pas : le serveur s’en 
     const avertis = t.mock.method(console, 'warn', () => {})
     writeFileSync(path.join(dossier, SORTES.lieux.fichier), JSON.stringify([LIEU, { ...LIEU, id: 'hors-de-france', lat: 52.5 }, { ...LIEU, id: 'beaune-encore', lon: 4.84 }]))
     writeFileSync(path.join(dossier, SORTES.frises.fichier), '[{"id":')
+    writeFileSync(path.join(dossier, SORTES.repliques.fichier), JSON.stringify({ repliques: [REPLIQUE] }))
     const lu = lireLeContenu(dossier)
     assert.deepEqual(lu.lieux.map(l => l.id), [LIEU.id], 'le lieu hors de France et le doublon s’écartent')
-    assert.deepEqual([lu.fiches.length, lu.repliques.length, lu.frises.length], [0, 0, 0], 'un fichier absent ou illisible ne donne rien')
+    assert.deepEqual([lu.fiches.length, lu.repliques.length, lu.frises.length], [0, 0, 0], 'un fichier absent, illisible ou qui n’est pas un tableau ne donne rien')
     const dits = avertis.mock.calls.map(c => c.arguments.join(' '))
     assert.ok(dits.some(d => d.includes('hors-de-france')), dits.join('\n'))
     assert.ok(dits.some(d => d.includes('beaune-encore') && d.includes(LIEU.id)), 'le doublon dit qui il redit')
     assert.ok(dits.some(d => d.includes(SORTES.fiches.fichier)), 'le fichier qui manque se dit')
     assert.ok(dits.some(d => d.includes(SORTES.frises.fichier)), 'le fichier illisible se dit')
+    assert.ok(dits.some(d => d.includes(SORTES.repliques.fichier) && d.includes('pas un tableau')), 'le fichier qui n’est pas un tableau se dit')
   } finally {
     rmSync(dossier, { recursive: true, force: true })
   }
@@ -173,34 +204,41 @@ test('un lieu : dans la France, sa commune et son département jamais dits avant
   // Le nom du lieu peut se dire : il ne donne pas la commune.
   assert.equal(refusDuLieu({ ...LIEU, question: 'Où se trouve la place Stanislas ?', commune: 'Nancy', departement: 'Meurthe-et-Moselle' }), null)
   assert.equal(refusDuLieu({ ...LIEU, commune: 'Le Havre', departement: 'Seine-Maritime', recit: 'Le centre d’un grand port est rebâti.' }), null, 'un mot de la commune ne la dit pas')
-  for (const [lieu, pourquoi] of [
-    [{ ...LIEU, lat: 52.5 }, 'hors du cadre de la France'],
-    [{ ...LIEU, lon: 9.9 }, 'à l’est de la Corse'],
-    [{ ...LIEU, lat: Number.NaN }, 'une latitude qui n’est pas un nombre'],
-    [{ ...LIEU, lat: '47.022' }, 'une latitude en texte'],
-    [{ ...LIEU, recit: 'Le chancelier fonde un hôpital à Beaune.' }, 'la commune dans le récit'],
-    [{ ...LIEU, question: 'Où se trouve cet hôpital, près de beaune ?' }, 'la commune sans sa capitale'],
-    [{ ...LIEU, recit: 'Un hôpital fondé en Côte d’Or, pour les pauvres.' }, 'le département, apostrophe courbe et sans trait d’union'],
-    [{ ...LIEU, recit: 'Un hôpital au cœur de la Cote-d’Or.' }, 'le département sans son accent'],
-    [{ ...LIEU, commune: 'Le Havre', departement: 'Seine-Maritime', recit: 'Le centre du Havre est rebâti en béton.' }, 'la commune sans son article'],
-    [{ ...LIEU, date: 'à Beaune, en 1443' }, 'la commune dans la date, montrée avec la question'],
-    [{ ...LIEU, theme: 'Beaune et ses vignes' }, 'la commune dans le thème, montré avec la question'],
-    [{ ...LIEU, question: 'Quel est cet hôpital ?' }, 'une question qui ne demande pas où'],
-    [{ ...LIEU, question: `Où se trouve ${'x'.repeat(QUESTION_MAX)} ?` }, 'une question trop longue'],
-    [{ ...LIEU, recit: 'Un hôpital.'.padEnd(RECIT_MAX + 1, '.') }, 'un récit trop long'],
-    [{ ...LIEU, savais: 'Un vin.'.padEnd(SAVAIS_MAX + 1, '.') }, 'un savais trop long'],
-    [{ ...LIEU, annee: 1443.5 }, 'une année qui n’est pas entière'],
-    [{ ...LIEU, categorie: 'Peinture' }, 'une catégorie inconnue'],
-    [{ ...LIEU, id: 'cab:lieu:beaune' }, 'le code pose le préfixe'],
-    [{ ...LIEU, id: 'Beaune' }, 'un identifiant en capitales'],
-    [{ ...LIEU, commune: '' }, 'une commune vide'],
-    [{ ...LIEU, recit: ' Un hôpital.' }, 'un blanc au bord'],
-    [{ ...LIEU, recit: 'Un hôpital  pour les pauvres.' }, 'une double espace'],
-    [{ ...LIEU, recit: 'Un hôpital 🏥 pour les pauvres.' }, 'un emoji'],
-    [{ ...LIEU, ville: 'Beaune' }, 'un champ que le format n’a pas'],
-    [(({ savais: _, ...l }) => l)(LIEU), 'un champ qui manque'],
-    [null, 'pas un objet'],
-  ] as [unknown, string][]) assert.notEqual(refusDuLieu(lieu), null, pourquoi)
+  // Chaque refus dit son motif, et chaque épreuve le relit : un cas refusé par
+  // une autre règle que la sienne passerait sans rien prouver.
+  for (const [lieu, motif, pourquoi] of [
+    [{ ...LIEU, lat: 52.5 }, /^ses coordonnées/, 'hors du cadre de la France'],
+    [{ ...LIEU, lon: 9.9 }, /^ses coordonnées/, 'à l’est de la Corse'],
+    [{ ...LIEU, lat: Number.NaN }, /^ses coordonnées/, 'une latitude qui n’est pas un nombre'],
+    [{ ...LIEU, lat: '47.022' }, /^ses coordonnées/, 'une latitude en texte'],
+    [{ ...LIEU, recit: 'Le chancelier fonde un hôpital à Beaune.' }, /^son récit dit « Beaune »/, 'la commune dans le récit'],
+    [{ ...LIEU, question: 'Où se trouve cet hôpital, près de beaune ?' }, /^sa question dit « Beaune »/, 'la commune sans sa capitale'],
+    [{ ...LIEU, recit: 'Un hôpital fondé en Côte d’Or, pour les pauvres.' }, /^son récit dit « Côte-d'Or »/, 'le département, apostrophe courbe et sans trait d’union'],
+    [{ ...LIEU, recit: 'Un hôpital au cœur de la Cote-d’Or.' }, /^son récit dit « Côte-d'Or »/, 'le département sans son accent'],
+    [{ ...LIEU, commune: 'Le Havre', departement: 'Seine-Maritime', recit: 'Le centre du Havre est rebâti en béton.' }, /^son récit dit « Le Havre »/, 'la commune sans son article'],
+    [{ ...LIEU, commune: 'Gœulzin', departement: 'Nord', recit: 'Un hôpital fondé à Goeulzin.' }, /^son récit dit « Gœulzin »/, 'la commune écrite oe pour œ'],
+    [{ ...LIEU, date: 'à Beaune, en 1443' }, /^sa date dit « Beaune »/, 'la commune dans la date, montrée avec la question'],
+    [{ ...LIEU, theme: 'Beaune et ses vignes' }, /^son thème dit « Beaune »/, 'la commune dans le thème, montré avec la question'],
+    [{ ...LIEU, question: 'Quel est cet hôpital ?' }, /^sa question demande où/, 'une question qui ne demande pas où'],
+    [{ ...LIEU, question: `Où se trouve ${'x'.repeat(QUESTION_MAX)} ?` }, /^sa question : \d+ signes, pour \d+ au plus/, 'une question trop longue'],
+    [{ ...LIEU, recit: 'Un hôpital.'.padEnd(RECIT_MAX + 1, '.') }, /^son récit : \d+ signes/, 'un récit trop long'],
+    [{ ...LIEU, savais: 'Un vin.'.padEnd(SAVAIS_MAX + 1, '.') }, /^son « Le savais-tu \? » : \d+ signes/, 'un savais trop long'],
+    [{ ...LIEU, annee: 1443.5 }, /^son année/, 'une année qui n’est pas entière'],
+    [{ ...LIEU, categorie: 'Peinture' }, /^sa catégorie/, 'une catégorie inconnue'],
+    [{ ...LIEU, id: 'cab:lieu:beaune' }, /^son identifiant/, 'le code pose le préfixe'],
+    [{ ...LIEU, id: 'Beaune' }, /^son identifiant/, 'un identifiant en capitales'],
+    [{ ...LIEU, nom: '' }, /^son nom : un texte/, 'un nom vide'],
+    [{ ...LIEU, commune: '' }, /^sa commune : un texte/, 'une commune vide'],
+    [{ ...LIEU, recit: ' Un hôpital.' }, /^son récit : sur une ligne/, 'un blanc au bord'],
+    [{ ...LIEU, recit: 'Un hôpital  pour les pauvres.' }, /^son récit : sur une ligne/, 'une double espace'],
+    [{ ...LIEU, recit: 'Un hôpital 🏥 pour les pauvres.' }, /^son récit : pas d'emoji/, 'un emoji'],
+    // Ni l'un ni l'autre n'est un pictogramme pour Unicode, et `emojis.test.ts` laisse passer les drapeaux.
+    [{ ...LIEU, recit: 'Un hôpital 🇫🇷 pour les pauvres.' }, /^son récit : pas d'emoji/, 'un drapeau'],
+    [{ ...LIEU, recit: 'Un hôpital pour 1️⃣ duc.' }, /^son récit : pas d'emoji/, 'une touche chiffrée'],
+    [{ ...LIEU, ville: 'Beaune' }, /^ville : un champ que le format n'a pas/, 'un champ que le format n’a pas'],
+    [(({ savais: _, ...l }) => l)(LIEU), /^il manque savais/, 'un champ qui manque'],
+    [null, /^pas une entrée/, 'pas un objet'],
+  ] as [unknown, RegExp, string][]) assert.match(refusDuLieu(lieu) ?? 'il se pose', motif, pourquoi)
 })
 
 const FICHE: Fiche = {
@@ -221,21 +259,25 @@ const FICHE: Fiche = {
 test('une fiche : cinq indices courts, ni la réponse ni une clé, et des clés que la réponse tapée retrouve', () => {
   assert.equal(refusDeLaFiche(FICHE), null)
   const indices = (k: number, indice: string) => FICHE.indices.map((x, i) => (i === k ? indice : x))
-  for (const [fiche, pourquoi] of [
-    [{ ...FICHE, indices: indices(4, 'Je suis Jeanne d’Arc.') }, 'la réponse dans un indice'],
-    [{ ...FICHE, indices: indices(0, 'On dit de moi : la Pucelle d’ARC.') }, 'une clé dans un indice, en capitales'],
-    [{ ...FICHE, reponse: 'Louis de Funès', cles: ['funes'], indices: indices(1, 'Les Funès venaient d’Espagne.') }, 'une clé sans accent, écrite avec'],
-    [{ ...FICHE, indices: FICHE.indices.slice(0, INDICES_D_UNE_FICHE - 1) }, 'quatre indices'],
-    [{ ...FICHE, indices: indices(2, 'Un évêque.'.padEnd(INDICE_MAX + 1, '.')) }, 'un indice trop long'],
-    [{ ...FICHE, cles: [] }, 'aucune clé'],
-    [{ ...FICHE, cles: ['arc', 'darc', 'jeanne', 'pucelle'].slice(0, CLES_MAX + 1) }, 'trop de clés'],
-    [{ ...FICHE, cles: ['ar'] }, 'une clé de deux lettres'],
-    [{ ...FICHE, cles: ['arc', 'Jeanne'] }, 'une clé en capitales'],
-    [{ ...FICHE, cles: ['arc', 'arc'] }, 'deux fois la même clé'],
-    [{ ...FICHE, cles: ['pucelle'] }, 'aucune clé dans la réponse : tapée en entier, elle ne trouverait personne'],
-    [{ ...FICHE, reponse: '' }, 'une réponse vide'],
-    [{ ...FICHE, categorie: 'Moyen Âge' }, 'une catégorie inconnue'],
-  ] as [unknown, string][]) assert.notEqual(refusDeLaFiche(fiche), null, pourquoi)
+  // Les clés des cas qui ne visent pas les indices — `johanna` — ne sont dans aucun d'eux : refusées par la règle des
+  // indices, elles ne prouveraient rien de celle des clés.
+  assert.ok(FICHE.indices.every(i => !ecritDans(i, 'johanna') && !ecritDans(i, 'jeanne')))
+  for (const [fiche, motif, pourquoi] of [
+    [{ ...FICHE, indices: indices(4, 'Je suis Jeanne d’Arc.') }, /^son indice 5 dit « Jeanne d'Arc »/, 'la réponse dans un indice'],
+    [{ ...FICHE, indices: indices(0, 'On dit de moi : la Pucelle d’ARC.') }, /^son indice 1 dit « arc »/, 'une clé dans un indice, en capitales'],
+    [{ ...FICHE, reponse: 'Louis de Funès', cles: ['funes'], indices: indices(1, 'Les Funès venaient d’Espagne.') }, /^son indice 2 dit « funes »/, 'une clé sans accent, écrite avec'],
+    [{ ...FICHE, indices: FICHE.indices.slice(0, INDICES_D_UNE_FICHE - 1) }, /^ses indices : 5/, 'quatre indices'],
+    [{ ...FICHE, indices: indices(2, 'Un évêque.'.padEnd(INDICE_MAX + 1, '.')) }, /^son indice 3 : \d+ signes/, 'un indice trop long'],
+    [{ ...FICHE, cles: [] }, /^ses clés : de une à/, 'aucune clé'],
+    [{ ...FICHE, cles: ['arc', 'darc', 'jeanne', 'johanna'].slice(0, CLES_MAX + 1) }, /^ses clés : de une à/, 'trop de clés'],
+    [{ ...FICHE, cles: ['ar'] }, /^ses clés : des minuscules sans accents/, 'une clé de deux lettres'],
+    [{ ...FICHE, cles: ['arc', 'Jeanne'] }, /^ses clés : des minuscules sans accents/, 'une clé en capitales'],
+    [{ ...FICHE, cles: ['arc', 'arc'] }, /^ses clés : chacune une fois/, 'deux fois la même clé'],
+    [{ ...FICHE, cles: ['johanna'] }, /^ses clés : une au moins se lit dans la réponse/, 'aucune clé dans la réponse : tapée en entier, elle ne trouverait personne'],
+    [{ ...FICHE, reponse: '' }, /^sa réponse : un texte/, 'une réponse vide'],
+    [{ ...FICHE, savais: 'Une annulation.'.padEnd(SAVAIS_MAX + 1, '.') }, /^son « Le savais-tu \? » : \d+ signes/, 'un savais trop long'],
+    [{ ...FICHE, categorie: 'Moyen Âge' }, /^sa catégorie/, 'une catégorie inconnue'],
+  ] as [unknown, RegExp, string][]) assert.match(refusDeLaFiche(fiche) ?? 'elle se pose', motif, pourquoi)
 })
 
 const REPLIQUE: Replique = {
@@ -255,21 +297,23 @@ test('une réplique : un seul mot qui manque, trois leurres et deux autres perso
   assert.equal(refusDeLaReplique(REPLIQUE), null)
   assert.equal(refusDeLaReplique({ ...REPLIQUE, avant: 'Vers l’', mot: 'infini', apres: ' et au-delà !' }), null, 'un trou après une apostrophe')
   assert.equal(refusDeLaReplique({ ...REPLIQUE, avant: 'Tikki,', mot: 'transforme', apres: '-moi !' }), null, 'un trou suivi d’un trait d’union')
-  for (const [replique, pourquoi] of [
-    [{ ...REPLIQUE, mot: 'mon pays' }, 'deux mots dans le trou'],
-    [{ ...REPLIQUE, leurres: ['homme', 'village', 'Pays'] }, 'un leurre qui est le mot'],
-    [{ ...REPLIQUE, leurres: ['homme', 'village', 'Village'] }, 'deux leurres pareils'],
-    [{ ...REPLIQUE, leurres: ['homme', 'village'] }, 'deux leurres'],
-    [{ ...REPLIQUE, leurres: ['homme', 'beau village', 'public'] }, 'un leurre de deux mots'],
-    [{ ...REPLIQUE, autres: ['Mistinguett', 'Josephine Baker'] }, 'qui parmi les autres, sans accent'],
-    [{ ...REPLIQUE, autres: ['Mistinguett'] }, 'une seule autre personne'],
-    [{ ...REPLIQUE, apres: ` ${Array.from({ length: MOTS_D_UNE_REPLIQUE_MAX }, () => 'et').join(' ')}.` }, 'plus de quinze mots'],
-    [{ ...REPLIQUE, apres: 'et Paris.' }, 'le mot collé à la suite'],
-    [{ ...REPLIQUE, apres: ' et Paris. ' }, 'un blanc au bout'],
-    [{ ...REPLIQUE, avant: "J'ai deux amours, mon " }, 'un blanc avant le trou'],
-    [{ ...REPLIQUE, source: '' }, 'sans source'],
-    [{ ...REPLIQUE, savais: 'Une revue.'.padEnd(SAVAIS_MAX + 1, '.') }, 'un savais trop long'],
-  ] as [unknown, string][]) assert.notEqual(refusDeLaReplique(replique), null, pourquoi)
+  for (const [replique, motif, pourquoi] of [
+    [{ ...REPLIQUE, mot: 'mon pays' }, /^le mot qui manque : un seul mot/, 'deux mots dans le trou'],
+    [{ ...REPLIQUE, leurres: ['homme', 'village', 'Pays'] }, /^ses leurres : distincts/, 'un leurre qui est le mot'],
+    [{ ...REPLIQUE, leurres: ['homme', 'village', 'Village'] }, /^ses leurres : distincts/, 'deux leurres pareils'],
+    [{ ...REPLIQUE, mot: 'cœur', leurres: ['homme', 'village', 'coeur'] }, /^ses leurres : distincts/, 'un leurre écrit oe pour le œ du mot'],
+    [{ ...REPLIQUE, leurres: ['homme', 'village'] }, /^ses leurres : 3/, 'deux leurres'],
+    [{ ...REPLIQUE, leurres: ['homme', 'beau village', 'public'] }, /^un leurre, « beau village » : un seul mot/, 'un leurre de deux mots'],
+    [{ ...REPLIQUE, autres: ['Mistinguett', 'Josephine Baker'] }, /^les autres personnes : distinctes/, 'qui parmi les autres, sans accent'],
+    [{ ...REPLIQUE, autres: ['Mistinguett'] }, /^les autres personnes : 2/, 'une seule autre personne'],
+    [{ ...REPLIQUE, apres: ` ${Array.from({ length: MOTS_D_UNE_REPLIQUE_MAX }, () => 'et').join(' ')}.` }, /^la réplique : \d+ mots/, 'plus de quinze mots'],
+    [{ ...REPLIQUE, apres: 'et Paris.' }, /^ce qui suit le mot : un blanc d’abord/, 'le mot collé à la suite'],
+    [{ ...REPLIQUE, apres: ' et Paris. ' }, /^ce qui suit le mot : sur une ligne/, 'un blanc au bout'],
+    [{ ...REPLIQUE, apres: ' et Paris 🗼.' }, /^ce qui suit le mot : pas d'emoji/, 'un emoji après le trou'],
+    [{ ...REPLIQUE, avant: "J'ai deux amours, mon " }, /^ce qui précède le mot : sur une ligne/, 'un blanc avant le trou'],
+    [{ ...REPLIQUE, source: '' }, /^sa source : un texte/, 'sans source'],
+    [{ ...REPLIQUE, savais: 'Une revue.'.padEnd(SAVAIS_MAX + 1, '.') }, /^son « Le savais-tu \? » : \d+ signes/, 'un savais trop long'],
+  ] as [unknown, RegExp, string][]) assert.match(refusDeLaReplique(replique) ?? 'elle se pose', motif, pourquoi)
 })
 
 const FRISE: FriseATheme = {
@@ -292,16 +336,18 @@ test('une frise à thème : sept événements qui ne disent pas quand, à trois 
   assert.equal(refusDeLaFriseATheme(FRISE), null)
   const avec = (k: number, e: object) => FRISE.evenements.map((x, i) => (i === k ? e : x))
   assert.equal(EVENEMENTS_D_UNE_FRISE_A_THEME, 7)
-  for (const [frise, pourquoi] of [
-    [{ ...FRISE, evenements: FRISE.evenements.slice(1) }, 'six événements'],
-    [{ ...FRISE, evenements: avec(0, { libelle: 'Les frères Wright volent en 1903', annee: 1903 }) }, 'un libellé qui date'],
-    [{ ...FRISE, evenements: avec(1, { libelle: FRISE.evenements[1].libelle, annee: 1905 }) }, 'deux années à deux ans'],
-    [{ ...FRISE, evenements: avec(1, { libelle: FRISE.evenements[1].libelle, annee: 1903 }) }, 'la même année'],
-    [{ ...FRISE, evenements: avec(1, { libelle: FRISE.evenements[0].libelle, annee: 1906 }) }, 'deux fois le même libellé'],
-    [{ ...FRISE, evenements: avec(1, { libelle: FRISE.evenements[1].libelle, annee: 1906.5 }) }, 'une année qui n’est pas entière'],
-    [{ ...FRISE, evenements: avec(1, { libelle: FRISE.evenements[1].libelle, annee: 1906, date: '1906' }) }, 'un champ de trop dans un événement'],
-    [{ ...FRISE, theme: '' }, 'sans thème'],
-  ] as [unknown, string][]) assert.notEqual(refusDeLaFriseATheme(frise), null, pourquoi)
+  for (const [frise, motif, pourquoi] of [
+    [{ ...FRISE, evenements: FRISE.evenements.slice(1) }, /^ses événements : 7/, 'six événements'],
+    [{ ...FRISE, evenements: avec(0, { libelle: 'Les frères Wright volent en 1903', annee: 1903 }) }, /^son événement 1, « .+ » : rien qui date/, 'un libellé qui date'],
+    [{ ...FRISE, evenements: avec(0, { libelle: 'Les frères Wright font voler leur Flyer ✈', annee: 1903 }) }, /^son événement 1 : pas d'emoji/, 'un emoji dans un libellé'],
+    [{ ...FRISE, evenements: avec(1, { libelle: FRISE.evenements[1].libelle, annee: 1905 }) }, /^ses années : 3 ans d'écart/, 'deux années à deux ans'],
+    [{ ...FRISE, evenements: avec(1, { libelle: FRISE.evenements[1].libelle, annee: 1903 }) }, /^ses années : 3 ans d'écart/, 'la même année'],
+    [{ ...FRISE, evenements: avec(1, { libelle: FRISE.evenements[0].libelle, annee: 1906 }) }, /^ses événements : chacun une fois/, 'deux fois le même libellé'],
+    [{ ...FRISE, evenements: avec(1, { libelle: FRISE.evenements[1].libelle, annee: 1906.5 }) }, /^son événement 2 : une année entière/, 'une année qui n’est pas entière'],
+    [{ ...FRISE, evenements: avec(1, { libelle: FRISE.evenements[1].libelle, annee: 1906, date: '1906' }) }, /^son événement 2 : date : un champ/, 'un champ de trop dans un événement'],
+    [{ ...FRISE, theme: '' }, /^son thème : un texte/, 'sans thème'],
+    [{ ...FRISE, savais: 'Un vol.'.padEnd(SAVAIS_MAX + 1, '.') }, /^son « Le savais-tu \? » : \d+ signes/, 'un savais trop long'],
+  ] as [unknown, RegExp, string][]) assert.match(refusDeLaFriseATheme(frise) ?? 'elle se pose', motif, pourquoi)
 })
 
 // ── Les doublons ────────────────────────────────────────────────────────────
@@ -327,4 +373,37 @@ test('les doublons : le même identifiant, le même lieu à deux kilomètres, la
 
   const refusee = trier('fiches', [{ ...FICHE, cles: [] }])
   assert.deepEqual([refusee.gardees.length, refusee.ecartees.length], [0, 1], 'le juge passe avant les doublons')
+})
+
+// ── Le script de rangement ──────────────────────────────────────────────────
+
+test('le rangement : un fichier rangé qui ne se lit pas arrête tout sans rien écrire ; absent, il se crée', t => {
+  const dossier = mkdtempSync(path.join(os.tmpdir(), 'cabinet-rangement-'))
+  try {
+    t.mock.method(console, 'log', () => {})
+    const lot = (nom: string, entrees: unknown[]) => {
+      const f = path.join(dossier, nom)
+      writeFileSync(f, JSON.stringify(entrees))
+      return f
+    }
+    const range = path.join(dossier, 'content')
+    const lieux = path.join(range, SORTES.lieux.fichier)
+
+    // Rien de rangé encore : le fichier se crée, une entrée par ligne.
+    assert.equal(traiterLesLots('ranger', [lot('un.json', [LIEU])], range), 0)
+    assert.equal(readFileSync(lieux, 'utf8'), `[\n${ligneDe('lieux', LIEU)}\n]\n`)
+    assert.equal(traiterLesLots('verifier', [lot('redit.json', [{ ...LIEU, id: 'beaune-encore' }])], range), 1, 'le contenu rangé compte')
+
+    // Une fusion maladroite : compté pour vide, le fichier se serait réécrit avec le seul lot, et `verifier` n'aurait plus vu le doublon.
+    const dijon = { ...LIEU, id: 'dijon', lat: 47.32, lon: 5.04 }
+    for (const abime of [`<<<<<<< HEAD\n${readFileSync(lieux, 'utf8')}=======\n[]\n>>>>>>> autre\n`, `[\n${ligneDe('lieux', LIEU)},\n]\n`, '{}']) {
+      writeFileSync(lieux, abime)
+      for (const commande of ['ranger', 'verifier'] as const) {
+        assert.throws(() => traiterLesLots(commande, [lot('deux.json', [dijon]), lot('redit.json', [{ ...LIEU, id: 'beaune-encore' }])], range), /ne se lit pas/, `${commande} : ${abime.slice(0, 12)}`)
+        assert.equal(readFileSync(lieux, 'utf8'), abime, 'rien n’est écrit')
+      }
+    }
+  } finally {
+    rmSync(dossier, { recursive: true, force: true })
+  }
 })
