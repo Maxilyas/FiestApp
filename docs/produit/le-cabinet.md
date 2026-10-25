@@ -117,7 +117,7 @@ Un légendaire que tu as déjà, par n'importe quelle voie, est un gardien réve
 ## Ce qu'on apprend
 
 - **Le cartel** : chaque œuvre gagnée garde la question, la réponse et l'anecdote de la manche que tu as le mieux réussie, avec le jeu, le jour et les étoiles. Il se lit seul. Une œuvre achetée ou offerte à l'arrivée le dit à sa place, et la rejouer pour dorer son cadre lui donne le sien.
-- **Tes murs** : une carte de France où chaque lieu de l'Épingle reste épinglé, et une frise personnelle où chaque date apprise trouve sa place — rien ne s'écrit pour eux, ils se lisent de ce que tu as joué.
+- **Tes murs** : une carte de France où chaque lieu de l'Épingle reste épinglé, et une frise personnelle où chaque date apprise trouve sa place — rien ne s'écrit pour eux, ils se lisent de ce que tu as joué. Le musée y mène, sous les gardiens.
 - **Le carnet** : les erreurs du Pari, du Mot mystère et du Filet y entrent, comme partout en campagne, et s'y signalent. Les affirmations de l'Éclair n'y vont pas — cinq questions récrites, dont aucune n'est plus celle de la base —, et l'écran le dit.
 - **Rien ne revient avant sept jours**, d'un jeu à l'autre : le Pari et l'Éclair puisent dans le même tas.
 
@@ -151,7 +151,7 @@ L'Expédition était devenue un jeu de cartes à la Slay the Spire — quinze ve
 - une expédition en route se finit à ses règles, ou s'abandonne sans rien reprendre ;
 - le trophée L'Explorateur garde ses détenteurs, ses paliers relus aux salles complètes ; Le Globe-trotter reste montré, figé ; la luciole, qui rejoignait qui menait une expédition au bout, rejoint qui complète sa première salle.
 
-Le gros bouton de l'accueil d'un profil deviendra « Le Cabinet de curiosités », à la place de « L'Expédition » (la décision du propriétaire), quand le Cabinet ouvrira : le départ de l'Expédition se ferme alors, d'un seul drapeau (`EXPEDITION_REMPLACEE`) — sa page dit « L'Expédition a laissé place au Cabinet de curiosités » et y mène, et une expédition en route se finit.
+Le gros bouton de l'accueil d'un profil deviendra « Le Cabinet de curiosités », à la place de « L'Expédition » (la décision du propriétaire), quand le Cabinet ouvrira : le départ de l'Expédition se ferme alors, d'un seul drapeau (`EXPEDITION_REMPLACEE`) — sa page dit « L'Expédition a laissé place au Cabinet de curiosités » et y mène, et une expédition en route se finit. Le bouton dit ton musée — « Ton musée : 27 œuvres sur 84 », et « À jouer » tant que la visite du jour attend — de ce que le serveur en sait déjà : l'accueil n'attend rien de plus pour lui.
 
 ## Ce qui vient ensuite
 

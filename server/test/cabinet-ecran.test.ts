@@ -65,7 +65,7 @@ import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
 import { PLUS_DE_PAUSE } from '../../shared/cabinet/partie'
 import { POUVOIRS, ceQueFaitLaCarte, forceDite } from '../../shared/cabinet/pouvoirs'
 import { GARDIENS, GARDIENS_DES_SALLES, SALLES } from '../../shared/cabinet/salles'
-import type { Cartel, PageDuCabinet, ReveilDesGardiens, SalleVue, VueDeLaPartie } from '../../shared/cabinet/vues'
+import { fondreLesReveils, type Cartel, type PageDuCabinet, type ReveilDesGardiens, type SalleVue, type VueDeLaPartie } from '../../shared/cabinet/vues'
 import { COMPAGNON_DE_L_EXPEDITION, compagnon as leCompagnon } from '../../shared/compagnons'
 import { DEPART, donneesDeDepart } from '../../shared/depart'
 import { parseRoute } from '../../shared/adresses'
@@ -263,6 +263,8 @@ test('le musée : ce qu’il possède, la visite du jour, les neuf salles, les g
   assert.match(t, new RegExp(`${CHASSES_PAR_JOUR - 1} chasse aujourd’hui`))
   assert.match(html, /href="#gardiens"/)
   assert.match(html, /href="#libre"/)
+  // Tes murs ont leur porte au musée : seules les règles y menaient, d'un lien au milieu d'un paragraphe.
+  assert.match(html, /<a class="gros-bouton" href="#murs">.*?Tes murs.*?<\/a>/)
   assert.match(t, /Comment ça marche/)
   // Le prochain gardien : la salle la plus près d'être complète, et ce qui lui manque.
   assert.ok(page.gardiens.prochain)
@@ -282,6 +284,9 @@ test('le musée dit une fois la bienvenue, la partie qui l’attend, l’expédi
   const davant = { ...neuf, rapportees: 41 }
   for (const p of [neuf, davant]) assert.doesNotMatch(texte(await musee(p, { bienvenue: true })), /rapporté|de l’Expédition/)
   assert.doesNotMatch(source('views/cabinet/Musee.tsx'), /rapportees/)
+  // Le serveur ne le porte plus non plus : un zéro gardé pour une annonce que plus personne ne lit (`PageDuCabinet`, `pageDuCabinet`).
+  assert.equal('rapportees' in neuf, false)
+  assert.equal('rapportees' in page, false)
   // Une partie en cours passe devant tout : on la reprend.
   const enCours = { ...neuf, enCours: { id: 'p', jeu: 'pari', origine: 'chasse' } as VueDeLaPartie }
   const t = texte(await musee(enCours))
@@ -816,6 +821,33 @@ test('l’accueil a son bouton du Cabinet là où le serveur l’ouvre, et seule
   assert.equal(await lireLaBalise(null, 'ouvert'), true)
   assert.match(source('views/ProfilApp.tsx'), /cabinet=\{cabinetIci\(\)\}/)
   assert.match(source('views/ProfilApp.tsx'), /if \(cabinetIci\(\)\) void import\('\.\/CabinetApp'\)\.catch\(\(\) => \{\}\)/)
+})
+
+test('le bouton de l’accueil dit son musée — « Ton musée : 27 œuvres sur 84 » — et « À jouer » tant que la visite du jour attend', async () => {
+  const accueil = async (props: object) => {
+    const html = await rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: rien, lendemain: null, ...props })
+    return /<a class="gros-bouton[^"]*" href="\/cabinet">.*?<\/a>/.exec(html)?.[0] ?? ''
+  }
+  // Ce que le serveur dit de son musée (`ProfilDAccueil.cabinet`) : ses œuvres, et une case de la visite à jouer.
+  const aJouer = await accueil({ musee: { oeuvres: 27, sur: OEUVRES.length, aJouer: true } })
+  assert.match(texte(aJouer), new RegExp(`Le Cabinet de curiosités Ton musée : 27 œuvres sur ${OEUVRES.length}`))
+  // D'un bloc : coupée ailleurs qu'après « Ton musée : », la ligne laissait « sur 84 » seul à côté de la pastille, en 360.
+  assert.match(aJouer, new RegExp(`27 œuvres sur ${OEUVRES.length}`))
+  assert.match(aJouer, /<span class="pastille-attente">À jouer<\/span>/)
+  // La visite faite, plus de pastille : le chevron revient.
+  const faite = await accueil({ musee: { oeuvres: 27, sur: OEUVRES.length, aJouer: false } })
+  assert.match(texte(faite), /Ton musée : 27 œuvres sur/)
+  assert.doesNotMatch(faite, /À jouer/)
+  assert.match(faite, /class="icon chevron"/)
+  // Le serveur n'en dit rien — un musée qu'il n'a pas lu depuis son réveil : l'accueil ne paie pas un aller-retour pour lui —, la
+  // ligne de toujours.
+  assert.match(texte(await accueil({})), /Un musée à remplir, des œuvres à gagner en jouant/)
+  // Fermé pour bientôt, la raison passe devant le musée, sans pastille.
+  const bientot = await accueil({ musee: { oeuvres: 27, sur: OEUVRES.length, aJouer: true }, etats: { cabinet: 'bientot' } })
+  assert.match(texte(bientot), /Bientôt disponible/)
+  assert.doesNotMatch(bientot, /À jouer|Ton musée/)
+  // La page lit ce que l'accueil du serveur porte, sans rien demander de plus.
+  assert.match(source('views/ProfilApp.tsx'), /musee=\{'cabinet' in profil \? profil\.cabinet : undefined\}/)
 })
 
 // ── 13. La feuille ────────────────────────────────────────────────────────
@@ -2093,10 +2125,11 @@ test('les écrans du Détail et de la Frise : à la demande, sans le pli ni la l
     .map(s => s.trim())
     .filter(s => s && !s.startsWith('type '))
   assert.deepEqual(valeurs.sort(), ['QUESTION_DU_TABLEAU', 'adresseDUnCadrage'])
-  // Le cadre passe à chaque jeu où sont ses images, et « Mes réponses » aussi ; le cadre y ajoute comment la manche s'est tranchée
-  // (`fin` : la Réplique quittée au bon mot le dit, `cabinet-ecran-neufs.test.ts`).
+  // Le cadre passe à chaque jeu où sont ses images, et « Mes réponses » aussi ; tous deux y ajoutent comment la manche s'est
+  // tranchée (`fin` : la Réplique quittée au bon mot le dit, `cabinet-ecran-neufs.test.ts`) — « Mes réponses » le taisait, et c'est
+  // le seul écran où l'on revoit une manche quittée.
   assert.match(partie, /<ecran\.Revelation corps=\{r\.corps\} partie=\{vue\.id\} tirage=\{r\.tirage\} fin=\{r\.fin\} \/>/)
-  assert.match(source('views/cabinet/Bilan.tsx'), /<ecran\.Revelation corps=\{m\.revelation\.corps\} partie=\{vue\.id\} tirage=\{m\.revelation\.tirage\} \/>/)
+  assert.match(source('views/cabinet/Bilan.tsx'), /<ecran\.Revelation corps=\{m\.revelation\.corps\} partie=\{vue\.id\} tirage=\{m\.revelation\.tirage\} fin=\{m\.revelation\.fin\} \/>/)
 })
 
 test('la feuille du Détail et de la Frise : le cadre du tableau à hauteur fixe, les années en chiffres droits, le nom du tableau avant lui', () => {
@@ -2191,6 +2224,15 @@ test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en
   assert.doesNotMatch(source('views/cabinet/Bilan.tsx'), /en la gagnant/)
   // Le glossaire de « Comment ça marche ? » non plus ne dit pas qu'un cartel vient toujours de la partie qui l'a gagnée.
   assert.match(GLOSSAIRE.cartel.sens, /en la gagnant ou en la rejouant/)
+  // Et le champ partagé dit la règle que la page lit : la fin le pose, mais le bilan relu sans elle dit encore « Son cartel » d'une
+  // œuvre gagnée. « Le bilan ne dit « Son cartel » que là » se lisait comme une règle, et la contredisait.
+  const lesVues = readFileSync(path.resolve(client, '../..', 'shared/cabinet/vues.ts'), 'utf8')
+  const commentaire = /\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*devientSonCartel\?: true/.exec(lesVues)?.[1] ?? ''
+  assert.ok(commentaire, 'le champ a son commentaire')
+  assert.doesNotMatch(commentaire, /que là/)
+  assert.match(commentaire, /`titreAuBilan`/)
+  assert.match(commentaire, /relu/)
+  assert.match(commentaire, /gagnée/)
 })
 
 /** Les boutons d'un rendu : leur texte, en sourdine ou non, et la raison qu'ils désignent à l'oreille (`aria-describedby`). */
@@ -2974,9 +3016,6 @@ test('un gardien qui s’éveille : en grand s’il est neuf, une ligne s’il v
   const { GardiensQuiSEveillent } = (await import(url('views/cabinet/Reveil.tsx'))) as {
     GardiensQuiSEveillent: (p: { neufs: string[]; parLeCabinet: string[]; veillaient: string[]; compagnon?: string }) => React.ReactNode
   }
-  const { fondreDesReveils } = (await import(url('views/cabinet/reveils.ts'))) as {
-    fondreDesReveils: (a: ReveilDesGardiens | null | undefined, b: ReveilDesGardiens | null | undefined) => ReveilDesGardiens | null
-  }
   const { renderToStaticMarkup } = await import('react-dom/server')
   const html = renderToStaticMarkup(React.createElement(GardiensQuiSEveillent, { neufs: ['lg:oracle'], parLeCabinet: ['lg:oracle'], veillaient: ['lg:phenix', 'lg:scarabee'], compagnon: COMPAGNON_DE_L_EXPEDITION }))
   const t = texte(html)
@@ -2988,15 +3027,16 @@ test('un gardien qui s’éveille : en grand s’il est neuf, une ligne s’il v
   assert.match(t, new RegExp(`Ta première salle complète .*${lu(leCompagnon(COMPAGNON_DE_L_EXPEDITION)!.nom)} te rejoint`))
   assert.doesNotMatch(html, /dv:|Divin/)
   sansJargon(html, 'un gardien qui s’éveille')
-  // Deux réveils qui se suivent avant qu'on ait lu le premier : les deux, chacun une fois, neuf s'il l'était dans l'un.
+  // Deux réveils qui se suivent avant qu'on ait lu le premier : les deux, chacun une fois, neuf s'il l'était dans l'un. La page
+  // les fond par la fonction même du serveur (`fondreLesReveils`, `shared/cabinet/vues.ts`) : rien n'y vaut `null`, absent dit rien.
   assert.deepEqual(
-    fondreDesReveils({ gardiens: [{ legendaire: 'lg:phenix', neuf: false }] }, { gardiens: [{ legendaire: 'lg:phenix', neuf: true }, { legendaire: 'lg:oracle', neuf: true }], compagnon: COMPAGNON_DE_L_EXPEDITION }),
+    fondreLesReveils({ gardiens: [{ legendaire: 'lg:phenix', neuf: false }] }, { gardiens: [{ legendaire: 'lg:phenix', neuf: true }, { legendaire: 'lg:oracle', neuf: true }], compagnon: COMPAGNON_DE_L_EXPEDITION }),
     { gardiens: [{ legendaire: 'lg:phenix', neuf: true }, { legendaire: 'lg:oracle', neuf: true }], compagnon: COMPAGNON_DE_L_EXPEDITION },
   )
   const seul = { gardiens: [{ legendaire: 'lg:phenix', neuf: true }] }
-  assert.equal(fondreDesReveils(null, seul), seul)
-  assert.equal(fondreDesReveils(seul, undefined), seul)
-  assert.equal(fondreDesReveils(null, undefined), null)
+  assert.equal(fondreLesReveils(null, seul), seul)
+  assert.equal(fondreLesReveils(seul, undefined), seul)
+  assert.equal(fondreLesReveils(null, undefined), undefined)
 })
 
 test('la dorure qui réveille un gardien le dit, par le vrai serveur : la page qui revient porte son réveil, la page l’annonce en grand, une fois', async () => {
@@ -3012,8 +3052,8 @@ test('la dorure qui réveille un gardien le dit, par le vrai serveur : la page q
   // La page le garde de chaque page qui le porte — la réponse d'une dépense, ou la page d'après une partie d'hier close —, jusqu'à
   // ce qu'on le ferme ; et ne l'ouvre jamais par-dessus une partie : le chrono y courrait sous la feuille.
   const app = source('views/CabinetApp.tsx')
-  assert.match(app, /const recevoir = useCallback\(\(p: PageDuCabinet\) => \{\s*setEtat\(\{ e: 'pret', page: p \}\)\s*if \(p\.reveil\) setReveil\(r => fondreDesReveils\(r, p\.reveil\)\)/)
-  assert.match(app, /import \{ fondreDesReveils \} from '\.\/cabinet\/reveils'/)
+  assert.match(app, /const recevoir = useCallback\(\(p: PageDuCabinet\) => \{\s*setEtat\(\{ e: 'pret', page: p \}\)\s*if \(p\.reveil\) setReveil\(r => fondreLesReveils\(r, p\.reveil\) \?\? null\)/)
+  assert.match(app, /import \{[^}]*\bfondreLesReveils\b[^}]*\} from '\.\.\/\.\.\/\.\.\/shared\/cabinet\/vues'/)
   assert.match(app, /p => recevoir\(p\)/)
   assert.match(app, /recevoir\(await geste\(\)\)/)
   assert.match(app, /\{reveil && !enPartie && <ReveilALaDemande reveil=\{reveil\} onFermer=\{\(\) => setReveil\(null\)\} \/>\}/)
@@ -3059,26 +3099,38 @@ test('au bilan, seul ce que le Cabinet a réveillé dit sa raison : un légendai
   assert.ok(!aRelireApresLaPartie(undefined))
 })
 
-test('deux réveils se fondent à la page comme au serveur : chaque gardien une fois, neuf s’il l’était dans l’un, la première luciole', async () => {
-  // Deux copies d'une même dérivation, tant que `shared/cabinet/` n'en a pas une seule : l'une évoluée seule, la page et le serveur
-  // ne fondaient plus deux réveils de la même façon.
-  const { fondreLesReveils } = await import('../src/core/cabinet/gardiens')
-  const { fondreDesReveils } = (await import(url('views/cabinet/reveils.ts'))) as {
-    fondreDesReveils: (a: ReveilDesGardiens | null | undefined, b: ReveilDesGardiens | null | undefined) => ReveilDesGardiens | null
+test('deux réveils se fondent à la page comme au serveur, par une seule fonction : chaque gardien une fois, neuf s’il l’était dans l’un, la première luciole', async () => {
+  // La page et le serveur en avaient chacun sa copie (`fondreDesReveils`, `fondreLesReveils`) : l'une évoluée seule, ils ne
+  // fondaient plus deux réveils de la même façon. Une seule, pure, dans `shared/cabinet/vues.ts`, que les deux importent.
+  const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  const serveur = (f: string) => readFileSync(path.resolve(client, '../../server/src/core/cabinet', f), 'utf8')
+  assert.match(source('views/CabinetApp.tsx'), /import \{[^}]*\bfondreLesReveils\b[^}]*\} from '\.\.\/\.\.\/\.\.\/shared\/cabinet\/vues'/)
+  assert.match(serveur('magasin.ts'), /import \{[^}]*\bfondreLesReveils\b[^}]*\} from '\.\.\/\.\.\/\.\.\/\.\.\/shared\/cabinet\/vues'/)
+  for (const [ou, s] of [
+    ['views/cabinet/reveils.ts', source('views/cabinet/reveils.ts')],
+    ['views/CabinetApp.tsx', source('views/CabinetApp.tsx')],
+    ['core/cabinet/gardiens.ts', serveur('gardiens.ts')],
+    ['core/cabinet/magasin.ts', serveur('magasin.ts')],
+  ]) {
+    assert.doesNotMatch(code(s), /function fondre|fondreDesReveils|const fondre/, `${ou} : pas de copie`)
   }
   const phenix = { gardiens: [{ legendaire: 'lg:phenix', neuf: false }] }
   const deux = { gardiens: [{ legendaire: 'lg:phenix', neuf: true }, { legendaire: 'lg:oracle', neuf: true }], compagnon: COMPAGNON_DE_L_EXPEDITION }
   const scarabee = { gardiens: [{ legendaire: 'lg:scarabee', neuf: true }] }
-  const cas: [ReveilDesGardiens | null, ReveilDesGardiens | null][] = [
-    [phenix, deux],
-    [deux, phenix],
-    [scarabee, deux],
-    [deux, deux],
-    [phenix, null],
-    [null, scarabee],
-    [null, null],
+  const luciole = { gardiens: [], compagnon: COMPAGNON_DE_L_EXPEDITION }
+  const cas: [ReveilDesGardiens | null, ReveilDesGardiens | null, ReveilDesGardiens | undefined][] = [
+    [phenix, deux, { gardiens: deux.gardiens, compagnon: COMPAGNON_DE_L_EXPEDITION }],
+    [deux, phenix, deux],
+    [scarabee, deux, { gardiens: [...scarabee.gardiens, ...deux.gardiens], compagnon: COMPAGNON_DE_L_EXPEDITION }],
+    [deux, deux, deux],
+    [luciole, phenix, { gardiens: phenix.gardiens, compagnon: COMPAGNON_DE_L_EXPEDITION }],
+    [phenix, null, phenix],
+    [null, scarabee, scarabee],
+    [null, null, undefined],
   ]
-  for (const [x, y] of cas) assert.deepEqual(fondreDesReveils(x, y) ?? undefined, fondreLesReveils(x, y), JSON.stringify([x, y]))
+  for (const [x, y, attendu] of cas) assert.deepEqual(fondreLesReveils(x, y), attendu, JSON.stringify([x, y]))
+  // Le serveur en fond plus de deux d'un coup : la partie d'hier close, puis la dépense qui rend la page.
+  assert.deepEqual(fondreLesReveils(phenix, null, scarabee, luciole), { gardiens: [...phenix.gardiens, ...scarabee.gardiens], compagnon: COMPAGNON_DE_L_EXPEDITION })
 })
 
 test('la luciole qu’annonce la page d’un achat s’installe dans la niche de la page, par le vrai serveur : la feuille la promet « en haut de chaque page »', async () => {
@@ -3117,5 +3169,5 @@ test('la luciole qu’annonce la page d’un achat s’installe dans la niche de
     globalThis.fetch = avant
   }
   // Chaque page neuve qui la porte la fait relire : celle d'un achat, d'une dorure, de la partie d'hier close.
-  assert.match(source('views/CabinetApp.tsx'), /if \(p\.reveil\) setReveil\(r => fondreDesReveils\(r, p\.reveil\)\)\s+void nicheApresLeReveil\(p\)/)
+  assert.match(source('views/CabinetApp.tsx'), /if \(p\.reveil\) setReveil\(r => fondreLesReveils\(r, p\.reveil\) \?\? null\)\s+void nicheApresLeReveil\(p\)/)
 })

@@ -154,6 +154,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
     jour: deps.jour,
     maintenant: deps.maintenant,
     campagne: deps.campagne,
+    // Le bouton du Cabinet sur l'accueil dit son musée, là où le Cabinet répond : ailleurs, l'accueil n'a pas de bouton pour lui.
+    ...(deps.cabinet.ouvert && { cabinet: deps.cabinet.magasin }),
   })
   // Le quiz du jour se joue avec son profil, lui aussi, sans compte d'animateur.
   mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant, rappels: deps.rappels })

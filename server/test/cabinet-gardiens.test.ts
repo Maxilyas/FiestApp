@@ -39,12 +39,12 @@ import { OEUVRES, OEUVRES_DE_DEPART, oeuvresDeLaSalle, type CleDOeuvre } from '.
 import { GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DU_CABINET, PREFIXE_DE_LA_VOIE_DU_CABINET, voieDuGardien } from '../../shared/cabinet/salles'
 import { museeDe, type LigneDOeuvre } from '../../shared/cabinet/musee'
 import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
-import type { PageDuCabinet, ReveilDesGardiens, VueDeLaPartie } from '../../shared/cabinet/vues'
+import { fondreLesReveils, type PageDuCabinet, type ReveilDesGardiens, type VueDeLaPartie } from '../../shared/cabinet/vues'
 import { LEGENDAIRES_DU_CABINET, PREFIXES_DES_VOIES_RANGEES, cleDuCabinet, estUneVoieDuCabinet, legendaire, legendaireDuCabinet, voiesMontrees } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
 import { COMPAGNON_DE_L_EXPEDITION } from '../../shared/compagnons'
 import { ProfileStore, RANGEMENT_DU_CABINET } from '../src/auth/profiles'
-import { fondreLesReveils, reconcilier, voiesQuiManquent, type EtagereDuCabinet } from '../src/core/cabinet/gardiens'
+import { reconcilier, voiesQuiManquent, type EtagereDuCabinet } from '../src/core/cabinet/gardiens'
 
 ProfileStore.tirageEclat = () => false
 

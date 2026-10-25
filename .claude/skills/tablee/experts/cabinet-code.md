@@ -17,9 +17,9 @@ fichiers et ses pièges) ; ce que le Cabinet a changé ailleurs :
 
 **Ce que tu cherches** :
 - **Les doublons** : une règle écrite deux fois (le client et le serveur, deux
-  jeux, deux lots — `fondreDesReveils` et `fondreLesReveils` en sont un
-  connu), une constante recopiée au lieu d'être importée de `bareme.ts`, une
-  phrase de refus recopiée dans la page.
+  jeux, deux lots — `fondreDesReveils` et `fondreLesReveils` en étaient un,
+  fondus en une le 25 octobre 2026), une constante recopiée au lieu d'être
+  importée de `bareme.ts`, une phrase de refus recopiée dans la page.
 - **Le code mort** : ce qui ne servait qu'à la migration de l'Expédition,
   abandonnée le 25 octobre 2026 (décision du propriétaire : tout le monde
   repart à zéro) — l'origine `expedition` d'une œuvre, un crochet de fin

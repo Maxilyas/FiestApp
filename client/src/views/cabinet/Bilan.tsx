@@ -61,7 +61,10 @@ function LigneDeLaManche({ m, k }: { m: MancheVue; k: number }) {
 /**
  * « Mes réponses » : chaque manche révélée, comme la partie l'a révélée (le
  * même pli, invariant 14) — au Détail, chacune son tableau entier, à l'indice
- * de son tirage : celui que « Changer » a pris, pas celui de sa manche.
+ * de son tirage : celui que « Changer » a pris, pas celui de sa manche ; et
+ * comment elle s'est tranchée (`fin`) : une partie quittée s'ouvre sur son
+ * bilan, c'est donc ici seulement qu'on revoit sa manche quittée, et la
+ * Réplique quittée au bon mot y dit qu'il ne compte pas.
  */
 export function MesReponses({ vue, ecran, onFermer }: { vue: VueDeLaPartie; ecran: EcranEfface; onFermer: () => void }) {
   return (
@@ -70,7 +73,7 @@ export function MesReponses({ vue, ecran, onFermer }: { vue: VueDeLaPartie; ecra
         m.revelation ? (
           <section key={k} className="cab-reponses-manche" aria-label={`Manche ${k + 1}`}>
             <span className="cab-surtitre">{`Manche ${k + 1} · ${espacesFines(m.revelation.corps.titre)}`}</span>
-            <ecran.Revelation corps={m.revelation.corps} partie={vue.id} tirage={m.revelation.tirage} />
+            <ecran.Revelation corps={m.revelation.corps} partie={vue.id} tirage={m.revelation.tirage} fin={m.revelation.fin} />
             {m.revelation.corps.savais && (
               <p className="card anecdote">
                 <Icon name="message" />

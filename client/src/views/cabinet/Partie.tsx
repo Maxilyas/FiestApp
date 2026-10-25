@@ -131,8 +131,8 @@ export interface JeuALEcran<M, R, L> {
    * La révélation d'une manche, et comment elle s'est tranchée (`fin`) :
    * quittée au bon mot, la Réplique se titre « Le bon mot » et ne rapporte
    * rien — son corps ne le savait pas, et ne disait pas pourquoi. Le cadre la
-   * passe (`RevelationDeLaManche`) ; « Mes réponses » (`Bilan.tsx`) pas encore,
-   * et c'est là seulement qu'une manche quittée se montre — une partie quittée
+   * passe (`RevelationDeLaManche`), et « Mes réponses » (`Bilan.tsx`) aussi :
+   * c'est là seulement qu'une manche quittée se montre — une partie quittée
    * s'ouvre sur son bilan.
    */
   Revelation(p: { corps: R; fin?: FinDUneManche } & OuEstLaManche): ReactNode

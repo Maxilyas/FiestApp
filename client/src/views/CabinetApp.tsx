@@ -16,7 +16,7 @@ import { JEUX, type CleDeJeu } from '../../../shared/cabinet/jeux/regle'
 import { poussieresDites, type DemandeDeDepart } from '../../../shared/cabinet/musee'
 import { oeuvre as oeuvreDe } from '../../../shared/cabinet/oeuvres'
 import type { Manche } from '../../../shared/cabinet/partie'
-import type { MursDuCabinet, PageDuCabinet, ReveilDesGardiens, VueDeLaPartie } from '../../../shared/cabinet/vues'
+import { fondreLesReveils, type MursDuCabinet, type PageDuCabinet, type ReveilDesGardiens, type VueDeLaPartie } from '../../../shared/cabinet/vues'
 import { Annonce, annonceDe, estLaPartieDemandee } from './cabinet/Annonce'
 import { cartelArrive, cartelDemande, cartelsQuiTiennent, sansLesPerdus, type EtatDuCartel } from './cabinet/Cartel'
 import {
@@ -37,7 +37,6 @@ import type { LesMurs } from './cabinet/Murs'
 import { Oeuvre, oeuvreDeLaPage } from './cabinet/Oeuvre'
 import { Partie, ecranDuJeu } from './cabinet/Partie'
 import { FeuilleDesRegles } from './cabinet/Regles'
-import { fondreDesReveils } from './cabinet/reveils'
 import { Salle } from './cabinet/Salle'
 import { JouerLibrement, Visite } from './cabinet/Visite'
 import { carteRetenue, reglesLues, retenirLaCarte, retenirLesRegles } from './cabinet/retenu'
@@ -240,7 +239,7 @@ export function CabinetApp() {
   /** Une page neuve du serveur : elle prend la place de l'autre, ce qu'elle dit s'éveiller attend d'être lu, et la luciole entre dans sa niche. */
   const recevoir = useCallback((p: PageDuCabinet) => {
     setEtat({ e: 'pret', page: p })
-    if (p.reveil) setReveil(r => fondreDesReveils(r, p.reveil))
+    if (p.reveil) setReveil(r => fondreLesReveils(r, p.reveil) ?? null)
     void nicheApresLeReveil(p)
   }, [])
 

@@ -23,6 +23,8 @@ import { ANNONCE_MS, distinctions, type ProfilDAccueil } from '../../../shared/p
 import type { CarteDeJoueur } from '../../../shared/carte'
 import { carteDuProfil } from '../core/carte'
 import type { CampagneStore } from '../core/campagne'
+import type { CabinetStore } from '../core/cabinet/magasin'
+import type { CabinetDAccueil } from '../../../shared/cabinet/vues'
 import { jourDe } from '../../../shared/jour'
 import { lireEquipesPreparees, type EquipePreparee } from '../../../shared/teams'
 import { ceQuIlAPorter, nouveautes, retenirLesVus } from '../../../shared/loge'
@@ -55,6 +57,12 @@ interface ProfileApiDeps {
    * signalées et dont sa remarque a servi, pour le remercier.
    */
   campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'defiDAccueil' | 'accueilDesDuels' | 'duProfil' | 'mercisDe'>
+  /**
+   * Son musée, pour le bouton du Cabinet sur l'accueil (`CabinetStore.accueil`) :
+   * lu en mémoire seulement, sans un aller-retour. Absent là où le Cabinet est
+   * fermé : le bouton ne s'y montre pas.
+   */
+  cabinet?: Pick<CabinetStore, 'accueil'>
 }
 
 /**
@@ -165,7 +173,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   /**
    * L'accueil (`ProfilDAccueil`) : l'en-tête, sa carrière au quiz du jour,
    * son solde et ses sentiers, lus ensemble — un aller-retour, quand le
-   * détail en faisait quatre ou cinq l'un après l'autre. La nuit d'abord,
+   * détail en faisait quatre ou cinq l'un après l'autre ; son musée, de la
+   * mémoire du Cabinet, sans rien de plus. La nuit d'abord,
    * comme le détail : le podium d'hier dans le niveau, le laurier sur le
    * prénom.
    */
@@ -213,6 +222,13 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // signalements qui ont servi, ses annonces à tous — dits une fois, son
     // téléphone retient le reste.
     const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now(), mercis, lue?.aTous ?? [])
+    // Et son musée, de la mémoire du Cabinet — un musée qu'il n'a pas encore lu ne dit rien. Ce qui y tomberait n'ôte que lui.
+    let musee: CabinetDAccueil | null = null
+    try {
+      musee = deps.cabinet?.accueil(rec.id) ?? null
+    } catch (e) {
+      console.error('[profil] musée de l’accueil illisible :', e)
+    }
     return {
       ...profiles.toPublic(rec),
       jour,
@@ -221,6 +237,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       ...(campagne && { campagne }),
       ...(defi && { defi }),
       ...(duels && { duels }),
+      ...(musee && { cabinet: musee }),
       ...(annonces.length > 0 && { annonces }),
     }
   }

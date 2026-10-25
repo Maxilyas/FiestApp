@@ -110,9 +110,9 @@ function Repondu({ quoi, repondu, juste, cite = false }: { quoi: string; repondu
  * La révélation : la réplique entière, qui l'a dite et d'où elle vient, ce
  * qu'il avait répondu à chaque étape. Quittée au bon mot, le titre dit « Le bon
  * mot » — c'est vrai —, et la manche ne rapporte rien : la révélation dit
- * pourquoi, quand on lui dit comment la manche a fini (`fin`) — le cadre le
- * fait, « Mes réponses » (`Bilan.tsx`), le seul écran qui montre une manche
- * quittée, pas encore.
+ * pourquoi, de ce qu'on lui dit de la fin de sa manche (`fin`) : le cadre le
+ * lui dit, et « Mes réponses » (`Bilan.tsx`), le seul écran qui montre une
+ * manche quittée.
  */
 function RevelationDeLaReplique({ corps: r, fin }: { corps: RepliqueRevelee; fin?: FinDUneManche }) {
   return (

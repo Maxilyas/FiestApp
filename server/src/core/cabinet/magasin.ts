@@ -35,10 +35,11 @@ import type { QuestionDeLaBase } from '../baseCampagne'
 import type { FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites } from '../porteDeLaCampagne'
 import type { calendrierDuCabinet } from '../saisons'
 import { instructionDeLAchat, instructionDeLaDorure, lotDeLEchange, lotDeLOubli, lotDuDepart, lotDuGeste, type FinAEcrire, type OeuvreAEcrire } from './ecriture'
-import { fondreLesReveils, reconcilier, type EtagereDuCabinet } from './gardiens'
+import { reconcilier, type EtagereDuCabinet } from './gardiens'
 import { GARDIENS_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
-import type { ReveilDesGardiens } from '../../../../shared/cabinet/vues'
+import { fondreLesReveils, vuesDuCabinet, type CabinetDAccueil, type ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 import { laLigneDOeuvre, lecturesDeLaPartie, lecturesDuMusee, laPartieLue, lireLeMusee, type PartieLueEnBase } from './tables'
+import { accueilDuCabinet } from './vue'
 import { fichierDuCadrage } from '../details'
 import { contenuDuCabinet } from './contenu'
 import { preparerLesTas } from './tirages/tas'
@@ -88,7 +89,6 @@ import {
 import { OEUVRES_DE_DEPART, estUneOeuvre, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
 import type { FriseATheme, Lieu } from '../../../../shared/cabinet/contenu'
 import { estUneFriseDeSujet } from '../../../../shared/cabinet/pieces'
-import { vuesDuCabinet } from '../../../../shared/cabinet/vues'
 import { PREFIXE_DE_LA_FRISE, type EvenementDeLaFrise } from '../../../../shared/frise'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { refusDuCadrage, type DetailTire, type EtatDuDetail } from '../../../../shared/cabinet/jeux/detail'
@@ -410,13 +410,17 @@ export class CabinetStore {
     for (const [id, p] of this.parties) if (p.profileId === profileId) this.parties.delete(id)
   }
 
-  /** Le musée tel que les règles le lisent : ses légendaires relus des profils, en mémoire — un gardien gagné ailleurs compte aussitôt. */
-  private museeVu(profileId: string, g: MuseeGarde): Musee {
+  /**
+   * Le musée tel que les règles le lisent : ses légendaires relus des profils, en mémoire — un gardien gagné ailleurs compte
+   * aussitôt. Lu à un autre jour que celui de sa mémoire — l'accueil, qui ne la touche pas —, il n'a encore joué aucune partie
+   * de ce jour-là, comme le musée qu'une page relit après minuit (`musee`).
+   */
+  private museeVu(profileId: string, g: MuseeGarde, jour = g.duJour.jour): Musee {
     return museeDe({
-      jour: g.duJour.jour,
+      jour,
       profil: g.profil,
       oeuvres: [...g.oeuvres.values()],
-      parties: g.duJour.parties,
+      parties: g.duJour.jour === jour ? g.duJour.parties : [],
       legendaires: this.profils.legendairesOf(profileId),
       enCours: g.enCours,
     })
@@ -535,6 +539,26 @@ export class CabinetStore {
 
   private visiteDe(profileId: string, musee: Musee, t: number): VisiteDuJour {
     return visiteDuJour(musee, { graine: this.graineDe(profileId), jour: jourDe(t), minuit: minuitDe(t), jeux: JEUX_PRETS })
+  }
+
+  // ── L'accueil ─────────────────────────────────────────────────────────
+
+  /**
+   * Le gros bouton de l'accueil d'un profil (`ProfilDAccueil.cabinet`) : ses
+   * œuvres, et une case de la visite du jour qui attend — de la mémoire seule,
+   * sans verrou ni aller-retour. Un musée que ce serveur n'a pas lu depuis son
+   * réveil n'en dit rien (null), et le bouton garde sa ligne de toujours : la
+   * plupart des profils qui ouvrent l'accueil n'ouvrent pas le Cabinet, et
+   * chacun aurait payé son lot froid à chaque réveil, au quota de Turso
+   * (`cabinet-charge.test.ts`). L'accueil ne garde pas non plus le musée en
+   * vie : il ne le fait pas passer au bout de la mémoire.
+   */
+  accueil(profileId: string): CabinetDAccueil | null {
+    const g = this.musees.get(profileId)
+    if (!g) return null
+    const t = this.maintenant()
+    const musee = this.museeVu(profileId, g, jourDe(t))
+    return accueilDuCabinet(musee, this.visiteDe(profileId, musee, t), JEUX_PRETS)
   }
 
   // ── La page ───────────────────────────────────────────────────────────

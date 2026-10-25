@@ -1,6 +1,8 @@
-// Ce qui réveille un gardien, en mots, et ce que la page garde des réveils à
-// dire — pur et léger : la page du musée le lit sans télécharger l'annonce
-// elle-même (`Reveil.tsx`, à la demande), ni les cartes qu'elle fait venir.
+// Ce qui réveille un gardien, en mots — pur et léger : la page du musée le lit
+// sans télécharger l'annonce elle-même (`Reveil.tsx`, à la demande), ni les
+// cartes qu'elle fait venir. Deux réveils qui se suivent avant qu'on ait lu le
+// premier se fondent par la règle du serveur (`fondreLesReveils`,
+// `shared/cabinet/vues.ts`) : la page en avait ici sa copie.
 //
 // Un gardien se réveille d'une salle complète, d'une salle toute dorée, du
 // Cabinet entier, de trente jours d'affilée, ou d'une œuvre gagnée pendant sa
@@ -12,7 +14,6 @@
 
 import { JOURS_DU_SCARABEE } from '../../../../shared/cabinet/bareme'
 import { AUTRES_GARDIENS, GARDIENS_DES_SALLES, salleDuGardien } from '../../../../shared/cabinet/salles'
-import type { ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 import { legendaire } from '../../../../shared/legendaires'
 import { SAISONS } from '../../../../shared/saisons'
 
@@ -43,19 +44,4 @@ export function veillaitDeja(cle: string): string {
 export function seReveille(cle: string): string {
   const r = raison(cle)
   return r ? `${r.cause} ${nomDe(cle)} se réveille.` : `${nomDe(cle)} se réveille.`
-}
-
-/**
- * Deux réveils qui se suivent avant qu'on ait lu le premier — la page d'une
- * dépense, puis celle du retour au premier plan, qui dit la partie d'hier
- * close — : les deux, chaque gardien une fois, neuf s'il l'était dans l'un. Le
- * serveur ne le dit qu'une fois : la page le garde jusqu'à ce qu'on le ferme.
- */
-export function fondreDesReveils(a: ReveilDesGardiens | null | undefined, b: ReveilDesGardiens | null | undefined): ReveilDesGardiens | null {
-  if (!a) return b ?? null
-  if (!b) return a
-  const neufs = new Map<string, boolean>()
-  for (const g of [...a.gardiens, ...b.gardiens]) neufs.set(g.legendaire, (neufs.get(g.legendaire) ?? false) || g.neuf)
-  const compagnon = a.compagnon ?? b.compagnon
-  return { gardiens: [...neufs].map(([legendaire, neuf]) => ({ legendaire, neuf })), ...(compagnon && { compagnon }) }
 }

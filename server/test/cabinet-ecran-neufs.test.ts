@@ -620,7 +620,7 @@ test('la révélation de la Réplique : la réplique entière, qui l’a dite et
   sansJargon(html, 'la révélation de la Réplique', [r.entiere, r.source, r.qui, r.savais])
   // La partie relue — celle de « Mes réponses » —, quittée au bon mot : la troisième manche se titre « Le bon mot », et ne rapporte
   // rien. L'écran de la Réplique le dit, de ce que la vue en sait (`RevelationVue.fin`) — à condition qu'on le lui passe : le cadre
-  // le fait, « Mes réponses » (`Bilan.tsx`) pas encore, et c'est le seul écran qui montre une manche quittée.
+  // le fait, et « Mes réponses » (`Bilan.tsx`), le seul écran qui montre une manche quittée.
   const relue = vues.repliqueRelue
   const derniere = relue.manches[2].revelation!
   assert.equal(derniere.fin, 'quittee')
@@ -635,6 +635,13 @@ test('la révélation de la Réplique : la réplique entière, qui l’a dite et
   // manche quittée qu'ici, rendu à la main.)
   const cadre = await rendu('views/cabinet/Partie', 'RevelationDeLaManche', { vue: relue, revelation: derniere, ecran: REPLIQUE, onSignaler: rien })
   assert.match(texte(cadre), /Manche quittée .*même le bon mot ne compte pas/)
+  // « Mes réponses » aussi, sur la partie que la route relit : sans `fin`, la manche quittée au bon mot s'y titrait « Le bon mot »
+  // sans dire pourquoi elle ne comptait pas — et c'est là seulement qu'on la revoit, une partie quittée s'ouvrant sur son bilan.
+  const reponses = texte(await rendu('views/cabinet/Bilan', 'MesReponses', { vue: relue, ecran: REPLIQUE, onFermer: rien }))
+  assert.match(reponses, /Manche 3 · Le bon mot/)
+  assert.match(reponses, /Manche quittée avant « Qui l’a dit \? » : même le bon mot ne compte pas\./)
+  // Les deux manches jouées jusqu'au bout ne disent rien de tel : `fin` vient de chacune.
+  assert.equal([...reponses.matchAll(/Manche quittée/g)].length, 1)
 })
 
 // ── 6. Tes murs ───────────────────────────────────────────────────────────

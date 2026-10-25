@@ -30,6 +30,7 @@ import type { DefiDAccueil } from './campagne'
 import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
 import type { VusDeLaLoge } from './piecesDeLaLoge'
 import type { ActiviteDUnJoueur } from './qgActivite'
+import type { CabinetDAccueil } from './cabinet/vues'
 import { formeDeCompagnon, type CleDeCompagnon, type CompagnonPossede } from './compagnons'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
@@ -1091,6 +1092,13 @@ export type ProfilDAccueil = PublicProfile &
     defi?: DefiDAccueil
     /** Sa ligue, sa cote, sa semaine et les défis de ses amis, pour le bouton des duels ; absent si la base s'est tue. */
     duels?: DuelsDAccueil
+    /**
+     * Son musée, pour le bouton du Cabinet : ses œuvres, et une case de la
+     * visite du jour qui attend. Lu en mémoire seulement : absent tant que ce
+     * serveur n'a pas lu son musée depuis son réveil, et là où le Cabinet est
+     * fermé — l'accueil ne paie pas un aller-retour pour lui.
+     */
+    cabinet?: CabinetDAccueil
     /**
      * Le jour de Paris au serveur (`2026-10-11`) : l'accueil sait s'il a joué
      * aujourd'hui sans le calculer — le premier `Intl` d'une page charge les

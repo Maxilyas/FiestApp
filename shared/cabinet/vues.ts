@@ -1,7 +1,9 @@
 // Ce que la page du Cabinet reçoit du serveur : la page du musée, une partie,
 // le cartel d'une œuvre, les murs, le bouton de l'accueil. Des types, que la
-// page lit en `import type` — elle ne juge rien —, et une seule fonction pure,
-// les vues dépliées (`vuesDuCabinet`), que le tirage du serveur lit.
+// page lit en `import type` — elle ne juge rien —, et deux fonctions pures :
+// les vues dépliées (`vuesDuCabinet`), que le tirage du serveur lit, et des
+// réveils fondus en un (`fondreLesReveils`), que le serveur et la page lisent
+// tous deux.
 //
 // La vue du serveur (`core/cabinet/vue.ts`) choisit chaque champ un à un, et
 // délègue le corps d'une manche à `montrer` du jeu, sa révélation à `reveler`
@@ -133,16 +135,6 @@ export interface PageDuCabinet {
   fete: FeteVue | null
   /** Une expédition l'attend encore : « Ton expédition t'attend : la finir ». */
   expedition: 'en-route' | null
-  /**
-   * Les œuvres rapportées de l'Expédition : zéro, toujours — plus rien ne s'en
-   * rapporte (la décision du propriétaire du 25 octobre 2026, chacun commence
-   * son musée à zéro). Gardé le temps que la page cesse de lire son annonce
-   * (`Musee.tsx`, `CabinetApp.tsx`, `retenu.ts` et sa clé
-   * `quizz.cabinet.accueil-vu` — le lot qui retire la page de la migration),
-   * puis retiré du même geste, avec le zéro de `pageDuCabinet` (`vue.ts`) :
-   * retiré avant, la page ne se construirait plus.
-   */
-  rapportees: number
   /** Les jeux livrés : un cadre vide d'un autre jeu dit « bientôt ». */
   jeux: CleDeJeu[]
   /**
@@ -173,6 +165,24 @@ export interface ReveilDesGardiens {
   gardiens: { legendaire: string; neuf: boolean }[]
   /** La luciole, à la première salle complète. */
   compagnon?: CleDeCompagnon
+}
+
+/**
+ * Des réveils fondus en un : chaque gardien une fois, dans leur ordre, neuf
+ * s'il l'est dans l'un ; la première luciole. Le serveur fond la partie d'hier
+ * qu'il a close et la dépense qui rend la page ; la page, deux pages qui en
+ * portent un avant qu'on ait lu le premier — la réponse d'une dépense, puis
+ * celle du retour au premier plan. Une seule règle pour les deux côtés : ils
+ * en avaient chacun sa copie, et l'une pouvait évoluer sans l'autre. Rien :
+ * absent ; un seul : lui-même, tel quel.
+ */
+export function fondreLesReveils(...reveils: (ReveilDesGardiens | null | undefined)[]): ReveilDesGardiens | undefined {
+  const tous = reveils.filter((r): r is ReveilDesGardiens => !!r)
+  if (tous.length <= 1) return tous[0]
+  const neufs = new Map<string, boolean>()
+  for (const r of tous) for (const g of r.gardiens) neufs.set(g.legendaire, (neufs.get(g.legendaire) ?? false) || g.neuf)
+  const compagnon = tous.find(r => r.compagnon)?.compagnon
+  return { gardiens: [...neufs].map(([legendaire, neuf]) => ({ legendaire, neuf })), ...(compagnon && { compagnon }) }
 }
 
 // ── Une partie — `POST /api/cabinet/partie`, son geste, sa relecture ──────
@@ -253,8 +263,11 @@ export interface BilanVu extends Omit<BilanDUnePartie, 'v' | 'cartel'> {
    * La fin a fait de cette partie le cartel de son œuvre : gagnée, ou dorée
    * ou doublée quand elle n'en avait pas encore — la base garde le premier
    * (`cabinet_oeuvres.serie_id`) et le dit, jamais la mémoire d'un serveur.
-   * Le bilan ne dit « Son cartel » que là. La fin seule le sait, comme
-   * `gains` : « Mes réponses » ne le porte pas.
+   * La fin seule le sait, comme `gains` : posé quand elle a parlé, il manque
+   * à un bilan relu sans elle — « Mes réponses », un geste rejoué dont la
+   * réponse s'est perdue. La page y dit encore « Son cartel » d'une œuvre
+   * gagnée, qui l'a pris à coup sûr (`titreAuBilan`), et ne promet rien d'une
+   * dorée ou d'une doublée.
    */
   devientSonCartel?: true
   /** Une salle complète, un gardien qui veillait déjà : « Salle complète ! Le Phénix veillait déjà sur elle. » */
@@ -340,7 +353,12 @@ export interface MursDuCabinet {
   dates: { libelle: string; annee: number; de: 'cabinet' | 'expedition'; vuLe: number }[]
 }
 
-/** Le gros bouton de l'accueil : « Ton musée : 27 œuvres sur 84 », « À jouer » tant que la visite n'est pas faite. */
+/**
+ * Le gros bouton de l'accueil (`ProfilDAccueil.cabinet`) : « Ton musée :
+ * 27 œuvres sur 84 », et « À jouer » tant qu'une case de la visite du jour
+ * attend. Le serveur ne le dit que d'un musée qu'il a en mémoire : l'accueil
+ * ne lui paie pas son lot froid.
+ */
 export interface CabinetDAccueil {
   oeuvres: number
   sur: number

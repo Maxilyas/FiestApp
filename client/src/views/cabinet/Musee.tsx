@@ -14,7 +14,7 @@ import { adresseDe } from './ecrans'
 // Le musée : l'entrée du Cabinet (la maquette jouable, `retours/2026-10-24/
 // maquette/`). Ce qu'il possède en une ligne, ce qui l'attend aujourd'hui — la
 // partie en cours d'abord, puis la visite du jour —, le gardien le plus
-// proche, les neuf salles en portes, les gardiens, les jeux libres. Pas un
+// proche, les neuf salles en portes, les gardiens, tes murs, les jeux libres. Pas un
 // paragraphe de règle : « Comment ça marche ? » les dit (règle `cabinet.md`,
 // la leçon de l'Expédition). Ce que la page montre vient de la vue du serveur
 // (`PageDuCabinet`), jamais d'une règle recopiée.
@@ -217,6 +217,14 @@ export function Musee({
       </section>
 
       <GrosBouton icone={<Icon name="crown" />} titre="Les gardiens" detail={`${reveilles} sur ${GARDIENS.length} réveillés`} href={adresseDe({ e: 'gardiens' })} />
+      {/* Ce qu'il a appris, à sa place : seules les règles y menaient, d'un lien au milieu d'un paragraphe. Les murs se demandent
+          à l'ouverture de leur écran : le bouton n'en dit pas le compte, que la page du musée n'a pas. */}
+      <GrosBouton
+        icone={<Icon name="repere" />}
+        titre="Tes murs"
+        detail={espacesFines('Les lieux et les dates que tes parties t’ont appris')}
+        href={adresseDe({ e: 'murs' })}
+      />
       <GrosBouton
         icone={<Icon name="dice" />}
         titre="Jouer librement"

@@ -68,20 +68,6 @@ export const voiesQuiManquent = (dus: readonly GardienDu[], rangees: ReadonlyMap
   dus.filter(d => !(GARDIENS_DE_SAISON.includes(d.legendaire) ? sousLeCabinet.has(d.voie) : rangees.has(d.voie)))
 
 /**
- * Deux réveils en un — la partie d'hier que le serveur a close, puis la
- * dépense qui rend la page : chaque gardien une fois, dans leur ordre, neuf
- * s'il l'est dans l'un ; la luciole d'où qu'elle vienne. Rien : absent.
- */
-export function fondreLesReveils(...reveils: (ReveilDesGardiens | null | undefined)[]): ReveilDesGardiens | undefined {
-  const tous = reveils.filter((r): r is ReveilDesGardiens => !!r)
-  if (tous.length === 0) return undefined
-  const neufs = new Map<string, boolean>()
-  for (const r of tous) for (const g of r.gardiens) neufs.set(g.legendaire, (neufs.get(g.legendaire) ?? false) || g.neuf)
-  const compagnon = tous.find(r => r.compagnon)?.compagnon
-  return { gardiens: [...neufs].map(([legendaire, neuf]) => ({ legendaire, neuf })), ...(compagnon && { compagnon }) }
-}
-
-/**
  * Réveille ce que le musée doit et que l'étagère n'a pas : ranger ce qui
  * manque, d'un lot, puis offrir la luciole s'il a une salle complète. Chaque
  * pas qui tombe se dit au journal du serveur et laisse passer le suivant :

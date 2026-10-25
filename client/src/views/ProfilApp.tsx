@@ -587,6 +587,7 @@ export function ProfilApp() {
           campagne={'campagne' in profil ? profil.campagne : undefined}
           defi={'defi' in profil ? profil.defi : undefined}
           duels={'duels' in profil ? profil.duels : undefined}
+          musee={'cabinet' in profil ? profil.cabinet : undefined}
           etats={boutonsDesPages()}
           cabinet={cabinetIci()}
         />

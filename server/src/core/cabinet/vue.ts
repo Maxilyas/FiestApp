@@ -1,6 +1,7 @@
 // Ce que le téléphone reçoit du Cabinet de curiosités : la page du musée
 // (`pageDuCabinet`), une partie (`vueDeLaPartie`), le cartel d'une œuvre
-// (`cartelDe`) et tes murs (`mursDe`), bâtis champ par champ
+// (`cartelDe`), tes murs (`mursDe`) et le bouton de l'accueil
+// (`accueilDuCabinet`), bâtis champ par champ
 // des types nés complets de `shared/cabinet/vues.ts` (invariant 1). Rien ne
 // s'y étale : un champ neuf du départ figé — sa graine, ses rechanges, la
 // bonne réponse d'une manche pas encore tranchée — n'y part jamais de
@@ -37,8 +38,9 @@ import {
   type EnjeuDUneCase,
   type Musee,
   type OrigineDUneOeuvre,
+  type VisiteDuJour,
 } from '../../../../shared/cabinet/musee'
-import { JEU_DE_L_OEUVRE, OEUVRES_DE_DEPART, estUneOeuvre, oeuvre, oeuvresDeLaSalle, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
+import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, estUneOeuvre, oeuvre, oeuvresDeLaSalle, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
 import {
   etapeEnCours,
   etoilesDesManches,
@@ -57,6 +59,7 @@ import { ceQueFaitLaCarte } from '../../../../shared/cabinet/pouvoirs'
 import { AUTRES_GARDIENS, GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, SALLES, conditionDuGardien, pouvoirDuGardien, salle, voieDuGardien } from '../../../../shared/cabinet/salles'
 import type {
   BilanVu,
+  CabinetDAccueil,
   Cartel,
   CartelDuBilan,
   CarteVue,
@@ -511,13 +514,24 @@ export function pageDuCabinet(l: LectureDuCabinet): PageDuCabinet {
     enCours: l.enCours ? vueDeLaPartie(l.enCours) : null,
     fete: feteVue(l),
     expedition: l.expeditionEnRoute ? 'en-route' : null,
-    // Plus rien ne se rapporte de l'Expédition (la décision du propriétaire du 25 octobre 2026) : zéro, tant que la page
-    // lit encore le champ de son annonce.
-    rapportees: 0,
     jeux: [...l.jeux],
     // Champ par champ, comme le reste : ce que la dépense vient de réveiller, et rien d'autre.
     ...(l.reveil && {
       reveil: { gardiens: l.reveil.gardiens.map(g => ({ legendaire: g.legendaire, neuf: g.neuf })), ...(l.reveil.compagnon && { compagnon: l.reveil.compagnon }) },
     }),
+  }
+}
+
+/**
+ * Le gros bouton de l'accueil : ses œuvres sur toutes, et si une case de la
+ * visite du jour attend — pas commencée, et d'un jeu livré : une case d'un jeu
+ * « bientôt » ne se joue pas, et la pastille aurait promis ce que le musée
+ * refuse. Rien de la visite au-delà : ni son jeu, ni l'œuvre qu'elle vise.
+ */
+export function accueilDuCabinet(m: Musee, visite: VisiteDuJour, jeux: readonly string[]): CabinetDAccueil {
+  return {
+    oeuvres: possedees(m).size,
+    sur: OEUVRES.length,
+    aJouer: visite.cases.some((c, k) => jeux.includes(c.jeu) && !caseCommencee(m, k)),
   }
 }
