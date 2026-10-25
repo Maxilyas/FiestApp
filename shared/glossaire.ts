@@ -87,8 +87,9 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   salle: { terme: 'Salle', sens: 'Un mur du Cabinet : une famille de huit œuvres, ou les vingt du Vestibule.' },
   gardien: { terme: 'Gardien', sens: 'Un légendaire qui veille sur une salle : complète, elle le réveille ; toute dorée, un second.' },
   cartel: { terme: 'Cartel', sens: 'La plaque sous une œuvre : ce que tu as appris en la gagnant.' },
-  poussiere: { terme: 'Poussière d’or', sens: 'La monnaie du Cabinet, qui n’en sort jamais : chaque partie en rapporte, même ratée.' },
-  cadreDore: { terme: 'Cadre doré', sens: 'Trois manches parfaites sans qu’un pouvoir ait servi, ou de la poussière d’or.' },
+  // Pas « chaque partie » : au-delà des premières du jour, une partie libre ne rapporte plus rien (`poussiereDeLaPartie`).
+  poussiere: { terme: 'Poussière d’or', sens: 'La monnaie du Cabinet, qui n’en sort jamais : chaque visite ou chasse en rapporte, même ratée.' },
+  cadreDore: { terme: 'Cadre doré', sens: 'Toutes les manches parfaites sans qu’un pouvoir ait servi, ou de la poussière d’or.' },
   carteBonus: { terme: 'Carte-bonus', sens: 'Une œuvre ou un gardien que tu emportes en partie pour son pouvoir. Elle ne s’use jamais.' },
   visite: { terme: 'Visite du jour', sens: 'Les parties proposées chaque jour : chacune peut te faire gagner une œuvre, gardée secrète.' },
   chasse: { terme: 'Chasse', sens: 'Partir chercher l’œuvre de ton choix au jeu où elle se trouve, ou rejouer une œuvre à dorer.' },

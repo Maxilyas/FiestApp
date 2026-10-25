@@ -16,6 +16,21 @@ import { enDebutDeLigne } from './Musee'
 /** Le cartel, en chemin, lu, ou perdu : sa place se garde, son motif se dit. */
 export type EtatDuCartel = { etat: 'chargement' } | { etat: 'lu'; cartel: Cartel } | { etat: 'perdu'; motif: string }
 
+/**
+ * Les cartels que la page garde, sans les perdus : seul un cartel lu vaut
+ * d'être gardé. Gardé, un échec — une coupure d'un instant — restait sur la
+ * plaque jusqu'au rechargement ; oublié, il se redemande à la réouverture de
+ * l'œuvre et à chaque page relue. Rien de perdu : le même objet, et la page
+ * ne se redessine pas pour rien.
+ */
+export function sansLesPerdus(cartels: Readonly<Record<string, EtatDuCartel>>): Record<string, EtatDuCartel> {
+  const perdus = Object.keys(cartels).filter(cle => cartels[cle].etat === 'perdu')
+  if (perdus.length === 0) return cartels as Record<string, EtatDuCartel>
+  const gardes = { ...cartels }
+  for (const cle of perdus) delete gardes[cle]
+  return gardes
+}
+
 export function CartelDeLOeuvre({ lu }: { lu: EtatDuCartel }) {
   if (lu.etat === 'chargement') return <div className="cab-cartel cab-cartel-attente" aria-busy="true" />
   if (lu.etat === 'perdu') {

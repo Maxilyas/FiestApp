@@ -11,7 +11,7 @@ import type { CleDeFamille } from '../../../../shared/cabinet/salles'
 import type { GardienVu, OeuvreVue, PageDuCabinet, SalleVue } from '../../../../shared/cabinet/vues'
 import { legendaire } from '../../../../shared/legendaires'
 import { RetourAuMusee, adresseDe } from './ecrans'
-import { possedeesDe } from './Musee'
+import { compte, possedeesDe } from './Musee'
 
 // Une salle du Cabinet : ses œuvres au mur — peintes, ou des cadres vides
 // qui disent où chercher —, le pouvoir que ses œuvres donnent en
@@ -105,8 +105,13 @@ export function Salle({ salle, page }: { salle: SalleVue; page: PageDuCabinet })
         <h2 id="cab-ses-gardiens">Ses gardiens</h2>
         <GardienDeLaSalle gardien={salle.gardiens[0]} rang="premier" />
         <GardienDeLaSalle gardien={salle.gardiens[1]} rang="second" />
-        {!salle.complete && <p className="cab-ligne">{espacesFines(`Encore ${salle.oeuvres.length - n} œuvre${salle.oeuvres.length - n > 1 ? 's' : ''} pour réveiller le premier.`)}</p>}
-        {salle.complete && !salle.doree && <p className="cab-ligne">{espacesFines(`${dorees} cadre${dorees > 1 ? 's' : ''} doré${dorees > 1 ? 's' : ''} sur ${salle.oeuvres.length} : tous dorés, le second se réveille.`)}</p>}
+        {/* Rien à promettre d'un gardien qui veille déjà : rapporté de l'Expédition, le Phénix est « réveillé » avant que sa salle soit complète. */}
+        {!salle.complete && !salle.gardiens[0].reveille && (
+          <p className="cab-ligne">{espacesFines(`Encore ${compte(salle.oeuvres.length - n, 'œuvre')} pour réveiller le premier.`)}</p>
+        )}
+        {salle.complete && !salle.doree && !salle.gardiens[1].reveille && (
+          <p className="cab-ligne">{espacesFines(`${compte(dorees, 'cadre doré', 'cadres dorés')} sur ${salle.oeuvres.length} : tous dorés, le second se réveille.`)}</p>
+        )}
       </section>
       <p className="cab-ligne">{espacesFines(`${page.chasses.restent} chasse${page.chasses.restent > 1 ? 's' : ''} aujourd’hui : touche un cadre vide pour partir à sa recherche.`)}</p>
     </div>

@@ -14,8 +14,19 @@ import { poussieresDites } from '../../../shared/cabinet/musee'
 import { oeuvre as oeuvreDe } from '../../../shared/cabinet/oeuvres'
 import type { Manche } from '../../../shared/cabinet/partie'
 import type { PageDuCabinet, VueDeLaPartie } from '../../../shared/cabinet/vues'
-import type { EtatDuCartel } from './cabinet/Cartel'
-import { RetourAuMusee, adresseDe, ecranDeLAdresse, memeEcran, type EcranDuMusee, type PartieDemandee } from './cabinet/ecrans'
+import { sansLesPerdus, type EtatDuCartel } from './cabinet/Cartel'
+import {
+  RetourAuMusee,
+  adresseDe,
+  ecranDeLAdresse,
+  effacerLaMarqueAuChargement,
+  memeEcran,
+  partieDansLEntree,
+  poserLEntreeDeLaPartie,
+  quitterVersLeMusee,
+  type EcranDuMusee,
+  type PartieDemandee,
+} from './cabinet/ecrans'
 import { Gardiens } from './cabinet/Gardiens'
 import { Musee, enDebutDeLigne } from './cabinet/Musee'
 import { Oeuvre, oeuvreDeLaPage } from './cabinet/Oeuvre'
@@ -34,7 +45,8 @@ import { carteRetenue, rapporteesVues, reglesLues, retenirLaCarte, retenirLesRap
 //
 // La partie — l'annonce, les manches, le bilan — a ses écrans à part, qui ne
 // sont pas encore là : un départ demandé ouvre son annonce en attente, qui ne
-// consomme rien (rien ne coûte avant « Commencer »).
+// consomme rien (rien ne coûte avant « Commencer »), par-dessus l'écran d'où
+// il part, sur une entrée d'historique à elle (`cabinet/ecrans.ts`).
 
 type Etat = { e: 'chargement' } | { e: 'anonyme' | 'bientot' | 'erreur'; motif: string } | { e: 'pret'; page: PageDuCabinet }
 
@@ -91,8 +103,11 @@ export function CabinetApp() {
   const [enPartie, setEnPartie] = useState<EnPartie | null>(null)
   const [regles, setRegles] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [carte, setCarte] = useState<string | null>(() => carteRetenue())
-  const [accueil, setAccueil] = useState(() => ({ bienvenue: !reglesLues(), rapportees: rapporteesVues() }))
+  // Ce que le téléphone retient se lit au profil (`retenu.ts`), connu avec le profil léger, avant que le musée paraisse.
+  // Sans lui, rien ne se retient, et ce qui ne se dit qu'une fois se tait : redit à chaque visite, il lasserait.
+  const [profil, setProfil] = useState<string | null>(null)
+  const [carte, setCarte] = useState<string | null>(null)
+  const [accueil, setAccueil] = useState({ bienvenue: false, rapportees: Number.POSITIVE_INFINITY })
   const [cartels, setCartels] = useState<Record<string, EtatDuCartel>>({})
   const { toast } = useAppState()
   const page = etat.e === 'pret' ? etat.page : null
@@ -123,6 +138,12 @@ export function CabinetApp() {
         void porterTheme(moi.profile?.theme)
         porterGerbe(moi.profile?.gerbe)
         porterNiche(moi.profile)
+        const id = moi.profile?.id
+        if (id) {
+          setProfil(id)
+          setCarte(carteRetenue(id))
+          setAccueil({ bienvenue: !reglesLues(id), rapportees: rapporteesVues(id) })
+        }
       } catch {
         // Sans le profil léger, le musée s'ouvre quand même : le thème attendra.
       }
@@ -133,12 +154,17 @@ export function CabinetApp() {
     }
   }, [lirePage])
 
-  // Le fragment dit l'écran : un lien vers `#salle-rempart`, le retour du navigateur, tout passe par lui.
+  // Le fragment dit l'écran : un lien vers `#salle-rempart`, le retour du navigateur, tout passe par lui. Une partie
+  // ouverte par-dessus a son entrée d'historique (`poserLEntreeDeLaPartie`) : un retour qui la quitte la ferme.
   useEffect(() => {
-    const suivre = () => setEcranBrut(avant => {
-      const neuf = ecranDeLAdresse(window.location.hash)
-      return memeEcran(avant, neuf) ? avant : neuf
-    })
+    effacerLaMarqueAuChargement(window.history)
+    const suivre = () => {
+      if (!partieDansLEntree(window.history.state)) setEnPartie(null)
+      setEcranBrut(avant => {
+        const neuf = ecranDeLAdresse(window.location.hash)
+        return memeEcran(avant, neuf) ? avant : neuf
+      })
+    }
     window.addEventListener('hashchange', suivre)
     window.addEventListener('popstate', suivre)
     return () => {
@@ -176,6 +202,10 @@ export function CabinetApp() {
   // Le cartel d'une œuvre à lui, demandé quand on l'ouvre, une fois par page : la peinture s'ouvre sans l'attendre.
   const oeuvreOuverte = ecran.e === 'oeuvre' && page ? oeuvreDeLaPage(page, ecran.oeuvre) : null
   const aSonCartel = oeuvreOuverte?.oeuvre.possedee ? oeuvreOuverte.oeuvre.cle : null
+  // Un cartel perdu se redemande quand on rouvre une œuvre, et à chaque page relue (le retour au premier plan, un achat).
+  useEffect(() => {
+    setCartels(sansLesPerdus)
+  }, [aSonCartel, page])
   useEffect(() => {
     if (!aSonCartel || cartels[aSonCartel]) return
     setCartels(c => ({ ...c, [aSonCartel]: { etat: 'chargement' } }))
@@ -187,10 +217,17 @@ export function CabinetApp() {
 
   /** « ← Le Cabinet » : le musée, sans recharger la page, et le retour du navigateur ramène où l'on était. */
   const versLeMusee = useCallback(() => {
+    quitterVersLeMusee(window.history, window.location.hash)
     setEnPartie(null)
-    if (window.location.hash) window.history.pushState(null, '', '/cabinet')
     setEcranBrut({ e: 'musee' })
   }, [])
+
+  /** Une partie demandée ou reprise, par-dessus l'écran : son entrée d'historique, que le retour du navigateur consomme. */
+  const ouvrir = (partie: EnPartie) => {
+    poserLEntreeDeLaPartie(window.history)
+    setEnPartie(partie)
+  }
+  const jouer = (partie: PartieDemandee) => ouvrir({ e: 'annonce', partie })
 
   /** Un geste qui écrit — un achat, une dorure, un échange — : la page d'après, sinon le refus du serveur et la page relue. */
   const ecrire = async (geste: () => Promise<PageDuCabinet>, reussi: string) => {
@@ -219,18 +256,20 @@ export function CabinetApp() {
   }
   const echanger = (k: Manche) => ecrire(() => api.cabinet.echanger(k), 'Le jeu de cette partie a changé')
   const choisirLaCarte = (cle: string | null) => {
-    retenirLaCarte(cle)
+    if (profil) retenirLaCarte(profil, cle)
     setCarte(cle)
   }
   const lu = (quoi: 'bienvenue' | 'rapportees') => {
-    if (quoi === 'bienvenue') retenirLesRegles()
-    else if (page) retenirLesRapportees(page.rapportees)
+    if (profil) {
+      if (quoi === 'bienvenue') retenirLesRegles(profil)
+      else if (page) retenirLesRapportees(profil, page.rapportees)
+    }
     setAccueil(a => (quoi === 'bienvenue' ? { ...a, bienvenue: false } : { ...a, rapportees: page?.rapportees ?? a.rapportees }))
   }
   const ouvrirLesRegles = () => {
     setRegles(true)
     // Lues une fois, la bienvenue n'a plus à les proposer.
-    retenirLesRegles()
+    if (profil) retenirLesRegles(profil)
     setAccueil(a => ({ ...a, bienvenue: false }))
   }
 
@@ -287,22 +326,22 @@ export function CabinetApp() {
           onCarte={choisirLaCarte}
           onAcheter={(cle, prix) => void acheter(cle, prix)}
           onDorer={(cle, prix) => void dorer(cle, prix)}
-          onJouer={partie => setEnPartie({ e: 'annonce', partie })}
+          onJouer={jouer}
         />,
       )
     case 'gardiens':
       return avecLeToast(<Gardiens page={p} carte={carte} onCarte={choisirLaCarte} />)
     case 'visite':
-      return avecLeToast(<Visite page={p} busy={busy} onJouer={partie => setEnPartie({ e: 'annonce', partie })} onEchanger={k => void echanger(k)} />)
+      return avecLeToast(<Visite page={p} busy={busy} onJouer={jouer} onEchanger={k => void echanger(k)} />)
     case 'libre':
-      return avecLeToast(<JouerLibrement page={p} onJouer={partie => setEnPartie({ e: 'annonce', partie })} />)
+      return avecLeToast(<JouerLibrement page={p} onJouer={jouer} />)
   }
   return avecLeToast(
     <Musee
       page={p}
       accueil={accueil}
       onRegles={ouvrirLesRegles}
-      onReprendre={() => p.enCours && setEnPartie({ e: 'reprise', vue: p.enCours })}
+      onReprendre={() => p.enCours && ouvrir({ e: 'reprise', vue: p.enCours })}
       onLu={lu}
     />,
   )

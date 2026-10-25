@@ -136,3 +136,11 @@ paths:
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`
   n'est plus posée par rien et passe. Une classe qu'on retire se cherche à
   la main.
+- **Le Cabinet de curiosités préfixe ses classes en `cab-`** : deux fonds de
+  carte s'appellent déjà `.fond-cabinet` et `.fond-musee`, et un nom court
+  (`.cabinet`, `.musee`) serait un modificateur de plus à chercher dans la
+  feuille (règle `profil.md`). Sa section de `styles.css` (« Le Cabinet de
+  curiosités ») ne vise que des `cab-` — la carte peinte et les pièces
+  partagées qu'elle pose, sous `.cab-page` — et n'écrit aucun texte sous
+  dix-sept pixels : `cabinet-ecran.test.ts` relit chaque sélecteur et chaque
+  taille (règle `cabinet.md`).

@@ -3,7 +3,7 @@ import { OeuvrePeinte, RARETE_DITE } from '../../components/OeuvrePeinte'
 import { PieceTete, Sortie } from '../../components/Pieces'
 import { espacesFines } from '../../format'
 import { CLES_DES_JEUX, JEUX } from '../../../../shared/cabinet/jeux/regle'
-import type { EnjeuDUneCase } from '../../../../shared/cabinet/musee'
+import { JEU_PAS_LIVRE, type EnjeuDUneCase } from '../../../../shared/cabinet/musee'
 import { oeuvre as oeuvreDe } from '../../../../shared/cabinet/oeuvres'
 import type { IssueDUnePartie, Manche } from '../../../../shared/cabinet/partie'
 import { salle } from '../../../../shared/cabinet/salles'
@@ -53,21 +53,22 @@ function CaseDeLaVisite({ c, k, echange, busy, onJouer, onEchanger }: { c: CaseV
         <span className="cab-surtitre">{c.faite ? 'Faite' : 'À jouer'}</span>
         <b className="cab-case-jeu">{jeu.nom}</b>
         <span className="cab-ligne">{espacesFines(c.faite ? issueDite(c) : enJeuDit(c.enJeu))}</span>
-        {!c.faite &&
-          (c.bientot ? (
-            <span className="cab-raison">Ce jeu arrive bientôt</span>
-          ) : (
-            <span className="cab-gestes">
+        {!c.faite && c.bientot && <span className="cab-raison">{JEU_PAS_LIVRE}</span>}
+        {/* Un jeu qui n'est pas encore là ne se joue pas, mais il se change : l'échange est ce qui rend sa case jouable. */}
+        {!c.faite && (!c.bientot || echange) && (
+          <span className="cab-gestes">
+            {!c.bientot && (
               <button type="button" className="btn btn-primary" aria-disabled={busy || undefined} onClick={() => !busy && onJouer({ origine: 'visite', case: k })}>
                 Jouer
               </button>
-              {echange && (
-                <button type="button" className="btn" aria-disabled={busy || undefined} onClick={() => !busy && onEchanger(k)}>
-                  Changer de jeu
-                </button>
-              )}
-            </span>
-          ))}
+            )}
+            {echange && (
+              <button type="button" className="btn" aria-disabled={busy || undefined} onClick={() => !busy && onEchanger(k)}>
+                Changer de jeu
+              </button>
+            )}
+          </span>
+        )}
       </span>
     </li>
   )
@@ -76,8 +77,9 @@ function CaseDeLaVisite({ c, k, echange, busy, onJouer, onEchanger }: { c: CaseV
 export function Visite({ page, busy, onJouer, onEchanger }: { page: PageDuCabinet; busy: boolean; onJouer: (p: PartieDemandee) => void; onEchanger: (k: Manche) => void }) {
   const auMusee = useContext(RetourAuMusee)
   const { cases, echange } = page.visite
-  // « Changer de jeu » : une fois par jour, sur la première case pas encore jouée — la règle des échanges, au serveur, dit si c'est possible.
-  const aEchanger = echange.possible ? cases.findIndex(c => !c.faite) : -1
+  // « Changer de jeu » : sur chaque case pas encore jouée, tant que la règle des échanges (`refusDeLEchange`, au serveur) le
+  // permet — une fois par jour, la case de son choix. Elle ne dépend de la case que par « déjà jouée », que `faite` dit déjà.
+  const aJouerEncore = cases.some(c => !c.faite)
   const { jours, aJouer } = page.serie
   return (
     <div className="player-shell cab-page">
@@ -86,10 +88,10 @@ export function Visite({ page, busy, onJouer, onEchanger }: { page: PageDuCabine
       <p className="cab-ligne">{espacesFines('Chacune peut te faire gagner une œuvre : tu la découvres en la gagnant.')}</p>
       <ol className="cab-cases">
         {cases.map((c, k) => (
-          <CaseDeLaVisite key={k} c={c} k={k as Manche} echange={k === aEchanger} busy={busy} onJouer={onJouer} onEchanger={onEchanger} />
+          <CaseDeLaVisite key={k} c={c} k={k as Manche} echange={echange.possible && !c.faite} busy={busy} onJouer={onJouer} onEchanger={onEchanger} />
         ))}
       </ol>
-      {echange.refus && aEchanger < 0 && cases.some(c => !c.faite) && <p className="cab-raison">{espacesFines(echange.refus)}</p>}
+      {!echange.possible && echange.refus && aJouerEncore && <p className="cab-raison">{espacesFines(echange.refus)}</p>}
       <section className="cab-bloc" aria-labelledby="cab-la-chasse">
         <h2 id="cab-la-chasse">{espacesFines(`La chasse · ${compte(page.chasses.restent, 'chasse')} aujourd’hui`)}</h2>
         <p className="cab-ligne">{espacesFines('Dans une salle, touche un cadre vide : il dit où chercher son œuvre.')}</p>

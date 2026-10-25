@@ -10469,7 +10469,7 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-regles li > .icon { width: 20px; height: 20px; margin-top: 2px; color: var(--accent-text); }
 .cab-bareme { display: block; margin-top: 4px; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
 
-/* ── L'atlas─────────────────────────────────────────────────────────────
+/* ── L'atlas ─────────────────────────────────────────────────────────────
    Un rail d'orbes — l'anneau de chaque collection se remplit à chaque pièce
    gagnée —, puis la collection choisie sur une trame fine, comme un écran de
    navigation. Tout bouge par `transform` et `opacity`, et s'arrête si le

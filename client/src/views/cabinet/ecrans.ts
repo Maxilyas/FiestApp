@@ -7,8 +7,9 @@
 // Toutes ces adresses lisent la même page (`GET /api/cabinet`, préchargée
 // avec `/cabinet`) : le fragment ne demande rien de plus au serveur, et
 // `donneesDuFragment` (`shared/depart.ts`) n'a rien à précharger pour lui.
-// Sans effet ni navigateur — `cabinet-ecran.test.ts` les lit tels quels — ; le
-// seul morceau de React est le retour au musée (`RetourAuMusee`), un contexte.
+// Sans effet ni navigateur — `cabinet-ecran.test.ts` les lit tels quels, et
+// l'historique d'une partie ouverte se joue sur un faux `history` — ; le seul
+// morceau de React est le retour au musée (`RetourAuMusee`), un contexte.
 
 import { createContext } from 'react'
 import type { DemandeDeDepart } from '../../../../shared/cabinet/musee'
@@ -75,3 +76,57 @@ export const RetourAuMusee = createContext<(() => void) | undefined>(undefined)
 
 /** Deux écrans sont-ils le même ? Un fragment relu sans changement ne refait ni défilement ni focus. */
 export const memeEcran = (a: EcranDuMusee, b: EcranDuMusee) => adresseDe(a) === adresseDe(b)
+
+// ── Une partie par-dessus l'écran, dans l'historique ──────────────────────
+//
+// Une partie demandée — son annonce, ou celle qui l'attend, reprise —
+// s'ouvre par-dessus l'écran du musée, sans fragment à elle : rechargée, elle
+// ne saurait pas quelle partie montrer. Sans entrée d'historique, le retour du
+// navigateur reculait l'adresse d'un écran (de l'œuvre à sa salle) et laissait
+// l'annonce à l'écran ; un deuxième retour aussi, un troisième quittait le
+// Cabinet. Elle pose donc une entrée à la même adresse, marquée : le retour la
+// consomme, la page la ferme, et l'écran d'où elle partait reste.
+
+/** Ce que la page fait de `history` : de quoi poser, remplacer et reculer d'une entrée, sans navigateur dans les tests. */
+export type Historique = Pick<History, 'state' | 'pushState' | 'replaceState' | 'back'>
+
+const PARTIE_OUVERTE = 'fiestappPartieDuCabinet'
+
+/** L'entrée courante est-elle celle d'une partie ouverte ? Un retour qui la quitte ferme la partie. */
+export const partieDansLEntree = (etat: unknown): boolean => (etat as Record<string, unknown> | null)?.[PARTIE_OUVERTE] === true
+
+/** L'état d'une entrée sans la marque de la partie — et sans rien perdre des autres repères (la garde du retour…). */
+function sansLaMarque(etat: unknown): Record<string, unknown> | null {
+  if (!etat || typeof etat !== 'object') return null
+  const reste = { ...(etat as Record<string, unknown>) }
+  delete reste[PARTIE_OUVERTE]
+  return Object.keys(reste).length > 0 ? reste : null
+}
+
+/** Ouvrir une partie : son entrée, à la même adresse — une seule, même touchée deux fois. */
+export function poserLEntreeDeLaPartie(h: Historique) {
+  if (!partieDansLEntree(h.state)) h.pushState({ ...((h.state as object | null) ?? {}), [PARTIE_OUVERTE]: true }, '')
+}
+
+/**
+ * « ← Le Cabinet » : le musée. Depuis une partie ouverte sur un écran, le
+ * musée prend la place de son entrée (le retour ramène à l'écran d'en
+ * dessous) ; ouverte du musée même, on recule simplement sur lui — pas de
+ * second musée dans l'historique. D'un écran, le musée se pose par-dessus ;
+ * du musée, rien.
+ */
+export function quitterVersLeMusee(h: Historique, hash: string) {
+  if (partieDansLEntree(h.state)) {
+    if (hash) h.replaceState(sansLaMarque(h.state), '', '/cabinet')
+    else h.back()
+  } else if (hash) h.pushState(null, '', '/cabinet')
+}
+
+/**
+ * Rechargée sur l'entrée d'une partie, la page n'en a plus d'ouverte : la
+ * marque s'efface. Gardée, « ← Le Cabinet » aurait reculé sur l'entrée
+ * d'avant le rechargement — peut-être hors du Cabinet.
+ */
+export function effacerLaMarqueAuChargement(h: Historique) {
+  if (partieDansLEntree(h.state)) h.replaceState(sansLaMarque(h.state), '')
+}

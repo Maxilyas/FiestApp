@@ -412,6 +412,14 @@ const seuilDe = (cle: CleDOeuvre | null): number | null => (cle === null ? null 
 export const chassesRestantes = (m: Musee): number => Math.max(0, CHASSES_PAR_JOUR - chassesDuJour(m))
 export const libresQuiPaientEncore = (m: Musee): number => Math.max(0, LIBRES_QUI_PAIENT - libresDuJour(m))
 
+/**
+ * Les refus d'un départ que la page dit d'avance, sous un bouton en sourdine :
+ * les mêmes mots que le serveur, importés — recopiés, une phrase retouchée ici
+ * aurait laissé la page en contredire le toast.
+ */
+export const JEU_PAS_LIVRE = 'Ce jeu arrive bientôt'
+export const PLUS_DE_CHASSE = 'Plus de chasse pour aujourd’hui : elles reviennent à minuit'
+
 /** La carte-bonus qu'il emporte : une œuvre qu'il a, les quatre de départ comprises, ou un gardien réveillé — jamais un Divin. */
 function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
   if (cle === null) return null
@@ -437,12 +445,12 @@ export function cadreDuDepart(m: Musee, demande: DemandeDeDepart, visite: Visite
       if (!Number.isInteger(k) || k < 0 || k >= visite.cases.length) return 'Choisis une partie de la visite'
       if (caseCommencee(m, k)) return 'Cette partie de la visite est déjà faite'
       const c = visite.cases[k]
-      if (!jeux.includes(c.jeu)) return 'Ce jeu arrive bientôt'
+      if (!jeux.includes(c.jeu)) return JEU_PAS_LIVRE
       cadre = { jeu: c.jeu, origine: 'visite', visite: k as Manche, cible: c.cible, but: c.cible === null ? null : a.has(c.cible) ? 'dorer' : 'gagner', seuil: seuilDe(c.cible), payee: true }
       break
     }
     case 'chasse': {
-      if (chassesRestantes(m) === 0) return 'Plus de chasse pour aujourd’hui : elles reviennent à minuit'
+      if (chassesRestantes(m) === 0) return PLUS_DE_CHASSE
       const cle = demande.oeuvre
       if (!estUneOeuvre(cle)) return 'Cette œuvre n’est pas au Cabinet'
       if (dorees(m).has(cle)) return 'Cette œuvre est déjà dorée'
@@ -452,14 +460,14 @@ export function cadreDuDepart(m: Musee, demande: DemandeDeDepart, visite: Visite
         if (!manquee || a.has(cle)) return 'Retenter ne sert qu’après une visite manquée de cette œuvre'
         jeu = manquee.jeu
       } else if (demande.jeu !== undefined && demande.jeu !== jeu) return `Cette œuvre se trouve ${JEUX[jeu].a}`
-      if (!jeux.includes(jeu)) return 'Ce jeu arrive bientôt'
+      if (!jeux.includes(jeu)) return JEU_PAS_LIVRE
       cadre = { jeu, origine: 'chasse', cible: cle, but: a.has(cle) ? 'dorer' : 'gagner', ...(demande.retente && { retente: true as const }), seuil: seuilDe(cle), payee: true }
       break
     }
     case 'libre': {
       const jeu = demande.jeu
       if (!(CLES_DES_JEUX as readonly string[]).includes(jeu)) return 'Choisis un des neuf jeux'
-      if (!jeux.includes(jeu as CleDeJeu)) return 'Ce jeu arrive bientôt'
+      if (!jeux.includes(jeu as CleDeJeu)) return JEU_PAS_LIVRE
       cadre = { jeu: jeu as CleDeJeu, origine: 'libre', cible: null, but: null, seuil: null, payee: libresQuiPaientEncore(m) > 0 }
       break
     }

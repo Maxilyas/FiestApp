@@ -6,9 +6,9 @@ import { CARTES_PEINTES } from '../../components/cartes-peintes'
 import { espacesFines, formatNumber } from '../../format'
 import { JEUX } from '../../../../shared/cabinet/jeux/regle'
 import { poussieresDites } from '../../../../shared/cabinet/musee'
-import { OEUVRES } from '../../../../shared/cabinet/oeuvres'
+import { OEUVRES, RARETES } from '../../../../shared/cabinet/oeuvres'
 import { GARDIENS, salleDuGardien } from '../../../../shared/cabinet/salles'
-import type { PageDuCabinet, SalleVue } from '../../../../shared/cabinet/vues'
+import type { OeuvreVue, PageDuCabinet, SalleVue } from '../../../../shared/cabinet/vues'
 import { adresseDe } from './ecrans'
 
 // Le musée : l'entrée du Cabinet (la maquette jouable, `retours/2026-10-24/
@@ -32,13 +32,22 @@ export const enDebutDeLigne = (phrase: string) => phrase.replace(/^./, c => c.to
 export const possedeesDe = (s: SalleVue) => s.oeuvres.filter(o => o.possedee).length
 
 /**
- * La porte d'une salle : en arche, la plus rare de ses œuvres à lui — les
- * œuvres d'une salle vont des communes aux épiques —, sinon rien qu'un « ? » :
- * une peinture qu'il n'a pas ne se montre pas, il la découvrira en la gagnant.
+ * La plus rare des œuvres qu'il a dans une salle, à l'ordre des raretés
+ * (`RARETES`) — jamais au rang du mur : le Vestibule range ses épiques avant
+ * ses maudites, et la dernière possédée y montrait une maudite à qui avait
+ * une épique. À rareté égale, la première au mur.
+ */
+export const laPlusRare = (s: SalleVue): OeuvreVue | undefined =>
+  s.oeuvres.reduce<OeuvreVue | undefined>((belle, o) => (o.possedee && (!belle || RARETES.indexOf(o.rarete) > RARETES.indexOf(belle.rarete)) ? o : belle), undefined)
+
+/**
+ * La porte d'une salle : en arche, la plus rare de ses œuvres à lui, sinon
+ * rien qu'un « ? » : une peinture qu'il n'a pas ne se montre pas, il la
+ * découvrira en la gagnant.
  */
 function Porte({ salle }: { salle: SalleVue }) {
   const n = possedeesDe(salle)
-  const belle = [...salle.oeuvres].reverse().find(o => o.possedee)
+  const belle = laPlusRare(salle)
   const peinture = belle && CARTES_PEINTES[belle.cle]
   return (
     <a className={'cab-porte' + (salle.complete ? ' cab-complete' : '')} href={adresseDe({ e: 'salle', salle: salle.cle })}>

@@ -17,7 +17,8 @@ import { bancDuCabinet, commencer, fermerLesMagasins, jouer, laPage, ok, unPariP
 import { importsStatiques } from './chemin-des-imports'
 import { CHASSES_PAR_JOUR, LIBRES_QUI_PAIENT, PRIX_D_UNE_DORURE, PRIX_D_UNE_OEUVRE, SEUILS_DES_RARETES } from '../../shared/cabinet/bareme'
 import { CLES_DES_JEUX, JEUX } from '../../shared/cabinet/jeux/regle'
-import { JEU_DE_L_OEUVRE, OEUVRES } from '../../shared/cabinet/oeuvres'
+import { JEU_PAS_LIVRE, PLUS_DE_CHASSE } from '../../shared/cabinet/musee'
+import { JEU_DE_L_OEUVRE, OEUVRES, RARETES } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
 import { POUVOIRS, forceDite } from '../../shared/cabinet/pouvoirs'
 import { GARDIENS, GARDIENS_DES_SALLES, SALLES } from '../../shared/cabinet/salles'
@@ -221,6 +222,19 @@ test('le musée dit une fois la bienvenue, les œuvres rapportées, la partie qu
   assert.match(tout, /12 jours de visite d’affilée\. Joue aujourd’hui pour garder ta série\./)
 })
 
+test('la porte d’une salle montre la plus rare de ses œuvres à lui, quel que soit leur rang au mur', async () => {
+  // Le Vestibule range ses épiques avant ses maudites : la dernière possédée n'y est pas la plus rare.
+  const vestibule = salleDe(neuf, 'vestibule')
+  const epique = vestibule.oeuvres.find(o => o.rarete === 'epique' && !o.possedee)!
+  const maudite = [...vestibule.oeuvres].reverse().find(o => o.rarete === 'maudit' && !o.possedee)!
+  assert.ok(vestibule.oeuvres.indexOf(epique) < vestibule.oeuvres.indexOf(maudite), 'l’épique avant la maudite au mur')
+  assert.ok(RARETES.indexOf('epique') > RARETES.indexOf('maudit'))
+  const aLui = new Set([epique.cle, maudite.cle])
+  const p = { ...neuf, salles: neuf.salles.map(s => (s.cle !== 'vestibule' ? s : { ...s, oeuvres: s.oeuvres.map(o => (aLui.has(o.cle) ? { ...o, possedee: true } : o)) })) }
+  const porte = /<a class="cab-porte[^"]*" href="#salle-vestibule">.*?<\/a>/.exec(await musee(p))?.[0] ?? ''
+  assert.match(porte, new RegExp(`<img[^>]*src="/cartes/${epique.cle}-240\\.`))
+})
+
 // ── 4. Une salle ──────────────────────────────────────────────────────────
 
 const laSalle = (s: SalleVue, p: PageDuCabinet = page) => rendu('views/cabinet/Salle', 'Salle', { salle: s, page: p })
@@ -257,6 +271,22 @@ test('une salle : ses œuvres peintes, ses cadres vides qui disent où chercher,
   assert.match(texte(vestibule), /Chacune a son pouvoir/)
   // Une œuvre peinte arrivée dans une salle complète : elle le dit, son gardien reste réveillé.
   assert.match(texte(await laSalle({ ...erudit, nouvelle: true })), /Une œuvre nouvelle est arrivée/)
+})
+
+test('une salle ne promet pas de réveiller un gardien qui veille déjà', async () => {
+  // Endormi, le premier attend la salle complète : elle dit ce qui lui manque.
+  const rempart = salleDe(page, 'rempart')
+  assert.ok(!rempart.complete)
+  const [premier, second] = rempart.gardiens
+  assert.match(texte(await laSalle(rempart)), /Encore \d+ œuvres? pour réveiller le premier/)
+  // Le Phénix rapporté de l'Expédition veille déjà sur le Rempart : « réveillé », et rien à promettre dessous.
+  const veille = texte(await laSalle({ ...rempart, gardiens: [{ ...premier, reveille: true }, second] }))
+  assert.match(veille, /Premier gardien · réveillé/)
+  assert.doesNotMatch(veille, /pour réveiller le premier/)
+  // Complète, pas encore toute dorée : le second se réveille aux cadres dorés — sauf s'il veille déjà.
+  const complete = { ...rempart, complete: true, doree: false, oeuvres: rempart.oeuvres.map(o => ({ ...o, possedee: true })), gardiens: [{ ...premier, reveille: true }, second] as SalleVue['gardiens'] }
+  assert.match(texte(await laSalle(complete)), /tous dorés, le second se réveille/)
+  assert.doesNotMatch(texte(await laSalle({ ...complete, gardiens: [{ ...premier, reveille: true }, { ...second, reveille: true }] })), /le second se réveille/)
 })
 
 // ── 5. Une œuvre et son cartel ────────────────────────────────────────────
@@ -299,11 +329,20 @@ test('une œuvre qui manque : où elle se trouve, ce qu’il faut pour la gagner
   assert.match(t, new RegExp(`Il faut ${SEUILS_DES_RARETES.rare} étoiles sur 9`))
   assert.match(t, new RegExp(`Partir à sa recherche · ${CHASSES_PAR_JOUR - 1} chasse aujourd’hui`))
   assert.match(t, new RegExp(`L’acheter · ${PRIX_D_UNE_OEUVRE.rare} poussières d’or`))
-  // Plus de chasse : la page le dit sous le bouton, que le serveur refuserait aussi.
-  const sansChasse = texte(await lOeuvre('expose', {}, { ...page, chasses: { ...page.chasses, restent: 0 } }))
-  assert.match(sansChasse, /Plus de chasse pour aujourd’hui : elles reviennent à minuit/)
+  // Plus de chasse : la page le dit sous le bouton, en sourdine, dans les mots mêmes du refus du serveur.
+  const sansChasse = await lOeuvre('expose', {}, { ...page, chasses: { ...page.chasses, restent: 0 } })
+  assert.match(texte(sansChasse), new RegExp(PLUS_DE_CHASSE))
+  assert.match(sansChasse, /aria-disabled="true"[^>]*>[^<]*Partir à sa recherche/)
+  assert.doesNotMatch(html, /aria-disabled="true"[^>]*>[^<]*Partir à sa recherche/, 'une chasse qui reste, le bouton répond')
   // Un jeu pas encore livré : la chasse attend.
-  assert.match(texte(await lOeuvre('plume')), new RegExp(`Elle se trouve ${JEUX.frise.a} .*Ce jeu arrive bientôt`))
+  assert.match(texte(await lOeuvre('plume')), new RegExp(`Elle se trouve ${JEUX.frise.a} .*${JEU_PAS_LIVRE}`))
+  // Les phrases des refus viennent de la règle du départ (`cadreDuDepart`) : la page ne les recopie pas.
+  for (const f of ['views/cabinet/Oeuvre.tsx', 'views/cabinet/Visite.tsx']) {
+    assert.doesNotMatch(source(f), new RegExp(`${JEU_PAS_LIVRE}|${PLUS_DE_CHASSE}`), f)
+  }
+  // La poussière d'or : une visite ou une chasse en rapporte, même ratée — pas toute partie, les libres s'arrêtent au cinquième.
+  assert.match(t, /Chaque visite ou chasse en rapporte, même ratée/)
+  assert.doesNotMatch(GLOSSAIRE.poussiere.sens, /chaque partie/i)
   sansJargon(html, 'une œuvre qui manque')
 })
 
@@ -327,6 +366,14 @@ test('le cartel : ce que la partie lui a appris, ou ce qui l’a fait entrer', a
   // En chemin, puis perdu : la place gardée, puis le motif.
   assert.match(await rendu('views/cabinet/Cartel', 'CartelDeLOeuvre', { lu: { etat: 'chargement' } }), /aria-busy="true"/)
   assert.match(texte(await rendu('views/cabinet/Cartel', 'CartelDeLOeuvre', { lu: { etat: 'perdu', motif: 'Pas de réseau.' } })), /Pas de réseau\./)
+  // Seul un cartel lu se garde : perdu — une coupure d'un instant —, il se redemande à la réouverture et à la page relue.
+  const { sansLesPerdus } = await import(url('views/cabinet/Cartel.tsx'))
+  const lu = { etat: 'lu', cartel: { oeuvre: 'coup-d-oeil', origine: 'depart', doree: false, dit: 'Offerte à ton arrivée.' } }
+  assert.deepEqual(sansLesPerdus({ 'coup-d-oeil': lu, prudence: { etat: 'perdu', motif: 'Pas de réseau.' }, lecon: { etat: 'chargement' } }), { 'coup-d-oeil': lu, lecon: { etat: 'chargement' } })
+  // Rien de perdu : le même objet, pour que la page ne se redessine pas pour rien.
+  const tous = { 'coup-d-oeil': lu }
+  assert.equal(sansLesPerdus(tous), tous)
+  assert.match(source('views/CabinetApp.tsx'), /setCartels\(sansLesPerdus\)\s*\}, \[aSonCartel, page\]\)/)
 })
 
 // ── 6. Les gardiens ───────────────────────────────────────────────────────
@@ -371,10 +418,18 @@ test('la visite du jour : chaque case, son jeu, ce qu’elle met en jeu sans nom
   const echange = await rendu('views/cabinet/Visite', 'Visite', { page: { ...page, visite: { ...page.visite, echange: { possible: true } } }, busy: false, onJouer: rien, onEchanger: rien })
   assert.equal([...echange.matchAll(/Changer de jeu/g)].length, 1, 'sur la seule case pas jouée')
   // Une œuvre à dorer se nomme — elle est à lui ; la poussière d'or, rien à gagner.
-  const aDorer = { ...page, visite: { ...page.visite, cases: [{ jeu: 'pari', enJeu: { pourDorer: 'bastion' }, faite: false }, { jeu: 'eclair', enJeu: { poussiere: true }, faite: false }] } }
+  const deuxCases = [{ jeu: 'pari', enJeu: { pourDorer: 'bastion' }, faite: false }, { jeu: 'eclair', enJeu: { poussiere: true }, faite: false }]
+  const aDorer = { ...page, visite: { ...page.visite, cases: deuxCases } }
   const td = texte(await rendu('views/cabinet/Visite', 'Visite', { page: aDorer, busy: false, onJouer: rien, onEchanger: rien }))
   assert.match(td, /Pour dorer Bastion/)
   assert.match(td, /Pour la poussière d’or/)
+  // Deux cases à jouer, l'échange encore possible : chacune peut changer de jeu — la règle des échanges ne vise pas la première.
+  const deux = await rendu('views/cabinet/Visite', 'Visite', { page: { ...aDorer, visite: { ...aDorer.visite, echange: { possible: true } } }, busy: false, onJouer: rien, onEchanger: rien })
+  assert.equal([...deux.matchAll(/>Changer de jeu<\/button>/g)].length, 2)
+  // L'échange fait, plus aucun bouton : la raison du serveur, une fois, sous les cases.
+  const fait = await rendu('views/cabinet/Visite', 'Visite', { page: { ...aDorer, visite: { ...aDorer.visite, echange: { possible: false, refus: 'Tu as déjà changé un jeu aujourd’hui' } } }, busy: false, onJouer: rien, onEchanger: rien })
+  assert.doesNotMatch(fait, /Changer de jeu/)
+  assert.equal([...texte(fait).matchAll(/Tu as déjà changé un jeu aujourd’hui/g)].length, 1)
   sansJargon(html, 'la visite')
 })
 
@@ -404,6 +459,17 @@ test('les règles : des lignes, pas des paragraphes — le musée, la journée, 
   assert.match(t, new RegExp(`${POUVOIRS.eclairer.nom} : ${POUVOIRS.eclairer.dit.replace(/^./, c => c.toLowerCase())}`))
   // La visite dit les parties que la page montre : moins que le barème tant que des jeux ne sont pas livrés.
   assert.match(texte(await rendu('views/cabinet/Regles', 'Regles', { jeux: page.jeux, parties: page.visite.cases.length })), new RegExp(`La visite du jour : ${page.visite.cases.length} parties`))
+  assert.match(texte(await rendu('views/cabinet/Regles', 'Regles', { jeux: page.jeux, parties: 1 })), /La visite du jour : 1 partie,/)
+  // Les seuils des raretés se lisent chacun au barème : deux raretés ne se disent ensemble que si leurs seuils sont égaux.
+  const { seuilsDits } = await import(url('views/cabinet/Regles.tsx'))
+  assert.equal(seuilsDits(SEUILS_DES_RARETES), `${SEUILS_DES_RARETES.commun} étoiles si elle est commune, ${SEUILS_DES_RARETES.rare} rare ou maudite, ${SEUILS_DES_RARETES.epique} épique`)
+  assert.equal(seuilsDits({ commun: 5, rare: 6, maudit: 7, epique: 7 }), '5 étoiles si elle est commune, 6 rare, 7 maudite ou épique')
+  assert.equal(seuilsDits({ commun: 5, rare: 6, maudit: 8, epique: 7 }), '5 étoiles si elle est commune, 6 rare, 8 maudite, 7 épique')
+  assert.match(t, new RegExp(`Une œuvre se gagne à ${seuilsDits(SEUILS_DES_RARETES)}\\.`))
+  // Le cadre doré : toutes les manches parfaites — un nombre de manches changé ne laisse pas « trois » derrière lui.
+  assert.match(t, /Toutes ses manches parfaites, sans qu’un pouvoir ait servi : son cadre est doré\./)
+  // « Les neuf jeux » se dit en lettres : un dixième jeu doit retoucher le titre.
+  assert.equal(CLES_DES_JEUX.length, 9, 'le titre « Les neuf jeux »')
   for (const p of Object.values(POUVOIRS)) assert.match(t, new RegExp(p.nom), p.nom)
   assert.match(t, new RegExp(`${OEUVRES.length} œuvres`))
   // Les mots du Cabinet, au glossaire de l'application : une seule définition par mot.
@@ -429,7 +495,127 @@ test('sans profil, la page dit comment entrer — sans rien rendre obligatoire a
   assert.doesNotMatch(bientot, /Me connecter/)
 })
 
-// ── 10. Ce que la page demande au serveur ─────────────────────────────────
+// ── 10. Une partie demandée, l'historique, ce que le téléphone retient ────
+
+test('une partie demandée s’annonce sans rien consommer : son jeu, son enjeu, et aucun bouton qui la commence', async () => {
+  const html = await rendu('views/CabinetApp', 'AnnonceEnAttente', { jeu: 'eclair', enJeu: 'Une chasse', onRetour: rien })
+  const t = texte(html)
+  assert.match(t, new RegExp(`Une chasse .*${JEUX.eclair.nom}`))
+  assert.match(t, new RegExp(JEUX.eclair.geste.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  assert.match(t, /rien n’est encore joué/)
+  assert.doesNotMatch(html, /<button/, 'rien ne part avant « Commencer », qui viendra avec ses écrans')
+  assert.match(html, /href="\/cabinet"[^>]*>.*Le Cabinet/)
+  // Reprise : la partie en cours, qui l'attend où il l'a laissée.
+  assert.match(texte(await rendu('views/CabinetApp', 'AnnonceEnAttente', { jeu: 'pari', enJeu: null, reprise: true, onRetour: rien })), /Ta partie en cours .*elle t’attend où tu l’as laissée/)
+  sansJargon(html, 'l’annonce')
+})
+
+/** Un historique de navigateur, entrée par entrée : ce que `history` fait d'une page, sans navigateur. */
+function historique(depart: string) {
+  const entrees: { url: string; etat: unknown }[] = [{ url: depart, etat: null }]
+  let i = 0
+  const h = {
+    get state() {
+      return entrees[i].etat
+    },
+    pushState(etat: unknown, _titre: string, adresse?: string) {
+      entrees.splice(i + 1)
+      entrees.push({ url: adresse ?? entrees[i].url, etat })
+      i++
+    },
+    replaceState(etat: unknown, _titre: string, adresse?: string) {
+      entrees[i] = { url: adresse ?? entrees[i].url, etat }
+    },
+    back() {
+      i = Math.max(0, i - 1)
+    },
+  }
+  return { h, url: () => entrees[i].url, ici: () => i, longueur: () => entrees.length }
+}
+
+test('une partie ouverte par-dessus un écran a son entrée d’historique : le retour la ferme et laisse l’écran d’où elle partait', async () => {
+  const { poserLEntreeDeLaPartie, partieDansLEntree, quitterVersLeMusee, effacerLaMarqueAuChargement } = await import(url('views/cabinet/ecrans.ts'))
+  // De la salle à une œuvre, puis « Partir à sa recherche » : l'annonce s'ouvre à la même adresse, sur une entrée à elle.
+  const n = historique('/cabinet#salle-erudit')
+  n.h.pushState(null, '', '/cabinet#oeuvre-expose')
+  poserLEntreeDeLaPartie(n.h)
+  assert.equal(n.url(), '/cabinet#oeuvre-expose')
+  assert.ok(partieDansLEntree(n.h.state))
+  // Un double toucher n'en empile pas une seconde.
+  poserLEntreeDeLaPartie(n.h)
+  assert.equal(n.longueur(), 3)
+  // Le retour du navigateur consomme son entrée : la page la ferme, et l'œuvre reste à l'écran.
+  n.h.back()
+  assert.ok(!partieDansLEntree(n.h.state))
+  assert.equal(n.url(), '/cabinet#oeuvre-expose')
+  // « ← Le Cabinet » depuis l'annonce : le musée prend la place de son entrée, et le retour ramène à l'œuvre.
+  poserLEntreeDeLaPartie(n.h)
+  quitterVersLeMusee(n.h, '#oeuvre-expose')
+  assert.equal(n.url(), '/cabinet')
+  assert.ok(!partieDansLEntree(n.h.state))
+  n.h.back()
+  assert.equal(n.url(), '/cabinet#oeuvre-expose')
+  // Ouverte du musée même — la partie qui l'attend —, elle s'en va par le retour : pas de second musée dans l'historique.
+  const m = historique('/cabinet')
+  poserLEntreeDeLaPartie(m.h)
+  quitterVersLeMusee(m.h, '')
+  assert.equal(m.ici(), 0)
+  // D'un écran sans partie ouverte, « ← Le Cabinet » pose le musée par-dessus ; du musée, rien.
+  const v = historique('/cabinet#visite')
+  quitterVersLeMusee(v.h, '#visite')
+  assert.equal(v.url(), '/cabinet')
+  quitterVersLeMusee(v.h, '')
+  assert.equal(v.longueur(), 2)
+  // Rechargée sur l'entrée d'une partie, la page n'en a plus d'ouverte : la marque s'efface, sans toucher aux autres repères.
+  const r = historique('/cabinet#visite')
+  r.h.replaceState({ fiestappGarde: true }, '')
+  poserLEntreeDeLaPartie(r.h)
+  effacerLaMarqueAuChargement(r.h)
+  assert.ok(!partieDansLEntree(r.h.state))
+  assert.deepEqual(r.h.state, { fiestappGarde: true })
+  assert.equal(r.url(), '/cabinet#visite')
+  // La page suit l'entrée : un retour qui la quitte ferme la partie.
+  assert.match(source('views/CabinetApp.tsx'), /if \(!partieDansLEntree\(window\.history\.state\)\) setEnPartie\(null\)/)
+})
+
+test('ce que le téléphone retient du Cabinet, il le retient profil par profil — et sans stockage, rien ne casse', async () => {
+  const avant = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  const memoire = new Map<string, string>()
+  try {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: { getItem: (k: string) => memoire.get(k) ?? null, setItem: (k: string, v: string) => void memoire.set(k, v), removeItem: (k: string) => void memoire.delete(k) },
+    })
+    const r = await import(url('views/cabinet/retenu.ts'))
+    r.retenirLaCarte('lea', 'lecon')
+    r.retenirLesRegles('lea')
+    r.retenirLesRapportees('lea', 41)
+    assert.equal(r.carteRetenue('lea'), 'lecon')
+    assert.equal(r.reglesLues('lea'), true)
+    assert.equal(r.rapporteesVues('lea'), 41)
+    // Hugo, sur le même téléphone : ni la carte-bonus de Léa, ni ses règles lues — et ses douze œuvres rapportées s'annonceront.
+    assert.equal(r.carteRetenue('hugo'), null)
+    assert.equal(r.reglesLues('hugo'), false)
+    assert.equal(r.rapporteesVues('hugo'), 0)
+    for (const k of memoire.keys()) assert.match(k, /^quizz\.cabinet\.[a-z-]+\.lea$/, k)
+    r.retenirLaCarte('lea', null)
+    assert.equal(r.carteRetenue('lea'), null)
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('SecurityError')
+      },
+    })
+    assert.equal(r.carteRetenue('lea'), null)
+    assert.equal(r.reglesLues('lea'), false)
+    assert.doesNotThrow(() => r.retenirLaCarte('lea', 'lecon'))
+  } finally {
+    if (avant) Object.defineProperty(globalThis, 'localStorage', avant)
+    else delete (globalThis as Record<string, unknown>).localStorage
+  }
+})
+
+// ── 11. Ce que la page demande au serveur ─────────────────────────────────
 
 test('api.cabinet : chaque demande à son adresse, l’heure remesurée, et un geste passé rend la partie d’à présent', async () => {
   const { api } = await import(url('api.ts'))
@@ -510,7 +696,7 @@ test('par le vrai serveur : la page de la joueuse, et le même geste joué deux 
   }
 })
 
-// ── 11. Le bouton de l'accueil ────────────────────────────────────────────
+// ── 12. Le bouton de l'accueil ────────────────────────────────────────────
 
 test('l’accueil a son bouton du Cabinet là où le serveur l’ouvre, et seulement là', async () => {
   const accueil = (props: object) => rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: rien, lendemain: null, ...props })
@@ -535,7 +721,7 @@ test('l’accueil a son bouton du Cabinet là où le serveur l’ouvre, et seule
   assert.match(source('views/ProfilApp.tsx'), /if \(cabinetIci\(\)\) void import\('\.\/CabinetApp'\)\.catch\(\(\) => \{\}\)/)
 })
 
-// ── 12. La feuille ────────────────────────────────────────────────────────
+// ── 13. La feuille ────────────────────────────────────────────────────────
 
 test('la section du Cabinet dans la feuille : préfixe cab-, un texte qui se lit au petit téléphone, rien pour l’écran commun', () => {
   const css = readFileSync(path.join(client, 'styles.css'), 'utf8')

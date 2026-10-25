@@ -5,7 +5,7 @@ import { PieceTete, Sortie } from '../../components/Pieces'
 import { espacesFines } from '../../format'
 import { ETOILES_D_UNE_PARTIE } from '../../../../shared/cabinet/bareme'
 import { JEUX } from '../../../../shared/cabinet/jeux/regle'
-import { poussieresDites } from '../../../../shared/cabinet/musee'
+import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, poussieresDites } from '../../../../shared/cabinet/musee'
 import { POUVOIRS, forceDe, forceDite, pouvoirDe } from '../../../../shared/cabinet/pouvoirs'
 import { salle as salleDe } from '../../../../shared/cabinet/salles'
 import type { OeuvreVue, PageDuCabinet, SalleVue } from '../../../../shared/cabinet/vues'
@@ -35,10 +35,10 @@ export function oeuvreDeLaPage(page: PageDuCabinet, cle: string): { oeuvre: Oeuv
 /** Ce qui manque à son solde pour ce prix ; zéro s'il l'a. */
 const manque = (page: PageDuCabinet, prix: number | undefined) => (prix === undefined ? 0 : Math.max(0, prix - page.poussiere))
 
-/** Pourquoi la chasse de cette œuvre ne part pas, dit sous son bouton ; null : elle part. */
+/** Pourquoi la chasse de cette œuvre ne part pas, dit sous son bouton dans les mots du serveur (`cadreDuDepart`) ; null : elle part. */
 function refusDeLaChasse(page: PageDuCabinet, o: OeuvreVue): string | null {
-  if (o.bientot) return 'Ce jeu arrive bientôt'
-  if (page.chasses.restent === 0) return 'Plus de chasse pour aujourd’hui : elles reviennent à minuit'
+  if (o.bientot) return JEU_PAS_LIVRE
+  if (page.chasses.restent === 0) return PLUS_DE_CHASSE
   return null
 }
 
@@ -123,7 +123,8 @@ export function Oeuvre({
             {ilManque > 0 && <p className="cab-raison">{espacesFines(`Il te manque ${poussieresDites(ilManque)}`)}</p>}
           </>
         )}
-        <p className="cab-ligne">{espacesFines(`Tu as ${poussieresDites(page.poussiere)}. Chaque partie en rapporte, même ratée.`)}</p>
+        {/* Pas « chaque partie » : au-delà des premières du jour, une partie libre ne rapporte plus rien (`poussiereDeLaPartie`). */}
+        <p className="cab-ligne">{espacesFines(`Tu as ${poussieresDites(page.poussiere)}. Chaque visite ou chasse en rapporte, même ratée.`)}</p>
       </div>
     )
   }
@@ -180,7 +181,7 @@ export function Oeuvre({
             {espacesFines(`La rejouer ${jeu.a} pour la dorer · une chasse`)}
           </button>
           {chasse && <p className="cab-raison">{espacesFines(chasse)}</p>}
-          <p className="cab-ligne">{espacesFines('Doré en jouant : trois manches parfaites, sans qu’un pouvoir ait servi.')}</p>
+          <p className="cab-ligne">{espacesFines('Doré en jouant : toutes ses manches parfaites, sans qu’un pouvoir ait servi.')}</p>
         </section>
       )}
     </div>
