@@ -243,9 +243,10 @@ export interface BilanVu extends Omit<BilanDUnePartie, 'v' | 'cartel'> {
   oeuvre?: CleDOeuvre
   /**
    * La fin a fait de cette partie le cartel de son œuvre : gagnée, ou dorée
-   * et doublée quand elle n'en avait pas encore — le serveur garde le premier
-   * (`cabinet_oeuvres.serie_id`). Le bilan ne dit « Son cartel » que là. La
-   * fin seule le sait, comme `gains` : « Mes réponses » ne le porte pas.
+   * ou doublée quand elle n'en avait pas encore — la base garde le premier
+   * (`cabinet_oeuvres.serie_id`) et le dit, jamais la mémoire d'un serveur.
+   * Le bilan ne dit « Son cartel » que là. La fin seule le sait, comme
+   * `gains` : « Mes réponses » ne le porte pas.
    */
   devientSonCartel?: true
   /** Une salle complète, un gardien qui veillait déjà : « Salle complète ! Le Phénix veillait déjà sur elle. » */
@@ -301,6 +302,7 @@ export interface Cartel {
   partie?: {
     id: string
     jeu: CleDeJeu
+    /** « Les grands sièges » : le thème de la manche qu'il garde — à l'Épingle, une rechange de Changer vient d'un autre que la partie. */
     theme?: string
     /** « le 24 octobre 2026 ». */
     jour: string

@@ -108,12 +108,18 @@ export function tirerLePlan(jeu: CleDeJeu, ctx: ContexteDuTirage, rechanges: num
 }
 
 /**
- * Le thème que le départ fige avec son plan (`DepartDUnePartie.theme`) :
- * celui de la frise — « L'aviation », « Les années 80 » —, celui des trois
- * lieux de l'Épingle — « Les grands sièges » —, que le cartel et « Mes
- * réponses » diront. Les autres jeux n'en ont pas.
+ * Le thème d'un contenu tiré : celui de sa frise — « L'aviation », « Les
+ * années 80 » —, celui de son lieu à l'Épingle — « Les grands sièges ». Les
+ * autres jeux n'en ont pas. Le cartel d'une œuvre dit celui de la manche qu'il
+ * garde (`cartelDe`) : à l'Épingle, une rechange de Changer vient d'un autre
+ * thème que les trois manches.
  */
-export function themeDuPlan(plan: readonly ContenuTire[]): string | undefined {
-  const premier = plan[0]
-  return premier?.jeu === 'frise' ? premier.theme : premier?.jeu === 'epingle' ? premier.lieu.theme : undefined
+export function themeDuTirage(t: ContenuTire | undefined): string | undefined {
+  return t?.jeu === 'frise' ? t.theme : t?.jeu === 'epingle' ? t.lieu.theme : undefined
 }
+
+/**
+ * Le thème que le départ fige avec son plan (`DepartDUnePartie.theme`) : celui
+ * de sa première manche — de toute la frise, des trois lieux de l'Épingle.
+ */
+export const themeDuPlan = (plan: readonly ContenuTire[]): string | undefined => themeDuTirage(plan[0])

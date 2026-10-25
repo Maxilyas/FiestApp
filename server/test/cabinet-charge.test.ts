@@ -16,7 +16,9 @@
 // pas frais ; un geste un, son verdict compris ; la fin, son lot et le rituel
 // de la campagne (la conception, § 2.9) ; un achat, une dorure, un échange un
 // chacun, rejoués aucun ; le cartel d'une partie et « Mes réponses » d'une
-// partie finie un, par leur clé ; tes murs aucun, un si le journal a du retard.
+// partie finie un, par leur clé ; tes murs aucun, un si le journal a du retard
+// — les dates des frises des sujets et de l'Expédition comprises, lues de la
+// base jouable en mémoire.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
@@ -26,6 +28,7 @@ import {
   DIX_HEURES,
   aLaMain,
   bancDuCabinet,
+  baseDuCabinet,
   commencer,
   departEnBase,
   dossierDEssai,
@@ -39,14 +42,20 @@ import {
   ok,
   ouvrir,
   pariDe,
+  piecesALaMain,
+  questionDUneFrise,
   type MagasinDEssai,
 } from './cabinet-banc'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import type { MursDuCabinet } from '../../shared/cabinet/vues'
 import { ETOILES_DU_PARI, POUSSIERE_MIN, POUSSIERE_PAR_ETOILE } from '../../shared/cabinet/bareme'
 import { prixDe } from '../../shared/cabinet/musee'
+import { idDeLaFriseDeSujet } from '../../shared/cabinet/pieces'
+import { PREFIXE_DE_LA_FRISE } from '../../shared/frise'
 import { CATEGORIES } from '../../shared/categories'
 import { PARTIES_GARDEES, type PartieLue } from '../src/core/cabinet/magasin'
+import { vueDeLaPartie } from '../src/core/cabinet/vue'
+import { lignesDesFrises } from '../src/core/frises'
 import { ProfileStore } from '../src/auth/profiles'
 
 after(fermerLesMagasins)
@@ -183,6 +192,43 @@ test('deux serveurs : une partie sortie de la mémoire, finie chez l’autre pui
   const page = await b.cabinet.page('qui')
   assert.deepEqual([page.enCours, page.musee.enCours], [null, null], 'ni la page, ni son musée ne la disent en cours')
   assert.equal((await b.cabinet.commencer('qui', { origine: 'libre', jeu: 'eclair', carte: null })).depart.jeu, 'eclair')
+})
+
+/** Une partie au Pari, chaque manche pariée et juste, jouée au magasin même : neuf étoiles, le cadre doré. */
+async function unPariParfaitAu(m: MagasinDEssai, depart: PartieLue): Promise<PartieLue> {
+  let p = depart
+  const jouerAuMagasin = async (geste: Record<string, unknown>) => {
+    const issue = await m.cabinet.geste('qui', p.id, p.etat.rang, geste)
+    assert.ok('partie' in issue, JSON.stringify(issue))
+    p = issue.partie
+  }
+  for (let k = 0; k < 3; k++) {
+    const t = departEnBase(m.fichier, p.id).tirages[k] as PariTire
+    if (k > 0) await jouerAuMagasin({ quoi: 'ouvrir', manche: k })
+    await jouerAuMagasin({ quoi: 'repondre', manche: k, reponse: { pari: { choix: t.q1.bonne } } })
+    await jouerAuMagasin({ quoi: 'parier', manche: k })
+    await jouerAuMagasin({ quoi: 'repondre', manche: k, reponse: { pari: { choix: t.q2.bonne } } })
+  }
+  return p
+}
+
+test('deux serveurs : le bilan ne dit « Son cartel » que du cartel que la base a écrit, et la mémoire prend la ligne qu’elle rend', async () => {
+  // Pendant une mise en ligne, ce serveur garde le musée d'avant : Prudence, une œuvre de départ, sans ligne. L'autre la dore en
+  // jouant, et la ligne de Prudence naît avec le cartel de cette partie-là. Puis ici, une chasse de Prudence : la mémoire ne lui
+  // voit aucun cartel, mais la base garde le premier (`serie_id = COALESCE(…)`) — le bilan promettait « Son cartel » d'une manche
+  // que l'œuvre rouverte ne montrerait pas, et la mémoire nommait au cartel une partie que la base ne nomme pas.
+  const { a, b } = await deuxServeurs()
+  await b.cabinet.page('qui')
+  const premiere = await unPariParfaitAu(a, await a.cabinet.commencer('qui', { origine: 'chasse', oeuvre: 'prudence', carte: null }))
+  assert.deepEqual([vueDeLaPartie(premiere).bilan?.issue, vueDeLaPartie(premiere).bilan?.devientSonCartel], ['doree', true])
+  const seconde = await unPariParfaitAu(b, await b.cabinet.commencer('qui', { origine: 'chasse', oeuvre: 'prudence', carte: null }))
+  const bilan = vueDeLaPartie(seconde).bilan
+  assert.ok(bilan?.cartel, 'sa partie a de quoi raconter')
+  assert.equal(bilan.devientSonCartel, undefined, 'la base garde le cartel de la première')
+  // Le cartel relu de la mémoire d'ici, sans aller-retour pour sa ligne : la partie que la base nomme.
+  const lu = await b.cabinet.cartel('qui', 'prudence')
+  assert.ok('cartel' in lu)
+  assert.equal(lu.cartel.partie?.id, premiere.id)
 })
 
 test('la fin rend la poussière au solde même quand la ligne du profil ne nomme plus sa partie, et ne rend que la sienne', async () => {
@@ -448,6 +494,37 @@ test('par les routes : tes murs, aucun aller-retour quand le journal est frais, 
     assert.equal(apres.resultat.corps.lieux.length, 1, 'le lieu épinglé')
     assert.equal((await mesurer(murs)).appels, 0)
     assert.equal(compter(b.fichier, 'SELECT COUNT(*) AS n FROM cabinet_gestes WHERE serie_id = ?', v.id), 2, 'l’ouverture et la réponse : les murs n’écrivent rien')
+  } finally {
+    await b.banc.close()
+  }
+})
+
+test('par les routes : tes murs datés par la base jouable — une frise d’un sujet, une de l’Expédition — ne coûtent pas un aller-retour de plus', async () => {
+  // La base jouable, ses événements datés rangés une fois par liste : celle que la porte garde pour le tirage, jamais relue
+  // pour les murs. Des questions sous l'identifiant de lignes des frises — celles du banc ne datent rien.
+  const lignes = lignesDesFrises().slice(0, 5)
+  const b = await bancDuCabinet({ fraicheurDesDuelsMs: 3_600_000, baseDeLaCampagne: baseDuCabinet(8, lignes.map((l, k) => questionDUneFrise(l.id, 1600 + 50 * k))) })
+  try {
+    const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
+    const id = (await fetch(`${b.banc.url}/api/joueur/moi?leger`, { headers: { Cookie: lea } }).then(r => r.json() as Promise<{ profile: { id: string } }>)).profile.id
+    const [q0, q1, q2, q3, q4] = lignes.map(l => l.id)
+    piecesALaMain(b.fichier, id, [
+      { id: `${PREFIXE_DE_LA_FRISE}${[q0, q1, q2, q3].join('+')}`, mode: 'expedition', le: DIX_HEURES - 3 * 86_400_000 },
+      { id: idDeLaFriseDeSujet([q3, q4]), mode: 'cabinet', le: DIX_HEURES - 2 * 86_400_000 },
+    ])
+    // Écrites derrière le dos du serveur : le journal les lit au réveil.
+    await b.banc.redemarrer()
+    ok(await laPage(b, lea), 'sa page')
+    // Un départ a lu la base jouable, et sa fin a rattrapé le journal : rien à relire, les événements datés compris.
+    ok(await jouer(b, lea, ok(await commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null }), 'son départ'), { quoi: 'quitter' }), 'quitter')
+    const murs = () => fetch(`${b.banc.url}/api/cabinet/murs`, { headers: { Cookie: lea, 'X-Requested-With': 'quizz' } }).then(async r => ({ status: r.status, corps: (await r.json()) as MursDuCabinet }))
+    const apres = await mesurer(murs)
+    assert.equal(apres.appels, 0, 'ni la base jouable ni ses événements ne se relisent pour les murs')
+    assert.deepEqual(
+      apres.resultat.corps.dates.map(d => [d.libelle, d.de]),
+      lignes.map((l, k) => [l.evenement, k < 3 ? 'expedition' : 'cabinet']),
+    )
+    assert.equal((await mesurer(murs)).appels, 0)
   } finally {
     await b.banc.close()
   }

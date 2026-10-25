@@ -14,16 +14,20 @@
 // contenu livré (`core/cabinet/tirages/`) — le jamais vu d'abord, l'Épingle
 // à thème —, les trois par les routes, d'une partie entière, et tes murs : ce
 // qu'il a épinglé et rangé, d'où qu'il vienne.
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { inscrireProfil } from './banc'
 import {
   DIX_HEURES,
   bancDuCabinet,
+  baseDuCabinet,
   commencer,
+  dossierDEssai,
   enBase,
   epingleDe,
+  fermerLesMagasins,
   ficheDe,
   friseDe,
   jouer as unGeste,
@@ -32,13 +36,19 @@ import {
   jouerUneFrise,
   jouerUneReplique,
   lire as lireLaRoute,
+  magasinDEssai,
   ok,
   ouvrir as ouvrirLaManche,
+  piecesALaMain,
+  questionDUneFrise,
   repliqueDe,
 } from './cabinet-banc'
 import { tirerLePlan, themeDuPlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
+import { uneFicheSouffleLAutre } from '../src/core/cabinet/tirages/indices'
+import { uneRepliqueSouffleLAutre } from '../src/core/cabinet/tirages/replique'
 import { contenuDuCabinet } from '../src/core/cabinet/contenu'
 import { mursDe } from '../src/core/cabinet/vue'
+import { lignesDesFrises } from '../src/core/frises'
 import { hasardDe } from '../../shared/missions'
 import type { Fiche, Lieu, Replique } from '../../shared/cabinet/contenu'
 import { DANS_LA_FRANCE, distanceKm, type Point } from '../../shared/cabinet/france'
@@ -56,8 +66,8 @@ import {
 } from '../../shared/cabinet/bareme'
 import { effacablesAuPlus, refusDuPouvoir } from '../../shared/cabinet/pouvoirs'
 import { PREFIXE_DU_CABINET, deplier, idDeLEclair, idDeLaFiche, idDeLaFriseATheme, idDeLaFriseDeSujet, idDeLaReplique, idDuLieu } from '../../shared/cabinet/pieces'
-import type { MursDuCabinet } from '../../shared/cabinet/vues'
-import type { EvenementDeLaFrise } from '../../shared/frise'
+import type { Cartel, MursDuCabinet } from '../../shared/cabinet/vues'
+import { PREFIXE_DE_LA_FRISE, type EvenementDeLaFrise } from '../../shared/frise'
 import { justeDeLaPiece, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
 import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/outils'
 import {
@@ -890,8 +900,10 @@ test('les trois jeux du contenu neuf : leur clé, leurs pièces hors de la base,
 // ── Le tirage, au serveur ─────────────────────────────────────────────────
 // Ce que les tireurs des trois tirent au départ, sur le contenu livré
 // (`server/content/cabinet/`) : le jamais vu d'abord, puis le plus
-// anciennement vu, par son identifiant — rien ne revient avant sept jours,
-// d'un jeu à l'autre — ; rien deux fois dans un plan, rechanges comprises ;
+// anciennement vu, par son identifiant, d'un jeu à l'autre — au rythme de la
+// visite et des chasses, sept jours sans redite (`cabinet-contenu.test.ts`) — ;
+// rien deux fois dans un plan, rechanges comprises, ni deux contenus dont l'un
+// souffle l'autre ;
 // l'Épingle, trois lieux d'un même thème, ses rechanges d'un autre. Et ce qui
 // se tire au hasard — le décalage de la zone d'Éclairer, l'ordre des mots et
 // des noms — du hasard du serveur, jamais d'une graine que la page saurait.
@@ -986,6 +998,39 @@ test('le tirage des Indices et de la Réplique : le jamais vu d’abord, puis le
   assert.deepEqual(t, { jeu: 'indices', fiche: CONTENU.fiches.find(f => f.id === t.fiche.id) })
 })
 
+test('le tirage des Indices et de la Réplique : jamais deux contenus dont la révélation de l’un souffle l’autre, dans un sens ou dans l’autre', () => {
+  // La révélation d'une manche des Indices montre ses cinq indices et « Le savais-tu ? » : celle de George Sand écrit
+  // « Frédéric Chopin », celle de Chopin « la romancière George Sand ». Seules jamais vues, elles se suivaient dans un plan, et
+  // la première soufflait la seconde — dans un sens ou dans l'autre : une rechange de Changer se joue avant la manche d'après.
+  const laFiche = (id: string) => CONTENU.fiches.find(f => f.id === id)!
+  const [sand, chopin] = [laFiche('femmes-george-sand'), laFiche('musique-chopin')]
+  assert.ok(uneFicheSouffleLAutre(sand, chopin) && uneFicheSouffleLAutre(chopin, sand))
+  assert.ok(!uneFicheSouffleLAutre(sand, laFiche('sciences-edison')), 'une fiche qui ne nomme pas l’autre')
+  const seulesNeuves = new Map(CONTENU.fiches.filter(f => f !== sand && f !== chopin).map(f => [idDeLaFiche(f.id), ilYA(2)]))
+  for (let essai = 0; essai < 5; essai++) {
+    const plan = (tirerLePlan('indices', surLeContenu({ vues: seulesNeuves }), 3) as IndicesTires[]).map(t => t.fiche)
+    assert.equal(plan.filter(f => f === sand || f === chopin).length, 1, 'l’une des deux, jamais les deux — rechanges comprises')
+  }
+  // La Réplique : l'anecdote des Fourberies de Scapin nomme Cyrano de Bergerac, qui dit « C'est une péninsule ! ». Deux répliques
+  // d'une même personne non plus : la révélation de la première l'a nommée.
+  const laReplique = (id: string) => CONTENU.repliques.find(r => r.id === id)!
+  const [scapin, cyrano] = [laReplique('theatre-litterature-galere-scapin'), laReplique('theatre-litterature-peninsule-cyrano')]
+  assert.ok(uneRepliqueSouffleLAutre(scapin, cyrano) && uneRepliqueSouffleLAutre(cyrano, scapin))
+  assert.ok(uneRepliqueSouffleLAutre(scapin, { ...scapin, id: 'une-autre-de-geronte' }), 'deux répliques de Géronte')
+  const deuxNeuves = new Map(CONTENU.repliques.filter(r => r !== scapin && r !== cyrano).map(r => [idDeLaReplique(r.id), ilYA(2)]))
+  for (let essai = 0; essai < 5; essai++) {
+    const plan = (tirerLePlan('replique', surLeContenu({ vues: deuxNeuves }), 3) as RepliqueTiree[]).map(t => t.replique)
+    assert.equal(plan.filter(r => r === scapin || r === cyrano).length, 1, 'l’une des deux, jamais les deux')
+  }
+  // Au hasard du contenu livré, aucun plan ne garde deux contenus qui se soufflent.
+  for (let essai = 0; essai < 200; essai++) {
+    const fiches = (tirerLePlan('indices', surLeContenu(), 3) as IndicesTires[]).map(t => t.fiche)
+    const repliques = (tirerLePlan('replique', surLeContenu(), 3) as RepliqueTiree[]).map(t => t.replique)
+    for (const [a, b] of fiches.flatMap((a, i) => fiches.slice(i + 1).map(b => [a, b]))) assert.ok(!uneFicheSouffleLAutre(a, b), `${a.id} et ${b.id}`)
+    for (const [a, b] of repliques.flatMap((a, i) => repliques.slice(i + 1).map(b => [a, b]))) assert.ok(!uneRepliqueSouffleLAutre(a, b), `${a.id} et ${b.id}`)
+  }
+})
+
 // ── Par les routes ────────────────────────────────────────────────────────
 
 test('par les routes : l’Épingle d’un bout à l’autre — sur le lieu, à cinquante kilomètres, hors de France refusée en mots, puis laissée au temps', async () => {
@@ -1031,6 +1076,31 @@ test('par les routes : l’Épingle d’un bout à l’autre — sur le lieu, à
     )
     assert.match(pieces[0].composee ?? '', /\|0$/)
     assert.equal(pieces[2].composee, null)
+  } finally {
+    await b.banc.close()
+  }
+})
+
+test('par les routes : le cartel d’une Épingle dit le thème de la manche qu’il garde — une rechange de Changer vient d’un autre', async () => {
+  const b = await bancDuCabinet()
+  try {
+    const eve = await inscrireProfil(b.banc.url, 'eve', 'Ève')
+    // Objection, une commune de l'Épingle, chassée avec Échange : une rechange au plan, d'un autre thème que les trois manches.
+    let v = ok(await commencer(b, eve, { origine: 'chasse', oeuvre: 'objection', carte: 'echange' }), 'la chasse')
+    const theme = epingleDe(b, v.id, 0).lieu.theme
+    v = await jouerUneEpingle(b, eve, v, 0, 50)
+    v = await ouvrirLaManche(b, eve, v, 1)
+    v = ok(await unGeste(b, eve, v, { quoi: 'changer', manche: 1 }), 'changer')
+    const rechange = epingleDe(b, v.id, 3).lieu
+    assert.notEqual(rechange.theme, theme)
+    v = await jouerUneEpingle(b, eve, v, 1)
+    v = await ouvrirLaManche(b, eve, v, 2)
+    v = await jouerUneEpingle(b, eve, v, 2, 50)
+    // Deux, trois, deux étoiles : gagnée, et son cartel garde la plus étoilée — la rechange.
+    assert.deepEqual([v.bilan?.issue, v.bilan?.cartel?.manche, v.bilan?.cartel?.sujet], ['gagnee', 1, rechange.question])
+    const cartel = ok(await lireLaRoute<Cartel>(b, eve, '/api/cabinet/oeuvre/objection'), 'son cartel')
+    // Le thème de la partie, figé au départ, est celui des trois manches : sous la question d'un lieu d'un autre fil, il mentait.
+    assert.deepEqual([cartel.partie?.sujet, cartel.partie?.theme], [rechange.question, rechange.theme])
   } finally {
     await b.banc.close()
   }
@@ -1179,12 +1249,15 @@ test('par les routes : tes murs — chaque lieu épinglé, chaque frise rangée 
 
     // Une frise rangée jusqu'au bout : ses sept dates, du plus ancien au plus récent.
     let f = ok(await commencer(b, ana, { origine: 'libre', jeu: 'frise', carte: null }), 'la Frise')
+    const frise = friseDe(b, f.id, 0)
+    // Une frise d'un sujet daterait ses nouveaux venus à chaque vague : la base du banc n'en date aucun, mais l'épreuve le dit
+    // plutôt que d'y compter (les frises des sujets : l'épreuve des murs au magasin, plus bas).
+    assert.equal(frise.sorte, 'theme', 'une frise à thème : ses dates n’entrent qu’à sa dernière vague')
     for (let k = 0; k < 3; k++) {
       if (k > 0) f = await ouvrirLaManche(b, ana, f, k)
       f = await jouerUneFrise(b, ana, f, k)
       if (k < 2) assert.deepEqual(ok(await lesMurs(ana), 'une frise à moitié rangée').dates, [], 'ses vagues à venir sont encore à ranger')
     }
-    const frise = friseDe(b, f.id, 0)
     murs = ok(await lesMurs(ana), 'les murs après la frise')
     assert.deepEqual(
       murs.dates.map(d => [d.libelle, d.annee, d.de]),
@@ -1195,4 +1268,31 @@ test('par les routes : tes murs — chaque lieu épinglé, chaque frise rangée 
   } finally {
     await b.banc.close()
   }
+})
+
+after(fermerLesMagasins)
+
+test('tes murs, au magasin : les dates d’une frise de l’Expédition et d’une frise d’un sujet, que seule la base jouable date', async () => {
+  // Six questions de la base datées, sous l'identifiant de six lignes des frises : celles du banc ne datent rien.
+  const lignes = lignesDesFrises().slice(0, 6)
+  const annees = [1515, 1610, 1789, 1848, 1914, 1969]
+  const base = baseDuCabinet(8, lignes.map((l, k) => questionDUneFrise(l.id, annees[k])))
+  const horloge = { t: DIX_HEURES }
+  const fichier = path.join(dossierDEssai(), 'cabinet.db')
+  const avant = await magasinDEssai(fichier, horloge, base)
+  assert.deepEqual(mursDe(await avant.cabinet.murs('qui')), { lieux: [], dates: [] }, 'rien de rangé : rien à dater')
+  // Une frise de l'Expédition (les quatre premières), puis la manche d'une frise d'un sujet au Cabinet (la quatrième, revue, et la
+  // cinquième) ; la sixième, jamais rangée. Écrites à la main : un serveur qui démarre les lit avec le journal.
+  const [a, b, c, d, e] = lignes.map(l => l.id)
+  piecesALaMain(fichier, 'qui', [
+    { id: `${PREFIXE_DE_LA_FRISE}${[a, b, c, d].join('+')}`, mode: 'expedition', le: ilYA(4) },
+    { id: idDeLaFriseDeSujet([d, e]), mode: 'cabinet', le: ilYA(2) },
+  ])
+  const m = await magasinDEssai(fichier, horloge, base)
+  const murs = mursDe(await m.cabinet.murs('qui'))
+  const de = (k: number, ou: 'expedition' | 'cabinet', vuLe: number) => ({ libelle: lignes[k].evenement, annee: annees[k], de: ou, vuLe })
+  // Chaque date une fois, du plus ancien au plus récent ; celle vue deux fois garde sa dernière vue, et dit où.
+  assert.deepEqual(murs.dates, [de(0, 'expedition', ilYA(4)), de(1, 'expedition', ilYA(4)), de(2, 'expedition', ilYA(4)), de(3, 'cabinet', ilYA(2)), de(4, 'cabinet', ilYA(2))])
+  // Rien d'un autre profil.
+  assert.deepEqual(mursDe(await m.cabinet.murs('autre')), { lieux: [], dates: [] })
 })

@@ -14,6 +14,7 @@
 // finie comme la partie l'a révélée, et le cartel d'une œuvre relit la manche
 // que son bilan garde comme le bilan l'a dite.
 import type { CartelLu, LectureDesMurs, LectureDuCabinet, PartieGardee, PartieLue } from './magasin'
+import { themeDuTirage } from './tirages/index'
 import { CHANGEMENTS_PAR_PARTIE, CHASSES_PAR_JOUR, ECLAIRAGES_PAR_PARTIE, LIBRES_QUI_PAIENT, MANCHES_PAR_PARTIE, SEUILS_DES_RARETES, VAGUES_DE_LA_FRISE } from '../../../../shared/cabinet/bareme'
 import { deplier, estUneFriseDeSujet, idDeLaFriseATheme, idDuLieu } from '../../../../shared/cabinet/pieces'
 import { PREFIXE_DE_LA_FRISE } from '../../../../shared/frise'
@@ -319,6 +320,10 @@ export function cartelDe(lu: CartelLu): Cartel {
   const doree = (ligne?.doreeLe ?? null) !== null
   const garde = partie?.bilan ? cartelDuBilan(partie) : null
   if (partie?.bilan && garde) {
+    // Le thème de la manche gardée, pas celui de la partie : à l'Épingle, une rechange de Changer est d'un autre fil, et le
+    // cartel disait « Terroirs et savoir-faire » au-dessus d'un lieu de « La France sauvage ».
+    const tirage = partie.etat.manches[garde.manche]?.tirage
+    const theme = themeDuTirage(tirage === undefined ? undefined : partie.depart.tirages[tirage])
     return {
       oeuvre,
       origine,
@@ -326,7 +331,7 @@ export function cartelDe(lu: CartelLu): Cartel {
       partie: {
         id: partie.id,
         jeu: partie.depart.jeu,
-        ...(partie.depart.theme !== undefined && { theme: partie.depart.theme }),
+        ...(theme !== undefined && { theme }),
         jour: leJourDit(partie.depart.jour),
         total: partie.bilan.total,
         issue: partie.bilan.issue,

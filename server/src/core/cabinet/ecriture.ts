@@ -25,7 +25,7 @@ import type { InStatement } from '@libsql/client'
 import { CHASSES_PAR_JOUR, LIBRES_QUI_PAIENT } from '../../../../shared/cabinet/bareme'
 import type { BilanDUnePartie, DepartDUnePartie, GesteDuCabinet, PieceJugee } from '../../../../shared/cabinet/partie'
 import type { CleDeSaison } from '../../../../shared/saisons'
-import { champDuDepart, gesteEcrit, partiesDuJour } from './tables'
+import { COLONNES_D_UNE_OEUVRE, champDuDepart, gesteEcrit, partiesDuJour } from './tables'
 
 // ── Le départ ─────────────────────────────────────────────────────────────
 
@@ -164,7 +164,10 @@ export interface GesteAEcrire {
  * reflet et la partie rendue, l'œuvre en une seule instruction pour le gain,
  * la dorure et le cartel. Une œuvre déjà là — achetée, rapportée — prend son
  * cartel et sa dorure sans changer d'origine ni de saison, et rien de ce
- * qu'elle avait ne s'efface (`COALESCE`).
+ * qu'elle avait ne s'efface (`COALESCE`). L'œuvre vient en dernier, et rend sa
+ * ligne telle que la base l'a gardée (`RETURNING`) : la mémoire d'un serveur
+ * peut ne pas savoir que l'autre lui a déjà donné un cartel, et seule la base
+ * dit lequel elle garde (`BilanVu.devientSonCartel`).
  */
 export function lotDuGeste(g: GesteAEcrire): InStatement[] {
   const garde = gesteEcrit(g.serie, g.rang, g.uid)
@@ -211,7 +214,8 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
                 serie_id = COALESCE(cabinet_oeuvres.serie_id, excluded.serie_id),
                 doree_le = COALESCE(cabinet_oeuvres.doree_le, excluded.doree_le),
                 dorure = COALESCE(cabinet_oeuvres.dorure, excluded.dorure),
-                serie_doree = COALESCE(cabinet_oeuvres.serie_doree, excluded.serie_doree)`,
+                serie_doree = COALESCE(cabinet_oeuvres.serie_doree, excluded.serie_doree)
+              RETURNING ${COLONNES_D_UNE_OEUVRE}`,
         args: [
           profileId,
           oeuvre.cle,

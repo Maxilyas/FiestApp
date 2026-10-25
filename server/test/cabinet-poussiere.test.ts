@@ -527,7 +527,10 @@ test('le cartel : la manche que la partie lui a gardée, relue par le même pli 
   assert.deepEqual([achetee.origine, achetee.doree, achetee.partie], ['achat', false, undefined])
   assert.match(achetee.dit ?? '', /^Achetée avec ta poussière d’or\. Rejoue-la/)
   const dorure = ok(await commencer(b, max.cookie, { origine: 'chasse', oeuvre: communeDuPari, carte: null }), 'la chasse pour la dorer')
-  assert.equal((await unPariParfait(b, max.cookie, dorure)).bilan?.issue, 'doree')
+  const doreeEnJouant = await unPariParfait(b, max.cookie, dorure)
+  assert.equal(doreeEnJouant.bilan?.issue, 'doree')
+  // Achetée, elle n'avait pas de cartel : la partie qui la dore devient le sien, et le bilan le dit (`devientSonCartel`).
+  assert.equal(doreeEnJouant.bilan?.devientSonCartel, true)
   const rejouee = ok(await leCartel(max.cookie, communeDuPari), 'l’achetée, dorée en jouant')
   // Son cartel dit ce que la partie lui a fait : la dorer, pas la gagner — achetée, elle l'était déjà.
   assert.deepEqual([rejouee.origine, rejouee.doree, rejouee.partie?.id, rejouee.partie?.issue, rejouee.dit], ['achat', true, dorure.id, 'doree', undefined])

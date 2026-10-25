@@ -3,6 +3,7 @@
 // même base font deux serveurs pendant une mise en ligne, chacun sa mémoire —,
 // et de quoi lire en base ce que la page ne voit jamais (le plan figé, ses
 // bonnes réponses). Pas un fichier de tests : ceux du Cabinet le partagent.
+import { randomUUID } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -133,14 +134,35 @@ export function valeurDuCabinet(n: number, categorie: Categorie): QuestionDeLaBa
 }
 
 /**
+ * Une question d'essai datée, sous l'identifiant d'une ligne des frises (`lignesDesFrises`, `server/content/frises/`) : seule
+ * une question de la base date un événement (`evenementsDeLaBase`), et celles du banc portent des identifiants à lui
+ * (`cab00012`) — aucune frise d'un sujet ni de l'Expédition ne s'y datait. L'intitulé ne demande pas d'année : le Filet ne la
+ * prend pas.
+ */
+export function questionDUneFrise(id: string, annee: number): QuestionDeLaBase {
+  const autres = ['A', 'B', 'C', 'D', 'E', 'F'].map(l => `Autre ${l} ${id}`)
+  return questionDEssai({
+    id,
+    texte: `Question d'essai datée ${id} du Cabinet : laquelle est la bonne ?`,
+    reponses: [`Bonne ${id}`, ...autres.slice(0, 3)],
+    leurres: autres,
+    categorie: 'Histoire',
+    difficulte: 3,
+    annee,
+  })
+}
+
+/**
  * Huit questions de chaque marche — facile, moyenne, difficile — dans chacune des douze catégories : le Pari et l'Éclair y
  * trouvent toujours à poser ; et, dans chacune, deux mots à taper et deux valeurs à viser, une facile et une moyenne : le Mot
- * mystère et le Filet aussi, une case de la visite de n'importe quel jeu livré.
+ * mystère et le Filet aussi, une case de la visite de n'importe quel jeu livré. `enPlus` : ce qu'une épreuve y ajoute — des
+ * questions datées des frises (`questionDUneFrise`).
  */
-export function baseDuCabinet(parMarche = 8): BaseDeLaCampagne {
+export function baseDuCabinet(parMarche = 8, enPlus: readonly QuestionDeLaBase[] = []): BaseDeLaCampagne {
   return new BaseDeLaCampagne([
     ...CATEGORIES.flatMap((c, k) => [2, 3, 4].flatMap((d, m) => Array.from({ length: parMarche }, (_, i) => questionDuCabinet(k * 1000 + m * 100 + i, c, d)))),
     ...CATEGORIES.flatMap((c, k) => [2 * k, 2 * k + 1].flatMap(n => [motDuCabinet(n, c), valeurDuCabinet(n, c)])),
+    ...enPlus,
   ])
 }
 
@@ -203,6 +225,26 @@ export function aLaMain(fichier: string, sql: string) {
   const db = new Database(fichier)
   try {
     db.exec(sql)
+  } finally {
+    db.close()
+  }
+}
+
+/**
+ * Des pièces rangées à la main au journal des réponses, derrière le dos du serveur — une frise de l'Expédition, la manche d'une
+ * frise d'un sujet au Cabinet —, chacune juste, dans sa partie finie de son mode : un serveur qui démarre les lit avec le
+ * journal ; un serveur déjà réveillé ne les voit qu'après `redemarrer()` (règle `tests.md`).
+ */
+export function piecesALaMain(fichier: string, profil: string, pieces: readonly { id: string; mode: 'expedition' | 'cabinet'; le: number }[]) {
+  const db = new Database(fichier)
+  try {
+    const serie = db.prepare("INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', 1, 0, 1, ?, ?, ?)")
+    const reponse = db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, 0, ?, 0, 1, ?)')
+    for (const p of pieces) {
+      const id = randomUUID()
+      serie.run(id, profil, p.le, p.le, p.mode)
+      reponse.run(id, p.id, p.le)
+    }
   } finally {
     db.close()
   }

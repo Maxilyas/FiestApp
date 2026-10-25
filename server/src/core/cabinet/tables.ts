@@ -170,10 +170,7 @@ const VOIES_DE_SAISON: readonly string[] = GARDIENS_DE_SAISON.map(g => voieDuGar
 export function lecturesDuMusee(profileId: string, minuit: number, avecLEtagere: boolean): InStatement[] {
   return [
     { sql: 'SELECT poussiere, serie, serie_jour, serie_record, visites, partie FROM cabinet_profils WHERE profile_id = ?', args: [profileId] },
-    {
-      sql: 'SELECT oeuvre, origine, gagnee_le, saison, serie_id, prix, doree_le, dorure, prix_dorure, serie_doree FROM cabinet_oeuvres WHERE profile_id = ?',
-      args: [profileId],
-    },
+    { sql: `SELECT ${COLONNES_D_UNE_OEUVRE} FROM cabinet_oeuvres WHERE profile_id = ?`, args: [profileId] },
     {
       // Ses champs d'un seul `json_extract` à cinq chemins : un tableau JSON, décodé ici.
       sql: `SELECT id, commencee_le, finie_le, issue,
@@ -265,7 +262,15 @@ function laLigneDuProfil(r: Record<string, unknown> | undefined): LigneDuProfil 
   }
 }
 
-function laLigneDOeuvre(r: Record<string, unknown>): LigneDOeuvre | null {
+/**
+ * Ce qu'une ligne de `cabinet_oeuvres` dit d'une œuvre, que `laLigneDOeuvre`
+ * relit : le lot froid les lit, la fin d'une partie se les fait rendre
+ * (`RETURNING`, `lotDuGeste`) — la ligne que la base a gardée, pas celle que la
+ * mémoire croit.
+ */
+export const COLONNES_D_UNE_OEUVRE = 'oeuvre, origine, gagnee_le, saison, serie_id, prix, doree_le, dorure, prix_dorure, serie_doree'
+
+export function laLigneDOeuvre(r: Record<string, unknown>): LigneDOeuvre | null {
   const origine = r.origine as OrigineDUneOeuvre
   if (typeof r.oeuvre !== 'string' || !ORIGINES_D_UNE_OEUVRE.includes(origine)) return null
   const dorure = r.dorure === 'partie' || r.dorure === 'poussiere' ? r.dorure : null

@@ -38,7 +38,7 @@ import { instructionDeLAchat, instructionDeLaDorure, lotDeLEchange, lotDeLOubli,
 import { fondreLesReveils, reconcilier, type EtagereDuCabinet } from './gardiens'
 import { GARDIENS_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
 import type { ReveilDesGardiens } from '../../../../shared/cabinet/vues'
-import { lecturesDeLaPartie, lecturesDuMusee, laPartieLue, lireLeMusee, type PartieLueEnBase } from './tables'
+import { laLigneDOeuvre, lecturesDeLaPartie, lecturesDuMusee, laPartieLue, lireLeMusee, type PartieLueEnBase } from './tables'
 import { fichierDuCadrage } from '../details'
 import { contenuDuCabinet } from './contenu'
 import { preparerLesTas } from './tirages/tas'
@@ -157,8 +157,9 @@ export interface PartieLue extends PartieGardee {
   /** Ce que la fin a rapporté : l'expérience, les paliers — et les gardiens qu'elle a réveillés (`reveil`). */
   gains?: { xp: readonly number[]; recompenses: ReponsesEcrites['recompenses']; reveil?: ReveilDesGardiens }
   /**
-   * La fin a écrit cette partie au cartel de son œuvre (`oeuvreDeLaFin`, la
-   * ligne qu'elle tient en mémoire) : le bilan le dit (`BilanVu.devientSonCartel`).
+   * La base a gardé cette partie au cartel de son œuvre — la ligne que la fin
+   * lui fait rendre, jamais celle de la mémoire, qui peut ignorer le cartel
+   * qu'un autre serveur lui a donné : le bilan le dit (`BilanVu.devientSonCartel`).
    */
   cartelDeSonOeuvre?: true
 }
@@ -837,7 +838,10 @@ export class CabinetStore {
     const gestes = [...p.gestes, { geste, faitLe: t }]
     const suite: PartieGardee = { ...p, gestes, etat: apres, bilan: fin?.aEcrire.bilan ?? null }
     if (fin && garde) {
-      this.retenirLaFin(garde, suite, fin.aEcrire, t)
+      // L'œuvre telle que la base l'a gardée : la dernière instruction du lot, lue de ses lignes (`RETURNING`), jamais de
+      // son compte. La mémoire d'ici a pu ignorer le cartel que l'autre serveur d'une mise en ligne lui avait donné.
+      const ecrite = fin.aEcrire.oeuvre ? laLigneDOeuvre((ecrites.lus[lot.length - 1]?.rows[0] ?? {}) as Record<string, unknown>) : null
+      this.retenirLaFin(garde, suite, fin.aEcrire, t, ecrite)
       this.parties.delete(p.id)
       const reveil = capte.reveil
       return {
@@ -845,7 +849,7 @@ export class CabinetStore {
           ...suite,
           lueA: this.maintenant(),
           gains: { xp: ecrites.xp, recompenses: ecrites.recompenses, ...(reveil && { reveil }) },
-          ...(fin.aEcrire.oeuvre?.cartel && { cartelDeSonOeuvre: true as const }),
+          ...(ecrite?.serieId === p.id && { cartelDeSonOeuvre: true as const }),
         },
       }
     }
@@ -885,13 +889,17 @@ export class CabinetStore {
     return { cle, origine: ligne ? 'partie' : 'depart', saison: null, cartel, doree }
   }
 
-  /** Ce que le lot de fin a écrit, appliqué au musée gardé : la poussière au reflet, la partie rendue si c'est la sienne, l'œuvre, la partie du jour. */
-  private retenirLaFin(g: MuseeGarde, p: PartieGardee, fin: FinAEcrire, t: number) {
+  /**
+   * Ce que le lot de fin a écrit, appliqué au musée gardé : la poussière au
+   * reflet, la partie rendue si c'est la sienne, la partie du jour, et l'œuvre —
+   * la ligne que la base a rendue (`ecrite`), sinon la même règle qu'elle.
+   */
+  private retenirLaFin(g: MuseeGarde, p: PartieGardee, fin: FinAEcrire, t: number, ecrite: LigneDOeuvre | null) {
     if (g.profil) g.profil = { ...g.profil, poussiere: g.profil.poussiere + fin.bilan.poussiere, partie: g.profil.partie === p.id ? null : g.profil.partie }
     if (g.enCours?.id === p.id) g.enCours = null
     const duJour = g.duJour.parties.find(x => x.id === p.id)
     if (duJour) Object.assign(duJour, { finieLe: t, issue: fin.bilan.issue, total: fin.bilan.total })
-    if (fin.oeuvre) g.oeuvres.set(fin.oeuvre.cle, ligneApresLaFin(g.oeuvres.get(fin.oeuvre.cle), fin.oeuvre, p.id, t))
+    if (fin.oeuvre) g.oeuvres.set(fin.oeuvre.cle, ecrite ?? ligneApresLaFin(g.oeuvres.get(fin.oeuvre.cle), fin.oeuvre, p.id, t))
   }
 
   /**
