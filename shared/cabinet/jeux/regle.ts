@@ -6,22 +6,26 @@
 // Ici, pas une règle de jugement : les noms, les gestes, les barèmes dits, ce
 // qu'Éclairer fait à chaque jeu. La page les lit pour l'annonce sans tirer les
 // jeux eux-mêmes — elle n'en importe que ce qui ne juge pas (invariant 1). Les
-// barèmes dits se composent des chiffres de `bareme.ts` : un barème changé
-// change aussi ce que l'annonce promet.
+// neuf barèmes dits se composent des chiffres de `bareme.ts`, aucun n'est
+// écrit en dur : un barème changé change aussi ce que l'annonce promet.
 
 import type { PieceDuCabinet } from '../pieces'
 import {
   AFFIRMATIONS_DE_L_ECLAIR,
   DUREES_DES_JEUX,
+  ERREURS_DE_LA_FRISE,
   ESSAIS_DES_ETOILES,
   ESSAIS_DU_MOT,
+  ETOILES_AU_CADRAGE,
   ETOILES_D_UNE_JUSTE,
+  ETOILES_DE_LA_REPLIQUE,
+  ETOILES_DU_FILET,
+  ETOILES_DU_PARI,
   INDICES_DES_ETOILES,
   JUSTES_DE_L_ECLAIR,
   KM_DE_L_EPINGLE,
   RAYON_D_ECLAIRER_KM,
 } from '../bareme'
-import { INDICES_D_UNE_FICHE } from '../contenu'
 
 /** Les neuf jeux. Une clé ne change jamais : elle est la forme des réponses au journal, et le jeu de chaque œuvre. */
 export type CleDeJeu = 'epingle' | 'frise' | 'mot' | 'detail' | 'filet' | 'pari' | 'eclair' | 'indices' | 'replique'
@@ -50,16 +54,50 @@ export interface DescriptionDUnJeu {
   changeable: boolean
 }
 
-/** « 1 ou 2 », « 3 », « 4 ou 5 » : les essais ou les indices de chaque étoile, de l'un à l'autre. */
-function deA(de: number, a: number): string {
-  if (de === a) return String(de)
-  return a === de + 1 ? `${de} ou ${a}` : `${de} à ${a}`
+/** « ★★ » ; « rien » pour zéro — un barème ne dit jamais une étoile vide. */
+const etoiles = (n: number) => (n > 0 ? '★'.repeat(n) : 'rien')
+
+/** « un pas », « une erreur », puis les nombres en lettres : un barème se lit, il ne se déchiffre pas. */
+const LETTRES = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix']
+const enLettres = (n: number, genre: 'masculin' | 'feminin' = 'masculin') => (n === 1 && genre === 'feminin' ? 'une' : (LETTRES[n] ?? String(n)))
+
+/** « 1 ou 2 », « 3 », « 4 à 6 » : les essais ou les indices de chaque étoile, de l'un à l'autre. */
+function deA(de: number, a: number, dire: (n: number) => string = String): string {
+  if (de === a) return dire(de)
+  return `${dire(de)} ${a === de + 1 ? 'ou' : 'à'} ${dire(a)}`
 }
 
-/** Un barème qui compte, ses bornes lues dans `bareme.ts` : « en 1 ou 2 essais ★★★ · 3 ou 4 ★★ · 5 ★ ». */
-function baremeCompte(bornes: readonly number[], dernier: number, mot: string): string {
-  const tranches = [...bornes, dernier].slice(0, 3).map((a, i, t) => deA(i === 0 ? 1 : t[i - 1] + 1, a))
-  return tranches.map((t, i) => `${i === 0 ? `en ${t} ${mot}` : t} ${'★'.repeat(3 - i)}`).join(' · ')
+/**
+ * Un barème qui compte, ses bornes lues dans `bareme.ts` : « en 1 ou 2 essais
+ * ★★★ · 3 ou 4 ★★ · 5 ★ ». Deux bornes seulement, la dernière étoile n'a pas
+ * de plafond — « 4 et plus ★ » : aux Indices, chaque erreur compte et en
+ * montre un de plus, et le compte passe les cinq indices d'une fiche.
+ */
+function baremeCompte(bornes: readonly number[], mot: string): string {
+  const tranches = bornes.map((a, i) => deA(i === 0 ? 1 : bornes[i - 1] + 1, a))
+  if (tranches.length < 3) tranches.push(`${bornes[bornes.length - 1] + 1} et plus`)
+  return tranches.map((t, i) => `${i === 0 ? `en ${t} ${mot}` : t} ${etoiles(3 - i)}`).join(' · ')
+}
+
+/** « sans faute ★★★ · une erreur ★★ · deux ★ » : les erreurs tolérées pour chaque étoile ; le premier palier qui en tolère les nomme. */
+function baremeDesErreurs(bornes: readonly number[]): string {
+  return bornes
+    .map((a, i) => {
+      const de = i === 0 ? 0 : bornes[i - 1] + 1
+      const nombre = deA(de, a, n => enLettres(n, 'feminin'))
+      const premiere = i === 0 || bornes[i - 1] === 0
+      const dit = a === 0 ? 'sans faute' : !premiere ? nombre : `${de === 0 ? `au plus ${enLettres(a, 'feminin')}` : nombre} erreur${a > 1 ? 's' : ''}`
+      return `${dit} ${etoiles(3 - i)}`
+    })
+    .join(' · ')
+}
+
+/** « au premier coup d’œil ★★★ · un pas ★★ · deux ★ » : les étoiles de chaque cadrage ; un cadrage qui ne vaut rien ne se dit pas — en deçà, zéro. */
+function baremeDesCadrages(parCadrage: readonly number[]): string {
+  return parCadrage
+    .map((e, pas) => (e > 0 ? `${pas === 0 ? 'au premier coup d’œil' : pas === 1 ? 'un pas' : enLettres(pas)} ${etoiles(e)}` : null))
+    .filter(t => t !== null)
+    .join(' · ')
 }
 
 export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
@@ -68,7 +106,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     nom: 'L’Épingle',
     a: 'à l’Épingle',
     geste: 'Un récit, puis « Où ? » : plante ton épingle sur la carte de France.',
-    bareme: `à moins de ${KM_DE_L_EPINGLE[0]} km ★★★ · ${KM_DE_L_EPINGLE[1]} km ★★ · ${KM_DE_L_EPINGLE[2]} km ★`,
+    bareme: KM_DE_L_EPINGLE.map((km, i) => `${i === 0 ? 'à moins de ' : ''}${km} km ${etoiles(3 - i)}`).join(' · '),
     eclairer: `entoure une grande zone (${RAYON_D_ECLAIRER_KM} km) qui contient le lieu`,
     changeable: true,
   },
@@ -77,7 +115,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     nom: 'La Frise',
     a: 'à la Frise',
     geste: 'Range les événements du plus ancien au plus récent : à chaque manche, la frise s’allonge.',
-    bareme: 'sans faute ★★★ · une erreur ★★ · deux ★',
+    bareme: baremeDesErreurs(ERREURS_DE_LA_FRISE),
     eclairer: 'dévoile l’année d’un nouveau venu',
     changeable: false,
   },
@@ -86,7 +124,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     nom: 'Le Mot mystère',
     a: 'au Mot mystère',
     geste: `Trouve le mot, avec la question pour indice : ${ESSAIS_DU_MOT} essais.`,
-    bareme: baremeCompte(ESSAIS_DES_ETOILES.slice(0, 2), ESSAIS_DES_ETOILES[2], 'essais'),
+    bareme: baremeCompte(ESSAIS_DES_ETOILES, 'essais'),
     eclairer: 'souffle une lettre à sa place',
     changeable: true,
   },
@@ -95,7 +133,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     nom: 'Le Détail',
     a: 'au Détail',
     geste: 'Reconnais le tableau : chaque pas en arrière en montre plus, et vaut une étoile de moins.',
-    bareme: 'au premier coup d’œil ★★★ · un pas ★★ · deux ★',
+    bareme: baremeDesCadrages(ETOILES_AU_CADRAGE),
     eclairer: 'efface un mauvais titre',
     changeable: true,
   },
@@ -104,7 +142,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     nom: 'Le Filet',
     a: 'au Filet',
     geste: 'Place ton curseur, puis choisis ton filet : petit, il rapporte plus.',
-    bareme: 'petit filet ★★★ · moyen ★★ · grand ★',
+    bareme: `petit filet ${etoiles(ETOILES_DU_FILET.petit)} · moyen ${etoiles(ETOILES_DU_FILET.moyen)} · grand ${etoiles(ETOILES_DU_FILET.grand)}`,
     eclairer: 'montre une zone où est la réponse',
     changeable: true,
   },
@@ -113,7 +151,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     nom: 'Le Pari',
     a: 'au Pari',
     geste: 'Juste : garde une étoile, ou parie-la sur une question plus difficile.',
-    bareme: 'garder ★ · parier et réussir ★★★',
+    bareme: `garder ${etoiles(ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(ETOILES_DU_PARI.parier)}`,
     eclairer: 'efface une mauvaise réponse',
     changeable: true,
   },
@@ -122,7 +160,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     nom: 'L’Éclair',
     a: 'à l’Éclair',
     geste: `${AFFIRMATIONS_DE_L_ECLAIR} affirmations en ${DUREES_DES_JEUX.eclair} secondes : vraies ou fausses ?`,
-    bareme: JUSTES_DE_L_ECLAIR.map((n, i) => `${i === 0 ? `${n} justes` : n} ${'★'.repeat(3 - i)}`).join(' · '),
+    bareme: JUSTES_DE_L_ECLAIR.map((n, i) => `${i === 0 ? `${n} justes` : n} ${etoiles(3 - i)}`).join(' · '),
     eclairer: 'souffle la réponse de l’affirmation en cours',
     changeable: true,
   },
@@ -130,8 +168,8 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     cle: 'indices',
     nom: 'Les Indices',
     a: 'aux Indices',
-    geste: 'Qui suis-je ? Réponds avec le moins d’indices possible.',
-    bareme: baremeCompte(INDICES_DES_ETOILES, INDICES_D_UNE_FICHE, 'indices'),
+    geste: 'Qui suis-je ? Réponds avec le moins d’indices possible : une erreur compte aussi, et en montre un de plus.',
+    bareme: baremeCompte(INDICES_DES_ETOILES, 'indices'),
     eclairer: 'un indice gratuit',
     changeable: true,
   },
@@ -140,7 +178,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     nom: 'La Réplique',
     a: 'à la Réplique',
     geste: 'Complète la réplique, puis dis qui l’a dite.',
-    bareme: 'le bon mot ★★ · la bonne personne ★',
+    bareme: `le bon mot ${etoiles(ETOILES_DE_LA_REPLIQUE.mot)} · la bonne personne ${etoiles(ETOILES_DE_LA_REPLIQUE.qui)}`,
     eclairer: 'efface une mauvaise proposition',
     changeable: true,
   },

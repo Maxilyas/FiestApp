@@ -137,6 +137,17 @@ export const POUVOIR_DES_GARDIENS: Readonly<Record<string, CleDePouvoir>> = {
   'lg:bouquet': 'temps',
 }
 
+const POUVOIR_PAR_GARDIEN = new Map<string, CleDePouvoir>(Object.entries(POUVOIR_DES_GARDIENS))
+
+/**
+ * Le pouvoir d'un gardien ; undefined pour tout le reste. Une clé venue du
+ * téléphone se lit ici, jamais par `POUVOIR_DES_GARDIENS[cle]` : un objet
+ * répond aussi de son prototype, et `constructor` y passait pour un gardien.
+ */
+export function pouvoirDuGardien(cle: unknown): CleDePouvoir | undefined {
+  return typeof cle === 'string' ? POUVOIR_PAR_GARDIEN.get(cle) : undefined
+}
+
 /** La salle qu'un gardien garde ; undefined pour les cinq autres. */
 export function salleDuGardien(legendaire: string): CleDeSalle | undefined {
   return SALLES.find(s => GARDIENS_DES_SALLES[s.cle].includes(legendaire))?.cle

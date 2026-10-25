@@ -1596,7 +1596,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 ## Le Cabinet de curiosités
 
-Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la proposition validée avec sa maquette, `retours/2026-10-24/le-cabinet.md`. D'abord les quatre questions que la proposition laissait au propriétaire, tranchées le 24 octobre 2026 — « Suit tes recommandations pour les 4 » ; puis les choix qui structurent sa construction, pris en comparant trois conceptions (la sobriété, le jeu, l'intégration) jugées l'une contre l'autre ; enfin les sept choix de produit que la conception laissait ouverts, que le propriétaire a délégués le 25 octobre 2026 : chacun a pris son défaut. Le Cabinet se construit en préproduction, fermé en production ; ce qui suit vaut pour la V1.
+Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la proposition validée avec sa maquette, `retours/2026-10-24/le-cabinet.md`. D'abord les quatre questions que la proposition laissait au propriétaire, tranchées le 24 octobre 2026 — « Suit tes recommandations pour les 4 » ; puis les choix qui structurent sa construction, pris en comparant trois conceptions (la sobriété, le jeu, l'intégration) jugées l'une contre l'autre ; enfin les sept choix de produit que la conception laissait ouverts, que le propriétaire a délégués le 25 octobre 2026 : chacun a pris son défaut — et celui que la relecture du premier lot a trouvé, tranché le même jour sous la même délégation. Le Cabinet se construit en préproduction, fermé en production ; ce qui suit vaut pour la V1.
 
 ### La poussière d'or, monnaie propre au Cabinet, n'en sort jamais
 **Contexte** : la proposition demandait de quoi acheter une œuvre précise ou un cadre doré : des confettis, ou une monnaie à part ? Les confettis achètent les thèmes et les compagnons de la boutique ; un achat d'œuvre les mettrait en concurrence.
@@ -1790,7 +1790,7 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 ### Les œuvres recopient les cartes des rencontres ; le jeu de chacune est une table gelée
 **Contexte** : la page du musée lit les 84 œuvres ; le catalogue des rencontres fait 4 782 lignes et partira avec l'Expédition. La maquette tirait le jeu d'une œuvre d'un hachage de sa clé : trois œuvres d'une salle tombaient au même jeu, et un dixième jeu aurait déplacé toutes les œuvres.
 
-**Décision** : une copie légère (`OEUVRES` : clé, nom, salle, rareté), que le test relit carte par carte contre les rencontres et les peintures. Le jeu de chaque œuvre est une table écrite (`JEU_DE_L_OEUVRE`) : chaque famille saute un jeu, à tour de rôle, la rareté tournant avec ; le Vestibule complète chaque jeu à neuf ou dix œuvres, des communes aux épiques. Tous les chiffres du Cabinet vivent dans un fichier, `shared/cabinet/bareme.ts`, la grâce et la pause du chrono comprises.
+**Décision** : une copie légère (`OEUVRES` : clé, nom, salle, rareté), que le test relit carte par carte contre les rencontres et les peintures. Le jeu de chaque œuvre est une table écrite (`JEU_DE_L_OEUVRE`) : chaque famille saute un jeu, à tour de rôle, la rareté tournant avec ; le Vestibule complète chaque jeu à neuf ou dix œuvres, des communes aux épiques. Tous les chiffres du Cabinet vivent dans un fichier, `shared/cabinet/bareme.ts`, la grâce et la pause du chrono comprises, et les bornes du contenu neuf : chacun a sa ligne dans les barèmes, et le test refuse celui qui n'en a pas. Les neuf barèmes que l'annonce dit se composent de ces chiffres, aucun n'est écrit en dur.
 
 **Conséquence** : la table est gelée, et écrite en entier dans le test : changer le jeu d'une œuvre déplace la chasse de qui la cherche, un choix à dire. Les quatre œuvres de départ, possédées par règle, se gèlent de même (invariant 22).
 
@@ -1811,6 +1811,15 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 **Conséquence** : aucun ne reprend rien à personne. Le troisième se tranche sur les chiffres du calibrage, datés dans les barèmes ; le quatrième et le cinquième, en tablée.
 
 *Fichiers : `shared/cabinet/bareme.ts`, `shared/hautsfaits.ts`, `shared/fonds.ts`, `shared/compagnons.ts`*
+
+### Éclairer laisse toujours deux propositions
+**Contexte** : au Détail, au Pari et à la Réplique, Éclairer efface une mauvaise proposition, deux au plus par étape (`EFFACES_AU_PLUS`) — « trois sur quatre répondraient à la place du joueur ». Mais la seconde étape de la Réplique n'a que trois personnes : une carte-bonus de force 2 ou 3 y effaçait deux noms, et laissait la réponse seule. La relecture du premier lot l'a relevé le 25 octobre 2026, avant qu'un jeu soit écrit.
+
+**Décision** : Éclairer n'efface jamais au point de laisser moins de deux propositions (`PROPOSITIONS_LAISSEES`). Une seule règle le dit pour les trois jeux (`effacablesAuPlus`) : quatre titres, quatre réponses ou quatre mots en perdent deux ; les trois personnes de la Réplique, une. C'est l'intention de la conception, tenue partout : le propriétaire ayant délégué ces choix, le défaut pris est celui qui la respecte.
+
+**Conséquence** : une étape éclairée laisse toujours un choix à faire ; un éclairage de plus, sur une étape qui n'a plus rien à effacer, se refuse (« Ce jeu n'a plus rien à éclairer ») et ne se dépense pas. Rien de joué n'en change : aucun jeu n'était livré.
+
+*Fichiers : `shared/cabinet/bareme.ts`, `shared/cabinet/pouvoirs.ts`*
 
 ## L'outillage
 

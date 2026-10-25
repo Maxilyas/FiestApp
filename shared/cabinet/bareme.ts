@@ -1,9 +1,11 @@
 // Les chiffres du Cabinet de curiosités : chaque seuil, chaque prix, chaque
-// barème de manche, chaque durée. Des choix de produit (CLAUDE.md), tous ici
-// et nulle part ailleurs — les règles des neuf jeux, le pli d'une partie, la
-// page et le calibrage les lisent, aucun ne les recopie —, chacun sa ligne
-// dans `docs/reference/baremes.md`, que `documentation.test.ts` relit contre
-// ce fichier.
+// barème de manche, chaque durée, chaque borne du contenu neuf. Des choix de
+// produit (CLAUDE.md), tous ici et nulle part ailleurs — les règles des neuf
+// jeux, le pli d'une partie, la page, le juge du contenu et le calibrage les
+// lisent, aucun ne les recopie —, chacun sa ligne dans
+// `docs/reference/baremes.md` : `documentation.test.ts` relit chaque ligne
+// contre ce fichier, `cabinet-catalogue.test.ts` chaque constante contre la
+// page.
 //
 // Les valeurs sont celles de la maquette que trois agents ont jouée deux fois
 // chacun avant la proposition (`retours/2026-10-24/maquette/jeu.js`), et ce
@@ -11,10 +13,13 @@
 // un chrono par étape à la Réplique, les dorures baissées de 40 %.
 //
 // Ce qu'un changement fait au passé dépend du chemin de chaque chiffre, que
-// sa ligne de `baremes.md` dit : un seuil se fige au départ d'une partie ; les
-// étoiles d'une manche s'écrivent avec sa pièce ; la poussière gagnée, avec le
-// bilan de sa partie ; un prix, avec l'achat. Rien ne reprend une œuvre déjà
-// entrée (invariant 22).
+// sa ligne de `baremes.md` dit : un seuil se fige au départ d'une partie ; la
+// juste de chaque pièce s'écrit avec sa ligne au journal des réponses ; les
+// étoiles et la poussière d'une partie finie, avec son bilan ; un prix, avec
+// l'achat. Une partie en route, elle, se relit au barème du code : ce qui
+// changerait ce qu'elle tire ou juge — une durée, un barème de manche — monte
+// la version de son départ. Rien ne reprend une œuvre déjà entrée
+// (invariant 22).
 //
 // Ce fichier n'importe que des types : tout le Cabinet le lit sans rien tirer.
 
@@ -125,8 +130,11 @@ export const CHANGEMENTS_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2
 /**
  * La durée de chaque jeu, en secondes : par manche, par étape au Pari et à la
  * Réplique, pour les cinq affirmations à l'Éclair, pour les cinq essais au Mot
- * mystère. « Prendre son temps » s'y ajoute. Lue à l'ouverture de chaque
- * manche : une manche ouverte garde la sienne.
+ * mystère. « Prendre son temps » s'y ajoute. Ni le départ ni le geste qui
+ * ouvre une manche ne la figent : le pli la relit ici à chaque relecture d'une
+ * partie — un réveil, une mise en ligne. Changer une durée monte donc la
+ * version du départ (`DepartDUnePartie.v`), sans quoi une manche en route
+ * changerait d'échéance.
  */
 export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
   epingle: 45,
@@ -175,8 +183,14 @@ export const ETOILES_AU_CADRAGE: readonly number[] = [3, 2, 1, 0]
 export const TITRES_DU_DETAIL = 4
 /** … tirés parmi les tableaux les plus proches en années : deviner à l'époque ne suffit pas. */
 export const VOISINS_EN_ANNEES = 5
-/** Éclairer au Détail, au Pari et à la Réplique : ce qu'il efface de propositions, au plus, dans une manche ou une étape. */
+/** Éclairer au Détail, au Pari et à la Réplique : ce qu'il efface de propositions, au plus, dans une manche ou une étape… */
 export const EFFACES_AU_PLUS = 2
+/**
+ * … sans jamais en laisser moins de tant : une seule serait la réponse. La
+ * seconde étape de la Réplique n'a que trois personnes — un seul nom s'y
+ * efface (`effacablesAuPlus`, `pouvoirs.ts`).
+ */
+export const PROPOSITIONS_LAISSEES = 2
 
 /** Le Filet : la demi-largeur de chaque filet, en part de la piste. */
 export const LARGEURS_DU_FILET: Readonly<Record<'petit' | 'moyen' | 'grand', number>> = { petit: 0.035, moyen: 0.09, grand: 0.2 }
@@ -234,6 +248,36 @@ export const MARCHES_DU_MOT: readonly Niveau[] = ['facile', 'moyen']
 export const INTITULE_MAX_DU_QCM = 130
 /** … et chaque réponse en tant de signes. */
 export const REPONSE_MAX_DU_QCM = 34
+
+// ── Le contenu neuf ───────────────────────────────────────────────────────
+// Les bornes que le juge du serveur applique à chaque entrée écrite pour le
+// Cabinet (sa forme : `contenu.ts`), et que le script de rangement relit. En
+// 360 pixels, chrono en marche : ce qui dépasse ne se lit plus à temps.
+
+/** Le récit d'un lieu de l'Épingle, en signes… */
+export const RECIT_MAX = 200
+/** … sa question « Où ? »… */
+export const QUESTION_MAX = 80
+/** … et « Le savais-tu ? », de chaque entrée. */
+export const SAVAIS_MAX = 180
+/**
+ * Les indices d'une fiche, du plus obscur au plus évident : autant que la
+ * manche peut en montrer. Au dernier, une erreur tranche à zéro — mais le
+ * compte des étoiles, lui, monte au-delà (`INDICES_DES_ETOILES`).
+ */
+export const INDICES_D_UNE_FICHE = 5
+/** … et la longueur de chacun, en signes. */
+export const INDICE_MAX = 110
+/** Les clés d'une fiche, au plus : sans l'une d'elles, une réponse ne trouve personne. */
+export const CLES_MAX = 3
+/** Une réplique se lit d'un coup : tant de mots au plus, trou compris. */
+export const MOTS_D_UNE_REPLIQUE_MAX = 15
+/** Les mots qui pourraient aller dans le trou, et ne sont pas le bon : quatre à choisir, à la première étape. */
+export const LEURRES_D_UNE_REPLIQUE = 3
+/** Les personnes plausibles qui ne l'ont pas dite : trois à choisir, à la seconde étape. */
+export const AUTRES_D_UNE_REPLIQUE = 2
+/** Les événements d'une frise à thème : autant que ses trois vagues en posent — la somme, jamais un chiffre recopié. */
+export const EVENEMENTS_D_UNE_FRISE_A_THEME = VAGUES_DE_LA_FRISE.reduce((n, vague) => n + vague, 0)
 
 // ── Les reflets ───────────────────────────────────────────────────────────
 

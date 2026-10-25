@@ -11,12 +11,22 @@
 //
 // Ici, pur : à qui va quel pouvoir, à quelle force, ce que chaque force fait,
 // pourquoi un pouvoir ne sert pas (une seule règle, que le pli applique et que
-// la page lit sans la recopier), et les étoiles après Protéger et Miser.
+// la page lit sans la recopier), ce qu'Éclairer peut effacer d'une étape, et
+// les étoiles après Protéger et Miser.
 
-import { BONUS_DE_MISE, BONUS_DE_PROTECTION, CHANGEMENTS_PAR_PARTIE, ECLAIRAGES_PAR_PARTIE, FORCES_DES_RARETES, SECONDES_PAR_FORCE } from './bareme'
+import {
+  BONUS_DE_MISE,
+  BONUS_DE_PROTECTION,
+  CHANGEMENTS_PAR_PARTIE,
+  ECLAIRAGES_PAR_PARTIE,
+  EFFACES_AU_PLUS,
+  FORCES_DES_RARETES,
+  PROPOSITIONS_LAISSEES,
+  SECONDES_PAR_FORCE,
+} from './bareme'
 import { JEUX, type CleDeJeu } from './jeux/regle'
 import { oeuvre, type CleDuVestibule } from './oeuvres'
-import { POUVOIR_DES_GARDIENS, type CleDeFamille } from './salles'
+import { pouvoirDuGardien, type CleDeFamille } from './salles'
 
 export type CleDePouvoir = 'eclairer' | 'proteger' | 'temps' | 'miser' | 'changer'
 /** La force d'une carte-bonus : 1 pour une commune, 2 pour une rare ou une maudite, 3 pour une épique ou un gardien. */
@@ -78,18 +88,21 @@ export const POUVOIR_DU_NEUTRE: Readonly<Record<CleDuVestibule, CleDePouvoir>> =
   surmenage: 'miser',
 }
 
-/** Le pouvoir d'une carte-bonus — une œuvre, ou un gardien ; null pour tout le reste (un Divin, un légendaire sans joker). */
-export function pouvoirDe(cle: string): CleDePouvoir | null {
+/**
+ * Le pouvoir d'une carte-bonus — une œuvre, ou un gardien ; null pour tout le
+ * reste (un Divin, un légendaire sans joker, ce que le téléphone invente).
+ */
+export function pouvoirDe(cle: unknown): CleDePouvoir | null {
   const o = oeuvre(cle)
   if (o) return o.salle === 'vestibule' ? POUVOIR_DU_NEUTRE[o.cle as CleDuVestibule] : POUVOIR_DE_LA_FAMILLE[o.salle]
-  return POUVOIR_DES_GARDIENS[cle] ?? null
+  return pouvoirDuGardien(cle) ?? null
 }
 
 /** La force d'une carte-bonus : celle de sa rareté ; un gardien, la plus haute. */
-export function forceDe(cle: string): Force | null {
+export function forceDe(cle: unknown): Force | null {
   const o = oeuvre(cle)
   if (o) return FORCES_DES_RARETES[o.rarete]
-  return POUVOIR_DES_GARDIENS[cle] ? FORCES_DES_RARETES.legendaire : null
+  return pouvoirDuGardien(cle) ? FORCES_DES_RARETES.legendaire : null
 }
 
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
@@ -151,7 +164,22 @@ export function refusDuPouvoir(u: UsageDUnPouvoir): string | null {
     case 'proteger':
     case 'temps':
       return `${POUVOIRS[u.pouvoir].nom} agit tout seul`
+    // Le typage dit qu'on n'arrive pas ici ; un départ relu de travers, si. Une
+    // garde qui rendrait `undefined` laisserait servir le pouvoir : elle refuse.
+    default:
+      return 'Cette carte-bonus n’a pas de pouvoir'
   }
+}
+
+/**
+ * Ce qu'Éclairer peut effacer, au plus, d'une étape de tant de propositions —
+ * le Détail, le Pari, la Réplique. Deux au plus, et toujours deux qui restent :
+ * une seule serait la réponse, donnée par la carte-bonus. Les quatre titres du
+ * Détail, les quatre réponses du Pari et les quatre mots de la Réplique en
+ * perdent deux ; ses trois personnes, une.
+ */
+export function effacablesAuPlus(propositions: number): number {
+  return Math.max(0, Math.min(EFFACES_AU_PLUS, propositions - PROPOSITIONS_LAISSEES))
 }
 
 /** La carte-bonus d'une partie, figée au départ. */

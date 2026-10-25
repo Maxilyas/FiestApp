@@ -61,7 +61,7 @@ Après chaque manche, **la révélation** : les étoiles et ce qui les a faites 
 | **Le Filet** | un curseur sur une piste, puis la taille du filet | petit ★★★ · moyen ★★ · grand ★ | montre une zone où est la réponse |
 | **Le Pari** | une question ; juste, on garde l'étoile ou on la parie sur une question plus difficile | garder ★ · parier et réussir ★★★ | efface une mauvaise réponse |
 | **L'Éclair** | cinq affirmations, vraies ou fausses, en 45 secondes | 5 justes ★★★ · 4 ★★ · 3 ★ | souffle la réponse de l'affirmation en cours |
-| **Les Indices** | « Qui suis-je ? » : cinq indices du plus obscur au plus évident, un nom à taper | 1 ou 2 indices ★★★ · 3 ★★ · 4 ou 5 ★ ; une erreur coûte un indice | un indice gratuit |
+| **Les Indices** | « Qui suis-je ? » : cinq indices du plus obscur au plus évident, un nom à taper | en 1 ou 2 indices ★★★ · 3 ★★ · 4 et plus ★ ; chaque erreur compte, et en montre un de plus | un indice gratuit |
 | **La Réplique** | le mot qui manque d'une réplique culte, puis « Qui l'a dit ? » | le bon mot ★★ · la bonne personne ★ | efface une mauvaise proposition |
 
 Le Pari, l'Éclair, le Mot mystère et le Filet puisent dans la base de questions de la campagne ; le Détail dans ses cent tableaux ; la Frise dans les événements datés de la base et des frises à thème. L'Épingle, les Indices et la Réplique ont **un contenu neuf**, écrit et relu par des agents : des lieux datés de France, des fiches de personnages, des répliques de films, de théâtre et de chansons.
@@ -70,7 +70,7 @@ Ce que les tests de la maquette ont fait changer : l'Épingle plus tolérante, l
 
 ## Les cartes-bonus
 
-Avant chaque partie, on emporte une carte : une œuvre qu'on possède, les quatre de départ comprises, ou un gardien réveillé. **Son pouvoir vient de sa famille, sa rareté le rend plus fort** — une commune, force 1 ; une rare ou une maudite, 2 ; une épique ou un gardien, 3 —, et **elle ne s'use jamais**. La dernière choisie se retient sur le téléphone.
+Avant chaque partie, on emporte une carte-bonus : une œuvre qu'on possède, les quatre de départ comprises, ou un gardien réveillé. **Son pouvoir vient de sa famille, sa rareté le rend plus fort** — une commune, force 1 ; une rare ou une maudite, 2 ; une épique ou un gardien, 3 —, et **elle ne s'use jamais**. La dernière choisie se retient sur le téléphone.
 
 | Pouvoir | Qui le porte | Ce qu'il fait | Force 1 · 2 · 3 |
 |---|---|---|---|
@@ -80,7 +80,7 @@ Avant chaque partie, on emporte une carte : une œuvre qu'on possède, les quatr
 | **Miser** | le Flambeur, le Téméraire, les trois maudites | avant une manche, sans l'avoir vue : parfaite, elle rapporte des étoiles en plus ; sinon, rien | +2 · +3 · +4 |
 | **Changer** | le Métamorphe, le Sophiste, deux neutres | remplace la manche avant de répondre ; le chrono continue — jamais à la Frise | 1 · 2 · 3 fois |
 
-Seul Éclairer s'écrit jeu par jeu ; les quatre autres valent partout, et un nouveau jeu ne leur demande rien. **Les gardiens portent le pouvoir de la salle qu'ils gardent** : le Phénix protège comme le Rempart. Un pouvoir qui a servi — Éclairer, Changer, la mise, la protection, le temps en plus vraiment utilisé — ôte le cadre doré ; une réponse qu'Éclairer ou le temps en plus a aidée ne mesure rien de ce que tu sais.
+Seul Éclairer s'écrit jeu par jeu ; les quatre autres valent partout, et un nouveau jeu ne leur demande rien. Là où il efface — un titre, une réponse, un mot, un nom —, Éclairer en laisse toujours deux : à la seconde étape de la Réplique, qui n'a que trois noms, un seul s'efface. **Les gardiens portent le pouvoir de la salle qu'ils gardent** : le Phénix protège comme le Rempart. Un pouvoir qui a servi — Éclairer, Changer, la mise, la protection, le temps en plus vraiment utilisé — ôte le cadre doré ; une réponse qu'Éclairer ou le temps en plus a aidée ne mesure rien de ce que tu sais.
 
 Ce que la maquette a fermé : la mise à ×2, qui dorait une épique en deux manches ; Protéger à +3, qui vidait les seuils de leur sens ; « Prendre son temps » qui dorait sans aide apparente.
 

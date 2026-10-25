@@ -12,6 +12,7 @@
 // qui se dit en changeant aussi ce test (invariant 22, `baremes.md`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { CARTES_DES_RENCONTRES, FAMILLES_DE_CARTES, type FamilleDeCartes } from '../../shared/rencontres'
 import { LEGENDAIRES_A_JOKER } from '../../shared/jokers'
 import { legendaire } from '../../shared/legendaires'
@@ -26,6 +27,7 @@ import {
   GARDIENS_DU_CABINET,
   GARDIENS_DE_SAISON,
   POUVOIR_DES_GARDIENS,
+  pouvoirDuGardien,
   salle,
   salleDuGardien,
   voieDuGardien,
@@ -40,6 +42,7 @@ import {
   forceDe,
   forceDite,
   refusDuPouvoir,
+  effacablesAuPlus,
   etoilesApresLesPouvoirs,
   mancheProtegee,
   type CleDePouvoir,
@@ -62,7 +65,7 @@ import {
   deplier,
 } from '../../shared/cabinet/pieces'
 import { DANS_LA_FRANCE, dansLaFrance, distanceKm, projeter, deprojeter, LARGEUR_DE_LA_CARTE, HAUTEUR_DE_LA_CARTE } from '../../shared/cabinet/france'
-import { EVENEMENTS_D_UNE_FRISE_A_THEME, FORME_D_UN_IDENTIFIANT, FORME_D_UNE_CLE, INDICES_D_UNE_FICHE } from '../../shared/cabinet/contenu'
+import { FORME_D_UN_IDENTIFIANT, FORME_D_UNE_CLE } from '../../shared/cabinet/contenu'
 import { CLES_DES_JEUX, JEUX, justeDeLaPiece, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 
 /** La table des cartes peintes, telle que la chaîne `peindre` l'écrit — un fichier du client, lu par son adresse. */
@@ -129,6 +132,29 @@ test('le pouvoir d’une œuvre vient de sa famille ; au Vestibule, de la carte 
   const neutres = SANS_LEGENDAIRE.filter(c => c.famille === 'neutre').map(c => c.cle)
   assert.deepEqual(Object.keys(POUVOIR_DU_NEUTRE).sort(), [...neutres].sort())
   assert.deepEqual(compter(Object.values(POUVOIR_DU_NEUTRE)), { eclairer: 5, proteger: 5, temps: 5, changer: 2, miser: 3 })
+  // Écrite en entier, comme la conception la donne : échanger le pouvoir de deux neutres ne changerait aucun compte.
+  assert.deepEqual(POUVOIR_DU_NEUTRE, {
+    'coup-d-oeil': 'eclairer',
+    evidence: 'eclairer',
+    repere: 'eclairer',
+    lettre: 'eclairer',
+    initiale: 'eclairer',
+    prudence: 'proteger',
+    'double-chance': 'proteger',
+    sursis: 'proteger',
+    'sang-froid': 'proteger',
+    panacee: 'proteger',
+    concentration: 'temps',
+    pioche: 'temps',
+    'arret-sur-image': 'temps',
+    meditation: 'temps',
+    maitrise: 'temps',
+    echange: 'changer',
+    detour: 'changer',
+    'tout-ou-rien': 'miser',
+    'quitte-ou-double': 'miser',
+    surmenage: 'miser',
+  })
   for (const o of oeuvresDeLaSalle('vestibule').filter(o => o.rarete === 'maudit')) {
     assert.equal(POUVOIR_DU_NEUTRE[o.cle as keyof typeof POUVOIR_DU_NEUTRE], 'miser', `${o.cle} : les trois maudites misent`)
   }
@@ -144,6 +170,7 @@ test('la rareté fait la force : une commune 1, une rare ou une maudite 2, une �
   for (const o of OEUVRES) assert.equal(forceDe(o.cle), B.FORCES_DES_RARETES[o.rarete], o.cle)
   for (const g of GARDIENS) assert.equal(forceDe(g), 3, g)
   assert.equal(forceDe('inconnue'), null)
+  assert.equal(forceDe('dv:helios'), null, 'un Divin n’a pas de force : il n’est pas une carte-bonus')
   // Ce que chaque force fait, en mots : l'annonce le dit sous la carte-bonus emportée.
   assert.equal(forceDite('eclairer', 1), '1 indice par partie')
   assert.equal(forceDite('eclairer', 3), '3 indices par partie')
@@ -154,6 +181,28 @@ test('la rareté fait la force : une commune 1, une rare ou une maudite 2, une �
   assert.equal(forceDite('miser', 1), '+2 étoiles si la manche misée est parfaite')
   assert.equal(forceDite('miser', 3), '+4 étoiles si la manche misée est parfaite')
   assert.equal(forceDite('changer', 2), '2 fois par partie')
+})
+
+test('une clé venue du téléphone ne passe jamais pour une carte-bonus : ni `constructor`, ni `__proto__`', () => {
+  // La carte-bonus d'un départ arrive du téléphone (`carte`, une chaîne). La table des gardiens est un objet :
+  // lue par `[cle]`, `constructor` y trouvait la fonction `Object`, et une force 3 — un pouvoir qui n'en est
+  // pas, que le départ aurait figé et que sa relecture aurait refusé, la partie bloquée en cours.
+  for (const k of ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf', '', 'lg:', 'LG:PHENIX']) {
+    assert.equal(pouvoirDe(k), null, k)
+    assert.equal(forceDe(k), null, k)
+    assert.equal(pouvoirDuGardien(k), undefined, k)
+  }
+  for (const k of [null, undefined, 42, {}, ['lg:phenix']]) {
+    assert.equal(pouvoirDe(k), null, String(k))
+    assert.equal(forceDe(k), null, String(k))
+    assert.equal(pouvoirDuGardien(k), undefined, String(k))
+  }
+  for (const g of GARDIENS) assert.equal(pouvoirDuGardien(g), POUVOIR_DES_GARDIENS[g], g)
+  // Et un pouvoir que la règle ne connaît pas se refuse en mots — jamais `undefined`, qu'un `if (refus)` laisserait servir.
+  for (const pouvoir of ['constructor', 'joker'] as unknown as CleDePouvoir[]) {
+    const refus = refusDuPouvoir({ pouvoir, force: 3, jeu: 'pari', servi: 0 })
+    assert.equal(typeof refus, 'string', `${pouvoir} : ${refus}`)
+  }
 })
 
 test('les œuvres de départ, gelées : un pouvoir chacune, sauf Miser', () => {
@@ -210,6 +259,19 @@ test('les vingt-trois gardiens sont les légendaires à joker : dix-huit des sal
   // Exemples de la proposition : l'Érudit, la Chouette d'Argent puis le Lion ; le Rempart, le Phénix puis l'Ouroboros.
   assert.deepEqual(GARDIENS_DES_SALLES.erudit, ['lg:chouette', 'lg:lion'])
   assert.deepEqual(GARDIENS_DES_SALLES.rempart, ['lg:phenix', 'lg:ouroboros'])
+  // La table entière, comme la conception la donne : intervertir le premier et le second d'une salle — l'un se
+  // réveille à la salle complète, l'autre à la salle dorée — ne changerait aucun ensemble ni aucun pouvoir.
+  assert.deepEqual(GARDIENS_DES_SALLES, {
+    erudit: ['lg:chouette', 'lg:lion'],
+    devin: ['lg:sphinx', 'lg:oracle'],
+    rempart: ['lg:phenix', 'lg:ouroboros'],
+    elan: ['lg:tigre', 'lg:comete'],
+    metamorphe: ['lg:janus', 'lg:serpent'],
+    flambeur: ['lg:dragon', 'lg:renard'],
+    sophiste: ['lg:fantome', 'lg:chauve-souris'],
+    temeraire: ['lg:salamandre', 'lg:kraken'],
+    vestibule: ['lg:coq', 'lg:chimere'],
+  })
   assert.equal(salleDuGardien('lg:phenix'), 'rempart')
   assert.equal(salleDuGardien('lg:scarabee'), undefined)
 })
@@ -306,6 +368,19 @@ test('pourquoi un pouvoir ne sert pas : une seule règle, en mots', () => {
   assert.deepEqual(B.CHANGEMENTS_PAR_PARTIE, { 1: 1, 2: 2, 3: 3 })
 })
 
+test('Éclairer efface deux propositions au plus, et en laisse toujours deux', () => {
+  // La seconde étape de la Réplique n'a que trois noms : deux effacés, une carte-bonus de force 2 donnait la
+  // réponse — ce que « deux au plus » voulait justement empêcher sur quatre.
+  assert.equal(B.EFFACES_AU_PLUS, 2)
+  assert.equal(B.PROPOSITIONS_LAISSEES, 2)
+  assert.equal(effacablesAuPlus(B.TITRES_DU_DETAIL), 2, 'le Détail : quatre titres')
+  assert.equal(effacablesAuPlus(4), 2, 'le Pari : quatre réponses, à chaque question')
+  assert.equal(effacablesAuPlus(B.LEURRES_D_UNE_REPLIQUE + 1), 2, 'la Réplique : quatre mots')
+  assert.equal(effacablesAuPlus(B.AUTRES_D_UNE_REPLIQUE + 1), 1, 'la Réplique : trois personnes, un seul nom s’efface')
+  for (const n of [0, 1, 2]) assert.equal(effacablesAuPlus(n), 0, `${n} propositions`)
+  assert.equal(effacablesAuPlus(9), B.EFFACES_AU_PLUS, 'jamais plus de deux, même sur neuf')
+})
+
 test('le Cabinet s’ouvre hors de la production, et en production sous son drapeau', () => {
   assert.equal(cabinetOuvert({ online: true, env: 'production' }), CABINET_EN_PRODUCTION)
   assert.equal(cabinetOuvert({ online: true, env: 'preprod' }), true, 'la préproduction le joue d’abord')
@@ -325,17 +400,26 @@ test('neuf jeux, chacun ses mots, son chrono et son barème dit', () => {
   }
   // Seule la Frise ne se change pas : elle se construit d'un bout à l'autre.
   assert.deepEqual(CLES_DES_JEUX.filter(j => !JEUX[j].changeable), ['frise'])
-  // Le barème dit à l'annonce est celui du code.
+  // Le barème dit à l'annonce est celui du code, pour les neuf : chacun se compose des chiffres de `bareme.ts`.
+  const etoiles = (n: number) => '★'.repeat(n)
   assert.equal(JEUX.epingle.bareme, `à moins de ${B.KM_DE_L_EPINGLE[0]} km ★★★ · ${B.KM_DE_L_EPINGLE[1]} km ★★ · ${B.KM_DE_L_EPINGLE[2]} km ★`)
+  assert.equal(JEUX.frise.bareme, 'sans faute ★★★ · une erreur ★★ · deux ★')
   assert.equal(JEUX.mot.bareme, 'en 1 ou 2 essais ★★★ · 3 ou 4 ★★ · 5 ★')
+  assert.equal(JEUX.detail.bareme, 'au premier coup d’œil ★★★ · un pas ★★ · deux ★')
+  assert.equal(JEUX.filet.bareme, `petit filet ${etoiles(B.ETOILES_DU_FILET.petit)} · moyen ${etoiles(B.ETOILES_DU_FILET.moyen)} · grand ${etoiles(B.ETOILES_DU_FILET.grand)}`)
+  assert.equal(JEUX.pari.bareme, `garder ${etoiles(B.ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(B.ETOILES_DU_PARI.parier)}`)
   assert.equal(JEUX.eclair.bareme, '5 justes ★★★ · 4 ★★ · 3 ★')
-  assert.equal(JEUX.indices.bareme, 'en 1 ou 2 indices ★★★ · 3 ★★ · 4 ou 5 ★')
+  // Les Indices comptent les indices vus et les erreurs, et chaque erreur en montre un de plus : le compte monte
+  // au-delà des cinq indices d'une fiche, jusqu'à neuf. La dernière étoile n'a pas de plafond.
+  assert.equal(JEUX.indices.bareme, 'en 1 ou 2 indices ★★★ · 3 ★★ · 4 et plus ★')
+  assert.match(JEUX.indices.geste, /erreur/, 'l’annonce dit qu’une erreur compte')
+  assert.equal(JEUX.replique.bareme, `le bon mot ${etoiles(B.ETOILES_DE_LA_REPLIQUE.mot)} · la bonne personne ${etoiles(B.ETOILES_DE_LA_REPLIQUE.qui)}`)
   assert.deepEqual(B.ESSAIS_DES_ETOILES, [2, 4, 5])
   assert.equal(B.ESSAIS_DU_MOT, B.ESSAIS_DES_ETOILES[2])
   assert.deepEqual(B.JUSTES_DE_L_ECLAIR, [5, 4, 3])
   assert.equal(B.AFFIRMATIONS_DE_L_ECLAIR, B.JUSTES_DE_L_ECLAIR[0])
   assert.deepEqual(B.INDICES_DES_ETOILES, [2, 3])
-  assert.equal(INDICES_D_UNE_FICHE, 5)
+  assert.equal(B.INDICES_D_UNE_FICHE, 5)
   assert.deepEqual(B.ERREURS_DE_LA_FRISE, [0, 1, 2])
   assert.deepEqual(B.ETOILES_AU_CADRAGE, [3, 2, 1, 0])
   assert.deepEqual(B.ETOILES_DU_FILET, { petit: 3, moyen: 2, grand: 1 })
@@ -367,7 +451,11 @@ test('les chiffres se tiennent entre eux', () => {
   assert.ok(B.POUSSIERE_MIN <= B.POUSSIERE_PAR_ETOILE * B.ETOILES_D_UNE_PARTIE)
   // La Frise : trois vagues, une par manche, qui font une frise de sept.
   assert.equal(B.VAGUES_DE_LA_FRISE.length, B.MANCHES_PAR_PARTIE)
-  assert.equal(B.VAGUES_DE_LA_FRISE.reduce((a, b) => a + b, 0), EVENEMENTS_D_UNE_FRISE_A_THEME)
+  assert.equal(B.VAGUES_DE_LA_FRISE.reduce((a, b) => a + b, 0), B.EVENEMENTS_D_UNE_FRISE_A_THEME)
+  assert.equal(B.EVENEMENTS_D_UNE_FRISE_A_THEME, 7)
+  // Les bornes du contenu neuf vivent avec les autres chiffres : la Réplique, quatre mots puis trois personnes.
+  assert.equal(B.LEURRES_D_UNE_REPLIQUE, 3)
+  assert.equal(B.AUTRES_D_UNE_REPLIQUE, 2)
   // L'Épingle et le Filet : des barèmes qui s'élargissent, une zone d'Éclairer qui contient toujours la réponse.
   assert.ok(B.KM_DE_L_EPINGLE[0] < B.KM_DE_L_EPINGLE[1] && B.KM_DE_L_EPINGLE[1] < B.KM_DE_L_EPINGLE[2])
   assert.ok(B.DECALAGE_DE_LA_ZONE_KM[1] < B.RAYON_D_ECLAIRER_KM, 'le lieu reste dans la zone')
@@ -472,4 +560,43 @@ test('les mots du Cabinet : une œuvre, une carte-bonus, la carte de France — 
     assert.ok(!/\bcartes?\b(?!-bonus| de France)/i.test(t), `« ${t} » : dis « œuvre », « carte-bonus » ou « carte de France »`)
     assert.ok(!/\bbadges?\b|médailles?/i.test(t), t)
   }
+})
+
+test('chaque chiffre de `bareme.ts` a sa ligne dans les barèmes', () => {
+  // `documentation.test.ts` va de la page au code : une ligne qui ment rougit, une constante sans ligne passe.
+  // Ici, du code à la page — un chiffre du Cabinet est un choix de produit, qui se dit (`baremes.md`).
+  const page = readFileSync(new URL('../../docs/reference/baremes.md', import.meta.url), 'utf8')
+  const dites = new Set([...page.matchAll(/^\|\s*`([A-Z][A-Z0-9_]*)`\s*\|[^|\n]*\|\s*`shared\/cabinet\/bareme\.ts`/gm)].map(m => m[1]))
+  assert.ok(Object.keys(B).length > 60, `${Object.keys(B).length} constantes lues`)
+  assert.deepEqual(Object.keys(B).filter(nom => !dites.has(nom)), [], 'sans ligne dans docs/reference/baremes.md')
+})
+
+/** Les modules qu'un fichier importe pour leurs valeurs : `import type` s'efface à la compilation, rien ne se tire. */
+function importsDeValeurs(fichier: URL): URL[] {
+  const texte = readFileSync(fichier, 'utf8')
+  // Un import (pas `import type`), une réexportation, un import pour son effet : jamais d'autre chaîne entre les deux.
+  const relatifs = [...texte.matchAll(/^(?:import\s+(?!type\b)|export\s+(?:\*|\{))(?:[^;'"]*?\bfrom\s+)?'(\.[^']+)'/gm)].map(m => m[1])
+  return relatifs.map(r => {
+    const trouve = [`${r}.ts`, `${r}.tsx`, `${r}/index.ts`, r].map(c => new URL(c, fichier)).find(u => existsSync(u))
+    assert.ok(trouve, `${fichier.pathname} : ${r} introuvable`)
+    return trouve!
+  })
+}
+
+test('le journal, l’accueil et la page lisent le Cabinet sans tirer les rencontres', () => {
+  const dossier = new URL('../../shared/cabinet/', import.meta.url)
+  // Leurs en-têtes le promettent : le journal des réponses lit `pieces.ts`, l'accueil et le serveur `ouverture.ts`,
+  // tout le Cabinet `bareme.ts` — sans rien tirer. Un import de valeur de plus ferait tirer le Cabinet en silence.
+  for (const f of ['bareme.ts', 'pieces.ts', 'ouverture.ts']) assert.deepEqual(importsDeValeurs(new URL(f, dossier)).map(u => u.pathname), [], `${f} : n’importe que des types`)
+  // Et rien du Cabinet, de proche en proche, ne tire `shared/rencontres.ts` : 4 782 lignes, qui partiront avec l'Expédition.
+  const rencontres = new URL('../rencontres.ts', dossier).href
+  const vus = new Set<string>()
+  const aVoir = readdirSync(dossier, { recursive: true, encoding: 'utf8' }).filter(f => f.endsWith('.ts')).map(f => new URL(f, dossier))
+  for (let u = aVoir.pop(); u; u = aVoir.pop()) {
+    if (vus.has(u.href)) continue
+    vus.add(u.href)
+    assert.notEqual(u.href, rencontres, 'un module du Cabinet tire shared/rencontres.ts')
+    aVoir.push(...importsDeValeurs(u))
+  }
+  assert.ok(vus.size >= 9, `${vus.size} modules relus`)
 })

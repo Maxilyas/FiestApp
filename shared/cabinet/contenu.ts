@@ -5,10 +5,13 @@
 // porte sa réponse (invariant 1) —, une entrée par ligne, chacune passée à son
 // juge au chargement du serveur.
 //
-// Ici, la forme d'une entrée et ses bornes : le juge du serveur et le script
-// qui range les lots écrits les lisent, sans les recopier. Un identifiant de
-// contenu s'écrit en `[a-z0-9-]`, sans deux-points : le code pose le préfixe
-// (`PREFIXE_DU_CABINET`, `shared/cabinet/pieces.ts`).
+// Ici, la forme d'une entrée et ce que ses textes peuvent être : le juge du
+// serveur et le script qui range les lots écrits les lisent, sans les
+// recopier. Ses bornes chiffrées — la longueur d'un récit, les indices d'une
+// fiche, les leurres d'une réplique — sont des choix de produit, avec les
+// autres chiffres du Cabinet (`bareme.ts`, et leur ligne de `baremes.md`). Un
+// identifiant de contenu s'écrit en `[a-z0-9-]`, sans deux-points : le code
+// pose le préfixe (`PREFIXE_DU_CABINET`, `shared/cabinet/pieces.ts`).
 
 import type { Categorie } from '../categories'
 
@@ -81,24 +84,9 @@ export interface FriseATheme {
   categorie: Categorie
 }
 
-// ── Les bornes, que le juge du serveur applique à chaque entrée ───────────
-// En 360 pixels, chrono en marche : ce qui dépasse ne se lit plus à temps.
+// ── Ce que les textes peuvent être, que le juge applique à chaque entrée ──
 
-/** Le récit d'un lieu, sa question, et « Le savais-tu ? », en signes. */
-export const RECIT_MAX = 200
-export const QUESTION_MAX = 80
-export const SAVAIS_MAX = 180
-/** Les indices d'une fiche, et la longueur de chacun. */
-export const INDICES_D_UNE_FICHE = 5
-export const INDICE_MAX = 110
-/** Les clés d'une fiche : une à trois, en minuscules sans accents, de trois lettres au moins (`arc` en est une). */
-export const CLES_MAX = 3
+/** Une clé d'une fiche (`CLES_MAX` au plus) : en minuscules sans accents, de trois lettres au moins — `arc` en est une. */
 export const FORME_D_UNE_CLE = /^[a-z]{3,}$/
-/** Une réplique se lit d'un coup : tant de mots au plus, trou compris. */
-export const MOTS_D_UNE_REPLIQUE_MAX = 15
-export const LEURRES_D_UNE_REPLIQUE = 3
-export const AUTRES_D_UNE_REPLIQUE = 2
-/** Les événements d'une frise à thème : autant que ses trois vagues en posent (`VAGUES_DE_LA_FRISE`). */
-export const EVENEMENTS_D_UNE_FRISE_A_THEME = 7
 /** Ce qu'un identifiant de contenu peut être : le code pose `cab:` devant. */
 export const FORME_D_UN_IDENTIFIANT = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
