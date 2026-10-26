@@ -1,5 +1,5 @@
 import { MAX_NAME_LENGTH } from '../../../shared/avatars'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Limite } from './Limite'
 import { api, motifDe, UnauthorizedError } from '../api'
 import { PITCH_PROFIL, type PublicProfile } from '../../../shared/profil'
@@ -7,7 +7,7 @@ import { AVATARS } from '../../../shared/avatars'
 import { Icon } from './Icon'
 import { MotDePasse } from './MotDePasse'
 import { CodeSecours, FormulaireSecours } from './Secours'
-import { identifiantPour, tirage } from './inscription'
+import { identifiantPour, refusDeLIdentifiant, refusDuMotDePasse, tirage } from './inscription'
 import { IdentifiantDiscret, inscrireAvecRepli } from './IdentifiantDiscret'
 import { Sortie } from './Pieces'
 import { LOGIN } from '../../../shared/space'
@@ -59,6 +59,36 @@ interface Props {
    * onglets du profil pendant qu'on attend la réponse, pas après.
    */
   onEnvoi?: () => void
+  /**
+   * L'accueil seulement, dont le formulaire est toute la page : son nom, en
+   * titre de premier niveau à chaque écran — caché, l'œil lit déjà la
+   * marque —, et l'onglet qui suit l'écran (`ongletDuFormulaire`). Au lecteur
+   * d'écran, la marque n'était qu'un paragraphe, « Créer un profil » un
+   * titre de niveau 2 sans niveau 1, et l'onglet ne changeait jamais (Hugo,
+   * la tablée du 26 octobre 2026). La salle d'attente ne le donne pas : sa
+   * page a son titre et son onglet.
+   */
+  titreDeLaPage?: string
+}
+
+/** Les écrans du formulaire, le code de secours compris — celui de l'inscription, ou le neuf d'un secours. */
+type EcranDuFormulaire = 'choix' | 'connexion' | 'inscription' | 'secours' | 'code' | 'nouveau-code'
+
+/**
+ * L'onglet de chaque écran, à l'accueil : son titre, comme au Cabinet. Le
+ * choix garde le nom de la page — c'est lui qu'on y ouvre.
+ */
+export function ongletDuFormulaire(ecran: EcranDuFormulaire): string | null {
+  const titres: Record<EcranDuFormulaire, string | null> = {
+    choix: null,
+    connexion: 'Me connecter',
+    inscription: 'Créer un profil',
+    secours: 'Retrouver mon profil',
+    code: 'Ton profil est prêt',
+    'nouveau-code': 'Note ton nouveau code',
+  }
+  const titre = titres[ecran]
+  return titre && `${titre} · FiestApp`
 }
 
 /** Ce que le formulaire garde de ses champs d'un mode à l'autre. */
@@ -99,7 +129,7 @@ export function champsAuChangement(vers: 'choix' | 'connexion' | 'inscription', 
  * reste, ne se comprenaient pas d'un coup d'œil (la remarque du
  * propriétaire du 4 octobre 2026).
  */
-export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, bandeau, onEnvoi, pied }: Props) {
+export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, bandeau, onEnvoi, pied, titreDeLaPage }: Props) {
   const [mode, setMode] = useState<'choix' | 'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : echappee ? 'choix' : 'connexion')
   /** Le champ de l'identifiant, ouvert à la demande ou sur un refus du serveur. */
   const [loginOuvert, setLoginOuvert] = useState(false)
@@ -124,10 +154,28 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
   const [error, setError] = useState('')
   /** L'erreur est un refus d'identifiants — pas le réseau, ni la réserve d'essais épuisée. */
   const [refus, setRefus] = useState(false)
+  /**
+   * Le mot de passe choisi, refusé (« Au moins 8 caractères ») : il se dit
+   * sous son champ, et s'efface dès qu'on le retape.
+   */
+  const [motDePasseRefuse, setMotDePasseRefuse] = useState('')
   /** Une bonne nouvelle, pas une erreur : elle ne s'écrit pas en rouge. */
   const [info, setInfo] = useState('')
   /** Le code de secours, à noter — il ne repassera jamais. `neuf` : il remplace celui qu'on vient de donner. */
   const [recovery, setRecovery] = useState<{ code: string; profile: PublicProfile; neuf?: boolean } | null>(null)
+
+  // L'onglet de l'écran ouvert, et celui de la page rendu en partant : au
+  // choix, au départ du formulaire une fois connecté.
+  const onglet = titreDeLaPage ? ongletDuFormulaire(recovery ? (recovery.neuf ? 'nouveau-code' : 'code') : mode) : null
+  useEffect(() => {
+    if (!onglet) return
+    const avant = document.title
+    document.title = onglet
+    return () => {
+      document.title = avant
+    }
+  }, [onglet])
+  const titreCache = titreDeLaPage ? <h1 className="sr-only">{titreDeLaPage}</h1> : null
 
   // Le code d'abord : après un secours réussi, le mode restait « secours »,
   // et c'est le formulaire qui se remontrait — le code neuf ne s'affichait
@@ -135,6 +183,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
   if (recovery) {
     return (
       <div className="join">
+        {titreCache}
         <h2 className="center">{recovery.neuf ? 'Note ton nouveau code' : 'Ton profil est prêt'}</h2>
         {recovery.neuf && (
           <p className="muted small center">Ton mot de passe a changé, et l'ancien code ne sert plus.</p>
@@ -159,18 +208,22 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
   // porte de retour, faute d'adresse e-mail. On la met là où on la cherche.
   if (mode === 'secours') {
     return (
-      <FormulaireSecours
-        prefill={login}
-        onDone={(profile, neuf) => {
-          // Le code vient d'être consommé : celui qu'on rend est le nouveau,
-          // et il se note tout de suite, comme à l'inscription.
-          if (profile) return setRecovery({ code: neuf, profile, neuf: true })
-          setMode('connexion')
-          setError('')
-          setInfo('Profil retrouvé — connecte-toi avec ton nouveau mot de passe')
-        }}
-        onCancel={() => setMode('connexion')}
-      />
+      <>
+        {/* À côté de son formulaire, qui n'en a pas : caché, il ne prend aucune place. */}
+        {titreCache}
+        <FormulaireSecours
+          prefill={login}
+          onDone={(profile, neuf) => {
+            // Le code vient d'être consommé : celui qu'on rend est le nouveau,
+            // et il se note tout de suite, comme à l'inscription.
+            if (profile) return setRecovery({ code: neuf, profile, neuf: true })
+            setMode('connexion')
+            setError('')
+            setInfo('Profil retrouvé — connecte-toi avec ton nouveau mot de passe')
+          }}
+          onCancel={() => setMode('connexion')}
+        />
+      </>
     )
   }
 
@@ -180,6 +233,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
     setBusy(true)
     setError('')
     setInfo('')
+    setMotDePasseRefuse('')
     try {
       if (mode === 'connexion') {
         const { profile } = await api.joueur.connexion(login, password)
@@ -190,12 +244,15 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
         setRecovery({ code: res.recovery, profile: res.profile })
       }
     } catch (e) {
+      // Le mot de passe refusé se dit sous son champ, et rien d'autre ne
+      // s'ouvre : le message se lisait sous l'identifiant ouvert pour rien.
+      if (mode === 'inscription' && refusDuMotDePasse(e)) return setMotDePasseRefuse(motifDe(e))
       // « Identifiant ou mot de passe incorrect », tel que le serveur le dit
       // — et non plus « Connexion requise », ni « Failed to fetch ».
       setError(motifDe(e))
       setRefus(mode === 'connexion' && e instanceof UnauthorizedError)
-      // Un refus à l'inscription peut viser l'identifiant : son champ s'ouvre.
-      if (mode === 'inscription') setLoginOuvert(true)
+      // Un refus qui vise l'identifiant — pris, mal formé — en ouvre le champ, son message dessous.
+      if (mode === 'inscription' && refusDeLIdentifiant(e)) setLoginOuvert(true)
     } finally {
       setBusy(false)
     }
@@ -204,6 +261,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
   const changerDeMode = (suivant: 'choix' | 'connexion' | 'inscription') => {
     setError('')
     setInfo('')
+    setMotDePasseRefuse('')
     const apres = champsAuChangement(suivant, { login, loginTouche, loginOuvert, password, name })
     setLogin(apres.login)
     setLoginTouche(apres.loginTouche)
@@ -216,6 +274,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
   if (mode === 'choix') {
     return (
       <div className="join entree entree-choix">
+        {titreCache}
         {marque}
         <div className="join-grow" />
         <div className="join-actions">
@@ -241,6 +300,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
     // Resserré comme l'entrée d'une soirée : en 360 × 640, « Revenir » —
     // la seule sortie de la salle d'attente — tombait sous le bord.
     <form className="join entree" onSubmit={submit}>
+      {titreCache}
       {/* Sur l'accueil, le choix est derrière : « ← Retour », en haut à gauche, comme partout. */}
       {echappee ? <Sortie vers="Retour" href="/" onClick={() => changerDeMode('choix')} /> : marque}
       {/* « Retrouver mon profil » titrait aussi la récupération par code de
@@ -265,12 +325,13 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
       )}
       {creation && (
         <div className="field">
-          <div className="field-head">
-            <label className="label" htmlFor="pf-name">
-              Ton prénom
-            </label>
-            <span className="muted small">{MAX_NAME_LENGTH} caractères au plus</span>
-          </div>
+          {/* Sa limite ne se dit que quand elle approche (`Limite`) : dite
+              d'avance, elle passait sur deux lignes à 130 %, la place que
+              prend maintenant la règle du mot de passe — qu'on ne devine
+              pas, elle. */}
+          <label className="label" htmlFor="pf-name">
+            Ton prénom
+          </label>
           <input
             id="pf-name"
             className="input input-line"
@@ -353,16 +414,41 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
         </div>
       )}
       <div className="field">
-        <label className="label" htmlFor="pf-pass">
-          Ton mot de passe
-        </label>
+        {/* À la création, la règle se dit d'avance, comme aux cinq autres
+            écrans qui font choisir un mot de passe : Jeanne ne l'a apprise
+            qu'au refus de « mimosa » (la tablée du 26 octobre 2026). Le
+            nombre est celui du serveur (`MIN_PASSWORD`, `connexion-claire.test.ts`). */}
+        {creation ? (
+          <div className="field-head">
+            <label className="label" htmlFor="pf-pass">
+              Ton mot de passe
+            </label>
+            <span className="muted small" id="pf-pass-regle">
+              8 caractères au moins
+            </span>
+          </div>
+        ) : (
+          <label className="label" htmlFor="pf-pass">
+            Ton mot de passe
+          </label>
+        )}
         <MotDePasse
           id="pf-pass"
           className="input input-line"
           value={password}
-          onChange={e => setPassword(e.target.value)}
+          onChange={e => {
+            setPassword(e.target.value)
+            setMotDePasseRefuse('')
+          }}
           autoComplete={creation ? 'new-password' : 'current-password'}
+          aria-describedby={creation ? (motDePasseRefuse ? 'pf-pass-regle pf-pass-refus' : 'pf-pass-regle') : undefined}
+          aria-invalid={motDePasseRefuse ? true : undefined}
         />
+        {motDePasseRefuse && (
+          <p className="error" id="pf-pass-refus" role="alert">
+            {motDePasseRefuse}
+          </p>
+        )}
       </div>
       {creation && (
         <IdentifiantDiscret

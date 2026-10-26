@@ -19,7 +19,7 @@ import { Icon } from './Icon'
 import { MotDePasse } from './MotDePasse'
 import { Sortie } from './Pieces'
 import { IdentifiantDiscret, inscrireAvecRepli } from './IdentifiantDiscret'
-import { identifiantPour, tirage } from './inscription'
+import { identifiantPour, refusDeLIdentifiant, refusDuMotDePasse, tirage } from './inscription'
 import { LOGIN } from '../../../shared/space'
 import { espacesFines } from '../format'
 
@@ -105,6 +105,8 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
   const [password, setPassword] = useState('')
   /** L'identifiant libre que le serveur propose quand celui voulu est pris. */
   const [suggestion, setSuggestion] = useState('')
+  /** Le mot de passe choisi, refusé : dit sous son champ, effacé dès qu'on le retape. */
+  const [motDePasseRefuse, setMotDePasseRefuse] = useState('')
   /** Le code de secours, à noter — il ne repassera jamais. */
   const [recovery, setRecovery] = useState('')
   const [busy, setBusy] = useState(false)
@@ -436,6 +438,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
       setBusy(true)
       setErreur('')
       setSuggestion('')
+      setMotDePasseRefuse('')
       try {
         const res = await inscrireAvecRepli({ login: login.trim(), password, name: name.trim(), avatar }, !loginTouche)
         setLogin(res.login)
@@ -450,10 +453,17 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
         setEtape('code')
       } catch (e) {
         setBusy(false)
+        // Le mot de passe refusé se dit sous son champ, l'identifiant reste
+        // sur sa ligne : ouvert pour tout refus, il prenait le message dessous
+        // et poussait « Créer mon profil » sous le clavier (la tablée du
+        // 26 octobre 2026, à l'accueil — la même cause ici).
+        if (refusDuMotDePasse(e)) return setMotDePasseRefuse(motifDe(e))
         setErreur(motifDe(e))
-        // Un refus peut viser l'identifiant : son champ s'ouvre, avec la proposition du serveur.
-        setLoginOuvert(true)
-        if (e instanceof ApiError && e.suggestion) setSuggestion(e.suggestion)
+        // Un refus qui vise l'identifiant en ouvre le champ, avec la proposition du serveur.
+        if (refusDeLIdentifiant(e)) {
+          setLoginOuvert(true)
+          if (e instanceof ApiError && e.suggestion) setSuggestion(e.suggestion)
+        }
       }
     }
 
@@ -475,10 +485,25 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
             id="c-pass"
             className="input input-line"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={e => {
+              setPassword(e.target.value)
+              setMotDePasseRefuse('')
+            }}
             autoComplete="new-password"
+            aria-describedby={motDePasseRefuse ? 'c-pass-refus' : 'c-pass-regle'}
+            aria-invalid={motDePasseRefuse ? true : undefined}
           />
-          <span className="muted small">Au moins 8 caractères.</span>
+          {/* Le refus prend la place de la règle, juste dessous : l'un sous
+              l'autre, « Au moins 8 caractères » se lisait deux fois. */}
+          {motDePasseRefuse ? (
+            <p className="error" id="c-pass-refus" role="alert">
+              {motDePasseRefuse}
+            </p>
+          ) : (
+            <span className="muted small" id="c-pass-regle">
+              Au moins 8 caractères.
+            </span>
+          )}
         </div>
         <IdentifiantDiscret
           id="c-login"
@@ -614,6 +639,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
       // Repart du prénom, à moins qu'on ait choisi le sien : un identifiant
       // tapé à la connexion ne devient pas celui du profil qu'on crée.
       if (!loginTouche) setLogin(identifiantPour(name))
+      setMotDePasseRefuse('')
       return setEtape('securiser')
     }
     versLaSoiree({ name: name.trim(), avatar })
