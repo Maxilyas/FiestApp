@@ -1219,15 +1219,16 @@ export class CabinetStore {
   /**
    * « Changer pour … » sur une case de la visite pas encore jouée, une fois
    * par jour : le jeu neuf, celui que la règle des échanges donne
-   * (`jeuDeLEchange`), l'œuvre en jeu gardée — s'il est celui que la page a
-   * nommé (`montre`), qu'un jour neuf a pu changer depuis. Un lot gardé, d'un
+   * (`jeuDeLEchange`), l'œuvre en jeu gardée — si la page a lu la visite de ce
+   * jour (`jourMontre`) et nommé ce jeu (`montre`) : minuit passé, la case a pu
+   * changer sous le même jeu proposé. Un lot gardé, d'un
    * aller-retour : la visite se fige si rien ne l'a encore fait, puis la case
    * change, sous la base même. Devancé — l'autre serveur d'une mise en ligne,
    * un autre onglet a échangé, ou commencé la case —, le musée s'oublie, se
    * relit, et l'échange se rejoue une fois : il passe, ou se refuse en mots. La
    * mémoire n'est jamais en avance : son refus se dit sans relire.
    */
-  echanger(profileId: string, k: unknown, montre?: unknown): Promise<LectureDuCabinet> {
+  echanger(profileId: string, k: unknown, montre?: unknown, jourMontre?: unknown): Promise<LectureDuCabinet> {
     return this.porte.avecVerrou(profileId, async () => {
       for (let essai = 0; ; essai++) {
         const t = this.maintenant()
@@ -1237,7 +1238,7 @@ export class CabinetStore {
         const visite = this.visiteDe(profileId, musee, t)
         const { jeuDeLEchange: jeu } = lectureDeLaVisite(musee, visite, this.graineDe(profileId))
         // Sans jeu à proposer, la règle refuse déjà : `jeu` n'est nul qu'avec ce refus.
-        const refus = refusDeLEchange(musee, visite, k, jeu, montre)
+        const refus = refusDeLEchange(musee, visite, k, jeu, montre, jourMontre)
         if (refus !== null || jeu === null) throw new Error(refus ?? AUCUN_AUTRE_JEU)
         const kase = k as Manche
         const lot = lotDeLEchange({

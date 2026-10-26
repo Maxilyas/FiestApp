@@ -48,6 +48,7 @@ import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
 import {
   CASE_DEJA_FAITE,
   CHOISIS_UNE_CASE,
+  LA_VISITE_A_CHANGE,
   LE_JEU_PROPOSE_A_CHANGE,
   PLUS_DE_CHASSE,
   RETENTER_SANS_VISITE_MANQUEE,
@@ -120,8 +121,12 @@ async function avecDeLaPoussiere(login: string, poussiere: number): Promise<{ co
 
 const acheter = (cookie: string | undefined, cle: string, prix: unknown) => poster<PageDuCabinet>(b, cookie, `/api/cabinet/oeuvre/${cle}/achat`, { prix })
 const dorer = (cookie: string | undefined, cle: string, prix: unknown) => poster<PageDuCabinet>(b, cookie, `/api/cabinet/oeuvre/${cle}/dorure`, { prix })
-/** L'échange d'une case ; `jeu`, celui que la page a nommé (« Changer pour Le Filet ») — absent, une page d'avant, qui ne l'envoyait pas. */
-const echanger = (cookie: string | undefined, k: unknown, jeu?: unknown) => poster<PageDuCabinet>(b, cookie, '/api/cabinet/visite/echange', { case: k, ...(jeu !== undefined && { jeu }) })
+/**
+ * L'échange d'une case ; `jeu`, celui que la page a nommé (« Changer pour Le Filet »), et `jour`, celui de la visite qu'elle a
+ * lue — absents, une page d'avant, qui ne les envoyait pas.
+ */
+const echanger = (cookie: string | undefined, k: unknown, jeu?: unknown, jour?: unknown) =>
+  poster<PageDuCabinet>(b, cookie, '/api/cabinet/visite/echange', { case: k, ...(jeu !== undefined && { jeu }), ...(jour !== undefined && { jour }) })
 const leCartel = (cookie: string | undefined, cle: string) => lire<Cartel>(b, cookie, `/api/cabinet/oeuvre/${cle}`)
 const laPartie = (cookie: string | undefined, id: string) => lire<VueDeLaPartie>(b, cookie, `/api/cabinet/partie/${id}`)
 
@@ -494,6 +499,44 @@ test('l’échange garde le jeu que la page a nommé : la visite changée entre 
     // Une page d'avant n'envoyait pas de jeu : rien ne se compare, l'échange passe comme avant (invariant 12) — l'épreuve du dessus,
     // `changer le jeu d’une case`, le joue sans lui. Les refus de la règle passent devant : déjà changé aujourd'hui.
     assert.deepEqual(refus(await echanger(theo, 2, lendemain)), [400, { error: 'Tu as déjà changé un jeu aujourd’hui' }])
+  } finally {
+    b.horloge.t = DIX_HEURES
+  }
+})
+
+test('l’échange garde aussi le jour que la page a montré : à minuit, le même jeu proposé sur une case qui a changé se refuse en mots', async () => {
+  // La page de 23 h 59 dit « Changer Le Détail pour Le Pari ? », confirmée après minuit. Le jeu proposé reste souvent le même
+  // d'un jour à l'autre, quand la case, elle, a changé de jeu et d'œuvre : comparé seul, il laissait passer l'échange du jour
+  // neuf sur une case qu'on n'avait pas montrée — La Réplique devenait Le Pari, sur une autre œuvre (la relecture du lot
+  // r3-suite). La page envoie donc aussi le jour de la visite qu'elle a lue, et le serveur le compare au sien.
+  const mia = await inscrireProfil(b.banc.url, 'mia', 'Mia')
+  const id = await idDe(mia)
+  try {
+    // La nuit où le jeu proposé reste et où une case change de jeu : une sur sept, pour un profil qui n'a pas joué (14 %, mesuré
+    // sur vingt mille graines) ; cent cinquante nuits sans elle, moins d'une fois sur dix milliards.
+    let trouvee: { jeu: CleDeJeu; k: number; veille: PageDuCabinet['visite']; lendemain: PageDuCabinet['visite'] } | null = null
+    for (let jour = 1; trouvee === null; jour++) {
+      assert.ok(jour <= 150, 'cent cinquante nuits sans que le jeu proposé reste quand une case change')
+      const minuit = minuitDe(DIX_HEURES + jour * 24 * 3_600_000)
+      b.horloge.t = minuit - 30_000
+      const veille = ok(await laPage(b, mia), 'la page de la veille').visite
+      b.horloge.t = minuit + 30_000
+      const lendemain = ok(await laPage(b, mia), 'la page d’après minuit').visite
+      assert.ok(veille.echange.possible && lendemain.echange.possible)
+      const k = veille.cases.findIndex((c, i) => lendemain.cases[i] !== undefined && lendemain.cases[i].jeu !== c.jeu)
+      if (veille.echange.jeu === lendemain.echange.jeu && k >= 0) trouvee = { jeu: veille.echange.jeu, k, veille, lendemain }
+    }
+    const { jeu, k, veille, lendemain } = trouvee
+    assert.notEqual(veille.jour, lendemain.jour)
+    // La page de la veille, restée ouverte, nomme son jeu — encore celui du jour neuf — et son jour : refusé en mots, rien d'écrit,
+    // pas même la visite figée ; l'échange du jour reste à prendre, sur la visite qu'il n'a pas encore vue.
+    assert.deepEqual(refus(await echanger(mia, k, jeu, veille.jour)), [400, { error: LA_VISITE_A_CHANGE }])
+    assert.equal(compter(`SELECT COUNT(*) AS n FROM cabinet_profils WHERE profile_id = ? AND visites <> '[]'`, id), 0, 'rien d’écrit')
+    assert.deepEqual(ok(await laPage(b, mia), 'la page relue').visite, lendemain)
+    // La page relue nomme le jour neuf : l'échange passe, sur la case qu'elle montre, l'œuvre en jeu du jour neuf gardée.
+    const echangee = ok(await echanger(mia, k, jeu, lendemain.jour), 'l’échange de la page relue').visite
+    assert.equal(echangee.cases[k].jeu, jeu)
+    assert.deepEqual(echangee.cases[k].enJeu, lendemain.cases[k].enJeu)
   } finally {
     b.horloge.t = DIX_HEURES
   }

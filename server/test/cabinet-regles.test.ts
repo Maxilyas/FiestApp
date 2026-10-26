@@ -38,6 +38,7 @@ import {
   CASE_DEJA_FAITE,
   CHOISIS_UNE_CASE,
   DEMANDE_ILLISIBLE,
+  LA_VISITE_A_CHANGE,
   LE_JEU_PROPOSE_A_CHANGE,
   PLUS_DE_CHASSE,
   RETENTER_SANS_VISITE_MANQUEE,
@@ -942,6 +943,20 @@ test('l’échange : une fois par jour, une case pas jouée, un jeu ni de la vis
   assert.equal(refusDeLEchange(m, v, 1, jeu, 'constructor'), LE_JEU_PROPOSE_A_CHANGE)
   assert.equal(refusDeLEchange(m, echangee, 0, jeu, autre), 'Tu as déjà changé un jeu aujourd’hui')
   assert.equal(refusDeLEchange(m, seuls, 0, null, autre), 'Aucun autre jeu à proposer aujourd’hui')
+  // Le jour de la visite que la page a lue : le jeu proposé reste souvent le même à minuit — trois des neuf jeux en sortent —,
+  // quand la case, elle, change de jeu et d'œuvre. Comparé seul, il laissait l'échange du jour neuf partir sur une case qu'on
+  // n'avait pas montrée (la relecture du lot r3-suite). Le jour dit passe devant le jeu dit — c'est lui qui dit pourquoi —, et
+  // derrière les refus de la règle ; absent, une page d'avant, rien ne se compare.
+  const hier = jourAvant(JOUR)
+  assert.equal(refusDeLEchange(m, v, 1, jeu, jeu, JOUR), null)
+  assert.equal(refusDeLEchange(m, v, 1, jeu, jeu, undefined), null)
+  assert.equal(refusDeLEchange(m, v, 1, jeu, undefined, JOUR), null)
+  assert.equal(refusDeLEchange(m, v, 1, jeu, jeu, hier), LA_VISITE_A_CHANGE)
+  assert.equal(refusDeLEchange(m, v, 1, jeu, undefined, hier), LA_VISITE_A_CHANGE)
+  assert.equal(refusDeLEchange(m, v, 1, jeu, autre, hier), LA_VISITE_A_CHANGE)
+  assert.equal(refusDeLEchange(m, v, 1, jeu, jeu, 20261026), LA_VISITE_A_CHANGE)
+  assert.equal(refusDeLEchange(m, echangee, 0, jeu, jeu, hier), 'Tu as déjà changé un jeu aujourd’hui')
+  assert.equal(LA_VISITE_A_CHANGE, 'La visite a changé à minuit : regarde-la avant de changer')
 })
 
 test('commencer : les refus en mots, une seule règle que la page lit pour griser', () => {

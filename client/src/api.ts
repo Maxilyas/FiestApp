@@ -708,10 +708,12 @@ export const api = {
     dorer: (cle: string, prix: number) =>
       auReveil(() => avecLHeure(() => req<PageDuCabinet>(`/api/cabinet/oeuvre/${encodeURIComponent(cle)}/dorure`, { method: 'POST', body: JSON.stringify({ prix }) }))),
     /**
-     * Changer le jeu d'une case de la visite pas encore jouée, une fois par jour, pour le jeu que la page a nommé (`jeu`) : la
-     * visite changée depuis — minuit passé —, le serveur le refuse en mots plutôt que d'en donner un autre (`refusDeLEchange`).
+     * Changer le jeu d'une case de la visite pas encore jouée, une fois par jour, pour le jeu que la page a nommé (`jeu`), sur la
+     * visite qu'elle a lue (`jour`) : minuit passé, le serveur le refuse en mots plutôt que de changer une case qu'on ne lui a
+     * pas montrée — le jeu proposé reste parfois le même quand la case change (`refusDeLEchange`).
      */
-    echanger: (k: number, jeu?: CleDeJeu) => avecLHeure(() => req<PageDuCabinet>('/api/cabinet/visite/echange', { method: 'POST', body: JSON.stringify({ case: k, jeu }) })),
+    echanger: (k: number, jeu?: CleDeJeu, jour?: string) =>
+      avecLHeure(() => req<PageDuCabinet>('/api/cabinet/visite/echange', { method: 'POST', body: JSON.stringify({ case: k, jeu, jour }) })),
     /** Tes murs : les lieux épinglés et les dates rangées — rien n'y court, ils ne portent pas l'heure. */
     murs: () => req<MursDuCabinet>('/api/cabinet/murs'),
   },

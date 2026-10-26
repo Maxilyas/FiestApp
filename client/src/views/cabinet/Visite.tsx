@@ -136,9 +136,9 @@ export function BoutonRetenter({
 }
 
 /**
- * Le jeu que « Changer » nomme, tant que la visite que la page tient permet l'échange : la page l'envoie avec lui
- * (`api.cabinet.echanger`), et le serveur refuse en mots un échange dont le jeu a changé depuis — minuit passé, la page restée
- * ouverte — plutôt que d'en donner un qu'on ne lui a pas montré.
+ * Le jeu que « Changer » nomme, tant que la visite que la page tient permet l'échange : la page l'envoie avec lui, et le jour de
+ * cette visite (`api.cabinet.echanger`) ; le serveur refuse en mots un échange dont le jeu ou la visite ont changé depuis —
+ * minuit passé, la page restée ouverte — plutôt que d'en donner un qu'on ne lui a pas montré.
  */
 export const jeuPropose = (visite: Pick<VisiteVue, 'echange'> | undefined): CleDeJeu | undefined => (visite?.echange.possible ? visite.echange.jeu : undefined)
 

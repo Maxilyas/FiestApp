@@ -462,15 +462,15 @@ export function CabinetApp() {
   }
   /**
    * « Changer » demande d'abord, comme la dorure : la case et le jeu qu'elle prendra, un seul échange par jour. Il partait d'un
-   * toucher, et Théo l'a dépensé à l'aveugle (la tablée du 26 octobre 2026). Puis il envoie le jeu que la confirmation a nommé, de
-   * la visite lue avant elle : relue entre-temps — minuit passé, le retour au premier plan —, elle en propose peut-être un autre,
-   * et le serveur le refuse alors en mots, la page relue montrant le nouveau.
+   * toucher, et Théo l'a dépensé à l'aveugle (la tablée du 26 octobre 2026). Puis il envoie le jeu que la confirmation a nommé et
+   * le jour de la visite lue avant elle : minuit passé, la visite du jour neuf propose peut-être un autre jeu — ou le même, sur une
+   * case qui a changé —, et le serveur le refuse alors en mots, la page relue montrant la visite neuve.
    */
   const echanger = async (k: Manche) => {
     const visite = page?.visite
     const demande = confirmationDeLEchange(visite, k)
     if (!demande || !(await confirmDialog(demande))) return
-    await ecrire(() => api.cabinet.echanger(k, jeuPropose(visite)), 'Le jeu de cette partie a changé')
+    await ecrire(() => api.cabinet.echanger(k, jeuPropose(visite), visite?.jour), 'Le jeu de cette partie a changé')
   }
 
   /** « Commencer » : la partie part avec sa carte-bonus, et sa première manche s'ouvre ; refusée, le serveur dit pourquoi, et la page se relit. */

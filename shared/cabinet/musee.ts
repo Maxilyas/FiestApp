@@ -453,17 +453,27 @@ const estUneCase = (v: Pick<VisiteDuJour, 'cases'>, k: unknown): k is number => 
 export const LE_JEU_PROPOSE_A_CHANGE = 'Le jeu proposé a changé entre-temps : regarde lequel avant de changer'
 
 /**
- * Pourquoi la case `k` ne s'échange pas ; null : elle s'échange, une fois par jour, tant qu'elle n'est pas jouée. `montre` : le
- * jeu que la page a nommé sur son bouton et dans sa confirmation. La page lue à 23 h 59 et confirmée après minuit, le jour neuf
- * en proposait un autre, et l'échange le donnait sans le dire — le seul du jour, dépensé sur un jeu qu'on ne lui avait pas
- * montré (la relecture du lot la-partie-et-la-visite). Absent — une page d'avant, qui ne l'envoyait pas —, rien ne se compare
- * (invariant 12). Les refus de la règle passent devant : nommer un jeu ne fait pas oublier l'échange déjà pris.
+ * La page a lu la visite d'un autre jour que celle du serveur — la veille, restée ouverte après minuit : chaque case a pu changer
+ * de jeu et d'œuvre, même quand le jeu proposé reste le même. La page relue montre la visite du jour neuf, et rien ne s'est écrit.
  */
-export function refusDeLEchange(m: Musee, v: VisiteDuJour, k: unknown, jeu: CleDeJeu | null, montre?: unknown): string | null {
+export const LA_VISITE_A_CHANGE = 'La visite a changé à minuit : regarde-la avant de changer'
+
+/**
+ * Pourquoi la case `k` ne s'échange pas ; null : elle s'échange, une fois par jour, tant qu'elle n'est pas jouée. Le geste dit ce
+ * qu'il visait (invariant 12) : `jourMontre`, le jour de la visite que la page a lue, et `montre`, le jeu qu'elle a nommé sur son
+ * bouton et dans sa confirmation. La page lue à 23 h 59 et confirmée après minuit, l'échange partait sur la visite du jour neuf —
+ * le seul du jour, dépensé sur un jeu qu'on ne lui avait pas montré (la relecture du lot la-partie-et-la-visite). Le jeu seul ne
+ * suffisait pas : une nuit sur sept, il reste le même quand une case, elle, change de jeu et d'œuvre, et « Changer Le Détail
+ * pour Le Pari ? » changeait La Réplique (la relecture du lot r3-suite). Le jour dit passe devant le jeu dit : c'est lui qui dit
+ * pourquoi. Absents — une page d'avant, qui ne les envoyait pas —, rien ne se compare. Les refus de la règle passent devant :
+ * nommer un jeu ne fait pas oublier l'échange déjà pris.
+ */
+export function refusDeLEchange(m: Musee, v: VisiteDuJour, k: unknown, jeu: CleDeJeu | null, montre?: unknown, jourMontre?: unknown): string | null {
   if (!estUneCase(v, k)) return CHOISIS_UNE_CASE
   if (v.echange !== null) return 'Tu as déjà changé un jeu aujourd’hui'
   if (caseCommencee(m, k)) return CASE_DEJA_FAITE
   if (jeu === null) return AUCUN_AUTRE_JEU
+  if (jourMontre !== undefined && jourMontre !== v.jour) return LA_VISITE_A_CHANGE
   return montre === undefined || montre === jeu ? null : LE_JEU_PROPOSE_A_CHANGE
 }
 

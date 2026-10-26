@@ -579,10 +579,12 @@ test('changer le jeu d’une case se confirme, et la nomme : « Changer Le Déta
   assert.equal(jeuPropose(visite), 'filet')
   assert.equal(jeuPropose({ ...visite, echange: { possible: false, refus: 'Tu as déjà changé un jeu aujourd’hui' } }), undefined)
   assert.equal(jeuPropose(undefined), undefined)
+  // Et le jour de cette visite : à minuit, le jeu proposé reste souvent le même quand la case a changé, et le serveur ne
+  // comparait que lui (la relecture du lot r3-suite).
   const app = source('views/CabinetApp.tsx')
   assert.match(
     app,
-    /const visite = page\?\.visite\s*const demande = confirmationDeLEchange\(visite, k\)\s*if \(!demande \|\| !\(await confirmDialog\(demande\)\)\) return\s*(?:\/\/[^\n]*\s*)*await ecrire\(\(\) => api\.cabinet\.echanger\(k, jeuPropose\(visite\)\)/,
+    /const visite = page\?\.visite\s*const demande = confirmationDeLEchange\(visite, k\)\s*if \(!demande \|\| !\(await confirmDialog\(demande\)\)\) return\s*(?:\/\/[^\n]*\s*)*await ecrire\(\(\) => api\.cabinet\.echanger\(k, jeuPropose\(visite\), visite\?\.jour\)/,
   )
   // Le bouton dit le jeu que la case prendra ; à l'oreille, il commence par ce qu'on lit — qui le dit à voix haute (Voice Access,
   // Voice Control) le trouve (WCAG 2.5.3, la relecture du lot la-partie-et-la-visite) —, puis nomme le jeu qui part.
@@ -854,6 +856,10 @@ test('api.cabinet : chaque demande à son adresse, l’heure remesurée, et un g
     reponses.push([200, { maintenant: Date.now() }])
     await api.cabinet.echanger(2, 'filet')
     assert.deepEqual([appels[9].url, JSON.parse(String(appels[9].init.body))], ['/api/cabinet/visite/echange', { case: 2, jeu: 'filet' }])
+    // Et le jour de la visite qu'elle a lue : le serveur le compare au sien, minuit passé.
+    reponses.push([200, { maintenant: Date.now() }])
+    await api.cabinet.echanger(2, 'filet', '2026-10-26')
+    assert.deepEqual([appels[10].url, JSON.parse(String(appels[10].init.body))], ['/api/cabinet/visite/echange', { case: 2, jeu: 'filet', jour: '2026-10-26' }])
   } finally {
     globalThis.fetch = avant
   }
@@ -3321,7 +3327,7 @@ test('la page oublie ses cartels quand un achat, une dorure ou une partie ont pu
   for (const etat of ["\\{ etat: 'lu', cartel \\}", "\\{ etat: 'perdu', motif: motifDe\\(e\\) \\}"]) assert.match(app, new RegExp(`setCartels\\(c => cartelArrive\\(c, aSonCartel, demande, ${etat}\\)\\)`), etat)
   assert.match(app, /setCartels\(sansLesPerdus\)\s*\}, \[aSonCartel, page\]\)/)
   // L'échange ne touche aucune œuvre : il n'oublie rien.
-  assert.match(app, /ecrire\(\(\) => api\.cabinet\.echanger\(k, jeuPropose\(visite\)\), '[^']*'\)/)
+  assert.match(app, /ecrire\(\(\) => api\.cabinet\.echanger\(k, jeuPropose\(visite\), visite\?\.jour\), '[^']*'\)/)
 })
 
 test('les règles : un jeu de la visite se change une fois par jour — le type du barème le tient, sans branche qui ne sert jamais', async () => {

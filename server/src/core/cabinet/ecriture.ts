@@ -412,7 +412,7 @@ export interface EchangeAEcrire {
 }
 
 /**
- * L'échange d'un jeu de la visite (« Changer de jeu », une fois par jour, une
+ * L'échange d'un jeu de la visite (« Changer pour … », une fois par jour, une
  * case pas encore jouée), d'un seul aller-retour — deux instructions :
  *
  * 1. la visite du jour se fige, si aucun lot ne l'a encore fait (D17) : la

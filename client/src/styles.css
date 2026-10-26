@@ -10391,7 +10391,7 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-compte { color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
 .cab-raison { display: block; margin-top: -8px; color: var(--muted); text-align: center; }
 .cab-bloc .cab-raison, .cab-case .cab-raison { margin-top: -2px; text-align: left; }
-/* Sous les cases de la visite, pourquoi « Changer de jeu » n'y est pas : une ligne à elles, pas une raison sous un bouton. */
+/* Sous les cases de la visite, pourquoi « Changer pour … » n'y est pas : une ligne à elles, pas une raison sous un bouton. */
 .cab-cases + .cab-raison { margin-top: -6px; text-align: left; }
 /* La partie qui attend, au-dessus de ce qu'elle éteint — les cases de la visite, les neuf jeux libres — : une ligne de l'écran,
    alignée comme lui ; sous la liste, elle tombait sous le pli. */

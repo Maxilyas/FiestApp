@@ -34,7 +34,10 @@
 // Sphinx qui s'éveille ; ses murs ; et, l'horloge avancée d'un jour, le musée
 // du lendemain.
 //
-// À chaque photo, ce qui élargit la page (`[déborde]`, et ce qui l'élargit),
+// À chaque photo, ses images attendues comme la régie de la tablée les attend
+// (`attenteDesImages` : celles de l'écran, ou toutes pour la page entière —
+// `[images]` pour celles qui n'étaient pas encore peintes, une case vide qui
+// vient du rendu, pas de la page), ce qui élargit la page (`[déborde]`, et ce qui l'élargit),
 // un texte que son cadre coupe (`[coupé]`), un texte qui passe sous un bouton
 // de sa rangée (`[chevauche]`), ce qui passe sous la niche (`[sous la
 // niche]`) et un texte qui ne se lit pas sur ce qui est peint derrière lui
