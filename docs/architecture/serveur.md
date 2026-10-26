@@ -351,7 +351,7 @@ production (`cabinetOuvert`, `shared/cabinet/ouverture.ts`).
 | Les tables, le lot froid | `server/src/core/cabinet/tables.ts` | le schéma (`REVEIL_DU_CABINET`), le musée d'un profil d'un seul lot (`lecturesDuMusee`), une partie par sa clé (`lecturesDeLaPartie`), les morceaux de SQL que les gardes partagent |
 | Les écritures | `server/src/core/cabinet/ecriture.ts` | un lot par requête, gardé par la base : le départ, un geste et ce qu'il tranche, l'achat, la dorure, l'échange d'un jeu de la visite, l'oubli d'un profil |
 | Les tireurs | `server/src/core/cabinet/tirages/` | un par jeu (`TIREURS`, `tirerLePlan`) : les trois manches et leurs rechanges, réponses comprises, tirées au départ ; ce que la base leur donne, préparé en fond (`preparerLesTas`) |
-| Le contenu neuf | `server/src/core/cabinet/contenu.ts` | les lieux, les fiches, les répliques, les frises à thème de `server/content/cabinet/`, lus une fois par processus et jugés par les juges mêmes de `server/scripts/cabinet-contenu.ts` |
+| Le contenu neuf | `server/src/core/cabinet/contenu.ts` | les lieux, les fiches, les répliques, les frises à thème de `server/content/cabinet/`, lus une fois par processus et jugés par ses juges (`trier`), une seule copie, que `server/scripts/cabinet-contenu.ts` importe pour juger un lot avant de le ranger |
 | La vue | `server/src/core/cabinet/vue.ts` | ce que la page reçoit, champ par champ (invariant 1) : la page, une partie, le cartel, tes murs, le bouton de l'accueil |
 | Les gardiens | `server/src/core/cabinet/gardiens.ts` | ce que le musée doit, comparé à l'étagère du profil : ce qui manque se range (`reconcilier`), sous une clé fixe |
 | La porte | `server/src/core/porteDeLaCampagne.ts` | le seul passage vers `CampagneStore` |
@@ -364,11 +364,15 @@ créditer son expérience. Le Cabinet ne l'importe donc pas : il reçoit
 la campagne, le verrou du profil, les questions jouables et leur mesure, le
 journal des réponses rattrapé au bout d'un lot (`lireAvecLeJournal`), le
 secret du Cabinet, et le rituel d'une réponse en une fonction
-(`ecrireDesReponses`) : l'expédition prévenue, le lot, la réponse numérotée,
-puis, si le lot a écrit la fin de la partie (`FinDUnePartie.ecrite`, lu sur la
-ligne de son geste), l'expérience créditée une fois, les gardiens
-(`avantLesPaliers`), les paliers de la campagne, le compagnon. La campagne ne
-connaît du Cabinet que trois crochets, déclarés dans le même fichier : ce qu'il
+(`ecrireDesReponses`) : l'expédition prévenue, le lot — à la fin d'une
+partie qui a une juste, les lectures de l'expérience au bout, le journal
+compris —, la réponse numérotée, puis, si le lot a écrit la fin de la partie
+(`FinDUnePartie.ecrite`, lu sur la ligne de son geste), l'expérience
+créditée une fois, les gardiens (`avantLesPaliers`), les paliers de la
+campagne, le compagnon. Un geste qui ne tranche aucune pièce et ne finit
+rien — ouvrir une manche, Éclairer, une pause, un essai sans verdict —
+n'écrit aucune réponse : son lot part seul, par le client de la porte. La
+campagne ne connaît du Cabinet que trois crochets, déclarés dans le même fichier : ce qu'il
 ajoute à son réveil, à ses paliers (les salles complètes que L'Explorateur
 compte, lues dans le lot de `statsDe`) et l'expédition qui part ou finit, en
 mémoire. `server/test/porte-de-la-campagne.test.ts` compte ce que chaque étape
@@ -381,12 +385,16 @@ ON CONFLICT DO NOTHING`) ; chaque autre instruction ne s'écrit que si ce
 geste-là est en base (`gesteEcrit`). Le départ ne pose une partie que si le
 profil n'en a aucune et a encore son droit du jour, recompté dans
 l'instruction même ; une dépense relit le solde dans la sienne, et refuse
-tant qu'une partie attend. Rien d'écrit, ou une erreur : le musée et la partie
-s'oublient, la base se relit à froid, et le geste se rejoue une fois sur
-l'état vrai — la vue d'à présent, ou le refus en mots
-(`server/test/cabinet-charge.test.ts`). Jamais un `UPDATE` ni un `DELETE` de
-`campagne_reponses` : les déclencheurs des tranches du journal les
-effaceraient toutes, et le réveil suivant relirait toute la base.
+tant qu'une partie attend. Rien d'écrit — une garde qui n'a rien pris : le
+musée et la partie s'oublient, la base se relit à froid, et le geste se
+rejoue une fois sur l'état vrai — la vue d'à présent, ou le refus en mots.
+Une erreur de la base : la mémoire s'oublie aussi, mais l'erreur remonte — un
+500, « Erreur serveur — réessaie dans un instant » —, sans second essai au
+serveur. La réponse partie d'elle-même à l'échéance, la page la renvoie
+jusqu'à passer ; un geste touché, le joueur le refait : au même rang, il passe
+une fois (`server/test/cabinet-charge.test.ts`). Jamais un `UPDATE` ni un
+`DELETE` de `campagne_reponses` : les déclencheurs des tranches du journal
+les effaceraient toutes, et le réveil suivant relirait toute la base.
 
 **La mémoire et le lot froid.** Chaude, la page ne coûte rien ; froide, un
 lot — cent cinquante lignes au pire, le journal des réponses rattrapé au

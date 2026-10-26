@@ -348,7 +348,8 @@ colonne : [La base de données](../reference/base-de-donnees.md#cabinet_gestes).
   titre du Détail, la frise posée) ;
 - **son bilan**, dans `campagne_series.bilan`, écrit par le lot qui la finit
   (`BilanDUnePartie`) : les étoiles avant et après les pouvoirs, l'issue —
-  gagnée, dorée, doublée, manquée, libre —, la poussière d'or, l'œuvre. Un fait
+  gagnée, gagnée et dorée, dorée, doublée, manquée, libre (`ISSUES`) —, la
+  poussière d'or, l'œuvre. Un fait
   de la partie, jamais réécrit.
 
 **Ce qui n'est pas une question de la base** porte un seul préfixe, `cab:`

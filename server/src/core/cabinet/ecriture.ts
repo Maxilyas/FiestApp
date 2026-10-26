@@ -1,18 +1,19 @@
 // Les lots d'écriture du Cabinet, chacun gardé par la base même (« Chaque lot
 // d'écriture est gardé par son geste », `docs/architecture/decisions.md`) :
 // deux onglets, deux serveurs pendant une mise en ligne, une réponse HTTP
-// perdue puis rejouée — rien ne compte deux fois. Un départ ne pose sa partie que si
-// le profil n'en a aucune en cours et s'il a encore le droit du jour, recompté
-// dans l'instruction même ; un geste s'insère à son rang avec un `uid` tiré par
-// ce serveur pour ce lot (`ON CONFLICT DO NOTHING`), et chaque autre
-// instruction n'agit que si ce geste-là est en base (`gesteEcrit`). Le geste
-// est toujours la première instruction de son lot : la fin d'une partie se dit
-// écrite sur sa ligne (`FinDUnePartie.ecrite`, la porte de la campagne). Un
-// achat et une dorure ne paient que si le solde, relu dans l'instruction même,
-// les couvre, et qu'aucune partie n'attend — et la première dépense du jour fige
-// la visite, comme un départ, si elle passe ; un échange ne change la visite que
-// si la base la dit pas encore échangée, et sa case pas encore jouée ; une case
-// de la visite ne part qu'au jeu que la base lui garde.
+// perdue puis rejouée — rien ne compte deux fois. Un départ ne pose sa partie
+// que si le profil n'en a aucune en cours et s'il a encore le droit du jour,
+// recompté dans l'instruction même ; un geste s'insère à son rang avec un
+// `uid` tiré par ce serveur pour ce lot (`ON CONFLICT DO NOTHING`), et chaque
+// autre instruction n'agit que si ce geste-là est en base (`gesteEcrit`). Le
+// geste est toujours la première instruction de son lot : la fin d'une partie
+// se dit écrite sur sa ligne (`FinDUnePartie.ecrite`, la porte de la
+// campagne). Un achat et une dorure ne paient que si le solde, relu dans
+// l'instruction même, les couvre, et qu'aucune partie n'attend — et la
+// première dépense du jour fige la visite, comme un départ, si elle passe ; un
+// échange ne change la visite que si la base la dit pas encore échangée, et sa
+// case pas encore jouée ; une case de la visite ne part qu'au jeu que la base
+// lui garde.
 //
 // Le seul fichier qui écrit la colonne `joker` : elle porte le pouvoir qui a
 // aidé une pièce (`pouvoir:eclairer`, `pouvoir:temps`), jamais la clé d'une
@@ -67,8 +68,9 @@ export interface DepartAEcrire {
  *    l'autre serveur a pu l'échanger, et la mémoire d'ici l'aurait lancée à son
  *    jeu d'avant. La visite du jour se fige au premier lot du jour qui écrit
  *    (« La visite du jour se dérive, puis se fige au premier départ »,
- *    `docs/architecture/decisions.md`). La première fois, la ligne naît. La série ne se compte plus ici,
- *    mais à la première manche répondue (`lotDuGeste`, `jourCompte`) :
+ *    `docs/architecture/decisions.md`). La première fois, la ligne naît. La
+ *    série ne se compte plus ici, mais à la première manche répondue
+ *    (`lotDuGeste`, `jourCompte`) :
  *    comptée au départ, une visite quittée d'emblée tenait trente jours
  *    d'affilée — et réveillait le Scarabée — sans une réponse (l'arbitrage du
  *    26 octobre 2026) ;
@@ -226,11 +228,11 @@ const SERIE_APRES_LE_JOUR = `CASE WHEN serie_jour >= ? THEN serie WHEN serie_jou
 /**
  * Le lot d'un geste, d'un seul aller-retour, son verdict et sa fin compris :
  * le geste à son rang d'abord — `rowsAffected` dit tout —, puis, sous lui,
- * chaque pièce jugée — sa
- * réponse, et la pièce au bout de la partie (`json_insert`, jamais réécrite
- * en entier) —, le jour de la série à la première manche répondue d'une
- * visite ou d'une chasse (`jourCompte`), la visite du jour figée quand il
- * finit une partie d'un jour d'avant (`visite`), et, au dernier geste, la fin : le bilan, la poussière au
+ * chaque pièce jugée — sa réponse, et la pièce au bout de la partie
+ * (`json_insert`, jamais réécrite en entier) —, le jour de la série à la
+ * première manche répondue d'une visite ou d'une chasse (`jourCompte`), la
+ * visite du jour figée quand il finit une partie d'un jour d'avant
+ * (`visite`), et, au dernier geste, la fin : le bilan, la poussière au
  * reflet et la partie rendue, l'œuvre en une seule instruction pour le gain,
  * la dorure et le cartel. Une œuvre déjà là — achetée, offerte — prend son
  * cartel et sa dorure sans changer d'origine ni de saison, et rien de ce

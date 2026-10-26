@@ -182,10 +182,14 @@ sequenceDiagram
   Note over C: un rang passé, une partie finie : 409, et la vue d'à présent
   C->>J: lireUnGeste, puis jouerUnGeste(départ, état, geste, heure)
   J-->>C: l'état d'après, les pièces qu'il tranche, la fin — ou un refus en mots
-  C->>G: ecrireDesReponses — le geste à son rang, ses pièces, la fin, en un lot
-  G->>T: un aller-retour, le journal des réponses rattrapé au bout
-  G->>G: à la fin écrite : l'expérience, les gardiens, les paliers, le compagnon
-  G-->>C: ce que le lot a écrit
+  alt sans pièce ni fin — ouvrir, Éclairer, Changer, Reculer, un essai sans verdict
+    C->>T: le lot seul, par porte.client — le geste à son rang, un aller-retour
+  else une pièce jugée, ou la fin
+    C->>G: ecrireDesReponses — le geste à son rang, ses pièces, la fin, en un lot
+    G->>T: un aller-retour ; à la fin d'une partie qui a une juste, les lectures de l'expérience au bout, le journal compris
+    G->>G: à la fin écrite : l'expérience, les gardiens, les paliers, le compagnon
+    G-->>C: ce que le lot a écrit
+  end
   C-->>R: la partie d'après
   R-->>P: vueDeLaPartie — ce que la page peut voir, et l'heure du serveur
 ```
@@ -201,7 +205,10 @@ sequenceDiagram
   graine qu'aucune vue n'emporte (invariant 1).
 - **La base seule dit qui a gagné** : le geste s'écrit à son rang en tête de
   son lot, et chaque autre instruction sous lui. Un double toucher, ou l'autre
-  serveur d'une mise en ligne, n'écrivent rien de plus.
+  serveur d'une mise en ligne, n'écrivent rien de plus. Seul un lot qui écrit
+  une réponse passe par la porte de la campagne, qui tient son rituel —
+  l'expédition prévenue, le journal des réponses averti — ; un geste qui ne
+  tranche rien n'écrit que lui-même.
   → [Le serveur](./serveur.md#le-cabinet-de-curiosités),
   [Les données](./donnees.md#le-cabinet-de-curiosités)
 

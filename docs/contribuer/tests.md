@@ -163,13 +163,15 @@ Un écran se teste rendu : pose `React` sur `globalThis` avant d'importer le com
 
 ## Les fichiers de test, par thème
 
-Trois cent vingt-sept fichiers au 26 octobre 2026, quelque trois mille épreuves ; plus de deux cents démarrent un serveur — le banc, ou celui du Cabinet, qui passe par lui. Chaque ligne résume le commentaire de tête du fichier, qui dit le reste — souvent le bug qui l'a fait naître. Un fichier neuf y prend sa ligne dans le commit qui le crée.
+Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ; plus de deux cents démarrent un serveur — le banc, ou celui du Cabinet, qui passe par lui. Chaque ligne résume le commentaire de tête du fichier, qui dit le reste — souvent le bug qui l'a fait naître. Un fichier neuf y prend sa ligne dans le commit qui le crée : `server/test/liste-des-tests.test.ts` rougit tant qu'il ne l'a pas.
 
 ### L'outillage, la mémoire de Claude, la documentation
 
 - `server/test/banc.test.ts` — le banc lui-même : une question jouée, un réveil sur disque effacé qui ne perd rien.
 - `server/test/notes-pour-claude.test.ts` — `CLAUDE.md` sous 200 lignes et 24 000 caractères, l'en-tête `paths:` de chaque règle, la carte, les fichiers cités.
 - `server/test/documentation.test.ts` — `README.md` et `docs/` relus contre le code : fichiers cités, liens, sommaire, `npm run`, et la référence des routes, événements, variables, tables, adresses et barèmes.
+- `server/test/liste-des-tests.test.ts` — chaque fichier de `server/test/` a sa ligne ici, sous son thème, une seule ; seules les trois aides de tous s'en passent. Le 26 octobre 2026, quatre-vingt-dix-huit n'avaient pas la leur.
+- `server/test/compte-rendu-des-tests.test.ts` — le compte rendu de `npm test` en CI : le TAP tel quel, puis chaque épreuve en échec redite en entier après le décompte, là où GitHub la montre encore.
 - `server/test/vitrine.test.ts` — la vitrine publiée telle quelle sur GitHub Pages : chaque image et chaque lien dans le site, et l'aperçu d'un lien partagé publié avec la page, à la taille dite, sous 300 Ko.
 - `server/test/calendrier.test.ts` — la suite ne dépend pas du jour où elle tourne : chaque calendrier de saison fermé au banc et au smoke, ouvert partout ailleurs.
 - `server/test/emojis.test.ts` — aucun emoji postérieur à Unicode 12 dans le client, `shared/`, `server/src/` et `server/content/`.
@@ -423,7 +425,8 @@ Trois cent vingt-sept fichiers au 26 octobre 2026, quelque trois mille épreuves
 - `server/test/corrige.test.ts` — le corrigé d'une question.
 - `server/test/laurier.test.ts` — le laurier du vainqueur d'hier.
 - `server/test/soiree-et-jour.test.ts` — la soirée et le quiz du jour se parlent.
-- `server/test/rappel.test.ts` — le rappel du soir, seule notification d'un joueur — et le service worker sous `/admin`, celui des alertes du QG. Le faux service de push et ses téléphones vivent dans `server/test/push.ts`.
+- `server/test/rappel.test.ts` — le rappel du soir, seule notification d'un joueur — et le service worker sous `/admin`, celui des alertes du QG.
+- `server/test/push.ts` — pas un fichier de tests : un service de push sur la machine, et les téléphones qui s'y abonnent, qui déchiffrent ce qu'ils reçoivent comme un vrai ; le rappel du soir et les alertes du QG (`server/test/qg-erreurs.test.ts`) s'en servent.
 - `server/test/installation.test.ts` — installer l'application.
 
 ### La campagne et sa base

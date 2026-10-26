@@ -173,9 +173,9 @@ Il n'y a ni adresse e-mail ni lien à recevoir. Sans ton code, demande à l'admi
 
 Avec un profil, entre deux soirées, seul : un musée à remplir, que le gros bouton de ton accueil ouvre — là où il est ouvert : il se construit en préproduction, et reste fermé en production jusqu'à son ouverture.
 
-1. **La visite du jour** : trois petites parties, trois jeux. Touche « Jouer au Pari », par exemple : l'annonce dit le jeu, ses étoiles, l'œuvre en jeu sans la nommer (« Une œuvre rare de la salle du Devin ») et le seuil à atteindre. Rien n'est consommé avant « Commencer ».
+1. **La visite du jour** : trois petites parties, trois jeux. Touche « Jouer au Pari », par exemple : l'annonce dit le jeu, ses étoiles, l'œuvre en jeu sans la nommer (« Peut te faire gagner une œuvre rare de la salle du Devin ») et le seuil à atteindre. Rien n'est consommé avant « Commencer ».
 2. **Une partie** : trois manches de trois étoiles. À l'annonce, emporte une carte-bonus — une de tes œuvres : son pouvoir t'aide (Éclairer, Prendre son temps…) et ne s'use jamais. Le chrono tourne au serveur : recharger la page reprend la manche où elle en était.
-3. **Assez d'étoiles, l'œuvre entre dans ton musée**, avec son cartel — ce que la partie t'a appris. Sinon, de la poussière d'or, et la case manquée se retente au même jeu, pour une chasse.
+3. **Assez d'étoiles, l'œuvre entre dans ton musée**, avec son cartel — ce que la partie t'a appris. Chaque partie de visite ou de chasse où tu as répondu rapporte aussi de la poussière d'or, gagnée ou non ; et une case manquée se retente au même jeu, pour une chasse.
 4. **Deux chasses par jour** : touche un cadre vide de ton musée — il dit où se trouve son œuvre (« Elle se trouve au Filet ») — et pars la chercher.
 5. **La poussière d'or** achète une œuvre qui te manque, ou un cadre doré. Une salle complète réveille son gardien, un légendaire.
 
