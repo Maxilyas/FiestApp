@@ -11,7 +11,7 @@
 
 - **Un musée à remplir.** 84 œuvres — les cartes peintes des rencontres de l'Expédition — en neuf salles : les huit familles, huit œuvres chacune, et le Vestibule, les vingt neutres. Chaque cadre vide dit où chercher (« Elle se trouve au Filet »).
 - **Neuf petits jeux de deux minutes**, chacun trois manches de trois étoiles : l'Épingle, la Frise, le Mot mystère, le Détail, le Filet, le Pari, l'Éclair, les Indices, la Réplique.
-- **Une partie fait toujours avancer** : une œuvre si les étoiles y sont, de la poussière d'or sinon. Rien ne se perd, aucune règle à apprendre avant de jouer.
+- **Une visite ou une chasse fait toujours avancer** : une œuvre si les étoiles y sont, de la poussière d'or sinon — et une partie de la visite manquée se retente au même jeu, pour une chasse. Une partie libre paie ses étoiles, les cinq premières du jour. Aucune règle à apprendre avant de jouer.
 - **Une journée** : la visite du jour — trois parties, trois jeux, trois œuvres à gagner sans les nommer —, deux chasses pour aller chercher une œuvre précise, et des parties libres à volonté.
 - **Des cartes-bonus** : on emporte une œuvre qu'on possède, et son pouvoir — Éclairer, Protéger, Prendre son temps, Miser ou Changer. Elle ne s'use jamais.
 - **Vingt-trois gardiens légendaires** : une salle complète réveille le premier, une salle toute dorée le second ; le Scarabée, le Trou noir et trois gardiens de saison se réveillent ailleurs.
@@ -48,7 +48,7 @@ Après chaque manche, **la révélation** : les étoiles et ce qui les a faites 
 
 **Le serveur juge tout, à son heure.** Le téléphone n'envoie que des gestes ; la réponse d'une manche, les coordonnées d'un lieu, l'ordre d'une frise, le mot caché ne lui arrivent qu'à la révélation (l'invariant 1). Chaque chrono court au serveur.
 
-**Recharger reprend la partie au même instant de son chrono** — un téléphone qui s'endort ne coûte plus une partie. **Quitter la compte avec ses étoiles**, chasse ou case de visite comprise, après une confirmation qui met le chrono en pause : trente secondes au plus par manche, la manche voilée — la pause ne s'achète pas du temps de recherche. On ne relance donc pas jusqu'à tomber sur des questions faciles : tout est tiré au départ. Une partie laissée en plan se clôt le lendemain, à la première page qui la trouve.
+**Recharger reprend la partie au même instant de son chrono** — un téléphone qui s'endort ne coûte plus une partie. **Quitter la compte avec ses étoiles**, chasse ou case de visite comprise, après une confirmation qui dit ce que tu emporterais — les étoiles, Protéger compris, et la poussière d'or, le geste joué par le serveur sans rien écrire — et qui met le chrono en pause : trente secondes au plus par manche, la manche voilée — la pause ne s'achète pas du temps de recherche. On ne relance donc pas jusqu'à tomber sur des questions faciles : tout est tiré au départ. Une partie laissée en plan se clôt le lendemain, à la première page qui la trouve.
 
 ## Les neuf jeux
 
@@ -76,19 +76,19 @@ Avant chaque partie, on emporte une carte-bonus : une œuvre qu'on possède, les
 |---|---|---|---|
 | **Éclairer** | l'Érudit, le Devin, cinq neutres | un indice, propre à chaque jeu (le tableau des jeux) | 1 · 2 · 3 indices par partie |
 | **Protéger** | le Rempart, cinq neutres | la première manche imparfaite gagne des étoiles, une fois | +1 · +1 · +2 |
-| **Prendre son temps** | l'Élan, cinq neutres | du temps en plus à chaque manche | +10 · +20 · +30 s |
-| **Miser** | le Flambeur, le Téméraire, les trois maudites | avant une manche, sans l'avoir vue : parfaite, elle rapporte des étoiles en plus ; sinon, rien | +2 · +3 · +4 |
+| **Prendre son temps** | l'Élan, cinq neutres | du temps en plus à chaque question — deux par manche au Pari et à la Réplique ; il ne compte que si tu t'en sers | +10 · +20 · +30 s |
+| **Miser** | le Flambeur, le Téméraire, les trois maudites | avant une manche, sans l'avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu'à 9 sur la partie ; sinon, elle ne vaut rien | +2 · +3 · +4 |
 | **Changer** | le Métamorphe, le Sophiste, deux neutres | remplace la manche avant de répondre ; le chrono continue — jamais à la Frise | 1 · 2 · 3 fois |
 
-Seul Éclairer s'écrit jeu par jeu ; les quatre autres valent partout, et un nouveau jeu ne leur demande rien. Là où il efface — un titre, une réponse, un mot, un nom —, Éclairer en laisse toujours deux : à la seconde étape de la Réplique, qui n'a que trois noms, un seul s'efface. **Les gardiens portent le pouvoir de la salle qu'ils gardent** : le Phénix protège comme le Rempart. Un pouvoir qui a servi — Éclairer, Changer, la mise, la protection, le temps en plus vraiment utilisé — ôte le cadre doré ; une réponse qu'Éclairer ou le temps en plus a aidée ne mesure rien de ce que tu sais.
+Seul Éclairer s'écrit jeu par jeu ; les quatre autres valent partout, et un nouveau jeu ne leur demande rien. Là où il efface — un titre, une réponse, un mot, un nom —, Éclairer en laisse toujours deux : à la seconde étape de la Réplique, qui n'a que trois noms, un seul s'efface. **Les gardiens portent le pouvoir de la salle qu'ils gardent** : le Phénix protège comme le Rempart. Un pouvoir qui a servi — Éclairer, Changer, la mise, la protection, le temps en plus vraiment utilisé — ôte le cadre doré, et l'écran le dit : la manche aidée porte sa note (« éclairée », « changée », « temps en plus » ; une mise que les neuf étoiles de la partie bornent, « au-delà de 9 »), et le bilan d'un neuf sur neuf aidé nomme le pouvoir qui a servi ; une réponse qu'Éclairer ou le temps en plus a aidée ne mesure rien de ce que tu sais.
 
 Ce que la maquette a fermé : la mise à ×2, qui dorait une épique en deux manches ; Protéger à +3, qui vidait les seuils de leur sens ; « Prendre son temps » qui dorait sans aide apparente.
 
 ## Une journée
 
 - **La visite du jour** : trois parties, trois jeux différents. Chacune annonce l'œuvre qu'elle peut faire gagner sans la nommer — on la découvre une fois gagnée. Les jeux des deux derniers jours passent après les autres, et un jeu se change une fois par jour. Les œuvres en jeu se tirent parmi celles qui te manquaient à minuit, surtout des communes ; quand rien ne manque, une case propose de dorer, puis de la poussière.
-- **Deux chasses par jour** : touche un cadre vide (« Elle se trouve au Filet · Il faut 6 étoiles sur 9 ») et pars à sa recherche, à son jeu ; ou rejoue une œuvre à toi pour la dorer. Après une visite manquée, « Retenter cette œuvre au même jeu » coûte une chasse.
-- **Jouer librement** : les jeux livrés, à volonté, sans œuvre en jeu. Les cinq premières parties libres du jour rapportent de la poussière, les suivantes sont pour le plaisir.
+- **Deux chasses par jour** : touche un cadre vide (« Elle se trouve au Filet · Il faut 6 étoiles sur 9 ») et pars à sa recherche, à son jeu ; ou rejoue une œuvre à toi pour la dorer. Après une partie de la visite manquée, « Retenter cette œuvre au même jeu » coûte une chasse : la case et le bilan le proposent, ou disent pourquoi pas (plus de chasse, l'œuvre gagnée depuis), et la demande vise la case — l'œuvre, tu la découvres en la gagnant.
+- **Jouer librement** : les jeux livrés, à volonté, sans œuvre en jeu. Les cinq premières parties libres du jour rapportent de la poussière, deux par étoile — sans étoile, rien —, les suivantes sont pour le plaisir ; le bilan d'une libre qui paie sans rien rapporter dit combien il en reste.
 - **La série** : les jours d'affilée avec une partie de visite ou de chasse. Elle se lit jusqu'à la veille tant que tu n'as pas joué : « 12 jours de visite d'affilée. Joue aujourd'hui pour garder ta série. » Trente jours réveillent le Scarabée.
 
 Rien ne coûte avant de jouer : un joueur qui ne vient pas n'a rien écrit, et la visite du jour ne se fige qu'à sa première partie.
@@ -149,14 +149,13 @@ L'Expédition était devenue un jeu de cartes à la Slay the Spire — quinze ve
 
 - tout légendaire qu'ils possèdent est un gardien qui veillait déjà, sans cérémonie ;
 - une expédition en route se finit à ses règles, ou s'abandonne sans rien reprendre ;
-- le trophée L'Explorateur garde ses détenteurs, ses paliers relus aux salles complètes ; Le Globe-trotter reste montré, figé ; la luciole, qui rejoignait qui menait une expédition au bout, rejoint qui complète sa première salle.
+- le trophée L'Explorateur garde ses détenteurs, et ses paliers se reliront aux salles complètes une fois le Cabinet ouvert — le crochet est prêt, pas encore branché ; Le Globe-trotter reste montré, figé ; la luciole, qui rejoignait qui menait une expédition au bout, rejoint qui complète sa première salle.
 
 Le gros bouton de l'accueil d'un profil deviendra « Le Cabinet de curiosités », à la place de « L'Expédition » (la décision du propriétaire), quand le Cabinet ouvrira : le départ de l'Expédition se ferme alors, d'un seul drapeau (`EXPEDITION_REMPLACEE`) — sa page dit « L'Expédition a laissé place au Cabinet de curiosités » et y mène, et une expédition en route se finit. Le bouton dit ton musée — « Ton musée : 27 œuvres sur 84 », et « À jouer » tant que la visite du jour attend — de ce que le serveur en sait déjà : l'accueil n'attend rien de plus pour lui. La contrepartie : **après chaque réveil du serveur, le bouton garde sa ligne de toujours, sans « À jouer », jusqu'à ce que tu ouvres le Cabinet** — et la production dort chaque nuit, jusqu'à son réveil de 6 h 55 : le premier passage du jour à l'accueil ne rappelle donc pas la visite. Un choix de sobriété, à confirmer par le propriétaire ([les décisions](../architecture/decisions.md), « Le bouton de l'accueil ne lit le musée qu'en mémoire »).
 
 ## Ce qui vient ensuite
 
-- **La construction** : les règles des neuf jeux, puis le serveur — une partie s'écrit dans la campagne, comme une série d'un autre mode —, puis la page, un jeu après l'autre en préproduction ; le Pari et l'Éclair d'abord, puis le Détail et la Frise, le Mot mystère et le Filet, enfin l'Épingle, les Indices et la Réplique.
-- **L'ouverture** : le calibrage sur le vrai code, une tablée d'agents en préproduction ; puis le Cabinet ouvert, et le seul départ de l'Expédition fermé.
+- **L'ouverture** : les corrections de la tablée d'agents du 25 octobre 2026 (`retours/2026-10-25/synthese.md`) et les barèmes qu'elle a fait trancher, recalibrés ; puis le Cabinet ouvert en production, et le seul départ de l'Expédition fermé.
 - **Après la V1** : l'Épingle du monde ; le dévoilement, le rébus et les curiosités en jeux ; un dictionnaire pour le Mot mystère ; le signalement du contenu neuf ; une page du QG pour le Cabinet.
 
 ## Les règles chiffrées
@@ -183,5 +182,5 @@ Chaque constante, sa valeur et ce que la changer implique : [les barèmes](../re
 - **Une partie est une série de la campagne d'un autre mode** (`campagne_series`, `mode = 'cabinet'`) : son départ figé, ses gestes, puis une ligne de réponse par manche jugée — l'expérience, les confettis, le compagnon, les missions et le carnet la comptent sans rien savoir du Cabinet. Ce qui n'est pas une question de la base porte un seul préfixe, `cab:`, que le carnet, la mesure et le signalement écartent.
 - **L'état d'une partie se replie de son départ et de ses gestes** (l'invariant 14) : chaque geste s'écrit avant que sa réponse parte, l'ouverture de chaque manche comprise, si bien qu'un redémarrage du serveur — la veille de l'hébergeur, une mise en ligne — reprend la manche à son échéance.
 - **La sobriété** : une page relue d'un aller-retour au réveil, puis zéro ; un aller-retour par geste ; aucune lecture qui grandisse avec l'histoire d'un joueur.
-- **La page** (`/cabinet`, `client/src/views/CabinetApp.tsx` et `client/src/views/cabinet/`) : le musée et ses écrans, chacun à son fragment — une salle (`#salle-rempart`), une œuvre et son cartel (`#oeuvre-bastion`), les gardiens, la visite du jour, les jeux libres —, et « Comment ça marche ? » en feuille. Elle ne lit que la vue du serveur (`PageDuCabinet`), sans recopier une règle, et ne télécharge ni l'Expédition ni les règles qui jugent une partie ; aucun de ses textes ne descend sous dix-sept pixels. Une partie s'ouvre par-dessus le musée : l'annonce, qui ne consomme rien avant « Commencer », les manches, le bilan (`client/src/views/cabinet/{Annonce,Partie,Bilan}.tsx`). Le Pari et l'Éclair s'y jouent ; un jeu qui n'a pas encore son écran s'annonce en attente, sans rien consommer.
+- **La page** (`/cabinet`, `client/src/views/CabinetApp.tsx` et `client/src/views/cabinet/`) : le musée et ses écrans, chacun à son fragment — une salle (`#salle-rempart`), une œuvre et son cartel (`#oeuvre-bastion`), les gardiens, la visite du jour, les jeux libres —, et « Comment ça marche ? » en feuille. Elle ne lit que la vue du serveur (`PageDuCabinet`), sans recopier une règle, et ne télécharge ni l'Expédition ni les règles qui jugent une partie ; aucun de ses textes ne descend sous dix-sept pixels. Une partie s'ouvre par-dessus le musée : l'annonce, qui ne consomme rien avant « Commencer », les manches, le bilan (`client/src/views/cabinet/{Annonce,Partie,Bilan}.tsx`). Les neuf jeux s'y jouent, chacun son écran chargé à la demande.
 - `.claude/rules/cabinet.md` — les fichiers et les pièges du domaine, pour qui modifie le code.

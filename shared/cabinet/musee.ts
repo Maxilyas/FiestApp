@@ -31,6 +31,7 @@ import { JEUX_PRETS } from './ouverture'
 import { forceDe, pouvoirDe } from './pouvoirs'
 import { AUTRES_GARDIENS, GARDIENS_DES_SALLES, SALLES, pouvoirDuGardien, voieDuGardien, type CleDeSalle } from './salles'
 import type { CarteDuDepart, IssueDUnePartie, Manche, OrigineDUnePartie } from './partie'
+import type { RetenteVue } from './vues'
 import { battre } from './jeux/outils'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from './jeux/regle'
 
@@ -377,11 +378,23 @@ export function jeuDeLEchange(m: Musee, v: VisiteDuJour, o: Pick<GraineDeLaVisit
 /** Pas plus de jeux livrés que de cases : la visite les prend tous, et aucun ne reste pour en remplacer un. */
 export const AUCUN_AUTRE_JEU = 'Aucun autre jeu à proposer aujourd’hui'
 
+/** Une case qui n'est pas de la visite du jour : la jouer, l'échanger, la retenter le disent dans les mêmes mots. */
+export const CHOISIS_UNE_CASE = 'Choisis une partie de la visite'
+
+/**
+ * Une case déjà commencée aujourd'hui : son départ et son échange se refusent
+ * dans les mêmes mots. Il y en avait deux, « déjà faite » et « déjà jouée »,
+ * et la page disait l'un sous un bouton, l'autre sous son voisin.
+ */
+export const CASE_DEJA_FAITE = 'Cette partie de la visite est déjà faite'
+
+const estUneCase = (v: Pick<VisiteDuJour, 'cases'>, k: unknown): k is number => Number.isInteger(k) && (k as number) >= 0 && (k as number) < v.cases.length
+
 /** Pourquoi la case `k` ne s'échange pas ; null : elle s'échange, une fois par jour, tant qu'elle n'est pas jouée. */
 export function refusDeLEchange(m: Musee, v: VisiteDuJour, k: unknown, jeu: CleDeJeu | null): string | null {
-  if (!Number.isInteger(k) || (k as number) < 0 || (k as number) >= v.cases.length) return 'Choisis une partie de la visite'
+  if (!estUneCase(v, k)) return CHOISIS_UNE_CASE
   if (v.echange !== null) return 'Tu as déjà changé un jeu aujourd’hui'
-  if (caseCommencee(m, k as number)) return 'Cette partie de la visite est déjà jouée'
+  if (caseCommencee(m, k)) return CASE_DEJA_FAITE
   return jeu === null ? AUCUN_AUTRE_JEU : null
 }
 
@@ -395,8 +408,30 @@ export function visiteEchangee(v: VisiteDuJour, k: Manche, jeu: CleDeJeu): Visit
 /** Ce que la page demande à « Commencer ». */
 export type DemandeDeDepart =
   | { origine: 'visite'; case: number; carte: string | null }
-  | { origine: 'chasse'; oeuvre: string; carte: string | null; retente?: true; jeu?: CleDeJeu }
+  | { origine: 'chasse'; oeuvre: string; carte: string | null; jeu?: CleDeJeu }
   | { origine: 'libre'; jeu: string; carte: string | null }
+
+/**
+ * « Retenter cette œuvre au même jeu, pour une chasse », après une partie de
+ * la visite manquée : la demande vise sa case, jamais l'œuvre. La page ne la
+ * reçoit pas (invariant 1), et une demande qui la nommait faisait de l'ordre
+ * des refus un oracle — de trois œuvres essayées, seule la visée partait, ou
+ * se refusait pour sa carte-bonus plutôt que pour la retente : le serveur ne
+ * lit plus que celle-ci (`lireLaDemande`). Elle reste hors de
+ * `DemandeDeDepart` : la page y lit l'œuvre de toute chasse (`annonceDe`), et
+ * ne propose pas encore la retente.
+ */
+export type DemandeDeRetente = { origine: 'chasse'; case: number; retente: true; carte: string | null }
+
+/** Ce que le serveur lit à « Commencer » (`lireLaDemande`) : ce que la page demande, et « Retenter » par sa case. */
+export type DemandeLue = DemandeDeDepart | DemandeDeRetente
+
+/**
+ * La retente telle que le calibrage la simule (`server/scripts/calibrage-cabinet.ts`) : il joue les deux côtés et sait l'œuvre
+ * qu'une case visait, la page jamais. Le serveur ne la lit pas — une demande qui nomme l'œuvre d'une retente ne se lit pas,
+ * quelle qu'elle soit (`lireLaDemande`) — ; elle s'en va quand le calibrage visera la case.
+ */
+export type RetenteDuCalibrage = { origine: 'chasse'; oeuvre: string; carte: string | null; retente: true }
 
 /** Ce qu'un départ accepté fige, avant le tirage : le serveur y ajoute le plan, la graine et le thème. */
 export interface CadreDuDepart {
@@ -415,6 +450,15 @@ export interface CadreDuDepart {
 const chassesDuJour = (m: Musee) => m.duJour.parties.filter(p => p.origine === 'chasse').length
 const libresDuJour = (m: Musee) => m.duJour.parties.filter(p => p.origine === 'libre').length
 const seuilDe = (cle: CleDOeuvre | null): number | null => (cle === null ? null : SEUILS_DES_RARETES[oeuvre(cle)!.rarete])
+
+/**
+ * Le seuil qu'une case de la visite figera à son départ : les étoiles qu'il
+ * faut pour gagner son œuvre — ou, l'œuvre déjà à lui, pour son double, son
+ * cadre doré demandant toutes les manches parfaites. Null : une case pour la
+ * poussière d'or. La page le lit de la vue (`CaseVue.seuil`,
+ * `CaseVue.seuilDuDouble`) : elle le redérivait du barème.
+ */
+export const seuilDeLaCase = (c: Pick<CaseFigee, 'cible'>): number | null => seuilDe(c.cible)
 
 /** Les chasses qui restent aujourd'hui ; les libres qui paient encore. */
 export const chassesRestantes = (m: Musee): number => Math.max(0, CHASSES_PAR_JOUR - chassesDuJour(m))
@@ -435,6 +479,35 @@ export const PAS_ENCORE_A_TOI = 'Elle n’est pas encore à toi : gagne-la ou ac
 /** Une partie à la fois, et rien ne se dépense pendant qu'elle attend : un départ, un achat, une dorure le disent dans les mêmes mots. */
 export const laPartieAttend = (jeu: CleDeJeu): string => `Ta partie ${JEUX[jeu].a} t’attend : reprends-la ou quitte-la d’abord`
 
+/**
+ * Une demande qui ne se lit pas : une origine inconnue, un départ relu de
+ * travers — et une retente qui nomme son œuvre (`lireLaDemande`). La règle des
+ * départs et le serveur la disent d'une seule copie.
+ */
+export const DEMANDE_ILLISIBLE = 'Choisis une partie de la visite, une chasse ou un jeu libre'
+/** « Retenter » d'une case qui n'a pas été manquée aujourd'hui : pas jouée, gagnée, ou d'un jour d'avant. */
+export const RETENTER_SANS_VISITE_MANQUEE = 'Retenter ne sert qu’après une partie de la visite manquée'
+/** « Retenter » d'une case dont l'œuvre est à lui depuis — gagnée en chasse, achetée : plus rien à retenter. */
+export const SON_OEUVRE_EST_A_TOI = 'Son œuvre est déjà à toi'
+
+/** La partie de la visite manquée aujourd'hui à la case `k`, qui visait une œuvre : celle qu'une retente rejoue, à son jeu. */
+function laPartieManquee(m: Musee, k: number): (PartieDuJour & { cible: CleDOeuvre }) | undefined {
+  return m.duJour.parties.find((p): p is PartieDuJour & { cible: CleDOeuvre } => p.origine === 'visite' && p.visite === k && p.issue === 'manquee' && estUneOeuvre(p.cible))
+}
+
+/**
+ * Ce qu'une retente de la case `k` rejoue, ou pourquoi elle ne part pas : sa
+ * partie manquée, son jeu, l'œuvre qu'elle visait. Chaque refus ne dit que la
+ * case — commencée ou non, manquée ou non —, que la page sait déjà.
+ */
+function laRetente(m: Musee, visite: VisiteDuJour, k: unknown, jeux: readonly CleDeJeu[]): { jeu: CleDeJeu; cible: CleDOeuvre } | string {
+  if (!estUneCase(visite, k)) return CHOISIS_UNE_CASE
+  const manquee = laPartieManquee(m, k)
+  if (!manquee) return RETENTER_SANS_VISITE_MANQUEE
+  if (possedees(m).has(manquee.cible)) return SON_OEUVRE_EST_A_TOI
+  return jeux.includes(manquee.jeu) ? { jeu: manquee.jeu, cible: manquee.cible } : JEU_PAS_LIVRE
+}
+
 /** La carte-bonus qu'il emporte : une œuvre qu'il a, les quatre de départ comprises, ou un gardien réveillé — jamais un Divin. */
 function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
   if (cle === null) return null
@@ -447,18 +520,18 @@ function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
 /**
  * Le cadre d'un départ, ou son refus en mots — une seule règle, que la page
  * lit aussi pour griser. Une partie à la fois ; une case de la visite une fois
- * par jour ; deux chasses, à son jeu — « Retenter », au jeu de la visite
- * manquée ; un jeu livré ; une carte-bonus qu'il a.
+ * par jour ; deux chasses, à son jeu — « Retenter », par sa case, au jeu de la
+ * visite manquée ; un jeu livré ; une carte-bonus qu'il a.
  */
-export function cadreDuDepart(m: Musee, demande: DemandeDeDepart, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS): CadreDuDepart | string {
+export function cadreDuDepart(m: Musee, demande: DemandeLue | RetenteDuCalibrage, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS): CadreDuDepart | string {
   if (m.enCours) return laPartieAttend(m.enCours.jeu)
   const a = possedees(m)
   let cadre: Omit<CadreDuDepart, 'carte'>
   switch (demande.origine) {
     case 'visite': {
       const k = demande.case
-      if (!Number.isInteger(k) || k < 0 || k >= visite.cases.length) return 'Choisis une partie de la visite'
-      if (caseCommencee(m, k)) return 'Cette partie de la visite est déjà faite'
+      if (!estUneCase(visite, k)) return CHOISIS_UNE_CASE
+      if (caseCommencee(m, k)) return CASE_DEJA_FAITE
       const c = visite.cases[k]
       if (!jeux.includes(c.jeu)) return JEU_PAS_LIVRE
       cadre = { jeu: c.jeu, origine: 'visite', visite: k as Manche, cible: c.cible, but: c.cible === null ? null : a.has(c.cible) ? 'dorer' : 'gagner', seuil: seuilDe(c.cible), payee: true }
@@ -466,17 +539,21 @@ export function cadreDuDepart(m: Musee, demande: DemandeDeDepart, visite: Visite
     }
     case 'chasse': {
       if (chassesRestantes(m) === 0) return PLUS_DE_CHASSE
+      if ('retente' in demande) {
+        // La retente du calibrage nomme l'œuvre qu'il sait : elle se rejoue par sa case, comme celle de la page.
+        const k = 'case' in demande ? demande.case : m.duJour.parties.find(p => p.origine === 'visite' && p.issue === 'manquee' && p.cible === demande.oeuvre)?.visite
+        const r = laRetente(m, visite, k, jeux)
+        if (typeof r === 'string') return r
+        cadre = { jeu: r.jeu, origine: 'chasse', cible: r.cible, but: 'gagner', retente: true, seuil: seuilDe(r.cible), payee: true }
+        break
+      }
       const cle = demande.oeuvre
       if (!estUneOeuvre(cle)) return PAS_AU_CABINET
       if (dorees(m).has(cle)) return 'Cette œuvre est déjà dorée'
-      let jeu = JEU_DE_L_OEUVRE[cle]
-      if (demande.retente) {
-        const manquee = m.duJour.parties.find(p => p.origine === 'visite' && p.cible === cle && p.issue === 'manquee')
-        if (!manquee || a.has(cle)) return 'Retenter ne sert qu’après une visite manquée de cette œuvre'
-        jeu = manquee.jeu
-      } else if (demande.jeu !== undefined && demande.jeu !== jeu) return `Cette œuvre se trouve ${JEUX[jeu].a}`
+      const jeu = JEU_DE_L_OEUVRE[cle]
+      if (demande.jeu !== undefined && demande.jeu !== jeu) return `Cette œuvre se trouve ${JEUX[jeu].a}`
       if (!jeux.includes(jeu)) return JEU_PAS_LIVRE
-      cadre = { jeu, origine: 'chasse', cible: cle, but: a.has(cle) ? 'dorer' : 'gagner', ...(demande.retente && { retente: true as const }), seuil: seuilDe(cle), payee: true }
+      cadre = { jeu, origine: 'chasse', cible: cle, but: a.has(cle) ? 'dorer' : 'gagner', seuil: seuilDe(cle), payee: true }
       break
     }
     case 'libre': {
@@ -487,16 +564,34 @@ export function cadreDuDepart(m: Musee, demande: DemandeDeDepart, visite: Visite
       break
     }
     default:
-      return 'Choisis une partie de la visite, une chasse ou un jeu libre'
+      return DEMANDE_ILLISIBLE
   }
   const carte = laCarte(m, demande.carte)
   return typeof carte === 'string' ? carte : { ...cadre, carte }
 }
 
 /** Le refus d'un départ, en mots ; null : il part. */
-export function refusDuDepart(m: Musee, demande: DemandeDeDepart, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS): string | null {
+export function refusDuDepart(m: Musee, demande: DemandeLue, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS): string | null {
   const c = cadreDuDepart(m, demande, visite, jeux)
   return typeof c === 'string' ? c : null
+}
+
+/**
+ * « Retenter » sur la case `k` de la visite du jour, tel que la page le montre
+ * — sous la case, et au bilan de sa partie : la règle des départs même, sans
+ * carte-bonus (elle se choisit à l'annonce, et n'y change rien). Absent tant
+ * que la case n'est pas manquée, et pour une case dont l'œuvre était à lui
+ * avant sa partie (pour la dorer : rien à retenter) ; une œuvre gagnée
+ * depuis — une chasse, un achat — se dit (`SON_OEUVRE_EST_A_TOI`), comme plus
+ * de chasse ou une partie qui attend. Jamais l'œuvre (invariant 1).
+ */
+export function retenteDeLaCase(m: Musee, visite: VisiteDuJour, k: number, jeux: readonly CleDeJeu[] = JEUX_PRETS): RetenteVue | null {
+  const manquee = laPartieManquee(m, k)
+  if (!manquee) return null
+  const ligne = m.oeuvres.get(manquee.cible)
+  if (OEUVRES_DE_DEPART.includes(manquee.cible) || (ligne && ligne.gagneeLe < manquee.commenceeLe)) return null
+  const refus = refusDuDepart(m, { origine: 'chasse', case: k, retente: true, carte: null }, visite, jeux)
+  return refus === null ? { possible: true } : { possible: false, refus }
 }
 
 // ── Acheter, dorer ────────────────────────────────────────────────────────

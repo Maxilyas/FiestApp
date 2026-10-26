@@ -19,6 +19,7 @@ import {
   cadreDore,
   issueDe,
   phaseDe,
+  ILLISIBLE,
   pliDeLaPartie,
   poussiereDeLaPartie,
   pouvoirMaintenant,
@@ -34,9 +35,16 @@ import {
 } from '../../shared/cabinet/partie'
 import { BORNES_DES_BILANS, lireLeBilan, lireLeDepart, lireUnGeste } from '../../shared/cabinet/lecture'
 import {
+  CASE_DEJA_FAITE,
+  CHOISIS_UNE_CASE,
+  DEMANDE_ILLISIBLE,
+  PLUS_DE_CHASSE,
+  RETENTER_SANS_VISITE_MANQUEE,
+  SON_OEUVRE_EST_A_TOI,
   cadreDuDepart,
   gardiensDus,
   jeuDeLEchange,
+  laPartieAttend,
   museeDe,
   possedees,
   prixDe,
@@ -44,6 +52,8 @@ import {
   refusDeLAchat,
   refusDeLEchange,
   refusDuDepart,
+  retenteDeLaCase,
+  seuilDeLaCase,
   serieMontree,
   soldeDe,
   visiteDuJour,
@@ -807,7 +817,9 @@ test('l’échange : une fois par jour, une case pas jouée, un jeu ni de la vis
   assert.equal(echangee.cases[1].cible, v.cases[1].cible, 'l’œuvre en jeu reste')
   assert.equal(refusDeLEchange(m, echangee, 0, jeu), 'Tu as déjà changé un jeu aujourd’hui')
   const jouee = museeDe({ jour: JOUR, parties: [partieDuJour({ origine: 'visite', visite: 1 })] })
-  assert.equal(refusDeLEchange(jouee, v, 1, jeu), 'Cette partie de la visite est déjà jouée')
+  // Les mêmes mots que le départ de cette case : la page disait « déjà jouée » d'un bouton, « déjà faite » de l'autre.
+  assert.equal(refusDeLEchange(jouee, v, 1, jeu), 'Cette partie de la visite est déjà faite')
+  assert.equal(refusDeLEchange(jouee, v, 1, jeu), refusDuDepart(jouee, { origine: 'visite', case: 1, carte: null }, v, NEUF))
   assert.equal(refusDeLEchange(m, v, 7, jeu), 'Choisis une partie de la visite')
   // Trois jeux livrés, tous dans la visite : rien à proposer.
   const seuls = visiteDuJour(m, { ...o, jeux: ['pari', 'eclair', 'mot'] })
@@ -831,8 +843,11 @@ test('commencer : les refus en mots, une seule règle que la page lit pour grise
   assert.equal(refus(deuxChasses, { origine: 'chasse', oeuvre: 'bastion', carte: null }, sansSonJeu), 'Plus de chasse pour aujourd’hui : elles reviennent à minuit')
   assert.equal(refus(m, { origine: 'chasse', oeuvre: 'bastion', carte: null }, sansSonJeu), 'Ce jeu arrive bientôt')
   assert.equal(refus(m, { origine: 'chasse', oeuvre: 'bastion', carte: null, jeu: 'pari' }), `Cette œuvre se trouve à l’Épingle`)
-  assert.equal(refus(m, { origine: 'chasse', oeuvre: 'bastion', carte: null, retente: true }), 'Retenter ne sert qu’après une visite manquée de cette œuvre')
+  assert.equal(refus(m, { origine: 'chasse', case: 0, retente: true, carte: null }), 'Retenter ne sert qu’après une partie de la visite manquée')
   assert.equal(refus(museeDe({ jour: JOUR, oeuvres: [ligne('bastion', { doreeLe: MIDI })] }), { origine: 'chasse', oeuvre: 'bastion', carte: null }), 'Cette œuvre est déjà dorée')
+  // Une demande qui ne se lit pas — une origine inconnue, un départ relu de travers — se dit dans les mots du serveur, une seule copie.
+  assert.equal(refus(m, { origine: 'ailleurs' } as unknown as Parameters<typeof refusDuDepart>[1]), DEMANDE_ILLISIBLE)
+  assert.equal(DEMANDE_ILLISIBLE, 'Choisis une partie de la visite, une chasse ou un jeu libre')
   assert.equal(refus(m, { origine: 'chasse', oeuvre: 'lg:phenix', carte: null }), 'Cette œuvre n’est pas au Cabinet')
   assert.equal(refus(m, { origine: 'libre', jeu: 'rebus', carte: null }), 'Choisis un des neuf jeux')
   assert.equal(refus(m, { origine: 'libre', jeu: 'mot', carte: null }, ['pari']), 'Ce jeu arrive bientôt')
@@ -851,9 +866,18 @@ test('commencer : les refus en mots, une seule règle que la page lit pour grise
   })
   const phenix = cadreDuDepart(museeDe({ jour: JOUR, legendaires: ['lg:phenix'] }), { origine: 'chasse', oeuvre: 'bastion', carte: 'lg:phenix' }, v, NEUF)
   assert.deepEqual(phenix, { jeu: JEU_DE_L_OEUVRE.bastion, origine: 'chasse', cible: 'bastion', but: 'gagner', seuil: B.SEUILS_DES_RARETES.epique, payee: true, carte: { cle: 'lg:phenix', pouvoir: 'proteger', force: 3 } })
-  // Retenter : après une visite manquée de l'œuvre, au jeu de la visite.
+  // Retenter : après une visite manquée, par sa case — jamais par l'œuvre, que la page ne sait pas —, au jeu de la visite.
   const manquee = museeDe({ jour: JOUR, parties: [partieDuJour({ origine: 'visite', visite: 0, cible: 'bastion', issue: 'manquee', jeu: 'pari' })] })
-  assert.equal((cadreDuDepart(manquee, { origine: 'chasse', oeuvre: 'bastion', carte: null, retente: true }, v, NEUF) as { jeu: string }).jeu, 'pari')
+  assert.deepEqual(cadreDuDepart(manquee, { origine: 'chasse', case: 0, retente: true, carte: null }, v, NEUF), {
+    jeu: 'pari',
+    origine: 'chasse',
+    cible: 'bastion',
+    but: 'gagner',
+    retente: true,
+    seuil: B.SEUILS_DES_RARETES.epique,
+    payee: true,
+    carte: null,
+  })
   // La visite : sa case, son œuvre, son seuil ; gagnée depuis le matin, elle se joue pour la dorer.
   const c = v.cases[0]
   const cadre = cadreDuDepart(museeDe({ jour: JOUR, oeuvres: [ligne(c.cible!, { gagneeLe: MIDI })] }), { origine: 'visite', case: 0, carte: null }, v, NEUF)
@@ -861,6 +885,62 @@ test('commencer : les refus en mots, une seule règle que la page lit pour grise
   // Les libres qui paient : cinq par jour.
   const cinq = museeDe({ jour: JOUR, parties: Array.from({ length: B.LIBRES_QUI_PAIENT }, () => partieDuJour({ origine: 'libre' })) })
   assert.equal((cadreDuDepart(cinq, { origine: 'libre', jeu: 'mot', carte: null }, v, NEUF) as { payee: boolean }).payee, false)
+})
+
+test('« Retenter » vise la case de la visite manquée, jamais l’œuvre : ses refus ne disent que la case, et la page lit son verdict', () => {
+  const o = { graine: 'secret:profil', jour: JOUR, minuit: MINUIT, jeux: NEUF }
+  const v = visiteDuJour(museeDe({ jour: JOUR }), o)
+  const visee = v.cases[1].cible!
+  // Une case venue du téléphone peut être n'importe quoi : la règle la relit.
+  const sansCarte = (k: unknown) => ({ origine: 'chasse', case: k as number, retente: true, carte: null }) as const
+  const refus = (mu: Musee, k: unknown) => refusDuDepart(mu, sansCarte(k), v, NEUF)
+  const manquee = partieDuJour({ id: 'la-visite', origine: 'visite', visite: 1, cible: visee, issue: 'manquee', jeu: v.cases[1].jeu, commenceeLe: MIDI })
+  const m = museeDe({ jour: JOUR, parties: [manquee] })
+
+  // Elle part au jeu de la case, l'œuvre qu'elle visait en jeu, et prend une chasse.
+  const cadre = cadreDuDepart(m, sansCarte(1), v, NEUF)
+  assert.deepEqual(typeof cadre === 'string' ? cadre : [cadre.origine, cadre.jeu, cadre.cible, cadre.retente], ['chasse', v.cases[1].jeu, visee, true])
+  // Ses refus, mot pour mot — chacun ne dit que la case, que la page connaît : jouée ou non, manquée ou non.
+  assert.equal(refus(m, 0), RETENTER_SANS_VISITE_MANQUEE, 'une case pas jouée')
+  assert.equal(refus(museeDe({ jour: JOUR, parties: [{ ...manquee, issue: 'gagnee' }] }), 1), RETENTER_SANS_VISITE_MANQUEE, 'une case gagnée')
+  for (const k of [3, -1, 1.5, '1', null]) assert.equal(refus(m, k), CHOISIS_UNE_CASE, String(k))
+  const deuxChasses = museeDe({ jour: JOUR, parties: [manquee, partieDuJour({ origine: 'chasse' }), partieDuJour({ origine: 'chasse' })] })
+  assert.equal(refus(deuxChasses, 1), PLUS_DE_CHASSE)
+  // Gagnée depuis, ailleurs — une chasse, un achat — : elle est à lui, plus rien à retenter.
+  const gagneeDepuis = museeDe({ jour: JOUR, parties: [manquee], oeuvres: [ligne(visee, { origine: 'achat', gagneeLe: MIDI + 60 * S })] })
+  assert.equal(refus(gagneeDepuis, 1), SON_OEUVRE_EST_A_TOI)
+  assert.equal(refus(museeDe({ jour: JOUR, parties: [manquee], enCours: { id: 'p', jeu: 'filet' } }), 1), laPartieAttend('filet'))
+
+  // Ce que la page en montre, case par case : la règle des départs même, sans la carte-bonus, qui n'y change rien.
+  assert.equal(retenteDeLaCase(museeDe({ jour: JOUR }), v, 1, NEUF), null, 'une case pas jouée ne propose rien')
+  assert.deepEqual(retenteDeLaCase(m, v, 1, NEUF), { possible: true })
+  assert.deepEqual(retenteDeLaCase(deuxChasses, v, 1, NEUF), { possible: false, refus: PLUS_DE_CHASSE })
+  assert.deepEqual(retenteDeLaCase(gagneeDepuis, v, 1, NEUF), { possible: false, refus: SON_OEUVRE_EST_A_TOI })
+  // Une case « pour dorer » manquée : son œuvre était à lui avant la partie — rien à retenter, rien à dire.
+  const aLuiAvant = museeDe({ jour: JOUR, parties: [manquee], oeuvres: [ligne(visee, { gagneeLe: MIDI - 60 * S })] })
+  assert.equal(retenteDeLaCase(aLuiAvant, v, 1, NEUF), null)
+  // Jamais l'œuvre : ni le verdict, ni ses refus ne la nomment.
+  for (const mu of [m, deuxChasses, gagneeDepuis]) assert.ok(!JSON.stringify(retenteDeLaCase(mu, v, 1, NEUF)).includes(visee))
+})
+
+test('le seuil d’une case : celui que son départ figera — gagner son œuvre, ou son double quand elle est à lui', () => {
+  const o = { graine: 'secret:profil', jour: JOUR, minuit: MINUIT, jeux: NEUF }
+  const v = visiteDuJour(museeDe({ jour: JOUR }), o)
+  for (const [k, c] of v.cases.entries()) {
+    const cadre = cadreDuDepart(museeDe({ jour: JOUR }), { origine: 'visite', case: k, carte: null }, v, NEUF)
+    assert.equal(seuilDeLaCase(c), typeof cadre === 'string' ? cadre : cadre.seuil, `case ${k}`)
+    assert.equal(seuilDeLaCase(c), B.SEUILS_DES_RARETES[OEUVRES.find(x => x.cle === c.cible)!.rarete])
+  }
+  assert.equal(seuilDeLaCase({ cible: null }), null, 'une case pour la poussière d’or')
+})
+
+test('les refus n’ont qu’une copie : le magasin importe ceux de la règle des départs et du pli, il ne les recopie pas', () => {
+  const magasin = readFileSync(new URL('../src/core/cabinet/magasin.ts', import.meta.url), 'utf8')
+  for (const phrase of [DEMANDE_ILLISIBLE, ILLISIBLE, CASE_DEJA_FAITE, CHOISIS_UNE_CASE]) assert.ok(!magasin.includes(`'${phrase}'`), `le magasin recopie « ${phrase} »`)
+  // La règle des départs et celle des échanges disent une case commencée dans les mêmes mots, d'une seule constante.
+  const musee = readFileSync(new URL('../../shared/cabinet/musee.ts', import.meta.url), 'utf8')
+  for (const phrase of [CASE_DEJA_FAITE, CHOISIS_UNE_CASE]) assert.equal(musee.split(`'${phrase}'`).length - 1, 1, `« ${phrase} » écrite une fois`)
+  assert.ok(!musee.includes('est déjà jouée\''), 'la phrase d’avant de l’échange, revenue')
 })
 
 test('acheter, dorer : les refus en mots, le prix montré, le solde', () => {

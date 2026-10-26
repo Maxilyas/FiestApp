@@ -32,6 +32,13 @@
 // (`BilanVu.devientSonCartel`, lot C7) : dorée ou doublée, une œuvre ne le
 // prend que si elle n'en avait pas, et le bilan n'en disait rien — la page
 // promettait « Son cartel » d'une manche que l'œuvre ne montrerait pas.
+// Puis ce que la tablée du 25 octobre 2026 n'a pas su lire à l'écran, tous
+// facultatifs — les vues écrites à la main des épreuves de la page s'en
+// passent : le seuil d'une case (`CaseVue.seuil`, `seuilDuDouble`), que la
+// page redérivait du barème ; « Retenter » une case manquée, par la case et
+// sans l'œuvre (`CaseVue.retenter`, `BilanVu.retenter`) ; les libres qui
+// paient encore (`BilanVu.libresQuiPaientEncore`) ; ce que vaudrait la partie
+// quittée (`VueDeLaPartie.siTuQuittes`).
 
 import type { CleDeCompagnon } from '../compagnons'
 import { PREFIXE_DE_LA_FRISE } from '../frise'
@@ -89,6 +96,12 @@ export interface SalleVue {
   nouvelle?: true
 }
 
+/** « Retenter », tel que la page le montre sous une case ou un bilan : il part, ou sa raison, dans les mots du serveur. */
+export interface RetenteVue {
+  possible: boolean
+  refus?: string
+}
+
 /** Une case de la visite du jour : son jeu, son enjeu — jamais l'œuvre visée d'une case pas gagnée. */
 export interface CaseVue {
   jeu: CleDeJeu
@@ -98,6 +111,18 @@ export interface CaseVue {
   /** Gagnée ou dorée : l'œuvre, maintenant qu'elle est à lui. */
   oeuvre?: CleDOeuvre
   bientot?: true
+  /**
+   * Les étoiles qu'il faut sur neuf pour gagner son œuvre, celles que son
+   * départ figera (`seuilDeLaCase`) : la page les lit ici, elle ne relit pas le
+   * barème. Une case pour dorer dit `seuilDuDouble` à la place ; une case pour
+   * la poussière d'or, ni l'un ni l'autre. Toujours posé par le serveur ;
+   * facultatif pour les vues écrites à la main des épreuves de la page.
+   */
+  seuil?: number
+  /** Une case pour dorer : les étoiles qui, sans le cadre doré — toutes les manches parfaites —, font son double. */
+  seuilDuDouble?: number
+  /** Manquée aujourd'hui : « Retenter cette œuvre au même jeu, pour une chasse », possible ou sa raison (`retenteDeLaCase`). */
+  retenter?: RetenteVue
 }
 
 export interface VisiteVue {
@@ -284,6 +309,19 @@ export interface BilanVu extends Omit<BilanDUnePartie, 'v' | 'cartel'> {
   /** Une salle complète, un gardien qui veillait déjà : « Salle complète ! Le Phénix veillait déjà sur elle. » */
   gardiens?: { legendaire: string; neuf: boolean }[]
   gains?: GainsDuCabinet
+  /**
+   * Une partie de la visite manquée aujourd'hui : « Retenter » sa case, possible
+   * ou sa raison — la même que sous la case (`CaseVue.retenter`), jamais
+   * l'œuvre. Ce que le serveur sait du jour, de sa mémoire seule : un bilan
+   * relu après un réveil, ou d'un jour d'avant, ne le porte pas.
+   */
+  retenter?: RetenteVue
+  /**
+   * Une partie libre qui payait et n'a rien rapporté : celles qui paient
+   * encore aujourd'hui — `dit` le redit (« Encore 4 parties libres qui
+   * paient aujourd'hui »). De la mémoire du jour seule, comme `retenter`.
+   */
+  libresQuiPaientEncore?: number
 }
 
 export interface VueDeLaPartie {
@@ -322,6 +360,17 @@ export interface VueDeLaPartie {
   enCours?: MancheMontree
   revelation?: RevelationVue
   bilan?: BilanVu
+  /**
+   * Ce que vaudrait la partie quittée à cet instant : son total sur neuf,
+   * Protéger compris, et sa poussière d'or — le geste « Quitter » joué par le
+   * pli sur l'état, rien d'écrit. « Quitter ? » promettait « les étoiles déjà
+   * gagnées » : Protéger relève la manche quittée, et une partie quittée
+   * d'emblée paie sa poussière d'or. La règle ne change pas pour autant —
+   * quitter n'est jamais meilleur que répondre faux —, elle se dit. Absent
+   * d'une partie finie, et d'une manche dont le temps est écoulé : sa
+   * réponse part d'elle-même, et la révélation suit.
+   */
+  siTuQuittes?: { total: number; poussiere: number }
 }
 
 // ── Ce qu'on apprend ──────────────────────────────────────────────────────

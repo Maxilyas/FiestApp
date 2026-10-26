@@ -7,9 +7,10 @@
 // par jour, et la case échangée qui part à son jeu neuf ; rien ne se dépense
 // pendant qu'une partie attend, sans que la visite trahisse l'œuvre qu'elle
 // vise. Puis ce que la poussière ne touche pas : ni les confettis, ni
-// l'économie du QG (D15). « Retenter » et les cinq libres payées, comptés par
-// la base, ont leur place ici aussi : ce sont des droits du jour, comme
-// l'échange. Et les fonctions mêmes de la page (`api.cabinet`, chargées dans
+// l'économie du QG (D15). « Retenter » — par la case manquée, jamais par
+// l'œuvre — et les cinq libres payées, comptés par la base, ont leur place ici
+// aussi : ce sont des droits du jour, comme l'échange ; et ce que le bilan d'une
+// libre en dit. Et les fonctions mêmes de la page (`api.cabinet`, chargées dans
 // Node) lisent ce que ces routes rendent. Le pli, la visite et les refus en
 // mots ont leurs épreuves pures (`cabinet-regles.test.ts`) ; les allers-retours
 // de chaque route, `cabinet-charge.test.ts` ; le plan de chaque instruction,
@@ -44,7 +45,7 @@ import {
 import { LIBRES_QUI_PAIENT, PRIX_D_UNE_DORURE, PRIX_D_UNE_OEUVRE } from '../../shared/cabinet/bareme'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, oeuvre, type CleDOeuvre } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
-import { PLUS_DE_CHASSE, laPartieAttend, poussieresDites } from '../../shared/cabinet/musee'
+import { CASE_DEJA_FAITE, CHOISIS_UNE_CASE, PLUS_DE_CHASSE, RETENTER_SANS_VISITE_MANQUEE, SON_OEUVRE_EST_A_TOI, laPartieAttend, poussieresDites } from '../../shared/cabinet/musee'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 import { JEUX } from '../../shared/cabinet/jeux/regle'
 import type { Cartel, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
@@ -419,11 +420,14 @@ test('changer le jeu d’une case de la visite : une fois par jour, une case pas
   assert.equal(partie.jeu, neuf)
   ok(await jouer(b, zoe, partie, { quoi: 'quitter' }), 'quitter')
 
-  // Une case déjà jouée ne s'échange pas ; une case qui n'existe pas non plus.
+  // Une case déjà jouée ne s'échange pas — dans les mots mêmes de son départ refusé : une case commencée n'a qu'une phrase —,
+  // une case qui n'existe pas non plus.
   const eva = await inscrireProfil(b.banc.url, 'eva', 'Éva')
   const jouee = ok(await commencer(b, eva, { origine: 'visite', case: 0, carte: null }), 'la case 0')
   ok(await jouer(b, eva, jouee, { quoi: 'quitter' }), 'quitter')
-  assert.deepEqual(refus(await echanger(eva, 0)), [400, { error: 'Cette partie de la visite est déjà jouée' }])
+  assert.deepEqual(refus(await echanger(eva, 0)), [400, { error: CASE_DEJA_FAITE }])
+  assert.deepEqual(refus(await commencer(b, eva, { origine: 'visite', case: 0, carte: null })), [400, { error: CASE_DEJA_FAITE }])
+  assert.equal(CASE_DEJA_FAITE, 'Cette partie de la visite est déjà faite')
   assert.deepEqual(refus(await echanger(eva, 7)), [400, { error: 'Choisis une partie de la visite' }])
   assert.deepEqual(refus(await echanger(eva, '1')), [400, { error: 'Choisis une partie de la visite' }])
   assert.deepEqual(refus(await echanger(undefined, 1)), [401, { error: CABINET_SANS_PROFIL }])
@@ -452,7 +456,7 @@ test('deux serveurs : un seul échange par jour, et pas sur une case que l’aut
   await autre.cabinet.page('deux')
   const p = await a.cabinet.commencer('deux', { origine: 'visite', case: 2, carte: null })
   assert.ok('partie' in (await a.cabinet.geste('deux', p.id, p.etat.rang, { quoi: 'quitter' })))
-  await assert.rejects(autre.cabinet.echanger('deux', 2), { message: 'Cette partie de la visite est déjà jouée' })
+  await assert.rejects(autre.cabinet.echanger('deux', 2), { message: CASE_DEJA_FAITE })
   // Sa mémoire relue, il sait : la case commencée là-bas, et l'échange encore possible ailleurs.
   await autre.cabinet.echanger('deux', 1)
 })
@@ -669,24 +673,69 @@ test('« Mes réponses » : une partie finie relue, chaque manche révélée ; c
 
 // ── Les droits du jour ────────────────────────────────────────────────────
 
-test('« Retenter » : après une visite manquée, une chasse au jeu de la visite, pour cette œuvre seulement', async () => {
-  const sam = await inscrireProfil(b.banc.url, 'sam', 'Sam')
-  const { visite } = ok(await laPage(b, sam), 'la page')
-  const partie = ok(await commencer(b, sam, { origine: 'visite', case: 0, carte: null }), 'la visite')
+test('« Retenter » : après une visite manquée, une chasse au jeu de la visite, demandée par sa case — l’œuvre, la page ne la sait pas', async () => {
+  const sam = await avecDeLaPoussiere('sam', 1000)
+  const { visite } = ok(await laPage(b, sam.cookie), 'la page')
+  const partie = ok(await commencer(b, sam.cookie, { origine: 'visite', case: 0, carte: null }), 'la visite')
   const cible = departEnBase(b.fichier, partie.id).cible as CleDOeuvre
   assert.ok(cible, 'une œuvre à gagner')
-  // Quittée sans une étoile : manquée. Retenter ne vaut que pour son œuvre.
-  ok(await jouer(b, sam, partie, { quoi: 'quitter' }), 'quitter : manquée')
-  const autreOeuvre = manquantes.find(o => o.cle !== cible && JEUX_PRETS.includes(JEU_DE_L_OEUVRE[o.cle]))!.cle
-  assert.deepEqual(refus(await commencer(b, sam, { origine: 'chasse', oeuvre: autreOeuvre, carte: null, retente: true })), [
-    400,
-    { error: 'Retenter ne sert qu’après une visite manquée de cette œuvre' },
-  ])
-  const retente = ok(await commencer(b, sam, { origine: 'chasse', oeuvre: cible, carte: null, retente: true }), 'retenter')
-  assert.equal(retente.jeu, visite.cases[0].jeu, 'au jeu de la visite, pas à celui de l’œuvre')
-  assert.equal(departEnBase(b.fichier, retente.id).retente, true)
-  ok(await jouer(b, sam, retente, { quoi: 'quitter' }), 'quitter')
-  assert.equal(ok(await laPage(b, sam), 'la page').chasses.restent, 1, 'retenter prend une chasse')
+  // Quittée sans une étoile : manquée. Le bilan propose de la retenter, la case aussi — rien d'autre qu'un verdict, l'œuvre tue.
+  const manquee = ok(await jouer(b, sam.cookie, partie, { quoi: 'quitter' }), 'quitter : manquée')
+  assert.equal(manquee.bilan?.issue, 'manquee')
+  assert.deepEqual(manquee.bilan?.retenter, { possible: true })
+  assert.deepEqual(ok(await laPage(b, sam.cookie), 'la page').visite.cases[0].retenter, { possible: true })
+  // Une case pas jouée, une case qui n'existe pas : rien à retenter.
+  assert.deepEqual(refus(await commencer(b, sam.cookie, { origine: 'chasse', case: 1, retente: true, carte: null })), [400, { error: RETENTER_SANS_VISITE_MANQUEE }])
+  assert.deepEqual(refus(await commencer(b, sam.cookie, { origine: 'chasse', case: 7, retente: true, carte: null })), [400, { error: CHOISIS_UNE_CASE }])
+  assert.equal(ok(await laPage(b, sam.cookie), 'la page').visite.cases[1].retenter, undefined)
+
+  const retente = ok(await commencer(b, sam.cookie, { origine: 'chasse', case: 0, retente: true, carte: null }), 'retenter')
+  assert.deepEqual([retente.origine, retente.jeu], ['chasse', visite.cases[0].jeu], 'une chasse, au jeu de la visite, pas à celui de l’œuvre')
+  assert.deepEqual([departEnBase(b.fichier, retente.id).retente, departEnBase(b.fichier, retente.id).cible], [true, cible])
+  assert.deepEqual(retente.enJeu, visite.cases[0].enJeu, 'l’enjeu de la case, jamais l’œuvre')
+  ok(await jouer(b, sam.cookie, retente, { quoi: 'quitter' }), 'quitter')
+  const apres = ok(await laPage(b, sam.cookie), 'la page')
+  assert.equal(apres.chasses.restent, 1, 'retenter prend une chasse')
+  assert.deepEqual(apres.visite.cases[0].retenter, { possible: true }, 'une chasse reste : elle se retente encore')
+
+  // Achetée depuis, l'œuvre est à elle : plus rien à retenter, et la case le dit dans les mots du refus.
+  ok(await acheter(sam.cookie, cible, prixDAchat(cible)), 'l’achat')
+  const achetee = ok(await laPage(b, sam.cookie), 'la page, l’œuvre achetée')
+  assert.deepEqual(achetee.visite.cases[0].retenter, { possible: false, refus: SON_OEUVRE_EST_A_TOI })
+  assert.deepEqual(refus(await commencer(b, sam.cookie, { origine: 'chasse', case: 0, retente: true, carte: null })), [400, { error: SON_OEUVRE_EST_A_TOI }])
+  // Les chasses prises, plus de chasse : la raison d'avant toutes les autres, comme pour une chasse.
+  ok(await jouer(b, sam.cookie, ok(await commencer(b, sam.cookie, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la seconde chasse'), { quoi: 'quitter' }), 'quitter')
+  assert.deepEqual(ok(await laPage(b, sam.cookie), 'la page sans chasse').visite.cases[0].retenter, { possible: false, refus: PLUS_DE_CHASSE })
+})
+
+test('le bilan d’une partie libre dit vrai : payée sans étoile, elle ne dit pas « ont payé » ; payée, elle ne redit pas sa poussière ; la sixième se joue pour le plaisir', async () => {
+  const lou = await inscrireProfil(b.banc.url, 'lou', 'Lou')
+  const ont = /ont payé/
+  // Une libre qui paie, quittée d'emblée : pas une étoile, pas de poussière — et il lui en reste quatre qui paient.
+  const fin = async (v: VueDeLaPartie) => ok(await jouer(b, lou, v, { quoi: 'quitter' }), 'quitter')
+  const premiere = await fin(ok(await commencer(b, lou, { origine: 'libre', jeu: 'pari', carte: null }), 'la première'))
+  assert.equal(premiere.bilan?.poussiere, 0)
+  assert.doesNotMatch(premiere.bilan!.dit, ont)
+  assert.equal(premiere.bilan!.dit, `Aucune étoile cette fois : pas de poussière d’or. Encore ${LIBRES_QUI_PAIENT - 1} parties libres qui paient aujourd’hui`)
+  assert.equal(premiere.bilan?.libresQuiPaientEncore, LIBRES_QUI_PAIENT - 1)
+  assert.equal(ok(await laPage(b, lou), 'la page').libres.paientEncore, LIBRES_QUI_PAIENT - 1)
+  // Jouée jusqu'au bout à zéro étoile, de même.
+  let v = ok(await commencer(b, lou, { origine: 'libre', jeu: 'pari', carte: null }), 'la deuxième')
+  for (const k of [0, 1, 2]) v = await jouerUnPari(b, lou, k > 0 ? await ouvrir(b, lou, v, k) : v, k, 'rater')
+  assert.deepEqual([v.phase, v.bilan?.total, v.bilan?.poussiere], ['finie', 0, 0])
+  assert.doesNotMatch(v.bilan!.dit, ont)
+  assert.equal(v.bilan?.libresQuiPaientEncore, LIBRES_QUI_PAIENT - 2)
+  assert.equal(ok(await laPage(b, lou), 'la page').libres.paientEncore, LIBRES_QUI_PAIENT - 2)
+  // Payée, de la poussière : la ligne « +4 » du bilan dit le nombre, la phrase ne le redit pas (Lucas et Théo l'ont lu deux fois).
+  const gardee = await fin(await jouerUnPari(b, lou, ok(await commencer(b, lou, { origine: 'libre', jeu: 'pari', carte: null }), 'la troisième'), 0, 'garder'))
+  assert.ok(gardee.bilan!.poussiere > 0)
+  assert.equal(gardee.bilan!.dit, 'Une des parties libres qui paient aujourd’hui')
+  assert.doesNotMatch(gardee.bilan!.dit, /\d|poussière/)
+  // Les deux dernières qui paient, puis la sixième : pour le plaisir — le nombre lu du barème, jamais « cinq » en dur.
+  for (let i = 0; i < LIBRES_QUI_PAIENT - 3; i++) await fin(ok(await commencer(b, lou, { origine: 'libre', jeu: 'pari', carte: null }), 'une libre'))
+  const derniere = (await fin(ok(await commencer(b, lou, { origine: 'libre', jeu: 'pari', carte: null }), 'la sixième'))).bilan!
+  assert.equal(derniere.dit, `Les ${LIBRES_QUI_PAIENT} parties libres du jour ont payé : celle-ci se joue pour le plaisir`)
+  assert.equal(derniere.libresQuiPaientEncore, undefined)
 })
 
 test('les cinq libres qui paient se comptent par la base, même jouées sur deux serveurs', async () => {

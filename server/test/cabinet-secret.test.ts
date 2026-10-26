@@ -13,7 +13,8 @@
 // fiche des Indices, ses clés, ses indices encore cachés ; ni le mot d'une
 // réplique, ni qui l'a dite, ni si le mot choisi était le bon. Jamais la graine de la partie,
 // jamais celle de la visite, ni le secret dont elle est faite ; jamais
-// l'œuvre visée d'une case de la visite. Chaque réponse se lit en entier
+// l'œuvre visée d'une case de la visite — ni sous « Retenter », qui vise la
+// case, et dont la demande qui nommerait l'œuvre se refuse pareil pour toutes. Chaque réponse se lit en entier
 // (`JSON.stringify`) : un champ neuf qui s'y glisserait de lui-même s'y
 // verrait. Un jeu de plus ajoute ses secrets ici.
 import { after, before, test } from 'node:test'
@@ -526,6 +527,49 @@ test('la visite : ni l’œuvre visée d’une case, ni sa graine, ni le secret 
     assert.ok(!texte(page.visite).includes(`"${cible}"`), `la visite nomme ${cible}`)
     assert.ok(!texte(v).includes(`"${cible}"`), `la partie de la visite nomme ${cible}`)
     assert.ok(!texte(page.enCours).includes(`"${cible}"`), `la partie en cours nomme ${cible}`)
+  }
+})
+
+test('« Retenter » vise la case : ni la page, ni le bilan, ni la retente ne nomment l’œuvre, et une retente qui la nomme se refuse pareil, quelle qu’elle soit', async () => {
+  const lia = await inscrireProfil(b.banc.url, 'lia', 'Lia')
+  const id = (await lire(b, lia, '/api/joueur/moi?leger')).corps.profile.id as string
+  const v = ok(await commencer(b, lia, { origine: 'visite', case: 0, carte: null }), 'la visite')
+  const d = departEnBase(b.fichier, v.id)
+  assert.ok(d.cible, 'une œuvre à gagner')
+  const manquee = ok(await jouer(b, lia, v, { quoi: 'quitter' }), 'quitter : manquée')
+  assert.deepEqual(manquee.bilan?.retenter, { possible: true }, 'le bilan propose de la retenter')
+  const page = ok(await laPage(b, lia), 'la page')
+  assert.deepEqual(page.visite.cases[0].retenter, { possible: true }, 'la case aussi')
+  // Une retente forgée qui nomme une œuvre — la visée, une autre, avec ou sans carte-bonus, une carte qu'il n'a pas — : les mêmes
+  // mots pour toutes, et rien de pris. L'ordre des refus désignait la visée parmi les trois candidates de la visite.
+  const figee = enBase(b.fichier, db => JSON.parse((db.prepare('SELECT visites FROM cabinet_profils WHERE profile_id = ?').get(id) as { visites: string }).visites)) as {
+    cases: { cible: string | null }[]
+  }[]
+  const candidates = [...new Set([d.cible, ...figee[0].cases.map(c => c.cible), 'lecon', 'bastion'].filter((c): c is string => c !== null))]
+  const refus = new Set<string>()
+  for (const oeuvre of candidates)
+    for (const carte of [null, 'coup-d-oeil', 'lg:phenix', 42]) {
+      const r = await poster(b, lia, '/api/cabinet/partie', { origine: 'chasse', oeuvre, carte, retente: true })
+      assert.equal(r.status, 400, `${oeuvre}, ${carte}`)
+      refus.add((r.corps as { error: string }).error)
+    }
+  assert.deepEqual([...refus], ['Choisis une partie de la visite, une chasse ou un jeu libre'])
+  assert.equal(ok(await laPage(b, lia), 'la page').chasses.restent, 2, 'aucune chasse prise')
+  // La retente par la case : partie, son plan garde l'œuvre ; la vue, jamais.
+  const retente = ok(await commencer(b, lia, { origine: 'chasse', case: 0, retente: true, carte: null }), 'retenter')
+  assert.equal(departEnBase(b.fichier, retente.id).cible, d.cible)
+  const finie = ok(await jouer(b, lia, retente, { quoi: 'quitter' }), 'quitter la retente')
+  const dr = departEnBase(b.fichier, retente.id)
+  // Le musée nomme ses 84 œuvres : c'est la visite, ses parties et leurs bilans qui ne nomment pas la sienne.
+  for (const [ou, x, depart] of [
+    ['le bilan de la visite', manquee, d],
+    ['la visite de la page', page.visite, d],
+    ['la retente', retente, dr],
+    ['sa fin', finie, dr],
+    ['la visite de la page d’après', ok(await laPage(b, lia), 'la page d’après').visite, dr],
+  ] as const) {
+    jamais(depart, x, ou)
+    assert.ok(!texte(x).includes(`"${d.cible}"`), `${ou} nomme l’œuvre visée`)
   }
 })
 

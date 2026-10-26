@@ -16,10 +16,20 @@
 // que son bilan garde comme le bilan l'a dite.
 import type { CartelLu, LectureDeLAccueil, LectureDesMurs, LectureDuCabinet, PartieGardee, PartieLue } from './magasin'
 import { themeDuTirage } from './tirages/index'
-import { CHANGEMENTS_PAR_PARTIE, CHASSES_PAR_JOUR, ECLAIRAGES_PAR_PARTIE, LIBRES_QUI_PAIENT, MANCHES_PAR_PARTIE, SEUILS_DES_RARETES, VAGUES_DE_LA_FRISE } from '../../../../shared/cabinet/bareme'
+import {
+  CHANGEMENTS_PAR_PARTIE,
+  CHASSES_PAR_JOUR,
+  ECLAIRAGES_PAR_PARTIE,
+  ETOILES_D_UNE_PARTIE,
+  ETOILES_PAR_MANCHE,
+  LIBRES_QUI_PAIENT,
+  MANCHES_PAR_PARTIE,
+  SEUILS_DES_RARETES,
+  VAGUES_DE_LA_FRISE,
+} from '../../../../shared/cabinet/bareme'
 import { deplier, estUneFriseDeSujet, idDeLaFriseATheme, idDuLieu } from '../../../../shared/cabinet/pieces'
 import { PREFIXE_DE_LA_FRISE } from '../../../../shared/frise'
-import { echeanceDe, pauseEnCours, pauseResteMs } from '../../../../shared/cabinet/chrono'
+import { dansLesTemps, echeanceDe, pauseEnCours, pauseResteMs } from '../../../../shared/cabinet/chrono'
 import { regleDe } from '../../../../shared/cabinet/jeux/index'
 import {
   caseCommencee,
@@ -29,11 +39,12 @@ import {
   gardiensDus,
   libresQuiPaientEncore,
   possedees,
-  poussieresDites,
   prixDe,
   prochainGardien,
   refusDeLEchange,
+  retenteDeLaCase,
   serieMontree,
+  seuilDeLaCase,
   soldeDe,
   type EnjeuDUneCase,
   type Musee,
@@ -41,8 +52,10 @@ import {
 } from '../../../../shared/cabinet/musee'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, estUneOeuvre, oeuvre, oeuvresDeLaSalle, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
 import {
+  bilanDe,
   etapeEnCours,
   etoilesDesManches,
+  jouerUnGeste,
   leChronoCourt,
   mancheDe,
   mancheEnCours,
@@ -54,7 +67,7 @@ import {
   type EtatDeLaPartie,
   type MancheDuPli,
 } from '../../../../shared/cabinet/partie'
-import { ceQueFaitLaCarte } from '../../../../shared/cabinet/pouvoirs'
+import { POUVOIRS, ceQueFaitLaCarte } from '../../../../shared/cabinet/pouvoirs'
 import { AUTRES_GARDIENS, GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, SALLES, conditionDuGardien, pouvoirDuGardien, salle, voieDuGardien } from '../../../../shared/cabinet/salles'
 import type {
   BilanVu,
@@ -133,21 +146,30 @@ function revelationDe(d: DepartDUnePartie, e: EtatDeLaPartie, m: MancheDuPli): R
   }
 }
 
-/** Ce que vaut chaque manche à présent, et pourquoi ses étoiles diffèrent de ses naturelles : « +4 : mise gagnée ». */
+/**
+ * Ce que vaut chaque manche à présent, et pourquoi ses étoiles diffèrent de
+ * ses naturelles — « +4 : mise gagnée », « +1 : protégée » —, ou pourquoi ses
+ * trois étoiles ne dorent pas de cadre : une manche aidée le dit (« éclairée »,
+ * « changée », « temps en plus »). À la tablée du 25 octobre 2026, un 9 sur 9
+ * entrait sans cadre doré sans un mot, et « +2 : mise gagnée » se lisait comme
+ * un gain que le plafond de la partie avait mangé : la note le dit
+ * (« au-delà de 9 »).
+ */
 function manchesDe(d: DepartDUnePartie, e: EtatDeLaPartie): MancheVue[] {
   const finie = e.fin !== null
-  return etoilesDesManches(d, e).map((x, k) => {
-    const note =
-      x.naturel === null || x.etoiles === null
-        ? undefined
-        : x.misee
-          ? x.naturel === 3
-            ? `+${x.etoiles - 3} : mise gagnée`
-            : 'Mise perdue'
-          : x.protegee && x.etoiles > x.naturel
-            ? `+${x.etoiles - x.naturel} : protégée`
-            : undefined
+  const etoiles = etoilesDesManches(d, e)
+  const auDelaDuPlafond = etoiles.reduce((n, x) => n + (x.etoiles ?? 0), 0) > ETOILES_D_UNE_PARTIE
+  return etoiles.map((x, k) => {
     const m = e.manches[k]
+    const notes: string[] = []
+    if (x.naturel !== null && x.etoiles !== null) {
+      if (x.misee) notes.push(x.naturel === ETOILES_PAR_MANCHE ? `+${x.etoiles - ETOILES_PAR_MANCHE} : mise gagnée${auDelaDuPlafond ? `, au-delà de ${ETOILES_D_UNE_PARTIE}` : ''}` : 'Mise perdue')
+      else if (x.protegee && x.etoiles > x.naturel) notes.push(`+${x.etoiles - x.naturel} : protégée`)
+      if (m?.etapes.some(s => s.eclairee)) notes.push('éclairée')
+      if (m && m.tirage >= MANCHES_PAR_PARTIE) notes.push('changée')
+      if (m?.etapes.some(s => s.tempsEnPlus)) notes.push('temps en plus')
+    }
+    const note = notes.length > 0 ? notes.join(' · ') : undefined
     const revelation = finie && m ? revelationDe(d, e, m) : undefined
     return { etoiles: x.etoiles, naturel: x.naturel, ...(note && { note }), ...(x.fin && { fin: x.fin }), ...(revelation && { revelation }) }
   })
@@ -160,24 +182,67 @@ function chronoDe(m: MancheDuPli | undefined, t: number): VueDeLaPartie['chrono'
   return { echeance: echeanceDe(etape, t), dureeMs: etape.dureeMs, ...(pauseEnCours(etape) && { pauseResteMs: pauseResteMs(etape, t) }) }
 }
 
-/** Ce que dit le bilan de l'œuvre en jeu, en une phrase. */
-function bilanDit(d: DepartDUnePartie, b: BilanDUnePartie): string {
+/**
+ * Pourquoi neuf étoiles naturelles n'ont pas doré son cadre : la carte-bonus a
+ * servi — la seule de la partie, et Protéger ne relève pas une partie
+ * parfaite. « Une œuvre de plus ! » ne disait rien du cadre que Prendre son
+ * temps, dans le temps en plus, venait d'ôter (Théo, à la tablée).
+ */
+function sansCadreDore(d: DepartDUnePartie, b: BilanDUnePartie): string | null {
+  return b.aidee && d.carte && b.naturel.every(n => n === ETOILES_PAR_MANCHE) ? `${POUVOIRS[d.carte.pouvoir].nom} a servi` : null
+}
+
+/** « Encore 4 parties libres qui paient aujourd'hui » : ce qu'il en reste, quand le serveur le sait du jour. */
+function libresDites(n: number | undefined): string {
+  if (n === undefined) return ''
+  return n === 0 ? '. Les suivantes se jouent pour le plaisir' : `. Encore ${n} ${n > 1 ? 'parties libres qui paient' : 'partie libre qui paie'} aujourd’hui`
+}
+
+/**
+ * Ce que dit le bilan de l'œuvre en jeu, en une phrase. Une partie libre se
+ * dit à son départ, qui l'a comptée payée ou non (`payee`), jamais à sa
+ * poussière : une libre qui paie, finie sans étoile, disait que les libres du
+ * jour avaient toutes payé (Hugo, à la tablée du 25 octobre 2026). Payée, la
+ * phrase tait le nombre que la ligne de la poussière du bilan dit déjà.
+ */
+function bilanDit(d: DepartDUnePartie, b: BilanDUnePartie, libresEncore: number | undefined): string {
   const nom = nomDe(d.cible ?? undefined)
+  const servi = sansCadreDore(d, b)
   switch (b.issue) {
     case 'gagnee':
-      return `${nom} entre dans ton musée`
+      return `${nom} entre dans ton musée${servi ? ` — sans cadre doré : ${servi}` : ''}`
     case 'gagnee-doree':
       return `${nom} entre dans ton musée, dans un cadre doré`
     case 'doree':
       return `${nom} prend son cadre doré`
     case 'double':
-      return `${nom} était déjà à toi : sa poussière d’or en plus`
+      return `${nom} était déjà à toi : sa poussière d’or en plus${servi ? ` — sans cadre doré : ${servi}` : ''}`
     case 'manquee':
-      return d.but === 'dorer' ? 'Pas de dorure cette fois' : `Pas assez d’étoiles cette fois. Il en fallait ${d.seuil}. L’œuvre reste à gagner.`
+      if (d.but === 'dorer') return servi ? `Pas de dorure cette fois : ${servi}` : 'Pas de dorure cette fois'
+      return `Pas assez d’étoiles cette fois. Il en fallait ${d.seuil}. L’œuvre reste à gagner.`
     case 'libre':
       if (d.origine !== 'libre') return 'Tout ton musée est doré : cette partie rapporte de la poussière d’or'
-      return b.poussiere > 0 ? `${poussieresDites(b.poussiere)} pour ta partie libre` : 'Les cinq parties libres du jour ont payé : celle-ci se joue pour le plaisir'
+      if (!d.payee) return `Les ${LIBRES_QUI_PAIENT} parties libres du jour ont payé : celle-ci se joue pour le plaisir`
+      return b.poussiere > 0 ? 'Une des parties libres qui paient aujourd’hui' : `Aucune étoile cette fois : pas de poussière d’or${libresDites(libresEncore)}`
   }
+}
+
+/**
+ * Ce que le bilan d'une partie d'aujourd'hui dit du reste de la journée, quand
+ * le serveur l'a en mémoire (`PartieLue.aujourdhui`) : « Retenter » une
+ * partie de la visite manquée, par sa case ; les libres qui paient encore,
+ * après une libre payée qui n'a rien rapporté. Une partie d'un jour d'avant
+ * n'a rien à en dire — la case du même rang, aujourd'hui, est une autre.
+ */
+function leJourDuBilan(p: PartieLue, b: BilanDUnePartie): Pick<BilanVu, 'retenter' | 'libresQuiPaientEncore'> {
+  const jour = p.aujourdhui
+  if (!jour || !jour.musee.duJour.parties.some(x => x.id === p.id)) return {}
+  const d = p.depart
+  if (d.origine === 'visite' && d.visite !== undefined && b.issue === 'manquee') {
+    const retenter = retenteDeLaCase(jour.musee, jour.visite, d.visite, jour.jeux)
+    return retenter ? { retenter } : {}
+  }
+  return d.origine === 'libre' && d.payee && b.poussiere === 0 ? { libresQuiPaientEncore: libresQuiPaientEncore(jour.musee) } : {}
 }
 
 /**
@@ -226,6 +291,7 @@ function bilanVu(p: PartieLue): BilanVu | undefined {
   const gains = gainsDe(p)
   // Chaque gardien que la fin a rangé, neuf ou non : « Salle complète ! Le Phénix veillait déjà sur elle. »
   const gardiens = p.gains?.reveil?.gardiens ?? []
+  const leJour = leJourDuBilan(p, b)
   return {
     etoiles: b.etoiles,
     naturel: b.naturel,
@@ -237,12 +303,34 @@ function bilanVu(p: PartieLue): BilanVu | undefined {
     poussiere: b.poussiere,
     cartel,
     seuil: p.depart.seuil,
-    dit: bilanDit(p.depart, b),
+    dit: bilanDit(p.depart, b, leJour.libresQuiPaientEncore),
     ...(b.oeuvre !== undefined && estUneOeuvre(b.oeuvre) && { oeuvre: b.oeuvre }),
     ...(p.cartelDeSonOeuvre && { devientSonCartel: true as const }),
     ...(gardiens.length > 0 && { gardiens: gardiens.map(g => ({ legendaire: g.legendaire, neuf: g.neuf })) }),
     ...(gains && { gains }),
+    ...(leJour.retenter && { retenter: leJour.retenter }),
+    ...(leJour.libresQuiPaientEncore !== undefined && { libresQuiPaientEncore: leJour.libresQuiPaientEncore }),
   }
+}
+
+/**
+ * Ce que vaudrait la partie quittée à cet instant (`VueDeLaPartie.siTuQuittes`) :
+ * « Quitter » joué par le pli sur l'état, à l'heure de la vue, puis son bilan —
+ * le chemin même de la fin, sans rien écrire : la règle qui changera
+ * changera ce qu'il dit. L'œuvre en jeu, telle que le départ la tenait — rien
+ * ne la change pendant une partie (`refusDeLAchat`) ; une partie quittée n'a
+ * jamais trois manches parfaites, et son cadre doré ne s'y joue pas. Rien pour
+ * une partie finie, ni pour une manche dont le temps est écoulé : la page
+ * envoie d'elle-même sa réponse, et la révélation vient avec.
+ */
+function siTuQuittesDe(d: DepartDUnePartie, e: EtatDeLaPartie, t: number): VueDeLaPartie['siTuQuittes'] {
+  if (e.fin) return undefined
+  const m = mancheEnCours(e)
+  if (m && !m.verdict && leChronoCourt(m) && !dansLesTemps(etapeEnCours(m), t)) return undefined
+  const quittee = jouerUnGeste(d, e, { quoi: 'quitter' }, t)
+  if (typeof quittee === 'string') return undefined
+  const b = bilanDe(d, quittee, d.cible === null ? null : { possedee: d.but === 'dorer', doree: false })
+  return { total: b.total, poussiere: b.poussiere }
 }
 
 /**
@@ -260,6 +348,7 @@ export function vueDeLaPartie(p: PartieLue): VueDeLaPartie {
   const revelation = m?.verdict ? revelationDe(d, e, m) : undefined
   const chrono = chronoDe(m, t)
   const bilan = e.fin ? bilanVu(p) : undefined
+  const siTuQuittes = siTuQuittesDe(d, e, t)
   return {
     id: p.id,
     maintenant: t,
@@ -280,6 +369,7 @@ export function vueDeLaPartie(p: PartieLue): VueDeLaPartie {
     ...(enCours && { enCours }),
     ...(revelation && { revelation }),
     ...(bilan && { bilan }),
+    ...(siTuQuittes && { siTuQuittes }),
   }
 }
 
@@ -461,21 +551,28 @@ function sallesDe(m: Musee, jeux: readonly string[], sait: CeQueSaitLeCabinet): 
 }
 
 /**
- * La visite du jour, case par case : son jeu, son enjeu — jamais l'œuvre visée d'une case pas gagnée —, et ce qu'elle a donné.
- * La page la lit, et le bouton de l'accueil aussi (`accueilDuCabinet`) : la même visite, la même règle de « À jouer ».
+ * La visite du jour, case par case : son jeu, son enjeu — jamais l'œuvre visée d'une case pas gagnée —, et ce qu'elle a donné ;
+ * le seuil que son départ figera (pour dorer, celui de son double), et, manquée, « Retenter » par sa case : la page les lit
+ * ici, sans relire le barème ni la règle des départs. La page la lit, et le bouton de l'accueil aussi (`accueilDuCabinet`) : la
+ * même visite, la même règle de « À jouer ».
  */
 function visiteVue(l: LectureDeLAccueil): PageDuCabinet['visite'] {
   const m = l.musee
   const cases = l.visite.cases.map((c, k): CaseVue => {
     const jouee = m.duJour.parties.find(p => p.origine === 'visite' && p.visite === k)
     const gagnee = jouee?.issue === 'gagnee' || jouee?.issue === 'gagnee-doree' || jouee?.issue === 'doree'
+    const enJeu = enjeuDe(m, c)
+    const seuil = seuilDeLaCase(c)
+    const retenter = retenteDeLaCase(m, l.visite, k, l.jeux)
     return {
       jeu: c.jeu,
-      enJeu: enjeuDe(m, c),
+      enJeu,
       faite: caseCommencee(m, k),
       ...(jouee?.issue && { issue: jouee.issue }),
       ...(gagnee && c.cible !== null && { oeuvre: c.cible as CleDOeuvre }),
       ...(!l.jeux.includes(c.jeu) && { bientot: true as const }),
+      ...(seuil !== null && ('pourDorer' in enJeu ? { seuilDuDouble: seuil } : { seuil })),
+      ...(retenter && { retenter }),
     }
   })
   // Une case encore à jouer, s'il en reste une : la seule règle des échanges dit le reste.

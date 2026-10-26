@@ -5,7 +5,10 @@
 // zone au Filet ; Changer prend la rechange suivante du plan, sous la même
 // échéance, jamais à la Frise ; Miser se décide avant de voir la manche, qui ne
 // part pas tant qu'il n'a pas choisi ; Protéger et Prendre son temps agissent
-// seuls — le temps en plus ne marque la pièce que s'il a servi.
+// seuls — le temps en plus ne marque la pièce que s'il a servi. Ce que la
+// manche en dit (« éclairée », « changée », « temps en plus », la mise
+// « au-delà de 9 »), le bilan d'un neuf sur neuf aidé, et ce que vaudrait la
+// partie quittée (`siTuQuittes`), Protéger compris.
 //
 // Et ce qu'on emporte : une carte qu'il a — une œuvre, ou un gardien réveillé,
 // à la force 3 —, figée au départ avec son pouvoir et sa force ; jamais une
@@ -39,7 +42,8 @@ import {
   type Reponse,
 } from './cabinet-banc'
 import { CabinetStore } from '../src/core/cabinet/magasin'
-import { GRACE_D_UNE_MANCHE_MS, SECONDES_PAR_FORCE, DUREES_DES_JEUX } from '../../shared/cabinet/bareme'
+import { DUREES_DES_JEUX, ETOILES_D_UNE_PARTIE, GRACE_D_UNE_MANCHE_MS, LIBRES_QUI_PAIENT, POUSSIERE_PAR_ETOILE, SECONDES_PAR_FORCE } from '../../shared/cabinet/bareme'
+import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART } from '../../shared/cabinet/oeuvres'
 import { JOKER_DU_TEMPS, JOKER_D_ECLAIRER } from '../../shared/cabinet/pieces'
 import type { FiletMontre, FiletTire } from '../../shared/cabinet/jeux/filet'
 import type { MotMontre, MotTire } from '../../shared/cabinet/jeux/mot'
@@ -96,6 +100,8 @@ test('Éclairer souffle une lettre du Mot à sa place, dore une zone du Filet : 
   v = await jouerUnMot(b, lea, v, 0, 1)
   // La pièce aidée porte le pouvoir, jamais la clé de la carte — Coup d'œil est aussi un joker de l'Expédition.
   assert.deepEqual(lignesDe(v.id).map(l => l.joker), [JOKER_D_ECLAIRER])
+  // Et la manche le dit : ses trois étoiles ne sont pas de celles qui dorent un cadre.
+  assert.deepEqual([v.manches[0].naturel, v.manches[0].note], [3, 'éclairée'])
   ok(await jouer(b, lea, v, { quoi: 'quitter' }), 'quitter')
 
   // La Chouette d'Argent, un gardien : la force 3, trois indices. Au Filet, une zone par manche — la deuxième se refuse.
@@ -160,6 +166,7 @@ test('Changer prend la rechange suivante du plan, sous la même échéance — a
   assert.deepEqual(refus(await jouer(b, ana, v, { quoi: 'changer', manche: 0 })), [400, 'Plus de rechange pour cette partie'])
   v = await jouerUnMot(b, ana, v, 0, 1)
   assert.equal(v.revelation?.tirage, 3)
+  assert.equal(v.manches[0].note, 'changée', 'la manche dit qu’elle a joué une rechange')
   // Changer ne marque pas la ligne : il pose une autre question, nue de toute aide sur elle. La partie, elle, est aidée.
   assert.deepEqual(lignesDe(v.id).map(l => l.joker), [null])
   v = ok(await jouer(b, ana, v, { quoi: 'quitter' }), 'quitter')
@@ -201,7 +208,7 @@ test('Changer prend la rechange suivante du plan, sous la même échéance — a
 
 // ── Miser ─────────────────────────────────────────────────────────────────
 
-test('Miser se décide avant de voir la manche — rien d’elle ne part avant —, une fois : parfaite, +3 ; sinon, rien', async () => {
+test('Miser se décide avant de voir la manche — rien d’elle ne part avant —, une fois : parfaite, +3, jusqu’à 9 sur la partie ; sinon, elle ne vaut rien', async () => {
   let v = ok(await commencer(b, miseuse, { origine: 'libre', jeu: 'mot', carte: 'tout-ou-rien' }), 'le Mot')
   const plan = departEnBase(b.fichier, v.id).tirages as MotTire[]
   // Sous une carte de Miser, la première manche ne s'ouvre pas d'elle-même : la mise se décide sans l'avoir vue.
@@ -221,6 +228,17 @@ test('Miser se décide avant de voir la manche — rien d’elle ne part avant �
   v = await ouvrir(b, miseuse, v, 1)
   v = ok(await jouer(b, miseuse, v, { quoi: 'quitter' }), 'quitter')
   assert.equal(v.bilan?.aidee, true, 'la mise a servi : plus de cadre doré')
+
+  // Misée, puis parfaite par ailleurs : six, trois, trois — douze, que le total plafonne à neuf. La note le dit, sans quoi
+  // « +3 : mise gagnée » se lisait comme un gain que le plafond avait mangé (Théo, à la tablée du 25 octobre 2026).
+  let parfaite = ok(await commencer(b, miseuse, { origine: 'libre', jeu: 'mot', carte: 'tout-ou-rien' }), 'le Mot, misé puis parfait')
+  parfaite = await jouerUnMot(b, miseuse, ok(await jouer(b, miseuse, parfaite, { quoi: 'ouvrir', manche: 0, miser: true }), 'miser'), 0, 1)
+  parfaite = await jouerUnMot(b, miseuse, await ouvrir(b, miseuse, parfaite, 1), 1, 1)
+  assert.equal(parfaite.manches[0].note, '+3 : mise gagnée', 'neuf tout juste : rien de mangé encore')
+  parfaite = await jouerUnMot(b, miseuse, await ouvrir(b, miseuse, parfaite, 2), 2, 1)
+  assert.equal(parfaite.manches[0].note, `+3 : mise gagnée, au-delà de ${ETOILES_D_UNE_PARTIE}`)
+  assert.match(parfaite.manches[0].note ?? '', /au-delà de 9/)
+  assert.deepEqual([parfaite.bilan?.total, parfaite.bilan?.aidee], [ETOILES_D_UNE_PARTIE, true])
 
   // Misée imparfaite — trouvée au troisième essai, deux étoiles —, elle ne vaut rien.
   let p = ok(await commencer(b, miseuse, { origine: 'libre', jeu: 'mot', carte: 'tout-ou-rien' }), 'le Mot, misé')
@@ -277,15 +295,62 @@ test('Prendre son temps allonge chaque manche, et ne marque la pièce que si la 
   b.horloge.t = v.chrono!.echeance - 5_000
   v = await jouerUnFilet(b, eva, v, 0, 'petit')
   assert.equal(v.manches[0].naturel, 3, 'à l’heure, sous la carte')
+  // La manche le dit : ses trois étoiles ont eu besoin du temps en plus.
+  assert.match(v.manches[0].note ?? '', /temps en plus/)
   v = await ouvrir(b, eva, v, 1)
   v = await jouerUnFilet(b, eva, v, 1, 'petit')
   assert.deepEqual(lignesDe(v.id).map(l => l.joker), [JOKER_DU_TEMPS, null], 'la seconde, arrivée dans la durée normale : rien à marquer')
+  assert.equal(v.manches[1].note, undefined, 'ni sa note')
   v = await ouvrir(b, eva, v, 2)
   // Au-delà de l'échéance allongée et de la grâce, la réponse ne compte plus : expirée.
   b.horloge.t = v.chrono!.echeance + GRACE_D_UNE_MANCHE_MS + 1
   v = await jouerUnFilet(b, eva, v, 2, 'petit')
   assert.deepEqual([v.manches[2].naturel, v.manches[2].fin], [0, 'expiree'])
   assert.equal(v.bilan?.aidee, true)
+
+  // Neuf sur neuf, une manche dans le temps en plus : l'œuvre entre sans son cadre doré, et le bilan dit pourquoi — Théo, à la
+  // tablée, n'y voyait qu'« Une œuvre de plus ! ».
+  const cible = OEUVRES.find(o => JEU_DE_L_OEUVRE[o.cle] === 'filet' && !OEUVRES_DE_DEPART.includes(o.cle))!
+  let c = ok(await commencer(b, eva, { origine: 'chasse', oeuvre: cible.cle, carte: 'concentration' }), 'la chasse')
+  b.horloge.t = c.chrono!.echeance - 5_000
+  c = await jouerUnFilet(b, eva, c, 0, 'petit')
+  for (const k of [1, 2]) c = await jouerUnFilet(b, eva, await ouvrir(b, eva, c, k), k, 'petit')
+  assert.deepEqual([c.bilan?.naturel, c.bilan?.issue, c.bilan?.aidee], [[3, 3, 3], 'gagnee', true])
+  assert.equal(c.bilan?.dit, `${cible.nom} entre dans ton musée — sans cadre doré : Prendre son temps a servi`)
+  assert.match(c.bilan?.dit ?? '', /sans cadre doré/)
+})
+
+// ── Quitter ───────────────────────────────────────────────────────────────
+
+test('« Quitter ? » dit ce que vaudrait la partie quittée à cet instant : le geste joué par le pli sur l’état, rien d’écrit', async () => {
+  const ugo = await inscrireProfil(b.banc.url, 'ugo', 'Ugo')
+  // Une chasse sous Prudence, sa première manche ouverte : quittée, elle juge zéro, Protéger la porte à une étoile, et la
+  // chasse paie ses quatre poussières au moins. « Quitter ? » promettait « les étoiles déjà gagnées » : zéro, croyait Lucas.
+  const chasse = ok(await commencer(b, ugo, { origine: 'chasse', oeuvre: 'lecon', carte: 'prudence' }), 'la chasse')
+  assert.deepEqual(chasse.siTuQuittes, { total: 1, poussiere: 4 })
+  assert.deepEqual(ok(await laPage(b, ugo), 'la page').enCours?.siTuQuittes, chasse.siTuQuittes, 'la page relue dit la même chose')
+  const quittee = ok(await jouer(b, ugo, chasse, { quoi: 'quitter' }), 'quitter')
+  assert.deepEqual([quittee.bilan?.total, quittee.bilan?.poussiere], [chasse.siTuQuittes!.total, chasse.siTuQuittes!.poussiere], 'le bilan tient la promesse')
+  assert.equal(quittee.siTuQuittes, undefined, 'finie, plus rien à quitter')
+  // Rien ne s'est écrit pour le dire : la partie n'avait qu'un geste, son ouverture, avant « Quitter ».
+  assert.equal(enBase(b.fichier, db => (db.prepare('SELECT COUNT(*) AS n FROM cabinet_gestes WHERE serie_id = ?').get(chasse.id) as { n: number }).n), 2)
+
+  // Une libre qui paie, une manche gagnée, la suivante pas encore ouverte : trois étoiles, deux poussières chacune.
+  for (let i = 0; i < LIBRES_QUI_PAIENT; i++) {
+    let l = ok(await commencer(b, ugo, { origine: 'libre', jeu: 'mot', carte: null }), `la libre ${i + 1}`)
+    if (i === 0) {
+      l = await jouerUnMot(b, ugo, l, 0, 1)
+      assert.deepEqual([l.phase, l.siTuQuittes], ['revele', { total: 3, poussiere: 3 * POUSSIERE_PAR_ETOILE }])
+    }
+    ok(await jouer(b, ugo, l, { quoi: 'quitter' }), 'quitter')
+  }
+  // Au-delà des libres qui paient, la même partie ne rapporte pas une poussière.
+  let sixieme = ok(await commencer(b, ugo, { origine: 'libre', jeu: 'mot', carte: null }), 'la sixième libre')
+  sixieme = await jouerUnMot(b, ugo, sixieme, 0, 1)
+  sixieme = await ouvrir(b, ugo, sixieme, 1)
+  assert.deepEqual(sixieme.siTuQuittes, { total: 3, poussiere: 0 })
+  const finie = ok(await jouer(b, ugo, sixieme, { quoi: 'quitter' }), 'quitter la sixième')
+  assert.deepEqual([finie.bilan?.total, finie.bilan?.poussiere], [3, 0])
 })
 
 // ── Ce qu'on emporte ──────────────────────────────────────────────────────

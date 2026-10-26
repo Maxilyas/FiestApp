@@ -20,6 +20,7 @@ import {
   CHANGEMENTS_PAR_PARTIE,
   ECLAIRAGES_PAR_PARTIE,
   EFFACES_AU_PLUS,
+  ETOILES_D_UNE_PARTIE,
   FORCES_DES_RARETES,
   PROPOSITIONS_LAISSEES,
   SECONDES_PAR_FORCE,
@@ -40,11 +41,25 @@ export interface Pouvoir {
   actif: boolean
 }
 
+/**
+ * Ce que dit chacun, à l'annonce et dans les règles : ce qu'il fait, et ce
+ * qu'on ignorerait sans le lire. Prendre son temps allonge chaque question —
+ * deux par manche au Pari et à la Réplique — et ne compte, cadre doré compris,
+ * que si la réponse arrive dans le temps en plus ; la mise a le plafond de la
+ * partie (`ETOILES_D_UNE_PARTIE`), et manquée, sa manche ne vaut plus rien.
+ * La tablée du 25 octobre 2026 misait à l'aveugle : « sinon, rien » ne disait
+ * pas que la manche imparfaite tombait à zéro, ni que neuf étoiles bornaient
+ * le gain.
+ */
 export const POUVOIRS: Readonly<Record<CleDePouvoir, Pouvoir>> = {
   eclairer: { nom: 'Éclairer', dit: 'Un indice, propre à chaque jeu.', actif: true },
   proteger: { nom: 'Protéger', dit: 'Ta première manche imparfaite gagne des étoiles.', actif: false },
-  temps: { nom: 'Prendre son temps', dit: 'Du temps en plus à chaque manche.', actif: false },
-  miser: { nom: 'Miser', dit: 'Avant une manche, sans l’avoir vue : parfaite, elle rapporte des étoiles en plus ; sinon, rien.', actif: true },
+  temps: { nom: 'Prendre son temps', dit: 'Du temps en plus à chaque question ; il ne compte que si tu t’en sers.', actif: false },
+  miser: {
+    nom: 'Miser',
+    dit: `Avant une manche, sans l’avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu’à ${ETOILES_D_UNE_PARTIE} sur la partie ; sinon, elle ne vaut rien.`,
+    actif: true,
+  },
   changer: { nom: 'Changer', dit: 'Remplace la manche par une autre, avant de répondre ; le chrono continue.', actif: true },
 }
 
@@ -115,7 +130,8 @@ export function forceDite(pouvoir: CleDePouvoir, force: Force): string {
     case 'proteger':
       return `+${pluriel(BONUS_DE_PROTECTION[force], 'étoile')}, une fois par partie`
     case 'temps':
-      return `+${SECONDES_PAR_FORCE * force} s à chaque manche`
+      // L'échéance s'allonge à chaque étape : « à chaque manche » promettait dix secondes au Pari, qui en donne vingt.
+      return `+${SECONDES_PAR_FORCE * force} s à chaque question`
     case 'miser':
       return `+${pluriel(BONUS_DE_MISE[force], 'étoile')} si la manche misée est parfaite`
     case 'changer':

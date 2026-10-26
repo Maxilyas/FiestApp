@@ -38,6 +38,7 @@ import {
   POUVOIRS,
   POUVOIR_DE_LA_FAMILLE,
   POUVOIR_DU_NEUTRE,
+  ceQueFaitLaCarte,
   pouvoirDe,
   forceDe,
   forceDite,
@@ -177,7 +178,12 @@ test('la rareté fait la force : une commune 1, une rare ou une maudite 2, une �
   assert.equal(forceDite('proteger', 1), '+1 étoile, une fois par partie')
   assert.equal(forceDite('proteger', 2), '+1 étoile, une fois par partie')
   assert.equal(forceDite('proteger', 3), '+2 étoiles, une fois par partie')
-  assert.equal(forceDite('temps', 2), '+20 s à chaque manche')
+  // À chaque question, pas à chaque manche : l'échéance s'allonge à chaque étape — au Pari et à la Réplique, deux fois par manche.
+  assert.equal(forceDite('temps', 2), '+20 s à chaque question')
+  assert.equal(ceQueFaitLaCarte('temps', 1, 'replique'), 'Prendre son temps : +10 s à chaque question')
+  assert.equal(POUVOIRS.temps.dit, 'Du temps en plus à chaque question ; il ne compte que si tu t’en sers.')
+  // La mise dit son plafond et ce que vaut une manche misée imparfaite — le plafond lu du barème, jamais recopié.
+  assert.equal(POUVOIRS.miser.dit, `Avant une manche, sans l’avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu’à ${B.ETOILES_D_UNE_PARTIE} sur la partie ; sinon, elle ne vaut rien.`)
   assert.equal(forceDite('miser', 1), '+2 étoiles si la manche misée est parfaite')
   assert.equal(forceDite('miser', 3), '+4 étoiles si la manche misée est parfaite')
   assert.equal(forceDite('changer', 2), '2 fois par partie')

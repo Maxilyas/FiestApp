@@ -11,6 +11,7 @@ import path from 'node:path'
 import { connexionAnimateur, ecrire, inscrireProfil } from './banc'
 import {
   DIX_HEURES,
+  aLaMain,
   bancDuCabinet,
   commencer,
   departEnBase,
@@ -32,9 +33,19 @@ import { jourDe } from '../../shared/jour'
 import { saison } from '../../shared/saisons'
 import { TIREURS } from '../src/core/cabinet/tirages/index'
 import { CABINET_SANS_PROFIL } from '../src/cabinet'
-import { DEMANDE_ILLISIBLE } from '../src/core/cabinet/magasin'
+import { DEMANDE_ILLISIBLE } from '../../shared/cabinet/musee'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
-import { CASES_DE_LA_VISITE, CHASSES_PAR_JOUR, DEPARTS_PAR_HEURE, ECLAIRAGES_PAR_PARTIE, ETOILES_DU_PARI, LIBRES_QUI_PAIENT, POUSSIERE_MIN, POUSSIERE_PAR_ETOILE } from '../../shared/cabinet/bareme'
+import {
+  CASES_DE_LA_VISITE,
+  CHASSES_PAR_JOUR,
+  DEPARTS_PAR_HEURE,
+  ECLAIRAGES_PAR_PARTIE,
+  ETOILES_DU_PARI,
+  LIBRES_QUI_PAIENT,
+  POUSSIERE_MIN,
+  POUSSIERE_PAR_ETOILE,
+  SEUILS_DES_RARETES,
+} from '../../shared/cabinet/bareme'
 import { JEUX } from '../../shared/cabinet/jeux/regle'
 import { forceDite } from '../../shared/cabinet/pouvoirs'
 import { GARDIENS, SALLES } from '../../shared/cabinet/salles'
@@ -331,4 +342,29 @@ test('une partie libre au Pari, juste au premier coup et gardée : ses étoiles,
   assert.equal(v.bilan?.poussiere, ETOILES_DU_PARI.garder * POUSSIERE_PAR_ETOILE)
   assert.equal(v.bilan?.poussiere, 4)
   assert.ok(v.manches[0].revelation, '« Mes réponses » : chaque manche tranchée révélée, la partie finie')
+})
+
+test('chaque case de la visite porte le seuil de sa cible — pour dorer, celui de son double —, rien de plus : la page ne relit plus le barème', async () => {
+  const kim = await inscrireProfil(b.banc.url, 'kim', 'Kim')
+  const id = await idDe(kim)
+  // Une case commencée fige la visite en base, ses œuvres visées comprises : on y lit ce que la page ne voit jamais.
+  ok(await jouer(b, kim, ok(await commencer(b, kim, { origine: 'visite', case: 0, carte: null }), 'la visite'), { quoi: 'quitter' }), 'quitter')
+  const figee = () =>
+    (JSON.parse(enBase(b.fichier, db => (db.prepare('SELECT visites FROM cabinet_profils WHERE profile_id = ?').get(id) as { visites: string }).visites)) as { cases: { cible: string }[] }[])[0].cases
+  const seuilDe = (cle: string) => SEUILS_DES_RARETES[OEUVRES.find(o => o.cle === cle)!.rarete]
+  // Ce qu'une case peut porter, et rien d'autre : ni l'œuvre visée d'une case pas gagnée, ni un champ du départ figé.
+  const permis = new Set(['jeu', 'enJeu', 'faite', 'issue', 'oeuvre', 'bientot', 'seuil', 'seuilDuDouble', 'retenter'])
+  const avant = ok(await laPage(b, kim), 'la page').visite.cases
+  avant.forEach((c, k) => {
+    assert.ok('rarete' in c.enJeu, `case ${k} : à gagner`)
+    assert.deepEqual([c.seuil, c.seuilDuDouble], [seuilDe(figee()[k].cible), undefined], `case ${k}`)
+    assert.deepEqual(Object.keys(c).filter(cle => !permis.has(cle)), [], `case ${k}`)
+  })
+  // Son œuvre à elle depuis — posée en base, relue au réveil — : la case est « pour dorer », et dit le seuil de son double.
+  const dorer = figee()[1].cible
+  aLaMain(b.fichier, `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le) VALUES ('${id}', '${dorer}', 'partie', 1)`)
+  await b.banc.redemarrer()
+  const apres = ok(await laPage(b, kim), 'la page relue').visite.cases[1]
+  assert.deepEqual(apres.enJeu, { pourDorer: dorer })
+  assert.deepEqual([apres.seuil, apres.seuilDuDouble], [undefined, seuilDe(dorer)])
 })

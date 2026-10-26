@@ -47,6 +47,7 @@ import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE } from '../../../../shared/ca
 import { lireLeBilan, lireUnGeste } from '../../../../shared/cabinet/lecture'
 import {
   AUCUN_AUTRE_JEU,
+  DEMANDE_ILLISIBLE,
   PAS_AU_CABINET,
   PAS_ENCORE_A_TOI,
   cadreDuDepart,
@@ -62,7 +63,7 @@ import {
   visiteDuJour,
   visiteEchangee,
   visitesAGarder,
-  type DemandeDeDepart,
+  type DemandeLue,
   type LigneDOeuvre,
   type LigneDuProfil,
   type Musee,
@@ -71,6 +72,7 @@ import {
 } from '../../../../shared/cabinet/musee'
 import { JEUX_PRETS } from '../../../../shared/cabinet/ouverture'
 import {
+  ILLISIBLE,
   PARTIE_FINIE,
   VERSION_DU_DEPART,
   bilanDe,
@@ -162,7 +164,17 @@ export interface PartieLue extends PartieGardee {
    * qu'un autre serveur lui a donné : le bilan le dit (`BilanVu.devientSonCartel`).
    */
   cartelDeSonOeuvre?: true
+  /**
+   * Finie, le musée du jour tel que la mémoire le tient : ce que son bilan dit
+   * du reste de la journée — « Retenter » sa case, les libres qui paient
+   * encore. Jamais un aller-retour pour lui : un musée que ce serveur n'a pas
+   * en mémoire n'en dit rien, et le bilan s'en passe.
+   */
+  aujourdhui?: LectureDuJour
 }
+
+/** Le musée du jour et sa visite, comme la page les lit : ce que le bilan d'une partie d'aujourd'hui en dit (`PartieLue.aujourdhui`). */
+export type LectureDuJour = Pick<LectureDuCabinet, 'musee' | 'visite' | 'jeux'>
 
 /** Ce que la page du Cabinet lit (`pageDuCabinet`). */
 export interface LectureDuCabinet {
@@ -201,7 +213,6 @@ export type IssueDuGeste =
 export const PARTIE_INTROUVABLE = 'Cette partie est introuvable'
 export const GESTE_PASSE = 'Ce geste est passé : ta partie a continué sans lui'
 export const TROP_DE_DEPARTS = 'Tu joues vite : souffle une minute, puis reprends'
-export const DEMANDE_ILLISIBLE = 'Choisis une partie de la visite, une chasse ou un jeu libre'
 export const RIEN_A_TIRER = 'Ce jeu n’a pas de quoi jouer aujourd’hui : choisis-en un autre'
 export const DEPART_CROISE = 'Une autre partie a commencé en même temps : recharge la page'
 export const GESTE_CROISE = 'Ce geste en a croisé un autre : recharge la page'
@@ -278,8 +289,16 @@ const cle = (x: unknown): string | null => (typeof x === 'string' && x.length > 
  * Ce que la page demande à « Commencer », relu champ par champ : la règle des
  * départs (`cadreDuDepart`) juge ensuite, en mots. Une carte-bonus absente
  * vaut « aucune ».
+ *
+ * « Retenter » se lit par sa case, et seulement par elle : une retente qui
+ * nomme une œuvre — la page ne la sait pas, elle ne peut que la forger — ne se
+ * lit pas, quelle que soit l'œuvre, carte-bonus ou non, dans les mots de toute
+ * demande illisible. Jugée par la règle, l'ordre de ses refus désignait
+ * l'œuvre qu'une case manquée visait (l'expert de la triche, à la tablée du
+ * 25 octobre 2026) : la seule visée partait, ou se refusait pour sa
+ * carte-bonus quand les autres se refusaient pour la retente.
  */
-export function lireLaDemande(brut: unknown): DemandeDeDepart | null {
+export function lireLaDemande(brut: unknown): DemandeLue | null {
   if (typeof brut !== 'object' || brut === null || Array.isArray(brut)) return null
   const b = brut as Record<string, unknown>
   const carte = b.carte === undefined || b.carte === null ? null : cle(b.carte)
@@ -288,11 +307,15 @@ export function lireLaDemande(brut: unknown): DemandeDeDepart | null {
     case 'visite':
       return Number.isInteger(b.case) ? { origine: 'visite', case: b.case as number, carte } : null
     case 'chasse': {
+      if (b.retente !== undefined) {
+        if (b.retente !== true || b.oeuvre !== undefined || b.jeu !== undefined || !Number.isInteger(b.case)) return null
+        return { origine: 'chasse', case: b.case as number, retente: true, carte }
+      }
       const oeuvre = cle(b.oeuvre)
-      if (!oeuvre || !(b.retente === undefined || b.retente === true)) return null
+      if (!oeuvre) return null
       const jeu = b.jeu === undefined ? undefined : (CLES_DES_JEUX as readonly unknown[]).includes(b.jeu) ? (b.jeu as CleDeJeu) : null
       if (jeu === null) return null
-      return { origine: 'chasse', oeuvre, carte, ...(b.retente === true && { retente: true as const }), ...(jeu !== undefined && { jeu }) }
+      return { origine: 'chasse', oeuvre, carte, ...(jeu !== undefined && { jeu }) }
     }
     case 'libre': {
       const jeu = cle(b.jeu)
@@ -541,6 +564,19 @@ export class CabinetStore {
 
   private visiteDe(profileId: string, musee: Musee, t: number): VisiteDuJour {
     return visiteDuJour(musee, { graine: this.graineDe(profileId), jour: jourDe(t), minuit: minuitDe(t), jeux: JEUX_PRETS })
+  }
+
+  /**
+   * Une partie telle que la route la montre, à `t` : finie, avec le musée du
+   * jour que la mémoire tient (`PartieLue.aujourdhui`) — sans verrou de plus,
+   * sans aller-retour, et sans faire passer le musée au bout de la mémoire.
+   * Absent de la mémoire, ou d'un autre jour, le bilan s'en passe.
+   */
+  private lue(p: PartieGardee, t: number, plus: Omit<PartieLue, keyof PartieGardee | 'lueA' | 'aujourdhui'> = {}): PartieLue {
+    const g = p.etat.fin ? this.musees.get(p.profileId) : undefined
+    if (!g || g.duJour.jour !== jourDe(t)) return { ...p, ...plus, lueA: t }
+    const musee = this.museeVu(p.profileId, g)
+    return { ...p, ...plus, lueA: t, aujourdhui: { musee, visite: this.visiteDe(p.profileId, musee, t), jeux: JEUX_PRETS } }
   }
 
   // ── L'accueil ─────────────────────────────────────────────────────────
@@ -799,14 +835,14 @@ export class CabinetStore {
         const enMemoire = this.parties.has(serie)
         const p = await this.partieDe(profileId, serie)
         if (!p) return { introuvable: true }
-        if (p.etat.fin) return { passe: { ...p, lueA: this.maintenant() }, pourquoi: PARTIE_FINIE }
+        if (p.etat.fin) return { passe: this.lue(p, this.maintenant()), pourquoi: PARTIE_FINIE }
         if (rang !== p.etat.rang && enMemoire && essai === 0 && typeof rang === 'number' && rang > p.etat.rang) {
           this.oublier(profileId, serie)
           continue
         }
-        if (rang !== p.etat.rang) return { passe: { ...p, lueA: this.maintenant() }, pourquoi: GESTE_PASSE }
+        if (rang !== p.etat.rang) return { passe: this.lue(p, this.maintenant()), pourquoi: GESTE_PASSE }
         const geste = lireUnGeste(brut)
-        if (!geste) throw new Error('Ce geste ne se lit pas : recharge la page')
+        if (!geste) throw new Error(ILLISIBLE)
         const issue = await this.ecrireUnGeste(profileId, p, geste, p.etat.rang, recueLe)
         if ('refus' in issue) throw new Error(issue.refus)
         if ('partie' in issue) return issue
@@ -875,12 +911,10 @@ export class CabinetStore {
       this.parties.delete(p.id)
       const reveil = capte.reveil
       return {
-        partie: {
-          ...suite,
-          lueA: this.maintenant(),
+        partie: this.lue(suite, this.maintenant(), {
           gains: { xp: ecrites.xp, recompenses: ecrites.recompenses, ...(reveil && { reveil }) },
           ...(ecrite?.serieId === p.id && { cartelDeSonOeuvre: true as const }),
-        },
+        }),
       }
     }
     this.garder(this.parties, p.id, suite, PARTIES_GARDEES)
@@ -1157,7 +1191,7 @@ export class CabinetStore {
   partie(profileId: string, serie: string): Promise<PartieLue | null> {
     return this.porte.avecVerrou(profileId, async () => {
       const p = await this.partieDe(profileId, serie)
-      return p && { ...p, lueA: this.maintenant() }
+      return p && this.lue(p, this.maintenant())
     })
   }
 
