@@ -237,7 +237,11 @@ export const LETTRES_DU_MOT_MAX = 7
 
 /** Le Détail : les étoiles au cadrage où il reconnaît le tableau, du premier au tableau entier ; reculer coûte une étoile. */
 export const ETOILES_AU_CADRAGE: readonly number[] = [3, 2, 1, 0]
-/** Le Détail : les titres proposés, le bon et trois d'époques voisines — autant de tableaux qui se suivent dans le temps (`detailTire`). */
+/**
+ * Le Détail : les titres proposés, le bon et trois d'époques voisines — une
+ * fenêtre d'autant de tableaux qui se suivent dans le temps
+ * (`fenetresDuDetail`), le bon au hasard parmi eux.
+ */
 export const TITRES_DU_DETAIL = 4
 /**
  * Plus lu depuis le 26 octobre 2026 : les trois leurres se tiraient parmi les

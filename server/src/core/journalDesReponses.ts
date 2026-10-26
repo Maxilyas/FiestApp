@@ -26,7 +26,9 @@ import { questionsDuTableau } from './details'
 // (`lectureDuJournal`), dans le lot de la requête qui en a besoin. Ce qu'il
 // garde sont les dérivations mêmes que relisaient les requêtes d'avant —
 // chacune avec ses filtres, `journal-des-reponses.test.ts` les compare au
-// SQL d'avant sur une base au hasard. Rien de ce qu'il en tire ne s'écrit :
+// SQL d'avant sur une base au hasard —, sauf ce qu'il a vu, qui y ajoute les
+// questions de la base qu'une pièce du Cabinet a montrées (`vuesDe`) : le
+// même test le compare au SQL d'avant, déplié. Rien de ce qu'il en tire ne s'écrit :
 // il se relit en entier au démarrage — de ses tranches gardées, plus bas —,
 // et une règle changée vaut toujours pour tout ce qui a été joué.
 

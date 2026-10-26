@@ -19,7 +19,7 @@ import { PREFIXE_DE_LA_FRISE, anneeDite, choisirLaFriseSansRepli } from '../../s
 import { ERREUR_SERVEUR } from '../src/core/http'
 import { releve } from '../src/core/pouls'
 import { lireLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
-import { detailsDeLaBase, fichierDuCadrage, tableauxDuDetail } from '../src/core/details'
+import { detailsDeLaBase, fichierDuCadrage, tableauxDuDetail, type TableauDuDetail } from '../src/core/details'
 import { evenementsDeLaBase } from '../src/core/frises'
 import { contenuDuCabinet } from '../src/core/cabinet/contenu'
 import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
@@ -59,6 +59,7 @@ import {
   ERREURS_D_UN_OUBLI,
   ETOILES_AU_CADRAGE,
   EVENEMENTS_D_UNE_FRISE_A_THEME,
+  MANCHES_PAR_PARTIE,
   TITRES_DU_DETAIL,
   VAGUES_DE_LA_FRISE,
 } from '../../shared/cabinet/bareme'
@@ -71,7 +72,9 @@ import {
   QUESTION_DU_TABLEAU,
   REGLE_DU_DETAIL,
   adresseDUnCadrage,
+  detailDUneFenetre,
   detailTire,
+  fenetresDuDetail,
   refusDuCadrage,
   type DetailTire,
   type EtatDuDetail,
@@ -250,12 +253,66 @@ test('le Détail : pas de manche sans trois voisins, et jamais deux fois le mêm
   assert.deepEqual(t.titres.map(x => x.titre).sort(), ['La Cible', 'Le Double', 'Le Quart', 'Le Tiers'])
 })
 
+test('le Détail : les fenêtres du temps — quatre tableaux consécutifs, un par titre, l’identifiant départage à année égale', () => {
+  const tous = [...AUTRES, CIBLE]
+  const fenetres = fenetresDuDetail(tous)
+  // Dix tableaux de dix titres : sept fenêtres, de la Madone à la Voisine (1400-1598) jusqu'au Port, au Concert, au Pont et
+  // aux Nymphéas (1605-1700).
+  assert.equal(fenetres.length, tous.length - TITRES_DU_DETAIL + 1)
+  fenetres.forEach((f, d) => assert.deepEqual(f, DANS_LE_TEMPS.slice(d, d + TITRES_DU_DETAIL)))
+  assert.deepEqual(fenetresDuDetail([...tous].reverse()), fenetres, 'le fichier à rebours, les mêmes fenêtres')
+  // À année égale, l'identifiant ; de deux tableaux du même titre, le plus ancien seul : deux titres pareils feraient deux
+  // bonnes réponses.
+  const egaux: TableauDuCabinet[] = [
+    { qid: 'Q32', titre: 'Le Midi', peintre: 'Karl', annee: 1601 },
+    { qid: 'Q31', titre: 'L’Aube', peintre: 'Jean', annee: 1601 },
+    { qid: 'Q33', titre: 'Le Midi', peintre: 'Léa', annee: 1599 },
+    { qid: 'Q35', titre: 'La Nuit', peintre: 'Nina', annee: 1603 },
+    { qid: 'Q34', titre: 'Le Soir', peintre: 'Marc', annee: 1602 },
+  ]
+  for (const ordre of [egaux, [...egaux].reverse()]) assert.deepEqual(fenetresDuDetail(ordre).map(f => f.map(x => x.qid)), [['Q33', 'Q31', 'Q34', 'Q35']])
+  assert.deepEqual(fenetresDuDetail(AUTRES.slice(0, TITRES_DU_DETAIL - 1)), [], 'moins de quatre titres, aucune fenêtre')
+})
+
+test('le Détail : la manche d’une fenêtre — chacun de ses quatre titres est le bon une fois sur quatre, dans un ordre figé au départ', () => {
+  // Le bon se tire après la fenêtre, parmi ses quatre : rien de ce qu'on sait des quatre titres — leurs années, ce qu'on
+  // a déjà vu d'eux — ne le désigne, puisqu'il ne dépend de rien d'autre que du hasard du serveur.
+  const fenetre = DANS_LE_TEMPS.slice(3, 3 + TITRES_DU_DETAIL)
+  const o = { anecdoteDe: (qid: string) => `L’anecdote de ${qid}.`, categorie: 'Arts & lettres' }
+  const N = 800
+  const bons = new Map<string, number>()
+  const places = new Set<number>()
+  for (let i = 0; i < N; i++) {
+    const t = detailDUneFenetre(fenetre, hasardDe(`fenetre:${i}`), o)
+    assert.equal(t.jeu, 'detail')
+    assert.deepEqual(t.titres.map(x => x.titre).sort(), fenetre.map(x => x.titre).sort(), 'les quatre titres de la fenêtre, et eux seuls')
+    const bon = fenetre.find(x => x.qid === t.tableau.qid)
+    assert.ok(bon, `${t.tableau.qid} n’est pas de la fenêtre`)
+    assert.deepEqual(t.tableau, { qid: bon.qid, titre: bon.titre, peintre: bon.peintre, annee: bon.annee })
+    assert.deepEqual(t.titres[t.bonne], { titre: bon.titre, peintre: bon.peintre }, 'le bon, avec son peintre')
+    for (const x of t.titres) assert.equal(x.peintre, fenetre.find(y => y.titre === x.titre)!.peintre, 'chaque titre avec son peintre')
+    assert.equal(t.anecdote, `L’anecdote de ${bon.qid}.`, 'l’anecdote de la question du bon')
+    assert.equal(t.categorie, 'Arts & lettres')
+    bons.set(bon.qid, (bons.get(bon.qid) ?? 0) + 1)
+    places.add(t.bonne)
+  }
+  for (const x of fenetre) {
+    const part = (bons.get(x.qid) ?? 0) / N
+    assert.ok(part > 0.2 && part < 0.3, `${x.titre}, le bon ${(100 * part).toFixed(1)} % des manches`)
+  }
+  assert.deepEqual([...places].sort(), [0, 1, 2, 3], 'le bon titre n’a pas de place à lui à l’écran')
+  // La même graine redonne la même manche : une reprise après un redémarrage redonne les mêmes titres, au même ordre.
+  assert.deepEqual(detailDUneFenetre(fenetre, hasardDe('reprise'), o), detailDUneFenetre(fenetre, hasardDe('reprise'), o))
+})
+
 test('le Détail : sans regarder le tableau, les années des quatre titres ne désignent pas le bon — une fois sur quatre, comme au hasard', () => {
   // La tablée du 25 octobre 2026 (axe 9, `cabinet-triche-2`) : les trois leurres se tiraient parmi les cinq plus proches
   // voisins en années du bon, et le bon était le seul titre dont les voisins contenaient toujours les trois autres. Qui
   // savait les années du catalogue — chaque révélation les dit, Wikidata aussi — trouvait la réponse sans regarder
-  // l'image une fois sur deux (52 %), et 41 % avec les seules années des quatre titres, le plus au centre. Ici, ces deux
-  // joueurs sans savoir, sur les cent tableaux livrés, chacun le bon de vingt manches.
+  // l'image une fois sur deux (52 %), et 41 % avec les seules années des quatre titres, le plus au centre. Une fenêtre
+  // tirée autour d'un bon choisi d'abord le désignait encore aux deux bouts du temps, où moins de fenêtres le
+  // contiennent (la relecture du 26 octobre 2026). Ici, trois joueurs sans savoir, sur chaque fenêtre des cent tableaux
+  // livrés, quarante manches chacune.
   const tous: TableauDuCabinet[] = tableauxDuDetail().map(({ qid, titre, peintre, annee }) => ({ qid, titre, peintre, annee }))
   assert.ok(tous.length >= 80, `${tous.length} tableaux livrés`)
   const parTitre = new Map(tous.map(t => [t.titre, t]))
@@ -267,6 +324,9 @@ test('le Détail : sans regarder le tableau, les années des quatre titres ne d�
       return [t.qid, new Set(proches.slice(0, 5).map(x => x.qid))]
     }),
   )
+  const fenetres = fenetresDuDetail(tous)
+  const dansCombien = new Map<string, number>()
+  for (const f of fenetres) for (const x of f) dansCombien.set(x.qid, (dansCombien.get(x.qid) ?? 0) + 1)
   /** Sa part de bonnes réponses quand il choisit au hasard parmi ceux que sa règle retient, parmi les quatre si elle n'en retient aucun. */
   const parmi = (retenus: readonly TableauDuCabinet[], quatre: readonly TableauDuCabinet[], bon: TableauDuCabinet) => {
     const choix = retenus.length > 0 ? retenus : quatre
@@ -274,11 +334,12 @@ test('le Détail : sans regarder le tableau, les années des quatre titres ne d�
   }
   let parSesVoisins = 0
   let auCentre = 0
+  let auxBouts = 0
   let manches = 0
-  for (const bon of tous) {
-    for (let i = 0; i < 20; i++) {
-      const t = detailTire(bon, tous, hasardDe(`sans-regarder:${bon.qid}:${i}`), { anecdote: null, categorie: 'Arts & lettres' })
-      assert.ok(t, bon.titre)
+  for (const f of fenetres) {
+    for (let i = 0; i < 40; i++) {
+      const t = detailDUneFenetre(f, hasardDe(`sans-regarder:${f[0].qid}:${i}`), { anecdoteDe: () => null, categorie: 'Arts & lettres' })
+      const bon = parTitre.get(t.tableau.titre)!
       const quatre = t.titres.map(x => parTitre.get(x.titre)!)
       // Le titre dont les cinq plus proches voisins contiennent les trois autres.
       parSesVoisins += parmi(quatre.filter(x => quatre.every(y => y === x || cinqPlusProches.get(x.qid)!.has(y.qid))), quatre, bon)
@@ -286,13 +347,18 @@ test('le Détail : sans regarder le tableau, les années des quatre titres ne d�
       const pire = (x: TableauDuCabinet) => Math.max(...quatre.filter(y => y !== x).map(y => Math.abs(y.annee - x.annee)))
       const min = Math.min(...quatre.map(pire))
       auCentre += parmi(quatre.filter(x => pire(x) === min), quatre, bon)
+      // Le titre qui tient dans le moins de fenêtres, le plus près d'un bout du temps : le bon tiré d'abord, c'était lui.
+      const moins = Math.min(...quatre.map(x => dansCombien.get(x.qid)!))
+      auxBouts += parmi(quatre.filter(x => dansCombien.get(x.qid) === moins), quatre, bon)
       manches++
     }
   }
-  // Une fois sur quatre au hasard ; un peu plus aux deux bouts du temps, où moins de fenêtres contiennent le bon.
-  for (const [nom, part] of [['par ses voisins', parSesVoisins / manches], ['au centre des quatre', auCentre / manches]] as const) {
-    assert.ok(part > 0.2 && part < 0.3, `le bon trouvé ${nom} sans regarder le tableau : ${(100 * part).toFixed(1)} % des manches`)
-  }
+  const parts = [
+    ['par ses voisins', parSesVoisins / manches],
+    ['au centre des quatre', auCentre / manches],
+    ['aux bouts du temps', auxBouts / manches],
+  ] as const
+  for (const [nom, part] of parts) assert.ok(part > 0.22 && part < 0.28, `le bon trouvé ${nom} sans regarder le tableau : ${(100 * part).toFixed(1)} % des manches`)
 })
 
 test('le Détail : Éclairer efface un mauvais titre, deux au plus, et le même à chaque relecture', () => {
@@ -958,7 +1024,16 @@ function surLaBaseLivree(vues: ReadonlyMap<string, number> = new Map()): Context
 
 const UNE_HEURE = 3_600_000
 
-test('le tirage du Détail : un tableau de la fiche, jamais vu d’abord, ni le même tableau ni le même titre deux fois dans le plan, l’anecdote de sa question de la base', () => {
+/** L'ordre du temps du Détail : par année, puis par identifiant (`fenetresDuDetail`). */
+const avantDansLeTemps = (a: TableauDuCabinet, b: TableauDuCabinet) => a.annee - b.annee || (a.qid < b.qid ? -1 : a.qid > b.qid ? 1 : 0)
+
+/** Quand il l'a vu pour la dernière fois : au Cabinet, ou par une question de la base qui le nomme — la règle du tireur. */
+function vuLe(t: TableauDuDetail, vues: ReadonlyMap<string, number>): number | undefined {
+  const fois = [vues.get(idDuTableau(t.qid)), ...t.questions.map(q => vues.get(q))].filter((v): v is number => v !== undefined)
+  return fois.length > 0 ? Math.max(...fois) : undefined
+}
+
+test('le tirage du Détail : un tableau de la fiche, ni le même tableau ni le même titre deux fois dans le plan, leurres compris, l’anecdote de sa question de la base', () => {
   const tableaux = tableauxDuDetail()
   assert.ok(tableaux.length >= 80, `${tableaux.length} tableaux livrés`)
   const parQid = new Map(tableaux.map(t => [t.qid, t]))
@@ -975,8 +1050,9 @@ test('le tirage du Détail : un tableau de la fiche, jamais vu d’abord, ni le 
       assert.ok(fiche, `${t.tableau.qid} n’est pas un tableau livré`)
       assert.deepEqual(t.tableau, { qid: fiche.qid, titre: fiche.titre, peintre: fiche.peintre, annee: fiche.annee })
       assert.equal(t.titres[t.bonne].titre, fiche.titre)
-      // Un titre proposé — un leurre comme une réponse — ne revient pas en réponse plus loin dans le plan.
-      assert.ok(!proposes.has(fiche.titre), `${fiche.titre}, déjà proposé, revient en réponse`)
+      // Un titre proposé — un leurre comme une réponse — ne revient pas plus loin dans le plan, ni en réponse ni en leurre :
+      // revenu en leurre seulement, jamais en réponse, il se serait écarté de lui-même (la relecture du 26 octobre 2026).
+      for (const x of t.titres) assert.ok(!proposes.has(x.titre), `${x.titre}, déjà proposé, revient dans la manche de ${fiche.titre}`)
       for (const x of t.titres) proposes.add(x.titre)
       assert.equal(t.categorie, CATEGORIE_DU_DETAIL, 'la catégorie des tableaux : les missions la lisent')
       assert.equal(t.anecdote, anecdotes.get(fiche.qid) ?? null, 'l’anecdote de sa question « Qui a peint… ? », sinon rien : la règle dit alors ce qu’il est')
@@ -991,50 +1067,132 @@ test('le tirage du Détail : un tableau de la fiche, jamais vu d’abord, ni le 
     })
   }
   assert.ok(avecAnecdote > 0)
-
-  // Le jamais vu d'abord : tous vus sauf deux — au Cabinet, ou par une question de la base qui le demande —, puis le plus
-  // anciennement vu, parmi ceux dont le titre n'a pas encore été proposé. Les deux jamais vus aux deux bouts du temps :
-  // dans une même fenêtre de quatre, le titre de l'un, proposé en leurre à l'autre, l'écarterait de la réponse — par la
-  // règle, pas par le hasard de l'ordre du fichier. Deux jamais vus ne font pas les quatre titres d'une manche : leurs
-  // leurres se prennent parmi tous.
-  const parAnnee = [...tableaux].sort((x, y) => x.annee - y.annee)
-  const [a, b] = [parAnnee[0], parAnnee[parAnnee.length - 1]]
-  const [c, ...autres] = tableaux.filter(t => t !== a && t !== b)
-  assert.ok(parAnnee.length - 1 >= TITRES_DU_DETAIL, 'aucune fenêtre de quatre ne les tient tous deux')
-  const vues = new Map<string, number>(autres.map((t, i) => [idDuTableau(t.qid), DIX_HEURES - (i + 2) * UNE_HEURE]))
-  vues.set(c.questions[0], DIX_HEURES - UNE_HEURE)
-  const vuLe = (qid: string) => (qid === c.qid ? DIX_HEURES - UNE_HEURE : vues.get(idDuTableau(qid)))
-  for (let essai = 0; essai < 20; essai++) {
-    const [p, q, r] = tirerLePlan('detail', surLaBaseLivree(vues), 0) as DetailTire[]
-    assert.deepEqual([p, q].map(t => t.tableau.qid).sort(), [a.qid, b.qid].sort(), 'les deux jamais vus d’abord')
-    const proposes = new Set([p, q].flatMap(t => t.titres.map(x => x.titre)))
-    const restants = tableaux.filter(t => t.qid !== a.qid && t.qid !== b.qid && !proposes.has(t.titre))
-    const plusAncien = restants.reduce((x, y) => (vuLe(y.qid)! < vuLe(x.qid)! ? y : x))
-    assert.equal(r.tableau.qid, plusAncien.qid, 'puis le plus anciennement vu')
-  }
 })
 
-test('le tirage du Détail : les leurres d’un tableau jamais vu sont jamais vus, ceux d’un tableau vu sont vus — tant qu’il y en a quatre', () => {
-  // La contre-expertise de la tablée du 25 octobre 2026 (`detail-jamais-vu.ts`) : le bon se tire jamais vu d'abord, et seul
-  // lui s'écrit vu (`cab:tableau:<QID>`) — un leurre qu'une révélation d'avant avait nommé ne pouvait pas être le bon tant
-  // que le catalogue avait des jamais vus. Qui s'en souvenait l'écartait : 78 % de bonnes réponses à la trentième partie,
-  // sans regarder l'image. Ici, dix jamais vus et quatre-vingt-dix vus — au Cabinet, ou par une question de la base qui
-  // le demande —, six tirages par plan : les premiers bons sont jamais vus, puis, leurs titres tous proposés, des vus.
+test('le tirage du Détail : la fenêtre la moins vue d’abord — quatre jamais vus qui se suivent, puis celle dont le plus récemment vu l’a été il y a le plus longtemps ; le bon, l’un des quatre au hasard', () => {
+  // Le jamais vu d'abord, puis le plus anciennement vu, comme pour tout contenu hors de la base (`laMoinsVue`) — mais pour
+  // la fenêtre de quatre titres, jamais pour le bon : tiré le moins vu des quatre, le bon se désignait à qui se souvenait
+  // de ses parties (la tablée du 25 octobre 2026, la relecture du 26). Ici, tout vu — au Cabinet, ou par une question de
+  // la base qui le nomme — sauf quatre tableaux consécutifs dans le temps, au milieu du catalogue.
+  const tableaux = tableauxDuDetail()
+  const dansLeTemps = [...tableaux].sort(avantDansLeTemps)
+  const quatre = dansLeTemps.slice(40, 40 + TITRES_DU_DETAIL)
+  const autres = tableaux.filter(t => !quatre.includes(t))
+  const vues = new Map<string, number>()
+  // Des heures toutes différentes, dans un ordre qui n'est pas celui du temps : la fenêtre la moins vue n'est pas à côté.
+  autres.forEach((t, i) => {
+    const le = DIX_HEURES - (((i * 37) % autres.length) + 1) * UNE_HEURE
+    vues.set(i % 9 === 0 && t.questions.length > 0 ? t.questions[0] : idDuTableau(t.qid), le)
+  })
+  assert.deepEqual(tableaux.filter(t => vuLe(t, vues) === undefined).map(t => t.qid).sort(), quatre.map(t => t.qid).sort(), 'quatre jamais vus')
+  const laMoinsVue = (titresDejaProposes: ReadonlySet<string>) => {
+    const neufs = dansLeTemps.filter(t => !titresDejaProposes.has(t.titre))
+    const fenetres = neufs.slice(0, neufs.length - TITRES_DU_DETAIL + 1).map((_, d) => neufs.slice(d, d + TITRES_DU_DETAIL))
+    const vueLe = (f: readonly TableauDuDetail[]) => Math.max(...f.map(t => vuLe(t, vues) ?? Number.NEGATIVE_INFINITY))
+    const plusAncienne = Math.min(...fenetres.map(vueLe))
+    return fenetres.filter(f => vueLe(f) === plusAncienne).map(f => f.map(t => t.titre).sort().join(' · '))
+  }
+  const ESSAIS = 200
+  const bonsDeLaPremiere = new Map<string, number>()
+  let leMoinsVuDesQuatre = 0
+  for (let essai = 0; essai < ESSAIS; essai++) {
+    const [p, q] = tirerLePlan('detail', surLaBaseLivree(vues), 0) as DetailTire[]
+    assert.deepEqual(p.titres.map(x => x.titre).sort(), quatre.map(t => t.titre).sort(), 'les quatre jamais vus qui se suivent')
+    bonsDeLaPremiere.set(p.tableau.qid, (bonsDeLaPremiere.get(p.tableau.qid) ?? 0) + 1)
+    const fenetre = q.titres.map(x => x.titre).sort().join(' · ')
+    assert.ok(laMoinsVue(new Set(p.titres.map(x => x.titre))).includes(fenetre), `${fenetre} n’est pas la fenêtre la moins vue`)
+    // Le plus anciennement vu des quatre : le bon d'avant, qui se tirait parmi eux le moins vu.
+    const ages = q.titres.map(x => vuLe(tableaux.find(t => t.titre === x.titre)!, vues)!)
+    if (ages[q.bonne] === Math.min(...ages)) leMoinsVuDesQuatre++
+  }
+  for (const t of quatre) assert.ok((bonsDeLaPremiere.get(t.qid) ?? 0) > ESSAIS / 8, `${t.titre}, le bon ${bonsDeLaPremiere.get(t.qid) ?? 0} fois sur ${ESSAIS}`)
+  assert.ok(leMoinsVuDesQuatre > ESSAIS * 0.15 && leMoinsVuDesQuatre < ESSAIS * 0.35, `le bon, le moins vu des quatre ${leMoinsVuDesQuatre} fois sur ${ESSAIS}`)
+})
+
+test('le tirage du Détail : de partie en partie, ce qu’il se rappelle ne désigne pas le bon — au premier tour du catalogue comme aux suivants, les époques toujours voisines', () => {
+  // La contre-expertise de la tablée du 25 octobre 2026 (`detail-jamais-vu.ts`) : le bon se tirait jamais vu d'abord, et
+  // seul lui s'écrit vu (`cab:tableau:<QID>`) — un leurre qu'une révélation d'avant avait nommé ne pouvait pas être le
+  // bon : 78 % de bonnes réponses à la trentième partie pour qui s'en souvenait. Prendre les leurres de la fraîcheur du
+  // bon n'y suffisait pas (la relecture du 26 octobre 2026) : les cent tableaux révélés, le bon restait le plus
+  // anciennement vu des quatre — 100 % dès la trente-quatrième partie pour qui notait l'ordre de ses révélations ; la
+  // file des jamais vus fondait, ses bouts désignaient le bon (41 % aux dernières parties du premier tour) et ses quatre
+  // titres s'écartaient d'un siècle et demi ; un titre déjà proposé dans la partie y revenait en leurre, jamais en
+  // réponse. Ici, des joueurs qui ne regardent jamais l'image, cent parties libres de suite par le vrai tireur, chacun
+  // ce dont il se souvient, et ce qu'un joueur qui sait le catalogue en tirerait.
   const tableaux = tableauxDuDetail()
   const parTitre = new Map(tableaux.map(t => [t.titre, t]))
-  const vues = new Map<string, number>()
-  tableaux.slice(10).forEach((t, i) => vues.set(i % 9 === 0 ? t.questions[0] : idDuTableau(t.qid), DIX_HEURES - (i + 1) * UNE_HEURE))
-  const vu = (t: (typeof tableaux)[number]) => vues.has(idDuTableau(t.qid)) || t.questions.some(q => vues.has(q))
-  assert.equal(tableaux.filter(t => !vu(t)).length, 10)
-  const statuts = new Set<boolean>()
-  for (let essai = 0; essai < 40; essai++) {
-    for (const t of tirerLePlan('detail', surLaBaseLivree(vues), 3) as DetailTire[]) {
-      const bon = vu(parTitre.get(t.tableau.titre)!)
-      statuts.add(bon)
-      for (const x of t.titres) assert.equal(vu(parTitre.get(x.titre)!), bon, `${x.titre}, ${bon ? 'jamais vu' : 'déjà vu'}, en leurre de ${t.tableau.titre}, ${bon ? 'déjà vu' : 'jamais vu'}`)
+  const dansLeTemps = [...tableaux].sort(avantDansLeTemps)
+  const UN_TOUR = Math.floor(tableaux.length / MANCHES_PAR_PARTIE)
+  const JOUEURS = 40
+  const PARTIES = 100
+  type Joueur = (quatre: readonly TableauDuDetail[], m: { revele: ReadonlyMap<string, number>; proposes: ReadonlySet<string> }) => readonly TableauDuDetail[]
+  /** Combien de fenêtres de quatre de cette file contiennent ce tableau : le bon tiré d'abord, moins il y en a, plus c'était lui. */
+  const fenetresDe = (file: readonly TableauDuDetail[], t: TableauDuDetail) => {
+    const r = file.indexOf(t)
+    return r < 0 ? 0 : Math.min(r, file.length - TITRES_DU_DETAIL) - Math.max(0, r - TITRES_DU_DETAIL + 1) + 1
+  }
+  const JOUEURS_SANS_SAVOIR: [string, Joueur][] = [
+    ['le moins récemment révélé', (quatre, m) => {
+      const le = (x: TableauDuDetail) => m.revele.get(x.qid) ?? Number.NEGATIVE_INFINITY
+      const min = Math.min(...quatre.map(le))
+      return quatre.filter(x => le(x) === min)
+    }],
+    ['un jamais révélé', (quatre, m) => quatre.filter(x => !m.revele.has(x.qid))],
+    ['aux bouts de ce qui reste à révéler', (quatre, m) => {
+      const file = dansLeTemps.filter(x => !m.revele.has(x.qid) && !m.proposes.has(x.titre))
+      const poids = (x: TableauDuDetail) => (fenetresDe(file, x) > 0 ? 1 / fenetresDe(file, x) : 0)
+      const max = Math.max(...quatre.map(poids))
+      return max > 0 ? quatre.filter(x => poids(x) === max) : []
+    }],
+    ['les titres déjà proposés dans la partie écartés', (quatre, m) => quatre.filter(x => !m.proposes.has(x.titre))],
+    ['au centre des quatre', quatre => {
+      const pire = (x: TableauDuDetail) => Math.max(...quatre.filter(y => y !== x).map(y => Math.abs(y.annee - x.annee)))
+      const min = Math.min(...quatre.map(pire))
+      return quatre.filter(x => pire(x) === min)
+    }],
+  ]
+  const justes = JOUEURS_SANS_SAVOIR.map(() => [0, 0])
+  const manches = [0, 0]
+  let ecarts = 0
+  for (let j = 0; j < JOUEURS; j++) {
+    const vues = new Map<string, number>()
+    const revele = new Map<string, number>()
+    let heure = DIX_HEURES - 1000 * UNE_HEURE
+    for (let p = 0; p < PARTIES; p++) {
+      const tour = p < UN_TOUR ? 0 : 1
+      const plan = tirerLePlan('detail', surLaBaseLivree(vues), 0) as DetailTire[]
+      const proposes = new Set<string>()
+      for (const t of plan) {
+        const quatre = t.titres.map(x => parTitre.get(x.titre)!)
+        const bon = parTitre.get(t.tableau.titre)!
+        // Aucun titre de la partie ne revient, et aucun de ceux qu'elle peut encore proposer ne se glisse entre deux des
+        // quatre dans le temps : des époques voisines à chaque manche, du premier tour aux suivants.
+        for (const x of quatre) assert.ok(!proposes.has(x.titre), `${x.titre}, déjà proposé dans la partie, revient`)
+        const neufs = dansLeTemps.filter(x => !proposes.has(x.titre))
+        const rangs = quatre.map(x => neufs.indexOf(x)).sort((a, b) => a - b)
+        assert.deepEqual(rangs, rangs.map((_, k) => rangs[0] + k), `${quatre.map(x => `${x.titre} (${x.annee})`).join(', ')} ne se suivent pas dans le temps`)
+        ecarts += Math.max(...quatre.map(x => x.annee)) - Math.min(...quatre.map(x => x.annee))
+        JOUEURS_SANS_SAVOIR.forEach(([, joueur], k) => {
+          const retenus = joueur(quatre, { revele, proposes })
+          const choix = retenus.length > 0 ? retenus : quatre
+          if (choix.includes(bon)) justes[k][tour] += 1 / choix.length
+        })
+        manches[tour]++
+        // Sa révélation nomme le bon : lui s'en souvient tout de suite, le serveur l'écrit vu.
+        for (const x of quatre) proposes.add(x.titre)
+        revele.set(bon.qid, ++heure)
+        vues.set(idDuTableau(bon.qid), heure)
+      }
     }
   }
-  assert.deepEqual([...statuts].sort(), [false, true], 'des bons jamais vus, puis des vus')
+  JOUEURS_SANS_SAVOIR.forEach(([nom], k) => {
+    for (const tour of [0, 1]) {
+      const part = justes[k][tour] / manches[tour]
+      assert.ok(part > 0.21 && part < 0.29, `${nom}, ${tour ? 'après' : 'au'} premier tour du catalogue : ${(100 * part).toFixed(1)} % de bonnes réponses sans regarder l’image`)
+    }
+  })
+  const ecartMoyen = ecarts / (manches[0] + manches[1])
+  assert.ok(ecartMoyen < 20, `${ecartMoyen.toFixed(0)} ans en moyenne entre le plus ancien et le plus récent des quatre titres`)
 })
 
 test('le tirage de la Frise : trois vagues d’une même frise, à thème ou d’un sujet de la base, en alternance de fraîcheur — jamais de rechange', () => {

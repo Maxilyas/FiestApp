@@ -8,12 +8,13 @@
 // Ici, la règle pure (le moule : `regle.ts`) : ce que vaut chaque cadrage, ce
 // qu'Éclairer efface, ce que la manche montre et ce que la révélation dit,
 // la pièce que le journal garde — un tableau n'est pas la question « Qui a
-// peint… ? » de la base : `cab:tableau:<QID>`, ni carnet ni signalement. Et
-// trois règles que le serveur appelle sans les recopier : la manche tirée d'un
-// tableau choisi (`detailTire`, ses voisins et l'ordre des titres, figés au
-// départ), la garde de la route des images (`refusDuCadrage`) et son adresse
-// (`adresseDUnCadrage`), que la page lit aussi. Le choix du tableau — jamais vu
-// d'abord — et ses fichiers restent au serveur.
+// peint… ? » de la base : `cab:tableau:<QID>`, ni carnet ni signalement. Et ce
+// que le serveur appelle sans le recopier : les fenêtres de quatre tableaux qui
+// se suivent dans le temps (`fenetresDuDetail`), la manche d'une fenêtre — le
+// bon au hasard parmi ses quatre, l'ordre des titres, figés au départ
+// (`detailDUneFenetre`) —, la garde de la route des images (`refusDuCadrage`)
+// et son adresse (`adresseDUnCadrage`), que la page lit aussi. Le choix de la
+// fenêtre — la jamais vue d'abord — et les fichiers restent au serveur.
 //
 // Rien ici ne lit l'heure ni ne tire au hasard de lui-même : le hasard vient
 // de qui l'appelle — celui du serveur pour le tirage, la graine secrète de la
@@ -99,30 +100,78 @@ const CADRAGES = ETOILES_AU_CADRAGE.length
 /** Les étoiles d'une bonne réponse à ce cadrage (de 1 à `CADRAGES`). */
 const etoilesAuCadrage = (cadrage: number) => (ETOILES_AU_CADRAGE[cadrage - 1] ?? 0) as VerdictDUneManche['naturel']
 
+/** L'ordre du temps : par année, puis par identifiant — la même graine redonne la même manche, quel que soit l'ordre du fichier. */
+const avantDansLeTemps = (a: TableauDuCabinet, b: TableauDuCabinet) => a.annee - b.annee || (a.qid < b.qid ? -1 : a.qid > b.qid ? 1 : 0)
+
 /**
- * La manche tirée d'un tableau que le serveur a choisi : quatre titres qui se
- * suivent dans l'ordre du temps — le sien et trois voisins en années —, la
- * fenêtre posée au hasard parmi celles qui le contiennent, puis les quatre
- * battus : l'ordre se fige au départ.
+ * Les fenêtres du Détail : chaque suite de `TITRES_DU_DETAIL` tableaux
+ * consécutifs dans l'ordre du temps, un seul par titre — deux titres pareils
+ * feraient deux bonnes réponses ; de deux tableaux du même titre, le plus
+ * ancien reste. Quatre tableaux qui se suivent : autour de chacun, trois
+ * titres d'époques voisines — deviner à l'époque ne suffit pas. Aucune sous
+ * quatre titres.
+ */
+export function fenetresDuDetail<T extends TableauDuCabinet>(tableaux: readonly T[]): T[][] {
+  const titres = new Set<string>()
+  const dansLeTemps: T[] = []
+  for (const x of [...tableaux].sort(avantDansLeTemps)) {
+    if (titres.has(x.titre)) continue
+    titres.add(x.titre)
+    dansLeTemps.push(x)
+  }
+  return Array.from({ length: Math.max(0, dansLeTemps.length - TITRES_DU_DETAIL + 1) }, (_, d) => dansLeTemps.slice(d, d + TITRES_DU_DETAIL))
+}
+
+/** La manche d'une fenêtre dont le bon est choisi : les quatre battus, l'ordre figé au départ. */
+function mancheDeLaFenetre(fenetre: readonly TableauDuCabinet[], bon: TableauDuCabinet, hasard: () => number, o: { anecdote: string | null; categorie: string }): DetailTire {
+  const proposes = battre(fenetre, hasard)
+  return {
+    jeu: 'detail',
+    tableau: { qid: bon.qid, titre: bon.titre, peintre: bon.peintre, annee: bon.annee },
+    titres: proposes.map(x => ({ titre: x.titre, peintre: x.peintre })),
+    bonne: proposes.indexOf(bon),
+    anecdote: o.anecdote,
+    categorie: o.categorie,
+  }
+}
+
+/**
+ * La manche d'une fenêtre que le serveur a choisie (`fenetresDuDetail`) : le
+ * bon au hasard parmi ses quatre titres, puis les quatre battus — l'ordre se
+ * fige au départ.
  *
- * Une fenêtre, pas ses plus proches : tirés parmi ses cinq plus proches
- * voisins, les trois leurres faisaient du bon le seul des quatre dont les
- * voisins contenaient toujours les trois autres — qui savait les années du
- * catalogue (chaque révélation les dit) trouvait la réponse sans regarder
- * l'image une fois sur deux, et quatre fois sur dix aux seules années des
- * quatre titres, le plus au centre (la tablée du 25 octobre 2026, axe 9). Une
- * fenêtre, chacun des quatre l'aurait tirée de même s'il avait été le bon :
- * rien ne l'y désigne, sauf aux deux bouts du temps, où moins de fenêtres le
- * contiennent — 26 % de bonnes réponses au mieux sur cent tableaux, pour 25 %
- * au hasard. L'époque n'y aide pas plus qu'avant : ses trois voisins de chaque
- * côté.
- *
- * La fraîcheur des leurres se choisit au serveur, dans les tableaux qu'il
- * donne (`tirerUnDetail`). Jamais le tableau lui-même ni deux fois un titre :
- * deux titres pareils feraient deux bonnes réponses — de deux tableaux du même
- * titre, le plus ancien reste, et aucun ne prend celui du bon. À année égale,
- * l'identifiant départage : la même graine redonne la même manche, quel que
- * soit l'ordre du fichier. Null : moins de quatre titres à proposer.
+ * La fenêtre d'abord, le bon ensuite, et rien d'autre que le hasard pour le
+ * choisir : ce qui le choisissait se lisait dans les quatre titres. Tirés
+ * parmi ses cinq plus proches voisins en années, les trois leurres faisaient
+ * du bon le seul des quatre dont les voisins contenaient les trois autres —
+ * une fois sur deux sans regarder l'image, pour qui sait les années du
+ * catalogue, que chaque révélation dit (la tablée du 25 octobre 2026, axe 9).
+ * Une fenêtre tirée autour d'un bon choisi d'abord le désignait encore aux
+ * deux bouts du temps, où moins de fenêtres le contiennent ; et choisi le
+ * moins vu, le bon était le titre des quatre qu'on avait vu il y a le plus
+ * longtemps : à coup sûr, une fois le catalogue révélé (la relecture du
+ * 26 octobre 2026). Ainsi, chacun des quatre est le bon une fois sur quatre,
+ * quoi qu'on sache d'eux. La fraîcheur passe par le choix de la fenêtre, au
+ * serveur (`tirerUnDetail`) : il la sait sans rien en dire.
+ */
+export function detailDUneFenetre(
+  fenetre: readonly TableauDuCabinet[],
+  hasard: () => number,
+  o: { anecdoteDe: (qid: string) => string | null; categorie: string },
+): DetailTire {
+  const bon = auHasard(fenetre, hasard)
+  return mancheDeLaFenetre(fenetre, bon, hasard, { anecdote: o.anecdoteDe(bon.qid), categorie: o.categorie })
+}
+
+/**
+ * La manche d'un tableau déjà choisi : la fenêtre au hasard parmi celles qui le
+ * contiennent (`fenetresDuDetail`), jamais le tableau lui-même ni un autre de
+ * son titre en leurre. Pour qui tire ses tableaux lui-même — le calibrage, qui
+ * mesure ce que sait un joueur, pas ce qu'il devine. Le serveur, lui, tire la
+ * fenêtre d'abord (`detailDUneFenetre`) : le bon choisi avant elle, les deux
+ * bouts du temps le désignent un peu — 26 % de bonnes réponses sans regarder
+ * l'image sur les cent tableaux, 39 % sur dix. Null : moins de quatre titres à
+ * proposer.
  */
 export function detailTire(
   tableau: TableauDuCabinet,
@@ -130,30 +179,8 @@ export function detailTire(
   hasard: () => number,
   o: { anecdote: string | null; categorie: string },
 ): DetailTire | null {
-  const dansLeTemps = [tableau, ...autres.filter(x => x.qid !== tableau.qid && x.titre !== tableau.titre)].sort(
-    (a, b) => a.annee - b.annee || (a.qid < b.qid ? -1 : a.qid > b.qid ? 1 : 0),
-  )
-  const titres = new Set<string>()
-  const candidats = dansLeTemps.filter(x => {
-    if (titres.has(x.titre)) return false
-    titres.add(x.titre)
-    return true
-  })
-  if (candidats.length < TITRES_DU_DETAIL) return null
-  const rang = candidats.indexOf(tableau)
-  // Les fenêtres de quatre qui le contiennent : de celle où il est le plus récent à celle où il est le plus ancien.
-  const debuts: number[] = []
-  for (let d = Math.max(0, rang - TITRES_DU_DETAIL + 1); d <= Math.min(rang, candidats.length - TITRES_DU_DETAIL); d++) debuts.push(d)
-  const debut = auHasard(debuts, hasard)
-  const proposes = battre(candidats.slice(debut, debut + TITRES_DU_DETAIL), hasard)
-  return {
-    jeu: 'detail',
-    tableau: { qid: tableau.qid, titre: tableau.titre, peintre: tableau.peintre, annee: tableau.annee },
-    titres: proposes.map(x => ({ titre: x.titre, peintre: x.peintre })),
-    bonne: proposes.indexOf(tableau),
-    anecdote: o.anecdote,
-    categorie: o.categorie,
-  }
+  const siennes = fenetresDuDetail([tableau, ...autres.filter(x => x.qid !== tableau.qid && x.titre !== tableau.titre)]).filter(f => f.includes(tableau))
+  return siennes.length > 0 ? mancheDeLaFenetre(auHasard(siennes, hasard), tableau, hasard, o) : null
 }
 
 /**

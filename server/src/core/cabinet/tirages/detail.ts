@@ -1,27 +1,34 @@
-// Le tireur du Détail : un tableau des cent de `server/content/details/`
-// (`tableauxDuDetail`, ses quatre cadrages découpés d'avance), le jamais vu
-// d'abord, puis le plus anciennement vu (`laMoinsVue`) ; ses trois voisins en
-// années et l'ordre des quatre titres, par la règle du jeu (`detailTire`), au
-// hasard du serveur. Vu, c'est l'avoir eu au Cabinet (`cab:tableau:<QID>`) ou
-// avoir répondu à l'une des questions de la base qui le nomment — « Qui a
-// peint… ? », son musée : son titre y était écrit.
+// Le tireur du Détail : une fenêtre de quatre tableaux consécutifs dans le
+// temps, parmi les cent de `server/content/details/` (`tableauxDuDetail`, ses
+// quatre cadrages découpés d'avance) — la jamais vue d'abord, puis la plus
+// anciennement vue (`laFenetreLaMoinsVue`) —, et le bon au hasard parmi ses
+// quatre, par la règle du jeu (`detailDUneFenetre`), au hasard du serveur. Vu,
+// c'est l'avoir eu au Cabinet (`cab:tableau:<QID>`) ou avoir répondu à l'une
+// des questions de la base qui le nomment — « Qui a peint… ? », son musée : son
+// titre y était écrit.
 //
-// Ses voisins sont de sa fraîcheur : jamais vus avec un jamais vu, vus avec un
-// vu, tant qu'il y en a quatre. Seul le bon s'écrit vu : un leurre qu'une
-// révélation d'avant avait nommé ne pouvait pas être le bon tant que le
-// catalogue gardait des jamais vus, et qui s'en souvenait l'écartait — 78 % de
-// bonnes réponses à sa trentième partie, sans regarder l'image (la
-// contre-expertise de la tablée du 25 octobre 2026).
+// La fraîcheur choisit la fenêtre, jamais le bon : seul le bon s'écrit vu, et
+// tiré le moins vu, il était le titre des quatre qu'on avait vu il y a le plus
+// longtemps — 78 % de bonnes réponses à la trentième partie pour qui se
+// souvenait des tableaux nommés (la tablée du 25 octobre 2026), 100 % dès que
+// les cent étaient révélés pour qui notait leur ordre (la relecture du
+// 26 octobre). Une fenêtre se dit vue dès que l'un des siens l'est : ses quatre
+// sont jamais vus tant que quatre jamais vus se suivent dans le temps, puis
+// vus il y a le plus longtemps possible, et rien de vu ces sept jours ne
+// revient tant qu'une fenêtre n'en a pas. Prise dans le catalogue entier, et
+// non dans les seuls jamais vus — à la fin d'un tour, leurs quatre titres
+// s'écartaient d'un siècle et demi —, elle garde ses époques voisines d'un
+// bout à l'autre.
 //
 // Dans une partie, jamais deux fois le même tableau, rechanges comprises, et
-// jamais en réponse un titre déjà proposé, leurre compris (`Posees.titres`) ;
-// les leurres ne reprennent pas un tableau déjà posé. Sa catégorie est celle
-// de tous les tableaux (`CATEGORIE_DU_DETAIL`, que l'Expédition pose aussi) :
-// les missions la lisent.
+// jamais un titre déjà proposé, ni en réponse ni en leurre (`Posees.titres`) :
+// revenu en leurre seulement, il se serait écarté de lui-même. Sa catégorie
+// est celle de tous les tableaux (`CATEGORIE_DU_DETAIL`, que l'Expédition pose
+// aussi) : les missions la lisent.
 import { tableauxDuDetail, type TableauDuDetail } from '../../details'
-import { laMoinsVue } from '../../tirageALaPiece'
 import { CATEGORIE_DU_DETAIL } from '../../../../../shared/expedition'
-import { detailTire, type DetailTire } from '../../../../../shared/cabinet/jeux/detail'
+import { detailDUneFenetre, fenetresDuDetail, type DetailTire } from '../../../../../shared/cabinet/jeux/detail'
+import { auHasard } from '../../../../../shared/cabinet/jeux/outils'
 import { idDuTableau } from '../../../../../shared/cabinet/pieces'
 import type { ContexteDuTirage, Posees } from './communs'
 import { litLaBase, questionsDesTableaux } from './tas'
@@ -36,23 +43,39 @@ function vuLe(t: TableauDuDetail, vues: ContexteDuTirage['vues']): number | unde
   return le
 }
 
+/**
+ * La fenêtre la moins vue de ces tableaux : jamais vue d'abord, sinon la plus
+ * anciennement vue — à la dernière fois que l'un de ses quatre l'a été ; à
+ * égalité, au hasard du serveur. Aucune sous quatre titres.
+ */
+function laFenetreLaMoinsVue(
+  candidats: readonly TableauDuDetail[],
+  vus: ReadonlyMap<string, number | undefined>,
+  hasard: () => number,
+): TableauDuDetail[] | undefined {
+  let laPlusAncienne = Number.POSITIVE_INFINITY
+  let ex: TableauDuDetail[][] = []
+  for (const f of fenetresDuDetail(candidats)) {
+    const vueLe = Math.max(...f.map(t => vus.get(t.qid) ?? Number.NEGATIVE_INFINITY))
+    if (vueLe < laPlusAncienne) {
+      laPlusAncienne = vueLe
+      ex = [f]
+    } else if (vueLe === laPlusAncienne) ex.push(f)
+  }
+  return ex.length > 0 ? auHasard(ex, hasard) : undefined
+}
+
 export function tirerUnDetail(ctx: ContexteDuTirage, posees: Posees): DetailTire | null {
   const tableaux = tableauxDuDetail()
   const libres = tableaux.filter(t => !posees.ids.has(idDuTableau(t.qid)))
-  // Un titre déjà montré ne revient pas en réponse — tant qu'il en reste : cent tableaux, six au plus dans un plan.
+  // Un titre déjà montré ne revient pas — tant qu'il en reste : cent tableaux, six manches au plus dans un plan.
   const neufs = libres.filter(t => !posees.titres.has(t.titre))
-  const parQid = new Map(tableaux.map(t => [t.qid, t]))
-  const choisi = laMoinsVue(neufs.length > 0 ? neufs : libres, t => t.qid, { get: qid => vuLe(parQid.get(qid)!, ctx.vues) })
-  if (!choisi) return null
-  const question = litLaBase(ctx.porte) ? questionsDesTableaux(ctx.porte, ctx.jouables).get(choisi.qid) : undefined
-  const o = { anecdote: question?.anecdote ?? null, categorie: CATEGORIE_DU_DETAIL }
-  const vu = (x: TableauDuDetail) => vuLe(x, ctx.vues) !== undefined
-  const leSienVu = vu(choisi)
-  const deSaFraicheur = libres.filter(x => vu(x) === leSienVu)
-  // Moins de quatre titres de sa fraîcheur (`detailTire` rend null sans tirer au hasard) : ses voisins parmi tous.
-  const t = detailTire(choisi, deSaFraicheur, ctx.hasard, o) ?? detailTire(choisi, libres, ctx.hasard, o)
-  if (!t) return null
-  posees.ids.add(idDuTableau(choisi.qid))
+  const vus = new Map(tableaux.map(t => [t.qid, vuLe(t, ctx.vues)]))
+  const fenetre = laFenetreLaMoinsVue(neufs, vus, ctx.hasard) ?? laFenetreLaMoinsVue(libres, vus, ctx.hasard)
+  if (!fenetre) return null
+  const lesQuestions = litLaBase(ctx.porte) ? questionsDesTableaux(ctx.porte, ctx.jouables) : undefined
+  const t = detailDUneFenetre(fenetre, ctx.hasard, { anecdoteDe: qid => lesQuestions?.get(qid)?.anecdote ?? null, categorie: CATEGORIE_DU_DETAIL })
+  posees.ids.add(idDuTableau(t.tableau.qid))
   for (const x of t.titres) posees.titres.add(x.titre)
   return t
 }
