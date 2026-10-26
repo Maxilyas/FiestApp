@@ -7,7 +7,7 @@ import { enDebutDeLigne } from './Musee'
 
 // Le cartel d'une œuvre : la plaque crème sous la peinture, comme au musée.
 // Il garde ce que la partie qui l'a fait entrer — ou qui l'a dorée, ou
-// rejouée : il le dit (`ceQueLaPartieAFait`) — lui a appris — la question
+// doublée : il le dit (`ceQueLaPartieAFait`) — lui a appris — la question
 // telle que la partie l'a lue, sa réponse, « Le savais-tu ? », le jeu, les
 // étoiles, le jour —, relu par le serveur au même pli que la partie
 // (invariant 14, `cartelDe`) ; sinon ce qui l'a fait entrer (« Offerte à ton
@@ -18,9 +18,13 @@ import { enDebutDeLigne } from './Musee'
 /**
  * Ce que la partie d'un cartel a fait à son œuvre, en mots (`Cartel.partie.issue`) :
  * l'appris (« en la dorant ») et la ligne de sa partie (« Dorée au Pari »). Une
- * œuvre achetée ou offerte, puis dorée en jouant ou rejouée à une
+ * œuvre achetée ou offerte, puis dorée en jouant ou jouée à une
  * visite qui la doublait, ne l'a pas gagnée — « en la gagnant » le lui faisait
- * dire. Le bilan d'une partie le dit des mêmes mots (`titreAuBilan`). Sans
+ * dire. Doublée, elle est « Jouée », jamais « Rejouée » : un double ne vient
+ * que d'une œuvre à lui (`issueDe`), et le cartel ne prend la partie que si
+ * l'œuvre n'en avait pas — offerte ou achetée, presque toujours, donc jouée
+ * pour la première fois (la relecture du lot des mots du musée, le 26 octobre
+ * 2026). Le bilan d'une partie le dit des mêmes mots (`titreAuBilan`). Sans
  * issue — un cartel écrit à la main —, ou d'une issue qui ne garde pas de
  * cartel, elle l'a gagnée.
  */
@@ -29,7 +33,7 @@ export function ceQueLaPartieAFait(issue: IssueDUnePartie | undefined): { appris
     case 'doree':
       return { appris: 'en la dorant', partie: 'Dorée' }
     case 'double':
-      return { appris: 'en la rejouant', partie: 'Rejouée' }
+      return { appris: 'en la jouant', partie: 'Jouée' }
     default:
       return { appris: 'en la gagnant', partie: 'Gagnée' }
   }
@@ -104,7 +108,7 @@ const oeuvresDe = (page: PageDuCabinet): Map<string, OeuvreVue> => new Map(page.
  * oublier lui-même (une partie finie, `Partie.onFinie`) ; ce qui a changé
  * ailleurs — un autre onglet, un autre téléphone, la clôture du lendemain —, la
  * page neuve le dément : un cartel lu dont l'œuvre n'a plus le cadre qu'il a lu
- * (dorée ailleurs, il promettait encore « Rejoue-la pour dorer son cadre ») ;
+ * (dorée ailleurs, il promettait encore « Joue-la à son jeu pour dorer son cadre ») ;
  * un cartel en route quand l'œuvre a changé entre les deux pages (lu avant, il
  * dirait l'œuvre d'avant) ; tous, dès qu'une partie qui attendait n'attend
  * plus — finie, elle a pu doubler une œuvre sans changer ni `possedee` ni

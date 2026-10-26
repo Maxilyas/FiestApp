@@ -31,7 +31,7 @@ Ce que fait FiestApp, mode par mode, pour tout le monde — le code n'y vient qu
 - [Les sentiers du savoir](produit/les-sentiers-du-savoir.md) — les branches, les paliers, les vies, les portraits à gagner
 - [Les duels](produit/les-duels.md) — la cote, les ligues, Automate, les défis entre amis
 - [L'Expédition](produit/l-expedition.md) — trois actes, une carte tirée au sort chacun, un gardien au bout, un légendaire à garder, des jokers en main, des formes de question, des écus à dépenser à l'échoppe
-- [Le Cabinet de curiosités](produit/le-cabinet.md) — en construction, pour remplacer l'Expédition : un musée à remplir, 84 œuvres en neuf salles, neuf petits jeux de deux minutes, des cartes-bonus, des gardiens légendaires
+- [Le Cabinet de curiosités](produit/le-cabinet.md) — en construction, pour remplacer l'Expédition : un musée à remplir, 84 œuvres en neuf salles, neuf petits jeux de quelques minutes, des cartes-bonus, des gardiens légendaires
 - [Le profil](produit/le-profil.md) — l'accueil, la loge, la collection, la carrière, la carte d'un joueur, la sécurité du profil
 - [Les récompenses](produit/les-recompenses.md) — l'expérience, les niveaux, les trophées et leurs pistes, les légendaires, les Divins, les écussons
 - [La boutique](produit/la-boutique.md) — les confettis, ce qu'ils achètent, et le catalogue : thèmes, fonds, gerbes, compagnons

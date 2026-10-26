@@ -86,8 +86,9 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   oeuvre: { terme: 'Œuvre', sens: 'Une peinture de ton musée, gagnée en jouant ou achetée. Une œuvre à toi ne se perd jamais.' },
   salle: { terme: 'Salle', sens: 'Un mur du Cabinet : une famille de huit œuvres, ou les vingt du Vestibule.' },
   gardien: { terme: 'Gardien', sens: 'Un légendaire qui veille sur une salle : complète, elle le réveille ; toute dorée, un second.' },
-  // « ou en la rejouant » : dorée en jouant, ou doublée en visite, une œuvre achetée prend le cartel de cette partie-là.
-  cartel: { terme: 'Cartel', sens: 'La plaque sous une œuvre : ce que tu as appris en la gagnant ou en la rejouant.' },
+  // « En jouant pour elle », pas « en la gagnant » : dorée en jouant, ou doublée en visite, une œuvre achetée prend le cartel de
+  // cette partie-là. Ni « en la rejouant » : offerte ou achetée, elle n'avait jamais été jouée (la relecture du 26 octobre 2026).
+  cartel: { terme: 'Cartel', sens: 'La plaque sous une œuvre : ce que tu as appris en jouant pour elle.' },
   // Pas « chaque partie » : au-delà des premières du jour, une partie libre ne rapporte plus rien (`poussiereDeLaPartie`). Et
   // « où tu réponds » : quittée avant toute réponse, une visite ne rapporte plus rien depuis le 26 octobre 2026 — « même
   // ratée » le lui promettait.
@@ -95,6 +96,9 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   cadreDore: { terme: 'Cadre doré', sens: 'Toutes les manches parfaites sans qu’un pouvoir ait servi, ou de la poussière d’or.' },
   carteBonus: { terme: 'Carte-bonus', sens: 'Une œuvre ou un gardien que tu emportes en partie pour son pouvoir. Elle ne s’use jamais.' },
   visite: { terme: 'Visite du jour', sens: 'Les parties proposées chaque jour : chacune peut te faire gagner une œuvre, gardée secrète.' },
-  chasse: { terme: 'Chasse', sens: 'Partir chercher l’œuvre de ton choix au jeu où elle se trouve, ou rejouer une œuvre à dorer.' },
+  // « À son jeu », pour la gagner comme pour la dorer, comme sa fiche (« La jouer au Détail pour la dorer ») : « rejouer une œuvre
+  // à dorer » se lisait d'une œuvre offerte ou achetée, jamais jouée, ou gagnée à la visite à un autre jeu (la tablée du
+  // 26 octobre 2026).
+  chasse: { terme: 'Chasse', sens: 'Jouer l’œuvre de ton choix à son jeu : pour la gagner, ou pour la dorer si elle est à toi.' },
   manche: { terme: 'Manche', sens: `Un tour d’un jeu du Cabinet : ${MANCHES_PAR_PARTIE} par partie, ${ETOILES_PAR_MANCHE} étoiles au plus chacune.` },
 }

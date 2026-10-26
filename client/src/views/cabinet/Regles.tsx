@@ -117,8 +117,10 @@ export function Regles({ jeux, parties = CASES_DE_LA_VISITE, onMurs }: { jeux: r
         <Ligne icone="shuffle">{`Un jeu de la visite se change, ${ECHANGES_DITS[ECHANGES_PAR_JOUR]} par jour.`}</Ligne>
         <Ligne icone="search">{`${CHASSES_PAR_JOUR} chasses : touche un cadre vide, et joue au jeu où se trouve son œuvre.`}</Ligne>
         {/* Une œuvre a deux jeux selon le chemin : le sien, et celui de la case qui l'a mise en jeu — onze des quatorze œuvres gagnées
-            à la visite de la tablée du 26 octobre 2026 l'avaient été ailleurs qu'à leur jeu, et leur fiche semblait se tromper. */}
-        <Ligne icone="gamepad">Chaque œuvre a son jeu, où se jouent sa chasse et sa dorure ; la visite, elle, met ses œuvres en jeu aux jeux du jour.</Ligne>
+            à la visite de la tablée du 26 octobre 2026 l'avaient été ailleurs qu'à leur jeu, et leur fiche semblait se tromper. Le
+            sien se dit par ce que son cadre vide affiche, pas par « sa chasse » : la retente d'une case manquée, une chasse, se joue
+            au jeu de la case, et une case de la visite dore aussi, au jeu du jour — la ligne d'au-dessus le contredisait. */}
+        <Ligne icone="gamepad">Chaque œuvre a son jeu, celui que son cadre vide affiche : on l’y cherche, on l’y dore ; la visite, elle, met ses œuvres en jeu aux jeux du jour.</Ligne>
         <Ligne icone="dice">{`Jouer librement, autant que tu veux : les ${LIBRES_QUI_PAIENT} premières parties libres paient leur poussière d’or.`}</Ligne>
         <Ligne icone="calendar">{`Une visite ou une chasse où tu réponds, chaque jour, fait ta série ; au ${JOURS_DU_SCARABEE}ᵉ jour, le Scarabée se réveille.`}</Ligne>
         <Ligne icone="flag">Quitter une partie la compte avec ses étoiles : elle ne se rejoue pas.</Ligne>

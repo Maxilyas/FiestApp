@@ -533,14 +533,15 @@ test('le cartel : la manche que la partie lui a gardée, relue par le même pli 
   assert.match(gagnee, /Ce que tu as appris en la gagnant/)
   assert.match(gagnee, new RegExp(`Gagnée ${JEUX.pari.a} · 9 sur 9`))
 
-  // Les cartels d'office : offerte, achetée — et une achetée rejouée pour sa dorure prend la manche de sa partie.
+  // Les cartels d'office : offerte, achetée — et une achetée jouée pour sa dorure prend la manche de sa partie.
   const offerte = ok(await leCartel(max.cookie, 'coup-d-oeil'), 'une œuvre de départ')
   assert.deepEqual([offerte.origine, offerte.doree, offerte.partie], ['depart', false, undefined])
   assert.match(offerte.dit ?? '', /^Offerte à ton arrivée\./)
   ok(await acheter(max.cookie, communeDuPari, prixDAchat(communeDuPari)), 'l’achat')
   const achetee = ok(await leCartel(max.cookie, communeDuPari), 'l’achetée')
   assert.deepEqual([achetee.origine, achetee.doree, achetee.partie], ['achat', false, undefined])
-  assert.match(achetee.dit ?? '', /^Achetée avec ta poussière d’or\. Rejoue-la/)
+  // « Joue-la à son jeu », jamais « Rejoue-la » : achetée, elle n'a jamais été jouée (`cabinet-mots-du-musee.test.ts`).
+  assert.match(achetee.dit ?? '', /^Achetée avec ta poussière d’or\. Joue-la à son jeu pour dorer son cadre/)
   const dorure = ok(await commencer(b, max.cookie, { origine: 'chasse', oeuvre: communeDuPari, carte: null }), 'la chasse pour la dorer')
   const doreeEnJouant = await unPariParfait(b, max.cookie, dorure)
   assert.equal(doreeEnJouant.bilan?.issue, 'doree')
@@ -643,7 +644,7 @@ test('le cartel d’une œuvre gagnée sans rien à raconter dit le jour où ell
   const ligne = { oeuvre: communeA, origine: 'partie', gagneeLe: entree, saison: null, serieId: null, prix: null, doreeLe: null, dorure: null, prixDorure: null, serieDoree: null } as const
   assert.equal(
     cartelDe({ oeuvre: communeA, ligne, partie: null }).dit,
-    'Entrée dans ton musée le 25 octobre 2026, gagnée en jouant. Rejoue-la pour dorer son cadre : elle gardera ici ce que tu auras appris.',
+    'Entrée dans ton musée le 25 octobre 2026, gagnée en jouant. Joue-la à son jeu pour dorer son cadre : elle gardera ici ce que tu auras appris.',
   )
   assert.equal(cartelDe({ oeuvre: communeA, ligne: { ...ligne, doreeLe: entree, dorure: 'partie' }, partie: null }).dit, 'Entrée dans ton musée le 25 octobre 2026, gagnée en jouant.')
 })

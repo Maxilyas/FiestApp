@@ -429,11 +429,14 @@ const ENTREES_D_OFFICE: Readonly<Record<Exclude<OrigineDUneOeuvre, 'partie'>, st
 }
 
 /**
- * Ce que son cartel promet, tant que son cadre n'est pas doré : rejouée en
- * chasse pour le dorer, elle prendra le cartel de cette partie-là. Doré, rien
- * ne le lui donnera plus — la phrase se tait plutôt que de promettre.
+ * Ce que son cartel promet, tant que son cadre n'est pas doré : jouée en
+ * chasse à son jeu pour le dorer, elle prendra le cartel de cette partie-là.
+ * Doré, rien ne le lui donnera plus — la phrase se tait plutôt que de
+ * promettre. « Joue-la », jamais « Rejoue-la » : offerte ou achetée, elle n'a
+ * jamais été jouée, et la phrase tombait juste au-dessus de « La jouer à
+ * l'Épingle pour la dorer » (la tablée du 26 octobre 2026, `Oeuvre.tsx`).
  */
-const CE_QUE_GARDERA_LE_CARTEL = 'Rejoue-la pour dorer son cadre : elle gardera ici ce que tu auras appris.'
+const CE_QUE_GARDERA_LE_CARTEL = 'Joue-la à son jeu pour dorer son cadre : elle gardera ici ce que tu auras appris.'
 
 /**
  * Le cartel d'une œuvre à lui, champ par champ : la manche que sa partie a

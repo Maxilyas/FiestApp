@@ -1368,7 +1368,7 @@ test('l’annonce : le jeu, son geste et son barème, ce qui est en jeu et le se
   assert.doesNotMatch(chasse, /Exposé/)
   assert.match(chasse, new RegExp(`Il faut ${SEUILS_DES_RARETES.rare} étoiles sur ${ETOILES_D_UNE_PARTIE} pour la gagner`))
   assert.match(chasse, /revenir au musée ne coûte pas ta chasse/)
-  // Leçon, à elle : la rejouer pour la dorer.
+  // Leçon, à elle : la jouer à son jeu pour la dorer.
   const dorer = texte(await annonce({ origine: 'chasse', oeuvre: 'lecon' }))
   assert.match(dorer, /Pour dorer Leçon/)
   // Leçon se trouve au Pari, où une manche parfaite est un pari gagné (section 18) : ailleurs, « toutes ses manches parfaites ».
@@ -3022,20 +3022,21 @@ const cartelDeLaPartie = (issue?: string): Cartel =>
     partie: { id: 'p', jeu: 'pari', jour: 'le 24 octobre 2026', total: 9, ...(issue && { issue }), sujet: 'Quelle est la capitale de la Lituanie ?', reponse: 'Vilnius', anecdote: null },
   }) as Cartel
 
-test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en jouant, rejouée — ; le bilan ne promet que le cartel qu’elle prend', async () => {
+test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en jouant, jouée — ; le bilan ne promet que le cartel qu’elle prend', async () => {
   const cartel = async (issue?: string) => texte(await rendu('views/cabinet/Cartel', 'CartelDeLOeuvre', { lu: { etat: 'lu', cartel: cartelDeLaPartie(issue) } }))
   for (const [issue, titre, ligne] of [
     [undefined, 'en la gagnant', 'Gagnée'],
     ['gagnee', 'en la gagnant', 'Gagnée'],
     ['gagnee-doree', 'en la gagnant', 'Gagnée'],
     ['doree', 'en la dorant', 'Dorée'],
-    ['double', 'en la rejouant', 'Rejouée'],
+    // Doublée, « Jouée », jamais « Rejouée » : offerte ou achetée, elle n'avait jamais été jouée (`cabinet-mots-du-musee.test.ts`).
+    ['double', 'en la jouant', 'Jouée'],
   ] as const) {
     const t = await cartel(issue)
     assert.match(t, new RegExp(`Ce que tu as appris ${titre} `), String(issue))
     assert.match(t, new RegExp(`${ligne} ${echapper(JEUX.pari.a)} · 9 sur 9`), String(issue))
   }
-  // Achetée, puis dorée en jouant ou rejouée en visite : elle ne l'a pas gagnée, et son cartel ne le dit plus.
+  // Achetée, puis dorée en jouant ou doublée en visite : elle ne l'a pas gagnée, et son cartel ne le dit plus.
   for (const issue of ['doree', 'double']) assert.doesNotMatch(await cartel(issue), /gagn/i, issue)
   // Au bilan, les mêmes mots — la partie qui la dore ne dit pas « en la gagnant » —, et « Son cartel » seulement quand l'œuvre le
   // prend : dorée en jouant ou doublée, elle ne le prend que si elle n'en avait pas — le serveur garde le premier, et la fin le
@@ -3049,7 +3050,7 @@ test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en
   // La chasse gagnée de Hugo : la fin a dit que la partie devient son cartel, et ses gains, que seule la fin porte.
   assert.equal(g.bilan!.devientSonCartel, true)
   assert.ok(g.bilan!.gains, 'la fin porte ses gains')
-  const appris = { gagnee: 'en la gagnant', 'gagnee-doree': 'en la gagnant', doree: 'en la dorant', double: 'en la rejouant' } as const
+  const appris = { gagnee: 'en la gagnant', 'gagnee-doree': 'en la gagnant', doree: 'en la dorant', double: 'en la jouant' } as const
   for (const issue of ['gagnee', 'gagnee-doree', 'doree', 'double'] as const) {
     for (const devient of [true, false]) {
       for (const fin of [true, false]) {
@@ -3077,8 +3078,10 @@ test('le cartel dit ce que sa partie a fait à l’œuvre — gagnée, dorée en
   assert.match(t, new RegExp(`Son cartel : ce que tu as appris en la gagnant ${lu(relue.bilan!.cartel!.sujet)}`))
   // Les mots d'une seule source : le bilan ne les recopie pas.
   assert.doesNotMatch(source('views/cabinet/Bilan.tsx'), /en la gagnant/)
-  // Le glossaire de « Comment ça marche ? » non plus ne dit pas qu'un cartel vient toujours de la partie qui l'a gagnée.
-  assert.match(GLOSSAIRE.cartel.sens, /en la gagnant ou en la rejouant/)
+  // Le glossaire de « Comment ça marche ? » non plus ne dit pas qu'un cartel vient toujours de la partie qui l'a gagnée — ni
+  // d'une partie « rejouée » : offerte ou achetée, l'œuvre n'avait jamais été jouée. Il dit qu'il vient d'une partie jouée pour elle.
+  assert.match(GLOSSAIRE.cartel.sens, /en jouant pour elle/)
+  assert.doesNotMatch(GLOSSAIRE.cartel.sens, /en la gagnant|rejou/)
   // Ce que la page dit d'un bilan relu, la boucle plus haut l'éprouve : le commentaire du champ partagé n'a qu'à ne pas le
   // contredire, et à dire où vit la règle. « Le bilan ne dit « Son cartel » que là » se lisait comme une règle, et la page la
   // démentait ; ses mots, eux, restent libres.
@@ -3226,7 +3229,7 @@ test('la page oublie ses cartels quand un achat, une dorure ou une partie ont pu
   // Rien de changé : les mêmes, le même objet — la page ne se redessine pas pour rien. La première page n'a rien à démentir.
   assert.equal(cartelsQuiTiennent(gardes, page, { ...page }), gardes)
   assert.equal(cartelsQuiTiennent(gardes, null, page), gardes)
-  // Dorée ailleurs : le cartel lu promettait encore « Rejoue-la pour dorer son cadre », il s'oublie.
+  // Dorée ailleurs : le cartel lu promettait encore « Joue-la à son jeu pour dorer son cadre », il s'oublie.
   assert.deepEqual(cartelsQuiTiennent(gardes, page, dore(page, 'coup-d-oeil')), {})
   // Lu après la dorure, sous une page d'avant : la page neuve le confirme, il tient — et ne se redemande pas en boucle.
   const dejaDore = { 'coup-d-oeil': lu(true) }

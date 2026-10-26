@@ -1,6 +1,6 @@
 # Le Cabinet de curiosités
 
-> Un mode pour les profils, qui remplacera l'Expédition : ton Cabinet est un musée à remplir. Les 84 cartes peintes en sont les œuvres, rangées en neuf salles ; on les gagne à neuf petits jeux de deux minutes ; une salle complète réveille son gardien légendaire ; et chaque œuvre garde sur son cartel ce qu'on a appris en la gagnant. Comment on le joue, ses règles chiffrées, ce que l'Expédition laisse, ce qui vient ensuite, puis comment c'est construit.
+> Un mode pour les profils, qui remplacera l'Expédition : ton Cabinet est un musée à remplir. Les 84 cartes peintes en sont les œuvres, rangées en neuf salles ; on les gagne à neuf petits jeux de quelques minutes ; une salle complète réveille son gardien légendaire ; et chaque œuvre garde sur son cartel ce qu'on a appris en la gagnant. Comment on le joue, ses règles chiffrées, ce que l'Expédition laisse, ce qui vient ensuite, puis comment c'est construit.
 
 **Dans cette page** : [En bref](#en-bref) · [Les salles et les œuvres](#les-salles-et-les-œuvres) · [Une partie](#une-partie) · [Les neuf jeux](#les-neuf-jeux) · [Les cartes-bonus](#les-cartes-bonus) · [Une journée](#une-journée) · [La poussière d'or](#la-poussière-dor) · [Les gardiens](#les-gardiens) · [Ce qu'on apprend](#ce-quon-apprend) · [Les mots du Cabinet](#les-mots-du-cabinet) · [Ce que l'Expédition laisse](#ce-que-lexpédition-laisse) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
 
@@ -10,7 +10,7 @@
 ## En bref
 
 - **Un musée à remplir.** 84 œuvres — les cartes peintes des rencontres de l'Expédition — en neuf salles : les huit familles, huit œuvres chacune, et le Vestibule, les vingt neutres. Chaque cadre vide dit où chercher (« Elle se trouve au Filet »).
-- **Neuf petits jeux de deux minutes**, chacun trois manches de trois étoiles : l'Épingle, la Frise, le Mot mystère, le Détail, le Filet, le Pari, l'Éclair, les Indices, la Réplique.
+- **Neuf petits jeux de quelques minutes**, chacun trois manches de trois étoiles : l'Épingle, la Frise, le Mot mystère, le Détail, le Filet, le Pari, l'Éclair, les Indices, la Réplique.
 - **Une visite ou une chasse fait toujours avancer** : une œuvre si les étoiles y sont, de la poussière d'or sinon — et une partie de la visite manquée se retente au même jeu, pour une chasse. Une partie libre paie ses étoiles, les cinq premières du jour. Aucune règle à apprendre avant de jouer.
 - **Une journée** : la visite du jour — trois parties, trois jeux, trois œuvres à gagner sans les nommer —, deux chasses pour aller chercher une œuvre précise, et des parties libres à volonté.
 - **Des cartes-bonus** : on emporte une œuvre qu'on possède, et son pouvoir — Éclairer, Protéger, Prendre son temps, Miser ou Changer. Elle ne s'use jamais.
@@ -118,7 +118,7 @@ Les salles complètes font aussi monter **L'Explorateur** 🎒, un trophée de l
 
 ## Ce qu'on apprend
 
-- **Le cartel** : chaque œuvre gagnée garde la question, la réponse et l'anecdote de la manche que tu as le mieux réussie, avec le jeu, le jour et les étoiles. Il se lit seul. Une œuvre achetée ou offerte à l'arrivée le dit à sa place, et la rejouer pour dorer son cadre lui donne le sien.
+- **Le cartel** : chaque œuvre gagnée garde la question, la réponse et l'anecdote de la manche que tu as le mieux réussie, avec le jeu, le jour et les étoiles. Il se lit seul. Une œuvre achetée ou offerte à l'arrivée le dit à sa place, et la jouer à son jeu pour dorer son cadre lui donne le sien.
 - **Tes murs** : une carte de France où chaque lieu de l'Épingle reste épinglé, et une frise personnelle où chaque date apprise trouve sa place — rien ne s'écrit pour eux, ils se lisent de ce que tu as joué. Le musée y mène, sous les gardiens.
 - **Le carnet** : les erreurs du Pari, du Mot mystère et du Filet y entrent, comme partout en campagne, et s'y signalent. Les affirmations de l'Éclair n'y vont pas — cinq questions récrites, dont aucune n'est plus celle de la base —, et l'écran le dit.
 - **Rien ne revient avant sept jours**, d'un jeu à l'autre : le Pari et l'Éclair puisent dans le même tas.
@@ -133,7 +133,7 @@ Les mots de l'écran, que le glossaire de la page reprend. **Jamais « carte » 
 | **Une salle** | une famille et ses huit œuvres ; **le Vestibule**, les vingt neutres |
 | **Une œuvre** | une des 84 cartes peintes, à gagner ; **un cadre vide**, une œuvre qui te manque, et le jeu où la chercher |
 | **Le cadre doré** | une œuvre gagnée sans faute, ou dorée à la poussière |
-| **Le cartel** | ce qu'une œuvre garde de la partie qui l'a gagnée — ou, entrée sans rien à raconter, de celle qui l'a dorée ou rejouée |
+| **Le cartel** | ce qu'une œuvre garde de la partie qui l'a gagnée — ou, entrée sans rien à raconter, de la première jouée pour elle qui l'a dorée ou doublée |
 | **Une partie** | trois **manches** d'un même jeu, trois **étoiles** chacune |
 | **La visite du jour** | trois parties, trois jeux, trois œuvres à gagner |
 | **Une chasse** | une partie pour aller chercher une œuvre précise, ou la dorer |

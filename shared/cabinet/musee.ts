@@ -274,10 +274,10 @@ export function serieApresUnJour(profil: Pick<LigneDuProfil, 'serie' | 'serieJou
 }
 
 /**
- * La série montrée : ses jours de visite ou de chasse d'affilée, lus jusqu'à
- * la veille tant qu'il n'a pas joué aujourd'hui — « 12 jours de visite
- * d'affilée. Joue aujourd'hui pour garder ta série. » Rompue, zéro ; son
- * record reste (le Scarabée le lit).
+ * La série montrée : ses jours d'affilée à répondre à une manche de visite ou
+ * de chasse, lus jusqu'à la veille tant qu'il n'a pas répondu aujourd'hui —
+ * « 12 jours de visite d'affilée. Réponds à une manche aujourd'hui pour garder
+ * ta série. » Rompue, zéro ; son record reste (le Scarabée le lit).
  */
 export function serieMontree(profil: LigneDuProfil | null, jour: string): { jours: number; aJouer: boolean; record: number } {
   const dernier = profil?.serieJour ?? null
