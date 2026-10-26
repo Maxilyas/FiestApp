@@ -58,7 +58,7 @@ Après chaque manche, **la révélation** : les étoiles et ce qui les a faites 
 | **La Frise** | une seule frise qui grandit — trois événements, puis cinq, puis sept —, du plus ancien au plus récent | sans faute ★★★ · une erreur ★★ | dévoile l'année d'un nouveau venu |
 | **Le Mot mystère** | un mot à trouver, la question pour indice, cinq essais en deux minutes — l'annonce le dit —, les couleurs de chaque essai | en 1 ou 2 essais ★★★ · 3 ou 4 ★★ · 5 ★ | souffle une lettre à sa place |
 | **Le Détail** | un tableau en quatre cadrages ; « Reculer d'un pas » en montre plus et coûte une étoile ; quatre titres d'époques voisines | au premier coup d'œil ★★★ · un pas ★★ · deux ★ | efface un mauvais titre |
-| **Le Filet** | un curseur sur une piste, puis la taille du filet | petit ★★★ · moyen ★★ · grand ★ | montre une zone où est la réponse |
+| **Le Filet** | un curseur sur une piste, puis la taille du filet ; laissé sans un geste, rien ne se lance | petit ★★★ · moyen ★★ · grand ★ | montre une zone où est la réponse |
 | **Le Pari** | une question ; juste, on garde ses deux étoiles ou on les parie sur une question plus difficile | garder ★★ · parier et réussir ★★★ | efface une mauvaise réponse |
 | **L'Éclair** | cinq affirmations, vraies ou fausses, en 55 secondes | 5 justes ★★★ · 4 ★★ · 3 ★ | souffle la réponse de l'affirmation en cours |
 | **Les Indices** | « Qui suis-je ? » : cinq indices du plus obscur au plus évident, un nom à taper | en 1 ou 2 indices ★★★ · 3 ou 4 ★★ · 5 et plus ★ ; chaque erreur compte, et en montre un de plus | un indice gratuit |

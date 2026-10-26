@@ -711,9 +711,10 @@ test('ce que le téléphone retient du Cabinet, il le retient profil par profil 
     assert.equal(r.carteRetenue('hugo'), null)
     assert.equal(r.reglesLues('hugo'), false)
     for (const k of memoire.keys()) assert.match(k, /^quizz\.cabinet\.[a-z-]+\.lea$/, k)
-    // Deux commodités, rien de plus : l'annonce des œuvres rapportées de l'Expédition est partie avec elles, et sa clé avec elle.
+    // Trois commodités, rien de plus — la carte-bonus, les règles lues et les pas de l'Épingle (`cabinet-ecran-neufs.test.ts`) :
+    // l'annonce des œuvres rapportées de l'Expédition est partie avec elles, et sa clé avec elle.
     assert.deepEqual([...memoire.keys()].sort(), ['quizz.cabinet.carte.lea', 'quizz.cabinet.regles-lues.lea'])
-    assert.deepEqual(Object.keys(r).sort(), ['carteRetenue', 'reglesLues', 'retenirLaCarte', 'retenirLesRegles'])
+    assert.deepEqual(Object.keys(r).sort(), ['carteRetenue', 'pasRetenus', 'reglesLues', 'retenirLaCarte', 'retenirLesPas', 'retenirLesRegles'])
     assert.doesNotMatch(source('views/cabinet/retenu.ts'), /accueil-vu/)
     r.retenirLaCarte('lea', null)
     assert.equal(r.carteRetenue('lea'), null)
@@ -2001,11 +2002,11 @@ test('la réponse part d’elle-même à l’échéance, sous la pause comprise,
   assert.equal(dans({ ...v, phase: 'avant' } as VueDeLaPartie, v.maintenant), null)
   assert.equal(dans({ ...v, enCours: undefined }, v.maintenant), null)
   // Ce qui part : la réponse « auto » de la manche ouverte, de ce que la page tient à l'instant où elle part — rien au Pari, le
-  // serveur sait déjà ce qui compte ; au Filet, le curseur et le filet qu'il a sous les yeux, bougés depuis que l'envoi s'est prévu.
+  // serveur sait déjà ce qui compte ; au Filet, le curseur et le filet qu'il a formés, bougés depuis que l'envoi s'est prévu.
   assert.deepEqual(aEnvoyerALEcheance(v, v.maintenant, ecran)!.geste(null), { quoi: 'repondre', manche: v.manche, auto: true })
   const f = vues.filet
   const tenu = { x: (f.enCours as FiletMontre).piste.min, taille: 'petit' }
-  assert.deepEqual(aEnvoyerALEcheance(f, f.maintenant, lesEcrans.filet)!.geste(tenu), { quoi: 'repondre', manche: f.manche, auto: true, reponse: { filet: tenu } })
+  assert.deepEqual(aEnvoyerALEcheance(f, f.maintenant, lesEcrans.filet)!.geste({ ...tenu, touche: true }), { quoi: 'repondre', manche: f.manche, auto: true, reponse: { filet: tenu } })
 })
 
 test('le chrono qui presse se voit sans couleur ni mouvement : un sablier devant ses secondes, une barre plus épaisse — dès dix secondes au Cabinet', async () => {
@@ -3418,8 +3419,8 @@ test('le Filet en jeu : le curseur et ses crans, le filet choisi, la zone dorée
   assert.equal(cran(m, bouger(m, depart, p.min), -1).x, p.min)
   assert.equal(bouger(m, depart, p.max + 1000).x, p.max)
   assert.equal(bouger(m, depart, p.min + p.pas * 2.4).x, Number((p.min + p.pas * 2).toFixed(6)))
-  // La page ne tient que le curseur et son filet : rien n'y dit s'il y a touché, l'échéance envoie ce qu'il a sous les yeux.
-  assert.deepEqual(Object.keys(cran(m, depart, -1)).sort(), ['taille', 'x'])
+  // La page tient le curseur, son filet, et s'il y a touché : l'échéance n'envoie que ce qu'il a formé (`cabinet-ecran-neufs.test.ts`).
+  assert.deepEqual(Object.keys(cran(m, depart, -1)).sort(), ['taille', 'touche', 'x'])
   // Un grand pas : un dixième de la piste, à son cran près, jamais moins d'un cran ni au-delà de ses bornes ; de là où le curseur
   // part, toute valeur de la piste se prend en cinq grands pas et une moitié de grand pas en crans — quinze au plus : la plus
   // longue piste que tire le Filet a 290 crans, un grand pas de 29 — sans glisser, au lecteur d'écran, d'un pouce qui tremble (la
@@ -3489,10 +3490,11 @@ test('le Filet en jeu : le curseur et ses crans, le filet choisi, la zone dorée
   const auBord = ouEstLeFilet(p.min, 'grand', p)
   assert.equal(auBord.de, 0)
   assert.ok(auBord.a > 0 && auBord.a <= 100)
-  // À l'échéance : le curseur et le filet qu'il a sous les yeux, au milieu et moyen s'il n'y a pas touché — la maquette lançait
-  // au temps écoulé. « Lancer le filet » touché d'emblée joue le même lancer : le refuser ne fermait rien, et « Pas de lancer »
-  // punissait qui laissait le curseur là où il croyait la réponse.
-  assert.deepEqual(FILET.aLEcheance(m, depart), { filet: { x: milieuDeLaPiste(p), taille: 'moyen' } })
+  // À l'échéance : le curseur et le filet qu'il a formés ; sans un geste, rien — la manche se juge « Pas de lancer », comme la page
+  // fermée : le lancer du milieu que la page envoyait d'elle-même comptait « répondu », et payait la poussière minimale, Protéger et
+  // le jour de série à qui laissait l'écran allumé (la relecture des régressions du 26 octobre 2026). « Lancer le filet » touché
+  // d'emblée reste un lancer : c'est un choix.
+  assert.equal(FILET.aLEcheance(m, depart), undefined)
   const vise = { ...cran(m, depart, 1), taille: 'petit' as const }
   assert.deepEqual(FILET.aLEcheance(m, vise), { filet: { x: vise.x, taille: 'petit' } })
   // Le petit choisi : il est pressé, les deux autres non.
@@ -3661,7 +3663,8 @@ test('le Filet d’une unité longue tient dans la page au texte agrandi : l’u
   const html = await laPartie(longue)
   // La valeur visée : son unité à part, à l'oreille la même phrase.
   assert.match(html, /<output class="cab-filet-valeur"[^>]*>41<span class="cab-filet-unite"> chromosomes<\/span><\/output>/)
-  assert.match(html, /<p class="cab-filet-bornes"><span>0 chromosomes<\/span><span>82 chromosomes<\/span><\/p>/)
+  // Zéro, au singulier, comme « 0 pt » (`uniteAccordee`, `cabinet-ecran-neufs.test.ts`).
+  assert.match(html, /<p class="cab-filet-bornes"><span>0 chromosome<\/span><span>82 chromosomes<\/span><\/p>/)
   const section = sectionDuCabinet()
   const regle = (sel: string) => new RegExp(`(?:^|\\n)${echapper(sel)} \\{([^}]*)\\}`).exec(section)?.[1] ?? ''
   const rem = (sel: string) => Number(/font-size: ([\d.]+)rem;/.exec(regle(sel))?.[1])

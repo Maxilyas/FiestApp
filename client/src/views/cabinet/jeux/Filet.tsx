@@ -7,6 +7,7 @@ import { toucher } from '../../../toucher'
 import { ETOILES_DU_FILET } from '../../../../../shared/cabinet/bareme'
 import { TAILLES_DU_FILET, demiLargeur, milieuDeLaPiste, type FiletMontre, type FiletRevele, type PisteDuFilet, type TailleDuFilet } from '../../../../../shared/cabinet/jeux/filet'
 import { decimales } from '../../../../../shared/classement'
+import { uniteAccordee } from '../../../../../shared/unites'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
 
 // Le Filet à l'écran (§ 3.5) : une année ou une estimation de la base, sur une
@@ -24,17 +25,23 @@ import type { JeuALEcran, PropsDUneManche } from '../Partie'
 // une année qu'il ne prenait pas.
 //
 // Ce que la page tient — le curseur et la taille — part d'elle-même à
-// l'échéance, tel qu'il est, comme la maquette lançait au temps écoulé : au
-// milieu et moyen s'il n'y a pas touché. « Lancer le filet » touché d'emblée
-// joue ce même lancer, et la piste tirée — la réponse n'importe où sur elle
-// (`POSITION_DE_LA_REPONSE`) — ne paie plus le milieu ; refusé, ce lancer
-// donnait « Pas de lancer » à qui laissait le curseur là où il croyait la
-// réponse. Recharger le perd : rien de cela ne disait la réponse (§ 2.8).
+// l'échéance, tel qu'il est, dès qu'il y a touché : un cran, un grand pas, le
+// curseur glissé, la taille du filet. Sans un geste, rien ne part, et la
+// manche se juge « Pas de lancer », comme l'Épingle sans épingle : le curseur
+// au milieu, moyen, que la page lançait d'elle-même, comptait « répondu » — la
+// poussière minimale, Protéger et le jour de série se payaient à qui laissait
+// l'écran allumé, quand la page fermée n'en donnait rien (la relecture des
+// régressions du 26 octobre 2026). « Lancer le filet » touché d'emblée reste
+// un lancer : c'est un choix, et la piste tirée — la réponse n'importe où sur
+// elle (`POSITION_DE_LA_REPONSE`) — ne paie pas le milieu. Recharger le perd :
+// rien de cela ne disait la réponse (§ 2.8).
 
-/** Ce que la page tient d'une manche du Filet : où est le curseur, et la taille de son filet. */
+/** Ce que la page tient d'une manche du Filet : où est le curseur, la taille de son filet, et s'il y a touché. */
 export interface LocalDuFilet {
   readonly x: number
   readonly taille: TailleDuFilet
+  /** Il a touché le curseur, un cran, un grand pas ou la taille : à l'échéance, son lancer part. Absent au début de la manche. */
+  readonly touche?: true
 }
 
 /** Les trois filets, en mots : la page dit leur taille, leurs étoiles viennent du barème. */
@@ -45,10 +52,13 @@ const ecrit = (p: PisteDuFilet, x: number) => Number(x.toFixed(decimales(p.pas))
 const auCran = (p: PisteDuFilet, x: number, arrondi: (n: number) => number) => ecrit(p, p.min + arrondi((x - p.min) / p.pas) * p.pas)
 const surLaPiste = (p: PisteDuFilet, x: number) => Math.min(p.max, Math.max(p.min, x))
 
-/** Le curseur posé à `x` : sur le cran le plus proche, dans la piste. */
+/** Le curseur posé à `x` : sur le cran le plus proche, dans la piste — touché, même revenu là où il était. */
 export function bouger(m: FiletMontre, l: LocalDuFilet, x: number): LocalDuFilet {
-  return { ...l, x: surLaPiste(m.piste, auCran(m.piste, x, Math.round)) }
+  return { ...l, x: surLaPiste(m.piste, auCran(m.piste, x, Math.round)), touche: true }
 }
+
+/** La taille de son filet, choisie : touché aussi — le moyen choisi au milieu est un lancer qu'il a formé. */
+export const prendreLaTaille = (l: LocalDuFilet, taille: TailleDuFilet): LocalDuFilet => ({ ...l, taille, touche: true })
 
 /** « − » et « + » : un cran de la piste, jamais au-delà de ses bornes. */
 export const cran = (m: FiletMontre, l: LocalDuFilet, sens: 1 | -1): LocalDuFilet => bouger(m, l, l.x + sens * m.piste.pas)
@@ -94,8 +104,11 @@ export function ouEstLeFilet(x: number, taille: TailleDuFilet, p: PisteDuFilet):
   return { de: pourCent(p, x - w), a: pourCent(p, x + w) }
 }
 
-/** Un nombre de la piste, tel qu'on le lit : « 1852 », « 12 500 km » — jamais par `Intl` (règle `client.md`). */
-const dire = (m: Pick<FiletMontre, 'unite'>, v: number) => `${formatNumber(v)}${m.unite ? ` ${m.unite}` : ''}`
+/**
+ * Un nombre de la piste, tel qu'on le lit : « 1852 », « 12 500 km », « 1 jour » — son unité accordée (`uniteAccordee`), jamais
+ * par `Intl` (règle `client.md`).
+ */
+const dire = (m: Pick<FiletMontre, 'unite'>, v: number) => `${formatNumber(v)}${m.unite ? ` ${uniteAccordee(m.unite, v)}` : ''}`
 
 /**
  * La piste, dessinée : son rail, la zone dorée d'Éclairer, le filet — qu'il
@@ -157,7 +170,7 @@ function MancheDuFilet({ montree: m, local: l, setLocal, envoyer, garde, busy }:
         {/* Son unité à part, plus petite que son nombre : en grand, une unité longue sortait de l'écran (`styles.css`). */}
         <output className="cab-filet-valeur" aria-live="off">
           {formatNumber(l.x)}
-          {m.unite && <span className="cab-filet-unite">{` ${m.unite}`}</span>}
+          {m.unite && <span className="cab-filet-unite">{` ${uniteAccordee(m.unite, l.x)}`}</span>}
         </output>
         <span className="cab-filet-couvre">{espacesFines(`Ton filet : de ${dire(m, filet.de)} à ${dire(m, filet.a)}`)}</span>
       </div>
@@ -193,7 +206,7 @@ function MancheDuFilet({ montree: m, local: l, setLocal, envoyer, garde, busy }:
       <ZoneDite m={m} />
       <div className="cab-tailles" role="group" aria-label="La taille de ton filet">
         {TAILLES_DU_FILET.map(t => (
-          <button key={t} type="button" className="cab-taille" aria-pressed={l.taille === t} {...toucher(() => !busy && garde() && setLocal({ ...l, taille: t }))}>
+          <button key={t} type="button" className="cab-taille" aria-pressed={l.taille === t} {...toucher(() => !busy && garde() && setLocal(prendreLaTaille(l, t)))}>
             <b>{NOMS[t]}</b>
             <Etoiles n={ETOILES_DU_FILET[t]} />
           </button>
@@ -244,11 +257,13 @@ function RevelationDuFilet({ corps: r }: { corps: FiletRevele }) {
 }
 
 export const FILET: JeuALEcran<FiletMontre, FiletRevele, LocalDuFilet> = {
-  // Le curseur part du milieu, comme la règle le pose (`milieuDeLaPiste`), et le moyen filet d'office, comme la maquette.
+  // Le curseur part du milieu, comme la règle le pose (`milieuDeLaPiste`), et le moyen filet d'office, comme la maquette — pas
+  // encore touchés.
   localDe: m => ({ x: milieuDeLaPiste(m.piste), taille: 'moyen' }),
   // La question et sa piste : « Changer » en pose d'autres ; la zone d'Éclairer n'y change rien, le curseur reste où il est.
   cleDe: m => `${m.texte}|${m.piste.min}|${m.piste.max}|${m.piste.pas}`,
-  aLEcheance: (_m, l) => ({ filet: { x: l.x, taille: l.taille } }),
+  // Ce qu'il a formé, tel qu'il est ; sans un geste, rien — la réponse vide, que le pli joue aussi la page fermée.
+  aLEcheance: (_m, l) => (l.touche ? { filet: { x: l.x, taille: l.taille } } : undefined),
   // Pas de `sousEcranDe` : rien ne bouge sous le doigt sans une vue neuve — le curseur et le filet glissent sous lui, il les y mène.
   Manche: MancheDuFilet,
   Revelation: RevelationDuFilet,

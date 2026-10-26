@@ -9,7 +9,8 @@
 // Et ce que la carte dit à qui ne la voit pas : où est son épingle, par la
 // ville repère la plus proche (« près de Lyon », « à 120 km au sud-ouest de
 // Paris ») — un lecteur d'écran, ou un doigt qui cache la carte, ne lit pas un
-// dessin. Purs, sans React : `cabinet-ecran-neufs.test.ts` les lit tels quels.
+// dessin —, ce que fait un pas, et d'où partir sans viser. Purs, sans React :
+// `cabinet-ecran-neufs.test.ts` les lit tels quels.
 
 import { DANS_LA_FRANCE, deprojeter, distanceKm, projeter, type Point } from '../../../../shared/cabinet/france'
 import { formatNumber } from '../../../../shared/typographie'
@@ -51,6 +52,20 @@ export const VILLES_REPERES: readonly VilleRepere[] = [
   { nom: 'Nantes', lon: -1.55, lat: 47.22, nomA: 'droite' },
   { nom: 'Strasbourg', lon: 7.75, lat: 48.58, nomA: 'dessous' },
 ]
+
+/**
+ * D'où « Partir de… » pose l'épingle, du nord au sud : chaque ville repère, sur son point dessiné, et la Corse, en son milieu —
+ * qu'aucune ville ne dessine. Depuis le milieu de la France, trois étoiles à Ajaccio demandaient dix-huit grands pas, treize à
+ * Brest ou à Nice, et Hugo, au lecteur d'écran, y a mis une vingtaine de pressions (la tablée du 26 octobre 2026) ; depuis le
+ * départ le plus proche, chaque lieu livré est à six grands pas au plus (`cabinet-ecran-neufs.test.ts`).
+ */
+export const DEPARTS_DE_L_EPINGLE: readonly { nom: string; point: Point }[] = [
+  ...VILLES_REPERES.map(v => ({ nom: v.nom, point: { lat: v.lat, lon: v.lon } })),
+  { nom: 'la Corse', point: { lat: 42.15, lon: 9.1 } },
+].sort((a, b) => b.point.lat - a.point.lat)
+
+/** Le départ que la page a choisi, par son nom — par la liste, jamais par `TABLE[nom]` : un objet répond aussi de son prototype. */
+export const departNomme = (nom: string): Point | null => DEPARTS_DE_L_EPINGLE.find(d => d.nom === nom)?.point ?? null
 
 /** Un point au dixième de pixel du dessin : le tracé SVG n'en demande pas plus, et le HTML reste court. */
 const auDixieme = (n: number) => Math.round(n * 10) / 10
@@ -103,6 +118,9 @@ export const estUneFleche = (touche: string): touche is Fleche => touche === 'Ar
 /** Ce que vaut un grand pas, en petits : Maj au clavier, la bascule des grands pas au pied de l'Épingle, qui l'écrit (« ×5 »). */
 export const GRAND_PAS = 5
 
+/** Un pas, en degrés de latitude. */
+const DEGRES_D_UN_PAS = 0.1
+
 /**
  * Un pas de flèche : un dixième de degré de latitude — onze kilomètres —, et
  * autant de chemin vers l'est ou l'ouest (la longitude s'allonge du cosinus de
@@ -110,7 +128,7 @@ export const GRAND_PAS = 5
  * une vingtaine de pas. Gardé dans le cadre, comme un toucher.
  */
 export function deplacer(p: Point, fleche: Fleche, grand = false): Point {
-  const pas = 0.1 * (grand ? GRAND_PAS : 1)
+  const pas = DEGRES_D_UN_PAS * (grand ? GRAND_PAS : 1)
   const est = pas / Math.cos((p.lat * Math.PI) / 180)
   switch (fleche) {
     case 'ArrowUp':
@@ -123,6 +141,14 @@ export function deplacer(p: Point, fleche: Fleche, grand = false): Point {
       return dansLeCadre({ lat: p.lat, lon: p.lon + est })
   }
 }
+
+/**
+ * Ce que fait un pas, en kilomètres entiers, tel que la page le dit — « Grands pas, 55 km », « un pas fait 11 km, un grand 55 » :
+ * un pas de la règle même (`deplacer`), vers le nord. Un grand se dit cinq de ces kilomètres-là (55, pas les 55,6 d'un vrai) : dit
+ * « 56 » derrière « 11 », il ferait compter l'oreille. La page n'en disait que « ×5 » à l'œil et « Grands pas » à l'oreille (Hugo, à
+ * la tablée du 26 octobre 2026).
+ */
+export const KM_D_UN_PAS = Math.round(distanceKm(MILIEU_DE_LA_FRANCE, deplacer(MILIEU_DE_LA_FRANCE, 'ArrowUp')))
 
 /** Assez près d'une ville repère pour se dire « près de » elle : à cette distance, une épingle ne se distingue plus de son point. */
 export const PRES_D_UNE_VILLE_KM = 25

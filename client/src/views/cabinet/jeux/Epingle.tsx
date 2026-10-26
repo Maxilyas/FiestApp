@@ -6,8 +6,9 @@ import { toucher } from '../../../toucher'
 import type { Point } from '../../../../../shared/cabinet/france'
 import { pointADistance, type EpingleMontree, type EpingleRevelee, type ZoneDEclairer } from '../../../../../shared/cabinet/jeux/epingle'
 import { CarteDeFrance, DessinDeLEpingle, DessinDeLaZone, DessinDuLieu, DessinDuTrait, IconeDeLEpingle, IconeDuLieu } from '../CarteDeFrance'
-import { GRAND_PAS, MILIEU_DE_LA_FRANCE, deplacer, ouEstLEpingle, type Fleche } from '../contourDeLaFrance'
+import { DEPARTS_DE_L_EPINGLE, GRAND_PAS, KM_D_UN_PAS, MILIEU_DE_LA_FRANCE, deplacer, departNomme, ouEstLEpingle, type Fleche } from '../contourDeLaFrance'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
+import { pasRetenus, retenirLesPas } from '../retenu'
 
 // L'Épingle à l'écran (§ 3.1) : un récit daté, une question « Où ? », et la
 // carte de France — la métropole et la Corse — où il plante son épingle au
@@ -35,8 +36,11 @@ import type { JeuALEcran, PropsDUneManche } from '../Partie'
 // Le pied, sous le pouce (`JeuALEcran.Pied`) : « Pas à pas », qui ouvre au-dessus
 // de lui les quatre pas de l'épingle et la bascule des grands pas — au doigt, ce
 // que font les flèches au clavier : sous TalkBack, un double toucher plantait au
-// centre de la carte —, et « Planter ici », qui attend une épingle. Au clavier,
-// les flèches la mènent et Entrée la plante.
+// centre de la carte —, et sous la carte « Partir de… », une ville repère ou la
+// Corse ; et « Planter ici », qui attend une épingle. Au clavier, les flèches la
+// mènent et Entrée la plante. « Pas à pas » et « Grands pas » restent comme il
+// les a laissés, d'une manche à l'autre et d'une partie à l'autre (`retenu.ts`,
+// au profil) ; ce que fait un pas se dit (« Grands pas, 55 km »).
 //
 // Ce que la page tient — l'épingle posée — part d'elle-même à l'échéance ; sans
 // épingle, rien ne part, et la manche se juge « Pas d'épingle ». Recharger la
@@ -70,6 +74,19 @@ export function poserLEpingle(l: LocalDeLEpingle, p: Point, m: Pick<EpingleMontr
  */
 export function pasDeLEpingle(l: LocalDeLEpingle, fleche: Fleche): LocalDeLEpingle {
   return { ...l, epingle: deplacer(l.epingle ?? MILIEU_DE_LA_FRANCE, fleche, l.grands) }
+}
+
+/**
+ * « Pas à pas » ouvert ou fermé, « Grands pas » pressé ou non — retenu au
+ * profil : la manche suivante les rouvre tels qu'il les a laissés (`localDe`).
+ * À chaque manche, Hugo, au lecteur d'écran, les retrouvait fermés, à petits
+ * pas, et les rouvrait sous un chrono qui courait pendant le récit (la tablée
+ * du 26 octobre 2026).
+ */
+export function basculerLesPas(l: LocalDeLEpingle, quoi: 'pasAPas' | 'grands'): LocalDeLEpingle {
+  const apres = { ...l, [quoi]: !l[quoi] }
+  retenirLesPas({ pasAPas: apres.pasAPas, grands: apres.grands })
+  return apres
 }
 
 /** Les quatre pas, dans l'ordre des flèches d'un clavier : ← ↑ ↓ →. */
@@ -134,10 +151,10 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
   // suivante » tombe sur la carte.
   const poser = (p: Point) => !busy && gardeDeLEcran() && setLocal(poserLEpingle(local, p, m))
   const planter = () => !busy && local.epingle && envoyer({ quoi: 'repondre', reponse: { epingle: local.epingle } })
-  // Revenu sur la carte, le lecteur d'écran entend la consigne, ce qui la mène sans clavier — fermé, « Pas à pas » ne se devine
-  // pas —, puis où est l'épingle : la ligne au-dessus l'a dite en la posant, une fois.
+  // Revenu sur la carte, le lecteur d'écran entend la consigne, ce que fait un pas, ce qui la mène sans clavier — fermé, « Pas à
+  // pas » ne se devine pas —, puis où est l'épingle : la ligne au-dessus l'a dite en la posant, une fois.
   const aide = espacesFines(
-    `Touche-la pour planter ton épingle. Au clavier, les flèches la mènent, Maj à grands pas, et Entrée la plante. Sans clavier, « Pas à pas », au bas de l’écran, ouvre les boutons qui la mènent.${local.epingle ? ` Ton épingle : ${ouEstLEpingle(local.epingle)}.` : ''}`,
+    `Touche-la pour planter ton épingle. Au clavier, les flèches la mènent — un pas fait ${KM_D_UN_PAS} km, un grand ${KM_D_UN_PAS * GRAND_PAS} —, Maj à grands pas, et Entrée la plante. Sans clavier, « Pas à pas », au bas de l’écran, ouvre les boutons qui la mènent, et « Partir de… », qui la pose sur une ville.${local.epingle ? ` Ton épingle : ${ouEstLEpingle(local.epingle)}.` : ''}`,
   )
   return (
     <>
@@ -151,23 +168,66 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
         {m.zone && <DessinDeLaZone tour={tourDeLaZone(m.zone)} />}
         {local.epingle && <DessinDeLEpingle point={local.epingle} />}
       </CarteDeFrance>
+      {local.pasAPas && <PartirDe poser={poser} />}
     </>
+  )
+}
+
+/** Ce que « Pas à pas » ouvre sous la carte, et désigne avec les pas du pied (`aria-controls`) : une seule manche à l'écran. */
+const PARTIR_DE = 'cab-partir-de'
+
+/**
+ * « Partir de… », sous la carte, que « Pas à pas » ouvre avec les pas : une
+ * ville repère ou la Corse, où l'épingle se pose — par la règle de la carte,
+ * qui dit la plus neuve, de l'épingle ou de la zone. Une liste, une ligne :
+ * huit boutons — sept villes et la Corse — passaient sur trois ou quatre
+ * lignes, et au lecteur d'écran faisaient huit arrêts avant les pas. Sous la
+ * carte, pas au pied : collée au pied, sa ligne prenait à la question et à la
+ * carte la place qu'il leur fallait pour tenir ensemble, en 360 × 640 au texte
+ * agrandi (le rendu du 26 octobre 2026) ; sous la carte, rien au-dessus d'elle
+ * ne bouge quand « Pas à pas » l'ouvre. Sa première ligne la dit sans rien
+ * poser ; choisi, un départ pose l'épingle, et la liste revient à « Partir
+ * de… » : le même départ se reprend.
+ */
+function PartirDe({ poser }: { poser: (p: Point) => unknown }) {
+  return (
+    <select
+      id={PARTIR_DE}
+      className="btn btn-block"
+      aria-label="Partir d’une ville"
+      value=""
+      onChange={e => {
+        const p = departNomme(e.currentTarget.value)
+        if (p) poser(p)
+      }}
+    >
+      <option value="" disabled>
+        Partir de…
+      </option>
+      {DEPARTS_DE_L_EPINGLE.map(d => (
+        <option key={d.nom} value={d.nom}>
+          {d.nom}
+        </option>
+      ))}
+    </select>
   )
 }
 
 /**
  * Le pied collé : « Pas à pas » et « Planter ici », sous le pouce, sur une
- * ligne ; ouverts, les quatre pas de l'épingle et la bascule des grands pas,
- * une rangée de cinq carrés de 44 px au-dessus d'eux — le pied grandit vers le
- * haut, et « Pas à pas » reste sous le doigt qui l'a touché. Fermés d'office :
+ * ligne ; ouverts, au-dessus d'eux, les quatre pas de l'épingle et la bascule
+ * des grands pas, une rangée de cinq carrés de 44 px — le pied grandit vers le
+ * haut, et « Pas à pas » reste sous le doigt qui l'a touché —, et « Partir
+ * de… » sous la carte (`PartirDe`). Fermés tant qu'il ne les ouvre pas :
  * ouverts, avec la carte-bonus qui sert encore, ils prenaient en 277 × 492 la
- * place qu'il fallait pour voir la question et la carte ensemble. Un pas se
- * joue vite, comme un cran du Filet : deux touchers en font deux ; seul un
- * écran neuf le retient une demi-seconde, comme la carte (`gardeDeLEcran`).
- * « Planter ici » attend une épingle (`aria-disabled` : le focus y reste), et
- * sa demi-seconde de garde à chaque vue neuve : touché deux fois, il ne plante
- * pas à la manche suivante. Où est l'épingle se dit au-dessus de la carte
- * (`Consigne`) : ici, sa ligne prenait la place qui manquait à la carte.
+ * place qu'il fallait pour voir la question et la carte ensemble ; ouverts, ils
+ * le restent d'une manche à l'autre (`basculerLesPas`). Un pas se joue vite,
+ * comme un cran du Filet : deux touchers en font deux ; seul un écran neuf le
+ * retient une demi-seconde, comme la carte (`gardeDeLEcran`). « Planter ici »
+ * attend une épingle (`aria-disabled` : le focus y reste), et sa demi-seconde
+ * de garde à chaque vue neuve : touché deux fois, il ne plante pas à la manche
+ * suivante. Où est l'épingle se dit au-dessus de la carte (`Consigne`) : ici,
+ * sa ligne prenait la place qui manquait à la carte.
  */
 function PlanterIci({ montree: m, local, setLocal, envoyer, garde, gardeDeLEcran, busy }: PropsDUneManche<EpingleMontree, LocalDeLEpingle>) {
   const rangee = useId()
@@ -185,8 +245,14 @@ function PlanterIci({ montree: m, local, setLocal, envoyer, garde, gardeDeLEcran
               <Icon name={p.icone} />
             </button>
           ))}
-          {/* Un nom fixe, l'état par `aria-pressed` ; à l'œil, ce que vaut un grand pas. */}
-          <button type="button" className="cab-pas cab-pas-grands" aria-label="Grands pas" aria-pressed={!!local.grands} {...toucher(() => !busy && setLocal({ ...local, grands: !local.grands }))}>
+          {/* Un nom fixe, ce que vaut un grand pas compris, l'état par `aria-pressed` ; à l'œil, combien de petits il en fait. */}
+          <button
+            type="button"
+            className="cab-pas cab-pas-grands"
+            aria-label={`Grands pas, ${KM_D_UN_PAS * GRAND_PAS} km`}
+            aria-pressed={!!local.grands}
+            {...toucher(() => !busy && setLocal(basculerLesPas(local, 'grands')))}
+          >
             <span aria-hidden="true">{`×${GRAND_PAS}`}</span>
           </button>
         </div>
@@ -196,8 +262,8 @@ function PlanterIci({ montree: m, local, setLocal, envoyer, garde, gardeDeLEcran
           type="button"
           className="btn cab-pas-a-pas"
           aria-expanded={!!local.pasAPas}
-          aria-controls={local.pasAPas ? rangee : undefined}
-          {...toucher(() => !busy && setLocal({ ...local, pasAPas: !local.pasAPas }))}
+          aria-controls={local.pasAPas ? `${PARTIR_DE} ${rangee}` : undefined}
+          {...toucher(() => !busy && setLocal(basculerLesPas(local, 'pasAPas')))}
         >
           Pas à pas
         </button>
@@ -256,7 +322,8 @@ function RevelationDeLEpingle({ corps: r }: { corps: EpingleRevelee }) {
 }
 
 export const EPINGLE: JeuALEcran<EpingleMontree, EpingleRevelee, LocalDeLEpingle> = {
-  localDe: () => ({ epingle: null, grands: false, pasAPas: false }),
+  // L'épingle à poser, et les pas tels qu'il les a laissés à la manche d'avant (`basculerLesPas`) ; rien de retenu, fermés.
+  localDe: () => ({ epingle: null, ...pasRetenus() }),
   // Le lieu de la manche : « Changer » en pose un autre, et l'épingle d'avant ne lui dit rien. La zone d'Éclairer n'y change rien.
   cleDe: m => `${m.date}|${m.question}`,
   aLEcheance: (_m, l) => (l.epingle ? { epingle: l.epingle } : undefined),

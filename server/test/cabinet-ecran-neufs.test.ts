@@ -2,9 +2,11 @@
 // Indices, la Réplique — et tes murs, rendus en HTML (`renderToStaticMarkup`)
 // sur les vues qu'un vrai serveur rend à des joueurs qui jouent par les routes,
 // les réponses lues dans le plan en base. Un fichier à part de
-// `cabinet-ecran.test.ts`, qui tient le musée et les six premiers jeux : chacun
-// sous la minute (règle `tests.md`). Sans navigateur : seul le premier rendu se
-// lit ; les écrans se regardent au téléphone par la skill `regarder-le-rendu`.
+// `cabinet-ecran.test.ts`, qui tient le musée et les six premiers jeux — l'unité
+// accordée du Filet et son échéance sans un geste s'écrivent pourtant ici,
+// après la tablée du 26 octobre 2026 — : chacun sous la minute (règle
+// `tests.md`). Sans navigateur : seul le premier rendu se lit ; les écrans se
+// regardent au téléphone par la skill `regarder-le-rendu`.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -23,6 +25,7 @@ import {
   jouerUneEpingle,
   jouerUneFrise,
   jouerUneReplique,
+  laPage,
   lire,
   ok,
   ouvrir,
@@ -30,10 +33,11 @@ import {
   type BancDuCabinet,
 } from './cabinet-banc'
 import { importsStatiques } from './chemin-des-imports'
-import { GRACE_D_UNE_MANCHE_MS, SIGNES_D_UN_GESTE_MAX } from '../../shared/cabinet/bareme'
+import { GRACE_D_UNE_MANCHE_MS, KM_DE_L_EPINGLE, SIGNES_D_UN_GESTE_MAX } from '../../shared/cabinet/bareme'
 import { DANS_LA_FRANCE, HAUTEUR_DE_LA_CARTE, LARGEUR_DE_LA_CARTE, distanceKm, projeter, type Point } from '../../shared/cabinet/france'
 import { pointADistance, type EpingleMontree, type EpingleRevelee } from '../../shared/cabinet/jeux/epingle'
 import type { Lieu } from '../../shared/cabinet/contenu'
+import type { FiletMontre, FiletRevele } from '../../shared/cabinet/jeux/filet'
 import type { IndicesMontres, IndicesReveles } from '../../shared/cabinet/jeux/indices'
 import type { RepliqueMontree, RepliqueRevelee } from '../../shared/cabinet/jeux/replique'
 import { CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
@@ -161,12 +165,13 @@ async function jouerUneRepliqueALaSeconde(v: VueDeLaPartie, k: number, juste: bo
   return ok(await jouer(b, alice, v, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { replique: { qui } } }), 'qui l’a dite')
 }
 
-/** Les écrans des trois jeux, tels que la page les charge à la demande. */
+/** Les écrans des trois jeux, tels que la page les charge à la demande — et celui du Filet, pour son unité et son échéance. */
 async function ecrans() {
   const epingle = (await import(url('views/cabinet/jeux/Epingle.tsx'))).EPINGLE
   const indices = (await import(url('views/cabinet/jeux/Indices.tsx'))).INDICES
   const replique = (await import(url('views/cabinet/jeux/Replique.tsx'))).REPLIQUE
-  return { epingle, indices, replique } as Record<
+  const filet = (await import(url('views/cabinet/jeux/Filet.tsx'))).FILET
+  return { epingle, indices, replique, filet } as Record<
     string,
     {
       localDe: (m: unknown) => unknown
@@ -386,7 +391,7 @@ test('une manche de l’Épingle : la date, le thème, le récit, la question, l
   assert.match(html, new RegExp(`<svg class="cab-carte-dessin" viewBox="0 0 ${LARGEUR_DE_LA_CARTE} ${HAUTEUR_DE_LA_CARTE}" aria-hidden="true">`))
   assert.equal([...html.matchAll(/<polygon class="cab-carte-terre"/g)].length, 2, 'la métropole et la Corse')
   for (const ville of ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Lille', 'Nantes', 'Strasbourg']) assert.match(html, new RegExp(`>${ville}</text>`), ville)
-  assert.match(t, /Au clavier, les flèches la mènent, Maj à grands pas, et Entrée la plante\./)
+  assert.match(t, /Au clavier, les flèches la mènent — un pas fait \d+ km, un grand \d+ —, Maj à grands pas, et Entrée la plante\./)
   assert.doesNotMatch(html, /cab-carte-epingle|cab-carte-lieu|cab-carte-zone/)
   // Sous le pouce, collés : la carte-bonus qui sert encore, puis « Pas à pas », fermé, et « Planter ici », qui attend une épingle.
   // Où est l'épingle ne s'y dit plus — la consigne, au-dessus de la carte, en tient la place —, et les pas de l'épingle attendent
@@ -435,7 +440,7 @@ test('l’Épingle posée : sur la carte à sa place, dite par sa ville repère,
   const aide = /aria-describedby="([^"]+)"/.exec(html)![1]
   assert.match(
     texte(new RegExp(`<p id="${echapper(aide)}" class="sr-only">(.*?)</p>`).exec(html)![1]),
-    /Entrée la plante\. Sans clavier, « Pas à pas », au bas de l’écran, ouvre les boutons qui la mènent\. Ton épingle : Près de Lyon\./,
+    /Entrée la plante\. Sans clavier, « Pas à pas », au bas de l’écran, ouvre les boutons qui la mènent, et « Partir de… », qui la pose sur une ville\. Ton épingle : Près de Lyon\./,
   )
   // Ce que la page tient part à l'échéance ; sans épingle, rien : la manche se juge « Pas d'épingle ».
   assert.deepEqual(EPINGLE.aLEcheance(m, { epingle: lyon }), { epingle: lyon })
@@ -458,16 +463,16 @@ test('l’Épingle sans clavier : « Pas à pas » ouvre quatre pas, nord, sud, 
   assert.doesNotMatch(ferme, /Vers le nord|Grands pas/)
   const ouvert = { epingle: null, grands: false, pasAPas: true }
   const pied = piedDe(await laPartie(v, { local: ouvert }))
-  // Ouverts, au-dessus de la ligne de « Planter ici », que « Pas à pas » désigne.
+  // Ouverts, au-dessus de la ligne de « Planter ici », que « Pas à pas » désigne — avec « Partir de… », au-dessus d'eux.
   const rangee = /<div id="([^"]+)" class="cab-pas-de-l-epingle" role="group" aria-label="Mener l’épingle pas à pas">(.*?)<\/div><div class="cab-planter-ici">/.exec(pied)
   assert.ok(rangee, 'les pas, au-dessus de « Planter ici »')
-  assert.match(pied, new RegExp(`<button type="button" class="btn cab-pas-a-pas" aria-expanded="true" aria-controls="${echapper(rangee[1])}">Pas à pas</button>`))
+  assert.match(pied, new RegExp(`<button type="button" class="btn cab-pas-a-pas" aria-expanded="true" aria-controls="[^"]+ ${echapper(rangee[1])}">Pas à pas</button>`))
   const pas = rangee[2]
   const noms = [...pas.matchAll(/<button type="button" class="([^"]+)"[^>]*aria-label="([^"]+)"/g)].map(m => m[2])
-  assert.deepEqual(noms, ['Vers l’ouest', 'Vers le nord', 'Vers le sud', 'Vers l’est', 'Grands pas'])
-  // La bascule : un nom fixe, l'état par `aria-pressed`, petits pas d'office.
-  assert.match(pas, /<button type="button" class="cab-pas cab-pas-grands" aria-label="Grands pas" aria-pressed="false">/)
-  assert.match(piedDe(await laPartie(v, { local: { ...ouvert, grands: true } })), /aria-label="Grands pas" aria-pressed="true"/)
+  assert.deepEqual(noms, ['Vers l’ouest', 'Vers le nord', 'Vers le sud', 'Vers l’est', 'Grands pas, 55 km'])
+  // La bascule : un nom fixe — ce que vaut un grand pas compris —, l'état par `aria-pressed`, petits pas d'office.
+  assert.match(pas, /<button type="button" class="cab-pas cab-pas-grands" aria-label="Grands pas, 55 km" aria-pressed="false">/)
+  assert.match(piedDe(await laPartie(v, { local: { ...ouvert, grands: true } })), /aria-label="Grands pas, 55 km" aria-pressed="true"/)
   // Chacun mène l'épingle comme sa flèche — `deplacer`, la règle même du clavier —, et Planter ici la plante.
   const { EPINGLE, pasDeLEpingle } = await import(url('views/cabinet/jeux/Epingle.tsx'))
   const { deplacer, MILIEU_DE_LA_FRANCE } = await import(url('views/cabinet/contourDeLaFrance.ts'))
@@ -568,6 +573,175 @@ test('la révélation de l’Épingle : le lieu nommé, sa commune, sa date, la 
   assert.doesNotMatch(sans, /cab-carte-epingle|cab-carte-trait/)
   assert.doesNotMatch(texte(sans), /ton épingle/)
   sansJargon(html, 'la révélation de l’Épingle', [r.lieu.nom, r.savais])
+})
+
+// ── 3 bis. L'Épingle à l'oreille ──────────────────────────────────────────
+
+/**
+ * Un stockage du navigateur en mémoire, le temps d'une épreuve, puis celui d'avant : Node n'en a pas, et la page sans stockage se
+ * joue pareil — elle oublie seulement.
+ */
+async function avecUnStockage<T>(f: (memoire: Map<string, string>) => Promise<T>): Promise<T> {
+  const avant = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  const memoire = new Map<string, string>()
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: (k: string) => memoire.get(k) ?? null, setItem: (k: string, v: string) => void memoire.set(k, v), removeItem: (k: string) => void memoire.delete(k) },
+  })
+  try {
+    return await f(memoire)
+  } finally {
+    if (avant) Object.defineProperty(globalThis, 'localStorage', avant)
+    else delete (globalThis as Record<string, unknown>).localStorage
+  }
+}
+
+test('l’Épingle au lecteur d’écran : « Pas à pas » et « Grands pas » retenus au profil d’une manche à l’autre, sans rien d’un autre profil', async () => {
+  // À « Manche suivante », « Pas à pas » se refermait, « Grands pas » se relâchait, et Hugo, au lecteur d'écran, les rouvrait à
+  // chaque manche, sous un chrono qui courait pendant le récit (la tablée du 26 octobre 2026, Ajaccio en une vingtaine de
+  // pressions). Ils se retiennent au profil, comme la carte-bonus : la page lit ce que retient son profil à son ouverture.
+  const { EPINGLE, basculerLesPas } = await import(url('views/cabinet/jeux/Epingle.tsx'))
+  const retenu = await import(url('views/cabinet/retenu.ts'))
+  assert.match(source('views/CabinetApp.tsx'), /setCarte\(carteRetenue\(id\)\)/, 'la page lit ce que retient son profil, dès le profil léger lu')
+  const premiere = vues.epingle.enCours as EpingleMontree
+  const suivante = vues.epingleTroisieme.enCours as EpingleMontree
+  await avecUnStockage(async memoire => {
+    retenu.carteRetenue('hugo')
+    let l = EPINGLE.localDe(premiere)
+    assert.deepEqual(l, { epingle: null, grands: false, pasAPas: false }, 'rien de retenu : fermés, à petits pas')
+    l = basculerLesPas(basculerLesPas(l, 'pasAPas'), 'grands')
+    assert.deepEqual(l, { epingle: null, grands: true, pasAPas: true })
+    assert.deepEqual([...memoire.keys()], ['quizz.cabinet.pas-a-pas.hugo'])
+    // La manche suivante — et la partie suivante — les rouvre tels qu'il les a laissés, l'épingle à poser.
+    const l2 = EPINGLE.localDe(suivante)
+    assert.deepEqual(l2, { epingle: null, grands: true, pasAPas: true })
+    const pied = piedDe(await laPartie(vues.epingleTroisieme, { local: l2 }))
+    assert.match(pied, /aria-label="Grands pas, \d+ km" aria-pressed="true"/)
+    assert.match(pied, /<button type="button" class="btn cab-pas-a-pas" aria-expanded="true"/)
+    // Refermés, ils se rouvrent refermés, et rien ne reste écrit.
+    basculerLesPas(basculerLesPas(l2, 'grands'), 'pasAPas')
+    assert.deepEqual(EPINGLE.localDe(suivante), { epingle: null, grands: false, pasAPas: false })
+    assert.equal(memoire.size, 0, 'rien de retenu : la clé s’efface')
+    // « Pas à pas » seul, à petits pas.
+    basculerLesPas(EPINGLE.localDe(suivante), 'pasAPas')
+    assert.deepEqual(EPINGLE.localDe(suivante), { epingle: null, grands: false, pasAPas: true })
+    // Léa, sur le même téléphone : rien de Hugo.
+    retenu.carteRetenue('lea')
+    assert.deepEqual(EPINGLE.localDe(suivante), { epingle: null, grands: false, pasAPas: false })
+    retenu.carteRetenue('hugo')
+    assert.deepEqual(EPINGLE.localDe(suivante), { epingle: null, grands: false, pasAPas: true })
+  })
+  // Sans stockage — des cookies bloqués —, rien ne casse : fermés, et la bascule bascule encore.
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    get() {
+      throw new Error('SecurityError')
+    },
+  })
+  try {
+    assert.deepEqual(EPINGLE.localDe(premiere), { epingle: null, grands: false, pasAPas: false })
+    assert.deepEqual(basculerLesPas(EPINGLE.localDe(premiere), 'grands'), { epingle: null, grands: true, pasAPas: false })
+  } finally {
+    delete (globalThis as Record<string, unknown>).localStorage
+  }
+  // Au pied, « Pas à pas » et « Grands pas » basculent par la règle qui les retient, jamais par un `setLocal` à la main.
+  const epingle = source('views/cabinet/jeux/Epingle.tsx')
+  assert.match(epingle, /setLocal\(basculerLesPas\(local, 'pasAPas'\)\)/)
+  assert.match(epingle, /setLocal\(basculerLesPas\(local, 'grands'\)\)/)
+  assert.doesNotMatch(epingle, /grands: !local\.grands|pasAPas: !local\.pasAPas/)
+})
+
+test('l’Épingle sans clavier : « Partir de… » pose l’épingle sur une ville repère ou en Corse, et chaque lieu livré est à trois étoiles en dix touchers au plus', async () => {
+  // Depuis le milieu de la France, trois étoiles demandaient dix-huit grands pas pour Ajaccio, treize pour Brest ou Nice (la tablée
+  // du 26 octobre 2026) : les villes repères étaient dessinées, mais ne se rejoignaient pas d'un geste.
+  const { DEPARTS_DE_L_EPINGLE, departNomme, VILLES_REPERES } = await import(url('views/cabinet/contourDeLaFrance.ts'))
+  const { pasDeLEpingle, poserLEpingle } = await import(url('views/cabinet/jeux/Epingle.tsx'))
+  const noms = DEPARTS_DE_L_EPINGLE.map((d: { nom: string }) => d.nom)
+  // Les sept villes dessinées, et la Corse — du nord au sud.
+  assert.deepEqual([...noms].filter((n: string) => n !== 'la Corse').sort(), VILLES_REPERES.map((v: { nom: string }) => v.nom).sort())
+  assert.ok(noms.includes('la Corse'))
+  const lats = DEPARTS_DE_L_EPINGLE.map((d: { point: Point }) => d.point.lat)
+  assert.deepEqual(lats, [...lats].sort((a: number, b: number) => b - a), 'du nord au sud')
+  for (const d of DEPARTS_DE_L_EPINGLE as { nom: string; point: Point }[]) {
+    assert.deepEqual(departNomme(d.nom), d.point)
+    const ville = VILLES_REPERES.find((v: { nom: string }) => v.nom === d.nom)
+    if (ville) assert.deepEqual(d.point, { lat: ville.lat, lon: ville.lon }, `${d.nom} : sur son point dessiné`)
+  }
+  // Un nom venu de la page se lit par la liste, jamais par `TABLE[nom]` : son prototype ne répond pas.
+  for (const faux of ['', 'constructor', 'toString', 'Toulouse']) assert.equal(departNomme(faux), null, faux)
+  // Chaque lieu livré, depuis le départ le plus proche : « Pas à pas », « Grands pas », le départ, puis des grands pas vers lui,
+  // jusqu'à trois étoiles — dix touchers au plus. Un grand pas fait 55 km de côté : à mi-chemin de quatre, on est à 39 km.
+  const lieux = JSON.parse(readFileSync(path.resolve(client, '../../server/content/cabinet/lieux.json'), 'utf8')) as Lieu[]
+  assert.ok(lieux.length >= 90)
+  const corte = { lat: 42.31, lon: 9.15 }
+  let pire = 0
+  for (const lieu of [...lieux, { ...lieux[0], nom: 'Corte', lat: corte.lat, lon: corte.lon }]) {
+    const depart = [...(DEPARTS_DE_L_EPINGLE as { point: Point }[])].sort((a, b) => distanceKm(a.point, lieu) - distanceKm(b.point, lieu))[0]
+    let ici = poserLEpingle({ epingle: null, grands: true, pasAPas: true }, depart.point, { zone: null })
+    let pas = 0
+    while (distanceKm(ici.epingle!, lieu) >= KM_DE_L_EPINGLE[0] && pas < 20) {
+      ici = (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'] as const)
+        .map(f => pasDeLEpingle(ici, f))
+        .sort((a, c) => distanceKm(a.epingle!, lieu) - distanceKm(c.epingle!, lieu))[0]
+      pas++
+    }
+    assert.ok(distanceKm(ici.epingle!, lieu) < KM_DE_L_EPINGLE[0], `${lieu.nom} : jamais à trois étoiles`)
+    pire = Math.max(pire, 3 + pas)
+  }
+  assert.ok(pire <= 10, `${pire} touchers au pire`)
+  // Depuis le milieu de la France, Corte en demandait dix-huit.
+  let milieu = { epingle: null as Point | null, grands: true, pasAPas: true }
+  let n = 0
+  while ((!milieu.epingle || distanceKm(milieu.epingle, corte) >= KM_DE_L_EPINGLE[0]) && n < 30) {
+    milieu = (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'] as const).map(f => pasDeLEpingle(milieu, f)).sort((a, c) => distanceKm(a.epingle!, corte) - distanceKm(c.epingle!, corte))[0]
+    n++
+  }
+  assert.ok(n > 10, `${n} grands pas depuis le milieu de la France`)
+
+  // À l'écran : « Partir de… » sous la carte, que « Pas à pas » ouvre et désigne avec les pas ; fermé, rien. Collée au pied, sa
+  // ligne prenait à la question et à la carte la place qu'il leur fallait pour tenir ensemble, en 360 × 640 au texte agrandi (le
+  // rendu du 26 octobre 2026, `[épingle]`) : le pied ne grandit pas plus qu'avant elle.
+  const v = vues.epingle
+  assert.doesNotMatch(await laPartie(v), /<select/)
+  const html = await laPartie(v, { local: { epingle: null, grands: false, pasAPas: true } })
+  const pied = piedDe(html)
+  assert.doesNotMatch(pied, /<select/)
+  const choix = /<select id="([^"]+)" class="btn btn-block" aria-label="Partir d’une ville">(.*?)<\/select>/.exec(html)
+  assert.ok(choix, '« Partir de… », une liste nommée')
+  const ou = html.indexOf(choix[0])
+  assert.ok(html.indexOf('<svg class="cab-carte-dessin"') < ou && ou < html.indexOf('<div class="cab-pied-partie">'), 'sous la carte, avant le pied')
+  const options = [...choix[2].matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map(m => [m[1], texte(m[2]).trim()])
+  assert.deepEqual(options[0], ['', 'Partir de…'], 'sa première ligne la dit, sans rien poser')
+  assert.deepEqual(
+    options.slice(1).map(o => o[1]),
+    noms,
+    'puis chaque départ, dans l’ordre',
+  )
+  const rangee = /<div id="([^"]+)" class="cab-pas-de-l-epingle"/.exec(pied)![1]
+  assert.match(pied, new RegExp(`aria-expanded="true" aria-controls="${echapper(choix[1])} ${echapper(rangee)}">Pas à pas</button>`))
+  // Choisi, le départ pose l'épingle par la règle de la carte (`poser`) : la plus neuve des deux, l'épingle ou la zone, se dit.
+  const epingle = source('views/cabinet/jeux/Epingle.tsx')
+  assert.match(epingle, /const p = departNomme\(e\.currentTarget\.value\)\s+if \(p\) poser\(p\)/)
+  assert.match(epingle, /<PartirDe poser=\{poser\} \/>/)
+  assert.equal([...epingle.matchAll(/setLocal\(poserLEpingle\(local, /g)].length, 2, 'la carte et les départs, les pas du pied')
+})
+
+test('l’Épingle dit la taille de son pas : « Grands pas, 55 km » à l’oreille, et la carte, « un pas fait 11 km, un grand 55 »', async () => {
+  // Un pas valait 11,1 km et un grand 55,6, mais la page n'en disait que « ×5 » à l'œil et « Grands pas » à l'oreille (Hugo, à la
+  // tablée du 26 octobre 2026). Le chiffre vient de la règle même des pas (`deplacer`), jamais d'un nombre écrit à la main.
+  const { KM_D_UN_PAS, GRAND_PAS, deplacer, MILIEU_DE_LA_FRANCE } = await import(url('views/cabinet/contourDeLaFrance.ts'))
+  assert.equal(KM_D_UN_PAS, Math.round(distanceKm(MILIEU_DE_LA_FRANCE, deplacer(MILIEU_DE_LA_FRANCE, 'ArrowUp'))))
+  assert.equal(KM_D_UN_PAS, 11)
+  const grand = KM_D_UN_PAS * GRAND_PAS
+  assert.ok(Math.abs(distanceKm(MILIEU_DE_LA_FRANCE, deplacer(MILIEU_DE_LA_FRANCE, 'ArrowUp', true)) - grand) < 1)
+  const v = vues.epingle
+  const pied = piedDe(await laPartie(v, { local: { epingle: null, grands: false, pasAPas: true } }))
+  assert.match(pied, new RegExp(`<button type="button" class="cab-pas cab-pas-grands" aria-label="Grands pas, ${grand} km" aria-pressed="false">`))
+  const html = await laPartie(v)
+  const aide = /aria-describedby="([^"]+)"/.exec(html)![1]
+  const dite = texte(new RegExp(`<p id="${echapper(aide)}" class="sr-only">(.*?)</p>`).exec(html)![1])
+  assert.match(dite, new RegExp(`un pas fait ${KM_D_UN_PAS} km, un grand ${grand}`))
+  assert.match(dite, /« Partir de… »/)
 })
 
 // ── 4. Les Indices ────────────────────────────────────────────────────────
@@ -879,6 +1053,136 @@ test('tes murs gardent leur titre quand leur dessin arrive : le focus que la pag
   // Les murs se demandent avec leur dessin, pas après lui : l'un n'attend pas l'autre.
   assert.match(corps, /useALaDemande\(LES_MURS\)/)
   assert.match(corps, /api\.cabinet\.murs\(\)/)
+})
+
+// ── 6 bis. Le Filet : son unité accordée, et rien de lancé sans un geste ──
+
+/**
+ * Ce que dit l'unité d'une valeur sous deux, unité par unité du contenu livré : les symboles et les mots qui ne changent pas, tels
+ * quels ; les pluriels qui ne perdent pas qu'un s, écrits ici ; tout autre mot perd son s. Une unité neuve qui n'est ni l'un ni
+ * l'autre — ni un s à perdre — rougit l'épreuve : on l'écrit dans la bonne liste.
+ */
+const SYMBOLES = new Set([
+  'm', 'km', 'cm', '%', '°C', 'g', 'min', 'mm', 'km/h', 'kg', 'Hz', 'cl', 's', '°', '°F', 'L', '€', 'h', 'm²', 'km/s', 't', '$', 'mL',
+  'ml', 'K', 'av. J.-C.', 'cm²', 'cm³', 'hPa', 'm/s', 'M$', 'e', 'mph', 'SHU', 'g/L', 'g/m²', 'A', 'W', 'km²', 'm³', '£', 'MW', 'DU',
+  'µm', 'g/mol', 'Ma', 'kg/m³', 'g/cm³', 'kHz', 'Mbit/s', 'cm3',
+])
+const MOTS_QUI_NE_CHANGENT_PAS = new Set(['fois', 'mois', 'pays', 'os', 'pas', 'vers', 'hertz', 'cure-dents', 'Pokémon'])
+const PLURIELS_A_PART: Record<string, string> = {
+  anneaux: 'anneau',
+  tableaux: 'tableau',
+  vaisseaux: 'vaisseau',
+  maréchaux: 'maréchal',
+  yeux: 'œil',
+  pence: 'penny',
+  Länder: 'Land',
+  'miles/h': 'mile/h',
+  'millions °C': 'million °C',
+  'grands tours': 'grand tour',
+}
+
+test('le Filet accorde son unité sous deux — « 1 jour », « 1,5 jour », « 17 jours » —, chaque unité du contenu livré', async () => {
+  // « Ton filet : de 1 jours à 17 jours » (Camille, à la tablée du 26 octobre 2026) : l'unité se collait telle que la base l'écrit.
+  const { lireLaBase } = await import('../src/core/baseCampagne')
+  const { valeurDuFilet } = await import('../src/core/cabinet/tirages/tas')
+  const { seTendAuFilet } = await import('../../shared/cabinet/jeux/filet')
+  const { uniteAccordee } = await import('../../shared/unites')
+  const unites = new Set<string>()
+  for (const q of lireLaBase().questions) {
+    const v = valeurDuFilet(q)
+    if (v?.unite && seTendAuFilet(v.valeur, v.annee, 2026)) unites.add(v.unite)
+  }
+  assert.ok(unites.size > 200, `${unites.size} unités`)
+  const aClasser: string[] = []
+  for (const u of unites) {
+    const attendue = SYMBOLES.has(u) || MOTS_QUI_NE_CHANGENT_PAS.has(u) ? u : (PLURIELS_A_PART[u] ?? (u.endsWith('s') ? u.slice(0, -1) : null))
+    if (attendue === null) {
+      aClasser.push(u)
+      continue
+    }
+    assert.equal(uniteAccordee(u, 1), attendue, `1 ${u}`)
+    assert.equal(uniteAccordee(u, 1.5), attendue, `1,5 ${u}`)
+    assert.equal(uniteAccordee(u, 0), attendue, `0 ${u} — zéro est au singulier, comme « 0 pt »`)
+    assert.equal(uniteAccordee(u, -1), attendue, `−1 ${u}`)
+    // À deux et au-delà, l'unité telle que la base l'écrit — au pluriel.
+    for (const n of [2, 17, 1889, -2, 2.5]) assert.equal(uniteAccordee(u, n), u, `${n} ${u}`)
+  }
+  assert.deepEqual(aClasser, [], 'des unités neuves, ni symbole, ni mot qui ne change pas, ni pluriel en s : à classer ici')
+  // Les listes ne gardent rien que le contenu n'ait plus : une unité partie, sa ligne part.
+  for (const u of [...SYMBOLES, ...MOTS_QUI_NE_CHANGENT_PAS, ...Object.keys(PLURIELS_A_PART)]) assert.ok(unites.has(u), `« ${u} » n’est plus au Filet`)
+  // Ce qui n'est pas un nombre à dire ne s'accorde pas.
+  assert.equal(uniteAccordee('jours', Number.NaN), 'jours')
+  assert.equal(uniteAccordee('', 1), '')
+})
+
+test('le Filet à l’écran dit son unité accordée : ses bornes, ce que son filet prend, son grand pas, sa révélation', async () => {
+  const { FILET } = await import(url('views/cabinet/jeux/Filet.tsx'))
+  const montree = { jeu: 'filet', categorie: 'Histoire', texte: 'Combien de jours a duré le siège ?', annee: false, unite: 'jours', piste: { min: 1, max: 11, pas: 0.5 }, zone: null }
+  const vue = { ...vues.epingle, jeu: 'filet', enCours: montree, revelation: undefined } as unknown as VueDeLaPartie
+  const t = texte(await laPartie(vue, { ecran: FILET, local: { x: 1.5, taille: 'grand', touche: true } }))
+  assert.match(t, /Ton filet : de 1 jour à 3,5 jours/)
+  assert.match(t, / 1 jour 11 jours /, 'les bornes')
+  assert.match(t, /\+ 1 jour /, 'un grand pas d’un jour')
+  assert.match(t, /1,5 jour /, 'le curseur')
+  assert.doesNotMatch(t, /\b1 jours|1,5 jours/)
+  const r ={ jeu: 'filet', texte: montree.texte, annee: false, unite: 'jours', piste: montree.piste, zone: null, valeur: 1, lancer: { x: 1.5, taille: 'petit' }, dedans: true }
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  assert.match(texte(renderToStaticMarkup(React.createElement(FILET.Revelation, { corps: r }))), /La réponse : 1 jour · tu visais 1,5 jour/)
+})
+
+test('le Filet laissé sans un geste ne se lance pas : rien ne part à l’échéance, et la chasse quittée ne tient pas la série — touché, il se lance', async () => {
+  // Le curseur au milieu, moyen, que la page lançait d'elle-même à l'échéance, comptait « répondu » : la poussière minimale,
+  // Protéger et le jour de série se payaient à qui laissait l'écran allumé, quand la page fermée — le pli jouant la réponse vide —
+  // n'en donnait rien (la relecture des régressions du 26 octobre 2026). Comme l'Épingle sans épingle : sans un geste, rien.
+  const { FILET, bouger, cran, grandPas, prendreLaTaille } = await import(url('views/cabinet/jeux/Filet.tsx'))
+  const { aEnvoyerALEcheance } = await import(url('views/cabinet/Partie.tsx'))
+  const { milieuDeLaPiste } = await import('../../shared/cabinet/jeux/filet')
+  const { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART } = await import('../../shared/cabinet/oeuvres')
+  const lucas = await inscrireProfil(b.banc.url, 'lucas', 'Lucas')
+  const camille = await inscrireProfil(b.banc.url, 'camille', 'Camille')
+  const cible = OEUVRES.find(o => JEU_DE_L_OEUVRE[o.cle] === 'filet' && !OEUVRES_DE_DEPART.includes(o.cle))!
+  const chasse = async (qui: string) => ok(await commencer(b, qui, { origine: 'chasse', oeuvre: cible.cle, carte: null }), 'la chasse au Filet')
+
+  // Lucas n'y touche pas : ce que la page tient part du milieu, moyen, et rien n'en part à l'échéance.
+  const v = await chasse(lucas)
+  const m = v.enCours as FiletMontre
+  const intact = FILET.localDe(m)
+  assert.deepEqual(intact, { x: milieuDeLaPiste(m.piste), taille: 'moyen' })
+  assert.equal(FILET.aLEcheance(m, intact), undefined)
+  const envoi = aEnvoyerALEcheance(v, v.maintenant, FILET)
+  assert.ok(envoi, 'la page prévoit son envoi à l’échéance')
+  const geste = envoi.geste(intact)
+  assert.deepEqual(geste, { quoi: 'repondre', manche: 0, auto: true }, 'la réponse vide, comme la page fermée')
+  const avant = ok(await laPage(b, lucas), 'sa page').poussiere
+  b.horloge.t = v.maintenant + envoi.dans
+  const pasDeLancer = ok(await jouer(b, lucas, v, geste), 'l’échéance sans un geste')
+  assert.equal((pasDeLancer.revelation?.corps as FiletRevele).titre, 'Pas de lancer')
+  const quittee = ok(await jouer(b, lucas, pasDeLancer, { quoi: 'quitter' }), 'quitter')
+  assert.deepEqual([quittee.bilan?.total, quittee.bilan?.poussiere], [0, 0], 'rien : ni étoile, ni poussière d’or')
+  const page = ok(await laPage(b, lucas), 'sa page, après')
+  assert.equal(page.serie.jours, 0, 'la chasse ne tient pas la série')
+  assert.equal(page.poussiere, avant)
+
+  // Chaque geste sur la piste ou le filet le dit touché : ce qu'il a formé part à l'échéance, même revenu au milieu.
+  const plus = cran(m, intact, 1)
+  for (const [quoi, l] of [
+    ['un cran', plus],
+    ['un grand pas', grandPas(m, intact, -1)],
+    ['le curseur glissé', bouger(m, intact, m.piste.min)],
+    ['revenu au milieu', cran(m, plus, -1)],
+    ['la taille', prendreLaTaille(intact, 'petit')],
+  ] as const) {
+    assert.deepEqual(FILET.aLEcheance(m, l), { filet: { x: l.x, taille: l.taille } }, quoi)
+  }
+  // Camille touche un cran : son lancer part à l'échéance, et compte — la série tient.
+  const w = await chasse(camille)
+  const touche = cran(w.enCours as FiletMontre, FILET.localDe(w.enCours), 1)
+  const sien = aEnvoyerALEcheance(w, w.maintenant, FILET)!
+  b.horloge.t = w.maintenant + sien.dans
+  const lance = ok(await jouer(b, camille, w, sien.geste(touche)), 'le lancer à l’échéance')
+  assert.notEqual((lance.revelation?.corps as FiletRevele).titre, 'Pas de lancer')
+  ok(await jouer(b, camille, lance, { quoi: 'quitter' }), 'quitter')
+  assert.equal(ok(await laPage(b, camille), 'sa page').serie.jours, 1, 'un lancer qu’il a formé tient la série')
 })
 
 // ── 7. La feuille ─────────────────────────────────────────────────────────
