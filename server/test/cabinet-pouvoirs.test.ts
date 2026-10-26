@@ -41,9 +41,14 @@ import {
   type BancDuCabinet,
   type Reponse,
 } from './cabinet-banc'
-import { CabinetStore } from '../src/core/cabinet/magasin'
-import { DUREES_DES_JEUX, ETOILES_D_UNE_PARTIE, GRACE_D_UNE_MANCHE_MS, LIBRES_QUI_PAIENT, POUSSIERE_PAR_ETOILE, SECONDES_PAR_FORCE } from '../../shared/cabinet/bareme'
+import { JOUR, MIDI, Partie, S, carte as carteDEssai, departDe, ouvrir as ouvrirAuPli } from './cabinet-plans'
+import { CabinetStore, type PartieLue } from '../src/core/cabinet/magasin'
+import { vueDeLaPartie } from '../src/core/cabinet/vue'
+import { DUREES_DES_JEUX, ETOILES_D_UNE_PARTIE, GRACE_D_UNE_MANCHE_MS, LIBRES_QUI_PAIENT, POUSSIERE_PAR_ETOILE, SECONDES_PAR_FORCE, SEUILS_DES_RARETES } from '../../shared/cabinet/bareme'
+import { museeDe, type LigneDOeuvre } from '../../shared/cabinet/musee'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART } from '../../shared/cabinet/oeuvres'
+import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
+import { bilanDe } from '../../shared/cabinet/partie'
 import { JOKER_DU_TEMPS, JOKER_D_ECLAIRER } from '../../shared/cabinet/pieces'
 import type { FiletMontre, FiletTire } from '../../shared/cabinet/jeux/filet'
 import type { MotMontre, MotTire } from '../../shared/cabinet/jeux/mot'
@@ -320,6 +325,41 @@ test('Prendre son temps allonge chaque manche, et ne marque la pièce que si la 
   assert.match(c.bilan?.dit ?? '', /sans cadre doré/)
 })
 
+test('le bilan d’un double ne dit « sans cadre doré » que d’un cadre qui pouvait se dorer : déjà doré, il n’a rien perdu', () => {
+  // Une case de la visite « pour dorer » — l'œuvre à lui, pas dorée à minuit — se dore le matin à la poussière, puis se joue à
+  // neuf sur neuf sous Éclairer : elle se double, comme une œuvre que son cadre attend encore. Le bilan disait « sans cadre doré :
+  // Éclairer a servi » d'un cadre doré depuis le matin. La même partie, par le pli et le bilan de la fin, puis par la vue.
+  const cible = OEUVRES.find(o => !OEUVRES_DE_DEPART.includes(o.cle))!
+  const depart = departDe('mot', { origine: 'visite', visite: 0, cible: cible.cle, but: 'dorer', seuil: SEUILS_DES_RARETES[cible.rarete], carte: carteDEssai('eclairer', 1) })
+  const p = new Partie(depart)
+  p.joue(ouvrirAuPli(0), MIDI)
+  p.joue({ quoi: 'eclairer', manche: 0 }, MIDI + S)
+  p.joue({ quoi: 'essai', manche: 0, lettres: 'VILNIUS' }, MIDI + 2 * S)
+  for (const k of [1, 2] as const) {
+    p.joue(ouvrirAuPli(k), MIDI + k * 20 * S)
+    p.joue({ quoi: 'essai', manche: k, lettres: 'VILNIUS' }, MIDI + (k * 20 + 1) * S)
+  }
+  const bilan = bilanDe(depart, p.etat, { possedee: true, doree: true })
+  assert.deepEqual([bilan.issue, bilan.naturel, bilan.aidee], ['double', [3, 3, 3], true])
+  const ligne: LigneDOeuvre = { oeuvre: cible.cle, origine: 'partie', gagneeLe: 1, saison: null, serieId: null, prix: null, doreeLe: null, dorure: null, prixDorure: null, serieDoree: null }
+  const visite = { jour: JOUR, cases: [{ jeu: 'mot' as const, cible: cible.cle, but: 'dorer' as const }], echange: null, figee: true }
+  const lue = (aujourdhui?: { doreeLe: number | null }): PartieLue => ({
+    id: 'la-case',
+    profileId: 'qui',
+    depart,
+    gestes: p.gestes,
+    etat: p.etat,
+    bilan,
+    lueA: MIDI + 60 * S,
+    ...(aujourdhui && { aujourdhui: { musee: museeDe({ jour: JOUR, oeuvres: [{ ...ligne, ...aujourdhui }] }), visite, jeux: JEUX_PRETS } }),
+  })
+  const double = `${cible.nom} était déjà à toi : sa poussière d’or en plus`
+  assert.equal(vueDeLaPartie(lue({ doreeLe: MIDI - 3_600_000 })).bilan?.dit, double, 'doré le matin : rien de perdu')
+  assert.equal(vueDeLaPartie(lue({ doreeLe: null })).bilan?.dit, `${double} — sans cadre doré : Éclairer a servi`, 'son cadre attendait : Éclairer l’a ôté')
+  // Le bilan figé ne sait pas si le cadre était doré ; sans le musée de la mémoire, la phrase se tait plutôt que d'inventer une perte.
+  assert.equal(vueDeLaPartie(lue()).bilan?.dit, double)
+})
+
 // ── Quitter ───────────────────────────────────────────────────────────────
 
 test('« Quitter ? » dit ce que vaudrait la partie quittée à cet instant : le geste joué par le pli sur l’état, rien d’écrit', async () => {
@@ -351,6 +391,22 @@ test('« Quitter ? » dit ce que vaudrait la partie quittée à cet instant : le
   assert.deepEqual(sixieme.siTuQuittes, { total: 3, poussiere: 0 })
   const finie = ok(await jouer(b, ugo, sixieme, { quoi: 'quitter' }), 'quitter la sixième')
   assert.deepEqual([finie.bilan?.total, finie.bilan?.poussiere], [3, 0])
+
+  // Sous la pause de « Quitter ? » — l'instant même où la page le lit —, la même promesse. Le temps de la manche écoulé, plus rien :
+  // la page envoie d'elle-même sa réponse, et la révélation suit ; joué alors, « Quitter » laisserait la manche expirée, et la
+  // promesse aurait dit le bilan d'une partie que le joueur n'a pas quittée.
+  const vic = await inscrireProfil(b.banc.url, 'vic', 'Vic')
+  let p = ok(await commencer(b, vic, { origine: 'libre', jeu: 'mot', carte: 'prudence' }), 'le Mot sous Prudence')
+  const avant = p.siTuQuittes
+  assert.ok(avant, 'la manche ouverte : une promesse')
+  p = ok(await jouer(b, vic, p, { quoi: 'pause', manche: 0 }), 'la pause de « Quitter ? »')
+  assert.ok(p.chrono?.pauseResteMs !== undefined, 'en pause')
+  assert.deepEqual(p.siTuQuittes, avant)
+  p = ok(await jouer(b, vic, p, { quoi: 'reprendre', manche: 0 }), 'reprendre')
+  b.horloge.t = p.chrono!.echeance + GRACE_D_UNE_MANCHE_MS + 1
+  const ecoulee = ok(await laPage(b, vic), 'la page, le temps écoulé').enCours
+  assert.deepEqual([ecoulee?.id, ecoulee?.siTuQuittes], [p.id, undefined])
+  ok(await jouer(b, vic, ecoulee!, { quoi: 'quitter' }), 'quitter')
 })
 
 // ── Ce qu'on emporte ──────────────────────────────────────────────────────

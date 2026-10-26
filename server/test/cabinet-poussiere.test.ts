@@ -727,15 +727,64 @@ test('le bilan d’une partie libre dit vrai : payée sans étoile, elle ne dit 
   assert.equal(v.bilan?.libresQuiPaientEncore, LIBRES_QUI_PAIENT - 2)
   assert.equal(ok(await laPage(b, lou), 'la page').libres.paientEncore, LIBRES_QUI_PAIENT - 2)
   // Payée, de la poussière : la ligne « +4 » du bilan dit le nombre, la phrase ne le redit pas (Lucas et Théo l'ont lu deux fois).
+  // Elle ne dit pas « aujourd'hui » non plus : « Mes réponses » la relit un autre jour, et une libre commencée avant minuit finit
+  // le lendemain — la phrase est la même à la fin et relue, après un réveil comme la semaine d'après.
   const gardee = await fin(await jouerUnPari(b, lou, ok(await commencer(b, lou, { origine: 'libre', jeu: 'pari', carte: null }), 'la troisième'), 0, 'garder'))
   assert.ok(gardee.bilan!.poussiere > 0)
-  assert.equal(gardee.bilan!.dit, 'Une des parties libres qui paient aujourd’hui')
-  assert.doesNotMatch(gardee.bilan!.dit, /\d|poussière/)
-  // Les deux dernières qui paient, puis la sixième : pour le plaisir — le nombre lu du barème, jamais « cinq » en dur.
-  for (let i = 0; i < LIBRES_QUI_PAIENT - 3; i++) await fin(ok(await commencer(b, lou, { origine: 'libre', jeu: 'pari', carte: null }), 'une libre'))
+  assert.equal(gardee.bilan!.dit, 'Une des parties libres qui paient')
+  assert.doesNotMatch(gardee.bilan!.dit, /\d|poussière|aujourd/)
+  // Les deux dernières qui paient, sans étoile : la phrase compte ce qui reste, au singulier, puis plus rien. Puis la sixième :
+  // pour le plaisir — le nombre lu du barème, jamais « cinq » en dur.
+  assert.ok(LIBRES_QUI_PAIENT >= 5, 'deux libres qui paient après les trois premières')
+  const sansEtoile: string[] = []
+  for (let i = 0; i < LIBRES_QUI_PAIENT - 3; i++) sansEtoile.push((await fin(ok(await commencer(b, lou, { origine: 'libre', jeu: 'pari', carte: null }), 'une libre'))).bilan!.dit)
+  assert.deepEqual(sansEtoile.slice(-2), [
+    'Aucune étoile cette fois : pas de poussière d’or. Encore 1 partie libre qui paie aujourd’hui',
+    'Aucune étoile cette fois : pas de poussière d’or. Les suivantes se jouent pour le plaisir',
+  ])
   const derniere = (await fin(ok(await commencer(b, lou, { origine: 'libre', jeu: 'pari', carte: null }), 'la sixième'))).bilan!
   assert.equal(derniere.dit, `Les ${LIBRES_QUI_PAIENT} parties libres du jour ont payé : celle-ci se joue pour le plaisir`)
   assert.equal(derniere.libresQuiPaientEncore, undefined)
+})
+
+test('le bilan ne dit le reste du jour que d’une partie d’aujourd’hui que la mémoire tient : relu après un réveil, ou le lendemain, il s’en passe', async () => {
+  const kim = await inscrireProfil(b.banc.url, 'kim', 'Kim')
+  const quitter = async (v: VueDeLaPartie) => ok(await jouer(b, kim, v, { quoi: 'quitter' }), 'quitter')
+  const relu = async (v: VueDeLaPartie) => ok(await laPartie(kim, v.id), '« Mes réponses »').bilan!
+  const aZero = await quitter(ok(await commencer(b, kim, { origine: 'libre', jeu: 'pari', carte: null }), 'une libre qui paie, sans étoile'))
+  const manquee = await quitter(ok(await commencer(b, kim, { origine: 'visite', case: 0, carte: null }), 'la case 0'))
+  assert.deepEqual(manquee.bilan?.retenter, { possible: true })
+  // Le jour même, la mémoire tient son musée : « Mes réponses » dit ce que la fin disait, à l'heure de la relecture.
+  const leJourMeme = async () => {
+    const [z, m] = [await relu(aZero), await relu(manquee)]
+    assert.deepEqual([z.libresQuiPaientEncore, m.retenter], [LIBRES_QUI_PAIENT - 1, { possible: true }])
+    assert.match(z.dit, /Encore/)
+  }
+  await leJourMeme()
+  /** Relue sans le musée du jour : ni « Retenter », ni ce qui reste des libres, ni la phrase qui le dirait. */
+  const sansLeJour = async (quand: string) => {
+    const [z, m] = [await relu(aZero), await relu(manquee)]
+    assert.deepEqual([z.libresQuiPaientEncore, m.retenter], [undefined, undefined], quand)
+    assert.equal(z.dit, 'Aucune étoile cette fois : pas de poussière d’or', quand)
+  }
+  // Après un réveil, avant toute page : la mémoire n'a pas son musée, et la relecture ne coûte pas un lot froid pour lui.
+  await b.banc.redemarrer()
+  await sansLeJour('relue après un réveil')
+  ok(await laPage(b, kim), 'la page')
+  await leJourMeme()
+  b.horloge.t += 24 * 3_600_000
+  try {
+    // Le lendemain, la mémoire tient encore le musée d'hier : il ne dit rien d'aujourd'hui.
+    await sansLeJour('le lendemain, avant toute page')
+    // Puis le musée d'aujourd'hui : ses libres et sa visite sont celles d'un autre jour — la case 0 manquée aujourd'hui aussi ne
+    // se dit pas sous la partie d'hier, qui visait une autre œuvre.
+    ok(await laPage(b, kim), 'la page du lendemain')
+    const aujourdhui = await quitter(ok(await commencer(b, kim, { origine: 'visite', case: 0, carte: null }), 'la case 0 du lendemain'))
+    assert.deepEqual(aujourdhui.bilan?.retenter, { possible: true })
+    await sansLeJour('le lendemain, sa page lue')
+  } finally {
+    b.horloge.t = DIX_HEURES
+  }
 })
 
 test('les cinq libres qui paient se comptent par la base, même jouées sur deux serveurs', async () => {

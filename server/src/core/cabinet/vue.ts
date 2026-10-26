@@ -183,13 +183,35 @@ function chronoDe(m: MancheDuPli | undefined, t: number): VueDeLaPartie['chrono'
 }
 
 /**
+ * Ce que le bilan sait de la journée, au-delà du bilan figé, quand le serveur
+ * tient le musée du jour en mémoire (`PartieLue.aujourdhui`) : « Retenter »
+ * et les libres qui paient encore, d'une partie d'aujourd'hui ; le cadre de
+ * son œuvre, d'une partie de n'importe quel jour.
+ */
+interface CeQueSaitLeJour extends Pick<BilanVu, 'retenter' | 'libresQuiPaientEncore'> {
+  /**
+   * Le cadre de son œuvre est doré à présent — seulement d'un double, qui ne
+   * dore rien : il l'était déjà à sa fin, ou l'est devenu depuis. Absent sans
+   * le musée.
+   */
+  cadreDejaDore?: boolean
+}
+
+/**
  * Pourquoi neuf étoiles naturelles n'ont pas doré son cadre : la carte-bonus a
  * servi — la seule de la partie, et Protéger ne relève pas une partie
  * parfaite. « Une œuvre de plus ! » ne disait rien du cadre que Prendre son
- * temps, dans le temps en plus, venait d'ôter (Théo, à la tablée).
+ * temps, dans le temps en plus, venait d'ôter (Théo, à la tablée). Un double
+ * n'a perdu son cadre que s'il en avait un à dorer : une case de la visite
+ * dont l'œuvre s'est dorée le matin — sa dorure achetée, une chasse gagnée
+ * dans un cadre doré — se double aussi à neuf sur neuf, et la phrase parlait
+ * d'une perte qui n'existait pas. Le bilan figé ne le sait pas ; sans le musée
+ * de la mémoire, la phrase se tait plutôt que de l'inventer.
  */
-function sansCadreDore(d: DepartDUnePartie, b: BilanDUnePartie): string | null {
-  return b.aidee && d.carte && b.naturel.every(n => n === ETOILES_PAR_MANCHE) ? `${POUVOIRS[d.carte.pouvoir].nom} a servi` : null
+function sansCadreDore(d: DepartDUnePartie, b: BilanDUnePartie, cadreDejaDore: boolean | undefined): string | null {
+  if (!b.aidee || !d.carte || !b.naturel.every(n => n === ETOILES_PAR_MANCHE)) return null
+  if (b.issue === 'double' && cadreDejaDore !== false) return null
+  return `${POUVOIRS[d.carte.pouvoir].nom} a servi`
 }
 
 /** « Encore 4 parties libres qui paient aujourd'hui » : ce qu'il en reste, quand le serveur le sait du jour. */
@@ -203,11 +225,13 @@ function libresDites(n: number | undefined): string {
  * dit à son départ, qui l'a comptée payée ou non (`payee`), jamais à sa
  * poussière : une libre qui paie, finie sans étoile, disait que les libres du
  * jour avaient toutes payé (Hugo, à la tablée du 25 octobre 2026). Payée, la
- * phrase tait le nombre que la ligne de la poussière du bilan dit déjà.
+ * phrase tait le nombre que la ligne de la poussière du bilan dit déjà, et le
+ * jour : « Mes réponses » la relit la semaine d'après, et une libre commencée
+ * avant minuit finit le lendemain.
  */
-function bilanDit(d: DepartDUnePartie, b: BilanDUnePartie, libresEncore: number | undefined): string {
+function bilanDit(d: DepartDUnePartie, b: BilanDUnePartie, jour: CeQueSaitLeJour): string {
   const nom = nomDe(d.cible ?? undefined)
-  const servi = sansCadreDore(d, b)
+  const servi = sansCadreDore(d, b, jour.cadreDejaDore)
   switch (b.issue) {
     case 'gagnee':
       return `${nom} entre dans ton musée${servi ? ` — sans cadre doré : ${servi}` : ''}`
@@ -223,21 +247,25 @@ function bilanDit(d: DepartDUnePartie, b: BilanDUnePartie, libresEncore: number 
     case 'libre':
       if (d.origine !== 'libre') return 'Tout ton musée est doré : cette partie rapporte de la poussière d’or'
       if (!d.payee) return `Les ${LIBRES_QUI_PAIENT} parties libres du jour ont payé : celle-ci se joue pour le plaisir`
-      return b.poussiere > 0 ? 'Une des parties libres qui paient aujourd’hui' : `Aucune étoile cette fois : pas de poussière d’or${libresDites(libresEncore)}`
+      return b.poussiere > 0 ? 'Une des parties libres qui paient' : `Aucune étoile cette fois : pas de poussière d’or${libresDites(jour.libresQuiPaientEncore)}`
   }
 }
 
 /**
- * Ce que le bilan d'une partie d'aujourd'hui dit du reste de la journée, quand
- * le serveur l'a en mémoire (`PartieLue.aujourdhui`) : « Retenter » une
- * partie de la visite manquée, par sa case ; les libres qui paient encore,
- * après une libre payée qui n'a rien rapporté. Une partie d'un jour d'avant
- * n'a rien à en dire — la case du même rang, aujourd'hui, est une autre.
+ * Ce que le bilan d'une partie dit du reste de la journée, quand le serveur
+ * tient le musée du jour en mémoire (`PartieLue.aujourdhui`) : « Retenter »
+ * une partie de la visite manquée aujourd'hui, par sa case ; les libres qui
+ * paient encore, après une libre payée qui n'a rien rapporté. Une partie d'un
+ * jour d'avant n'a rien à en dire — la case du même rang, aujourd'hui, est une
+ * autre. Le cadre de l'œuvre d'un double, lui, se lit au musée d'aujourd'hui
+ * pour une partie de n'importe quel jour : un cadre doré ne se perd jamais.
  */
-function leJourDuBilan(p: PartieLue, b: BilanDUnePartie): Pick<BilanVu, 'retenter' | 'libresQuiPaientEncore'> {
+function leJourDuBilan(p: PartieLue, b: BilanDUnePartie): CeQueSaitLeJour {
   const jour = p.aujourdhui
-  if (!jour || !jour.musee.duJour.parties.some(x => x.id === p.id)) return {}
+  if (!jour) return {}
   const d = p.depart
+  if (b.issue === 'double') return d.cible !== null && estUneOeuvre(d.cible) ? { cadreDejaDore: dorees(jour.musee).has(d.cible) } : {}
+  if (!jour.musee.duJour.parties.some(x => x.id === p.id)) return {}
   if (d.origine === 'visite' && d.visite !== undefined && b.issue === 'manquee') {
     const retenter = retenteDeLaCase(jour.musee, jour.visite, d.visite, jour.jeux)
     return retenter ? { retenter } : {}
@@ -303,7 +331,7 @@ function bilanVu(p: PartieLue): BilanVu | undefined {
     poussiere: b.poussiere,
     cartel,
     seuil: p.depart.seuil,
-    dit: bilanDit(p.depart, b, leJour.libresQuiPaientEncore),
+    dit: bilanDit(p.depart, b, leJour),
     ...(b.oeuvre !== undefined && estUneOeuvre(b.oeuvre) && { oeuvre: b.oeuvre }),
     ...(p.cartelDeSonOeuvre && { devientSonCartel: true as const }),
     ...(gardiens.length > 0 && { gardiens: gardiens.map(g => ({ legendaire: g.legendaire, neuf: g.neuf })) }),

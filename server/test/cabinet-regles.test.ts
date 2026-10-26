@@ -943,6 +943,19 @@ test('les refus n’ont qu’une copie : le magasin importe ceux de la règle de
   assert.ok(!musee.includes('est déjà jouée\''), 'la phrase d’avant de l’échange, revenue')
 })
 
+test('la retente qui nomme son œuvre ne sert qu’au calibrage : ni le serveur, ni la page, ni un autre module ne la nomment', () => {
+  // Le calibrage joue les deux côtés et sait l'œuvre qu'une case visait ; la règle des départs lit encore sa forme pour lui, et
+  // la ramène à la case. Partout ailleurs, la retente vise la case : un serveur qui passerait cette forme à `cadreDuDepart`
+  // rouvrirait l'oracle de l'ordre des refus (`cabinet-secret.test.ts`). Elle s'en va quand le calibrage visera la case.
+  const racine = new URL('../../', import.meta.url)
+  const nommee = ['shared', 'server/src', 'client/src'].flatMap(dossier =>
+    readdirSync(new URL(`${dossier}/`, racine), { recursive: true, encoding: 'utf8' })
+      .filter(f => /\.tsx?$/.test(f) && readFileSync(new URL(`${dossier}/${f}`, racine), 'utf8').includes('RetenteDuCalibrage'))
+      .map(f => `${dossier}/${f.replace(/\\/g, '/')}`),
+  )
+  assert.deepEqual(nommee, ['shared/cabinet/musee.ts'])
+})
+
 test('acheter, dorer : les refus en mots, le prix montré, le solde', () => {
   const m = museeDe({ jour: JOUR, profil: profil({ poussiere: 280 }), oeuvres: [ligne('plume', { doreeLe: MIDI })] })
   assert.equal(refusDeLAchat(m, 'lg:phenix', 0, 'achat'), 'Un gardien ne s’achète pas : il se réveille')

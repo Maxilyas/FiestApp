@@ -68,6 +68,14 @@ after(() => b?.banc.close())
 after(fermerLesMagasins)
 
 const texte = (x: unknown) => JSON.stringify(x)
+/**
+ * Les textes d'une réponse : ses seules valeurs, jamais ses clés. Le département de la Manche n'est pas le champ `manche` de
+ * toute vue, ni l'œuvre « revelation » le champ `revelation` d'une manche révélée — cherchés dans le JSON entier, l'un et
+ * l'autre faisaient rougir une épreuve, au hasard du tirage, sans que rien ne fuie.
+ */
+const textesDe = (x: unknown): string[] => (typeof x === 'string' ? [x] : typeof x === 'object' && x !== null ? Object.values(x).flatMap(textesDe) : [])
+/** Une réponse qui écrit cette clé d'œuvre en valeur, telle quelle : `{ oeuvre: 'lecon' }`, `{ pourDorer: 'lecon' }`. */
+const nomme = (x: unknown, cle: string) => textesDe(x).includes(cle)
 
 /** Ce qu'aucune réponse ne porte, quelle que soit la phase : la graine, le moindre champ `bonne`, `vraie`, `cible`. */
 function jamais(d: DepartDUnePartie, x: unknown, ou: string) {
@@ -341,8 +349,10 @@ test('l’Épingle : ni le lieu, ni sa commune, ni son département, ni ses coor
   /** Ce que la manche de l'Épingle garde jusqu'à son verdict : tout ce qui situe son lieu, et le décalage de sa zone. */
   const sansLeLieu = (t: EpingleTiree, x: unknown, ou: string) => {
     const s = texte(x)
-    // En mots entiers, comme le juge du contenu les cherche dans le récit et la question : « Ain » n'est pas dans « Ainsi ».
-    for (const dit of [t.lieu.commune, t.lieu.departement]) assert.ok(!ecritDans(s, dit), `${ou} : « ${dit} »`)
+    // En mots entiers, comme le juge du contenu les cherche dans le récit et la question : « Ain » n'est pas dans « Ainsi ». Dans
+    // les seuls textes de la réponse : la clé `manche` de toute vue s'écrit « Manche », un département sur quatre-vingt-dix lieux.
+    const lu = textesDe(x).join('\n')
+    for (const dit of [t.lieu.commune, t.lieu.departement]) assert.ok(!ecritDans(lu, dit), `${ou} : « ${dit} »`)
     assert.ok(!s.includes(t.lieu.savais), `${ou} : son « Le savais-tu ? »`)
     assert.doesNotMatch(s, /"(lieu|nom|commune|departement|decalage|cap|km|savais)":/, `${ou} : un champ du lieu`)
     sansSesNombres(t, x, ou)
@@ -411,8 +421,9 @@ test('les Indices : ni la personne, ni ses clés, ni les indices encore cachés,
   /** Ce que la manche des Indices garde jusqu'à son verdict : la fiche, sauf les indices déjà vus. */
   const sansLaFiche = (t: IndicesTires, vus: number, x: unknown, ou: string) => {
     const s = texte(x)
-    // En mots entiers, comme le juge du contenu les cherche dans les indices.
-    for (const dit of [t.fiche.reponse, ...t.fiche.cles]) assert.ok(!ecritDans(s, dit), `${ou} : « ${dit} »`)
+    // En mots entiers, comme le juge du contenu les cherche dans les indices — dans les seuls textes, comme à l'Épingle.
+    const lu = textesDe(x).join('\n')
+    for (const dit of [t.fiche.reponse, ...t.fiche.cles]) assert.ok(!ecritDans(lu, dit), `${ou} : « ${dit} »`)
     sansSesCaches(t, vus, x, ou)
     assert.doesNotMatch(s, /"(fiche|reponse|cles|savais)":/, `${ou} : un champ de la fiche`)
   }
@@ -499,7 +510,7 @@ test('le bilan se choisit champ par champ : un champ de plus au bilan figé ne p
   const vue = vueDeLaPartie({ ...fin.partie, bilan: { ...fin.partie.bilan, laVisee: 'un-champ-neuf' } as BilanDUnePartie })
   assert.equal(vue.bilan?.issue, 'manquee')
   assert.ok(!texte(vue).includes('un-champ-neuf'), 'un champ du bilan figé que la vue n’a pas choisi')
-  if (p.depart.cible !== null) assert.ok(!texte(vue).includes(`"${p.depart.cible}"`), 'la visite manquée nomme l’œuvre visée')
+  if (p.depart.cible !== null) assert.ok(!nomme(vue, p.depart.cible), 'la visite manquée nomme l’œuvre visée')
 })
 
 test('la visite : ni l’œuvre visée d’une case, ni sa graine, ni le secret dont elle est faite', async () => {
@@ -524,9 +535,9 @@ test('la visite : ni l’œuvre visée d’une case, ni sa graine, ni le secret 
   }
   // Le musée nomme ses 84 œuvres : c'est la visite, et la partie qu'elle ouvre, qui ne nomment pas la sienne.
   for (const cible of cibles) {
-    assert.ok(!texte(page.visite).includes(`"${cible}"`), `la visite nomme ${cible}`)
-    assert.ok(!texte(v).includes(`"${cible}"`), `la partie de la visite nomme ${cible}`)
-    assert.ok(!texte(page.enCours).includes(`"${cible}"`), `la partie en cours nomme ${cible}`)
+    assert.ok(!nomme(page.visite, cible), `la visite nomme ${cible}`)
+    assert.ok(!nomme(v, cible), `la partie de la visite nomme ${cible}`)
+    assert.ok(!nomme(page.enCours, cible), `la partie en cours nomme ${cible}`)
   }
 })
 
@@ -569,7 +580,7 @@ test('« Retenter » vise la case : ni la page, ni le bilan, ni la retente ne no
     ['la visite de la page d’après', ok(await laPage(b, lia), 'la page d’après').visite, dr],
   ] as const) {
     jamais(depart, x, ou)
-    assert.ok(!texte(x).includes(`"${d.cible}"`), `${ou} nomme l’œuvre visée`)
+    assert.ok(!nomme(x, d.cible), `${ou} nomme l’œuvre visée`)
   }
 })
 
@@ -582,7 +593,7 @@ test('« Mes réponses », le cartel, la page d’après un échange : rien du d
   ok(await jouer(b, noe, v, { quoi: 'quitter' }), 'quitter')
   const relue = ok(await lire<VueDeLaPartie>(b, noe, `/api/cabinet/partie/${v.id}`), '« Mes réponses »')
   jamais(d, relue, '« Mes réponses »')
-  if (d.cible !== null) assert.ok(!texte(relue).includes(`"${d.cible}"`), '« Mes réponses » nomme l’œuvre visée')
+  if (d.cible !== null) assert.ok(!nomme(relue, d.cible), '« Mes réponses » nomme l’œuvre visée')
   // Une chasse gagnée : son cartel dit sa manche, rien de plus.
   let chasse = ok(await commencer(b, noe, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse')
   const plan = departEnBase(b.fichier, chasse.id)
@@ -603,6 +614,6 @@ test('« Mes réponses », le cartel, la page d’après un échange : rien du d
   assert.ok(!texte(apres).includes(graine), 'la page d’après : la graine de la visite')
   // Seule la Leçon, gagnée depuis, peut s'y nommer — « pour dorer » — si une case la visait.
   for (const cible of figee[0].cases.map(c => c.cible).filter((c): c is string => c !== null && c !== 'lecon')) {
-    assert.ok(!texte(apres.visite).includes(`"${cible}"`), `la visite échangée nomme ${cible}`)
+    assert.ok(!nomme(apres.visite, cible), `la visite échangée nomme ${cible}`)
   }
 })
