@@ -19,14 +19,16 @@ import { toucher } from '../../toucher'
 import { SIGNALEMENT_MAX } from '../../../../shared/campagne'
 import { gesteAccepte } from '../../../../shared/console'
 import { reactionDuSolo, type ReactionALaRevelation } from '../../../../shared/niche'
-import { ETOILES_D_UNE_JUSTE, ETOILES_D_UNE_PARTIE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
+import { ETOILES_D_UNE_JUSTE, ETOILES_D_UNE_PARTIE, ETOILES_PAR_MANCHE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
 import type { CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
+import { poussieresDites } from '../../../../shared/cabinet/musee'
 import { POUVOIRS, refusDuPouvoir, type CleDePouvoir } from '../../../../shared/cabinet/pouvoirs'
 import type { MancheMontree, RevelationDUneManche } from '../../../../shared/cabinet/jeux/index'
 import type { FinDUneManche, GesteDuCabinet, Manche, ReponseDUnJeu } from '../../../../shared/cabinet/partie'
 import type { RevelationVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { CE_QUI_BORNE_LA_BANDE, poserLaBande, type OuvertureDeLaBande } from './bande'
 import type { BilanDeLaPartie } from './Bilan'
+import { titreDeLaPartie } from './ecrans'
 
 // Une partie du Cabinet à l'écran (§ 2.2-2.7 de la conception) : le cadre
 // d'une manche — la tête collée (les trois manches, les étoiles sur neuf,
@@ -192,15 +194,46 @@ export function chronoMontre(vue: Pick<VueDeLaPartie, 'chrono' | 'maintenant'>, 
 }
 
 /**
- * Ce que demande « Quitter ? » (§ 2.6) : la partie compte avec ses étoiles,
- * et ce que le départ a consommé l'est. Sous la pause, combien de temps le
- * chrono attend ; refusée (`PLUS_DE_PAUSE`, trois pauses ou trente secondes
- * passées), la phrase du serveur : la confirmation s'ouvre quand même, et le
- * chrono continue.
+ * Ce que la partie quittée emporte, tel que le serveur le compte
+ * (`VueDeLaPartie.siTuQuittes` : « Quitter » joué par le pli, rien d'écrit) :
+ * ses étoiles — Protéger compris, quand il relève la manche quittée — et sa
+ * poussière d'or. « Quitter ? » promettait « les étoiles déjà gagnées », et
+ * Lucas, sous Prudence, est reparti avec une étoile et quatre poussières sans
+ * en avoir gagné aucune (la tablée du 25 octobre 2026). Les mots seulement :
+ * la règle reste au serveur, qui la change sans que la page la recopie.
  */
-export function messageDuQuitter(vue: Pick<VueDeLaPartie, 'origine'>, o: { pauseMs?: number; refus?: string } = {}): { titre: string; message: string } {
-  const compte =
-    vue.origine === 'libre'
+function ceQuOnEmporte(vue: Pick<VueDeLaPartie, 'origine'> & Partial<Pick<VueDeLaPartie, 'total' | 'carte'>>, s: { total: number; poussiere: number }): string {
+  const etoiles = s.total > 0 ? `${s.total} étoile${s.total > 1 ? 's' : ''}` : null
+  // Protéger se dit s'il a compté : le total de la partie quittée dépasse celui qu'elle a — la manche quittée relevée.
+  const protege = vue.carte?.pouvoir === 'proteger' && s.total > (vue.total ?? s.total) ? `, ${POUVOIRS.proteger.nom} compris,` : ''
+  const avec =
+    etoiles === null
+      ? s.poussiere > 0
+        ? `sans étoile, et ${poussieresDites(s.poussiere)}`
+        : 'sans étoile ni poussière d’or'
+      : s.poussiere > 0
+        ? `avec ${etoiles}${protege} et ${poussieresDites(s.poussiere)}`
+        : `avec ${etoiles}${protege.replace(/,$/, '')}`
+  // Ce que le départ a consommé : la chasse, la case de la visite ; en libre, l'une de celles qui paient, si elle a payé.
+  const consomme = vue.origine === 'chasse' ? ' ; ta chasse est utilisée' : vue.origine === 'visite' ? ' ; cette partie de la visite est faite' : s.poussiere > 0 ? ' : c’est l’une de tes parties libres qui paient' : ''
+  return `Tu repars ${avec}${consomme}.`
+}
+
+/**
+ * Ce que demande « Quitter ? » (§ 2.6) : ce que la partie emporte, comme le
+ * serveur le compte (`siTuQuittes`), et ce que le départ a consommé — sans le
+ * compte (une page d'avant, une vue écrite à la main), qu'elle compte avec ses
+ * étoiles. Sous la pause, combien de temps le chrono attend ; refusée
+ * (`PLUS_DE_PAUSE`, ses pauses épuisées ou son temps passé), la phrase du
+ * serveur : la confirmation s'ouvre quand même, et le chrono continue.
+ */
+export function messageDuQuitter(
+  vue: Pick<VueDeLaPartie, 'origine'> & Partial<Pick<VueDeLaPartie, 'siTuQuittes' | 'total' | 'carte'>>,
+  o: { pauseMs?: number; refus?: string } = {},
+): { titre: string; message: string } {
+  const compte = vue.siTuQuittes
+    ? ceQuOnEmporte(vue, vue.siTuQuittes)
+    : vue.origine === 'libre'
       ? 'Elle compte avec ses étoiles.'
       : `La partie compte avec les étoiles déjà gagnées, et ${vue.origine === 'chasse' ? 'ta chasse est utilisée' : 'cette partie de la visite est faite'}.`
   const chrono = o.pauseMs !== undefined && o.pauseMs > 0 ? ` Le chrono t’attend ${secondesAuPlus(o.pauseMs)} au plus, la manche cachée.` : o.refus ? ` ${o.refus}.` : ''
@@ -370,9 +403,15 @@ function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono
             </span>
           ))}
         </span>
-        <span className="cab-total" role="img" aria-label={etoilesDites(vue.total)}>
-          <b>{vue.total}</b>
-          {` / ${ETOILES_D_UNE_PARTIE} ★`}
+        {/* Le seuil, rappelé sous le total quand une œuvre est en jeu : l'annonce le disait, la tête plus — Camille n'a su ni s'il
+            fallait parier, ni que l'œuvre était perdue (la tablée du 25 octobre 2026). Sur sa ligne : à côté, il passait la tête à
+            la ligne en 360 de large, la niche posée. */}
+        <span className="cab-total" role="img" aria-label={vue.seuil === null ? etoilesDites(vue.total) : `${etoilesDites(vue.total)}, il en faut ${vue.seuil}`}>
+          <span className="cab-total-ligne">
+            <b>{vue.total}</b>
+            {` / ${ETOILES_D_UNE_PARTIE} ★`}
+          </span>
+          {vue.seuil !== null && <span className="cab-seuil-tete">{`il en faut ${vue.seuil}`}</span>}
         </span>
         {vue.phase !== 'finie' && (
           <button type="button" className="btn cab-quitter" aria-label="Quitter" {...toucher(onQuitter)}>
@@ -435,6 +474,20 @@ function CarteDeLaManche({
   )
 }
 
+/**
+ * La partie vise-t-elle encore le cadre doré ? Une œuvre en jeu — à gagner ou
+ * à dorer ; ni en libre, ni pour la poussière d'or —, et chaque manche déjà
+ * jugée parfaite d'elle-même (`naturel`) sans qu'un pouvoir ait servi : la
+ * note d'une manche dit le pouvoir qui l'a aidée (« éclairée », une mise,
+ * « changée », « temps en plus »). Une mise jouée l'ôte (`cadreDore`) : Théo a
+ * misé, fait 9 sur 9, et gagné son œuvre sans cadre doré, sans que rien l'ait
+ * dit (la tablée du 25 octobre 2026).
+ */
+export function viseLeCadreDore(vue: Pick<VueDeLaPartie, 'enJeu' | 'manches'>): boolean {
+  if (!vue.enJeu || 'poussiere' in vue.enJeu) return false
+  return vue.manches.every(m => m.naturel === null || (m.naturel === ETOILES_PAR_MANCHE && !m.note))
+}
+
 /** La mise, avant une manche, sans l'avoir vue : « Pas cette fois » l'ouvre sans elle (§ 4.1). */
 export function MiserOuPas({ vue, manche, busy, onMiser }: { vue: VueDeLaPartie; manche: Manche; busy: boolean; onMiser: (oui: boolean) => void }) {
   return (
@@ -443,6 +496,7 @@ export function MiserOuPas({ vue, manche, busy, onMiser }: { vue: VueDeLaPartie;
       <h2 id="cab-miser">Miser sur cette manche ?</h2>
       <p className="cab-ligne">{espacesFines(POUVOIRS.miser.dit)}</p>
       {vue.carte && <p className="cab-ligne cab-dit">{espacesFines(vue.carte.dit)}</p>}
+      {viseLeCadreDore(vue) && <p className="cab-ligne">{espacesFines('Tu vises le cadre doré : miser le perdrait.')}</p>}
       <div className="cab-gestes">
         <button type="button" className="btn btn-primary" aria-disabled={busy || undefined} {...toucher(() => !busy && onMiser(true))}>
           Miser
@@ -701,6 +755,7 @@ export function Partie({
   onRelire,
   onFinie,
   onRejouer,
+  onRetenter,
 }: {
   depart: VueDeLaPartie
   relue: VueDeLaPartie | null
@@ -709,6 +764,8 @@ export function Partie({
   /** Elle vient de finir — sa dernière manche, « Quitter », ou relue finie d'un autre onglet : son œuvre a pu changer. */
   onFinie?: () => void
   onRejouer?: () => void
+  /** Une partie de la visite manquée : « Retenter » sa case, au bilan. */
+  onRetenter?: () => void
 }) {
   const [vue, setVue] = useState(depart)
   const [busy, setBusy] = useState(false)
@@ -951,6 +1008,12 @@ export function Partie({
 
   // Le bilan : la dernière manche révélée d'abord (« Voir le bilan ») ; quittée ou close, tout de suite.
   const montrerLeBilan = vue.phase === 'finie' && (bilanOuvert || !vue.revelation || !!vue.bilan?.quittee || !!vue.bilan?.lendemain)
+  // Le titre de l'onglet suit la manche, puis le bilan (`titreDeLaPartie`) : d'un onglet à l'autre, le lecteur d'écran ne disait
+  // que « Le Cabinet de curiosités ». La page reprend le sien en revenant au musée (`CabinetApp.tsx`).
+  useEffect(() => {
+    document.title = titreDeLaPartie(vue, montrerLeBilan)
+    // Le jeu et la manche seuls : une vue neuve de la même manche — un essai, une pause — ne change pas le titre.
+  }, [vue.jeu, vue.manche, montrerLeBilan])
   if (montrerLeBilan) {
     if (bilan === 'perdu' || !bilan) {
       return (
@@ -963,7 +1026,7 @@ export function Partie({
       )
     }
     const LeBilan: typeof BilanDeLaPartie = bilan.BilanDeLaPartie
-    return <LeBilan vue={vue} ecran={pret} onMusee={onMusee} onRejouer={onRejouer} />
+    return <LeBilan vue={vue} ecran={pret} onMusee={onMusee} onRejouer={onRejouer} onRetenter={onRetenter} />
   }
   return (
     <EcranDeLaPartie

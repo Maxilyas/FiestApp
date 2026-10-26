@@ -3,25 +3,33 @@ import { Dessin } from '../../components/Avatar'
 import { OeuvrePeinte, type OeuvreMontree } from '../../components/OeuvrePeinte'
 import { Feuille, PieceTete, Sortie } from '../../components/Pieces'
 import { espacesFines } from '../../format'
-import { ETOILES_D_UNE_PARTIE, SEUILS_DES_RARETES } from '../../../../shared/cabinet/bareme'
+import { ETOILES_D_UNE_PARTIE, ETOILES_DU_PARI, ETOILES_PAR_MANCHE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
+import type { EnjeuDUneCase } from '../../../../shared/cabinet/musee'
 import { POUVOIRS, ceQueFaitLaCarte, forceDe, pouvoirDe, type CleDePouvoir, type Force } from '../../../../shared/cabinet/pouvoirs'
 import type { PageDuCabinet, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { legendaire } from '../../../../shared/legendaires'
+import { EnEtoiles } from './EnEtoiles'
 import type { PartieDemandee } from './ecrans'
 import { enDebutDeLigne, laPartieQuiAttend } from './Musee'
 import { oeuvreDeLaPage } from './Oeuvre'
 import { ecranDuJeu } from './Partie'
+import { PartieQuiAttend } from './PartieQuiAttend'
 import { oeuvreMontree } from './Salle'
 import { enJeuDit } from './Visite'
 
 // L'annonce d'une partie (§ 2.2) : tout ce qu'elle montre, la page l'a déjà —
 // le jeu, son geste, son barème dit (`JEUX`), ce qui est en jeu sans nommer
-// l'œuvre d'une visite, le seuil, et la carte-bonus qu'il emporte avec ce
-// qu'elle fait à ce jeu (`ceQueFaitLaCarte` : « Changer ne sert pas à la
-// Frise »). Rien n'y est consommé : revenir au musée ne coûte ni visite ni
-// chasse, tout part à « Commencer » (`POST /api/cabinet/partie`). La carte
-// choisie se retient sur le téléphone, profil par profil (`retenu.ts`).
+// l'œuvre d'une visite, le seuil que le serveur dit de la case (`CaseVue.seuil`
+// — la page le redérivait du barème), le cadre doré, et la carte-bonus qu'il
+// emporte avec ce qu'elle fait à ce jeu (`ceQueFaitLaCarte` : « Changer ne sert
+// pas à la Frise ») et ce qui lui ôterait le cadre. Rien n'y est consommé :
+// revenir au musée ne coûte ni visite ni chasse, tout part à « Commencer »
+// (`POST /api/cabinet/partie`). La carte choisie se retient sur le téléphone,
+// profil par profil (`retenu.ts`). Les règles qui comptent se disent ici, au
+// moment où elles comptent : Théo a misé, fait 9 sur 9, et gagné l'œuvre sans
+// cadre doré ; Camille ne savait pas qu'une case de la visite ne se joue
+// qu'une fois (la tablée du 25 octobre 2026).
 //
 // L'écran du jeu se demande dès l'annonce (`ecranDuJeu`) : la première manche
 // s'ouvre avec la réponse de « Commencer », son chrono déjà parti.
@@ -33,26 +41,43 @@ export interface CeQuElleAnnonce {
   piece: string
   /** « Peut te faire gagner une œuvre rare de la salle du Devin », « Pour dorer Bastion » ; rien en partie libre. */
   enJeu: string | null
-  /** Les étoiles qu'il faut pour gagner l'œuvre, à sa rareté ; rien pour dorer, ni sans œuvre. */
+  /** Les étoiles qu'il faut pour gagner l'œuvre, celles que le serveur dit ; rien pour dorer, ni sans œuvre. */
   seuil: number | null
   /** Une œuvre à lui, à dorer : toutes ses manches parfaites, sans pouvoir. */
   dorer: boolean
+  /** Une case de la visite pour dorer : les étoiles qui, sans le cadre doré, font son double (`CaseVue.seuilDuDouble`). */
+  double?: number
+}
+
+/**
+ * Ce qu'une case annonce, lu dans la vue du serveur : son enjeu, jamais son
+ * œuvre ; son seuil, ou pour dorer celui de son double — le serveur les dit
+ * (`CaseVue.seuil`, `seuilDuDouble`), la page ne relit pas le barème.
+ */
+function laCase(c: PageDuCabinet['visite']['cases'][number], piece: string): CeQuElleAnnonce {
+  const dorer = 'pourDorer' in c.enJeu
+  return { jeu: c.jeu, piece, enJeu: enJeuDit(c.enJeu), seuil: 'rarete' in c.enJeu ? (c.seuil ?? null) : null, dorer, ...(dorer && c.seuilDuDouble !== undefined && { double: c.seuilDuDouble }) }
 }
 
 /**
  * Ce qu'annonce une partie demandée, lu dans la page : la case de la visite
- * dit son enjeu (jamais son œuvre), une chasse son cadre, une partie libre son
- * jeu. Null pour ce que la page ne montre plus — une case, une œuvre, un jeu
- * inconnus.
+ * dit son enjeu (jamais son œuvre), une chasse son cadre, « Retenter » l'enjeu
+ * de sa case — la demande la vise, et le serveur seul sait l'œuvre —, une
+ * partie libre son jeu. Null pour ce que la page ne montre plus — une case,
+ * une œuvre, un jeu inconnus.
  */
 export function annonceDe(page: PageDuCabinet, demande: PartieDemandee): CeQuElleAnnonce | null {
   switch (demande.origine) {
     case 'visite': {
       const c = page.visite.cases[demande.case]
-      if (!c) return null
-      return { jeu: c.jeu, piece: 'La visite du jour', enJeu: enJeuDit(c.enJeu), seuil: 'rarete' in c.enJeu ? SEUILS_DES_RARETES[c.enJeu.rarete] : null, dorer: 'pourDorer' in c.enJeu }
+      return c ? laCase(c, 'La visite du jour') : null
     }
     case 'chasse': {
+      if ('retente' in demande) {
+        const c = page.visite.cases[demande.case]
+        // Une chasse au jeu de la case, pour l'œuvre qu'elle visait : à gagner, à son seuil — sans double, il n'y en a pas en chasse.
+        return c ? { ...laCase(c, 'Une chasse'), dorer: false } : null
+      }
       const lue = oeuvreDeLaPage(page, demande.oeuvre)
       if (!lue) return null
       const o = lue.oeuvre
@@ -111,9 +136,40 @@ export function cartesBonusDe(page: PageDuCabinet): CarteBonus[] {
   return cartes.sort((a, b) => rang(a) - rang(b))
 }
 
-/** Une carte-bonus en une ligne : sa peinture ou son médaillon, son nom, ce qu'elle fait à ce jeu. */
-function LigneDeCarte({ carte, jeu, detail = false }: { carte: CarteBonus; jeu: CleDeJeu; detail?: boolean }) {
+/**
+ * Ce qui ôte le cadre doré, pouvoir par pouvoir (le cadre doré : toutes les
+ * manches parfaites, sans qu'un pouvoir ait servi — `cadreDore`) : Éclairer,
+ * Changer et Miser dès qu'on s'en sert ; Prendre son temps quand la réponse
+ * arrive dans le temps qu'il donne en plus — emporté, il ne coûte rien.
+ * Protéger ne relève qu'une manche imparfaite : le cadre était déjà perdu,
+ * rien à en dire.
+ */
+const CE_QUI_OTE_LE_CADRE: Readonly<Record<CleDePouvoir, string | null>> = {
+  eclairer: 'T’en servir ôte le cadre doré.',
+  changer: 'T’en servir ôte le cadre doré.',
+  miser: 'T’en servir ôte le cadre doré.',
+  temps: 'Répondre dans le temps en plus ôte le cadre doré.',
+  proteger: null,
+}
+
+/** « trois » : le nombre de manches d'une partie, en lettres. */
+const EN_LETTRES: Readonly<Record<number, string>> = { 1: 'une', 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cinq' }
+
+/**
+ * Ce que demande le cadre doré à ce jeu : toutes ses manches parfaites — au
+ * Pari, une manche parfaite ne se gagne qu'en pariant, garder n'en vaut que
+ * deux (`ETOILES_DU_PARI`) : « trois paris gagnés ». Se dorer en gardant y
+ * était impossible, et rien ne le disait (la tablée du 25 octobre 2026).
+ */
+function ceQueDemandeLeCadre(jeu: CleDeJeu): string {
+  if (jeu === 'pari' && ETOILES_DU_PARI.garder < ETOILES_PAR_MANCHE) return `${EN_LETTRES[MANCHES_PAR_PARTIE] ?? MANCHES_PAR_PARTIE} paris gagnés`
+  return 'toutes ses manches parfaites'
+}
+
+/** Une carte-bonus en une ligne : sa peinture ou son médaillon, son nom, ce qu'elle fait à ce jeu — et, un cadre doré en jeu, ce qui l'ôterait. */
+function LigneDeCarte({ carte, jeu, detail = false, cadre = false }: { carte: CarteBonus; jeu: CleDeJeu; detail?: boolean; cadre?: boolean }) {
   const pouvoir = POUVOIRS[carte.pouvoir]
+  const oteLeCadre = cadre ? CE_QUI_OTE_LE_CADRE[carte.pouvoir] : null
   return (
     <span className="cab-carte">
       <span className="cab-carte-vignette" aria-hidden="true">
@@ -130,6 +186,7 @@ function LigneDeCarte({ carte, jeu, detail = false }: { carte: CarteBonus; jeu: 
         <span className="cab-ligne">{espacesFines(ceQueFaitLaCarte(carte.pouvoir, carte.force, jeu))}</span>
         {/* Éclairer se dit déjà jeu par jeu ; les autres disent ici ce qu'ils font, la mise surtout — avant une manche, sans l'avoir vue. */}
         {detail && carte.pouvoir !== 'eclairer' && <span className="cab-raison">{espacesFines(pouvoir.dit)}</span>}
+        {detail && oteLeCadre && <span className="cab-raison">{espacesFines(oteLeCadre)}</span>}
       </span>
     </span>
   )
@@ -163,9 +220,19 @@ export function ChoixDeLaCarte({ cartes, jeu, carte, onChoisir }: { cartes: read
   )
 }
 
-/** Ce que la page dit sous « Commencer » : ce qui part avec lui, rien avant. */
-const avantDeCommencer = (demande: PartieDemandee): string | null =>
-  demande.origine === 'libre' ? null : `Rien ne compte avant « Commencer » : revenir au musée ne coûte pas ${demande.origine === 'chasse' ? 'ta chasse' : 'ta partie de la visite'}.`
+/**
+ * Ce que la page dit sous « Commencer » : ce qui part avec lui, rien avant — et
+ * qu'une case de la visite, ensuite, se joue une fois : manquée, elle est
+ * faite, et seule son œuvre se retente, au même jeu, pour une chasse (rien à
+ * retenter pour dorer ni pour la poussière d'or). L'annonce rassurait d'un
+ * « Rien ne compte avant », et Camille a cru pouvoir rejouer sa case perdue.
+ */
+function avantDeCommencer(demande: PartieDemandee, enJeu: EnjeuDUneCase | undefined): string | null {
+  if (demande.origine === 'libre') return null
+  const rien = `Rien ne compte avant « Commencer » : revenir au musée ne coûte pas ${demande.origine === 'chasse' ? 'ta chasse' : 'ta partie de la visite'}.`
+  if (demande.origine === 'chasse') return rien
+  return `${rien} Ensuite, elle se joue une fois aujourd’hui${enJeu && 'rarete' in enJeu ? ' — manquée, son œuvre se retente au même jeu pour une chasse' : ''}.`
+}
 
 export function Annonce({
   page,
@@ -175,6 +242,7 @@ export function Annonce({
   onCarte,
   onCommencer,
   onRetour,
+  onReprendre,
 }: {
   page: PageDuCabinet
   demande: PartieDemandee
@@ -184,6 +252,8 @@ export function Annonce({
   onCarte: (cle: string | null) => void
   onCommencer: (carte: string | null) => void
   onRetour: () => void
+  /** La partie qui attend, rouverte : « Commencer » s'éteint sous elle, « Reprendre » y ramène. */
+  onReprendre?: () => void
 }) {
   const [choisir, setChoisir] = useState(false)
   const idDeLAttente = useId()
@@ -207,7 +277,9 @@ export function Annonce({
   // Une partie qui attend — commencée d'un autre onglet, et que la page relue vient d'apprendre — : « Commencer » s'éteint, sa
   // raison dessous à la place de ce qu'il coûterait, comme les départs du musée (`laPartieQuiAttend`).
   const attend = laPartieQuiAttend(page)
-  const avant = avantDeCommencer(demande)
+  const avant = avantDeCommencer(demande, demande.origine === 'visite' ? page.visite.cases[demande.case]?.enJeu : undefined)
+  // Un cadre doré en jeu : une œuvre à gagner, ou à dorer. Sans œuvre — en libre, pour la poussière d'or —, rien à perdre.
+  const cadre = a.seuil !== null || a.dorer
   return (
     <div className="player-shell cab-page cab-annonce">
       {retour}
@@ -217,23 +289,27 @@ export function Annonce({
         <p className="cab-ligne">{espacesFines(j.geste)}</p>
         <p className="cab-ligne cab-bareme-annonce">
           <span className="cab-surtitre">{'Chaque manche '}</span>
-          {espacesFines(enDebutDeLigne(j.bareme))}
+          <EnEtoiles texte={espacesFines(enDebutDeLigne(j.bareme))} />
         </p>
         {j.avertissement && <p className="cab-ligne">{espacesFines(j.avertissement)}</p>}
       </section>
       {a.seuil !== null && (
-        <p className="cab-ligne cab-seuil">
-          Il faut{' '}
-          <b>
-            {a.seuil} étoiles sur {ETOILES_D_UNE_PARTIE}
-          </b>{' '}
-          pour la gagner.
-        </p>
+        <>
+          <p className="cab-ligne cab-seuil">
+            Il faut{' '}
+            <b>
+              {a.seuil} étoiles sur {ETOILES_D_UNE_PARTIE}
+            </b>{' '}
+            pour la gagner.
+          </p>
+          <p className="cab-ligne">{espacesFines(`${enDebutDeLigne(ceQueDemandeLeCadre(a.jeu))}, sans qu’un pouvoir serve : son cadre doré.`)}</p>
+        </>
       )}
-      {a.dorer && <p className="cab-ligne cab-seuil">{espacesFines('Pour la dorer : toutes ses manches parfaites, sans qu’un pouvoir ait servi.')}</p>}
+      {a.dorer && <p className="cab-ligne cab-seuil">{espacesFines(`Pour la dorer : ${ceQueDemandeLeCadre(a.jeu)}, sans qu’un pouvoir ait servi.`)}</p>}
+      {a.double !== undefined && <p className="cab-ligne">{espacesFines(`Sans cadre doré, ${a.double} étoiles sur ${ETOILES_D_UNE_PARTIE} font un double : sa poussière d’or en plus.`)}</p>}
       <section className="cab-bloc" aria-labelledby="cab-ta-carte">
         <h2 id="cab-ta-carte">Ta carte-bonus</h2>
-        {choisie ? <LigneDeCarte carte={choisie} jeu={a.jeu} detail /> : <p className="cab-ligne">{espacesFines('Sans carte-bonus : tu joues sans pouvoir.')}</p>}
+        {choisie ? <LigneDeCarte carte={choisie} jeu={a.jeu} detail cadre={cadre} /> : <p className="cab-ligne">{espacesFines('Sans carte-bonus : tu joues sans pouvoir.')}</p>}
         {cartes.length > 0 && (
           <button type="button" className="btn btn-block" onClick={() => setChoisir(true)}>
             {choisie ? 'Choisir une autre carte-bonus' : 'Choisir une carte-bonus'}
@@ -249,13 +325,7 @@ export function Annonce({
       >
         Commencer
       </button>
-      {attend ? (
-        <p id={idDeLAttente} className="cab-raison">
-          {espacesFines(attend)}
-        </p>
-      ) : (
-        avant && <p className="cab-raison">{espacesFines(avant)}</p>
-      )}
+      {attend ? <PartieQuiAttend page={page} id={idDeLAttente} onReprendre={onReprendre} /> : avant && <p className="cab-raison">{espacesFines(avant)}</p>}
       {choisir && (
         <Feuille titre="Ta carte-bonus" onFermer={() => setChoisir(false)} className="cab-feuille">
           <ChoixDeLaCarte

@@ -227,4 +227,6 @@ test('quitter une partie du Cabinet : « Quitter », puis « Quitter la partie �
   for (const { nom, texte } of FICHES) {
     if (/quitte|« Quitter »/.test(texte)) assert.match(texte, /« Quitter la partie »|« Continuer »/, `${nom} : le bouton qu’on touche à la question`)
   }
+  // Les mots que la page pose vraiment sur la confirmation : renommée là, la tablée toucherait un bouton qui n'existe plus.
+  assert.match(lire('client/src/views/cabinet/Partie.tsx'), /confirmLabel: 'Quitter la partie', cancelLabel: 'Continuer'/)
 })

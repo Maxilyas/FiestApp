@@ -13,7 +13,7 @@ import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
 import { arreterLEcho, toucher } from '../toucher'
 import { JEUX, type CleDeJeu } from '../../../shared/cabinet/jeux/regle'
-import { poussieresDites, type DemandeDeDepart } from '../../../shared/cabinet/musee'
+import { poussieresDites } from '../../../shared/cabinet/musee'
 import { oeuvre as oeuvreDe } from '../../../shared/cabinet/oeuvres'
 import type { Manche } from '../../../shared/cabinet/partie'
 import { fondreLesReveils, type MursDuCabinet, type PageDuCabinet, type ReveilDesGardiens, type VueDeLaPartie } from '../../../shared/cabinet/vues'
@@ -23,11 +23,13 @@ import {
   RetourAuMusee,
   adresseDe,
   ecranDeLAdresse,
-  effacerLaMarqueAuChargement,
   memeEcran,
+  partieARouvrir,
   partieDansLEntree,
   poserLEntreeDeLaPartie,
   quitterVersLeMusee,
+  titreDeLAnnonce,
+  titreDeLEcran,
   type EcranDuMusee,
   type PartieDemandee,
 } from './cabinet/ecrans'
@@ -281,6 +283,17 @@ export function CabinetApp() {
         // Sans le profil léger, le musée s'ouvre quand même : le thème attendra.
       }
       if (vivant) lirePage(premiere)
+      // Rechargée sur l'entrée d'une partie (`poserLEntreeDeLaPartie`), la page la rouvre dès qu'elle sait qu'elle attend — sur la
+      // même entrée, que le retour du navigateur consomme comme avant —, ou en efface la marque : effacée d'office au montage, la
+      // partie rechargée depuis la visite retombait sur la visite, qui la disait faite, et son chrono courait pendant qu'on la
+      // cherchait (la tablée du 25 octobre 2026). Sans page — sans profil, une panne —, rien à rouvrir.
+      premiere.then(
+        p => {
+          const rouverte = vivant ? partieARouvrir(window.history, p.enCours) : null
+          if (rouverte) setEnPartie({ e: 'jeu', vue: rouverte })
+        },
+        () => vivant && partieARouvrir(window.history, null),
+      )
     })()
     return () => {
       vivant = false
@@ -292,7 +305,6 @@ export function CabinetApp() {
   const enPartieRef = useRef(enPartie)
   enPartieRef.current = enPartie
   useEffect(() => {
-    effacerLaMarqueAuChargement(window.history)
     const suivre = () => {
       // Fermée par le retour en pleine partie, elle continue sans cet écran — une pause laissée sous « Quitter ? », une manche qui
       // court à son échéance — : la page se relit, et « Reprendre » la rouvre telle qu'elle est, pas telle qu'au départ.
@@ -346,6 +358,14 @@ export function CabinetApp() {
     rendreLeFocus(document.querySelector('.cab-page'), ['.cab-question', 'h1', 'h2'])
   }, [cleDEcran, etat.e])
 
+  // L'onglet dit l'écran (`titreDeLEcran`), l'annonce son jeu ; une partie qui se joue pose le sien, manche par manche
+  // (`Partie.tsx`) : tous disaient « Le Cabinet de curiosités », d'un onglet à l'autre et au lecteur d'écran qui annonce la page.
+  const annoncee = enPartie?.e === 'annonce' && page ? annonceDe(page, enPartie.partie) : null
+  const titre = !page || enPartie?.e === 'jeu' ? null : annoncee ? titreDeLAnnonce(annoncee.jeu) : titreDeLEcran(ecran, page)
+  useEffect(() => {
+    if (titre !== null) document.title = titre
+  }, [titre])
+
   // Le cartel d'une œuvre à lui, demandé quand on l'ouvre, une fois — jusqu'à ce qu'une partie finie ou une page neuve le fasse
   // oublier : la peinture s'ouvre sans l'attendre.
   const oeuvreOuverte = ecran.e === 'oeuvre' && page ? oeuvreDeLaPage(page, ecran.oeuvre) : null
@@ -386,6 +406,23 @@ export function CabinetApp() {
     setEnPartie(partie)
   }
   const jouer = (partie: PartieDemandee) => ouvrir({ e: 'annonce', partie })
+  /** « Reprendre » : la partie qui attend, telle que la page la dit — de chaque écran qui la dit en attente, pas du seul musée. */
+  const reprendre = () => {
+    if (page?.enCours) ouvrir({ e: 'jeu', vue: page.enCours })
+  }
+  /**
+   * « Retenter » au bilan d'une case manquée : l'annonce de sa retente, au même jeu, pour une chasse. La page se relit d'abord —
+   * celle d'avant la partie la disait encore en cours, et l'annonce aurait éteint « Commencer » — ; la case se retrouve par son
+   * jeu, que la visite ne donne qu'à une case : la vue de la partie ne dit pas laquelle elle était. Sur l'entrée de la partie,
+   * que l'annonce reprend (`poserLEntreeDeLaPartie` n'en pose pas une seconde) : le retour mène au musée, pas au bilan.
+   */
+  const retenterDuBilan = async (jeu: CleDeJeu) => {
+    const lue = api.cabinet.page()
+    lirePage(lue)
+    const k = ((await lue.catch(() => null)) ?? page)?.visite.cases.findIndex(c => c.jeu === jeu) ?? -1
+    if (k < 0) versLeMusee()
+    else jouer({ origine: 'chasse', case: k, retente: true })
+  }
 
   /**
    * Un geste qui écrit — un achat, une dorure, un échange — : la page d'après, sinon le refus du serveur et la page relue. Ce
@@ -424,7 +461,9 @@ export function CabinetApp() {
     const jeu = page ? annonceDe(page, demande)?.jeu : undefined
     setBusy(true)
     try {
-      const vue = await api.cabinet.commencer({ ...demande, carte: carteChoisie } as DemandeDeDepart)
+      // La demande lue telle que le serveur la lit (`DemandeLue`) : un départ, ou la retente d'une case — sans conversion forcée,
+      // qui laissait passer une demande que le serveur refuse.
+      const vue = await api.cabinet.commencer({ ...demande, carte: carteChoisie })
       // Sur une entrée marquée, même si le retour a fermé l'annonce pendant la requête : la partie est partie, son chrono court,
       // et posée sur l'écran d'en dessous, le retour suivant la fermait sans rien demander pendant que sa garde posait « Quitter ? ».
       ouvrir({ e: 'jeu', vue })
@@ -502,6 +541,7 @@ export function CabinetApp() {
         // Finie, elle a pu gagner, dorer ou doubler une œuvre — celle d'une chasse partie de son écran, qu'un retour fait reparaître.
         onFinie={oublierLesCartels}
         onRejouer={vue.origine === 'libre' ? () => jouer({ origine: 'libre', jeu: vue.jeu }) : undefined}
+        onRetenter={vue.origine === 'visite' ? () => void retenterDuBilan(vue.jeu) : undefined}
       />,
     )
   }
@@ -510,7 +550,16 @@ export function CabinetApp() {
     const a = annonceDe(p, demande)
     if (a && ecranDuJeu(a.jeu)) {
       return avecLeToast(
-        <Annonce page={p} demande={demande} carte={carte} busy={busy} onCarte={choisirLaCarte} onCommencer={c => void commencer(demande, c)} onRetour={versLeMusee} />,
+        <Annonce
+          page={p}
+          demande={demande}
+          carte={carte}
+          busy={busy}
+          onCarte={choisirLaCarte}
+          onCommencer={c => void commencer(demande, c)}
+          onRetour={versLeMusee}
+          onReprendre={reprendre}
+        />,
       )
     }
     if (a) return avecLeToast(<AnnonceEnAttente jeu={a.jeu} enJeu={a.enJeu} onRetour={versLeMusee} />)
@@ -534,14 +583,15 @@ export function CabinetApp() {
           onAcheter={(cle, prix) => void acheter(cle, prix)}
           onDorer={(cle, prix) => void dorer(cle, prix)}
           onJouer={jouer}
+          onReprendre={reprendre}
         />,
       )
     case 'gardiens':
       return avecLeToast(<Gardiens page={p} carte={carte} onCarte={choisirLaCarte} />)
     case 'visite':
-      return avecLeToast(<Visite page={p} busy={busy} onJouer={jouer} onEchanger={k => void echanger(k)} />)
+      return avecLeToast(<Visite page={p} busy={busy} onJouer={jouer} onEchanger={k => void echanger(k)} onReprendre={reprendre} />)
     case 'libre':
-      return avecLeToast(<JouerLibrement page={p} onJouer={jouer} />)
+      return avecLeToast(<JouerLibrement page={p} onJouer={jouer} onReprendre={reprendre} />)
     case 'murs':
       return avecLeToast(<MursALaDemande />)
   }
@@ -550,7 +600,7 @@ export function CabinetApp() {
       page={p}
       bienvenue={bienvenue}
       onRegles={ouvrirLesRegles}
-      onReprendre={() => p.enCours && ouvrir({ e: 'jeu', vue: p.enCours })}
+      onReprendre={reprendre}
       onBienvenueLue={bienvenueLue}
     />,
   )

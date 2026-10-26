@@ -4,8 +4,10 @@ import { Shape } from '../../../components/Shape'
 import { espacesFines } from '../../../format'
 import { answersSizeClass, questionSizeClass } from '../../../games/quiz/questionSize'
 import { toucher } from '../../../toucher'
+import { ETOILES_DU_PARI } from '../../../../../shared/cabinet/bareme'
 import { MOTS_DU_PARI } from '../../../../../shared/cabinet/jeux/regle'
 import type { PariMontre, PariRevele } from '../../../../../shared/cabinet/jeux/pari'
+import { EnEtoiles, aLOreille, etoilesDites } from '../EnEtoiles'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
 
 // Le Pari à l'écran (§ 3.6) : une question facile ou moyenne, ses quatre
@@ -70,13 +72,29 @@ function AuChoix({ m, envoyer, garde, busy }: { m: PariMontre; envoyer: PropsDUn
         <b>{espacesFines(m.question.reponses[choix])}</b>
         <span className="sr-only"> : juste</span>
       </p>
-      <p className="cab-ligne cab-au-choix">{espacesFines(MOTS_DU_PARI.auChoix)}</p>
+      <p className="cab-ligne cab-au-choix">
+        <EnEtoiles texte={espacesFines(MOTS_DU_PARI.auChoix)} />
+      </p>
+      {/* Leurs étoiles, à l'oreille, se disent en mots : « Garder 2 étoiles », pas « Garder étoile noire, étoile noire » (Hugo, à la
+          tablée du 25 octobre 2026). Les nombres viennent du barème, comme les mots. */}
       <div className="cab-choix-du-pari">
-        <button type="button" className="btn btn-big" aria-disabled={busy || undefined} {...toucher(() => !busy && garde() && envoyer({ quoi: 'garder' }))}>
-          {MOTS_DU_PARI.garder}
+        <button
+          type="button"
+          className="btn btn-big"
+          aria-label={aLOreille(MOTS_DU_PARI.garder)}
+          aria-disabled={busy || undefined}
+          {...toucher(() => !busy && garde() && envoyer({ quoi: 'garder' }))}
+        >
+          <EnEtoiles texte={MOTS_DU_PARI.garder} />
         </button>
-        <button type="button" className="btn btn-primary btn-big" aria-disabled={busy || undefined} {...toucher(() => !busy && garde() && envoyer({ quoi: 'parier' }))}>
-          {MOTS_DU_PARI.parier}
+        <button
+          type="button"
+          className="btn btn-primary btn-big"
+          aria-label={`Parier pour ${etoilesDites(ETOILES_DU_PARI.parier)}`}
+          aria-disabled={busy || undefined}
+          {...toucher(() => !busy && garde() && envoyer({ quoi: 'parier' }))}
+        >
+          <EnEtoiles texte={MOTS_DU_PARI.parier} />
         </button>
       </div>
     </>

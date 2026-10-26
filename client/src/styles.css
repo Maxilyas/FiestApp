@@ -6148,6 +6148,7 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   max-height: calc(100dvh - 40px);
 }
 .carte-joueur:focus { outline: none; }
+.carte-feuille:focus { outline: none; }
 .cadre-bronze { --cadre: linear-gradient(135deg, #f1c08c 0%, #86501f 22%, #d29660 44%, #5e3718 64%, #f1c08c 82%, #86501f 100%); --gemme-encre: #26150a; }
 .cadre-argent { --cadre: linear-gradient(135deg, #ffffff 0%, #a3acb6 22%, #f4f6f9 44%, #7c858f 64%, #ffffff 82%, #858e98 100%); --gemme-encre: #2c3138; }
 .cadre-or { --cadre: linear-gradient(135deg, #fff0bf 0%, #b8892f 22%, #f6dd94 44%, #7d5416 64%, #fff0bf 82%, #8f6219 100%); --gemme-encre: #3a2508; }
@@ -10349,7 +10350,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Les pièces partagées, à la taille du Cabinet : « ← Accueil », la petite ligne au-dessus du titre, le détail des gros boutons et
    leur pastille, les boutons — ceux de l'inscription, en capitales espacées, ne tenaient pas sur une ligne à dix-sept pixels. */
 .cab-page > .jour-sortie { font-size: 1.0625rem; }
-.cab-page .piece-tete .label { color: var(--accent-text); font-size: 1.0625rem; font-weight: 600; letter-spacing: 0.02em; text-transform: none; }
+/* Sa taille, son espacement et ses capitales, plus forts qu'un thème : le relevé de toute étiquette, plus bas. */
+.cab-page .piece-tete .label { color: var(--accent-text); font-weight: 600; }
 .cab-page .gros-detail { font-size: 1.0625rem; }
 /* Le gros bouton qui mène — la visite du jour, la partie qui t'attend — pose son détail sur l'or pâle (`--accent-soft`) : le gris
    n'y tenait que 4,2:1 sous l'Ivoire, 3,8:1 sous la Game Boy (le rendu du 25 octobre 2026). Le bronze du survol y tient sous
@@ -10402,7 +10404,11 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-bandeau-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .cab-chiffre { font-family: var(--serif); font-size: 1.6rem; font-weight: 700; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
 .cab-tuile { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); text-decoration: none; }
-.cab-tuile:hover { border-color: var(--edge-strong); }
+/* Les survols du Cabinet, sous `(hover: hover)` : au doigt, `:hover` colle à ce qu'on vient de toucher — la porte d'une salle
+   gardait le contour d'or d'une salle complète, et Camille l'a lue comme conseillée (la tablée du 25 octobre 2026). */
+@media (hover: hover) {
+  .cab-tuile:hover { border-color: var(--edge-strong); }
+}
 .cab-tuile-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cab-salles { display: flex; flex-direction: column; gap: 12px; }
 .cab-entre { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
@@ -10413,7 +10419,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-arche { display: grid; place-items: center; width: 100%; height: 104px; overflow: hidden; border: 3px solid var(--edge-strong); border-radius: 60px 60px 10px 10px; background: var(--surface-strong); }
 .cab-arche img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .cab-porte.cab-complete .cab-arche { border-color: var(--accent); box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.35); }
-.cab-porte:hover .cab-arche { border-color: var(--accent); }
+@media (hover: hover) {
+  .cab-porte:hover .cab-arche { border-color: var(--accent); }
+}
 .cab-porte-nom { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.1; text-wrap: balance; }
 .cab-comment { margin-top: 2px; }
 
@@ -10432,7 +10440,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Le cadre vide : en pointillé, à la couleur de sa rareté (`--gemme`, posé sur la case), et sa rareté écrite dessous — la couleur
    ne dit jamais seule ce qu'elle est. */
 .cab-cadre-vide { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 124px; border: 2px dashed var(--gemme, var(--edge-strong)); border-radius: 10px; background: var(--surface); }
-.cab-oeuvre:hover .cab-cadre-vide { background: var(--surface-strong); }
+@media (hover: hover) {
+  .cab-oeuvre:hover .cab-cadre-vide { background: var(--surface-strong); }
+}
 .cab-gemme { flex: none; width: 10px; height: 10px; rotate: 45deg; background: var(--gemme, var(--muted)); box-shadow: 0 0 6px var(--gemme, transparent); }
 .cab-gardien-ligne { display: flex; align-items: center; gap: 12px; }
 .cab-gardien-ligne b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
@@ -10464,7 +10474,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-gardiens { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
 .cab-gardiens > li { display: flex; }
 .cab-gardien { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 12px 8px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
-.cab-gardien:hover { border-color: var(--edge-strong); }
+@media (hover: hover) {
+  .cab-gardien:hover { border-color: var(--edge-strong); }
+}
 .cab-gardien-nom { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; text-wrap: balance; }
 .cab-gardien-detail { color: var(--muted); line-height: 1.3; }
 .cab-feuille { font-size: 1.0625rem; }
@@ -10486,7 +10498,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Jouer librement : les neuf jeux, ceux qui arrivent en pointillé et le disant. */
 .cab-jeux { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .cab-jeu { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; padding: 12px 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.cab-jeu:hover { border-color: var(--edge-strong); }
+@media (hover: hover) {
+  .cab-jeu:hover { border-color: var(--edge-strong); }
+}
 .cab-jeu[aria-disabled='true'] { border-style: dashed; background: none; cursor: default; }
 .cab-jeu .cab-pastille { margin: 4px 0 0; }
 
@@ -10497,6 +10511,12 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-regles li { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 10px; line-height: 1.4; }
 .cab-regles li > .icon { width: 20px; height: 20px; margin-top: 2px; color: var(--accent-text); }
 .cab-bareme { display: block; margin-top: 4px; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+/* Les neuf jeux se replient comme le lexique, sous un titre de section : chaque annonce redit le sien, et dépliés d'office, ils
+   faisaient de la feuille trente-trois lignes à lire avant la poussière d'or. */
+.cab-feuille .cab-regles-replie > summary { color: var(--ink); font-family: var(--serif); font-size: 1.4rem; font-weight: 600; }
+.cab-feuille .cab-regles-replie > summary .icon { width: 20px; height: 20px; color: var(--accent-text); }
+.cab-regles-replie[open] > summary .repli-chevron { transform: rotate(180deg); }
+.cab-regles-replie > .cab-regles { margin-top: 6px; }
 
 /* L'annonce d'une partie (`Annonce.tsx`) : ce qu'elle met en jeu, le jeu et son barème, le seuil, la carte-bonus emportée — sa
    peinture ou son médaillon, ce qu'elle fait à ce jeu — et, dans sa feuille, les autres, chacune un bouton à `aria-pressed`. */
@@ -10513,7 +10533,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-carte-nom { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.15; }
 .cab-cartes { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .cab-choix-carte { display: block; width: 100%; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.cab-choix-carte:hover { border-color: var(--edge-strong); }
+@media (hover: hover) {
+  .cab-choix-carte:hover { border-color: var(--edge-strong); }
+}
 .cab-choix-carte[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--accent-soft); }
 
 /* Une partie (`Partie.tsx`) : la tête collée — les trois manches, les étoiles sur neuf, « Quitter », le chrono —, la manche, le
@@ -10530,8 +10552,11 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-point { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 2px solid var(--edge-strong); border-radius: 50%; color: var(--muted); font-family: var(--serif); font-size: 1.0625rem; font-weight: 700; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
 .cab-point.cab-point-ici { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .cab-point.cab-point-joue { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
-.cab-total { flex: 1 0 auto; min-width: max-content; color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-weight: 600; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.cab-total { flex: 1 0 auto; min-width: max-content; display: inline-flex; flex-direction: column; justify-content: center; color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-weight: 600; line-height: 1.1; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .cab-total b { font-size: 1.75rem; }
+/* Le seuil d'une œuvre en jeu, sous le total, à la taille d'un texte de la page : à côté de lui, « · il en faut 6 » passait la
+   rangée à la ligne en 360 de large, la niche posée, et la tête prenait 48 pixels à la manche. */
+.cab-seuil-tete { color: var(--muted); font-family: var(--sans); font-size: 1.0625rem; font-weight: 600; line-height: 1.2; }
 .cab-page .cab-quitter { flex: none; min-height: 44px; margin-left: auto; padding: 6px 16px; }
 .cab-quitter .icon { width: 20px; height: 20px; margin-right: 6px; }
 /* Quand la tête n'a plus la place — en 360 de large au texte agrandi, 237 pixels pour elle —, « Quitter » perd son mot, garde
@@ -10549,7 +10574,11 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-tete-partie .timer-seconds { min-width: 36px; font-size: 1.75rem; }
 .cab-manche { gap: 14px; }
 .cab-tete-question { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
-.cab-page .label, .cab-feuille .label { font-size: 1.0625rem; letter-spacing: 0.02em; text-transform: none; }
+/* Chaque `.label` de la page et de ses feuilles — la catégorie d'une manche, la tête de chaque écran, « Ce que tu gagnes » —, à
+   dix-sept pixels, sans capitales espacées. Plus fort que le `.label` d'un thème (0,3,0), chargé après la feuille : l'espacement
+   d'affiche du Film noir (0,3 em) faisait passer « Le Cabinet de curiosités » sur deux lignes, et le Grimoire redescendait
+   l'étiquette à 12 px, le Cahier à 13 (le rendu du 25 octobre 2026). Sa couleur et sa police restent au thème. */
+:root body .cab-page .label, :root body .cab-feuille .label { font-size: 1.0625rem; letter-spacing: 0.02em; text-transform: none; }
 /* « Avatar légendaire débloqué », au bilan et dans la feuille d'un réveil, se pose sur le halo de son médaillon : le gris y tenait
    4,41:1 sous l'Ivoire, et la feuille, hors de la page, l'écrivait en capitales de onze pixels. */
 .cab-page .fin-legendaire .label, .cab-feuille .fin-legendaire .label { color: var(--accent-text-hover); }

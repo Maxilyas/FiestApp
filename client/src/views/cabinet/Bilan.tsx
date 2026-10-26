@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Etoiles } from '../../components/Etoiles'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../../components/Gains'
 import { Icon } from '../../components/Icon'
@@ -17,6 +17,7 @@ import { titreAuBilan } from './Cartel'
 import type { EcranEfface } from './Partie'
 import { GardiensQuiSEveillent } from './Reveil'
 import { oeuvreMontree } from './Salle'
+import { BoutonRetenter } from './Visite'
 
 // Le bilan d'une partie (§ 2.6) : ce qu'elle a fait à son œuvre, en clair —
 // les étoiles manche par manche et leurs notes, le total sur neuf, la
@@ -100,8 +101,22 @@ export function aRelireApresLaPartie(g: GainsDuCabinet | undefined): boolean {
   return !!g && (g.xp > 0 || g.confettis > 0 || (g.recompenses?.length ?? 0) > 0 || !!g.compagnon)
 }
 
-export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDeLaPartie; ecran: EcranEfface | null; onMusee: () => void; onRejouer?: () => void }) {
+export function BilanDeLaPartie({
+  vue,
+  ecran,
+  onMusee,
+  onRejouer,
+  onRetenter,
+}: {
+  vue: VueDeLaPartie
+  ecran: EcranEfface | null
+  onMusee: () => void
+  onRejouer?: () => void
+  /** Une partie de la visite manquée : « Retenter » sa case, au même jeu, pour une chasse — l'annonce de la retente s'ouvre. */
+  onRetenter?: () => void
+}) {
   const [reponses, setReponses] = useState(false)
+  const idDeLaRetente = useId()
   const b = vue.bilan
   const g = b?.gains
   const cles = (g?.recompenses ?? []).map(r => r.key)
@@ -185,6 +200,9 @@ export function BilanDeLaPartie({ vue, ecran, onMusee, onRejouer }: { vue: VueDe
         <button type="button" className="btn btn-primary btn-big btn-block" {...toucher(onMusee)}>
           Revenir au musée
         </button>
+        {/* « Retenter » promis par la page produit et les barèmes n'existait pas : la page ne reçoit pas l'œuvre d'une case manquée
+            (invariant 1). Il vise la case (`BilanVu.retenter`, la règle des départs au serveur), et se tait d'un bilan relu sans le jour. */}
+        {b.retenter && onRetenter && <BoutonRetenter jeu={vue.jeu} retenter={b.retenter} id={idDeLaRetente} classe="btn btn-block" onRetenter={onRetenter} />}
         {ecran && vue.manches.some(m => m.revelation) && (
           <button type="button" className="btn btn-block" {...toucher(() => setReponses(true))}>
             Mes réponses

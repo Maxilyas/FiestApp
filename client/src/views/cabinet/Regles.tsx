@@ -23,6 +23,7 @@ import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/j
 import { OEUVRES, RARETES, type Rarete } from '../../../../shared/cabinet/oeuvres'
 import { POUVOIRS } from '../../../../shared/cabinet/pouvoirs'
 import { SALLES } from '../../../../shared/cabinet/salles'
+import { EnEtoiles } from './EnEtoiles'
 import { adresseDe } from './ecrans'
 import { apresDeuxPoints, compte, enDebutDeLigne } from './Musee'
 
@@ -92,6 +93,15 @@ function Ligne({ icone, children }: { icone: IconName; children: ReactNode }) {
 export function Regles({ jeux, parties = CASES_DE_LA_VISITE, onMurs }: { jeux: readonly CleDeJeu[]; parties?: number; /** Mener à tes murs : la feuille qui les montre se ferme. */ onMurs?: () => void }) {
   return (
     <>
+      {/* L'essentiel d'abord, en trois lignes, puis les mots du Cabinet : trente-trois lignes en six sections, le lexique tout au
+          bout — « le genre de texte qui me ferait lâcher une appli » (Ophélie, à la tablée du 25 octobre 2026). Théo et Hugo la
+          trouvaient complète : le reste suit, une ligne chacune, et les neuf jeux se replient — chaque annonce redit le sien. */}
+      <Section titre="En bref">
+        <Ligne icone="sun">{`La visite du jour : ${compte(parties, 'partie')}, une œuvre à gagner chacune.`}</Ligne>
+        <Ligne icone="target">Assez d’étoiles, et l’œuvre entre dans ton musée.</Ligne>
+        <Ligne icone="crown">Une salle complète réveille son gardien.</Ligne>
+      </Section>
+      <Glossaire mots={[...MOTS]} titre="Les mots du Cabinet" />
       <Section titre="Ton musée">
         <Ligne icone="landmark">{`${OEUVRES.length} œuvres peintes, rangées en ${SALLES.length} salles.`}</Ligne>
         <Ligne icone="star">{`Une partie : ${MANCHES_PAR_PARTIE} manches de ${ETOILES_PAR_MANCHE} étoiles, ${ETOILES_D_UNE_PARTIE} en tout.`}</Ligne>
@@ -102,6 +112,8 @@ export function Regles({ jeux, parties = CASES_DE_LA_VISITE, onMurs }: { jeux: r
       </Section>
       <Section titre="Chaque jour">
         <Ligne icone="sun">{`La visite du jour : ${compte(parties, 'partie')}, chacune une œuvre en jeu que tu découvres en la gagnant.`}</Ligne>
+        {/* Camille croyait pouvoir rejouer sa case perdue : « Faite », elle ne se rejoue pas — son œuvre, si, par une chasse. */}
+        <Ligne icone="rotate">Chacune se joue une fois ; manquée, son œuvre se retente au même jeu pour une chasse.</Ligne>
         <Ligne icone="shuffle">{`Un jeu de la visite se change, ${ECHANGES_DITS[ECHANGES_PAR_JOUR]} par jour.`}</Ligne>
         <Ligne icone="search">{`${CHASSES_PAR_JOUR} chasses : touche un cadre vide, et joue au jeu où se trouve son œuvre.`}</Ligne>
         <Ligne icone="dice">{`Jouer librement, autant que tu veux : les ${LIBRES_QUI_PAIENT} premières parties libres paient leur poussière d’or.`}</Ligne>
@@ -123,20 +135,29 @@ export function Regles({ jeux, parties = CASES_DE_LA_VISITE, onMurs }: { jeux: r
           </Ligne>
         ))}
       </Section>
-      {/* En lettres, comme le Cabinet se présente : `cabinet-ecran.test.ts` rougit si `CLES_DES_JEUX` n'en compte plus neuf. */}
-      <Section titre="Les neuf jeux">
-        {CLES_DES_JEUX.map(j => (
-          <Ligne key={j} icone="gamepad">
-            <b>{JEUX[j].nom}</b>
-            {espacesFines(` : ${apresDeuxPoints(JEUX[j].geste)}`)}
-            {/* Son barème sur sa ligne : collé à la phrase, « France. à moins de 40 km ★★★ » se lisait comme une faute. */}
-            <span className="cab-bareme">
-              {espacesFines(enDebutDeLigne(JEUX[j].bareme))}
-              {!jeux.includes(j) && <span className="cab-pastille">bientôt</span>}
-            </span>
-          </Ligne>
-        ))}
-      </Section>
+      {/* En lettres, comme le Cabinet se présente : `cabinet-ecran.test.ts` rougit si `CLES_DES_JEUX` n'en compte plus neuf. Repliés,
+          comme le lexique : chaque annonce redit son jeu, son geste et son barème. */}
+      <details className="glossaire cab-regles-replie">
+        <summary>
+          <Icon name="gamepad" />
+          Les neuf jeux et leurs étoiles
+          {/* Titré comme une section, il se dirait fermé pour de bon : le chevron dit qu'il s'ouvre, comme les autres replis. */}
+          <Icon name="chevron-down" className="repli-chevron" />
+        </summary>
+        <ul className="cab-regles">
+          {CLES_DES_JEUX.map(j => (
+            <Ligne key={j} icone="gamepad">
+              <b>{JEUX[j].nom}</b>
+              {espacesFines(` : ${apresDeuxPoints(JEUX[j].geste)}`)}
+              {/* Son barème sur sa ligne : collé à la phrase, « France. à moins de 40 km ★★★ » se lisait comme une faute. */}
+              <span className="cab-bareme">
+                <EnEtoiles texte={espacesFines(enDebutDeLigne(JEUX[j].bareme))} />
+                {!jeux.includes(j) && <span className="cab-pastille">bientôt</span>}
+              </span>
+            </Ligne>
+          ))}
+        </ul>
+      </details>
       <Section titre="Ce que tu apprends">
         <Ligne icone="book">Chaque œuvre gagnée garde sur son cartel ce que la partie t’a appris.</Ligne>
         {/* Le chemin de tes murs : la feuille se ferme en y menant, sans quoi elle restait ouverte par-dessus eux. */}
@@ -149,7 +170,6 @@ export function Regles({ jeux, parties = CASES_DE_LA_VISITE, onMurs }: { jeux: r
         </Ligne>
         <Ligne icone="clock">{`Ce que tu as vu ne revient pas avant ${JOURS_SANS_REDITE} jours, d’un jeu à l’autre.`}</Ligne>
       </Section>
-      <Glossaire mots={[...MOTS]} titre="Les mots du Cabinet" />
     </>
   )
 }

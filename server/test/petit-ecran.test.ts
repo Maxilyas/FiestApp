@@ -371,6 +371,8 @@ test('une fenêtre reçoit le focus sans anneau : ni à l’arrivée sans geste,
   assert.match(CSS, /:where\(:not\(\[tabindex='-1'\]\)\):focus-visible \{\s*outline: 2px solid var\(--focus\);/)
   // La feuille et la carte d'un joueur passent par elle.
   for (const f of ['components/Pieces.tsx', 'components/CarteJoueur.tsx']) assert.match(source(f), /useModale\(boite, onFermer\)/, f)
+  // Et la ceinture CSS, pour un navigateur qui ignore l'option : la feuille comme la carte d'un joueur, sans le filet du navigateur.
+  assert.match(CSS, /\.carte-joueur:focus \{ outline: none; \}\n\.carte-feuille:focus \{ outline: none; \}/)
 })
 
 test('Échap ne ferme que la fenêtre du dessus : la feuille, la carte ou le dialogue ouvert en dernier', async () => {

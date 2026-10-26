@@ -22,7 +22,7 @@ import type { ApresUnGeste, ArticleDeLEchoppe, GesteAvecSesCartes, GesteDExpedit
 import type { CleDeFiole } from '../../shared/rencontres'
 // Des types seulement : la page du Cabinet ne télécharge ni le pli ni les règles des jeux, elle lit la vue du serveur.
 import type { Cartel, MursDuCabinet, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
-import type { DemandeDeDepart } from '../../shared/cabinet/musee'
+import type { DemandeLue } from '../../shared/cabinet/musee'
 import type { GesteDuCabinet } from '../../shared/cabinet/partie'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
@@ -697,7 +697,8 @@ export const api = {
    */
   cabinet: {
     page: () => avecLHeure(() => req<PageDuCabinet>(DEPART.cabinet), DEPART.cabinet),
-    commencer: (demande: DemandeDeDepart) => avecLHeure(() => req<VueDeLaPartie>('/api/cabinet/partie', { method: 'POST', body: JSON.stringify(demande) })),
+    /** Ce que le serveur lit (`DemandeLue`) : une case, une chasse, un jeu libre, et « Retenter » par sa case — jamais l'œuvre. */
+    commencer: (demande: DemandeLue) => avecLHeure(() => req<VueDeLaPartie>('/api/cabinet/partie', { method: 'POST', body: JSON.stringify(demande) })),
     geste: gesteDuCabinet,
     partie: (id: string) => avecLHeure(() => req<VueDeLaPartie>(`/api/cabinet/partie/${encodeURIComponent(id)}`)),
     oeuvre: (cle: string) => req<Cartel>(`/api/cabinet/oeuvre/${encodeURIComponent(cle)}`),

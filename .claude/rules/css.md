@@ -124,9 +124,9 @@ paths:
   l'arrivée au Cabinet —, et `.cab-page [tabindex='-1']:focus` ne l'effaçait
   que sous trois feuilles du Cabinet sur cinq. Au premier Tab, l'anneau d'or
   passe sur « Fermer ». Un navigateur qui ignore l'option garde son filet :
-  la carte d'un joueur, la fiche de la niche et le coffre l'effacent aussi en
-  CSS (`.carte-joueur:focus`, `.niche-fiche:focus`, `.coffre-boite:focus`),
-  pas encore `.carte-feuille`.
+  la carte d'un joueur, la feuille, la fiche de la niche et le coffre
+  l'effacent aussi en CSS (`.carte-joueur:focus`, `.carte-feuille:focus`,
+  `.niche-fiche:focus`, `.coffre-boite:focus`, `petit-ecran.test.ts`).
 - **Ce qui se pose sur la page a un sol plein, sous tous les thèmes.**
   Chaque thème repeint `.card` d'un verre fait pour laisser voir son décor —
   translucide sous vingt-cinq d'entre eux, de 82 à 95 % —, d'un sélecteur

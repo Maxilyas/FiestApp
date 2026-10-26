@@ -19,7 +19,11 @@
 // « Quitter ? », un essai et ses couleurs, le Filet éclairé, l'Épingle
 // éclairée et plantée, les Indices — un indice de plus, un nom refusé —, la
 // Réplique, puis sa seconde manche laissée au temps (« Qui l'a dit ? ») —, et
-// le bilan d'une partie quittée ; la partie qui l'attend au musée ; la chasse
+// le bilan d'une partie quittée ; la partie qui l'attend au musée ; une partie
+// de la visite — son annonce, son seuil dans la tête, rechargée en pleine manche,
+// sa case « En cours » et son « Reprendre », « Quitter ? » qui dit ce qu'on
+// emporte, son bilan manqué et « Retenter », l'annonce de la retente — ; une
+// case pour dorer et son annonce, son œuvre écrite au musée ; la chasse
 // de la dernière œuvre de l'Érudit, gagnée sans faute — le bilan doré, la
 // Chouette d'Argent qui s'éveille, « Mes réponses » —, l'œuvre et le cartel
 // que la partie lui a laissé ; l'achat de la dernière œuvre du Devin et le
@@ -887,6 +891,9 @@ try {
     await photo(page, 'zoe-musee-entier', { pleine: true })
     await toucher(page, page.locator('.cab-bandeau .btn-primary'))
     await photoDeLaFeuille(page, 'zoe-regles')
+    // Les neuf jeux, repliés sous l'essentiel : dépliés au doigt.
+    await toucher(page, page.locator('.cab-regles-replie > summary'))
+    await photoDeLaFeuille(page, 'zoe-regles-les-neuf-jeux')
     await toucher(page, page.locator('.carte-fermer'))
     await ouvrir(page, '#salle-vestibule', '.cab-mur')
     await photo(page, 'zoe-salle-du-vestibule')
@@ -977,6 +984,88 @@ try {
       await quitter(page, jeu === 'pari' ? 'bilan-d-une-partie-quittee' : null)
     })
   }
+
+  // Une partie de la visite, rechargée en pleine manche puis laissée entre deux : elle se rouvre d'elle-même, puis se reprend de
+  // sa case ; quittée — ce qu'on emporte, dit avant —, elle est manquée, et son œuvre se retente pour une chasse, du bilan comme
+  // de la case (la tablée du 25 octobre 2026). La retente ne s'annonce que : la chasse de la Leçon, plus bas, garde la sienne.
+  let caseJouee = -1
+  await etape('la visite d’une partie qui attend', async () => {
+    await sansPartieEnCours(page)
+    await ouvrir(page, '#visite', '.cab-cases')
+    const cases = page.locator('.cab-case')
+    for (let k = 0; k < (await cases.count()) && caseJouee < 0; k++) {
+      const c = cases.nth(k)
+      if (net(await c.innerText()).includes('Peut te faire gagner') && (await c.locator('.btn-primary', { hasText: 'Jouer' }).count())) caseJouee = k
+    }
+    if (caseJouee < 0) throw new Error('aucune case de la visite ne fait gagner une œuvre')
+    const nom = net(await cases.nth(caseJouee).locator('.cab-case-jeu').innerText())
+    const jeu = (Object.keys(JEUX) as CleDeJeu[]).find(j => JEUX[j].nom === nom)
+    if (!jeu) throw new Error(`le jeu « ${nom} » de la case`)
+    await toucher(page, cases.nth(caseJouee).locator('.btn-primary', { hasText: 'Jouer' }))
+    await page.waitForSelector('.cab-annonce')
+    await photo(page, 'visite-annonce-son-seuil-et-son-cadre-dore', { pleine: true })
+    await commencer(page)
+    await photo(page, 'visite-la-tete-et-son-seuil')
+    // Rechargée sur l'entrée de la partie : la manche revient, sans détour par la visite qui la disait faite.
+    await page.reload()
+    await page.waitForSelector('.cab-tete-partie, .cab-cases')
+    if (!(await page.locator('.cab-tete-partie').count())) echecs.push('[rendu] rechargée en pleine manche, la partie de la visite ne se rouvre pas')
+    await photo(page, 'visite-rechargee-en-pleine-manche')
+    await jouerLaManche(page, jeu, idDeLea, 0, `visite-${jeu}`)
+    await page.waitForSelector('.cab-titre-revele')
+    // Entre deux manches, « ← Le Cabinet » : la visite dit sa case « En cours », et un seul « Reprendre ».
+    await toucher(page, page.locator('.cab-partie > .jour-sortie'))
+    await page.waitForSelector('.cab-portes')
+    await ouvrir(page, '#visite', '.cab-cases')
+    await photo(page, 'visite-d-une-partie-qui-attend')
+    await photo(page, 'visite-d-une-partie-qui-attend-entiere', { pleine: true })
+    await toucher(page, page.locator('.cab-case .cab-reprendre'))
+    await page.waitForSelector('.cab-tete-partie')
+    // « Quitter ? » dit ce qu'on emporte : les étoiles, la poussière d'or, la case de la visite faite.
+    await toucher(page, page.locator('.cab-quitter'))
+    await page.waitForSelector('.dialog')
+    await photo(page, 'quitter-ce-qu-on-emporte', { attente: 900 })
+    await repondreAuDialogue(page, false)
+    await page.waitForSelector('.cab-bilan')
+    await photo(page, 'bilan-d-une-visite-manquee', { attente: 900 })
+    await photo(page, 'bilan-d-une-visite-manquee-entier', { pleine: true })
+    const retenter = page.locator('.fin-actions .btn', { hasText: 'Retenter' })
+    if (!(await retenter.count())) throw new Error('le bilan d’une visite manquée ne propose pas « Retenter »')
+    await toucher(page, retenter)
+    await page.waitForSelector('.cab-annonce')
+    await photo(page, 'annonce-de-la-retente', { pleine: true })
+    await toucher(page, page.locator('.cab-page > .jour-sortie'))
+    await page.waitForSelector('.cab-portes')
+    await ouvrir(page, '#visite', '.cab-cases')
+    await photo(page, 'visite-une-case-manquee-et-son-retenter', { pleine: true })
+  })
+
+  // Une case pour dorer : son œuvre écrite au musée de Léa — celle qu'une autre case de la visite figée vise, ni la Leçon ni la
+  // commune du Devin, que la suite gagne —, le serveur relu à froid. L'annonce dit le cadre doré et le double de son seuil.
+  await etape('l’annonce d’une case pour dorer', async () => {
+    const db = new Database(fichier)
+    let aDorer = -1
+    try {
+      const { visites } = db.prepare('SELECT visites FROM cabinet_profils WHERE profile_id = ?').get(idDeLea) as { visites: string }
+      // La visite du jour : la plus récente des visites figées, que le départ de la partie d'avant a figée.
+      const figees = JSON.parse(visites) as { jour: string; cases: { cible: string | null }[] }[]
+      const cases = figees.reduce<(typeof figees)[number] | null>((a, b) => (a && a.jour > b.jour ? a : b), null)?.cases ?? []
+      const siennes = new Set((db.prepare('SELECT oeuvre FROM cabinet_oeuvres WHERE profile_id = ?').all(idDeLea) as { oeuvre: string }[]).map(r => r.oeuvre))
+      aDorer = cases.findIndex((c, k) => k !== caseJouee && c.cible !== null && oeuvreDe(c.cible) && c.cible !== LA_LECON && c.cible !== communeDuDevin && !siennes.has(c.cible))
+      if (aDorer < 0) throw new Error('aucune autre case de la visite ne vise une œuvre à écrire')
+      db.prepare(`INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, doree_le, dorure) VALUES (?, ?, 'partie', ?, NULL, NULL)`).run(idDeLea, cases[aDorer].cible, maintenant() - JOUR)
+    } finally {
+      db.close()
+    }
+    await banc.redemarrer()
+    await ouvrir(page, '#visite', '.cab-cases')
+    await photo(page, 'visite-une-case-pour-dorer', { pleine: true })
+    await toucher(page, page.locator('.cab-case').nth(aDorer).locator('.btn-primary', { hasText: 'Jouer' }))
+    await page.waitForSelector('.cab-annonce')
+    await photo(page, 'annonce-d-une-case-pour-dorer', { pleine: true })
+    await toucher(page, page.locator('.cab-page > .jour-sortie'))
+    await page.waitForSelector('.cab-portes')
+  })
 
   // La chasse de la Leçon, au Pari, sans carte-bonus : trois manches parfaites — gagnée sans faute, son cadre doré, et l'Érudit
   // complet réveille la Chouette d'Argent.

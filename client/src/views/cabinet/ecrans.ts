@@ -8,22 +8,29 @@
 // avec `/cabinet`) : le fragment ne demande rien de plus au serveur, et
 // `donneesDuFragment` (`shared/depart.ts`) n'a rien à précharger pour lui —
 // sauf tes murs, qui se demandent à l'ouverture de leur écran (`Murs.tsx`) :
-// rares, ils n'alourdissent pas l'arrivée de tous.
+// rares, ils n'alourdissent pas l'arrivée de tous. Chaque écran dit aussi son
+// titre d'onglet (`titreDeLEcran`), et une partie le sien, manche par manche.
 // Sans effet ni navigateur — `cabinet-ecran.test.ts` les lit tels quels, et
 // l'historique d'une partie ouverte se joue sur un faux `history` — ; le seul
 // morceau de React est le retour au musée (`RetourAuMusee`), un contexte.
 
 import { createContext } from 'react'
-import type { DemandeDeDepart } from '../../../../shared/cabinet/musee'
+import { titreDePage } from '../../titres'
+import { MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
+import { JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
+import type { DemandeLue } from '../../../../shared/cabinet/musee'
 import { estUneOeuvre, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
 import { salle, type CleDeSalle } from '../../../../shared/cabinet/salles'
+import type { PageDuCabinet, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 
 /**
  * Une partie que le musée propose — une case de la visite, une chasse, un jeu
- * libre —, sans sa carte-bonus : elle se choisit à l'annonce, où rien n'est
- * encore consommé (`DemandeDeDepart`, qui la porte, part à « Commencer »).
+ * libre, « Retenter » une case manquée —, sans sa carte-bonus : elle se
+ * choisit à l'annonce, où rien n'est encore consommé (`DemandeLue`, ce que le
+ * serveur lit à « Commencer » : la retente y vise sa case, jamais l'œuvre,
+ * que la page ne reçoit pas — invariant 1).
  */
-export type PartieDemandee = SansCarte<DemandeDeDepart>
+export type PartieDemandee = SansCarte<DemandeLue>
 /** `Omit` partie par partie : sur l'union entière, il n'en gardait que les clés communes. */
 type SansCarte<T> = T extends unknown ? Omit<T, 'carte'> : never
 
@@ -133,3 +140,64 @@ export function quitterVersLeMusee(h: Historique, hash: string) {
 export function effacerLaMarqueAuChargement(h: Historique) {
   if (partieDansLEntree(h.state)) h.replaceState(sansLaMarque(h.state), '')
 }
+
+/**
+ * Rechargée sur l'entrée d'une partie, la page décide à sa première page reçue
+ * — celle qui dit la partie qui attend (`PageDuCabinet.enCours`) : elle la
+ * rouvre sur la même entrée, toujours marquée, et le retour du navigateur la
+ * consomme comme avant ; sans partie, la marque s'efface. Effacée d'office au
+ * chargement, la partie rechargée depuis la visite retombait sur la visite,
+ * qui la disait faite — et son chrono courait pendant qu'on la cherchait (la
+ * tablée du 25 octobre 2026). Hors de l'entrée d'une partie, rien ne se
+ * rouvre : le musée la propose, on la reprend si l'on veut.
+ */
+export function partieARouvrir<V>(h: Historique, enCours: V | null): V | null {
+  if (!partieDansLEntree(h.state)) return null
+  if (enCours) return enCours
+  effacerLaMarqueAuChargement(h)
+  return null
+}
+
+// ── Le titre de l'onglet ──────────────────────────────────────────────────
+//
+// Chaque écran dit le sien : d'un onglet à l'autre, et au lecteur d'écran qui
+// annonce la page, tous disaient « Le Cabinet de curiosités · FiestApp » (la
+// tablée du 25 octobre 2026). Le musée garde le nom de la page (`titres.ts`) ;
+// `main.tsx` y repose seul le « [preprod] » de la préproduction, qu'il observe.
+
+const DU_CABINET = ' · Le Cabinet · FiestApp'
+
+const TITRES_DES_ECRANS: Readonly<Record<(typeof SIMPLES)[number], string>> = {
+  visite: 'La visite du jour',
+  libre: 'Jouer librement',
+  gardiens: 'Les gardiens',
+  murs: 'Tes murs',
+}
+
+/**
+ * Le titre d'un écran du musée. Une œuvre à lui se nomme ; un cadre vide, non
+ * — ni à l'écran, ni dans l'onglet : on découvre son œuvre en la gagnant.
+ */
+export function titreDeLEcran(ecran: EcranDuMusee, page: Pick<PageDuCabinet, 'salles'> | null): string {
+  switch (ecran.e) {
+    case 'musee':
+      return titreDePage('cabinet')
+    case 'salle':
+      return `${salle(ecran.salle)?.nom ?? 'Une salle'}${DU_CABINET}`
+    case 'oeuvre': {
+      const s = page?.salles.find(x => x.oeuvres.some(o => o.cle === ecran.oeuvre))
+      const o = s?.oeuvres.find(x => x.cle === ecran.oeuvre)
+      if (!s || !o) return `Une œuvre${DU_CABINET}`
+      return `${o.possedee ? o.nom : `Un cadre vide ${salle(s.cle)?.deLaSalle ?? ''}`.trimEnd()}${DU_CABINET}`
+    }
+    default:
+      return `${TITRES_DES_ECRANS[ecran.e]}${DU_CABINET}`
+  }
+}
+
+/** L'annonce d'une partie : son jeu. */
+export const titreDeLAnnonce = (jeu: CleDeJeu): string => `${JEUX[jeu].nom}${DU_CABINET}`
+
+/** Une partie : son jeu et sa manche — la mise d'avant comprise, qui ouvre la sienne —, puis son bilan. */
+export const titreDeLaPartie = (vue: Pick<VueDeLaPartie, 'jeu' | 'manche'>, bilan: boolean): string =>
+  `${JEUX[vue.jeu].nom}, ${bilan ? 'le bilan' : `manche ${vue.manche + 1} sur ${MANCHES_PAR_PARTIE}`}${DU_CABINET}`

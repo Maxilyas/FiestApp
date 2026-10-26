@@ -151,7 +151,9 @@ test('au Cabinet, chaque geste d’une partie passe par toucher : une réponse, 
   // qu'il a passent par toucher comme les autres.
   const estUnEcran = (f: string) => /export const \w+: JeuALEcran</.test(readFileSync(client(f), 'utf8'))
   for (const jeu of ['Pari', 'Eclair', 'Detail', 'Frise']) assert.ok(estUnEcran(`views/cabinet/jeux/${jeu}.tsx`), jeu)
-  for (const f of [...jeux, 'views/cabinet/Partie.tsx', 'views/cabinet/Bilan.tsx']) {
+  // Et ce qui ouvre une partie ou la rouvre : « Jouer », « Reprendre », « Retenter » — l'annonce ou la manche paraît sous le
+  // doigt, et le `click` qui suit y tombait (la tablée du 25 octobre 2026, lot de la page).
+  for (const f of [...jeux, 'views/cabinet/Partie.tsx', 'views/cabinet/Bilan.tsx', 'views/cabinet/Visite.tsx', 'views/cabinet/PartieQuiAttend.tsx']) {
     const balises = readFileSync(client(f), 'utf8')
       .replaceAll('=>', '⇒')
       .split('<button')

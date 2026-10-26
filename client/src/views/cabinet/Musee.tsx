@@ -4,12 +4,12 @@ import { Icon } from '../../components/Icon'
 import { GrosBouton, PieceTete, Sortie } from '../../components/Pieces'
 import { CARTES_PEINTES } from '../../components/cartes-peintes'
 import { espacesFines, formatNumber } from '../../format'
-import { JEUX } from '../../../../shared/cabinet/jeux/regle'
 import { laPartieAttend, poussieresDites } from '../../../../shared/cabinet/musee'
 import { OEUVRES, RARETES } from '../../../../shared/cabinet/oeuvres'
 import { GARDIENS, salleDuGardien } from '../../../../shared/cabinet/salles'
-import { visiteAJouer, type OeuvreVue, type PageDuCabinet, type SalleVue } from '../../../../shared/cabinet/vues'
+import { visiteAJouer, type CaseVue, type OeuvreVue, type PageDuCabinet, type SalleVue, type VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { adresseDe } from './ecrans'
+import { TaPartieTAttend } from './PartieQuiAttend'
 
 // Le musée : l'entrée du Cabinet (la maquette jouable, `retours/2026-10-24/
 // maquette/`). Ce qu'il possède en une ligne, ce qui l'attend aujourd'hui — la
@@ -39,6 +39,21 @@ export const possedeesDe = (s: SalleVue) => s.oeuvres.filter(o => o.possedee).le
  * rien n'attend.
  */
 export const laPartieQuiAttend = (page: PageDuCabinet): string | null => (page.enCours ? laPartieAttend(page.enCours.jeu) : null)
+
+/**
+ * La case de la partie qui attend : commencée sans issue, quand c'est une
+ * partie de la visite qui attend — la vue de la partie ne dit pas sa case, et
+ * une seule partie attend à la fois. Le serveur la dit faite dès son départ
+ * (`caseCommencee` : elle ne se rejoue pas) ; la visite l'écrivait
+ * « Commencée », la comptait faite, et ne la reprenait pas — la partie
+ * rechargée se croyait perdue (la tablée du 25 octobre 2026).
+ */
+export const caseEnCours = (c: Pick<CaseVue, 'faite' | 'issue'>, enCours: Pick<VueDeLaPartie, 'origine'> | null): boolean =>
+  enCours?.origine === 'visite' && c.faite && c.issue === undefined
+
+/** Les cases faites, au musée comme à la visite : la case en cours ne l'est pas tant qu'elle n'est pas finie. */
+export const casesFaites = (page: Pick<PageDuCabinet, 'visite' | 'enCours'>): number =>
+  page.visite.cases.filter(c => c.faite && !caseEnCours(c, page.enCours)).length
 
 /**
  * La plus rare des œuvres qu'il a dans une salle, à l'ordre des raretés
@@ -104,7 +119,8 @@ export function Musee({
   const oeuvres = page.salles.reduce((n, s) => n + possedeesDe(s), 0)
   const reveilles = page.gardiens.tous.filter(g => g.reveille).length
   const visite = page.visite.cases
-  const faites = visite.filter(c => c.faite).length
+  // La case en cours n'est pas faite tant qu'elle n'a pas d'issue : « 1 sur 3 faite » laissait croire la partie rechargée perdue.
+  const faites = casesFaites(page)
   // « À jouer » par la règle de l'accueil : une case d'un jeu pas encore livré n'attend que si l'échange peut la changer.
   const aJouer = visiteAJouer(page.visite)
   const prochain = page.gardiens.prochain
@@ -154,10 +170,18 @@ export function Musee({
           </a>
         </Bandeau>
       )}
-      {page.fete && (
-        <Bandeau icone={page.fete.gardien ? <span className="cab-medaillon cab-medaillon-petit"><Dessin cle={page.fete.gardien.legendaire} verrouille /></span> : <Icon name="calendar" />}>
+      {/* La fête ne se dit qu'avec ce qu'elle promet : son gardien réveillé, il ne restait que « Halloween » et une icône — cinq
+          joueurs sur six l'ont relevé (la tablée du 25 octobre 2026). */}
+      {page.fete?.gardien && (
+        <Bandeau
+          icone={
+            <span className="cab-medaillon cab-medaillon-petit">
+              <Dessin cle={page.fete.gardien.legendaire} verrouille />
+            </span>
+          }
+        >
           <b>{page.fete.nom}</b>
-          {page.fete.gardien && <span>{espacesFines(page.fete.gardien.dit)}</span>}
+          <span>{espacesFines(page.fete.gardien.dit)}</span>
         </Bandeau>
       )}
       {/* Un seul jour, déjà joué, n'est pas encore une série à garder : la ligne attendait le musée de qui venait d'arriver. */}
@@ -173,22 +197,15 @@ export function Musee({
 
       {/* Une partie à la fois : celle qui l'attend passe devant tout, dans les mots du refus d'un second départ
           (`cadreDuDepart`) — « Ta partie au Pari t'attend ». */}
-      {enCours && (
-        <GrosBouton
-          principal
-          icone={<Icon name="play" />}
-          titre={espacesFines(`Ta partie ${JEUX[enCours.jeu].a} t’attend`)}
-          detail="Reprends-la où tu l’as laissée"
-          onClick={onReprendre}
-        />
-      )}
+      {enCours && <TaPartieTAttend jeu={enCours.jeu} onReprendre={onReprendre} />}
       <GrosBouton
         principal={!enCours && aJouer}
         icone={<Icon name="sun" />}
         titre="La visite du jour"
         detail={
+          // Faite, la chasse ne se propose que s'il en reste une : sans chasse, elle promettait ce que la salle refusait (Lucas).
           faites === visite.length
-            ? espacesFines('Faite : reviens demain, ou pars à la chasse dans une salle')
+            ? espacesFines(page.chasses.restent > 0 ? 'Faite : reviens demain, ou pars à la chasse dans une salle' : 'Faite : reviens demain')
             : espacesFines(`${compte(visite.length, 'partie')} de deux minutes · ${faites} sur ${visite.length} faite${faites > 1 ? 's' : ''}`)
         }
         pastille={aJouer ? 'À jouer' : undefined}
