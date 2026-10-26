@@ -1125,6 +1125,9 @@ test('une date de Wikidata se lit à sa précision : l’année, ou rien — jam
   const images = [1, 2, 3, 4].map(i => `Q1-${i}.webp`)
   assert.deepEqual(refusDeLaFiche([tard], images, () => 1), ['Q1 : daté de 1600, après la mort de son peintre (1540)'])
   assert.deepEqual(refusDeLaFiche([{ ...tard, annee: 1540 }], images, () => 1), [])
+  // Sans année — Wikidata ne la dit qu'à la décennie, et personne ne l'a écrite à la main — : refusé ici, sans quoi
+  // le serveur l'écartait au chargement (« fiche incomplète »), et le tableau quittait le Détail sans qu'une épreuve rougisse.
+  assert.deepEqual(refusDeLaFiche([{ ...tard, annee: null }], images, () => 1), ['Q1 : sans année — à écrire à la main dans ANNEES_A_LA_MAIN'])
 })
 
 test('le tirage du Détail : un tableau de la fiche, ni le même tableau ni le même titre deux fois dans le plan, leurres compris, l’anecdote de sa question de la base', () => {

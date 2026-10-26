@@ -21,7 +21,8 @@
 // L'année aussi : Wikidata date un sur cinq des cent à la décennie ou au siècle,
 // et se trompe à l'année pour quelques-uns. Elle se lit à sa précision
 // (`anneeDuTableau`) ; ce qu'il ne date pas à l'année, ou date faux, s'écrit à
-// la main, vérifié (`ANNEES_A_LA_MAIN`) — `choisir` relève ce qui manque.
+// la main, vérifié (`ANNEES_A_LA_MAIN`) — `choisir` relève ce qui manque, et
+// `verifier` refuse une fiche qui en reste sans année.
 //
 // Le cache (la réponse de Wikidata, les miniatures, les planches) vit dans
 // `.details/`, à la racine, que git ignore. Les images livrées et leur fiche
@@ -560,8 +561,12 @@ export function refusDeLaFiche(fiche: readonly TableauDuDetail[], images: readon
     if (vus.has(t.qid)) refus.push(`${t.qid} : deux fois dans la fiche`)
     vus.add(t.qid)
     if (t.mortDuPeintre > MORT_AU_PLUS_TARD) refus.push(`${t.qid} : peintre mort en ${t.mortDuPeintre}, pas encore du domaine public`)
+    // Sans année — Wikidata ne la dit qu'à la décennie ou au siècle, et personne ne l'a écrite à la main — : le
+    // serveur l'écarterait au chargement (« fiche incomplète », `core/details.ts`), et le tableau quittait le Détail
+    // et l'Expédition sans qu'une épreuve rougisse. Refusé ici, `verifier` et `details.test.ts` l'arrêtent avant.
+    if (t.annee === null) refus.push(`${t.qid} : sans année — à écrire à la main dans ANNEES_A_LA_MAIN`)
     // Une date à la décennie ou au siècle lue comme une année : « La Vierge au long cou, 1600 », son peintre mort en 1540.
-    if (t.annee !== null && t.annee > t.mortDuPeintre) refus.push(`${t.qid} : daté de ${t.annee}, après la mort de son peintre (${t.mortDuPeintre})`)
+    else if (t.annee > t.mortDuPeintre) refus.push(`${t.qid} : daté de ${t.annee}, après la mort de son peintre (${t.mortDuPeintre})`)
     if (t.cadrages.length !== 4) refus.push(`${t.qid} : ${t.cadrages.length} cadrages`)
     for (const [i, [x, y, l, h]] of t.cadrages.entries()) {
       if (x < 0 || y < 0 || l <= 0 || h <= 0 || x + l > 1.00001 || y + h > 1.00001) refus.push(`${t.qid} : cadrage ${i + 1} hors du tableau`)

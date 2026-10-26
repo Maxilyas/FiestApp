@@ -1673,7 +1673,7 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 ### Seule la première réponse du Pari, nue, mesure le savoir
 **Contexte** : la mesure des difficultés, le modèle du savoir, les écussons, la précision et L'Érudit ne lisent que les réponses nues. La seconde question du Pari n'est répondue que par ceux qui parient : un échantillon de joueurs sûrs d'eux.
 
-**Décision** : seule une réponse du Pari à sa première question, donnée dans les temps, sans Éclairer ni temps en plus, est nue. Toute autre pièce porte sa forme — la clé de son jeu.
+**Décision** : seule une réponse du Pari à sa première question, donnée dans les temps, sans Éclairer ni temps en plus, dans une manche que « Changer » n'a pas touchée, est nue. Toute autre pièce porte sa forme — la clé de son jeu.
 
 **Conséquence** : le Cabinet n'apprend rien de faux à la mesure ; une manche expirée, qui compterait fausse, ne la touche pas.
 
@@ -1686,12 +1686,12 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 
 **Conséquence** : ni carnet, ni signalement, ni mesure pour un contenu `cab:`. Ce qu'une manche a révélé passe après ce qu'il n'a jamais vu, au Cabinet comme en série, à l'épreuve, au défi, au dé et en duel — comme une question qu'il aurait répondue. Une manche de l'Éclair n'est la première réponse d'aucune de ses questions : la mesure, le modèle du savoir et la chance des sentiers ne lisent que celles qu'il a données. `journal-des-reponses.test.ts` compare ce qu'il a vu au SQL d'avant, déplié, et ses premières réponses au SQL d'avant tel quel.
 
-*Fichiers : `shared/cabinet/pieces.ts`, `shared/frise.ts`, `shared/curiosites.ts`, `server/src/core/journalDesReponses.ts`, `server/src/core/details.ts`, `server/test/cabinet-hors-des-vues.test.ts`*
+*Fichiers : `shared/cabinet/pieces.ts`, `shared/cabinet/partie.ts`, `shared/cabinet/jeux/detail.ts`, `shared/frise.ts`, `shared/curiosites.ts`, `server/src/core/journalDesReponses.ts`, `server/src/core/details.ts`, `server/test/cabinet-hors-des-vues.test.ts`*
 
 ### La colonne `joker` porte un pouvoir, jamais la clé d'une carte
 **Contexte** : une réponse aidée porte de quoi l'aider dans `campagne_reponses.joker`, que la mesure écarte. Or Bastion et Cuirasse sont aussi des cartes du second essai de l'Expédition : écrite en clé, une juste du Cabinet passerait pour ratée au carnet.
 
-**Décision** : `pouvoir:eclairer` si Éclairer a servi sur la pièce, sinon `pouvoir:temps` si le verdict est arrivé dans le temps en plus, sinon rien. Changer, Protéger et Miser ne marquent pas la ligne : Changer pose une autre question, nue ; les deux autres ne changent que les étoiles.
+**Décision** : `pouvoir:eclairer` si Éclairer a servi sur la pièce, sinon `pouvoir:temps` si le verdict est arrivé dans le temps en plus, sinon rien. Changer, Protéger et Miser ne marquent pas la ligne : Changer pose une autre question, sans joker — sa pièce porte la forme de son jeu ; les deux autres ne changent que les étoiles.
 
 **Conséquence** : le carnet et la mesure lisent juste sans connaître le Cabinet.
 

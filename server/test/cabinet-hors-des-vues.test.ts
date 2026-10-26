@@ -16,6 +16,13 @@
 // pour les premières réponses : une manche de l'Éclair n'est la première
 // réponse d'aucune de ses questions, et la mesure, le modèle du savoir, les
 // sentiers ne lisent que celles qu'il a données lui-même.
+//
+// La deuxième tablée (le 26 octobre 2026) a trouvé deux chemins restés
+// ouverts : ce qu'une manche montre de plus que sa pièce — les trois leurres
+// du Détail, chacun avec son peintre ; ce que « Changer » remplace, au Détail,
+// au Pari, à l'Épingle. La pièce du verdict le porte (`cabinet.montre`),
+// déplié de même ; la rechange n'est plus nue, et tes murs ne lisent que les
+// pièces jugées (`jugeesDe`), jamais ce qui fut seulement montré.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
@@ -179,7 +186,7 @@ test('« Changer » au Détail : la manche remplacée — quatre titres et leurs
   const { vues } = await ceQuIlAVu(m, 'qui')
   const sesQuatre = remplacee.titres.map(tableauDuTitre)
   for (const x of sesQuatre) {
-    assert.equal(vues.get(idDuTableau(x.qid)), horloge.t, `${x.titre}, montré puis changé : le Cabinet le reservait comme jamais vu`)
+    assert.equal(vues.get(idDuTableau(x.qid)), horloge.t, `${x.titre}, montré puis changé : le Cabinet le resservait comme jamais vu`)
     assert.deepEqual(
       x.questions.filter(id => vues.get(id) !== horloge.t),
       [],

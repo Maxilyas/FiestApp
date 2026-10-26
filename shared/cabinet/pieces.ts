@@ -66,8 +66,11 @@ export interface PieceDuCabinet {
  * La colonne `joker` d'une pièce aidée : le pouvoir qui l'a aidée, jamais la
  * clé d'une carte-bonus — Bastion et Cuirasse sont aussi des cartes du second
  * essai de l'Expédition, et le carnet tiendrait pour ratée une juste qui en
- * porterait la clé. Changer, Protéger et Miser ne la marquent pas : Changer
- * pose une autre question, nue ; les deux autres ne changent que les étoiles.
+ * porterait la clé. Changer, Protéger et Miser ne la marquent pas. Changer
+ * pose une autre question, sans rien qui l'aide — mais pas nue : la pièce de
+ * sa manche porte la forme de son jeu (`apresLeChangement`, `partie.ts`), sa
+ * rechange se jouant sur l'échéance de la remplacée. Les deux autres ne
+ * changent que les étoiles.
  */
 export const JOKER_D_ECLAIRER = 'pouvoir:eclairer'
 /** … et le temps en plus, seulement si la réponse est arrivée dedans. */

@@ -99,11 +99,12 @@ export interface ReponseDuJournal {
  * `rowid` mène la lecture (`LEFT JOIN` : la réponse d'abord, sa série par sa
  * clé, le duel de sa série par la sienne) : Turso ne parcourt que les
  * réponses neuves, leurs séries et leurs duels. Ce que la série a gardé de
- * chaque question, d'un seul `json_extract` à trois chemins, sous
- * `json_valid` : la lecture part aussi dans le lot qui écrit une réponse, et
- * un JSON illisible n'y doit rien faire échouer — et, d'une pièce du Cabinet,
- * ce qu'elle a montré de plus qu'elle (`cabinet.montre`). D'une épreuve des sentiers,
- * son palier, sa branche et son rejeu (`reponsesDesEpreuves`). D'une réponse
+ * chaque question, d'un seul `json_extract` à quatre chemins — la reprise du
+ * carnet, la catégorie, la marche et, d'une pièce du Cabinet, ce qu'elle a
+ * montré de plus qu'elle (`cabinet.montre`) —, sous `json_valid` : la lecture
+ * part aussi dans le lot qui écrit une réponse, et un JSON illisible n'y doit
+ * rien faire échouer. D'une épreuve des sentiers, son palier, sa branche et
+ * son rejeu (`reponsesDesEpreuves`). D'une réponse
  * fausse, le texte qu'il a choisi (`choisie`), sous la même garde et sous
  * `choix >= 0` : un chemin `[-1]` est une erreur de SQLite, pas un NULL, et
  * ferait échouer toute la lecture.
