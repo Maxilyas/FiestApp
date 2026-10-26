@@ -450,8 +450,10 @@ test('une œuvre qui manque : où elle se trouve, ce qu’il faut pour la gagner
   for (const f of ['views/cabinet/Oeuvre.tsx', 'views/cabinet/Visite.tsx']) {
     assert.doesNotMatch(source(f), new RegExp(`${JEU_PAS_LIVRE}|${PLUS_DE_CHASSE}`), f)
   }
-  // La poussière d'or : une visite ou une chasse en rapporte, même ratée — pas toute partie, les libres s'arrêtent au cinquième.
-  assert.match(t, /Chaque visite ou chasse en rapporte, même ratée/)
+  // La poussière d'or : une visite ou une chasse où l'on a répondu en rapporte, même ratée — pas toute partie, les libres
+  // s'arrêtent au cinquième ; quittée avant toute réponse, rien (le 26 octobre 2026) : la page ne promet plus « même ratée ».
+  assert.match(t, /Chaque visite ou chasse où tu réponds en rapporte/)
+  assert.doesNotMatch(t, /même ratée/)
   assert.doesNotMatch(GLOSSAIRE.poussiere.sens, /chaque partie/i)
   sansJargon(html, 'une œuvre qui manque')
 })

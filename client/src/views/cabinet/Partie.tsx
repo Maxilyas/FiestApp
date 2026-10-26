@@ -948,7 +948,7 @@ export function Partie({
     )
   }, [vue, pret, jouer])
 
-  // La pause finie (ses trente secondes), le chrono reprend sous le voile : la tête se redessine à cet instant.
+  // La pause finie (ses secondes, `PAUSE_MAX_MS`), le chrono reprend sous le voile : la tête se redessine à cet instant.
   useEffect(() => {
     const reste = vue.phase === 'pause' ? vue.chrono?.pauseResteMs : undefined
     if (reste === undefined) return
@@ -960,7 +960,7 @@ export function Partie({
 
   /**
    * « Quitter ? » (§ 2.6, 2.7) : la pause d'abord, si un chrono court — la
-   * manche se voile, le chrono se fige trente secondes au plus —, puis la
+   * manche se voile, le chrono se fige le temps de la pause au plus (`PAUSE_MAX_MS`) —, puis la
    * confirmation. Refusée (`PLUS_DE_PAUSE`), la pause ne fige rien, et la
    * confirmation s'ouvre quand même : quitter reste possible. « Continuer »
    * reprend ; « Quitter la partie » la compte avec ses étoiles.
@@ -991,7 +991,7 @@ export function Partie({
       // « Quitter la partie » : la tête porte déjà un « Quitter », et Camille ne savait lequel toucher (la tablée du 25 octobre 2026).
       const oui = await confirmDialog({ title: titre, message, confirmLabel: 'Quitter la partie', cancelLabel: 'Continuer', danger: true })
       // Fermée par la partie qui se démonte : rien ne part d'un écran qui n'est plus là. La partie attend au musée, en pause —
-      // « Reprendre » la rouvre sous son voile, qui a son « Continuer » —, et le chrono n'attend pas plus de trente secondes.
+      // « Reprendre » la rouvre sous son voile, qui a son « Continuer » —, et le chrono n'attend pas plus que la pause (`PAUSE_MAX_MS`).
       if (!monte.current) return 'parti'
       const apres = vueRef.current
       if (oui && apres.phase !== 'finie') await jouer({ quoi: 'quitter' })

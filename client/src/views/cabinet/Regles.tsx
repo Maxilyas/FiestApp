@@ -117,11 +117,11 @@ export function Regles({ jeux, parties = CASES_DE_LA_VISITE, onMurs }: { jeux: r
         <Ligne icone="shuffle">{`Un jeu de la visite se change, ${ECHANGES_DITS[ECHANGES_PAR_JOUR]} par jour.`}</Ligne>
         <Ligne icone="search">{`${CHASSES_PAR_JOUR} chasses : touche un cadre vide, et joue au jeu où se trouve son œuvre.`}</Ligne>
         <Ligne icone="dice">{`Jouer librement, autant que tu veux : les ${LIBRES_QUI_PAIENT} premières parties libres paient leur poussière d’or.`}</Ligne>
-        <Ligne icone="calendar">{`Une visite ou une chasse chaque jour fait ta série ; au ${JOURS_DU_SCARABEE}ᵉ jour, le Scarabée se réveille.`}</Ligne>
+        <Ligne icone="calendar">{`Une visite ou une chasse où tu réponds, chaque jour, fait ta série ; au ${JOURS_DU_SCARABEE}ᵉ jour, le Scarabée se réveille.`}</Ligne>
         <Ligne icone="flag">Quitter une partie la compte avec ses étoiles : elle ne se rejoue pas.</Ligne>
       </Section>
       <Section titre="La poussière d’or">
-        <Ligne icone="sparkles">{`Une visite ou une chasse en rapporte ${POUSSIERE_PAR_ETOILE} par étoile, ${POUSSIERE_MIN} au moins, même ratée.`}</Ligne>
+        <Ligne icone="sparkles">{`Une visite ou une chasse en rapporte ${POUSSIERE_PAR_ETOILE} par étoile, ${POUSSIERE_MIN} au moins dès que tu as répondu à une manche.`}</Ligne>
         <Ligne icone="bag">{`Elle achète une œuvre précise (${deA(PRIX_D_UNE_OEUVRE)}) ou dore un cadre (${deA(PRIX_D_UNE_DORURE)}).`}</Ligne>
         <Ligne icone="lock">Elle ne sort jamais du Cabinet.</Ligne>
       </Section>

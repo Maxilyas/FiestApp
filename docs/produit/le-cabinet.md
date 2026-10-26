@@ -48,20 +48,20 @@ Après chaque manche, **la révélation** : les étoiles et ce qui les a faites 
 
 **Le serveur juge tout, à son heure.** Le téléphone n'envoie que des gestes ; la réponse d'une manche, les coordonnées d'un lieu, l'ordre d'une frise, le mot caché ne lui arrivent qu'à la révélation (l'invariant 1). Chaque chrono court au serveur.
 
-**Recharger reprend la partie au même instant de son chrono** — un téléphone qui s'endort ne coûte plus une partie. **Quitter la compte avec ses étoiles**, chasse ou case de visite comprise, après une confirmation qui met le chrono en pause : trente secondes au plus par manche, la manche voilée — la pause ne s'achète pas du temps de recherche. Ce que tu emportes — les étoiles, Protéger compris, et la poussière d'or —, la confirmation le dit (« Tu repars avec 1 étoile, Protéger compris, et 4 poussières d'or ; ta chasse est utilisée. ») : le serveur le calcule en jouant le geste sans rien écrire. On ne relance donc pas jusqu'à tomber sur des questions faciles : tout est tiré au départ. Une partie laissée en plan se clôt le lendemain, à la première page qui la trouve.
+**Recharger reprend la partie au même instant de son chrono** — un téléphone qui s'endort ne coûte plus une partie. **Quitter la compte avec ses étoiles**, chasse ou case de visite comprise, après une confirmation qui met le chrono en pause : dix secondes au plus par manche, la manche voilée — la pause ne s'achète pas du temps de recherche. Ce que tu emportes — les étoiles, Protéger compris, et la poussière d'or —, la confirmation le dit (« Tu repars avec 1 étoile, Protéger compris, et 4 poussières d'or ; ta chasse est utilisée. ») : le serveur le calcule en jouant le geste sans rien écrire. On ne relance donc pas jusqu'à tomber sur des questions faciles : tout est tiré au départ. Une partie laissée en plan se clôt le lendemain, à la première page qui la trouve.
 
 ## Les neuf jeux
 
 | Jeu | Le geste | Une manche | Éclairer |
 |---|---|---|---|
-| **L'Épingle** | un récit daté, puis « Où ? » : on plante l'épingle sur la carte de France | à moins de 40 km ★★★ · 120 km ★★ · 300 km ★ | entoure une zone de 170 km qui contient le lieu |
+| **L'Épingle** | un récit daté, puis « Où ? » : on plante l'épingle sur la carte de France | à moins de 40 km ★★★ · 120 km ★★ · 300 km ★ | entoure une zone de 300 km qui contient le lieu, son centre à 120 à 294 km de lui |
 | **La Frise** | une seule frise qui grandit — trois événements, puis cinq, puis sept —, du plus ancien au plus récent | sans faute ★★★ · une erreur ★★ | dévoile l'année d'un nouveau venu |
 | **Le Mot mystère** | un mot à trouver, la question pour indice, cinq essais, les couleurs de chaque essai | en 1 ou 2 essais ★★★ · 3 ou 4 ★★ · 5 ★ | souffle une lettre à sa place |
 | **Le Détail** | un tableau en quatre cadrages ; « Reculer d'un pas » en montre plus et coûte une étoile ; quatre titres d'époques voisines | au premier coup d'œil ★★★ · un pas ★★ · deux ★ | efface un mauvais titre |
 | **Le Filet** | un curseur sur une piste, puis la taille du filet | petit ★★★ · moyen ★★ · grand ★ | montre une zone où est la réponse |
 | **Le Pari** | une question ; juste, on garde ses deux étoiles ou on les parie sur une question plus difficile | garder ★★ · parier et réussir ★★★ | efface une mauvaise réponse |
 | **L'Éclair** | cinq affirmations, vraies ou fausses, en 55 secondes | 5 justes ★★★ · 4 ★★ · 3 ★ | souffle la réponse de l'affirmation en cours |
-| **Les Indices** | « Qui suis-je ? » : cinq indices du plus obscur au plus évident, un nom à taper | en 1 à 3 indices ★★★ · 4 ★★ · 5 et plus ★ ; chaque erreur compte, et en montre un de plus | un indice gratuit |
+| **Les Indices** | « Qui suis-je ? » : cinq indices du plus obscur au plus évident, un nom à taper | en 1 ou 2 indices ★★★ · 3 ou 4 ★★ · 5 et plus ★ ; chaque erreur compte, et en montre un de plus | un indice gratuit |
 | **La Réplique** | le mot qui manque d'une réplique culte, puis « Qui l'a dit ? » | le bon mot ★★ · la bonne personne ★ | efface une mauvaise proposition |
 
 Le Pari, l'Éclair, le Mot mystère et le Filet puisent dans la base de questions de la campagne ; le Détail dans ses cent tableaux ; la Frise dans les événements datés de la base et des frises à thème. L'Épingle, les Indices et la Réplique ont **un contenu neuf**, écrit et relu par des agents : des lieux datés de France, des fiches de personnages, des répliques de films, de théâtre et de chansons.
@@ -75,9 +75,9 @@ Avant chaque partie, on emporte une carte-bonus : une œuvre qu'on possède, les
 | Pouvoir | Qui le porte | Ce qu'il fait | Force 1 · 2 · 3 |
 |---|---|---|---|
 | **Éclairer** | l'Érudit, le Devin, cinq neutres | un indice, propre à chaque jeu (le tableau des jeux) | 1 · 2 · 3 indices par partie |
-| **Protéger** | le Rempart, cinq neutres | la première manche imparfaite gagne des étoiles, une fois | +1 · +1 · +2 |
+| **Protéger** | le Rempart, cinq neutres | la première manche imparfaite gagne des étoiles, une fois — si tu y as répondu | +1 · +1 · +2 |
 | **Prendre son temps** | l'Élan, cinq neutres | du temps en plus à chaque question — deux par manche au Pari et à la Réplique ; il ne compte que si tu t'en sers | +10 · +20 · +30 s |
-| **Miser** | le Flambeur, le Téméraire, les trois maudites | avant une manche, sans l'avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu'à 9 sur la partie ; sinon, elle ne vaut rien | +2 · +3 · +4 |
+| **Miser** | le Flambeur, le Téméraire, les trois maudites | avant une manche, sans l'avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu'à 9 sur la partie ; sinon, elle ne vaut rien | +2 · +3 · +3 |
 | **Changer** | le Métamorphe, le Sophiste, deux neutres | remplace la manche avant de répondre ; le chrono continue — jamais à la Frise | 1 · 2 · 3 fois |
 
 Seul Éclairer s'écrit jeu par jeu ; les quatre autres valent partout, et un nouveau jeu ne leur demande rien. Là où il efface — un titre, une réponse, un mot, un nom —, Éclairer en laisse toujours deux : à la seconde étape de la Réplique, qui n'a que trois noms, un seul s'efface. **Les gardiens portent le pouvoir de la salle qu'ils gardent** : le Phénix protège comme le Rempart. Un pouvoir qui a servi — Éclairer, Changer, la mise, la protection, le temps en plus vraiment utilisé — ôte le cadre doré, et l'écran le dit : la manche aidée porte sa note (« éclairée », « changée », « temps en plus » ; une mise que les neuf étoiles de la partie bornent, « au-delà de 9 »), et le bilan d'un neuf sur neuf aidé nomme le pouvoir qui a servi — sauf d'une œuvre déjà dorée, qui n'avait rien à perdre ; une réponse qu'Éclairer ou le temps en plus a aidée ne mesure rien de ce que tu sais.
@@ -86,18 +86,18 @@ Ce que la maquette a fermé : la mise à ×2, qui dorait une épique en deux man
 
 ## Une journée
 
-- **La visite du jour** : trois parties, trois jeux différents. Chacune annonce l'œuvre qu'elle peut faire gagner sans la nommer — on la découvre une fois gagnée. Les jeux des deux derniers jours passent après les autres, et un jeu se change une fois par jour. Les œuvres en jeu se tirent parmi celles qui te manquaient à minuit, surtout des communes ; quand rien ne manque, une case propose de dorer, puis de la poussière.
+- **La visite du jour** : trois parties, trois jeux différents. Chacune annonce l'œuvre qu'elle peut faire gagner sans la nommer — on la découvre une fois gagnée. Les jeux des deux derniers jours passent après les autres, et un jeu se change une fois par jour. Les œuvres en jeu se tirent parmi celles qui te manquaient à minuit, surtout des communes, et l’une vient de la salle de ton prochain gardien tant qu’il en reste un ; quand rien ne manque, une case propose de dorer, puis de la poussière.
 - **Deux chasses par jour** : touche un cadre vide (« Elle se trouve au Filet · Il faut 6 étoiles sur 9 ») et pars à sa recherche, à son jeu ; ou rejoue une œuvre à toi pour la dorer. Après une partie de la visite manquée, « Retenter cette œuvre au même jeu » coûte une chasse, et se demande par la case — l'œuvre, tu la découvres en la gagnant. La case manquée et le bilan de sa partie le proposent, l'annonce de la retente s'ouvre comme une autre ; sans chasse, le bouton reste en sourdine et dit pourquoi, et l'œuvre gagnée depuis, la case le dit : il n'y a plus rien à retenter.
 - **Jouer librement** : les jeux livrés, à volonté, sans œuvre en jeu. Les cinq premières parties libres du jour rapportent de la poussière, deux par étoile — sans étoile, rien —, les suivantes sont pour le plaisir ; le bilan d'une libre qui paie sans rien rapporter dit combien il en reste.
-- **La série** : les jours d'affilée avec une partie de visite ou de chasse. Elle se lit jusqu'à la veille tant que tu n'as pas joué : « 12 jours de visite d'affilée. Joue aujourd'hui pour garder ta série. » Trente jours réveillent le Scarabée.
+- **La série** : les jours d'affilée avec une partie de visite ou de chasse où tu as répondu à une manche au moins — quittée d'emblée, elle ne compte pas. Elle se lit jusqu'à la veille tant que tu n'as pas joué : « 12 jours de visite d'affilée. Joue aujourd'hui pour garder ta série. » Trente jours réveillent le Scarabée.
 
-Rien ne coûte avant de jouer : un joueur qui ne vient pas n'a rien écrit, et la visite du jour ne se fige qu'à sa première partie.
+Rien ne coûte avant de jouer : un joueur qui ne vient pas n'a rien écrit, et la visite du jour ne se fige qu'à sa première partie, sa première dépense ou la clôture d'une partie d'hier.
 
 ## La poussière d'or
 
 La monnaie du Cabinet, **qui n'en sort jamais** : ni confettis, ni écus, ni boutique — la décision du propriétaire, pour que l'achat d'une œuvre ne fasse pas concurrence aux thèmes et aux compagnons.
 
-- **Ce qui en rapporte** : toute partie de visite ou de chasse, même ratée — deux par étoile, quatre au moins ; un double — une œuvre que tu avais déjà, regagnée en visite — 15, 30, 30 ou 60 selon sa rareté ; les cinq premières parties libres du jour, deux par étoile.
+- **Ce qui en rapporte** : toute partie de visite ou de chasse où tu as répondu, même ratée — deux par étoile, quatre au moins ; quittée avant toute réponse, rien ; un double — une œuvre que tu avais déjà, regagnée en visite — 15, 30, 30 ou 60 selon sa rareté ; les cinq premières parties libres du jour, deux par étoile.
 - **Ce qu'elle achète** : une œuvre précise qui te manque — 200, 400, 400 ou 700 selon sa rareté (commune, rare, maudite, épique) — ou un cadre doré — 100, 200, 200 ou 320. Un gardien ne s'achète pas : il se réveille. Rien ne s'achète ni ne se dore pendant qu'une partie t'attend : ce qu'elle fait à son œuvre se décide à sa fin, et la case de la visite ne dit pas laquelle elle vise.
 - **Ce que paie une partie, en plus** : chaque manche réussie (deux étoiles au moins) est une bonne réponse de la campagne — un confetti, l'expérience d'une bonne réponse, un pas pour le compagnon, les missions du jour. Trois au plus par partie, six au Pari.
 
@@ -108,7 +108,7 @@ Les rythmes simulés de la maquette : **tout posséder**, 18 à 24 jours pour un
 Les vingt-trois légendaires qui ont leur joker à l'Expédition deviennent les gardiens du Cabinet. **Un gardien réveillé, c'est le légendaire gagné**, avec sa carte-bonus : la plus forte de sa famille.
 
 - **Deux par salle** (le tableau des salles) : le premier quand la salle est complète, le second quand tous ses cadres sont dorés.
-- **Le Scarabée** : trente jours de visite ou de chasse d'affilée.
+- **Le Scarabée** : trente jours de visite ou de chasse répondues d'affilée.
 - **Le Trou noir** : le Cabinet entier, les 84 œuvres.
 - **Trois gardiens de saison**, réveillés par la première œuvre gagnée en jouant pendant leur fête : la Citrouille à Halloween (du 25 octobre au 1ᵉʳ novembre), le Sapin à Noël (du 20 au 26 décembre), le Bouquet au Nouvel An (du 30 décembre au 2 janvier) — **à leur seule fête**, sans rattrapage : une fête qui revient chaque année est une bonne raison de revenir (la décision du propriétaire). Les dates sont celles de toutes les saisons de FiestApp, `shared/saisons.ts`.
 
@@ -166,10 +166,10 @@ Le gros bouton de l'accueil d'un profil deviendra « Le Cabinet de curiosités �
 | Le seuil d'une œuvre | commune 5, rare 6, maudite 6, épique 7 étoiles |
 | Une manche réussie | 2 étoiles naturelles au moins ; au Pari, la bonne réponse |
 | La journée | une visite de 3 parties, 1 jeu à changer, 2 chasses, 5 parties libres qui paient |
-| La poussière | 2 par étoile, 4 au moins ; un double 15 · 30 · 30 · 60 |
+| La poussière | 2 par étoile, 4 au moins dès une manche répondue ; un double 15 · 30 · 30 · 60 |
 | Les prix | une œuvre 200 · 400 · 400 · 700 ; un cadre doré 100 · 200 · 200 · 320 |
 | Les durées | l'Épingle 45 s, la Frise 60, le Mot mystère 120, le Détail 45, le Filet 45, le Pari 35 par étape, l'Éclair 55, les Indices 75, la Réplique 25 par étape |
-| La grâce, la pause | 1,5 s après l'échéance ; 30 s de pause au plus par manche |
+| La grâce, la pause | 1,5 s après l'échéance ; 10 s de pause au plus par manche |
 | La fraîcheur | rien ne revient avant 7 jours |
 | Le Scarabée | 30 jours d'affilée |
 | Le plafond | 30 départs d'un coup, puis un toutes les deux minutes |

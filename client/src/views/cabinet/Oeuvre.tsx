@@ -191,7 +191,7 @@ export function Oeuvre({
           </Geste>
         )}
         {/* Pas « chaque partie » : au-delà des premières du jour, une partie libre ne rapporte plus rien (`poussiereDeLaPartie`). */}
-        <p className="cab-ligne">{espacesFines(`Tu as ${poussieresDites(page.poussiere)}. Chaque visite ou chasse en rapporte, même ratée.`)}</p>
+        <p className="cab-ligne">{espacesFines(`Tu as ${poussieresDites(page.poussiere)}. Chaque visite ou chasse où tu réponds en rapporte.`)}</p>
       </div>
     )
   }
