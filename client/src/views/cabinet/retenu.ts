@@ -19,7 +19,10 @@ const PAS_A_PAS = 'quizz.cabinet.pas-a-pas'
  * léger lu (`carteRetenue`, `reglesLues`, `CabinetApp.tsx`). L'écran d'un jeu ne
  * le reçoit pas — il n'a que sa manche (`JeuALEcran.localDe`), et aucune vue ne
  * porte le profil — : les pas de l'Épingle se relisent sous lui. Sans profil
- * lu, ils ne se retiennent pas, et rien ne se relit d'un autre.
+ * lu, ils ne se retiennent pas, et rien ne se relit d'un autre. Retenu en
+ * mémoire du module, il ne survit pas à la page : changer de profil passe par
+ * l'accueil (`/?next=/cabinet`), qui recharge `/cabinet` et la mémoire avec —
+ * le profil d'avant ne s'y relit jamais.
  */
 let profilDeLaPage: string | null = null
 

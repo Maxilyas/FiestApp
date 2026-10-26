@@ -6,6 +6,7 @@ import { questionSizeClass } from '../../../games/quiz/questionSize'
 import { toucher } from '../../../toucher'
 import { ETOILES_DU_FILET } from '../../../../../shared/cabinet/bareme'
 import { TAILLES_DU_FILET, demiLargeur, milieuDeLaPiste, type FiletMontre, type FiletRevele, type PisteDuFilet, type TailleDuFilet } from '../../../../../shared/cabinet/jeux/filet'
+import type { FinDUneManche } from '../../../../../shared/cabinet/partie'
 import { decimales } from '../../../../../shared/classement'
 import { uniteAccordee } from '../../../../../shared/unites'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
@@ -242,9 +243,14 @@ function FiletLance({ lance, dedans }: { lance: NonNullable<FiletRevele['lancer'
  * La révélation : la question, la réponse et ce qu'il visait, la piste — la
  * vraie valeur marquée, le filet qu'il a lancé là où il l'a lancé, la zone
  * d'Éclairer s'il l'avait —, et quel filet c'était. Sans lancer, la réponse
- * seule.
+ * seule — et, jugée sans lancer, ce qui s'est passé : la page a envoyé
+ * d'elle-même la réponse vide, le filet laissé sans un geste (`aLEcheance`).
+ * « Pas de lancer » ne le disait pas, et la règle d'avant le lançait : qui
+ * laissait le curseur là où il croyait la réponse l'apprenait sans qu'on le
+ * lui dise (la relecture du lot, le 26 octobre 2026). Expirée — la page fermée,
+ * qui n'a rien pu envoyer —, ou quittée, rien de plus.
  */
-function RevelationDuFilet({ corps: r }: { corps: FiletRevele }) {
+function RevelationDuFilet({ corps: r, fin }: { corps: FiletRevele; fin?: FinDUneManche }) {
   const lance = r.lancer
   return (
     <section className="cab-filet-revele" aria-label="La piste">
@@ -252,6 +258,7 @@ function RevelationDuFilet({ corps: r }: { corps: FiletRevele }) {
       <p className="cab-filet-reponse">{espacesFines(`La réponse : ${dire(r, r.valeur)}${lance ? ` · tu visais ${dire(r, lance.x)}` : ''}`)}</p>
       <Piste m={r} filet={lance && ouEstLeFilet(lance.x, lance.taille, r.piste)} vrai={r.valeur} />
       {lance && <FiletLance lance={lance} dedans={r.dedans} />}
+      {!lance && fin === 'jugee' && <p className="cab-ligne">{espacesFines('Le temps a filé sans que tu touches à ton filet : il n’est pas parti.')}</p>}
     </section>
   )
 }

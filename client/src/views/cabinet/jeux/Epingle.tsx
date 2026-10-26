@@ -5,8 +5,9 @@ import { questionSizeClass } from '../../../games/quiz/questionSize'
 import { toucher } from '../../../toucher'
 import type { Point } from '../../../../../shared/cabinet/france'
 import { pointADistance, type EpingleMontree, type EpingleRevelee, type ZoneDEclairer } from '../../../../../shared/cabinet/jeux/epingle'
+import { QUESTION_COLLEE, bandeALEcran, type BoiteALEcran } from '../bande'
 import { CarteDeFrance, DessinDeLEpingle, DessinDeLaZone, DessinDuLieu, DessinDuTrait, IconeDeLEpingle, IconeDuLieu } from '../CarteDeFrance'
-import { DEPARTS_DE_L_EPINGLE, GRAND_PAS, KM_D_UN_PAS, MILIEU_DE_LA_FRANCE, deplacer, departNomme, ouEstLEpingle, type Fleche } from '../contourDeLaFrance'
+import { DEPARTS_DE_L_EPINGLE, GRAND_PAS, KM_D_UN_PAS, MILIEU_DE_LA_FRANCE, deplacer, departDeLEpingle, departNomme, ouEstLEpingle, type Fleche } from '../contourDeLaFrance'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
 import { pasRetenus, retenirLesPas } from '../retenu'
 
@@ -37,10 +38,11 @@ import { pasRetenus, retenirLesPas } from '../retenu'
 // de lui les quatre pas de l'épingle et la bascule des grands pas — au doigt, ce
 // que font les flèches au clavier : sous TalkBack, un double toucher plantait au
 // centre de la carte —, et sous la carte « Partir de… », une ville repère ou la
-// Corse ; et « Planter ici », qui attend une épingle. Au clavier, les flèches la
-// mènent et Entrée la plante. « Pas à pas » et « Grands pas » restent comme il
-// les a laissés, d'une manche à l'autre et d'une partie à l'autre (`retenu.ts`,
-// au profil) ; ce que fait un pas se dit (« Grands pas, 55 km »).
+// Corse, qui l'y pose et ramène la carte entière à l'écran ; et « Planter ici »,
+// qui attend une épingle. Au clavier, les flèches la mènent et Entrée la plante.
+// « Pas à pas » et « Grands pas » restent comme il les a laissés, d'une manche à
+// l'autre et d'une partie à l'autre (`retenu.ts`, au profil) ; ce que fait un
+// pas se dit (« Grands pas, 55 km »).
 //
 // Ce que la page tient — l'épingle posée — part d'elle-même à l'échéance ; sans
 // épingle, rien ne part, et la manche se juge « Pas d'épingle ». Recharger la
@@ -154,7 +156,7 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
   // Revenu sur la carte, le lecteur d'écran entend la consigne, ce que fait un pas, ce qui la mène sans clavier — fermé, « Pas à
   // pas » ne se devine pas —, puis où est l'épingle : la ligne au-dessus l'a dite en la posant, une fois.
   const aide = espacesFines(
-    `Touche-la pour planter ton épingle. Au clavier, les flèches la mènent — un pas fait ${KM_D_UN_PAS} km, un grand ${KM_D_UN_PAS * GRAND_PAS} —, Maj à grands pas, et Entrée la plante. Sans clavier, « Pas à pas », au bas de l’écran, ouvre les boutons qui la mènent, et « Partir de… », qui la pose sur une ville.${local.epingle ? ` Ton épingle : ${ouEstLEpingle(local.epingle)}.` : ''}`,
+    `Touche-la pour planter ton épingle. Au clavier, les flèches la mènent — un pas fait ${KM_D_UN_PAS} km, un grand ${KM_D_UN_PAS * GRAND_PAS} —, Maj à grands pas, et Entrée la plante. Sans clavier, « Pas à pas », au bas de l’écran, ouvre les boutons qui la mènent, et « Partir de… », juste en dessous, qui la pose sur une ville ou en Corse.${local.epingle ? ` Ton épingle : ${ouEstLEpingle(local.epingle)}.` : ''}`,
   )
   return (
     <>
@@ -168,7 +170,7 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
         {m.zone && <DessinDeLaZone tour={tourDeLaZone(m.zone)} />}
         {local.epingle && <DessinDeLEpingle point={local.epingle} />}
       </CarteDeFrance>
-      {local.pasAPas && <PartirDe poser={poser} />}
+      {local.pasAPas && <PartirDe epingle={local.epingle} poser={poser} />}
     </>
   )
 }
@@ -176,29 +178,65 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
 /** Ce que « Pas à pas » ouvre sous la carte, et désigne avec les pas du pied (`aria-controls`) : une seule manche à l'écran. */
 const PARTIR_DE = 'cab-partir-de'
 
+/** La carte qu'on touche, celle de la manche — la révélation dessine la sienne, qu'on ne touche pas. */
+const CARTE_JOUABLE = '.cab-manche .cab-carte-jouable'
+
+/**
+ * De combien défiler pour voir la carte entière entre la question collée et le pied (`bande`) : rien si elle y est déjà ; sinon
+ * son bas sur le pied, comme l'arrêt du défilement la pose (`styles.css`). Pur : la page le lit sur l'écran (`amenerLaCarte`).
+ */
+export function defilementVersLaCarte(carte: BoiteALEcran, bande: BoiteALEcran): number {
+  return carte.top >= bande.top - 0.5 && carte.bottom <= bande.bottom + 0.5 ? 0 : Math.round(carte.bottom - bande.bottom)
+}
+
+/**
+ * La carte amenée à l'écran, entière, une fois un départ choisi : sous elle, la liste ne se voit qu'avec le nord de la carte passé
+ * sous la question collée — l'épingle de Lille avec —, et la page en haut, sur le récit, l'épingle se posait sous le pied, sans
+ * rien qu'on voie bouger (la relecture du lot, le 26 octobre 2026). Le choix fait, la liste n'a plus besoin d'être vue ; la carte
+ * déjà entière — un grand écran, des flèches au clavier sur la liste —, rien ne bouge.
+ */
+function amenerLaCarte() {
+  const carte = document.querySelector(CARTE_JOUABLE)?.getBoundingClientRect()
+  if (!carte) return
+  const bande = bandeALEcran(document, window.innerHeight)
+  const question = document.querySelector(QUESTION_COLLEE)?.getBoundingClientRect().bottom ?? 0
+  const dy = defilementVersLaCarte(carte, { top: Math.max(bande.top, question), bottom: bande.bottom })
+  if (dy) window.scrollBy(0, dy)
+}
+
 /**
  * « Partir de… », sous la carte, que « Pas à pas » ouvre avec les pas : une
  * ville repère ou la Corse, où l'épingle se pose — par la règle de la carte,
- * qui dit la plus neuve, de l'épingle ou de la zone. Une liste, une ligne :
- * huit boutons — sept villes et la Corse — passaient sur trois ou quatre
- * lignes, et au lecteur d'écran faisaient huit arrêts avant les pas. Sous la
- * carte, pas au pied : collée au pied, sa ligne prenait à la question et à la
- * carte la place qu'il leur fallait pour tenir ensemble, en 360 × 640 au texte
- * agrandi (le rendu du 26 octobre 2026) ; sous la carte, rien au-dessus d'elle
- * ne bouge quand « Pas à pas » l'ouvre. Sa première ligne la dit sans rien
- * poser ; choisi, un départ pose l'épingle, et la liste revient à « Partir
- * de… » : le même départ se reprend.
+ * qui dit la plus neuve, de l'épingle ou de la zone —, puis la carte entière
+ * revient à l'écran (`amenerLaCarte`). Une liste, une ligne : huit boutons —
+ * sept villes et la Corse — passaient sur trois ou quatre lignes, et au
+ * lecteur d'écran faisaient huit arrêts avant les pas. Sous la carte, pas au
+ * pied : collée au pied, sa ligne prenait à la question et à la carte la place
+ * qu'il leur fallait pour tenir ensemble, en 360 × 640 au texte agrandi comme
+ * en 277 × 492, les pas ouverts (`[épingle]` de `rendu-cabinet.ts`, avant et
+ * après la fusion avec le point d'arrêt de la carte) ; sous la carte, rien
+ * au-dessus d'elle ne bouge quand « Pas à pas » l'ouvre. La carte étant un
+ * point d'arrêt du défilement, la liste demande le sien à la feuille
+ * (`cab-partir-de`) : sans lui, la page poussée jusqu'à elle revient sur la
+ * carte. Sa première ligne la dit sans rien poser ; la liste montre le départ
+ * tant que l'épingle y est (`departDeLEpingle`) — les flèches du clavier vont
+ * de ville en ville —, et « Partir de… » dès qu'elle bouge autrement. Son nom
+ * commence par ce qu'elle montre, pour une commande vocale (WCAG 2.5.3), et
+ * dit la Corse, qui n'est pas une ville.
  */
-function PartirDe({ poser }: { poser: (p: Point) => unknown }) {
+function PartirDe({ epingle, poser }: { epingle: Point | null; poser: (p: Point) => unknown }) {
   return (
     <select
       id={PARTIR_DE}
-      className="btn btn-block"
-      aria-label="Partir d’une ville"
-      value=""
+      className="btn btn-block cab-partir-de"
+      aria-label="Partir de… une ville ou la Corse"
+      value={departDeLEpingle(epingle)}
       onChange={e => {
         const p = departNomme(e.currentTarget.value)
-        if (p) poser(p)
+        if (p) {
+          poser(p)
+          amenerLaCarte()
+        }
       }}
     >
       <option value="" disabled>
@@ -322,7 +360,9 @@ function RevelationDeLEpingle({ corps: r }: { corps: EpingleRevelee }) {
 }
 
 export const EPINGLE: JeuALEcran<EpingleMontree, EpingleRevelee, LocalDeLEpingle> = {
-  // L'épingle à poser, et les pas tels qu'il les a laissés à la manche d'avant (`basculerLesPas`) ; rien de retenu, fermés.
+  // L'épingle à poser, et les pas tels qu'il les a laissés à la manche d'avant (`basculerLesPas`) ; rien de retenu, fermés. Le
+  // seul `localDe` qui ne soit pas pur — il relit ce que le téléphone retient, au profil de la page (`retenu.ts`) — : le cadre
+  // l'appelle à chaque rendu tant que la manche n'a rien tenu, et une partie ne se rend guère qu'à une vue neuve ou un geste.
   localDe: () => ({ epingle: null, ...pasRetenus() }),
   // Le lieu de la manche : « Changer » en pose un autre, et l'épingle d'avant ne lui dit rien. La zone d'Éclairer n'y change rien.
   cleDe: m => `${m.date}|${m.question}`,

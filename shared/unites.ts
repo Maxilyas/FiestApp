@@ -8,10 +8,10 @@
 //
 // Pure, sans dictionnaire : un symbole ne s'accorde pas (« km », « °C »,
 // « km/h » — un chiffre, un signe, deux lettres au plus), un mot perd son s,
-// et ce qui fait autrement est écrit ici. Les deux cent soixante-dix-huit
-// unités que le Filet pose aujourd'hui sont relues une à une
-// (`cabinet-ecran-neufs.test.ts`) : une unité neuve que ces règles ne savent
-// pas dire y rougit, et s'écrit dans l'une des deux listes.
+// et ce qui fait autrement est écrit ici. Chaque unité que le Filet pose est
+// relue une à une (`cabinet-ecran-neufs.test.ts` ; 278 le 26 octobre 2026) :
+// une unité neuve que ces règles ne savent pas dire y rougit, et s'écrit dans
+// l'une des deux listes.
 
 /** Les mots dont le singulier garde son s, son x ou son z. */
 const QUI_NE_CHANGENT_PAS = new Set([

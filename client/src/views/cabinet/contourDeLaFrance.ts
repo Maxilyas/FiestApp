@@ -8,8 +8,9 @@
 //
 // Et ce que la carte dit à qui ne la voit pas : où est son épingle, par la
 // ville repère la plus proche (« près de Lyon », « à 120 km au sud-ouest de
-// Paris ») — un lecteur d'écran, ou un doigt qui cache la carte, ne lit pas un
-// dessin —, ce que fait un pas, et d'où partir sans viser. Purs, sans React :
+// Paris ») ou par la Corse (« en Corse », « à 30 km à l'ouest de la Corse ») —
+// un lecteur d'écran, ou un doigt qui cache la carte, ne lit pas un dessin —,
+// ce que fait un pas, et d'où partir sans viser. Purs, sans React :
 // `cabinet-ecran-neufs.test.ts` les lit tels quels.
 
 import { DANS_LA_FRANCE, deprojeter, distanceKm, projeter, type Point } from '../../../../shared/cabinet/france'
@@ -53,6 +54,9 @@ export const VILLES_REPERES: readonly VilleRepere[] = [
   { nom: 'Strasbourg', lon: 7.75, lat: 48.58, nomA: 'dessous' },
 ]
 
+/** Le milieu de la Corse, dans son contour : d'où « Partir de… » y pose l'épingle, et d'où se dit une épingle dans l'île. */
+export const MILIEU_DE_LA_CORSE: Point = { lat: 42.15, lon: 9.1 }
+
 /**
  * D'où « Partir de… » pose l'épingle, du nord au sud : chaque ville repère, sur son point dessiné, et la Corse, en son milieu —
  * qu'aucune ville ne dessine. Depuis le milieu de la France, trois étoiles à Ajaccio demandaient dix-huit grands pas, treize à
@@ -61,11 +65,19 @@ export const VILLES_REPERES: readonly VilleRepere[] = [
  */
 export const DEPARTS_DE_L_EPINGLE: readonly { nom: string; point: Point }[] = [
   ...VILLES_REPERES.map(v => ({ nom: v.nom, point: { lat: v.lat, lon: v.lon } })),
-  { nom: 'la Corse', point: { lat: 42.15, lon: 9.1 } },
+  { nom: 'la Corse', point: MILIEU_DE_LA_CORSE },
 ].sort((a, b) => b.point.lat - a.point.lat)
 
 /** Le départ que la page a choisi, par son nom — par la liste, jamais par `TABLE[nom]` : un objet répond aussi de son prototype. */
 export const departNomme = (nom: string): Point | null => DEPARTS_DE_L_EPINGLE.find(d => d.nom === nom)?.point ?? null
+
+/**
+ * Le départ où est l'épingle, tant qu'elle y est — sinon rien (`''`) : la liste le garde affiché. Revenue à « Partir de… » à
+ * chaque choix, elle se jouait mal au clavier : sous Chromium, une flèche sur la liste fermée la change à chaque pression, et la
+ * suivante repartait de la première ligne — Paris, Nantes, la Corse hors d'atteinte, l'épingle replacée à Lille à chaque fois (la
+ * relecture du lot, le 26 octobre 2026). Un pas ou un toucher l'en éloigne, et la liste revient à « Partir de… ».
+ */
+export const departDeLEpingle = (p: Point | null): string => (p && DEPARTS_DE_L_EPINGLE.find(d => d.point.lat === p.lat && d.point.lon === p.lon)?.nom) || ''
 
 /** Un point au dixième de pixel du dessin : le tracé SVG n'en demande pas plus, et le HTML reste court. */
 const auDixieme = (n: number) => Math.round(n * 10) / 10
@@ -164,18 +176,68 @@ function capDe(a: Point, b: Point): number {
   return ((Math.atan2(y, x) / r) % 360 + 360) % 360
 }
 
+/** Une distance et sa direction, de `a` vers `p` : « 120 km au sud-ouest », à dix kilomètres près, jamais moins de dix. */
+function distanceEtDirection(a: Point, p: Point, km: number): string {
+  return `${formatNumber(Math.max(10, Math.round(km / 10) * 10))} km ${DIRECTIONS[Math.round(capDe(a, p) / 45) % DIRECTIONS.length]}`
+}
+
+/** Un degré de latitude, en kilomètres — et un degré de longitude au milieu de la Corse. */
+const KM_PAR_DEGRE = distanceKm({ lat: 0, lon: 0 }, { lat: 1, lon: 0 })
+const KM_PAR_DEGRE_EN_CORSE = KM_PAR_DEGRE * Math.cos((MILIEU_DE_LA_CORSE.lat * Math.PI) / 180)
+
+/** Un point en kilomètres, sur un plan posé au milieu de la Corse : à l'échelle d'une île de 180 km, la Terre y est plate. */
+const surLePlanDeLaCorse = (p: Point) => ({ x: (p.lon - MILIEU_DE_LA_CORSE.lon) * KM_PAR_DEGRE_EN_CORSE, y: (p.lat - MILIEU_DE_LA_CORSE.lat) * KM_PAR_DEGRE })
+
+/** Les côtés du contour dessiné de la Corse, sur son plan. */
+const COTES_DE_LA_CORSE = CONTOUR_DE_LA_CORSE.map(([lon, lat], i) => {
+  const [lon2, lat2] = CONTOUR_DE_LA_CORSE[(i + 1) % CONTOUR_DE_LA_CORSE.length]
+  return [surLePlanDeLaCorse({ lat, lon }), surLePlanDeLaCorse({ lat: lat2, lon: lon2 })] as const
+})
+
+/**
+ * Où est l'épingle par rapport à la Corse dessinée : dedans, ou le point de sa côte le plus proche — la côte du dessin, celle que
+ * l'œil voit : une épingle posée juste hors du trait se dit « près de la Corse », comme elle se voit.
+ */
+function laCorseVue(p: Point): { dedans: true } | { dedans: false; cote: Point } {
+  const q = surLePlanDeLaCorse(p)
+  let dedans = false
+  let plusPres = { d: Infinity, x: 0, y: 0 }
+  for (const [a, b] of COTES_DE_LA_CORSE) {
+    // Le rayon vers l'est croise-t-il ce côté ? Un nombre impair de fois : dedans.
+    if (a.y > q.y !== b.y > q.y && q.x < a.x + ((q.y - a.y) * (b.x - a.x)) / (b.y - a.y)) dedans = !dedans
+    const l2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2
+    const t = Math.max(0, Math.min(1, ((q.x - a.x) * (b.x - a.x) + (q.y - a.y) * (b.y - a.y)) / l2))
+    const x = a.x + t * (b.x - a.x)
+    const y = a.y + t * (b.y - a.y)
+    const d = (q.x - x) ** 2 + (q.y - y) ** 2
+    if (d < plusPres.d) plusPres = { d, x, y }
+  }
+  return dedans ? { dedans } : { dedans, cote: { lat: MILIEU_DE_LA_CORSE.lat + plusPres.y / KM_PAR_DEGRE, lon: MILIEU_DE_LA_CORSE.lon + plusPres.x / KM_PAR_DEGRE_EN_CORSE } }
+}
+
 /**
  * Où est l'épingle, en mots : par la ville repère la plus proche — « Près de
  * Lyon », sinon sa distance à dix kilomètres près et sa direction (« À 120 km
- * au sud-ouest de Paris »), une ligne à elle seule. Le lecteur d'écran le dit à
- * chaque pas de flèche, et l'écran l'écrit au-dessus de « Planter ici » : sous
- * le doigt qui la plante, l'épingle ne se voit pas. La distance passe par
- * `formatNumber`, jamais par `Intl` (règle `client.md`).
+ * au sud-ouest de Paris »), une ligne à elle seule. La Corse, qu'aucune ville
+ * ne dessine, se dit d'elle-même : dans l'île, par son milieu (« Au milieu de
+ * la Corse », « En Corse, à 40 km au sud-ouest de son milieu ») ; dans la mer
+ * qui la borde, par sa côte, si elle est plus près qu'une ville (« À 30 km à
+ * l'ouest de la Corse ») — « Partir de… la Corse » se disait « À 330 km à
+ * l'est de Marseille », et chaque pas autour de l'île aussi (la relecture du
+ * lot, le 26 octobre 2026). Le lecteur d'écran le dit à chaque pas de flèche,
+ * et l'écran l'écrit au-dessus de la carte : sous le doigt qui la plante,
+ * l'épingle ne se voit pas. La distance passe par `formatNumber`, jamais par
+ * `Intl` (règle `client.md`).
  */
 export function ouEstLEpingle(p: Point): string {
+  const corse = laCorseVue(p)
+  if (corse.dedans) {
+    const km = distanceKm(MILIEU_DE_LA_CORSE, p)
+    return km < PRES_D_UNE_VILLE_KM ? 'Au milieu de la Corse' : `En Corse, à ${distanceEtDirection(MILIEU_DE_LA_CORSE, p, km)} de son milieu`
+  }
   const [proche] = VILLES_REPERES.map(v => ({ v, km: distanceKm(v, p) })).sort((a, b) => a.km - b.km)
+  const aLaCorse = distanceKm(corse.cote, p)
+  if (aLaCorse < proche.km) return aLaCorse < PRES_D_UNE_VILLE_KM ? 'Près de la Corse' : `À ${distanceEtDirection(corse.cote, p, aLaCorse)} de la Corse`
   if (proche.km < PRES_D_UNE_VILLE_KM) return `Près de ${proche.v.nom}`
-  const km = Math.max(10, Math.round(proche.km / 10) * 10)
-  const direction = DIRECTIONS[Math.round(capDe(proche.v, p) / 45) % DIRECTIONS.length]
-  return `À ${formatNumber(km)} km ${direction} de ${proche.v.nom}`
+  return `À ${distanceEtDirection(proche.v, p, proche.km)} de ${proche.v.nom}`
 }
