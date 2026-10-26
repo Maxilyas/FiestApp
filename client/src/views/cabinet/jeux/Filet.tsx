@@ -58,10 +58,11 @@ const longueurDUnGrandPas = (p: PisteDuFilet) => Math.max(p.pas, Math.round((p.m
 
 /**
  * Un grand pas de plus ou de moins, jamais au-delà des bornes : de là où le
- * curseur part, toute valeur de la piste se prend en cinq grands pas et dix
- * crans au plus. Sans glisser — au lecteur d'écran, d'un pouce qui tremble —,
- * « Un cran de plus » demandait soixante touchers à Camille, et la ramette
- * restait hors d'atteinte pour Hugo (la tablée du 25 octobre 2026).
+ * curseur part, toute valeur de la piste se prend en cinq grands pas et la
+ * moitié d'un grand pas en crans — quinze au plus : la plus longue piste que
+ * tire le Filet a 290 crans (`pisteDuFilet`), un grand pas de 29. Sans glisser — au lecteur d'écran, d'un pouce qui
+ * tremble —, « Un cran de plus » demandait soixante touchers à Camille, et la
+ * ramette restait hors d'atteinte pour Hugo (la tablée du 25 octobre 2026).
  */
 export const grandPas = (m: FiletMontre, l: LocalDuFilet, sens: 1 | -1): LocalDuFilet => bouger(m, l, l.x + sens * longueurDUnGrandPas(m.piste))
 
@@ -143,7 +144,8 @@ function MancheDuFilet({ montree: m, local: l, setLocal, envoyer, garde, busy }:
   // Un grand pas de même.
   const unCran = (sens: 1 | -1) => !busy && setLocal(cran(m, l, sens))
   const unGrandPas = (sens: 1 | -1) => !busy && setLocal(grandPas(m, l, sens))
-  // Ce que fait un grand pas, à l'œil : « − 12 », « + 1 500 km » ; à l'oreille, son nom suffit, le curseur dit où il arrive.
+  // Ce que fait un grand pas, à l'œil : « − 12 », « + 1 500 km » ; à l'oreille, son nom suffit, le curseur dit où il arrive. Le
+  // signe tient à son nombre (une espace insécable) : seule l'unité passe à la ligne quand la rangée manque de place.
   const grand = dire(m, longueurDUnGrandPas(p))
   const enBas = l.x <= p.min
   const enHaut = l.x >= p.max
@@ -180,10 +182,10 @@ function MancheDuFilet({ montree: m, local: l, setLocal, envoyer, garde, busy }:
       </div>
       <div className="cab-grands-pas">
         <button type="button" className="cab-cran cab-grand-pas" aria-label="Un grand pas de moins" aria-disabled={enBas || busy || undefined} {...toucher(() => unGrandPas(-1))}>
-          <span aria-hidden="true">{espacesFines(`− ${grand}`)}</span>
+          <span aria-hidden="true">{espacesFines(`−\u{a0}${grand}`)}</span>
         </button>
         <button type="button" className="cab-cran cab-grand-pas" aria-label="Un grand pas de plus" aria-disabled={enHaut || busy || undefined} {...toucher(() => unGrandPas(1))}>
-          <span aria-hidden="true">{espacesFines(`+ ${grand}`)}</span>
+          <span aria-hidden="true">{espacesFines(`+\u{a0}${grand}`)}</span>
         </button>
       </div>
       <ZoneDite m={m} />

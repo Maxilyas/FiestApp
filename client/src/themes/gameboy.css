@@ -169,6 +169,10 @@
   background: transparent;
 }
 
+/* Sa barre, bordée et déjà épaisse, ne s'étire pas quand le temps presse : `scaleY` en épaississait le bord du haut et celui du
+   bas, pas ceux des côtés (`styles.css`, l'urgence). Le sablier le dit. */
+:root[data-theme='gameboy'] .timer .timer-track.urgent { transform: none; }
+
 :root[data-theme='gameboy'] .timer-fill {
   background: repeating-linear-gradient(90deg, #0f380f 0 6px, transparent 6px 8px);
 }

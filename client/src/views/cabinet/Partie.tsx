@@ -25,6 +25,7 @@ import { POUVOIRS, refusDuPouvoir, type CleDePouvoir } from '../../../../shared/
 import type { MancheMontree, RevelationDUneManche } from '../../../../shared/cabinet/jeux/index'
 import type { FinDUneManche, GesteDuCabinet, Manche, ReponseDUnJeu } from '../../../../shared/cabinet/partie'
 import type { RevelationVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
+import { CE_QUI_BORNE_LA_BANDE, poserLaBande, type OuvertureDeLaBande } from './bande'
 import type { BilanDeLaPartie } from './Bilan'
 
 // Une partie du Cabinet à l'écran (§ 2.2-2.7 de la conception) : le cadre
@@ -212,20 +213,44 @@ function secondesAuPlus(ms: number): string {
   return `${s} seconde${s > 1 ? 's' : ''}`
 }
 
+/** Ce que la page envoie d'elle-même à l'échéance : quand, et quoi. */
+export interface EnvoiALEcheance {
+  /** Dans combien de millisecondes, à l'heure du serveur. */
+  readonly dans: number
+  /** La réponse « auto » de la manche, de ce que la page tient à l'instant où elle part : le curseur du Filet a pu bouger depuis. */
+  readonly geste: (local: unknown) => GesteDuCabinet
+}
+
 /**
- * Dans combien de millisecondes la page envoie d'elle-même ce qu'elle tient, à
- * `t`, l'heure du serveur : à l'échéance de l'étape qui court — sous la pause
- * de « Quitter ? », reculée de ce qui reste de pause, la confirmation encore
- * ouverte —, tout de suite si elle est passée ; jamais sans l'écran du
- * jeu, qui dit ce qui part, ni sans chrono : la mise qui se décide, le choix du
- * Pari, la révélation. Sortie de l'effet qui l'appelle : gardée par son seul
- * texte, une garde changée en `if (pret || !pret) return` — plus jamais rien
- * d'envoyé — passait toutes les épreuves (l'audit du code du 25 octobre 2026).
+ * Ce que la page envoie d'elle-même, vu à `t`, l'heure du serveur : à
+ * l'échéance de l'étape qui court — sous la pause de « Quitter ? », reculée de
+ * ce qui reste de pause, la confirmation encore ouverte —, tout de suite si
+ * elle est passée, la réponse que l'écran du jeu tire de ce que la page tient
+ * (`aLEcheance` : les affirmations de l'Éclair, rien au Pari) ; rien sans
+ * l'écran du jeu, ni sans manche montrée, ni sans chrono : la mise qui se
+ * décide, le choix du Pari, la révélation. Sortie de l'effet qui l'appelle,
+ * toute : gardée par son seul texte, une garde changée en
+ * `if (pret || !pret) return` — plus jamais rien d'envoyé — passait toutes les
+ * épreuves (l'audit du code du 25 octobre 2026), et la garde laissée à l'effet
+ * aussi (la relecture du lot page-1). L'effet n'a plus que le plan absent.
  */
-export function aEnvoyerALEcheance(vue: Pick<VueDeLaPartie, 'phase' | 'chrono' | 'maintenant'>, t: number, pret: unknown): number | null {
-  if (!pret || (vue.phase !== 'jouer' && vue.phase !== 'pause')) return null
+export function aEnvoyerALEcheance(
+  vue: Pick<VueDeLaPartie, 'phase' | 'chrono' | 'maintenant' | 'manche' | 'enCours'>,
+  t: number,
+  ecran: Pick<EcranEfface, 'aLEcheance'> | null,
+): EnvoiALEcheance | null {
+  const m = vue.enCours
+  if (!ecran || !m || (vue.phase !== 'jouer' && vue.phase !== 'pause')) return null
   const c = chronoMontre(vue, t)
-  return c ? Math.max(0, c.echeance - t) : null
+  if (!c) return null
+  const manche = vue.manche
+  return {
+    dans: Math.max(0, c.echeance - t),
+    geste: local => {
+      const reponse = ecran.aLEcheance(m, local)
+      return { quoi: 'repondre', manche, auto: true, ...(reponse && { reponse }) }
+    },
+  }
 }
 
 /**
@@ -511,44 +536,25 @@ export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: 
 
 // ── Ce que la tête et le pied collés laissent à la manche ─────────────────
 
-/** Ce qui borne la bande d'une manche, et qu'on surveille : la tête et le pied collés, la question qui se colle sous la tête. */
-const CE_QUI_BORNE_LA_BANDE = '.cab-tete-partie, .cab-pied-partie:not(.cab-pied-pose), .cab-manche > .cab-question'
-
-/** L'air que la carte de l'Épingle laisse sous sa question collée. */
-const AIR_SOUS_LA_QUESTION = 8
-
 /**
- * Ce que la tête et le pied collés laissent à la manche, posé sur la page de
- * la partie : `--cab-tete`, où se collent la question de l'Épingle et le
- * tableau du Détail ; `--cab-fenetre`, la hauteur de la fenêtre ;
- * `--cab-place`, ce qui reste à la carte de l'Épingle sous sa question collée
- * — au petit téléphone, texte agrandi, la question et la carte ne tenaient
- * jamais ensemble (la tablée du 25 octobre 2026) —, et au tableau du Détail
- * avec un titre sous lui. En pixels de la page (`offsetHeight`), et la fenêtre
- * ramenée à eux : sous le zoom que la tablée pose sur la page,
- * `getBoundingClientRect` dit des pixels d'écran, et `100dvh` vaut 1,3 fenêtre.
+ * La bande de la manche (`bande.ts`), posée sur la page de la partie :
+ * `--cab-tete`, où se collent la question de l'Épingle et le tableau du
+ * Détail ; `--cab-fenetre` ; `--cab-place`, ce qui reste à la carte de
+ * l'Épingle sous sa question collée, et au tableau du Détail avec un titre
+ * sous lui. Mesurée quand l'étape (`cle`) ou ce qui la borne (`forme` : la
+ * manche, la révélation, la mise ; le pied collé ou posé) changent, puis quand
+ * la tête, le pied ou la question changent de taille et quand la fenêtre
+ * change — jamais à chaque rendu : une lettre du Mot, un cran du Filet
+ * refaisaient trois mesures et un observateur.
  */
-function poserLaBande(page: HTMLElement) {
-  const hauteur = (s: string) => page.querySelector<HTMLElement>(s)?.offsetHeight ?? 0
-  const fenetre = window.innerHeight / (page.currentCSSZoom || 1)
-  const tete = hauteur('.cab-tete-partie')
-  const place = fenetre - tete - hauteur('.cab-pied-partie:not(.cab-pied-pose)') - hauteur('.cab-manche > .cab-question') - AIR_SOUS_LA_QUESTION
-  page.style.setProperty('--cab-tete', `${tete}px`)
-  page.style.setProperty('--cab-fenetre', `${Math.round(fenetre)}px`)
-  page.style.setProperty('--cab-place', `${Math.max(0, Math.floor(place))}px`)
-}
-
-/**
- * La bande mesurée à chaque rendu — une manche neuve, un pied qui grandit, une
- * carte-bonus qui se pose —, puis tenue à jour quand la tête, le pied ou la
- * question changent de taille (la tête passe à la ligne, un indice d'Éclairer)
- * et quand la fenêtre change (le téléphone tourné).
- */
-function useBandeDeLaManche(page: RefObject<HTMLDivElement | null>) {
+function useBandeDeLaManche(page: RefObject<HTMLDivElement | null>, cle: string | null, forme: string) {
+  const ouverture = useRef<OuvertureDeLaBande | null>(null)
   useLayoutEffect(() => {
     const el = page.current
     if (!el) return
-    const poser = () => poserLaBande(el)
+    const poser = () => {
+      ouverture.current = poserLaBande(el, window, cle, ouverture.current)
+    }
     poser()
     const suivi = typeof ResizeObserver === 'function' ? new ResizeObserver(poser) : null
     el.querySelectorAll(CE_QUI_BORNE_LA_BANDE).forEach(c => suivi?.observe(c))
@@ -557,7 +563,7 @@ function useBandeDeLaManche(page: RefObject<HTMLDivElement | null>) {
       suivi?.disconnect()
       window.removeEventListener('resize', poser)
     }
-  })
+  }, [page, cle, forme])
 }
 
 export interface PropsDeLEcran {
@@ -590,7 +596,6 @@ export interface PropsDeLEcran {
 export function EcranDeLaPartie(p: PropsDeLEcran) {
   const { vue, ecran } = p
   const page = useRef<HTMLDivElement>(null)
-  useBandeDeLaManche(page)
   const r = vue.revelation
   const ouverte = vue.phase === 'avant' ? 0 : p.miser
   let corps: ReactNode
@@ -598,6 +603,9 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
   let colle = true
   // Une carte-bonus qui ne sert plus, sous la manche, quand le jeu garde le bas de l'écran pour lui (le clavier du Mot).
   let pose: ReactNode = null
+  // Ce qui est à l'écran, pour la bande : une manche ouverte a son étape, mesurée à son ouverture ; le reste n'en a pas.
+  let quoi = 'attente'
+  let cleDeLaBande: string | null = null
   if (ecran === 'perdu') {
     corps = (
       <div className="cab-bloc">
@@ -614,8 +622,10 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
       </p>
     )
   } else if (ouverte !== null) {
+    quoi = 'mise'
     corps = <MiserOuPas vue={vue} manche={ouverte} busy={p.busy} onMiser={p.onMiser} />
   } else if (r && (vue.phase === 'revele' || vue.phase === 'finie')) {
+    quoi = 'revelation'
     corps = <RevelationDeLaManche vue={vue} revelation={r} ecran={ecran} onSignaler={p.onSignaler} />
     pied = (
       <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={p.busy || undefined} {...toucher(() => !p.busy && p.onSuivante())}>
@@ -623,9 +633,13 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
       </button>
     )
   } else if (vue.phase === 'pause') {
+    quoi = 'pause'
     // Sa pause passée, le chrono court sous le voile : `chronoMontre` ne le fige plus.
     corps = <VoileDeLaPause busy={p.busy} repris={p.chrono !== null && p.chrono.figeMs === undefined} onReprendre={p.onReprendre} />
   } else if (vue.enCours) {
+    quoi = 'manche'
+    // Une étape par écran du jeu (`etapeDe`) : « Changer » la garde — un autre tableau, un autre lieu, à la même taille.
+    cleDeLaBande = `${vue.id}:${vue.manche}:${etapeDe(vue)}`
     const manche: PropsDUneManche<MancheMontree, unknown> = {
       montree: vue.enCours,
       partie: vue.id,
@@ -655,6 +669,9 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
       colle = sert
     }
   }
+  // Ce qui borne la bande et peut changer d'élément : ce qui est à l'écran, la manche, le pied collé ou posé.
+  const formeDeLaBande = `${quoi}:${vue.manche}:${pied ? (colle ? 'colle' : 'pose') : '-'}:${pose ? 'pose' : '-'}`
+  useBandeDeLaManche(page, cleDeLaBande, formeDeLaBande)
   // Rien ne court entre deux manches, ni avant la mise : on peut repartir au musée, la partie l'y attend.
   const sansChrono = vue.phase === 'revele' || (vue.phase === 'avant' && !vue.chrono)
   return (
@@ -824,16 +841,15 @@ export function Partie({
   // À l'échéance, la page envoie ce qu'elle tient — sous la confirmation ouverte aussi : la pause passée, le chrono a repris sous
   // le voile (`aEnvoyerALEcheance`). Une vue neuve (un geste, une pause, une reprise) annule l'envoi prévu et en prévoit un autre.
   useEffect(() => {
-    const dans = aEnvoyerALEcheance(vue, serverNow(), pret)
-    if (dans === null || !pret) return
-    const { rang, manche, enCours } = vue
+    const envoi = aEnvoyerALEcheance(vue, serverNow(), pret)
+    if (!envoi) return
+    const rang = vue.rang
     return insister(
       async () => {
-        if (vueRef.current.rang !== rang || !enCours) return
-        const reponse = pret.aLEcheance(enCours, localRef.current)
-        await jouer({ quoi: 'repondre', manche, auto: true, ...(reponse && { reponse }) }, true)
+        // Une vue neuve est arrivée entre-temps (l'autre onglet, la pause) : elle a prévu son envoi, celui-ci n'a plus rien à dire.
+        if (vueRef.current.rang === rang) await jouer(envoi.geste(localRef.current), true)
       },
-      { premier: dans },
+      { premier: envoi.dans },
     )
   }, [vue, pret, jouer])
 
@@ -852,7 +868,7 @@ export function Partie({
    * manche se voile, le chrono se fige trente secondes au plus —, puis la
    * confirmation. Refusée (`PLUS_DE_PAUSE`), la pause ne fige rien, et la
    * confirmation s'ouvre quand même : quitter reste possible. « Continuer »
-   * reprend ; « Quitter » compte la partie avec ses étoiles.
+   * reprend ; « Quitter la partie » la compte avec ses étoiles.
    */
   const demanderAQuitter = useCallback(async (): Promise<IssueDuRetour> => {
     if (enQuestion.current) return 'reste'

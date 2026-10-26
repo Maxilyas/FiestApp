@@ -24,7 +24,13 @@ import type { JeuALEcran, PropsDUneManche } from '../Partie'
 // l'épingle ne se voit pas, et un lecteur d'écran ne lit pas un dessin. Elle
 // garde ses deux lignes quoi qu'elle dise — l'indice d'Éclairer y prend sa
 // place aussi — : rien au-dessus de la carte ne change de hauteur sous le doigt
-// qui voulait corriger. Touchée ailleurs, la carte déplace l'épingle.
+// qui voulait corriger. Touchée ailleurs, la carte déplace l'épingle. Au plus
+// serré — 277 × 492, la carte-bonus au pied —, la question et la carte
+// tiennent ensemble, pas la consigne avec elles : elle passe sous la question
+// collée, qui la couvre, et se dit encore à l'oreille ; la carte la redit à qui
+// y revient (`aide`), et l'épingle se voit dessus une fois le doigt levé. La
+// garder en vue avec elles, c'était une carte sous son plancher de largeur
+// (`styles.css`).
 //
 // Le pied, sous le pouce (`JeuALEcran.Pied`) : « Pas à pas », qui ouvre au-dessus
 // de lui les quatre pas de l'épingle et la bascule des grands pas — au doigt, ce
@@ -43,6 +49,17 @@ export interface LocalDeLEpingle {
   readonly grands: boolean
   /** Les boutons de direction ouverts, par « Pas à pas ». */
   readonly pasAPas: boolean
+  /** La zone d'Éclairer était déjà là quand l'épingle a bougé pour la dernière fois : la consigne dit la plus neuve des deux. */
+  readonly zoneConnue?: boolean
+}
+
+/**
+ * L'épingle posée là — d'un toucher, d'une flèche, d'un pas —, et si la zone
+ * d'Éclairer était déjà là : arrivée après, c'est elle que la consigne dit
+ * d'abord.
+ */
+export function poserLEpingle(l: LocalDeLEpingle, p: Point, m: Pick<EpingleMontree, 'zone'>): LocalDeLEpingle {
+  return { ...l, epingle: p, zoneConnue: !!m.zone }
 }
 
 /**
@@ -76,15 +93,19 @@ export function tourDeLaZone(z: ZoneDEclairer): Point[] {
 /**
  * La ligne au-dessus de la carte, deux lignes gardées quoi qu'elle dise : ce
  * qu'il y fait ; Éclairer joué, ce que dit la zone ; l'épingle posée, où elle
- * est. Ajoutée au-dessus de la carte, la ligne de la zone la poussait de
- * soixante pixels sous le doigt qui venait d'Éclairer et allait la toucher ;
- * au pied, où est l'épingle le faisait monter sur la carte, et prenait la place
- * qui manquait pour voir la question et la carte ensemble. Une région qui se
- * dit (`aria-live`), le même élément d'un état à l'autre : chaque épingle
- * posée — d'un toucher, d'une flèche, d'un pas — s'entend.
+ * est — l'une après l'autre, la plus neuve des deux : une épingle posée avant
+ * Éclairer taisait la zone, et au lecteur d'écran rien ne l'annonçait (la
+ * relecture du lot page-1). Ajoutée au-dessus de la carte, la ligne de la zone
+ * la poussait de soixante pixels sous le doigt qui venait d'Éclairer et allait
+ * la toucher ; au pied, où est l'épingle le faisait monter sur la carte, et
+ * prenait la place qui manquait pour voir la question et la carte ensemble.
+ * Une région qui se dit (`aria-live`), le même élément d'un état à l'autre :
+ * chaque épingle posée — d'un toucher, d'une flèche, d'un pas — s'entend, et
+ * la carte le redit à qui y revient (`aide`).
  */
-function Consigne({ m, epingle }: { m: EpingleMontree; epingle: Point | null }) {
-  if (epingle) {
+function Consigne({ m, local }: { m: EpingleMontree; local: LocalDeLEpingle }) {
+  const epingle = local.epingle
+  if (epingle && (!m.zone || local.zoneConnue)) {
     return (
       <p className="cab-ligne cab-consigne-carte cab-ou-est" aria-live="polite">
         <IconeDeLEpingle />
@@ -111,7 +132,7 @@ function Consigne({ m, epingle }: { m: EpingleMontree; epingle: Point | null }) 
 function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran, busy }: PropsDUneManche<EpingleMontree, LocalDeLEpingle>) {
   // Posée dans la demi-seconde d'un écran neuf, l'épingle visait la manche d'avant : le second toucher d'un double sur « Manche
   // suivante » tombe sur la carte.
-  const poser = (p: Point) => !busy && gardeDeLEcran() && setLocal({ ...local, epingle: p })
+  const poser = (p: Point) => !busy && gardeDeLEcran() && setLocal(poserLEpingle(local, p, m))
   const planter = () => !busy && local.epingle && envoyer({ quoi: 'repondre', reponse: { epingle: local.epingle } })
   // Revenu sur la carte, le lecteur d'écran entend la consigne, ce qui la mène sans clavier — fermé, « Pas à pas » ne se devine
   // pas —, puis où est l'épingle : la ligne au-dessus l'a dite en la posant, une fois.
@@ -125,7 +146,7 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
       </div>
       <p className="cab-ligne cab-recit">{espacesFines(m.recit)}</p>
       <h2 className={'quiz-question cab-question' + questionSizeClass(m.question)}>{espacesFines(m.question)}</h2>
-      <Consigne m={m} epingle={local.epingle} />
+      <Consigne m={m} local={local} />
       <CarteDeFrance nom="La carte de France" jouable={{ epingle: local.epingle, poser, planter, aide }}>
         {m.zone && <DessinDeLaZone tour={tourDeLaZone(m.zone)} />}
         {local.epingle && <DessinDeLEpingle point={local.epingle} />}
@@ -148,10 +169,13 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
  * pas à la manche suivante. Où est l'épingle se dit au-dessus de la carte
  * (`Consigne`) : ici, sa ligne prenait la place qui manquait à la carte.
  */
-function PlanterIci({ local, setLocal, envoyer, garde, gardeDeLEcran, busy }: PropsDUneManche<EpingleMontree, LocalDeLEpingle>) {
+function PlanterIci({ montree: m, local, setLocal, envoyer, garde, gardeDeLEcran, busy }: PropsDUneManche<EpingleMontree, LocalDeLEpingle>) {
   const rangee = useId()
   const epingle = local.epingle
-  const unPas = (fleche: Fleche) => !busy && gardeDeLEcran() && setLocal(pasDeLEpingle(local, fleche))
+  const unPas = (fleche: Fleche) => {
+    const p = pasDeLEpingle(local, fleche).epingle
+    if (p && !busy && gardeDeLEcran()) setLocal(poserLEpingle(local, p, m))
+  }
   return (
     <>
       {local.pasAPas && (

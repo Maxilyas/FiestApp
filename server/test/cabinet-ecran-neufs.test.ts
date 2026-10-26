@@ -517,6 +517,26 @@ test('l’Épingle éclairée : la zone entourée sur la carte, dite en mots —
   const lieu = epingleDe(b, v.id, v.tirage!).lieu
   assert.ok(distanceKm(lieu, m.zone) < m.zone.rayonKm, 'le lieu est dans la zone')
   assert.ok(html.indexOf('<div class="cab-pied-partie cab-pied-pose">') > 0, 'Coup d’œil a servi : posé sous la manche')
+  // Une épingle posée avant Éclairer : la ligne dit d'abord la zone qui vient d'arriver — elle disait toujours l'épingle, et au
+  // lecteur d'écran rien n'annonçait la zone (la relecture du lot page-1) — ; l'épingle bougée ensuite, où elle est. L'une après
+  // l'autre, la plus neuve des deux, dans la même région qui se dit.
+  const { poserLEpingle } = await import(url('views/cabinet/jeux/Epingle.tsx'))
+  const lyon = { lat: 45.76, lon: 4.84 }
+  const ligne = (h: string) => /<p class="cab-ligne cab-consigne-carte( cab-souffle| cab-ou-est)?" aria-live="polite">(.*?)<\/p>/.exec(h)
+  const avant = poserLEpingle({ epingle: null, grands: false, pasAPas: false }, lyon, vues.epingle.enCours)
+  const zoneDAbord = ligne(await laPartie(v, { local: avant }))!
+  assert.equal(zoneDAbord[1], ' cab-souffle')
+  assert.match(texte(zoneDAbord[2]), /Indice : c’est quelque part dans la zone entourée\./)
+  const apres = poserLEpingle(avant, lyon, m)
+  const epingleEnsuite = ligne(await laPartie(v, { local: apres }))!
+  assert.equal(epingleEnsuite[1], ' cab-ou-est')
+  assert.equal(texte(epingleEnsuite[2]).trim(), 'Ton épingle : Près de Lyon')
+  // Où qu'elle se dise, l'épingle se dit aussi sur la carte, à qui y revient (`aide`).
+  assert.match(texte(await laPartie(v, { local: avant })), /Ton épingle : Près de Lyon\./)
+  // Un toucher, une flèche, un pas : toutes les épingles posées passent par là.
+  const epingle = source('views/cabinet/jeux/Epingle.tsx')
+  assert.equal([...epingle.matchAll(/setLocal\(poserLEpingle\(local, /g)].length, 2, 'la carte et les pas')
+  assert.doesNotMatch(epingle, /epingle: p \}|\.\.\.local, epingle:/)
   assert.match(piedDe(html), /Planter ici/)
 })
 
@@ -880,7 +900,18 @@ test('la feuille de la carte et des trois jeux : la carte de toute la largeur, s
   // La question et la carte tiennent ensemble entre la tête et le pied collés : la question se colle sous la tête, sur un sol plein,
   // et la carte se borne à ce qui reste — en 277 × 492, le texte à 130 %, elle n'y tenait jamais (381 px pour une bande de 277).
   assert.match(section, /\.cab-manche:has\(\.cab-carte-jouable\) > \.cab-question \{ position: sticky; top: var\(--cab-tete, 0px\); z-index: 1; background: var\(--bg\);/)
+  // Collée, elle couvre aussi les 8 pixels du fondu de la tête au-dessus d'elle, et l'air qu'elle laisse à la carte dessous : la
+  // ligne passée sous elle s'y lisait en trace — « Près de Marseille » coupé sous le chrono, le bas de l'indice au-dessus de la
+  // carte (la relecture du lot page-1). Huit pixels de chaque côté, dans l'écart de 14 qui la sépare du récit et de la consigne :
+  // la page en haut, ils ne couvrent rien.
+  assert.match(section, /\.cab-manche:has\(\.cab-carte-jouable\) > \.cab-question \{[^}]*box-shadow: 0 -8px 0 var\(--bg\), 0 8px 0 var\(--bg\);/)
+  assert.match(source('views/cabinet/bande.ts'), /export const AIR_SOUS_LA_QUESTION = 8\b/)
   assert.match(section, /\.cab-manche \.cab-carte-jouable \{[^}]*width: min\([^;]*var\(--cab-place[^;]*\);[^}]*margin: 0 auto;/)
+  // Jamais sous son plancher, qui laisse une question de trois lignes tenir avec la carte au plus serré : 277 × 492, la niche posée,
+  // la carte-bonus au pied, il reste 133 pixels de place, 152 de large. À 180, « Où Voltaire achète-t-il ce domaine ? » et la carte
+  // ne tenaient jamais ensemble (la relecture du lot page-1). Ni beaucoup plus bas : un pixel du doigt y ferait dix kilomètres.
+  const plancher = Number(/\.cab-manche \.cab-carte-jouable \{[^}]*width: min\([^;]*max\((\d+)px, var\(--cab-place/.exec(section)?.[1])
+  assert.ok(plancher >= 140 && plancher <= Math.floor((133 * LARGEUR_DE_LA_CARTE) / HAUTEUR_DE_LA_CARTE), `un plancher de ${plancher} px`)
   // La place se convertit en largeur par les mesures mêmes du dessin (`shared/cabinet/france.ts`), écrites dans la feuille : un
   // dessin retouché d'un côté seulement, la carte bornée n'aurait plus tenu dans sa place, ou l'aurait laissée vide.
   const proportion = /\.cab-carte-de-france \{[^}]*--cab-carte-l: (\d+); --cab-carte-h: (\d+);/.exec(section)

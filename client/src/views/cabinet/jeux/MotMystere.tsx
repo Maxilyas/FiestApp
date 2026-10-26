@@ -4,6 +4,7 @@ import { espacesFines } from '../../../format'
 import { toucher } from '../../../toucher'
 import { etatDesTouches, longueurRefusee, type CouleurDUneLettre, type EssaiColore, type MotMontre, type MotRevele } from '../../../../../shared/cabinet/jeux/mot'
 import { capitalesSansAccents } from '../../../../../shared/lettres'
+import { bandeALEcran, type BoiteALEcran } from '../bande'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
 
 // Le Mot mystère à l'écran (§ 3.3) : la réponse d'une question de la base, un
@@ -203,12 +204,6 @@ const doucement = (): ScrollBehavior => {
   }
 }
 
-/** Le haut et le bas d'une boîte à l'écran, comme `getBoundingClientRect` les dit. */
-export interface BoiteALEcran {
-  readonly top: number
-  readonly bottom: number
-}
-
 /** Ce que la ligne à taper garde d'air au-dessus du clavier, ou sous la tête : collée à leur bord, elle s'y lisait à moitié. */
 export const AIR_DE_LA_LIGNE = 4
 
@@ -228,13 +223,6 @@ export function defilementPourLaLigne(ligne: BoiteALEcran, bande: BoiteALEcran):
   return ligne.top < bande.top ? versLeHaut : 0
 }
 
-/** La bande de la manche, à l'écran : du bas de la tête collée au haut du pied collé — le clavier —, sinon la fenêtre. */
-function bandeDeLaManche(): BoiteALEcran {
-  const tete = document.querySelector('.cab-tete-partie')?.getBoundingClientRect()
-  const pied = document.querySelector('.cab-pied-partie:not(.cab-pied-pose)')?.getBoundingClientRect()
-  return { top: tete?.bottom ?? 0, bottom: pied?.top ?? window.innerHeight }
-}
-
 function MancheDuMot({ montree: m, local }: PropsDUneManche<MotMontre, LocalDuMot>) {
   const enCours = useRef<HTMLLIElement>(null)
   // À chaque essai — le premier compris, la manche qui s'ouvre —, la ligne à taper revient entre la tête et le clavier collés,
@@ -244,7 +232,7 @@ function MancheDuMot({ montree: m, local }: PropsDUneManche<MotMontre, LocalDuMo
     const id = requestAnimationFrame(() => {
       const ligne = enCours.current
       if (!ligne) return
-      const dy = defilementPourLaLigne(ligne.getBoundingClientRect(), bandeDeLaManche())
+      const dy = defilementPourLaLigne(ligne.getBoundingClientRect(), bandeALEcran(document, window.innerHeight))
       if (dy !== 0) window.scrollBy({ top: dy, behavior: doucement() })
     })
     return () => cancelAnimationFrame(id)

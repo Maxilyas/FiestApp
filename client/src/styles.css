@@ -1595,11 +1595,14 @@ h3 > .icon {
 /* L'urgence ne se dit pas qu'en couleur : en deutéranopie, le rouge devient un kaki plus sombre que l'or, et sous « réduire les
    animations » la pulsation s'arrête (la tablée du 25 octobre 2026). Le sablier que `TimerBar` pose devant les secondes prend leur
    couleur ; la barre s'épaissit — par `scaleY`, qui ne pousse rien autour d'elle et vaut sous chaque thème, quelle que soit la
-   hauteur qu'il lui donne — et le chiffre s'appuie d'un trait : Cormorant n'a que sa graisse 600, une graisse plus forte ne s'y
-   verrait pas. Plus fort que les thèmes (0,3,0), qui posent la hauteur de la barre et la graisse des secondes. */
+   hauteur qu'il lui donne : plus fort que les thèmes (0,3,0), qui la posent ; un thème qui borde sa barre la garde telle quelle
+   (`transform: none`, dans sa feuille), `scaleY` en épaississait le bord du haut et celui du bas, pas ceux des côtés. Le chiffre
+   s'appuie d'un trait — Cormorant n'a que sa graisse 600, une graisse plus forte ne s'y verrait pas —, plus faible que les thèmes
+   (0,2,0) : un thème qui pose le sien le garde, et sous Héros le contour noir de bande dessinée ne devient pas un trait rouge sur
+   le chiffre rouge, juste au moment de l'urgence (la relecture du lot page-1). */
 .timer-seconds.urgent .icon { color: inherit; }
 :root .timer .timer-track.urgent { transform: scaleY(1.67); }
-:root .timer .timer-seconds.urgent { -webkit-text-stroke: 0.03em currentColor; }
+.timer-seconds.urgent { -webkit-text-stroke: 0.03em currentColor; }
 
 /* ── Quiz : réponses ────────────────────────────── */
 .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -10593,16 +10596,19 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-vrai-faux .icon { width: 26px; height: 26px; }
 .cab-vrai-faux .cab-vrai .icon { color: var(--accent-text); }
 .cab-vrai-faux .cab-faux .icon { color: var(--alert); }
-/* Le Détail : ce que vaut la réponse sur la ligne de la question ; le tableau dans un cadre de hauteur fixe — un détail en largeur
-   puis un en hauteur ne font pas sauter les titres sous le doigt —, l'image entière dedans, ses pas en jauge au pied du cadre ;
-   « Reculer d'un pas » seul sur sa ligne ; les quatre titres, un par ligne, le peintre sous chacun. Le cadre se colle sous la tête
-   de la partie (`--cab-tete`, que `Partie.tsx` mesure) sur un sol plein, et les titres défilent sous lui : en 360 × 640, le tableau
-   et ses titres ne tenaient pas ensemble (688 px pour 540, la tablée du 25 octobre 2026). Sa hauteur se compte sur la fenêtre que
-   mesure la partie (`--cab-fenetre`) : sous le zoom que la tablée pose sur la page, `100dvh` en vaut 1,3. Et il laisse sous lui, dans
-   la bande entre la tête et le pied (`--cab-place`), la place d'un titre de trois lignes — 118 pixels en 277 de large : en 277 × 492,
-   la carte-bonus au pied, le cadre et un titre long ne tenaient pas ensemble ; il ne rapetisse que là, de dix pixels. La révélation
-   dit le nom avant le tableau : dessous, il tombait sous le pli. */
-.cab-detail-cadre { position: sticky; top: var(--cab-tete, 0px); z-index: 1; height: min(0.36 * var(--cab-fenetre, 100dvh), 240px, var(--cab-place, 100dvh) - 120px); min-height: 150px; overflow: hidden; border-radius: var(--radius-xs); background: linear-gradient(color-mix(in srgb, var(--ink) 8%, transparent), color-mix(in srgb, var(--ink) 8%, transparent)), var(--bg); }
+/* Le Détail : ce que vaut la réponse sur la ligne de la question ; le tableau dans un cadre de hauteur fixe pour toute la manche —
+   un détail en largeur puis un en hauteur, Éclairer, « Reculer », « Changer » ne font pas sauter les titres sous le doigt —, l'image
+   entière dedans, ses pas en jauge au pied du cadre ; « Reculer d'un pas » seul sur sa ligne ; les quatre titres, un par ligne, le
+   peintre sous chacun. Le cadre se colle sous la tête de la partie (`--cab-tete`, que `Partie.tsx` mesure) sur un sol plein, et
+   les titres défilent sous lui : en 360 × 640, le tableau et ses titres ne tenaient pas ensemble (688 px pour 540, la tablée du
+   25 octobre 2026). Sa hauteur se compte sur la fenêtre (`--cab-fenetre`) : sous le zoom que la tablée pose sur la page, `100dvh`
+   en vaut 1,3. Et il laisse sous lui, dans la bande entre la tête et le pied (`--cab-place`), la place d'un titre de trois lignes —
+   118 pixels en 277 de large : en 277 × 492, la carte-bonus au pied, le cadre et un titre long ne tenaient pas ensemble. La bande se
+   mesure à l'ouverture de la manche, et ne regrandit plus jusqu'à la suivante (`bande.ts`) : elle suivait le pied, et la
+   carte-bonus partie après Éclairer, le cadre regrandissait de onze pixels, les titres avec lui (la relecture du lot page-1).
+   Collé, il couvre aussi le fondu du bas de la tête — deux pixels de plus pour ses coins arrondis — : ce qui passait dessous s'y
+   lisait en trace. La révélation dit le nom avant le tableau : dessous, il tombait sous le pli. */
+.cab-detail-cadre { position: sticky; top: var(--cab-tete, 0px); z-index: 1; height: min(0.36 * var(--cab-fenetre, 100dvh), 240px, var(--cab-place, 100dvh) - 120px); min-height: 150px; overflow: hidden; border-radius: var(--radius-xs); background: linear-gradient(color-mix(in srgb, var(--ink) 8%, transparent), color-mix(in srgb, var(--ink) 8%, transparent)), var(--bg); box-shadow: 0 -10px 0 2px var(--bg); }
 .cab-detail-cadre img { position: absolute; inset: 0; width: 100%; height: calc(100% - 18px); object-fit: contain; }
 .cab-detail-pas { position: absolute; left: 10px; right: 10px; bottom: 6px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
 .cab-detail-pas > i { height: 6px; border-radius: var(--radius-pill); background: var(--surface-strong); box-shadow: inset 0 0 0 1px var(--edge); }
@@ -10750,9 +10756,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-cran { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 12px; background: var(--surface-strong); color: var(--ink); font: inherit; font-size: 1.6rem; font-weight: 700; line-height: 1; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
 .cab-cran[aria-disabled='true'] { opacity: 0.4; cursor: default; }
 /* Un grand pas de chaque côté, sous « − » et « + », ce qu'il fait écrit dessus (« − 12 ») : sur leur rangée, la piste n'aurait
-   plus eu que 29 pixels en 277 de large. */
-.cab-grands-pas { display: flex; justify-content: space-between; gap: 8px; }
-.cab-cran.cab-grand-pas { width: auto; min-width: 44px; padding: 0 12px; font-size: 1.0625rem; white-space: nowrap; }
+   plus eu que 29 pixels en 277 de large. Chacun sa colonne, qui se réduit, et son unité passe à la ligne : « + 24 épisodes » sur
+   une ligne chacun élargissait la page de 21 pixels en 277 × 492 (le rendu de la relecture du lot page-1). */
+.cab-grands-pas { display: grid; grid-template-columns: repeat(2, minmax(0, max-content)); justify-content: space-between; gap: 8px; }
+.cab-cran.cab-grand-pas { width: auto; height: auto; min-height: 44px; min-width: 44px; padding: 6px 12px; font-size: 1.0625rem; line-height: 1.2; text-align: center; text-wrap: balance; }
 /* Le curseur se pose sur le rail, sa propre piste transparente : on ne voit que son bouton, un mât au milieu du filet qu'il tient
    — rond de 28 px, il cachait le petit filet d'une piste de 3000 km, large de 14 px. La piste se prend au doigt sur 44 px de haut :
    le pouce n'attrape pas un trait de 4, et un toucher n'importe où sur elle y pose le mât. */
@@ -10796,17 +10803,22 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    Lyon ») —, la carte ; au pied, « Pas à pas » et « Planter ici ». Où est l'épingle vivait au pied : sa ligne le faisait
    monter sur la carte, et prenait la place qui manquait pour voir la question et la carte ensemble.
    La question se colle sous la tête de la partie, sur un sol plein, et la carte se borne à ce qui reste entre elle et le pied
-   (`--cab-place`, que `Partie.tsx` mesure), centrée : en 277 × 492 — Chrome Android, le texte à 130 % —, la question et la carte
-   demandaient 381 pixels pour une bande de 277, et Jeanne oubliait la question en allant chercher la carte (la tablée du
-   25 octobre 2026). La place se convertit en largeur par les mesures du dessin (`shared/cabinet/france.ts`, ses 362 × 316),
-   jamais sous 180 pixels : plus petite, un pixel du doigt y ferait sept kilomètres. */
+   (`--cab-place`, que `Partie.tsx` mesure à l'ouverture de la manche, `bande.ts` : Éclairer servi, la carte ne change plus de
+   taille), centrée : en 277 × 492 — Chrome Android, le texte à 130 % —, la question et la carte demandaient 381 pixels pour une
+   bande de 277, et Jeanne oubliait la question en allant chercher la carte (la tablée du 25 octobre 2026). Collée, la question
+   couvre aussi les 8 pixels du fondu de la tête au-dessus d'elle et l'air qu'elle laisse à la carte dessous : la consigne passée
+   sous elle s'y lisait en trace, coupée sous le chrono (la relecture du lot page-1). La place se convertit en largeur par les
+   mesures du dessin (`shared/cabinet/france.ts`, ses 362 × 316), jamais sous 150 pixels : plus petite, un pixel du doigt y ferait
+   plus de neuf kilomètres (près de neuf à 150) — « Pas à pas » la mène plus fin. 180, d'abord, ne laissait jamais une question de trois lignes tenir
+   avec elle au plus serré — 277 × 492, la niche posée, la carte-bonus au pied : 133 pixels de place, 152 de large (« Où Voltaire
+   achète-t-il ce domaine ? », la relecture du lot page-1). */
 .cab-recit { color: var(--muted); }
 .cab-consigne-carte { min-height: calc(2 * 1.45em); font-weight: 600; }
 .cab-consigne-carte.cab-souffle { justify-content: flex-start; }
 .cab-consigne-carte.cab-ou-est { display: flex; align-items: center; justify-content: flex-start; gap: 8px; font-weight: 700; }
-.cab-manche:has(.cab-carte-jouable) > .cab-question { position: sticky; top: var(--cab-tete, 0px); z-index: 1; background: var(--bg); }
+.cab-manche:has(.cab-carte-jouable) > .cab-question { position: sticky; top: var(--cab-tete, 0px); z-index: 1; background: var(--bg); box-shadow: 0 -8px 0 var(--bg), 0 8px 0 var(--bg); }
 .cab-carte-de-france { --cab-carte-l: 362; --cab-carte-h: 316; }
-.cab-manche .cab-carte-jouable { width: min(100% + 4px, 460px, max(180px, var(--cab-place, 100dvh) * var(--cab-carte-l) / var(--cab-carte-h))); margin: 0 auto; }
+.cab-manche .cab-carte-jouable { width: min(100% + 4px, 460px, max(150px, var(--cab-place, 100dvh) * var(--cab-carte-l) / var(--cab-carte-h))); margin: 0 auto; }
 /* Les pas de l'épingle, que « Pas à pas » ouvre au-dessus de lui et de « Planter ici », sur leur ligne : quatre directions et la
    bascule des grands pas, 44 pixels chacun — cinq carrés tiennent les 237 pixels d'un 277 de large. Au doigt, ils font ce que font
    les flèches au clavier : sous TalkBack, un double toucher plantait au centre de la carte. Toujours ouverts, avec la carte-bonus

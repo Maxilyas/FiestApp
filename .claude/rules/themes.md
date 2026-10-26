@@ -49,7 +49,12 @@ paths:
   `#root::after` — se retirent sous une feuille, une carte ou un dialogue
   ouverts : au téléphone, elles prenaient la mémoire que la feuille des amis
   attendait pour se dessiner (règle `css.md`). Une couche fixe ailleurs
-  rejoint la règle qui les retire, ou `feuilles.test.ts` la refuse.
+  rejoint la règle qui les retire, ou `feuilles.test.ts` la refuse. Une barre
+  du chrono qu'il borde (`.timer-track` à `border`) se garde telle quelle
+  quand le temps presse (`.timer .timer-track.urgent { transform: none; }`) :
+  le `scaleY` de l'urgence en épaississait le haut et le bas, pas les côtés ;
+  le trait de ses secondes, s'il en pose un, reste le sien — celui de
+  l'urgence est plus faible (`cabinet-ecran.test.ts` relit chaque feuille).
 - **Une règle qui peindrait une carte à fond** ou ce qu'elle montre —
   `.card`, `.label`, `.niveau`, un halo sur `.muted` — s'en écarte par
   `:where(:not(.carte-fond, .carte-fond *))` (sans rien changer à sa

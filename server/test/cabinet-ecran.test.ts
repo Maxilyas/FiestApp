@@ -55,7 +55,7 @@ import {
   SEUILS_DES_RARETES,
 } from '../../shared/cabinet/bareme'
 import { QUESTION_DU_TABLEAU, adresseDUnCadrage, type DetailMontre, type DetailRevele } from '../../shared/cabinet/jeux/detail'
-import { TAILLES_DU_FILET, demiLargeur, milieuDeLaPiste, type FiletMontre, type FiletRevele, type TailleDuFilet } from '../../shared/cabinet/jeux/filet'
+import { TAILLES_DU_FILET, demiLargeur, milieuDeLaPiste, pisteDuFilet, type FiletMontre, type FiletRevele, type TailleDuFilet } from '../../shared/cabinet/jeux/filet'
 import { etatDesTouches, type MotMontre, type MotRevele } from '../../shared/cabinet/jeux/mot'
 import type { FriseMontree, FriseRevelee } from '../../shared/cabinet/jeux/frise'
 import { anneeDite } from '../../shared/frise'
@@ -1012,7 +1012,18 @@ test('la tête d’une partie au texte agrandi : « Quitter » perd son mot avan
   const avecNiche = conteneur(place, 350)
   assert.match(avecNiche, /body\.avec-niche \.cab-quitter-mot \{ display: none; \}/)
   assert.match(avecNiche, /body\.avec-niche \.cab-page \.cab-quitter \{ width: 44px; padding: 0; \}/)
-  for (const bloc of [sansNiche, avecNiche]) assert.doesNotMatch(bloc, /font/, 'une requête de conteneur ne touche à aucun texte')
+  // Plus étroite encore, la niche posée — 277 de large — : même sans son mot, « Quitter » ne tient plus à côté du total. Passé à la
+  // ligne, il ajoutait une rangée de 48 pixels à la tête, et la question de l'Épingle et sa carte n'avaient plus où tenir : pendant
+  // une manche, il s'assied au bout de la ligne du chrono, avant la niche et le bord de la tête, et le chrono lui garde sa place —
+  // le bouton de 44 et l'écart de 8 de la rangée. Rien ne le lisait (la relecture du lot page-1).
+  const assis = conteneur(place, 300)
+  assert.match(assis, /body\.avec-niche \.cab-tete-partie:has\(\.timer\) \.cab-quitter \{ position: absolute; right: calc\(20px \+ var\(--niche-place\)\); bottom: 8px; \}/)
+  const garde = /body\.avec-niche \.cab-tete-partie:has\(\.cab-quitter\) \.timer \{ min-height: 44px; padding-right: calc\(var\(--niche-place\) \+ (\d+)px\); \}/.exec(assis)
+  assert.ok(garde, `le chrono garde la place de « Quitter » : ${assis}`)
+  assert.equal(Number(garde[1]), 44 + 8)
+  // Le bouton se pose dans la tête, qui le contient : collée, elle est positionnée.
+  assert.match(regle(section, '.cab-tete-partie'), /position: sticky;/)
+  for (const bloc of [sansNiche, avecNiche, assis]) assert.doesNotMatch(bloc, /font/, 'une requête de conteneur ne touche à aucun texte')
   // Le bouton garde son nom quand son mot se cache : la tablée le touche par lui, et le lecteur d'écran le dit.
   const tete = /<header class="cab-tete-partie">[\s\S]*?<\/header>/.exec(await laPartie(vues.pari))?.[0] ?? ''
   assert.match(tete, /<button type="button" class="btn cab-quitter" aria-label="Quitter"><svg class="icon"[^>]*>.*?<\/svg><span class="cab-quitter-mot">Quitter<\/span><\/button>/)
@@ -1868,11 +1879,16 @@ test('« Commencer » ouvre la partie sur son entrée, et la retrouve quand sa r
 test('une partie dit son heure au serveur : l’échéance lue à serverNow, la réponse « auto » à l’échéance, chaque geste à son rang, la demi-seconde de garde', () => {
   const partie = source('views/cabinet/Partie.tsx')
   assert.doesNotMatch(partie.replace(/\/\/.*$/gm, ''), /Date\.now\(\)/, 'jamais l’heure du téléphone')
-  // L'échéance se lit à l'heure du serveur, par une seule règle pure (`aEnvoyerALEcheance`, l'épreuve suivante) : l'effet ne fait
-  // plus que l'appeler, et insister à l'instant qu'elle dit.
-  assert.match(partie, /const dans = aEnvoyerALEcheance\(vue, serverNow\(\), pret\)/)
-  assert.match(partie, /await jouer\(\{ quoi: 'repondre', manche, auto: true, \.\.\.\(reponse && \{ reponse \}\) \}, true\)/)
-  assert.match(partie, /\{ premier: dans \}/)
+  // L'échéance se lit à l'heure du serveur, par une seule règle pure (`aEnvoyerALEcheance`, l'épreuve suivante), qui dit aussi le
+  // geste qui part : l'effet ne fait plus que l'appeler, et insister à l'instant qu'elle dit. Sans garde à lui — la sienne, que
+  // rien n'éprouvait, changée en `if (pret || !pret) return`, n'envoyait plus jamais rien et passait toutes les épreuves (la
+  // relecture du lot page-1) : ses deux seuls `if`, le plan absent et la vue qui a changé de rang depuis, se lisent ici.
+  const effet = /const envoi = aEnvoyerALEcheance\(vue, serverNow\(\), pret\)[\s\S]*?\}, \[vue, pret, jouer\]\)/.exec(partie)?.[0] ?? ''
+  assert.ok(effet, 'l’effet de l’échéance appelle la règle pure')
+  assert.match(effet, /^const envoi = aEnvoyerALEcheance\(vue, serverNow\(\), pret\)\n\s+if \(!envoi\) return\n/)
+  assert.match(effet, /if \(vueRef\.current\.rang === rang\) await jouer\(envoi\.geste\(localRef\.current\), true\)/)
+  assert.match(effet, /\{ premier: envoi\.dans \}/)
+  assert.equal([...effet.matchAll(/\bif \(/g)].length, 2, `l’effet n’a que ses deux gardes : ${effet}`)
   assert.match(partie, /api\.cabinet\.geste\(v\.id, v\.rang, geste\)/)
   assert.match(partie, /gesteAccepte\(changement\.current, performance\.now\(\)\)/)
   // Le bilan et les écrans des jeux, à la demande ; jamais `React.lazy`.
@@ -1897,23 +1913,34 @@ test('la réponse part d’elle-même à l’échéance, sous la pause comprise,
   // L'envoi à l'échéance n'était gardé que par le texte de son effet : un mutant qui n'envoyait plus jamais rien (sa garde changée
   // en `if (pret || !pret) return`) passait les cent trente-sept épreuves des quatre fichiers qui lisent `Partie.tsx` (l'audit du
   // code du 25 octobre 2026). La règle sortie de l'effet se juge sur les vues du vrai serveur.
-  const { aEnvoyerALEcheance } = (await import(url('views/cabinet/Partie.tsx'))) as { aEnvoyerALEcheance: (v: VueDeLaPartie, t: number, pret: unknown) => number | null }
-  const ecran = (await ecrans()).pari
+  type Envoi = { dans: number; geste: (local: unknown) => unknown }
+  const { aEnvoyerALEcheance } = (await import(url('views/cabinet/Partie.tsx'))) as { aEnvoyerALEcheance: (v: VueDeLaPartie, t: number, pret: unknown) => Envoi | null }
+  const lesEcrans = await ecrans()
+  const ecran = lesEcrans.pari
+  /** Dans combien de temps la réponse part — null : elle ne part pas. */
+  const dans = (v: VueDeLaPartie, t: number, e: unknown = ecran) => aEnvoyerALEcheance(v, t, e)?.dans ?? null
   // Une manche qui se joue : à son échéance, ni avant — dans ce qui lui reste, à l'heure du serveur ; passée, tout de suite.
   const v = vues.pari
   const reste = v.chrono!.echeance - v.maintenant
   assert.ok(reste > 0)
-  assert.equal(aEnvoyerALEcheance(v, v.maintenant, ecran), reste)
-  assert.equal(aEnvoyerALEcheance(v, v.maintenant + 1_000, ecran), reste - 1_000)
-  assert.equal(aEnvoyerALEcheance(v, v.chrono!.echeance + 5_000, ecran), 0)
+  assert.equal(dans(v, v.maintenant), reste)
+  assert.equal(dans(v, v.maintenant + 1_000), reste - 1_000)
+  assert.equal(dans(v, v.chrono!.echeance + 5_000), 0)
   // Sous la pause de « Quitter ? » : à l'échéance reculée de ce qui reste de pause — la confirmation encore ouverte.
   const p = vues.pause
-  assert.equal(aEnvoyerALEcheance(p, p.maintenant, ecran), p.chrono!.echeance + p.chrono!.pauseResteMs! - p.maintenant)
+  assert.equal(dans(p, p.maintenant), p.chrono!.echeance + p.chrono!.pauseResteMs! - p.maintenant)
   // Rien sans l'écran du jeu — il dit ce qui part —, ni sans chrono : entre « Juste ! » et le choix du Pari, à la révélation, finie.
-  assert.equal(aEnvoyerALEcheance(v, v.maintenant, null), null)
-  for (const sans of [vues.auChoix, vues.gagne, vues.fini]) assert.equal(aEnvoyerALEcheance(sans, sans.maintenant, ecran), null, sans.phase)
-  // La mise se décide sans chrono : rien ne part.
-  assert.equal(aEnvoyerALEcheance({ ...v, phase: 'avant' } as VueDeLaPartie, v.maintenant, ecran), null)
+  assert.equal(dans(v, v.maintenant, null), null)
+  for (const sans of [vues.auChoix, vues.gagne, vues.fini]) assert.equal(dans(sans, sans.maintenant), null, sans.phase)
+  // La mise se décide sans chrono, et sans manche montrée rien ne se répond : rien ne part.
+  assert.equal(dans({ ...v, phase: 'avant' } as VueDeLaPartie, v.maintenant), null)
+  assert.equal(dans({ ...v, enCours: undefined }, v.maintenant), null)
+  // Ce qui part : la réponse « auto » de la manche ouverte, de ce que la page tient à l'instant où elle part — rien au Pari, le
+  // serveur sait déjà ce qui compte ; au Filet, le curseur et le filet qu'il a sous les yeux, bougés depuis que l'envoi s'est prévu.
+  assert.deepEqual(aEnvoyerALEcheance(v, v.maintenant, ecran)!.geste(null), { quoi: 'repondre', manche: v.manche, auto: true })
+  const f = vues.filet
+  const tenu = { x: (f.enCours as FiletMontre).piste.min, taille: 'petit' }
+  assert.deepEqual(aEnvoyerALEcheance(f, f.maintenant, lesEcrans.filet)!.geste(tenu), { quoi: 'repondre', manche: f.manche, auto: true, reponse: { filet: tenu } })
 })
 
 test('le chrono qui presse se voit sans couleur ni mouvement : un sablier devant ses secondes, une barre plus épaisse — dès dix secondes au Cabinet', async () => {
@@ -1941,12 +1968,126 @@ test('le chrono qui presse se voit sans couleur ni mouvement : un sablier devant
   const { renderToStaticMarkup } = await import('react-dom/server')
   const dessin = renderToStaticMarkup(React.createElement(Icon, { name: 'hourglass' }))
   assert.ok(presse.includes(dessin), 'le sablier de l’application')
-  // Au Cabinet, des manches de 25 à 120 secondes : cinq secondes arrivaient tard.
+  // Au Cabinet, des manches de 25 à 120 secondes : cinq secondes arrivaient tard. La tête rendue le dit à son chrono même — à huit
+  // secondes de l'échéance, il presse déjà ; à douze, pas encore : seul le texte de l'appel se lisait, et le seuil ramené à cinq
+  // passait toutes les épreuves (la relecture du lot page-1).
   assert.match(source('views/cabinet/Partie.tsx'), /<TimerBar deadline=\{chrono\.echeance\} duration=\{chrono\.dureeMs \/ 1000\} frozenMs=\{chrono\.figeMs\} urgence=\{SECONDES_QUI_PRESSENT\} \/>/)
-  // La feuille : la barre s'épaissit, les secondes s'appuient — plus fort que les thèmes, qui posent l'une et l'autre.
+  const tete = async (ms: number) =>
+    /<header class="cab-tete-partie">[\s\S]*?<\/header>/.exec(await laPartie(vues.pari, { chrono: { echeance: serverNow() + ms, dureeMs: 45_000 } }))?.[0] ?? ''
+  assert.match(await tete(8_000), /<span class="timer-seconds urgent"><svg class="icon"/)
+  assert.doesNotMatch(await tete(12_000), /urgent/)
+  // La feuille : la barre s'épaissit, plus fort que les thèmes, qui posent sa hauteur (0,3,0) ; les secondes s'appuient d'un
+  // trait, plus faible qu'eux : un thème qui pose le sien le garde — sous Héros, le trait de l'urgence, plus fort, remplaçait le
+  // contour noir de bande dessinée par un trait rouge sur le chiffre rouge (la relecture du lot page-1).
   const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
   assert.match(css, /\n:root \.timer \.timer-track\.urgent \{[^}]*transform: scaleY\([\d.]+\);/)
-  assert.match(css, /\n:root \.timer \.timer-seconds\.urgent \{[^}]*-webkit-text-stroke: [^;]+;/)
+  assert.match(css, /\n\.timer-seconds\.urgent \{[^}]*-webkit-text-stroke: [^;]+;/)
+  assert.doesNotMatch(css, /:root[^{,]*\.timer-seconds\.urgent \{[^}]*-webkit-text-stroke/)
+  // Un thème qui borde sa barre la garde telle quelle à l'urgence : `scaleY` en épaississait le bord du haut et celui du bas, pas
+  // ceux des côtés — sous Héros, cinq pixels contre trois. Et un thème qui pose le trait de ses secondes le pose plus fort que
+  // celui de l'urgence.
+  const dossier = path.join(client, 'themes')
+  const bordees: string[] = []
+  for (const fichier of readdirSync(dossier).filter(f => f.endsWith('.css'))) {
+    const cle = fichier.replace(/\.css$/, '')
+    const feuille = readFileSync(path.join(dossier, fichier), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    const regles = (sel: string) => [...feuille.matchAll(new RegExp(`(?:^|\\n)([^{}\\n]*${echapper(sel)}) \\{([^}]*)\\}`, 'g'))]
+    if (regles('.timer-track').some(r => /(?:^|[\s;])border(?:-(?:top|bottom|width))?\s*:/.test(r[2]))) {
+      bordees.push(cle)
+      assert.match(feuille, new RegExp(`\\n:root\\[data-theme='${cle}'\\] \\.timer \\.timer-track\\.urgent \\{ transform: none; \\}`), `${cle} borde sa barre : l’urgence ne l’étire pas`)
+    }
+    for (const [, sel, corps] of regles('.timer-seconds')) {
+      if (/-webkit-text-stroke/.test(corps)) assert.match(sel, new RegExp(`^:root\\[data-theme='${cle}'\\] `), `${cle} pose le trait de ses secondes plus fort que l’urgence : ${sel}`)
+    }
+  }
+  // La lecture voit bien les barres bordées d'aujourd'hui : sans elles, la boucle ne prouverait rien.
+  for (const cle of ['heros', 'gameboy', 'plage']) assert.ok(bordees.includes(cle), `${cle} borde sa barre`)
+})
+
+test('la bande d’une manche : ce que la tête et le pied collés laissent, posé sur la page en pixels de la page — mesuré à l’ouverture de l’étape, il ne regrandit pas', async () => {
+  // La question collée de l'Épingle, sa carte et le tableau du Détail se règlent sur elle (`--cab-tete`, `--cab-fenetre`,
+  // `--cab-place`) : sans elle, la question et le tableau se collaient sous la tête, et la carte se bornait à toute la fenêtre —
+  // seul le rendu l'aurait vu. Et elle dépendait du pied, qui change en pleine manche : Éclairer servi, la carte-bonus le quitte,
+  // et en 277 × 492 le tableau du Détail regrandissait de onze pixels, ses titres avec lui, sous le doigt qui venait d'Éclairer ;
+  // la carte de l'Épingle passait de 188 à 241 pixels (la relecture du lot page-1). Mesurée à l'ouverture de l'étape, elle ne fait
+  // plus que se resserrer quand le pied grandit — « Pas à pas » ouvert, la carte-bonus encore là —, et revient à son ouverture.
+  type Ouverture = { cle: string } | null
+  const { poserLaBande, TETE_COLLEE, PIED_COLLE, QUESTION_COLLEE, AIR_SOUS_LA_QUESTION } = (await import(url('views/cabinet/bande.ts'))) as {
+    poserLaBande: (page: object, fenetre: { innerWidth: number; innerHeight: number }, cle: string | null, avant: Ouverture) => Ouverture
+    TETE_COLLEE: string
+    PIED_COLLE: string
+    QUESTION_COLLEE: string
+    AIR_SOUS_LA_QUESTION: number
+  }
+  // Un faux élément : la page d'une partie, le texte du téléphone à 130 % posé en zoom, sur un écran de 360 × 640.
+  const hauteurs: Record<string, number> = { [TETE_COLLEE]: 116, [PIED_COLLE]: 128, [QUESTION_COLLEE]: 60 }
+  const posees: Record<string, string> = {}
+  const page = {
+    querySelector: (s: string) => (s in hauteurs ? { offsetHeight: hauteurs[s] } : null),
+    currentCSSZoom: 1.3,
+    style: { setProperty: (k: string, v: string) => void (posees[k] = v) },
+  }
+  let fenetre = { innerWidth: 360, innerHeight: 640 }
+  const place = (pied: number, haut = 640) => `${Math.floor(haut / 1.3 - 116 - pied - 60 - AIR_SOUS_LA_QUESTION)}px`
+  let o = poserLaBande(page, fenetre, 'p:0:1', null)
+  // En pixels de la page : la fenêtre ramenée au zoom (640 / 1,3) ; la place, ce que laissent la tête, le pied, la question et l'air.
+  assert.deepEqual(posees, { '--cab-tete': '116px', '--cab-fenetre': '492px', '--cab-place': place(128) })
+  // Éclairer a servi : la carte-bonus quitte le pied, et rien ne regrandit sous le doigt.
+  hauteurs[PIED_COLLE] = 68
+  o = poserLaBande(page, fenetre, 'p:0:1', o)
+  assert.equal(posees['--cab-place'], place(128))
+  // « Pas à pas » ouvert, la carte-bonus encore au pied : la bande se resserre, pour que la question et la carte tiennent encore ;
+  // refermé, elle revient à son ouverture.
+  hauteurs[PIED_COLLE] = 180
+  o = poserLaBande(page, fenetre, 'p:0:1', o)
+  assert.equal(posees['--cab-place'], place(180))
+  hauteurs[PIED_COLLE] = 128
+  o = poserLaBande(page, fenetre, 'p:0:1', o)
+  assert.equal(posees['--cab-place'], place(128))
+  // La barre d'adresse qui se replie grandit la fenêtre : rien ne regrandit ; qui se redéplie la rapetisse : tout se resserre.
+  o = poserLaBande(page, { innerWidth: 360, innerHeight: 700 }, 'p:0:1', o)
+  assert.deepEqual([posees['--cab-fenetre'], posees['--cab-place']], ['492px', place(128)])
+  o = poserLaBande(page, { innerWidth: 360, innerHeight: 600 }, 'p:0:1', o)
+  assert.deepEqual([posees['--cab-fenetre'], posees['--cab-place']], ['462px', place(128, 600)])
+  // La tête suit toujours : la question se colle sous elle, quoi qu'il arrive.
+  hauteurs[TETE_COLLEE] = 120
+  o = poserLaBande(page, fenetre, 'p:0:1', o)
+  assert.equal(posees['--cab-tete'], '120px')
+  hauteurs[TETE_COLLEE] = 116
+  // Entre deux manches (la révélation, la mise : pas d'étape), la bande d'à présent, et l'ouverture gardée — la pause de « Quitter ? »
+  // passée, la manche reprend où elle en était.
+  hauteurs[PIED_COLLE] = 68
+  const pendant = poserLaBande(page, fenetre, null, o)
+  assert.equal(posees['--cab-place'], place(68))
+  assert.equal(pendant, o)
+  o = poserLaBande(page, fenetre, 'p:0:1', pendant)
+  assert.equal(posees['--cab-place'], place(128))
+  // L'étape suivante se mesure à son ouverture ; le téléphone tourné aussi.
+  o = poserLaBande(page, fenetre, 'p:1:1', o)
+  assert.equal(posees['--cab-place'], place(68))
+  hauteurs[PIED_COLLE] = 128
+  fenetre = { innerWidth: 480, innerHeight: 800 }
+  o = poserLaBande(page, fenetre, 'p:1:1', o)
+  assert.deepEqual([posees['--cab-fenetre'], posees['--cab-place']], ['615px', place(128, 800)])
+  // Sans zoom, sans pied ni question — une manche du Pari : la fenêtre telle quelle, rien de retiré pour ce qui n'y est pas.
+  delete hauteurs[PIED_COLLE]
+  delete hauteurs[QUESTION_COLLEE]
+  poserLaBande({ ...page, currentCSSZoom: undefined }, { innerWidth: 360, innerHeight: 640 }, 'q:0:1', null)
+  assert.deepEqual(posees, { '--cab-tete': '116px', '--cab-fenetre': '640px', '--cab-place': `${640 - 116 - AIR_SOUS_LA_QUESTION}px` })
+  // La page de la partie porte la mesure, à sa racine, et ne la refait qu'au besoin : à l'étape ou à la forme qui changent, et quand
+  // la tête, le pied, la question ou la fenêtre changent de taille — pas à chaque lettre du Mot ni à chaque cran du Filet.
+  const partie = source('views/cabinet/Partie.tsx')
+  assert.match(partie, /<div ref=\{page\} className="player-shell cab-page cab-partie">/)
+  assert.match(partie, /useBandeDeLaManche\(page, cleDeLaBande, formeDeLaBande\)/)
+  assert.match(partie, /\}, \[page, cle, forme\]\)/)
+  // Ce qui borne la bande n'a qu'une copie, que la partie, le Mot et le rendu lisent.
+  for (const f of ['views/cabinet/Partie.tsx', 'views/cabinet/jeux/MotMystere.tsx']) {
+    assert.doesNotMatch(source(f), /\.cab-pied-partie:not\(\.cab-pied-pose\)|querySelector\('\.cab-tete-partie'\)/, f)
+  }
+  assert.match(source('views/cabinet/jeux/MotMystere.tsx'), /bandeALEcran\(document, window\.innerHeight\)/)
+  const rendu = readFileSync(path.join(client, '../../server/scripts/rendu-cabinet.ts'), 'utf8')
+  assert.doesNotMatch(rendu, /\.cab-pied-partie:not\(\.cab-pied-pose\)|querySelector\('\.cab-tete-partie'\)/)
+  assert.match(rendu, /from '\.\.\/\.\.\/client\/src\/views\/cabinet\/bande'/)
 })
 
 // ── 15. Le Détail et la Frise à l'écran ───────────────────────────────────
@@ -2486,6 +2627,15 @@ test('la feuille du Détail et de la Frise : le cadre du tableau à hauteur fixe
   // Sa hauteur ne suit que la fenêtre et la bande que mesure la partie, jamais l'image ; et il laisse sous lui la place d'un titre
   // de trois lignes : en 277 × 492, la carte-bonus au pied, le cadre et un titre long ne tenaient pas ensemble.
   assert.match(section, /\.cab-detail-cadre \{[^}]*height: min\(0\.36 \* var\(--cab-fenetre, 100dvh\), 240px, var\(--cab-place, 100dvh\) - 120px\); min-height: 150px;/)
+  // Collé, il couvre aussi les 8 pixels du fondu du bas de la tête — deux de plus pour ses coins arrondis — : ce qui passait
+  // dessous s'y lisait en trace entre la tête et lui (la relecture du lot page-1). Son ombre pleine reste dans l'écart qui le
+  // sépare de la ligne d'au-dessus (14 px) : la page en haut, elle ne couvre rien.
+  const ombre = /\.cab-detail-cadre \{[^}]*box-shadow: 0 -(\d+)px 0 (\d+)px var\(--bg\);/.exec(section)
+  assert.ok(ombre, 'le cadre couvre le fondu de la tête')
+  const couvre = Number(ombre[1]) + Number(ombre[2])
+  assert.ok(couvre >= 8 + 2 && couvre < 14, `${couvre} px couverts au-dessus du cadre`)
+  assert.match(section, /\.cab-tete-partie \{[^}]*background: linear-gradient\(180deg, var\(--bg\) calc\(100% - 8px\), transparent\);/)
+  assert.match(section, /\.cab-manche \{ gap: 14px; \}/)
   assert.match(section, /\.cab-detail-cadre img \{[^}]*object-fit: contain;/)
   // Une année se lit seule, en Cormorant : ses chiffres droits.
   const annee = /(?:^|\n)\.cab-annee \{([^}]*)\}/.exec(section)
@@ -3202,10 +3352,29 @@ test('le Filet en jeu : le curseur et ses crans, le filet choisi, la zone dorée
   // La page ne tient que le curseur et son filet : rien n'y dit s'il y a touché, l'échéance envoie ce qu'il a sous les yeux.
   assert.deepEqual(Object.keys(cran(m, depart, -1)).sort(), ['taille', 'x'])
   // Un grand pas : un dixième de la piste, à son cran près, jamais moins d'un cran ni au-delà de ses bornes ; de là où le curseur
-  // part, toute valeur de la piste se prend en cinq grands pas et dix crans au plus — sans glisser, au lecteur d'écran, d'un pouce
-  // qui tremble (la tablée du 25 octobre 2026 : soixante touchers de « Un cran de plus » pour Camille).
+  // part, toute valeur de la piste se prend en cinq grands pas et une moitié de grand pas en crans — quinze au plus : la plus
+  // longue piste que tire le Filet a 290 crans, un grand pas de 29 — sans glisser, au lecteur d'écran, d'un pouce qui tremble (la
+  // tablée du 25 octobre 2026 : soixante touchers de « Un cran de plus » pour Camille). « Dix crans », écrit d'abord, ne valait
+  // que pour les pistes écrites à la main : une piste de 280 en demande quatorze (la relecture du lot page-1). D'où les pistes
+  // mêmes que le Filet tire, années et estimations, à travers les valeurs qu'il pose.
   const { grandPas } = (await import(url('views/cabinet/jeux/Filet.tsx'))) as { grandPas: (m: FiletMontre, l: Local, sens: 1 | -1) => Local }
-  for (const piste of [p, { min: 0, max: 540, pas: 3 }, { min: 1800, max: 1919, pas: 1 }, { min: 0, max: 20_000, pas: 100 }, { min: 0, max: 7, pas: 1 }]) {
+  const CRANS_AU_PLUS = 15
+  const pistes = new Map<string, FiletMontre['piste']>()
+  for (const piste of [p, { min: 0, max: 540, pas: 3 }, { min: 1800, max: 1919, pas: 1 }, { min: 0, max: 20_000, pas: 100 }, { min: 0, max: 7, pas: 1 }]) pistes.set(JSON.stringify(piste), piste)
+  const tirees = (valeur: number, annee: boolean) => {
+    for (const h of [0, 0.37, 0.999]) {
+      const piste = pisteDuFilet(valeur, annee, () => h, 2026)
+      if (piste) pistes.set(JSON.stringify(piste), piste)
+    }
+  }
+  for (let valeur = 10; valeur < 2_000_000; valeur *= 1.009) {
+    tirees(Math.round(valeur), false)
+    tirees(Number(valeur.toFixed(2)), false)
+  }
+  for (const annee of [1515, 1789, 1871, 1914, 1969, 1980]) tirees(annee, true)
+  assert.ok(pistes.size > 300, `${pistes.size} pistes`)
+  let pire = 0
+  for (const piste of pistes.values()) {
     const mm = { ...m, piste } as FiletMontre
     const ici: Local = { x: milieuDeLaPiste(piste), taille: 'moyen' }
     const pas = grandPas(mm, ici, 1).x - ici.x
@@ -3213,21 +3382,40 @@ test('le Filet en jeu : le curseur et ses crans, le filet choisi, la zone dorée
     assert.ok(Math.abs(pas - (piste.max - piste.min) / 10) <= piste.pas / 2 + 1e-9 || pas === piste.pas, `${JSON.stringify(piste)} : un dixième de la piste (${pas})`)
     assert.equal(grandPas(mm, bouger(mm, ici, piste.max), 1).x, piste.max)
     assert.equal(grandPas(mm, bouger(mm, ici, piste.min), -1).x, piste.min)
-    const atteintes = new Set<number>()
-    for (let g = -5; g <= 5; g++) {
+    // Pour chaque place : le moins de crans qu'il lui faut, après cinq grands pas au plus d'un côté ou de l'autre — dans un sens
+    // puis dans l'autre au besoin : une borne haute hors des crans (0 à 4100, de 21 en 21) se prend telle quelle, et « Un cran de
+    // moins » y mène au cran d'en dessous du dernier.
+    const crans = new Map<number, number>()
+    const retenir = (x: number, c: number) => crans.set(x, Math.min(crans.get(x) ?? Infinity, c))
+    for (const sens of [-1, 1] as const) {
       let l = ici
-      for (let k = 0; k < Math.abs(g); k++) l = grandPas(mm, l, g < 0 ? -1 : 1)
-      for (let c = -10; c <= 10; c++) {
-        let lc = l
-        for (let k = 0; k < Math.abs(c); k++) lc = cran(mm, lc, c < 0 ? -1 : 1)
-        atteintes.add(lc.x)
+      for (let g = 0; g <= 5; g++) {
+        if (g > 0) l = grandPas(mm, l, sens)
+        const vus = new Set([l.x])
+        let front = [l]
+        retenir(l.x, 0)
+        for (let c = 1; c <= CRANS_AU_PLUS && front.length; c++) {
+          const suivants: Local[] = []
+          for (const d of front) {
+            for (const vers of [-1, 1] as const) {
+              const lc = cran(mm, d, vers)
+              if (vus.has(lc.x)) continue
+              vus.add(lc.x)
+              retenir(lc.x, c)
+              suivants.push(lc)
+            }
+          }
+          front = suivants
+        }
       }
     }
-    for (let v = piste.min; v <= piste.max + 1e-9; v += piste.pas) {
-      const auCran = bouger(mm, ici, v).x
-      assert.ok(atteintes.has(auCran), `${JSON.stringify(piste)} : ${auCran} hors d’atteinte`)
+    for (let k = 0; k * piste.pas <= piste.max - piste.min + 1e-9; k++) {
+      const auCran = bouger(mm, ici, piste.min + k * piste.pas).x
+      assert.ok(crans.has(auCran), `${JSON.stringify(piste)} : ${auCran} hors d’atteinte`)
+      pire = Math.max(pire, crans.get(auCran)!)
     }
   }
+  assert.ok(pire <= CRANS_AU_PLUS, `${pire} crans`)
   // Le filet sur la piste, en pour cent, coupé à ses bords.
   const auBord = ouEstLeFilet(p.min, 'grand', p)
   assert.equal(auBord.de, 0)
@@ -3331,7 +3519,8 @@ test('les écrans du Mot et du Filet : à la demande, de leurs règles des types
   const codeDuMot = mot.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
   assert.doesNotMatch(codeDuMot, /essais\.length === 0/)
   assert.doesNotMatch(codeDuMot, /scrollIntoView/)
-  assert.match(mot, /defilementPourLaLigne\(ligne\.getBoundingClientRect\(\), bandeDeLaManche\(\)\)/)
+  // La bande, celle même que la partie mesure (`bande.ts`) : le Mot en avait sa copie.
+  assert.match(mot, /defilementPourLaLigne\(ligne\.getBoundingClientRect\(\), bandeALEcran\(document, window\.innerHeight\)\)/)
   assert.match(mot, /window\.scrollBy\(/)
   // Le clavier de l'ordinateur, posé le temps de la manche, et retiré.
   assert.match(mot, /window\.addEventListener\('keydown', clavier\)/)
@@ -3369,6 +3558,14 @@ test('la feuille du Mot et du Filet : le clavier de trois rangées de 44 px, −
   assert.ok(mat, 'le bouton du curseur a sa taille')
   assert.ok(Number(mat[1]) <= 12 && Number(mat[2]) >= 36 && Number(mat[2]) <= 44, `un mât : ${mat[1]} × ${mat[2]}`)
   assert.match(section, new RegExp(`\\.cab-filet-rail \\{[^}]*margin: 0 ${Number(mat[1]) / 2}px;`))
+  // Les deux grands pas tiennent sur leur rangée quelle que soit l'unité : « + 24 épisodes » sur une ligne chacun, côte à côte,
+  // élargissaient la page de 21 pixels en 277 × 492 (le rendu de la relecture du lot page-1). Chacun sa colonne, qui se réduit, et
+  // son mot passe à la ligne ; jamais le signe sans son nombre (une espace insécable, `Filet.tsx`).
+  assert.match(section, /\.cab-grands-pas \{[^}]*display: grid; grid-template-columns: repeat\(2, minmax\(0, max-content\)\);[^}]*justify-content: space-between;/)
+  const grand = /\.cab-cran\.cab-grand-pas \{([^}]*)\}/.exec(section)?.[1] ?? ''
+  assert.doesNotMatch(grand, /nowrap/)
+  assert.match(grand, /height: auto; min-height: 44px;/)
+  assert.match(source('views/cabinet/jeux/Filet.tsx'), /`−\\u\{a0\}\$\{grand\}`[\s\S]*`\+\\u\{a0\}\$\{grand\}`/)
   // Cormorant écrit ses chiffres à l'ancienne (règle `css.md`) : la valeur visée et les bornes de la piste posent leurs chiffres droits.
   for (const sel of ['.cab-filet-valeur', '.cab-filet-bornes']) {
     const regle = new RegExp(`(?:^|\\n)${echapper(sel)} \\{([^}]*)\\}`).exec(section)

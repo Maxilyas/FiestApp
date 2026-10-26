@@ -37,9 +37,11 @@
 // (`[tête]`) —, et si ce qu'on manipule tient avec ce qu'on lit entre la tête
 // et le pied collés : la ligne à taper du Mot, à l'ouverture et après chaque
 // essai (`[mot]`) ; la question et la carte entière de l'Épingle, à un
-// défilement au moins (`[épingle]`) ; le tableau du Détail entier sous la tête
-// et au-dessus de chaque titre amené au bas de l'écran (`[détail]`) — la tablée
-// du 25 octobre 2026, au texte agrandi. Leur compte à la fin, et le tout dans
+// défilement au moins, la carte à la même largeur avant et après Éclairer,
+// jamais plus large « Pas à pas » ouvert (`[épingle]`) ; le tableau du Détail entier sous
+// la tête et au-dessus de chaque titre amené au bas de l'écran, à la même
+// hauteur tout du long (`[détail]`) — la tablée du 25 octobre 2026, au texte
+// agrandi, et sa relecture. Leur compte à la fin, et le tout dans
 // `rapport.txt`. Le client construit d'abord (`npm run build -w client`).
 //
 // `THEME` : tout thème — offert, vendu ou gagné —, que Zoé et Léa portent d'office.
@@ -55,6 +57,7 @@ import Database from 'better-sqlite3'
 import { demarrer, inscrireProfil } from '../test/banc'
 import { DIX_HEURES, departEnBase } from '../test/cabinet-banc'
 import { CE_QUI_DEBORDE, CE_QUI_EST_COUPE, CE_QUI_SE_CHEVAUCHE, SOUS_LA_NICHE, contrasteDeLaPage } from './a-l-ecran'
+import { PIED_COLLE, TETE_COLLEE } from '../../client/src/views/cabinet/bande'
 import { HAUTEUR_DE_LA_CARTE, LARGEUR_DE_LA_CARTE, projeter } from '../../shared/cabinet/france'
 import { JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import type { DetailTire } from '../../shared/cabinet/jeux/detail'
@@ -134,7 +137,7 @@ const HORS_DU_BOUTON = `(() => {
         if (x.width > 1 && hors > pire) { pire = hors; dit = t.textContent.trim() }
       }
     }
-    if (pire > 1) sortis.push('« ' + dit.slice(0, 30) + ' » de ' + Math.round(pire) + ' px')
+    if (pire > 1) sortis.push('« ' + [...dit].slice(0, 30).join('') + ' » de ' + Math.round(pire) + ' px')
   }
   return sortis
 })()`
@@ -369,7 +372,7 @@ async function boutonQuiDit(page: any, selecteur: string, texte: string) {
   return page.locator(selecteur).nth(i)
 }
 
-/** Le dialogue de « Quitter ? » : « Continuer » (`continuer`) ou « Quitter ». L'écho du doigt passé, il prend le toucher. */
+/** Le dialogue de « Quitter ? » : « Continuer » (`continuer`) ou « Quitter la partie ». L'écho du doigt passé, il prend le toucher. */
 async function repondreAuDialogue(page: any, continuer: boolean) {
   await page.waitForSelector('.dialog')
   await toucher(page, page.locator(continuer ? '.dialog .dialog-actions .btn-ghost' : '.dialog button[type="submit"]'), 900)
@@ -395,9 +398,12 @@ const noterLaBande = (ligne: string) => {
   console.error(ligne)
 }
 
-/** La bande d'une manche, à l'écran : du bas de la tête collée au haut du pied collé, sinon au bas de la fenêtre. */
-const LA_BANDE = `const tete = document.querySelector('.cab-tete-partie').getBoundingClientRect().bottom
-  const pied = document.querySelector('.cab-pied-partie:not(.cab-pied-pose)')
+/**
+ * La bande d'une manche, à l'écran : du bas de la tête collée au haut du pied collé, sinon au bas de la fenêtre — ce qui la borne,
+ * pris de la page même (`bande.ts`) : le rendu en avait sa copie.
+ */
+const LA_BANDE = `const tete = document.querySelector(${JSON.stringify(TETE_COLLEE)}).getBoundingClientRect().bottom
+  const pied = document.querySelector(${JSON.stringify(PIED_COLLE)})
   const bas = pied ? pied.getBoundingClientRect().top : innerHeight`
 
 /** Le texte du total de la tête, et « Quitter » ; et si « Quitter » est passé à la ligne. */
@@ -407,7 +413,7 @@ const LA_TETE = `(() => {
   const plage = document.createRange()
   plage.selectNodeContents(total)
   const t = plage.getBoundingClientRect(), q = quitter.getBoundingClientRect()
-  return { droite: t.right, gauche: q.left, memeLigne: t.bottom > q.top + 0.5 && q.bottom > t.top + 0.5, hauteur: document.querySelector('.cab-tete-partie').getBoundingClientRect().height }
+  return { droite: t.right, gauche: q.left, memeLigne: t.bottom > q.top + 0.5 && q.bottom > t.top + 0.5, hauteur: document.querySelector(${JSON.stringify(TETE_COLLEE)}).getBoundingClientRect().height }
 })()`
 
 /**
@@ -449,9 +455,10 @@ async function laLigneDuMot(page: any, quand: string) {
 /**
  * La question de l'Épingle et sa carte entière ensemble entre la tête et le pied, à un défilement au moins : la page en haut, ou
  * la carte amenée sur le pied — la question se colle alors sous la tête. Au texte agrandi, elles demandaient 381 pixels pour une
- * bande de 277 (la tablée du 25 octobre 2026). La largeur de la carte, bornée à ce qui reste, va au rapport.
+ * bande de 277 (la tablée du 25 octobre 2026). La largeur de la carte, bornée à ce qui reste, va au rapport ; elle est rendue, pour
+ * qu'on la compare d'un moment de la manche à l'autre (`laMemeTaille`).
  */
-async function laQuestionEtLaCarte(page: any, quand: string) {
+async function laQuestionEtLaCarte(page: any, quand: string): Promise<number | null> {
   const mesurer = (): Promise<{ tete: number; bas: number; q: [number, number]; c: [number, number, number] } | null> =>
     page.evaluate(`(() => {
   const q = document.querySelector('.cab-manche > .cab-question'), c = document.querySelector('.cab-manche .cab-carte-jouable')
@@ -467,7 +474,7 @@ async function laQuestionEtLaCarte(page: any, quand: string) {
     const m = (derniere = await mesurer())
     if (m && m.q[0] >= m.tete - 0.5 && m.q[1] <= m.c[0] + 0.5 && m.c[1] <= m.bas + 0.5) {
       mesures.push(`l’Épingle ${quand} : la question et la carte ensemble — la carte de ${Math.round(m.c[2])} px de large`)
-      return
+      return m.c[2]
     }
   }
   const m = derniere
@@ -476,7 +483,28 @@ async function laQuestionEtLaCarte(page: any, quand: string) {
       ? `[épingle] ${quand} : la question (${Math.round(m.q[0])} → ${Math.round(m.q[1])}) et la carte (${Math.round(m.c[0])} → ${Math.round(m.c[1])}, ${Math.round(m.c[2])} px de large) ne tiennent pas ensemble dans la bande (${Math.round(m.tete)} → ${Math.round(m.bas)})`
       : `[épingle] ${quand} : ni question ni carte`,
   )
+  return m ? m.c[2] : null
 }
+
+/**
+ * La même taille d'un moment de la manche à l'autre — la carte de l'Épingle avant et après Éclairer ; le tableau du Détail avant et
+ * après Éclairer, et un pas en arrière : la bande suivait le pied, et la carte-bonus partie, la carte passait de 188 à 241 pixels de
+ * large, le tableau regrandissait de onze, ses titres avec lui, sous le doigt (la relecture du lot page-1). Mesurée à l'ouverture de
+ * la manche, elle ne regrandit plus. « Pas à pas » ouvert (`resserrable`), le pied grandit d'une rangée : la carte n'y regrandit
+ * jamais, et ne se resserre que si la place lui manque — sans carte-bonus au pied à l'ouverture —, pour tenir avec la question ;
+ * le rapport le dit.
+ */
+function laMemeTaille(quoi: string, avant: number | null, apres: number | null, quand: string, resserrable = false) {
+  if (avant === null || apres === null) return
+  const nom = quoi === 'épingle' ? 'la carte de l’Épingle' : 'le tableau du Détail'
+  if (Math.abs(apres - avant) <= 0.5) mesures.push(`${nom} ${quand} : ${Math.round(apres)} px, comme à l’ouverture`)
+  else if (resserrable && apres < avant) mesures.push(`${nom} ${quand} : resserrée de ${Math.round(avant)} à ${Math.round(apres)} px, le pied grandi`)
+  else noterLaBande(`[${quoi}] ${quand} : ${Math.round(avant)} px à l’ouverture, ${Math.round(apres)} px ensuite`)
+}
+
+/** La hauteur du cadre du tableau du Détail, à l'écran. */
+const hauteurDuCadre = async (page: any): Promise<number | null> =>
+  page.evaluate(`(() => { const c = document.querySelector('.cab-detail-cadre'); return c ? c.getBoundingClientRect().height : null })()`)
 /** La carte de l'Épingle amenée sur le pied collé, son bas juste au-dessus de lui. */
 const LA_CARTE_SUR_LE_PIED = `(() => {
   const c = document.querySelector('.cab-manche .cab-carte-jouable').getBoundingClientRect()
@@ -539,20 +567,23 @@ async function unEclair(page: any, t: EclairTire, nom: string) {
   }
 }
 
-/** Une manche du Détail : Éclairer efface un titre, un pas en arrière, puis le bon titre. */
+/** Une manche du Détail : Éclairer efface un titre, un pas en arrière, puis le bon titre. Le tableau garde sa hauteur tout du long. */
 async function unDetail(page: any, t: DetailTire, nom: string) {
   await page.waitForSelector('.cab-detail-cadre img')
   await photo(page, `${nom}-manche`)
+  const ouverture = await hauteurDuCadre(page)
   await leTableauEtSesTitres(page, 'le Détail, sa carte-bonus au pied')
   if (await page.locator('.cab-pouvoir:not([aria-disabled])').count()) {
     await toucher(page, page.locator('.cab-pouvoir'))
     await page.waitForSelector('.cab-titre.cab-effacee')
     await photo(page, `${nom}-eclaire`)
+    laMemeTaille('détail', ouverture, await hauteurDuCadre(page), 'éclairé, sa carte-bonus posée')
     await leTableauEtSesTitres(page, 'le Détail éclairé')
   }
   await toucher(page, page.locator('.cab-reculer'))
   await page.waitForSelector('.cab-detail-pas .cab-detail-vu:nth-child(2)')
   await photo(page, `${nom}-un-pas-en-arriere`, { attente: 900 })
+  laMemeTaille('détail', ouverture, await hauteurDuCadre(page), 'un pas en arrière')
   await toucher(page, await boutonQuiDit(page, '.ans-btn.cab-titre', t.titres[t.bonne].titre))
 }
 
@@ -637,13 +668,13 @@ async function unFilet(page: any, t: FiletTire, nom: string) {
 async function uneEpingle(page: any, t: EpingleTiree, nom: string) {
   await page.waitForSelector('.cab-carte-dessin')
   await photo(page, `${nom}-manche`)
-  await laQuestionEtLaCarte(page, 'à l’ouverture, sa carte-bonus au pied')
+  const ouverture = await laQuestionEtLaCarte(page, 'à l’ouverture, sa carte-bonus au pied')
   await page.evaluate('window.scrollTo(0, 0)')
   if (await page.locator('.cab-pouvoir:not([aria-disabled])').count()) {
     await toucher(page, page.locator('.cab-pouvoir'))
     await page.waitForSelector('.cab-souffle')
     await photo(page, `${nom}-eclaire`)
-    await laQuestionEtLaCarte(page, 'éclairée, sa carte-bonus posée')
+    laMemeTaille('épingle', ouverture, await laQuestionEtLaCarte(page, 'éclairée, sa carte-bonus posée'), 'éclairée, sa carte-bonus posée')
     await photo(page, `${nom}-la-question-et-la-carte`)
     await page.evaluate('window.scrollTo(0, 0)')
   }
@@ -654,7 +685,7 @@ async function uneEpingle(page: any, t: EpingleTiree, nom: string) {
   await toucher(page, page.locator('.cab-pas[aria-label="Vers le nord"]'))
   await page.waitForFunction(() => ((globalThis as any).document.querySelector('.cab-ou-est')?.textContent ?? '').trim() !== '')
   await photo(page, `${nom}-pas-a-pas`)
-  await laQuestionEtLaCarte(page, 'les pas ouverts')
+  laMemeTaille('épingle', ouverture, await laQuestionEtLaCarte(page, 'les pas ouverts'), 'les pas ouverts', true)
   await toucher(page, page.locator('.cab-pas-a-pas'))
   await page.waitForSelector('.cab-pas-de-l-epingle', { state: 'detached' })
   await page.evaluate('window.scrollTo(0, 0)')
@@ -670,19 +701,33 @@ async function uneEpingle(page: any, t: EpingleTiree, nom: string) {
   // `scrollIntoViewIfNeeded`, la carte avait son sud-ouest sous « Planter ici », et le toucher tombait sur le bouton.
   await carte.scrollIntoViewIfNeeded()
   const avant = await ouToucher()
-  await page.evaluate((cible: number) => {
-    const g = globalThis as any
-    const haut = g.document.querySelector('.cab-tete-partie')?.getBoundingClientRect().bottom ?? 0
-    const bas = g.document.querySelector('.cab-pied-partie')?.getBoundingClientRect().top ?? g.innerHeight
-    g.scrollBy(0, cible - (haut + bas) / 2)
-  }, avant.y)
+  // Les sélecteurs de la bande, passés à la fonction : elle s'évalue dans la page, sans les imports d'ici.
+  await page.evaluate(
+    ({ cible, tete, pied }: { cible: number; tete: string; pied: string }) => {
+      const g = globalThis as any
+      const haut = g.document.querySelector(tete)?.getBoundingClientRect().bottom ?? 0
+      const bas = g.document.querySelector(pied)?.getBoundingClientRect().top ?? g.innerHeight
+      g.scrollBy(0, cible - (haut + bas) / 2)
+    },
+    { cible: avant.y, tete: TETE_COLLEE, pied: PIED_COLLE },
+  )
   await page.waitForTimeout(650)
   const point = await ouToucher()
-  // L'épingle du pas vers le nord est déjà dite : on attend que la ligne dise celle du doigt.
-  const dite = await page.evaluate(() => (globalThis as any).document.querySelector('.cab-ou-est')?.textContent ?? '')
+  // L'épingle du pas vers le nord est déjà posée : le toucher doit la déplacer, sur le dessin même. Un toucher tombé à côté de la
+  // carte — sur la question collée, sur le pied — laissait le texte de la ligne inchangé, l'attente avalait son échec, et « Planter
+  // ici » plantait l'épingle du pas (la relecture du lot page-1) : l'étape échoue, désormais.
+  const OU_EST_L_EPINGLE = '.cab-manche .cab-carte-jouable .cab-carte-epingle'
+  const posee = await page.evaluate((s: string) => (globalThis as any).document.querySelector(s)?.getAttribute('transform') ?? '', OU_EST_L_EPINGLE)
   await page.touchscreen.tap(point.x, point.y)
   // Une fonction, jamais un texte : la politique de sécurité de la page refuse `eval` (skill `regarder-le-rendu`).
-  await page.waitForFunction((avant: string) => ((globalThis as any).document.querySelector('.cab-ou-est')?.textContent ?? avant) !== avant, dite, { timeout: 5000 }).catch(() => {})
+  await page.waitForFunction(
+    ({ s, avant }: { s: string; avant: string }) => {
+      const t = (globalThis as any).document.querySelector(s)?.getAttribute('transform') ?? ''
+      return t !== '' && t !== avant
+    },
+    { s: OU_EST_L_EPINGLE, avant: posee },
+    { timeout: 5000 },
+  )
   await photo(page, `${nom}-posee`)
   await toucher(page, page.locator('.cab-planter'))
 }
