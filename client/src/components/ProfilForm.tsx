@@ -5,7 +5,7 @@ import { api, motifDe, UnauthorizedError } from '../api'
 import { PITCH_PROFIL, type PublicProfile } from '../../../shared/profil'
 import { AVATARS } from '../../../shared/avatars'
 import { Icon } from './Icon'
-import { MotDePasse } from './MotDePasse'
+import { MotDePasse, MotDePasseChoisi } from './MotDePasse'
 import { CodeSecours, FormulaireSecours } from './Secours'
 import { identifiantPour, refusDeLIdentifiant, refusDuMotDePasse, tirage } from './inscription'
 import { IdentifiantDiscret, inscrireAvecRepli } from './IdentifiantDiscret'
@@ -60,15 +60,22 @@ interface Props {
    */
   onEnvoi?: () => void
   /**
-   * L'accueil seulement, dont le formulaire est toute la page : son nom, en
-   * titre de premier niveau à chaque écran — caché, l'œil lit déjà la
-   * marque —, et l'onglet qui suit l'écran (`ongletDuFormulaire`). Au lecteur
-   * d'écran, la marque n'était qu'un paragraphe, « Créer un profil » un
-   * titre de niveau 2 sans niveau 1, et l'onglet ne changeait jamais (Hugo,
-   * la tablée du 26 octobre 2026). La salle d'attente ne le donne pas : sa
-   * page a son titre et son onglet.
+   * Le nom de la page dont le formulaire tient tout l'écran, en titre de
+   * premier niveau à chaque écran — caché : l'œil lit déjà la marque de
+   * l'accueil, ou sait dans quelle soirée il est. Au lecteur d'écran, « Créer
+   * un profil » était un titre de niveau 2 sans niveau 1, à l'accueil comme
+   * dans la salle d'attente, que PlayerApp remplace par le formulaire (Hugo,
+   * la tablée du 26 octobre 2026) : « FiestApp · le quiz de soirée » à
+   * l'accueil, le nom de la soirée dans sa salle d'attente.
    */
   titreDeLaPage?: string
+  /**
+   * L'accueil seulement : l'onglet suit l'écran (`ongletDuFormulaire`) — il
+   * gardait le même nom de l'un à l'autre. La salle d'attente garde le sien,
+   * le nom de la soirée, que PlayerApp pose : c'est lui qu'on cherche en
+   * revenant d'un autre onglet.
+   */
+  ongletParEcran?: boolean
 }
 
 /** Les écrans du formulaire, le code de secours compris — celui de l'inscription, ou le neuf d'un secours. */
@@ -129,7 +136,7 @@ export function champsAuChangement(vers: 'choix' | 'connexion' | 'inscription', 
  * reste, ne se comprenaient pas d'un coup d'œil (la remarque du
  * propriétaire du 4 octobre 2026).
  */
-export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, bandeau, onEnvoi, pied, titreDeLaPage }: Props) {
+export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, bandeau, onEnvoi, pied, titreDeLaPage, ongletParEcran }: Props) {
   const [mode, setMode] = useState<'choix' | 'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : echappee ? 'choix' : 'connexion')
   /** Le champ de l'identifiant, ouvert à la demande ou sur un refus du serveur. */
   const [loginOuvert, setLoginOuvert] = useState(false)
@@ -156,7 +163,8 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
   const [refus, setRefus] = useState(false)
   /**
    * Le mot de passe choisi, refusé (« Au moins 8 caractères ») : il se dit
-   * sous son champ, et s'efface dès qu'on le retape.
+   * sous son champ, sa règle se tait (`MotDePasseChoisi`), et il s'efface dès
+   * qu'on le retape.
    */
   const [motDePasseRefuse, setMotDePasseRefuse] = useState('')
   /** Une bonne nouvelle, pas une erreur : elle ne s'écrit pas en rouge. */
@@ -166,7 +174,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
 
   // L'onglet de l'écran ouvert, et celui de la page rendu en partant : au
   // choix, au départ du formulaire une fois connecté.
-  const onglet = titreDeLaPage ? ongletDuFormulaire(recovery ? (recovery.neuf ? 'nouveau-code' : 'code') : mode) : null
+  const onglet = ongletParEcran ? ongletDuFormulaire(recovery ? (recovery.neuf ? 'nouveau-code' : 'code') : mode) : null
   useEffect(() => {
     if (!onglet) return
     const avant = document.title
@@ -413,43 +421,36 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
           />
         </div>
       )}
-      <div className="field">
-        {/* À la création, la règle se dit d'avance, comme aux cinq autres
-            écrans qui font choisir un mot de passe : Jeanne ne l'a apprise
-            qu'au refus de « mimosa » (la tablée du 26 octobre 2026). Le
-            nombre est celui du serveur (`MIN_PASSWORD`, `connexion-claire.test.ts`). */}
-        {creation ? (
-          <div className="field-head">
-            <label className="label" htmlFor="pf-pass">
-              Ton mot de passe
-            </label>
-            <span className="muted small" id="pf-pass-regle">
-              8 caractères au moins
-            </span>
-          </div>
-        ) : (
+      {/* À la création, la règle se dit d'avance, comme aux cinq autres
+          écrans qui font choisir un mot de passe : Jeanne ne l'a apprise
+          qu'au refus de « mimosa » (la tablée du 26 octobre 2026). Dans la
+          tête du champ : sous lui, elle aurait coûté une ligne au-dessus du
+          clavier. */}
+      {creation ? (
+        <MotDePasseChoisi
+          id="pf-pass"
+          regle="en-tete"
+          valeur={password}
+          refus={motDePasseRefuse}
+          onChange={v => {
+            setPassword(v)
+            setMotDePasseRefuse('')
+          }}
+        />
+      ) : (
+        <div className="field">
           <label className="label" htmlFor="pf-pass">
             Ton mot de passe
           </label>
-        )}
-        <MotDePasse
-          id="pf-pass"
-          className="input input-line"
-          value={password}
-          onChange={e => {
-            setPassword(e.target.value)
-            setMotDePasseRefuse('')
-          }}
-          autoComplete={creation ? 'new-password' : 'current-password'}
-          aria-describedby={creation ? (motDePasseRefuse ? 'pf-pass-regle pf-pass-refus' : 'pf-pass-regle') : undefined}
-          aria-invalid={motDePasseRefuse ? true : undefined}
-        />
-        {motDePasseRefuse && (
-          <p className="error" id="pf-pass-refus" role="alert">
-            {motDePasseRefuse}
-          </p>
-        )}
-      </div>
+          <MotDePasse
+            id="pf-pass"
+            className="input input-line"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+        </div>
+      )}
       {creation && (
         <IdentifiantDiscret
           id="pf-login"

@@ -16,7 +16,7 @@ import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { TeamPicker } from './TeamPicker'
 import { Icon } from './Icon'
-import { MotDePasse } from './MotDePasse'
+import { MotDePasse, MotDePasseChoisi } from './MotDePasse'
 import { Sortie } from './Pieces'
 import { IdentifiantDiscret, inscrireAvecRepli } from './IdentifiantDiscret'
 import { identifiantPour, refusDeLIdentifiant, refusDuMotDePasse, tirage } from './inscription'
@@ -156,6 +156,12 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
       sub="Le quiz de la soirée"
     />
   )
+  // Les écrans sans `salut` — se connecter, choisir son mot de passe, noter
+  // son code, le secours, reprendre sa place — n'avaient qu'un titre de
+  // niveau 2 : au lecteur d'écran, aucun ne disait où l'on était (Hugo, la
+  // tablée du 26 octobre 2026). Le nom de la soirée, caché : à l'œil, ils
+  // restent tels quels, et c'est lui que dit déjà l'onglet.
+  const titreCache = <h1 className="sr-only">{space.title}</h1>
 
   /**
    * Rejoint pour de bon. Le parent change d'écran si ça passe.
@@ -262,6 +268,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
 
     return (
       <form className="join entree" onSubmit={connexion}>
+        {titreCache}
         <Sortie
           vers="Retour"
           href="/"
@@ -330,25 +337,34 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
 
   // ── Écran F : reprendre sa place, avec le code de l'animateur ────────
   if (etape === 'place') {
-    return <FormulaireCode reprendre={reprendre} onCancel={() => setEtape('moi')} />
+    return (
+      <>
+        {/* À côté de son formulaire, qui n'en a pas : caché, il ne prend aucune place. */}
+        {titreCache}
+        <FormulaireCode reprendre={reprendre} onCancel={() => setEtape('moi')} />
+      </>
+    )
   }
 
   // ── Écran D : le code de secours ─────────────────────────────────────
   if (etape === 'secours') {
     return (
-      <FormulaireSecours
-        prefill={login.trim()}
-        onDone={async (p, neuf) => {
-          const connu = await reconnecter()
-          if (!connu && !p) return setEtape('connexion')
-          // Le code vient d'être consommé : celui qu'on rend est le nouveau,
-          // et il doit se noter tout de suite comme à l'inscription.
-          setErreur('')
-          setRecovery(neuf)
-          setEtape('code')
-        }}
-        onCancel={() => setEtape('connexion')}
-      />
+      <>
+        {titreCache}
+        <FormulaireSecours
+          prefill={login.trim()}
+          onDone={async (p, neuf) => {
+            const connu = await reconnecter()
+            if (!connu && !p) return setEtape('connexion')
+            // Le code vient d'être consommé : celui qu'on rend est le nouveau,
+            // et il doit se noter tout de suite comme à l'inscription.
+            setErreur('')
+            setRecovery(neuf)
+            setEtape('code')
+          }}
+          onCancel={() => setEtape('connexion')}
+        />
+      </>
     )
   }
 
@@ -469,6 +485,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
 
     return (
       <form className="join" onSubmit={creer}>
+        {titreCache}
         <p className="label center">Créer ton profil · 2/2</p>
         <h2 className="center">
           <Icon name="sparkles" /> Garder ma progression
@@ -477,34 +494,16 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           Un mot de passe, et c'est tout : il n'y a pas d'adresse e-{/* un gluon : « e- / mail » coupé en bout de ligne */ '\u2060'}mail à donner.
         </p>
         <hr className="hairline" />
-        <div className="field">
-          <label className="label" htmlFor="c-pass">
-            Ton mot de passe
-          </label>
-          <MotDePasse
-            id="c-pass"
-            className="input input-line"
-            value={password}
-            onChange={e => {
-              setPassword(e.target.value)
-              setMotDePasseRefuse('')
-            }}
-            autoComplete="new-password"
-            aria-describedby={motDePasseRefuse ? 'c-pass-refus' : 'c-pass-regle'}
-            aria-invalid={motDePasseRefuse ? true : undefined}
-          />
-          {/* Le refus prend la place de la règle, juste dessous : l'un sous
-              l'autre, « Au moins 8 caractères » se lisait deux fois. */}
-          {motDePasseRefuse ? (
-            <p className="error" id="c-pass-refus" role="alert">
-              {motDePasseRefuse}
-            </p>
-          ) : (
-            <span className="muted small" id="c-pass-regle">
-              Au moins 8 caractères.
-            </span>
-          )}
-        </div>
+        <MotDePasseChoisi
+          id="c-pass"
+          regle="dessous"
+          valeur={password}
+          refus={motDePasseRefuse}
+          onChange={v => {
+            setPassword(v)
+            setMotDePasseRefuse('')
+          }}
+        />
         <IdentifiantDiscret
           id="c-login"
           login={login}
@@ -561,6 +560,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
   if (etape === 'code') {
     return (
       <div className="join">
+        {titreCache}
         <h2 className="center">Note ce code de secours</h2>
         {/* L'identifiant s'est déduit du prénom, peut-être « camille2 » : il se
             note ici, avec le code — c'est lui qu'on tapera pour revenir. */}

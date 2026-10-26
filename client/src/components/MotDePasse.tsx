@@ -31,3 +31,83 @@ export function MotDePasse(props: Omit<InputHTMLAttributes<HTMLInputElement>, 't
     </div>
   )
 }
+
+/**
+ * Le minimum du serveur (`MIN_PASSWORD`, `server/src/auth/password.ts`), que
+ * la page ne peut pas importer : `connexion-claire.test.ts` les compare.
+ */
+const MINIMUM = 8
+
+/**
+ * Le mot de passe d'un profil qui naît, à l'accueil comme à l'entrée d'une
+ * soirée : sa règle dite d'avance, et le refus du serveur (« Au moins
+ * 8 caractères ») sous le champ, qui la fait taire — un seul texte à l'œil
+ * comme à l'oreille (`aria-describedby`). Les deux formulaires avaient
+ * chacun le leur, et l'accueil gardait sa règle au-dessus du refus : le
+ * lecteur d'écran disait « 8 caractères au moins », puis « Au moins
+ * 8 caractères » (la relecture du lot de la tablée du 26 octobre 2026).
+ */
+export function MotDePasseChoisi({
+  id,
+  valeur,
+  refus,
+  onChange,
+  regle,
+}: {
+  id: string
+  valeur: string
+  /** Le refus du serveur, vide sinon : c'est au parent de le vider quand on retape. */
+  refus: string
+  onChange: (valeur: string) => void
+  /**
+   * Où se dit la règle : à côté du libellé à l'accueil, où chaque ligne
+   * compte au-dessus du clavier d'un petit téléphone à 130 % ; sous le champ à
+   * l'entrée d'une soirée, comme aux autres écrans qui font choisir un mot de
+   * passe (`Secours.tsx`, `ChangerMotDePasse.tsx`).
+   */
+  regle: 'en-tete' | 'dessous'
+}) {
+  const libelle = (
+    <label className="label" htmlFor={id}>
+      Ton mot de passe
+    </label>
+  )
+  return (
+    <div className="field">
+      {regle === 'en-tete' ? (
+        <div className="field-head">
+          {libelle}
+          {/* Refusé, elle se tait et garde sa place : ôtée, la tête du champ
+              perdait une ligne à 130 % (« Ton mot de passe » et elle y passent
+              sur deux), le champ remontait sous le doigt, puis redescendait
+              à la première lettre retapée. */}
+          <span className="muted small" id={`${id}-regle`} style={refus ? { visibility: 'hidden' } : undefined}>
+            {`${MINIMUM} caractères au moins`}
+          </span>
+        </div>
+      ) : (
+        libelle
+      )}
+      <MotDePasse
+        id={id}
+        className="input input-line"
+        value={valeur}
+        onChange={e => onChange(e.target.value)}
+        autoComplete="new-password"
+        aria-describedby={refus ? `${id}-refus` : `${id}-regle`}
+        aria-invalid={refus ? true : undefined}
+      />
+      {refus ? (
+        <p className="error" id={`${id}-refus`} role="alert">
+          {refus}
+        </p>
+      ) : (
+        regle === 'dessous' && (
+          <span className="muted small" id={`${id}-regle`}>
+            {`Au moins ${MINIMUM} caractères.`}
+          </span>
+        )
+      )}
+    </div>
+  )
+}

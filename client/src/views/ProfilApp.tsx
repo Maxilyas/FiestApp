@@ -470,6 +470,8 @@ export function ProfilApp() {
       <ProfilForm
         // Le titre de la page, pour l'oreille, à chaque écran du formulaire : la marque le porte à l'œil, au choix seulement.
         titreDeLaPage={MARQUE}
+        // Et l'onglet, qui suit l'écran : le formulaire est toute la page.
+        ongletParEcran
         marque={
           <>
             {/* Dite par le titre caché du formulaire : elle ne se redit pas à l'oreille. Restée un paragraphe : en `h1`,

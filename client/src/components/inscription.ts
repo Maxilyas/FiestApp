@@ -31,9 +31,13 @@ export const refusDeLIdentifiant = (e: unknown): boolean =>
   e instanceof ApiError && (!!e.suggestion || /identifiant|déjà pris/i.test(e.message))
 
 /**
- * Un refus du mot de passe choisi (`passwordProblem` : trop court, trop
- * long) : il se dit sous son champ, jamais sous l'identifiant. « Caractères »
- * dit aussi la forme d'un identifiant : celui-là passe d'abord.
+ * Un refus du mot de passe choisi : l'un des trois motifs de
+ * `passwordProblem` (`server/src/auth/password.ts`), tels quels — absent,
+ * trop court, trop long. Il se dit sous son champ, jamais sous
+ * l'identifiant. Ancré sur eux, et non sur « caractères » : la forme d'un
+ * identifiant le dit aussi, et un refus du prénom écrit demain au serveur
+ * (« Prénom : 24 caractères au plus ») se serait dit sous le mot de passe,
+ * sans que rien ne rougisse.
  */
 export const refusDuMotDePasse = (e: unknown): boolean =>
-  e instanceof ApiError && !refusDeLIdentifiant(e) && /mot de passe|caractères/i.test(e.message)
+  e instanceof ApiError && /^(Il faut un mot de passe|Au (moins|plus) \d+ caractères)$/.test(e.message)

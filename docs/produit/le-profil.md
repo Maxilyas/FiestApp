@@ -23,7 +23,8 @@ Un profil naît d'un prénom et d'un mot de passe ; l'identifiant s'en déduit.
 | L'entrée d'une soirée, « Créer un profil » | deux écrans : « Créer ton profil · 1/2 », le prénom et l'avatar ; « 2/2 », « Garder ma progression », le mot de passe (« Au moins 8 caractères. ») — ou « Plus tard — je joue » |
 | La soirée, entre deux quiz ou à sa fin | le même formulaire, le prénom et l'avatar du soir déjà remplis |
 
-- **Un refus se dit sous le champ qu'il vise.** Un mot de passe trop court (« Au moins 8 caractères ») se dit sous le mot de passe, et s'efface dès qu'on le retape ; l'identifiant reste sur sa ligne. Seul un refus de l'identifiant — pris, ou mal formé — en ouvre le champ, le message dessous.
+- **Un refus se dit sous le champ qu'il vise.** Un mot de passe trop court (« Au moins 8 caractères ») se dit sous le mot de passe, et sa règle se tait — une seule fois, à l'œil comme au lecteur d'écran ; elle garde sa place, rien ne bouge — ; il s'efface dès qu'on le retape ; l'identifiant reste sur sa ligne. Seul un refus de l'identifiant — pris, ou mal formé — en ouvre le champ, le message dessous.
+- **Au lecteur d'écran**, chaque écran a son titre de premier niveau : à l'entrée d'une soirée et dans sa salle d'attente, le nom de la soirée — caché quand l'écran ne le montre pas (« Me connecter », « Garder ma progression », le code de secours, « Retrouver mon profil », « Reprendre ma place », le formulaire ouvert entre deux quiz) ; l'onglet garde ce nom. L'accueil : plus bas.
 - **L'identifiant** s'écrit sur une ligne qu'on peut modifier (« Pour te reconnecter : camille ») : 2 à 32 caractères, minuscules sans accent, chiffres, point, tiret ou tiret bas. Déjà pris, le serveur en propose un libre (« camille2 ») : déduit, la page le prend d'elle-même ; tapé à la main, il est refusé (« « camille » est déjà pris »), et l'entrée d'une soirée propose « Essaie « camille2 » — le prendre ».
 - **Le code de secours** — seize signes, `XXXX-XXXX-XXXX-XXXX` — s'affiche une seule fois, juste après (« Ton profil est prêt » à l'accueil, « Note ce code de secours » à l'entrée). Il n'y a pas d'adresse e-mail : c'est la seule façon de retrouver un profil dont on a oublié le mot de passe.
 - **Créé pendant une soirée**, il s'y rattache et la soirée compte ; après la clôture, il commence à la suivante, et la fin de soirée le dit.
@@ -51,7 +52,7 @@ Connecté, `/` est ton accueil. De haut en bas : **ta ligne** — ton avatar, to
 
 Dessous, la dernière soirée gardée sur ce téléphone, l'installation de l'application et son rappel du soir, puis la barre du menu : **Accueil · Mes quiz · Profil · Boutique · Compte**. Pas de carte « J'anime » pour un profil : « Créer un salon » et le menu en tiennent lieu. Seule une console d'animateur ouverte sur ce navigateur sans profil la garde, au-dessus des trois boutons de l'accueil anonyme.
 
-Au lecteur d'écran, la page a son titre de premier niveau, que l'œil ne voit pas : « Accueil » connecté, « FiestApp · le quiz de soirée » sans profil, sur chacun de ses écrans. L'onglet suit l'écran du formulaire : « Me connecter · FiestApp », « Créer un profil · FiestApp », « Retrouver mon profil · FiestApp », « Ton profil est prêt · FiestApp ».
+Au lecteur d'écran, la page a son titre de premier niveau, que l'œil ne voit pas : « Accueil » connecté, « FiestApp · le quiz de soirée » sans profil, sur chacun de ses écrans. L'onglet suit l'écran du formulaire : « Me connecter · FiestApp », « Créer un profil · FiestApp », « Retrouver mon profil · FiestApp », « Ton profil est prêt · FiestApp », et « Note ton nouveau code · FiestApp » après un secours.
 
 ## La page du profil
 

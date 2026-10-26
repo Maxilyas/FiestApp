@@ -612,11 +612,19 @@ test('T12 · le mot de passe s’affiche, sous un bouton au nom fixe', async () 
   const html = await rendu('components/MotDePasse', 'MotDePasse', { id: 'x', value: 'secret', onChange: () => {} })
   assert.match(html, /type="password"/)
   assert.match(html, /aria-label="Afficher le mot de passe" aria-pressed="false" title="Afficher le mot de passe"/)
-  // Les trois champs du téléphone le prennent : la connexion, la création, le profil.
+  // Les champs du téléphone le prennent : la connexion, la création, le profil.
+  // La création passe par `MotDePasseChoisi`, qui le pose avec sa règle — un
+  // champ à part à l'accueil depuis la relecture du lot de la tablée du
+  // 26 octobre 2026, la connexion gardant le sien : l'œil y est aussi.
   const entree = readFileSync(new URL('../../client/src/components/Entree.tsx', import.meta.url), 'utf8')
   const profil = readFileSync(new URL('../../client/src/components/ProfilForm.tsx', import.meta.url), 'utf8')
-  assert.equal([...entree.matchAll(/<MotDePasse\b/g)].length, 2)
-  assert.equal([...profil.matchAll(/<MotDePasse\b/g)].length, 1)
+  assert.equal([...entree.matchAll(/<MotDePasse\b/g)].length, 1, 'la connexion de l’entrée')
+  assert.equal([...entree.matchAll(/<MotDePasseChoisi\b/g)].length, 1, 'la création de l’entrée')
+  assert.equal([...profil.matchAll(/<MotDePasse\b/g)].length, 1, 'la connexion de l’accueil')
+  assert.equal([...profil.matchAll(/<MotDePasseChoisi\b/g)].length, 1, 'la création de l’accueil')
+  const choisi = await rendu('components/MotDePasse', 'MotDePasseChoisi', { id: 'x', valeur: 'secret', refus: '', onChange: () => {}, regle: 'dessous' })
+  assert.match(choisi, /type="password"/)
+  assert.match(choisi, /aria-label="Afficher le mot de passe" aria-pressed="false" title="Afficher le mot de passe"/)
   // Et la récupération par le code de secours : un mot de passe neuf, tapé
   // une fois, sans champ pour le confirmer — là où l'œil sert le plus.
   const secours = readFileSync(new URL('../../client/src/components/Secours.tsx', import.meta.url), 'utf8')
