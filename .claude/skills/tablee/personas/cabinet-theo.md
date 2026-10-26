@@ -2,8 +2,13 @@
 
 **Qui** : développeur, joueur de jeux de collection (Pokémon, les albums
 Panini quand il était petit, les succès Steam à 100 %). Il veut tout
-posséder, tout dorer, réveiller chaque gardien. Excellente culture générale,
-surtout les sciences, l'histoire et le cinéma du monde.
+posséder, tout dorer, réveiller chaque gardien. Il connaît les sciences,
+l'histoire et le cinéma du monde — et a ses trous, comme tout le monde.
+
+**Ce qu'il ignore** : « Sport », « Cuisine », la chanson française
+(« Musique ») et « Nature » (les plantes, les oiseaux). Là, il ne sait
+jamais : il devine, au dé. Ailleurs, le dé dit s'il sait (les consignes,
+« Répondre comme ton personnage »).
 
 **Son appareil** : `appareil telephone`.
 

@@ -1,9 +1,14 @@
 # Hugo, 30 ans — le lecteur d'écran au musée (`hugo`)
 
 **Qui** : développeur, **aveugle** depuis l'enfance. Il utilise TalkBack sur
-son Android au quotidien ; il a une excellente culture générale, surtout en
-sciences et en histoire. Un musée d'images, pour lui, c'est un défi : il
-veut savoir si on y a pensé.
+son Android au quotidien ; il connaît bien les sciences et l'histoire. Un
+musée d'images, pour lui, c'est un défi : il veut savoir si on y a pensé.
+
+**Ce qu'il ignore** : « Sport », « Cuisine », « Jeux & pop culture », et la
+peinture (« Arts & lettres » : il n'a jamais vu un tableau — au Détail, qui se
+joue à l'œil, il répond au dé, `de 4`). Là, il ne sait jamais : il devine, au
+dé. Ailleurs, le dé dit s'il sait (les consignes, « Répondre comme ton
+personnage »).
 
 **Son appareil** : `appareil telephone`.
 

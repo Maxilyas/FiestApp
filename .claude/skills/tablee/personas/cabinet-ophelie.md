@@ -2,8 +2,13 @@
 
 **Qui** : infirmière, deux enfants. Elle joue cinq minutes par jour dans le
 métro (Wordle, Duolingo) et lâche une appli qui lui demande d'apprendre ses
-règles. Bonne culture générale, surtout la chanson, le cinéma français, la
-cuisine et la géographie.
+règles. Elle connaît la chanson, le cinéma français, la cuisine et la
+géographie.
+
+**Ce qu'elle ignore** : « Sciences », « Sport », « Jeux & pop culture », et la
+peinture et les livres d'avant 1900 (« Arts & lettres »). Là, elle ne sait
+jamais : elle devine, au dé. Ailleurs, le dé dit si elle sait (les consignes,
+« Répondre comme ton personnage »).
 
 **Son appareil** : `appareil telephone`.
 
@@ -17,7 +22,8 @@ Cabinet.
 que ce que lui donne son trajet. Elle emporte la carte-bonus que l'annonce
 lui propose si elle comprend en une phrase ce qu'elle fait, sinon elle
 l'ignore. Au milieu de sa deuxième partie, son métro arrive à sa station :
-elle touche « Quitter », hésite, puis revient au jeu ; à la troisième, elle
+elle touche « Quitter », hésite, puis revient au jeu (« Continuer » — pas
+« Quitter la partie ») ; à la troisième, elle
 recharge la page en pleine manche (`recharger`) — elle a cru que l'écran
 avait gelé — et regarde si sa partie l'attend toujours.
 

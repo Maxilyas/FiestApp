@@ -503,6 +503,12 @@ export function ProfilApp() {
           if (info?.cree && VUE !== 'accueil') return window.location.replace('/')
           // Le profil est là : un rafraîchissement ne doit pas rouvrir la création.
           if (creation) history.replaceState(null, '', window.location.pathname)
+          // L'accueil commence en haut, comme chaque écran de la page (`ouvrir`,
+          // `revenir`) : il gardait le défilement du formulaire — « C'est noté »
+          // sous le code de secours —, et en 360 × 640 à 130 % s'ouvrait au
+          // milieu, la ligne du profil au-dessus du bord (la tablée du
+          // 25 octobre 2026).
+          window.scrollTo(0, 0)
           void relire()
         }}
         echappee={

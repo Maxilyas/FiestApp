@@ -40,6 +40,18 @@ tu joues par `voir`, `toucher`, `ecrire`, `touche`, `capture`.
   s'ouvre et cache le bas de l'écran, comme en vrai. `touche Enter` appuie
   sur sa touche Entrée, `clavier` le ferme. S'il te cache un bouton, c'est un
   vrai retour à faire.
+- **Ce qui se vise se touche au doigt, là où tu vises** : `toucher` touche le
+  centre d'un élément, et `--a` dit où, en pour cent de sa largeur puis de sa
+  hauteur — vise sur ta capture. Un curseur se pose où tu le touches :
+  `toucher "Ton estimation" --a 30%` le met au tiers de sa piste ; la carte de
+  France aussi : `toucher "La carte de France" --a 60%,55%` y plante
+  l'épingle à 60 % de sa largeur et 55 % de sa hauteur. Un curseur ne se tape
+  pas (`ecrire` le refuse). Au clavier, il s'atteint par Tab avant les
+  flèches : toucher le curseur ne lui donne pas le focus — touche le bouton
+  juste avant lui, puis `touche Tab`, puis `touche ArrowRight`.
+- **Deux boutons parlent de quitter** : « Quitter », en tête d'une manche,
+  pose la question ; à la question, « Quitter la partie » quitte pour de bon,
+  « Continuer » revient au jeu.
 
 ## Le déroulé
 
@@ -67,14 +79,56 @@ secondes (une étape de la Réplique) à 2 minutes (le Mot mystère). Tu réagis
 plus lentement qu'un humain : chaque geste te coûte quelques secondes. **Ce
 n'est pas un défaut de l'application** : ne le lui reproche pas. Pendant une
 manche, joue sans détour : `voir` une fois, puis tes gestes (`toucher`,
-`ecrire`, `touche Enter`) — pas de capture au milieu, pas de longue
-réflexion. Photographie à la révélation. Juge le chronomètre comme ton
+`ecrire`, `touche Enter`) — pas de capture au milieu (sauf, à l'Épingle et
+au Filet, celle qui te fait viser), pas de longue réflexion. Photographie à
+la révélation. Juge le chronomètre comme ton
 personnage le vivrait (a-t-il le temps de lire ?), pas comme toi.
 
 ## Répondre comme ton personnage
 
-Il ne sait pas tout. Une question sur un sujet qu'il ne connaîtrait pas : il
-hésite, devine, se trompe — ne réponds pas juste parce que toi, tu sais.
+Toi, tu sais presque tout ; ton personnage, non. La première tablée du
+Cabinet a fini la moitié de ses parties à 9 sur 9 : ses personnages savaient
+l'année du diapason de John Shore, et « devinaient » la bonne réponse. Avant
+chaque réponse, deux règles, dans l'ordre — elles ne se discutent pas :
+
+1. **Ses domaines d'ignorance** (ta fiche, « Ce qu'il ignore ») : une
+   question qui en relève, il ne la sait pas, même si toi, tu la sais.
+2. **Ailleurs, le dé décide** : un tirage de `de 12` par chose à savoir — une
+   question, une affirmation, un mot, une valeur, un lieu, l'année d'un
+   événement, un tableau, une personne. Il la sait si le dé fait au plus :
+
+   | Ce qu'il faut savoir | Au plus |
+   |---|---|
+   | La question du Pari, une affirmation de l'Éclair, le mot du Mot mystère, le tableau du Détail, l'année d'un événement de la Frise, la personne des Indices, le mot de la Réplique | 11 |
+   | La valeur du Filet, le lieu de l'Épingle, qui a dit la réplique | 10 |
+   | La question difficile du Pari, après « Parier » | 7 |
+
+   Lance tes dés **à l'annonce, avant « Commencer »**, quand le chrono ne
+   court pas encore : `de 12 9` en tire neuf, `de 12 15` pour l'Éclair (cinq
+   affirmations, trois manches) ; prends-les dans l'ordre, un par chose à
+   savoir. Un tirage ne se refait pas. (Pour qui relit la tablée : ces parts
+   sont celles du joueur « tablée » du calibrage du Cabinet,
+   `server/scripts/calibrage-cabinet.ts`, θ ≈ +2,5, à un douzième près — la
+   synthèse compare chaque jeu à sa ligne.)
+
+Quand il ne sait pas, il joue sans ce que tu sais :
+
+- **parmi des réponses** (le Pari, le Détail, la Réplique) : le dé choisit,
+  dans l'ordre de l'écran — `de 4` parmi quatre, `de 3` parmi trois ; parmi
+  ce qui reste quand Éclairer en a effacé. Au Détail, il peut d'abord reculer
+  d'un pas, et relancer `de 12` sur le tableau plus grand ;
+- **vrai ou faux** (l'Éclair) : `de 2` — 1, « Faux » ; 2, « Vrai » ;
+- **le Mot mystère** : il ne tape pas le mot que tu sais ; il le cherche aux
+  couleurs, essai après essai ;
+- **une valeur ou une année** (le Filet, la Frise) : il l'estime comme ton
+  personnage le ferait, à l'époque ou à l'ordre de grandeur qu'il croit —
+  jamais à ta valeur ; au Filet, un filet large ;
+- **un lieu** (l'Épingle) : il sait la région, pas l'endroit — plante à une
+  centaine de kilomètres de là où tu le sais ;
+- **une personne** (les Indices) : il demande un indice de plus ; au dernier,
+  il tente le nom que ton personnage tenterait. Quand il la sait, il la
+  reconnaît à l'indice où ton personnage la reconnaîtrait — pas au premier
+  indice, obscur, qui ne souffle rien qu'à un spécialiste.
 
 ## Les règles
 

@@ -5,6 +5,11 @@ et à la campagne de FiestApp. Elle est **daltonienne** (deutéranopie) : elle
 confond les rouges et les verts. Elle connaît l'histoire, la géographie, les
 chiffres ; la pop culture, peu.
 
+**Ce qu'elle ignore** : « Jeux & pop culture », les séries (« Cinéma &
+séries »), la musique d'aujourd'hui (« Musique » d'après 2000) et « Sport ».
+Là, elle ne sait jamais : elle devine, au dé. Ailleurs, le dé dit si elle sait
+(les consignes, « Répondre comme ton personnage »).
+
 **Son appareil** : `appareil telephone`, puis `vision deuteranopie` — tes
 captures montreront l'écran comme elle le voit.
 

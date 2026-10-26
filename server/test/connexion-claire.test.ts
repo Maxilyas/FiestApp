@@ -7,6 +7,7 @@
 // il ne s'ouvre en champ qu'à la demande.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import React from 'react'
 
 const memoire = new Map<string, string>()
@@ -48,6 +49,23 @@ test('l’entrée d’une soirée : les mêmes trois boutons, dans le même ordr
   })
   assert.deepEqual(boutons(html), ['Jouer sans compte', 'Me connecter', 'Créer un profil'])
   assert.doesNotMatch(html, /<input/)
+})
+
+// La tablée du 25 octobre 2026 (Jeanne, 360 × 640, texte à 130 %) : « Créer
+// un profil », « Créer mon profil », puis « C'est noté » sous le code de
+// secours, qu'elle avait fait défiler pour l'atteindre — et l'accueil de son
+// profil neuf s'ouvrait défilé au milieu, sa ligne au-dessus du bord : elle
+// est remontée, puis redescendue trois fois. Le formulaire et l'accueil sont
+// la même page, qui gardait le défilement du formulaire. Une épreuve de
+// source : le rendu statique ne joue pas `onDone`.
+test('après « C’est noté », l’accueil d’un profil neuf s’ouvre en haut', () => {
+  const source = readFileSync(new URL('../../client/src/views/ProfilApp.tsx', import.meta.url), 'utf8')
+  const debut = source.indexOf('onDone={(_, info) => {')
+  assert.ok(debut > 0, 'le onDone du formulaire, sur l’accueil sans profil')
+  const corps = source.slice(debut, source.indexOf('\n        }}', debut))
+  const enHaut = corps.indexOf('window.scrollTo(0, 0)')
+  assert.ok(enHaut > 0, 'l’accueil qui paraît commence en haut, comme les autres écrans de la page (`ouvrir`, `revenir`)')
+  assert.ok(enHaut < corps.indexOf('void relire()'), 'en haut avant que l’accueil se relise : il paraît là où l’on est')
 })
 
 test('un profil naît d’un prénom et d’un mot de passe : l’identifiant s’en déduit, sur une ligne', async () => {

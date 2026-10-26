@@ -5,6 +5,13 @@ adore les jeux de lettres, « Questions pour un champion », les musées et les
 cartes de France ; elle connaît l'histoire, la géographie, la peinture, les
 chansons d'avant. Les séries et le sport d'aujourd'hui, beaucoup moins.
 
+**Ce qu'elle ignore** : le sport (« Sport »), les séries, les films et les
+jeux d'aujourd'hui (« Cinéma & séries » d'après 1990, « Jeux & pop
+culture »), l'informatique. Là, elle ne sait jamais : elle devine, au dé.
+Ailleurs, le dé dit si elle sait (les consignes, « Répondre comme ton
+personnage ») — même la peinture et les chansons qu'elle aime ont leurs
+trous.
+
 **Son appareil** : `appareil petit-telephone`, puis `zoom 130` — elle a
 agrandi le texte de son vieux téléphone Android.
 

@@ -45,8 +45,13 @@ REGARDER
 AGIR — chaque geste te rend l'écran d'après
   ouvrir <adresse>            ouvrir /  ·  ouvrir /chez-nadia  ·  ouvrir http://…
   scanner [secondes]          scanner le QR code de l'écran commun (attend qu'il s'allume)
-  toucher <ref|texte>         toucher e12  ·  toucher "Jouer sans compte"
+  toucher <ref|texte> [--a <x>%[,<y>%]]
+                              toucher e12  ·  toucher "Jouer sans compte" — au centre de l'élément ;
+                              --a : là où tu vises, en pour cent de sa largeur (de gauche à droite), puis de
+                              sa hauteur (de haut en bas, le milieu sinon) — un curseur, la carte de France :
+                              toucher "Ton estimation" --a 30%  ·  toucher "La carte de France" --a 60%,55%
   ecrire <ref|étiquette> <texte>     ecrire e7 "Jeanne" : touche le champ, l'efface, puis tape lettre à lettre
+                              (un curseur ne se tape pas : touche-le, --a)
   coller <ref|étiquette> <texte>     coller d'un coup un texte préparé ailleurs (une liste de questions)
   touche <Enter|Tab|Escape|Backspace|ArrowDown…>
   clavier                     fermer le clavier du téléphone (il cache le bas de l'écran)
@@ -64,6 +69,8 @@ JOUER — des raccourcis, parce que le chronomètre n'attend pas
   repondre <n|texte|nombre>   le numéro de la réponse (1 à 4), son texte, ou le nombre d'une estimation ;
                               plusieurs bonnes réponses : « repondre 1 3 » ; un ordre : « repondre 3 1 4 2 »,
                               le premier d'abord — le téléphone valide pour toi
+  de [faces] [fois]           lancer un dé, six faces d'office (de 12, de 4…), ou plusieurs d'un coup (de 12 9) :
+                              ta fiche et tes consignes disent quand il décide
 
 LA SALLE — ce qui se dit à voix haute
   dire <message>              tout le monde l'entend à son prochain geste (tout ton salon, s'il y en a plusieurs)

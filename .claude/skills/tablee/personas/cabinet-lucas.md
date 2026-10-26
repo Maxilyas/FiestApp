@@ -4,6 +4,12 @@
 si on peut tricher. Il connaît le sport, les jeux vidéo, les séries, les
 réseaux ; l'histoire et la géographie, à peu près.
 
+**Ce qu'il ignore** : la peinture et les livres (« Arts & lettres »), la
+musique d'avant 2000 (« Musique »), « Cuisine », « Nature », et l'histoire
+d'avant 1900 (« Histoire »). Là, il ne sait jamais : il devine, au dé.
+Ailleurs, le dé dit s'il sait (les consignes, « Répondre comme ton
+personnage »).
+
 **Son appareil** : `appareil iphone`. Son réseau tombe dans le bus.
 
 **Son profil** : identifiant `lucas`, mot de passe `tablee-profil`.
@@ -19,8 +25,9 @@ peut faire depuis son téléphone (pas d'outil de développeur) :
   /cabinet`) et joue dans les deux ;
 - il coupe son réseau en pleine manche (`reseau coupe`, quelques secondes,
   puis `reseau retabli`), et laisse son écran s'éteindre (`veille 40`) ;
-- il quitte une partie mal partie pour en recommencer une meilleure ; il
-  essaie de rejouer une case de la visite déjà faite ;
+- il quitte une partie mal partie (« Quitter », puis « Quitter la partie »)
+  pour en recommencer une meilleure ; il essaie de rejouer une case de la
+  visite déjà faite ;
 - il essaie de dépenser plus de poussière d'or qu'il n'en a, d'acheter deux
   fois la même œuvre.
 

@@ -43,8 +43,10 @@ import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { format } from 'node:util'
+import { randomInt } from 'node:crypto'
 import { createQuizServer } from '../../src/server'
 import { sansAccent } from '../../../shared/homonymes'
+import { lireLeDe, lireLeToucher, pointVise, UN_CURSEUR_NE_SE_TAPE_PAS, type Visee } from './gestes'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 const RACINE = path.resolve(ICI, '../../..')
@@ -911,6 +913,16 @@ async function taper(el: Element, texte: string) {
 }
 
 /**
+ * Un curseur ne se tape pas : `ecrire` et `coller` le refusent en mots, avant
+ * de le toucher — touché au centre, il pouvait bouger sous le doigt — et avant
+ * `fill`, que Playwright y refuse (`UN_CURSEUR_NE_SE_TAPE_PAS`, `gestes.ts`).
+ */
+async function refuserUnCurseur(el: Element, cible?: string) {
+  if ((await el.getAttribute('type').catch(() => null)) !== 'range') return
+  throw new Refus(`${UN_CURSEUR_NE_SE_TAPE_PAS} — ex. « toucher ${cible ? (/^e\d+$/.test(cible) ? cible : `"${cible}"`) : 'e12'} --a 30% ».`)
+}
+
+/**
  * Le numéro d'une réponse, donné par son numéro ou par son texte ; 0 si
  * aucune ne répond. « 2007 » à une question dont les réponses sont des
  * années : c'est le texte d'une réponse, pas son numéro.
@@ -925,8 +937,13 @@ function numeroDeReponse(voulu: string, reponses: string[]): number {
   return reponses.findIndex(r => r.toLowerCase() === bas) + 1 || reponses.findIndex(r => r.toLowerCase().includes(bas)) + 1
 }
 
-/** Toucher du doigt sur un téléphone, cliquer ailleurs — et dire pourquoi ça n'a pas pris. */
-async function toucher(p: Participant, el: Element) {
+/**
+ * Toucher du doigt sur un téléphone, cliquer ailleurs — et dire pourquoi ça
+ * n'a pas pris. Au centre de l'élément, sauf là où l'agent vise (`--a`, lu par
+ * `lireLeToucher`) : un point de la carte de France, une valeur du curseur du
+ * Filet — Chromium y pose le curseur sous le doigt, sans lui donner le focus.
+ */
+async function toucher(p: Participant, el: Element, visee: Visee | null = null) {
   // Clavier ouvert, l'écran s'arrête au-dessus : ce qui est plus bas, un doigt
   // ne l'atteint qu'en fermant le clavier ou en faisant défiler. Playwright,
   // lui, défilerait tout seul jusqu'au bouton — et la gêne passerait inaperçue.
@@ -941,9 +958,18 @@ async function toucher(p: Participant, el: Element) {
     }
   }
   try {
-    if (APPAREILS[p.appareil].tactile) await el.tap({ timeout: 4000 })
-    else await el.click({ timeout: 4000 })
+    let position: { x: number; y: number } | undefined
+    if (visee) {
+      // Défilé d'abord : la boîte d'un élément hors de l'écran n'est pas celle qu'il aura sous le doigt.
+      await el.scrollIntoViewIfNeeded({ timeout: 4000 })
+      const boite = await el.boundingBox()
+      if (!boite) throw new Refus('Cet élément n’est pas visible à l’écran.')
+      position = pointVise(boite, visee)
+    }
+    if (APPAREILS[p.appareil].tactile) await el.tap({ timeout: 4000, position })
+    else await el.click({ timeout: 4000, position })
   } catch (e) {
+    if (e instanceof Refus) throw e
     const m = (e as Error).message
     if (/intercepts pointer events/.test(m)) {
       const ligne = m.split('\n').find(l => l.includes('intercepts pointer events')) ?? ''
@@ -1104,10 +1130,24 @@ async function gesteRegie(geste: string, args: string[], signal: { annule: boole
   }
 }
 
-async function executer(cible: string, geste: string, args: string[], signal: { annule: boolean }): Promise<string> {
+/** Ce qu'un geste rend : sa sortie, et ce que le journal des gestes en garde de plus que ses arguments. */
+type Fait = string | { sortie: string; auJournal: Record<string, unknown> }
+
+async function executer(cible: string, geste: string, args: string[], signal: { annule: boolean }): Promise<Fait> {
   if (cible === 'regie') return gesteRegie(geste, args, signal)
   const [qui, nomOnglet = 'principal'] = cible.toLowerCase().split(':')
   if (!/^[a-z0-9-]{1,24}$/.test(qui)) throw new Refus(`« ${cible} » : un nom en minuscules, sans espace (ex. jeanne, nadia:tele).`)
+
+  // Le dé ne touche pas l'appareil : lancé avant le premier geste, il ne doit
+  // pas en allumer un d'office — `appareil` refuserait ensuite celui de la
+  // fiche. Son tirage va au journal : la synthèse y relit si le dé a décidé.
+  if (geste === 'de') {
+    const de = lireLeDe(args)
+    if (typeof de === 'string') throw new Refus(de)
+    const tirages = Array.from({ length: de.fois }, () => randomInt(1, de.faces + 1))
+    const dit = de.fois === 1 ? `le dé : ${tirages[0]}` : `${de.fois} dés : ${tirages.join(', ')}`
+    return { sortie: `🎲 ${qui} lance ${dit} (de 1 à ${de.faces}).`, auJournal: { faces: de.faces, tirages } }
+  }
 
   if (geste === 'appareil') {
     if (participants.has(qui)) throw new Refus(`${qui} a déjà un appareil (${participants.get(qui)!.appareil}). « partir » d'abord pour en changer.`)
@@ -1174,9 +1214,9 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
     }
 
     case 'toucher': {
-      const cibleTexte = args.join(' ')
-      if (!cibleTexte) throw new Refus('Toucher quoi ? ex. « toucher e12 » ou « toucher "Jouer sans compte" ».')
-      await toucher(p, await localiser(page, cibleTexte))
+      const lu = lireLeToucher(args)
+      if (typeof lu === 'string') throw new Refus(lu)
+      await toucher(p, await localiser(page, lu.cible), lu.visee)
       await stabiliser(page)
       return ecran(p, o)
     }
@@ -1185,6 +1225,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const [champ, ...mots] = args
       if (!champ || mots.length === 0) throw new Refus('Écrire où, et quoi ? ex. « ecrire e7 "Jeanne" ».')
       const el = await localiser(page, champ)
+      await refuserUnCurseur(el, champ)
       // Le doigt d'abord : c'est lui qui ouvre le clavier d'un téléphone.
       if (APPAREILS[p.appareil].tactile) await toucher(p, el).catch(() => {})
       await taper(el, mots.join(' '))
@@ -1196,6 +1237,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const [champ, ...mots] = args
       if (!champ || mots.length === 0) throw new Refus('Coller où, et quoi ? ex. « coller e14 "Quelle est… ?" ».')
       const el = await localiser(page, champ)
+      await refuserUnCurseur(el, champ)
       if (APPAREILS[p.appareil].tactile) await toucher(p, el).catch(() => {})
       // D'un coup, comme un texte copié ailleurs : une liste de questions
       // préparée dans ses notes ne se tape pas lettre à lettre.
@@ -1613,8 +1655,9 @@ const porte = createServer(async (req: IncomingMessage, res: ServerResponse) => 
     const cible = String(demande.cible ?? '')
     const geste = String(demande.geste ?? 'voir')
     const args = Array.isArray(demande.args) ? demande.args.map(String) : []
-    const sortie = await executer(cible, geste, args, signal)
-    consigner({ qui: cible, salon: salonDuGeste(cible), geste, args, ok: true, ms: Date.now() - debut })
+    const fait = await executer(cible, geste, args, signal)
+    const sortie = typeof fait === 'string' ? fait : fait.sortie
+    consigner({ qui: cible, salon: salonDuGeste(cible), geste, args, ok: true, ms: Date.now() - debut, ...(typeof fait === 'string' ? {} : fait.auJournal) })
     repondre(true, sortie)
   } catch (e) {
     const refus = e instanceof Refus
