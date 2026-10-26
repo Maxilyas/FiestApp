@@ -12,122 +12,23 @@
 // deviner deux tableaux sur trois du premier coup (15,6 %). Le Mot mystère,
 // jamais : son zéro tient au modèle, qui n'y tape pas le mot — une chance sur
 // douze millions à cinq lettres —, et au pli, qui ne donne pas une étoile à
-// cinq essais faux.
-//
-// La tablée du 25 octobre 2026 a trouvé le modèle faux là où les barèmes du
-// même jour s'étaient décidés : le rang où l'on reconnaît ne suivait pas la
-// force — aux Indices, le complétionniste plafonnait à 6,45 étoiles sur neuf
-// quand la tablée en faisait 8,75 —, le Filet ignorait sa marche, le tableau
-// des jeux ne comptait pas les quatre œuvres de départ, Changer aux Indices
-// savait d'avance s'il reconnaîtrait la personne, et le joueur sans savoir
-// ignorait la zone d'Éclairer. Les épreuves qui suivent les premières le
-// gardent (axes 9 et 10 de `retours/2026-10-25/synthese.md`).
+// cinq essais faux. Le modèle lui-même, corrigé après la tablée du 25 octobre
+// 2026 : `cabinet-calibrage-modele.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import * as BAREME from '../../shared/cabinet/bareme'
 import { JEUX, CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
-import { POUVOIRS } from '../../shared/cabinet/pouvoirs'
 import { lireNombre } from '../../shared/nombres'
+import { type Lancement, SCRIPT, SERVEUR, SOURCE, auHasard, calibrer, cases, jeuxQuiVisent, ligneDuJeu, lignesDesConfettis, sansCommentaires } from './calibrage-du-cabinet'
 import { importsStatiques } from './chemin-des-imports'
-
-const SERVEUR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const SCRIPT = 'scripts/calibrage-cabinet.ts'
-const SOURCE = readFileSync(path.join(SERVEUR, SCRIPT), 'utf8')
-/** Le code sans ses commentaires : l'exemple d'un essai (`ERREURS_DE_LA_FRISE=0/1/2`) ne déclare rien. */
-const sansCommentaires = (texte: string) => texte.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
-
-type Lancement = { code: number | null; sortie: string; erreurs: string }
-/** Le script, lancé comme on le lance. */
-function calibrer(args: string[]): Promise<Lancement> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(process.execPath, ['--import', 'tsx', SCRIPT, ...args], { cwd: SERVEUR, stdio: ['ignore', 'pipe', 'pipe'] })
-    let sortie = ''
-    let erreurs = ''
-    proc.stdout.on('data', d => (sortie += d))
-    proc.stderr.on('data', d => (erreurs += d))
-    proc.on('error', reject)
-    proc.on('close', code => resolve({ code, sortie, erreurs }))
-  })
-}
 
 /** Le joueur au hasard seul, sans le musée ni la zone de l'Épingle — qui ne dépend d'aucun joueur : quelques secondes. */
 const AU_HASARD = ['--parties', '400', '--mesures', '20', '--sections', 'jeux,cartes,confettis', '--joueurs', 'hasard']
 let auHasardLance: Promise<Lancement> | null = null
 /** Lancé une fois, lu par plusieurs épreuves. */
 const auHasardSeul = () => (auHasardLance ??= calibrer(AU_HASARD))
-
-/** Les cases d'une ligne de tableau : le script sépare ses colonnes de deux blancs au moins, et n'en met qu'un dans une case. */
-const cases = (ligne: string) => ligne.trim().split(/\s{2,}/)
-
-/** La part des parties à une commune, au hasard, jeu par jeu : la ligne que le calibrage en écrit. */
-function auHasard(sortie: string): Map<string, number> {
-  const ligne = sortie.split('\n').find(l => l.includes('Au hasard, une commune'))
-  assert.ok(ligne, `pas de ligne « Au hasard » :\n${sortie}`)
-  const parts = ligne.slice(ligne.indexOf(' : ') + 3).split(' · ')
-  return new Map(
-    parts.map(p => {
-      const m = /^(.+) (\S+) %$/.exec(p.trim())
-      assert.ok(m, `« ${p} » ne se lit pas`)
-      return [m[1], lireNombre(m[2])! / 100]
-    }),
-  )
-}
-
-/** La ligne d'un jeu, pour un joueur, au tableau des jeux un à un : ses parts, ses étoiles en moyenne, ses justes… */
-function ligneDuJeu(sortie: string, jeu: string, joueur: string): string[] {
-  const ligne = sortie.split('\n').map(cases).find(c => c[0] === jeu && c[1] === joueur)
-  assert.ok(ligne, `pas de ligne pour ${jeu} et ${joueur} :\n${sortie}`)
-  return ligne
-}
-
-/** Les lignes d'une section, de son titre à la ligne vide qui la clôt. */
-function sectionDe(sortie: string, titre: string): string[] {
-  const toutes = sortie.split('\n')
-  const debut = toutes.findIndex(l => l.startsWith(titre))
-  assert.ok(debut >= 0, `pas de section « ${titre} » :\n${sortie}`)
-  const fin = toutes.findIndex((l, i) => i > debut && l.trim() === '')
-  return toutes.slice(debut + 1, fin < 0 ? undefined : fin)
-}
-
-/** Une part écrite en pour cent par le calibrage (« 25,3 % », « 25 »), en fraction. */
-const enFraction = (texte: string) => {
-  const n = lireNombre(texte.replace('%', '').trim())
-  assert.ok(n !== null, `« ${texte} » n'est pas une part`)
-  return n / 100
-}
-
-/**
- * Une case du tableau des cartes-bonus : au seuil dit, pour ce jeu et ce
- * joueur, la part sans carte (`null`) ou celle d'un pouvoir à une force — ses
- * trois forces s'écrivent dans une même case, « 1 · 2 · 3 ».
- */
-function partAvecLaCarte(sortie: string, seuil: number, jeu: string, joueur: string, pouvoir: string | null, force?: 1 | 2 | 3): number {
-  const lignes = sectionDe(sortie, 'Les cartes-bonus, jeu par jeu')
-  const debut = lignes.findIndex(l => l.trim().startsWith(`au moins ${seuil} étoiles`))
-  assert.ok(debut >= 0, `pas de tableau à ${seuil} étoiles :\n${lignes.join('\n')}`)
-  const entete = cases(lignes[debut + 1])
-  const ligne = lignes
-    .slice(debut + 2)
-    .map(cases)
-    .find(c => c[0] === jeu && c[1] === joueur)
-  assert.ok(ligne, `pas de ligne pour ${jeu} et ${joueur} à ${seuil} étoiles :\n${lignes.join('\n')}`)
-  const k = entete.indexOf(pouvoir ?? 'sans carte')
-  assert.ok(k > 1, `pas de colonne ${pouvoir ?? 'sans carte'} : ${entete.join(' | ')}`)
-  return enFraction(pouvoir === null ? ligne[k] : ligne[k].split(' · ')[force! - 1])
-}
-
-/** Les lignes des confettis à la minute, joueur par joueur : de l'en-tête du tableau à l'expérience. */
-function lignesDesConfettis(sortie: string): string[] {
-  const toutes = sortie.split('\n')
-  const debut = toutes.findIndex(l => l.includes('Cabinet /min, son meilleur jeu'))
-  const fin = toutes.findIndex((l, i) => i > debut && l.includes("L'expérience suit les confettis"))
-  assert.ok(debut > 0 && fin > debut, `pas de tableau des confettis :\n${sortie}`)
-  return toutes.slice(debut + 1, fin)
-}
 
 /**
  * Le plancher du Filet au hasard, des seules constantes du barème : un curseur
@@ -167,10 +68,11 @@ test('au hasard, chaque jeu a le plancher que ses règles lui font', async () =>
   const detail = parts.get(JEUX.detail.nom)!
   assert.ok(detail > 0.08 && detail < 0.24, `le Détail au hasard : ${detail}, pour 15,6 % de deviner`)
   // Les jeux qui ne visent pas le seuil se lisent sur les mêmes parties : jamais plus de parties à six étoiles qu'à cinq.
-  const visent = /chacune jouée vers ce seuil — (.+) s'y jouent autrement/.exec(sortie)
-  assert.ok(visent, `les jeux qui visent le seuil :\n${sortie}`)
-  assert.deepEqual(visent[1].split(' et ').sort(), [JEUX.filet.nom, JEUX.pari.nom].sort(), 'le Pari et le Filet se jouent vers le seuil')
-  for (const jeu of CLES_DES_JEUX.filter(j => !visent[1].split(' et ').includes(JEUX[j].nom))) {
+  // Le Détail vise le sien depuis la relecture du 26 octobre 2026 : reculer vers les étoiles en moyenne y perdait la
+  // partie parfaite.
+  const quiVisent = jeuxQuiVisent(sortie)
+  assert.deepEqual([...quiVisent].sort(), [JEUX.detail.nom, JEUX.filet.nom, JEUX.pari.nom].sort(), 'le Pari, le Filet et le Détail se jouent vers le seuil')
+  for (const jeu of CLES_DES_JEUX.filter(j => !quiVisent.includes(JEUX[j].nom))) {
     const [cinq, six, sept] = ligneDuJeu(sortie, JEUX[jeu].nom, 'hasard')[2].split(' · ').map(x => lireNombre(x.replace(' %', ''))!)
     assert.ok(cinq >= six && six >= sept, `${JEUX[jeu].nom} : ${cinq} · ${six} · ${sept}`)
   }
@@ -218,7 +120,8 @@ test('une mesure ne dépend pas des joueurs simulés avant elle', async () => {
 test('un barème s’essaie en mémoire, et ce sont les règles du code qui le lisent', async () => {
   // Le barème d'avant le calibrage du 25 octobre 2026, essayé contre celui du code : deux erreurs y valaient ★.
   assert.deepEqual([...BAREME.ERREURS_DE_LA_FRISE], [0, 1, 1], 'le barème du code')
-  const [avant, essai] = await Promise.all([auHasardSeul(), calibrer([...AU_HASARD, '--essai', 'ERREURS_DE_LA_FRISE=0/1/2'])])
+  // L'essai ne lit que le tableau des jeux : les mêmes parties qu'au barème du code, sans le reste.
+  const [avant, essai] = await Promise.all([auHasardSeul(), calibrer(['--parties', '400', '--sections', 'jeux', '--joueurs', 'hasard', '--essai', 'ERREURS_DE_LA_FRISE=0/1/2'])])
   assert.equal(essai.code, 0, essai.erreurs)
   assert.match(essai.sortie, /Essai : ERREURS_DE_LA_FRISE = \[0,1,2\]/)
   const frise = (s: string) => auHasard(s).get(JEUX.frise.nom)!
@@ -229,7 +132,7 @@ test('un barème s’essaie en mémoire, et ce sont les règles du code qui le l
 })
 
 test('ce qui ne s’essaie pas se refuse en mots, avant de jouer', async () => {
-  const [nombre, inconnue, forme, marche, vagues, memeSomme] = await Promise.all([
+  const [nombre, inconnue, forme, marche, vagues, memeSomme, pouvoir] = await Promise.all([
     calibrer(['--essai', 'POUSSIERE_MIN=2']),
     calibrer(['--essai', 'PAS_UNE_CONSTANTE=1']),
     calibrer(['--essai', 'KM_DE_L_EPINGLE=40/120']),
@@ -237,6 +140,8 @@ test('ce qui ne s’essaie pas se refuse en mots, avant de jouer', async () => {
     // Les frises livrées comptent leurs sept événements : bareme.ts les tire des vagues à son chargement, avant l'essai.
     calibrer(['--essai', 'VAGUES_DE_LA_FRISE=2/2/2']),
     calibrer(['--sans-musee', '--joueurs', 'hasard', '--parties', '20', '--mesures', '2', '--essai', 'VAGUES_DE_LA_FRISE=4/2/1']),
+    // Un pouvoir mal tapé aurait fait mesurer les cinq, et l'épreuve qui n'en lit qu'un les aurait payés sans un mot.
+    calibrer(['--sections', 'cartes', '--pouvoirs', 'misser']),
   ])
   assert.equal(nombre.code, 1)
   assert.match(nombre.erreurs, /un nombre exporté ne se réécrit pas/)
@@ -252,6 +157,8 @@ test('ce qui ne s’essaie pas se refuse en mots, avant de jouer', async () => {
   // Des vagues d'autant d'événements se jouent : le refus ne tient qu'à la somme.
   assert.equal(memeSomme.code, 0, memeSomme.erreurs)
   assert.match(memeSomme.sortie, /Essai : VAGUES_DE_LA_FRISE = \[4,2,1\]/)
+  assert.equal(pouvoir.code, 1, pouvoir.sortie)
+  assert.match(pouvoir.erreurs, /--pouvoirs : « misser » n'en est pas un/)
 })
 
 test('le musée se remplit jour après jour, par les règles du musée', async () => {
@@ -293,148 +200,4 @@ test('le calibrage joue les règles du code, sans en recopier une', () => {
   assert.deepEqual(tires, [{ nom: 'EVENEMENTS_D_UNE_FRISE_A_THEME', de: 'VAGUES_DE_LA_FRISE' }], 'les constantes que bareme.ts tire d’un tableau')
   const gardes = SOURCE.slice(SOURCE.indexOf('const DERIVEES'))
   for (const { de } of tires) assert.ok(gardes.includes(`'${de}',`), `${de} : un essai changerait le tableau sans ce que bareme.ts en tire`)
-})
-
-// ── Le modèle corrigé après la tablée du 25 octobre 2026 ─────────────────
-
-test('aux Indices, le rang où l’on reconnaît suit la force : le complétionniste passe le plafond du modèle d’avant', async () => {
-  // Tiré sans la force, le rang plafonnait tout joueur à 6,45 étoiles sur neuf — ★★★ au troisième indice au plus,
-  // 45 % des manches, même à reconnaître toujours —, quand la tablée en faisait 8,75 ; le logit ordinal en attend 6,6
-  // du complétionniste. Le joueur moyen garde les parts du modèle.
-  const { code, sortie, erreurs } = await calibrer(['--sections', 'jeux', '--jeux', 'indices', '--joueurs', 'moyen,complétionniste', '--parties', '1500'])
-  assert.equal(code, 0, erreurs)
-  const etoiles = (joueur: string) => lireNombre(ligneDuJeu(sortie, JEUX.indices.nom, joueur)[3])!
-  assert.ok(etoiles('complétionniste') > 6.45, `le complétionniste aux Indices : ${etoiles('complétionniste')} étoiles sur neuf`)
-  assert.ok(etoiles('complétionniste') > etoiles('moyen') + 1, `${etoiles('complétionniste')} contre ${etoiles('moyen')} au moyen`)
-  // La colonne « = 9 » : les parties parfaites, jouées pour dorer — ce que vise un joueur fort, et ce que compte une tablée.
-  assert.match(sortie, /≥ 5 · ≥ 6 · ≥ 7 · = 9/)
-  const parts = (joueur: string) => ligneDuJeu(sortie, JEUX.indices.nom, joueur)[2].split(' · ').map(enFraction)
-  for (const joueur of ['moyen', 'complétionniste']) {
-    const [, , sept, neuf] = parts(joueur)
-    assert.ok(neuf !== undefined && neuf <= sept + 0.03, `${joueur} : ${parts(joueur).join(' · ')}`)
-  }
-  assert.ok(parts('complétionniste')[3] > parts('moyen')[3], parts('complétionniste').join(' · '))
-})
-
-test('au Filet, ce que le joueur sait suit la marche de la question', async () => {
-  // `--essai MARCHES_DU_FILET=moyen/difficile` rendait la même sortie au chiffre près : le modèle ne lisait pas la marche.
-  const filet = ['--sections', 'jeux', '--jeux', 'filet', '--joueurs', 'moyen', '--parties', '800']
-  const [duCode, essai] = await Promise.all([calibrer(filet), calibrer([...filet, '--essai', 'MARCHES_DU_FILET=moyen/difficile'])])
-  assert.equal(duCode.code, 0, duCode.erreurs)
-  assert.equal(essai.code, 0, essai.erreurs)
-  const parts = (s: string) => ligneDuJeu(s, JEUX.filet.nom, 'moyen')[2].split(' · ').map(enFraction)
-  const [avant, apres] = [parts(duCode.sortie), parts(essai.sortie)]
-  // Plus difficiles, ses questions se savent moins : la commune et l'épique s'éloignent.
-  assert.ok(apres[0] < avant[0] - 0.05 && apres[2] < avant[2] - 0.05, `le Filet du moyen : ${avant.join(' · ')} au code, ${apres.join(' · ')} à l'essai`)
-})
-
-test('les cartes-bonus, jeu par jeu : la mise au Détail sans rien savoir, et Changer aux Indices sans lire l’avenir', async () => {
-  const { code, sortie, erreurs } = await calibrer(['--sections', 'cartes', '--jeux', 'detail,indices,epingle', '--joueurs', 'moyen,hasard', '--mesures', '400'])
-  assert.equal(code, 0, erreurs)
-  // Qui ne sait rien mise la première manche du Détail et devine un titre au premier coup d'œil : parfaite une fois
-  // sur quatre, elle vaut trois étoiles et le bonus de la mise ; les deux autres, trois une fois sur quatre. Ce que
-  // la règle en attend, des chiffres du barème — 25 % d'épiques au barème du 25 octobre 2026 (+4 à la force 3).
-  const p = 1 / BAREME.TITRES_DU_DETAIL
-  const parfaite = BAREME.ETOILES_AU_CADRAGE[0]
-  const misee = parfaite + BAREME.BONUS_DE_MISE[3]
-  let attendu = 0
-  for (const [a, pa] of [[misee, p], [0, 1 - p]] as const)
-    for (const [b, pb] of [[parfaite, p], [0, 1 - p]] as const)
-      for (const [c, pc] of [[parfaite, p], [0, 1 - p]] as const) if (Math.min(BAREME.ETOILES_D_UNE_PARTIE, a + b + c) >= BAREME.SEUILS_DES_RARETES.epique) attendu += pa * pb * pc
-  const epique = partAvecLaCarte(sortie, BAREME.SEUILS_DES_RARETES.epique, JEUX.detail.nom, 'hasard', POUVOIRS.miser.nom, 3)
-  assert.ok(Math.abs(epique - attendu) < 0.06, `au Détail, au hasard, Miser 3 : ${epique} d'épiques, ${attendu} attendus`)
-  // Changer décide sur ce qu'il voit — le premier indice, le plus obscur —, plus sur ce qu'il saurait au cinquième :
-  // avec cet oracle, Changer 3 menait le moyen à une commune 87 fois sur 100, contre 53 sans carte.
-  const commune = BAREME.SEUILS_DES_RARETES.commun
-  const sans = partAvecLaCarte(sortie, commune, JEUX.indices.nom, 'moyen', null)
-  const changer = partAvecLaCarte(sortie, commune, JEUX.indices.nom, 'moyen', POUVOIRS.changer.nom, 3)
-  assert.ok(changer < sans + 0.15, `aux Indices, le moyen : ${changer} avec Changer 3, ${sans} sans carte`)
-  // Qui ne sait rien lit la zone d'Éclairer : il ne plante plus n'importe où (0,5 % de communes, autant que sans carte).
-  const zone = partAvecLaCarte(sortie, commune, JEUX.epingle.nom, 'hasard', POUVOIRS.eclairer.nom, 3)
-  const sansZone = partAvecLaCarte(sortie, commune, JEUX.epingle.nom, 'hasard', null)
-  assert.ok(zone > sansZone + 0.1, `à l'Épingle, au hasard : ${zone} avec Éclairer 3, ${sansZone} sans carte`)
-})
-
-test('le tableau des jeux compte aussi les quatre œuvres de départ, que tout profil emporte', async () => {
-  const { code, sortie, erreurs } = await auHasardSeul()
-  assert.equal(code, 0, erreurs)
-  const lignes = sectionDe(sortie, 'Les jeux, un à un — avec les quatre œuvres de départ').map(cases)
-  for (const jeu of CLES_DES_JEUX) {
-    const avec = lignes.find(c => c[0] === JEUX[jeu].nom && c[1] === 'hasard')
-    assert.ok(avec, `pas de ligne pour ${JEUX[jeu].nom} :\n${lignes.join('\n')}`)
-    // La meilleure des quatre, ou aucune : jamais moins que sans carte, au bruit de la mesure près.
-    const sans = ligneDuJeu(sortie, JEUX[jeu].nom, 'hasard')[2].split(' · ').map(enFraction)
-    const [cinq] = avec[2].split(' · ').map(enFraction)
-    assert.ok(cinq >= sans[0] - 0.04, `${JEUX[jeu].nom} : ${cinq} avec les œuvres de départ, ${sans[0]} sans carte`)
-  }
-})
-
-test('une question du Pari se répond au temps d’une question de série', async () => {
-  // À 9 s contre 14 en série — l'anecdote à part, que le Cabinet lit à la révélation —, le Pari payait ses confettis
-  // plus vite que la série au seul temps posé, et décidait de la condition du troisième choix délégué.
-  const { code, sortie, erreurs } = await auHasardSeul()
-  assert.equal(code, 0, erreurs)
-  const temps = /une série à (\d+) s la question au joueur moyen, dont (\d+) s d'anecdote ; une question du Pari à (\d+) s/.exec(sortie)
-  assert.ok(temps, `le temps d'une question :\n${sortie}`)
-  const [serie, anecdote, pari] = temps.slice(1).map(Number)
-  assert.equal(pari, serie - anecdote)
-})
-
-/** La ligne d'une règle de la zone, à la section de l'Épingle : sa part de communes, au centre · au milieu de la terre · au meilleur point. */
-function communesALEpingle(sortie: string, regle: string): number[] {
-  const ligne = sectionDe(sortie, "Éclairer à l'Épingle")
-    .map(cases)
-    .find(c => c[0] === regle)
-  assert.ok(ligne, `pas de ligne « ${regle} » :\n${sectionDe(sortie, "Éclairer à l'Épingle").join('\n')}`)
-  return ligne[1].split(' · ').map(enFraction)
-}
-
-test('à l’Épingle, qui ne sait rien lit la zone d’Éclairer : la règle du code et ses pistes', async () => {
-  const epingle = ['--sections', 'epingle', '--parties', '600']
-  const [duCode, essai] = await Promise.all([calibrer(epingle), calibrer([...epingle, '--essai', 'DECALAGE_DE_LA_ZONE_KM=120/165'])])
-  assert.equal(duCode.code, 0, duCode.erreurs)
-  assert.equal(essai.code, 0, essai.erreurs)
-  const auMieux = (s: string, regle: string) => Math.max(...communesALEpingle(s, regle))
-  // La règle du 25 octobre 2026 : trois zones font une commune à qui ne sait rien plus de neuf fois sur dix — 93 % au
-  // milieu de la terre que la zone couvre, dit la contre-expertise.
-  assert.ok(auMieux(duCode.sortie, 'de 40 à 140 km, rayon 170 km') > 0.85)
-  // La piste de l'expert ne tient pas : la couronne se lit, et la mer fait le reste (45 à 56 %).
-  const couronne = auMieux(duCode.sortie, 'de 120 à 165 km, rayon 170 km')
-  assert.ok(couronne > 0.35 && couronne < 0.75, `de 120 à 165 km : ${couronne}`)
-  // Le lieu partout dans un disque de 300 km : il n'y a plus de couronne à lire (15 à 32 %).
-  assert.ok(auMieux(duCode.sortie, 'partout dans le disque, rayon 300 km') < 0.4)
-  // La ligne du code suit le barème, essai compris : elle dit son décalage et son rayon, et vaut la piste qui a les mêmes.
-  const duBareme = (s: string) => sectionDe(s, "Éclairer à l'Épingle").map(cases).find(c => c[0].startsWith('le code'))!
-  for (const s of [duCode.sortie, essai.sortie]) {
-    const ligne = duBareme(s)
-    assert.ok(ligne, s)
-    const regle = ligne[0].replace(/^le code : /, '')
-    const piste = sectionDe(s, "Éclairer à l'Épingle").map(cases).find(c => c[0] === regle)
-    if (piste) assert.ok(Math.abs(Math.max(...ligne[1].split(' · ').map(enFraction)) - Math.max(...piste[1].split(' · ').map(enFraction))) < 0.07, `${ligne.join(' | ')}\n${piste.join(' | ')}`)
-  }
-  assert.match(duBareme(essai.sortie)[0], /^le code : de 120 à 165 km/)
-})
-
-test('le joueur « tablée » a sa ligne à chaque jeu, au-dessus du complétionniste', async () => {
-  // Les agents d'une tablée en savent plus que tout joueur (θ ≈ +2,5) : sa synthèse compare chaque jeu à cette ligne.
-  const { code, sortie, erreurs } = await calibrer(['--sections', 'jeux', '--joueurs', 'complétionniste,tablée', '--parties', '300'])
-  assert.equal(code, 0, erreurs)
-  for (const jeu of CLES_DES_JEUX) {
-    const etoiles = (joueur: string) => lireNombre(ligneDuJeu(sortie, JEUX[jeu].nom, joueur)[3])!
-    assert.ok(etoiles('tablée') >= etoiles('complétionniste') - 0.2, `${JEUX[jeu].nom} : ${etoiles('tablée')} à la tablée, ${etoiles('complétionniste')} au complétionniste`)
-  }
-})
-
-test('le chasseur chasse dans la salle du prochain gardien, et l’éveille plus tôt que l’occasionnel', async () => {
-  // L'occasionnel attendait son premier gardien au 36ᵉ jour : la visite remplit les neuf salles à la fois. Le même
-  // joueur, aux mêmes jours, qui chasse là où la page lui dit le prochain gardien, l'éveille plus tôt.
-  const { code, sortie, erreurs } = await calibrer(['--sections', 'musee', '--joueurs', 'occasionnel,chasseur', '--parcours', '2', '--jours', '80', '--mesures', '30'])
-  assert.equal(code, 0, erreurs)
-  const premier = (joueur: string) => {
-    const bloc = sortie.slice(sortie.indexOf(`\n  ${joueur}\n`))
-    const m = /le premier gardien réveillé en jouant : (\S+) j/.exec(bloc)
-    assert.ok(m, `${joueur} :\n${sortie}`)
-    return lireNombre(m[1])!
-  }
-  assert.ok(premier('chasseur') < premier('occasionnel'), `le premier gardien : au ${premier('chasseur')}ᵉ jour au chasseur, au ${premier('occasionnel')}ᵉ à l'occasionnel`)
 })
