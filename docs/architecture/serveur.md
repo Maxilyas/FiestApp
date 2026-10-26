@@ -1,8 +1,8 @@
 # Le serveur
 
 > Le serveur de l'intérieur, pour qui va le modifier : démarrage et arrêt,
-> registres et magasins, routes et erreurs, le moteur et son module de jeu, les
-> tâches de fond, le paquet.
+> registres et magasins, routes et erreurs, le moteur et son module de jeu, le
+> Cabinet de curiosités et sa porte, les tâches de fond, le paquet.
 
 **Dans cette page** : [Les fichiers d'entrée](#les-fichiers-dentrée) ·
 [Le démarrage, pas à pas](#le-démarrage-pas-à-pas) ·
@@ -10,6 +10,7 @@
 [Les registres et les magasins](#les-registres-et-les-magasins) ·
 [Les routes](#les-routes) ·
 [Le moteur et le module de jeu](#le-moteur-et-le-module-de-jeu) ·
+[Le Cabinet de curiosités](#le-cabinet-de-curiosités) ·
 [Les tâches de fond](#les-tâches-de-fond) ·
 [Le paquet](#le-paquet)
 
@@ -77,13 +78,18 @@ flowchart TD
    `restoreInto` si la base locale est vide, `stampLegacySpace`), les profils,
    le quiz du jour et l'amorce de sa réserve, le rappel du soir, la
    bibliothèque et son amorce (`seedLibrary`), les programmes, les partages,
-   les salons, la campagne, le journal des gestes, la santé du serveur, la
+   les salons, la campagne — et, dans son premier lot, les trois tables du
+   Cabinet de curiosités, sa colonne et son secret (`REVEIL_DU_CABINET`) : le
+   Cabinet n'a pas d'`init` à lui —, le journal des gestes, la santé du serveur, la
    maintenance (le bandeau, les pages fermées du QG et leurs testeurs, `Maintenance`),
    l'historique. En série, chaque réveil attendait soixante allers-retours —
    trois secondes de page blanche ; et un échec ne remonte qu'une fois toutes
    les branches finies, pour que rien n'écrive plus après.
 7. **Les branchements.** Le quiz du jour et la campagne reçoivent les profils
-   à leur construction ; ce qui ne relie les magasins qu'à la lecture se
+   à leur construction, le Cabinet la porte de la campagne
+   (`campagne.porte()`) et les profils, et la campagne les crochets du
+   Cabinet — ses paliers (`statsEnPlus`, là seulement où il s'ouvre),
+   l'expédition qui part ou finit (`expeditionChange`) ; ce qui ne relie les magasins qu'à la lecture se
    branche une fois tous ouverts, par des fonctions —
    `profiles.statsDuJour = id => jour.statsDuJour(id)`, le laurier, les paliers
    des sentiers, les confettis de la campagne… Puis `adopterLesComptes` donne
@@ -157,7 +163,8 @@ base permanente. Ce qui ne vit qu'en mémoire part à chaque redémarrage.
 | `SalonStore` | `server/src/core/salons.ts` | Le code à six chiffres d'un salon | permanente (`salons`), mémoire |
 | `ArchiveStore` | `server/src/core/archive.ts` | L'historique des soirées | permanente (`soirees`) |
 | `JourStore` · `RappelStore` | `server/src/core/jour.ts`, `server/src/core/rappels.ts` | Le quiz du jour ; le rappel du soir | permanente (`jour_*`) |
-| `CampagneStore` | `server/src/core/campagne.ts` | Campagne, défi, sentiers, parcours, duels, amis | permanente (`campagne_*`, `sentier_acquis`, `sentier_melanges`) ; ses questions dans `server/content/campagne/` |
+| `CampagneStore` | `server/src/core/campagne.ts` | Campagne, défi, sentiers, parcours, duels, amis, expédition | permanente (`campagne_*`, `sentier_acquis`, `sentier_melanges`) ; ses questions dans `server/content/campagne/` |
+| `CabinetStore` | `server/src/core/cabinet/magasin.ts` | Le Cabinet de curiosités : les musées et les parties en cours, par la porte de la campagne ([plus bas](#le-cabinet-de-curiosités)) | permanente (`cabinet_*`, ses parties dans `campagne_series`), mémoire ; son contenu neuf dans `server/content/cabinet/` |
 | `JournalDesGestes` · `SanteDuServeur` | `server/src/core/journalDesGestes.ts`, `server/src/core/santeDuServeur.ts` | Le journal du QG ; la santé du serveur sur sept jours, et chaque erreur serveur en détail (`server/src/core/erreurs.ts`) | permanente (`qg_*`) |
 | `PagesPubliques` | `server/src/core/pages.ts` | Souvenir et bilan calculés une fois, gardés compressés | mémoire |
 | `PlacesRendues` · `ReserveDInscriptions` · `Appairages` | `server/src/core/places.ts`, `server/src/core/inscriptions.ts`, `server/src/auth/appairage.ts` | Codes « Rendre sa place », réserve d'inscriptions, branchement des télés | mémoire |
@@ -184,6 +191,8 @@ base permanente. Ce qui ne vit qu'en mémoire part à chaque redémarrage.
 | `server/src/auth/profileRoutes.ts` | `/api/joueur/*` | `mountProfileApi` |
 | `server/src/quizDuJour.ts` | `/api/jour/*`, dont la réserve de la routine ; `/api/admin/jour/*` | `mountJour`, `mountReserve`, `mountJourAdmin` |
 | `server/src/campagne.ts` | `/api/campagne/*`, `/api/duels/*`, dont la base de la routine ; `/api/admin/campagne*` | `mountCampagne`, `mountBaseDeLaCampagne`, `mountCampagneAdmin` |
+| `server/src/expedition.ts` | `/api/expedition*` | `mountExpedition` |
+| `server/src/cabinet.ts` | `/api/cabinet*` | `mountCabinet` |
 | `server/src/partages.ts` | `/api/partages/*`, `/api/catalogue*`, `/api/admin/catalogue*`, le partage d'un quiz | `mountPartages` |
 | `server/src/profilsAdmin.ts` | `/api/admin/profils*`, `/api/admin/espaces*` | `mountProfilsAdmin` |
 | `server/src/qg.ts` | `/api/admin/qg*`, `/api/admin/activite`, `/api/admin/soirees*`, `/api/admin/serveur`, `/api/admin/gestes` | `mountQg` |
@@ -206,9 +215,13 @@ Chaque route, sa méthode et son accès : [l'API HTTP](../reference/api-http.md)
       `refuserLesTeles`), puis `journaliser`, qui note au journal du QG chaque
       geste accepté — posé route par route, un garde retiré ne faisait rougir
       aucune épreuve ;
-   3. les routes hors de la porte commune — comptes, appairage, profil du
-      joueur, quiz du jour, campagne et duels, dépôts de la routine (derrière
-      `RESERVE_TOKEN`) —, chacune avec ses gardes et un petit lecteur JSON ;
+   3. les routes hors de la porte commune, derrière les pages fermées du QG
+      (`fermerLesPortes` : une page en maintenance, ou bientôt disponible,
+      ferme les routes qui y commencent quelque chose — `PORTES_DES_PAGES`,
+      `server/src/maintenance.ts`) — comptes, appairage, profil du joueur,
+      quiz du jour, campagne et duels, l'Expédition, le Cabinet de curiosités,
+      missions et soins, dépôts de la routine (derrière `RESERVE_TOKEN`) —,
+      chacune avec ses gardes et un petit lecteur JSON ;
    4. `requireAccount` sur tout le reste : 401 « Connexion requise », vérifié
       **avant** de lire le corps — sinon n'importe qui faisait analyser quatre
       mégaoctets de JSON ;
@@ -322,6 +335,98 @@ tirée une fois. Son barème des QCM sert aussi le quiz du jour
 change les deux. → [Les questions](../produit/les-questions.md),
 [Le temps réel](./temps-reel.md)
 
+## Le Cabinet de curiosités
+
+Le Cabinet ([le produit](../produit/le-cabinet.md)) se joue seul, avec son
+profil, sans temps réel : des routes HTTP, un magasin, et des règles pures,
+toutes dans `shared/cabinet/` — un module par jeu, le pli d'une partie, le
+musée, la vue. Le serveur ne juge rien lui-même : il relit, tire, écrit, et
+choisit ce que la page voit. En construction, il répond partout sauf en
+production (`cabinetOuvert`, `shared/cabinet/ouverture.ts`).
+
+| Pièce | Fichier | Rôle |
+|---|---|---|
+| Les routes | `server/src/cabinet.ts` | `mountCabinet` : la page, commencer, un geste, « Mes réponses », un cadrage du Détail, le cartel d'une œuvre, tes murs, l'achat, la dorure, l'échange — pour un profil, par sa session ; fermé, 404, et la page servie le dit d'avance (`<meta name="cabinet" content="ferme">`, `fermerLeCabinet`, `server/src/core/page.ts`) |
+| Le magasin | `server/src/core/cabinet/magasin.ts` | `CabinetStore` : les musées (`MUSEES_GARDES`, 500) et les parties en cours (`PARTIES_GARDEES`, 200) en mémoire, le plus anciennement servi oublié d'abord ; tout geste sous le verrou du profil, celui de la campagne ; la partie d'un jour d'avant close à la première page qui la trouve |
+| Les tables, le lot froid | `server/src/core/cabinet/tables.ts` | le schéma (`REVEIL_DU_CABINET`), le musée d'un profil d'un seul lot (`lecturesDuMusee`), une partie par sa clé (`lecturesDeLaPartie`), les morceaux de SQL que les gardes partagent |
+| Les écritures | `server/src/core/cabinet/ecriture.ts` | un lot par requête, gardé par la base : le départ, un geste et ce qu'il tranche, l'achat, la dorure, l'échange d'un jeu de la visite, l'oubli d'un profil |
+| Les tireurs | `server/src/core/cabinet/tirages/` | un par jeu (`TIREURS`, `tirerLePlan`) : les trois manches et leurs rechanges, réponses comprises, tirées au départ ; ce que la base leur donne, préparé en fond (`preparerLesTas`) |
+| Le contenu neuf | `server/src/core/cabinet/contenu.ts` | les lieux, les fiches, les répliques, les frises à thème de `server/content/cabinet/`, lus une fois par processus et jugés par les juges mêmes de `server/scripts/cabinet-contenu.ts` |
+| La vue | `server/src/core/cabinet/vue.ts` | ce que la page reçoit, champ par champ (invariant 1) : la page, une partie, le cartel, tes murs, le bouton de l'accueil |
+| Les gardiens | `server/src/core/cabinet/gardiens.ts` | ce que le musée doit, comparé à l'étagère du profil : ce qui manque se range (`reconcilier`), sous une clé fixe |
+| La porte | `server/src/core/porteDeLaCampagne.ts` | le seul passage vers `CampagneStore` |
+
+**La porte de la campagne.** Le magasin de la campagne fait près de onze
+mille lignes, et ses pièges se paient sans un bruit — une réponse écrite sans
+prévenir l'expédition en route, sans se numéroter pour le journal, sans
+créditer son expérience. Le Cabinet ne l'importe donc pas : il reçoit
+`campagne.porte()` (`PorteDeLaCampagne`) — le client de la base, l'heure de
+la campagne, le verrou du profil, les questions jouables et leur mesure, le
+journal des réponses rattrapé au bout d'un lot (`lireAvecLeJournal`), le
+secret du Cabinet, et le rituel d'une réponse en une fonction
+(`ecrireDesReponses`) : l'expédition prévenue, le lot, la réponse numérotée,
+puis, si le lot a écrit la fin de la partie (`FinDUnePartie.ecrite`, lu sur la
+ligne de son geste), l'expérience créditée une fois, les gardiens
+(`avantLesPaliers`), les paliers de la campagne, le compagnon. La campagne ne
+connaît du Cabinet que trois crochets, déclarés dans le même fichier : ce qu'il
+ajoute à son réveil, à ses paliers (les salles complètes que L'Explorateur
+compte, lues dans le lot de `statsDe`) et l'expédition qui part ou finit, en
+mémoire. `server/test/porte-de-la-campagne.test.ts` compte ce que chaque étape
+coûte.
+
+**Les lots gardés.** Deux onglets, ou deux serveurs pendant une mise en ligne,
+chacun sa mémoire : la base seule dit qui a gagné. Un geste s'insère à son
+rang, toujours en tête de son lot, avec un `uid` tiré pour ce lot (`INSERT …
+ON CONFLICT DO NOTHING`) ; chaque autre instruction ne s'écrit que si ce
+geste-là est en base (`gesteEcrit`). Le départ ne pose une partie que si le
+profil n'en a aucune et a encore son droit du jour, recompté dans
+l'instruction même ; une dépense relit le solde dans la sienne, et refuse
+tant qu'une partie attend. Rien d'écrit, ou une erreur : le musée et la partie
+s'oublient, la base se relit à froid, et le geste se rejoue une fois sur
+l'état vrai — la vue d'à présent, ou le refus en mots
+(`server/test/cabinet-charge.test.ts`). Jamais un `UPDATE` ni un `DELETE` de
+`campagne_reponses` : les déclencheurs des tranches du journal les
+effaceraient toutes, et le réveil suivant relirait toute la base.
+
+**La mémoire et le lot froid.** Chaude, la page ne coûte rien ; froide, un
+lot — cent cinquante lignes au pire, le journal des réponses rattrapé au
+bout. Un geste coûte un aller-retour, son verdict compris ; la fin, son lot et
+le rituel de la porte ; un achat, une dorure, un échange, un chacun. Les
+parties du jour se lisent par l'index du profil et de la date (`partiesDuJour`,
+`+mode = 'cabinet'`), et `server/test/cabinet-index.test.ts` lit le plan de
+chaque instruction. Le gros bouton de l'accueil ne dit le musée que si le
+serveur l'a en mémoire (`CabinetStore.accueil`) : pas un aller-retour de plus à
+l'accueil.
+
+**Le tirage.** Tout se tire au départ, par le tirage à la pièce de la campagne
+(`server/src/core/tirageALaPiece.ts` : sept jours sans redite, la marche de
+chaque jeu et celles que l'enjeu y ajoute) et le hasard du serveur, jamais
+d'une graine que la page connaît. Ce que la base donne à chaque jeu — ses QCM,
+ses mots, ses valeurs, ses tableaux, ses frises — se prépare une fois par liste
+de questions jouables, une tranche par tour de boucle (`preparerLesTas`,
+`rendreLaMain`), en fond derrière chaque page du Cabinet
+(`CabinetStore.prechauffer`) ; un départ qui trouve une liste neuve l'attend
+plutôt que de passer vingt-cinq mille questions au crible sur son chemin.
+
+**L'heure.** Jamais `Date.now()` dans `shared/cabinet/` ni
+`server/src/core/cabinet/` (`server/test/cabinet-chronos.test.ts`) : l'heure
+est celle de la campagne, que le banc règle. Un départ en a deux : l'arrivée de
+la requête dit le jour et la date de la partie ; l'ouverture de la première
+manche se prend une fois le plan tiré, juste avant le lot — sans quoi la
+question arrivait le chrono entamé. Seul le plafond des départs
+(`DEPARTS_PAR_HEURE`) compte au temps de la machine : ce n'est pas une
+échéance.
+
+**Ce que `server/src/server.ts` branche** : son ouverture, calculée une fois
+(l'option `cabinet` du serveur, que les tests posent) ; son préchauffage
+derrière `/api/cabinet` ; son oubli d'un profil **avant** celui de la campagne
+(`supprimerProfil` : ses gestes se trouvent par les séries du profil, que la
+campagne efface) ; la balise du Cabinet fermé dans la page servie. Ses routes
+passent derrière `fermerLesPortes` : le QG peut fermer le départ, l'achat, la
+dorure et l'échange (`PORTES_DES_PAGES.cabinet`), et une partie commencée se
+finit. Le détail des tables : [Les données](./donnees.md#le-cabinet-de-curiosités) ;
+les pièges du code : `.claude/rules/cabinet.md`.
+
 ## Les tâches de fond
 
 | Tâche | Où | Rythme | Ce qu'elle fait |
@@ -334,7 +439,8 @@ change les deux. → [Les questions](../produit/les-questions.md),
 | La mesure de charge | `Charge` (`server/src/core/pouls.ts`) | 10 s | processeur, boucle (sonde à 100 ms), mémoire, invités connectés |
 | La santé du serveur | `SanteDuServeur` | 10 min (`RELEVE_MS`) | le relevé de l'heure et un signe de vie, gardés huit jours |
 | Le rappel du soir | `RappelStore` | chaque minute | la tournée part dès 18 h, jamais à partir de 22 h |
-| La base de la campagne | `CampagneStore.prechauffer` | une fois : dès qu'un profil ouvre son accueil ou l'expédition, sinon 20 s après l'ouverture | vérifiée au build et relue telle quelle par le paquet, par morceaux de 64 Ko (`lireLaBasePreparee`) — sous tsx, relue et vérifiée par tranches de 200 questions ; chaque tranche rend la main ; puis ses index, les sujets de chaque question, par tranches de mille, les familles de la mesure, la préparation des tirages (`preparerEnFond`) et le modèle du savoir, chaque étape à son tour de boucle (`rendreLaMain`, plus bas) : la première ouverture de la campagne et le premier tirage les trouvent faits |
+| La base de la campagne | `CampagneStore.prechauffer` | une fois : dès qu'un profil ouvre son accueil, l'expédition ou le Cabinet, sinon 20 s après l'ouverture | vérifiée au build et relue telle quelle par le paquet, par morceaux de 64 Ko (`lireLaBasePreparee`) — sous tsx, relue et vérifiée par tranches de 200 questions ; chaque tranche rend la main ; puis ses index, les sujets de chaque question, par tranches de mille, les familles de la mesure, la préparation des tirages (`preparerEnFond`) et le modèle du savoir, chaque étape à son tour de boucle (`rendreLaMain`, plus bas) : la première ouverture de la campagne et le premier tirage les trouvent faits |
+| Les tas du Cabinet | `CabinetStore.prechauffer`, `preparerLesTas` | derrière chaque page du Cabinet, quand la liste des questions jouables a changé — la réserve du jour, un retrait, une base relue | ce que chaque jeu peut poser de la base — les QCM du Pari et de l'Éclair, les mots du Mot mystère, les valeurs du Filet —, une tranche de questions par tour de boucle, le verdict de chaque crible gardé par question : une liste neuve des mêmes questions ne coûte qu'un filtre ; puis l'Éclair à ses marches, une catégorie par tour ; puis ce que le disque donne — les tableaux du Détail, le contenu neuf —, chacun son tour |
 | Le journal des réponses | `JournalDesReponses` (`server/src/core/journalDesReponses.ts`) | une fois au réveil, puis à chaque lecture qui en a besoin | toutes les réponses de campagne lues une fois, par tranches de deux mille, chacune à son tour de boucle — ses tranches gardées d'abord (`campagne_tranches`, une ligne chacune), puis la base pour ce qui les suit ; ensuite, seulement celles arrivées depuis le plus grand `rowid` lu, dans le lot de la requête qui en a besoin, et chaque fois qu'il a lu deux mille réponses de plus, une tranche de plus, écrite en fond par la base elle-même. Il tient ce que les requêtes d'avant relisaient de toute l'histoire à chaque page : la mesure, le modèle du savoir, l'expérience, ce que chacun a vu, ses premières réponses, ses écussons, ses missions, son carnet, ses compagnons, ses confettis, les épreuves des sentiers au QG |
 | Le journal des duels | `JournalDesDuels` (`server/src/core/journalDesDuels.ts`) | une fois au réveil, puis à chaque lecture qui en a besoin ; tout, trois minutes après la première lecture (`DUELS_RELUS_APRES_LE_DEMARRAGE_MS`), puis chaque heure (`JOURNAL_DES_DUELS_RELU_MS`) | les duels classés de tous lus une fois ; ensuite, par leur clé, ce qu'une réponse vient de finir (dans son lot), les duels qui ferment et ce qui a peut-être bougé sans être rangé (`duelsARelire`), et par différence les séries écrites ailleurs, trente secondes plus tard au pire (`FRAICHEUR_DES_DUELS_MS`). Les cotes, les ligues, les bordures et le classement s'en dérivent |
 | La mesure des difficultés | `CampagneStore.mesures` | dès ses deux dernières minutes (`MESURE_EN_AVANCE_MS`), au plus une tentative toutes les deux (`MESURE_RETENTEE_MS`) | la suivante relue en fond — du journal des réponses, rattrapé d'un aller-retour —, puis ses familles et la préparation des tirages (`relireLaMesureEnFond`), chacune à son tour de boucle ; qui la demande pendant ce temps reçoit celle qu'il y a, même périmée : seule la première, au réveil, s'attend |
@@ -355,7 +461,8 @@ préparation d'un tirage (`travail-de-fond.test.ts`).
 
 **Rien ne tourne la nuit** : l'hébergeur gratuit dort. La journée d'hier du
 quiz du jour se clôt à la première demande d'aujourd'hui (`clorePasses`), les
-semaines passées du défi à la première demande qui suit, et le modèle du
+semaines passées du défi à la première demande qui suit, une partie du
+Cabinet laissée la veille à la première page qui la trouve, et le modèle du
 savoir — qu'Automate lit pour les duels, et la page des sentiers pour dire
 à chacun sa chance — se réajuste quand il a vieilli, à la demande de l'un ou
 de l'autre (`MODELE_GARDE_MS`). Un service externe garde la production éveillée en

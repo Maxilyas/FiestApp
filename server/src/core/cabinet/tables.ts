@@ -108,14 +108,16 @@ export const REVEIL_DU_CABINET = {
   secret: SECRET_DU_CABINET,
 } as const satisfies CeQueLeReveilAjoute
 
-// ── La garde d'un lot (D9) ────────────────────────────────────────────────
+// ── La garde d'un lot ─────────────────────────────────────────────────────
 
 /**
  * La garde de chaque instruction d'un lot du Cabinet après la première : le
  * geste qui l'ouvre est en base, à son rang, avec l'`uid` que ce serveur a
  * tiré pour ce lot. Le même rang déjà pris — l'autre serveur d'une mise en
  * ligne, un double toucher arrivé par lui, une réponse HTTP perdue puis
- * rejouée — n'a rien laissé écrire de plus : ni réponse, ni pièce, ni fin.
+ * rejouée — n'a rien laissé écrire de plus : ni réponse, ni pièce, ni fin
+ * (« Chaque lot d'écriture est gardé par son geste »,
+ * `docs/architecture/decisions.md`).
  */
 export function gesteEcrit(serie: string, rang: number, uid: string): { sql: string; args: [string, number, string] } {
   return { sql: 'EXISTS (SELECT 1 FROM cabinet_gestes WHERE serie_id = ? AND rang = ? AND uid = ?)', args: [serie, rang, uid] }
@@ -155,12 +157,15 @@ export const partiesDuJour = (profil = '?', minuit = '?') => `profile_id = ${pro
 const VOIES_DE_SAISON: readonly string[] = GARDIENS_DE_SAISON.map(g => voieDuGardien(g)!)
 
 /**
- * Le musée d'un profil, à froid, d'un seul aller-retour (la conception, § 1.10) :
- * sa ligne de reflets, ses œuvres — 84 au plus —, ses parties du jour sans
- * leur plan, la partie en cours et ses gestes — par la clé de sa ligne, sans
- * chercher `finie_le IS NULL` —, les saisons que le Cabinet a rangées sous
- * `#cabinet`, l'expédition qui l'attend. Au pire cent cinquante lignes, une
- * fois par réveil et par joueur ; rien qui grandisse avec son histoire (D7).
+ * Le musée d'un profil, à froid, d'un seul aller-retour : sa ligne de
+ * reflets, ses œuvres — 84 au plus —, ses parties du jour sans leur plan, la
+ * partie en cours et ses gestes — par la clé de sa ligne, sans chercher
+ * `finie_le IS NULL` —, les saisons que le Cabinet a rangées sous `#cabinet`,
+ * l'expédition qui l'attend. Au pire cent cinquante lignes, une fois par
+ * réveil et par joueur ; rien qui grandisse avec son histoire : le quota de
+ * Turso compte chaque ligne parcourue (« Trois tables neuves, et aucune
+ * lecture qui grandisse avec l'histoire », `docs/architecture/decisions.md`).
+ * Chaud, la page ne relit rien : le musée gardé en mémoire lui suffit.
  *
  * Les saisons, trois clés de l'étagère au plus, se lisent chacune par la clé
  * primaire : tenue sous une soirée, une saison ne dit pas que le Cabinet l'a

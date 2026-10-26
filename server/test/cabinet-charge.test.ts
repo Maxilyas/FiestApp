@@ -1,7 +1,8 @@
 // Le Cabinet de curiosités sur Turso : ce que chaque lot garde, et ce que la
 // mémoire oublie. Deux magasins sur la même base sont deux serveurs pendant
 // une mise en ligne, chacun sa mémoire : la base seule dit qui a gagné — un
-// seul geste par rang, une seule partie en cours, un seul droit du jour (D9) —,
+// seul geste par rang, une seule partie en cours, un seul droit du jour (« Chaque
+// lot d'écriture est gardé par son geste », `docs/architecture/decisions.md`) —,
 // et le perdant s'oublie, relit, et rend la vue de ce qui était déjà fait ou
 // le refus juste, en mots ; un rang en avance sur sa mémoire la lui fait
 // relire. Une écriture que la base refuse (un `RAISE(ABORT)`, le gabarit
@@ -22,7 +23,8 @@
 // tient lieu de Turso (le gabarit d'`expedition-charge.test.ts`) : la page
 // froide en coûte un, chaude aucun ; un départ un, deux si le journal n'est
 // pas frais ; un geste un, son verdict compris ; la fin, son lot et le rituel
-// de la campagne (la conception, § 2.9) — pas un de plus pour un compagnon
+// de la campagne, que sa porte tient (`ecrireDesReponses` : l'expérience, les
+// paliers, le compagnon, comptés par `porte-de-la-campagne.test.ts`) — pas un de plus pour un compagnon
 // dans la niche, ses soirées et le journal tenus en mémoire ; un achat, une dorure, un échange un
 // chacun, rejoués aucun ; le cartel d'une partie et « Mes réponses » d'une
 // partie finie un, par leur clé ; tes murs aucun, un si le journal a du retard

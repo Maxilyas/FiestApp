@@ -1,6 +1,7 @@
-// Les lots d'écriture du Cabinet, chacun gardé par la base même (D9) : deux
-// onglets, deux serveurs pendant une mise en ligne, une réponse HTTP perdue
-// puis rejouée — rien ne compte deux fois. Un départ ne pose sa partie que si
+// Les lots d'écriture du Cabinet, chacun gardé par la base même (« Chaque lot
+// d'écriture est gardé par son geste », `docs/architecture/decisions.md`) :
+// deux onglets, deux serveurs pendant une mise en ligne, une réponse HTTP
+// perdue puis rejouée — rien ne compte deux fois. Un départ ne pose sa partie que si
 // le profil n'en a aucune en cours et s'il a encore le droit du jour, recompté
 // dans l'instruction même ; un geste s'insère à son rang avec un `uid` tiré par
 // ce serveur pour ce lot (`ON CONFLICT DO NOTHING`), et chaque autre
@@ -16,7 +17,8 @@
 // Le seul fichier qui écrit la colonne `joker` : elle porte le pouvoir qui a
 // aidé une pièce (`pouvoir:eclairer`, `pouvoir:temps`), jamais la clé d'une
 // carte-bonus — Bastion et Cuirasse sont aussi des cartes du second essai de
-// l'Expédition, que le carnet lit (D6).
+// l'Expédition, que le carnet lit : écrite en clé, une juste du Cabinet y
+// passerait pour ratée.
 //
 // Aucun `UPDATE` ni `DELETE` de `campagne_reponses`, aucun `DELETE` de
 // `campagne_series` hors de la suppression d'un profil : les déclencheurs des
@@ -52,8 +54,10 @@ export interface DepartAEcrire {
 }
 
 /**
- * Le lot du départ, d'un seul aller-retour (la conception, § 2.3). Trois
- * instructions, chacune sous la précédente :
+ * Le lot du départ, d'un seul aller-retour : la page qui commence attend sa
+ * première manche, et chaque aller-retour coûte des dixièmes de seconde au
+ * dixième de cœur de l'hébergeur. Trois instructions, chacune sous la
+ * précédente :
  *
  * 1. la ligne du profil prend la partie — seulement s'il n'en a pas en cours,
  *    qu'il lui reste une chasse, ou que sa case de la visite n'est pas déjà
@@ -62,7 +66,8 @@ export interface DepartAEcrire {
  *    déjà figée en base part au jeu que la base lui garde, ou ne part pas :
  *    l'autre serveur a pu l'échanger, et la mémoire d'ici l'aurait lancée à son
  *    jeu d'avant. La visite du jour se fige au premier lot du jour qui écrit
- *    (D17). La première fois, la ligne naît. La série ne se compte plus ici,
+ *    (« La visite du jour se dérive, puis se fige au premier départ »,
+ *    `docs/architecture/decisions.md`). La première fois, la ligne naît. La série ne se compte plus ici,
  *    mais à la première manche répondue (`lotDuGeste`, `jourCompte`) :
  *    comptée au départ, une visite quittée d'emblée tenait trente jours
  *    d'affilée — et réveillait le Scarabée — sans une réponse (l'arbitrage du
@@ -133,7 +138,7 @@ export interface VisiteAFiger {
  * fait — et rien d'écrit sinon : une instruction qui ne change rien ne coûte
  * pas une ligne écrite. Un départ et un échange la figent dans leur propre
  * instruction ; la première dépense du jour et la fin d'une partie d'un jour
- * d'avant passent par celle-ci (D17). Toutes deux font entrer une œuvre que
+ * d'avant passent par celle-ci. Toutes deux font entrer une œuvre que
  * minuit n'avait pas, et la case du prochain gardien ne sait pas, d'un gardien
  * qui veille sur une salle complétée depuis, s'il dormait à minuit : venu
  * d'ailleurs, l'achat de la dernière œuvre de sa salle changeait la visite
@@ -141,7 +146,7 @@ export interface VisiteAFiger {
  * partie à clore en ont une —, et `IS` lit une visite d'un autre jour comme
  * une visite vide : `NULL` ne vaut jamais le jour.
  *
- * Gardée, comme toute instruction d'un lot qui n'est pas la première (D9) :
+ * Gardée, comme toute instruction d'un lot qui n'est pas la première :
  * par le geste qui finit la partie (`gesteEcrit`), par la ligne que la dépense
  * vient d'écrire (`depenseEcrite`). Sans garde, une dépense que la base
  * refusait — la poussière que l'autre serveur d'une mise en ligne venait de
@@ -219,8 +224,9 @@ export interface GesteAEcrire {
 const SERIE_APRES_LE_JOUR = `CASE WHEN serie_jour >= ? THEN serie WHEN serie_jour = ? THEN serie + 1 ELSE 1 END`
 
 /**
- * Le lot d'un geste (la conception, § 2.4 et § 2.6) : le geste à son rang
- * d'abord — `rowsAffected` dit tout —, puis, sous lui, chaque pièce jugée — sa
+ * Le lot d'un geste, d'un seul aller-retour, son verdict et sa fin compris :
+ * le geste à son rang d'abord — `rowsAffected` dit tout —, puis, sous lui,
+ * chaque pièce jugée — sa
  * réponse, et la pièce au bout de la partie (`json_insert`, jamais réécrite
  * en entier) —, le jour de la série à la première manche répondue d'une
  * visite ou d'une chasse (`jourCompte`), la visite du jour figée quand il
@@ -274,7 +280,7 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
         args: [g.faitLe, bilan.issue, JSON.stringify(bilan), g.serie, ...garde.args],
       },
       {
-        // La poussière sous le seul geste (D9), qui ne s'écrit qu'une fois ; la partie rendue si c'est encore la sienne.
+        // La poussière sous le seul geste, qui ne s'écrit qu'une fois ; la partie rendue si c'est encore la sienne.
         // Gardée par `partie = ?`, elle se perdait quand un serveur avait rendu la ligne d'une partie qu'il ne relit pas
         // (`rendreLaPartieIllisible` : un départ d'une version que l'autre serveur d'une mise en ligne connaît déjà) —
         // le bilan disait la poussière, le solde ne l'avait pas.
@@ -320,7 +326,7 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
  * La mémoire du serveur ne suffit pas à le dire : l'autre serveur d'une mise en
  * ligne, ou un autre onglet, a pu dépenser la même poussière l'instant d'avant.
  * Aucune `CHECK` ne le garde : elle lèverait une erreur de la base, un 500, là
- * où le refus doit se dire en mots (D8).
+ * où le refus doit se dire en mots (« Il te manque 120 poussières d'or »).
  */
 const SOLDE = `(SELECT poussiere FROM cabinet_profils WHERE profile_id = ?)
              - (SELECT COALESCE(SUM(COALESCE(prix, 0) + COALESCE(prix_dorure, 0)), 0) FROM cabinet_oeuvres WHERE profile_id = ?)`
@@ -415,8 +421,8 @@ export interface EchangeAEcrire {
  * L'échange d'un jeu de la visite (« Changer pour … », une fois par jour, une
  * case pas encore jouée), d'un seul aller-retour — deux instructions :
  *
- * 1. la visite du jour se fige, si aucun lot ne l'a encore fait (D17) : la
- *    ligne du profil naît au besoin ;
+ * 1. la visite du jour se fige, si aucun lot ne l'a encore fait : la ligne
+ *    du profil naît au besoin ;
  * 2. la case prend son jeu neuf, sous la base même : la visite figée est
  *    celle du jour, pas encore échangée, la case a toujours le jeu qu'on lui
  *    connaît et le jeu neuf n'y est pas déjà, et aucune partie n'a commencé

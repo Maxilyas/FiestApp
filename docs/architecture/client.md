@@ -2,7 +2,7 @@
 
 > L'application qui tourne dans le navigateur — le téléphone d'un invité, l'écran commun, les pages d'un profil ou d'un animateur : comment elle est construite, servie, routée et chargée, ce qu'elle garde sur l'appareil, et les pièges qui coûtent une seconde à toute une salle. Pour qui touche à `client/`, ou à ce que le serveur pose dans la page.
 
-**Dans cette page** : [en bref](#en-bref) · [la construction](#la-construction) · [ce que le serveur pose dans la page](#ce-que-le-serveur-pose-dans-la-page) · [le démarrage](#le-démarrage-dune-page) · [le routage](#le-routage) · [le chargement](#le-chargement) · [l'API et l'état](#lapi-cliente-et-létat) · [le stockage](#le-stockage-du-navigateur) · [l'application installée](#lapplication-installée) · [les thèmes](#les-thèmes-côté-technique) · [la mesure](#la-mesure) · [les pièges](#les-pièges) · [les tests](#les-tests-qui-gardent-le-client)
+**Dans cette page** : [en bref](#en-bref) · [la construction](#la-construction) · [ce que le serveur pose dans la page](#ce-que-le-serveur-pose-dans-la-page) · [le démarrage](#le-démarrage-dune-page) · [le routage](#le-routage) · [le chargement](#le-chargement) · [l'API et l'état](#lapi-cliente-et-létat) · [le Cabinet](#le-cabinet-de-curiosités) · [le stockage](#le-stockage-du-navigateur) · [l'application installée](#lapplication-installée) · [les thèmes](#les-thèmes-côté-technique) · [la mesure](#la-mesure) · [les pièges](#les-pièges) · [les tests](#les-tests-qui-gardent-le-client)
 
 ## En bref
 
@@ -121,7 +121,7 @@ Chaque page est un paquet, chargé par `main.tsx` **avant** le premier rendu —
 
 Ce qui ne sert qu'après le premier écran vient par `aLaDemande(importer)` (`client/src/aLaDemande.ts`) : `charger()` lance le chargement une fois pour toute la page — un échec compris —, `charge()` rend le module s'il est déjà là ; `useALaDemande(source, voulu)` le donne au composant : `null` en chemin, `'perdu'` s'il ne viendra plus. Un module déjà là se rend tout de suite, sans suspendre.
 
-Viennent ainsi la fin de soirée, la carte d'un joueur et ses gestes, la barre du chef, les panneaux du profil, la feuille des amis, le quiz tout prêt, la page des duels et le lancement d'un défi depuis la campagne. Ce que chaque chemin ne doit pas télécharger : [les pièges](#les-pièges).
+Viennent ainsi la fin de soirée, la carte d'un joueur et ses gestes, la barre du chef, les panneaux du profil, la feuille des amis, le quiz tout prêt, la page des duels, le lancement d'un défi depuis la campagne, et au Cabinet de curiosités l'écran de chaque jeu, le bilan, le réveil d'un gardien et le dessin de tes murs ([plus bas](#le-cabinet-de-curiosités)). Ce que chaque chemin ne doit pas télécharger : [les pièges](#les-pièges).
 
 ### Les données de départ
 
@@ -134,6 +134,8 @@ Viennent ainsi la fin de soirée, la carte d'un joueur et ses gestes, la barre d
 | `/jour` | `/api/jour`, `/api/joueur/moi?leger` |
 | `/campagne` | `/api/campagne`, `/api/joueur/moi?leger` — et, d'après le fragment, `/api/campagne/sentiers`, ou `/api/campagne/carnet` et `/api/campagne/sujets` |
 | `/duels` | `/api/duels`, `/api/joueur/moi?leger` |
+| `/expedition` | `/api/expedition`, `/api/joueur/moi?leger` |
+| `/cabinet` | `/api/cabinet`, `/api/joueur/moi?leger` — le même, quel que soit l'écran que dit le fragment |
 | `/edit` | `/api/quizzes`, `/api/auth/me`, `/api/joueur/theme` |
 | `/<espace>` | `/s/<espace>/entree.json` |
 | `/<espace>/souvenir`, `/<espace>/stats`, et leurs archives | `…/recap.json`, `/api/auth/me`, `/api/joueur/theme` |
@@ -148,7 +150,7 @@ Les adresses viennent de `DEPART` et d'`adresseDesDonnees`, que les pages lisent
 
 **Les missions du jour** partent avec l'accueil : la page ne les demandait qu'une fois l'accueil lu, et leur ligne attendait vide, sous « À la une », un aller-retour de plus — 160 ms en 4G lente, cache plein (le 15 octobre 2026). L'accueil les demande à son ouverture, quel que soit le visiteur : un invité reçoit un refus (401), qui ne retire pas la ligne qu'il verra une fois connecté (`relireLesMissions`, `client/src/missions.ts`).
 
-**La partie du jour préchargée** se dit telle : `/api/jour` demandé sans l'en-tête maison (`X-Requested-With`, que l'API cliente pose toujours) répond `prechargee`, et le client mesure alors l'heure du serveur dans la trace du préchargement (`mesureDeLaReponse`, `client/src/clock.ts`), pas autour d'un `fetch` qui a trouvé la réponse déjà là.
+**La partie du jour préchargée** se dit telle : `/api/jour` demandé sans l'en-tête maison (`X-Requested-With`, que l'API cliente pose toujours) répond `prechargee`, et le client mesure alors l'heure du serveur dans la trace du préchargement (`mesureDeLaReponse`, `client/src/clock.ts`), pas autour d'un `fetch` qui a trouvé la réponse déjà là. La page du Cabinet fait de même (`/api/cabinet`) : elle porte un chrono, celui de la partie qui attend.
 
 ### Les polices
 
@@ -180,6 +182,18 @@ L'offre gratuite de l'hébergeur endort le serveur après un quart d'heure sans 
 ### La liaison temps réel
 
 `client/src/socket.ts` ouvre la liaison Socket.io de la page — WebSocket d'abord, repli en long-polling — et tient `snapshot`, `views` et `connected` à jour. Son cycle, ses accusés, l'horloge du serveur : [Le temps réel](temps-reel.md). L'accueil ne la télécharge pas.
+
+## Le Cabinet de curiosités
+
+`/cabinet` (`client/src/views/CabinetApp.tsx`, ses écrans dans `client/src/views/cabinet/`) est une page sans espace comme les autres : son code part avant le premier rendu, elle lit le profil (`LISENT_LE_PROFIL`, `client/src/main.tsx`) et sa page arrive préchargée (`DEPART.cabinet`). Ce qui la distingue :
+
+- **Elle ne s'ouvre pas partout, et ne lit pas son drapeau.** La préproduction sert le même code que la production : c'est le serveur qui sait. Là où le Cabinet est fermé, la page servie porte `<meta name="cabinet" content="ferme">` ; `cabinetIci()` (`client/src/maintenance.ts`) la lit une fois, et l'accueil d'un profil n'a son gros bouton que sans elle — ouverte quand même, `/cabinet` dit la phrase du serveur. Le QG la ferme comme une autre page (`pageDeLAdresse`, `PAGES_FERMABLES.cabinet`).
+- **Un écran par fragment** : le musée, une salle (`#salle-rempart`), une œuvre (`#oeuvre-bastion`), les gardiens (`#gardiens`), la visite (`#visite`), les jeux libres (`#libre`), tes murs (`#murs`) ; une clé inconnue ouvre le musée (`ecranDeLAdresse`, `client/src/views/cabinet/ecrans.ts`). Une partie s'ouvre par-dessus l'écran, sans fragment — rechargée, elle ne saurait quoi montrer —, sur une entrée d'historique marquée (`fiestappPartieDuCabinet`) que le retour du navigateur consomme.
+- **À la demande** : l'écran de chacun des neuf jeux, chargé à l'ouverture de sa partie (`ECRANS`, `JeuALEcran`, `client/src/views/cabinet/Partie.tsx` ; un module par jeu dans `client/src/views/cabinet/jeux/`), le bilan, le réveil d'un gardien, le dessin de tes murs. La page ne télécharge ni l'Expédition, ni les règles qui jugent une partie : `client/src/api.ts` n'en importe que des types, et la page lit la vue du serveur (`shared/cabinet/vues.ts`) sans recopier une règle.
+- **Le chemin d'un geste** : la partie à l'écran envoie chaque geste avec le rang qu'elle croit suivre (`api.cabinet.geste`, invariant 12), sous `avecLHeure`, qui remesure l'heure du serveur autour de toute la requête, refus compris ; un geste passé reçoit un 409 qui porte la partie d'à présent (`ApiError.corps`), où la page se range ; la vue la plus récente gagne. L'échéance se lit à `serverNow()`, et à l'échéance la page envoie d'elle-même ce qu'elle tient. Côté serveur : [la vue d'ensemble](vue-d-ensemble.md#le-chemin-dun-geste-au-cabinet).
+- **Ce que le téléphone retient** se range au profil (`quizz.cabinet.<quoi>.<profil>`, `client/src/views/cabinet/retenu.ts`, [plus bas](#le-stockage-du-navigateur)) : sur un téléphone partagé, Hugo héritait de la carte-bonus de Léa. Rien d'une partie ne s'y garde : une chasse, des étoiles, un achat sont au serveur.
+
+Le produit : [Le Cabinet de curiosités](../produit/le-cabinet.md) ; les pièges du code : `.claude/rules/cabinet.md`.
 
 ## Le stockage du navigateur
 
@@ -265,6 +279,7 @@ Hors du stockage, l'historique de la page (`history.state`) porte quelques repè
 | `server/test/petit-ecran.test.ts` | les onglets au clavier, les fenêtres modales (`client/src/modale.ts`) : la carte d'un joueur, un dialogue — le reste de la page inerte tant qu'une fenêtre le couvre encore, le focus posé sans anneau et gardé sous le doigt, Échap à celle du dessus |
 | `server/test/installation.test.ts` | la carte d'installation sous les trois boutons, l'invitation de Chrome gardée, un stockage qui lève |
 | `server/test/entre-deux-soirees.test.ts` | la fin de soirée gardée : rouverte au retour, jamais à l'arrivée |
+| `server/test/cabinet-ecran.test.ts` · `server/test/cabinet-ecran-neufs.test.ts` | la page du Cabinet rendue écran par écran sur ce que le vrai serveur rend, ses imports et ses écrans à la demande, `api.cabinet` contre un faux `fetch` puis par les routes, sa feuille de style |
 
 Rien ne vérifie automatiquement que les trois boutons tiennent sans défiler, la pastille d'environnement, ni le `try/catch` de chaque accès au stockage. Les tests en général : [Les tests](../contribuer/tests.md).
 

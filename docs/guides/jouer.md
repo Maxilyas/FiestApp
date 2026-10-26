@@ -2,7 +2,7 @@
 
 > Le guide de l'invité : rejoindre une soirée FiestApp depuis ton téléphone, répondre, retrouver ta place si quelque chose coupe, et — si tu le veux — garder ta progression d'une soirée à l'autre. Assez court pour qu'un animateur l'envoie tel quel à ceux qui viendront.
 
-**Dans cette page** : [rejoindre](#rejoindre-la-soirée) · [entrer](#entrer--trois-gros-boutons) · [répondre](#répondre) · [la révélation](#la-révélation-et-ta-place) · [si quelque chose coupe](#si-quelque-chose-coupe) · [deux Camille](#deux-camille) · [la fin de soirée](#la-fin-de-soirée) · [garder ta progression](#garder-ta-progression)
+**Dans cette page** : [rejoindre](#rejoindre-la-soirée) · [entrer](#entrer--trois-gros-boutons) · [répondre](#répondre) · [la révélation](#la-révélation-et-ta-place) · [si quelque chose coupe](#si-quelque-chose-coupe) · [deux Camille](#deux-camille) · [la fin de soirée](#la-fin-de-soirée) · [garder ta progression](#garder-ta-progression) · [le Cabinet de curiosités](#le-cabinet-de-curiosités)
 
 ## Ce qu'il te faut
 
@@ -143,7 +143,7 @@ Ces pages sont publiques : leur lien se partage. Le détail : [Après la soirée
 
 ## Garder ta progression
 
-Un profil garde, d'une soirée à l'autre, ton prénom, ton avatar et ce que tu gagnes : ton niveau, tes trophées — prix compris —, tes avatars. Il ouvre aussi ce qui se joue entre deux soirées — le quiz du jour, la campagne, les duels. Il ne donne aucun avantage dans une partie : ce soir, tu marques comme tout le monde.
+Un profil garde, d'une soirée à l'autre, ton prénom, ton avatar et ce que tu gagnes : ton niveau, tes trophées — prix compris —, tes avatars. Il ouvre aussi ce qui se joue entre deux soirées — le quiz du jour, la campagne, les duels, l'Expédition, et bientôt [le Cabinet de curiosités](#le-cabinet-de-curiosités). Il ne donne aucun avantage dans une partie : ce soir, tu marques comme tout le monde.
 
 ### Créer ton profil
 
@@ -168,6 +168,18 @@ Ton profil reste ensuite connecté sur ce téléphone : à la soirée suivante, 
 Sous « Me connecter », « J'ai oublié mon mot de passe » ouvre « Retrouver mon profil » : ton identifiant, ton code de secours, un nouveau mot de passe, puis « Retrouver mon profil ». Le code ne sert qu'une fois : un code neuf s'affiche aussitôt — note-le à son tour.
 
 Il n'y a ni adresse e-mail ni lien à recevoir. Sans ton code, demande à l'administrateur du serveur : il peut t'en tirer un neuf, que tu taperas au même endroit. Connecté, tu changes ton mot de passe dans « Compte », « Mot de passe ».
+
+## Le Cabinet de curiosités
+
+Avec un profil, entre deux soirées, seul : un musée à remplir, que le gros bouton de ton accueil ouvre — là où il est ouvert : il se construit en préproduction, et reste fermé en production jusqu'à son ouverture.
+
+1. **La visite du jour** : trois petites parties, trois jeux. Touche « Jouer au Pari », par exemple : l'annonce dit le jeu, ses étoiles, l'œuvre en jeu sans la nommer (« Une œuvre rare de la salle du Devin ») et le seuil à atteindre. Rien n'est consommé avant « Commencer ».
+2. **Une partie** : trois manches de trois étoiles. À l'annonce, emporte une carte-bonus — une de tes œuvres : son pouvoir t'aide (Éclairer, Prendre son temps…) et ne s'use jamais. Le chrono tourne au serveur : recharger la page reprend la manche où elle en était.
+3. **Assez d'étoiles, l'œuvre entre dans ton musée**, avec son cartel — ce que la partie t'a appris. Sinon, de la poussière d'or, et la case manquée se retente au même jeu, pour une chasse.
+4. **Deux chasses par jour** : touche un cadre vide de ton musée — il dit où se trouve son œuvre (« Elle se trouve au Filet ») — et pars la chercher.
+5. **La poussière d'or** achète une œuvre qui te manque, ou un cadre doré. Une salle complète réveille son gardien, un légendaire.
+
+« Quitter » met la manche en pause dix secondes, le temps de confirmer : la partie compte ce que tu as répondu, et ne se rejoue pas. « Comment ça marche ? », au musée, redit tout. Le détail : [Le Cabinet de curiosités](../produit/le-cabinet.md).
 
 ## Pour aller plus loin
 

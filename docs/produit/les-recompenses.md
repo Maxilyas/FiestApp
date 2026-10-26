@@ -11,7 +11,7 @@ Tout se joue sans compte : un invité anonyme joue la même partie, aux mêmes p
 
 ## Les principes
 
-**Un profil ne donne aucun avantage de jeu face aux autres.** Ni points, ni temps, ni question plus facile : un niveau 30 et un invité arrivé ce soir jouent la même partie — en soirée, au quiz du jour, au défi, en duel. Ce que tu gagnes se voit ; rien ne s'y joue. Seule [l'Expédition](l-expedition.md), qu'on joue seul et sans classement, fait servir ce qu'on a gagné : chaque légendaire qui a son joker y part dans l'équipe, et son joker n'en sort jamais.
+**Un profil ne donne aucun avantage de jeu face aux autres.** Ni points, ni temps, ni question plus facile : un niveau 30 et un invité arrivé ce soir jouent la même partie — en soirée, au quiz du jour, au défi, en duel. Ce que tu gagnes se voit ; rien ne s'y joue. Seuls [l'Expédition](l-expedition.md) et [le Cabinet de curiosités](le-cabinet.md), qu'on joue seul et sans classement, font servir ce qu'on a gagné : chaque légendaire qui a son joker part dans l'équipe d'une expédition ; au Cabinet, une œuvre ou un gardien réveillé s'emporte en carte-bonus. Rien n'en sort.
 
 **L'invité anonyme n'affiche rien** — ni « Niv. 0 », ni pastille grise, ni finition : l'absence, pas l'infériorité. Ses hauts faits de soirée sont annoncés à la clôture comme ceux des autres, sur son téléphone et à la salle, mais rien ne se garde ; le profil qu'il crée ensuite commence à la soirée suivante.
 
@@ -265,6 +265,8 @@ Quatre sont de l'ombre — le Kraken, le Fantôme, le Trou Noir, la Chauve-souri
 
 **Une voie de plus, au bout de l'Expédition** : chacun des vingt-trois légendaires qui ont leur joker — tous sauf l'Aigle, la Licorne et l'Éléphant — se gagne aussi en le gardant au bout d'une [expédition](l-expedition.md), parmi ses trois gardiens vaincus — l'album le dit, « en expédition », depuis qu'elle est ouverte. Les trois de saison depuis le 18 octobre 2026, et à leur saison seulement : ils ne gardent l'acte 3 que d'une expédition partie ces jours-là. Cette voie ne reprend rien à personne.
 
+**Et une au Cabinet de curiosités**, là où il est ouvert — la préproduction d'abord, fermé en production jusqu'à son ouverture : les mêmes vingt-trois sont les gardiens de ses salles ([le Cabinet](le-cabinet.md#les-gardiens)). Une salle complète réveille le premier de sa salle, toute dorée le second ; le Scarabée, trente jours de visite ou de chasse d'affilée ; le Trou Noir, le musée entier ; les trois de saison, la première œuvre gagnée en jouant pendant leur fête. Un gardien réveillé est le légendaire gagné, rangé sur l'étagère une fois dû (`cabinet:<clé>`, `saison:<clé>` pour ceux de saison, sous la clé fixe `#cabinet`) : il ne se dérive pas à la lecture, et ne se reprend jamais. Déjà à toi par une autre voie, il « veillait déjà », sans cérémonie. L'album n'en dira la voie qu'à l'ouverture du Cabinet en production.
+
 - **Ta progression** se lit sur la voie la plus avancée ; une voie « tout à la fois » se compte en conditions tenues (« 2 sur 3 »). Un légendaire ne s'annonce qu'une fois, même quand sa seconde voie se remplit.
 - **Il se relit à chaque affichage** : une soirée retirée peut emporter le légendaire que ses hauts faits ouvraient.
 - **Durcir ne reprend rien.** L'Oracle, le Tigre, le Lion, la Comète, le Fantôme et le Trou Noir demandaient moins, autrefois : chacun a gardé celui qu'il avait sous l'ancienne règle (`DURCISSEMENTS`), tant que cette règle-là tient sur son étagère.
@@ -280,7 +282,7 @@ Trois périodes de l'année, à l'heure de Paris, ouvrent chacune un légendaire
 | Noël | du 20 au 26 décembre | 3 | 🎄 Le Sapin |
 | Le Nouvel An | du 30 décembre au 2 janvier | 2 | 🎆 Le Bouquet final |
 
-Trois chemins, l'un ou l'autre : **le quiz du jour** — assez de jours joués dans la période, une partie commencée compte ; rangée sous ce jour, la saison ne se reprend jamais — ; **une soirée qui compte** jouée dans la période, datée à sa première question jouée : chaque profil pour qui elle compte ouvre la saison à la clôture, et la perd si la soirée est retirée ; ou, depuis le 18 octobre 2026, **une expédition partie dans la période** : le légendaire de la saison y garde l'acte 3, et se garde au bout comme les autres gardiens — même si la saison est passée entre-temps. Une saison ne se montre que par son légendaire : ni ligne sur l'étagère, ni compte de trophées.
+Quatre chemins, l'un ou l'autre : **le quiz du jour** — assez de jours joués dans la période, une partie commencée compte ; rangée sous ce jour, la saison ne se reprend jamais — ; **une soirée qui compte** jouée dans la période, datée à sa première question jouée : chaque profil pour qui elle compte ouvre la saison à la clôture, et la perd si la soirée est retirée ; ou, depuis le 18 octobre 2026, **une expédition partie dans la période** : le légendaire de la saison y garde l'acte 3, et se garde au bout comme les autres gardiens — même si la saison est passée entre-temps ; et, au Cabinet de curiosités là où il est ouvert, **la première œuvre gagnée en jouant pendant la fête**, au jour où sa partie a commencé — ni un achat ni une dorure. Une saison ne se montre que par son légendaire : ni ligne sur l'étagère, ni compte de trophées.
 
 ## Les écussons de savoir
 
