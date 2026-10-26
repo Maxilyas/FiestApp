@@ -170,11 +170,15 @@ const LE_BILAN = aLaDemande(() => import('./Bilan'))
 
 // ── Le chrono, à l'heure du serveur ───────────────────────────────────────
 
-/** Ce que la tête montre du chrono : l'échéance, la durée de l'étape, et sous la pause, ce qui restait — figé tant qu'elle dure. */
+/**
+ * Ce que la tête montre du chrono : l'échéance, la durée de l'étape, sous la pause ce qui restait — figé tant qu'elle dure —,
+ * et le temps en plus de Prendre son temps (`enPlusMs`), où le repère se pose.
+ */
 export interface ChronoMontre {
   echeance: number
   dureeMs: number
   figeMs?: number
+  enPlusMs?: number
 }
 
 /**
@@ -188,33 +192,67 @@ export interface ChronoMontre {
 export function chronoMontre(vue: Pick<VueDeLaPartie, 'chrono' | 'maintenant'>, t: number): ChronoMontre | null {
   const c = vue.chrono
   if (!c) return null
-  if (c.pauseResteMs === undefined) return { echeance: c.echeance, dureeMs: c.dureeMs }
+  const enPlus = c.enPlusMs ? { enPlusMs: c.enPlusMs } : {}
+  if (c.pauseResteMs === undefined) return { echeance: c.echeance, dureeMs: c.dureeMs, ...enPlus }
   const echeance = c.echeance + c.pauseResteMs
-  if (t >= vue.maintenant + c.pauseResteMs) return { echeance, dureeMs: c.dureeMs }
-  return { echeance, dureeMs: c.dureeMs, figeMs: Math.max(0, c.echeance - vue.maintenant) }
+  if (t >= vue.maintenant + c.pauseResteMs) return { echeance, dureeMs: c.dureeMs, ...enPlus }
+  return { echeance, dureeMs: c.dureeMs, figeMs: Math.max(0, c.echeance - vue.maintenant), ...enPlus }
+}
+
+/**
+ * Le chrono est-il passé dans le temps en plus de Prendre son temps, à `t` (l'heure du serveur) — sous la pause, à ce qui
+ * restait ? Le repère tombe au début du temps en plus ; le serveur ne le marque qu'après sa grâce : à quelques secondes près, la
+ * page avertit plus tôt, jamais plus tard.
+ */
+export function dansLeTempsEnPlus(c: ChronoMontre | null, t: number): boolean {
+  if (!c?.enPlusMs) return false
+  return (c.figeMs ?? c.echeance - t) <= c.enPlusMs
+}
+
+/** La ligne de Prendre son temps, passé son repère, tant que la partie vise le cadre doré. */
+export const TEMPS_EN_PLUS_DIT = 'Temps en plus : répondre maintenant ôte le cadre doré'
+
+/**
+ * `dansLeTempsEnPlus` à présent, et la page redessinée à l'instant où il bascule : la tête ne se redessine qu'à chaque
+ * seconde de son chiffre, et la ligne de la carte-bonus attendait la vue suivante.
+ */
+function useDansLeTempsEnPlus(c: ChronoMontre | null): boolean {
+  const [, setTic] = useState(0)
+  const dedans = dansLeTempsEnPlus(c, serverNow())
+  const echeance = c?.echeance
+  const enPlus = c?.enPlusMs
+  const fige = c?.figeMs !== undefined
+  useEffect(() => {
+    if (dedans || fige || echeance === undefined || !enPlus) return
+    const id = setTimeout(() => setTic(n => n + 1), Math.max(0, echeance - enPlus - serverNow()) + 20)
+    return () => clearTimeout(id)
+  }, [dedans, fige, echeance, enPlus])
+  return dedans
 }
 
 /**
  * Ce que la partie quittée emporte, tel que le serveur le compte
  * (`VueDeLaPartie.siTuQuittes` : « Quitter » joué par le pli, rien d'écrit) :
- * ses étoiles — Protéger compris, quand il relève la manche quittée — et sa
- * poussière d'or. « Quitter ? » promettait « les étoiles déjà gagnées », et
- * Lucas, sous Prudence, est reparti avec une étoile et quatre poussières sans
- * en avoir gagné aucune (la tablée du 25 octobre 2026). Les mots seulement :
- * la règle reste au serveur, qui la change sans que la page la recopie.
+ * ses étoiles et sa poussière d'or. « Quitter ? » promettait « les étoiles déjà
+ * gagnées », et Lucas, sous Prudence, est reparti avec une étoile et quatre
+ * poussières sans en avoir gagné aucune (la tablée du 25 octobre 2026). Les
+ * mots seulement : la règle reste au serveur, qui la change sans que la page la
+ * recopie. Elle en déduisait que Protéger avait compté — le total quitté plus
+ * haut que celui de la partie, la manche quittée relevée — et le disait encore
+ * quand une manche quittée ne se relevait plus : au Pari laissé au choix, les
+ * deux étoiles gardées devenaient « Protéger compris » (la relecture des
+ * régressions du 26 octobre 2026). Ce que la vue ne dit pas, la page le tait.
  */
-function ceQuOnEmporte(vue: Pick<VueDeLaPartie, 'origine'> & Partial<Pick<VueDeLaPartie, 'total' | 'carte'>>, s: { total: number; poussiere: number }): string {
+function ceQuOnEmporte(vue: Pick<VueDeLaPartie, 'origine'>, s: { total: number; poussiere: number }): string {
   const etoiles = s.total > 0 ? etoilesDites(s.total) : null
-  // Protéger se dit s'il a compté : le total de la partie quittée dépasse celui qu'elle a — la manche quittée relevée.
-  const protege = vue.carte?.pouvoir === 'proteger' && s.total > (vue.total ?? s.total) ? `, ${POUVOIRS.proteger.nom} compris,` : ''
   const avec =
     etoiles === null
       ? s.poussiere > 0
         ? `sans étoile, et ${poussieresDites(s.poussiere)}`
         : 'sans étoile ni poussière d’or'
       : s.poussiere > 0
-        ? `avec ${etoiles}${protege} et ${poussieresDites(s.poussiere)}`
-        : `avec ${etoiles}${protege.replace(/,$/, '')}`
+        ? `avec ${etoiles} et ${poussieresDites(s.poussiere)}`
+        : `avec ${etoiles}`
   // Ce que le départ a consommé : la chasse, la case de la visite ; en libre, l'une de celles qui paient, si elle a payé.
   const consomme = vue.origine === 'chasse' ? ' ; ta chasse est utilisée' : vue.origine === 'visite' ? ' ; cette partie de la visite est faite' : s.poussiere > 0 ? ' : c’est l’une de tes parties libres qui paient' : ''
   return `Tu repars ${avec}${consomme}.`
@@ -228,10 +266,7 @@ function ceQuOnEmporte(vue: Pick<VueDeLaPartie, 'origine'> & Partial<Pick<VueDeL
  * (`PLUS_DE_PAUSE`, ses pauses épuisées ou son temps passé), la phrase du
  * serveur : la confirmation s'ouvre quand même, et le chrono continue.
  */
-export function messageDuQuitter(
-  vue: Pick<VueDeLaPartie, 'origine'> & Partial<Pick<VueDeLaPartie, 'siTuQuittes' | 'total' | 'carte'>>,
-  o: { pauseMs?: number; refus?: string } = {},
-): { titre: string; message: string } {
+export function messageDuQuitter(vue: Pick<VueDeLaPartie, 'origine'> & Partial<Pick<VueDeLaPartie, 'siTuQuittes'>>, o: { pauseMs?: number; refus?: string } = {}): { titre: string; message: string } {
   const compte = vue.siTuQuittes
     ? ceQuOnEmporte(vue, vue.siTuQuittes)
     : vue.origine === 'libre'
@@ -443,7 +478,8 @@ function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono
           </button>
         )}
       </div>
-      {chrono && <TimerBar deadline={chrono.echeance} duration={chrono.dureeMs / 1000} frozenMs={chrono.figeMs} urgence={SECONDES_QUI_PRESSENT} />}
+      {/* Sous Prendre son temps, le repère du temps en plus : Camille perdait son cadre doré sans le voir (la tablée du 26). */}
+      {chrono && <TimerBar deadline={chrono.echeance} duration={chrono.dureeMs / 1000} frozenMs={chrono.figeMs} urgence={SECONDES_QUI_PRESSENT} repereMs={chrono.enPlusMs} />}
     </header>
   )
 }
@@ -476,29 +512,38 @@ function useLeMotDeQuitter(rangee: RefObject<HTMLDivElement | null>) {
  * La carte-bonus pendant une manche : Éclairer et Changer, un geste — grisé
  * avec sa raison, celle que la vue porte (`pouvoir.refus`) ; Protéger, le
  * temps en plus et la mise, une ligne : ils agissent seuls, ou se sont décidés
- * avant la manche.
+ * avant la manche. Prendre son temps, passé le repère du chrono, dit ce que
+ * coûte de répondre tant que la partie vise le cadre doré : sa ligne ne
+ * changeait jamais, et le cadre se perdait sans un mot (Camille, à la tablée du
+ * 26 octobre 2026) — dite à l'oreille quand elle change.
  */
 function CarteDeLaManche({
   vue,
   ecran,
   local,
   busy,
+  chrono,
+  cadreDejaDore = false,
   onGeste,
 }: {
   vue: VueDeLaPartie
   ecran: EcranEfface
   local: unknown
   busy: boolean
+  chrono: ChronoMontre | null
+  cadreDejaDore?: boolean
   onGeste: (g: GesteDuCabinet) => void
 }) {
+  const enPlus = useDansLeTempsEnPlus(chrono)
   const c = vue.carte
   if (!c || !vue.enCours) return null
   const icone = <Icon name={ICONE_DU_POUVOIR[c.pouvoir]} />
   if (c.pouvoir !== 'eclairer' && c.pouvoir !== 'changer') {
+    const dit = c.pouvoir === 'temps' && enPlus && viseLeCadreDore(vue, cadreDejaDore) ? TEMPS_EN_PLUS_DIT : c.dit
     return (
       <p className="cab-carte-ligne">
         {icone}
-        <span>{espacesFines(c.dit)}</span>
+        <span aria-live={c.pouvoir === 'temps' ? 'polite' : undefined}>{espacesFines(dit)}</span>
       </p>
     )
   }
@@ -601,6 +646,17 @@ export function VoileDeLaPause({ busy = false, repris = false, onReprendre }: { 
   )
 }
 
+/**
+ * Le titre d'une révélation, et ce qui se dit dessous. Le titre du corps vient du jeu, qui ne sait rien de la mise : misée et
+ * pas parfaite, la manche ne vaut rien, et « Reconnu » coiffait zéro étoile, « Trouvé en 3 essais » aussi (Théo, à la tablée du
+ * 26 octobre 2026). Une mise perdue se titre donc « Mise perdue », le titre du jeu dessous — et pourquoi, s'il avait trouvé à
+ * moitié ; une mise gagnée garde le titre du jeu, sa note dit ce qu'elle a rapporté.
+ */
+export function titreDeLaRevelation(r: Pick<RevelationVue, 'misee' | 'corps'>, naturel: number | null): { titre: string; dessous?: string } {
+  if (r.misee !== 'perdue') return { titre: r.corps.titre }
+  return { titre: 'Mise perdue', dessous: naturel ? `${r.corps.titre} : la mise voulait la manche parfaite.` : r.corps.titre }
+}
+
 /** Ce que « Signaler une erreur » vise : la question, ou, au Pari parié, l'une des deux — le seul jeu qui en ait deux. */
 const ceQuOnSignale = (positions: readonly number[], i: number) => (positions.length === 1 ? 'cette question' : i === 0 ? 'la première question' : 'la question du pari')
 
@@ -616,6 +672,7 @@ export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: 
   const m = vue.manches[r.manche]
   const etoiles = m?.etoiles ?? 0
   const fete = ceQueFeteLaRevelation(m?.naturel ?? 0, etoiles)
+  const titre = titreDeLaRevelation(r, m?.naturel ?? null)
   return (
     <>
       <div className={'card result-banner ' + (etoiles > 0 ? 'result-ok' : 'result-ko')} role="status">
@@ -625,8 +682,10 @@ export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: 
         </span>
         {/* Le titre de la révélation, où le focus se pose quand elle prend la place de la manche (`rendreLeFocus`) : la réponse
             touchée disparue, il tombait sur la page, et le lecteur d'écran ne disait rien du verdict. */}
-        <h2 className="cab-titre-revele">{espacesFines(r.corps.titre)}</h2>
-        {m?.note && <p className="cab-note">{espacesFines(m.note)}</p>}
+        <h2 className="cab-titre-revele">{espacesFines(titre.titre)}</h2>
+        {titre.dessous && <p className="cab-titre-du-jeu">{espacesFines(titre.dessous)}</p>}
+        {/* Une mise perdue a son titre : la note qui la disait ne le redit pas. */}
+        {m?.note && r.misee !== 'perdue' && <p className="cab-note">{espacesFines(m.note)}</p>}
         {r.fin === 'expiree' && <p>Temps écoulé</p>}
         {r.fin === 'quittee' && <p>Manche quittée</p>}
         {fete.gerbe && <GerbeDeJuste />}
@@ -770,7 +829,7 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
     }
     corps = <ecran.Manche {...manche} />
     // La carte-bonus reste sous le pouce tant qu'elle peut servir ; sans carte, pas de pied, qui collait un bandeau vide au bas de l'écran.
-    const carte = vue.carte ? <CarteDeLaManche vue={vue} ecran={ecran} local={p.local} busy={p.busy} onGeste={p.onGeste} /> : null
+    const carte = vue.carte ? <CarteDeLaManche vue={vue} ecran={ecran} local={p.local} busy={p.busy} chrono={p.chrono} cadreDejaDore={p.cadreDejaDore} onGeste={p.onGeste} /> : null
     const sert = !!vue.pouvoir?.jouable
     if (ecran.Pied) {
       // Le pied du jeu reste collé, la carte-bonus qui sert encore au-dessus de lui ; une qui ne sert plus se pose sous la manche.
@@ -1017,7 +1076,9 @@ export function Partie({
       }
       const { titre, message } = messageDuQuitter(vueRef.current, { pauseMs, refus })
       // « Quitter la partie » : la tête porte déjà un « Quitter », et Camille ne savait lequel toucher (la tablée du 25 octobre 2026).
-      const oui = await confirmDialog({ title: titre, message, confirmLabel: 'Quitter la partie', cancelLabel: 'Continuer', danger: true })
+      // Prudente : « Continuer », le geste qu'on attend, est le bouton plein ; celui qui perd la partie, un contour rouge — sous une
+      // pause de dix secondes, Ophélie touchait le plein (la tablée du 26).
+      const oui = await confirmDialog({ title: titre, message, confirmLabel: 'Quitter la partie', cancelLabel: 'Continuer', prudent: true })
       // Fermée par la partie qui se démonte : rien ne part d'un écran qui n'est plus là. La partie attend au musée, en pause —
       // « Reprendre » la rouvre sous son voile, qui a son « Continuer » —, et le chrono n'attend pas plus que la pause (`PAUSE_MAX_MS`).
       if (!monte.current) return 'parti'

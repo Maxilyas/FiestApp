@@ -11,7 +11,8 @@
 // le Rempart complet et son Phénix, de la poussière d'or, douze jours de
 // série, son loup dans sa niche — : son musée, une salle complète et ses
 // cadres dorés, une œuvre et son cartel, une salle à une œuvre près, son cadre
-// vide, les gardiens et une fiche, la visite du jour ; l'annonce et le choix
+// vide, les gardiens et une fiche, la visite du jour et la confirmation de
+// « Changer pour … » ; l'annonce et le choix
 // de sa carte-bonus ; la fiche de sa niche, touchée en pleine manche (`[fiche]`
 // si elle ne sort pas sous la niche) ; une manche et sa révélation de chacun des neuf jeux, en
 // partie libre — le Pari parié, l'Éclair et ses cinq affirmations, le Détail
@@ -20,7 +21,8 @@
 // éclairée et plantée, les Indices — un indice de plus, un nom refusé —, la
 // Réplique, puis sa seconde manche laissée au temps (« Qui l'a dit ? ») —, et
 // le bilan d'une partie quittée ; le Filet d'une unité longue, écrite dans son
-// plan ; la partie qui l'attend au musée ; une partie
+// plan ; le repère du temps en plus de Prendre son temps, sur le chrono de
+// l'Éclair ; la partie qui l'attend au musée ; une partie
 // de la visite — son annonce, son seuil dans la tête, rechargée en pleine manche,
 // sa case « En cours » et son « Reprendre », « Quitter ? » qui dit ce qu'on
 // emporte, son bilan manqué et « Retenter », l'annonce de la retente, la visite
@@ -45,7 +47,10 @@
 // et le pied collés : la ligne à taper du Mot, à l'ouverture et après chaque
 // essai (`[mot]`) ; la question et la carte entière de l'Épingle, à un
 // défilement au moins, la carte à la même largeur avant et après Éclairer,
-// jamais plus large « Pas à pas » ouvert (`[épingle]`) ; le tableau du Détail entier sous
+// jamais plus large « Pas à pas » ouvert, la page ouverte en haut sur le récit,
+// et un geste au doigt qui n'en montre que la moitié, et la carte posée entière
+// entre la question et le pied (`[épingle]`) ; une révélation défilée jusqu'en bas, sa
+// dernière ligne au-dessus de « Manche suivante » (`[révélation]`) ; le tableau du Détail entier sous
 // la tête et au-dessus de chaque titre amené au bas de l'écran, à la même
 // hauteur tout du long (`[détail]`) — la tablée du 25 octobre 2026, au texte
 // agrandi, et sa relecture. Leur compte à la fin, et le tout dans
@@ -401,18 +406,44 @@ async function boutonQuiDit(page: any, selecteur: string, texte: string) {
   return page.locator(selecteur).nth(i)
 }
 
-/** Le dialogue de « Quitter ? » : « Continuer » (`continuer`) ou « Quitter la partie ». L'écho du doigt passé, il prend le toucher. */
+/**
+ * Le dialogue de « Quitter ? » : « Continuer » (`continuer`) ou « Quitter la partie ». L'écho du doigt passé, il prend le toucher.
+ * Par leur rôle, jamais par leur classe : prudent, « Continuer » est le bouton plein, et « Quitter la partie » le contour.
+ */
 async function repondreAuDialogue(page: any, continuer: boolean) {
   await page.waitForSelector('.dialog')
-  await toucher(page, page.locator(continuer ? '.dialog .dialog-actions .btn-ghost' : '.dialog button[type="submit"]'), 900)
+  await toucher(page, page.locator(continuer ? '.dialog .dialog-actions button[type="button"]' : '.dialog button[type="submit"]'), 900)
   await page.waitForSelector('.dialog', { state: 'detached' })
 }
 
-/** La révélation d'une manche : son titre arrivé, la gerbe et la niche passées. */
+/** La révélation d'une manche : son titre arrivé, la gerbe et la niche passées ; puis défilée jusqu'en bas, la fin de son récit. */
 async function laRevelation(page: any, nom: string) {
   await page.waitForSelector('.cab-titre-revele')
   await photo(page, `${nom}-revelation`, { attente: 1300 })
   await photo(page, `${nom}-revelation-entiere`, { pleine: true })
+  await laFinDuRecit(page, nom)
+  await photo(page, `${nom}-revelation-en-bas`)
+  await page.evaluate('window.scrollTo(0, 0)')
+}
+
+/**
+ * La révélation défilée jusqu'en bas : la dernière ligne de la manche — « Le savais-tu ? », « Signaler une erreur » — se lit
+ * au-dessus de « Manche suivante », collé au bas de l'écran. Il en cachait la fin (Ophélie et Lucas, aux tablées du 25 et du 26
+ * octobre 2026).
+ */
+async function laFinDuRecit(page: any, nom: string) {
+  await page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)')
+  await page.waitForTimeout(300)
+  const m: { fin: number; pied: number; texte: string } | null = await page.evaluate(`(() => {
+  const pied = document.querySelector(${JSON.stringify(PIED_COLLE)})
+  const derniers = [...document.querySelectorAll('.cab-manche > *')].filter(e => e.getBoundingClientRect().height > 0)
+  const dernier = derniers[derniers.length - 1]
+  if (!pied || !dernier) return null
+  return { fin: dernier.getBoundingClientRect().bottom, pied: pied.getBoundingClientRect().top, texte: (dernier.textContent || '').trim().slice(-40) }
+})()`)
+  if (!m) return
+  if (m.fin > m.pied + 0.5) noterLaBande(`[révélation] ${nom}, défilée jusqu’en bas : la fin de la manche (« …${m.texte} ») passe de ${Math.round(m.fin - m.pied)} px sous « Manche suivante »`)
+  else mesures.push(`la révélation ${nom}, défilée jusqu’en bas : sa dernière ligne à ${Math.round(m.pied - m.fin)} px au-dessus du pied`)
 }
 
 // ── Ce qu'une manche laisse voir entre la tête et le pied collés ──────────
@@ -537,6 +568,57 @@ function laMemeTaille(quoi: string, avant: number | null, apres: number | null, 
   if (Math.abs(apres - avant) <= 0.5) mesures.push(`${nom} ${quand} : ${Math.round(apres)} px, comme à l’ouverture`)
   else if (resserrable && apres < avant) mesures.push(`${nom} ${quand} : resserrée de ${Math.round(avant)} à ${Math.round(apres)} px, le pied grandi`)
   else noterLaBande(`[${quoi}] ${quand} : ${Math.round(avant)} px à l’ouverture, ${Math.round(apres)} px ensuite`)
+}
+
+/**
+ * La carte de l'Épingle, un point d'arrêt du défilement : de la page en haut — le récit, qui porte l'indice —, un geste qui
+ * n'en montre que la moitié au-dessus du pied la pose entière entre la question collée et le pied (`scroll-snap-align: end`). Au
+ * texte agrandi, la carte s'ouvrait sous le pied, et ne s'y voyait entière que sur une cinquantaine de pixels de défilement :
+ * Jeanne a mis quatre gestes à la trouver, le chrono courant (la tablée du 26 octobre 2026). Le geste au doigt, comme le pouce
+ * le fait : le défilement d'un `scrollBy` ne se laisse pas toujours arrêter. Rien à dire si la carte tenait déjà, la page en haut.
+ */
+async function laCarteSArrete(page: any, quand: string) {
+  await page.evaluate('window.scrollTo(0, 0)')
+  await page.waitForTimeout(600)
+  const mesurer = (): Promise<{ tete: number; bas: number; q: number; c: [number, number]; y: number }> =>
+    page.evaluate(`(() => {
+  const q = document.querySelector('.cab-manche > .cab-question').getBoundingClientRect(), c = document.querySelector('.cab-manche .cab-carte-jouable').getBoundingClientRect()
+  ${LA_BANDE}
+  return { tete, bas, q: q.bottom, c: [c.top, c.bottom], y: window.scrollY }
+})()`)
+  const tient = (m: { bas: number; q: number; c: [number, number] }) => m.q <= m.c[0] + 0.5 && m.c[1] <= m.bas + 0.5
+  const avant = await mesurer()
+  // L'arrêt ne happe pas la page à l'ouverture : le récit, qui porte l'indice, se lit d'abord.
+  if (avant.y > 0.5) noterLaBande(`[épingle] ${quand} : la page ne reste pas en haut, sur le récit — défilée de ${Math.round(avant.y)} px`)
+  if (tient(avant)) return mesures.push(`l’Épingle ${quand} : la carte tient sous la question dès l’ouverture`)
+  // Jusqu'à la moitié de la carte au-dessus du pied, au doigt, regardée pendant qu'il monte : le doigt part du bas de la bande,
+  // juste au-dessus du pied, sans partir d'un de ses boutons, et monte à petits pas tant que la moitié n'est pas en vue — ce qu'il
+  // perd avant que la page ne bouge, et ce que la page bouge sous lui, ne se calculent pas d'avance. Puis il s'arrête avant de se
+  // lever : lâché en mouvement, il lancerait la page, qui irait où son élan la porte.
+  const x = largeur / 2
+  const y0 = Math.round(avant.bas - 12)
+  const cdp = await page.context().newCDPSession(page)
+  const point = (y: number) => [{ x, y }]
+  const aMoitieEnVue = (m: { bas: number; c: [number, number] }) => m.bas - m.c[0] >= (m.c[1] - m.c[0]) / 2
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: point(y0) })
+  let geste = 0
+  while (y0 - geste > avant.tete + 24) {
+    geste += 12
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: point(y0 - geste) })
+    await page.waitForTimeout(16)
+    if (aMoitieEnVue(await mesurer())) break
+  }
+  await page.waitForTimeout(400)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await page.waitForTimeout(900)
+  const apres = await mesurer()
+  if (tient(apres)) mesures.push(`l’Épingle ${quand} : un geste de ${geste} px pose la carte entière sous la question (défilée de ${Math.round(apres.y)} px)`)
+  else
+    noterLaBande(
+      `[épingle] ${quand} : de la page en haut (la carte ${Math.round(avant.c[0])} → ${Math.round(avant.c[1])}, le pied ${Math.round(avant.bas)}), un geste de ${geste} px laisse la carte (${Math.round(apres.c[0])} → ${Math.round(apres.c[1])}) hors de la bande, entre la question (${Math.round(apres.q)}) et le pied (${Math.round(apres.bas)}), défilée de ${Math.round(apres.y)} px`,
+    )
+  await page.evaluate('window.scrollTo(0, 0)')
+  await page.waitForTimeout(300)
 }
 
 /** La hauteur du cadre du tableau du Détail, à l'écran. */
@@ -706,6 +788,7 @@ async function uneEpingle(page: any, t: EpingleTiree, nom: string) {
   await page.waitForSelector('.cab-carte-dessin')
   await photo(page, `${nom}-manche`)
   const ouverture = await laQuestionEtLaCarte(page, 'à l’ouverture, sa carte-bonus au pied')
+  await laCarteSArrete(page, 'à l’ouverture, sa carte-bonus au pied')
   await page.evaluate('window.scrollTo(0, 0)')
   if (await page.locator('.cab-pouvoir:not([aria-disabled])').count()) {
     await toucher(page, page.locator('.cab-pouvoir'))
@@ -973,6 +1056,15 @@ try {
     await ouvrir(page, '#visite', '.cab-cases')
     await photo(page, 'lea-visite-du-jour')
     await photo(page, 'lea-visite-du-jour-entiere', { pleine: true })
+    // « Changer » nomme le jeu qui vient, et se confirme : on regarde la confirmation, puis on garde la visite telle qu'elle est —
+    // les parties de la visite, plus bas, la jouent.
+    const changer = page.locator('.cab-case .btn', { hasText: 'Changer pour' }).first()
+    if (await changer.count()) {
+      await toucher(page, changer)
+      await page.waitForSelector('.dialog')
+      await photo(page, 'lea-visite-changer-de-jeu', { attente: 900 })
+      await repondreAuDialogue(page, true)
+    } else echecs.push('[rendu] la visite de Léa ne propose pas de changer de jeu')
   })
 
   // Les neuf jeux en partie libre : l'annonce et sa carte-bonus d'abord — Coup d'œil, qui éclaire —, puis une manche de chacun.
@@ -1036,6 +1128,29 @@ try {
       await toucher(page, page.locator('.cab-lancer'))
       await laRevelation(page, 'filet-unite-longue')
       await quitter(page, null)
+    })
+  }
+
+  // Prendre son temps : le repère du temps en plus sur le chrono — un trait, la part hachurée —, que la tablée du 26 octobre 2026
+  // ne voyait pas. Puis Coup d'œil, retenu de nouveau : les parties d'après le portent.
+  if (ordre.includes('eclair')) {
+    await etape('Prendre son temps et son repère', async () => {
+      const laCarte = async (nom: string, commencerEnsuite: boolean) => {
+        await sansPartieEnCours(page)
+        await ouvrir(page, '#libre', '.cab-jeux')
+        await toucher(page, await boutonQuiDit(page, '.cab-jeu', JEUX.eclair.nom))
+        await page.waitForSelector('.cab-annonce')
+        await toucher(page, page.locator('.cab-annonce .cab-bloc .btn-block'))
+        await page.waitForSelector('.cab-choix-carte')
+        await toucher(page, await boutonQuiDit(page, '.cab-choix-carte', nom))
+        await page.waitForSelector('.carte-feuille', { state: 'detached' })
+        if (commencerEnsuite) await commencer(page)
+      }
+      await laCarte(oeuvreDe('concentration')!.nom, true)
+      await page.waitForSelector('.timer-repere')
+      await photo(page, 'eclair-le-repere-du-temps-en-plus')
+      await quitter(page, null)
+      await laCarte(oeuvreDe('coup-d-oeil')!.nom, false)
     })
   }
 

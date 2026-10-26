@@ -1,9 +1,12 @@
 // La bande d'une manche : ce que la tête et le pied collés d'une partie
 // laissent à l'écran. La question collée de l'Épingle et sa carte, le tableau
 // du Détail s'y règlent (`--cab-tete`, `--cab-fenetre`, `--cab-place`,
-// `styles.css`) ; la ligne à taper du Mot s'y ramène (`bandeALEcran`). Au
+// `styles.css`) ; la ligne à taper du Mot s'y ramène (`bandeALEcran`) ; le
+// défilement s'arrête sur la carte, entre la question et le pied, et garde la
+// hauteur du pied sous une révélation (`--cab-question`, `--cab-pied`). Au
 // petit téléphone, le texte agrandi, la question et la carte ne tenaient
-// jamais ensemble, ni le tableau et ses titres (la tablée du 25 octobre 2026).
+// jamais ensemble, ni le tableau et ses titres (la tablée du 25 octobre 2026),
+// et rien n'amenait la page à la carte (la tablée du 26).
 //
 // Et la rangée des manches de la tête : « Quitter » y garde son mot tant
 // qu'il tient (`poserLeMotDeQuitter`), et le rendu juge `[tête]` par la même
@@ -120,12 +123,18 @@ export function poserLeMotDeQuitter(rangee: RangeeDeLaTete): void {
   if (total && quitter && !surLaMemeRangee(total, quitter)) rangee.dataset.mot = 'cache'
 }
 
+/** Ce qu'on écrit d'une boîte : ses propriétés. */
+interface Ecrivable {
+  readonly style: { setProperty(propriete: string, valeur: string): void }
+}
+
 /** La page d'une partie, telle que la bande la lit et y écrit : l'élément même, ou son double dans une épreuve. */
-export interface PageDeLaPartie {
+export interface PageDeLaPartie extends Ecrivable {
   querySelector(selecteur: string): object | null
   /** Le zoom posé sur la page — la tablée y pose le texte agrandi : la fenêtre se ramène à ses pixels. */
   readonly currentCSSZoom?: number
-  readonly style: { setProperty(propriete: string, valeur: string): void }
+  /** Le document qui défile : sa marge d'arrêt du bas (`scroll-padding-bottom`, sur `html`) lit le pied à sa racine. */
+  readonly ownerDocument?: { readonly documentElement: Ecrivable } | null
 }
 
 /** La hauteur d'une pièce de la page, en pixels de la page (`offsetHeight` : sous le zoom, `getBoundingClientRect` dit des pixels d'écran) ; 0 si elle n'y est pas. */
@@ -135,6 +144,12 @@ const hauteurDe = (page: PageDeLaPartie, selecteur: string) => (page.querySelect
  * Mesure la bande et la pose sur la page, en pixels de la page — la fenêtre
  * ramenée à eux : sous le zoom, `100dvh` vaut 1,3 fenêtre. Rend l'ouverture
  * de l'étape, à repasser à la mesure suivante (`bandeDeLEtape`).
+ *
+ * Le pied et la question collés se posent aussi, tels qu'ils sont : la carte de
+ * l'Épingle s'arrête entre eux (`scroll-margin`). Et le pied à la racine du
+ * document (`html`), qui défile : une révélation y garde sa hauteur sous ce que
+ * la page amène à l'écran (`scroll-padding-bottom`) — posé sur la page seule,
+ * `html` ne le voyait pas.
  */
 export function poserLaBande(
   page: PageDeLaPartie,
@@ -143,19 +158,19 @@ export function poserLaBande(
   avant: OuvertureDeLaBande | null,
 ): OuvertureDeLaBande | null {
   const zoom = page.currentCSSZoom || 1
-  const b = bandeDeLEtape(
-    {
-      largeur: Math.round(fenetre.innerWidth / zoom),
-      fenetre: fenetre.innerHeight / zoom,
-      tete: hauteurDe(page, TETE_COLLEE),
-      pied: hauteurDe(page, PIED_COLLE),
-      question: hauteurDe(page, QUESTION_COLLEE),
-    },
-    cle,
-    avant,
-  )
+  const mesure = {
+    largeur: Math.round(fenetre.innerWidth / zoom),
+    fenetre: fenetre.innerHeight / zoom,
+    tete: hauteurDe(page, TETE_COLLEE),
+    pied: hauteurDe(page, PIED_COLLE),
+    question: hauteurDe(page, QUESTION_COLLEE),
+  }
+  const b = bandeDeLEtape(mesure, cle, avant)
   page.style.setProperty('--cab-tete', `${b.tete}px`)
   page.style.setProperty('--cab-fenetre', `${b.fenetre}px`)
   page.style.setProperty('--cab-place', `${b.place}px`)
+  page.style.setProperty('--cab-pied', `${mesure.pied}px`)
+  page.style.setProperty('--cab-question', `${mesure.question}px`)
+  page.ownerDocument?.documentElement.style.setProperty('--cab-pied', `${mesure.pied}px`)
   return b.ouverture
 }

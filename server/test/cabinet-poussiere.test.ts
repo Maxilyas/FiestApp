@@ -403,10 +403,15 @@ test('une partie d’un jour d’avant ne retient pas la poussière : la dépens
 test('changer le jeu d’une case de la visite : une fois par jour, une case pas jouée, et la visite figée tient d’un réveil à l’autre', async () => {
   const zoe = await inscrireProfil(b.banc.url, 'zoe', 'Zoé')
   const avant = ok(await laPage(b, zoe), 'la page').visite
-  assert.deepEqual(avant.echange, { possible: true })
+  // L'échange dit le jeu qu'il donnera : « Changer de jeu » partait à l'aveugle, et Ophélie, au Détail qu'elle ne savait pas
+  // jouer, n'a pas osé (la tablée du 26 octobre 2026). C'est le jeu que la case prend, quelle que soit la case.
+  assert.ok(avant.echange.possible, 'un échange possible')
+  const promis = avant.echange.possible ? avant.echange.jeu : null
+  assert.deepEqual(avant.echange, { possible: true, jeu: promis })
   const page = ok(await echanger(zoe, 1), 'l’échange')
   const apres = page.visite
   const neuf = apres.cases[1].jeu
+  assert.equal(neuf, promis, 'la case prend le jeu que la page a dit')
   assert.ok(JEUX_PRETS.includes(neuf) && !avant.cases.some(c => c.jeu === neuf), `un jeu livré qui n’était pas de la visite : ${neuf}`)
   assert.deepEqual(apres.cases[1].enJeu, avant.cases[1].enJeu, 'l’œuvre en jeu reste')
   assert.deepEqual([apres.cases[0], apres.cases[2]], [avant.cases[0], avant.cases[2]], 'les autres cases ne bougent pas')
@@ -436,7 +441,13 @@ test('changer le jeu d’une case de la visite : une fois par jour, une case pas
   // Le lendemain, un échange de plus.
   b.horloge.t += 24 * 3_600_000
   try {
-    assert.deepEqual(ok(await laPage(b, zoe), 'le lendemain').visite.echange, { possible: true })
+    const lendemain = ok(await laPage(b, zoe), 'le lendemain').visite
+    assert.equal(lendemain.echange.possible, true)
+    // Le jeu promis n'est pas de la visite du jour. Ceux des deux jours d'avant passent après (`jeuDeLEchange`) — mais la
+    // veille d'hier, sans partie, prend les premiers de son ordre, que la page ne voit pas : les neuf jeux pris, le promis peut
+    // être d'hier ; la règle s'éprouve seule (`cabinet-regles.test.ts`).
+    const jeuPromis = lendemain.echange.possible ? lendemain.echange.jeu : null
+    assert.ok(jeuPromis !== null && JEUX_PRETS.includes(jeuPromis) && !lendemain.cases.some(c => c.jeu === jeuPromis), `${jeuPromis}`)
   } finally {
     b.horloge.t = DIX_HEURES
   }

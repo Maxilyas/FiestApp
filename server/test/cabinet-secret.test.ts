@@ -59,6 +59,9 @@ import { ecritDans } from '../src/core/cabinet/contenu'
 import { hasardDe } from '../../shared/missions'
 import type { QuestionTiree } from '../../shared/cabinet/jeux/outils'
 import type { MursDuCabinet, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
+import { jeuDeLEchange, museeDe, visiteDuJour, type LigneDOeuvre } from '../../shared/cabinet/musee'
+import { OEUVRES } from '../../shared/cabinet/oeuvres'
+import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
 
 let b: BancDuCabinet
 before(async () => {
@@ -539,6 +542,29 @@ test('la visite : ni l’œuvre visée d’une case, ni sa graine, ni le secret 
     assert.ok(!nomme(v, cible), `la partie de la visite nomme ${cible}`)
     assert.ok(!nomme(page.enCours, cible), `la partie en cours nomme ${cible}`)
   }
+  // L'échange dit le jeu qu'il donnerait (la tablée du 26 octobre 2026) : un jeu, jamais une œuvre — l'œuvre de la case reste.
+  assert.ok(page.visite.echange.possible && JEUX_PRETS.includes(page.visite.echange.jeu), JSON.stringify(page.visite.echange))
+  assert.deepEqual(Object.keys(page.visite.echange).sort(), ['jeu', 'possible'])
+})
+
+test('le jeu de l’échange ne dit rien des œuvres visées : d’un musée à l’autre, leurs visites visent d’autres œuvres, et promettent le même jeu', () => {
+  // Il est l'élément suivant de l'ordre des jeux du jour, dont la page voit déjà les trois premiers, tiré d'un autre fil que les
+  // œuvres visées (`:visite:` contre `:cibles:`, `musee.ts`) : ce que le musée possède change les œuvres, jamais ce jeu.
+  const jour = '2026-10-24'
+  const minuit = Date.UTC(2026, 9, 23, 22, 0, 0)
+  const ligne = (oeuvre: string): LigneDOeuvre => ({ oeuvre, origine: 'partie', gagneeLe: minuit - 3_600_000, saison: null, serieId: null, prix: null, doreeLe: null, dorure: null, prixDorure: null, serieDoree: null })
+  const neuf = museeDe({ jour })
+  // Il a déjà tout le Vestibule et la moitié du reste : les œuvres que sa visite peut viser ne sont plus les mêmes.
+  const avance = museeDe({ jour, oeuvres: OEUVRES.filter((o, k) => o.salle === 'vestibule' || k % 2 === 0).map(o => ligne(o.cle)) })
+  let differentes = 0
+  for (let n = 0; n < 40; n++) {
+    const o = { graine: `secret-${n}`, jour, minuit, jeux: JEUX_PRETS }
+    const [a, b2] = [visiteDuJour(neuf, o), visiteDuJour(avance, o)]
+    assert.deepEqual(a.cases.map(c => c.jeu), b2.cases.map(c => c.jeu), 'les mêmes jeux')
+    if (JSON.stringify(a.cases.map(c => c.cible)) !== JSON.stringify(b2.cases.map(c => c.cible))) differentes++
+    assert.equal(jeuDeLEchange(neuf, a, o), jeuDeLEchange(avance, b2, o), `secret-${n}`)
+  }
+  assert.ok(differentes > 30, `des visites aux œuvres différentes : ${differentes} sur 40`)
 })
 
 test('« Retenter » vise la case : ni la page, ni le bilan, ni la retente ne nomment l’œuvre, et une retente qui la nomme se refuse pareil, quelle qu’elle soit', async () => {

@@ -24,6 +24,16 @@ export interface DialogOptions {
   /** Action qui efface quelque chose : le bouton prend la couleur d'alerte. */
   danger?: boolean
   /**
+   * Le geste sûr est celui qu'on attend, et la confirmation perd quelque
+   * chose : renoncer prend le bouton plein, confirmer le contour rouge du
+   * second geste (`dialog-alternative`), à sa place. La convention des
+   * dialogues qui effacent — renoncer discret, confirmer plein et rouge —
+   * convient quand le geste sûr est rare ; sous « Quitter ? » d'une manche du
+   * Cabinet, c'est lui qu'on touche, et Ophélie, au doigt, touchait le plein
+   * (la tablée du 26 octobre 2026).
+   */
+  prudent?: boolean
+  /**
    * Un second geste, à côté de la confirmation : « Clore la soirée » ou
    * « C'était un essai ». Discret, et d'alerte s'il efface.
    */
@@ -118,6 +128,16 @@ export function arretDuTab<T>(arrets: readonly T[], actif: unknown, arriere: boo
   return null
 }
 
+/**
+ * Les classes des deux boutons de la boîte : renoncer, puis confirmer — dans
+ * cet ordre à l'écran comme au clavier, le focus sur le premier. Pur, pour
+ * que la convention se lise d'un seul endroit.
+ */
+export function boutonsDuDialogue(options: Pick<DialogOptions, 'danger' | 'prudent'>): { renoncer: string; confirmer: string } {
+  if (options.prudent) return { renoncer: 'btn btn-primary', confirmer: 'btn btn-ghost dialog-alternative dialog-a-sa-place' }
+  return { renoncer: 'btn btn-ghost', confirmer: 'btn ' + (options.danger ? 'btn-danger' : 'btn-primary') }
+}
+
 /** À monter une fois par page : c'est lui qui affiche le dialogue en cours. */
 export function DialogHost() {
   const pending = useSyncExternalStore(
@@ -133,6 +153,7 @@ export function DialogHost() {
 
 function DialogBox({ pending }: { pending: Pending }) {
   const { options } = pending
+  const boutons = boutonsDuDialogue(options)
   const [value, setValue] = useState(options.input?.value ?? '')
   const voile = useRef<HTMLDivElement>(null)
   const box = useRef<HTMLFormElement>(null)
@@ -213,7 +234,7 @@ function DialogBox({ pending }: { pending: Pending }) {
           />
         )}
         <div className="row dialog-actions">
-          <button type="button" className="btn btn-ghost" onClick={() => close(null)}>
+          <button type="button" className={boutons.renoncer} onClick={() => close(null)}>
             {options.cancelLabel ?? 'Annuler'}
           </button>
           {options.alternative && (
@@ -225,7 +246,7 @@ function DialogBox({ pending }: { pending: Pending }) {
               {options.alternative.label}
             </button>
           )}
-          <button type="submit" className={'btn ' + (options.danger ? 'btn-danger' : 'btn-primary')}>
+          <button type="submit" className={boutons.confirmer}>
             {options.confirmLabel ?? 'Confirmer'}
           </button>
         </div>

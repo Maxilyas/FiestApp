@@ -39,6 +39,7 @@ import {
   unPariParfait,
   type BancDuCabinet,
 } from './cabinet-banc'
+import { MIDI, Partie as PartieAuPli, S, carte as carteDuPlan, departDe, ouvrir as ouvrirAuPli } from './cabinet-plans'
 import { importsStatiques } from './chemin-des-imports'
 import { contraste, surFond, teinte, themesDuClient } from './teintes'
 import {
@@ -65,7 +66,7 @@ import { CLES_DES_JEUX, JEUX, MOTS_DU_PARI, type CleDeJeu } from '../../shared/c
 import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, SON_OEUVRE_EST_A_TOI, laPartieAttend, museeDe, type CaseFigee, type PartieDuJour, type VisiteDuJour } from '../../shared/cabinet/musee'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, RARETES, estUneOeuvre, oeuvre as oeuvreDe, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
-import { PLUS_DE_PAUSE, type Manche } from '../../shared/cabinet/partie'
+import { PLUS_DE_PAUSE, bilanDe, etoilesDesManches, type Manche } from '../../shared/cabinet/partie'
 import { POUVOIRS, ceQueFaitLaCarte, forceDite } from '../../shared/cabinet/pouvoirs'
 import { GARDIENS, GARDIENS_DES_SALLES, SALLES } from '../../shared/cabinet/salles'
 import { fondreLesReveils, type CaseVue, type Cartel, type PageDuCabinet, type ReveilDesGardiens, type SalleVue, type VueDeLaPartie } from '../../shared/cabinet/vues'
@@ -78,7 +79,7 @@ import { pageDeLAdresse } from '../../shared/maintenance'
 import { espacesFines, formatNumber } from '../../shared/typographie'
 import { CABINET_SANS_PROFIL } from '../src/cabinet'
 import type { LectureDeLAccueil } from '../src/core/cabinet/magasin'
-import { accueilDuCabinet } from '../src/core/cabinet/vue'
+import { accueilDuCabinet, vueDeLaPartie } from '../src/core/cabinet/vue'
 
 // Le client compile son JSX pour un `React` global, et `state.ts` lit son adresse à l'import : posés avant tout composant.
 Object.assign(globalThis, { React, window: { location: { pathname: '/cabinet', search: '', hash: '', origin: 'http://banc' }, addEventListener: () => {} } })
@@ -526,13 +527,18 @@ test('la visite du jour : chaque case, son jeu, ce qu’elle met en jeu sans nom
   const aJouerToutes = page.visite.cases.filter(c => !c.faite && !c.bientot)
   assert.ok(aJouerToutes.length < page.visite.cases.length)
   assert.equal([...html.matchAll(/>Jouer<\/button>/g)].length, aJouerToutes.length)
-  // Changer de jeu, quand la règle le permet — un jeu livré que la visite n'a pas — ; sinon rien à toucher.
+  // Changer de jeu, quand la règle le permet — un jeu livré que la visite n'a pas — ; sinon rien à toucher. Le bouton dit le jeu
+  // que la case prendra, celui que le serveur promet (`VisiteVue.echange.jeu`) : il partait à l'aveugle, et Ophélie, devant un
+  // Détail qu'elle ne savait pas jouer, n'a pas osé (la tablée du 26 octobre 2026).
   const unAutreJeu = JEUX_PRETS.length > page.visite.cases.length
   assert.equal(page.visite.echange.possible, unAutreJeu, `${JEUX_PRETS.length} jeux livrés, ${page.visite.cases.length} cases`)
-  assert.equal([...html.matchAll(/>Changer de jeu<\/button>/g)].length, unAutreJeu ? aJouerToutes.length : 0)
-  const echange = await rendu('views/cabinet/Visite', 'Visite', { page: { ...page, visite: { ...page.visite, echange: { possible: true } } }, busy: false, onJouer: rien, onEchanger: rien })
-  // Les boutons, pas les mots : chacun redit « Changer de jeu » dans son nom à l'oreille, qui dit aussi lequel (§ 19).
-  assert.equal([...echange.matchAll(/>Changer de jeu<\/button>/g)].length, aJouerToutes.length, 'sur chaque case pas jouée')
+  const changerPour = (jeu: CleDeJeu) => new RegExp(`>${echapper(`Changer pour ${JEUX[jeu].nom}`)}</button>`, 'g')
+  const promis = page.visite.echange.possible ? page.visite.echange.jeu : 'filet'
+  assert.equal([...html.matchAll(changerPour(promis))].length, unAutreJeu ? aJouerToutes.length : 0)
+  const echange = await rendu('views/cabinet/Visite', 'Visite', { page: { ...page, visite: { ...page.visite, echange: { possible: true, jeu: 'filet' } } }, busy: false, onJouer: rien, onEchanger: rien })
+  // Les boutons, pas les mots : chacun redit à l'oreille la case qu'il change et le jeu qu'elle prend (§ 19).
+  assert.equal([...echange.matchAll(changerPour('filet'))].length, aJouerToutes.length, 'sur chaque case pas jouée')
+  assert.doesNotMatch(echange, /Changer de jeu/, 'jamais à l’aveugle')
   // Une œuvre à dorer se nomme — elle est à lui ; la poussière d'or, rien à gagner.
   const deuxCases = [{ jeu: 'pari', enJeu: { pourDorer: 'bastion' }, faite: false }, { jeu: 'eclair', enJeu: { poussiere: true }, faite: false }]
   const aDorer = { ...page, visite: { ...page.visite, cases: deuxCases } }
@@ -540,13 +546,61 @@ test('la visite du jour : chaque case, son jeu, ce qu’elle met en jeu sans nom
   assert.match(td, /Pour dorer Bastion/)
   assert.match(td, /Pour la poussière d’or/)
   // Deux cases à jouer, l'échange encore possible : chacune peut changer de jeu — la règle des échanges ne vise pas la première.
-  const deux = await rendu('views/cabinet/Visite', 'Visite', { page: { ...aDorer, visite: { ...aDorer.visite, echange: { possible: true } } }, busy: false, onJouer: rien, onEchanger: rien })
-  assert.equal([...deux.matchAll(/>Changer de jeu<\/button>/g)].length, 2)
+  const deux = await rendu('views/cabinet/Visite', 'Visite', { page: { ...aDorer, visite: { ...aDorer.visite, echange: { possible: true, jeu: 'mot' } } }, busy: false, onJouer: rien, onEchanger: rien })
+  assert.equal([...deux.matchAll(changerPour('mot'))].length, 2)
   // L'échange fait, plus aucun bouton : la raison du serveur, une fois, sous les cases.
   const fait = await rendu('views/cabinet/Visite', 'Visite', { page: { ...aDorer, visite: { ...aDorer.visite, echange: { possible: false, refus: 'Tu as déjà changé un jeu aujourd’hui' } } }, busy: false, onJouer: rien, onEchanger: rien })
-  assert.doesNotMatch(fait, /Changer de jeu/)
+  assert.doesNotMatch(fait, /Changer/)
   assert.equal([...texte(fait).matchAll(/Tu as déjà changé un jeu aujourd’hui/g)].length, 1)
   sansJargon(html, 'la visite')
+})
+
+test('changer le jeu d’une case se confirme, et la nomme : « Changer Le Détail pour Le Filet ? » — la case du Détail dit d’avance, à l’oreille, qu’il se joue à l’œil', async () => {
+  // L'échange partait d'un toucher, sans un mot, quand la dorure a sa confirmation : un seul par jour, et Théo l'a dépensé à
+  // l'aveugle (la tablée du 26 octobre 2026). La confirmation se compose de la visite que la page tient — rien d'une règle.
+  const { confirmationDeLEchange } = await import(url('views/cabinet/Visite.tsx'))
+  const cases = [uneCase({ jeu: 'detail', enJeu: enGagnant, seuil: 6 }), uneCase({ jeu: 'pari', enJeu: enGagnant, seuil: 6 })]
+  const visite = { jour: page.visite.jour, cases, echange: { possible: true as const, jeu: 'filet' as const } }
+  assert.deepEqual(confirmationDeLEchange(visite, 0), {
+    title: `Changer ${JEUX.detail.nom} pour ${JEUX.filet.nom} ?`,
+    message: 'Un seul échange par jour ; l’œuvre en jeu reste la même.',
+    confirmLabel: `Changer pour ${JEUX.filet.nom}`,
+    cancelLabel: `Garder ${JEUX.detail.nom}`,
+  })
+  assert.equal(confirmationDeLEchange(visite, 1)?.title, `Changer ${JEUX.pari.nom} pour ${JEUX.filet.nom} ?`)
+  // L'échange qui ne se peut plus, une case qui n'est pas de la visite : rien à demander — le serveur dirait pourquoi.
+  assert.equal(confirmationDeLEchange({ ...visite, echange: { possible: false, refus: 'Tu as déjà changé un jeu aujourd’hui' } }, 0), null)
+  assert.equal(confirmationDeLEchange(visite, 7), null)
+  // La page la demande avant d'écrire, comme la dorure.
+  const app = source('views/CabinetApp.tsx')
+  assert.match(app, /const demande = confirmationDeLEchange\(page\?\.visite, k\)\s*if \(!demande \|\| !\(await confirmDialog\(demande\)\)\) return\s*await ecrire\(\(\) => api\.cabinet\.echanger\(k\)/)
+  // Le bouton nomme la case qu'il change et le jeu qu'elle prendra ; à l'œil, le jeu qu'elle prendra seulement.
+  const html = await rendu('views/cabinet/Visite', 'Visite', { page: laVisiteDe(cases, { visite: visite as PageDuCabinet['visite'] }), busy: false, onJouer: rien, onEchanger: rien })
+  assert.match(html, new RegExp(`aria-label="${echapper(`Changer ${JEUX.detail.nom} pour ${JEUX.filet.nom}`)}"[^>]*>Changer pour ${echapper(JEUX.filet.nom)}</button>`))
+  // Hugo, au lecteur d'écran : l'annonce du Détail disait qu'il se joue à l'œil, la case pas — il a joué, et fait 2 sur 9. Dit
+  // avant ses gestes, en `sr-only` : à l'œil, la peinture du jeu suffit.
+  const detail = /<li class="cab-case">(.*?)<\/li>/.exec(html)?.[1] ?? ''
+  assert.match(detail, new RegExp(`<span class="sr-only">${echapper(espacesFines(JEUX.detail.avertissement!))}</span>`))
+  assert.match(texte(detail), /se joue à l’œil/)
+  assert.ok(detail.indexOf('sr-only') < detail.indexOf('<button'), 'avant « Jouer » et « Changer »')
+  const pari = [...html.matchAll(/<li class="cab-case">(.*?)<\/li>/g)][1]?.[1] ?? ''
+  assert.doesNotMatch(pari, /sr-only/, 'un jeu sans avertissement n’en dit rien')
+  // Ses gestes sous la case entière, hors de la colonne du texte : « Changer pour Le Mot mystère » y tenait sur quatre lignes en
+  // 360 de large au texte agrandi (le rendu du 26 octobre 2026).
+  assert.match(detail, /<\/span><div class="cab-gestes"><button[^>]*>Jouer<\/button><button[^>]*>Changer pour /)
+  assert.ok(!detail.slice(0, detail.indexOf('<div class="cab-gestes">')).includes('<button'), 'aucun geste dans la colonne du texte')
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  assert.match(css, /\.cab-case \{[^}]*flex-wrap: wrap;/)
+  assert.match(css, /\.cab-case > \.cab-gestes \{ flex: 1 0 100%; margin-top: 0; \}/)
+})
+
+test('la série se garde en répondant à une manche, pas en ouvrant une partie : la visite le dit dans les mots de la règle', async () => {
+  // Un jour ne compte qu'à la première manche répondue (`jourCompte`, depuis le lot equilibre-2) : « joue aujourd'hui » laissait
+  // croire qu'ouvrir une partie suffisait (la relecture des régressions du 26 octobre 2026).
+  const serie = async (aJouer: boolean) => texte(await rendu('views/cabinet/Visite', 'Visite', { page: { ...page, serie: { jours: 4, aJouer, record: 4 } }, busy: false, onJouer: rien, onEchanger: rien }))
+  assert.match(await serie(true), /4 jours de visite d’affilée : réponds à une manche aujourd’hui pour garder ta série\./)
+  assert.doesNotMatch(await serie(true), /joue aujourd’hui/)
+  assert.match(await serie(false), /4 jours de visite d’affilée\./)
 })
 
 test('jouer librement : les jeux livrés se jouent, les autres arrivent bientôt', async () => {
@@ -891,7 +945,7 @@ test('« À jouer » : une seule règle, au musée et sur l’accueil — une ca
     visite: { ...page.visite, echange, cases: page.visite.cases.map((c, k, toutes) => (k < toutes.length - 1 ? { ...c, faite: true } : { ...c, faite: false, bientot: true as const })) },
   })
   const laVisite = async (p: PageDuCabinet) => /<a class="gros-bouton[^"]*" href="#visite">.*?<\/a>/.exec(await musee(p))?.[0] ?? ''
-  const changeable = await laVisite(derniere({ possible: true }))
+  const changeable = await laVisite(derniere({ possible: true, jeu: 'mot' }))
   assert.match(changeable, /^<a class="gros-bouton gros-principal"/)
   assert.match(changeable, /<span class="pastille-attente">À jouer<\/span>/)
   const perdue = await laVisite(derniere({ possible: false, refus: 'Tu as déjà changé un jeu aujourd’hui' }))
@@ -1494,8 +1548,21 @@ test('la pause de « Quitter ? » : la manche voilée, le chrono figé trente se
   const partie = source('views/cabinet/Partie.tsx')
   assert.match(partie, /refus = motifDe\(e\)/)
   // Son bouton se nomme autrement que celui de la tête : deux « Quitter » à l'écran, Camille ne savait lequel toucher (la tablée du
-  // 25 octobre 2026), et la tablée le touche par ce nom.
-  assert.match(partie, /const oui = await confirmDialog\(\{ title: titre, message, confirmLabel: 'Quitter la partie', cancelLabel: 'Continuer', danger: true \}\)/)
+  // 25 octobre 2026), et la tablée le touche par ce nom. Prudente (`prudent`) : le geste qu'on attend, « Continuer », est le bouton
+  // plein, et celui qui perd la partie un contour rouge — Ophélie, en sortant du métro, touchait le plein (la tablée du 26).
+  assert.match(partie, /const oui = await confirmDialog\(\{ title: titre, message, confirmLabel: 'Quitter la partie', cancelLabel: 'Continuer', prudent: true \}\)/)
+  const { boutonsDuDialogue } = await import(url('components/Dialog.tsx'))
+  assert.deepEqual(boutonsDuDialogue({ title: 'Quitter ?', prudent: true }), { renoncer: 'btn btn-primary', confirmer: 'btn btn-ghost dialog-alternative dialog-a-sa-place' })
+  // Les autres dialogues gardent la convention des gestes rares : renoncer discret, confirmer plein — rouge s'il efface.
+  assert.deepEqual(boutonsDuDialogue({ title: 'Supprimer ?', danger: true }), { renoncer: 'btn btn-ghost', confirmer: 'btn btn-danger' })
+  assert.deepEqual(boutonsDuDialogue({ title: 'Acheter ?' }), { renoncer: 'btn btn-ghost', confirmer: 'btn btn-primary' })
+  // Le contour rouge du second geste d'un dialogue (`.dialog-alternative`), mais à sa place : l'ordre des boutons ne change pas — le
+  // pouce trouve « Continuer » où il le trouvait —, et le focus reste sur lui, le premier (`petit-ecran.test.ts`).
+  const feuille = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  assert.match(feuille, /\n\.dialog-alternative \{[^}]*color: var\(--alert\);[^}]*border-color: rgba\(var\(--alert-rgb\), 0\.45\);/)
+  assert.match(feuille, /\n\.dialog-alternative\.dialog-a-sa-place \{ order: 0; margin-right: 0; \}/)
+  const dialogue = source('components/Dialog.tsx')
+  assert.ok(dialogue.indexOf('className={boutons.renoncer}') < dialogue.indexOf('className={boutons.confirmer}'), 'renoncer avant confirmer, comme toujours')
   // Sous la confirmation, le voile n'a pas de bouton : « Quitter ? » répondra.
   assert.doesNotMatch(html, />Continuer<\/button>/)
   // La pause passée, le chrono reprend sous le voile : il ne dit plus « En pause » (Lucas, à la tablée : 96, 83, 69 s défilaient
@@ -1627,6 +1694,42 @@ test('ce que la révélation fête : la niche dit la pièce juste, la gerbe ce q
   assert.match(partie, /const fete = ceQueFeteLaRevelation\(m\?\.naturel \?\? 0, etoiles\)/)
   assert.match(partie, /reaction=\{fete\.niche\}/)
   assert.match(partie, /\{fete\.gerbe && <GerbeDeJuste \/>\}/)
+})
+
+test('une mise perdue se titre « Mise perdue », le titre du jeu dessous — une mise gagnée garde le titre du jeu', async () => {
+  // Théo, à la tablée du 26 octobre 2026 : misé, reconnu après un pas, la révélation titrait « Reconnu » au-dessus de zéro étoile,
+  // « Mise perdue » en petit dessous ; le Mot disait « Trouvé en 3 essais ». Le titre vient du jeu, qui ne sait rien de la mise :
+  // la révélation la porte (`RevelationVue.misee`), et la page en fait son titre.
+  const mia = await inscrireProfil(b.banc.url, 'mia', 'Mia')
+  const id = (await lire(b, mia, '/api/joueur/moi?leger')).corps.profile.id as string
+  aLaMain(b.fichier, `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, prix) VALUES ('${id}', 'tout-ou-rien', 'achat', 1, 0)`)
+  const misee = async (pas: number, juste = true) => {
+    const v = ok(await commencer(b, mia, { origine: 'libre', jeu: 'detail', carte: 'tout-ou-rien' }), 'le Détail misé')
+    const r = await jouerUnDetail(b, mia, ok(await jouer(b, mia, v, { quoi: 'ouvrir', manche: 0, miser: true }), 'miser'), 0, { pas, juste })
+    ok(await jouer(b, mia, r, { quoi: 'quitter' }), 'quitter')
+    return r
+  }
+  const titre = (html: string) => texte(/<h2 class="cab-titre-revele">(.*?)<\/h2>/.exec(html)?.[1] ?? '').trim()
+  // Reconnu après un pas : deux étoiles naturelles, la mise voulait trois.
+  const unPas = await misee(1)
+  assert.equal(unPas.revelation?.misee, 'perdue')
+  const perdue = await laPartie(unPas)
+  assert.equal(titre(perdue), 'Mise perdue')
+  assert.match(perdue, /class="card result-banner result-ko"/)
+  assert.match(texte(perdue), /Mise perdue Reconnu : la mise voulait la manche parfaite\./)
+  assert.equal([...texte(perdue).matchAll(/Mise perdue/g)].length, 1, 'le titre le dit : la note ne le redit pas')
+  // Faux : rien à reconnaître, le titre du jeu seul dessous.
+  const faux = await laPartie(await misee(0, false))
+  assert.equal(titre(faux), 'Mise perdue')
+  assert.match(texte(faux), /Mise perdue C’était…/)
+  assert.doesNotMatch(texte(faux), /la mise voulait/)
+  // Reconnu d'emblée : la mise gagnée garde le titre du jeu, et sa note dit ce qu'elle a rapporté.
+  const parfaite = await misee(0)
+  assert.equal(parfaite.revelation?.misee, 'gagnee')
+  const gagnee = await laPartie(parfaite)
+  assert.equal(titre(gagnee), 'Reconnu')
+  assert.match(texte(gagnee), /mise gagnée/)
+  assert.doesNotMatch(texte(gagnee), /Mise perdue|la mise voulait/)
 })
 
 test('la mise : avant la manche, sans l’avoir vue — « Miser » ou « Pas cette fois »', async () => {
@@ -2037,7 +2140,10 @@ test('le chrono qui presse se voit sans couleur ni mouvement : un sablier devant
   // Au Cabinet, des manches de 25 à 120 secondes : cinq secondes arrivaient tard. La tête rendue le dit à son chrono même — à huit
   // secondes de l'échéance, il presse déjà ; à douze, pas encore : seul le texte de l'appel se lisait, et le seuil ramené à cinq
   // passait toutes les épreuves (la relecture du lot page-1).
-  assert.match(source('views/cabinet/Partie.tsx'), /<TimerBar deadline=\{chrono\.echeance\} duration=\{chrono\.dureeMs \/ 1000\} frozenMs=\{chrono\.figeMs\} urgence=\{SECONDES_QUI_PRESSENT\} \/>/)
+  assert.match(
+    source('views/cabinet/Partie.tsx'),
+    /<TimerBar deadline=\{chrono\.echeance\} duration=\{chrono\.dureeMs \/ 1000\} frozenMs=\{chrono\.figeMs\} urgence=\{SECONDES_QUI_PRESSENT\} repereMs=\{chrono\.enPlusMs\} \/>/,
+  )
   const tete = async (ms: number) =>
     /<header class="cab-tete-partie">[\s\S]*?<\/header>/.exec(await laPartie(vues.pari, { chrono: { echeance: serverNow() + ms, dureeMs: 45_000 } }))?.[0] ?? ''
   assert.match(await tete(8_000), /<span class="timer-seconds urgent"><svg class="icon"/)
@@ -2070,6 +2176,65 @@ test('le chrono qui presse se voit sans couleur ni mouvement : un sablier devant
   for (const cle of ['heros', 'gameboy', 'plage']) assert.ok(bordees.includes(cle), `${cle} borde sa barre`)
 })
 
+test('Prendre son temps a son repère sur le chrono — un trait, la part en plus hachurée — et, passé lui, la carte-bonus dit ce que coûte de répondre', async () => {
+  // Camille, daltonienne, à la tablée du 26 octobre 2026 : « on peut perdre son cadre doré sans le voir ». De 64 à 11 s, le chrono
+  // ne comptait que ses secondes, et la ligne de la carte-bonus ne changeait jamais ; le serveur marquait pourtant le temps en plus.
+  const { serverNow } = await import(url('clock.ts'))
+  const chrono = (plus: object) => rendu('components/TimerBar', 'TimerBar', plus)
+  // Sans repère — la soirée, et toute manche sans Prendre son temps —, le chrono rend ce qu'il rendait, mot pour mot.
+  const sablier = '<path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"></path>'
+  const icone = (dedans: string, plein = false) =>
+    `<svg class="icon" viewBox="0 0 24 24" fill="${plein ? 'currentColor' : 'none'}" stroke="${plein ? 'none' : 'currentColor'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${dedans}</svg>`
+  assert.equal(
+    await chrono({ deadline: serverNow() + 20_000, duration: 45 }),
+    '<div class="timer" role="timer" aria-live="off" aria-label="20 secondes restantes"><div class="timer-track"><div class="timer-fill"></div></div><span class="timer-seconds">20</span></div>',
+  )
+  assert.equal(
+    await chrono({ deadline: serverNow() + 4_000, duration: 45 }),
+    `<div class="timer" role="timer" aria-live="off" aria-label="4 secondes restantes"><div class="timer-track urgent"><div class="timer-fill"></div></div><span class="timer-seconds urgent">${icone(sablier)}4</span></div>`,
+  )
+  assert.equal(
+    await chrono({ deadline: serverNow() + 4_000, duration: 45, frozenMs: 4_000 }),
+    `<div class="timer" role="timer" aria-live="off" aria-label="Chronomètre en pause"><div class="timer-track paused"><div class="timer-fill"></div></div><span class="timer-seconds paused">${icone('<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>', true)}4</span></div>`,
+  )
+  // Avec un repère : la part en plus — le bout de la barre où elle finit de se vider, à gauche —, hachurée et bornée d'un trait.
+  // Une forme, pas une couleur ; sous la pause, elle reste.
+  const repere = /<div class="timer-track( [a-z]+)* avec-repere"><div class="timer-fill"><\/div><div class="timer-repere" style="width:([\d.]+)%"><\/div><\/div>/
+  assert.equal(repere.exec(await chrono({ deadline: serverNow() + 40_000, duration: 65, repereMs: 10_000 }))?.[2], (1000 / 65).toFixed(2))
+  assert.match(await chrono({ deadline: serverNow() + 40_000, duration: 65, repereMs: 10_000, frozenMs: 40_000 }), repere)
+  assert.equal(repere.exec(await chrono({ deadline: serverNow() + 40_000, duration: 5, repereMs: 10_000 }))?.[2], '100.00', 'jamais au-delà de la barre')
+  assert.doesNotMatch(await chrono({ deadline: serverNow() + 40_000, duration: 65, repereMs: 0 }), /repere/)
+  // La feuille : des hachures et un trait, qui épaississent avec la barre à l'urgence.
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  assert.match(css, /\n\.timer-track\.avec-repere \{ position: relative; overflow: visible; \}/)
+  assert.match(css, /\n\.timer-repere \{[^}]*repeating-linear-gradient\([^}]*border-right: 2px solid/)
+
+  // Une chasse sous Concentration, par les vraies routes : la tête pose le repère que la vue dit.
+  const tao = await inscrireProfil(b.banc.url, 'tao', 'Tao')
+  const cible = OEUVRES.find(o => JEU_DE_L_OEUVRE[o.cle] === 'eclair' && !OEUVRES_DE_DEPART.includes(o.cle))!
+  const v = ok(await commencer(b, tao, { origine: 'chasse', oeuvre: cible.cle, carte: 'concentration' }), 'la chasse')
+  assert.equal(v.chrono?.enPlusMs, 10_000)
+  const { chronoMontre } = await import(url('views/cabinet/Partie.tsx'))
+  assert.equal(chronoMontre(v, v.maintenant).enPlusMs, 10_000, 'la tête le reçoit')
+  const aLHeure = (reste: number) => ({ ...chronoMontre(v, v.maintenant), echeance: serverNow() + reste })
+  const tete = (html: string) => /<header class="cab-tete-partie">[\s\S]*?<\/header>/.exec(html)?.[0] ?? ''
+  const tot = await laPartie(v, { chrono: aLHeure(40_000) })
+  assert.match(tete(tot), /class="timer-repere" style="width:/)
+  // Avant le repère, ce qu'elle fait ; passé lui, tant que la partie vise le cadre doré, ce que coûte de répondre maintenant.
+  const ligne = (html: string) => texte(/<p class="cab-carte-ligne">(.*?)<\/p>/.exec(html)?.[1] ?? '').trim()
+  assert.equal(ligne(tot), texte(v.carte!.dit).trim())
+  const tard = await laPartie(v, { chrono: aLHeure(5_000) })
+  assert.equal(ligne(tard), 'Temps en plus : répondre maintenant ôte le cadre doré')
+  // Sans cadre doré à perdre — en libre, ou déjà perdu —, rien de plus que ce qu'elle fait.
+  assert.equal(ligne(await laPartie({ ...v, origine: 'libre', enJeu: null, seuil: null }, { chrono: aLHeure(5_000) })), texte(v.carte!.dit).trim())
+  assert.equal(ligne(await laPartie(v, { chrono: aLHeure(5_000), cadreDejaDore: true })), texte(v.carte!.dit).trim())
+  // Sous la pause, figé dans le temps en plus : la ligne le dit encore.
+  assert.equal(ligne(await laPartie(v, { chrono: { ...aLHeure(5_000), figeMs: 5_000 } })), 'Temps en plus : répondre maintenant ôte le cadre doré')
+  // Sans Prendre son temps, ni repère ni ligne neuve.
+  assert.doesNotMatch(await laPartie(vues.pari), /timer-repere|Temps en plus/)
+  ok(await jouer(b, tao, v, { quoi: 'quitter' }), 'quitter')
+})
+
 test('la bande d’une manche : ce que la tête et le pied collés laissent, posé sur la page en pixels de la page — mesuré à l’ouverture de l’étape, il ne regrandit pas', async () => {
   // La question collée de l'Épingle, sa carte et le tableau du Détail se règlent sur elle (`--cab-tete`, `--cab-fenetre`,
   // `--cab-place`) : sans elle, la question et le tableau se collaient sous la tête, et la carte se bornait à toute la fenêtre —
@@ -2096,8 +2261,9 @@ test('la bande d’une manche : ce que la tête et le pied collés laissent, pos
   let fenetre = { innerWidth: 360, innerHeight: 640 }
   const place = (pied: number, haut = 640) => `${Math.floor(haut / 1.3 - 116 - pied - 60 - AIR_SOUS_LA_QUESTION)}px`
   let o = poserLaBande(page, fenetre, 'p:0:1', null)
-  // En pixels de la page : la fenêtre ramenée au zoom (640 / 1,3) ; la place, ce que laissent la tête, le pied, la question et l'air.
-  assert.deepEqual(posees, { '--cab-tete': '116px', '--cab-fenetre': '492px', '--cab-place': place(128) })
+  // En pixels de la page : la fenêtre ramenée au zoom (640 / 1,3) ; la place, ce que laissent la tête, le pied, la question et l'air ;
+  // et le pied et la question eux-mêmes, que le défilement de la page lit (la carte de l'Épingle, la révélation).
+  assert.deepEqual(posees, { '--cab-tete': '116px', '--cab-fenetre': '492px', '--cab-place': place(128), '--cab-pied': '128px', '--cab-question': '60px' })
   // Éclairer a servi : la carte-bonus quitte le pied, et rien ne regrandit sous le doigt.
   hauteurs[PIED_COLLE] = 68
   o = poserLaBande(page, fenetre, 'p:0:1', o)
@@ -2139,7 +2305,14 @@ test('la bande d’une manche : ce que la tête et le pied collés laissent, pos
   delete hauteurs[PIED_COLLE]
   delete hauteurs[QUESTION_COLLEE]
   poserLaBande({ ...page, currentCSSZoom: undefined }, { innerWidth: 360, innerHeight: 640 }, 'q:0:1', null)
-  assert.deepEqual(posees, { '--cab-tete': '116px', '--cab-fenetre': '640px', '--cab-place': `${640 - 116 - AIR_SOUS_LA_QUESTION}px` })
+  assert.deepEqual(posees, { '--cab-tete': '116px', '--cab-fenetre': '640px', '--cab-place': `${640 - 116 - AIR_SOUS_LA_QUESTION}px`, '--cab-pied': '0px', '--cab-question': '0px' })
+  // Le défilement est celui du document : sa marge d'arrêt du bas, sous une révélation (`scroll-padding-bottom`, sur `html`), lit
+  // le pied à la racine, où la bande le recopie — posé sur la page de la partie seulement, `html` ne le voyait pas.
+  const racine: Record<string, string> = {}
+  hauteurs[PIED_COLLE] = 128
+  hauteurs[QUESTION_COLLEE] = 60
+  poserLaBande({ ...page, ownerDocument: { documentElement: { style: { setProperty: (k: string, v: string) => void (racine[k] = v) } } } }, fenetre, 'q:0:1', null)
+  assert.deepEqual(racine, { '--cab-pied': '128px' })
   // La page de la partie porte la mesure, à sa racine, et ne la refait qu'au besoin : à l'étape ou à la forme qui changent, et quand
   // la tête, le pied, la question ou la fenêtre changent de taille — pas à chaque lettre du Mot ni à chaque cran du Filet.
   const partie = source('views/cabinet/Partie.tsx')
@@ -2154,6 +2327,32 @@ test('la bande d’une manche : ce que la tête et le pied collés laissent, pos
   const rendu = readFileSync(path.join(client, '../../server/scripts/rendu-cabinet.ts'), 'utf8')
   assert.doesNotMatch(rendu, /\.cab-pied-partie:not\(\.cab-pied-pose\)|querySelector\('\.cab-tete-partie'\)/)
   assert.match(rendu, /from '\.\.\/\.\.\/client\/src\/views\/cabinet\/bande'/)
+})
+
+test('la carte de l’Épingle est un point d’arrêt du défilement, entre la question collée et le pied ; une révélation garde la hauteur du pied sous ce qu’on y amène', () => {
+  // Jeanne, à la tablée du 26 octobre 2026, au texte à 130 % : la manche s'ouvrait sur le récit — qui porte l'indice —, la carte
+  // sous le pied, et elle ne tenait entière que sur une cinquantaine de pixels de défilement ; quatre gestes pour la trouver, le
+  // chrono courant. Arrêtée sur sa fin (`scroll-snap-align: end`), gardée par ses marges entre la question et le pied
+  // (`scroll-margin`), un geste approximatif l'y pose ; `proximity`, et la page s'ouvre en haut, sur le récit. Le `:has()` ne vaut
+  // que le temps de la manche : à la révélation, la carte n'est plus jouable, et la page défile librement.
+  const section = sectionDuCabinet()
+  const regle = (sel: string) => new RegExp(`(?:^|\\n)${echapper(sel)} \\{([^}]*)\\}`).exec(section)?.[1] ?? ''
+  const epingle = regle('html:has(.cab-manche .cab-carte-jouable)')
+  assert.match(epingle, /scroll-snap-type: y proximity;/)
+  const carte = regle('.cab-manche .cab-carte-jouable')
+  assert.match(carte, /scroll-snap-align: end;/)
+  assert.match(carte, /scroll-margin: calc\(var\(--cab-tete, 0px\) \+ var\(--cab-question, 0px\)\) 0 var\(--cab-pied, 0px\);/)
+  // Pas de `scroll-padding` sur la page pendant la manche : Chromium happe à un tiers de la fenêtre d'arrêt, que ces marges
+  // rétrécissent — la tête et la question retirées, il ne happait plus qu'à une vingtaine de pixels en 277 × 492.
+  assert.doesNotMatch(epingle, /scroll-padding/)
+  assert.doesNotMatch(section, /scroll-snap-type: y mandatory/, 'jamais forcé : le récit se lit à l’ouverture')
+  // La révélation : ce que la page y amène d'elle-même — le focus au clavier sur « Signaler une erreur », un lecteur d'écran qui
+  // avance — s'arrête au-dessus de « Manche suivante », collé au bas de l'écran, jamais dessous.
+  assert.match(regle('html:has(.cab-partie .cab-titre-revele)'), /scroll-padding-bottom: var\(--cab-pied, 0px\);/)
+  // Ce que la bande pose, et où.
+  const bande = readFileSync(path.join(client, 'views/cabinet/bande.ts'), 'utf8')
+  for (const v of ['--cab-pied', '--cab-question']) assert.match(bande, new RegExp(`setProperty\\('${v}'`), v)
+  assert.match(bande, /page\.ownerDocument\?\.documentElement\.style\.setProperty\('--cab-pied'/)
 })
 
 // ── 15. Le Détail et la Frise à l'écran ───────────────────────────────────
@@ -2882,10 +3081,11 @@ test('pendant une partie, rien d’autre ne part : la visite, les jeux libres et
     uneFois(html)
   }
   // La visite : chaque « Jouer » ; « Changer de jeu », que le serveur accepte pendant une partie, répond.
-  const avecEchange = (p: PageDuCabinet) => ({ ...p, visite: { ...p.visite, echange: { possible: true } } })
+  const avecEchange = (p: PageDuCabinet) => ({ ...p, visite: { ...p.visite, echange: { possible: true as const, jeu: 'filet' as const } } })
   const visite = await rendu('views/cabinet/Visite', 'Visite', { page: avecEchange(attend), busy: false, onJouer: rien, onEchanger: rien })
   eteints(boutonsDe(visite).filter(x => x.texte === 'Jouer'), visite)
-  assert.ok(boutonsDe(visite).filter(x => x.texte === 'Changer de jeu').every(x => !x.eteint))
+  const changer = boutonsDe(visite).filter(x => x.texte === `Changer pour ${JEUX.filet.nom}`)
+  assert.ok(changer.length > 0 && changer.every(x => !x.eteint))
   const visiteLibre = await rendu('views/cabinet/Visite', 'Visite', { page: avecEchange(page), busy: false, onJouer: rien, onEchanger: rien })
   assert.ok(boutonsDe(visiteLibre).filter(x => x.texte === 'Jouer').every(x => !x.eteint && x.raison === null))
   // Les jeux libres : chacun, les livrés comme ceux qui arrivent bientôt.
@@ -4059,16 +4259,18 @@ test('les étoiles se disent à l’oreille : leurs glyphes cachés, « 2 étoil
   assert.match(JEUX.mot.bareme, /★/)
 })
 
-test('trois « Jouer » et trois « Changer de jeu » de noms distincts : l’oreille sait lequel elle touche', async () => {
+test('trois « Jouer » et trois « Changer » de noms distincts : l’oreille sait lequel elle touche, et pour quel jeu', async () => {
   const cases = (['pari', 'eclair', 'indices'] as const).map(jeu => uneCase({ jeu, enJeu: enGagnant, seuil: 6 }))
-  const trois = laVisiteDe(cases, { visite: { ...page.visite, cases, echange: { possible: true } } })
+  const trois = laVisiteDe(cases, { visite: { ...page.visite, cases, echange: { possible: true, jeu: 'mot' } } })
   const html = await rendu('views/cabinet/Visite', 'Visite', { page: trois, busy: false, onJouer: rien, onEchanger: rien })
   const noms = [...html.matchAll(/<button [^>]*aria-label="([^"]+)"/g)].map(m => texte(m[1]).trim())
-  assert.deepEqual(noms, [`Jouer ${JEUX.pari.a}`, `Changer de jeu : ${JEUX.pari.nom}`, `Jouer ${JEUX.eclair.a}`, `Changer de jeu : ${JEUX.eclair.nom}`, `Jouer ${JEUX.indices.a}`, `Changer de jeu : ${JEUX.indices.nom}`])
+  const pour = `pour ${JEUX.mot.nom}`
+  assert.deepEqual(noms, [`Jouer ${JEUX.pari.a}`, `Changer ${JEUX.pari.nom} ${pour}`, `Jouer ${JEUX.eclair.a}`, `Changer ${JEUX.eclair.nom} ${pour}`, `Jouer ${JEUX.indices.a}`, `Changer ${JEUX.indices.nom} ${pour}`])
   assert.equal(new Set(noms).size, 6)
-  // À l'œil, rien ne change ; et la tablée trouve encore « Jouer » par une partie de son nom (règle `tablee.md`).
+  // À l'œil, le jeu qui vient seulement ; et la tablée trouve encore « Jouer » et « Changer » par une partie de leur nom (règle
+  // `tablee.md`).
   assert.equal([...html.matchAll(/>Jouer<\/button>/g)].length, 3)
-  assert.equal([...html.matchAll(/>Changer de jeu<\/button>/g)].length, 3)
+  assert.equal([...html.matchAll(new RegExp(`>Changer ${echapper(pour)}</button>`, 'g'))].length, 3)
 })
 
 test('le contour d’une porte ne reste plus sous le doigt : chaque survol du Cabinet sous `@media (hover: hover)`', () => {
@@ -4210,18 +4412,29 @@ test('une case de la visite se joue une fois, et l’annonce le dit avant « Com
   }
 })
 
-test('« Quitter ? » dit ce qu’on emporte, comme le serveur le compte : les étoiles, Protéger compris, et la poussière d’or', async () => {
+test('« Quitter ? » dit ce qu’on emporte, comme le serveur le compte : les étoiles et la poussière d’or — jamais une protection que le pli n’applique pas', async () => {
   const { messageDuQuitter } = await import(url('views/cabinet/Partie.tsx'))
-  const prudence = { cle: 'prudence', pouvoir: 'proteger', force: 1, reste: 0, dit: '' }
   // Lucas, sous Prudence : quitter d'emblée valait une étoile et quatre poussières, quand « Quitter ? » promettait « les étoiles
-  // déjà gagnées ». Le serveur le compte (`siTuQuittes`), la page le dit.
-  const chasse = messageDuQuitter({ origine: 'chasse', total: 0, carte: prudence, siTuQuittes: { total: 1, poussiere: 4 } })
+  // déjà gagnées ». Le serveur le compte (`siTuQuittes`), la page le dit. Depuis le 26 octobre 2026, une manche quittée ne se
+  // relève plus : le seul cas où quitter ajoute des étoiles est le Pari laissé au choix, qui garde ses deux étoiles sans Protéger —
+  // et la page, qui déduisait Protéger d'un écart de totaux, disait « Protéger compris » (la relecture des régressions).
+  const d = departDe('pari', { origine: 'chasse', cible: 'lecon', but: 'gagner', seuil: 5, carte: carteDuPlan('proteger', 1, 'prudence') })
+  const p = new PartieAuPli(d)
+  p.joue(ouvrirAuPli(0), MIDI)
+  p.joue({ quoi: 'repondre', manche: 0, reponse: { pari: { choix: 1 } } }, MIDI + 5 * S)
+  const auChoix = vueDeLaPartie({ id: 'serie-essai', profileId: 'essai', depart: d, gestes: p.gestes, etat: p.etat, bilan: null, lueA: MIDI + 6 * S })
+  assert.deepEqual([auChoix.phase, auChoix.total, auChoix.carte?.pouvoir, auChoix.siTuQuittes], ['jouer', 0, 'proteger', { total: ETOILES_DU_PARI.garder, poussiere: 4 }])
+  const chasse = messageDuQuitter(auChoix)
   assert.equal(chasse.titre, 'Quitter ?')
-  assert.equal(chasse.message, 'Tu repars avec 1 étoile, Protéger compris, et 4 poussières d’or ; ta chasse est utilisée.')
-  assert.equal(messageDuQuitter({ origine: 'visite', total: 0, carte: null, siTuQuittes: { total: 0, poussiere: 0 } }).message, 'Tu repars sans étoile ni poussière d’or ; cette partie de la visite est faite.')
-  assert.equal(messageDuQuitter({ origine: 'visite', total: 4, carte: null, siTuQuittes: { total: 4, poussiere: 8 } }).message, 'Tu repars avec 4 étoiles et 8 poussières d’or ; cette partie de la visite est faite.')
-  // Protéger ne se dit que s'il a compté : une carte qui n'a rien relevé n'est pas « comprise ».
-  assert.doesNotMatch(messageDuQuitter({ origine: 'chasse', total: 1, carte: prudence, siTuQuittes: { total: 1, poussiere: 4 } }).message, /Protéger/)
+  assert.equal(chasse.message, 'Tu repars avec 2 étoiles et 4 poussières d’or ; ta chasse est utilisée.')
+  // Ce que le pli compte, quittée : les étoiles gardées, aucune manche protégée.
+  p.joue({ quoi: 'quitter' }, MIDI + 7 * S)
+  assert.equal(etoilesDesManches(d, p.etat).some(m => m.protegee), false)
+  assert.equal(bilanDe(d, p.etat, { possedee: false, doree: false }).total, ETOILES_DU_PARI.garder)
+  assert.equal(messageDuQuitter({ origine: 'visite', siTuQuittes: { total: 0, poussiere: 0 } }).message, 'Tu repars sans étoile ni poussière d’or ; cette partie de la visite est faite.')
+  assert.equal(messageDuQuitter({ origine: 'visite', siTuQuittes: { total: 4, poussiere: 8 } }).message, 'Tu repars avec 4 étoiles et 8 poussières d’or ; cette partie de la visite est faite.')
+  // La page ne devine plus une règle d'un écart de totaux : elle dit ce que le serveur compte, rien de plus.
+  assert.doesNotMatch(source('views/cabinet/Partie.tsx'), /POUVOIRS\.proteger\.nom\} compris|s\.total > \(vue\.total/)
   // En libre : l'une des parties qui paient, ou pour le plaisir.
   const libre = messageDuQuitter({ origine: 'libre', total: 3, carte: null, siTuQuittes: { total: 3, poussiere: 6 } })
   assert.deepEqual(libre, { titre: 'Quitter cette partie ?', message: 'Tu repars avec 3 étoiles et 6 poussières d’or : c’est l’une de tes parties libres qui paient.' })

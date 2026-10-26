@@ -32,6 +32,7 @@ import { PREFIXE_DE_LA_FRISE } from '../../../../shared/frise'
 import { dansLesTemps, echeanceDe, pauseEnCours, pauseResteMs } from '../../../../shared/cabinet/chrono'
 import { regleDe } from '../../../../shared/cabinet/jeux/index'
 import {
+  AUCUN_AUTRE_JEU,
   caseCommencee,
   chassesRestantes,
   dorees,
@@ -85,6 +86,7 @@ import type {
   PageDuCabinet,
   RevelationVue,
   SalleVue,
+  VisiteVue,
   VueDeLaPartie,
 } from '../../../../shared/cabinet/vues'
 import { visiteAJouer } from '../../../../shared/cabinet/vues'
@@ -134,7 +136,10 @@ function carteDe(d: DepartDUnePartie, e: EtatDeLaPartie): CarteVue | null {
   return { cle, pouvoir, force, reste, dit: ceQueFaitLaCarte(pouvoir, force, d.jeu) }
 }
 
-/** La révélation d'une manche tranchée : le corps de son jeu, et ses pièces que « Signaler une erreur » peut viser — les questions de la base seules. */
+/**
+ * La révélation d'une manche tranchée : le corps de son jeu, ses pièces que « Signaler une erreur » peut viser — les questions
+ * de la base seules —, et, misée, si la mise est gagnée : le titre du corps vient du jeu, qui ne sait rien d'elle.
+ */
 function revelationDe(d: DepartDUnePartie, e: EtatDeLaPartie, m: MancheDuPli): RevelationVue | undefined {
   if (!m.verdict || !m.fin) return undefined
   return {
@@ -143,6 +148,7 @@ function revelationDe(d: DepartDUnePartie, e: EtatDeLaPartie, m: MancheDuPli): R
     fin: m.fin,
     signalables: e.pieces.filter(p => p.manche === m.manche && !horsDeLaBase(p.piece.id)).map(p => p.position),
     corps: regleDe(d.jeu).reveler(d.tirages[m.tirage], m.etat, m.verdict) as RevelationVue['corps'],
+    ...(e.misee === m.manche && { misee: m.verdict.naturel === ETOILES_PAR_MANCHE ? ('gagnee' as const) : ('perdue' as const) }),
   }
 }
 
@@ -175,11 +181,21 @@ function manchesDe(d: DepartDUnePartie, e: EtatDeLaPartie): MancheVue[] {
   })
 }
 
-/** Le chrono de l'étape en cours, à l'heure du serveur : son échéance, sa durée, et sous la pause ce qui en reste. */
+/**
+ * Le chrono de l'étape en cours, à l'heure du serveur : son échéance, sa durée, sous la pause ce qui en reste, et ce que
+ * Prendre son temps lui a ajouté (sa durée moins sa durée normale, figées à l'ouverture de l'étape par le chrono du départ) :
+ * la page y pose le repère du temps en plus, qui ôte le cadre doré.
+ */
 function chronoDe(m: MancheDuPli | undefined, t: number): VueDeLaPartie['chrono'] {
   if (!m || !leChronoCourt(m)) return undefined
   const etape = etapeEnCours(m)
-  return { echeance: echeanceDe(etape, t), dureeMs: etape.dureeMs, ...(pauseEnCours(etape) && { pauseResteMs: pauseResteMs(etape, t) }) }
+  const enPlusMs = etape.dureeMs - etape.dureeNormaleMs
+  return {
+    echeance: echeanceDe(etape, t),
+    dureeMs: etape.dureeMs,
+    ...(pauseEnCours(etape) && { pauseResteMs: pauseResteMs(etape, t) }),
+    ...(enPlusMs > 0 && { enPlusMs }),
+  }
 }
 
 /**
@@ -603,10 +619,12 @@ function visiteVue(l: LectureDeLAccueil): PageDuCabinet['visite'] {
       ...(retenter && { retenter }),
     }
   })
-  // Une case encore à jouer, s'il en reste une : la seule règle des échanges dit le reste.
+  // Une case encore à jouer, s'il en reste une : la seule règle des échanges dit le reste. Possible, le jeu qu'il donnerait, le
+  // même pour toute case : la page le nomme sur son bouton et dans sa confirmation, et ne part plus à l'aveugle.
   const libre = l.visite.cases.findIndex((_, k) => !caseCommencee(m, k))
   const refus = refusDeLEchange(m, l.visite, libre < 0 ? 0 : libre, l.jeuDeLEchange)
-  return { jour: l.visite.jour, cases, echange: refus ? { possible: false, refus } : { possible: true } }
+  const echange: VisiteVue['echange'] = refus !== null || l.jeuDeLEchange === null ? { possible: false, refus: refus ?? AUCUN_AUTRE_JEU } : { possible: true, jeu: l.jeuDeLEchange }
+  return { jour: l.visite.jour, cases, echange }
 }
 
 /** La fête du jour, au calendrier du Cabinet, et son gardien tant qu'il dort. */

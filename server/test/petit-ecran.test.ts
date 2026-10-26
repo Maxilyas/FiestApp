@@ -510,6 +510,25 @@ test('silhouettes, fonds fermés, rideau et aurore : ce qui se lit sur son fond'
   assert.ok(vert && Number(vert[1]) <= 0.3, `la lueur de l’en-tête à ${vert?.[1]}`)
 })
 
+test('le code de secours tient dans sa carte au texte agrandi, et porte son nom', async () => {
+  // Jeanne, à la tablée du 26 octobre 2026 : en 360 × 640 au texte à 130 %, « Ton profil est prêt » faisait 367 px de large ; en
+  // 277 × 492, le code prenait 211 px pour 185. Sa taille suivait la largeur de l'écran, pas celle de sa carte — et rien ne lui
+  // donnait son nom, que « J'ai oublié mon mot de passe » demande ensuite.
+  Object.assign(globalThis, { window: { location: { pathname: '/', search: '', hash: '' } } })
+  const html = await rendu('components/Secours', 'CodeSecours', { code: 'GGGR-YXF7-5J2X-S24D' })
+  // Sa carte est un conteneur : le code s'y mesure.
+  assert.match(html, /^<div class="card notice code-secours-carte">/)
+  assert.match(regle('.code-secours-carte'), /container-type:\s*inline-size/)
+  // Le clamp d'avant reste, pour un navigateur sans unités de conteneur ; sous sa carte, la largeur de la carte décide.
+  assert.match(regle('.code-secours'), /font-size:\s*clamp\(1\.05rem, 5\.2vw, 1\.35rem\)/)
+  assert.match(regle('.code-secours-carte .code-secours'), /font-size:\s*min\(1\.35rem, 7\.5cqi\)/)
+  // Dix-neuf signes à espacement fixe (0,6 em chacun, plus l'espacement de 0,06 em) : à 7,5 % de la carte, ils en prennent 94 %.
+  assert.ok(19 * (0.6 + 0.06) * 0.075 <= 1, 'le code tient dans sa carte')
+  // Son nom, juste au-dessus de lui : celui que le formulaire de secours demande.
+  assert.match(html, /<p class="label">Ton code de secours<\/p><p class="code-secours">GGGR-YXF7-5J2X-S24D<\/p>/)
+  assert.match(await rendu('components/Secours', 'FormulaireSecours', { onDone: () => {}, onCancel: () => {} }), /Ton code de secours/)
+})
+
 test('l’accueil d’un profil garde la place de la carte du jour pendant qu’elle arrive', async () => {
   // Posée 400 ms après la page, elle poussait les onglets de 233 px (CLS 0,175).
   Object.assign(globalThis, { window: { location: { pathname: '/', search: '', hash: '' } } })

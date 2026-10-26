@@ -19,8 +19,11 @@ import {
   enBase,
   fermerLesMagasins,
   jouer,
+  jouerUnDetail,
+  jouerUnEclair,
   jouerUnPari,
   laPage,
+  ouvrir,
   lire,
   magasinDEssai,
   ok,
@@ -39,6 +42,7 @@ import {
   CASES_DE_LA_VISITE,
   CHASSES_PAR_JOUR,
   DEPARTS_PAR_HEURE,
+  DUREES_DES_JEUX,
   ECLAIRAGES_PAR_PARTIE,
   ETOILES_DU_PARI,
   ETOILES_PAR_MANCHE,
@@ -46,6 +50,7 @@ import {
   POUSSIERE_MIN,
   POUSSIERE_PAR_ETOILE,
   PRIX_D_UNE_OEUVRE,
+  SECONDES_PAR_FORCE,
   SEUILS_DES_RARETES,
 } from '../../shared/cabinet/bareme'
 import { JEUX } from '../../shared/cabinet/jeux/regle'
@@ -478,4 +483,51 @@ test('chaque case de la visite porte le seuil de sa cible — pour dorer, celui 
   const apres = ok(await laPage(b, kim), 'la page relue').visite.cases[1]
   assert.deepEqual(apres.enJeu, { pourDorer: dorer })
   assert.deepEqual([apres.seuil, apres.seuilDuDouble], [undefined, seuilDe(dorer)])
+})
+
+test('une manche misée dit à sa révélation si la mise est gagnée ou perdue : un Détail reconnu au deuxième cadrage ne vaut rien', async () => {
+  // Théo, à la tablée du 26 octobre 2026 : misé, reconnu après un pas, la révélation titrait « Reconnu » au-dessus de zéro étoile.
+  // Le titre vient du jeu, qui ne sait rien de la mise ; la partie le sait, et la révélation le porte (`RevelationVue.misee`).
+  const zia = await inscrireProfil(b.banc.url, 'zia', 'Zia')
+  aLaMain(b.fichier, `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, prix) VALUES ('${await idDe(zia)}', 'tout-ou-rien', 'achat', 1, 0)`)
+  let v = ok(await commencer(b, zia, { origine: 'libre', jeu: 'detail', carte: 'tout-ou-rien' }), 'le Détail')
+  assert.equal(v.phase, 'avant', 'la mise se décide avant la manche')
+  v = ok(await jouer(b, zia, v, { quoi: 'ouvrir', manche: 0, miser: true }), 'miser')
+  v = await jouerUnDetail(b, zia, v, 0, { pas: 1 })
+  assert.deepEqual([v.manches[0].naturel, v.manches[0].etoiles, v.manches[0].note], [ETOILES_PAR_MANCHE - 1, 0, 'Mise perdue'])
+  assert.equal(v.revelation?.misee, 'perdue')
+  // La manche suivante, pas misée : rien à dire.
+  v = await jouerUnDetail(b, zia, await ouvrir(b, zia, v, 1), 1)
+  assert.equal(v.revelation?.misee, undefined)
+  // « Mes réponses » révèle chaque manche par la même vue : la mise s'y dit aussi.
+  v = await jouerUnDetail(b, zia, await ouvrir(b, zia, v, 2), 2)
+  const relue = ok(await lire<VueDeLaPartie>(b, zia, `/api/cabinet/partie/${v.id}`), '« Mes réponses »')
+  assert.deepEqual(
+    relue.manches.map(m => m.revelation?.misee),
+    ['perdue', undefined, undefined],
+  )
+  // Misée et parfaite : gagnée.
+  let g = ok(await commencer(b, zia, { origine: 'libre', jeu: 'detail', carte: 'tout-ou-rien' }), 'le Détail, misé et reconnu d’emblée')
+  g = await jouerUnDetail(b, zia, ok(await jouer(b, zia, g, { quoi: 'ouvrir', manche: 0, miser: true }), 'miser'), 0)
+  assert.equal(g.revelation?.misee, 'gagnee')
+  ok(await jouer(b, zia, g, { quoi: 'quitter' }), 'quitter')
+})
+
+test('le chrono d’une manche dit le temps en plus de Prendre son temps, figé au départ : la page y pose son repère', async () => {
+  // Camille, à la tablée du 26 octobre 2026 : « on peut perdre son cadre doré sans le voir » — le serveur marque le temps en plus,
+  // la page ne savait pas où il commençait.
+  const ali = await inscrireProfil(b.banc.url, 'ali', 'Ali')
+  let v = ok(await commencer(b, ali, { origine: 'libre', jeu: 'eclair', carte: 'concentration' }), 'l’Éclair, Concentration emportée')
+  assert.equal(v.carte?.force, 1)
+  assert.deepEqual(v.chrono && [v.chrono.dureeMs, v.chrono.enPlusMs], [(DUREES_DES_JEUX.eclair + SECONDES_PAR_FORCE) * 1000, 10_000])
+  assert.equal(SECONDES_PAR_FORCE * 1000, 10_000)
+  // Sous la pause de « Quitter ? », le repère reste : le chrono figé dit encore où le temps en plus commence.
+  v = ok(await jouer(b, ali, v, { quoi: 'pause', manche: 0 }), 'la pause')
+  assert.equal(v.chrono?.enPlusMs, 10_000)
+  v = ok(await jouer(b, ali, v, { quoi: 'reprendre', manche: 0 }), 'reprendre')
+  ok(await jouer(b, ali, await jouerUnEclair(b, ali, v, 0), { quoi: 'quitter' }), 'quitter')
+  // Sans la carte, pas de temps en plus : rien à poser.
+  const sans = ok(await commencer(b, ali, { origine: 'libre', jeu: 'eclair', carte: null }), 'l’Éclair, sans carte-bonus')
+  assert.ok(sans.chrono && !('enPlusMs' in sans.chrono), JSON.stringify(sans.chrono))
+  ok(await jouer(b, ali, sans, { quoi: 'quitter' }), 'quitter')
 })

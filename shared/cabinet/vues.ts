@@ -38,7 +38,10 @@
 // page redérivait du barème ; « Retenter » une case manquée, par la case et
 // sans l'œuvre (`CaseVue.retenter`, `BilanVu.retenter`) ; les libres qui
 // paient encore (`BilanVu.libresQuiPaientEncore`) ; ce que vaudrait la partie
-// quittée (`VueDeLaPartie.siTuQuittes`).
+// quittée (`VueDeLaPartie.siTuQuittes`). Puis, de la tablée du 26 : le jeu que
+// donnerait l'échange (`VisiteVue.echange.jeu`, requis quand il est possible),
+// la mise d'une manche révélée (`RevelationVue.misee`) et le temps en plus de
+// Prendre son temps (`VueDeLaPartie.chrono.enPlusMs`).
 
 import type { CleDeCompagnon } from '../compagnons'
 import { PREFIXE_DE_LA_FRISE } from '../frise'
@@ -128,8 +131,16 @@ export interface CaseVue {
 export interface VisiteVue {
   jour: string
   cases: CaseVue[]
-  /** « Changer de jeu », une fois par jour, une case pas encore jouée : la seule règle des refus le dit. */
-  echange: { possible: boolean; refus?: string }
+  /**
+   * « Changer de jeu », une fois par jour, une case pas encore jouée : la seule
+   * règle des refus le dit. Possible, le jeu que la case prendra
+   * (`jeuDeLEchange`), quelle qu'elle soit : le bouton partait à l'aveugle, et
+   * Ophélie, devant un Détail qu'elle ne savait pas jouer, n'a pas osé (la
+   * tablée du 26 octobre 2026). Ce n'est pas un secret : l'élément suivant de
+   * l'ordre des jeux du jour, dont la page voit déjà les trois premiers, tiré
+   * d'un autre fil que les œuvres visées (`:visite:` contre `:cibles:`).
+   */
+  echange: { possible: true; jeu: CleDeJeu } | { possible: false; refus?: string }
 }
 
 /**
@@ -249,6 +260,14 @@ export interface RevelationVue {
   /** Les positions de ses pièces que « Signaler une erreur » vise : les seules questions de la base — le Pari, le Mot, le Filet. */
   signalables: number[]
   corps: RevelationDUneManche
+  /**
+   * La manche était misée : parfaite, la mise est gagnée ; sinon, perdue, et
+   * la manche ne vaut rien. Le titre du corps vient du jeu, qui ne sait rien de
+   * la mise : « Reconnu » coiffait zéro étoile, « Trouvé en 3 essais » aussi
+   * (Théo, à la tablée du 26 octobre 2026). Absent d'une manche pas misée. Sur
+   * la révélation et pas sur `MancheVue` : seule la révélation se titre.
+   */
+  misee?: 'gagnee' | 'perdue'
 }
 
 /** Ce qu'une manche vaut, à présent : ses étoiles après les pouvoirs, et pourquoi elles diffèrent (« +3 : mise gagnée »). */
@@ -352,8 +371,15 @@ export interface VueDeLaPartie {
   manches: MancheVue[]
   /** Sur neuf. */
   total: number
-  /** L'échéance de l'étape en cours, à l'heure du serveur ; sous la pause, figée tant qu'il en reste. */
-  chrono?: { echeance: number; dureeMs: number; pauseResteMs?: number }
+  /**
+   * L'échéance de l'étape en cours, à l'heure du serveur ; sous la pause,
+   * figée tant qu'il en reste. Sous Prendre son temps, ce que la carte-bonus
+   * ajoute à l'étape (`enPlusMs`, figé au départ) : la page pose un repère où
+   * il commence — Camille perdait son cadre doré sans le voir (la tablée du
+   * 26 octobre 2026). La page n'y recopie aucun chiffre du barème ; le serveur
+   * marque le temps en plus un peu après, sa grâce passée.
+   */
+  chrono?: { echeance: number; dureeMs: number; pauseResteMs?: number; enPlusMs?: number }
   /** Le pouvoir de la carte-bonus, maintenant : la page grise sans rien recopier. */
   pouvoir?: { jouable: boolean; refus?: string }
   /** La manche qui se joue, sans sa réponse. */
@@ -362,12 +388,14 @@ export interface VueDeLaPartie {
   bilan?: BilanVu
   /**
    * Ce que vaudrait la partie quittée à cet instant : son total sur neuf,
-   * Protéger compris, et sa poussière d'or — le geste « Quitter » joué par le
-   * pli sur l'état, rien d'écrit. « Quitter ? » promettait « les étoiles déjà
+   * tous les pouvoirs comptés, et sa poussière d'or — le geste « Quitter » joué
+   * par le pli sur l'état, rien d'écrit. « Quitter ? » promettait « les étoiles déjà
    * gagnées » quand Protéger relevait la manche quittée et qu'une partie
    * quittée d'emblée payait quatre poussières d'or (jusqu'au 26 octobre
    * 2026) ; quittée sans une réponse, elle ne vaut plus rien, et la vue le
-   * dit — quitter n'est jamais meilleur que répondre faux. Absent
+   * dit — quitter n'est jamais meilleur que répondre faux. La page ne dit que
+   * ces deux chiffres : elle en déduisait que Protéger avait compté, et une
+   * manche quittée ne se relève plus. Absent
    * d'une partie finie, et d'une manche dont le temps est écoulé : sa
    * réponse part d'elle-même, et la révélation suit.
    */

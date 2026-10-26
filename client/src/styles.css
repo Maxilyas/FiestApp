@@ -1603,6 +1603,13 @@ h3 > .icon {
 .timer-seconds.urgent .icon { color: inherit; }
 :root .timer .timer-track.urgent { transform: scaleY(1.67); }
 .timer-seconds.urgent { -webkit-text-stroke: 0.03em currentColor; }
+/* Le repère d'une durée qu'on dit à part (`TimerBar`, `repereMs`) : au Cabinet, le temps en plus de Prendre son temps, qui ôte le
+   cadre doré. La barre se vide vers la gauche ; sa part en plus en est le bout gauche, hachurée et bornée d'un trait — une forme,
+   pas une couleur : Camille, daltonienne, perdait son cadre doré sans le voir (la tablée du 26 octobre 2026). Plus haute que la
+   barre de trois pixels, pour se voir ; la barre la laisse déborder. La soirée n'en pose pas. */
+.timer-track.avec-repere { position: relative; overflow: visible; }
+.timer-track.avec-repere .timer-fill { border-radius: inherit; }
+.timer-repere { position: absolute; left: 0; top: -4px; bottom: -4px; background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--ink) 45%, transparent) 0 2px, transparent 2px 5px); border-right: 2px solid var(--ink); pointer-events: none; }
 
 /* ── Quiz : réponses ────────────────────────────── */
 .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -4397,6 +4404,13 @@ h3 > .icon {
   margin: 12px 0;
   user-select: all;
 }
+/* Sa carte est un conteneur : le code s'y mesure, pas à l'écran. Au texte agrandi, la largeur de l'écran ne disait plus celle de la
+   carte — en 360 × 640 à 130 %, la page faisait 367 pixels de large ; en 277 × 492, le code en prenait 211 pour 185 (Jeanne, à la
+   tablée du 26 octobre 2026). Dix-neuf signes à espacement fixe, 0,66 em chacun : à 7,5 % de la carte, 94 % d'elle. Le `clamp`
+   reste pour un navigateur sans unités de conteneur. Son nom, au-dessus, colle à lui. */
+.code-secours-carte { container-type: inline-size; }
+.code-secours-carte .code-secours { font-size: min(1.35rem, 7.5cqi); margin-top: 4px; }
+.code-secours-carte .label { margin: 12px 0 0; }
 
 /* Le salut d'un profil reconnu, sur l'écran d'inscription. Discret : c'est
    une retrouvaille, pas une annonce. */
@@ -5684,6 +5698,9 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   color: var(--alert);
   border-color: rgba(var(--alert-rgb), 0.45);
 }
+/* La confirmation d'un dialogue prudent (`prudent`, « Quitter ? » d'une manche du Cabinet) prend ce contour rouge, à sa place : le
+   pouce trouve « Continuer », plein, où il le trouvait, et le geste qui perd la partie reste le second. */
+.dialog-alternative.dialog-a-sa-place { order: 0; margin-right: 0; }
 
 /* ── La fin de soirée, sur le téléphone ────────────────────────────────── */
 .fin-soiree { gap: 16px; }
@@ -10486,7 +10503,11 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 
 /* La visite du jour : une case par partie — sa vignette, son jeu, ce qu'elle met en jeu sans le nommer, « Jouer ». */
 .cab-cases { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
-.cab-case { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.cab-case { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+/* Ses gestes sur toute la largeur de la case, sous la vignette et le texte : dans la colonne du texte, « Changer pour Le Mot
+   mystère » tenait sur quatre lignes en 360 de large au texte agrandi (le rendu du 26 octobre 2026). Une raison va à la ligne. */
+.cab-case > .cab-gestes { flex: 1 0 100%; margin-top: 0; }
+.cab-case > .cab-gestes > .cab-raison { flex-basis: 100%; }
 .cab-case.cab-faite { background: none; }
 .cab-faite .cab-surtitre { color: var(--muted); }
 .cab-vignette { flex: none; width: 76px; }
@@ -10866,7 +10887,17 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-consigne-carte.cab-ou-est { display: flex; align-items: center; justify-content: flex-start; gap: 8px; font-weight: 700; }
 .cab-manche:has(.cab-carte-jouable) > .cab-question { position: sticky; top: var(--cab-tete, 0px); z-index: 1; background: var(--bg); box-shadow: 0 -8px 0 var(--bg), 0 8px 0 var(--bg); }
 .cab-carte-de-france { --cab-carte-l: 362; --cab-carte-h: 316; }
-.cab-manche .cab-carte-jouable { width: min(100% + 4px, 460px, max(150px, var(--cab-place, 100dvh) * var(--cab-carte-l) / var(--cab-carte-h))); margin: 0 auto; }
+/* La carte, un point d'arrêt du défilement : sa fin s'arrête sur le pied collé (`scroll-snap-align: end`), ses marges d'arrêt la
+   gardent entre la question collée et le pied (`scroll-margin`, `--cab-tete`, `--cab-question`, `--cab-pied`, que `bande.ts` pose
+   sur la page). Au texte agrandi, la manche s'ouvrait sur le récit, la carte sous le pied, et elle ne tenait entière que sur une
+   cinquantaine de pixels de défilement : Jeanne a mis quatre gestes à la trouver, le chrono courant (la tablée du 26 octobre 2026).
+   `proximity`, jamais `mandatory` : la page s'ouvre en haut, sur le récit, qui porte l'indice — et ce qui ne tient pas dans le
+   premier écran se lit encore —, et un geste approximatif vers le bas pose la carte entière sous la question. Des marges sur la
+   carte, pas un `scroll-padding` sur la page : Chromium happe à un tiers de la fenêtre d'arrêt, que le `scroll-padding` rétrécit —
+   la tête et la question retirées, il ne happait plus qu'à une vingtaine de pixels en 277 × 492 ; la fenêtre entière, à plus de
+   cent (mesuré au doigt le 26 octobre 2026). Le `:has()` ne vaut que tant que la carte se joue : la révélation défile librement. */
+.cab-manche .cab-carte-jouable { width: min(100% + 4px, 460px, max(150px, var(--cab-place, 100dvh) * var(--cab-carte-l) / var(--cab-carte-h))); margin: 0 auto; scroll-snap-align: end; scroll-margin: calc(var(--cab-tete, 0px) + var(--cab-question, 0px)) 0 var(--cab-pied, 0px); }
+html:has(.cab-manche .cab-carte-jouable) { scroll-snap-type: y proximity; }
 /* Les pas de l'épingle, que « Pas à pas » ouvre au-dessus de lui et de « Planter ici », sur leur ligne : quatre directions et la
    bascule des grands pas, 44 pixels chacun — cinq carrés tiennent les 237 pixels d'un 277 de large. Au doigt, ils font ce que font
    les flèches au clavier : sous TalkBack, un double toucher plantait au centre de la carte. Toujours ouverts, avec la carte-bonus
@@ -10943,7 +10974,14 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Le titre d'une révélation est le `h2` où le focus se pose : à la taille du verdict, pas à celle des titres de section
    (`.cab-page h2`). En paragraphe, la règle du bandeau (`.cab-page .result-banner p`) le ramenait à dix-sept pixels. */
 .cab-page h2.cab-titre-revele { font-size: 1.6rem; }
+/* Sous « Mise perdue », le titre du jeu — ce qu'il avait trouvé, et pourquoi la mise ne l'a pas payé. */
+.cab-titre-du-jeu { color: var(--ink); font-weight: 600; font-variant-numeric: lining-nums; }
 .cab-note { color: var(--accent-text); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+/* « Manche suivante » reste collé au bas de l'écran : défilée jusqu'en bas, la révélation finit au-dessus de lui (le rendu le
+   mesure, `[révélation]`) ; et ce que la page y amène d'elle-même — le focus au clavier sur « Signaler une erreur », un lecteur
+   d'écran qui avance — s'arrête aussi au-dessus de lui, la hauteur du pied gardée en bas du défilement. Collé dessous, le
+   dernier paragraphe de « Le savais-tu ? » s'y cachait (Ophélie et Lucas, aux tablées du 25 et du 26 octobre 2026). */
+html:has(.cab-partie .cab-titre-revele) { scroll-padding-bottom: var(--cab-pied, 0px); }
 .cab-page .result-banner p { font-size: 1.0625rem; }
 .cab-page .anecdote { font-size: 1.0625rem; }
 .cab-page .small { font-size: 1.0625rem; }
