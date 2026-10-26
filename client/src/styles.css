@@ -1605,8 +1605,8 @@ h3 > .icon {
 .timer-seconds.urgent { -webkit-text-stroke: 0.03em currentColor; }
 /* Le repère d'une durée qu'on dit à part (`TimerBar`, `repereMs`) : au Cabinet, le temps en plus de Prendre son temps, qui ôte le
    cadre doré. La barre se vide vers la gauche ; sa part en plus en est le bout gauche, hachurée et bornée d'un trait — une forme,
-   pas une couleur : Camille, daltonienne, perdait son cadre doré sans le voir (la tablée du 26 octobre 2026). Plus haute que la
-   barre de trois pixels, pour se voir ; la barre la laisse déborder. La soirée n'en pose pas. */
+   pas une couleur : Camille, daltonienne, perdait son cadre doré sans le voir (la tablée du 26 octobre 2026). Elle dépasse la
+   barre de quatre pixels en haut et en bas, pour se voir ; la barre la laisse déborder. La soirée n'en pose pas. */
 .timer-track.avec-repere { position: relative; overflow: visible; }
 .timer-track.avec-repere .timer-fill { border-radius: inherit; }
 .timer-repere { position: absolute; left: 0; top: -4px; bottom: -4px; background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--ink) 45%, transparent) 0 2px, transparent 2px 5px); border-right: 2px solid var(--ink); pointer-events: none; }
@@ -10895,9 +10895,16 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    premier écran se lit encore —, et un geste approximatif vers le bas pose la carte entière sous la question. Des marges sur la
    carte, pas un `scroll-padding` sur la page : Chromium happe à un tiers de la fenêtre d'arrêt, que le `scroll-padding` rétrécit —
    la tête et la question retirées, il ne happait plus qu'à une vingtaine de pixels en 277 × 492 ; la fenêtre entière, à plus de
-   cent (mesuré au doigt le 26 octobre 2026). Le `:has()` ne vaut que tant que la carte se joue : la révélation défile librement. */
+   cent (mesuré au doigt le 26 octobre 2026). Ce tiers happe aussi la page en haut quand l'arrêt en est près : armé d'office, en
+   360 × 640 au texte normal, il s'arrêtait à 209 pixels du haut, la page s'ouvrait défilée, le récit sous la tête, et rien ne l'y
+   ramenait (la relecture du lot la-partie-et-la-visite). Il ne s'arme donc que loin du haut, le récit hors de son attraction
+   (`data-arret`, `lArretDeLaCarteSArme`, `bande.ts`) ; près, la carte tient déjà à moitié à l'ouverture. Et la carte-bonus posée
+   sous la carte — Éclairer dépensé, Prendre son temps et sa ligne du temps en plus — s'arrête au-dessus du pied à son tour : seule,
+   la carte ramenait sur elle tout geste qui finissait plus bas, et la ligne ne se lisait jamais au doigt. Le `:has()` ne vaut que
+   tant que la carte se joue : la révélation défile librement. */
 .cab-manche .cab-carte-jouable { width: min(100% + 4px, 460px, max(150px, var(--cab-place, 100dvh) * var(--cab-carte-l) / var(--cab-carte-h))); margin: 0 auto; scroll-snap-align: end; scroll-margin: calc(var(--cab-tete, 0px) + var(--cab-question, 0px)) 0 var(--cab-pied, 0px); }
-html:has(.cab-manche .cab-carte-jouable) { scroll-snap-type: y proximity; }
+html:has(.cab-partie[data-arret='carte'] .cab-carte-jouable) { scroll-snap-type: y proximity; }
+.cab-partie[data-arret='carte'] > .cab-pied-pose { scroll-snap-align: end; scroll-margin-bottom: var(--cab-pied, 0px); }
 /* Les pas de l'épingle, que « Pas à pas » ouvre au-dessus de lui et de « Planter ici », sur leur ligne : quatre directions et la
    bascule des grands pas, 44 pixels chacun — cinq carrés tiennent les 237 pixels d'un 277 de large. Au doigt, ils font ce que font
    les flèches au clavier : sous TalkBack, un double toucher plantait au centre de la carte. Toujours ouverts, avec la carte-bonus
@@ -10977,10 +10984,12 @@ html:has(.cab-manche .cab-carte-jouable) { scroll-snap-type: y proximity; }
 /* Sous « Mise perdue », le titre du jeu — ce qu'il avait trouvé, et pourquoi la mise ne l'a pas payé. */
 .cab-titre-du-jeu { color: var(--ink); font-weight: 600; font-variant-numeric: lining-nums; }
 .cab-note { color: var(--accent-text); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
-/* « Manche suivante » reste collé au bas de l'écran : défilée jusqu'en bas, la révélation finit au-dessus de lui (le rendu le
-   mesure, `[révélation]`) ; et ce que la page y amène d'elle-même — le focus au clavier sur « Signaler une erreur », un lecteur
-   d'écran qui avance — s'arrête aussi au-dessus de lui, la hauteur du pied gardée en bas du défilement. Collé dessous, le
-   dernier paragraphe de « Le savais-tu ? » s'y cachait (Ophélie et Lucas, aux tablées du 25 et du 26 octobre 2026). */
+/* « Manche suivante » reste collé au bas de l'écran : défilée jusqu'en bas, la révélation finit au-dessus de lui, et le savait
+   déjà sans cette règle (le rendu le mesure, `[révélation]`). Ce qu'elle garde : ce que la page amène d'elle-même au plus près —
+   le focus sous Firefox, un `scrollIntoView` qui ne dit rien — s'arrête au-dessus de lui, la hauteur du pied gardée en bas du
+   défilement ; sans elle, « Signaler une erreur » s'y posait au bas de l'écran, 82 pixels sous le pied en 360 × 640 (le témoin du
+   rendu). Le focus de Chromium, lui, amène au milieu de l'écran. Collé dessous, le dernier paragraphe de « Le savais-tu ? » s'y
+   cachait (Ophélie et Lucas, aux tablées du 25 et du 26 octobre 2026 ; la relecture du lot la-partie-et-la-visite). */
 html:has(.cab-partie .cab-titre-revele) { scroll-padding-bottom: var(--cab-pied, 0px); }
 .cab-page .result-banner p { font-size: 1.0625rem; }
 .cab-page .anecdote { font-size: 1.0625rem; }

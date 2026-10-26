@@ -137,8 +137,9 @@ export function BoutonRetenter({
 
 /**
  * Ce que demande « Changer » avant d'écrire, comme la dorure demande la sienne : la case et le jeu qu'elle prendra, dans les
- * mots de la visite que la page tient — un seul échange par jour, et l'œuvre en jeu reste. Rien à demander quand la visite ne
- * permet plus d'échange ou ne connaît pas la case : le serveur dirait pourquoi.
+ * mots de la visite que la page tient — un seul échange par jour, et l'œuvre en jeu reste. Rien à demander, et rien ne part,
+ * quand la visite ne permet plus d'échange ou ne connaît pas la case : le bouton n'est là que tant qu'elle le permet, et une page
+ * relue entre-temps sans lui l'efface au rendu suivant.
  */
 export function confirmationDeLEchange(
   visite: Pick<VisiteVue, 'cases' | 'echange'> | undefined,
@@ -252,13 +253,15 @@ function CaseDeLaVisite({
               Jouer
             </button>
           )}
-          {/* Changer de jeu ne fait rien partir : le serveur l'accepte pendant une partie (`refusDeLEchange`). Il dit le jeu qui
-              vient — à l'œil ; à l'oreille, aussi celui qui part, pour distinguer les trois. */}
+          {/* « Changer » ne fait rien partir : le serveur l'accepte pendant une partie (`refusDeLEchange`). Il dit le jeu qui
+              vient — à l'œil ; à l'oreille, aussi celui qui part, pour distinguer les trois, après ce qu'on lit : qui dit
+              « Changer pour Le Filet » à voix haute (Voice Access, Voice Control) doit le trouver (WCAG 2.5.3, la relecture du lot
+              la-partie-et-la-visite). */}
           {echange && (
             <button
               type="button"
               className="btn"
-              aria-label={`Changer ${jeu.nom} pour ${JEUX[echange].nom}`}
+              aria-label={`Changer pour ${JEUX[echange].nom}, au lieu de jouer ${jeu.a}`}
               aria-disabled={busy || undefined}
               {...toucher(() => !busy && onEchanger(k))}
             >
@@ -288,7 +291,7 @@ export function Visite({
   const auMusee = useContext(RetourAuMusee)
   const idDeLAttente = useId()
   const { cases, echange } = page.visite
-  // « Changer de jeu » : sur chaque case pas encore jouée, tant que la règle des échanges (`refusDeLEchange`, au serveur) le
+  // « Changer pour … » : sur chaque case pas encore jouée, tant que la règle des échanges (`refusDeLEchange`, au serveur) le
   // permet — une fois par jour, la case de son choix. Elle ne dépend de la case que par « déjà jouée », que `faite` dit déjà.
   const aJouerEncore = cases.some(c => !c.faite)
   // Une partie qui attend éteint chaque « Jouer », comme la chasse d'une œuvre : sinon l'annonce s'ouvrait, et « Commencer » ne

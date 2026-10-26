@@ -49,8 +49,11 @@
 // défilement au moins, la carte à la même largeur avant et après Éclairer,
 // jamais plus large « Pas à pas » ouvert, la page ouverte en haut sur le récit,
 // et un geste au doigt qui n'en montre que la moitié, et la carte posée entière
-// entre la question et le pied (`[épingle]`) ; une révélation défilée jusqu'en bas, sa
-// dernière ligne au-dessus de « Manche suivante » (`[révélation]`) ; le tableau du Détail entier sous
+// entre la question et le pied, puis le doigt qui remonte au récit et la page qui
+// y reste, et la carte-bonus posée sous la carte qui se lit au doigt
+// (`[épingle]`) ; une révélation défilée jusqu'en bas, sa dernière ligne
+// au-dessus de « Manche suivante », et son dernier geste amené par le focus
+// au-dessus de lui aussi (`[révélation]`) ; le tableau du Détail entier sous
 // la tête et au-dessus de chaque titre amené au bas de l'écran, à la même
 // hauteur tout du long (`[détail]`) — la tablée du 25 octobre 2026, au texte
 // agrandi, et sa relecture. Leur compte à la fin, et le tout dans
@@ -69,7 +72,7 @@ import Database from 'better-sqlite3'
 import { demarrer, inscrireProfil } from '../test/banc'
 import { DIX_HEURES, departEnBase } from '../test/cabinet-banc'
 import { CE_QUI_DEBORDE, CE_QUI_EST_COUPE, CE_QUI_SE_CHEVAUCHE, SOUS_LA_NICHE, contrasteDeLaPage } from './a-l-ecran'
-import { PIED_COLLE, TETE_COLLEE, surLaMemeRangee } from '../../client/src/views/cabinet/bande'
+import { CARTE_JOUABLE, LU_AU_DESSUS_DE_LA_QUESTION, PIED_COLLE, TETE_COLLEE, surLaMemeRangee } from '../../client/src/views/cabinet/bande'
 import { HAUTEUR_DE_LA_CARTE, LARGEUR_DE_LA_CARTE, projeter } from '../../shared/cabinet/france'
 import { JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import type { DetailTire } from '../../shared/cabinet/jeux/detail'
@@ -423,7 +426,52 @@ async function laRevelation(page: any, nom: string) {
   await photo(page, `${nom}-revelation-entiere`, { pleine: true })
   await laFinDuRecit(page, nom)
   await photo(page, `${nom}-revelation-en-bas`)
+  await ceQueLaPageAmene(page, nom)
   await page.evaluate('window.scrollTo(0, 0)')
+}
+
+/**
+ * Ce que la page amène d'elle-même à l'écran sous une révélation, son dernier geste — « Signaler une erreur » —, s'arrête au-dessus
+ * de « Manche suivante », collé au bas de l'écran. Deux façons : le focus au clavier, que Chromium amène au milieu de l'écran, et le
+ * défilement au plus près (`block: 'nearest'`) — celui du focus sous Firefox, d'un `scrollIntoView` qui ne dit rien —, qui le
+ * posait au bas de l'écran, sous le pied : c'est ce que garde la marge d'arrêt du bas (`scroll-padding-bottom`). Le défilement
+ * jusqu'en bas ne la mesurait pas — sa fin se lisait déjà au-dessus du pied sans elle —, ni le focus de Chromium (la relecture du
+ * lot la-partie-et-la-visite). La page en haut à chaque fois ; puis le témoin, la marge retirée, dit au rapport ce qu'elle a gardé.
+ * Sans geste dans la manche — un contenu neuf ne se signale pas —, rien.
+ */
+async function ceQueLaPageAmene(page: any, nom: string) {
+  const mesurer = (comment: 'focus' | 'nearest'): Promise<{ fin: number; pied: number; texte: string } | null> =>
+    page.evaluate(`(() => {
+  // Le focus déjà sur lui, un \`focus()\` de plus ne ferait rien défiler : la mesure lirait la page en haut.
+  document.activeElement?.blur()
+  window.scrollTo(0, 0)
+  const gestes = [...document.querySelectorAll('.cab-manche button, .cab-manche a[href]')].filter(e => e.getBoundingClientRect().height > 0)
+  const geste = gestes[gestes.length - 1], pied = document.querySelector(${JSON.stringify(PIED_COLLE)})
+  if (!geste || !pied) return null
+  if (${JSON.stringify(comment)} === 'focus') geste.focus({ focusVisible: true })
+  else geste.scrollIntoView({ block: 'nearest' })
+  return new Promise(r => setTimeout(() => r({ fin: geste.getBoundingClientRect().bottom, pied: pied.getBoundingClientRect().top, texte: geste.textContent.trim() }), 300))
+})()`)
+  const DITS = { focus: 'amené par le focus', nearest: 'amené au plus près' }
+  for (const comment of ['focus', 'nearest'] as const) {
+    const m = await mesurer(comment)
+    if (!m) return
+    if (m.fin > m.pied + 0.5) {
+      noterLaBande(`[révélation] ${nom}, « ${m.texte} » ${DITS[comment]} : il finit ${Math.round(m.fin - m.pied)} px sous « Manche suivante »`)
+      continue
+    }
+    await page.evaluate(`(() => {
+  const s = document.createElement('style')
+  s.id = 'temoin-sans-marge'
+  s.textContent = 'html { scroll-padding-bottom: 0 !important }'
+  document.head.append(s)
+})()`)
+    const temoin = await mesurer(comment)
+    await page.evaluate(`document.getElementById('temoin-sans-marge')?.remove()`)
+    const sans = temoin && temoin.fin > temoin.pied + 0.5 ? `sans la marge d’arrêt, il finirait ${Math.round(temoin.fin - temoin.pied)} px sous le pied` : 'sans elle aussi, il resterait au-dessus'
+    mesures.push(`la révélation ${nom}, « ${m.texte} » ${DITS[comment]} : ${Math.round(m.pied - m.fin)} px au-dessus du pied — ${sans}`)
+  }
+  await page.evaluate('document.activeElement?.blur()')
 }
 
 /**
@@ -439,7 +487,7 @@ async function laFinDuRecit(page: any, nom: string) {
   const derniers = [...document.querySelectorAll('.cab-manche > *')].filter(e => e.getBoundingClientRect().height > 0)
   const dernier = derniers[derniers.length - 1]
   if (!pied || !dernier) return null
-  return { fin: dernier.getBoundingClientRect().bottom, pied: pied.getBoundingClientRect().top, texte: (dernier.textContent || '').trim().slice(-40) }
+  return { fin: dernier.getBoundingClientRect().bottom, pied: pied.getBoundingClientRect().top, texte: [...(dernier.textContent || '').trim()].slice(-40).join('') }
 })()`)
   if (!m) return
   if (m.fin > m.pied + 0.5) noterLaBande(`[révélation] ${nom}, défilée jusqu’en bas : la fin de la manche (« …${m.texte} ») passe de ${Math.round(m.fin - m.pied)} px sous « Manche suivante »`)
@@ -570,53 +618,121 @@ function laMemeTaille(quoi: string, avant: number | null, apres: number | null, 
   else noterLaBande(`[${quoi}] ${quand} : ${Math.round(avant)} px à l’ouverture, ${Math.round(apres)} px ensuite`)
 }
 
-/**
- * La carte de l'Épingle, un point d'arrêt du défilement : de la page en haut — le récit, qui porte l'indice —, un geste qui
- * n'en montre que la moitié au-dessus du pied la pose entière entre la question collée et le pied (`scroll-snap-align: end`). Au
- * texte agrandi, la carte s'ouvrait sous le pied, et ne s'y voyait entière que sur une cinquantaine de pixels de défilement :
- * Jeanne a mis quatre gestes à la trouver, le chrono courant (la tablée du 26 octobre 2026). Le geste au doigt, comme le pouce
- * le fait : le défilement d'un `scrollBy` ne se laisse pas toujours arrêter. Rien à dire si la carte tenait déjà, la page en haut.
- */
-async function laCarteSArrete(page: any, quand: string) {
-  await page.evaluate('window.scrollTo(0, 0)')
-  await page.waitForTimeout(600)
-  const mesurer = (): Promise<{ tete: number; bas: number; q: number; c: [number, number]; y: number }> =>
-    page.evaluate(`(() => {
-  const q = document.querySelector('.cab-manche > .cab-question').getBoundingClientRect(), c = document.querySelector('.cab-manche .cab-carte-jouable').getBoundingClientRect()
+/** Ce que les mesures de l'Épingle au doigt lisent de la page, à l'écran : chaque boîte, son haut et son bas ; null, absente. */
+interface ALaManche {
+  tete: number
+  bas: number
+  q: [number, number]
+  c: [number, number]
+  recit: [number, number] | null
+  pose: [number, number] | null
+  y: number
+  arme: boolean
+}
+const A_LA_MANCHE = `(() => {
   ${LA_BANDE}
-  return { tete, bas, q: q.bottom, c: [c.top, c.bottom], y: window.scrollY }
-})()`)
-  const tient = (m: { bas: number; q: number; c: [number, number] }) => m.q <= m.c[0] + 0.5 && m.c[1] <= m.bas + 0.5
-  const avant = await mesurer()
-  // L'arrêt ne happe pas la page à l'ouverture : le récit, qui porte l'indice, se lit d'abord.
-  if (avant.y > 0.5) noterLaBande(`[épingle] ${quand} : la page ne reste pas en haut, sur le récit — défilée de ${Math.round(avant.y)} px`)
-  if (tient(avant)) return mesures.push(`l’Épingle ${quand} : la carte tient sous la question dès l’ouverture`)
-  // Jusqu'à la moitié de la carte au-dessus du pied, au doigt, regardée pendant qu'il monte : le doigt part du bas de la bande,
-  // juste au-dessus du pied, sans partir d'un de ses boutons, et monte à petits pas tant que la moitié n'est pas en vue — ce qu'il
-  // perd avant que la page ne bouge, et ce que la page bouge sous lui, ne se calculent pas d'avance. Puis il s'arrête avant de se
-  // lever : lâché en mouvement, il lancerait la page, qui irait où son élan la porte.
-  const x = largeur / 2
-  const y0 = Math.round(avant.bas - 12)
+  const boite = s => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return [b.top, b.bottom] }
+  return { tete, bas, q: boite('.cab-manche > .cab-question'), c: boite(${JSON.stringify(CARTE_JOUABLE)}), recit: boite(${JSON.stringify(LU_AU_DESSUS_DE_LA_QUESTION)}), pose: boite('.cab-partie > .cab-pied-pose'), y: window.scrollY, arme: document.querySelector('.cab-partie')?.dataset.arret === 'carte' }
+})()`
+/** La question et la carte entière entre la tête et le pied collés. */
+const laCarteTient = (m: ALaManche) => m.q[1] <= m.c[0] + 0.5 && m.c[1] <= m.bas + 0.5
+/** Le récit — ce qui se lit au-dessus de la question — commence sous la tête collée : on le relit d'en haut. */
+const leRecitSeLit = (m: ALaManche) => m.recit !== null && m.recit[0] >= m.tete - 0.5
+/** La carte-bonus posée sous la carte, entière au-dessus du pied. */
+const laPoseSeLit = (m: ALaManche) => m.pose !== null && m.pose[1] <= m.bas + 0.5 && m.pose[0] >= m.tete - 0.5
+
+/**
+ * Un geste au doigt, comme le pouce le fait — le défilement d'un `scrollBy` ne se laisse pas toujours arrêter : posé à la hauteur
+ * `de`, au milieu de l'écran, le doigt glisse vers `vers` à petits pas, regardé pendant qu'il glisse, et s'arrête dès que `assez`
+ * le dit — ce qu'il perd avant que la page ne bouge, et ce que la page bouge sous lui, ne se calculent pas d'avance. Puis il
+ * attend avant de se lever : lâché en mouvement, il lancerait la page, qui irait où son élan la porte. Rend son chemin, et la
+ * page arrêtée.
+ */
+async function unGeste(page: any, de: number, vers: number, assez: (m: ALaManche) => boolean): Promise<{ geste: number; apres: ALaManche }> {
   const cdp = await page.context().newCDPSession(page)
-  const point = (y: number) => [{ x, y }]
-  const aMoitieEnVue = (m: { bas: number; c: [number, number] }) => m.bas - m.c[0] >= (m.c[1] - m.c[0]) / 2
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: point(y0) })
+  const x = largeur / 2
+  const sens = vers < de ? -1 : 1
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: Math.round(de) }] })
   let geste = 0
-  while (y0 - geste > avant.tete + 24) {
+  while (geste + 12 <= Math.abs(vers - de)) {
     geste += 12
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: point(y0 - geste) })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: Math.round(de + sens * geste) }] })
     await page.waitForTimeout(16)
-    if (aMoitieEnVue(await mesurer())) break
+    if (assez(await page.evaluate(A_LA_MANCHE))) break
   }
   await page.waitForTimeout(400)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
   await page.waitForTimeout(900)
-  const apres = await mesurer()
-  if (tient(apres)) mesures.push(`l’Épingle ${quand} : un geste de ${geste} px pose la carte entière sous la question (défilée de ${Math.round(apres.y)} px)`)
+  await cdp.detach()
+  return { geste, apres: await page.evaluate(A_LA_MANCHE) }
+}
+/** Le doigt part du bas de la bande, juste au-dessus du pied, sans toucher un de ses boutons, et monte : la page descend. */
+const enMontant = (page: any, m: ALaManche, assez: (m: ALaManche) => boolean) => unGeste(page, m.bas - 12, m.tete + 24, assez)
+/** Le doigt part juste sous la tête, et descend : la page remonte. */
+const enDescendant = (page: any, m: ALaManche, assez: (m: ALaManche) => boolean) => unGeste(page, m.tete + 24, m.bas - 12, assez)
+
+/**
+ * La carte de l'Épingle, un point d'arrêt du défilement quand il est loin du haut de la page (`data-arret`, `bande.ts`) : la page
+ * s'ouvre en haut — le récit, qui porte l'indice —, et un geste qui n'en montre que la moitié au-dessus du pied la pose entière
+ * entre la question collée et le pied (`scroll-snap-align: end`) ; non armé, le doigt l'y amène et elle y reste. Au texte agrandi,
+ * la carte s'ouvrait sous le pied, et ne s'y voyait entière que sur une cinquantaine de pixels de défilement : Jeanne a mis quatre
+ * gestes à la trouver, le chrono courant (la tablée du 26 octobre 2026). Puis le doigt remonte relire le récit (`auRecit`). Armé
+ * d'office, en 360 × 640 au texte normal, l'arrêt happait la page dès l'ouverture, et aucun geste ne la ramenait au récit (la
+ * relecture du lot la-partie-et-la-visite). Rien à dire si la carte tenait déjà, la page en haut.
+ */
+async function laCarteSArrete(page: any, quand: string) {
+  await page.evaluate('window.scrollTo(0, 0)')
+  await page.waitForTimeout(600)
+  const avant: ALaManche = await page.evaluate(A_LA_MANCHE)
+  // L'arrêt ne happe pas la page à l'ouverture : le récit, qui porte l'indice, se lit d'abord.
+  if (avant.y > 0.5) noterLaBande(`[épingle] ${quand} : la page ne reste pas en haut, sur le récit — défilée de ${Math.round(avant.y)} px`)
+  if (laCarteTient(avant)) return mesures.push(`l’Épingle ${quand} : la carte tient sous la question dès l’ouverture`)
+  // Armé, le doigt n'en montre que la moitié, et l'arrêt fait le reste ; libre, il l'amène entière, et elle doit y rester.
+  const aMoitieEnVue = (m: ALaManche) => m.bas - m.c[0] >= (m.c[1] - m.c[0]) / 2
+  const { geste, apres } = await enMontant(page, avant, avant.arme ? aMoitieEnVue : laCarteTient)
+  const comment = avant.arme ? 'l’arrêt armé, un geste qui en montre la moitié' : 'l’arrêt près du haut, pas armé, un geste'
+  if (laCarteTient(apres)) mesures.push(`l’Épingle ${quand} : ${comment} — ${geste} px — pose la carte entière sous la question (défilée de ${Math.round(apres.y)} px)`)
   else
     noterLaBande(
-      `[épingle] ${quand} : de la page en haut (la carte ${Math.round(avant.c[0])} → ${Math.round(avant.c[1])}, le pied ${Math.round(avant.bas)}), un geste de ${geste} px laisse la carte (${Math.round(apres.c[0])} → ${Math.round(apres.c[1])}) hors de la bande, entre la question (${Math.round(apres.q)}) et le pied (${Math.round(apres.bas)}), défilée de ${Math.round(apres.y)} px`,
+      `[épingle] ${quand} : de la page en haut (la carte ${Math.round(avant.c[0])} → ${Math.round(avant.c[1])}, le pied ${Math.round(avant.bas)}), ${comment} — ${geste} px — laisse la carte (${Math.round(apres.c[0])} → ${Math.round(apres.c[1])}) hors de la bande, entre la question (${Math.round(apres.q[1])}) et le pied (${Math.round(apres.bas)}), défilée de ${Math.round(apres.y)} px`,
     )
+  await auRecit(page, quand)
+  await page.evaluate('window.scrollTo(0, 0)')
+  await page.waitForTimeout(300)
+}
+
+/**
+ * De la carte, le doigt remonte relire le récit — l'indice —, trois gestes au plus, chacun s'arrêtant dès que le récit commence
+ * sous la tête : la page y reste, jamais ramenée sur la carte. L'arrêt armé d'office l'y ramenait à chaque geste (la relecture
+ * du lot la-partie-et-la-visite).
+ */
+async function auRecit(page: any, quand: string) {
+  let m: ALaManche = await page.evaluate(A_LA_MANCHE)
+  if (!m.recit) return
+  for (let i = 0; i < 3 && !leRecitSeLit(m); i++) m = (await enDescendant(page, m, leRecitSeLit)).apres
+  if (leRecitSeLit(m)) mesures.push(`l’Épingle ${quand} : de la carte, le doigt remonte au récit, et la page y reste (défilée de ${Math.round(m.y)} px)`)
+  else noterLaBande(`[épingle] ${quand} : de la carte, trois gestes ne ramènent pas le récit sous la tête — il commence à ${Math.round(m.recit![0])} px, la tête finit à ${Math.round(m.tete)}, la page défilée de ${Math.round(m.y)} px`)
+}
+
+/**
+ * La carte-bonus posée sous la carte — Éclairer dépensé, Prendre son temps et sa ligne du temps en plus — se lit au doigt : de la
+ * carte arrêtée, le doigt monte jusqu'à la montrer entière au-dessus du pied, et la page y reste. Seule arrêtée, la carte
+ * ramenait sur elle tout geste qui finissait plus bas, et la ligne ne se lisait jamais (la relecture du lot
+ * la-partie-et-la-visite). Rien sans carte-bonus posée ; lue, sa photo.
+ */
+async function laLignePosee(page: any, nom: string, quand: string) {
+  await page.evaluate(LA_CARTE_SUR_LE_PIED)
+  await page.waitForTimeout(600)
+  let m: ALaManche = await page.evaluate(A_LA_MANCHE)
+  if (!m.pose) return
+  for (let i = 0; i < 3 && !laPoseSeLit(m); i++) m = (await enMontant(page, m, laPoseSeLit)).apres
+  if (laPoseSeLit(m)) {
+    mesures.push(`l’Épingle ${quand} : la carte-bonus posée se lit au-dessus du pied (défilée de ${Math.round(m.y)} px${m.arme ? ', l’arrêt armé' : ''})`)
+    await photo(page, `${nom}-sa-carte-bonus-posee`)
+  } else {
+    const ou = m.pose ? `${Math.round(m.pose[0])} → ${Math.round(m.pose[1])}` : 'partie'
+    noterLaBande(`[épingle] ${quand} : la carte-bonus posée (${ou}) ne se lit pas au-dessus du pied (${Math.round(m.bas)}), la page défilée de ${Math.round(m.y)} px`)
+  }
   await page.evaluate('window.scrollTo(0, 0)')
   await page.waitForTimeout(300)
 }
@@ -793,9 +909,15 @@ async function uneEpingle(page: any, t: EpingleTiree, nom: string) {
   if (await page.locator('.cab-pouvoir:not([aria-disabled])').count()) {
     await toucher(page, page.locator('.cab-pouvoir'))
     await page.waitForSelector('.cab-souffle')
+    // La carte-bonus quitte le pied, l'arrêt remonte d'autant : la page en haut n'y est pas happée pour autant.
+    await page.waitForTimeout(600)
+    const y: number = await page.evaluate('window.scrollY')
+    if (y > 0.5) noterLaBande(`[épingle] éclairée, la page en haut : elle saute de ${Math.round(y)} px, le récit sous la tête`)
     await photo(page, `${nom}-eclaire`)
     laMemeTaille('épingle', ouverture, await laQuestionEtLaCarte(page, 'éclairée, sa carte-bonus posée'), 'éclairée, sa carte-bonus posée')
     await photo(page, `${nom}-la-question-et-la-carte`)
+    await laLignePosee(page, nom, 'éclairée, sa carte-bonus posée')
+    await laCarteSArrete(page, 'éclairée, sa carte-bonus posée')
     await page.evaluate('window.scrollTo(0, 0)')
   }
   // Sans clavier : « Pas à pas » ouvre les pas au-dessus de lui, un pas vers le nord pose l'épingle — dite au-dessus de la carte —,

@@ -568,15 +568,17 @@ test('changer le jeu d’une case se confirme, et la nomme : « Changer Le Déta
     cancelLabel: `Garder ${JEUX.detail.nom}`,
   })
   assert.equal(confirmationDeLEchange(visite, 1)?.title, `Changer ${JEUX.pari.nom} pour ${JEUX.filet.nom} ?`)
-  // L'échange qui ne se peut plus, une case qui n'est pas de la visite : rien à demander — le serveur dirait pourquoi.
+  // L'échange qui ne se peut plus, une case qui n'est pas de la visite : rien à demander, et rien ne part — le bouton n'est là
+  // que tant que la visite que la page tient permet l'échange.
   assert.equal(confirmationDeLEchange({ ...visite, echange: { possible: false, refus: 'Tu as déjà changé un jeu aujourd’hui' } }, 0), null)
   assert.equal(confirmationDeLEchange(visite, 7), null)
   // La page la demande avant d'écrire, comme la dorure.
   const app = source('views/CabinetApp.tsx')
   assert.match(app, /const demande = confirmationDeLEchange\(page\?\.visite, k\)\s*if \(!demande \|\| !\(await confirmDialog\(demande\)\)\) return\s*await ecrire\(\(\) => api\.cabinet\.echanger\(k\)/)
-  // Le bouton nomme la case qu'il change et le jeu qu'elle prendra ; à l'œil, le jeu qu'elle prendra seulement.
+  // Le bouton dit le jeu que la case prendra ; à l'oreille, il commence par ce qu'on lit — qui le dit à voix haute (Voice Access,
+  // Voice Control) le trouve (WCAG 2.5.3, la relecture du lot la-partie-et-la-visite) —, puis nomme le jeu qui part.
   const html = await rendu('views/cabinet/Visite', 'Visite', { page: laVisiteDe(cases, { visite: visite as PageDuCabinet['visite'] }), busy: false, onJouer: rien, onEchanger: rien })
-  assert.match(html, new RegExp(`aria-label="${echapper(`Changer ${JEUX.detail.nom} pour ${JEUX.filet.nom}`)}"[^>]*>Changer pour ${echapper(JEUX.filet.nom)}</button>`))
+  assert.match(html, new RegExp(`aria-label="${echapper(`Changer pour ${JEUX.filet.nom}, au lieu de jouer ${JEUX.detail.a}`)}"[^>]*>Changer pour ${echapper(JEUX.filet.nom)}</button>`))
   // Hugo, au lecteur d'écran : l'annonce du Détail disait qu'il se joue à l'œil, la case pas — il a joué, et fait 2 sur 9. Dit
   // avant ses gestes, en `sr-only` : à l'œil, la peinture du jeu suffit.
   const detail = /<li class="cab-case">(.*?)<\/li>/.exec(html)?.[1] ?? ''
@@ -2337,22 +2339,112 @@ test('la carte de l’Épingle est un point d’arrêt du défilement, entre la 
   // que le temps de la manche : à la révélation, la carte n'est plus jouable, et la page défile librement.
   const section = sectionDuCabinet()
   const regle = (sel: string) => new RegExp(`(?:^|\\n)${echapper(sel)} \\{([^}]*)\\}`).exec(section)?.[1] ?? ''
-  const epingle = regle('html:has(.cab-manche .cab-carte-jouable)')
+  // L'arrêt ne s'arme que loin du haut de la page (`data-arret`, que la bande pose) : armé d'office, il happait la page dès
+  // l'ouverture en 360 × 640 au texte normal — l'arrêt à 209 px, dans le tiers de la fenêtre où Chromium happe —, le récit passé
+  // sous la tête, et aucun geste ne l'y ramenait (la relecture du lot la-partie-et-la-visite).
+  assert.doesNotMatch(section, /(?:^|\n)html:has\(\.cab-manche \.cab-carte-jouable\)/, 'jamais armé d’office')
+  const epingle = regle("html:has(.cab-partie[data-arret='carte'] .cab-carte-jouable)")
   assert.match(epingle, /scroll-snap-type: y proximity;/)
   const carte = regle('.cab-manche .cab-carte-jouable')
   assert.match(carte, /scroll-snap-align: end;/)
   assert.match(carte, /scroll-margin: calc\(var\(--cab-tete, 0px\) \+ var\(--cab-question, 0px\)\) 0 var\(--cab-pied, 0px\);/)
+  // Une carte-bonus posée sous la carte — Éclairer dépensé, Prendre son temps et sa ligne du temps en plus — est un arrêt aussi :
+  // seule, la carte ramenait sur elle tout geste qui finissait plus bas, et la ligne posée ne se lisait jamais au doigt.
+  const pose = regle(".cab-partie[data-arret='carte'] > .cab-pied-pose")
+  assert.match(pose, /scroll-snap-align: end;/)
+  assert.match(pose, /scroll-margin-bottom: var\(--cab-pied, 0px\);/)
   // Pas de `scroll-padding` sur la page pendant la manche : Chromium happe à un tiers de la fenêtre d'arrêt, que ces marges
   // rétrécissent — la tête et la question retirées, il ne happait plus qu'à une vingtaine de pixels en 277 × 492.
   assert.doesNotMatch(epingle, /scroll-padding/)
   assert.doesNotMatch(section, /scroll-snap-type: y mandatory/, 'jamais forcé : le récit se lit à l’ouverture')
-  // La révélation : ce que la page y amène d'elle-même — le focus au clavier sur « Signaler une erreur », un lecteur d'écran qui
-  // avance — s'arrête au-dessus de « Manche suivante », collé au bas de l'écran, jamais dessous.
+  // La révélation : ce que la page y amène d'elle-même au plus près — le focus sous Firefox, un `scrollIntoView` qui ne dit rien —
+  // s'arrête au-dessus de « Manche suivante », collé au bas de l'écran, jamais dessous (le rendu le mesure, avec un témoin sans la
+  // règle : « Signaler une erreur » finissait 82 px sous le pied).
   assert.match(regle('html:has(.cab-partie .cab-titre-revele)'), /scroll-padding-bottom: var\(--cab-pied, 0px\);/)
   // Ce que la bande pose, et où.
   const bande = readFileSync(path.join(client, 'views/cabinet/bande.ts'), 'utf8')
   for (const v of ['--cab-pied', '--cab-question']) assert.match(bande, new RegExp(`setProperty\\('${v}'`), v)
   assert.match(bande, /page\.ownerDocument\?\.documentElement\.style\.setProperty\('--cab-pied'/)
+})
+
+test('l’arrêt sur la carte de l’Épingle ne s’arme que loin du haut de la page : le récit se lit à l’ouverture, et un doigt l’y ramène', async () => {
+  // Chromium happe toute position à moins d'un tiers de la fenêtre d'un arrêt `proximity` — à l'ouverture comme après un geste.
+  // En 360 × 640 au texte normal, la carte-bonus au pied, la page s'arrêtait à 209 px de son haut : elle s'ouvrait défilée, le
+  // surtitre et le récit sous la tête collée, et ni le doigt ni `scrollTo(0, 0)` ne la ramenaient en haut (la relecture du lot
+  // la-partie-et-la-visite). L'arrêt ne s'arme donc que si ce qui se lit au-dessus de la question — le récit — reste hors de cette
+  // attraction, de la page en haut à la page où le récit commence juste sous la tête (`lecture`) : qui remonte relire l'indice
+  // s'arrête là, et la page y reste. Plus près, la carte tient déjà à moitié sous le récit, et le doigt l'amène sans aide. Un
+  // arrêt de plus en haut de la page l'aurait libéré, mais happé à son tour tout ce qui est entre les deux : au texte agrandi, la
+  // fin d'un récit de huit lignes, sous le pied à l'ouverture, ne se serait plus lue nulle part.
+  const { lArretDeLaCarteSArme, poserLaBande, ATTRACTION_DE_L_ARRET, CARTE_JOUABLE, LU_AU_DESSUS_DE_LA_QUESTION, TETE_COLLEE, PIED_COLLE, QUESTION_COLLEE } = (await import(url('views/cabinet/bande.ts'))) as {
+    lArretDeLaCarteSArme: (a: { basDeLaCarte: number; lecture: number; pied: number; fenetre: number }) => boolean
+    poserLaBande: (page: object, fenetre: { innerWidth: number; innerHeight: number; scrollY?: number }, cle: string | null, avant: null) => unknown
+    ATTRACTION_DE_L_ARRET: number
+    CARTE_JOUABLE: string
+    LU_AU_DESSUS_DE_LA_QUESTION: string
+    TETE_COLLEE: string
+    PIED_COLLE: string
+    QUESTION_COLLEE: string
+  }
+  assert.equal(ATTRACTION_DE_L_ARRET, 1 / 3, 'le tiers de la fenêtre, mesuré au doigt sous Chromium')
+  // La sonde de la relecture, en 360 × 640 : la carte finit à 498 px de l'écran, la page défilée de 209 ; le récit commence à −28,
+  // sous une tête de 100 — il commence juste sous elle la page à 81 px. L'arrêt, à 209 px, happait la page en haut.
+  assert.equal(lArretDeLaCarteSArme({ basDeLaCarte: 498 + 209, lecture: -28 + 209 - 100, pied: 142, fenetre: 640 }), false, '360 × 640 : l’arrêt à 209 px')
+  // Le même téléphone au texte à 130 % (277 × 492) : la page s'arrêtait de 250 à 337 px de son haut ; le récit, sous un surtitre
+  // de deux lignes, commence sous la tête la page à 82 px — hors de l'attraction (250 − 164 = 86), l'arrêt s'arme.
+  assert.equal(lArretDeLaCarteSArme({ basDeLaCarte: 492 - 142 + 250, lecture: 82, pied: 142, fenetre: 492 }), true, '277 × 492 : l’arrêt à 250 px')
+  // À la limite : le tiers de la fenêtre et la lecture — un demi-pixel en deçà, rien ; au-delà, l'arrêt.
+  const limite = 640 * ATTRACTION_DE_L_ARRET + 81
+  assert.equal(lArretDeLaCarteSArme({ basDeLaCarte: 640 - 142 + limite - 0.5, lecture: 81, pied: 142, fenetre: 640 }), false)
+  assert.equal(lArretDeLaCarteSArme({ basDeLaCarte: 640 - 142 + limite + 0.5, lecture: 81, pied: 142, fenetre: 640 }), true)
+  // Sans rien à lire au-dessus de la question, la page en haut seulement : l'arrêt hors de l'attraction de 0 suffit.
+  assert.equal(lArretDeLaCarteSArme({ basDeLaCarte: 640 - 142 + 640 / 3 + 1, lecture: -20, pied: 142, fenetre: 640 }), true)
+  // La bande en décide à chaque mesure, sur la page : `data-arret`, que la feuille lit. Sous le zoom de la tablée, la tête et le
+  // pied se ramènent en pixels de l'écran, ceux du document qui défile : 116 et 128 px de la page en font 151 et 166.
+  const hauteurs: Record<string, number> = { [TETE_COLLEE]: 116, [PIED_COLLE]: 128, [QUESTION_COLLEE]: 60 }
+  let basALEcran: number | null = 900
+  let recitALEcran = 240
+  const page = {
+    querySelector: (s: string) =>
+      s === CARTE_JOUABLE
+        ? basALEcran === null
+          ? null
+          : { getBoundingClientRect: () => ({ top: basALEcran! - 200, bottom: basALEcran! }) }
+        : s === LU_AU_DESSUS_DE_LA_QUESTION
+          ? { getBoundingClientRect: () => ({ top: recitALEcran, bottom: recitALEcran + 100 }) }
+          : s in hauteurs
+            ? { offsetHeight: hauteurs[s] }
+            : null,
+    currentCSSZoom: 1.3,
+    style: { setProperty: () => {} },
+    dataset: {} as { arret?: string },
+  }
+  poserLaBande(page, { innerWidth: 360, innerHeight: 640 }, 'e:0:1', null)
+  assert.equal(page.dataset.arret, 'carte', 'l’arrêt à 900 + 166 − 640 = 426 px, moins 213 : 213, au-delà du récit (240 − 151 = 89)')
+  // Défilée, la page dit le même document : sa position s'ajoute à ce que l'écran dit de la carte et du récit.
+  basALEcran = 900 - 200
+  recitALEcran = 240 - 200
+  poserLaBande(page, { innerWidth: 360, innerHeight: 640, scrollY: 200 }, 'e:0:1', null)
+  assert.equal(page.dataset.arret, 'carte', 'le même document, défilé')
+  // Un long récit sous un long surtitre : il commence sous la tête la page à 249 px, dans l'attraction de l'arrêt — rien.
+  basALEcran = 900
+  recitALEcran = 400
+  poserLaBande(page, { innerWidth: 360, innerHeight: 640 }, 'e:0:1', null)
+  assert.equal(page.dataset.arret, undefined)
+  // L'arrêt près du haut (700 + 166 − 640 = 226 px, dans le tiers de 213 et le récit) : rien.
+  basALEcran = 700
+  recitALEcran = 240
+  poserLaBande(page, { innerWidth: 360, innerHeight: 640 }, 'e:0:1', null)
+  assert.equal(page.dataset.arret, undefined)
+  basALEcran = 1200
+  poserLaBande(page, { innerWidth: 360, innerHeight: 640 }, 'e:0:1', null)
+  assert.equal(page.dataset.arret, 'carte')
+  // Sans carte qui se joue — la révélation, une autre manche —, rien.
+  basALEcran = null
+  poserLaBande(page, { innerWidth: 360, innerHeight: 640 }, null, null)
+  assert.equal(page.dataset.arret, undefined)
+  // La partie lui passe la fenêtre même, qui sait où la page est défilée.
+  assert.match(source('views/cabinet/Partie.tsx'), /poserLaBande\(el, window, cle, ouverture\.current\)/)
 })
 
 // ── 15. Le Détail et la Frise à l'écran ───────────────────────────────────
@@ -4265,8 +4357,13 @@ test('trois « Jouer » et trois « Changer » de noms distincts : l’oreille s
   const html = await rendu('views/cabinet/Visite', 'Visite', { page: trois, busy: false, onJouer: rien, onEchanger: rien })
   const noms = [...html.matchAll(/<button [^>]*aria-label="([^"]+)"/g)].map(m => texte(m[1]).trim())
   const pour = `pour ${JEUX.mot.nom}`
-  assert.deepEqual(noms, [`Jouer ${JEUX.pari.a}`, `Changer ${JEUX.pari.nom} ${pour}`, `Jouer ${JEUX.eclair.a}`, `Changer ${JEUX.eclair.nom} ${pour}`, `Jouer ${JEUX.indices.a}`, `Changer ${JEUX.indices.nom} ${pour}`])
+  const changer = (jeu: CleDeJeu) => `Changer ${pour}, au lieu de jouer ${JEUX[jeu].a}`
+  assert.deepEqual(noms, [`Jouer ${JEUX.pari.a}`, changer('pari'), `Jouer ${JEUX.eclair.a}`, changer('eclair'), `Jouer ${JEUX.indices.a}`, changer('indices')])
   assert.equal(new Set(noms).size, 6)
+  // Chaque nom commence par ce qu'on lit sur le bouton (WCAG 2.5.3) : qui dit « Changer pour Le Mot mystère » le trouve.
+  const paires = [...html.matchAll(/<button [^>]*aria-label="([^"]+)"[^>]*>([^<]+)<\/button>/g)].map(m => [texte(m[1]).trim(), texte(m[2]).trim()])
+  assert.equal(paires.length, 6)
+  for (const [nom, vu] of paires) assert.ok(nom.startsWith(vu), `« ${nom} » commence par « ${vu} »`)
   // À l'œil, le jeu qui vient seulement ; et la tablée trouve encore « Jouer » et « Changer » par une partie de leur nom (règle
   // `tablee.md`).
   assert.equal([...html.matchAll(/>Jouer<\/button>/g)].length, 3)

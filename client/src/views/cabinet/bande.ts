@@ -2,9 +2,10 @@
 // laissent à l'écran. La question collée de l'Épingle et sa carte, le tableau
 // du Détail s'y règlent (`--cab-tete`, `--cab-fenetre`, `--cab-place`,
 // `styles.css`) ; la ligne à taper du Mot s'y ramène (`bandeALEcran`) ; le
-// défilement s'arrête sur la carte, entre la question et le pied, et garde la
-// hauteur du pied sous une révélation (`--cab-question`, `--cab-pied`). Au
-// petit téléphone, le texte agrandi, la question et la carte ne tenaient
+// défilement s'arrête sur la carte, entre la question et le pied, quand l'arrêt
+// est loin du haut de la page (`data-arret`), et garde la hauteur du pied sous
+// une révélation (`--cab-question`, `--cab-pied`). Au petit téléphone, le
+// texte agrandi, la question et la carte ne tenaient
 // jamais ensemble, ni le tableau et ses titres (la tablée du 25 octobre 2026),
 // et rien n'amenait la page à la carte (la tablée du 26).
 //
@@ -31,6 +32,45 @@ export const CE_QUI_BORNE_LA_BANDE = `${TETE_COLLEE}, ${PIED_COLLE}, ${QUESTION_
 
 /** L'air que la carte de l'Épingle laisse sous sa question collée. */
 export const AIR_SOUS_LA_QUESTION = 8
+
+/** La carte de l'Épingle tant qu'elle se joue : un point d'arrêt du défilement, quand il s'arme (`lArretDeLaCarteSArme`). */
+export const CARTE_JOUABLE = '.cab-manche .cab-carte-jouable'
+
+/** Ce qui se lit juste au-dessus de la question collée — le récit de l'Épingle, qui porte l'indice. */
+export const LU_AU_DESSUS_DE_LA_QUESTION = '.cab-manche > :has(+ .cab-question)'
+
+/**
+ * La part de la fenêtre où un arrêt `proximity` happe la page : Chromium y ramène toute position à moins d'un tiers de la fenêtre
+ * de lui — après un geste, à l'ouverture, et quand la page change de hauteur sous elle (mesuré au doigt et sur une page réduite,
+ * le 26 octobre 2026).
+ */
+export const ATTRACTION_DE_L_ARRET = 1 / 3
+
+/** Ce qui décide de l'arrêt sur la carte, en pixels de l'écran — ceux du document qui défile, comptés de son haut. */
+export interface ArretDeLaCarte {
+  /** Le bas de la carte dans le document. */
+  readonly basDeLaCarte: number
+  /** Où en est la page quand ce qui se lit au-dessus de la question commence juste sous la tête collée. */
+  readonly lecture: number
+  /** La marge d'arrêt sous la carte : le pied collé (`--cab-pied`). */
+  readonly pied: number
+  readonly fenetre: number
+}
+
+/**
+ * L'arrêt sur la carte de l'Épingle s'arme-t-il ? La page s'y arrêterait le bas de la carte sur le haut du pied, et happerait
+ * tout ce qui finit à moins d'un tiers de la fenêtre de là : il ne s'arme que si ce qui se lit au-dessus de la question — le
+ * récit, qui porte l'indice — reste hors de cette attraction, de la page en haut à la page où le récit commence sous la tête. Armé
+ * d'office, en 360 × 640 au texte normal, il s'arrêtait à 209 px du haut : la page s'ouvrait défilée, le récit sous la tête, et ni
+ * le doigt ni `scrollTo(0, 0)` ne l'y ramenaient (la relecture du lot la-partie-et-la-visite). Si près, la carte tient déjà à
+ * moitié à l'ouverture, et le doigt l'amène sans aide ; au texte agrandi, l'arrêt est loin, et s'arme. Un arrêt de plus en haut
+ * de la page aurait libéré l'ouverture, mais happé à son tour tout ce qui est entre les deux : la fin d'un récit de huit lignes,
+ * sous le pied à l'ouverture, ne se serait plus lue nulle part. Pur.
+ */
+export function lArretDeLaCarteSArme(a: ArretDeLaCarte): boolean {
+  const arret = a.basDeLaCarte + a.pied - a.fenetre
+  return arret - a.fenetre * ATTRACTION_DE_L_ARRET > Math.max(0, a.lecture)
+}
 
 /** Le haut et le bas d'une boîte à l'écran, comme `getBoundingClientRect` les dit. */
 export interface BoiteALEcran {
@@ -135,10 +175,33 @@ export interface PageDeLaPartie extends Ecrivable {
   readonly currentCSSZoom?: number
   /** Le document qui défile : sa marge d'arrêt du bas (`scroll-padding-bottom`, sur `html`) lit le pied à sa racine. */
   readonly ownerDocument?: { readonly documentElement: Ecrivable } | null
+  /** `data-arret="carte"` : l'arrêt sur la carte de l'Épingle armé (`lArretDeLaCarteSArme`), que la feuille lit. */
+  readonly dataset?: { arret?: string }
 }
 
 /** La hauteur d'une pièce de la page, en pixels de la page (`offsetHeight` : sous le zoom, `getBoundingClientRect` dit des pixels d'écran) ; 0 si elle n'y est pas. */
 const hauteurDe = (page: PageDeLaPartie, selecteur: string) => (page.querySelector(selecteur) as { offsetHeight?: number } | null)?.offsetHeight ?? 0
+
+/** La boîte d'une pièce à l'écran, en pixels de l'écran ; null si elle n'y est pas. */
+const boiteDe = (page: PageDeLaPartie, selecteur: string) => (page.querySelector(selecteur) as { getBoundingClientRect?(): BoiteALEcran } | null)?.getBoundingClientRect?.() ?? null
+
+/**
+ * Arme l'arrêt sur la carte de l'Épingle, ou le désarme (`data-arret`), la carte à sa taille de l'étape : sa place vient d'être
+ * posée, et la lire force la mise en page. Refait à chaque mesure, comme la bande : Éclairer servi, la carte-bonus quitte le pied,
+ * l'arrêt remonte d'autant et peut tomber dans l'attraction du haut de la page. En pixels de l'écran, ceux du document qui défile :
+ * la position de la page s'ajoute à ce que l'écran dit de la carte et du récit, le zoom aux hauteurs de la page.
+ */
+function armerLArret(page: PageDeLaPartie, fenetre: { readonly innerHeight: number; readonly scrollY?: number }, mesure: MesureDeLaBande, zoom: number) {
+  if (!page.dataset) return
+  const carte = boiteDe(page, CARTE_JOUABLE)
+  const lu = boiteDe(page, LU_AU_DESSUS_DE_LA_QUESTION)
+  const defile = fenetre.scrollY ?? 0
+  const arme =
+    carte !== null &&
+    lArretDeLaCarteSArme({ basDeLaCarte: carte.bottom + defile, lecture: lu === null ? 0 : lu.top + defile - mesure.tete * zoom, pied: mesure.pied * zoom, fenetre: fenetre.innerHeight })
+  if (arme) page.dataset.arret = 'carte'
+  else delete page.dataset.arret
+}
 
 /**
  * Mesure la bande et la pose sur la page, en pixels de la page — la fenêtre
@@ -146,14 +209,14 @@ const hauteurDe = (page: PageDeLaPartie, selecteur: string) => (page.querySelect
  * de l'étape, à repasser à la mesure suivante (`bandeDeLEtape`).
  *
  * Le pied et la question collés se posent aussi, tels qu'ils sont : la carte de
- * l'Épingle s'arrête entre eux (`scroll-margin`). Et le pied à la racine du
- * document (`html`), qui défile : une révélation y garde sa hauteur sous ce que
- * la page amène à l'écran (`scroll-padding-bottom`) — posé sur la page seule,
- * `html` ne le voyait pas.
+ * l'Épingle s'arrête entre eux (`scroll-margin`), quand l'arrêt s'arme
+ * (`armerLArret`). Et le pied à la racine du document (`html`), qui défile :
+ * une révélation y garde sa hauteur sous ce que la page amène à l'écran
+ * (`scroll-padding-bottom`) — posé sur la page seule, `html` ne le voyait pas.
  */
 export function poserLaBande(
   page: PageDeLaPartie,
-  fenetre: { readonly innerWidth: number; readonly innerHeight: number },
+  fenetre: { readonly innerWidth: number; readonly innerHeight: number; readonly scrollY?: number },
   cle: string | null,
   avant: OuvertureDeLaBande | null,
 ): OuvertureDeLaBande | null {
@@ -172,5 +235,6 @@ export function poserLaBande(
   page.style.setProperty('--cab-pied', `${mesure.pied}px`)
   page.style.setProperty('--cab-question', `${mesure.question}px`)
   page.ownerDocument?.documentElement.style.setProperty('--cab-pied', `${mesure.pied}px`)
+  armerLArret(page, fenetre, mesure, zoom)
   return b.ouverture
 }

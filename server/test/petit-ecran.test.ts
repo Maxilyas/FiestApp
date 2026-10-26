@@ -522,8 +522,15 @@ test('le code de secours tient dans sa carte au texte agrandi, et porte son nom'
   // Le clamp d'avant reste, pour un navigateur sans unités de conteneur ; sous sa carte, la largeur de la carte décide.
   assert.match(regle('.code-secours'), /font-size:\s*clamp\(1\.05rem, 5\.2vw, 1\.35rem\)/)
   assert.match(regle('.code-secours-carte .code-secours'), /font-size:\s*min\(1\.35rem, 7\.5cqi\)/)
-  // Dix-neuf signes à espacement fixe (0,6 em chacun, plus l'espacement de 0,06 em) : à 7,5 % de la carte, ils en prennent 94 %.
-  assert.ok(19 * (0.6 + 0.06) * 0.075 <= 1, 'le code tient dans sa carte')
+  // Ses signes, à chasse fixe (0,6 em chacun), plus l'espacement que la feuille leur donne, à la taille qu'elle leur donne dans la
+  // carte : ils tiennent dans sa largeur — 94 % d'elle pour dix-neuf signes à 7,5 cqi. Lus de la feuille : écrits ici, un
+  // espacement ou une taille retouchés là-bas n'y changeaient rien.
+  const cqi = Number(/min\(1\.35rem, ([\d.]+)cqi\)/.exec(regle('.code-secours-carte .code-secours'))?.[1])
+  const espacement = Number(/letter-spacing:\s*([\d.]+)em/.exec(regle('.code-secours'))?.[1])
+  const signes = 'GGGR-YXF7-5J2X-S24D'.length
+  assert.ok(cqi > 0 && espacement >= 0, `la taille (${cqi} cqi) et l’espacement (${espacement} em) se lisent dans la feuille`)
+  const part = signes * (0.6 + espacement) * (cqi / 100)
+  assert.ok(part <= 1, `le code prend ${Math.round(part * 100)} % de sa carte`)
   // Son nom, juste au-dessus de lui : celui que le formulaire de secours demande.
   assert.match(html, /<p class="label">Ton code de secours<\/p><p class="code-secours">GGGR-YXF7-5J2X-S24D<\/p>/)
   assert.match(await rendu('components/Secours', 'FormulaireSecours', { onDone: () => {}, onCancel: () => {} }), /Ton code de secours/)

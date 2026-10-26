@@ -132,7 +132,7 @@ export interface VisiteVue {
   jour: string
   cases: CaseVue[]
   /**
-   * « Changer de jeu », une fois par jour, une case pas encore jouée : la seule
+   * « Changer pour … », une fois par jour, une case pas encore jouée : la seule
    * règle des refus le dit. Possible, le jeu que la case prendra
    * (`jeuDeLEchange`), quelle qu'elle soit : le bouton partait à l'aveugle, et
    * Ophélie, devant un Détail qu'elle ne savait pas jouer, n'a pas osé (la
@@ -146,7 +146,7 @@ export interface VisiteVue {
 /**
  * La visite attend-elle encore un geste ? Une case pas faite, d'un jeu livré —
  * ou d'un jeu « bientôt » que l'échange du jour peut encore changer : sa case
- * le propose (« Changer de jeu », `Visite.tsx`), et c'est ce qui la rend
+ * le propose (« Changer pour … », `Visite.tsx`), et c'est ce qui la rend
  * jouable. La seule règle de « À jouer », au musée (`Musee.tsx`) comme sur
  * l'accueil (`accueilDuCabinet`) : chacun avait la sienne, et le musée
  * promettait une case qui ne se jouait plus, l'accueil taisait celle qu'un
@@ -173,7 +173,7 @@ export interface PageDuCabinet {
   /** Ce qui reste aujourd'hui : « elles reviennent à minuit ». */
   chasses: { restent: number; parJour: number }
   libres: { paientEncore: number; parJour: number }
-  /** « 12 jours de visite d'affilée. Joue aujourd'hui pour garder ta série. » */
+  /** « 12 jours de visite d'affilée : réponds à une manche aujourd'hui pour garder ta série. » — un jour ne compte qu'à sa première manche répondue. */
   serie: { jours: number; aJouer: boolean; record: number }
   /** Le solde de poussière d'or. */
   poussiere: number
