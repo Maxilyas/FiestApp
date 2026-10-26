@@ -33,13 +33,30 @@
 // un plus fort ou plus faible est décalé d'un logit, comme dans
 // `calibrage-sentiers.ts` —, et pour le reste un modèle, faute de parties
 // jouées à mesurer : la tablée, puis les vraies parties de la préproduction,
-// le corrigeront. Le joueur au hasard répond au hasard partout où il faut
-// savoir (une réponse, une épingle, un ordre, un nom), et choisit ailleurs ce
-// qui l'approche le plus de son but — le filet à lancer, garder ou parier au
-// Pari, vers le seuil qu'il vise : c'est le plancher de chaque jeu. Un seul
-// tient au modèle plus qu'aux règles : le Mot mystère, où il ne tape jamais le
-// mot (une chance sur douze millions à cinq lettres) — que cinq essais faux ne
-// rapportent rien, c'est le pli qui le juge.
+// le corrigeront. Chaque part du modèle se décale de la force du joueur, le
+// rang où il reconnaît compris (`rangSelonLaForce`), et ce qu'il sait d'une
+// question de la base, de sa marche — au Filet aussi : jusqu'au 25 octobre
+// 2026, le complétionniste reconnaissait une personne des Indices au même
+// indice que l'occasionnel, et un Filet difficile se savait comme un facile.
+// Le joueur au hasard répond au hasard partout où il faut savoir (une
+// réponse, une épingle, un ordre, un nom), et choisit ailleurs ce qui
+// l'approche le plus de son but — le filet à lancer, garder ou parier au
+// Pari, vers le seuil qu'il vise ; la zone d'Éclairer, où il plante le mieux
+// sans rien savoir du lieu ; la manche misée, qu'il joue pour ses trois
+// étoiles : c'est le plancher de chaque jeu. Un seul tient au modèle plus
+// qu'aux règles : le Mot mystère, où il ne tape jamais le mot (une chance sur
+// douze millions à cinq lettres) — que cinq essais faux ne rapportent rien,
+// c'est le pli qui le juge.
+//
+// Les sections : chaque jeu sans carte-bonus, puis avec les quatre œuvres de
+// départ que tout profil emporte (le tableau des retouches du 25 octobre 2026
+// ne les comptait pas) ; chaque pouvoir à chaque force, jeu par jeu ; la zone
+// d'Éclairer à l'Épingle, la règle du code et ses pistes, pour qui ne sait
+// rien ; les confettis à la minute ; le musée, jour après jour. Sept joueurs :
+// l'occasionnel, le chasseur (le même, qui chasse dans la salle du prochain
+// gardien), le moyen, le bon, le complétionniste, le joueur au hasard, et le
+// joueur « tablée », aussi fort que les agents d'une tablée, pour que sa
+// synthèse compare chaque jeu à sa ligne.
 //
 // Un barème s'essaie sans toucher au fichier (`--essai NOM=…`) : la constante
 // de `shared/cabinet/bareme.ts` prend une autre valeur en mémoire, avant que
@@ -50,12 +67,15 @@
 // (`DERIVEES`).
 //
 //   npx tsx scripts/calibrage-cabinet.ts [--parcours 4] [--jours 365] [--parties 1000] [--mesures 100]
-//     [--joueurs moyen,bon] [--graine cabinet] [--sans-musee]
+//     [--joueurs moyen,bon] [--jeux pari,detail] [--graine cabinet] [--sans-musee]
+//     [--sections jeux,cartes,epingle,confettis,musee]
 //     [--essai ERREURS_DE_LA_FRISE=0/1/2] [--essai SEUILS_DES_RARETES=commun:6/rare:7]
 //     [--essai MARCHES_DU_PARI=pari:moyen+difficile]
 //
-// Une quarantaine de secondes d'office ; `--sans-musee` n'en garde que les
-// jeux un à un et les confettis à la minute, moins de vingt.
+// Un peu plus d'une minute d'office, une quarantaine de secondes `--sans-musee`
+// (tout sauf le musée) ; `--sections` ne joue que ce qu'elle nomme, `--jeux`
+// les jeux des sections qui les mesurent un à un — les confettis et le musée
+// choisissent toujours parmi les neuf.
 import type { Niveau } from '../../shared/campagne'
 import type { Lieu, Fiche, Replique, FriseATheme } from '../../shared/cabinet/contenu'
 import type { ContenuTire } from '../../shared/cabinet/jeux/index'
@@ -67,7 +87,7 @@ import type { MotMontre, MotTire } from '../../shared/cabinet/jeux/mot'
 import type { FiletMontre, FiletTire, TailleDuFilet } from '../../shared/cabinet/jeux/filet'
 import type { DetailMontre, DetailTire, TableauDuCabinet } from '../../shared/cabinet/jeux/detail'
 import type { FriseMontree, FriseTiree } from '../../shared/cabinet/jeux/frise'
-import type { EpingleMontree, EpingleTiree } from '../../shared/cabinet/jeux/epingle'
+import type { DecalageDeLaZone, EpingleMontree, EpingleTiree } from '../../shared/cabinet/jeux/epingle'
 import type { IndicesMontres, IndicesTires } from '../../shared/cabinet/jeux/indices'
 import type { RepliqueMontreeAQui, RepliqueMontreeAuMot, RepliqueTiree } from '../../shared/cabinet/jeux/replique'
 import type { Point } from '../../shared/cabinet/france'
@@ -109,7 +129,17 @@ const PARTIES = entier('parties', 1000)
 /** Les parties qui mesurent une carte-bonus à un jeu, quand un joueur se demande laquelle emporter. */
 const MESURES = entier('mesures', 100)
 const GRAINE = valeursDe('graine').at(-1) ?? 'cabinet'
+/**
+ * Les sections à jouer : chaque jeu un à un (sans carte-bonus, puis avec les
+ * œuvres de départ), chaque carte-bonus, la zone d'Éclairer à l'Épingle, les
+ * confettis à la minute, le musée. Toutes d'office ; `--sans-musee`, toutes
+ * sauf la dernière, la plus longue.
+ */
+const SECTIONS = ['jeux', 'cartes', 'epingle', 'confettis', 'musee'] as const
+const sectionsDemandees = liste('sections')
+for (const s of sectionsDemandees ?? []) if (!(SECTIONS as readonly string[]).includes(s)) arreter(`--sections : « ${s} » n'en est pas une (${SECTIONS.join(', ')})`)
 const SANS_MUSEE = ARGS.includes('--sans-musee')
+const enSection = (s: (typeof SECTIONS)[number]) => (sectionsDemandees ? sectionsDemandees.includes(s) : !(SANS_MUSEE && s === 'musee'))
 
 // ── Un barème à l'essai, avant que les règles ne se chargent ──────────────
 
@@ -190,7 +220,9 @@ const { affirmationDe } = await import('../../shared/cabinet/jeux/eclair')
 const { pisteDuFilet } = await import('../../shared/cabinet/jeux/filet')
 const { detailTire } = await import('../../shared/cabinet/jeux/detail')
 const { friseEnVagues } = await import('../../shared/cabinet/jeux/frise')
-const { epingleTiree, pointADistance } = await import('../../shared/cabinet/jeux/epingle')
+const { REGLE_DE_L_EPINGLE, epingleTiree, etoilesDeLaDistance, pointADistance, zoneDEclairer } = await import('../../shared/cabinet/jeux/epingle')
+// La carte que voit le joueur : où il peut planter, et la terre où le lieu peut être (des données, sans React).
+const { CONTOUR_DE_LA_FRANCE, CONTOUR_DE_LA_CORSE } = await import('../../client/src/views/cabinet/contourDeLaFrance')
 const { repliqueTiree } = await import('../../shared/cabinet/jeux/replique')
 const { battre, auHasard } = await import('../../shared/cabinet/jeux/outils')
 const { decimales } = await import('../../shared/classement')
@@ -208,7 +240,9 @@ const {
   CASES_DE_LA_VISITE,
   CHANGEMENTS_PAR_PARTIE,
   CHASSES_PAR_JOUR,
+  DECALAGE_DE_LA_ZONE_KM,
   DEPARTS_PAR_HEURE,
+  ECLAIRAGES_PAR_PARTIE,
   ESSAIS_DU_MOT,
   ETOILES_AU_CADRAGE,
   ETOILES_DU_FILET,
@@ -226,9 +260,18 @@ const {
   MARCHES_DU_PARI,
   PRIX_D_UNE_DORURE,
   PRIX_D_UNE_OEUVRE,
+  RAYON_D_ECLAIRER_KM,
   SEUILS_DES_RARETES,
   ZONE_DU_FILET,
 } = BAREME
+
+/** Les jeux des sections qui les mesurent un à un ; les confettis et le musée choisissent toujours parmi les neuf. */
+const jeuxDemandes = liste('jeux')
+for (const jeu of jeuxDemandes ?? []) if (!(CLES_DES_JEUX as readonly string[]).includes(jeu)) arreter(`--jeux : « ${jeu} » n'en est pas un (${CLES_DES_JEUX.join(', ')})`)
+const JEUX_MESURES = jeuxDemandes ? CLES_DES_JEUX.filter(jeu => jeuxDemandes.includes(jeu)) : CLES_DES_JEUX
+
+/** Les quatre œuvres de départ, chacune sa carte-bonus : tout profil les emporte dès sa première partie. */
+const OFFERTES = OEUVRES_DE_DEPART.map(cle => ({ nom: oeuvre(cle)!.nom, carte: { pouvoir: pouvoirDe(cle)!, force: forceDe(cle)! } }))
 
 // ── Les joueurs ───────────────────────────────────────────────────────────
 
@@ -244,6 +287,14 @@ interface Joueur {
   libres: number
   /** Il change le jeu d'une case de la visite qui lui va mal. */
   echange: boolean
+  /** Ses chasses vont d'abord à la salle du prochain gardien, que la page lui dit (« encore 2 œuvres dans la salle… »). */
+  versLeGardien?: true
+  /**
+   * Le joueur dont il est la variante : mêmes jours, même visite, même hasard
+   * jusqu'à ce qu'il joue autrement — ses jeux sont ceux de ce joueur, et ne se
+   * mesurent pas deux fois.
+   */
+  comme?: string
 }
 
 /**
@@ -251,16 +302,27 @@ interface Joueur {
  * maquette — une visite, deux chasses, cinq parties libres —, l'un au savoir
  * du calibrage, l'autre une marche plus haut ; le bon sait autant que le
  * complétionniste, mais ne joue pas de partie libre ; l'occasionnel vient un
- * jour sur deux à peu près, pour sa visite et une chasse.
+ * jour sur deux à peu près, pour sa visite et une chasse. Le chasseur est cet
+ * occasionnel, qui chasse vers le prochain gardien : l'occasionnel attendait
+ * le premier au 36ᵉ jour au calibrage du 25 octobre 2026, la visite
+ * remplissant les neuf salles à la fois.
+ * Le joueur « tablée » sait ce que savent les agents d'une tablée — deux
+ * marches et demie au-dessus du moyen, le diapason de John Shore à l'année —,
+ * sans aller plus vite que lui : un agent répond en quelques secondes ; la
+ * synthèse d'une tablée compare chaque jeu à sa ligne.
  */
+const OCCASIONNEL: Joueur = { nom: 'occasionnel', theta: -0.5, vitesse: 1.3, assiduite: 4 / 7, chasses: 1, libres: 0, echange: false }
 const TOUS_LES_JOUEURS: readonly Joueur[] = [
-  { nom: 'occasionnel', theta: -0.5, vitesse: 1.3, assiduite: 4 / 7, chasses: 1, libres: 0, echange: false },
+  OCCASIONNEL,
+  { ...OCCASIONNEL, nom: 'chasseur', versLeGardien: true, comme: OCCASIONNEL.nom },
   { nom: 'moyen', theta: 0, vitesse: 1, assiduite: 1, chasses: 2, libres: 5, echange: true },
   { nom: 'bon', theta: 1, vitesse: 0.9, assiduite: 1, chasses: 2, libres: 0, echange: true },
   { nom: 'complétionniste', theta: 1, vitesse: 0.9, assiduite: 1, chasses: 2, libres: 5, echange: true },
   { nom: 'hasard', theta: null, vitesse: 0.6, assiduite: 1, chasses: 2, libres: 5, echange: false },
+  { nom: 'tablée', theta: 2.5, vitesse: 1, assiduite: 1, chasses: 2, libres: 5, echange: true },
 ]
 const filtre = liste('joueurs')
+for (const nom of filtre ?? []) if (!TOUS_LES_JOUEURS.some(j => j.nom === nom)) arreter(`--joueurs : « ${nom} » n'en est pas un (${TOUS_LES_JOUEURS.map(j => j.nom).join(', ')})`)
 const JOUEURS = filtre ? TOUS_LES_JOUEURS.filter(j => filtre.includes(j.nom)) : TOUS_LES_JOUEURS
 if (JOUEURS.length === 0) arreter(`--joueurs : aucun de ${TOUS_LES_JOUEURS.map(j => j.nom).join(', ')}`)
 /** Deux joueurs qui savent autant et vont aussi vite jouent chaque partie pareil : leurs mesures se partagent. */
@@ -268,8 +330,9 @@ const cleDuSavoir = (j: Joueur) => `${j.theta}:${j.vitesse}`
 
 /**
  * Ce que chaque joueur sait, hors des questions de la base : un modèle — la
- * part d'un joueur moyen, décalée de son logit. Chaque part dit ce qu'elle
- * suppose ; la tablée et les vraies parties la remplaceront.
+ * part d'un joueur moyen, décalée de son logit, le rang où il reconnaît
+ * compris (`rangSelonLaForce`). Chaque part dit ce qu'elle suppose ; la
+ * tablée et les vraies parties la remplaceront.
  */
 const MODELE = {
   /** Le Mot mystère : sans savoir le mot, il le déduit de ses couleurs, une fois sur trois — mieux à chaque lettre soufflée (en logit). */
@@ -277,23 +340,36 @@ const MODELE = {
   motParLettre: 0.8,
   /** … et le trouve alors à l'un des trois derniers essais (`ESSAIS_DU_MOT`). */
   motAuxEssais: [0.4, 0.35, 0.25],
-  /** Le Filet : il sait la valeur, à un centième et demi de piste près… */
-  filetSait: 0.3,
+  /**
+   * Le Filet : il sait la valeur, à un centième et demi de piste près, d'une
+   * question moyenne ; d'une autre marche, décalée du logit que la campagne lui
+   * trouve (`filetSait`) — 45 % d'une facile, 6 % d'une difficile : 30 % en
+   * moyenne aux deux marches que le Filet tire au barème du 25 octobre 2026,
+   * la part que le modèle d'avant donnait à toutes, et qu'un essai des marches
+   * ne faisait pas bouger d'un chiffre.
+   */
+  filetSait: 0.15,
   filetPrecis: 0.015,
   /** … sinon il l'estime, à tant de piste près (un écart type). */
   filetFlou: 0.12,
-  /** Le Détail : il reconnaît le tableau, au premier, deuxième ou troisième cadrage. */
+  /** Le Détail : il reconnaît le tableau, au premier, deuxième ou troisième cadrage — le moyen ; un plus fort, plus tôt. */
   detailReconnu: 0.45,
   detailAuCadrage: [0.45, 0.35, 0.2],
   /** La Frise : il sait l'année d'un événement ; sinon il l'estime, à tant de l'étendue de la frise près. */
   friseSait: 0.45,
   friseFlou: 0.25,
-  /** L'Épingle : il sait le lieu (à une quinzaine de kilomètres) ; sinon sa région (de 40 à 220 km) ; sinon rien. */
+  /**
+   * L'Épingle : il sait le lieu (à une quinzaine de kilomètres) ; sinon sa
+   * région (de 40 à 220 km) ; sinon rien. La zone d'Éclairer, il la lit — où
+   * le lieu peut être, sur la terre que la carte dessine (`ouPeutEtreLeLieu`) :
+   * qui ne sait rien plante au point qui lui rapporte le plus, qui sait la
+   * région, au plus près de ce qu'il en croit.
+   */
   epingleSait: 0.3,
   epinglePresKm: 15,
   epingleRegion: 0.55,
   epingleRegionKm: [40, 220],
-  /** Les Indices : il reconnaît la personne, au premier, au deuxième… au cinquième indice. */
+  /** Les Indices : il reconnaît la personne, au premier, au deuxième… au cinquième indice — le moyen ; un plus fort, plus tôt. */
   indicesReconnu: 0.7,
   indicesAuRang: [0.1, 0.15, 0.2, 0.25, 0.3],
   /** La Réplique : il sait le mot ; qui l'a dite, s'il savait le mot, ou sinon. */
@@ -302,13 +378,21 @@ const MODELE = {
   repliqueQui: 0.33,
 }
 
+/** Une question de série au joueur moyen, lecture de l'anecdote comprise — le chiffre de `calibrage-sentiers.ts`… */
+const SECONDES_PAR_QUESTION_DE_SERIE = 20
+/** … dont l'anecdote, que le Cabinet lit à la révélation : le même temps. */
+const SECONDES_D_UNE_REVELATION = 6
 /**
  * Le temps de chaque geste, en secondes, pour un joueur moyen — lire, chercher,
  * toucher ; un tirage de plus ou moins un tiers s'y ajoute. Hors des manches,
  * l'annonce (la carte-bonus, « Commencer »), chaque révélation et le bilan.
+ * Une question du Pari se lit et se répond comme une question de série,
+ * l'anecdote à part : à 9 s contre 14, le Pari payait ses confettis plus vite
+ * que la série au seul temps posé, et c'est sur lui que se jugeait le
+ * troisième choix délégué (les parties libres paient-elles plus ?).
  */
 const SECONDES = {
-  pariQuestion: 9,
+  pariQuestion: SECONDES_PAR_QUESTION_DE_SERIE - SECONDES_D_UNE_REVELATION,
   pariChoix: 2,
   eclairAffirmation: 5,
   motEssai: 12,
@@ -322,11 +406,9 @@ const SECONDES = {
   repliqueEtape: 8,
   pouvoir: 2,
   annonce: 10,
-  revelation: 6,
+  revelation: SECONDES_D_UNE_REVELATION,
   bilan: 8,
 }
-/** Une question de série au joueur moyen, lecture de l'anecdote comprise — le chiffre de `calibrage-sentiers.ts`. */
-const SECONDES_PAR_QUESTION_DE_SERIE = 20
 /**
  * … et à chacun la sienne : la réponse à son allure, comme ses gestes au
  * Cabinet, l'anecdote au temps d'une révélation, comme au Cabinet. Vingt
@@ -372,6 +454,33 @@ const devineJuste = (j: Joueur, n: Niveau, propositions = 4) => {
   return Math.min(1 / propositions, (trouve(j, n, propositions) - k) / Math.max(1e-9, 1 - k))
 }
 const part = (j: Joueur, base: number) => (j.theta === null ? 0 : chance(base, j.theta))
+
+/**
+ * Le rang où il reconnaît — l'indice, le cadrage —, selon sa force : un logit
+ * ordinal sur les parts cumulées du modèle, P(rang ≤ k) = sigmoïde(logit(F_k)
+ * + θ). Le joueur moyen (θ = 0) garde les parts du modèle, au même tirage ; un
+ * plus fort reconnaît plus tôt. Tiré sans la force, le rang plafonnait tout
+ * joueur des Indices à 6,45 étoiles sur neuf, même à reconnaître toujours,
+ * quand la tablée du 25 octobre 2026 en faisait 8,75 — et ce modèle avait
+ * servi à élargir leur barème.
+ */
+function partsSelonLaForce(parts: readonly number[], j: Joueur): number[] {
+  const theta = j.theta ?? 0
+  let cumul = 0
+  let avant = 0
+  return parts.map((p, k) => {
+    cumul += p
+    const jusquIci = k === parts.length - 1 ? 1 : sigmoide(logit(Math.min(1 - 1e-12, cumul)) + theta)
+    const x = jusquIci - avant
+    avant = jusquIci
+    return x
+  })
+}
+/** Le rang tiré, de 1 au dernier. */
+const rangSelonLaForce = (parts: readonly number[], j: Joueur, r: Hasard) => 1 + selon(partsSelonLaForce(parts, j), r)
+
+/** Le Filet : la part des valeurs qu'il sait d'une question de cette marche, décalée comme la campagne la décale d'une question moyenne. */
+const filetSait = (j: Joueur, n: Niveau) => (j.theta === null ? 0 : chance(MODELE.filetSait, j.theta + logit(TAUX_DU_CALIBRAGE[n]) - logit(TAUX_DU_CALIBRAGE.moyen)))
 
 // ── Le contenu ────────────────────────────────────────────────────────────
 
@@ -495,6 +604,129 @@ function dansLeCadre(p: Point): Point {
   return { lat: borne(p.lat, latMin, latMax), lon: borne(p.lon, lonMin, lonMax) }
 }
 
+// ── L'Épingle éclairée, pour qui ne sait pas le lieu ──────────────────────
+
+/** La terre que la carte de France dessine, la métropole ou la Corse — `CONTOUR_DE_LA_FRANCE` écrit la longitude, puis la latitude. */
+function dansLeContour(p: Point, contour: readonly (readonly [number, number])[]): boolean {
+  let dedans = false
+  for (let i = 0, k = contour.length - 1; i < contour.length; k = i++) {
+    const [loni, lati] = contour[i]
+    const [lonk, latk] = contour[k]
+    if (lati > p.lat !== latk > p.lat && p.lon < ((lonk - loni) * (p.lat - lati)) / (latk - lati) + loni) dedans = !dedans
+  }
+  return dedans
+}
+const surLaTerre = (p: Point) => dansLeContour(p, CONTOUR_DE_LA_FRANCE) || dansLeContour(p, CONTOUR_DE_LA_CORSE)
+
+/**
+ * Comment le centre d'une zone se décale du lieu, dans une direction tirée :
+ * d'une distance tirée entre deux bornes (`partout` faux : la règle du code),
+ * ou de sorte que le lieu soit partout aussi probable entre ces deux
+ * distances du centre (`partout` vrai : un disque, ou une couronne) ; et le
+ * rayon que la zone dessine. Celle du code se lit au barème, essai compris ;
+ * un joueur qui a vu quelques zones la sait, sans qu'on la lui dise.
+ */
+interface LoiDeLaZone {
+  de: number
+  a: number
+  partout: boolean
+  rayonKm: number
+}
+const LOI_DU_CODE = (): LoiDeLaZone => ({ de: DECALAGE_DE_LA_ZONE_KM[0], a: DECALAGE_DE_LA_ZONE_KM[1], partout: false, rayonKm: RAYON_D_ECLAIRER_KM })
+/** Le lieu partout dans le disque : jusqu'à tant du rayon, qu'il ne passe jamais — le lieu reste dans la zone. */
+const DANS_LE_DISQUE = 0.98
+const leDisque = (rayonKm: number, de = 0): LoiDeLaZone => ({ de, a: Math.round(rayonKm * DANS_LE_DISQUE), partout: true, rayonKm })
+/** La distance au quantile `q` de la loi : partout aussi probable, un tirage dans le carré de la distance. */
+const decalageDansLaLoi = (loi: LoiDeLaZone, q: number) => (loi.partout ? Math.sqrt(loi.de ** 2 + q * (loi.a ** 2 - loi.de ** 2)) : loi.de + q * (loi.a - loi.de))
+/** Un décalage tiré à cette loi, comme le tireur du serveur tire le sien : la direction, puis la distance. */
+const decalageTire = (loi: LoiDeLaZone, r: Hasard): DecalageDeLaZone => {
+  const cap = r() * 360
+  return { cap, km: decalageDansLaLoi(loi, r()) }
+}
+/**
+ * Les pistes que la section de l'Épingle mesure à côté de la règle du code —
+ * des propositions, pas des règles : celle du 25 octobre 2026 ; la piste de
+ * l'expert de l'équilibre, une couronne de 120 à 165 km — le centre n'y vaut
+ * plus que ★, mais la couronne se lit ; le lieu partout dans un disque, de
+ * plus en plus grand — plus de couronne à lire ; et les deux qui tiennent la
+ * règle posée au nom du propriétaire après la tablée du 25 octobre 2026 :
+ * trois zones ne font pas gagner une commune plus d'une fois sur trois à qui
+ * ne sait rien, et chacune lui rapporte encore une étoile de plus qu'une
+ * épingle plantée n'importe où — un disque de 310 km, ou, sans changer la
+ * façon de tirer, un décalage de 120 à 294 km dans une zone de 300.
+ */
+const PISTES_DE_LA_ZONE: readonly LoiDeLaZone[] = [
+  { de: 40, a: 140, partout: false, rayonKm: 170 },
+  { de: 120, a: 165, partout: false, rayonKm: 170 },
+  ...[170, 240, 300, 310].map(rayonKm => leDisque(rayonKm)),
+  { de: 120, a: 294, partout: false, rayonKm: 300 },
+]
+/** La force qui donne une zone à chaque manche : celle que le joueur sans savoir emporte, à la section de l'Épingle. */
+const FORCE_DES_TROIS_ZONES = ([1, 2, 3] as const).find(f => ECLAIRAGES_PAR_PARTIE[f] >= MANCHES_PAR_PARTIE) ?? 3
+
+/**
+ * Où le lieu peut être, la zone vue : des points d'égale chance à la loi du
+ * décalage — six distances à ses quantiles, dix-huit directions —, sur la
+ * terre seule, que le joueur voit. Une grille plutôt qu'un tirage : où il
+ * plante ne tient qu'à la zone, et la mesure ne dépend pas d'un hasard de plus.
+ */
+function ouPeutEtreLeLieu(centre: Point, loi: LoiDeLaZone): Point[] {
+  const DISTANCES = 6
+  const DIRECTIONS = 18
+  const points: Point[] = []
+  for (let i = 0; i < DISTANCES; i++) {
+    const km = decalageDansLaLoi(loi, (i + 0.5) / DISTANCES)
+    for (let k = 0; k < DIRECTIONS; k++) {
+      const x = pointADistance(centre, km, ((k + (i % 2) / 2) * 360) / DIRECTIONS)
+      if (surLaTerre(x)) points.push(x)
+    }
+  }
+  return points
+}
+
+const KM_PAR_DEGRE = distanceKm({ lat: 0, lon: 0 }, { lat: 1, lon: 0 })
+/**
+ * Des points à plat autour d'un centre, en kilomètres — à quelques pour cent
+ * près au bord d'une zone de 300 km : de quoi choisir où planter sans une
+ * trigonométrie par paire ; le vrai jugement mesure ensuite à vol d'oiseau.
+ */
+const aPlat = (centre: Point) => {
+  const cosinus = Math.cos((centre.lat * Math.PI) / 180)
+  return (p: Point) => ({ x: (p.lon - centre.lon) * cosinus * KM_PAR_DEGRE, y: (p.lat - centre.lat) * KM_PAR_DEGRE })
+}
+const auMilieu = (points: readonly Point[]): Point => ({ lat: points.reduce((n, p) => n + p.lat, 0) / points.length, lon: points.reduce((n, p) => n + p.lon, 0) / points.length })
+
+/**
+ * Le point qui rapporte le plus d'étoiles, en moyenne, là où le lieu peut
+ * être — un possible sur deux, le centre ou leur milieu : deux possibles
+ * voisins ne valent pas une étoile d'écart, et chaque candidat se pèse contre
+ * tous les possibles.
+ */
+function auMeilleurPoint(possibles: readonly Point[], centre: Point): Point {
+  const plat = aPlat(centre)
+  const xy = possibles.map(plat)
+  const candidats = [...possibles.filter((_, k) => k % 2 === 0), centre, auMilieu(possibles)]
+  const vaut = (c: Point) => {
+    const a = plat(c)
+    return xy.reduce((n, b) => n + etoilesDeLaDistance(Math.hypot(a.x - b.x, a.y - b.y)), 0)
+  }
+  return meilleurDes(candidats, vaut)
+}
+
+/**
+ * Où planter, la zone vue, sans savoir le lieu : au plus près de la région
+ * qu'il croit — là même, si le lieu peut y être —, ou, sans rien savoir, au
+ * point qui lui rapporte le plus. Ramené dans le cadre de la carte : la page ne
+ * plante pas hors d'elle.
+ */
+function ouPlanter(zone: Point, loi: LoiDeLaZone, region: Point | null, possibles = ouPeutEtreLeLieu(zone, loi)): Point {
+  if (possibles.length === 0) return dansLeCadre(zone)
+  if (!region) return dansLeCadre(auMeilleurPoint(possibles, zone))
+  const km = distanceKm(zone, region)
+  if (surLaTerre(region) && km >= loi.de && km <= loi.a) return region
+  return dansLeCadre(meilleurDes(possibles, x => -distanceKm(x, region)))
+}
+
 // ── Une partie, geste à geste ─────────────────────────────────────────────
 
 /**
@@ -512,8 +744,10 @@ interface Objectif {
 
 /** Ce qu'une mesure dit d'un jeu, pour un joueur, sans carte : ce que miser y vaudrait. */
 interface Allure {
-  parfaites: number
-  moyenne: number
+  /** La part des manches parfaites, jouées pour trois étoiles. */
+  pourTrois: number
+  /** La loi des étoiles naturelles d'une manche jouée d'ordinaire : de zéro à trois. */
+  ordinaire: readonly number[]
 }
 
 /** Une partie qu'un joueur mène, à l'heure du serveur : chaque geste arrive après le temps qu'il met, et le vrai pli le juge. */
@@ -609,10 +843,24 @@ class Partie {
   eclairer(m: Manche, affirmation?: number) {
     this.geste({ quoi: 'eclairer', manche: m, ...(affirmation !== undefined && { affirmation }) }, SECONDES.pouvoir)
   }
-  /** Changer, s'il sait qu'il ne sait pas : vrai si la manche a changé de contenu. */
-  changer(m: Manche, neSaitPas: boolean): boolean {
+  /**
+   * Changer, s'il voit qu'il ne sait pas : vrai si la manche a changé de
+   * contenu. Ce qu'il a dû lire pour le voir — le premier indice d'une fiche —
+   * se paie avec le geste, le chrono qui court.
+   */
+  changer(m: Manche, neSaitPas: boolean, lecture = 0): boolean {
     if (!neSaitPas || !this.peut('changer')) return false
-    return this.geste({ quoi: 'changer', manche: m }, SECONDES.pouvoir)
+    return this.geste({ quoi: 'changer', manche: m }, SECONDES.pouvoir + lecture)
+  }
+  /**
+   * Ce que vaut dans cette manche une réponse de tant d'étoiles naturelles :
+   * autant, sauf misée — parfaite, trois et le bonus, sinon rien, par la règle
+   * de Miser (`etoilesApresLesPouvoirs`). Le Pari, le Filet et le Détail se
+   * jouent alors pour la manche parfaite : garder, le grand filet ou reculer
+   * y valaient leurs étoiles d'ordinaire, et la mise se perdait.
+   */
+  vautDans(m: Manche, naturel: number): number {
+    return this.e.misee === m ? etoilesApresLesPouvoirs([naturel], this.d.carte, 0)[0]! : naturel
   }
   /** Une proposition parmi celles qui ne sont pas effacées. */
   parmi(n: number, effacees: readonly number[]): number {
@@ -666,14 +914,16 @@ function mancheDuPari(p: Partie, m: Manche): void {
  * rapporte plus que les étoiles gardées ; vers un
  * seuil, le choix qui lui donne le plus de chances de l'atteindre, les
  * manches qui restent comprises — garder trois fois ne fait que trois étoiles.
+ * La manche misée vaut ce que la mise en fait (`vautDans`) : gardée, rien.
  */
 function parier(p: Partie, m: Manche): boolean {
   if (p.objectif.dorer || p.objectif.confettis) return true
   const p1 = surLesMarches(p.j, MARCHES_DU_PARI.question)
   const p2 = surLesMarches(p.j, MARCHES_DU_PARI.pari)
   const { garder, parier: pari } = ETOILES_DU_PARI
+  const [garderIci, parierIci] = [p.vautDans(m, garder), p.vautDans(m, pari)]
   const seuil = p.seuil
-  if (seuil === null) return p2 * pari > garder
+  if (seuil === null) return p2 * parierIci > garderIci
   const memo = new Map<string, number>()
   const V = (reste: number, s: number): number => {
     if (reste === 0) return s >= seuil ? 1 : 0
@@ -683,7 +933,7 @@ function parier(p: Partie, m: Manche): boolean {
   }
   const reste = MANCHES_PAR_PARTIE - 1 - m
   const s = p.etoilesAvant(m)
-  return p2 * V(reste, s + pari) + (1 - p2) * V(reste, s) > V(reste, s + garder)
+  return p2 * V(reste, s + parierIci) + (1 - p2) * V(reste, s) > V(reste, s + garderIci)
 }
 
 /** L'Éclair : cinq affirmations ; il dit ce qu'il sait, devine le reste, et souffle d'abord ce qu'il ignore. */
@@ -752,15 +1002,17 @@ const flouDuFilet = (j: Joueur) => (j.theta === null ? Infinity : MODELE.filetFl
  * libre, le plus d'étoiles en moyenne, qui départage aussi le reste — le
  * seuil déjà tenu, ou hors d'atteinte. Viser la moyenne seule, c'était lancer
  * le grand filet sans savoir : une étoile par manche, jamais une commune,
- * jamais une pièce juste — la stratégie, pas la règle.
+ * jamais une pièce juste — la stratégie, pas la règle. La manche misée vaut ce
+ * que la mise en fait (`vautDans`) : le petit filet seul y rapporte.
  */
 function filetLance(p: Partie, m: Manche, ecart: number): TailleDuFilet {
-  const moyenne = (t: TailleDuFilet) => ETOILES_DU_FILET[t] * prise(t, ecart)
+  const ici = (t: TailleDuFilet) => p.vautDans(m, ETOILES_DU_FILET[t])
+  const moyenne = (t: TailleDuFilet) => ici(t) * prise(t, ecart)
   if (p.objectif.confettis) return meilleurDes(TAILLES, t => (ETOILES_DU_FILET[t] >= ETOILES_D_UNE_JUSTE ? prise(t, ecart) : 0), moyenne)
   const vise = p.objectif.dorer ? ETOILES_D_UNE_PARTIE : p.seuil
   if (vise === null) return meilleurDes(TAILLES, moyenne)
-  // Les manches à venir : il saura la valeur, ou l'estimera — et lancera alors le filet qui lui va.
-  const sait = part(p.j, MODELE.filetSait)
+  // Les manches à venir : il saura la valeur, ou l'estimera — et lancera alors le filet qui lui va. Leur marche, il ne la sait pas encore.
+  const sait = MARCHES_DU_FILET.reduce((n, k) => n + filetSait(p.j, k), 0) / MARCHES_DU_FILET.length
   const avenir = [
     { part: sait, ecart: MODELE.filetPrecis },
     { part: 1 - sait, ecart: flouDuFilet(p.j) },
@@ -779,13 +1031,13 @@ function filetLance(p: Partie, m: Manche, ecart: number): TailleDuFilet {
   }
   const reste = MANCHES_PAR_PARTIE - 1 - m
   const s = p.etoilesAvant(m)
-  return meilleurDes(TAILLES, t => prise(t, ecart) * V(reste, s + ETOILES_DU_FILET[t]) + (1 - prise(t, ecart)) * V(reste, s), moyenne)
+  return meilleurDes(TAILLES, t => prise(t, ecart) * V(reste, s + ici(t)) + (1 - prise(t, ecart)) * V(reste, s), moyenne)
 }
 
 /** Le Filet : son estimation, puis le filet qui l'approche le plus de son but (`filetLance`). */
 function mancheDuFilet(p: Partie, m: Manche): void {
   const t = p.tiree<FiletTire>()
-  const s = p.savoir(p.manche.tirage, () => p.oui(part(p.j, MODELE.filetSait)))
+  const s = p.savoir(p.manche.tirage, () => p.oui(filetSait(p.j, t.question.niveau)))
   if (p.changer(m, !s)) return mancheDuFilet(p, m)
   if (!s && p.peut('eclairer')) p.eclairer(m)
   const { piste, zone } = p.vue<FiletMontre>()
@@ -800,10 +1052,14 @@ function mancheDuFilet(p: Partie, m: Manche): void {
   p.repondre(m, { filet: { x: lance, taille: filetLance(p, m, ecart) } }, SECONDES.filet, true)
 }
 
-/** Le Détail : il répond au cadrage où il reconnaît ; sinon il recule tant que reculer vaut mieux que deviner. */
+/**
+ * Le Détail : il répond au cadrage où il reconnaît ; sinon il recule tant que
+ * reculer vaut mieux que deviner. Misée, la manche ne vaut qu'au premier
+ * cadrage : il y devine plutôt que de reculer vers rien.
+ */
 function mancheDuDetail(p: Partie, m: Manche): void {
   const t = p.tiree<DetailTire>()
-  const s = p.savoir(p.manche.tirage, () => ({ reconnu: p.oui(part(p.j, MODELE.detailReconnu)), au: 1 + selon(MODELE.detailAuCadrage, p.r) }))
+  const s = p.savoir(p.manche.tirage, () => ({ reconnu: p.oui(part(p.j, MODELE.detailReconnu)), au: rangSelonLaForce(MODELE.detailAuCadrage, p.j, p.r) }))
   if (p.changer(m, !(s.reconnu && s.au === 1))) return mancheDuDetail(p, m)
   let eclaire = false
   while (!p.tranchee()) {
@@ -818,12 +1074,13 @@ function mancheDuDetail(p: Partie, m: Manche): void {
       continue
     }
     const restants = v.titres.filter(x => !x.efface).length
-    // Ce qu'il sait de lui : reconnaître au cadrage suivant, sachant qu'il n'a pas reconnu jusqu'ici.
+    // Ce qu'il sait de lui : reconnaître au cadrage suivant, sachant qu'il n'a pas reconnu jusqu'ici — à sa force.
     const R = part(p.j, MODELE.detailReconnu)
-    const deja = MODELE.detailAuCadrage.slice(0, v.cadrage).reduce((a, b) => a + b, 0)
-    const ensuite = (R * (MODELE.detailAuCadrage[v.cadrage] ?? 0)) / Math.max(1e-9, 1 - R * deja)
-    const plusTard = ETOILES_AU_CADRAGE[v.cadrage] ?? 0
-    const reculer = v.peutReculer && !p.objectif.dorer && ensuite * plusTard + (1 - ensuite) * (plusTard / restants) > v.vaut / restants
+    const auCadrage = partsSelonLaForce(MODELE.detailAuCadrage, p.j)
+    const deja = auCadrage.slice(0, v.cadrage).reduce((a, b) => a + b, 0)
+    const ensuite = (R * (auCadrage[v.cadrage] ?? 0)) / Math.max(1e-9, 1 - R * deja)
+    const plusTard = p.vautDans(m, ETOILES_AU_CADRAGE[v.cadrage] ?? 0)
+    const reculer = v.peutReculer && !p.objectif.dorer && ensuite * plusTard + (1 - ensuite) * (plusTard / restants) > p.vautDans(m, v.vaut) / restants
     if (!reculer) {
       p.repondre(m, { detail: { titre: p.parmi(v.titres.length, v.titres.flatMap((x, k) => (x.efface ? [k] : []))) } }, SECONDES.detailRegard)
       return
@@ -856,7 +1113,13 @@ function mancheDeLaFrise(p: Partie, m: Manche): void {
   p.repondre(m, { frise: { ordre } }, SECONDES.friseBase + SECONDES.friseParVenu * v.nouveaux.length, true)
 }
 
-/** L'Épingle : le lieu s'il le sait, sa région sinon, ou n'importe où — et au centre de la zone éclairée. */
+/**
+ * L'Épingle : le lieu s'il le sait ; sinon, la zone éclairée lue (`ouPlanter`)
+ * — au plus près de sa région s'il la sait, au point qui lui rapporte le plus
+ * s'il ne sait rien ; sans zone, sa région, ou n'importe où. Planter au seul
+ * centre de la zone, c'était ignorer la carte qu'il voit : la terre, et où
+ * le lieu peut être autour du centre.
+ */
 function mancheDeLEpingle(p: Partie, m: Manche): void {
   const t = p.tiree<EpingleTiree>()
   const s = p.savoir(p.manche.tirage, () => ({ lieu: p.oui(part(p.j, MODELE.epingleSait)), region: p.oui(part(p.j, MODELE.epingleRegion)) }))
@@ -871,24 +1134,25 @@ function mancheDeLEpingle(p: Partie, m: Manche): void {
     return pointDeFrance(p.r)
   }
   const [pres, loin] = MODELE.epingleRegionKm
-  const epingle =
-    p.j.theta === null
-      ? pointDeFrance(p.r)
-      : s.lieu
-        ? autour(() => -MODELE.epinglePresKm * Math.log(1 - p.r()))
-        : zone
-          ? dansLeCadre({ lat: zone.lat, lon: zone.lon })
-          : s.region
-            ? autour(() => pres + p.r() * (loin - pres))
-            : pointDeFrance(p.r)
+  const sansLeLieu = (): Point => {
+    const region = p.j.theta !== null && s.region ? autour(() => pres + p.r() * (loin - pres)) : null
+    return zone ? ouPlanter(zone, LOI_DU_CODE(), region) : (region ?? pointDeFrance(p.r))
+  }
+  const epingle = p.j.theta !== null && s.lieu ? autour(() => -MODELE.epinglePresKm * Math.log(1 - p.r())) : sansLeLieu()
   p.repondre(m, { epingle }, SECONDES.epingle, true)
 }
 
-/** Les Indices : un indice de plus jusqu'à reconnaître la personne ; au hasard, des noms d'autres fiches. */
+/**
+ * Les Indices : un indice de plus jusqu'à reconnaître la personne ; au hasard,
+ * des noms d'autres fiches. Changer se décide au premier indice, le plus
+ * obscur, sur ce qu'il en lit : décidé sur ce qu'il ne saurait qu'au cinquième
+ * — reconnaîtra-t-il la personne ? —, Changer 3 menait le moyen à une commune
+ * 87 fois sur 100, contre 53 sans carte.
+ */
 function mancheDesIndices(p: Partie, m: Manche): void {
   const t = p.tiree<IndicesTires>()
-  const s = p.savoir(p.manche.tirage, () => ({ reconnu: p.oui(part(p.j, MODELE.indicesReconnu)), au: 1 + selon(MODELE.indicesAuRang, p.r) }))
-  if (p.changer(m, !s.reconnu)) return mancheDesIndices(p, m)
+  const s = p.savoir(p.manche.tirage, () => ({ reconnu: p.oui(part(p.j, MODELE.indicesReconnu)), au: rangSelonLaForce(MODELE.indicesAuRang, p.j, p.r) }))
+  if (p.changer(m, !(s.reconnu && s.au === 1), SECONDES.indiceLu)) return mancheDesIndices(p, m)
   if (p.j.theta !== null && p.peut('eclairer')) p.eclairer(m)
   const essayes = new Set<string>()
   const unAutreNom = () => {
@@ -958,15 +1222,39 @@ interface PartieJouee {
 }
 
 /**
+ * Miser la manche qui s'ouvre ? Vers un seuil, si la mise l'y mène plus
+ * souvent — la manche misée jouée pour ses trois étoiles, les suivantes comme
+ * d'ordinaire, chacune à sa loi mesurée (`Allure`) ; sinon, si elle rapporte
+ * plus d'étoiles en moyenne. À la seule moyenne, il misait vers une commune ce
+ * qui ne paie qu'une épique : la manche misée ratée lui faisait manquer la
+ * commune, et Miser semblait nuire.
+ */
+function vautLaMise(allure: Allure, misee: number, seuil: number | null, avant: number, reste: number): boolean {
+  const { pourTrois, ordinaire } = allure
+  if (seuil === null) return pourTrois * misee > ordinaire.reduce((n, proba, etoiles) => n + proba * etoiles, 0)
+  // La loi des étoiles des manches qui restent, jouées d'ordinaire : la somme de `reste` manches.
+  let somme = [1]
+  for (let i = 0; i < reste; i++) {
+    const loi = somme
+    somme = Array.from({ length: loi.length + ordinaire.length - 1 }, (_, s) => ordinaire.reduce((n, proba, k) => n + proba * (loi[s - k] ?? 0), 0))
+  }
+  const auMoinsAvec = (cible: number) => somme.reduce((n, proba, s) => n + (s >= cible ? proba : 0), 0)
+  const avecLaMise = pourTrois * auMoinsAvec(seuil - avant - misee) + (1 - pourTrois) * auMoinsAvec(seuil - avant)
+  const sansElle = ordinaire.reduce((n, proba, k) => n + proba * auMoinsAvec(seuil - avant - k), 0)
+  return avecLaMise > sansElle + 1e-9
+}
+
+/**
  * Une partie entière : chaque manche ouverte — misée avant d'être vue, si la
- * mise y vaut plus que ce qu'il y gagne d'ordinaire —, jouée, révélée.
+ * mise y vaut mieux que ce qu'il y gagne d'ordinaire (`vautLaMise`) —, jouée,
+ * révélée.
  */
 function jouerLaPartie(d: DepartDUnePartie, j: Joueur, r: Hasard, t0: number, objectif: Objectif, allure: Allure | null): PartieJouee {
   const p = new Partie(d, j, r, t0 + SECONDES.annonce * 1000, objectif)
   // Ce que vaut une manche misée et parfaite, par la règle des pouvoirs : une manche misée imparfaite ne vaut rien.
   const misee = d.carte?.pouvoir === 'miser' ? etoilesApresLesPouvoirs([ETOILES_PAR_MANCHE], d.carte, 0)[0]! : 0
   for (let m = 0 as Manche; m < MANCHES_PAR_PARTIE; m = (m + 1) as Manche) {
-    const miser = misee > 0 && allure !== null && p.peut('miser') && allure.parfaites * misee > allure.moyenne
+    const miser = misee > 0 && allure !== null && p.peut('miser') && vautLaMise(allure, misee, objectif.seuil, p.etoilesAvant(m), MANCHES_PAR_PARTIE - 1 - m)
     p.geste({ quoi: 'ouvrir', manche: m, ...(miser && { miser: true as const }) }, 0)
     MANCHES[d.jeu].jouer(p, m)
     if (!P.mancheEnCours(p.e)?.verdict) throw new Error(`${d.jeu} : la manche ${m} ne s'est pas tranchée`)
@@ -978,7 +1266,7 @@ function jouerLaPartie(d: DepartDUnePartie, j: Joueur, r: Hasard, t0: number, ob
 
 // ── Ce que vaut un jeu, et chaque carte-bonus à ce jeu ────────────────────
 
-/** Ce que des parties d'un jeu ont donné : les totaux, les cadres dorés, les justes, le temps, les manches parfaites. */
+/** Ce que des parties d'un jeu ont donné : les totaux, les cadres dorés, les justes, le temps, les manches parfaites, les manches par étoiles naturelles. */
 interface Mesure {
   parties: number
   totaux: number[]
@@ -988,6 +1276,7 @@ interface Mesure {
   parfaites: number
   etoiles: number
   enRetard: number
+  manches: number[]
 }
 
 const MESURES_FAITES = new Map<string, Mesure>()
@@ -1016,15 +1305,16 @@ const versLeSeuil = (seuil: number): Objectif => ({ seuil, dorer: false })
  * joueur qui choisit sa carte-bonus relit ce qu'il a déjà mesuré.
  */
 function mesurer(j: Joueur, jeu: CleDeJeu, c: CarteMesuree, vise: Objectif, n = MESURES): Mesure {
-  // Un jeu qui ne lit pas le seuil se joue vers lui comme en partie libre : les mêmes parties pour tous les seuils.
-  const objectif = vise.seuil !== null && !MANCHES[jeu].viseLeSeuil ? LIBRE : vise
+  // Un jeu qui ne lit pas le seuil se joue vers lui comme en partie libre : les mêmes parties pour tous les seuils —
+  // sauf sous Miser, qui se décide vers le seuil (`vautLaMise`).
+  const objectif = vise.seuil !== null && !MANCHES[jeu].viseLeSeuil && c?.pouvoir !== 'miser' ? LIBRE : vise
   const cle = `${cleDuSavoir(j)}|${jeu}|${c ? `${c.pouvoir}${c.force}` : '-'}|${objectif.dorer ? 'dorer' : objectif.confettis ? 'confettis' : (objectif.seuil ?? 'libre')}|${n}`
   const deja = MESURES_FAITES.get(cle)
   if (deja) return deja
   const r = hasardDe(`${GRAINE}:mesure:${cle}`)
   const carte = carteDe(c)
-  const allure = objectif.dorer || carte?.pouvoir !== 'miser' ? null : allureDe(j, jeu)
-  const x: Mesure = { parties: 0, totaux: Array(ETOILES_D_UNE_PARTIE + 1).fill(0), dorees: 0, justes: 0, secondes: 0, parfaites: 0, etoiles: 0, enRetard: 0 }
+  const allure = objectif.dorer || carte?.pouvoir !== 'miser' ? null : allureDe(j, jeu, objectif)
+  const x: Mesure = { parties: 0, totaux: Array(ETOILES_D_UNE_PARTIE + 1).fill(0), dorees: 0, justes: 0, secondes: 0, parfaites: 0, etoiles: 0, enRetard: 0, manches: Array(ETOILES_PAR_MANCHE + 1).fill(0) }
   for (let i = 0; i < n; i++) {
     const d = departDu({ jeu, origine: 'libre', cible: null, but: null, seuil: null, payee: false, carte }, JOUR_MESURE, r, `${GRAINE}:mesure:${cle}:${i}`)
     const jouee = jouerLaPartie(d, j, r, T_MESURE, objectif, allure)
@@ -1036,15 +1326,23 @@ function mesurer(j: Joueur, jeu: CleDeJeu, c: CarteMesuree, vise: Objectif, n = 
     x.secondes += jouee.secondes
     x.parfaites += res.naturel.filter(k => k === ETOILES_PAR_MANCHE).length
     x.etoiles += res.naturel.reduce((a, b) => a + b, 0)
+    for (const k of res.naturel) x.manches[k]++
     x.enRetard += jouee.enRetard
   }
   MESURES_FAITES.set(cle, x)
   return x
 }
-/** Ce que miser vaudrait : la part des manches parfaites, et les étoiles d'une manche, sans carte. */
-const allureDe = (j: Joueur, jeu: CleDeJeu): Allure => {
-  const x = mesurer(j, jeu, null, LIBRE)
-  return { parfaites: x.parfaites / (MANCHES_PAR_PARTIE * x.parties), moyenne: x.etoiles / (MANCHES_PAR_PARTIE * x.parties) }
+/**
+ * Ce que miser vaudrait, sans carte : la part des manches parfaites quand il
+ * les joue pour trois étoiles — comme pour dorer : parier au Pari, le petit
+ * filet, le premier cadrage —, et la loi des étoiles d'une manche jouée
+ * d'ordinaire vers ce but.
+ */
+const allureDe = (j: Joueur, jeu: CleDeJeu, objectif: Objectif): Allure => {
+  const pourTrois = mesurer(j, jeu, null, DORER)
+  const x = mesurer(j, jeu, null, objectif)
+  const manches = x.manches.reduce((a, b) => a + b, 0)
+  return { pourTrois: pourTrois.parfaites / (MANCHES_PAR_PARTIE * pourTrois.parties), ordinaire: x.manches.map(k => k / manches) }
 }
 const auMoins = (x: Mesure, seuil: number) => x.totaux.slice(seuil).reduce((a, b) => a + b, 0) / x.parties
 const moyenneDe = (x: Mesure) => x.totaux.reduce((n, k, total) => n + k * total, 0) / x.parties
@@ -1085,8 +1383,10 @@ const JOUR_MS = 24 * 3_600_000
 const T0 = Date.UTC(2027, 1, 1, 18)
 
 function parcourir(j: Joueur, k: number): Parcours {
-  const r = hasardDe(`${GRAINE}:parcours:${j.nom}:${ARRIVEE}:${k}`)
-  const graineDeLaVisite = `${GRAINE}:visite:${j.nom}:${ARRIVEE}:${k}`
+  // Une variante joue les jours, les visites et le hasard de son modèle : la seule différence est ce qu'elle choisit.
+  const qui = j.comme ?? j.nom
+  const r = hasardDe(`${GRAINE}:parcours:${qui}:${ARRIVEE}:${k}`)
+  const graineDeLaVisite = `${GRAINE}:visite:${qui}:${ARRIVEE}:${k}`
   const lignes = new Map<string, LigneDOeuvre>()
   const ligne = (cle: string, o: Partial<LigneDOeuvre> & Pick<LigneDOeuvre, 'origine' | 'gagneeLe'>): LigneDOeuvre => ({
     oeuvre: cle,
@@ -1180,8 +1480,8 @@ function parcourir(j: Joueur, k: number): Parcours {
     const cadre = M.cadreDuDepart(m, demande, v, CLES_DES_JEUX)
     if (typeof cadre === 'string') throw new Error(`${j.nom} : départ refusé (${JSON.stringify(demande)}) — ${cadre}`)
     premierLotDuJour(v, cadre.origine !== 'libre')
-    const d = departDu(cadre, jour, r, `${GRAINE}:parcours:${j.nom}:${ARRIVEE}:${k}:${jourDuParcours}:${parties.length}`)
-    const allure = d.carte?.pouvoir === 'miser' ? allureDe(j, d.jeu) : null
+    const d = departDu(cadre, jour, r, `${GRAINE}:parcours:${qui}:${ARRIVEE}:${k}:${jourDuParcours}:${parties.length}`)
+    const allure = d.carte?.pouvoir === 'miser' && !objectif.dorer ? allureDe(j, d.jeu, objectif) : null
     const jouee = jouerLaPartie(d, j, r, t, objectif, allure)
     const apres = musee()
     const cible = d.cible as CleDOeuvre | null
@@ -1251,14 +1551,20 @@ function parcourir(j: Joueur, k: number): Parcours {
     }
 
     // Les chasses : ce qui lui rapporte le plus en moyenne — une œuvre qui lui manque, « Retenter » une visite manquée, ou une dorure.
+    // Le chasseur va d'abord à la salle du prochain gardien, que la page lui montre : une œuvre qui y manque, la meilleure à gagner.
     for (let c = 0; c < j.chasses; c++) {
       const m = musee()
       if (M.chassesRestantes(m) === 0) break
       const a = M.possedees(m)
       const dor = M.dorees(m)
-      let mieux: { vaut: number; demande: Parameters<typeof M.cadreDuDepart>[1]; objectif: Objectif } | null = null
+      const salleDuGardien = j.versLeGardien ? (M.prochainGardien(m)?.salle ?? null) : null
+      type Proposee = { vaut: number; demande: Parameters<typeof M.cadreDuDepart>[1]; objectif: Objectif }
+      let mieux: Proposee | null = null
+      let versLui: Proposee | null = null
       const proposer = (vaut: number, demande: Parameters<typeof M.cadreDuDepart>[1], objectif: Objectif) => {
         if (!mieux || vaut > mieux.vaut) mieux = { vaut, demande, objectif }
+        const dansSaSalle = demande.origine === 'chasse' && objectif.seuil !== null && salleDuGardien !== null && oeuvre(demande.oeuvre)?.salle === salleDuGardien
+        if (dansSaSalle && (!versLui || vaut > versLui.vaut)) versLui = { vaut, demande, objectif }
       }
       for (const o of OEUVRES) {
         if (!a.has(o.cle)) {
@@ -1274,7 +1580,7 @@ function parcourir(j: Joueur, k: number): Parcours {
         const b = meilleure(m, manquee.jeu, 'gagner', seuilDe(cle))
         proposer(b.vaut * PRIX_D_UNE_OEUVRE[oeuvre(cle)!.rarete], { origine: 'chasse', oeuvre: cle, carte: cleDeLaCarte(m, b.carte), retente: true }, { seuil: seuilDe(cle), dorer: false })
       }
-      const choisie = mieux as { vaut: number; demande: Parameters<typeof M.cadreDuDepart>[1]; objectif: Objectif } | null
+      const choisie = (versLui ?? mieux) as Proposee | null
       if (!choisie) break
       t = jouer(choisie.demande, v, t, choisie.objectif)
     }
@@ -1405,112 +1711,247 @@ console.log(`Le calibrage du Cabinet de curiosités — graine « ${GRAINE} », 
 for (const e of ESSAIS) console.log(`Essai : ${e}`)
 console.log('')
 
-// 1. Chaque jeu, sans carte-bonus : ce qu'il donne à chaque joueur, et au hasard.
-const SAVOIRS = [...new Map(JOUEURS.map(j => [cleDuSavoir(j), j])).values()]
+/**
+ * Ceux dont on mesure les jeux : un par savoir — le dernier nommé, comme le
+ * complétionniste pour le bon. Une variante (`comme`) joue les jeux de son
+ * modèle : elle ne se mesure pas deux fois, sauf seule.
+ */
+const SAVOIRS = [...new Map(JOUEURS.filter(j => !j.comme || !JOUEURS.some(k => k.nom === j.comme)).map(j => [cleDuSavoir(j), j])).values()]
 const SEUILS_MONTRES = [...new Set(Object.values(SEUILS_DES_RARETES))].sort((a, b) => a - b)
-console.log('Les jeux, un à un — sans carte-bonus')
-console.log(
-  `  la part des parties à ${SEUILS_MONTRES.join(', ')} étoiles ou plus (les seuils des raretés), chacune jouée vers ce seuil — ${CLES_DES_JEUX.filter(jeu => MANCHES[jeu].viseLeSeuil)
-    .map(jeu => JEUX[jeu].nom)
-    .join(' et ')} s'y jouent autrement, les autres pareil, sur les mêmes parties —, puis, en partie libre, les étoiles en moyenne, les pièces justes, les minutes d'une partie, et les manches où l'échéance l'a pris de court`,
-)
-const LARGEURS = [14, 16, 26, 6, 7, 8, 7]
-console.log('  ' + colonnes(['jeu', 'joueur', SEUILS_MONTRES.map(s => `≥ ${s}`).join(' · '), '★/9', 'justes', 'minutes', 'retard'], LARGEURS))
-const TABLE = new Map<string, Mesure>()
-const AU_HASARD: { jeu: CleDeJeu; part: number }[] = []
-for (const jeu of CLES_DES_JEUX) {
-  for (const j of SAVOIRS) {
-    const x = mesurer(j, jeu, null, LIBRE, PARTIES)
-    TABLE.set(`${j.nom}|${jeu}`, x)
-    const parts = SEUILS_MONTRES.map(s => auMoins(mesurer(j, jeu, null, versLeSeuil(s), PARTIES), s))
-    if (j.theta === null) AU_HASARD.push({ jeu, part: parts[0] })
+/** Ce qu'un seuil fait gagner, en mots : « une rare ou une maudite ». */
+const UNE: Readonly<Record<keyof typeof SEUILS_DES_RARETES, string>> = { commun: 'une commune', rare: 'une rare', maudit: 'une maudite', epique: 'une épique' }
+const cequIlGagne = (seuil: number) =>
+  (Object.keys(SEUILS_DES_RARETES) as (keyof typeof SEUILS_DES_RARETES)[])
+    .filter(k => SEUILS_DES_RARETES[k] === seuil)
+    .map(k => UNE[k])
+    .join(' ou ')
+const LARGEURS = [14, 16, 34, 6, 7, 8, 7]
+
+// 1. Chaque jeu, sans carte-bonus, puis avec la meilleure des quatre œuvres de départ : ce qu'il donne à chaque joueur, et au hasard.
+if (enSection('jeux')) {
+  console.log('Les jeux, un à un — sans carte-bonus')
+  console.log(
+    `  la part des parties à ${SEUILS_MONTRES.join(', ')} étoiles ou plus (les seuils des raretés), chacune jouée vers ce seuil — ${CLES_DES_JEUX.filter(jeu => MANCHES[jeu].viseLeSeuil)
+      .map(jeu => JEUX[jeu].nom)
+      .join(' et ')} s'y jouent autrement, les autres pareil, sur les mêmes parties —, et à ${ETOILES_D_UNE_PARTIE}, la partie parfaite, jouée pour dorer ; puis, en partie libre, les étoiles en moyenne, les pièces justes, les minutes d'une partie, et les manches où l'échéance l'a pris de court`,
+  )
+  console.log('  ' + colonnes(['jeu', 'joueur', [...SEUILS_MONTRES.map(s => `≥ ${s}`), `= ${ETOILES_D_UNE_PARTIE}`].join(' · '), '★/9', 'justes', 'minutes', 'retard'], LARGEURS))
+  const auHasard: { jeu: CleDeJeu; part: number }[] = []
+  for (const jeu of JEUX_MESURES) {
+    for (const j of SAVOIRS) {
+      const x = mesurer(j, jeu, null, LIBRE, PARTIES)
+      const parts = SEUILS_MONTRES.map(s => auMoins(mesurer(j, jeu, null, versLeSeuil(s), PARTIES), s))
+      const parfaites = mesurer(j, jeu, null, DORER, PARTIES)
+      if (j.theta === null) auHasard.push({ jeu, part: parts[0] })
+      console.log(
+        '  ' +
+          colonnes(
+            [
+              JEUX[jeu].nom,
+              j.nom,
+              [...parts, parfaites.dorees / parfaites.parties].map(enPourcent).join(' · '),
+              arrondi(moyenneDe(x)),
+              arrondi(x.justes / x.parties, 2),
+              arrondi(x.secondes / x.parties / 60, 2),
+              enPourcent(x.enRetard / (MANCHES_PAR_PARTIE * x.parties)),
+            ],
+            LARGEURS,
+          ),
+      )
+    }
+  }
+  if (auHasard.length > 0) console.log(`  Au hasard, une commune (${SEUILS_MONTRES[0]} étoiles) : ${auHasard.sort((a, b) => b.part - a.part).map(x => `${JEUX[x.jeu].nom} ${enPourcent(x.part)}`).join(' · ')}`)
+  console.log('')
+
+  // Tout profil emporte les quatre œuvres de départ : les retouches du 25 octobre 2026 se sont décidées sans elles.
+  console.log('Les jeux, un à un — avec les quatre œuvres de départ')
+  console.log(
+    `  ${OFFERTES.map(o => `${o.nom} (${POUVOIRS[o.carte.pouvoir].nom} ${o.carte.force})`).join(', ')} : chaque joueur emporte vers chaque seuil celle qui l'y mène le plus souvent — ou aucune —, choisie sur ${formatNumber(MESURES)} parties et mesurée sur ${formatNumber(PARTIES)} autres ; puis la carte-bonus emportée, seuil par seuil`,
+  )
+  console.log('  ' + colonnes(['jeu', 'joueur', SEUILS_MONTRES.map(s => `≥ ${s}`).join(' · '), 'la carte-bonus'], [14, 16, 26, 0]))
+  const auHasardAvec: { jeu: CleDeJeu; part: number }[] = []
+  for (const jeu of JEUX_MESURES) {
+    for (const j of SAVOIRS) {
+      const choix = SEUILS_MONTRES.map(s => {
+        const vers = versLeSeuil(s)
+        const cartes = [null, ...OFFERTES.filter(o => o.carte.pouvoir !== 'changer' || JEUX[jeu].changeable)]
+        const choisie = meilleurDes(cartes, o => auMoins(mesurer(j, jeu, o?.carte ?? null, vers), s))
+        return { choisie, part: auMoins(mesurer(j, jeu, choisie?.carte ?? null, vers, PARTIES), s) }
+      })
+      if (j.theta === null) auHasardAvec.push({ jeu, part: choix[0].part })
+      console.log('  ' + colonnes([JEUX[jeu].nom, j.nom, choix.map(c => enPourcent(c.part)).join(' · '), choix.map(c => c.choisie?.nom ?? 'aucune').join(' · ')], [14, 16, 26, 0]))
+    }
+  }
+  if (auHasardAvec.length > 0) console.log(`  Au hasard, avec elles, une commune : ${auHasardAvec.sort((a, b) => b.part - a.part).map(x => `${JEUX[x.jeu].nom} ${enPourcent(x.part)}`).join(' · ')}`)
+  console.log('')
+}
+
+// 2. Chaque pouvoir, à chaque force, jeu par jeu : ce que la carte-bonus emportée fait à chacun.
+if (enSection('cartes')) {
+  const ordre = Object.keys(POUVOIRS) as CleDePouvoir[]
+  const FORCES: readonly Force[] = [1, 2, 3]
+  const largeurs = [14, 16, 10, ...ordre.map(p => Math.max(12, POUVOIRS[p].nom.length))]
+  console.log(`Les cartes-bonus, jeu par jeu — ${formatNumber(MESURES)} parties par mesure ; la part des parties à chaque seuil, en pour cent, chaque pouvoir à la force ${FORCES.join(' · ')}`)
+  console.log("  chacune jouée comme il la jouerait vers ce seuil : Éclairer sur ce qu'il ne sait pas, la mise avant la manche qui en vaut la peine et jouée pour ses trois étoiles, Changer sur ce qu'il voit")
+  const pc = (x: number) => formatNumber(Math.round(x * 100))
+  for (const seuil of SEUILS_MONTRES) {
+    console.log(`  au moins ${seuil} étoiles sur ${ETOILES_D_UNE_PARTIE} — ${cequIlGagne(seuil)}`)
+    console.log('  ' + colonnes(['jeu', 'joueur', 'sans carte', ...ordre.map(p => POUVOIRS[p].nom)], largeurs))
+    for (const jeu of JEUX_MESURES) {
+      for (const j of SAVOIRS) {
+        const vers = versLeSeuil(seuil)
+        const avec = ordre.map(pouvoir =>
+          pouvoir === 'changer' && !JEUX[jeu].changeable ? '—' : FORCES.map(force => pc(auMoins(mesurer(j, jeu, { pouvoir, force }, vers), seuil))).join(' · '),
+        )
+        console.log('  ' + colonnes([JEUX[jeu].nom, j.nom, pc(auMoins(mesurer(j, jeu, null, vers), seuil)), ...avec], largeurs))
+      }
+    }
+  }
+  console.log('')
+}
+
+// 3. La zone d'Éclairer à l'Épingle, pour qui ne sait rien du lieu : la règle du code, et ses pistes.
+if (enSection('epingle')) {
+  const MANCHES_MESUREES = MANCHES_PAR_PARTIE * PARTIES
+  const km = (n: number) => formatNumber(n)
+  const dite = (loi: LoiDeLaZone) =>
+    !loi.partout
+      ? `de ${km(loi.de)} à ${km(loi.a)} km, rayon ${km(loi.rayonKm)} km`
+      : loi.de === 0
+        ? `partout dans le disque, rayon ${km(loi.rayonKm)} km`
+        : `partout de ${km(loi.de)} à ${km(loi.a)} km, rayon ${km(loi.rayonKm)} km`
+  const regles: { nom: string; loi: LoiDeLaZone; tirer: (lieu: Lieu, r: Hasard) => DecalageDeLaZone }[] = [
+    { nom: `le code : ${dite(LOI_DU_CODE())}`, loi: LOI_DU_CODE(), tirer: (lieu, r) => epingleTiree(lieu, r).decalage },
+    ...PISTES_DE_LA_ZONE.map(loi => ({ nom: dite(loi), loi, tirer: (_lieu: Lieu, r: Hasard) => decalageTire(loi, r) })),
+  ]
+  const [pres, loin] = MODELE.epingleRegionKm
+  console.log(
+    `Éclairer à l'Épingle, pour qui ne sait rien — ${formatNumber(MANCHES_MESUREES)} manches par règle, sur les ${formatNumber(LIEUX.length)} lieux livrés : le centre de la zone décalé du lieu, la zone de ce rayon ; une zone à chaque manche (Éclairer à la force ${FORCE_DES_TROIS_ZONES}), lue sur la terre que la carte dessine`,
+  )
+  console.log(
+    `  une commune, en plantant au centre · au milieu de là où le lieu peut être · au point qui rapporte le plus ; les étoiles d'une manche, qui ne sait rien (n'importe où sans zone, puis au meilleur point) et qui sait la région (à ${formatNumber(pres)}–${formatNumber(loin)} km du lieu, puis au plus près d'elle dans la zone)`,
+  )
+  const largeurs = [44, 28, 14, 14]
+  console.log('  ' + colonnes(['la zone', 'une commune avec trois zones', 'sans rien', 'avec la région'], largeurs))
+  for (const regle of regles) {
+    const r = hasardDe(`${GRAINE}:epingle:${regle.nom.replace(/^le code : /, '')}`)
+    const etoiles = { centre: [] as number[], milieu: [] as number[], meilleur: [] as number[] }
+    let sansZone = 0
+    let regionSans = 0
+    let regionAvec = 0
+    const juger = (tiree: EpingleTiree, epingle: Point) => REGLE_DE_L_EPINGLE.juger(tiree, REGLE_DE_L_EPINGLE.ouvrir(tiree), { quoi: 'repondre', epingle }).naturel
+    for (let i = 0; i < MANCHES_MESUREES; i++) {
+      const lieu = auHasard(LIEUX, r)
+      const tiree: EpingleTiree = { jeu: 'epingle', lieu, decalage: regle.tirer(lieu, r) }
+      const centre = zoneDEclairer(lieu, tiree.decalage)
+      const possibles = ouPeutEtreLeLieu(centre, regle.loi)
+      etoiles.centre.push(juger(tiree, dansLeCadre(centre)))
+      etoiles.milieu.push(juger(tiree, dansLeCadre(possibles.length > 0 ? auMilieu(possibles) : centre)))
+      etoiles.meilleur.push(juger(tiree, ouPlanter(centre, regle.loi, null, possibles)))
+      sansZone += juger(tiree, pointDeFrance(r))
+      let region = pointADistance(lieu, pres + r() * (loin - pres), r() * 360)
+      if (!dansLaFrance(region)) region = dansLeCadre(region)
+      regionSans += juger(tiree, region)
+      regionAvec += juger(tiree, ouPlanter(centre, regle.loi, region, possibles))
+    }
+    const commune = (xs: number[]) => {
+      const parties = Array.from({ length: Math.floor(xs.length / MANCHES_PAR_PARTIE) }, (_, k) => xs.slice(k * MANCHES_PAR_PARTIE, (k + 1) * MANCHES_PAR_PARTIE).reduce((a, b) => a + b, 0))
+      return parties.filter(t => t >= SEUILS_DES_RARETES.commun).length / parties.length
+    }
+    const parManche = (n: number) => arrondi(n / MANCHES_MESUREES, 2)
     console.log(
       '  ' +
         colonnes(
-          [JEUX[jeu].nom, j.nom, parts.map(enPourcent).join(' · '), arrondi(moyenneDe(x)), arrondi(x.justes / x.parties, 2), arrondi(x.secondes / x.parties / 60, 2), enPourcent(x.enRetard / (MANCHES_PAR_PARTIE * x.parties))],
-          LARGEURS,
+          [
+            regle.nom,
+            [etoiles.centre, etoiles.milieu, etoiles.meilleur].map(xs => enPourcent(commune(xs))).join(' · '),
+            `${parManche(sansZone)} → ${parManche(etoiles.meilleur.reduce((a, b) => a + b, 0))}`,
+            `${parManche(regionSans)} → ${parManche(regionAvec)}`,
+          ],
+          largeurs,
         ),
     )
   }
+  console.log('')
 }
-if (AU_HASARD.length > 0) console.log(`  Au hasard, une commune (${SEUILS_MONTRES[0]} étoiles) : ${AU_HASARD.sort((a, b) => b.part - a.part).map(x => `${JEUX[x.jeu].nom} ${enPourcent(x.part)}`).join(' · ')}`)
-console.log('')
 
-// 2. Ce qu'une partie rapporte, à la minute, contre une série. La minute fait
+// 4. Ce qu'une partie rapporte, à la minute, contre une série. La minute fait
 // foi — « si leur débit dépasse celui d'une série », dit le troisième choix
 // délégué : le plafond des départs arrête le Cabinet, pas la série, et le
 // temps qu'il libère va à la série. Les séances le montrent : le Cabinet
 // d'abord, tant que le seau du serveur laisse partir, la série le reste du
 // temps. Borner l'heure à trente parties et compter le reste perdu faisait
 // passer le Cabinet sous la série quand il la dépassait à la minute.
-console.log("Les confettis et l'expérience, à la minute — une pièce juste est une bonne réponse de campagne")
-console.log(
-  `  une partie libre jouée pour ses confettis (au-delà de la ${formatNumber(LIBRES_QUI_PAIENT)}ᵉ du jour, elle ne paie plus que ses pièces), sans carte-bonus, puis avec le meilleur gardien ; une série à ${SECONDES_PAR_QUESTION_DE_SERIE} s la question au joueur moyen, la réponse à l'allure de chacun ; une séance d'une heure, de trois heures, le plafond des départs plein au début (${formatNumber(DEPARTS_PAR_HEURE)} d'un coup, puis un toutes les ${formatNumber(60 / DEPARTS_PAR_HEURE)} minutes) : le Cabinet d'abord, la série quand il ne laisse plus partir, contre la série seule`,
-)
-const SERIES = 4000
-const LARGEURS_2 = [16, 26, 11, 34, 16, 16]
-console.log('  ' + colonnes(['joueur', 'série : justes · questions', 'série /min', 'Cabinet /min, son meilleur jeu', 'une heure', 'trois heures'], LARGEURS_2))
 const DEBIT_DE_LA_SERIE = new Map<string, number>()
-/** Les cinq pouvoirs à la force d'un gardien : ce qu'un joueur qui en a réveillé un emporte de mieux. */
-const LES_GARDIENS: CarteMesuree[] = (Object.keys(POUVOIRS) as CleDePouvoir[]).map(pouvoir => ({ pouvoir, force: FORCES_DES_RARETES.legendaire }))
-/** Les parties qui paient chaque jour sans partie libre de plus : la visite, les chasses, les libres qui paient leur poussière. */
-const PARTIES_QUI_PAIENT_PAR_JOUR = CASES_DE_LA_VISITE + CHASSES_PAR_JOUR + LIBRES_QUI_PAIENT
-for (const j of SAVOIRS) {
-  const r = hasardDe(`${GRAINE}:serie:${j.nom}`)
-  let justes = 0
-  let questions = 0
-  for (let i = 0; i < SERIES; i++) {
-    const s = serieDe(j, r)
-    justes += s.justes
-    questions += s.questions
-  }
-  const parMinute = justes / ((questions * secondesDUneQuestion(j)) / 60)
-  DEBIT_DE_LA_SERIE.set(cleDuSavoir(j), parMinute)
-  const debit = (x: Mesure): Debit => {
-    const minutes = x.secondes / x.parties / 60
-    const justesParPartie = x.justes / x.parties
-    return { minutes, justes: justesParPartie, parMinute: justesParPartie / minutes }
-  }
-  const parJeu = CLES_DES_JEUX.map(jeu => ({ jeu, ...debit(mesurer(j, jeu, null, CONFETTIS, PARTIES)) })).sort((a, b) => b.parMinute - a.parMinute)
-  // Chaque gardien sur autant de parties que sans carte : garder le meilleur de quarante-cinq mesures de cent parties le tirait vers le haut.
-  const avecUnGardien = CLES_DES_JEUX.flatMap(jeu =>
-    LES_GARDIENS.filter(c => c!.pouvoir !== 'changer' || JEUX[jeu].changeable).map(c => ({ jeu, c, ...debit(mesurer(j, jeu, c, CONFETTIS, PARTIES)) })),
-  ).sort((a, b) => b.parMinute - a.parMinute)
-  const lignes = [
-    { dit: 'sans carte', best: parJeu[0] },
-    { dit: `${POUVOIRS[avecUnGardien[0].c!.pouvoir].nom} ${avecUnGardien[0].c!.force}`, best: avecUnGardien[0] },
-  ]
-  for (const { dit, best } of lignes) {
-    const premiere = dit === 'sans carte'
+if (enSection('confettis')) {
+  console.log("Les confettis et l'expérience, à la minute — une pièce juste est une bonne réponse de campagne")
+  console.log(
+    `  une partie libre jouée pour ses confettis (au-delà de la ${formatNumber(LIBRES_QUI_PAIENT)}ᵉ du jour, elle ne paie plus que ses pièces), sans carte-bonus, puis avec le meilleur gardien ; une série à ${SECONDES_PAR_QUESTION_DE_SERIE} s la question au joueur moyen, dont ${SECONDES_D_UNE_REVELATION} s d'anecdote ; une question du Pari à ${SECONDES.pariQuestion} s, la même sans l'anecdote, que le Cabinet lit à la révélation ; la réponse à l'allure de chacun ; une séance d'une heure, de trois heures, le plafond des départs plein au début (${formatNumber(DEPARTS_PAR_HEURE)} d'un coup, puis un toutes les ${formatNumber(60 / DEPARTS_PAR_HEURE)} minutes) : le Cabinet d'abord, la série quand il ne laisse plus partir, contre la série seule`,
+  )
+  const SERIES = 4000
+  const LARGEURS_2 = [16, 26, 11, 34, 16, 16]
+  console.log('  ' + colonnes(['joueur', 'série : justes · questions', 'série /min', 'Cabinet /min, son meilleur jeu', 'une heure', 'trois heures'], LARGEURS_2))
+  /** Les cinq pouvoirs à la force d'un gardien : ce qu'un joueur qui en a réveillé un emporte de mieux. */
+  const LES_GARDIENS: CarteMesuree[] = (Object.keys(POUVOIRS) as CleDePouvoir[]).map(pouvoir => ({ pouvoir, force: FORCES_DES_RARETES.legendaire }))
+  /** Les parties qui paient chaque jour sans partie libre de plus : la visite, les chasses, les libres qui paient leur poussière. */
+  const PARTIES_QUI_PAIENT_PAR_JOUR = CASES_DE_LA_VISITE + CHASSES_PAR_JOUR + LIBRES_QUI_PAIENT
+  for (const j of SAVOIRS) {
+    const r = hasardDe(`${GRAINE}:serie:${j.nom}`)
+    let justes = 0
+    let questions = 0
+    for (let i = 0; i < SERIES; i++) {
+      const s = serieDe(j, r)
+      justes += s.justes
+      questions += s.questions
+    }
+    const parMinute = justes / ((questions * secondesDUneQuestion(j)) / 60)
+    DEBIT_DE_LA_SERIE.set(cleDuSavoir(j), parMinute)
+    const debit = (x: Mesure): Debit => {
+      const minutes = x.secondes / x.parties / 60
+      const justesParPartie = x.justes / x.parties
+      return { minutes, justes: justesParPartie, parMinute: justesParPartie / minutes }
+    }
+    const parJeu = CLES_DES_JEUX.map(jeu => ({ jeu, ...debit(mesurer(j, jeu, null, CONFETTIS, PARTIES)) })).sort((a, b) => b.parMinute - a.parMinute)
+    // Chaque gardien sur autant de parties que sans carte : garder le meilleur de quarante-cinq mesures de cent parties le tirait vers le haut.
+    const avecUnGardien = CLES_DES_JEUX.flatMap(jeu =>
+      LES_GARDIENS.filter(c => c!.pouvoir !== 'changer' || JEUX[jeu].changeable).map(c => ({ jeu, c, ...debit(mesurer(j, jeu, c, CONFETTIS, PARTIES)) })),
+    ).sort((a, b) => b.parMinute - a.parMinute)
+    const lignes = [
+      { dit: 'sans carte', best: parJeu[0] },
+      { dit: `${POUVOIRS[avecUnGardien[0].c!.pouvoir].nom} ${avecUnGardien[0].c!.force}`, best: avecUnGardien[0] },
+    ]
+    for (const { dit, best } of lignes) {
+      const premiere = dit === 'sans carte'
+      console.log(
+        '  ' +
+          colonnes(
+            [
+              premiere ? j.nom : '',
+              premiere ? `${arrondi(justes / SERIES)} · ${arrondi(questions / SERIES)}` : '',
+              premiere ? arrondi(parMinute, 2) : '',
+              `${arrondi(best.parMinute, 2)} (${JEUX[best.jeu].nom}, ${dit})`,
+              ...[60, 180].map(minutes => `${arrondi(seance(minutes, best, parMinute), 0)} contre ${arrondi(parMinute * minutes, 0)}`),
+            ],
+            LARGEURS_2,
+          ),
+      )
+    }
+    console.log('    sans carte : ' + parJeu.map(x => `${JEUX[x.jeu].nom} ${arrondi(x.parMinute, 2)}`).join(' · '))
+    // Ce que la parade laisserait : la juste à zéro au-delà des libres qui paient, il ne reste chaque jour que les parties qui paient déjà.
+    const mieux = lignes.reduce((a, b) => (b.best.parMinute > a.best.parMinute ? b : a)).best
+    const enPlus = mieux.parMinute - parMinute
     console.log(
-      '  ' +
-        colonnes(
-          [
-            premiere ? j.nom : '',
-            premiere ? `${arrondi(justes / SERIES)} · ${arrondi(questions / SERIES)}` : '',
-            premiere ? arrondi(parMinute, 2) : '',
-            `${arrondi(best.parMinute, 2)} (${JEUX[best.jeu].nom}, ${dit})`,
-            ...[60, 180].map(minutes => `${arrondi(seance(minutes, best, parMinute), 0)} contre ${arrondi(parMinute * minutes, 0)}`),
-          ],
-          LARGEURS_2,
-        ),
+      enPlus > 0
+        ? `    de plus qu'une série au même temps, au mieux : ${arrondi(enPlus, 2)} la minute, ${arrondi(enPlus * 60, 0)} à l'heure, autant d'heures qu'il en joue ; la juste à zéro au-delà de la ${formatNumber(LIBRES_QUI_PAIENT)}ᵉ libre du jour ne laisserait payer que ses ${formatNumber(PARTIES_QUI_PAIENT_PAR_JOUR)} parties du jour — au plus ${arrondi(PARTIES_QUI_PAIENT_PAR_JOUR * mieux.minutes * enPlus, 0)} de plus par jour`
+        : `    moins qu'une série, à la minute comme à la séance : ${arrondi(-enPlus, 2)} de moins la minute, au mieux`,
     )
   }
-  console.log('    sans carte : ' + parJeu.map(x => `${JEUX[x.jeu].nom} ${arrondi(x.parMinute, 2)}`).join(' · '))
-  // Ce que la parade laisserait : la juste à zéro au-delà des libres qui paient, il ne reste chaque jour que les parties qui paient déjà.
-  const mieux = lignes.reduce((a, b) => (b.best.parMinute > a.best.parMinute ? b : a)).best
-  const enPlus = mieux.parMinute - parMinute
-  console.log(
-    enPlus > 0
-      ? `    de plus qu'une série au même temps, au mieux : ${arrondi(enPlus, 2)} la minute, ${arrondi(enPlus * 60, 0)} à l'heure, autant d'heures qu'il en joue ; la juste à zéro au-delà de la ${formatNumber(LIBRES_QUI_PAIENT)}ᵉ libre du jour ne laisserait payer que ses ${formatNumber(PARTIES_QUI_PAIENT_PAR_JOUR)} parties du jour — au plus ${arrondi(PARTIES_QUI_PAIENT_PAR_JOUR * mieux.minutes * enPlus, 0)} de plus par jour`
-      : `    moins qu'une série, à la minute comme à la séance : ${arrondi(-enPlus, 2)} de moins la minute, au mieux`,
-  )
+  console.log(`  L'expérience suit les confettis : ${formatNumber(xpDuJourDeCampagne(1))} points pour chacune des ${formatNumber(JUSTES_DOUBLEES_PAR_JOUR)} premières bonnes réponses du jour, ${formatNumber(xpDuJourDeCampagne(JUSTES_DOUBLEES_PAR_JOUR + 1) - xpDuJourDeCampagne(JUSTES_DOUBLEES_PAR_JOUR))} ensuite — la série et le Cabinet les partagent.`)
+  console.log('')
 }
-console.log(`  L'expérience suit les confettis : ${formatNumber(xpDuJourDeCampagne(1))} points pour chacune des ${formatNumber(JUSTES_DOUBLEES_PAR_JOUR)} premières bonnes réponses du jour, ${formatNumber(xpDuJourDeCampagne(JUSTES_DOUBLEES_PAR_JOUR + 1) - xpDuJourDeCampagne(JUSTES_DOUBLEES_PAR_JOUR))} ensuite — la série et le Cabinet les partagent.`)
-console.log('')
 
-// 3. Le musée, jour après jour.
-if (!SANS_MUSEE) {
+// 5. Le musée, jour après jour.
+if (enSection('musee')) {
   console.log(`Le musée, jour après jour — ${PARCOURS} parcours par joueur ; la médiane, puis le plus court et le plus long`)
   console.log(`  chacun arrive neuf : les ${OEUVRES_DE_DEPART.length} œuvres de départ, rien de l'Expédition`)
   const SEMAINES = [1, 2, 4, 8, 13, 26, 52]
