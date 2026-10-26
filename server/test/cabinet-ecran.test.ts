@@ -572,9 +572,18 @@ test('changer le jeu d’une case se confirme, et la nomme : « Changer Le Déta
   // que tant que la visite que la page tient permet l'échange.
   assert.equal(confirmationDeLEchange({ ...visite, echange: { possible: false, refus: 'Tu as déjà changé un jeu aujourd’hui' } }, 0), null)
   assert.equal(confirmationDeLEchange(visite, 7), null)
-  // La page la demande avant d'écrire, comme la dorure.
+  // La page la demande avant d'écrire, comme la dorure — et envoie le jeu que la confirmation a nommé, de la visite lue avant elle :
+  // la page relue entre-temps, minuit passé, en propose peut-être un autre, et le serveur le refuse en mots plutôt que de donner un
+  // jeu qu'on n'a pas montré (la relecture du lot la-partie-et-la-visite).
+  const { jeuPropose } = await import(url('views/cabinet/Visite.tsx'))
+  assert.equal(jeuPropose(visite), 'filet')
+  assert.equal(jeuPropose({ ...visite, echange: { possible: false, refus: 'Tu as déjà changé un jeu aujourd’hui' } }), undefined)
+  assert.equal(jeuPropose(undefined), undefined)
   const app = source('views/CabinetApp.tsx')
-  assert.match(app, /const demande = confirmationDeLEchange\(page\?\.visite, k\)\s*if \(!demande \|\| !\(await confirmDialog\(demande\)\)\) return\s*await ecrire\(\(\) => api\.cabinet\.echanger\(k\)/)
+  assert.match(
+    app,
+    /const visite = page\?\.visite\s*const demande = confirmationDeLEchange\(visite, k\)\s*if \(!demande \|\| !\(await confirmDialog\(demande\)\)\) return\s*(?:\/\/[^\n]*\s*)*await ecrire\(\(\) => api\.cabinet\.echanger\(k, jeuPropose\(visite\)\)/,
+  )
   // Le bouton dit le jeu que la case prendra ; à l'oreille, il commence par ce qu'on lit — qui le dit à voix haute (Voice Access,
   // Voice Control) le trouve (WCAG 2.5.3, la relecture du lot la-partie-et-la-visite) —, puis nomme le jeu qui part.
   const html = await rendu('views/cabinet/Visite', 'Visite', { page: laVisiteDe(cases, { visite: visite as PageDuCabinet['visite'] }), busy: false, onJouer: rien, onEchanger: rien })
@@ -840,6 +849,11 @@ test('api.cabinet : chaque demande à son adresse, l’heure remesurée, et un g
       appels.slice(7).map(a => a.url),
       ['/api/cabinet/oeuvre/bastion', '/api/cabinet/partie/p1'],
     )
+    // L'échange nomme le jeu que la page a montré : le serveur le compare au sien (`refusDeLEchange`). Sans lui — l'appel du
+    // dessus —, le corps n'a que la case, comme une page d'avant.
+    reponses.push([200, { maintenant: Date.now() }])
+    await api.cabinet.echanger(2, 'filet')
+    assert.deepEqual([appels[9].url, JSON.parse(String(appels[9].init.body))], ['/api/cabinet/visite/echange', { case: 2, jeu: 'filet' }])
   } finally {
     globalThis.fetch = avant
   }
@@ -1732,6 +1746,20 @@ test('une mise perdue se titre « Mise perdue », le titre du jeu dessous — un
   assert.equal(titre(gagnee), 'Reconnu')
   assert.match(texte(gagnee), /mise gagnée/)
   assert.doesNotMatch(texte(gagnee), /Mise perdue|la mise voulait/)
+  // « Mes réponses » la redit des mêmes mots : son surtitre reprenait le titre du jeu, et la manche perdue s'y relisait
+  // « Reconnu » au-dessus de zéro étoile (la relecture du lot la-partie-et-la-visite). Relue par sa route, telle que la page la lit.
+  const ecran = (await ecrans()).detail
+  const mesReponses = async (id: string) => {
+    const relue = (await lire<VueDeLaPartie>(b, mia, `/api/cabinet/partie/${id}`)).corps
+    const html = await rendu('views/cabinet/Bilan', 'MesReponses', { vue: relue, ecran, onFermer: rien })
+    const surtitres = [...html.matchAll(/<section class="cab-reponses-manche"[^>]*><span class="cab-surtitre">(.*?)<\/span>/g)].map(([, s]) => texte(s).trim())
+    return { surtitres, t: texte(html) }
+  }
+  const reluePerdue = await mesReponses(unPas.id)
+  assert.deepEqual(reluePerdue.surtitres, ['Manche 1 · Mise perdue'])
+  // Et pourquoi, dessous, comme à l'écran de la partie.
+  assert.match(reluePerdue.t, /Manche 1 · Mise perdue Reconnu : la mise voulait la manche parfaite\./)
+  assert.deepEqual((await mesReponses(parfaite.id)).surtitres, ['Manche 1 · Reconnu'])
 })
 
 test('la mise : avant la manche, sans l’avoir vue — « Miser » ou « Pas cette fois »', async () => {
@@ -2331,6 +2359,28 @@ test('la bande d’une manche : ce que la tête et le pied collés laissent, pos
   assert.match(rendu, /from '\.\.\/\.\.\/client\/src\/views\/cabinet\/bande'/)
 })
 
+test('les photos du rendu du Cabinet et de la niche attendent leurs images comme la régie : la page entière, paresseuses comprises', () => {
+  // Leur `decode()` de chaque image ne forçait pas les paresseuses : Chromium ne demande jamais celles qui sont loin sous l'écran,
+  // et une photo de la page entière les montrait vides, après trois secondes d'attente perdues (la relecture du lot
+  // le-banc-de-la-tablee). Une seule attente, celle de la régie (`attenteDesImages`, `scripts/tablee/gestes.ts`, éprouvée sur de
+  // fausses images dans `tablee.test.ts`) : la photo de l'écran n'attend que ce qui y paraît, celle de la page entière passe les
+  // paresseuses en « eager » d'abord.
+  const script = (f: string) => readFileSync(path.join(client, `../../server/scripts/${f}`), 'utf8')
+  for (const f of ['rendu-cabinet.ts', 'rendu-niche.ts']) {
+    const s = script(f)
+    assert.match(s, /import \{[^}]*\battenteDesImages\b[^}]*\} from '\.\/tablee\/gestes'/, f)
+    assert.doesNotMatch(s, /\.decode\(\)/, `${f} : sa copie d'avant`)
+    // Trois secondes au plus, comme la régie (`ATTENTE_DES_IMAGES_MS`, `tablee.test.ts`).
+    assert.match(s, /page\.evaluate\(attenteDesImages\(pleine, 3000\)\)/, `${f} : la photo, l'écran ou la page entière`)
+  }
+  // La photo entière de « Mon compagnon », prise à part, attend la page entière juste avant.
+  const niche = script('rendu-niche.ts')
+  const entiere = niche.indexOf("'04c-mon-compagnon-entier.png'")
+  assert.ok(entiere > 0)
+  const avant = niche.slice(0, entiere).split('\n').slice(-3).join('\n')
+  assert.match(avant, /page\.evaluate\(attenteDesImages\(true, 3000\)\)/, avant)
+})
+
 test('la carte de l’Épingle est un point d’arrêt du défilement, entre la question collée et le pied ; une révélation garde la hauteur du pied sous ce qu’on y amène', () => {
   // Jeanne, à la tablée du 26 octobre 2026, au texte à 130 % : la manche s'ouvrait sur le récit — qui porte l'indice —, la carte
   // sous le pied, et elle ne tenait entière que sur une cinquantaine de pixels de défilement ; quatre gestes pour la trouver, le
@@ -2365,6 +2415,23 @@ test('la carte de l’Épingle est un point d’arrêt du défilement, entre la 
   const bande = readFileSync(path.join(client, 'views/cabinet/bande.ts'), 'utf8')
   for (const v of ['--cab-pied', '--cab-question']) assert.match(bande, new RegExp(`setProperty\\('${v}'`), v)
   assert.match(bande, /page\.ownerDocument\?\.documentElement\.style\.setProperty\('--cab-pied'/)
+})
+
+test('« Partir de… », sous la carte de l’Épingle, s’arrête au-dessus du pied à son tour, quand l’arrêt de la carte est armé', () => {
+  // L'arrêt armé, la carte ramenait sur elle tout geste qui finissait plus bas : la liste que « Pas à pas » ouvre sous elle restait
+  // sous le pied collé pour qui défile au doigt — 484 → 551 px sous un pied à 466, en 360 × 640 au texte à 130 % (`[épingle]` de
+  // `rendu-cabinet.ts`, avant la règle). Le clavier et le lecteur d'écran l'atteignaient par le focus, pas le doigt.
+  const section = sectionDuCabinet()
+  const regle = (sel: string) => new RegExp(`(?:^|\\n)${echapper(sel)} \\{([^}]*)\\}`).exec(section)?.[1] ?? ''
+  const partir = regle(".cab-partie[data-arret='carte'] .cab-partir-de")
+  assert.match(partir, /scroll-snap-align: end;/)
+  assert.match(partir, /scroll-margin-bottom: var\(--cab-pied, 0px\);/)
+  // Sous l'arrêt armé seulement, comme la carte-bonus posée : sans lui, la page défile librement, et un arrêt de plus n'y happerait
+  // que le doigt.
+  const arrets = [...section.matchAll(/(?:^|\n)([^{}\n]*\.cab-partir-de[^{}\n]*) \{([^}]*)\}/g)].filter(([, , corps]) => /scroll-snap-align/.test(corps)).map(([, sel]) => sel)
+  assert.deepEqual(arrets, [".cab-partie[data-arret='carte'] .cab-partir-de"], 'un seul arrêt, sous l’arrêt armé')
+  // La classe que la feuille vise, posée par la liste même.
+  assert.match(source('views/cabinet/jeux/Epingle.tsx'), /className="btn btn-block cab-partir-de"/)
 })
 
 test('l’arrêt sur la carte de l’Épingle ne s’arme que loin du haut de la page : le récit se lit à l’ouverture, et un doigt l’y ramène', async () => {
@@ -3254,7 +3321,7 @@ test('la page oublie ses cartels quand un achat, une dorure ou une partie ont pu
   for (const etat of ["\\{ etat: 'lu', cartel \\}", "\\{ etat: 'perdu', motif: motifDe\\(e\\) \\}"]) assert.match(app, new RegExp(`setCartels\\(c => cartelArrive\\(c, aSonCartel, demande, ${etat}\\)\\)`), etat)
   assert.match(app, /setCartels\(sansLesPerdus\)\s*\}, \[aSonCartel, page\]\)/)
   // L'échange ne touche aucune œuvre : il n'oublie rien.
-  assert.match(app, /ecrire\(\(\) => api\.cabinet\.echanger\(k\), '[^']*'\)/)
+  assert.match(app, /ecrire\(\(\) => api\.cabinet\.echanger\(k, jeuPropose\(visite\)\), '[^']*'\)/)
 })
 
 test('les règles : un jeu de la visite se change une fois par jour — le type du barème le tient, sans branche qui ne sert jamais', async () => {

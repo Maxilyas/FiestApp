@@ -87,6 +87,22 @@ test('chaque lieu, fiche, réplique et frise livrée passe son juge, aucune ne s
   }
 })
 
+test('aucun lieu livré n’a une coordonnée ronde : un nombre rond se confond avec un compteur de la vue d’une manche', () => {
+  // Noyon, où Charlemagne fut fait roi, s'écrivait « 3 » de longitude (2,999 : 49° 34′ 51″ N, 2° 59′ 57″ E). La vue d'une manche
+  // de l'Épingle éclairée porte d'autres 3 — son rang, ses compteurs —, et l'épreuve du secret (`cabinet-secret.test.ts`, qui
+  // cherche les coordonnées du lieu parmi tous les nombres d'une réponse) y voyait le lieu fuir une partie sur quatre-vingt-dix,
+  // sans fuite. Un lieu rond, elle ne le verrait plus fuir pour de bon : elle ne s'affaiblit pas, le contenu se corrige — et le
+  // juge des lieux le refuse désormais (`refusDuLieu`), au millième de degré comme les autres.
+  const ronds = brut('lieux').filter(l => {
+    const { lat, lon } = l as Lieu
+    return Number.isInteger(lat) || Number.isInteger(lon)
+  })
+  assert.deepEqual(
+    ronds.map(l => `${(l as Lieu).id} (${(l as Lieu).lat}, ${(l as Lieu).lon})`),
+    [],
+  )
+})
+
 test('une entrée par ligne, ses champs dans l’ordre du juge : une relecture de PR se fait entrée par entrée', () => {
   for (const s of SORTES_DU_CONTENU) {
     const fichier = SORTES[s].fichier
@@ -326,6 +342,8 @@ test('un lieu : dans la France, sa commune et son département jamais dits avant
     [{ ...LIEU, lon: 9.9 }, /^ses coordonnées/, 'à l’est de la Corse'],
     [{ ...LIEU, lat: Number.NaN }, /^ses coordonnées/, 'une latitude qui n’est pas un nombre'],
     [{ ...LIEU, lat: '47.022' }, /^ses coordonnées/, 'une latitude en texte'],
+    [{ ...LIEU, lon: 5 }, /^ses coordonnées : jamais rondes/, 'une longitude ronde'],
+    [{ ...LIEU, lat: 47 }, /^ses coordonnées : jamais rondes/, 'une latitude ronde'],
     [{ ...LIEU, recit: 'Le chancelier fonde un hôpital à Beaune.' }, /^son récit dit « Beaune »/, 'la commune dans le récit'],
     [{ ...LIEU, question: 'Où se trouve cet hôpital, près de beaune ?' }, /^sa question dit « Beaune »/, 'la commune sans sa capitale'],
     [{ ...LIEU, recit: 'Un hôpital fondé en Côte d’Or, pour les pauvres.' }, /^son récit dit « Côte-d'Or »/, 'le département, apostrophe courbe et sans trait d’union'],

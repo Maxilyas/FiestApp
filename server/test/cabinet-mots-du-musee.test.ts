@@ -336,6 +336,25 @@ test('la documentation dit les mots de l’écran : de petits jeux de quelques m
     const ligne = reference.find(l => l.startsWith(`| ${mot} |`))!
     assert.doesNotMatch(ligne, /rejou/i, ligne)
   }
+  // Le barème aussi, et les commentaires du code qui le tient : « neuf petits jeux de deux minutes », « une partie de deux
+  // minutes », « une œuvre rejouée pour la dorer » y restaient (la relecture du lot les-mots-du-musee). Ni « rejou » refusé tout
+  // court : le calibrage s'y rejoue, une partie quittée ne se rejoue pas — ce qui se dit faux, c'est l'œuvre « rejouée ».
+  const bareme = doc('docs/reference/baremes.md')
+  const duCabinet = bareme.slice(bareme.indexOf('\n## Le Cabinet de curiosités'), bareme.indexOf('\n## ', bareme.indexOf('\n## Le Cabinet de curiosités') + 1))
+  assert.ok(duCabinet.includes('`CHASSES_PAR_JOUR`'), 'la section du Cabinet')
+  const ouvre = doc('shared/cabinet/bareme.ts').replace(/\n\s*\* /g, ' ')
+  for (const [ou, texte_] of [['baremes.md', duCabinet], ['bareme.ts', ouvre]] as const) {
+    assert.doesNotMatch(texte_, /(jeux|partie)s? de deux minutes/i, ou)
+    assert.doesNotMatch(texte_, /œuvres? rejouées?|rejouer (une|l’|l')œuvre|la rejouer/i, ou)
+  }
+  assert.match(duCabinet, /petits jeux de quelques minutes/)
+  assert.match(duCabinet, /une œuvre à soi jouée à son jeu pour la dorer/)
+  // Le commentaire de ce qu'un gardien demande, en exemple : la condition d'aujourd'hui du Scarabée, qui se gagne en répondant.
+  // Lu comme on le lit : un commentaire sur deux lignes ne coupe pas sa phrase.
+  const vues = doc('shared/cabinet/vues.ts').replace(/\n\s*\* /g, ' ')
+  assert.doesNotMatch(vues, /jours de visite ou de chasse d.affilée/)
+  // Telle quelle, au nombre de jours près : un seuil retouché ne fait pas rougir un commentaire.
+  assert.match(vues, new RegExp(echapper(conditionDuGardien('lg:scarabee')!).replace(String(JOURS_DU_SCARABEE), '\\d+')), 'la condition du Scarabée')
 })
 
 // ── L'œuvre gagnée, au bilan ──────────────────────────────────────────────

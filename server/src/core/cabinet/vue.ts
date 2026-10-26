@@ -601,9 +601,10 @@ function sallesDe(m: Musee, jeux: readonly string[], sait: CeQueSaitLeCabinet): 
  * La visite du jour, case par case : son jeu, son enjeu — jamais l'œuvre visée d'une case pas gagnée —, et ce qu'elle a donné ;
  * le seuil que son départ figera (pour dorer, celui de son double), et, manquée, « Retenter » par sa case : la page les lit
  * ici, sans relire le barème ni la règle des départs. La page la lit, et le bouton de l'accueil aussi (`accueilDuCabinet`) : la
- * même visite, la même règle de « À jouer ».
+ * même visite, la même règle de « À jouer ». Le calibrage aussi (`calibrage-cabinet.ts`) : ses joueurs choisissent leur échange
+ * sur elle, comme la page, jamais sur la règle des échanges.
  */
-function visiteVue(l: LectureDeLAccueil): PageDuCabinet['visite'] {
+export function visiteVue(l: LectureDeLAccueil): PageDuCabinet['visite'] {
   const m = l.musee
   const cases = l.visite.cases.map((c, k): CaseVue => {
     const jouee = m.duJour.parties.find(p => p.origine === 'visite' && p.visite === k)

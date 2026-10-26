@@ -100,10 +100,17 @@ export interface PropsDUneManche<M, L> extends OuEstLaManche {
 /**
  * L'écran d'un jeu : ce dont le cadre a besoin pour lui, sans rien de ses
  * règles. Pur : la manche montrée (`MancheMontree`) et ce que la page tient
- * (`L`) suffisent.
+ * (`L`) suffisent — à une exception près, `localDe` de l'Épingle, qui relit
+ * ce que le téléphone retient au profil (`pasRetenus`, `retenu.ts`) : « Pas à
+ * pas » et « Grands pas » se rouvrent tels qu'il les a laissés, sans quoi
+ * Hugo, au lecteur d'écran, les rouvrait à chaque manche sous un chrono qui
+ * courait (la tablée du 26 octobre 2026). Une lecture du stockage local, que
+ * le cadre fait à chaque rendu tant que la manche n'a rien tenu : autant
+ * qu'une table en mémoire, et la page ne change pas de profil sans se
+ * recharger.
  */
 export interface JeuALEcran<M, R, L> {
-  /** Ce que la page tient au début d'une manche. */
+  /** Ce que la page tient au début d'une manche — pur, sauf à l'Épingle, qui relit ses pas retenus (plus haut). */
   localDe(m: M): L
   /** Ce qui distingue le contenu d'une manche : « Changer » en pose un autre, et ce que la page tenait repart de zéro. */
   cleDe(m: M): string

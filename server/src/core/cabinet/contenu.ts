@@ -146,10 +146,16 @@ const CHAMPS_DU_LIEU = ['id', 'theme', 'nom', 'commune', 'departement', 'lat', '
 /**
  * Pourquoi ce lieu ne se pose pas — null : il se pose. Dans le cadre de la
  * France métropolitaine et de la Corse (la décision du propriétaire, le
- * 24 octobre 2026) ; sa commune et son département nommés, et jamais dans ce
- * que la manche montre avant son verdict — le thème, la date, le récit, la
- * question —, puisqu'ils sont la réponse. Le nom du lieu, lui, peut s'y dire :
- * « Où se trouve la place Stanislas ? » demande de savoir où est Nancy.
+ * 24 octobre 2026), à sa précision — jamais une coordonnée ronde : Noyon
+ * s'écrivait « 3 » de longitude (2,999), un nombre que la vue d'une manche
+ * porte d'elle-même — son rang, ses compteurs —, et l'épreuve du secret, qui
+ * cherche les coordonnées du lieu parmi tous les nombres d'une réponse, l'y
+ * voyait fuir une partie sur quatre-vingt-dix ; un lieu rond, elle ne le
+ * verrait plus fuir pour de bon (`cabinet-secret.test.ts`). Sa commune et son
+ * département nommés, et jamais dans ce que la manche montre avant son
+ * verdict — le thème, la date, le récit, la question —, puisqu'ils sont la
+ * réponse. Le nom du lieu, lui, peut s'y dire : « Où se trouve la place
+ * Stanislas ? » demande de savoir où est Nancy.
  */
 export function refusDuLieu(brut: unknown): string | null {
   const champs = refusDesChamps(brut, CHAMPS_DU_LIEU)
@@ -162,6 +168,10 @@ export function refusDuLieu(brut: unknown): string | null {
     () => refusDuTexte('sa commune', l.commune),
     () => refusDuTexte('son département', l.departement),
     () => (typeof l.lat === 'number' && typeof l.lon === 'number' && dansLaFrance({ lat: l.lat, lon: l.lon }) ? null : 'ses coordonnées : des nombres, en France métropolitaine ou en Corse'),
+    () =>
+      Number.isInteger(l.lat) || Number.isInteger(l.lon)
+        ? 'ses coordonnées : jamais rondes, au millième de degré (2.999, pas 3) — un nombre rond se confond avec un compteur de la vue'
+        : null,
     () => (Number.isInteger(l.annee) ? null : 'son année : un nombre entier (« 52 av. J.-C. » vaut −52)'),
     () => refusDuTexte('sa date', l.date),
     () => refusDuTexte('son récit', l.recit, RECIT_MAX),

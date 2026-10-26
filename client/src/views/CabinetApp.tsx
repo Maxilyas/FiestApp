@@ -42,7 +42,7 @@ import { Oeuvre, oeuvreDeLaPage } from './cabinet/Oeuvre'
 import { Partie, ecranDuJeu } from './cabinet/Partie'
 import { FeuilleDesRegles } from './cabinet/Regles'
 import { Salle } from './cabinet/Salle'
-import { JouerLibrement, Visite, confirmationDeLEchange, dejaDoree } from './cabinet/Visite'
+import { JouerLibrement, Visite, confirmationDeLEchange, dejaDoree, jeuPropose } from './cabinet/Visite'
 import { carteRetenue, reglesLues, retenirLaCarte, retenirLesRegles } from './cabinet/retenu'
 
 // La page du Cabinet de curiosités (`/cabinet`) : le musée et ses écrans —
@@ -462,12 +462,15 @@ export function CabinetApp() {
   }
   /**
    * « Changer » demande d'abord, comme la dorure : la case et le jeu qu'elle prendra, un seul échange par jour. Il partait d'un
-   * toucher, et Théo l'a dépensé à l'aveugle (la tablée du 26 octobre 2026).
+   * toucher, et Théo l'a dépensé à l'aveugle (la tablée du 26 octobre 2026). Puis il envoie le jeu que la confirmation a nommé, de
+   * la visite lue avant elle : relue entre-temps — minuit passé, le retour au premier plan —, elle en propose peut-être un autre,
+   * et le serveur le refuse alors en mots, la page relue montrant le nouveau.
    */
   const echanger = async (k: Manche) => {
-    const demande = confirmationDeLEchange(page?.visite, k)
+    const visite = page?.visite
+    const demande = confirmationDeLEchange(visite, k)
     if (!demande || !(await confirmDialog(demande))) return
-    await ecrire(() => api.cabinet.echanger(k), 'Le jeu de cette partie a changé')
+    await ecrire(() => api.cabinet.echanger(k, jeuPropose(visite)), 'Le jeu de cette partie a changé')
   }
 
   /** « Commencer » : la partie part avec sa carte-bonus, et sa première manche s'ouvre ; refusée, le serveur dit pourquoi, et la page se relit. */

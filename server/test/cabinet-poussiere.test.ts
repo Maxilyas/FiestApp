@@ -45,9 +45,19 @@ import {
 import { LIBRES_QUI_PAIENT, PRIX_D_UNE_DORURE, PRIX_D_UNE_OEUVRE } from '../../shared/cabinet/bareme'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, oeuvre, type CleDOeuvre } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
-import { CASE_DEJA_FAITE, CHOISIS_UNE_CASE, PLUS_DE_CHASSE, RETENTER_SANS_VISITE_MANQUEE, SON_OEUVRE_EST_A_TOI, laPartieAttend, poussieresDites } from '../../shared/cabinet/musee'
+import {
+  CASE_DEJA_FAITE,
+  CHOISIS_UNE_CASE,
+  LE_JEU_PROPOSE_A_CHANGE,
+  PLUS_DE_CHASSE,
+  RETENTER_SANS_VISITE_MANQUEE,
+  SON_OEUVRE_EST_A_TOI,
+  laPartieAttend,
+  poussieresDites,
+} from '../../shared/cabinet/musee'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
-import { JEUX } from '../../shared/cabinet/jeux/regle'
+import { JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
+import { minuitDe } from '../../shared/qg'
 import type { Cartel, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
 import { CABINET_SANS_PROFIL } from '../src/cabinet'
@@ -110,7 +120,8 @@ async function avecDeLaPoussiere(login: string, poussiere: number): Promise<{ co
 
 const acheter = (cookie: string | undefined, cle: string, prix: unknown) => poster<PageDuCabinet>(b, cookie, `/api/cabinet/oeuvre/${cle}/achat`, { prix })
 const dorer = (cookie: string | undefined, cle: string, prix: unknown) => poster<PageDuCabinet>(b, cookie, `/api/cabinet/oeuvre/${cle}/dorure`, { prix })
-const echanger = (cookie: string | undefined, k: unknown) => poster<PageDuCabinet>(b, cookie, '/api/cabinet/visite/echange', { case: k })
+/** L'échange d'une case ; `jeu`, celui que la page a nommé (« Changer pour Le Filet ») — absent, une page d'avant, qui ne l'envoyait pas. */
+const echanger = (cookie: string | undefined, k: unknown, jeu?: unknown) => poster<PageDuCabinet>(b, cookie, '/api/cabinet/visite/echange', { case: k, ...(jeu !== undefined && { jeu }) })
 const leCartel = (cookie: string | undefined, cle: string) => lire<Cartel>(b, cookie, `/api/cabinet/oeuvre/${cle}`)
 const laPartie = (cookie: string | undefined, id: string) => lire<VueDeLaPartie>(b, cookie, `/api/cabinet/partie/${id}`)
 
@@ -448,6 +459,41 @@ test('changer le jeu d’une case de la visite : une fois par jour, une case pas
     // être d'hier ; la règle s'éprouve seule (`cabinet-regles.test.ts`).
     const jeuPromis = lendemain.echange.possible ? lendemain.echange.jeu : null
     assert.ok(jeuPromis !== null && JEUX_PRETS.includes(jeuPromis) && !lendemain.cases.some(c => c.jeu === jeuPromis), `${jeuPromis}`)
+  } finally {
+    b.horloge.t = DIX_HEURES
+  }
+})
+
+test('l’échange garde le jeu que la page a nommé : la visite changée entre la page et le geste, il se refuse en mots — une page d’avant, sans jeu, échange comme avant', async () => {
+  // La page dit « Changer pour Le Filet » à 23 h 59, confirmé après minuit : le jour neuf propose un autre jeu, et l'échange
+  // l'aurait donné sans le dire — le seul du jour, dépensé sur un jeu qu'on ne lui avait pas montré (la relecture du lot
+  // la-partie-et-la-visite). La page envoie donc le jeu qu'elle a nommé, et le serveur le compare au sien.
+  const theo = await inscrireProfil(b.banc.url, 'theo', 'Théo')
+  try {
+    // Le premier soir où le jeu proposé change à minuit : chaque jour tire son ordre des jeux.
+    let veille: CleDeJeu | null = null
+    let lendemain: CleDeJeu | null = null
+    for (let jour = 1; veille === lendemain; jour++) {
+      assert.ok(jour <= 10, 'dix soirs sans que le jeu proposé change à minuit')
+      const minuit = minuitDe(DIX_HEURES + jour * 24 * 3_600_000)
+      b.horloge.t = minuit - 30_000
+      const avant = ok(await laPage(b, theo), 'la page de la veille').visite.echange
+      b.horloge.t = minuit + 30_000
+      const apres = ok(await laPage(b, theo), 'la page d’après minuit').visite.echange
+      assert.ok(avant.possible && apres.possible)
+      ;[veille, lendemain] = [avant.jeu, apres.jeu]
+    }
+    // La page de la veille, restée ouverte, nomme son jeu : refusé en mots, rien d'écrit — l'échange du jour reste à prendre.
+    assert.deepEqual(refus(await echanger(theo, 1, veille)), [400, { error: LE_JEU_PROPOSE_A_CHANGE }])
+    assert.deepEqual(ok(await laPage(b, theo), 'la page relue').visite.echange, { possible: true, jeu: lendemain })
+    // Un jeu qui n'en est pas un ne passe pas davantage.
+    assert.deepEqual(refus(await echanger(theo, 1, 'constructor')), [400, { error: LE_JEU_PROPOSE_A_CHANGE }])
+    // La page relue nomme le jeu du jour : il passe, et la case le prend.
+    const echangee = ok(await echanger(theo, 1, lendemain), 'l’échange du jeu nommé')
+    assert.equal(echangee.visite.cases[1].jeu, lendemain)
+    // Une page d'avant n'envoyait pas de jeu : rien ne se compare, l'échange passe comme avant (invariant 12) — l'épreuve du dessus,
+    // `changer le jeu d’une case`, le joue sans lui. Les refus de la règle passent devant : déjà changé aujourd'hui.
+    assert.deepEqual(refus(await echanger(theo, 2, lendemain)), [400, { error: 'Tu as déjà changé un jeu aujourd’hui' }])
   } finally {
     b.horloge.t = DIX_HEURES
   }

@@ -446,12 +446,25 @@ export const CASE_DEJA_FAITE = 'Cette partie de la visite est déjà faite'
 
 const estUneCase = (v: Pick<VisiteDuJour, 'cases'>, k: unknown): k is number => Number.isInteger(k) && (k as number) >= 0 && (k as number) < v.cases.length
 
-/** Pourquoi la case `k` ne s'échange pas ; null : elle s'échange, une fois par jour, tant qu'elle n'est pas jouée. */
-export function refusDeLEchange(m: Musee, v: VisiteDuJour, k: unknown, jeu: CleDeJeu | null): string | null {
+/**
+ * Le jeu que la page a nommé (« Changer pour Le Filet ») n'est plus celui que l'échange donnerait : la page relue le dit, et
+ * rien ne s'est écrit.
+ */
+export const LE_JEU_PROPOSE_A_CHANGE = 'Le jeu proposé a changé entre-temps : regarde lequel avant de changer'
+
+/**
+ * Pourquoi la case `k` ne s'échange pas ; null : elle s'échange, une fois par jour, tant qu'elle n'est pas jouée. `montre` : le
+ * jeu que la page a nommé sur son bouton et dans sa confirmation. La page lue à 23 h 59 et confirmée après minuit, le jour neuf
+ * en proposait un autre, et l'échange le donnait sans le dire — le seul du jour, dépensé sur un jeu qu'on ne lui avait pas
+ * montré (la relecture du lot la-partie-et-la-visite). Absent — une page d'avant, qui ne l'envoyait pas —, rien ne se compare
+ * (invariant 12). Les refus de la règle passent devant : nommer un jeu ne fait pas oublier l'échange déjà pris.
+ */
+export function refusDeLEchange(m: Musee, v: VisiteDuJour, k: unknown, jeu: CleDeJeu | null, montre?: unknown): string | null {
   if (!estUneCase(v, k)) return CHOISIS_UNE_CASE
   if (v.echange !== null) return 'Tu as déjà changé un jeu aujourd’hui'
   if (caseCommencee(m, k)) return CASE_DEJA_FAITE
-  return jeu === null ? AUCUN_AUTRE_JEU : null
+  if (jeu === null) return AUCUN_AUTRE_JEU
+  return montre === undefined || montre === jeu ? null : LE_JEU_PROPOSE_A_CHANGE
 }
 
 /** La visite après l'échange de sa case `k` : le jeu change, l'œuvre en jeu reste. */

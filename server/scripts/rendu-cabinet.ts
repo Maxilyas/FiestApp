@@ -50,7 +50,8 @@
 // jamais plus large « Pas à pas » ouvert, la page ouverte en haut sur le récit,
 // et un geste au doigt qui n'en montre que la moitié, et la carte posée entière
 // entre la question et le pied, puis le doigt qui remonte au récit et la page qui
-// y reste, et la carte-bonus posée sous la carte qui se lit au doigt
+// y reste, la carte-bonus posée sous la carte qui se lit au doigt, et
+// « Partir de… », sous elle, que le doigt atteint sans que rien saute
 // (`[épingle]`) ; une révélation défilée jusqu'en bas, sa dernière ligne
 // au-dessus de « Manche suivante », et son dernier geste amené par le focus
 // au-dessus de lui aussi (`[révélation]`) ; le tableau du Détail entier sous
@@ -72,6 +73,7 @@ import Database from 'better-sqlite3'
 import { demarrer, inscrireProfil } from '../test/banc'
 import { DIX_HEURES, departEnBase } from '../test/cabinet-banc'
 import { CE_QUI_DEBORDE, CE_QUI_EST_COUPE, CE_QUI_SE_CHEVAUCHE, SOUS_LA_NICHE, contrasteDeLaPage } from './a-l-ecran'
+import { attenteDesImages } from './tablee/gestes'
 import { CARTE_JOUABLE, LU_AU_DESSUS_DE_LA_QUESTION, PIED_COLLE, TETE_COLLEE, surLaMemeRangee } from '../../client/src/views/cabinet/bande'
 import { HAUTEUR_DE_LA_CARTE, LARGEUR_DE_LA_CARTE, projeter } from '../../shared/cabinet/france'
 import { JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
@@ -172,13 +174,15 @@ const net = (s: string) =>
  */
 async function photo(page: any, nom: string, { pleine = false, attente = 500 } = {}) {
   await page.evaluate('document.fonts.ready')
-  // Trois secondes au plus : une image `loading="lazy"` hors de l'écran — une œuvre au bas d'une feuille — ne se charge pas, et
-  // son `decode()` attendait toujours.
-  await page.evaluate('Promise.race([Promise.all([...document.images].map(i => i.decode().catch(() => {}))), new Promise(r => setTimeout(r, 3000))])')
+  // Les images que la photo montrera, trois secondes au plus, comme la régie (`attenteDesImages`) : celles de l'écran, ou, pour la
+  // page entière, toutes — les paresseuses passées en « eager » d'abord : Chromium ne demande jamais celles qui sont loin sous
+  // l'écran, et la photo entière les montrait vides, après trois secondes d'attente perdues sur leur `decode()`.
+  const pasPretes: number = await page.evaluate(attenteDesImages(pleine, 3000))
   await page.waitForTimeout(attente)
   const fichier = path.join(sortie, `${String(++numero).padStart(2, '0')}-${nom}.png`)
   await page.screenshot({ path: fichier, fullPage: pleine })
   const defauts: string[] = []
+  if (pasPretes > 0) defauts.push(`[images] ${pasPretes} pas encore peinte${pasPretes > 1 ? 's' : ''} : une case vide vient du rendu, pas de la page`)
   const deborde: { large: number; fautifs: string[] } = await page.evaluate(CE_QUI_DEBORDE)
   if (deborde.large) defauts.push(`[déborde] ${deborde.large} px de large — ${deborde.fautifs.join(' · ')}`)
   const coupes: string[] = await page.evaluate(CE_QUI_EST_COUPE)
@@ -626,13 +630,15 @@ interface ALaManche {
   c: [number, number]
   recit: [number, number] | null
   pose: [number, number] | null
+  /** « Partir de… », sous la carte, que « Pas à pas » ouvre. */
+  partir: [number, number] | null
   y: number
   arme: boolean
 }
 const A_LA_MANCHE = `(() => {
   ${LA_BANDE}
   const boite = s => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return [b.top, b.bottom] }
-  return { tete, bas, q: boite('.cab-manche > .cab-question'), c: boite(${JSON.stringify(CARTE_JOUABLE)}), recit: boite(${JSON.stringify(LU_AU_DESSUS_DE_LA_QUESTION)}), pose: boite('.cab-partie > .cab-pied-pose'), y: window.scrollY, arme: document.querySelector('.cab-partie')?.dataset.arret === 'carte' }
+  return { tete, bas, q: boite('.cab-manche > .cab-question'), c: boite(${JSON.stringify(CARTE_JOUABLE)}), recit: boite(${JSON.stringify(LU_AU_DESSUS_DE_LA_QUESTION)}), pose: boite('.cab-partie > .cab-pied-pose'), partir: boite('.cab-manche .cab-partir-de'), y: window.scrollY, arme: document.querySelector('.cab-partie')?.dataset.arret === 'carte' }
 })()`
 /** La question et la carte entière entre la tête et le pied collés. */
 const laCarteTient = (m: ALaManche) => m.q[1] <= m.c[0] + 0.5 && m.c[1] <= m.bas + 0.5
@@ -640,6 +646,8 @@ const laCarteTient = (m: ALaManche) => m.q[1] <= m.c[0] + 0.5 && m.c[1] <= m.bas
 const leRecitSeLit = (m: ALaManche) => m.recit !== null && m.recit[0] >= m.tete - 0.5
 /** La carte-bonus posée sous la carte, entière au-dessus du pied. */
 const laPoseSeLit = (m: ALaManche) => m.pose !== null && m.pose[1] <= m.bas + 0.5 && m.pose[0] >= m.tete - 0.5
+/** « Partir de… » entier au-dessus du pied, sous la tête. */
+const lePartirDeSeVoit = (m: ALaManche) => m.partir !== null && m.partir[1] <= m.bas + 0.5 && m.partir[0] >= m.tete - 0.5
 
 /**
  * Un geste au doigt, comme le pouce le fait — le défilement d'un `scrollBy` ne se laisse pas toujours arrêter : posé à la hauteur
@@ -732,6 +740,35 @@ async function laLignePosee(page: any, nom: string, quand: string) {
   } else {
     const ou = m.pose ? `${Math.round(m.pose[0])} → ${Math.round(m.pose[1])}` : 'partie'
     noterLaBande(`[épingle] ${quand} : la carte-bonus posée (${ou}) ne se lit pas au-dessus du pied (${Math.round(m.bas)}), la page défilée de ${Math.round(m.y)} px`)
+  }
+  await page.evaluate('window.scrollTo(0, 0)')
+  await page.waitForTimeout(300)
+}
+
+/**
+ * « Partir de… », que « Pas à pas » ouvre sous la carte, s'atteint au doigt : de la carte arrêtée sur le pied, le doigt monte
+ * jusqu'à le montrer entier au-dessus du pied, la page y reste, et rien ne saute une demi-seconde plus tard. Sous l'arrêt armé,
+ * sans le sien, la carte ramenait sur elle tout geste qui finissait plus bas : la liste restait sous le pied collé, à qui défile
+ * au doigt (la relecture du lot l-epingle-et-le-filet). Rien si les pas sont fermés ; atteinte, sa photo.
+ */
+async function lePartirDe(page: any, nom: string, quand: string) {
+  await page.evaluate(LA_CARTE_SUR_LE_PIED)
+  await page.waitForTimeout(600)
+  let m: ALaManche = await page.evaluate(A_LA_MANCHE)
+  if (!m.partir) return
+  for (let i = 0; i < 3 && !lePartirDeSeVoit(m); i++) m = (await enMontant(page, m, lePartirDeSeVoit)).apres
+  await page.waitForTimeout(600)
+  const ensuite: ALaManche = await page.evaluate(A_LA_MANCHE)
+  if (lePartirDeSeVoit(m) && Math.abs(ensuite.y - m.y) <= 0.5) {
+    mesures.push(`l’Épingle ${quand} : « Partir de… » se lit au-dessus du pied (défilée de ${Math.round(m.y)} px${m.arme ? ', l’arrêt armé' : ''})`)
+    await photo(page, `${nom}-partir-de`)
+  } else {
+    const ou = m.partir ? `${Math.round(m.partir[0])} → ${Math.round(m.partir[1])}` : 'parti'
+    noterLaBande(
+      lePartirDeSeVoit(m)
+        ? `[épingle] ${quand} : « Partir de… » atteint, la page saute ensuite de ${Math.round(m.y)} à ${Math.round(ensuite.y)} px`
+        : `[épingle] ${quand} : « Partir de… » (${ou}) ne se lit pas au-dessus du pied (${Math.round(m.bas)}), la page défilée de ${Math.round(m.y)} px${m.arme ? ', l’arrêt armé' : ''}`,
+    )
   }
   await page.evaluate('window.scrollTo(0, 0)')
   await page.waitForTimeout(300)
@@ -928,6 +965,7 @@ async function uneEpingle(page: any, t: EpingleTiree, nom: string) {
   await page.waitForFunction(() => ((globalThis as any).document.querySelector('.cab-ou-est')?.textContent ?? '').trim() !== '')
   await photo(page, `${nom}-pas-a-pas`)
   laMemeTaille('épingle', ouverture, await laQuestionEtLaCarte(page, 'les pas ouverts'), 'les pas ouverts', true)
+  await lePartirDe(page, nom, 'les pas ouverts')
   await toucher(page, page.locator('.cab-pas-a-pas'))
   await page.waitForSelector('.cab-pas-de-l-epingle', { state: 'detached' })
   await page.evaluate('window.scrollTo(0, 0)')

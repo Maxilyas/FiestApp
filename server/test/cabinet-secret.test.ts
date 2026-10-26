@@ -55,7 +55,7 @@ import type { IndicesMontres, IndicesReveles, IndicesTires } from '../../shared/
 import type { RepliqueMontreeAuMot, RepliqueRevelee, RepliqueTiree } from '../../shared/cabinet/jeux/replique'
 import { distanceKm } from '../../shared/cabinet/france'
 import { DECALAGE_DE_LA_ZONE_KM } from '../../shared/cabinet/bareme'
-import { ecritDans } from '../src/core/cabinet/contenu'
+import { contenuDuCabinet, ecritDans } from '../src/core/cabinet/contenu'
 import { hasardDe } from '../../shared/missions'
 import type { QuestionTiree } from '../../shared/cabinet/jeux/outils'
 import type { MursDuCabinet, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
@@ -395,6 +395,18 @@ test('l’Épingle : ni le lieu, ni sa commune, ni son département, ni ses coor
     jamais(d, x, ou)
     sansLeLieu(t, x, ou)
   }
+  // Ce qui vaut pour ce lieu tiré vaut pour chacun : aucun lieu livré n'a pour coordonnée un nombre que la vue porte d'elle-même —
+  // son rang, ses compteurs, le rayon de la zone. Noyon s'écrivait « 3 » de longitude, la vue éclairée porte des 3, et
+  // `sansSesNombres` criait à la fuite une partie sur quatre-vingt-dix, sans fuite (`npm run verify`, deux fois). L'épreuve ne
+  // s'affaiblit pas : le contenu se corrige, et son juge refuse une coordonnée ronde (`cabinet-contenu.test.ts`).
+  const portes = new Set(nombresDe(eclairee))
+  assert.deepEqual(
+    contenuDuCabinet()
+      .lieux.filter(l => portes.has(l.lat) || portes.has(l.lon))
+      .map(l => `${l.id} (${l.lat}, ${l.lon})`),
+    [],
+    'un lieu dont une coordonnée est un nombre de la vue',
+  )
   // Les murs disent les lieux révélés — celui de la partie quittée —, jamais celui d'une manche qui attend son verdict.
   const murs = ok(await lire<MursDuCabinet>(b, eva, '/api/cabinet/murs'), 'les murs, en pleine manche')
   assert.deepEqual(

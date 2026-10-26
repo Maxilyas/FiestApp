@@ -38,6 +38,7 @@ import {
   CASE_DEJA_FAITE,
   CHOISIS_UNE_CASE,
   DEMANDE_ILLISIBLE,
+  LE_JEU_PROPOSE_A_CHANGE,
   PLUS_DE_CHASSE,
   RETENTER_SANS_VISITE_MANQUEE,
   SON_OEUVRE_EST_A_TOI,
@@ -464,7 +465,9 @@ test('le cadre doré : trois manches parfaites sans qu’un pouvoir ait servi �
   auMot(eclairee, 2, 3, MIDI + 40 * S)
   assert.equal(resultatDe(eclairee.depart, eclairee.etat).cadreDore, false)
   assert.deepEqual(eclairee.etat.pieces.map(x => x.joker), [JOKER_D_ECLAIRER, null, null])
-  // Changer qui a servi : plus de cadre doré, mais la pièce reste nue — une autre question, posée comme les autres (D6).
+  // Changer qui a servi : plus de cadre doré, et la pièce sans joker — rien ne l'a aidée, une autre question posée comme les autres
+  // (D6). Pas nue pour autant : sa rechange se joue sur l'échéance de la remplacée, et sa pièce porte la forme de son jeu
+  // (`apresLeChangement`) — une pièce n'est nue que sans joker et sans « Changer ».
   const changee = new Partie(departDe('mot', { carte: carte('changer', 1, 'echange'), rechanges: 1 }))
   changee.joue(ouvrir(0), MIDI)
   changee.joue({ quoi: 'changer', manche: 0 }, MIDI + S)
@@ -473,6 +476,7 @@ test('le cadre doré : trois manches parfaites sans qu’un pouvoir ait servi �
   auMot(changee, 2, 3, MIDI + 40 * S)
   assert.equal(resultatDe(changee.depart, changee.etat).cadreDore, false)
   assert.equal(changee.etat.pieces[0].joker, null)
+  assert.equal(changee.etat.pieces[0].piece.forme, 'mot', 'pas nue : la forme de son jeu')
   assert.equal(changee.etat.pieces[0].tirage, 3, 'la rechange du plan')
   assert.equal(changee.etat.pieces[0].piece.id, 'm3')
 })
@@ -928,6 +932,16 @@ test('l’échange : une fois par jour, une case pas jouée, un jeu ni de la vis
   const seuls = visiteDuJour(m, { ...o, jeux: ['pari', 'eclair', 'mot'] })
   assert.equal(jeuDeLEchange(m, seuls, { ...o, jeux: ['pari', 'eclair', 'mot'] }), null)
   assert.equal(refusDeLEchange(m, seuls, 0, null), 'Aucun autre jeu à proposer aujourd’hui')
+  // Le jeu que la page a nommé (« Changer pour Le Filet ») : le même passe ; un autre — la visite a changé entre la page et le
+  // geste, minuit passé —, un refus en mots, jamais un jeu qu'on ne lui a pas montré ; absent — une page d'avant —, rien ne se
+  // compare (invariant 12). Les refus de la règle passent devant : le jeu nommé ne fait pas oublier qu'on a déjà changé.
+  const autre = NEUF.find(j => j !== jeu)!
+  assert.equal(refusDeLEchange(m, v, 1, jeu, jeu), null)
+  assert.equal(refusDeLEchange(m, v, 1, jeu, undefined), null)
+  assert.equal(refusDeLEchange(m, v, 1, jeu, autre), LE_JEU_PROPOSE_A_CHANGE)
+  assert.equal(refusDeLEchange(m, v, 1, jeu, 'constructor'), LE_JEU_PROPOSE_A_CHANGE)
+  assert.equal(refusDeLEchange(m, echangee, 0, jeu, autre), 'Tu as déjà changé un jeu aujourd’hui')
+  assert.equal(refusDeLEchange(m, seuls, 0, null, autre), 'Aucun autre jeu à proposer aujourd’hui')
 })
 
 test('commencer : les refus en mots, une seule règle que la page lit pour griser', () => {

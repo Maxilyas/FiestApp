@@ -225,6 +225,22 @@ test('le joueur « tablée » du calibrage sait ce que la consigne de la tablée
   assert.match(consigne, /`server\/scripts\/calibrage-cabinet\.ts`, θ ≈ \+2,5/, 'la consigne de la tablée nomme le même joueur')
 })
 
+test('l’échange du calibrage ne lit que la page : le jeu que « Changer » nomme, jamais la règle des échanges', () => {
+  // Ses joueurs choisissaient l'échange sur `jeuDeLEchange` — un oracle tant que la page ne disait pas le jeu qui viendrait, et
+  // une copie de ce que la page sait depuis qu'elle le dit (`visite.echange.jeu`, la relecture du lot les-regles-et-leur-mesure).
+  // La visite telle que le serveur la rend (`visiteVue`, de la lecture que le magasin bâtit : `lectureDeLaVisite`), et le choix
+  // fait sur elle seule : le jeu nommé, le seuil de chaque case.
+  const code = sansCommentaires(SOURCE)
+  assert.doesNotMatch(code, /jeuDeLEchange/, 'la règle des échanges, lue par le joueur')
+  assert.match(code, /\{ visiteVue \} = await import\('\.\.\/src\/core\/cabinet\/vue'\)/)
+  assert.match(code, /\{ lectureDeLaVisite \} = await import\('\.\.\/src\/core\/cabinet\/magasin'\)/)
+  const [debut, fin] = [SOURCE.indexOf('if (j.echange)'), SOURCE.indexOf('// La visite : ses trois cases')]
+  assert.ok(debut > 0 && fin > debut, 'le choix d’échanger')
+  const choix = sansCommentaires(SOURCE.slice(debut, fin))
+  assert.match(choix, /\.echange\.jeu\b/)
+  assert.doesNotMatch(choix, /\.cible\b|refusDeLEchange/, 'ce que la page ne montre pas : l’œuvre visée, la règle')
+})
+
 test('le calibrage joue les règles du code, sans en recopier une', () => {
   // Aucune constante du barème redéclarée : une copie suivrait un barème d'avant sans un mot.
   const code = sansCommentaires(SOURCE)

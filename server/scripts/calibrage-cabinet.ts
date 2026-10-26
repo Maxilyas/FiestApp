@@ -251,6 +251,10 @@ const { decimales } = await import('../../shared/classement')
 const { hasardDe } = await import('../../shared/missions')
 const { jourAvant, jourDe } = await import('../../shared/jour')
 const { minuitDe } = await import('../../shared/qg')
+// La visite telle que la page la reçoit, de la lecture que le magasin bâtit : l'échange s'y choisit sur ce que la page montre — le
+// jeu que « Changer » nomme, le seuil de chaque case —, jamais sur la règle des échanges, que la page n'a pas.
+const { lectureDeLaVisite } = await import('../src/core/cabinet/magasin')
+const { visiteVue } = await import('../src/core/cabinet/vue')
 const { formatNumber } = await import('../../shared/typographie')
 const { TAUX_DU_CALIBRAGE } = await import('../../shared/sentiers')
 const { JUSTES_DOUBLEES_PAR_JOUR, QUESTIONS_PAR_SERIE, VIES, ordreDeSerie, xpDuJourDeCampagne } = await import('../../shared/campagne')
@@ -1699,14 +1703,19 @@ function parcourir(j: Joueur, k: number): Parcours {
     let v = M.visiteDuJour(musee(), graine)
     const avantLaJournee = x.parOrigine.visite.justes + x.parOrigine.chasse.justes + x.parOrigine.libre.justes
 
-    // L'échange : la case dont le jeu lui va le plus mal, si l'autre jeu lui va mieux.
+    // L'échange : la case dont le jeu lui va le plus mal, si le jeu que « Changer » nomme lui va mieux — lus sur la visite que la
+    // page reçoit : son seuil (pour dorer, celui du double ; pour la poussière, aucun), le jeu proposé, et si l'échange se peut.
     if (j.echange) {
       const m = musee()
-      const vaut = (jeu: CleDeJeu, cible: CleDOeuvre | null) => (cible ? meilleure(m, jeu, 'gagner', seuilDe(cible)).vaut : 1)
-      const pire = v.cases.map((c, i) => ({ i, vaut: vaut(c.jeu, c.cible) })).sort((a, b) => a.vaut - b.vaut)[0]
-      const autre = M.jeuDeLEchange(m, v, graine)
-      if (pire && autre && M.refusDeLEchange(m, v, pire.i, autre) === null && vaut(autre, v.cases[pire.i].cible) > pire.vaut + 0.05) {
-        v = M.visiteEchangee(v, pire.i as Manche, autre)
+      const page = visiteVue(lectureDeLaVisite(m, v, graineDeLaVisite, CLES_DES_JEUX))
+      const vaut = (jeu: CleDeJeu, seuil: number | undefined) => (seuil === undefined ? 1 : meilleure(m, jeu, 'gagner', seuil).vaut)
+      const seuilMontre = (i: number) => page.cases[i].seuil ?? page.cases[i].seuilDuDouble
+      const pire = page.cases
+        .map((c, i) => ({ i, faite: c.faite, vaut: vaut(c.jeu, seuilMontre(i)) }))
+        .filter(c => !c.faite)
+        .sort((a, b) => a.vaut - b.vaut)[0]
+      if (page.echange.possible && pire && vaut(page.echange.jeu, seuilMontre(pire.i)) > pire.vaut + 0.05) {
+        v = M.visiteEchangee(v, pire.i as Manche, page.echange.jeu)
         premierLotDuJour(v)
       }
     }

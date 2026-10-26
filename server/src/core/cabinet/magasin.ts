@@ -218,6 +218,16 @@ export interface LectureDuCabinet {
 /** Ce que le bouton de l'accueil lit (`accueilDuCabinet`) : le musée et sa visite, comme la page les lit. */
 export type LectureDeLAccueil = Pick<LectureDuCabinet, 'musee' | 'visite' | 'jeuDeLEchange' | 'jeux'>
 
+/**
+ * Le musée et sa visite comme la page, l'accueil et l'échange les lisent : le jeu que l'échange donnerait s'y tire de la graine
+ * secrète de la visite (`jeuDeLEchange`), qui ne sort pas de cette lecture — la vue n'en garde que le jeu (`visiteVue`). Une
+ * seule copie, que le calibrage lit aussi (`calibrage-cabinet.ts`) : ses joueurs choisissent leur échange sur la visite que la
+ * page reçoit, jamais sur la règle.
+ */
+export function lectureDeLaVisite(musee: Musee, visite: VisiteDuJour, graine: string, jeux: readonly CleDeJeu[] = JEUX_PRETS): LectureDeLAccueil {
+  return { musee, visite, jeuDeLEchange: jeuDeLEchange(musee, visite, { graine, jeux }), jeux }
+}
+
 /** Un geste reçu : la partie d'après, ou ce qui le refuse sans rien écrire. */
 export type IssueDuGeste =
   | { partie: PartieLue }
@@ -658,8 +668,7 @@ export class CabinetStore {
     if (!g) return null
     const t = this.maintenant()
     const musee = this.museeVu(profileId, g, jourDe(t))
-    const visite = this.visiteDe(profileId, musee, t)
-    return { musee, visite, jeuDeLEchange: jeuDeLEchange(musee, visite, { graine: this.graineDe(profileId), jeux: JEUX_PRETS }), jeux: JEUX_PRETS }
+    return lectureDeLaVisite(musee, this.visiteDe(profileId, musee, t), this.graineDe(profileId))
   }
 
   // ── La page ───────────────────────────────────────────────────────────
@@ -706,13 +715,10 @@ export class CabinetStore {
     return {
       maintenant: t,
       jour: jourDe(t),
-      musee,
-      visite,
-      jeuDeLEchange: jeuDeLEchange(musee, visite, { graine: this.graineDe(profileId), jeux: JEUX_PRETS }),
+      ...lectureDeLaVisite(musee, visite, this.graineDe(profileId)),
       enCours: enCours && !enCours.etat.fin ? { ...enCours, lueA: t } : null,
       expeditionEnRoute: garde.expeditionEnRoute !== null,
       fete: this.reglages.calendrier.periodeDu(jourDe(t))?.saison ?? null,
-      jeux: JEUX_PRETS,
       rangees: this.rangeesDe(profileId),
       ...(reveil && { reveil }),
     }
@@ -1211,16 +1217,17 @@ export class CabinetStore {
   // ── L'échange d'un jeu de la visite ───────────────────────────────────
 
   /**
-   * « Changer de jeu » sur une case de la visite pas encore jouée, une fois
+   * « Changer pour … » sur une case de la visite pas encore jouée, une fois
    * par jour : le jeu neuf, celui que la règle des échanges donne
-   * (`jeuDeLEchange`), l'œuvre en jeu gardée. Un lot gardé, d'un aller-retour :
-   * la visite se fige si rien ne l'a encore fait, puis la case change, sous la
-   * base même. Devancé — l'autre serveur d'une mise en ligne, un autre onglet a
-   * échangé, ou commencé la case —, le musée s'oublie, se relit, et l'échange
-   * se rejoue une fois : il passe, ou se refuse en mots. La mémoire n'est
-   * jamais en avance : son refus se dit sans relire.
+   * (`jeuDeLEchange`), l'œuvre en jeu gardée — s'il est celui que la page a
+   * nommé (`montre`), qu'un jour neuf a pu changer depuis. Un lot gardé, d'un
+   * aller-retour : la visite se fige si rien ne l'a encore fait, puis la case
+   * change, sous la base même. Devancé — l'autre serveur d'une mise en ligne,
+   * un autre onglet a échangé, ou commencé la case —, le musée s'oublie, se
+   * relit, et l'échange se rejoue une fois : il passe, ou se refuse en mots. La
+   * mémoire n'est jamais en avance : son refus se dit sans relire.
    */
-  echanger(profileId: string, k: unknown): Promise<LectureDuCabinet> {
+  echanger(profileId: string, k: unknown, montre?: unknown): Promise<LectureDuCabinet> {
     return this.porte.avecVerrou(profileId, async () => {
       for (let essai = 0; ; essai++) {
         const t = this.maintenant()
@@ -1228,9 +1235,9 @@ export class CabinetStore {
         const g = await this.musee(profileId, t)
         const musee = this.museeVu(profileId, g)
         const visite = this.visiteDe(profileId, musee, t)
-        const jeu = jeuDeLEchange(musee, visite, { graine: this.graineDe(profileId), jeux: JEUX_PRETS })
+        const { jeuDeLEchange: jeu } = lectureDeLaVisite(musee, visite, this.graineDe(profileId))
         // Sans jeu à proposer, la règle refuse déjà : `jeu` n'est nul qu'avec ce refus.
-        const refus = refusDeLEchange(musee, visite, k, jeu)
+        const refus = refusDeLEchange(musee, visite, k, jeu, montre)
         if (refus !== null || jeu === null) throw new Error(refus ?? AUCUN_AUTRE_JEU)
         const kase = k as Manche
         const lot = lotDeLEchange({

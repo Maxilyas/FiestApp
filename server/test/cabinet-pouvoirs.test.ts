@@ -116,7 +116,7 @@ const refus = (r: Reponse<unknown>) => [r.status, (r.corps as { error?: string }
 const enCoursDuMot = (v: VueDeLaPartie) => v.enCours as MotMontre
 const enCoursDuFilet = (v: VueDeLaPartie) => v.enCours as FiletMontre
 const lignesDe = (serie: string) =>
-  enBase(b.fichier, db => db.prepare('SELECT position, reserve_id, juste, forme, joker FROM campagne_reponses WHERE serie_id = ? ORDER BY position').all(serie) as { joker: string | null }[])
+  enBase(b.fichier, db => db.prepare('SELECT position, reserve_id, juste, forme, joker FROM campagne_reponses WHERE serie_id = ? ORDER BY position').all(serie) as { joker: string | null; forme: string | null }[])
 
 // ── Éclairer ──────────────────────────────────────────────────────────────
 
@@ -232,8 +232,11 @@ test('Changer prend la rechange suivante du plan, sous la même échéance — a
   v = await jouerUnMot(b, ana, v, 0, 1)
   assert.equal(v.revelation?.tirage, 3)
   assert.equal(v.manches[0].note, 'changée', 'la manche dit qu’elle a joué une rechange')
-  // Changer ne marque pas la ligne : il pose une autre question, nue de toute aide sur elle. La partie, elle, est aidée.
+  // Changer ne marque pas la ligne : il pose une autre question, sans rien qui l'aide — sans joker. Pas nue pour autant : la
+  // rechange se joue sur l'échéance de la remplacée, et sa pièce porte la forme de son jeu (une pièce n'est nue que sans joker et
+  // sans « Changer »). La partie, elle, est aidée.
   assert.deepEqual(lignesDe(v.id).map(l => l.joker), [null])
+  assert.deepEqual(lignesDe(v.id).map(l => l.forme), ['mot'])
   v = ok(await jouer(b, ana, v, { quoi: 'quitter' }), 'quitter')
   assert.equal(v.bilan?.aidee, true, 'plus de cadre doré')
 

@@ -10900,11 +10900,15 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    ramenait (la relecture du lot la-partie-et-la-visite). Il ne s'arme donc que loin du haut, le récit hors de son attraction
    (`data-arret`, `lArretDeLaCarteSArme`, `bande.ts`) ; près, la carte tient déjà à moitié à l'ouverture. Et la carte-bonus posée
    sous la carte — Éclairer dépensé, Prendre son temps et sa ligne du temps en plus — s'arrête au-dessus du pied à son tour : seule,
-   la carte ramenait sur elle tout geste qui finissait plus bas, et la ligne ne se lisait jamais au doigt. Le `:has()` ne vaut que
-   tant que la carte se joue : la révélation défile librement. */
+   la carte ramenait sur elle tout geste qui finissait plus bas, et la ligne ne se lisait jamais au doigt. « Partir de… », que
+   « Pas à pas » ouvre sous la carte, de même : sans son arrêt, la liste restait sous le pied collé pour qui défile au doigt —
+   484 → 551 pixels sous un pied à 466, en 360 × 640 au texte à 130 % (la relecture du lot l-epingle-et-le-filet) ; le clavier et
+   le lecteur d'écran l'atteignaient par le focus. Le `:has()` ne vaut que tant que la carte se joue : la révélation défile
+   librement. */
 .cab-manche .cab-carte-jouable { width: min(100% + 4px, 460px, max(150px, var(--cab-place, 100dvh) * var(--cab-carte-l) / var(--cab-carte-h))); margin: 0 auto; scroll-snap-align: end; scroll-margin: calc(var(--cab-tete, 0px) + var(--cab-question, 0px)) 0 var(--cab-pied, 0px); }
 html:has(.cab-partie[data-arret='carte'] .cab-carte-jouable) { scroll-snap-type: y proximity; }
 .cab-partie[data-arret='carte'] > .cab-pied-pose { scroll-snap-align: end; scroll-margin-bottom: var(--cab-pied, 0px); }
+.cab-partie[data-arret='carte'] .cab-partir-de { scroll-snap-align: end; scroll-margin-bottom: var(--cab-pied, 0px); }
 /* Les pas de l'épingle, que « Pas à pas » ouvre au-dessus de lui et de « Planter ici », sur leur ligne : quatre directions et la
    bascule des grands pas, 44 pixels chacun — cinq carrés tiennent les 237 pixels d'un 277 de large. Au doigt, ils font ce que font
    les flèches au clavier : sous TalkBack, un double toucher plantait au centre de la carte. Toujours ouverts, avec la carte-bonus

@@ -24,6 +24,7 @@ import type { CleDeFiole } from '../../shared/rencontres'
 import type { Cartel, MursDuCabinet, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import type { DemandeLue } from '../../shared/cabinet/musee'
 import type { GesteDuCabinet } from '../../shared/cabinet/partie'
+import type { CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
@@ -706,8 +707,11 @@ export const api = {
       auReveil(() => avecLHeure(() => req<PageDuCabinet>(`/api/cabinet/oeuvre/${encodeURIComponent(cle)}/achat`, { method: 'POST', body: JSON.stringify({ prix }) }))),
     dorer: (cle: string, prix: number) =>
       auReveil(() => avecLHeure(() => req<PageDuCabinet>(`/api/cabinet/oeuvre/${encodeURIComponent(cle)}/dorure`, { method: 'POST', body: JSON.stringify({ prix }) }))),
-    /** Changer le jeu d'une case de la visite pas encore jouée, une fois par jour. */
-    echanger: (k: number) => avecLHeure(() => req<PageDuCabinet>('/api/cabinet/visite/echange', { method: 'POST', body: JSON.stringify({ case: k }) })),
+    /**
+     * Changer le jeu d'une case de la visite pas encore jouée, une fois par jour, pour le jeu que la page a nommé (`jeu`) : la
+     * visite changée depuis — minuit passé —, le serveur le refuse en mots plutôt que d'en donner un autre (`refusDeLEchange`).
+     */
+    echanger: (k: number, jeu?: CleDeJeu) => avecLHeure(() => req<PageDuCabinet>('/api/cabinet/visite/echange', { method: 'POST', body: JSON.stringify({ case: k, jeu }) })),
     /** Tes murs : les lieux épinglés et les dates rangées — rien n'y court, ils ne portent pas l'heure. */
     murs: () => req<MursDuCabinet>('/api/cabinet/murs'),
   },

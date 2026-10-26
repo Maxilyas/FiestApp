@@ -81,7 +81,10 @@ export interface GardienVu {
   legendaire: string
   reveille: boolean
   voie?: 'cabinet' | 'ailleurs'
-  /** « La salle du Rempart complète », « Tous les cadres du Devin dorés », « 30 jours de visite ou de chasse d'affilée ». */
+  /**
+   * « La salle du Rempart complète », « Tous les cadres du Devin dorés », « 30 jours d’affilée à répondre à une manche de visite
+   * ou de chasse » (`conditionDuGardien`).
+   */
   condition: string
   pouvoir: CleDePouvoir
 }

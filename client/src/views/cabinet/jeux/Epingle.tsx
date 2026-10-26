@@ -216,9 +216,9 @@ function amenerLaCarte() {
  * en 277 × 492, les pas ouverts (`[épingle]` de `rendu-cabinet.ts`, avant et
  * après la fusion avec le point d'arrêt de la carte) ; sous la carte, rien
  * au-dessus d'elle ne bouge quand « Pas à pas » l'ouvre. La carte étant un
- * point d'arrêt du défilement, la liste demande le sien à la feuille
- * (`cab-partir-de`) : sans lui, la page poussée jusqu'à elle revient sur la
- * carte. Sa première ligne la dit sans rien poser ; la liste montre le départ
+ * point d'arrêt du défilement quand l'arrêt est armé (`data-arret`), la liste
+ * a le sien sous la même condition (`.cab-partir-de`, `styles.css`) : sans
+ * lui, la page poussée jusqu'à elle revenait sur la carte. Sa première ligne la dit sans rien poser ; la liste montre le départ
  * tant que l'épingle y est (`departDeLEpingle`) — les flèches du clavier vont
  * de ville en ville —, et « Partir de… » dès qu'elle bouge autrement. Son nom
  * commence par ce qu'elle montre, pour une commande vocale (WCAG 2.5.3), et

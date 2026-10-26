@@ -136,6 +136,13 @@ export function BoutonRetenter({
 }
 
 /**
+ * Le jeu que « Changer » nomme, tant que la visite que la page tient permet l'échange : la page l'envoie avec lui
+ * (`api.cabinet.echanger`), et le serveur refuse en mots un échange dont le jeu a changé depuis — minuit passé, la page restée
+ * ouverte — plutôt que d'en donner un qu'on ne lui a pas montré.
+ */
+export const jeuPropose = (visite: Pick<VisiteVue, 'echange'> | undefined): CleDeJeu | undefined => (visite?.echange.possible ? visite.echange.jeu : undefined)
+
+/**
  * Ce que demande « Changer » avant d'écrire, comme la dorure demande la sienne : la case et le jeu qu'elle prendra, dans les
  * mots de la visite que la page tient — un seul échange par jour, et l'œuvre en jeu reste. Rien à demander, et rien ne part,
  * quand la visite ne permet plus d'échange ou ne connaît pas la case : le bouton n'est là que tant qu'elle le permet, et une page

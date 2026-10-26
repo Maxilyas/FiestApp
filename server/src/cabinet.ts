@@ -147,13 +147,14 @@ export function mountCabinet(app: Express, deps: CabinetDeps) {
     }),
   )
 
-  // « Changer de jeu » sur une case de la visite pas encore jouée (`{ case }`), une fois par jour : la page d'après.
+  // « Changer pour … » sur une case de la visite pas encore jouée (`{ case, jeu }`), une fois par jour : la page d'après. `jeu`,
+  // celui que la page a nommé : un autre que celui de l'échange se refuse en mots ; absent — une page d'avant —, rien ne se compare.
   app.post(
     '/api/cabinet/visite/echange',
     petit,
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(pageDuCabinet(await deps.cabinet.echanger(profil.id, req.body?.case)))
+      if (profil) res.json(pageDuCabinet(await deps.cabinet.echanger(profil.id, req.body?.case, req.body?.jeu)))
     }),
   )
 

@@ -42,7 +42,10 @@ import type { Force } from './pouvoirs'
 
 // ── Une partie ────────────────────────────────────────────────────────────
 
-/** Trois manches de trois étoiles : une partie de deux minutes, qui se lit d'un coup d'œil. */
+/**
+ * Trois manches de trois étoiles : une partie de quelques minutes, qui se lit d'un coup d'œil. Pas « de deux minutes » : le Mot
+ * en donne deux par manche, et la page ne le promet plus (la tablée du 26 octobre 2026).
+ */
 export const MANCHES_PAR_PARTIE = 3
 export const ETOILES_PAR_MANCHE = 3
 /** Le total d'une partie, plafonné là même quand une mise gagnée y ajoute : neuf, c'est « parfait ». */
@@ -72,7 +75,7 @@ export const SEUILS_DES_RARETES: Readonly<Record<Rarete, number>> = { commun: 5,
 export const POUSSIERE_PAR_ETOILE = 2
 /**
  * … et quatre au moins, même ratée, pourvu qu'il ait répondu à une manche :
- * une partie de deux minutes fait toujours avancer. Quittée d'emblée, elle en
+ * une partie de quelques minutes fait toujours avancer. Quittée d'emblée, elle en
  * rapportait autant — de quoi en tirer sans jouer (la tablée du 25 octobre
  * 2026) ; elle ne rapporte plus rien depuis le lendemain.
  */
@@ -124,7 +127,10 @@ export const JOURS_QUI_PASSENT_APRES = 2
  * maudite ou une épique de temps en temps.
  */
 export const POIDS_DES_CIBLES: Readonly<Record<Rarete, number>> = { commun: 6, rare: 3, maudit: 1, epique: 1 }
-/** Les chasses de chaque jour : toucher un cadre vide et jouer au jeu où l'œuvre se trouve, ou rejouer une œuvre pour la dorer. */
+/**
+ * Les chasses de chaque jour : toucher un cadre vide et jouer au jeu où l'œuvre se trouve, ou jouer une œuvre à soi à son jeu
+ * pour la dorer — jamais la « rejouer » : offerte ou achetée, elle n'a souvent jamais été jouée.
+ */
 export const CHASSES_PAR_JOUR = 2
 /** « Rien ne revient avant sept jours », d'un jeu à l'autre : le Pari et l'Éclair puisent dans le même tas. */
 export const JOURS_SANS_REDITE = 7

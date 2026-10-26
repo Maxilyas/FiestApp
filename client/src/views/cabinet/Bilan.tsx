@@ -14,7 +14,9 @@ import type { IssueDUnePartie, OrigineDUnePartie } from '../../../../shared/cabi
 import type { GainsDuCabinet, MancheVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees, type Tombe } from '../../../../shared/gains'
 import { titreAuBilan } from './Cartel'
-import type { EcranEfface } from './Partie'
+// `Partie.tsx` est déjà là quand le bilan vient : il le demande (`LE_BILAN`) et part avec la page. Son titre de révélation ne
+// coûte rien au morceau du bilan, qui le lui emprunte.
+import { titreDeLaRevelation, type EcranEfface } from './Partie'
 import { GardiensQuiSEveillent } from './Reveil'
 import { oeuvreMontree } from './Salle'
 import { BoutonRetenter } from './Visite'
@@ -70,10 +72,15 @@ function LigneDeLaManche({ m, k }: { m: MancheVue; k: number }) {
 export function MesReponses({ vue, ecran, onFermer }: { vue: VueDeLaPartie; ecran: EcranEfface; onFermer: () => void }) {
   return (
     <Feuille titre="Mes réponses" onFermer={onFermer} className="cab-feuille">
-      {vue.manches.map((m, k) =>
-        m.revelation ? (
+      {vue.manches.map((m, k) => {
+        if (!m.revelation) return null
+        // Titrée des mots mêmes de sa révélation à l'écran, et pourquoi dessous : le titre du jeu, qui ne sait rien de la mise,
+        // coiffait ici une mise perdue — « Reconnu » au-dessus de zéro étoile (la relecture du lot la-partie-et-la-visite).
+        const titre = titreDeLaRevelation(m.revelation, m.naturel)
+        return (
           <section key={k} className="cab-reponses-manche" aria-label={`Manche ${k + 1}`}>
-            <span className="cab-surtitre">{`Manche ${k + 1} · ${espacesFines(m.revelation.corps.titre)}`}</span>
+            <span className="cab-surtitre">{`Manche ${k + 1} · ${espacesFines(titre.titre)}`}</span>
+            {titre.dessous && <p className="cab-titre-du-jeu">{espacesFines(titre.dessous)}</p>}
             <ecran.Revelation corps={m.revelation.corps} partie={vue.id} tirage={m.revelation.tirage} fin={m.revelation.fin} />
             {m.revelation.corps.savais && (
               <p className="card anecdote">
@@ -84,8 +91,8 @@ export function MesReponses({ vue, ecran, onFermer }: { vue: VueDeLaPartie; ecra
               </p>
             )}
           </section>
-        ) : null,
-      )}
+        )
+      })}
     </Feuille>
   )
 }

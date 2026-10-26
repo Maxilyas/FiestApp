@@ -49,6 +49,7 @@ import { VERSION_BAREME } from '../src/auth/profiles'
 import { xpDuNiveau } from '../../shared/profil'
 import { PALIERS_DE_LA_NICHE } from '../../shared/ornements'
 import { SOUS_LA_NICHE } from './a-l-ecran'
+import { attenteDesImages } from './tablee/gestes'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-niche')
 mkdirSync(sortie, { recursive: true })
@@ -134,9 +135,10 @@ async function nouvellePage(ctx: any) {
 /** La photo d'une page, en haut, sa niche arrivée — et ce qui passe dessous. */
 async function photo(page: any, nom: string, { pleine = false, attente = 600 } = {}) {
   await page.waitForSelector('.niche .niche-bete img', { timeout: 8000 }).catch(() => {})
-  // Trois secondes au plus : une image `loading="lazy"` hors de l'écran — les portes du musée du Cabinet — ne se charge pas, et son
-  // `decode()` attendait toujours.
-  await page.evaluate('Promise.race([Promise.all([...document.images].map(i => i.decode().catch(() => {}))), new Promise(r => setTimeout(r, 3000))])')
+  // Les images que la photo montrera, trois secondes au plus, comme la régie (`attenteDesImages`) : celles de l'écran, ou toutes
+  // pour la page entière, les paresseuses passées en « eager » d'abord — Chromium ne demande jamais celles qui sont loin sous
+  // l'écran, et la photo entière les montrait vides.
+  await page.evaluate(attenteDesImages(pleine, 3000))
   await page.waitForTimeout(attente)
   const fichier = path.join(sortie, `${nom}.png`)
   await page.screenshot({ path: fichier, fullPage: pleine })
@@ -223,6 +225,8 @@ async function solo() {
   await page.getByRole('button', { name: /Mon compagnon/ }).click()
   await page.waitForSelector('.chez-scene .chez-niche .niche-bete img')
   await photo(page, '04b-mon-compagnon', { attente: 900 })
+  // La page entière, prise à part : ses images loin sous l'écran attendues, paresseuses comprises.
+  await page.evaluate(attenteDesImages(true, 3000))
   await page.screenshot({ path: path.join(sortie, '04c-mon-compagnon-entier.png'), fullPage: true })
   // Sa carte, comme la salle l'ouvre : son compagnon dans sa niche, avec son nom.
   await aller('/profil', '.profil-boutons .gros-compte')
