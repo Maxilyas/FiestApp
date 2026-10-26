@@ -93,8 +93,9 @@ export interface HautFaitDeCarriere {
    * Il ne se montre que là où le serveur le cite (`PublicProfileDetail.hautsFaits`)
    * : L'Explorateur, tant que le Cabinet de curiosités reste fermé en
    * production — ses salles ne s'y voient nulle part, et le même code sert la
-   * préproduction, où il se gagne. Le serveur le tait et ne le décerne pas ;
-   * l'album ne bâtit pas sa case sans lui.
+   * préproduction, où il se gagne. Le serveur le tait et ne le décerne pas —
+   * sauf à qui en a déjà un palier, qu'il cite partout : un palier rangé ne se
+   * cache pas ; l'album ne bâtit pas sa case sans lui.
    */
   montreParLeServeur?: true
 }
@@ -737,13 +738,14 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
   },
   // Les salles complètes du Cabinet de curiosités (le 26 octobre 2026), une,
   // trois, six sur neuf (`StatsDeCampagne.salles`). Il comptait depuis le 19
-  // le niveau d'explorateur de l'Expédition — 4, 7, 10 —, que son départ
-  // fermé n'aurait plus fait monter : sa clé reste, et ses paliers rangés avec
-  // elle (invariant 22 — un palier validé ne se perd jamais). Changer sa mesure
-  // ne durcit ni un légendaire ni la courbe, et ne paie rien de soirée :
-  // `VERSION_BAREME` ne bouge pas. Réservé aux serveurs où le Cabinet s'ouvre
-  // (`montreParLeServeur`) : ailleurs, il ne se compte, ne se gagne ni ne se
-  // montre.
+  // le niveau d'explorateur de l'Expédition — 4, 7, 10 —, que son départ,
+  // fermé à l'ouverture du Cabinet (`EXPEDITION_REMPLACEE`), n'aurait plus fait
+  // monter : sa clé reste, et ses paliers rangés avec elle (invariant 22 — un
+  // palier validé ne se perd jamais). Changer sa mesure ne durcit ni un
+  // légendaire ni la courbe, et ne paie rien de soirée : `VERSION_BAREME` ne
+  // bouge pas. Réservé aux serveurs où le Cabinet s'ouvre
+  // (`montreParLeServeur`) : ailleurs, il ne se compte ni ne se gagne, et ne se
+  // montre qu'à qui en a déjà un palier.
   {
     key: 'hf:explorateur',
     famille: 'carriere',

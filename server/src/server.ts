@@ -640,7 +640,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.compagnonsDeCampagne = id => campagne.compagnonsDe(id)
   // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
   profiles.statsDeCampagne = id => campagne.statsDe(id)
-  // L'Explorateur ne se cite que là où le Cabinet s'ouvre, comme il ne s'y gagne que là.
+  // L'Explorateur ne se cite que là où le Cabinet s'ouvre, comme il ne s'y gagne que là — sauf à ses détenteurs, qui
+  // l'ont gagné au niveau d'explorateur, en production aussi : ils le gardent cité partout.
   profiles.cabinet = cabinetEstOuvert
   // Sa ligue des duels, sur sa carte.
   profiles.duelsDe = id => campagne.coteDe(id)

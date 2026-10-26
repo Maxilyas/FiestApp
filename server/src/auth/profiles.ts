@@ -950,10 +950,11 @@ export class ProfileStore {
   /**
    * Le Cabinet de curiosités s'ouvre sur ce serveur (`cabinetOuvert`) : les
    * trophées réservés à lui (`montreParLeServeur` — L'Explorateur, ses salles
-   * complètes) ne partent qu'alors dans la page du profil et la loge. Posé au
-   * démarrage comme `statsDeCampagne` ; un serveur qui ne le dit pas les tait.
-   * Il suivait les rencontres de l'expédition jusqu'au 26 octobre 2026, quand
-   * L'Explorateur comptait le niveau d'explorateur.
+   * complètes) ne partent qu'alors dans la page du profil et la loge — sauf à
+   * qui en a déjà un palier, partout (`hautsFaitsVus`). Posé au démarrage comme
+   * `statsDeCampagne` ; un serveur qui ne le dit pas les tait. Il suivait les
+   * rencontres de l'expédition jusqu'au 26 octobre 2026, quand L'Explorateur
+   * comptait le niveau d'explorateur.
    */
   cabinet = false
 
@@ -3343,27 +3344,32 @@ export class ProfileStore {
         ...(porte && { rarete: porte.rarete, porteurs: porte.porteurs }),
       }
     })
-    // Un trophée réservé au Cabinet ne se cite que là où il s'ouvre : l'album ne lui fait pas de case sans lui. Ses
-    // détenteurs le gardent rangé (invariant 22), et l'y retrouvent le jour où il ouvre.
-    const carrieres: HautFaitVu[] = HAUTS_FAITS_DE_CARRIERE.filter(h => !h.montreParLeServeur || this.cabinet).map(h => {
+    // Un trophée réservé au Cabinet ne se cite que là où il s'ouvre, sauf à qui en a un palier rangé : l'album ne lui
+    // fait pas de case sans lui. L'Explorateur s'est gagné en production quand il comptait le niveau d'explorateur ; le
+    // taire à ses détenteurs tant que le Cabinet y est fermé leur aurait caché ce que leur étagère montre encore
+    // (invariant 22 — un palier validé ne se perd jamais, ni de vue).
+    const carrieres: HautFaitVu[] = HAUTS_FAITS_DE_CARRIERE.flatMap((h): HautFaitVu[] => {
       let palier = 0
       for (let i = 1; i <= 3; i++) if ((recompenses.get(clePalier(h.key, i)) ?? 0) > 0) palier = i
+      if (h.montreParLeServeur && !this.cabinet && palier === 0) return []
       const porte = palier > 0 ? rarete.get(clePalier(h.key, palier)) : undefined
       const origine = origineDe(h)
-      return {
-        key: h.key,
-        famille: 'carriere',
-        ...(origine && { origine }),
-        emoji: h.emoji,
-        title: h.title,
-        rule: h.mesure,
-        ruleUne: h.mesureUne,
-        ton: 'eclat',
-        fois: palier,
-        ...(carriere && { valeur: h.valeur(carriere) }),
-        prochain: palier < 3 ? h.paliers[palier] : null,
-        ...(porte && { rarete: porte.rarete, porteurs: porte.porteurs }),
-      }
+      return [
+        {
+          key: h.key,
+          famille: 'carriere',
+          ...(origine && { origine }),
+          emoji: h.emoji,
+          title: h.title,
+          rule: h.mesure,
+          ruleUne: h.mesureUne,
+          ton: 'eclat',
+          fois: palier,
+          ...(carriere && { valeur: h.valeur(carriere) }),
+          prochain: palier < 3 ? h.paliers[palier] : null,
+          ...(porte && { rarete: porte.rarete, porteurs: porte.porteurs }),
+        },
+      ]
     })
     return [...soiree, ...carrieres]
   }

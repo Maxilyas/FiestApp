@@ -215,7 +215,7 @@ Chaque étape tombe une fois dans ta carrière et rapporte 50, 100 puis 200 poin
 | 🎓 L'Érudit | expertes trouvées en campagne, hors révisions | 25 · 100 · 300 | en campagne |
 | 👟 Le Marathonien | bonnes réponses en campagne, tous modes | 250 · 1 000 · 2 000 | en campagne |
 | 🧳 Le Globe-trotter | tampons au passeport de l'expédition : chaque thème pointu trouvé, une fois | 10 · 40 · 92 | au bout d'une expédition |
-| 🎒 L'Explorateur | les salles complètes de ton Cabinet de curiosités — il comptait ton niveau d'explorateur jusqu'au 26 octobre 2026, et ce qu'il t'a donné reste | 1 · 3 · 6 | en campagne, à la fin de la partie qui complète la salle — là où le Cabinet est ouvert, la préproduction d'abord |
+| 🎒 L'Explorateur | les salles complètes de ton Cabinet de curiosités — il comptait ton niveau d'explorateur jusqu'au 26 octobre 2026, et ce qu'il t'a donné reste | 1 · 3 · 6 | en campagne, à la fin de la partie qui complète la salle, ou de la suivante après un achat — là où le Cabinet est ouvert, la préproduction d'abord ; ses paliers d'avant se montrent partout à qui les a |
 | 🥾 Le Randonneur | paliers des sentiers validés en épreuve | 12 · 48 · 120 | en campagne |
 | 🌟 La Constellation | étoiles des sentiers, la meilleure note de chaque palier | 25 · 100 · 250 | en campagne |
 | 🗺️ Le Cartographe | sentiers validés en épreuve jusqu'au palier 8 ou plus haut | 3 · 6 · 12 | en campagne |

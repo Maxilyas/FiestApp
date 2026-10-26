@@ -6,7 +6,8 @@
 // codex, et l'invité du jour qui prête la sienne ; le dos de son paquet, pris
 // au départ parmi les siens ; L'Explorateur, une piste de la campagne qui
 // comptait le niveau d'explorateur et compte depuis le 26 octobre 2026 les salles
-// complètes du Cabinet, tombée à la fin d'une expédition — jamais là où le Cabinet est fermé ;
+// complètes du Cabinet, tombée à la fin d'une expédition — jamais là où le Cabinet est fermé, qui ne la cite qu'à ses
+// détenteurs, la production telle que le code la démarre comprise ;
 // l'Ascension, ouverte par les victoires relues des bilans, son cran borné et
 // figé au départ, gardé par le bilan. Les règles et le pli : `codex.test.ts`.
 import { after, before, test } from 'node:test'
@@ -21,6 +22,7 @@ import { paquetDesRencontres } from '../../shared/rencontres'
 import { cleDeLExpedition } from '../../shared/legendaires'
 import { OEUVRES_DE_DEPART, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
 import type { CleDeSalle } from '../../shared/cabinet/salles'
+import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
 import type { DepartDExpedition, PageDeLExpedition, VueDeLExpedition } from '../../shared/expedition'
 
 function question(i: number, categorie: Categorie, difficulte: number): QuestionDeLaBase {
@@ -61,8 +63,8 @@ before(async () => {
 
 after(() => banc.close())
 
-const lire = (cookie: string, chemin: string) => fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
-const poster = (cookie: string, chemin: string, corps: unknown = {}) => ecrire(banc.url, chemin, corps, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+const lire = (cookie: string, chemin: string, b: Banc = banc) => fetch(`${b.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+const poster = (cookie: string, chemin: string, corps: unknown = {}, b: Banc = banc) => ecrire(b.url, chemin, corps, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 
 function base<T>(fn: (db: Database.Database) => T, ecriture = false, b: Banc = banc): T {
   const db = new Database(b.quizDbUrl.replace(/^file:/, ''), { readonly: !ecriture, fileMustExist: true })
@@ -87,6 +89,19 @@ const poserUneSalleComplete = (b: Banc, profil: string, salle: CleDeSalle) =>
     true,
     b,
   )
+/**
+ * Les paliers de L'Explorateur rangés sous une expédition, en base derrière le dos du serveur : un détenteur d'avant le
+ * 26 octobre 2026, qui les a gagnés au niveau d'explorateur. Le serveur les relit à son démarrage suivant.
+ */
+const rangerLExplorateur = (b: Banc, profil: string, paliers: number) =>
+  base(
+    db => {
+      const badge = db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#campagne:une-expedition', '', '🎒', 'L’Explorateur', 1)`)
+      for (let palier = 1; palier <= paliers; palier++) badge.run(profil, `hf:explorateur:${palier}`)
+    },
+    true,
+    b,
+  )
 const page = async (c: string): Promise<PageDeLExpedition> => (await lire(c, '/api/expedition')).corps
 
 /** Partir aux rencontres, faire un pas, et abandonner : une expédition finie, son bilan écrit — une escale. */
@@ -94,17 +109,17 @@ async function unPasPuisAbandon(c: string): Promise<string> {
   return (await unPasPuisLaFin(c)).id
 }
 
-/** De même, et ce que sa fin a fait tomber (`recompenses`). */
-async function unPasPuisLaFin(c: string): Promise<{ id: string; recompenses: { key: string }[] }> {
-  const parti = await poster(c, '/api/expedition', { rencontres: true })
+/** De même, et ce que sa fin a fait tomber (`recompenses`) — sur le banc du fichier, ou sur un autre serveur. */
+async function unPasPuisLaFin(c: string, b: Banc = banc): Promise<{ id: string; recompenses: { key: string }[] }> {
+  const parti = await poster(c, '/api/expedition', { rencontres: true }, b)
   assert.equal(parti.status, 200, parti.corps.error)
   let v = parti.corps as VueDeLExpedition
   assert.equal(v.renommee, 0, 'avant le premier pas, rien')
-  const pas = await poster(c, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers: v.permises[0] } })
+  const pas = await poster(c, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers: v.permises[0] } }, b)
   assert.equal(pas.status, 200, pas.corps.error)
   v = pas.corps.expedition
   assert.equal(v.renommee, 1, 'la vue dit déjà ce qu’elle rapporte : une escale')
-  const fin = await poster(c, `/api/expedition/${v.id}/abandon`)
+  const fin = await poster(c, `/api/expedition/${v.id}/abandon`, {}, b)
   assert.equal(fin.status, 200, fin.corps.error)
   assert.equal(fin.corps.expedition.renommee, 1)
   return { id: v.id, recompenses: fin.corps.recompenses ?? [] }
@@ -261,11 +276,7 @@ test('L’Explorateur, aux salles complètes du Cabinet : sa piste se lit à la 
   // Un détenteur d'avant : l'argent, gagné au niveau d'explorateur, rangé sous son expédition. Aucune salle complète, il
   // le garde — la page le dit à l'argent, l'or à six salles —, et la fin d'une partie ne lui reprend rien.
   const ancien = await inscrireProfil(banc.url, 'ancien-explorateur', 'Ancien')
-  const ancienId = (await lire(ancien, '/api/joueur/moi')).corps.profile.id as string
-  base(db => {
-    const badge = db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#campagne:une-expedition', '', '🎒', 'L’Explorateur', 1)`)
-    for (const palier of ['hf:explorateur:1', 'hf:explorateur:2']) badge.run(ancienId, palier)
-  }, true)
+  rangerLExplorateur(banc, (await lire(ancien, '/api/joueur/moi')).corps.profile.id as string, 2)
   // Relu au démarrage : le profil sait ce qu'il a.
   await banc.redemarrer()
   const garde = await piste(ancien)
@@ -274,10 +285,11 @@ test('L’Explorateur, aux salles complètes du Cabinet : sa piste se lit à la 
   assert.equal((await piste(ancien)).fois, 2, 'rien ne se reprend')
 
   // La production telle qu'elle serait le jour où les deux drapeaux s'y refermeraient — les rencontres (le jeu depuis le
-  // 19 octobre 2026) et le Cabinet (fermé tant qu'il n'y ouvre pas) — : le départ reste celui des jokers, la même salle
-  // complète et la même renommée n'y font rien tomber, et la page du profil ne le cite pas — l'album ne lui fait pas de
-  // case (`montreParLeServeur`).
-  const prod = await demarrer({ baseDeLaCampagne: BASE, rencontres: false, cabinet: false })
+  // 19 octobre 2026) et le Cabinet (fermé tant qu'il n'y ouvre pas), forcés tous deux : le Cabinet ouvert en production,
+  // l'épreuve garderait son serveur fermé — : le départ reste celui des jokers, la même salle complète et la même renommée
+  // n'y font rien tomber, et la page du profil ne le cite pas à qui ne l'a pas — l'album ne lui fait pas de case
+  // (`montreParLeServeur`). La production telle que le code la démarre, sans drapeau forcé : l'épreuve qui suit.
+  const prod = await demarrer({ online: true, baseDeLaCampagne: BASE, rencontres: false, cabinet: false })
   try {
     const p = await inscrireProfil(prod.url, 'production', 'Production')
     const pId = ((await fetch(`${prod.url}/api/joueur/moi`, { headers: { Cookie: p } }).then(r => r.json())) as any).profile.id as string
@@ -302,6 +314,43 @@ test('L’Explorateur, aux salles complètes du Cabinet : sa piste se lit à la 
     assert.ok(![...une.recompenses, ...deux.recompenses].some(r => r.key.startsWith('hf:explorateur')), 'ni décerné…')
     const moi = await fetch(`${prod.url}/api/joueur/moi`, { headers: { Cookie: p } }).then(r => r.json() as Promise<any>)
     assert.ok(sien(moi) === undefined && moi.profile.hautsFaits.some((h: any) => h.key === 'hf:globe-trotter'), '…ni cité, quand les autres pistes le sont')
+
+    // Un détenteur, lui, le garde cité même là : son argent, gagné quand le trophée comptait le niveau d'explorateur — la
+    // production le montrait alors —, ne se cache pas avec le Cabinet fermé (invariant 22). Sa piste le dit à l'argent,
+    // sans une salle comptée : rien ne s'y lit ni ne s'y gagne.
+    const detenteur = await inscrireProfil(prod.url, 'detenteur-production', 'Détenteur')
+    rangerLExplorateur(prod, ((await lire(detenteur, '/api/joueur/moi', prod)).corps.profile.id as string), 2)
+    await prod.redemarrer()
+    const tenu = await piste(detenteur, prod)
+    assert.deepEqual([tenu?.fois, tenu?.valeur, tenu?.prochain], [2, 0, 6], 'cité à qui l’a, où que ce soit')
+    assert.equal(await piste(p, prod), undefined, 'et toujours tu à qui ne l’a pas')
+  } finally {
+    await prod.close()
+  }
+})
+
+// La production telle que le code la démarre, aucun drapeau forcé : les rencontres y sont le jeu depuis le 19 octobre
+// 2026 — L'Explorateur y a compté le niveau d'explorateur jusqu'au 26, ses détenteurs l'ont gagné là —, et le Cabinet n'y
+// ouvre qu'avec son drapeau (`CABINET_EN_PRODUCTION`). Le trophée qui change de mesure ne se cache à aucun d'eux, que
+// cette mise en ligne parte avant l'ouverture du Cabinet ou avec elle : c'est cette épreuve qui le garde, sans rougir le
+// jour où le drapeau s'ouvre. Qui ne l'a pas le voit, et le gagne, avec le Cabinet seulement.
+test('en production, telle que le code la démarre : le détenteur de L’Explorateur le garde cité, le Cabinet fermé ou non ; qui ne l’a pas ne le voit et ne le gagne qu’avec le Cabinet ouvert', async () => {
+  const prod = await demarrer({ online: true, baseDeLaCampagne: BASE })
+  try {
+    const sien = async (cookie: string) =>
+      ((await lire(cookie, '/api/joueur/moi', prod)).corps.profile.hautsFaits as { key: string; fois: number; valeur: number; prochain: number | null }[]).find(h => h.key === 'hf:explorateur')
+    const detenteur = await inscrireProfil(prod.url, 'detenteur', 'Détenteur')
+    rangerLExplorateur(prod, (await lire(detenteur, '/api/joueur/moi', prod)).corps.profile.id as string, 2)
+    const neuf = await inscrireProfil(prod.url, 'sans-explorateur', 'Sans')
+    poserUneSalleComplete(prod, (await lire(neuf, '/api/joueur/moi', prod)).corps.profile.id as string, 'rempart')
+    // Relu au démarrage : le profil sait ce qu'il a.
+    await prod.redemarrer()
+    const garde = await sien(detenteur)
+    assert.deepEqual([garde?.fois, garde?.valeur, garde?.prochain], [2, 0, 6], 'son argent, où qu’en soit le Cabinet')
+    // Sa salle complète ne compte qu'avec le Cabinet ouvert : fermé, ni la page ni la fin d'une partie ne la lisent.
+    assert.equal((await sien(neuf)) !== undefined, CABINET_EN_PRODUCTION, 'cité avec le Cabinet seulement')
+    const fin = await unPasPuisLaFin(neuf, prod)
+    assert.equal(fin.recompenses.some(r => r.key === 'hf:explorateur:1'), CABINET_EN_PRODUCTION, 'décerné avec lui seulement')
   } finally {
     await prod.close()
   }

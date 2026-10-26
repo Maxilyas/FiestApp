@@ -10,6 +10,7 @@ import { LUEUR, lueur } from './Atlas'
 import { gemme, useFiche } from './Boutique'
 import { ongletVise } from './Onglets'
 import { espacesFines, formatNumber } from '../format'
+import { cabinetIci } from '../maintenance'
 import { NOM_RARETE, type Rarete } from '../../../shared/badges'
 import { NOM_PALIER, XP_PALIER, hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import { lesPlusProches } from '../../../shared/proches'
@@ -201,12 +202,13 @@ function ouEnEst(c: CaseDeTrophee): string | null {
  * qu'il faut, où il en est, ce qu'il rapporte — et pour une piste, toutes
  * ses étapes et ce que chacune ouvre ; pour un exploit, ce qu'il ouvre à
  * tant de fois. Le chemin de l'écran où le gagner, tant qu'il reste quelque
- * chose à y gagner. Rien ne s'y porte.
+ * chose à y gagner — et que cet écran répond ici : le Cabinet, le serveur le
+ * dit dans la page (`cabinetIci`). Rien ne s'y porte.
  */
-export function FicheDuTrophee({ c, page, visuel }: { c: CaseDeTrophee; page: PageDesTrophees; visuel: ReactNode }) {
+export function FicheDuTrophee({ c, page, visuel, cabinet = cabinetIci() }: { c: CaseDeTrophee; page: PageDesTrophees; visuel: ReactNode; cabinet?: boolean }) {
   const xp = phraseDeLXp(c)
   const fini = c.sorte === 'piste' || c.sorte === 'ecusson' ? (c.metaux ?? 0) >= 3 : c.aLui && c.sorte !== 'exploit' && c.sorte !== 'coup'
-  const aller = fini ? null : c.sorte === 'maitre' && c.branche ? { nom: 'Aller au sentier', href: `/campagne#sentier-${c.branche}` } : ouJouer(c.cle, page)
+  const aller = fini ? null : c.sorte === 'maitre' && c.branche ? { nom: 'Aller au sentier', href: `/campagne#sentier-${c.branche}` } : ouJouer(c.cle, page, cabinet)
   return (
     <div className="galerie-detail detail-case album-detail trophee-fiche" style={gemmeDe(c)}>
       <div className="album-detail-tete">

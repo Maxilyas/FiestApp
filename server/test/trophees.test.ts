@@ -11,7 +11,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import React from 'react'
 import { ABSORBES, DU_CHAMPION_DU_MOIS, ceQuIlOuvre, ceQuOuvreLeTrophee, etapesDeLaPiste } from '../../shared/pistes'
-import { albumDesTrophees, compteDesTrophees, pageDuDebutDesTrophees, seuilDeLEtape } from '../../shared/trophees'
+import { albumDesTrophees, compteDesTrophees, ouJouer, pageDuDebutDesTrophees, seuilDeLEtape } from '../../shared/trophees'
 import { pageDuTrophee } from '../../shared/pagesDesTrophees'
 import { FONDS, fondsOuverts, type CeQuOuvreUnFond } from '../../shared/fonds'
 import { GERBES } from '../../shared/gerbes'
@@ -264,4 +264,29 @@ test('la fiche de L’Explorateur mène au Cabinet, où ses salles se complèten
     .find(p => p.page === 'campagne')!
     .sections[0].cases.find(x => x.cle === 'hf:alpiniste')!
   assert.match(await rendu('FicheDuTrophee', { c: alpiniste, page: 'campagne', visuel: alpiniste.emoji }), /href="\/campagne">Jouer une série<\/a>/)
+})
+
+// Le serveur cite L'Explorateur à ses détenteurs même là où le Cabinet est fermé — la production, tant qu'il n'y ouvre
+// pas, où ils l'ont gagné au niveau d'explorateur. Leur fiche dit où ils en sont, sans chemin : le Cabinet n'y répond
+// pas, et une série ne complète aucune salle. La page le sait du serveur (`cabinetIci`), jamais d'une constante.
+test('le Cabinet fermé ici, la fiche de L’Explorateur ne mène nulle part — ni au Cabinet, ni à une série — et son détenteur y lit son métal', async () => {
+  const detenteur = { ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 2, valeur: 0, prochain: 6 } : h)) }
+  const c = albumDesTrophees(detenteur as any)
+    .find(p => p.page === 'campagne')!
+    .sections[0].cases.find(x => x.cle === 'hf:explorateur')!
+  const ferme = await rendu('FicheDuTrophee', { c, page: 'campagne', visuel: c.emoji, cabinet: false })
+  assert.match(ferme, /<b class="galerie-detail-nom">L’Explorateur<\/b>/)
+  assert.match(ferme, /Tu en es à 0 salle complète du Cabinet\./)
+  assert.doesNotMatch(ferme, /album-aller/, 'aucun chemin')
+  // La même fiche, le Cabinet ouvert : son chemin.
+  assert.match(await rendu('FicheDuTrophee', { c, page: 'campagne', visuel: c.emoji, cabinet: true }), /href="\/cabinet">Aller au Cabinet<\/a>/)
+  // Les autres pistes de la page gardent le leur, le Cabinet fermé ou non.
+  const alpiniste = albumDesTrophees(NEUF as any)
+    .find(p => p.page === 'campagne')!
+    .sections[0].cases.find(x => x.cle === 'hf:alpiniste')!
+  assert.match(await rendu('FicheDuTrophee', { c: alpiniste, page: 'campagne', visuel: alpiniste.emoji, cabinet: false }), /href="\/campagne">Jouer une série<\/a>/)
+  // La règle pure que la fiche lit : ouvert d'office, comme `cabinetIci` sans la balise de la page.
+  assert.equal(ouJouer('hf:explorateur', 'campagne', false), undefined)
+  assert.deepEqual(ouJouer('hf:explorateur', 'campagne'), { nom: 'Aller au Cabinet', href: '/cabinet' })
+  assert.deepEqual(ouJouer('hf:alpiniste', 'campagne', false), { nom: 'Jouer une série', href: '/campagne' })
 })

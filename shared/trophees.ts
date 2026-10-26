@@ -226,17 +226,25 @@ export const OU_JOUER: Readonly<Partial<Record<PageDesTrophees, { nom: string; h
 }
 
 /**
- * Les pistes qui se gagnent ailleurs que sur l'écran de leur page :
- * L'Explorateur se range en campagne — ses paliers tombent à la fin d'une
- * partie de la campagne —, mais ses salles se complètent au Cabinet, et
- * « Jouer une série » n'en complétait aucune. Il ne se montre que là où le
- * Cabinet s'ouvre (`montreParLeServeur`) : ce chemin ne mène jamais à une page
- * fermée.
+ * Les pistes qui se gagnent au Cabinet de curiosités, loin de l'écran de leur
+ * page : L'Explorateur se range en campagne — ses paliers tombent à la fin
+ * d'une partie de la campagne —, mais ses salles se complètent au Cabinet, et
+ * « Jouer une série » n'en complétait aucune.
  */
-const OU_JOUER_LA_PISTE: ReadonlyMap<string, { nom: string; href: string }> = new Map([['hf:explorateur', { nom: 'Aller au Cabinet', href: '/cabinet' }]])
+const PISTES_DU_CABINET: ReadonlySet<string> = new Set(['hf:explorateur'])
+const AU_CABINET = { nom: 'Aller au Cabinet', href: '/cabinet' }
 
-/** L'écran où aller gagner un trophée de cette page : le sien s'il en a un à part, sinon celui de la page. */
-export const ouJouer = (cle: string, page: PageDesTrophees): { nom: string; href: string } | undefined => OU_JOUER_LA_PISTE.get(cle) ?? OU_JOUER[page]
+/**
+ * L'écran où aller gagner un trophée de cette page : le Cabinet pour ses
+ * pistes, sinon celui de la page. Le Cabinet fermé ici (`cabinet`, que la page
+ * tient du serveur — `cabinetIci` —, jamais d'une constante : la préproduction
+ * l'ouvre), aucun : le serveur cite quand même L'Explorateur à ses détenteurs
+ * (`montreParLeServeur`), et ni la page fermée, ni une série ne l'avancent.
+ */
+export function ouJouer(cle: string, page: PageDesTrophees, cabinet = true): { nom: string; href: string } | undefined {
+  if (PISTES_DU_CABINET.has(cle)) return cabinet ? AU_CABINET : undefined
+  return OU_JOUER[page]
+}
 
 /** Ce qu'on a d'abord, dans l'ordre du catalogue ; le reste ensuite — l'album des avatars range de même. */
 const aLuiDAbord = (cases: CaseDeTrophee[]) => [...cases.filter(c => c.aLui), ...cases.filter(c => !c.aLui)]
@@ -341,7 +349,8 @@ export function albumDesTrophees(p: ProfilDeLAlbumDesTrophees): PageDeTrophees[]
   const vus = new Map(p.hautsFaits.map(h => [h.key, h]))
   const bordures = p.bordures ?? []
   // Un trophée réservé (`montreParLeServeur`) n'a de case que si le serveur le cite : en production, L'Explorateur se
-  // serait compté « 0 sur 3 » dans la collection de chacun, pour des salles du Cabinet qui ne s'y voient nulle part.
+  // serait compté « 0 sur 3 » dans la collection de chacun, pour des salles du Cabinet qui ne s'y voient nulle part. Le
+  // serveur le cite à ses détenteurs partout : leur case reste, et leur collection le compte.
   const pistes = (page: keyof typeof PISTES_DE) => PISTES_DE[page].filter(h => !h.montreParLeServeur || vus.has(h.key)).map(h => caseDePiste(h, vus))
   const sections: Record<PageDesTrophees, SectionDeLAlbum[]> = {
     soiree: [
