@@ -117,6 +117,7 @@ export function BilanDeLaPartie({
 }) {
   const [reponses, setReponses] = useState(false)
   const idDeLaRetente = useId()
+  const idDeLOeuvre = useId()
   const b = vue.bilan
   const g = b?.gains
   const cles = (g?.recompenses ?? []).map(r => r.key)
@@ -162,7 +163,14 @@ export function BilanDeLaPartie({
         )}
       </section>
       {o && (
-        <section className="cab-oeuvre-gagnee" aria-label={o.nom}>
+        <section className="cab-oeuvre-gagnee" aria-labelledby={idDeLOeuvre}>
+          {/* Un titre à son nom : région sans titre, on ne la trouvait pas en sautant de titre en titre (Hugo, au lecteur d'écran,
+              à la tablée du 26 octobre 2026). À l'oreille seulement : à l'œil, son nom est déjà au bandeau de la peinture et dans la
+              phrase du serveur. La peinture levée garde son texte de remplacement vide pour la même raison — son bandeau la nomme —,
+              et ne dit pas encore ce qu'elle montre : quatre-vingt-quatre descriptions, un choix de contenu à venir. */}
+          <h2 id={idDeLOeuvre} className="sr-only">
+            {o.nom}
+          </h2>
           <div className="cab-oeuvre-levee">
             <OeuvrePeinte oeuvre={oeuvreMontree(o, o.salle)} taille="levee" doree={doree} />
           </div>

@@ -158,7 +158,9 @@ export function Musee({
           }
         >
           <b>Bienvenue au Cabinet.</b>
-          <span>{espacesFines('Chaque œuvre peinte se gagne en jouant à de petits jeux de deux minutes : remplis tes salles, réveille leurs gardiens.')}</span>
+          {/* « De quelques minutes » : le Mot en donne deux par manche, six au plus, et « deux minutes » se lisait comme une promesse
+              (Ophélie, à la tablée du 26 octobre 2026) : 53 parties sur 54 la tenaient, pas toutes. */}
+          <span>{espacesFines('Chaque œuvre peinte se gagne en jouant à de petits jeux de quelques minutes : remplis tes salles, réveille leurs gardiens.')}</span>
         </Bandeau>
       )}
       {/* Une expédition en route se finit à ses règles, sans rien rapporter au Cabinet : tout le monde y commence avec ses quatre
@@ -184,12 +186,14 @@ export function Musee({
           <span>{espacesFines(page.fete.gardien.dit)}</span>
         </Bandeau>
       )}
-      {/* Un seul jour, déjà joué, n'est pas encore une série à garder : la ligne attendait le musée de qui venait d'arriver. */}
+      {/* Un seul jour, déjà joué, n'est pas encore une série à garder : la ligne attendait le musée de qui venait d'arriver.
+          « Réponds à une manche » : un jour ne compte qu'à sa première manche répondue (`jourCompte`) — « Joue aujourd'hui » laissait
+          croire qu'une visite commencée puis quittée la gardait. La visite le dit des mêmes mots (`Visite.tsx`). */}
       {page.serie.jours > 0 && (page.serie.jours > 1 || page.serie.aJouer) && (
         <Bandeau icone={<b className="cab-chiffre">{page.serie.jours}</b>}>
           <span>
             {espacesFines(
-              `${compte(page.serie.jours, 'jour')} de visite d’affilée.${page.serie.aJouer ? ' Joue aujourd’hui pour garder ta série.' : ''}`,
+              `${compte(page.serie.jours, 'jour')} de visite d’affilée.${page.serie.aJouer ? ' Réponds à une manche aujourd’hui pour garder ta série.' : ''}`,
             )}
           </span>
         </Bandeau>
@@ -206,7 +210,9 @@ export function Musee({
           // Faite, la chasse ne se propose que s'il en reste une : sans chasse, elle promettait ce que la salle refusait (Lucas).
           faites === visite.length
             ? espacesFines(page.chasses.restent > 0 ? 'Faite : reviens demain, ou pars à la chasse dans une salle' : 'Faite : reviens demain')
-            : espacesFines(`${compte(visite.length, 'partie')} de deux minutes · ${faites} sur ${visite.length} faite${faites > 1 ? 's' : ''}`)
+            : // « Petites », sans durée : « de deux minutes » se lisait comme une promesse (la bienvenue le dit plus haut), et « de
+              // quelques minutes » couchait la ligne sur trois en 360, à côté de « À jouer ».
+              espacesFines(`${compte(visite.length, 'petite partie', 'petites parties')} · ${faites} sur ${visite.length} faite${faites > 1 ? 's' : ''}`)
         }
         pastille={aJouer ? 'À jouer' : undefined}
         href={adresseDe({ e: 'visite' })}

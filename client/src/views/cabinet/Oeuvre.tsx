@@ -4,7 +4,7 @@ import { OeuvrePeinte, RARETE_DITE, gemmeDeLaRarete } from '../../components/Oeu
 import { PieceTete, Sortie } from '../../components/Pieces'
 import { espacesFines } from '../../format'
 import { ETOILES_D_UNE_PARTIE } from '../../../../shared/cabinet/bareme'
-import { JEUX } from '../../../../shared/cabinet/jeux/regle'
+import { JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, ilTeManque, poussieresDites } from '../../../../shared/cabinet/musee'
 import { POUVOIRS, forceDe, forceDite, pouvoirDe } from '../../../../shared/cabinet/pouvoirs'
 import { salle as salleDe } from '../../../../shared/cabinet/salles'
@@ -17,7 +17,7 @@ import { oeuvreMontree } from './Salle'
 
 // Une œuvre, touchée sur son mur. À lui : sa peinture en grand, son cartel
 // dessous, sa carte-bonus — en faire celle qu'il emporte —, et de quoi dorer
-// son cadre, à la poussière d'or ou en la rejouant. Pas encore à lui : le
+// son cadre, à la poussière d'or ou en la jouant à son jeu. Pas encore à lui : le
 // cadre vide, où elle se trouve et ce qu'il faut pour la gagner, la chasse,
 // l'achat. Les prix et les chasses qui restent viennent de la page ; le
 // serveur revérifie tout, et ses refus se disent dans ses mots. Ce que la
@@ -60,6 +60,21 @@ function refusDeLaChasse(page: PageDuCabinet, o: OeuvreVue): string | null {
 function refusDeLaDepense(page: PageDuCabinet, prix: number | undefined): string | null {
   if (prix === undefined) return null
   return laPartieQuiAttend(page) ?? (prix > page.poussiere ? ilTeManque(prix - page.poussiere) : null)
+}
+
+/**
+ * Le jeu où la visite l'avait mise en jeu, quand son cartel en dit un autre que
+ * le sien : la visite tire ses jeux dans l'ordre du jour et ses œuvres à part
+ * (`visiteDuJour`), et onze des quatorze œuvres gagnées à la visite de la
+ * tablée du 26 octobre 2026 l'avaient été à un autre jeu. Sous « Gagnée à
+ * l'Épingle », « La rejouer à la Frise » ne se comprenait pas — « je ne sais pas
+ * si c'est voulu » (Lucas). Seule la visite — ou la retente de sa case, au
+ * même jeu — joue une œuvre ailleurs qu'à son jeu. Null : rien à expliquer —
+ * le cartel en chemin, perdu, sans partie, ou de son jeu.
+ */
+export function jeuDeLaVisite(cartel: EtatDuCartel, jeu: CleDeJeu): CleDeJeu | null {
+  const partie = cartel.etat === 'lu' ? cartel.cartel.partie : undefined
+  return partie && partie.jeu !== jeu ? partie.jeu : null
 }
 
 /**
@@ -201,6 +216,7 @@ export function Oeuvre({
   const emportee = carte === o.cle
   const prixDorure = o.prix
   const dorure = { id: `${id}-dorure`, refus: refusDeLaDepense(page, prixDorure) }
+  const ailleurs = jeuDeLaVisite(cartel, o.jeu)
   return (
     <div className="player-shell cab-page">
       {retour}
@@ -236,9 +252,15 @@ export function Oeuvre({
               {`Dorer son cadre · ${poussieresDites(prixDorure)}`}
             </Geste>
           )}
+          {/* « La jouer », pas « la rejouer » : gagnée à la visite, elle ne l'avait presque jamais été à ce jeu-là. */}
           <Geste {...laChasse} reprise={reprise} busy={busy} classe="btn btn-block" onGeste={chasser}>
-            {`La rejouer ${jeu.a} pour la dorer · une chasse`}
+            {`La jouer ${jeu.a} pour la dorer · une chasse`}
           </Geste>
+          {/* Le pourquoi d'un autre jeu que celui du cartel, et rien quand il n'y a rien à expliquer : chaque ligne de plus sur une
+              page s'y perd (la leçon de l'Expédition), et la règle entière est dans « Comment ça marche ? ». */}
+          {ailleurs && (
+            <p className="cab-ligne">{espacesFines(`Chaque œuvre a son jeu : la sienne se joue ${jeu.a}. La visite l’avait mise en jeu ${JEUX[ailleurs].a}.`)}</p>
+          )}
           <p className="cab-ligne">{espacesFines('Doré en jouant : toutes ses manches parfaites, sans qu’un pouvoir ait servi.')}</p>
         </section>
       )}

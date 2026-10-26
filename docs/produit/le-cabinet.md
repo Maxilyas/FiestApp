@@ -34,11 +34,11 @@
 
 Chaque famille a trois œuvres communes, trois rares et deux épiques ; le Vestibule, dix communes, cinq rares, deux épiques et trois maudites. **La rareté fixe le seuil** : sur les neuf étoiles d'une partie, il en faut 5 pour une commune, 6 pour une rare ou une maudite, 7 pour une épique.
 
-**Chaque œuvre se trouve à un jeu fixe**, que son cadre vide affiche. La table est écrite une fois, et gelée : dans chaque famille, huit jeux différents ; chaque jeu, neuf ou dix œuvres, des communes aux épiques. (La maquette tirait le jeu d'un hachage de la clé : trois œuvres d'une salle tombaient au même jeu, et un dixième jeu les aurait toutes déplacées.)
+**Chaque œuvre se trouve à un jeu fixe**, que son cadre vide affiche : sa chasse et sa dorure s'y jouent. La visite, elle, met ses œuvres en jeu aux jeux du jour — la plupart ailleurs qu'au leur : sa fiche dit alors où la visite l'avait mise en jeu, et où elle se joue. La table est écrite une fois, et gelée : dans chaque famille, huit jeux différents ; chaque jeu, neuf ou dix œuvres, des communes aux épiques. (La maquette tirait le jeu d'un hachage de la clé : trois œuvres d'une salle tombaient au même jeu, et un dixième jeu les aurait toutes déplacées.)
 
 **Quatre œuvres t'attendent à ton arrivée** — Coup d’œil, Prudence, Concentration et Échange, au Vestibule — : de quoi emporter une carte-bonus dès ta première partie, un pouvoir chacune, sauf Miser.
 
-**Le cadre doré** : trois manches parfaites sans qu'un pouvoir ait servi — emporter une carte-bonus ne coûte rien, s'en servir si —, ou de la poussière d'or. Une œuvre déjà à toi se rejoue pour la dorer, au prix d'une chasse.
+**Le cadre doré** : trois manches parfaites sans qu'un pouvoir ait servi — emporter une carte-bonus ne coûte rien, s'en servir si —, ou de la poussière d'or. Une œuvre déjà à toi se joue à son jeu pour la dorer, au prix d'une chasse.
 
 ## Une partie
 
@@ -87,9 +87,9 @@ Ce que la maquette a fermé : la mise à ×2, qui dorait une épique en deux man
 ## Une journée
 
 - **La visite du jour** : trois parties, trois jeux différents. Chacune annonce l'œuvre qu'elle peut faire gagner sans la nommer — on la découvre une fois gagnée. Les jeux des deux derniers jours passent après les autres, et un jeu se change une fois par jour — le bouton dit lequel vient (« Changer pour Le Filet »), et demande confirmation. Les œuvres en jeu se tirent parmi celles qui te manquaient à minuit, surtout des communes, et l’une vient de la salle de ton prochain gardien tant qu’il en reste un ; quand rien ne manque, une case propose de dorer, puis de la poussière.
-- **Deux chasses par jour** : touche un cadre vide (« Elle se trouve au Filet · Il faut 6 étoiles sur 9 ») et pars à sa recherche, à son jeu ; ou rejoue une œuvre à toi pour la dorer. Après une partie de la visite manquée, « Retenter cette œuvre au même jeu » coûte une chasse, et se demande par la case — l'œuvre, tu la découvres en la gagnant. La case manquée et le bilan de sa partie le proposent, l'annonce de la retente s'ouvre comme une autre ; sans chasse, le bouton reste en sourdine et dit pourquoi, et l'œuvre gagnée depuis, la case le dit : il n'y a plus rien à retenter.
+- **Deux chasses par jour** : touche un cadre vide (« Elle se trouve au Filet · Il faut 6 étoiles sur 9 ») et pars à sa recherche, à son jeu ; ou joue une œuvre à toi à son jeu pour la dorer. Après une partie de la visite manquée, « Retenter cette œuvre au même jeu » coûte une chasse, et se demande par la case — l'œuvre, tu la découvres en la gagnant. La case manquée et le bilan de sa partie le proposent, l'annonce de la retente s'ouvre comme une autre ; sans chasse, le bouton reste en sourdine et dit pourquoi, et l'œuvre gagnée depuis, la case le dit : il n'y a plus rien à retenter.
 - **Jouer librement** : les jeux livrés, à volonté, sans œuvre en jeu. Les cinq premières parties libres du jour rapportent de la poussière, deux par étoile — sans étoile, rien —, les suivantes sont pour le plaisir ; le bilan d'une libre qui paie sans rien rapporter dit combien il en reste.
-- **La série** : les jours d'affilée avec une partie de visite ou de chasse où tu as répondu à une manche au moins — quittée d'emblée, elle ne compte pas. Elle se lit jusqu'à la veille tant que tu n'as pas joué : « 12 jours de visite d'affilée. Joue aujourd'hui pour garder ta série. » Trente jours réveillent le Scarabée.
+- **La série** : les jours d'affilée avec une partie de visite ou de chasse où tu as répondu à une manche au moins — quittée d'emblée, elle ne compte pas. Elle se lit jusqu'à la veille tant que tu n'as pas joué : « 12 jours de visite d'affilée. Réponds à une manche aujourd'hui pour garder ta série. » Trente jours réveillent le Scarabée.
 
 Rien ne coûte avant de jouer : un joueur qui ne vient pas n'a rien écrit, et la visite du jour ne se fige qu'à sa première partie, sa première dépense ou la clôture d'une partie d'hier.
 

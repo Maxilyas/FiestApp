@@ -480,7 +480,7 @@ test('comment l’obtenir au Cabinet : la salle à compléter ou à dorer, la s�
   assert.deepEqual(auCabinet('lg:scarabee')[0], {
     lieu: 'cabinet',
     titre: 'Au Cabinet : revenir chaque jour',
-    regle: `${JOURS_DU_SCARABEE} jours de visite ou de chasse d’affilée`,
+    regle: `${JOURS_DU_SCARABEE} jours d’affilée à répondre à une manche de visite ou de chasse`,
     tenue: false,
     progres: null,
   })

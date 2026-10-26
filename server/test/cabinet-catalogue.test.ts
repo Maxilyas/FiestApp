@@ -337,7 +337,7 @@ test('un gardien porte le pouvoir de la salle qu’il garde, pas celui de sa car
   assert.equal(conditionDuGardien('lg:ouroboros'), 'Tous les cadres de la salle du Rempart dorés')
   assert.equal(conditionDuGardien('lg:coq'), 'Le Vestibule complet')
   assert.equal(conditionDuGardien('lg:chimere'), 'Tous les cadres du Vestibule dorés')
-  assert.equal(conditionDuGardien('lg:scarabee'), `${B.JOURS_DU_SCARABEE} jours de visite ou de chasse d’affilée`)
+  assert.equal(conditionDuGardien('lg:scarabee'), `${B.JOURS_DU_SCARABEE} jours d’affilée à répondre à une manche de visite ou de chasse`)
   assert.equal(conditionDuGardien('lg:trou-noir'), `Le Cabinet entier : les ${OEUVRES.length} œuvres`)
   assert.equal(conditionDuGardien('lg:citrouille'), 'Une œuvre gagnée en jouant pendant Halloween')
   assert.equal(conditionDuGardien('lg:bouquet'), 'Une œuvre gagnée en jouant pendant le Nouvel An')

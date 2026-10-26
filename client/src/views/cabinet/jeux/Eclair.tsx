@@ -102,8 +102,10 @@ function RevelationDeLEclair({ corps }: { corps: EclairRevele }) {
           />
         ))}
       </ol>
-      {/* Cinq questions récrites en une pièce hors de la base : aucune n'est celle qu'on revoit au carnet (§ 0.2, question 7). */}
-      <p className="cab-ligne cab-hors-carnet">Les affirmations ne vont pas au carnet.</p>
+      {/* Cinq questions récrites en une pièce hors de la base : aucune n'est celle qu'on revoit au carnet, et l'écran le dit
+          (`decisions.md`). Le carnet se nomme : aucune page du Cabinet n'en présente un, et Théo, Jeanne et Camille demandaient
+          « quel carnet ? » (la tablée du 26 octobre 2026). */}
+      <p className="cab-ligne cab-hors-carnet">{espacesFines('Ces affirmations ne vont pas au carnet de révision de la campagne.')}</p>
     </>
   )
 }

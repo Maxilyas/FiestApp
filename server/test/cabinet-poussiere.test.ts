@@ -305,7 +305,7 @@ test('pendant une partie, rien ne s’achète ni ne se dore — ni l’œuvre qu
   assert.deepEqual(refus(await acheter(paul.cookie, 'prudence', prixDAchat('prudence'))), [400, { error: 'Elle est déjà à toi' }])
   assert.deepEqual(refus(await dorer(paul.cookie, communeA, prixDeDorure(communeA))), [400, { error: 'Elle n’est pas encore à toi : gagne-la ou achète-la d’abord' }])
   // La page le dit d'avance, dans les mots du refus : sur la page que le serveur rend pendant la chasse, une œuvre qui manque
-  // n'offre ni sa chasse ni son achat, une œuvre à lui ni sa dorure ni de la rejouer — en sourdine, la raison dite dessous.
+  // n'offre ni sa chasse ni son achat, une œuvre à lui ni sa dorure ni de la jouer — en sourdine, la raison dite dessous.
   const pendant = ok(await laPage(b, paul.cookie), 'la page pendant la chasse')
   assert.equal(pendant.enCours?.id, chasse.id)
   assert.equal(laPartieAttend(pendant.enCours!.jeu), attend)
@@ -317,8 +317,8 @@ test('pendant une partie, rien ne s’achète ni ne se dore — ni l’œuvre qu
   assert.equal([...texteDe(manque).matchAll(new RegExp(attend, 'g'))].length, 1)
   const aLui = await lOeuvreDe(pendant, 'prudence')
   assert.deepEqual(
-    enSourdine(aLui).map(t => ['Dorer son cadre', 'La rejouer'].find(d => t.startsWith(d))),
-    ['Dorer son cadre', 'La rejouer'],
+    enSourdine(aLui).map(t => ['Dorer son cadre', 'La jouer'].find(d => t.startsWith(d))),
+    ['Dorer son cadre', 'La jouer'],
   )
   assert.match(texteDe(aLui), new RegExp(attend))
   // Ni un autre départ : la visite et les jeux libres mettent les leurs en sourdine, la raison dite une fois — celle du refus que
@@ -631,8 +631,8 @@ test('plus de chasse : la page dit le refus que le serveur rend, dans son ordre'
   const { error } = depart.corps as unknown as { error: string }
   assert.equal(error, PLUS_DE_CHASSE)
   const html = await lOeuvreDe(page, 'coup-d-oeil')
-  const raison = /<button [^>]*aria-describedby="([^"]+)"[^>]*>La rejouer/.exec(html)?.[1]
-  assert.ok(raison, 'la rejouer, en sourdine, désigne sa raison')
+  const raison = /<button [^>]*aria-describedby="([^"]+)"[^>]*>La jouer/.exec(html)?.[1]
+  assert.ok(raison, 'la jouer, en sourdine, désigne sa raison')
   assert.equal(texteDe(new RegExp(`<p id="${raison}" class="cab-raison">(.*?)</p>`).exec(html)![1]).trim(), texteDe(error).trim())
 })
 

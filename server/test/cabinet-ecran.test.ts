@@ -316,7 +316,7 @@ test('le musée dit une fois la bienvenue, la partie qui l’attend, l’expédi
   )
   assert.match(tout, /Ton expédition t’attend : la finir/)
   assert.match(tout, /Halloween .*Gagne une œuvre, et la Citrouille se réveillera\./)
-  assert.match(tout, /12 jours de visite d’affilée\. Joue aujourd’hui pour garder ta série\./)
+  assert.match(tout, /12 jours de visite d’affilée\. Réponds à une manche aujourd’hui pour garder ta série\./)
 })
 
 test('la porte d’une salle montre la plus rare de ses œuvres à lui, quel que soit leur rang au mur', async () => {
@@ -415,13 +415,13 @@ test('une œuvre à lui : en grand, son cartel, sa carte-bonus, et de quoi la do
   assert.match(coup, /Il te manque 1 poussière d’or/)
   assert.match(await lOeuvre('coup-d-oeil', {}, pauvre), /aria-disabled="true"[^>]*>[^<]*Dorer son cadre/)
   assert.doesNotMatch(await lOeuvre('coup-d-oeil', {}, { ...page, poussiere: prix }), /aria-disabled="true"[^>]*>[^<]*Dorer son cadre/)
-  // La rejouer pour la dorer : son jeu, une chasse — l'Épingle pas encore livrée, la page le dit ; livrée, elle se tait.
+  // La jouer pour la dorer : son jeu, une chasse — l'Épingle pas encore livrée, la page le dit ; livrée, elle se tait.
   const sansElle = sansLEpingle(pauvre)
   assert.ok(!sansElle.jeux.includes('epingle'))
   const coupSansElle = texte(await lOeuvre('coup-d-oeil', {}, sansElle))
-  assert.match(coupSansElle, new RegExp(`La rejouer ${JEUX.epingle.a} pour la dorer`))
+  assert.match(coupSansElle, new RegExp(`La jouer ${JEUX.epingle.a} pour la dorer`))
   assert.match(coupSansElle, /Ce jeu arrive bientôt/)
-  assert.match(coup, new RegExp(`La rejouer ${JEUX.epingle.a} pour la dorer`))
+  assert.match(coup, new RegExp(`La jouer ${JEUX.epingle.a} pour la dorer`))
   assert.doesNotMatch(coup, /Ce jeu arrive bientôt/)
   sansJargon(await lOeuvre('coup-d-oeil'), 'une œuvre à lui')
 })
@@ -1635,7 +1635,7 @@ test('la révélation : les étoiles de la manche, ce qui s’est passé, le cor
   const e = texte(eclair)
   assert.match(e, /5 sur 5/)
   assert.equal([...eclair.matchAll(/class="corrige ok"/g)].length, 5)
-  assert.match(e, /Les affirmations ne vont pas au carnet\./)
+  assert.match(e, /Ces affirmations ne vont pas au carnet de révision de la campagne\./)
   assert.doesNotMatch(e, /Signaler/)
   sansJargon(gagne, 'la révélation')
 })
@@ -3118,21 +3118,21 @@ test('pendant une partie, l’œuvre ne s’achète, ne se dore ni ne se chasse 
   const libre = await lOeuvre('expose', {}, riche)
   assert.ok(!bouton(libre, 'Partir à sa recherche').eteint && !bouton(libre, 'L’acheter').eteint)
   assert.equal(raisonsDe(libre).size, 0)
-  // Une œuvre à lui, pas dorée : la dorure et « La rejouer » s'éteignent — la partie qui attend se dit d'abord, comme au serveur
+  // Une œuvre à lui, pas dorée : la dorure et « La jouer » s'éteignent — la partie qui attend se dit d'abord, comme au serveur
   // (`cadreDuDepart`, `refusDeLAchat`), avant le jeu qui n'est pas livré.
   assert.ok(!riche.jeux.includes(JEU_DE_L_OEUVRE['coup-d-oeil']))
   const aLui = await lOeuvre('coup-d-oeil', {}, attend)
-  const [dorure, rejouer] = [bouton(aLui, 'Dorer son cadre'), bouton(aLui, 'La rejouer')]
+  const [dorure, rejouer] = [bouton(aLui, 'Dorer son cadre'), bouton(aLui, 'La jouer')]
   assert.ok(dorure.eteint && rejouer.eteint)
   assert.ok(dorure.raison && dorure.raison === rejouer.raison)
   assert.equal(raisonsDe(aLui).get(dorure.raison!), raison)
   assert.doesNotMatch(texte(aLui), new RegExp(JEU_PAS_LIVRE))
   // Sa carte-bonus, elle, se choisit toujours : ce n'est qu'une préférence du téléphone.
   assert.ok(!bouton(aLui, 'En faire ma carte-bonus').eteint)
-  // Sans partie : la dorure répond, et « La rejouer » dit sous lui le jeu qui arrive bientôt.
+  // Sans partie : la dorure répond, et « La jouer » dit sous lui le jeu qui arrive bientôt.
   const sans = await lOeuvre('coup-d-oeil', {}, riche)
   assert.ok(!bouton(sans, 'Dorer son cadre').eteint)
-  assert.equal(raisonsDe(sans).get(bouton(sans, 'La rejouer').raison!), JEU_PAS_LIVRE)
+  assert.equal(raisonsDe(sans).get(bouton(sans, 'La jouer').raison!), JEU_PAS_LIVRE)
   // Les mots du serveur, importés : la page ne les recopie pas.
   assert.doesNotMatch(source('views/cabinet/Oeuvre.tsx'), /t’attend|reprends-la/)
   sansJargon(manque, 'une œuvre pendant une partie')
@@ -3149,15 +3149,15 @@ test('la chasse d’une œuvre se refuse dans l’ordre du serveur : la partie q
   // À lui, à un jeu pas livré (l'Épingle) : la raison est qu'il n'a plus de chasse, et le jeu à venir ne se dit pas.
   assert.ok(!sansElle.jeux.includes(JEU_DE_L_OEUVRE['coup-d-oeil']))
   const aLui = await lOeuvre('coup-d-oeil', {}, sansChasse)
-  assert.equal(raisonDe(aLui, 'La rejouer'), PLUS_DE_CHASSE)
+  assert.equal(raisonDe(aLui, 'La jouer'), PLUS_DE_CHASSE)
   assert.doesNotMatch(texte(aLui), new RegExp(JEU_PAS_LIVRE))
   // Une œuvre qui manque, à un jeu pas livré : de même.
   const aVenir = sansElle.salles.flatMap(s => s.oeuvres).find(o => !o.possedee && o.bientot)!
   assert.equal(raisonDe(await lOeuvre(aVenir.cle, {}, sansChasse), 'Partir à sa recherche'), PLUS_DE_CHASSE)
   // Une partie qui attend se dit avant tout.
-  assert.equal(raisonDe(await lOeuvre('coup-d-oeil', {}, { ...sansChasse, enCours: vues.pari }), 'La rejouer'), texte(laPartieAttend(vues.pari.jeu)).trim())
+  assert.equal(raisonDe(await lOeuvre('coup-d-oeil', {}, { ...sansChasse, enCours: vues.pari }), 'La jouer'), texte(laPartieAttend(vues.pari.jeu)).trim())
   // Des chasses qui restent : le jeu qui n'est pas livré.
-  assert.equal(raisonDe(await lOeuvre('coup-d-oeil', {}, sansElle), 'La rejouer'), JEU_PAS_LIVRE)
+  assert.equal(raisonDe(await lOeuvre('coup-d-oeil', {}, sansElle), 'La jouer'), JEU_PAS_LIVRE)
 })
 
 test('pendant une partie, rien d’autre ne part : la visite, les jeux libres et l’annonce mettent leur départ en sourdine, la raison du serveur dite une fois', async () => {

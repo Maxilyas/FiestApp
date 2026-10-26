@@ -89,9 +89,13 @@ export interface AutreGardien {
  * Les cinq autres. Ceux de saison, la première œuvre gagnée en jouant pendant
  * leur fête, aux dates de `shared/saisons.ts` — sans rattrapage hors de la
  * fête : une fête qui revient chaque année est une bonne raison de revenir.
+ * Le Scarabée dit la série d'aujourd'hui : un jour ne compte qu'à la première
+ * manche répondue d'une visite ou d'une chasse (`jourCompte`, depuis le
+ * 26 octobre 2026) — « 30 jours de visite ou de chasse d'affilée » se lisait
+ * « commencer une visite chaque jour », la règle d'avant.
  */
 export const AUTRES_GARDIENS: readonly AutreGardien[] = [
-  { legendaire: 'lg:scarabee', pouvoir: 'proteger', reveil: { serie: true }, condition: `${JOURS_DU_SCARABEE} jours de visite ou de chasse d’affilée` },
+  { legendaire: 'lg:scarabee', pouvoir: 'proteger', reveil: { serie: true }, condition: `${JOURS_DU_SCARABEE} jours d’affilée à répondre à une manche de visite ou de chasse` },
   { legendaire: 'lg:trou-noir', pouvoir: 'miser', reveil: { tout: true }, condition: `Le Cabinet entier : les ${OEUVRES.length} œuvres` },
   { legendaire: 'lg:citrouille', pouvoir: 'eclairer', reveil: { saison: 'halloween' }, condition: 'Une œuvre gagnée en jouant pendant Halloween' },
   { legendaire: 'lg:sapin', pouvoir: 'proteger', reveil: { saison: 'noel' }, condition: 'Une œuvre gagnée en jouant pendant Noël' },
