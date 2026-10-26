@@ -8,13 +8,17 @@
 // d'`expedition-charge.test.ts`) ne laisse rien en mémoire : le même geste,
 // rejoué au même rang, passe une fois. La suppression d'un profil attend ce
 // qui est en route, et les tas d'une liste de jouables neuve se préparent une
-// catégorie par tour de boucle, jamais d'un bloc sous un départ.
+// étape par tour de boucle, jamais d'un bloc sous un départ : sur la base
+// livrée, une tranche de questions au crible par tour, et rien à rejuger pour
+// une liste neuve des mêmes questions. L'Éclair d'un fidèle ne parcourt pas
+// les catégories qu'il a épuisées : on compte les questions qu'il examine.
 //
 // Puis par les routes, chaque aller-retour compté sur le fichier `file:` qui
 // tient lieu de Turso (le gabarit d'`expedition-charge.test.ts`) : la page
 // froide en coûte un, chaude aucun ; un départ un, deux si le journal n'est
 // pas frais ; un geste un, son verdict compris ; la fin, son lot et le rituel
-// de la campagne (la conception, § 2.9) ; un achat, une dorure, un échange un
+// de la campagne (la conception, § 2.9) — pas un de plus pour un compagnon
+// dans la niche, ses soirées et le journal tenus en mémoire ; un achat, une dorure, un échange un
 // chacun, rejoués aucun ; le cartel d'une partie et « Mes réponses » d'une
 // partie finie un, par leur clé ; tes murs aucun, un si le journal a du retard
 // — les dates des frises des sujets et de l'Expédition comprises, lues de la
@@ -57,8 +61,17 @@ import { prixDe } from '../../shared/cabinet/musee'
 import { idDeLaFriseDeSujet } from '../../shared/cabinet/pieces'
 import { PREFIXE_DE_LA_FRISE } from '../../shared/frise'
 import { CATEGORIES } from '../../shared/categories'
+import { JUSTES_DES_FORMES } from '../../shared/compagnons'
+import { gainVide, releveVide } from '../../shared/profil'
+import type { EclairTire } from '../../shared/cabinet/jeux/eclair'
+import { motDeLaQuestion } from '../../shared/cabinet/jeux/mot'
 import { PARTIES_GARDEES, type PartieLue } from '../src/core/cabinet/magasin'
 import { vueDeLaPartie } from '../src/core/cabinet/vue'
+import { contenuDuCabinet } from '../src/core/cabinet/contenu'
+import { estUnQcmDuCabinet, motsDeLaCategorie, preparerLesTas, qcmDeLaCategorie, valeurDuFilet, valeursDeLaCategorie } from '../src/core/cabinet/tirages/tas'
+import { tirerLePlan } from '../src/core/cabinet/tirages/index'
+import { BaseDeLaCampagne, lireLaBase, QUESTIONS_PAR_TRANCHE, type QuestionDeLaBase } from '../src/core/baseCampagne'
+import { tableauxDuDetail } from '../src/core/details'
 import { lignesDesFrises } from '../src/core/frises'
 import { ProfileStore } from '../src/auth/profiles'
 
@@ -355,6 +368,130 @@ test('les tas d’une liste de jouables neuve se préparent une étape par tour 
   }
 })
 
+// ── Les tas et le tirage, sur la base livrée ──────────────────────────────
+//
+// La base d'essai tient en quelques centaines de questions : ses tas se font
+// en un tour quoi qu'on fasse. Les épreuves qui suivent lisent celle que le
+// serveur sert, vingt-six mille questions, deux à trois mille par catégorie —
+// lue une fois pour elles toutes.
+
+let laBaseLivree: BaseDeLaCampagne | null = null
+const baseLivree = () => (laBaseLivree ??= new BaseDeLaCampagne(lireLaBase().questions))
+
+/** Les tours de boucle, comptés : un `setImmediate` qui se repose à chaque tour (le gabarit de l'épreuve des tas, plus haut). */
+function compteurDeTours(): { tour: () => number; arreter: () => void } {
+  let tour = 0
+  let tourne = true
+  const tic = () => {
+    tour++
+    if (tourne) setImmediate(tic)
+  }
+  setImmediate(tic)
+  return { tour: () => tour, arreter: () => void (tourne = false) }
+}
+
+/**
+ * Des questions sous un espion : chaque intitulé lu, et à quel tour de boucle.
+ * Les trois cribles du Cabinet le lisent tous, et rien d'autre de la
+ * préparation : les tableaux du Détail lisent les réponses d'une centaine de
+ * questions, les frises leur date et leurs sujets. Des objets neufs, que rien
+ * n'a encore jugés : la première préparation d'un processus.
+ */
+function sousLEspion(questions: readonly QuestionDeLaBase[], tour: () => number): { liste: QuestionDeLaBase[]; lues: Map<number, Set<QuestionDeLaBase>> } {
+  const lues = new Map<number, Set<QuestionDeLaBase>>()
+  const liste = questions.map(
+    q =>
+      new Proxy(q, {
+        get(cible, cle, recepteur) {
+          if (cle === 'texte') {
+            let auTour = lues.get(tour())
+            if (!auTour) lues.set(tour(), (auTour = new Set()))
+            auTour.add(cible)
+          }
+          return Reflect.get(cible, cle, recepteur)
+        },
+      }),
+  )
+  return { liste, lues }
+}
+
+const lesIds = (qs: readonly QuestionDeLaBase[]) => qs.map(q => q.id)
+
+test('les tas de la base livrée : une tranche de questions au crible par tour de boucle, et une liste neuve des mêmes questions n’en repasse aucune', async () => {
+  // Une catégorie d'un seul tenant, c'était deux à trois mille questions aux trois cribles en un tour — 84 ms de boucle
+  // figée ici, de l'ordre d'une seconde au dixième de cœur de l'hébergeur, douze fois à chaque réveil et à chaque liste de
+  // jouables neuve, la réserve du jour chaque matin (la revue de sobriété du 25 octobre 2026). On compte les questions lues
+  // à chaque tour, jamais le temps : une machine chargée n'y change rien.
+  const { campagne } = await magasinDEssai(path.join(dossierDEssai(), 'tranches.db'), { t: DIX_HEURES }, baseLivree())
+  const porte = campagne.porte()
+  const jouables = await porte.jouables()
+  // Ce que le disque donne une fois par processus, hors de la mesure.
+  tableauxDuDetail()
+  contenuDuCabinet()
+  const compteur = compteurDeTours()
+  const { liste, lues } = sousLEspion(jouables, compteur.tour)
+  try {
+    await preparerLesTas(porte, liste)
+    const parTour = [...lues.values()].map(s => s.size)
+    const jugees = parTour.reduce((n, k) => n + k, 0)
+    assert.ok(jugees >= 20_000, `${jugees} questions lues seulement : les cribles n'ont pas tourné`)
+    assert.ok(Math.max(...parTour) <= QUESTIONS_PAR_TRANCHE, `un tour de boucle passe ${Math.max(...parTour)} questions aux cribles, pour ${QUESTIONS_PAR_TRANCHE} par tranche`)
+
+    // L'apport du matin, un retrait, une base relue : une liste neuve, faite des mêmes questions (`CampagneStore.jouables` les
+    // filtre). Le verdict de chacune ne dépend que d'elle : gardé, il ne se refait pas, et la liste ne coûte qu'un filtre —
+    // 0,3 à 1,1 ms par catégorie au lieu de 53 à 153 (la contre-expertise du même jour).
+    const neuve = liste.filter((_, i) => i % 500 !== 7)
+    lues.clear()
+    await preparerLesTas(porte, neuve)
+    assert.equal([...lues.values()].reduce((n, s) => n + s.size, 0), 0, 'une liste neuve des mêmes questions repasse au crible')
+    // Et ses tas sont ceux que les cribles donnent, question pour question.
+    for (const c of CATEGORIES) {
+      const siennes = porte.deLaCategorie(neuve, c)
+      assert.deepEqual(lesIds(qcmDeLaCategorie(porte, neuve, c)), lesIds(siennes.filter(estUnQcmDuCabinet)), `les QCM de ${c}`)
+      assert.deepEqual(lesIds(motsDeLaCategorie(porte, neuve, c)), lesIds(siennes.filter(q => motDeLaQuestion(q) !== null)), `les mots de ${c}`)
+      assert.deepEqual(lesIds(valeursDeLaCategorie(porte, neuve, c)), lesIds(siennes.filter(q => valeurDuFilet(q) !== null)), `les valeurs de ${c}`)
+    }
+  } finally {
+    compteur.arreter()
+  }
+})
+
+/** Ce que le joueur a vu, et chaque question que le tirage examine : `tirerPourUneEscale` demande sa fraîcheur à chacune. */
+class VuesComptees extends Map<string, number> {
+  lues = 0
+  override get(k: string) {
+    this.lues++
+    return super.get(k)
+  }
+}
+
+test('l’Éclair d’un joueur qui a épuisé six catégories tire dans les six autres, sans parcourir les épuisées', async () => {
+  // Il tirait sa catégorie au hasard parmi les douze, avant de regarder ce qu'il avait vu : dans une catégorie épuisée,
+  // chacune de ses places parcourait tout le tas — 7 658 questions examinées par départ contre 25 pour un joueur neuf (la
+  // revue de sobriété du 25 octobre 2026), et cinq affirmations déjà vues quand six catégories l'attendaient.
+  const { campagne } = await magasinDEssai(path.join(dossierDEssai(), 'eclair.db'), { t: DIX_HEURES }, baseLivree())
+  const porte = campagne.porte()
+  const [jouables, mesures] = await Promise.all([porte.jouables(), porte.mesures()])
+  await preparerLesTas(porte, jouables)
+  const epuisees = new Set<string>(CATEGORIES.slice(0, 6))
+  // Toutes leurs questions vues il y a un mois, hors de la fenêtre de sept jours : vues, pas récentes.
+  const ilYaUnMois = DIX_HEURES - 30 * 86_400_000
+  const vuesEpuisees = jouables.filter(q => epuisees.has(q.meta.categorie)).map((q, i): [string, number] => [q.id, ilYaUnMois + i])
+  const departs = (vues: readonly [string, number][]) =>
+    Array.from({ length: 3 }, () => {
+      const comptees = new VuesComptees(vues)
+      comptees.lues = 0
+      const plan = tirerLePlan('eclair', { porte, jouables, mesures, vues: comptees, maintenant: DIX_HEURES, hasard: Math.random }, 0)
+      assert.ok(plan, 'rien à tirer')
+      return { examinees: comptees.lues, categorie: (plan[0] as EclairTire).affirmations[0].question.categorie }
+    })
+  const neuf = departs([])
+  const fidele = departs(vuesEpuisees)
+  for (const d of fidele) assert.ok(!epuisees.has(d.categorie ?? ''), `l’Éclair pose ${d.categorie}, épuisée, quand six catégories l’attendent`)
+  const moyenne = (ds: readonly { examinees: number }[]) => ds.reduce((n, d) => n + d.examinees, 0) / ds.length
+  assert.ok(moyenne(fidele) <= 10 * moyenne(neuf), `l’Éclair du fidèle examine ${moyenne(fidele)} questions par départ, contre ${moyenne(neuf)} pour un joueur neuf`)
+})
+
 test('une écriture refusée par la base : rien ne reste en mémoire, et le même geste, au même rang, passe une fois', async () => {
   const { a, fichier, horloge } = await deuxServeurs()
   const partie = await a.cabinet.commencer('qui', { origine: 'libre', jeu: 'pari', carte: null })
@@ -427,6 +564,56 @@ test('par les routes : la page froide un aller-retour, chaude aucun ; un départ
     assert.equal(apres.appels, 1)
   } finally {
     await b.banc.close()
+  }
+})
+
+test('par les routes : la fin d’une partie, un compagnon dans la niche, coûte ce qu’elle coûte sans lui', async () => {
+  // La luciole entre dans la niche à la première salle complète ; dès lors, chaque fin fait grandir le compagnon. Le rituel
+  // relisait toutes ses soirées (`historiqueOf`, une ligne par soirée jouée) et rattrapait encore le journal des réponses,
+  // que le lot de la fin et ses paliers venaient de relire après ses réponses : cinq allers-retours en série au lieu de
+  // trois (la revue de sobriété du 25 octobre 2026), à chaque fin, dix fois par jour.
+  const b = await bancDuCabinet({ fraicheurDesDuelsMs: 3_600_000 })
+  try {
+    const ana = await inscrireProfil(b.banc.url, 'ana', 'Ana')
+    const id = (await fetch(`${b.banc.url}/api/joueur/moi?leger`, { headers: { Cookie: ana } }).then(r => r.json() as Promise<{ profile: { id: string } }>)).profile.id
+    // Sept œuvres de la salle de l'Érudit, achetées avant sa première page ; la Leçon, gagnée, la complète.
+    aLaMain(b.fichier, ['plume', 'savoir-faire', 'memoire', 'bibliotheque', 'expose', 'encyclopedie', 'genie'].map(o => `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le) VALUES ('${id}', '${o}', 'achat', 0);`).join('\n'))
+    ok(await laPage(b, ana), 'sa page')
+    const chasse = await unPariParfait(b, ana, ok(await commencer(b, ana, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse'))
+    assert.ok(chasse.bilan?.gains?.compagnon, 'la luciole dans sa niche')
+    // Deux fins ordinaires, chacune une bonne réponse : la seconde se compte — ce qui se garde l'est alors.
+    let appels = 0
+    for (let n = 0; n < 2; n++) {
+      const v = await jouerUnEclair(b, ana, ok(await commencer(b, ana, { origine: 'libre', jeu: 'eclair', carte: null }), 'une libre'), 0)
+      const fin = await mesurer(() => jouer(b, ana, v, { quoi: 'quitter' }))
+      assert.equal(ok(fin.resultat, 'quitter').phase, 'finie')
+      appels = fin.appels
+    }
+    assert.equal(appels, 3, 'la fin : son lot et l’expérience lue au bout, l’expérience créditée, ses paliers — son compagnon, de la mémoire')
+  } finally {
+    await b.banc.close()
+  }
+})
+
+test('ce que la croissance d’un compagnon garde de ses soirées se défait à chaque soirée créditée : il grandit dès la fin suivante', async () => {
+  // La fin d'une partie ne relit plus tout son historique pour son compagnon : ses soirées se gardent (`compagnonsDe`). Une
+  // soirée créditée, d'un quiz ou de sa clôture, les oublie — sans quoi le compagnon attendait le redémarrage pour grandir
+  // de ce qu'il avait trouvé en soirée.
+  const profils = new ProfileStore(`file:${path.join(dossierDEssai(), 'profils.db')}`)
+  await profils.init()
+  try {
+    const { profile } = await profils.register({ login: 'ana', password: 'motdepasse1', name: 'Ana', avatar: '🦊' })
+    await profils.offrirUnCompagnon(profile.id, 'loup', DIX_HEURES)
+    assert.equal(await profils.faireGrandir(profile.id), false, 'aucune bonne réponse avec lui encore : rien ne grandit, ses soirées se gardent')
+    // Une soirée qui compte — jouée à plusieurs — et ses bonnes réponses données avec le loup.
+    const soiree = (justes: number) => ({ spaceId: 'salon', gain: { ...gainVide(), reponses: justes }, releve: { ...releveVide(), compagnons: { loup: justes } }, xp: justes })
+    await profils.creditSoiree({ profileId: profile.id, soireeId: 's1', ...soiree(JUSTES_DES_FORMES[1]) })
+    assert.equal(await profils.faireGrandir(profile.id), true, 'sa deuxième forme, de la soirée créditée après coup')
+    // Et la clôture d'une soirée entière, d'un seul lot.
+    await profils.crediterSoireeEntiere('s2', 'salon', [{ profileId: profile.id, ...soiree(JUSTES_DES_FORMES[2] - JUSTES_DES_FORMES[1]) }])
+    assert.equal(await profils.faireGrandir(profile.id), true, 'sa troisième, de la soirée close')
+  } finally {
+    profils.close()
   }
 })
 

@@ -147,14 +147,6 @@ export const partiesDuJour = (profil = '?', minuit = '?') => `profile_id = ${pro
 
 // ── Le lot froid ──────────────────────────────────────────────────────────
 
-/**
- * Tant que l'Expédition se lit encore — jusqu'à l'étape 5, quand plus une
- * expédition n'est en route depuis trente jours —, la page du Cabinet dit
- * qu'une expédition attend son joueur : une lecture de plus dans le lot
- * froid, par l'index des sentiers. À faux, elle s'en va du lot.
- */
-export const EXPEDITION_ENCORE_LUE = true
-
 /** Les voies des gardiens de saison (`saison:halloween`…) : les seules que le Cabinet range et qu'on gagne aussi ailleurs. */
 const VOIES_DE_SAISON: readonly string[] = GARDIENS_DE_SAISON.map(g => voieDuGardien(g)!)
 
@@ -197,9 +189,10 @@ export function lecturesDuMusee(profileId: string, minuit: number, avecLEtagere:
           },
         ]
       : []),
-    ...(EXPEDITION_ENCORE_LUE
-      ? [{ sql: "SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL LIMIT 1", args: [profileId] }]
-      : []),
+    // L'expédition qui l'attend — la page dit « Ton expédition t'attend » —, par l'index du profil et du mode. Elle se lit
+    // tant que l'Expédition se lit : son départ fermé, celles en route finissent encore ; elle partira avec le code de
+    // l'Expédition, quand plus aucune ne sera en route depuis trente jours.
+    { sql: "SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL LIMIT 1", args: [profileId] },
   ]
 }
 

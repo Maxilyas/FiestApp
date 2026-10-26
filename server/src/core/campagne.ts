@@ -268,7 +268,7 @@ import {
 import { JOURS_DU_QG, jourDeLInstant, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
 import { DUELS_EN_ATTENTE_MONTRES, LIGNES_DU_CLASSEMENT_AU_QG, joueursParLigue, type JoueurDuDuel, type SuiviDesDuels } from '../../../shared/qgDuels'
 import { etoilesDansLeTemps, liguesDansLeTemps, type EpreuveValidee, type Mouvement } from '../../../shared/qgEconomie'
-import { hasardDe, type JournauxDesJours } from '../../../shared/missions'
+import { hasardDe, MODES_QUE_LES_MISSIONS_COMPTENT, type JournauxDesJours } from '../../../shared/missions'
 import {
   PARCOURS_AU_QG,
   lesPlusRatees,
@@ -710,8 +710,9 @@ const HEURE_MS = 3600_000
  * `COALESCE(mode, 'serie') = 'serie'`, le filtre ne servait aucun index : le
  * record, la page, la série en cours relisaient toutes les parties du profil,
  * de tous les modes, par l'index du profil — et le Cabinet en ajoute une
- * dizaine par jour et par joueur. Sur le mode même, il prend l'index des
- * sentiers `(profile_id, mode, …)`, qui ne mène qu'à ses séries
+ * dizaine par jour et par joueur. Sur le mode même, il prend un index du
+ * profil et du mode `(profile_id, mode, …)` — celui des sentiers, ou celui de
+ * la date (`idx_campagne_series_profil_mode`) —, qui ne mène qu'à ses séries
  * (`campagne-index.test.ts` lit les plans, sans statistiques comme la
  * production). Aucune ligne n'a de mode NULL — le `COALESCE` d'avant n'en
  * attrapait aucune : la colonne est née `NOT NULL DEFAULT 'serie'`, dès son
@@ -731,13 +732,29 @@ const SERIES = "mode = 'serie'"
  * toutes les parties du profil, de tous les modes, pour n'en trouver aucune :
  * à chaque accueil, page de la campagne ou des sentiers, dé, carnet, parcours
  * ou Expédition, et le Cabinet en ajoute une dizaine par jour et par joueur.
- * Par l'index des sentiers `(profile_id, mode, …)`, il ne lit que les parties
- * du mode, et n'en trie qu'une poignée (`campagne-index.test.ts`). Les
- * dernières rencontres de la page des duels (`rencontresEtDuels`) gardent
- * l'index du profil : sans `finie_le`, il s'arrête aux plus récentes, quand
- * l'index des sentiers lirait toutes les rencontres d'un fidèle du dé.
+ * Par un index du profil et du mode `(profile_id, mode, …)` — celui des
+ * sentiers, ou celui de la date —, il ne lit que les parties du mode, et n'en
+ * trie qu'une poignée (`campagne-index.test.ts`). Les dernières rencontres de
+ * la page des duels (`rencontresEtDuels`), sans `+` ni `finie_le`, prennent
+ * l'index du profil, du mode et de la date (`idx_campagne_series_profil_mode`) :
+ * rangées par leur date, la lecture s'arrête aux plus récentes. Par l'index
+ * du profil seul, celui d'un joueur sans rencontre relisait toutes ses
+ * parties, celles du Cabinet comprises.
  */
 const LA_PLUS_RECENTE = 'ORDER BY +commencee_le DESC LIMIT 1'
+/**
+ * Sa tentative au défi d'une semaine (le profil, puis la semaine) : par ses
+ * défis à lui, un par semaine au plus — l'index du profil et du mode. Sans
+ * ses deux `+`, sans statistiques, SQLite partait de l'index du profil pour
+ * s'épargner le tri, et relisait toutes les parties du profil, tous modes
+ * confondus, à chaque accueil — 2 993 pas pour un fidèle, dix de plus par jour
+ * au Cabinet ; avec celui de la date seul, de l'index des défis
+ * `(mode, semaine)` : les tentatives de la semaine de tout le monde, à chaque
+ * accueil de chacun (la revue de sobriété du 25 octobre 2026,
+ * `campagne-index.test.ts`, qui le lit aussi sous des statistiques qui y
+ * pousseraient).
+ */
+const SA_TENTATIVE_AU_DEFI = "profile_id = ? AND mode = 'defi' AND +semaine = ? ORDER BY +commencee_le LIMIT 1"
 /** Ce que l'administration relit des épreuves : trois mois suffisent à régler un palier. */
 const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
 /** Les plus bloqués que l'administration nomme : de quoi voir qui décroche, pas un annuaire. */
@@ -1376,6 +1393,11 @@ export class CampagneStore {
     const creees = await this.client.batch(
       [
         'CREATE INDEX IF NOT EXISTS idx_campagne_series_sentiers ON campagne_series(profile_id, mode, branche, palier)',
+        // Les parties d'un mode d'un profil, rangées par leur date : les missions y lisent celles des seuls modes qu'elles
+        // comptent, depuis une date (`activiteDepuis`) — par l'index du profil, elles relisaient à chaque bilan et à chaque
+        // accueil les parties du Cabinet, dix par jour —, et les dernières rencontres de la page des duels s'y arrêtent aux
+        // plus récentes, sans relire toutes les parties d'un joueur qui n'en a pas (la revue de sobriété du 25 octobre 2026).
+        'CREATE INDEX IF NOT EXISTS idx_campagne_series_profil_mode ON campagne_series(profile_id, mode, commencee_le)',
         // Les paliers que chacun tenait de ses portraits d'avant les sentiers
         // (`core/repriseDesPortraits.ts`) : écrits une fois, jamais repris.
         `CREATE TABLE IF NOT EXISTS sentier_acquis (
@@ -1546,9 +1568,12 @@ export class CampagneStore {
    * Son compagnon grandit à la fin d'une partie — série, épreuve, parcours —,
    * jamais pendant une question (`ProfileStore.faireGrandir`). Une base qui
    * hoquette le laisse grandir à la lecture suivante : la partie, elle, est finie.
+   * Ses bonnes réponses de campagne, il les lit du journal tel que la fin
+   * vient de le laisser (`compagnonsApresSesReponses`), et seulement s'il a un
+   * compagnon dans sa niche : le magasin des profils le demande à son heure.
    */
   private async faireGrandir(profileId: string): Promise<void> {
-    await this.profils?.faireGrandir?.(profileId).catch(e => console.error('[campagne] compagnon :', e))
+    await this.profils?.faireGrandir?.(profileId, () => this.compagnonsApresSesReponses(profileId)).catch(e => console.error('[campagne] compagnon :', e))
   }
 
   /** Un geste à la fois par profil : deux onglets qui répondent ensemble ne comptent pas deux fois. */
@@ -3146,19 +3171,26 @@ export class CampagneStore {
 
   /**
    * Ses parties de campagne finies ou jouées depuis un instant, et leurs
-   * réponses, de tous les modes : de quoi juger ses missions du jour
-   * (`shared/missions.ts`), jour par jour. D'un aller-retour, par l'index de
-   * ses séries ; une partie commencée une semaine plus tôt — une épreuve
-   * laissée, reprise — compte encore ses réponses du jour (`MARGE_D_UNE_EPREUVE_MS`).
-   * La catégorie est celle que la série a gardée de sa question, comme pour
-   * ses écussons.
+   * réponses : de quoi juger ses missions du jour (`shared/missions.ts`), jour
+   * par jour. D'un aller-retour ; une partie commencée une semaine plus tôt —
+   * une épreuve laissée, reprise — compte encore ses réponses du jour
+   * (`MARGE_D_UNE_EPREUVE_MS`). La catégorie est celle que la série a gardée
+   * de sa question, comme pour ses écussons. Ses parties, des seuls modes que
+   * les missions comptent (`MODES_QUE_LES_MISSIONS_COMPTENT`), par l'index de
+   * son profil, de leur mode et de leur date : de tous les modes, elles
+   * relisaient à chaque bilan et à chaque accueil les parties du Cabinet,
+   * dix par jour, pour n'en rien compter — et `mode IN (…)` sans cet index
+   * n'y changeait rien, l'index du profil lisant encore chaque ligne pour en
+   * voir le mode (3 753 pas pour un fidèle, 126 avec lui : la revue de
+   * sobriété du 25 octobre 2026, `campagne-index.test.ts`).
    */
   async activiteDepuis(profileId: string, depuis: number): Promise<Pick<JournauxDesJours, 'series' | 'reponses'>> {
     const commencees = depuis - MARGE_D_UNE_EPREUVE_MS
     const series: InStatement = {
       sql: `SELECT id, mode, issue, finie_le FROM campagne_series
-            WHERE profile_id = ? AND commencee_le >= ? AND (finie_le IS NULL OR finie_le >= ?)`,
-      args: [profileId, commencees, depuis],
+            WHERE profile_id = ? AND mode IN (${MODES_QUE_LES_MISSIONS_COMPTENT.map(() => '?').join(', ')})
+              AND commencee_le >= ? AND (finie_le IS NULL OR finie_le >= ?)`,
+      args: [profileId, ...MODES_QUE_LES_MISSIONS_COMPTENT, commencees, depuis],
     }
     const seriesLues = (lues: ResultSet) =>
       lues.rows.map(r => ({
@@ -3218,10 +3250,29 @@ export class CampagneStore {
    * comptent pas. Du journal, rattrapé d'un aller-retour : relues de la
    * base, elles parcouraient toutes ses réponses à chaque fin de partie,
    * chaque boutique, chaque niche — 38 % du quota de Turso, le 23 octobre
-   * 2026, 5 000 lignes à chaque fois pour le plus fidèle.
+   * 2026, 5 000 lignes à chaque fois pour le plus fidèle. Une page qui les
+   * lit — la niche, la boutique, la fin d'un quiz du jour ou d'une soirée —
+   * rattrape tout ce qui est arrivé, d'ici ou d'ailleurs : l'autre serveur
+   * d'une mise en ligne a pu écrire. La fin d'une partie de la campagne, elle,
+   * sait mieux (`compagnonsApresSesReponses`).
    */
   async compagnonsDe(profileId: string): Promise<Record<string, number>> {
     return (await this.rattraperLeJournal()).compagnonsDe(profileId)
+  }
+
+  /**
+   * Les mêmes, à la fin d'une partie de la campagne — ou du Cabinet, par sa
+   * porte —, rattrapées depuis la dernière réponse écrite ici
+   * (`derniereReponse`), comme le journal seul de la porte : les paliers
+   * viennent de relire le journal au bout de leur lot, après ses réponses, et
+   * un aller-retour de plus n'apprenait rien — cinq en série à chaque fin, un
+   * compagnon dans la niche, au lieu de trois (la revue de sobriété du
+   * 25 octobre 2026, `cabinet-charge.test.ts`). Ce qu'un autre serveur a écrit
+   * entre-temps, la page suivante le lit (`compagnonsDe`) : son rang ne fait
+   * que monter, rien ne se perd.
+   */
+  private async compagnonsApresSesReponses(profileId: string): Promise<Record<string, number>> {
+    return (await this.rattraperLeJournal(this.derniereReponse)).compagnonsDe(profileId)
   }
 
   /**
@@ -3580,10 +3631,10 @@ export class CampagneStore {
     })
   }
 
-  /** Sa tentative au défi d'une semaine, s'il l'a commencée. */
+  /** Sa tentative au défi d'une semaine, s'il l'a commencée — par ses défis à lui (`SA_TENTATIVE_AU_DEFI`). */
   private async tentativeDuDefi(profileId: string, semaine: string): Promise<Serie | null> {
     const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'defi' AND semaine = ? ORDER BY commencee_le LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE ${SA_TENTATIVE_AU_DEFI}`,
       args: [profileId, semaine],
     })
     return res.rows[0] ? versSerie(res.rows[0]) : null
@@ -3895,10 +3946,18 @@ export class CampagneStore {
       : { nom: 'Un joueur', avatar: '🎲', justes: t.justes }
   }
 
-  /** Sa tentative à un défi entre amis, s'il l'a commencée. */
+  /**
+   * Sa tentative à un duel, s'il l'a commencée : par le code du duel, jamais
+   * par son profil (`PAR_SON_CODE`, règle `duels.md`) — les deux tentatives
+   * du duel au plus. Par son profil, sans statistiques, SQLite partait de
+   * l'index du profil pour s'épargner le tri, et lisait toutes ses parties, de
+   * tous les modes : à la page d'un duel, au relevé, à la fin d'un duel classé,
+   * à la correction (la revue de sobriété du 25 octobre 2026). Le `+` devant
+   * la date l'empêche d'y revenir pour le tri ; il ne trie que deux lignes.
+   */
   private async tentativeDuDuel(profileId: string, code: string): Promise<Serie | null> {
     const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'duel' AND duel = ? ORDER BY commencee_le LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE ${PAR_SON_CODE}profile_id = ? AND mode = 'duel' AND duel = ? ORDER BY +commencee_le LIMIT 1`,
       args: [profileId, code],
     })
     return res.rows[0] ? versSerie(res.rows[0]) : null
@@ -6167,16 +6226,19 @@ export class CampagneStore {
    * (invariant 15) ; ce que l'onglet dit, la page le montre. D'une seule
    * lecture, de front avec le reste de l'accueil : les tentatives de la
    * semaine en un texte, sans charger les profils, que le classement ne lit
-   * que pour les nommer.
+   * que pour les nommer. Chacune ne se cherche parmi les profils actifs que
+   * par sa clé (un `EXISTS` corrélé) : un `profile_id IN (SELECT id FROM
+   * profiles …)` relisait toute la table des profils à chaque accueil de
+   * chacun. La sienne, par ses défis à lui (`SA_TENTATIVE_AU_DEFI`).
    */
   async defiDAccueil(profileId: string): Promise<DefiDAccueil> {
     const { semaine } = this.semaineDeLHeure()
     const res = await this.client.execute({
       sql: `SELECT
-              (SELECT json_group_array(json_array(profile_id, justes)) FROM campagne_series
-                WHERE mode = 'defi' AND semaine = ? AND position > 0 AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)) AS tentatives,
-              (SELECT json_array(justes, finie_le IS NOT NULL) FROM campagne_series
-                WHERE profile_id = ? AND mode = 'defi' AND semaine = ? ORDER BY commencee_le LIMIT 1) AS sienne`,
+              (SELECT json_group_array(json_array(s.profile_id, s.justes)) FROM campagne_series s
+                WHERE s.mode = 'defi' AND s.semaine = ? AND s.position > 0
+                  AND EXISTS (SELECT 1 FROM profiles p WHERE p.id = s.profile_id AND p.disabled_at IS NULL)) AS tentatives,
+              (SELECT json_array(justes, finie_le IS NOT NULL) FROM campagne_series WHERE ${SA_TENTATIVE_AU_DEFI}) AS sienne`,
       args: [semaine, profileId, semaine],
     })
     const r = res.rows[0]

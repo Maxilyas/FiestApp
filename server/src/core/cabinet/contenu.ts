@@ -21,7 +21,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { SERVEUR } from '../../racine'
 import { CATEGORIES } from '../../../../shared/categories'
-import { sansAccent } from '../../../../shared/homonymes'
 import { refusDuLibelle } from '../../../../shared/frise'
 import { dansLaFrance, distanceKm } from '../../../../shared/cabinet/france'
 import {
@@ -40,7 +39,7 @@ import {
   SAVAIS_MAX,
 } from '../../../../shared/cabinet/bareme'
 import { FORME_D_UN_IDENTIFIANT, FORME_D_UNE_CLE, type Fiche, type FriseATheme, type Lieu, type Replique } from '../../../../shared/cabinet/contenu'
-import { bonneIdentite, motsUtiles, proches } from '../../../../shared/cabinet/jeux/indices'
+import { bonneIdentite, motsDe, motsUtiles, proches } from '../../../../shared/cabinet/jeux/indices'
 
 export const DOSSIER_DU_CONTENU = path.join(SERVEUR, 'content/cabinet')
 
@@ -83,26 +82,16 @@ function refusDuTexte(quoi: string, brut: unknown, max?: number): string | null 
 }
 
 /**
- * Les mots d'un texte, sans accents, sans capitales, sans ce qui les sépare :
- * « l'île d'Aix » donne l, ile, d, aix — et « Côte d’Or » se lit comme
- * « Côte-d'Or ».
+ * Ce nom est-il écrit dans ces mots — ceux d'un texte, lus par la règle des
+ * Indices (`motsDe`, `shared/cabinet/jeux/indices.ts` : sans accents, sans
+ * capitales, ses lettres à part ouvertes, « l'île d'Aix » donne l, ile, d,
+ * aix) —, en mots entiers, son article de tête mis à part ? « Le Havre » se lit
+ * dans « le centre du Havre ». Les mots se lisent une fois pour tous les noms
+ * qu'on y cherche : le crible des QCM du Cabinet y cherche quatre réponses par
+ * question, sur toute la base (`estUnQcmDuCabinet`), et redécoupait l'intitulé
+ * à chacune.
  */
-const motsDe = (texte: string) =>
-  sansAccent(texte)
-    .replace(/œ/g, 'oe')
-    .replace(/æ/g, 'ae')
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean)
-
-/**
- * Ce nom est-il écrit dans ce texte, en mots entiers, sans accents ni
- * capitales, son article de tête mis à part — « Le Havre » se lit dans « le
- * centre du Havre » ? Le juge de la base (`nomEcritDans`, `core/baseCampagne.ts`)
- * garde la capitale d'un nom propre ; ici, un récit qui écrirait « beaune »
- * sans elle dirait la réponse tout autant.
- */
-export function ecritDans(texte: string, nom: string): boolean {
-  const mots = motsDe(texte)
+export function ecritDansLesMots(mots: readonly string[], nom: string): boolean {
   let cherche = motsDe(nom)
   while (cherche.length > 1 && ARTICLES.has(cherche[0])) cherche = cherche.slice(1)
   if (cherche.length === 0) return false
@@ -110,7 +99,17 @@ export function ecritDans(texte: string, nom: string): boolean {
   return false
 }
 
-/** La même chose dite deux fois : ses mots, sans accents, capitales ni ponctuation. */
+/**
+ * Ce nom est-il écrit dans ce texte (`ecritDansLesMots`) ? Le juge de la base
+ * (`nomEcritDans`, `core/baseCampagne.ts`) garde la capitale d'un nom propre ;
+ * ici, un récit qui écrirait « beaune » sans elle dirait la réponse tout autant.
+ * Les mots se lisent comme la saisie des Indices les lit : ce que la saisie
+ * prendrait pour la réponse, le juge le voit écrit — « Walesa » dans un indice
+ * de la fiche « Wałęsa ».
+ */
+export const ecritDans = (texte: string, nom: string): boolean => ecritDansLesMots(motsDe(texte), nom)
+
+/** La même chose dite deux fois : ses mots, sans accents, capitales ni ponctuation — « Wałęsa » et « Walesa » sont la même personne. */
 const empreinte = (texte: string) => motsDe(texte).join(' ')
 
 /** Un objet qui a ces champs et aucun autre : un champ mal nommé se perdrait sans bruit, un champ de trop voyagerait. */

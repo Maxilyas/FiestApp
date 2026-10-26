@@ -1,6 +1,6 @@
 import { AUCUNE_BORDURE, bordurePortee, choixDeBordure, ligueParCle, type BordureDeLigue, type CleDeLigue } from '../../../shared/duels'
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
-import type { InStatement, Row } from '@libsql/client'
+import type { InStatement, ResultSet, Row } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
 import { AVATARS, cleanAvatar, cleanName, COLLECTION, DEFAULT_AVATAR, niveauRequis, tronquer } from '../../../shared/avatars'
@@ -603,6 +603,20 @@ export function decodeDetail(raw: string): { v: number; gain: GainSoiree; releve
   return { v: 1, gain: gainVide(), releve }
 }
 
+/**
+ * Les bonnes réponses données avec chaque compagnon dans ses soirées qui
+ * comptent (`soireeQuiCompte`) : seule la soirée jouée à plusieurs rapporte un
+ * confetti, et seul ce qui en rapporte le fait grandir.
+ */
+function justesDesSoirees(soirees: readonly { gain: GainSoiree; releve: ReleveSoiree }[]): Record<string, number> {
+  const justes: Record<string, number> = {}
+  for (const s of soirees) {
+    if (!soireeQuiCompte(s.gain)) continue
+    for (const [c, n] of Object.entries(s.releve.compagnons ?? {})) justes[c] = (justes[c] ?? 0) + (n ?? 0)
+  }
+  return justes
+}
+
 /** La ligne d'expérience d'un profil pour une soirée : remplacée, jamais ajoutée (invariant 10). */
 function ligneDeCredit(input: {
   profileId: string
@@ -771,6 +785,21 @@ export class ProfileStore {
    * sans aller-retour (`legendairePorte`).
    */
   private compagnons = new Map<string, Map<CleDeCompagnon, SienEnMemoire>>()
+  /**
+   * Les bonnes réponses de ses soirées qui comptent, compagnon par compagnon
+   * (`ReleveSoiree.compagnons`) : ce que la croissance de ses compagnons lit de
+   * ses soirées (`compagnonsDe`). Elle relisait tout son historique — une ligne
+   * de `profile_xp` par soirée jouée — à chaque fin d'une partie du solo, un
+   * compagnon dans la niche : dix fois par jour au Cabinet, un aller-retour en
+   * série de plus sur le bilan, et une lecture qui grandit avec ses soirées (la
+   * revue de sobriété du 25 octobre 2026). Gardées tant qu'aucune ligne de ses
+   * soirées ne change : chaque écriture de l'une d'elles les oublie
+   * (`oublierSesSoirees`), une fois écrite — une lecture partie avant elle s'en
+   * va avec. Une soirée créditée par l'autre serveur d'une mise en ligne ne s'y
+   * voit qu'à la suivante d'ici, ou au réveil : un compagnon qui aurait dû
+   * grandir grandit alors, rien ne se perd (son rang ne fait que monter).
+   */
+  private justesDesSoireesGardees = new Map<string, Promise<Readonly<Record<string, number>>>>()
   /**
    * Ce que ses coffres de la semaine lui ont donné (`fond:dragon`,
    * `gerbe:papillons`, `theme:jungle`…), par profil. Chargé avec le profil :
@@ -2070,11 +2099,15 @@ export class ProfileStore {
    * paliers de sa niche montent de même (`PALIERS_DE_LA_NICHE`), et ne se
    * perdent pas davantage.
    *
-   * `soirees`, quand on vient de relire son historique — ou qu'on le relit.
+   * `soirees`, quand on vient de relire son historique — ou qu'on le relit ;
+   * `deCampagne`, ses bonnes réponses de campagne telles que la fin d'une
+   * partie de la campagne vient de les laisser (`faireGrandir`), à la place
+   * de la lecture d'une page (`compagnonsDeCampagne`).
    */
   async compagnonsDe(
     p: ProfileRec,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[] | Promise<readonly { gain: GainSoiree; releve: ReleveSoiree }[]>,
+    deCampagne?: () => Promise<Record<string, number>>,
   ): Promise<CompagnonAcquis[]> {
     const possedes = this.compagnonsOf(p.id)
     if (possedes.length === 0) return []
@@ -2083,13 +2116,13 @@ export class ProfileStore {
       return {}
     }
     const rien: Record<string, number> = {}
-    const [lues, duJour, deCampagne] = await Promise.all([
-      soirees ?? this.historiqueOf(p.id),
+    const lireLaCampagne = deCampagne ?? (this.compagnonsDeCampagne && (() => this.compagnonsDeCampagne!(p.id)))
+    const [deSesSoirees, duJour, deLaCampagne] = await Promise.all([
+      soirees ? Promise.resolve(soirees).then(justesDesSoirees) : this.justesDeSesSoirees(p.id),
       this.compagnonsDuJour?.(p.id).catch(muette('quiz du jour')) ?? rien,
-      this.compagnonsDeCampagne?.(p.id).catch(muette('campagne')) ?? rien,
+      lireLaCampagne?.().catch(muette('campagne')) ?? rien,
     ])
-    const justesDe = (c: CleDeCompagnon) =>
-      lues.reduce((n, s) => n + (soireeQuiCompte(s.gain) ? (s.releve.compagnons?.[c] ?? 0) : 0), 0) + (duJour[c] ?? 0) + (deCampagne[c] ?? 0)
+    const justesDe = (c: CleDeCompagnon) => (deSesSoirees[c] ?? 0) + (duJour[c] ?? 0) + (deLaCampagne[c] ?? 0)
     const acquis = possedes.map(({ montree, paliers: avant, ...a }) => {
       const justes = justesDe(a.compagnon)
       const rang = Math.max(a.rang, rangAtteint(justes))
@@ -2103,18 +2136,43 @@ export class ProfileStore {
     return acquis
   }
 
+  /** Ses bonnes réponses de soirée, compagnon par compagnon : gardées (`justesDesSoireesGardees`), sinon relues de son historique. */
+  private justesDeSesSoirees(profileId: string): Promise<Readonly<Record<string, number>>> {
+    let gardees = this.justesDesSoireesGardees.get(profileId)
+    if (!gardees) {
+      const lues = this.historiqueOf(profileId).then(justesDesSoirees)
+      this.justesDesSoireesGardees.set(profileId, (gardees = lues))
+      // Ratée, la lecture ne se garde pas : la suivante la refait.
+      lues.catch(() => {
+        if (this.justesDesSoireesGardees.get(profileId) === lues) this.justesDesSoireesGardees.delete(profileId)
+      })
+    }
+    return gardees
+  }
+
+  /**
+   * Une ligne de ses soirées a changé — créditée, retirée, remise au barème —,
+   * ou peut-être : écrite ou non, on ne le sait pas, et la base fait foi. Ce
+   * qu'on en gardait s'oublie, après l'écriture : une lecture partie avant
+   * elle ne la sait pas.
+   */
+  private oublierSesSoirees(profileIds: Iterable<string>): void {
+    for (const id of profileIds) this.justesDesSoireesGardees.delete(id)
+  }
+
   /**
    * Fait grandir le compagnon de sa niche, si ses bonnes réponses l'ont mené
    * à sa forme suivante : à la fin d'un quiz, d'une partie du quiz du jour,
    * d'une série — jamais pendant une question. Rend vrai s'il a grandi : la
    * salle où il joue le voit alors, s'il le porte. Sans compagnon, rien ne se
-   * lit.
+   * lit — `deCampagne` non plus : la campagne le passe à la fin de ses
+   * parties, et ne paie rien pour qui n'a pas de niche.
    */
-  async faireGrandir(profileId: string): Promise<boolean> {
+  async faireGrandir(profileId: string, deCampagne?: () => Promise<Record<string, number>>): Promise<boolean> {
     const p = this.profiles.get(profileId)
     if (!p || !this.compagnonDeLaNiche(p)) return false
     const avant = this.compagnonsOf(profileId)
-    const apres = await this.compagnonsDe(p)
+    const apres = await this.compagnonsDe(p, undefined, deCampagne)
     return apres.some(a => a.rang > (avant.find(x => x.compagnon === a.compagnon)?.rang ?? 0))
   }
 
@@ -3839,7 +3897,11 @@ export class ProfileStore {
     // La ligne et le total dans le même envoi : un aller-retour de moins par
     // profil, à chaque fin de quiz et à la clôture — et le total n'est
     // jamais lu entre les deux.
-    return this.recalculerTotal(input.profileId, ligneDeCredit(input))
+    try {
+      return await this.recalculerTotal(input.profileId, ligneDeCredit(input))
+    } finally {
+      this.oublierSesSoirees([input.profileId])
+    }
   }
 
   /**
@@ -3856,17 +3918,22 @@ export class ProfileStore {
   ): Promise<void> {
     if (gains.length === 0) return
     const ids = [...new Set(gains.map(g => g.profileId))]
-    const resultats = await this.client.batch(
-      [
-        ...gains.map(g => ligneDeCredit({ ...g, soireeId, spaceId })),
-        ...ids.map(id => ({
-          sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?',
-          args: [id, id],
-        })),
-        { sql: `SELECT id, xp FROM profiles WHERE id IN (${ids.map(() => '?').join(', ')})`, args: ids },
-      ],
-      'write',
-    )
+    let resultats: ResultSet[]
+    try {
+      resultats = await this.client.batch(
+        [
+          ...gains.map(g => ligneDeCredit({ ...g, soireeId, spaceId })),
+          ...ids.map(id => ({
+            sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?',
+            args: [id, id],
+          })),
+          { sql: `SELECT id, xp FROM profiles WHERE id IN (${ids.map(() => '?').join(', ')})`, args: ids },
+        ],
+        'write',
+      )
+    } finally {
+      this.oublierSesSoirees(ids)
+    }
     for (const r of resultats[resultats.length - 1].rows) {
       const rec = this.profiles.get(String(r.id))
       if (rec) rec.xp = Number(r.xp)
@@ -3924,15 +3991,20 @@ export class ProfileStore {
    * le nouveau total.
    */
   async retirerSoiree(profileId: string, soireeId: string): Promise<number> {
-    const [eclats] = await this.client.batch(
-      [
-        { sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
-        { sql: 'DELETE FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
-        { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
-        { sql: 'DELETE FROM profile_badges WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
-      ],
-      'write',
-    )
+    let eclats: ResultSet
+    try {
+      ;[eclats] = await this.client.batch(
+        [
+          { sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+          { sql: 'DELETE FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+          { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+          { sql: 'DELETE FROM profile_badges WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        ],
+        'write',
+      )
+    } finally {
+      this.oublierSesSoirees([profileId])
+    }
     for (const r of eclats.rows) {
       this.eclats.get(profileId)?.delete(String(r.avatar))
       this.eteints.get(profileId)?.delete(String(r.avatar))
@@ -3996,22 +4068,26 @@ export class ProfileStore {
     // profil. Effacée à moitié — les lignes parties, les totaux pas encore
     // réécrits —, la soirée laissait des profils faux qu'un second essai ne
     // retrouvait plus : il ne voyait plus rien à reprendre.
-    await this.client.batch(
-      [
-        { sql: 'DELETE FROM profile_xp WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
-        { sql: 'DELETE FROM profile_badges WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
-        // Les Éclats ne portent pas l'espace : l'identifiant d'une soirée
-        // (sa date, une empreinte de l'heure et une de l'espace) suffit à la
-        // désigner. Celles d'avant l'empreinte de l'espace n'en ont pas : deux
-        // d'entre elles nées à la même milliseconde se confondraient ici.
-        { sql: 'DELETE FROM profile_eclats WHERE soiree_id = ?', args: [soireeId] },
-        ...touches.flatMap(id => [
-          this.ligneDesPaliers(id, paliers.get(id)!),
-          { sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?', args: [id, id] },
-        ]),
-      ],
-      'write',
-    )
+    try {
+      await this.client.batch(
+        [
+          { sql: 'DELETE FROM profile_xp WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
+          { sql: 'DELETE FROM profile_badges WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
+          // Les Éclats ne portent pas l'espace : l'identifiant d'une soirée
+          // (sa date, une empreinte de l'heure et une de l'espace) suffit à la
+          // désigner. Celles d'avant l'empreinte de l'espace n'en ont pas : deux
+          // d'entre elles nées à la même milliseconde se confondraient ici.
+          { sql: 'DELETE FROM profile_eclats WHERE soiree_id = ?', args: [soireeId] },
+          ...touches.flatMap(id => [
+            this.ligneDesPaliers(id, paliers.get(id)!),
+            { sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?', args: [id, id] },
+          ]),
+        ],
+        'write',
+      )
+    } finally {
+      this.oublierSesSoirees(touches)
+    }
     for (const r of eclats.rows) {
       this.eclats.get(String(r.profile_id))?.delete(String(r.avatar))
       this.eteints.get(String(r.profile_id))?.delete(String(r.avatar))
@@ -5099,6 +5175,7 @@ export class ProfileStore {
     for (const s of [...this.sessions.values()]) if (s.profileId === profileId) this.sessions.delete(s.id)
     for (const carte of [
       this.profiles,
+      this.justesDesSoireesGardees,
       this.eclats,
       this.eteints,
       this.reserves,
@@ -5264,10 +5341,15 @@ export class ProfileStore {
     const r = rows.rows[0]
     if (!r) return
     const { gain, releve } = decodeDetail(String(r.detail))
-    await this.client.execute({
-      sql: 'UPDATE profile_xp SET detail = ? WHERE profile_id = ? AND soiree_id = ?',
-      args: [JSON.stringify({ v: VERSION_BAREME, gain, releve }), profileId, soireeId],
-    })
+    try {
+      await this.client.execute({
+        sql: 'UPDATE profile_xp SET detail = ? WHERE profile_id = ? AND soiree_id = ?',
+        args: [JSON.stringify({ v: VERSION_BAREME, gain, releve }), profileId, soireeId],
+      })
+    } finally {
+      // Relu d'un format d'avant (`decodeDetail`), son détail a pu changer de forme : ce qu'on en gardait aussi.
+      this.oublierSesSoirees([profileId])
+    }
   }
 
   /**

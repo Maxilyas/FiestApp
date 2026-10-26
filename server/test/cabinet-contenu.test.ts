@@ -413,6 +413,37 @@ test('une fiche se juge à la règle même des Indices : sa réponse tapée la t
   assert.equal(refusDeLaFiche({ ...FICHE, indices: indices(1, 'Je suis née loin des tirs et des arcs, au bord de la Meuse.') }), null)
 })
 
+const WALESA: Fiche = {
+  id: 'histoire-lech-walesa',
+  reponse: 'Lech Wałęsa',
+  cles: ['walesa'],
+  indices: [
+    'Je suis né en 1943 dans un village de Couïavie.',
+    'J’ai été électricien sur un chantier naval de la Baltique.',
+    'J’ai mené les grèves de l’été 1980 et fondé un syndicat libre.',
+    'J’ai reçu le prix Nobel de la paix en 1983.',
+    'J’ai été président de la Pologne de 1990 à 1995.',
+  ],
+  savais: 'En août 1980, il entre dans le chantier en grève en escaladant son mur.',
+  categorie: 'Histoire',
+}
+
+test('le juge lit les mots comme la saisie des Indices : une lettre que l’accent n’ouvre pas — ł, ø, ß — ne cache pas un nom', () => {
+  // Sa copie de la règle n'ouvrait que « œ » et « æ » : « Wałęsa » s'y coupait en « wa » et « esa », ne se lisait plus
+  // dans « Walesa » — que la saisie, elle, prend pour lui —, et la même personne s'y écrivait deux fois (la revue du code
+  // du 25 octobre 2026). Une seule règle des mots, celle des Indices (`motsDe`).
+  assert.equal(refusDeLaFiche(WALESA), null)
+  assert.ok(bonneIdentite('Lech Walesa', WALESA), 'la saisie le trouve sans sa lettre')
+  assert.ok(ecritDans('Le syndicaliste Lech Walesa reçut le Nobel.', 'Lech Wałęsa'), 'ł')
+  assert.ok(ecritDans('Le philosophe Soren Kierkegaard naquit à Copenhague.', 'Søren Kierkegaard'), 'ø')
+  assert.ok(ecritDans('Johann Strauss écrivit des valses.', 'Strauß'), 'ß')
+  // Un indice qui écrit son nom sans sa lettre le donnerait : il se refuse pour la réponse même.
+  assert.match(refusDeLaFiche({ ...WALESA, indices: ['Je suis Lech Walesa.', ...WALESA.indices.slice(1)] }) ?? 'elle se pose', /^son indice 1 dit « Lech Wałęsa »/)
+  // La même personne, sous ses deux écritures.
+  const fiches = trier('fiches', [WALESA, { ...WALESA, id: 'histoire-walesa', reponse: 'Lech Walesa' }])
+  assert.deepEqual([fiches.gardees.length, fiches.ecartees.length], [1, 1], 'la même personne, sans sa lettre')
+})
+
 const REPLIQUE: Replique = {
   id: 'chanson-deux-amours',
   avant: "J'ai deux amours, mon",

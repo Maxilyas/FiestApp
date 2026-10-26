@@ -94,9 +94,13 @@ const A_OUVRIR = new RegExp(`[${[...LETTRES_A_OUVRIR.keys()].join('')}]`, 'g')
  * règle des homonymes), ses lettres à part ouvertes, coupés à tout ce qui
  * n'est ni lettre ni chiffre — l'apostrophe, le trait d'union, la virgule. La
  * saisie et la fiche passent par la même règle : ce qui s'écrit pareil se
- * compare pareil.
+ * compare pareil. Le juge du contenu (`ecritDans`,
+ * `server/src/core/cabinet/contenu.ts`) et le crible des QCM du Cabinet la
+ * lisent aussi : leur copie n'ouvrait que « œ » et « æ », coupait « Wałęsa »
+ * en « wa » et « esa », et un indice qui écrivait « Walesa » passait le juge
+ * d'une fiche que la saisie aurait trouvée.
  */
-function motsDe(texte: string): string[] {
+export function motsDe(texte: string): string[] {
   return sansAccent(texte)
     .replace(A_OUVRIR, lettre => LETTRES_A_OUVRIR.get(lettre) ?? lettre)
     .split(/[^a-z0-9]+/)

@@ -194,8 +194,3 @@ export const JEU_DE_L_OEUVRE: Readonly<Record<CleDOeuvre, CleDeJeu>> = {
   repere: 'epingle', lettre: 'mot', initiale: 'indices', 'double-chance': 'filet', sursis: 'replique', meditation: 'detail', 'sang-froid': 'pari',
   panacee: 'eclair', maitrise: 'indices', 'tout-ou-rien': 'eclair', 'quitte-ou-double': 'pari', surmenage: 'filet',
 }
-
-/** Le jeu d'une œuvre, ou undefined pour ce qui n'en est pas une. */
-export function jeuDeLOeuvre(cle: unknown): CleDeJeu | undefined {
-  return estUneOeuvre(cle) ? JEU_DE_L_OEUVRE[cle] : undefined
-}

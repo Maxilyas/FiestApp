@@ -19,6 +19,7 @@
  * au milieu : c'est là qu'elle relit ce qu'une autre a pu faire pendant
  * qu'elle attendait.
  */
+
 const enAttente: (() => void)[] = []
 let tourPose = false
 
@@ -40,3 +41,12 @@ export function rendreLaMain(): Promise<void> {
     }
   })
 }
+
+/**
+ * Ce que le serveur relit d'une traite avant de rendre la main, en questions
+ * de la base : une dizaine de millisecondes — la lecture de la base
+ * (`baseCampagne.ts`), les jumelles (`memeFait.ts`), les tas du Cabinet. Ici,
+ * à côté du tourniquet, plutôt qu'avec la base : le Cabinet le lit sans tirer
+ * ce qu'elle tire, le quiz du jour compris (`cabinet-catalogue.test.ts`).
+ */
+export const QUESTIONS_PAR_TRANCHE = 200

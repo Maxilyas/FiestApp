@@ -15,7 +15,7 @@
 // Une ligne rangée ne se reprend jamais (invariant 22) : une œuvre peinte de
 // plus dans une salle complète la rouvre sans endormir son gardien. La clé
 // fixe rend chaque rangement idempotent par la clé primaire, d'où qu'il vienne
-// — la fin d'une partie, un achat, une dorure, la page froide, la migration —,
+// — la fin d'une partie, un achat, une dorure, la page froide —,
 // et deux serveurs pendant une mise en ligne ne rangent rien deux fois.
 //
 // Ce que ce fichier annonce, ce sont les clés tout juste rangées

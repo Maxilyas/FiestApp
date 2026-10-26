@@ -1,7 +1,8 @@
 // Où le Cabinet de curiosités s'ouvre, et quels jeux y sont livrés. Il se
 // construit lot après lot, en préproduction d'abord : tout reste fermé en
-// production jusqu'à ce que le mode soit entier, ses quatre premiers jeux
-// joués et la migration des joueurs de l'Expédition mesurée à blanc.
+// production jusqu'à ce que le mode soit entier et ses quatre premiers jeux
+// joués. Rien ne s'y rapporte de l'Expédition : chacun le commence à zéro
+// (« Pas de migration », `docs/architecture/decisions.md`).
 //
 // Une constante du code plutôt qu'une variable d'environnement, comme
 // l'Expédition l'a fait (`EXPEDITION_EN_PRODUCTION`, `shared/jokers.ts`). La

@@ -39,7 +39,8 @@ paths:
   servait aucun index, et le record, la page, les records par catégorie, la
   série en cours relisaient toutes les parties du profil, de tous les modes
   — le Cabinet en ajoute une dizaine par jour et par joueur ; sur le mode,
-  ils prennent l'index des sentiers `(profile_id, mode, branche, palier)`,
+  ils prennent un index du profil et du mode — celui des sentiers
+  `(profile_id, mode, branche, palier)`, ou celui de la date, plus bas —,
   qui ne mène qu'à ses séries. Le `COALESCE` n'attrapait aucune ligne, et
   le compte en production des modes NULL, que la conception du Cabinet
   demandait d'abord, se tient par le code : la colonne est née `NOT NULL
@@ -59,16 +60,39 @@ paths:
   épargnait le tri à SQLite : sans partie en cours — le cas ordinaire —,
   elles relisaient toutes les parties du profil, de tous les modes, à
   chaque accueil (la relecture du lot A1 du Cabinet, le 25 octobre 2026).
-  Le `+` les mène à l'index des sentiers, qui ne lit que les parties du
-  mode. `campagne-index.test.ts` lit le plan de chaque lecture des séries
-  telle que le magasin l'envoie, et celui de chaque recherche d'une partie
-  en cours — profil, mode et `finie_le IS NULL` dans un même `WHERE` —
-  telle que le serveur l'envoie, sans statistiques comme la production :
-  une lecture de plus y passe d'elle-même. Seules les dernières rencontres
-  de la page des duels (`rencontresEtDuels`, sans `finie_le`) gardent
-  l'index du profil : il s'arrête aux plus récentes, quand celui des
-  sentiers lirait toutes les rencontres d'un fidèle du dé — mais un joueur
-  sans rencontre y relit toutes ses parties, celles du Cabinet comprises.
+  Le `+` les mène à un index du profil et du mode, qui ne lit que les
+  parties du mode. `campagne-index.test.ts` lit le plan de chaque lecture
+  des séries telle que le magasin l'envoie, et celui de chaque recherche
+  d'une partie en cours — profil, mode et `finie_le IS NULL` dans un même
+  `WHERE` — telle que le serveur l'envoie, sans statistiques comme la
+  production : une lecture de plus y passe d'elle-même. Les dernières
+  rencontres de la page des duels (`rencontresEtDuels`, sans `finie_le`)
+  ont leur index, `(profile_id, mode, commencee_le)`
+  (`idx_campagne_series_profil_mode`, le 26 octobre 2026) : il s'arrête aux
+  plus récentes, sans relire les parties d'un joueur sans rencontre.
+  **Toute recherche triée d'un profil et d'un mode lit son plan, avec ou
+  sans `finie_le`** (le même test) : la tentative du défi se cherche parmi
+  ses défis (`SA_TENTATIVE_AU_DEFI` : `+semaine`, `+commencee_le` — l'index
+  d'une semaine en lirait les centaines de tentatives), celle d'un duel par
+  le code du duel (`tentativeDuDuel`, règle `duels.md`) ; le défi de
+  l'accueil compte les tentatives de la semaine par un `EXISTS` corrélé sur
+  les profils, jamais `profile_id IN (SELECT id FROM profiles …)`, qui les
+  parcourait tous à chaque accueil ; les missions ne lisent que les modes
+  qu'elles comptent (`MODES_QUE_LES_MISSIONS_COMPTENT`, `shared/missions.ts`,
+  que le test compare à `activiteDesJours`) : les parties du Cabinet,
+  toutes du jour, passaient à chaque page. Le test relit chacune sous des
+  statistiques qui préféreraient le mauvais index, et montre que, sans son
+  `+`, elle s'y égare. À la fin d'une partie de la campagne — du Cabinet
+  aussi, par sa porte —, le compagnon qui grandit lit le journal tel que la
+  fin vient de le laisser (`compagnonsApresSesReponses`, passé à
+  `ProfileStore.faireGrandir` : `rattraperLeJournal(derniereReponse)`), et
+  les bonnes réponses de ses soirées se gardent par profil, oubliées à
+  chaque soirée créditée, retirée ou remise au barème
+  (`ProfileStore.justesDeSesSoirees`) : cette fin payait deux
+  allers-retours de plus (`cabinet-charge.test.ts`). Une page qui les lit
+  — la niche, la boutique, la fin d'un quiz du jour ou d'une soirée —
+  rattrape tout (`compagnonsDe`) : ce qu'un autre serveur, ou un test à la
+  main, a écrit y paraît à la lecture suivante (`niche-paliers.test.ts`).
 - **Un tirage ne repasse plus toute la base**, à chaque série, défi, duel
   ou dé : vingt-cinq mille questions (25 529 le 17 octobre 2026), au
   dixième de cœur de l'hébergeur. La liste des jouables se garde tant que

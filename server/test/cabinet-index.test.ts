@@ -96,7 +96,8 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
         if (/^SEARCH campagne_series\b/.test(e.detail) && !/\((id|rowid)=\?\)$/.test(e.detail)) {
           // Ses parties du jour par le profil et la date ; jamais l'index des sentiers pour le Cabinet, qui les lirait toutes.
           const duJour = /^SEARCH campagne_series USING INDEX idx_campagne_series_profil \(profile_id=\? AND commencee_le>\?\)/.test(e.detail)
-          const expedition = /idx_campagne_series_sentiers \(profile_id=\? AND mode=\?\)/.test(e.detail) && /'expedition'/.test(sql)
+          // L'expédition qui l'attend, par le profil et le mode : l'index des sentiers, ou celui de la date (les missions, le 25 octobre 2026).
+          const expedition = /idx_campagne_series_(sentiers|profil_mode) \(profile_id=\? AND mode=\?\)/.test(e.detail) && /'expedition'/.test(sql)
           assert.ok(duJour || expedition, `ses parties lues autrement que par le profil et la date :\n${dit}`)
         }
       }
@@ -143,6 +144,8 @@ test('le `+` devant le mode tient les parties du jour à l’index du profil, m�
     // Cent parties par profil, deux par instant ; trois par profil et par mode — dix modes, des milliers de séries chacun.
     stat.run('campagne_series', 'idx_campagne_series_profil', '100000 100 2')
     stat.run('campagne_series', 'idx_campagne_series_sentiers', '100000 100 3 3 3')
+    // L'index du profil, du mode et de la date, venu pour les missions le 25 octobre 2026.
+    stat.run('campagne_series', 'idx_campagne_series_profil_mode', '100000 100 3 1')
     stat.run('campagne_series', 'idx_campagne_series_commencee', '100000 2')
     stat.run('campagne_series', 'idx_campagne_series_defi', '100000 10000 10')
     stat.run('campagne_series', 'idx_campagne_series_duel', '100000 10000 1')
@@ -150,13 +153,20 @@ test('le `+` devant le mode tient les parties du jour à l’index du profil, m�
     db.close()
   }
   // Les statistiques se lisent à l'ouverture.
-  const lue = new Database(fichier, { readonly: true })
-  try {
-    const planDe = (filtre: string) =>
-      (lue.prepare(`EXPLAIN QUERY PLAN SELECT id FROM campagne_series WHERE ${filtre}`).all('qui', DIX_HEURES) as Etape[]).map(e => e.detail).join('\n')
-    assert.match(planDe(partiesDuJour()), /^SEARCH campagne_series USING INDEX idx_campagne_series_profil \(profile_id=\? AND commencee_le>\?\)/m)
-    assert.match(planDe(partiesDuJour().replace('+mode', 'mode')), /idx_campagne_series_sentiers \(profile_id=\? AND mode=\?\)/, 'sans le `+`, ces statistiques mènent bien aux sentiers')
-  } finally {
-    lue.close()
+  const planDe = (filtre: string) => {
+    const lue = new Database(fichier, { readonly: true })
+    try {
+      return (lue.prepare(`EXPLAIN QUERY PLAN SELECT id FROM campagne_series WHERE ${filtre}`).all('qui', DIX_HEURES) as Etape[]).map(e => e.detail).join('\n')
+    } finally {
+      lue.close()
+    }
   }
+  const PAR_LE_PROFIL_ET_LA_DATE = /^SEARCH campagne_series USING INDEX idx_campagne_series_profil \(profile_id=\? AND commencee_le>\?\)/m
+  assert.match(planDe(partiesDuJour()), PAR_LE_PROFIL_ET_LA_DATE)
+  // L'index de la date venu pour les missions mènerait, sans le `+`, aux seules parties du Cabinet du jour : rien qui
+  // grandisse non plus. Le `+` ne doit rien à sa présence — sans lui, ces statistiques mènent bien aux sentiers.
+  assert.match(planDe(partiesDuJour().replace('+mode', 'mode')), /idx_campagne_series_profil_mode \(profile_id=\? AND mode=\? AND commencee_le>\?\)/)
+  aLaMain(fichier, 'DROP INDEX idx_campagne_series_profil_mode')
+  assert.match(planDe(partiesDuJour()), PAR_LE_PROFIL_ET_LA_DATE)
+  assert.match(planDe(partiesDuJour().replace('+mode', 'mode')), /idx_campagne_series_sentiers \(profile_id=\? AND mode=\?\)/, 'sans le `+` ni l’index de la date, ces statistiques mènent bien aux sentiers')
 })

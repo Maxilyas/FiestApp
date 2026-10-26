@@ -1,29 +1,30 @@
 // Les tas où le Cabinet tire ce qu'il pose de la base : ce que chaque jeu sait
 // poser, gardé par identité de la liste des jouables (`WeakMap`) — une base qui
 // change, une question retirée refont la liste, et ses tas avec elle. Préparés
-// une fois par liste (`preparerLesTas`), une étape par tour de boucle
-// (`rendreLaMain`), en fond derrière la page du Cabinet ou sous le départ qui
-// trouve une liste neuve — il les attend, et le serveur lit les autres
-// requêtes entre deux étapes. Le tireur, lui, prend des tas prêts : ce qui lui
-// manquerait encore (une préparation ratée), il le fait d'un bloc, deux mille
-// questions par catégorie qu'il lit.
+// une fois par liste (`preparerLesTas`), en fond derrière la page du Cabinet ou
+// sous le départ qui trouve une liste neuve — il les attend, et le serveur lit
+// les autres requêtes entre deux étapes. Le tireur, lui, prend des tas prêts :
+// ce qui lui manquerait encore (une préparation ratée), il le fait d'un bloc,
+// deux mille questions par catégorie qu'il lit.
 //
 // Le Pari et l'Éclair puisent dans le même tas : des QCM de quatre réponses qui
 // se lisent en 360 pixels, chrono en marche, et ne se trahissent pas d'eux-mêmes.
 // Le Mot mystère, dans les questions dont la bonne réponse est un mot à taper ;
-// le Filet, dans celles dont elle est une année ou un nombre à viser. Les trois
-// tas d'une catégorie se font d'une seule lecture de ses questions, à la même
-// étape du tourniquet.
+// le Filet, dans celles dont elle est une année ou un nombre à viser. Ce que
+// les trois cribles disent d'une question ne dépend que d'elle : leur verdict
+// se garde par question (`verdictDe`), et une liste neuve — faite des mêmes
+// questions, le matin, à un retrait — ne coûte qu'un filtre.
 // Le Détail lit la question qui demande le peintre de chacun de ses tableaux,
 // pour son anecdote ; la Frise, les sujets de la base qui font une frise.
 import type { QuestionDeLaBase } from '../../baseCampagne'
 import { detailsDeLaBase, tableauxDuDetail } from '../../details'
 import { cibleDeLEstimation, supposeDesChoix } from '../../estimation'
 import type { PorteDeLaCampagne } from '../../porteDeLaCampagne'
-import { rendreLaMain } from '../../tourniquet'
-import { contenuDuCabinet, ecritDans } from '../contenu'
+import { QUESTIONS_PAR_TRANCHE, rendreLaMain } from '../../tourniquet'
+import { contenuDuCabinet, ecritDansLesMots } from '../contenu'
 import type { CeQueLesTireursLisent } from './communs'
 import { ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, INTITULE_MAX_DU_QCM, REPONSE_MAX_DU_QCM } from '../../../../../shared/cabinet/bareme'
+import { motsDe } from '../../../../../shared/cabinet/jeux/indices'
 import { motDeLaQuestion } from '../../../../../shared/cabinet/jeux/mot'
 import { formeDeReponse } from '../../../../../shared/campagne'
 import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
@@ -37,13 +38,17 @@ const signes = (texte: string) => [...texte].length
  * Un QCM du Cabinet : quatre réponses — ni un vrai ou faux de la base, que
  * l'Éclair rendrait « Vrai ? », ni un six choix —, un intitulé et des réponses
  * courts, et aucune réponse dite dans l'intitulé, en mots entiers et sans
- * accents (`ecritDans`) : « Quel fleuve traverse Lyon, le Rhône… » se
- * trouverait sans rien savoir, et l'affirmation de l'Éclair se lirait vraie
- * d'office.
+ * accents (`ecritDansLesMots`, la règle du juge du contenu) : « Quel fleuve
+ * traverse Lyon, le Rhône… » se trouverait sans rien savoir, et l'affirmation
+ * de l'Éclair se lirait vraie d'office. L'intitulé se découpe une fois pour
+ * ses quatre réponses : à chacune, c'était la moitié du crible sur toute la
+ * base.
  */
 export function estUnQcmDuCabinet(q: Pick<QuestionDeLaBase, 'texte' | 'reponses'>): boolean {
   if (q.reponses.length !== 4 || signes(q.texte) > INTITULE_MAX_DU_QCM) return false
-  return q.reponses.every(r => signes(r) <= REPONSE_MAX_DU_QCM && !ecritDans(q.texte, r))
+  if (!q.reponses.every(r => signes(r) <= REPONSE_MAX_DU_QCM)) return false
+  const mots = motsDe(q.texte)
+  return q.reponses.every(r => !ecritDansLesMots(mots, r))
 }
 
 /** Ce que le Filet vise d'une question de la base : sa valeur, une année ou un nombre, et l'unité qu'il dit. */
@@ -120,19 +125,59 @@ interface TasDeLaCategorie {
   valeurs: readonly QuestionDeLaBase[]
 }
 
+/** Ce que les trois cribles disent d'une question : se pose-t-elle au Pari et à l'Éclair, au Mot mystère, au Filet ? */
+interface VerdictDesCribles {
+  qcm: boolean
+  mot: boolean
+  valeur: boolean
+}
+
+/**
+ * Le verdict de chaque question, gardé par la question même : il ne dépend
+ * que d'elle, jamais de la liste où elle est. Une liste de jouables neuve —
+ * la réserve du jour chaque matin, un retrait, une base relue — filtre les
+ * mêmes objets (`CampagneStore.jouables`) : seule une question corrigée en est
+ * un neuf (`appliquerLesCorrections`), qui se juge à son tour. Sans lui, chaque
+ * liste neuve repassait la base entière aux cribles — 53 à 153 ms par
+ * catégorie, contre 0,3 à 1,1 pour la filtrer (la contre-expertise de
+ * sobriété du 25 octobre 2026).
+ */
+const VERDICTS = new WeakMap<QuestionDeLaBase, VerdictDesCribles>()
+
+function verdictDe(q: QuestionDeLaBase): VerdictDesCribles {
+  let v = VERDICTS.get(q)
+  if (!v) VERDICTS.set(q, (v = { qcm: estUnQcmDuCabinet(q), mot: motDeLaQuestion(q) !== null, valeur: valeurDuFilet(q) !== null }))
+  return v
+}
+
+/** Les trois tas de ces questions, d'une seule lecture, chacune par son verdict. */
+function tasDes(siennes: readonly QuestionDeLaBase[]): TasDeLaCategorie {
+  const qcm: QuestionDeLaBase[] = []
+  const mots: QuestionDeLaBase[] = []
+  const valeurs: QuestionDeLaBase[] = []
+  for (const q of siennes) {
+    const v = verdictDe(q)
+    if (v.qcm) qcm.push(q)
+    if (v.mot) mots.push(q)
+    if (v.valeur) valeurs.push(q)
+  }
+  return { qcm, mots, valeurs }
+}
+
 /** Les tas d'une liste de jouables : chaque catégorie préparée une fois. */
 const TAS = new WeakMap<readonly QuestionDeLaBase[], Map<Categorie, TasDeLaCategorie>>()
 
-/** Les trois tas d'une catégorie, d'une seule lecture de ses questions. */
-function tasDeLaCategorie(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], categorie: Categorie): TasDeLaCategorie {
+function tasDeLaListe(jouables: readonly QuestionDeLaBase[]): Map<Categorie, TasDeLaCategorie> {
   let parCategorie = TAS.get(jouables)
   if (!parCategorie) TAS.set(jouables, (parCategorie = new Map()))
+  return parCategorie
+}
+
+/** Les trois tas d'une catégorie, d'une seule lecture de ses questions. */
+function tasDeLaCategorie(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], categorie: Categorie): TasDeLaCategorie {
+  const parCategorie = tasDeLaListe(jouables)
   let tas = parCategorie.get(categorie)
-  if (!tas) {
-    const siennes = porte.deLaCategorie(jouables, categorie)
-    tas = { qcm: siennes.filter(estUnQcmDuCabinet), mots: siennes.filter(q => motDeLaQuestion(q) !== null), valeurs: siennes.filter(q => valeurDuFilet(q) !== null) }
-    parCategorie.set(categorie, tas)
-  }
+  if (!tas) parCategorie.set(categorie, (tas = tasDes(porte.deLaCategorie(jouables, categorie))))
   return tas
 }
 
@@ -147,11 +192,6 @@ export const motsDeLaCategorie = (porte: Pick<PorteDeLaCampagne, 'deLaCategorie'
 /** Les questions d'une catégorie qui se visent au Filet (`valeurDuFilet`). */
 export const valeursDeLaCategorie = (porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], categorie: Categorie): readonly QuestionDeLaBase[] =>
   tasDeLaCategorie(porte, jouables, categorie).valeurs
-
-/** Les QCM de toutes les catégories, en morceaux : le tirage d'une escale les lit comme un seul tas. */
-export function qcmDeToutes(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[]): (readonly QuestionDeLaBase[])[] {
-  return CATEGORIES.map(c => qcmDeLaCategorie(porte, jouables, c))
-}
 
 /** Ce que la porte donne de la base au-delà des QCM : la question d'un tableau, les événements datés. */
 export type CeQueLaBaseDonne = Pick<PorteDeLaCampagne, 'parIdDe' | 'evenementsDe'>
@@ -222,19 +262,43 @@ export function frisesDesSujets(porte: CeQueLaBaseDonne, jouables: readonly Ques
  * Les tas d'une liste de jouables, une étape par tour de boucle : la page du
  * Cabinet les lance derrière sa réponse, comme la base de la campagne
  * (`porte.prechauffer`), et le départ qui trouve une liste neuve les attend
- * (`CabinetStore.tasDe`). Une étape lourde passe son tour avant de calculer,
- * puis relit ce qu'une autre a pu faire pendant qu'elle attendait. Après les
- * catégories : ce que le Détail et la Frise lisent du disque une fois par
- * processus — les tableaux, le contenu neuf —, puis ce qu'ils lisent de cette
- * base.
+ * (`CabinetStore.tasDe`). Chaque catégorie a son tour, et ce qu'elle a de
+ * questions encore jamais jugées passe aux cribles par tranches de
+ * `QUESTIONS_PAR_TRANCHE`, une par tour : d'un seul tenant, une catégorie de
+ * la base livrée — deux à trois mille questions — figeait la boucle 50 à
+ * 110 ms, de l'ordre d'une seconde au dixième de cœur de l'hébergeur, douze
+ * fois de suite (la revue de sobriété du 25 octobre 2026). Seule la première
+ * préparation d'un processus juge ainsi toute la base ; une liste neuve des
+ * mêmes questions ne fait plus que les filtrer, une catégorie par tour.
+ * Chaque étape relit ce qu'une autre a pu faire pendant qu'elle attendait —
+ * le tireur d'un départ, qui juge d'un bloc ce qui lui manque.
+ *
+ * Après les catégories, ce que le Détail et la Frise lisent du disque une fois
+ * par processus — les tableaux, puis le contenu neuf, chacun son tour (ses
+ * juges passent sur chaque entrée : une quarantaine de millisecondes) —, puis
+ * ce qu'ils lisent de cette base.
  */
 export async function preparerLesTas(porte: CeQueLesTireursLisent, jouables: readonly QuestionDeLaBase[]): Promise<void> {
   for (const c of CATEGORIES) {
     await rendreLaMain()
-    tasDeLaCategorie(porte, jouables, c)
+    const parCategorie = tasDeLaListe(jouables)
+    if (parCategorie.has(c)) continue
+    const siennes = porte.deLaCategorie(jouables, c)
+    for (let debut = 0; debut < siennes.length; debut += QUESTIONS_PAR_TRANCHE) {
+      const fin = Math.min(debut + QUESTIONS_PAR_TRANCHE, siennes.length)
+      let aJuger = false
+      for (let i = debut; i < fin && !aJuger; i++) aJuger = !VERDICTS.has(siennes[i])
+      if (!aJuger) continue
+      // La première tranche partage le tour de la catégorie : rien d'autre n'y a été jugé.
+      if (debut > 0) await rendreLaMain()
+      for (let i = debut; i < fin; i++) verdictDe(siennes[i])
+    }
+    // Tous ses verdicts tenus : ses tas ne sont plus qu'un filtre — sauf si le tireur les a faits pendant l'attente.
+    if (!parCategorie.has(c)) parCategorie.set(c, tasDes(siennes))
   }
   await rendreLaMain()
   tableauxDuDetail()
+  await rendreLaMain()
   contenuDuCabinet()
   if (!litLaBase(porte)) return
   await rendreLaMain()
