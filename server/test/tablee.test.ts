@@ -4,10 +4,15 @@
 // pilote touchait le centre d'un élément — l'épingle tombait au milieu de la
 // carte de France, le curseur du Filet ne bougeait que d'un cran à la fois —,
 // `ecrire` dans un curseur répondait « Malformed value », et les personnages,
-// qui savent tout, finissaient 24 parties sur 47 à 9 sur 9. La régie démarre
-// un serveur et un Chromium dès son import : ce qui se lit des arguments d'un
-// geste vit à part (`scripts/tablee/gestes.ts`), et le reste se relit dans
-// les fichiers — un geste se dit à trois endroits (règle `tablee.md`).
+// qui savent tout, finissaient 24 parties sur 47 à 9 sur 9. Celle du 26
+// (`retours/2026-10-26/synthese.md`, axe 12 et « Les limites ») : la photo
+// d'une page entière prise avant ses images, le « R » du Mot qui touchait
+// « Quitter », le domaine ignoré d'une manche sans catégorie, et un dé qui
+// ignorait la marche de la question. La régie démarre un serveur et un
+// Chromium dès son import : ce qu'elle lit sans navigateur — les arguments
+// d'un geste, la vue que la page reçoit, la marche au plan figé — vit à part
+// (`scripts/tablee/gestes.ts`), et le reste se relit dans les fichiers — un
+// geste se dit à trois endroits (règle `tablee.md`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
@@ -16,8 +21,26 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CATEGORIES } from '../../shared/categories'
+import { NIVEAUX, type Niveau } from '../../shared/campagne'
+import { TAUX_DU_CALIBRAGE } from '../../shared/sentiers'
 import { AFFIRMATIONS_DE_L_ECLAIR, MANCHES_PAR_PARTIE } from '../../shared/cabinet/bareme'
-import { DES_PAR_GESTE_MAX, lancerLeDe, lireLeDe, lireLeToucher, pointVise, UN_CURSEUR_NE_SE_TAPE_PAS } from '../scripts/tablee/gestes'
+import {
+  DES_PAR_GESTE_MAX,
+  lancerLeDe,
+  ligneDeLaMarche,
+  lireLeDe,
+  lireLeToucher,
+  marchesASavoir,
+  nomDUnSigneSeul,
+  partieDeLaReponse,
+  pointVise,
+  retenirLaPartie,
+  UN_CURSEUR_NE_SE_TAPE_PAS,
+} from '../scripts/tablee/gestes'
+import { inscrireProfil } from './banc'
+import { bancDuCabinet, commencer, departEnBase, eclairDe, jouer, laPage, ok, pariDe } from './cabinet-banc'
+import { tirageDe } from './cabinet-plans'
+import { SOURCE as CALIBRAGE, sansCommentaires } from './calibrage-du-cabinet'
 
 const lire = (chemin: string) => readFileSync(new URL(`../../${chemin}`, import.meta.url), 'utf8')
 const REGIE = lire('server/scripts/tablee/regie.ts')
@@ -34,6 +57,7 @@ const CONSIGNES_EN_LIGNE = CONSIGNES.replace(/\s+/g, ' ')
 const FICHES = readdirSync(new URL(`../../${SKILL}/personas/`, import.meta.url))
   .filter(f => f.startsWith('cabinet-'))
   .map(f => ({ nom: f, texte: lire(`${SKILL}/personas/${f}`) }))
+const OPHELIE = lire(`${SKILL}/personas/cabinet-ophelie.md`)
 
 test('toucher --a : où toucher, en pour cent de la boîte de l’élément', () => {
   assert.deepEqual(lireLeToucher(['Ton estimation', '--a', '25%']), { cible: 'Ton estimation', visee: { x: 25, y: 50 } }, 'sans hauteur, au milieu')
@@ -229,4 +253,342 @@ test('quitter une partie du Cabinet : « Quitter », puis « Quitter la partie �
   }
   // Les mots que la page pose vraiment sur la confirmation : renommée là, la tablée toucherait un bouton qui n'existe plus.
   assert.match(lire('client/src/views/cabinet/Partie.tsx'), /confirmLabel: 'Quitter la partie', cancelLabel: 'Continuer'/)
+})
+
+// ── Ce que la tablée du 26 octobre 2026 a pris pour l'application ──────────
+
+test('la photo attend ses polices et ses images, trois secondes au plus', () => {
+  // La Citrouille en disque irisé vide au bilan, chez trois personnages : la page entière photographiée sans défiler, pendant
+  // que six onglets tournaient, l'image hors de l'écran pas encore décodée — le décodage d'une image qu'on ne voit pas est
+  // asynchrone (`Legendaire.tsx`). `rendu-cabinet.ts` l'attendait déjà ; la régie photographiait sans l'attendre.
+  const capture = casDe('capture')
+  const attente = capture.indexOf('await attendreSesImages(page)')
+  assert.ok(attente >= 0, '« capture » attend les images de la page')
+  assert.ok(attente < capture.indexOf('page.screenshot('), 'avant la photo')
+  const corps = fonctionDe('attendreSesImages')
+  assert.match(corps, /document\.fonts\.ready/, 'les polices d’abord')
+  assert.match(corps, /\.decode\(\)\.catch\(/, 'chaque image décodée — une image qui ne se décode pas ne bloque rien')
+  assert.match(corps, /Promise\.race\(/)
+  assert.match(corps, /ATTENTE_DES_IMAGES_MS/)
+  assert.match(REGIE, /const ATTENTE_DES_IMAGES_MS = 3000\b/, 'trois secondes au plus, comme les rendus')
+  // Une image paresseuse hors de l'écran ne se charge pas : son decode() aurait fait attendre les trois secondes à chaque photo.
+  assert.match(corps, /loading !== 'lazy'/)
+})
+
+test('une lettre seule vise la touche de ce nom, jamais un nom qui la contient', () => {
+  // Une fois colorée, la touche du Mot s'appelle « R , bien placée » : le pilote ne trouvait plus « R » exact, et prenait le
+  // premier bouton dont le nom contient un « r » — « Quitter », chez Lucas, puis quatre gestes refusés derrière la fenêtre.
+  const r = nomDUnSigneSeul('R')
+  assert.ok(r instanceof RegExp, 'une lettre seule a sa règle')
+  for (const nom of ['R', 'R , bien placée', 'R, ailleurs dans le mot', 'R , absente']) assert.ok(r.test(nom), `« ${nom} » est la touche R`)
+  for (const nom of ['Quitter', 'Rejouer', 'Revenir au musée', 'Ranger, plus tard', 'RA']) assert.ok(!r.test(nom), `« ${nom} » n’est pas la touche R`)
+  assert.ok(nomDUnSigneSeul('r')!.test('R , bien placée'), 'tapée en minuscule, la touche que l’écran écrit en capitale')
+  assert.ok(nomDUnSigneSeul('7')!.test('7'), 'un chiffre aussi')
+  // Plus d'un signe, ou un emoji — l'avatar « Avatar 🦊 » se trouve par le sien — : la recherche d'avant.
+  for (const cible of ['Quitter', 'R2', '🦊', '']) assert.equal(nomDUnSigneSeul(cible), null, `« ${cible} »`)
+  // Branchée : après les noms exacts, une lettre seule ne cherche plus de nom qui la contienne.
+  const localiser = fonctionDe('localiser')
+  assert.match(localiser, /const signe = nomDUnSigneSeul\(cible\)/)
+  assert.match(localiser, /signe\s*\?\s*\[\s*page\.getByRole\('button', \{ name: signe \}\)/)
+})
+
+test('à défaut de catégorie, le domaine ignoré se lit au sujet', () => {
+  // Cinq jeux n'affichent pas de catégorie : Jeanne (« Le Dîner de cons »), Ophélie (Perrault) et Théo (Brillat-Savarin) ont
+  // tranché chacun à sa façon, et la synthèse a dû deviner lesquelles de leurs manches comparer au calibrage.
+  const regle = /[Àà] défaut de catégorie[^.]*\./.exec(CONSIGNES_EN_LIGNE)?.[0] ?? ''
+  assert.ok(regle, 'la règle est dans les consignes')
+  for (const jeu of ['Détail', 'Indices', 'Réplique', 'Frise', 'Épingle']) assert.match(regle, new RegExp(jeu), `elle nomme ${jeu}`)
+  assert.match(regle, /le domaine se lit au sujet/)
+  // Les exemples parlent dans les mots des catégories de l'écran, ceux des fiches.
+  for (const [sujet, categorie] of [
+    ['un tableau', 'Arts & lettres'],
+    ['un livre', 'Arts & lettres'],
+    ['une pièce de théâtre', 'Arts & lettres'],
+    ['un film', 'Cinéma & séries'],
+    ['une chanson', 'Musique'],
+    ['un plat', 'Cuisine'],
+  ] as const) {
+    assert.ok((CATEGORIES as readonly string[]).includes(categorie), categorie)
+    assert.match(regle, new RegExp(`${sujet}[^«]*« ${categorie} »`), `${sujet} : « ${categorie} »`)
+  }
+  assert.match(regle, /thème de l['’]Épingle ou de la Frise se lit de même/)
+})
+
+// ── Le dé, marche par marche, aux parts du calibrage ──────────────────────
+
+/** Le code du calibrage, ses commentaires ôtés et ses blancs ramenés à un : ce que le dé recopie s'y cherche tel quel. */
+const MODELE_DU_CALIBRAGE = sansCommentaires(CALIBRAGE).replace(/\s+/g, ' ')
+/** La force d'un joueur du calibrage, lue dans sa déclaration. */
+function forceDe(nom: string): number {
+  const m = new RegExp(`nom: '${nom}', theta: (-?[\\d.]+)`).exec(MODELE_DU_CALIBRAGE)
+  assert.ok(m, `le calibrage déclare le joueur « ${nom} »`)
+  return Number(m[1])
+}
+/** Les parts du modèle du calibrage (`MODELE`) : des nombres et des listes, sans accolade dedans. */
+const BLOC_DU_MODELE = /const MODELE = \{(.*?)\}/.exec(MODELE_DU_CALIBRAGE)?.[1] ?? ''
+function partDuModele(cle: string): number {
+  const m = new RegExp(`\\b${cle}: (-?[\\d.]+)`).exec(BLOC_DU_MODELE)
+  assert.ok(m, `MODELE.${cle}`)
+  return Number(m[1])
+}
+function partsDuModele(cle: string): number[] {
+  const m = new RegExp(`\\b${cle}: \\[([^\\]]*)\\]`).exec(BLOC_DU_MODELE)
+  assert.ok(m, `MODELE.${cle}`)
+  return m[1].split(',').map(Number)
+}
+
+const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
+const logit = (p: number) => Math.log(p / (1 - p))
+const chance = (base: number, theta: number) => sigmoide(logit(base) + theta)
+/** Ce qu'un joueur de cette force sait vraiment d'une question de la base, sans deviner parmi ses quatre réponses. */
+const sait = (theta: number, n: Niveau) => Math.max(0, (chance(TAUX_DU_CALIBRAGE[n], theta) - 1 / 4) / (1 - 1 / 4))
+const filetSait = (theta: number, n: Niveau) =>
+  chance(partDuModele('filetSait'), theta + logit(TAUX_DU_CALIBRAGE[n]) - logit(TAUX_DU_CALIBRAGE.moyen))
+/** La part de chaque rang — l'indice, le cadrage — selon sa force : le logit ordinal du calibrage. */
+function partsSelonLaForce(parts: readonly number[], theta: number): number[] {
+  let cumul = 0
+  let avant = 0
+  return parts.map((p, k) => {
+    cumul += p
+    const jusquIci = k === parts.length - 1 ? 1 : sigmoide(logit(Math.min(1 - 1e-12, cumul)) + theta)
+    const x = jusquIci - avant
+    avant = jusquIci
+    return x
+  })
+}
+/** Un seuil du dé à douze faces : le douzième le plus proche. */
+const surDouze = (p: number) => Math.round(12 * p)
+/** Les seuils cumulés d'un tirage qui dit aussi le rang : reconnu au plus tard au rang k si le dé fait au plus… */
+function seuilsDesRangs(theta: number, reconnu: string, auRang: string): number[] {
+  const p = chance(partDuModele(reconnu), theta)
+  let cumul = 0
+  return partsSelonLaForce(partsDuModele(auRang), theta).map(x => surDouze(p * (cumul += x)))
+}
+
+/** Le dé d'un joueur du calibrage, tel que ses consignes doivent le dire. */
+function deAttendu(theta: number) {
+  return {
+    base: NIVEAUX.map(n => surDouze(sait(theta, n))),
+    filet: NIVEAUX.map(n => surDouze(filetSait(theta, n))),
+    frise: surDouze(chance(partDuModele('friseSait'), theta)),
+    mot: surDouze(chance(partDuModele('repliqueMot'), theta)),
+    // Qui l'a dite : le calibrage la décide d'après le mot — su, à sa part fixe ; sinon, à la part du joueur.
+    qui: [surDouze(partDuModele('repliqueQuiSiMot')), surDouze(chance(partDuModele('repliqueQui'), theta))],
+    lieu: surDouze(chance(partDuModele('epingleSait'), theta)),
+    detail: seuilsDesRangs(theta, 'detailReconnu', 'detailAuCadrage'),
+    indices: seuilsDesRangs(theta, 'indicesReconnu', 'indicesAuRang'),
+  }
+}
+
+/** Les lignes d'un tableau en Markdown, de l'en-tête qui répond à `entete` jusqu'à la première ligne qui n'en est pas. */
+function tableau(texte: string, entete: RegExp): string[][] {
+  const lignes = texte.split('\n')
+  const i = lignes.findIndex(l => /^\s*\|/.test(l) && entete.test(l))
+  assert.ok(i >= 0, `un tableau ${entete}`)
+  const corps: string[][] = []
+  for (const l of lignes.slice(i + 1)) {
+    if (!/^\s*\|/.test(l)) break
+    if (/^\s*\|\s*-/.test(l)) continue
+    corps.push(l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim()))
+  }
+  return corps
+}
+/** Un seuil écrit : un nombre, ou « jamais ». */
+const seuilEcrit = (c: string) => (c === 'jamais' ? 0 : Number(c))
+const ligneDe = (corps: string[][], quoi: RegExp) => {
+  const l = corps.find(c => quoi.test(c[0]))
+  assert.ok(l, `une ligne ${quoi}`)
+  return l
+}
+const RANGS = ['premier', 'deuxième', 'troisième', 'quatrième', 'cinquième']
+/** Le tableau des rangs sous « **Le Détail** » ou « **Les Indices** », relu en seuils cumulés : reconnu au plus tard au rang k. */
+function rangsEcrits(texte: string, titre: string): number[] {
+  assert.ok(texte.includes(titre), titre)
+  const corps = tableau(texte.slice(texte.indexOf(titre)), /\| Le dé \|/)
+  const seuils = RANGS.map(() => 0)
+  // Chaque face une fois, de 1 à 12, dans l'ordre.
+  let prochaine = 1
+  for (const [de, rang] of corps) {
+    const m = /^(?:de (\d+) à (\d+)|(\d+) ou (\d+)|(\d+))$/.exec(de)
+    assert.ok(m, `« ${de} » se lit`)
+    assert.equal(Number(m[1] ?? m[3] ?? m[5]), prochaine, `${titre} : « ${de} » suit la face d’avant`)
+    const jusqua = Number(m[2] ?? m[4] ?? m[5])
+    prochaine = jusqua + 1
+    if (rang === 'jamais') continue
+    const k = RANGS.findIndex(r => rang.startsWith(`au ${r} `))
+    assert.ok(k >= 0, `« ${rang} » se lit`)
+    seuils[k] = jusqua
+  }
+  assert.equal(prochaine, 13, `${titre} : les douze faces`)
+  // Un rang que le dé ne donne jamais reprend le seuil d'avant : les seuils sont cumulés.
+  for (let k = 1; k < seuils.length; k++) seuils[k] = Math.max(seuils[k], seuils[k - 1])
+  return seuils
+}
+/** Le dé que dit un texte — les consignes, ou la fiche d'un personnage qui a le sien. */
+function deEcrit(texte: string, rangs: { detail: number; indices: number }) {
+  const marches = tableau(texte, /facile \| moyenne \| difficile \| experte/)
+  const sansMarche = tableau(texte, /sans marche \| Au plus/)
+  const qui = (ligneDe(sansMarche, /^Qui a dit/)[1].match(/\d+/g) ?? []).map(Number)
+  return {
+    base: ligneDe(marches, /Pari/).slice(1).map(seuilEcrit),
+    filet: ligneDe(marches, /Filet/).slice(1).map(seuilEcrit),
+    frise: seuilEcrit(ligneDe(sansMarche, /Frise/)[1]),
+    mot: seuilEcrit(ligneDe(sansMarche, /mot de la Réplique/)[1]),
+    // Un seul nombre : le même, qu'il sache le mot ou non.
+    qui: qui.length === 1 ? [qui[0], qui[0]] : qui,
+    lieu: seuilEcrit(ligneDe(sansMarche, /Épingle/)[1]),
+    detail: rangsEcrits(texte, '**Le Détail**').slice(0, rangs.detail),
+    indices: rangsEcrits(texte, '**Les Indices**').slice(0, rangs.indices),
+  }
+}
+
+test('le dé lit ce que lit le calibrage : les mêmes parts, la même marche', () => {
+  // Le dé tient lieu du savoir du joueur que le calibrage simule : chaque chose à savoir, à la part dont le calibrage la tire.
+  // Une part qui change de forme — la marche oubliée, un rang de plus — se recopie dans les consignes (règle `tablee.md`).
+  for (const fragment of [
+    'const chance = (base: number, theta: number) => sigmoide(logit(base) + theta)',
+    'chance(TAUX_DU_CALIBRAGE[n], j.theta)',
+    'const sait = (j: Joueur, n: Niveau, propositions = 4) => (j.theta === null ? 0 : Math.max(0, (trouve(j, n, propositions) - 1 / propositions) / (1 - 1 / propositions)))',
+    'const filetSait = (j: Joueur, n: Niveau) => (j.theta === null ? 0 : chance(MODELE.filetSait, j.theta + logit(TAUX_DU_CALIBRAGE[n]) - logit(TAUX_DU_CALIBRAGE.moyen)))',
+    'const part = (j: Joueur, base: number) => (j.theta === null ? 0 : chance(base, j.theta))',
+    'sigmoide(logit(Math.min(1 - 1e-12, cumul)) + theta)',
+    // Le Pari, l'Éclair et le Mot savent une question de la base à sa marche ; le Filet, sa valeur à la sienne.
+    'sait(p.j, t.q1.niveau)',
+    'sait(p.j, t.q2.niveau)',
+    'sait(p.j, a.question.niveau)',
+    'sait(p.j, t.question.niveau)',
+    'filetSait(p.j, t.question.niveau)',
+    // Le reste n'a pas de marche.
+    'part(p.j, MODELE.detailReconnu)',
+    'rangSelonLaForce(MODELE.detailAuCadrage, p.j, p.r)',
+    'part(p.j, MODELE.friseSait)',
+    'part(p.j, MODELE.epingleSait)',
+    'part(p.j, MODELE.indicesReconnu)',
+    'rangSelonLaForce(MODELE.indicesAuRang, p.j, p.r)',
+    'part(p.j, MODELE.repliqueMot)',
+    'mot ? MODELE.repliqueQuiSiMot : part(p.j, MODELE.repliqueQui)',
+  ]) {
+    assert.ok(MODELE_DU_CALIBRAGE.includes(fragment), `le calibrage lit encore : ${fragment}`)
+  }
+})
+
+test('le dé des consignes est celui du joueur « tablée » du calibrage, marche par marche', () => {
+  // La tablée du 26 octobre 2026 : un seul seuil pour toute question de la base — Ophélie a fait 9 sur 9 à un Mot visé épique,
+  // ses deux questions difficiles sues comme des faciles. La marche, que l'écran tait, le banc la dit pendant la manche.
+  const attendu = deAttendu(forceDe('tablée'))
+  assert.deepEqual(attendu.base, [12, 11, 9, 5], 'les seuils que la synthèse a lus au calibrage')
+  assert.deepEqual(deEcrit(CONSIGNES, { detail: attendu.detail.length, indices: attendu.indices.length }), attendu)
+  assert.match(CONSIGNES_EN_LIGNE, /🎲 Pour ton dé, la marche/, 'les consignes disent où lire la marche')
+})
+
+test('Ophélie joue au dé de l’occasionnel, et se compare à sa ligne', () => {
+  // Le dé à 11 sur 12 est celui du dernier centile : la tablée ne mesurait que des joueurs forts. Ophélie, la joueuse du métro,
+  // sait ce que sait l'occasionnel du calibrage ; ses étoiles se comparent aux siennes.
+  const attendu = deAttendu(forceDe('occasionnel'))
+  assert.deepEqual(attendu.base.slice(0, 2), [8, 3], 'les seuils que la synthèse a lus au calibrage')
+  assert.match(OPHELIE, /\*\*Son dé\*\*[^\n]*occasionnel/, 'sa fiche le dit')
+  assert.deepEqual(deEcrit(OPHELIE, { detail: attendu.detail.length, indices: attendu.indices.length }), attendu)
+  const skill = lire(`${SKILL}/SKILL.md`).replace(/\s+/g, ' ')
+  assert.match(skill, /calibrage-cabinet\.ts --joueurs tablée,occasionnel/, 'la skill compare chacun à sa ligne')
+  assert.match(skill, /Ophélie[^.]*occasionnel/)
+  const regle = lire('.claude/rules/tablee.md').replace(/\s+/g, ' ')
+  assert.match(regle, /occasionnel/)
+  assert.match(regle, /marche/)
+})
+
+test('une fiche vise une épique à la Frise', () => {
+  // Aucune n'avait été jouée : la frise plus serrée d'une épique n'a jamais été mesurée contre sa ligne.
+  assert.ok(
+    FICHES.some(f => /une œuvre épique qui se joue à la Frise/.test(f.texte.replace(/\s+/g, ' '))),
+    'un personnage chasse une épique de la Frise',
+  )
+})
+
+// ── La marche, que l'écran tait et que le banc dit ─────────────────────────
+
+test('la marche de ce qu’il faut savoir : le plan figé à l’indice que dit la vue', () => {
+  const pari = tirageDe('pari', 0)
+  assert.deepEqual(marchesASavoir(pari, 1), { quoi: 'de la question', marches: ['facile'] })
+  // Après « Parier » seulement : avant, la marche du pari aurait dit s'il vaut la peine.
+  assert.deepEqual(marchesASavoir(pari, 2), { quoi: 'de la question du pari', marches: ['difficile'] })
+  assert.deepEqual(marchesASavoir(tirageDe('eclair', 0), null)?.marches, ['facile', 'facile', 'facile', 'facile', 'facile'])
+  assert.deepEqual(marchesASavoir(tirageDe('mot', 0), null), { quoi: 'du mot', marches: ['facile'] })
+  assert.deepEqual(marchesASavoir(tirageDe('filet', 0), null), { quoi: 'de la valeur', marches: ['facile'] })
+  // Sans marche au calibrage : rien à dire.
+  for (const jeu of ['detail', 'frise', 'epingle', 'indices', 'replique'] as const) assert.equal(marchesASavoir(tirageDe(jeu, 0), null), null, jeu)
+  const ligne = ligneDeLaMarche({ quoi: 'des affirmations, dans l’ordre', marches: ['facile', 'moyen', 'difficile', 'expert'] })
+  assert.match(ligne, /^🎲 Pour ton dé, la marche des affirmations, dans l’ordre : facile, moyenne, difficile, experte/)
+  // Rien d'autre que la marche : ni la question, ni la réponse.
+  const mot = ligneDeLaMarche(marchesASavoir(tirageDe('mot', 0), null)!)
+  for (const secret of ['Vilnius', 'VILNIUS', 'Lituanie']) assert.ok(!mot.includes(secret), secret)
+})
+
+test('la vue que la page reçoit : la partie, sa manche au plan, la plus récente gagne', () => {
+  const vue = { id: 'p1', maintenant: 100, phase: 'jouer', manches: [], tirage: 3, enCours: { jeu: 'pari', etape: 2 } }
+  assert.deepEqual(partieDeLaReponse(vue), { partie: 'p1', maintenant: 100, tirage: 3, etape: 2, enJeu: true })
+  // Le refus d'un geste passé porte la vue d'à présent ; la page du musée, sa partie ouverte.
+  assert.equal(partieDeLaReponse({ error: 'Ce geste est passé', partie: vue })?.partie, 'p1')
+  assert.equal(partieDeLaReponse({ maintenant: 90, poussiere: 3, enCours: vue })?.partie, 'p1')
+  assert.deepEqual(partieDeLaReponse({ maintenant: 120, poussiere: 3, enCours: null }), { partie: null, maintenant: 120, tirage: null, etape: null, enJeu: false })
+  // Révélée, en pause, avant la première manche.
+  assert.equal(partieDeLaReponse({ ...vue, phase: 'revele' })?.enJeu, false)
+  assert.equal(partieDeLaReponse({ ...vue, phase: 'pause' })?.enJeu, true)
+  assert.equal(partieDeLaReponse({ ...vue, phase: 'avant', tirage: undefined })?.tirage, null)
+  // Ce qui n'est pas une partie : un cartel, des murs, une erreur seule.
+  for (const autre of [null, 'texte', { error: 'Introuvable' }, { oeuvre: 'plume', doree: false }, { lieux: [] }]) assert.equal(partieDeLaReponse(autre), null)
+  // Les réponses arrivent dans le désordre : la vue la plus récente, à l'heure du serveur, l'emporte.
+  const neuve = partieDeLaReponse(vue)!
+  const vieille = partieDeLaReponse({ ...vue, maintenant: 50, tirage: 0 })!
+  assert.equal(retenirLaPartie(null, vieille), vieille)
+  assert.equal(retenirLaPartie(neuve, vieille), neuve)
+  assert.equal(retenirLaPartie(vieille, neuve), neuve)
+})
+
+test('le banc dit la marche par le vrai serveur : la vue reçue, puis le plan figé en base', async () => {
+  const b = await bancDuCabinet()
+  try {
+    const ophelie = await inscrireProfil(b.banc.url, 'ophelie', 'Ophélie')
+    let v = ok(await commencer(b, ophelie, { origine: 'libre', jeu: 'pari', carte: null }), 'le Pari')
+    const plan = departEnBase(b.fichier, v.id).tirages
+    const t = pariDe(b, v.id, 0)
+    let lue = partieDeLaReponse(v)!
+    assert.deepEqual(lue, { partie: v.id, maintenant: v.maintenant, tirage: 0, etape: 1, enJeu: true })
+    assert.deepEqual(marchesASavoir(plan[lue.tirage!], lue.etape)?.marches, [t.q1.niveau])
+    v = ok(await jouer(b, ophelie, v, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: t.q1.bonne } } }), 'la première question')
+    v = ok(await jouer(b, ophelie, v, { quoi: 'parier', manche: 0 }), 'parier')
+    lue = partieDeLaReponse(v)!
+    assert.equal(lue.etape, 2, 'la question du pari')
+    assert.deepEqual(marchesASavoir(plan[lue.tirage!], lue.etape)?.marches, [t.q2.niveau])
+    // Le refus d'un geste passé et la page du musée portent la même partie.
+    const passe = await jouer(b, ophelie, { id: v.id, rang: v.rang - 1 }, { quoi: 'parier', manche: 0 })
+    assert.equal(passe.status, 409)
+    assert.equal(partieDeLaReponse(passe.corps)?.partie, v.id)
+    assert.equal(partieDeLaReponse(ok(await laPage(b, ophelie), 'la page'))?.partie, v.id)
+    v = ok(await jouer(b, ophelie, v, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: t.q2.bonne } } }), 'le pari')
+    assert.equal(partieDeLaReponse(v)?.enJeu, false, 'tranchée : plus rien à savoir')
+    // L'Éclair : cinq affirmations, chacune la marche de sa question.
+    const theo = await inscrireProfil(b.banc.url, 'theo', 'Théo')
+    const e = ok(await commencer(b, theo, { origine: 'libre', jeu: 'eclair', carte: null }), 'l’Éclair')
+    const le = partieDeLaReponse(e)!
+    assert.deepEqual(
+      marchesASavoir(departEnBase(b.fichier, e.id).tirages[le.tirage!], le.etape)?.marches,
+      eclairDe(b, e.id, 0).affirmations.map(a => a.question.niveau),
+    )
+  } finally {
+    await b.banc.close()
+  }
+})
+
+test('la régie branche la marche : la vue retenue à chaque réponse, la ligne en tête de l’écran d’une manche', () => {
+  assert.match(REGIE, /page\.on\('response'[\s\S]*?partieDeLaReponse\(/, 'chaque réponse du Cabinet est lue')
+  assert.match(REGIE, /retenirLaPartie\(/, 'la plus récente l’emporte')
+  assert.match(fonctionDe('entete'), /await marcheDuDe\(o\)/, 'la ligne en tête de chaque sortie')
+  const marche = fonctionDe('marcheDuDe')
+  assert.match(marche, /startsWith\('\/cabinet'\)/, 'sur la page du Cabinet seulement')
+  assert.match(marche, /marchesASavoir\(/)
+  assert.match(marche, /ligneDeLaMarche\(/)
+  // Le plan figé, relu comme le serveur le relit : par `lireLeDepart`, à la ligne de la partie.
+  const plan = fonctionDe('planDe')
+  assert.match(plan, /SELECT cabinet FROM campagne_series WHERE id = \?/)
+  assert.match(plan, /lireLeDepart\(/)
 })

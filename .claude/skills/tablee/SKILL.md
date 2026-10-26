@@ -258,18 +258,27 @@ y est ouvert, au calendrier du jour — une fête en cours réveille son gardien
 triche et les secrets, la base et le quota, l'équilibre, la tenue du code)
 suivent `consignes-audit.md`, comme les autres.
 
-Ses personnages ignorent des domaines, et hors d'eux le dé décide ce qu'ils
-savent, aux parts du joueur « tablée » du calibrage (`consignes-cabinet.md`,
-« Répondre comme ton personnage ») : la difficulté de chaque jeu se compare
-donc à sa ligne. À l'étape 4, depuis `server/`,
-`npx tsx scripts/calibrage-cabinet.ts --joueurs tablée --sans-musee` donne
-les étoiles moyennes de chaque jeu ; les retours, partie par partie, les
-étoiles de chaque manche et celles d'un domaine ignoré, que la comparaison
-écarte — ce joueur n'ignore rien. Hors d'elles, la moyenne d'un jeu doit
-tomber à une étoile près de sa ligne (sur les trois manches d'une partie). Puis la
-chronologie (« Les dés ») : chacun a-t-il lancé ses dés à l'annonce, et ses
-réponses les ont-elles suivis — une juste sur un tirage au-dessus du seuil
-dit un agent qui a répondu ce qu'il savait, pas ce que savait son personnage.
+Ses personnages ignorent des domaines — la catégorie que la manche affiche,
+sinon son sujet —, et hors d'eux le dé décide ce qu'ils savent, aux parts du
+joueur « tablée » du calibrage (`consignes-cabinet.md`, « Répondre comme ton
+personnage »), une question de la base à sa marche : l'écran ne la montre
+pas, la régie la lit au plan figé de la partie et la dit en tête de l'écran
+pendant la manche (« 🎲 Pour ton dé, la marche … »). Ophélie joue au dé de
+l'occasionnel (sa fiche, « Son dé ») : le joueur « tablée » est celui du
+dernier centile, et la tablée ne mesurait que des joueurs forts. La
+difficulté de chaque jeu se compare donc à sa ligne, celle d'Ophélie à
+celle de l'occasionnel. À l'étape 4, depuis `server/`,
+`npx tsx scripts/calibrage-cabinet.ts --joueurs tablée,occasionnel --sans-musee`
+donne les étoiles moyennes de chaque jeu, pour l'un et l'autre ; les
+retours, partie par partie, les étoiles de chaque manche et celles d'un
+domaine ignoré, que la comparaison écarte — ces joueurs n'ignorent rien.
+Hors d'elles, la moyenne d'un jeu doit tomber à une étoile près de sa ligne
+(sur les trois manches d'une partie) ; la marche de chaque question se
+relit au plan figé (`campagne_series.cabinet`, dans la base de la tablée).
+Puis la chronologie (« Les dés ») : chacun a-t-il lancé ses dés à l'annonce,
+et ses réponses les ont-elles suivis — une juste sur un tirage au-dessus du
+seuil dit un agent qui a répondu ce qu'il savait, pas ce que savait son
+personnage.
 
 ## Adapter la tablée
 

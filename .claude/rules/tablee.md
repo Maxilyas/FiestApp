@@ -16,7 +16,7 @@ Pour faire jouer une soirée par des agents, suis la skill `tablee`.
 ## Les fichiers
 
 - `server/scripts/tablee/regie.ts` · `pilote.mjs` — la tablée : un serveur jetable, un Chromium, et les gestes des agents qui y jouent une soirée — ou plusieurs à la fois, un salon par animateur (`chez <animateur>`) — la marche à suivre, les personnages, les experts et leurs consignes dans `.claude/skills/tablee/` (`/tablee`), l'agent des personnages dans `.claude/agents/convive.md`
-- `server/scripts/tablee/gestes.ts` — ce que la régie lit des arguments d'un geste, sans navigateur : où toucher (`lireLeToucher`, `pointVise`), le refus d'écrire dans un curseur (`UN_CURSEUR_NE_SE_TAPE_PAS`), le dé (`lireLeDe`, `lancerLeDe` : sa sortie et ce que le journal en garde) · `server/test/tablee.test.ts` — eux, leurs branchements dans la régie, la chronologie des dés, et chaque geste de la régie dit dans l'aide du pilote et dans les consignes ; les personnages du Cabinet, leurs domaines d'ignorance et le dé du calibrage
+- `server/scripts/tablee/gestes.ts` — ce que la régie lit sans navigateur : où toucher (`lireLeToucher`, `pointVise`), le nom que vise une lettre seule (`nomDUnSigneSeul`), le refus d'écrire dans un curseur (`UN_CURSEUR_NE_SE_TAPE_PAS`), le dé (`lireLeDe`, `lancerLeDe` : sa sortie et ce que le journal en garde), la partie du Cabinet que la page reçoit (`partieDeLaReponse`, `retenirLaPartie`) et la marche de ce qu'il faut savoir dans sa manche (`marchesASavoir`, `ligneDeLaMarche`) · `server/test/tablee.test.ts` — eux, leurs branchements dans la régie, la marche lue par le vrai serveur, la chronologie des dés, et chaque geste de la régie dit dans l'aide du pilote et dans les consignes ; les personnages du Cabinet, leurs domaines d'ignorance, et les seuils du dé recalculés du modèle du calibrage — ceux des consignes au joueur « tablée », ceux d'Ophélie à l'occasionnel
 - `server/scripts/tablee/chronologie.mjs` — le journal d'une tablée en une page, les dés de chacun compris ; sans argument, celle que désigne `export/tablee/courante.json` : une seconde régie (`--fiche`) se lit en lui donnant son dossier
 
 ## Les pièges
@@ -52,23 +52,54 @@ Pour faire jouer une soirée par des agents, suis la skill `tablee`.
   refusent un curseur en mots, avant de le toucher : Playwright le vide
   d'abord (`fill('')`), qu'il y refuse — « Malformed value », lu comme un bug
   du Filet.
+- **Une lettre seule ne cherche jamais un nom qui la contient**
+  (`nomDUnSigneSeul`) : après les noms exacts, `localiser` prenait le premier
+  nom qui contienne la cible, et une touche du Mot, une fois colorée,
+  s'appelle « R , bien placée » — « R » touchait « Quitter », le premier
+  bouton de la page, et les gestes suivants tombaient derrière sa fenêtre (la
+  tablée du 26 octobre 2026). Une lettre ou un chiffre vise son nom, ou lui
+  suivi d'une virgule ; un emoji garde la recherche d'avant — l'avatar 🦊
+  s'appelle « Avatar 🦊 ».
+- **Une photo attend ses polices et ses images** (`attendreSesImages`, trois
+  secondes au plus, `ATTENTE_DES_IMAGES_MS`, comme les rendus) : le décodage
+  d'une image hors de l'écran est asynchrone, et la page entière
+  photographiée sans défiler montrait la Citrouille en disque irisé vide au
+  bilan, chez trois personnages. Une image paresseuse hors de l'écran ne se
+  charge pas : elle ne s'attend pas, sans quoi chaque photo d'une page qui en
+  a (les portes du musée) paierait les trois secondes.
 - **Un agent sait tout** : la tablée du Cabinet a fini 24 parties sur 47 à
   9 sur 9 (le diapason de John Shore, Pelé au premier indice). Chaque fiche
   du Cabinet dit ce que son personnage ignore, dans les mots des catégories
-  (« Sport », « Cinéma & séries »), et hors de là le dé décide (`de 12`, aux
-  parts du joueur « tablée » du calibrage, θ ≈ +2,5 — les consignes du
-  Cabinet, « Répondre comme ton personnage »), un tirage par chose à savoir,
-  qui dit aussi au Détail le cadrage, aux Indices l'indice, et ne se refait
-  pas : relancé au tableau plus grand, le Détail se reconnaissait presque
-  toujours, au-dessus de sa ligne. Ce joueur n'ignore rien : la synthèse ne
-  compare à sa ligne que les manches hors des domaines d'ignorance, que
-  chaque retour désigne (la skill, « Le Cabinet de curiosités »). Lancés
-  d'avance à l'annonce (`de 12 9`) : un geste coûte quelques secondes, et la
-  manche a son chrono. Le journal des gestes garde chaque tirage (`faces`,
-  `tirages`), la chronologie les range (« Les dés »). Une part du calibrage
-  qui change, ou un joueur « tablée » qui bouge, se recopie dans les
-  consignes ; le nombre de dés d'un Éclair suit son barème
-  (`AFFIRMATIONS_DE_L_ECLAIR` × `MANCHES_PAR_PARTIE`, `tablee.test.ts`).
+  (« Sport », « Cinéma & séries ») — la catégorie que la manche affiche,
+  sinon son sujet (un tableau, « Arts & lettres » : cinq jeux n'en affichent
+  pas) —, et hors de là le dé décide (`de 12`, aux parts du joueur « tablée »
+  du calibrage, θ ≈ +2,5 — les consignes du Cabinet, « Répondre comme ton
+  personnage »), un tirage par chose à savoir, qui dit aussi au Détail le
+  cadrage, aux Indices l'indice, et ne se refait pas : relancé au tableau
+  plus grand, le Détail se reconnaissait presque toujours, au-dessus de sa
+  ligne. Une question de la base se sait à sa marche, comme au calibrage
+  (`sait`, `filetSait`) : un seuil par marche — un seul pour toutes, et
+  Ophélie faisait 9 sur 9 à un Mot épique aux questions difficiles. L'écran
+  ne montre pas la marche, la vue n'en porte rien : la régie lit au passage
+  chaque partie que la page reçoit (`partieDeLaReponse`, sans un
+  aller-retour de plus), relit le plan figé à l'indice que la vue dit
+  (`VueDeLaPartie.tirage`, `planDe`, une lecture par partie) et pose la
+  marche seule en tête de l'écran d'une manche (« 🎲 Pour ton dé, la
+  marche … ») — celle du pari après « Parier » seulement : avant, elle
+  aurait dit s'il vaut la peine. Jamais la catégorie du plan : aux Indices,
+  elle dirait d'avance qui chercher. Ce joueur n'ignore rien : la synthèse
+  ne compare à sa ligne que les manches hors des domaines d'ignorance, que
+  chaque retour désigne (la skill, « Le Cabinet de curiosités »). Il est du
+  dernier centile : Ophélie joue au dé de l'occasionnel (sa fiche, « Son
+  dé »), et se compare à sa ligne. Lancés d'avance à l'annonce (`de 12 9`) :
+  un geste coûte quelques secondes, et la manche a son chrono. Le journal
+  des gestes garde chaque tirage (`faces`, `tirages`), la chronologie les
+  range (« Les dés »). Chaque seuil est une part du modèle du calibrage au
+  douzième le plus proche, et `tablee.test.ts` les recalcule tous de
+  `calibrage-cabinet.ts` : une part qui change, un joueur qui bouge, une
+  chose à savoir qui prend sa marche se recopient dans les consignes et dans
+  la fiche d'Ophélie ; le nombre de dés d'un Éclair suit son barème
+  (`AFFIRMATIONS_DE_L_ECLAIR` × `MANCHES_PAR_PARTIE`).
 - **La confirmation de « Quitter » dit « Quitter la partie »** : deux
   boutons « Quitter » se confondaient au pilote, la tête de la manche et la
   question. Les consignes et les fiches touchent « Quitter », puis

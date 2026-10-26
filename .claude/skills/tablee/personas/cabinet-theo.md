@@ -19,7 +19,8 @@ jamais : il devine, au dé. Ailleurs, le dé dit s'il sait (les consignes,
 fait ses comptes : combien d'œuvres, combien de salles, ce que coûte une
 œuvre, une dorure, ce que rapporte une partie. Puis il joue **tout ce que la
 journée permet** : la visite du jour, ses deux chasses (une œuvre qu'il vise
-précisément), puis des parties libres de chaque jeu, en emportant chaque fois
+précisément — l'une des deux, une œuvre épique qui se joue à la Frise : un
+cadre vide le dit), puis des parties libres de chaque jeu, en emportant chaque fois
 la carte-bonus la plus utile — il essaie chacun des cinq pouvoirs au moins
 une fois (Éclairer, Protéger, Prendre son temps, Miser, Changer) et note ce
 que chacun a vraiment fait. Il « Change de jeu » une case de la visite.

@@ -1,8 +1,12 @@
-// Ce que la régie lit des arguments d'un geste, sans navigateur : de quoi
-// l'éprouver (`server/test/tablee.test.ts`) — `regie.ts` démarre un serveur et
-// un Chromium dès son import. Chaque geste se dit aussi dans l'aide du pilote
-// (`pilote.mjs`) et dans les consignes qui l'emploient (règle `tablee.md`).
+// Ce que la régie lit sans navigateur — les arguments d'un geste, la vue d'une
+// partie du Cabinet que la page reçoit, la marche de ce qu'il faut savoir au
+// plan figé : de quoi l'éprouver (`server/test/tablee.test.ts`) — `regie.ts`
+// démarre un serveur et un Chromium dès son import. Chaque geste se dit aussi
+// dans l'aide du pilote (`pilote.mjs`) et dans les consignes qui l'emploient
+// (règle `tablee.md`).
 import { randomInt } from 'node:crypto'
+import type { Niveau } from '../../../shared/campagne'
+import type { ContenuTire } from '../../../shared/cabinet/jeux/index'
 
 /** Où toucher dans un élément, en pour cent de sa boîte : de gauche à droite, de haut en bas. */
 export interface Visee {
@@ -56,6 +60,21 @@ export function lireLeToucher(args: readonly string[]): { cible: string; visee: 
   const y = axes.length === 1 ? 50 : pourcent(axes[1])
   if (x === null || y === null) return COMMENT_VISER
   return { cible, visee: { x, y } }
+}
+
+/**
+ * Le nom que vise une lettre ou un chiffre seul : lui, ou lui suivi d'une
+ * virgule — une touche du Mot, une fois colorée, s'appelle « R , bien
+ * placée ». Après les noms exacts, la régie cherchait n'importe quel nom qui
+ * contienne la cible : « R » touchait « Quitter », le premier bouton de la
+ * page (Lucas, à la tablée du 26 octobre 2026, puis quatre gestes refusés
+ * derrière la fenêtre ; Jeanne y a perdu des lettres). Un emoji garde la
+ * recherche d'avant : l'avatar 🦊 s'appelle « Avatar 🦊 ». Null : la cible
+ * n'est pas un signe seul.
+ */
+export function nomDUnSigneSeul(cible: string): RegExp | null {
+  // Une lettre ou un chiffre n'a rien à échapper dans une expression.
+  return /^[\p{L}\p{N}]$/u.test(cible) ? new RegExp(`^${cible}(?:\\s*,.*)?$`, 'iu') : null
 }
 
 /**
@@ -123,4 +142,100 @@ export function lancerLeDe(
   const tirages = Array.from({ length: de.fois }, () => tirer(de.faces))
   const dit = de.fois === 1 ? `le dé : ${tirages[0]}` : `${de.fois} dés : ${tirages.join(', ')}`
   return { sortie: `🎲 ${qui} lance ${dit} (de 1 à ${de.faces}).`, auJournal: { faces: de.faces, tirages } }
+}
+
+// ── La marche, que l'écran tait et que le dé lit ───────────────────────────
+//
+// Le dé d'un personnage du Cabinet a un seuil par marche, comme le calibrage
+// tire ce que sait son joueur d'une question de la base à sa marche (`sait`,
+// `filetSait`). La tablée du 26 octobre 2026 n'en avait qu'un : Ophélie a fait
+// 9 sur 9 à un Mot visé épique, ses deux questions difficiles sues comme des
+// faciles. Mais l'écran ne montre pas la marche, et la vue n'en porte rien :
+// un seuil par marche ne se jouerait pas. La régie la lit au plan figé de la
+// partie, à l'indice que la vue dit (`VueDeLaPartie.tirage`), et ne dit
+// qu'elle, pour le dé — jamais la catégorie du plan, qui dirait d'avance aux
+// Indices qui chercher.
+
+/** Ce que la régie retient d'une vue de partie du Cabinet qu'a reçue la page : de quoi lire sa manche au plan figé, rien d'autre. */
+export interface PartieVueParLaPage {
+  /** La partie ; null, la page du musée n'en a pas d'ouverte. */
+  partie: string | null
+  /** L'heure du serveur de la vue : les réponses arrivent dans le désordre, la plus récente l'emporte. */
+  maintenant: number
+  /** L'indice, dans le plan figé, du contenu de la manche — la sienne, ou la rechange de « Changer » ; null avant la première. */
+  tirage: number | null
+  /** L'étape du Pari : 1, puis 2 après « Parier ». */
+  etape: number | null
+  /** Une manche se joue, pause comprise : la marche ne se dit que là. */
+  enJeu: boolean
+}
+
+type Objet = Record<string, unknown>
+const estUnObjet = (x: unknown): x is Objet => typeof x === 'object' && x !== null
+/** Une vue de partie (`VueDeLaPartie`) : un cartel, des murs ou une erreur n'en ont ni la phase ni les manches. */
+const estUneVue = (x: unknown): x is Objet => estUnObjet(x) && typeof x.id === 'string' && typeof x.phase === 'string' && Array.isArray(x.manches)
+
+/**
+ * La partie que porte la réponse d'une route du Cabinet : une vue (le départ,
+ * un geste, « Mes réponses »), le refus d'un geste passé (sa vue d'à présent,
+ * `partie`), ou la page du musée (`enCours`, null sans partie ouverte) ; null
+ * pour le reste.
+ */
+export function partieDeLaReponse(corps: unknown): PartieVueParLaPage | null {
+  if (!estUnObjet(corps)) return null
+  const vue = [corps, corps.partie, corps.enCours].find(estUneVue)
+  if (!vue) {
+    // La page du musée sans partie ouverte : celle d'avant est finie, ou close par le serveur au jour neuf.
+    return corps.enCours === null && typeof corps.maintenant === 'number' ? { partie: null, maintenant: corps.maintenant, tirage: null, etape: null, enJeu: false } : null
+  }
+  const manche = estUnObjet(vue.enCours) ? vue.enCours : null
+  return {
+    partie: vue.id as string,
+    maintenant: typeof vue.maintenant === 'number' ? vue.maintenant : 0,
+    tirage: typeof vue.tirage === 'number' ? vue.tirage : null,
+    etape: typeof manche?.etape === 'number' ? manche.etape : null,
+    enJeu: vue.phase === 'jouer' || vue.phase === 'pause',
+  }
+}
+
+/** La vue la plus récente, à l'heure du serveur : un geste et la page du musée peuvent revenir dans le désordre. */
+export function retenirLaPartie(avant: PartieVueParLaPage | null, lue: PartieVueParLaPage): PartieVueParLaPage {
+  return avant && avant.maintenant > lue.maintenant ? avant : lue
+}
+
+/** Ce qu'il faut savoir dans une manche, à sa marche : « de la question », facile. */
+export interface ChoseASavoir {
+  quoi: string
+  marches: Niveau[]
+}
+
+/**
+ * La marche de ce qu'il faut savoir dans la manche que joue ce contenu du
+ * plan : la question du Pari — celle du pari à l'étape 2 seulement, sans quoi
+ * sa marche aurait dit s'il vaut la peine de parier —, chaque affirmation de
+ * l'Éclair, le mot, la valeur du Filet. Null pour les jeux dont le calibrage
+ * ne lit pas la marche (le Détail, la Frise, l'Épingle, les Indices, la
+ * Réplique) : leur seuil est fixe.
+ */
+export function marchesASavoir(tire: ContenuTire, etape: number | null): ChoseASavoir | null {
+  switch (tire.jeu) {
+    case 'pari':
+      return etape === 2 ? { quoi: 'de la question du pari', marches: [tire.q2.niveau] } : { quoi: 'de la question', marches: [tire.q1.niveau] }
+    case 'eclair':
+      return { quoi: 'des affirmations, dans l’ordre', marches: tire.affirmations.map(a => a.question.niveau) }
+    case 'mot':
+      return { quoi: 'du mot', marches: [tire.question.niveau] }
+    case 'filet':
+      return { quoi: 'de la valeur', marches: [tire.question.niveau] }
+    default:
+      return null
+  }
+}
+
+/** La marche dite comme les consignes l'écrivent : c'est « la marche », au féminin. */
+const MARCHE_DITE: Readonly<Record<Niveau, string>> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
+
+/** La ligne que la régie pose en tête de l'écran d'une manche : la marche seule, jamais ce qu'elle cache. */
+export function ligneDeLaMarche(c: ChoseASavoir): string {
+  return `🎲 Pour ton dé, la marche ${c.quoi} : ${c.marches.map(m => MARCHE_DITE[m]).join(', ')} — le banc te la dit, l’écran ne la montre pas.`
 }

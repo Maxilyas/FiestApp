@@ -43,9 +43,25 @@ import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { format } from 'node:util'
+import { createClient } from '@libsql/client'
 import { createQuizServer } from '../../src/server'
 import { sansAccent } from '../../../shared/homonymes'
-import { lancerLeDe, lireLeDe, lireLeToucher, pointVise, UN_CURSEUR_NE_SE_TAPE_PAS, type Visee } from './gestes'
+import { lireLeDepart } from '../../../shared/cabinet/lecture'
+import type { ContenuTire } from '../../../shared/cabinet/jeux/index'
+import {
+  lancerLeDe,
+  ligneDeLaMarche,
+  lireLeDe,
+  lireLeToucher,
+  marchesASavoir,
+  nomDUnSigneSeul,
+  partieDeLaReponse,
+  pointVise,
+  retenirLaPartie,
+  UN_CURSEUR_NE_SE_TAPE_PAS,
+  type PartieVueParLaPage,
+  type Visee,
+} from './gestes'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 const RACINE = path.resolve(ICI, '../../..')
@@ -195,10 +211,12 @@ const MOT_DE_PASSE_PROFIL = 'tablee-profil'
 
 const portJeu = Number(option('port')) || (await portLibre())
 const BASE = `http://localhost:${portJeu}`
+/** La base permanente de la tablée, jetable comme l'autre : la régie y relit aussi le plan figé d'une partie du Cabinet (`planDe`). */
+const BASE_PERMANENTE = `file:${path.join(DOSSIER, 'bases', 'permanente.db').replace(/\\/g, '/')}`
 const serveur = await createQuizServer({
   port: portJeu,
   dbPath: path.join(DOSSIER, 'bases', 'locale.db'),
-  quizDbUrl: `file:${path.join(DOSSIER, 'bases', 'permanente.db').replace(/\\/g, '/')}`,
+  quizDbUrl: BASE_PERMANENTE,
   admin: ADMIN,
   // Le QR de l'écran commun doit mener là où les téléphones de la régie
   // peuvent aller : l'adresse du wifi, sur une machine sans wifi, n'existe pas.
@@ -540,6 +558,8 @@ interface Onglet {
   signalements: string[]
   /** Parmi eux, les erreurs de la page elle-même — celles qu'on annonce d'office. */
   erreursNonLues: number
+  /** La dernière partie du Cabinet que la page a reçue : où lire, au plan figé, la marche que le dé demande (`marcheDuDe`). */
+  partieDuCabinet: PartieVueParLaPage | null
 }
 
 interface Participant {
@@ -688,7 +708,7 @@ async function allumer(qui: string, appareil: string): Promise<Participant> {
 
 function brancher(p: Participant, page: Page, nom: string): Onglet {
   pagesConnues.add(page)
-  const o: Onglet = { nom, page, signalements: [], erreursNonLues: 0 }
+  const o: Onglet = { nom, page, signalements: [], erreursNonLues: 0, partieDuCabinet: null }
   const signaler = (texte: string, erreur: boolean) => {
     o.signalements.push(`${new Date().toLocaleTimeString('fr-FR')} ${texte}`)
     if (o.signalements.length > 200) o.signalements.shift()
@@ -709,6 +729,16 @@ function brancher(p: Participant, page: Page, nom: string): Onglet {
   })
   page.on('response', (r: any) => {
     if (r.status() >= 400) signaler(`[HTTP ${r.status()}] ${r.request().method()} ${chemin(r.url())}`, false)
+    // La partie du Cabinet que la page vient de recevoir — un départ, un geste, son refus, la page du musée —, lue au passage :
+    // la régie ne demande rien au serveur, la tablée n'en compte aucun aller-retour de plus. Une image du Détail n'est pas du JSON.
+    if (chemin(r.url()).startsWith('/api/cabinet') && String(r.headers()['content-type'] ?? '').includes('json')) {
+      r.json()
+        .then((corps: unknown) => {
+          const lue = partieDeLaReponse(corps)
+          if (lue) o.partieDuCabinet = retenirLaPartie(o.partieDuCabinet, lue)
+        })
+        .catch(() => {})
+    }
   })
   page.on('dialog', (d: any) => {
     p.nouvelles.push(`💬 Le navigateur a affiché une boîte « ${d.message()} » (acceptée d'office).`)
@@ -762,6 +792,33 @@ async function stabiliser(page: Page, maxMs = 2500) {
       avant = empreinte
     }
   }
+}
+
+/** Ce qu'une photo attend au plus que ses images se décodent : celui des rendus (`rendu-cabinet.ts`). */
+const ATTENTE_DES_IMAGES_MS = 3000
+
+/**
+ * Avant une photo : les polices, puis le décodage des images, trois secondes
+ * au plus. La tablée du 26 octobre 2026 a vu la Citrouille en disque irisé
+ * vide au bilan, chez trois personnages : la page entière photographiée sans
+ * défiler pendant que six onglets tournaient, l'image hors de l'écran pas
+ * encore décodée — ce décodage est asynchrone (`Legendaire.tsx`). Défilée,
+ * elle était peinte. Une image paresseuse hors de l'écran ne se charge pas :
+ * son `decode()` ferait attendre les trois secondes à chaque photo, pour une
+ * image qu'aucune ne montrerait.
+ */
+async function attendreSesImages(page: Page) {
+  await page.evaluate('document.fonts.ready.then(() => true)').catch(() => {})
+  await page
+    .evaluate(
+      `Promise.race([
+        Promise.all([...document.images]
+          .filter(i => i.complete || i.loading !== 'lazy' || (b => b.bottom > 0 && b.top < innerHeight)(i.getBoundingClientRect()))
+          .map(i => i.decode().catch(() => {}))),
+        new Promise(r => setTimeout(r, ${ATTENTE_DES_IMAGES_MS})),
+      ]).then(() => true)`,
+    )
+    .catch(() => {})
 }
 
 /** Ce qu'affiche la page : ses éléments et leurs références, comme les lit un lecteur d'écran. */
@@ -846,11 +903,51 @@ async function entete(p: Participant, o: Onglet): Promise<string> {
   const passes: string[] = await o.page.evaluate('(window.__tableeEphemeres || []).splice(0)').catch(() => [])
   for (const texte of passes) lignes.push(`✨ Au passage, l'écran a affiché : « ${texte} »`)
   lignes.push(...p.nouvelles.splice(0))
+  const marche = await marcheDuDe(o)
+  if (marche) lignes.push(marche)
   if (o.erreursNonLues > 0) {
     lignes.push(`⚠ Le navigateur a signalé ${o.erreursNonLues} erreur(s) sur cette page — détail : « console ».`)
     o.erreursNonLues = 0
   }
   return lignes.join('\n')
+}
+
+/** La base permanente, en lecture seule pour la régie : le plan figé d'une partie, que le serveur écrit au départ. */
+const permanente = createClient({ url: BASE_PERMANENTE })
+/** Les plans déjà lus : figé au départ, un plan ne change plus — une lecture par partie. */
+const plans = new Map<string, readonly ContenuTire[]>()
+
+/** Le plan figé d'une partie du Cabinet — ses manches puis ses rechanges —, relu comme le serveur le relit (`lireLeDepart`). */
+async function planDe(partie: string): Promise<readonly ContenuTire[] | null> {
+  const garde = plans.get(partie)
+  if (garde) return garde
+  const r = await permanente.execute({ sql: "SELECT cabinet FROM campagne_series WHERE id = ? AND mode = 'cabinet'", args: [partie] })
+  const depart = typeof r.rows[0]?.cabinet === 'string' ? lireLeDepart(r.rows[0].cabinet) : null
+  if (!depart) return null
+  plans.set(partie, depart.tirages)
+  return depart.tirages
+}
+
+/**
+ * La marche de ce qu'il faut savoir dans la manche que la page joue, pour le
+ * dé (`consignes-cabinet.md`, « Répondre comme ton personnage ») : l'écran ne
+ * la montre pas, la vue n'en porte rien, le plan figé si. Pendant une
+ * manche, sur la page du Cabinet seulement — son musée la redit tant que la
+ * partie attend : c'est la même manche — ; ailleurs, la partie retenue
+ * daterait d'un autre écran. Une panne de lecture se tait : la ligne est un
+ * confort du dé, pas un geste.
+ */
+async function marcheDuDe(o: Onglet): Promise<string | null> {
+  const v = o.partieDuCabinet
+  if (!v?.partie || !v.enJeu || v.tirage === null || !chemin(o.page.url()).startsWith('/cabinet')) return null
+  try {
+    const tire = (await planDe(v.partie))?.[v.tirage]
+    const aSavoir = tire ? marchesASavoir(tire, v.etape) : null
+    return aSavoir ? ligneDeLaMarche(aSavoir) : null
+  } catch (e) {
+    console.warn('[tablee] le plan de la partie ne se lit pas :', (e as Error).message)
+    return null
+  }
 }
 
 async function ecran(p: Participant, o: Onglet, message?: string): Promise<string> {
@@ -871,18 +968,24 @@ async function localiser(page: Page, cible: string): Promise<Element> {
     }
     return el
   }
+  // Une lettre seule ne cherche jamais un nom qui la contient : « R » touchait « Quitter » (`nomDUnSigneSeul`).
+  const signe = nomDUnSigneSeul(cible)
   const candidats = [
     page.getByRole('button', { name: cible, exact: true }),
     page.getByRole('link', { name: cible, exact: true }),
     page.getByLabel(cible, { exact: true }),
     page.getByPlaceholder(cible, { exact: true }),
-    page.getByRole('button', { name: cible }),
-    page.getByRole('link', { name: cible }),
-    page.getByRole('checkbox', { name: cible }),
-    page.getByLabel(cible),
-    page.getByPlaceholder(cible),
-    page.getByText(cible, { exact: true }),
-    page.getByText(cible),
+    ...(signe
+      ? [page.getByRole('button', { name: signe }), page.getByRole('link', { name: signe }), page.getByText(cible, { exact: true })]
+      : [
+          page.getByRole('button', { name: cible }),
+          page.getByRole('link', { name: cible }),
+          page.getByRole('checkbox', { name: cible }),
+          page.getByLabel(cible),
+          page.getByPlaceholder(cible),
+          page.getByText(cible, { exact: true }),
+          page.getByText(cible),
+        ]),
   ]
   for (const c of candidats) {
     const n = await c.count().catch(() => 0)
@@ -1178,6 +1281,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const nom = (args.find(a => !a.startsWith('--')) ?? 'ecran').replace(/[^\w-]+/g, '-').slice(0, 40)
       const fichier = path.join(DOSSIER, 'captures', qui, `${String(++p.captures).padStart(3, '0')}-${nom}.png`)
       mkdirSync(path.dirname(fichier), { recursive: true })
+      await attendreSesImages(page)
       await page.screenshot({ path: fichier, fullPage: entiere, scale: 'css' })
       return `${await entete(p, o)}\n📸 ${fichier}\n   (regarde-la avec l'outil Read)`
     }
@@ -1693,6 +1797,7 @@ async function eteindre() {
   porte.close()
   await navigateur.close().catch(() => {})
   await serveur.close().catch(() => {})
+  permanente.close()
   // Le fichier ne désigne plus rien : les pilotes le diront au lieu d'attendre.
   try {
     if (JSON.parse(readFileSync(COURANTE, 'utf8')).pid === process.pid) rmSync(COURANTE)

@@ -97,18 +97,41 @@ l'année du diapason de John Shore, et « devinaient » la bonne réponse. Avant
 chaque réponse, deux règles, dans l'ordre — elles ne se discutent pas :
 
 1. **Ses domaines d'ignorance** (ta fiche, « Ce qu'il ignore ») : une
-   question qui en relève — la catégorie que la manche affiche en tête —, il
-   ne la sait pas, même si toi, tu la sais.
+   question qui en relève, il ne la sait pas, même si toi, tu la sais. Le
+   domaine, c'est la catégorie que la manche affiche en tête ; à défaut de
+   catégorie — au Détail, aux Indices, à la Réplique, à la Frise et à
+   l'Épingle —, le domaine se lit au sujet : un tableau, un livre ou une
+   pièce de théâtre sont « Arts & lettres », un film ou une série « Cinéma &
+   séries », une chanson « Musique », un plat « Cuisine », une personne se
+   range à ce qui l'a fait connaître ; un thème de l'Épingle ou de la Frise
+   se lit de même.
 2. **Hors de tes domaines d'ignorance, le dé décide** : un tirage de `de 12`
    par chose à savoir — une question, une affirmation, un mot, une valeur, un
    lieu, l'année d'un événement, un tableau, une personne. Il la sait si le dé
-   fait au plus :
+   fait au plus le seuil de cette chose.
 
-   | Ce qu'il faut savoir | Au plus |
+   Une question de la base a sa marche — facile, moyenne, difficile ou
+   experte —, et une question difficile se sait moins qu'une facile.
+   L'écran ne la montre pas : pendant la manche, le banc te la dit en tête
+   de l'écran, une ligne « 🎲 Pour ton dé, la marche … » — au Pari, celle du
+   pari après « Parier » seulement. Ton personnage ne la voit pas : ne la
+   cite pas dans ton retour comme une chose que l'écran dit.
+
+   | Ce qu'il faut savoir, à sa marche | facile | moyenne | difficile | experte |
+   |---|---|---|---|---|
+   | La question du Pari (puis, après « Parier », celle du pari), une affirmation de l'Éclair, le mot du Mot mystère | 12 | 11 | 9 | 5 |
+   | La valeur du Filet | 11 | 8 | 5 | 2 |
+
+   | Ce qu'il faut savoir, sans marche | Au plus |
    |---|---|
-   | La question du Pari, une affirmation de l'Éclair, le mot du Mot mystère, le tableau du Détail, l'année d'un événement de la Frise, la personne des Indices, le mot de la Réplique | 11 |
-   | La valeur du Filet, le lieu de l'Épingle, qui a dit la réplique | 10 |
-   | La question difficile du Pari, après « Parier » | 7 |
+   | L'année d'un événement de la Frise | 11 |
+   | Le mot de la Réplique | 11 |
+   | Qui a dit la réplique | 10 |
+   | Le lieu de l'Épingle | 10 |
+
+   Le tableau du Détail et la personne des Indices ont leur propre tirage,
+   plus bas. Ta fiche peut te donner ton dé à toi (« Son dé ») : ses seuils
+   remplacent alors ceux-ci, le reste de la règle ne change pas.
 
    Lance tes dés **à l'annonce, avant « Commencer »**, quand le chrono ne
    court pas encore : `de 12 9` en tire neuf, `de 12 15` pour l'Éclair (cinq
@@ -119,17 +142,29 @@ chaque réponse, deux règles, dans l'ordre — elles ne se discutent pas :
 
 Quand il sait, le même tirage dit encore quand il reconnaît :
 
-- **Le Détail** : un seul tirage par tableau — de 1 à 10, il le reconnaît au
-  premier cadrage ; 11, au deuxième (il recule d'un pas, puis répond) ; 12, il
-  ne le reconnaît pas ;
-- **Les Indices** : un seul tirage par personne — de 1 à 7, il la reconnaît
-  au premier indice ; 8 ou 9, au deuxième ; 10, au troisième ; 11, au
-  quatrième ; 12, il ne la reconnaît pas.
+- **Le Détail** : un seul tirage par tableau, qui dit s'il le reconnaît dès le premier cadrage, ou plus tard :
 
-(Pour qui relit la tablée : ces parts sont celles du joueur « tablée » du
-calibrage du Cabinet, `server/scripts/calibrage-cabinet.ts`, θ ≈ +2,5, à un
-douzième près. Ce joueur n'ignore rien : la synthèse ne compare à sa ligne
-que les manches hors des domaines d'ignorance, que ton retour désigne.)
+  | Le dé | Il reconnaît le tableau |
+  |---|---|
+  | de 1 à 10 | au premier cadrage |
+  | 11 | au deuxième cadrage (il recule d'un pas, puis répond) |
+  | 12 | jamais |
+
+- **Les Indices** : un seul tirage par personne, qui dit s'il la reconnaît dès le premier indice, ou plus tard :
+
+  | Le dé | Il reconnaît la personne |
+  |---|---|
+  | de 1 à 7 | au premier indice |
+  | 8 ou 9 | au deuxième indice |
+  | 10 ou 11 | au troisième indice |
+  | 12 | au cinquième indice, le dernier |
+
+(Pour qui relit la tablée : ces seuils sont ceux du joueur « tablée » du
+calibrage du Cabinet, `server/scripts/calibrage-cabinet.ts`, θ ≈ +2,5 —
+chaque part du modèle, au douzième le plus proche, marche par marche pour
+une question de la base. Ce joueur n'ignore rien : la synthèse ne compare à
+sa ligne que les manches hors des domaines d'ignorance, que ton retour
+désigne.)
 
 Quand il ne sait pas, il joue sans ce que tu sais :
 
