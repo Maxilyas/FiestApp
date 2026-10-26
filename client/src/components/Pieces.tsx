@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
-import { useModale } from '../modale'
+import { retenirLeFocus, useModale } from '../modale'
 import { nouveautesAPorter } from '../../../shared/piecesDeLaLoge'
 
 // Les petites pièces des pages du téléphone : l'en-tête d'une page, le lien
@@ -71,7 +71,14 @@ export function GesteDuBas({ icone, children, onClick, busy, danger }: { icone: 
  * Elle se disait `aria-modal` sans l'être : le focus restait derrière, dix-sept
  * liens et titres du musée se lisaient encore sous « Comment ça marche ? », et
  * Tab, Entrée depuis « Choisir une carte-bonus » lançait la partie cachée
- * dessous (la tablée du 25 octobre 2026).
+ * dessous (la tablée du 25 octobre 2026). Son voile garde le focus où la
+ * fenêtre l'a posé, comme celui d'un dialogue (`retenirLeFocus`) : « Mes
+ * réponses », au bilan du Cabinet, s'ouvre au lever du doigt, et le
+ * `mousedown` qui suit, s'il tombait sur le voile — au-dessus de la feuille, ou
+ * de côté sur une tablette —, emmenait le focus sur la page. Il ne reconnaît
+ * pas l'écho du doigt (`toucher`) : le Cabinet l'arrête à la capture
+ * (`arreterLEcho`) ; ailleurs, une feuille qui s'ouvrirait au lever du doigt
+ * se refermerait sous lui — aucune ne le fait.
  */
 export function Feuille({
   titre,
@@ -91,7 +98,7 @@ export function Feuille({
   const boite = useRef<HTMLDivElement>(null)
   useModale(boite, onFermer)
   return (
-    <div className="carte-voile" onClick={onFermer}>
+    <div className="carte-voile" onMouseDown={retenirLeFocus} onClick={onFermer}>
       <div
         ref={boite}
         className={'carte-feuille' + (className ? ` ${className}` : '')}

@@ -115,13 +115,18 @@ paths:
   (`useModale`, `horsDeLaBoite`, règle `client.md`), eux restent vivants. Le
   CSS n'y est pour rien : `touch-action` arrête le doigt, pas le clavier ni le
   lecteur d'écran, qui lisait dix-sept liens du musée sous « Comment ça
-  marche ? » (la tablée du 25 octobre 2026). La feuille reçoit le focus par
-  programme (`tabindex="-1"`) : l'anneau de l'application l'écarte, mais
-  ouverte au clavier, le navigateur l'entoure du sien (`outline: auto`, un
-  filet clair), comme la feuille de « Mon compagnon » — la carte d'un joueur
-  et la fiche de la niche l'effacent (`.carte-joueur:focus`,
-  `.niche-fiche:focus`), le Cabinet sous `.cab-page` seulement, où la
-  feuille n'est pas.
+  marche ? » (la tablée du 25 octobre 2026). La boîte reçoit le focus par
+  programme (`tabindex="-1"`), sans aucun anneau : celui de l'application
+  l'écarte, et `useModale` la focalise `focusVisible: false` (`SANS_ANNEAU`,
+  `modale.ts`). Sans l'option, `:focus-visible` lui donnait le filet blanc du
+  navigateur (`outline: auto`) ouverte au clavier, ou sans geste encore — la
+  feuille des missions à l'arrivée sur `/#missions`, le réveil d'un gardien à
+  l'arrivée au Cabinet —, et `.cab-page [tabindex='-1']:focus` ne l'effaçait
+  que sous trois feuilles du Cabinet sur cinq. Au premier Tab, l'anneau d'or
+  passe sur « Fermer ». Un navigateur qui ignore l'option garde son filet :
+  la carte d'un joueur, la fiche de la niche et le coffre l'effacent aussi en
+  CSS (`.carte-joueur:focus`, `.niche-fiche:focus`, `.coffre-boite:focus`),
+  pas encore `.carte-feuille`.
 - **Ce qui se pose sur la page a un sol plein, sous tous les thèmes.**
   Chaque thème repeint `.card` d'un verre fait pour laisser voir son décor —
   translucide sous vingt-cinq d'entre eux, de 82 à 95 % —, d'un sélecteur

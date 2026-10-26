@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { espacesFines } from '../format'
-import { horsDeLaBoite, poserUneFenetre } from '../modale'
+import { couvrir, horsDeLaBoite, poserUneFenetre, retenirLeFocus } from '../modale'
 import { estLEchoDUnDoigt } from '../toucher'
 
 /**
@@ -118,17 +118,6 @@ export function arretDuTab<T>(arrets: readonly T[], actif: unknown, arriere: boo
   return null
 }
 
-/**
- * Un appui sur le voile même ne prend pas le focus de la boîte. Ouverte au
- * lever du doigt (`toucher`), la fenêtre posait le focus sur « Continuer », et
- * le `mousedown` que le navigateur fait suivre tombait sur le voile, qui ne se
- * focalise pas : le focus partait sur la page. Un appui dans la boîte garde le
- * sien — un champ, un bouton.
- */
-export function retenirLeFocus(e: { target: unknown; currentTarget: unknown; preventDefault: () => void }) {
-  if (e.target === e.currentTarget) e.preventDefault()
-}
-
 /** À monter une fois par page : c'est lui qui affiche le dialogue en cours. */
 export function DialogHost() {
   const pending = useSyncExternalStore(
@@ -157,10 +146,9 @@ function DialogBox({ pending }: { pending: Pending }) {
     // touchait la page derrière la fenêtre.
     const fenetre = poserUneFenetre()
     const opener = document.activeElement as HTMLElement | null
-    // Le voile, pas la boîte : il reste vivant, et le toucher pour renoncer le ferme encore. Ce qui était déjà inerte — la page
-    // sous une feuille ouverte — le reste en partant.
-    const rendus = voile.current ? horsDeLaBoite(voile.current, document.body).filter(e => !e.hasAttribute('inert')) : []
-    for (const e of rendus) e.setAttribute('inert', '')
+    // Le voile, pas la boîte : il reste vivant, et le toucher pour renoncer le ferme encore. Ce que couvre aussi une feuille
+    // ouverte dessous le reste tant que l'une des deux est là (`couvrir`).
+    const decouvrir = couvrir(voile.current ? horsDeLaBoite(voile.current, document.body) : [])
     const focusable = () =>
       [...(box.current?.querySelectorAll<HTMLElement>('input, button') ?? [])].filter(el => !el.hasAttribute('disabled'))
     const first = focusable()[0]
@@ -186,7 +174,7 @@ function DialogBox({ pending }: { pending: Pending }) {
       document.removeEventListener('keydown', onKey)
       fenetre.retirer()
       // Avant de rendre le focus : un bouton inerte ne le prend pas.
-      for (const e of rendus) e.removeAttribute('inert')
+      decouvrir()
       opener?.focus?.()
     }
   }, [])

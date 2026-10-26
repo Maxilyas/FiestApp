@@ -273,7 +273,9 @@ test('« Quitter cette partie ? » rend le reste de la page inerte, et un touche
   // du Cabinet, sans pause à demander —, la fenêtre posait le focus sur « Continuer », puis le mousedown que le navigateur fait
   // suivre tombait sur le voile, qui ne se focalise pas : le focus partait sur la page, rien n'était inerte derrière, et Tab,
   // Tab, Entrée jouait « Manche suivante » derrière la fenêtre restée ouverte.
-  const { arretDuTab, retenirLeFocus } = await import(new URL('../../client/src/components/Dialog.tsx', import.meta.url).href)
+  const { arretDuTab } = await import(new URL('../../client/src/components/Dialog.tsx', import.meta.url).href)
+  // Le voile d'une feuille arrête le sien de même : il vit avec les fenêtres modales (`modale.ts`), que les deux importent.
+  const { retenirLeFocus } = await import(new URL('../../client/src/modale.ts', import.meta.url).href)
 
   // Un appui sur le voile même garde le focus où la fenêtre l'a posé ; un appui dans la boîte garde le sien.
   const appui = (target: object, currentTarget: object) => {
@@ -295,15 +297,80 @@ test('« Quitter cette partie ? » rend le reste de la page inerte, et un touche
   assert.equal(arretDuTab([], 'la page', false), null, 'une boîte sans arrêt ne retient rien')
 
   // Le reste de la page inerte, comme sous la carte d'un joueur : tout ce qui n'est ni le voile ni l'un de ses ancêtres. Le voile
-  // reste vivant — le toucher pour renoncer le ferme encore —, et ce qui était déjà inerte le reste en partant.
+  // reste vivant — le toucher pour renoncer le ferme encore —, et l'inertie se compte avec les autres fenêtres (`couvrir`).
   const dialogue = source('components/Dialog.tsx')
   assert.match(dialogue, /<div className="dialog-backdrop" ref=\{voile\} onMouseDown=\{retenirLeFocus\}/, 'le voile garde le focus où la fenêtre l’a posé')
-  assert.match(dialogue, /const rendus = voile\.current \? horsDeLaBoite\(voile\.current, document\.body\)\.filter\(e => !e\.hasAttribute\('inert'\)\) : \[\]\s*for \(const e of rendus\) e\.setAttribute\('inert', ''\)/)
-  // Retiré avant de rendre le focus : un bouton inerte ne le prend pas.
+  assert.match(dialogue, /const decouvrir = couvrir\(voile\.current \? horsDeLaBoite\(voile\.current, document\.body\) : \[\]\)/)
+  // Rendu vivant avant de rendre le focus : un bouton inerte ne le prend pas.
   const nettoyage = dialogue.slice(dialogue.indexOf("document.removeEventListener('keydown', onKey)"))
-  assert.ok(nettoyage.indexOf("removeAttribute('inert')") >= 0, 'le reste de la page rendu vivant en partant')
-  assert.ok(nettoyage.indexOf("removeAttribute('inert')") < nettoyage.indexOf('opener?.focus'), 'avant que le focus revienne à « Quitter »')
+  assert.ok(nettoyage.indexOf('decouvrir()') >= 0, 'le reste de la page rendu vivant en partant')
+  assert.ok(nettoyage.indexOf('decouvrir()') < nettoyage.indexOf('opener?.focus'), 'avant que le focus revienne à « Quitter »')
   assert.match(dialogue, /const vise = arretDuTab\(focusable\(\), document\.activeElement, e\.shiftKey\)/)
+})
+
+test('deux fenêtres empilées : ce qu’elles couvrent ne revit qu’au départ de la dernière, d’où qu’elle parte', async () => {
+  // La barre du chef referme d'elle-même la feuille d'une équipe que l'écran commun a retirée (`BarreDuChef.tsx`), et
+  // « Supprimer l'équipe » y ouvre une confirmation par-dessus. Chaque fenêtre écartait ce qui était déjà inerte : la confirmation
+  // ne retenait pas la niche, les bandeaux ni le reste de `body`, que la feuille avait endormis — la feuille partie la première,
+  // son nettoyage les rendait vivants derrière la confirmation encore ouverte, et le lecteur d'écran les lisait.
+  const { couvrir } = await import(new URL('../../client/src/modale.ts', import.meta.url).href)
+  const element = (inerte = false) => {
+    const attributs = new Set(inerte ? ['inert'] : [])
+    return {
+      hasAttribute: (n: string) => attributs.has(n),
+      setAttribute: (n: string) => void attributs.add(n),
+      removeAttribute: (n: string) => void attributs.delete(n),
+    }
+  }
+  const niche = element()
+  const bandeau = element()
+  const page = element()
+  // Inerte par la page elle-même — la face cachée d'une carte à collectionner : aucune fenêtre n'y touche.
+  const faceCachee = element(true)
+  const inertes = () => [niche, bandeau, page, faceCachee].map(e => e.hasAttribute('inert'))
+
+  const sousLaFeuille = couvrir([niche, bandeau, faceCachee])
+  assert.deepEqual(inertes(), [true, true, false, true], 'la feuille ouverte')
+  const sousLeDialogue = couvrir([page, niche, bandeau, faceCachee])
+  assert.deepEqual(inertes(), [true, true, true, true], 'la confirmation ouverte sur elle')
+  sousLaFeuille()
+  assert.deepEqual(inertes(), [true, true, true, true], 'la feuille partie la première : rien ne revit derrière la confirmation')
+  sousLaFeuille()
+  assert.deepEqual(inertes(), [true, true, true, true], 'rendu deux fois, rien de plus')
+  sousLeDialogue()
+  assert.deepEqual(inertes(), [false, false, false, true], 'la dernière partie, tout revit — sauf ce que la page avait endormi')
+
+  // Dans l'ordre d'ouverture aussi.
+  const a = couvrir([niche])
+  const b = couvrir([niche])
+  b()
+  assert.equal(niche.hasAttribute('inert'), true, 'la fenêtre du dessus partie, celle d’en dessous couvre encore')
+  a()
+  assert.equal(niche.hasAttribute('inert'), false)
+
+  // Les deux portes passent par lui : une feuille, une carte (`useModale`), un dialogue — plus aucune n'écarte à part ce qui
+  // était inerte, ni ne le rend vivant à plat.
+  for (const f of ['modale.ts', 'components/Dialog.tsx']) {
+    const s = source(f)
+    assert.match(s, /couvrir\(/, `${f} compte ce qu'il couvre`)
+    assert.doesNotMatch(s, /filter\(e => !e\.hasAttribute\('inert'\)\)/, `${f} écarte encore à part ce qui était inerte`)
+    assert.doesNotMatch(s, /for \(const e of rendus\) e\.removeAttribute\('inert'\)/, `${f} rend encore vivant à plat`)
+  }
+})
+
+test('une fenêtre reçoit le focus sans anneau : ni à l’arrivée sans geste, ni ouverte au clavier', () => {
+  // La feuille des missions s'ouvre d'elle-même à l'arrivée sur `/#missions` (le lien des fins de partie), le réveil d'un gardien
+  // à l'arrivée au Cabinet : focalisée par le code avant tout geste — ou ouverte au clavier —, `:focus-visible` donnait à la boîte
+  // le filet blanc du navigateur (`outline: auto`, mesuré dans Chromium en 360 × 640), que l'anneau de l'application écarte de ce
+  // qui a `tabindex="-1"`. Au Cabinet, `.cab-page` l'effaçait sous trois feuilles, pas sous les deux autres.
+  const modale = source('modale.ts')
+  assert.match(modale, /const SANS_ANNEAU[^=]*= \{ focusVisible: false \}/)
+  assert.match(modale, /boite\.current\?\.focus\(SANS_ANNEAU\)/)
+  assert.doesNotMatch(modale, /boite\.current\?\.focus\(\)/, 'aucune boîte focalisée avec l’anneau')
+  // L'anneau d'or de l'application, lui, n'a pas changé : il vient au premier Tab, sur « Fermer ».
+  assert.match(CSS, /:where\(:not\(\[tabindex='-1'\]\)\):focus-visible \{\s*outline: 2px solid var\(--focus\);/)
+  // La feuille et la carte d'un joueur passent par elle.
+  for (const f of ['components/Pieces.tsx', 'components/CarteJoueur.tsx']) assert.match(source(f), /useModale\(boite, onFermer\)/, f)
 })
 
 test('Échap ne ferme que la fenêtre du dessus : la feuille, la carte ou le dialogue ouvert en dernier', async () => {
