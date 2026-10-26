@@ -948,12 +948,14 @@ export class ProfileStore {
   statsDeCampagne?: (profileId: string) => Promise<StatsDeCampagne>
 
   /**
-   * Les rencontres de l'expédition s'ouvrent sur ce serveur (`rencontresOuvertes`) :
-   * les trophées réservés à elles (`montreParLeServeur` — L'Explorateur) ne
-   * partent qu'alors dans la page du profil et la loge. Posé au démarrage
-   * comme `statsDeCampagne` ; un serveur qui ne le dit pas les tait.
+   * Le Cabinet de curiosités s'ouvre sur ce serveur (`cabinetOuvert`) : les
+   * trophées réservés à lui (`montreParLeServeur` — L'Explorateur, ses salles
+   * complètes) ne partent qu'alors dans la page du profil et la loge. Posé au
+   * démarrage comme `statsDeCampagne` ; un serveur qui ne le dit pas les tait.
+   * Il suivait les rencontres de l'expédition jusqu'au 26 octobre 2026, quand
+   * L'Explorateur comptait le niveau d'explorateur.
    */
-  rencontres = false
+  cabinet = false
 
   /**
    * Sa ligue des duels, sa cote et ses bordures de ligue (`CampagneStore.coteDe`),
@@ -3341,8 +3343,9 @@ export class ProfileStore {
         ...(porte && { rarete: porte.rarete, porteurs: porte.porteurs }),
       }
     })
-    // Un trophée réservé aux rencontres ne se cite que là où elles s'ouvrent : l'album ne lui fait pas de case sans lui.
-    const carrieres: HautFaitVu[] = HAUTS_FAITS_DE_CARRIERE.filter(h => !h.montreParLeServeur || this.rencontres).map(h => {
+    // Un trophée réservé au Cabinet ne se cite que là où il s'ouvre : l'album ne lui fait pas de case sans lui. Ses
+    // détenteurs le gardent rangé (invariant 22), et l'y retrouvent le jour où il ouvre.
+    const carrieres: HautFaitVu[] = HAUTS_FAITS_DE_CARRIERE.filter(h => !h.montreParLeServeur || this.cabinet).map(h => {
       let palier = 0
       for (let i = 1; i <= 3; i++) if ((recompenses.get(clePalier(h.key, i)) ?? 0) > 0) palier = i
       const porte = palier > 0 ? rarete.get(clePalier(h.key, palier)) : undefined

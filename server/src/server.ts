@@ -103,7 +103,7 @@ export interface QuizServerOptions {
    * Les rencontres de l'expédition s'ouvrent-elles ici ? Absent : leur
    * drapeau le dit (`rencontresOuvertes`) — partout depuis qu'elles sont le
    * jeu. Un test ou un rendu les ferme pour voir le serveur que donnerait le
-   * drapeau refermé : le départ des jokers, sans L'Explorateur.
+   * drapeau refermé : le départ des jokers.
    */
   rencontres?: boolean
   /**
@@ -115,7 +115,8 @@ export interface QuizServerOptions {
   /**
    * Le Cabinet de curiosités répond-il ici ? Absent : son drapeau le dit
    * (`cabinetOuvert`, `shared/cabinet/ouverture.ts`) — partout hors de la
-   * production. Un test le ferme pour voir le serveur de la production.
+   * production. Un test le ferme pour voir le serveur de la production : ni ses
+   * routes, ni L'Explorateur, qui compte ses salles.
    */
   cabinet?: boolean
   /**
@@ -495,8 +496,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
   // Les codes des salons : six chiffres pour entrer chez quelqu'un.
   const salons = new SalonStore(opts.quizDbUrl, opts.quizDbToken)
-  // Les rencontres de l'expédition (`rencontresOuvertes`), calculées une fois : ses routes les lisent, et ce que le
-  // codex fait gagner hors de l'expédition — L'Explorateur — ne compte et ne se montre que là où elles s'ouvrent.
+  // Les rencontres de l'expédition (`rencontresOuvertes`), calculées une fois : ses routes les lisent.
   const rencontres = opts.rencontres ?? rencontresOuvertes({ online: !!opts.online, env: opts.appEnv ?? 'production' })
   // La question au centre (la version 10), de même : la préproduction d'abord.
   const questionAuCentre = opts.questionAuCentre ?? questionAuCentreOuverte({ online: !!opts.online, env: opts.appEnv ?? 'production' })
@@ -511,7 +511,6 @@ export async function createQuizServer(opts: QuizServerOptions) {
     empreintesDuJour: () => jour.empreintes(),
     ecrireXp: (profileId, xp, jours) => profiles.ecrireXpDeCampagne(profileId, xp, jours),
     recompenses: profiles,
-    rencontres,
     ...(opts.fraicheurDesDuelsMs !== undefined && { fraicheurDesDuelsMs: opts.fraicheurDesDuelsMs }),
   })
   // Le Cabinet de curiosités : il ne connaît la campagne que par sa porte, ses tables naissent dans son premier lot
@@ -521,6 +520,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // L'expédition qui part ou finit, dite à la page du Cabinet (« Ton expédition t'attend ») : en mémoire, un crochet
   // de sa porte, comme ses paliers — sans lui, la ligne restait jusqu'au réveil suivant.
   campagne.expeditionChange = (profileId, enRoute) => cabinet.expeditionChange(profileId, enRoute)
+  // Ses salles complètes, que L'Explorateur compte, lues dans le lot des paliers de la campagne — là seulement où il
+  // s'ouvre : fermé, il n'en compte aucune, sans une lecture de plus, et rien ne tombe (`montreParLeServeur`).
+  if (cabinetEstOuvert) campagne.statsEnPlus = cabinet.statsEnPlus
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
@@ -638,8 +640,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.compagnonsDeCampagne = id => campagne.compagnonsDe(id)
   // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
   profiles.statsDeCampagne = id => campagne.statsDe(id)
-  // L'Explorateur ne se cite que là où les rencontres s'ouvrent, comme il ne s'y gagne que là.
-  profiles.rencontres = rencontres
+  // L'Explorateur ne se cite que là où le Cabinet s'ouvre, comme il ne s'y gagne que là.
+  profiles.cabinet = cabinetEstOuvert
   // Sa ligue des duels, sur sa carte.
   profiles.duelsDe = id => campagne.coteDe(id)
   // Sa bordure de ligue, que la salle lit de mémoire à chaque diffusion :

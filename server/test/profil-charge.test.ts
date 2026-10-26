@@ -156,6 +156,20 @@ test('la page du profil lit ses sentiers et ses duels une fois, d’un seul lot 
   assert.ok(profile.bordures.length > 0)
 })
 
+test('ses paliers de campagne ne relisent plus la renommée de l’Expédition : L’Explorateur lit ses œuvres du Cabinet, une fois, par la clé', async () => {
+  await lire('/api/joueur/moi')
+  const m = await mesurer(() => lire('/api/joueur/moi'))
+  // Jusqu'au 26 octobre 2026, `statsDe` relisait à chaque page et à chaque fin de partie les bilans de toutes ses
+  // expéditions finies, et de quoi refaire ceux qui manquaient — quatre lectures qui grandissaient avec son histoire.
+  const renommee = m.lectures.filter(l => /FROM expedition_gestes|mode = 'expedition' AND finie_le IS NOT NULL/.test(l.sql))
+  assert.equal(renommee.length, 0, `sa renommée relue :\n${enClair(m)}`)
+  // À leur place, ses salles complètes : ses œuvres, quatre-vingt-quatre lignes au plus, dans le même lot.
+  const oeuvres = m.lectures.filter(l => /FROM cabinet_oeuvres/.test(l.sql))
+  assert.equal(oeuvres.length, 1, `ses œuvres lues ${oeuvres.length} fois :\n${enClair(m)}`)
+  assert.match(oeuvres[0].sql, /FROM cabinet_oeuvres WHERE profile_id = \?$/)
+  assert.equal(m.resultat.profile.hautsFaits.find((h: { key: string }) => h.key === 'hf:explorateur')?.valeur, 0, 'L’Explorateur cité, aucune salle')
+})
+
 test('l’accueil lit ses sentiers une fois pour son solde, et une fois pour son bouton', async () => {
   await lire('/api/joueur/moi?accueil')
   const m = await mesurer(() => lire('/api/joueur/moi?accueil'))

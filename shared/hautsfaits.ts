@@ -91,10 +91,10 @@ export interface HautFaitDeCarriere {
   surLesSentiers?: true
   /**
    * Il ne se montre que là où le serveur le cite (`PublicProfileDetail.hautsFaits`)
-   * : L'Explorateur, tant que les rencontres de l'expédition restent fermées
-   * en production — son niveau ne s'y voit nulle part, et le même code sert
-   * la préproduction, où il se gagne. Le serveur le tait et ne le décerne
-   * pas ; l'album ne bâtit pas sa case sans lui.
+   * : L'Explorateur, tant que le Cabinet de curiosités reste fermé en
+   * production — ses salles ne s'y voient nulle part, et le même code sert la
+   * préproduction, où il se gagne. Le serveur le tait et ne le décerne pas ;
+   * l'album ne bâtit pas sa case sans lui.
    */
   montreParLeServeur?: true
 }
@@ -735,23 +735,25 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     valeur: c => c.campagne.tampons,
     deCampagne: 'tampons',
   },
-  // Le niveau d'explorateur de l'expédition (le codex, le 19 octobre 2026) :
-  // la renommée de toutes ses expéditions finies, relue de leurs bilans
-  // (`StatsDeCampagne.explorateur`). Sur la carrière de
-  // `calibrage-rencontres.ts`, le joueur moyen passe le niveau 4 à sa
-  // troisième expédition, le 7 à sa septième, le 10 — le codex entier,
-  // `NIVEAU_MAX` — à sa treizième. Réservé aux serveurs où les rencontres
-  // s'ouvrent (`montreParLeServeur`).
+  // Les salles complètes du Cabinet de curiosités (le 26 octobre 2026), une,
+  // trois, six sur neuf (`StatsDeCampagne.salles`). Il comptait depuis le 19
+  // le niveau d'explorateur de l'Expédition — 4, 7, 10 —, que son départ
+  // fermé n'aurait plus fait monter : sa clé reste, et ses paliers rangés avec
+  // elle (invariant 22 — un palier validé ne se perd jamais). Changer sa mesure
+  // ne durcit ni un légendaire ni la courbe, et ne paie rien de soirée :
+  // `VERSION_BAREME` ne bouge pas. Réservé aux serveurs où le Cabinet s'ouvre
+  // (`montreParLeServeur`) : ailleurs, il ne se compte, ne se gagne ni ne se
+  // montre.
   {
     key: 'hf:explorateur',
     famille: 'carriere',
     emoji: '🎒',
     title: 'L’Explorateur',
-    mesure: 'niveaux d’explorateur',
-    mesureUne: 'niveau d’explorateur',
-    paliers: [4, 7, 10],
-    valeur: c => c.campagne.explorateur,
-    deCampagne: 'explorateur',
+    mesure: 'salles complètes du Cabinet',
+    mesureUne: 'salle complète du Cabinet',
+    paliers: [1, 3, 6],
+    valeur: c => c.campagne.salles,
+    deCampagne: 'salles',
     montreParLeServeur: true,
   },
   // Les sentiers du savoir (le 15 octobre 2026) : ce qui s'y valide en
@@ -874,13 +876,12 @@ export function xpDe(cle: string): number {
 
 /**
  * Ce qu'un palier demande, tel qu'on l'écrit sous son titre : « 2000 réponses
- * envoyées », « 1 avatar éclaté » — et « Niveau 20 » pour La Légende, qui ne
- * se compte pas, « Niveau 7 d'explorateur » pour L'Explorateur.
+ * envoyées », « 1 avatar éclaté », « 3 salles complètes du Cabinet » — et
+ * « Niveau 20 » pour La Légende, qui ne se compte pas.
  */
 export function regleDuPalier(h: HautFaitDeCarriere, palier: number): string {
   const seuil = h.paliers[palier - 1]
   if (h.key === 'hf:legende') return `Niveau ${seuil}`
-  if (h.key === 'hf:explorateur') return `Niveau ${seuil} d’explorateur`
   return `${formatNumber(seuil)} ${seuil < 2 ? h.mesureUne : h.mesure}`
 }
 
@@ -1152,14 +1153,16 @@ export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   'hf:globe-trotter:1': 0.08,
   'hf:globe-trotter:2': 0.015,
   'hf:globe-trotter:3': 0.002,
-  // Estimés le 19 octobre 2026, avant l'ouverture des rencontres en
-  // production : la part de ceux qui partent en expédition, et la carrière de
-  // `calibrage-rencontres.ts` — le niveau 4 à la troisième ou quatrième
-  // expédition, le 7 à la septième à la dixième, le 10 de la onzième à la
-  // vingtième.
-  'hf:explorateur:1': 0.08,
-  'hf:explorateur:2': 0.03,
-  'hf:explorateur:3': 0.01,
+  // Estimés le 26 octobre 2026, avant l'ouverture du Cabinet en production,
+  // aux salles complètes : la part de ceux qui l'ouvriront, et les parcours de
+  // `calibrage-cabinet.ts` — la première salle complète (son premier gardien)
+  // au 8ᵉ jour du joueur moyen, au 21ᵉ de l'occasionnel ; les neuf, tout le
+  // musée, au 18ᵉ et au 55ᵉ. Qui joue sa visite chaque jour va donc au bout :
+  // l'écart entre les métaux tient surtout à ceux qui s'arrêtent. Ils
+  // remplacent ceux du niveau d'explorateur (0,08 · 0,03 · 0,01).
+  'hf:explorateur:1': 0.15,
+  'hf:explorateur:2': 0.1,
+  'hf:explorateur:3': 0.06,
   // Ceux des sentiers (le 15 octobre 2026), mesurés sur la production — seize
   // joueurs de campagne, dix sur les sentiers en trois semaines : quatre
   // auraient Le Randonneur et La Constellation au bronze, un à l'argent ;

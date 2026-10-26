@@ -72,14 +72,25 @@ paths:
   série et le musée entier dans les mots du Cabinet, `conditionDuGardien`) ;
   un gardien de saison n'y a pas de voie, sa règle dit l'œuvre gagnée à sa fête.
 - **Un trophée réservé à certains serveurs se tait aux deux bouts**
-  (`montreParLeServeur` — L'Explorateur, le 19 octobre 2026, là où les
-  rencontres de l'expédition s'ouvrent) : ce qu'il compte vaut 0 ailleurs,
-  il n'y tombe donc pas ; `hautsFaitsVus` ne le cite pas ; l'album ne lui
-  fait de case que cité (`albumDesTrophees`), sans quoi chaque collection
-  de la production le compterait « 0 sur 3 ». Un drapeau du code
+  (`montreParLeServeur` — L'Explorateur, là où le Cabinet de curiosités
+  s'ouvre depuis le 26 octobre 2026 ; là où les rencontres de l'expédition
+  s'ouvraient, du 19 au 26) : ce qu'il compte vaut 0 ailleurs, il n'y tombe
+  donc pas ; `hautsFaitsVus` ne le cite pas ; l'album ne lui fait de case
+  que cité (`albumDesTrophees`), sans quoi chaque collection de la
+  production le compterait « 0 sur 3 ». Un drapeau du code
   (`voiesMontrees`) ne suffit pas quand la préproduction doit le montrer :
-  elle sert le même code — c'est le serveur qui sait (`rencontresOuvertes`,
-  posé au démarrage sur `ProfileStore.rencontres` et `CampagneStore`).
+  elle sert le même code — c'est le serveur qui sait (`cabinetOuvert`, posé
+  au démarrage sur `ProfileStore.cabinet` ; le crochet `statsEnPlus` de la
+  porte de la campagne, qui compte les salles, n'est branché que là).
+- **Une piste qui change de mesure garde sa clé** (L'Explorateur, du niveau
+  d'explorateur aux salles complètes du Cabinet, le 26 octobre 2026) : ses
+  paliers rangés restent à leurs détenteurs (invariant 22), et l'album les
+  montre acquis au-dessus de la jauge (`etapesVues` lit les métaux rangés,
+  pas seulement la valeur). Ses salles se lisent de la base dans le lot de
+  `statsDe`, jamais de la mémoire du Cabinet : à la fin d'une partie, les
+  paliers se rangent avant que le musée gardé prenne l'œuvre écrite. Ni
+  `VERSION_BAREME` ni `DURCISSEMENTS` : rien de soirée, ni légendaire ni
+  courbe.
 - **Durcir la règle d'un haut fait de soirée, d'un prix ou d'un Divin, puis
   monter `VERSION_BAREME`, reprend le passé** : le recalcul remplace les
   lignes de chaque soirée (`remplacerRecompensesDeSoiree`), et ce que la

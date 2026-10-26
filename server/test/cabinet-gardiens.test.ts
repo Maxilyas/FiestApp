@@ -5,7 +5,8 @@
 // et seul ce qui manque se range, sous la clé fixe `#cabinet` : rien de dû et
 // pas rangé, aucun aller-retour. À la fin d'une partie, à un achat, à une
 // dorure, l'annonce : le gardien neuf en grand, celui qui veillait déjà sans
-// cérémonie, la luciole à la première salle complète ; à la page froide, en
+// cérémonie, la luciole à la première salle complète — et, à la fin de la
+// partie qui la complète, le bronze de L'Explorateur ; à la page froide, en
 // silence ; à la partie d'hier que le serveur clôt, la page qui suit. Un
 // rangement raté se rattrape à la page suivante, une réponse perdue se relit
 // sans rien réécrire ; une œuvre de
@@ -44,7 +45,7 @@ import { fondreLesReveils, type PageDuCabinet, type ReveilDesGardiens, type VueD
 import { LEGENDAIRES_DU_CABINET, PREFIXES_DES_VOIES_RANGEES, cleDuCabinet, estUneVoieDuCabinet, legendaire, legendaireDuCabinet, voiesMontrees } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
 import { COMPAGNON_DE_L_EXPEDITION } from '../../shared/compagnons'
-import { ProfileStore, RANGEMENT_DU_CABINET } from '../src/auth/profiles'
+import { ProfileStore, RANGEMENT_DU_CABINET, cleDeSerie } from '../src/auth/profiles'
 import { reconcilier, voiesQuiManquent, type EtagereDuCabinet } from '../src/core/cabinet/gardiens'
 
 ProfileStore.tirageEclat = () => false
@@ -338,6 +339,29 @@ test('la salle complète en jouant réveille son gardien, sous #cabinet, annonc�
   assert.equal(rangeesDe(lea.id).length, 1)
 })
 
+test('la première salle complète fait tomber L’Explorateur · Bronze à la fin de sa partie, et la page du profil compte ses salles', async () => {
+  const explorateur = async (cookie: string) =>
+    ((await lire(b, cookie, '/api/joueur/moi')).corps.profile.hautsFaits as { key: string; fois: number; valeur: number; prochain: number | null }[]).find(h => h.key === 'hf:explorateur')!
+  const eve = await joueuse('eve', REMPART_SANS_PANSEMENT)
+  // Le Cabinet ouvert, le serveur le cite : aucune salle encore, le bronze à la première.
+  const avant = await explorateur(eve.cookie)
+  assert.deepEqual([avant.fois, avant.valeur, avant.prochain], [0, 0, 1])
+  const fin = await gagnerPansement(eve.cookie)
+  // Lu dans le lot des paliers de la campagne, après celui qui a écrit l'œuvre : la salle qu'elle complète compte déjà.
+  assert.deepEqual(
+    (fin.bilan!.gains?.recompenses ?? []).filter(r => r.key.startsWith('hf:explorateur')).map(r => r.key),
+    ['hf:explorateur:1'],
+  )
+  // Rangé sous la partie, comme tout palier de la campagne — jamais sous `#cabinet`, la clé des gardiens.
+  const sous = enBase(b.fichier, db => db.prepare(`SELECT soiree_id FROM profile_badges WHERE profile_id = ? AND badge = 'hf:explorateur:1'`).all(eve.id)) as { soiree_id: string }[]
+  assert.deepEqual(
+    sous.map(r => r.soiree_id),
+    [cleDeSerie(fin.id)],
+  )
+  const apres = await explorateur(eve.cookie)
+  assert.deepEqual([apres.fois, apres.valeur, apres.prochain], [1, 1, 3])
+})
+
 test('déjà à lui par une autre voie : la salle complète le range sans le réannoncer — « il veillait déjà »', async () => {
   assert.ok((await legendairesDe(kim.cookie)).includes('lg:phenix'), 'le Phénix d’une soirée')
   const avant = ok(await laPage(b, kim.cookie), 'la page')
@@ -517,18 +541,25 @@ test('l’étagère et le compte des badges taisent les voies rangées du Cabine
     ['cabinet:phenix'],
     'sa voie est en base',
   )
+  // Ses trophées, eux, comptent : le haut fait de soirée, et — depuis le 26 octobre 2026 — le bronze de L'Explorateur,
+  // que sa salle du Rempart complète a fait tomber à la fin de la partie.
+  const trophees = enBase(b.fichier, db => db.prepare(`SELECT badge FROM profile_badges WHERE profile_id = ? AND soiree_id <> ? ORDER BY badge`).all(kim.id, RANGEMENT_DU_CABINET)) as { badge: string }[]
+  assert.deepEqual(
+    trophees.map(r => r.badge),
+    ['hf:explorateur:1', 'hf:phenix'],
+  )
   const moi = (await lire(b, kim.cookie, '/api/joueur/moi?leger')).corps.profile as { badges: number }
-  // Le haut fait de soirée seul : sa voie du Cabinet, rangée, ne compte pas.
-  assert.equal(moi.badges, 1)
+  // Ses trophées seuls : sa voie du Cabinet, rangée, ne compte pas.
+  assert.equal(moi.badges, trophees.length)
   // La forme SQL de la liste (`sqlHorsDesVoiesRangees`) écarte `cabinet:%` : sans ses deux-points, un préfixe
   // écarterait aussi une clé qui ne fait que commencer comme lui.
   for (const p of PREFIXES_DES_VOIES_RANGEES) assert.ok(p.endsWith(':'), p)
-  // L'étagère même, que sa page, sa vitrine et ses plus beaux lisent : le haut fait seul — « Le Cabinet : Le Phénix »
+  // L'étagère même, que sa page, sa vitrine et ses plus beaux lisent : ses trophées seuls — « Le Cabinet : Le Phénix »
   // n'y paraît pas.
   const detail = (await lire(b, kim.cookie, '/api/joueur/moi')).corps.profile as { vitrine: { key: string }[] }
   assert.deepEqual(
-    detail.vitrine.map(v => v.key),
-    ['hf:phenix'],
+    detail.vitrine.map(v => v.key).sort(),
+    trophees.map(r => r.badge),
   )
 })
 

@@ -22,9 +22,9 @@ import {
   CE_QUE_RANGE_LA_PAGE,
   NOM_DE_LA_PAGE,
   OU_DE_LA_PAGE,
-  OU_JOUER,
   albumDesTrophees,
   ouIlEnEst,
+  ouJouer,
   seuilDeLEtape,
   type CaseDeTrophee,
   type EtapeVue,
@@ -206,7 +206,7 @@ function ouEnEst(c: CaseDeTrophee): string | null {
 export function FicheDuTrophee({ c, page, visuel }: { c: CaseDeTrophee; page: PageDesTrophees; visuel: ReactNode }) {
   const xp = phraseDeLXp(c)
   const fini = c.sorte === 'piste' || c.sorte === 'ecusson' ? (c.metaux ?? 0) >= 3 : c.aLui && c.sorte !== 'exploit' && c.sorte !== 'coup'
-  const aller = fini ? null : c.sorte === 'maitre' && c.branche ? { nom: 'Aller au sentier', href: `/campagne#sentier-${c.branche}` } : OU_JOUER[page]
+  const aller = fini ? null : c.sorte === 'maitre' && c.branche ? { nom: 'Aller au sentier', href: `/campagne#sentier-${c.branche}` } : ouJouer(c.cle, page)
   return (
     <div className="galerie-detail detail-case album-detail trophee-fiche" style={gemmeDe(c)}>
       <div className="album-detail-tete">

@@ -25,6 +25,7 @@ import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { xpDeLaBonneReponse, xpDuJourDeCampagne } from '../../shared/campagne'
 import type { VueDeLExpedition } from '../../shared/expedition'
+import type { StatsDeCampagne } from '../../shared/profil'
 
 // ── Le compteur ───────────────────────────────────────────────────────────
 
@@ -173,12 +174,9 @@ async function enEcoutantLeJournal<T>(travail: (dits: readonly string[]) => Prom
   }
 }
 
-/**
- * Ce que le Cabinet tirera de ses œuvres pour L'Explorateur : ses salles complètes, un champ que `StatsDeCampagne`
- * n'a pas encore (`ChampsDuCabinet` n'en compte aucun) — d'où le transtypage. Il dit que ce qu'il rend arrive aux paliers.
- */
-const sesSalles = (n: number) => ({ salles: n }) as unknown as StatsDuCabinet
-const sallesDe = (stats: object) => (stats as { salles?: number }).salles
+/** Ce que le Cabinet tire de ses œuvres pour L'Explorateur : ses salles complètes, son seul champ (`ChampsDuCabinet`). */
+const sesSalles = (n: number): StatsDuCabinet => ({ salles: n })
+const sallesDe = (stats: StatsDeCampagne) => stats.salles
 
 // ── Le réveil ─────────────────────────────────────────────────────────────
 
@@ -567,7 +565,9 @@ test('ce que le Cabinet ajoute aux paliers part dans le lot de statsDe, sans un 
   assert.equal(avec.appels, sans.appels, `${avec.appels} allers-retours avec ce que le Cabinet ajoute, ${sans.appels} sans`)
   assert.equal(avec.appels, 1)
   assert.equal(lu, 0, 'il lit ce que ses lectures ont rendu')
-  assert.equal(sallesDe(sans.resultat), undefined)
+  // Sans le Cabinet — un serveur où il est fermé ne le branche pas —, aucune salle : le champ a son défaut, que
+  // L'Explorateur lit sans rien faire tomber (il était absent tant que `ChampsDuCabinet` n'en comptait aucun).
+  assert.equal(sallesDe(sans.resultat), 0)
   assert.equal(sallesDe(avec.resultat), 4, 'et ce qu’il en tire s’ajoute aux paliers')
 
   // Un compte de la campagne rendu par erreur — les tampons du Globe-trotter, les bonnes réponses du Marathonien —

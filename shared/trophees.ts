@@ -167,6 +167,7 @@ const COURT: Readonly<Record<string, readonly [string, string]>> = {
   'hf:infatigable': ['d’affilée', 'd’affilée'],
   'hf:erudit': ['experte', 'expertes'],
   'hf:marathonien': ['juste', 'justes'],
+  'hf:explorateur': ['salle', 'salles'],
   'hf:randonneur': ['palier', 'paliers'],
   'hf:constellation': ['étoile', 'étoiles'],
   'hf:cartographe': ['sentier', 'sentiers'],
@@ -175,8 +176,6 @@ const COURT: Readonly<Record<string, readonly [string, string]>> = {
 /** Ce qu'une piste compte, en court : « 7 victoires », « niveau 14 », « record 18 ». */
 function compteDeLaPiste(h: HautFaitDeCarriere, valeur: number): string {
   if (h.key === 'hf:legende') return `niveau ${valeur}`
-  // Le codex n'a pas de niveau 0 : jamais parti, il ne compte rien encore, comme le passeport vierge.
-  if (h.key === 'hf:explorateur') return valeur > 0 ? `niveau ${valeur}` : '0'
   if (h.key === 'hf:alpiniste') return `record ${valeur}`
   const mots = COURT[h.key]
   return mots ? `${formatNumber(valeur)} ${valeur < 2 ? mots[0] : mots[1]}` : formatNumber(valeur)
@@ -195,7 +194,7 @@ export function seuilDeLEtape(piste: string, seuil: number): string {
   if (piste.startsWith('ecusson:')) return pluriel(seuil, 'bonne réponse', 'bonnes réponses')
   const h = hautFait(piste)
   if (h?.famille !== 'carriere') return formatNumber(seuil)
-  if (h.key === 'hf:legende' || h.key === 'hf:explorateur') return `Niveau ${seuil}`
+  if (h.key === 'hf:legende') return `Niveau ${seuil}`
   const mots = COURT[h.key]
   return mots ? pluriel(seuil, mots[0], mots[1]) : pluriel(seuil, h.mesureUne, h.mesure)
 }
@@ -209,7 +208,6 @@ export function ouIlEnEst(piste: string, valeur: number): string {
   const h = hautFait(piste)
   if (h?.famille !== 'carriere') return ''
   if (h.key === 'hf:legende') return `Tu es au niveau ${valeur}.`
-  if (h.key === 'hf:explorateur') return valeur > 0 ? `Tu es explorateur de niveau ${valeur}.` : 'Chaque expédition finie fait monter ton niveau d’explorateur.'
   if (h.key === 'hf:alpiniste') return `Ta meilleure série de campagne : ${pluriel(valeur, 'bonne réponse', 'bonnes réponses')}.`
   if (h.key === 'hf:infatigable') return `Ta plus longue série : ${pluriel(valeur, 'jour d’affilée', 'jours d’affilée')}.`
   return `Tu en es à ${pluriel(valeur, h.mesureUne, h.mesure)}.`
@@ -227,14 +225,34 @@ export const OU_JOUER: Readonly<Partial<Record<PageDesTrophees, { nom: string; h
   sentiers: { nom: 'Aller aux sentiers', href: '/campagne#sentiers' },
 }
 
+/**
+ * Les pistes qui se gagnent ailleurs que sur l'écran de leur page :
+ * L'Explorateur se range en campagne — ses paliers tombent à la fin d'une
+ * partie de la campagne —, mais ses salles se complètent au Cabinet, et
+ * « Jouer une série » n'en complétait aucune. Il ne se montre que là où le
+ * Cabinet s'ouvre (`montreParLeServeur`) : ce chemin ne mène jamais à une page
+ * fermée.
+ */
+const OU_JOUER_LA_PISTE: ReadonlyMap<string, { nom: string; href: string }> = new Map([['hf:explorateur', { nom: 'Aller au Cabinet', href: '/cabinet' }]])
+
+/** L'écran où aller gagner un trophée de cette page : le sien s'il en a un à part, sinon celui de la page. */
+export const ouJouer = (cle: string, page: PageDesTrophees): { nom: string; href: string } | undefined => OU_JOUER_LA_PISTE.get(cle) ?? OU_JOUER[page]
+
 /** Ce qu'on a d'abord, dans l'ordre du catalogue ; le reste ensuite — l'album des avatars range de même. */
 const aLuiDAbord = (cases: CaseDeTrophee[]) => [...cases.filter(c => c.aLui), ...cases.filter(c => !c.aLui)]
 
-/** Les étapes d'une piste à une valeur : atteintes, et la prochaine. */
-function etapesVues(cle: string, valeur: number): EtapeVue[] {
+/**
+ * Les étapes d'une piste à une valeur : atteintes, et la prochaine. Un métal
+ * rangé reste atteint quand ce qu'il compte a redescendu ou changé de mesure
+ * — L'Explorateur gagné au niveau d'explorateur, qui compte depuis des salles
+ * du Cabinet : la jauge ne fait pas descendre ce qui est rangé, et sa prochaine
+ * étape est celle qui lui reste à prendre.
+ */
+function etapesVues(cle: string, valeur: number, metaux = 0): EtapeVue[] {
   const etapes = etapesDeLaPiste(cle)
-  const prochaine = etapes.findIndex(e => valeur < e.seuil)
-  return etapes.map((e, i) => ({ seuil: e.seuil, ...(e.metal && { metal: e.metal }), recompenses: e.recompenses, atteinte: valeur >= e.seuil, prochaine: i === prochaine }))
+  const atteinte = (e: (typeof etapes)[number]) => valeur >= e.seuil || (e.metal !== undefined && e.metal <= metaux)
+  const prochaine = etapes.findIndex(e => !atteinte(e))
+  return etapes.map((e, i) => ({ seuil: e.seuil, ...(e.metal && { metal: e.metal }), recompenses: e.recompenses, atteinte: atteinte(e), prochaine: i === prochaine }))
 }
 
 /** La case d'une piste : un haut fait de carrière, ses métaux, ses étapes. */
@@ -258,7 +276,7 @@ function caseDePiste(h: HautFaitDeCarriere, vus: ReadonlyMap<string, HautFaitVu>
     compte: compteDeLaPiste(h, valeur),
     valeur,
     prochain: vu?.prochain ?? h.paliers.find(s => valeur < s) ?? null,
-    etapes: etapesVues(h.key, valeur),
+    etapes: etapesVues(h.key, valeur, metaux),
     xp: XP_PALIER[0],
     ...(sonFait && { absorbe: { cle: sonFait.key, titre: sonFait.title, emoji: sonFait.emoji, xp: sonFait.xp, fois: sonVu?.fois ?? 0 } }),
   }
@@ -323,7 +341,7 @@ export function albumDesTrophees(p: ProfilDeLAlbumDesTrophees): PageDeTrophees[]
   const vus = new Map(p.hautsFaits.map(h => [h.key, h]))
   const bordures = p.bordures ?? []
   // Un trophée réservé (`montreParLeServeur`) n'a de case que si le serveur le cite : en production, L'Explorateur se
-  // serait compté « 0 sur 3 » dans la collection de chacun, pour un niveau qui ne s'y voit nulle part.
+  // serait compté « 0 sur 3 » dans la collection de chacun, pour des salles du Cabinet qui ne s'y voient nulle part.
   const pistes = (page: keyof typeof PISTES_DE) => PISTES_DE[page].filter(h => !h.montreParLeServeur || vus.has(h.key)).map(h => caseDePiste(h, vus))
   const sections: Record<PageDesTrophees, SectionDeLAlbum[]> = {
     soiree: [

@@ -1902,6 +1902,15 @@ Le prix, que le propriétaire peut trancher autrement : la découverte. Le bon n
 
 *Fichiers : `shared/cabinet/bareme.ts`, `shared/cabinet/partie.ts`, `shared/cabinet/pouvoirs.ts`, `shared/cabinet/musee.ts`, `shared/cabinet/jeux/{eclair,epingle,frise,pari}.ts`, `server/src/core/cabinet/{ecriture,magasin}.ts`, `server/src/core/cabinet/tirages/`, `server/src/core/journalDesReponses.ts`, `server/scripts/calibrage-cabinet.ts`*
 
+### L'Explorateur compte les salles complètes du Cabinet
+**Contexte** : le trophée L'Explorateur comptait le niveau d'explorateur de l'Expédition (4, 7, 10), relu à chaque page du profil et chaque fin de partie de la renommée de toutes ses expéditions — quatre lectures qui grandissaient avec elles. Le départ de l'Expédition fermé (`EXPEDITION_REMPLACEE`), il ne monterait plus ; la proposition du Cabinet voulait ses paliers « relus aux salles complètes (une, trois, six) », et ses détenteurs gardés.
+
+**Décision** : le 26 octobre 2026, sa clé reste, sa mesure change : les salles complètes du Cabinet, toutes leurs œuvres à lui, celles de départ comprises (`StatsDeCampagne.salles`), à 1, 3 et 6. Le Cabinet les tire de ses œuvres dans le lot même des paliers de la campagne (le crochet `statsEnPlus` de sa porte, `ChampsDuCabinet`), jamais de sa mémoire, que la fin d'une partie n'a pas encore mise à jour quand les paliers se rangent ; la renommée sort de ce lot. Il ne se cite, ne se compte et ne se décerne que là où le Cabinet s'ouvre (`ProfileStore.cabinet`, posé par le serveur comme `rencontres` l'était) : un serveur fermé ne branche pas le crochet. Ses paliers rangés au niveau d'explorateur restent, et sa piste les montre acquis au-dessus de sa jauge — un palier validé ne se perd jamais. Sa fiche mène au Cabinet, pas à une série. Rien ne se convertit : ce qu'il a, il le garde, et ce qu'il gagnera vient des salles, comme chacun repart à zéro au Cabinet (la décision du propriétaire, plus haut).
+
+**Conséquence** : une lecture de quatre-vingt-quatre lignes au plus, par la clé du profil, à la place de quatre qui grandissaient. `VERSION_BAREME` ne bouge pas : une mesure changée ne durcit ni un légendaire ni la courbe, et ne paie rien de soirée. Un achat qui complète une salle ne range pas le palier sur-le-champ — la porte de la campagne ne range ses paliers qu'à la fin d'une partie — : il tombe à la fin de la partie suivante, de la campagne ou du Cabinet. Il se livre donc en production avec l'ouverture du Cabinet, ou après : livré avant, ses détenteurs l'y perdraient de vue jusqu'à l'ouverture — sans rien perdre, il reviendrait avec elle, ses paliers rangés.
+
+*Fichiers : `shared/hautsfaits.ts`, `shared/profil.ts`, `shared/trophees.ts`, `server/src/core/campagne.ts`, `server/src/core/porteDeLaCampagne.ts`, `server/src/core/cabinet/{tables,magasin}.ts`, `server/src/auth/profiles.ts`, `server/src/server.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

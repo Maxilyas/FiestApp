@@ -162,7 +162,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // La campagne aussi : seul, avec son profil.
   mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
   // L'expédition, une partie de la campagne d'un autre mode : ouverte en production depuis ses jokers, tant que son drapeau l'ouvre.
-  // Ses rencontres sont le jeu partout depuis le 19 octobre 2026 — le même calcul que L'Explorateur lit (`server.ts`). Le
+  // Ses rencontres sont le jeu partout depuis le 19 octobre 2026 — calculées une fois (`server.ts`). Le
   // Cabinet venu, son seul départ se ferme (`remplacee`) : une expédition en route se finit par ses autres routes.
   mountExpedition(app, {
     campagne: deps.campagne,

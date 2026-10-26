@@ -61,7 +61,10 @@ interface Etape {
 test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instruction part d’une clé ou de l’index du profil et de la date', async () => {
   const horloge = { t: DIX_HEURES }
   const fichier = path.join(dossierDEssai(), 'cabinet.db')
-  const { cabinet } = await magasinDEssai(fichier, horloge)
+  const { campagne, cabinet } = await magasinDEssai(fichier, horloge)
+  // Ce que L'Explorateur lit de ses salles, dans le lot des paliers de la campagne, branché comme le serveur le branche :
+  // ses œuvres, de la lecture même du lot froid — son plan se lit avec les autres.
+  campagne.statsEnPlus = cabinet.statsEnPlus
   // De la poussière d'or, posée avant sa première page, pour qu'il ait de quoi dépenser.
   aLaMain(fichier, "INSERT INTO cabinet_profils (profile_id, poussiere, cree_le, maj_le) VALUES ('qui', 1000, 0, 0)")
   // Une page froide, une dorure — la première dépense du jour, qui fige la visite —, un départ libre, sa première
@@ -84,6 +87,7 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
   await cabinet.echanger('qui', 1)
   assert.ok('cartel' in (await cabinet.cartel('qui', 'lancee')))
   assert.equal((await cabinet.partie('qui', libre.id))?.etat.fin?.pourquoi, 'quittee')
+  assert.equal((await campagne.statsDe('qui')).salles, 0)
 
   const db = new Database(fichier, { readonly: true })
   try {

@@ -901,12 +901,6 @@ export class CampagneStore {
   private client: Client
   /** L'étagère des profils (`RecompensesDeCampagne`), branchée par le serveur. */
   private recompenses: RecompensesDeCampagne | null
-  /**
-   * Les rencontres de l'expédition s'ouvrent ici (`rencontresOuvertes`) : ses
-   * paliers comptent le niveau d'explorateur (`statsDe`). Ailleurs, il vaut 0
-   * — en production, ni lu, ni décerné : L'Explorateur ne s'y montre pas.
-   */
-  private readonly rencontres: boolean
   private maintenant: () => number
   private verrous = new Map<string, Promise<unknown>>()
   /** La base du dépôt, lue à la première demande sans figer le serveur (`BaseDeLaCampagne.depuisLeDossier`) ; les tests en donnent une petite. */
@@ -1070,7 +1064,8 @@ export class CampagneStore {
   laurierChange?: (profileId: string) => void
   /**
    * Ce que le Cabinet de curiosités ajoute aux paliers de la campagne
-   * (`statsDe`), et l'expédition qui part ou finit, qu'il dit sur sa page
+   * (`statsDe` : ses salles complètes, que L'Explorateur compte — branché là
+   * seulement où il s'ouvre), et l'expédition qui part ou finit, qu'il dit sur sa page
    * (`expeditionChange`, en mémoire : rien ne s'en rapporte — la décision du
    * propriétaire du 25 octobre 2026) : deux des trois crochets de sa porte
    * (`core/porteDeLaCampagne.ts` ; le troisième, `init`), branchés par le
@@ -1170,15 +1165,12 @@ export class CampagneStore {
       empreintesDuJour?: () => Promise<ReadonlySet<string>>
       ecrireXp?: (profileId: string, xp: number, jours: number) => Promise<unknown>
       recompenses?: RecompensesDeCampagne
-      /** Les rencontres de l'expédition s'ouvrent sur ce serveur (`rencontresOuvertes`) : le niveau d'explorateur compte pour L'Explorateur. */
-      rencontres?: boolean
       /** Combien de temps le journal des duels se croit à jour de ce qui s'écrit sans ce serveur (`FRAICHEUR_DES_DUELS_MS`) ; le banc, 0. */
       fraicheurDesDuelsMs?: number
     } = {},
   ) {
     this.client = clientDistant(url, authToken)
     this.recompenses = opts.recompenses ?? null
-    this.rencontres = opts.rencontres ?? false
     this.fraicheurDesDuels = opts.fraicheurDesDuelsMs ?? FRAICHEUR_DES_DUELS_MS
     this.maintenant = opts.maintenant ?? Date.now
     const donnee = opts.base
@@ -2320,21 +2312,21 @@ export class CampagneStore {
    * épreuves des sentiers comprises pour ces deux-là —, et ce que ses
    * épreuves ont validé sur les sentiers (`statsDesSentiers`). Le niveau
    * d'une question est celui que la série lui donnait quand elle l'a posée.
-   * Là où les rencontres s'ouvrent, son niveau d'explorateur aussi : sa
-   * renommée, dans le même lot (`lecturesDeLaRenommee`). Et ce que le Cabinet
-   * y ajoute (`statsEnPlus`), lu dans le même lot encore : `statsDe` se lit à
-   * chaque fin de partie et à chaque page du profil. Ses champs s'étalent
-   * d'abord, nos comptes par-dessus : un compte de la campagne qu'il rendrait
-   * par erreur — le typage le refuse déjà (`StatsDuCabinet`) — ne remplace pas
-   * le nôtre. Un champ à lui que `StatsDeCampagne` exige prend son défaut
-   * juste avant.
+   * Et ce que le Cabinet y ajoute (`statsEnPlus` : ses salles complètes, pour
+   * L'Explorateur), lu dans le même lot : `statsDe` se lit à chaque fin de
+   * partie et à chaque page du profil. La renommée de l'Expédition n'y est
+   * plus lue depuis le 26 octobre 2026 : quatre lectures qui grandissaient
+   * avec ses expéditions, pour un trophée qui compte désormais des salles. Ses
+   * champs s'étalent d'abord, nos comptes par-dessus : un compte de la
+   * campagne qu'il rendrait par erreur — le typage le refuse déjà
+   * (`StatsDuCabinet`) — ne remplace pas le nôtre. Un champ à lui prend son
+   * défaut juste avant : sans Cabinet — un serveur où il est fermé ne le
+   * branche pas —, aucune salle, et rien ne tombe.
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
     const enPlus = this.statsEnPlus
-    const lecturesDuCabinet = enPlus?.lectures(profileId) ?? []
-    const lecturesDuCodex = this.rencontres ? lecturesDeLaRenommee(profileId) : []
     const {
-      lus: [record, validees, passeport, ...suite],
+      lus: [record, validees, passeport, ...duCabinet],
       journal,
     } = await this.lireAvecLeJournal([
       {
@@ -2343,12 +2335,11 @@ export class CampagneStore {
       },
       this.lectureDesValidees(profileId),
       lectureDuPasseport(profileId),
-      ...lecturesDuCodex,
-      ...lecturesDuCabinet,
+      ...(enPlus?.lectures(profileId) ?? []),
     ])
-    const renommee = suite.slice(0, lecturesDuCodex.length)
     return {
-      ...(enPlus && enPlus.lire(suite.slice(lecturesDuCodex.length))),
+      salles: 0,
+      ...(enPlus && enPlus.lire(duCabinet)),
       record: Number(record.rows[0]?.n ?? 0),
       // Toutes ses bonnes réponses, du journal : la somme des `justes` de ses
       // séries parcourait chacune d'elles, à chaque fin de partie et chaque page.
@@ -2360,22 +2351,10 @@ export class CampagneStore {
       expertes: journal.expertesDe(profileId),
       // Ses épreuves seules : un palier repris des portraits d'avant n'a pas d'étoile.
       ...statsDesSentiers(sentiersLus([], validees.rows)),
-      // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun.
+      // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun. Le Globe-trotter reste
+      // montré, figé avec le départ de l'Expédition : ce que les expéditions en route trouvent encore y compte.
       tampons: passeport.rows.length,
-      explorateur: this.rencontres ? await this.niveauDExplorateur(renommee) : 0,
     }
-  }
-
-  /**
-   * Son niveau d'explorateur, de sa renommée lue (`lecturesDeLaRenommee`) —
-   * 0 sans renommée, jamais le niveau 1 qui ne se refuse à personne
-   * (`StatsDeCampagne.explorateur`). Les bilans refaits du pli s'écrivent ici
-   * aussi : sans quoi chaque page du profil replierait les mêmes expéditions.
-   */
-  private async niveauDExplorateur(lectures: readonly ResultSet[]): Promise<number> {
-    const { renommee, aEcrire } = renommeeLue(lectures)
-    await this.ecrireLesBilansRefaits(aEcrire)
-    return renommee > 0 ? niveauDe(renommee) : 0
   }
 
   /** Les bilans refaits du pli (`renommeeLue`), écrits une fois : ratés, ils se refont à la lecture suivante, rien de plus. */

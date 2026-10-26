@@ -20,7 +20,7 @@ import type { CeQueLeReveilAjoute } from '../porteDeLaCampagne'
 import { lireUnGeste, lireLeDepart } from '../../../../shared/cabinet/lecture'
 import type { DepartDUnePartie, GesteEcrit, IssueDUnePartie, Manche, OrigineDUnePartie } from '../../../../shared/cabinet/partie'
 import { ISSUES } from '../../../../shared/cabinet/partie'
-import type { CaseFigee, LigneDOeuvre, LigneDuProfil, OrigineDUneOeuvre, PartieDuJour, VisiteFigee } from '../../../../shared/cabinet/musee'
+import { museeDe, sallesCompletes, type CaseFigee, type LigneDOeuvre, type LigneDuProfil, type OrigineDUneOeuvre, type PartieDuJour, type VisiteFigee } from '../../../../shared/cabinet/musee'
 import { CLES_DES_JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { estUneOeuvre } from '../../../../shared/cabinet/oeuvres'
 import { GARDIENS_DE_SAISON, RANGEMENT_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
@@ -171,7 +171,7 @@ const VOIES_DE_SAISON: readonly string[] = GARDIENS_DE_SAISON.map(g => voieDuGar
 export function lecturesDuMusee(profileId: string, minuit: number, avecLEtagere: boolean): InStatement[] {
   return [
     { sql: 'SELECT poussiere, serie, serie_jour, serie_record, visites, partie FROM cabinet_profils WHERE profile_id = ?', args: [profileId] },
-    { sql: `SELECT ${COLONNES_D_UNE_OEUVRE} FROM cabinet_oeuvres WHERE profile_id = ?`, args: [profileId] },
+    lectureDesOeuvres(profileId),
     {
       // Ses champs d'un seul `json_extract` à cinq chemins : un tableau JSON, décodé ici.
       sql: `SELECT id, commencee_le, finie_le, issue,
@@ -271,6 +271,25 @@ function laLigneDuProfil(r: Record<string, unknown> | undefined): LigneDuProfil 
  * mémoire croit.
  */
 export const COLONNES_D_UNE_OEUVRE = 'oeuvre, origine, gagnee_le, saison, serie_id, prix, doree_le, dorure, prix_dorure, serie_doree'
+
+/**
+ * Ses œuvres, par la clé du profil — 84 lignes au plus : le lot froid les lit,
+ * et le lot des paliers de la campagne, pour les salles de L'Explorateur
+ * (`sallesLues`). Une seule lecture, une seule façon de relire ses lignes.
+ */
+export function lectureDesOeuvres(profileId: string): InStatement {
+  return { sql: `SELECT ${COLONNES_D_UNE_OEUVRE} FROM cabinet_oeuvres WHERE profile_id = ?`, args: [profileId] }
+}
+
+/**
+ * Ses salles complètes, de ses œuvres relues (`lectureDesOeuvres`), par la
+ * règle même du musée (`sallesCompletes`) : les quatre œuvres de départ, à lui
+ * sans ligne, y comptent. Le jour n'y joue pas — une salle complète ne lit que
+ * les œuvres.
+ */
+export function sallesLues(oeuvres: ResultSet): number {
+  return sallesCompletes(museeDe({ jour: '', oeuvres: oeuvres.rows.flatMap(r => laLigneDOeuvre(r as Record<string, unknown>) ?? []) })).length
+}
 
 export function laLigneDOeuvre(r: Record<string, unknown>): LigneDOeuvre | null {
   const origine = r.origine as OrigineDUneOeuvre

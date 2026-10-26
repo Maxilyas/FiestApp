@@ -4,8 +4,9 @@
 // rattrapée du pli pour celles qui n'en ont pas, une fois —, le niveau qu'elle
 // fait et ce qu'il ouvre, figés au départ ; la carte de ses légendaires au
 // codex, et l'invité du jour qui prête la sienne ; le dos de son paquet, pris
-// au départ parmi les siens ; L'Explorateur, la piste du niveau
-// d'explorateur, tombée à la fin d'une expédition — jamais là où les rencontres se referment ;
+// au départ parmi les siens ; L'Explorateur, une piste de la campagne qui
+// comptait le niveau d'explorateur et compte depuis le 26 octobre 2026 les salles
+// complètes du Cabinet, tombée à la fin d'une expédition — jamais là où le Cabinet est fermé ;
 // l'Ascension, ouverte par les victoires relues des bilans, son cran borné et
 // figé au départ, gardé par le bilan. Les règles et le pli : `codex.test.ts`.
 import { after, before, test } from 'node:test'
@@ -18,6 +19,8 @@ import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { NIVEAUX, codexDuNiveau, ecrireLeBilan, lireLeBilan, type BilanDUneExpedition } from '../../shared/codex'
 import { paquetDesRencontres } from '../../shared/rencontres'
 import { cleDeLExpedition } from '../../shared/legendaires'
+import { OEUVRES_DE_DEPART, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
+import type { CleDeSalle } from '../../shared/cabinet/salles'
 import type { DepartDExpedition, PageDeLExpedition, VueDeLExpedition } from '../../shared/expedition'
 
 function question(i: number, categorie: Categorie, difficulte: number): QuestionDeLaBase {
@@ -73,6 +76,17 @@ function base<T>(fn: (db: Database.Database) => T, ecriture = false, b: Banc = b
 const bilanEnBase = (id: string, b: Banc = banc) => base(db => (db.prepare('SELECT bilan FROM campagne_series WHERE id = ?').get(id) as { bilan: string | null }).bilan, false, b)
 const ecrireLeBilanEnBase = (id: string, bilan: string | null, b: Banc = banc) => base(db => db.prepare('UPDATE campagne_series SET bilan = ? WHERE id = ?').run(bilan, id), true, b)
 const departDe = (id: string): DepartDExpedition => base(db => JSON.parse((db.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(id) as { expedition: string }).expedition))
+
+/** Une salle du Cabinet complète, posée en base derrière le dos du serveur : ses œuvres, sans les quatre de départ, qu'il a sans ligne. */
+const poserUneSalleComplete = (b: Banc, profil: string, salle: CleDeSalle) =>
+  base(
+    db => {
+      const oeuvre = db.prepare(`INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le) VALUES (?, ?, 'partie', 1)`)
+      for (const o of oeuvresDeLaSalle(salle)) if (!OEUVRES_DE_DEPART.includes(o.cle)) oeuvre.run(profil, o.cle)
+    },
+    true,
+    b,
+  )
 const page = async (c: string): Promise<PageDeLExpedition> => (await lire(c, '/api/expedition')).corps
 
 /** Partir aux rencontres, faire un pas, et abandonner : une expédition finie, son bilan écrit — une escale. */
@@ -210,31 +224,64 @@ test('ses légendaires ouvrent leur carte au codex ; plus d’équipe à choisir
   assert.deepEqual(v.cartes?.paquet, paquetDesRencontres([p.prochaine.invite]))
 })
 
-test('L’Explorateur, au niveau d’explorateur : sa piste se lit à la page du profil — rien pour qui n’est jamais parti —, son bronze tombe à la fin de l’expédition qui passe le niveau 4 ; un serveur aux rencontres refermées ne le cite ni ne le décerne', async () => {
+// L'épreuve d'avant le 26 octobre 2026 voyait L'Explorateur tomber au niveau 4 d'explorateur, et se taire sur un serveur
+// aux rencontres refermées. Le départ de l'Expédition fermé (`EXPEDITION_REMPLACEE`), sa renommée ne monterait plus : il
+// compte désormais les salles complètes du Cabinet (la conception du Cabinet, § 6.4). Réécrite à la règle neuve, elle
+// garde son intention : la piste se lit à la page du profil, son bronze tombe à la fin d'une partie de la campagne — ici
+// une expédition, comme avant —, et un serveur qui ne sert pas ce qu'il compte ne le cite ni ne le décerne.
+test('L’Explorateur, aux salles complètes du Cabinet : sa piste se lit à la page du profil — rien sans salle —, la renommée n’y compte plus, son bronze tombe à la fin de la partie qui suit la première salle, ce qu’il avait se garde ; un serveur où le Cabinet est fermé ne le cite ni ne le décerne', async () => {
   const sien = (moi: any) => moi.profile.hautsFaits.find((h: any) => h.key === 'hf:explorateur')
+  const piste = async (cookie: string, b: Banc = banc) =>
+    sien(await fetch(`${b.url}/api/joueur/moi`, { headers: { Cookie: cookie } }).then(r => r.json() as Promise<any>))
   const c = await inscrireProfil(banc.url, 'explorateur', 'Explorateur')
-  // Jamais parti : 0, pas le niveau 1 que chacun a sans rien — « 1 sur 4 » se proposait comme le trophée le plus proche.
-  const avant = sien((await lire(c, '/api/joueur/moi')).corps)
-  assert.deepEqual([avant.fois, avant.valeur, avant.prochain], [0, 0, 4])
+  const id = (await lire(c, '/api/joueur/moi')).corps.profile.id as string
+  const avant = await piste(c)
+  assert.deepEqual([avant.fois, avant.valeur, avant.prochain], [0, 0, 1])
+
+  // La renommée de ses expéditions — le codex entier — ne le fait plus monter.
   const premiere = await unPasPuisLaFin(c)
-  assert.ok(!premiere.recompenses.some(r => r.key.startsWith('hf:explorateur')), 'le niveau 1 ne fait rien tomber')
-  // Sa renommée posée juste sous le niveau 4 : la page du profil le dit au 3, et l'expédition suivante, d'une escale, le passe.
-  ecrireLeBilanEnBase(premiere.id, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[3] - 1 }))
-  assert.equal(sien((await lire(c, '/api/joueur/moi')).corps).valeur, 3)
+  assert.ok(!premiere.recompenses.some(r => r.key.startsWith('hf:explorateur')), 'aucune salle : rien ne tombe')
+  ecrireLeBilanEnBase(premiere.id, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[9] }))
   const seconde = await unPasPuisLaFin(c)
+  assert.ok(!seconde.recompenses.some(r => r.key.startsWith('hf:explorateur')), 'le niveau d’explorateur ne compte plus')
+  assert.equal((await piste(c)).valeur, 0)
+
+  // Une salle complète : la page du profil la compte aussitôt, et la fin de la partie suivante de la campagne fait tomber
+  // le bronze — sous cette partie, comme tout palier de la campagne.
+  poserUneSalleComplete(banc, id, 'rempart')
+  assert.equal((await piste(c)).valeur, 1)
+  const troisieme = await unPasPuisLaFin(c)
   assert.deepEqual(
-    seconde.recompenses.filter(r => r.key.startsWith('hf:explorateur')).map(r => r.key),
+    troisieme.recompenses.filter(r => r.key.startsWith('hf:explorateur')).map(r => r.key),
     ['hf:explorateur:1'],
   )
-  const apres = sien((await lire(c, '/api/joueur/moi')).corps)
-  assert.deepEqual([apres.fois, apres.valeur, apres.prochain], [1, 4, 7])
+  const apres = await piste(c)
+  assert.deepEqual([apres.fois, apres.valeur, apres.prochain], [1, 1, 3])
 
-  // Les rencontres refermées — la production, le jour où leur drapeau repasserait à `false` ; elles y sont le jeu depuis
-  // le 19 octobre 2026 — : la même renommée ne s'y gagne pas, et la page du profil ne le cite pas — l'album ne lui fait
-  // pas de case (`montreParLeServeur`).
-  const prod = await demarrer({ online: true, baseDeLaCampagne: BASE, rencontres: false })
+  // Un détenteur d'avant : l'argent, gagné au niveau d'explorateur, rangé sous son expédition. Aucune salle complète, il
+  // le garde — la page le dit à l'argent, l'or à six salles —, et la fin d'une partie ne lui reprend rien.
+  const ancien = await inscrireProfil(banc.url, 'ancien-explorateur', 'Ancien')
+  const ancienId = (await lire(ancien, '/api/joueur/moi')).corps.profile.id as string
+  base(db => {
+    const badge = db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#campagne:une-expedition', '', '🎒', 'L’Explorateur', 1)`)
+    for (const palier of ['hf:explorateur:1', 'hf:explorateur:2']) badge.run(ancienId, palier)
+  }, true)
+  // Relu au démarrage : le profil sait ce qu'il a.
+  await banc.redemarrer()
+  const garde = await piste(ancien)
+  assert.deepEqual([garde.fois, garde.valeur, garde.prochain], [2, 0, 6])
+  await unPasPuisLaFin(ancien)
+  assert.equal((await piste(ancien)).fois, 2, 'rien ne se reprend')
+
+  // La production telle qu'elle serait le jour où les deux drapeaux s'y refermeraient — les rencontres (le jeu depuis le
+  // 19 octobre 2026) et le Cabinet (fermé tant qu'il n'y ouvre pas) — : le départ reste celui des jokers, la même salle
+  // complète et la même renommée n'y font rien tomber, et la page du profil ne le cite pas — l'album ne lui fait pas de
+  // case (`montreParLeServeur`).
+  const prod = await demarrer({ baseDeLaCampagne: BASE, rencontres: false, cabinet: false })
   try {
     const p = await inscrireProfil(prod.url, 'production', 'Production')
+    const pId = ((await fetch(`${prod.url}/api/joueur/moi`, { headers: { Cookie: p } }).then(r => r.json())) as any).profile.id as string
+    poserUneSalleComplete(prod, pId, 'rempart')
     const posterP = (chemin: string, corps: unknown = {}) => ecrire(prod.url, chemin, corps, p).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
     const finir = async () => {
       const parti = await posterP('/api/expedition', { rencontres: true })
@@ -252,7 +299,7 @@ test('L’Explorateur, au niveau d’explorateur : sa piste se lit à la page du
     assert.ok(bilanEnBase(une.id, prod))
     ecrireLeBilanEnBase(une.id, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[9] }), prod)
     const deux = await finir()
-    assert.ok(!deux.recompenses.some(r => r.key.startsWith('hf:explorateur')), 'ni décerné…')
+    assert.ok(![...une.recompenses, ...deux.recompenses].some(r => r.key.startsWith('hf:explorateur')), 'ni décerné…')
     const moi = await fetch(`${prod.url}/api/joueur/moi`, { headers: { Cookie: p } }).then(r => r.json() as Promise<any>)
     assert.ok(sien(moi) === undefined && moi.profile.hautsFaits.some((h: any) => h.key === 'hf:globe-trotter'), '…ni cité, quand les autres pistes le sont')
   } finally {

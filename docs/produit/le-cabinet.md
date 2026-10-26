@@ -114,6 +114,8 @@ Les vingt-trois légendaires qui ont leur joker à l'Expédition deviennent les 
 
 Un légendaire que tu as déjà, par n'importe quelle voie, est un gardien réveillé : il ne se réannonce pas (« Salle complète ! Le Phénix veillait déjà sur elle »). Le Cabinet dit toujours le prochain : « La Chouette d’Argent : encore 2 œuvres dans la salle de l’Érudit ». Une œuvre peinte de plus dans une salle complète la rouvre sans endormir son gardien. Et le Cabinet ne dit rien des Divins, n'en montre rien, n'en réveille aucun.
 
+Les salles complètes font aussi monter **L'Explorateur** 🎒, un trophée de la campagne : le bronze à la première, l'argent à la troisième, l'or à la sixième — à la fin de la partie qui la complète, ou de la suivante après un achat ([les récompenses](les-recompenses.md)).
+
 ## Ce qu'on apprend
 
 - **Le cartel** : chaque œuvre gagnée garde la question, la réponse et l'anecdote de la manche que tu as le mieux réussie, avec le jeu, le jour et les étoiles. Il se lit seul. Une œuvre achetée ou offerte à l'arrivée le dit à sa place, et la rejouer pour dorer son cadre lui donne le sien.
@@ -149,7 +151,7 @@ L'Expédition était devenue un jeu de cartes à la Slay the Spire — quinze ve
 
 - tout légendaire qu'ils possèdent est un gardien qui veillait déjà, sans cérémonie ;
 - une expédition en route se finit à ses règles, ou s'abandonne sans rien reprendre ;
-- le trophée L'Explorateur garde ses détenteurs, et ses paliers se reliront aux salles complètes une fois le Cabinet ouvert — le crochet est prêt, pas encore branché ; Le Globe-trotter reste montré, figé ; la luciole, qui rejoignait qui menait une expédition au bout, rejoint qui complète sa première salle.
+- le trophée L'Explorateur garde ses détenteurs, et ses paliers se relisent aux salles complètes — une, trois, six —, là où le Cabinet est ouvert (le 26 octobre 2026) ; Le Globe-trotter reste montré, figé ; la luciole, qui rejoignait qui menait une expédition au bout, rejoint qui complète sa première salle.
 
 Le gros bouton de l'accueil d'un profil deviendra « Le Cabinet de curiosités », à la place de « L'Expédition » (la décision du propriétaire), quand le Cabinet ouvrira : le départ de l'Expédition se ferme alors, d'un seul drapeau (`EXPEDITION_REMPLACEE`) — sa page dit « L'Expédition a laissé place au Cabinet de curiosités » et y mène, et une expédition en route se finit. Le bouton dit ton musée — « Ton musée : 27 œuvres sur 84 », et « À jouer » tant que la visite du jour attend — de ce que le serveur en sait déjà : l'accueil n'attend rien de plus pour lui. La contrepartie : **après chaque réveil du serveur, le bouton garde sa ligne de toujours, sans « À jouer », jusqu'à ce que tu ouvres le Cabinet** — et la production dort chaque nuit, jusqu'à son réveil de 6 h 55 : le premier passage du jour à l'accueil ne rappelle donc pas la visite. Un choix de sobriété, à confirmer par le propriétaire ([les décisions](../architecture/decisions.md), « Le bouton de l'accueil ne lit le musée qu'en mémoire »).
 

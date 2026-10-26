@@ -157,11 +157,11 @@ export interface CeQueLeReveilAjoute {
 
 /**
  * Les champs de `StatsDeCampagne` que le Cabinet compte, et que la campagne ne
- * compte pas : aucun encore. Les salles complètes de L'Explorateur (`salles`)
- * y entreront quand ses paliers se reliront aux salles, avec leur champ et son
- * défaut (`AUCUNE_CAMPAGNE`).
+ * compte pas : ses salles complètes, que L'Explorateur lit (le 26 octobre
+ * 2026). `statsDe` leur pose leur défaut avant de les étaler : un serveur où le
+ * Cabinet est fermé ne branche pas le crochet, et n'en compte aucune.
  */
-export type ChampsDuCabinet = never
+export type ChampsDuCabinet = 'salles'
 
 /**
  * Ce que le Cabinet tire de ses lectures pour les paliers : ses champs, jamais
