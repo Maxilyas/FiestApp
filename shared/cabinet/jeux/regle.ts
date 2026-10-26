@@ -52,6 +52,14 @@ export interface DescriptionDUnJeu {
    * refus du pouvoir et le pli la lisent.
    */
   changeable: boolean
+  /**
+   * Ce qu'il faut savoir avant de commencer, quand le jeu ne se joue pas
+   * comme les autres : le Détail se joue à l'œil. Rien ne décrit le tableau
+   * avant le verdict — la description soufflerait la réponse (invariant 1) —,
+   * et Hugo, au lecteur d'écran, l'a joué au hasard, zéro sur neuf (la tablée
+   * du 25 octobre 2026). L'annonce le dit.
+   */
+  avertissement?: string
 }
 
 /** « ★★ » ; « rien » pour zéro — un barème ne dit jamais une étoile vide. */
@@ -172,6 +180,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     bareme: baremeDesCadrages(ETOILES_AU_CADRAGE),
     eclairer: 'efface un mauvais titre',
     changeable: true,
+    avertissement: 'Un jeu qui se joue à l’œil : les tableaux ne sont pas décrits au lecteur d’écran — la description soufflerait la réponse.',
   },
   filet: {
     cle: 'filet',

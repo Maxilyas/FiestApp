@@ -64,7 +64,7 @@ Chaque sorte de question, ce qu'elle montre et ce qu'elle rapporte : [Les questi
 
 ### Pendant la question
 
-- **La barre de temps** se vide — 5 à 120 secondes, 20 d'office. Elle se lit à l'heure du serveur : un téléphone dont l'horloge dérive voit le même temps que la salle. Dans les cinq dernières secondes, elle passe au rouge, et l'écran commun fait tic-tac.
+- **La barre de temps** se vide — 5 à 120 secondes, 20 d'office. Elle se lit à l'heure du serveur : un téléphone dont l'horloge dérive voit le même temps que la salle. Dans les cinq dernières secondes, elle passe au rouge, s'épaissit, et un sablier paraît devant les secondes — l'urgence se voit sans la couleur, et sans le mouvement que coupe « réduire les animations » —, et l'écran commun fait tic-tac.
 - **Répondre**, c'est un toucher ; la réponse part au lever du doigt. Ensuite : « Réponse enregistrée · tu peux encore changer, au prix du bonus de rapidité ». On peut se raviser jusqu'à la révélation, mais c'est le dernier envoi qui compte, heure comprise.
 - **Le temps de lire est offert** : au QCM, le bonus de rapidité ne commence à fondre qu'une fois le temps de lire la question et ses réponses écoulé. Le détail : [Les questions](les-questions.md#comment-il-se-note).
 - **Chaque réponse reçoit un accusé** : le téléphone dit quand elle n'est pas passée (« Trop tard — la question était finie », « Ta réponse n’est pas partie — touche-la à nouveau »).

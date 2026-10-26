@@ -219,6 +219,7 @@ export function Annonce({
           <span className="cab-surtitre">{'Chaque manche '}</span>
           {espacesFines(enDebutDeLigne(j.bareme))}
         </p>
+        {j.avertissement && <p className="cab-ligne">{espacesFines(j.avertissement)}</p>}
       </section>
       {a.seuil !== null && (
         <p className="cab-ligne cab-seuil">

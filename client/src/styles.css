@@ -1592,6 +1592,14 @@ h3 > .icon {
 .quiz-host .timer-seconds { font-size: 4.125rem; min-width: 4.625rem; }
 .timer-seconds.urgent { color: var(--alert); }
 .timer-seconds .icon { width: 0.6em; height: 0.6em; color: var(--muted); }
+/* L'urgence ne se dit pas qu'en couleur : en deutéranopie, le rouge devient un kaki plus sombre que l'or, et sous « réduire les
+   animations » la pulsation s'arrête (la tablée du 25 octobre 2026). Le sablier que `TimerBar` pose devant les secondes prend leur
+   couleur ; la barre s'épaissit — par `scaleY`, qui ne pousse rien autour d'elle et vaut sous chaque thème, quelle que soit la
+   hauteur qu'il lui donne — et le chiffre s'appuie d'un trait : Cormorant n'a que sa graisse 600, une graisse plus forte ne s'y
+   verrait pas. Plus fort que les thèmes (0,3,0), qui posent la hauteur de la barre et la graisse des secondes. */
+.timer-seconds.urgent .icon { color: inherit; }
+:root .timer .timer-track.urgent { transform: scaleY(1.67); }
+:root .timer .timer-seconds.urgent { -webkit-text-stroke: 0.03em currentColor; }
 
 /* ── Quiz : réponses ────────────────────────────── */
 .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -10510,15 +10518,30 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    verre, et la question défilait au travers. La tête laisse son coin à la niche (le bloc « Sa place, page par page »). Son fondu
    tient dans sa marge du bas : sur ses 16 derniers pour cent, il passait sous les secondes du chrono, qui se lisaient sur le récit
    de l'Épingle défilant dessous (le rendu du 25 octobre 2026). */
-.cab-tete-partie { position: sticky; top: 0; z-index: 3; display: flex; flex-direction: column; gap: 2px; margin: -24px -20px 0; padding: max(14px, env(safe-area-inset-top)) 20px 8px; background: linear-gradient(180deg, var(--bg) calc(100% - 8px), transparent); }
-.cab-tete-ligne { display: flex; align-items: center; gap: 12px; min-height: 48px; }
+.cab-tete-partie { position: sticky; top: 0; z-index: 3; display: flex; flex-direction: column; gap: 2px; margin: -24px -20px 0; padding: max(14px, env(safe-area-inset-top)) 20px 8px; background: linear-gradient(180deg, var(--bg) calc(100% - 8px), transparent); container: tete / inline-size; }
+/* La rangée des manches, du total et de « Quitter » passe à la ligne plutôt que de se chevaucher : le total ne se réduit jamais
+   sous son texte, et « Quitter » reste à droite. Le total réduit à 26 px, son texte de 72 passait sous le bouton au texte agrandi
+   (la tablée du 25 octobre 2026) ; la requête de conteneur plus bas cache d'abord le mot de « Quitter ». */
+.cab-tete-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; row-gap: 4px; min-height: 48px; }
 .cab-points { display: inline-flex; gap: 6px; }
 .cab-point { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 2px solid var(--edge-strong); border-radius: 50%; color: var(--muted); font-family: var(--serif); font-size: 1.0625rem; font-weight: 700; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
 .cab-point.cab-point-ici { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .cab-point.cab-point-joue { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
-.cab-total { flex: 1; min-width: 0; color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-weight: 600; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.cab-total { flex: 1 0 auto; min-width: max-content; color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-weight: 600; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .cab-total b { font-size: 1.75rem; }
-.cab-page .cab-quitter { flex: none; min-height: 44px; padding: 6px 16px; }
+.cab-page .cab-quitter { flex: none; min-height: 44px; margin-left: auto; padding: 6px 16px; }
+.cab-quitter .icon { width: 20px; height: 20px; margin-right: 6px; }
+/* Quand la tête n'a plus la place — en 360 de large au texte agrandi, 237 pixels pour elle —, « Quitter » perd son mot, garde
+   son icône, son nom (`aria-label`) et la cible d'un doigt, et les cercles se serrent : jamais un texte plus petit. Une requête de
+   conteneur, pas d'écran : elle suit aussi le zoom posé sur la page. La niche posée, plus tôt (le bloc « Sa place, page par
+   page »). */
+@container tete (max-width: 290px) {
+  .cab-quitter-mot { display: none; }
+  .cab-page .cab-quitter { width: 44px; padding: 0; }
+  .cab-quitter .icon { margin-right: 0; }
+  .cab-point { width: 24px; height: 24px; }
+  .cab-points { gap: 4px; }
+}
 .cab-tete-partie .timer { gap: 10px; }
 .cab-tete-partie .timer-seconds { min-width: 36px; font-size: 1.75rem; }
 .cab-manche { gap: 14px; }
@@ -10570,10 +10593,16 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-vrai-faux .icon { width: 26px; height: 26px; }
 .cab-vrai-faux .cab-vrai .icon { color: var(--accent-text); }
 .cab-vrai-faux .cab-faux .icon { color: var(--alert); }
-/* Le Détail : le tableau dans un cadre de hauteur fixe — un détail en largeur puis un en hauteur ne font pas sauter les titres sous
-   le doigt —, l'image entière dedans, ses pas en jauge au pied du cadre ; ce que vaut la réponse, « Reculer d'un pas » ; les quatre
-   titres, un par ligne, le peintre sous chacun. La révélation dit le nom avant le tableau : dessous, il tombait sous le pli. */
-.cab-detail-cadre { position: relative; height: min(36dvh, 240px); min-height: 150px; overflow: hidden; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+/* Le Détail : ce que vaut la réponse sur la ligne de la question ; le tableau dans un cadre de hauteur fixe — un détail en largeur
+   puis un en hauteur ne font pas sauter les titres sous le doigt —, l'image entière dedans, ses pas en jauge au pied du cadre ;
+   « Reculer d'un pas » seul sur sa ligne ; les quatre titres, un par ligne, le peintre sous chacun. Le cadre se colle sous la tête
+   de la partie (`--cab-tete`, que `Partie.tsx` mesure) sur un sol plein, et les titres défilent sous lui : en 360 × 640, le tableau
+   et ses titres ne tenaient pas ensemble (688 px pour 540, la tablée du 25 octobre 2026). Sa hauteur se compte sur la fenêtre que
+   mesure la partie (`--cab-fenetre`) : sous le zoom que la tablée pose sur la page, `100dvh` en vaut 1,3. Et il laisse sous lui, dans
+   la bande entre la tête et le pied (`--cab-place`), la place d'un titre de trois lignes — 118 pixels en 277 de large : en 277 × 492,
+   la carte-bonus au pied, le cadre et un titre long ne tenaient pas ensemble ; il ne rapetisse que là, de dix pixels. La révélation
+   dit le nom avant le tableau : dessous, il tombait sous le pli. */
+.cab-detail-cadre { position: sticky; top: var(--cab-tete, 0px); z-index: 1; height: min(0.36 * var(--cab-fenetre, 100dvh), 240px, var(--cab-place, 100dvh) - 120px); min-height: 150px; overflow: hidden; border-radius: var(--radius-xs); background: linear-gradient(color-mix(in srgb, var(--ink) 8%, transparent), color-mix(in srgb, var(--ink) 8%, transparent)), var(--bg); }
 .cab-detail-cadre img { position: absolute; inset: 0; width: 100%; height: calc(100% - 18px); object-fit: contain; }
 .cab-detail-pas { position: absolute; left: 10px; right: 10px; bottom: 6px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
 .cab-detail-pas > i { height: 6px; border-radius: var(--radius-pill); background: var(--surface-strong); box-shadow: inset 0 0 0 1px var(--edge); }
@@ -10720,6 +10749,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-filet-curseur { display: flex; align-items: flex-start; gap: 8px; }
 .cab-cran { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 12px; background: var(--surface-strong); color: var(--ink); font: inherit; font-size: 1.6rem; font-weight: 700; line-height: 1; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
 .cab-cran[aria-disabled='true'] { opacity: 0.4; cursor: default; }
+/* Un grand pas de chaque côté, sous « − » et « + », ce qu'il fait écrit dessus (« − 12 ») : sur leur rangée, la piste n'aurait
+   plus eu que 29 pixels en 277 de large. */
+.cab-grands-pas { display: flex; justify-content: space-between; gap: 8px; }
+.cab-cran.cab-grand-pas { width: auto; min-width: 44px; padding: 0 12px; font-size: 1.0625rem; white-space: nowrap; }
 /* Le curseur se pose sur le rail, sa propre piste transparente : on ne voit que son bouton, un mât au milieu du filet qu'il tient
    — rond de 28 px, il cachait le petit filet d'une piste de 3000 km, large de 14 px. La piste se prend au doigt sur 44 px de haut :
    le pouce n'attrape pas un trait de 4, et un toucher n'importe où sur elle y pose le mât. */
@@ -10759,14 +10792,35 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-carte-epingle circle { fill: var(--bg-raised); }
 .cab-icone-carte { flex: none; width: 18px; height: 24px; }
 /* L'Épingle (`jeux/Epingle.tsx`) : le récit, la question, la consigne — deux lignes gardées, qu'une épingle posée ni l'indice
-   d'Éclairer ne changent de hauteur : la carte ne glisse pas sous le doigt qui corrige —, la carte ; au pied, où est l'épingle — sa
-   ligne gardée dès avant la première : remplie, elle faisait monter le pied de 25 pixels sur la carte, sous le doigt qui venait de
-   la toucher —, puis « Planter ici ». En 360 × 640, quelques-unes en prennent deux (« À 110 km au nord-ouest de Strasbourg ») :
-   le pied monte alors d'une ligne, et l'écho du doigt ne joue pas ce qui vient sous lui (`prendreLeDoigt`, `toucher.ts`). */
+   d'Éclairer ne changent de hauteur : la carte ne glisse pas sous le doigt qui corrige ; posée, l'épingle s'y dit (« Près de
+   Lyon ») —, la carte ; au pied, « Pas à pas » et « Planter ici ». Où est l'épingle vivait au pied : sa ligne le faisait
+   monter sur la carte, et prenait la place qui manquait pour voir la question et la carte ensemble.
+   La question se colle sous la tête de la partie, sur un sol plein, et la carte se borne à ce qui reste entre elle et le pied
+   (`--cab-place`, que `Partie.tsx` mesure), centrée : en 277 × 492 — Chrome Android, le texte à 130 % —, la question et la carte
+   demandaient 381 pixels pour une bande de 277, et Jeanne oubliait la question en allant chercher la carte (la tablée du
+   25 octobre 2026). La place se convertit en largeur par les mesures du dessin (`shared/cabinet/france.ts`, ses 362 × 316),
+   jamais sous 180 pixels : plus petite, un pixel du doigt y ferait sept kilomètres. */
 .cab-recit { color: var(--muted); }
 .cab-consigne-carte { min-height: calc(2 * 1.45em); font-weight: 600; }
 .cab-consigne-carte.cab-souffle { justify-content: flex-start; }
-.cab-ou-est { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 1.45em; font-weight: 700; text-align: center; }
+.cab-consigne-carte.cab-ou-est { display: flex; align-items: center; justify-content: flex-start; gap: 8px; font-weight: 700; }
+.cab-manche:has(.cab-carte-jouable) > .cab-question { position: sticky; top: var(--cab-tete, 0px); z-index: 1; background: var(--bg); }
+.cab-carte-de-france { --cab-carte-l: 362; --cab-carte-h: 316; }
+.cab-manche .cab-carte-jouable { width: min(100% + 4px, 460px, max(180px, var(--cab-place, 100dvh) * var(--cab-carte-l) / var(--cab-carte-h))); margin: 0 auto; }
+/* Les pas de l'épingle, que « Pas à pas » ouvre au-dessus de lui et de « Planter ici », sur leur ligne : quatre directions et la
+   bascule des grands pas, 44 pixels chacun — cinq carrés tiennent les 237 pixels d'un 277 de large. Au doigt, ils font ce que font
+   les flèches au clavier : sous TalkBack, un double toucher plantait au centre de la carte. Toujours ouverts, avec la carte-bonus
+   au pied, ils laissaient en 277 × 492 une bande de 182 pixels à la question et à la carte, qui en demandaient 218. « Pas à pas »
+   ouvert et la bascule pressée prennent l'or pâle des choix (`aria-expanded`, `aria-pressed`). */
+.cab-planter-ici { display: flex; gap: 8px; }
+.cab-planter-ici .cab-planter { flex: 1 1 0; min-width: 0; }
+.cab-page .cab-pas-a-pas { flex: none; padding-inline: 14px; }
+.cab-page .cab-pas-a-pas[aria-expanded='true'] { border: 2px solid var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); }
+.cab-pas-de-l-epingle { display: flex; justify-content: center; gap: 3px; }
+.cab-pas { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 12px; background: var(--surface-strong); color: var(--ink); font: inherit; font-size: 1.0625rem; font-weight: 700; line-height: 1; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.cab-pas .icon { width: 22px; height: 22px; }
+.cab-pas[aria-disabled='true'] { opacity: 0.4; cursor: default; }
+.cab-pas[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); }
 /* La révélation : le lieu nommé en grand, où il est, la carte, et la légende de ses marques. */
 .cab-lieu-revele { display: flex; flex-direction: column; gap: 10px; }
 .cab-lieu-nom { font-family: var(--serif); font-size: 1.45rem; font-weight: 700; line-height: 1.2; text-wrap: balance; font-variant-numeric: lining-nums; }
@@ -10786,8 +10840,11 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .join.cab-nom { width: 100%; min-height: 0; margin: 0; padding: 0; gap: 8px; }
 .cab-page .input { min-height: 52px; font-size: 1.0625rem; }
 .cab-non { color: var(--alert); font-weight: 700; text-align: center; }
-/* « Un indice de plus » à sa largeur, sur une ligne ; « Répondre » prend le reste : à moitiés égales, le premier passait à la ligne. */
-.cab-gestes-du-nom { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+/* « Répondre » ne descend jamais sous la largeur de son mot, et prend ce qui reste ; c'est « Un indice de plus » qui passe sur deux
+   lignes quand la place manque. La première colonne d'abord servie, « Répondre », un seul mot, débordait de son bouton dès 298 px
+   de large — à 130 % en 360, on lisait « épondr » sur l'accent (la tablée du 25 octobre 2026). À moitiés égales, le premier passait
+   à la ligne même à 100 %. */
+.cab-gestes-du-nom { display: grid; grid-template-columns: minmax(0, auto) minmax(max-content, 1fr); gap: 8px; }
 /* La Réplique (`jeux/Replique.tsx`) : la réplique en citation, son trou de la largeur d'un mot — sa longueur aurait soufflé celle du
    mot —, rempli du mot choisi à « Qui l'a dit ? » ; à la révélation, ce qu'il avait répondu à chaque étape, d'une marque et en mots. */
 .cab-replique { margin: 0; padding: 12px 16px; border-left: 4px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--surface); font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1.3; font-variant-numeric: lining-nums; }
@@ -10815,6 +10872,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-voile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 300px; padding: 24px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--bg-raised); color: var(--muted); text-align: center; }
 .cab-voile .icon { width: 36px; height: 36px; color: var(--accent-text); }
 .cab-voile b { color: var(--ink); font-family: var(--serif); font-size: 1.6rem; }
+/* Ce que dit le voile, une région qui se dit : la pause passée, « Le chrono a repris » s'entend. */
+.cab-voile-dit { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 0; }
 .cab-voile .btn { margin-top: 8px; min-width: 60%; }
 
 /* La révélation : ses étoiles en grand, ce qui s'est passé, puis le corps du jeu, corrigé comme en série. Les pièces partagées
@@ -12634,6 +12693,23 @@ body.avec-niche .cab-tete-ligne { gap: 8px; }
 body.avec-niche .cab-points { gap: 4px; }
 body.avec-niche .cab-point { width: 26px; height: 26px; }
 body.avec-niche .cab-page .cab-quitter { padding-left: 10px; padding-right: 10px; }
+/* « Quitter » porte une icône devant son mot : la niche posée, la tête ne les tient plus ensemble dès 350 pixels — en 360 de large
+   à 100 % —, et le bouton n'y garde que l'icône, son nom (`aria-label`) et la cible d'un doigt (la requête sans niche, à 290 pixels,
+   vit dans la section du Cabinet). */
+@container tete (max-width: 350px) {
+  body.avec-niche .cab-quitter-mot { display: none; }
+  body.avec-niche .cab-page .cab-quitter { width: 44px; padding: 0; }
+  body.avec-niche .cab-quitter .icon { margin-right: 0; }
+  body.avec-niche .cab-point { width: 24px; height: 24px; }
+}
+/* Plus étroite encore — 277 pixels de large, la niche posée —, même sans son mot « Quitter » ne tient plus à côté du total : passé
+   à la ligne, il ajoutait une rangée de 48 pixels à la tête, et la question de l'Épingle et sa carte n'avaient plus où tenir. Pendant
+   une manche, il prend place au bout de la ligne du chrono — avant la niche et les 20 pixels du bord de la tête —, qui lui garde
+   la sienne ; entre deux manches, sans chrono, la rangée passe à la ligne. */
+@container tete (max-width: 300px) {
+  body.avec-niche .cab-tete-partie:has(.timer) .cab-quitter { position: absolute; right: calc(20px + var(--niche-place)); bottom: 8px; }
+  body.avec-niche .cab-tete-partie:has(.cab-quitter) .timer { min-height: 44px; padding-right: calc(var(--niche-place) + 52px); }
+}
 /* Le jour et les points du quiz du jour, l'un sous l'autre : sur une ligne, « 200 pts » se cassait contre elle. */
 body.avec-niche .jour-bandeau { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; padding-right: var(--niche-place); }
 /* Les rangées d'onglets passent sous elle, sans la toucher. */

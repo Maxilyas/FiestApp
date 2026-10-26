@@ -19,12 +19,13 @@ import type { JeuALEcran, PropsDUneManche } from '../Partie'
 //
 // Le clavier est à l'écran, en AZERTY, collé au bas de la page sous le pouce
 // (`JeuALEcran.Pied`) : jamais le clavier du téléphone, qui aurait poussé
-// « Valider » hors de l'écran ; celui de l'ordinateur sert aussi. Dès le
-// deuxième essai, la ligne en cours revient au milieu de l'écran : sous la
-// question et les essais d'avant, elle passait sous le clavier. Une lettre
-// qu'Éclairer a soufflée prend sa case d'office, et le mot se tape comme on le
-// lit : retapée à sa place, elle passe ; une autre lettre va à la case libre
-// d'après — tapé en entier, « ABEILLE » au I soufflé faisait « ABEIILL ».
+// « Valider » hors de l'écran ; celui de l'ordinateur sert aussi. À chaque
+// essai, le premier compris, la ligne à taper revient entre la tête et le
+// clavier collés, juste assez : sous la question et les essais d'avant, elle
+// passait sous le clavier. Une lettre qu'Éclairer a soufflée prend sa case
+// d'office, et le mot se tape comme on le lit : retapée à sa place, elle
+// passe ; une autre lettre va à la case libre d'après — tapé en entier,
+// « ABEILLE » au I soufflé faisait « ABEIILL ».
 //
 // La page ne tient que la ligne en cours : elle repart de zéro à chaque essai
 // écrit, et se perd à un rechargement — rien de cela ne disait le mot (§ 2.8).
@@ -179,7 +180,7 @@ function GrilleDuMot({
   )
 }
 
-/** Ce que disent les marques, une fois, sous la question : un trait, un point, rien. */
+/** Ce que disent les marques, une fois, sous la grille : un trait, un point, rien. Au-dessus d'elle, elle poussait la ligne à taper sous le clavier. */
 function Legende() {
   return (
     <ul className="cab-legende" aria-hidden="true">
@@ -202,14 +203,50 @@ const doucement = (): ScrollBehavior => {
   }
 }
 
+/** Le haut et le bas d'une boîte à l'écran, comme `getBoundingClientRect` les dit. */
+export interface BoiteALEcran {
+  readonly top: number
+  readonly bottom: number
+}
+
+/** Ce que la ligne à taper garde d'air au-dessus du clavier, ou sous la tête : collée à leur bord, elle s'y lisait à moitié. */
+export const AIR_DE_LA_LIGNE = 4
+
+/**
+ * De combien défiler pour que la ligne à taper tienne dans la bande que
+ * laissent la tête et le clavier collés : rien si elle y est déjà ; sinon
+ * juste ce qui déborde, et un souffle. Plus haute que la bande, son haut
+ * sous la tête, jamais caché par elle. Centrée dans la fenêtre, comme le
+ * faisait `scrollIntoView`, elle envoyait la question sous la tête dès le
+ * deuxième essai — et au premier, rien ne bougeait : la ligne restait sous le
+ * clavier, et Jeanne a tapé C-O-U-L-E-U-R sans rien voir s'écrire (la tablée
+ * du 25 octobre 2026).
+ */
+export function defilementPourLaLigne(ligne: BoiteALEcran, bande: BoiteALEcran): number {
+  const versLeHaut = ligne.top - (bande.top + AIR_DE_LA_LIGNE)
+  if (ligne.bottom > bande.bottom) return Math.min(ligne.bottom - (bande.bottom - AIR_DE_LA_LIGNE), versLeHaut)
+  return ligne.top < bande.top ? versLeHaut : 0
+}
+
+/** La bande de la manche, à l'écran : du bas de la tête collée au haut du pied collé — le clavier —, sinon la fenêtre. */
+function bandeDeLaManche(): BoiteALEcran {
+  const tete = document.querySelector('.cab-tete-partie')?.getBoundingClientRect()
+  const pied = document.querySelector('.cab-pied-partie:not(.cab-pied-pose)')?.getBoundingClientRect()
+  return { top: tete?.bottom ?? 0, bottom: pied?.top ?? window.innerHeight }
+}
+
 function MancheDuMot({ montree: m, local }: PropsDUneManche<MotMontre, LocalDuMot>) {
   const enCours = useRef<HTMLLIElement>(null)
-  // Dès le deuxième essai, la ligne à taper revient au milieu de l'écran, au-dessus du clavier collé : sous la question et les
-  // essais d'avant, elle passait dessous. Une image plus tard — le cadre remet un écran neuf en haut après les effets de ses
-  // enfants, et la reprise d'une pause l'y aurait laissée.
+  // À chaque essai — le premier compris, la manche qui s'ouvre —, la ligne à taper revient entre la tête et le clavier collés,
+  // d'autant qu'il faut (`defilementPourLaLigne`). Une image plus tard : le cadre remet un écran neuf en haut après les effets de
+  // ses enfants, et la reprise d'une pause l'y aurait laissée.
   useEffect(() => {
-    if (m.essais.length === 0) return
-    const id = requestAnimationFrame(() => enCours.current?.scrollIntoView({ block: 'center', behavior: doucement() }))
+    const id = requestAnimationFrame(() => {
+      const ligne = enCours.current
+      if (!ligne) return
+      const dy = defilementPourLaLigne(ligne.getBoundingClientRect(), bandeDeLaManche())
+      if (dy !== 0) window.scrollBy({ top: dy, behavior: doucement() })
+    })
     return () => cancelAnimationFrame(id)
   }, [m.essais.length])
   return (
@@ -218,8 +255,8 @@ function MancheDuMot({ montree: m, local }: PropsDUneManche<MotMontre, LocalDuMo
         <span className="label quiz-categorie">{espacesFines(m.categorie ? `${m.categorie} · un mot de ${m.longueur} lettres` : `Un mot de ${m.longueur} lettres`)}</span>
       </div>
       <h2 className="quiz-question cab-question cab-question-du-mot">{espacesFines(m.texte)}</h2>
-      <Legende />
       <GrilleDuMot essais={m.essais} lignes={m.essaisMax} longueur={m.longueur} enCours={ligneEnCours(m, local)} refEnCours={enCours} />
+      <Legende />
     </>
   )
 }

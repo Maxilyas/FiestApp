@@ -100,6 +100,9 @@ export const MILIEU_DE_LA_FRANCE: Point = { lat: 46.6, lon: 2.45 }
 export type Fleche = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'
 export const estUneFleche = (touche: string): touche is Fleche => touche === 'ArrowUp' || touche === 'ArrowDown' || touche === 'ArrowLeft' || touche === 'ArrowRight'
 
+/** Ce que vaut un grand pas, en petits : Maj au clavier, la bascule des grands pas au pied de l'Épingle, qui l'écrit (« ×5 »). */
+export const GRAND_PAS = 5
+
 /**
  * Un pas de flèche : un dixième de degré de latitude — onze kilomètres —, et
  * autant de chemin vers l'est ou l'ouest (la longitude s'allonge du cosinus de
@@ -107,7 +110,7 @@ export const estUneFleche = (touche: string): touche is Fleche => touche === 'Ar
  * une vingtaine de pas. Gardé dans le cadre, comme un toucher.
  */
 export function deplacer(p: Point, fleche: Fleche, grand = false): Point {
-  const pas = 0.1 * (grand ? 5 : 1)
+  const pas = 0.1 * (grand ? GRAND_PAS : 1)
   const est = pas / Math.cos((p.lat * Math.PI) / 180)
   switch (fleche) {
     case 'ArrowUp':

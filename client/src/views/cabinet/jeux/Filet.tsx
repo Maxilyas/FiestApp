@@ -10,10 +10,11 @@ import { decimales } from '../../../../../shared/classement'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
 
 // Le Filet à l'écran (§ 3.5) : une année ou une estimation de la base, sur une
-// piste tirée au départ. Il place son curseur — au doigt sur la piste, ou cran
-// par cran, « − » et « + » de part et d'autre —, choisit la taille de son
-// filet — petit, il rapporte plus —, et le lance. La page ne connaît jamais la
-// valeur (invariant 1) : elle ne montre que la piste, ses bornes, le filet
+// piste tirée au départ. Il place son curseur — au doigt sur la piste, cran
+// par cran, « − » et « + » de part et d'autre, ou à grands pas, un dixième de
+// la piste, dessous —, choisit la taille de son filet — petit, il rapporte
+// plus —, et le lance. La page ne connaît jamais la valeur (invariant 1) :
+// elle ne montre que la piste, ses bornes, le filet
 // qu'il tient et la zone dorée qu'Éclairer a donnée, et c'est le serveur qui
 // juge si la réponse est dedans (`ecartEstimation`, invariant 15).
 //
@@ -51,6 +52,18 @@ export function bouger(m: FiletMontre, l: LocalDuFilet, x: number): LocalDuFilet
 
 /** « − » et « + » : un cran de la piste, jamais au-delà de ses bornes. */
 export const cran = (m: FiletMontre, l: LocalDuFilet, sens: 1 | -1): LocalDuFilet => bouger(m, l, l.x + sens * m.piste.pas)
+
+/** Un grand pas : un dixième de la piste, à son cran près — jamais moins d'un cran —, comme « Page suivante » sur un curseur. */
+const longueurDUnGrandPas = (p: PisteDuFilet) => Math.max(p.pas, Math.round((p.max - p.min) / 10 / p.pas) * p.pas)
+
+/**
+ * Un grand pas de plus ou de moins, jamais au-delà des bornes : de là où le
+ * curseur part, toute valeur de la piste se prend en cinq grands pas et dix
+ * crans au plus. Sans glisser — au lecteur d'écran, d'un pouce qui tremble —,
+ * « Un cran de plus » demandait soixante touchers à Camille, et la ramette
+ * restait hors d'atteinte pour Hugo (la tablée du 25 octobre 2026).
+ */
+export const grandPas = (m: FiletMontre, l: LocalDuFilet, sens: 1 | -1): LocalDuFilet => bouger(m, l, l.x + sens * longueurDUnGrandPas(m.piste))
 
 /**
  * Ce que le filet lancé là prend, aux crans de la piste : le premier et le
@@ -127,7 +140,11 @@ function MancheDuFilet({ montree: m, local: l, setLocal, envoyer, garde, busy }:
   const filet = bornesDuFilet(l.x, l.taille, p)
   const lancer = () => !busy && garde() && envoyer({ quoi: 'repondre', reponse: { filet: { x: l.x, taille: l.taille } } })
   // Un cran de plus ou de moins se joue vite : deux touchers en font deux, sans la demi-seconde de garde — rien ne bouge sous le doigt.
+  // Un grand pas de même.
   const unCran = (sens: 1 | -1) => !busy && setLocal(cran(m, l, sens))
+  const unGrandPas = (sens: 1 | -1) => !busy && setLocal(grandPas(m, l, sens))
+  // Ce que fait un grand pas, à l'œil : « − 12 », « + 1 500 km » ; à l'oreille, son nom suffit, le curseur dit où il arrive.
+  const grand = dire(m, longueurDUnGrandPas(p))
   const enBas = l.x <= p.min
   const enHaut = l.x >= p.max
   return (
@@ -161,6 +178,14 @@ function MancheDuFilet({ montree: m, local: l, setLocal, envoyer, garde, busy }:
           <span aria-hidden="true">+</span>
         </button>
       </div>
+      <div className="cab-grands-pas">
+        <button type="button" className="cab-cran cab-grand-pas" aria-label="Un grand pas de moins" aria-disabled={enBas || busy || undefined} {...toucher(() => unGrandPas(-1))}>
+          <span aria-hidden="true">{espacesFines(`− ${grand}`)}</span>
+        </button>
+        <button type="button" className="cab-cran cab-grand-pas" aria-label="Un grand pas de plus" aria-disabled={enHaut || busy || undefined} {...toucher(() => unGrandPas(1))}>
+          <span aria-hidden="true">{espacesFines(`+ ${grand}`)}</span>
+        </button>
+      </div>
       <ZoneDite m={m} />
       <div className="cab-tailles" role="group" aria-label="La taille de ton filet">
         {TAILLES_DU_FILET.map(t => (
@@ -178,6 +203,25 @@ function MancheDuFilet({ montree: m, local: l, setLocal, envoyer, garde, busy }:
 }
 
 /**
+ * Quel filet il a lancé : dedans, ses étoiles, gagnées ; à côté, ce qu'il
+ * valait, en mots — « Le grand filet ★☆☆ » après un filet raté s'entendait
+ * « une étoile sur trois », comme un gain (Hugo, au lecteur d'écran, à la
+ * tablée du 25 octobre 2026).
+ */
+function FiletLance({ lance, dedans }: { lance: NonNullable<FiletRevele['lancer']>; dedans: boolean }) {
+  const nom = `Le ${NOMS[lance.taille].toLowerCase()} filet`
+  const valait = ETOILES_DU_FILET[lance.taille]
+  return dedans ? (
+    <p className="cab-ligne cab-filet-lance">
+      {nom}
+      <Etoiles n={valait} />
+    </p>
+  ) : (
+    <p className="cab-ligne cab-filet-lance">{`${nom} (il valait ${valait} étoile${valait > 1 ? 's' : ''})`}</p>
+  )
+}
+
+/**
  * La révélation : la question, la réponse et ce qu'il visait, la piste — la
  * vraie valeur marquée, le filet qu'il a lancé là où il l'a lancé, la zone
  * d'Éclairer s'il l'avait —, et quel filet c'était. Sans lancer, la réponse
@@ -190,12 +234,7 @@ function RevelationDuFilet({ corps: r }: { corps: FiletRevele }) {
       <p className="cab-ligne cab-rappel">{espacesFines(r.texte)}</p>
       <p className="cab-filet-reponse">{espacesFines(`La réponse : ${dire(r, r.valeur)}${lance ? ` · tu visais ${dire(r, lance.x)}` : ''}`)}</p>
       <Piste m={r} filet={lance && ouEstLeFilet(lance.x, lance.taille, r.piste)} vrai={r.valeur} />
-      {lance && (
-        <p className="cab-ligne cab-filet-lance">
-          {`Le ${NOMS[lance.taille].toLowerCase()} filet`}
-          <Etoiles n={ETOILES_DU_FILET[lance.taille]} />
-        </p>
-      )}
+      {lance && <FiletLance lance={lance} dedans={r.dedans} />}
     </section>
   )
 }

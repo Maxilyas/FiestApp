@@ -71,7 +71,13 @@ function MancheDeLEclair({ montree: m, local, setLocal, envoyer, garde, busy }: 
   )
 }
 
-/** La révélation : chacune vraie, ou fausse et la réponse qu'elle cachait ; ce qu'il avait dit, ou rien. */
+/**
+ * Le verdict d'une affirmation, dans ses mots à lui : « Faux » et « Vrai » sont ceux du jeu, et une affirmation vraie qu'il avait
+ * dite fausse se lisait « Faux… Vrai · tu as dit faux » (Hugo, au lecteur d'écran, à la tablée du 25 octobre 2026).
+ */
+const verdictDit = (a: EclairRevele['affirmations'][number]) => (a.reponse === null ? 'Sans réponse' : a.juste ? 'Juste' : 'Raté')
+
+/** La révélation : chacune son verdict, ce qu'elle était — fausse, la réponse qu'elle cachait —, et ce qu'il avait dit. */
 function RevelationDeLEclair({ corps }: { corps: EclairRevele }) {
   return (
     <>
@@ -80,6 +86,7 @@ function RevelationDeLEclair({ corps }: { corps: EclairRevele }) {
           <Corrige
             key={i}
             verdict={a.reponse === null ? 'Sans réponse' : a.juste ? 'Juste' : 'Faux'}
+            dit={verdictDit(a)}
             tete={`Affirmation ${i + 1}`}
             texte={`${a.texte} « ${a.proposee} »`}
             reponses={[]}
@@ -88,8 +95,8 @@ function RevelationDeLEclair({ corps }: { corps: EclairRevele }) {
             formes={false}
             corps={
               <p className="corrige-vraie">
-                <b>{a.vraie ? 'Vrai' : `Faux, c’était ${a.bonne}`}</b>
-                {a.reponse === null ? ' · pas répondu' : ` · tu as dit ${a.reponse ? 'vrai' : 'faux'}`}
+                <b>{verdictDit(a)}</b>
+                {espacesFines(` · c’était ${a.vraie ? 'vrai' : `faux : ${a.bonne}`}${a.reponse === null ? '' : ` · tu as dit ${a.reponse ? 'vrai' : 'faux'}`}`)}
               </p>
             }
           />

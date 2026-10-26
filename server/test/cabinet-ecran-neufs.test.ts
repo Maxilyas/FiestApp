@@ -39,6 +39,7 @@ import type { RepliqueMontree, RepliqueRevelee } from '../../shared/cabinet/jeux
 import { CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
 import type { MursDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import { anneeDite } from '../../shared/frise'
+import { espacesFines } from '../../shared/typographie'
 
 // Le client compile son JSX pour un `React` global, et `state.ts` lit son adresse à l'import : posés avant tout composant.
 Object.assign(globalThis, { React, window: { location: { pathname: '/cabinet', search: '', hash: '', origin: 'http://banc' }, addEventListener: () => {} } })
@@ -387,12 +388,15 @@ test('une manche de l’Épingle : la date, le thème, le récit, la question, l
   for (const ville of ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Lille', 'Nantes', 'Strasbourg']) assert.match(html, new RegExp(`>${ville}</text>`), ville)
   assert.match(t, /Au clavier, les flèches la mènent, Maj à grands pas, et Entrée la plante\./)
   assert.doesNotMatch(html, /cab-carte-epingle|cab-carte-lieu|cab-carte-zone/)
-  // Sous le pouce, collés : la carte-bonus qui sert encore, où est l'épingle — rien encore, la consigne le dit —, puis « Planter
-  // ici », qui l'attend.
+  // Sous le pouce, collés : la carte-bonus qui sert encore, puis « Pas à pas », fermé, et « Planter ici », qui attend une épingle.
+  // Où est l'épingle ne s'y dit plus — la consigne, au-dessus de la carte, en tient la place —, et les pas de l'épingle attendent
+  // qu'on les ouvre : le pied plus court laisse la question et la carte tenir ensemble entre la tête et lui (la tablée du
+  // 25 octobre 2026 : 381 px demandés pour une bande de 277).
   const pied = piedDe(html)
   assert.ok(pied.startsWith('<div class="cab-pied-partie"><button type="button" class="btn btn-block cab-pouvoir">'), 'la carte-bonus d’abord')
-  assert.match(pied, /<p class="cab-ou-est" aria-live="polite"><\/p>/)
-  assert.match(pied, /<button type="button" class="btn btn-primary btn-big btn-block cab-planter" aria-disabled="true">Planter ici<\/button>/)
+  assert.doesNotMatch(pied, /cab-ou-est|cab-pas-de-l-epingle/)
+  assert.match(pied, /<div class="cab-planter-ici"><button type="button" class="btn cab-pas-a-pas" aria-expanded="false">Pas à pas<\/button><button type="button" class="btn btn-primary btn-big cab-planter" aria-disabled="true">Planter ici<\/button><\/div>/)
+  assert.match(html, /<p class="cab-ligne cab-consigne-carte" aria-live="polite">Touche la carte de France pour planter ton épingle\.<\/p>/)
   // Jamais le lieu : ni sa commune, ni son département, ni ses coordonnées, ni sa place sur le dessin. Le dessin et la tête n'en
   // disent rien — le même dessin à la troisième manche, d'un autre lieu ; la même tête aux Indices, qui n'en ont pas —, et la
   // recherche les écarte (`ceQuiDitLeLieu`) ; elle trouve pourtant chacun des cinq secrets glissé dans la page.
@@ -417,22 +421,80 @@ test('l’Épingle posée : sur la carte à sa place, dite par sa ville repère,
   const html = await laPartie(v, { local: { epingle: lyon } })
   const ici = await surLeDessin(lyon)
   assert.match(html, new RegExp(`<g class="cab-carte-epingle" transform="translate\\(${ici.x} ${ici.y}\\)">`))
-  assert.match(texte(html), /Touche ailleurs pour déplacer ton épingle\./)
+  // Où est l'épingle, à la place de la consigne au-dessus de la carte — sa hauteur gardée : la carte ne glisse pas sous le doigt qui
+  // corrige (sa feuille, plus bas) —, dite à l'oreille à chaque épingle posée, d'un toucher, d'une flèche ou d'un pas.
+  const consigne = /<p class="cab-ligne cab-consigne-carte cab-ou-est" aria-live="polite">(.*?)<\/p>/.exec(html)
+  assert.ok(consigne, 'où est l’épingle, à la place de la consigne')
+  assert.equal(texte(consigne[1]).trim(), 'Ton épingle : Près de Lyon')
+  assert.equal([...html.matchAll(/cab-consigne-carte/g)].length, 1)
   const pied = piedDe(html)
-  assert.match(texte(pied), /Ton épingle : Près de Lyon/)
-  assert.match(pied, /<button type="button" class="btn btn-primary btn-big btn-block cab-planter">Planter ici<\/button>/)
-  // La consigne garde sa place d'une épingle à l'autre : la carte ne glisse pas sous le doigt qui corrige (sa feuille, plus bas).
-  assert.match(html, /<p class="cab-ligne cab-consigne-carte">/)
-  // Revenu sur la carte, le lecteur d'écran entend la consigne, puis où est l'épingle — que le pied a dite en la posant.
+  assert.doesNotMatch(pied, /cab-ou-est|Près de Lyon/)
+  assert.match(pied, /<button type="button" class="btn btn-primary btn-big cab-planter">Planter ici<\/button>/)
+  // Revenu sur la carte, le lecteur d'écran entend la consigne, ce qui la mène sans clavier, puis où est l'épingle — que la
+  // consigne a dite en la posant.
   const aide = /aria-describedby="([^"]+)"/.exec(html)![1]
-  assert.match(texte(new RegExp(`<p id="${echapper(aide)}" class="sr-only">(.*?)</p>`).exec(html)![1]), /Entrée la plante\. Ton épingle : Près de Lyon\./)
+  assert.match(
+    texte(new RegExp(`<p id="${echapper(aide)}" class="sr-only">(.*?)</p>`).exec(html)![1]),
+    /Entrée la plante\. Sans clavier, « Pas à pas », au bas de l’écran, ouvre les boutons qui la mènent\. Ton épingle : Près de Lyon\./,
+  )
   // Ce que la page tient part à l'échéance ; sans épingle, rien : la manche se juge « Pas d'épingle ».
   assert.deepEqual(EPINGLE.aLEcheance(m, { epingle: lyon }), { epingle: lyon })
   assert.equal(EPINGLE.aLEcheance(m, { epingle: null }), undefined)
-  assert.deepEqual(EPINGLE.localDe(m), { epingle: null })
+  // Au départ d'une manche : pas d'épingle, et les boutons de direction fermés, à petits pas.
+  assert.deepEqual(EPINGLE.localDe(m), { epingle: null, grands: false, pasAPas: false })
   // « Changer » pose un autre lieu : l'épingle d'avant ne lui dit rien ; la zone d'Éclairer ne change pas la manche.
   assert.equal(EPINGLE.cleDe(m), EPINGLE.cleDe(vues.epingleEclairee.enCours))
   assert.notEqual(EPINGLE.cleDe(m), EPINGLE.cleDe({ ...m, question: `${m.question} encore` }))
+})
+
+test('l’Épingle sans clavier : « Pas à pas » ouvre quatre pas, nord, sud, ouest, est, et la bascule des grands pas, au pied — de la France entière à la Corse', async () => {
+  // Sous TalkBack, un double toucher plante au centre de la carte, et seules les flèches la mènent (Hugo, à la tablée du
+  // 25 octobre 2026) : ces boutons font au doigt ce que font les flèches, d'où qu'en soit l'épingle — du milieu de la France s'il
+  // n'y en a pas encore. Fermés d'office, derrière « Pas à pas », sur la ligne de « Planter ici » : ouverts, avec la carte-bonus,
+  // le pied ne laissait plus voir la question et la carte ensemble en 277 × 492.
+  const v = vues.epingle
+  const ferme = piedDe(await laPartie(v))
+  assert.match(ferme, /<button type="button" class="btn cab-pas-a-pas" aria-expanded="false">Pas à pas<\/button>/)
+  assert.doesNotMatch(ferme, /Vers le nord|Grands pas/)
+  const ouvert = { epingle: null, grands: false, pasAPas: true }
+  const pied = piedDe(await laPartie(v, { local: ouvert }))
+  // Ouverts, au-dessus de la ligne de « Planter ici », que « Pas à pas » désigne.
+  const rangee = /<div id="([^"]+)" class="cab-pas-de-l-epingle" role="group" aria-label="Mener l’épingle pas à pas">(.*?)<\/div><div class="cab-planter-ici">/.exec(pied)
+  assert.ok(rangee, 'les pas, au-dessus de « Planter ici »')
+  assert.match(pied, new RegExp(`<button type="button" class="btn cab-pas-a-pas" aria-expanded="true" aria-controls="${echapper(rangee[1])}">Pas à pas</button>`))
+  const pas = rangee[2]
+  const noms = [...pas.matchAll(/<button type="button" class="([^"]+)"[^>]*aria-label="([^"]+)"/g)].map(m => m[2])
+  assert.deepEqual(noms, ['Vers l’ouest', 'Vers le nord', 'Vers le sud', 'Vers l’est', 'Grands pas'])
+  // La bascule : un nom fixe, l'état par `aria-pressed`, petits pas d'office.
+  assert.match(pas, /<button type="button" class="cab-pas cab-pas-grands" aria-label="Grands pas" aria-pressed="false">/)
+  assert.match(piedDe(await laPartie(v, { local: { ...ouvert, grands: true } })), /aria-label="Grands pas" aria-pressed="true"/)
+  // Chacun mène l'épingle comme sa flèche — `deplacer`, la règle même du clavier —, et Planter ici la plante.
+  const { EPINGLE, pasDeLEpingle } = await import(url('views/cabinet/jeux/Epingle.tsx'))
+  const { deplacer, MILIEU_DE_LA_FRANCE } = await import(url('views/cabinet/contourDeLaFrance.ts'))
+  assert.deepEqual(EPINGLE.localDe(v.enCours), { epingle: null, grands: false, pasAPas: false })
+  assert.deepEqual(pasDeLEpingle(ouvert, 'ArrowUp'), { epingle: deplacer(MILIEU_DE_LA_FRANCE, 'ArrowUp', false), grands: false, pasAPas: true })
+  const lyon = { lat: 45.76, lon: 4.84 }
+  assert.deepEqual(pasDeLEpingle({ ...ouvert, epingle: lyon, grands: true }, 'ArrowRight'), { epingle: deplacer(lyon, 'ArrowRight', true), grands: true, pasAPas: true })
+  // De la France entière à Corte, en grands pas, chacun vers le plus près : moins de vingt — et à moins de quarante kilomètres, ce
+  // qui vaut trois étoiles.
+  const corte = { lat: 42.31, lon: 9.15 }
+  let ici = { epingle: null as Point | null, grands: true, pasAPas: true }
+  let n = 0
+  for (; n < 30; n++) {
+    if (ici.epingle && distanceKm(ici.epingle, corte) < 40) break
+    const essais = (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'] as const).map(f => pasDeLEpingle(ici, f))
+    ici = essais.sort((a, c) => distanceKm(a.epingle!, corte) - distanceKm(c.epingle!, corte))[0]
+  }
+  assert.ok(n < 20, `${n} grands pas jusqu’à Corte`)
+  // Au doigt, chacun par `toucher` (l'écho d'un doigt ne rejoue pas un pas), et la cible d'un doigt.
+  assert.doesNotMatch(pas, /onClick/)
+  const section = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  assert.match(section, /\n\.cab-pas \{[^}]*width: 44px; height: 44px;/)
+  // « Pas à pas » et « Planter ici » sur une ligne, sans un pixel de plus au pied ; ouvert, l'or pâle des choix, au bronze du survol.
+  assert.match(section, /\n\.cab-planter-ici \{ display: flex; gap: 8px; \}/)
+  assert.match(section, /\n\.cab-page \.cab-pas-a-pas\[aria-expanded='true'\] \{[^}]*background: var\(--accent-soft\); color: var\(--accent-text-hover\);/)
+  // L'épingle posée par un pas se dit, comme d'un toucher : la consigne au-dessus de la carte est une région qui se dit.
+  assert.match(texte(await laPartie(v, { local: pasDeLEpingle(ouvert, 'ArrowUp') })), /Ton épingle : /)
 })
 
 test('l’Épingle éclairée : la zone entourée sur la carte, dite en mots — et la carte-bonus qui ne sert plus se pose sous la manche', async () => {
@@ -441,7 +503,7 @@ test('l’Épingle éclairée : la zone entourée sur la carte, dite en mots —
   assert.ok(m.zone, 'Éclairer a donné sa zone')
   const html = await laPartie(v)
   // L'indice prend la place de la consigne, à sa hauteur gardée : la carte ne descend pas sous le doigt qui vient d'Éclairer.
-  const consigne = /<p class="cab-ligne cab-consigne-carte cab-souffle">(.*?)<\/p>/.exec(html)
+  const consigne = /<p class="cab-ligne cab-consigne-carte cab-souffle" aria-live="polite">(.*?)<\/p>/.exec(html)
   assert.ok(consigne, 'l’indice à la place de la consigne')
   assert.match(texte(consigne[1]), /Indice : c’est quelque part dans la zone entourée\./)
   assert.equal([...html.matchAll(/cab-consigne-carte/g)].length, 1)
@@ -555,6 +617,31 @@ test('tous les indices vus : « Un indice de plus » s’éteint, la page le dit
   const html = await laPartie(vues.indicesTousVus)
   assert.match(texte(html), /5 indices sous tes yeux · tous les indices sont là/)
   assert.match(piedDe(html), /<button type="button" class="btn" aria-disabled="true">Un indice de plus<\/button>/)
+})
+
+test('un indice neuf se dit à l’oreille : demandé, offert par Éclairer, montré après un nom faux — et pas une seconde fois quand on tape', async () => {
+  // Hugo, au lecteur d'écran (la tablée du 25 octobre 2026) : « Un indice de plus » ne disait rien — la zone de statut ne disait
+  // que le nom refusé. Une région à part, que l'œil ne lit pas — l'indice est déjà dans la liste —, dit le dernier venu ; elle ne
+  // change qu'avec lui : la ligne du refus se vide dès qu'on tape, et dite dans la même région, elle aurait redit l'indice à la
+  // première lettre.
+  const neuf = (html: string) => /<p class="sr-only" role="status">(.*?)<\/p>/.exec(piedDe(html))?.[1]
+  /** Ce que la page écrit d'un texte, tel que `texte()` le lit : ses espaces fines posées, son apostrophe typographique. */
+  const dit = (s: string) => texte(espacesFines(s).replace(/'/g, '’')).trim()
+  // Le premier, d'office : rien à dire.
+  assert.equal(neuf(await laPartie(vues.indices)), '')
+  // Un nom faux en montre un de plus.
+  const faux = vues.indicesFaux.enCours as IndicesMontres
+  assert.equal(texte(neuf(await laPartie(vues.indicesFaux)) ?? '').trim(), dit(`Indice 2 : ${faux.indices[1]}`))
+  // Offert par Éclairer ; demandés jusqu'au dernier.
+  const offert = vues.indicesOffert.enCours as IndicesMontres
+  assert.equal(texte(neuf(await laPartie(vues.indicesOffert)) ?? '').trim(), dit(`Indice ${offert.indices.length} : ${offert.indices.at(-1)}`))
+  const tous = vues.indicesTousVus.enCours as IndicesMontres
+  assert.equal(tous.indices.length, 5)
+  assert.equal(texte(neuf(await laPartie(vues.indicesTousVus)) ?? '').trim(), dit(`Indice 5 : ${tous.indices[4]}`))
+  // Un nom qui s'écrit ne la change pas : la ligne du refus se tait, l'indice reste dit, tel quel.
+  assert.equal(neuf(await laPartie(vues.indicesFaux, { local: { texte: 'V' } })), neuf(await laPartie(vues.indicesFaux)))
+  // La ligne du refus garde sa place et ses mots.
+  assert.match(piedDe(await laPartie(vues.indicesFaux)), /<p class="cab-ligne cab-non" role="status">Non, ce n’est pas/)
 })
 
 test('la révélation des Indices : trouvé, et avec quoi sous les yeux ; ou qui c’était — et les cinq indices', async () => {
@@ -785,9 +872,26 @@ test('la feuille de la carte et des trois jeux : la carte de toute la largeur, s
   // au bord du cadre de l'Épingle, dans l'Atlantique.
   assert.match(section, /\.cab-carte-de-france \{ margin: 0 max\(-2px, \(100% - 460px\) \/ 2\); \}/)
   assert.match(section, /\.cab-carte-dessin \{ display: block; width: 100%; height: auto; \}/)
-  // Où est l'épingle, au pied : une ligne gardée dès avant la première — remplie, elle faisait monter le pied de 25 pixels sur la
-  // carte, et l'écho du doigt tombait sur la carte-bonus venue sous lui.
-  assert.match(section, /\.cab-ou-est \{[^}]*min-height: [^;]+;/)
+  // Où est l'épingle prend la place de la consigne au-dessus de la carte, qui garde ses deux lignes (plus bas) : rien ne change de
+  // hauteur sous le doigt d'une épingle à l'autre — au pied, sa ligne faisait monter le pied de 25 pixels sur la carte, et l'écho du
+  // doigt tombait sur la carte-bonus venue sous lui.
+  assert.doesNotMatch(section, /(?:^|\n)\.cab-ou-est \{/, 'plus de ligne à part au pied')
+  assert.match(section, /\.cab-consigne-carte\.cab-ou-est \{[^}]*justify-content: flex-start;/)
+  // La question et la carte tiennent ensemble entre la tête et le pied collés : la question se colle sous la tête, sur un sol plein,
+  // et la carte se borne à ce qui reste — en 277 × 492, le texte à 130 %, elle n'y tenait jamais (381 px pour une bande de 277).
+  assert.match(section, /\.cab-manche:has\(\.cab-carte-jouable\) > \.cab-question \{ position: sticky; top: var\(--cab-tete, 0px\); z-index: 1; background: var\(--bg\);/)
+  assert.match(section, /\.cab-manche \.cab-carte-jouable \{[^}]*width: min\([^;]*var\(--cab-place[^;]*\);[^}]*margin: 0 auto;/)
+  // La place se convertit en largeur par les mesures mêmes du dessin (`shared/cabinet/france.ts`), écrites dans la feuille : un
+  // dessin retouché d'un côté seulement, la carte bornée n'aurait plus tenu dans sa place, ou l'aurait laissée vide.
+  const proportion = /\.cab-carte-de-france \{[^}]*--cab-carte-l: (\d+); --cab-carte-h: (\d+);/.exec(section)
+  assert.ok(proportion, 'les mesures du dessin dans la feuille')
+  assert.deepEqual([Number(proportion[1]), Number(proportion[2])], [LARGEUR_DE_LA_CARTE, HAUTEUR_DE_LA_CARTE])
+  // Les deux gestes du nom aux Indices : « Répondre » ne se coupe jamais — sa colonne garde la largeur de son mot, et c'est « Un
+  // indice de plus » qui passe sur deux lignes (« épondr », sur l'accent, à 130 %, à la tablée du 25 octobre 2026).
+  const gestes = /\.cab-gestes-du-nom \{[^}]*grid-template-columns: ([^;]+);/.exec(section)?.[1] ?? ''
+  const colonnes = [...gestes.matchAll(/minmax\(([^,]+), ([^)]+)\)/g)].map(m => [m[1].trim(), m[2].trim()])
+  assert.equal(colonnes.length, 2, gestes)
+  assert.equal(colonnes[1][0], 'max-content', `la colonne de « Répondre » ne descend pas sous son mot : ${gestes}`)
   // Les noms des villes, en unités du dessin : rendus à 324 pixels de large, dix-sept pixels au moins.
   const nom = /\.cab-carte-ville text \{[^}]*font-size: (\d+)px;/.exec(section)
   assert.ok(nom, 'les noms des villes ont leur taille')

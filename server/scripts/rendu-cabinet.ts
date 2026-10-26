@@ -30,14 +30,23 @@
 // un texte que son cadre coupe (`[coupé]`), un texte qui passe sous un bouton
 // de sa rangée (`[chevauche]`), ce qui passe sous la niche (`[sous la
 // niche]`) et un texte qui ne se lit pas sur ce qui est peint derrière lui
-// (`[contraste]`) — les mesures de `a-l-ecran.ts` ; et ce que le `click` qui
-// suit le doigt a fait que la souris n'aurait pas fait (`[écho]`). Leur compte
-// à la fin, et le tout dans `rapport.txt`. Le client construit d'abord
-// (`npm run build -w client`).
+// (`[contraste]`) — les mesures de `a-l-ecran.ts` —, un texte qui sort de son
+// propre bouton (`[hors du bouton]`) ; et ce que le `click` qui suit le doigt a
+// fait que la souris n'aurait pas fait (`[écho]`). Une partie dit en plus si sa
+// tête se chevauche — le total sous « Quitter », la niche posée ou non
+// (`[tête]`) —, et si ce qu'on manipule tient avec ce qu'on lit entre la tête
+// et le pied collés : la ligne à taper du Mot, à l'ouverture et après chaque
+// essai (`[mot]`) ; la question et la carte entière de l'Épingle, à un
+// défilement au moins (`[épingle]`) ; le tableau du Détail entier sous la tête
+// et au-dessus de chaque titre amené au bas de l'écran (`[détail]`) — la tablée
+// du 25 octobre 2026, au texte agrandi. Leur compte à la fin, et le tout dans
+// `rapport.txt`. Le client construit d'abord (`npm run build -w client`).
 //
 // `THEME` : tout thème — offert, vendu ou gagné —, que Zoé et Léa portent d'office.
+// `ZOOM=130` : le texte à 130 %, posé comme la tablée le pose (`zoom` sur la page) ; `ECRAN=277x492`, comme Chrome Android le fait
+// vraiment — la taille du texte du téléphone y est un zoom de la page. `JEUX=mot,epingle` : ces jeux seuls, dans la boucle des neuf.
 //
-//   npx tsx scripts/rendu-cabinet.ts ../export/rendu-cabinet    (ECRAN=1366x768, THEME=ivoire, ENCOCHE=47)
+//   npx tsx scripts/rendu-cabinet.ts ../export/rendu-cabinet    (ECRAN=1366x768, THEME=ivoire, ENCOCHE=47, ZOOM=130, JEUX=detail)
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -70,6 +79,12 @@ const theme = process.env.THEME ?? null
 if (theme && !THEMES.some(t => t.key === theme)) throw new Error(`THEME=${theme} : aucun thème de ce nom (${THEMES.map(t => t.key).join(', ')})`)
 // L'encoche d'un iPhone, en pixels : Chromium sans écran la tient à zéro, et la niche descend avec elle (`rendu-niche.ts`).
 const encoche = Number(process.env.ENCOCHE ?? 0)
+// Le texte agrandi, en pour cent, comme la tablée le pose : `zoom` sur la page, dès qu'elle existe.
+const zoom = Number(process.env.ZOOM ?? 100)
+if (!(zoom >= 50 && zoom <= 300)) throw new Error(`ZOOM=${process.env.ZOOM} : un pourcentage, de 50 à 300`)
+const jeuxDemandes = process.env.JEUX ? (process.env.JEUX.split(',').map(j => j.trim()) as CleDeJeu[]) : null
+const jeuxInconnus = (jeuxDemandes ?? []).filter(j => !(j in JEUX))
+if (jeuxInconnus.length) throw new Error(`JEUX : ${jeuxInconnus.join(', ')} — aucun jeu de ce nom (${Object.keys(JEUX).join(', ')})`)
 
 function chargerPlaywright(): any {
   const globale = spawnSync('npm', ['root', '-g'], { encoding: 'utf8' }).stdout.trim()
@@ -95,6 +110,34 @@ const echecs: string[] = []
 /** Ce que le doigt a fait que la souris n'aurait pas fait : un défaut de la page, dit une fois chacun, sans arrêter le parcours. */
 const echos: string[] = []
 let numero = 0
+
+/**
+ * Un texte qui sort de son propre bouton, à gauche ou à droite : « Répondre » des Indices, un seul mot, débordait de treize
+ * pixels de chaque côté au texte agrandi, et sur l'accent on lisait « épondr » (la tablée du 25 octobre 2026). `[coupé]` ne le
+ * voit pas : un bouton ne coupe pas ce qui le déborde.
+ */
+const HORS_DU_BOUTON = `(() => {
+  const visible = el => { for (let e = el; e && e !== document.documentElement; e = e.parentElement) { const s = getComputedStyle(e); if (s.visibility === 'hidden' || s.display === 'none' || Number(s.opacity) === 0) return false } return true }
+  const sortis = []
+  for (const b of document.querySelectorAll('.cab-page button, .carte-feuille button')) {
+    if (!visible(b) || b.closest('.sr-only')) continue
+    const r = b.getBoundingClientRect()
+    // Le texte qu'on voit, nœud par nœud : ce qui ne se dit qu'à l'oreille (\`.sr-only\`) se pose hors de tout, exprès.
+    let pire = 0, dit = ''
+    const marcheur = document.createTreeWalker(b, NodeFilter.SHOW_TEXT)
+    for (let t = marcheur.nextNode(); t; t = marcheur.nextNode()) {
+      if (!t.textContent.trim() || t.parentElement.closest('.sr-only') || !visible(t.parentElement)) continue
+      const plage = document.createRange()
+      plage.selectNodeContents(t)
+      for (const x of plage.getClientRects()) {
+        const hors = Math.max(r.left - x.left, x.right - r.right)
+        if (x.width > 1 && hors > pire) { pire = hors; dit = t.textContent.trim() }
+      }
+    }
+    if (pire > 1) sortis.push('« ' + dit.slice(0, 30) + ' » de ' + Math.round(pire) + ' px')
+  }
+  return sortis
+})()`
 
 /** Un texte tel qu'on le compare : sans les espaces fines ni le gluon que la page pose (`espacesFines`). */
 const net = (s: string) =>
@@ -124,6 +167,8 @@ async function photo(page: any, nom: string, { pleine = false, attente = 500 } =
   if (coupes.length) defauts.push(`[coupé] ${coupes.slice(0, 6).join(' · ')}`)
   const dessous: string[] = await page.evaluate(CE_QUI_SE_CHEVAUCHE)
   if (dessous.length) defauts.push(`[chevauche] ${dessous.slice(0, 6).join(' · ')}`)
+  const sortis: string[] = await page.evaluate(HORS_DU_BOUTON)
+  if (sortis.length) defauts.push(`[hors du bouton] ${sortis.slice(0, 6).join(' · ')}`)
   // La niche se mesure page en haut, là où elle se pose : la page défilée passe dessous, comme sous toute la barre du haut.
   if ((await page.locator('.niche').count()) && Number(await page.evaluate('window.scrollY')) < 1) {
     const sousLaNiche: string[] = await page.evaluate(SOUS_LA_NICHE)
@@ -282,6 +327,8 @@ async function telephoneDe(cookie: string | null, initial = '') {
     await ctx.addCookies([{ name: nom, value: valeur, url: banc.url }])
   }
   if (initial) await ctx.addInitScript(initial)
+  // Le texte agrandi, comme la tablée le pose : un `zoom` sur la page — une requête d'écran ne le voit pas, une de conteneur si.
+  if (zoom !== 100) await ctx.addInitScript(`document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.zoom = '${zoom}%' })`)
   const page = await ctx.newPage()
   surLEcran = page
   page.setDefaultTimeout(20_000)
@@ -336,6 +383,135 @@ async function laRevelation(page: any, nom: string) {
   await photo(page, `${nom}-revelation-entiere`, { pleine: true })
 }
 
+// ── Ce qu'une manche laisse voir entre la tête et le pied collés ──────────
+
+/** Ce que les mesures d'une manche ont trouvé, dit une fois chacun : à la fin, et dans le rapport. */
+const bandes: string[] = []
+/** Ce qu'elles ont mesuré sans rien y redire — la largeur où la carte de l'Épingle s'est bornée —, pour le rapport. */
+const mesures: string[] = []
+const noterLaBande = (ligne: string) => {
+  if (bandes.includes(ligne)) return
+  bandes.push(ligne)
+  console.error(ligne)
+}
+
+/** La bande d'une manche, à l'écran : du bas de la tête collée au haut du pied collé, sinon au bas de la fenêtre. */
+const LA_BANDE = `const tete = document.querySelector('.cab-tete-partie').getBoundingClientRect().bottom
+  const pied = document.querySelector('.cab-pied-partie:not(.cab-pied-pose)')
+  const bas = pied ? pied.getBoundingClientRect().top : innerHeight`
+
+/** Le texte du total de la tête, et « Quitter » ; et si « Quitter » est passé à la ligne. */
+const LA_TETE = `(() => {
+  const total = document.querySelector('.cab-total'), quitter = document.querySelector('.cab-quitter')
+  if (!total || !quitter) return null
+  const plage = document.createRange()
+  plage.selectNodeContents(total)
+  const t = plage.getBoundingClientRect(), q = quitter.getBoundingClientRect()
+  return { droite: t.right, gauche: q.left, memeLigne: t.bottom > q.top + 0.5 && q.bottom > t.top + 0.5, hauteur: document.querySelector('.cab-tete-partie').getBoundingClientRect().height }
+})()`
+
+/**
+ * La tête d'une manche, avec et sans la niche d'un compagnon (la classe que la page pose quand le profil en a un) : au texte
+ * agrandi, « 0 / 9 ★ » passait de 34 à 60 pixels sous « Quitter » (la tablée du 25 octobre 2026). Le texte du total s'arrête
+ * avant « Quitter » sur leur ligne ; quand la place manque même au bouton sans son mot — 277 pixels de large, la niche posée —,
+ * la rangée passe à la ligne, et « Quitter » sous le total ne le touche plus : le rapport le dit, avec la hauteur de la tête.
+ */
+async function laTete(page: any, nom: string) {
+  const avec: boolean = await page.evaluate(`document.body.classList.contains('avec-niche')`)
+  for (const niche of [avec, !avec]) {
+    await page.evaluate(`document.body.classList.toggle('avec-niche', ${niche})`)
+    await page.waitForTimeout(150)
+    const m: { droite: number; gauche: number; memeLigne: boolean; hauteur: number } | null = await page.evaluate(LA_TETE)
+    const ou = `${nom}${niche ? ', la niche posée' : ''}`
+    if (!m) noterLaBande(`[tête] ${nom} : ni total ni « Quitter »`)
+    else if (m.memeLigne && m.droite > m.gauche + 0.5) noterLaBande(`[tête] ${ou} : le texte du total passe de ${Math.round(m.droite - m.gauche)} px sous « Quitter »`)
+    else if (!m.memeLigne) mesures.push(`la tête ${ou.replace(/^la tête /, '')} : « Quitter » passe à la ligne, la tête haute de ${Math.round(m.hauteur)} px`)
+  }
+  await page.evaluate(`document.body.classList.toggle('avec-niche', ${avec})`)
+}
+
+/** La ligne à taper du Mot, entière entre la tête et le clavier collés — une image et son défilement doux passés. */
+async function laLigneDuMot(page: any, quand: string) {
+  await page.waitForTimeout(900)
+  const m: { haut: number; bas: number; tete: number; pied: number } | null = await page.evaluate(`(() => {
+  const ligne = document.querySelector('.cab-mot-en-cours')
+  if (!ligne) return null
+  ${LA_BANDE}
+  const b = ligne.getBoundingClientRect()
+  return { haut: b.top, bas: b.bottom, tete, pied: bas }
+})()`)
+  if (!m) noterLaBande(`[mot] ${quand} : pas de ligne à taper`)
+  else if (m.haut < m.tete - 0.5 || m.bas > m.pied + 0.5) {
+    noterLaBande(`[mot] ${quand} : la ligne à taper (${Math.round(m.haut)} → ${Math.round(m.bas)}) sort de la bande (${Math.round(m.tete)} → ${Math.round(m.pied)})`)
+  }
+}
+
+/**
+ * La question de l'Épingle et sa carte entière ensemble entre la tête et le pied, à un défilement au moins : la page en haut, ou
+ * la carte amenée sur le pied — la question se colle alors sous la tête. Au texte agrandi, elles demandaient 381 pixels pour une
+ * bande de 277 (la tablée du 25 octobre 2026). La largeur de la carte, bornée à ce qui reste, va au rapport.
+ */
+async function laQuestionEtLaCarte(page: any, quand: string) {
+  const mesurer = (): Promise<{ tete: number; bas: number; q: [number, number]; c: [number, number, number] } | null> =>
+    page.evaluate(`(() => {
+  const q = document.querySelector('.cab-manche > .cab-question'), c = document.querySelector('.cab-manche .cab-carte-jouable')
+  if (!q || !c) return null
+  ${LA_BANDE}
+  const bq = q.getBoundingClientRect(), bc = c.getBoundingClientRect()
+  return { tete, bas, q: [bq.top, bq.bottom], c: [bc.top, bc.bottom, bc.width] }
+})()`)
+  let derniere = null
+  for (const defilement of ['window.scrollTo(0, 0)', LA_CARTE_SUR_LE_PIED]) {
+    await page.evaluate(defilement)
+    await page.waitForTimeout(250)
+    const m = (derniere = await mesurer())
+    if (m && m.q[0] >= m.tete - 0.5 && m.q[1] <= m.c[0] + 0.5 && m.c[1] <= m.bas + 0.5) {
+      mesures.push(`l’Épingle ${quand} : la question et la carte ensemble — la carte de ${Math.round(m.c[2])} px de large`)
+      return
+    }
+  }
+  const m = derniere
+  noterLaBande(
+    m
+      ? `[épingle] ${quand} : la question (${Math.round(m.q[0])} → ${Math.round(m.q[1])}) et la carte (${Math.round(m.c[0])} → ${Math.round(m.c[1])}, ${Math.round(m.c[2])} px de large) ne tiennent pas ensemble dans la bande (${Math.round(m.tete)} → ${Math.round(m.bas)})`
+      : `[épingle] ${quand} : ni question ni carte`,
+  )
+}
+/** La carte de l'Épingle amenée sur le pied collé, son bas juste au-dessus de lui. */
+const LA_CARTE_SUR_LE_PIED = `(() => {
+  const c = document.querySelector('.cab-manche .cab-carte-jouable').getBoundingClientRect()
+  ${LA_BANDE}
+  window.scrollBy(0, c.bottom - bas + 1)
+})()`
+
+/**
+ * Chaque titre du Détail amené juste au-dessus du bas de l'écran — du pied collé, s'il y en a un — laisse le tableau entier sous
+ * la tête, au-dessus de lui : en 360 × 640, le tableau et ses quatre titres ne tenaient pas ensemble (688 px pour 540), et Jeanne
+ * faisait des allers-retours pendant cinquante-cinq secondes (la tablée du 25 octobre 2026).
+ */
+async function leTableauEtSesTitres(page: any, quand: string) {
+  const n: number = await page.locator('.cab-titres .cab-titre').count()
+  for (let i = 0; i < n; i++) {
+    await page.evaluate(`(() => {
+  const t = document.querySelectorAll('.cab-titres .cab-titre')[${i}].getBoundingClientRect()
+  ${LA_BANDE}
+  window.scrollBy(0, t.bottom - bas + 4)
+})()`)
+    await page.waitForTimeout(250)
+    const m: { tete: number; cadre: [number, number]; titre: number } = await page.evaluate(`(() => {
+  ${LA_BANDE}
+  const c = document.querySelector('.cab-detail-cadre').getBoundingClientRect()
+  const t = document.querySelectorAll('.cab-titres .cab-titre')[${i}].getBoundingClientRect()
+  return { tete, cadre: [c.top, c.bottom], titre: t.top }
+})()`)
+    if (m.cadre[0] < m.tete - 0.5 || m.cadre[1] > m.titre + 0.5) {
+      noterLaBande(`[détail] ${quand}, le titre ${i + 1} au bas de l’écran : le tableau (${Math.round(m.cadre[0])} → ${Math.round(m.cadre[1])}) ne tient pas entre la tête (${Math.round(m.tete)}) et lui (${Math.round(m.titre)})`)
+    }
+  }
+  await page.evaluate('window.scrollTo(0, 0)')
+  await page.waitForTimeout(250)
+}
+
 // ── Les neuf jeux, au doigt ───────────────────────────────────────────────
 
 /** Une manche du Pari, juste, puis pariée et juste : ★★★. */
@@ -367,10 +543,12 @@ async function unEclair(page: any, t: EclairTire, nom: string) {
 async function unDetail(page: any, t: DetailTire, nom: string) {
   await page.waitForSelector('.cab-detail-cadre img')
   await photo(page, `${nom}-manche`)
+  await leTableauEtSesTitres(page, 'le Détail, sa carte-bonus au pied')
   if (await page.locator('.cab-pouvoir:not([aria-disabled])').count()) {
     await toucher(page, page.locator('.cab-pouvoir'))
     await page.waitForSelector('.cab-titre.cab-effacee')
     await photo(page, `${nom}-eclaire`)
+    await leTableauEtSesTitres(page, 'le Détail éclairé')
   }
   await toucher(page, page.locator('.cab-reculer'))
   await page.waitForSelector('.cab-detail-pas .cab-detail-vu:nth-child(2)')
@@ -402,9 +580,13 @@ async function taper(page: any, lettres: string) {
   for (const [i, l] of [...lettres].entries()) await toucher(page, page.locator('.cab-touche', { hasText: new RegExp(`^${l}(?:,|$)`) }), i === 0 ? 650 : 120)
 }
 
-/** Une manche du Mot mystère : « Quitter ? » et sa pause, un essai faux et ses couleurs, puis le mot. */
+/**
+ * Une manche du Mot mystère : « Quitter ? » et sa pause, deux essais faux et leurs couleurs, puis le mot. La ligne à taper se
+ * mesure à l'ouverture, à la reprise de la pause et après chaque essai.
+ */
 async function unMot(page: any, t: MotTire, nom: string) {
   await page.waitForSelector('.cab-clavier')
+  await laLigneDuMot(page, 'le Mot, à l’ouverture')
   await photo(page, `${nom}-manche`)
   // La pause de « Quitter ? » : la manche voilée, le chrono figé, la confirmation par-dessus.
   await toucher(page, page.locator('.cab-quitter'))
@@ -413,12 +595,17 @@ async function unMot(page: any, t: MotTire, nom: string) {
   await photo(page, `${nom}-pause`)
   await repondreAuDialogue(page, true)
   await page.waitForSelector('.cab-voile', { state: 'detached' })
-  // Le mot à l'envers — ses lettres, pas à leur place : les trois couleurs d'un coup.
-  const faux = [...t.lettres].reverse().join('') === t.lettres ? `${t.lettres.slice(1)}${t.lettres[0]}` : [...t.lettres].reverse().join('')
-  await taper(page, faux)
-  await toucher(page, page.locator('.cab-valider-le-mot'))
-  await page.waitForSelector('.cab-mot-joue')
-  await photo(page, `${nom}-un-essai`)
+  await laLigneDuMot(page, 'le Mot, à la reprise de la pause')
+  // Le mot à l'envers — ses lettres, pas à leur place : les trois couleurs d'un coup ; puis tourné d'une lettre.
+  const envers = [...t.lettres].reverse().join('')
+  const tourne = `${t.lettres.slice(1)}${t.lettres[0]}`
+  for (const [k, faux] of [envers === t.lettres ? tourne : envers, tourne === t.lettres ? envers : tourne].entries()) {
+    await taper(page, faux)
+    await toucher(page, page.locator('.cab-valider-le-mot'))
+    await page.waitForFunction((n: number) => (globalThis as any).document.querySelectorAll('.cab-mot-joue').length >= n, k + 1)
+    await laLigneDuMot(page, `le Mot, après ${k === 0 ? 'un essai' : 'deux essais'}`)
+    if (k === 0) await photo(page, `${nom}-un-essai`)
+  }
   await taper(page, t.lettres)
   await toucher(page, page.locator('.cab-valider-le-mot'))
 }
@@ -432,6 +619,11 @@ async function unFilet(page: any, t: FiletTire, nom: string) {
     await page.waitForSelector('.cab-filet-zone')
     await photo(page, `${nom}-eclaire`)
   }
+  // Sans glisser : un grand pas de plus, un dixième de la piste, sous ses deux boutons amenés à l'écran.
+  const avant = await page.locator('.cab-curseur').inputValue()
+  await toucher(page, page.locator('.cab-grand-pas[aria-label="Un grand pas de plus"]'))
+  await page.waitForFunction((v: string) => ((globalThis as any).document.querySelector('.cab-curseur') as any)?.value !== v, avant)
+  await photo(page, `${nom}-un-grand-pas`)
   // Le curseur posé comme le doigt le pose, par l'évènement que React écoute ; la piste le range à son cran.
   await page.evaluate(
     `(() => { const i = document.querySelector('.cab-curseur'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ${JSON.stringify(String(t.valeur))}); i.dispatchEvent(new Event('input', { bubbles: true })) })()`,
@@ -445,11 +637,27 @@ async function unFilet(page: any, t: FiletTire, nom: string) {
 async function uneEpingle(page: any, t: EpingleTiree, nom: string) {
   await page.waitForSelector('.cab-carte-dessin')
   await photo(page, `${nom}-manche`)
+  await laQuestionEtLaCarte(page, 'à l’ouverture, sa carte-bonus au pied')
+  await page.evaluate('window.scrollTo(0, 0)')
   if (await page.locator('.cab-pouvoir:not([aria-disabled])').count()) {
     await toucher(page, page.locator('.cab-pouvoir'))
     await page.waitForSelector('.cab-souffle')
     await photo(page, `${nom}-eclaire`)
+    await laQuestionEtLaCarte(page, 'éclairée, sa carte-bonus posée')
+    await photo(page, `${nom}-la-question-et-la-carte`)
+    await page.evaluate('window.scrollTo(0, 0)')
   }
+  // Sans clavier : « Pas à pas » ouvre les pas au-dessus de lui, un pas vers le nord pose l'épingle — dite au-dessus de la carte —,
+  // et la question et la carte tiennent encore ensemble, les pas ouverts ; refermés, la carte reprend sa place.
+  await toucher(page, page.locator('.cab-pas-a-pas'))
+  await page.waitForSelector('.cab-pas-de-l-epingle')
+  await toucher(page, page.locator('.cab-pas[aria-label="Vers le nord"]'))
+  await page.waitForFunction(() => ((globalThis as any).document.querySelector('.cab-ou-est')?.textContent ?? '').trim() !== '')
+  await photo(page, `${nom}-pas-a-pas`)
+  await laQuestionEtLaCarte(page, 'les pas ouverts')
+  await toucher(page, page.locator('.cab-pas-a-pas'))
+  await page.waitForSelector('.cab-pas-de-l-epingle', { state: 'detached' })
+  await page.evaluate('window.scrollTo(0, 0)')
   const carte = page.locator('.cab-carte-dessin').first()
   // Le dessin garde ses proportions dans sa boîte (`xMidYMid meet`) : l'échelle, et la marge de chaque côté.
   const { x, y } = projeter({ lat: t.lieu.lat, lon: t.lieu.lon })
@@ -470,9 +678,11 @@ async function uneEpingle(page: any, t: EpingleTiree, nom: string) {
   }, avant.y)
   await page.waitForTimeout(650)
   const point = await ouToucher()
+  // L'épingle du pas vers le nord est déjà dite : on attend que la ligne dise celle du doigt.
+  const dite = await page.evaluate(() => (globalThis as any).document.querySelector('.cab-ou-est')?.textContent ?? '')
   await page.touchscreen.tap(point.x, point.y)
   // Une fonction, jamais un texte : la politique de sécurité de la page refuse `eval` (skill `regarder-le-rendu`).
-  await page.waitForFunction(() => ((globalThis as any).document.querySelector('.cab-ou-est')?.textContent ?? '').trim() !== '')
+  await page.waitForFunction((avant: string) => ((globalThis as any).document.querySelector('.cab-ou-est')?.textContent ?? avant) !== avant, dite, { timeout: 5000 }).catch(() => {})
   await photo(page, `${nom}-posee`)
   await toucher(page, page.locator('.cab-planter'))
 }
@@ -681,13 +891,15 @@ try {
   })
 
   // Les neuf jeux en partie libre : l'annonce et sa carte-bonus d'abord — Coup d'œil, qui éclaire —, puis une manche de chacun.
-  const ordre: CleDeJeu[] = ['pari', 'eclair', 'detail', 'frise', 'mot', 'filet', 'epingle', 'indices', 'replique']
+  const ordre = (['pari', 'eclair', 'detail', 'frise', 'mot', 'filet', 'epingle', 'indices', 'replique'] as CleDeJeu[]).filter(j => !jeuxDemandes || jeuxDemandes.includes(j))
   for (const jeu of ordre) {
     await etape(`le jeu ${jeu}`, async () => {
       await sansPartieEnCours(page)
       await ouvrir(page, '#libre', '.cab-jeux')
       await toucher(page, await boutonQuiDit(page, '.cab-jeu', JEUX[jeu].nom))
       await page.waitForSelector('.cab-annonce')
+      // L'annonce du Détail dit qu'il se joue à l'œil.
+      if (jeu === 'detail') await photo(page, 'annonce-du-detail')
       if (jeu === 'pari') {
         await photo(page, 'annonce')
         await toucher(page, page.locator('.cab-annonce .cab-bloc .btn-block'))
@@ -698,6 +910,8 @@ try {
         await photo(page, 'annonce-avec-sa-carte-bonus')
       }
       await commencer(page)
+      await page.waitForTimeout(300)
+      await laTete(page, `la tête ${JEUX[jeu].a}`)
       if (jeu === 'pari') await laFicheDeLaNiche(page)
       await jouerLaManche(page, jeu, idDeLea, 0, jeu)
       await laRevelation(page, jeu)
@@ -787,7 +1001,7 @@ try {
 }
 
 const aRevoir = rapport.filter(l => !l.endsWith('rien à redire'))
-const resume = `${rapport.length} photos en ${largeur} × ${hauteur}${theme ? `, ${theme}` : ''}${encoche ? `, encoche de ${encoche}` : ''} : ${aRevoir.length} à revoir, ${echos.length} écho(s) du doigt, ${echecs.length} étape(s) en échec.`
-writeFileSync(path.join(sortie, 'rapport.txt'), [...rapport, '', ...echos, '', ...echecs, '', resume, ''].join('\n'))
+const resume = `${rapport.length} photos en ${largeur} × ${hauteur}${zoom !== 100 ? `, le texte à ${zoom} %` : ''}${theme ? `, ${theme}` : ''}${encoche ? `, encoche de ${encoche}` : ''} : ${aRevoir.length} à revoir, ${bandes.length} mesure(s) d’une manche à revoir, ${echos.length} écho(s) du doigt, ${echecs.length} étape(s) en échec.`
+writeFileSync(path.join(sortie, 'rapport.txt'), [...rapport, '', ...mesures, '', ...bandes, '', ...echos, '', ...echecs, '', resume, ''].join('\n'))
 console.log(`\n${resume}\n${sortie}`)
 process.exit(echecs.length ? 1 : 0)

@@ -114,6 +114,12 @@ function ChampDuNom({ montree: m, local, setLocal, envoyer, garde, busy }: Props
   const dernier = vide ? m.essayes.at(-1) : undefined
   return (
     <form className="join cab-nom" onSubmit={soumettre}>
+      {/* L'indice neuf — demandé, offert par Éclairer, montré après un nom faux —, dit à l'oreille : « Un indice de plus » ne disait
+          rien (Hugo, au lecteur d'écran, à la tablée du 25 octobre 2026). À l'œil, il est déjà dans la liste. Une région à part, qui
+          ne change qu'avec lui : la ligne du refus se vide à la première lettre, et l'indice dit avec elle se serait redit. */}
+      <p className="sr-only" role="status">
+        {m.indices.length > 1 ? espacesFines(`Indice ${m.indices.length} : ${m.indices.at(-1)}`) : ''}
+      </p>
       <p className="cab-ligne cab-non" role="status">
         {dernier ? espacesFines(`Non, ce n’est pas « ${dernier} ».`) : ''}
       </p>

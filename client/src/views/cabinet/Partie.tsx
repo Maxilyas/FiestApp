@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { aLaDemande, useALaDemande, type ALaDemande } from '../../aLaDemande'
 import { api, motifDe, refusDuServeur } from '../../api'
 import { serverNow } from '../../clock'
@@ -213,6 +213,22 @@ function secondesAuPlus(ms: number): string {
 }
 
 /**
+ * Dans combien de millisecondes la page envoie d'elle-même ce qu'elle tient, à
+ * `t`, l'heure du serveur : à l'échéance de l'étape qui court — sous la pause
+ * de « Quitter ? », reculée de ce qui reste de pause, la confirmation encore
+ * ouverte —, tout de suite si elle est passée ; jamais sans l'écran du
+ * jeu, qui dit ce qui part, ni sans chrono : la mise qui se décide, le choix du
+ * Pari, la révélation. Sortie de l'effet qui l'appelle : gardée par son seul
+ * texte, une garde changée en `if (pret || !pret) return` — plus jamais rien
+ * d'envoyé — passait toutes les épreuves (l'audit du code du 25 octobre 2026).
+ */
+export function aEnvoyerALEcheance(vue: Pick<VueDeLaPartie, 'phase' | 'chrono' | 'maintenant'>, t: number, pret: unknown): number | null {
+  if (!pret || (vue.phase !== 'jouer' && vue.phase !== 'pause')) return null
+  const c = chronoMontre(vue, t)
+  return c ? Math.max(0, c.echeance - t) : null
+}
+
+/**
  * La vue `b` remplace-t-elle `a` ? Jamais une plus ancienne : deux réponses
  * se croisent — un geste et la page relue au retour au premier plan, la
  * réponse « auto » et un toucher —, et la dernière arrivée n'est pas toujours
@@ -301,9 +317,19 @@ const etapeDe = (vue: VueDeLaPartie) => {
 }
 
 /**
+ * Les secondes qui pressent, au chrono d'une manche : ses manches durent de 25
+ * à 120 secondes, et les cinq d'une question de soirée y arrivaient tard.
+ */
+export const SECONDES_QUI_PRESSENT = 10
+
+/**
  * La tête collée : les trois manches — jouées, leurs étoiles ; celle qui se
  * joue, cerclée —, les étoiles sur neuf, « Quitter », et le chrono quand il
  * court. Elle pose `--bg` sous elle : les thèmes repeignent `.card` d'un verre.
+ * « Quitter » est une icône et son mot : quand la tête n'a plus la place — le
+ * texte agrandi, la niche posée —, le mot se cache (`@container tete`,
+ * `styles.css`) et le bouton garde son nom ; au texte du téléphone à 130 %,
+ * « 0 / 9 ★ » passait dessous (Jeanne, à la tablée du 25 octobre 2026).
  */
 function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono: ChronoMontre | null; onQuitter: () => void }) {
   return (
@@ -324,12 +350,13 @@ function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono
           {` / ${ETOILES_D_UNE_PARTIE} ★`}
         </span>
         {vue.phase !== 'finie' && (
-          <button type="button" className="btn cab-quitter" {...toucher(onQuitter)}>
-            Quitter
+          <button type="button" className="btn cab-quitter" aria-label="Quitter" {...toucher(onQuitter)}>
+            <Icon name="x" />
+            <span className="cab-quitter-mot">Quitter</span>
           </button>
         )}
       </div>
-      {chrono && <TimerBar deadline={chrono.echeance} duration={chrono.dureeMs / 1000} frozenMs={chrono.figeMs} />}
+      {chrono && <TimerBar deadline={chrono.echeance} duration={chrono.dureeMs / 1000} frozenMs={chrono.figeMs} urgence={SECONDES_QUI_PRESSENT} />}
     </header>
   )
 }
@@ -410,13 +437,21 @@ export function MiserOuPas({ vue, manche, busy, onMiser }: { vue: VueDeLaPartie;
  * route, la pause écrite dont la réponse s'est perdue — a son « Continuer »
  * sous le voile (`onReprendre`) : sans lui, la manche restait cachée, sans un
  * bouton, jusqu'à son échéance, et ne valait rien.
+ *
+ * La pause bornée passée, le chrono reprend sous le voile (`repris`) : le
+ * voile le dit, en une région qui se dit — il disait « En pause » pendant que
+ * les secondes défilaient dans la tête (Lucas, à la tablée du 25 octobre
+ * 2026).
  */
-export function VoileDeLaPause({ busy = false, onReprendre }: { busy?: boolean; onReprendre?: () => void }) {
+export function VoileDeLaPause({ busy = false, repris = false, onReprendre }: { busy?: boolean; repris?: boolean; onReprendre?: () => void }) {
+  const attente = onReprendre ? 'Ta manche t’attend, cachée.' : repris ? 'Ta manche reste cachée : réponds à « Quitter ? »' : 'La manche se cache le temps de ta réponse.'
   return (
     <div className="cab-voile" role="note">
-      <Icon name="pause" />
-      <b>En pause</b>
-      <span>{espacesFines(onReprendre ? 'Ta manche t’attend, cachée.' : 'La manche se cache le temps de ta réponse.')}</span>
+      <Icon name={repris ? 'hourglass' : 'pause'} />
+      <p className="cab-voile-dit" aria-live="polite">
+        <b>{repris ? 'Le chrono a repris' : 'En pause'}</b>
+        <span>{espacesFines(attente)}</span>
+      </p>
       {onReprendre && (
         <button type="button" className="btn btn-primary btn-big" aria-disabled={busy || undefined} {...toucher(() => !busy && onReprendre())}>
           Continuer
@@ -474,6 +509,57 @@ export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: 
   )
 }
 
+// ── Ce que la tête et le pied collés laissent à la manche ─────────────────
+
+/** Ce qui borne la bande d'une manche, et qu'on surveille : la tête et le pied collés, la question qui se colle sous la tête. */
+const CE_QUI_BORNE_LA_BANDE = '.cab-tete-partie, .cab-pied-partie:not(.cab-pied-pose), .cab-manche > .cab-question'
+
+/** L'air que la carte de l'Épingle laisse sous sa question collée. */
+const AIR_SOUS_LA_QUESTION = 8
+
+/**
+ * Ce que la tête et le pied collés laissent à la manche, posé sur la page de
+ * la partie : `--cab-tete`, où se collent la question de l'Épingle et le
+ * tableau du Détail ; `--cab-fenetre`, la hauteur de la fenêtre ;
+ * `--cab-place`, ce qui reste à la carte de l'Épingle sous sa question collée
+ * — au petit téléphone, texte agrandi, la question et la carte ne tenaient
+ * jamais ensemble (la tablée du 25 octobre 2026) —, et au tableau du Détail
+ * avec un titre sous lui. En pixels de la page (`offsetHeight`), et la fenêtre
+ * ramenée à eux : sous le zoom que la tablée pose sur la page,
+ * `getBoundingClientRect` dit des pixels d'écran, et `100dvh` vaut 1,3 fenêtre.
+ */
+function poserLaBande(page: HTMLElement) {
+  const hauteur = (s: string) => page.querySelector<HTMLElement>(s)?.offsetHeight ?? 0
+  const fenetre = window.innerHeight / (page.currentCSSZoom || 1)
+  const tete = hauteur('.cab-tete-partie')
+  const place = fenetre - tete - hauteur('.cab-pied-partie:not(.cab-pied-pose)') - hauteur('.cab-manche > .cab-question') - AIR_SOUS_LA_QUESTION
+  page.style.setProperty('--cab-tete', `${tete}px`)
+  page.style.setProperty('--cab-fenetre', `${Math.round(fenetre)}px`)
+  page.style.setProperty('--cab-place', `${Math.max(0, Math.floor(place))}px`)
+}
+
+/**
+ * La bande mesurée à chaque rendu — une manche neuve, un pied qui grandit, une
+ * carte-bonus qui se pose —, puis tenue à jour quand la tête, le pied ou la
+ * question changent de taille (la tête passe à la ligne, un indice d'Éclairer)
+ * et quand la fenêtre change (le téléphone tourné).
+ */
+function useBandeDeLaManche(page: RefObject<HTMLDivElement | null>) {
+  useLayoutEffect(() => {
+    const el = page.current
+    if (!el) return
+    const poser = () => poserLaBande(el)
+    poser()
+    const suivi = typeof ResizeObserver === 'function' ? new ResizeObserver(poser) : null
+    el.querySelectorAll(CE_QUI_BORNE_LA_BANDE).forEach(c => suivi?.observe(c))
+    window.addEventListener('resize', poser)
+    return () => {
+      suivi?.disconnect()
+      window.removeEventListener('resize', poser)
+    }
+  })
+}
+
 export interface PropsDeLEcran {
   vue: VueDeLaPartie
   /** L'écran du jeu : en chemin (null), ou perdu — le navigateur garde l'échec d'un `import()`. */
@@ -497,11 +583,14 @@ export interface PropsDeLEcran {
 }
 
 /**
- * Une partie à l'écran, telle que la vue la dit — pur : le contrôleur
- * (`Partie`) tient la vue, les gestes, le chrono et ce que la page tient seule.
+ * Une partie à l'écran, telle que la vue la dit — pur, sa bande mesurée à part
+ * (`useBandeDeLaManche`) : le contrôleur (`Partie`) tient la vue, les gestes,
+ * le chrono et ce que la page tient seule.
  */
 export function EcranDeLaPartie(p: PropsDeLEcran) {
   const { vue, ecran } = p
+  const page = useRef<HTMLDivElement>(null)
+  useBandeDeLaManche(page)
   const r = vue.revelation
   const ouverte = vue.phase === 'avant' ? 0 : p.miser
   let corps: ReactNode
@@ -534,7 +623,8 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
       </button>
     )
   } else if (vue.phase === 'pause') {
-    corps = <VoileDeLaPause busy={p.busy} onReprendre={p.onReprendre} />
+    // Sa pause passée, le chrono court sous le voile : `chronoMontre` ne le fige plus.
+    corps = <VoileDeLaPause busy={p.busy} repris={p.chrono !== null && p.chrono.figeMs === undefined} onReprendre={p.onReprendre} />
   } else if (vue.enCours) {
     const manche: PropsDUneManche<MancheMontree, unknown> = {
       montree: vue.enCours,
@@ -568,7 +658,7 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
   // Rien ne court entre deux manches, ni avant la mise : on peut repartir au musée, la partie l'y attend.
   const sansChrono = vue.phase === 'revele' || (vue.phase === 'avant' && !vue.chrono)
   return (
-    <div className="player-shell cab-page cab-partie">
+    <div ref={page} className="player-shell cab-page cab-partie">
       {sansChrono && <Sortie vers="Le Cabinet" href="/cabinet" onClick={p.onMusee} />}
       <TeteDeLaPartie vue={vue} chrono={p.chrono} onQuitter={p.onQuitter} />
       <div className="quiz-player cab-manche">{corps}</div>
@@ -731,12 +821,11 @@ export function Partie({
     if (garde()) void jouer(geste)
   }
 
-  // À l'échéance, la page envoie ce qu'elle tient — sous la confirmation ouverte aussi : passées les trente secondes, le chrono a
-  // repris sous le voile. Une vue neuve (un geste, une pause, une reprise) annule l'envoi prévu et en prévoit un autre.
+  // À l'échéance, la page envoie ce qu'elle tient — sous la confirmation ouverte aussi : la pause passée, le chrono a repris sous
+  // le voile (`aEnvoyerALEcheance`). Une vue neuve (un geste, une pause, une reprise) annule l'envoi prévu et en prévoit un autre.
   useEffect(() => {
-    if (!pret || (vue.phase !== 'jouer' && vue.phase !== 'pause')) return
-    const c = chronoMontre(vue, serverNow())
-    if (!c) return
+    const dans = aEnvoyerALEcheance(vue, serverNow(), pret)
+    if (dans === null || !pret) return
     const { rang, manche, enCours } = vue
     return insister(
       async () => {
@@ -744,7 +833,7 @@ export function Partie({
         const reponse = pret.aLEcheance(enCours, localRef.current)
         await jouer({ quoi: 'repondre', manche, auto: true, ...(reponse && { reponse }) }, true)
       },
-      { premier: Math.max(0, c.echeance - serverNow()) },
+      { premier: dans },
     )
   }, [vue, pret, jouer])
 
@@ -788,7 +877,8 @@ export function Partie({
         }
       }
       const { titre, message } = messageDuQuitter(vueRef.current, { pauseMs, refus })
-      const oui = await confirmDialog({ title: titre, message, confirmLabel: 'Quitter', cancelLabel: 'Continuer', danger: true })
+      // « Quitter la partie » : la tête porte déjà un « Quitter », et Camille ne savait lequel toucher (la tablée du 25 octobre 2026).
+      const oui = await confirmDialog({ title: titre, message, confirmLabel: 'Quitter la partie', cancelLabel: 'Continuer', danger: true })
       // Fermée par la partie qui se démonte : rien ne part d'un écran qui n'est plus là. La partie attend au musée, en pause —
       // « Reprendre » la rouvre sous son voile, qui a son « Continuer » —, et le chrono n'attend pas plus de trente secondes.
       if (!monte.current) return 'parti'

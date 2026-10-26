@@ -28,7 +28,7 @@ export interface CarteJouable {
   epingle: Point | null
   poser: (p: Point) => void
   planter: () => void
-  /** Ce que l'oreille entend de la carte quand elle y revient : la consigne, puis où est l'épingle — le pied le dit en la posant. */
+  /** Ce que l'oreille entend de la carte quand elle y revient : la consigne, puis où est l'épingle — la ligne au-dessus de la carte le dit en la posant. */
   aide: string
 }
 

@@ -79,11 +79,15 @@ function useAdresseQuiInsiste(adresse: string | null): { src: string | null; rat
 /**
  * Le tableau sous les yeux : le cadrage atteint, dans un cadre de hauteur fixe
  * — un détail en largeur, puis un en hauteur, ne font pas sauter les titres
- * sous le doigt —, et la jauge de ses pas, posée dans le cadre : une ligne de
- * moins au-dessus des titres. Une seule balise d'image, gardée d'un cadrage à
- * l'autre : le navigateur garde l'image d'avant à l'écran tant que la suivante
- * arrive, et le tableau ne clignote pas à chaque pas. Un autre tableau —
- * « Changer » — a la sienne (`key`) : l'image d'avant n'est pas la sienne.
+ * sous le doigt —, collé sous la tête de la partie quand les titres défilent
+ * (`styles.css`) : en 360 × 640, le tableau et ses quatre titres ne tenaient
+ * pas ensemble, et Jeanne faisait des allers-retours pendant cinquante-cinq
+ * secondes (la tablée du 25 octobre 2026). La jauge de ses pas se pose dans le
+ * cadre : une ligne de moins au-dessus des titres. Une seule balise d'image,
+ * gardée d'un cadrage à l'autre : le navigateur garde l'image d'avant à
+ * l'écran tant que la suivante arrive, et le tableau ne clignote pas à chaque
+ * pas. Un autre tableau — « Changer » — a la sienne (`key`) : l'image d'avant
+ * n'est pas la sienne.
  */
 function TableauSousLesYeux({ m, partie, tirage }: { m: DetailMontre } & OuEstLaManche) {
   const { src, rate } = useAdresseQuiInsiste(tirage === undefined ? null : adresseDUnCadrage(partie, tirage, m.cadrage))
@@ -104,12 +108,10 @@ function MancheDuDetail({ montree: m, partie, tirage, envoyer, garde, busy }: Pr
   const reculer = () => m.peutReculer && !busy && garde() && envoyer({ quoi: 'reculer' })
   return (
     <>
-      {/* La question en titre, à la taille d'un surtitre : le focus s'y pose quand la manche s'ouvre (`rendreLeFocus`), et le tableau garde la place. */}
+      {/* La question en titre, à la taille d'un surtitre : le focus s'y pose quand la manche s'ouvre (`rendreLeFocus`), et le tableau
+          garde la place. Ce que vaut la réponse, sur sa ligne : sous le tableau, il coûtait une ligne entre lui et ses titres. */}
       <div className="cab-tete-question">
         <h2 className="cab-question cab-surtitre">{espacesFines(QUESTION_DU_TABLEAU)}</h2>
-      </div>
-      <TableauSousLesYeux m={m} partie={partie} tirage={tirage} />
-      <div className="cab-detail-gestes">
         {/* Au tableau entier, la réponse ne vaut plus rien : trois étoiles vides s'y lisaient comme trois étoiles. */}
         {m.vaut > 0 ? (
           <p className="cab-vaut">
@@ -118,6 +120,9 @@ function MancheDuDetail({ montree: m, partie, tirage, envoyer, garde, busy }: Pr
         ) : (
           <p className="cab-vaut">{espacesFines('Ta réponse ne vaut plus d’étoile')}</p>
         )}
+      </div>
+      <TableauSousLesYeux m={m} partie={partie} tirage={tirage} />
+      <div className="cab-detail-gestes">
         <button type="button" className="btn cab-reculer" aria-disabled={!m.peutReculer || busy || undefined} {...toucher(reculer)}>
           <Icon name="maximize" />
           Reculer d’un pas

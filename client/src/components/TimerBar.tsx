@@ -16,6 +16,12 @@ interface Props {
   ticking?: boolean
   /** Chronomètre figé par l'animateur : temps restant en ms, plus rien ne bouge. */
   frozenMs?: number
+  /**
+   * Les secondes qui pressent : cinq d'office, celles d'une question de soirée.
+   * Le Cabinet en compte dix — ses manches durent de 25 à 120 secondes, et cinq
+   * y arrivaient tard.
+   */
+  urgence?: number
 }
 
 const URGENT_FROM = 5
@@ -24,14 +30,20 @@ const URGENT_FROM = 5
  * Une ligne fine qui se vide, doublée d'un grand chiffre serif. Sur un
  * vidéoprojecteur, la ligne se lit du fond de la salle bien mieux qu'un
  * chiffre — et elle rend la tension visible sans avoir à compter.
+ *
+ * Quand le temps presse, la ligne vire au rouge, mais pas seulement : un
+ * sablier paraît devant les secondes, la barre s'épaissit et le chiffre
+ * s'appuie (`styles.css`). En deutéranopie, le rouge devenait un kaki plus
+ * sombre que l'or, et sous « réduire les animations » la pulsation s'arrête :
+ * la daltonienne de la tablée du 25 octobre 2026 ne voyait pas l'urgence.
  */
-export function TimerBar({ deadline, duration, ticking, frozenMs }: Props) {
+export function TimerBar({ deadline, duration, ticking, frozenMs, urgence = URGENT_FROM }: Props) {
   const lastTick = useRef<number>(-1)
   const barre = useRef<HTMLDivElement>(null)
   const paused = frozenMs !== undefined
   const enCours = useSecondesRestantes(deadline, !paused)
   const seconds = frozenMs !== undefined ? Math.ceil(Math.max(0, frozenMs) / 1000) : enCours
-  const urgent = seconds <= URGENT_FROM
+  const urgent = seconds <= urgence
 
   // La barre ne change jamais de largeur : elle se vide par `scaleX`, en une
   // seule animation que le compositeur joue sans réveiller la page. Réécrire
@@ -77,9 +89,10 @@ export function TimerBar({ deadline, duration, ticking, frozenMs }: Props) {
         <div ref={barre} className="timer-fill" />
       </div>
       {/* En pause, les secondes restent à côté de l'icône : on sait combien
-          il en restera à la reprise. */}
+          il en restera à la reprise. Quand le temps presse, un sablier : une
+          forme, que ni la couleur ni le mouvement ne portent seuls. */}
       <span className={'timer-seconds' + (urgent && !paused ? ' urgent' : '') + (paused ? ' paused' : '')}>
-        {paused && <Icon name="pause" />}
+        {paused ? <Icon name="pause" /> : urgent && <Icon name="hourglass" />}
         {seconds}
       </span>
     </div>
