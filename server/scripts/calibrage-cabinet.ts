@@ -1673,7 +1673,8 @@ function parcourir(j: Joueur, k: number): Parcours {
       let versLui: Proposee | null = null
       const proposer = (vaut: number, demande: Parameters<typeof M.cadreDuDepart>[1], objectif: Objectif) => {
         if (!mieux || vaut > mieux.vaut) mieux = { vaut, demande, objectif }
-        const dansSaSalle = demande.origine === 'chasse' && objectif.seuil !== null && salleDuGardien !== null && oeuvre(demande.oeuvre)?.salle === salleDuGardien
+        // Une retente vise sa case, pas une œuvre nommée (`DemandeDeRetente`) : seule une chasse à une œuvre se range vers le gardien.
+        const dansSaSalle = demande.origine === 'chasse' && 'oeuvre' in demande && objectif.seuil !== null && salleDuGardien !== null && oeuvre(demande.oeuvre)?.salle === salleDuGardien
         if (dansSaSalle && (!versLui || vaut > versLui.vaut)) versLui = { vaut, demande, objectif }
       }
       for (const o of OEUVRES) {
