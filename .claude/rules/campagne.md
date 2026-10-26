@@ -81,18 +81,24 @@ paths:
   qu'elles comptent (`MODES_QUE_LES_MISSIONS_COMPTENT`, `shared/missions.ts`,
   que le test compare à `activiteDesJours`) : les parties du Cabinet,
   toutes du jour, passaient à chaque page. Le test relit chacune sous des
-  statistiques qui préféreraient le mauvais index, et montre que, sans son
-  `+`, elle s'y égare. À la fin d'une partie de la campagne — du Cabinet
-  aussi, par sa porte —, le compagnon qui grandit lit le journal tel que la
-  fin vient de le laisser (`compagnonsApresSesReponses`, passé à
-  `ProfileStore.faireGrandir` : `rattraperLeJournal(derniereReponse)`), et
-  les bonnes réponses de ses soirées se gardent par profil, oubliées à
-  chaque soirée créditée, retirée ou remise au barème
-  (`ProfileStore.justesDeSesSoirees`) : cette fin payait deux
-  allers-retours de plus (`cabinet-charge.test.ts`). Une page qui les lit
-  — la niche, la boutique, la fin d'un quiz du jour ou d'une soirée —
-  rattrape tout (`compagnonsDe`) : ce qu'un autre serveur, ou un test à la
-  main, a écrit y paraît à la lecture suivante (`niche-paliers.test.ts`).
+  statistiques qui préféreraient le mauvais index — la tentative du défi et
+  celle d'un duel, sans leur `+`, s'y égarent —, et la lecture des missions
+  la sienne sous celles d'une production. À la fin d'une partie — de la
+  campagne, du Cabinet par sa porte, du quiz du jour, d'un quiz de soirée —,
+  le compagnon qui grandit (`ProfileStore.faireGrandir`) lit les bonnes
+  réponses de ses soirées gardées par profil (`justesDeSesSoirees`),
+  oubliées à chaque soirée créditée, retirée ou remise au barème ici ; la
+  fin d'une partie de la campagne y joint le journal tel qu'elle vient de le
+  laisser (`compagnonsApresSesReponses` :
+  `rattraperLeJournal(derniereReponse)`) : cette fin payait deux
+  allers-retours de plus (`cabinet-charge.test.ts`). Une page qui les lit —
+  la niche, la forme qu'il porte, la boutique — relit tout (`compagnonsDe` :
+  son historique, le journal rattrapé) : ce qu'un autre serveur, ou un test
+  à la main, a écrit y paraît à la lecture suivante (`niche-paliers.test.ts`,
+  `cabinet-charge.test.ts`), et ce qu'elle relit de ses soirées, la fin
+  suivante le garde. Gardées aussi pour les pages, les soirées que l'autre
+  serveur d'une mise en ligne avait créditées ne s'y voyaient qu'au
+  redémarrage : la forme que la salle venait d'annoncer se refusait.
 - **Un tirage ne repasse plus toute la base**, à chaque série, défi, duel
   ou dé : vingt-cinq mille questions (25 529 le 17 octobre 2026), au
   dixième de cœur de l'hébergeur. La liste des jouables se garde tant que

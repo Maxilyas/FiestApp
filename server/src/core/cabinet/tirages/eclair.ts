@@ -12,60 +12,24 @@
 // 7 658 questions examinées par départ pour un fidèle, contre 25 pour un
 // joueur neuf — et posait cinq affirmations déjà vues quand d'autres
 // catégories l'attendaient (la revue de sobriété du 25 octobre 2026).
-import type { QuestionDeLaBase } from '../../baseCampagne'
 import { AFFIRMATIONS_DE_L_ECLAIR, MARCHES_DE_L_ECLAIR } from '../../../../../shared/cabinet/bareme'
-import { niveauDeQuestion, type MesureDUneQuestion } from '../../../../../shared/campagne'
 import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
 import { affirmationDe, type AffirmationTiree, type EclairTire } from '../../../../../shared/cabinet/jeux/eclair'
 import { battre } from '../../../../../shared/cabinet/jeux/outils'
 import { commeLaPartieLaGarde, tirerDesQuestions } from './communs'
 import type { ContexteDuTirage, Posees } from './communs'
-import { qcmDeLaCategorie } from './tas'
-
-/** Les QCM qu'un Éclair peut poser, à ses marches : la catégorie de chacun par son identifiant, et combien chaque catégorie en a. */
-interface QcmDeLEclair {
-  categorieDe: ReadonlyMap<string, Categorie>
-  combien: ReadonlyMap<Categorie, number>
-}
-
-/**
- * Ses QCM à ses marches, pour cette liste de jouables et cette mesure : une
- * passe sur les tas, une fois par mesure — elle change toutes les dix minutes,
- * la marche d'une question avec elle —, gardée ensuite par l'identité des
- * deux (`WeakMap`).
- */
-const QCM_DE_L_ECLAIR = new WeakMap<readonly QuestionDeLaBase[], WeakMap<ReadonlyMap<string, MesureDUneQuestion>, QcmDeLEclair>>()
-
-function qcmDeLEclair(ctx: ContexteDuTirage): QcmDeLEclair {
-  let parMesure = QCM_DE_L_ECLAIR.get(ctx.jouables)
-  if (!parMesure) QCM_DE_L_ECLAIR.set(ctx.jouables, (parMesure = new WeakMap()))
-  let lus = parMesure.get(ctx.mesures)
-  if (!lus) {
-    const categorieDe = new Map<string, Categorie>()
-    const combien = new Map<Categorie, number>()
-    for (const c of CATEGORIES) {
-      let n = 0
-      for (const q of qcmDeLaCategorie(ctx.porte, ctx.jouables, c)) {
-        if (!MARCHES_DE_L_ECLAIR.includes(niveauDeQuestion(q.meta.difficulte, ctx.mesures.get(q.id)))) continue
-        categorieDe.set(q.id, c)
-        n++
-      }
-      combien.set(c, n)
-    }
-    parMesure.set(ctx.mesures, (lus = { categorieDe, combien }))
-  }
-  return lus
-}
+import { qcmDeLaCategorie, qcmDeLEclair } from './tas'
 
 /**
  * Ce qu'il reste à chaque catégorie de QCM jamais vus, à ses marches : ce
  * qu'elle a, moins ce qu'il en a vu — une passe sur ses vues, jamais sur les
- * tas, qu'un joueur neuf ne paie donc pas. « Jamais vu » comme le tirage
- * l'entend (`fraicheurDe`) : vu une fois, même il y a un an, ce n'est plus
- * l'arrêt de sa lecture.
+ * tas, qu'un joueur neuf ne paie donc pas ; ses QCM à ses marches, la passe
+ * que les tas préparent et qu'une mesure neuve refait en fond
+ * (`qcmDeLEclair`). « Jamais vu » comme le tirage l'entend (`fraicheurDe`) :
+ * vu une fois, même il y a un an, ce n'est plus l'arrêt de sa lecture.
  */
 function jamaisVues(ctx: ContexteDuTirage): Map<Categorie, number> {
-  const { categorieDe, combien } = qcmDeLEclair(ctx)
+  const { categorieDe, combien } = qcmDeLEclair(ctx.porte, ctx.jouables, ctx.mesures)
   const restent = new Map(combien)
   for (const id of ctx.vues.keys()) {
     const c = categorieDe.get(id)

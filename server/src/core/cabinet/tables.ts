@@ -132,16 +132,20 @@ export const champDuDepart = (champ: 'origine' | 'visite') => `CASE WHEN json_va
 
 /**
  * Les parties du Cabinet qu'un profil a commencées depuis minuit, par l'index
- * `(profile_id, commencee_le)` : le `+` devant le mode écarte celui des
- * sentiers `(profile_id, mode, …)`, qui parcourrait toutes ses parties du
- * Cabinet depuis toujours — dix par jour et par joueur — pour n'en garder
- * qu'une poignée (le patron `PAR_SON_CODE` des duels, règle `duels.md`).
- * Sans statistiques — la production —, SQLite prend déjà l'index du profil :
- * le `+` tient le jour où un `ANALYZE` ou le planificateur en déciderait
- * autrement. `cabinet-index.test.ts` lit le plan de chaque lecture qui la
- * porte, et celui-ci sous des statistiques qui feraient préférer les
- * sentiers. Ses deux paramètres se nomment par leur place quand un lot les
- * réutilise (`?1`).
+ * `(profile_id, commencee_le)` : ses parties du jour, de tous les modes — une
+ * poignée. Le `+` devant le mode l'y tient quoi qu'il arrive aux autres index.
+ * Sans lui, SQLite prend aujourd'hui celui du profil, du mode et de la date
+ * (`idx_campagne_series_profil_mode`, venu pour les missions le 26 octobre
+ * 2026), qui ne lirait que celles du Cabinet : un peu mieux, tant qu'il est
+ * là. Qu'il manque, et le planificateur pourrait prendre celui des sentiers
+ * `(profile_id, mode, …)`, qui parcourrait toutes ses parties du Cabinet
+ * depuis toujours — dix par jour et par joueur — pour n'en garder qu'une
+ * poignée (le patron `PAR_SON_CODE` des duels, règle `duels.md`) : le `+`
+ * borne le pire aux parties du jour. `cabinet-index.test.ts` lit le plan de
+ * chaque lecture qui la porte, et celui-ci sous des statistiques qui
+ * feraient préférer les sentiers, l'index du mode et de la date retiré. Ses
+ * deux paramètres se nomment par leur place quand un lot les réutilise
+ * (`?1`).
  */
 export const partiesDuJour = (profil = '?', minuit = '?') => `profile_id = ${profil} AND commencee_le >= ${minuit} AND +mode = 'cabinet'`
 

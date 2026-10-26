@@ -23,10 +23,10 @@ import type { PorteDeLaCampagne } from '../../porteDeLaCampagne'
 import { QUESTIONS_PAR_TRANCHE, rendreLaMain } from '../../tourniquet'
 import { contenuDuCabinet, ecritDansLesMots } from '../contenu'
 import type { CeQueLesTireursLisent } from './communs'
-import { ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, INTITULE_MAX_DU_QCM, REPONSE_MAX_DU_QCM } from '../../../../../shared/cabinet/bareme'
+import { ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, INTITULE_MAX_DU_QCM, MARCHES_DE_L_ECLAIR, REPONSE_MAX_DU_QCM } from '../../../../../shared/cabinet/bareme'
 import { motsDe } from '../../../../../shared/cabinet/jeux/indices'
 import { motDeLaQuestion } from '../../../../../shared/cabinet/jeux/mot'
-import { formeDeReponse } from '../../../../../shared/campagne'
+import { formeDeReponse, niveauDeQuestion, type MesureDUneQuestion } from '../../../../../shared/campagne'
 import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
 import { choisirLaFriseSansRepli, type EvenementDeLaFrise } from '../../../../../shared/frise'
 import { estRemplace, sujetParCle, sujetsDe } from '../../../../../shared/sujets'
@@ -259,6 +259,104 @@ export function frisesDesSujets(porte: CeQueLaBaseDonne, jouables: readonly Ques
 }
 
 /**
+ * Les QCM qu'un Éclair peut poser, à ses marches (`MARCHES_DE_L_ECLAIR`) : la
+ * catégorie de chacun par son identifiant, et combien chaque catégorie en a —
+ * d'où l'Éclair compte ce qu'il reste à chacune de jamais vu (`jamaisVues`,
+ * `tirages/eclair.ts`).
+ */
+export interface QcmDeLEclair {
+  categorieDe: ReadonlyMap<string, Categorie>
+  combien: ReadonlyMap<Categorie, number>
+}
+
+type Mesure = ReadonlyMap<string, MesureDUneQuestion>
+
+/**
+ * La dernière passe de l'Éclair faite pour chaque liste de jouables, et la
+ * mesure qu'elle a lue ; et la mesure de celle qui se fait en fond. La marche
+ * d'une question suit la mesure, relue toutes les dix minutes : gardée par
+ * mesure seulement, la passe sur ses vingt-cinq mille QCM se refaisait sur le
+ * chemin du premier départ qui trouvait la neuve, sous le verrou du profil —
+ * de l'ordre de 60 à 150 ms au dixième de cœur de l'hébergeur (la relecture du
+ * lot de sobriété, le 26 octobre 2026). Elle se prépare avec les tas, et une
+ * mesure neuve se refait en fond : l'ordre des catégories se contente, le
+ * temps de quelques tours, des marches d'il y a dix minutes — le tirage, lui,
+ * lit toujours la mesure que le départ lui donne (`cabinet-charge.test.ts`
+ * compte les mesures lues, tour par tour).
+ */
+const ECLAIRS = new WeakMap<readonly QuestionDeLaBase[], { mesures: Mesure; qcm: QcmDeLEclair }>()
+const ECLAIRS_EN_ROUTE = new WeakMap<readonly QuestionDeLaBase[], Mesure>()
+
+/** Les QCM d'une catégorie qui se posent à ses marches, à cette mesure : rangés dans `categorieDe`, et leur nombre. */
+function eclairDeLaCategorie(
+  porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>,
+  jouables: readonly QuestionDeLaBase[],
+  mesures: Mesure,
+  categorie: Categorie,
+  categorieDe: Map<string, Categorie>,
+): number {
+  let n = 0
+  for (const q of qcmDeLaCategorie(porte, jouables, categorie)) {
+    if (!MARCHES_DE_L_ECLAIR.includes(niveauDeQuestion(q.meta.difficulte, mesures.get(q.id)))) continue
+    categorieDe.set(q.id, categorie)
+    n++
+  }
+  return n
+}
+
+/**
+ * La passe de l'Éclair pour cette liste et cette mesure, une catégorie par
+ * tour de boucle. Rien si elle est faite, ou en route ; une mesure plus neuve
+ * demandée entre-temps l'arrête en chemin, et un tireur qui l'a faite d'un
+ * bloc pendant l'attente aussi.
+ */
+async function preparerLEclair(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], mesures: Mesure): Promise<void> {
+  if (ECLAIRS.get(jouables)?.mesures === mesures || ECLAIRS_EN_ROUTE.get(jouables) === mesures) return
+  ECLAIRS_EN_ROUTE.set(jouables, mesures)
+  try {
+    const categorieDe = new Map<string, Categorie>()
+    const combien = new Map<Categorie, number>()
+    for (const c of CATEGORIES) {
+      await rendreLaMain()
+      if (ECLAIRS_EN_ROUTE.get(jouables) !== mesures || ECLAIRS.get(jouables)?.mesures === mesures) return
+      combien.set(c, eclairDeLaCategorie(porte, jouables, mesures, c, categorieDe))
+    }
+    ECLAIRS.set(jouables, { mesures, qcm: { categorieDe, combien } })
+  } finally {
+    if (ECLAIRS_EN_ROUTE.get(jouables) === mesures) ECLAIRS_EN_ROUTE.delete(jouables)
+  }
+}
+
+/**
+ * Les QCM de l'Éclair à ses marches, pour le tireur : la passe de cette
+ * mesure si elle est faite ; sinon celle d'une mesure d'avant, et la neuve se
+ * refait en fond ; sans passe pour cette liste — un essai qui tire sans
+ * préparer, une préparation ratée —, d'un bloc, comme les tas.
+ */
+export function qcmDeLEclair(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], mesures: Mesure): QcmDeLEclair {
+  const faite = ECLAIRS.get(jouables)
+  if (faite?.mesures === mesures) return faite.qcm
+  if (faite) {
+    preparerLEclair(porte, jouables, mesures).catch(e => console.error('[cabinet] passe de l’Éclair non refaite, celle d’avant sert encore :', e))
+    return faite.qcm
+  }
+  const categorieDe = new Map<string, Categorie>()
+  const combien = new Map(CATEGORIES.map(c => [c, eclairDeLaCategorie(porte, jouables, mesures, c, categorieDe)]))
+  const qcm = { categorieDe, combien }
+  ECLAIRS.set(jouables, { mesures, qcm })
+  return qcm
+}
+
+/**
+ * Ce que le Détail et la Frise lisent du disque une fois par processus, dans
+ * l'ordre : les tableaux, puis le contenu neuf — ses juges passent sur chaque
+ * entrée, une quarantaine de millisecondes. Chacun son tour de boucle
+ * (`preparerLesTas`) : à la suite, un bloc de plus sous le premier départ d'un
+ * processus.
+ */
+export const LECTURES_DU_DISQUE: readonly (() => unknown)[] = [tableauxDuDetail, contenuDuCabinet]
+
+/**
  * Les tas d'une liste de jouables, une étape par tour de boucle : la page du
  * Cabinet les lance derrière sa réponse, comme la base de la campagne
  * (`porte.prechauffer`), et le départ qui trouve une liste neuve les attend
@@ -273,12 +371,16 @@ export function frisesDesSujets(porte: CeQueLaBaseDonne, jouables: readonly Ques
  * Chaque étape relit ce qu'une autre a pu faire pendant qu'elle attendait —
  * le tireur d'un départ, qui juge d'un bloc ce qui lui manque.
  *
- * Après les catégories, ce que le Détail et la Frise lisent du disque une fois
- * par processus — les tableaux, puis le contenu neuf, chacun son tour (ses
- * juges passent sur chaque entrée : une quarantaine de millisecondes) —, puis
+ * Après les catégories, l'Éclair à ses marches pour la mesure qu'il y a, une
+ * catégorie par tour (`qcmDeLEclair`) ; puis ce que le Détail et la Frise
+ * lisent du disque (`lectures`, `LECTURES_DU_DISQUE`), chacun son tour ; puis
  * ce qu'ils lisent de cette base.
  */
-export async function preparerLesTas(porte: CeQueLesTireursLisent, jouables: readonly QuestionDeLaBase[]): Promise<void> {
+export async function preparerLesTas(
+  porte: CeQueLesTireursLisent & Partial<Pick<PorteDeLaCampagne, 'mesures'>>,
+  jouables: readonly QuestionDeLaBase[],
+  lectures: readonly (() => unknown)[] = LECTURES_DU_DISQUE,
+): Promise<void> {
   for (const c of CATEGORIES) {
     await rendreLaMain()
     const parCategorie = tasDeLaListe(jouables)
@@ -296,10 +398,13 @@ export async function preparerLesTas(porte: CeQueLesTireursLisent, jouables: rea
     // Tous ses verdicts tenus : ses tas ne sont plus qu'un filtre — sauf si le tireur les a faits pendant l'attente.
     if (!parCategorie.has(c)) parCategorie.set(c, tasDes(siennes))
   }
-  await rendreLaMain()
-  tableauxDuDetail()
-  await rendreLaMain()
-  contenuDuCabinet()
+  // Une mesure illisible : le tireur fera l'Éclair d'un bloc, comme sans préparation.
+  const mesures = await porte.mesures?.().catch(e => (console.warn('[cabinet] mesure illisible, l’Éclair se préparera au départ :', e instanceof Error ? e.message : e), null))
+  if (mesures) await preparerLEclair(porte, jouables, mesures)
+  for (const lire of lectures) {
+    await rendreLaMain()
+    lire()
+  }
   if (!litLaBase(porte)) return
   await rendreLaMain()
   questionsDesTableaux(porte, jouables)

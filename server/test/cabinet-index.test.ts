@@ -96,7 +96,7 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
         if (/^SEARCH campagne_series\b/.test(e.detail) && !/\((id|rowid)=\?\)$/.test(e.detail)) {
           // Ses parties du jour par le profil et la date ; jamais l'index des sentiers pour le Cabinet, qui les lirait toutes.
           const duJour = /^SEARCH campagne_series USING INDEX idx_campagne_series_profil \(profile_id=\? AND commencee_le>\?\)/.test(e.detail)
-          // L'expédition qui l'attend, par le profil et le mode : l'index des sentiers, ou celui de la date (les missions, le 25 octobre 2026).
+          // L'expédition qui l'attend, par le profil et le mode : l'index des sentiers, ou celui de la date (venu pour les missions le 26 octobre 2026, après la revue de sobriété de la veille).
           const expedition = /idx_campagne_series_(sentiers|profil_mode) \(profile_id=\? AND mode=\?\)/.test(e.detail) && /'expedition'/.test(sql)
           assert.ok(duJour || expedition, `ses parties lues autrement que par le profil et la date :\n${dit}`)
         }
@@ -144,7 +144,7 @@ test('le `+` devant le mode tient les parties du jour à l’index du profil, m�
     // Cent parties par profil, deux par instant ; trois par profil et par mode — dix modes, des milliers de séries chacun.
     stat.run('campagne_series', 'idx_campagne_series_profil', '100000 100 2')
     stat.run('campagne_series', 'idx_campagne_series_sentiers', '100000 100 3 3 3')
-    // L'index du profil, du mode et de la date, venu pour les missions le 25 octobre 2026.
+    // L'index du profil, du mode et de la date, venu pour les missions le 26 octobre 2026.
     stat.run('campagne_series', 'idx_campagne_series_profil_mode', '100000 100 3 1')
     stat.run('campagne_series', 'idx_campagne_series_commencee', '100000 2')
     stat.run('campagne_series', 'idx_campagne_series_defi', '100000 10000 10')

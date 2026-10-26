@@ -787,17 +787,25 @@ export class ProfileStore {
   private compagnons = new Map<string, Map<CleDeCompagnon, SienEnMemoire>>()
   /**
    * Les bonnes réponses de ses soirées qui comptent, compagnon par compagnon
-   * (`ReleveSoiree.compagnons`) : ce que la croissance de ses compagnons lit de
-   * ses soirées (`compagnonsDe`). Elle relisait tout son historique — une ligne
-   * de `profile_xp` par soirée jouée — à chaque fin d'une partie du solo, un
-   * compagnon dans la niche : dix fois par jour au Cabinet, un aller-retour en
+   * (`ReleveSoiree.compagnons`) : ce que la fin d'une partie lit de ses soirées
+   * pour faire grandir le compagnon de sa niche (`faireGrandir`). Elle relisait
+   * tout son historique — une ligne de `profile_xp` par soirée jouée — à chaque
+   * fin d'une partie du solo : dix fois par jour au Cabinet, un aller-retour en
    * série de plus sur le bilan, et une lecture qui grandit avec ses soirées (la
    * revue de sobriété du 25 octobre 2026). Gardées tant qu'aucune ligne de ses
-   * soirées ne change : chaque écriture de l'une d'elles les oublie
+   * soirées ne change ici : chaque écriture de l'une d'elles les oublie
    * (`oublierSesSoirees`), une fois écrite — une lecture partie avant elle s'en
-   * va avec. Une soirée créditée par l'autre serveur d'une mise en ligne ne s'y
-   * voit qu'à la suivante d'ici, ou au réveil : un compagnon qui aurait dû
-   * grandir grandit alors, rien ne se perd (son rang ne fait que monter).
+   * va avec. Une page, elle, relit toujours son historique (`compagnonsDe` : la
+   * niche, la forme qu'il porte, la boutique), et ce qu'elle lit se garde : une
+   * soirée créditée par l'autre serveur d'une mise en ligne paraît à la page
+   * suivante d'ici, et la fin d'une partie la sait dès qu'une page l'a lue — la
+   * niche se lit à la première réponse de chaque page de jeu. Gardées pour
+   * toutes les lectures, elles taisaient aux pages ce que l'autre serveur avait
+   * crédité jusqu'au redémarrage : la niche gardait l'ancienne jauge, et porter
+   * la forme que la salle venait d'annoncer était refusé (la relecture du lot,
+   * le 26 octobre 2026, `cabinet-charge.test.ts`). Une fin qui ne l'a pas su
+   * n'y perd rien : son rang ne fait que monter, la page suivante le fait
+   * grandir.
    */
   private justesDesSoireesGardees = new Map<string, Promise<Readonly<Record<string, number>>>>()
   /**
@@ -2099,14 +2107,29 @@ export class ProfileStore {
    * paliers de sa niche montent de même (`PALIERS_DE_LA_NICHE`), et ne se
    * perdent pas davantage.
    *
-   * `soirees`, quand on vient de relire son historique — ou qu'on le relit ;
-   * `deCampagne`, ses bonnes réponses de campagne telles que la fin d'une
-   * partie de la campagne vient de les laisser (`faireGrandir`), à la place
-   * de la lecture d'une page (`compagnonsDeCampagne`).
+   * Une page — la niche, la forme qu'il porte, la boutique — relit tout :
+   * `soirees`, quand elle vient de relire son historique ou le relit, sinon
+   * son historique même, que la fin d'une partie gardera ensuite
+   * (`faireGrandir`) ; ce qu'un autre serveur a écrit y paraît à la lecture
+   * suivante.
    */
   async compagnonsDe(
     p: ProfileRec,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[] | Promise<readonly { gain: GainSoiree; releve: ReleveSoiree }[]>,
+  ): Promise<CompagnonAcquis[]> {
+    return this.croissance(p, () => (soirees ? Promise.resolve(soirees).then(justesDesSoirees) : this.justesDeSesSoirees(p.id, { relire: true })))
+  }
+
+  /**
+   * Ses compagnons et leur croissance (`compagnonsDe`), ses soirées lues par
+   * `lireSesSoirees` — rien de lu sans compagnon ; `deCampagne`, ses bonnes
+   * réponses de campagne telles que la fin d'une partie de la campagne vient
+   * de les laisser (`faireGrandir`), à la place de la lecture d'une page
+   * (`compagnonsDeCampagne`).
+   */
+  private async croissance(
+    p: ProfileRec,
+    lireSesSoirees: () => Promise<Readonly<Record<string, number>>>,
     deCampagne?: () => Promise<Record<string, number>>,
   ): Promise<CompagnonAcquis[]> {
     const possedes = this.compagnonsOf(p.id)
@@ -2118,7 +2141,7 @@ export class ProfileStore {
     const rien: Record<string, number> = {}
     const lireLaCampagne = deCampagne ?? (this.compagnonsDeCampagne && (() => this.compagnonsDeCampagne!(p.id)))
     const [deSesSoirees, duJour, deLaCampagne] = await Promise.all([
-      soirees ? Promise.resolve(soirees).then(justesDesSoirees) : this.justesDeSesSoirees(p.id),
+      lireSesSoirees(),
       this.compagnonsDuJour?.(p.id).catch(muette('quiz du jour')) ?? rien,
       lireLaCampagne?.().catch(muette('campagne')) ?? rien,
     ])
@@ -2136,9 +2159,13 @@ export class ProfileStore {
     return acquis
   }
 
-  /** Ses bonnes réponses de soirée, compagnon par compagnon : gardées (`justesDesSoireesGardees`), sinon relues de son historique. */
-  private justesDeSesSoirees(profileId: string): Promise<Readonly<Record<string, number>>> {
-    let gardees = this.justesDesSoireesGardees.get(profileId)
+  /**
+   * Ses bonnes réponses de soirée, compagnon par compagnon : gardées
+   * (`justesDesSoireesGardees`), sinon relues de son historique — toujours
+   * relues pour une page (`relire`), et ce qu'elle relit se garde à la place.
+   */
+  private justesDeSesSoirees(profileId: string, { relire = false } = {}): Promise<Readonly<Record<string, number>>> {
+    let gardees = relire ? undefined : this.justesDesSoireesGardees.get(profileId)
     if (!gardees) {
       const lues = this.historiqueOf(profileId).then(justesDesSoirees)
       this.justesDesSoireesGardees.set(profileId, (gardees = lues))
@@ -2164,15 +2191,16 @@ export class ProfileStore {
    * Fait grandir le compagnon de sa niche, si ses bonnes réponses l'ont mené
    * à sa forme suivante : à la fin d'un quiz, d'une partie du quiz du jour,
    * d'une série — jamais pendant une question. Rend vrai s'il a grandi : la
-   * salle où il joue le voit alors, s'il le porte. Sans compagnon, rien ne se
-   * lit — `deCampagne` non plus : la campagne le passe à la fin de ses
-   * parties, et ne paie rien pour qui n'a pas de niche.
+   * salle où il joue le voit alors, s'il le porte. Ses soirées, celles qu'il
+   * garde (`justesDesSoireesGardees`) : la fin ne relit pas son historique.
+   * Sans compagnon, rien ne se lit — `deCampagne` non plus : la campagne le
+   * passe à la fin de ses parties, et ne paie rien pour qui n'a pas de niche.
    */
   async faireGrandir(profileId: string, deCampagne?: () => Promise<Record<string, number>>): Promise<boolean> {
     const p = this.profiles.get(profileId)
     if (!p || !this.compagnonDeLaNiche(p)) return false
     const avant = this.compagnonsOf(profileId)
-    const apres = await this.compagnonsDe(p, undefined, deCampagne)
+    const apres = await this.croissance(p, () => this.justesDeSesSoirees(profileId), deCampagne)
     return apres.some(a => a.rang > (avant.find(x => x.compagnon === a.compagnon)?.rang ?? 0))
   }
 

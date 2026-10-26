@@ -51,7 +51,7 @@ const FILTRE_DES_SERIES = /(?:COALESCE\(mode, 'serie'\)|\bmode) = 'serie'/
  * Les parties d'un mode d'un profil, et elles seules : l'index des sentiers
  * `(profile_id, mode, branche, palier)`, ou celui du profil, du mode et de la
  * date `(profile_id, mode, commencee_le)`, venu pour les missions le
- * 25 octobre 2026 — sans statistiques, SQLite prend l'un ou l'autre, et l'un
+ * 26 octobre 2026 — sans statistiques, SQLite prend l'un ou l'autre, et l'un
  * vaut l'autre ici.
  */
 const PAR_LE_PROFIL_ET_LE_MODE = /^SEARCH campagne_series USING (COVERING )?INDEX idx_campagne_series_(sentiers|profil_mode) \(profile_id=\? AND mode=\?/
