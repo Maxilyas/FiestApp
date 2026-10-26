@@ -64,10 +64,11 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
   const { cabinet } = await magasinDEssai(fichier, horloge)
   // De la poussière d'or, posée avant sa première page, pour qu'il ait de quoi dépenser.
   aLaMain(fichier, "INSERT INTO cabinet_profils (profile_id, poussiere, cree_le, maj_le) VALUES ('qui', 1000, 0, 0)")
-  // Une page froide, un départ libre, sa première réponse, « Quitter » ; puis une case de la visite et une chasse ;
-  // un achat, deux dorures, un échange, un cartel, une partie finie relue : chaque lecture et chaque garde que le
-  // magasin envoie.
+  // Une page froide, une dorure — la première dépense du jour, qui fige la visite —, un départ libre, sa première
+  // réponse, « Quitter » ; puis une case de la visite et une chasse ; un achat, une dorure, un échange, un cartel, une
+  // partie finie relue : chaque lecture et chaque garde que le magasin envoie.
   await cabinet.page('qui')
+  await cabinet.dorer('qui', 'prudence', prixDe('prudence', 'dorure'))
   const libre = await cabinet.commencer('qui', { origine: 'libre', jeu: 'pari', carte: null })
   const plan = departEnBase(fichier, libre.id)
   const q1 = (plan.tirages[0] as { q1: { bonne: number } }).q1
@@ -80,7 +81,6 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
   assert.ok('partie' in (await cabinet.geste('qui', chasse.id, 2, { quoi: 'quitter' })))
   await cabinet.acheter('qui', 'lancee', prixDe('lancee', 'achat'))
   await cabinet.dorer('qui', 'lancee', prixDe('lancee', 'dorure'))
-  await cabinet.dorer('qui', 'prudence', prixDe('prudence', 'dorure'))
   await cabinet.echanger('qui', 1)
   assert.ok('cartel' in (await cabinet.cartel('qui', 'lancee')))
   assert.equal((await cabinet.partie('qui', libre.id))?.etat.fin?.pourquoi, 'quittee')
@@ -88,6 +88,7 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
   const db = new Database(fichier, { readonly: true })
   try {
     assert.ok(envoyees.size >= 10, `${envoyees.size} instructions relevées`)
+    assert.ok([...envoyees.keys()].some(sql => /^UPDATE cabinet_profils SET visites = \?/.test(sql)), 'la visite que la première dépense du jour fige')
     for (const [sql, args] of envoyees) {
       const plan = db.prepare(`EXPLAIN QUERY PLAN ${anonyme(sql).sql}`).all(...anonyme(sql, args).args) as Etape[]
       const dit = `${plan.map(e => `${e.id}<${e.parent} ${e.detail}`).join('\n')}\n— ${sql.replace(/\s+/g, ' ')}`

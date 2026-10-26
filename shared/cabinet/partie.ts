@@ -812,7 +812,7 @@ export function poussiereDeLaPartie(d: DepartDUnePartie, r: { total: number; iss
 export interface BilanDUnePartie {
   /** Sa version, telle qu'écrite. */
   v: VersionDuBilan
-  /** Après les pouvoirs : une manche misée parfaite peut valoir 3 + 4. */
+  /** Après les pouvoirs : une manche misée parfaite vaut trois plus le bonus de sa mise (`BONUS_DE_MISE`). */
   etoiles: [number, number, number]
   /** Avant les pouvoirs : le cadre doré et la juste les lisent. */
   naturel: [number, number, number]

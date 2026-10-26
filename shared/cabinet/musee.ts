@@ -67,7 +67,11 @@ export interface CaseFigee {
   but: 'gagner' | 'dorer' | null
 }
 
-/** La visite d'un jour, figée au premier lot du jour qui écrit : `cabinet_profils.visites`, les trois derniers jours. */
+/**
+ * La visite d'un jour, figée au premier lot du jour qui écrit — un départ, un
+ * échange, une dépense, la fin d'une partie d'un jour d'avant — :
+ * `cabinet_profils.visites`, les trois derniers jours.
+ */
 export interface VisiteFigee {
   jour: string
   cases: readonly CaseFigee[]
@@ -232,10 +236,16 @@ function lePlusPres(aLui: (cle: CleDOeuvre) => boolean, dort: (premier: string, 
  * La salle du prochain gardien tel qu'il était à minuit — celle qu'une case de
  * la visite vise chaque jour : ce qu'il avait à cette heure (`aMinuit`), et
  * pour endormi un premier gardien que la salle complétée depuis a réveillé.
- * Sans quoi une chasse ou un achat du matin qui complète la salle changeait la
- * visite avant le premier départ, qui seul la fige. Reste qu'un gardien venu
- * d'ailleurs le même jour — le bout d'une expédition, un palier — la change
- * encore : il la rendait déjà inutile.
+ * Ce que la règle ne peut pas savoir : d'un gardien qui veille sur une salle
+ * complétée depuis minuit, s'il dormait à minuit ou veillait déjà, venu
+ * d'ailleurs — l'achat de la dernière œuvre du Rempart sous le Phénix d'une
+ * expédition faisait passer la dernière case vers elle (la relecture du
+ * 26 octobre 2026). C'est le serveur qui tient la visite : tout lot qui fait
+ * entrer une œuvre après minuit la fige d'abord — un départ, la première
+ * dépense du jour, la fin d'une partie d'un jour d'avant —, et une œuvre du
+ * jour ne passe jamais par ici. Reste qu'un gardien venu d'ailleurs le même
+ * jour, avant tout lot — un palier —, la change encore : il rendait déjà
+ * inutile la case qui visait sa salle.
  */
 function salleDuProchainGardienAMinuit(m: Musee, aMinuit: (cle: CleDOeuvre) => boolean): CleDeSalle | null {
   const a = possedees(m)

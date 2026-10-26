@@ -148,7 +148,7 @@ function revelationDe(d: DepartDUnePartie, e: EtatDeLaPartie, m: MancheDuPli): R
 
 /**
  * Ce que vaut chaque manche à présent, et pourquoi ses étoiles diffèrent de
- * ses naturelles — « +4 : mise gagnée », « +1 : protégée » —, ou pourquoi ses
+ * ses naturelles — « +3 : mise gagnée », « +1 : protégée » —, ou pourquoi ses
  * trois étoiles ne dorent pas de cadre : une manche aidée le dit (« éclairée »,
  * « changée », « temps en plus »). À la tablée du 25 octobre 2026, un 9 sur 9
  * entrait sans cadre doré sans un mot, et « +2 : mise gagnée » se lisait comme

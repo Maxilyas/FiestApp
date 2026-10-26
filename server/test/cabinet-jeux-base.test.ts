@@ -46,7 +46,7 @@ import type { QuestionDeLaBase } from '../src/core/baseCampagne'
 import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
 import { estUnQcmDuCabinet, valeurDuFilet } from '../src/core/cabinet/tirages/tas'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART } from '../../shared/cabinet/oeuvres'
-import { NIVEAUX, niveauDeQuestion, type MesureDUneQuestion } from '../../shared/campagne'
+import { NIVEAUX, niveauDeQuestion, type MesureDUneQuestion, type Niveau } from '../../shared/campagne'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { vuesDuCabinet } from '../../shared/cabinet/vues'
 import type { ContenuTire } from '../../shared/cabinet/jeux/index'
@@ -58,7 +58,7 @@ import { refusDuPouvoir, effacablesAuPlus } from '../../shared/cabinet/pouvoirs'
 import { deplier, idDeLEclair, PREFIXE_DU_CABINET } from '../../shared/cabinet/pieces'
 import { MOTS_DU_PARI, justeDeLaPiece, trancheLaManche, type RegleDuJeu, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
 import { GESTE_A_JUGER, eclairerSertEncore, type QuestionTiree } from '../../shared/cabinet/jeux/outils'
-import { REGLE_DU_PARI, type EtatDuPari, type PariTire } from '../../shared/cabinet/jeux/pari'
+import { REGLE_DU_PARI, marchesDuPari, type EtatDuPari, type PariTire } from '../../shared/cabinet/jeux/pari'
 import { REGLE_DE_L_ECLAIR, affirmationDe, type EclairTire } from '../../shared/cabinet/jeux/eclair'
 import { REGLE_DU_MOT, couleursDuMot, etatDesTouches, longueurRefusee, motDeLaQuestion, type MotMontre, type MotRevele, type MotTire } from '../../shared/cabinet/jeux/mot'
 import {
@@ -930,6 +930,8 @@ test('la marche suit l’enjeu : une épique et une dorure tirent aussi le diffi
   const epique = enjeuDuTirage({ cible: 'bastion', but: 'gagner' })
   assert.deepEqual(epique, { marchesEnPlus: ['difficile'], friseSerree: true })
   assert.deepEqual(enjeuDuTirage({ cible: 'plume', but: 'dorer' }), { marchesEnPlus: ['difficile'], friseSerree: false }, 'pour dorer, une commune aussi')
+  // La règle que le tireur et le calibrage lisent, une seule : la question du pari plus haute que la première.
+  assert.deepEqual(['facile', 'moyen', 'difficile'].map(m => marchesDuPari(m as Niveau)), [['difficile', 'expert'], ['difficile', 'expert'], ['expert']])
   // Une base qui a ses expertes : la question du pari d'une première difficile en est une.
   const expertes = CATEGORIES.flatMap((c, k) => Array.from({ length: 8 }, (_, i) => questionDuCabinet(k * 1000 + 300 + i, c, 5)))
   const base = baseDuCabinet(8, expertes)
@@ -953,6 +955,29 @@ test('la marche suit l’enjeu : une épique et une dorure tirent aussi le diffi
     for (const t of tirerLePlan('pari', surCesQuestions(base.questions), 0) as PariTire[]) {
       assert.ok(['facile', 'moyen'].includes(t.q1.niveau) && ['difficile', 'expert'].includes(t.q2.niveau))
     }
+  }
+})
+
+test('le Mot mystère et le Filet suivent l’enjeu aussi : une épique y tire le difficile, jamais l’expert ; sans enjeu, facile ou moyen', () => {
+  // Leurs tireurs lisent l'enjeu par `marchesDuTirage`, comme le Pari et l'Éclair : sans lui, la marche des épiques
+  // disparaissait de ces deux jeux sans qu'une épreuve rougisse (la relecture du 26 octobre 2026). Des mots et des
+  // estimations difficiles et expertes, dans chaque catégorie.
+  const enPlus = CATEGORIES.flatMap((c, k) =>
+    [4, 5].flatMap((d, m) => [0, 1].flatMap(i => [motDuCabinet(100 + 8 * k + 4 * m + 2 * i, c, d), valeurDuCabinet(101 + 8 * k + 4 * m + 2 * i, c, d)])),
+  )
+  const base = baseDuCabinet(8, enPlus)
+  const epique = enjeuDuTirage({ cible: 'bastion', but: 'gagner' })
+  const niveaux = (jeu: 'mot' | 'filet', enjeu?: EnjeuDuTirage) => {
+    const vus = new Set<string>()
+    for (let essai = 0; essai < 30; essai++) {
+      for (const t of tirerLePlan(jeu, surCesQuestions(base.questions, enjeu && { enjeu }), 0) as (MotTire | FiletTire)[]) vus.add(t.question.niveau)
+    }
+    return vus
+  }
+  for (const jeu of ['mot', 'filet'] as const) {
+    const sous = niveaux(jeu, epique)
+    assert.ok(sous.has('difficile') && !sous.has('expert'), `${jeu}, pour une épique : ${[...sous]}`)
+    assert.deepEqual([...niveaux(jeu)].filter(n => n !== 'facile' && n !== 'moyen'), [], `${jeu}, sans enjeu`)
   }
 })
 

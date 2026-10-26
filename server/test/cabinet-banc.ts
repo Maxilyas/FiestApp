@@ -71,6 +71,9 @@ export function questionDuCabinet(i: number, categorie: Categorie, difficulte: n
   })
 }
 
+/** La marche qu'un intitulé d'essai dit de sa difficulté estimée. */
+const MARCHES_DITES: Readonly<Record<number, string>> = { 2: 'facile', 3: 'moyenne', 4: 'difficile', 5: 'experte' }
+
 /** Les mots du Mot mystère d'essai : vingt-quatre, distincts, de cinq à sept lettres, deux par catégorie. */
 const MOTS_D_ESSAI = ['Balcon', 'Cerise', 'Domino', 'Falaise', 'Girafe', 'Harpe', 'Igloo', 'Jardin', 'Lagune', 'Marmite', 'Nuage', 'Orage', 'Paprika', 'Quartz', 'Radeau', 'Sabre', 'Tulipe', 'Valse', 'Wagon', 'Yaourt', 'Zeste', 'Abeille', 'Bougie', 'Citron']
 
@@ -86,16 +89,19 @@ const MOTS_D_ESSAI = ['Balcon', 'Cerise', 'Domino', 'Falaise', 'Girafe', 'Harpe'
  * l'efface désormais ; elle le changeait en espace, et l'épreuve qui y
  * cherchait l'intitulé échouait une fois sur deux. Le banc garde ses intitulés
  * sans inversion : rien ne lui en demande.
+ *
+ * `difficulte` : une autre marche (4 difficile, 5 experte), pour une épreuve de
+ * la marche que l'enjeu ajoute ; ses mots sont ceux des rangs d'avant.
  */
-export function motDuCabinet(n: number, categorie: Categorie): QuestionDeLaBase {
+export function motDuCabinet(n: number, categorie: Categorie, difficulte = n % 2 === 0 ? 2 : 3): QuestionDeLaBase {
   const mot = (k: number) => MOTS_D_ESSAI[(n + k) % MOTS_D_ESSAI.length]
   return questionDEssai({
     id: `mot${String(n).padStart(5, '0')}`,
-    texte: `Quel mot cache le Cabinet en ${categorie}, à la marche ${n % 2 === 0 ? 'facile' : 'moyenne'} ?`,
+    texte: `Quel mot cache le Cabinet en ${categorie}, à la marche ${MARCHES_DITES[difficulte]} ?`,
     reponses: [mot(0), mot(1), mot(2), mot(3)],
     leurres: [mot(1), mot(2), mot(3), mot(4), mot(5), mot(6)],
     categorie,
-    difficulte: n % 2 === 0 ? 2 : 3,
+    difficulte,
   })
 }
 
@@ -118,9 +124,11 @@ export function anneeDuCabinet(n: number, categorie: Categorie, annee: number): 
  * Une question du Filet d'essai, la `n`-ième (0 à 23) : une année entière aux
  * rangs pairs, faciles — de 1500 à 1742, loin de l'année du départ —, une
  * estimation en kilomètres aux impairs, moyennes ; l'intitulé ne dit pas la
- * valeur (`valeurDuFilet`).
+ * valeur (`valeurDuFilet`). `difficulte` : une autre marche pour une estimation
+ * (4 difficile, 5 experte), à un rang impair — les années paires ne vont pas
+ * au-delà du 43ᵉ rang, que le recul du Filet refuserait.
  */
-export function valeurDuCabinet(n: number, categorie: Categorie): QuestionDeLaBase {
+export function valeurDuCabinet(n: number, categorie: Categorie, difficulte = 3): QuestionDeLaBase {
   if (n % 2 === 0) return anneeDuCabinet(n, categorie, 1500 + 11 * n)
   const km = 1200 + 31 * n
   const kms = (ecarts: number[]) => ecarts.map(e => `${km + e} km`)
@@ -130,7 +138,7 @@ export function valeurDuCabinet(n: number, categorie: Categorie): QuestionDeLaBa
     reponses: kms([0, 250, 500, 750]),
     leurres: kms([250, 500, 750, 100, 350, 600]),
     categorie,
-    difficulte: 3,
+    difficulte,
     valeur: { nombre: km, unite: 'km' },
   })
 }
@@ -190,20 +198,21 @@ export function dossierDEssai(): string {
 
 /**
  * Un magasin du Cabinet sur la base `fichier` — la même pour deux magasins :
- * deux serveurs, deux mémoires, une base. Ni profils ni étagère : aucun
- * légendaire, rien à ranger ; le calendrier des fêtes fermé, sauf à en donner
- * un (`calendrier`).
+ * deux serveurs, deux mémoires, une base. Ni profils ni étagère : rien à
+ * ranger, et aucun légendaire, sauf ceux qu'on donne à chacun (`legendaires` :
+ * un gardien qui veillait déjà, venu d'ailleurs) ; le calendrier des fêtes
+ * fermé, sauf à en donner un (`calendrier`).
  */
 export async function magasinDEssai(
   fichier: string,
   horloge: { t: number },
   base: BaseDeLaCampagne = baseDuCabinet(),
-  { calendrier = { periodeDu: () => null } }: Partial<Pick<ReglagesDuCabinet, 'calendrier'>> = {},
+  { calendrier = { periodeDu: () => null }, legendaires = [] }: Partial<Pick<ReglagesDuCabinet, 'calendrier'>> & { legendaires?: readonly string[] } = {},
 ): Promise<MagasinDEssai> {
   const campagne = new CampagneStore(`file:${fichier.replace(/\\/g, '/')}`, undefined, { base, maintenant: () => horloge.t })
   ouverts.campagnes.push(campagne)
   await campagne.init(REVEIL_DU_CABINET)
-  const cabinet = new CabinetStore(campagne.porte(), { legendairesOf: () => [] }, { maintenant: () => horloge.t, calendrier })
+  const cabinet = new CabinetStore(campagne.porte(), { legendairesOf: () => legendaires }, { maintenant: () => horloge.t, calendrier })
   return { campagne, cabinet, fichier }
 }
 

@@ -33,7 +33,7 @@ import { jourDe } from '../../shared/jour'
 import { saison } from '../../shared/saisons'
 import { TIREURS } from '../src/core/cabinet/tirages/index'
 import { CABINET_SANS_PROFIL } from '../src/cabinet'
-import { DEMANDE_ILLISIBLE } from '../../shared/cabinet/musee'
+import { DEMANDE_ILLISIBLE, possedees } from '../../shared/cabinet/musee'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
 import {
   CASES_DE_LA_VISITE,
@@ -41,16 +41,19 @@ import {
   DEPARTS_PAR_HEURE,
   ECLAIRAGES_PAR_PARTIE,
   ETOILES_DU_PARI,
+  ETOILES_PAR_MANCHE,
   LIBRES_QUI_PAIENT,
   POUSSIERE_MIN,
   POUSSIERE_PAR_ETOILE,
+  PRIX_D_UNE_OEUVRE,
   SEUILS_DES_RARETES,
 } from '../../shared/cabinet/bareme'
 import { JEUX } from '../../shared/cabinet/jeux/regle'
 import { forceDite } from '../../shared/cabinet/pouvoirs'
 import { GARDIENS, SALLES } from '../../shared/cabinet/salles'
-import { OEUVRES } from '../../shared/cabinet/oeuvres'
+import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART } from '../../shared/cabinet/oeuvres'
 import type { VueDeLaPartie } from '../../shared/cabinet/vues'
+import type { PartieLue } from '../src/core/cabinet/magasin'
 
 let b: BancDuCabinet
 before(async () => {
@@ -226,6 +229,63 @@ test('la visite d’un profil qui n’a pas encore joué reste la même d’un r
   assert.deepEqual(await visites(), avant)
   await b.banc.redemarrer({ disqueEfface: true })
   assert.deepEqual(await visites(), avant, 'la base locale effacée n’y change rien')
+})
+
+test('la visite du jour ne change pas de la journée : l’achat ou la partie d’hier qui complète une salle dont le gardien veillait déjà la fige d’abord', async () => {
+  // Une case vise chaque jour la salle du prochain gardien, lue à minuit (`visiteDuJour`) : un gardien qui veille sur une
+  // salle complétée depuis, la règle ne sait pas s'il dormait à minuit. Venu d'ailleurs — le Phénix d'une expédition —,
+  // la salle du Rempart était sautée à minuit ; complétée au matin, elle devenait la visée, et la dernière case passait
+  // de l'œuvre neuve d'une autre salle à « pour dorer » celle qu'il venait d'acheter (la relecture du 26 octobre 2026).
+  // L'achat et la clôture de la partie d'hier ne figeaient pas la visite : seuls un départ et un échange le faisaient.
+  const horloge = { t: DIX_HEURES }
+  const fichier = path.join(dossierDEssai(), 'visite.db')
+  const { cabinet } = await magasinDEssai(fichier, horloge, undefined, { legendaires: ['lg:phenix'] })
+  const presque = OEUVRES.filter(o => o.salle === 'rempart' && !OEUVRES_DE_DEPART.includes(o.cle) && o.cle !== 'pansement').map(o => o.cle)
+  assert.equal(JEU_DE_L_OEUVRE.pansement, 'pari')
+  const poser = (profil: string, poussiere: number) =>
+    aLaMain(
+      fichier,
+      `${presque.map(o => `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le) VALUES ('${profil}', '${o}', 'partie', 0);`).join('\n')}
+       INSERT INTO cabinet_profils (profile_id, poussiere, cree_le, maj_le) VALUES ('${profil}', ${poussiere}, 0, 0);`,
+    )
+  // Un « autre serveur » qui relit la base à froid : la visite qu'il dérive est celle que la base garde.
+  const aFroid = async (profil: string) => (await (await magasinDEssai(fichier, horloge, undefined, { legendaires: ['lg:phenix'] })).cabinet.page(profil)).visite
+
+  // L'achat de Pansement, la dernière du Rempart, à dix heures.
+  const prix = PRIX_D_UNE_OEUVRE[OEUVRES.find(o => o.cle === 'pansement')!.rarete]
+  poser('ivy', prix)
+  const avant = (await cabinet.page('ivy')).visite
+  assert.equal(avant.figee, false, 'rien n’a encore figé la visite')
+  const apres = (await cabinet.acheter('ivy', 'pansement', prix)).visite
+  assert.deepEqual(apres.cases, avant.cases, 'l’achat ne change pas la visite')
+  assert.equal(apres.figee, true, 'il la fige')
+  assert.deepEqual((await aFroid('ivy')).cases, avant.cases, 'figée en base')
+
+  // La chasse à Pansement d'hier, laissée au seuil après deux manches parfaites : la première page du jour la clôt, gagnée.
+  poser('max', 0)
+  const jouerIci = async (p: PartieLue, geste: Record<string, unknown>): Promise<PartieLue> => {
+    const r = await cabinet.geste('max', p.id, p.etat.rang, geste)
+    assert.ok('partie' in r, JSON.stringify(r))
+    return r.partie
+  }
+  let chasse: PartieLue = await cabinet.commencer('max', { origine: 'chasse', oeuvre: 'pansement', carte: null })
+  for (const manche of [0, 1]) {
+    const t = chasse.depart.tirages[manche] as PariTire
+    if (manche > 0) chasse = await jouerIci(chasse, { quoi: 'ouvrir', manche })
+    chasse = await jouerIci(chasse, { quoi: 'repondre', manche, reponse: { pari: { choix: t.q1.bonne } } })
+    chasse = await jouerIci(chasse, { quoi: 'parier', manche })
+    chasse = await jouerIci(chasse, { quoi: 'repondre', manche, reponse: { pari: { choix: t.q2.bonne } } })
+  }
+  assert.ok(2 * ETOILES_PAR_MANCHE >= SEUILS_DES_RARETES.commun, 'deux manches parfaites passent le seuil d’une commune')
+  horloge.t += 24 * 3_600_000
+  // L'accueil lit la visite du jour sans rien clore : celle que la page montrerait avant la clôture.
+  const auMatin = cabinet.accueil('max')!.visite
+  assert.equal(auMatin.figee, false)
+  const page = await cabinet.page('max')
+  assert.equal(page.enCours, null, 'la partie d’hier est close')
+  assert.ok(possedees(page.musee).has('pansement'), 'gagnée à son seuil : le Rempart est complet')
+  assert.deepEqual(page.visite.cases, auMatin.cases, 'la clôture ne change pas la visite')
+  assert.deepEqual((await aFroid('max')).cases, auMatin.cases, 'figée en base')
 })
 
 test('la suppression d’un profil efface ses gestes, son Cabinet et ses œuvres, avant ses séries', async () => {

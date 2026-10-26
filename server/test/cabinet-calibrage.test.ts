@@ -191,6 +191,10 @@ test('le calibrage joue les règles du code, sans en recopier une', () => {
   const code = sansCommentaires(SOURCE)
   const redites = Object.keys(BAREME).filter(nom => new RegExp(`\\b(const|let|var)\\s+${nom}\\b|\\b${nom}\\s*=\\s*[[{0-9]`).test(code))
   assert.deepEqual(redites, [], 'constantes du barème redéclarées dans le calibrage')
+  // Ni la règle d'un tireur : la question du pari plus haute que la première vient de la règle du jeu (`marchesDuPari`),
+  // que le tireur du serveur lit aussi — recopiée ici, elle s'en serait écartée sans un mot (la relecture du 26 octobre 2026).
+  assert.match(code, /\{ marchesDuPari \} = await import\('\.\.\/\.\.\/shared\/cabinet\/jeux\/pari'\)/)
+  assert.doesNotMatch(code, /MARCHES_DU_PARI\.pari\.filter/, 'la règle du tireur du Pari recopiée')
   // Avant l'essai d'un barème, rien qui le lise : de proche en proche, ses imports statiques ne chargent du
   // Cabinet que le barème lui-même, qui n'importe que des types — une règle chargée avant l'essai aurait tiré
   // d'une valeur d'avant ce qu'elle en garde (les étoiles gardées du Pari, le recul d'une année du Filet).

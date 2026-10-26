@@ -1,5 +1,6 @@
-// Le Pari : une question facile ou moyenne ; juste, il garde deux étoiles, ou
-// les parie sur une question difficile de la même catégorie — réussie, trois
+// Le Pari : une question facile ou moyenne — difficile aussi quand l'enjeu le
+// demande ; juste, il garde deux étoiles, ou les parie sur une question plus
+// difficile de la même catégorie (`marchesDuPari`) — réussie, trois
 // étoiles ; ratée, rien. Garder n'en valait qu'une jusqu'au calibrage du
 // 25 octobre 2026 : une commune y était presque hors d'atteinte, et les mots
 // de l'écran suivent le barème (`ETOILES_DU_PARI`), d'une seule source qui
@@ -22,7 +23,8 @@
 // dit à `piece` (`aidee`) — nue, une réponse aidée compterait à la mesure, à la
 // précision et à L'Érudit.
 
-import { DUREES_DES_JEUX, ETOILES_DU_PARI } from '../bareme'
+import { NIVEAUX, type Niveau } from '../../campagne'
+import { DUREES_DES_JEUX, ETOILES_DU_PARI, MARCHES_DU_PARI } from '../bareme'
 import { effacablesAuPlus } from '../pouvoirs'
 import {
   GESTE_A_JUGER,
@@ -36,6 +38,20 @@ import {
   type QuestionTiree,
 } from './outils'
 import { MOTS_DU_PARI, type RegleDuJeu, type VerdictDUneManche } from './regle'
+
+/**
+ * Les marches de la question du pari, après une première à cette marche :
+ * celles du pari (`MARCHES_DU_PARI.pari`) plus hautes qu'elle, toujours — une
+ * première difficile, que l'enjeu d'une épique ou d'une dorure tire, ne se
+ * parie que sur une experte, sans quoi « une question plus difficile »
+ * mentait. Rien de plus haut — un barème à l'essai —, les marches du pari
+ * telles quelles. Le tireur du serveur et le calibrage la lisent : recopiée au
+ * calibrage, la règle s'en serait écartée sans un mot.
+ */
+export function marchesDuPari(premiere: Niveau): Niveau[] {
+  const plusHautes = MARCHES_DU_PARI.pari.filter(m => NIVEAUX.indexOf(m) > NIVEAUX.indexOf(premiere))
+  return plusHautes.length > 0 ? plusHautes : [...MARCHES_DU_PARI.pari]
+}
 
 /** Les deux questions d'une manche du Pari, tirées au départ : la seconde, difficile ou experte, de la même catégorie. */
 export interface PariTire {

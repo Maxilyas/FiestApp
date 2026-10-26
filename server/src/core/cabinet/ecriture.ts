@@ -8,7 +8,8 @@
 // est toujours la première instruction de son lot : la fin d'une partie se dit
 // écrite sur sa ligne (`FinDUnePartie.ecrite`, la porte de la campagne). Un
 // achat et une dorure ne paient que si le solde, relu dans l'instruction même,
-// les couvre, et qu'aucune partie n'attend ; un échange ne change la visite que
+// les couvre, et qu'aucune partie n'attend — et la première dépense du jour fige
+// la visite, comme un départ ; un échange ne change la visite que
 // si la base la dit pas encore échangée, et sa case pas encore jouée ; une case
 // de la visite ne part qu'au jeu que la base lui garde.
 //
@@ -118,6 +119,36 @@ export function lotDuDepart(d: DepartAEcrire): InStatement[] {
   return lot
 }
 
+// ── La visite figée hors d'un départ ──────────────────────────────────────
+
+/** La visite du jour à figer d'un lot qui n'est ni un départ ni un échange : son jour, et les visites que la ligne garde (`visitesAGarder`). */
+export interface VisiteAFiger {
+  profileId: string
+  jour: string
+  visites: string
+}
+
+/**
+ * La visite du jour figée dans la ligne du profil, si aucun lot ne l'a encore
+ * fait — et rien d'écrit sinon : une instruction qui ne change rien ne coûte
+ * pas une ligne écrite. Un départ et un échange la figent dans leur propre
+ * instruction ; la première dépense du jour et la fin d'une partie d'un jour
+ * d'avant passent par celle-ci (D17). Toutes deux font entrer une œuvre que
+ * minuit n'avait pas, et la case du prochain gardien ne sait pas, d'un gardien
+ * qui veille sur une salle complétée depuis, s'il dormait à minuit : venu
+ * d'ailleurs, l'achat de la dernière œuvre de sa salle changeait la visite
+ * (la relecture du 26 octobre 2026). La ligne existe déjà — un solde, une
+ * partie à clore en ont une —, et `IS` lit une visite d'un autre jour comme
+ * une visite vide : `NULL` ne vaut jamais le jour.
+ */
+export function instructionQuiFigeLaVisite(v: VisiteAFiger, garde?: ReturnType<typeof gesteEcrit>): InStatement {
+  return {
+    sql: `UPDATE cabinet_profils SET visites = ?
+           WHERE profile_id = ? AND NOT (json_valid(visites) AND json_extract(visites, '$[0].jour') IS ?)${garde ? ` AND ${garde.sql}` : ''}`,
+    args: [v.visites, v.profileId, v.jour, ...(garde?.args ?? [])],
+  }
+}
+
 // ── Un geste, ses pièces, sa fin ──────────────────────────────────────────
 
 /** Ce qu'une fin écrit de plus : son bilan, la poussière au reflet, et l'œuvre qu'elle fait entrer, dorer ou garder en cartel. */
@@ -156,6 +187,13 @@ export interface GesteAEcrire {
    * Paris de son départ, et sa veille. Null pour tout autre geste.
    */
   jourCompte: { profileId: string; jour: string; veille: string } | null
+  /**
+   * La visite du jour de ce geste à figer avant la fin qu'il écrit — celle
+   * d'une partie d'un jour d'avant, que son départ n'a pas figée : son œuvre
+   * entre après minuit (`instructionQuiFigeLaVisite`). Null pour tout autre
+   * geste, ou une visite déjà figée.
+   */
+  visite: VisiteAFiger | null
   fin: FinAEcrire | null
 }
 
@@ -175,7 +213,8 @@ const SERIE_APRES_LE_JOUR = `CASE WHEN serie_jour >= ? THEN serie WHEN serie_jou
  * d'abord — `rowsAffected` dit tout —, puis, sous lui, chaque pièce jugée — sa
  * réponse, et la pièce au bout de la partie (`json_insert`, jamais réécrite
  * en entier) —, le jour de la série à la première manche répondue d'une
- * visite ou d'une chasse (`jourCompte`), et, au dernier geste, la fin : le bilan, la poussière au
+ * visite ou d'une chasse (`jourCompte`), la visite du jour figée quand il
+ * finit une partie d'un jour d'avant (`visite`), et, au dernier geste, la fin : le bilan, la poussière au
  * reflet et la partie rendue, l'œuvre en une seule instruction pour le gain,
  * la dorure et le cartel. Une œuvre déjà là — achetée, offerte — prend son
  * cartel et sa dorure sans changer d'origine ni de saison, et rien de ce
@@ -213,6 +252,7 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
       args: [jour, veille, jour, jour, veille, profileId, ...garde.args],
     })
   }
+  if (g.visite) lot.push(instructionQuiFigeLaVisite(g.visite, garde))
   if (g.fin) {
     const { bilan, oeuvre, profileId } = g.fin
     lot.push(

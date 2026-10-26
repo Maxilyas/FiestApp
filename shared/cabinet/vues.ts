@@ -251,7 +251,7 @@ export interface RevelationVue {
   corps: RevelationDUneManche
 }
 
-/** Ce qu'une manche vaut, à présent : ses étoiles après les pouvoirs, et pourquoi elles diffèrent (« +4 : mise gagnée »). */
+/** Ce qu'une manche vaut, à présent : ses étoiles après les pouvoirs, et pourquoi elles diffèrent (« +3 : mise gagnée »). */
 export interface MancheVue {
   etoiles: number | null
   naturel: number | null
@@ -364,9 +364,10 @@ export interface VueDeLaPartie {
    * Ce que vaudrait la partie quittée à cet instant : son total sur neuf,
    * Protéger compris, et sa poussière d'or — le geste « Quitter » joué par le
    * pli sur l'état, rien d'écrit. « Quitter ? » promettait « les étoiles déjà
-   * gagnées » : Protéger relève la manche quittée, et une partie quittée
-   * d'emblée paie sa poussière d'or. La règle ne change pas pour autant —
-   * quitter n'est jamais meilleur que répondre faux —, elle se dit. Absent
+   * gagnées » quand Protéger relevait la manche quittée et qu'une partie
+   * quittée d'emblée payait quatre poussières d'or (jusqu'au 26 octobre
+   * 2026) ; quittée sans une réponse, elle ne vaut plus rien, et la vue le
+   * dit — quitter n'est jamais meilleur que répondre faux. Absent
    * d'une partie finie, et d'une manche dont le temps est écoulé : sa
    * réponse part d'elle-même, et la révélation suit.
    */

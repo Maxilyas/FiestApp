@@ -88,8 +88,10 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   gardien: { terme: 'Gardien', sens: 'Un légendaire qui veille sur une salle : complète, elle le réveille ; toute dorée, un second.' },
   // « ou en la rejouant » : dorée en jouant, ou doublée en visite, une œuvre achetée prend le cartel de cette partie-là.
   cartel: { terme: 'Cartel', sens: 'La plaque sous une œuvre : ce que tu as appris en la gagnant ou en la rejouant.' },
-  // Pas « chaque partie » : au-delà des premières du jour, une partie libre ne rapporte plus rien (`poussiereDeLaPartie`).
-  poussiere: { terme: 'Poussière d’or', sens: 'La monnaie du Cabinet, qui n’en sort jamais : chaque visite ou chasse en rapporte, même ratée.' },
+  // Pas « chaque partie » : au-delà des premières du jour, une partie libre ne rapporte plus rien (`poussiereDeLaPartie`). Et
+  // « où tu réponds » : quittée avant toute réponse, une visite ne rapporte plus rien depuis le 26 octobre 2026 — « même
+  // ratée » le lui promettait.
+  poussiere: { terme: 'Poussière d’or', sens: 'La monnaie du Cabinet, qui n’en sort jamais : chaque visite ou chasse où tu réponds en rapporte.' },
   cadreDore: { terme: 'Cadre doré', sens: 'Toutes les manches parfaites sans qu’un pouvoir ait servi, ou de la poussière d’or.' },
   carteBonus: { terme: 'Carte-bonus', sens: 'Une œuvre ou un gardien que tu emportes en partie pour son pouvoir. Elle ne s’use jamais.' },
   visite: { terme: 'Visite du jour', sens: 'Les parties proposées chaque jour : chacune peut te faire gagner une œuvre, gardée secrète.' },

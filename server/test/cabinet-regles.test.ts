@@ -68,6 +68,7 @@ import {
   type VisiteFigee,
 } from '../../shared/cabinet/musee'
 import { vuesDuCabinet } from '../../shared/cabinet/vues'
+import { GLOSSAIRE } from '../../shared/glossaire'
 import { PREFIXE_DE_LA_FRISE } from '../../shared/frise'
 import { REGLES } from '../../shared/cabinet/jeux/index'
 import { CLES_DES_JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
@@ -550,6 +551,13 @@ test('la poussière : deux par étoile et quatre au moins en visite et en chasse
   assert.equal(poussiereDeLaPartie(libre, { total: 7, issue: 'libre', repondue: true }), 7 * B.POUSSIERE_PAR_ETOILE)
   assert.equal(poussiereDeLaPartie(libre, { total: 0, issue: 'libre', repondue: true }), 0, 'libre : sans plancher')
   assert.equal(poussiereDeLaPartie({ ...libre, payee: false }, { total: 9, issue: 'libre', repondue: true }), 0, 'au-delà des cinq du jour, pour le plaisir')
+  // Ses mots la promettent à qui a répondu — le glossaire du bas de la page, celui de la référence —, jamais à toute
+  // visite « même ratée » : quittée d'emblée, elle ne rapporte plus rien (la relecture du 26 octobre 2026).
+  assert.match(GLOSSAIRE.poussiere.sens, /répond/, GLOSSAIRE.poussiere.sens)
+  const deLaReference = readFileSync(new URL('../../docs/reference/glossaire.md', import.meta.url), 'utf8')
+    .split('\n')
+    .find(l => l.startsWith('| Poussière d'))!
+  assert.match(deLaReference, /répond/, deLaReference)
   // Le bilan la fige, avec l'issue et l'œuvre.
   const p = partieAuMot([3, 3, 3], { origine: 'visite', visite: 1, cible: 'plume', but: 'gagner', seuil: B.SEUILS_DES_RARETES.commun })
   const bilan = bilanDe(p.depart, p.etat, { possedee: false, doree: false })

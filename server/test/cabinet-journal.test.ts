@@ -13,6 +13,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { inscrireProfil } from './banc'
 import {
+  DIX_HEURES,
+  aLaMain,
+  baseDuCabinet,
   bancDuCabinet,
   commencer,
   departEnBase,
@@ -29,6 +32,7 @@ import {
   ok,
   ouvrir,
   pariDe,
+  piecesALaMain,
   poster,
   questionDuCabinet,
   unPariParfait,
@@ -40,6 +44,7 @@ import { CATEGORIES } from '../../shared/categories'
 import { JOKER_D_ECLAIRER, PREFIXE_DU_CABINET } from '../../shared/cabinet/pieces'
 import { JUSTES_DOUBLEES_PAR_JOUR, XP_PAR_JUSTE } from '../../shared/campagne'
 import type { EclairTire } from '../../shared/cabinet/jeux/eclair'
+import { JEU_DE_L_OEUVRE, oeuvre } from '../../shared/cabinet/oeuvres'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
 
 // L'Éclat tombe une fois sur quarante à un palier : l'expérience se compte ici au point près (règle `tests.md`).
@@ -269,6 +274,65 @@ test('le magasin déplie les composés avant de tirer : les questions d’un Éc
       'une question de l’Éclair, vue tout à l’heure dans un composé, reposée devant une vue hier',
     )
     assert.deepEqual(new Set(reprises), vuesHier, 'toutes vues : la moins récemment vue revient d’abord')
+  } finally {
+    await c.banc.close()
+  }
+})
+
+test('le magasin tire sous l’enjeu de la partie : une chasse à une épique tire le difficile à l’Éclair', async () => {
+  // Le tireur lit l'enjeu du contexte (`cabinet-jeux-base.test.ts`) ; c'est le magasin qui le lui donne, de l'œuvre que
+  // vise le départ (`enjeuDuTirage`). Donné ordinaire, la marche des épiques disparaissait du jeu sans qu'une épreuve
+  // rougisse (la relecture du 26 octobre 2026). Toutes les faciles et les moyennes vues ces jours-ci : à l'étape qui
+  // les lit avec la difficile, la fraîcheur ne prend que la difficile, jamais vue — et sans l'enjeu, une vue.
+  const c = await bancDuCabinet()
+  try {
+    const ugo = await inscrireProfil(c.banc.url, 'ugo', 'Ugo')
+    const id = (await lire(c, ugo, '/api/joueur/moi?leger')).corps.profile.id as string
+    const vues = baseDuCabinet().questions.filter(q => q.meta.difficulte <= 3)
+    piecesALaMain(c.fichier, id, vues.map(q => ({ id: q.id, mode: 'cabinet', le: DIX_HEURES - 3_600_000 })))
+    await c.banc.redemarrer()
+    assert.equal(JEU_DE_L_OEUVRE.baroud, 'eclair')
+    assert.equal(oeuvre('baroud')?.rarete, 'epique')
+    const chasse = ok(await commencer(c, ugo, { origine: 'chasse', oeuvre: 'baroud', carte: null }), 'la chasse')
+    const niveaux = (departEnBase(c.fichier, chasse.id).tirages as EclairTire[]).flatMap(t => t.affirmations.map(a => a.question.niveau))
+    assert.equal(niveaux.length, 15)
+    assert.deepEqual(new Set(niveaux), new Set(['difficile']), 'la marche que l’épique ajoute')
+  } finally {
+    await c.banc.close()
+  }
+})
+
+test('le magasin donne à l’Éclair les leurres que la campagne choisit : chaque affirmation fausse propose la mauvaise réponse la plus choisie', async () => {
+  // Le tireur les lit du contexte (`cabinet-jeux-base.test.ts`), le journal les compte (`journal-des-reponses.test.ts`) ;
+  // c'est le magasin qui les lui passe (`leurresChoisis`). Chaque question de la base — l'Éclair récrit aussi les mots et
+  // les valeurs qui ont quatre réponses courtes — ratée une fois en série, toujours sur la même mauvaise réponse — en
+  // texte, telle que la série l'a posée —, et réussie une fois.
+  const c = await bancDuCabinet()
+  try {
+    const ana = await inscrireProfil(c.banc.url, 'ana', 'Ana')
+    const id = (await lire(c, ana, '/api/joueur/moi?leger')).corps.profile.id as string
+    const qcm = baseDuCabinet().questions
+    const leurreDe = new Map(qcm.map(q => [q.id, q.reponses.filter((_, k) => k !== q.bonne).at(-1)!]))
+    const pieces = qcm.flatMap(q => [{ id: q.id, reponses: q.reponses }, { id: q.id, reponses: q.reponses }])
+    const le = DIX_HEURES - 3_600_000
+    aLaMain(
+      c.fichier,
+      [
+        `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le)
+         VALUES ('les-leurres', '${id}', '${JSON.stringify(pieces).replace(/'/g, "''")}', ${pieces.length}, 0, ${qcm.length}, ${le}, ${le});`,
+        ...qcm.map(
+          (q, k) =>
+            `INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES
+             ('les-leurres', ${2 * k}, '${q.id}', ${q.reponses.indexOf(leurreDe.get(q.id)!)}, 0, ${le}), ('les-leurres', ${2 * k + 1}, '${q.id}', ${q.bonne}, 1, ${le});`,
+        ),
+      ].join('\n'),
+    )
+    await c.banc.redemarrer()
+    const zia = await inscrireProfil(c.banc.url, 'zia', 'Zia')
+    const eclair = ok(await commencer(c, zia, { origine: 'libre', jeu: 'eclair', carte: null }), 'l’Éclair')
+    const fausses = (departEnBase(c.fichier, eclair.id).tirages as EclairTire[]).flatMap(t => t.affirmations.filter(a => a.proposee !== a.question.bonne))
+    assert.ok(fausses.length > 0, 'une affirmation fausse au moins, une fois sur deux chacune')
+    for (const a of fausses) assert.equal(a.question.reponses[a.proposee], leurreDe.get(a.question.id), a.question.id)
   } finally {
     await c.banc.close()
   }

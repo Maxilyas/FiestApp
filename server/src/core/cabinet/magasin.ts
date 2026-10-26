@@ -34,7 +34,18 @@ import { Budget } from '../budget'
 import type { QuestionDeLaBase } from '../baseCampagne'
 import type { FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites } from '../porteDeLaCampagne'
 import type { calendrierDuCabinet } from '../saisons'
-import { instructionDeLAchat, instructionDeLaDorure, lotDeLEchange, lotDeLOubli, lotDuDepart, lotDuGeste, type FinAEcrire, type OeuvreAEcrire } from './ecriture'
+import {
+  instructionDeLAchat,
+  instructionDeLaDorure,
+  instructionQuiFigeLaVisite,
+  lotDeLEchange,
+  lotDeLOubli,
+  lotDuDepart,
+  lotDuGeste,
+  type FinAEcrire,
+  type OeuvreAEcrire,
+  type VisiteAFiger,
+} from './ecriture'
 import { reconcilier, type EtagereDuCabinet } from './gardiens'
 import { GARDIENS_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
 import { fondreLesReveils, vuesDuCabinet, type ReveilDesGardiens } from '../../../../shared/cabinet/vues'
@@ -70,6 +81,7 @@ import {
   type Musee,
   type PartieDuJour,
   type VisiteDuJour,
+  type VisiteFigee,
 } from '../../../../shared/cabinet/musee'
 import { JEUX_PRETS } from '../../../../shared/cabinet/ouverture'
 import {
@@ -573,6 +585,32 @@ export class CabinetStore {
   }
 
   /**
+   * La visite du jour à figer avant un lot qui fait entrer une œuvre après
+   * minuit sans être un départ — la première dépense du jour, la fin d'une
+   * partie d'un jour d'avant (`instructionQuiFigeLaVisite`) —, dérivée du
+   * musée d'avant ce lot ; null si la mémoire la sait déjà figée. Ce que la
+   * ligne gardera, aussi : la mémoire le prend une fois le lot écrit
+   * (`retenirLaVisite`).
+   */
+  private visiteAFiger(profileId: string, g: MuseeGarde, t: number): { aEcrire: VisiteAFiger; gardees: VisiteFigee[] } | null {
+    const jour = jourDe(t)
+    const avant = g.profil?.visites ?? []
+    if (avant.some(v => v.jour === jour)) return null
+    const gardees = visitesAGarder(this.visiteDe(profileId, this.museeVu(profileId, g), t), avant)
+    return { aEcrire: { profileId, jour, visites: JSON.stringify(gardees) }, gardees }
+  }
+
+  /**
+   * La visite que le lot vient de figer, au musée gardé — comme le départ
+   * (`retenirLeDepart`). Figée avant par l'autre serveur d'une mise en ligne,
+   * la base garde la sienne : la mémoire d'ici ne l'apprend qu'au premier lot
+   * que la base refuse, qui l'oublie et relit (D9).
+   */
+  private retenirLaVisite(g: MuseeGarde, gel: { aEcrire: VisiteAFiger; gardees: VisiteFigee[] } | null) {
+    if (gel && g.profil && !g.profil.visites.some(v => v.jour === gel.aEcrire.jour)) g.profil = { ...g.profil, visites: gel.gardees }
+  }
+
+  /**
    * Une partie telle que la route la montre, à `t` : finie, avec le musée du
    * jour que la mémoire tient (`PartieLue.aujourdhui`) — sans verrou de plus,
    * sans aller-retour, et sans faire passer le musée au bout de la mémoire.
@@ -889,7 +927,21 @@ export class CabinetStore {
     // seul : quittée d'emblée, ou laissée à l'échéance sans une réponse, une partie ne tient pas la série (le 26 octobre 2026).
     const jourCompte =
       p.depart.origine !== 'libre' && !laPartieARepondu(p.etat) && laPartieARepondu(apres) ? { profileId, jour: p.depart.jour, veille: jourAvant(p.depart.jour) } : null
-    const lot = lotDuGeste({ serie: p.id, rang, geste, faitLe: t, uid, pieces, compagnon: this.porte.compagnonDeLaNiche(profileId), jourCompte, fin: fin?.aEcrire ?? null })
+    // La fin d'une partie d'un jour d'avant — close au matin par la page, ou jouée par-delà minuit — fige la visite du jour
+    // d'abord : son départ a figé celle de son jour à elle, et l'œuvre qu'elle fait entrer, minuit ne l'avait pas.
+    const gel = fin && garde && jourDe(t) !== p.depart.jour ? this.visiteAFiger(profileId, garde, t) : null
+    const lot = lotDuGeste({
+      serie: p.id,
+      rang,
+      geste,
+      faitLe: t,
+      uid,
+      pieces,
+      compagnon: this.porte.compagnonDeLaNiche(profileId),
+      jourCompte,
+      visite: gel?.aEcrire ?? null,
+      fin: fin?.aEcrire ?? null,
+    })
     let ecrites: ReponsesEcrites
     // Ce que ses gardiens annoncent, capté par la fermeture que la porte appelle entre l'expérience et les paliers.
     const capte: { reveil?: ReveilDesGardiens | null } = {}
@@ -921,6 +973,7 @@ export class CabinetStore {
     }
     const gestes = [...p.gestes, { geste, faitLe: t }]
     const suite: PartieGardee = { ...p, gestes, etat: apres, bilan: fin?.aEcrire.bilan ?? null }
+    if (garde) this.retenirLaVisite(garde, gel)
     // La série que le lot vient d'écrire, au musée gardé s'il y est : absent, la page suivante le relit de la base.
     const gardeDuMusee = garde ?? this.musees.get(profileId)
     if (jourCompte && gardeDuMusee?.profil) gardeDuMusee.profil = { ...gardeDuMusee.profil, ...serieApresUnJour(gardeDuMusee.profil, jourCompte.jour) }
@@ -1094,9 +1147,13 @@ export class CabinetStore {
         const prix = prixMontre as number
         const depense = { profileId, oeuvre, prix, t }
         const instruction = sorte === 'achat' ? instructionDeLAchat(depense) : instructionDeLaDorure({ ...depense, deDepart: OEUVRES_DE_DEPART.includes(oeuvre) })
+        // La première dépense du jour fige la visite, dans le même aller-retour : achetée, l'œuvre qui complète une salle
+        // dont le gardien veillait déjà ailleurs changeait la case du prochain gardien. Une dorure n'y change rien
+        // aujourd'hui — ni ce qu'il possède ni ses premiers gardiens —, mais une dépense n'a qu'une règle.
+        const gel = this.visiteAFiger(profileId, g, t)
         let ecrite: ResultSet
         try {
-          ecrite = await this.porte.client.execute(instruction)
+          ecrite = gel ? (await this.porte.client.batch([instruction, instructionQuiFigeLaVisite(gel.aEcrire)], 'write'))[0] : await this.porte.client.execute(instruction)
         } catch (e) {
           this.oublier(profileId)
           throw e
@@ -1107,6 +1164,7 @@ export class CabinetStore {
           if (essai === 0) continue
           throw new Error(DEPENSE_CROISEE)
         }
+        this.retenirLaVisite(g, gel)
         this.retenirLaDepense(g, oeuvre, sorte, prix, t)
         // Une œuvre achetée peut compléter une salle, ou le Cabinet ; une dorure, dorer une salle entière : la page d'après le dit.
         const reveil = await this.reveiller(profileId, this.museeVu(profileId, g), t, g)

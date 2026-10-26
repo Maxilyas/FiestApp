@@ -249,7 +249,9 @@ test('Miser se décide vers le seuil, la mise gardée pour la manche où elle m�
   // La manche misée se joue pour ses trois étoiles : parier au Pari, le petit filet. Vers l'épique, la mise est le
   // chemin — gardée ou lancée large, la manche misée ne vaudrait rien, et la mise ne servirait pas. Dix points d'épiques
   // de plus au moins à +4 ; à +3, depuis le 26 octobre 2026, la manche misée parfaite ne fait plus seule une épique, et
-  // l'épique tire le difficile : cinq au moins (de 3 à 13 % au Pari, de 25 à 48 au Filet, sur cent parties).
+  // l'épique tire le difficile : cinq au moins — de 3 à 13 % au Pari, de 21 à 45 au Filet, sur les quatre cents parties
+  // de cette mesure. Le calibrage complet, à cent parties par mesure, en lit 3 à 8 et 25 à 48 (`baremes.md`) : à cent,
+  // le bruit couvre la moitié de l'écart du Pari, et la borne ne se lit qu'à quatre cents.
   const epique = BAREME.SEUILS_DES_RARETES.epique
   for (const jeu of [JEUX.pari.nom, JEUX.filet.nom]) {
     const sans = partAvecLaCarte(sortie, epique, jeu, 'moyen', null)

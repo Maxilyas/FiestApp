@@ -186,8 +186,19 @@ paths:
   seul, la veille —, `justesDe` — la somme des `justes` des séries, égale en
   production, profil par profil et mode par mode, au compte de leurs bonnes
   réponses — et `reponsesDesEpreuves`, l'administration des sentiers, 150 000
-  lignes par page) : une dérivation de plus s'y écrit, et se compare au SQL
-  d'avant dans `journal-des-reponses.test.ts`, sur une base au hasard. Un
+  lignes par page ; depuis le 26 octobre 2026, `leurresChoisis`, les
+  mauvaises réponses que la campagne choisit, question par question, sur les
+  réponses que la mesure compte — l'Éclair du Cabinet y prend le leurre de
+  ses affirmations fausses) : une dérivation de plus s'y écrit, et se compare
+  au SQL d'avant dans `journal-des-reponses.test.ts`, sur une base au hasard
+  — sans SQL d'avant, comme les leurres, écrit dans le test à part. Les
+  leurres lisent la mauvaise réponse en texte, telle que sa série l'a posée
+  (la colonne `choisie` de la lecture : un index ne dit rien d'une série à
+  l'autre, chacune bat ses réponses), sous `choix >= 0` — un chemin `[-1]`
+  est une erreur de SQLite, pas un NULL, et ferait échouer toute la lecture.
+  Une colonne de plus change le texte de la lecture : les tranches gardées
+  d'avant ne se relisent plus, et le premier réveil relit tout le journal,
+  une fois (`VERSION_DES_TRANCHES`, plus bas). Un
   test qui efface une réponse derrière le dos du serveur le redémarre
   (`banc.redemarrer()`) : le journal ne l'apprend pas. **Une lecture
   sait ce qu'on a écrit avant elle** : chaque lecture du journal prend un

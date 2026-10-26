@@ -234,6 +234,8 @@ const SCARABEE = AUTRES_GARDIENS.find(g => 'serie' in g.reveil)!.legendaire
 const { echeanceDe } = await import('../../shared/cabinet/chrono')
 const { DANS_LA_FRANCE, dansLaFrance, distanceKm } = await import('../../shared/cabinet/france')
 const { affirmationDe } = await import('../../shared/cabinet/jeux/eclair')
+// La question du pari plus haute que la première : la règle du tireur, importée — recopiée ici, elle s'en serait écartée.
+const { marchesDuPari } = await import('../../shared/cabinet/jeux/pari')
 const { pisteDuFilet } = await import('../../shared/cabinet/jeux/filet')
 const { detailTire } = await import('../../shared/cabinet/jeux/detail')
 const { estUneFriseSerree, friseEnVagues } = await import('../../shared/cabinet/jeux/frise')
@@ -536,11 +538,6 @@ function question(niveau: Niveau, r: Hasard): QuestionTiree {
 const uneMarche = (marches: readonly Niveau[], r: Hasard): Niveau => auHasard(marches, r)
 /** Ce qu'il trouve, en moyenne, d'une question tirée parmi ces marches. */
 const surLesMarches = (j: Joueur, marches: readonly Niveau[]) => marches.reduce((n, k) => n + trouve(j, k), 0) / marches.length
-/** Les marches de la question du pari après une première de cette marche : toujours plus haute (`tirerUnPari`). */
-const auDessusDe = (premiere: Niveau): Niveau[] => {
-  const plusHautes = MARCHES_DU_PARI.pari.filter(m => NIVEAUX.indexOf(m) > NIVEAUX.indexOf(premiere))
-  return plusHautes.length > 0 ? plusHautes : [...MARCHES_DU_PARI.pari]
-}
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 const motAuHasard = (n: number, r: Hasard) => Array.from({ length: n }, () => LETTRES[Math.floor(r() * LETTRES.length)]).join('')
 
@@ -558,7 +555,7 @@ function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number, enjeu
     case 'pari':
       return Array.from({ length: n }, (): PariTire => {
         const q1 = question(uneMarche(aLEnjeu(MARCHES_DU_PARI.question), r), r)
-        return { jeu, q1, q2: question(uneMarche(auDessusDe(q1.niveau), r), r) }
+        return { jeu, q1, q2: question(uneMarche(marchesDuPari(q1.niveau), r), r) }
       })
     case 'eclair':
       return Array.from({ length: n }, (): EclairTire => ({ jeu, affirmations: Array.from({ length: BAREME.AFFIRMATIONS_DE_L_ECLAIR }, () => affirmationDe(question(uneMarche(aLEnjeu(MARCHES_DE_L_ECLAIR), r), r), r)!) }))
@@ -859,9 +856,9 @@ class Avenir {
 const MODELES: Partial<Record<CleDeJeu, (j: Joueur, enjeu: EnjeuDuTirage) => ModeleDeManche>> = {
   pari: (j, enjeu) => {
     // La première à l'une de ses marches, chacune autant — celles que l'enjeu ajoute comprises ; juste, il garde, ou
-    // parie sur une question plus haute qu'elle (`auDessusDe`). Facile ou moyenne, la même : le modèle d'avant l'enjeu.
+    // parie sur une question plus haute qu'elle (`marchesDuPari`). Facile ou moyenne, la même : le modèle d'avant l'enjeu.
     const marches = P.marchesDeLEnjeu(MARCHES_DU_PARI.question, enjeu)
-    const justes = marches.map(m => ({ part: trouve(j, m) / marches.length, p2: surLesMarches(j, auDessusDe(m)) }))
+    const justes = marches.map(m => ({ part: trouve(j, m) / marches.length, p2: surLesMarches(j, marchesDuPari(m)) }))
     return [
       ...justes.map(({ part, p2 }) => ({ part, lancers: [[[ETOILES_DU_PARI.garder, 1]], [[ETOILES_DU_PARI.parier, p2], [0, 1 - p2]]] as Loi[] })),
       { part: 1 - justes.reduce((n, x) => n + x.part, 0), lancers: [[[0, 1]]] },
@@ -1095,7 +1092,7 @@ function mancheDuPari(p: Partie, m: Manche): void {
 function parier(p: Partie, m: Manche): boolean {
   if (p.objectif.dorer || p.objectif.confettis) return true
   // La question du pari est plus haute que la première, qu'il vient de lire : difficile ou experte, experte après une difficile.
-  const p2 = surLesMarches(p.j, auDessusDe(p.tiree<PariTire>().q1.niveau))
+  const p2 = surLesMarches(p.j, marchesDuPari(p.tiree<PariTire>().q1.niveau))
   const { garder, parier: pari } = ETOILES_DU_PARI
   return p2 * p.attente(m, p.vautDans(m, pari)) + (1 - p2) * p.attente(m, 0) > p.attente(m, p.vautDans(m, garder))
 }
