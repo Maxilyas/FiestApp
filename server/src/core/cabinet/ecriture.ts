@@ -9,7 +9,7 @@
 // écrite sur sa ligne (`FinDUnePartie.ecrite`, la porte de la campagne). Un
 // achat et une dorure ne paient que si le solde, relu dans l'instruction même,
 // les couvre, et qu'aucune partie n'attend — et la première dépense du jour fige
-// la visite, comme un départ ; un échange ne change la visite que
+// la visite, comme un départ, si elle passe ; un échange ne change la visite que
 // si la base la dit pas encore échangée, et sa case pas encore jouée ; une case
 // de la visite ne part qu'au jeu que la base lui garde.
 //
@@ -140,12 +140,19 @@ export interface VisiteAFiger {
  * (la relecture du 26 octobre 2026). La ligne existe déjà — un solde, une
  * partie à clore en ont une —, et `IS` lit une visite d'un autre jour comme
  * une visite vide : `NULL` ne vaut jamais le jour.
+ *
+ * Gardée, comme toute instruction d'un lot qui n'est pas la première (D9) :
+ * par le geste qui finit la partie (`gesteEcrit`), par la ligne que la dépense
+ * vient d'écrire (`depenseEcrite`). Sans garde, une dépense que la base
+ * refusait — la poussière que l'autre serveur d'une mise en ligne venait de
+ * dépenser — figeait quand même la visite d'un musée que le magasin oubliait,
+ * faux, l'instant d'après (la deuxième tablée, le 26 octobre 2026).
  */
-export function instructionQuiFigeLaVisite(v: VisiteAFiger, garde?: ReturnType<typeof gesteEcrit>): InStatement {
+export function instructionQuiFigeLaVisite(v: VisiteAFiger, garde: { sql: string; args: readonly (string | number)[] }): InStatement {
   return {
     sql: `UPDATE cabinet_profils SET visites = ?
-           WHERE profile_id = ? AND NOT (json_valid(visites) AND json_extract(visites, '$[0].jour') IS ?)${garde ? ` AND ${garde.sql}` : ''}`,
-    args: [v.visites, v.profileId, v.jour, ...(garde?.args ?? [])],
+           WHERE profile_id = ? AND NOT (json_valid(visites) AND json_extract(visites, '$[0].jour') IS ?) AND ${garde.sql}`,
+    args: [v.visites, v.profileId, v.jour, ...garde.args],
   }
 }
 
@@ -204,7 +211,10 @@ export interface GesteAEcrire {
  * aujourd'hui — ne la fait pas reculer. SQLite lit chaque membre d'un `SET`
  * sur la ligne d'avant : le record se lit sur la série d'avant ce geste. La
  * mémoire suit la même règle (`serieApresUnJour`, `shared/cabinet/musee.ts`).
- * Ses paramètres, anonymes : le jour, puis la veille.
+ * Ses paramètres, anonymes : le jour, puis la veille. L'instruction ne
+ * touche la ligne que pour un jour plus récent que le dernier compté (`WHERE`,
+ * `lotDuGeste`) : le premier membre du `CASE` n'y sert plus, et il reste — la
+ * règle se lit entière ici, comme dans la mémoire.
  */
 const SERIE_APRES_LE_JOUR = `CASE WHEN serie_jour >= ? THEN serie WHEN serie_jour = ? THEN serie + 1 ELSE 1 END`
 
@@ -246,10 +256,13 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
   }
   if (g.jourCompte) {
     const { profileId, jour, veille } = g.jourCompte
+    // Un jour déjà compté — la deuxième case de la visite, la chasse d'après — ne réécrit pas la ligne : sans cette
+    // garde, chaque partie répondue du jour la réécrivait à l'identique, jusqu'à cinq lignes par jour et par joueur au
+    // quota de Turso pour rien (la deuxième tablée, le 26 octobre 2026). Sa voisine, la visite figée, se garde de même.
     lot.push({
       sql: `UPDATE cabinet_profils SET serie = ${SERIE_APRES_LE_JOUR}, serie_jour = MAX(COALESCE(serie_jour, ''), ?), serie_record = MAX(serie_record, ${SERIE_APRES_LE_JOUR})
-             WHERE profile_id = ? AND ${garde.sql}`,
-      args: [jour, veille, jour, jour, veille, profileId, ...garde.args],
+             WHERE profile_id = ? AND (serie_jour IS NULL OR serie_jour < ?) AND ${garde.sql}`,
+      args: [jour, veille, jour, jour, veille, profileId, jour, ...garde.args],
     })
   }
   if (g.visite) lot.push(instructionQuiFigeLaVisite(g.visite, garde))
@@ -326,6 +339,19 @@ export interface DepenseAEcrire {
   /** Le prix du jour, que la page a montré : il s'écrit avec la ligne, et l'achat le garde. */
   prix: number
   t: number
+}
+
+/**
+ * La garde de ce que le lot d'une dépense écrit après elle — la visite du jour
+ * qu'elle fige (`instructionQuiFigeLaVisite`) : la ligne que la dépense vient
+ * d'écrire, à son heure — l'œuvre achetée à `t`, le cadre doré à la poussière à
+ * `t` —, par la clé de l'œuvre. Refusée par la base, la dépense n'a rien écrit,
+ * et rien ne s'écrit derrière elle ; comme un départ, qui ne fige la visite que
+ * s'il part (`partie IS NULL`).
+ */
+export function depenseEcrite(d: DepenseAEcrire, sorte: 'achat' | 'dorure'): { sql: string; args: [string, string, number] } {
+  const ecrite = sorte === 'achat' ? "origine = 'achat' AND gagnee_le = ?" : "dorure = 'poussiere' AND doree_le = ?"
+  return { sql: `EXISTS (SELECT 1 FROM cabinet_oeuvres WHERE profile_id = ? AND oeuvre = ? AND ${ecrite})`, args: [d.profileId, d.oeuvre, d.t] }
 }
 
 /**

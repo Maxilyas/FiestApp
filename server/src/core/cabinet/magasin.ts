@@ -35,6 +35,7 @@ import type { QuestionDeLaBase } from '../baseCampagne'
 import type { FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from '../porteDeLaCampagne'
 import type { calendrierDuCabinet } from '../saisons'
 import {
+  depenseEcrite,
   instructionDeLAchat,
   instructionDeLaDorure,
   instructionQuiFigeLaVisite,
@@ -253,8 +254,8 @@ export type IssueDuCartel = { cartel: CartelLu } | { introuvable: string }
 /** Ce que tes murs lisent (`mursDe`, `vue.ts`) : ce qu'il a vu, et ce que le contenu livré et la base en disent encore. */
 export interface LectureDesMurs {
   /**
-   * Ce qu'il a vu au journal des réponses (`vuesDe`), et quand pour la dernière fois : les composés y restent sous leur
-   * identifiant — chaque frise dit d'où elle vient —, et les questions qu'ils ont montrées s'y ajoutent, que `mursDe` ne lit pas.
+   * Ses pièces jugées au journal des réponses (`jugeesDe`), et quand pour la dernière fois : les composés y restent sous
+   * leur identifiant — chaque frise dit d'où elle vient —, et rien de ce qu'une manche a montré sans le juger.
    */
   vues: ReadonlyMap<string, number>
   lieux: readonly Lieu[]
@@ -1165,11 +1166,14 @@ export class CabinetStore {
         const instruction = sorte === 'achat' ? instructionDeLAchat(depense) : instructionDeLaDorure({ ...depense, deDepart: OEUVRES_DE_DEPART.includes(oeuvre) })
         // La première dépense du jour fige la visite, dans le même aller-retour : achetée, l'œuvre qui complète une salle
         // dont le gardien veillait déjà ailleurs changeait la case du prochain gardien. Une dorure n'y change rien
-        // aujourd'hui — ni ce qu'il possède ni ses premiers gardiens —, mais une dépense n'a qu'une règle.
+        // aujourd'hui — ni ce qu'il possède ni ses premiers gardiens —, mais une dépense n'a qu'une règle. Sous la ligne
+        // que la dépense écrit (`depenseEcrite`) : refusée, elle ne fige rien d'un musée que la mémoire sait faux.
         const gel = this.visiteAFiger(profileId, g, t)
         let ecrite: ResultSet
         try {
-          ecrite = gel ? (await this.porte.client.batch([instruction, instructionQuiFigeLaVisite(gel.aEcrire)], 'write'))[0] : await this.porte.client.execute(instruction)
+          ecrite = gel
+            ? (await this.porte.client.batch([instruction, instructionQuiFigeLaVisite(gel.aEcrire, depenseEcrite(depense, sorte))], 'write'))[0]
+            : await this.porte.client.execute(instruction)
         } catch (e) {
           this.oublier(profileId)
           throw e
@@ -1299,12 +1303,15 @@ export class CabinetStore {
    * seulement s'il a rangé une frise faite de ses questions — celle d'un sujet,
    * celle de l'Expédition —, la liste que la porte garde, comme au tirage. Une
    * pièce n'entre au journal qu'à son verdict : la manche en jeu n'y est pas,
-   * et les murs ne disent rien qu'une révélation n'ait dit (invariant 1). Sans
-   * le verrou du profil : ni sa partie ni son musée n'y sont touchés.
+   * et les murs ne disent rien qu'une révélation n'ait dit (invariant 1) — ses
+   * pièces jugées seules (`jugeesDe`), jamais ce qu'une manche a montré sans le
+   * juger : le lieu qu'une Épingle remplacée par « Changer » ne lui a jamais
+   * révélé y serait venu avec sa commune et ses coordonnées. Sans le verrou du
+   * profil : ni sa partie ni son musée n'y sont touchés.
    */
   async murs(profileId: string): Promise<LectureDesMurs> {
     const { journal } = await this.porte.lireAvecLeJournal([])
-    const { vues } = journal.vuesDe(profileId)
+    const vues = journal.jugeesDe(profileId)
     const { lieux, frises } = contenuDuCabinet()
     const datees = [...vues.keys()].some(id => estUneFriseDeSujet(id) || id.startsWith(PREFIXE_DE_LA_FRISE))
     return { vues, lieux, frises, evenements: datees ? this.evenementsParQuestion(await this.porte.jouables()) : new Map() }

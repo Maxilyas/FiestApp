@@ -269,6 +269,8 @@ export interface MancheDuPli {
   manche: Manche
   /** Le contenu qu'elle joue, dans le plan : le sien (`manche`), ou la rechange que « Changer » a prise. */
   tirage: number
+  /** Ceux que « Changer » y a remplacés, dans l'ordre : montrés sans verdict, ils comptent vus avec sa pièce (`trancher`). */
+  remplacees: readonly number[]
   /** L'état de son jeu, que seule sa règle lit. */
   etat: unknown
   /** Une étape, ou deux au Pari parié et à la Réplique. */
@@ -405,6 +407,39 @@ function marquerLeTemps(d: DepartDUnePartie, m: MancheDuPli, t: number): MancheD
 }
 
 /**
+ * Ce qu'un contenu du plan avait montré quand « Changer » l'a remplacé — avant
+ * tout geste du jeu, la règle le veut : la pièce qu'il aurait laissée, quitté à
+ * cet instant, et ce qu'elle montrait de plus (les leurres d'un Détail). Une
+ * seule règle de ce qu'une manche vue écrit : quittée, une manche laisse sa
+ * pièce parce qu'il l'a vue — remplacée, elle ne laissait rien, et la question
+ * de la base qu'il venait de lire revenait « jamais vue » au Cabinet comme
+ * ailleurs (la deuxième tablée, le 26 octobre 2026).
+ */
+function ceQueMontraitLaRemplacee(d: DepartDUnePartie, m: MancheDuPli, tirage: number): string[] {
+  const regle = regleDe(d.jeu)
+  const tiree = d.tirages[tirage]
+  const etat = regle.ouvrir(tiree)
+  const quittee = regle.juger(tiree, etat, 'quittee')
+  return quittee.pieces.flatMap(p => {
+    const piece = regle.piece(tiree, etat, quittee, { manche: m.manche, tirage, ...(p.etape !== undefined && { etape: p.etape }), aidee: false })
+    return [piece.id, ...(piece.cabinet.montre ?? [])]
+  })
+}
+
+/**
+ * La pièce d'une manche que « Changer » a touchée. Sa première porte ce que les
+ * contenus remplacés avaient montré (`cabinet.montre`) — une manche n'écrit
+ * toujours qu'une pièce par verdict. Et aucune n'est plus nue : la rechange se
+ * joue sur l'échéance de la manche remplacée, le chrono continue, avec moins de
+ * temps que sa question n'en avait — la mesure, qui ne lit que le Pari nu,
+ * l'aurait comptée plus dure qu'elle n'est.
+ */
+function apresLeChangement(piece: PieceDuCabinet, jeu: CleDeJeu, remplacees: readonly string[]): PieceDuCabinet {
+  const montre = [...new Set([...(piece.cabinet.montre ?? []), ...remplacees])].filter(id => id !== piece.id)
+  return { ...piece, forme: piece.forme ?? jeu, cabinet: { ...piece.cabinet, ...(montre.length > 0 && { montre }) } }
+}
+
+/**
  * La manche tranchée à `quand` : son verdict, et ses pièces rangées à la suite
  * de celles d'avant. Chaque pièce dit si un pouvoir l'a aidée — Éclairer, ou
  * le temps en plus —, dans l'étape qu'elle juge : au Pari, la première
@@ -414,17 +449,19 @@ function marquerLeTemps(d: DepartDUnePartie, m: MancheDuPli, t: number): MancheD
 function trancher(d: DepartDUnePartie, e: EtatDeLaPartie, m: MancheDuPli, verdict: VerdictDUneManche, quand: number, fin: FinDUneManche): EtatDeLaPartie {
   const regle = regleDe(d.jeu)
   const etapes = [...m.etapes.slice(0, -1), arretee(derniere(m), quand)]
+  const remplacees = m.remplacees.flatMap(k => ceQueMontraitLaRemplacee(d, m, k))
   const pieces: PieceJugee[] = verdict.pieces.map((p, i) => {
     const sienne = p.etape === undefined ? etapes : etapes.slice(p.etape - 1, p.etape)
     const eclairee = sienne.some(x => x.eclairee)
     const temps = sienne.some(x => x.tempsEnPlus)
     const situee = { manche: m.manche, tirage: m.tirage, ...(p.etape !== undefined && { etape: p.etape }), aidee: eclairee || temps }
+    const piece = regle.piece(tireeDe(d, m), m.etat, verdict, situee)
     return {
       position: e.pieces.length + i,
       manche: m.manche,
       tirage: m.tirage,
       ...(p.etape !== undefined && { etape: p.etape }),
-      piece: regle.piece(tireeDe(d, m), m.etat, verdict, situee),
+      piece: m.remplacees.length > 0 ? apresLeChangement(piece, d.jeu, i === 0 ? remplacees : []) : piece,
       juste: p.juste,
       choix: p.choix,
       composee: p.composee,
@@ -499,6 +536,7 @@ function ouvrir(d: DepartDUnePartie, e: EtatDeLaPartie, g: Extract<GesteDuCabine
   const neuve: MancheDuPli = {
     manche: g.manche,
     tirage: g.manche,
+    remplacees: [],
     etat: regle.ouvrir(d.tirages[g.manche]),
     etapes: [etapeNeuve(d, 1, t, d.chrono.pauseMs)],
     aJoue: false,
@@ -535,7 +573,8 @@ function changer(d: DepartDUnePartie, e: EtatDeLaPartie, m: MancheDuPli): EtatDe
   const refus = refusDuPouvoir({ pouvoir: 'changer', force: d.carte.force, jeu: d.jeu, servi: e.servis.changer, aJoue: m.aJoue || m.etapes.length > 1, rechanges: rechangesDe(d, e) })
   if (refus) return refus
   const tirage = MANCHES_PAR_PARTIE + e.servis.changer
-  return { ...remplacer(e, { ...m, tirage, etat: regleDe(d.jeu).ouvrir(d.tirages[tirage]) }), servis: { ...e.servis, changer: e.servis.changer + 1 } }
+  const changee: MancheDuPli = { ...m, tirage, remplacees: [...m.remplacees, m.tirage], etat: regleDe(d.jeu).ouvrir(d.tirages[tirage]) }
+  return { ...remplacer(e, changee), servis: { ...e.servis, changer: e.servis.changer + 1 } }
 }
 
 /**

@@ -3,11 +3,12 @@
 // quatre cadrages découpés d'avance) — la jamais vue d'abord, puis la plus
 // anciennement vue (`laFenetreLaMoinsVue`) —, et le bon au hasard parmi ses
 // quatre, par la règle du jeu (`detailDUneFenetre`), au hasard du serveur. Vu,
-// c'est l'avoir eu au Cabinet (`cab:tableau:<QID>`) ou avoir répondu à l'une
-// des questions de la base qui le nomment — « Qui a peint… ? », son musée : son
+// c'est l'avoir eu au Cabinet (`cab:tableau:<QID>`, en bon ou, depuis le
+// 26 octobre 2026, en leurre : `cabinet.montre`) ou avoir répondu à l'une des
+// questions de la base qui le nomment — « Qui a peint… ? », son musée : son
 // titre y était écrit.
 //
-// La fraîcheur choisit la fenêtre, jamais le bon : seul le bon s'écrit vu, et
+// La fraîcheur choisit la fenêtre, jamais le bon : seul le bon s'écrivait vu, et
 // tiré le moins vu, il était le titre des quatre qu'on avait vu il y a le plus
 // longtemps — 78 % de bonnes réponses à la trentième partie pour qui se
 // souvenait des tableaux nommés (la tablée du 25 octobre 2026), 100 % dès que

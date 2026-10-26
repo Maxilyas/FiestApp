@@ -147,7 +147,11 @@ function leDetail(x: Brut): DetailTire | null {
   const t = x.tableau
   if (!objet(t) || !chaine(t.qid) || !chaine(t.titre) || !chaine(t.peintre) || !Number.isInteger(t.annee)) return null
   if (!Array.isArray(x.titres) || x.titres.length < 2) return null
-  const titres = tous(x.titres.map((p: unknown) => (objet(p) && chaine(p.titre) && chaine(p.peintre) ? { titre: p.titre, peintre: p.peintre } : null)))
+  // L'identifiant de chaque titre, que la pièce porte pour compter ses leurres vus : absent d'un départ écrit avant lui
+  // (le 26 octobre 2026), le titre se relit sans — ses leurres ne se comptent pas, rien d'autre ne change.
+  const titres = tous(
+    x.titres.map((p: unknown) => (objet(p) && chaine(p.titre) && chaine(p.peintre) ? { titre: p.titre, peintre: p.peintre, ...(chaine(p.qid) && { qid: p.qid }) } : null)),
+  )
   if (!titres || !entier(x.bonne, 0, titres.length - 1) || !chaineOuNull(x.anecdote) || !chaine(x.categorie)) return null
   return { jeu: 'detail', tableau: { qid: t.qid, titre: t.titre, peintre: t.peintre, annee: t.annee as number }, titres, bonne: x.bonne, anecdote: x.anecdote, categorie: x.categorie }
 }

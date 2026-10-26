@@ -635,6 +635,75 @@ test('une écriture refusée par la base : rien ne reste en mémoire, et le mêm
   assert.equal(enBase(fichier, db => (db.prepare('SELECT partie FROM cabinet_profils WHERE profile_id = ?').get('qui') as { partie: string }).partie), suivante.id)
 })
 
+test('la visite ne se fige qu’avec la dépense qui passe : refusée par la base, ni l’achat ni la dorure n’écrivent la visite ; acceptée, une écriture', async () => {
+  // La deuxième tablée (le 26 octobre 2026, `regressions-serveur-2`) : le gel partait dans le lot de la dépense sans
+  // dépendre d'elle. La mémoire d'ici en retard — l'autre serveur d'une mise en ligne vient de dépenser la même poussière —,
+  // la base refusait l'achat et figeait quand même la visite d'un musée que le magasin oubliait, faux, l'instant d'après.
+  const horloge = { t: DIX_HEURES }
+  const fichier = path.join(dossierDEssai(), 'gel.db')
+  const { cabinet } = await magasinDEssai(fichier, horloge)
+  // Chaque écriture de la visite d'un profil, qu'elle change la ligne ou non.
+  aLaMain(fichier, `CREATE TABLE gels (profil TEXT); CREATE TRIGGER gel AFTER UPDATE OF visites ON cabinet_profils BEGIN INSERT INTO gels VALUES (NEW.profile_id); END;`)
+  const gels = (profil: string) => compter(fichier, 'SELECT COUNT(*) AS n FROM gels WHERE profil = ?', profil)
+  const visites = (profil: string) => enBase(fichier, db => (db.prepare('SELECT visites FROM cabinet_profils WHERE profile_id = ?').get(profil) as { visites: string | null }).visites)
+  const lecon = OEUVRES.find(o => o.cle === 'lecon')!
+  const depenses = [
+    { profil: 'ivy', sorte: 'achat' as const, cle: lecon.cle, faire: (prix: number) => cabinet.acheter('ivy', lecon.cle, prix) },
+    { profil: 'zoe', sorte: 'dorure' as const, cle: 'prudence', faire: (prix: number) => cabinet.dorer('zoe', 'prudence', prix) },
+  ]
+  for (const d of depenses) {
+    const prix = prixDe(d.cle, d.sorte)
+    assert.ok(prix !== null, `${d.cle} : un prix à payer`)
+    aLaMain(fichier, `INSERT INTO cabinet_profils (profile_id, poussiere, cree_le, maj_le) VALUES ('${d.profil}', ${prix}, 0, 0);`)
+    assert.equal((await cabinet.page(d.profil)).visite.figee, false, `${d.sorte} : rien n’a encore figé la visite`)
+    // L'autre serveur dépense la même poussière : la mémoire d'ici ne le sait pas.
+    aLaMain(fichier, `UPDATE cabinet_profils SET poussiere = 0 WHERE profile_id = '${d.profil}';`)
+    await assert.rejects(d.faire(prix), (e: Error) => e.constructor === Error, `${d.sorte} : la base la refuse, et le refus se dit en mots`)
+    assert.equal(compter(fichier, 'SELECT COUNT(*) AS n FROM cabinet_oeuvres WHERE profile_id = ?', d.profil), 0, `${d.sorte} : rien de payé`)
+    assert.deepEqual(JSON.parse(visites(d.profil) ?? '[]'), [], `${d.sorte}, que la base refuse : la visite figée quand même`)
+    assert.equal(gels(d.profil), 0, `${d.sorte}, que la base refuse : une écriture de la visite`)
+    // Rendue, la poussière la paie : la visite se fige avec elle, d'une seule écriture.
+    aLaMain(fichier, `UPDATE cabinet_profils SET poussiere = ${prix} WHERE profile_id = '${d.profil}';`)
+    await d.faire(prix)
+    assert.equal(compter(fichier, 'SELECT COUNT(*) AS n FROM cabinet_oeuvres WHERE profile_id = ?', d.profil), 1, `${d.sorte} : rien de payé, la poussière rendue`)
+    assert.equal((JSON.parse(visites(d.profil) ?? '[]') as { jour: string }[])[0]?.jour, '2026-10-24', `${d.sorte}, que la base accepte : la visite du jour figée`)
+    assert.equal(gels(d.profil), 1, `${d.sorte}, que la base accepte : une écriture de la visite, pas plus`)
+  }
+})
+
+test('un jour déjà compté à la série ne réécrit pas la ligne du profil : une écriture par jour, à sa première manche répondue', async () => {
+  // La deuxième tablée (le 26 octobre 2026, `regressions-serveur-3`) : l'instruction de la série n'avait pas de garde sur
+  // le jour, et la réécrivait à l'identique à chaque visite ou chasse répondue — jusqu'à cinq lignes écrites par jour et par
+  // joueur au quota de Turso, pour rien.
+  const horloge = { t: DIX_HEURES }
+  const fichier = path.join(dossierDEssai(), 'serie.db')
+  const { cabinet } = await magasinDEssai(fichier, horloge)
+  // Chaque écriture de la série, qu'elle la change ou non.
+  aLaMain(fichier, `CREATE TABLE series (serie INTEGER); CREATE TRIGGER serie AFTER UPDATE OF serie, serie_jour, serie_record ON cabinet_profils BEGIN INSERT INTO series VALUES (NEW.serie); END;`)
+  const unJourDeChasses = async (chasses: number) => {
+    for (let k = 0; k < chasses; k++) {
+      let p = await cabinet.commencer('ana', { origine: 'chasse', oeuvre: 'lecon', carte: null })
+      const t = p.depart.tirages[0] as PariTire
+      horloge.t += 3_000
+      const r = await cabinet.geste('ana', p.id, p.etat.rang, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: (t.q1.bonne + 1) % 4 } } })
+      assert.ok('partie' in r, JSON.stringify(r))
+      p = r.partie
+      const q = await cabinet.geste('ana', p.id, p.etat.rang, { quoi: 'quitter' })
+      assert.ok('partie' in q, `chasse ${k + 1} : ${JSON.stringify(q)}`)
+    }
+  }
+  const ligne = () => enBase(fichier, db => db.prepare("SELECT serie, serie_jour AS jour FROM cabinet_profils WHERE profile_id = 'ana'").get())
+  const ecritures = () => compter(fichier, 'SELECT COUNT(*) AS n FROM series')
+  await unJourDeChasses(2)
+  assert.deepEqual(ligne(), { serie: 1, jour: '2026-10-24' }, 'le jour compte une fois')
+  assert.equal(ecritures(), 1, 'la seconde chasse répondue du jour a réécrit la série à l’identique')
+  // Le lendemain, sa première manche répondue la prolonge : une écriture de plus, une seule.
+  horloge.t = DIX_HEURES + 24 * 3_600_000
+  await unJourDeChasses(2)
+  assert.deepEqual(ligne(), { serie: 2, jour: '2026-10-25' }, 'la veille la prolonge')
+  assert.equal(ecritures(), 2, 'une écriture par jour compté')
+})
+
 test('par les routes : la page froide un aller-retour, chaude aucun ; un départ un ; un geste un, son verdict compris', async () => {
   // La fraîcheur des duels de la production : le banc les relit à chaque lecture, ce qui compterait un aller-retour de plus.
   const b = await bancDuCabinet({ fraicheurDesDuelsMs: 3_600_000 })

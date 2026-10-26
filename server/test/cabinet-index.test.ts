@@ -93,6 +93,11 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
   try {
     assert.ok(envoyees.size >= 10, `${envoyees.size} instructions relevées`)
     assert.ok([...envoyees.keys()].some(sql => /^UPDATE cabinet_profils SET visites = \?/.test(sql)), 'la visite que la première dépense du jour fige')
+    // Sous la ligne que la dépense vient d'écrire, par sa clé : son plan se lit avec les autres, plus bas.
+    assert.ok(
+      [...envoyees.keys()].some(sql => /^UPDATE cabinet_profils SET visites = \?[\s\S]*EXISTS \(SELECT 1 FROM cabinet_oeuvres WHERE profile_id = \? AND oeuvre = \?/.test(sql)),
+      'la visite que la dépense fige, gardée par la dépense même',
+    )
     for (const [sql, args] of envoyees) {
       const plan = db.prepare(`EXPLAIN QUERY PLAN ${anonyme(sql).sql}`).all(...anonyme(sql, args).args) as Etape[]
       const dit = `${plan.map(e => `${e.id}<${e.parent} ${e.detail}`).join('\n')}\n— ${sql.replace(/\s+/g, ' ')}`

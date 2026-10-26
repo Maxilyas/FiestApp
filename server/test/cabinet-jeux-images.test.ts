@@ -20,6 +20,7 @@ import { ERREUR_SERVEUR } from '../src/core/http'
 import { releve } from '../src/core/pouls'
 import { lireLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { detailsDeLaBase, fichierDuCadrage, tableauxDuDetail, type TableauDuDetail } from '../src/core/details'
+import { ANNEES_A_LA_MAIN, FICHE_DES_DETAILS, anneeALaPrecision, anneeDuTableau, cadragesDe, refusDeLaFiche, type TableauDuDetail as FicheDUnTableau } from '../scripts/details'
 import { evenementsDeLaBase } from '../src/core/frises'
 import { contenuDuCabinet } from '../src/core/cabinet/contenu'
 import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
@@ -200,7 +201,8 @@ test('le Détail : quatre titres consécutifs dans l’ordre du temps, le bon à
     assert.equal(t.jeu, 'detail')
     assert.equal(t.titres.length, TITRES_DU_DETAIL)
     assert.equal(new Set(t.titres.map(x => x.titre)).size, TITRES_DU_DETAIL, 'quatre titres différents')
-    assert.deepEqual(t.titres[t.bonne], { titre: CIBLE.titre, peintre: CIBLE.peintre }, 'le bon, avec son peintre')
+    // Chaque titre garde aussi l'identifiant de son tableau, au serveur seul : la pièce compte ses leurres vus.
+    assert.deepEqual(t.titres[t.bonne], { titre: CIBLE.titre, peintre: CIBLE.peintre, qid: CIBLE.qid }, 'le bon, avec son peintre')
     // Les quatre se suivent dans le temps : aucun tableau du catalogue ne se glisse entre deux d'entre eux.
     const rangs = t.titres.map(x => DANS_LE_TEMPS.findIndex(y => y.titre === x.titre)).sort((a, b) => a - b)
     assert.deepEqual(rangs, [0, 1, 2, 3].map(k => rangs[0] + k), `${t.titres.map(x => x.titre).join(', ')} ne se suivent pas dans le temps`)
@@ -209,6 +211,7 @@ test('le Détail : quatre titres consécutifs dans l’ordre du temps, le bon à
     for (const l of t.titres.filter((_, k) => k !== t.bonne)) {
       vusEnLeurre.add(l.titre)
       assert.equal(l.peintre, AUTRES.find(x => x.titre === l.titre)!.peintre, 'chaque titre avec son peintre')
+      assert.equal(l.qid, AUTRES.find(x => x.titre === l.titre)!.qid, 'et l’identifiant de son tableau')
     }
     places.add(t.bonne)
   }
@@ -292,8 +295,9 @@ test('le Détail : la manche d’une fenêtre — chacun de ses quatre titres es
     const bon = fenetre.find(x => x.qid === t.tableau.qid)
     assert.ok(bon, `${t.tableau.qid} n’est pas de la fenêtre`)
     assert.deepEqual(t.tableau, { qid: bon.qid, titre: bon.titre, peintre: bon.peintre, annee: bon.annee })
-    assert.deepEqual(t.titres[t.bonne], { titre: bon.titre, peintre: bon.peintre }, 'le bon, avec son peintre')
+    assert.deepEqual(t.titres[t.bonne], { titre: bon.titre, peintre: bon.peintre, qid: bon.qid }, 'le bon, avec son peintre')
     for (const x of t.titres) assert.equal(x.peintre, fenetre.find(y => y.titre === x.titre)!.peintre, 'chaque titre avec son peintre')
+    for (const x of t.titres) assert.equal(x.qid, fenetre.find(y => y.titre === x.titre)!.qid, 'et l’identifiant de son tableau')
     assert.equal(t.anecdote, `L’anecdote de ${bon.qid}.`, 'l’anecdote de la question du bon')
     assert.equal(t.categorie, 'Arts & lettres')
     bons.set(bon.qid, (bons.get(bon.qid) ?? 0) + 1)
@@ -504,7 +508,14 @@ test('le Détail : la révélation, la pièce et le cartel', () => {
   assert.equal(p.niveau, 'moyen', 'un tableau n’a pas de marche')
   assert.equal(p.categorie, 'Arts & lettres')
   assert.equal(p.anecdote, r.savais)
-  assert.deepEqual(p.cabinet, { jeu: 'detail', manche: 1, tirage: 4 })
+  // Ses trois leurres, montrés avec leur peintre, comptent vus avec elle (la deuxième tablée, le 26 octobre 2026) : la
+  // pièce les porte, et rien d'autre ne les lit.
+  const leurres = t.titres.flatMap((x, k) => (k === t.bonne ? [] : [idDuTableau(AUTRES.find(y => y.titre === x.titre)!.qid)]))
+  assert.equal(leurres.length, 3)
+  assert.deepEqual(p.cabinet, { jeu: 'detail', manche: 1, tirage: 4, montre: leurres })
+  // Un départ écrit avant que les titres gardent leur tableau : la pièce d'avant, sans rien de plus.
+  const davant = { ...t, titres: t.titres.map(x => ({ titre: x.titre, peintre: x.peintre })) }
+  assert.deepEqual(REGLE_DU_DETAIL.piece(davant, e, juste, { manche: 1, tirage: 4 }).cabinet, { jeu: 'detail', manche: 1, tirage: 4 })
 
   assert.deepEqual(REGLE_DU_DETAIL.cartel(t, juste), { sujet: QUESTION_DU_TABLEAU, reponse: 'La Cible — Anne Peintre, 1600', anecdote: r.savais })
   assert.equal(REGLE_DU_DETAIL.cle, 'detail')
@@ -1038,6 +1049,84 @@ function vuLe(t: TableauDuDetail, vues: ReadonlyMap<string, number>): number | u
   return fois.length > 0 ? Math.max(...fois) : undefined
 }
 
+// ── Les années des tableaux ───────────────────────────────────────────────
+
+/**
+ * Les années que la deuxième tablée a relevées fausses (le 26 octobre 2026, la synthèse, axe 10), et deux de plus
+ * trouvées en les relisant toutes : Wikidata date une partie des cent à la décennie ou au siècle, et le script en
+ * lisait la première année — « Le Fifre, 1850 », quand son « Le savais-tu ? » le dit refusé au Salon de 1866. Chacune
+ * écrite ici à part, avec ce qui la fonde : le test ne relit pas la table du script qu'il éprouve. Un intervalle prend
+ * l'année que dit sa question de la base, sinon la dernière : celle où la toile fut achevée, ou laissée.
+ */
+const ANNEES_RELEVEES: Record<string, { titre: string; annee: number }> = {
+  // Refusé au Salon de 1866 ; sa question le date de 1866.
+  Q26250: { titre: 'Le Fifre', annee: 1866 },
+  // 1854-1855 ; « grande toile de 1855 », dit sa question.
+  Q1167178: { titre: 'L’Atelier du peintre', annee: 1855 },
+  // 1849-1850, exposé au Salon de 1850-1851.
+  Q540488: { titre: 'Un enterrement à Ornans', annee: 1850 },
+  // 1808-1810 ; « achevé en 1810 », dit sa question.
+  Q693746: { titre: 'Le Moine au bord de la mer', annee: 1810 },
+  // Vers 1597-1599 ; « vers 1597 », dit sa question.
+  Q746716: { titre: 'Narcisse', annee: 1597 },
+  // 1534-1540 : inachevée à la mort de Parmigianino, en 1540.
+  Q867403: { titre: 'La Vierge au long cou', annee: 1540 },
+  // 1599-1600 ; « vers 1600 », dit sa question.
+  Q969377: { titre: 'La Vocation de saint Matthieu', annee: 1600 },
+  // 1495-1498, au réfectoire de Santa Maria delle Grazie.
+  Q128910: { titre: 'La Cène', annee: 1498 },
+  // 1891 : Gauguin arrive à Tahiti en juin 1891 — son « Le savais-tu ? » le dit ; la fiche disait 1890.
+  Q930535: { titre: 'Femmes de Tahiti', annee: 1891 },
+  // 1647-1651 (la National Gallery de Londres) ; la fiche disait 1644.
+  Q275349: { titre: 'Vénus à son miroir', annee: 1651 },
+}
+
+test('les tableaux du Détail : aucun daté après la mort de son peintre, et les années relevées à la main — que le script garde', () => {
+  const fiche = JSON.parse(readFileSync(FICHE_DES_DETAILS, 'utf8')) as FicheDUnTableau[]
+  assert.deepEqual(
+    fiche.filter(t => t.annee !== null && t.annee > t.mortDuPeintre).map(t => `${t.titre} (${t.annee}, son peintre mort en ${t.mortDuPeintre})`),
+    [],
+    'daté après la mort de son peintre : une date à la décennie lue comme une année',
+  )
+  const parQid = new Map(fiche.map(t => [t.qid, t]))
+  for (const [qid, { titre, annee }] of Object.entries(ANNEES_RELEVEES)) {
+    const t = parQid.get(qid)
+    assert.ok(t, `${titre} (${qid}) n’est plus dans la fiche`)
+    assert.equal(t.titre.replace(/'/g, '’'), titre)
+    assert.equal(t.annee, annee, `${titre} : la fiche le date de ${t.annee}`)
+    // Le script les écrit à la main : un découpage refait d'après Wikidata ne les remet pas fausses.
+    assert.equal(ANNEES_A_LA_MAIN[qid], annee, `${titre} : le script ne la garde pas — un découpage refait la remettrait à ${t.annee}`)
+  }
+  // Et chaque année écrite à la main est celle de la fiche : la table et la fiche ne se contredisent jamais.
+  for (const [qid, annee] of Object.entries(ANNEES_A_LA_MAIN)) assert.equal(parQid.get(qid)?.annee, annee, `${qid} : la fiche contredit l’année écrite à la main`)
+  // Le Détail lit la fiche corrigée : la révélation dit l'année juste — seules les parties qui commencent en profitent.
+  assert.equal(tableauxDuDetail().find(t => t.qid === 'Q26250')?.annee, 1866)
+})
+
+test('une date de Wikidata se lit à sa précision : l’année, ou rien — jamais la première année d’une décennie ou d’un siècle', () => {
+  // `wikibase:timePrecision` : 7 le siècle, 8 la décennie, 9 l'année, 10 le mois, 11 le jour.
+  assert.equal(anneeALaPrecision('1850-01-01T00:00:00Z', '8'), null, 'les années 1850 : aucune année')
+  assert.equal(anneeALaPrecision('1801-01-01T00:00:00Z', 7), null, 'le XIXᵉ siècle : aucune année')
+  assert.equal(anneeALaPrecision('1866-01-01T00:00:00Z', '9'), 1866)
+  assert.equal(anneeALaPrecision('1888-09-01T00:00:00Z', '10'), 1888, 'au mois près, l’année aussi')
+  assert.equal(anneeALaPrecision('1503-10-15T00:00:00Z', 11), 1503)
+  assert.equal(anneeALaPrecision('1866-01-01T00:00:00Z', undefined), null, 'une précision qu’on ne connaît pas ne date rien')
+  assert.equal(anneeALaPrecision('vers 1866', '9'), null)
+  // Plusieurs dates d'un même tableau — un tableau peint en plusieurs années, des sources qui divergent — : la plus
+  // tardive de celles qui disent leur année, celle où la toile fut achevée ; aucune, rien — elle s'écrit à la main.
+  assert.equal(anneeDuTableau([{ valeur: '1800-01-01T00:00:00Z', precision: '8' }, { valeur: '1808-01-01T00:00:00Z', precision: '9' }]), 1808)
+  assert.equal(anneeDuTableau([{ valeur: '1562-01-01T00:00:00Z', precision: '9' }, { valeur: '1560-01-01T00:00:00Z', precision: '8' }]), 1562)
+  assert.equal(anneeDuTableau([{ valeur: '1434-01-01T00:00:00Z', precision: '9' }, { valeur: '1436-01-01T00:00:00Z', precision: '9' }]), 1436)
+  assert.equal(anneeDuTableau([{ valeur: '1600-01-01T00:00:00Z', precision: '7' }]), null, 'La Vierge au long cou, au siècle : à écrire à la main')
+  assert.equal(anneeDuTableau([]), null)
+  // Et la fiche refuse un tableau daté après la mort de son peintre, au `verifier` du script comme à `details.test.ts`.
+  const cadrages = cadragesDe([0.5, 0.5])
+  const tard: FicheDUnTableau = { qid: 'Q1', titre: 't', peintre: 'p', annee: 1600, mortDuPeintre: 1540, fichier: 'f.jpg', page: '', statut: 'domaine public', cadrages, questions: ['x'] }
+  const images = [1, 2, 3, 4].map(i => `Q1-${i}.webp`)
+  assert.deepEqual(refusDeLaFiche([tard], images, () => 1), ['Q1 : daté de 1600, après la mort de son peintre (1540)'])
+  assert.deepEqual(refusDeLaFiche([{ ...tard, annee: 1540 }], images, () => 1), [])
+})
+
 test('le tirage du Détail : un tableau de la fiche, ni le même tableau ni le même titre deux fois dans le plan, leurres compris, l’anecdote de sa question de la base', () => {
   const tableaux = tableauxDuDetail()
   assert.ok(tableaux.length >= 80, `${tableaux.length} tableaux livrés`)
@@ -1183,10 +1272,11 @@ test('le tirage du Détail : de partie en partie, ce qu’il se rappelle ne dés
           if (choix.includes(bon)) justes[k][tour] += 1 / choix.length
         })
         manches[tour]++
-        // Sa révélation nomme le bon : lui s'en souvient tout de suite, le serveur l'écrit vu.
+        // Sa révélation nomme le bon : lui s'en souvient tout de suite, le serveur l'écrit vu — ses trois leurres avec,
+        // montrés chacun avec son peintre, depuis la deuxième tablée (le 26 octobre 2026, `cabinet.montre`).
         for (const x of quatre) proposes.add(x.titre)
         revele.set(bon.qid, ++heure)
-        vues.set(idDuTableau(bon.qid), heure)
+        for (const x of quatre) vues.set(idDuTableau(x.qid), heure)
       }
     }
   }

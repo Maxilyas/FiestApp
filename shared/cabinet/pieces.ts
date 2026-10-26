@@ -42,7 +42,24 @@ export interface PieceDuCabinet {
   sousTheme?: string
   /** La forme de sa ligne — la clé de son jeu, sauf au Pari nu —, que relit `memeVersion`. */
   forme?: string
-  cabinet: { jeu: CleDeJeu; manche: 0 | 1 | 2; tirage: number; etape?: 1 | 2 }
+  cabinet: {
+    jeu: CleDeJeu
+    manche: 0 | 1 | 2
+    tirage: number
+    etape?: 1 | 2
+    /**
+     * Ce que sa manche a montré de plus qu'elle, sous les identifiants que le
+     * journal sait déplier : les trois leurres du Détail, montrés chacun avec
+     * son peintre — la réponse de chaque « Qui a peint… ? » qui les nomme —,
+     * et ce que « Changer » a remplacé, la pièce que la manche remplacée aurait
+     * laissée, quittée. Le journal le compte vu à l'heure de la pièce
+     * (`JournalDesReponses.vuesDe`), et rien d'autre ne le lit : le carnet, la
+     * mesure, le signalement, tes murs et le cartel ne jugent que le contenu
+     * joué. Une manche n'écrit toujours qu'une pièce par verdict (la deuxième
+     * tablée, le 26 octobre 2026).
+     */
+    montre?: readonly string[]
+  }
 }
 
 /**
@@ -88,7 +105,8 @@ export const estUneFriseDeSujet = (id: string) => id.startsWith(FRISE_DE_SUJET)
  * d'une frise de sujet se déplie en ses questions, tout autre identifiant
  * reste lui-même. Toute la campagne lit ses vues dépliées
  * (`JournalDesReponses.vuesDe`, qui déplie aussi un tableau du Détail en les
- * questions qui le nomment, de la fiche du serveur) : une question vue à
+ * questions qui le nomment, de la fiche du serveur, et chaque identifiant de
+ * ce que la pièce a montré de plus, `cabinet.montre`) : une question vue à
  * l'Éclair ne revient pas au Pari avant sept jours, ni jamais vue en série ou
  * en duel — sa révélation avait dit la bonne réponse.
  */

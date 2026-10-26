@@ -8,7 +8,8 @@
 // Ici, la règle pure (le moule : `regle.ts`) : ce que vaut chaque cadrage, ce
 // qu'Éclairer efface, ce que la manche montre et ce que la révélation dit,
 // la pièce que le journal garde — un tableau n'est pas la question « Qui a
-// peint… ? » de la base : `cab:tableau:<QID>`, ni carnet ni signalement. Et ce
+// peint… ? » de la base : `cab:tableau:<QID>`, ni carnet ni signalement ; ses
+// trois leurres y comptent vus avec lui (`cabinet.montre`). Et ce
 // que le serveur appelle sans le recopier : les fenêtres de quatre tableaux qui
 // se suivent dans le temps (`fenetresDuDetail`), la manche d'une fenêtre — le
 // bon au hasard parmi ses quatre, l'ordre des titres, figés au départ
@@ -40,12 +41,24 @@ export interface TitrePropose {
   peintre: string
 }
 
+/**
+ * Un titre tel que le départ le fige : avec l'identifiant de son tableau, qui
+ * ne quitte jamais le serveur — ni `montrer` ni `reveler` ne le prennent. La
+ * pièce le porte pour chaque leurre (`cabinet.montre`) : montré avec son
+ * peintre, chacun dit la réponse des « Qui a peint… ? » qui le nomment.
+ * Absent d'un départ écrit avant (le 26 octobre 2026, des bases jetables) :
+ * ses leurres ne se comptent pas.
+ */
+export interface TitreTire extends TitrePropose {
+  qid?: string
+}
+
 /** Ce que le départ fige d'une manche du Détail. */
 export interface DetailTire {
   jeu: 'detail'
   tableau: TableauDuCabinet
   /** Les quatre titres, dans l'ordre où la page les montre — figé au départ, rejoué tel quel. */
-  titres: TitrePropose[]
+  titres: TitreTire[]
   /** L'indice du bon dans `titres`. */
   bonne: number
   /** L'anecdote de sa question de la base ; sans elle, la révélation dit ce qu'il est. */
@@ -128,7 +141,7 @@ function mancheDeLaFenetre(fenetre: readonly TableauDuCabinet[], bon: TableauDuC
   return {
     jeu: 'detail',
     tableau: { qid: bon.qid, titre: bon.titre, peintre: bon.peintre, annee: bon.annee },
-    titres: proposes.map(x => ({ titre: x.titre, peintre: x.peintre })),
+    titres: proposes.map(x => ({ titre: x.titre, peintre: x.peintre, qid: x.qid })),
     bonne: proposes.indexOf(bon),
     anecdote: o.anecdote,
     categorie: o.categorie,
@@ -290,18 +303,24 @@ export const REGLE_DU_DETAIL: RegleQuiTranche<DetailTire, EtatDuDetail, GesteDuD
     }
   },
 
-  piece: (t, _e, _v, i): PieceDuCabinet => ({
-    id: idDuTableau(t.tableau.qid),
-    texte: QUESTION_DU_TABLEAU,
-    reponses: [reponseDite(t)],
-    bonne: 0,
-    categorie: t.categorie,
-    anecdote: savaisDuDetail(t),
-    // Un tableau n'a pas de marche mesurée : moyen, comme tout contenu sans elle.
-    niveau: 'moyen',
-    forme: 'detail',
-    cabinet: { jeu: 'detail', manche: i.manche, tirage: i.tirage },
-  }),
+  piece: (t, _e, _v, i): PieceDuCabinet => {
+    // Ses leurres, montrés avec leur peintre dès l'ouverture : chacun dit la réponse des « Qui a peint… ? » qui le
+    // nomment. Seul le bon s'écrivait vu, et une partie libre, illimitée, soufflait neuf réponses de peintre que le duel
+    // classé posait ensuite comme neuves (la deuxième tablée, le 26 octobre 2026).
+    const leurres = t.titres.flatMap((x, k) => (k !== t.bonne && x.qid ? [idDuTableau(x.qid)] : []))
+    return {
+      id: idDuTableau(t.tableau.qid),
+      texte: QUESTION_DU_TABLEAU,
+      reponses: [reponseDite(t)],
+      bonne: 0,
+      categorie: t.categorie,
+      anecdote: savaisDuDetail(t),
+      // Un tableau n'a pas de marche mesurée : moyen, comme tout contenu sans elle.
+      niveau: 'moyen',
+      forme: 'detail',
+      cabinet: { jeu: 'detail', manche: i.manche, tirage: i.tirage, ...(leurres.length > 0 && { montre: leurres }) },
+    }
+  },
 
   cartel: t => ({ sujet: QUESTION_DU_TABLEAU, reponse: reponseDite(t), anecdote: savaisDuDetail(t) }),
 }
