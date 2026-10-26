@@ -261,7 +261,7 @@ Hors du stockage, l'historique de la page (`history.state`) porte quelques repè
 | `server/test/client.test.ts` | les motifs de `shared/erreurs.ts` : en français, courts, et qui disent quoi faire |
 | `server/test/typographie.test.ts` | `formatNumber` égal à `toLocaleString`, sur des milliers de nombres |
 | `server/test/design.test.ts` | entre autres, un titre d'onglet par page sans espace, posé au premier rendu |
-| `server/test/petit-ecran.test.ts` | les onglets au clavier, la modale (`client/src/modale.ts`) |
+| `server/test/petit-ecran.test.ts` | les onglets au clavier, les fenêtres modales (`client/src/modale.ts`) : la carte d'un joueur, un dialogue — le reste de la page inerte, le focus gardé sous le doigt, Échap à celle du dessus |
 | `server/test/installation.test.ts` | la carte d'installation sous les trois boutons, l'invitation de Chrome gardée, un stockage qui lève |
 | `server/test/entre-deux-soirees.test.ts` | la fin de soirée gardée : rouverte au retour, jamais à l'arrivée |
 

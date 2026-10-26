@@ -110,6 +110,18 @@ paths:
   (`Input.dispatchTouchEvent` — `synthesizeScrollGesture` n'y fait rien
   défiler), et filme l'ouverture (`Page.startScreencast`) pour la
   luminosité de chaque image.
+- **Les deux voiles sont modaux** — celui d'une feuille et celui d'un
+  dialogue, comme la carte d'un joueur : ce qu'ils couvrent devient `inert`
+  (`useModale`, `horsDeLaBoite`, règle `client.md`), eux restent vivants. Le
+  CSS n'y est pour rien : `touch-action` arrête le doigt, pas le clavier ni le
+  lecteur d'écran, qui lisait dix-sept liens du musée sous « Comment ça
+  marche ? » (la tablée du 25 octobre 2026). La feuille reçoit le focus par
+  programme (`tabindex="-1"`) : l'anneau de l'application l'écarte, mais
+  ouverte au clavier, le navigateur l'entoure du sien (`outline: auto`, un
+  filet clair), comme la feuille de « Mon compagnon » — la carte d'un joueur
+  et la fiche de la niche l'effacent (`.carte-joueur:focus`,
+  `.niche-fiche:focus`), le Cabinet sous `.cab-page` seulement, où la
+  feuille n'est pas.
 - **Ce qui se pose sur la page a un sol plein, sous tous les thèmes.**
   Chaque thème repeint `.card` d'un verre fait pour laisser voir son décor —
   translucide sous vingt-cinq d'entre eux, de 82 à 95 % —, d'un sélecteur

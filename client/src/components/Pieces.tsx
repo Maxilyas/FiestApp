@@ -1,5 +1,6 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
+import { useModale } from '../modale'
 import { nouveautesAPorter } from '../../../shared/piecesDeLaLoge'
 
 // Les petites pièces des pages du téléphone : l'en-tête d'une page, le lien
@@ -63,6 +64,14 @@ export function GesteDuBas({ icone, children, onClick, busy, danger }: { icone: 
 /**
  * Une feuille qui monte du bas, « Fermer » toujours en vue : choisir un quiz,
  * ranger. Le voile la ferme aussi ; le reste de la page ne bouge pas.
+ *
+ * Une vraie fenêtre, comme la carte d'un joueur (`useModale`) : le focus y
+ * arrive, le reste de la page devient inerte — le voile, qui la porte, reste
+ * vivant —, Échap la ferme, et le focus revient au bouton qui l'a ouverte.
+ * Elle se disait `aria-modal` sans l'être : le focus restait derrière, dix-sept
+ * liens et titres du musée se lisaient encore sous « Comment ça marche ? », et
+ * Tab, Entrée depuis « Choisir une carte-bonus » lançait la partie cachée
+ * dessous (la tablée du 25 octobre 2026).
  */
 export function Feuille({
   titre,
@@ -79,9 +88,19 @@ export function Feuille({
   className?: string
   children: ReactNode
 }) {
+  const boite = useRef<HTMLDivElement>(null)
+  useModale(boite, onFermer)
   return (
     <div className="carte-voile" onClick={onFermer}>
-      <div className={'carte-feuille' + (className ? ` ${className}` : '')} role="dialog" aria-modal="true" aria-label={titre} onClick={e => e.stopPropagation()}>
+      <div
+        ref={boite}
+        className={'carte-feuille' + (className ? ` ${className}` : '')}
+        role="dialog"
+        aria-modal="true"
+        aria-label={titre}
+        tabIndex={-1}
+        onClick={e => e.stopPropagation()}
+      >
         <header className="carte-barre">
           <b className="feuille-titre">{titre}</b>
           <button type="button" className="carte-fermer" onClick={onFermer}>

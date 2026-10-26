@@ -266,6 +266,71 @@ test('la carte d’un joueur rend le reste de la page inerte, et le focus à qui
   assert.match(modale, /avant\?\.focus\(/)
 })
 
+// ── Un dialogue : une vraie fenêtre modale aussi ──────────────────────────
+
+test('« Quitter cette partie ? » rend le reste de la page inerte, et un toucher ne lui vole pas son focus', async () => {
+  // La tablée du 25 octobre 2026 (Hugo, au lecteur d'écran) : ouverte au lever du doigt — « Quitter » à la révélation d'une manche
+  // du Cabinet, sans pause à demander —, la fenêtre posait le focus sur « Continuer », puis le mousedown que le navigateur fait
+  // suivre tombait sur le voile, qui ne se focalise pas : le focus partait sur la page, rien n'était inerte derrière, et Tab,
+  // Tab, Entrée jouait « Manche suivante » derrière la fenêtre restée ouverte.
+  const { arretDuTab, retenirLeFocus } = await import(new URL('../../client/src/components/Dialog.tsx', import.meta.url).href)
+
+  // Un appui sur le voile même garde le focus où la fenêtre l'a posé ; un appui dans la boîte garde le sien.
+  const appui = (target: object, currentTarget: object) => {
+    const vu = { empeche: false }
+    retenirLeFocus({ target, currentTarget, preventDefault: () => void (vu.empeche = true) })
+    return vu.empeche
+  }
+  const voile = {}
+  assert.equal(appui(voile, voile), true, 'le mousedown du doigt sur le voile')
+  assert.equal(appui({}, voile), false, 'un champ, un bouton de la boîte prennent le focus')
+
+  // Tab tourne dans la boîte — et y revient d'ailleurs : le focus tombé sur la page n'emmène plus Tab derrière la fenêtre.
+  const arrets = ['Continuer', 'Quitter la partie']
+  assert.equal(arretDuTab(arrets, 'la page', false), 'Continuer', 'Tab parti de la page revient au premier bouton')
+  assert.equal(arretDuTab(arrets, 'la page', true), 'Quitter la partie', 'et Maj+Tab au dernier')
+  assert.equal(arretDuTab(arrets, 'Quitter la partie', false), 'Continuer', 'du dernier au premier')
+  assert.equal(arretDuTab(arrets, 'Continuer', true), 'Quitter la partie', 'du premier au dernier, en arrière')
+  assert.equal(arretDuTab(arrets, 'Continuer', false), null, 'entre deux arrêts, le navigateur y suffit')
+  assert.equal(arretDuTab([], 'la page', false), null, 'une boîte sans arrêt ne retient rien')
+
+  // Le reste de la page inerte, comme sous la carte d'un joueur : tout ce qui n'est ni le voile ni l'un de ses ancêtres. Le voile
+  // reste vivant — le toucher pour renoncer le ferme encore —, et ce qui était déjà inerte le reste en partant.
+  const dialogue = source('components/Dialog.tsx')
+  assert.match(dialogue, /<div className="dialog-backdrop" ref=\{voile\} onMouseDown=\{retenirLeFocus\}/, 'le voile garde le focus où la fenêtre l’a posé')
+  assert.match(dialogue, /const rendus = voile\.current \? horsDeLaBoite\(voile\.current, document\.body\)\.filter\(e => !e\.hasAttribute\('inert'\)\) : \[\]\s*for \(const e of rendus\) e\.setAttribute\('inert', ''\)/)
+  // Retiré avant de rendre le focus : un bouton inerte ne le prend pas.
+  const nettoyage = dialogue.slice(dialogue.indexOf("document.removeEventListener('keydown', onKey)"))
+  assert.ok(nettoyage.indexOf("removeAttribute('inert')") >= 0, 'le reste de la page rendu vivant en partant')
+  assert.ok(nettoyage.indexOf("removeAttribute('inert')") < nettoyage.indexOf('opener?.focus'), 'avant que le focus revienne à « Quitter »')
+  assert.match(dialogue, /const vise = arretDuTab\(focusable\(\), document\.activeElement, e\.shiftKey\)/)
+})
+
+test('Échap ne ferme que la fenêtre du dessus : la feuille, la carte ou le dialogue ouvert en dernier', async () => {
+  // Une feuille, la carte d'un joueur et un dialogue écoutent tous Échap sur le document, et la plus ancienne l'entend la
+  // première : la galerie des compagnons se fermait avec l'adoption qu'on y confirmait, et une feuille devenue modale se serait
+  // fermée avec la carte d'un ami ouverte sur elle.
+  const { poserUneFenetre } = await import(new URL('../../client/src/modale.ts', import.meta.url).href)
+  const feuille = poserUneFenetre()
+  assert.equal(feuille.dessus(), true, 'seule ouverte')
+  const carte = poserUneFenetre()
+  assert.deepEqual([feuille.dessus(), carte.dessus()], [false, true], 'la carte ouverte sur la feuille a le clavier')
+  const dialogue = poserUneFenetre()
+  assert.deepEqual([feuille.dessus(), carte.dessus(), dialogue.dessus()], [false, false, true])
+  dialogue.retirer()
+  dialogue.retirer()
+  assert.deepEqual([feuille.dessus(), carte.dessus()], [false, true], 'le dialogue parti, la carte reprend le clavier ; retiré deux fois, rien de plus')
+  // Une fenêtre d'en dessous qui part la première — sa page démontée — ne retire pas celle du dessus.
+  feuille.retirer()
+  assert.equal(carte.dessus(), true)
+  carte.retirer()
+  // Les deux portes du clavier le lisent : celle des feuilles et des cartes, celle des dialogues.
+  assert.match(source('modale.ts'), /const touche = \(e: KeyboardEvent\) => e\.key === 'Escape' && fenetre\.dessus\(\) && fermer\.current\(\)/)
+  const dialogues = source('components/Dialog.tsx')
+  assert.match(dialogues, /const onKey = \(e: KeyboardEvent\) => \{\s*(?:\/\/[^\n]*\n\s*)*if \(!fenetre\.dessus\(\)\) return/)
+  for (const f of ['modale.ts', 'components/Dialog.tsx']) assert.match(source(f), /fenetre\.retirer\(\)/, `${f} se retire en partant`)
+})
+
 test('la carte se ferme d’une croix sous elle, toujours en vue, et ne prend plus tout l’écran', async () => {
   // « Fermer » attendait au pied d'une carte bien remplie : il fallait
   // défiler jusqu'au bout pour le trouver (la remarque du 3 octobre 2026).

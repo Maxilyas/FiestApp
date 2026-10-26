@@ -75,7 +75,10 @@ test('un dialogue ouvert au lever du doigt ne se referme pas sous son écho : le
   assert.equal(ouvert, 1)
   assert.equal(estLEchoDUnDoigt(clic(60_030)), true, 'l’écho du doigt')
   assert.equal(estLEchoDUnDoigt(clic(61_000)), false, 'un toucher du voile pour de bon le ferme')
-  assert.match(readFileSync(client('components/Dialog.tsx'), 'utf8'), /<div className="dialog-backdrop" onClick=\{e => !estLEchoDUnDoigt\(e\) && close\(null\)\}>/)
+  assert.match(
+    readFileSync(client('components/Dialog.tsx'), 'utf8'),
+    /<div className="dialog-backdrop" ref=\{voile\} onMouseDown=\{retenirLeFocus\} onClick=\{e => !estLEchoDUnDoigt\(e\) && close\(null\)\}>/,
+  )
 })
 
 test('au Cabinet, l’écho du doigt ne suit pas le lien venu sous lui : le premier click qui suit le doigt s’arrête à la capture', async () => {
