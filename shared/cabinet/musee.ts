@@ -474,8 +474,10 @@ export type DemandeDeDepart =
  * des refus un oracle — de trois œuvres essayées, seule la visée partait, ou
  * se refusait pour sa carte-bonus plutôt que pour la retente : le serveur ne
  * lit plus que celle-ci (`lireLaDemande`). Elle reste hors de
- * `DemandeDeDepart` : la page y lit l'œuvre de toute chasse (`annonceDe`), et
- * ne propose pas encore la retente.
+ * `DemandeDeDepart`, dont la chasse nomme son œuvre : la page envoie l'une ou
+ * l'autre par la demande que le serveur lit (`DemandeLue`, par
+ * `api.cabinet.commencer` ; sans sa carte-bonus, `PartieDemandee`), et annonce
+ * la retente à l'enjeu de sa case (`annonceDe`).
  */
 export type DemandeDeRetente = { origine: 'chasse'; case: number; retente: true; carte: string | null }
 
@@ -545,15 +547,25 @@ function laPartieManquee(m: Musee, k: number): (PartieDuJour & { cible: CleDOeuv
 }
 
 /**
+ * Une retente de la case `k` dont l'œuvre est à lui depuis sa partie manquée —
+ * une chasse, un achat : elle ne partira jamais, ni la partie qui attend finie,
+ * ni à minuit. La page le sait déjà : sa case se joue désormais pour la dorer.
+ */
+const sonOeuvreEstALui = (m: Musee, visite: VisiteDuJour, k: unknown): boolean => {
+  const manquee = estUneCase(visite, k) ? laPartieManquee(m, k) : undefined
+  return manquee !== undefined && possedees(m).has(manquee.cible)
+}
+
+/**
  * Ce qu'une retente de la case `k` rejoue, ou pourquoi elle ne part pas : sa
  * partie manquée, son jeu, l'œuvre qu'elle visait. Chaque refus ne dit que la
- * case — commencée ou non, manquée ou non —, que la page sait déjà.
+ * case — commencée ou non, manquée ou non —, que la page sait déjà ; son œuvre
+ * déjà à lui s'est dite avant (`sonOeuvreEstALui`, `cadreDuDepart`).
  */
 function laRetente(m: Musee, visite: VisiteDuJour, k: unknown, jeux: readonly CleDeJeu[]): { jeu: CleDeJeu; cible: CleDOeuvre } | string {
   if (!estUneCase(visite, k)) return CHOISIS_UNE_CASE
   const manquee = laPartieManquee(m, k)
   if (!manquee) return RETENTER_SANS_VISITE_MANQUEE
-  if (possedees(m).has(manquee.cible)) return SON_OEUVRE_EST_A_TOI
   return jeux.includes(manquee.jeu) ? { jeu: manquee.jeu, cible: manquee.cible } : JEU_PAS_LIVRE
 }
 
@@ -573,6 +585,10 @@ function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
  * visite manquée ; un jeu livré ; une carte-bonus qu'il a.
  */
 export function cadreDuDepart(m: Musee, demande: DemandeLue, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS): CadreDuDepart | string {
+  // Ce qui ne se fera jamais se dit avant ce qui attend, comme pour un achat (`refusDeLAchat`) : sous une case dont
+  // l'œuvre est à lui, « Plus de chasse » ou « Ta partie t'attend » promettaient une retente pour plus tard — et le
+  // bilan relu les gardait tels quels (`retenteDeLaCase`).
+  if (demande.origine === 'chasse' && 'retente' in demande && sonOeuvreEstALui(m, visite, demande.case)) return SON_OEUVRE_EST_A_TOI
   if (m.enCours) return laPartieAttend(m.enCours.jeu)
   const a = possedees(m)
   let cadre: Omit<CadreDuDepart, 'carte'>
@@ -630,8 +646,9 @@ export function refusDuDepart(m: Musee, demande: DemandeLue, visite: VisiteDuJou
  * carte-bonus (elle se choisit à l'annonce, et n'y change rien). Absent tant
  * que la case n'est pas manquée, et pour une case dont l'œuvre était à lui
  * avant sa partie (pour la dorer : rien à retenter) ; une œuvre gagnée
- * depuis — une chasse, un achat — se dit (`SON_OEUVRE_EST_A_TOI`), comme plus
- * de chasse ou une partie qui attend. Jamais l'œuvre (invariant 1).
+ * depuis — une chasse, un achat — se dit (`SON_OEUVRE_EST_A_TOI`), avant plus
+ * de chasse ou une partie qui attend, qui ne sont que pour plus tard. Jamais
+ * l'œuvre (invariant 1).
  */
 export function retenteDeLaCase(m: Musee, visite: VisiteDuJour, k: number, jeux: readonly CleDeJeu[] = JEUX_PRETS): RetenteVue | null {
   const manquee = laPartieManquee(m, k)

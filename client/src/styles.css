@@ -10570,6 +10570,12 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
   .cab-point { width: 24px; height: 24px; }
   .cab-points { gap: 4px; }
 }
+/* Une largeur écrite ne vaut que pour les polices d'office : sous le Sommet, l'Horloge, le Ciel, le Film noir ou le Carnet, le
+   total ou le mot plus larges faisaient passer « Quitter » à la ligne en 360 de large, la tête haute de 131 pixels au lieu de 100
+   (le rendu du 26 octobre 2026). La page mesure si le mot tient sur la rangée, et le cache sinon (`poserLeMotDeQuitter`, `bande.ts`). */
+.cab-tete-ligne[data-mot='cache'] .cab-quitter-mot { display: none; }
+.cab-page .cab-tete-ligne[data-mot='cache'] .cab-quitter { width: 44px; padding: 0; }
+.cab-tete-ligne[data-mot='cache'] .cab-quitter .icon { margin-right: 0; }
 .cab-tete-partie .timer { gap: 10px; }
 .cab-tete-partie .timer-seconds { min-width: 36px; font-size: 1.75rem; }
 .cab-manche { gap: 14px; }
@@ -10769,7 +10775,11 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
    chacun ses étoiles, l'état par `aria-pressed` ; « Lancer le filet ». La zone est d'or, le filet à l'accent, la valeur à l'encre :
    et chacun se dit aussi en mots. */
 .cab-filet-vise { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
-.cab-filet-valeur { color: var(--accent-text); font-family: var(--serif); font-size: 2.6rem; font-weight: 700; line-height: 1.05; font-variant-numeric: lining-nums tabular-nums; }
+/* L'unité de la valeur visée, plus petite que son nombre, passe sous lui quand la ligne manque de place : à 2,6 rem, « chromosomes »
+   sortait de l'écran sous le Ciel, au texte à 130 % (le rendu du 26 octobre 2026). Une unité a douze signes au plus (`MAX_UNIT`) ;
+   un mot plus large que la colonne s'y coupe plutôt que d'élargir la page. */
+.cab-filet-valeur { color: var(--accent-text); font-family: var(--serif); font-size: 2.6rem; font-weight: 700; line-height: 1.05; font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere; }
+.cab-filet-unite { font-size: 1.45rem; }
 .cab-filet-couvre { color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
 /* Le rail laisse à chaque bout la moitié du mât du curseur (5 px) : le centre du mât y court du premier cran au dernier, comme
    le navigateur le pose sur sa piste, et le filet dessiné reste centré sous lui. */
@@ -10779,16 +10789,25 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-filet-zone { position: absolute; top: 13px; height: 18px; border: 1.5px dashed var(--or-text); border-radius: 9px; background: color-mix(in srgb, var(--or-text) 26%, transparent); }
 .cab-filet-maille { position: absolute; top: 7px; height: 30px; border: 2px solid var(--accent); border-radius: 9px; background: var(--accent-soft); }
 .cab-filet-vrai { position: absolute; top: 2px; width: 4px; height: 40px; margin-left: -2px; border-radius: 2px; background: var(--ink); }
-.cab-filet-bornes { display: flex; justify-content: space-between; margin: 0 2px; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+/* Les bornes, chacune à son bout et un écart entre elles : sous la piste — 133 pixels entre − et + au texte à 130 % —, « 0
+   chromosomes » et « 82 chromosomes » se touchaient à 100 % (« chromosomeschromosomes »), et la borne haute sortait de l'écran
+   au texte agrandi, la page élargie emportant la niche avec elle (le rendu du 26 octobre 2026). Qui ne tient pas à côté de
+   l'autre passe dessous, toujours à droite. */
+.cab-filet-bornes { display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 12px; margin: 0 2px; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere; }
+.cab-filet-bornes > :last-child { margin-left: auto; text-align: right; }
 /* − et + se posent à la hauteur du rail, pas au milieu de la piste et de ses bornes. */
 .cab-filet-curseur { display: flex; align-items: flex-start; gap: 8px; }
 .cab-cran { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 12px; background: var(--surface-strong); color: var(--ink); font: inherit; font-size: 1.6rem; font-weight: 700; line-height: 1; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
 .cab-cran[aria-disabled='true'] { opacity: 0.4; cursor: default; }
 /* Un grand pas de chaque côté, sous « − » et « + », ce qu'il fait écrit dessus (« − 12 ») : sur leur rangée, la piste n'aurait
-   plus eu que 29 pixels en 277 de large. Chacun sa colonne, qui se réduit, et son unité passe à la ligne : « + 24 épisodes » sur
-   une ligne chacun élargissait la page de 21 pixels en 277 × 492 (le rendu de la relecture du lot page-1). */
-.cab-grands-pas { display: grid; grid-template-columns: repeat(2, minmax(0, max-content)); justify-content: space-between; gap: 8px; }
-.cab-cran.cab-grand-pas { width: auto; height: auto; min-height: 44px; min-width: 44px; padding: 6px 12px; font-size: 1.0625rem; line-height: 1.2; text-align: center; text-wrap: balance; }
+   plus eu que 29 pixels en 277 de large. Côte à côte quand ils tiennent, chacun à son bout ; sinon « + » passe dessous, à droite,
+   comme la borne haute de la piste. Côte à côte sur une ligne chacun, « + 24 épisodes » élargissait la page de 21 pixels en
+   277 × 492 (le rendu de la relecture du lot page-1) ; en deux colonnes qui se réduisaient, le mot d'une unité longue sortait de
+   son bouton — « − 8 chromosomes », de 11 pixels au texte à 130 % (le rendu du 26 octobre 2026). Un bouton plus large que la
+   rangée s'y réduit, son unité à la ligne, et un mot plus large que lui s'y coupe. */
+.cab-grands-pas { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.cab-grands-pas > :last-child { margin-left: auto; }
+.cab-cran.cab-grand-pas { width: auto; height: auto; min-height: 44px; min-width: 44px; max-width: 100%; padding: 6px 12px; font-size: 1.0625rem; line-height: 1.2; text-align: center; text-wrap: balance; overflow-wrap: anywhere; }
 /* Le curseur se pose sur le rail, sa propre piste transparente : on ne voit que son bouton, un mât au milieu du filet qu'il tient
    — rond de 28 px, il cachait le petit filet d'une piste de 3000 km, large de 14 px. La piste se prend au doigt sur 44 px de haut :
    le pouce n'attrape pas un trait de 4, et un toucher n'importe où sur elle y pose le mât. */

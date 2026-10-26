@@ -19,7 +19,8 @@
 // « Quitter ? », un essai et ses couleurs, le Filet éclairé, l'Épingle
 // éclairée et plantée, les Indices — un indice de plus, un nom refusé —, la
 // Réplique, puis sa seconde manche laissée au temps (« Qui l'a dit ? ») —, et
-// le bilan d'une partie quittée ; la partie qui l'attend au musée ; une partie
+// le bilan d'une partie quittée ; le Filet d'une unité longue, écrite dans son
+// plan ; la partie qui l'attend au musée ; une partie
 // de la visite — son annonce, son seuil dans la tête, rechargée en pleine manche,
 // sa case « En cours » et son « Reprendre », « Quitter ? » qui dit ce qu'on
 // emporte, son bilan manqué et « Retenter », l'annonce de la retente, la visite
@@ -38,8 +39,9 @@
 // (`[contraste]`) — les mesures de `a-l-ecran.ts` —, un texte qui sort de son
 // propre bouton (`[hors du bouton]`) ; et ce que le `click` qui suit le doigt a
 // fait que la souris n'aurait pas fait (`[écho]`). Une partie dit en plus si sa
-// tête se chevauche — le total sous « Quitter », la niche posée ou non
-// (`[tête]`) —, et si ce qu'on manipule tient avec ce qu'on lit entre la tête
+// tête se chevauche — le total sous « Quitter », la niche posée ou non, ou
+// « Quitter » passé à la ligne ailleurs qu'au bout du chrono (`[tête]`) —, et
+// si ce qu'on manipule tient avec ce qu'on lit entre la tête
 // et le pied collés : la ligne à taper du Mot, à l'ouverture et après chaque
 // essai (`[mot]`) ; la question et la carte entière de l'Épingle, à un
 // défilement au moins, la carte à la même largeur avant et après Éclairer,
@@ -308,6 +310,28 @@ function porterLeTheme(ids: string[]) {
   }
 }
 
+/**
+ * Une unité longue au Filet de la partie en cours, écrite dans son plan en base : le hasard du tirage n'en donne pas à chaque
+ * rendu, et au texte agrandi « 82 chromosomes » sortait de l'écran, « − 8 chromosomes » de son bouton (le rendu du 26 octobre
+ * 2026). Le serveur relu la sert telle quelle ; onze signes, quand une unité en a douze au plus (`MAX_UNIT`).
+ */
+function uneUniteLongue(id: string) {
+  const db = new Database(fichier)
+  try {
+    const { partie } = db.prepare('SELECT partie FROM cabinet_profils WHERE profile_id = ?').get(id) as { partie: string | null }
+    if (!partie) throw new Error('aucune partie en cours')
+    const { cabinet } = db.prepare('SELECT cabinet FROM campagne_series WHERE id = ?').get(partie) as { cabinet: string }
+    const depart = JSON.parse(cabinet) as { tirages: { jeu: string; question: { texte: string } }[] }
+    for (const t of depart.tirages.filter(x => x.jeu === 'filet')) {
+      Object.assign(t, { valeur: 46, annee: false, unite: 'chromosomes', piste: { min: 0, max: 82, pas: 1 } })
+      t.question.texte = 'Combien de chromosomes comptent la plupart des cellules du corps humain ?'
+    }
+    db.prepare('UPDATE campagne_series SET cabinet = ? WHERE id = ?').run(JSON.stringify(depart), partie)
+  } finally {
+    db.close()
+  }
+}
+
 /** La partie en cours d'un profil, lue en base, et ce qu'elle a tiré : la page ne le voit jamais avant le verdict. */
 function tirageEnCours<T>(id: string, k: number): T {
   const db = new Database(fichier, { readonly: true })
@@ -411,32 +435,36 @@ const LA_BANDE = `const tete = document.querySelector(${JSON.stringify(TETE_COLL
   const pied = document.querySelector(${JSON.stringify(PIED_COLLE)})
   const bas = pied ? pied.getBoundingClientRect().top : innerHeight`
 
-/** Le texte du total de la tête, et « Quitter » ; et si « Quitter » est passé à la ligne. */
+/** Le texte du total de la tête, et « Quitter » ; s'il est passé à la ligne, et s'il s'est assis au bout du chrono. */
 const LA_TETE = `(() => {
   const total = document.querySelector('.cab-total'), quitter = document.querySelector('.cab-quitter')
   if (!total || !quitter) return null
   const plage = document.createRange()
   plage.selectNodeContents(total)
   const t = plage.getBoundingClientRect(), q = quitter.getBoundingClientRect()
-  return { droite: t.right, gauche: q.left, memeLigne: t.bottom > q.top + 0.5 && q.bottom > t.top + 0.5, hauteur: document.querySelector(${JSON.stringify(TETE_COLLEE)}).getBoundingClientRect().height }
+  return { droite: t.right, gauche: q.left, memeLigne: t.bottom > q.top + 0.5 && q.bottom > t.top + 0.5, assis: getComputedStyle(quitter).position === 'absolute', hauteur: document.querySelector(${JSON.stringify(TETE_COLLEE)}).getBoundingClientRect().height }
 })()`
 
 /**
  * La tête d'une manche, avec et sans la niche d'un compagnon (la classe que la page pose quand le profil en a un) : au texte
  * agrandi, « 0 / 9 ★ » passait de 34 à 60 pixels sous « Quitter » (la tablée du 25 octobre 2026). Le texte du total s'arrête
  * avant « Quitter » sur leur ligne ; quand la place manque même au bouton sans son mot — 277 pixels de large, la niche posée —,
- * la rangée passe à la ligne, et « Quitter » sous le total ne le touche plus : le rapport le dit, avec la hauteur de la tête.
+ * « Quitter » s'assied au bout de la ligne du chrono : le rapport le dit, avec la hauteur de la tête. Passé à la ligne
+ * autrement, c'est un défaut (`[tête]`) : sous le Sommet, l'Horloge, le Ciel, le Film noir et le Carnet, son mot faisait
+ * passer la rangée à la ligne, la tête haute de 131 pixels au lieu de 100, et le rapport ne le disait qu'en passant (le rendu
+ * du 26 octobre 2026).
  */
 async function laTete(page: any, nom: string) {
   const avec: boolean = await page.evaluate(`document.body.classList.contains('avec-niche')`)
   for (const niche of [avec, !avec]) {
     await page.evaluate(`document.body.classList.toggle('avec-niche', ${niche})`)
     await page.waitForTimeout(150)
-    const m: { droite: number; gauche: number; memeLigne: boolean; hauteur: number } | null = await page.evaluate(LA_TETE)
+    const m: { droite: number; gauche: number; memeLigne: boolean; assis: boolean; hauteur: number } | null = await page.evaluate(LA_TETE)
     const ou = `${nom}${niche ? ', la niche posée' : ''}`
     if (!m) noterLaBande(`[tête] ${nom} : ni total ni « Quitter »`)
     else if (m.memeLigne && m.droite > m.gauche + 0.5) noterLaBande(`[tête] ${ou} : le texte du total passe de ${Math.round(m.droite - m.gauche)} px sous « Quitter »`)
-    else if (!m.memeLigne) mesures.push(`la tête ${ou.replace(/^la tête /, '')} : « Quitter » passe à la ligne, la tête haute de ${Math.round(m.hauteur)} px`)
+    else if (!m.memeLigne && !m.assis) noterLaBande(`[tête] ${ou} : « Quitter » passe à la ligne, la tête haute de ${Math.round(m.hauteur)} px`)
+    else if (!m.memeLigne) mesures.push(`la tête ${ou.replace(/^la tête /, '')} : « Quitter » s’assied au bout du chrono, la tête haute de ${Math.round(m.hauteur)} px`)
   }
   await page.evaluate(`document.body.classList.toggle('avec-niche', ${avec})`)
 }
@@ -983,6 +1011,27 @@ try {
         await page.waitForSelector('.cab-titre-revele')
       }
       await quitter(page, jeu === 'pari' ? 'bilan-d-une-partie-quittee' : null)
+    })
+  }
+
+  // Le Filet d'une unité longue : sa valeur, ses bornes et ses grands pas tiennent dans la page, puis sa révélation.
+  if (ordre.includes('filet')) {
+    await etape('le Filet d’une unité longue', async () => {
+      await sansPartieEnCours(page)
+      await ouvrir(page, '#libre', '.cab-jeux')
+      await toucher(page, await boutonQuiDit(page, '.cab-jeu', JEUX.filet.nom))
+      await page.waitForSelector('.cab-annonce')
+      await commencer(page)
+      uneUniteLongue(idDeLea)
+      await banc.redemarrer()
+      await ouvrir(page, '', '.cab-portes')
+      await toucher(page, page.locator('.gros-bouton', { hasText: 't’attend' }))
+      await page.waitForSelector('.cab-curseur')
+      await photo(page, 'filet-unite-longue')
+      await photo(page, 'filet-unite-longue-entiere', { pleine: true })
+      await toucher(page, page.locator('.cab-lancer'))
+      await laRevelation(page, 'filet-unite-longue')
+      await quitter(page, null)
     })
   }
 

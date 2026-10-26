@@ -26,7 +26,7 @@ import { POUVOIRS, refusDuPouvoir, type CleDePouvoir } from '../../../../shared/
 import type { MancheMontree, RevelationDUneManche } from '../../../../shared/cabinet/jeux/index'
 import type { FinDUneManche, GesteDuCabinet, Manche, ReponseDUnJeu } from '../../../../shared/cabinet/partie'
 import type { RevelationVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
-import { CE_QUI_BORNE_LA_BANDE, poserLaBande, type OuvertureDeLaBande } from './bande'
+import { CE_QUI_BORNE_LA_BANDE, poserLaBande, poserLeMotDeQuitter, type OuvertureDeLaBande } from './bande'
 import type { BilanDeLaPartie } from './Bilan'
 import { etoilesDites } from './EnEtoiles'
 import { titreDeLaPartie } from './ecrans'
@@ -405,13 +405,17 @@ export const SECONDES_QUI_PRESSENT = 10
  * « Quitter » est une icône et son mot : quand la tête n'a plus la place — le
  * texte agrandi, la niche posée —, le mot se cache (`@container tete`,
  * `styles.css`) et le bouton garde son nom ; au texte du téléphone à 130 %,
- * « 0 / 9 ★ » passait dessous (Jeanne, à la tablée du 25 octobre 2026).
+ * « 0 / 9 ★ » passait dessous (Jeanne, à la tablée du 25 octobre 2026). Une
+ * police de thème plus large que celles d'office le cache aussi, mesurée
+ * (`useLeMotDeQuitter`).
  */
 function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono: ChronoMontre | null; onQuitter: () => void }) {
   const seuil = seuilDeLaTete(vue)
+  const rangee = useRef<HTMLDivElement>(null)
+  useLeMotDeQuitter(rangee)
   return (
     <header className="cab-tete-partie">
-      <div className="cab-tete-ligne">
+      <div className="cab-tete-ligne" ref={rangee}>
         <span className="cab-points" role="img" aria-label={`Manche ${vue.manche + 1} sur ${MANCHES_PAR_PARTIE}`}>
           {vue.manches.map((m, k) => (
             <span
@@ -442,6 +446,30 @@ function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono
       {chrono && <TimerBar deadline={chrono.echeance} duration={chrono.dureeMs / 1000} frozenMs={chrono.figeMs} urgence={SECONDES_QUI_PRESSENT} />}
     </header>
   )
+}
+
+/**
+ * Le mot de « Quitter », montré tant qu'il tient sur la rangée des manches
+ * (`poserLeMotDeQuitter`, `bande.ts`) : remesuré quand la rangée change de
+ * taille — le téléphone tourné, la niche posée, le mot qui la faisait passer à
+ * la ligne —, et quand une police du thème arrive après la tête
+ * (`font-display: swap`), qui l'élargit sans changer sa largeur. Chaque mesure
+ * rend le même verdict sur la même rangée : l'observateur ne boucle pas.
+ */
+function useLeMotDeQuitter(rangee: RefObject<HTMLDivElement | null>) {
+  useLayoutEffect(() => {
+    const el = rangee.current
+    if (!el) return
+    const poser = () => poserLeMotDeQuitter(el)
+    poser()
+    const suivi = typeof ResizeObserver === 'function' ? new ResizeObserver(poser) : null
+    suivi?.observe(el)
+    document.fonts?.addEventListener('loadingdone', poser)
+    return () => {
+      suivi?.disconnect()
+      document.fonts?.removeEventListener('loadingdone', poser)
+    }
+  }, [rangee])
 }
 
 /**

@@ -190,6 +190,17 @@ test('un souffle relâché sans verdict — l’essai du Mot mystère qui ne tro
   assert.deepEqual(vus, ['souffle', 'calme', 'sortie'])
 })
 
+test('la règle du profil nomme les deux gestes du souffle : le retenir à la réponse, le relâcher quand elle revient sans verdict', () => {
+  // La règle ne nommait que le premier (la relecture du lot D4) : un écran de plus qui tient une réponse sans verdict — l'essai du
+  // Mot mystère, le nom refusé des Indices — retenait le souffle sans le rendre, et la niche restait assombrie jusqu'au geste
+  // suivant.
+  const regle = readFileSync(new URL('../../.claude/rules/profil.md', import.meta.url), 'utf8')
+  for (const geste of ['nicheRetientSonSouffle', 'nicheRelacheSonSouffle']) {
+    assert.match(source('niche.ts'), new RegExp(`export function ${geste}\\(\\)`), `${geste}, dans client/src/niche.ts`)
+    assert.match(regle, new RegExp(`\`${geste}\\(\\)\``), `la règle profil.md nomme ${geste}`)
+  }
+})
+
 test('la niche part avec ses humeurs plus tard : la page ne les attend pas, l’invité anonyme ne télécharge rien de plus', async () => {
   Object.assign(globalThis, { React })
   const { Niche } = await import(client('components/Niche.tsx').href)

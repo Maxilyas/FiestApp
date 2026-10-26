@@ -87,6 +87,35 @@ export function bandeDeLEtape(m: MesureDeLaBande, cle: string | null, avant: Ouv
   return { tete: m.tete, fenetre: Math.min(ouverture.fenetre, fenetre), place: Math.min(ouverture.place, place), ouverture }
 }
 
+/** Deux boîtes sur la même rangée : leurs hauteurs se croisent de plus d'un demi-pixel — deux boîtes qui se frôlent n'en font pas une. */
+export const surLaMemeRangee = (a: BoiteALEcran, b: BoiteALEcran): boolean => a.bottom > b.top + 0.5 && b.bottom > a.top + 0.5
+
+/** La rangée des manches de la tête, telle que `poserLeMotDeQuitter` la lit et y écrit : l'élément même, ou son double dans une épreuve. */
+export interface RangeeDeLaTete {
+  querySelector(selecteur: string): { getBoundingClientRect(): BoiteALEcran } | null
+  readonly dataset: { mot?: string }
+}
+
+/**
+ * « Quitter » garde son mot tant qu'il tient sur la rangée des manches : le
+ * mot montré le temps de la mesure, la rangée dit si « Quitter » passe à la
+ * ligne, et le mot se cache alors (`data-mot="cache"`, `styles.css`) — le
+ * bouton garde son icône, son nom et la cible d'un doigt. Les requêtes de
+ * conteneur le cachent sous une largeur écrite pour les polices d'office :
+ * sous le Sommet, l'Horloge, le Ciel, le Film noir ou le Carnet, un total ou
+ * un mot plus larges faisaient passer « Quitter » à la ligne en 360 de large,
+ * la tête haute de 131 pixels au lieu de 100 (le rendu du 26 octobre 2026), et
+ * aucune largeur écrite ne couvre trente-cinq thèmes sans cacher le mot là où
+ * il tient — sous l'Ivoire, il lui reste trois pixels. Sans « Quitter » — la
+ * partie finie —, rien.
+ */
+export function poserLeMotDeQuitter(rangee: RangeeDeLaTete): void {
+  delete rangee.dataset.mot
+  const total = rangee.querySelector('.cab-total')?.getBoundingClientRect()
+  const quitter = rangee.querySelector('.cab-quitter')?.getBoundingClientRect()
+  if (total && quitter && !surLaMemeRangee(total, quitter)) rangee.dataset.mot = 'cache'
+}
+
 /** La page d'une partie, telle que la bande la lit et y écrit : l'élément même, ou son double dans une épreuve. */
 export interface PageDeLaPartie {
   querySelector(selecteur: string): object | null

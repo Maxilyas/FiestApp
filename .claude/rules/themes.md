@@ -92,10 +92,14 @@ paths:
   seules règles d'un thème qui nomment une classe de page), sans quoi son
   tableau passait sous elles — au Sommet, « 2 chasses aujourd'hui » à
   1,36:1 sur la neige ; aux Heures, la question d'un Pari à 1,58:1 sur la
-  page du mois (les rendus des 25 et 26 octobre 2026). Le décor reste de
-  chaque côté de la colonne. `cabinet-ecran.test.ts` le relit dans chaque
-  feuille qui cite ses décors (`--decor-…`) ; `rendu-cabinet.ts`
-  (`THEME=<clé>`) en mesure les `[contraste]`.
+  page du mois (les rendus des 25 et 26 octobre 2026). Le Film noir aussi,
+  sans être peint : sa lampe et ses stores éclairent le haut de la page, où
+  chaque écran du Cabinet pose son étiquette rouge (3,43:1) et son lien de
+  retour (4,19:1). Le décor reste de chaque côté de la colonne.
+  `cabinet-ecran.test.ts` le relit dans chaque feuille qui cite ses décors
+  (`--decor-…`) et dans celle du Film noir ; `rendu-cabinet.ts`
+  (`THEME=<clé>`) en mesure les `[contraste]` — un décor de plus qui passe
+  sous les lignes du Cabinet y prend son sol.
 - **Un achat de plus** s'écrit avec son prix, sur une ligne jamais
   modifiée, et touche cinq endroits de `ProfileStore` : sa table, `achatsDe`,
   les dépenses de `boutiqueEtDons`, `unAchatALaFois` et la liste de

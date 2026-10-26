@@ -1004,11 +1004,40 @@ test('« Retenter » vise la case de la visite manquée, jamais l’œuvre : ses
   assert.deepEqual(retenteDeLaCase(m, v, 1, NEUF), { possible: true })
   assert.deepEqual(retenteDeLaCase(deuxChasses, v, 1, NEUF), { possible: false, refus: PLUS_DE_CHASSE })
   assert.deepEqual(retenteDeLaCase(gagneeDepuis, v, 1, NEUF), { possible: false, refus: SON_OEUVRE_EST_A_TOI })
+  // Ce qui ne se fera jamais se dit avant ce qui attend, comme pour un achat : son œuvre à lui, ni la partie finie ni
+  // minuit ne rouvriront la retente — « Plus de chasse », « Ta partie t'attend » la promettaient pour plus tard, sous la
+  // case et au bilan relu. Le départ le dit dans le même ordre : la case et son toast ne se contredisent pas.
+  const aLui = (mu: Partial<Parameters<typeof museeDe>[0]>) => museeDe({ jour: JOUR, oeuvres: [ligne(visee, { origine: 'achat', gagneeLe: MIDI + 60 * S })], ...mu })
+  for (const [quoi, mu] of [
+    ['les chasses prises', aLui({ parties: [manquee, partieDuJour({ origine: 'chasse' }), partieDuJour({ origine: 'chasse' })] })],
+    ['une partie qui attend', aLui({ parties: [manquee], enCours: { id: 'p', jeu: 'filet' } })],
+    ['les deux', aLui({ parties: [manquee, partieDuJour({ origine: 'chasse' }), partieDuJour({ origine: 'chasse' })], enCours: { id: 'p', jeu: 'filet' } })],
+  ] as const) {
+    assert.deepEqual(retenteDeLaCase(mu, v, 1, NEUF), { possible: false, refus: SON_OEUVRE_EST_A_TOI }, quoi)
+    assert.equal(refus(mu, 1), SON_OEUVRE_EST_A_TOI, `${quoi} : le départ`)
+  }
+  // Une œuvre qui lui manque encore garde l'ordre de toute chasse : la partie qui attend, puis plus de chasse.
+  assert.deepEqual(retenteDeLaCase(museeDe({ jour: JOUR, parties: [manquee], enCours: { id: 'p', jeu: 'filet' } }), v, 1, NEUF), { possible: false, refus: laPartieAttend('filet') })
   // Une case « pour dorer » manquée : son œuvre était à lui avant la partie — rien à retenter, rien à dire.
   const aLuiAvant = museeDe({ jour: JOUR, parties: [manquee], oeuvres: [ligne(visee, { gagneeLe: MIDI - 60 * S })] })
   assert.equal(retenteDeLaCase(aLuiAvant, v, 1, NEUF), null)
   // Jamais l'œuvre : ni le verdict, ni ses refus ne la nomment.
   for (const mu of [m, deuxChasses, gagneeDepuis]) assert.ok(!JSON.stringify(retenteDeLaCase(mu, v, 1, NEUF)).includes(visee))
+})
+
+test('la retente dit par où la page l’envoie : la demande que le serveur lit, `DemandeLue`, par `api.cabinet.commencer` et `PartieDemandee`', () => {
+  // Son commentaire disait que la page « ne propose pas encore la retente » : elle la propose, sous la case et au bilan,
+  // et qui le lisait cherchait un chemin qui n'existait plus.
+  const musee = readFileSync(new URL('../../shared/cabinet/musee.ts', import.meta.url), 'utf8')
+  const avant = musee.slice(0, musee.indexOf('export type DemandeDeRetente'))
+  const commentaire = avant.slice(avant.lastIndexOf('/**'))
+  assert.doesNotMatch(commentaire, /pas encore/, 'la page propose la retente')
+  for (const nom of ['DemandeLue', 'api.cabinet.commencer', 'PartieDemandee']) assert.ok(commentaire.includes(`\`${nom}\``), `le commentaire nomme ${nom}`)
+  // Ce qu'il nomme existe tel quel côté page.
+  const api = readFileSync(new URL('../../client/src/api.ts', import.meta.url), 'utf8')
+  const ecrans = readFileSync(new URL('../../client/src/views/cabinet/ecrans.ts', import.meta.url), 'utf8')
+  assert.match(api, /commencer: \(demande: DemandeLue\)/)
+  assert.match(ecrans, /export type PartieDemandee = SansCarte<DemandeLue>/)
 })
 
 test('le seuil d’une case : celui que son départ figera — gagner son œuvre, ou son double quand elle est à lui', () => {

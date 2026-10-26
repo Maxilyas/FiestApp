@@ -154,8 +154,10 @@ function MancheDuFilet({ montree: m, local: l, setLocal, envoyer, garde, busy }:
       <div className="cab-tete-question">{m.categorie && <span className="label quiz-categorie">{m.categorie}</span>}</div>
       <h2 className={'quiz-question cab-question' + questionSizeClass(m.texte)}>{espacesFines(m.texte)}</h2>
       <div className="cab-filet-vise">
+        {/* Son unité à part, plus petite que son nombre : en grand, une unité longue sortait de l'écran (`styles.css`). */}
         <output className="cab-filet-valeur" aria-live="off">
-          {dire(m, l.x)}
+          {formatNumber(l.x)}
+          {m.unite && <span className="cab-filet-unite">{` ${m.unite}`}</span>}
         </output>
         <span className="cab-filet-couvre">{espacesFines(`Ton filet : de ${dire(m, filet.de)} à ${dire(m, filet.a)}`)}</span>
       </div>

@@ -60,7 +60,11 @@ paths:
   quiz du jour répond par l'écran des soirées, dont le QCM retient déjà le
   souffle. Sans eux, le compagnon
   reste de marbre sur ce mode, et grandit en silence :
-  `niche-reactions.test.ts` compte les écrans qui le font. Et rien de
+  `niche-reactions.test.ts` compte les écrans qui le font. Une réponse qui
+  revient sans verdict — l'essai du Mot mystère qui ne trouve pas encore, le
+  nom refusé des Indices — rend le souffle (`nicheRelacheSonSouffle()`,
+  `client/src/niche.ts`) : retenu d'un essai à l'autre, il assombrissait la
+  niche deux minutes. Et rien de
   `client/src/niche.ts`, de `NicheReagit.tsx` ni de `shared/niche.ts`
   n'importe le catalogue ou les dessins : la soirée les télécharge pour
   chaque invité, l'anonyme compris.

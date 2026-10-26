@@ -703,9 +703,15 @@ test('« Retenter » : après une visite manquée, une chasse au jeu de la visit
   const achetee = ok(await laPage(b, sam.cookie), 'la page, l’œuvre achetée')
   assert.deepEqual(achetee.visite.cases[0].retenter, { possible: false, refus: SON_OEUVRE_EST_A_TOI })
   assert.deepEqual(refus(await commencer(b, sam.cookie, { origine: 'chasse', case: 0, retente: true, carte: null })), [400, { error: SON_OEUVRE_EST_A_TOI }])
-  // Les chasses prises, plus de chasse : la raison d'avant toutes les autres, comme pour une chasse.
+  // Les chasses prises : son œuvre est toujours à elle — ce qui ne se fera jamais se dit avant ce qui attend minuit,
+  // comme pour un achat ; « Plus de chasse » promettait une retente pour demain. La case et la route dans le même ordre.
   ok(await jouer(b, sam.cookie, ok(await commencer(b, sam.cookie, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la seconde chasse'), { quoi: 'quitter' }), 'quitter')
-  assert.deepEqual(ok(await laPage(b, sam.cookie), 'la page sans chasse').visite.cases[0].retenter, { possible: false, refus: PLUS_DE_CHASSE })
+  assert.deepEqual(ok(await laPage(b, sam.cookie), 'la page sans chasse').visite.cases[0].retenter, { possible: false, refus: SON_OEUVRE_EST_A_TOI })
+  assert.deepEqual(refus(await commencer(b, sam.cookie, { origine: 'chasse', case: 0, retente: true, carte: null })), [400, { error: SON_OEUVRE_EST_A_TOI }])
+  // Une case manquée dont l'œuvre lui manque encore, plus de chasse : la raison d'avant toutes les autres, comme pour une chasse.
+  ok(await jouer(b, sam.cookie, ok(await commencer(b, sam.cookie, { origine: 'visite', case: 1, carte: null }), 'la deuxième case'), { quoi: 'quitter' }), 'quitter : manquée')
+  assert.deepEqual(ok(await laPage(b, sam.cookie), 'la page sans chasse').visite.cases[1].retenter, { possible: false, refus: PLUS_DE_CHASSE })
+  assert.deepEqual(refus(await commencer(b, sam.cookie, { origine: 'chasse', case: 1, retente: true, carte: null })), [400, { error: PLUS_DE_CHASSE }])
 })
 
 test('le bilan d’une partie libre dit vrai : payée sans étoile, elle ne dit pas « ont payé » ; payée, elle ne redit pas sa poussière ; la sixième se joue pour le plaisir', async () => {

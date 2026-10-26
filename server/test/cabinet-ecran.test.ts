@@ -1041,6 +1041,50 @@ test('la tête d’une partie au texte agrandi : « Quitter » perd son mot avan
   assert.match(tete, /<button type="button" class="btn cab-quitter" aria-label="Quitter"><svg class="icon"[^>]*>.*?<\/svg><span class="cab-quitter-mot">Quitter<\/span><\/button>/)
 })
 
+test('« Quitter » garde son mot tant qu’il tient sur la rangée : la page le mesure, jamais une largeur écrite pour une police', async () => {
+  // Le rendu du 26 octobre 2026, en 360 × 640 sans niche : sous le Sommet, l'Horloge, le Ciel, le Film noir et le Carnet, un total
+  // ou un mot plus larges qu'en Cormorant et en Figtree faisaient passer « Quitter » à la ligne, la tête haute de 131 pixels au lieu
+  // de 100 ; la requête de conteneur, écrite à 290 pixels pour les polices d'office, ne le voyait pas. Aucune largeur écrite ne
+  // couvre trente-cinq thèmes sans cacher le mot là où il tient — sous l'Ivoire, il lui reste trois pixels : la rangée le mesure.
+  const { poserLeMotDeQuitter, surLaMemeRangee } = (await import(url('views/cabinet/bande.ts'))) as typeof import('../../client/src/views/cabinet/bande')
+  assert.equal(surLaMemeRangee({ top: 14, bottom: 62 }, { top: 16, bottom: 60 }), true)
+  assert.equal(surLaMemeRangee({ top: 14, bottom: 62 }, { top: 66, bottom: 110 }), false, 'passé dessous')
+  assert.equal(surLaMemeRangee({ top: 14, bottom: 62 }, { top: 61.8, bottom: 105 }), false, 'deux boîtes qui se frôlent ne font pas une rangée')
+  // Le mot montré le temps de la mesure : il se cache si « Quitter » passe alors à la ligne, et reparaît dès qu'il tient.
+  const rangee = (quitter: { top: number; bottom: number } | null, vu: string[] = []) => {
+    const dataset: { mot?: string } = { mot: 'cache' }
+    return {
+      dataset,
+      vu,
+      querySelector: (s: string) => {
+        vu.push(`${s}:${dataset.mot ?? 'montré'}`)
+        const boite = s === '.cab-total' ? { top: 14, bottom: 62 } : s === '.cab-quitter' ? quitter : null
+        return boite && { getBoundingClientRect: () => boite }
+      },
+    }
+  }
+  const passe = rangee({ top: 66, bottom: 110 })
+  poserLeMotDeQuitter(passe)
+  assert.equal(passe.dataset.mot, 'cache')
+  assert.deepEqual(passe.vu, ['.cab-total:montré', '.cab-quitter:montré'], 'mesuré le mot montré')
+  const tient = rangee({ top: 16, bottom: 60 })
+  poserLeMotDeQuitter(tient)
+  assert.equal(tient.dataset.mot, undefined, 'il tient : il reparaît')
+  const fini = rangee(null)
+  poserLeMotDeQuitter(fini)
+  assert.equal(fini.dataset.mot, undefined, 'une partie finie n’a pas de « Quitter »')
+  // La tête le mesure à chaque changement de taille de sa rangée, et quand une police du thème arrive après elle.
+  const partie = source('views/cabinet/Partie.tsx')
+  assert.match(partie, /<div className="cab-tete-ligne" ref=\{rangee\}>/)
+  assert.match(partie, /useLeMotDeQuitter\(rangee\)/)
+  assert.match(partie, /new ResizeObserver\(poser\)[\s\S]*?document\.fonts\??\.addEventListener\('loadingdone', poser\)/)
+  // Caché, le bouton garde l'icône, son nom (`aria-label`) et la cible d'un doigt, comme sous la requête de conteneur.
+  const section = sectionDuCabinet()
+  assert.match(section, /\n\.cab-tete-ligne\[data-mot='cache'\] \.cab-quitter-mot \{ display: none; \}/)
+  assert.match(section, /\n\.cab-page \.cab-tete-ligne\[data-mot='cache'\] \.cab-quitter \{ width: 44px; padding: 0; \}/)
+  assert.match(section, /\n\.cab-tete-ligne\[data-mot='cache'\] \.cab-quitter \.icon \{ margin-right: 0; \}/)
+})
+
 test('ce qui s’écrit sur l’or pâle se lit sous chaque thème : les gestes choisis, « Poser ici », le détail du gros bouton, la bonne réponse, le légendaire', () => {
   // Le rendu du 25 octobre 2026 (`rendu-cabinet.ts`, `[contraste]`), sous l'Ivoire : « Reprends-la où tu l’as laissée », en gris sur
   // le gros bouton principal, tenait 4,19:1 ; « Poser ici », 4,48:1 ; « Avatar légendaire débloqué », sur le halo de son médaillon,
@@ -3300,7 +3344,8 @@ test('une manche du Filet : la question, la piste et ses bornes, le curseur au m
   for (const attribut of [`class="cab-curseur"`, `min="${m.piste.min}"`, `max="${m.piste.max}"`, `step="${m.piste.pas}"`, `value="${milieu}"`, `aria-label="Ton estimation"`, `aria-valuetext="${dire(milieu)}"`]) {
     assert.ok(curseur.includes(attribut), `${attribut} dans ${curseur}`)
   }
-  assert.match(html, new RegExp(`<output class="cab-filet-valeur"[^>]*>${echapper(dire(milieu))}</output>`))
+  // La valeur visée, son unité à part, plus petite que son nombre (la feuille, plus bas).
+  assert.match(html, new RegExp(`<output class="cab-filet-valeur"[^>]*>${echapper(formatNumber(milieu))}${m.unite ? echapper(`<span class="cab-filet-unite"> ${m.unite}</span>`) : ''}</output>`))
   // − et +, un cran chacun, de part et d'autre du curseur.
   assert.match(html, /<button type="button" class="cab-cran" aria-label="Un cran de moins">.*<input [^>]*type="range".*<button type="button" class="cab-cran" aria-label="Un cran de plus">/)
   // Et un grand pas de chaque côté, sous la piste : sans glisser, « Un cran de plus » coûtait soixante touchers (Camille, à la
@@ -3575,10 +3620,12 @@ test('la feuille du Mot et du Filet : le clavier de trois rangées de 44 px, −
   assert.ok(mat, 'le bouton du curseur a sa taille')
   assert.ok(Number(mat[1]) <= 12 && Number(mat[2]) >= 36 && Number(mat[2]) <= 44, `un mât : ${mat[1]} × ${mat[2]}`)
   assert.match(section, new RegExp(`\\.cab-filet-rail \\{[^}]*margin: 0 ${Number(mat[1]) / 2}px;`))
-  // Les deux grands pas tiennent sur leur rangée quelle que soit l'unité : « + 24 épisodes » sur une ligne chacun, côte à côte,
-  // élargissaient la page de 21 pixels en 277 × 492 (le rendu de la relecture du lot page-1). Chacun sa colonne, qui se réduit, et
-  // son mot passe à la ligne ; jamais le signe sans son nombre (une espace insécable, `Filet.tsx`).
-  assert.match(section, /\.cab-grands-pas \{[^}]*display: grid; grid-template-columns: repeat\(2, minmax\(0, max-content\)\);[^}]*justify-content: space-between;/)
+  // Les deux grands pas tiennent dans la page quelle que soit l'unité : « + 24 épisodes » sur une ligne chacun, côte à côte,
+  // élargissaient la page de 21 pixels en 277 × 492 (le rendu de la relecture du lot page-1). Côte à côte quand ils tiennent,
+  // chacun à son bout ; sinon « + » passe dessous, à droite — en deux colonnes qui se réduisaient, le mot d'une unité longue
+  // sortait de son bouton (le rendu du 26 octobre 2026, plus bas). Jamais le signe sans son nombre (une espace insécable, `Filet.tsx`).
+  assert.match(section, /\.cab-grands-pas \{[^}]*display: flex; flex-wrap: wrap;[^}]*justify-content: space-between;/)
+  assert.match(section, /\n\.cab-grands-pas > :last-child \{ margin-left: auto; \}/)
   const grand = /\.cab-cran\.cab-grand-pas \{([^}]*)\}/.exec(section)?.[1] ?? ''
   assert.doesNotMatch(grand, /nowrap/)
   assert.match(grand, /height: auto; min-height: 44px;/)
@@ -3595,6 +3642,33 @@ test('la feuille du Mot et du Filet : le clavier de trois rangées de 44 px, −
   // 25 octobre 2026 : « 120 » sous la luciole, à chaque manche, dans tous les jeux).
   const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
   assert.match(css, /body\.avec-niche \.cab-tete-partie \.timer \{ padding-right: var\(--niche-place\); \}/)
+})
+
+test('le Filet d’une unité longue tient dans la page au texte agrandi : l’unité plus petite que son nombre, la borne haute et le grand pas de plus dessous, à droite', async () => {
+  // Le rendu du 26 octobre 2026, en 360 × 640 au texte à 130 % — 237 pixels de colonne, 133 sous la piste entre − et + — : la
+  // piste de 0 à 82 chromosomes coupait « 82 chromosomes » au bord de l'écran, « − 8 chromosomes » sortait de 11 pixels de son
+  // bouton, et la page élargie de 14 pixels emportait la niche avec elle ; sous le Ciel, « 41 chromosomes » à 2,6 rem sortait de
+  // l'écran ; et à 100 %, les deux bornes se touchaient, « chromosomeschromosomes ». Une unité a douze signes au plus (`MAX_UNIT`).
+  const m = vues.filet.enCours as FiletMontre
+  const longue: VueDeLaPartie = { ...vues.filet, enCours: { ...m, annee: false, unite: 'chromosomes', piste: { min: 0, max: 82, pas: 1 } } }
+  const html = await laPartie(longue)
+  // La valeur visée : son unité à part, à l'oreille la même phrase.
+  assert.match(html, /<output class="cab-filet-valeur"[^>]*>41<span class="cab-filet-unite"> chromosomes<\/span><\/output>/)
+  assert.match(html, /<p class="cab-filet-bornes"><span>0 chromosomes<\/span><span>82 chromosomes<\/span><\/p>/)
+  const section = sectionDuCabinet()
+  const regle = (sel: string) => new RegExp(`(?:^|\\n)${echapper(sel)} \\{([^}]*)\\}`).exec(section)?.[1] ?? ''
+  const rem = (sel: string) => Number(/font-size: ([\d.]+)rem;/.exec(regle(sel))?.[1])
+  // L'unité, plus petite que le nombre et jamais sous dix-sept pixels ; elle passe sous lui quand la ligne manque de place, et un
+  // mot plus large que la colonne s'y coupe plutôt que de sortir de l'écran.
+  assert.ok(rem('.cab-filet-unite') < rem('.cab-filet-valeur'), `${rem('.cab-filet-unite')} rem pour ${rem('.cab-filet-valeur')}`)
+  assert.ok(rem('.cab-filet-unite') * 16 >= 17)
+  assert.match(regle('.cab-filet-valeur'), /overflow-wrap: anywhere;/)
+  // Les bornes : chacune à son bout, un écart entre elles ; qui ne tient pas à côté de l'autre passe dessous, à droite.
+  assert.match(regle('.cab-filet-bornes'), /display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: \d+px;/)
+  assert.match(regle('.cab-filet-bornes > :last-child'), /margin-left: auto; text-align: right;/)
+  assert.match(regle('.cab-filet-bornes'), /overflow-wrap: anywhere;/)
+  // Un grand pas ne déborde jamais de la page ni son mot de son bouton : il se réduit à la rangée, et son mot se coupe s'il le faut.
+  assert.match(regle('.cab-cran.cab-grand-pas'), /max-width: 100%;[^}]*overflow-wrap: anywhere;/)
 })
 
 /** La section du Cabinet dans la feuille, sans ses commentaires. */
@@ -4246,6 +4320,31 @@ test('sous chaque thème peint, la colonne du Cabinet a son sol plein : son tabl
     const fond = /background(?:-color)?:\s*var\((--[\w-]+)\)/.exec(regle[1])?.[1]
     assert.ok(fond, `${t.cle} : ${regle[1]}`)
     assert.match(t.jetons.get(fond) ?? '', /^#[0-9a-f]{6}$/i, `${t.cle} : ${fond}, opaque`)
+  }
+})
+
+test('sous le Film noir, la colonne du Cabinet a son sol plein : ses étiquettes et ses liens de retour se lisent à 4,5:1', () => {
+  // Le rendu du 26 octobre 2026, sous le Film noir : la lampe et les stores vénitiens du thème éclairent le haut de la page, là où
+  // chaque écran du Cabinet pose son étiquette et son lien de retour — « La salle · 7 sur 8 » à 3,43:1, « ← Le Cabinet » à
+  // 4,19:1, la devise d'une salle à 4,21:1, sur une cinquantaine de photos. Le rouge du thème tient sur son noir, pas sur le gris
+  // éclairé des stores : la colonne prend le noir, comme celle des thèmes peints ; la pluie et la lampe restent de chaque côté.
+  const noir = themesDuClient().find(t => t.cle === 'filmnoir')!
+  const css = noir.css.replace(/\/\*[\s\S]*?\*\//g, '')
+  const regle = /:root\[data-theme='filmnoir'\] \.cab-page \{([^}]*)\}/.exec(css)
+  assert.ok(regle, 'le Film noir pose un sol sous la colonne du Cabinet')
+  const jeton = /background(?:-color)?:\s*var\((--[\w-]+)\)/.exec(regle[1])?.[1]
+  assert.ok(jeton, regle[1])
+  const sol = teinte(noir.jetons, jeton)
+  // Le gris le plus clair que la lampe et les stores peignent sous ces lignes, lu dans la feuille : le rouge n'y tenait pas.
+  const lampe = /radial-gradient\(90% 60% at 20% 0%, (#[0-9a-f]{6}) 0%/i.exec(css)?.[1]
+  const stores = /repeating-linear-gradient\(-28deg, (rgba\([^)]+\)) 0 22px/.exec(css)?.[1]
+  assert.ok(lampe && stores, 'la lampe et les stores du Film noir')
+  const eclaire = surFond(stores, lampe)
+  assert.ok(contraste(teinte(noir.jetons, '--accent-text'), eclaire) < 4.5, 'sans sol, l’étiquette ne se lisait pas')
+  // Sur le sol : l'étiquette (l'or du texte, rouge ici), le lien de retour et ce qui s'écrit en sourdine, le texte.
+  for (const encre of ['--accent-text', '--accent-text-hover', '--muted', '--ink']) {
+    const r = contraste(teinte(noir.jetons, encre), sol)
+    assert.ok(r >= 4.5, `${encre} sur ${jeton} : ${r.toFixed(2)}:1`)
   }
 })
 
