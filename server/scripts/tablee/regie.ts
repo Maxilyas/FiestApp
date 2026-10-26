@@ -43,10 +43,9 @@ import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { format } from 'node:util'
-import { randomInt } from 'node:crypto'
 import { createQuizServer } from '../../src/server'
 import { sansAccent } from '../../../shared/homonymes'
-import { lireLeDe, lireLeToucher, pointVise, UN_CURSEUR_NE_SE_TAPE_PAS, type Visee } from './gestes'
+import { lancerLeDe, lireLeDe, lireLeToucher, pointVise, UN_CURSEUR_NE_SE_TAPE_PAS, type Visee } from './gestes'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 const RACINE = path.resolve(ICI, '../../..')
@@ -1144,9 +1143,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
   if (geste === 'de') {
     const de = lireLeDe(args)
     if (typeof de === 'string') throw new Refus(de)
-    const tirages = Array.from({ length: de.fois }, () => randomInt(1, de.faces + 1))
-    const dit = de.fois === 1 ? `le dé : ${tirages[0]}` : `${de.fois} dés : ${tirages.join(', ')}`
-    return { sortie: `🎲 ${qui} lance ${dit} (de 1 à ${de.faces}).`, auJournal: { faces: de.faces, tirages } }
+    return lancerLeDe(qui, de)
   }
 
   if (geste === 'appareil') {

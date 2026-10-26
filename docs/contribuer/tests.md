@@ -174,7 +174,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/calendrier.test.ts` — la suite ne dépend pas du jour où elle tourne : chaque calendrier de saison fermé au banc et au smoke, ouvert partout ailleurs.
 - `server/test/emojis.test.ts` — aucun emoji postérieur à Unicode 12 dans le client, `shared/`, `server/src/` et `server/content/`.
 - `server/test/divins.test.ts` — les Divins rares, et leurs règles hors du navigateur, des réponses d'API, de l'étagère et de la documentation.
-- `server/test/tablee.test.ts` — le banc des agents : `toucher --a` là où l'on vise, un curseur qui ne se tape pas, le dé ; chaque geste de la régie dit dans l'aide du pilote et dans les consignes ; les personnages du Cabinet qui ignorent des choses.
+- `server/test/tablee.test.ts` — le banc des agents : `toucher --a` là où l'on vise (une décimale à la française refusée), un curseur qui ne se tape pas, le dé et ses tirages au journal, ce que la régie en branche, la chronologie des dés ; chaque geste de la régie dit dans l'aide du pilote et dans les consignes ; les personnages du Cabinet qui ignorent des choses, et le dé aux parts du calibrage.
 
 ### La soirée : le moteur, le quiz, les équipes
 

@@ -50,6 +50,7 @@ AGIR — chaque geste te rend l'écran d'après
                               --a : là où tu vises, en pour cent de sa largeur (de gauche à droite), puis de
                               sa hauteur (de haut en bas, le milieu sinon) — un curseur, la carte de France :
                               toucher "Ton estimation" --a 30%  ·  toucher "La carte de France" --a 60%,55%
+                              (--a hors des guillemets ; une décimale après un point : --a 12.5%)
   ecrire <ref|étiquette> <texte>     ecrire e7 "Jeanne" : touche le champ, l'efface, puis tape lettre à lettre
                               (un curseur ne se tape pas : touche-le, --a)
   coller <ref|étiquette> <texte>     coller d'un coup un texte préparé ailleurs (une liste de questions)

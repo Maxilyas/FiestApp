@@ -2,6 +2,7 @@
 // l'éprouver (`server/test/tablee.test.ts`) — `regie.ts` démarre un serveur et
 // un Chromium dès son import. Chaque geste se dit aussi dans l'aide du pilote
 // (`pilote.mjs`) et dans les consignes qui l'emploient (règle `tablee.md`).
+import { randomInt } from 'node:crypto'
 
 /** Où toucher dans un élément, en pour cent de sa boîte : de gauche à droite, de haut en bas. */
 export interface Visee {
@@ -11,7 +12,15 @@ export interface Visee {
 
 /** Ce que dit le refus d'une visée illisible : comment viser, deux exemples. */
 const COMMENT_VISER =
-  '« --a » dit où toucher l’élément, en pour cent : --a 30% (de sa largeur, de gauche à droite), ou --a 60%,55% (puis de sa hauteur, de haut en bas), chaque nombre de 0 à 100.'
+  '« --a » dit où toucher l’élément, en pour cent : --a 30% (de sa largeur, de gauche à droite), ou --a 60%,55% (puis de sa hauteur, de haut en bas), chaque nombre de 0 à 100, une décimale après un point (--a 62.5%).'
+
+/** Deux nombres, l'un sans son « % » : une décimale à la française, sans doute — « 62,5% » se lisait 62 % de large, 5 % de haut. */
+const DEUX_AXES =
+  'Deux nombres, chacun son « % » : --a 60%,55% (sa largeur, puis sa hauteur). Une décimale s’écrit avec un point : --a 62.5%.'
+
+/** `--a` collé à son nombre ou pris dans les guillemets de la cible : celle-ci ne nommait plus rien de visible. */
+const HORS_DES_GUILLEMETS =
+  '« --a » se met hors des guillemets de la cible, une espace avant son nombre : toucher "Ton estimation" --a 30%.'
 
 /** Un pourcentage de 0 à 100, le « % » sous-entendu ; null sinon. Un point décimal : la virgule sépare les deux axes. */
 function pourcent(texte: string | undefined): number | null {
@@ -34,13 +43,18 @@ function pourcent(texte: string | undefined): number | null {
 export function lireLeToucher(args: readonly string[]): { cible: string; visee: Visee | null } | string {
   const ou = args.indexOf('--a')
   const cible = (ou < 0 ? args : args.slice(0, ou)).join(' ').trim()
+  if (/(^|\s)--a/.test(cible)) return HORS_DES_GUILLEMETS
   if (!cible) return 'Toucher quoi ? ex. « toucher e12 », « toucher "Jouer sans compte" » ou « toucher "Ton estimation" --a 30% ».'
   if (ou < 0) return { cible, visee: null }
   // « --a 60%, 55% » tapé avec une espace arrive en deux arguments : la même visée.
   const axes = args.slice(ou + 1).join('').split(',')
+  if (axes.length > 2) return COMMENT_VISER
+  // Deux nombres portent chacun leur « % » : « 62,5% » ne doit pas planter
+  // l'épingle au bord nord de la carte, en silence.
+  if (axes.length === 2 && !axes.every(a => a.endsWith('%'))) return DEUX_AXES
   const x = pourcent(axes[0])
   const y = axes.length === 1 ? 50 : pourcent(axes[1])
-  if (axes.length > 2 || x === null || y === null) return COMMENT_VISER
+  if (x === null || y === null) return COMMENT_VISER
   return { cible, visee: { x, y } }
 }
 
@@ -64,7 +78,11 @@ export function pointVise(boite: { width: number; height: number }, v: Visee): {
  */
 export const UN_CURSEUR_NE_SE_TAPE_PAS = 'Un curseur ne se tape pas : touche-le où tu veux, --a 30%'
 
-/** Les dés lancés d'un geste, au plus : de quoi tirer d'avance toute une partie de l'Éclair (cinq affirmations, trois manches). */
+/**
+ * Les dés lancés d'un geste, au plus : de quoi tirer d'avance toute une partie
+ * de l'Éclair (`AFFIRMATIONS_DE_L_ECLAIR` × `MANCHES_PAR_PARTIE`, quinze
+ * aujourd'hui), et un peu plus — `tablee.test.ts` le relit contre le barème.
+ */
 export const DES_PAR_GESTE_MAX = 20
 
 /** Un entier de `min` à `max`, écrit en chiffres ; null sinon. */
@@ -89,4 +107,20 @@ export function lireLeDe(args: readonly string[]): { faces: number; fois: number
     return `Un dé de 2 à 100 faces, lancé de 1 à ${DES_PAR_GESTE_MAX} fois : « de » (six faces), « de 12 », « de 12 9 » (neuf tirages), « de 4 » pour choisir parmi quatre.`
   }
   return { faces, fois }
+}
+
+/**
+ * Le dé lancé : ce que l'agent lit, et ce que le journal des gestes en garde de
+ * plus que ses arguments — ses faces et chaque tirage, que la chronologie range
+ * (« Les dés ») et où la synthèse relit si le dé a décidé. Le hasard est celui
+ * de `node:crypto`, sauf un tirage donné, pour l'éprouver.
+ */
+export function lancerLeDe(
+  qui: string,
+  de: { faces: number; fois: number },
+  tirer: (faces: number) => number = faces => randomInt(1, faces + 1),
+): { sortie: string; auJournal: { faces: number; tirages: number[] } } {
+  const tirages = Array.from({ length: de.fois }, () => tirer(de.faces))
+  const dit = de.fois === 1 ? `le dé : ${tirages[0]}` : `${de.fois} dés : ${tirages.join(', ')}`
+  return { sortie: `🎲 ${qui} lance ${dit} (de 1 à ${de.faces}).`, auJournal: { faces: de.faces, tirages } }
 }
