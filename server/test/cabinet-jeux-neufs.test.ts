@@ -44,6 +44,7 @@ import {
   repliqueDe,
 } from './cabinet-banc'
 import { tirerLePlan, themeDuPlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
+import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
 import { uneFicheSouffleLAutre } from '../src/core/cabinet/tirages/indices'
 import { uneRepliqueSouffleLAutre } from '../src/core/cabinet/tirages/replique'
 import { contenuDuCabinet } from '../src/core/cabinet/contenu'
@@ -235,20 +236,25 @@ function lieuxDEssai(n: number): Point[] {
   )
 }
 
-test('l’Épingle : Éclairer entoure une zone de 170 km qui contient toujours le lieu, sans jamais le dire — mille hasards', () => {
-  assert.equal(RAYON_D_ECLAIRER_KM, 170)
+test('l’Épingle : Éclairer entoure une zone de 300 km qui contient toujours le lieu, sans jamais le dire — mille hasards', () => {
+  // 300 km, son centre à 120 à 294 km du lieu, depuis le 26 octobre 2026 — 170 km et 40 à 140 avant : planter au centre
+  // valait ★★ quatre fois sur cinq, et trois zones gagnaient une commune 91 fois sur 100 sans rien savoir (la tablée du
+  // 25 octobre 2026).
+  assert.equal(RAYON_D_ECLAIRER_KM, 300)
+  assert.deepEqual(DECALAGE_DE_LA_ZONE_KM, [120, 294])
   const [loin, plusLoin] = DECALAGE_DE_LA_ZONE_KM
   let auNord = 0
   for (const [i, point] of lieuxDEssai(1000).entries()) {
-    // Mille hasards du tireur : le décalage de la zone se tire au départ, avec le lieu.
+    // Mille hasards du tireur : le décalage de la zone se tire au départ, avec le lieu — et son rayon.
     const t = epingleTiree(lieuEn(point, i), hasardDe(`zone:${i}`))
+    assert.equal(t.decalage.rayonKm, RAYON_D_ECLAIRER_KM, 'le rayon se fige avec le décalage')
     const e = REGLE_DE_L_EPINGLE.eclairer(t, REGLE_DE_L_EPINGLE.ouvrir(t), HASARD_DE_LA_GRAINE)
     assert.ok(typeof e !== 'string', 'la première fois, Éclairer sert')
     const zone = e.zone!
     assert.equal(zone.rayonKm, RAYON_D_ECLAIRER_KM)
     const ecart = distanceKm(zone, point)
     assert.ok(ecart <= zone.rayonKm, `${i} : le lieu est dans la zone (${ecart} km du centre)`)
-    // Ni au centre, ni au bord : le centre décalé de 40 à 140 km ne dit pas où est le lieu.
+    // Ni au centre, ni au bord : le centre décalé de 120 à 294 km ne dit pas où est le lieu.
     assert.ok(ecart >= loin - 1e-6 && ecart <= plusLoin + 1e-6, `${i} : le centre à ${ecart} km du lieu`)
     if (zone.lat > point.lat) auNord++
   }
@@ -260,6 +266,12 @@ test('l’Épingle : Éclairer entoure une zone de 170 km qui contient toujours 
     const zone = zoneDEclairer(ORLEANS, epingleTiree(ORLEANS, toujours(x)).decalage)
     assert.ok(distanceKm(zone, ORLEANS) <= RAYON_D_ECLAIRER_KM)
   }
+  // Le rayon d'un tirage est le sien, jamais celui du barème du jour : une partie tirée à 170 km se rejoue à 170 —
+  // relu au barème, un rayon changé aurait redessiné la zone des parties déjà jouées, et leur cartel avec.
+  const ancienne = { ...epingleTiree(ORLEANS, hasardDe('ancienne')), decalage: { cap: 90, km: 100, rayonKm: 170 } }
+  const zone = (REGLE_DE_L_EPINGLE.eclairer(ancienne, REGLE_DE_L_EPINGLE.ouvrir(ancienne), HASARD_DE_LA_GRAINE) as EtatDeLEpingle).zone!
+  assert.equal(zone.rayonKm, 170)
+  assert.ok(Math.abs(distanceKm(zone, ORLEANS) - 100) < 1, 'son décalage, tel qu’il a été tiré')
 })
 
 test('l’Épingle : la zone se fige au départ — un rechargement la redonne, et la graine n’en dit rien', () => {
@@ -471,13 +483,14 @@ function jouer(t: IndicesTires, gestes: unknown[]): EtatDesIndices {
   return e
 }
 
-test('les Indices : les indices vus, moins les offerts, plus les erreurs — 3 ★★★, 4 ★★, au-delà ★', () => {
-  // Un cran plus large depuis le calibrage du 25 octobre 2026 : à deux et trois, l'occasionnel n'y gagnait une
-  // commune qu'une partie sur cinq, le plus dur des jeux après le Pari ; au hasard, presque rien ne change (0,3 %).
-  assert.deepEqual(INDICES_DES_ETOILES, [3, 4])
+test('les Indices : les indices vus, moins les offerts, plus les erreurs — 2 ★★★, 4 ★★, au-delà ★', () => {
+  // Élargi d'un cran au calibrage du 25 octobre 2026 (2/3 → 3/4), sur un modèle où le rang de la reconnaissance ne
+  // dépendait pas de la force du joueur ; corrigé, la tablée y faisait 8,75 étoiles sur 9 : ★★★ en un ou deux indices
+  // depuis le 26 octobre 2026.
+  assert.deepEqual(INDICES_DES_ETOILES, [2, 4])
   assert.equal(etoilesDesIndices(1), 3)
   assert.equal(etoilesDesIndices(2), 3)
-  assert.equal(etoilesDesIndices(3), 3)
+  assert.equal(etoilesDesIndices(3), 2)
   assert.equal(etoilesDesIndices(4), 2)
   assert.equal(etoilesDesIndices(5), 1)
   assert.equal(etoilesDesIndices(9), 1)
@@ -492,29 +505,29 @@ test('les Indices : les indices vus, moins les offerts, plus les erreurs — 3 �
   const ouverte = REGLE_DES_INDICES.ouvrir(t)
   assert.deepEqual(ouverte, { vus: 1, offerts: 0, essais: [] })
   assert.equal(trouver(ouverte).naturel, 3)
-  // Un indice de plus : deux vus, encore ★★★ ; un troisième, encore ★★★ ; un quatrième, ★★.
+  // Un indice de plus : deux vus, encore ★★★ ; un troisième, ★★ ; un quatrième, encore ★★.
   assert.equal(trouver(jouer(t, [{ quoi: 'indice' }])).naturel, 3)
   const trois = jouer(t, [{ quoi: 'indice' }, { quoi: 'indice' }])
   assert.equal(comptesDesIndices(trois), 3)
-  assert.equal(trouver(trois).naturel, 3)
+  assert.equal(trouver(trois).naturel, 2)
   const quatre = jouer(t, [{ quoi: 'indice' }, { quoi: 'indice' }, { quoi: 'indice' }])
   assert.equal(comptesDesIndices(quatre), 4)
   assert.equal(trouver(quatre).naturel, 2)
-  // Une erreur : une erreur et un indice de plus — deux de plus au compte. Au premier indice, trois au compte :
-  // encore ★★★ ; après un indice de plus, quatre, ★★ — une étoile de moins.
+  // Une erreur : une erreur et un indice de plus — deux de plus au compte. Au premier indice, trois au compte : ★★ — une
+  // étoile de moins ; après un indice de plus, quatre, encore ★★.
   const uneErreur = jouer(t, [{ quoi: 'nom', texte: 'Zola' }])
   assert.deepEqual(uneErreur, { vus: 2, offerts: 0, essais: ['Zola'] })
   assert.equal(comptesDesIndices(uneErreur), 3)
-  assert.equal(trouver(uneErreur).naturel, 3)
+  assert.equal(trouver(uneErreur).naturel, 2)
   const erreurPuisIndice = jouer(t, [{ quoi: 'indice' }, { quoi: 'nom', texte: 'Zola' }])
   assert.equal(comptesDesIndices(erreurPuisIndice), 4)
   const v = trouver(erreurPuisIndice)
   assert.equal(v.naturel, 2)
   assert.deepEqual(piece0(v), { juste: true, choix: 0, composee: '3|1' })
-  // L'indice qu'Éclairer offre ne compte pas : quatre vus dont un offert, ★★★.
-  const offert = REGLE_DES_INDICES.eclairer(t, jouer(t, [{ quoi: 'indice' }, { quoi: 'indice' }]), toujours(0.5))
+  // L'indice qu'Éclairer offre ne compte pas : trois vus dont un offert, ★★★ — sans l'offrande, ★★.
+  const offert = REGLE_DES_INDICES.eclairer(t, jouer(t, [{ quoi: 'indice' }]), toujours(0.5))
   assert.ok(typeof offert !== 'string')
-  assert.deepEqual(offert, { vus: 4, offerts: 1, essais: [] })
+  assert.deepEqual(offert, { vus: 3, offerts: 1, essais: [] })
   assert.equal(trouver(offert).naturel, 3)
   // Tout vu, sans aide : cinq au compte, ★ — trouvé, mais pas « su » : la pièce n'est pas juste.
   const tout = jouer(t, [{ quoi: 'indice' }, { quoi: 'indice' }, { quoi: 'indice' }, { quoi: 'indice' }])
@@ -591,7 +604,7 @@ test('les Indices : la révélation, la pièce, le cartel', () => {
   const offert = REGLE_DES_INDICES.eclairer(t, jouer(t, [{ quoi: 'nom', texte: 'Zola' }]), toujours(0)) as EtatDesIndices
   const g = geste(t, { quoi: 'nom', texte: 'hugo' })
   const v = REGLE_DES_INDICES.juger(t, offert, g)
-  assert.equal(v.naturel, 3, 'trois vus dont un offert, une erreur : trois au compte, ★★★')
+  assert.equal(v.naturel, 2, 'trois vus dont un offert, une erreur : trois au compte, ★★')
   const revele = REGLE_DES_INDICES.reveler(t, offert, v)
   assert.equal(revele.titre, 'Trouvé')
   assert.equal(revele.trouve, true)
@@ -922,6 +935,8 @@ const surLeContenu = (o: { vues?: ReadonlyMap<string, number>; hasard?: () => nu
   vues: o.vues ?? new Map(),
   maintenant: DIX_HEURES,
   hasard: o.hasard ?? Math.random,
+  enjeu: ENJEU_ORDINAIRE,
+  leurres: new Map(),
 })
 const lEpingle = (o?: Parameters<typeof surLeContenu>[0], rechanges = 0) => tirerLePlan('epingle', surLeContenu(o), rechanges) as EpingleTiree[]
 

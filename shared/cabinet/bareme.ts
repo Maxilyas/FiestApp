@@ -15,7 +15,12 @@
 // changer le 25 octobre 2026, avant qu'une partie se joue hors des bases
 // jetables : deux étoiles gardées au Pari, deux erreurs qui ne valent plus une
 // étoile à la Frise, un indice de plus à chaque étoile des Indices, l'Éclair à
-// 55 s, les dorures doublées et le double divisé par deux.
+// 55 s, les dorures doublées et le double divisé par deux. Puis ce que la
+// tablée du même soir et le calibrage corrigé du lendemain ont fait trancher
+// (le 26 octobre 2026) : la pause de « Quitter ? » à dix secondes, ★★★ en un ou
+// deux indices, la mise de la force 3 ramenée à celle de la force 2, la zone
+// d'Éclairer à l'Épingle élargie et décalée plus loin, la marche qui suit
+// l'enjeu, la Frise serrée pour une épique.
 //
 // Ce qu'un changement fait au passé dépend du chemin de chaque chiffre, que
 // sa ligne de `baremes.md` dit : un seuil se fige au départ d'une partie ; la
@@ -64,7 +69,12 @@ export const SEUILS_DES_RARETES: Readonly<Record<Rarete, number>> = { commun: 5,
 
 /** Une partie de visite ou de chasse rapporte deux poussières par étoile… */
 export const POUSSIERE_PAR_ETOILE = 2
-/** … et quatre au moins, même ratée : une partie de deux minutes fait toujours avancer. */
+/**
+ * … et quatre au moins, même ratée, pourvu qu'il ait répondu à une manche :
+ * une partie de deux minutes fait toujours avancer. Quittée d'emblée, elle en
+ * rapportait autant — de quoi en tirer sans jouer (la tablée du 25 octobre
+ * 2026) ; elle ne rapporte plus rien depuis le lendemain.
+ */
 export const POUSSIERE_MIN = 4
 /**
  * Une œuvre qu'il avait déjà, regagnée en visite sans cadre doré : ce double
@@ -117,7 +127,12 @@ export const POIDS_DES_CIBLES: Readonly<Record<Rarete, number>> = { commun: 6, r
 export const CHASSES_PAR_JOUR = 2
 /** « Rien ne revient avant sept jours », d'un jeu à l'autre : le Pari et l'Éclair puisent dans le même tas. */
 export const JOURS_SANS_REDITE = 7
-/** La série la plus longue — jours de visite ou de chasse d'affilée — qui réveille le Scarabée. */
+/**
+ * La série la plus longue — jours de visite ou de chasse d'affilée — qui
+ * réveille le Scarabée. Un jour ne compte qu'à la première manche répondue de
+ * sa visite ou de sa chasse : compté au départ, une visite commencée puis
+ * quittée chaque jour le réveillait au trentième (la tablée du 25 octobre 2026).
+ */
 export const JOURS_DU_SCARABEE = 30
 /**
  * Le plafond des départs d'un profil : trente d'un coup, puis un toutes les
@@ -137,17 +152,24 @@ export const FORCES_DES_RARETES: Readonly<Record<Rarete | 'legendaire', Force>> 
 export const ECLAIRAGES_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2: 2, 3: 3 }
 /**
  * Protéger : les étoiles qu'il ajoute, une fois, à la première manche
- * imparfaite — jamais au-delà de trois. +3 vidait les seuils de leur sens, une
- * faille que les agents ont fermée.
+ * imparfaite qu'une réponse a tranchée — jamais au-delà de trois. +3 vidait
+ * les seuils de leur sens, une faille que les agents ont fermée. Une manche
+ * quittée, ou expirée sans réponse, ne se relève pas : quitter d'emblée sous
+ * Prudence valait une étoile (la tablée du 25 octobre 2026).
  */
 export const BONUS_DE_PROTECTION: Readonly<Record<Force, number>> = { 1: 1, 2: 1, 3: 2 }
 /** Prendre son temps : les secondes de plus à chaque manche et à chaque étape, par point de force — figées au départ avec le chrono. */
 export const SECONDES_PAR_FORCE = 10
 /**
  * Miser : les étoiles en plus d'une manche misée sans l'avoir vue, si elle est
- * parfaite ; sinon, zéro. La mise à ×2 dorait une épique en deux manches.
+ * parfaite ; sinon, zéro. La mise à ×2 dorait une épique en deux manches. La
+ * force 3 en ajoutait quatre jusqu'au 26 octobre 2026 : une manche misée
+ * parfaite faisait sept, le seuil d'une épique, et deviner un titre du Détail au
+ * premier coup d'œil la gagnait une partie sur quatre sans rien savoir. À trois,
+ * la loterie des épiques se ferme — il faut encore une manche parfaite —, et la
+ * commune et la rare ne bougent pas.
  */
-export const BONUS_DE_MISE: Readonly<Record<Force, number>> = { 1: 2, 2: 3, 3: 4 }
+export const BONUS_DE_MISE: Readonly<Record<Force, number>> = { 1: 2, 2: 3, 3: 3 }
 /** Changer : les manches qu'on remplace, chacune par une rechange tirée au départ. */
 export const CHANGEMENTS_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2: 2, 3: 3 }
 
@@ -185,11 +207,19 @@ export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
  * pas ce chiffre.
  */
 export const GRACE_D_UNE_MANCHE_MS = 1_500
-/** La pause de « Quitter ? », au plus, par manche, sous un voile : la confirmation ne s'achète pas du temps de recherche. Figée au départ avec les durées. */
-export const PAUSE_MAX_MS = 30_000
 /**
- * Les pauses de « Quitter ? » qu'une manche accepte, ses trente secondes
- * partagées entre elles ; au-delà, ou ses trente secondes passées, la pause se
+ * La pause de « Quitter ? », au plus, par manche — toutes ses pauses
+ * ensemble —, sous un voile : le temps de lire la confirmation, jamais du temps
+ * de recherche à vendre. Trente secondes jusqu'au 26 octobre 2026 : la manche
+ * restait derrière le voile de la page, mais rien ne marquait la réponse ni
+ * n'ôtait le cadre doré, quand « Prendre son temps », qui en vend, les marque —
+ * 25 s devenaient 55 à la Réplique (la tablée du 25 octobre 2026). Figée au
+ * départ avec les durées : une partie commencée garde la sienne.
+ */
+export const PAUSE_MAX_MS = 10_000
+/**
+ * Les pauses de « Quitter ? » qu'une manche accepte, ses dix secondes
+ * partagées entre elles ; au-delà, ou ses dix secondes passées, la pause se
  * refuse et le chrono continue. Une garde des écritures autant qu'un choix :
  * chaque pause et sa reprise s'écrivent, et rien ne bornait leur nombre — une
  * page qui les enchaînait écrivait des centaines de gestes par manche, que
@@ -203,10 +233,23 @@ export const PAUSES_PAR_MANCHE = 3
 
 /** L'Épingle : à moins de 40 km ★★★, de 120 ★★, de 300 ★ — « l'Épingle plus tolérante » des tests. */
 export const KM_DE_L_EPINGLE: readonly [number, number, number] = [40, 120, 300]
-/** L'Épingle, Éclairer : une zone de ce rayon qui contient toujours le lieu. */
-export const RAYON_D_ECLAIRER_KM = 170
-/** … son centre décalé du lieu d'une distance tirée entre ces deux-là, dans une direction tirée : la zone ne dit jamais le lieu. */
-export const DECALAGE_DE_LA_ZONE_KM: readonly [number, number] = [40, 140]
+/**
+ * L'Épingle, Éclairer : une zone de ce rayon qui contient toujours le lieu,
+ * figé avec le décalage de son centre dans le tirage de chaque manche
+ * (`EpingleTiree.decalage`) — une partie commencée garde la sienne.
+ */
+export const RAYON_D_ECLAIRER_KM = 300
+/**
+ * … son centre décalé du lieu d'une distance tirée entre ces deux-là, dans une
+ * direction tirée : la zone ne dit jamais le lieu. De 40 à 140 km dans une zone
+ * de 170 jusqu'au 26 octobre 2026 : planter au milieu de la terre que la zone
+ * couvre valait ★★ presque toujours, et trois zones — Éclairer à la force 3 —
+ * faisaient gagner une commune 95 fois sur cent à qui ne savait rien. Plus loin
+ * dans une zone plus grande, le centre ne vaut jamais plus qu'une étoile, et
+ * celui qui ne sait rien ne passe plus le tiers des communes, quand Éclairer
+ * lui rapporte encore une étoile par manche (le calibrage corrigé du même jour).
+ */
+export const DECALAGE_DE_LA_ZONE_KM: readonly [number, number] = [120, 294]
 
 /** La Frise : les nouveaux venus de chaque manche — trois, puis deux, puis deux : une frise qui grandit jusqu'à sept. */
 export const VAGUES_DE_LA_FRISE: readonly number[] = [3, 2, 2]
@@ -226,6 +269,16 @@ export const ECART_DES_ANNEES_DE_LA_FRISE = 3
 export const ERREURS_DE_LA_FRISE: readonly [number, number, number] = [0, 1, 1]
 /** La Frise : un nouveau venu laissé de côté compte autant que la pire place — la sienne, et celle du voisin qu'il contredit : poser n'est jamais pire que s'abstenir. */
 export const ERREURS_D_UN_OUBLI = 2
+/**
+ * La Frise d'une épique : une frise serrée, dont la moitié au moins des
+ * voisins se suivent à tant d'années au plus (`estUneFriseSerree`) — tant que
+ * le tireur en a une. Une frise se range d'autant plus vite que ses années
+ * s'écartent : « Les rois de France » ont un siècle entre deux voisins,
+ * « L'aviation » trois ans ; l'épique tirait l'une comme l'autre (la tablée du
+ * 25 octobre 2026). La moitié des dix-huit frises à thème le sont. Tirée au
+ * départ : une partie commencée garde sa frise.
+ */
+export const ECART_D_UNE_FRISE_EPIQUE = 20
 
 /** Le Mot mystère : ses essais. */
 export const ESSAIS_DU_MOT = 5
@@ -240,18 +293,12 @@ export const ETOILES_AU_CADRAGE: readonly number[] = [3, 2, 1, 0]
 /**
  * Le Détail : les titres proposés, le bon et trois d'époques voisines — une
  * fenêtre d'autant de tableaux qui se suivent dans le temps
- * (`fenetresDuDetail`), le bon au hasard parmi eux.
+ * (`fenetresDuDetail`), la moins vue d'abord, le bon au hasard parmi eux. Les
+ * leurres se tiraient jusqu'au 26 octobre 2026 parmi les cinq plus proches en
+ * années du bon, qui s'y désignait sans qu'on regarde le tableau (la tablée du
+ * 25 octobre 2026).
  */
 export const TITRES_DU_DETAIL = 4
-/**
- * Plus lu depuis le 26 octobre 2026 : les trois leurres se tiraient parmi les
- * cinq plus proches en années du bon, qui s'y désignait sans qu'on regarde le
- * tableau (la tablée du 25 octobre 2026) ; ils viennent d'une fenêtre de
- * `TITRES_DU_DETAIL` tableaux consécutifs. Il part avec sa ligne de
- * `docs/reference/baremes.md`, l'un ne va pas sans l'autre
- * (`cabinet-catalogue.test.ts`, `documentation.test.ts`).
- */
-export const VOISINS_EN_ANNEES = 5
 /** Éclairer au Détail, au Pari et à la Réplique : ce qu'il efface de propositions, au plus, dans une manche ou une étape… */
 export const EFFACES_AU_PLUS = 2
 /**
@@ -281,7 +328,7 @@ export const PAS_DE_LA_PISTE = 200
 export const ANNEE_MIN_DU_FILET = 1001
 /** … ou une estimation d'au moins tant : sous dix, la piste n'a pas de quoi tendre un filet. */
 export const VALEUR_MIN_DU_FILET = 10
-/** Le Filet : la marche des questions qu'il pose. */
+/** Le Filet : la marche des questions qu'il pose, et ce que l'enjeu y ajoute (`MARCHES_DES_ENJEUX`). */
 export const MARCHES_DU_FILET: readonly Niveau[] = ['facile', 'moyen']
 
 /**
@@ -295,7 +342,11 @@ export const MARCHES_DU_FILET: readonly Niveau[] = ['facile', 'moyen']
  * s'accordent au nombre d'ici, d'une seule source (`MOTS_DU_PARI`).
  */
 export const ETOILES_DU_PARI: Readonly<Record<'garder' | 'parier', number>> = { garder: 2, parier: 3 }
-/** Le Pari : la marche mesurée de sa première question, puis de celle du pari — « difficile » doit l'être vraiment. */
+/**
+ * Le Pari : la marche mesurée de sa première question — et ce que l'enjeu y
+ * ajoute (`MARCHES_DES_ENJEUX`) —, puis de celle du pari : « difficile » doit
+ * l'être vraiment.
+ */
 export const MARCHES_DU_PARI: Readonly<Record<'question' | 'pari', readonly Niveau[]>> = { question: ['facile', 'moyen'], pari: ['difficile', 'expert'] }
 
 /** L'Éclair : ses affirmations, d'une même catégorie. */
@@ -304,19 +355,20 @@ export const AFFIRMATIONS_DE_L_ECLAIR = 5
 export const JUSTES_DE_L_ECLAIR: readonly [number, number, number] = [5, 4, 3]
 /** L'Éclair : la part des affirmations qui proposent la bonne réponse ; les autres, une des mauvaises. */
 export const PART_DES_VRAIES = 0.5
-/** L'Éclair : la marche des questions qu'il récrit en affirmations. */
+/** L'Éclair : la marche des questions qu'il récrit en affirmations, et ce que l'enjeu y ajoute (`MARCHES_DES_ENJEUX`). */
 export const MARCHES_DE_L_ECLAIR: readonly Niveau[] = ['facile', 'moyen']
 
 /**
  * Les Indices : au plus tant d'indices comptés pour ★★★, puis ★★ ; au-delà, ★
- * — les indices vus, moins ceux qu'Éclairer offre, plus les erreurs. Un cran
- * plus large depuis le calibrage du 25 octobre 2026 : à deux et trois,
- * l'occasionnel n'y gagnait une commune qu'une partie sur cinq (21,2 %) ;
- * 37 % désormais, au hasard 0,3 % (0,2 avant). La pièce juste s'élargit avec,
- * de trois à quatre au compte : les Indices paient un peu plus de confettis,
- * toujours le moins des neuf jeux.
+ * — les indices vus, moins ceux qu'Éclairer offre, plus les erreurs. Élargi à
+ * trois et quatre au calibrage du 25 octobre 2026, sur un modèle où le rang
+ * où l'on reconnaît ne suivait pas la force : l'élargissement profitait au
+ * joueur fort plus qu'à l'occasionnel, et la tablée du même soir y faisait
+ * presque toujours neuf sur neuf. Resserré le lendemain à deux pour ★★★ —
+ * reconnaître au premier ou au deuxième indice —, la pièce juste gardée à
+ * quatre au compte : un indice puis une erreur la font toujours.
  */
-export const INDICES_DES_ETOILES: readonly [number, number] = [3, 4]
+export const INDICES_DES_ETOILES: readonly [number, number] = [2, 4]
 /** Les Indices : une faute de frappe se tolère dans un mot dès tant de lettres. */
 export const LETTRES_POUR_UNE_FAUTE = 5
 /** Les Indices : une réponse tient en tant de mots au plus — la réponse fourre-tout reste fermée. */
@@ -333,8 +385,21 @@ export const SIGNES_D_UN_GESTE_MAX = 60
 /** La Réplique : le bon mot ★★, puis la bonne personne ★, additionnés. */
 export const ETOILES_DE_LA_REPLIQUE: Readonly<Record<'mot' | 'qui', number>> = { mot: 2, qui: 1 }
 
-/** Le Mot mystère : la marche des questions dont il cache la réponse. */
+/** Le Mot mystère : la marche des questions dont il cache la réponse, et ce que l'enjeu y ajoute (`MARCHES_DES_ENJEUX`). */
 export const MARCHES_DU_MOT: readonly Niveau[] = ['facile', 'moyen']
+/**
+ * La marche suit l'enjeu : ce qu'une partie ajoute aux marches des jeux qui
+ * posent des questions de la base — la première question du Pari, l'Éclair, le
+ * Mot mystère, le Filet —, selon l'œuvre qu'elle vise (`marchesDeLEnjeu`). Une
+ * épique, et une partie pour dorer, y ajoutent le difficile ; une commune, une
+ * rare, une maudite, une partie libre restent faciles ou moyennes. Jusqu'au
+ * 26 octobre 2026, une épique tirait les mêmes marches qu'une commune, et 47 %
+ * de la base — difficile ou experte — ne sortait jamais de ces quatre jeux
+ * (la tablée du 25 octobre 2026) ; durcir pour tous aurait fermé l'occasionnel
+ * plus que tendu le joueur fort. Tirée au départ, avec le plan : une partie
+ * commencée garde ses questions.
+ */
+export const MARCHES_DES_ENJEUX: Readonly<Record<Rarete | 'dorer', readonly Niveau[]>> = { commun: [], rare: [], maudit: [], epique: ['difficile'], dorer: ['difficile'] }
 /** Le Pari et l'Éclair : un intitulé de QCM tient en tant de signes au plus — il se lit en 360 pixels, chrono en marche… */
 export const INTITULE_MAX_DU_QCM = 130
 /** … et chaque réponse en tant de signes. */

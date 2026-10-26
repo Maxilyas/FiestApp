@@ -53,7 +53,8 @@ export interface Pouvoir {
  */
 export const POUVOIRS: Readonly<Record<CleDePouvoir, Pouvoir>> = {
   eclairer: { nom: 'Éclairer', dit: 'Un indice, propre à chaque jeu.', actif: true },
-  proteger: { nom: 'Protéger', dit: 'Ta première manche imparfaite gagne des étoiles.', actif: false },
+  // « Répondue » : quittée, ou laissée au chrono sans une réponse, une manche ne se relève pas — Prudence valait une étoile à qui quittait d'emblée.
+  proteger: { nom: 'Protéger', dit: 'Ta première manche imparfaite gagne des étoiles, si tu y as répondu.', actif: false },
   temps: { nom: 'Prendre son temps', dit: 'Du temps en plus à chaque question ; il ne compte que si tu t’en sers.', actif: false },
   miser: {
     nom: 'Miser',
@@ -218,25 +219,31 @@ export interface CarteEnJeu {
 
 /**
  * La manche que Protéger porte : la première jugée à moins de trois étoiles
- * naturelles, zéro compris ; null sans protection, ou tant qu'aucune n'est
- * imparfaite. Les manches se jugent dans l'ordre : celle-là ne change plus.
+ * naturelles, zéro compris, parmi celles qu'une réponse a tranchées
+ * (`repondues`, que le pli dit manche par manche) ; null sans protection, ou
+ * tant qu'aucune n'est imparfaite. Une manche quittée, ou que le chrono a
+ * finie sans une réponse, ne se relève pas — et ne prend pas la protection à
+ * la suivante : « Quitter ? » promettait les étoiles déjà gagnées, et Prudence
+ * en donnait une à qui quittait d'emblée (la tablée du 25 octobre 2026). Les
+ * manches se jugent dans l'ordre : celle-là ne change plus.
  */
-export function mancheProtegee(naturel: readonly (number | null)[], carte: CarteEnJeu | null): number | null {
+export function mancheProtegee(naturel: readonly (number | null)[], carte: CarteEnJeu | null, repondues: readonly boolean[]): number | null {
   if (carte?.pouvoir !== 'proteger') return null
-  const m = naturel.findIndex(n => n !== null && n < 3)
+  const m = naturel.findIndex((n, k) => n !== null && n < 3 && repondues[k] === true)
   return m < 0 ? null : m
 }
 
 /**
  * Les étoiles de chaque manche après les pouvoirs ; null pour une manche pas
  * encore jugée. Miser : la manche misée, parfaite, vaut trois plus le bonus,
- * sinon zéro. Protéger : la première imparfaite gagne son bonus, jamais
- * au-delà de trois. Les trois autres pouvoirs ne touchent pas aux étoiles.
- * La juste d'une pièce, le cadre doré et le seuil lisent ce qu'en dit le pli :
- * la juste, toujours les naturelles.
+ * sinon zéro. Protéger : la première imparfaite qu'une réponse a tranchée
+ * gagne son bonus, jamais au-delà de trois (`mancheProtegee`). Les trois
+ * autres pouvoirs ne touchent pas aux étoiles. La juste d'une pièce, le cadre
+ * doré et le seuil lisent ce qu'en dit le pli : la juste, toujours les
+ * naturelles.
  */
-export function etoilesApresLesPouvoirs(naturel: readonly (number | null)[], carte: CarteEnJeu | null, misee: number | null = null): (number | null)[] {
-  const protegee = mancheProtegee(naturel, carte)
+export function etoilesApresLesPouvoirs(naturel: readonly (number | null)[], carte: CarteEnJeu | null, misee: number | null, repondues: readonly boolean[]): (number | null)[] {
+  const protegee = mancheProtegee(naturel, carte, repondues)
   return naturel.map((n, m) => {
     if (n === null) return null
     if (carte?.pouvoir === 'miser' && misee === m) return n === 3 ? 3 + BONUS_DE_MISE[carte.force] : 0

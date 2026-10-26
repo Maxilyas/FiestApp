@@ -20,7 +20,7 @@
 
 import type { Niveau } from '../../campagne'
 import { QUESTION_DE_LA_FRISE, anneeDite } from '../../frise'
-import { DUREES_DES_JEUX, ECART_DES_ANNEES_DE_LA_FRISE, ERREURS_DE_LA_FRISE, ERREURS_D_UN_OUBLI, VAGUES_DE_LA_FRISE } from '../bareme'
+import { DUREES_DES_JEUX, ECART_DES_ANNEES_DE_LA_FRISE, ECART_D_UNE_FRISE_EPIQUE, ERREURS_DE_LA_FRISE, ERREURS_D_UN_OUBLI, VAGUES_DE_LA_FRISE } from '../bareme'
 import { idDeLaFriseATheme, idDeLaFriseDeSujet, type PieceDuCabinet } from '../pieces'
 import { GESTE_A_JUGER, battre, champsDuGeste, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './outils'
 import { justeDeLaPiece, type VerdictDUneManche } from './regle'
@@ -217,6 +217,19 @@ export function friseEnVagues(frise: FriseAPartager, hasard: () => number): Fris
     categorie: frise.categorie,
     ...(frise.niveau ? { niveau: frise.niveau } : {}),
   }))
+}
+
+/**
+ * Une frise serrée, que le tireur prend pour une épique : la moitié au moins de
+ * ses voisins, dans l'ordre du temps, se suivent à `ECART_D_UNE_FRISE_EPIQUE`
+ * années au plus. Un seul écart serré ne suffit pas — « Les grands
+ * navigateurs » en ont un de six ans, et deux siècles ailleurs —, une moyenne
+ * non plus : un seul siècle d'écart y noierait six voisins serrés.
+ */
+export function estUneFriseSerree(annees: readonly number[]): boolean {
+  const triees = [...annees].sort((a, b) => a - b)
+  const ecarts = triees.slice(1).map((a, i) => a - triees[i])
+  return ecarts.length > 0 && ecarts.filter(e => e <= ECART_D_UNE_FRISE_EPIQUE).length * 2 >= ecarts.length
 }
 
 /** Les ancres de la manche, dans l'ordre du temps, et ses nouveaux venus, dans l'ordre montré — par leur rang. */

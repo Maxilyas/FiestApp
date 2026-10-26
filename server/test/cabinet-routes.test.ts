@@ -115,17 +115,21 @@ test('commencer en visite, en chasse, en libre : une partie à la fois, la case 
   assert.equal(seconde.status, 400)
   assert.deepEqual(seconde.corps, { error: `Ta partie ${JEUX[visiteur.jeu].a} t’attend : reprends-la ou quitte-la d’abord` })
 
-  // Quitter compte : la case est consommée, même sans une étoile — et rapporte sa poussière d'or.
+  // Quitter compte : la case est consommée, même sans une étoile. Quittée d'emblée, elle ne rapporte rien — quatre poussières
+  // d'or jusqu'au 26 octobre 2026 : quitter chaque case dès qu'elle s'ouvre payait.
   const quittee = ok(await jouer(b, tom, visiteur, { quoi: 'quitter' }), 'quitter')
   assert.equal(quittee.phase, 'finie')
   assert.equal(quittee.bilan?.quittee, true)
-  assert.equal(quittee.bilan?.poussiere, POUSSIERE_MIN)
+  assert.equal(quittee.bilan?.poussiere, 0, 'rien de répondu, rien de gagné')
   assert.deepEqual(await commencer(b, tom, { origine: 'visite', case: 0, carte: null }).then(r => [r.status, r.corps]), [400, { error: 'Cette partie de la visite est déjà faite' }])
 
-  // Une chasse, au jeu de son œuvre ; une libre.
+  // Une chasse, au jeu de son œuvre, répondue faux puis quittée : quatre poussières au moins ; une libre.
   const chasse = ok(await commencer(b, tom, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse')
   assert.equal(chasse.jeu, 'pari', 'la Leçon se trouve au Pari')
-  ok(await jouer(b, tom, chasse, { quoi: 'quitter' }), 'quitter la chasse')
+  const q1 = pariDe(b, chasse.id, 0).q1
+  const ratee = ok(await jouer(b, tom, chasse, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: (q1.bonne + 1) % q1.reponses.length } } }), 'répondre faux')
+  const chasseQuittee = ok(await jouer(b, tom, ratee, { quoi: 'quitter' }), 'quitter la chasse')
+  assert.equal(chasseQuittee.bilan?.poussiere, POUSSIERE_MIN, 'une manche répondue : le plancher')
   const libre = ok(await commencer(b, tom, { origine: 'libre', jeu: 'eclair', carte: null }), 'la libre')
   assert.equal(libre.enJeu, null)
   ok(await jouer(b, tom, libre, { quoi: 'quitter' }), 'quitter la libre')
@@ -135,7 +139,7 @@ test('commencer en visite, en chasse, en libre : une partie à la fois, la case 
   assert.equal(page.visite.cases[0].issue, 'manquee')
   assert.equal(page.chasses.restent, CHASSES_PAR_JOUR - 1)
   assert.equal(page.libres.paientEncore, LIBRES_QUI_PAIENT - 1)
-  assert.equal(page.poussiere, POUSSIERE_MIN * 2, 'la visite et la chasse, quatre au moins chacune ; la libre à zéro étoile, rien')
+  assert.equal(page.poussiere, POUSSIERE_MIN, 'la chasse répondue seule ; la visite quittée d’emblée, rien ; la libre à zéro étoile, rien')
   assert.equal(page.enCours, null)
   assert.equal(compter("SELECT COUNT(*) AS n FROM campagne_series WHERE mode = 'cabinet'"), 3)
 })
@@ -277,7 +281,9 @@ test('la partie d’hier se clôt à la première page du jour : comme un « Qui
     assert.equal(JSON.parse(ligne.bilan).lendemain, true)
     const dernier = enBase(hier.fichier, db => db.prepare('SELECT geste FROM cabinet_gestes WHERE serie_id = ? ORDER BY rang DESC LIMIT 1').get(partie.id) as { geste: string })
     assert.deepEqual(JSON.parse(dernier.geste), { quoi: 'clore', pourquoi: 'lendemain' })
-    assert.equal(page.poussiere, POUSSIERE_MIN, 'sa poussière d’or, comptée')
+    // Sans une réponse, rien, comme un « Quitter » d'emblée (le plancher payait jusqu'au 26 octobre 2026) ; répondue, sa
+    // poussière et sa série se rangent au jour du départ (`la série ne compte que…`, plus bas).
+    assert.equal(page.poussiere, 0, 'sans une réponse, pas de poussière d’or')
     assert.ok(page.visite.jour > jour, 'la visite d’un jour neuf')
     assert.ok(page.visite.cases.every(c => !c.faite), 'hier ne prend rien à aujourd’hui')
     // Relue, rien ne se clôt deux fois.
@@ -285,6 +291,51 @@ test('la partie d’hier se clôt à la première page du jour : comme un « Qui
     assert.equal(enBase(hier.fichier, db => (db.prepare('SELECT COUNT(*) AS n FROM cabinet_gestes WHERE serie_id = ?').get(partie.id) as { n: number }).n), 2)
   } finally {
     await hier.banc.close()
+  }
+})
+
+test('la série ne compte que le jour d’une visite ou d’une chasse répondue : jamais quittée d’emblée, jamais une libre, close le lendemain au jour du départ', async () => {
+  // Comptée au départ jusqu'au 26 octobre 2026 : une visite commencée puis quittée chaque jour tenait la série, et le
+  // Scarabée se réveillait au trentième sans une réponse (la tablée du 25 octobre 2026).
+  const banc = await bancDuCabinet()
+  try {
+    const ugo = await inscrireProfil(banc.banc.url, 'ugo', 'Ugo')
+    const id = (await lire(banc, ugo, '/api/joueur/moi?leger')).corps.profile.id as string
+    const serie = () => enBase(banc.fichier, db => db.prepare('SELECT serie, serie_jour AS jour, serie_record AS record FROM cabinet_profils WHERE profile_id = ?').get(id) as { serie: number; jour: string | null; record: number })
+    const jour = jourDe(banc.horloge.t)
+    // La visite quittée d'emblée : la case est prise, la série non.
+    const visite = ok(await commencer(banc, ugo, { origine: 'visite', case: 0, carte: null }), 'la visite')
+    ok(await jouer(banc, ugo, visite, { quoi: 'quitter' }), 'quitter d’emblée')
+    assert.deepEqual(serie(), { serie: 0, jour: null, record: 0 }, 'quittée d’emblée, la série ne compte pas')
+    assert.deepEqual(ok(await laPage(banc, ugo), 'la page').serie, { jours: 0, aJouer: false, record: 0 })
+    // Une libre répondue : rien non plus — la série est celle des visites et des chasses.
+    const libre = ok(await commencer(banc, ugo, { origine: 'libre', jeu: 'pari', carte: null }), 'la libre')
+    const ql = pariDe(banc, libre.id, 0).q1
+    ok(await jouer(banc, ugo, ok(await jouer(banc, ugo, libre, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: (ql.bonne + 1) % ql.reponses.length } } }), 'répondre'), { quoi: 'quitter' }), 'quitter la libre')
+    assert.deepEqual(serie(), { serie: 0, jour: null, record: 0 }, 'une libre ne compte pas')
+    // Une chasse, juste à sa première question puis laissée au choix — rien n'est encore tranché —, close le lendemain : la
+    // pièce gardée qu'écrit la clôture est sa première manche répondue, et la série compte le jour de son départ.
+    const chasse = ok(await commencer(banc, ugo, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse')
+    const qc = pariDe(banc, chasse.id, 0).q1
+    const auChoix = ok(await jouer(banc, ugo, chasse, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: qc.bonne } } }), 'juste')
+    assert.equal(auChoix.phase, 'jouer', 'au choix : garder ou parier')
+    assert.deepEqual(serie(), { serie: 0, jour: null, record: 0 }, 'aucune manche tranchée encore')
+    banc.horloge.t += 24 * 3_600_000
+    const lendemain = ok(await laPage(banc, ugo), 'la page du lendemain')
+    assert.equal(lendemain.enCours, null, 'la chasse d’hier close')
+    assert.deepEqual(serie(), { serie: 1, jour, record: 1 }, 'comptée au jour de son départ, pas de sa clôture')
+    assert.deepEqual(lendemain.serie, { jours: 1, aJouer: true, record: 1 }, 'joue aujourd’hui pour la garder')
+    // Le lendemain, une chasse répondue la prolonge — dès sa première manche tranchée, sans attendre sa fin ; et une
+    // seconde le même jour ne compte pas deux fois.
+    for (const k of [0, 1]) {
+      const c = ok(await commencer(banc, ugo, { origine: 'chasse', oeuvre: 'lecon', carte: null }), `la chasse ${k + 1} du lendemain`)
+      const q = pariDe(banc, c.id, 0).q1
+      const ratee = ok(await jouer(banc, ugo, c, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: (q.bonne + 1) % q.reponses.length } } }), 'répondre faux')
+      assert.deepEqual(serie(), { serie: 2, jour: jourDe(banc.horloge.t), record: 2 }, `la chasse ${k + 1}, sa première manche tranchée`)
+      ok(await jouer(banc, ugo, ratee, { quoi: 'quitter' }), 'quitter')
+    }
+  } finally {
+    await banc.banc.close()
   }
 })
 

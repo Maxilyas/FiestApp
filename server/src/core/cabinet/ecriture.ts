@@ -41,9 +41,8 @@ export interface DepartAEcrire {
    * le lot froid et le tirage.
    */
   ouverteLe: number
-  /** Le jour de Paris du départ, la veille, et minuit : la série et le recompte du jour s'y lisent. */
+  /** Le jour de Paris du départ, et minuit : la visite figée et le recompte du jour s'y lisent. */
   jour: string
-  veille: string
   minuit: number
   /** Les visites que `cabinet_profils.visites` garde, celle du jour en tête (`visitesAGarder`) : elle s'y fige si elle ne l'est pas. */
   visites: string
@@ -61,9 +60,12 @@ export interface DepartAEcrire {
  *    serveur ne sait pas ce que l'autre vient d'écrire. Une case d'une visite
  *    déjà figée en base part au jeu que la base lui garde, ou ne part pas :
  *    l'autre serveur a pu l'échanger, et la mémoire d'ici l'aurait lancée à son
- *    jeu d'avant. La série compte le jour d'un départ en visite ou en chasse ;
- *    la visite du jour se fige au premier lot du jour qui écrit (D17). La
- *    première fois, la ligne naît ;
+ *    jeu d'avant. La visite du jour se fige au premier lot du jour qui écrit
+ *    (D17). La première fois, la ligne naît. La série ne se compte plus ici,
+ *    mais à la première manche répondue (`lotDuGeste`, `jourCompte`) :
+ *    comptée au départ, une visite quittée d'emblée tenait trente jours
+ *    d'affilée — et réveillait le Scarabée — sans une réponse (l'arbitrage du
+ *    26 octobre 2026) ;
  * 2. la partie, seulement si la ligne la nomme — une partie libre parmi les
  *    cinq du jour qui paient, comptée là aussi (elle se relit par `RETURNING`) ;
  * 3. l'ouverture de la première manche, seulement si la partie est née.
@@ -72,31 +74,26 @@ export interface DepartAEcrire {
  * première), et la partie est-elle née (une ligne rendue par la seconde).
  */
 export function lotDuDepart(d: DepartAEcrire): InStatement[] {
-  const compte = d.depart.origine === 'libre' ? 0 : 1
-  const casDeLaSerie = `CASE WHEN ?3 = 0 OR serie_jour >= ?4 THEN serie WHEN serie_jour = ?5 THEN serie + 1 ELSE 1 END`
   // Ses parties du jour d'une origine, par l'index du profil et de la date ; le profil et minuit nommés par leur place.
   const duJour = (origine: string, profil: string, minuit: string) =>
     `SELECT COUNT(*) FROM campagne_series WHERE ${partiesDuJour(profil, minuit)} AND ${champDuDepart('origine')} = '${origine}'`
   const profil: InStatement = {
-    sql: `INSERT INTO cabinet_profils (profile_id, partie, serie, serie_jour, serie_record, visites, cree_le, maj_le)
-          VALUES (?1, ?2, ?3, CASE WHEN ?3 = 1 THEN ?4 END, ?3, ?6, ?7, ?7)
+    sql: `INSERT INTO cabinet_profils (profile_id, partie, visites, cree_le, maj_le)
+          VALUES (?1, ?2, ?4, ?5, ?5)
           ON CONFLICT (profile_id) DO UPDATE SET
             partie = excluded.partie,
             maj_le = excluded.maj_le,
-            serie = ${casDeLaSerie},
-            serie_jour = CASE WHEN ?3 = 0 THEN serie_jour ELSE MAX(COALESCE(serie_jour, ''), ?4) END,
-            serie_record = MAX(serie_record, ${casDeLaSerie}),
-            visites = CASE WHEN json_valid(visites) AND json_extract(visites, '$[0].jour') = ?4 THEN visites ELSE ?6 END
+            visites = CASE WHEN json_valid(visites) AND json_extract(visites, '$[0].jour') = ?3 THEN visites ELSE ?4 END
           WHERE cabinet_profils.partie IS NULL
-            AND (?8 <> 'chasse' OR (${duJour('chasse', '?1', '?9')}) < ${CHASSES_PAR_JOUR})
-            AND (?8 <> 'visite' OR (${duJour('visite', '?1', '?9')} AND ${champDuDepart('visite')} = ?10) = 0)
-            AND CASE WHEN ?8 = 'visite' AND json_valid(cabinet_profils.visites) AND json_extract(cabinet_profils.visites, '$[0].jour') = ?4
-                     THEN json_extract(cabinet_profils.visites, '$[0].cases[' || CAST(?10 AS INTEGER) || '].jeu') = ?11
+            AND (?6 <> 'chasse' OR (${duJour('chasse', '?1', '?7')}) < ${CHASSES_PAR_JOUR})
+            AND (?6 <> 'visite' OR (${duJour('visite', '?1', '?7')} AND ${champDuDepart('visite')} = ?8) = 0)
+            AND CASE WHEN ?6 = 'visite' AND json_valid(cabinet_profils.visites) AND json_extract(cabinet_profils.visites, '$[0].jour') = ?3
+                     THEN json_extract(cabinet_profils.visites, '$[0].cases[' || CAST(?8 AS INTEGER) || '].jeu') = ?9
                      ELSE 1 END`,
     // Le jeu ne sert qu'à la garde de la case. Un `CASE`, et non un `OR` : le chemin d'une case −1 (une chasse, une
     // libre) ne se lit jamais, et une visite pas encore figée — `NULL` au jour — n'a rien à garder. L'indice se lie en
     // réel (`1.0`), que le chemin d'un tableau refuse : il se coupe en entier.
-    args: [d.profileId, d.serie, compte, d.jour, d.veille, d.visites, d.t, d.depart.origine, d.minuit, d.depart.visite ?? -1, d.depart.jeu],
+    args: [d.profileId, d.serie, d.jour, d.visites, d.t, d.depart.origine, d.minuit, d.depart.visite ?? -1, d.depart.jeu],
   }
   // La partie libre se dit payée ou non par la base : deux onglets qui partent ensemble ne paient pas six fois.
   const cabinet =
@@ -153,14 +150,32 @@ export interface GesteAEcrire {
   pieces: readonly PieceJugee[]
   /** Le compagnon de sa niche, que chaque réponse retient. */
   compagnon: string | null
+  /**
+   * Le jour que ce geste fait compter à la série — la première manche
+   * répondue d'une visite ou d'une chasse (`laPartieARepondu`) : le jour de
+   * Paris de son départ, et sa veille. Null pour tout autre geste.
+   */
+  jourCompte: { profileId: string; jour: string; veille: string } | null
   fin: FinAEcrire | null
 }
+
+/**
+ * La série d'après un jour joué, dans l'instruction même : un jour déjà
+ * compté ne compte pas deux fois, la veille la prolonge, tout autre la
+ * recommence ; un jour d'avant le dernier compté — la partie d'hier close
+ * aujourd'hui — ne la fait pas reculer. SQLite lit chaque membre d'un `SET`
+ * sur la ligne d'avant : le record se lit sur la série d'avant ce geste. La
+ * mémoire suit la même règle (`serieApresUnJour`, `shared/cabinet/musee.ts`).
+ * Ses paramètres, anonymes : le jour, puis la veille.
+ */
+const SERIE_APRES_LE_JOUR = `CASE WHEN serie_jour >= ? THEN serie WHEN serie_jour = ? THEN serie + 1 ELSE 1 END`
 
 /**
  * Le lot d'un geste (la conception, § 2.4 et § 2.6) : le geste à son rang
  * d'abord — `rowsAffected` dit tout —, puis, sous lui, chaque pièce jugée — sa
  * réponse, et la pièce au bout de la partie (`json_insert`, jamais réécrite
- * en entier) — et, au dernier geste, la fin : le bilan, la poussière au
+ * en entier) —, le jour de la série à la première manche répondue d'une
+ * visite ou d'une chasse (`jourCompte`), et, au dernier geste, la fin : le bilan, la poussière au
  * reflet et la partie rendue, l'œuvre en une seule instruction pour le gain,
  * la dorure et le cartel. Une œuvre déjà là — achetée, offerte — prend son
  * cartel et sa dorure sans changer d'origine ni de saison, et rien de ce
@@ -189,6 +204,14 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
         args: [JSON.stringify(p.piece), p.juste ? 1 : 0, g.serie, ...garde.args],
       },
     )
+  }
+  if (g.jourCompte) {
+    const { profileId, jour, veille } = g.jourCompte
+    lot.push({
+      sql: `UPDATE cabinet_profils SET serie = ${SERIE_APRES_LE_JOUR}, serie_jour = MAX(COALESCE(serie_jour, ''), ?), serie_record = MAX(serie_record, ${SERIE_APRES_LE_JOUR})
+             WHERE profile_id = ? AND ${garde.sql}`,
+      args: [jour, veille, jour, jour, veille, profileId, ...garde.args],
+    })
   }
   if (g.fin) {
     const { bilan, oeuvre, profileId } = g.fin

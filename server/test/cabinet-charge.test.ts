@@ -75,6 +75,7 @@ import { vueDeLaPartie } from '../src/core/cabinet/vue'
 import { contenuDuCabinet } from '../src/core/cabinet/contenu'
 import { estUnQcmDuCabinet, LECTURES_DU_DISQUE, motsDeLaCategorie, preparerLesTas, qcmDeLaCategorie, valeurDuFilet, valeursDeLaCategorie } from '../src/core/cabinet/tirages/tas'
 import { tirerLePlan } from '../src/core/cabinet/tirages/index'
+import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
 import { BaseDeLaCampagne, lireLaBase, QUESTIONS_PAR_TRANCHE, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { tableauxDuDetail } from '../src/core/details'
 import { lignesDesFrises } from '../src/core/frises'
@@ -261,16 +262,24 @@ test('la fin rend la poussière au solde même quand la ligne du profil ne nomme
   // poussière du bilan n'entrait plus au solde.
   const { a, fichier } = await deuxServeurs()
   const poussiere = () => enBase(fichier, db => db.prepare('SELECT poussiere, partie FROM cabinet_profils WHERE profile_id = ?').get('qui'))
-  const visite = await a.cabinet.commencer('qui', { origine: 'visite', case: 0, carte: null })
+  // Deux chasses au Pari, chacune répondue faux puis quittée : le plancher de la poussière ne se paie qu'à une partie
+  // répondue (le 26 octobre 2026).
+  const ratee = async (p: PartieLue) => {
+    const q1 = (departEnBase(fichier, p.id).tirages[0] as PariTire).q1
+    assert.ok('partie' in (await a.cabinet.geste('qui', p.id, 2, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: (q1.bonne + 1) % q1.reponses.length } } })))
+  }
+  const premiere = await a.cabinet.commencer('qui', { origine: 'chasse', oeuvre: 'lecon', carte: null })
+  await ratee(premiere)
   aLaMain(fichier, "UPDATE cabinet_profils SET partie = NULL WHERE profile_id = 'qui'")
-  const fin = await a.cabinet.geste('qui', visite.id, 2, { quoi: 'quitter' })
+  const fin = await a.cabinet.geste('qui', premiere.id, 3, { quoi: 'quitter' })
   assert.ok('partie' in fin)
   assert.equal(fin.partie.bilan?.poussiere, POUSSIERE_MIN)
   assert.deepEqual(poussiere(), { poussiere: POUSSIERE_MIN, partie: null })
   // Une autre partie posée entre-temps sur la ligne y reste : la fin ne rend que la sienne.
   const chasse = await a.cabinet.commencer('qui', { origine: 'chasse', oeuvre: 'lecon', carte: null })
+  await ratee(chasse)
   aLaMain(fichier, "UPDATE cabinet_profils SET partie = 'une-autre' WHERE profile_id = 'qui'")
-  assert.ok('partie' in (await a.cabinet.geste('qui', chasse.id, 2, { quoi: 'quitter' })))
+  assert.ok('partie' in (await a.cabinet.geste('qui', chasse.id, 3, { quoi: 'quitter' })))
   assert.deepEqual(poussiere(), { poussiere: 2 * POUSSIERE_MIN, partie: 'une-autre' })
 })
 
@@ -514,7 +523,7 @@ test('l’Éclair d’un joueur qui a épuisé six catégories tire dans les six
     Array.from({ length: 3 }, () => {
       const comptees = new VuesComptees(vues)
       comptees.lues = 0
-      const plan = tirerLePlan('eclair', { porte, jouables, mesures, vues: comptees, maintenant: DIX_HEURES, hasard: Math.random }, 0)
+      const plan = tirerLePlan('eclair', { porte, jouables, mesures, vues: comptees, maintenant: DIX_HEURES, hasard: Math.random, enjeu: ENJEU_ORDINAIRE, leurres: new Map() }, 0)
       assert.ok(plan, 'rien à tirer')
       return { examinees: comptees.lues, categorie: (plan[0] as EclairTire).affirmations[0].question.categorie }
     })
@@ -562,7 +571,7 @@ test('l’Éclair à ses marches se prépare avec les tas, et une mesure neuve s
   /** Un départ d'un joueur neuf : ce qu'il lit de la mesure, rien que les questions qu'il examine. */
   const unDepart = () => {
     const lues = courante.lues()
-    assert.ok(tirerLePlan('eclair', { porte, jouables, mesures: courante, vues: new Map(), maintenant: DIX_HEURES, hasard: Math.random }, 0), 'rien à tirer')
+    assert.ok(tirerLePlan('eclair', { porte, jouables, mesures: courante, vues: new Map(), maintenant: DIX_HEURES, hasard: Math.random, enjeu: ENJEU_ORDINAIRE, leurres: new Map() }, 0), 'rien à tirer')
     return courante.lues() - lues
   }
   /** La passe faite en fond : chacun de ses QCM lu une fois, le dernier tour compris. */

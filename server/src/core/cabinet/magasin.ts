@@ -59,6 +59,7 @@ import {
   prixDe,
   refusDeLAchat,
   refusDeLEchange,
+  serieApresUnJour,
   soldeDe,
   visiteDuJour,
   visiteEchangee,
@@ -77,8 +78,10 @@ import {
   VERSION_DU_DEPART,
   bilanDe,
   chronoDuDepart,
+  enjeuDuTirage,
   estDUnJourDAvant,
   jouerUnGeste,
+  laPartieARepondu,
   pliDeLaPartie,
   type BilanDUnePartie,
   type DepartDUnePartie,
@@ -237,7 +240,10 @@ export type IssueDuCartel = { cartel: CartelLu } | { introuvable: string }
 
 /** Ce que tes murs lisent (`mursDe`, `vue.ts`) : ce qu'il a vu, et ce que le contenu livré et la base en disent encore. */
 export interface LectureDesMurs {
-  /** Ce qu'il a vu au journal des réponses, et quand pour la dernière fois — tel quel, rien de déplié : chaque frise dit d'où elle vient. */
+  /**
+   * Ce qu'il a vu au journal des réponses (`vuesDe`), et quand pour la dernière fois : les composés y restent sous leur
+   * identifiant — chaque frise dit d'où elle vient —, et les questions qu'ils ont montrées s'y ajoutent, que `mursDe` ne lit pas.
+   */
   vues: ReadonlyMap<string, number>
   lieux: readonly Lieu[]
   frises: readonly FriseATheme[]
@@ -726,7 +732,18 @@ export class CabinetStore {
         const rechanges = cadre.carte?.pouvoir === 'changer' && JEUX[cadre.jeu].changeable ? CHANGEMENTS_PAR_PARTIE[cadre.carte.force] : 0
         const tirages = tirerLePlan(
           cadre.jeu,
-          { porte: this.porte, jouables, mesures, vues: vuesDuCabinet(journal.vuesDe(profileId).vues), maintenant: t, hasard: this.hasard },
+          {
+            porte: this.porte,
+            jouables,
+            mesures,
+            vues: vuesDuCabinet(journal.vuesDe(profileId).vues),
+            maintenant: t,
+            hasard: this.hasard,
+            // L'œuvre visée règle le tirage — une épique, une dorure : une marche de plus —, et l'Éclair propose les leurres
+            // que la campagne choisit (l'arbitrage du 26 octobre 2026).
+            enjeu: enjeuDuTirage(cadre),
+            leurres: journal.leurresChoisis(),
+          },
           rechanges,
         )
         if (!tirages) throw new Error(RIEN_A_TIRER)
@@ -758,7 +775,7 @@ export class CabinetStore {
         let lus: ResultSet[]
         try {
           lus = await this.porte.client.batch(
-            lotDuDepart({ profileId, serie, depart, t, ouverteLe, jour, veille: jourAvant(jour), minuit: minuitDe(t), visites, ouverture }),
+            lotDuDepart({ profileId, serie, depart, t, ouverteLe, jour, minuit: minuitDe(t), visites, ouverture }),
             'write',
           )
         } catch (e) {
@@ -781,18 +798,15 @@ export class CabinetStore {
     })
   }
 
-  /** Ce que le lot du départ a écrit, appliqué au musée gardé — la même règle que la base : la série, la visite figée, la partie du jour. */
+  /**
+   * Ce que le lot du départ a écrit, appliqué au musée gardé — la même règle que la base : la visite figée, la partie du jour.
+   * La série attend sa première manche répondue (`jourCompte`, `ecrireUnGeste`).
+   */
   private retenirLeDepart(g: MuseeGarde, d: DepartDUnePartie, serie: string, t: number, visite: VisiteDuJour) {
-    const compte = d.origine !== 'libre'
-    const avant = g.profil
-    const veille = jourAvant(d.jour)
-    const serieDuJour = !compte ? (avant?.serie ?? 0) : avant?.serieJour && avant.serieJour >= d.jour ? avant.serie : avant?.serieJour === veille ? avant.serie + 1 : 1
+    const avant = g.profil ?? PROFIL_NEUF
     g.profil = {
-      poussiere: avant?.poussiere ?? 0,
-      serie: serieDuJour,
-      serieJour: !compte ? (avant?.serieJour ?? null) : avant?.serieJour && avant.serieJour > d.jour ? avant.serieJour : d.jour,
-      serieRecord: Math.max(avant?.serieRecord ?? 0, serieDuJour),
-      visites: avant?.visites.some(v => v.jour === d.jour) ? avant.visites : visitesAGarder(visite, avant?.visites ?? []),
+      ...avant,
+      visites: avant.visites.some(v => v.jour === d.jour) ? avant.visites : visitesAGarder(visite, avant.visites),
       partie: serie,
     }
     g.duJour.parties.push({
@@ -871,7 +885,11 @@ export class CabinetStore {
     const uid = randomUUID()
     const garde = finit ? await this.musee(profileId, t) : null
     const fin = garde ? this.laFin(profileId, garde, p, apres) : null
-    const lot = lotDuGeste({ serie: p.id, rang, geste, faitLe: t, uid, pieces, compagnon: this.porte.compagnonDeLaNiche(profileId), fin: fin?.aEcrire ?? null })
+    // Sa première manche répondue d'une visite ou d'une chasse compte le jour de son départ à la série — jamais le départ
+    // seul : quittée d'emblée, ou laissée à l'échéance sans une réponse, une partie ne tient pas la série (le 26 octobre 2026).
+    const jourCompte =
+      p.depart.origine !== 'libre' && !laPartieARepondu(p.etat) && laPartieARepondu(apres) ? { profileId, jour: p.depart.jour, veille: jourAvant(p.depart.jour) } : null
+    const lot = lotDuGeste({ serie: p.id, rang, geste, faitLe: t, uid, pieces, compagnon: this.porte.compagnonDeLaNiche(profileId), jourCompte, fin: fin?.aEcrire ?? null })
     let ecrites: ReponsesEcrites
     // Ce que ses gardiens annoncent, capté par la fermeture que la porte appelle entre l'expérience et les paliers.
     const capte: { reveil?: ReveilDesGardiens | null } = {}
@@ -887,7 +905,7 @@ export class CabinetStore {
                 ecrite: ([g]) => g.rowsAffected === 1,
                 // La porte ne l'appelle que si le lot a écrit la fin : le musée qu'elle laisse est vrai.
                 avantLesPaliers: async () => {
-                  capte.reveil = await this.reveiller(profileId, this.museeApresLaFin(profileId, garde, p.id, fin.aEcrire, t), t, garde)
+                  capte.reveil = await this.reveiller(profileId, this.museeApresLaFin(profileId, garde, p.id, fin.aEcrire, t, jourCompte?.jour ?? null), t, garde)
                 },
               }
             : undefined
@@ -903,6 +921,9 @@ export class CabinetStore {
     }
     const gestes = [...p.gestes, { geste, faitLe: t }]
     const suite: PartieGardee = { ...p, gestes, etat: apres, bilan: fin?.aEcrire.bilan ?? null }
+    // La série que le lot vient d'écrire, au musée gardé s'il y est : absent, la page suivante le relit de la base.
+    const gardeDuMusee = garde ?? this.musees.get(profileId)
+    if (jourCompte && gardeDuMusee?.profil) gardeDuMusee.profil = { ...gardeDuMusee.profil, ...serieApresUnJour(gardeDuMusee.profil, jourCompte.jour) }
     if (fin && garde) {
       // L'œuvre telle que la base l'a gardée : la dernière instruction du lot, lue de ses lignes (`RETURNING`), jamais de
       // son compte. La mémoire d'ici a pu ignorer le cartel que l'autre serveur d'une mise en ligne lui avait donné.
@@ -969,15 +990,17 @@ export class CabinetStore {
   /**
    * Le musée tel que la fin le laisse, sans toucher la mémoire : ses gardiens se
    * réconcilient entre l'expérience et les paliers (`avantLesPaliers`), avant
-   * que la mémoire prenne la fin (`retenirLaFin`). Seule l'œuvre change ce
-   * qu'ils lisent — la série a compté au départ.
+   * que la mémoire prenne la fin (`retenirLaFin`). L'œuvre change ce qu'ils
+   * lisent, et la série si ce dernier geste est sa première manche répondue
+   * (`jourCompte`) : le trentième jour réveille le Scarabée à cette fin-là.
    */
-  private museeApresLaFin(profileId: string, g: MuseeGarde, serie: string, fin: FinAEcrire, t: number): Musee {
+  private museeApresLaFin(profileId: string, g: MuseeGarde, serie: string, fin: FinAEcrire, t: number, jourCompte: string | null): Musee {
     const m = this.museeVu(profileId, g)
-    if (!fin.oeuvre) return m
+    const profil = jourCompte !== null && m.profil ? { ...m.profil, ...serieApresUnJour(m.profil, jourCompte) } : m.profil
+    if (!fin.oeuvre) return { ...m, profil }
     const oeuvres = new Map(m.oeuvres)
     oeuvres.set(fin.oeuvre.cle, ligneApresLaFin(m.oeuvres.get(fin.oeuvre.cle), fin.oeuvre, serie, t))
-    return { ...m, oeuvres }
+    return { ...m, profil, oeuvres }
   }
 
   // ── Un cadrage du Détail ──────────────────────────────────────────────

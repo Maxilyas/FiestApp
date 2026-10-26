@@ -11,6 +11,7 @@ import { JOURS_SANS_REDITE } from '../../../../../shared/cabinet/bareme'
 import type { MesureDUneQuestion, Niveau } from '../../../../../shared/campagne'
 import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
 import type { QuestionTiree } from '../../../../../shared/cabinet/jeux/outils'
+import { marchesDeLEnjeu, type EnjeuDuTirage } from '../../../../../shared/cabinet/partie'
 
 /** La fenêtre de fraîcheur du Cabinet : une question vue depuis moins de sept jours ne revient qu'en dernier recours. */
 export const FENETRE_DU_CABINET_MS = JOURS_SANS_REDITE * 24 * 3_600_000
@@ -40,7 +41,22 @@ export interface ContexteDuTirage {
   maintenant: number
   /** Le hasard du tirage : celui du serveur, jamais rejoué d'une graine que la page connaîtrait. */
   hasard: () => number
+  /**
+   * Ce que l'œuvre visée demande au tirage (`enjeuDuTirage`) : les marches
+   * qu'elle ajoute aux jeux de la base, une frise serrée pour une épique. Une
+   * partie libre a l'enjeu ordinaire (`ENJEU_ORDINAIRE`).
+   */
+  enjeu: EnjeuDuTirage
+  /**
+   * Les mauvaises réponses que la campagne choisit, question par question, et
+   * combien de fois (`JournalDesReponses.leurresChoisis`) : l'Éclair propose la
+   * plus choisie à une affirmation fausse, plutôt qu'un leurre au hasard.
+   */
+  leurres: ReadonlyMap<string, ReadonlyMap<string, number>>
 }
+
+/** Les marches d'un jeu sous l'enjeu de la partie : les siennes, et ce que l'œuvre visée y ajoute. */
+export const marchesDuTirage = (ctx: Pick<ContexteDuTirage, 'enjeu'>, marches: readonly Niveau[]): Niveau[] => marchesDeLEnjeu(marches, ctx.enjeu)
 
 /** Ce que la partie a déjà tiré : ni le même contenu deux fois, ni sa jumelle, et ses catégories tournent. */
 export class Posees {

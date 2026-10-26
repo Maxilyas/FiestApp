@@ -30,6 +30,7 @@ import {
 } from '../src/core/cabinet/contenu'
 import { traiterLesLots } from '../scripts/cabinet-contenu'
 import { tirerLePlan } from '../src/core/cabinet/tirages/index'
+import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
 import { regleDe } from '../../shared/cabinet/jeux/index'
 import type { EpingleTiree } from '../../shared/cabinet/jeux/epingle'
 import {
@@ -183,7 +184,7 @@ test('l’Épingle, les Indices et la Réplique tiennent sept jours, joués par 
     for (let jour = 0; jour < JOURS_SANS_REDITE; jour++) {
       for (let p = 0; p < 1 + CHASSES_PAR_JOUR; p++) {
         const t = debut + jour * JOUR + p * 3_600_000
-        const plan = tirerLePlan(jeu, { porte: { deLaCategorie: () => [] }, jouables: [], mesures: new Map(), vues, maintenant: t, hasard: Math.random }, 0)
+        const plan = tirerLePlan(jeu, { porte: { deLaCategorie: () => [] }, jouables: [], mesures: new Map(), vues, maintenant: t, hasard: Math.random, enjeu: ENJEU_ORDINAIRE, leurres: new Map() }, 0)
         assert.ok(plan, `${jeu}, jour ${jour + 1}, partie ${p + 1} : rien à tirer`)
         if (jeu === 'epingle') assert.equal(new Set(plan.map(x => (x as EpingleTiree).lieu.theme)).size, 1, 'trois lieux d’un même thème')
         plan.forEach((tiree, k) => {

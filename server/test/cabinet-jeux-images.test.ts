@@ -23,6 +23,7 @@ import { detailsDeLaBase, fichierDuCadrage, tableauxDuDetail, type TableauDuDeta
 import { evenementsDeLaBase } from '../src/core/frises'
 import { contenuDuCabinet } from '../src/core/cabinet/contenu'
 import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
+import { ENJEU_ORDINAIRE, enjeuDuTirage, type EnjeuDuTirage } from '../../shared/cabinet/partie'
 import { frisesDesSujets } from '../src/core/cabinet/tirages/tas'
 import { PARTIE_INTROUVABLE, TABLEAU_INTROUVABLE } from '../src/core/cabinet/magasin'
 import { CABINET_SANS_PROFIL } from '../src/cabinet'
@@ -54,6 +55,7 @@ import { CATEGORIE_DU_DETAIL } from '../../shared/expedition'
 import {
   DUREES_DES_JEUX,
   ECART_DES_ANNEES_DE_LA_FRISE,
+  ECART_D_UNE_FRISE_EPIQUE,
   EFFACES_AU_PLUS,
   ERREURS_DE_LA_FRISE,
   ERREURS_D_UN_OUBLI,
@@ -84,6 +86,7 @@ import {
   REGLE_DE_LA_FRISE,
   erreursComptees,
   erreursDeLaFrise,
+  estUneFriseSerree,
   etoilesDeLaFrise,
   friseEnVagues,
   type EtatDeLaFrise,
@@ -1010,7 +1013,7 @@ function laBaseLivree() {
 }
 
 /** Ce qu'un tireur lit, sur la base livrée : la porte n'y donne que ce que les tireurs demandent. */
-function surLaBaseLivree(vues: ReadonlyMap<string, number> = new Map()): ContexteDuTirage {
+function surLaBaseLivree(vues: ReadonlyMap<string, number> = new Map(), enjeu: EnjeuDuTirage = ENJEU_ORDINAIRE): ContexteDuTirage {
   const { questions, parId, evenements } = laBaseLivree()
   return {
     porte: { deLaCategorie: (j, c) => j.filter(q => q.meta.categorie === c), parIdDe: () => parId, evenementsDe: () => evenements },
@@ -1019,6 +1022,8 @@ function surLaBaseLivree(vues: ReadonlyMap<string, number> = new Map()): Context
     vues,
     maintenant: DIX_HEURES,
     hasard: Math.random,
+    enjeu,
+    leurres: new Map(),
   }
 }
 
@@ -1248,6 +1253,36 @@ test('le tirage de la Frise : trois vagues d’une même frise, à thème ou d�
     assert.equal((tirerLePlan('frise', surLaBaseLivree(evenementsVus), 0) as FriseTiree[])[0].sorte, 'theme')
     assert.equal((tirerLePlan('frise', surLaBaseLivree(vuesDuCabinet(frisesDeLExpedition)), 0) as FriseTiree[])[0].sorte, 'theme', 'vues dans une frise de l’Expédition')
   }
+})
+
+test('pour une épique, la Frise tire une frise serrée — la moitié de ses voisins à vingt ans au plus —, à thème ou d’un sujet ; sinon, toutes', () => {
+  // Une épique tirait les frises d'une commune, « Les rois de France » à 109 ans d'écart au plus serré, qui se rangent d'une
+  // lecture des siècles (la synthèse de la tablée du 25 octobre 2026, § 10). Un seul écart serré ne suffit pas, une
+  // moyenne non plus : un siècle d'écart y noierait six voisins serrés.
+  assert.equal(ECART_D_UNE_FRISE_EPIQUE, 20)
+  assert.equal(estUneFriseSerree([1000, 1010, 1020, 1040]), true)
+  assert.equal(estUneFriseSerree([1000, 1109, 1218, 1327]), false)
+  assert.equal(estUneFriseSerree([1900, 1906, 2100, 2300]), false, 'un seul écart serré')
+  assert.equal(estUneFriseSerree([1900, 1905, 1910, 2100]), true, 'deux sur trois')
+  assert.equal(estUneFriseSerree([2000, 1000, 1010, 1020]), true, 'dans l’ordre du temps, quel que soit l’ordre donné')
+  const frises = contenuDuCabinet().frises
+  const serrees = frises.filter(f => estUneFriseSerree(f.evenements.map(e => e.annee)))
+  assert.ok(serrees.length > 0 && serrees.length < frises.length, `${serrees.length} frises à thème serrées sur ${frises.length}`)
+  const epique = enjeuDuTirage({ cible: 'bastion', but: 'gagner' })
+  const sortes = { theme: 0, sujet: 0 }
+  for (let essai = 0; essai < 40; essai++) {
+    const [t] = tirerLePlan('frise', surLaBaseLivree(new Map(), epique), 0) as FriseTiree[]
+    assert.ok(estUneFriseSerree(t.evenements.map(e => e.annee)), `${t.cle} : ${t.evenements.map(e => e.annee)}`)
+    sortes[t.sorte]++
+  }
+  assert.ok(sortes.theme > 3 && sortes.sujet > 3, `l’une et l’autre sorte : ${JSON.stringify(sortes)}`)
+  // Sans enjeu, toutes : des frises qui ne le sont pas sortent.
+  let laches = 0
+  for (let essai = 0; essai < 40; essai++) {
+    const [t] = tirerLePlan('frise', surLaBaseLivree(), 0) as FriseTiree[]
+    if (!estUneFriseSerree(t.evenements.map(e => e.annee))) laches++
+  }
+  assert.ok(laches > 0, 'une commune tire aussi des frises lâches')
 })
 
 test('un plancher de frises de sujets : la base livrée en fait au moins cinquante-cinq, chacune ses sept années à trois ans d’écart', () => {

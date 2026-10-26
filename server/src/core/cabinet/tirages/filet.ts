@@ -1,6 +1,7 @@
 // Le tireur du Filet : une question de la base qui se vise — une année
 // entière, ou une estimation que le quiz tout prêt jouerait au plus près
-// (`valeurDuFilet`, `tas.ts`) —, facile ou moyenne, mesurée ; et sa piste,
+// (`valeurDuFilet`, `tas.ts`) —, facile ou moyenne, mesurée, difficile aussi
+// quand l'enjeu le demande (`marchesDuTirage`) ; et sa piste,
 // tirée au départ du hasard du serveur (`pisteDuFilet`, la règle du jeu) :
 // la réponse n'importe où entre ses bornes, jamais au milieu d'office, et
 // jamais d'une graine que la page connaîtrait — sa place s'en déduirait.
@@ -21,12 +22,13 @@ import { MARCHES_DU_FILET } from '../../../../../shared/cabinet/bareme'
 import { pisteDuFilet, seTendAuFilet, type FiletTire } from '../../../../../shared/cabinet/jeux/filet'
 import { anneeDuDepart } from '../../../../../shared/cabinet/partie'
 import { jourDe } from '../../../../../shared/jour'
-import { commeLaPartieLaGarde, uneQuestionDesCategories } from './communs'
+import { commeLaPartieLaGarde, marchesDuTirage, uneQuestionDesCategories } from './communs'
 import type { ContexteDuTirage, Posees } from './communs'
 import { valeurDuFilet, valeursDeLaCategorie } from './tas'
 
 export function tirerUnFilet(ctx: ContexteDuTirage, posees: Posees): FiletTire | null {
   const annee = anneeDuDepart({ jour: jourDe(ctx.maintenant) })
+  const marches = marchesDuTirage(ctx, MARCHES_DU_FILET)
   const ecartees = new Set<string>()
   const seVise = (q: QuestionDeLaBase) => {
     const v = valeurDuFilet(q)
@@ -34,7 +36,7 @@ export function tirerUnFilet(ctx: ContexteDuTirage, posees: Posees): FiletTire |
   }
   // Une question écartée à chaque tour : le tirage finit, sur une piste ou sur rien.
   for (;;) {
-    const tiree = uneQuestionDesCategories(ctx, posees, c => valeursDeLaCategorie(ctx.porte, ctx.jouables, c), MARCHES_DU_FILET, seVise)
+    const tiree = uneQuestionDesCategories(ctx, posees, c => valeursDeLaCategorie(ctx.porte, ctx.jouables, c), marches, seVise)
     if (!tiree) return null
     const v = valeurDuFilet(tiree.question)
     const piste = v && pisteDuFilet(v.valeur, v.annee, ctx.hasard, annee)

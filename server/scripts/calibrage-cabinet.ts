@@ -82,7 +82,7 @@
 //     [--joueurs moyen,bon] [--jeux pari,detail] [--pouvoirs miser,changer] [--graine cabinet] [--sans-musee]
 //     [--sections jeux,oeuvres,cartes,epingle,confettis,musee]
 //     [--essai ERREURS_DE_LA_FRISE=0/1/2] [--essai SEUILS_DES_RARETES=commun:6/rare:7]
-//     [--essai MARCHES_DU_PARI=pari:moyen+difficile]
+//     [--essai MARCHES_DU_PARI=pari:moyen+difficile] [--essai MARCHES_DES_ENJEUX=epique:/dorer:]
 //
 // Deux minutes environ d'office, une minute et demie `--sans-musee` (tout sauf
 // le musée) ; `--sections` ne joue que ce qu'elle nomme, `--jeux`
@@ -107,7 +107,7 @@ import type { Point } from '../../shared/cabinet/france'
 import type { CleDePouvoir, Force } from '../../shared/cabinet/pouvoirs'
 import type { CleDOeuvre } from '../../shared/cabinet/oeuvres'
 import type { CadreDuDepart, LigneDOeuvre, LigneDuProfil, Musee, PartieDuJour, VisiteDuJour } from '../../shared/cabinet/musee'
-import type { CarteDuDepart, DepartDUnePartie, EtatDeLaPartie, GesteDuCabinet, IssueDUnePartie, Manche, OrigineDUnePartie, ReponseDUnJeu } from '../../shared/cabinet/partie'
+import type { CarteDuDepart, DepartDUnePartie, EnjeuDuTirage, EtatDeLaPartie, GesteDuCabinet, IssueDUnePartie, Manche, OrigineDUnePartie, ReponseDUnJeu } from '../../shared/cabinet/partie'
 // Avant l'essai, rien qui lise le barème : `bareme.ts` n'importe que des types, la campagne et les nombres rien du Cabinet.
 import * as BAREME from '../../shared/cabinet/bareme'
 import { NIVEAUX } from '../../shared/campagne'
@@ -207,9 +207,13 @@ const DERIVEES = new Map<string, (essai: readonly unknown[]) => string | null>([
     },
   ],
 ])
-/** Une valeur essayée, de la forme de celle qu'elle remplace : un nombre, une marche (`facile`), ou des marches (`moyen+difficile`). */
+/**
+ * Une valeur essayée, de la forme de celle qu'elle remplace : un nombre, une marche (`facile`), ou des marches
+ * (`moyen+difficile`). Une liste vide — une rareté qui n'ajoute rien à la marche (`MARCHES_DES_ENJEUX`) — est une liste de
+ * marches, qu'un essai vide garde vide (`commun:`) : les seules listes d'un barème du Cabinet à pouvoir l'être.
+ */
 function valeurEssayee(nom: string, avant: unknown, texte: string): number | string | string[] {
-  if (Array.isArray(avant)) return texte.split('+').map(x => valeurEssayee(nom, avant[0], x) as string)
+  if (Array.isArray(avant)) return texte === '' ? [] : texte.split('+').map(x => valeurEssayee(nom, avant[0] ?? NIVEAUX[0], x) as string)
   if (typeof avant === 'string') return (NIVEAUX as readonly string[]).includes(texte) ? texte : arreter(`--essai ${nom} : « ${texte} » n'est pas une marche (${NIVEAUX.join(', ')})`)
   return lireNombre(texte) ?? arreter(`--essai ${nom} : « ${texte} » n'est pas un nombre`)
 }
@@ -232,7 +236,7 @@ const { DANS_LA_FRANCE, dansLaFrance, distanceKm } = await import('../../shared/
 const { affirmationDe } = await import('../../shared/cabinet/jeux/eclair')
 const { pisteDuFilet } = await import('../../shared/cabinet/jeux/filet')
 const { detailTire } = await import('../../shared/cabinet/jeux/detail')
-const { friseEnVagues } = await import('../../shared/cabinet/jeux/frise')
+const { estUneFriseSerree, friseEnVagues } = await import('../../shared/cabinet/jeux/frise')
 const { REGLE_DE_L_EPINGLE, epingleTiree, etoilesDeLaDistance, pointADistance, zoneDEclairer } = await import('../../shared/cabinet/jeux/epingle')
 // La carte que voit le joueur : où il peut planter, et la terre où le lieu peut être (des données, sans React).
 // Et ce que la page fait d'une épingle hors du cadre : elle la ramène au bord (`dansLeCadre`, celui de `pointDuToucher`).
@@ -323,7 +327,8 @@ interface Joueur {
  * complétionniste, mais ne joue pas de partie libre ; l'occasionnel vient un
  * jour sur deux à peu près, pour sa visite et une chasse. Le chasseur est cet
  * occasionnel, qui chasse vers le prochain gardien : l'occasionnel attendait
- * le premier au 36ᵉ jour au calibrage du 25 octobre 2026, la visite
+ * le premier au 36ᵉ jour au calibrage du 25 octobre 2026 (au 21ᵉ depuis
+ * qu'une case de la visite vise chaque jour sa salle, le 26), la visite
  * remplissant les neuf salles à la fois.
  * Le joueur « tablée » sait ce que savent les agents d'une tablée — deux
  * marches et demie au-dessus du moyen, le diapason de John Shore à l'année —,
@@ -531,23 +536,36 @@ function question(niveau: Niveau, r: Hasard): QuestionTiree {
 const uneMarche = (marches: readonly Niveau[], r: Hasard): Niveau => auHasard(marches, r)
 /** Ce qu'il trouve, en moyenne, d'une question tirée parmi ces marches. */
 const surLesMarches = (j: Joueur, marches: readonly Niveau[]) => marches.reduce((n, k) => n + trouve(j, k), 0) / marches.length
+/** Les marches de la question du pari après une première de cette marche : toujours plus haute (`tirerUnPari`). */
+const auDessusDe = (premiere: Niveau): Niveau[] => {
+  const plusHautes = MARCHES_DU_PARI.pari.filter(m => NIVEAUX.indexOf(m) > NIVEAUX.indexOf(premiere))
+  return plusHautes.length > 0 ? plusHautes : [...MARCHES_DU_PARI.pari]
+}
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 const motAuHasard = (n: number, r: Hasard) => Array.from({ length: n }, () => LETTRES[Math.floor(r() * LETTRES.length)]).join('')
 
 /** Des éléments distincts, tirés d'une liste. */
 const distincts = <T>(tas: readonly T[], n: number, r: Hasard): T[] => battre(tas, r).slice(0, n)
 
-/** Ce qu'un départ tire, comme le tireur du serveur : les trois manches, puis les rechanges de Changer. */
-function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number): ContenuTire[] {
+/**
+ * Ce qu'un départ tire, comme le tireur du serveur : les trois manches, puis les rechanges de Changer — aux marches que
+ * l'enjeu de l'œuvre visée y ajoute (`marchesDeLEnjeu`), une frise serrée pour une épique (`estUneFriseSerree`), la
+ * question du pari plus haute que la première.
+ */
+function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number, enjeu: EnjeuDuTirage): ContenuTire[] {
+  const aLEnjeu = (marches: readonly Niveau[]) => P.marchesDeLEnjeu(marches, enjeu)
   switch (jeu) {
     case 'pari':
-      return Array.from({ length: n }, (): PariTire => ({ jeu, q1: question(uneMarche(MARCHES_DU_PARI.question, r), r), q2: question(uneMarche(MARCHES_DU_PARI.pari, r), r) }))
+      return Array.from({ length: n }, (): PariTire => {
+        const q1 = question(uneMarche(aLEnjeu(MARCHES_DU_PARI.question), r), r)
+        return { jeu, q1, q2: question(uneMarche(auDessusDe(q1.niveau), r), r) }
+      })
     case 'eclair':
-      return Array.from({ length: n }, (): EclairTire => ({ jeu, affirmations: Array.from({ length: BAREME.AFFIRMATIONS_DE_L_ECLAIR }, () => affirmationDe(question(uneMarche(MARCHES_DE_L_ECLAIR, r), r), r)!) }))
+      return Array.from({ length: n }, (): EclairTire => ({ jeu, affirmations: Array.from({ length: BAREME.AFFIRMATIONS_DE_L_ECLAIR }, () => affirmationDe(question(uneMarche(aLEnjeu(MARCHES_DE_L_ECLAIR), r), r), r)!) }))
     case 'mot':
       return Array.from({ length: n }, (): MotTire => {
         const lettres = motAuHasard(BAREME.LETTRES_DU_MOT_MIN + Math.floor(r() * (BAREME.LETTRES_DU_MOT_MAX - BAREME.LETTRES_DU_MOT_MIN + 1)), r)
-        return { jeu, question: question(uneMarche(MARCHES_DU_MOT, r), r), lettres, affiche: lettres[0] + lettres.slice(1).toLowerCase() }
+        return { jeu, question: question(uneMarche(aLEnjeu(MARCHES_DU_MOT), r), r), lettres, affiche: lettres[0] + lettres.slice(1).toLowerCase() }
       })
     case 'filet':
       return Array.from({ length: n }, (): FiletTire => {
@@ -556,14 +574,15 @@ function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number): Cont
           const annee = r() < 0.6
           const valeur = annee ? 1100 + Math.floor(r() * 870) : Math.round(10 ** (1 + 4 * r()))
           const piste = pisteDuFilet(valeur, annee, r, anneeDuDepart)
-          if (piste) return { jeu, question: question(uneMarche(MARCHES_DU_FILET, r), r), valeur, annee, piste }
+          if (piste) return { jeu, question: question(uneMarche(aLEnjeu(MARCHES_DU_FILET), r), r), valeur, annee, piste }
         }
       })
     case 'detail':
       return distincts(TABLEAUX, n, r).map(t => detailTire(t, TABLEAUX, r, { anecdote: null, categorie: 'Arts & lettres' })!)
     case 'frise': {
-      // Une frise se construit d'un bout à l'autre : ses trois manches, jamais de rechange.
-      const f = auHasard(FRISES, r)
+      // Une frise se construit d'un bout à l'autre : ses trois manches, jamais de rechange. Pour une épique, une serrée.
+      const serrees = enjeu.friseSerree ? FRISES.filter(x => estUneFriseSerree(x.evenements.map(e => e.annee))) : []
+      const f = auHasard(serrees.length > 0 ? serrees : FRISES, r)
       return friseEnVagues({ sorte: 'theme', cle: f.id, theme: f.theme, evenements: f.evenements, savais: f.savais, categorie: f.categorie }, r)!
     }
     case 'epingle':
@@ -575,6 +594,13 @@ function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number): Cont
   }
 }
 
+/**
+ * L'enjeu qui a tiré chaque départ : une mesure joue en partie libre — sans œuvre visée — ce qu'elle tire à l'enjeu
+ * de son but (`enjeuDuBut`), et ce que le joueur y attend de ses manches suit les marches tirées (`MODELES`).
+ */
+const ENJEUX_DES_DEPARTS = new WeakMap<DepartDUnePartie, EnjeuDuTirage>()
+const enjeuDuDepart = (d: DepartDUnePartie): EnjeuDuTirage => ENJEUX_DES_DEPARTS.get(d) ?? P.enjeuDuTirage(d)
+
 /** Les départs relus comme le serveur les relirait, par jeu : un plan qu'il refuserait ferait mentir tout le calibrage. */
 const RELUS = new Map<CleDeJeu, number>()
 const RELUS_PAR_JEU = 40
@@ -585,7 +611,7 @@ const RELUS_PAR_JEU = 40
  * son rang : tirée d'un compteur commun, la même mesure changeait d'un
  * lancement à l'autre selon les joueurs simulés avant elle.
  */
-function departDu(cadre: CadreDuDepart, jour: string, r: Hasard, graine: string): DepartDUnePartie {
+function departDu(cadre: CadreDuDepart, jour: string, r: Hasard, graine: string, enjeu: EnjeuDuTirage = P.enjeuDuTirage(cadre)): DepartDUnePartie {
   const changer = cadre.carte?.pouvoir === 'changer' && JEUX[cadre.jeu].changeable
   const rechanges = changer ? CHANGEMENTS_PAR_PARTIE[cadre.carte!.force] : 0
   const d: DepartDUnePartie = {
@@ -594,8 +620,9 @@ function departDu(cadre: CadreDuDepart, jour: string, r: Hasard, graine: string)
     jour,
     chrono: P.chronoDuDepart(cadre.jeu, cadre.carte),
     graine,
-    tirages: tirer(cadre.jeu, MANCHES_PAR_PARTIE + rechanges, r, P.anneeDuDepart({ jour })),
+    tirages: tirer(cadre.jeu, MANCHES_PAR_PARTIE + rechanges, r, P.anneeDuDepart({ jour }), enjeu),
   }
+  ENJEUX_DES_DEPARTS.set(d, enjeu)
   const relus = RELUS.get(d.jeu) ?? 0
   if (relus < RELUS_PAR_JEU) {
     if (!lireLeDepart(JSON.stringify(d))) arreter(`Le calibrage a tiré un départ ${d.jeu} que le serveur ne relirait pas : ${tronquer(JSON.stringify(d), 300)}…`)
@@ -649,7 +676,7 @@ const decalageDansLaLoi = (loi: LoiDeLaZone, q: number) => (loi.partout ? Math.s
 /** Un décalage tiré à cette loi, comme le tireur du serveur tire le sien : la direction, puis la distance. */
 const decalageTire = (loi: LoiDeLaZone, r: Hasard): DecalageDeLaZone => {
   const cap = r() * 360
-  return { cap, km: decalageDansLaLoi(loi, r()) }
+  return { cap, km: decalageDansLaLoi(loi, r()), rayonKm: loi.rayonKm }
 }
 /**
  * Les pistes que la section de l'Épingle mesure à côté de la règle du code —
@@ -802,7 +829,7 @@ class Avenir {
   /** La manche `m` jouée, misée ou non, `s` étoiles faites avant elle : ce qu'il en saura, son meilleur lancer, puis la suite. */
   manche(m: number, misee: boolean, s: number, garde: boolean): number {
     if (!this.modeles.has(m)) this.modeles.set(m, this.modele(m))
-    const vaut = (k: number) => (misee ? etoilesApresLesPouvoirs([k], this.carte, 0)[0]! : k)
+    const vaut = (k: number) => (misee ? etoilesApresLesPouvoirs([k], this.carte, 0, [true])[0]! : k)
     const apres = (loi: Loi) => loi.reduce((n, [k, chance]) => n + chance * this.attente(m + 1, s + vaut(k), garde), 0)
     return this.modeles.get(m)!.reduce((n, etat) => n + etat.part * Math.max(...etat.lancers.map(apres)), 0)
   }
@@ -829,17 +856,20 @@ class Avenir {
  * ce choix vaut toutes les façons de reculer. Les autres jeux n'y choisissent
  * rien : leur loi mesurée (`Allure`).
  */
-const MODELES: Partial<Record<CleDeJeu, (j: Joueur) => ModeleDeManche>> = {
-  pari: j => {
-    const p1 = surLesMarches(j, MARCHES_DU_PARI.question)
-    const p2 = surLesMarches(j, MARCHES_DU_PARI.pari)
+const MODELES: Partial<Record<CleDeJeu, (j: Joueur, enjeu: EnjeuDuTirage) => ModeleDeManche>> = {
+  pari: (j, enjeu) => {
+    // La première à l'une de ses marches, chacune autant — celles que l'enjeu ajoute comprises ; juste, il garde, ou
+    // parie sur une question plus haute qu'elle (`auDessusDe`). Facile ou moyenne, la même : le modèle d'avant l'enjeu.
+    const marches = P.marchesDeLEnjeu(MARCHES_DU_PARI.question, enjeu)
+    const justes = marches.map(m => ({ part: trouve(j, m) / marches.length, p2: surLesMarches(j, auDessusDe(m)) }))
     return [
-      { part: p1, lancers: [[[ETOILES_DU_PARI.garder, 1]], [[ETOILES_DU_PARI.parier, p2], [0, 1 - p2]]] },
-      { part: 1 - p1, lancers: [[[0, 1]]] },
+      ...justes.map(({ part, p2 }) => ({ part, lancers: [[[ETOILES_DU_PARI.garder, 1]], [[ETOILES_DU_PARI.parier, p2], [0, 1 - p2]]] as Loi[] })),
+      { part: 1 - justes.reduce((n, x) => n + x.part, 0), lancers: [[[0, 1]]] },
     ]
   },
-  filet: j => {
-    const sait = MARCHES_DU_FILET.reduce((n, k) => n + filetSait(j, k), 0) / MARCHES_DU_FILET.length
+  filet: (j, enjeu) => {
+    const marches = P.marchesDeLEnjeu(MARCHES_DU_FILET, enjeu)
+    const sait = marches.reduce((n, k) => n + filetSait(j, k), 0) / marches.length
     return [
       { part: sait, ecart: MODELE.filetPrecis },
       { part: 1 - sait, ecart: flouDuFilet(j) },
@@ -857,10 +887,10 @@ const MODELES: Partial<Record<CleDeJeu, (j: Joueur) => ModeleDeManche>> = {
   },
 }
 /** Ce qu'il saura de chaque manche de ce jeu : son modèle, ou la loi que la mesure en a faite. */
-function modeleDesManches(j: Joueur, jeu: CleDeJeu, allure: Allure | null): (manche: number) => ModeleDeManche {
+function modeleDesManches(j: Joueur, jeu: CleDeJeu, allure: Allure | null, enjeu: EnjeuDuTirage): (manche: number) => ModeleDeManche {
   const explicite = MODELES[jeu]
   if (explicite) {
-    const x = explicite(j)
+    const x = explicite(j, enjeu)
     return () => x
   }
   if (!allure) throw new Error(`${jeu} : la loi de ses manches manque à la mise`)
@@ -911,7 +941,7 @@ class Partie {
     return this.d.carte?.pouvoir === 'miser' && this.e.misee === null && !this.objectif.dorer && !this.objectif.confettis
   }
   private get avenir(): Avenir {
-    return (this.avenirDeLaPartie ??= new Avenir(modeleDesManches(this.j, this.d.jeu, this.allure), butDe(this.objectif), this.d.carte))
+    return (this.avenirDeLaPartie ??= new Avenir(modeleDesManches(this.j, this.d.jeu, this.allure, enjeuDuDepart(this.d)), butDe(this.objectif), this.d.carte))
   }
 
   /**
@@ -1006,7 +1036,7 @@ class Partie {
    * reculer y valaient leurs étoiles d'ordinaire, et la mise se perdait.
    */
   vautDans(m: Manche, naturel: number): number {
-    return this.e.misee === m ? etoilesApresLesPouvoirs([naturel], this.d.carte, 0)[0]! : naturel
+    return this.e.misee === m ? etoilesApresLesPouvoirs([naturel], this.d.carte, 0, [true])[0]! : naturel
   }
   /** Une proposition parmi celles qui ne sont pas effacées. */
   parmi(n: number, effacees: readonly number[]): number {
@@ -1064,7 +1094,8 @@ function mancheDuPari(p: Partie, m: Manche): void {
  */
 function parier(p: Partie, m: Manche): boolean {
   if (p.objectif.dorer || p.objectif.confettis) return true
-  const p2 = surLesMarches(p.j, MARCHES_DU_PARI.pari)
+  // La question du pari est plus haute que la première, qu'il vient de lire : difficile ou experte, experte après une difficile.
+  const p2 = surLesMarches(p.j, auDessusDe(p.tiree<PariTire>().q1.niveau))
   const { garder, parier: pari } = ETOILES_DU_PARI
   return p2 * p.attente(m, p.vautDans(m, pari)) + (1 - p2) * p.attente(m, 0) > p.attente(m, p.vautDans(m, garder))
 }
@@ -1407,6 +1438,14 @@ const LIBRE: Objectif = { seuil: null, dorer: false }
 const DORER: Objectif = { seuil: null, dorer: true }
 const CONFETTIS: Objectif = { seuil: null, dorer: false, confettis: true }
 const versLeSeuil = (seuil: number): Objectif => ({ seuil, dorer: false })
+/** Une épique, pour lui demander son enjeu : la règle le lit de la rareté de l'œuvre visée (`enjeuDuTirage`). */
+const UNE_EPIQUE = OEUVRES.find(o => o.rarete === 'epique')!.cle
+/**
+ * L'enjeu d'une mesure, de ce qu'elle vise : jouée en partie libre, elle n'a pas d'œuvre — le seuil d'une épique, ou
+ * dorer, la dit. Les autres seuils tirent comme une partie libre.
+ */
+const enjeuDuBut = (o: Objectif): EnjeuDuTirage =>
+  o.dorer ? P.enjeuDuTirage({ cible: null, but: 'dorer' }) : o.seuil !== null && o.seuil === SEUILS_DES_RARETES.epique ? P.enjeuDuTirage({ cible: UNE_EPIQUE, but: 'gagner' }) : P.ENJEU_ORDINAIRE
 
 /**
  * Ce que vaut un jeu pour ce joueur, avec cette carte, vers cet objectif : des
@@ -1419,19 +1458,22 @@ const versLeSeuil = (seuil: number): Objectif => ({ seuil, dorer: false })
  * carte » sur d'autres parties, et le bruit des deux passait pour son effet
  * (sept points d'écart type à cent parties, pour une part de moitié).
  */
-function mesurer(j: Joueur, jeu: CleDeJeu, c: CarteMesuree, vise: Objectif, n = MESURES): Mesure {
+function mesurer(j: Joueur, jeu: CleDeJeu, c: CarteMesuree, vise: Objectif, n = MESURES, enjeu = enjeuDuBut(vise)): Mesure {
+  // L'enjeu de ce qu'il vise, avant tout (`enjeuDuBut`) : une épique et une dorure tirent plus haut, que le jeu lise le
+  // seuil ou non ; la loi des manches que Miser lit (`allureDe`) se mesure au même enjeu, en partie libre.
   // Un jeu qui ne lit pas le seuil se joue vers lui comme en partie libre : les mêmes parties pour tous les seuils —
   // sauf sous Miser, qui se décide vers le seuil (`Partie.miserIci`).
   const objectif = vise.seuil !== null && !MANCHES[jeu].viseLeSeuil && c?.pouvoir !== 'miser' ? LIBRE : vise
-  const cle = `${cleDuSavoir(j)}|${jeu}|${c ? `${c.pouvoir}${c.force}` : '-'}|${objectif.dorer ? 'dorer' : objectif.confettis ? 'confettis' : (objectif.seuil ?? 'libre')}|${n}`
+  const sonEnjeu = `${enjeu.marchesEnPlus.join('+') || '-'}${enjeu.friseSerree ? ':serree' : ''}`
+  const cle = `${cleDuSavoir(j)}|${jeu}|${c ? `${c.pouvoir}${c.force}` : '-'}|${objectif.dorer ? 'dorer' : objectif.confettis ? 'confettis' : (objectif.seuil ?? 'libre')}|${sonEnjeu}|${n}`
   const deja = MESURES_FAITES.get(cle)
   if (deja) return deja
   const racine = `${GRAINE}:mesure:${cleDuSavoir(j)}|${jeu}`
   const carte = carteDe(c)
-  const allure = carte?.pouvoir === 'miser' && !objectif.dorer && !objectif.confettis && !MODELES[jeu] ? allureDe(j, jeu) : null
+  const allure = carte?.pouvoir === 'miser' && !objectif.dorer && !objectif.confettis && !MODELES[jeu] ? allureDe(j, jeu, enjeu) : null
   const x: Mesure = { parties: 0, totaux: Array(ETOILES_D_UNE_PARTIE + 1).fill(0), dorees: 0, justes: 0, secondes: 0, enRetard: 0, parManche: Array.from({ length: MANCHES_PAR_PARTIE }, () => Array(ETOILES_PAR_MANCHE + 1).fill(0)) }
   for (let i = 0; i < n; i++) {
-    const d = departDu({ jeu, origine: 'libre', cible: null, but: null, seuil: null, payee: false, carte }, JOUR_MESURE, hasardDe(`${racine}:depart:${i}`), `${racine}:${i}`)
+    const d = departDu({ jeu, origine: 'libre', cible: null, but: null, seuil: null, payee: false, carte }, JOUR_MESURE, hasardDe(`${racine}:depart:${i}`), `${racine}:${i}`, enjeu)
     const jouee = jouerLaPartie(d, j, hasardDe(`${racine}:jeu:${i}`), T_MESURE, objectif, allure)
     const res = P.resultatDe(d, jouee.etat)
     x.parties++
@@ -1448,10 +1490,11 @@ function mesurer(j: Joueur, jeu: CleDeJeu, c: CarteMesuree, vise: Objectif, n = 
 /**
  * Ce que la mise lit d'un jeu où rien ne se choisit : la loi des étoiles
  * naturelles de chaque manche, sans carte, en partie libre — mille parties, de
- * quoi la lire manche par manche. Misée, une telle manche se joue pareil.
+ * quoi la lire manche par manche. Misée, une telle manche se joue pareil. À
+ * l'enjeu de la partie : une épique tire plus haut.
  */
-const allureDe = (j: Joueur, jeu: CleDeJeu): Allure => {
-  const x = mesurer(j, jeu, null, LIBRE, PARTIES)
+const allureDe = (j: Joueur, jeu: CleDeJeu, enjeu: EnjeuDuTirage = P.ENJEU_ORDINAIRE): Allure => {
+  const x = mesurer(j, jeu, null, LIBRE, PARTIES, enjeu)
   return { parManche: x.parManche.map(compte => compte.map((k, etoiles): readonly [number, number] => [etoiles, k / x.parties])) }
 }
 const auMoins = (x: Mesure, seuil: number) => x.totaux.slice(seuil).reduce((a, b) => a + b, 0) / x.parties
@@ -1566,22 +1609,17 @@ function parcourir(j: Joueur, k: number): Parcours {
     return [...M.possedees(m), ...legendaires].find(cle => pouvoirDe(cle) === c.pouvoir && forceDe(cle) === c.force) ?? null
   }
 
-  /** Le premier lot du jour qui écrit, comme celui du départ : la ligne du profil, la série, la visite figée. */
-  const premierLotDuJour = (v: VisiteDuJour, compte: boolean) => {
-    const veille = jourAvant(jour)
+  /**
+   * Le premier lot du jour qui écrit, comme celui du départ : la ligne du profil, la visite figée. La série attend la
+   * première manche répondue de la partie (`serieApresUnJour`, après `jouerLaPartie`), comme au serveur.
+   */
+  const premierLotDuJour = (v: VisiteDuJour) => {
     const gelees = M.visitesAGarder(v, profil?.visites ?? [])
     if (!profil) {
-      profil = { poussiere: 0, serie: compte ? 1 : 0, serieJour: compte ? jour : null, serieRecord: compte ? 1 : 0, visites: gelees, partie: null }
+      profil = { poussiere: 0, serie: 0, serieJour: null, serieRecord: 0, visites: gelees, partie: null }
       return
     }
-    const serie = !compte || (profil.serieJour ?? '') >= jour ? profil.serie : profil.serieJour === veille ? profil.serie + 1 : 1
-    profil = {
-      ...profil,
-      serie,
-      serieJour: compte ? ((profil.serieJour ?? '') > jour ? profil.serieJour : jour) : profil.serieJour,
-      serieRecord: Math.max(profil.serieRecord, serie),
-      visites: profil.visites[0]?.jour === jour ? profil.visites : gelees,
-    }
+    profil = { ...profil, visites: profil.visites[0]?.jour === jour ? profil.visites : gelees }
   }
 
   /** Une partie, de la demande à son bilan : le cadre que le musée accepte, le plan, le jeu, puis ce que le lot de fin écrit. */
@@ -1589,10 +1627,12 @@ function parcourir(j: Joueur, k: number): Parcours {
     const m = musee()
     const cadre = M.cadreDuDepart(m, demande, v, CLES_DES_JEUX)
     if (typeof cadre === 'string') throw new Error(`${j.nom} : départ refusé (${JSON.stringify(demande)}) — ${cadre}`)
-    premierLotDuJour(v, cadre.origine !== 'libre')
+    premierLotDuJour(v)
     const d = departDu(cadre, jour, r, `${GRAINE}:parcours:${qui}:${ARRIVEE}:${k}:${jourDuParcours}:${parties.length}`)
-    const allure = d.carte?.pouvoir === 'miser' && !objectif.dorer && !MODELES[d.jeu] ? allureDe(j, d.jeu) : null
+    const allure = d.carte?.pouvoir === 'miser' && !objectif.dorer && !MODELES[d.jeu] ? allureDe(j, d.jeu, enjeuDuDepart(d)) : null
     const jouee = jouerLaPartie(d, j, r, t, objectif, allure)
+    // La série compte le jour d'une visite ou d'une chasse où il a répondu à une manche — ici, toujours : il ne quitte pas.
+    if (cadre.origine !== 'libre' && P.laPartieARepondu(jouee.etat)) profil = { ...profil!, ...M.serieApresUnJour(profil!, d.jour) }
     const apres = musee()
     const cible = d.cible as CleDOeuvre | null
     const aLui = cible ? { possedee: M.possedees(apres).has(cible), doree: M.dorees(apres).has(cible) } : null
@@ -1646,7 +1686,7 @@ function parcourir(j: Joueur, k: number): Parcours {
       const autre = M.jeuDeLEchange(m, v, graine)
       if (pire && autre && M.refusDeLEchange(m, v, pire.i, autre) === null && vaut(autre, v.cases[pire.i].cible) > pire.vaut + 0.05) {
         v = M.visiteEchangee(v, pire.i as Manche, autre)
-        premierLotDuJour(v, false)
+        premierLotDuJour(v)
       }
     }
 
@@ -1689,7 +1729,8 @@ function parcourir(j: Joueur, k: number): Parcours {
       for (const manquee of parties.filter(pp => pp.origine === 'visite' && pp.issue === 'manquee' && pp.cible && !a.has(pp.cible as CleDOeuvre))) {
         const cle = manquee.cible as CleDOeuvre
         const b = meilleure(m, manquee.jeu, 'gagner', seuilDe(cle))
-        proposer(b.vaut * PRIX_D_UNE_OEUVRE[oeuvre(cle)!.rarete], { origine: 'chasse', oeuvre: cle, carte: cleDeLaCarte(m, b.carte), retente: true }, { seuil: seuilDe(cle), dorer: false })
+        // « Retenter » par sa case, comme la page : il sait l'œuvre qu'elle visait pour en juger le prix, la demande ne la nomme pas.
+        proposer(b.vaut * PRIX_D_UNE_OEUVRE[oeuvre(cle)!.rarete], { origine: 'chasse', case: manquee.visite!, retente: true, carte: cleDeLaCarte(m, b.carte) }, { seuil: seuilDe(cle), dorer: false })
       }
       const choisie = (versLui ?? mieux) as Proposee | null
       if (!choisie) break

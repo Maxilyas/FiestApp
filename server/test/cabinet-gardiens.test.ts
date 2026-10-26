@@ -30,6 +30,7 @@ import {
   lire,
   ok,
   ouvrir,
+  pariDe,
   poster,
   unPariParfait,
   type BancDuCabinet,
@@ -416,9 +417,18 @@ test('trente jours de visite ou de chasse d’affilée : le Scarabée se réveil
     b.fichier,
     `INSERT INTO cabinet_profils (profile_id, serie, serie_jour, serie_record, cree_le, maj_le) VALUES ('${sam.id}', ${JOURS_DU_SCARABEE - 1}, '2026-10-23', ${JOURS_DU_SCARABEE - 1}, 0, 0)`,
   )
-  // La série compte au départ : la partie quittée aussitôt la tient.
+  // La série ne compte qu'une partie répondue : quittée aussitôt, la chasse ne la tient pas — elle la tenait jusqu'au
+  // 26 octobre 2026, et trente visites quittées d'emblée réveillaient le Scarabée.
+  const aussitot = ok(await commencer(b, sam.cookie, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse quittée aussitôt')
+  const rien = ok(await jouer(b, sam.cookie, aussitot, { quoi: 'quitter' }), 'quitter d’emblée')
+  assert.deepEqual(rien.bilan!.gardiens ?? [], [], 'quittée d’emblée : pas un jour de plus')
+  assert.deepEqual(rangeesDe(sam.id), [])
+  // Juste à sa première question, puis quittée au choix : la pièce gardée est sa première manche répondue, écrite avec la
+  // fin — le trentième jour compte à cette fin-là, et le Scarabée s'y réveille.
   const chasse = ok(await commencer(b, sam.cookie, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse du trentième jour')
-  const fin = ok(await jouer(b, sam.cookie, chasse, { quoi: 'quitter' }), 'quitter')
+  const q1 = pariDe(b, chasse.id, 0).q1
+  const auChoix = ok(await jouer(b, sam.cookie, chasse, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: q1.bonne } } }), 'juste')
+  const fin = ok(await jouer(b, sam.cookie, auChoix, { quoi: 'quitter' }), 'quitter au choix')
   assert.deepEqual(fin.bilan!.gardiens, [{ legendaire: 'lg:scarabee', neuf: true }])
   assert.deepEqual(fin.bilan!.gains?.legendaires, ['lg:scarabee'])
   assert.equal(fin.bilan!.gains?.compagnon, undefined, 'aucune salle complète : pas de luciole')

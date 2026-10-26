@@ -196,8 +196,9 @@ function leLieu(l: unknown): Lieu | null {
 function lEpingle(x: Brut): EpingleTiree | null {
   const lieu = leLieu(x.lieu)
   const d = x.decalage
-  if (!lieu || !objet(d) || !fini(d.cap) || !fini(d.km) || d.km < 0) return null
-  return { jeu: 'epingle', lieu, decalage: { cap: d.cap, km: d.km } }
+  // Le rayon se relit avec le décalage, plus grand que lui : le lieu reste dans la zone, quel que soit le barème du jour.
+  if (!lieu || !objet(d) || !fini(d.cap) || !fini(d.km) || d.km < 0 || !fini(d.rayonKm) || d.rayonKm <= d.km) return null
+  return { jeu: 'epingle', lieu, decalage: { cap: d.cap, km: d.km, rayonKm: d.rayonKm } }
 }
 
 function lesIndices(x: Brut): IndicesTires | null {

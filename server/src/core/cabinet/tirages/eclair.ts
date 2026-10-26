@@ -1,7 +1,9 @@
 // Le tireur de l'Éclair : cinq QCM d'une même catégorie — la pièce a une
-// catégorie, que les missions lisent —, faciles ou moyens, chacun récrit en
-// affirmation par la règle du jeu (`affirmationDe`) avec le hasard du tirage :
-// sa bonne réponse une fois sur deux, sinon une des mauvaises.
+// catégorie, que les missions lisent —, faciles ou moyens, difficiles aussi
+// quand l'enjeu le demande (`marchesDuTirage`), chacun récrit en affirmation
+// par la règle du jeu (`affirmationDe`) avec le hasard du tirage : sa bonne
+// réponse une fois sur deux, sinon la mauvaise que la campagne choisit le plus
+// (`ContexteDuTirage.leurres`).
 //
 // La catégorie se choisit par ce qu'il lui reste de jamais vu, avant le
 // hasard : une catégorie qui a encore de quoi poser ses cinq affirmations à
@@ -16,7 +18,7 @@ import { AFFIRMATIONS_DE_L_ECLAIR, MARCHES_DE_L_ECLAIR } from '../../../../../sh
 import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
 import { affirmationDe, type AffirmationTiree, type EclairTire } from '../../../../../shared/cabinet/jeux/eclair'
 import { battre } from '../../../../../shared/cabinet/jeux/outils'
-import { commeLaPartieLaGarde, tirerDesQuestions } from './communs'
+import { commeLaPartieLaGarde, marchesDuTirage, tirerDesQuestions } from './communs'
 import type { ContexteDuTirage, Posees } from './communs'
 import { qcmDeLaCategorie, qcmDeLEclair } from './tas'
 
@@ -54,10 +56,14 @@ export function tirerUnEclair(ctx: ContexteDuTirage, posees: Posees): EclairTire
     ...lesPlusFraiches(battre(epuisees.filter(c => !jouee(c)), ctx.hasard)),
     ...lesPlusFraiches(battre(epuisees.filter(jouee), ctx.hasard)),
   ]
+  // Difficiles aussi sous un enjeu qui le demande : l'ordre des catégories se lit encore aux marches du jeu, il ne fait que
+  // départager — une catégorie riche en difficiles jamais vues n'en passe pas devant.
+  const marches = marchesDuTirage(ctx, MARCHES_DE_L_ECLAIR)
   for (const categorie of ordre) {
-    const tirees = tirerDesQuestions(ctx, posees, [qcmDeLaCategorie(ctx.porte, ctx.jouables, categorie)], MARCHES_DE_L_ECLAIR, AFFIRMATIONS_DE_L_ECLAIR)
+    const tirees = tirerDesQuestions(ctx, posees, [qcmDeLaCategorie(ctx.porte, ctx.jouables, categorie)], marches, AFFIRMATIONS_DE_L_ECLAIR)
     if (tirees.length < AFFIRMATIONS_DE_L_ECLAIR) continue
-    const affirmations = tirees.map(t => affirmationDe(commeLaPartieLaGarde(t), ctx.hasard))
+    // Le leurre que la campagne choisit le plus, plutôt qu'un au hasard (`affirmationDe`).
+    const affirmations = tirees.map(t => affirmationDe(commeLaPartieLaGarde(t), ctx.hasard, ctx.leurres.get(t.question.id)))
     if (affirmations.some(a => a === null)) continue
     const toutes = affirmations as AffirmationTiree[]
     for (const a of toutes) posees.prendre(a.question)

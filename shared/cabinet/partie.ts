@@ -41,11 +41,13 @@
 // du code — un barème de manche, ce que fait un pouvoir — monte la version du
 // départ (`VERSIONS_DU_DEPART`) et garde la règle d'avant sous la sienne.
 
+import type { Niveau } from '../campagne'
 import { hasardDe } from '../missions'
 import {
   ETOILES_D_UNE_PARTIE,
   GRACE_D_UNE_MANCHE_MS,
   MANCHES_PAR_PARTIE,
+  MARCHES_DES_ENJEUX,
   PAUSE_MAX_MS,
   PAUSES_PAR_MANCHE,
   POUSSIERE_DU_DOUBLE,
@@ -171,6 +173,36 @@ export interface DepartDUnePartie {
   tirages: readonly ContenuTire[]
 }
 
+/**
+ * Ce que l'enjeu d'une partie demande à son tirage : les marches que l'œuvre
+ * visée ajoute aux jeux qui posent des questions de la base
+ * (`MARCHES_DES_ENJEUX`), et une frise serrée pour une épique
+ * (`ECART_D_UNE_FRISE_EPIQUE`). Le tireur le lit au départ ; le plan figé garde
+ * ce qu'il a tiré, et la relecture n'en relit rien.
+ */
+export interface EnjeuDuTirage {
+  marchesEnPlus: readonly Niveau[]
+  friseSerree: boolean
+}
+
+/** Une partie libre, une case pour la poussière : rien de plus que les marches de chaque jeu. */
+export const ENJEU_ORDINAIRE: EnjeuDuTirage = { marchesEnPlus: [], friseSerree: false }
+
+/**
+ * L'enjeu d'un départ, de l'œuvre qu'il vise : sa rareté, ou la dorure — une
+ * chasse pour dorer, une case de la visite dont l'œuvre est déjà à lui.
+ * L'œuvre ne se nomme pas à la page, mais sa rareté si (`EnjeuDUneCase`) : la
+ * marche qu'elle tire n'en dit pas plus.
+ */
+export function enjeuDuTirage(c: Pick<DepartDUnePartie, 'cible' | 'but'>): EnjeuDuTirage {
+  const rarete = oeuvre(c.cible)?.rarete ?? null
+  const marchesEnPlus = c.but === 'dorer' ? MARCHES_DES_ENJEUX.dorer : rarete ? MARCHES_DES_ENJEUX[rarete] : []
+  return { marchesEnPlus, friseSerree: rarete === 'epique' }
+}
+
+/** Les marches qu'un jeu tire sous cet enjeu : les siennes, puis celles que l'enjeu ajoute — la fraîcheur départage, jamais la marche. */
+export const marchesDeLEnjeu = (marches: readonly Niveau[], enjeu: EnjeuDuTirage): Niveau[] => [...marches, ...enjeu.marchesEnPlus.filter(m => !marches.includes(m))]
+
 /** L'année du jour de Paris du départ : la borne des pistes d'années du Filet, que le tireur lit — `lireLeDepart` n'y relit que la coupe de la piste. */
 export const anneeDuDepart = (d: Pick<DepartDUnePartie, 'jour'>): number => Number(d.jour.slice(0, 4))
 
@@ -290,6 +322,19 @@ export interface EtatDeLaPartie {
 }
 
 export const ETAT_DU_DEPART: EtatDeLaPartie = { rang: 1, manches: [], servis: { eclairer: 0, changer: 0 }, misee: null, pieces: [], fin: null, ignores: 0 }
+
+/**
+ * Une pièce répondue : il a donné une réponse — un choix au Pari, une épingle,
+ * un filet lancé, des essais ou des erreurs que le chrono a trouvés en route
+ * (`choix` non nul). Quittée, ou laissée au chrono sans rien envoyer, elle n'en
+ * a pas. Une partie ne compte que ce qui a été répondu (le 26 octobre 2026) :
+ * sa poussière minimale (`POUSSIERE_MIN`), son jour de série, la manche que
+ * Protéger relève — quitter d'emblée rapportait quatre poussières, tenait la
+ * série et, sous Prudence, une étoile (la tablée du 25 octobre 2026).
+ */
+export const pieceRepondue = (p: Pick<PieceJugee, 'choix'>): boolean => p.choix !== null
+/** La partie a-t-elle reçu une réponse, à une manche au moins ? */
+export const laPartieARepondu = (e: Pick<EtatDeLaPartie, 'pieces'>): boolean => e.pieces.some(pieceRepondue)
 
 // ── Les refus, en mots ────────────────────────────────────────────────────
 
@@ -523,7 +568,7 @@ export function jouerUnGeste(d: DepartDUnePartie, avant: EtatDeLaPartie, g: Gest
   let m = ouverte
   if (pauseEnCours(etape)) {
     if (g.quoi === 'reprendre') return suite(remplacer(avant, sansPause()))
-    // Sous la confirmation de « Quitter ? », seule la réponse passe : au bout des trente secondes, le chrono a
+    // Sous la confirmation de « Quitter ? », seule la réponse passe : au bout de la pause, le chrono a
     // repris sous le voile, et à l'échéance la page envoie d'elle-même ce qu'elle tenait — l'épingle, la frise, le
     // curseur. Arrivée à l'heure, elle ferme la pause et se juge sur ce qu'elle porte ; refusée, l'épingle partie
     // à temps aurait compté pour rien. Une réponse n'achète pas de temps : la pause s'arrête à son arrivée.
@@ -534,7 +579,7 @@ export function jouerUnGeste(d: DepartDUnePartie, avant: EtatDeLaPartie, g: Gest
   switch (g.quoi) {
     case 'pause':
       if (!chronoActif(m)) return AUCUN_CHRONO
-      // Une pause qui ne fige plus rien — ses trente secondes passées — ou une de trop : chacune s'écrit avec sa reprise,
+      // Une pause qui ne fige plus rien — la pause de la manche passée — ou une de trop : chacune s'écrit avec sa reprise,
       // et une page qui les enchaînait au même instant écrivait des centaines de gestes par manche sans rien consommer.
       if (pauseLaisseeMs(etape, t) <= 0 || m.etapes.reduce((n, e) => n + e.pauses.length, 0) >= PAUSES_PAR_MANCHE) return PLUS_DE_PAUSE
       return suite(remplacer(avant, { ...m, etapes: [...m.etapes.slice(0, -1), { ...etape, pauses: [...etape.pauses, { depuis: t }] }] }))
@@ -651,11 +696,20 @@ export interface EtoilesDUneManche {
   fin: FinDUneManche | null
 }
 
+/**
+ * Une manche que Protéger peut relever : une réponse l'a tranchée — ni
+ * quittée, ni finie par le chrono sans qu'il ait rien répondu. Le Pari laissé
+ * au choix puis quitté garde ses étoiles, mais ne se relève pas : c'était
+ * quitter.
+ */
+const relevable = (m: MancheDuPli | undefined): boolean => m?.verdict != null && m.fin !== 'quittee' && m.verdict.pieces.some(pieceRepondue)
+
 /** Les trois manches, jugées ou non. */
 export function etoilesDesManches(d: DepartDUnePartie, e: EtatDeLaPartie): EtoilesDUneManche[] {
   const naturel = Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => e.manches[k]?.verdict?.naturel ?? null)
-  const etoiles = etoilesApresLesPouvoirs(naturel, d.carte, e.misee)
-  const protegee = mancheProtegee(naturel, d.carte)
+  const repondues = Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => relevable(e.manches[k]))
+  const etoiles = etoilesApresLesPouvoirs(naturel, d.carte, e.misee, repondues)
+  const protegee = mancheProtegee(naturel, d.carte, repondues)
   return naturel.map((n, k) => ({ naturel: n, etoiles: etoiles[k], protegee: protegee === k, misee: e.misee === k, fin: e.manches[k]?.fin ?? null }))
 }
 
@@ -677,6 +731,8 @@ export interface ResultatDUnePartie {
   cadreDore: boolean
   quittee: boolean
   lendemain: boolean
+  /** Une manche au moins a reçu une réponse (`laPartieARepondu`) : la poussière minimale ne se paie qu'à elle. */
+  repondue: boolean
   /** La manche que son cartel garde : la plus étoilée naturellement qui a une anecdote, la première à égalité. */
   cartel: Manche | null
 }
@@ -703,6 +759,7 @@ export function resultatDe(d: DepartDUnePartie, e: EtatDeLaPartie): ResultatDUne
     cadreDore: cadreDore(naturel, aidee),
     quittee: e.fin?.pourquoi === 'quittee',
     lendemain: e.fin?.pourquoi === 'lendemain',
+    repondue: laPartieARepondu(e),
     cartel,
   }
 }
@@ -738,16 +795,17 @@ export function issueDe(d: DepartDUnePartie, r: Pick<ResultatDUnePartie, 'total'
 
 /**
  * La poussière d'or qu'une partie rapporte, figée dans son bilan : en visite et
- * en chasse, deux par étoile et quatre au moins, même ratée, plus le double ;
- * une partie libre parmi les cinq du jour qui paient, deux par étoile ; les
- * suivantes, rien.
+ * en chasse, deux par étoile, plus le double — et quatre au moins, même
+ * ratée, s'il a répondu à une manche : quittée d'emblée, ou laissée au chrono
+ * sans rien répondre, elle ne rapporte que ses étoiles ; une partie libre
+ * parmi les cinq du jour qui paient, deux par étoile ; les suivantes, rien.
  */
-export function poussiereDeLaPartie(d: DepartDUnePartie, r: { total: number; issue: IssueDUnePartie }): number {
+export function poussiereDeLaPartie(d: DepartDUnePartie, r: { total: number; issue: IssueDUnePartie; repondue: boolean }): number {
   if (!d.payee) return 0
   if (d.origine === 'libre') return POUSSIERE_PAR_ETOILE * r.total
   const rarete = oeuvre(d.cible)?.rarete
   const double = r.issue === 'double' && rarete ? POUSSIERE_DU_DOUBLE[rarete] : 0
-  return Math.max(POUSSIERE_MIN, POUSSIERE_PAR_ETOILE * r.total) + double
+  return Math.max(r.repondue ? POUSSIERE_MIN : 0, POUSSIERE_PAR_ETOILE * r.total) + double
 }
 
 /** Le bilan d'une partie finie (`campagne_series.bilan`), écrit dans le lot qui la clôt : jamais réécrit. */
@@ -783,7 +841,7 @@ export function bilanDe(d: DepartDUnePartie, e: EtatDeLaPartie, aLui: LOeuvreALu
     ...(r.quittee && { quittee: true as const }),
     ...(r.lendemain && { lendemain: true as const }),
     issue,
-    poussiere: poussiereDeLaPartie(d, { total: r.total, issue }),
+    poussiere: poussiereDeLaPartie(d, { total: r.total, issue, repondue: r.repondue }),
     ...(d.cible !== null && issue !== 'manquee' && issue !== 'libre' && { oeuvre: d.cible }),
     cartel: r.cartel,
   }

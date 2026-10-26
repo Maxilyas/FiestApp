@@ -11,10 +11,11 @@
 // « Garder » ou « Parier », aucun ne court.
 //
 // La pause de « Quitter ? » recule l'échéance du temps passé sous la
-// confirmation, trente secondes au plus par manche (`PAUSE_MAX_MS`), la manche
-// voilée : la confirmation ne s'achète pas du temps de recherche. Au-delà, le
-// chrono reprend sous le voile ; une pause oubliée — un téléphone qui s'endort
-// sur la confirmation — n'est qu'une pause de trente secondes.
+// confirmation, dix secondes au plus par manche (`PAUSE_MAX_MS`, trente
+// jusqu'au 26 octobre 2026), la manche voilée : le temps de lire la
+// confirmation, jamais du temps de recherche. Au-delà, le chrono reprend sous le
+// voile ; une pause oubliée — un téléphone qui s'endort sur la confirmation —
+// n'est qu'une pause de dix secondes.
 //
 // La durée, la grâce et la pause sont des chiffres du barème, figés au départ
 // de chaque partie (`DepartDUnePartie.chrono`) : chaque étape porte ceux de sa
@@ -38,8 +39,8 @@ export interface EtapeChronometree {
   dureeMs: number
   pauses: readonly PauseDUneEtape[]
   /**
-   * Ce qui restait, à son ouverture, des trente secondes de pause de la
-   * manche : la seconde étape du Pari ou de la Réplique a ce que la première
+   * Ce qui restait, à son ouverture, de la pause de la manche (celle de son
+   * départ) : la seconde étape du Pari ou de la Réplique a ce que la première
    * n'a pas pris. Toute la pause, à la première étape.
    */
   pauseDisponibleMs: number

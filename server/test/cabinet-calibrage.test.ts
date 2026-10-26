@@ -175,6 +175,17 @@ test('le musée se remplit jour après jour, par les règles du musée', async (
   assert.match(sortie, /gardiens réveillés, semaine/)
 })
 
+test('le joueur « tablée » du calibrage sait ce que la consigne de la tablée lui prête : θ 2,5, des deux côtés', () => {
+  // La consigne du Cabinet tire ses parts — le cadrage du Détail, l'indice des Indices — du joueur « tablée » du
+  // calibrage, et sa synthèse compare chaque jeu à sa ligne : l'un retouché sans l'autre, la tablée se mesurerait à
+  // un joueur qu'elle n'est pas.
+  const tablee = /\{\s*nom: 'tablée',\s*theta: ([\d.]+)/.exec(sansCommentaires(SOURCE))
+  assert.ok(tablee, 'le calibrage déclare un joueur « tablée »')
+  assert.equal(Number(tablee[1]), 2.5)
+  const consigne = readFileSync(path.join(SERVEUR, '..', '.claude/skills/tablee/consignes-cabinet.md'), 'utf8')
+  assert.match(consigne, /`server\/scripts\/calibrage-cabinet\.ts`, θ ≈ \+2,5/, 'la consigne de la tablée nomme le même joueur')
+})
+
 test('le calibrage joue les règles du code, sans en recopier une', () => {
   // Aucune constante du barème redéclarée : une copie suivrait un barème d'avant sans un mot.
   const code = sansCommentaires(SOURCE)

@@ -54,11 +54,13 @@ import {
   refusDuDepart,
   retenteDeLaCase,
   seuilDeLaCase,
+  serieApresUnJour,
   serieMontree,
   soldeDe,
   visiteDuJour,
   visiteEchangee,
   visitesAGarder,
+  type DemandeLue,
   type LigneDOeuvre,
   type LigneDuProfil,
   type Musee,
@@ -399,6 +401,35 @@ test('Protéger porte la première manche imparfaite, et elle seule ; la juste s
   assert.equal(sans.cadreDore, true)
 })
 
+test('Protéger ne relève qu’une manche répondue : ni la manche quittée, ni celle que le temps a finie sans une réponse', () => {
+  // Quitter d'emblée sous Prudence valait une étoile, et quatre poussières : « Quitter ? » promettait les étoiles déjà
+  // gagnées (la tablée du 25 octobre 2026, l'arbitrage du 26).
+  const quittee = new Partie(departDe('mot', { origine: 'chasse', cible: 'bastion', but: 'gagner', seuil: 7, carte: carte('proteger', 3, 'lg:phenix') }))
+  quittee.joue(ouvrir(0), MIDI)
+  quittee.joue({ quoi: 'quitter' }, MIDI + S)
+  const r = resultatDe(quittee.depart, quittee.etat)
+  assert.deepEqual(r.etoiles, [0, 0, 0], 'la manche quittée reste à zéro')
+  assert.equal(r.aidee, false, 'la carte n’a pas servi')
+  assert.equal(r.repondue, false)
+  assert.equal(bilanDe(quittee.depart, quittee.etat, { possedee: false, doree: false }).poussiere, 0, 'ni étoile ni poussière')
+  // Quittée après une réponse fausse : la manche répondue se relève, et la partie paie son plancher.
+  const apres = partieAuMot([0], { origine: 'chasse', cible: 'bastion', but: 'gagner', seuil: 7, carte: carte('proteger', 1, 'prudence') })
+  apres.joue(ouvrir(1), MIDI + 30 * S)
+  apres.joue({ quoi: 'quitter' }, MIDI + 31 * S)
+  assert.deepEqual(resultatDe(apres.depart, apres.etat).etoiles, [B.BONUS_DE_PROTECTION[1], 0, 0])
+  assert.equal(bilanDe(apres.depart, apres.etat, { possedee: false, doree: false }).poussiere, B.POUSSIERE_MIN)
+  // La première manche expirée sans un essai ne se protège pas : la suivante, répondue à une étoile, le prend.
+  const expiree = new Partie(departDe('mot', { carte: carte('proteger', 1, 'prudence') }))
+  expiree.joue(ouvrir(0), MIDI)
+  // La page envoie d'elle-même ce qu'elle tient — ici, rien —, arrivé après la grâce : la manche a expiré sans un essai.
+  expiree.joue({ quoi: 'repondre', manche: 0, auto: true }, MIDI + B.DUREES_DES_JEUX.mot * S + B.GRACE_D_UNE_MANCHE_MS + S)
+  const t = MIDI + B.DUREES_DES_JEUX.mot * S + 10 * S
+  auMot(expiree, 1, 1, t)
+  auMot(expiree, 2, 3, t + 30 * S)
+  assert.deepEqual(expiree.etat.manches.map(m => m.fin), ['expiree', 'jugee', 'jugee'])
+  assert.deepEqual(resultatDe(expiree.depart, expiree.etat).etoiles, [0, 1 + B.BONUS_DE_PROTECTION[1], 3])
+})
+
 test('le cadre doré : trois manches parfaites sans qu’un pouvoir ait servi — emporter une carte ne coûte rien', () => {
   assert.equal(cadreDore([3, 3, 3], false), true)
   assert.equal(cadreDore([3, 3, 2], false), false)
@@ -507,16 +538,18 @@ test('l’issue d’une partie : gagnée au seuil figé, dorée sans faute, doub
   assert.equal(issueDe(d({ cible: null, but: null, seuil: null }), a(9), null), 'libre', 'une case sans rien à gagner')
 })
 
-test('la poussière : deux par étoile et quatre au moins en visite et en chasse, le double, les libres qui paient', () => {
+test('la poussière : deux par étoile et quatre au moins en visite et en chasse répondues, le double, les libres qui paient', () => {
   const visite = departDe('mot', { origine: 'visite', visite: 0, cible: 'bastion', but: 'dorer', seuil: 7 })
-  assert.equal(poussiereDeLaPartie(visite, { total: 0, issue: 'manquee' }), B.POUSSIERE_MIN)
-  assert.equal(poussiereDeLaPartie(visite, { total: 1, issue: 'manquee' }), B.POUSSIERE_MIN, 'quatre au moins, même ratée')
-  assert.equal(poussiereDeLaPartie(visite, { total: 9, issue: 'doree' }), 9 * B.POUSSIERE_PAR_ETOILE)
-  assert.equal(poussiereDeLaPartie(visite, { total: 8, issue: 'double' }), 8 * B.POUSSIERE_PAR_ETOILE + B.POUSSIERE_DU_DOUBLE.epique)
+  assert.equal(poussiereDeLaPartie(visite, { total: 0, issue: 'manquee', repondue: true }), B.POUSSIERE_MIN)
+  assert.equal(poussiereDeLaPartie(visite, { total: 1, issue: 'manquee', repondue: true }), B.POUSSIERE_MIN, 'quatre au moins, même ratée')
+  // Quittée d'emblée, ou laissée sans une réponse : rien — quatre poussières se gagnaient à quitter (le 26 octobre 2026).
+  assert.equal(poussiereDeLaPartie(visite, { total: 0, issue: 'manquee', repondue: false }), 0, 'rien de répondu, rien de gagné')
+  assert.equal(poussiereDeLaPartie(visite, { total: 9, issue: 'doree', repondue: true }), 9 * B.POUSSIERE_PAR_ETOILE)
+  assert.equal(poussiereDeLaPartie(visite, { total: 8, issue: 'double', repondue: true }), 8 * B.POUSSIERE_PAR_ETOILE + B.POUSSIERE_DU_DOUBLE.epique)
   const libre = departDe('mot')
-  assert.equal(poussiereDeLaPartie(libre, { total: 7, issue: 'libre' }), 7 * B.POUSSIERE_PAR_ETOILE)
-  assert.equal(poussiereDeLaPartie(libre, { total: 0, issue: 'libre' }), 0, 'libre : sans plancher')
-  assert.equal(poussiereDeLaPartie({ ...libre, payee: false }, { total: 9, issue: 'libre' }), 0, 'au-delà des cinq du jour, pour le plaisir')
+  assert.equal(poussiereDeLaPartie(libre, { total: 7, issue: 'libre', repondue: true }), 7 * B.POUSSIERE_PAR_ETOILE)
+  assert.equal(poussiereDeLaPartie(libre, { total: 0, issue: 'libre', repondue: true }), 0, 'libre : sans plancher')
+  assert.equal(poussiereDeLaPartie({ ...libre, payee: false }, { total: 9, issue: 'libre', repondue: true }), 0, 'au-delà des cinq du jour, pour le plaisir')
   // Le bilan la fige, avec l'issue et l'œuvre.
   const p = partieAuMot([3, 3, 3], { origine: 'visite', visite: 1, cible: 'plume', but: 'gagner', seuil: B.SEUILS_DES_RARETES.commun })
   const bilan = bilanDe(p.depart, p.etat, { possedee: false, doree: false })
@@ -571,6 +604,14 @@ test('un départ se relit variante par variante — la zone de l’Épingle et l
   const sansDecalage = JSON.parse(JSON.stringify(epingle))
   delete sansDecalage.tirages[0].decalage
   assert.equal(lireLeDepart(sansDecalage), null)
+  // Son rayon se fige avec lui (le 26 octobre 2026) : sans rayon, ou un rayon qui laisserait le lieu hors de la zone, illisible.
+  assert.equal((lireLeDepart(JSON.stringify(epingle))!.tirages[0] as { decalage: { rayonKm: number } }).decalage.rayonKm, B.RAYON_D_ECLAIRER_KM)
+  const sansRayon = JSON.parse(JSON.stringify(epingle))
+  delete sansRayon.tirages[0].decalage.rayonKm
+  assert.equal(lireLeDepart(sansRayon), null, 'sans son rayon')
+  const tropCourt = JSON.parse(JSON.stringify(epingle))
+  tropCourt.tirages[0].decalage.rayonKm = tropCourt.tirages[0].decalage.km
+  assert.equal(lireLeDepart(tropCourt), null, 'un rayon qui ne contient pas le lieu')
   const sansOrdre = JSON.parse(JSON.stringify(replique))
   sansOrdre.tirages[0].ordreDesEffaces = [[0, 0], []]
   assert.equal(lireLeDepart(sansOrdre), null)
@@ -744,6 +785,45 @@ test('la série se lit jusqu’à la veille tant qu’il n’a pas joué ; rompu
   assert.deepEqual(serieMontree(profil({ serie: 12, serieJour: jourAvant(JOUR), serieRecord: 14 }), JOUR), { jours: 12, aJouer: true, record: 14 })
   assert.deepEqual(serieMontree(profil({ serie: 12, serieJour: jourAvant(JOUR, 2), serieRecord: 14 }), JOUR), { jours: 0, aJouer: false, record: 14 })
   assert.deepEqual(serieMontree(null, JOUR), { jours: 0, aJouer: false, record: 0 })
+})
+
+test('la série compte un jour joué : déjà compté, rien ; la veille la prolonge ; un autre la recommence ; un jour d’avant ne la fait pas reculer', () => {
+  // La règle de la mémoire, celle de l'instruction du geste qui l'écrit (`lotDuGeste`, `cabinet-routes.test.ts` par les routes).
+  assert.deepEqual(serieApresUnJour(null, JOUR), { serie: 1, serieJour: JOUR, serieRecord: 1 }, 'son premier jour')
+  assert.deepEqual(serieApresUnJour(profil({ serie: 4, serieJour: jourAvant(JOUR), serieRecord: 6 }), JOUR), { serie: 5, serieJour: JOUR, serieRecord: 6 })
+  assert.deepEqual(serieApresUnJour(profil({ serie: 6, serieJour: jourAvant(JOUR), serieRecord: 6 }), JOUR), { serie: 7, serieJour: JOUR, serieRecord: 7 }, 'un record')
+  assert.deepEqual(serieApresUnJour(profil({ serie: 4, serieJour: JOUR, serieRecord: 4 }), JOUR), { serie: 4, serieJour: JOUR, serieRecord: 4 }, 'le jour déjà compté')
+  assert.deepEqual(serieApresUnJour(profil({ serie: 4, serieJour: jourAvant(JOUR, 2), serieRecord: 6 }), JOUR), { serie: 1, serieJour: JOUR, serieRecord: 6 }, 'rompue')
+  // La partie d'hier close aujourd'hui, après une d'aujourd'hui : la série ne recule pas, le jour compté reste le plus récent.
+  assert.deepEqual(serieApresUnJour(profil({ serie: 3, serieJour: JOUR, serieRecord: 3 }), jourAvant(JOUR)), { serie: 3, serieJour: JOUR, serieRecord: 3 })
+})
+
+test('la visite vise chaque jour la salle du prochain gardien : une de ses cases, tant qu’un gardien dort', () => {
+  const o = { graine: 'secret:profil', jour: JOUR, minuit: MINUIT, jeux: NEUF }
+  const salleDe = (cle: string | null) => OEUVRES.find(x => x.cle === cle)?.salle
+  // Deux œuvres manquent au Devin : au seul poids des raretés, elles ne sortaient qu'au hasard de toutes les manquantes.
+  const presque = oeuvresDeLaSalle('devin').slice(2).map(x => ligne(x.cle))
+  for (let n = 0; n < 200; n++) {
+    const v = visiteDuJour(museeDe({ jour: JOUR, oeuvres: presque }), { ...o, graine: `g${n}` })
+    assert.ok(v.cases.some(c => salleDe(c.cible) === 'devin'), `g${n} : ${v.cases.map(c => c.cible)}`)
+  }
+  // Le Sphinx déjà à lui par une autre voie : la salle du prochain, la suivante.
+  const sansLeSphinx = museeDe({ jour: JOUR, oeuvres: presque, legendaires: ['lg:sphinx'] })
+  const suivante = prochainGardien(sansLeSphinx)!.salle
+  assert.notEqual(suivante, 'devin')
+  for (let n = 0; n < 50; n++) {
+    assert.ok(visiteDuJour(sansLeSphinx, { ...o, graine: `g${n}` }).cases.some(c => salleDe(c.cible) === suivante), `g${n} vise ${suivante}`)
+  }
+  // Une chasse du matin complète le Devin et réveille le Sphinx : la visite d'avant le premier départ ne change pas.
+  const leMatin = museeDe({ jour: JOUR, oeuvres: [...presque, ...oeuvresDeLaSalle('devin').slice(0, 2).map(x => ligne(x.cle, { gagneeLe: MIDI }))], legendaires: ['lg:sphinx'] })
+  for (let n = 0; n < 50; n++) assert.deepEqual(visiteDuJour(leMatin, { ...o, graine: `g${n}` }), visiteDuJour(museeDe({ jour: JOUR, oeuvres: presque }), { ...o, graine: `g${n}` }))
+  // La dernière case seule change : les autres tirent au même hasard, qu'un gardien dorme ou non.
+  const veillent = Object.values(GARDIENS_DES_SALLES).map(([premier]) => premier)
+  for (let n = 0; n < 50; n++) {
+    const avec = visiteDuJour(museeDe({ jour: JOUR, oeuvres: presque }), { ...o, graine: `g${n}` })
+    const sans = visiteDuJour(museeDe({ jour: JOUR, oeuvres: presque, legendaires: veillent }), { ...o, graine: `g${n}` })
+    assert.deepEqual(avec.cases.slice(0, -1), sans.cases.slice(0, -1))
+  }
 })
 
 test('la visite du jour : la même graine, la même ; trois jeux différents, ceux des deux jours d’avant après', () => {
@@ -943,17 +1023,25 @@ test('les refus n’ont qu’une copie : le magasin importe ceux de la règle de
   assert.ok(!musee.includes('est déjà jouée\''), 'la phrase d’avant de l’échange, revenue')
 })
 
-test('la retente qui nomme son œuvre ne sert qu’au calibrage : ni le serveur, ni la page, ni un autre module ne la nomment', () => {
-  // Le calibrage joue les deux côtés et sait l'œuvre qu'une case visait ; la règle des départs lit encore sa forme pour lui, et
-  // la ramène à la case. Partout ailleurs, la retente vise la case : un serveur qui passerait cette forme à `cadreDuDepart`
-  // rouvrirait l'oracle de l'ordre des refus (`cabinet-secret.test.ts`). Elle s'en va quand le calibrage visera la case.
+test('la retente ne se dit que par sa case, au calibrage aussi : la forme qui nommait son œuvre est partie', () => {
+  // Le calibrage joue les deux côtés et savait l'œuvre qu'une case visait : la règle des départs lisait sa forme pour lui
+  // (`RetenteDuCalibrage`), et la ramenait à la case. Il vise la case depuis le 26 octobre 2026 : plus rien ne la nomme, et
+  // `cadreDuDepart` ne lit que ce que la page peut envoyer — une forme de plus y rouvrirait l'oracle de l'ordre des refus
+  // (`cabinet-secret.test.ts`).
   const racine = new URL('../../', import.meta.url)
-  const nommee = ['shared', 'server/src', 'client/src'].flatMap(dossier =>
+  const nommee = ['shared', 'server/src', 'server/scripts', 'client/src'].flatMap(dossier =>
     readdirSync(new URL(`${dossier}/`, racine), { recursive: true, encoding: 'utf8' })
       .filter(f => /\.tsx?$/.test(f) && readFileSync(new URL(`${dossier}/${f}`, racine), 'utf8').includes('RetenteDuCalibrage'))
       .map(f => `${dossier}/${f.replace(/\\/g, '/')}`),
   )
-  assert.deepEqual(nommee, ['shared/cabinet/musee.ts'])
+  assert.deepEqual(nommee, [])
+  const calibrage = readFileSync(new URL('../scripts/calibrage-cabinet.ts', import.meta.url), 'utf8')
+  assert.match(calibrage, /origine: 'chasse', case: [^,]+, retente: true/, 'le calibrage retente par la case')
+  assert.doesNotMatch(calibrage, /oeuvre: [^,]+, carte: [^,]+, retente: true/, 'une retente qui nomme son œuvre')
+  // Et la règle des départs refuse une retente qui ne dit pas sa case, même du calibrage : nommer l'œuvre ne la désigne plus.
+  const m = museeDe({ jour: JOUR, profil: profil(), parties: [] })
+  const v = visiteDuJour(m, { graine: 'g', jour: JOUR, minuit: MINUIT, jeux: NEUF })
+  assert.equal(cadreDuDepart(m, { origine: 'chasse', oeuvre: v.cases[0].cible, carte: null, retente: true } as unknown as DemandeLue, v, NEUF), CHOISIS_UNE_CASE)
 })
 
 test('acheter, dorer : les refus en mots, le prix montré, le solde', () => {

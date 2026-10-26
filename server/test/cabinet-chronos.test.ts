@@ -43,19 +43,24 @@ const essai = (manche: Manche, lettres: string): GesteDuCabinet => ({ quoi: 'ess
 const repondre = (manche: Manche, reponse?: object, auto?: true): GesteDuCabinet => ({ quoi: 'repondre', manche, ...(auto && { auto }), ...(reponse && { reponse }) }) as GesteDuCabinet
 const MOT_MS = DUREES_DES_JEUX.mot * S
 
-test('le chrono d’une étape : son échéance, la grâce du réseau, la pause bornée à trente secondes par manche', () => {
+test('le chrono d’une étape : son échéance, la grâce du réseau, la pause bornée à dix secondes par manche', () => {
   const e = etapeOuverte(MIDI, 45 * S)
   assert.equal(echeanceDe(e, MIDI), MIDI + 45 * S)
   assert.equal(dansLesTemps(e, MIDI + 45 * S + GRACE_D_UNE_MANCHE_MS), true, 'jusqu’au bout de la grâce')
   assert.equal(dansLesTemps(e, MIDI + 45 * S + GRACE_D_UNE_MANCHE_MS + 1), false)
   assert.equal(limiteDe(e), MIDI + 45 * S + GRACE_D_UNE_MANCHE_MS)
-  // Une pause de dix secondes recule l'échéance de dix ; une pause qui dure, tant qu'il en reste.
-  const dix = { ...e, pauses: [{ depuis: MIDI + 5 * S, jusqua: MIDI + 15 * S }] }
-  assert.equal(echeanceDe(dix, MIDI + 20 * S), MIDI + 55 * S)
+  // Une pause de cinq secondes recule l'échéance de cinq ; une pause qui dure, tant qu'il en reste.
+  const cinq = { ...e, pauses: [{ depuis: MIDI + 5 * S, jusqua: MIDI + 10 * S }] }
+  assert.equal(echeanceDe(cinq, MIDI + 20 * S), MIDI + 50 * S)
   const enCours = { ...e, pauses: [{ depuis: MIDI + 5 * S }] }
-  assert.equal(echeanceDe(enCours, MIDI + 25 * S), MIDI + 65 * S, 'le chrono figé pendant la pause')
-  assert.equal(pauseResteMs(enCours, MIDI + 25 * S), PAUSE_MAX_MS - 20 * S)
-  // Au-delà de trente secondes, le chrono reprend sous le voile : la confirmation ne s'achète pas du temps.
+  assert.equal(echeanceDe(enCours, MIDI + 12 * S), MIDI + 52 * S, 'le chrono figé pendant la pause')
+  assert.equal(pauseResteMs(enCours, MIDI + 12 * S), PAUSE_MAX_MS - 7 * S)
+  // Dix secondes, le temps de lire « Quitter ? » : une pause de quinze n'en recule que dix — trente jusqu'au 26 octobre
+  // 2026, qui vendaient du temps de recherche à qui ouvrait « Quitter ? » (la tablée du 25 octobre 2026).
+  assert.equal(PAUSE_MAX_MS, 10 * S)
+  const quinze = { ...e, pauses: [{ depuis: MIDI + 5 * S, jusqua: MIDI + 20 * S }] }
+  assert.equal(echeanceDe(quinze, MIDI + 30 * S), MIDI + 55 * S, 'quinze secondes de pause, dix comptées')
+  // Au-delà de dix secondes, le chrono reprend sous le voile : la confirmation ne s'achète pas du temps.
   assert.equal(pauseCompteeMs(enCours, MIDI + 10 * 60 * S), PAUSE_MAX_MS)
   assert.equal(echeanceDe(enCours, MIDI + 10 * 60 * S), MIDI + 45 * S + PAUSE_MAX_MS)
   assert.equal(limiteDe(enCours), MIDI + 45 * S + PAUSE_MAX_MS + GRACE_D_UNE_MANCHE_MS)
@@ -65,8 +70,8 @@ test('le chrono d’une étape : son échéance, la grâce du réseau, la pause 
 })
 
 test('le chrono se lit au départ, figé, jamais au barème du jour : une durée changée ne touche pas une manche en route', () => {
-  // Une partie commencée sous un autre barème — le Mot à 90 s, une grâce d'une seconde, dix secondes de pause —, relue
-  // aujourd'hui : chacune de ses manches court à ce qu'elle avait au départ.
+  // Une partie commencée sous un autre barème — le Mot à 90 s, une grâce d'une seconde, trente secondes de pause, celles
+  // d'avant le 26 octobre 2026 —, relue aujourd'hui : chacune de ses manches court à ce qu'elle avait au départ.
   // Ce que le serveur fige au départ : les chiffres du jour, une durée par étape, le temps en plus de sa carte.
   assert.deepEqual(chronoDuDepart('pari', carte('temps', 2, 'pioche')), {
     etapesMs: [DUREES_DES_JEUX.pari * S, DUREES_DES_JEUX.pari * S],
@@ -76,15 +81,15 @@ test('le chrono se lit au départ, figé, jamais au barème du jour : une durée
   })
   assert.deepEqual(chronoDuDepart('mot', carte('eclairer')).etapesMs, [MOT_MS])
   assert.equal(chronoDuDepart('mot', carte('eclairer')).enPlusMs, 0, 'une autre carte ne donne pas de temps')
-  const avant = { etapesMs: [90 * S], enPlusMs: 0, graceMs: S, pauseMs: 10 * S }
+  const avant = { etapesMs: [90 * S], enPlusMs: 0, graceMs: S, pauseMs: 30 * S }
   const p = new Partie(departDe('mot', { chrono: avant }))
   p.joue(ouvrir(0), MIDI)
   assert.equal(p.etat.manches[0].etapes[0].dureeMs, 90 * S)
   p.joue({ quoi: 'pause', manche: 0 }, MIDI + 10 * S)
   p.joue({ quoi: 'reprendre', manche: 0 }, MIDI + 40 * S)
-  assert.equal(echeanceDe(p.etat.manches[0].etapes[0], MIDI + 41 * S), MIDI + 100 * S, 'dix secondes de pause, pas trente')
-  p.joue(essai(0, 'KAUNASS'), MIDI + 101 * S)
-  assert.equal(p.refuse(essai(0, 'VILNIUS'), MIDI + 101 * S + 1), 'Le temps de cette manche est écoulé', 'une seconde de grâce')
+  assert.equal(echeanceDe(p.etat.manches[0].etapes[0], MIDI + 41 * S), MIDI + 120 * S, 'trente secondes de pause, figées au départ — pas les dix du jour')
+  p.joue(essai(0, 'KAUNASS'), MIDI + 121 * S)
+  assert.equal(p.refuse(essai(0, 'VILNIUS'), MIDI + 121 * S + 1), 'Le temps de cette manche est écoulé', 'une seconde de grâce')
   // « Prendre son temps » aussi : ce qu'il ajoutait au départ, quelle que soit sa force aujourd'hui.
   const temps = new Partie(departDe('pari', { carte: carte('temps', 3, 'maitrise'), chrono: { etapesMs: [20 * S, 20 * S], enPlusMs: 5 * S, graceMs: S, pauseMs: 30 * S } }))
   temps.joue(ouvrir(0), MIDI)
@@ -133,7 +138,7 @@ test('Éclairer trop tard se refuse ; la vue le grise', () => {
   assert.equal(pouvoirMaintenant(p.depart, p.etat, MIDI + MOT_MS + GRACE_D_UNE_MANCHE_MS + 1)?.refus, 'Le temps de cette manche est écoulé')
 })
 
-test('la pause de « Quitter ? » : trente secondes au plus par manche, la manche voilée, puis le chrono reprend', () => {
+test('la pause de « Quitter ? » : dix secondes au plus par manche, la manche voilée, puis le chrono reprend', () => {
   const p = new Partie(departDe('mot'))
   p.joue(ouvrir(0), MIDI)
   p.joue({ quoi: 'pause', manche: 0 }, MIDI + 10 * S)
@@ -141,12 +146,12 @@ test('la pause de « Quitter ? » : trente secondes au plus par manche, la manch
   // Sous le voile, rien ne se joue : ni un essai, ni Éclairer, ni une seconde pause.
   assert.equal(p.refuse(essai(0, 'VILNIUS'), MIDI + 11 * S), 'La partie est en pause : reprends-la d’abord')
   assert.equal(p.refuse({ quoi: 'pause', manche: 0 }, MIDI + 11 * S), 'La partie est déjà en pause')
-  // « Continuer » au bout de vingt secondes : l'échéance a reculé de vingt.
-  p.joue({ quoi: 'reprendre', manche: 0 }, MIDI + 30 * S)
+  // « Continuer » au bout de six secondes : l'échéance a reculé de six.
+  p.joue({ quoi: 'reprendre', manche: 0 }, MIDI + 16 * S)
   assert.equal(phaseDe(p.etat), 'jouer')
-  assert.equal(p.refuse({ quoi: 'reprendre', manche: 0 }, MIDI + 31 * S), 'La partie n’est pas en pause')
-  assert.equal(echeanceDe(p.etat.manches[0].etapes[0], MIDI + 31 * S), MIDI + MOT_MS + 20 * S)
-  // Une seconde pause n'a que les dix secondes qui restent ; oubliée — le téléphone qui s'endort —, elle n'en vaut pas plus.
+  assert.equal(p.refuse({ quoi: 'reprendre', manche: 0 }, MIDI + 17 * S), 'La partie n’est pas en pause')
+  assert.equal(echeanceDe(p.etat.manches[0].etapes[0], MIDI + 17 * S), MIDI + MOT_MS + 6 * S)
+  // Une seconde pause n'a que les quatre secondes qui restent ; oubliée — le téléphone qui s'endort —, elle n'en vaut pas plus.
   p.joue({ quoi: 'pause', manche: 0 }, MIDI + 40 * S)
   const limite = MIDI + MOT_MS + PAUSE_MAX_MS + GRACE_D_UNE_MANCHE_MS
   assert.equal(limiteDe(p.etat.manches[0].etapes[0]), limite)
@@ -163,7 +168,7 @@ test('la pause de « Quitter ? » : trente secondes au plus par manche, la manch
 })
 
 test('la pause oubliée : la réponse que la page envoie à l’échéance reculée se juge sur ce qu’elle porte, et ferme la pause', () => {
-  // Le téléphone reste sur « Quitter ? » : au bout des trente secondes, le chrono reprend sous le voile, et à
+  // Le téléphone reste sur « Quitter ? » : au bout des dix secondes, le chrono reprend sous le voile, et à
   // l'échéance la page envoie d'elle-même l'épingle qu'elle tenait. Elle était à l'heure : elle compte.
   const epingle = DUREES_DES_JEUX.epingle * S
   const planter = (t: number) => {
@@ -189,9 +194,9 @@ test('la pause oubliée : la réponse que la page envoie à l’échéance recul
   assert.equal(mot.refuse(essai(0, 'VILNIUS'), MIDI + 60 * S), 'La partie est en pause : reprends-la d’abord')
 })
 
-test('la pause a ses bornes : trois par manche, ses étapes comprises, et aucune quand ses trente secondes sont passées', () => {
+test('la pause a ses bornes : trois par manche, ses étapes comprises, et aucune quand ses dix secondes sont passées', () => {
   // Chaque pause et sa reprise s'écrivent : une page qui les enchaînait au même instant écrivait des centaines de
-  // gestes par manche sans rien consommer de ses trente secondes, et chaque relecture les repliait (la relecture du
+  // gestes par manche sans rien consommer de ses secondes — trente alors —, et chaque relecture les repliait (la relecture du
   // lot C1, le 25 octobre 2026 : 200 paires, 401 gestes, pas un refus).
   const pari = new Partie(departDe('pari'))
   const { q1 } = pari.depart.tirages[0] as PariTire
@@ -212,7 +217,7 @@ test('la pause a ses bornes : trois par manche, ses étapes comprises, et aucune
   pari.joue(ouvrir(1), MIDI + 8 * S)
   pari.joue({ quoi: 'pause', manche: 1 }, MIDI + 9 * S)
 
-  // Ses trente secondes passées, une pause ne figerait plus rien : elle se refuse, même la première de trop.
+  // Ses dix secondes passées, une pause ne figerait plus rien : elle se refuse, même la première de trop.
   const mot = new Partie(departDe('mot'))
   mot.joue(ouvrir(0), MIDI)
   mot.joue({ quoi: 'pause', manche: 0 }, MIDI + S)

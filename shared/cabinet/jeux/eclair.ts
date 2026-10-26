@@ -68,12 +68,26 @@ export interface EclairRevele {
  * d'Éclairer, que la page ne doit pas pouvoir rejouer (invariant 1). Null pour
  * une question à deux réponses ou moins, comme là-bas : une fausse ne
  * proposerait que l'autre, et un vrai ou faux de la base se lirait « Vrai ? ».
+ *
+ * Fausse, elle propose le leurre que la campagne choisit le plus (`attirance` :
+ * combien de fois chaque mauvaise réponse, par son texte), les ex æquo au
+ * hasard ; sans rien de choisi, une mauvaise au hasard. Au hasard, une fausse
+ * affirmation se voyait fausse : la tablée du 25 octobre 2026 en a dit 29 sur
+ * 29 fausses (sa synthèse, § 10). Le leurre qu'on choisit, lui, est celui
+ * qu'on confond.
  */
-export function affirmationDe(question: QuestionTiree, hasard: () => number): AffirmationTiree | null {
+export function affirmationDe(question: QuestionTiree, hasard: () => number, attirance?: ReadonlyMap<string, number>): AffirmationTiree | null {
   if (question.reponses.length <= 2) return null
   const vraie = hasard() < PART_DES_VRAIES
   const mauvaises = question.reponses.map((_, k) => k).filter(k => k !== question.bonne)
-  return { question, proposee: vraie ? question.bonne : auHasard(mauvaises, hasard) }
+  return { question, proposee: vraie ? question.bonne : auHasard(lesPlusChoisies(mauvaises, question.reponses, attirance), hasard) }
+}
+
+/** Les mauvaises réponses les plus choisies, toutes ex æquo ; aucune choisie, toutes. */
+function lesPlusChoisies(mauvaises: readonly number[], reponses: readonly string[], attirance: ReadonlyMap<string, number> | undefined): number[] {
+  const fois = (k: number) => attirance?.get(reponses[k]) ?? 0
+  const plus = Math.max(0, ...mauvaises.map(fois))
+  return plus === 0 ? [...mauvaises] : mauvaises.filter(k => fois(k) === plus)
 }
 
 const estVraie = (a: AffirmationTiree) => a.proposee === a.question.bonne

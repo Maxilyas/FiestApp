@@ -185,7 +185,8 @@ test('la rareté fait la force : une commune 1, une rare ou une maudite 2, une �
   // La mise dit son plafond et ce que vaut une manche misée imparfaite — le plafond lu du barème, jamais recopié.
   assert.equal(POUVOIRS.miser.dit, `Avant une manche, sans l’avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu’à ${B.ETOILES_D_UNE_PARTIE} sur la partie ; sinon, elle ne vaut rien.`)
   assert.equal(forceDite('miser', 1), '+2 étoiles si la manche misée est parfaite')
-  assert.equal(forceDite('miser', 3), '+4 étoiles si la manche misée est parfaite')
+  // La force 3 mise comme la 2 depuis le 26 octobre 2026 (« +4 » avant) : une manche misée parfaite d'une épique n'en fait plus une à elle seule.
+  assert.equal(forceDite('miser', 3), '+3 étoiles si la manche misée est parfaite')
   assert.equal(forceDite('changer', 2), '2 fois par partie')
 })
 
@@ -333,27 +334,34 @@ test('un gardien porte le pouvoir de la salle qu’il garde, pas celui de sa car
   assert.equal(conditionDuGardien('lg:licorne'), null)
 })
 
-test('Protéger porte la première manche imparfaite, Miser la manche misée parfaite, et rien d’autre', () => {
+test('Protéger porte la première manche imparfaite répondue, Miser la manche misée parfaite, et rien d’autre', () => {
   const carte = (pouvoir: CleDePouvoir, force: Force) => ({ pouvoir, force })
+  const toutes = [true, true, true]
   assert.deepEqual(B.BONUS_DE_PROTECTION, { 1: 1, 2: 1, 3: 2 })
-  assert.deepEqual(B.BONUS_DE_MISE, { 1: 2, 2: 3, 3: 4 })
-  // Protéger : une fois, la première manche à moins de trois étoiles naturelles, zéro compris ; jamais au-delà de trois.
-  assert.deepEqual(etoilesApresLesPouvoirs([3, 1, 0], carte('proteger', 1)), [3, 2, 0])
-  assert.deepEqual(etoilesApresLesPouvoirs([3, 1, 0], carte('proteger', 3)), [3, 3, 0])
-  assert.deepEqual(etoilesApresLesPouvoirs([0, 1, 2], carte('proteger', 2)), [1, 1, 2])
-  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 3], carte('proteger', 3)), [3, 3, 3])
-  assert.deepEqual(etoilesApresLesPouvoirs([3, 3, 3], carte('proteger', 3)), [3, 3, 3], 'trois manches parfaites : rien à protéger')
-  assert.equal(mancheProtegee([3, 3, 1], carte('proteger', 1)), 2)
-  assert.equal(mancheProtegee([3, null, null], carte('proteger', 1)), null, 'une manche pas encore jugée ne se protège pas')
-  assert.equal(mancheProtegee([1, 2, 3], carte('eclairer', 3)), null)
+  // Une manche misée parfaite vaut six étoiles à la force 3 comme à la force 2 — sept jusqu'au 26 octobre 2026.
+  assert.deepEqual(B.BONUS_DE_MISE, { 1: 2, 2: 3, 3: 3 })
+  // Protéger : une fois, la première manche répondue à moins de trois étoiles naturelles, zéro compris ; jamais au-delà de trois.
+  assert.deepEqual(etoilesApresLesPouvoirs([3, 1, 0], carte('proteger', 1), null, toutes), [3, 2, 0])
+  assert.deepEqual(etoilesApresLesPouvoirs([3, 1, 0], carte('proteger', 3), null, toutes), [3, 3, 0])
+  assert.deepEqual(etoilesApresLesPouvoirs([0, 1, 2], carte('proteger', 2), null, toutes), [1, 1, 2])
+  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 3], carte('proteger', 3), null, toutes), [3, 3, 3])
+  assert.deepEqual(etoilesApresLesPouvoirs([3, 3, 3], carte('proteger', 3), null, toutes), [3, 3, 3], 'trois manches parfaites : rien à protéger')
+  assert.equal(mancheProtegee([3, 3, 1], carte('proteger', 1), toutes), 2)
+  assert.equal(mancheProtegee([3, null, null], carte('proteger', 1), toutes), null, 'une manche pas encore jugée ne se protège pas')
+  assert.equal(mancheProtegee([1, 2, 3], carte('eclairer', 3), toutes), null)
+  // Une manche quittée ou expirée sans une réponse ne se protège pas : la suivante, répondue, le prend (le 26 octobre 2026).
+  assert.equal(mancheProtegee([0, 1, 3], carte('proteger', 1), [false, true, true]), 1)
+  assert.deepEqual(etoilesApresLesPouvoirs([0, 1, 3], carte('proteger', 1), null, [false, true, true]), [0, 2, 3])
+  assert.equal(mancheProtegee([0, 0, 0], carte('proteger', 3), [false, false, false]), null, 'rien de répondu : rien à protéger')
   // Miser : la manche misée, parfaite, vaut 3 + le bonus ; sinon zéro. Les autres ne bougent pas.
-  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 2), 1), [2, 6, 1])
-  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 3), 2), [2, 3, 0])
-  assert.deepEqual(etoilesApresLesPouvoirs([3, null, null], carte('miser', 1), 1), [3, null, null], 'misée mais pas encore jouée')
-  assert.deepEqual(etoilesApresLesPouvoirs([3, 2, 1], carte('miser', 1), null), [3, 2, 1], 'la mise n’a pas servi')
+  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 2), 1, toutes), [2, 6, 1])
+  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 3), 1, toutes), [2, 6, 1], 'la force 3 mise comme la 2')
+  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 3), 2, toutes), [2, 3, 0])
+  assert.deepEqual(etoilesApresLesPouvoirs([3, null, null], carte('miser', 1), 1, toutes), [3, null, null], 'misée mais pas encore jouée')
+  assert.deepEqual(etoilesApresLesPouvoirs([3, 2, 1], carte('miser', 1), null, toutes), [3, 2, 1], 'la mise n’a pas servi')
   // Les trois autres pouvoirs ne touchent pas aux étoiles.
-  for (const p of ['eclairer', 'temps', 'changer'] as const) assert.deepEqual(etoilesApresLesPouvoirs([1, 2, 0], carte(p, 3), 0), [1, 2, 0], p)
-  assert.deepEqual(etoilesApresLesPouvoirs([1, 2, 0], null), [1, 2, 0])
+  for (const p of ['eclairer', 'temps', 'changer'] as const) assert.deepEqual(etoilesApresLesPouvoirs([1, 2, 0], carte(p, 3), 0, toutes), [1, 2, 0], p)
+  assert.deepEqual(etoilesApresLesPouvoirs([1, 2, 0], null, null, toutes), [1, 2, 0])
 })
 
 test('pourquoi un pouvoir ne sert pas : une seule règle, en mots', () => {
@@ -424,15 +432,16 @@ test('neuf jeux, chacun ses mots, son chrono et son barème dit', () => {
   assert.equal(B.DUREES_DES_JEUX.eclair, 55)
   assert.equal(JEUX.eclair.geste, '5 affirmations en 55 secondes : vraies ou fausses ?')
   // Les Indices comptent les indices vus et les erreurs, et chaque erreur en montre un de plus : le compte monte
-  // au-delà des cinq indices d'une fiche, jusqu'à neuf. La dernière étoile n'a pas de plafond.
-  assert.equal(JEUX.indices.bareme, 'en 1 à 3 indices ★★★ · 4 ★★ · 5 et plus ★')
+  // au-delà des cinq indices d'une fiche, jusqu'à neuf. La dernière étoile n'a pas de plafond. ★★★ en un ou deux indices
+  // depuis le 26 octobre 2026 — en trois avant : la tablée y faisait 8,75 étoiles sur 9.
+  assert.equal(JEUX.indices.bareme, 'en 1 ou 2 indices ★★★ · 3 ou 4 ★★ · 5 et plus ★')
   assert.match(JEUX.indices.geste, /erreur/, 'l’annonce dit qu’une erreur compte')
   assert.equal(JEUX.replique.bareme, `le bon mot ${etoiles(B.ETOILES_DE_LA_REPLIQUE.mot)} · la bonne personne ${etoiles(B.ETOILES_DE_LA_REPLIQUE.qui)}`)
   assert.deepEqual(B.ESSAIS_DES_ETOILES, [2, 4, 5])
   assert.equal(B.ESSAIS_DU_MOT, B.ESSAIS_DES_ETOILES[2])
   assert.deepEqual(B.JUSTES_DE_L_ECLAIR, [5, 4, 3])
   assert.equal(B.AFFIRMATIONS_DE_L_ECLAIR, B.JUSTES_DE_L_ECLAIR[0])
-  assert.deepEqual(B.INDICES_DES_ETOILES, [3, 4])
+  assert.deepEqual(B.INDICES_DES_ETOILES, [2, 4])
   assert.equal(B.INDICES_D_UNE_FICHE, 5)
   assert.deepEqual(B.ERREURS_DE_LA_FRISE, [0, 1, 1])
   assert.deepEqual(B.ETOILES_AU_CADRAGE, [3, 2, 1, 0])
@@ -514,11 +523,16 @@ test('les chiffres se tiennent entre eux', () => {
   assert.ok(B.LARGEURS_DU_FILET.petit < B.LARGEURS_DU_FILET.moyen && B.LARGEURS_DU_FILET.moyen < B.LARGEURS_DU_FILET.grand)
   assert.ok(B.POSITION_DE_LA_REPONSE[0] > 0 && B.POSITION_DE_LA_REPONSE[1] < 1 && B.POSITION_DE_LA_REPONSE[0] < B.POSITION_DE_LA_REPONSE[1])
   assert.ok(B.PISTE_DES_ANNEES[0] < B.PISTE_DES_ANNEES[1])
-  assert.ok(B.GRACE_D_UNE_MANCHE_MS < 5_000 && B.PAUSE_MAX_MS === 30_000)
+  // Dix secondes de pause par manche, le temps de lire « Quitter ? » — trente jusqu'au 26 octobre 2026, qui vendaient du temps.
+  assert.ok(B.GRACE_D_UNE_MANCHE_MS < 5_000 && B.PAUSE_MAX_MS === 10_000)
   assert.equal(B.CASES_DE_LA_VISITE, B.MANCHES_PAR_PARTIE, 'trois parties de visite, trois jeux')
   assert.deepEqual(Object.keys(B.POIDS_DES_CIBLES).sort(), [...RARETES].sort())
   for (const m of [B.MARCHES_DU_PARI.question, B.MARCHES_DU_PARI.pari, B.MARCHES_DE_L_ECLAIR, B.MARCHES_DU_MOT, B.MARCHES_DU_FILET]) assert.ok(m.length > 0)
   assert.ok(!B.MARCHES_DU_PARI.question.some(m => B.MARCHES_DU_PARI.pari.includes(m)), 'la question du pari est plus difficile que la première')
+  // La marche suit l'enjeu : une commune, une rare, une maudite tirent aux marches du jeu ; une épique et une dorure y
+  // ajoutent le difficile, jamais l'expert — la question du pari reste plus difficile que la première (`tirerUnPari`).
+  assert.deepEqual(B.MARCHES_DES_ENJEUX, { commun: [], rare: [], maudit: [], epique: ['difficile'], dorer: ['difficile'] })
+  assert.deepEqual(Object.keys(B.MARCHES_DES_ENJEUX).sort(), [...RARETES, 'dorer'].sort())
   // Pas de version du musée à relire au démarrage (la décision du propriétaire du 25 octobre 2026, sans migration) : la
   // réconciliation des gardiens à la lecture froide de chaque musée en tient lieu, une fois par réveil et par joueur.
   assert.equal('VERSION_DU_CABINET' in B, false)

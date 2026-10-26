@@ -46,7 +46,7 @@ import {
 } from '../src/core/journalDesReponses'
 import { semaineDe } from '../../shared/campagne'
 import { idDeLEclair, idDeLaFiche, idDeLaFriseATheme, idDeLaFriseDeSujet, idDeLaReplique, idDuLieu, idDuTableau } from '../../shared/cabinet/pieces'
-import { PREFIXES_HORS_DE_LA_BASE, horsDeLaBase } from '../../shared/horsDeLaBase'
+import { PREFIXES_HORS_DE_LA_BASE, horsDeLaBase, sqlDansLaBase } from '../../shared/horsDeLaBase'
 import { jourDe } from '../../shared/jour'
 import type { SuiviDeRevision } from '../../shared/revision'
 
@@ -116,6 +116,15 @@ const AVANT = {
                FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
                WHERE s.profile_id = ? AND r.juste = 1 AND r.compagnon IS NOT NULL
                GROUP BY r.compagnon`,
+  // Les leurres que la campagne choisit, nés au journal le 26 octobre 2026 (`leurresChoisis`) — sans SQL d'avant, écrits ici
+  // à part : sur les réponses de la mesure, la mauvaise choisie en texte, telle que sa série l'a posée, hors des pièces qui
+  // ne sont pas de la base. `IS 1` et non `= 1` : une reprise du carnet absente rendrait toute la condition nulle.
+  leurres: `SELECT r.reserve_id AS question, json_extract(s.questions, '$[' || r.position || '].reponses[' || r.choix || ']') AS choisie, COUNT(*) AS n
+            FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+            WHERE s.mode <> 'revision' AND r.joker IS NULL AND r.forme IS NULL AND r.juste = 0 AND r.choix >= 0
+              AND NOT (s.mode = 'expedition' AND json_extract(s.questions, '$[' || r.position || '].carnet') IS 1)
+              AND ${sqlDansLaBase('r.reserve_id')}
+            GROUP BY question, choisie HAVING typeof(choisie) = 'text'`,
   // Et celui-ci tel qu'il était le 24 octobre 2026 : 150 000 lignes pour une page du QG.
   epreuves: (branche: boolean) => `SELECT s.palier AS palier, json_extract(q.value, '$.niveau') AS niveau, COUNT(*) AS n, SUM(r.juste) AS justes
              FROM campagne_series s CROSS JOIN json_each(s.questions) q
@@ -238,6 +247,11 @@ function remplir(fichier: string, hasard: () => number, { series: nombre, depart
           // Les reprises du carnet : à l'expédition, et quelques autres valeurs, que les lectures d'avant distinguaient.
           ...(mode === 'expedition' && hasard() < 0.4 && { carnet: hasard() < 0.7 ? true : 1 }),
           ...(mode !== 'expedition' && hasard() < 0.03 && { carnet: 2 }),
+          // Ses réponses, telles que la série les a posées — trois mauvaises qui reviennent d'une série à l'autre, pour que
+          // les leurres se comptent ; une question sans réponses, une autre aux réponses qui ne sont pas des textes. Rien
+          // n'y tire le hasard : la base d'avant reste la même.
+          ...(p < 10 && { reponses: [`bonne ${p % 5}`, `leurre ${p % 3}`, `autre ${p % 2}`, `encore ${p % 4}`] }),
+          ...(p === 11 && { reponses: [1, 2, 3, 4] }),
         }))
         // Une épreuve des sentiers ou d'un parcours : son palier, et parfois un rejeu, que l'administration des sentiers écarte.
         const epreuve = mode === 'sentier' || mode === 'sujet'
@@ -364,6 +378,15 @@ async function comparer(client: Client, journal: JournalDesReponses, profils: re
   const mesures = journal.mesures()
   assert.deepEqual(mesures.brutes, comptesLus(brutes.rows[0]?.mesures), `${nom} : la mesure, réponse par réponse`)
   assert.deepEqual(mesures.premieres, comptesLus(premieres.rows[0]?.mesures), `${nom} : la mesure, première réponse par première réponse`)
+  // Les leurres que la campagne choisit, question par question.
+  const leurres = new Map<string, Map<string, number>>()
+  for (const r of (await client.execute(AVANT.leurres)).rows) {
+    const question = String(r.question)
+    if (!leurres.has(question)) leurres.set(question, new Map())
+    leurres.get(question)!.set(String(r.choisie), Number(r.n))
+  }
+  assert.ok(leurres.size > 0, `${nom} : des leurres à comparer`)
+  assert.deepEqual(journal.leurresChoisis(), leurres, `${nom} : les leurres choisis`)
   // L'administration des sentiers : les réponses des épreuves de trois mois, ou des derniers jours, d'un sentier ou de tous.
   const ordre = (a: { palier: number; niveau: string }, b: { palier: number; niveau: string }) => a.palier - b.palier || a.niveau.localeCompare(b.niveau)
   for (const [depuis, branche] of [
@@ -427,6 +450,7 @@ const reponseDuJournal = (r: Pick<ReponseDuJournal, 'n' | 'question' | 'juste' |
   niveau: 'facile',
   compagnon: null,
   epreuve: null,
+  choisie: null,
   ...r,
 })
 

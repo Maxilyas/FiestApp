@@ -38,6 +38,7 @@ import {
   motDuCabinet,
   ok,
   ouvrir as ouvrirLaManche,
+  questionDuCabinet,
   unPariParfait,
   valeurDuCabinet,
 } from './cabinet-banc'
@@ -45,11 +46,12 @@ import type { QuestionDeLaBase } from '../src/core/baseCampagne'
 import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
 import { estUnQcmDuCabinet, valeurDuFilet } from '../src/core/cabinet/tirages/tas'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART } from '../../shared/cabinet/oeuvres'
-import { niveauDeQuestion, type MesureDUneQuestion } from '../../shared/campagne'
+import { NIVEAUX, niveauDeQuestion, type MesureDUneQuestion } from '../../shared/campagne'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { vuesDuCabinet } from '../../shared/cabinet/vues'
 import type { ContenuTire } from '../../shared/cabinet/jeux/index'
 import { hasardDe } from '../../shared/missions'
+import { ENJEU_ORDINAIRE, enjeuDuTirage, type EnjeuDuTirage } from '../../shared/cabinet/partie'
 import { decimales, ecartEstimation } from '../../shared/classement'
 import * as B from '../../shared/cabinet/bareme'
 import { refusDuPouvoir, effacablesAuPlus } from '../../shared/cabinet/pouvoirs'
@@ -388,6 +390,28 @@ test('l’Éclair : une affirmation propose la bonne réponse une fois sur deux,
   // « Vrai ? — Faux ». Elle ne se récrit pas, comme à l'Expédition (`aSaForme`).
   for (const reponses of [['Vrai', 'Faux'], ['Riga'], []]) assert.equal(affirmationDe(qcm('vf', 0, { reponses }), hasardDe('vf')), null, JSON.stringify(reponses))
   assert.ok(affirmationDe(qcm('trois', 0, { reponses: ['A', 'B', 'C'] }), hasardDe('trois')))
+})
+
+test('l’Éclair : fausse, elle propose le leurre que la campagne choisit le plus — les ex æquo au hasard, rien de choisi au hasard', () => {
+  // Au hasard, une fausse affirmation se voyait fausse : la tablée du 25 octobre 2026 en a dit 29 sur 29 (sa synthèse, § 10).
+  const q = CINQ[0]
+  const fausses = (attirance: ReadonlyMap<string, number>) => {
+    const vues = new Map<string, number>()
+    for (let n = 0; n < 600; n++) {
+      const a = affirmationDe(q, hasardDe(`leurre:${n}`), attirance)!
+      if (a.proposee !== q.bonne) vues.set(q.reponses[a.proposee], (vues.get(q.reponses[a.proposee]) ?? 0) + 1)
+    }
+    return vues
+  }
+  const laPlusChoisie = fausses(new Map([['Mauvaise e1 b', 7], ['Mauvaise e1 a', 2]]))
+  assert.deepEqual([...laPlusChoisie.keys()], ['Mauvaise e1 b'], 'toujours la plus choisie')
+  assert.ok(laPlusChoisie.get('Mauvaise e1 b')! > 200, 'une fois sur deux, à peu près')
+  assert.deepEqual([...fausses(new Map([['Mauvaise e1 a', 3], ['Mauvaise e1 c', 3]])).keys()].sort(), ['Mauvaise e1 a', 'Mauvaise e1 c'], 'deux ex æquo, au hasard')
+  // Rien de choisi — ou seulement un texte que la question n'a plus, une correction depuis — : au hasard, au même tirage.
+  for (const attirance of [new Map<string, number>(), new Map([['Une réponse d’avant sa correction', 9]])]) {
+    for (let n = 0; n < 50; n++) assert.deepEqual(affirmationDe(q, hasardDe(`x:${n}`), attirance), affirmationDe(q, hasardDe(`x:${n}`)))
+  }
+  assert.equal(fausses(new Map()).size, 3, 'les trois mauvaises')
 })
 
 test('l’Éclair : les cinq se jugent ensemble — les non répondues comptent fausses', () => {
@@ -848,13 +872,15 @@ const BASE_DU_TIRAGE = baseDuCabinet()
 const PORTE_D_ESSAI = { deLaCategorie: (jouables: readonly QuestionDeLaBase[], c: Categorie) => jouables.filter(q => q.meta.categorie === c) }
 const MESURE = new Map<string, MesureDUneQuestion>()
 const niveauDe = (id: string) => niveauDeQuestion(BASE_DU_TIRAGE.parId.get(id)!.meta.difficulte, MESURE.get(id))
-const contexte = (vues: ReadonlyMap<string, number> = new Map(), maintenant = DIX_HEURES): ContexteDuTirage => ({
+const contexte = (vues: ReadonlyMap<string, number> = new Map(), maintenant = DIX_HEURES, enjeu = ENJEU_ORDINAIRE): ContexteDuTirage => ({
   porte: PORTE_D_ESSAI,
   jouables: BASE_DU_TIRAGE.questions,
   mesures: MESURE,
   vues,
   maintenant,
   hasard: Math.random,
+  enjeu,
+  leurres: new Map(),
 })
 const idsDuPlan = (plan: readonly ContenuTire[]) =>
   plan.flatMap(t => (t.jeu === 'pari' ? [t.q1.id, t.q2.id] : t.jeu === 'eclair' ? t.affirmations.map(a => a.question.id) : []))
@@ -895,6 +921,58 @@ test('le tirage de l’Éclair : cinq affirmations d’une même catégorie, fac
   }
 })
 
+test('la marche suit l’enjeu : une épique et une dorure tirent aussi le difficile, la question du pari reste plus haute que la première', () => {
+  // Une commune, une rare, une partie libre : les marches du jeu ; une épique, une dorure : le difficile en plus (le
+  // 26 octobre 2026 — 47 % de la base, difficile ou experte, ne sortait jamais de ces jeux).
+  assert.deepEqual(enjeuDuTirage({ cible: 'plume', but: 'gagner' }), ENJEU_ORDINAIRE, 'une commune')
+  assert.deepEqual(enjeuDuTirage({ cible: 'lecon', but: 'gagner' }), ENJEU_ORDINAIRE, 'une rare')
+  assert.deepEqual(enjeuDuTirage({ cible: null, but: null }), ENJEU_ORDINAIRE, 'une libre')
+  const epique = enjeuDuTirage({ cible: 'bastion', but: 'gagner' })
+  assert.deepEqual(epique, { marchesEnPlus: ['difficile'], friseSerree: true })
+  assert.deepEqual(enjeuDuTirage({ cible: 'plume', but: 'dorer' }), { marchesEnPlus: ['difficile'], friseSerree: false }, 'pour dorer, une commune aussi')
+  // Une base qui a ses expertes : la question du pari d'une première difficile en est une.
+  const expertes = CATEGORIES.flatMap((c, k) => Array.from({ length: 8 }, (_, i) => questionDuCabinet(k * 1000 + 300 + i, c, 5)))
+  const base = baseDuCabinet(8, expertes)
+  const niveau = (id: string) => niveauDeQuestion(base.parId.get(id)!.meta.difficulte, undefined)
+  const premieres = new Set<string>()
+  for (let essai = 0; essai < 30; essai++) {
+    for (const t of tirerLePlan('pari', surCesQuestions(base.questions, { enjeu: epique }), 0) as PariTire[]) {
+      premieres.add(t.q1.niveau)
+      assert.ok(['facile', 'moyen', 'difficile'].includes(t.q1.niveau) && t.q1.niveau === niveau(t.q1.id), t.q1.niveau)
+      assert.ok(NIVEAUX.indexOf(t.q2.niveau) > NIVEAUX.indexOf(t.q1.niveau), `${t.q1.niveau} puis ${t.q2.niveau} : la question du pari, plus haute`)
+    }
+  }
+  assert.ok(premieres.has('difficile'), `l’enjeu tire le difficile : ${[...premieres]}`)
+  const affirmees = new Set<string>()
+  for (let essai = 0; essai < 20; essai++) {
+    for (const t of tirerLePlan('eclair', surCesQuestions(base.questions, { enjeu: epique }), 0) as EclairTire[]) for (const a of t.affirmations) affirmees.add(a.question.niveau)
+  }
+  assert.ok(affirmees.has('difficile') && !affirmees.has('expert'), `${[...affirmees]}`)
+  // Sans enjeu, rien ne change : faciles ou moyennes, la question du pari difficile ou experte.
+  for (let essai = 0; essai < 20; essai++) {
+    for (const t of tirerLePlan('pari', surCesQuestions(base.questions), 0) as PariTire[]) {
+      assert.ok(['facile', 'moyen'].includes(t.q1.niveau) && ['difficile', 'expert'].includes(t.q2.niveau))
+    }
+  }
+})
+
+test('le tirage de l’Éclair propose les leurres que la campagne choisit : chaque fausse, la mauvaise la plus choisie', () => {
+  // Le magasin lui donne ceux du journal des réponses (`leurresChoisis`), comparés au SQL dans `journal-des-reponses.test.ts`.
+  const leurres = new Map(BASE_DU_TIRAGE.questions.map(q => [q.id, new Map([[q.reponses[(q.bonne + 2) % q.reponses.length], 4]])]))
+  let fausses = 0
+  for (let essai = 0; essai < 10; essai++) {
+    for (const t of tirerLePlan('eclair', surCesQuestions(BASE_DU_TIRAGE.questions, { leurres }), 0) as EclairTire[]) {
+      for (const a of t.affirmations) {
+        if (a.proposee === a.question.bonne) continue
+        fausses++
+        const base = BASE_DU_TIRAGE.parId.get(a.question.id)!
+        assert.equal(a.question.reponses[a.proposee], base.reponses[(base.bonne + 2) % base.reponses.length], a.question.id)
+      }
+    }
+  }
+  assert.ok(fausses > 30, `${fausses} fausses`)
+})
+
 test('rien ne revient avant sept jours, d’un jeu à l’autre : un composé de l’Éclair se déplie, et le Pari ne le repose pas', () => {
   // Le tireur, sur des vues déjà dépliées : que le magasin les déplie avant de tirer, c'est `cabinet-journal.test.ts`
   // qui l'éprouve, par les routes.
@@ -928,13 +1006,18 @@ test('le tas des QCM du Cabinet : quatre réponses courtes, un intitulé court, 
 })
 
 /** Un contexte de tirage sur ces seules questions, à cette heure, au hasard qu'on lui donne. */
-const surCesQuestions = (jouables: readonly QuestionDeLaBase[], o: { maintenant?: number; vues?: ReadonlyMap<string, number>; hasard?: () => number } = {}): ContexteDuTirage => ({
+const surCesQuestions = (
+  jouables: readonly QuestionDeLaBase[],
+  o: { maintenant?: number; vues?: ReadonlyMap<string, number>; hasard?: () => number; enjeu?: EnjeuDuTirage; leurres?: ContexteDuTirage['leurres'] } = {},
+): ContexteDuTirage => ({
   porte: PORTE_D_ESSAI,
   jouables,
   mesures: MESURE,
   vues: o.vues ?? new Map(),
   maintenant: o.maintenant ?? DIX_HEURES,
   hasard: o.hasard ?? Math.random,
+  enjeu: o.enjeu ?? ENJEU_ORDINAIRE,
+  leurres: o.leurres ?? new Map(),
 })
 
 test('le tirage du Mot mystère : le mot que la règle du jeu lit de la question, facile ou moyen — jamais deux fois le même dans un plan', () => {

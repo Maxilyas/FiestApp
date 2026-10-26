@@ -26,10 +26,17 @@ import { formatNumber } from '../../typographie'
 import { GESTE_A_JUGER, champsDuGeste, choixDe, naturelDe, pieceDuContenu, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './outils'
 import { justeDeLaPiece, type VerdictDUneManche } from './regle'
 
-/** Où Éclairer posera le centre de sa zone, depuis le lieu : une direction en degrés (le nord à 0, l'est à 90), une distance en kilomètres. */
+/**
+ * Où Éclairer posera le centre de sa zone, depuis le lieu — une direction en
+ * degrés (le nord à 0, l'est à 90), une distance en kilomètres —, et le rayon
+ * qu'elle aura, toujours plus grand que la distance : figés ensemble au tirage,
+ * une zone relue au barème du jour se serait rétrécie sous un décalage tiré plus
+ * loin, et aurait laissé le lieu dehors.
+ */
 export interface DecalageDeLaZone {
   cap: number
   km: number
+  rayonKm: number
 }
 
 /** Ce que le départ fige d'une manche de l'Épingle : le lieu entier, sa réponse comprise, et le décalage de sa zone — rien ne quitte le serveur avant le verdict. */
@@ -126,27 +133,28 @@ export function pointADistance(depart: Point, km: number, capDegres: number): Po
 /**
  * La manche tirée d'un lieu que le serveur a choisi : le lieu, et le décalage
  * de sa zone d'Éclairer — une direction, puis une distance dans
- * `DECALAGE_DE_LA_ZONE_KM`, deux tirages dans cet ordre. Tiré ici, au départ,
- * même si Éclairer ne sert jamais. `hasard` est celui du tireur, que la page
- * ne peut pas refaire — jamais celui de la graine de la partie : qui la
- * saurait referait le décalage, et du centre de la zone remonterait au lieu.
- * Elle est un secret du serveur ; figé ici, le décalage ne tient même pas à ce
- * secret.
+ * `DECALAGE_DE_LA_ZONE_KM`, deux tirages dans cet ordre —, avec son rayon
+ * (`RAYON_D_ECLAIRER_KM`). Tiré ici, au départ, même si Éclairer ne sert
+ * jamais. `hasard` est celui du tireur, que la page ne peut pas refaire —
+ * jamais celui de la graine de la partie : qui la saurait referait le
+ * décalage, et du centre de la zone remonterait au lieu. Elle est un secret du
+ * serveur ; figé ici, le décalage ne tient même pas à ce secret.
  */
 export function epingleTiree(lieu: Lieu, hasard: () => number): EpingleTiree {
   const cap = hasard() * 360
   const [pres, loin] = DECALAGE_DE_LA_ZONE_KM
-  return { jeu: 'epingle', lieu, decalage: { cap, km: pres + hasard() * (loin - pres) } }
+  return { jeu: 'epingle', lieu, decalage: { cap, km: pres + hasard() * (loin - pres), rayonKm: RAYON_D_ECLAIRER_KM } }
 }
 
 /**
- * La zone qu'Éclairer entoure : `RAYON_D_ECLAIRER_KM` autour du centre que le
- * départ a décalé du lieu. Le décalage reste sous le rayon : le lieu est
+ * La zone qu'Éclairer entoure : le rayon figé au tirage autour du centre que
+ * le départ a décalé du lieu — jamais le barème du jour : une partie commencée
+ * garde la zone qu'elle a tirée. Le décalage reste sous le rayon : le lieu est
  * toujours dedans ; il n'est jamais nul : le centre ne dit pas où il est.
  */
 export function zoneDEclairer(lieu: Point, decalage: DecalageDeLaZone): ZoneDEclairer {
   const centre = pointADistance(lieu, decalage.km, decalage.cap)
-  return { lat: centre.lat, lon: centre.lon, rayonKm: RAYON_D_ECLAIRER_KM }
+  return { lat: centre.lat, lon: centre.lon, rayonKm: decalage.rayonKm }
 }
 
 /** Une coordonnée gardée au journal, au millième de degré — cent mètres : assez pour redessiner l'épingle sur la carte de France. */

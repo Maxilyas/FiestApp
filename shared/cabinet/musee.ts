@@ -213,17 +213,55 @@ export function gardiensDus(m: Musee): GardienDu[] {
  */
 export function prochainGardien(m: Musee): { legendaire: string; salle: CleDeSalle; manquent: number } | null {
   const a = possedees(m)
+  return lePlusPres(cle => a.has(cle), premier => !m.legendaires.has(premier))
+}
+
+/** La salle la plus près d'être complète, à ce qu'il a, dont le premier gardien dort ; la première à égalité. */
+function lePlusPres(aLui: (cle: CleDOeuvre) => boolean, dort: (premier: string, salle: CleDeSalle) => boolean): { legendaire: string; salle: CleDeSalle; manquent: number } | null {
   let mieux: { legendaire: string; salle: CleDeSalle; manquent: number } | null = null
   for (const s of SALLES) {
     const [premier] = GARDIENS_DES_SALLES[s.cle]
-    const manquent = oeuvresDeLaSalle(s.cle).filter(o => !a.has(o.cle)).length
-    if (manquent === 0 || m.legendaires.has(premier)) continue
+    const manquent = oeuvresDeLaSalle(s.cle).filter(o => !aLui(o.cle)).length
+    if (manquent === 0 || !dort(premier, s.cle)) continue
     if (!mieux || manquent < mieux.manquent) mieux = { legendaire: premier, salle: s.cle, manquent }
   }
   return mieux
 }
 
+/**
+ * La salle du prochain gardien tel qu'il était à minuit — celle qu'une case de
+ * la visite vise chaque jour : ce qu'il avait à cette heure (`aMinuit`), et
+ * pour endormi un premier gardien que la salle complétée depuis a réveillé.
+ * Sans quoi une chasse ou un achat du matin qui complète la salle changeait la
+ * visite avant le premier départ, qui seul la fige. Reste qu'un gardien venu
+ * d'ailleurs le même jour — le bout d'une expédition, un palier — la change
+ * encore : il la rendait déjà inutile.
+ */
+function salleDuProchainGardienAMinuit(m: Musee, aMinuit: (cle: CleDOeuvre) => boolean): CleDeSalle | null {
+  const a = possedees(m)
+  const completeDepuis = (salle: CleDeSalle) => oeuvresDeLaSalle(salle).every(o => a.has(o.cle))
+  return lePlusPres(aMinuit, (premier, salle) => !m.legendaires.has(premier) || completeDepuis(salle))?.salle ?? null
+}
+
 // ── La série ──────────────────────────────────────────────────────────────
+
+/**
+ * La série après un jour joué — une visite ou une chasse où il a répondu à au
+ * moins une manche (`laPartieARepondu`, `shared/cabinet/partie.ts`), comptée
+ * au jour de son départ : la règle même de l'instruction qui l'écrit
+ * (`lotDuGeste`), pour la mémoire du serveur. Un jour déjà compté ne compte
+ * pas deux fois, la veille la prolonge, tout autre la recommence ; un jour
+ * d'avant le dernier compté — la partie d'hier close aujourd'hui — ne la fait
+ * pas reculer. Comptée au départ jusqu'au 26 octobre 2026 : une visite quittée
+ * d'emblée tenait la série, et trente jours sans une réponse réveillaient le
+ * Scarabée.
+ */
+export function serieApresUnJour(profil: Pick<LigneDuProfil, 'serie' | 'serieJour' | 'serieRecord'> | null, jour: string): Pick<LigneDuProfil, 'serie' | 'serieJour' | 'serieRecord'> {
+  const dernier = profil?.serieJour ?? null
+  const avant = profil?.serie ?? 0
+  const serie = dernier !== null && dernier >= jour ? avant : dernier === jourAvant(jour) ? avant + 1 : 1
+  return { serie, serieJour: dernier !== null && dernier > jour ? dernier : jour, serieRecord: Math.max(profil?.serieRecord ?? 0, serie) }
+}
 
 /**
  * La série montrée : ses jours de visite ou de chasse d'affilée, lus jusqu'à
@@ -306,8 +344,9 @@ function tirerPese(candidates: readonly Oeuvre[], hasard: () => number): Oeuvre 
  * La visite du jour : trois jeux différents, ceux des visites des deux jours
  * d'avant passés au bout ; trois œuvres distinctes en jeu, parmi celles qui
  * lui manquaient à minuit — la visite ne change pas pendant le jour —, au
- * poids de leur rareté ; rien ne manque, une à dorer ; rien du tout, la
- * poussière d'or. Figée, elle se relit telle quelle : un jeu livré dans la
+ * poids de leur rareté, l'une de la salle du prochain gardien tant qu'il en
+ * reste un (`salleDuProchainGardienAMinuit`) ; rien ne manque, une à dorer ;
+ * rien du tout, la poussière d'or. Figée, elle se relit telle quelle : un jeu livré dans la
  * journée ne change pas la visite d'un joueur qui l'a commencée. Moins de
  * trois jeux livrés, moins de cases : trois jeux différents, toujours.
  */
@@ -325,9 +364,16 @@ export function visiteDuJour(m: Musee, o: GraineDeLaVisite): VisiteDuJour {
   let manquantes = OEUVRES.filter(x => !aMinuit(x.cle))
   let aDorer = OEUVRES.filter(x => aMinuit(x.cle) && !doreeAMinuit(x.cle))
   const hasard = hasardDe(`${o.graine}:cibles:${o.jour}`)
-  const cases = duJour.map((jeu): CaseFigee => {
+  const salleDuGardien = salleDuProchainGardienAMinuit(m, aMinuit)
+  let gardienVise = false
+  const cases = duJour.map((jeu, k): CaseFigee => {
     if (manquantes.length > 0) {
-      const cible = tirerPese(manquantes, hasard)
+      // La dernière case vise la salle du prochain gardien, si aucune autre ne l'a fait : au seul poids des raretés, la
+      // visite remplissait les neuf salles à la fois, et l'occasionnel attendait son premier gardien au 38ᵉ jour (la
+      // synthèse de la tablée du 25 octobre 2026, § 10). Le même tirage, sur moins d'œuvres : les cases d'avant ne changent pas.
+      const deSaSalle = k === duJour.length - 1 && !gardienVise && salleDuGardien !== null ? manquantes.filter(x => x.salle === salleDuGardien) : []
+      const cible = tirerPese(deSaSalle.length > 0 ? deSaSalle : manquantes, hasard)
+      if (cible.salle === salleDuGardien) gardienVise = true
       manquantes = manquantes.filter(x => x !== cible)
       return { jeu, cible: cible.cle, but: 'gagner' }
     }
@@ -426,13 +472,6 @@ export type DemandeDeRetente = { origine: 'chasse'; case: number; retente: true;
 /** Ce que le serveur lit à « Commencer » (`lireLaDemande`) : ce que la page demande, et « Retenter » par sa case. */
 export type DemandeLue = DemandeDeDepart | DemandeDeRetente
 
-/**
- * La retente telle que le calibrage la simule (`server/scripts/calibrage-cabinet.ts`) : il joue les deux côtés et sait l'œuvre
- * qu'une case visait, la page jamais. Le serveur ne la lit pas — une demande qui nomme l'œuvre d'une retente ne se lit pas,
- * quelle qu'elle soit (`lireLaDemande`) — ; elle s'en va quand le calibrage visera la case.
- */
-export type RetenteDuCalibrage = { origine: 'chasse'; oeuvre: string; carte: string | null; retente: true }
-
 /** Ce qu'un départ accepté fige, avant le tirage : le serveur y ajoute le plan, la graine et le thème. */
 export interface CadreDuDepart {
   jeu: CleDeJeu
@@ -523,7 +562,7 @@ function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
  * par jour ; deux chasses, à son jeu — « Retenter », par sa case, au jeu de la
  * visite manquée ; un jeu livré ; une carte-bonus qu'il a.
  */
-export function cadreDuDepart(m: Musee, demande: DemandeLue | RetenteDuCalibrage, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS): CadreDuDepart | string {
+export function cadreDuDepart(m: Musee, demande: DemandeLue, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS): CadreDuDepart | string {
   if (m.enCours) return laPartieAttend(m.enCours.jeu)
   const a = possedees(m)
   let cadre: Omit<CadreDuDepart, 'carte'>
@@ -540,9 +579,8 @@ export function cadreDuDepart(m: Musee, demande: DemandeLue | RetenteDuCalibrage
     case 'chasse': {
       if (chassesRestantes(m) === 0) return PLUS_DE_CHASSE
       if ('retente' in demande) {
-        // La retente du calibrage nomme l'œuvre qu'il sait : elle se rejoue par sa case, comme celle de la page.
-        const k = 'case' in demande ? demande.case : m.duJour.parties.find(p => p.origine === 'visite' && p.issue === 'manquee' && p.cible === demande.oeuvre)?.visite
-        const r = laRetente(m, visite, k, jeux)
+        // Par sa case seulement, le calibrage comme la page : nommer l'œuvre, c'était la savoir (invariant 1).
+        const r = laRetente(m, visite, demande.case, jeux)
         if (typeof r === 'string') return r
         cadre = { jeu: r.jeu, origine: 'chasse', cible: r.cible, but: 'gagner', retente: true, seuil: seuilDe(r.cible), payee: true }
         break

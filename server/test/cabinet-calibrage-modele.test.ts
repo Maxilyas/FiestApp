@@ -22,8 +22,9 @@ import { SOURCE, calibrer, cases, enFraction, jeuxQuiVisent, ligneDuJeu, partAve
 test('aux Indices, le rang où l’on reconnaît suit la force : le complétionniste passe le plafond du modèle d’avant', async () => {
   // Tiré sans la force, le rang plafonnait tout joueur à 6,45 étoiles sur neuf — ★★★ au troisième indice au plus,
   // 45 % des manches, même à reconnaître toujours —, quand la tablée en faisait 8,75 ; le logit ordinal en attend 6,6
-  // du complétionniste. Le joueur moyen garde les parts du modèle.
-  const { code, sortie, erreurs } = await calibrer(['--sections', 'jeux', '--jeux', 'indices', '--joueurs', 'moyen,complétionniste', '--parties', '1500'])
+  // du complétionniste. Le joueur moyen garde les parts du modèle. Au barème où ce plafond se mesurait (3 et 4) : à 2
+  // et 4, depuis le 26 octobre 2026, ★★★ demande un indice de moins, et le complétionniste en fait 6,1.
+  const { code, sortie, erreurs } = await calibrer(['--sections', 'jeux', '--jeux', 'indices', '--joueurs', 'moyen,complétionniste', '--parties', '1500', '--essai', 'INDICES_DES_ETOILES=3/4'])
   assert.equal(code, 0, erreurs)
   const etoiles = (joueur: string) => lireNombre(ligneDuJeu(sortie, JEUX.indices.nom, joueur)[3])!
   assert.ok(etoiles('complétionniste') > 6.45, `le complétionniste aux Indices : ${etoiles('complétionniste')} étoiles sur neuf`)
@@ -55,7 +56,8 @@ test('les cartes-bonus, jeu par jeu : la mise au Détail sans rien savoir, et Ch
   assert.equal(code, 0, erreurs)
   // Qui ne sait rien mise une manche du Détail et y devine un titre au premier coup d'œil : parfaite une fois sur
   // quatre, elle vaut trois étoiles et le bonus de la mise ; les deux autres, trois une fois sur quatre. Ce que la
-  // règle en attend, des chiffres du barème — 25 % d'épiques au barème du 25 octobre 2026 (+4 à la force 3).
+  // règle en attend, des chiffres du barème — 25 % d'épiques au barème du 25 octobre 2026 (+4 à la force 3), 11 % depuis
+  // le 26 (+3) : la manche misée parfaite ne fait plus seule les sept étoiles, il y faut une autre manche parfaite.
   const p = 1 / BAREME.TITRES_DU_DETAIL
   const parfaite = BAREME.ETOILES_AU_CADRAGE[0]
   const misee = parfaite + BAREME.BONUS_DE_MISE[3]
@@ -133,6 +135,14 @@ test('à l’Épingle, qui ne sait rien lit la zone d’Éclairer : la règle du
   assert.ok(couronne > 0.35 && couronne < 0.75, `de 120 à 165 km : ${couronne}`)
   // Le lieu partout dans un disque de 300 km : il n'y a plus de couronne à lire (15 à 32 %).
   assert.ok(auMieux(duCode.sortie, 'partout dans le disque, rayon 300 km') < 0.4)
+  // La règle du code depuis le 26 octobre 2026, posée au nom du propriétaire : de 120 à 294 km dans une zone de 300. Qui
+  // ne sait rien et éclaire trois fois ne gagne pas une commune plus d'une fois sur trois, où qu'il plante (31,9 % au
+  // mieux sur 3 000 manches ; ici, 1 800, à deux points près) ; et la zone le rapproche encore d'une étoile par manche.
+  const ligneDuCode = sectionDe(duCode.sortie, "Éclairer à l'Épingle").map(cases).find(c => c[0] === 'le code : de 120 à 294 km, rayon 300 km')
+  assert.ok(ligneDuCode, `la ligne du code :\n${sectionDe(duCode.sortie, "Éclairer à l'Épingle").join('\n')}`)
+  assert.ok(Math.max(...ligneDuCode[1].split(' · ').map(enFraction)) <= 1 / 3 + 0.02, `une commune sans rien savoir : ${ligneDuCode[1]}`)
+  const [sans, avec] = ligneDuCode[2].split(' → ').map(x => lireNombre(x)!)
+  assert.ok(avec - sans >= 0.95, `la zone rapporte ${avec - sans} étoile par manche à qui ne sait rien`)
   // La ligne du code suit le barème, essai compris : elle dit son décalage et son rayon, et vaut la piste qui a les mêmes.
   const duBareme = (s: string) => sectionDe(s, "Éclairer à l'Épingle").map(cases).find(c => c[0].startsWith('le code'))!
   for (const s of [duCode.sortie, essai.sortie]) {
@@ -156,9 +166,13 @@ test('le joueur « tablée » a sa ligne à chaque jeu, au-dessus du complétion
 })
 
 test('le chasseur chasse dans la salle du prochain gardien, et l’éveille plus tôt que l’occasionnel', async () => {
-  // L'occasionnel attendait son premier gardien au 36ᵉ jour : la visite remplit les neuf salles à la fois. Le même
-  // joueur, aux mêmes jours, qui chasse là où la page lui dit le prochain gardien, l'éveille plus tôt.
-  const { code, sortie, erreurs } = await calibrer(['--sections', 'musee', '--joueurs', 'occasionnel,chasseur', '--parcours', '2', '--jours', '80', '--mesures', '30'])
+  // L'occasionnel attendait son premier gardien au 36ᵉ jour au calibrage du 25 octobre 2026 : la visite remplissait
+  // les neuf salles à la fois. Une de ses cases vise chaque jour la salle du prochain gardien depuis le 26 (au 21ᵉ jour,
+  // sur quatre parcours d'un an) ; le même joueur, aux mêmes jours, qui y chasse aussi, l'éveille plus tôt encore.
+  // Ses cartes-bonus se choisissent sur cent parties, la mesure d'office : sur trente, le hasard de ces choix couvrait
+  // l'écart des deux, que la case de la visite vers le prochain gardien a resserré (le chasseur au 21,5ᵉ jour,
+  // l'occasionnel au 21ᵉ ; sur cent, au 15ᵉ et au 21ᵉ).
+  const { code, sortie, erreurs } = await calibrer(['--sections', 'musee', '--joueurs', 'occasionnel,chasseur', '--parcours', '2', '--jours', '80'])
   assert.equal(code, 0, erreurs)
   const premier = (joueur: string) => {
     const bloc = sortie.slice(sortie.indexOf(`\n  ${joueur}\n`))
@@ -233,12 +247,14 @@ test('Miser se décide vers le seuil, la mise gardée pour la manche où elle m�
   }
   assert.deepEqual(pertes, [])
   // La manche misée se joue pour ses trois étoiles : parier au Pari, le petit filet. Vers l'épique, la mise est le
-  // chemin — gardée ou lancée large, la manche misée ne vaudrait rien, et la mise ne servirait pas.
+  // chemin — gardée ou lancée large, la manche misée ne vaudrait rien, et la mise ne servirait pas. Dix points d'épiques
+  // de plus au moins à +4 ; à +3, depuis le 26 octobre 2026, la manche misée parfaite ne fait plus seule une épique, et
+  // l'épique tire le difficile : cinq au moins (de 3 à 13 % au Pari, de 25 à 48 au Filet, sur cent parties).
   const epique = BAREME.SEUILS_DES_RARETES.epique
   for (const jeu of [JEUX.pari.nom, JEUX.filet.nom]) {
     const sans = partAvecLaCarte(sortie, epique, jeu, 'moyen', null)
     const avec = partAvecLaCarte(sortie, epique, jeu, 'moyen', POUVOIRS.miser.nom, 3)
-    assert.ok(avec > sans + 0.1, `${jeu}, le moyen vers l'épique : Miser 3 ${avec}, sans carte ${sans}`)
+    assert.ok(avec > sans + 0.05, `${jeu}, le moyen vers l'épique : Miser 3 ${avec}, sans carte ${sans}`)
   }
 })
 

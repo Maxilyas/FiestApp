@@ -37,6 +37,7 @@ import {
   motDe,
   ok,
   ouvrir,
+  pariDe,
   DIX_HEURES,
   type BancDuCabinet,
   type Reponse,
@@ -44,7 +45,17 @@ import {
 import { JOUR, MIDI, Partie, S, carte as carteDEssai, departDe, ouvrir as ouvrirAuPli } from './cabinet-plans'
 import { CabinetStore, type PartieLue } from '../src/core/cabinet/magasin'
 import { vueDeLaPartie } from '../src/core/cabinet/vue'
-import { DUREES_DES_JEUX, ETOILES_D_UNE_PARTIE, GRACE_D_UNE_MANCHE_MS, LIBRES_QUI_PAIENT, POUSSIERE_PAR_ETOILE, SECONDES_PAR_FORCE, SEUILS_DES_RARETES } from '../../shared/cabinet/bareme'
+import {
+  BONUS_DE_PROTECTION,
+  DUREES_DES_JEUX,
+  ETOILES_D_UNE_PARTIE,
+  GRACE_D_UNE_MANCHE_MS,
+  LIBRES_QUI_PAIENT,
+  POUSSIERE_MIN,
+  POUSSIERE_PAR_ETOILE,
+  SECONDES_PAR_FORCE,
+  SEUILS_DES_RARETES,
+} from '../../shared/cabinet/bareme'
 import { museeDe, type LigneDOeuvre } from '../../shared/cabinet/musee'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
@@ -364,16 +375,24 @@ test('le bilan d’un double ne dit « sans cadre doré » que d’un cadre qui 
 
 test('« Quitter ? » dit ce que vaudrait la partie quittée à cet instant : le geste joué par le pli sur l’état, rien d’écrit', async () => {
   const ugo = await inscrireProfil(b.banc.url, 'ugo', 'Ugo')
-  // Une chasse sous Prudence, sa première manche ouverte : quittée, elle juge zéro, Protéger la porte à une étoile, et la
-  // chasse paie ses quatre poussières au moins. « Quitter ? » promettait « les étoiles déjà gagnées » : zéro, croyait Lucas.
+  // Une chasse sous Prudence, sa première manche ouverte : quittée d'emblée, elle ne vaut rien — ni la manche que Protéger
+  // relevait, ni le plancher de la poussière. Elle valait une étoile et quatre poussières jusqu'au 26 octobre 2026, quand
+  // « Quitter ? » promettait « les étoiles déjà gagnées » : zéro, croyait Lucas.
   const chasse = ok(await commencer(b, ugo, { origine: 'chasse', oeuvre: 'lecon', carte: 'prudence' }), 'la chasse')
-  assert.deepEqual(chasse.siTuQuittes, { total: 1, poussiere: 4 })
+  assert.deepEqual(chasse.siTuQuittes, { total: 0, poussiere: 0 })
   assert.deepEqual(ok(await laPage(b, ugo), 'la page').enCours?.siTuQuittes, chasse.siTuQuittes, 'la page relue dit la même chose')
   const quittee = ok(await jouer(b, ugo, chasse, { quoi: 'quitter' }), 'quitter')
   assert.deepEqual([quittee.bilan?.total, quittee.bilan?.poussiere], [chasse.siTuQuittes!.total, chasse.siTuQuittes!.poussiere], 'le bilan tient la promesse')
   assert.equal(quittee.siTuQuittes, undefined, 'finie, plus rien à quitter')
   // Rien ne s'est écrit pour le dire : la partie n'avait qu'un geste, son ouverture, avant « Quitter ».
   assert.equal(enBase(b.fichier, db => (db.prepare('SELECT COUNT(*) AS n FROM cabinet_gestes WHERE serie_id = ?').get(chasse.id) as { n: number }).n), 2)
+  // Répondue faux, puis quittée : Protéger relève la manche répondue, et la chasse paie son plancher — la promesse le dit.
+  const seconde = ok(await commencer(b, ugo, { origine: 'chasse', oeuvre: 'lecon', carte: 'prudence' }), 'la seconde chasse')
+  const q1 = pariDe(b, seconde.id, 0).q1
+  const ratee = ok(await jouer(b, ugo, seconde, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: (q1.bonne + 1) % q1.reponses.length } } }), 'répondre faux')
+  assert.deepEqual(ratee.siTuQuittes, { total: BONUS_DE_PROTECTION[1], poussiere: POUSSIERE_MIN })
+  const apres = ok(await jouer(b, ugo, ratee, { quoi: 'quitter' }), 'quitter après une réponse')
+  assert.deepEqual([apres.bilan?.total, apres.bilan?.poussiere], [BONUS_DE_PROTECTION[1], POUSSIERE_MIN], 'le bilan tient la promesse')
 
   // Une libre qui paie, une manche gagnée, la suivante pas encore ouverte : trois étoiles, deux poussières chacune.
   for (let i = 0; i < LIBRES_QUI_PAIENT; i++) {

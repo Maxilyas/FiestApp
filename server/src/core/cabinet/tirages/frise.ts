@@ -16,12 +16,21 @@
 // hasard encore, parmi la moins vue de chaque sorte. Un sujet se tire dans un
 // ordre battu, le premier qui donne sept événements frais l'emporte : un ou
 // deux sujets lus d'ordinaire ; les soixante seulement pour qui a tout vu.
+//
+// Pour une épique, une frise serrée (`estUneFriseSerree` : ses voisins à vingt
+// ans au plus, la moitié au moins) passe avant toute autre, fraîche ou non :
+// la frise à thème parmi les serrées, le sujet qui en donne une — jusqu'aux
+// soixante, pour cette seule partie. Une épique tirait les mêmes frises qu'une
+// commune, « Les rois de France » à 109 ans d'écart au plus serré, qui se
+// rangent d'une lecture des siècles, quand « L'aviation » en a trois (la
+// synthèse de la tablée du 25 octobre 2026, § 10). Faute de serrée, la frise
+// d'ordinaire : une épique ne se refuse pas pour autant.
 import type { QuestionDeLaBase } from '../../baseCampagne'
 import { laMoinsVue } from '../../tirageALaPiece'
 import { contenuDuCabinet } from '../contenu'
 import { ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, VAGUES_DE_LA_FRISE } from '../../../../../shared/cabinet/bareme'
 import type { FriseATheme } from '../../../../../shared/cabinet/contenu'
-import { friseEnVagues, type FriseAPartager, type FriseTiree } from '../../../../../shared/cabinet/jeux/frise'
+import { estUneFriseSerree, friseEnVagues, type FriseAPartager, type FriseTiree } from '../../../../../shared/cabinet/jeux/frise'
 import { battre } from '../../../../../shared/cabinet/jeux/outils'
 import { idDeLaFriseATheme } from '../../../../../shared/cabinet/pieces'
 import { NIVEAUX, niveauDeQuestion } from '../../../../../shared/campagne'
@@ -29,11 +38,14 @@ import { choisirLaFriseSansRepli, type EvenementDeLaFrise } from '../../../../..
 import { FENETRE_DU_CABINET_MS, type ContexteDuTirage } from './communs'
 import { frisesDesSujets, litLaBase } from './tas'
 
-/** Une frise candidate, et si elle est fraîche. */
+/** Une frise candidate, si elle est fraîche, et si elle est serrée (`estUneFriseSerree`). */
 interface Candidate {
   frise: FriseAPartager
   fraiche: boolean
+  serree: boolean
 }
+
+const serree = (evenements: readonly { annee: number }[]) => estUneFriseSerree(evenements.map(e => e.annee))
 
 /** Vue ces sept jours : ce qui ne revient qu'en dernier recours. */
 const recente = (ctx: ContexteDuTirage, le: number | undefined) => le !== undefined && ctx.maintenant - le < FENETRE_DU_CABINET_MS
@@ -48,15 +60,18 @@ function rangeeLe(f: FriseATheme, vues: ContexteDuTirage['vues']): number | unde
   return le
 }
 
-/** La frise à thème la moins vue : jamais rangée d'abord, au hasard, puis la plus anciennement rangée. */
+/** La frise à thème la moins vue : jamais rangée d'abord, au hasard, puis la plus anciennement rangée — parmi les serrées pour une épique. */
 function aThemeLaMoinsVue(ctx: ContexteDuTirage): Candidate | null {
-  const frises = contenuDuCabinet().frises
+  const toutes = contenuDuCabinet().frises
+  const serrees = ctx.enjeu.friseSerree ? toutes.filter(f => serree(f.evenements)) : []
+  const frises = serrees.length > 0 ? serrees : toutes
   const parId = new Map(frises.map(f => [f.id, f]))
   const f = laMoinsVue(frises, x => x.id, { get: id => rangeeLe(parId.get(id)!, ctx.vues) })
   if (!f) return null
   return {
     frise: { sorte: 'theme', cle: f.id, theme: f.theme, evenements: f.evenements.map(e => ({ libelle: e.libelle, annee: e.annee })), savais: f.savais, categorie: f.categorie },
     fraiche: !recente(ctx, rangeeLe(f, ctx.vues)),
+    serree: serree(f.evenements),
   }
 }
 
@@ -87,13 +102,16 @@ function deSujetLaPlusFraiche(ctx: ContexteDuTirage): Candidate | null {
   if (!litLaBase(ctx.porte)) return null
   const parId = ctx.porte.parIdDe(ctx.jouables)
   const dejaVu = (id: string) => recente(ctx, ctx.vues.get(id))
-  let meilleure: { cle: string; nom: string; choisis: EvenementDeLaFrise[]; frais: number } | null = null
+  // Pour une épique, serrée d'abord, puis la plus fraîche ; sinon la serrée ne compte pas (`vise` reste faux).
+  const vise = (choisis: readonly EvenementDeLaFrise[]) => ctx.enjeu.friseSerree && serree(choisis)
+  let meilleure: { cle: string; nom: string; choisis: EvenementDeLaFrise[]; frais: number; vise: boolean } | null = null
   for (const s of battre(frisesDesSujets(ctx.porte, ctx.jouables), ctx.hasard)) {
     const choisis = choisirLaFriseSansRepli(s.evenements, ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, ctx.hasard, dejaVu)
     if (!choisis) continue
     const frais = choisis.filter(e => !dejaVu(e.id)).length
-    if (!meilleure || frais > meilleure.frais) meilleure = { cle: s.cle, nom: s.nom, choisis, frais }
-    if (frais === choisis.length) break
+    const c = { cle: s.cle, nom: s.nom, choisis, frais, vise: vise(choisis) }
+    if (!meilleure || (c.vise && !meilleure.vise) || (c.vise === meilleure.vise && frais > meilleure.frais)) meilleure = c
+    if (frais === choisis.length && c.vise === ctx.enjeu.friseSerree) break
   }
   if (!meilleure) return null
   const { cle, nom, choisis } = meilleure
@@ -109,15 +127,28 @@ function deSujetLaPlusFraiche(ctx: ContexteDuTirage): Candidate | null {
       ...(niveau && { niveau }),
     },
     fraiche: meilleure.frais === choisis.length,
+    serree: serree(choisis),
   }
 }
 
-/** Les trois manches d'une Frise : la fraîche des deux sortes, ou l'une au hasard ; null sans aucune frise à poser. */
+/**
+ * Les trois manches d'une Frise : la fraîche des deux sortes, ou l'une au hasard — pour une épique, la serrée d'abord ;
+ * null sans aucune frise à poser.
+ */
 export function tirerUneFrise(ctx: ContexteDuTirage): FriseTiree[] | null {
   const aTheme = aThemeLaMoinsVue(ctx)
   const deSujet = deSujetLaPlusFraiche(ctx)
   const auHasard = () => (ctx.hasard() < 0.5 ? [aTheme, deSujet] : [deSujet, aTheme])
-  const ordre = aTheme && deSujet && aTheme.fraiche !== deSujet.fraiche ? (aTheme.fraiche ? [aTheme, deSujet] : [deSujet, aTheme]) : auHasard()
+  const ordre =
+    ctx.enjeu.friseSerree && aTheme && deSujet && aTheme.serree !== deSujet.serree
+      ? aTheme.serree
+        ? [aTheme, deSujet]
+        : [deSujet, aTheme]
+      : aTheme && deSujet && aTheme.fraiche !== deSujet.fraiche
+        ? aTheme.fraiche
+          ? [aTheme, deSujet]
+          : [deSujet, aTheme]
+        : auHasard()
   // La première qui se partage en vagues : une frise jugée au chargement s'y partage toujours, l'autre reste là s'il le faut.
   for (const c of ordre) {
     const vagues = c && friseEnVagues(c.frise, ctx.hasard)

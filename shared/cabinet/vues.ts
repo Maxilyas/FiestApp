@@ -435,9 +435,11 @@ export interface CabinetDAccueil {
  * frise de l'Expédition aussi (`frise:<id>+<id>…`, une ligne pour toute la
  * frise) : elle a dit l'année de chacun de ses événements, et sans elle un
  * événement rangé hier là-bas repassait pour frais dans la Frise du Cabinet.
- * Le plus récent l'emporte. La série, elle, lit `vuesDe` tel quel : une
- * question vue dans un composé peut y revenir, sans danger — la série ne
- * reprend pas ce que l'Éclair a récrit.
+ * Le plus récent l'emporte. `vuesDe` déplie déjà l'Éclair, la frise d'un
+ * sujet et le tableau du Détail pour toute la campagne
+ * (`JournalDesReponses.vuesDe`) : ce qui n'est qu'au Cabinet ici, ce sont les
+ * frises de l'Expédition (`frise:`) ; redéplier un composé ne change rien, le
+ * plus récent l'emporte.
  */
 export function vuesDuCabinet(vues: ReadonlyMap<string, number>): Map<string, number> {
   const depliees = new Map<string, number>()
