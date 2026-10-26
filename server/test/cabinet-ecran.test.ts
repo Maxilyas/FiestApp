@@ -17,6 +17,7 @@ import {
   aLaMain,
   bancDuCabinet,
   commencer,
+  departEnBase,
   detailDe,
   fermerLesMagasins,
   filetDe,
@@ -62,7 +63,7 @@ import type { FriseMontree, FriseRevelee } from '../../shared/cabinet/jeux/frise
 import { anneeDite } from '../../shared/frise'
 import { CLES_DES_JEUX, JEUX, MOTS_DU_PARI, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import { JEU_PAS_LIVRE, PLUS_DE_CHASSE, SON_OEUVRE_EST_A_TOI, laPartieAttend, museeDe, type CaseFigee, type PartieDuJour, type VisiteDuJour } from '../../shared/cabinet/musee'
-import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, RARETES, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
+import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, RARETES, estUneOeuvre, oeuvre as oeuvreDe, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
 import { PLUS_DE_PAUSE, type Manche } from '../../shared/cabinet/partie'
 import { POUVOIRS, ceQueFaitLaCarte, forceDite } from '../../shared/cabinet/pouvoirs'
@@ -3805,6 +3806,8 @@ const laVisiteDe = (cases: CaseVue[], plus: Partial<PageDuCabinet> = {}): PageDu
   ...plus,
 })
 const enGagnant = { rarete: 'rare' as const, salle: 'erudit' as const }
+/** Une œuvre de Léa sans cadre doré — une des quatre de départ : sa Leçon a le sien. */
+const aLuiSansCadre = () => page.salles.flatMap(s => s.oeuvres).find(o => o.possedee && !o.doree)!
 
 test('une partie qui attend se reprend de partout : sa case « En cours » et un seul « Reprendre », et les comptes ne retiennent que les cases qui ont une issue', async () => {
   // Rechargée en pleine Frise depuis la visite, Ophélie retombait sur « 1 sur 3 faite », une case « Faite · Commencée » sans
@@ -3881,9 +3884,23 @@ test('rechargée sur l’entrée d’une partie qui attend, la page la rouvre su
   const u = historique('/cabinet')
   assert.equal(partieARouvrir(u.h, vues.pari), null)
   assert.equal(u.longueur(), 1)
-  // La page le décide à sa première page reçue, celle qui dit la partie qui attend — pas avant, à l'aveugle.
+  // Ce que la page ouvre, décidé en entier hors de l'effet (`ouvertureAuChargement`) : la partie qui attend, à son écran de jeu ;
+  // rien sans elle, ni hors de son entrée. Gardé par le seul texte de son appel, un effet qui ne faisait rien de son résultat
+  // passait toutes les épreuves (la relecture du lot page-2).
+  const { ouvertureAuChargement } = await import(url('views/cabinet/ecrans.ts'))
+  const o = historique('/cabinet#visite')
+  poserLEntreeDeLaPartie(o.h)
+  assert.deepEqual(ouvertureAuChargement(o.h, vues.pari), { e: 'jeu', vue: vues.pari })
+  assert.ok(partieDansLEntree(o.h.state))
+  const sans = historique('/cabinet#visite')
+  poserLEntreeDeLaPartie(sans.h)
+  assert.equal(ouvertureAuChargement(sans.h, null), null)
+  assert.ok(!partieDansLEntree(sans.h.state), 'sans partie, la marque s’efface')
+  assert.equal(ouvertureAuChargement(historique('/cabinet').h, vues.pari), null)
+  // La page le décide à sa première page reçue, celle qui dit la partie qui attend — pas avant, à l'aveugle —, et pose ce que la
+  // décision rend, tel quel.
   const app = source('views/CabinetApp.tsx')
-  assert.match(app, /partieARouvrir\(window\.history, p\.enCours\)/)
+  assert.match(app, /const ouverture = vivant \? ouvertureAuChargement\(window\.history, p\.enCours\) : null\s+if \(ouverture\) setEnPartie\(ouverture\)/)
   assert.doesNotMatch(app.slice(app.indexOf('export function CabinetApp')), /effacerLaMarqueAuChargement\(window\.history\)/, 'plus effacée au montage, sans savoir')
 })
 
@@ -3945,6 +3962,13 @@ test('les étoiles se disent à l’oreille : leurs glyphes cachés, « 2 étoil
   // Les deux gestes du Pari se nomment en mots : « Garder 2 étoiles ».
   assert.match(choix, new RegExp(`<button type="button" class="btn btn-big" aria-label="${echapper(aLOreille(MOTS_DU_PARI.garder))}"`))
   assert.match(choix, new RegExp(`<button type="button" class="btn btn-primary btn-big" aria-label="Parier pour ${etoilesDites(ETOILES_DU_PARI.parier)}"`))
+  // Le nom de « Parier » vient du barème, comme son voisin : la flèche s'y entend « pour ». Écrit à la main, le verbe avait deux
+  // sources, et un « Parier » retouché dans `motsDuPari` n'aurait pas changé ce qu'entend l'oreille (la relecture du lot page-2).
+  assert.equal(aLOreille(MOTS_DU_PARI.parier), `Parier pour ${etoilesDites(ETOILES_DU_PARI.parier)}`)
+  assert.equal(aLOreille('Parier → ★★★'), 'Parier pour 3 étoiles')
+  const pari = source('views/cabinet/jeux/Pari.tsx')
+  assert.match(pari, /aria-label=\{aLOreille\(MOTS_DU_PARI\.parier\)\}/)
+  assert.doesNotMatch(pari, /`Parier/, 'le verbe écrit à la main')
   // Les barèmes de `JEUX` ne changent pas : l'œil lit toujours ses glyphes.
   assert.match(JEUX.mot.bareme, /★/)
 })
@@ -4066,8 +4090,10 @@ test('« Retenter » à l’écran : au bilan d’une visite manquée et sous sa
   const eteint = boutonsDe(sansChasse).find(x => x.texte.startsWith('Retenter'))!
   assert.ok(eteint.eteint)
   assert.equal(raisonsDe(sansChasse).get(eteint.raison!), PLUS_DE_CHASSE)
-  // Son œuvre gagnée depuis — une chasse, un achat — : plus rien à retenter, et la case le dit.
-  const aLui = await rendu('views/cabinet/Visite', 'Visite', { page: laVisiteDe([{ ...cases[0], retenter: { possible: false, refus: SON_OEUVRE_EST_A_TOI } }, cases[1]]), busy: false, onJouer: rien, onEchanger: rien })
+  // Son œuvre gagnée depuis — une chasse, un achat — : plus rien à retenter, et la case le dit. Telle que le serveur la rend :
+  // l'œuvre à lui, sa case passe « pour dorer » (`enjeuDe`), le seuil de son double à la place du sien.
+  const gagneeDepuis = uneCase({ jeu: 'pari', enJeu: { pourDorer: aLuiSansCadre().cle }, faite: true, issue: 'manquee', seuilDuDouble: 6, retenter: { possible: false, refus: SON_OEUVRE_EST_A_TOI } })
+  const aLui = await rendu('views/cabinet/Visite', 'Visite', { page: laVisiteDe([gagneeDepuis, cases[1]]), busy: false, onJouer: rien, onEchanger: rien })
   assert.ok(!boutonsDe(aLui).some(x => x.texte.startsWith('Retenter')))
   assert.match(texte(aLui), new RegExp(SON_OEUVRE_EST_A_TOI))
   assert.doesNotMatch(texte(aLui), /L’œuvre reste à gagner/)
@@ -4129,14 +4155,16 @@ test('l’annonce lit le seuil que le serveur dit : celui de la case, le double 
   // Un seuil que le barème du code ne dirait pas : la page le lit de la case, elle ne le redérive plus.
   assert.notEqual(SEUILS_DES_RARETES.rare, 8)
   assert.match(await annonce(uneCase({ jeu: 'eclair', enJeu: enGagnant, seuil: 8 })), /Il faut 8 étoiles sur 9 pour la gagner\./)
-  // Une case pour dorer : le cadre, et le double de son seuil.
-  const dorer = await annonce(uneCase({ jeu: 'eclair', enJeu: { pourDorer: 'lecon' }, seuilDuDouble: 6 }))
-  assert.match(dorer, /Pour dorer Leçon/)
+  // Une case pour dorer : le cadre, et le double de son seuil — d'une œuvre à lui sans cadre doré (la Leçon de Léa a le sien : sa
+  // case ne promettrait plus que le double, plus bas).
+  const sansCadre = aLuiSansCadre()
+  const dorer = await annonce(uneCase({ jeu: 'eclair', enJeu: { pourDorer: sansCadre.cle }, seuilDuDouble: 6 }))
+  assert.match(dorer, new RegExp(`Pour dorer ${echapper(sansCadre.nom)}`))
   assert.match(dorer, /Pour la dorer : toutes ses manches parfaites, sans qu’un pouvoir ait servi\./)
   assert.match(dorer, /Sans cadre doré, 6 étoiles sur 9 font un double : sa poussière d’or en plus\./)
   // Au Pari, une manche parfaite est un pari gagné : garder n'en vaut que deux.
   assert.ok(ETOILES_DU_PARI.garder < 3)
-  assert.match(await annonce(uneCase({ jeu: 'pari', enJeu: { pourDorer: 'lecon' }, seuilDuDouble: 6 })), /Pour la dorer : trois paris gagnés, sans qu’un pouvoir ait servi\./)
+  assert.match(await annonce(uneCase({ jeu: 'pari', enJeu: { pourDorer: sansCadre.cle }, seuilDuDouble: 6 })), /Pour la dorer : trois paris gagnés, sans qu’un pouvoir ait servi\./)
   assert.equal(JEU_DE_L_OEUVRE.lecon, 'pari')
   const chasse = await rendu('views/cabinet/Annonce', 'Annonce', { page, demande: { origine: 'chasse', oeuvre: 'lecon' }, carte: null, busy: false, onCarte: rien, onCommencer: rien, onRetour: rien })
   assert.match(texte(chasse), /Pour la dorer : trois paris gagnés/)
@@ -4202,9 +4230,207 @@ test('au Sommet, ce que le Cabinet pose à même la page se lit sur un sol plein
   assert.match(valeur, /^#[0-9a-f]{6}$/i, `${fond} : ${valeur}, opaque`)
 })
 
+test('sous chaque thème peint, la colonne du Cabinet a son sol plein : son tableau ne passe plus sous ses lignes', () => {
+  // La relecture du lot page-2 demandait ce que deviendrait le prochain thème peint : mesurés au rendu du 26 octobre 2026, ils
+  // passaient tous sous les lignes du Cabinet — l'Horloge (« « Je tiens bon » » à 1,92:1 sur ses aiguilles), le Ciel
+  // (« Prendre son temps » à 2,09:1), les Heures (la question d'un Pari à 1,58:1 sur la page du mois). Un thème est peint quand
+  // sa feuille cite ses décors (`--decor-…`, le bloc que `decors.ts --livrer` réécrit).
+  const peints = themesDuClient().filter(t => /--decor-[\w-]+\s*:/.test(t.css))
+  assert.deepEqual(peints.map(t => t.cle).sort(), ['ciel', 'heures', 'horloge', 'sommet'])
+  for (const t of peints) {
+    const css = t.css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const regle = new RegExp(`:root\\[data-theme='${t.cle}'\\] \\.cab-page \\{([^}]*)\\}`).exec(css)
+    assert.ok(regle, `${t.cle} : un sol sous la colonne du Cabinet`)
+    const fond = /background(?:-color)?:\s*var\((--[\w-]+)\)/.exec(regle[1])?.[1]
+    assert.ok(fond, `${t.cle} : ${regle[1]}`)
+    assert.match(t.jetons.get(fond) ?? '', /^#[0-9a-f]{6}$/i, `${t.cle} : ${fond}, opaque`)
+  }
+})
+
 test('« Commencer » envoie ce que le serveur lit — la retente par sa case comprise —, sans forcer le type de la demande', () => {
   // `DemandeLue` : une partie de la visite, une chasse, un jeu libre, et « Retenter » par sa case.
   assert.match(source('api.ts'), /commencer: \(demande: DemandeLue\) =>/)
   assert.match(source('views/cabinet/ecrans.ts'), /export type PartieDemandee = SansCarte<DemandeLue>/)
   assert.doesNotMatch(source('views/CabinetApp.tsx'), /as DemandeDeDepart/)
+})
+
+// ── La relecture du lot page-2 ────────────────────────────────────────────
+//
+// Ce que deux relecteurs ont trouvé en rendant la page sur les vues que le serveur rend vraiment : une œuvre achetée après sa case
+// manquée, une chasse qui attend au-dessus de cases manquées, une chasse pour dorer, une œuvre dorée dans la journée.
+
+/** La visite d'une page, rendue telle que `CabinetApp` la montre. */
+const laVisite = (p: PageDuCabinet) => rendu('views/cabinet/Visite', 'Visite', { page: p, busy: false, onJouer: rien, onEchanger: rien, onReprendre: rien })
+/** Un profil neuf, sa poussière d'or écrite à la main : de quoi acheter une œuvre sans jouer d'abord. */
+async function unProfilRiche(login: string, prenom: string) {
+  const c = await inscrireProfil(b.banc.url, login, prenom)
+  const id = (await lire(b, c, '/api/joueur/moi?leger')).corps.profile.id as string
+  aLaMain(b.fichier, `INSERT INTO cabinet_profils (profile_id, poussiere, cree_le, maj_le) VALUES ('${id}', 1000, 0, 0) ON CONFLICT (profile_id) DO UPDATE SET poussiere = 1000`)
+  ok(await laPage(b, c), `la page de ${prenom}`)
+  return c
+}
+
+test('une case manquée dont l’œuvre est à lui depuis le dit, sans « Retenter » — quel que soit le refus que le serveur dit d’abord', async () => {
+  // Achetée après la visite manquée, l'œuvre fait passer sa case « pour dorer » (`enjeuDe`), et le serveur refuse la retente pour
+  // la partie qui attend ou les chasses prises avant de dire « Son œuvre est déjà à toi » (`cadreDuDepart`) : la case disait « Pas
+  // de dorure cette fois », et « Retenter » en sourdine pour une œuvre déjà à lui.
+  const o = aLuiSansCadre()
+  const gagnee = uneCase({ jeu: 'eclair', enJeu: enGagnant, faite: true, issue: 'gagnee', oeuvre: 'lecon' })
+  const chasse = { ...vues.pari, origine: 'chasse' } as VueDeLaPartie
+  for (const [refus, enCours] of [
+    [SON_OEUVRE_EST_A_TOI, null],
+    [PLUS_DE_CHASSE, null],
+    [laPartieAttend(chasse.jeu), chasse],
+  ] as const) {
+    const manquee = uneCase({ jeu: 'pari', enJeu: { pourDorer: o.cle }, faite: true, issue: 'manquee', seuilDuDouble: 5, retenter: { possible: false, refus } })
+    const html = await laVisite(laVisiteDe([manquee, gagnee], { enCours }))
+    const t = texte(html)
+    assert.ok(!boutonsDe(html).some(x => x.texte.startsWith('Retenter')), `${refus} : rien à retenter`)
+    assert.match(t, new RegExp(`Faite ${JEUX.pari.nom} ${SON_OEUVRE_EST_A_TOI}`), refus)
+    assert.doesNotMatch(t, /Pas de dorure/, refus)
+    if (refus !== SON_OEUVRE_EST_A_TOI) assert.doesNotMatch(t, new RegExp(echapper(texte(refus).trim())), `${refus} : une raison sous un geste qui n’est pas là`)
+  }
+  // Par le vrai serveur : la case quittée, son œuvre achetée, puis une chasse qui attend, puis les deux chasses prises.
+  const sacha = await unProfilRiche('sacha', 'Sacha')
+  const visite = ok(await commencer(b, sacha, { origine: 'visite', case: 0, carte: null }), 'la visite')
+  const cible = departEnBase(b.fichier, visite.id).cible
+  assert.ok(estUneOeuvre(cible), 'une case d’un musée neuf vise une œuvre')
+  ok(await jouer(b, sacha, visite, { quoi: 'quitter' }), 'quittée : manquée')
+  ok(await poster(b, sacha, `/api/cabinet/oeuvre/${cible}/achat`, { prix: PRIX_D_UNE_OEUVRE[oeuvreDe(cible)!.rarete] }), 'l’achat')
+  const lues: PageDuCabinet[] = [ok(await laPage(b, sacha), 'achetée')]
+  const aDorer = 'prudence'
+  for (let i = 0; i < CHASSES_PAR_JOUR; i++) {
+    const c = ok(await commencer(b, sacha, { origine: 'chasse', oeuvre: aDorer, carte: null }), `la chasse ${i + 1}`)
+    if (i === 0) lues.push(ok(await laPage(b, sacha), 'une chasse qui attend'))
+    ok(await jouer(b, sacha, c, { quoi: 'quitter' }), 'quittée')
+  }
+  lues.push(ok(await laPage(b, sacha), 'les chasses prises'))
+  // Le refus que le serveur dit d'abord n'y change rien : la page ne lit pas l'ordre de ses refus.
+  assert.ok(lues.every(p => p.visite.cases[0].retenter?.possible === false), JSON.stringify(lues.map(p => p.visite.cases[0].retenter)))
+  for (const p of lues) {
+    assert.ok('pourDorer' in p.visite.cases[0].enJeu, 'sa case passe « pour dorer »')
+    const html = await laVisite(p)
+    assert.ok(!boutonsDe(html).some(x => x.texte.startsWith('Retenter')), p.visite.cases[0].retenter?.refus)
+    assert.match(texte(html), new RegExp(`Faite ${echapper(JEUX[p.visite.cases[0].jeu].nom)} ${SON_OEUVRE_EST_A_TOI}`))
+    assert.doesNotMatch(texte(html), /Pas de dorure/)
+  }
+})
+
+test('une partie qui attend éteint aussi « Retenter » : sa raison dite une fois, au-dessus des cases, et un seul « Reprendre » — toutes les cases faites comprises', async () => {
+  // La retente même est une chasse : pendant qu'elle attend, chaque case manquée redisait la raison sous son « Retenter », et les
+  // trois cases faites, la visite disait « reprends-la » trois fois sans un seul « Reprendre ».
+  const chasse = { ...vues.pari, origine: 'chasse' } as VueDeLaPartie
+  const raison = texte(laPartieAttend(chasse.jeu)).trim()
+  const manquee = (jeu: CleDeJeu) => uneCase({ jeu, enJeu: enGagnant, faite: true, issue: 'manquee', seuil: 6, retenter: { possible: false, refus: laPartieAttend(chasse.jeu) } })
+  /** Ce qu'une visite qui attend doit dire : la raison une fois, en tête, que chaque geste éteint désigne, et un seul « Reprendre ». */
+  const uneFois = (html: string, ou: string) => {
+    assert.equal([...texte(html).matchAll(new RegExp(echapper(raison), 'g'))].length, 1, `${ou} : la raison dite une fois`)
+    assert.equal(boutonsDe(html).filter(x => x.texte === 'Reprendre' && !x.eteint).length, 1, `${ou} : un seul « Reprendre »`)
+    const enTete = /<p id="([^"]+)" class="cab-raison cab-raison-en-tete">/.exec(html)
+    assert.ok(enTete && html.indexOf(enTete[0]) < html.indexOf('class="cab-cases"'), `${ou} : la raison au-dessus des cases`)
+    const retenter = boutonsDe(html).filter(x => x.texte.startsWith('Retenter'))
+    assert.ok(retenter.length > 0, ou)
+    for (const r of retenter) assert.ok(r.eteint && r.raison === enTete[1], `${ou} : « Retenter » désigne la raison d’en tête`)
+  }
+  uneFois(await laVisite(laVisiteDe([manquee('pari'), uneCase({ jeu: 'eclair', enJeu: enGagnant, seuil: 6 })], { enCours: chasse })), 'une case encore à jouer')
+  uneFois(await laVisite(laVisiteDe([manquee('pari'), manquee('mot'), manquee('frise')], { enCours: chasse })), 'toutes faites')
+  // Une partie de la visite qui attend : sa case porte « Reprendre », la raison au-dessus se tait d'un second, la case manquée la désigne.
+  const enVisite = { ...vues.pari, origine: 'visite' } as VueDeLaPartie
+  const ici = await laVisite(laVisiteDe([uneCase({ jeu: 'pari', enJeu: enGagnant, faite: true, seuil: 6 }), manquee('mot')], { enCours: enVisite }))
+  uneFois(ici, 'sa case en cours')
+  assert.match(texte(ici), new RegExp(`En cours ${JEUX.pari.nom}`))
+  // Par le vrai serveur : la case quittée, sa retente commencée ; puis les trois cases faites, et une seconde retente.
+  const yael = await unProfilRiche('yael', 'Yaël')
+  const v0 = ok(await commencer(b, yael, { origine: 'visite', case: 0, carte: null }), 'la visite')
+  ok(await jouer(b, yael, v0, { quoi: 'quitter' }), 'quittée : manquée')
+  const retente = ok(await commencer(b, yael, { origine: 'chasse', case: 0, retente: true, carte: null }), 'la retente')
+  const pendant = ok(await laPage(b, yael), 'la retente qui attend')
+  const raisonLue = texte(laPartieAttend(pendant.enCours!.jeu)).trim()
+  const lueUneFois = (html: string, ou: string) => {
+    assert.equal([...texte(html).matchAll(new RegExp(echapper(raisonLue), 'g'))].length, 1, `${ou} : la raison dite une fois`)
+    assert.equal(boutonsDe(html).filter(x => x.texte === 'Reprendre' && !x.eteint).length, 1, `${ou} : un seul « Reprendre »`)
+  }
+  lueUneFois(await laVisite(pendant), 'deux cases à jouer')
+  ok(await jouer(b, yael, retente, { quoi: 'quitter' }), 'la retente quittée')
+  for (const k of [1, 2]) ok(await jouer(b, yael, ok(await commencer(b, yael, { origine: 'visite', case: k, carte: null }), `la case ${k}`), { quoi: 'quitter' }), 'quittée')
+  ok(await commencer(b, yael, { origine: 'chasse', case: 0, retente: true, carte: null }), 'la seconde retente')
+  const toutes = ok(await laPage(b, yael), 'toutes faites')
+  assert.ok(toutes.visite.cases.every(c => c.faite))
+  lueUneFois(await laVisite(toutes), 'toutes faites')
+})
+
+test('la tête d’une partie pour dorer ne promet pas un seuil qui ne donne rien : rien en chasse, le double en visite', async () => {
+  // Une chasse pour dorer fige un seuil (`cadreDuDepart`) : sans cadre doré, elle est manquée, il n'y a pas de double en chasse
+  // (`issueDe`). La tête disait « il en faut 5 » sous l'annonce qui venait de dire « toutes ses manches parfaites ».
+  const tete = (html: string) => /<header class="cab-tete-partie">[\s\S]*?<\/header>/.exec(html)?.[0] ?? ''
+  const o = aLuiSansCadre()
+  const enChasse = tete(await laPartie({ ...vues.pari, origine: 'chasse', enJeu: { pourDorer: o.cle }, seuil: 5 } as VueDeLaPartie))
+  assert.doesNotMatch(texte(enChasse), /il en faut|double/)
+  assert.match(enChasse, /aria-label="0 étoile sur 9"/)
+  // En visite, ce seuil est celui de son double : la tête le dit pour ce qu'il est.
+  const enVisite = tete(await laPartie({ ...vues.pari, origine: 'visite', enJeu: { pourDorer: o.cle }, seuil: 5 } as VueDeLaPartie))
+  assert.match(texte(enVisite), /0 \/ 9 ★ le double à 5/)
+  assert.doesNotMatch(texte(enVisite), /il en faut/)
+  assert.match(enVisite, /aria-label="0 étoile sur 9, le double à 5"/)
+  // Par le vrai serveur : la chasse d'une œuvre de départ — Prudence, au Pari — porte bien ce seuil.
+  assert.ok(OEUVRES_DE_DEPART.includes('prudence') && JEU_DE_L_OEUVRE.prudence === 'pari')
+  const tess = await unProfilRiche('tess', 'Tess')
+  const c = ok(await commencer(b, tess, { origine: 'chasse', oeuvre: 'prudence', carte: null }), 'la chasse pour dorer')
+  assert.deepEqual(c.enJeu, { pourDorer: 'prudence' })
+  assert.notEqual(c.seuil, null)
+  assert.doesNotMatch(texte(tete(await laPartie(c))), /il en faut|double/)
+  ok(await jouer(b, tess, c, { quoi: 'quitter' }), 'quittée')
+})
+
+test('« Retenter » au bilan n’ouvre son annonce que sur la page relue : perdue en route, le bilan reste et le dit', async () => {
+  // Relue en échec, la retente retombait sur la page d'avant la partie — rouverte au rechargement ou par « Reprendre », elle la
+  // disait encore en cours : l'annonce éteignait « Commencer », et son « Reprendre » rouvrait une partie finie.
+  const { laCaseDeLaRetente } = await import(url('views/cabinet/ecrans.ts'))
+  const cases = [uneCase({ jeu: 'eclair', enJeu: enGagnant }), uneCase({ jeu: 'pari', enJeu: enGagnant, faite: true, issue: 'manquee', seuil: 6, retenter: { possible: true } })]
+  assert.equal(laCaseDeLaRetente(laVisiteDe(cases), 'pari'), 1, 'la case retrouvée par son jeu')
+  assert.equal(laCaseDeLaRetente(laVisiteDe(cases), 'mot'), 'musee', 'minuit passé : la visite n’a plus son jeu')
+  assert.equal(laCaseDeLaRetente(null, 'pari'), null, 'la page pas relue : rien ne s’ouvre')
+  const app = source('views/CabinetApp.tsx')
+  const corps = app.slice(app.indexOf('const retenterDuBilan'), app.indexOf('const ecrire'))
+  assert.doesNotMatch(corps, /\?\? page\b/, 'jamais la page d’avant la partie')
+  assert.match(corps, /const k = laCaseDeLaRetente\(relue, jeu\)\s+if \(k === null\) return/)
+  assert.match(corps, /showToast\(\{ kind: 'error', message: motifDe\(e\) \}\)/, 'l’échec se dit')
+})
+
+test('une case pour dorer dont l’œuvre s’est dorée dans la journée ne promet plus le cadre : l’annonce dit le double, la carte-bonus et la mise n’ont rien à ôter', async () => {
+  // La dorure achetée — ou une chasse — dans la journée laisse sa case « pour dorer » (`enjeuDe` ne lit que la possession) :
+  // l'annonce disait « Pour la dorer : toutes ses manches parfaites », la carte-bonus « T'en servir ôte le cadre doré », la mise
+  // « Tu vises le cadre doré », quand la partie ne peut plus que doubler (`issueDe`).
+  const doree = page.salles.flatMap(s => s.oeuvres).find(o => o.possedee && o.doree)!
+  assert.equal(doree.cle, 'lecon', 'la Leçon de Léa, gagnée dans un cadre doré')
+  const c = uneCase({ jeu: 'eclair', enJeu: { pourDorer: doree.cle }, seuilDuDouble: 6 })
+  const annonce = texte(await rendu('views/cabinet/Annonce', 'Annonce', { page: laVisiteDe([c]), demande: { origine: 'visite', case: 0 }, carte: 'coup-d-oeil', busy: false, onCarte: rien, onCommencer: rien, onRetour: rien }))
+  assert.doesNotMatch(annonce, /Pour dorer|Pour la dorer|ôte le cadre doré|Sans cadre doré/)
+  assert.match(annonce, new RegExp(`Pour un double de ${echapper(doree.nom)}`))
+  assert.match(annonce, /Son cadre est déjà doré : 6 étoiles sur 9 font un double, sa poussière d’or en plus\./)
+  const { annonceDe } = await import(url('views/cabinet/Annonce.tsx'))
+  assert.equal(annonceDe(laVisiteDe([c]), { origine: 'visite', case: 0 }).dorer, false)
+  // La visite le dit de même, sur sa case, et sa peinture montre le cadre déjà là.
+  const visite = await laVisite(laVisiteDe([c]))
+  assert.match(texte(visite), new RegExp(`À jouer ${echapper(JEUX.eclair.nom)} Pour un double de ${echapper(doree.nom)}`))
+  assert.match(visite, /<li class="cab-case">.*exp-vc-doree/)
+  assert.doesNotMatch(await laVisite(laVisiteDe([{ ...c, enJeu: { pourDorer: aLuiSansCadre().cle } }])), /exp-vc-doree/)
+  // La mise : son cadre pas encore doré, miser le perdrait ; déjà doré, rien à perdre.
+  const carte = { cle: 'tout-ou-rien', pouvoir: 'miser', force: 1, reste: 1, dit: ceQueFaitLaCarte('miser', 1, 'pari') }
+  const avant = { ...vues.pari, origine: 'visite', enJeu: { pourDorer: doree.cle }, seuil: 6, phase: 'avant', carte, pouvoir: { jouable: true }, enCours: undefined, chrono: undefined } as unknown as VueDeLaPartie
+  assert.match(texte(await laPartie(avant)), /Tu vises le cadre doré/)
+  assert.doesNotMatch(texte(await laPartie(avant, { cadreDejaDore: true })), /cadre doré/)
+  // La page le lit de sa page, la partie le reçoit de `CabinetApp` jusqu'à sa mise.
+  assert.match(source('views/CabinetApp.tsx'), /cadreDejaDore=\{dejaDoree\(p, vue\.enJeu\)\}/)
+  assert.match(source('views/cabinet/Partie.tsx'), /cadreDejaDore=\{cadreDejaDore\}/)
+  assert.match(source('views/cabinet/Partie.tsx'), /viseLeCadreDore\(vue, cadreDejaDore\)/)
+})
+
+test('« Quitter ? » compte ses étoiles par l’accord du Cabinet, et la tête par le sien : deux fonctions, deux noms', () => {
+  // `ceQuOnEmporte` recomposait « N étoile(s) » à la main, à côté d'une `etoilesDites` locale qui disait « sur 9 », homonyme de
+  // celle d'`EnEtoiles.tsx` : deux sens sous un nom.
+  const partie = source('views/cabinet/Partie.tsx')
+  assert.match(partie, /import \{[^}]*\betoilesDites\b[^}]*\} from '\.\/EnEtoiles'/)
+  assert.doesNotMatch(partie, /étoile\$\{/, 'un accord écrit à la main')
+  assert.doesNotMatch(partie, /const etoilesDites\b/, 'une seconde `etoilesDites`')
 })

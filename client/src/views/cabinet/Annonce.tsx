@@ -16,7 +16,7 @@ import { oeuvreDeLaPage } from './Oeuvre'
 import { ecranDuJeu } from './Partie'
 import { PartieQuiAttend } from './PartieQuiAttend'
 import { oeuvreMontree } from './Salle'
-import { enJeuDit } from './Visite'
+import { dejaDoree, enJeuDit } from './Visite'
 
 // L'annonce d'une partie (§ 2.2) : tout ce qu'elle montre, la page l'a déjà —
 // le jeu, son geste, son barème dit (`JEUX`), ce qui est en jeu sans nommer
@@ -43,20 +43,34 @@ export interface CeQuElleAnnonce {
   enJeu: string | null
   /** Les étoiles qu'il faut pour gagner l'œuvre, celles que le serveur dit ; rien pour dorer, ni sans œuvre. */
   seuil: number | null
-  /** Une œuvre à lui, à dorer : toutes ses manches parfaites, sans pouvoir. */
+  /** Une œuvre à lui, à dorer : toutes ses manches parfaites, sans pouvoir. Son cadre déjà doré, il n'y a plus que le double. */
   dorer: boolean
-  /** Une case de la visite pour dorer : les étoiles qui, sans le cadre doré, font son double (`CaseVue.seuilDuDouble`). */
+  /**
+   * Une case de la visite pour dorer : les étoiles qui font son double (`CaseVue.seuilDuDouble`) — sans le cadre doré, ou son cadre
+   * déjà doré dans la journée (`dorer` faux).
+   */
   double?: number
 }
 
 /**
  * Ce qu'une case annonce, lu dans la vue du serveur : son enjeu, jamais son
  * œuvre ; son seuil, ou pour dorer celui de son double — le serveur les dit
- * (`CaseVue.seuil`, `seuilDuDouble`), la page ne relit pas le barème.
+ * (`CaseVue.seuil`, `seuilDuDouble`), la page ne relit pas le barème. Une case
+ * pour dorer dont l'œuvre a pris son cadre dans la journée ne promet plus que
+ * le double (`dejaDoree`) : l'annonce disait « Pour la dorer », et la
+ * carte-bonus ce qui ôterait un cadre déjà là.
  */
-function laCase(c: PageDuCabinet['visite']['cases'][number], piece: string): CeQuElleAnnonce {
-  const dorer = 'pourDorer' in c.enJeu
-  return { jeu: c.jeu, piece, enJeu: enJeuDit(c.enJeu), seuil: 'rarete' in c.enJeu ? (c.seuil ?? null) : null, dorer, ...(dorer && c.seuilDuDouble !== undefined && { double: c.seuilDuDouble }) }
+function laCase(c: PageDuCabinet['visite']['cases'][number], piece: string, page: PageDuCabinet): CeQuElleAnnonce {
+  const doree = dejaDoree(page, c.enJeu)
+  const pourDorer = 'pourDorer' in c.enJeu
+  return {
+    jeu: c.jeu,
+    piece,
+    enJeu: enJeuDit(c.enJeu, doree),
+    seuil: 'rarete' in c.enJeu ? (c.seuil ?? null) : null,
+    dorer: pourDorer && !doree,
+    ...(pourDorer && c.seuilDuDouble !== undefined && { double: c.seuilDuDouble }),
+  }
 }
 
 /**
@@ -70,13 +84,13 @@ export function annonceDe(page: PageDuCabinet, demande: PartieDemandee): CeQuEll
   switch (demande.origine) {
     case 'visite': {
       const c = page.visite.cases[demande.case]
-      return c ? laCase(c, 'La visite du jour') : null
+      return c ? laCase(c, 'La visite du jour', page) : null
     }
     case 'chasse': {
       if ('retente' in demande) {
         const c = page.visite.cases[demande.case]
         // Une chasse au jeu de la case, pour l'œuvre qu'elle visait : à gagner, à son seuil — sans double, il n'y en a pas en chasse.
-        return c ? { ...laCase(c, 'Une chasse'), dorer: false } : null
+        return c ? { ...laCase(c, 'Une chasse', page), dorer: false } : null
       }
       const lue = oeuvreDeLaPage(page, demande.oeuvre)
       if (!lue) return null
@@ -306,7 +320,15 @@ export function Annonce({
         </>
       )}
       {a.dorer && <p className="cab-ligne cab-seuil">{espacesFines(`Pour la dorer : ${ceQueDemandeLeCadre(a.jeu)}, sans qu’un pouvoir ait servi.`)}</p>}
-      {a.double !== undefined && <p className="cab-ligne">{espacesFines(`Sans cadre doré, ${a.double} étoiles sur ${ETOILES_D_UNE_PARTIE} font un double : sa poussière d’or en plus.`)}</p>}
+      {a.double !== undefined && (
+        <p className="cab-ligne">
+          {espacesFines(
+            a.dorer
+              ? `Sans cadre doré, ${a.double} étoiles sur ${ETOILES_D_UNE_PARTIE} font un double : sa poussière d’or en plus.`
+              : `Son cadre est déjà doré : ${a.double} étoiles sur ${ETOILES_D_UNE_PARTIE} font un double, sa poussière d’or en plus.`,
+          )}
+        </p>
+      )}
       <section className="cab-bloc" aria-labelledby="cab-ta-carte">
         <h2 id="cab-ta-carte">Ta carte-bonus</h2>
         {choisie ? <LigneDeCarte carte={choisie} jeu={a.jeu} detail cadre={cadre} /> : <p className="cab-ligne">{espacesFines('Sans carte-bonus : tu joues sans pouvoir.')}</p>}

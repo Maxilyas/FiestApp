@@ -22,8 +22,9 @@
 // le bilan d'une partie quittée ; la partie qui l'attend au musée ; une partie
 // de la visite — son annonce, son seuil dans la tête, rechargée en pleine manche,
 // sa case « En cours » et son « Reprendre », « Quitter ? » qui dit ce qu'on
-// emporte, son bilan manqué et « Retenter », l'annonce de la retente — ; une
-// case pour dorer et son annonce, son œuvre écrite au musée ; la chasse
+// emporte, son bilan manqué et « Retenter », l'annonce de la retente, la visite
+// pendant la retente et sa tête — ; une case pour dorer et son annonce, son
+// œuvre écrite au musée, puis dorée dans la journée ; la chasse
 // de la dernière œuvre de l'Érudit, gagnée sans faute — le bilan doré, la
 // Chouette d'Argent qui s'éveille, « Mes réponses » —, l'œuvre et le cartel
 // que la partie lui a laissé ; l'achat de la dernière œuvre du Devin et le
@@ -1038,6 +1039,20 @@ try {
     await page.waitForSelector('.cab-portes')
     await ouvrir(page, '#visite', '.cab-cases')
     await photo(page, 'visite-une-case-manquee-et-son-retenter', { pleine: true })
+    // La retente commencée de sa case, puis la visite rouverte à neuf — hors de l'entrée de la partie : la retente attend, et la
+    // case manquée met « Retenter » en sourdine sous la raison dite une fois au-dessus des cases, avec son seul « Reprendre » (la
+    // relecture du lot page-2). Reprise de là, puis quittée : la chasse de la Leçon garde la seconde chasse du jour.
+    await toucher(page, page.locator('.cab-case .btn', { hasText: 'Retenter' }))
+    await page.waitForSelector('.cab-annonce')
+    await commencer(page)
+    await ouvrir(page, '#visite', '.cab-cases')
+    const reprises = await page.locator('.cab-reprendre').count()
+    if (reprises !== 1) echecs.push(`[rendu] la visite pendant sa retente : ${reprises} « Reprendre »`)
+    await photo(page, 'visite-pendant-sa-retente', { pleine: true })
+    await toucher(page, page.locator('.cab-reprendre'))
+    await page.waitForSelector('.cab-tete-partie')
+    await photo(page, 'la-tete-de-la-retente')
+    await quitter(page, null)
   })
 
   // Une case pour dorer : son œuvre écrite au musée de Léa — celle qu'une autre case de la visite figée vise, ni la Leçon ni la
@@ -1045,6 +1060,7 @@ try {
   await etape('l’annonce d’une case pour dorer', async () => {
     const db = new Database(fichier)
     let aDorer = -1
+    let saCible: string | null = null
     try {
       const { visites } = db.prepare('SELECT visites FROM cabinet_profils WHERE profile_id = ?').get(idDeLea) as { visites: string }
       // La visite du jour : la plus récente des visites figées, que le départ de la partie d'avant a figée.
@@ -1053,7 +1069,8 @@ try {
       const siennes = new Set((db.prepare('SELECT oeuvre FROM cabinet_oeuvres WHERE profile_id = ?').all(idDeLea) as { oeuvre: string }[]).map(r => r.oeuvre))
       aDorer = cases.findIndex((c, k) => k !== caseJouee && c.cible !== null && oeuvreDe(c.cible) && c.cible !== LA_LECON && c.cible !== communeDuDevin && !siennes.has(c.cible))
       if (aDorer < 0) throw new Error('aucune autre case de la visite ne vise une œuvre à écrire')
-      db.prepare(`INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, doree_le, dorure) VALUES (?, ?, 'partie', ?, NULL, NULL)`).run(idDeLea, cases[aDorer].cible, maintenant() - JOUR)
+      saCible = cases[aDorer].cible
+      db.prepare(`INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, doree_le, dorure) VALUES (?, ?, 'partie', ?, NULL, NULL)`).run(idDeLea, saCible, maintenant() - JOUR)
     } finally {
       db.close()
     }
@@ -1063,6 +1080,22 @@ try {
     await toucher(page, page.locator('.cab-case').nth(aDorer).locator('.btn-primary', { hasText: 'Jouer' }))
     await page.waitForSelector('.cab-annonce')
     await photo(page, 'annonce-d-une-case-pour-dorer', { pleine: true })
+    await toucher(page, page.locator('.cab-page > .jour-sortie'))
+    await page.waitForSelector('.cab-portes')
+    // Son cadre doré dans la journée — la dorure achetée, écrite au musée — : la case ne promet plus que le double, ni l'annonce
+    // le cadre, ni la carte-bonus ce qui l'ôterait (la relecture du lot page-2).
+    const dorer = new Database(fichier)
+    try {
+      dorer.prepare(`UPDATE cabinet_oeuvres SET doree_le = ?, dorure = 'poussiere', prix_dorure = 0 WHERE profile_id = ? AND oeuvre = ?`).run(maintenant(), idDeLea, saCible)
+    } finally {
+      dorer.close()
+    }
+    await banc.redemarrer()
+    await ouvrir(page, '#visite', '.cab-cases')
+    await photo(page, 'visite-une-case-deja-doree', { pleine: true })
+    await toucher(page, page.locator('.cab-case').nth(aDorer).locator('.btn-primary', { hasText: 'Jouer' }))
+    await page.waitForSelector('.cab-annonce')
+    await photo(page, 'annonce-d-une-case-deja-doree', { pleine: true })
     await toucher(page, page.locator('.cab-page > .jour-sortie'))
     await page.waitForSelector('.cab-portes')
   })

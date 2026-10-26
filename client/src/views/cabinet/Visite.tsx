@@ -27,19 +27,48 @@ import { oeuvreMontree } from './Salle'
 // et trois « Changer de jeu » de même nom, Hugo ne savait lequel il touchait
 // (la tablée du 25 octobre 2026) ; à l'œil, rien ne change.
 
-/** Ce qu'une case met en jeu, en clair : une rareté et une salle, l'œuvre à dorer — elle est à lui —, ou la poussière d'or. */
-export function enJeuDit(enJeu: EnjeuDUneCase): string {
-  if ('pourDorer' in enJeu) return `Pour dorer ${oeuvreDe(enJeu.pourDorer)?.nom ?? 'ton œuvre'}`
+/**
+ * L'œuvre qu'une case — ou une partie — met en jeu « pour dorer » a-t-elle déjà son cadre doré ? Dorée dans la journée — la
+ * dorure achetée, une chasse —, sa case reste « pour dorer » (`enjeuDe` ne lit que la possession) : il n'y a plus qu'un double à
+ * y gagner (`issueDe`), et l'annonce promettait encore le cadre (la relecture du lot page-2). La page le lit de ses salles.
+ */
+export function dejaDoree(page: Pick<PageDuCabinet, 'salles'>, enJeu: EnjeuDUneCase | null): boolean {
+  if (!enJeu || !('pourDorer' in enJeu)) return false
+  const cle = enJeu.pourDorer
+  return page.salles.some(s => s.oeuvres.some(o => o.cle === cle && o.doree))
+}
+
+/**
+ * Ce qu'une case met en jeu, en clair : une rareté et une salle, l'œuvre à dorer — elle est à lui —, ou la poussière d'or. Son
+ * cadre déjà doré (`doree`, `dejaDoree`), l'œuvre ne se joue plus que pour son double.
+ */
+export function enJeuDit(enJeu: EnjeuDUneCase, doree = false): string {
+  if ('pourDorer' in enJeu) {
+    const nom = oeuvreDe(enJeu.pourDorer)?.nom ?? 'ton œuvre'
+    return doree ? `Pour un double de ${nom}` : `Pour dorer ${nom}`
+  }
   if ('poussiere' in enJeu) return 'Pour la poussière d’or'
   return `Peut te faire gagner une œuvre ${RARETE_DITE[enJeu.rarete]} ${salle(enJeu.salle)?.deLaSalle ?? ''}`.trimEnd()
 }
+
+/**
+ * L'œuvre d'une case manquée est-elle à lui depuis ? Gagnée en chasse ou achetée après la partie, elle fait passer sa case
+ * « pour dorer » (`enjeuDe`) ; et seule une case qui visait une œuvre à gagner porte `retenter` (`retenteDeLaCase` n'en dit rien
+ * d'une case qui était pour dorer) : les deux ensemble ne disent rien d'autre. Le serveur refuse alors la retente — mais dit
+ * d'abord la partie qui attend, ou les chasses prises (`cadreDuDepart`) : la case ne lit pas l'ordre de ses refus. Elle disait
+ * « Pas de dorure cette fois », et « Retenter » en sourdine pour une œuvre déjà à lui (la relecture du lot page-2).
+ */
+const sonOeuvreEstALui = (c: Pick<CaseVue, 'enJeu' | 'retenter'>): boolean => c.retenter?.refus === SON_OEUVRE_EST_A_TOI || (c.retenter !== undefined && 'pourDorer' in c.enJeu)
+
+/** « Retenter » tel qu'une case faite le montre : celui du serveur, sauf quand son œuvre est à lui — plus rien à retenter. */
+const laRetenteMontree = (c: CaseVue): NonNullable<CaseVue['retenter']> | null => (c.faite && c.retenter && !sonOeuvreEstALui(c) ? c.retenter : null)
 
 /** Ce qu'une case faite a donné. Manquée, ce qui reste à faire : rien pour dorer, et « Retenter » pour son œuvre. */
 function issueDite(c: CaseVue): string {
   const nom = c.oeuvre && oeuvreDe(c.oeuvre)?.nom
   if (c.issue === 'manquee') {
+    if (sonOeuvreEstALui(c)) return SON_OEUVRE_EST_A_TOI
     if ('pourDorer' in c.enJeu) return 'Pas de dorure cette fois'
-    if (c.retenter?.refus === SON_OEUVRE_EST_A_TOI) return SON_OEUVRE_EST_A_TOI
     return c.retenter?.possible ? 'L’œuvre reste à gagner : retente-la pour une chasse' : 'L’œuvre reste à gagner'
   }
   const issues: Record<Exclude<IssueDUnePartie, 'manquee'>, string> = {
@@ -57,12 +86,16 @@ function issueDite(c: CaseVue): string {
  * bilan de sa partie : il part, ou se met en sourdine avec la raison du
  * serveur (`aria-disabled`, jamais `disabled` : le focus resterait sur un
  * bouton mort), qu'il désigne à l'oreille. Son œuvre gagnée depuis, il n'y a
- * plus rien à retenter : la case le dit, sans bouton.
+ * plus rien à retenter : la case le dit, sans bouton. `dite` : l'identifiant
+ * d'une raison que l'écran dit déjà, plus haut — la partie qui attend, dite une
+ * fois au-dessus des cases avec son « Reprendre » : il la désigne sans la
+ * redire, sans quoi chaque case manquée la répétait sous elle.
  */
 export function BoutonRetenter({
   jeu,
   retenter,
   id,
+  dite,
   busy = false,
   classe = 'btn',
   onRetenter,
@@ -70,6 +103,7 @@ export function BoutonRetenter({
   jeu: CaseVue['jeu']
   retenter: NonNullable<CaseVue['retenter']>
   id: string
+  dite?: string
   busy?: boolean
   classe?: string
   onRetenter: () => void
@@ -82,12 +116,12 @@ export function BoutonRetenter({
         type="button"
         className={classe}
         aria-disabled={refus !== null || busy || undefined}
-        aria-describedby={refus === null ? undefined : id}
+        aria-describedby={refus === null ? undefined : (dite ?? id)}
         {...toucher(() => refus === null && !busy && onRetenter())}
       >
         {espacesFines(`Retenter cette œuvre ${JEUX[jeu].a} · une chasse`)}
       </button>
-      {refus !== null && (
+      {refus !== null && dite === undefined && (
         <p id={id} className="cab-raison">
           {espacesFines(refus)}
         </p>
@@ -96,16 +130,26 @@ export function BoutonRetenter({
   )
 }
 
+/** La raison qui éteint les gestes de la visite — une partie attend, et rien d'autre ne part —, dite une fois au-dessus des cases. */
+interface LaPartieAttendIci {
+  /** Ce que chaque geste éteint désigne à l'oreille (`aria-describedby`). */
+  id: string
+  /** Ses mots, ceux du serveur (`laPartieAttend`) : un « Retenter » refusé pour elle la reconnaît à eux. */
+  raison: string
+}
+
 /**
- * Une case de la visite. `attend` : l'identifiant de la raison qui éteint son
- * « Jouer » — une partie attend, et rien d'autre ne part —, dite une fois
- * au-dessus des cases, et que chaque « Jouer » désigne à l'oreille. `ici` :
- * c'est sa partie qui attend (`caseEnCours`).
+ * Une case de la visite. `attend` : la raison qui éteint son « Jouer », et son
+ * « Retenter » quand le serveur le refuse pour elle — dite une fois au-dessus
+ * des cases, que chacun désigne à l'oreille. `ici` : c'est sa partie qui
+ * attend (`caseEnCours`). `doree` : son œuvre à dorer a déjà son cadre
+ * (`dejaDoree`).
  */
 function CaseDeLaVisite({
   c,
   k,
   ici,
+  doree,
   echange,
   attend,
   busy,
@@ -116,8 +160,9 @@ function CaseDeLaVisite({
   c: CaseVue
   k: Manche
   ici: boolean
+  doree: boolean
   echange: boolean
-  attend: string | null
+  attend: LaPartieAttendIci | null
   busy: boolean
   onJouer: (p: PartieDemandee) => void
   onEchanger: (k: Manche) => void
@@ -129,24 +174,33 @@ function CaseDeLaVisite({
   const montree = c.oeuvre ?? ('pourDorer' in c.enJeu ? c.enJeu.pourDorer : undefined)
   const o = montree && oeuvreDe(montree)
   const faite = c.faite && !ici
+  const retente = faite ? laRetenteMontree(c) : null
   return (
     <li className={'cab-case' + (faite ? ' cab-faite' : '')}>
       <span className="cab-vignette" aria-hidden="true">
-        {o ? <OeuvrePeinte oeuvre={oeuvreMontree(o, o.salle)} taille="main" /> : <span className="cab-inconnue">?</span>}
+        {/* Son cadre déjà doré se voit : la ligne dit « Pour un double », la peinture dit pourquoi. */}
+        {o ? <OeuvrePeinte oeuvre={oeuvreMontree(o, o.salle)} taille="main" doree={doree} /> : <span className="cab-inconnue">?</span>}
       </span>
       <span className="cab-case-texte">
         <span className="cab-surtitre">{ici ? 'En cours' : faite ? 'Faite' : 'À jouer'}</span>
         <b className="cab-case-jeu">{jeu.nom}</b>
-        <span className="cab-ligne">{espacesFines(faite ? issueDite(c) : enJeuDit(c.enJeu))}</span>
+        <span className="cab-ligne">{espacesFines(faite ? issueDite(c) : enJeuDit(c.enJeu, doree))}</span>
         {/* La partie qui attend, c'est elle : elle se reprend d'ici, son chrono n'a pas attendu. */}
         {ici && onReprendre && (
           <span className="cab-gestes">
             <BoutonReprendre classe="btn btn-primary" onReprendre={onReprendre} />
           </span>
         )}
-        {faite && c.retenter && (
+        {retente && (
           <span className="cab-gestes">
-            <BoutonRetenter jeu={c.jeu} retenter={c.retenter} id={idDeLaRetente} busy={busy} onRetenter={() => onJouer({ origine: 'chasse', case: k, retente: true })} />
+            <BoutonRetenter
+              jeu={c.jeu}
+              retenter={retente}
+              id={idDeLaRetente}
+              dite={attend && retente.refus === attend.raison ? attend.id : undefined}
+              busy={busy}
+              onRetenter={() => onJouer({ origine: 'chasse', case: k, retente: true })}
+            />
           </span>
         )}
         {!c.faite && c.bientot && <span className="cab-raison">{JEU_PAS_LIVRE}</span>}
@@ -159,7 +213,7 @@ function CaseDeLaVisite({
                 className="btn btn-primary"
                 aria-label={`Jouer ${jeu.a}`}
                 aria-disabled={busy || attend !== null || undefined}
-                aria-describedby={attend ?? undefined}
+                aria-describedby={attend?.id}
                 {...toucher(() => !busy && attend === null && onJouer({ origine: 'visite', case: k }))}
               >
                 Jouer
@@ -199,9 +253,13 @@ export function Visite({
   // permet — une fois par jour, la case de son choix. Elle ne dépend de la case que par « déjà jouée », que `faite` dit déjà.
   const aJouerEncore = cases.some(c => !c.faite)
   // Une partie qui attend éteint chaque « Jouer », comme la chasse d'une œuvre : sinon l'annonce s'ouvrait, et « Commencer » ne
-  // le disait qu'en toast. Sa raison se dit une fois, s'il reste une case qu'elle éteint, au-dessus des cases : sous la
-  // troisième, elle tombait sous le pli en 360 × 640, et les « Jouer » en sourdine ne disaient pas pourquoi.
-  const attend = cases.some(c => !c.faite && !c.bientot) ? laPartieQuiAttend(page) : null
+  // le disait qu'en toast. Elle éteint aussi « Retenter » (le serveur le refuse pour elle) — et la retente même est une chasse.
+  // Sa raison se dit une fois, s'il reste un geste qu'elle éteint, au-dessus des cases : sous la troisième, elle tombait sous le
+  // pli en 360 × 640, et les gestes en sourdine ne disaient pas pourquoi ; sous chaque case manquée, elle se répétait, et les
+  // trois faites, la visite la disait trois fois sans un seul « Reprendre » (la relecture du lot page-2).
+  const raison = laPartieQuiAttend(page)
+  const eteinte = (c: CaseVue) => (!c.faite && !c.bientot) || (raison !== null && laRetenteMontree(c)?.refus === raison)
+  const attend = raison !== null && cases.some(eteinte) ? { id: idDeLAttente, raison } : null
   // Une partie de la visite qui attend se reprend de sa case : « Reprendre » une seule fois, là où elle se joue. Une chasse ou une
   // libre, sous la raison.
   const saCase = cases.some(c => caseEnCours(c, page.enCours))
@@ -220,8 +278,9 @@ export function Visite({
             c={c}
             k={k as Manche}
             ici={caseEnCours(c, page.enCours)}
+            doree={dejaDoree(page, c.enJeu)}
             echange={echange.possible && !c.faite}
-            attend={attend === null ? null : idDeLAttente}
+            attend={attend}
             busy={busy}
             onJouer={onJouer}
             onEchanger={onEchanger}

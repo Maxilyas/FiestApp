@@ -23,7 +23,9 @@ import {
   RetourAuMusee,
   adresseDe,
   ecranDeLAdresse,
+  laCaseDeLaRetente,
   memeEcran,
+  ouvertureAuChargement,
   partieARouvrir,
   partieDansLEntree,
   poserLEntreeDeLaPartie,
@@ -40,7 +42,7 @@ import { Oeuvre, oeuvreDeLaPage } from './cabinet/Oeuvre'
 import { Partie, ecranDuJeu } from './cabinet/Partie'
 import { FeuilleDesRegles } from './cabinet/Regles'
 import { Salle } from './cabinet/Salle'
-import { JouerLibrement, Visite } from './cabinet/Visite'
+import { JouerLibrement, Visite, dejaDoree } from './cabinet/Visite'
 import { carteRetenue, reglesLues, retenirLaCarte, retenirLesRegles } from './cabinet/retenu'
 
 // La page du Cabinet de curiosités (`/cabinet`) : le musée et ses écrans —
@@ -289,8 +291,8 @@ export function CabinetApp() {
       // cherchait (la tablée du 25 octobre 2026). Sans page — sans profil, une panne —, rien à rouvrir.
       premiere.then(
         p => {
-          const rouverte = vivant ? partieARouvrir(window.history, p.enCours) : null
-          if (rouverte) setEnPartie({ e: 'jeu', vue: rouverte })
+          const ouverture = vivant ? ouvertureAuChargement(window.history, p.enCours) : null
+          if (ouverture) setEnPartie(ouverture)
         },
         () => vivant && partieARouvrir(window.history, null),
       )
@@ -413,14 +415,19 @@ export function CabinetApp() {
   /**
    * « Retenter » au bilan d'une case manquée : l'annonce de sa retente, au même jeu, pour une chasse. La page se relit d'abord —
    * celle d'avant la partie la disait encore en cours, et l'annonce aurait éteint « Commencer » — ; la case se retrouve par son
-   * jeu, que la visite ne donne qu'à une case : la vue de la partie ne dit pas laquelle elle était. Sur l'entrée de la partie,
+   * jeu (`laCaseDeLaRetente`). Relue en échec, rien ne s'ouvre : le bilan reste, et le toast le dit. Sur l'entrée de la partie,
    * que l'annonce reprend (`poserLEntreeDeLaPartie` n'en pose pas une seconde) : le retour mène au musée, pas au bilan.
    */
   const retenterDuBilan = async (jeu: CleDeJeu) => {
     const lue = api.cabinet.page()
     lirePage(lue)
-    const k = ((await lue.catch(() => null)) ?? page)?.visite.cases.findIndex(c => c.jeu === jeu) ?? -1
-    if (k < 0) versLeMusee()
+    const relue = await lue.catch((e: unknown) => {
+      showToast({ kind: 'error', message: motifDe(e) })
+      return null
+    })
+    const k = laCaseDeLaRetente(relue, jeu)
+    if (k === null) return
+    if (k === 'musee') versLeMusee()
     else jouer({ origine: 'chasse', case: k, retente: true })
   }
 
@@ -536,6 +543,9 @@ export function CabinetApp() {
         depart={vue}
         // La partie relue avec la page — au retour au premier plan, après un refus — : elle a pu continuer sans cet écran.
         relue={p.enCours?.id === vue.id ? p.enCours : null}
+        // Une case pour dorer dont l'œuvre a pris son cadre dans la journée : la mise n'a plus de cadre à perdre. La vue ne le dit
+        // pas, la page le sait de ses salles — rien ne se dore pendant qu'une partie attend.
+        cadreDejaDore={dejaDoree(p, vue.enJeu)}
         onMusee={revenirDeLaPartie}
         onRelire={relire}
         // Finie, elle a pu gagner, dorer ou doubler une œuvre — celle d'une chasse partie de son écran, qu'un retour fait reparaître.

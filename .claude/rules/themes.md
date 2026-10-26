@@ -84,7 +84,18 @@ paths:
   elle se disait illisible à 1,3:1), ni couverte même en partie, ni défilée
   hors de son cadre —, le fond derrière les lettres, pas dans tout
   l'interligne (le bas d'une ombre portée), et jamais un geste éteint
-  (`aria-disabled`, `:disabled`), dont WCAG ne demande rien.
+  (`aria-disabled`, `:disabled`), dont WCAG ne demande rien. Le Cabinet de
+  curiosités pose ses lignes à même la page, hors des cartes — le compte des
+  chasses, le nom d'une œuvre sous son cadre, la question d'une manche — :
+  chaque thème peint pose son sol plein sous la colonne
+  (`:root[data-theme='<clé>'] .cab-page { background: var(--bg) }`, les
+  seules règles d'un thème qui nomment une classe de page), sans quoi son
+  tableau passait sous elles — au Sommet, « 2 chasses aujourd'hui » à
+  1,36:1 sur la neige ; aux Heures, la question d'un Pari à 1,58:1 sur la
+  page du mois (les rendus des 25 et 26 octobre 2026). Le décor reste de
+  chaque côté de la colonne. `cabinet-ecran.test.ts` le relit dans chaque
+  feuille qui cite ses décors (`--decor-…`) ; `rendu-cabinet.ts`
+  (`THEME=<clé>`) en mesure les `[contraste]`.
 - **Un achat de plus** s'écrit avec son prix, sur une ligne jamais
   modifiée, et touche cinq endroits de `ProfileStore` : sa table, `achatsDe`,
   les dépenses de `boutiqueEtDons`, `unAchatALaFois` et la liste de

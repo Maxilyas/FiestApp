@@ -215,6 +215,15 @@
   text-shadow: 0 1px 2px rgba(6, 9, 24, 0.9), 0 0 10px rgba(6, 9, 24, 0.8), 0 0 20px rgba(6, 9, 24, 0.55);
 }
 
+/* Le Cabinet de curiosités pose ses lignes à même la page, hors des cartes —
+   le pouvoir d'une œuvre sous son cadre, ce que coûte « Commencer » — : sur le
+   village et son ciel, le halo ne suffisait plus, « Prendre son temps »
+   tombait à 2,09:1 (le rendu du 26 octobre 2026). Sa colonne prend le sol de
+   la nuit, comme au Sommet ; le ciel reste de chaque côté. */
+:root[data-theme='ciel'] .cab-page {
+  background: var(--bg);
+}
+
 /* Les cartes et les réponses : du verre de nuit, un filet de lumière. */
 :root[data-theme='ciel'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='ciel'] .ans-btn:not(.correct):not(.chosen),

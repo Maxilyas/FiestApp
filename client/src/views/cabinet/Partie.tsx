@@ -28,6 +28,7 @@ import type { FinDUneManche, GesteDuCabinet, Manche, ReponseDUnJeu } from '../..
 import type { RevelationVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { CE_QUI_BORNE_LA_BANDE, poserLaBande, type OuvertureDeLaBande } from './bande'
 import type { BilanDeLaPartie } from './Bilan'
+import { etoilesDites } from './EnEtoiles'
 import { titreDeLaPartie } from './ecrans'
 
 // Une partie du Cabinet à l'écran (§ 2.2-2.7 de la conception) : le cadre
@@ -203,7 +204,7 @@ export function chronoMontre(vue: Pick<VueDeLaPartie, 'chrono' | 'maintenant'>, 
  * la règle reste au serveur, qui la change sans que la page la recopie.
  */
 function ceQuOnEmporte(vue: Pick<VueDeLaPartie, 'origine'> & Partial<Pick<VueDeLaPartie, 'total' | 'carte'>>, s: { total: number; poussiere: number }): string {
-  const etoiles = s.total > 0 ? `${s.total} étoile${s.total > 1 ? 's' : ''}` : null
+  const etoiles = s.total > 0 ? etoilesDites(s.total) : null
   // Protéger se dit s'il a compté : le total de la partie quittée dépasse celui qu'elle a — la manche quittée relevée.
   const protege = vue.carte?.pouvoir === 'proteger' && s.total > (vue.total ?? s.total) ? `, ${POUVOIRS.proteger.nom} compris,` : ''
   const avec =
@@ -353,7 +354,24 @@ export function leSouffleSeRelache(g: Pick<GesteDuCabinet, 'quoi'>, apres: Pick<
 
 const ICONE_DU_POUVOIR: Record<CleDePouvoir, IconName> = { eclairer: 'bulb', proteger: 'shield', temps: 'hourglass', miser: 'dice', changer: 'shuffle' }
 
-const etoilesDites = (n: number) => `${n} étoile${n > 1 ? 's' : ''} sur ${ETOILES_D_UNE_PARTIE}`
+/** « 3 étoiles sur 9 » : le total de la tête, à l'oreille. */
+const etoilesSurNeuf = (n: number) => `${etoilesDites(n)} sur ${ETOILES_D_UNE_PARTIE}`
+
+/**
+ * Le seuil que la tête rappelle sous le total : celui d'une œuvre à gagner
+ * (« il en faut 6 ») ; en visite pour dorer, celui de son double (« le double
+ * à 5 ») — le cadre, lui, demande toutes les manches parfaites, que les cercles
+ * disent. Une chasse pour dorer fige aussi un seuil (`cadreDuDepart`), qui ne
+ * donne rien : sans cadre doré, elle est manquée, il n'y a pas de double en
+ * chasse (`issueDe`). La tête disait « il en faut 5 » sous l'annonce qui venait
+ * de dire « toutes ses manches parfaites » (la relecture du lot page-2).
+ */
+export function seuilDeLaTete(vue: Pick<VueDeLaPartie, 'enJeu' | 'seuil' | 'origine'>): string | null {
+  if (vue.seuil === null || !vue.enJeu) return null
+  if ('rarete' in vue.enJeu) return `il en faut ${vue.seuil}`
+  if ('pourDorer' in vue.enJeu && vue.origine === 'visite') return `le double à ${vue.seuil}`
+  return null
+}
 
 /**
  * Ce qui change sous le doigt sans changer d'écran, et relance la demi-seconde
@@ -390,6 +408,7 @@ export const SECONDES_QUI_PRESSENT = 10
  * « 0 / 9 ★ » passait dessous (Jeanne, à la tablée du 25 octobre 2026).
  */
 function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono: ChronoMontre | null; onQuitter: () => void }) {
+  const seuil = seuilDeLaTete(vue)
   return (
     <header className="cab-tete-partie">
       <div className="cab-tete-ligne">
@@ -406,12 +425,12 @@ function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono
         {/* Le seuil, rappelé sous le total quand une œuvre est en jeu : l'annonce le disait, la tête plus — Camille n'a su ni s'il
             fallait parier, ni que l'œuvre était perdue (la tablée du 25 octobre 2026). Sur sa ligne : à côté, il passait la tête à
             la ligne en 360 de large, la niche posée. */}
-        <span className="cab-total" role="img" aria-label={vue.seuil === null ? etoilesDites(vue.total) : `${etoilesDites(vue.total)}, il en faut ${vue.seuil}`}>
+        <span className="cab-total" role="img" aria-label={seuil === null ? etoilesSurNeuf(vue.total) : `${etoilesSurNeuf(vue.total)}, ${seuil}`}>
           <span className="cab-total-ligne">
             <b>{vue.total}</b>
             {` / ${ETOILES_D_UNE_PARTIE} ★`}
           </span>
-          {vue.seuil !== null && <span className="cab-seuil-tete">{`il en faut ${vue.seuil}`}</span>}
+          {seuil !== null && <span className="cab-seuil-tete">{seuil}</span>}
         </span>
         {vue.phase !== 'finie' && (
           <button type="button" className="btn cab-quitter" aria-label="Quitter" {...toucher(onQuitter)}>
@@ -481,22 +500,36 @@ function CarteDeLaManche({
  * note d'une manche dit le pouvoir qui l'a aidée (« éclairée », une mise,
  * « changée », « temps en plus »). Une mise jouée l'ôte (`cadreDore`) : Théo a
  * misé, fait 9 sur 9, et gagné son œuvre sans cadre doré, sans que rien l'ait
- * dit (la tablée du 25 octobre 2026).
+ * dit (la tablée du 25 octobre 2026). Une œuvre à dorer dont le cadre est déjà
+ * doré (`cadreDejaDore` : la dorure achetée dans la journée, que la page lit de
+ * ses salles) n'a plus de cadre à perdre, seulement son double.
  */
-export function viseLeCadreDore(vue: Pick<VueDeLaPartie, 'enJeu' | 'manches'>): boolean {
-  if (!vue.enJeu || 'poussiere' in vue.enJeu) return false
+export function viseLeCadreDore(vue: Pick<VueDeLaPartie, 'enJeu' | 'manches'>, cadreDejaDore = false): boolean {
+  if (cadreDejaDore || !vue.enJeu || 'poussiere' in vue.enJeu) return false
   return vue.manches.every(m => m.naturel === null || (m.naturel === ETOILES_PAR_MANCHE && !m.note))
 }
 
 /** La mise, avant une manche, sans l'avoir vue : « Pas cette fois » l'ouvre sans elle (§ 4.1). */
-export function MiserOuPas({ vue, manche, busy, onMiser }: { vue: VueDeLaPartie; manche: Manche; busy: boolean; onMiser: (oui: boolean) => void }) {
+export function MiserOuPas({
+  vue,
+  manche,
+  cadreDejaDore = false,
+  busy,
+  onMiser,
+}: {
+  vue: VueDeLaPartie
+  manche: Manche
+  cadreDejaDore?: boolean
+  busy: boolean
+  onMiser: (oui: boolean) => void
+}) {
   return (
     <section className="cab-bloc cab-mise" aria-labelledby="cab-miser">
       <span className="cab-surtitre">{`Manche ${manche + 1} sur ${MANCHES_PAR_PARTIE}`}</span>
       <h2 id="cab-miser">Miser sur cette manche ?</h2>
       <p className="cab-ligne">{espacesFines(POUVOIRS.miser.dit)}</p>
       {vue.carte && <p className="cab-ligne cab-dit">{espacesFines(vue.carte.dit)}</p>}
-      {viseLeCadreDore(vue) && <p className="cab-ligne">{espacesFines('Tu vises le cadre doré : miser le perdrait.')}</p>}
+      {viseLeCadreDore(vue, cadreDejaDore) && <p className="cab-ligne">{espacesFines('Tu vises le cadre doré : miser le perdrait.')}</p>}
       <div className="cab-gestes">
         <button type="button" className="btn btn-primary" aria-disabled={busy || undefined} {...toucher(() => !busy && onMiser(true))}>
           Miser
@@ -630,6 +663,8 @@ export interface PropsDeLEcran {
   busy: boolean
   /** La manche dont la mise se décide, ouverte d'une révélation ; la phase `avant` décide de la première. */
   miser: Manche | null
+  /** L'œuvre à dorer a déjà son cadre (`dejaDoree`, lu de la page du musée) : la mise n'a pas de cadre à perdre. */
+  cadreDejaDore?: boolean
   garde: () => boolean
   gardeDeLEcran: () => boolean
   onGeste: (g: GesteDuCabinet) => void
@@ -677,7 +712,7 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
     )
   } else if (ouverte !== null) {
     quoi = 'mise'
-    corps = <MiserOuPas vue={vue} manche={ouverte} busy={p.busy} onMiser={p.onMiser} />
+    corps = <MiserOuPas vue={vue} manche={ouverte} cadreDejaDore={p.cadreDejaDore} busy={p.busy} onMiser={p.onMiser} />
   } else if (r && (vue.phase === 'revele' || vue.phase === 'finie')) {
     quoi = 'revelation'
     corps = <RevelationDeLaManche vue={vue} revelation={r} ecran={ecran} onSignaler={p.onSignaler} />
@@ -751,6 +786,7 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
 export function Partie({
   depart,
   relue,
+  cadreDejaDore = false,
   onMusee,
   onRelire,
   onFinie,
@@ -759,6 +795,8 @@ export function Partie({
 }: {
   depart: VueDeLaPartie
   relue: VueDeLaPartie | null
+  /** L'œuvre à dorer a déjà son cadre (`dejaDoree`) : la vue ne le dit pas, la page le lit de ses salles. */
+  cadreDejaDore?: boolean
   onMusee: () => void
   onRelire: () => void
   /** Elle vient de finir — sa dernière manche, « Quitter », ou relue finie d'un autre onglet : son œuvre a pu changer. */
@@ -1037,6 +1075,7 @@ export function Partie({
       chrono={chronoMontre(vue, serverNow())}
       busy={busy}
       miser={miser}
+      cadreDejaDore={cadreDejaDore}
       garde={garde}
       gardeDeLEcran={gardeDeLEcran}
       onGeste={agir}

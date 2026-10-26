@@ -21,9 +21,17 @@ const ETOILES = /★+/g
  */
 const apresUnNombre = (avant: string) => /\d\s*$/.test(avant)
 
-/** Un texte du barème tel que l'oreille l'entend — le nom d'un bouton (`aria-label`) : chaque suite d'étoiles dite en mots. */
+/** La flèche d'un barème (« Parier → ★★★ ») : à l'oreille, « pour » — le lecteur d'écran disait « flèche droite ». */
+const FLECHE = /\s*→\s*/g
+
+/**
+ * Un texte du barème tel que l'oreille l'entend — le nom d'un bouton (`aria-label`) : chaque suite d'étoiles dite en mots, la
+ * flèche dite « pour ». Le nom de « Parier » s'écrivait à la main, à côté de celui de « Garder », tiré du barème : un verbe
+ * retouché dans `motsDuPari` aurait changé l'écran sans changer l'oreille (la relecture du lot page-2).
+ */
 export function aLOreille(texte: string): string {
-  return texte.replace(ETOILES, (glyphes: string, ou: number) => `${apresUnNombre(texte.slice(0, ou)) ? ', ' : ''}${etoilesDites(glyphes.length)}`).replace(/\s+,/g, ',')
+  const t = texte.replace(FLECHE, ' pour ')
+  return t.replace(ETOILES, (glyphes: string, ou: number) => `${apresUnNombre(t.slice(0, ou)) ? ', ' : ''}${etoilesDites(glyphes.length)}`).replace(/\s+,/g, ',')
 }
 
 /**

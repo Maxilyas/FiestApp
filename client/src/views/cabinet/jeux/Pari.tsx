@@ -4,10 +4,9 @@ import { Shape } from '../../../components/Shape'
 import { espacesFines } from '../../../format'
 import { answersSizeClass, questionSizeClass } from '../../../games/quiz/questionSize'
 import { toucher } from '../../../toucher'
-import { ETOILES_DU_PARI } from '../../../../../shared/cabinet/bareme'
 import { MOTS_DU_PARI } from '../../../../../shared/cabinet/jeux/regle'
 import type { PariMontre, PariRevele } from '../../../../../shared/cabinet/jeux/pari'
-import { EnEtoiles, aLOreille, etoilesDites } from '../EnEtoiles'
+import { EnEtoiles, aLOreille } from '../EnEtoiles'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
 
 // Le Pari à l'écran (§ 3.6) : une question facile ou moyenne, ses quatre
@@ -90,7 +89,7 @@ function AuChoix({ m, envoyer, garde, busy }: { m: PariMontre; envoyer: PropsDUn
         <button
           type="button"
           className="btn btn-primary btn-big"
-          aria-label={`Parier pour ${etoilesDites(ETOILES_DU_PARI.parier)}`}
+          aria-label={aLOreille(MOTS_DU_PARI.parier)}
           aria-disabled={busy || undefined}
           {...toucher(() => !busy && garde() && envoyer({ quoi: 'parier' }))}
         >

@@ -158,6 +158,35 @@ export function partieARouvrir<V>(h: Historique, enCours: V | null): V | null {
   return null
 }
 
+/**
+ * Ce que la page ouvre à sa première page reçue : la partie qui attend, à son
+ * écran de jeu, quand elle a été rechargée sur son entrée (`partieARouvrir`) —
+ * sinon rien. L'effet de `CabinetApp` pose ce qu'elle rend, tel quel : la
+ * décision entière est ici, éprouvée sur un faux `history`. Gardée par le seul
+ * texte de son appel, un effet qui ne faisait rien de son résultat passait
+ * toutes les épreuves (la relecture du lot page-2).
+ */
+export function ouvertureAuChargement<V>(h: Historique, enCours: V | null): { e: 'jeu'; vue: V } | null {
+  const vue = partieARouvrir(h, enCours)
+  return vue ? { e: 'jeu', vue } : null
+}
+
+/**
+ * « Retenter » au bilan d'une case manquée, une fois la page relue : la case
+ * de sa retente, retrouvée par son jeu — la vue de la partie ne dit pas
+ * laquelle elle était, et la visite ne donne un jeu qu'à une case —, ou le
+ * musée quand la visite ne l'a plus (minuit passé). Null : la page ne s'est
+ * pas relue. Celle d'avant la partie la disait peut-être encore en cours —
+ * rouverte au rechargement, ou par « Reprendre » —, et l'annonce aurait éteint
+ * « Commencer » sous un « Reprendre » qui rouvrait une partie finie : le bilan
+ * reste, et le toast dit l'échec (la relecture du lot page-2).
+ */
+export function laCaseDeLaRetente(relue: Pick<PageDuCabinet, 'visite'> | null, jeu: CleDeJeu): number | 'musee' | null {
+  if (!relue) return null
+  const k = relue.visite.cases.findIndex(c => c.jeu === jeu)
+  return k < 0 ? 'musee' : k
+}
+
 // ── Le titre de l'onglet ──────────────────────────────────────────────────
 //
 // Chaque écran dit le sien : d'un onglet à l'autre, et au lecteur d'écran qui
