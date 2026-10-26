@@ -1,0 +1,62 @@
+[
+  {
+    "id": "cabinet-triche-1",
+    "titre": "La pause de « Quitter ? » donne trente secondes par manche, la question toujours envoyée, sans rien marquer",
+    "gravite": "P2",
+    "nature": "bug",
+    "statut": "confirmé (rejoué)",
+    "ou": "server/src/core/cabinet/vue.ts:256",
+    "constat": "Le voile de la pause n'existe qu'à la page : la vue rendue au geste `pause` porte la manche entière (`enCours`), et l'échéance recule de toute la pause (`echeanceDe`, `shared/cabinet/chrono.ts:70`) — trente secondes par manche, 25 s deviennent 55 s à la Réplique. Rien ne le marque (`marquerLeTemps` compte la pause comme du temps normal, `aidee` l'ignore, `shared/cabinet/partie.ts:355-360, 690-691`) : le cadre doré reste à portée et la première question du Pari sort nue, quand la carte « Prendre son temps » la plus forte marque chaque réponse et ferme le cadre doré.",
+    "preuve": "pause-sous-le-voile.test.ts, quatre épreuves qui échouent : la vue de la pause porte `{\"jeu\":\"replique\",\"etape\":1,…,\"mots\":[…]}` ; le mot choisi 54 s après l'ouverture d'une Réplique passe et vaut ★★★, `joker` NULL, quand le même geste sans pause rend 400 « Le temps de cette manche est écoulé » ; au pli, trois manches répondues 29 s après leur durée : pause `aidee false, cadre doré true`, Tigre (+30 s) `aidee true, cadre doré false` ; une chasse à la Cagnotte sous trois pauses finit `gagnee-doree, aidee false`.",
+    "repro": "export/evaluations/cabinet-triche/pause-sous-le-voile.test.ts",
+    "piste": "(a) Sous la pause, la vue ne porte pas `enCours` et la route d'un cadrage refuse. (b) Une réponse qui n'est à l'heure que par la pause marque l'étape comme le temps en plus (version du départ), ou la pause se borne à quelques secondes — un choix de produit."
+  },
+  {
+    "id": "cabinet-triche-2",
+    "titre": "Le Détail se résout sans l'image : les leurres, tirés des cinq voisins en années, désignent la bonne réponse",
+    "gravite": "P2",
+    "nature": "bug",
+    "statut": "confirmé (rejoué)",
+    "ou": "shared/cabinet/jeux/detail.ts:112",
+    "constat": "Chaque tableau se propose avec trois leurres parmi ses cinq plus proches voisins en années, un ensemble fixe : la bonne réponse est le seul titre dont les voisins contiennent toujours les trois autres. Qui connaît les années du catalogue — chaque révélation les dit — répond juste 52 % du temps sans regarder l'image, 41 % avec les seules années des quatre titres, contre 25 % à l'aveugle.",
+    "preuve": "detail-par-les-voisins.ts sur les 100 tableaux livrés, 1 000 propositions : la bonne passe toujours ; un seul titre passe 23,9 % du temps, deux 29 % ; 52,1 % de bonnes réponses au hasard parmi ceux qui passent ; une chasse commune (2 sur 3 au premier coup d'œil) gagnée 53 % du temps sans l'image contre 16 %, une épique 14 % contre 1,6 %.",
+    "repro": "export/evaluations/cabinet-triche/detail-par-les-voisins.ts",
+    "piste": "Tirer les quatre titres en fenêtre de quatre tableaux consécutifs dans l'ordre des années, la bonne à une place au hasard : aucun ne se distingue. Le plan figé garde ses titres, aucune version ; le script doit retomber près de 25 %."
+  },
+  {
+    "id": "cabinet-triche-3",
+    "titre": "Les questions de la base que révèlent l'Éclair, le Détail et la frise d'un sujet restent « jamais vues » pour la campagne, duels classés compris",
+    "gravite": "P3",
+    "nature": "bug",
+    "statut": "confirmé (rejoué)",
+    "ou": "shared/cabinet/pieces.ts:86",
+    "constat": "La pièce d'une manche de l'Éclair s'écrit sous un composé (`cab:eclair:<id>+…`) que seul le Cabinet déplie ; sa révélation dit pourtant la bonne réponse des cinq questions. Pour la série, l'épreuve, le dé et le duel classé — qui écarte ce que l'un ou l'autre a vu (`core/campagne.ts:4057-4058`) —, elles reviennent comme neuves, et leur première réponse de campagne compte nue au savoir ; de même « Qui a peint… ? » après un Détail et les questions datées d'une frise d'un sujet.",
+    "preuve": "eclair-hors-des-vues.test.ts échoue : après une manche de l'Éclair, `journal.vuesDe` ne contient que `cab:eclair:fil00017+cab08101+mot00017+fil00016+cab08005`, aucune des cinq questions dont la révélation vient de dire la réponse.",
+    "repro": "export/evaluations/cabinet-triche/eclair-hors-des-vues.test.ts",
+    "piste": "Déplier les composés du Cabinet dans les vues de toute la campagne (`JournalDesReponses.vuesDe`, par `deplier`), et `cab:tableau:<QID>` en les questions de son tableau ; l'épreuve contre le SQL d'avant, `journal-des-reponses.test.ts`. À arbitrer avec la décision écrite « la série ne déplie pas »."
+  },
+  {
+    "id": "cabinet-triche-4",
+    "titre": "L'œuvre visée d'une case manquée se retrouve par l'ordre des refus d'une chasse « Retenter » forgée",
+    "gravite": "P3",
+    "nature": "bug",
+    "statut": "confirmé (rejoué)",
+    "ou": "shared/cabinet/musee.ts:473",
+    "constat": "`cadreDuDepart` juge « Retenter » avant la carte-bonus : sous une carte qu'il n'a pas, la seule œuvre visée répond « Tu n'as pas cette carte-bonus », toute autre « Retenter ne sert qu'après une visite manquée de cette œuvre », et rien ne part. La rareté et la salle de la case bornent les candidates à trois (dix au Vestibule), sous le plafond des départs.",
+    "preuve": "retente-oracle.test.ts échoue : une seule candidate a un autre refus — `[\"cagnotte\",\"Tu n’as pas cette carte-bonus\"]` —, l'œuvre visée lue en base ; aucune chasse dépensée, aucune partie en cours.",
+    "repro": "export/evaluations/cabinet-triche/retente-oracle.test.ts",
+    "piste": "Juger la carte-bonus avant « Retenter » (ou un même refus pour toutes les candidates), et l'épreuve dans `cabinet-secret.test.ts`."
+  },
+  {
+    "id": "cabinet-triche-5",
+    "titre": "Quitter d'emblée rapporte trente poussières d'or par jour, et trente jours de visites quittées réveillent le Scarabée",
+    "gravite": "P3",
+    "nature": "tension",
+    "statut": "confirmé (rejoué)",
+    "ou": "shared/cabinet/partie.ts:745",
+    "constat": "Une partie quittée sans une réponse paie quatre poussières en visite et en chasse, deux en libre sous Prudence (la manche quittée est « imparfaite », `mancheProtegee`) : dix départs quittés font trente poussières par jour. La série compte le jour d'un départ (`ecriture.ts:76-92`) : une visite commencée puis quittée chaque jour réveille au trentième le Scarabée, un gardien légendaire de force 3.",
+    "preuve": "quitter-d-emblee.test.ts (passe, il mesure) : « 10 départs, 4 + 4 + 4 + 4 + 4 + 2 + 2 + 2 + 2 + 2 = 30 poussières d'or » ; « série 30 jours (record 30), Scarabée réveillé : true ».",
+    "repro": "export/evaluations/cabinet-triche/quitter-d-emblee.test.ts",
+    "piste": "La série et Protéger ne comptent qu'une manche tranchée par une réponse (`fin === 'jugee'`, une pièce dont `choix` n'est pas nul) — version du départ pour Protéger ; sinon le dire dans « Comment ça marche ? ». La poussière seule relève de `cabinet-equilibre`."
+  }
+]

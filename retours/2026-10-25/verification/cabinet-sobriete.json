@@ -1,0 +1,72 @@
+[
+  {
+    "id": "cabinet-sobriete-1",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P2",
+    "gravite": "P2",
+    "repro_rejouee": true,
+    "raison": "tas-gel.test.ts rejoué rouge pour la raison annoncée : 3 263 questions aux trois cribles en un seul tour de boucle, gel maximal de 84 ms (charge 0,05), premier départ d'une liste neuve 1 126 ms contre 5 ms. Le chemin est sans garde : tas.ts:232-235 ne rend la main qu'entre deux catégories, contenu.ts:105 redécoupe l'intitulé à chaque réponse. Une liste neuve naît chaque matin avec l'apport de la réserve (jour.ts:764, campagne.ts:1599), à chaque retrait ou correction et à chaque réveil : au dixième de cœur, ce sont des blocs de 0,5 à 1,1 s pour tout le serveur. Latent en production, où le Cabinet est fermé (shared/cabinet/ouverture.ts:17, server.ts:1252), à corriger avant l'ouverture. Précédent : perf-gel-9 (retours/2026-10-16), P2.",
+    "pourquoi": "Rejoué et réel. La préparation dépasse le budget de 20 à 30 ms par étape (campagne.md) et figera le serveur au moins une fois par jour une fois le Cabinet ouvert. Aujourd'hui, elle ne touche que la préproduction.",
+    "correction": "Garder le verdict des trois cribles par question (WeakMap<QuestionDeLaBase, {qcm, mot, valeur}>) : une liste neuve est un filtre des mêmes objets (campagne.ts:1600, baseCampagne.ts:489), et ses tas ne coûtent plus que 0,3 à 1,1 ms par catégorie, contre 53 à 153 (verification/cabinet-sobriete/tas-memo.test.ts, mêmes tas). Couper la première préparation d'un processus en tranches de QUESTIONS_PAR_TRANCHE par rendreLaMain (tranche la plus chère : 13,6 ms). Lire l'intitulé une fois par une fonction exportée de contenu.ts (ecritDansLesMots), pas par une copie de motsDe (cabinet-code-10). Donner son tour à contenuDuCabinet() (46 ms). L'épreuve doit compter les appels aux cribles par tour, pas les questions remises."
+  },
+  {
+    "id": "cabinet-sobriete-2",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P2",
+    "gravite": "P2",
+    "repro_rejouee": true,
+    "raison": "defi-accueil.test.ts rejoué rouge : la lecture que l'accueil envoie passe par idx_campagne_series_profil (profile_id=?). Rejoué sur une salle fictive sans statistiques (defi-plans.py), le plan est le même sous SQLite 3.45.1 et 3.53.2 : 2 993 pas pour le fidèle (580 parties) à la recherche du défi, 1 367 à 2 994 pour celle du duel. Le parcours a lieu même quand le joueur a sa tentative : le tri croissant lit d'abord les plus anciennes. defiDAccueil part à chaque accueil (profileRoutes.ts:203), tentativeDuDefi deux fois par page du défi, tentativeDuDuel à chaque page d'un duel, relevé, fin et correction. tentativeDuDuel retombe dans le piège de duels.md (« par le code de son duel, jamais par son profil »), et ni campagne-index.test.ts (:51, seulement finie_le IS NULL) ni duels-index.test.ts (les jointures) ne le lisent. Turso compte les lignes parcourues, sur un quota commun de 500 M, dont 333 M lus le 22 octobre (parti pris 5) : cette pente-là, au bout d'un an de Cabinet, pèse de l'ordre de 7 à 22 % du quota pour 30 à 100 réguliers.",
+    "pourquoi": "Rejoué et réel. La piste de l'expert échange un parcours contre un autre : avec ORDER BY +commencee_le, le défi passe par idx_campagne_series_defi et chaque accueil lit toutes les tentatives de la semaine, de tous les joueurs (628 pas pour le fidèle, 14 → 615 pour un neuf).",
+    "correction": "Défi (defiDAccueil, tentativeDuDefi) : WHERE profile_id = ? AND mode = 'defi' AND +semaine = ? ORDER BY +commencee_le LIMIT 1, qui passe par idx_campagne_series_sentiers (profile_id, mode) et ne lit que ses défis (177 pas contre 2 993 ; 15 pour un neuf). Duel (tentativeDuDuel) : la forme PAR_SON_CODE de duels.md, WHERE +profile_id = ? AND mode = 'duel' AND duel = ? ORDER BY +commencee_le LIMIT 1, qui passe par idx_campagne_series_duel (20 à 82 pas). Étendre campagne-index.test.ts à toute recherche « profile_id = ?, un mode, ORDER BY commencee_le », avec ou sans finie_le, et duels-index.test.ts à tentativeDuDuel. Dans la même instruction de defiDAccueil, remplacer profile_id IN (SELECT id FROM profiles …), qui parcourt tous les profils à chaque accueil (SCAN profiles), par un EXISTS corrélé sur la clé."
+  },
+  {
+    "id": "cabinet-sobriete-3",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "missions.test.ts rejoué rouge : 131 parties du Cabinet relues à chaque bilan. Bilan.tsx:182 → Gains.tsx:270 redemande les missions, l'accueil aussi. activiteDepuis (campagne.ts:3159) rend toutes les séries de la fenêtre, et activiteDesJours (shared/missions.ts:172-180) n'en compte que cinq modes. La lecture est bornée par la fenêtre de 14 à 21 jours et ne grandit pas avec l'histoire : P3.",
+    "pourquoi": "Rejoué, réel et borné. Les séries et les révisions de la fenêtre sont lues pour rien elles aussi.",
+    "correction": "Celle de l'expert, vérifiée sur une copie : mode IN ('duel','rencontre','sentier','sujet','defi') seul garde l'index du profil (3 753 → 2 859 pas) ; avec un index (profile_id, mode, commencee_le), 126 pas. Il faut l'index, et faire relire leurs plans à campagne-index.test.ts et cabinet-index.test.ts."
+  },
+  {
+    "id": "cabinet-sobriete-4",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "partie-finie.test.ts rejoué, rouge sur ses deux épreuves : l'image d'après la fin coûte 1 aller-retour, le cartel rouvert 1. C'est le budget que disent la référence (« finie, un, par sa clé ») et cabinet-charge.test.ts:433 : une amélioration, pas une promesse rompue.",
+    "pourquoi": "Tient, en friction de P3.",
+    "correction": "Celle de l'expert (une table bornée de parties finies, que partieDe consulte avant la base), vidée par oublierProfil. Entre deux serveurs, elle ne risque rien : une partie finie ne change plus. L'attente de cabinet-charge.test.ts:433 descendrait de un à zéro pour une partie relue."
+  },
+  {
+    "id": "cabinet-sobriete-5",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "fin-compagnon.test.ts rejoué rouge : 5 allers-retours, le journal relu 3 fois et l'historique des soirées 1 fois.",
+    "pourquoi": "Tient, en friction de P3.",
+    "correction": "Celle de l'expert : rattraperLeJournal(this.derniereReponse) dans CampagneStore.compagnonsDe, et l'historique des soirées passé à compagnonsDe ou gardé par profil."
+  },
+  {
+    "id": "cabinet-sobriete-6",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "tirage-parcours.test.ts rejoué rouge : 7 658 questions examinées contre 25 cette fois, 12 809 contre 31 chez l'expert ; l'écart vient de la catégorie de l'Éclair, tirée au hasard. Seuls les plus fidèles sont touchés, de l'ordre de 0,1 à 0,45 s au dixième de cœur.",
+    "pourquoi": "Tient, en friction de P3. Le versant fraîcheur touche l'angle de cabinet-equilibre, qui ne l'a pas relevé : pas de doublon.",
+    "correction": "Celle de l'expert : l'Éclair ordonne ses catégories par ce qui leur reste de jamais vu."
+  },
+  {
+    "id": "cabinet-sobriete-7",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Lu : ecriture.ts:106-113 range le départ figé dans cabinet, ecriture.ts:188 ajoute chaque pièce à questions, et mesures/taille.json donne 2,8 à 9,1 Ko par partie. Une idée à mesurer, que l'expert présente comme telle.",
+    "pourquoi": "Tient, comme idée.",
+    "correction": "Mesurer avant d'agir, comme le propose l'expert."
+  }
+]
