@@ -8,11 +8,14 @@
 // seuls — le temps en plus ne marque la pièce que s'il a servi. Ce que la
 // manche en dit (« éclairée », « changée », « temps en plus », la mise
 // « au-delà de 9 »), le bilan d'un neuf sur neuf aidé, et ce que vaudrait la
-// partie quittée (`siTuQuittes`), Protéger compris. Protéger, en pur : une
+// partie quittée (`siTuQuittes`), Protéger compris. En pur, au pli : le refus
+// d'Éclairer nomme l'étape — au Pari et à la Réplique, la question —, une
 // manche ratée ne gagne qu'une étoile, une manche gardée au Pari ne se relève
-// pas, et ce que la page en dit est ce que le pli fait. Ce que la carte dit à
-// l'annonce : les secondes de Prendre son temps, jeu par jeu, et rien de ce
-// qu'ôterait une carte qui ne sert pas à ce jeu.
+// pas — il n'y relève qu'une ratée, à toute force —, et ce que la page en dit
+// est ce que le pli fait. Ce que la carte dit à l'annonce, rendue (en
+// dernières épreuves du fichier) : les secondes de Prendre son temps, jeu par
+// jeu, la manche gardée au seul Pari, et rien de ce qu'ôterait une carte qui
+// ne sert pas à ce jeu.
 //
 // Et ce qu'on emporte : une carte qu'il a — une œuvre, ou un gardien réveillé,
 // à la force 3 —, figée au départ avec son pouvoir et sa force ; jamais une
@@ -64,9 +67,18 @@ import {
 import { museeDe, type LigneDOeuvre } from '../../shared/cabinet/musee'
 import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART } from '../../shared/cabinet/oeuvres'
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
-import { bilanDe, etoilesDesManches, resultatDe } from '../../shared/cabinet/partie'
+import { bilanDe, etoilesDesManches, pieceRepondue, pouvoirMaintenant, resultatDe, type CarteDuDepart } from '../../shared/cabinet/partie'
 import { JOKER_DU_TEMPS, JOKER_D_ECLAIRER } from '../../shared/cabinet/pieces'
-import { POUVOIRS, ceQueFaitLaCarte, etoilesApresLesPouvoirs, mancheProtegee, sertA } from '../../shared/cabinet/pouvoirs'
+import {
+  POUVOIRS,
+  ceQueFaitLaCarte,
+  ditALAnnonce,
+  etoilesApresLesPouvoirs,
+  forceDite,
+  mancheProtegee,
+  refusDuPouvoir,
+  sertA,
+} from '../../shared/cabinet/pouvoirs'
 import { JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import type { FiletMontre, FiletTire } from '../../shared/cabinet/jeux/filet'
 import type { MotMontre, MotTire } from '../../shared/cabinet/jeux/mot'
@@ -171,6 +183,34 @@ test('Éclairer se refuse en mots : sans carte, sous une autre carte, sous la pa
   b.horloge.t = f.chrono!.echeance + GRACE_D_UNE_MANCHE_MS + 1
   assert.deepEqual(refus(await jouer(b, tom, f, { quoi: 'eclairer', manche: 0 })), [400, 'Le temps de cette manche est écoulé'])
   ok(await jouer(b, tom, f, { quoi: 'quitter' }), 'quitter')
+})
+
+test('le refus d’Éclairer nomme l’étape : au Pari et à la Réplique, la question — la seconde de la manche s’éclaire encore', () => {
+  // « Plus rien à éclairer dans cette manche » se lisait au Pari, sous la manche, au moment même de choisir entre garder et
+  // parier : Éclairer n'aiderait plus à la question du pari — quand il l'éclaire (la relecture du 26 octobre 2026).
+  const pari = new Partie(departDe('pari', { carte: carteDEssai('eclairer', 2, 'repere') }))
+  pari.joue(ouvrirAuPli(0), MIDI)
+  // Au plan d'essai, la bonne réponse de la première question est la deuxième : juste, la manche attend son choix.
+  pari.joue({ quoi: 'repondre', manche: 0, reponse: { pari: { choix: 1 } } }, MIDI + S)
+  assert.deepEqual(pouvoirMaintenant(pari.depart, pari.etat, MIDI + 2 * S), { jouable: false, refus: 'Plus rien à éclairer à cette question' })
+  pari.joue({ quoi: 'parier', manche: 0 }, MIDI + 3 * S)
+  assert.deepEqual(pouvoirMaintenant(pari.depart, pari.etat, MIDI + 4 * S), { jouable: true }, 'la question du pari, dans la même manche')
+  pari.joue({ quoi: 'eclairer', manche: 0 }, MIDI + 5 * S)
+
+  // La Réplique : deux mots effacés à la première étape, il en reste deux ; « Qui l'a dit ? » s'éclaire encore.
+  const replique = new Partie(departDe('replique', { carte: carteDEssai('eclairer', 3, 'lg:sphinx') }))
+  replique.joue(ouvrirAuPli(0), MIDI)
+  replique.joue({ quoi: 'eclairer', manche: 0 }, MIDI + S)
+  replique.joue({ quoi: 'eclairer', manche: 0 }, MIDI + 2 * S)
+  assert.deepEqual(pouvoirMaintenant(replique.depart, replique.etat, MIDI + 3 * S), { jouable: false, refus: 'Plus rien à éclairer à cette question' })
+  replique.joue({ quoi: 'mot', manche: 0, choix: 0 }, MIDI + 4 * S)
+  assert.deepEqual(pouvoirMaintenant(replique.depart, replique.etat, MIDI + 5 * S), { jouable: true }, '« Qui l’a dit ? », dans la même manche')
+
+  // Un jeu d'une seule étape a toute la manche pour elle : le refus le dit ainsi (le Filet, plus haut, par les routes).
+  for (const jeu of Object.keys(JEUX) as CleDeJeu[]) {
+    const dit = refusDuPouvoir({ pouvoir: 'eclairer', force: 3, jeu, servi: 0, aEclairer: false })
+    assert.equal(dit, JEUX[jeu].etapes === 2 ? 'Plus rien à éclairer à cette question' : 'Plus rien à éclairer dans cette manche', jeu)
+  }
 })
 
 // ── Changer ───────────────────────────────────────────────────────────────
@@ -328,73 +368,131 @@ test('Protéger relève une manche ratée d’une étoile seulement : à la forc
   assert.equal(ceQueFaitLaCarte('proteger', 1, 'detail'), `${POUVOIRS.proteger.nom} : +1 étoile, une fois par partie`)
 })
 
+/** Ce qu'une manche du Pari peut devenir : ratée à la première question, gardée, pariée et gagnée, pariée et perdue. */
+type MancheDuPari = 'raté' | 'garder' | 'parier' | 'parier perdu'
+const MANCHES_DU_PARI: readonly MancheDuPari[] = ['raté', 'garder', 'parier', 'parier perdu']
+
+/** Une partie du Pari jouée manche par manche au pli, sous cette carte-bonus. */
+function auPari(carte: CarteDuDepart, manches: readonly MancheDuPari[]): Partie {
+  const p = new Partie(departDe('pari', { carte }))
+  manches.forEach((jeu, k) => {
+    const t = MIDI + k * 60 * S
+    const m = k as 0 | 1 | 2
+    p.joue(ouvrirAuPli(m), t)
+    // Au plan d'essai, la bonne réponse de la première question est la deuxième, celle du pari la quatrième.
+    p.joue({ quoi: 'repondre', manche: m, reponse: { pari: { choix: jeu === 'raté' ? 0 : 1 } } }, t + S)
+    if (jeu === 'garder') p.joue({ quoi: 'garder', manche: m }, t + 2 * S)
+    if (jeu.startsWith('parier')) {
+      p.joue({ quoi: 'parier', manche: m }, t + 2 * S)
+      p.joue({ quoi: 'repondre', manche: m, reponse: { pari: { choix: jeu === 'parier' ? 3 : 0 } } }, t + 3 * S)
+    }
+  })
+  return p
+}
+
 test('Protéger ne relève pas une manche gardée au Pari : garder est un choix, pas une manche imparfaite', () => {
   // Théo, à la tablée du 26 octobre 2026 : 3 · 2 gardée · 3 sous Prudence faisait 3 · 3 · 3, et trois manches gardées
   // faisaient sept étoiles, une épique, sans un seul pari. Le pli dit à Protéger les manches gardées, comme les répondues.
   const prudence = carteDEssai('proteger', 1, 'prudence')
-  const auPari = (manches: readonly ('garder' | 'raté' | 'parier')[]) => {
-    const p = new Partie(departDe('pari', { carte: prudence }))
-    manches.forEach((jeu, k) => {
-      const t = MIDI + k * 60 * S
-      const m = k as 0 | 1 | 2
-      p.joue(ouvrirAuPli(m), t)
-      // Au plan d'essai, la bonne réponse de la première question est la deuxième, celle du pari la quatrième.
-      p.joue({ quoi: 'repondre', manche: m, reponse: { pari: { choix: jeu === 'raté' ? 0 : 1 } } }, t + S)
-      if (jeu === 'garder') p.joue({ quoi: 'garder', manche: m }, t + 2 * S)
-      if (jeu === 'parier') {
-        p.joue({ quoi: 'parier', manche: m }, t + 2 * S)
-        p.joue({ quoi: 'repondre', manche: m, reponse: { pari: { choix: 3 } } }, t + 3 * S)
-      }
-    })
-    return p
-  }
   const etoiles = (p: Partie) => etoilesDesManches(p.depart, p.etat).map(m => m.etoiles)
   // Gardée, ratée, pariée : la ratée se relève, pas la gardée.
-  const theo = auPari(['garder', 'raté', 'parier'])
+  const theo = auPari(prudence, ['garder', 'raté', 'parier'])
   assert.deepEqual(etoiles(theo), [2, 1, 3])
   assert.deepEqual(etoilesDesManches(theo.depart, theo.etat).map(m => m.protegee), [false, true, false])
   // Gardée, ratée, gardée : la ratée, encore.
-  assert.deepEqual(etoiles(auPari(['garder', 'raté', 'garder'])), [2, 1, 2])
+  assert.deepEqual(etoiles(auPari(prudence, ['garder', 'raté', 'garder'])), [2, 1, 2])
   // Trois manches gardées : six, sans relève — la carte n'a pas servi, et rien ne dit qu'elle a aidé.
-  const gardees = auPari(['garder', 'garder', 'garder'])
+  const gardees = auPari(prudence, ['garder', 'garder', 'garder'])
   assert.deepEqual(etoiles(gardees), [2, 2, 2])
   assert.deepEqual([resultatDe(gardees.depart, gardees.etat).total, resultatDe(gardees.depart, gardees.etat).aidee], [6, false])
   // La règle pure : une manche gardée ne se relève pas, la suivante imparfaite le prend.
   assert.equal(mancheProtegee([2, 0, 3], prudence, [true, true, true], [true, false, false]), 1)
   assert.equal(mancheProtegee([2, 2, 2], prudence, [true, true, true], [true, true, true]), null)
-  // L'annonce et les règles le disent, d'une seule phrase.
+  // Les règles et la fiche d'une œuvre le disent dans sa phrase, qui ne sait pas à quel jeu on joue ; l'annonce, au seul Pari.
   assert.match(POUVOIRS.proteger.dit, /au Pari, une manche gardée ne compte pas/)
 })
 
-test('ce que la page dit de Protéger est ce que le pli fait : la première manche imparfaite où il a répondu', () => {
+test('au Pari, Protéger ne relève qu’une manche ratée, à toute force : la carte le dit, et ne promet pas deux étoiles au Phénix', () => {
+  // Une manche du Pari vaut zéro, deux — gardée, que Protéger ne relève pas — ou trois : il n'y reste à relever que des
+  // ratées, d'une étoile (`BONUS_D_UNE_MANCHE_RATEE`). L'annonce du Pari disait du Phénix « +2 étoiles, une seule à une
+  // manche ratée » (la relecture du 26 octobre 2026). Chaque partie possible, manche par manche, au pli.
+  const plans = MANCHES_DU_PARI.flatMap(a => MANCHES_DU_PARI.flatMap(b => MANCHES_DU_PARI.map(c => [a, b, c] as const)))
+  for (const [force, cle] of [
+    [1, 'prudence'],
+    [2, 'sursis'],
+    [3, 'lg:phenix'],
+  ] as const) {
+    let auPlus = 0
+    for (const plan of plans) {
+      const p = auPari(carteDEssai('proteger', force, cle), plan)
+      for (const m of etoilesDesManches(p.depart, p.etat)) {
+        const releve = (m.etoiles ?? 0) - (m.naturel ?? 0)
+        auPlus = Math.max(auPlus, releve)
+        if (m.protegee) assert.equal(m.naturel, 0, `${cle}, ${plan.join(' · ')} : seule une ratée se relève au Pari`)
+      }
+    }
+    assert.equal(auPlus, BONUS_D_UNE_MANCHE_RATEE, `${cle} : au Pari, Protéger relève de ${auPlus}`)
+    const dit = ceQueFaitLaCarte('proteger', force, 'pari')
+    assert.equal(dit, `${POUVOIRS.proteger.nom} : +${BONUS_D_UNE_MANCHE_RATEE} étoile à une manche ratée ; une manche gardée ne compte pas`, cle)
+    // Ailleurs, la force dit son bonus, et rien du Pari.
+    assert.doesNotMatch(ceQueFaitLaCarte('proteger', force, 'detail'), /gardée|Pari/, cle)
+    assert.equal(forceDite('proteger', force), forceDite('proteger', force, 'detail'), 'la fiche d’une œuvre, sans jeu : la force de partout')
+  }
+})
+
+test('ce que la page dit de Protéger est ce que le pli fait : la première manche imparfaite où il a répondu, et pas gardée au Pari', () => {
   // La page disait « Ta première manche imparfaite gagne des étoiles, si tu y as répondu » : une première manche laissée au
   // chrono semblait faire perdre Protéger, quand le pli relevait la suivante qu'une réponse a tranchée (la relecture du
   // 26 octobre 2026).
-  assert.match(POUVOIRS.proteger.dit, /^Ta première manche imparfaite où tu as répondu gagne des étoiles/)
-  const p = new Partie(departDe('pari', { carte: carteDEssai('proteger', 1, 'prudence') }))
+  assert.match(POUVOIRS.proteger.dit, /^Ta première manche imparfaite où tu as répondu gagne des étoiles ; au Pari, une manche gardée ne compte pas\.$/)
+  const prudence = carteDEssai('proteger', 1, 'prudence')
+  /**
+   * La phrase prise au mot, par qui a joué : les manches où il a répondu — ce que le pli range, ses pièces —, celles qu'il a
+   * gardées — son geste —, et les étoiles qu'il a vues. Puis l'ancienne, qui relevait la première imparfaite si elle était
+   * répondue, et sinon rien.
+   */
+  const lu = (p: Partie, gardees: readonly boolean[]) => {
+    const manches = etoilesDesManches(p.depart, p.etat)
+    const repondues = manches.map((_, k) => p.etat.manches[k]?.verdict?.pieces.some(pieceRepondue) === true)
+    const imparfaite = (k: number) => manches[k].naturel !== null && manches[k].naturel! < 3
+    const auMot = manches.findIndex((_, k) => imparfaite(k) && repondues[k] && !gardees[k])
+    const premiere = manches.findIndex((_, k) => imparfaite(k))
+    return { pli: manches.findIndex(m => m.protegee), auMot, avant: premiere >= 0 && repondues[premiere] ? premiere : -1 }
+  }
+
+  // Manche 1 laissée au chrono, manche 2 fausse : le pli relève la deuxième, et l'ancienne phrase rien.
+  const p = new Partie(departDe('pari', { carte: prudence }))
   p.joue(ouvrirAuPli(0), MIDI)
-  // Manche 1 : rien de répondu — la réponse vide de la page arrive après la grâce, la manche expire.
+  // La réponse vide de la page arrive après la grâce : la manche expire.
   const apres = MIDI + DUREES_DES_JEUX.pari * S + GRACE_D_UNE_MANCHE_MS + S
   p.joue({ quoi: 'repondre', manche: 0, reponse: { pari: { choix: 0 } } }, apres)
-  // Manche 2 : une réponse fausse.
   p.joue(ouvrirAuPli(1), apres + S)
   p.joue({ quoi: 'repondre', manche: 1, reponse: { pari: { choix: 0 } } }, apres + 5 * S)
-  const manches = etoilesDesManches(p.depart, p.etat)
   assert.deepEqual(
-    manches.slice(0, 2).map(m => [m.naturel, m.fin]),
+    etoilesDesManches(p.depart, p.etat)
+      .slice(0, 2)
+      .map(m => [m.naturel, m.fin]),
     [
       [0, 'expiree'],
       [0, 'jugee'],
     ],
   )
-  // La phrase, prise au mot : parmi les manches où il a répondu, la première imparfaite.
-  const repondues = [false, true, false]
-  const ditParLaPage = manches.findIndex((m, k) => repondues[k] && m.naturel !== null && m.naturel < 3)
-  assert.equal(
-    manches.findIndex(m => m.protegee),
-    ditParLaPage,
-  )
-  assert.equal(ditParLaPage, 1)
+  assert.deepEqual(lu(p, [false, false, false]), { pli: 1, auMot: 1, avant: -1 })
+
+  // Gardée, puis ratée : l'ancienne phrase relevait la gardée, imparfaite et répondue ; le pli et la phrase, la ratée.
+  const theo = auPari(prudence, ['garder', 'raté', 'parier'])
+  assert.deepEqual(lu(theo, [true, false, false]), { pli: 1, auMot: 1, avant: 0 })
+
+  // Et chaque partie possible, manche par manche : la phrase dit toujours la manche que le pli relève.
+  for (const a of MANCHES_DU_PARI) {
+    for (const b of MANCHES_DU_PARI) {
+      for (const c of MANCHES_DU_PARI) {
+        const plan = [a, b, c]
+        const { pli, auMot } = lu(auPari(prudence, plan), plan.map(m => m === 'garder'))
+        assert.equal(pli, auMot, plan.join(' · '))
+      }
+    }
+  }
 })
 
 test('Prendre son temps allonge chaque manche, et ne marque la pièce que si la réponse est arrivée dans le temps en plus', async () => {
@@ -614,6 +712,30 @@ test('la colonne `joker` des pièces du Cabinet ne porte que le pouvoir qui a ai
 
 // ── Ce que la carte dit à l'annonce ───────────────────────────────────────
 
+/**
+ * L'annonce rendue, telle que la page la montre : le client compile son JSX pour un `React` global, et `state.ts` lit son
+ * adresse à l'import — posés avant le composant, aux deux dernières épreuves du fichier : les routes d'avant n'en ont rien vu.
+ */
+let annonceLancee: Promise<(demande: Record<string, unknown>, carte: string) => string> | null = null
+const lAnnonce = () =>
+  (annonceLancee ??= (async () => {
+    const React = (await import('react')).default
+    Object.assign(globalThis, { React, window: { location: { pathname: '/cabinet', search: '', hash: '', origin: 'http://banc' }, addEventListener: () => {} } })
+    const { Annonce } = await import(new URL('../../client/src/views/cabinet/Annonce.tsx', import.meta.url).href)
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const theo = await inscrireProfil(b.banc.url, 'theo', 'Théo')
+    const page = ok(await laPage(b, theo), 'la page')
+    const texte = (html: string) =>
+      html
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&#x27;|&#39;/g, '’')
+        .replace(/[\u00a0\u202f\u2060]/g, ' ')
+        .replace(/\s+/g, ' ')
+    const rien = () => {}
+    return (demande: Record<string, unknown>, carte: string) =>
+      texte(renderToStaticMarkup(React.createElement(Annonce, { page, demande, carte, busy: false, onCarte: rien, onCommencer: rien, onRetour: rien })))
+  })())
+
 test('une carte-bonus qui ne sert pas à ce jeu ne dit pas ce qu’elle ôterait : à la Frise, Changer se tait sur le cadre doré', async () => {
   // L'annonce d'une chasse à la Frise, Échange emporté — la carte de Changer de tout nouveau joueur — disait « Changer ne sert
   // pas à la Frise », puis ce que fait Changer et « T'en servir ôte le cadre doré » (la relecture du 26 octobre 2026) : une
@@ -623,30 +745,37 @@ test('une carte-bonus qui ne sert pas à ce jeu ne dit pas ce qu’elle ôterait
     for (const p of ['eclairer', 'proteger', 'temps', 'miser'] as const) assert.equal(sertA(p, jeu), true, `${p}, ${jeu}`)
   }
   assert.equal(ceQueFaitLaCarte('changer', 1, 'frise'), `${POUVOIRS.changer.nom} ne sert pas à la Frise`)
-  // Le client compile son JSX pour un `React` global, et `state.ts` lit son adresse à l'import : posés avant le composant,
-  // en dernière épreuve du fichier — les routes d'avant n'en ont rien vu.
-  const React = (await import('react')).default
-  Object.assign(globalThis, { React, window: { location: { pathname: '/cabinet', search: '', hash: '', origin: 'http://banc' }, addEventListener: () => {} } })
-  const { Annonce } = await import(new URL('../../client/src/views/cabinet/Annonce.tsx', import.meta.url).href)
-  const { renderToStaticMarkup } = await import('react-dom/server')
-  const theo = await inscrireProfil(b.banc.url, 'theo', 'Théo')
-  const page = ok(await laPage(b, theo), 'la page')
-  const texte = (html: string) =>
-    html
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&#x27;|&#39;/g, '’')
-      .replace(/[  ⁠]/g, ' ')
-      .replace(/\s+/g, ' ')
-  const rien = () => {}
-  const annonce = (oeuvre: string, carte: string) =>
-    texte(renderToStaticMarkup(React.createElement(Annonce, { page, demande: { origine: 'chasse', oeuvre }, carte, busy: false, onCarte: rien, onCommencer: rien, onRetour: rien })))
+  const annonce = await lAnnonce()
   const aLaFrise = OEUVRES.find(o => JEU_DE_L_OEUVRE[o.cle] === 'frise' && !OEUVRES_DE_DEPART.includes(o.cle))!
-  const t = annonce(aLaFrise.cle, 'echange')
+  const t = annonce({ origine: 'chasse', oeuvre: aLaFrise.cle }, 'echange')
   assert.match(t, /Changer ne sert pas à la Frise/)
   assert.match(t, /cadre doré/, 'une œuvre à gagner : l’annonce parle du cadre doré')
   assert.doesNotMatch(t, /T’en servir ôte le cadre doré/, t)
   assert.ok(!t.includes(POUVOIRS.changer.dit.replace(/'/g, '’')), 'ni ce que Changer ferait, à un jeu où il ne sert pas')
   // Au jeu où il sert, rien ne change : ce qu'il fait, et ce qu'il ôterait.
   const ailleurs = OEUVRES.find(o => JEU_DE_L_OEUVRE[o.cle] === 'eclair' && !OEUVRES_DE_DEPART.includes(o.cle))!
-  assert.match(annonce(ailleurs.cle, 'echange'), /T’en servir ôte le cadre doré/)
+  assert.match(annonce({ origine: 'chasse', oeuvre: ailleurs.cle }, 'echange'), /T’en servir ôte le cadre doré/)
+})
+
+test('l’annonce dit ce que la carte fait à ce jeu, rien de ce qui ne vaut qu’à un autre : la manche gardée au seul Pari', async () => {
+  // « Au Pari, une manche gardée ne compte pas » se lisait sous Prudence à l'annonce de chacun des neuf jeux, et « à chacune de
+  // ses deux questions au Pari et à la Réplique » sous Concentration à l'Éclair (la relecture du 26 octobre 2026) : les règles
+  // et la fiche d'une œuvre les disent, qui ne savent pas à quel jeu on joue ; l'annonce, au seul jeu où elles valent.
+  const annonce = await lAnnonce()
+  const fois = (t: string, mot: string) => t.split(mot).length - 1
+  for (const jeu of Object.keys(JEUX) as CleDeJeu[]) {
+    const protege = annonce({ origine: 'libre', jeu }, 'prudence')
+    assert.ok(protege.includes(ditALAnnonce('proteger')), `${jeu} : ${protege}`)
+    assert.ok(protege.includes(ceQueFaitLaCarte('proteger', 1, jeu)), `${jeu} : ${protege}`)
+    // Au Pari, une fois — la ligne de sa force —, ailleurs jamais.
+    assert.equal(fois(protege, 'gardée'), jeu === 'pari' ? 1 : 0, `${jeu} : ${protege}`)
+    const temps = annonce({ origine: 'libre', jeu }, 'concentration')
+    assert.ok(temps.includes(ditALAnnonce('temps')), `${jeu} : ${temps}`)
+    assert.doesNotMatch(temps, /au Pari et à la Réplique/, jeu)
+  }
+  // La phrase de l'annonce est celle de partout, moins ce qui ne vaut qu'à un jeu : rien d'autre ne s'y invente.
+  assert.equal(ditALAnnonce('proteger'), 'Ta première manche imparfaite où tu as répondu gagne des étoiles.')
+  assert.ok(POUVOIRS.proteger.dit.startsWith(ditALAnnonce('proteger').replace(/\.$/, '')))
+  assert.equal(ditALAnnonce('temps'), 'Du temps en plus ; il ne compte que si tu t’en sers.')
+  for (const p of ['eclairer', 'miser', 'changer'] as const) assert.equal(ditALAnnonce(p), POUVOIRS[p].dit, p)
 })

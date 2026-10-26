@@ -36,8 +36,13 @@ export type Force = 1 | 2 | 3
 
 export interface Pouvoir {
   nom: string
-  /** Ce qu'il fait, en une phrase. */
+  /** Ce qu'il fait, en une phrase — partout où l'on ne sait pas à quel jeu on joue : les règles, la fiche d'une œuvre ou d'un gardien. */
   dit: string
+  /**
+   * Ce qu'il fait à l'annonce d'un jeu, sous la ligne de sa force qui dit ce qu'il y fait (`forceDite`) : sa phrase, moins ce
+   * qui ne vaut qu'à un autre jeu (`ditALAnnonce`). Absent, la phrase vaut à chaque jeu.
+   */
+  ditALAnnonce?: string
   /** Un geste le joue (Éclairer, Changer, Miser) ; Protéger et Prendre son temps agissent seuls. */
   actif: boolean
 }
@@ -47,12 +52,19 @@ const A_DEUX_ETAPES = CLES_DES_JEUX.filter(jeu => JEUX[jeu].etapes === 2)
   .map(jeu => JEUX[jeu].a)
   .join(' et ')
 
+/** La règle de Protéger, prise au mot (`mancheProtegee`), et ce qu'elle a de plus au Pari — que l'annonce du Pari dit seule. */
+const PROTEGER = 'Ta première manche imparfaite où tu as répondu gagne des étoiles'
+const UNE_GARDEE_NE_COMPTE_PAS = 'une manche gardée ne compte pas'
+/** Prendre son temps, à chaque jeu : où vont ses secondes, la ligne de sa force le dit au jeu annoncé. */
+const IL_NE_COMPTE_QUE = 'il ne compte que si tu t’en sers'
+
 /**
- * Ce que dit chacun, à l'annonce et dans les règles : ce qu'il fait, et ce
- * qu'on ignorerait sans le lire. Prendre son temps allonge chaque étape d'une
- * manche — deux au Pari et à la Réplique — et ne compte, cadre doré compris,
- * que si la réponse arrive dans le temps en plus ; la mise a le plafond de la
- * partie (`ETOILES_D_UNE_PARTIE`), et manquée, sa manche ne vaut plus rien.
+ * Ce que dit chacun, dans les règles et à l'annonce — moins, là, ce qui ne
+ * vaut qu'à un autre jeu : ce qu'il fait, et ce qu'on ignorerait sans le
+ * lire. Prendre son temps allonge chaque étape d'une manche — deux au Pari et
+ * à la Réplique — et ne compte, cadre doré compris, que si la réponse arrive
+ * dans le temps en plus ; la mise a le plafond de la partie
+ * (`ETOILES_D_UNE_PARTIE`), et manquée, sa manche ne vaut plus rien.
  * La tablée du 25 octobre 2026 misait à l'aveugle : « sinon, rien » ne disait
  * pas que la manche imparfaite tombait à zéro, ni que neuf étoiles bornaient
  * le gain.
@@ -63,10 +75,17 @@ export const POUVOIRS: Readonly<Record<CleDePouvoir, Pouvoir>> = {
   // manche imparfaite gagne des étoiles, si tu y as répondu » faisait croire Protéger perdu après une manche laissée au
   // chrono, quand le pli relevait la suivante (la relecture du 26 octobre 2026). Une manche gardée au Pari est un choix,
   // pas une manche imparfaite : Prudence en faisait ★★★, et trois gardées une épique sans un pari (la tablée du même jour).
-  proteger: { nom: 'Protéger', dit: 'Ta première manche imparfaite où tu as répondu gagne des étoiles ; au Pari, une manche gardée ne compte pas.', actif: false },
+  // À l'annonce, la clause du Pari n'est que dans la ligne de sa force, au Pari : sous les huit autres jeux, elle n'était que du
+  // bruit (la relecture du même jour).
+  proteger: { nom: 'Protéger', dit: `${PROTEGER} ; au Pari, ${UNE_GARDEE_NE_COMPTE_PAS}.`, ditALAnnonce: `${PROTEGER}.`, actif: false },
   // « À chaque question » : l'Éclair, une seule étape pour cinq affirmations, n'en donne qu'une fois — la tablée attendait dix
-  // secondes par affirmation (le 26 octobre 2026).
-  temps: { nom: 'Prendre son temps', dit: `Du temps en plus à chaque manche — à chacune de ses deux questions ${A_DEUX_ETAPES} ; il ne compte que si tu t’en sers.`, actif: false },
+  // secondes par affirmation (le 26 octobre 2026). À l'annonce, la ligne de sa force dit où vont ses secondes, à ce jeu-là.
+  temps: {
+    nom: 'Prendre son temps',
+    dit: `Du temps en plus à chaque manche — à chacune de ses deux questions ${A_DEUX_ETAPES} ; ${IL_NE_COMPTE_QUE}.`,
+    ditALAnnonce: `Du temps en plus ; ${IL_NE_COMPTE_QUE}.`,
+    actif: false,
+  },
   miser: {
     nom: 'Miser',
     dit: `Avant une manche, sans l’avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu’à ${ETOILES_D_UNE_PARTIE} sur la partie ; sinon, elle ne vaut rien.`,
@@ -74,6 +93,9 @@ export const POUVOIRS: Readonly<Record<CleDePouvoir, Pouvoir>> = {
   },
   changer: { nom: 'Changer', dit: 'Remplace la manche par une autre, avant de répondre ; le chrono continue.', actif: true },
 }
+
+/** Ce que dit un pouvoir à l'annonce d'un jeu, sous la ligne de sa force : sa phrase, moins ce qui ne vaut qu'à un autre jeu. */
+export const ditALAnnonce = (pouvoir: CleDePouvoir): string => POUVOIRS[pouvoir].ditALAnnonce ?? POUVOIRS[pouvoir].dit
 
 /** Le pouvoir de chaque famille : la façon de jouer de son style, à l'Expédition, devenue un coup de pouce. */
 export const POUVOIR_DE_LA_FAMILLE: Readonly<Record<CleDeFamille, CleDePouvoir>> = {
@@ -146,15 +168,21 @@ const bonusDeProtection = (naturel: number, force: Force): number =>
  * Ce que fait un pouvoir à sa force, en mots : l'annonce le dit sous la
  * carte-bonus emportée, la fiche d'une œuvre ou d'un gardien après ce que fait
  * le pouvoir. Prendre son temps dit où vont ses secondes au jeu qu'on joue ;
- * sans jeu, ses secondes seules, que la phrase du pouvoir a situées.
+ * sans jeu, ses secondes seules, que la phrase du pouvoir a situées. Protéger
+ * dit au Pari ce qu'il y relève, à toute force : une ratée.
  */
 export function forceDite(pouvoir: CleDePouvoir, force: Force, jeu?: CleDeJeu): string {
   switch (pouvoir) {
     case 'eclairer':
       return `${pluriel(ECLAIRAGES_PAR_PARTIE[force], 'indice')} par partie`
     case 'proteger': {
-      // Ce que la ratée perd, à la seule force où elle gagne moins que l'imparfaite — au Phénix, pas à Prudence.
       const ratee = bonusDeProtection(0, force)
+      // Au Pari, une manche vaut zéro, deux ou trois, et à deux elle est gardée — « Garder » seul la tranche au choix, et
+      // Protéger ne la relève pas (`mancheProtegee`) : il n'y relève qu'une ratée. L'annonce du Pari promettait au Phénix
+      // « +2 étoiles », qu'aucune partie ne donne (la relecture du 26 octobre 2026) ; c'est aussi là, et là seulement, qu'elle
+      // dit la manche gardée.
+      if (jeu === 'pari') return `+${pluriel(ratee, 'étoile')} à une manche ratée ; ${UNE_GARDEE_NE_COMPTE_PAS}`
+      // Ce que la ratée perd, à la seule force où elle gagne moins que l'imparfaite — au Phénix, pas à Prudence.
       const bonus = `+${pluriel(BONUS_DE_PROTECTION[force], 'étoile')}`
       return ratee < BONUS_DE_PROTECTION[force] ? `${bonus}, ${ratee === 1 ? 'une seule' : `${ratee} seulement`} à une manche ratée` : `${bonus}, une fois par partie`
     }
@@ -222,9 +250,11 @@ export function refusDuPouvoir(u: UsageDUnPouvoir): string | null {
   switch (u.pouvoir) {
     case 'eclairer':
       if (u.servi >= ECLAIRAGES_PAR_PARTIE[u.force]) return `Éclairer a déjà servi ${fois(u.servi)}`
-      // La manche, pas le jeu : le refus s'affiche sous « Éclairer · encore 2 », qui compte la partie — « Ce jeu n'a plus
-      // rien à éclairer » s'y lisait comme une contradiction (la tablée du 26 octobre 2026).
-      if (u.aEclairer === false) return 'Plus rien à éclairer dans cette manche'
+      // L'étape, pas le jeu : le refus s'affiche sous « Éclairer · encore 2 », qui compte la partie — « Ce jeu n'a plus rien
+      // à éclairer » s'y lisait comme une contradiction (la tablée du 26 octobre 2026). Au Pari et à la Réplique, la
+      // question : « dans cette manche », au Pari, se lisait au moment de choisir entre garder et parier, quand la question
+      // du pari s'éclaire encore (la relecture du même jour).
+      if (u.aEclairer === false) return JEUX[u.jeu].etapes === 2 ? 'Plus rien à éclairer à cette question' : 'Plus rien à éclairer dans cette manche'
       return null
     case 'changer':
       if (!sertA('changer', u.jeu)) return `Changer ne sert pas ${JEUX[u.jeu].a}`

@@ -56,7 +56,7 @@ import { decimales, ecartEstimation } from '../../shared/classement'
 import * as B from '../../shared/cabinet/bareme'
 import { refusDuPouvoir, effacablesAuPlus } from '../../shared/cabinet/pouvoirs'
 import { deplier, idDeLEclair, PREFIXE_DU_CABINET } from '../../shared/cabinet/pieces'
-import { MOTS_DU_PARI, justeDeLaPiece, trancheLaManche, type RegleDuJeu, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
+import { MOTS_DU_PARI, justeDeLaPiece, trancheLaManche, type CleDeJeu, type RegleDuJeu, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
 import { GESTE_A_JUGER, eclairerSertEncore, type QuestionTiree } from '../../shared/cabinet/jeux/outils'
 import { REGLE_DU_PARI, marchesDuPari, type EtatDuPari, type PariTire } from '../../shared/cabinet/jeux/pari'
 import { REGLE_DE_L_ECLAIR, affirmationDe, type EclairTire } from '../../shared/cabinet/jeux/eclair'
@@ -88,8 +88,8 @@ const qcm = (id: string, bonne: number, o: Partial<QuestionTiree> = {}): Questio
   ...o,
 })
 
-/** Le refus d'Éclairer quand la manche n'a plus rien à souffler : celui de la seule règle des pouvoirs. */
-const RIEN_A_ECLAIRER = refusDuPouvoir({ pouvoir: 'eclairer', force: 1, jeu: 'pari', servi: 0, aEclairer: false })
+/** Le refus d'Éclairer quand l'étape n'a plus rien à souffler, à ce jeu : celui de la seule règle des pouvoirs. */
+const rienAEclairerAu = (jeu: CleDeJeu) => refusDuPouvoir({ pouvoir: 'eclairer', force: 1, jeu, servi: 0, aEclairer: false })
 
 /** L'année du départ de la partie : le tireur la lit au jour de Paris du départ, jamais à l'horloge. */
 const DEPART = 2026
@@ -135,9 +135,10 @@ test('les quatre règles suivent le moule : leur clé, leurs étapes, leurs dur�
   }
   // Le Pari a un chrono par étape, le même.
   assert.equal(REGLE_DU_PARI.dureeMs(2), B.DUREES_DES_JEUX.pari * 1000)
-  // Éclairer sans rien à souffler se refuse par la seule règle des pouvoirs, en mots — pour la manche, que le refus nomme :
-  // le compteur au-dessus dit la partie.
-  assert.equal(RIEN_A_ECLAIRER, 'Plus rien à éclairer dans cette manche')
+  // Éclairer sans rien à souffler se refuse par la seule règle des pouvoirs, en mots — pour l'étape, que le refus nomme : le
+  // compteur au-dessus dit la partie. Au Pari, la question : celle du pari s'éclaire encore, dans la même manche.
+  assert.equal(rienAEclairerAu('pari'), 'Plus rien à éclairer à cette question')
+  for (const r of regles.filter(r => r.etapes === 1)) assert.equal(rienAEclairerAu(r.cle), 'Plus rien à éclairer dans cette manche', r.cle)
 })
 
 test('les règles sont pures : ni horloge, ni hasard que la graine ne redonne', () => {
@@ -288,18 +289,18 @@ test('le Pari : Éclairer efface une mauvaise réponse, deux au plus à chaque �
   assert.equal(deux.effacees[0].length, 2)
   assert.ok(!deux.effacees[0].includes(PARI.q1.bonne), 'jamais la bonne')
   assert.equal(new Set(deux.effacees[0]).size, 2, 'jamais deux fois la même')
-  assert.equal(r.eclairer(PARI, deux, hasardDe('p:eclairer:4')), RIEN_A_ECLAIRER, 'deux sur quatre : il en reste toujours deux')
+  assert.equal(r.eclairer(PARI, deux, hasardDe('p:eclairer:4')), rienAEclairerAu('pari'), 'deux sur quatre : il en reste toujours deux')
   // Le hasard vient de la graine : rejoué, le même effacement.
   assert.deepEqual(eclaire(r, PARI, ouvert, 'p:eclairer:2'), une)
   assert.deepEqual(r.montrer(PARI, deux).effacees, deux.effacees[0])
   // Au choix, rien à souffler — même sans rien d'effacé : la question est répondue, et Éclairer
   // y dépenserait un usage et ôterait à la première sa nudité (D4).
   const choixNu = etatDe(jouer(r, PARI, ouvert, repondre(1)))
-  assert.equal(r.eclairer(PARI, choixNu, hasardDe('x')), RIEN_A_ECLAIRER)
+  assert.equal(r.eclairer(PARI, choixNu, hasardDe('x')), rienAEclairerAu('pari'))
   assert.deepEqual(choixNu.effacees, [[], []])
   // Au pari, deux de plus, sur la seconde question.
   const auChoix = etatDe(jouer(r, PARI, deux, repondre(1)))
-  assert.equal(r.eclairer(PARI, auChoix, hasardDe('x')), RIEN_A_ECLAIRER)
+  assert.equal(r.eclairer(PARI, auChoix, hasardDe('x')), rienAEclairerAu('pari'))
   const pari = etatDe(jouer(r, PARI, auChoix, { quoi: 'parier' }))
   assert.deepEqual(r.montrer(PARI, pari).effacees, [])
   const eclairee = eclaire(r, PARI, pari, 'p:eclairer:5')
@@ -459,7 +460,7 @@ test('l’Éclair : rien de leur vérité ne part avant le verdict, sauf ce qu�
   assert.equal(r.eclairer(ECLAIR, une, hasardDe('x')), 'Choisis l’affirmation à éclairer')
   let toutes = une
   for (const i of [0, 2, 3, 4]) toutes = eclaire(r, ECLAIR, toutes, 'x', i)
-  assert.equal(r.eclairer(ECLAIR, toutes, hasardDe('x'), 0), RIEN_A_ECLAIRER)
+  assert.equal(r.eclairer(ECLAIR, toutes, hasardDe('x'), 0), rienAEclairerAu('eclair'))
   // L'état ne tient aucune réponse : la page les garde jusqu'à l'envoi — Changer, avant, ne perd rien du serveur.
   assert.deepEqual(Object.keys(e), ['soufflees'])
 })
@@ -586,7 +587,7 @@ test('le Mot mystère : Éclairer souffle une lettre à sa place, jamais le mot 
   let e = ouvert
   for (let n = 0; n < 6; n++) e = eclaire(r, MOT, e, `m:eclairer:${n}`)
   assert.equal(new Set(e.soufflees).size, 6, 'chaque fois une autre')
-  assert.equal(r.eclairer(MOT, e, hasardDe('encore')), RIEN_A_ECLAIRER, 'sept lettres : six au plus')
+  assert.equal(r.eclairer(MOT, e, hasardDe('encore')), rienAEclairerAu('mot'), 'sept lettres : six au plus')
   assert.deepEqual(
     r.montrer(MOT, e).soufflees.map(s => s.lettre).join(''),
     e.soufflees.map(p => MOT.lettres[p]).join(''),
@@ -599,7 +600,7 @@ test('le Mot mystère : Éclairer souffle une lettre à sa place, jamais le mot 
   }
   let presque = essaye
   for (let n = 0; n < 3; n++) presque = eclaire(r, MOT, presque, `m:${n}:presque`)
-  assert.equal(r.eclairer(MOT, presque, hasardDe('fin')), RIEN_A_ECLAIRER, 'trois trouvées et trois soufflées : la septième resterait seule')
+  assert.equal(r.eclairer(MOT, presque, hasardDe('fin')), rienAEclairerAu('mot'), 'trois trouvées et trois soufflées : la septième resterait seule')
 })
 
 test('le Mot mystère : la page ne reçoit ni le mot ni les réponses, seulement ce qu’il a appris', () => {
@@ -798,7 +799,7 @@ test('le Filet : la zone d’Éclairer contient toujours la réponse, sur la pis
   }
   const une = eclaire(r, FILET, r.ouvrir(FILET), 'f:1')
   assert.deepEqual(eclaire(r, FILET, r.ouvrir(FILET), 'f:1'), une, 'la même graine, la même zone')
-  assert.equal(r.eclairer(FILET, une, hasardDe('f:2')), RIEN_A_ECLAIRER)
+  assert.equal(r.eclairer(FILET, une, hasardDe('f:2')), rienAEclairerAu('filet'))
   assert.deepEqual(r.montrer(FILET, une).zone, une.zone)
 })
 

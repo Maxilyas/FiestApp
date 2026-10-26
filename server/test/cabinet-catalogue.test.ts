@@ -179,6 +179,10 @@ test('la rareté fait la force : une commune 1, une rare ou une maudite 2, une �
   assert.equal(forceDite('proteger', 2), '+1 étoile, une fois par partie')
   // Une manche ratée ne gagne qu'une étoile (`BONUS_D_UNE_MANCHE_RATEE`) : la force 3, la seule où elle gagne moins, le dit.
   assert.equal(forceDite('proteger', 3), '+2 étoiles, une seule à une manche ratée')
+  // Au Pari, une manche ne vaut que zéro, deux — gardée, qu'il ne relève pas — ou trois : il n'y relève qu'une ratée, et à
+  // toute force n'y promet que ce qu'elle gagne (le Phénix y disait « +2 étoiles »).
+  for (const f of [1, 2, 3] as const) assert.equal(forceDite('proteger', f, 'pari'), '+1 étoile à une manche ratée ; une manche gardée ne compte pas')
+  assert.equal(forceDite('proteger', 3, 'detail'), forceDite('proteger', 3))
   // L'échéance s'allonge à chaque étape : au Pari et à la Réplique, deux fois par manche — « à chaque question » promettait à
   // l'Éclair dix secondes par affirmation, quand il les donne pour les cinq (la tablée du 26 octobre 2026). Sans jeu — la fiche
   // d'une œuvre, d'un gardien —, les secondes seules, après la phrase du pouvoir qui dit où elles vont.
@@ -383,8 +387,10 @@ test('pourquoi un pouvoir ne sert pas : une seule règle, en mots', () => {
   assert.equal(refusDuPouvoir({ ...base, pouvoir: 'eclairer', force: 2, aEclairer: true }), null)
   assert.equal(refusDuPouvoir({ ...base, pouvoir: 'eclairer', force: 2, servi: 2, aEclairer: true }), 'Éclairer a déjà servi deux fois')
   assert.equal(refusDuPouvoir({ ...base, pouvoir: 'eclairer', force: 1, servi: 1, aEclairer: true }), 'Éclairer a déjà servi une fois')
-  // La manche, pas le jeu : le compteur dessus dit la partie (« Éclairer · encore 2 »).
-  assert.equal(refusDuPouvoir({ ...base, pouvoir: 'eclairer', force: 3, aEclairer: false }), 'Plus rien à éclairer dans cette manche')
+  // L'étape, pas le jeu : le compteur dessus dit la partie (« Éclairer · encore 2 »). Au Pari et à la Réplique, la question —
+  // la seconde de la manche s'éclaire encore ; ailleurs, la manche.
+  assert.equal(refusDuPouvoir({ ...base, pouvoir: 'eclairer', force: 3, aEclairer: false }), 'Plus rien à éclairer à cette question')
+  assert.equal(refusDuPouvoir({ ...base, jeu: 'detail', pouvoir: 'eclairer', force: 3, aEclairer: false }), 'Plus rien à éclairer dans cette manche')
   assert.equal(refusDuPouvoir({ ...base, pouvoir: 'changer', force: 1, rechanges: 1 }), null)
   assert.equal(refusDuPouvoir({ ...base, jeu: 'frise', pouvoir: 'changer', force: 3, rechanges: 3 }), 'Changer ne sert pas à la Frise')
   assert.equal(refusDuPouvoir({ ...base, pouvoir: 'changer', force: 2, rechanges: 2, aJoue: true }), 'Change avant de répondre')

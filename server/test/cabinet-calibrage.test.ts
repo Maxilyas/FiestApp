@@ -105,6 +105,16 @@ test('Protéger 3 ne fait plus gagner le Détail sans rien savoir : une commune 
   // Prudence n'y change rien : elle relevait déjà une manche ratée d'une seule étoile.
   const sans = partAvecLaCarte(sortie, commune, JEUX.detail.nom, 'hasard', null)
   assert.ok(partAvecLaCarte(sortie, commune, JEUX.detail.nom, 'hasard', POUVOIRS.proteger.nom, 1) >= sans, 'Prudence ne fait jamais moins que sans carte')
+  // Reste une loterie, à l'épique, que le propriétaire tranchera (`docs/architecture/decisions.md`) : deux tableaux devinés au
+  // premier coup d'œil et la ratée relevée d'une étoile font sept — à toute force, Prudence comprise, une œuvre de départ.
+  // Qu'elle ne grandisse pas en silence : jamais plus que ce que la même chance fait sans carte, une commune (15,6 % au calcul ;
+  // quatre cents parties lisent à cinq points près).
+  const epique = BAREME.SEUILS_DES_RARETES.epique
+  assert.ok(partAvecLaCarte(sortie, epique, JEUX.detail.nom, 'hasard', null) < 0.05, 'sans carte, une épique au hasard reste rare')
+  for (const force of [1, 2, 3] as const) {
+    const loterie = partAvecLaCarte(sortie, epique, JEUX.detail.nom, 'hasard', POUVOIRS.proteger.nom, force)
+    assert.ok(loterie <= sans + 0.05, `au Détail, au hasard, Protéger ${force} : ${loterie} d'épiques, ${sans} de communes sans carte`)
+  }
 })
 
 test('le plafond des départs ne dit pas le contraire de la minute : le temps qu’il libère va à la série', async () => {

@@ -108,6 +108,8 @@ import {
 
 /** La phrase que dit la seule règle des refus quand la manche n'a plus rien à souffler : les jeux ne la recopient pas. */
 const RIEN_A_ECLAIRER = refusDuPouvoir({ pouvoir: 'eclairer', force: 3, jeu: 'epingle', servi: 0, aEclairer: false })
+/** … et à la Réplique, dont la manche a deux étapes : la question, que le refus nomme — la seconde s'éclaire encore. */
+const RIEN_A_ECLAIRER_A_CETTE_QUESTION = refusDuPouvoir({ pouvoir: 'eclairer', force: 3, jeu: 'replique', servi: 0, aEclairer: false })
 
 /** Un hasard d'essai qui rend toujours le même nombre. */
 const toujours = (x: number) => () => x
@@ -820,7 +822,7 @@ test('la Réplique : Éclairer efface une mauvaise proposition à chaque étape 
     assert.equal(new Set(e.effaces[0]).size, 2)
     // Dans l'ordre que le départ a tiré.
     assert.deepEqual(e.effaces[0], t.ordreDesEffaces[0].slice(0, 2))
-    assert.equal(REGLE_DE_LA_REPLIQUE.eclairer(t, e, HASARD_DE_LA_GRAINE), RIEN_A_ECLAIRER, 'deux restent toujours')
+    assert.equal(REGLE_DE_LA_REPLIQUE.eclairer(t, e, HASARD_DE_LA_GRAINE), RIEN_A_ECLAIRER_A_CETTE_QUESTION, 'deux restent toujours')
     const une = REGLE_DE_LA_REPLIQUE.montrer(t, e)
     assert.ok(une.etape === 1 && une.mots.filter(m => m.efface).length === 2)
     // La seconde étape repart sans rien d'effacé ; un nom sur trois s'y efface.
@@ -829,7 +831,7 @@ test('la Réplique : Éclairer efface une mauvaise proposition à chaque étape 
     deux = REGLE_DE_LA_REPLIQUE.eclairer(t, deux, HASARD_DE_LA_GRAINE) as EtatDeLaReplique
     assert.deepEqual(deux.effaces[1], t.ordreDesEffaces[1].slice(0, 1))
     assert.ok(!deux.effaces[1].includes(t.bonneQui), 'jamais la bonne personne')
-    assert.equal(REGLE_DE_LA_REPLIQUE.eclairer(t, deux, HASARD_DE_LA_GRAINE), RIEN_A_ECLAIRER)
+    assert.equal(REGLE_DE_LA_REPLIQUE.eclairer(t, deux, HASARD_DE_LA_GRAINE), RIEN_A_ECLAIRER_A_CETTE_QUESTION)
   }
   // Un plan qui porterait la bonne proposition dans son ordre ne la fait pas effacer pour autant.
   const mal: RepliqueTiree = { ...T, ordreDesEffaces: [[T.bonMot, 3, 0, 2], [T.bonneQui, 1, 0]] }

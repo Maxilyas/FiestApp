@@ -284,8 +284,8 @@ test('à chaque jeu, la partie parfaite n’est jamais plus fréquente que sept 
 
 test('à la Frise, une année qu’il ne sait pas s’estime à des années près : la frise serrée d’une épique est plus dure', async () => {
   // Le modèle estimait une année inconnue à un quart de l'étendue de la frise près : une frise serrée, plus courte, y
-  // devenait plus facile — le joueur moyen faisait plus de parties parfaites sur les serrées (26,9 %) que sur les autres
-  // (24,4), et la frise serrée de l'épique (`ECART_D_UNE_FRISE_EPIQUE`) n'avait aucune prise sur lui. Quatre ans d'écart
+  // devenait plus facile — le joueur moyen faisait plus de parties parfaites sur les serrées (24,7 %) que sur toute frise
+  // (24,4, le calibrage du 26 octobre 2026), et la frise serrée de l'épique (`ECART_D_UNE_FRISE_EPIQUE`) n'avait aucune prise sur lui. Quatre ans d'écart
   // entre la tour Eiffel et les funérailles de Hugo ne se rangent pas « à l'époque ».
   const { code, sortie, erreurs } = await calibrer(['--sections', 'jeux', '--jeux', 'frise', '--joueurs', 'moyen,complétionniste', '--parties', '1000'])
   assert.equal(code, 0, erreurs)

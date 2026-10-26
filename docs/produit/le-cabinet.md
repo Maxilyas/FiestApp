@@ -75,7 +75,7 @@ Avant chaque partie, on emporte une carte-bonus : une œuvre qu'on possède, les
 | Pouvoir | Qui le porte | Ce qu'il fait | Force 1 · 2 · 3 |
 |---|---|---|---|
 | **Éclairer** | l'Érudit, le Devin, cinq neutres | un indice, propre à chaque jeu (le tableau des jeux) | 1 · 2 · 3 indices par partie |
-| **Protéger** | le Rempart, cinq neutres | ta première manche imparfaite où tu as répondu gagne des étoiles, une fois — une seule si elle est ratée ; au Pari, une manche gardée ne compte pas | +1 · +1 · +2 |
+| **Protéger** | le Rempart, cinq neutres | ta première manche imparfaite où tu as répondu gagne des étoiles, une fois — une seule si elle est ratée ; au Pari, une manche gardée ne compte pas : il n'y relève qu'une ratée, et l'annonce du Pari le dit | +1 · +1 · +2 |
 | **Prendre son temps** | l'Élan, cinq neutres | du temps en plus à chaque manche — à chacune de ses deux questions au Pari et à la Réplique ; il ne compte que si tu t'en sers | +10 · +20 · +30 s |
 | **Miser** | le Flambeur, le Téméraire, les trois maudites | avant une manche, sans l'avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu'à 9 sur la partie ; sinon, elle ne vaut rien | +2 · +3 · +3 |
 | **Changer** | le Métamorphe, le Sophiste, deux neutres | remplace la manche avant de répondre ; le chrono continue — jamais à la Frise | 1 · 2 · 3 fois |

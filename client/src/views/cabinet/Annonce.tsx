@@ -6,7 +6,7 @@ import { espacesFines } from '../../format'
 import { ETOILES_D_UNE_PARTIE, ETOILES_DU_PARI, ETOILES_PAR_MANCHE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import type { EnjeuDUneCase } from '../../../../shared/cabinet/musee'
-import { POUVOIRS, ceQueFaitLaCarte, forceDe, pouvoirDe, sertA, type CleDePouvoir, type Force } from '../../../../shared/cabinet/pouvoirs'
+import { ceQueFaitLaCarte, ditALAnnonce, forceDe, pouvoirDe, sertA, type CleDePouvoir, type Force } from '../../../../shared/cabinet/pouvoirs'
 import type { PageDuCabinet, VueDeLaPartie } from '../../../../shared/cabinet/vues'
 import { legendaire } from '../../../../shared/legendaires'
 import { EnEtoiles } from './EnEtoiles'
@@ -184,10 +184,10 @@ function ceQueDemandeLeCadre(jeu: CleDeJeu): string {
  * Une carte-bonus en une ligne : sa peinture ou son médaillon, son nom, ce qu'elle fait à ce jeu — et, un cadre doré en jeu, ce qui
  * l'ôterait. Une carte qui ne sert pas à ce jeu (`sertA` : Changer à la Frise) ne dit que cela : ni ce qu'elle ferait, ni ce
  * qu'elle ôterait — l'annonce d'une chasse à la Frise, Échange emporté, disait « Changer ne sert pas à la Frise », puis
- * « T'en servir ôte le cadre doré » (la relecture du 26 octobre 2026).
+ * « T'en servir ôte le cadre doré » (la relecture du 26 octobre 2026). Sous la ligne de sa force, sa phrase moins ce qui ne
+ * vaut qu'à un autre jeu (`ditALAnnonce`) : « au Pari, une manche gardée ne compte pas » se lisait sous Prudence à chaque jeu.
  */
 function LigneDeCarte({ carte, jeu, detail = false, cadre = false }: { carte: CarteBonus; jeu: CleDeJeu; detail?: boolean; cadre?: boolean }) {
-  const pouvoir = POUVOIRS[carte.pouvoir]
   const sert = sertA(carte.pouvoir, jeu)
   const oteLeCadre = cadre && sert ? CE_QUI_OTE_LE_CADRE[carte.pouvoir] : null
   return (
@@ -205,7 +205,7 @@ function LigneDeCarte({ carte, jeu, detail = false, cadre = false }: { carte: Ca
         <b className="cab-carte-nom">{carte.nom}</b>
         <span className="cab-ligne">{espacesFines(ceQueFaitLaCarte(carte.pouvoir, carte.force, jeu))}</span>
         {/* Éclairer se dit déjà jeu par jeu ; les autres disent ici ce qu'ils font, la mise surtout — avant une manche, sans l'avoir vue. */}
-        {detail && sert && carte.pouvoir !== 'eclairer' && <span className="cab-raison">{espacesFines(pouvoir.dit)}</span>}
+        {detail && sert && carte.pouvoir !== 'eclairer' && <span className="cab-raison">{espacesFines(ditALAnnonce(carte.pouvoir))}</span>}
         {detail && oteLeCadre && <span className="cab-raison">{espacesFines(oteLeCadre)}</span>}
       </span>
     </span>
