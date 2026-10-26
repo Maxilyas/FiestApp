@@ -1050,6 +1050,13 @@ test('« Quitter » garde son mot tant qu’il tient sur la rangée : la page le
   assert.equal(surLaMemeRangee({ top: 14, bottom: 62 }, { top: 16, bottom: 60 }), true)
   assert.equal(surLaMemeRangee({ top: 14, bottom: 62 }, { top: 66, bottom: 110 }), false, 'passé dessous')
   assert.equal(surLaMemeRangee({ top: 14, bottom: 62 }, { top: 61.8, bottom: 105 }), false, 'deux boîtes qui se frôlent ne font pas une rangée')
+  // Le rendu juge `[tête]` par cette règle même, envoyée dans la page : une copie à lui, retouchée seule, aurait jugé la rangée
+  // autrement que la page qui cache le mot (la relecture du lot finitions). Elle part en texte, sans `__name` — tsx en glisse
+  // dans une fonction qui nomme les siennes, et la page ne le connaît pas.
+  const rendu = readFileSync(path.join(client, '../../server/scripts/rendu-cabinet.ts'), 'utf8')
+  assert.match(rendu, /memeLigne: \(\$\{surLaMemeRangee\}\)\(t, q\)/)
+  assert.doesNotMatch(rendu, /\.bottom > \w+\.top \+ 0\.5/, 'pas de copie de la règle de la rangée')
+  assert.doesNotMatch(String(surLaMemeRangee), /__name/)
   // Le mot montré le temps de la mesure : il se cache si « Quitter » passe alors à la ligne, et reparaît dès qu'il tient.
   const rangee = (quitter: { top: number; bottom: number } | null, vu: string[] = []) => {
     const dataset: { mot?: string } = { mot: 'cache' }
@@ -4372,9 +4379,10 @@ async function unProfilRiche(login: string, prenom: string) {
 }
 
 test('une case manquée dont l’œuvre est à lui depuis le dit, sans « Retenter » — quel que soit le refus que le serveur dit d’abord', async () => {
-  // Achetée après la visite manquée, l'œuvre fait passer sa case « pour dorer » (`enjeuDe`), et le serveur refuse la retente pour
-  // la partie qui attend ou les chasses prises avant de dire « Son œuvre est déjà à toi » (`cadreDuDepart`) : la case disait « Pas
-  // de dorure cette fois », et « Retenter » en sourdine pour une œuvre déjà à lui.
+  // Achetée après la visite manquée, l'œuvre fait passer sa case « pour dorer » (`enjeuDe`) : la case disait « Pas de dorure cette
+  // fois », et « Retenter » en sourdine pour une œuvre déjà à lui. Le serveur dit « Son œuvre est déjà à toi » avant tout autre
+  // refus depuis le lot finitions (`cadreDuDepart`) ; un serveur d'avant — l'autre d'une mise en ligne — disait d'abord la partie
+  // qui attend ou les chasses prises, et la case le dit tout autant.
   const o = aLuiSansCadre()
   const gagnee = uneCase({ jeu: 'eclair', enJeu: enGagnant, faite: true, issue: 'gagnee', oeuvre: 'lecon' })
   const chasse = { ...vues.pari, origine: 'chasse' } as VueDeLaPartie
@@ -4406,8 +4414,17 @@ test('une case manquée dont l’œuvre est à lui depuis le dit, sans « Retent
     ok(await jouer(b, sacha, c, { quoi: 'quitter' }), 'quittée')
   }
   lues.push(ok(await laPage(b, sacha), 'les chasses prises'))
-  // Le refus que le serveur dit d'abord n'y change rien : la page ne lit pas l'ordre de ses refus.
+  // Le serveur d'à présent dit d'abord que son œuvre est à lui, sous la chasse qui attend comme sous les chasses prises.
   assert.ok(lues.every(p => p.visite.cases[0].retenter?.possible === false), JSON.stringify(lues.map(p => p.visite.cases[0].retenter)))
+  assert.ok(lues.every(p => p.visite.cases[0].retenter?.refus === SON_OEUVRE_EST_A_TOI), JSON.stringify(lues.map(p => p.visite.cases[0].retenter)))
+  // L'aide de la page ne porte pas le nom de la règle privée de `musee.ts`, et son commentaire dit l'ordre d'à présent : il disait
+  // que le serveur nommait d'abord la partie qui attend, quand le lot finitions venait d'inverser l'ordre (la relecture du lot).
+  const laVisiteEcrite = source('views/cabinet/Visite.tsx')
+  assert.doesNotMatch(laVisiteEcrite, /\bsonOeuvreEstALui\b/)
+  const avant = laVisiteEcrite.slice(0, laVisiteEcrite.indexOf('const oeuvreDejaALui'))
+  const commentaire = avant.slice(avant.lastIndexOf('/**'))
+  assert.match(commentaire, /`SON_OEUVRE_EST_A_TOI`[^.]*avant/)
+  assert.doesNotMatch(commentaire, /dit\s+d'abord la partie qui attend/)
   for (const p of lues) {
     assert.ok('pourDorer' in p.visite.cases[0].enJeu, 'sa case passe « pour dorer »')
     const html = await laVisite(p)

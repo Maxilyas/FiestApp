@@ -52,22 +52,24 @@ export function enJeuDit(enJeu: EnjeuDUneCase, doree = false): string {
 }
 
 /**
- * L'œuvre d'une case manquée est-elle à lui depuis ? Gagnée en chasse ou achetée après la partie, elle fait passer sa case
- * « pour dorer » (`enjeuDe`) ; et seule une case qui visait une œuvre à gagner porte `retenter` (`retenteDeLaCase` n'en dit rien
- * d'une case qui était pour dorer) : les deux ensemble ne disent rien d'autre. Le serveur refuse alors la retente — mais dit
- * d'abord la partie qui attend, ou les chasses prises (`cadreDuDepart`) : la case ne lit pas l'ordre de ses refus. Elle disait
- * « Pas de dorure cette fois », et « Retenter » en sourdine pour une œuvre déjà à lui (la relecture du lot page-2).
+ * L'œuvre d'une case manquée est-elle à lui depuis — gagnée en chasse, achetée après la partie ? Le serveur le dit
+ * (`SON_OEUVRE_EST_A_TOI`) avant tout autre refus de la retente, la partie qui attend et les chasses prises comprises : elles
+ * ne la rouvriraient jamais (`cadreDuDepart`, le lot finitions). La seconde lecture n'est qu'un rattrapage : pendant une mise en
+ * ligne, la page peut lire la case d'un serveur d'avant, qui disait d'abord ces refus-là. Sa case passée « pour dorer »
+ * (`enjeuDe`) et sa retente encore là — seule une case qui visait une œuvre à gagner la porte (`retenteDeLaCase`) — ne disent
+ * rien d'autre. La case disait « Pas de dorure cette fois », et « Retenter » en sourdine pour une œuvre déjà à lui (la relecture
+ * du lot page-2).
  */
-const sonOeuvreEstALui = (c: Pick<CaseVue, 'enJeu' | 'retenter'>): boolean => c.retenter?.refus === SON_OEUVRE_EST_A_TOI || (c.retenter !== undefined && 'pourDorer' in c.enJeu)
+const oeuvreDejaALui = (c: Pick<CaseVue, 'enJeu' | 'retenter'>): boolean => c.retenter?.refus === SON_OEUVRE_EST_A_TOI || (c.retenter !== undefined && 'pourDorer' in c.enJeu)
 
 /** « Retenter » tel qu'une case faite le montre : celui du serveur, sauf quand son œuvre est à lui — plus rien à retenter. */
-const laRetenteMontree = (c: CaseVue): NonNullable<CaseVue['retenter']> | null => (c.faite && c.retenter && !sonOeuvreEstALui(c) ? c.retenter : null)
+const laRetenteMontree = (c: CaseVue): NonNullable<CaseVue['retenter']> | null => (c.faite && c.retenter && !oeuvreDejaALui(c) ? c.retenter : null)
 
 /** Ce qu'une case faite a donné. Manquée, ce qui reste à faire : rien pour dorer, et « Retenter » pour son œuvre. */
 function issueDite(c: CaseVue): string {
   const nom = c.oeuvre && oeuvreDe(c.oeuvre)?.nom
   if (c.issue === 'manquee') {
-    if (sonOeuvreEstALui(c)) return SON_OEUVRE_EST_A_TOI
+    if (oeuvreDejaALui(c)) return SON_OEUVRE_EST_A_TOI
     if ('pourDorer' in c.enJeu) return 'Pas de dorure cette fois'
     return c.retenter?.possible ? 'L’œuvre reste à gagner : retente-la pour une chasse' : 'L’œuvre reste à gagner'
   }

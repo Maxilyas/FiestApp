@@ -64,7 +64,7 @@ import Database from 'better-sqlite3'
 import { demarrer, inscrireProfil } from '../test/banc'
 import { DIX_HEURES, departEnBase } from '../test/cabinet-banc'
 import { CE_QUI_DEBORDE, CE_QUI_EST_COUPE, CE_QUI_SE_CHEVAUCHE, SOUS_LA_NICHE, contrasteDeLaPage } from './a-l-ecran'
-import { PIED_COLLE, TETE_COLLEE } from '../../client/src/views/cabinet/bande'
+import { PIED_COLLE, TETE_COLLEE, surLaMemeRangee } from '../../client/src/views/cabinet/bande'
 import { HAUTEUR_DE_LA_CARTE, LARGEUR_DE_LA_CARTE, projeter } from '../../shared/cabinet/france'
 import { JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import type { DetailTire } from '../../shared/cabinet/jeux/detail'
@@ -435,14 +435,18 @@ const LA_BANDE = `const tete = document.querySelector(${JSON.stringify(TETE_COLL
   const pied = document.querySelector(${JSON.stringify(PIED_COLLE)})
   const bas = pied ? pied.getBoundingClientRect().top : innerHeight`
 
-/** Le texte du total de la tête, et « Quitter » ; s'il est passé à la ligne, et s'il s'est assis au bout du chrono. */
+/**
+ * Le texte du total de la tête, et « Quitter » ; s'il est passé à la ligne, et s'il s'est assis au bout du chrono. La même rangée
+ * se juge par la règle de la page (`surLaMemeRangee`, `bande.ts`), envoyée en texte : une copie d'ici, retouchée seule, aurait
+ * dit `[tête]` autrement que la page qui cache le mot (`cabinet-ecran.test.ts` la relit sans `__name`).
+ */
 const LA_TETE = `(() => {
   const total = document.querySelector('.cab-total'), quitter = document.querySelector('.cab-quitter')
   if (!total || !quitter) return null
   const plage = document.createRange()
   plage.selectNodeContents(total)
   const t = plage.getBoundingClientRect(), q = quitter.getBoundingClientRect()
-  return { droite: t.right, gauche: q.left, memeLigne: t.bottom > q.top + 0.5 && q.bottom > t.top + 0.5, assis: getComputedStyle(quitter).position === 'absolute', hauteur: document.querySelector(${JSON.stringify(TETE_COLLEE)}).getBoundingClientRect().height }
+  return { droite: t.right, gauche: q.left, memeLigne: (${surLaMemeRangee})(t, q), assis: getComputedStyle(quitter).position === 'absolute', hauteur: document.querySelector(${JSON.stringify(TETE_COLLEE)}).getBoundingClientRect().height }
 })()`
 
 /**

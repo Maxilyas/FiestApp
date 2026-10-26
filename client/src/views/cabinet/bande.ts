@@ -5,6 +5,10 @@
 // petit téléphone, le texte agrandi, la question et la carte ne tenaient
 // jamais ensemble, ni le tableau et ses titres (la tablée du 25 octobre 2026).
 //
+// Et la rangée des manches de la tête : « Quitter » y garde son mot tant
+// qu'il tient (`poserLeMotDeQuitter`), et le rendu juge `[tête]` par la même
+// règle (`surLaMemeRangee`), qu'il envoie dans la page.
+//
 // Une seule copie de ce qui la borne : la partie, le Mot et le rendu
 // (`server/scripts/rendu-cabinet.ts`) la lisaient chacun à sa façon. Sans
 // rien du DOM dans ses types : le rendu l'importe sous Node, et une épreuve
