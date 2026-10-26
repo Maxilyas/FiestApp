@@ -56,7 +56,7 @@ Après chaque manche, **la révélation** : les étoiles et ce qui les a faites 
 |---|---|---|---|
 | **L'Épingle** | un récit daté, puis « Où ? » : on plante l'épingle sur la carte de France | à moins de 40 km ★★★ · 120 km ★★ · 300 km ★ | entoure une zone de 300 km qui contient le lieu, son centre à 120 à 294 km de lui |
 | **La Frise** | une seule frise qui grandit — trois événements, puis cinq, puis sept —, du plus ancien au plus récent | sans faute ★★★ · une erreur ★★ | dévoile l'année d'un nouveau venu |
-| **Le Mot mystère** | un mot à trouver, la question pour indice, cinq essais, les couleurs de chaque essai | en 1 ou 2 essais ★★★ · 3 ou 4 ★★ · 5 ★ | souffle une lettre à sa place |
+| **Le Mot mystère** | un mot à trouver, la question pour indice, cinq essais en deux minutes — l'annonce le dit —, les couleurs de chaque essai | en 1 ou 2 essais ★★★ · 3 ou 4 ★★ · 5 ★ | souffle une lettre à sa place |
 | **Le Détail** | un tableau en quatre cadrages ; « Reculer d'un pas » en montre plus et coûte une étoile ; quatre titres d'époques voisines | au premier coup d'œil ★★★ · un pas ★★ · deux ★ | efface un mauvais titre |
 | **Le Filet** | un curseur sur une piste, puis la taille du filet | petit ★★★ · moyen ★★ · grand ★ | montre une zone où est la réponse |
 | **Le Pari** | une question ; juste, on garde ses deux étoiles ou on les parie sur une question plus difficile | garder ★★ · parier et réussir ★★★ | efface une mauvaise réponse |
@@ -75,8 +75,8 @@ Avant chaque partie, on emporte une carte-bonus : une œuvre qu'on possède, les
 | Pouvoir | Qui le porte | Ce qu'il fait | Force 1 · 2 · 3 |
 |---|---|---|---|
 | **Éclairer** | l'Érudit, le Devin, cinq neutres | un indice, propre à chaque jeu (le tableau des jeux) | 1 · 2 · 3 indices par partie |
-| **Protéger** | le Rempart, cinq neutres | la première manche imparfaite gagne des étoiles, une fois — si tu y as répondu | +1 · +1 · +2 |
-| **Prendre son temps** | l'Élan, cinq neutres | du temps en plus à chaque question — deux par manche au Pari et à la Réplique ; il ne compte que si tu t'en sers | +10 · +20 · +30 s |
+| **Protéger** | le Rempart, cinq neutres | ta première manche imparfaite où tu as répondu gagne des étoiles, une fois — une seule si elle est ratée ; au Pari, une manche gardée ne compte pas | +1 · +1 · +2 |
+| **Prendre son temps** | l'Élan, cinq neutres | du temps en plus à chaque manche — à chacune de ses deux questions au Pari et à la Réplique ; il ne compte que si tu t'en sers | +10 · +20 · +30 s |
 | **Miser** | le Flambeur, le Téméraire, les trois maudites | avant une manche, sans l'avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu'à 9 sur la partie ; sinon, elle ne vaut rien | +2 · +3 · +3 |
 | **Changer** | le Métamorphe, le Sophiste, deux neutres | remplace la manche avant de répondre ; le chrono continue — jamais à la Frise | 1 · 2 · 3 fois |
 

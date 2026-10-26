@@ -9,8 +9,10 @@
 // du lendemain y a ajouté ce que le modèle corrigé laissait faux : Changer qui ne
 // payait sa lecture qu'aux Indices, la mise jugée sur des manches tirées l'une
 // après l'autre, le Détail qui reculait vers les étoiles en moyenne, et une carte
-// choisie au bruit de cent parties. Ce que le calibrage joue du code :
-// `cabinet-calibrage.test.ts`.
+// choisie au bruit de cent parties. La tablée suivante, le 26 octobre 2026, la
+// Frise : une année inconnue s'estimait à une part de l'étendue de la frise, et
+// la frise serrée d'une épique y devenait plus facile. Ce que le calibrage joue
+// du code — le Mot mystère et Protéger compris : `cabinet-calibrage.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as BAREME from '../../shared/cabinet/bareme'
@@ -276,4 +278,37 @@ test('à chaque jeu, la partie parfaite n’est jamais plus fréquente que sept 
       assert.ok(neuf <= sept + marge, `${JEUX[jeu].nom}, ${joueur} : ${sept} à sept étoiles ou plus, ${neuf} parfaites`)
     }
   }
+})
+
+// ── La tablée du 26 octobre 2026 ──────────────────────────────────────────
+
+test('à la Frise, une année qu’il ne sait pas s’estime à des années près : la frise serrée d’une épique est plus dure', async () => {
+  // Le modèle estimait une année inconnue à un quart de l'étendue de la frise près : une frise serrée, plus courte, y
+  // devenait plus facile — le joueur moyen faisait plus de parties parfaites sur les serrées (26,9 %) que sur les autres
+  // (24,4), et la frise serrée de l'épique (`ECART_D_UNE_FRISE_EPIQUE`) n'avait aucune prise sur lui. Quatre ans d'écart
+  // entre la tour Eiffel et les funérailles de Hugo ne se rangent pas « à l'époque ».
+  const { code, sortie, erreurs } = await calibrer(['--sections', 'jeux', '--jeux', 'frise', '--joueurs', 'moyen,complétionniste', '--parties', '1000'])
+  assert.equal(code, 0, erreurs)
+  const [entete, ...lignes] = sectionDe(sortie, 'La Frise serrée').map(cases)
+  /** La part d'un joueur dans une colonne, serrée puis toute frise. */
+  const parts = (joueur: string, colonne: string) => {
+    const c = lignes.find(x => x[0] === joueur)
+    assert.ok(c, `pas de ligne pour ${joueur} :\n${lignes.join('\n')}`)
+    const k = entete.indexOf(colonne)
+    assert.ok(k > 0, `pas de colonne ${colonne} : ${entete.join(' | ')}`)
+    return c[k].split(' · ').map(enFraction)
+  }
+  const epique = `≥ ${BAREME.SEUILS_DES_RARETES.epique}`
+  const parfaite = `= ${BAREME.ETOILES_D_UNE_PARTIE}`
+  for (const joueur of ['moyen', 'complétionniste']) {
+    // Serrée, puis toute frise : moins de parties parfaites, et pas plus à sept étoiles ou plus, sur les serrées.
+    const [serree, toute] = parts(joueur, parfaite)
+    assert.ok(serree < toute, `${joueur}, parfaites : ${serree} serrée, ${toute} toute frise`)
+    const [serreeEpique, touteEpique] = parts(joueur, epique)
+    assert.ok(serreeEpique <= touteEpique, `${joueur}, une épique : ${serreeEpique} serrée, ${touteEpique} toute frise`)
+  }
+  // L'écart est en années, plus serré au plus fort : `MODELE.friseFlouAns` × e^(−0,3θ), jamais une part de l'étendue.
+  const modele = sansCommentaires(SOURCE)
+  assert.match(modele, /friseFlouAns: 25\b/)
+  assert.doesNotMatch(modele, /\betendue\b/, 'l’étendue de la frise ne fait plus l’erreur')
 })

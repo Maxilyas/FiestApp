@@ -44,9 +44,11 @@
 // Pari, reculer au Détail, vers le seuil qu'il vise ; la zone d'Éclairer, où
 // il plante le mieux sans rien savoir du lieu ; la manche à miser, et la
 // manche misée, qu'il joue pour ses trois étoiles : c'est le plancher de
-// chaque jeu. Un seul tient au modèle plus qu'aux règles : le Mot mystère, où
-// il ne tape jamais le mot (une chance sur douze millions à cinq lettres) —
-// que cinq essais faux ne rapportent rien, c'est le pli qui le juge.
+// chaque jeu. Le Mot mystère tient au modèle plus qu'aux règles : il n'y tape
+// jamais le mot au premier essai (une chance sur douze millions à cinq
+// lettres), mais il lit les couleurs comme le joueur moyen, et le déduit à sa
+// chance dès le deuxième — à zéro jusqu'au 26 octobre 2026, quand la tablée
+// du jour trouvait le mot sans savoir à toutes ses manches.
 //
 // Ce qu'il choisit vers un but — garder ou parier, le filet, reculer, miser —
 // se décide sur une seule programmation dynamique (`Avenir`) : la chance
@@ -262,6 +264,7 @@ const {
   CHASSES_PAR_JOUR,
   DECALAGE_DE_LA_ZONE_KM,
   DEPARTS_PAR_HEURE,
+  ECART_D_UNE_FRISE_EPIQUE,
   ECLAIRAGES_PAR_PARTIE,
   ESSAIS_DU_MOT,
   ETOILES_AU_CADRAGE,
@@ -361,11 +364,23 @@ const cleDuSavoir = (j: Joueur) => `${j.theta}:${j.vitesse}`
  * tablée et les vraies parties la remplaceront.
  */
 const MODELE = {
-  /** Le Mot mystère : sans savoir le mot, il le déduit de ses couleurs, une fois sur trois — mieux à chaque lettre soufflée (en logit). */
+  /**
+   * Le Mot mystère : sans savoir le mot, il le déduit de ses couleurs, une
+   * fois sur trois — mieux à chaque lettre soufflée (en logit). Le joueur au
+   * hasard aussi, à la chance du moyen : il lit les couleurs comme tout le
+   * monde. Un chiffre posé sans mesure, à remesurer en préproduction sur les
+   * manches dont le premier essai est faux.
+   */
   motDeduit: 0.35,
   motParLettre: 0.8,
-  /** … et le trouve alors à l'un des trois derniers essais (`ESSAIS_DU_MOT`). */
-  motAuxEssais: [0.4, 0.35, 0.25],
+  /**
+   * … et le trouve alors du deuxième au cinquième essai (`ESSAIS_DU_MOT`) :
+   * les six manches jouées sans savoir à la tablée du 26 octobre 2026 l'ont
+   * trouvé une fois au deuxième, trois au troisième, une au quatrième, une au
+   * cinquième. Le modèle d'avant n'y déduisait jamais avant le troisième, et
+   * jamais au hasard : le Mot y était le seul jeu à zéro commune.
+   */
+  motAuxEssais: [0.2, 0.4, 0.2, 0.2],
   /**
    * Le Filet : il sait la valeur, à un centième et demi de piste près, d'une
    * question moyenne ; d'une autre marche, décalée du logit que la campagne lui
@@ -381,9 +396,17 @@ const MODELE = {
   /** Le Détail : il reconnaît le tableau, au premier, deuxième ou troisième cadrage — le moyen ; un plus fort, plus tôt. */
   detailReconnu: 0.45,
   detailAuCadrage: [0.45, 0.35, 0.2],
-  /** La Frise : il sait l'année d'un événement ; sinon il l'estime, à tant de l'étendue de la frise près. */
+  /**
+   * La Frise : il sait l'année d'un événement ; sinon il l'estime, à tant
+   * d'années près au joueur moyen (un écart type), plus serré au plus fort
+   * (× e^(−0,3θ), comme le Filet). Jusqu'au 26 octobre 2026, à un quart de
+   * l'étendue de la frise : une frise serrée, plus courte, y devenait plus
+   * facile, quand quatre ans entre la tour Eiffel et les funérailles de Hugo ne
+   * se rangent pas « à l'époque » (la tablée du jour) — et la frise serrée de
+   * l'épique n'avait aucune prise sur le modèle.
+   */
   friseSait: 0.45,
-  friseFlou: 0.25,
+  friseFlouAns: 25,
   /**
    * L'Épingle : il sait le lieu (à une quinzaine de kilomètres) ; sinon sa
    * région (de 40 à 220 km) ; sinon rien. La zone d'Éclairer, il la lit — où
@@ -826,7 +849,7 @@ class Avenir {
   /** La manche `m` jouée, misée ou non, `s` étoiles faites avant elle : ce qu'il en saura, son meilleur lancer, puis la suite. */
   manche(m: number, misee: boolean, s: number, garde: boolean): number {
     if (!this.modeles.has(m)) this.modeles.set(m, this.modele(m))
-    const vaut = (k: number) => (misee ? etoilesApresLesPouvoirs([k], this.carte, 0, [true])[0]! : k)
+    const vaut = (k: number) => (misee ? etoilesApresLesPouvoirs([k], this.carte, 0, [true], [false])[0]! : k)
     const apres = (loi: Loi) => loi.reduce((n, [k, chance]) => n + chance * this.attente(m + 1, s + vaut(k), garde), 0)
     return this.modeles.get(m)!.reduce((n, etat) => n + etat.part * Math.max(...etat.lancers.map(apres)), 0)
   }
@@ -1033,7 +1056,7 @@ class Partie {
    * reculer y valaient leurs étoiles d'ordinaire, et la mise se perdait.
    */
   vautDans(m: Manche, naturel: number): number {
-    return this.e.misee === m ? etoilesApresLesPouvoirs([naturel], this.d.carte, 0, [true])[0]! : naturel
+    return this.e.misee === m ? etoilesApresLesPouvoirs([naturel], this.d.carte, 0, [true], [false])[0]! : naturel
   }
   /** Une proposition parmi celles qui ne sont pas effacées. */
   parmi(n: number, effacees: readonly number[]): number {
@@ -1132,7 +1155,8 @@ function mancheDuMot(p: Partie, m: Manche): void {
   }
   if (p.peut('eclairer')) p.eclairer(m)
   const soufflees = p.vue<MotMontre>().soufflees.length
-  const deduit = p.j.theta !== null && p.oui(chance(MODELE.motDeduit, p.j.theta + MODELE.motParLettre * soufflees))
+  // Le joueur au hasard déduit à la chance du moyen : il ne sait rien de la question, mais les couleurs, il les lit.
+  const deduit = p.oui(chance(MODELE.motDeduit, (p.j.theta ?? 0) + MODELE.motParLettre * soufflees))
   const trouveA = deduit ? ESSAIS_DU_MOT - MODELE.motAuxEssais.length + 1 + selon(MODELE.motAuxEssais, p.r) : 0
   for (let essai = 1; essai <= BAREME.ESSAIS_DU_MOT && !p.tranchee(); essai++) {
     if (!p.geste({ quoi: 'essai', manche: m, lettres: essai === trouveA ? t.lettres : faux() }, SECONDES.motEssai)) return
@@ -1252,9 +1276,9 @@ function reculer(p: Partie, m: Manche, cadrage: number, restants: number): boole
 function mancheDeLaFrise(p: Partie, m: Manche): void {
   const t = p.tiree<FriseTiree>()
   const annees = t.evenements.map(e => e.annee)
-  const etendue = Math.max(...annees) - Math.min(...annees)
-  // Une seule frise pour les trois manches : ce qu'il en sait vaut pour toute la partie.
-  const estimees = p.savoir(0, () => annees.map(a => (p.j.theta !== null && p.oui(part(p.j, MODELE.friseSait)) ? a : a + normale(p.r) * MODELE.friseFlou * etendue * Math.exp(-0.3 * (p.j.theta ?? 0)))))
+  // Une seule frise pour les trois manches : ce qu'il en sait vaut pour toute la partie. Ce qu'il ignore, il le situe à
+  // quelques décennies près, quelle que soit la frise : deux voisins à quatre ans se rangent à pile ou face.
+  const estimees = p.savoir(0, () => annees.map(a => (p.j.theta !== null && p.oui(part(p.j, MODELE.friseSait)) ? a : a + normale(p.r) * MODELE.friseFlouAns * Math.exp(-0.3 * (p.j.theta ?? 0)))))
   const nouveaux = t.vagues[t.vague]
   if (p.j.theta !== null && nouveaux.some(rg => estimees[rg] !== annees[rg]) && p.peut('eclairer')) p.eclairer(m)
   const v = p.vue<FriseMontree>()
@@ -1921,6 +1945,30 @@ if (enSection('jeux')) {
   }
   if (auHasard.length > 0) console.log(`  Au hasard, une commune (${SEUILS_MONTRES[0]} étoiles) : ${auHasard.sort((a, b) => b.part - a.part).map(x => `${JEUX[x.jeu].nom} ${enPourcent(x.part)}`).join(' · ')}`)
   console.log('')
+
+  // 1 ter. La Frise serrée, celle d'une épique, contre toute frise : la frise serrée « ne se mesurait toujours pas » (la
+  // tablée du 26 octobre 2026) — le tableau d'au-dessus la joue vers sept étoiles, et toute frise vers les autres seuils et
+  // pour la partie parfaite. Chaque seuil, ici, sur l'une et l'autre : de quoi décider d'une frise serrée à tout enjeu.
+  if (JEUX_MESURES.includes('frise')) {
+    const serree = (e: EnjeuDuTirage): EnjeuDuTirage => ({ ...e, friseSerree: true })
+    const toute = (e: EnjeuDuTirage): EnjeuDuTirage => ({ ...e, friseSerree: false })
+    console.log(
+      `La Frise serrée — celle d'une épique, la moitié de ses voisins à ${formatNumber(ECART_D_UNE_FRISE_EPIQUE)} ans au plus (ECART_D_UNE_FRISE_EPIQUE) — contre toute frise à thème, sur les mêmes rangs de parties : à chaque seuil, puis la partie parfaite, la serrée d'abord`,
+    )
+    const largeurs = [16, ...SEUILS_MONTRES.map(() => 17), 17]
+    console.log('  ' + colonnes(['joueur', ...SEUILS_MONTRES.map(s => `≥ ${s}`), `= ${ETOILES_D_UNE_PARTIE}`], largeurs))
+    for (const j of SAVOIRS) {
+      // La frise du but, serrée ou non : le reste de son enjeu — la marche d'une épique ou d'une dorure — ne touche pas la Frise.
+      const versLe = (seuil: number) => (frise: typeof serree) => auMoins(mesurer(j, 'frise', null, versLeSeuil(seuil), PARTIES, frise(enjeuDuBut(versLeSeuil(seuil)))), seuil)
+      const parfaites = (frise: typeof serree) => {
+        const x = mesurer(j, 'frise', null, DORER, PARTIES, frise(enjeuDuBut(DORER)))
+        return x.dorees / x.parties
+      }
+      const deuxParts = (part: (frise: typeof serree) => number) => [serree, toute].map(frise => enPourcent(part(frise))).join(' · ')
+      console.log('  ' + colonnes([j.nom, ...SEUILS_MONTRES.map(s => deuxParts(versLe(s))), deuxParts(parfaites)], largeurs))
+    }
+    console.log('')
+  }
 }
 
 // 1 bis. Chaque jeu avec la meilleure des quatre œuvres de départ : tout profil les emporte, et les retouches du

@@ -53,6 +53,16 @@ export interface DescriptionDUnJeu {
    */
   changeable: boolean
   /**
+   * Les étapes d'une manche, chacune son chrono : deux au Pari et à la
+   * Réplique, une ailleurs — l'Éclair n'en a qu'une pour ses cinq
+   * affirmations. Prendre son temps en allonge chacune : la carte dit « par
+   * manche » ou « à chacune de ses deux questions » (`forceDite`), et « à
+   * chaque question » promettait à l'Éclair dix secondes par affirmation (la
+   * tablée du 26 octobre 2026). Écrites ici pour que la page ne tire pas les
+   * règles ; `cabinet-regles.test.ts` les relit contre `RegleDuJeu.etapes`.
+   */
+  etapes: 1 | 2
+  /**
    * Ce qu'il faut savoir avant de commencer, quand le jeu ne se joue pas
    * comme les autres : le Détail se joue à l'œil. Rien ne décrit le tableau
    * avant le verdict — la description soufflerait la réponse (invariant 1) —,
@@ -64,6 +74,9 @@ export interface DescriptionDUnJeu {
 
 /** « ★★ » ; « rien » pour zéro — un barème ne dit jamais une étoile vide. */
 const etoiles = (n: number) => (n > 0 ? '★'.repeat(n) : 'rien')
+
+/** « 2 minutes », « 55 secondes » : une durée du barème, en minutes quand elle tombe juste. */
+const dureeDite = (secondes: number) => (secondes % 60 === 0 ? `${secondes / 60} minute${secondes > 60 ? 's' : ''}` : `${secondes} secondes`)
 
 /** « un pas », « une erreur », puis les nombres en lettres : un barème se lit, il ne se déchiffre pas. */
 const LETTRES = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix']
@@ -153,6 +166,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     bareme: KM_DE_L_EPINGLE.map((km, i) => `${i === 0 ? 'à moins de ' : ''}${km} km ${etoiles(3 - i)}`).join(' · '),
     eclairer: `entoure une grande zone (${RAYON_D_ECLAIRER_KM} km) qui contient le lieu`,
     changeable: true,
+    etapes: 1,
   },
   frise: {
     cle: 'frise',
@@ -162,15 +176,19 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     bareme: baremeDesErreurs(ERREURS_DE_LA_FRISE),
     eclairer: 'dévoile l’année d’un nouveau venu',
     changeable: false,
+    etapes: 1,
   },
   mot: {
     cle: 'mot',
     nom: 'Le Mot mystère',
     a: 'au Mot mystère',
-    geste: `Trouve le mot, avec la question pour indice : ${ESSAIS_DU_MOT} essais.`,
+    // Son chrono, comme l'Éclair : « Trois parties de deux minutes » laissait croire la partie entière en deux minutes, quand une
+    // seule manche du Mot les prend (la tablée du 26 octobre 2026).
+    geste: `Trouve le mot, avec la question pour indice : ${ESSAIS_DU_MOT} essais en ${dureeDite(DUREES_DES_JEUX.mot)}.`,
     bareme: baremeCompte(ESSAIS_DES_ETOILES, 'essais'),
     eclairer: 'souffle une lettre à sa place',
     changeable: true,
+    etapes: 1,
   },
   detail: {
     cle: 'detail',
@@ -180,6 +198,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     bareme: baremeDesCadrages(ETOILES_AU_CADRAGE),
     eclairer: 'efface un mauvais titre',
     changeable: true,
+    etapes: 1,
     avertissement: 'Un jeu qui se joue à l’œil : les tableaux ne sont pas décrits au lecteur d’écran — la description soufflerait la réponse.',
   },
   filet: {
@@ -190,6 +209,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     bareme: `petit filet ${etoiles(ETOILES_DU_FILET.petit)} · moyen ${etoiles(ETOILES_DU_FILET.moyen)} · grand ${etoiles(ETOILES_DU_FILET.grand)}`,
     eclairer: 'montre une zone où est la réponse',
     changeable: true,
+    etapes: 1,
   },
   pari: {
     cle: 'pari',
@@ -199,15 +219,17 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     bareme: `garder ${etoiles(ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(ETOILES_DU_PARI.parier)}`,
     eclairer: 'efface une mauvaise réponse',
     changeable: true,
+    etapes: 2,
   },
   eclair: {
     cle: 'eclair',
     nom: 'L’Éclair',
     a: 'à l’Éclair',
-    geste: `${AFFIRMATIONS_DE_L_ECLAIR} affirmations en ${DUREES_DES_JEUX.eclair} secondes : vraies ou fausses ?`,
+    geste: `${AFFIRMATIONS_DE_L_ECLAIR} affirmations en ${dureeDite(DUREES_DES_JEUX.eclair)} : vraies ou fausses ?`,
     bareme: JUSTES_DE_L_ECLAIR.map((n, i) => `${i === 0 ? `${n} justes` : n} ${etoiles(3 - i)}`).join(' · '),
     eclairer: 'souffle la réponse de l’affirmation en cours',
     changeable: true,
+    etapes: 1,
   },
   indices: {
     cle: 'indices',
@@ -217,6 +239,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     bareme: baremeCompte(INDICES_DES_ETOILES, 'indices'),
     eclairer: 'un indice gratuit',
     changeable: true,
+    etapes: 1,
   },
   replique: {
     cle: 'replique',
@@ -226,6 +249,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     bareme: `le bon mot ${etoiles(ETOILES_DE_LA_REPLIQUE.mot)} · la bonne personne ${etoiles(ETOILES_DE_LA_REPLIQUE.qui)}`,
     eclairer: 'efface une mauvaise proposition',
     changeable: true,
+    etapes: 2,
   },
 }
 

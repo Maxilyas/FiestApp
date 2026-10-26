@@ -177,11 +177,17 @@ test('la rareté fait la force : une commune 1, une rare ou une maudite 2, une �
   assert.equal(forceDite('eclairer', 3), '3 indices par partie')
   assert.equal(forceDite('proteger', 1), '+1 étoile, une fois par partie')
   assert.equal(forceDite('proteger', 2), '+1 étoile, une fois par partie')
-  assert.equal(forceDite('proteger', 3), '+2 étoiles, une fois par partie')
-  // À chaque question, pas à chaque manche : l'échéance s'allonge à chaque étape — au Pari et à la Réplique, deux fois par manche.
-  assert.equal(forceDite('temps', 2), '+20 s à chaque question')
-  assert.equal(ceQueFaitLaCarte('temps', 1, 'replique'), 'Prendre son temps : +10 s à chaque question')
-  assert.equal(POUVOIRS.temps.dit, 'Du temps en plus à chaque question ; il ne compte que si tu t’en sers.')
+  // Une manche ratée ne gagne qu'une étoile (`BONUS_D_UNE_MANCHE_RATEE`) : la force 3, la seule où elle gagne moins, le dit.
+  assert.equal(forceDite('proteger', 3), '+2 étoiles, une seule à une manche ratée')
+  // L'échéance s'allonge à chaque étape : au Pari et à la Réplique, deux fois par manche — « à chaque question » promettait à
+  // l'Éclair dix secondes par affirmation, quand il les donne pour les cinq (la tablée du 26 octobre 2026). Sans jeu — la fiche
+  // d'une œuvre, d'un gardien —, les secondes seules, après la phrase du pouvoir qui dit où elles vont.
+  assert.equal(forceDite('temps', 2), '+20 s')
+  assert.equal(forceDite('temps', 2, 'eclair'), '+20 s par manche')
+  assert.equal(forceDite('temps', 1, 'pari'), '+10 s à chacune de ses deux questions')
+  assert.equal(ceQueFaitLaCarte('temps', 1, 'replique'), 'Prendre son temps : +10 s à chacune de ses deux questions')
+  assert.equal(ceQueFaitLaCarte('temps', 1, 'mot'), 'Prendre son temps : +10 s par manche')
+  assert.equal(POUVOIRS.temps.dit, 'Du temps en plus à chaque manche — à chacune de ses deux questions au Pari et à la Réplique ; il ne compte que si tu t’en sers.')
   // La mise dit son plafond et ce que vaut une manche misée imparfaite — le plafond lu du barème, jamais recopié.
   assert.equal(POUVOIRS.miser.dit, `Avant une manche, sans l’avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu’à ${B.ETOILES_D_UNE_PARTIE} sur la partie ; sinon, elle ne vaut rien.`)
   assert.equal(forceDite('miser', 1), '+2 étoiles si la manche misée est parfaite')
@@ -334,34 +340,42 @@ test('un gardien porte le pouvoir de la salle qu’il garde, pas celui de sa car
   assert.equal(conditionDuGardien('lg:licorne'), null)
 })
 
-test('Protéger porte la première manche imparfaite répondue, Miser la manche misée parfaite, et rien d’autre', () => {
+test('Protéger porte la première manche imparfaite répondue et pas gardée, Miser la manche misée parfaite, et rien d’autre', () => {
   const carte = (pouvoir: CleDePouvoir, force: Force) => ({ pouvoir, force })
   const toutes = [true, true, true]
+  const aucune = [false, false, false]
   assert.deepEqual(B.BONUS_DE_PROTECTION, { 1: 1, 2: 1, 3: 2 })
+  assert.equal(B.BONUS_D_UNE_MANCHE_RATEE, 1)
   // Une manche misée parfaite vaut six étoiles à la force 3 comme à la force 2 — sept jusqu'au 26 octobre 2026.
   assert.deepEqual(B.BONUS_DE_MISE, { 1: 2, 2: 3, 3: 3 })
-  // Protéger : une fois, la première manche répondue à moins de trois étoiles naturelles, zéro compris ; jamais au-delà de trois.
-  assert.deepEqual(etoilesApresLesPouvoirs([3, 1, 0], carte('proteger', 1), null, toutes), [3, 2, 0])
-  assert.deepEqual(etoilesApresLesPouvoirs([3, 1, 0], carte('proteger', 3), null, toutes), [3, 3, 0])
-  assert.deepEqual(etoilesApresLesPouvoirs([0, 1, 2], carte('proteger', 2), null, toutes), [1, 1, 2])
-  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 3], carte('proteger', 3), null, toutes), [3, 3, 3])
-  assert.deepEqual(etoilesApresLesPouvoirs([3, 3, 3], carte('proteger', 3), null, toutes), [3, 3, 3], 'trois manches parfaites : rien à protéger')
-  assert.equal(mancheProtegee([3, 3, 1], carte('proteger', 1), toutes), 2)
-  assert.equal(mancheProtegee([3, null, null], carte('proteger', 1), toutes), null, 'une manche pas encore jugée ne se protège pas')
-  assert.equal(mancheProtegee([1, 2, 3], carte('eclairer', 3), toutes), null)
+  // Protéger : une fois, la première manche répondue à moins de trois étoiles naturelles, zéro compris ; jamais au-delà de
+  // trois. Ratée, une étoile seulement, à toute force — deux à la force 3 jusqu'au 26 octobre 2026 (le calibrage du jour).
+  assert.deepEqual(etoilesApresLesPouvoirs([3, 1, 0], carte('proteger', 1), null, toutes, aucune), [3, 2, 0])
+  assert.deepEqual(etoilesApresLesPouvoirs([3, 1, 0], carte('proteger', 3), null, toutes, aucune), [3, 3, 0])
+  assert.deepEqual(etoilesApresLesPouvoirs([0, 1, 2], carte('proteger', 2), null, toutes, aucune), [1, 1, 2])
+  assert.deepEqual(etoilesApresLesPouvoirs([0, 1, 2], carte('proteger', 3), null, toutes, aucune), [B.BONUS_D_UNE_MANCHE_RATEE, 1, 2], 'ratée : une étoile, même à la force 3')
+  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 3], carte('proteger', 3), null, toutes, aucune), [3, 3, 3])
+  assert.deepEqual(etoilesApresLesPouvoirs([3, 3, 3], carte('proteger', 3), null, toutes, aucune), [3, 3, 3], 'trois manches parfaites : rien à protéger')
+  assert.equal(mancheProtegee([3, 3, 1], carte('proteger', 1), toutes, aucune), 2)
+  assert.equal(mancheProtegee([3, null, null], carte('proteger', 1), toutes, aucune), null, 'une manche pas encore jugée ne se protège pas')
+  assert.equal(mancheProtegee([1, 2, 3], carte('eclairer', 3), toutes, aucune), null)
   // Une manche quittée ou expirée sans une réponse ne se protège pas : la suivante, répondue, le prend (le 26 octobre 2026).
-  assert.equal(mancheProtegee([0, 1, 3], carte('proteger', 1), [false, true, true]), 1)
-  assert.deepEqual(etoilesApresLesPouvoirs([0, 1, 3], carte('proteger', 1), null, [false, true, true]), [0, 2, 3])
-  assert.equal(mancheProtegee([0, 0, 0], carte('proteger', 3), [false, false, false]), null, 'rien de répondu : rien à protéger')
+  assert.equal(mancheProtegee([0, 1, 3], carte('proteger', 1), [false, true, true], aucune), 1)
+  assert.deepEqual(etoilesApresLesPouvoirs([0, 1, 3], carte('proteger', 1), null, [false, true, true], aucune), [0, 2, 3])
+  assert.equal(mancheProtegee([0, 0, 0], carte('proteger', 3), [false, false, false], aucune), null, 'rien de répondu : rien à protéger')
+  // Une manche gardée au Pari ne se protège pas non plus — un choix, pas une manche imparfaite : la suivante le prend.
+  assert.equal(mancheProtegee([2, 0, 3], carte('proteger', 1), toutes, [true, false, false]), 1)
+  assert.deepEqual(etoilesApresLesPouvoirs([2, 0, 2], carte('proteger', 1), null, toutes, [true, false, true]), [2, 1, 2])
+  assert.deepEqual(etoilesApresLesPouvoirs([2, 2, 2], carte('proteger', 1), null, toutes, toutes), [2, 2, 2], 'trois gardées : six, sans épique')
   // Miser : la manche misée, parfaite, vaut 3 + le bonus ; sinon zéro. Les autres ne bougent pas.
-  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 2), 1, toutes), [2, 6, 1])
-  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 3), 1, toutes), [2, 6, 1], 'la force 3 mise comme la 2')
-  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 3), 2, toutes), [2, 3, 0])
-  assert.deepEqual(etoilesApresLesPouvoirs([3, null, null], carte('miser', 1), 1, toutes), [3, null, null], 'misée mais pas encore jouée')
-  assert.deepEqual(etoilesApresLesPouvoirs([3, 2, 1], carte('miser', 1), null, toutes), [3, 2, 1], 'la mise n’a pas servi')
+  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 2), 1, toutes, aucune), [2, 6, 1])
+  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 3), 1, toutes, aucune), [2, 6, 1], 'la force 3 mise comme la 2')
+  assert.deepEqual(etoilesApresLesPouvoirs([2, 3, 1], carte('miser', 3), 2, toutes, aucune), [2, 3, 0])
+  assert.deepEqual(etoilesApresLesPouvoirs([3, null, null], carte('miser', 1), 1, toutes, aucune), [3, null, null], 'misée mais pas encore jouée')
+  assert.deepEqual(etoilesApresLesPouvoirs([3, 2, 1], carte('miser', 1), null, toutes, aucune), [3, 2, 1], 'la mise n’a pas servi')
   // Les trois autres pouvoirs ne touchent pas aux étoiles.
-  for (const p of ['eclairer', 'temps', 'changer'] as const) assert.deepEqual(etoilesApresLesPouvoirs([1, 2, 0], carte(p, 3), 0, toutes), [1, 2, 0], p)
-  assert.deepEqual(etoilesApresLesPouvoirs([1, 2, 0], null, null, toutes), [1, 2, 0])
+  for (const p of ['eclairer', 'temps', 'changer'] as const) assert.deepEqual(etoilesApresLesPouvoirs([1, 2, 0], carte(p, 3), 0, toutes, aucune), [1, 2, 0], p)
+  assert.deepEqual(etoilesApresLesPouvoirs([1, 2, 0], null, null, toutes, aucune), [1, 2, 0])
 })
 
 test('pourquoi un pouvoir ne sert pas : une seule règle, en mots', () => {
@@ -369,7 +383,8 @@ test('pourquoi un pouvoir ne sert pas : une seule règle, en mots', () => {
   assert.equal(refusDuPouvoir({ ...base, pouvoir: 'eclairer', force: 2, aEclairer: true }), null)
   assert.equal(refusDuPouvoir({ ...base, pouvoir: 'eclairer', force: 2, servi: 2, aEclairer: true }), 'Éclairer a déjà servi deux fois')
   assert.equal(refusDuPouvoir({ ...base, pouvoir: 'eclairer', force: 1, servi: 1, aEclairer: true }), 'Éclairer a déjà servi une fois')
-  assert.equal(refusDuPouvoir({ ...base, pouvoir: 'eclairer', force: 3, aEclairer: false }), 'Ce jeu n’a plus rien à éclairer')
+  // La manche, pas le jeu : le compteur dessus dit la partie (« Éclairer · encore 2 »).
+  assert.equal(refusDuPouvoir({ ...base, pouvoir: 'eclairer', force: 3, aEclairer: false }), 'Plus rien à éclairer dans cette manche')
   assert.equal(refusDuPouvoir({ ...base, pouvoir: 'changer', force: 1, rechanges: 1 }), null)
   assert.equal(refusDuPouvoir({ ...base, jeu: 'frise', pouvoir: 'changer', force: 3, rechanges: 3 }), 'Changer ne sert pas à la Frise')
   assert.equal(refusDuPouvoir({ ...base, pouvoir: 'changer', force: 2, rechanges: 2, aJoue: true }), 'Change avant de répondre')
@@ -431,6 +446,10 @@ test('neuf jeux, chacun ses mots, son chrono et son barème dit', () => {
   // L'Éclair à 55 s : à 45, l'échéance prenait l'occasionnel de court à une manche sur neuf (le calibrage du 25 octobre 2026).
   assert.equal(B.DUREES_DES_JEUX.eclair, 55)
   assert.equal(JEUX.eclair.geste, '5 affirmations en 55 secondes : vraies ou fausses ?')
+  // Le Mot dit son chrono comme l'Éclair : « Trois parties de deux minutes », à la bienvenue, quand une seule manche du Mot
+  // en dure deux (la tablée du 26 octobre 2026) — sa durée lue au barème, dite en minutes rondes.
+  assert.equal(B.DUREES_DES_JEUX.mot, 120)
+  assert.equal(JEUX.mot.geste, 'Trouve le mot, avec la question pour indice : 5 essais en 2 minutes.')
   // Les Indices comptent les indices vus et les erreurs, et chaque erreur en montre un de plus : le compte monte
   // au-delà des cinq indices d'une fiche, jusqu'à neuf. La dernière étoile n'a pas de plafond. ★★★ en un ou deux indices
   // depuis le 26 octobre 2026 — en trois avant : la tablée y faisait 8,75 étoiles sur 9.
@@ -621,7 +640,7 @@ test('les mots du Cabinet : une œuvre, une carte-bonus, la carte de France — 
     ...CLES_DES_JEUX.flatMap(j => [JEUX[j].nom, JEUX[j].a, JEUX[j].geste, JEUX[j].bareme, JEUX[j].eclairer]),
     ...Object.values(MOTS_DU_PARI),
     ...Object.values(POUVOIRS).flatMap(p => [p.nom, p.dit]),
-    ...(['eclairer', 'proteger', 'temps', 'miser', 'changer'] as const).flatMap(p => ([1, 2, 3] as const).map(f => forceDite(p, f))),
+    ...(['eclairer', 'proteger', 'temps', 'miser', 'changer'] as const).flatMap(p => ([1, 2, 3] as const).flatMap(f => [forceDite(p, f), ...CLES_DES_JEUX.map(j => ceQueFaitLaCarte(p, f, j))])),
     ...SALLES.flatMap(s => [s.nom, s.laSalle, s.deLaSalle, s.dansLaSalle, s.devise]),
     ...GARDIENS.map(g => conditionDuGardien(g)!),
   ]

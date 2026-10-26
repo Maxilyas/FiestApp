@@ -135,8 +135,9 @@ test('les quatre règles suivent le moule : leur clé, leurs étapes, leurs dur�
   }
   // Le Pari a un chrono par étape, le même.
   assert.equal(REGLE_DU_PARI.dureeMs(2), B.DUREES_DES_JEUX.pari * 1000)
-  // Éclairer sans rien à souffler se refuse par la seule règle des pouvoirs, en mots.
-  assert.equal(RIEN_A_ECLAIRER, 'Ce jeu n’a plus rien à éclairer')
+  // Éclairer sans rien à souffler se refuse par la seule règle des pouvoirs, en mots — pour la manche, que le refus nomme :
+  // le compteur au-dessus dit la partie.
+  assert.equal(RIEN_A_ECLAIRER, 'Plus rien à éclairer dans cette manche')
 })
 
 test('les règles sont pures : ni horloge, ni hasard que la graine ne redonne', () => {

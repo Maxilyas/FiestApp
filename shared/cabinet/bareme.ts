@@ -20,7 +20,8 @@
 // (le 26 octobre 2026) : la pause de « Quitter ? » à dix secondes, ★★★ en un ou
 // deux indices, la mise de la force 3 ramenée à celle de la force 2, la zone
 // d'Éclairer à l'Épingle élargie et décalée plus loin, la marche qui suit
-// l'enjeu, la Frise serrée pour une épique.
+// l'enjeu, la Frise serrée pour une épique. Puis ce que la tablée du 26 a
+// fait trancher : une manche ratée que Protéger relève d'une seule étoile.
 //
 // Ce qu'un changement fait au passé dépend du chemin de chaque chiffre, que
 // sa ligne de `baremes.md` dit : un seuil se fige au départ d'une partie ; la
@@ -155,9 +156,19 @@ export const ECLAIRAGES_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2:
  * imparfaite qu'une réponse a tranchée — jamais au-delà de trois. +3 vidait
  * les seuils de leur sens, une faille que les agents ont fermée. Une manche
  * quittée, ou expirée sans réponse, ne se relève pas : quitter d'emblée sous
- * Prudence valait une étoile (la tablée du 25 octobre 2026).
+ * Prudence valait une étoile (la tablée du 25 octobre 2026) ; une manche
+ * gardée au Pari non plus — un choix, pas une manche imparfaite.
  */
 export const BONUS_DE_PROTECTION: Readonly<Record<Force, number>> = { 1: 1, 2: 1, 3: 2 }
+/**
+ * … mais une manche ratée — zéro étoile — n'en gagne que tant, à toute force.
+ * Relevée de deux à la force 3, elle faisait avec une manche juste au hasard
+ * les cinq étoiles d'une commune : au Détail, un titre sur quatre tombé juste
+ * en trois essais la gagnait 57,8 fois sur cent sans rien savoir, au-delà de la
+ * borne d'une sur trois qui a fermé Éclairer 3 à l'Épingle et Miser 3 au
+ * Détail (le calibrage du 26 octobre 2026). Prudence, à +1, n'y perd rien.
+ */
+export const BONUS_D_UNE_MANCHE_RATEE = 1
 /** Prendre son temps : les secondes de plus à chaque manche et à chaque étape, par point de force — figées au départ avec le chrono. */
 export const SECONDES_PAR_FORCE = 10
 /**

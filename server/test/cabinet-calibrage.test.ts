@@ -9,19 +9,22 @@
 // avant elle, ou une séance où le plafond des départs dirait le contraire de
 // la minute. Au hasard, le Filet fait une commune à la part de piste que ses
 // filets couvrent, lancés vers le seuil (3,5 %), et le Détail à la chance de
-// deviner deux tableaux sur trois du premier coup (15,6 %). Le Mot mystère,
-// jamais : son zéro tient au modèle, qui n'y tape pas le mot — une chance sur
-// douze millions à cinq lettres —, et au pli, qui ne donne pas une étoile à
-// cinq essais faux. Le modèle lui-même, corrigé après la tablée du 25 octobre
-// 2026 : `cabinet-calibrage-modele.test.ts`.
+// deviner deux tableaux sur trois du premier coup (15,6 %) — Protéger 3 n'y
+// ajoute plus guère, une manche ratée ne gagnant qu'une étoile. Le Mot
+// mystère, à ce que les couleurs lui disent : il n'y tape jamais le mot au
+// premier essai — une chance sur douze millions à cinq lettres —, mais le
+// déduit ensuite comme le joueur moyen, dès le deuxième (la tablée du
+// 26 octobre 2026). Le modèle lui-même, corrigé après les tablées :
+// `cabinet-calibrage-modele.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import * as BAREME from '../../shared/cabinet/bareme'
 import { JEUX, CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
+import { POUVOIRS } from '../../shared/cabinet/pouvoirs'
 import { lireNombre } from '../../shared/nombres'
-import { type Lancement, SCRIPT, SERVEUR, SOURCE, auHasard, calibrer, cases, jeuxQuiVisent, ligneDuJeu, lignesDesConfettis, sansCommentaires } from './calibrage-du-cabinet'
+import { type Lancement, SCRIPT, SERVEUR, SOURCE, auHasard, calibrer, cases, jeuxQuiVisent, ligneDuJeu, lignesDesConfettis, partAvecLaCarte, sansCommentaires } from './calibrage-du-cabinet'
 import { importsStatiques } from './chemin-des-imports'
 
 /** Le joueur au hasard seul, sans le musée ni la zone de l'Épingle — qui ne dépend d'aucun joueur : quelques secondes. */
@@ -57,9 +60,11 @@ test('au hasard, chaque jeu a le plancher que ses règles lui font', async () =>
   assert.equal(code, 0, erreurs)
   const parts = auHasard(sortie)
   assert.deepEqual([...parts.keys()].sort(), CLES_DES_JEUX.map(j => JEUX[j].nom).sort(), 'les neuf jeux, chacun une fois')
-  // Le modèle ne tape jamais le mot au hasard ; que cinq essais faux ne valent rien, c'est le pli qui le juge : pas une étoile, en moyenne.
-  assert.equal(parts.get(JEUX.mot.nom), 0, 'aucun mot ne se trouve au hasard')
-  assert.equal(lireNombre(ligneDuJeu(sortie, JEUX.mot.nom, 'hasard')[3]), 0, 'cinq essais faux ne rapportent pas une étoile')
+  // Le joueur au hasard lit les couleurs comme tout le monde : il déduit le mot une fois sur trois, à la chance du joueur moyen,
+  // et en fait des étoiles — le modèle d'avant le 26 octobre 2026 ne lui en donnait aucune, quand les six manches jouées sans
+  // savoir à la tablée du jour ont toutes trouvé le mot.
+  assert.ok(parts.get(JEUX.mot.nom)! > 0, 'au Mot, qui ne sait rien déduit encore')
+  assert.ok(lireNombre(ligneDuJeu(sortie, JEUX.mot.nom, 'hasard')[3])! > 0.5, 'des étoiles, au Mot, sans rien savoir')
   // Le Filet lancé vers le seuil : jouer la moyenne, c'était le grand filet, une étoile par manche, et zéro commune — la stratégie, pas la règle.
   const filet = parts.get(JEUX.filet.nom)!
   const attendu = filetAuHasard(BAREME.SEUILS_DES_RARETES.commun)
@@ -76,6 +81,30 @@ test('au hasard, chaque jeu a le plancher que ses règles lui font', async () =>
     const [cinq, six, sept] = ligneDuJeu(sortie, JEUX[jeu].nom, 'hasard')[2].split(' · ').map(x => lireNombre(x.replace(' %', ''))!)
     assert.ok(cinq >= six && six >= sept, `${JEUX[jeu].nom} : ${cinq} · ${six} · ${sept}`)
   }
+})
+
+test('au Mot mystère, qui ne sait pas peut trouver au deuxième essai : les couleurs du premier lui suffisent parfois', async () => {
+  // Le modèle ne déduisait jamais avant le troisième essai ; à la tablée du 26 octobre 2026, AFRIQUE s'est trouvé au
+  // deuxième sans savoir. Sous un barème qui ne paie que les deux premiers essais, le joueur au hasard — qui ne tape jamais
+  // le mot au premier — ne marque qu'à ceux qu'il trouve au deuxième.
+  const { code, sortie, erreurs } = await calibrer(['--sections', 'jeux', '--jeux', 'mot', '--joueurs', 'hasard', '--parties', '400', '--essai', 'ESSAIS_DES_ETOILES=1/1/2'])
+  assert.equal(code, 0, erreurs)
+  assert.match(sortie, /Essai : ESSAIS_DES_ETOILES = \[1,1,2\]/)
+  assert.ok(lireNombre(ligneDuJeu(sortie, JEUX.mot.nom, 'hasard')[3])! > 0, `au deuxième essai, sans savoir :\n${ligneDuJeu(sortie, JEUX.mot.nom, 'hasard').join(' | ')}`)
+})
+
+test('Protéger 3 ne fait plus gagner le Détail sans rien savoir : une commune une fois sur trois au plus', async () => {
+  // Une manche juste au hasard et une manche ratée relevée de deux faisaient cinq étoiles : sous Protéger 3, le joueur au
+  // hasard gagnait une commune du Détail 62 fois sur cent (57,8 % au calcul), au-delà de la borne posée au nom du
+  // propriétaire pour Éclairer 3 à l'Épingle et Miser 3 au Détail. Une manche ratée ne gagne plus qu'une étoile.
+  const { code, sortie, erreurs } = await calibrer(['--sections', 'cartes', '--jeux', 'detail', '--pouvoirs', 'proteger', '--joueurs', 'hasard', '--mesures', '400'])
+  assert.equal(code, 0, erreurs)
+  const commune = BAREME.SEUILS_DES_RARETES.commun
+  const avec = partAvecLaCarte(sortie, commune, JEUX.detail.nom, 'hasard', POUVOIRS.proteger.nom, 3)
+  assert.ok(avec < 0.34, `au Détail, au hasard, Protéger 3 : ${avec} de communes`)
+  // Prudence n'y change rien : elle relevait déjà une manche ratée d'une seule étoile.
+  const sans = partAvecLaCarte(sortie, commune, JEUX.detail.nom, 'hasard', null)
+  assert.ok(partAvecLaCarte(sortie, commune, JEUX.detail.nom, 'hasard', POUVOIRS.proteger.nom, 1) >= sans, 'Prudence ne fait jamais moins que sans carte')
 })
 
 test('le plafond des départs ne dit pas le contraire de la minute : le temps qu’il libère va à la série', async () => {

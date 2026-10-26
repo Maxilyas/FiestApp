@@ -743,12 +743,24 @@ export interface EtoilesDUneManche {
  */
 const relevable = (m: MancheDuPli | undefined): boolean => m?.verdict != null && m.fin !== 'quittee' && m.verdict.pieces.some(pieceRepondue)
 
+/**
+ * Une manche gardée au Pari : juste au premier coup, il a gardé ses étoiles
+ * plutôt que de parier. Le geste qui tranche laisse l'état d'avant lui (le
+ * moule, `regle.ts`) : une manche tranchée encore « au choix » l'a été par
+ * « Garder » — ou quittée là, que `relevable` écarte déjà. Protéger ne la
+ * relève pas : un choix, pas une manche imparfaite (la tablée du 26 octobre
+ * 2026). Pas de version du départ neuve : la v1 se fige à la première mise en
+ * préproduction (`docs/architecture/decisions.md`, l'arbitrage 7).
+ */
+const gardee = (m: MancheDuPli | undefined): boolean => m?.verdict != null && auChoix(m.etat)
+
 /** Les trois manches, jugées ou non. */
 export function etoilesDesManches(d: DepartDUnePartie, e: EtatDeLaPartie): EtoilesDUneManche[] {
   const naturel = Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => e.manches[k]?.verdict?.naturel ?? null)
   const repondues = Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => relevable(e.manches[k]))
-  const etoiles = etoilesApresLesPouvoirs(naturel, d.carte, e.misee, repondues)
-  const protegee = mancheProtegee(naturel, d.carte, repondues)
+  const gardees = Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => gardee(e.manches[k]))
+  const etoiles = etoilesApresLesPouvoirs(naturel, d.carte, e.misee, repondues, gardees)
+  const protegee = mancheProtegee(naturel, d.carte, repondues, gardees)
   return naturel.map((n, k) => ({ naturel: n, etoiles: etoiles[k], protegee: protegee === k, misee: e.misee === k, fin: e.manches[k]?.fin ?? null }))
 }
 

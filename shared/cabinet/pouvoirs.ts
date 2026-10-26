@@ -10,13 +10,14 @@
 // (invariant 21).
 //
 // Ici, pur : à qui va quel pouvoir, à quelle force, ce que chaque force fait,
-// pourquoi un pouvoir ne sert pas (une seule règle, que le pli applique et que
-// la page lit sans la recopier), ce qu'Éclairer peut effacer d'une étape, et
-// les étoiles après Protéger et Miser.
+// s'il sert à ce jeu (`sertA`), pourquoi un pouvoir ne sert pas (une seule
+// règle, que le pli applique et que la page lit sans la recopier), ce
+// qu'Éclairer peut effacer d'une étape, et les étoiles après Protéger et Miser.
 
 import {
   BONUS_DE_MISE,
   BONUS_DE_PROTECTION,
+  BONUS_D_UNE_MANCHE_RATEE,
   CHANGEMENTS_PAR_PARTIE,
   ECLAIRAGES_PAR_PARTIE,
   EFFACES_AU_PLUS,
@@ -25,7 +26,7 @@ import {
   PROPOSITIONS_LAISSEES,
   SECONDES_PAR_FORCE,
 } from './bareme'
-import { JEUX, type CleDeJeu } from './jeux/regle'
+import { CLES_DES_JEUX, JEUX, type CleDeJeu } from './jeux/regle'
 import { oeuvre, type CleDuVestibule } from './oeuvres'
 import { pouvoirDuGardien, type CleDeFamille } from './salles'
 
@@ -41,10 +42,15 @@ export interface Pouvoir {
   actif: boolean
 }
 
+/** « au Pari et à la Réplique » : les jeux dont une manche a deux étapes, chacune son chrono (`JEUX[jeu].etapes`). */
+const A_DEUX_ETAPES = CLES_DES_JEUX.filter(jeu => JEUX[jeu].etapes === 2)
+  .map(jeu => JEUX[jeu].a)
+  .join(' et ')
+
 /**
  * Ce que dit chacun, à l'annonce et dans les règles : ce qu'il fait, et ce
- * qu'on ignorerait sans le lire. Prendre son temps allonge chaque question —
- * deux par manche au Pari et à la Réplique — et ne compte, cadre doré compris,
+ * qu'on ignorerait sans le lire. Prendre son temps allonge chaque étape d'une
+ * manche — deux au Pari et à la Réplique — et ne compte, cadre doré compris,
  * que si la réponse arrive dans le temps en plus ; la mise a le plafond de la
  * partie (`ETOILES_D_UNE_PARTIE`), et manquée, sa manche ne vaut plus rien.
  * La tablée du 25 octobre 2026 misait à l'aveugle : « sinon, rien » ne disait
@@ -53,9 +59,14 @@ export interface Pouvoir {
  */
 export const POUVOIRS: Readonly<Record<CleDePouvoir, Pouvoir>> = {
   eclairer: { nom: 'Éclairer', dit: 'Un indice, propre à chaque jeu.', actif: true },
-  // « Répondue » : quittée, ou laissée au chrono sans une réponse, une manche ne se relève pas — Prudence valait une étoile à qui quittait d'emblée.
-  proteger: { nom: 'Protéger', dit: 'Ta première manche imparfaite gagne des étoiles, si tu y as répondu.', actif: false },
-  temps: { nom: 'Prendre son temps', dit: 'Du temps en plus à chaque question ; il ne compte que si tu t’en sers.', actif: false },
+  // La règle du pli, prise au mot (`mancheProtegee`) : parmi les manches répondues, la première imparfaite. « Ta première
+  // manche imparfaite gagne des étoiles, si tu y as répondu » faisait croire Protéger perdu après une manche laissée au
+  // chrono, quand le pli relevait la suivante (la relecture du 26 octobre 2026). Une manche gardée au Pari est un choix,
+  // pas une manche imparfaite : Prudence en faisait ★★★, et trois gardées une épique sans un pari (la tablée du même jour).
+  proteger: { nom: 'Protéger', dit: 'Ta première manche imparfaite où tu as répondu gagne des étoiles ; au Pari, une manche gardée ne compte pas.', actif: false },
+  // « À chaque question » : l'Éclair, une seule étape pour cinq affirmations, n'en donne qu'une fois — la tablée attendait dix
+  // secondes par affirmation (le 26 octobre 2026).
+  temps: { nom: 'Prendre son temps', dit: `Du temps en plus à chaque manche — à chacune de ses deux questions ${A_DEUX_ETAPES} ; il ne compte que si tu t’en sers.`, actif: false },
   miser: {
     nom: 'Miser',
     dit: `Avant une manche, sans l’avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu’à ${ETOILES_D_UNE_PARTIE} sur la partie ; sinon, elle ne vaut rien.`,
@@ -123,16 +134,37 @@ export function forceDe(cle: unknown): Force | null {
 
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
 
-/** Ce que fait un pouvoir à sa force, en mots : l'annonce le dit sous la carte-bonus emportée. */
-export function forceDite(pouvoir: CleDePouvoir, force: Force): string {
+/**
+ * Ce que Protéger ajoute à la manche qu'il relève : le bonus de sa force, mais
+ * à une manche ratée une étoile au plus (`BONUS_D_UNE_MANCHE_RATEE`) — jamais
+ * plus qu'à une manche imparfaite.
+ */
+const bonusDeProtection = (naturel: number, force: Force): number =>
+  naturel === 0 ? Math.min(BONUS_D_UNE_MANCHE_RATEE, BONUS_DE_PROTECTION[force]) : BONUS_DE_PROTECTION[force]
+
+/**
+ * Ce que fait un pouvoir à sa force, en mots : l'annonce le dit sous la
+ * carte-bonus emportée, la fiche d'une œuvre ou d'un gardien après ce que fait
+ * le pouvoir. Prendre son temps dit où vont ses secondes au jeu qu'on joue ;
+ * sans jeu, ses secondes seules, que la phrase du pouvoir a situées.
+ */
+export function forceDite(pouvoir: CleDePouvoir, force: Force, jeu?: CleDeJeu): string {
   switch (pouvoir) {
     case 'eclairer':
       return `${pluriel(ECLAIRAGES_PAR_PARTIE[force], 'indice')} par partie`
-    case 'proteger':
-      return `+${pluriel(BONUS_DE_PROTECTION[force], 'étoile')}, une fois par partie`
-    case 'temps':
-      // L'échéance s'allonge à chaque étape : « à chaque manche » promettait dix secondes au Pari, qui en donne vingt.
-      return `+${SECONDES_PAR_FORCE * force} s à chaque question`
+    case 'proteger': {
+      // Ce que la ratée perd, à la seule force où elle gagne moins que l'imparfaite — au Phénix, pas à Prudence.
+      const ratee = bonusDeProtection(0, force)
+      const bonus = `+${pluriel(BONUS_DE_PROTECTION[force], 'étoile')}`
+      return ratee < BONUS_DE_PROTECTION[force] ? `${bonus}, ${ratee === 1 ? 'une seule' : `${ratee} seulement`} à une manche ratée` : `${bonus}, une fois par partie`
+    }
+    case 'temps': {
+      // L'échéance s'allonge à chaque étape : « à chaque manche » promettait dix secondes au Pari, qui en donne vingt, et
+      // « à chaque question » dix par affirmation à l'Éclair, qui n'en donne que dix pour ses cinq.
+      const secondes = `+${SECONDES_PAR_FORCE * force} s`
+      if (!jeu) return secondes
+      return JEUX[jeu].etapes === 2 ? `${secondes} à chacune de ses deux questions` : `${secondes} par manche`
+    }
     case 'miser':
       return `+${pluriel(BONUS_DE_MISE[force], 'étoile')} si la manche misée est parfaite`
     case 'changer':
@@ -141,15 +173,24 @@ export function forceDite(pouvoir: CleDePouvoir, force: Force): string {
 }
 
 /**
+ * Le pouvoir sert-il à ce jeu ? Changer, jamais à la Frise, qui se construit
+ * d'un bout à l'autre (`JEUX[jeu].changeable`) ; les autres, partout. Une seule
+ * règle, que lisent la ligne de la carte, son refus et l'annonce — qui disait
+ * à la Frise « Changer ne sert pas à la Frise », puis ce que fait Changer et
+ * « T'en servir ôte le cadre doré » (la relecture du 26 octobre 2026).
+ */
+export const sertA = (pouvoir: CleDePouvoir, jeu: CleDeJeu): boolean => pouvoir !== 'changer' || JEUX[jeu].changeable
+
+/**
  * Ce que la carte-bonus emportée fait à ce jeu, en une ligne — l'annonce et la
- * partie la disent sous elle : Éclairer, ce qu'il éclaire ici ; Changer, s'il
- * sert à ce jeu ; les autres, leur force. « Éclairer : efface une mauvaise
- * réponse — 2 indices par partie ».
+ * partie la disent sous elle : Éclairer, ce qu'il éclaire ici ; une carte qui
+ * ne sert pas ici, qu'elle ne sert pas ; les autres, leur force à ce jeu.
+ * « Éclairer : efface une mauvaise réponse — 2 indices par partie ».
  */
 export function ceQueFaitLaCarte(pouvoir: CleDePouvoir, force: Force, jeu: CleDeJeu): string {
+  if (!sertA(pouvoir, jeu)) return `${POUVOIRS[pouvoir].nom} ne sert pas ${JEUX[jeu].a}`
   if (pouvoir === 'eclairer') return `${POUVOIRS.eclairer.nom} : ${JEUX[jeu].eclairer} — ${forceDite(pouvoir, force)}`
-  if (pouvoir === 'changer' && !JEUX[jeu].changeable) return `Changer ne sert pas ${JEUX[jeu].a}`
-  return `${POUVOIRS[pouvoir].nom} : ${forceDite(pouvoir, force)}`
+  return `${POUVOIRS[pouvoir].nom} : ${forceDite(pouvoir, force, jeu)}`
 }
 
 /** Ce qu'il faut savoir d'une partie pour dire si un pouvoir sert maintenant — le pli le tient. */
@@ -181,10 +222,12 @@ export function refusDuPouvoir(u: UsageDUnPouvoir): string | null {
   switch (u.pouvoir) {
     case 'eclairer':
       if (u.servi >= ECLAIRAGES_PAR_PARTIE[u.force]) return `Éclairer a déjà servi ${fois(u.servi)}`
-      if (u.aEclairer === false) return 'Ce jeu n’a plus rien à éclairer'
+      // La manche, pas le jeu : le refus s'affiche sous « Éclairer · encore 2 », qui compte la partie — « Ce jeu n'a plus
+      // rien à éclairer » s'y lisait comme une contradiction (la tablée du 26 octobre 2026).
+      if (u.aEclairer === false) return 'Plus rien à éclairer dans cette manche'
       return null
     case 'changer':
-      if (!JEUX[u.jeu].changeable) return `Changer ne sert pas ${JEUX[u.jeu].a}`
+      if (!sertA('changer', u.jeu)) return `Changer ne sert pas ${JEUX[u.jeu].a}`
       if (u.servi >= CHANGEMENTS_PAR_PARTIE[u.force] || (u.rechanges ?? 0) <= 0) return 'Plus de rechange pour cette partie'
       if (u.aJoue) return 'Change avant de répondre'
       return null
@@ -220,34 +263,44 @@ export interface CarteEnJeu {
 /**
  * La manche que Protéger porte : la première jugée à moins de trois étoiles
  * naturelles, zéro compris, parmi celles qu'une réponse a tranchées
- * (`repondues`, que le pli dit manche par manche) ; null sans protection, ou
- * tant qu'aucune n'est imparfaite. Une manche quittée, ou que le chrono a
- * finie sans une réponse, ne se relève pas — et ne prend pas la protection à
- * la suivante : « Quitter ? » promettait les étoiles déjà gagnées, et Prudence
- * en donnait une à qui quittait d'emblée (la tablée du 25 octobre 2026). Les
- * manches se jugent dans l'ordre : celle-là ne change plus.
+ * (`repondues`) et qui ne sont pas gardées au Pari (`gardees`) — le pli dit
+ * les deux manche par manche ; null sans protection, ou tant qu'aucune n'est
+ * imparfaite. Une manche quittée, ou que le chrono a finie sans une réponse,
+ * ne se relève pas : « Quitter ? » promettait les étoiles déjà gagnées, et
+ * Prudence en donnait une à qui quittait d'emblée (la tablée du 25 octobre
+ * 2026). Une manche gardée non plus : garder deux étoiles sûres est un choix,
+ * pas une manche imparfaite — Prudence en faisait trois, trois manches gardées
+ * les sept d'une épique sans un pari, et dans la manche où elle servait, on ne
+ * pariait plus (la tablée du 26). Ni l'une ni l'autre ne prend la protection
+ * à la suivante. Les manches se jugent dans l'ordre : celle-là ne change plus.
  */
-export function mancheProtegee(naturel: readonly (number | null)[], carte: CarteEnJeu | null, repondues: readonly boolean[]): number | null {
+export function mancheProtegee(naturel: readonly (number | null)[], carte: CarteEnJeu | null, repondues: readonly boolean[], gardees: readonly boolean[]): number | null {
   if (carte?.pouvoir !== 'proteger') return null
-  const m = naturel.findIndex((n, k) => n !== null && n < 3 && repondues[k] === true)
+  const m = naturel.findIndex((n, k) => n !== null && n < 3 && repondues[k] === true && gardees[k] !== true)
   return m < 0 ? null : m
 }
 
 /**
  * Les étoiles de chaque manche après les pouvoirs ; null pour une manche pas
  * encore jugée. Miser : la manche misée, parfaite, vaut trois plus le bonus,
- * sinon zéro. Protéger : la première imparfaite qu'une réponse a tranchée
- * gagne son bonus, jamais au-delà de trois (`mancheProtegee`). Les trois
- * autres pouvoirs ne touchent pas aux étoiles. La juste d'une pièce, le cadre
- * doré et le seuil lisent ce qu'en dit le pli : la juste, toujours les
- * naturelles.
+ * sinon zéro. Protéger : la première imparfaite qu'une réponse a tranchée, et
+ * pas gardée, gagne le bonus de sa force — une étoile seulement, ratée —,
+ * jamais au-delà de trois (`mancheProtegee`). Les trois autres pouvoirs ne
+ * touchent pas aux étoiles. La juste d'une pièce, le cadre doré et le seuil
+ * lisent ce qu'en dit le pli : la juste, toujours les naturelles.
  */
-export function etoilesApresLesPouvoirs(naturel: readonly (number | null)[], carte: CarteEnJeu | null, misee: number | null, repondues: readonly boolean[]): (number | null)[] {
-  const protegee = mancheProtegee(naturel, carte, repondues)
+export function etoilesApresLesPouvoirs(
+  naturel: readonly (number | null)[],
+  carte: CarteEnJeu | null,
+  misee: number | null,
+  repondues: readonly boolean[],
+  gardees: readonly boolean[],
+): (number | null)[] {
+  const protegee = mancheProtegee(naturel, carte, repondues, gardees)
   return naturel.map((n, m) => {
     if (n === null) return null
     if (carte?.pouvoir === 'miser' && misee === m) return n === 3 ? 3 + BONUS_DE_MISE[carte.force] : 0
-    if (m === protegee && carte) return Math.min(3, n + BONUS_DE_PROTECTION[carte.force])
+    if (m === protegee && carte) return Math.min(3, n + bonusDeProtection(n, carte.force))
     return n
   })
 }

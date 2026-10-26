@@ -249,9 +249,9 @@ export const REGLE_DES_INDICES: RegleQuiTranche<IndicesTires, EtatDesIndices, Ge
       case 'nom':
         if (vide(g.texte)) return 'Écris un nom'
         if (dejaEssaye(e, g.texte)) return 'Tu as déjà essayé ce nom'
-        // « Non : un indice de plus. » Deux de plus au compte — l'erreur, et l'indice qu'elle montre —, ce qui ne
-        // coûte pas toujours une étoile (au premier indice, trois au compte valent encore ★★★) : la manche dit ce
-        // que vaut sa réponse (`vaut`), la page n'en promet pas plus.
+        // « Non : un indice de plus. » Deux de plus au compte — l'erreur, et l'indice qu'elle montre —, qui coûtent une
+        // étoile ou non selon où tombent les paliers (`INDICES_DES_ETOILES`) : la manche dit ce que vaut sa réponse
+        // (`vaut`), la page n'en promet pas plus. Un exemple chiffré ici a déjà menti une fois, le barème resserré.
         return { ...e, vus: e.vus + 1, essais: [...e.essais, g.texte.trim()] }
     }
   },

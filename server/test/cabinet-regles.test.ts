@@ -71,7 +71,7 @@ import { vuesDuCabinet } from '../../shared/cabinet/vues'
 import { GLOSSAIRE } from '../../shared/glossaire'
 import { PREFIXE_DE_LA_FRISE } from '../../shared/frise'
 import { REGLES } from '../../shared/cabinet/jeux/index'
-import { CLES_DES_JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
+import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import * as Outils from '../../shared/cabinet/jeux/outils'
 import type { FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { RepliqueTiree } from '../../shared/cabinet/jeux/replique'
@@ -95,6 +95,17 @@ test('le registre : les neuf règles, chacune sous sa clé, et un seul module d�
     const code = readFileSync(new URL(f, dossier), 'utf8')
     assert.doesNotMatch(code, redefini, `${f} recopie un outil`)
   }
+})
+
+test('ce que l’annonce dit des étapes d’un jeu est ce que sa règle joue', () => {
+  // La page lit `JEUX` sans tirer les règles des jeux : leurs étapes s'y écrivent à la main, et Prendre son temps en dit
+  // ses secondes — « par manche », ou « à chacune de ses deux questions » au Pari et à la Réplique (la tablée du
+  // 26 octobre 2026). Écrites de travers, l'annonce promettrait à l'Éclair dix secondes par affirmation.
+  for (const jeu of CLES_DES_JEUX) assert.equal(JEUX[jeu].etapes, REGLES[jeu].etapes, jeu)
+  assert.deepEqual(
+    CLES_DES_JEUX.filter(j => JEUX[j].etapes === 2),
+    ['pari', 'replique'],
+  )
 })
 
 // ── Les scénarios : une partie entière de chaque jeu ────────────────────
@@ -394,8 +405,12 @@ test('Protéger porte la première manche imparfaite, et elle seule ; la juste s
   assert.equal(r.aidee, true)
   // Portée de ★ à ★★, la manche ne paie pas un confetti de plus : sa pièce reste fausse.
   assert.equal(p.etat.pieces[1].juste, false)
+  // Zéro compris, mais d'une étoile seulement, à toute force : relevée de deux par le Phénix, une manche ratée faisait avec
+  // une manche juste au hasard les cinq étoiles d'une commune (le calibrage du 26 octobre 2026).
   const zero = partieAuMot([0, 3, 3], { carte: carte('proteger', 3, 'lg:phenix') })
-  assert.deepEqual(resultatDe(zero.depart, zero.etat).etoiles, [B.BONUS_DE_PROTECTION[3], 3, 3], 'zéro compris')
+  assert.deepEqual(resultatDe(zero.depart, zero.etat).etoiles, [B.BONUS_D_UNE_MANCHE_RATEE, 3, 3], 'zéro compris, d’une étoile')
+  const une = partieAuMot([1, 3, 3], { carte: carte('proteger', 3, 'lg:phenix') })
+  assert.deepEqual(resultatDe(une.depart, une.etat).etoiles, [1 + B.BONUS_DE_PROTECTION[3], 3, 3], 'imparfaite, pas ratée : le bonus de sa force')
   const parfaite = partieAuMot([3, 3, 3], { carte: carte('proteger', 1, 'prudence') })
   const sans = resultatDe(parfaite.depart, parfaite.etat)
   assert.equal(sans.aidee, false, 'rien à protéger : la carte n’a pas servi')
@@ -413,11 +428,11 @@ test('Protéger ne relève qu’une manche répondue : ni la manche quittée, ni
   assert.equal(r.aidee, false, 'la carte n’a pas servi')
   assert.equal(r.repondue, false)
   assert.equal(bilanDe(quittee.depart, quittee.etat, { possedee: false, doree: false }).poussiere, 0, 'ni étoile ni poussière')
-  // Quittée après une réponse fausse : la manche répondue se relève, et la partie paie son plancher.
+  // Quittée après une réponse fausse : la manche répondue — ratée — se relève, et la partie paie son plancher.
   const apres = partieAuMot([0], { origine: 'chasse', cible: 'bastion', but: 'gagner', seuil: 7, carte: carte('proteger', 1, 'prudence') })
   apres.joue(ouvrir(1), MIDI + 30 * S)
   apres.joue({ quoi: 'quitter' }, MIDI + 31 * S)
-  assert.deepEqual(resultatDe(apres.depart, apres.etat).etoiles, [B.BONUS_DE_PROTECTION[1], 0, 0])
+  assert.deepEqual(resultatDe(apres.depart, apres.etat).etoiles, [B.BONUS_D_UNE_MANCHE_RATEE, 0, 0])
   assert.equal(bilanDe(apres.depart, apres.etat, { possedee: false, doree: false }).poussiere, B.POUSSIERE_MIN)
   // La première manche expirée sans un essai ne se protège pas : la suivante, répondue à une étoile, le prend.
   const expiree = new Partie(departDe('mot', { carte: carte('proteger', 1, 'prudence') }))
