@@ -44,9 +44,19 @@ const ARTICLE = /^(?:(?:les|le|la|une|un|des)\s+(?=\S)|l['’](?=\p{L}))/iu
 /** Les signes qui restent dans un mot, posés d'office : le trait d'union, l'apostrophe. */
 const SIGNES = new Set(['-', '\'', '’'])
 
-/** Une lettre, en capitale et sans accent — « é » est un E, « œ » deux lettres —, null : ce n'est pas une lettre de l'alphabet. */
+/**
+ * Un texte en capitales sans accents — « é » est un E, « œ » deux lettres —,
+ * le reste tel quel. Une seule règle pour la réponse à composer et pour ce
+ * qu'on cherche dans un intitulé (le Mot mystère du Cabinet : l'intitulé dit-il
+ * le mot ?) : deux copies, et un intitulé qui souffle le mot passerait.
+ */
+export function capitalesSansAccents(texte: string): string {
+  return texte.normalize('NFD').replace(/\p{M}/gu, '').toUpperCase().replace(/Œ/g, 'OE').replace(/Æ/g, 'AE')
+}
+
+/** Une lettre, en capitale et sans accent ; null : ce n'est pas une lettre de l'alphabet. */
 function enCapitales(signe: string): string | null {
-  const x = signe.normalize('NFD').replace(/\p{M}/gu, '').toUpperCase().replace(/Œ/g, 'OE').replace(/Æ/g, 'AE')
+  const x = capitalesSansAccents(signe)
   return /^[A-Z]+$/.test(x) ? x : null
 }
 

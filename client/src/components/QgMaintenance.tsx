@@ -22,6 +22,8 @@ const ICONE: Record<PageEnMaintenance, IconName> = {
   defi: 'trophy',
   duels: 'swords',
   expedition: 'flag',
+  // Un cadre : le musée qu'on remplit.
+  cabinet: 'image',
   boutique: 'bag',
 }
 

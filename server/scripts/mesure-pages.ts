@@ -141,6 +141,9 @@ const PAGES: PageMesuree[] = [
   // L'Expédition : son départ, puis celle qu'on reprend — le plan de l'acte et les escales permises en cartes.
   { cle: 'expedition-depart', nom: 'Expédition (départ)', chemin: '/expedition', qui: 'profil', pret: '.exp-depart-pied .btn-primary' },
   { cle: 'expedition', nom: 'Expédition (le plan)', chemin: '/expedition', qui: 'explorateur', pret: '.exp-panneau .exp-carte-escale' },
+  // Le Cabinet de curiosités : le musée de Léa, ses portes peintes — sa page et sa donnée de départ (`DEPART.cabinet`), lue à
+  // froid par le serveur la première fois, de mémoire ensuite.
+  { cle: 'cabinet', nom: 'Le Cabinet (musée)', chemin: '/cabinet', qui: 'profil', pret: '.cab-portes .cab-porte' },
   { cle: 'souvenir', nom: 'Souvenir de la soirée', chemin: `/${ADMIN.slug}/souvenir`, qui: 'anonyme', pret: '.recap.souvenir .page-corps > *' },
   { cle: 'bilan', nom: 'Bilan de la soirée', chemin: `/${ADMIN.slug}/bilan`, qui: 'anonyme', pret: '.recap.bilan .page-corps > *' },
   { cle: 'mes-quiz', nom: 'Mes quiz', chemin: '/edit', qui: 'animateur', pret: '.quiz-carte-ouvrir' },

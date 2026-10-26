@@ -2,7 +2,7 @@
 
 > L'application qui tourne dans le navigateur — le téléphone d'un invité, l'écran commun, les pages d'un profil ou d'un animateur : comment elle est construite, servie, routée et chargée, ce qu'elle garde sur l'appareil, et les pièges qui coûtent une seconde à toute une salle. Pour qui touche à `client/`, ou à ce que le serveur pose dans la page.
 
-**Dans cette page** : [en bref](#en-bref) · [la construction](#la-construction) · [ce que le serveur pose dans la page](#ce-que-le-serveur-pose-dans-la-page) · [le démarrage](#le-démarrage-dune-page) · [le routage](#le-routage) · [le chargement](#le-chargement) · [l'API et l'état](#lapi-cliente-et-létat) · [le stockage](#le-stockage-du-navigateur) · [l'application installée](#lapplication-installée) · [les thèmes](#les-thèmes-côté-technique) · [la mesure](#la-mesure) · [les pièges](#les-pièges) · [les tests](#les-tests-qui-gardent-le-client)
+**Dans cette page** : [en bref](#en-bref) · [la construction](#la-construction) · [ce que le serveur pose dans la page](#ce-que-le-serveur-pose-dans-la-page) · [le démarrage](#le-démarrage-dune-page) · [le routage](#le-routage) · [le chargement](#le-chargement) · [l'API et l'état](#lapi-cliente-et-létat) · [le Cabinet](#le-cabinet-de-curiosités) · [le stockage](#le-stockage-du-navigateur) · [l'application installée](#lapplication-installée) · [les thèmes](#les-thèmes-côté-technique) · [la mesure](#la-mesure) · [les pièges](#les-pièges) · [les tests](#les-tests-qui-gardent-le-client)
 
 ## En bref
 
@@ -84,7 +84,7 @@ Pas de routeur. Une adresse se lit une seule fois, **de la même façon des deux
 | Sorte (`Route`) | Adresses | Page |
 |---|---|---|
 | `landing` | `/` | `ProfilApp`, l'accueil |
-| `account` | les treize pages sans espace (`ACCOUNT_PAGES`) : `/host`, `/edit`, `/profil`… | une par page (`ACCOUNT`, `client/src/main.tsx`) |
+| `account` | les quinze pages sans espace (`ACCOUNT_PAGES`) : `/host`, `/edit`, `/profil`… | une par page (`ACCOUNT`, `client/src/main.tsx`) |
 | `join` | `/<espace>` | `PlayerApp`, le téléphone de l'invité |
 | `public` | `/<espace>/souvenir`, `/stats`, `/bilan`, `/bilan/fiches`, `/soirees`, et `/<espace>/soirees/<id>/…` | `RecapApp`, `BilanApp`, `ArchivesApp` |
 | `unknown` | tout le reste | `LandingApp` : « Rejoindre une soirée » |
@@ -121,7 +121,7 @@ Chaque page est un paquet, chargé par `main.tsx` **avant** le premier rendu —
 
 Ce qui ne sert qu'après le premier écran vient par `aLaDemande(importer)` (`client/src/aLaDemande.ts`) : `charger()` lance le chargement une fois pour toute la page — un échec compris —, `charge()` rend le module s'il est déjà là ; `useALaDemande(source, voulu)` le donne au composant : `null` en chemin, `'perdu'` s'il ne viendra plus. Un module déjà là se rend tout de suite, sans suspendre.
 
-Viennent ainsi la fin de soirée, la carte d'un joueur et ses gestes, la barre du chef, les panneaux du profil, la feuille des amis, le quiz tout prêt, la page des duels et le lancement d'un défi depuis la campagne. Ce que chaque chemin ne doit pas télécharger : [les pièges](#les-pièges).
+Viennent ainsi la fin de soirée, la carte d'un joueur et ses gestes, la barre du chef, les panneaux du profil, la feuille des amis, le quiz tout prêt, la page des duels, le lancement d'un défi depuis la campagne, et au Cabinet de curiosités l'écran de chaque jeu, le bilan, le réveil d'un gardien et le dessin de tes murs ([plus bas](#le-cabinet-de-curiosités)). Ce que chaque chemin ne doit pas télécharger : [les pièges](#les-pièges).
 
 ### Les données de départ
 
@@ -134,6 +134,8 @@ Viennent ainsi la fin de soirée, la carte d'un joueur et ses gestes, la barre d
 | `/jour` | `/api/jour`, `/api/joueur/moi?leger` |
 | `/campagne` | `/api/campagne`, `/api/joueur/moi?leger` — et, d'après le fragment, `/api/campagne/sentiers`, ou `/api/campagne/carnet` et `/api/campagne/sujets` |
 | `/duels` | `/api/duels`, `/api/joueur/moi?leger` |
+| `/expedition` | `/api/expedition`, `/api/joueur/moi?leger` |
+| `/cabinet` | `/api/cabinet`, `/api/joueur/moi?leger` — le même, quel que soit l'écran que dit le fragment |
 | `/edit` | `/api/quizzes`, `/api/auth/me`, `/api/joueur/theme` |
 | `/<espace>` | `/s/<espace>/entree.json` |
 | `/<espace>/souvenir`, `/<espace>/stats`, et leurs archives | `…/recap.json`, `/api/auth/me`, `/api/joueur/theme` |
@@ -148,7 +150,7 @@ Les adresses viennent de `DEPART` et d'`adresseDesDonnees`, que les pages lisent
 
 **Les missions du jour** partent avec l'accueil : la page ne les demandait qu'une fois l'accueil lu, et leur ligne attendait vide, sous « À la une », un aller-retour de plus — 160 ms en 4G lente, cache plein (le 15 octobre 2026). L'accueil les demande à son ouverture, quel que soit le visiteur : un invité reçoit un refus (401), qui ne retire pas la ligne qu'il verra une fois connecté (`relireLesMissions`, `client/src/missions.ts`).
 
-**La partie du jour préchargée** se dit telle : `/api/jour` demandé sans l'en-tête maison (`X-Requested-With`, que l'API cliente pose toujours) répond `prechargee`, et le client mesure alors l'heure du serveur dans la trace du préchargement (`mesureDeLaReponse`, `client/src/clock.ts`), pas autour d'un `fetch` qui a trouvé la réponse déjà là.
+**La partie du jour préchargée** se dit telle : `/api/jour` demandé sans l'en-tête maison (`X-Requested-With`, que l'API cliente pose toujours) répond `prechargee`, et le client mesure alors l'heure du serveur dans la trace du préchargement (`mesureDeLaReponse`, `client/src/clock.ts`), pas autour d'un `fetch` qui a trouvé la réponse déjà là. La page du Cabinet fait de même (`/api/cabinet`) : elle porte un chrono, celui de la partie qui attend.
 
 ### Les polices
 
@@ -162,7 +164,7 @@ Toute route HTTP du client passe par `req` (`client/src/api.ts`) :
 
 - `credentials: 'same-origin'`, `Content-Type: application/json`, et **`X-Requested-With: quizz`** : le garde anti-CSRF du serveur (`csrfGuard`, `server/src/auth/http.ts`) refuse toute écriture qui ne le porte pas — une page tierce ne peut pas l'ajouter sans une pré-vérification que le serveur ne lui accorde jamais —, et, en ligne, toute écriture venue d'une autre origine.
 - **L'abandon à vingt secondes** (`DELAI_REQUETE_MS`), corps compris : sans délai, un réseau qui avale les paquets laissait « Me connecter » grisé des minutes, et l'invité ne savait pas qu'il pouvait réessayer.
-- **Un échec se lit en français.** Un 401 devient `UnauthorizedError`, avec le motif du serveur — un mot de passe faux n'est pas une session expirée ; un 409 qui porte `conflit.updatedAt`, `ConflitError` (le quiz a été enregistré ailleurs) ; tout autre refus, `ApiError` — son motif, l'identifiant libre suggéré s'il y en a un, s'il est passager, son statut ; une requête qui n'est pas revenue, `ApiError` d'un des motifs de `shared/erreurs.ts` ; un corps qui n'est pas du JSON, « Réponse inattendue — recharge la page, puis réessaie ». Jamais le texte anglais du navigateur.
+- **Un échec se lit en français.** Un 401 devient `UnauthorizedError`, avec le motif du serveur — un mot de passe faux n'est pas une session expirée ; un 409 qui porte `conflit.updatedAt`, `ConflitError` (le quiz a été enregistré ailleurs) ; tout autre refus, `ApiError` — son motif, l'identifiant libre suggéré s'il y en a un, s'il est passager, son statut, le corps du refus tel que le serveur l'a écrit (`corps` : un geste du Cabinet passé y rend la partie d'à présent) ; une requête qui n'est pas revenue, `ApiError` d'un des motifs de `shared/erreurs.ts` ; un corps qui n'est pas du JSON, « Réponse inattendue — recharge la page, puis réessaie ». Jamais le texte anglais du navigateur.
 - **`refusDuServeur(e)`** : un 4xx — le refaire recevrait le même refus, au contraire d'un réseau coupé ou d'un serveur qui redémarre.
 - **`api`** regroupe toutes les routes du client par domaine (`api.joueur`, `api.jour`, `api.campagne`, `api.admin`…) ; la table des routes : [L'API HTTP](../reference/api-http.md). `currentMe()` demande une fois par page qui tient la console (`null` sans bruit pour un invité) ; `seConnecter` essaie le profil avant un compte d'animateur d'avant ; `ouvrirParLeProfil` ouvre la console par le profil ; `compressImage` réduit une photo dans le navigateur avant l'envoi (1 280 px au plus, en WebP, sinon en JPEG).
 
@@ -180,6 +182,18 @@ L'offre gratuite de l'hébergeur endort le serveur après un quart d'heure sans 
 ### La liaison temps réel
 
 `client/src/socket.ts` ouvre la liaison Socket.io de la page — WebSocket d'abord, repli en long-polling — et tient `snapshot`, `views` et `connected` à jour. Son cycle, ses accusés, l'horloge du serveur : [Le temps réel](temps-reel.md). L'accueil ne la télécharge pas.
+
+## Le Cabinet de curiosités
+
+`/cabinet` (`client/src/views/CabinetApp.tsx`, ses écrans dans `client/src/views/cabinet/`) est une page sans espace comme les autres : son code part avant le premier rendu, elle lit le profil (`LISENT_LE_PROFIL`, `client/src/main.tsx`) et sa page arrive préchargée (`DEPART.cabinet`). Ce qui la distingue :
+
+- **Elle ne s'ouvre pas partout, et ne lit pas son drapeau.** La préproduction sert le même code que la production : c'est le serveur qui sait. Là où le Cabinet est fermé, la page servie porte `<meta name="cabinet" content="ferme">` ; `cabinetIci()` (`client/src/maintenance.ts`) la lit une fois, et l'accueil d'un profil n'a son gros bouton que sans elle — ouverte quand même, `/cabinet` dit la phrase du serveur. Le QG la ferme comme une autre page (`pageDeLAdresse`, `PAGES_FERMABLES.cabinet`).
+- **Un écran par fragment** : le musée, une salle (`#salle-rempart`), une œuvre (`#oeuvre-bastion`), les gardiens (`#gardiens`), la visite (`#visite`), les jeux libres (`#libre`), tes murs (`#murs`) ; une clé inconnue ouvre le musée (`ecranDeLAdresse`, `client/src/views/cabinet/ecrans.ts`). Une partie s'ouvre par-dessus l'écran, sans fragment — rechargée, elle ne saurait quoi montrer —, sur une entrée d'historique marquée (`fiestappPartieDuCabinet`) que le retour du navigateur consomme.
+- **À la demande** : l'écran de chacun des neuf jeux, chargé à l'ouverture de sa partie (`ECRANS`, `JeuALEcran`, `client/src/views/cabinet/Partie.tsx` ; un module par jeu dans `client/src/views/cabinet/jeux/`), le bilan, le réveil d'un gardien, le dessin de tes murs. La page ne télécharge ni l'Expédition, ni les règles qui jugent une partie : `client/src/api.ts` n'en importe que des types, et la page lit la vue du serveur (`shared/cabinet/vues.ts`) sans recopier une règle.
+- **Le chemin d'un geste** : la partie à l'écran envoie chaque geste avec le rang qu'elle croit suivre (`api.cabinet.geste`, invariant 12), sous `avecLHeure`, qui remesure l'heure du serveur autour de toute la requête, refus compris ; un geste passé reçoit un 409 qui porte la partie d'à présent (`ApiError.corps`), où la page se range ; la vue la plus récente gagne. L'échéance se lit à `serverNow()`, et à l'échéance la page envoie d'elle-même ce qu'elle tient. Côté serveur : [la vue d'ensemble](vue-d-ensemble.md#le-chemin-dun-geste-au-cabinet).
+- **Ce que le téléphone retient** se range au profil (`quizz.cabinet.<quoi>.<profil>`, `client/src/views/cabinet/retenu.ts`, [plus bas](#le-stockage-du-navigateur)) : sur un téléphone partagé, Hugo héritait de la carte-bonus de Léa. Rien d'une partie ne s'y garde : une chasse, des étoiles, un achat sont au serveur.
+
+Le produit : [Le Cabinet de curiosités](../produit/le-cabinet.md) ; les pièges du code : `.claude/rules/cabinet.md`.
 
 ## Le stockage du navigateur
 
@@ -204,12 +218,15 @@ Ce que l'appareil garde n'est qu'une commodité : tout ce qui compte est au serv
 | `quizz.quizToutPret` | local | le dernier choix du quiz tout prêt | `client/src/components/QuizToutPret.tsx` |
 | `quizz.campagne.categories` | local | les catégories de la dernière série de campagne | `client/src/views/CampagneApp.tsx` |
 | `quizz.campagne.sujet` | local | le sujet de la dernière série | `client/src/views/CampagneApp.tsx` |
+| `quizz.cabinet.carte.<profil>` | local | la carte-bonus choisie la dernière fois au Cabinet, que l'annonce propose d'abord | `client/src/views/cabinet/retenu.ts` |
+| `quizz.cabinet.regles-lues.<profil>` | local | les règles du Cabinet déjà ouvertes : le musée ne souhaite plus la bienvenue | `client/src/views/cabinet/retenu.ts` |
+| `quizz.cabinet.pas-a-pas.<profil>` | local | « Pas à pas » ouvert et « Grands pas » pressé à l'Épingle (`pas-a-pas grands`), que la manche suivante rouvre tels quels | `client/src/views/cabinet/retenu.ts` |
 | `quizz.nouveautes` | session | le dernier compte de ce qu'il a de neuf à porter, que la barre du menu montre en attendant le serveur — ce qu'il a vu, lui, se retient au serveur (`profile_loge_vus`) | `client/src/nouveautes.ts` |
 | `quizz.annonces.vues.<profil>` | local | les annonces de l'administrateur déjà montrées | `client/src/components/AccueilDesRoles.tsx` |
 | `quizz.duels.resultatAnnonce` | local | le dernier résultat de duel annoncé par la bannière de l'accueil | `client/src/components/AccueilDesRoles.tsx` |
 | `quizz.profil.ouvertes` | local | rien d'utile : écrite et lue par des fonctions que plus rien n'appelle | `client/src/views/ProfilApp.tsx` |
 
-Hors du stockage, l'historique de la page (`history.state`) porte quelques repères : la garde du retour (`fiestappGarde`, `client/src/retour.ts`), l'écran « Rejoindre une soirée » de l'accueil et l'écran d'où l'on vient au profil (`fiestappRejoindre`, `fiestappProfilDepuis`, `client/src/views/ProfilApp.tsx`), les pas d'une page publique (`profondeurDeLaPage`, `client/src/components/SpaceNav.tsx`), un lancement et un duel de la campagne (`fiestappLancement`, `fiestappDuel`, `client/src/views/CampagneApp.tsx`). Les deux cookies — `qz_joueur` (le profil) et `qz_session` (la console) — sont `httpOnly` : la page ne les lit jamais ([La sécurité](securite.md)).
+Hors du stockage, l'historique de la page (`history.state`) porte quelques repères : la garde du retour (`fiestappGarde`, `client/src/retour.ts`), l'écran « Rejoindre une soirée » de l'accueil et l'écran d'où l'on vient au profil (`fiestappRejoindre`, `fiestappProfilDepuis`, `client/src/views/ProfilApp.tsx`), les pas d'une page publique (`profondeurDeLaPage`, `client/src/components/SpaceNav.tsx`), un lancement et un duel de la campagne (`fiestappLancement`, `fiestappDuel`, `client/src/views/CampagneApp.tsx`), une partie du Cabinet ouverte par-dessus un écran du musée (`fiestappPartieDuCabinet`, `client/src/views/cabinet/ecrans.ts`). Les deux cookies — `qz_joueur` (le profil) et `qz_session` (la console) — sont `httpOnly` : la page ne les lit jamais ([La sécurité](securite.md)).
 
 ## L'application installée
 
@@ -254,14 +271,15 @@ Hors du stockage, l'historique de la page (`history.state`) porte quelques repè
 | `server/test/medaillons.test.ts` | ce que chaque chemin n'importe pas (dessins, carte, fin de soirée, quiz du jour, Socket.io) ; `aLaDemande` |
 | `server/test/page.test.ts` · `server/test/portes.test.ts` | le statut de chaque adresse, les redirections, les balises d'aperçu sans prénom, `noindex`, les fichiers absents |
 | `server/test/chargement.test.ts` | les fichiers précompressés, servis selon ce que le téléphone accepte ; un téléchargement abandonné, ni au journal ni aux erreurs serveur |
-| `server/test/connexion-claire.test.ts` | les trois gros boutons de l'entrée et de l'accueil, dans l'ordre, sans champ ; la création d'un profil en deux champs |
+| `server/test/connexion-claire.test.ts` | les trois gros boutons de l'entrée et de l'accueil, dans l'ordre, sans champ ; la création d'un profil en deux champs, la règle du mot de passe dite d'avance, que son refus fait taire sans rien déplacer (`MotDePasseChoisi`), chaque refus de l'inscription au champ qu'il vise (par le vrai serveur) ; le titre de premier niveau de l'accueil, de chaque écran de l'entrée d'une soirée et du formulaire de sa salle d'attente, et l'onglet de chaque écran du formulaire de l'accueil |
 | `server/test/navigation.test.ts` | les barres de navigation, les sorties des pages d'erreur |
 | `server/test/client.test.ts` | les motifs de `shared/erreurs.ts` : en français, courts, et qui disent quoi faire |
 | `server/test/typographie.test.ts` | `formatNumber` égal à `toLocaleString`, sur des milliers de nombres |
 | `server/test/design.test.ts` | entre autres, un titre d'onglet par page sans espace, posé au premier rendu |
-| `server/test/petit-ecran.test.ts` | les onglets au clavier, la modale (`client/src/modale.ts`) |
+| `server/test/petit-ecran.test.ts` | les onglets au clavier, les fenêtres modales (`client/src/modale.ts`) : la carte d'un joueur, un dialogue — le reste de la page inerte tant qu'une fenêtre le couvre encore, le focus posé sans anneau et gardé sous le doigt, Échap à celle du dessus |
 | `server/test/installation.test.ts` | la carte d'installation sous les trois boutons, l'invitation de Chrome gardée, un stockage qui lève |
 | `server/test/entre-deux-soirees.test.ts` | la fin de soirée gardée : rouverte au retour, jamais à l'arrivée |
+| `server/test/cabinet-ecran.test.ts` · `server/test/cabinet-ecran-neufs.test.ts` | la page du Cabinet rendue écran par écran sur ce que le vrai serveur rend, ses imports et ses écrans à la demande, `api.cabinet` contre un faux `fetch` puis par les routes, sa feuille de style |
 
 Rien ne vérifie automatiquement que les trois boutons tiennent sans défiler, la pastille d'environnement, ni le `try/catch` de chaque accès au stockage. Les tests en général : [Les tests](../contribuer/tests.md).
 

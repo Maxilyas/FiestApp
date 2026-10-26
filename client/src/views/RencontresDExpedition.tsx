@@ -6,8 +6,8 @@ import { Balise } from '../components/Balise'
 import { Feuille } from '../components/Pieces'
 import { Onglets } from '../components/Onglets'
 import { CARTES_PEINTES } from '../components/cartes-peintes'
+import { OeuvrePeinte, RARETE_DITE, TEINTE_DE_LA_FAMILLE, VisageDuLegendaire, gemmeDeLaRarete, type TailleDOeuvre } from '../components/OeuvrePeinte'
 import { espacesFines, formatNumber } from '../format'
-import { GEMME_MAUDITE, gemme } from '../gemmes'
 import { useModale } from '../modale'
 import { iconeDuSujet } from '../iconeDuSujet'
 import { couleurDePiste, pourcentDeChance } from '../../../shared/sentiers'
@@ -15,7 +15,6 @@ import { sujetParCle } from '../../../shared/sujets'
 import { ceQueRapporteUneCuriosite } from '../../../shared/curiosites'
 import { CATEGORIES } from '../../../shared/categories'
 import type { Niveau } from '../../../shared/campagne'
-import type { RareteDeTheme } from '../../../shared/themes'
 import {
   MARCHES_DES_ACTES,
   PRIX_DE_L_ECHOPPE,
@@ -168,16 +167,11 @@ export const enQuestion = (v: number) => v >= VERSION_DE_LA_QUESTION_AU_CENTRE
 const useEnQuestion = () => enQuestion(useContext(VersionDesCartes))
 
 /**
- * La couleur d'une carte, au cadre : la gemme de sa rareté — celle des
- * jokers, de l'album et de la boutique (`gemmes.ts`) ; l'épique, depuis le
- * jeu complet, le pourpre de l'album, et une maudite son rouge sombre
- * (`GEMME_MAUDITE`). Une seule couleur par rareté dans toute l'application.
+ * La couleur d'une carte, au cadre : la gemme de sa rareté — une seule
+ * couleur par rareté dans toute l'application (`gemmeDeLaRarete`, l'œuvre
+ * peinte), que la pastille d'une offre, l'échoppe et la barre portent aussi.
  */
-const GEMME_DE_LA_CARTE: Record<Exclude<CarteDeRencontre['rarete'], 'maudit'>, RareteDeTheme> = { commun: 'commune', rare: 'rare', epique: 'epique', legendaire: 'legendaire' }
-export const gemmeDeLaCarte = (c: CarteDeRencontre) => (c.rarete === 'maudit' ? GEMME_MAUDITE : gemme(GEMME_DE_LA_CARTE[c.rarete]))
-
-/** Sa rareté, accordée à « carte ». */
-export const RARETE_DE_LA_CARTE: Record<CarteDeRencontre['rarete'], string> = { commun: 'commune', rare: 'rare', epique: 'épique', maudit: 'maudite', legendaire: 'légendaire' }
+export const gemmeDeLaCarte = (c: CarteDeRencontre) => gemmeDeLaRarete(c.rarete)
 
 /** Quand une carte se joue, en clair : la carte levée, l'offre, l'échoppe le disent. */
 export const MOMENT: Record<MomentDUneCarte, string> = {
@@ -289,15 +283,12 @@ const ICONE_DE_LA_CARTE: Readonly<Record<string, IconName>> = {
   revelation: 'sparkles',
 }
 
+/** Le dessin d'une carte sans légendaire, celle améliorée comme sa carte. */
+const DessinDeLaCarte = ({ cle }: { cle: string }) => <Icon name={ICONE_DE_LA_CARTE[baseDe(cle)] ?? 'sparkles'} />
+
 /** Une carte en petit : le médaillon du légendaire qui la donne, sinon son dessin. */
 export function VisageDeLaCarte({ c }: { c: CarteDeRencontre }) {
-  return c.legendaire ? (
-    <span className="exp-medaillon exp-visage-joker" aria-hidden="true">
-      <Dessin cle={c.legendaire} />
-    </span>
-  ) : (
-    <Icon name={ICONE_DE_LA_CARTE[baseDe(c.cle)] ?? 'sparkles'} />
-  )
+  return c.legendaire ? <VisageDuLegendaire cle={c.legendaire} /> : <DessinDeLaCarte cle={c.cle} />
 }
 
 /** Ce que dit une carte au-delà de son effet : quand elle se joue — à la version de son départ —, si elle ne sert qu'une fois par rencontre, si elle aide, d'où elle vient. */
@@ -328,25 +319,6 @@ function plusDeLaCarte(c: CarteDeRencontre, v: number): string[] {
 }
 
 /**
- * La teinte de chaque famille, au fond de l'illustration d'une carte — la
- * rareté, elle, est au cadre (`--gemme`) : comme les couleurs d'un
- * personnage de Slay the Spire et l'or de ses cartes rares. Une convention,
- * écrite en dur : aucun thème ne la repeint (règle `css.md`).
- */
-const TEINTE_DE_LA_FAMILLE: Record<FamilleDeCartes, string> = {
-  neutre: '#9aa9bd',
-  erudit: '#7d72f0',
-  flambeur: '#e8703f',
-  metamorphe: '#c262d6',
-  elan: '#4fbf72',
-  rempart: '#c49a5a',
-  devin: '#2fb3a6',
-  // Les huit familles (v9) : l'azur du Sophiste, loin du violet de l'Érudit ; le cramoisi du Téméraire, plus rouge que la braise du Flambeur.
-  sophiste: '#4f8ee0',
-  temeraire: '#d63a4a',
-}
-
-/**
  * Ce qu'une carte coûte d'énergie, en chiffre, dans l'orbe de l'énergie
  * — le même qu'au-dessus de la main : on voit ce qu'elle en prend. Rouge,
  * quand il n'en reste pas assez (`manque`). Une carte de route ne coûte
@@ -363,30 +335,18 @@ function CoutEnEnergie({ c, manque }: { c: CarteDeRencontre; manque?: boolean })
   return <span className={'exp-vc-cout' + (manque ? ' exp-vc-manque' : '')}>{c.cout}</span>
 }
 
-/** Une carte dessinée, à sa taille : dans la main, dans une rangée — un tas, une offre —, levée. */
-export type TailleDeCarte = 'main' | 'rangee' | 'levee'
-
-/**
- * Un nom qui ne se coupe pas — un mot de onze lettres et plus — s'écrit plus
- * serré dans une rangée : sur trois colonnes en 360, le codex lisait
- * « Concentratio ».
- */
-const serre = (nom: string) => Math.max(...nom.split(/[\s-]/).map(m => m.length)) >= 11
-
 /**
  * Une carte dessinée comme une vraie (« les cartes c'est des rectangles pas
  * très jolis, ça serait pas possible de faire de vraies cartes ? Ça
- * rajouterait à l'immersion », le 18 octobre 2026) : son cadre à la couleur
- * de sa rareté, l'orbe de son coût au coin, son illustration sur la teinte
- * de sa famille — le portrait du légendaire qui la donne, sinon son
- * dessin —, son chiffre en médaillon sous l'illustration (`valeur`), son nom
- * dans un bandeau, et la gemme de sa rareté. Aucun mot dans la main, son nom
- * seul dans une rangée — « Y'a trop de détails écrits en dessous de chaque
- * icône, ne pas les mettre direct mais les faire apparaître si on clique
- * dessus » (la revue du même soir) — ; levée, sa phrase entière, et ce que
- * `children` ajoute. Dessinée seulement : le bouton qui la porte dit ce
- * qu'elle est, à l'oreille — sauf levée, où elle est le contenu même de la
- * fenêtre.
+ * rajouterait à l'immersion », le 18 octobre 2026) : l'œuvre peinte
+ * (`components/OeuvrePeinte.tsx` — son cadre, sa peinture, son nom, sa
+ * gemme, que le Cabinet de curiosités montre aussi), et ce que la rencontre
+ * y ajoute : l'orbe de son coût au coin, son dessin quand elle n'a pas de
+ * peinture, son chiffre en médaillon sous l'illustration (`valeur`). Aucun
+ * mot dans la main, son nom seul dans une rangée — « Y'a trop de détails
+ * écrits en dessous de chaque icône, ne pas les mettre direct mais les faire
+ * apparaître si on clique dessus » (la revue du même soir) — ; levée, sa
+ * phrase entière, puis ce que `children` ajoute.
  */
 export function CarteDessinee({
   c,
@@ -396,53 +356,32 @@ export function CarteDessinee({
   children,
 }: {
   c: CarteDeRencontre
-  taille: TailleDeCarte
+  /** Dans la main, dans une rangée — un tas, une offre —, levée. */
+  taille: TailleDOeuvre
   /** L'énergie qui lui reste : un coût qu'il ne peut pas payer se dit en rouge. */
   energie?: number
   /** Dans un tas, combien il en a : « ×4 ». */
   nombre?: number
   children?: ReactNode
 }) {
-  const style = { ...gemmeDeLaCarte(c), '--famille': TEINTE_DE_LA_FAMILLE[c.famille] } as CSSProperties
-  // Peinte, son illustration (`server/scripts/anime/cartes.ts`) : la grande levée, la petite ailleurs — celle de sa carte, améliorée
-  // ou non. La teinte de sa famille reste dessous, le temps qu'elle arrive. Levée, la grande se demande tout de suite, la petite
-  // dessous : déjà là — la main la montrait —, elle tient la place tant que la grande voyage (seize kilo-octets, deux cents
-  // millisecondes en 4G).
-  const peinture = CARTES_PEINTES[baseDe(c.cle)]
-  const levee = taille === 'levee'
   // La question au centre (v10) : plus d'énergie — le coin ne garde que le drapeau d'une carte de route.
   const sansEnergie = useEnQuestion()
   return (
-    <span
-      className={`exp-vc exp-vc-${taille}` + (c.legendaire ? ' exp-vc-du-legendaire' : '') + (c.amelioree ? ' exp-vc-amelioree' : '')}
-      style={style}
-      aria-hidden={taille === 'levee' ? undefined : true}
+    <OeuvrePeinte
+      // Sa peinture est celle de sa carte, améliorée ou non.
+      oeuvre={{ ...c, cle: baseDe(c.cle) }}
+      taille={taille}
+      classe={c.amelioree ? 'exp-vc-amelioree' : undefined}
+      coin={(!sansEnergie || c.moment === 'route') && <CoutEnEnergie c={c} manque={energie !== undefined && c.cout > energie} />}
+      repli={<DessinDeLaCarte cle={c.cle} />}
+      valeur={c.valeur}
+      texte={c.effet}
+      nombre={nombre}
+      // Améliorée (le jeu complet) : un « + » vert au coin, dans la main aussi, où son nom ne se lit pas.
+      marque={c.amelioree && <b className="exp-vc-ameliore">+</b>}
     >
-      {(!sansEnergie || c.moment === 'route') && <CoutEnEnergie c={c} manque={energie !== undefined && c.cout > energie} />}
-      {taille === 'levee' && c.rarete !== 'commun' && <span className="exp-vc-rarete-dite">{RARETE_DE_LA_CARTE[c.rarete]}</span>}
-      <span className="exp-vc-art">
-        {peinture ? (
-          <img
-            className="exp-vc-peinture"
-            src={peinture[levee ? 0 : 1]}
-            alt=""
-            loading={levee ? 'eager' : 'lazy'}
-            decoding="async"
-            {...(levee && { style: { backgroundImage: `url(${peinture[1]})` } })}
-          />
-        ) : (
-          <VisageDeLaCarte c={c} />
-        )}
-      </span>
-      {taille !== 'levee' && c.valeur && <b className="exp-vc-valeur">{c.valeur}</b>}
-      {taille !== 'main' && <b className={'exp-vc-nom' + (taille === 'rangee' && serre(c.nom) ? ' exp-vc-nom-serre' : '')}>{c.nom}</b>}
-      {taille === 'levee' && <span className="exp-vc-texte">{espacesFines(c.effet)}</span>}
       {children}
-      <span className="exp-vc-gemme" />
-      {nombre !== undefined && nombre > 1 && <b className="exp-vc-nombre">{`×${nombre}`}</b>}
-      {/* Améliorée (le jeu complet) : un « + » vert au coin, dans la main aussi, où son nom ne se lit pas. */}
-      {c.amelioree && <b className="exp-vc-ameliore">+</b>}
-    </span>
+    </OeuvrePeinte>
   )
 }
 
@@ -1185,7 +1124,7 @@ export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly str
             onClick={() => onToucher(c.cle)}
           >
             <CarteDessinee c={c} taille="rangee" />
-            <span className="sr-only">{`${c.nom}, ${RARETE_DE_LA_CARTE[c.rarete]} : ${c.effet} ${quand(c, true)}.`}</span>
+            <span className="sr-only">{`${c.nom}, ${RARETE_DITE[c.rarete]} : ${c.effet} ${quand(c, true)}.`}</span>
           </button>
         ))}
       </div>
@@ -1193,7 +1132,7 @@ export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly str
         <p className="exp-a-prendre-dit" aria-hidden="true">
           <b>{choisie.nom}</b>
           <span className={`exp-rarete exp-rarete-${choisie.rarete}`} style={gemmeDeLaCarte(choisie)}>
-            {RARETE_DE_LA_CARTE[choisie.rarete]}
+            {RARETE_DITE[choisie.rarete]}
           </span>
           <span>{espacesFines(choisie.effet)}</span>
           <span className="muted small">{espacesFines(quand(choisie, false))}</span>
@@ -1419,7 +1358,7 @@ export function RenommeeGagnee({
               <li key={c.cle}>
                 <button type="button" className="exp-codex-carte" data-carte={c.cle} aria-haspopup="dialog" onClick={() => setRegardee(c.cle)}>
                   <CarteDessinee c={c} taille="rangee" />
-                  <span className="sr-only">{`${c.nom}, ${RARETE_DE_LA_CARTE[c.rarete]} : ${c.resume}`}</span>
+                  <span className="sr-only">{`${c.nom}, ${RARETE_DITE[c.rarete]} : ${c.resume}`}</span>
                 </button>
               </li>
             ))}
@@ -1525,7 +1464,7 @@ export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onF
                       {ouverture.court}
                     </span>
                   )}
-                  <span className="sr-only">{`${c.nom}, ${RARETE_DE_LA_CARTE[c.rarete]} : ${c.resume}${ouverture ? `. ${ouverture.phrase}` : ''}`}</span>
+                  <span className="sr-only">{`${c.nom}, ${RARETE_DITE[c.rarete]} : ${c.resume}${ouverture ? `. ${ouverture.phrase}` : ''}`}</span>
                 </button>
               </li>
             )
@@ -3077,7 +3016,7 @@ export function ToutesLesCartes({ siens, invite }: { siens: ReadonlySet<string>;
             // L'équipe ne se choisissait qu'avant le codex : ses cartes se disent à leurs chiffres d'alors.
             c.moment !== 'route' && coutDit(c, VERSION_DES_HUIT_FAMILLES),
             MOMENT_COURT[c.moment],
-            RARETE_DE_LA_CARTE[c.rarete],
+            RARETE_DITE[c.rarete],
             c.legendaire && (siens.has(c.legendaire) ? 'à toi' : c.legendaire === invite ? 'l’invité du jour' : `${nomDuGardien(c.legendaire)}, à gagner`),
           ]
             .filter(Boolean)
@@ -3114,7 +3053,7 @@ export function LigneDeCarte({ c, prix }: { c: CarteDeRencontre; prix?: ReactNod
         <span className="exp-offre-nom">
           <b>{c.nom}</b>
           <span className={`exp-rarete exp-rarete-${c.rarete}`} style={gemmeDeLaCarte(c)}>
-            {RARETE_DE_LA_CARTE[c.rarete]}
+            {RARETE_DITE[c.rarete]}
           </span>
         </span>
         <span className="small">{espacesFines(c.effet)}</span>

@@ -1,0 +1,398 @@
+import { useContext, useId } from 'react'
+import { OeuvrePeinte, RARETE_DITE } from '../../components/OeuvrePeinte'
+import { PieceTete, Sortie } from '../../components/Pieces'
+import { espacesFines } from '../../format'
+import { toucher } from '../../toucher'
+import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
+import { JEU_PAS_LIVRE, SON_OEUVRE_EST_A_TOI, type EnjeuDUneCase } from '../../../../shared/cabinet/musee'
+import { oeuvre as oeuvreDe } from '../../../../shared/cabinet/oeuvres'
+import type { IssueDUnePartie, Manche } from '../../../../shared/cabinet/partie'
+import { salle } from '../../../../shared/cabinet/salles'
+import type { CaseVue, PageDuCabinet, VisiteVue } from '../../../../shared/cabinet/vues'
+import { RetourAuMusee, type PartieDemandee } from './ecrans'
+import { caseEnCours, casesFaites, compte, laPartieQuiAttend } from './Musee'
+import { BoutonReprendre, PartieQuiAttend } from './PartieQuiAttend'
+import { oeuvreMontree } from './Salle'
+
+// Ce que la journée propose : la visite du jour — trois parties, trois jeux,
+// chacune une œuvre en jeu qu'elle ne nomme pas tant qu'elle n'est pas
+// gagnée (invariant 1 : la page ne la reçoit même pas) — et les jeux libres,
+// à volonté. Rien ne coûte avant « Commencer », à l'annonce : toucher une
+// case ou un jeu n'y mène que. Une case commencée et pas finie est la partie
+// qui attend — « En cours », « Reprendre » ; manquée, son œuvre se retente au
+// même jeu pour une chasse, par sa case (`CaseVue.retenter`).
+//
+// Chaque geste passe au lever du doigt (`toucher`) : l'annonce ou la manche
+// paraît sous lui. Et chacun se nomme à l'oreille de son jeu — trois « Jouer »
+// et trois « Changer de jeu » de même nom, Hugo ne savait lequel il touchait
+// (la tablée du 25 octobre 2026) ; à l'œil, rien ne change. « Changer » dit le
+// jeu que la case prendra (`VisiteVue.echange.jeu`), et se confirme
+// (`confirmationDeLEchange`) : un seul échange par jour, que Théo a dépensé à
+// l'aveugle, et qu'Ophélie n'a pas osé (la tablée du 26 octobre 2026).
+
+/**
+ * L'œuvre qu'une case — ou une partie — met en jeu « pour dorer » a-t-elle déjà son cadre doré ? Dorée dans la journée — la
+ * dorure achetée, une chasse —, sa case reste « pour dorer » (`enjeuDe` ne lit que la possession) : il n'y a plus qu'un double à
+ * y gagner (`issueDe`), et l'annonce promettait encore le cadre (la relecture du lot page-2). La page le lit de ses salles.
+ */
+export function dejaDoree(page: Pick<PageDuCabinet, 'salles'>, enJeu: EnjeuDUneCase | null): boolean {
+  if (!enJeu || !('pourDorer' in enJeu)) return false
+  const cle = enJeu.pourDorer
+  return page.salles.some(s => s.oeuvres.some(o => o.cle === cle && o.doree))
+}
+
+/**
+ * Ce qu'une case met en jeu, en clair : une rareté et une salle, l'œuvre à dorer — elle est à lui —, ou la poussière d'or. Son
+ * cadre déjà doré (`doree`, `dejaDoree`), l'œuvre ne se joue plus que pour son double.
+ */
+export function enJeuDit(enJeu: EnjeuDUneCase, doree = false): string {
+  if ('pourDorer' in enJeu) {
+    const nom = oeuvreDe(enJeu.pourDorer)?.nom ?? 'ton œuvre'
+    return doree ? `Pour un double de ${nom}` : `Pour dorer ${nom}`
+  }
+  if ('poussiere' in enJeu) return 'Pour la poussière d’or'
+  return `Peut te faire gagner une œuvre ${RARETE_DITE[enJeu.rarete]} ${salle(enJeu.salle)?.deLaSalle ?? ''}`.trimEnd()
+}
+
+/**
+ * L'œuvre d'une case manquée est-elle à lui depuis — gagnée en chasse, achetée après la partie ? Le serveur le dit
+ * (`SON_OEUVRE_EST_A_TOI`) avant tout autre refus de la retente, la partie qui attend et les chasses prises comprises : elles
+ * ne la rouvriraient jamais (`cadreDuDepart`, le lot finitions). La seconde lecture n'est qu'un rattrapage : pendant une mise en
+ * ligne, la page peut lire la case d'un serveur d'avant, qui disait d'abord ces refus-là. Sa case passée « pour dorer »
+ * (`enjeuDe`) et sa retente encore là — seule une case qui visait une œuvre à gagner la porte (`retenteDeLaCase`) — ne disent
+ * rien d'autre. La case disait « Pas de dorure cette fois », et « Retenter » en sourdine pour une œuvre déjà à lui (la relecture
+ * du lot page-2).
+ */
+const oeuvreDejaALui = (c: Pick<CaseVue, 'enJeu' | 'retenter'>): boolean => c.retenter?.refus === SON_OEUVRE_EST_A_TOI || (c.retenter !== undefined && 'pourDorer' in c.enJeu)
+
+/** « Retenter » tel qu'une case faite le montre : celui du serveur, sauf quand son œuvre est à lui — plus rien à retenter. */
+const laRetenteMontree = (c: CaseVue): NonNullable<CaseVue['retenter']> | null => (c.faite && c.retenter && !oeuvreDejaALui(c) ? c.retenter : null)
+
+/** Ce qu'une case faite a donné. Manquée, ce qui reste à faire : rien pour dorer, et « Retenter » pour son œuvre. */
+function issueDite(c: CaseVue): string {
+  const nom = c.oeuvre && oeuvreDe(c.oeuvre)?.nom
+  if (c.issue === 'manquee') {
+    if (oeuvreDejaALui(c)) return SON_OEUVRE_EST_A_TOI
+    if ('pourDorer' in c.enJeu) return 'Pas de dorure cette fois'
+    return c.retenter?.possible ? 'L’œuvre reste à gagner : retente-la pour une chasse' : 'L’œuvre reste à gagner'
+  }
+  const issues: Record<Exclude<IssueDUnePartie, 'manquee'>, string> = {
+    gagnee: `Tu as gagné ${nom ?? 'son œuvre'}`,
+    'gagnee-doree': `Tu as gagné ${nom ?? 'son œuvre'}, dans un cadre doré`,
+    doree: `${nom ?? 'Son œuvre'} a pris son cadre doré`,
+    double: 'Une œuvre déjà à toi : sa poussière d’or en plus',
+    libre: 'Pour la poussière d’or',
+  }
+  return c.issue ? issues[c.issue] : enJeuDit(c.enJeu)
+}
+
+/**
+ * « Retenter cette œuvre au Pari · une chasse », sous la case manquée et au
+ * bilan de sa partie : il part, ou se met en sourdine avec la raison du
+ * serveur (`aria-disabled`, jamais `disabled` : le focus resterait sur un
+ * bouton mort), qu'il désigne à l'oreille. Son œuvre gagnée depuis, il n'y a
+ * plus rien à retenter : la case le dit, sans bouton. `dite` : l'identifiant
+ * d'une raison que l'écran dit déjà, plus haut — la partie qui attend, dite une
+ * fois au-dessus des cases avec son « Reprendre » : il la désigne sans la
+ * redire, sans quoi chaque case manquée la répétait sous elle.
+ */
+export function BoutonRetenter({
+  jeu,
+  retenter,
+  id,
+  dite,
+  busy = false,
+  classe = 'btn',
+  onRetenter,
+}: {
+  jeu: CaseVue['jeu']
+  retenter: NonNullable<CaseVue['retenter']>
+  id: string
+  dite?: string
+  busy?: boolean
+  classe?: string
+  onRetenter: () => void
+}) {
+  if (retenter.refus === SON_OEUVRE_EST_A_TOI) return null
+  const refus = retenter.possible ? null : (retenter.refus ?? null)
+  return (
+    <>
+      <button
+        type="button"
+        className={classe}
+        aria-disabled={refus !== null || busy || undefined}
+        aria-describedby={refus === null ? undefined : (dite ?? id)}
+        {...toucher(() => refus === null && !busy && onRetenter())}
+      >
+        {espacesFines(`Retenter cette œuvre ${JEUX[jeu].a} · une chasse`)}
+      </button>
+      {refus !== null && dite === undefined && (
+        <p id={id} className="cab-raison">
+          {espacesFines(refus)}
+        </p>
+      )}
+    </>
+  )
+}
+
+/**
+ * Le jeu que « Changer » nomme, tant que la visite que la page tient permet l'échange : la page l'envoie avec lui, et le jour de
+ * cette visite (`api.cabinet.echanger`) ; le serveur refuse en mots un échange dont le jeu ou la visite ont changé depuis —
+ * minuit passé, la page restée ouverte — plutôt que d'en donner un qu'on ne lui a pas montré.
+ */
+export const jeuPropose = (visite: Pick<VisiteVue, 'echange'> | undefined): CleDeJeu | undefined => (visite?.echange.possible ? visite.echange.jeu : undefined)
+
+/**
+ * Ce que demande « Changer » avant d'écrire, comme la dorure demande la sienne : la case et le jeu qu'elle prendra, dans les
+ * mots de la visite que la page tient — un seul échange par jour, et l'œuvre en jeu reste. Rien à demander, et rien ne part,
+ * quand la visite ne permet plus d'échange ou ne connaît pas la case : le bouton n'est là que tant qu'elle le permet, et une page
+ * relue entre-temps sans lui l'efface au rendu suivant.
+ */
+export function confirmationDeLEchange(
+  visite: Pick<VisiteVue, 'cases' | 'echange'> | undefined,
+  k: number,
+): { title: string; message: string; confirmLabel: string; cancelLabel: string } | null {
+  const c = visite?.cases[k]
+  if (!visite || !c || !visite.echange.possible) return null
+  const [avant, apres] = [JEUX[c.jeu].nom, JEUX[visite.echange.jeu].nom]
+  return {
+    title: `Changer ${avant} pour ${apres} ?`,
+    message: 'Un seul échange par jour ; l’œuvre en jeu reste la même.',
+    confirmLabel: `Changer pour ${apres}`,
+    cancelLabel: `Garder ${avant}`,
+  }
+}
+
+/** La raison qui éteint les gestes de la visite — une partie attend, et rien d'autre ne part —, dite une fois au-dessus des cases. */
+interface LaPartieAttendIci {
+  /** Ce que chaque geste éteint désigne à l'oreille (`aria-describedby`). */
+  id: string
+  /** Ses mots, ceux du serveur (`laPartieAttend`) : un « Retenter » refusé pour elle la reconnaît à eux. */
+  raison: string
+}
+
+/**
+ * Une case de la visite. `attend` : la raison qui éteint son « Jouer », et son
+ * « Retenter » quand le serveur le refuse pour elle — dite une fois au-dessus
+ * des cases, que chacun désigne à l'oreille. `ici` : c'est sa partie qui
+ * attend (`caseEnCours`). `doree` : son œuvre à dorer a déjà son cadre
+ * (`dejaDoree`). `echange` : le jeu que « Changer » lui donnerait, tant que
+ * l'échange du jour reste à prendre.
+ */
+function CaseDeLaVisite({
+  c,
+  k,
+  ici,
+  doree,
+  echange,
+  attend,
+  busy,
+  onJouer,
+  onEchanger,
+  onReprendre,
+}: {
+  c: CaseVue
+  k: Manche
+  ici: boolean
+  doree: boolean
+  echange: CleDeJeu | null
+  attend: LaPartieAttendIci | null
+  busy: boolean
+  onJouer: (p: PartieDemandee) => void
+  onEchanger: (k: Manche) => void
+  onReprendre?: () => void
+}) {
+  const idDeLaRetente = useId()
+  const jeu = JEUX[c.jeu]
+  // Montrée seulement quand elle est à lui : gagnée, ou la case qui la dore.
+  const montree = c.oeuvre ?? ('pourDorer' in c.enJeu ? c.enJeu.pourDorer : undefined)
+  const o = montree && oeuvreDe(montree)
+  const faite = c.faite && !ici
+  const retente = faite ? laRetenteMontree(c) : null
+  return (
+    <li className={'cab-case' + (faite ? ' cab-faite' : '')}>
+      <span className="cab-vignette" aria-hidden="true">
+        {/* Son cadre déjà doré se voit : la ligne dit « Pour un double », la peinture dit pourquoi. */}
+        {o ? <OeuvrePeinte oeuvre={oeuvreMontree(o, o.salle)} taille="main" doree={doree} /> : <span className="cab-inconnue">?</span>}
+      </span>
+      <span className="cab-case-texte">
+        <span className="cab-surtitre">{ici ? 'En cours' : faite ? 'Faite' : 'À jouer'}</span>
+        <b className="cab-case-jeu">{jeu.nom}</b>
+        <span className="cab-ligne">{espacesFines(faite ? issueDite(c) : enJeuDit(c.enJeu, doree))}</span>
+        {/* Ce que l'annonce dit d'un jeu qui ne se joue pas comme les autres — le Détail, à l'œil —, l'oreille l'entend dès la case,
+            avant « Jouer » et « Changer » : Hugo ne l'apprenait qu'à l'annonce, la case déjà choisie, et a fait 2 sur 9 (la tablée du
+            26 octobre 2026). À l'œil, la peinture du jeu suffit. */}
+        {!c.faite && jeu.avertissement && <span className="sr-only">{espacesFines(jeu.avertissement)}</span>}
+        {!c.faite && c.bientot && <span className="cab-raison">{JEU_PAS_LIVRE}</span>}
+      </span>
+      {/* Ses gestes sous la case entière, pas dans la colonne du texte : « Changer pour Le Mot mystère » y tenait sur quatre lignes
+          en 360 de large au texte agrandi (le rendu du 26 octobre 2026). La partie qui attend, c'est elle : elle se reprend d'ici,
+          son chrono n'a pas attendu. */}
+      {ici && onReprendre && (
+        <div className="cab-gestes">
+          <BoutonReprendre classe="btn btn-primary" onReprendre={onReprendre} />
+        </div>
+      )}
+      {retente && (
+        <div className="cab-gestes">
+          <BoutonRetenter
+            jeu={c.jeu}
+            retenter={retente}
+            id={idDeLaRetente}
+            dite={attend && retente.refus === attend.raison ? attend.id : undefined}
+            busy={busy}
+            onRetenter={() => onJouer({ origine: 'chasse', case: k, retente: true })}
+          />
+        </div>
+      )}
+      {/* Un jeu qui n'est pas encore là ne se joue pas, mais il se change : l'échange est ce qui rend sa case jouable. */}
+      {!c.faite && (!c.bientot || echange) && (
+        <div className="cab-gestes">
+          {!c.bientot && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              aria-label={`Jouer ${jeu.a}`}
+              aria-disabled={busy || attend !== null || undefined}
+              aria-describedby={attend?.id}
+              {...toucher(() => !busy && attend === null && onJouer({ origine: 'visite', case: k }))}
+            >
+              Jouer
+            </button>
+          )}
+          {/* « Changer » ne fait rien partir : le serveur l'accepte pendant une partie (`refusDeLEchange`). Il dit le jeu qui
+              vient — à l'œil ; à l'oreille, aussi celui qui part, pour distinguer les trois, après ce qu'on lit : qui dit
+              « Changer pour Le Filet » à voix haute (Voice Access, Voice Control) doit le trouver (WCAG 2.5.3, la relecture du lot
+              la-partie-et-la-visite). */}
+          {echange && (
+            <button
+              type="button"
+              className="btn"
+              aria-label={`Changer pour ${JEUX[echange].nom}, au lieu de jouer ${jeu.a}`}
+              aria-disabled={busy || undefined}
+              {...toucher(() => !busy && onEchanger(k))}
+            >
+              {`Changer pour ${JEUX[echange].nom}`}
+            </button>
+          )}
+        </div>
+      )}
+    </li>
+  )
+}
+
+export function Visite({
+  page,
+  busy,
+  onJouer,
+  onEchanger,
+  onReprendre,
+}: {
+  page: PageDuCabinet
+  busy: boolean
+  onJouer: (p: PartieDemandee) => void
+  onEchanger: (k: Manche) => void
+  /** La partie qui attend, rouverte telle que la page la tient. */
+  onReprendre?: () => void
+}) {
+  const auMusee = useContext(RetourAuMusee)
+  const idDeLAttente = useId()
+  const { cases, echange } = page.visite
+  // « Changer pour … » : sur chaque case pas encore jouée, tant que la règle des échanges (`refusDeLEchange`, au serveur) le
+  // permet — une fois par jour, la case de son choix. Elle ne dépend de la case que par « déjà jouée », que `faite` dit déjà.
+  const aJouerEncore = cases.some(c => !c.faite)
+  // Une partie qui attend éteint chaque « Jouer », comme la chasse d'une œuvre : sinon l'annonce s'ouvrait, et « Commencer » ne
+  // le disait qu'en toast. Elle éteint aussi « Retenter » (le serveur le refuse pour elle) — et la retente même est une chasse.
+  // Sa raison se dit une fois, s'il reste un geste qu'elle éteint, au-dessus des cases : sous la troisième, elle tombait sous le
+  // pli en 360 × 640, et les gestes en sourdine ne disaient pas pourquoi ; sous chaque case manquée, elle se répétait, et les
+  // trois faites, la visite la disait trois fois sans un seul « Reprendre » (la relecture du lot page-2).
+  const raison = laPartieQuiAttend(page)
+  const eteinte = (c: CaseVue) => (!c.faite && !c.bientot) || (raison !== null && laRetenteMontree(c)?.refus === raison)
+  const attend = raison !== null && cases.some(eteinte) ? { id: idDeLAttente, raison } : null
+  // Une partie de la visite qui attend se reprend de sa case : « Reprendre » une seule fois, là où elle se joue. Une chasse ou une
+  // libre, sous la raison.
+  const saCase = cases.some(c => caseEnCours(c, page.enCours))
+  const faites = casesFaites(page)
+  const { jours, aJouer } = page.serie
+  return (
+    <div className="player-shell cab-page">
+      <Sortie vers="Le Cabinet" href="/cabinet" onClick={auMusee} />
+      <PieceTete piece={`${faites} sur ${cases.length} faite${faites > 1 ? 's' : ''}`} titre="La visite du jour" />
+      <p className="cab-ligne">{espacesFines('Chacune peut te faire gagner une œuvre : tu la découvres en la gagnant.')}</p>
+      {attend && <PartieQuiAttend page={page} id={idDeLAttente} enTete onReprendre={saCase ? undefined : onReprendre} />}
+      <ol className="cab-cases">
+        {cases.map((c, k) => (
+          <CaseDeLaVisite
+            key={k}
+            c={c}
+            k={k as Manche}
+            ici={caseEnCours(c, page.enCours)}
+            doree={dejaDoree(page, c.enJeu)}
+            echange={echange.possible && !c.faite ? echange.jeu : null}
+            attend={attend}
+            busy={busy}
+            onJouer={onJouer}
+            onEchanger={onEchanger}
+            onReprendre={onReprendre}
+          />
+        ))}
+      </ol>
+      {!echange.possible && echange.refus && aJouerEncore && <p className="cab-raison">{espacesFines(echange.refus)}</p>}
+      <section className="cab-bloc" aria-labelledby="cab-la-chasse">
+        <h2 id="cab-la-chasse">{espacesFines(`La chasse · ${compte(page.chasses.restent, 'chasse')} aujourd’hui`)}</h2>
+        <p className="cab-ligne">{espacesFines('Dans une salle, touche un cadre vide : il dit où chercher son œuvre.')}</p>
+      </section>
+      {/* Un jour ne compte qu'à la première manche répondue (`jourCompte`) : « joue aujourd'hui » laissait croire qu'ouvrir une partie
+          suffisait. */}
+      {jours > 0 && (jours > 1 || aJouer) && (
+        <p className="cab-ligne">{espacesFines(`${compte(jours, 'jour')} de visite d’affilée${aJouer ? ' : réponds à une manche aujourd’hui pour garder ta série.' : '.'}`)}</p>
+      )}
+    </div>
+  )
+}
+
+export function JouerLibrement({ page, onJouer, onReprendre }: { page: PageDuCabinet; onJouer: (p: PartieDemandee) => void; onReprendre?: () => void }) {
+  const auMusee = useContext(RetourAuMusee)
+  const idDeLAttente = useId()
+  const paient = page.libres.paientEncore
+  // Une partie qui attend éteint les neuf jeux : sa raison se dit une fois, au-dessus — sous le dernier des neuf, elle tombait
+  // loin sous le pli —, et « Reprendre » sous elle.
+  const attend = laPartieQuiAttend(page)
+  return (
+    <div className="player-shell cab-page">
+      <Sortie vers="Le Cabinet" href="/cabinet" onClick={auMusee} />
+      <PieceTete piece="Sans œuvre en jeu" titre="Jouer librement" />
+      <p className="cab-ligne">
+        {espacesFines(
+          paient > 1
+            ? `Tes ${paient} prochaines parties rapportent de la poussière d’or ; ensuite, c’est pour le plaisir.`
+            : paient === 1
+              ? 'Ta prochaine partie rapporte de la poussière d’or ; ensuite, c’est pour le plaisir.'
+              : 'Pour aujourd’hui, c’est pour le plaisir : la poussière d’or revient à minuit.',
+        )}
+      </p>
+      {attend && <PartieQuiAttend page={page} id={idDeLAttente} enTete onReprendre={onReprendre} />}
+      {/* Ceux qui se jouent d'abord, dans l'ordre du Cabinet : au milieu des sept qui arrivent, le Pari et l'Éclair se cherchaient. */}
+      <ul className="cab-jeux">
+        {[...CLES_DES_JEUX].sort((a, c) => Number(!page.jeux.includes(a)) - Number(!page.jeux.includes(c))).map(j => {
+          const pret = page.jeux.includes(j)
+          return (
+            <li key={j}>
+              <button
+                type="button"
+                className="cab-jeu"
+                aria-disabled={!pret || attend !== null || undefined}
+                aria-describedby={attend === null ? undefined : idDeLAttente}
+                {...toucher(() => pret && attend === null && onJouer({ origine: 'libre', jeu: j }))}
+              >
+                <b className="cab-case-jeu">{JEUX[j].nom}</b>
+                <span className="cab-ligne">{espacesFines(JEUX[j].geste)}</span>
+                {!pret && <span className="cab-pastille">bientôt</span>}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}

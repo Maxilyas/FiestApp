@@ -1,12 +1,13 @@
 # Vue d'ensemble de l'architecture
 
 > Le système d'un coup d'œil, pour un développeur qui arrive : ce qui tourne où,
-> le chemin d'une réponse d'invité, les couches, les principes qui tiennent
-> l'ensemble — et où vit chaque domaine.
+> le chemin d'une réponse d'invité et celui d'un geste au Cabinet, les couches,
+> les principes qui tiennent l'ensemble — et où vit chaque domaine.
 
 **Dans cette page** : [Le dépôt](#le-dépôt) ·
 [Le système](#le-système) ·
 [Le chemin d'une réponse d'invité](#le-chemin-dune-réponse-dinvité) ·
+[Le chemin d'un geste au Cabinet](#le-chemin-dun-geste-au-cabinet) ·
 [Les couches](#les-couches) ·
 [Les principes](#les-principes) ·
 [La carte des domaines](#la-carte-des-domaines)
@@ -52,7 +53,7 @@ flowchart LR
   subgraph NAV["Les navigateurs"]
     TEL["Téléphones des invités<br/>/‹espace› — PlayerApp"]
     ECR["Écrans d'animateur<br/>/host, /tele — HostApp<br/>télécommande, barre du chef"]
-    PAG["Les autres pages<br/>accueil, profil, quiz du jour,<br/>campagne, duels, Mes quiz, QG"]
+    PAG["Les autres pages<br/>accueil, profil, quiz du jour,<br/>campagne, duels, Cabinet, Mes quiz, QG"]
   end
   subgraph HEB["L'hébergeur — un seul processus Node"]
     subgraph SRV["server/src"]
@@ -60,13 +61,13 @@ flowchart LR
       IO["Socket.io<br/>sockets.ts, ecouter()"]
       REG["SpaceRegistry<br/>un SpaceRuntime par espace"]
       MOT["GameEngine + quizModule<br/>une partie à la fois par espace"]
-      MAG["Les magasins<br/>AuthStore, ProfileStore, QuizStore,<br/>ArchiveStore, JourStore, CampagneStore…"]
+      MAG["Les magasins<br/>AuthStore, ProfileStore, QuizStore,<br/>ArchiveStore, JourStore, CampagneStore,<br/>CabinetStore…"]
       MIR["PartyBackup<br/>une file par espace"]
     end
     LOC[("Base locale SQLite<br/>DB_PATH, jetable<br/>la soirée en cours")]
   end
   subgraph PERM["Base permanente libSQL — Turso en ligne, QUIZ_DB_URL"]
-    DUR[("comptes, profils, quiz, archives,<br/>quiz du jour, campagne, QG")]
+    DUR[("comptes, profils, quiz, archives,<br/>quiz du jour, campagne, Cabinet, QG")]
     COP[("le miroir de la soirée<br/>tables party_*")]
   end
   TEL <-->|"gestes, accusés, instantanés, vues"| IO
@@ -159,6 +160,57 @@ sequenceDiagram
   « settle », de celui de la question, ou du clic « Révéler » (la commande
   `next`). → [Le temps réel](./temps-reel.md),
   [les événements](../reference/evenements-temps-reel.md)
+
+## Le chemin d'un geste au Cabinet
+
+Le Cabinet de curiosités se joue seul, sans temps réel : chaque geste d'une
+manche — une réponse, Éclairer, un essai du Mot mystère — est une requête
+HTTP, jugée et écrite avant que sa réponse parte.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant P as La page — Partie.tsx
+  participant R as server/src/cabinet.ts
+  participant C as CabinetStore
+  participant J as Le pli — shared/cabinet
+  participant G as La porte de la campagne
+  participant T as Turso
+  P->>R: POST /api/cabinet/partie/:id/geste — le rang qu'il croit suivre, le geste
+  R->>C: geste(…) — l'heure d'arrivée prise avant le verrou
+  C->>C: le verrou du profil ; la partie en mémoire, sinon relue par sa clé
+  Note over C: un rang passé, une partie finie : 409, et la vue d'à présent
+  C->>J: lireUnGeste, puis jouerUnGeste(départ, état, geste, heure)
+  J-->>C: l'état d'après, les pièces qu'il tranche, la fin — ou un refus en mots
+  alt sans pièce ni fin — ouvrir, Éclairer, Changer, Reculer, un essai sans verdict
+    C->>T: le lot seul, par porte.client — le geste à son rang, un aller-retour
+  else une pièce jugée, ou la fin
+    C->>G: ecrireDesReponses — le geste à son rang, ses pièces, la fin, en un lot
+    G->>T: un aller-retour ; à la fin d'une partie qui a une juste, les lectures de l'expérience au bout, le journal compris
+    G->>G: à la fin écrite : l'expérience, les gardiens, les paliers, le compagnon
+    G-->>C: ce que le lot a écrit
+  end
+  C-->>R: la partie d'après
+  R-->>P: vueDeLaPartie — ce que la page peut voir, et l'heure du serveur
+```
+
+- **La page ne juge rien et ne compte pas le temps** (`client/src/views/cabinet/Partie.tsx`) :
+  chaque geste porte son rang (invariant 12), l'échéance se lit à
+  `serverNow()`, et à l'échéance la page envoie d'elle-même ce qu'elle tient.
+  Le serveur n'a aucune minuterie : une manche expirée se juge au geste
+  suivant, ou à la page qui relit la partie.
+- **Le pli est pur** (`pliDeLaPartie`, `shared/cabinet/partie.ts`) : la
+  partie en cours et une partie finie, relue pour « Mes réponses » ou un
+  cartel, passent par lui (invariant 14). Tout se tire au départ, avec une
+  graine qu'aucune vue n'emporte (invariant 1).
+- **La base seule dit qui a gagné** : le geste s'écrit à son rang en tête de
+  son lot, et chaque autre instruction sous lui. Un double toucher, ou l'autre
+  serveur d'une mise en ligne, n'écrivent rien de plus. Seul un lot qui écrit
+  une réponse passe par la porte de la campagne, qui tient son rituel —
+  l'expédition prévenue, le journal des réponses averti — ; un geste qui ne
+  tranche rien n'écrit que lui-même.
+  → [Le serveur](./serveur.md#le-cabinet-de-curiosités),
+  [Les données](./donnees.md#le-cabinet-de-curiosités)
 
 ## Les couches
 
@@ -273,10 +325,13 @@ disparaissait sans un mot. → [Le temps réel](./temps-reel.md)
 
 **8. Un profil ne donne aucun avantage de jeu face aux autres, et un invité
 anonyme n'affiche rien** — ni « Niv. 0 », ni pastille grise : l'absence, pas
-l'infériorité ; le chemin sans compte reste la valeur de l'application. Seule
-l'Expédition, qu'on joue seul, fait servir ce qu'on a gagné, et ses jokers
-n'en sortent jamais. Un profil reconnu ne rechoisit jamais prénom ni avatar.
-→ [Le profil](../produit/le-profil.md) · [L'Expédition](../produit/l-expedition.md)
+l'infériorité ; le chemin sans compte reste la valeur de l'application. Seuls
+l'Expédition et le Cabinet de curiosités, qu'on joue seul, font servir ce
+qu'on a gagné — ses légendaires y deviennent des jokers, ses œuvres et ses
+gardiens des cartes-bonus —, et rien n'en sort. Un profil reconnu ne
+rechoisit jamais prénom ni avatar.
+→ [Le profil](../produit/le-profil.md) · [L'Expédition](../produit/l-expedition.md) ·
+[Le Cabinet de curiosités](../produit/le-cabinet.md)
 
 **9. La fiche du serveur fait foi.** Une re-présentation par jeton ignore le
 prénom et l'avatar envoyés — sinon le renommage par l'animateur tombait au
@@ -361,6 +416,8 @@ avec un `new Error('…')` nu ([Les routes](./serveur.md#les-routes),
 | Le quiz du jour, le rappel | `server/src/core/jour.ts`, `server/src/quizDuJour.ts`, `server/src/core/rappels.ts`, `client/src/views/JourApp.tsx` | [Le quiz du jour](../produit/le-quiz-du-jour.md) | [Le serveur](./serveur.md#les-tâches-de-fond) |
 | La campagne, le défi | `server/src/core/campagne.ts`, `server/src/campagne.ts`, `server/content/campagne/`, `client/src/views/CampagneApp.tsx` | [La campagne](../produit/la-campagne.md) | [Les données](./donnees.md) |
 | Les sentiers du savoir | `shared/sentiers.ts`, `shared/branches.ts`, `client/src/views/Sentiers.tsx` | [Les sentiers](../produit/les-sentiers-du-savoir.md) | [Les barèmes](../reference/baremes.md) |
+| L'Expédition | `shared/expedition.ts`, `shared/rencontres.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx` | [L'Expédition](../produit/l-expedition.md) | [Les barèmes](../reference/baremes.md#lexpédition) |
+| Le Cabinet de curiosités | `shared/cabinet/`, `server/src/core/cabinet/`, `server/src/core/porteDeLaCampagne.ts`, `server/src/cabinet.ts`, `client/src/views/CabinetApp.tsx`, `client/src/views/cabinet/` | [Le Cabinet de curiosités](../produit/le-cabinet.md) | [Le serveur](./serveur.md#le-cabinet-de-curiosités), [Les données](./donnees.md#le-cabinet-de-curiosités) |
 | Les duels | `shared/duels.ts`, `server/src/core/modeleDuSavoir.ts`, `client/src/views/Duels.tsx` | [Les duels](../produit/les-duels.md) | [Les barèmes](../reference/baremes.md) |
 | La bibliothèque | `shared/library.ts`, `server/src/core/quizStore.ts`, `server/src/api.ts`, `client/src/views/EditorApp.tsx` | [Les quiz](../produit/les-quiz.md) | [L'API HTTP](../reference/api-http.md) |
 | Comptes, sessions, télé | `server/src/auth/`, `server/src/core/inscriptions.ts` | [Administrer](../guides/administrer.md) | [La sécurité](./securite.md) |

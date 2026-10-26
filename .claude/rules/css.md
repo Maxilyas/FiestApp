@@ -17,7 +17,18 @@ paths:
   sur `.carte-fond` (`design.test.ts` y veille) ; le focus n'a qu'un
   anneau, `--focus`, posé une fois pour tout élément
   (`:where(…):focus-visible`) — un composant n'en règle que
-  l'`outline-offset`. Aucun texte ne descend sous `--t-label` (0,6875 rem,
+  l'`outline-offset`. **Sur l'or pâle (`--accent-soft`), un texte s'écrit
+  en `--accent-text-hover`** : `--accent-text`, fait pour le fond de la
+  page, y tombe à 4,09:1 sous le Film noir, 4,26 sous la Forêt rousse,
+  4,35 sous le Carnet (le rendu du Cabinet, le 25 octobre 2026) ;
+  `design.test.ts` le mesure sous chaque thème, et tient la liste des
+  dix-neuf règles qui l'écrivent encore à l'or du texte hors du Cabinet
+  (`.pill-btn.active`, `.onglet.actif`, `.titre-choix.selected`, les
+  `.quoi-*.active`, `.exp-pastille-or`…) : chacune se corrige à son écran,
+  regardée, et en sort ; aucune n'y entre. La garde ne lit qu'une règle à
+  la fois : l'or pâle posé par l'une et le texte par une autre lui
+  échappent — `.corrige-bonne` et sa légende (« La bonne réponse · la
+  tienne »), relevées au Cabinet seulement. Aucun texte ne descend sous `--t-label` (0,6875 rem,
   les 11 px de `.label`, en `rem` pour suivre le texte agrandi) : la garde
   ne relit que sa liste de sélecteurs, et `.chiffre dt` (10 px) comme
   `.bilan-you` (0,68 rem) y échappent encore.
@@ -99,6 +110,23 @@ paths:
   (`Input.dispatchTouchEvent` — `synthesizeScrollGesture` n'y fait rien
   défiler), et filme l'ouverture (`Page.startScreencast`) pour la
   luminosité de chaque image.
+- **Les deux voiles sont modaux** — celui d'une feuille et celui d'un
+  dialogue, comme la carte d'un joueur : ce qu'ils couvrent devient `inert`
+  (`useModale`, `horsDeLaBoite`, règle `client.md`), eux restent vivants. Le
+  CSS n'y est pour rien : `touch-action` arrête le doigt, pas le clavier ni le
+  lecteur d'écran, qui lisait dix-sept liens du musée sous « Comment ça
+  marche ? » (la tablée du 25 octobre 2026). La boîte reçoit le focus par
+  programme (`tabindex="-1"`), sans aucun anneau : celui de l'application
+  l'écarte, et `useModale` la focalise `focusVisible: false` (`SANS_ANNEAU`,
+  `modale.ts`). Sans l'option, `:focus-visible` lui donnait le filet blanc du
+  navigateur (`outline: auto`) ouverte au clavier, ou sans geste encore — la
+  feuille des missions à l'arrivée sur `/#missions`, le réveil d'un gardien à
+  l'arrivée au Cabinet —, et `.cab-page [tabindex='-1']:focus` ne l'effaçait
+  que sous trois feuilles du Cabinet sur cinq. Au premier Tab, l'anneau d'or
+  passe sur « Fermer ». Un navigateur qui ignore l'option garde son filet :
+  la carte d'un joueur, la feuille, la fiche de la niche et le coffre
+  l'effacent aussi en CSS (`.carte-joueur:focus`, `.carte-feuille:focus`,
+  `.niche-fiche:focus`, `.coffre-boite:focus`, `petit-ecran.test.ts`).
 - **Ce qui se pose sur la page a un sol plein, sous tous les thèmes.**
   Chaque thème repeint `.card` d'un verre fait pour laisser voir son décor —
   translucide sous vingt-cinq d'entre eux, de 82 à 95 % —, d'un sélecteur
@@ -136,3 +164,11 @@ paths:
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`
   n'est plus posée par rien et passe. Une classe qu'on retire se cherche à
   la main.
+- **Le Cabinet de curiosités préfixe ses classes en `cab-`** : deux fonds de
+  carte s'appellent déjà `.fond-cabinet` et `.fond-musee`, et un nom court
+  (`.cabinet`, `.musee`) serait un modificateur de plus à chercher dans la
+  feuille (règle `profil.md`). Sa section de `styles.css` (« Le Cabinet de
+  curiosités ») ne vise que des `cab-` — la carte peinte et les pièces
+  partagées qu'elle pose, sous `.cab-page` — et n'écrit aucun texte sous
+  dix-sept pixels : `cabinet-ecran.test.ts` relit chaque sélecteur et chaque
+  taille (règle `cabinet.md`).

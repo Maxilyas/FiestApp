@@ -23,7 +23,7 @@ import type { Rarete } from './badges'
 import { GERBES } from './gerbes'
 import { THEMES } from './themes'
 import { FONDS, MAITRES_DU_CABINET, type CleDeFond } from './fonds'
-import { LEGENDAIRES, partiesDe, voiesDe, type SimpleCondition } from './legendaires'
+import { LEGENDAIRES, estUneVoieRangee, partiesDe, voiesDe, type SimpleCondition } from './legendaires'
 import { SEUILS_DU_LAURIER } from './jour'
 import { formatNumber } from './typographie'
 
@@ -105,8 +105,8 @@ type Destination = { piste: string; seuil: number; metal?: 1 | 2 | 3 } | { troph
  * de piste.
  */
 function destinationDe(c: SimpleCondition): Destination | null {
-  // Un légendaire gardé au bout de l'expédition ne se range sur aucune piste non plus : on le garde, ou non.
-  if (c.hautFait.startsWith('saison:') || c.hautFait.startsWith('expedition:')) return null
+  // Un légendaire gardé au bout de l'expédition, ou réveillé au Cabinet, ne se range sur aucune piste non plus : on l'a, ou non.
+  if (estUneVoieRangee(c.hautFait)) return null
   if ('palier' in c) {
     const h = hautFait(c.hautFait)
     if (h?.famille !== 'carriere') return null

@@ -13,14 +13,15 @@ import { PALIER_DU_MAITRE, type SentiersDAccueil } from '../../../shared/sentier
 import type { DefiDAccueil } from '../../../shared/campagne'
 import { placeDuJour } from '../../../shared/course'
 import { DUELS_POUR_LA_RECOMPENSE, ligueParCle, type DuelsDAccueil } from '../../../shared/duels'
+import type { CabinetDAccueil } from '../../../shared/cabinet/vues'
 // Il n'importe rien, et l'en-tête de l'accueil le tire déjà par `shared/legendaires.ts` (`Identite.tsx`).
-import { EXPEDITION_EN_PRODUCTION } from '../../../shared/jokers'
+import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE } from '../../../shared/jokers'
 import type { AnnonceDeLAdministrateur } from '../../../shared/profil'
 // Ses cartes n'importent que ce que l'accueil a déjà : l'en-tête tire `shared/profil.ts` (`Identite.tsx`).
 import { CarteDeLAdministrateur } from './CarteDeLAdministrateur'
 // Ils n'importent rien : le premier script de chaque page les lit déjà (`main.tsx`).
 import { BOUTON_BIENTOT, BOUTON_EN_MAINTENANCE, PASTILLE_AVANT_PREMIERE, type BoutonDeLaPage, type PageEnMaintenance } from '../../../shared/maintenance'
-import { boutonEteint } from '../maintenance'
+import { boutonEteint, cabinetIci } from '../maintenance'
 import { BlasonDeLigue } from './Blason'
 import { JourEtDefi } from './JourEtDefi'
 
@@ -191,6 +192,19 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; 
   }
 }
 
+/**
+ * Le bouton du Cabinet : son musée — « Ton musée : 27 œuvres sur 84 » —, et
+ * « À jouer » tant qu'une case de la visite du jour attend. Le serveur ne le
+ * dit que d'un musée qu'il a en mémoire (`ProfilDAccueil.cabinet`) : sinon, la
+ * ligne de toujours, plutôt qu'un aller-retour de plus à chaque accueil.
+ */
+export function boutonDuCabinet(m: CabinetDAccueil | undefined): { detail: string; pastille?: string } {
+  if (!m) return { detail: 'Un musée à remplir, des œuvres à gagner en jouant' }
+  // « 27 œuvres sur 84 » d'un bloc : la ligne passe après « Ton musée : » — coupée ailleurs, « sur 84 » restait seul sur la
+  // sienne en 360, à côté de « À jouer » (le rendu du 25 octobre 2026).
+  return { detail: espacesFines(`Ton musée : ${m.oeuvres} œuvre${m.oeuvres > 1 ? 's' : ''} sur ${m.sur}`), ...(m.aJouer && { pastille: 'À jouer' }) }
+}
+
 /** Rien de fermé, rien d'essayé avant tout le monde. */
 const RIEN_DE_FERME: Partial<Record<PageEnMaintenance, BoutonDeLaPage>> = {}
 
@@ -198,7 +212,8 @@ const RIEN_DE_FERME: Partial<Record<PageEnMaintenance, BoutonDeLaPage>> = {}
  * L'accueil d'un profil : ce qu'on vient faire, en gros boutons — une soirée
  * où l'on joue déjà passe devant tout (« Revenir chez Hugo »), puis la
  * campagne, le quiz du jour et le défi de la semaine — une tuile, deux
- * onglets (`JourEtDefi`) —, les duels, créer un salon, rejoindre une soirée.
+ * onglets (`JourEtDefi`) —, les duels, l'Expédition, le Cabinet de
+ * curiosités, créer un salon, rejoindre une soirée.
  * Chacun ouvre sa page, qui en dit plus : un toucher de plus qu'une carte qui
  * montrait tout, mais un écran qu'on lit d'un coup d'œil.
  *
@@ -220,7 +235,10 @@ export function AccueilJouer({
   campagne,
   defi,
   duels,
+  musee,
   etats = RIEN_DE_FERME,
+  cabinet = cabinetIci(),
+  remplacee = EXPEDITION_REMPLACEE,
 }: {
   enCours: { nom: string; slug: string }[]
   onRejoindre: () => void
@@ -235,8 +253,18 @@ export function AccueilJouer({
   defi?: DefiDAccueil
   /** Ses duels : sa ligue, sa cote, sa semaine — et qui le défie. */
   duels?: DuelsDAccueil
+  /** Son musée du Cabinet : ses œuvres, et une case de la visite du jour qui attend — dit d'un musée que le serveur a en mémoire. */
+  musee?: CabinetDAccueil
   /** Ce que dit le bouton de chaque page fermée, pour lui (`boutonsDesPages`, `client/src/maintenance.ts`). */
   etats?: Partial<Record<PageEnMaintenance, BoutonDeLaPage>>
+  /** Le Cabinet de curiosités répond-il sur ce serveur ? Le serveur le dit dans la page (`cabinetIci`) ; fermé, pas de bouton. */
+  cabinet?: boolean
+  /**
+   * L'Expédition a-t-elle laissé place au Cabinet (`EXPEDITION_REMPLACEE`) ?
+   * Son départ est fermé partout, la préproduction comprise : un drapeau du
+   * code le sait. Une épreuve le force, pour lire l'accueil tel qu'il sera.
+   */
+  remplacee?: boolean
 }) {
   // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
   // Le jour vient du serveur : calculé ici, son `Intl` chargeait les données
@@ -255,6 +283,7 @@ export function AccueilJouer({
   const laCampagne = boutonDeLaCampagne(campagne)
   const leDefi = boutonDuDefi(defi)
   const lesDuels = boutonDesDuels(duels)
+  const leCabinet = boutonDuCabinet(musee)
   return (
     <div className="accueil-gestes">
       {/* Il joue déjà quelque part : on y revient d'un toucher, avant tout. */}
@@ -330,8 +359,9 @@ export function AccueilJouer({
             href="/duels"
           />
         )}
-        {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec — et le QG l'annonce pour bientôt. */}
-        {EXPEDITION_EN_PRODUCTION && (
+        {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec — et le QG l'annonce pour bientôt.
+            Remplacée, son départ fermé : le bouton s'en va, et le Cabinet, juste dessous, prend sa place. */}
+        {EXPEDITION_EN_PRODUCTION && !remplacee && (
           <GrosBouton
             icone={<Icon name="flag" />}
             titre="L’Expédition"
@@ -339,6 +369,18 @@ export function AccueilJouer({
             pastille={enAvantPremiere('expedition')}
             ferme={eteinte('expedition')}
             href="/expedition"
+          />
+        )}
+        {/* Le musée à remplir, là où le serveur l'ouvre — la préproduction d'abord : une constante du code ne la
+            distingue pas de la production. Il prend la place de l'Expédition quand elle cède la sienne (`remplacee`). */}
+        {cabinet && (
+          <GrosBouton
+            icone={<Icon name="landmark" />}
+            titre="Le Cabinet de curiosités"
+            detail={eteinte('cabinet') ? pourquoi('cabinet') : leCabinet.detail}
+            pastille={eteinte('cabinet') ? undefined : (leCabinet.pastille ?? enAvantPremiere('cabinet'))}
+            ferme={eteinte('cabinet')}
+            href="/cabinet"
           />
         )}
       </section>

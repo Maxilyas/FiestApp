@@ -123,6 +123,16 @@
   z-index: 1;
 }
 
+/* Le Cabinet de curiosités pose ses lignes à même la page, hors des cartes —
+   l'étiquette et le lien de retour en haut de chaque écran, la devise d'une
+   salle — : sous la lampe et les stores, son rouge tombait à 3,43:1 et le
+   gris de « ← Le Cabinet » à 4,19:1 (le rendu du 26 octobre 2026). Sa colonne
+   prend le noir, comme celle des thèmes peints ; la lampe et la pluie restent
+   de chaque côté. */
+:root[data-theme='filmnoir'] .cab-page {
+  background: var(--bg);
+}
+
 :root[data-theme='filmnoir'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='filmnoir'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='filmnoir'] .onglets {

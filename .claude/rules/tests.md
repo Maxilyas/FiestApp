@@ -11,7 +11,7 @@ paths:
 ## Les fichiers
 
 - `server/scripts/tests.mjs` — `npm test` : tous les `test/*.test.ts` en un `node --test`, un fichier de moins à la fois que de cœurs (trois sur quatre), 120 s, `dot` sous Claude Code ; `node scripts/tests.mjs test/<fichier>.test.ts` (depuis `server/`) en lance un sous les mêmes délais — la commande `spec` de `CLAUDE.md` n'en a aucun. En CI (`CI` posé), le TAP, puis les épreuves en échec redites en entier après le décompte : GitHub ne rend que les cinq mille dernières lignes d'un journal, et l'échec était au milieu de quinze mille (`compte-rendu-des-tests.test.ts`)
-- `server/test/banc.ts` — un vrai serveur sur deux bases jetables, redémarrable sur disque effacé, et de quoi lui parler (les rendus et `mesure-pages.ts` s'en servent aussi) ; ce qu'il fait en fond après sa réponse — la mesure des difficultés, refaite derrière la requête qui l'a trouvée périmée et que personne n'attend (règle `campagne.md`) — se relit jusqu'à l'avoir (`relireJusqua`), jamais derrière une pause fixe · `salle.ts` — le moteur seul, horloge à la main · `relais.ts` — une liaison qu'on gèle
+- `server/test/banc.ts` — un vrai serveur sur deux bases jetables, redémarrable sur disque effacé, et de quoi lui parler (les rendus et `mesure-pages.ts` s'en servent aussi) ; ce qu'il fait en fond après sa réponse — la mesure des difficultés, refaite derrière la requête qui l'a trouvée périmée et que personne n'attend (règle `campagne.md`) — se relit jusqu'à l'avoir (`relireJusqua`), jamais derrière une pause fixe · `salle.ts` — le moteur seul, horloge à la main · `relais.ts` — une liaison qu'on gèle · `teintes.ts` — les couleurs de chaque thème lues dans sa feuille, et le contraste WCAG qu'on en tire (`design.test.ts`, `cabinet-ecran.test.ts`)
 - `server/scripts/smoke.ts` — sections 0 à 35 (24 à 29 sont devenues des fichiers de `server/test/`) ; la première assertion fausse arrête tout
 - `server/scripts/load-test.mjs` · `fake-player.mjs` · `qa-host.mjs` — une salle, un invité, un écran commun simulés contre un serveur qui tourne ; l'animateur par `ADMIN_LOGIN` / `ADMIN_PASSWORD` (`login.mjs`, `antoine` / `demo` par défaut)
 
@@ -69,9 +69,16 @@ paths:
   **Le calendrier aussi** : une soirée se date à l'horloge de la machine, et
   close pendant Halloween, Noël ou le Nouvel An, elle ouvrait son légendaire
   de saison — la CI rougissait dix-neuf jours par an. `banc.ts` et
-  `smoke.ts` ferment donc le calendrier des soirées (`calendrierDesSoirees`,
-  `core/saisons.ts`) ; un test qui date ses soirées lui-même le rouvre
-  (`saisons.test.ts`).
+  `smoke.ts` ferment donc chaque calendrier de `core/saisons.ts` : celui des
+  soirées (`calendrierDesSoirees`), des expéditions — la fête sur les cartes,
+  son légendaire à l'acte 3 — et du Cabinet (`calendrierDuCabinet`, né le
+  25 octobre 2026, premier jour d'Halloween : la première œuvre gagnée
+  pendant la fête réveille son gardien). Un test qui date ses parties
+  lui-même rouvre le sien (`saisons.test.ts`, `expedition-saison.test.ts`) ;
+  un calendrier de plus — tout objet `{ periodeDu }` que le module exporte,
+  quel que soit son nom — se ferme aux deux bouts, une ligne chacun, celle du
+  smoke avant son premier serveur, ce que `calendrier.test.ts` vérifie — et
+  qu'il reste ouvert hors du banc.
 - **Les journaux en mémoire ne relisent que ce qui arrive.** Le banc lit
   les duels sans délai (`fraicheurDesDuelsMs: 0`, `banc.ts`) : une série
   écrite à la main y paraît à la lecture suivante, comme une réponse au

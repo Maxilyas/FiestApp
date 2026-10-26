@@ -304,12 +304,19 @@ jour a sa notification (règle `rappel-et-installation.md`).
   toutes les tentatives de duel des deux joueurs — 50 000 lignes au quota de
   Turso, trois fois à chaque ouverture de la page du plus fidèle (le
   22 octobre 2026). Une jointure neuve sur les tentatives d'un duel prend le
-  même `+`. Et les duels d'un seul joueur mènent la lecture : le cercle de
-  ses amis (`cercleDe`, `lectureDesAmis`) partait de toutes les tentatives
+  même `+`, et la tentative d'un joueur cherchée seule aussi
+  (`tentativeDuDuel`, à la page du duel, au relevé, à la fin d'un duel
+  classé, à la correction : `+profile_id`, `+commencee_le`) — triée par sa
+  date, elle partait de l'index du profil et relisait toutes ses parties,
+  de tous les modes (la revue de sobriété du 25 octobre 2026). Et les
+  duels d'un seul joueur mènent la lecture : le cercle de ses amis
+  (`cercleDe`, `lectureDesAmis`) partait de toutes les tentatives
   de duel du serveur (`mode = 'duel'`, 1 226 lignes) avant d'y chercher les
   siennes ; `CROSS JOIN` garde ses défis dehors (279). `duels-index.test.ts`
   lit le plan de chaque requête qui joint les tentatives d'un duel, sur
-  chaque chemin qui en lance une — sans statistiques, comme la production.
+  chaque chemin qui en lance une, et de `tentativeDuDuel` — sans
+  statistiques, comme la production ; `campagne-index.test.ts` la relit
+  sous des statistiques qui feraient préférer le profil.
 - **Le dé demande avant de tirer, et ne se relance pas.** Sa feuille
   (`LeDe`, `FeuilleDuDe`) dit l'enjeu — à chances égales, lu de la seule
   cote qu'on voit (`enjeuDuDe`) — et sur quoi il jouera ; rien ne part au

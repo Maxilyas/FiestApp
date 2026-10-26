@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto'
 import type { InStatement } from '@libsql/client'
-import { PREFIXE_DU_REBUS } from '../../../shared/curiosites'
-import { PREFIXE_DE_LA_FRISE } from '../../../shared/frise'
+import { deplier, estDuCabinet, idDuTableau } from '../../../shared/cabinet/pieces'
+import { horsDeLaBase } from '../../../shared/horsDeLaBase'
 import { jourDe } from '../../../shared/jour'
 import { CARTES_DU_SECOND_ESSAI } from '../../../shared/rencontres'
 import { apresUnPassage, type SuiviDeRevision } from '../../../shared/revision'
+import { questionsDuTableau } from './details'
 
 // Le journal des réponses de campagne, gardé en mémoire et lu par différence.
 //
@@ -25,7 +26,9 @@ import { apresUnPassage, type SuiviDeRevision } from '../../../shared/revision'
 // (`lectureDuJournal`), dans le lot de la requête qui en a besoin. Ce qu'il
 // garde sont les dérivations mêmes que relisaient les requêtes d'avant —
 // chacune avec ses filtres, `journal-des-reponses.test.ts` les compare au
-// SQL d'avant sur une base au hasard. Rien de ce qu'il en tire ne s'écrit :
+// SQL d'avant sur une base au hasard —, sauf ce qu'il a vu, qui y ajoute les
+// questions de la base qu'une pièce du Cabinet a montrées (`vuesDe`) : le
+// même test le compare au SQL d'avant, déplié. Rien de ce qu'il en tire ne s'écrit :
 // il se relit en entier au démarrage — de ses tranches gardées, plus bas —,
 // et une règle changée vaut toujours pour tout ce qui a été joué.
 
@@ -72,10 +75,22 @@ export interface ReponseDuJournal {
   carnet: unknown
   categorie: string | null
   niveau: string | null
+  /**
+   * Ce que sa pièce du Cabinet a montré de plus qu'elle (`PieceDuCabinet.cabinet.montre`) : les leurres d'un Détail,
+   * ce que « Changer » a remplacé. Vu à son heure, rien d'autre — ni réponse, ni carnet, ni mesure. Null sans rien.
+   */
+  montre: readonly string[] | null
   /** Le compagnon de sa niche quand il a répondu (`campagne_reponses.compagnon`) : une bonne réponse le fait grandir. */
   compagnon: string | null
   /** Son épreuve d'un sentier (`mode = 'sentier'`) : son palier, sa branche, et si c'est un rejeu ; null hors des sentiers. */
   epreuve: { palier: number; branche: string | null; rejeu: boolean } | null
+  /**
+   * La mauvaise réponse qu'il a choisie, en texte, telle que sa série l'a
+   * posée — un index ne dit rien d'une série à l'autre, chacune bat ses
+   * réponses ; null pour une juste, une question laissée, un composé du
+   * Cabinet (`choix` −1). Les leurres de l'Éclair la lisent (`leurresChoisis`).
+   */
+  choisie: string | null
 }
 
 /**
@@ -84,24 +99,32 @@ export interface ReponseDuJournal {
  * `rowid` mène la lecture (`LEFT JOIN` : la réponse d'abord, sa série par sa
  * clé, le duel de sa série par la sienne) : Turso ne parcourt que les
  * réponses neuves, leurs séries et leurs duels. Ce que la série a gardé de
- * chaque question, d'un seul `json_extract` à trois chemins, sous
- * `json_valid` : la lecture part aussi dans le lot qui écrit une réponse, et
- * un JSON illisible n'y doit rien faire échouer. D'une épreuve des sentiers,
- * son palier, sa branche et son rejeu (`reponsesDesEpreuves`).
+ * chaque question, d'un seul `json_extract` à quatre chemins — la reprise du
+ * carnet, la catégorie, la marche et, d'une pièce du Cabinet, ce qu'elle a
+ * montré de plus qu'elle (`cabinet.montre`) —, sous `json_valid` : la lecture
+ * part aussi dans le lot qui écrit une réponse, et un JSON illisible n'y doit
+ * rien faire échouer. D'une épreuve des sentiers, son palier, sa branche et
+ * son rejeu (`reponsesDesEpreuves`). D'une réponse
+ * fausse, le texte qu'il a choisi (`choisie`), sous la même garde et sous
+ * `choix >= 0` : un chemin `[-1]` est une erreur de SQLite, pas un NULL, et
+ * ferait échouer toute la lecture.
  */
 export function lectureDuJournal(depuis: number, limite = REPONSES_PAR_LECTURE): InStatement {
   return { sql: LECTURE_DU_JOURNAL, args: [depuis, limite] }
 }
 
 const LECTURE_DU_JOURNAL = `SELECT COUNT(*) AS lues, MAX(n) AS jusqua,
-                 json_group_array(json_array(n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, json(detail), compagnon, json(epreuve))) AS lignes
+                 json_group_array(json_array(n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, json(detail), compagnon, json(epreuve), choisie)) AS lignes
           FROM (SELECT r.rowid AS n, s.profile_id AS qui, r.serie_id AS serie, r.reserve_id AS question, r.juste AS juste, r.repondue_le AS le,
                        r.choix IS NOT NULL AS repondue, r.joker AS joker, r.forme AS forme, r.compagnon AS compagnon, s.mode AS mode, s.commencee_le AS commencee,
                        s.semaine AS semaine, s.duel AS duel, d.ferme_le AS ferme,
                        CASE WHEN json_valid(s.questions)
-                            THEN json_extract(s.questions, '$[' || r.position || '].carnet', '$[' || r.position || '].categorie', '$[' || r.position || '].niveau')
+                            THEN json_extract(s.questions, '$[' || r.position || '].carnet', '$[' || r.position || '].categorie', '$[' || r.position || '].niveau', '$[' || r.position || '].cabinet.montre')
                        END AS detail,
-                       CASE WHEN s.mode = 'sentier' THEN json_array(s.palier, s.branche, s.rejeu) END AS epreuve
+                       CASE WHEN s.mode = 'sentier' THEN json_array(s.palier, s.branche, s.rejeu) END AS epreuve,
+                       CASE WHEN r.juste = 0 AND r.choix >= 0 AND json_valid(s.questions)
+                            THEN json_extract(s.questions, '$[' || r.position || '].reponses[' || r.choix || ']')
+                       END AS choisie
                 FROM campagne_reponses r LEFT JOIN campagne_series s ON s.id = r.serie_id LEFT JOIN campagne_duels d ON d.code = s.duel
                 WHERE r.rowid > ? ORDER BY r.rowid LIMIT ?)`
 
@@ -191,8 +214,9 @@ export function lireLeJournal(ligne: Record<string, unknown> | undefined, limite
   const lues = Number(ligne?.lues ?? 0)
   const texte = ligne?.lignes
   const brutes = typeof texte === 'string' ? (JSON.parse(texte) as unknown[][]) : []
-  const reponses = brutes.map(([n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, detail, compagnon, epreuve]): ReponseDuJournal => {
-    const [carnet, categorie, niveau] = Array.isArray(detail) ? detail : [null, null, null]
+  const reponses = brutes.map(([n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, detail, compagnon, epreuve, choisie]): ReponseDuJournal => {
+    const [carnet, categorie, niveau, montre] = Array.isArray(detail) ? detail : [null, null, null, null]
+    const montrees = Array.isArray(montre) ? montre.filter((id): id is string => typeof id === 'string') : []
     const sonJoker = texteOuNull(joker)
     const saForme = texteOuNull(forme)
     return {
@@ -214,8 +238,11 @@ export function lireLeJournal(ligne: Record<string, unknown> | undefined, limite
       carnet: carnet ?? null,
       categorie: texteOuNull(categorie),
       niveau: texteOuNull(niveau),
+      montre: montrees.length > 0 ? montrees : null,
       compagnon: texteOuNull(compagnon),
       epreuve: Array.isArray(epreuve) ? { palier: Number(epreuve[0]), branche: texteOuNull(epreuve[1]), rejeu: Number(epreuve[2]) === 1 } : null,
+      // Un texte seulement : un chemin qui tombe sur un objet ou un nombre — une série d'une forme à elle — ne dit pas de leurre.
+      choisie: typeof choisie === 'string' ? choisie : null,
     }
   })
   return { reponses, jusqua: ligne?.jusqua === null || ligne?.jusqua === undefined ? 0 : Number(ligne.jusqua), aSuivre: lues >= limite }
@@ -249,6 +276,23 @@ const carnetUn = (carnet: unknown) => carnet === 1 || carnet === true
  * (`mesures`, `premiereReponse`).
  */
 export const reponseNue = (r: Pick<ReponseDuJournal, 'aidee' | 'carnet'>): boolean => !r.aidee && r.carnet === null
+
+const UN_TABLEAU = idDuTableau('')
+
+/**
+ * Les questions de la base qu'une pièce du Cabinet a montrées, et que sa
+ * révélation a dites : les cinq d'une manche de l'Éclair et les nouveaux venus
+ * d'une frise d'un sujet (`deplier`), les questions qui nomment un tableau du
+ * Détail — la fiche des tableaux vit au serveur (`questionsDuTableau`),
+ * `deplier` est pur. Rien d'une question de la base, ni d'un contenu neuf : un
+ * lieu, une fiche, une réplique, une frise à thème.
+ */
+function questionsMontrees(id: string): readonly string[] {
+  if (!estDuCabinet(id)) return []
+  if (id.startsWith(UN_TABLEAU)) return questionsDuTableau(id.slice(UN_TABLEAU.length))
+  const questions = deplier(id)
+  return questions.length === 1 && questions[0] === id ? [] : questions
+}
 
 /** Ses justes et ses réponses, pour une question. */
 export interface Compte {
@@ -319,6 +363,8 @@ const aLEcartDUnDefiOuDUnDuel = (p: PassageAuCarnet) => p.semaine !== undefined 
 /** Ce que le journal sait d'un joueur. */
 class Dossier {
   readonly paires = new Map<string, Paire>()
+  /** Ce que ses pièces du Cabinet ont montré de plus qu'elles (`ReponseDuJournal.montre`), et quand pour la dernière fois. */
+  readonly montrees = new Map<string, number>()
   readonly justesParHeure = new Map<number, number>()
   readonly savoir = new Map<string | null, CompteDeSavoir>()
   expertes = 0
@@ -370,6 +416,8 @@ export class JournalDesReponses {
   private readonly fermetures = new Map<string, number>()
   /** Les épreuves des sentiers jouées pour de bon — pas les rejeux — : leurs réponses, marche par marche (`reponsesDesEpreuves`). */
   private readonly epreuves = new Map<string, { palier: number; branche: string | null; commencee: number; niveaux: Map<string, Compte> }>()
+  /** Les mauvaises réponses choisies, question par question, et combien de fois (`leurresChoisis`). */
+  private readonly leurres = new Map<string, Map<string, number>>()
 
   constructor(private readonly maintenant: () => number = Date.now) {}
 
@@ -419,7 +467,15 @@ export class JournalDesReponses {
     // Une série disparue lisait `COALESCE(s.mode, 'serie')` : elle n'est pas une révision.
     const revision = r.mode === 'revision'
     // La mesure : les réponses nues hors révision, sans ce qu'une source de l'expédition reprend du carnet (`mesuresBrutes`).
-    if (!revision && !r.aidee && !(r.mode === 'expedition' && carnetUn(r.carnet))) compter(this.brutes, r.question, r.juste)
+    if (!revision && !r.aidee && !(r.mode === 'expedition' && carnetUn(r.carnet))) {
+      compter(this.brutes, r.question, r.juste)
+      // Ses leurres, sur les mêmes réponses : une révision repose une correction lue, un joker a effacé des leurres, une autre forme en a montré d'autres.
+      if (r.choisie !== null && !horsDeLaBase(r.question)) {
+        let choisies = this.leurres.get(r.question)
+        if (!choisies) this.leurres.set(r.question, (choisies = new Map()))
+        choisies.set(r.choisie, (choisies.get(r.choisie) ?? 0) + 1)
+      }
+    }
     if (r.qui === null) {
       if (revision) return
       let siennes = this.orphelines.get(r.serie)
@@ -432,6 +488,7 @@ export class JournalDesReponses {
       return
     }
     const d = this.dossier(r.qui)
+    for (const id of r.montre ?? []) if (r.le > (d.montrees.get(id) ?? -Infinity)) d.montrees.set(id, r.le)
     let p = d.paires.get(r.question)
     // Son carnet, avant que la question ne retienne l'instant de cette réponse : il dit si elle arrive dans l'ordre.
     this.auCarnet(d, r, p?.le)
@@ -477,13 +534,14 @@ export class JournalDesReponses {
 
   /**
    * Une réponse de plus à son carnet, aux règles de la requête d'avant
-   * (`suivisDe`) : ni un rébus, ni une frise ; une bonne réponse aidée — un
-   * joker, un vrai ou faux tiré d'une autre — ne prouve rien, et une carte du
-   * second essai la tient pour ratée. `avant` : l'instant de sa dernière
-   * réponse lue à la même question.
+   * (`suivisDeLaBase`) : rien qui ne soit une question de la base — un rébus,
+   * une frise, un jeu du Cabinet, la même liste qu'en SQL (`horsDeLaBase`) ;
+   * une bonne réponse aidée — un joker, un vrai ou faux tiré d'une autre — ne
+   * prouve rien, et une carte du second essai la tient pour ratée. `avant` :
+   * l'instant de sa dernière réponse lue à la même question.
    */
   private auCarnet(d: Dossier, r: ReponseDuJournal, avant: number | undefined) {
-    if (r.question.startsWith(PREFIXE_DU_REBUS) || r.question.startsWith(PREFIXE_DE_LA_FRISE)) return
+    if (horsDeLaBase(r.question)) return
     const essai = r.joker !== null && ESSAIS.has(r.joker)
     if (r.juste && !essai && (r.joker !== null || r.forme === 'vrai-faux')) return
     if (avant !== undefined && r.le < avant) d.carnetIncertain = true
@@ -557,16 +615,70 @@ export class JournalDesReponses {
     return [...this.fermetures].filter(([, le]) => le > maintenant).map(([code]) => code)
   }
 
-  /** Ce qu'il a vu, et quand pour la dernière fois — « jamais vues d'abord » — ; sa première réponse à chacune, sauf aidée. */
+  /**
+   * Ce qu'il a vu, et quand pour la dernière fois — « jamais vues d'abord », la
+   * fraîcheur de chaque tirage : la série, l'épreuve, le défi, le dé, le duel,
+   * l'expédition, le Cabinet — ; sa première réponse à chacune, sauf aidée.
+   *
+   * Une pièce du Cabinet y compte aussi les questions de la base qu'elle a
+   * montrées, à son heure (`questionsMontrees`). Rangées sous son seul composé,
+   * elles revenaient jamais vues au reste de la campagne : une partie libre de
+   * l'Éclair, illimitée, révélait quinze bonnes réponses que le duel classé
+   * posait ensuite comme neuves (la tablée du 25 octobre 2026, axe 9 ;
+   * l'invariant 8 : rien ne sort du Cabinet). Et ce que sa manche a montré de
+   * plus qu'elle, déplié de même (`ReponseDuJournal.montre`) : les trois
+   * leurres d'un Détail, montrés avec leur peintre, et ce que « Changer » a
+   * remplacé — seul le tableau joué s'écrivait vu, et une partie libre du
+   * Détail soufflait neuf « Qui a peint… ? » (la deuxième tablée, le 26 octobre
+   * 2026). Les vues seulement : sa première réponse à une question ne vient
+   * jamais d'un composé ni de ce qu'une manche a montré — une manche de
+   * l'Éclair n'est la première réponse d'aucune de ses questions, et la mesure,
+   * le modèle du savoir, les sentiers ne lisent que celles qu'il a données.
+   */
   vuesDe(qui: string): { vues: Map<string, number>; premieres: Map<string, boolean> } {
     const vues = new Map<string, number>()
     const premieres = new Map<string, boolean>()
-    for (const [question, p] of this.dossiers.get(qui)?.paires ?? []) {
+    const montrees: { questions: readonly string[]; le: number }[] = []
+    const d = this.dossiers.get(qui)
+    for (const [question, p] of d?.paires ?? []) {
       vues.set(question, p.le)
+      const questions = questionsMontrees(question)
+      if (questions.length > 0) montrees.push({ questions, le: p.le })
       const juste = premiereReponse(p.premiere)
       if (juste !== null) premieres.set(question, juste === 1)
     }
+    // Ce que ses manches ont montré de plus : vu comme s'il l'avait joué, déplié comme ses pièces.
+    for (const [id, le] of d?.montrees ?? []) montrees.push({ questions: [id, ...questionsMontrees(id)], le })
+    // Après ses réponses : une question qu'il a aussi répondue, ou qu'une autre pièce a montrée, garde l'heure la plus récente.
+    for (const { questions, le } of montrees) {
+      for (const q of questions) {
+        const avant = vues.get(q)
+        if (avant === undefined || le > avant) vues.set(q, le)
+      }
+    }
     return { vues, premieres }
+  }
+
+  /**
+   * Ses pièces jugées, chacune à l'heure de la dernière : ce que ses
+   * révélations ont dit, rien de ce qu'une manche a montré sans le juger. Tes
+   * murs du Cabinet les lisent — une manche de l'Épingle remplacée par
+   * « Changer » aurait mis sur ses murs un lieu, sa commune et ses
+   * coordonnées, que rien ne lui avait révélés.
+   */
+  jugeesDe(qui: string): Map<string, number> {
+    return new Map([...(this.dossiers.get(qui)?.paires ?? [])].map(([question, p]) => [question, p.le]))
+  }
+
+  /**
+   * Les mauvaises réponses que la campagne choisit, question par question, en
+   * texte, et combien de fois — sur les réponses que la mesure compte : nues,
+   * hors révision. L'Éclair du Cabinet y prend le leurre de ses affirmations
+   * fausses (`affirmationDe`) : celui qu'on confond, pas celui qui se voit
+   * faux. Le journal tient la carte telle quelle ; qui la lit ne la change pas.
+   */
+  leurresChoisis(): ReadonlyMap<string, ReadonlyMap<string, number>> {
+    return this.leurres
   }
 
   /** Ses premières réponses, chacune avec son instant, sauf aidées : sa chance sur les sentiers (`forceSurLesSentiers`). */

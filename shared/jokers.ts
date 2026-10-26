@@ -27,6 +27,36 @@
  */
 export const EXPEDITION_EN_PRODUCTION = true
 
+/**
+ * L'Expédition a-t-elle laissé place au Cabinet de curiosités (sa refonte,
+ * `retours/2026-10-24/le-cabinet.md`) ? À vrai, **son seul départ** se ferme,
+ * partout — la production comme la préproduction : `POST /api/expedition` se
+ * refuse en mots (`DEPART_FERME`, `shared/expedition.ts`), après « Ton
+ * expédition t'attend », qui reste le premier mot pour qui en a une en route ;
+ * sa page le dit et mène au Cabinet, l'accueil perd son bouton et l'album tait
+ * sa voie (`voiesMontrees`). Ses autres routes servent toujours : une
+ * expédition en route se finit à ses règles, ou s'abandonne, sans rien
+ * reprendre. Le serveur le lit une fois à son démarrage
+ * (`QuizServerOptions.expeditionRemplacee`), et le banc le garde ouvert à ses
+ * tests (`server/test/banc.ts`) : sans quoi les fichiers qui partent en
+ * expédition tomberaient le jour où il passe à vrai — à l'ouverture du
+ * Cabinet en production. À part d'`EXPEDITION_EN_PRODUCTION`, qui reste vrai
+ * pour toujours : à faux, toutes ses routes répondraient 404, et une
+ * expédition en route serait bloquée à jamais.
+ */
+export const EXPEDITION_REMPLACEE = false
+
+/**
+ * La voie de l'Expédition se dit-elle encore — dans l'album (`voiesMontrees`),
+ * la galerie des compagnons, et chaque refus qui dit où gagner la luciole
+ * (`cheminDeLaLuciole`) ? Ses routes ouvertes en production, et son départ pas
+ * encore fermé : un texte qui y enverrait mènerait à un départ qui se refuse.
+ * Une seule règle, que chacun lit : la luciole disait encore « mène une
+ * expédition au bout » quand l'album taisait la voie. `remplacee` force le
+ * drapeau, pour qui veut lire les textes tels qu'ils seront.
+ */
+export const voieDeLExpeditionDite = (remplacee: boolean = EXPEDITION_REMPLACEE): boolean => EXPEDITION_EN_PRODUCTION && !remplacee
+
 /** À jouer sur une question, puis défaussé ; à poser, il agit jusqu'au bout de l'acte ; sur la carte, entre deux escales. */
 export type SorteDeJoker = 'jouer' | 'poser' | 'carte'
 

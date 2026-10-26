@@ -32,9 +32,12 @@ import { porterGerbe } from '../gerbe'
 import { abonnerNiche, nicheActuelle, porterNiche } from '../niche'
 import { laNiche } from '../components/NicheHost'
 import { relireLesMissions } from '../missions'
-import { boutonsDesPages } from '../maintenance'
+import { boutonsDesPages, cabinetIci } from '../maintenance'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
+
+/** Ce qu'est l'application, en une ligne : l'onglet de l'accueil, sa marque, et son titre sans profil. */
+const MARQUE = 'FiestApp · le quiz de soirée'
 
 /**
  * Les écrans du profil — « Mon avatar », « Ma collection »… —, à la demande :
@@ -283,7 +286,7 @@ export function ProfilApp() {
   useEffect(() => {
     // L'onglet de l'accueil dit ce qu'est l'application ; celui de `/profil`,
     // ce qu'on y regarde.
-    document.title = VUE === 'accueil' ? 'FiestApp · le quiz de soirée' : VUE === 'boutique' ? 'La boutique · FiestApp' : 'Mon profil · FiestApp'
+    document.title = VUE === 'accueil' ? MARQUE : VUE === 'boutique' ? 'La boutique · FiestApp' : 'Mon profil · FiestApp'
     currentMe().then(m => setConsole(m?.space ?? null))
     // Ses missions sont parties avec la page (`donneesDeDepart`), comme son
     // profil : demandées ici, par tout visiteur — un invité reçoit un refus —,
@@ -341,6 +344,8 @@ export function ProfilApp() {
       void import('./CampagneApp').catch(() => {})
       void import('./Duels').catch(() => {})
       void import('./JourApp').catch(() => {})
+      // Le Cabinet, là où le serveur l'ouvre : son bouton ouvre la page sans la télécharger d'abord.
+      if (cabinetIci()) void import('./CabinetApp').catch(() => {})
       void panneaux.charger().catch(() => {})
       void lesAmis.charger().catch(() => {})
       void carteJoueur.charger().catch(() => {})
@@ -463,9 +468,15 @@ export function ProfilApp() {
     // ne doit jamais le laisser croire.
     return (
       <ProfilForm
+        // Le titre de la page, pour l'oreille, à chaque écran du formulaire : la marque le porte à l'œil, au choix seulement.
+        titreDeLaPage={MARQUE}
+        // Et l'onglet, qui suit l'écran : le formulaire est toute la page.
+        ongletParEcran
         marque={
           <>
-            <p className="accueil-marque">FiestApp · le quiz de soirée</p>
+            {/* Dite par le titre caché du formulaire : elle ne se redit pas à l'oreille. Restée un paragraphe : en `h1`,
+                la feuille lui aurait donné la serif et la graisse des titres, et elle aurait changé à l'écran. */}
+            <p className="accueil-marque" aria-hidden="true">{MARQUE}</p>
             {/* Une console ouverte ici sans profil : c'est l'accueil d'un
                 animateur, et ce qu'il y cherche vient d'abord. L'invité, lui,
                 n'en a pas — rien ne bouge au-dessus de « Me connecter ». */}
@@ -501,6 +512,12 @@ export function ProfilApp() {
           if (info?.cree && VUE !== 'accueil') return window.location.replace('/')
           // Le profil est là : un rafraîchissement ne doit pas rouvrir la création.
           if (creation) history.replaceState(null, '', window.location.pathname)
+          // L'accueil commence en haut, comme chaque écran de la page (`ouvrir`,
+          // `revenir`) : il gardait le défilement du formulaire — « C'est noté »
+          // sous le code de secours —, et en 360 × 640 à 130 % s'ouvrait au
+          // milieu, la ligne du profil au-dessus du bord (la tablée du
+          // 25 octobre 2026).
+          window.scrollTo(0, 0)
           void relire()
         }}
         echappee={
@@ -549,6 +566,9 @@ export function ProfilApp() {
       // `player-shell` : la même mise en page que le téléphone d'un invité —
       // c'est le même écran, tenu dans la même main.
       <div className="player-shell accueil">
+        {/* Le titre de la page, pour l'oreille, comme « Mon profil » au profil : l'accueil connecté n'en avait aucun (Hugo, la
+            tablée du 26 octobre 2026). Caché : sa ligne, en tête, dit déjà où l'on est. */}
+        <h1 className="sr-only">Accueil</h1>
         {/* Un duel qu'il a lancé vient d'être joué : une bannière tombe en haut, une fois (la maquette A4) —
             en tête de la page comme à l'écran, son « Voir » le premier au clavier. */}
         <BanniereDuResultat resultats={'duels' in profil ? profil.duels?.resultats : undefined} />
@@ -585,7 +605,9 @@ export function ProfilApp() {
           campagne={'campagne' in profil ? profil.campagne : undefined}
           defi={'defi' in profil ? profil.defi : undefined}
           duels={'duels' in profil ? profil.duels : undefined}
+          musee={'cabinet' in profil ? profil.cabinet : undefined}
           etats={boutonsDesPages()}
+          cabinet={cabinetIci()}
         />
         {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
         <Installer avecProfil />

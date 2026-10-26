@@ -639,6 +639,10 @@ function SalleDuJoueur() {
           onDone={profilConnecte}
           onCancel={() => setMontrerProfil(false)}
           creer
+          // Le formulaire tient tout l'écran : le nom de la soirée lui sert de
+          // titre de premier niveau, caché (« Créer un profil » était un titre
+          // de niveau 2 seul). L'onglet garde ce nom, posé plus haut.
+          titreDeLaPage={snap.space.title}
           bandeau={
             sessionView && iAmIn ? (
               <div className="card notice quiz-commence" role="status">

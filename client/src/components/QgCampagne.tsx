@@ -32,6 +32,7 @@ const CE_QU_IL_EST: Record<SousModeDeCampagne, string> = {
   sujet: `${PALIERS_DES_SUJETS.length} étapes de ${QUESTIONS_D_UN_PALIER_DE_SUJET} questions`,
   revision: `le carnet, à ${enListe(INTERVALLES_DE_REVISION)} jours`,
   defi: 'une tentative par semaine',
+  cabinet: 'trois manches d’un mini-jeu',
 }
 
 /** Les quatre chiffres d'aujourd'hui : les joueurs, les parties, les paliers validés, le défi. */

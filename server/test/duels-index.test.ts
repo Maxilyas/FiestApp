@@ -6,7 +6,8 @@
 // trois fois à chaque ouverture de la page des duels du plus fidèle (le
 // 22 octobre 2026). Le fichier `file:` qui tient lieu de Turso n'en a pas non
 // plus : on y lit le plan de chaque requête qui joint les tentatives d'un
-// duel, sur chaque chemin qui en lance une.
+// duel, sur chaque chemin qui en lance une — et de la recherche d'une
+// tentative seule (`tentativeDuDuel`), par le code de son duel aussi.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -26,6 +27,10 @@ const vues = new Map<string, unknown[]>()
 /** Le rattrapage du journal des duels : ce qui est arrivé depuis une série, par son `rowid` (`lecturesDuJournalDesDuels`). */
 const DEPUIS_UNE_SERIE = /FROM campagne_series\s+WHERE rowid > \?/
 const rattrapages = new Map<string, unknown[]>()
+
+/** La tentative d'un joueur à un duel, cherchée seule (`tentativeDuDuel`) : son profil, le mode, le code du duel. */
+const SA_TENTATIVE = /FROM campagne_series WHERE \+?profile_id = \? AND mode = 'duel' AND duel = \?/
+const tentatives = new Map<string, unknown[]>()
 
 /** Une ligne du plan (`EXPLAIN QUERY PLAN`) : un arbre, chaque bloc ses boucles dans l'ordre, la plus extérieure d'abord. */
 interface Etape {
@@ -61,6 +66,7 @@ for (const methode of ['execute', 'batch'] as const) {
       const { sql, args: valeurs } = typeof i === 'string' ? { sql: i, args: [] } : (i as { sql: string; args?: unknown })
       if (JOINTURE.test(sql)) vues.set(sql, Array.isArray(valeurs) ? valeurs : [])
       if (DEPUIS_UNE_SERIE.test(sql)) rattrapages.set(sql, Array.isArray(valeurs) ? valeurs : [])
+      if (SA_TENTATIVE.test(sql)) tentatives.set(sql, Array.isArray(valeurs) ? valeurs : [])
     }
     return origine.apply(this, args)
   }
@@ -82,6 +88,9 @@ test('les tentatives d’un duel se cherchent par son code — lancer un duel, l
       assert.equal(r.status, 200, `${chemin} : ${((await r.json()) as { error?: string }).error}`)
     }
     await poster('/api/campagne/duel', { adversaire: tom })
+    const code = (db.prepare('SELECT code FROM campagne_duels WHERE adversaire = ?').get(tom) as { code: string }).code
+    // La page du duel cherche les deux tentatives, chacune seule.
+    await lire(`/api/campagne/duel/${code}`)
     await lire('/api/duels')
     await lire('/api/joueur/moi?accueil')
     await lire(`/api/duels/joueurs/${tom}`)
@@ -113,6 +122,18 @@ test('les tentatives d’un duel se cherchent par son code — lancer un duel, l
       }
     }
     assert.ok(jugees >= 6, `${jugees} recherches des tentatives d’un duel seulement`)
+
+    // Sa tentative, cherchée seule — à la page du duel, au relevé, à la fin d'un duel classé, à la correction — : par le code
+    // du duel aussi. Par son profil, triée par sa date, elle partait de l'index du profil et relisait toutes ses parties,
+    // de tous les modes (la revue de sobriété du 25 octobre 2026).
+    assert.ok(tentatives.size >= 1, 'la tentative d’un duel, cherchée seule')
+    for (const [sql, args] of tentatives) {
+      const plan = db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...args) as Etape[]
+      const dit = `${plan.map(e => `${e.id}<${e.parent} ${e.detail}`).join('\n')}\n— ${sql.replace(/\s+/g, ' ')}`
+      const series = plan.filter(e => /^(SCAN|SEARCH) campagne_series\b/.test(e.detail))
+      assert.ok(series.length > 0, `les séries absentes du plan :\n${dit}`)
+      for (const e of series) assert.match(e.detail, /^SEARCH campagne_series USING (COVERING )?INDEX idx_campagne_series_duel \(mode=\? AND duel=\?\)/, `sa tentative cherchée par son profil :\n${dit}`)
+    }
 
     // Le rattrapage du journal des duels part du `rowid` de la dernière série
     // vue : rien, ou presque, quand rien n'est arrivé. Sans statistiques,

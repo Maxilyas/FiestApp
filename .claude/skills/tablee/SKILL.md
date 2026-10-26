@@ -27,8 +27,8 @@ régler le temps de toutes ses questions d'un coup.
 | `consignes-expert.md`, `experts/*.md`, `modele-rapport.md` | les experts : une mission chacun (parcours, design, mots, accessibilité, performance…), leur atelier, le plan de leur rapport |
 | `consignes-audit.md` | les experts du code (sécurité, jeu solo, récompenses, moteur, données, courses…) : leur banc, leurs reproductions, leurs constats en JSON — « Les audits de code » plus bas |
 | `consignes-contre-expertise.md` | le contre-expert, qui essaie de réfuter chaque constat avant la synthèse |
-| `server/scripts/tablee/chronologie.mjs` | le journal d'une tablée en une page : gestes ratés, délais de réponse, paroles, retours manquants |
-| `export/tablee/<date-heure>/` | tout ce que la soirée laisse (ignoré par git) : `journal.jsonl` (les gestes, sans leur sortie), `regie.log`, `regie.json`, `captures/`, `retours/`, `bases/`, `photos/`, `telechargements/` — ce que les navigateurs signalent ne s'y écrit pas : seul le geste `console` le lit |
+| `server/scripts/tablee/chronologie.mjs` | le journal d'une tablée en une page : gestes ratés, délais de réponse, dés tirés, paroles, retours manquants |
+| `export/tablee/<date-heure>/` | tout ce que la soirée laisse (ignoré par git) : `journal.jsonl` (les gestes, sans leur sortie — sauf les tirages du dé, `faces` et `tirages`), `regie.log`, `regie.json`, `captures/`, `retours/`, `bases/`, `photos/`, `telechargements/` — ce que les navigateurs signalent ne s'y écrit pas : seul le geste `console` le lit |
 
 ## Le déroulé
 
@@ -236,6 +236,49 @@ non reproduit, faux positif, tension avec un parti pris) :
 contre-expertises dans `verification/`, tous les constats et leur verdict
 dans un seul `constats.json`, et les épreuves qui les prouvent dans
 `reproductions/` — la première ébauche de l'épreuve de chaque correction.
+
+## Le Cabinet de curiosités
+
+Le Cabinet se joue seul, sans soirée : ni animatrice, ni écran commun. Ses
+joueurs suivent `consignes-cabinet.md` à la place de `consignes-invite.md`,
+et leurs fiches sont les `personas/cabinet-*.md` — la joueuse du métro
+(`ophelie`) et la grand-mère (`jeanne`) créent leur profil depuis l'accueil ;
+le complétionniste (`theo`), la daltonienne (`camille-d`), le lecteur d'écran
+(`hugo`) et l'ado qui cherche la faille (`lucas`) ont le leur :
+
+```bash
+npm run tablee -- --sans-animateur --profil "Théo/theo/🦉" \
+  --profil "Camille/camille.d/🦊" --profil "Hugo/hugo/🐺" --profil "Lucas/lucas/🐯"
+```
+
+Le prompt de chacun désigne `consignes-cabinet.md`, sa fiche et
+`modele-retour.md`. Le serveur de la régie n'est pas en ligne : le Cabinet
+y est ouvert, au calendrier du jour — une fête en cours réveille son gardien
+à la première œuvre gagnée. Ses experts du code (`experts/cabinet-*.md` : la
+triche et les secrets, la base et le quota, l'équilibre, la tenue du code)
+suivent `consignes-audit.md`, comme les autres.
+
+Ses personnages ignorent des domaines — la catégorie que la manche affiche,
+sinon son sujet —, et hors d'eux le dé décide ce qu'ils savent, aux parts du
+joueur « tablée » du calibrage (`consignes-cabinet.md`, « Répondre comme ton
+personnage »), une question de la base à sa marche : l'écran ne la montre
+pas, la régie la lit au plan figé de la partie et la dit en tête de l'écran
+pendant la manche (« 🎲 Pour ton dé, la marche … »). Ophélie joue au dé de
+l'occasionnel (sa fiche, « Son dé ») : le joueur « tablée » est celui du
+dernier centile, et la tablée ne mesurait que des joueurs forts. La
+difficulté de chaque jeu se compare donc à sa ligne, celle d'Ophélie à
+celle de l'occasionnel. À l'étape 4, depuis `server/`,
+`npx tsx scripts/calibrage-cabinet.ts --joueurs tablée,occasionnel --sans-musee`
+donne les étoiles moyennes de chaque jeu, pour l'un et l'autre ; les
+retours, partie par partie, les étoiles de chaque manche et celles d'un
+domaine ignoré, que la comparaison écarte — ces joueurs n'ignorent rien.
+Hors d'elles, la moyenne d'un jeu doit tomber à une étoile près de sa ligne
+(sur les trois manches d'une partie) ; la marche de chaque question se
+relit au plan figé (`campagne_series.cabinet`, dans la base de la tablée).
+Puis la chronologie (« Les dés ») : chacun a-t-il lancé ses dés à l'annonce,
+et ses réponses les ont-elles suivis — une juste sur un tirage au-dessus du
+seuil dit un agent qui a répondu ce qu'il savait, pas ce que savait son
+personnage.
 
 ## Adapter la tablée
 

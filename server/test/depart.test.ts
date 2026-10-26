@@ -34,8 +34,9 @@ import {
   type Socket,
 } from './banc'
 import { ecrireAttente, prechargerDonnees } from '../src/core/page'
-import { donneesDeDepart, donneesDuFragment, entreeUtilisable, versLesSentiers, type EntreeDeDepart } from '../../shared/depart'
+import { DEPART, donneesDeDepart, donneesDuFragment, entreeUtilisable, versLesSentiers, type EntreeDeDepart } from '../../shared/depart'
 import { parseRoute } from '../../shared/adresses'
+import { RESERVED_SLUGS } from '../../shared/space'
 import { BRANCHES } from '../../shared/branches'
 import { ProfileStore } from '../src/auth/profiles'
 
@@ -84,11 +85,19 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   // L'entrée d'un invité, son état de départ ; l'écran commun attend sa liaison temps réel, pas une donnée.
   assert.deepEqual(de('/banc'), ['/s/banc/entree.json'])
   for (const c of ['/host', '/tele', '/compte', '/nulle/part/ici']) assert.deepEqual(de(c), [], c)
+  // Le Cabinet de curiosités : son adresse, réservée dès ses routes — un espace « cabinet » n'aurait plus d'adresse —,
+  // ouvre sa page, qui demande son musée à son ouverture, quel que soit le visiteur, et le serveur le précharge avec
+  // elle, son profil léger aussi ; quel que soit l'écran que dit son fragment, tous lisent la même page.
+  assert.equal(DEPART.cabinet, '/api/cabinet')
+  assert.ok(RESERVED_SLUGS.has('cabinet'))
+  assert.deepEqual(parseRoute('/cabinet'), { kind: 'account', page: 'cabinet' })
+  assert.deepEqual(de('/cabinet'), ['/api/cabinet', '/api/joueur/moi?leger'])
+  assert.deepEqual(donneesDuFragment(parseRoute('/cabinet'), '#salle-rempart'), [])
 
   // Le préchargement ne sert que si l'adresse est la même, lettre pour
   // lettre : la page les prend au même module.
   const api = source('api.ts')
-  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'missions', 'jour', 'campagne', 'sentiers', 'carnet', 'sujets', 'quiz', 'expedition']) {
+  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'missions', 'jour', 'campagne', 'sentiers', 'carnet', 'sujets', 'quiz', 'expedition', 'cabinet']) {
     assert.match(api, new RegExp(`DEPART\\.${cle}\\b`), `api.ts demande DEPART.${cle}`)
   }
   // L'accueil demande ses missions à son ouverture, quel que soit le visiteur
@@ -216,7 +225,7 @@ test('la page servie fait précharger ce que sa vue demandera ; l’entrée d’
   try {
     const lire = async (chemin: string) => (await fetch(banc.url + chemin)).text()
     const s = ADMIN.slug
-    for (const chemin of ['/', '/profil', '/boutique', '/jour', '/campagne', '/edit', `/${s}/souvenir`, `/${s}/bilan`, `/${s}/bilan/fiches`, `/${s}/soirees`]) {
+    for (const chemin of ['/', '/profil', '/boutique', '/jour', '/campagne', '/cabinet', '/edit', `/${s}/souvenir`, `/${s}/bilan`, `/${s}/bilan/fiches`, `/${s}/soirees`]) {
       const html = await lire(chemin)
       assert.ok(de(chemin).length > 0, chemin)
       assert.deepEqual(prechargees(html), de(chemin), chemin)
@@ -395,6 +404,28 @@ test('la partie du jour que la page a préchargée ne fausse pas son chrono : l�
   } finally {
     await banc.close()
   }
+})
+
+test('une réponse qui sert un chrono remesure l’heure du serveur, et repart telle quelle : la partie du jour comme le Cabinet qui vient', async () => {
+  // L'horloge de la page n'était qu'au quiz du jour (`avecLHeure`, privée à son groupe) : le Cabinet de curiosités, qui a de
+  // vrais chronos, mesurera la sienne à chacune de ses réponses, par la même pièce.
+  const { avecLHeure } = await import(client('api.ts').href)
+  const { applySample, resetClock, serverNow } = await import(client('clock.ts').href)
+  resetClock()
+  // Une réponse d'un autre mode : trente secondes d'avance sur ce téléphone, et ce qu'elle porte d'autre.
+  const reponse = { maintenant: Date.now() + 30_000, partie: 'p1', manche: 0 }
+  assert.equal(await avecLHeure(async () => reponse), reponse, 'la réponse repart telle qu’elle est venue')
+  const ecart = serverNow() - (Date.now() + 30_000)
+  assert.ok(Math.abs(ecart) < 200, `le chrono lit l’heure du serveur (écart ${ecart} ms)`)
+  // L'horloge rendue à celle de la machine, pour les épreuves qui suivent.
+  resetClock()
+  const ici = Date.now()
+  applySample({ serverTime: ici, sentAt: ici, receivedAt: ici })
+  // Générique, pour toute réponse qui porte l'heure : `tsx` efface les types et le typage du serveur ne voit pas le client —
+  // seule sa signature le dit, tant qu'aucun mode à chrono ne l'appelle encore avec la sienne.
+  assert.match(source('api.ts'), /export async function avecLHeure<T extends \{ maintenant: number; prechargee\?: true \}>\(appel: \(\) => Promise<T>, adresse\?: string\): Promise<T>/)
+  // Et le quiz du jour la demande toujours par elle, préchargée comprise.
+  assert.match(source('api.ts'), /suivante: \(\) => avecLHeure\(\(\) => req<PartieDuJour>\('\/api\/jour\/suivante', \{ method: 'POST' \}\)\)/)
 })
 
 // ── 4. Plus de demande en file ────────────────────────────────────────────

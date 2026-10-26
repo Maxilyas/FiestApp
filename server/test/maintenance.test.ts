@@ -94,11 +94,11 @@ const leBandeau = (html: string) => /<div class="bandeau-du-service" role="statu
 
 test('chaque adresse dit sa page à fermer, et le bandeau se montre partout hors d’une soirée', () => {
   assert.deepEqual(
-    ['/jour', '/campagne', '/duels', '/expedition', '/boutique', '/', '/profil', '/salon', '/admin', '/host'].map(a => pageDeLAdresse(parseRoute(a))),
-    ['jour', 'campagne', 'duels', 'expedition', 'boutique', null, null, null, null, null],
+    ['/jour', '/campagne', '/duels', '/expedition', '/cabinet', '/boutique', '/', '/profil', '/salon', '/admin', '/host'].map(a => pageDeLAdresse(parseRoute(a))),
+    ['jour', 'campagne', 'duels', 'expedition', 'cabinet', 'boutique', null, null, null, null, null],
     'le défi n’a pas d’adresse à lui : son onglet se dit dans le fragment, que le serveur ne reçoit pas',
   )
-  for (const a of ['/', '/profil', '/boutique', '/jour', '/campagne', '/duels', '/expedition', '/salon', '/edit', '/compte', '/admin', '/connexion', '/nulle/part/ici']) {
+  for (const a of ['/', '/profil', '/boutique', '/jour', '/campagne', '/duels', '/expedition', '/cabinet', '/salon', '/edit', '/compte', '/admin', '/connexion', '/nulle/part/ici']) {
     assert.equal(montreLeBandeau(parseRoute(a)), true, a)
   }
   // Ni le téléphone d'un invité, ni l'écran commun, ni les pages publiques d'une soirée.
@@ -107,7 +107,7 @@ test('chaque adresse dit sa page à fermer, et le bandeau se montre partout hors
   assert.equal(ecrireLesFermees(['boutique', 'jour', 'jour']), 'jour boutique')
   assert.deepEqual(lireLesFermees('jour  defi soirees <script>'), ['jour', 'defi'])
   assert.deepEqual(lireLesFermees(null), [])
-  assert.equal(ceQuiEstPose({ bandeau: { texte: 'x', depuis: 0 }, pages: { jour: 1, campagne: null, defi: 2, duels: null, expedition: null, boutique: null } }), 3)
+  assert.equal(ceQuiEstPose({ bandeau: { texte: 'x', depuis: 0 }, pages: { jour: 1, campagne: null, defi: 2, duels: null, expedition: null, cabinet: null, boutique: null } }), 3)
 })
 
 test('un bandeau se lit resserré, et trop long se refuse plutôt que de se couper au milieu d’un mot', () => {
@@ -208,7 +208,8 @@ test('une page bientôt disponible n’est fermée qu’à qui attend : ses test
   const joueur = vu({})
   assert.deepEqual(
     PAGES_EN_MAINTENANCE.map(p => [fermeePour(joueur, p), boutonDeLaPage(joueur, p)]),
-    [['maintenance', 'maintenance'], [null, null], [null, null], [null, null], ['bientot', 'bientot'], [null, null]],
+    // Dans l'ordre du QG : le quiz du jour, la campagne, le défi, les duels, l'Expédition, le Cabinet, la boutique.
+    [['maintenance', 'maintenance'], [null, null], [null, null], [null, null], ['bientot', 'bientot'], [null, null], [null, null]],
   )
   // Son testeur y entre, et son bouton le lui dit ; la page en maintenance lui reste fermée.
   const testeur = vu({ avantPremiere: ['expedition'] })

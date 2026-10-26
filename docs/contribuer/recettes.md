@@ -1,6 +1,6 @@
 # Les recettes
 
-> Faire évoluer FiestApp sans rien casser : 37 recettes, chacune avec les fichiers à toucher dans l'ordre, ce qu'il ne faut pas oublier et le test qui la gardera. Pour qui ajoute une sorte de question, un trophée, un thème, une route, une table…
+> Faire évoluer FiestApp sans rien casser : 39 recettes, chacune avec les fichiers à toucher dans l'ordre, ce qu'il ne faut pas oublier et le test qui la gardera. Pour qui ajoute une sorte de question, un trophée, un thème, une route, une table…
 
 Chaque recette suit les règles du dépôt. Un nouveau comportement arrive avec son test, qui échoue avant la modification ([les tests](tests.md)). Une valeur de barème est un choix de produit, qui se dit ([les barèmes](../reference/baremes.md)). Une route, un événement, une table, une variable ou une adresse qui naît met à jour sa page de la référence dans le même commit — `server/test/documentation.test.ts` le réclame. Et avant de pousser : `npm run verify`.
 
@@ -20,6 +20,7 @@ Chaque recette suit les règles du dépôt. Un nouveau comportement arrive avec 
 - **La campagne** — [Agrandir la base de la campagne](#agrandir-la-base-de-la-campagne) · [Ajouter un haut fait de campagne](#ajouter-un-haut-fait-de-campagne)
 - **Les sentiers du savoir** — [Changer un seuil ou un mélange de paliers](#changer-un-seuil-ou-un-mélange-de-paliers) · [Ajouter un parcours de thème](#ajouter-un-parcours-de-thème)
 - **Les duels** — [Changer la cote, la montée, une ligue ou la récompense du lundi](#changer-la-cote-la-montée-une-ligue-ou-la-récompense-du-lundi) · [Ajouter une ligue](#ajouter-une-ligue) · [Régler Automate](#régler-automate)
+- **Le Cabinet de curiosités** — [Ajouter un mini-jeu au Cabinet](#ajouter-un-mini-jeu-au-cabinet) · [Ajouter une œuvre](#ajouter-une-œuvre)
 - **L'outillage** — [Écrire un test sur un serveur jetable](#écrire-un-test-sur-un-serveur-jetable) · [Ajouter une règle pour Claude](#ajouter-une-règle-pour-claude) · [Ajouter un personnage à la tablée](#ajouter-un-personnage-à-la-tablée)
 
 ## Le quiz
@@ -369,7 +370,7 @@ Les tests qui gardent la base :
 
 À ne pas oublier :
 - **Le tirage de l'Éclat** reste hors de `recompenserLaSerie`, que la relecture rejoue.
-- **Un palier de carrière de campagne** suit une autre voie : une entrée de `HAUTS_FAITS_DE_CARRIERE` avec `deCampagne`, dont la valeur se lit dans `statsDe`. Réservé aux serveurs où les rencontres de l'expédition s'ouvrent, comme L'Explorateur : `montreParLeServeur`, et sa valeur à 0 ailleurs (`CampagneStore` sait où il est).
+- **Un palier de carrière de campagne** suit une autre voie : une entrée de `HAUTS_FAITS_DE_CARRIERE` avec `deCampagne`, dont la valeur se lit dans `statsDe`. Réservé aux serveurs où un mode s'ouvre, comme L'Explorateur au Cabinet de curiosités : `montreParLeServeur`, que `ProfileStore` lit de son drapeau (`cabinet`) — sauf pour qui en a déjà un palier, cité partout (`hautsFaitsVus`) —, et sa valeur à 0 ailleurs — le Cabinet compte ses salles par la porte de la campagne (`statsEnPlus`, `ChampsDuCabinet`), que le serveur ne branche que là où il s'ouvre.
 
 ## Les sentiers du savoir
 
@@ -428,6 +429,41 @@ Ce sont des choix de produit (CLAUDE.md, « Ce qu'il ne faut pas faire ») : dis
 3. Corrige les lignes de `docs/reference/baremes.md`.
 
 À ne pas oublier : ses réponses sont tirées au lancement du dé et gardées dans la série (`campagne_series.adversaire`) — une règle neuve ne vaut que pour les dés suivants. Le modèle du savoir ne règle que lui : n'en fais pas lire les marches des séries, des sentiers ou du quiz tout prêt sans recalibrer leurs mélanges. Les tests : `server/test/campagne-rencontre.test.ts` (son niveau, l'écart tenu, la fin anticipée) et `server/test/modele-du-savoir.test.ts`.
+
+## Le Cabinet de curiosités
+
+Ce que le joueur en voit : [le Cabinet de curiosités](../produit/le-cabinet.md) ; ce que le serveur en fait : [l'architecture du serveur](../architecture/serveur.md#le-cabinet-de-curiosités) ; ses épreuves : [les tests](tests.md#le-cabinet-de-curiosités).
+
+### Ajouter un mini-jeu au Cabinet
+
+Un dixième jeu de trois manches. C'est un choix de produit, à dire : ses chiffres le sont tous, et le calibrage dira s'il vaut les neuf autres. Dans l'ordre :
+
+1. **Ses chiffres** — `shared/cabinet/bareme.ts` : sa durée par étape (`DUREES_DES_JEUX`), ses étoiles, tout ce que sa règle compte ; chacun sa ligne dans `docs/reference/baremes.md`, dans le même commit (`server/test/documentation.test.ts` lit de la page au code, `server/test/cabinet-catalogue.test.ts` du code à la page). Sa règle, son annonce et sa page les importent, jamais ne les recopient.
+2. **Sa clé et son annonce** — `shared/cabinet/jeux/regle.ts` : sa clé dans `CleDeJeu` et `CLES_DES_JEUX`, ce qu'il dit à l'annonce dans `JEUX` (son nom, son geste, `changeable` si « Changer » y sert, son barème composé des chiffres). Le typage réclame ensuite chaque table rangée par jeu.
+3. **Sa règle, pure** — `shared/cabinet/jeux/<jeu>.ts`, une `RegleDuJeu` : `ouvrir`, `lireLeGeste`, `tranche` si `repondre` ne suffit pas à dire qu'une manche se tranche (`trancheLaManche`), `apresLeGeste`, `juger`, `eclairer`, `montrer`, `reveler`, `piece`, `cartel` ; `etapes: 2` si chaque étape a son chrono, comme le Pari et la Réplique. Ses outils viennent de `shared/cabinet/jeux/outils.ts`, jamais redéfinis ; une clé venue du téléphone se lit par une fonction, jamais `TABLE[cle]` ; aucune heure de la machine, aucune graine que la page connaisse. Puis sa ligne au registre (`REGLES`) et ses cinq types (`TypesDesJeux`), dans `shared/cabinet/jeux/index.ts`.
+4. **Sa lecture** — `shared/cabinet/lecture.ts` : ce qu'il tire, relu à sa forme dans un départ (`leContenu`), et sa réponse, sous sa seule clé (`laReponse`, `ReponseDUnJeu`) ; un texte venu de la page se coupe par `tronquer`. Oubliée ici, une partie du jeu neuf relue de la base — un redémarrage, l'autre serveur d'une mise en ligne — serait illisible.
+5. **Ses pouvoirs** — `shared/cabinet/pouvoirs.ts` : ce que chaque carte-bonus lui fait en une ligne (`ceQueFaitLaCarte`) et pourquoi l'une n'y sert pas (`refusDuPouvoir`, la seule règle) ; Éclairer laisse toujours deux propositions (`effacablesAuPlus`).
+6. **Son tireur** — `server/src/core/cabinet/tirages/<jeu>.ts`, l'une des trois sortes de `Tireur` (manche par manche, la partie d'un coup, ou le plan rechanges comprises), et sa ligne dans `TIREURS` (`server/src/core/cabinet/tirages/index.ts`). Une question de la base se tire par le tirage à la pièce (`tirerPourUneEscale`, sa `garde`), jamais par un tirage à lui ; ce qu'il tire lui-même passe par le hasard du serveur (`ReglagesDuCabinet.hasard`) ; un contenu neuf prend sa forme dans `shared/cabinet/contenu.ts`, ses fichiers dans `server/content/cabinet/` et ses juges dans `server/src/core/cabinet/contenu.ts` (`trier`, une seule copie), que `server/scripts/cabinet-contenu.ts` importe pour juger un lot avant de le ranger — jamais un juge écrit dans le script : le serveur ne le lit pas. Ce qui n'est pas une question de la base s'écrit au journal sous `cab:`, jamais sous un préfixe à lui.
+7. **Son écran** — `client/src/views/cabinet/jeux/<Jeu>.tsx`, un `JeuALEcran` : ce que la page tient seule (`localDe`), ce qui part à l'échéance (`aLEcheance`), la manche, la révélation et comment elle a fini (`fin`), ce qu'il colle au bas de l'écran s'il le faut (`Pied`) ; puis sa ligne dans `ECRANS` (`client/src/views/cabinet/Partie.tsx`), chargée à la demande. L'écran ne juge rien et ne compte pas le temps ; ses textes ne descendent pas sous dix-sept pixels, ses classes commencent par `cab-`. Ce qui change sous le doigt sans vue neuve — l'affirmation suivante de l'Éclair, une pose sur la frise — se dit par `sousEcranDe`, qui relance la demi-seconde de garde. **L'écran n'appelle jamais la niche** : elle ne s'appelle que dans `Partie.tsx` (`server/test/niche-reactions.test.ts`). Si un geste du jeu peut trancher sans verdict immédiat, ou revenir sans verdict, comme l'essai du Mot mystère, son `quoi` s'ajoute à `leGesteRetientLeSouffle` et `leSouffleSeRelache` (`client/src/views/cabinet/Partie.tsx`) — oublié, la niche reste muette sur ce jeu.
+8. **Le livrer** — sa clé dans `JEUX_PRETS` (`shared/cabinet/ouverture.ts`), avec son tireur et son écran dans la même mise en ligne : la visite, son échange et les parties libres le proposent alors ; une visite déjà figée aujourd'hui ne change pas. Il n'a pas d'œuvre : `JEU_DE_L_OEUVRE` est gelée, et y faire entrer le jeu neuf déplace la chasse de qui cherche ces œuvres — un choix de produit, à dire.
+9. **Les mots** — sa ligne parmi les jeux de `docs/produit/le-cabinet.md` et de la feuille des règles (`client/src/views/cabinet/Regles.tsx`), où « les neuf jeux » s'écrivent en lettres : `server/test/cabinet-ecran.test.ts` rougit tant que le compte ne suit pas.
+
+À ne pas oublier : un jeu neuf ne touche à aucune partie d'avant — son départ nomme son jeu —, aucune version à monter. Une retouche, plus tard, de ce que son pli juge se fige dans son tirage, ou ajoute une version à `VERSIONS_DU_DEPART` (`shared/cabinet/partie.ts`), écrite en dur. Rien d'un Divin, ni carte-bonus ni gardien (invariant 21) ; « œuvre », « carte-bonus », « carte de France », jamais « carte » seule.
+
+Les tests, qui échouent avant : ses règles pures et une partie par les routes, dans un fichier de `server/test/cabinet-jeux-*.test.ts` ou le sien, avec son plan d'essai (`server/test/cabinet-plans.ts`) et sa façon de jouer au banc (`jouerUn…`, `server/test/cabinet-banc.ts`) ; ses secrets dans `server/test/cabinet-secret.test.ts` (« Un jeu de plus ajoute ses secrets ici ») ; son chrono dans `server/test/cabinet-chronos.test.ts` ; son écran rendu, comme `server/test/cabinet-ecran-neufs.test.ts`. Puis le calibrage (`server/scripts/calibrage-cabinet.ts`), pour que les jeux se valent, et ses écrans photographiés au téléphone (`server/scripts/rendu-cabinet.ts`, skill `regarder-le-rendu`).
+
+### Ajouter une œuvre
+
+Le catalogue recopie les rencontres de l'Expédition : une œuvre est l'une de leurs cartes peintes, sans les légendaires — un légendaire est un gardien. Une copie légère, pour que la page du musée ne tire pas `shared/rencontres.ts` : une carte peinte de plus, un nom retouché, une rareté changée font rougir `server/test/cabinet-catalogue.test.ts`.
+
+1. **La carte d'abord** : sa ligne au catalogue des rencontres et sa peinture (`client/src/components/cartes-peintes.ts`, écrit par `server/scripts/anime/cartes.ts`, skill `peindre` : jamais à la main).
+2. **L'œuvre** — `shared/cabinet/oeuvres.ts` : sa ligne dans `OEUVRES`, à sa salle (la famille de sa carte ; une neutre, au Vestibule) et à sa rareté — sa clé est celle de sa carte —, puis son jeu dans `JEU_DE_L_OEUVRE`, que le typage réclame. Au Vestibule, son pouvoir dans `POUVOIR_DU_NEUTRE` (`shared/cabinet/pouvoirs.ts`), d'après ce que faisait sa carte ; ailleurs, celui de sa salle.
+3. **L'équilibre** : chaque famille a ses jeux différents, et chaque jeu ses œuvres des communes aux épiques, que le test relit ; une œuvre de plus le retouche, en le disant.
+4. **Les comptes** : la condition du Trou noir se lit du catalogue (`OEUVRES.length`) ; les « 84 » écrits en lettres — `docs/produit/le-cabinet.md`, la règle du Cabinet, les commentaires — suivent.
+
+À ne pas oublier : elle rouvre sa salle sans endormir son gardien, ni le Trou noir de qui l'avait réveillé — un gardien se range, il ne se relit pas (invariant 22). Une œuvre ne se retire jamais, et une œuvre entrée chez un joueur n'en sort jamais ; `JEU_DE_L_OEUVRE` et `OEUVRES_DE_DEPART` sont gelées : changer le jeu d'une œuvre déplace la chasse de qui la cherche, raccourcir les œuvres de départ en reprendrait à tout le monde. Son prix et sa dorure se lisent à sa rareté (`shared/cabinet/bareme.ts`). Les mots : « œuvre », jamais « carte » seule, à l'écran du Cabinet.
+
+Les tests : `server/test/cabinet-catalogue.test.ts` (le catalogue, les peintures, les tables gelées écrites en entier), `server/test/cabinet-gardiens.test.ts` (une œuvre de plus dans une salle complète n'endort pas son gardien), `server/test/cartes-peintes.test.ts` (sa peinture, sous empreinte). Puis regarde sa salle et son cadre vide au téléphone (`server/scripts/rendu-cabinet.ts`).
 
 ## L'outillage
 

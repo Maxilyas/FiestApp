@@ -1,6 +1,6 @@
 import { AUCUNE_BORDURE, bordurePortee, choixDeBordure, ligueParCle, type BordureDeLigue, type CleDeLigue } from '../../../shared/duels'
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
-import type { InStatement, Row } from '@libsql/client'
+import type { InStatement, ResultSet, Row } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
 import { AVATARS, cleanAvatar, cleanName, COLLECTION, DEFAULT_AVATAR, niveauRequis, tronquer } from '../../../shared/avatars'
@@ -74,17 +74,20 @@ import {
   type BoutiqueDuProfil,
   type ConfettisDeLaFin,
 } from '../../../shared/themes'
-import { cleDeSaison, type Saison } from '../../../shared/saisons'
+import { cleDeSaison, saison, type Saison } from '../../../shared/saisons'
 import {
   cibleEclat,
   conditionTenue,
   estEnReserve,
+  estUneVoieRangee,
   legendaire,
   legendaireDeLExpedition,
+  legendaireDuCabinet,
   PREFIXE_DE_LA_RESERVE,
   PREFIXE_DES_DONS_D_ECLAT,
   legendairesDebloques,
   legendairesOuvertsPar,
+  sqlHorsDesVoiesRangees,
   type Condition,
 } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
@@ -104,6 +107,7 @@ import {
   compagnon as compagnonDuCatalogue,
   compagnonDe,
   avecLui,
+  cheminDeLaLuciole,
   compagnonDeLaNiche,
   formeDeCompagnon,
   formesOuvertes,
@@ -599,6 +603,20 @@ export function decodeDetail(raw: string): { v: number; gain: GainSoiree; releve
   return { v: 1, gain: gainVide(), releve }
 }
 
+/**
+ * Les bonnes réponses données avec chaque compagnon dans ses soirées qui
+ * comptent (`soireeQuiCompte`) : seule la soirée jouée à plusieurs rapporte un
+ * confetti, et seul ce qui en rapporte le fait grandir.
+ */
+function justesDesSoirees(soirees: readonly { gain: GainSoiree; releve: ReleveSoiree }[]): Record<string, number> {
+  const justes: Record<string, number> = {}
+  for (const s of soirees) {
+    if (!soireeQuiCompte(s.gain)) continue
+    for (const [c, n] of Object.entries(s.releve.compagnons ?? {})) justes[c] = (justes[c] ?? 0) + (n ?? 0)
+  }
+  return justes
+}
+
 /** La ligne d'expérience d'un profil pour une soirée : remplacée, jamais ajoutée (invariant 10). */
 function ligneDeCredit(input: {
   profileId: string
@@ -653,8 +671,14 @@ export const cleDuMois = (mois: string) => `#mois:${mois}`
 /** Le rangement des récompenses d'une série de campagne. */
 export const cleDeSerie = (serieId: string) => `#campagne:${serieId}`
 
+/** Le rangement des gardiens du Cabinet de curiosités : sa clé fixe vit avec les salles (`shared/cabinet/salles.ts`). */
+export { RANGEMENT_DU_CABINET } from '../../../shared/cabinet/salles'
+
 /** Le rangement des récompenses d'un défi de la semaine, sous son lundi : la clôture y range son vainqueur. */
 export const cleDuDefi = (semaine: string) => `#defi:${semaine}`
+
+/** L'étiquette d'une saison gagnée, d'où qu'elle vienne : son emoji, que rien n'affiche, et son nom. */
+const etiquetteDeSaison = (s: Saison) => ({ emoji: s.emoji, title: `Saison : ${s.nom}` })
 
 /**
  * L'emoji et le titre d'une clé rangée hors d'une soirée, recopiés sur sa
@@ -674,6 +698,11 @@ function etiquetteDe(cle: string): { emoji: string; title: string } {
   if (d) return { emoji: '✨', title: d.nom }
   const l = legendaireDeLExpedition(cle)
   if (l) return { emoji: '🧭', title: `L’Expédition : ${l.nom}` }
+  const g = legendaireDuCabinet(cle)
+  if (g) return { emoji: '🏛️', title: `Le Cabinet : ${g.nom}` }
+  // Une saison rangée hors du quiz du jour — le Cabinet, sa fête : la même étiquette qu'`accorderSaison` lui donne.
+  const s = cle.startsWith('saison:') ? saison(cle) : undefined
+  if (s) return etiquetteDeSaison(s)
   return { emoji: '✨', title: cle }
 }
 
@@ -756,6 +785,29 @@ export class ProfileStore {
    * sans aller-retour (`legendairePorte`).
    */
   private compagnons = new Map<string, Map<CleDeCompagnon, SienEnMemoire>>()
+  /**
+   * Les bonnes réponses de ses soirées qui comptent, compagnon par compagnon
+   * (`ReleveSoiree.compagnons`) : ce que la fin d'une partie lit de ses soirées
+   * pour faire grandir le compagnon de sa niche (`faireGrandir`). Elle relisait
+   * tout son historique — une ligne de `profile_xp` par soirée jouée — à chaque
+   * fin d'une partie du solo : dix fois par jour au Cabinet, un aller-retour en
+   * série de plus sur le bilan, et une lecture qui grandit avec ses soirées (la
+   * revue de sobriété du 25 octobre 2026). Gardées tant qu'aucune ligne de ses
+   * soirées ne change ici : chaque écriture de l'une d'elles les oublie
+   * (`oublierSesSoirees`), une fois écrite — une lecture partie avant elle s'en
+   * va avec. Une page, elle, relit toujours son historique (`compagnonsDe` : la
+   * niche, la forme qu'il porte, la boutique), et ce qu'elle lit se garde : une
+   * soirée créditée par l'autre serveur d'une mise en ligne paraît à la page
+   * suivante d'ici, et la fin d'une partie la sait dès qu'une page l'a lue — la
+   * niche se lit à la première réponse de chaque page de jeu. Gardées pour
+   * toutes les lectures, elles taisaient aux pages ce que l'autre serveur avait
+   * crédité jusqu'au redémarrage : la niche gardait l'ancienne jauge, et porter
+   * la forme que la salle venait d'annoncer était refusé (la relecture du lot,
+   * le 26 octobre 2026, `cabinet-charge.test.ts`). Une fin qui ne l'a pas su
+   * n'y perd rien : son rang ne fait que monter, la page suivante le fait
+   * grandir.
+   */
+  private justesDesSoireesGardees = new Map<string, Promise<Readonly<Record<string, number>>>>()
   /**
    * Ce que ses coffres de la semaine lui ont donné (`fond:dragon`,
    * `gerbe:papillons`, `theme:jungle`…), par profil. Chargé avec le profil :
@@ -896,12 +948,15 @@ export class ProfileStore {
   statsDeCampagne?: (profileId: string) => Promise<StatsDeCampagne>
 
   /**
-   * Les rencontres de l'expédition s'ouvrent sur ce serveur (`rencontresOuvertes`) :
-   * les trophées réservés à elles (`montreParLeServeur` — L'Explorateur) ne
-   * partent qu'alors dans la page du profil et la loge. Posé au démarrage
-   * comme `statsDeCampagne` ; un serveur qui ne le dit pas les tait.
+   * Le Cabinet de curiosités s'ouvre sur ce serveur (`cabinetOuvert`) : les
+   * trophées réservés à lui (`montreParLeServeur` — L'Explorateur, ses salles
+   * complètes) ne partent qu'alors dans la page du profil et la loge — sauf à
+   * qui en a déjà un palier, partout (`hautsFaitsVus`). Posé au démarrage comme
+   * `statsDeCampagne` ; un serveur qui ne le dit pas les tait. Il suivait les
+   * rencontres de l'expédition jusqu'au 26 octobre 2026, quand L'Explorateur
+   * comptait le niveau d'explorateur.
    */
-  rencontres = false
+  cabinet = false
 
   /**
    * Sa ligue des duels, sa cote et ses bordures de ligue (`CampagneStore.coteDe`),
@@ -2055,11 +2110,30 @@ export class ProfileStore {
    * paliers de sa niche montent de même (`PALIERS_DE_LA_NICHE`), et ne se
    * perdent pas davantage.
    *
-   * `soirees`, quand on vient de relire son historique — ou qu'on le relit.
+   * Une page — la niche, la forme qu'il porte, la boutique — relit tout :
+   * `soirees`, quand elle vient de relire son historique ou le relit, sinon
+   * son historique même, que la fin d'une partie gardera ensuite
+   * (`faireGrandir`) ; ce qu'un autre serveur a écrit y paraît à la lecture
+   * suivante.
    */
   async compagnonsDe(
     p: ProfileRec,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[] | Promise<readonly { gain: GainSoiree; releve: ReleveSoiree }[]>,
+  ): Promise<CompagnonAcquis[]> {
+    return this.croissance(p, () => (soirees ? Promise.resolve(soirees).then(justesDesSoirees) : this.justesDeSesSoirees(p.id, { relire: true })))
+  }
+
+  /**
+   * Ses compagnons et leur croissance (`compagnonsDe`), ses soirées lues par
+   * `lireSesSoirees` — rien de lu sans compagnon ; `deCampagne`, ses bonnes
+   * réponses de campagne telles que la fin d'une partie de la campagne vient
+   * de les laisser (`faireGrandir`), à la place de la lecture d'une page
+   * (`compagnonsDeCampagne`).
+   */
+  private async croissance(
+    p: ProfileRec,
+    lireSesSoirees: () => Promise<Readonly<Record<string, number>>>,
+    deCampagne?: () => Promise<Record<string, number>>,
   ): Promise<CompagnonAcquis[]> {
     const possedes = this.compagnonsOf(p.id)
     if (possedes.length === 0) return []
@@ -2068,13 +2142,13 @@ export class ProfileStore {
       return {}
     }
     const rien: Record<string, number> = {}
-    const [lues, duJour, deCampagne] = await Promise.all([
-      soirees ?? this.historiqueOf(p.id),
+    const lireLaCampagne = deCampagne ?? (this.compagnonsDeCampagne && (() => this.compagnonsDeCampagne!(p.id)))
+    const [deSesSoirees, duJour, deLaCampagne] = await Promise.all([
+      lireSesSoirees(),
       this.compagnonsDuJour?.(p.id).catch(muette('quiz du jour')) ?? rien,
-      this.compagnonsDeCampagne?.(p.id).catch(muette('campagne')) ?? rien,
+      lireLaCampagne?.().catch(muette('campagne')) ?? rien,
     ])
-    const justesDe = (c: CleDeCompagnon) =>
-      lues.reduce((n, s) => n + (soireeQuiCompte(s.gain) ? (s.releve.compagnons?.[c] ?? 0) : 0), 0) + (duJour[c] ?? 0) + (deCampagne[c] ?? 0)
+    const justesDe = (c: CleDeCompagnon) => (deSesSoirees[c] ?? 0) + (duJour[c] ?? 0) + (deLaCampagne[c] ?? 0)
     const acquis = possedes.map(({ montree, paliers: avant, ...a }) => {
       const justes = justesDe(a.compagnon)
       const rang = Math.max(a.rang, rangAtteint(justes))
@@ -2089,17 +2163,47 @@ export class ProfileStore {
   }
 
   /**
+   * Ses bonnes réponses de soirée, compagnon par compagnon : gardées
+   * (`justesDesSoireesGardees`), sinon relues de son historique — toujours
+   * relues pour une page (`relire`), et ce qu'elle relit se garde à la place.
+   */
+  private justesDeSesSoirees(profileId: string, { relire = false } = {}): Promise<Readonly<Record<string, number>>> {
+    let gardees = relire ? undefined : this.justesDesSoireesGardees.get(profileId)
+    if (!gardees) {
+      const lues = this.historiqueOf(profileId).then(justesDesSoirees)
+      this.justesDesSoireesGardees.set(profileId, (gardees = lues))
+      // Ratée, la lecture ne se garde pas : la suivante la refait.
+      lues.catch(() => {
+        if (this.justesDesSoireesGardees.get(profileId) === lues) this.justesDesSoireesGardees.delete(profileId)
+      })
+    }
+    return gardees
+  }
+
+  /**
+   * Une ligne de ses soirées a changé — créditée, retirée, remise au barème —,
+   * ou peut-être : écrite ou non, on ne le sait pas, et la base fait foi. Ce
+   * qu'on en gardait s'oublie, après l'écriture : une lecture partie avant
+   * elle ne la sait pas.
+   */
+  private oublierSesSoirees(profileIds: Iterable<string>): void {
+    for (const id of profileIds) this.justesDesSoireesGardees.delete(id)
+  }
+
+  /**
    * Fait grandir le compagnon de sa niche, si ses bonnes réponses l'ont mené
    * à sa forme suivante : à la fin d'un quiz, d'une partie du quiz du jour,
    * d'une série — jamais pendant une question. Rend vrai s'il a grandi : la
-   * salle où il joue le voit alors, s'il le porte. Sans compagnon, rien ne se
-   * lit.
+   * salle où il joue le voit alors, s'il le porte. Ses soirées, celles qu'il
+   * garde (`justesDesSoireesGardees`) : la fin ne relit pas son historique.
+   * Sans compagnon, rien ne se lit — `deCampagne` non plus : la campagne le
+   * passe à la fin de ses parties, et ne paie rien pour qui n'a pas de niche.
    */
-  async faireGrandir(profileId: string): Promise<boolean> {
+  async faireGrandir(profileId: string, deCampagne?: () => Promise<Record<string, number>>): Promise<boolean> {
     const p = this.profiles.get(profileId)
     if (!p || !this.compagnonDeLaNiche(p)) return false
     const avant = this.compagnonsOf(profileId)
-    const apres = await this.compagnonsDe(p)
+    const apres = await this.croissance(p, () => this.justesDeSesSoirees(profileId), deCampagne)
     return apres.some(a => a.rang > (avant.find(x => x.compagnon === a.compagnon)?.rang ?? 0))
   }
 
@@ -2160,7 +2264,7 @@ export class ProfileStore {
       if (!c) throw new Error('Ce compagnon n’existe pas')
       if (this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} est déjà à toi`)
       // La luciole ne se vend pas : seul un appel forgé la demanderait, la boutique ne la montre pas.
-      if (c.gagne) throw new Error(`${c.nom} ne s’achète pas : ${c.le === 'la' ? 'elle' : 'il'} rejoint qui mène une expédition au bout`)
+      if (c.gagne) throw new Error(`${c.nom} ne s’achète pas : ${c.le === 'la' ? 'elle' : 'il'} rejoint qui ${cheminDeLaLuciole()}`)
       const manque = PRIX_D_UN_COMPAGNON - (await this.boutiqueDe(rec, jour)).confettis.solde
       if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${nomDansLaPhrase(c.nom)}`)
       // Celui qui y vit la garde en toutes lettres : laissée à la règle, la
@@ -3043,10 +3147,10 @@ export class ProfileStore {
       eclatsEnReserve: this.reserveOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
       // de neuf sur l'étagère dirait qu'il s'est passé quelque chose. Ni une
-      // saison, ni un légendaire gardé au bout de l'expédition : ils ne se
-      // montrent que par leur légendaire.
-      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:') && !k.startsWith('expedition:') && !moisDeLaPage(k))
-        .length,
+      // voie rangée — une saison, un légendaire gardé au bout de
+      // l'expédition, un gardien réveillé au Cabinet : ils ne se montrent que
+      // par leur légendaire.
+      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !estUneVoieRangee(k) && !moisDeLaPage(k)).length,
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
       divins: raconter(this.divinsOf(p.id)),
@@ -3240,26 +3344,32 @@ export class ProfileStore {
         ...(porte && { rarete: porte.rarete, porteurs: porte.porteurs }),
       }
     })
-    // Un trophée réservé aux rencontres ne se cite que là où elles s'ouvrent : l'album ne lui fait pas de case sans lui.
-    const carrieres: HautFaitVu[] = HAUTS_FAITS_DE_CARRIERE.filter(h => !h.montreParLeServeur || this.rencontres).map(h => {
+    // Un trophée réservé au Cabinet ne se cite que là où il s'ouvre, sauf à qui en a un palier rangé : l'album ne lui
+    // fait pas de case sans lui. L'Explorateur s'est gagné en production quand il comptait le niveau d'explorateur ; le
+    // taire à ses détenteurs tant que le Cabinet y est fermé leur aurait caché ce que leur étagère montre encore
+    // (invariant 22 — un palier validé ne se perd jamais, ni de vue).
+    const carrieres: HautFaitVu[] = HAUTS_FAITS_DE_CARRIERE.flatMap((h): HautFaitVu[] => {
       let palier = 0
       for (let i = 1; i <= 3; i++) if ((recompenses.get(clePalier(h.key, i)) ?? 0) > 0) palier = i
+      if (h.montreParLeServeur && !this.cabinet && palier === 0) return []
       const porte = palier > 0 ? rarete.get(clePalier(h.key, palier)) : undefined
       const origine = origineDe(h)
-      return {
-        key: h.key,
-        famille: 'carriere',
-        ...(origine && { origine }),
-        emoji: h.emoji,
-        title: h.title,
-        rule: h.mesure,
-        ruleUne: h.mesureUne,
-        ton: 'eclat',
-        fois: palier,
-        ...(carriere && { valeur: h.valeur(carriere) }),
-        prochain: palier < 3 ? h.paliers[palier] : null,
-        ...(porte && { rarete: porte.rarete, porteurs: porte.porteurs }),
-      }
+      return [
+        {
+          key: h.key,
+          famille: 'carriere',
+          ...(origine && { origine }),
+          emoji: h.emoji,
+          title: h.title,
+          rule: h.mesure,
+          ruleUne: h.mesureUne,
+          ton: 'eclat',
+          fois: palier,
+          ...(carriere && { valeur: h.valeur(carriere) }),
+          prochain: palier < 3 ? h.paliers[palier] : null,
+          ...(porte && { rarete: porte.rarete, porteurs: porte.porteurs }),
+        },
+      ]
     })
     return [...soiree, ...carrieres]
   }
@@ -3824,7 +3934,11 @@ export class ProfileStore {
     // La ligne et le total dans le même envoi : un aller-retour de moins par
     // profil, à chaque fin de quiz et à la clôture — et le total n'est
     // jamais lu entre les deux.
-    return this.recalculerTotal(input.profileId, ligneDeCredit(input))
+    try {
+      return await this.recalculerTotal(input.profileId, ligneDeCredit(input))
+    } finally {
+      this.oublierSesSoirees([input.profileId])
+    }
   }
 
   /**
@@ -3841,17 +3955,22 @@ export class ProfileStore {
   ): Promise<void> {
     if (gains.length === 0) return
     const ids = [...new Set(gains.map(g => g.profileId))]
-    const resultats = await this.client.batch(
-      [
-        ...gains.map(g => ligneDeCredit({ ...g, soireeId, spaceId })),
-        ...ids.map(id => ({
-          sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?',
-          args: [id, id],
-        })),
-        { sql: `SELECT id, xp FROM profiles WHERE id IN (${ids.map(() => '?').join(', ')})`, args: ids },
-      ],
-      'write',
-    )
+    let resultats: ResultSet[]
+    try {
+      resultats = await this.client.batch(
+        [
+          ...gains.map(g => ligneDeCredit({ ...g, soireeId, spaceId })),
+          ...ids.map(id => ({
+            sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?',
+            args: [id, id],
+          })),
+          { sql: `SELECT id, xp FROM profiles WHERE id IN (${ids.map(() => '?').join(', ')})`, args: ids },
+        ],
+        'write',
+      )
+    } finally {
+      this.oublierSesSoirees(ids)
+    }
     for (const r of resultats[resultats.length - 1].rows) {
       const rec = this.profiles.get(String(r.id))
       if (rec) rec.xp = Number(r.xp)
@@ -3909,15 +4028,20 @@ export class ProfileStore {
    * le nouveau total.
    */
   async retirerSoiree(profileId: string, soireeId: string): Promise<number> {
-    const [eclats] = await this.client.batch(
-      [
-        { sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
-        { sql: 'DELETE FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
-        { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
-        { sql: 'DELETE FROM profile_badges WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
-      ],
-      'write',
-    )
+    let eclats: ResultSet
+    try {
+      ;[eclats] = await this.client.batch(
+        [
+          { sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+          { sql: 'DELETE FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+          { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+          { sql: 'DELETE FROM profile_badges WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        ],
+        'write',
+      )
+    } finally {
+      this.oublierSesSoirees([profileId])
+    }
     for (const r of eclats.rows) {
       this.eclats.get(profileId)?.delete(String(r.avatar))
       this.eteints.get(profileId)?.delete(String(r.avatar))
@@ -3981,22 +4105,26 @@ export class ProfileStore {
     // profil. Effacée à moitié — les lignes parties, les totaux pas encore
     // réécrits —, la soirée laissait des profils faux qu'un second essai ne
     // retrouvait plus : il ne voyait plus rien à reprendre.
-    await this.client.batch(
-      [
-        { sql: 'DELETE FROM profile_xp WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
-        { sql: 'DELETE FROM profile_badges WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
-        // Les Éclats ne portent pas l'espace : l'identifiant d'une soirée
-        // (sa date, une empreinte de l'heure et une de l'espace) suffit à la
-        // désigner. Celles d'avant l'empreinte de l'espace n'en ont pas : deux
-        // d'entre elles nées à la même milliseconde se confondraient ici.
-        { sql: 'DELETE FROM profile_eclats WHERE soiree_id = ?', args: [soireeId] },
-        ...touches.flatMap(id => [
-          this.ligneDesPaliers(id, paliers.get(id)!),
-          { sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?', args: [id, id] },
-        ]),
-      ],
-      'write',
-    )
+    try {
+      await this.client.batch(
+        [
+          { sql: 'DELETE FROM profile_xp WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
+          { sql: 'DELETE FROM profile_badges WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
+          // Les Éclats ne portent pas l'espace : l'identifiant d'une soirée
+          // (sa date, une empreinte de l'heure et une de l'espace) suffit à la
+          // désigner. Celles d'avant l'empreinte de l'espace n'en ont pas : deux
+          // d'entre elles nées à la même milliseconde se confondraient ici.
+          { sql: 'DELETE FROM profile_eclats WHERE soiree_id = ?', args: [soireeId] },
+          ...touches.flatMap(id => [
+            this.ligneDesPaliers(id, paliers.get(id)!),
+            { sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?', args: [id, id] },
+          ]),
+        ],
+        'write',
+      )
+    } finally {
+      this.oublierSesSoirees(touches)
+    }
     for (const r of eclats.rows) {
       this.eclats.get(String(r.profile_id))?.delete(String(r.avatar))
       this.eteints.get(String(r.profile_id))?.delete(String(r.avatar))
@@ -4378,11 +4506,19 @@ export class ProfileStore {
    * titre, un Divin — n'en rapporte pas. `quand` est l'heure du quiz du jour,
    * celle qui dit ce qu'une partie a fait tomber (`created_at` comparé à son
    * début), et que les tests font passer minuit.
+   *
+   * Une clé que la mémoire n'avait pas et que la base avait déjà dit une
+   * mémoire en retard — la réponse d'un lot d'avant perdue après l'écriture, un
+   * recompte tombé derrière, l'autre serveur d'une mise en ligne : elle se
+   * relit. Sans cela, rien ne la rattrapait avant le redémarrage — le
+   * légendaire rangé restait refusé à qui voulait le porter, et chaque appel
+   * réécrivait la même ligne pour rien (`cabinet-gardiens.test.ts`).
    */
   async ranger(profileId: string, sous: string, cles: readonly string[], quand = Date.now()): Promise<string[]> {
     const uniques = [...new Set(cles)]
     if (uniques.length === 0) return []
     const now = quand
+    const enMemoire = this.recompenses.get(profileId)
     const res = await this.client.batch(
       uniques.map(cle => {
         const { emoji, title } = etiquetteDe(cle)
@@ -4395,11 +4531,13 @@ export class ProfileStore {
       'write',
     )
     const neuves = uniques.filter((_, i) => res[i].rowsAffected > 0)
-    if (neuves.length > 0) {
+    const rattrapees = enMemoire ? uniques.filter((cle, i) => res[i].rowsAffected === 0 && !enMemoire.has(cle)) : []
+    if (neuves.length > 0 || rattrapees.length > 0) {
       this.porteurs = null
       await this.recompterRecompenses([profileId])
     }
-    if (neuves.some(cle => xpDe(cle) > 0)) {
+    // Une rattrapée paie aussi : la ligne des paliers se dérive de la base, et le lot perdu ne l'avait pas refaite.
+    if ([...neuves, ...rattrapees].some(cle => xpDe(cle) > 0)) {
       await this.ecrireXpDesPaliers(profileId)
       await this.recalculerTotal(profileId)
     }
@@ -4441,10 +4579,11 @@ export class ProfileStore {
   async accorderSaison(profileId: string, s: Saison, jour: string): Promise<boolean> {
     const cle = cleDeSaison(s)
     if (this.recompensesOf(profileId).has(cle)) return false
+    const { emoji, title } = etiquetteDeSaison(s)
     await this.client.execute({
       sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
             VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
-      args: [profileId, cle, cleDuJour(jour), s.emoji, `Saison : ${s.nom}`, Date.now()],
+      args: [profileId, cle, cleDuJour(jour), emoji, title, Date.now()],
     })
     this.porteurs = null
     await this.recompterRecompenses([profileId])
@@ -4608,8 +4747,9 @@ export class ProfileStore {
   private async lireLEtagere(profileId: string): Promise<Omit<BadgePorte, 'porteurs' | 'rarete'>[]> {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
-    // Les saisons non plus : elles ne se montrent que par leur légendaire,
-    // comme un légendaire gardé au bout de l'expédition ; ni les pages du
+    // Les voies rangées non plus — les saisons, un légendaire gardé au bout
+    // de l'expédition, un gardien réveillé au Cabinet : elles ne se montrent
+    // que par leur légendaire (`sqlHorsDesVoiesRangees`) ; ni les pages du
     // calendrier, qui ont leur page.
     const rows = await this.client.execute({
       // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
@@ -4621,7 +4761,7 @@ export class ProfileStore {
                      COUNT(*) OVER (PARTITION BY badge) AS fois,
                      MAX(created_at) OVER (PARTITION BY badge) AS dernier,
                      ROW_NUMBER() OVER (PARTITION BY badge ORDER BY created_at DESC, soiree_id DESC) AS n
-              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%' AND badge NOT LIKE 'expedition:%' AND badge NOT LIKE '${PREFIXE_DES_PAGES}%'
+              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND ${sqlHorsDesVoiesRangees('badge')} AND badge NOT LIKE '${PREFIXE_DES_PAGES}%'
             ) WHERE n = 1 ORDER BY dernier DESC`,
       args: [profileId],
     })
@@ -5072,6 +5212,7 @@ export class ProfileStore {
     for (const s of [...this.sessions.values()]) if (s.profileId === profileId) this.sessions.delete(s.id)
     for (const carte of [
       this.profiles,
+      this.justesDesSoireesGardees,
       this.eclats,
       this.eteints,
       this.reserves,
@@ -5237,10 +5378,15 @@ export class ProfileStore {
     const r = rows.rows[0]
     if (!r) return
     const { gain, releve } = decodeDetail(String(r.detail))
-    await this.client.execute({
-      sql: 'UPDATE profile_xp SET detail = ? WHERE profile_id = ? AND soiree_id = ?',
-      args: [JSON.stringify({ v: VERSION_BAREME, gain, releve }), profileId, soireeId],
-    })
+    try {
+      await this.client.execute({
+        sql: 'UPDATE profile_xp SET detail = ? WHERE profile_id = ? AND soiree_id = ?',
+        args: [JSON.stringify({ v: VERSION_BAREME, gain, releve }), profileId, soireeId],
+      })
+    } finally {
+      // Relu d'un format d'avant (`decodeDetail`), son détail a pu changer de forme : ce qu'on en gardait aussi.
+      this.oublierSesSoirees([profileId])
+    }
   }
 
   /**

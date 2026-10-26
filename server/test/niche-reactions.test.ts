@@ -8,7 +8,7 @@
 // (`client/src/niche.ts`, `components/NicheReagit.tsx`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import React from 'react'
 import {
   PART_RARE,
@@ -176,6 +176,31 @@ test('il sort de sa niche au podium, ou quand une forme est atteinte en jouant �
   assert.equal(sorties.length, 2)
 })
 
+test('un souffle relâché sans verdict — l’essai du Mot mystère qui ne trouve pas encore — rend le calme, et la partie reste en jeu', async () => {
+  // Un module neuf : la partie n'a pas commencé.
+  const niche = await import(`${client('niche.ts').href}?relache`)
+  const vus: string[] = []
+  niche.ecouterLaNiche((m: { sorte: string }) => vus.push(m.sorte))
+  niche.nicheRetientSonSouffle()
+  niche.nicheRelacheSonSouffle()
+  assert.deepEqual(vus, ['souffle', 'calme'], 'les couleurs d’un essai ne sont pas un verdict : il reprend son souffle')
+  // Le Mot se joue encore : une forme atteinte au bilan le fait sortir de sa niche.
+  niche.porterNiche({ niche: 'loup', compagnons: [{ compagnon: 'loup', rang: 0 }] })
+  niche.porterNiche({ niche: 'loup', compagnons: [{ compagnon: 'loup', rang: 1 }] })
+  assert.deepEqual(vus, ['souffle', 'calme', 'sortie'])
+})
+
+test('la règle du profil nomme les deux gestes du souffle : le retenir à la réponse, le relâcher quand elle revient sans verdict', () => {
+  // La règle ne nommait que le premier (la relecture du lot D4) : un écran de plus qui tient une réponse sans verdict — l'essai du
+  // Mot mystère, le nom refusé des Indices — retenait le souffle sans le rendre, et la niche restait assombrie jusqu'au geste
+  // suivant.
+  const regle = readFileSync(new URL('../../.claude/rules/profil.md', import.meta.url), 'utf8')
+  for (const geste of ['nicheRetientSonSouffle', 'nicheRelacheSonSouffle']) {
+    assert.match(source('niche.ts'), new RegExp(`export function ${geste}\\(\\)`), `${geste}, dans client/src/niche.ts`)
+    assert.match(regle, new RegExp(`\`${geste}\\(\\)\``), `la règle profil.md nomme ${geste}`)
+  }
+})
+
 test('la niche part avec ses humeurs plus tard : la page ne les attend pas, l’invité anonyme ne télécharge rien de plus', async () => {
   Object.assign(globalThis, { React })
   const { Niche } = await import(client('components/Niche.tsx').href)
@@ -208,6 +233,11 @@ test('chaque écran de révélation la dit à la niche, et chaque réponse lui f
     'views/Sentiers.tsx': { revelations: 1, souffles: 1 },
     'views/Parcours.tsx': { revelations: 1, souffles: 1 },
     'views/ExpeditionApp.tsx': { revelations: 1, souffles: 1 },
+    // Le Cabinet : le cadre d'une manche révèle pour tous ses jeux, et retient le souffle au geste qui peut trancher la manche — une
+    // réponse, touchée ou partie d'elle-même à l'échéance, les étoiles gardées du Pari, chaque essai du Mot mystère (que la page
+    // ne sait pas juste) —, relâché quand l'essai revient sans verdict. Ses jeux n'en disent rien : ils envoient leurs gestes par
+    // lui (plus bas).
+    'views/cabinet/Partie.tsx': { revelations: 1, souffles: 1 },
   }
   for (const [fichier, attendu] of Object.entries(ecrans)) {
     const s = source(fichier)
@@ -220,6 +250,14 @@ test('chaque écran de révélation la dit à la niche, et chaque réponse lui f
   for (const fichier of Object.keys(ecrans)) {
     const s = source(fichier)
     assert.ok((s.match(/result-banner/g) ?? []).length >= 1, fichier)
+  }
+  // Les écrans des jeux du Cabinet passent par le cadre : une révélation ou un souffle à eux doublerait ceux de la partie. Chaque
+  // écran de jeu, d'office : un jeu de plus n'y ajoute rien.
+  const jeux = readdirSync(client('views/cabinet/jeux'))
+  for (const jeu of ['Pari', 'Eclair', 'Detail', 'Frise']) assert.ok(jeux.includes(`${jeu}.tsx`), jeu)
+  for (const jeu of jeux) {
+    const s = source(`views/cabinet/jeux/${jeu}`)
+    assert.doesNotMatch(s, /<NicheALaRevelation |nicheRetientSonSouffle\(\)/, jeu)
   }
   // Le podium d'un quiz : s'il y monte, il sort.
   assert.match(source('games/quiz/PlayerView.tsx'), /<NicheALaFin podium=\{v\.yourPodiumIndex !== undefined && !v\.horsClassement && total > 0\} \/>/)

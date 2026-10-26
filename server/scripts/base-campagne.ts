@@ -27,7 +27,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 
 import path from 'node:path'
 import { DOSSIER_DE_LA_BASE, entreeDeLaBase, fichierDeCategorie, lireLaBase, lireQuestionDeLaBase, souffleeParSaRacine, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { REPONSE_CONSEILLEE, TEXTE_CONSEILLE, consigneDEcriture, empreintesDesLivres } from '../src/core/consigneCampagne'
-import { lireLEstimation } from '../src/core/quizToutPret'
+import { lireLEstimation } from '../src/core/estimation'
 import { IndexDesFaits, presquePareils, traitsDe, type TraitsDUnIntitule } from '../src/core/memeFait'
 import { couverture, inventairesDuTheme, lireLeSujet, repartirLesFamilles } from '../src/core/inventaires'
 import { CATEGORIES } from '../../shared/categories'

@@ -18,6 +18,11 @@
 // connaît le tableau, jamais ce qui le nomme d'un coup (la main de la
 // Joconde, pas son visage). Il vit ici (`DETAILS`), avec ce qu'on a écarté et
 // pourquoi (`ECARTES`) : un script qui refait tout doit savoir ce qu'on a vu.
+// L'année aussi : Wikidata date un sur cinq des cent à la décennie ou au siècle,
+// et se trompe à l'année pour quelques-uns. Elle se lit à sa précision
+// (`anneeDuTableau`) ; ce qu'il ne date pas à l'année, ou date faux, s'écrit à
+// la main, vérifié (`ANNEES_A_LA_MAIN`) — `choisir` relève ce qui manque, et
+// `verifier` refuse une fiche qui en reste sans année.
 //
 // Le cache (la réponse de Wikidata, les miniatures, les planches) vit dans
 // `.details/`, à la racine, que git ignore. Les images livrées et leur fiche
@@ -214,6 +219,86 @@ const ECARTES: Record<string, string> = {
   Q557000: "Les Meules : une série de vingt-cinq toiles : la question ne dit pas laquelle",
 }
 
+/**
+ * La précision d'une date de Wikidata (`wikibase:timePrecision`) à partir de
+ * laquelle elle dit son année : 9, l'année ; 10, le mois ; 11, le jour. En
+ * dessous, 8 la décennie et 7 le siècle — rangés sous une année qui n'en dit
+ * aucune, la première de la décennie (« 1850 » pour les années 1850) ou de
+ * Wikidata (« 1801 » pour le XIXᵉ siècle).
+ */
+export const PRECISION_DE_L_ANNEE = 9
+
+/**
+ * Une date de Wikidata lue à sa précision : son année, si elle la dit ; rien
+ * sinon. Lue sans elle, une date à la décennie devenait sa première année :
+ * « Le Fifre, 1850 », que son « Le savais-tu ? » disait refusé au Salon de 1866
+ * (la deuxième tablée, le 26 octobre 2026). Une précision inconnue ne date rien.
+ */
+export function anneeALaPrecision(valeur: string, precision: string | number | undefined): number | null {
+  const p = Number(precision)
+  return precision !== undefined && Number.isInteger(p) && p >= PRECISION_DE_L_ANNEE ? anneeDe(valeur) : null
+}
+
+/**
+ * L'année d'un tableau, de ses dates de création (P571, hors rang déprécié) :
+ * la plus tardive de celles qui disent leur année — peint en plusieurs années,
+ * il se date de l'année où il fut achevé ; des sources qui divergent, de la
+ * plus récente. Aucune : rien, et elle s'écrit à la main (`ANNEES_A_LA_MAIN`),
+ * jamais devinée.
+ */
+export function anneeDuTableau(dates: readonly { valeur: string; precision?: string | number }[]): number | null {
+  const annees = dates.map(d => anneeALaPrecision(d.valeur, d.precision)).filter((a): a is number => a !== null)
+  return annees.length > 0 ? Math.max(...annees) : null
+}
+
+/**
+ * Les années écrites à la main, qui l'emportent sur Wikidata — chacune vérifiée
+ * le 26 octobre 2026, avec ce qui la fonde (la deuxième tablée, la synthèse,
+ * axe 10). Un intervalle prend l'année que dit sa question de la base, sinon la
+ * dernière : celle où la toile fut achevée, ou laissée. Deux sortes :
+ *
+ * - fausses dans la fiche — Wikidata à la décennie ou au siècle, ou faux à
+ *   l'année : le script lisait la première année de la décennie ;
+ * - relevées — Wikidata n'en dit aucune à l'année : l'année de la fiche, dans
+ *   l'intervalle que donnent les musées, gardée pour qu'un découpage refait ne
+ *   la perde pas. Celles qu'on ne sait qu'à la décennie le disent : une
+ *   décennie juste vaut mieux qu'une année inventée.
+ *
+ * Un tableau neuf que Wikidata ne date pas à l'année s'ajoute ici : `choisir`
+ * le relève.
+ */
+export const ANNEES_A_LA_MAIN: Record<string, number> = {
+  // Fausses dans la fiche.
+  Q26250: 1866, // Le Fifre : refusé au Salon de 1866, dit sa question — Wikidata : 1850, à l'année
+  Q1167178: 1855, // L'Atelier du peintre : 1854-1855, « grande toile de 1855 » — Wikidata : les années 1850
+  Q540488: 1850, // Un enterrement à Ornans : 1849-1850 — Wikidata : les années 1840
+  Q693746: 1810, // Le Moine au bord de la mer : 1808-1810, « achevé en 1810 » — Wikidata : les années 1800, et 1808
+  Q746716: 1597, // Narcisse : vers 1597-1599, « vers 1597 » — Wikidata : vers 1600, et 1597
+  Q867403: 1540, // La Vierge au long cou : 1534-1540, laissée inachevée à la mort de Parmigianino — Wikidata : le XVIIᵉ siècle
+  Q969377: 1600, // La Vocation de saint Matthieu : 1599-1600, « vers 1600 » — Wikidata : juillet 1609
+  Q128910: 1498, // La Cène : 1495-1498 — Wikidata : les années 1490
+  Q930535: 1891, // Femmes de Tahiti : Gauguin arrive à Tahiti en juin 1891 — Wikidata : 1890
+  Q275349: 1651, // Vénus à son miroir : 1647-1651, la National Gallery — Wikidata : 1644
+  // Relevées : Wikidata ne les date qu'à la décennie ou au siècle.
+  Q321303: 1490, // Le Jardin des délices : vers 1490-1510 — à la décennie
+  Q1217187: 1497, // La Calomnie d'Apelle : les années 1490 — à la décennie
+  Q405814: 1500, // La Nef des fous : vers 1500 — à la décennie
+  Q12418: 1503, // La Joconde : commencée en 1503
+  Q2213811: 1510, // Le Chariot de foin : vers 1510-1516
+  Q328079: 1512, // La Madone Sixtine : 1512-1513
+  Q794077: 1514, // Amour sacré et Amour profane : vers 1514
+  Q153441: 1519, // La Fornarina : 1518-1520
+  Q523974: 1661, // Vue de Delft : 1660-1661
+  Q588695: 1667, // L'Art de la peinture : 1666-1668
+  Q334360: 1809, // L'Abbaye dans une forêt de chênes : 1808-1810
+  Q194137: 1823, // La Mer de glace : 1823-1824
+  Q1167907: 1880, // Le Déjeuner des canotiers : 1880-1881
+  Q1114571: 1881, // Les Parapluies : 1881-1886
+  Q478271: 1890, // Les Cosaques zaporogues : 1880-1891 — à la décennie
+  Q17277950: 1893, // Les Joueurs de cartes : la série de 1890-1895 — à la décennie
+  Q890678: 1897, // D'où venons-nous ? Que sommes-nous ? Où allons-nous ? : 1897-1898
+}
+
 const norme = (s: string) =>
   s
     .normalize('NFD')
@@ -246,13 +331,21 @@ async function choisir() {
   // Sans classe exigée : « Le Cri » ou « Les Tournesols » ne sont pas des
   // « peintures » sur Wikidata (une série, une version), et seules des copies
   // obscures sortaient sous leur nom. Le peintre nommé par la question trie.
-  const lignes = await wd.sparql(`SELECT ?item ?l ?img ?peintre ?pl ?mort ?date ?n WHERE {
+  // Chaque date de création avec sa précision, hors rang déprécié : lue sans
+  // elle (`wdt:P571`), une date à la décennie devenait sa première année.
+  const lignes = await wd.sparql(`SELECT ?item ?l ?img ?peintre ?pl ?mort ?date ?prec ?n WHERE {
   VALUES ?l { ${titres} }
   ?item rdfs:label ?l ; wdt:P18 ?img ; wdt:P170 ?peintre ; wikibase:sitelinks ?n .
   ?peintre wdt:P570 ?mort .
-  OPTIONAL { ?item wdt:P571 ?date }
+  OPTIONAL { ?item p:P571 ?st . ?st psv:P571 ?vn . ?vn wikibase:timeValue ?date ; wikibase:timePrecision ?prec . FILTER NOT EXISTS { ?st wikibase:rank wikibase:DeprecatedRank } }
   OPTIONAL { ?peintre rdfs:label ?pl FILTER(lang(?pl) = 'fr') }
 }`)
+  // Toutes ses dates, d'une ligne à l'autre : un tableau en a parfois plusieurs, chacune sa ligne.
+  const datesDe = new Map<string, { valeur: string; precision: string }[]>()
+  for (const l of lignes) {
+    const qid = qidDe(l.item)
+    if (qid && l.date && l.prec) (datesDe.get(qid) ?? datesDe.set(qid, []).get(qid)!).push({ valeur: l.date, precision: l.prec })
+  }
   // Un titre a ses homonymes (« Les Tournesols » d'Egon Schiele) : on garde celui
   // dont le peintre est nommé par la question, et, de ceux-là, le plus lié.
   const parTitre = new Map<string, Candidat>()
@@ -268,7 +361,7 @@ async function choisir() {
       continue
     }
     const fichier = decodeURIComponent(l.img.slice(l.img.indexOf('FilePath/') + 9)).replace(/ /g, '_')
-    const c: Candidat = { qid, titre: l.l, peintre: l.pl, annee: l.date ? anneeDe(l.date) : null, mortDuPeintre: mort, fichier, liens: Number(l.n), questions: [...new Set(b.ids)].sort() }
+    const c: Candidat = { qid, titre: l.l, peintre: l.pl, annee: anneeDuTableau(datesDe.get(qid) ?? []), mortDuPeintre: mort, fichier, liens: Number(l.n), questions: [...new Set(b.ids)].sort() }
     const avant = parTitre.get(l.l)
     // Plusieurs peintres (un atelier) ou plusieurs dates : la mort la plus tardive compte.
     if (avant?.qid === qid) avant.mortDuPeintre = Math.max(avant.mortDuPeintre, mort)
@@ -281,6 +374,10 @@ async function choisir() {
   writeFileSync(CANDIDATS, JSON.stringify(candidats, null, 1))
   console.log(`${base.size} tableaux dans la base, ${parTitre.size} trouvés sur Wikidata (${sansPeintre} homonymes d'un autre peintre écartés), ${candidats.length} candidats du domaine public :`)
   for (const c of candidats) console.log(`  ${c.qid.padEnd(10)} ${String(c.liens).padStart(3)}  ${c.titre} — ${c.peintre} (†${c.mortDuPeintre})${ECARTES[c.qid] ? '  [écarté]' : DETAILS[c.qid] ? '' : '  [à voir]'}`)
+  // Ce que Wikidata ne date pas à l'année, et que personne n'a encore écrit : à vérifier, puis dans `ANNEES_A_LA_MAIN`.
+  const aDater = candidats.filter(c => !ECARTES[c.qid] && c.annee === null && ANNEES_A_LA_MAIN[c.qid] === undefined)
+  if (aDater.length > 0) console.log(`${aDater.length} sans année, à écrire à la main dans ANNEES_A_LA_MAIN :`)
+  for (const c of aDater) console.log(`  ${c.qid.padEnd(10)} ${c.titre} — ${c.peintre} : ${(datesDe.get(c.qid) ?? []).map(d => `${d.valeur.slice(0, 10)} (précision ${d.precision})`).join(', ') || 'aucune date'}`)
 }
 
 const lireCandidats = (): Candidat[] => JSON.parse(readFileSync(CANDIDATS, 'utf8'))
@@ -437,7 +534,8 @@ async function decouper() {
         qid: c.qid,
         titre: c.titre,
         peintre: c.peintre,
-        annee: c.annee,
+        // Écrite à la main, elle l'emporte : Wikidata se trompe aussi à l'année (« Le Fifre, 1850 »).
+        annee: ANNEES_A_LA_MAIN[c.qid] ?? c.annee,
         mortDuPeintre: c.mortDuPeintre,
         fichier: c.fichier,
         page: `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(c.fichier)}`,
@@ -463,6 +561,12 @@ export function refusDeLaFiche(fiche: readonly TableauDuDetail[], images: readon
     if (vus.has(t.qid)) refus.push(`${t.qid} : deux fois dans la fiche`)
     vus.add(t.qid)
     if (t.mortDuPeintre > MORT_AU_PLUS_TARD) refus.push(`${t.qid} : peintre mort en ${t.mortDuPeintre}, pas encore du domaine public`)
+    // Sans année — Wikidata ne la dit qu'à la décennie ou au siècle, et personne ne l'a écrite à la main — : le
+    // serveur l'écarterait au chargement (« fiche incomplète », `core/details.ts`), et le tableau quittait le Détail
+    // et l'Expédition sans qu'une épreuve rougisse. Refusé ici, `verifier` et `details.test.ts` l'arrêtent avant.
+    if (t.annee === null) refus.push(`${t.qid} : sans année — à écrire à la main dans ANNEES_A_LA_MAIN`)
+    // Une date à la décennie ou au siècle lue comme une année : « La Vierge au long cou, 1600 », son peintre mort en 1540.
+    else if (t.annee > t.mortDuPeintre) refus.push(`${t.qid} : daté de ${t.annee}, après la mort de son peintre (${t.mortDuPeintre})`)
     if (t.cadrages.length !== 4) refus.push(`${t.qid} : ${t.cadrages.length} cadrages`)
     for (const [i, [x, y, l, h]] of t.cadrages.entries()) {
       if (x < 0 || y < 0 || l <= 0 || h <= 0 || x + l > 1.00001 || y + h > 1.00001) refus.push(`${t.qid} : cadrage ${i + 1} hors du tableau`)

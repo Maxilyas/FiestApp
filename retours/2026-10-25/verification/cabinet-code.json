@@ -1,0 +1,153 @@
+[
+  {
+    "id": "cabinet-code-1",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "Rejoué : un Read sans offset de .claude/rules/cabinet.md rend les lignes 1 à 69 (« PARTIAL view — lines 1-69 of 101, 30861 tokens, cap 25000 »). Mais l'outil le signale et donne la suite (« Call Read with offset=70 … Do NOT answer from this page alone »), et la règle chargée par ses paths: arrive entière (vu dans cette session, à la lecture de vue.ts). Le défaut est commun à quatre règles (expedition 131 207 signes, qg 77 170, cabinet 66 240, profil 63 765). Les tailles du rapport sont des octets (68 254), pas des signes.",
+    "pourquoi": "Friction réelle pour qui suit CLAUDE.md à la lettre, mais la coupe n'est pas muette, et elle n'est pas propre au Cabinet.",
+    "correction": "Couper la règle (cabinet.md + cabinet-page.md) tient. Mais la borne de 50 000 signes par règle ferait rougir notes-pour-claude.test.ts sur quatre règles le jour même : couper les quatre dans le même commit, ou borner d'abord au plafond réel (~53 000 signes) avec une liste d'exceptions à vider. Tout de suite : une ligne de CLAUDE.md qui dit qu'une règle lue directement peut se lire en deux pages."
+  },
+  {
+    "id": "cabinet-code-2",
+    "verdict": "doublon",
+    "doublon_de": "cabinet-equilibre-6",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "Rejoué : libre-sans-etoile.test.ts échoue pour la raison annoncée. Ma reproduction (verification/cabinet-code/libre-ratee.test.ts) l'obtient aussi sans « Quitter » : une libre jouée jusqu'au bout, trois manches ratées, payee true en base, poussière 0, bilan « Les cinq parties libres du jour ont payé », et la page d'après « paientEncore 4 ». Chemin : ecriture.ts:104 fige payee ; poussiereDeLaPartie (partie.ts:745-747) rend 2 × total, sans plancher en libre ; bilanDit (vue.ts:179) lit b.poussiere au lieu de d.payee. Le même défaut, à la même ligne, est le constat cabinet-equilibre-6.",
+    "pourquoi": "Réel et fréquent (52 libres sur 80 finies sans étoile dans la base de la tablée), mais c'est une phrase fausse, sans rien perdre. Déjà rapporté par cabinet-equilibre-6.",
+    "correction": "La piste de l'expert (brancher sur d.payee, LIBRES_QUI_PAIENT au lieu de « cinq ») tient. Mieux encore : quand la partie a payé sans rien rapporter, dire ce qui reste (« Aucune étoile cette fois : pas de poussière d'or. Encore 4 parties libres qui paient aujourd'hui »), libresQuiPaientEncore passé à bilanVu ; et écrire le nombre comme Regles.tsx:107. Les deux reproductions deviennent l'épreuve de cabinet-poussiere.test.ts."
+  },
+  {
+    "id": "cabinet-code-3",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "git grep : 59 lignes de renvois dans le code du Cabinet (34 « § », 22 « Dn »), plus D9 deux fois dans la règle et D15 dans cabinet-poussiere.test.ts:10. decisions.md ne numérote rien. Le document existe, mais seulement dans le bloc-notes de session de l'orchestrateur (/tmp/…/scratchpad/conception/FINALE.md, D1 à D18 à :29-51, l'étape 5 à :1722) : volatil, et absent du dépôt. Le D12 de porteDeLaCampagne.ts:2 y est réel, mais l'adresse donnée (decisions.md) trompe.",
+    "pourquoi": "Des renvois qui mèneront nulle part dès que la session s'éteint. Dette de lecture, P3.",
+    "correction": "Mécanique : chaque Dn devient le titre de sa décision dans decisions.md:1597-1825 (D2 « L'état d'une partie est le pli… », D3 « Une pièce par verdict… », D4 « Seule la première réponse du Pari… », D6 « La colonne joker… », D7 « Trois tables neuves… », D8 « La poussière gagnée se fige… », D9 « Chaque lot d'écriture est gardé par son geste », D10 « Recharger reprend la partie… », D12 « Le Cabinet vit hors de la campagne… », D15 « La poussière d'or… n'en sort jamais », D17 « La visite du jour se dérive… ») ; les § et les lots s'effacent ; puis une épreuve refuse le motif."
+  },
+  {
+    "id": "cabinet-code-4",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Relu : ECRANS (Partie.tsx:150-160) et TIREURS (tirages/index.ts:67-77) ont neuf entrées, comme JEUX_PRETS (ouverture.ts:36). Le repli ne protège même pas une page périmée face à un serveur au dixième jeu : JEUX[jeu] y vaudrait undefined, et Visite.tsx:64 puis AnnonceEnAttente elle-même (CabinetApp.tsx:198, j.nom) lèveraient avant.",
+    "pourquoi": "Code mort et garde de typage perdue ; aucun effet sur un joueur.",
+    "correction": "Celle de l'expert : Record<CleDeJeu, …> pour ECRANS et TIREURS ; retirer AnnonceEnAttente, ses deux branches, son épreuve, le `!` et le `if (!tireur)`."
+  },
+  {
+    "id": "cabinet-code-5",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "git grep « statsEnPlus = » : trois affectations, toutes dans porte-de-la-campagne.test.ts (:373, :559, :578) ; ChampsDuCabinet = never (porteDeLaCampagne.ts:164), et son commentaire dit « y entreront quand… ». docs/produit/le-cabinet.md:152 affirme au présent « ses paliers relus aux salles complètes ».",
+    "pourquoi": "La documentation affirme un comportement que le code n'a pas ; le crochet est préparé pour un lot à venir (FINALE.md § 6.4, lot C9).",
+    "correction": "Corriger le-cabinet.md:152 au futur et la ligne de la règle (« un crochet prêt, pas encore branché ») ; garder le crochet éprouvé plutôt que de l'arracher puis le refaire au lot C9. Le retirer reste défendable."
+  },
+  {
+    "id": "cabinet-code-6",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Relu : le-cabinet.md:186 (« Le Pari et l'Éclair s'y jouent ; un jeu qui n'a pas encore son écran s'annonce en attente ») et :158 (« La construction… le Pari et l'Éclair d'abord ») sont faux au commit 3034028.",
+    "pourquoi": "Documentation en retard, P3.",
+    "correction": "Celle de l'expert."
+  },
+  {
+    "id": "cabinet-code-7",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Relu (pouvoirs.ts:210, 226-227 ; partie.ts:667 ; outils.ts:49 ; regle.ts:229, naturel: 0 | 1 | 2 | 3). docs/reference/baremes.md:659 dit déjà ETOILES_PAR_MANCHE « Structurel » : la documentation sait que c'est une forme, et c'est le code qui ne le dit pas.",
+    "pourquoi": "Incohérence de convention, sans effet.",
+    "correction": "La seconde piste : ETOILES_PAR_MANCHE typé 3 (`export const ETOILES_PAR_MANCHE: 3 = 3`) et lu là où le code écrit 3. Elle ne promet aucune liberté que le typage refuse."
+  },
+  {
+    "id": "cabinet-code-8",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Relu un à un : Annonce.tsx:53 (même règle que seuilDe, musee.ts:417), Partie.tsx:370 (refusDuPouvoir sur un état inventé), Musee.tsx:180, magasin.ts:204 et musee.ts:490, magasin.ts:809 et partie.ts:311, « déjà faite » (:461) contre « déjà jouée » (:384). Tout est exact, et rien ne ment aujourd'hui. Annonce.tsx:53 recoupe cabinet-equilibre-10 sans le redire (là, le seuil du double tu).",
+    "pourquoi": "Deuxièmes copies qui peuvent évoluer seules ; Partie.tsx:370 est la plus fragile.",
+    "correction": "Celle de l'expert ; commencer par CHANGE_AVANT_DE_REPONDRE exporté de pouvoirs.ts."
+  },
+  {
+    "id": "cabinet-code-9",
+    "verdict": "tension",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "La table est voulue : son commentaire (salles.ts:108-113) dit « Une table écrite, que le test relit contre les familles », et cabinet-catalogue.test.ts:298-303 vérifie chaque ligne contre les salles, le Vestibule et AUTRES_GARDIENS. Rien ne peut diverger sans rougir. Écrire ou dériver, c'est un parti pris de lisibilité. Seule redite sans choix derrière : les cinq « autres », écrits deux fois dans le même fichier (salles.ts:94-98 et la table). salles.ts n'importe de pouvoirs.ts qu'un type : pas de cycle aujourd'hui.",
+    "pourquoi": "Une duplication voulue et gardée par un test, pas un défaut.",
+    "correction": "Au plus, bâtir la Map de pouvoirDuGardien à partir de la table et d'AUTRES_GARDIENS, sans écrire deux fois les cinq autres ; la dérivation complète est à arbitrer."
+  },
+  {
+    "id": "cabinet-code-10",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Relu : leGardien de vue.ts:85-88 abaisse toujours, celui d'expedition.ts:4069-4072 un article seulement ; il ne sert qu'à feteVue (vue.ts:494), aux trois gardiens de saison, qui ont tous un article. motsDe de contenu.ts:90-95 n'ouvre que œ et æ, celui d'indices.ts:79-103 aussi ø, ł, đ, ð, þ, ß, ı : un indice « Walesa » passerait le juge d'une fiche « Wałęsa » que la saisie accepterait. Les deux restent latents.",
+    "pourquoi": "Copies déjà divergentes, sans effet aujourd'hui.",
+    "correction": "Celle de l'expert : d'abord le juge du contenu par motsDe de la règle des Indices, la seule divergence qui touche un juge."
+  },
+  {
+    "id": "cabinet-code-11",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "mutant-echeance.test.ts recopie fidèlement les assertions de cabinet-ecran.test.ts:1773-1784. Rejoué plus largement : le même mutant (garde de Partie.tsx:737 remplacée par `if (pret || !pret) return`), dans une copie jetable du dépôt, passe les quatre fichiers qui lisent Partie.tsx (cabinet-ecran 94, cabinet-ecran-neufs 22, niche-reactions 12, toucher 9 : 137 épreuves, 0 échec). Aucune épreuve ne voit une page qui n'envoie plus rien à l'échéance.",
+    "pourquoi": "Garde de test manquante. Le serveur juge quand même la manche expirée au geste suivant, mais ce que la page tenait se perdrait (affirmations de l'Éclair, curseur du Filet, épingle posée).",
+    "correction": "Celle de l'expert : l'ordonnancement en fonction pure (aEnvoyerALEcheance(vue, t, pret)), éprouvée seule, sans bibliothèque de DOM."
+  },
+  {
+    "id": "cabinet-code-12",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Relu : cinq `for (let essai = 0; ; essai++)` (magasin.ts:676, 798, 975, 1021, 1090), 1 260 lignes. Une réserve : rendreLaPartieIllisible (:496-499) n'est pas une écriture qui court, c'est un comparer-et-poser (`WHERE profile_id = ? AND partie = ?`) sur un chemin de bogue, que la règle cite déjà.",
+    "pourquoi": "Dette, sans défaut.",
+    "correction": "Un rejouerUneFois générique devra garder les trois crochets qui diffèrent (le rang en avance au geste, seDementirait à la dépense, le refus relu au départ) ; déplacer :498 dans ecriture.ts est de l'ordre, pas une correction."
+  },
+  {
+    "id": "cabinet-code-13",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "git grep : qcmDeToutes (tas.ts), jeuDeLOeuvre (oeuvres.ts) et EXPEDITION_ENCORE_LUE (tables.ts) ne vivent que dans leur fichier ; refusDuDepart, refusDuGeste et estDuCabinet ne servent qu'à leur fichier et à un test ; ouverture.ts:3-4 et gardiens.ts:18 citent la migration abandonnée.",
+    "pourquoi": "Restes de construction.",
+    "correction": "Celle de l'expert."
+  },
+  {
+    "id": "cabinet-code-14",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Relu : cabinet-ecran.test.ts:3217-3223, :3240 et :3287-3317 éprouvent la même fusion ; l'expression régulière d'import de :3240 revient mot pour mot à :3291 ; :605-613 rend AnnonceEnAttente.",
+    "pourquoi": "Épreuves redondantes.",
+    "correction": "Celle de l'expert."
+  },
+  {
+    "id": "cabinet-code-15",
+    "verdict": "tension",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Comme l'expert l'annonce : la mémoire reflète la base sans la relire, un choix de sobriété documenté.",
+    "pourquoi": "Parti pris, pas un défaut.",
+    "correction": "L'épreuve proposée (le musée gardé comparé au musée relu à froid après chaque lot)."
+  }
+]

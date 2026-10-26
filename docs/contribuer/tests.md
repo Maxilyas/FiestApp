@@ -42,7 +42,7 @@ node --import tsx --test --test-name-pattern="panne" test/miroir.test.ts    # le
 
 ### Le test de bout en bout
 
-`npm run smoke` lance `server/scripts/smoke.ts` : un seul `try`, et la première assertion fausse écrit `❌` et sort en code 1 — rien de ce qui suit n'est joué. Au bout, « ✅ Smoke test OK — 41 étapes ». Il neutralise l'Éclat, ferme le calendrier des soirées, démarre huit serveurs (administrateur `antoine` / `smoke-pass-1`, espace `smoke`) et laisse ses dossiers `quizz-smoke-*` et `quizz-legacy-*` dans le dossier temporaire du système.
+`npm run smoke` lance `server/scripts/smoke.ts` : un seul `try`, et la première assertion fausse écrit `❌` et sort en code 1 — rien de ce qui suit n'est joué. Au bout, « ✅ Smoke test OK — 41 étapes ». Il neutralise l'Éclat, ferme les calendriers de saison (des soirées, des expéditions, du Cabinet), démarre huit serveurs (administrateur `antoine` / `smoke-pass-1`, espace `smoke`) et laisse ses dossiers `quizz-smoke-*` et `quizz-legacy-*` dans le dossier temporaire du système.
 
 | § | Ce qu'elle joue |
 |---|---|
@@ -60,7 +60,7 @@ Les sections 24 à 29 sont devenues des fichiers de `server/test/`.
 
 ## Les trois aides
 
-Trois modules de `server/test/` ne sont pas des tests.
+Trois modules de `server/test/` ne sont pas des tests et servent à tous. D'autres servent un seul thème, chacun sa ligne [plus bas](#les-fichiers-de-test-par-thème) : `server/test/push.ts`, `server/test/garde-des-connexions.ts`, `server/test/chemin-des-imports.ts`, `server/test/teintes.ts`, `server/test/expedition-journal.ts`, et ceux du Cabinet de curiosités — `server/test/cabinet-banc.ts`, `server/test/cabinet-plans.ts`, `server/test/calibrage-du-cabinet.ts`.
 
 ### Le banc
 
@@ -69,7 +69,7 @@ Trois modules de `server/test/` ne sont pas des tests.
 - `demarrer(options)` passe ses options au serveur (`QuizServerOptions`, `server/src/server.ts` : `clientDist`, `baseDeLaCampagne`, `horlogeDuJour`, `miroir`, `rappels`…) et rend `{ url, server, dir, dbPath, quizDbUrl, redemarrer, close }`. `redemarrer({ disqueEfface: true })` rejoue le réveil de l'hébergeur — la base locale effacée, la permanente gardée, le même port ; `close()`, dans un `after()`, ferme tout et efface le dossier.
 - Parler : `connecter`, `instantane` (le dernier instantané reçu qui convient, ou le prochain), `emitAck` (l'accusé, 5 s au plus), `attendre` (un événement, 8 s au plus), `ecrire` (avec l'en-tête `X-Requested-With: quizz`), `cookieDe`, `connexionAnimateur`, `inscrireProfil`.
 - Préparer : `qcm`, `estimation`, `creerQuiz`, `ecranCommun`, `invite` (anonyme, profil, jeton qui se re-présente, hors classement), `lancerQuiz` (la première question trois secondes après), `patienter`, et `baseDEssai(n, …)`, une petite base de campagne valide.
-- Son administrateur : `antoine` / `banc-pass-1`, espace `banc`. Il ferme le calendrier des soirées dès son import ; il ne touche pas à l'Éclat.
+- Son administrateur : `antoine` / `banc-pass-1`, espace `banc`. Il ferme les calendriers de saison dès son import — des soirées, des expéditions, du Cabinet ; il ne touche pas à l'Éclat.
 
 Les scripts de rendu et `server/scripts/mesure-pages.ts` démarrent leur serveur par lui.
 
@@ -155,7 +155,7 @@ Un écran se teste rendu : pose `React` sur `globalThis` avant d'importer le com
 - **On compte, on ne chronomètre pas** : une machine chargée ferait échouer qui mesure des millisecondes. `server/test/grande-salle.test.ts` compte vues, écritures et messages, `server/test/jour-charge.test.ts` les allers-retours vers le fichier qui tient lieu de Turso ; les bornes de temps qui restent sont larges — un calcul (`server/test/protocole.test.ts`, au meilleur de trois essais) ou un délai qui doit tomber (`server/test/liaison-morte.test.ts`).
 - **L'instantané arrive juste derrière l'accusé** de `host:hello` ou de `party:watch`, souvent dans le même paquet : un écouteur posé après l'accusé le rate. Lis-le par `instantane()`.
 - **L'Éclat est un tirage** (`CHANCE_ECLAT`, et ses cousins du jour et du défi) dont le premier fait tomber un palier : un test qui compte l'expérience au point près neutralise `ProfileStore.tirageEclat`, ou il échoue une fois sur quarante. Le smoke le fait, pas le banc.
-- **Le calendrier aussi** : close pendant Halloween, Noël ou le Nouvel An, une soirée ouvrait son légendaire de saison, et la CI aurait rougi dix-neuf jours par an. Le banc et le smoke ferment le calendrier des soirées (`calendrierDesSoirees`, `server/src/core/saisons.ts`) ; `server/test/saisons.test.ts` le rouvre.
+- **Le calendrier aussi** : close pendant Halloween, Noël ou le Nouvel An, une soirée ouvrait son légendaire de saison, et la CI aurait rougi dix-neuf jours par an. Le banc et le smoke ferment chaque calendrier de `server/src/core/saisons.ts` — des soirées (`calendrierDesSoirees`), des expéditions (`calendrierDesExpeditions`) et du Cabinet (`calendrierDuCabinet`, né le 25 octobre 2026, premier jour d'Halloween : la première œuvre gagnée pendant la fête réveille son gardien) ; `server/test/saisons.test.ts` et `server/test/expedition-saison.test.ts` rouvrent le leur. Un calendrier de plus — tout objet `{ periodeDu }` que le module exporte, quel que soit son nom — se ferme aux deux bouts, au smoke avant son premier serveur, ce que `server/test/calendrier.test.ts` vérifie.
 - **Un joueur seul ne rapporte rien** : un figurant au moins pour de l'expérience, quatre joueurs pour des hauts faits. Deux bonnes réponses font un réflexe au plus rapide, à la milliseconde : qui compte au point près fait se tromper l'autre.
 - **Un banc qui vit plus de vingt secondes lit la vraie base de la campagne** en fond, sauf `baseDeLaCampagne` (souvent `baseDEssai(…)`), que toute épreuve de la campagne donne : celle du dépôt grandit à chaque lot.
 - **Simuler une panne** : un déclencheur `RAISE(ABORT)` sur le fichier de la base permanente (`server/test/miroir.test.ts`, `server/test/retrait.test.ts`) ; un démarrage, un SIGTERM ou le paquet construit, en processus enfant (`server/test/exploitation.test.ts`) ; un SIGKILL après une révélation (`server/test/miroir.test.ts`) ; une liaison morte, par le relais.
@@ -163,17 +163,20 @@ Un écran se teste rendu : pose `React` sur `globalThis` avant d'importer le com
 
 ## Les fichiers de test, par thème
 
-Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; cent quarante et un démarrent le banc. Chaque ligne résume le commentaire de tête du fichier, qui dit le reste — souvent le bug qui l'a fait naître.
+Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ; plus de deux cents démarrent un serveur — le banc, ou celui du Cabinet, qui passe par lui. Chaque ligne résume le commentaire de tête du fichier, qui dit le reste — souvent le bug qui l'a fait naître. Un fichier neuf y prend sa ligne dans le commit qui le crée : `server/test/liste-des-tests.test.ts` rougit tant qu'il ne l'a pas.
 
 ### L'outillage, la mémoire de Claude, la documentation
 
 - `server/test/banc.test.ts` — le banc lui-même : une question jouée, un réveil sur disque effacé qui ne perd rien.
 - `server/test/notes-pour-claude.test.ts` — `CLAUDE.md` sous 200 lignes et 24 000 caractères, l'en-tête `paths:` de chaque règle, la carte, les fichiers cités.
 - `server/test/documentation.test.ts` — `README.md` et `docs/` relus contre le code : fichiers cités, liens, sommaire, `npm run`, et la référence des routes, événements, variables, tables, adresses et barèmes.
+- `server/test/liste-des-tests.test.ts` — chaque fichier de `server/test/` a sa ligne ici, sous son thème, une seule ; seules les trois aides de tous s'en passent. Le 26 octobre 2026, quatre-vingt-dix-huit n'avaient pas la leur.
+- `server/test/compte-rendu-des-tests.test.ts` — le compte rendu de `npm test` en CI : le TAP tel quel, puis chaque épreuve en échec redite en entier après le décompte, là où GitHub la montre encore.
 - `server/test/vitrine.test.ts` — la vitrine publiée telle quelle sur GitHub Pages : chaque image et chaque lien dans le site, et l'aperçu d'un lien partagé publié avec la page, à la taille dite, sous 300 Ko.
-- `server/test/calendrier.test.ts` — la suite ne dépend pas du jour où elle tourne.
+- `server/test/calendrier.test.ts` — la suite ne dépend pas du jour où elle tourne : chaque calendrier de saison fermé au banc et au smoke, ouvert partout ailleurs.
 - `server/test/emojis.test.ts` — aucun emoji postérieur à Unicode 12 dans le client, `shared/`, `server/src/` et `server/content/`.
 - `server/test/divins.test.ts` — les Divins rares, et leurs règles hors du navigateur, des réponses d'API, de l'étagère et de la documentation.
+- `server/test/tablee.test.ts` — le banc des agents : `toucher --a` là où l'on vise (une décimale à la française refusée), un curseur qui ne se tape pas, la lettre seule qui vise sa touche et jamais « Quitter » (`nomDUnSigneSeul`), la photo qui attend les images qu'elle montre — la page entière, ses paresseuses comprises, éprouvée sur de fausses images —, le dé et ses tirages au journal, ce que la régie en branche, la chronologie des dés ; chaque geste de la régie dit dans l'aide du pilote et dans les consignes ; les personnages du Cabinet qui ignorent des choses, leur domaine lu au sujet quand la manche tait sa catégorie ; la marche de chaque chose à savoir, lue au plan figé d'une partie jouée sur un vrai serveur (`bancDuCabinet`) ; les seuils du dé recalculés du modèle du calibrage — ceux des consignes au joueur « tablée », ceux d'Ophélie à l'occasionnel.
 
 ### La soirée : le moteur, le quiz, les équipes
 
@@ -214,6 +217,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/equipes-preparees.test.ts` — les équipes préparées avant d'ouvrir le salon.
 - `server/test/fin-de-quiz-chef.test.ts` — « Le podium » puis « Quiz suivant ».
 - `server/test/tele-salle.test.ts` — la télé branchée par un code, pur écran de salle.
+- `server/test/homonymes.test.ts` — « Camille (2) » compare l'avatar qu'on voit — le légendaire, le portrait, le compagnon ou le Divin porté, sinon l'emoji —, jamais la finition, l'Éclat ni la bordure.
 
 ### L'écran commun et ce que voient les téléphones
 
@@ -249,6 +253,10 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/relecture.test.ts` — les constats de la relecture des quarante-quatre commits.
 - `server/test/enregistrement.test.ts` — deux appareils sur un même quiz : un 409 au lieu d'écraser.
 - `server/test/categories.test.ts` — la catégorie d'une question, de l'éditeur à la fiche du joueur.
+- `server/test/appels-en-route.test.ts` — un appel à la base distante qui ne revient jamais (`clientBorne`) : borné de bout en bout, le suivant part d'un client neuf, et plus rien ne fige ce qui l'attendait.
+- `server/test/connexions-de-la-base.test.ts` — les connexions vers Turso comptées — ouvertes, refermées par la base, tombées en route —, l'entretien qui les garde chaudes (`QUIZ_DB_KEEPWARM`) et la garde à l'heure de Node après un gel de la boucle, par le `fetch` de Node.
+- `server/test/garde-des-connexions.ts` — pas un fichier de tests : ce que tout transport vers la base permanente doit tenir, déclaré pour un transport (`testerLesConnexions`), que le fichier précédent et le suivant jouent.
+- `server/test/transport-leger.test.ts` — le transport léger (`QUIZ_DB_TRANSPORT=leger`) : la garde des connexions entière, puis ce qui lui est propre.
 
 ### L'exploitation
 
@@ -256,12 +264,14 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/portes.test.ts` — le statut, l'aperçu et l'indexation d'une adresse.
 - `server/test/petites-portes.test.ts` — les petites portes du téléphone et de la console.
 - `server/test/ressenti.test.ts` — ce que `/healthz` dit du ressenti.
+- `server/test/base-preparee.test.ts` — la base de la campagne vérifiée une fois au build et relue telle quelle au réveil, le dossier relu quand elle ne le dit plus.
+- `server/test/ramasse-miettes.test.ts` — le ramasse-miettes réglé par la commande de démarrage, que `NODE_OPTIONS` refuse, et `/healthz` qui dit s'il a pris.
 
 ### Le client : chargement, entrée, navigation, mots
 
 - `server/test/chargement.test.ts` — les fichiers du paquet servis déjà compressés ; un téléchargement abandonné en route n'est pas une erreur serveur.
 - `server/test/client.test.ts` — ce que le téléphone dit quand un appel échoue.
-- `server/test/connexion-claire.test.ts` — trois gros boutons, « Jouer sans compte » d'abord.
+- `server/test/connexion-claire.test.ts` — trois gros boutons, « Jouer sans compte » d'abord ; un profil qui naît, et chaque refus sous le champ qu'il vise ; un titre de premier niveau à chaque écran de connexion.
 - `server/test/depart.test.ts` — ce que la page demande dès son arrivée.
 - `server/test/navigation.test.ts` — le liant entre les pages.
 - `server/test/page.test.ts` — la page nommée par le serveur avant tout script.
@@ -269,8 +279,10 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/mots.test.ts` — les noms des prix et leurs clés.
 - `server/test/chiffres.test.ts` — la précision des QCM, le coup d'œil des estimations.
 - `server/test/design.test.ts` — le système de design.
-- `server/test/feuilles.test.ts` — une feuille, une carte ou un dialogue ouvert : la page de dessous ne défile plus, rien ne clignote à l’ouverture, rien ne se lit au travers, sous aucun thème, et le décor du thème se retire le temps qu’elle reste ouverte.
+- `server/test/feuilles.test.ts` — une feuille, une carte ou un dialogue ouvert : la page de dessous ne défile plus, rien ne clignote à l’ouverture, rien ne se lit au travers, sous aucun thème, et le décor du thème se retire le temps qu’elle reste ouverte ; une feuille est une vraie fenêtre (le focus dedans, gardé quand on appuie sur son voile, le reste inerte, Échap).
 - `server/test/typographie.test.ts` — élision, rang, espaces insécables.
+- `server/test/chemin-des-imports.ts` — pas un fichier de tests : ce qu'une page télécharge avec elle, ses imports statiques de proche en proche, que partagent ceux qui gardent un chemin léger.
+- `server/test/teintes.ts` — pas un fichier de tests : les couleurs de chaque thème lues dans sa feuille et le contraste qu'on en tire, une seule copie pour `server/test/design.test.ts` et `server/test/cabinet-ecran.test.ts`.
 
 ### Les comptes, l'administration, le QG
 
@@ -295,6 +307,11 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/qg-campagne.test.ts` — la campagne au QG : le mélange d'un palier réglé pour les épreuves qui commencent, jamais celles en cours ; les paliers du jour, le défi sans jamais le tirer, les parcours, les vies.
 - `server/test/qg-signalements.test.ts` — la page des signalements : corriger une question du jour — le jour qui l'a posée compris quand la bonne réponse ne change pas, ses points annulés dans le même geste —, reclasser au quiz du jour et en campagne — et les deux partis ensemble, chaque requête attendant son tour de boucle comme une réponse de Turso —, l'issue de chaque geste, l'historique, le merci sur l'accueil du joueur.
 - `server/test/fiche-joueur.test.ts` — la fiche d'un joueur et ses gestes.
+- `server/test/qg-activite.test.ts` — l'activité au QG : les questions jouées et les parties, mode par mode et jour par jour, et ce que chaque profil a joué ; des soirées des autres, rien que des chiffres.
+- `server/test/qg-duels.test.ts` — les duels au QG : jour par jour, les ligues et le classement tels que les joueurs les voient, ceux qui attendent leur adversaire, et « Annuler » un duel qu'il n'a pas commencé.
+- `server/test/qg-economie.test.ts` — l'économie au QG : les confettis gagnés et dépensés source par source, ceux qui circulent — égaux aux soldes des profils, au confetti près —, les meilleures ventes, les Éclats et les légendaires portés.
+- `server/test/maintenance.test.ts` — le bandeau rouge et les pages fermées le temps d'une réparation, puis bientôt disponibles à leurs seuls testeurs ; chaque porte relue dans le routeur.
+- `server/test/annonces.test.ts` — les annonces à tous : un message lu une fois en haut de chaque accueil, des confettis pour chacun en un seul lot, une question à poser, une réponse par profil.
 
 ### Les profils et la collection
 
@@ -315,6 +332,18 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/menu.test.ts` — la barre du menu.
 - `server/test/mots-du-solo.test.ts` — les mots du jeu solo.
 - `server/test/compagnons.test.ts` — les compagnons de la boutique.
+- `server/test/nouveautes.test.ts` — la pastille rouge des nouveautés : ce que le serveur retient qu'un profil a vu dans sa loge, pour tous ses appareils, et chaque nouveauté de la pièce « Avatar » marquée jusqu'à sa case.
+- `server/test/profil-charge.test.ts` — ce que la page du profil, la pastille de « Profil » et la page des duels coûtent à la base permanente, allers-retours comptés.
+- `server/test/style.test.ts` — le style de « Ma collection » en albums — fonds, gerbes, finitions, bordures —, et la loge qui ne montre que ce qu'on a.
+- `server/test/un-seul-avatar.test.ts` — un joueur n'a qu'un avatar : partout où il se montre, celui qu'il porte ; chaque composant relu.
+- `server/test/niche.test.ts` — la niche du compagnon en haut de chaque page du téléphone : c'est lui qui grandit, porté ou non ; la toucher ouvre sa fiche.
+- `server/test/ma-niche.test.ts` — sa gestion, chez lui : l'adoption l'installe sans le faire porter, son nom, la forme qu'il montre, celui qui y vit — et ce qu'on porte ne la fait plus bouger.
+- `server/test/niche-paliers.test.ts` — sa niche qui s'embellit après sa forme ultime, chaque palier gardé, et la carte qui montre le compagnon de sa niche avec son nom.
+- `server/test/niche-reactions.test.ts` — ses réactions à la révélation, une règle pure, et chaque écran de révélation qui les lui dit — le Cabinet compris, par sa seule partie.
+- `server/test/ornements-peints.test.ts` — les ornements de la niche, peints : leurs fichiers sous empreinte, chacun à son plan, et le choix de le montrer peint, dessiné ou caché.
+- `server/test/jardin.test.ts` — les règles pures du soin et du jardin : trente trouvailles, le cadeau tiré à ses chances, les deux légendaires par exploit, le terrain qui grandit.
+- `server/test/soins.test.ts` — s'occuper de son compagnon sur un serveur jetable : trois envies par jour, le cadeau tiré une fois, la cueillette, le jardin vérifié place par place, rien qui reste d'un profil supprimé.
+- `server/test/luciole.test.ts` — la luciole, qui ne s'achète pas : la Première traversée la donne, et la première salle complète du Cabinet de curiosités ; installée dans une niche vide, jamais à la place d'un autre.
 
 ### Les récompenses
 
@@ -324,6 +353,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/niveaux.test.ts` — personne ne redescend de niveau.
 - `server/test/eclat.test.ts` — ce qui éclate.
 - `server/test/eclat-hors-soiree.test.ts` — l'Éclat au quiz du jour et au défi.
+- `server/test/eclat-reserve.test.ts` — l'Éclat tombé sur un avatar déjà éclaté attend en réserve, puis se dépense pour toujours sur un autre avatar à lui, jamais un Divin.
 - `server/test/ecussons.test.ts` — les écussons de savoir.
 - `server/test/recalcul.test.ts` — relire l'historique une fois, jamais sur une base qui hoquette.
 - `server/test/saisons.test.ts` — les légendaires de saison.
@@ -341,6 +371,8 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/lumieres.test.ts` — la lumière des trois dernières finitions.
 - `server/test/medaillons-peints.test.ts` — légendaires et Divins peints.
 - `server/test/bordures.test.ts` — les bordures de ligue.
+- `server/test/cartes-peintes.test.ts` — les cartes peintes de l'Expédition, sous empreinte et d'un poids qu'un téléphone porte ; l'œuvre peinte, sortie d'elles pour le Cabinet de curiosités, son cadre doré et son chemin sans rien de l'Expédition.
+- `server/test/journal-des-couts.test.ts` — le journal des coûts des chaînes de peinture : chaque image payée comptée au tarif de son modèle, et le budget relu avant la suivante.
 
 ### Les thèmes et la boutique
 
@@ -358,6 +390,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/missions.test.ts` — trois missions par jour, ce qui est fait retenu une fois, le coffre du lundi.
 - `server/test/missions-page.test.ts` — ce que la page sait de ses missions : une lecture partagée, le refus d'un invité.
 - `server/test/missions-charge.test.ts` — ce que la ligne de l'accueil attend de Turso.
+- `server/test/coffre-du-mois.test.ts` — le coffre du mois : la place au classement du quiz du jour fait son rang, et il s'ouvre une fois, comme celui de la semaine.
 
 ### La bibliothèque de quiz
 
@@ -392,7 +425,8 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/corrige.test.ts` — le corrigé d'une question.
 - `server/test/laurier.test.ts` — le laurier du vainqueur d'hier.
 - `server/test/soiree-et-jour.test.ts` — la soirée et le quiz du jour se parlent.
-- `server/test/rappel.test.ts` — le rappel du soir, seule notification d'un joueur — et le service worker sous `/admin`, celui des alertes du QG. Le faux service de push et ses téléphones vivent dans `server/test/push.ts`.
+- `server/test/rappel.test.ts` — le rappel du soir, seule notification d'un joueur — et le service worker sous `/admin`, celui des alertes du QG.
+- `server/test/push.ts` — pas un fichier de tests : un service de push sur la machine, et les téléphones qui s'y abonnent, qui déchiffrent ce qu'ils reçoivent comme un vrai ; le rappel du soir et les alertes du QG (`server/test/qg-erreurs.test.ts`) s'en servent.
 - `server/test/installation.test.ts` — installer l'application.
 
 ### La campagne et sa base
@@ -401,7 +435,9 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/campagne-abandon.test.ts` — abandonner une série décerne ce qu'elle a joué.
 - `server/test/campagne-carnet.test.ts` — le carnet de révision, relu du journal des réponses.
 - `server/test/campagne-charge.test.ts` — ce qu'une réponse de campagne coûte à Turso.
-- `server/test/journal-des-reponses.test.ts` — le journal des réponses gardé en mémoire : chaque dérivation — la mesure, le modèle, l'expérience, les vues, les écussons, les missions, le carnet, les compagnons, les épreuves des sentiers — comparée au SQL d'avant sur une base au hasard, lue par tranches, en double et en retard ; puis ses tranches gardées (`campagne_tranches`) : un réveil qui les relit au lieu de toute la base, un duel annulé depuis, une tranche égarée, illisible ou d'avant, une réponse effacée ou modifiée et une série effacée, qui les effacent.
+- `server/test/journal-des-reponses.test.ts` — le journal des réponses gardé en mémoire : chaque dérivation — la mesure, le modèle, l'expérience, les vues (dépliées de ce qu'une pièce du Cabinet a montré de la base, les premières réponses telles quelles), les écussons, les missions, le carnet, les compagnons, les épreuves des sentiers — comparée au SQL d'avant sur une base au hasard, lue par tranches, en double et en retard, des rébus, des frises et des pièces du Cabinet (`cab:`) compris, qu'aucun carnet ne garde ; puis ses tranches gardées (`campagne_tranches`) : un réveil qui les relit au lieu de toute la base, un duel annulé depuis, une tranche égarée, illisible ou d'avant, une réponse effacée ou modifiée et une série effacée, qui les effacent.
+- `server/test/hors-de-la-base.test.ts` — ce qui n'est pas une question de la base, d'une seule liste (`shared/horsDeLaBase.ts`) : le rébus, la frise et le Cabinet, chacun sa phrase au signalement ; le même partage en SQL qu'en mémoire ; une garde qui relit le code du serveur et de `shared/` — pas ses commentaires — pour qu'aucun filtre ni aucun refus n'y soit recopié ; puis, par les routes, une partie du Cabinet ratée : sa question de la base entre au carnet et se signale, le reste non.
+- `server/test/cabinet-hors-des-vues.test.ts` — ce que le Cabinet révèle de la base compte vu pour toute la campagne : les cinq questions d'une manche de l'Éclair, celles qui nomment le tableau du Détail, les nouveaux venus d'une frise d'un sujet — que la série lit vues —, jamais comme ses premières réponses ; et ce qu'une manche a montré de plus que sa pièce (`cabinet.montre`) : les trois leurres du Détail, ce que « Changer » remplace au Détail, au Pari et à l'Épingle — la rechange, qui n'est plus nue —, jamais sur tes murs (`jugeesDe`).
 - `server/test/journal-des-duels.test.ts` — le journal des duels gardé en mémoire, comparé joueur par joueur à la lecture d'avant (`lectureDesDuels`) sur une base au hasard : lu une fois, puis ce qui ferme sans rien écrire, ce qui finit sous ses yeux, ce qui s'écrit sans lui, et une fin écrite ailleurs, que la relecture du démarrage voit ; puis ce que ses relectures ne perdent pas en route — un lot de fin de partie sans réponse, une réponse écrite juste après la fermeture de son duel, une relecture ratée, une lue avant le départ d'un profil —, l'horloge à la main et les réponses retenues par une porte.
 - `server/test/campagne-defi.test.ts` — le défi de la semaine, son vainqueur, le laurier d'argent.
 - `server/test/campagne-en-tete.test.ts` — les bonnes réponses sous le numéro de la question.
@@ -412,6 +448,13 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/campagne-familles.test.ts` — une question part de la part que trouve sa famille : sa catégorie et sa difficulté, ou, pour une année, un nombre, un vrai ou faux, sa forme.
 - `server/test/bareme-du-solo.test.ts` — le barème du solo et son recompte au démarrage.
 - `server/test/tirage-sans-redite.test.ts` — pas deux jumelles dans une épreuve ou un duel.
+- `server/test/tirage-a-la-piece.test.ts` — le tirage à la pièce, sorti de `core/campagne.ts` (`core/tirageALaPiece.ts`) : comparé au code d'avant, gardé dans le test, au même hasard — l'escale, le battage d'une question, la moins vue, la frise de quatre ; puis ce qu'il apprend pour le Cabinet : la fenêtre de sept jours, deux marches qui se valent, cinq QCM d'un coup pour l'Éclair ; et la frise de sept, jamais sous l'écart (`choisirLaFriseSansRepli`) — sur des tas serrés, contre toutes les suites possibles.
+- `server/test/porte-de-la-campagne.test.ts` — la porte du Cabinet de curiosités vers la campagne (`core/porteDeLaCampagne.ts`), sur le magasin même, ses allers-retours comptés : le réveil, qui pose ses tables, sa colonne et son secret sans un aller-retour de plus ; le secret, tiré une fois pour deux serveurs et un redémarrage ; le rituel d'une réponse (l'expédition en route qui relit ce qu'il a vu, le journal qui se sait en retard) ; la fin d'une partie — l'expérience créditée une fois, au rang de chaque juste dans son jour de Paris, minuit compris, ses gardiens, ses paliers, le compagnon, dans cet ordre —, rien de refait quand le geste qui garde le lot était déjà pris, et rien qui fasse échouer une fin écrite ; un lot refusé ; ce que le Cabinet ajoute aux paliers, sans un compte de la campagne ; la base gardée, et le verrou du profil, dans les deux sens.
+- `server/test/campagne-modes.test.ts` — le mode d'une partie lu dans une seule liste (`MODES_DE_SERIE`) : son type, sa lecture, le lieu d'un signalement ; une partie du Cabinet que les routes de la série refusent, sinon pour signaler une question de la base, et que le QG compte à part ; chaque insertion d'une partie relue dans le code du serveur.
+- `server/test/campagne-index.test.ts` — les lectures des séries ne parcourent que les séries, et la partie en cours de chaque mode se cherche par le profil et le mode : le plan de chaque lecture, sans statistiques comme la production, puis sous des statistiques qui préféreraient le mauvais index.
+- `server/test/campagne-mesure.test.ts` — la mesure des difficultés qui ne se fait jamais attendre, sa série de référence et son décodage comparés au code d'avant, gardé dans le test.
+- `server/test/tirage-prepare.test.ts` — le tirage d'une série préparé une fois par liste de jouables et par mesure, comparé question pour question au tirage d'avant, au même hasard.
+- `server/test/travail-de-fond.test.ts` — le travail de fond rend la main une étape à la fois : les tours de boucle comptés, jamais deux étapes lourdes dans le même.
 - `server/test/campagne-base.test.ts` — la base livrée : rien de défectueux n'y entre, elle ne recule jamais.
 - `server/test/campagne-routine.test.ts` — le dépôt du matin, relu par le juge, plafonné.
 - `server/test/campagne-signalements.test.ts` — les signalements : garder, retirer, corriger.
@@ -432,6 +475,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/sentiers-vies.test.ts` — les vies du jour, celles qu'on achète, l'administration des paliers.
 - `server/test/sentiers-pour-toi.test.ts` — sa chance sur chaque sentier, en couleur de piste, et ce qu'elle valait il y a une semaine.
 - `server/test/parcours.test.ts` — les parcours de thème, dans « Apprendre ».
+- `server/test/sentiers-trophees.test.ts` — les trophées des sentiers : Le Randonneur, La Constellation, Le Cartographe, L'Impeccable et Contre toute attente ; les paliers repris des portraits d'avant n'y comptent qu'une fois rejoués.
 
 ### Les duels et les amis
 
@@ -449,6 +493,80 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/amis-feuille.test.ts` — la feuille des amis et la page des duels, rendues.
 - `server/test/joueurs-croises.test.ts` — les joueurs croisés, à défier ou à ajouter.
 - `server/test/modele-du-savoir.test.ts` — le modèle du savoir, qu'Automate et la page des sentiers lisent : ce que vaut chaque difficulté estimée, appris en bloc.
+- `server/test/duels-montee.test.ts` — la montée : deux cotes, la cachée qui règle Automate et celle qu'on voit, qui avance pour qui joue ; l'ELO dès la Platine, et l'adversaire sous ses ligues gardées compté à son plancher.
+- `server/test/duels-de.test.ts` — le dé à chances égales, sur ce qu'on a choisi : Automate compte comme un adversaire de sa cote.
+- `server/test/duels-enjeu.test.ts` — ce qu'un duel met en jeu, dit avant de le jouer, partout où l'on choisit un adversaire, et la feuille du dé qui s'ouvre avant de tirer.
+- `server/test/calibrage-duels.test.ts` — le script qui mesure les duels sur une vraie base, éprouvé ici sur une base jetable au vrai schéma : il relit le journal que la cote relit, n'écrit rien et ne nomme personne.
+
+### L'Expédition
+
+Une partie est une série de la campagne (`mode = 'expedition'`) ; son départ se ferme le jour où le Cabinet de curiosités le remplace (`EXPEDITION_REMPLACEE`), et ce qu'elle a donné reste. Chaque version du départ a gardé ses épreuves : une expédition partie avant une règle se rejoue sous les siennes.
+
+- `server/test/expedition.test.ts` — les routes de bout en bout, la source, les gardiens qu'il a, l'ouverture en production.
+- `server/test/expedition-carte.test.ts` — le générateur, les chances, le tracé.
+- `server/test/expedition-carte-ecran.test.ts` — l'écran de la carte, rendu : une seule escale éclairée, les escales permises en cartes, la plus sûre à son ruban, la main en cartes au cadre de leur rareté, la carte levée.
+- `server/test/expedition-question-ecran.test.ts` — une question à l'écran : les deux réponses de Double chance cochées, leur filet tenu sous le survol collé du téléphone.
+- `server/test/expedition-pli.test.ts` — le pli, qui replie l'état à chaque lecture.
+- `server/test/expedition-legendaires.test.ts` — la voie d'un légendaire gardé au bout, les jokers, la voie montrée.
+- `server/test/expedition-jokers.test.ts` — chaque joker dans le pli : la main, la défausse, les posés, les offres, le campement, l'équipée.
+- `server/test/expedition-mesure.test.ts` — par les routes : l'équipée et l'invité du jour, ce qu'un joker montre sans la bonne réponse, la colonne `joker`, la mesure, le carnet ; aucun joker hors de l'expédition.
+- `server/test/expedition-charge.test.ts` — les allers-retours de chaque geste, comptés ; ce qu'il a vu relu après une réponse ailleurs ; une écriture ratée oubliée.
+- `server/test/expedition-sur-place.test.ts` — les cartes jouées sur place donnent la vue du pli, chacune puis des expéditions entières au hasard ; par les routes, leur lot écrit d'un aller-retour.
+- `server/test/expedition-tirage.test.ts` — le tirage d'une escale : ce qu'il lit, compté, et ses règles.
+- `server/test/expedition-formes.test.ts` — six choix, vrai ou faux, le dévoilement et sa route, Arrêt sur image.
+- `server/test/expedition-ecus.test.ts` — les écus dans le pli : les pistes, l'échoppe, les talismans, l'inconnu ; une expédition d'avant les écus.
+- `server/test/expedition-echoppe.test.ts` — par les routes : les écus qui meurent avec l'expédition, l'échoppe et ses refus, l'inconnu caché jusqu'à son dévoilement, le piège qui finit d'un geste.
+- `server/test/expedition-themes.test.ts` — sur la vraie base : les thèmes pointus d'une carte, jamais une rubrique ni une époque remplacée.
+- `server/test/expedition-passeport.test.ts` — le tampon d'un thème pointu trouvé, la carte qui signale les autres, le Globe-trotter.
+- `server/test/expedition-saison.test.ts` — la fête sur les cartes, son légendaire à l'acte 3, le calendrier des expéditions rouvert.
+- `server/test/codex.test.ts` — le codex, pur : l'échelle et les exploits, la renommée et les niveaux, les offres, le trésor d'un gardien, les fioles, les dos, l'Ascension.
+- `server/test/expedition-codex.test.ts` — le codex par les routes : le bilan écrit à chaque fin, la renommée relue des bilans, les bilans refaits une fois, le codex et le cran de l'Ascension figés au départ.
+- `server/test/expedition-rencontres.test.ts` — les rencontres : leurs règles et le pli.
+- `server/test/expedition-rencontres-routes.test.ts` — les rencontres par les routes : la question cachée tant qu'il prépare, la mise, le verdict, le dévoilement, Corser, Simplifier, une fiole bue.
+- `server/test/expedition-rencontres-ecran.test.ts` — l'écran des rencontres, rendu : la carte levée qui promet ce que le serveur fait, la préparation dans l'ordre où l'on joue, le codex, les fioles, et les mots de l'écran — ni « sceaux », ni « Charge », ni « Garde », ni « inspiration ».
+- `server/test/expedition-partir.test.ts` — « ← Partir » mène au départ, qui garde l'expédition en route ; un débutant n'y choisit pas de légendaires ; l'Ascension, rien avant une victoire.
+- `server/test/expedition-styles.test.ts` — « Ton style » : l'échelle des styles, le paquet d'un style et ce qu'il remplace, les offres sans style tirées comme avant lui, carte pour carte.
+- `server/test/expedition-jeu-complet.test.ts` — le jeu complet : l'énergie de chaque acte, l'épique dans les offres, chaque carte neuve levée puis jouée, sa promesse tenue par le pli.
+- `server/test/expedition-huit-familles.test.ts` — les huit familles : leurs seize cartes, le doute avant le verdict, le courage qu'on paie.
+- `server/test/expedition-ameliorations.test.ts` — les cartes améliorées : aucune qui fasse moins que sa carte, et aucune clé qui s'améliore cherchée seule dans le code.
+- `server/test/expedition-question-au-centre.test.ts` — la question au centre (la version 10) : les crans de l'adversaire, le tour, la main de l'acte, une carte par question.
+- `server/test/expedition-coups-de-pouce.test.ts` — les coups de pouce et les lettres (la version 11) : le gabarit, les tuiles, la composition jugée au serveur.
+- `server/test/expedition-curiosites.test.ts` — les curiosités (la version 12) : le générateur, les rébus et les plats livrés, la récompense.
+- `server/test/expedition-frise.test.ts` — la frise (la version 13) : ses règles pures, le contenu livré, le pli, puis par les routes et à l'écran.
+- `server/test/expedition-familles.test.ts` — les familles en façons de répondre (la version 14) : les six styles, le second essai, la fétiche.
+- `server/test/expedition-detail.test.ts` — le détail (la version 15) : ses cadrages, les tableaux livrés, l'acte 3 plus dur, le carnet.
+- `server/test/details.test.ts` — les images du détail, que le Détail du Cabinet montre aussi : quatre cadrages emboîtés par tableau, 40 Ko au plus chacun, un peintre mort depuis soixante-dix ans révolus, chaque tableau demandé par une question de la base.
+- `server/test/expedition-journal.ts` — pas un fichier de tests : le journal écrit comme le serveur, des plans faits à la main, et les pièces de la page rendues, que partagent les fichiers du jeu complet et des versions d'après.
+
+### Le Cabinet de curiosités
+
+Une partie est une série de la campagne (`mode = 'cabinet'`), qui n'y touche que par sa porte : la porte elle-même (`server/test/porte-de-la-campagne.test.ts`), le tirage à la pièce, ce qui n'est pas une question de la base, ce que ses manches font compter vu, le journal des réponses et le mode d'une partie ont leur ligne [avec la campagne](#la-campagne-et-sa-base). Ce que le produit en dit : [le Cabinet de curiosités](../produit/le-cabinet.md). Ses épreuves partent du banc du Cabinet (`server/test/cabinet-banc.ts`) — sa base d'essai, ses magasins seuls, ou un vrai serveur — ou des plans d'essai (`server/test/cabinet-plans.ts`) pour les règles pures ; le calendrier du Cabinet y est fermé, sauf dans `server/test/cabinet-saisons.test.ts`.
+
+- `server/test/cabinet-banc.ts` — pas un fichier de tests : une base d'essai du Cabinet et ses magasins sur un fichier `file:` — plusieurs « serveurs » sur la même —, un vrai serveur (`bancDuCabinet`) et de quoi y jouer par les routes, les réponses lues dans le plan figé en base.
+- `server/test/cabinet-plans.ts` — pas un fichier de tests : un contenu tiré de chacun des neuf jeux, petit et lisible, un départ, et une partie jouée geste à geste comme le serveur la jouera, l'heure d'arrivée de chaque geste à la main.
+- `server/test/cabinet-regles.test.ts` — une partie jouée en pur, de son départ à son bilan : le pli des gestes, les pièces qu'il range, les étoiles après les pouvoirs, le cadre doré, l'issue, la poussière, la lecture d'un départ, d'un geste et d'un bilan — chaque version écrite en dur —, le musée : la visite, la série, les gardiens dus, les refus.
+- `server/test/cabinet-chronos.test.ts` — le chrono, pur : figé au départ, la grâce, l'échéance, la pause, les deux étapes du Pari et de la Réplique, Prendre son temps ; puis par les routes, à l'horloge du banc ; et jamais l'horloge de la machine dans le code du Cabinet.
+- `server/test/cabinet-jeux-base.test.ts` — le Pari, l'Éclair, le Mot mystère et le Filet, les quatre jeux qui posent une question de la base : leurs règles pures, leur tireur au serveur, une partie entière par les routes.
+- `server/test/cabinet-jeux-images.test.ts` — le Détail et la Frise : leurs règles, leur tirage sur la base livrée, la route des cadrages — rien avant d'être atteint, l'adresse d'un tirage, jamais celle d'une manche —, une partie de chacun par les routes.
+- `server/test/cabinet-jeux-neufs.test.ts` — l'Épingle, les Indices et la Réplique, les trois jeux du contenu neuf : leurs règles, leur tirage sur le contenu livré — le jamais vu d'abord —, une partie de chacun par les routes, et tes murs.
+- `server/test/cabinet-pouvoirs.test.ts` — les cinq pouvoirs des cartes-bonus par les routes : ce que chacun fait, combien de fois, ses refus mot pour mot ; ce qu'en disent la manche, le bilan et l'annonce ; la carte-bonus figée au départ — jamais une qu'il n'a pas, ni un Divin, ni un joker de l'Expédition.
+- `server/test/cabinet-contenu.test.ts` — le contenu neuf livré — les lieux, les fiches, les répliques, les frises à thème — et ses juges, une seule copie.
+- `server/test/cabinet-catalogue.test.ts` — le catalogue relu contre les rencontres, les peintures, les légendaires et les saisons ; les tables gelées écrites en entier ; chaque constante de `shared/cabinet/bareme.ts` contre sa ligne des [barèmes](../reference/baremes.md), les jeux livrés contre `JEUX_PRETS` ; les imports des modules légers, et ceux du serveur du Cabinet, qui ne tirent ni la campagne, ni le quiz du jour, ni les Divins.
+- `server/test/cabinet-secret.test.ts` — l'invariant 1, jeu par jeu : rien de ce qui juge avant le verdict de sa manche, ni une rechange de « Changer », ni la graine de la partie, ni celle de la visite, ni l'œuvre visée d'une case ; chaque réponse lue en entier, pour qu'un champ neuf s'y voie.
+- `server/test/cabinet-journal.test.ts` — ce que le Cabinet écrit au journal des réponses : une ligne par pièce, juste dès deux étoiles naturelles, sa forme, le pouvoir qui l'a aidée (`joker`), `cab:` devant ce qui n'est pas une question de la base ; l'expérience créditée une fois, à la fin ; aucune réponse modifiée ni effacée.
+- `server/test/cabinet-routes.test.ts` — la page, commencer en visite, en chasse ou en libre, un geste à son rang, la reprise après un redémarrage, la partie d'hier close à la page du lendemain, la suppression d'un profil avec des lignes dans les trois tables, le plafond des départs.
+- `server/test/cabinet-charge.test.ts` — deux serveurs sur la même base, une écriture refusée, la suppression d'un profil sous un départ, les tas d'une liste neuve tour par tour, les allers-retours de chaque route comptés, et l'accueil qui dit le musée sans un de plus.
+- `server/test/cabinet-index.test.ts` — le plan de chaque lecture du lot froid et de chaque garde des lots d'écriture, sans statistiques comme la production : jamais le parcours d'une table qui grandit avec l'histoire.
+- `server/test/cabinet-poussiere.test.ts` — la poussière d'or par les routes : acheter une œuvre, dorer un cadre, changer un jeu de la visite, le cartel, « Mes réponses » ; le solde vérifié dans l'instruction même, même par deux serveurs ; rien pendant qu'une partie attend ; « Retenter » et les cinq libres payées ; rien de la poussière hors du Cabinet.
+- `server/test/cabinet-gardiens.test.ts` — les gardiens : ce que le musée doit comparé à l'étagère, seul ce qui manque rangé sous `#cabinet` ; leur annonce à la fin d'une partie, à un achat, à une dorure, à la page qui suit la partie d'hier ; la luciole à la première salle complète, le bronze de L'Explorateur ; un rangement raté rattrapé ; jamais un Divin.
+- `server/test/cabinet-saisons.test.ts` — les gardiens de saison, à leur seule fête : la première œuvre gagnée en jouant pendant Halloween range `saison:halloween` sous `#cabinet` ; ni un achat, ni une dorure ; le seul fichier qui rouvre le calendrier du Cabinet.
+- `server/test/cabinet-ouverture.test.ts` — où le Cabinet répond : hors de la production toujours, en production sous son drapeau, la balise du Cabinet fermé, ses routes en 404 dites en mots ; la maintenance qui ferme son départ, ses achats, ses dorures et son échange, jamais un geste ; puis le départ de l'Expédition fermé (`EXPEDITION_REMPLACEE`), que le banc force par son option.
+- `server/test/cabinet-ecran.test.ts` — les écrans rendus en HTML sur ce qu'un vrai serveur rend : le musée, une salle, une œuvre et son cartel, les gardiens, la visite, les jeux libres, les règles ; des parties des six premiers jeux jouées par les routes et chaque écran de leurs vues ; `api.cabinet` contre un faux `fetch` puis par les routes ; le bouton de l'accueil ; chaque taille et chaque contraste de sa feuille de style.
+- `server/test/cabinet-ecran-neufs.test.ts` — de même pour l'Épingle, les Indices, la Réplique et tes murs : la carte de France, ses calculs et ses gestes, jamais le lieu hors du dessin ; le souffle des noms ; la Réplique quittée au bon mot ; tes murs pleins, vides, en route et perdus.
+- `server/test/cabinet-mots-du-musee.test.ts` — chaque phrase que la tablée du 26 octobre 2026 a lue de travers, rendue sur ce que le serveur rend : l'œuvre gagnée à un autre jeu que le sien, deux cadres vides qui ne portent plus le même nom à l'oreille, le carnet de l'Éclair, le Scarabée et la série, la visite, le titre de l'œuvre au bilan ; et les mots de la documentation.
+- `server/test/cabinet-calibrage.test.ts` — le calibrage (`server/scripts/calibrage-cabinet.ts`) joue les règles du code : ses planchers, une mesure stable, son plafond, et ce que fait un joueur au hasard au Filet, au Détail et au Mot.
+- `server/test/cabinet-calibrage-modele.test.ts` — le modèle du calibrage, corrigé après la tablée du 25 octobre 2026 : le rang selon la force, le Filet, les œuvres de départ, « Changer », la zone d'Éclairer, la Frise en années.
+- `server/test/calibrage-du-cabinet.ts` — pas un fichier de tests : le calibrage lancé et lu comme ses deux fichiers d'épreuves le font — un seul en durait plus d'une minute.
 
 ## Pour aller plus loin
 

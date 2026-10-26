@@ -26,6 +26,7 @@ import {
 import { BRANCHES, brancheDe, portrait } from '../../../shared/branches'
 import { COLLECTION } from '../../../shared/avatars'
 import { legendaire } from '../../../shared/legendaires'
+import { salleDuGardien } from '../../../shared/cabinet/salles'
 import { divin } from '../../../shared/divins'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
@@ -65,6 +66,8 @@ const ICONE_DU_LIEU: Record<LieuDAvatar, IconName> = {
   niche: 'paw',
   eclat: 'spark',
   expedition: 'flag',
+  // L'arche du gros bouton de l'accueil : le même lieu, la même icône.
+  cabinet: 'landmark',
 }
 
 /** La légende des pastilles, sous la grille : un emoji dit son niveau en toutes lettres, il n'y est pas. */
@@ -76,6 +79,7 @@ const LEGENDE_DU_LIEU: Partial<Record<LieuDAvatar, string>> = {
   saison: 'à sa saison',
   boutique: 'en boutique',
   expedition: 'en expédition',
+  cabinet: 'au Cabinet',
 }
 
 /** Le nom d'un avatar de l'album, tel que sa case et sa fiche le disent. */
@@ -89,11 +93,11 @@ function nomDe(a: AvatarDeLAlbum): string {
  * et où. Un Divin pas encore descendu ne dit rien de lui, pas même son nom
  * (invariant 21).
  */
-function ceQueDitLaCase(a: AvatarDeLAlbum, aLui: boolean, porte: boolean): string {
+function ceQueDitLaCase(a: AvatarDeLAlbum, aLui: boolean, porte: boolean, cabinet: boolean | undefined): string {
   if (a.sorte === 'divin' && !aLui) return 'Un Divin, inconnu'
   const rarete = NOM_DE_RARETE_D_AVATAR[a.rarete].toLowerCase()
   if (aLui) return `${nomDe(a)}, ${rarete}${porte ? ', porté' : ', à toi'}`
-  return `${nomDe(a)}, ${rarete}, à gagner ${ouIlSeGagne(a)}`
+  return `${nomDe(a)}, ${rarete}, à gagner ${ouIlSeGagne(a, cabinet)}`
 }
 
 /**
@@ -103,7 +107,8 @@ function ceQueDitLaCase(a: AvatarDeLAlbum, aLui: boolean, porte: boolean): strin
  * ses jours : « Jouer le quiz du jour » en juin ne la rapprocherait de rien.
  * Un compagnon à acheter mène à la boutique ; acheté, il grandit en le
  * portant — partout : rien à ouvrir de plus que « Mon avatar », que sa fiche
- * cite déjà.
+ * cite déjà. Un gardien du Cabinet mène à la salle qu'il garde, qui dit ce qui
+ * lui manque (`#salle-rempart`) ; les autres, au musée.
  */
 function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: string } | null {
   for (const e of voies.flat()) {
@@ -112,6 +117,10 @@ function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: st
     if (e.lieu === 'campagne') return { nom: 'Aller à la campagne', href: '/campagne' }
     if (e.lieu === 'sentiers') return { nom: 'Aller au sentier', href: `/campagne#sentier-${portrait(cle)?.branche ?? ''}` }
     if (e.lieu === 'expedition') return { nom: 'Partir en expédition', href: '/expedition' }
+    if (e.lieu === 'cabinet') {
+      const s = salleDuGardien(cle)
+      return { nom: 'Aller au Cabinet', href: s ? `/cabinet#salle-${s}` : '/cabinet' }
+    }
     if (e.lieu === 'boutique') {
       // La vitrine s'ouvre sur lui : les deux autres se font glisser.
       const f = formeDeCompagnon(cle)
@@ -156,10 +165,26 @@ const Etape = ({ etape: e, jauge }: { etape: EtapeDUneVoie; jauge: boolean }) =>
  * dont une suffit, chacune ses étapes, toutes demandées —, où il en est, et
  * le chemin de l'écran où le gagner. À lui, elle dit qu'il l'a et où le
  * porter. Rien ne s'y porte. Un Divin n'y dit que son récit, à qui l'a vu
- * descendre — et rien à qui l'attend (invariant 21).
+ * descendre — et rien à qui l'attend (invariant 21). Le Cabinet s'y dit
+ * selon le drapeau du code (`voiesDeLAvatar`) ; `cabinet` le force, pour la
+ * lire telle qu'elle sera à l'ouverture.
  */
-export function FicheDeLAvatar({ a, aLui, porte, profil, dessin }: { a: AvatarDeLAlbum; aLui: boolean; porte: boolean; profil: PublicProfileDetail; dessin: ReactNode }) {
-  const voies = voiesDeLAvatar(a.cle, profil)
+export function FicheDeLAvatar({
+  a,
+  aLui,
+  porte,
+  profil,
+  dessin,
+  cabinet,
+}: {
+  a: AvatarDeLAlbum
+  aLui: boolean
+  porte: boolean
+  profil: PublicProfileDetail
+  dessin: ReactNode
+  cabinet?: boolean
+}) {
+  const voies = voiesDeLAvatar(a.cle, profil, cabinet)
   const l = legendaire(a.cle)
   const p = portrait(a.cle)
   const f = formeDeCompagnon(a.cle)
@@ -253,10 +278,21 @@ export function FicheDeLAvatar({ a, aLui, porte, profil, dessin }: { a: AvatarDe
  * la légende de ses pastilles. `page`, celle qu'une adresse demande
  * (`#collection-avatars-legendaire`) ; sinon celle de ce qu'il porte.
  * `onPage` écrit la page choisie dans l'adresse : revenu d'un écran qu'elle a
- * ouvert, on la retrouve.
+ * ouvert, on la retrouve. `cabinet` force le drapeau du Cabinet, comme sa
+ * fiche : ses pastilles, ce que ses cases disent à l'oreille, sa légende.
  */
-export function AlbumDesAvatars({ profil, page, onPage }: { profil: PublicProfileDetail; page: RareteDAvatar; onPage: (r: RareteDAvatar) => void }) {
-  const pages = pagesDeLAlbum(profil)
+export function AlbumDesAvatars({
+  profil,
+  page,
+  onPage,
+  cabinet,
+}: {
+  profil: PublicProfileDetail
+  page: RareteDAvatar
+  onPage: (r: RareteDAvatar) => void
+  cabinet?: boolean
+}) {
+  const pages = pagesDeLAlbum(profil, cabinet)
   const [ouvert, setOuvert] = useState<string | null>(null)
   // Une autre page demandée par l'adresse, l'album déjà là : sa fiche se referme.
   useEffect(() => setOuvert(null), [page])
@@ -305,7 +341,7 @@ export function AlbumDesAvatars({ profil, page, onPage }: { profil: PublicProfil
                 className={'album-case' + (aLui ? '' : ' album-manque') + (a.sorte === 'emoji' ? ' album-emoji' : '')}
                 aria-expanded={ouvert === a.cle}
                 aria-controls={ouvert === a.cle ? 'fiche-avatar' : undefined}
-                aria-label={ceQueDitLaCase(a, aLui, lePorte)}
+                aria-label={ceQueDitLaCase(a, aLui, lePorte, cabinet)}
                 onClick={() => toucher(a.cle)}
               >
                 <span className="album-medaillon" aria-hidden="true">
@@ -329,7 +365,7 @@ export function AlbumDesAvatars({ profil, page, onPage }: { profil: PublicProfil
               </button>
               {ouvert === a.cle && (
                 <div id="fiche-avatar" className="fiche-case album-fiche" ref={detail}>
-                  <FicheDeLAvatar a={a} aLui={aLui} porte={lePorte} profil={profil} dessin={dessin(a, aLui, true)} />
+                  <FicheDeLAvatar a={a} aLui={aLui} porte={lePorte} profil={profil} dessin={dessin(a, aLui, true)} cabinet={cabinet} />
                 </div>
               )}
             </Fragment>

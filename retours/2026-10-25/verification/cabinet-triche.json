@@ -1,0 +1,52 @@
+[
+  {
+    "id": "cabinet-triche-1",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P2",
+    "gravite": "P2",
+    "repro_rejouee": true,
+    "raison": "Les quatre épreuves de pause-sous-le-voile.test.ts échouent pour la raison dite, et trois d'entre elles n'envoient que pause et reprendre, ce que la vraie page envoie (Partie.tsx:780, 797). Aucune garde : echeanceDe recule l'échéance de la pause (chrono.ts:70), marquerLeTemps ne marque que sous la carte temps (partie.ts:355-358), resultatDe ignore la pause (:690-691). Pas besoin d'outils : la manche est à l'écran jusqu'à « Quitter », et le dialogue annonce « Le chrono t'attend 30 secondes au plus » (Partie.tsx:205). Cela contredit decisions.md:1834 (la pause « ne vend pas le temps que Prendre son temps vend »). La ligne exacte est vue.ts:259, pas 256.",
+    "pourquoi": "Réel et à portée de tout joueur ; les enjeux restent le musée du joueur et la première question du Pari comptée nue à la mesure. Le Cabinet est fermé en production.",
+    "correction": "La piste (b), pas la (a). Le plus simple : borner PAUSE_MAX_MS à quelques secondes, le temps de lire la confirmation ; c'est un chiffre figé au départ, donc sans version. Sinon, une marque à part (pas JOKER_DU_TEMPS) pour une réponse que seule la pause rend à l'heure, avec une version du départ. La (a) seule ne ferme rien, puisque la question était déjà lue. Telle qu'elle est écrite, elle casse l'envoi à l'échéance sous la pause, qui lit vue.enCours (Partie.tsx:740-744) : il faudrait garder le dernier enCours dans une référence. Refuser le cadrage sous la pause ne sert à rien : l'image est déjà affichée et gardée un jour par le téléphone (max-age=86400)."
+  },
+  {
+    "id": "cabinet-triche-2",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P2",
+    "gravite": "P2",
+    "repro_rejouee": true,
+    "raison": "detail-par-les-voisins.ts relancé donne les mêmes chiffres (52,1 %, 41,2 %), et la règle recopiée est fidèle à detailTire (detail.ts:118-127). Il y a une seconde fuite, plus forte, que la correction proposée laisse passer. Le tireur prend le tableau jamais vu d'abord (laMoinsVue, tirages/detail.ts:38), et seule la bonne s'écrit vue. Un joueur qui se souvient des tableaux déjà nommés en réponse les écarte, et monte à 29,7 %, 46,5 % puis 78,0 % sur 33 parties ; avec la fenêtre consécutive, 77,6 % (verification/cabinet-triche/detail-jamais-vu.txt).",
+    "pourquoi": "Réel, à portée d'un joueur régulier du Détail, sans le catalogue. Les dégâts restent dans son musée : neuf œuvres et leurs dorures. Ce n'est pas l'invariant 1 : c'est le tirage des leurres.",
+    "correction": "La fenêtre de quatre tableaux consécutifs en années, prise parmi les tableaux du même statut de fraîcheur que la bonne (jamais vus avec un jamais vu), tant qu'il y en a quatre. Le script retombe à 24,9-25,4 %. Le plan figé garde ses titres, aucune version. Rejouer detail-par-les-voisins.ts et detail-jamais-vu.ts sur la règle neuve."
+  },
+  {
+    "id": "cabinet-triche-3",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "eclair-hors-des-vues.test.ts échoue pour la raison dite, par le chemin même de la route (magasin commencer et geste). Le duel classé lit journal.vuesDe sans rien déplier (campagne.ts:4057-4065, journalDesReponses.ts:561-570). La décision « sans danger, la série ne reprend pas ce que l'Éclair a récrit » (decisions.md:1685-1687) part d'une prémisse fausse : l'Éclair montre l'intitulé même de la base (eclair.ts:155), et sa révélation dit bonne (:166).",
+    "pourquoi": "Avantage diffus et non ciblé, proportionnel à la part de la base vue à l'Éclair. Cabinet fermé en production.",
+    "correction": "Déplier les composés dans vuesDe pour vues seulement (fraîcheur, duel, série, dé), jamais pour premieres : une manche de l'Éclair n'est la première réponse d'aucune de ses questions. Le Détail se déplie au serveur par tableau.questions (core/details.ts), pas par deplier, qui est pur. Le volet de la mesure est secondaire. Ajouter une épreuve contre le SQL d'avant dans journal-des-reponses.test.ts, et récrire decisions.md:1685-1687 dans le même commit."
+  },
+  {
+    "id": "cabinet-triche-4",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "retente-oracle.test.ts échoue pour la raison dite : cadreDuDepart juge Retenter (musee.ts:473-475) avant la carte (:492). Mais la correction proposée ne ferme pas l'oracle. verification/cabinet-triche/retente-sans-carte.test.ts passe aujourd'hui et passerait encore avec la carte jugée d'abord : sans carte, les deux autres candidates se refusent et l'œuvre visée seule part ([lucidite 400, augure 400, presage 200], chasses 2 → 1). L'oracle coûte alors une chasse, celle qu'il voulait dépenser à retenter. La variante « un même refus » ne change rien, puisque la bonne part.",
+    "pourquoi": "Un secret promis qui fuit, à faible enjeu : la surprise de l'œuvre et le jeu de la visite pour la chasse.",
+    "correction": "Retenter vise la case, pas l'œuvre ({ origine: 'chasse', case: k, retente: true }) : le serveur trouve la cible dans la visite figée, et la vue ne dit que la rareté et la salle (enJeuDuDepart). Une demande Retenter qui nomme une œuvre se refuse pour toutes dans les mêmes mots. La page pourrait alors proposer Retenter, comme le voulait la proposition (retours/2026-10-24/le-cabinet.md:103). Ajouter les deux épreuves à cabinet-secret.test.ts."
+  },
+  {
+    "id": "cabinet-triche-5",
+    "verdict": "tension",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "quitter-d-emblee.test.ts passe et mesure : 30 poussières, série de 30 jours, Scarabée réveillé. C'est la règle écrite : la série compte les jours avec une partie de visite ou de chasse, et le Scarabée trente jours d'affilée (docs/produit/le-cabinet.md:92, 111). Le principe heurté vient de la mission, pas des partis pris.",
+    "pourquoi": "Un choix de produit à arbitrer, pas un défaut du code.",
+    "correction": "Si on tranche : compter le jour d'une partie qui a tranché au moins une manche par une réponse (au bilan, une pièce dont choix n'est pas NULL) ; sinon le dire dans « Comment ça marche ? ». La poussière relève de cabinet-equilibre."
+  }
+]

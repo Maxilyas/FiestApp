@@ -266,6 +266,140 @@ test('la carte d’un joueur rend le reste de la page inerte, et le focus à qui
   assert.match(modale, /avant\?\.focus\(/)
 })
 
+// ── Un dialogue : une vraie fenêtre modale aussi ──────────────────────────
+
+test('« Quitter cette partie ? » rend le reste de la page inerte, et un toucher ne lui vole pas son focus', async () => {
+  // La tablée du 25 octobre 2026 (Hugo, au lecteur d'écran) : ouverte au lever du doigt — « Quitter » à la révélation d'une manche
+  // du Cabinet, sans pause à demander —, la fenêtre posait le focus sur « Continuer », puis le mousedown que le navigateur fait
+  // suivre tombait sur le voile, qui ne se focalise pas : le focus partait sur la page, rien n'était inerte derrière, et Tab,
+  // Tab, Entrée jouait « Manche suivante » derrière la fenêtre restée ouverte.
+  const { arretDuTab } = await import(new URL('../../client/src/components/Dialog.tsx', import.meta.url).href)
+  // Le voile d'une feuille arrête le sien de même : il vit avec les fenêtres modales (`modale.ts`), que les deux importent.
+  const { retenirLeFocus } = await import(new URL('../../client/src/modale.ts', import.meta.url).href)
+
+  // Un appui sur le voile même garde le focus où la fenêtre l'a posé ; un appui dans la boîte garde le sien.
+  const appui = (target: object, currentTarget: object) => {
+    const vu = { empeche: false }
+    retenirLeFocus({ target, currentTarget, preventDefault: () => void (vu.empeche = true) })
+    return vu.empeche
+  }
+  const voile = {}
+  assert.equal(appui(voile, voile), true, 'le mousedown du doigt sur le voile')
+  assert.equal(appui({}, voile), false, 'un champ, un bouton de la boîte prennent le focus')
+
+  // Tab tourne dans la boîte — et y revient d'ailleurs : le focus tombé sur la page n'emmène plus Tab derrière la fenêtre.
+  const arrets = ['Continuer', 'Quitter la partie']
+  assert.equal(arretDuTab(arrets, 'la page', false), 'Continuer', 'Tab parti de la page revient au premier bouton')
+  assert.equal(arretDuTab(arrets, 'la page', true), 'Quitter la partie', 'et Maj+Tab au dernier')
+  assert.equal(arretDuTab(arrets, 'Quitter la partie', false), 'Continuer', 'du dernier au premier')
+  assert.equal(arretDuTab(arrets, 'Continuer', true), 'Quitter la partie', 'du premier au dernier, en arrière')
+  assert.equal(arretDuTab(arrets, 'Continuer', false), null, 'entre deux arrêts, le navigateur y suffit')
+  assert.equal(arretDuTab([], 'la page', false), null, 'une boîte sans arrêt ne retient rien')
+
+  // Le reste de la page inerte, comme sous la carte d'un joueur : tout ce qui n'est ni le voile ni l'un de ses ancêtres. Le voile
+  // reste vivant — le toucher pour renoncer le ferme encore —, et l'inertie se compte avec les autres fenêtres (`couvrir`).
+  const dialogue = source('components/Dialog.tsx')
+  assert.match(dialogue, /<div className="dialog-backdrop" ref=\{voile\} onMouseDown=\{retenirLeFocus\}/, 'le voile garde le focus où la fenêtre l’a posé')
+  assert.match(dialogue, /const decouvrir = couvrir\(voile\.current \? horsDeLaBoite\(voile\.current, document\.body\) : \[\]\)/)
+  // Rendu vivant avant de rendre le focus : un bouton inerte ne le prend pas.
+  const nettoyage = dialogue.slice(dialogue.indexOf("document.removeEventListener('keydown', onKey)"))
+  assert.ok(nettoyage.indexOf('decouvrir()') >= 0, 'le reste de la page rendu vivant en partant')
+  assert.ok(nettoyage.indexOf('decouvrir()') < nettoyage.indexOf('opener?.focus'), 'avant que le focus revienne à « Quitter »')
+  assert.match(dialogue, /const vise = arretDuTab\(focusable\(\), document\.activeElement, e\.shiftKey\)/)
+})
+
+test('deux fenêtres empilées : ce qu’elles couvrent ne revit qu’au départ de la dernière, d’où qu’elle parte', async () => {
+  // La barre du chef referme d'elle-même la feuille d'une équipe que l'écran commun a retirée (`BarreDuChef.tsx`), et
+  // « Supprimer l'équipe » y ouvre une confirmation par-dessus. Chaque fenêtre écartait ce qui était déjà inerte : la confirmation
+  // ne retenait pas la niche, les bandeaux ni le reste de `body`, que la feuille avait endormis — la feuille partie la première,
+  // son nettoyage les rendait vivants derrière la confirmation encore ouverte, et le lecteur d'écran les lisait.
+  const { couvrir } = await import(new URL('../../client/src/modale.ts', import.meta.url).href)
+  const element = (inerte = false) => {
+    const attributs = new Set(inerte ? ['inert'] : [])
+    return {
+      hasAttribute: (n: string) => attributs.has(n),
+      setAttribute: (n: string) => void attributs.add(n),
+      removeAttribute: (n: string) => void attributs.delete(n),
+    }
+  }
+  const niche = element()
+  const bandeau = element()
+  const page = element()
+  // Inerte par la page elle-même — la face cachée d'une carte à collectionner : aucune fenêtre n'y touche.
+  const faceCachee = element(true)
+  const inertes = () => [niche, bandeau, page, faceCachee].map(e => e.hasAttribute('inert'))
+
+  const sousLaFeuille = couvrir([niche, bandeau, faceCachee])
+  assert.deepEqual(inertes(), [true, true, false, true], 'la feuille ouverte')
+  const sousLeDialogue = couvrir([page, niche, bandeau, faceCachee])
+  assert.deepEqual(inertes(), [true, true, true, true], 'la confirmation ouverte sur elle')
+  sousLaFeuille()
+  assert.deepEqual(inertes(), [true, true, true, true], 'la feuille partie la première : rien ne revit derrière la confirmation')
+  sousLaFeuille()
+  assert.deepEqual(inertes(), [true, true, true, true], 'rendu deux fois, rien de plus')
+  sousLeDialogue()
+  assert.deepEqual(inertes(), [false, false, false, true], 'la dernière partie, tout revit — sauf ce que la page avait endormi')
+
+  // Dans l'ordre d'ouverture aussi.
+  const a = couvrir([niche])
+  const b = couvrir([niche])
+  b()
+  assert.equal(niche.hasAttribute('inert'), true, 'la fenêtre du dessus partie, celle d’en dessous couvre encore')
+  a()
+  assert.equal(niche.hasAttribute('inert'), false)
+
+  // Les deux portes passent par lui : une feuille, une carte (`useModale`), un dialogue — plus aucune n'écarte à part ce qui
+  // était inerte, ni ne le rend vivant à plat.
+  for (const f of ['modale.ts', 'components/Dialog.tsx']) {
+    const s = source(f)
+    assert.match(s, /couvrir\(/, `${f} compte ce qu'il couvre`)
+    assert.doesNotMatch(s, /filter\(e => !e\.hasAttribute\('inert'\)\)/, `${f} écarte encore à part ce qui était inerte`)
+    assert.doesNotMatch(s, /for \(const e of rendus\) e\.removeAttribute\('inert'\)/, `${f} rend encore vivant à plat`)
+  }
+})
+
+test('une fenêtre reçoit le focus sans anneau : ni à l’arrivée sans geste, ni ouverte au clavier', () => {
+  // La feuille des missions s'ouvre d'elle-même à l'arrivée sur `/#missions` (le lien des fins de partie), le réveil d'un gardien
+  // à l'arrivée au Cabinet : focalisée par le code avant tout geste — ou ouverte au clavier —, `:focus-visible` donnait à la boîte
+  // le filet blanc du navigateur (`outline: auto`, mesuré dans Chromium en 360 × 640), que l'anneau de l'application écarte de ce
+  // qui a `tabindex="-1"`. Au Cabinet, `.cab-page` l'effaçait sous trois feuilles, pas sous les deux autres.
+  const modale = source('modale.ts')
+  assert.match(modale, /const SANS_ANNEAU[^=]*= \{ focusVisible: false \}/)
+  assert.match(modale, /boite\.current\?\.focus\(SANS_ANNEAU\)/)
+  assert.doesNotMatch(modale, /boite\.current\?\.focus\(\)/, 'aucune boîte focalisée avec l’anneau')
+  // L'anneau d'or de l'application, lui, n'a pas changé : il vient au premier Tab, sur « Fermer ».
+  assert.match(CSS, /:where\(:not\(\[tabindex='-1'\]\)\):focus-visible \{\s*outline: 2px solid var\(--focus\);/)
+  // La feuille et la carte d'un joueur passent par elle.
+  for (const f of ['components/Pieces.tsx', 'components/CarteJoueur.tsx']) assert.match(source(f), /useModale\(boite, onFermer\)/, f)
+  // Et la ceinture CSS, pour un navigateur qui ignore l'option : la feuille comme la carte d'un joueur, sans le filet du navigateur.
+  assert.match(CSS, /\.carte-joueur:focus \{ outline: none; \}\n\.carte-feuille:focus \{ outline: none; \}/)
+})
+
+test('Échap ne ferme que la fenêtre du dessus : la feuille, la carte ou le dialogue ouvert en dernier', async () => {
+  // Une feuille, la carte d'un joueur et un dialogue écoutent tous Échap sur le document, et la plus ancienne l'entend la
+  // première : la galerie des compagnons se fermait avec l'adoption qu'on y confirmait, et une feuille devenue modale se serait
+  // fermée avec la carte d'un ami ouverte sur elle.
+  const { poserUneFenetre } = await import(new URL('../../client/src/modale.ts', import.meta.url).href)
+  const feuille = poserUneFenetre()
+  assert.equal(feuille.dessus(), true, 'seule ouverte')
+  const carte = poserUneFenetre()
+  assert.deepEqual([feuille.dessus(), carte.dessus()], [false, true], 'la carte ouverte sur la feuille a le clavier')
+  const dialogue = poserUneFenetre()
+  assert.deepEqual([feuille.dessus(), carte.dessus(), dialogue.dessus()], [false, false, true])
+  dialogue.retirer()
+  dialogue.retirer()
+  assert.deepEqual([feuille.dessus(), carte.dessus()], [false, true], 'le dialogue parti, la carte reprend le clavier ; retiré deux fois, rien de plus')
+  // Une fenêtre d'en dessous qui part la première — sa page démontée — ne retire pas celle du dessus.
+  feuille.retirer()
+  assert.equal(carte.dessus(), true)
+  carte.retirer()
+  // Les deux portes du clavier le lisent : celle des feuilles et des cartes, celle des dialogues.
+  assert.match(source('modale.ts'), /const touche = \(e: KeyboardEvent\) => e\.key === 'Escape' && fenetre\.dessus\(\) && fermer\.current\(\)/)
+  const dialogues = source('components/Dialog.tsx')
+  assert.match(dialogues, /const onKey = \(e: KeyboardEvent\) => \{\s*(?:\/\/[^\n]*\n\s*)*if \(!fenetre\.dessus\(\)\) return/)
+  for (const f of ['modale.ts', 'components/Dialog.tsx']) assert.match(source(f), /fenetre\.retirer\(\)/, `${f} se retire en partant`)
+})
+
 test('la carte se ferme d’une croix sous elle, toujours en vue, et ne prend plus tout l’écran', async () => {
   // « Fermer » attendait au pied d'une carte bien remplie : il fallait
   // défiler jusqu'au bout pour le trouver (la remarque du 3 octobre 2026).
@@ -374,6 +508,32 @@ test('silhouettes, fonds fermés, rideau et aurore : ce qui se lit sur son fond'
   const aurore = regle('.carte-fond.fond-aurore::before')
   const vert = /radial-gradient\(70% 38% at 28% 16%, rgba\(70, 255, 170, ([\d.]+)\)/.exec(aurore)
   assert.ok(vert && Number(vert[1]) <= 0.3, `la lueur de l’en-tête à ${vert?.[1]}`)
+})
+
+test('le code de secours tient dans sa carte au texte agrandi, et porte son nom', async () => {
+  // Jeanne, à la tablée du 26 octobre 2026 : en 360 × 640 au texte à 130 %, « Ton profil est prêt » faisait 367 px de large ; en
+  // 277 × 492, le code prenait 211 px pour 185. Sa taille suivait la largeur de l'écran, pas celle de sa carte — et rien ne lui
+  // donnait son nom, que « J'ai oublié mon mot de passe » demande ensuite.
+  Object.assign(globalThis, { window: { location: { pathname: '/', search: '', hash: '' } } })
+  const html = await rendu('components/Secours', 'CodeSecours', { code: 'GGGR-YXF7-5J2X-S24D' })
+  // Sa carte est un conteneur : le code s'y mesure.
+  assert.match(html, /^<div class="card notice code-secours-carte">/)
+  assert.match(regle('.code-secours-carte'), /container-type:\s*inline-size/)
+  // Le clamp d'avant reste, pour un navigateur sans unités de conteneur ; sous sa carte, la largeur de la carte décide.
+  assert.match(regle('.code-secours'), /font-size:\s*clamp\(1\.05rem, 5\.2vw, 1\.35rem\)/)
+  assert.match(regle('.code-secours-carte .code-secours'), /font-size:\s*min\(1\.35rem, 7\.5cqi\)/)
+  // Ses signes, à chasse fixe (0,6 em chacun), plus l'espacement que la feuille leur donne, à la taille qu'elle leur donne dans la
+  // carte : ils tiennent dans sa largeur — 94 % d'elle pour dix-neuf signes à 7,5 cqi. Lus de la feuille : écrits ici, un
+  // espacement ou une taille retouchés là-bas n'y changeaient rien.
+  const cqi = Number(/min\(1\.35rem, ([\d.]+)cqi\)/.exec(regle('.code-secours-carte .code-secours'))?.[1])
+  const espacement = Number(/letter-spacing:\s*([\d.]+)em/.exec(regle('.code-secours'))?.[1])
+  const signes = 'GGGR-YXF7-5J2X-S24D'.length
+  assert.ok(cqi > 0 && espacement >= 0, `la taille (${cqi} cqi) et l’espacement (${espacement} em) se lisent dans la feuille`)
+  const part = signes * (0.6 + espacement) * (cqi / 100)
+  assert.ok(part <= 1, `le code prend ${Math.round(part * 100)} % de sa carte`)
+  // Son nom, juste au-dessus de lui : celui que le formulaire de secours demande.
+  assert.match(html, /<p class="label">Ton code de secours<\/p><p class="code-secours">GGGR-YXF7-5J2X-S24D<\/p>/)
+  assert.match(await rendu('components/Secours', 'FormulaireSecours', { onDone: () => {}, onCancel: () => {} }), /Ton code de secours/)
 })
 
 test('l’accueil d’un profil garde la place de la carte du jour pendant qu’elle arrive', async () => {

@@ -120,7 +120,7 @@ export interface OptionsDeLaPart {
 /**
  * Une part de questions à nombre : le quiz tout prêt pose en estimation les
  * questions dont la bonne réponse est un nombre, aux règles de
- * `cibleDeLEstimation` (`core/quizToutPret.ts`) — et la base n'en avait que
+ * `cibleDeLEstimation` (`core/estimation.ts`) — et la base n'en avait que
  * vingt-sept de faciles, aucune en géographie, en nature, au cinéma ni en
  * cuisine : un quiz facile d'une catégorie n'en avait plus aucune (le
  * 11 octobre 2026). Les faciles y sont les plus demandées.

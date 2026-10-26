@@ -15,7 +15,7 @@ import { espacesFines } from './typographie'
  * s'ouvre plus fait à chacun de ceux qui essaient.
  */
 
-export const MODES_SURVEILLES = ['jour', 'campagne', 'defi', 'duels', 'expedition', 'soirees', 'boutique', 'accueil'] as const
+export const MODES_SURVEILLES = ['jour', 'campagne', 'defi', 'duels', 'expedition', 'cabinet', 'soirees', 'boutique', 'accueil'] as const
 export type ModeSurveille = (typeof MODES_SURVEILLES)[number]
 
 /** Le nom d'un mode dans une phrase — « Panne : le quiz du jour ». */
@@ -25,6 +25,7 @@ export const NOM_DU_MODE_SURVEILLE: Record<ModeSurveille, string> = {
   defi: 'le défi de la semaine',
   duels: 'les duels',
   expedition: 'l’Expédition',
+  cabinet: 'le Cabinet de curiosités',
   soirees: 'les soirées',
   boutique: 'la boutique',
   accueil: 'l’accueil et la connexion des profils',
@@ -55,6 +56,7 @@ export function modeDeLaSource(source: string): ModeSurveille | null {
   if (/^\/api\/campagne\/(duel|rencontre|amis)/.test(chemin)) return 'duels'
   if (chemin.startsWith('/api/campagne')) return chemin.startsWith('/api/campagne/base') ? null : 'campagne'
   if (chemin.startsWith('/api/expedition')) return 'expedition'
+  if (chemin.startsWith('/api/cabinet')) return 'cabinet'
   if (/^\/api\/joueur\/(themes|compagnons|fonds)(\/|$)/.test(chemin)) return 'boutique'
   if (/^\/api\/joueur\/(moi|connexion|inscription|missions|coffre)$/.test(chemin)) return 'accueil'
   if (/^\/api\/joueur\/(salon|espace)$/.test(chemin)) return 'soirees'

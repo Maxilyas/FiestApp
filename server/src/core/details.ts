@@ -63,6 +63,20 @@ export function tableauxDuDetail(): readonly TableauDuDetail[] {
   return lus
 }
 
+let questionsParTableau: ReadonlyMap<string, readonly string[]> | null = null
+
+/**
+ * Les questions de la base qui nomment ce tableau (`TableauDuDetail.questions`) :
+ * le journal des réponses y déplie un tableau qu'une manche du Cabinet a
+ * révélé (`cab:tableau:<QID>`, `JournalDesReponses.vuesDe`) — son titre, son
+ * peintre, son année, ce qu'elles demandent ou écrivent. Aucune pour un
+ * tableau que la fiche ne livre pas, ou plus.
+ */
+export function questionsDuTableau(qid: string): readonly string[] {
+  questionsParTableau ??= new Map(tableauxDuDetail().map(t => [t.qid, t.questions]))
+  return questionsParTableau.get(qid) ?? []
+}
+
 /** Un tableau qui se pose dans cette base : lui, et sa question « Qui a peint… ? ». */
 export interface DetailDeLaBase {
   tableau: TableauDuDetail

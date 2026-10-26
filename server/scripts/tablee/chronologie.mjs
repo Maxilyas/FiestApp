@@ -1,5 +1,6 @@
 // Ce que dit le journal d'une tablée, en une page : qui a fait quoi, ce qui a
-// coincé, en combien de temps chacun a répondu, ce qui s'est dit.
+// coincé, en combien de temps chacun a répondu, ce que chacun a tiré au dé, ce
+// qui s'est dit.
 //
 //   node server/scripts/tablee/chronologie.mjs [dossier de la tablée]
 //
@@ -110,6 +111,19 @@ if (reponses.length) {
       .map(r => `${qui(r)} ${r.texte !== undefined ? `« ${r.texte} »` : r.estimation}${r.illisible ? ' (illisible)' : ''}${typeof r.ms === 'number' ? ` en ${s(r.ms)}` : ''}`)
       .join(' · ')
     console.log(`- ${heure(liste[0].t)} ${question} : ${detail}`)
+  }
+}
+
+// ── Les dés ──
+// Au Cabinet, le dé décide ce qu'un personnage sait (consignes-cabinet.md) :
+// la synthèse relit ici ce que chacun a tiré, dans l'ordre, pour le recouper
+// avec ses réponses. Un dé refusé n'a rien tiré.
+const des = lignes.filter(l => l.geste === 'de' && l.ok && Array.isArray(l.tirages))
+if (des.length) {
+  console.log('\n## Les dés\n')
+  for (const nom of personnages) {
+    const siens = des.filter(l => qui(l) === nom)
+    if (siens.length) console.log(`- **${nom}** : ${siens.map(l => `${heure(l.t)} de ${l.faces} → ${l.tirages.join(', ')}`).join(' · ')}`)
   }
 }
 

@@ -178,6 +178,8 @@ test('la campagne jour par jour, les vies prises dans la réserve, le défi en c
       { quand: aujourdhui + 2 * MINUTE, qui: 'lea', mode: 'sentier' },
       { quand: aujourdhui + 3 * MINUTE, qui: 'bob', mode: null },
       { quand: aujourdhui + 4 * MINUTE, qui: 'bob', mode: 'duel' },
+      { quand: aujourdhui + 5 * MINUTE, qui: 'lea', mode: 'cabinet' },
+      { quand: aujourdhui + 6 * MINUTE, qui: 'bob', mode: 'expedition' },
       { quand: hier + MINUTE, qui: 'cleo', mode: 'defi' },
       { quand: maintenant + MINUTE, qui: 'dan', mode: 'serie' },
     ],
@@ -185,9 +187,14 @@ test('la campagne jour par jour, les vies prises dans la réserve, le défi en c
     maintenant,
   )
   assert.equal(vue.parJour.length, JOURS_DU_QG)
-  assert.deepEqual(vue.parJour.at(-1)!.modes, { serie: 1, sentier: 2, sujet: 0, revision: 0, defi: 0 }, 'une série d’avant les modes en est une ; un duel n’est pas de la campagne')
+  assert.deepEqual(
+    vue.parJour.at(-1)!.modes,
+    { serie: 1, sentier: 2, sujet: 0, revision: 0, defi: 0, cabinet: 1 },
+    'une série d’avant les modes en est une ; un duel n’est pas de la campagne, ni l’expédition un sous-mode ; le Cabinet en est un',
+  )
   assert.deepEqual(vue.parJour.at(-2)!.modes.defi, 1)
   assert.deepEqual(vue.aujourdhui.sentier, { parties: 2, joueurs: 1 })
+  assert.deepEqual(vue.aujourdhui.cabinet, { parties: 1, joueurs: 1 })
   assert.equal(vue.joueurs.aujourdhui, 2)
 
   // Douze vies par jour à chacun : quatorze perdues par Léa en prennent deux à la réserve, celle de Bob aucune.
@@ -425,6 +432,7 @@ test('la page de la campagne au QG : ce qu’on joue, le défi en chiffres, les 
   const series = minuits.flatMap((m, i) => [
     ...Array.from({ length: 40 + (i % 5) }, (_, k) => ({ quand: m + k * MINUTE, qui: `j${k}`, mode: 'serie' })),
     ...Array.from({ length: 20 }, (_, k) => ({ quand: m + k * MINUTE, qui: `j${k}`, mode: 'sentier' })),
+    ...Array.from({ length: 7 }, (_, k) => ({ quand: m + k * MINUTE, qui: `j${k}`, mode: 'cabinet' })),
   ])
   const vue = { campagne: campagneDeLaVue(series, minuits, maintenant), aujourdhui: { seriesDeCampagne: { aujourdhui: 64, habituel: 60, parJour: [] } } }
   const suivi: SuiviDeLaCampagne = {
@@ -462,6 +470,9 @@ test('la page de la campagne au QG : ce qu’on joue, le défi en chiffres, les 
     '9 du premier coup',
     'Parcours de thème',
     'le carnet, à 1, 3 et 7 jours',
+    // Le Cabinet, son petit graphique à lui : ses parties ne se mêlent pas aux séries.
+    '<b>Cabinet</b><span class="num">210</span>',
+    '7 par jour · trois manches d’un mini-jeu',
     'semaine du lundi 12 octobre',
     // L'avatar qu'elle porte (`AvatarEnLigne`), comme au classement du défi.
     '<span class="av-emoji">🦋</span></span> Inès et 1 autre · aujourd’hui à 20 h 04',

@@ -306,9 +306,10 @@ test('Passe-muraille traverse une question — au carnet comme ratée, sans vie 
   }
 })
 
-test('aucun autre mode n’accepte un joker : ni le quiz du jour, ni la campagne et ses duels, ni la soirée (invariant 8)', () => {
+test('aucun autre mode n’accepte un joker : ni le quiz du jour, ni la campagne et ses duels, ni la soirée, ni le Cabinet (invariant 8)', () => {
   const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-  for (const fichier of ['src/quizDuJour.ts', 'src/campagne.ts', 'src/sockets.ts', 'src/missions.ts']) {
+  // Le Cabinet a ses cartes-bonus, jamais un joker de l'Expédition : ses routes n'en lisent aucun.
+  for (const fichier of ['src/quizDuJour.ts', 'src/campagne.ts', 'src/sockets.ts', 'src/missions.ts', 'src/cabinet.ts']) {
     assert.doesNotMatch(readFileSync(path.join(racine, fichier), 'utf8'), /joker/i, `${fichier} : un joker ne sort jamais de l’expédition`)
   }
 })

@@ -49,7 +49,12 @@ paths:
   `#root::after` — se retirent sous une feuille, une carte ou un dialogue
   ouverts : au téléphone, elles prenaient la mémoire que la feuille des amis
   attendait pour se dessiner (règle `css.md`). Une couche fixe ailleurs
-  rejoint la règle qui les retire, ou `feuilles.test.ts` la refuse.
+  rejoint la règle qui les retire, ou `feuilles.test.ts` la refuse. Une barre
+  du chrono qu'il borde (`.timer-track` à `border`) se garde telle quelle
+  quand le temps presse (`.timer .timer-track.urgent { transform: none; }`) :
+  le `scaleY` de l'urgence en épaississait le haut et le bas, pas les côtés ;
+  le trait de ses secondes, s'il en pose un, reste le sien — celui de
+  l'urgence est plus faible (`cabinet-ecran.test.ts` relit chaque feuille).
 - **Une règle qui peindrait une carte à fond** ou ce qu'elle montre —
   `.card`, `.label`, `.niveau`, un halo sur `.muted` — s'en écarte par
   `:where(:not(.carte-fond, .carte-fond *))` (sans rien changer à sa
@@ -70,7 +75,31 @@ paths:
   lisibilité se mesure sur ce qui est vraiment peint derrière chaque ligne
   (`scripts/rendu-themes.ts <clé> --contraste`), pas sur ses jetons
   (`--bg`, `--surface`, `--accent`…), les seuls que compare
-  `design.test.ts`, jamais au décor peint.
+  `design.test.ts`, jamais au décor peint. La mesure vit dans
+  `server/scripts/a-l-ecran.ts` (`contrasteDeLaPage`, que
+  `rendu-cabinet.ts` partage) et, depuis le 25 octobre 2026, ne lit plus
+  que ce que l'œil lit : la photo à la densité de l'écran (écrite à 2, elle
+  mesurait un autre coin que la ligne en 1366 × 768), une ligne entière à
+  l'écran et visible en entier — ni coupée par le bord (lue sur du vide,
+  elle se disait illisible à 1,3:1), ni couverte même en partie, ni défilée
+  hors de son cadre —, le fond derrière les lettres, pas dans tout
+  l'interligne (le bas d'une ombre portée), et jamais un geste éteint
+  (`aria-disabled`, `:disabled`), dont WCAG ne demande rien. Le Cabinet de
+  curiosités pose ses lignes à même la page, hors des cartes — le compte des
+  chasses, le nom d'une œuvre sous son cadre, la question d'une manche — :
+  chaque thème peint pose son sol plein sous la colonne
+  (`:root[data-theme='<clé>'] .cab-page { background: var(--bg) }`, les
+  seules règles d'un thème qui nomment une classe de page), sans quoi son
+  tableau passait sous elles — au Sommet, « 2 chasses aujourd'hui » à
+  1,36:1 sur la neige ; aux Heures, la question d'un Pari à 1,58:1 sur la
+  page du mois (les rendus des 25 et 26 octobre 2026). Le Film noir aussi,
+  sans être peint : sa lampe et ses stores éclairent le haut de la page, où
+  chaque écran du Cabinet pose son étiquette rouge (3,43:1) et son lien de
+  retour (4,19:1). Le décor reste de chaque côté de la colonne.
+  `cabinet-ecran.test.ts` le relit dans chaque feuille qui cite ses décors
+  (`--decor-…`) et dans celle du Film noir ; `rendu-cabinet.ts`
+  (`THEME=<clé>`) en mesure les `[contraste]` — un décor de plus qui passe
+  sous les lignes du Cabinet y prend son sol.
 - **Un achat de plus** s'écrit avec son prix, sur une ligne jamais
   modifiée, et touche cinq endroits de `ProfileStore` : sa table, `achatsDe`,
   les dépenses de `boutiqueEtDons`, `unAchatALaFois` et la liste de

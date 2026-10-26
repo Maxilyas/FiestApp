@@ -5,9 +5,10 @@
 // Pas de serveur : des modules du client, rendus en HTML.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { importsStatiques } from './chemin-des-imports'
 
 const client = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/src')
 const url = (fichier: string) => new URL(`../../client/src/${fichier}`, import.meta.url).href
@@ -44,34 +45,6 @@ async function rendu(fichier: string, composant: string, props: object): Promise
 }
 
 // ── 1. Le chemin de l'invité ──────────────────────────────────────────────
-
-/** Les fichiers qu'une page importe statiquement, de proche en proche. */
-function importsStatiques(depart: string): Set<string> {
-  const vus = new Set<string>()
-  const pile = [depart]
-  while (pile.length) {
-    const fichier = pile.pop()!
-    if (vus.has(fichier)) continue
-    vus.add(fichier)
-    const texte = readFileSync(fichier, 'utf8')
-      // Un commentaire qui cite un import ne charge rien.
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '')
-    // `import type` s'efface à la compilation, et `import('…')` est justement
-    // le chargement à la demande : seuls comptent les imports de valeurs, et
-    // ceux qui ne gardent rien (`import './Legendaire'` l'évaluerait aussi).
-    const cibles = [
-      ...[...texte.matchAll(/^\s*(?:import|export)\s+(type\s+)?[^'"]*?from\s+['"](\.[^'"]+)['"]/gm)].filter(m => !m[1]).map(m => m[2]),
-      ...[...texte.matchAll(/^\s*import\s+['"](\.[^'"]+)['"]/gm)].map(m => m[1]),
-    ]
-    for (const cible of cibles) {
-      const base = path.resolve(path.dirname(fichier), cible)
-      const trouve = [base, `${base}.tsx`, `${base}.ts`].find(f => /\.tsx?$/.test(f) && existsSync(f))
-      if (trouve) pile.push(trouve)
-    }
-  }
-  return vus
-}
 
 test('le téléphone de l’invité n’importe les dessins qu’à la demande', () => {
   const chemin = importsStatiques(path.join(client, 'views/PlayerApp.tsx'))
@@ -149,6 +122,17 @@ test('le téléphone de l’invité ne télécharge pas avant l’entrée ce qui
   assert.ok(chemin.has(path.join(client, 'components/Entree.tsx')), 'Entree est sur le chemin')
   for (const f of ['components/CarteJoueur.tsx', 'components/FinDeSoiree.tsx', 'components/Jour.tsx']) {
     assert.ok(!chemin.has(path.join(client, f)), `${f} ne part pas avec l’écran d’entrée`)
+  }
+})
+
+test('le Cabinet de curiosités n’importe les dessins de ses gardiens qu’à la demande', () => {
+  // Ses vingt-trois gardiens se montrent partout — le musée, les salles, leur galerie — par `Dessin` : les médaillons
+  // viennent avec eux, pas avec la page, que l'accueil d'un profil précharge en fond (`ProfilApp.tsx`).
+  const chemin = importsStatiques(path.join(client, 'views/CabinetApp.tsx'))
+  assert.ok(chemin.has(path.join(client, 'components/Avatar.tsx')), 'Avatar est sur le chemin')
+  assert.ok(chemin.has(path.join(client, 'components/medaillons.ts')), 'medaillons est sur le chemin')
+  for (const dessin of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Lumiere.tsx', 'components/Compagnon.tsx', 'components/compagnons-peints.ts']) {
+    assert.ok(!chemin.has(path.join(client, dessin)), `${dessin} ne part pas avec le Cabinet`)
   }
 })
 

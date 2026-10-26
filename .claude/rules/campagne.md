@@ -1,13 +1,13 @@
 ---
 paths:
-  - "shared/{campagne,sujets,revision,nomDuChoix}.ts"
-  - "server/src/core/{campagne,baremeDuSolo,jumelles,journalDesReponses}.ts"
+  - "shared/{campagne,sujets,revision,nomDuChoix,horsDeLaBase}.ts"
+  - "server/src/core/{campagne,baremeDuSolo,jumelles,journalDesReponses,tirageALaPiece,porteDeLaCampagne}.ts"
   - "server/src/campagne.ts"
   - "client/src/views/{CampagneApp,Defi,Carnet}.tsx"
   - "client/src/components/{ChoixDuTheme,SerieCorrigee}.tsx"
   - "client/src/iconeDuSujet.ts"
   - "server/scripts/rendu-campagne.ts"
-  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-mesure,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,bareme-du-solo,journal-des-reponses}.test.ts"
+  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,tirage-a-la-piece,bareme-du-solo,journal-des-reponses,hors-de-la-base,porte-de-la-campagne}.test.ts"
 ---
 
 # La campagne solo et le défi de la semaine
@@ -20,6 +20,85 @@ paths:
 
 ## Les pièges
 
+- **Le mode d'une partie se lit dans une seule liste** (`MODES_DE_SERIE`,
+  `shared/campagne.ts`, le 25 octobre 2026, avant le Cabinet de
+  curiosités) : le type d'une partie (`Serie.mode`), sa lecture
+  (`versSerie`, `modeDeSerieLu`) et le lieu d'un signalement (`rapportDe`)
+  se recopiaient leur liste, et un mode oublié dans la lecture s'y lisait en
+  série — les routes de la série l'auraient répondu, abandonné, corrigé. Un
+  mode neuf la rejoint avant sa première partie, écrit en toutes lettres
+  dans son insertion : `campagne-modes.test.ts` relit chaque `INSERT INTO
+  campagne_series` du serveur. Une partie du Cabinet (`cabinet`) a ses
+  routes à elle : celles de la série la refusent (« Cette série est
+  introuvable »), sa correction aussi (« Cette partie se relit au
+  Cabinet ») ; seul le signalement d'une question de la base y passe, à sa
+  position, et le QG la dit « au Cabinet ». Le QG la compte en campagne,
+  sous-mode à part (`SOUS_MODES_DE_CAMPAGNE`, règle `qg.md`).
+- **Les lectures des séries filtrent sur le mode même** (`SERIES = "mode =
+  'serie'"`) : écrit `COALESCE(mode, 'serie') = 'serie'`, le filtre ne
+  servait aucun index, et le record, la page, les records par catégorie, la
+  série en cours relisaient toutes les parties du profil, de tous les modes
+  — le Cabinet en ajoute une dizaine par jour et par joueur ; sur le mode,
+  ils prennent un index du profil et du mode — celui des sentiers
+  `(profile_id, mode, branche, palier)`, ou celui de la date, plus bas —,
+  qui ne mène qu'à ses séries. Le `COALESCE` n'attrapait aucune ligne, et
+  le compte en production des modes NULL, que la conception du Cabinet
+  demandait d'abord, se tient par le code : la colonne est née `NOT NULL
+  DEFAULT 'serie'` dès son premier `ajouterColonne` (le commit 37fb2a81 du
+  4 octobre 2026, « Les sentiers du savoir » ; celui d'avant sur
+  `core/campagne.ts`, 4b301c20, ne parlait d'aucun mode ; un clone
+  superficiel ne les a pas : `gh api repos/Maxilyas/FiestApp/commits/37fb2a81`
+  les lit) — SQLite donne ce défaut
+  aux lignes qui existaient à l'`ALTER` et refuse tout NULL écrit ensuite ;
+  aucune écriture ne pose le mode à NULL, et une insertion sans lui fait
+  une série (`commencer`).
+- **La partie en cours d'un mode se cherche par le profil et le mode**
+  (`LA_PLUS_RECENTE`, `ORDER BY +commencee_le DESC LIMIT 1`) : la série, la
+  révision laissée, la rencontre du dé — l'accueil et le dé —, l'épreuve,
+  l'étape d'un parcours, l'expédition en route. Triées par leur date, sans
+  statistiques, elles partaient de l'index du profil, rangé par date, qui
+  épargnait le tri à SQLite : sans partie en cours — le cas ordinaire —,
+  elles relisaient toutes les parties du profil, de tous les modes, à
+  chaque accueil (la relecture du lot A1 du Cabinet, le 25 octobre 2026).
+  Le `+` les mène à un index du profil et du mode, qui ne lit que les
+  parties du mode. `campagne-index.test.ts` lit le plan de chaque lecture
+  des séries telle que le magasin l'envoie, et celui de chaque recherche
+  d'une partie en cours — profil, mode et `finie_le IS NULL` dans un même
+  `WHERE` — telle que le serveur l'envoie, sans statistiques comme la
+  production : une lecture de plus y passe d'elle-même. Les dernières
+  rencontres de la page des duels (`rencontresEtDuels`, sans `finie_le`)
+  ont leur index, `(profile_id, mode, commencee_le)`
+  (`idx_campagne_series_profil_mode`, le 26 octobre 2026) : il s'arrête aux
+  plus récentes, sans relire les parties d'un joueur sans rencontre.
+  **Toute recherche triée d'un profil et d'un mode lit son plan, avec ou
+  sans `finie_le`** (le même test) : la tentative du défi se cherche parmi
+  ses défis (`SA_TENTATIVE_AU_DEFI` : `+semaine`, `+commencee_le` — l'index
+  d'une semaine en lirait les centaines de tentatives), celle d'un duel par
+  le code du duel (`tentativeDuDuel`, règle `duels.md`) ; le défi de
+  l'accueil compte les tentatives de la semaine par un `EXISTS` corrélé sur
+  les profils, jamais `profile_id IN (SELECT id FROM profiles …)`, qui les
+  parcourait tous à chaque accueil ; les missions ne lisent que les modes
+  qu'elles comptent (`MODES_QUE_LES_MISSIONS_COMPTENT`, `shared/missions.ts`,
+  que le test compare à `activiteDesJours`) : les parties du Cabinet,
+  toutes du jour, passaient à chaque page. Le test relit chacune sous des
+  statistiques qui préféreraient le mauvais index — la tentative du défi et
+  celle d'un duel, sans leur `+`, s'y égarent —, et la lecture des missions
+  la sienne sous celles d'une production. À la fin d'une partie — de la
+  campagne, du Cabinet par sa porte, du quiz du jour, d'un quiz de soirée —,
+  le compagnon qui grandit (`ProfileStore.faireGrandir`) lit les bonnes
+  réponses de ses soirées gardées par profil (`justesDeSesSoirees`),
+  oubliées à chaque soirée créditée, retirée ou remise au barème ici ; la
+  fin d'une partie de la campagne y joint le journal tel qu'elle vient de le
+  laisser (`compagnonsApresSesReponses` :
+  `rattraperLeJournal(derniereReponse)`) : cette fin payait deux
+  allers-retours de plus (`cabinet-charge.test.ts`). Une page qui les lit —
+  la niche, la forme qu'il porte, la boutique — relit tout (`compagnonsDe` :
+  son historique, le journal rattrapé) : ce qu'un autre serveur, ou un test
+  à la main, a écrit y paraît à la lecture suivante (`niche-paliers.test.ts`,
+  `cabinet-charge.test.ts`), et ce qu'elle relit de ses soirées, la fin
+  suivante le garde. Gardées aussi pour les pages, les soirées que l'autre
+  serveur d'une mise en ligne avait créditées ne s'y voyaient qu'au
+  redémarrage : la forme que la salle venait d'annoncer se refusait.
 - **Un tirage ne repasse plus toute la base**, à chaque série, défi, duel
   ou dé : vingt-cinq mille questions (25 529 le 17 octobre 2026), au
   dixième de cœur de l'hébergeur. La liste des jouables se garde tant que
@@ -50,6 +129,41 @@ paths:
   `melanger`, et chaque rang ne se compare qu'à un rang de la même marche
   et de la même classe —, `duels-attente.test.ts` compare `parFraicheur`,
   l'ordre que le tirage suit, au tri d'avant.
+- **Le tirage à la pièce vit à part** (`core/tirageALaPiece.ts`, le
+  25 octobre 2026, pour que le Cabinet de curiosités tire sans
+  `CampagneStore`) : la fraîcheur que tous les tirages partagent
+  (`VUE_RECENTE_MS`, `classeDeFraicheur`, `fraicheurDe`), les emprunts
+  (`EMPRUNTS`), le rang (`passeAvant`), le battage (`melanger`), une
+  question de la base telle qu'une partie la garde (`versQuestionDeSerie`),
+  le tirage d'une escale (`tirerPourUneEscale`) et celui du contenu hors de
+  la base (`laMoinsVue`). `core/campagne.ts` le lit, jamais l'inverse, et
+  réexporte `tirerPourUneEscale` et `VUE_RECENTE_MS` à ses lecteurs d'avant.
+  Ce qu'il a appris ne vaut que pour qui le demande : une fenêtre à soi
+  (`fenetreMs` — sept jours au Cabinet, les vingt-quatre heures de toute la
+  campagne d'office) et des marches qui valent la sienne (`aussi`, « facile
+  ou moyenne » : la fraîcheur départage, chacune sort à sa marche) ; sans
+  eux, le tirage d'avant, au même hasard — `tirage-a-la-piece.test.ts` garde
+  le code d'avant et l'y compare. `laMoinsVue` n'a pas de fenêtre : le plus
+  anciennement vu d'abord ne repose rien de récent tant qu'il reste autre
+  chose. Le tirage d'une escale ne bat pas son tas : il s'arrête à la
+  première question au rang tout à zéro — jamais vue, d'un sous-thème
+  encore à servir, sans jumelle. Une composante de rang neuve vaut donc 0
+  pour une question jamais vue et pas encore servie, ou chaque tirage relit
+  le tas entier — le gardien, vingt-cinq mille questions
+  (`expedition-tirage.test.ts` compte ce qu'il lit, règle `expedition.md`).
+  La frise n'y passe pas : elle se tire avec ses règles (`shared/frise.ts`).
+  Les sept événements du Cabinet tiennent l'écart, ou ne se tirent pas
+  (`choisirLaFriseSansRepli`) ; `choisirLaFrise`, celle de l'Expédition,
+  resserre l'écart plutôt que de rendre null, et la Frise du Cabinet
+  refuserait ensuite deux années trop proches (`friseEnVagues`). Une
+  question tirée par une partie a un seul cœur (`QuestionDeLaPartie`) :
+  `QuestionDeSerie` l'étend, et ce que le Cabinet en garde s'y lie par le
+  typage, pas par une copie. Aucune fonction n'y prend de graine : le
+  hasard d'un tirage est celui du serveur, et une graine que la page connaît
+  lui dirait ce que la partie va poser (invariant 1). Les formes de
+  l'Expédition (`aSaForme`, `seLaissePoser`) restent au magasin : le tirage
+  à la pièce n'en sait rien, et l'Éclair du Cabinet récrit ses affirmations
+  par sa règle à lui (`affirmationDe`).
 - **Le journal des réponses se garde en mémoire, et se lit par
   différence** (`core/journalDesReponses.ts`, `JournalDesReponses`, le
   22 octobre 2026 : 333 millions de lignes lues au quota de Turso sur les
@@ -72,8 +186,25 @@ paths:
   seul, la veille —, `justesDe` — la somme des `justes` des séries, égale en
   production, profil par profil et mode par mode, au compte de leurs bonnes
   réponses — et `reponsesDesEpreuves`, l'administration des sentiers, 150 000
-  lignes par page) : une dérivation de plus s'y écrit, et se compare au SQL
-  d'avant dans `journal-des-reponses.test.ts`, sur une base au hasard. Un
+  lignes par page ; depuis le 26 octobre 2026, `leurresChoisis`, les
+  mauvaises réponses que la campagne choisit, question par question, sur les
+  réponses que la mesure compte — l'Éclair du Cabinet y prend le leurre de
+  ses affirmations fausses —, et `jugeesDe`, les seules pièces jugées, que
+  tes murs du Cabinet lisent : `vuesDe` y compte aussi ce qu'une manche a
+  montré de plus que sa pièce — les leurres d'un Détail, ce que « Changer »
+  a remplacé (`ReponseDuJournal.montre`, le quatrième chemin du
+  `json_extract` de la lecture, `cabinet.montre`) —, et le lieu d'une
+  Épingle remplacée serait venu sur les murs, que rien ne lui avait
+  révélé) : une dérivation de plus s'y écrit, et se compare
+  au SQL d'avant dans `journal-des-reponses.test.ts`, sur une base au hasard
+  — sans SQL d'avant, comme les leurres, écrit dans le test à part. Les
+  leurres lisent la mauvaise réponse en texte, telle que sa série l'a posée
+  (la colonne `choisie` de la lecture : un index ne dit rien d'une série à
+  l'autre, chacune bat ses réponses), sous `choix >= 0` — un chemin `[-1]`
+  est une erreur de SQLite, pas un NULL, et ferait échouer toute la lecture.
+  Une colonne ou un chemin de plus change le texte de la lecture : les
+  tranches gardées d'avant ne se relisent plus, et le premier réveil relit tout le journal,
+  une fois (`VERSION_DES_TRANCHES`, plus bas). Un
   test qui efface une réponse derrière le dos du serveur le redémarre
   (`banc.redemarrer()`) : le journal ne l'apprend pas. **Une lecture
   sait ce qu'on a écrit avant elle** : chaque lecture du journal prend un
@@ -112,12 +243,76 @@ paths:
   renumérote les `rowid` qu'elles citent (`REFAITES`,
   `scripts/sauvegarde.ts`). `journal-des-reponses.test.ts` réveille la
   campagne sur ses tranches et la compare au SQL d'avant.
+- **Ce qui n'est pas une question de la base se lit dans une seule liste**
+  (`PREFIXES_HORS_DE_LA_BASE`, `shared/horsDeLaBase.ts`, le 25 octobre
+  2026, avant le Cabinet de curiosités) : un rébus (`rebus:`), une frise
+  (`frise:`), ce qu'un jeu du Cabinet tire d'ailleurs (`cab:`). Ni carnet
+  ni signalement : le carnet du journal (`auCarnet`, `horsDeLaBase`), le
+  même en SQL (`suivisDeLaBase`, `sqlDansLaBase`) et le signalement
+  (`signaler`, `refusDuSignalement` — les phrases du rébus et de la frise
+  mot pour mot, le Cabinet la sienne) la lisent. Chacun recopiait ses
+  préfixes : oublié des deux côtés du carnet, que
+  `journal-des-reponses.test.ts` compare, un préfixe ne se serait pas vu —
+  une pièce du Cabinet ratée y serait entrée, et « À revoir », sur
+  l'accueil, l'aurait comptée chaque jour sans qu'aucune révision ne la
+  repose (`compterARevoir` ne lit que les retraits). Un préfixe neuf la
+  rejoint, avec sa phrase (le typage la réclame), en minuscules et fini par
+  un deux-points : aucun identifiant de la base n'en porte, et `LIKE`, qui
+  ignore la casse, ne lui prend rien (`hors-de-la-base.test.ts`). Une
+  lecture neuve de `campagne_reponses` qui joint la base ou reprend une
+  réponse pour la reposer écarte ce qui n'en est pas par `horsDeLaBase` en
+  mémoire, par `sqlDansLaBase` en SQL — jamais par un préfixe recopié : le
+  même test refuse, dans le code et pas dans un commentaire, un `LIKE` sur
+  un préfixe de la liste et une phrase de refus, mais un `startsWith` lui
+  échappe. La lecture du journal n'en dépend pas — le carnet les écarte au
+  repli : un préfixe de plus ne relit rien au réveil
+  (`VERSION_DES_TRANCHES` ne bouge pas).
 - **Une réponse de campagne écrite prévient l'expédition** (`vuAilleurs`,
   avant le lot de la série et de ses modes, de l'épreuve, du parcours) :
   l'expédition en route garde en mémoire ce qu'il a vu, lu à son départ, et
   ne le relit qu'ainsi (règle `expedition.md`). Une porte neuve qui écrit
   dans `campagne_reponses` l'appelle aussi : sans, l'escale suivante
   pourrait reposer, comme jamais vue, la question qu'il vient de voir.
+- **Le Cabinet de curiosités passe par une porte** (`core/porteDeLaCampagne.ts`,
+  `CampagneStore.porte()`, le 25 octobre 2026) : il n'importe pas ce magasin,
+  et ce magasin ne connaît de lui que trois crochets, déclarés dans ce
+  fichier — son réveil (`init(REVEIL_DU_CABINET)` : ses trois tables et son
+  secret dans le **premier** lot, sa colonne `campagne_series.cabinet` par
+  `ajouterColonne`, qui garde le schéma déjà lu pour les nôtres : pas un
+  aller-retour de plus au réveil, un `ALTER` au premier), ses paliers
+  (`statsEnPlus` : ses lectures dans le lot de `statsDe`, et ce qu'il en tire
+  — ses seuls champs, `ChampsDuCabinet` : aucun compte de la campagne, que le
+  typage refuse et que `statsDe` étale par-dessus) et l'expédition qui part
+  ou finit (`expeditionChange`, `partirEnExpedition` et
+  `recompenserLExpedition`, où passe toute fin, écrite : en mémoire, sous le
+  verrou du profil, pour la seule ligne « Ton expédition t'attend » de sa
+  page ; ce qui y tombe se dit au journal sans faire tomber le geste). Rien
+  ne s'en rapporte : la fin d'une expédition qui rapportait ses œuvres est
+  partie avec la migration (abandonnée le 25 octobre 2026, `decisions.md`) —
+  n'y remets ni lecture ni écriture. Le
+  rituel d'une réponse y tient en une fonction (`ecrireDesReponses`), dans
+  l'ordre de `repondre` : `vuAilleurs`, le lot — et à la fin d'une partie qui
+  a des justes, les lectures de l'expérience au bout —, `reponseEcrite` même
+  si le lot échoue (écrit ou non, on ne le sait pas), puis, à la fin
+  seulement et si le lot l'a écrite (`FinDUnePartie.ecrite`, que le Cabinet
+  lit sur la ligne de son geste : un rang déjà pris n'a rien écrit, et rien
+  ne se refait), l'expérience créditée une fois pour toute la partie
+  (`crediterLaLigne` ; ce que chaque juste rapporte se lit à son rang dans son
+  jour, `xpDesJustes`, minuit compris), ses gardiens (`avantLesPaliers`), les
+  paliers rangés sous la partie (`recompenser`), le compagnon qui grandit —
+  chaque pas qui tombe dit son échec au journal, et le suivant passe. Une
+  étape de plus au rituel s'écrit là (`CampagneStore.ecrireDesReponses`),
+  jamais au Cabinet, et `porte-de-la-campagne.test.ts` compte ce que chacune
+  coûte. Le journal seul
+  de la porte (`lireAvecLeJournal([])`) ne se relit que si une réponse s'est
+  écrite ici depuis la dernière lecture (`rattraperLeJournal(derniereReponse)`) :
+  le tirage d'un départ du Cabinet ne paie alors rien ; celui de la campagne
+  relit toujours. Le secret (`campagne_meta.secret_du_cabinet`) se propose à
+  chaque réveil et ne s'écrit qu'une fois (`INSERT … ON CONFLICT DO
+  NOTHING`, relu dans le même lot) ; une campagne ouverte sans lui le refuse
+  en `TypeError` — un branchement oublié est une erreur du serveur, pas un
+  refus à dire au joueur. `campagne_meta` naît donc au premier lot, pour que
+  le secret s'y relise.
 - **La mesure ne se fait jamais attendre** : demandée dès ses deux
   dernières minutes (`MESURE_EN_AVANCE_MS`), même périmée depuis des
   heures, la suivante part en fond — du journal, rattrapé d'un

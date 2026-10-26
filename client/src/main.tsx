@@ -25,6 +25,7 @@ import './styles.css'
 //   /profil           le profil d'un joueur récurrent (pas un compte d'animateur)
 //   /jour             le quiz du jour, pour les profils
 //   /expedition       l'Expédition, trois actes et un légendaire au bout
+//   /cabinet          le Cabinet de curiosités : le musée, ses salles, ses jeux
 //   /<espace>/souvenir, /bilan, /soirees : les pages publiques de la soirée
 //   (/<espace>/stats ouvre le souvenir sur ses chiffres)
 //   /<espace>/soirees/<id>/… : les mêmes pages, tournées vers une soirée archivée
@@ -66,6 +67,7 @@ const CampagneApp = () => {
 }
 const SalonApp = () => import('./views/SalonApp').then(m => m.SalonApp)
 const ExpeditionApp = () => import('./views/ExpeditionApp').then(m => m.ExpeditionApp)
+const CabinetApp = () => import('./views/CabinetApp').then(m => m.CabinetApp)
 
 /** Une page, à charger : son code vient à part. */
 type PageACharger = () => Promise<ComponentType>
@@ -87,6 +89,7 @@ const ACCOUNT: Record<AccountPage, PageACharger> = {
   campagne: CampagneApp,
   duels: CampagneApp,
   expedition: ExpeditionApp,
+  cabinet: CabinetApp,
 }
 const PUBLIC: Record<PublicPage, PageACharger> = {
   souvenir: RecapApp,
@@ -151,7 +154,7 @@ else if (route.kind === 'unknown') document.title = 'Adresse introuvable · Fies
  * (`porterTheme`), sans le redemander. La soirée en tête — toute la salle y
  * arrive d'un coup.
  */
-const LISENT_LE_PROFIL = new Set<unknown>([PlayerApp, ProfilApp, JourApp, CampagneApp, SalonApp, ExpeditionApp])
+const LISENT_LE_PROFIL = new Set<unknown>([PlayerApp, ProfilApp, JourApp, CampagneApp, SalonApp, ExpeditionApp, CabinetApp])
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au

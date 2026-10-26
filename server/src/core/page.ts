@@ -90,6 +90,20 @@ export function ecrireLeService(html: string, service: ServiceDeLaPage): string 
   return page
 }
 
+/** La balise d'un Cabinet de curiosités qui ne répond pas sur ce serveur. */
+export const BALISE_DU_CABINET_FERME = '<meta name="cabinet" content="ferme">'
+
+/**
+ * Le Cabinet de curiosités fermé sur ce serveur — la production, tant que son
+ * drapeau le ferme (`cabinetOuvert`) : chaque page le sait avant toute
+ * requête, et n'en montre pas la porte. La page ne lit pas le drapeau : la
+ * préproduction sert le même code, c'est le serveur qui sait. Posée une fois,
+ * dans la page gardée en mémoire : elle ne change pas d'une requête à l'autre.
+ */
+export function fermerLeCabinet(html: string): string {
+  return html.replace('</head>', () => `  ${BALISE_DU_CABINET_FERME}\n  </head>`)
+}
+
 /**
  * L'attente, écrite dans la page : elle ne paraissait qu'une fois React
  * exécuté — 0,7 s en 4G, 2 s en 4G lente —, elle paraît dès la feuille de

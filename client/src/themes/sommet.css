@@ -185,6 +185,16 @@
   text-shadow: 0 1px 2px rgba(4, 8, 18, 0.9), 0 0 10px rgba(4, 8, 18, 0.8), 0 0 20px rgba(4, 8, 18, 0.55);
 }
 
+/* Le Cabinet de curiosités pose ses lignes à même la page, hors des cartes —
+   le compte des chasses, le nom d'une salle sous sa porte, ce qui manque sous
+   un cadre vide, « Rien ne compte avant « Commencer » » — : sur la neige
+   peinte, le halo ne suffisait plus, « 2 chasses aujourd'hui » tombait à
+   1,36:1 (le rendu du 25 octobre 2026). Sa colonne prend le sol de la nuit ;
+   la montagne reste de chaque côté. */
+:root[data-theme='sommet'] .cab-page {
+  background: var(--bg);
+}
+
 /* Les cartes et les réponses : de la glace sombre, un filet de givre. */
 :root[data-theme='sommet'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='sommet'] .ans-btn:not(.correct):not(.chosen),

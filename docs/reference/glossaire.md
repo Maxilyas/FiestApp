@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 451 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 477 termes, du moteur du quiz au Cabinet de curiosités. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -69,17 +69,22 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | « C'était un essai » | Effacer la soirée sans rien garder, en reprenant aux profils tout ce qu'elle avait crédité | `host:discardParty`, `retirerSoireeEntiere` |
+| Cabinet de curiosités | Le musée d'un profil, à `/cabinet` : quatre-vingt-quatre œuvres peintes rangées en neuf salles, qui se gagnent à neuf petits jeux de trois manches ; la refonte de l'Expédition, ouverte en préproduction d'abord | `CabinetApp` (`client/src/views/CabinetApp.tsx`), `shared/cabinet/` |
 | Cadre (d'une carte) | Le métal de la carte d'un joueur : celui de sa ligue actuelle aux duels, du bronze aux maîtres ; sans duel classé, ou pour un invité, celui de tous, aux couleurs du thème | `cadreDeLaCarte`, `.cadre-<ligue>` |
+| Cadre doré | Une œuvre du Cabinet gagnée, ou jouée pour la dorer, en manches toutes parfaites sans qu'un pouvoir ait servi, ou dorée à la poussière d'or : un second cadre d'or au-dedans de celui de sa rareté, et « cadre doré » dit à l'oreille | `OeuvreVue.doree`, `.exp-vc-doree` |
+| Cadre vide | Une œuvre du Cabinet qu'on n'a pas encore, au mur de sa salle : ni son nom ni sa peinture, sa rareté en pointillé de sa couleur et en toutes lettres, et le jeu où la chercher | `CaseDuMur` (`client/src/views/cabinet/Salle.tsx`) |
 | Calendrier des Heures | Douze pages enluminées, une par mois, ouvertes à vingt jours joués dans le mois et dorées pour son champion | `shared/calendrier.ts` |
 | Calibrage | La simulation de bandes d'amis jouant des soirées sur le vrai code, qui mesure les niveaux, les légendaires et la rareté des hauts faits | `server/scripts/calibrage.ts` |
 | Campagne | Le jeu solo des profils, sans chronomètre, à `/campagne` : la série, les sentiers, le défi de la semaine, le carnet, et les duels sur le même écran | `CampagneStore` |
 | Campement | L'une des deux escales du haut d'un plan de l'expédition, juste avant le gardien : une vie, jusqu'à trois — du courage en rencontres —, ou un joker retiré de son paquet, ou, au jeu complet, une carte améliorée | `sorte: 'campement'` (`shared/expedition.ts`), `{ quoi: 'camper' }` |
 | Carnet de révision | Ce qu'on a raté en campagne, qui revient à des rendez-vous espacés jusqu'à être appris | `shared/revision.ts` |
+| Carte-bonus | Une œuvre ou un gardien réveillé que le joueur emporte dans une partie du Cabinet pour son pouvoir : sa salle donne le pouvoir, sa rareté la force ; elle ne s'use jamais. Retenue sur le téléphone, l'annonce la propose d'abord | `pouvoirDe`, `forceDe` (`shared/cabinet/pouvoirs.ts`), `quizz.cabinet.carte` |
 | Carte à fond | Une carte qui porte un fond — sur la carte d'un joueur, ses deux faces : elle garde les couleurs du Velours sous tous les thèmes | `.carte-fond` |
 | Carte améliorée | Une carte des rencontres en mieux — moins d'énergie, de plus gros chiffres, ou qui ne quitte plus la rencontre —, un « + » à son nom et sur son dessin : améliorée au campement ou à l'échoppe, ou trouvée telle dans une offre des actes 2 et 3 (le jeu complet). Elle porte sa clé suivie de « + » dans tous les tas | `AMELIORATIONS`, `ameliorer`, `baseDe`, `parmi`, `refusDeLAmelioration` (`shared/rencontres.ts`) |
 | Carte de joueur | La carte à collectionner qui s'ouvre en touchant un nom : au recto, ce qu'il fait ce soir ; pour un profil, le cadre de sa ligue, son compagnon et, au dos, ce qu'il a gagné | `CarteDeJoueur`, `CarteJoueur` |
 | Carte levée | Un joker de la main, touché en expédition : en grand au milieu de l'écran, au cadre de sa rareté, ce qu'il fait, puis « Jouer » — ou pourquoi il ne se joue pas maintenant ; toucher à côté le repose | `JokerLeve` |
 | Carte peinte | L'illustration d'une carte des rencontres sans légendaire, peinte par la chaîne de peinture et livrée sous empreinte ; celle d'un légendaire est son médaillon | `CARTES_PEINTES`, `server/scripts/anime/cartes.ts` |
+| Cartel | La plaque crème sous une œuvre du Cabinet, comme au musée : ce que la partie qui l'a fait entrer a appris — la question, sa réponse, l'anecdote, le jeu, les étoiles, le jour —, ou, entrée sans rien à raconter (achetée, offerte), la première jouée pour elle qui l'a dorée ou doublée (« Dorée », « Jouée ») — le bilan de cette partie-là dit « Son cartel » ; sinon d'où elle vient | `Cartel` (`shared/cabinet/vues.ts`), `CartelDeLOeuvre`, `BilanVu.devientSonCartel` |
 | Catalogue | Les copies relues et publiées par l'administrateur, offertes à chaque espace sous « Partir d'un modèle » | `EntreeDuCatalogue` |
 | Cercle | La finition dessinée autour d'un avatar peint, à la place de l'anneau de son palier ou de sa forme | `client/src/components/Cercle.tsx` |
 | Cette question | La carte du téléphone à la révélation d'un QCM : qui a trouvé, en combien de temps, et sa place à soi | `laQuestion` |
@@ -87,6 +92,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Chance (d'un palier) | Sa chance de valider du premier coup le palier qui l'attend sur un sentier, lue par le modèle du savoir sur ses premières réponses, sa forme du jour comprise ; la page la dit de 1 à 99 %, et en couleur de piste. Une épreuve en jeu la garde à son départ : Contre toute attente la relit à sa fin | `chanceDeLEpreuve`, `EtatDesSentiers.pourToi`, `campagne_series.chance` |
 | Chapitre | Deux paliers d'un même thème, fait d'un à trois sous-thèmes de la catégorie, du premier au huitième palier | `shared/chapitres.ts` |
 | Chargement à la demande | Un module qui ne part qu'au moment où un écran en a besoin, sans `lazy` ni suspension | `aLaDemande` (`client/src/aLaDemande.ts`) |
+| Chasse | Une partie du Cabinet qui vise l'œuvre qu'on choisit, à son jeu — celui que son cadre vide affiche — : pour la gagner, ou, déjà à soi, pour la dorer ; la retente d'une case de la visite manquée en est une aussi, au jeu de la case ; un nombre par jour | `CHASSES_PAR_JOUR`, `origine: 'chasse'` (`DemandeDeDepart`) |
 | Chef | Le profil qui tient l'espace et anime depuis son téléphone de joueur, par sa barre | `chefIci` (`client/src/chef.ts`), `accounts.profile_id` |
 | Choix local | Le prénom et l'avatar retenus sur un téléphone pour un espace — une commodité de l'appareil, sans rapport avec un profil | `ChoixLocal`, `quizz.profile.<espace>` (`client/src/state.ts`) |
 | Chronologie | Le journal d'une tablée en une page : qui a fait quoi, les gestes ratés, les délais de réponse, ce qui s'est dit, les retours attendus | `server/scripts/tablee/chronologie.mjs` |
@@ -242,7 +248,8 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | Garder cet ordre | Une question dont les réponses restent telles qu'écrites dans un quiz qui les mélange | `ordreFixe` |
-| Gardien | Le légendaire qui garde la fin d'un acte de l'expédition : il pose ses questions jusqu'à ce qu'on en trouve autant qu'il en demande, chaque erreur coûtant une vie ; vaincu, il est l'un des trois à garder au bout | `GARDIEN`, `gardiensDe`, `MARCHES_DES_ACTES` |
+| Gardien (de l'expédition) | Le légendaire qui garde la fin d'un acte de l'expédition : il pose ses questions jusqu'à ce qu'on en trouve autant qu'il en demande, chaque erreur coûtant une vie ; vaincu, il est l'un des trois à garder au bout | `GARDIEN`, `gardiensDe`, `MARCHES_DES_ACTES` |
+| Gardien (du Cabinet) | Un des vingt-trois légendaires qui veillent sur le Cabinet de curiosités — deux par salle, que la salle complète puis toute dorée réveillent, et cinq autres (la série, le Cabinet entier, les trois fêtes) — : endormi, sa silhouette dorée et ce qui le réveille ; réveillé, la carte-bonus la plus forte de sa salle. Jamais un Divin | `GARDIENS`, `conditionDuGardien` (`shared/cabinet/salles.ts`), `GardienVu` |
 | Gemmes | Les onglets de ce qui se range par rareté, une gemme par page avec son compte : les mêmes dans l'album des avatars de « Ma collection » et dans la grille des avatars de la loge | `Gemmes` (`client/src/components/Gemmes.tsx`) |
 | Gerbe | Ce qui éclate sur le téléphone d'un joueur à profil à chaque bonne réponse, pour lui seul ; les confettis d'office | `shared/gerbes.ts` |
 | Geste (du QG) | Ce que l'administrateur a changé, noté en une phrase au journal des gestes, jamais modifié | `qg_gestes`, `noterLeGeste` |
@@ -315,6 +322,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 |---|---|---|
 | Ma collection | L'écran de tout ce qui se gagne — ce qu'on a, ce qui reste et où le gagner —, où l'on ne porte rien | `shared/collection.ts` |
 | Main (de jokers) | Les jokers qu'on tient en expédition : un se tire du paquet à chaque question, trois au plus ; ce qu'on ne joue pas se garde. À l'écran, des cartes au cadre de leur rareté, posées au bas de l'écran, la pioche au bout | `EtatDeLExpedition.main`, `MAIN_MAX`, `Main` |
+| Manche (du Cabinet) | Un tour d'un jeu du Cabinet de curiosités : une partie en compte trois, chacune trois étoiles au plus | `MANCHES_PAR_PARTIE`, `ETOILES_PAR_MANCHE` (`shared/cabinet/bareme.ts`) |
 | Marche | La difficulté d'une question tirée de la base — facile, moyen, difficile, expert —, que le quiz ne garde pas : sa mémoire la porte | `MemoireDuQuiz` |
 | Marge | Les 1,5 s pendant lesquelles une question reste ouverte après l'échéance affichée, pour les réponses en route | `GRACE_MS` |
 | Marque d'homonymie | « (2) », ajouté à l'affichage au second invité de même prénom et de même avatar qu'on voit — le dessin porté, sinon l'emoji —, jamais écrit en base | `nomsAffiches`, `visageDe` (`shared/homonymes.ts`), `nomAffiche` |
@@ -350,7 +358,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Niveau | Ce que l'expérience donne sur la courbe 60 × (n − 1)², ou celui qu'une courbe d'avant avait donné, s'il est plus haut et qu'elle le donne encore | `niveauDuProfil` |
 | Niveau d'Automate | Le score qu'Automate vise sur une série : le niveau de campagne du joueur pendant son placement, puis celui de sa cote | `niveauPourLeDuel` |
 | Niveau de campagne | Le score qu'un joueur ferait en moyenne sur une série tirée pour lui, d'après ses réponses de campagne | `scoreDeReference` |
-| Niveau d'explorateur | Ce que sa renommée donne, de 1 à 10 : chaque niveau ouvre des cartes à son codex — la variété d'abord : trois styles au premier, un de plus à chacun des trois suivants —, les premiers une règle — la catégorie fétiche au 1, le pari au 2, les fioles au 3, les talismans au 4 —, le sixième le dos étoilé ; les niveaux 4, 7 et 10 font la piste de L'Explorateur, là où les rencontres s'ouvrent | `niveauDe`, `NIVEAUX`, `ECHELLE`, `StatsDeCampagne.explorateur` |
+| Niveau d'explorateur | Ce que sa renommée donne, de 1 à 10 : chaque niveau ouvre des cartes à son codex — la variété d'abord : trois styles au premier, un de plus à chacun des trois suivants —, les premiers une règle — la catégorie fétiche au 1, le pari au 2, les fioles au 3, les talismans au 4 —, le sixième le dos étoilé ; les niveaux 4, 7 et 10 faisaient la piste de L'Explorateur jusqu'au 26 octobre 2026, qui compte depuis les salles complètes du Cabinet | `niveauDe`, `NIVEAUX`, `ECHELLE` |
 | Nom d'espace | Le nom d'un espace dans l'adresse (`chez-nadia`) : 2 à 24 minuscules, chiffres ou tirets, ni réservé ni fait de six chiffres | `isValidSlug`, `SLUG` (`shared/space.ts`) |
 | Nom d'une soirée | Son identifiant figé : le jour et l'instant de sa première question jouée, et une empreinte de l'espace | `archiveIdOf`, `soireeEnCours` |
 | Nom réservé | Un premier segment d'adresse que l'application emploie elle-même, et qu'aucun espace ne peut porter | `RESERVED_SLUGS` (`shared/space.ts`) |
@@ -362,6 +370,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | Objet | Ce qui s'achète en confettis et sert en jeu : la vie des sentiers et le sablier de la série | `OBJETS` |
+| Œuvre | Une des quatre-vingt-quatre cartes peintes, exposée dans une salle du Cabinet de curiosités : gagnée en jouant, achetée à la poussière d'or ou offerte à l'arrivée, elle ne se perd jamais | `OEUVRES` (`shared/cabinet/oeuvres.ts`), `OeuvreVue`, `OeuvrePeinte` |
 | Onglets nommés | Les onglets que la console ouvre et réutilise : trois clics sur « Mes quiz » n'ouvrent qu'un éditeur, et jamais une seconde console | `ONGLETS` (`client/src/onglets.ts`) |
 | Orpheline | Une pièce que plus aucun quiz ne cite, en attente du ménage ; son heure de grâce compte depuis ce moment | `orpheline_depuis` |
 
@@ -369,7 +378,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
-| Page sans espace | Une page dont l'adresse ne porte pas d'espace (`/host`, `/profil`, `/jour`…) : treize, lues avant les noms d'espace | `ACCOUNT_PAGES` (`shared/adresses.ts`) |
+| Page sans espace | Une page dont l'adresse ne porte pas d'espace (`/host`, `/profil`, `/jour`…) : quinze, lues avant les noms d'espace | `ACCOUNT_PAGES` (`shared/adresses.ts`) |
 | Palier | Une marche d'un sentier, validée par une épreuve ; le douzième est le sommet, le treizième celui du maître | `PALIERS` |
 | Palier de maître | Le palier facultatif d'après le sommet : seize expertes, neuf pour valider, un titre au bout | `PALIER_DU_MAITRE` |
 | Palmarès | Les prix que les chiffres désignent, un lauréat chacun, remis ou non : vingt individuels, deux d'équipe | `computeStats`, `SPECS` (`server/src/core/stats.ts`) |
@@ -406,6 +415,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Posé (joker) | Un joker de l'expédition posé depuis la main : il agit jusqu'au bout de l'acte — Renaissance, L'aube, Le trésor… —, et ne prend pas la place du joker d'une question | `EtatDeLExpedition.poses`, `sorte: 'poser'` |
 | Pouls | Les mesures de la dernière minute que `/healthz` publie, agrégées et sans un nom | `pouls` |
 | Pour qui ? | Le geste qui remplit le prénom — ou les deux — et l'accord d'un modèle de fête en le copiant | `personnaliser` |
+| Poussière d'or | La monnaie du Cabinet de curiosités, qui n'en sort jamais : chaque visite ou chasse où il répond en rapporte, même ratée — quittée avant toute réponse, rien ; une partie libre, seulement parmi les premières du jour —, et elle achète une œuvre précise ou dore un cadre | `poussiereDeLaPartie` (`shared/cabinet/partie.ts`), `PageDuCabinet.poussiere` |
 | Précision | La part de bonnes réponses parmi les QCM répondus, dite sur combien — jamais les estimations | `accuracy` (`PlayerStat`, `shared/types.ts`), `surQcm` (`client/src/format.ts`) |
 | Précompression | Les fichiers du client compressés une fois pour toutes au build, et servis tels quels selon ce que le navigateur accepte | `server/src/core/precompresse.ts` |
 | Première traversée | La première expédition menée au bout — le troisième gardien vaincu, un gardien gardé — : elle amène la luciole, offerte, dans sa niche si elle est vide, une fois | `garderUnGardien`, `ProfileStore.offrirUnCompagnon` |
@@ -483,6 +493,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Sa place dans la course | Les trois lignes du téléphone à chaque révélation : l'étiquette, la place, la cible nommée — les bonnes nouvelles seulement | `ligneDeCourse` |
 | Sablier | L'objet qui couvre un jour manqué au quiz du jour : la série tient, sans compter ce jour-là | `PRIX_D_UN_SABLIER` |
 | Saison | Halloween, Noël ou le Nouvel An : une période qui ouvre son légendaire, par quelques jours de quiz du jour, une soirée jouée ces jours-là, ou en le gardant au bout d'une expédition partie ces jours-là — sa fête y tient la moitié des thèmes pointus, son légendaire garde l'acte 3 | `shared/saisons.ts`, `calendrierDesExpeditions` |
+| Salle (du Cabinet) | Un mur du Cabinet de curiosités : les huit œuvres d'une famille et leurs deux gardiens, ou les vingt du Vestibule ; au musée, une porte en arche qui montre la plus rare de ses œuvres à soi | `SALLES` (`shared/cabinet/salles.ts`), `SalleVue` |
 | Salle des tests | Le moteur du quiz joué seul, sans serveur, sur une base en mémoire et une horloge qu'on avance à la main, pour viser un instant précis | `server/test/salle.ts` (`salle`, `horloge`) |
 | Salle du jour | Les joueurs d'un jour, masqués et suspendus écartés ; certains hauts faits demandent qu'ils soient huit au moins | `SALLE_DU_JOUR` |
 | Salle socket.io | Un groupe de connexions auquel le serveur émet : tout l'espace, ses écrans d'animateur, ou les connexions d'un invité | `space:<espace>`, `hosts:<espace>`, `player:<invité>` |
@@ -570,6 +581,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Version rare | L'apparence d'un avatar éclaté ; on peut porter à la place sa version d'origine, l'Éclat restant compté | `brilleChez` |
 | Vies du jour | Les douze vies que partagent tous les sentiers, rendues à minuit, heure de Paris | `VIES_PAR_JOUR` |
 | Visée | La phase, la question et le tour que porte un geste de l'animateur (la question et le tour pour une réponse) ; périmée, le geste est ignoré | `perimee` |
+| Visite du jour | Les parties que le Cabinet propose chaque jour, un jeu chacune : chacune peut faire gagner une œuvre, que la page ne reçoit pas tant qu'elle n'est pas gagnée ; un jeu s'y change une fois | `visiteDuJour` (`shared/cabinet/musee.ts`), `CaseVue` |
 | Vitrine | Les un à trois hauts faits gagnés qu'un profil choisit de montrer sur sa carte | `vitrineChoisie` |
 | Voie | Une des façons d'ouvrir un légendaire — une seule suffit ; une voie « toutes » demande plusieurs conditions à la fois | `voiesDe` |
 | Voisines | Des intitulés presque pareils dans un même sous-thème, montrés sans être refusés | `presquePareils` |

@@ -9,7 +9,7 @@ import { sansAccent } from '../../../shared/homonymes'
 // Partagée : l'écran de l'administrateur, qui corrige une question, borne ses champs à la même mesure.
 import { MAX_REPONSE } from '../../../shared/campagne'
 import { empreinteDe } from './jour'
-import { rendreLaMain } from './tourniquet'
+import { QUESTIONS_PAR_TRANCHE, rendreLaMain } from './tourniquet'
 
 /**
  * La base de la campagne : ses questions à elle, écrites et étiquetées
@@ -299,8 +299,8 @@ export interface BaseLue {
   refusees: { fichier: string; position: number; motif: string }[]
 }
 
-/** Ce que le serveur relit d'une traite avant de rendre la main : une dizaine de millisecondes. */
-export const QUESTIONS_PAR_TRANCHE = 200
+/** Ce que le serveur relit d'une traite avant de rendre la main : une dizaine de millisecondes (`core/tourniquet.ts`). */
+export { QUESTIONS_PAR_TRANCHE }
 
 /**
  * Lit toute la base, fichier par fichier. Une entrée défectueuse est

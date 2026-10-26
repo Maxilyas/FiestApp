@@ -6,7 +6,9 @@
 // elle s'écrit à prix nul et s'installe dans une niche vide, jamais à la
 // place de celui qui y vit ; qui avait déjà mené une expédition au bout la
 // reçoit au démarrage. Sa métamorphose, la luciole-aurore (peinte le même
-// jour), s'ouvre comme celle des autres : sa forme ultime et l'Éclat.
+// jour), s'ouvre comme celle des autres : sa forme ultime et l'Éclat. Depuis
+// le 25 octobre 2026, la première salle complète du Cabinet de curiosités
+// l'amène aussi (`cabinet-gardiens.test.ts`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -15,7 +17,8 @@ import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '.
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { GARDIEN, type VueDeLExpedition } from '../../shared/expedition'
-import { COMPAGNONS_DE_LA_BOUTIQUE, COMPAGNON_DE_L_EXPEDITION } from '../../shared/compagnons'
+import { COMPAGNONS_DE_LA_BOUTIQUE, COMPAGNON_DE_L_EXPEDITION, cheminDeLaLuciole } from '../../shared/compagnons'
+import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
 import { aLaUne } from '../../shared/aLaUne'
 import { tirerLeCoffre } from '../../shared/tresor'
 import type { ObjetDuTresor } from '../../shared/coffre'
@@ -138,6 +141,15 @@ test('la luciole ne se vend pas : ni le coffre, ni « À la une » ne la propose
   assert.ok(!tirages('luciole').some(o => o.sorte === 'compagnon'), 'la luciole n’est pas au trésor')
   // Le témoin : le loup qui lui manque, le coffre le donne à sa rareté légendaire.
   assert.ok(tirages('loup').some(o => o.sorte === 'compagnon' && o.cle === 'loup'))
+})
+
+test('sa voie neuve : la première salle complète du Cabinet l’amène aussi — dite quand le Cabinet s’ouvre en production', () => {
+  // L'Expédition laisse sa place au Cabinet : sans lui, la luciole ne rejoindrait plus personne de neuf. Le Cabinet
+  // l'offre à la réconciliation qui trouve une salle complète (`cabinet-gardiens.test.ts`) ; ses mots la disent quand
+  // il s'ouvre — fermé en production, ils enverraient chercher une page qui n'y répond pas.
+  assert.equal(cheminDeLaLuciole(false), 'mène une expédition au bout')
+  assert.equal(cheminDeLaLuciole(true), 'mène une expédition au bout, ou complète une salle du Cabinet')
+  assert.equal(cheminDeLaLuciole(), cheminDeLaLuciole(CABINET_EN_PRODUCTION))
 })
 
 test('la Première traversée : une expédition menée au bout amène la luciole dans sa niche vide, à prix nul, une fois', async () => {

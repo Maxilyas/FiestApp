@@ -16,6 +16,7 @@ import { SERVEUR } from '../src/racine'
 import { THEMES } from '../../shared/themes'
 import { BRANCHES } from '../../shared/branches'
 import { PAGES, cleDeLaPage } from '../../shared/calendrier'
+import { contrasteDeLaPage } from './a-l-ecran'
 
 const args = process.argv.slice(2)
 const voulus = args.filter(a => !a.startsWith('--'))
@@ -33,63 +34,9 @@ function chargerPlaywright(): any {
 }
 const { chromium } = chargerPlaywright()
 
-/**
- * Le contraste de chaque texte à l'écran sur ce qui est vraiment peint
- * derrière lui : les lignes de texte sont relevées, puis le texte devient
- * transparent — son halo reste, il fait partie de ce que l'œil lit — et la
- * photo dit, sous chaque ligne, le pixel le plus clair (pour un texte clair)
- * ou le plus sombre (pour un texte sombre), au 95ᵉ centile. Seuils WCAG :
- * 4,5:1, ou 3:1 pour un grand texte.
- */
+/** Le contraste de chaque texte à l'écran sur ce qui est vraiment peint derrière lui (`contrasteDeLaPage`), et ce qui reste sous le seuil. */
 async function mesurerContraste(page: any) {
-  const lignes: any[] = await page.evaluate(`(() => {
-    const out = []
-    const marcheur = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
-    for (let n = marcheur.nextNode(); n; n = marcheur.nextNode()) {
-      const texte = n.textContent.trim()
-      if (!texte || !n.parentElement) continue
-      // Ce qui ne se lit qu'à l'oreille ne se mesure pas.
-      if (n.parentElement.closest('.sr-only')) continue
-      const s = getComputedStyle(n.parentElement)
-      if (s.visibility !== 'visible' || Number(s.opacity) === 0) continue
-      const r = document.createRange()
-      r.selectNodeContents(n)
-      for (const b of r.getClientRects()) {
-        if (b.width < 4 || b.height < 4 || b.bottom < 0 || b.top > innerHeight || b.right < 0 || b.left > innerWidth) continue
-        // Recouvert (la barre du menu, un dialogue) : on ne le voit pas, on ne le mesure pas.
-        const dessus = document.elementFromPoint(Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), Math.min(innerHeight - 1, Math.max(0, b.top + b.height / 2)))
-        if (dessus && !n.parentElement.contains(dessus) && !dessus.contains(n.parentElement)) continue
-        const taille = parseFloat(s.fontSize), gras = Number(s.fontWeight) >= 700
-        out.push({ texte: texte.slice(0, 30), couleur: s.color, grand: taille >= 24 || (gras && taille >= 18.66), x: b.left, y: b.top, l: b.width, h: b.height })
-      }
-    }
-    return out
-  })()`)
-  await page.addStyleTag({ content: '* { color: transparent !important; caret-color: transparent !important; } img, svg, video { visibility: hidden !important; }' })
-  await patienter(150)
-  const png: Buffer = await page.screenshot({ type: 'png' })
-  const resultats: any[] = await page.evaluate(
-    `(async ({ src, lignes, dpr }) => {
-      const i = new Image(); i.src = src; await i.decode()
-      const c = document.createElement('canvas'); c.width = i.naturalWidth; c.height = i.naturalHeight
-      const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(i, 0, 0)
-      const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
-      const lum = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
-      return lignes.map(l => {
-        const [r, g, b, a = 1] = l.couleur.match(/[\\d.]+/g).map(Number)
-        if (a < 0.5) return null
-        const Lt = lum(r, g, b)
-        const d = x.getImageData(Math.max(0, Math.round(l.x * dpr)), Math.max(0, Math.round(l.y * dpr)), Math.max(1, Math.round(l.l * dpr)), Math.max(1, Math.round(l.h * dpr))).data
-        const fonds = []
-        for (let k = 0; k < d.length; k += 4) fonds.push(lum(d[k], d[k + 1], d[k + 2]))
-        fonds.sort((p, q) => p - q)
-        const clair = Lt > 0.18
-        const pire = clair ? fonds[Math.floor(fonds.length * 0.95)] : fonds[Math.floor(fonds.length * 0.05)]
-        const ratio = (Math.max(Lt, pire) + 0.05) / (Math.min(Lt, pire) + 0.05)
-        return { texte: l.texte, ratio: Math.round(ratio * 100) / 100, seuil: l.grand ? 3 : 4.5 }
-      }).filter(Boolean)
-    })(${JSON.stringify({ src: `data:image/png;base64,${png.toString('base64')}`, lignes, dpr: 2 })})`,
-  )
+  const resultats = await contrasteDeLaPage(page)
   const faibles = resultats.filter(r => r.ratio < r.seuil)
   const min = resultats.reduce((m, r) => Math.min(m, r.ratio / r.seuil), Infinity)
   console.log(`    ${resultats.length} lignes, ${faibles.length} sous le seuil (pire : ${(min * 100).toFixed(0)} % du seuil)`)

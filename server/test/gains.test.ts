@@ -227,8 +227,58 @@ test('la fin d’une expédition : le légendaire gardé en grand, puis ce qu’
   assert.match(perdue, /href="\/campagne#carnet"/)
 })
 
+test('la fin d’une partie du Cabinet : ses étoiles et son œuvre, le gardien réveillé en grand, puis ce qu’elle rapporte, ses trophées, ce qu’ils ouvrent', async () => {
+  Object.assign(globalThis, { window: { location: { pathname: '/cabinet', search: '', hash: '' } } })
+  const page = await import(new URL('../../client/src/views/cabinet/Bilan.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const manche = (e: number) => ({ etoiles: e, naturel: e, fin: 'jugee' })
+  const vue = {
+    id: 'p',
+    maintenant: 0,
+    rang: 12,
+    jeu: 'pari',
+    origine: 'chasse',
+    enJeu: { rarete: 'rare', salle: 'erudit' },
+    seuil: 6,
+    carte: null,
+    manche: 2,
+    phase: 'finie',
+    manches: [manche(3), manche(3), manche(3)],
+    total: 9,
+    bilan: {
+      etoiles: [3, 3, 3],
+      naturel: [3, 3, 3],
+      aidee: false,
+      total: 9,
+      issue: 'gagnee-doree',
+      poussiere: 18,
+      oeuvre: 'lecon',
+      cartel: { manche: 2, sujet: 'Quelle est la capitale de la Lituanie ?', reponse: 'Vilnius', anecdote: 'Elle fut la « Jérusalem du Nord ».' },
+      seuil: 6,
+      dit: 'Leçon entre dans ton musée, dans un cadre doré',
+      gains: { xp: 60, confettis: 6, recompenses: [{ key: 'hf:marathonien:1', emoji: '🏃', title: 'Le Marathonien · Bronze' }], legendaires: ['lg:chouette'] },
+    },
+  }
+  const html = renderToStaticMarkup(React.createElement(page.BilanDeLaPartie, { vue, ecran: null, onMusee: () => {} }))
+  assert.match(html, /Gagnée sans faute !/)
+  assert.match(html, /Avatar légendaire débloqué/)
+  assert.match(html, /<b class="num">\+\d+ XP<\/b>/)
+  assert.match(html, /🎊<\/span> \+6 confettis/)
+  assert.match(html, /ta partie \+60 · tes trophées \+\d+/)
+  assert.match(html, /<a class="trophee-tombe" href="\/profil#collection-trophees-campagne"/)
+  // L'ordre de l'écran A : ce que la partie a fait à son œuvre, ce qui est tombé de grand, ce que tu gagnes, les trophées, les gestes.
+  const ou = (m: string) => html.indexOf(m)
+  const ordre = ['cab-bilan-tete', 'cab-oeuvre-gagnee', 'fin-legendaire', 'class="card gains"', 'class="card gains-trophees"', 'class="fin-actions"'].map(ou)
+  assert.ok(ordre.every(i => i >= 0), ordre.join(','))
+  assert.deepEqual(ordre, [...ordre].sort((a, b) => a - b))
+  // Une partie libre au-delà des cinq qui paient, sans une bonne réponse : rien à compter, rien d'affiché — pas de « +0 ».
+  const rien = { ...vue, origine: 'libre', bilan: { ...vue.bilan, issue: 'libre', poussiere: 0, oeuvre: undefined, gains: { xp: 0, confettis: 0 } } }
+  const vide = renderToStaticMarkup(React.createElement(page.BilanDeLaPartie, { vue: rien, ecran: null, onMusee: () => {} }))
+  assert.doesNotMatch(vide, /class="card gains"|\+0/)
+})
+
 test('chaque fin passe par les mêmes pièces : le jour, la campagne, le défi, les duels, les sentiers, les parcours, l’expédition, la soirée', () => {
-  for (const fichier of ['views/JourApp.tsx', 'views/CampagneApp.tsx', 'views/Sentiers.tsx', 'views/Parcours.tsx', 'views/ExpeditionApp.tsx', 'components/FinDeSoiree.tsx']) {
+  for (const fichier of ['views/JourApp.tsx', 'views/CampagneApp.tsx', 'views/Sentiers.tsx', 'views/Parcours.tsx', 'views/ExpeditionApp.tsx', 'views/cabinet/Bilan.tsx', 'components/FinDeSoiree.tsx']) {
     const page = source(fichier)
     assert.match(page, /<CeQueTuGagnes\b/, fichier)
     assert.match(page, /<NouveauxTrophees\b/, fichier)

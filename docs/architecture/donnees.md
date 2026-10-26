@@ -2,9 +2,9 @@
 
 > Où vit chaque donnée de FiestApp, et pourquoi : les deux bases, les
 > journaux de la soirée, le miroir qui la protège d'un disque effacé, le nom
-> de la soirée, les archives, les dérivations, le recalcul au démarrage, puis
-> le démarrage et l'arrêt du serveur vus depuis les données. Pour un
-> développeur.
+> de la soirée, les archives, les dérivations, le recalcul au démarrage, le
+> Cabinet de curiosités, puis le démarrage et l'arrêt du serveur vus depuis
+> les données. Pour un développeur.
 
 **Dans cette page** : [Deux bases, deux rôles](#deux-bases-deux-rôles) ·
 [Les journaux de la soirée](#les-journaux-de-la-soirée) ·
@@ -13,6 +13,7 @@
 [Les archives](#les-archives) ·
 [Les dérivations](#les-dérivations) ·
 [Le recalcul et les versions](#le-recalcul-et-les-versions) ·
+[Le Cabinet de curiosités](#le-cabinet-de-curiosités) ·
 [Le démarrage](#le-démarrage) ·
 [L'arrêt](#larrêt) ·
 [Ce qui ne vit qu'en mémoire](#ce-qui-ne-vit-quen-mémoire)
@@ -310,6 +311,111 @@ confettis) n'a pas besoin de version : une règle changée vaut aussitôt, pour
 tous. Chaque constante, et ce que la changer reprend ou non :
 [Les barèmes](../reference/baremes.md).
 
+## Le Cabinet de curiosités
+
+Le Cabinet ([le produit](../produit/le-cabinet.md)) range tout par profil,
+sans espace, dans la base permanente : rien de lui ne vit dans la base locale,
+qui ne tient que la soirée. Le magasin et ses lots : [Le
+serveur](./serveur.md#le-cabinet-de-curiosités) ; chaque table, colonne par
+colonne : [La base de données](../reference/base-de-donnees.md#cabinet_gestes).
+
+**Une partie est une série de la campagne d'un autre mode** — une ligne de
+`campagne_series`, `mode = 'cabinet'` :
+
+- **son départ figé**, dans la colonne `campagne_series.cabinet`
+  (`DepartDUnePartie`, `shared/cabinet/partie.ts`, en JSON versionné) : le
+  jeu, l'origine — une case de la visite, une chasse, une partie libre —,
+  l'œuvre en jeu et son seuil, la carte-bonus, le chrono — chaque durée, le
+  temps en plus, la grâce, la pause —, les trois manches et leurs rechanges,
+  réponses comprises, et sa graine, que rien n'envoie à la page. Écrit au
+  départ, jamais réécrit : tout se tire à cet instant, et recharger ne relance
+  rien ;
+- **ses gestes**, dans `cabinet_gestes`, un par rang, chacun écrit avant que
+  sa réponse parte : ouvrir une manche, répondre, éclairer, changer, reculer,
+  mettre en pause, quitter — et la clôture d'une partie d'un jour d'avant, que
+  le serveur seul écrit. Aucune minuterie : l'état d'une partie est le pli de
+  son départ et de ses gestes (`pliDeLaPartie`), chrono compris, et une manche
+  expirée se juge au geste suivant ;
+- **ses pièces jugées**, une par verdict — une par manche, deux au Pari
+  parié —, ajoutées au bout de `campagne_series.questions` et de
+  `campagne_reponses` par le lot du geste qui les tranche (`PieceDuCabinet`,
+  `shared/cabinet/pieces.ts`). Le journal des réponses les compte sans rien
+  savoir du Cabinet : l'expérience, les confettis, le compagnon, les missions,
+  le carnet, ce que chacun a vu. Une pièce est juste dès deux étoiles
+  naturelles ; la colonne `joker` porte le pouvoir qui l'a aidée
+  (`pouvoir:eclairer`, `pouvoir:temps`), jamais la clé d'une carte-bonus ;
+  `composee`, ce qu'il a fait (les affirmations de l'Éclair, le cadrage et le
+  titre du Détail, la frise posée) ;
+- **son bilan**, dans `campagne_series.bilan`, écrit par le lot qui la finit
+  (`BilanDUnePartie`) : les étoiles avant et après les pouvoirs, l'issue —
+  gagnée, gagnée et dorée, dorée, doublée, manquée, libre (`ISSUES`) —, la
+  poussière d'or, l'œuvre. Un fait
+  de la partie, jamais réécrit.
+
+**Ce qui n'est pas une question de la base** porte un seul préfixe, `cab:`
+— un lieu de l'Épingle, une fiche des Indices, une réplique, un tableau du
+Détail, les cinq affirmations de l'Éclair, une frise — ; les questions de la
+base que le Pari, le Mot mystère et le Filet posent gardent leur identifiant.
+Le carnet et le signalement l'écartent par une seule liste
+(`PREFIXES_HORS_DE_LA_BASE`, `shared/horsDeLaBase.ts`), en mémoire comme en
+SQL ; la mesure des difficultés, elle, ne lit que les réponses nues, et écarte
+toute autre pièce par sa forme — la clé de son jeu : seule la première
+question du Pari, répondue dans les temps et sans aide, dans une manche que
+« Changer » n'a pas touchée, mesure le savoir. Ce qu'une manche a montré de la
+base compte vu pour toute la campagne, à son heure : le journal déplie les
+cinq questions d'une manche de l'Éclair, les nouveaux venus d'une frise d'un
+sujet, les questions qui nomment un tableau du Détail, ce que la pièce a
+montré de plus qu'elle (`cabinet.montre` : les leurres du Détail, ce que
+« Changer » a remplacé) — jamais dans ses premières réponses.
+
+**Trois tables à lui**, créées dans le premier lot du réveil de la campagne
+(`REVEIL_DU_CABINET`, `server/src/core/cabinet/tables.ts`) :
+
+| Table | Ce qu'elle garde | Pourquoi |
+|---|---|---|
+| `cabinet_gestes` | les gestes de chaque partie, par `(serie_id, rang)`, avec l'`uid` du lot qui l'a écrit | le pli d'une partie, et la garde de chaque lot : une instruction ne s'écrit que si son geste est en base |
+| `cabinet_profils` | une ligne par profil : la poussière gagnée, la série et son record, les visites figées des trois derniers jours, la partie en cours | ce qui se résume de ses parties, tenu à jour dans les lots qui le changent — jamais une somme relue à chaque page |
+| `cabinet_oeuvres` | une ligne par œuvre entrée, 84 au plus : son origine, sa saison, la partie que son cartel garde, son prix et celui de sa dorure | ce qu'il possède ; un achat garde le prix payé, et le solde se relit de sa ligne de profil moins le prix de ses œuvres, dans l'instruction même qui dépense |
+
+Et dans `campagne_meta`, **le secret du Cabinet** (`secret_du_cabinet`) :
+tiré une fois, au premier réveil, relu à chaque réveil dans le même lot. La
+graine de la visite du jour d'un profil en dérive
+(`HMAC-SHA256(secret, profileId)`), au serveur seul : faite du profil et du
+jour, la page l'aurait refaite et lu l'œuvre visée de chaque case ; tirée à
+chaque réveil, la visite de qui n'a pas encore joué aurait changé d'un réveil
+à l'autre, ou d'un serveur à l'autre pendant une mise en ligne.
+
+**Ce qui se dérive, et ce qui s'écrit.**
+
+| Ce qu'on lit | D'où |
+|---|---|
+| Le musée — ce qu'il possède, son solde, les gardiens dus, le prochain, la série montrée | `museeDe` (`shared/cabinet/musee.ts`), de ses lignes et de ses parties du jour |
+| La visite du jour | dérivée de sa graine et du musée de minuit (`visiteDuJour`), la même à chaque page sans rien écrire ; **figée** dans `cabinet_profils.visites` au premier lot du jour qui écrit — un départ, un échange, la première dépense, la fin d'une partie d'un jour d'avant |
+| Une partie, en cours ou finie, « Mes réponses », le cartel d'une œuvre | le pli de son départ et de ses gestes : la partie en cours et une partie finie passent par le même chemin (invariant 14) |
+| Tes murs — les lieux épinglés, les dates rangées | le journal des réponses (ses seules pièces jugées, `jugeesDe`) et le contenu livré : rien ne s'écrit pour eux |
+| Les gardiens réveillés | rangés sur l'étagère du profil (`profile_badges`, sous la clé fixe `#cabinet`), une fois dus : un légendaire ne se dérive pas à la lecture, et ne se reprend jamais (invariant 22) |
+| La poussière d'or gagnée | écrite avec chaque bilan, et ajoutée au reflet du profil dans le même lot : un barème changé ne vaut que pour la suite |
+
+**Les versions qui se relisent.** Le cartel et « Mes réponses » repassent
+par le départ et les gestes d'une partie finie, aussi vieille soit-elle. Ce
+qui pourrait changer se fige au départ — le seuil, le chrono — ou dans le
+tirage ; ce que le pli juge au barème du code se garde sous une version :
+`VERSIONS_DU_DEPART` et `VERSIONS_DU_BILAN_DU_CABINET` (`shared/cabinet/partie.ts`),
+écrites en dur, dont aucune ne quitte la liste — chaque départ et chaque bilan
+se relisent à la leur (`shared/cabinet/lecture.ts`), et une version inconnue se
+refuse. Toutes deux valent 1 : aucune partie ne s'est jouée hors des bases
+jetables avant la préproduction, et dès lors toute retouche du pli ou de la
+lecture monte la version. Rien ne se relit au démarrage : une règle de gardien
+changée vaut à la lecture froide suivante de chaque musée, qui réconcilie ses
+gardiens sans rien reprendre — il n'y a pas de version du Cabinet à relire.
+Le pourquoi : [les décisions](./decisions.md#le-cabinet-de-curiosités).
+
+**Ce qui l'efface** : la suppression d'un profil seule, sous son verrou, avant
+la campagne — ses gestes par les séries du profil (`cabinet_gestes` n'a pas de
+`profile_id`), puis sa ligne et ses œuvres. Jamais un `UPDATE` ni un `DELETE`
+de `campagne_reponses` : les déclencheurs des tranches du journal les
+effaceraient toutes, et le réveil suivant relirait toute la base.
+
 ## Le démarrage
 
 `server/src/index.ts` lit l'environnement, puis `createQuizServer`
@@ -325,7 +431,8 @@ tous. Chaque constante, et ce que la changer reprend ou non :
    crée l'administrateur — en ligne, jamais avec le mot de passe par défaut.
 4. **Treize branches de front** (`deFront`) : le miroir et sa restauration,
    les profils, le quiz du jour, le rappel du soir, la bibliothèque et ses
-   quiz d'amorce, les programmes, les partages, les salons, la campagne, le
+   quiz d'amorce, les programmes, les partages, les salons, la campagne — les
+   tables du Cabinet et son secret dans son premier lot —, le
    journal des gestes, la santé du serveur, la maintenance et l'historique. Un magasin qui a
    besoin d'un autre s'ouvre après lui, dans la même branche ; un échec ne
    remonte qu'une fois toutes les branches arrivées au bout. L'un après
@@ -388,7 +495,8 @@ fois vidée à l'arrêt, les instantanés et leur regroupement, les codes
 minute et le relevé de l'heure en
 cours (réécrit dans la base permanente toutes les dix minutes), les pages
 publiques gardées, les fins de la dernière clôture, la scène des écrans
-d'animateur. Le navigateur, lui, garde ce qui est à lui — le jeton d'un
+d'animateur, les musées et les parties du Cabinet gardés en mémoire — chacun
+se relit d'un lot à sa page suivante. Le navigateur, lui, garde ce qui est à lui — le jeton d'un
 invité, sa dernière soirée — sous l'origine de la page : changer d'adresse le
 perd.
 

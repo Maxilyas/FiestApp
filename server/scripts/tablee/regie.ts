@@ -43,8 +43,27 @@ import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { format } from 'node:util'
+import { createClient } from '@libsql/client'
 import { createQuizServer } from '../../src/server'
 import { sansAccent } from '../../../shared/homonymes'
+import { lireLeDepart } from '../../../shared/cabinet/lecture'
+import type { ContenuTire } from '../../../shared/cabinet/jeux/index'
+import {
+  attenteDesImages,
+  imagesPasPretes,
+  lancerLeDe,
+  ligneDeLaMarche,
+  lireLeDe,
+  lireLeToucher,
+  marchesASavoir,
+  nomDUnSigneSeul,
+  partieDeLaReponse,
+  pointVise,
+  retenirLaPartie,
+  UN_CURSEUR_NE_SE_TAPE_PAS,
+  type PartieVueParLaPage,
+  type Visee,
+} from './gestes'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 const RACINE = path.resolve(ICI, '../../..')
@@ -194,10 +213,12 @@ const MOT_DE_PASSE_PROFIL = 'tablee-profil'
 
 const portJeu = Number(option('port')) || (await portLibre())
 const BASE = `http://localhost:${portJeu}`
+/** La base permanente de la tablée, jetable comme l'autre : la régie y relit aussi le plan figé d'une partie du Cabinet (`planDe`). */
+const BASE_PERMANENTE = `file:${path.join(DOSSIER, 'bases', 'permanente.db').replace(/\\/g, '/')}`
 const serveur = await createQuizServer({
   port: portJeu,
   dbPath: path.join(DOSSIER, 'bases', 'locale.db'),
-  quizDbUrl: `file:${path.join(DOSSIER, 'bases', 'permanente.db').replace(/\\/g, '/')}`,
+  quizDbUrl: BASE_PERMANENTE,
   admin: ADMIN,
   // Le QR de l'écran commun doit mener là où les téléphones de la régie
   // peuvent aller : l'adresse du wifi, sur une machine sans wifi, n'existe pas.
@@ -539,6 +560,8 @@ interface Onglet {
   signalements: string[]
   /** Parmi eux, les erreurs de la page elle-même — celles qu'on annonce d'office. */
   erreursNonLues: number
+  /** La dernière partie du Cabinet que la page a reçue : où lire, au plan figé, la marche que le dé demande (`marcheDuDe`). */
+  partieDuCabinet: PartieVueParLaPage | null
 }
 
 interface Participant {
@@ -687,7 +710,7 @@ async function allumer(qui: string, appareil: string): Promise<Participant> {
 
 function brancher(p: Participant, page: Page, nom: string): Onglet {
   pagesConnues.add(page)
-  const o: Onglet = { nom, page, signalements: [], erreursNonLues: 0 }
+  const o: Onglet = { nom, page, signalements: [], erreursNonLues: 0, partieDuCabinet: null }
   const signaler = (texte: string, erreur: boolean) => {
     o.signalements.push(`${new Date().toLocaleTimeString('fr-FR')} ${texte}`)
     if (o.signalements.length > 200) o.signalements.shift()
@@ -708,6 +731,16 @@ function brancher(p: Participant, page: Page, nom: string): Onglet {
   })
   page.on('response', (r: any) => {
     if (r.status() >= 400) signaler(`[HTTP ${r.status()}] ${r.request().method()} ${chemin(r.url())}`, false)
+    // La partie du Cabinet que la page vient de recevoir — un départ, un geste, son refus, la page du musée —, lue au passage :
+    // la régie ne demande rien au serveur, la tablée n'en compte aucun aller-retour de plus. Une image du Détail n'est pas du JSON.
+    if (chemin(r.url()).startsWith('/api/cabinet') && String(r.headers()['content-type'] ?? '').includes('json')) {
+      r.json()
+        .then((corps: unknown) => {
+          const lue = partieDeLaReponse(corps)
+          if (lue) o.partieDuCabinet = retenirLaPartie(o.partieDuCabinet, lue)
+        })
+        .catch(() => {})
+    }
   })
   page.on('dialog', (d: any) => {
     p.nouvelles.push(`💬 Le navigateur a affiché une boîte « ${d.message()} » (acceptée d'office).`)
@@ -761,6 +794,25 @@ async function stabiliser(page: Page, maxMs = 2500) {
       avant = empreinte
     }
   }
+}
+
+/** Ce qu'une photo attend au plus que ses images se décodent : celui des rendus (`rendu-cabinet.ts`). */
+const ATTENTE_DES_IMAGES_MS = 3000
+
+/**
+ * Avant une photo : les polices, puis les images qu'elle montrera
+ * (`attenteDesImages` : toutes, paresseuses comprises, pour la page entière),
+ * trois secondes au plus. La tablée du 26 octobre 2026 a vu la Citrouille en
+ * disque irisé vide au bilan, chez trois personnages : la page entière
+ * photographiée sans défiler pendant que six onglets tournaient, l'image hors
+ * de l'écran pas encore décodée — ce décodage est asynchrone
+ * (`Legendaire.tsx`). Défilée, elle était peinte. Rend le nombre d'images
+ * encore vides, que la sortie dit (`imagesPasPretes`) : un vide qui vient du
+ * banc ne se lit plus comme un bug.
+ */
+async function attendreSesImages(page: Page, entiere: boolean): Promise<number> {
+  await page.evaluate('document.fonts.ready.then(() => true)').catch(() => {})
+  return page.evaluate(attenteDesImages(entiere, ATTENTE_DES_IMAGES_MS)).catch(() => 0)
 }
 
 /** Ce qu'affiche la page : ses éléments et leurs références, comme les lit un lecteur d'écran. */
@@ -845,11 +897,51 @@ async function entete(p: Participant, o: Onglet): Promise<string> {
   const passes: string[] = await o.page.evaluate('(window.__tableeEphemeres || []).splice(0)').catch(() => [])
   for (const texte of passes) lignes.push(`✨ Au passage, l'écran a affiché : « ${texte} »`)
   lignes.push(...p.nouvelles.splice(0))
+  const marche = await marcheDuDe(o)
+  if (marche) lignes.push(marche)
   if (o.erreursNonLues > 0) {
     lignes.push(`⚠ Le navigateur a signalé ${o.erreursNonLues} erreur(s) sur cette page — détail : « console ».`)
     o.erreursNonLues = 0
   }
   return lignes.join('\n')
+}
+
+/** La base permanente, en lecture seule pour la régie : le plan figé d'une partie, que le serveur écrit au départ. */
+const permanente = createClient({ url: BASE_PERMANENTE })
+/** Les plans déjà lus : figé au départ, un plan ne change plus — une lecture par partie. */
+const plans = new Map<string, readonly ContenuTire[]>()
+
+/** Le plan figé d'une partie du Cabinet — ses manches puis ses rechanges —, relu comme le serveur le relit (`lireLeDepart`). */
+async function planDe(partie: string): Promise<readonly ContenuTire[] | null> {
+  const garde = plans.get(partie)
+  if (garde) return garde
+  const r = await permanente.execute({ sql: "SELECT cabinet FROM campagne_series WHERE id = ? AND mode = 'cabinet'", args: [partie] })
+  const depart = typeof r.rows[0]?.cabinet === 'string' ? lireLeDepart(r.rows[0].cabinet) : null
+  if (!depart) return null
+  plans.set(partie, depart.tirages)
+  return depart.tirages
+}
+
+/**
+ * La marche de ce qu'il faut savoir dans la manche que la page joue, pour le
+ * dé (`consignes-cabinet.md`, « Répondre comme ton personnage ») : l'écran ne
+ * la montre pas, la vue n'en porte rien, le plan figé si. Pendant une
+ * manche, sur la page du Cabinet seulement — son musée la redit tant que la
+ * partie attend : c'est la même manche — ; ailleurs, la partie retenue
+ * daterait d'un autre écran. Une panne de lecture se tait : la ligne est un
+ * confort du dé, pas un geste.
+ */
+async function marcheDuDe(o: Onglet): Promise<string | null> {
+  const v = o.partieDuCabinet
+  if (!v?.partie || !v.enJeu || v.tirage === null || !chemin(o.page.url()).startsWith('/cabinet')) return null
+  try {
+    const tire = (await planDe(v.partie))?.[v.tirage]
+    const aSavoir = tire ? marchesASavoir(tire, v.etape) : null
+    return aSavoir ? ligneDeLaMarche(aSavoir) : null
+  } catch (e) {
+    console.warn('[tablee] le plan de la partie ne se lit pas :', (e as Error).message)
+    return null
+  }
 }
 
 async function ecran(p: Participant, o: Onglet, message?: string): Promise<string> {
@@ -870,18 +962,24 @@ async function localiser(page: Page, cible: string): Promise<Element> {
     }
     return el
   }
+  // Une lettre seule ne cherche jamais un nom qui la contient : « R » touchait « Quitter » (`nomDUnSigneSeul`).
+  const signe = nomDUnSigneSeul(cible)
   const candidats = [
     page.getByRole('button', { name: cible, exact: true }),
     page.getByRole('link', { name: cible, exact: true }),
     page.getByLabel(cible, { exact: true }),
     page.getByPlaceholder(cible, { exact: true }),
-    page.getByRole('button', { name: cible }),
-    page.getByRole('link', { name: cible }),
-    page.getByRole('checkbox', { name: cible }),
-    page.getByLabel(cible),
-    page.getByPlaceholder(cible),
-    page.getByText(cible, { exact: true }),
-    page.getByText(cible),
+    ...(signe
+      ? [page.getByRole('button', { name: signe }), page.getByRole('link', { name: signe }), page.getByText(cible, { exact: true })]
+      : [
+          page.getByRole('button', { name: cible }),
+          page.getByRole('link', { name: cible }),
+          page.getByRole('checkbox', { name: cible }),
+          page.getByLabel(cible),
+          page.getByPlaceholder(cible),
+          page.getByText(cible, { exact: true }),
+          page.getByText(cible),
+        ]),
   ]
   for (const c of candidats) {
     const n = await c.count().catch(() => 0)
@@ -911,6 +1009,16 @@ async function taper(el: Element, texte: string) {
 }
 
 /**
+ * Un curseur ne se tape pas : `ecrire` et `coller` le refusent en mots, avant
+ * de le toucher — touché au centre, il pouvait bouger sous le doigt — et avant
+ * `fill`, que Playwright y refuse (`UN_CURSEUR_NE_SE_TAPE_PAS`, `gestes.ts`).
+ */
+async function refuserUnCurseur(el: Element, cible?: string) {
+  if ((await el.getAttribute('type').catch(() => null)) !== 'range') return
+  throw new Refus(`${UN_CURSEUR_NE_SE_TAPE_PAS} — ex. « toucher ${cible ? (/^e\d+$/.test(cible) ? cible : `"${cible}"`) : 'e12'} --a 30% ».`)
+}
+
+/**
  * Le numéro d'une réponse, donné par son numéro ou par son texte ; 0 si
  * aucune ne répond. « 2007 » à une question dont les réponses sont des
  * années : c'est le texte d'une réponse, pas son numéro.
@@ -925,8 +1033,13 @@ function numeroDeReponse(voulu: string, reponses: string[]): number {
   return reponses.findIndex(r => r.toLowerCase() === bas) + 1 || reponses.findIndex(r => r.toLowerCase().includes(bas)) + 1
 }
 
-/** Toucher du doigt sur un téléphone, cliquer ailleurs — et dire pourquoi ça n'a pas pris. */
-async function toucher(p: Participant, el: Element) {
+/**
+ * Toucher du doigt sur un téléphone, cliquer ailleurs — et dire pourquoi ça
+ * n'a pas pris. Au centre de l'élément, sauf là où l'agent vise (`--a`, lu par
+ * `lireLeToucher`) : un point de la carte de France, une valeur du curseur du
+ * Filet — Chromium y pose le curseur sous le doigt, sans lui donner le focus.
+ */
+async function toucher(p: Participant, el: Element, visee: Visee | null = null) {
   // Clavier ouvert, l'écran s'arrête au-dessus : ce qui est plus bas, un doigt
   // ne l'atteint qu'en fermant le clavier ou en faisant défiler. Playwright,
   // lui, défilerait tout seul jusqu'au bouton — et la gêne passerait inaperçue.
@@ -941,9 +1054,18 @@ async function toucher(p: Participant, el: Element) {
     }
   }
   try {
-    if (APPAREILS[p.appareil].tactile) await el.tap({ timeout: 4000 })
-    else await el.click({ timeout: 4000 })
+    let position: { x: number; y: number } | undefined
+    if (visee) {
+      // Défilé d'abord : la boîte d'un élément hors de l'écran n'est pas celle qu'il aura sous le doigt.
+      await el.scrollIntoViewIfNeeded({ timeout: 4000 })
+      const boite = await el.boundingBox()
+      if (!boite) throw new Refus('Cet élément n’est pas visible à l’écran.')
+      position = pointVise(boite, visee)
+    }
+    if (APPAREILS[p.appareil].tactile) await el.tap({ timeout: 4000, position })
+    else await el.click({ timeout: 4000, position })
   } catch (e) {
+    if (e instanceof Refus) throw e
     const m = (e as Error).message
     if (/intercepts pointer events/.test(m)) {
       const ligne = m.split('\n').find(l => l.includes('intercepts pointer events')) ?? ''
@@ -1104,10 +1226,22 @@ async function gesteRegie(geste: string, args: string[], signal: { annule: boole
   }
 }
 
-async function executer(cible: string, geste: string, args: string[], signal: { annule: boolean }): Promise<string> {
+/** Ce qu'un geste rend : sa sortie, et ce que le journal des gestes en garde de plus que ses arguments. */
+type Fait = string | { sortie: string; auJournal: Record<string, unknown> }
+
+async function executer(cible: string, geste: string, args: string[], signal: { annule: boolean }): Promise<Fait> {
   if (cible === 'regie') return gesteRegie(geste, args, signal)
   const [qui, nomOnglet = 'principal'] = cible.toLowerCase().split(':')
   if (!/^[a-z0-9-]{1,24}$/.test(qui)) throw new Refus(`« ${cible} » : un nom en minuscules, sans espace (ex. jeanne, nadia:tele).`)
+
+  // Le dé ne touche pas l'appareil : lancé avant le premier geste, il ne doit
+  // pas en allumer un d'office — `appareil` refuserait ensuite celui de la
+  // fiche. Son tirage va au journal : la synthèse y relit si le dé a décidé.
+  if (geste === 'de') {
+    const de = lireLeDe(args)
+    if (typeof de === 'string') throw new Refus(de)
+    return lancerLeDe(qui, de)
+  }
 
   if (geste === 'appareil') {
     if (participants.has(qui)) throw new Refus(`${qui} a déjà un appareil (${participants.get(qui)!.appareil}). « partir » d'abord pour en changer.`)
@@ -1141,8 +1275,9 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const nom = (args.find(a => !a.startsWith('--')) ?? 'ecran').replace(/[^\w-]+/g, '-').slice(0, 40)
       const fichier = path.join(DOSSIER, 'captures', qui, `${String(++p.captures).padStart(3, '0')}-${nom}.png`)
       mkdirSync(path.dirname(fichier), { recursive: true })
+      const pasPretes = imagesPasPretes(await attendreSesImages(page, entiere))
       await page.screenshot({ path: fichier, fullPage: entiere, scale: 'css' })
-      return `${await entete(p, o)}\n📸 ${fichier}\n   (regarde-la avec l'outil Read)`
+      return `${await entete(p, o)}\n📸 ${fichier}\n   (regarde-la avec l'outil Read)${pasPretes ? `\n${pasPretes}` : ''}`
     }
 
     case 'ouvrir': {
@@ -1174,9 +1309,9 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
     }
 
     case 'toucher': {
-      const cibleTexte = args.join(' ')
-      if (!cibleTexte) throw new Refus('Toucher quoi ? ex. « toucher e12 » ou « toucher "Jouer sans compte" ».')
-      await toucher(p, await localiser(page, cibleTexte))
+      const lu = lireLeToucher(args)
+      if (typeof lu === 'string') throw new Refus(lu)
+      await toucher(p, await localiser(page, lu.cible), lu.visee)
       await stabiliser(page)
       return ecran(p, o)
     }
@@ -1185,6 +1320,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const [champ, ...mots] = args
       if (!champ || mots.length === 0) throw new Refus('Écrire où, et quoi ? ex. « ecrire e7 "Jeanne" ».')
       const el = await localiser(page, champ)
+      await refuserUnCurseur(el, champ)
       // Le doigt d'abord : c'est lui qui ouvre le clavier d'un téléphone.
       if (APPAREILS[p.appareil].tactile) await toucher(p, el).catch(() => {})
       await taper(el, mots.join(' '))
@@ -1196,6 +1332,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const [champ, ...mots] = args
       if (!champ || mots.length === 0) throw new Refus('Coller où, et quoi ? ex. « coller e14 "Quelle est… ?" ».')
       const el = await localiser(page, champ)
+      await refuserUnCurseur(el, champ)
       if (APPAREILS[p.appareil].tactile) await toucher(p, el).catch(() => {})
       // D'un coup, comme un texte copié ailleurs : une liste de questions
       // préparée dans ses notes ne se tape pas lettre à lettre.
@@ -1461,8 +1598,10 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       if (args.includes('--capture')) {
         const fichier = path.join(DOSSIER, 'captures', qui, `${String(++p.captures).padStart(3, '0')}-tele.png`)
         mkdirSync(path.dirname(fichier), { recursive: true })
+        // L'écran commun porte lui aussi des images peintes — les avatars, les légendaires décodés à part : sa photo les attend.
+        const pasPretes = imagesPasPretes(await attendreSesImages(tv.o.page, false))
         await tv.o.page.screenshot({ path: fichier, scale: 'css' })
-        photo = `\n📸 ${fichier}\n   (regarde-la avec l'outil Read)`
+        photo = `\n📸 ${fichier}\n   (regarde-la avec l'outil Read)${pasPretes ? `\n${pasPretes}` : ''}`
       }
       return `${await entete(p, o)}\n📺 Tu lèves les yeux vers l'écran commun :${photo}\n\n${await texteVisible(tv.o.page)}`
     }
@@ -1613,8 +1752,9 @@ const porte = createServer(async (req: IncomingMessage, res: ServerResponse) => 
     const cible = String(demande.cible ?? '')
     const geste = String(demande.geste ?? 'voir')
     const args = Array.isArray(demande.args) ? demande.args.map(String) : []
-    const sortie = await executer(cible, geste, args, signal)
-    consigner({ qui: cible, salon: salonDuGeste(cible), geste, args, ok: true, ms: Date.now() - debut })
+    const fait = await executer(cible, geste, args, signal)
+    const sortie = typeof fait === 'string' ? fait : fait.sortie
+    consigner({ qui: cible, salon: salonDuGeste(cible), geste, args, ok: true, ms: Date.now() - debut, ...(typeof fait === 'string' ? {} : fait.auJournal) })
     repondre(true, sortie)
   } catch (e) {
     const refus = e instanceof Refus
@@ -1653,6 +1793,7 @@ async function eteindre() {
   porte.close()
   await navigateur.close().catch(() => {})
   await serveur.close().catch(() => {})
+  permanente.close()
   // Le fichier ne désigne plus rien : les pilotes le diront au lieu d'attendre.
   try {
     if (JSON.parse(readFileSync(COURANTE, 'utf8')).pid === process.pid) rmSync(COURANTE)

@@ -32,6 +32,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
+import React from 'react'
+
+// Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
+Object.assign(globalThis, { React })
 
 const source = (fichier: string) => readFileSync(new URL(`../../client/src/${fichier}`, import.meta.url), 'utf8')
 const css = source('styles.css')
@@ -53,9 +57,30 @@ test('le voile ne laisse passer aucun geste vers la page — sans jamais figer l
   assert.match(regle('.dialog-backdrop'), /touch-action: none;/)
   assert.doesNotMatch(css, /html:has\([^)]*\)\s*\{\s*overflow: hidden/, 'le défilement de la page ne change pas à l’ouverture')
   // Les voiles que ces règles visent sont bien ceux que posent la feuille, le dialogue et la carte.
-  assert.match(source('components/Pieces.tsx'), /<div className="carte-voile" onClick=\{onFermer\}>/)
-  assert.match(source('components/Dialog.tsx'), /<div className="dialog-backdrop" onClick=/)
+  assert.match(source('components/Pieces.tsx'), /<div className="carte-voile" onMouseDown=\{retenirLeFocus\} onClick=\{onFermer\}>/)
+  assert.match(source('components/Dialog.tsx'), /<div className="dialog-backdrop" ref=\{voile\} onMouseDown=\{retenirLeFocus\} onClick=/)
   assert.match(source('components/CarteJoueur.tsx'), /<div className="dialog-backdrop" onClick=\{onFermer\}>/)
+})
+
+test('une feuille est une vraie fenêtre : le focus dedans, le reste de la page inerte, Échap la ferme et rend le focus', async () => {
+  // La tablée du 25 octobre 2026 : « Comment ça marche ? » s'ouvrait le focus derrière elle, dix-sept liens et titres du musée
+  // restaient lisibles au lecteur d'écran, Échap ne fermait rien, et Tab, Entrée depuis « Choisir une carte-bonus » lançait
+  // « Commencer », caché sous la feuille. Elle se disait `aria-modal` sans l'être.
+  const { Feuille } = await import(new URL('../../client/src/components/Pieces.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const html = renderToStaticMarkup(React.createElement(Feuille, { titre: 'Ta carte-bonus', onFermer: () => {}, className: 'cab-feuille' }, 'x'))
+  // Elle reçoit le focus à l'ouverture, sans être un arrêt de Tab — et le voile qui la porte en est l'ancêtre : il reste vivant
+  // sous `inert`, et le toucher la ferme encore.
+  assert.match(html, /^<div class="carte-voile"><div class="carte-feuille cab-feuille" role="dialog" aria-modal="true" aria-label="Ta carte-bonus" tabindex="-1">/)
+  // La fenêtre modale de la carte d'un joueur : le reste inerte, Échap, le focus rendu (`petit-ecran.test.ts`).
+  const pieces = source('components/Pieces.tsx')
+  assert.match(pieces, /const boite = useRef<HTMLDivElement>\(null\)\s*useModale\(boite, onFermer\)/)
+  assert.match(pieces, /<div\s+ref=\{boite\}\s+className=\{'carte-feuille'/)
+  // Son voile garde le focus où la fenêtre l'a posé, comme celui d'un dialogue : « Mes réponses », au bilan du Cabinet, s'ouvre au
+  // lever du doigt (`toucher`), et le `mousedown` que le navigateur fait suivre, s'il tombait sur le voile au-dessus de la feuille,
+  // emmenait le focus sur la page — au Cabinet, `arreterLEcho` n'arrête que le `click` d'après.
+  assert.match(pieces, /<div className="carte-voile" onMouseDown=\{retenirLeFocus\} onClick=\{onFermer\}>/)
+  assert.match(pieces, /import \{ retenirLeFocus, useModale \} from '\.\.\/modale'/, 'pris aux fenêtres modales, pas au module des dialogues')
 })
 
 /** Une animation de la feuille de style, jusqu'à la fin de son dernier pas. */

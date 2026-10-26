@@ -7,13 +7,19 @@
 //
 // Chaque dérivation se compare ici au SQL d'avant, recopié tel qu'il était,
 // sur une base tirée au hasard : tous les modes, des jokers, des formes, des
-// reprises du carnet, des réponses sans série, des instants égaux. Et le
+// reprises du carnet, des réponses sans série, des instants égaux. Ce qu'il a
+// vu s'y compare déplié : une pièce du Cabinet qui a montré des questions de
+// la base — une manche de l'Éclair, un tableau du Détail, une frise d'un
+// sujet — les compte vues à son heure, depuis la tablée du 25 octobre 2026 ;
+// ses premières réponses, elles, restent celles du SQL d'avant. Et le
 // journal se lit par petites tranches, des lectures en double et en retard
 // comprises : une réponse ne compte qu'une fois. Le carnet se compare à la
 // requête que la campagne garde pour un journal qui doute
 // (`suivisDeLaBase`) : les défis de la semaine et d'avant, des duels
 // ouverts, fermés, annulés ou inconnus, les cartes du second essai, des
-// rébus et des frises — à l'heure de la base, puis une semaine plus tard.
+// rébus, des frises et des pièces du Cabinet, qu'aucun des deux ne garde
+// (`PREFIXES_HORS_DE_LA_BASE`) — à l'heure de la base, puis une semaine plus
+// tard.
 //
 // Puis ses tranches gardées (`campagne_tranches`) : un réveil les relit au
 // lieu de toute la base, et dit encore ce que dit le SQL d'avant — un duel
@@ -28,6 +34,7 @@ import Database from 'better-sqlite3'
 import { createClient, type Client, type InStatement, type TransactionMode } from '@libsql/client'
 import { baseDEssai } from './banc'
 import { CampagneStore } from '../src/core/campagne'
+import { tableauxDuDetail } from '../src/core/details'
 import {
   FENETRE_DES_RECENTES_MS,
   JournalDesReponses,
@@ -38,6 +45,8 @@ import {
   type ReponseDuJournal,
 } from '../src/core/journalDesReponses'
 import { semaineDe } from '../../shared/campagne'
+import { idDeLEclair, idDeLaFiche, idDeLaFriseATheme, idDeLaFriseDeSujet, idDeLaReplique, idDuLieu, idDuTableau } from '../../shared/cabinet/pieces'
+import { PREFIXES_HORS_DE_LA_BASE, horsDeLaBase, sqlDansLaBase } from '../../shared/horsDeLaBase'
 import { jourDe } from '../../shared/jour'
 import type { SuiviDeRevision } from '../../shared/revision'
 
@@ -107,12 +116,59 @@ const AVANT = {
                FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
                WHERE s.profile_id = ? AND r.juste = 1 AND r.compagnon IS NOT NULL
                GROUP BY r.compagnon`,
+  // Les leurres que la campagne choisit, nés au journal le 26 octobre 2026 (`leurresChoisis`) — sans SQL d'avant, écrits ici
+  // à part : sur les réponses de la mesure, la mauvaise choisie en texte, telle que sa série l'a posée, hors des pièces qui
+  // ne sont pas de la base. `IS 1` et non `= 1` : une reprise du carnet absente rendrait toute la condition nulle.
+  leurres: `SELECT r.reserve_id AS question, json_extract(s.questions, '$[' || r.position || '].reponses[' || r.choix || ']') AS choisie, COUNT(*) AS n
+            FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+            WHERE s.mode <> 'revision' AND r.joker IS NULL AND r.forme IS NULL AND r.juste = 0 AND r.choix >= 0
+              AND NOT (s.mode = 'expedition' AND json_extract(s.questions, '$[' || r.position || '].carnet') IS 1)
+              AND ${sqlDansLaBase('r.reserve_id')}
+            GROUP BY question, choisie HAVING typeof(choisie) = 'text'`,
   // Et celui-ci tel qu'il était le 24 octobre 2026 : 150 000 lignes pour une page du QG.
   epreuves: (branche: boolean) => `SELECT s.palier AS palier, json_extract(q.value, '$.niveau') AS niveau, COUNT(*) AS n, SUM(r.juste) AS justes
              FROM campagne_series s CROSS JOIN json_each(s.questions) q
              JOIN campagne_reponses r ON r.serie_id = s.id AND r.position = q.key
              WHERE s.mode = 'sentier' AND s.rejeu = 0 AND s.commencee_le > ?${branche ? ' AND s.branche = ?' : ''}
              GROUP BY s.palier, niveau`,
+}
+
+/**
+ * Ce que les pièces du Cabinet ont montré de plus qu'elles (`cabinet.montre`, la deuxième tablée, le 26 octobre 2026) —
+ * les leurres d'un Détail, ce que « Changer » a remplacé —, lu de leur série sans le code du journal : chaque identifiant,
+ * à l'heure de la dernière réponse qui l'a montré.
+ */
+const MONTREES = `SELECT json_extract(s.questions, '$[' || r.position || '].cabinet.montre') AS montre, r.repondue_le AS le
+                  FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+                  WHERE s.profile_id = ? AND json_valid(s.questions) AND montre IS NOT NULL`
+
+/**
+ * Ce qu'il a vu, tel que le SQL d'avant le lisait, puis déplié : chaque pièce du Cabinet qui a montré des questions de la
+ * base les compte vues à son heure, la plus récente l'emportant. Une manche de l'Éclair, ses cinq questions ; une frise d'un
+ * sujet, les questions de ses nouveaux venus ; un tableau du Détail, les questions de la base qui le demandent — le
+ * catalogue livré. Un lieu, une fiche, une réplique, une frise à thème n'ont rien de la base. Et ce qu'une pièce a montré
+ * de plus qu'elle (`montrees`), vu à son heure et déplié de même. La règle s'écrit ici à part, sur les identifiants
+ * mêmes : le test ne relit pas le code qu'il éprouve. `sortes` apprend celles dont le dépli a changé quelque chose.
+ */
+function deplieesAvant(lues: ReadonlyMap<string, number>, montrees: ReadonlyMap<string, number>, sortes: Set<string>): Map<string, number> {
+  const depliees = new Map(lues)
+  for (const [id, le] of montrees) {
+    if ((depliees.get(id) ?? -Infinity) >= le) continue
+    depliees.set(id, le)
+    sortes.add('montre')
+  }
+  for (const [id, le] of [...lues, ...montrees]) {
+    const composee = /^cab:(eclair|frise:s):(.+)$/.exec(id)
+    const tableau = /^cab:tableau:(Q\d+)$/.exec(id)
+    const questions = composee ? composee[2].split('+') : tableau ? (tableauxDuDetail().find(t => t.qid === tableau[1])?.questions ?? []) : []
+    for (const q of questions) {
+      if ((depliees.get(q) ?? -Infinity) >= le) continue
+      depliees.set(q, le)
+      // La sorte de pièce dont le dépli a ajouté ou rajeuni une vue : sans aucune, l'égalité ne prouverait rien.
+      sortes.add(composee ? composee[1] : 'tableau')
+    }
+  }
+  return depliees
 }
 
 const objet = (texte: unknown) => (typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {})
@@ -129,7 +185,7 @@ function hasardDe(graine: number) {
   return () => (g = (g * 16807) % 2147483647) / 2147483647
 }
 
-const MODES = ['serie', 'serie', 'revision', 'sentier', 'rencontre', 'defi', 'duel', 'expedition', 'sujet']
+const MODES = ['serie', 'serie', 'revision', 'sentier', 'rencontre', 'defi', 'duel', 'expedition', 'sujet', 'cabinet']
 const CATEGORIES = ['Histoire', 'Sport', 'Musique', 'Cuisine']
 /** Les sentiers d'une épreuve ; un parcours de thème (`sujet`) a un palier, pas de branche. */
 const BRANCHES = ['foret', 'ocean', 'cosmos']
@@ -149,11 +205,41 @@ const DUELS = [
   { code: 'duel-inconnu', fermeLe: null },
 ]
 
-/** Une question : de la base, le plus souvent ; parfois un rébus ou une frise, que le carnet écarte. */
+/**
+ * Ce que le Cabinet ne tire pas de la base, chaque sorte sous le nom qu'il lui
+ * donne — l'Éclair et la frise d'un sujet portent des questions de la base
+ * dans leur identifiant, qui n'en restent pas moins hors du carnet : les unes
+ * répondues ailleurs aussi (`r1`), les autres jamais (`e4`), que seul le dépli
+ * fait voir. Le tableau, la Joconde : la fiche livrée dit ses questions.
+ */
+const DU_CABINET = [
+  idDuLieu('orleans-siege'),
+  idDeLaFiche('victor-hugo'),
+  idDeLaReplique('hotel-du-nord'),
+  idDuTableau('Q12418'),
+  idDeLEclair(['r1', 'r2', 'r3', 'e4', 'e5']),
+  idDeLaFriseATheme('grands-sieges', 1),
+  idDeLaFriseDeSujet(['r6', 'f7']),
+]
+
+/**
+ * Ce qu'une pièce du Cabinet a montré de plus qu'elle (`cabinet.montre`) : les leurres d'un Détail — la Joconde —, une
+ * manche de l'Éclair ou un lieu que « Changer » a remplacés, une question de la base remplacée au Pari, répondue ailleurs
+ * aussi (`r3`) ou jamais (`m9`).
+ */
+const MONTRES = [
+  [idDuTableau('Q12418'), 'r3'],
+  [idDeLEclair(['r4', 'r5', 'm6', 'm7', 'm8'])],
+  [idDuLieu('reims-sacre'), 'm9'],
+  [idDeLaFriseDeSujet(['r10', 'm11'])],
+]
+
+/** Une question : de la base, le plus souvent ; parfois un rébus, une frise ou une pièce du Cabinet, que le carnet écarte. */
 function questionAuHasard(hasard: () => number): string {
   const h = hasard()
   if (h < 0.03) return `rebus:${Math.floor(hasard() * 3)}`
   if (h < 0.06) return `frise:r1|r2|r3|r${Math.floor(hasard() * 3)}`
+  if (h < 0.09) return DU_CABINET[Math.floor(hasard() * DU_CABINET.length)]
   return `r${Math.floor(hasard() * 45)}`
 }
 
@@ -187,6 +273,13 @@ function remplir(fichier: string, hasard: () => number, { series: nombre, depart
           // Les reprises du carnet : à l'expédition, et quelques autres valeurs, que les lectures d'avant distinguaient.
           ...(mode === 'expedition' && hasard() < 0.4 && { carnet: hasard() < 0.7 ? true : 1 }),
           ...(mode !== 'expedition' && hasard() < 0.03 && { carnet: 2 }),
+          // Ses réponses, telles que la série les a posées — trois mauvaises qui reviennent d'une série à l'autre, pour que
+          // les leurres se comptent ; une question sans réponses, une autre aux réponses qui ne sont pas des textes. Rien
+          // n'y tire le hasard : la base d'avant reste la même.
+          ...(p < 10 && { reponses: [`bonne ${p % 5}`, `leurre ${p % 3}`, `autre ${p % 2}`, `encore ${p % 4}`] }),
+          ...(p === 11 && { reponses: [1, 2, 3, 4] }),
+          // Au Cabinet, une pièce sur trois a montré plus qu'elle — sans tirer le hasard non plus.
+          ...(mode === 'cabinet' && p % 3 === 1 && { cabinet: { jeu: 'detail', manche: 0, tirage: 0, montre: MONTRES[(k + p) % MONTRES.length] } }),
         }))
         // Une épreuve des sentiers ou d'un parcours : son palier, et parfois un rejeu, que l'administration des sentiers écarte.
         const epreuve = mode === 'sentier' || mode === 'sujet'
@@ -243,17 +336,27 @@ async function lire(client: Client, journal: JournalDesReponses, limite: number)
   }
 }
 
-async function comparer(client: Client, journal: JournalDesReponses, profils: readonly string[], nom: string) {
+/** Chaque dérivation du journal contre le SQL d'avant : rend les sortes de pièces dont le dépli a ajouté ou rajeuni une vue. */
+async function comparer(client: Client, journal: JournalDesReponses, profils: readonly string[], nom: string): Promise<Set<string>> {
+  const depliees = new Set<string>()
   for (const p of profils) {
-    // Ce qu'il a vu, et sa première réponse à chacune (`lireLesVues`).
+    // Ce qu'il a vu, déplié, et sa première réponse à chacune, telle quelle (`lireLesVues`).
     const vues = objet((await client.execute({ sql: AVANT.vues, args: [p] })).rows[0]?.vues)
+    const lues = new Map<string, number>()
     const attendues = { vues: new Map<string, number>(), premieres: new Map<string, boolean>() }
     for (const [id, valeur] of Object.entries(vues)) {
       if (!Array.isArray(valeur)) continue
-      attendues.vues.set(id, Number(valeur[0]))
+      lues.set(id, Number(valeur[0]))
       if (valeur[1] !== null) attendues.premieres.set(id, Number(valeur[1]) === 1)
     }
-    assert.deepEqual(journal.vuesDe(p), attendues, `${nom} · ${p} : ce qu’il a vu`)
+    const montrees = new Map<string, number>()
+    for (const r of (await client.execute({ sql: MONTREES, args: [p] })).rows) {
+      for (const id of JSON.parse(String(r.montre)) as string[]) montrees.set(id, Math.max(montrees.get(id) ?? -Infinity, Number(r.le)))
+    }
+    attendues.vues = deplieesAvant(lues, montrees, depliees)
+    assert.deepEqual(journal.vuesDe(p), attendues, `${nom} · ${p} : ce qu’il a vu, déplié — et ses premières réponses, sans rien des composés`)
+    // Ses pièces jugées seules, telles quelles : tes murs du Cabinet ne lisent rien qu'une révélation n'ait dit.
+    assert.deepEqual(journal.jugeesDe(p), lues, `${nom} · ${p} : ses pièces jugées, sans rien de ce qu’elles ont montré de plus`)
     // Ses premières réponses, avec leur instant (`lireLesPremieres`).
     const premieres = new Map<string, { le: number; juste: boolean }>()
     for (const [id, k] of Object.entries(objet((await client.execute({ sql: AVANT.premieres, args: [p] })).rows[0]?.premieres))) {
@@ -309,6 +412,15 @@ async function comparer(client: Client, journal: JournalDesReponses, profils: re
   const mesures = journal.mesures()
   assert.deepEqual(mesures.brutes, comptesLus(brutes.rows[0]?.mesures), `${nom} : la mesure, réponse par réponse`)
   assert.deepEqual(mesures.premieres, comptesLus(premieres.rows[0]?.mesures), `${nom} : la mesure, première réponse par première réponse`)
+  // Les leurres que la campagne choisit, question par question.
+  const leurres = new Map<string, Map<string, number>>()
+  for (const r of (await client.execute(AVANT.leurres)).rows) {
+    const question = String(r.question)
+    if (!leurres.has(question)) leurres.set(question, new Map())
+    leurres.get(question)!.set(String(r.choisie), Number(r.n))
+  }
+  assert.ok(leurres.size > 0, `${nom} : des leurres à comparer`)
+  assert.deepEqual(journal.leurresChoisis(), leurres, `${nom} : les leurres choisis`)
   // L'administration des sentiers : les réponses des épreuves de trois mois, ou des derniers jours, d'un sentier ou de tous.
   const ordre = (a: { palier: number; niveau: string }, b: { palier: number; niveau: string }) => a.palier - b.palier || a.niveau.localeCompare(b.niveau)
   for (const [depuis, branche] of [
@@ -323,6 +435,7 @@ async function comparer(client: Client, journal: JournalDesReponses, profils: re
     assert.ok(attendues.length > 0, `${nom} : des épreuves à comparer`)
     assert.deepEqual(journal.reponsesDesEpreuves(depuis, branche).sort(ordre), attendues.sort(ordre), `${nom} : les épreuves des sentiers depuis ${new Date(depuis).toISOString()}, ${branche ?? 'tous'}`)
   }
+  return depliees
 }
 
 /** Le carnet de chacun, au journal et à la requête que la campagne garde quand il doute, à l'heure de la campagne : rend combien de questions il compte en tout. */
@@ -333,8 +446,24 @@ async function comparerLesCarnets(campagne: CampagneStore, journal: JournalDesRe
     const attendu = await deLaBase(p)
     questions += attendu.size
     assert.deepEqual(journal.carnetDe(p, semaineDe(jourDe(maintenant)), maintenant), attendu, `${nom} · ${p} : son carnet`)
+    // Égaux, les deux carnets pourraient garder ensemble ce qu'aucun ne doit : un préfixe oublié des deux côtés.
+    assert.deepEqual([...attendu.keys()].filter(horsDeLaBase), [], `${nom} · ${p} : rien que des questions de la base`)
   }
   return questions
+}
+
+/** Les erreurs de ces joueurs sous chaque préfixe hors de la base : sans elles, que leurs carnets s'en passent ne prouverait rien. */
+function erreursHorsDeLaBase(fichier: string, profils: readonly string[]): Record<string, number> {
+  const db = new Database(fichier, { readonly: true })
+  try {
+    const compter = db.prepare(
+      `SELECT COUNT(*) AS n FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+       WHERE r.juste = 0 AND substr(r.reserve_id, 1, length(?)) = ? AND s.profile_id IN (SELECT value FROM json_each(?))`,
+    )
+    return Object.fromEntries(PREFIXES_HORS_DE_LA_BASE.map(p => [p, (compter.get(p, p, JSON.stringify(profils)) as { n: number }).n]))
+  } finally {
+    db.close()
+  }
 }
 
 /** Une réponse telle que le journal la lit, pour les épreuves qui la posent à la main. */
@@ -353,8 +482,10 @@ const reponseDuJournal = (r: Pick<ReponseDuJournal, 'n' | 'question' | 'juste' |
   carnet: null,
   categorie: 'Sport',
   niveau: 'facile',
+  montre: null,
   compagnon: null,
   epreuve: null,
+  choisie: null,
   ...r,
 })
 
@@ -374,10 +505,12 @@ test('le journal dit ce que disaient les lectures d’avant — toute la base lu
     const premieres = await lire(client, journal, 37)
     assert.ok(premieres.length > 5, 'lu en plusieurs tranches')
     const profils = Array.from({ length: 7 }, (_, i) => `p${i}`)
-    await comparer(client, journal, profils, 'la base entière')
+    const depliees = await comparer(client, journal, profils, 'la base entière')
     assert.ok(journal.reponses > 500, `${journal.reponses} réponses lues`)
     const auCarnet = await comparerLesCarnets(campagne, journal, profils, horloge.t, 'la base entière')
     assert.ok(auCarnet > 50, `${auCarnet} questions aux carnets`)
+    const erreurs = erreursHorsDeLaBase(fichier, profils)
+    assert.ok(Object.values(erreurs).every(n => n > 0), `des erreurs sous chaque préfixe hors de la base : ${JSON.stringify(erreurs)}`)
 
     // Ce qui arrive ensuite, lu par différence ; une lecture en double, et une en retard sur une plus récente, ne comptent rien de plus.
     remplir(fichier, hasard, { series: 40, depart: 160, debut: MAINTENANT - 6 * JOUR_MS, fin: MAINTENANT })
@@ -386,7 +519,10 @@ test('le journal dit ce que disaient les lectures d’avant — toute la base lu
     const toutes = await lire(client, journal, 1000)
     journal.appliquer(toutes[0])
     journal.appliquer(enRetard)
-    await comparer(client, journal, profils, 'après une lecture par différence')
+    for (const sorte of await comparer(client, journal, profils, 'après une lecture par différence')) depliees.add(sorte)
+    // Sans composé déplié, l'égalité ne prouverait rien : l'Éclair, la frise d'un sujet et le tableau de la Joconde — et ce
+    // qu'une pièce a montré de plus qu'elle.
+    assert.deepEqual([...depliees].sort(), ['eclair', 'frise:s', 'montre', 'tableau'], 'chaque sorte de pièce qui montre la base a ajouté ou rajeuni une vue')
     await comparerLesCarnets(campagne, journal, profils, horloge.t, 'après une lecture par différence')
 
     // Rien de neuf : la lecture ne rapporte rien, et le journal ne bouge pas.

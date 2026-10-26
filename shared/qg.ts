@@ -31,8 +31,8 @@ export const NOM_DU_MODE: Record<ModeDuQg, string> = { soiree: 'Soirées', campa
 /**
  * Les séries de la campagne qui se jouent en duel : contre quelqu'un, ou
  * contre Automate. Une seule table les range toutes (`campagne_series`) ; le
- * reste — série, sentier, parcours, révision, défi de la semaine — est la
- * campagne.
+ * reste — série, sentier, parcours, révision, défi de la semaine, expédition,
+ * partie du Cabinet de curiosités — est la campagne (`MODES_DE_SERIE`).
  */
 const MODES_DE_DUEL: readonly string[] = ['duel', 'rencontre']
 

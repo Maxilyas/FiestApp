@@ -11,12 +11,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import React from 'react'
 import { ABSORBES, DU_CHAMPION_DU_MOIS, ceQuIlOuvre, ceQuOuvreLeTrophee, etapesDeLaPiste } from '../../shared/pistes'
-import { albumDesTrophees, compteDesTrophees, pageDuDebutDesTrophees, seuilDeLEtape } from '../../shared/trophees'
+import { albumDesTrophees, compteDesTrophees, ouJouer, pageDuDebutDesTrophees, seuilDeLEtape } from '../../shared/trophees'
 import { pageDuTrophee } from '../../shared/pagesDesTrophees'
 import { FONDS, fondsOuverts, type CeQuOuvreUnFond } from '../../shared/fonds'
 import { GERBES } from '../../shared/gerbes'
 import { THEMES, themeGagne } from '../../shared/themes'
-import { LEGENDAIRES, partiesDe, voiesDe } from '../../shared/legendaires'
+import { LEGENDAIRES, PREFIXES_DES_VOIES_RANGEES, estUneVoieRangee, partiesDe, voiesDe } from '../../shared/legendaires'
 import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_REGAGNABLES, clePalier, hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 import { SEUILS_DU_LAURIER } from '../../shared/jour'
 
@@ -96,11 +96,16 @@ test('chaque thème qui se gagne, chaque gerbe et chaque légendaire sont sur la
     const surLesTrophees = HAUTS_FAITS_REGAGNABLES.flatMap(h => ceQuOuvreLeTrophee(h.key)).filter(x => x.recompense.sorte === 'gerbe' && x.recompense.cle === g.key).length
     assert.equal(surLesPistes + surLesTrophees, 'tresor' in g.par ? 0 : 1, g.key)
   }
-  // Les légendaires : chaque partie de chaque voie dit ce qu'elle ouvre — hors des saisons et de l'expédition, qui n'ont pas de piste.
+  // Les légendaires : chaque partie de chaque voie dit ce qu'elle ouvre — hors des voies rangées (les saisons,
+  // l'expédition, le Cabinet), qui n'ont pas de piste : on les a, ou non.
+  assert.deepEqual([...PREFIXES_DES_VOIES_RANGEES], ['saison:', 'expedition:', 'cabinet:'])
   for (const l of LEGENDAIRES) {
     for (const voie of voiesDe(l)) {
       for (const c of partiesDe(voie)) {
-        if (c.hautFait.startsWith('saison:') || c.hautFait.startsWith('expedition:')) continue
+        if (estUneVoieRangee(c.hautFait)) {
+          assert.deepEqual(ceQuOuvreLeTrophee(c.hautFait), [], `${c.hautFait} n’est pas un trophée`)
+          continue
+        }
         const ouvre =
           'palier' in c
             ? ceQuIlOuvre(clePalier(c.hautFait, c.palier))
@@ -151,23 +156,38 @@ test('l’album compte tout ce qui se gagne par ce qu’on a fait : 197 trophée
     pages.map(p => `${p.page} ${p.acquis}/${p.total}`),
     // La soirée : huit pistes de trois métaux, onze exploits, neuf coups du sort, vingt prix ;
     // le quiz du jour : cinq pistes, six exploits, trois coups, douze pages ; la campagne : cinq pistes — le
-    // Globe-trotter, le passeport de l'expédition, depuis le 18 octobre 2026, et L'Explorateur, son niveau
-    // d'explorateur, depuis le 19 —, cinq exploits ; les duels : six ligues, six bordures serties ; les sentiers :
-    // trois pistes, deux exploits, douze maîtres ; partout : douze écussons de trois métaux, le niveau et les Éclats.
+    // Globe-trotter, le passeport de l'expédition, depuis le 18 octobre 2026, et L'Explorateur, depuis le 19, aux
+    // salles complètes du Cabinet depuis le 26 —, cinq exploits ; les duels : six ligues, six bordures serties ; les
+    // sentiers : trois pistes, deux exploits, douze maîtres ; partout : douze écussons de trois métaux, le niveau et les Éclats.
     ['soiree 0/64', 'jour 0/36', 'campagne 0/20', 'duels 0/12', 'sentiers 0/23', 'partout 0/42'],
   )
   assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 197 })
-  // L'Explorateur ne se compte que là où le serveur le cite — là où les rencontres s'ouvrent : la production le tait,
-  // et sa collection ne compte pas trois trophées d'un niveau qu'elle ne montre nulle part.
+  // L'Explorateur ne se compte que là où le serveur le cite — là où le Cabinet s'ouvre : la production le tait tant
+  // qu'il y est fermé, et sa collection ne compte pas trois trophées de salles qu'elle ne montre nulle part.
   const sansLui = { ...NEUF, hautsFaits: NEUF.hautsFaits.filter(h => h.key !== 'hf:explorateur') }
   assert.deepEqual(compteDesTrophees(sansLui as any), { acquis: 0, total: 194 })
   assert.ok(!albumDesTrophees(sansLui as any).some(p => p.sections.some(s => s.cases.some(c => c.cle === 'hf:explorateur'))))
-  // Cité, sa case compte un niveau — rien encore pour qui n'est jamais parti : le codex n'a pas de niveau 0.
+  // Cité, sa case compte des salles — « 0 salle » pour qui n'a pas encore complété la première : elles s'additionnent,
+  // comme les sentiers du Cartographe ; le niveau d'explorateur, qu'il comptait jusqu'au 26 octobre 2026, n'en avait pas
+  // de zéro, d'où son « 0 » à part.
   const explorateur = (vus: typeof NEUF.hautsFaits) => albumDesTrophees({ ...NEUF, hautsFaits: vus } as any).find(p => p.page === 'campagne')!.sections[0].cases.find(c => c.cle === 'hf:explorateur')!
-  assert.equal(explorateur(NEUF.hautsFaits).compte, '0')
-  const parti = explorateur(NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 1, valeur: 5 } : h)))
-  assert.deepEqual([parti.compte, parti.metaux, parti.prochain], ['niveau 5', 1, 7])
-  assert.equal(seuilDeLEtape('hf:explorateur', 7), 'Niveau 7')
+  assert.equal(explorateur(NEUF.hautsFaits).compte, '0 salle')
+  const parti = explorateur(NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 1, valeur: 2 } : h)))
+  assert.deepEqual([parti.compte, parti.metaux, parti.prochain], ['2 salles', 1, 3])
+  assert.equal(seuilDeLEtape('hf:explorateur', 1), '1 salle')
+  assert.equal(seuilDeLEtape('hf:explorateur', 6), '6 salles')
+  // Un détenteur d'avant — l'argent gagné au niveau d'explorateur, aucune salle encore — le garde, et sa piste le dit :
+  // ses deux premières étapes atteintes, la prochaine celle de l'or. La jauge ne fait pas descendre ce qui est rangé.
+  const detenteur = explorateur(NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 2, valeur: 0, prochain: 6 } : h)))
+  assert.deepEqual([detenteur.aLui, detenteur.metaux, detenteur.compte, detenteur.prochain], [true, 2, '0 salle', 6])
+  assert.deepEqual(
+    detenteur.etapes!.map(e => [e.seuil, e.metal, e.atteinte, e.prochaine]),
+    [
+      [1, 1, true, false],
+      [3, 2, true, false],
+      [6, 3, false, true],
+    ],
+  )
   // Rien encore : le quiz du jour, ce qu'on joue le plus. Sinon, le mode où il a le plus.
   assert.equal(pageDuDebutDesTrophees(NEUF as any), 'jour')
   const campagne = { ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:alpiniste' ? { ...h, fois: 2, valeur: 15 } : h)) }
@@ -228,4 +248,45 @@ test('la fiche d’une piste : où il en est, ce qu’elle rapporte, chaque éta
   assert.match(html, /<a class="btn btn-small album-aller" href="\/jour">Jouer le quiz du jour<\/a>/)
   // Rien ne s'y porte.
   assert.doesNotMatch(html, /<button|Le porter/)
+})
+
+test('la fiche de L’Explorateur mène au Cabinet, où ses salles se complètent — pas à une série, que sa page de la campagne propose', async () => {
+  const profil = { ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 1, valeur: 2, prochain: 3 } : h)) }
+  const c = albumDesTrophees(profil as any)
+    .find(p => p.page === 'campagne')!
+    .sections[0].cases.find(x => x.cle === 'hf:explorateur')!
+  const html = await rendu('FicheDuTrophee', { c, page: 'campagne', visuel: c.emoji })
+  assert.match(html, /Tu en es à 2 salles complètes du Cabinet\./)
+  assert.match(html, /<a class="btn btn-small album-aller" href="\/cabinet">Aller au Cabinet<\/a>/)
+  assert.doesNotMatch(html, /Jouer une série/)
+  // Les autres pistes de la page mènent toujours à la série.
+  const alpiniste = albumDesTrophees(NEUF as any)
+    .find(p => p.page === 'campagne')!
+    .sections[0].cases.find(x => x.cle === 'hf:alpiniste')!
+  assert.match(await rendu('FicheDuTrophee', { c: alpiniste, page: 'campagne', visuel: alpiniste.emoji }), /href="\/campagne">Jouer une série<\/a>/)
+})
+
+// Le serveur cite L'Explorateur à ses détenteurs même là où le Cabinet est fermé — la production, tant qu'il n'y ouvre
+// pas, où ils l'ont gagné au niveau d'explorateur. Leur fiche dit où ils en sont, sans chemin : le Cabinet n'y répond
+// pas, et une série ne complète aucune salle. La page le sait du serveur (`cabinetIci`), jamais d'une constante.
+test('le Cabinet fermé ici, la fiche de L’Explorateur ne mène nulle part — ni au Cabinet, ni à une série — et son détenteur y lit son métal', async () => {
+  const detenteur = { ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 2, valeur: 0, prochain: 6 } : h)) }
+  const c = albumDesTrophees(detenteur as any)
+    .find(p => p.page === 'campagne')!
+    .sections[0].cases.find(x => x.cle === 'hf:explorateur')!
+  const ferme = await rendu('FicheDuTrophee', { c, page: 'campagne', visuel: c.emoji, cabinet: false })
+  assert.match(ferme, /<b class="galerie-detail-nom">L’Explorateur<\/b>/)
+  assert.match(ferme, /Tu en es à 0 salle complète du Cabinet\./)
+  assert.doesNotMatch(ferme, /album-aller/, 'aucun chemin')
+  // La même fiche, le Cabinet ouvert : son chemin.
+  assert.match(await rendu('FicheDuTrophee', { c, page: 'campagne', visuel: c.emoji, cabinet: true }), /href="\/cabinet">Aller au Cabinet<\/a>/)
+  // Les autres pistes de la page gardent le leur, le Cabinet fermé ou non.
+  const alpiniste = albumDesTrophees(NEUF as any)
+    .find(p => p.page === 'campagne')!
+    .sections[0].cases.find(x => x.cle === 'hf:alpiniste')!
+  assert.match(await rendu('FicheDuTrophee', { c: alpiniste, page: 'campagne', visuel: alpiniste.emoji, cabinet: false }), /href="\/campagne">Jouer une série<\/a>/)
+  // La règle pure que la fiche lit : ouvert d'office, comme `cabinetIci` sans la balise de la page.
+  assert.equal(ouJouer('hf:explorateur', 'campagne', false), undefined)
+  assert.deepEqual(ouJouer('hf:explorateur', 'campagne'), { nom: 'Aller au Cabinet', href: '/cabinet' })
+  assert.deepEqual(ouJouer('hf:alpiniste', 'campagne', false), { nom: 'Jouer une série', href: '/campagne' })
 })

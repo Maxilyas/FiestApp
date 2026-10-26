@@ -8,16 +8,22 @@ import { Icon } from './Icon'
  * Le code de secours, à noter — il ne repassera jamais. Le même encart à
  * l'entrée d'une soirée, dans la salle d'attente et sur `/profil` : la salle
  * d'attente et le profil n'avaient pas de « Copier », l'entrée si.
+ *
+ * Sa carte est un conteneur (`code-secours-carte`) : le code s'y mesure, pas à
+ * l'écran — au texte agrandi, il en sortait. Et il porte son nom, celui que
+ * « J'ai oublié mon mot de passe » demande : Jeanne ne savait comment l'appeler
+ * (la tablée du 26 octobre 2026).
  */
 export function CodeSecours({ code }: { code: string }) {
   const [copie, setCopie] = useState(false)
   return (
-    <div className="card notice">
+    <div className="card notice code-secours-carte">
       <p>
         <strong>C'est la seule façon de retrouver ton profil</strong> si tu oublies ton mot de
         passe — il n'y a pas d'adresse e-{/* un gluon : « e- / mail » coupé en bout de ligne */ '\u2060'}mail, donc pas de
         lien à recevoir.
       </p>
+      <p className="label">Ton code de secours</p>
       <p className="code-secours">{code}</p>
       <p className="muted small">Il ne sera plus jamais affiché.</p>
       {/* Sans presse-papier — hors HTTPS, c'est-à-dire en wifi local, et

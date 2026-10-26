@@ -27,7 +27,22 @@ import {
   type LectureDuJournal,
 } from './journalDesReponses'
 import { JournalDesDuels, type DuelsARelire, type LigneDuJournalDesDuels } from './journalDesDuels'
-import { DejaPrises, type Intitule } from './jumelles'
+import { DejaPrises } from './jumelles'
+import type { CeQueLeReveilAjoute, ExpeditionQuiChange, FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from './porteDeLaCampagne'
+import {
+  EMPRUNTS,
+  classeDeFraicheur,
+  fraicheurDe,
+  laMoinsVue,
+  melanger,
+  passeAvant,
+  tirerPourUneEscale,
+  versQuestionDeSerie,
+  type QuestionDeLaPartie,
+} from './tirageALaPiece'
+// Le tirage à la pièce vit à part depuis le 25 octobre 2026 : le Cabinet de curiosités y tire sans ce magasin. Ce que ce
+// fichier en exportait s'y lit encore, le temps que ses lecteurs d'avant — des tests — aillent le chercher là-bas.
+export { VUE_RECENTE_MS, tirerPourUneEscale } from './tirageALaPiece'
 import {
   CHANCES_PAR_TRANCHE,
   ajusterSansBloquer,
@@ -160,6 +175,7 @@ import {
   marcheContredite,
   mesuresEnFamille,
   minutesAvantLundi,
+  modeDeSerieLu,
   niveauDeQuestion,
   semaineAvant,
   semaineDe,
@@ -173,6 +189,7 @@ import {
   type AjoutsDeLaRoutine,
   type CoupDeLaRencontre,
   type MesRencontres,
+  type ModeDeSerie,
   type RencontreDeCampagne,
   type ResumeDeRencontre,
   type CommandeDeLaBase,
@@ -251,7 +268,7 @@ import {
 import { JOURS_DU_QG, jourDeLInstant, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
 import { DUELS_EN_ATTENTE_MONTRES, LIGNES_DU_CLASSEMENT_AU_QG, joueursParLigue, type JoueurDuDuel, type SuiviDesDuels } from '../../../shared/qgDuels'
 import { etoilesDansLeTemps, liguesDansLeTemps, type EpreuveValidee, type Mouvement } from '../../../shared/qgEconomie'
-import { hasardDe, type JournauxDesJours } from '../../../shared/missions'
+import { hasardDe, MODES_QUE_LES_MISSIONS_COMPTENT, type JournauxDesJours } from '../../../shared/missions'
 import {
   PARCOURS_AU_QG,
   lesPlusRatees,
@@ -284,6 +301,7 @@ import {
   POIDS_DES_FORMES_A_LA_FRISE,
   POIDS_DES_FORMES_AU_DETAIL,
   CADRAGES_DU_DETAIL,
+  DEPART_FERME,
   QUESTION_DU_DETAIL,
   adresseDuCadrage,
   arrondiDeChance,
@@ -366,6 +384,7 @@ import { EFFACE, JOKERS_QUI_AIDENT, LEGENDAIRES_A_JOKER } from '../../../shared/
 import { cleDeLExpedition } from '../../../shared/legendaires'
 import { compositionDite, gabaritDe, lireUneComposition, seCompose, tuilesDe } from '../../../shared/lettres'
 import { PREFIXE_DU_REBUS, QUESTION_DU_REBUS, type SorteDeCuriosite } from '../../../shared/curiosites'
+import { refusDuSignalement, sqlDansLaBase } from '../../../shared/horsDeLaBase'
 import { contenuDesCuriosites, type ContenuDesCuriosites } from './curiosites'
 import {
   ECART_DE_LA_FRISE,
@@ -409,22 +428,16 @@ import {
   type CleDeFiole,
 } from '../../../shared/rencontres'
 
-/** Une question de la série, telle que le serveur la garde : la bonne réponse avec. */
-interface QuestionDeSerie {
-  /**
-   * Son identifiant dans la base de la campagne (`baseCampagne.ts`). Une
-   * série d'avant la base (le 3 octobre 2026) gardait celui de la réserve du
-   * quiz du jour, sous le nom `reserveId` : `versSerie` le relit.
-   */
-  id: string
-  texte: string
-  reponses: string[]
-  bonne: number
-  categorie: string | null
-  anecdote: string | null
-  niveau: Niveau
-  /** Son sous-thème : une série d'avant les sentiers ne le gardait pas. */
-  sousTheme?: string
+/**
+ * Une question de la série, telle que le serveur la garde : la bonne réponse
+ * avec. Son cœur est celui de toute partie (`QuestionDeLaPartie`, que le
+ * tirage à la pièce rend) : un champ de plus s'y écrit une fois, et le typage
+ * suit des deux côtés. Son identifiant est celui de la base de la campagne
+ * (`baseCampagne.ts`) — une série d'avant la base (le 3 octobre 2026) gardait
+ * celui de la réserve du quiz du jour, sous le nom `reserveId` : `versSerie`
+ * le relit — ; une série d'avant les sentiers ne gardait pas son sous-thème.
+ */
+interface QuestionDeSerie extends QuestionDeLaPartie {
   /**
    * Une révision : ses rendez-vous réussis quand elle l'a tirée — de quoi dire
    * après chaque réponse où en est la question sans relire tout le journal.
@@ -572,8 +585,10 @@ interface Serie {
    * erreurs remettent la question au lendemain, rien de plus. Une rencontre
    * rejoue la série finie d'un autre joueur, contre son score. Une épreuve
    * d'un sentier à thème (`sujet`) monte un sujet en six paliers, sans vies.
+   * Une partie du Cabinet a ses routes à elle : celles de la série ne la
+   * jouent pas (`repondre`, `abandonnerSerie`), ne la corrigent pas.
    */
-  mode: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet' | 'expedition'
+  mode: ModeDeSerie
   /** L'épreuve d'un sentier : sa branche, son palier, son seuil figé au départ — un seuil réglé ensuite ne change pas une épreuve en cours. */
   branche: CleDeBranche | null
   palier: number | null
@@ -689,8 +704,57 @@ const CHOIX_GARDES = 64
  */
 const EXPEDITIONS_GARDEES = 100
 const HEURE_MS = 3600_000
-/** Les séries de la campagne, sans les épreuves des sentiers : une ligne d'avant les sentiers n'a pas de mode. */
-const SERIES = "COALESCE(mode, 'serie') = 'serie'"
+/**
+ * Les séries de la campagne, sans les autres modes — les épreuves, les
+ * révisions, les duels, les expéditions, les parties du Cabinet. Écrit
+ * `COALESCE(mode, 'serie') = 'serie'`, le filtre ne servait aucun index : le
+ * record, la page, la série en cours relisaient toutes les parties du profil,
+ * de tous les modes, par l'index du profil — et le Cabinet en ajoute une
+ * dizaine par jour et par joueur. Sur le mode même, il prend un index du
+ * profil et du mode `(profile_id, mode, …)` — celui des sentiers, ou celui de
+ * la date (`idx_campagne_series_profil_mode`) —, qui ne mène qu'à ses séries
+ * (`campagne-index.test.ts` lit les plans, sans statistiques comme la
+ * production). Aucune ligne n'a de mode NULL — le `COALESCE` d'avant n'en
+ * attrapait aucune : la colonne est née `NOT NULL DEFAULT 'serie'`, dès son
+ * premier `ajouterColonne` (le commit 37fb2a81 du 4 octobre 2026, « Les
+ * sentiers du savoir » ; celui d'avant sur ce fichier, 4b301c20, ne parlait
+ * d'aucun mode), et SQLite donne ce défaut aux lignes qui existaient à
+ * l'`ALTER`, puis refuse tout NULL qu'on écrirait. Sans colonne `mode`, une
+ * insertion fait une série (`commencer`).
+ */
+const SERIES = "mode = 'serie'"
+/**
+ * La partie en cours d'un mode — la série, la révision, la rencontre,
+ * l'épreuve, l'étape d'un parcours, l'expédition : la plus récente des
+ * siennes que rien n'a finie. Le `+` écarte la date du choix de l'index : sans
+ * statistiques, SQLite prenait l'index du profil, rangé par date, pour
+ * s'épargner de trier, et sans partie en cours — le cas ordinaire — relisait
+ * toutes les parties du profil, de tous les modes, pour n'en trouver aucune :
+ * à chaque accueil, page de la campagne ou des sentiers, dé, carnet, parcours
+ * ou Expédition, et le Cabinet en ajoute une dizaine par jour et par joueur.
+ * Par un index du profil et du mode `(profile_id, mode, …)` — celui des
+ * sentiers, ou celui de la date —, il ne lit que les parties du mode, et n'en
+ * trie qu'une poignée (`campagne-index.test.ts`). Les dernières rencontres de
+ * la page des duels (`rencontresEtDuels`), sans `+` ni `finie_le`, prennent
+ * l'index du profil, du mode et de la date (`idx_campagne_series_profil_mode`) :
+ * rangées par leur date, la lecture s'arrête aux plus récentes. Par l'index
+ * du profil seul, celui d'un joueur sans rencontre relisait toutes ses
+ * parties, celles du Cabinet comprises.
+ */
+const LA_PLUS_RECENTE = 'ORDER BY +commencee_le DESC LIMIT 1'
+/**
+ * Sa tentative au défi d'une semaine (le profil, puis la semaine) : par ses
+ * défis à lui, un par semaine au plus — l'index du profil et du mode. Sans
+ * ses deux `+`, sans statistiques, SQLite partait de l'index du profil pour
+ * s'épargner le tri, et relisait toutes les parties du profil, tous modes
+ * confondus, à chaque accueil — 2 993 pas pour un fidèle, dix de plus par jour
+ * au Cabinet ; avec celui de la date seul, de l'index des défis
+ * `(mode, semaine)` : les tentatives de la semaine de tout le monde, à chaque
+ * accueil de chacun (la revue de sobriété du 25 octobre 2026,
+ * `campagne-index.test.ts`, qui le lit aussi sous des statistiques qui y
+ * pousseraient).
+ */
+const SA_TENTATIVE_AU_DEFI = "profile_id = ? AND mode = 'defi' AND +semaine = ? ORDER BY +commencee_le LIMIT 1"
 /** Ce que l'administration relit des épreuves : trois mois suffisent à régler un palier. */
 const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
 /** Les plus bloqués que l'administration nomme : de quoi voir qui décroche, pas un annuaire. */
@@ -818,8 +882,12 @@ export interface CampagneDuProfil {
   duels: CoteDesDuels | null
 }
 
-/** Ce qu'une fin de série ou d'épreuve annonce : ce qui est tombé, et les légendaires que ça ouvre. */
-interface Recompenses {
+/**
+ * Ce qu'une fin de série ou d'épreuve annonce : ce qui est tombé, et les
+ * légendaires que ça ouvre. Celle d'une partie du Cabinet aussi, que la porte
+ * rend (`PorteDeLaCampagne.ecrireDesReponses`).
+ */
+export interface Recompenses {
   recompenses?: PalierTombe[]
   legendaires?: string[]
 }
@@ -833,12 +901,6 @@ export class CampagneStore {
   private client: Client
   /** L'étagère des profils (`RecompensesDeCampagne`), branchée par le serveur. */
   private recompenses: RecompensesDeCampagne | null
-  /**
-   * Les rencontres de l'expédition s'ouvrent ici (`rencontresOuvertes`) : ses
-   * paliers comptent le niveau d'explorateur (`statsDe`). Ailleurs, il vaut 0
-   * — en production, ni lu, ni décerné : L'Explorateur ne s'y montre pas.
-   */
-  private readonly rencontres: boolean
   private maintenant: () => number
   private verrous = new Map<string, Promise<unknown>>()
   /** La base du dépôt, lue à la première demande sans figer le serveur (`BaseDeLaCampagne.depuisLeDossier`) ; les tests en donnent une petite. */
@@ -1000,6 +1062,21 @@ export class CampagneStore {
     Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonDeLaNiche' | 'faireGrandir' | 'offrirUnCompagnon'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
+  /**
+   * Ce que le Cabinet de curiosités ajoute aux paliers de la campagne
+   * (`statsDe` : ses salles complètes, que L'Explorateur compte — branché là
+   * seulement où il s'ouvre), et l'expédition qui part ou finit, qu'il dit sur sa page
+   * (`expeditionChange`, en mémoire : rien ne s'en rapporte — la décision du
+   * propriétaire du 25 octobre 2026) : deux des trois crochets de sa porte
+   * (`core/porteDeLaCampagne.ts` ; le troisième, `init`), branchés par le
+   * serveur. La campagne n'importe rien du Cabinet.
+   */
+  statsEnPlus?: StatsEnPlus
+  expeditionChange?: ExpeditionQuiChange
+  /** Le secret du Cabinet, relu au réveil (`init`) ; null tant qu'aucun réveil ne l'a tiré. */
+  private secretLu: string | null = null
+  /** La porte du Cabinet, ouverte une fois (`porte`). */
+  private porteOuverte: PorteDeLaCampagne | null = null
   private mesuresGardees: MesureGardee | null = null
   /** La relecture des comptes en cours (`mesures`). */
   private mesuresEnRoute: Promise<void> | null = null
@@ -1088,15 +1165,12 @@ export class CampagneStore {
       empreintesDuJour?: () => Promise<ReadonlySet<string>>
       ecrireXp?: (profileId: string, xp: number, jours: number) => Promise<unknown>
       recompenses?: RecompensesDeCampagne
-      /** Les rencontres de l'expédition s'ouvrent sur ce serveur (`rencontresOuvertes`) : le niveau d'explorateur compte pour L'Explorateur. */
-      rencontres?: boolean
       /** Combien de temps le journal des duels se croit à jour de ce qui s'écrit sans ce serveur (`FRAICHEUR_DES_DUELS_MS`) ; le banc, 0. */
       fraicheurDesDuelsMs?: number
     } = {},
   ) {
     this.client = clientDistant(url, authToken)
     this.recompenses = opts.recompenses ?? null
-    this.rencontres = opts.rencontres ?? false
     this.fraicheurDesDuels = opts.fraicheurDesDuelsMs ?? FRAICHEUR_DES_DUELS_MS
     this.maintenant = opts.maintenant ?? Date.now
     const donnee = opts.base
@@ -1155,7 +1229,14 @@ export class CampagneStore {
     return justesParJourDesHeures((await this.rattraperLeJournal()).justesParHeureDe(profileId))
   }
 
-  async init() {
+  /**
+   * Ses tables, en deux lots et une lecture de schéma par table (`ajouterColonne`) ;
+   * et ce que le Cabinet de curiosités y ajoute (`enPlus`, `REVEIL_DU_CABINET`) :
+   * ses tables, sa colonne et son secret dans les mêmes allers-retours — un
+   * réveil de l'hébergeur n'en paie pas un de plus pour lui.
+   */
+  async init(enPlus: CeQueLeReveilAjoute = {}) {
+    const secret = enPlus.secret
     const resultats = await this.client.batch(
       [
         `CREATE TABLE IF NOT EXISTS campagne_series (
@@ -1223,15 +1304,28 @@ export class CampagneStore {
            melange  TEXT NOT NULL,
            regle_le INTEGER NOT NULL
          )`,
+        // Les drapeaux de la campagne, et le secret du Cabinet : dès ce lot-ci,
+        // pour que le secret s'y relise — né au second, il en aurait coûté un
+        // aller-retour de plus à chaque réveil.
+        `CREATE TABLE IF NOT EXISTS campagne_meta (
+           cle    TEXT PRIMARY KEY,
+           valeur TEXT NOT NULL
+         )`,
+        ...(enPlus.tablesEnPlus ?? []),
+        // Chaque réveil en propose un neuf ; la base ne le prend que si elle n'en a pas : deux serveurs pendant une
+        // mise en ligne, un redémarrage relisent le même — jamais un secret neuf au réveil (règle `cabinet.md`).
+        ...(secret ? [{ sql: 'INSERT INTO campagne_meta (cle, valeur) VALUES (?, ?) ON CONFLICT (cle) DO NOTHING', args: [secret, randomBytes(32).toString('hex')] }] : []),
         // Dans le même aller-retour : un réveil de l'hébergeur n'en paie pas un de plus.
         'SELECT question_id FROM campagne_retraits',
         'SELECT entree, ajoutee_le FROM campagne_ajouts ORDER BY ajoutee_le',
         'SELECT question_id, entree, corrigee_le FROM campagne_corrections',
         'SELECT palier, melange, regle_le FROM sentier_melanges',
+        ...(secret ? [{ sql: 'SELECT valeur FROM campagne_meta WHERE cle = ?', args: [secret] }] : []),
       ],
       'write',
     )
-    const [retraits, ajouts, corrections, melanges] = resultats.slice(-4)
+    const [retraits, ajouts, corrections, melanges, secretLu] = resultats.slice(secret ? -5 : -4)
+    if (secret) this.secretLu = typeof secretLu.rows[0]?.valeur === 'string' ? secretLu.rows[0].valeur : null
     for (const r of retraits.rows) this.retirees.add(String(r.question_id))
     // Un mélange que les règles du jour refusent — une marche de plus, un palier de moins — se tait : le palier reprend celui du code.
     for (const r of melanges.rows) {
@@ -1282,12 +1376,20 @@ export class CampagneStore {
       // (`chanceAuDepart`). Ce qu'elle dit au joueur ne se reconstruit pas
       // après coup : le modèle se refait, ses réponses changent sa force.
       ['chance', 'REAL'],
+      // Celles du Cabinet de curiosités (le départ figé d'une partie) : le schéma de la table, déjà lu pour les
+      // nôtres, se garde (`schemaDe`) — un réveil ordinaire n'en paie rien, le premier son seul `ALTER`.
+      ...(enPlus.colonnesEnPlus ?? []),
     ] as const) {
       await ajouterColonne(this.client, 'campagne_series', colonne, type)
     }
     const creees = await this.client.batch(
       [
         'CREATE INDEX IF NOT EXISTS idx_campagne_series_sentiers ON campagne_series(profile_id, mode, branche, palier)',
+        // Les parties d'un mode d'un profil, rangées par leur date : les missions y lisent celles des seuls modes qu'elles
+        // comptent, depuis une date (`activiteDepuis`) — par l'index du profil, elles relisaient à chaque bilan et à chaque
+        // accueil les parties du Cabinet, dix par jour —, et les dernières rencontres de la page des duels s'y arrêtent aux
+        // plus récentes, sans relire toutes les parties d'un joueur qui n'en a pas (la revue de sobriété du 25 octobre 2026).
+        'CREATE INDEX IF NOT EXISTS idx_campagne_series_profil_mode ON campagne_series(profile_id, mode, commencee_le)',
         // Les paliers que chacun tenait de ses portraits d'avant les sentiers
         // (`core/repriseDesPortraits.ts`) : écrits une fois, jamais repris.
         `CREATE TABLE IF NOT EXISTS sentier_acquis (
@@ -1296,10 +1398,6 @@ export class CampagneStore {
            paliers    INTEGER NOT NULL,
            retenu_le  INTEGER NOT NULL,
            PRIMARY KEY (profile_id, branche)
-         )`,
-        `CREATE TABLE IF NOT EXISTS campagne_meta (
-           cle    TEXT PRIMARY KEY,
-           valeur TEXT NOT NULL
          )`,
         // Les lectures du journal des réponses, gardées telles quelles : un
         // réveil les relit au lieu de toute l'histoire (`reprendreLesTranches`,
@@ -1462,9 +1560,12 @@ export class CampagneStore {
    * Son compagnon grandit à la fin d'une partie — série, épreuve, parcours —,
    * jamais pendant une question (`ProfileStore.faireGrandir`). Une base qui
    * hoquette le laisse grandir à la lecture suivante : la partie, elle, est finie.
+   * Ses bonnes réponses de campagne, il les lit du journal tel que la fin
+   * vient de le laisser (`compagnonsApresSesReponses`), et seulement s'il a un
+   * compagnon dans sa niche : le magasin des profils le demande à son heure.
    */
   private async faireGrandir(profileId: string): Promise<void> {
-    await this.profils?.faireGrandir?.(profileId).catch(e => console.error('[campagne] compagnon :', e))
+    await this.profils?.faireGrandir?.(profileId, () => this.compagnonsApresSesReponses(profileId)).catch(e => console.error('[campagne] compagnon :', e))
   }
 
   /** Un geste à la fois par profil : deux onglets qui répondent ensemble ne comptent pas deux fois. */
@@ -2043,6 +2144,13 @@ export class CampagneStore {
   /** Les événements des frises (v13) que ces jouables datent, gardés avec elles : une base neuve les relit. */
   private evenementsGardes = new WeakMap<readonly QuestionDeLaBase[], readonly EvenementDeLaFrise[]>()
 
+  /** Les événements des frises de ces jouables — l'expédition, la Frise du Cabinet —, lus une fois par liste. */
+  private evenementsDe(toutes: readonly QuestionDeLaBase[]): readonly EvenementDeLaFrise[] {
+    let evenements = this.evenementsGardes.get(toutes)
+    if (!evenements) this.evenementsGardes.set(toutes, (evenements = evenementsDeLaBase(this.parIdDe(toutes))))
+    return evenements
+  }
+
   /**
    * Une frise pour une escale (v13) : quatre événements de son tas — ceux dont
    * la question y est —, à l'écart de sa marche, jamais vus dans une frise
@@ -2052,8 +2160,7 @@ export class CampagneStore {
    * n'a pas de quoi.
    */
   private friseDe(toutes: readonly QuestionDeLaBase[], tas: readonly (readonly QuestionDeLaBase[])[], marche: Niveau, vus: ReadonlySet<string>): QuestionDeSerie | null {
-    let evenements = this.evenementsGardes.get(toutes)
-    if (!evenements) this.evenementsGardes.set(toutes, (evenements = evenementsDeLaBase(this.parIdDe(toutes))))
+    const evenements = this.evenementsDe(toutes)
     const parId = this.parIdDe(toutes)
     let candidats = evenements
     if (!(tas.length === 1 && tas[0] === toutes)) {
@@ -2205,12 +2312,21 @@ export class CampagneStore {
    * épreuves des sentiers comprises pour ces deux-là —, et ce que ses
    * épreuves ont validé sur les sentiers (`statsDesSentiers`). Le niveau
    * d'une question est celui que la série lui donnait quand elle l'a posée.
-   * Là où les rencontres s'ouvrent, son niveau d'explorateur aussi : sa
-   * renommée, dans le même lot (`lecturesDeLaRenommee`).
+   * Et ce que le Cabinet y ajoute (`statsEnPlus` : ses salles complètes, pour
+   * L'Explorateur), lu dans le même lot : `statsDe` se lit à chaque fin de
+   * partie et à chaque page du profil. La renommée de l'Expédition n'y est
+   * plus lue depuis le 26 octobre 2026 : quatre lectures qui grandissaient
+   * avec ses expéditions, pour un trophée qui compte désormais des salles. Ses
+   * champs s'étalent d'abord, nos comptes par-dessus : un compte de la
+   * campagne qu'il rendrait par erreur — le typage le refuse déjà
+   * (`StatsDuCabinet`) — ne remplace pas le nôtre. Un champ à lui prend son
+   * défaut juste avant : sans Cabinet — un serveur où il est fermé ne le
+   * branche pas —, aucune salle, et rien ne tombe.
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
+    const enPlus = this.statsEnPlus
     const {
-      lus: [record, validees, passeport, ...renommee],
+      lus: [record, validees, passeport, ...duCabinet],
       journal,
     } = await this.lireAvecLeJournal([
       {
@@ -2219,9 +2335,11 @@ export class CampagneStore {
       },
       this.lectureDesValidees(profileId),
       lectureDuPasseport(profileId),
-      ...(this.rencontres ? lecturesDeLaRenommee(profileId) : []),
+      ...(enPlus?.lectures(profileId) ?? []),
     ])
     return {
+      salles: 0,
+      ...(enPlus && enPlus.lire(duCabinet)),
       record: Number(record.rows[0]?.n ?? 0),
       // Toutes ses bonnes réponses, du journal : la somme des `justes` de ses
       // séries parcourait chacune d'elles, à chaque fin de partie et chaque page.
@@ -2233,22 +2351,10 @@ export class CampagneStore {
       expertes: journal.expertesDe(profileId),
       // Ses épreuves seules : un palier repris des portraits d'avant n'a pas d'étoile.
       ...statsDesSentiers(sentiersLus([], validees.rows)),
-      // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun.
+      // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun. Le Globe-trotter reste
+      // montré, figé avec le départ de l'Expédition : ce que les expéditions en route trouvent encore y compte.
       tampons: passeport.rows.length,
-      explorateur: this.rencontres ? await this.niveauDExplorateur(renommee) : 0,
     }
-  }
-
-  /**
-   * Son niveau d'explorateur, de sa renommée lue (`lecturesDeLaRenommee`) —
-   * 0 sans renommée, jamais le niveau 1 qui ne se refuse à personne
-   * (`StatsDeCampagne.explorateur`). Les bilans refaits du pli s'écrivent ici
-   * aussi : sans quoi chaque page du profil replierait les mêmes expéditions.
-   */
-  private async niveauDExplorateur(lectures: readonly ResultSet[]): Promise<number> {
-    const { renommee, aEcrire } = renommeeLue(lectures)
-    await this.ecrireLesBilansRefaits(aEcrire)
-    return renommee > 0 ? niveauDe(renommee) : 0
   }
 
   /** Les bilans refaits du pli (`renommeeLue`), écrits une fois : ratés, ils se refont à la lecture suivante, rien de plus. */
@@ -2539,10 +2645,10 @@ export class CampagneStore {
     if (this.enCours.size > SERIES_GARDEES) this.enCours.delete(this.enCours.keys().next().value!)
   }
 
-  /** La série en cours de ce profil, s'il en a une. */
+  /** La série en cours de ce profil, s'il en a une — par ses seules séries (`LA_PLUS_RECENTE`). */
   async serieEnCours(profileId: string): Promise<Serie | null> {
     const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND finie_le IS NULL AND ${SERIES} ORDER BY commencee_le DESC LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND finie_le IS NULL AND ${SERIES} ${LA_PLUS_RECENTE}`,
       args: [profileId],
     })
     return res.rows[0] ? versSerie(res.rows[0]) : null
@@ -2771,22 +2877,112 @@ export class CampagneStore {
    * ne fait pas échouer la réponse, déjà rangée : la bonne réponse suivante
    * réécrit la ligne entière.
    */
-  private async crediter(
+  private async crediter(profileId: string, lus: readonly ResultSet[], experience: { journal: JournalDesReponses; numero: number }): Promise<number> {
+    const parJour = await this.crediterLaLigne(profileId, lus, experience)
+    return parJour ? xpDeLaBonneReponse(parJour.get(jourDe(this.maintenant())) ?? 1) : 0
+  }
+
+  /**
+   * Sa ligne d'expérience réécrite entière, de ce qu'a lu le lot de sa bonne
+   * réponse (`lecturesDeLExperience`) : rend ses bonnes réponses jour par jour,
+   * de quoi dire ce que chacune a rapporté — null si la base a refusé la ligne,
+   * que la bonne réponse suivante réécrira.
+   */
+  private async crediterLaLigne(
     profileId: string,
     [lecture, paliers]: readonly ResultSet[],
     { journal, numero }: { journal: JournalDesReponses; numero: number },
-  ): Promise<number> {
+  ): Promise<ReadonlyMap<string, number> | null> {
     try {
       if (numero > 0) this.appliquerAuJournal(journal, lireLeJournal(lecture.rows[0]), numero)
       // Sa lecture n'a rien rapporté — le journal pas encore chargé —, ou pas tout : une lecture partie après l'écriture.
       const aJour = numero > 0 && journal === this.journal && journal.fraisDepuis >= numero ? journal : await this.rattraperLeJournal(this.lecturesDuJournal)
       const { parJour, xp } = experienceDuJournal(aJour.justesParHeureDe(profileId), paliers.rows)
       await this.ecrireXp(profileId, xp, parJour.size)
-      return xpDeLaBonneReponse(parJour.get(jourDe(this.maintenant())) ?? 1)
+      return parJour
     } catch (e) {
       console.error('[campagne] expérience non écrite, la prochaine bonne réponse la réécrira :', e)
-      return 0
+      return null
     }
+  }
+
+  /**
+   * Le rituel d'une réponse de campagne, pour le Cabinet de curiosités
+   * (`PorteDeLaCampagne.ecrireDesReponses`, `core/porteDeLaCampagne.ts`) :
+   * celui de `repondre`, dans son ordre, en une seule fonction. Les portes de
+   * ce fichier qui écrivent des réponses — la série, l'épreuve, le parcours,
+   * l'expédition — le recopient chacune, et un pas oublié ne se voit pas :
+   * l'expédition en route reposait la question tout juste vue, ou la lecture
+   * suivante du journal passait pour fraîche. Le Cabinet n'en a qu'une copie,
+   * celle-ci.
+   */
+  private async ecrireDesReponses(profileId: string, lot: readonly InStatement[], fin?: FinDUnePartie): Promise<ReponsesEcrites> {
+    // L'expérience se crédite une fois par partie, à sa fin : la ligne se relit entière, exacte quel que soit le nombre de
+    // ses justes — créditée à chaque manche, elle coûtait un aller-retour par manche juste pour le même résultat. Ses
+    // lectures partent au bout du lot de la fin, après les réponses qu'elles comptent. Une partie laissée en plan voit les
+    // siennes créditées par la bonne réponse suivante de la campagne, quelle qu'elle soit.
+    const experience = fin && fin.justes.length > 0 ? this.lecturesDeLExperience(profileId) : null
+    const lectures = experience?.lectures ?? []
+    // Vue ici, elle l'est aussi pour son expédition en route.
+    this.vuAilleurs(profileId)
+    let res: ResultSet[]
+    try {
+      res = await this.client.batch([...lot, ...lectures], 'write')
+    } finally {
+      // Écrite ou non — un lot resté sans réponse a pu passer —, une lecture du journal partie avant elle ne la sait pas.
+      this.reponseEcrite()
+    }
+    const lus = res.slice(0, lot.length)
+    // Un lot gardé par son geste (D9) qui n'a rien écrit — le rang pris par l'autre serveur d'une mise en ligne, un
+    // double toucher — n'a rien fini : la fin écrite ailleurs a crédité, rangé, fait grandir. Le refaire réécrivait la
+    // ligne, relisait `statsDe` et rangeait des paliers que le Cabinet, rejouant le geste, jette avec sa réponse.
+    if (!fin || !fin.ecrite(lus)) return { lus, xp: [], recompenses: {} }
+    let xp: number[] = []
+    if (experience) {
+      const parJour = await this.crediterLaLigne(profileId, res.slice(lot.length), experience)
+      xp = parJour ? xpDesJustes(parJour, fin.justes) : fin.justes.map(() => 0)
+    }
+    // Ses gardiens, entre l'expérience et les paliers (la conception du Cabinet, § 2.6) : la campagne ne les connaît
+    // pas, et une étagère muette ne fait pas tomber une partie écrite — la page suivante réconcilie.
+    if (fin.avantLesPaliers) await fin.avantLesPaliers().catch(e => console.error('[cabinet] gardiens non rangés, la page suivante les réconciliera :', e))
+    const recompenses = await this.recompenserLaFin(profileId, fin.serieId, fin.quand, 'cabinet')
+    await this.faireGrandir(profileId)
+    return { lus, xp, recompenses }
+  }
+
+  /**
+   * La porte du Cabinet de curiosités (`core/porteDeLaCampagne.ts`) : des
+   * fermetures sur ce magasin, rien de plus. Le Cabinet n'importe pas
+   * `CampagneStore` et ne voit de lui que ce qu'elle dit ; elle s'ouvre avant
+   * `init` — le serveur la lui donne en le construisant —, la même à chaque fois.
+   */
+  porte(): PorteDeLaCampagne {
+    if (this.porteOuverte) return this.porteOuverte
+    const campagne = this
+    this.porteOuverte = {
+      get client() {
+        return campagne.client
+      },
+      maintenant: () => this.maintenant(),
+      avecVerrou: (profileId, travail) => this.avecVerrou(profileId, travail),
+      jouables: () => this.jouables(),
+      mesures: () => this.mesures(),
+      parIdDe: jouables => this.parIdDe(jouables),
+      deLaCategorie: (jouables, categorie) => this.deLaCategorie(jouables, categorie),
+      evenementsDe: jouables => this.evenementsDe(jouables),
+      // Sans lecture, le journal seul, frais s'il a été lu depuis la dernière réponse écrite ici : le tirage d'un départ
+      // ne paie rien quand la page vient de le rattraper. Celui de la campagne (`lireAvecLeJournal([])`) le relit
+      // toujours ; le Cabinet, qui tire avant d'écrire, ne relit que ce qu'une réponse a pu changer.
+      lireAvecLeJournal: async lot => (lot.length === 0 ? { lus: [], journal: await this.rattraperLeJournal(this.derniereReponse) } : this.lireAvecLeJournal(lot)),
+      ecrireDesReponses: (profileId, lot, fin) => this.ecrireDesReponses(profileId, lot, fin),
+      compagnonDeLaNiche: profileId => this.compagnonDeLaNiche(profileId),
+      prechauffer: () => this.prechauffer(),
+      secretDuCabinet: () => {
+        if (this.secretLu === null) throw new TypeError('le secret du Cabinet n’a pas été relu : la campagne s’est ouverte sans `REVEIL_DU_CABINET` (`CampagneStore.init`)')
+        return this.secretLu
+      },
+    }
+    return this.porteOuverte
   }
 
   /**
@@ -2812,6 +3008,10 @@ export class CampagneStore {
   async correction(profileId: string, id: string): Promise<CorrectionDeCampagne[]> {
     const s = await this.serie(profileId, id)
     if (!s) throw new Error('Cette série est introuvable')
+    // Une partie du Cabinet garde des pièces, pas des questions de série — cinq
+    // affirmations de l'Éclair, un lieu, une frise — : relue ici, elle se
+    // dirait de travers. Ses réponses se relisent au Cabinet, par le pli de sa partie.
+    if (s.mode === 'cabinet') throw new Error('Cette partie se relit au Cabinet')
     // En cours, la correction donnerait les réponses de la question qu'on a sous les yeux.
     if (s.finieLe === null) throw new Error('La correction attend la fin de la série')
     // Le défi de la semaine se corrige à sa clôture : finie, la sienne
@@ -2950,19 +3150,26 @@ export class CampagneStore {
 
   /**
    * Ses parties de campagne finies ou jouées depuis un instant, et leurs
-   * réponses, de tous les modes : de quoi juger ses missions du jour
-   * (`shared/missions.ts`), jour par jour. D'un aller-retour, par l'index de
-   * ses séries ; une partie commencée une semaine plus tôt — une épreuve
-   * laissée, reprise — compte encore ses réponses du jour (`MARGE_D_UNE_EPREUVE_MS`).
-   * La catégorie est celle que la série a gardée de sa question, comme pour
-   * ses écussons.
+   * réponses : de quoi juger ses missions du jour (`shared/missions.ts`), jour
+   * par jour. D'un aller-retour ; une partie commencée une semaine plus tôt —
+   * une épreuve laissée, reprise — compte encore ses réponses du jour
+   * (`MARGE_D_UNE_EPREUVE_MS`). La catégorie est celle que la série a gardée
+   * de sa question, comme pour ses écussons. Ses parties, des seuls modes que
+   * les missions comptent (`MODES_QUE_LES_MISSIONS_COMPTENT`), par l'index de
+   * son profil, de leur mode et de leur date : de tous les modes, elles
+   * relisaient à chaque bilan et à chaque accueil les parties du Cabinet,
+   * dix par jour, pour n'en rien compter — et `mode IN (…)` sans cet index
+   * n'y changeait rien, l'index du profil lisant encore chaque ligne pour en
+   * voir le mode (3 753 pas pour un fidèle, 126 avec lui : la revue de
+   * sobriété du 25 octobre 2026, `campagne-index.test.ts`).
    */
   async activiteDepuis(profileId: string, depuis: number): Promise<Pick<JournauxDesJours, 'series' | 'reponses'>> {
     const commencees = depuis - MARGE_D_UNE_EPREUVE_MS
     const series: InStatement = {
       sql: `SELECT id, mode, issue, finie_le FROM campagne_series
-            WHERE profile_id = ? AND commencee_le >= ? AND (finie_le IS NULL OR finie_le >= ?)`,
-      args: [profileId, commencees, depuis],
+            WHERE profile_id = ? AND mode IN (${MODES_QUE_LES_MISSIONS_COMPTENT.map(() => '?').join(', ')})
+              AND commencee_le >= ? AND (finie_le IS NULL OR finie_le >= ?)`,
+      args: [profileId, ...MODES_QUE_LES_MISSIONS_COMPTENT, commencees, depuis],
     }
     const seriesLues = (lues: ResultSet) =>
       lues.rows.map(r => ({
@@ -3022,10 +3229,29 @@ export class CampagneStore {
    * comptent pas. Du journal, rattrapé d'un aller-retour : relues de la
    * base, elles parcouraient toutes ses réponses à chaque fin de partie,
    * chaque boutique, chaque niche — 38 % du quota de Turso, le 23 octobre
-   * 2026, 5 000 lignes à chaque fois pour le plus fidèle.
+   * 2026, 5 000 lignes à chaque fois pour le plus fidèle. Une page qui les
+   * lit — la niche, la boutique, la fin d'un quiz du jour ou d'une soirée —
+   * rattrape tout ce qui est arrivé, d'ici ou d'ailleurs : l'autre serveur
+   * d'une mise en ligne a pu écrire. La fin d'une partie de la campagne, elle,
+   * sait mieux (`compagnonsApresSesReponses`).
    */
   async compagnonsDe(profileId: string): Promise<Record<string, number>> {
     return (await this.rattraperLeJournal()).compagnonsDe(profileId)
+  }
+
+  /**
+   * Les mêmes, à la fin d'une partie de la campagne — ou du Cabinet, par sa
+   * porte —, rattrapées depuis la dernière réponse écrite ici
+   * (`derniereReponse`), comme le journal seul de la porte : les paliers
+   * viennent de relire le journal au bout de leur lot, après ses réponses, et
+   * un aller-retour de plus n'apprenait rien — cinq en série à chaque fin, un
+   * compagnon dans la niche, au lieu de trois (la revue de sobriété du
+   * 25 octobre 2026, `cabinet-charge.test.ts`). Ce qu'un autre serveur a écrit
+   * entre-temps, la page suivante le lit (`compagnonsDe`) : son rang ne fait
+   * que monter, rien ne se perd.
+   */
+  private async compagnonsApresSesReponses(profileId: string): Promise<Record<string, number>> {
+    return (await this.rattraperLeJournal(this.derniereReponse)).compagnonsDe(profileId)
   }
 
   /**
@@ -3097,7 +3323,9 @@ export class CampagneStore {
    * question (`carnetIncertain`) — et `journal-des-reponses.test.ts`, qui
    * compare. La forme se compare sans NULL (`COALESCE`) : `forme =
    * 'vrai-faux'`, vide, rendait NULL tout le filtre, et écartait chaque bonne
-   * réponse nue.
+   * réponse nue. Ce qui n'est pas une question de la base s'écarte par la
+   * liste que le journal lit aussi (`sqlDansLaBase`) : recopiée ici, un
+   * préfixe oublié des deux côtés se serait comparé égal.
    */
   private async suivisDeLaBase(profileId: string): Promise<Map<string, SuiviDeRevision>> {
     const essais = CARTES_DU_SECOND_ESSAI.map(cle => `'${cle}'`).join(', ')
@@ -3107,7 +3335,7 @@ export class CampagneStore {
                      r.repondue_le AS le, r.serie_id AS serie, r.position AS position
               FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
               WHERE s.profile_id = ?
-                AND r.reserve_id NOT LIKE '${PREFIXE_DU_REBUS}%' AND r.reserve_id NOT LIKE '${PREFIXE_DE_LA_FRISE}%'
+                AND ${sqlDansLaBase('r.reserve_id')}
                 AND NOT (r.juste = 1 AND COALESCE(r.joker, '') NOT IN (${essais}) AND (r.joker IS NOT NULL OR COALESCE(r.forme, '') = 'vrai-faux'))
                 AND NOT (s.mode = 'defi' AND s.semaine >= ?)
                 AND NOT (s.mode = 'duel' AND s.duel IN (SELECT code FROM campagne_duels WHERE ferme_le > ?))
@@ -3135,7 +3363,7 @@ export class CampagneStore {
   /** Sa révision laissée en route, s'il en a une : elle se reprend. */
   private async revisionEnCours(profileId: string): Promise<Serie | null> {
     const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'revision' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'revision' AND finie_le IS NULL ${LA_PLUS_RECENTE}`,
       args: [profileId],
     })
     return res.rows[0] ? versSerie(res.rows[0]) : null
@@ -3382,10 +3610,10 @@ export class CampagneStore {
     })
   }
 
-  /** Sa tentative au défi d'une semaine, s'il l'a commencée. */
+  /** Sa tentative au défi d'une semaine, s'il l'a commencée — par ses défis à lui (`SA_TENTATIVE_AU_DEFI`). */
   private async tentativeDuDefi(profileId: string, semaine: string): Promise<Serie | null> {
     const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'defi' AND semaine = ? ORDER BY commencee_le LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE ${SA_TENTATIVE_AU_DEFI}`,
       args: [profileId, semaine],
     })
     return res.rows[0] ? versSerie(res.rows[0]) : null
@@ -3697,10 +3925,18 @@ export class CampagneStore {
       : { nom: 'Un joueur', avatar: '🎲', justes: t.justes }
   }
 
-  /** Sa tentative à un défi entre amis, s'il l'a commencée. */
+  /**
+   * Sa tentative à un duel, s'il l'a commencée : par le code du duel, jamais
+   * par son profil (`PAR_SON_CODE`, règle `duels.md`) — les deux tentatives
+   * du duel au plus. Par son profil, sans statistiques, SQLite partait de
+   * l'index du profil pour s'épargner le tri, et lisait toutes ses parties, de
+   * tous les modes : à la page d'un duel, au relevé, à la fin d'un duel classé,
+   * à la correction (la revue de sobriété du 25 octobre 2026). Le `+` devant
+   * la date l'empêche d'y revenir pour le tri ; il ne trie que deux lignes.
+   */
   private async tentativeDuDuel(profileId: string, code: string): Promise<Serie | null> {
     const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'duel' AND duel = ? ORDER BY commencee_le LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE ${PAR_SON_CODE}profile_id = ? AND mode = 'duel' AND duel = ? ORDER BY +commencee_le LIMIT 1`,
       args: [profileId, code],
     })
     return res.rows[0] ? versSerie(res.rows[0]) : null
@@ -4849,7 +5085,7 @@ export class CampagneStore {
         duels,
       ] = await Promise.all([
         this.lireAvecLeJournal([
-          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ${LA_PLUS_RECENTE}`, args: [profileId] },
         ]),
         this.lesDuels(),
       ])
@@ -5577,7 +5813,7 @@ export class CampagneStore {
       this.client.batch(
         [
           lectureDesDefisRecus(profileId, maintenant),
-          { sql: `SELECT adversaire FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+          { sql: `SELECT adversaire FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ${LA_PLUS_RECENTE}`, args: [profileId] },
           // Ses duels joués des deux côtés dont il n'a pas vu le résultat — lus de la règle
           // qui les montre sur la page (`lectureDesDuelsContre`) : compté ici, chacun y paraît.
           {
@@ -5694,7 +5930,7 @@ export class CampagneStore {
   /** L'épreuve qu'il a laissée en cours, s'il en a une : une seule à la fois. */
   private lectureDeLEpreuveOuverte(profileId: string): InStatement {
     return {
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND finie_le IS NULL ${LA_PLUS_RECENTE}`,
       args: [profileId],
     }
   }
@@ -5969,16 +6205,19 @@ export class CampagneStore {
    * (invariant 15) ; ce que l'onglet dit, la page le montre. D'une seule
    * lecture, de front avec le reste de l'accueil : les tentatives de la
    * semaine en un texte, sans charger les profils, que le classement ne lit
-   * que pour les nommer.
+   * que pour les nommer. Chacune ne se cherche parmi les profils actifs que
+   * par sa clé (un `EXISTS` corrélé) : un `profile_id IN (SELECT id FROM
+   * profiles …)` relisait toute la table des profils à chaque accueil de
+   * chacun. La sienne, par ses défis à lui (`SA_TENTATIVE_AU_DEFI`).
    */
   async defiDAccueil(profileId: string): Promise<DefiDAccueil> {
     const { semaine } = this.semaineDeLHeure()
     const res = await this.client.execute({
       sql: `SELECT
-              (SELECT json_group_array(json_array(profile_id, justes)) FROM campagne_series
-                WHERE mode = 'defi' AND semaine = ? AND position > 0 AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)) AS tentatives,
-              (SELECT json_array(justes, finie_le IS NOT NULL) FROM campagne_series
-                WHERE profile_id = ? AND mode = 'defi' AND semaine = ? ORDER BY commencee_le LIMIT 1) AS sienne`,
+              (SELECT json_group_array(json_array(s.profile_id, s.justes)) FROM campagne_series s
+                WHERE s.mode = 'defi' AND s.semaine = ? AND s.position > 0
+                  AND EXISTS (SELECT 1 FROM profiles p WHERE p.id = s.profile_id AND p.disabled_at IS NULL)) AS tentatives,
+              (SELECT json_array(justes, finie_le IS NOT NULL) FROM campagne_series WHERE ${SA_TENTATIVE_AU_DEFI}) AS sienne`,
       args: [semaine, profileId, semaine],
     })
     const r = res.rows[0]
@@ -6254,7 +6493,7 @@ export class CampagneStore {
       this.client.batch(
         [
           { sql: `SELECT sujet, palier, justes, seuil FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND issue = 'validee'`, args: [profileId] },
-          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND finie_le IS NULL ${LA_PLUS_RECENTE}`, args: [profileId] },
         ],
         'read',
       ),
@@ -6760,8 +6999,8 @@ export class CampagneStore {
    * épreuve, parcours, révision, défi, duel, rencontre — : qui, quand, dans
    * quel mode, et combien de questions jouées (`position`, qui avance à
    * chaque réponse). Le QG en tire ses chiffres du jour, ses participations
-   * et l'activité de chaque mode ; une série d'avant les modes n'en a pas
-   * (null) : c'est une série. `qui` : celles d'un seul profil, sa fiche au
+   * et l'activité de chaque mode — une partie du Cabinet compte ses pièces
+   * jugées. `qui` : celles d'un seul profil, sa fiche au
    * QG — par l'index `(profile_id, commencee_le)`. Une expédition compte ses
    * réponses : sa position saute les questions de reste d'un gardien vaincu,
    * tirées d'avance pour lui et jamais posées (`questionsDuGardien`).
@@ -7171,10 +7410,9 @@ export class CampagneStore {
     if (!s) throw new Error('Cette série est introuvable')
     if (!Number.isInteger(index) || index < 0 || index >= s.index) throw new Error('Réponds d’abord à cette question')
     const q = s.questions[index]
-    // Un rébus (v12) n'est pas une question de la base : le QG n'aurait ni version à relire ni réponse à corriger.
-    if (q.id.startsWith(PREFIXE_DU_REBUS)) throw new Error('Un rébus ne se signale pas : seules les questions de la campagne le peuvent')
-    // Une frise (v13) non plus : quatre questions récrites en une ligne chacune, aucune n'est celle qu'il a jouée.
-    if (q.id.startsWith(PREFIXE_DE_LA_FRISE)) throw new Error('Une frise ne se signale pas : seules les questions de la campagne le peuvent')
+    // Un rébus, une frise, un jeu du Cabinet ne sont pas des questions de la base : le QG n'aurait ni version à relire ni réponse à corriger. Chacun le dit à sa façon.
+    const refus = refusDuSignalement(q.id)
+    if (refus) throw new Error(refus)
     if (!(await this.base()).parId.has(q.id)) throw new Error('Cette question n’est plus dans la campagne')
     // Signalée de nouveau après une relecture, elle revient à relire : l'issue d'avant ne la suit pas.
     await this.client.execute({
@@ -7587,10 +7825,15 @@ export class CampagneStore {
    * (`graineDe`). Un aller-retour. `rencontres` : le prototype des rencontres
    * s'offre au départ — hors de la production (`rencontresOuvertes`) ;
    * `questionAuCentre` : la version 10 aussi (`questionAuCentreOuverte`), et
-   * le codex se lit à son échelle.
+   * le codex se lit à son échelle. `remplacee` : l'Expédition a laissé place au
+   * Cabinet (`EXPEDITION_REMPLACEE`) — la page garde sa forme, celle en route
+   * se reprend, et elle dit que le départ est fermé (`departFerme`).
    */
-  async pageDeLExpedition(profileId: string, { rencontres = false, questionAuCentre = false }: { rencontres?: boolean; questionAuCentre?: boolean } = {}): Promise<PageDeLExpedition> {
-    const enRoute = `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`
+  async pageDeLExpedition(
+    profileId: string,
+    { rencontres = false, questionAuCentre = false, remplacee = false }: { rencontres?: boolean; questionAuCentre?: boolean; remplacee?: boolean } = {},
+  ): Promise<PageDeLExpedition> {
+    const enRoute = `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL ${LA_PLUS_RECENTE}`
     const lu = await this.client.batch(
       [
         { sql: `SELECT * FROM campagne_series WHERE id = (${enRoute})`, args: [profileId] },
@@ -7627,6 +7870,7 @@ export class CampagneStore {
         ...(codex && { codex }),
       },
       passeport: [...tampons].sort(),
+      ...(remplacee && { departFerme: 'cabinet' as const }),
     }
   }
 
@@ -7663,19 +7907,23 @@ export class CampagneStore {
    * laissée l'attend. `rencontres` : les rencontres (v5 et suivantes), là où
    * la route les accorde — avec son style, sa catégorie fétiche, le dos de son
    * paquet et son cran de l'Ascension ; `questionAuCentre` : en version 10, là
-   * où la route l'accorde.
+   * où la route l'accorde. `remplacee` : l'Expédition a laissé place au Cabinet
+   * (`EXPEDITION_REMPLACEE`) — le départ se refuse en mots (`DEPART_FERME`),
+   * mais après « t'attend », qui reste le premier mot pour qui en a une en
+   * route : le refus du départ ne doit pas lui faire croire la sienne perdue.
    */
   partirEnExpedition(
     profileId: string,
     equipeeBrute: unknown = [],
     {
+      remplacee = false,
       rencontres = false,
       questionAuCentre = false,
       fetiche,
       dos,
       ascension: cran,
       style: styleDemande,
-    }: { rencontres?: boolean; questionAuCentre?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown; style?: unknown } = {},
+    }: { remplacee?: boolean; rencontres?: boolean; questionAuCentre?: boolean; fetiche?: unknown; dos?: unknown; ascension?: unknown; style?: unknown } = {},
   ): Promise<VueDeLExpedition> {
     const v = versionDuDepart(rencontres, questionAuCentre)
     const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
@@ -7694,6 +7942,7 @@ export class CampagneStore {
       ])
       const [ouverte, compte, passeport] = lu
       if (ouverte.rows.length > 0) throw new Error('Ton expédition t’attend : reprends-la, ou abandonne-la d’abord')
+      if (remplacee) throw new Error(DEPART_FERME)
       const jouables = await this.jouables()
       if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('L’expédition n’a pas encore de questions à poser : reviens bientôt')
       const graine = graineDe(profileId, Number(compte.rows[0]?.n ?? 0))
@@ -7790,6 +8039,7 @@ export class CampagneStore {
       }
       const lue: ExpeditionLue = { serie, depart, gestes: [], reponses: new Map(), reponduesLe: new Map(), tampons: tamponsLus(passeport.rows) }
       this.garderLExpedition(profileId, lue, vues.vues)
+      this.direAuCabinet(profileId, id)
       return vueDeLExpedition(lue, plier(lue), siens)
     })
   }
@@ -8270,13 +8520,40 @@ export class CampagneStore {
     })
   }
 
-  /** Ce que la fin d'une expédition fait tomber : les paliers de la campagne que ses bonnes réponses font atteindre — Le Marathonien. */
-  private async recompenserLExpedition(profileId: string, serieId: string, quand: number): Promise<Recompenses> {
+  /**
+   * Ce que la fin d'une expédition fait tomber : les paliers de la campagne
+   * que ses bonnes réponses font atteindre — Le Marathonien —, toute fin y
+   * passe, écrite. Le Cabinet apprend seulement que plus rien ne l'attend
+   * (`direAuCabinet`) : il n'en rapporte aucune œuvre, chacun y commence son
+   * musée à zéro (la décision du propriétaire du 25 octobre 2026).
+   */
+  private recompenserLExpedition(profileId: string, serieId: string, quand: number): Promise<Recompenses> {
+    this.direAuCabinet(profileId, null)
+    return this.recompenserLaFin(profileId, serieId, quand, 'expedition')
+  }
+
+  /**
+   * L'expédition de ce profil part ou finit, écrite : le Cabinet le dit sur sa
+   * page (`expeditionChange`, branché par le serveur). En mémoire, sous le
+   * verrou du profil que le geste tient — le lot froid du musée l'attend, et ne
+   * relit pas derrière lui une expédition d'avant. Ce qui y tombe se dit au
+   * journal : le geste est écrit, sa réponse ne tombe pas pour une ligne de la
+   * page d'un autre mode.
+   */
+  private direAuCabinet(profileId: string, enRoute: string | null): void {
+    try {
+      this.expeditionChange?.(profileId, enRoute)
+    } catch (e) {
+      console.error('[cabinet] l’expédition qui part ou finit ne s’est pas dite à sa page — elle se relira au réveil :', e)
+    }
+  }
+
+  /** Les paliers qu'une partie finie fait atteindre, rangés sous elle ; une étagère muette n'y change rien : la partie est rangée, la fin suivante les relira. */
+  private async recompenserLaFin(profileId: string, serieId: string, quand: number, mode: 'expedition' | 'cabinet'): Promise<Recompenses> {
     try {
       return await this.recompenser(profileId, serieId, [], quand)
     } catch (e) {
-      // L'expédition est rangée : une étagère muette n'y change rien, la fin suivante les relira.
-      console.error('[expedition] récompenses non rangées :', e)
+      console.error(`[${mode}] récompenses non rangées :`, e)
       return {}
     }
   }
@@ -8785,6 +9062,30 @@ function experienceDuJournal(parHeure: ReadonlyMap<number, number>, paliers: rea
   return { parJour, xp }
 }
 
+/**
+ * Ce que chaque bonne réponse d'une partie du Cabinet a rapporté, dans son
+ * ordre, de ses bonnes réponses jour par jour (`experienceDuJournal`) : la
+ * n-ième d'un jour de Paris paie `xpDeLaBonneReponse(n)`, double parmi les
+ * vingt premières. La partie vient de finir : ses justes sont les dernières de
+ * leur jour, et une partie à cheval sur minuit paie chacune au compte du sien.
+ * Une réponse d'un autre mode glissée entre deux manches décalerait le rang
+ * dit, jamais la ligne, qui se relit exacte.
+ */
+function xpDesJustes(parJour: ReadonlyMap<string, number>, justes: readonly number[]): number[] {
+  const dansLaPartie = new Map<string, number>()
+  for (const t of justes) dansLaPartie.set(jourDe(t), (dansLaPartie.get(jourDe(t)) ?? 0) + 1)
+  const dejaComptees = new Map<string, number>()
+  return justes.map(t => {
+    const jour = jourDe(t)
+    const siennes = dansLaPartie.get(jour)!
+    const rang = dejaComptees.get(jour) ?? 0
+    dejaComptees.set(jour, rang + 1)
+    // Le journal les sait toutes, lues au bout du lot qui les écrit ; au pire, la partie seule fait sa journée.
+    const duJour = Math.max(parJour.get(jour) ?? 0, siennes)
+    return xpDeLaBonneReponse(duJour - siennes + rang + 1)
+  })
+}
+
 /** Des heures aux jours de Paris : il change de jour à une heure pile, hiver comme été — une heure n'est jamais à cheval sur deux jours. */
 function justesParJourDesHeures(parHeure: ReadonlyMap<number, number>): Map<string, number> {
   const parJour = new Map<string, number>()
@@ -8930,11 +9231,8 @@ function versSerie(r: Record<string, unknown>): Serie {
     vies: Number(r.vies),
     justes: Number(r.justes),
     finieLe: r.finie_le === null || r.finie_le === undefined ? null : Number(r.finie_le),
-    // Un mode inconnu se lit en série — une ligne d'avant les modes n'en a pas ; l'expédition garde le sien, ou une série l'accepterait.
-    mode:
-      r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' || r.mode === 'expedition'
-        ? r.mode
-        : 'serie',
+    // Chaque mode garde le sien, ou une série l'accepterait : les routes de la série jouent tout ce qui se lit en série.
+    mode: modeDeSerieLu(r.mode),
     branche: brancheParCle(r.branche)?.key ?? null,
     palier: r.palier === null || r.palier === undefined ? null : Number(r.palier),
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
@@ -9827,25 +10125,6 @@ function lireCategories(brut: unknown): string[] | null {
   }
 }
 
-/**
- * Une question de la base, telle que la série la garde : ses réponses
- * mélangées pour cette série-ci — on ne retient pas une place —, sauf
- * « Vrai » et « Faux », qui restent dans cet ordre.
- */
-function versQuestionDeSerie(q: QuestionDeLaBase, niveau: Niveau): QuestionDeSerie {
-  const ordre = q.reponses.length === 2 ? [0, 1] : melanger(q.reponses.map((_, i) => i))
-  return {
-    id: q.id,
-    texte: q.texte,
-    reponses: ordre.map(i => q.reponses[i]),
-    bonne: ordre.indexOf(q.bonne),
-    categorie: q.meta.categorie,
-    anecdote: q.anecdote,
-    niveau,
-    sousTheme: q.meta.sousTheme,
-  }
-}
-
 /** Une réponse comparable à une autre : sans casse ni accents, sans son article. */
 const reponseNette = (r: string) => sansAccent(r).replace(/^(le|la|les|l'|l’|un|une|des)\s*/, '')
 
@@ -10029,22 +10308,6 @@ export function detailPourUneEscale(
   return ancien
 }
 
-/** Parmi ces candidats, un jamais vu, au hasard ; sinon le plus anciennement vu. */
-function laMoinsVue<T>(candidats: readonly T[], idDe: (x: T) => string, vues: Pick<ReadonlyMap<string, number>, 'get'>): T | undefined {
-  const jamais: T[] = []
-  let ancienne: T | undefined
-  let le = Number.POSITIVE_INFINITY
-  for (const x of candidats) {
-    const v = vues.get(idDe(x))
-    if (v === undefined) jamais.push(x)
-    else if (v < le) {
-      le = v
-      ancienne = x
-    }
-  }
-  return jamais.length > 0 ? jamais[Math.floor(Math.random() * jamais.length)] : ancienne
-}
-
 /**
  * Ce qu'il fallait répondre à un vrai ou faux tiré d'une question à quatre
  * choix, quand la réponse proposée était fausse — pour son verdict et sa
@@ -10154,7 +10417,7 @@ export function leurresApres(avant: QuestionDeLaBase, apres: CorrectionDeQuestio
 function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSignalement {
   const vue = lireLaVersionJouee(r.vue)
   const choix = r.choix === null || r.choix === undefined ? null : Number(r.choix)
-  const ou = r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' || r.mode === 'expedition' ? r.mode : 'serie'
+  const ou = modeDeSerieLu(r.mode)
   return {
     profileId: String(r.profile_id),
     prenom: null,
@@ -10222,15 +10485,6 @@ function memeVersion(vue: VersionJouee, q: QuestionDeLaBase): boolean {
   if (vue.forme === 'six') return q.reponses.every(r => vue.reponses.includes(r)) && vue.reponses[vue.bonne] === q.reponses[q.bonne]
   const triees = (r: readonly string[]) => [...r].sort().join('\n')
   return triees(vue.reponses) === triees(q.reponses) && vue.reponses[vue.bonne] === q.reponses[q.bonne]
-}
-
-function melanger<T>(liste: readonly T[]): T[] {
-  const copie = [...liste]
-  for (let i = copie.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[copie[i], copie[j]] = [copie[j], copie[i]]
-  }
-  return copie
 }
 
 /** Un identifiant neuf de huit caractères, comme ceux que le rangement du dépôt tire (`base-campagne.ts ranger`). */
@@ -10343,44 +10597,6 @@ function paliersCommences(sentiers: readonly SentierDuJoueur[]): Paliers {
 function coteDuReleve(r: ReleveDesDuels): CoteDesDuels | null {
   return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote, bordures: r.bordures } : null
 }
-
-/**
- * D'où emprunter quand un niveau manque à la catégorie : le même, puis le
- * plus dur d'à côté, puis le plus facile. Une base qui grandit chaque matin
- * finit par remplir chaque niveau ; d'ici là, une épreuve se joue toujours.
- */
-const EMPRUNTS: Readonly<Record<Niveau, readonly Niveau[]>> = {
-  facile: ['facile', 'moyen', 'difficile', 'expert'],
-  moyen: ['moyen', 'difficile', 'facile', 'expert'],
-  difficile: ['difficile', 'expert', 'moyen', 'facile'],
-  expert: ['expert', 'difficile', 'moyen', 'facile'],
-}
-
-/**
- * Une question vue ces dernières vingt-quatre heures ne revient qu'en
- * dernier recours. Une fois les jamais vues d'une marche épuisées, le tirage
- * reprenait les déjà vues au hasard : celle d'il y a cinq minutes valait
- * celle d'il y a trois semaines, et qui usait ses douze vies sur un palier
- * revoyait le soir même les questions qu'il venait de rater (un retour de
- * joueur, le 10 octobre 2026). Une redite d'hier soir se remarque ; celle
- * d'il y a trois semaines est une révision.
- */
-export const VUE_RECENTE_MS = 24 * HEURE_MS
-
-/** Ce qu'un joueur a vu d'une question : jamais, ou quand pour la dernière fois — et si c'était ces dernières vingt-quatre heures. */
-function fraicheurDe(vues: Pick<ReadonlyMap<string, number>, 'get'>, maintenant: number) {
-  return (id: string): { recente: number; vue: number; le: number } => {
-    const le = vues.get(id)
-    return le === undefined ? { recente: 0, vue: 0, le: 0 } : { recente: classeDeFraicheur(le, maintenant) === 2 ? 1 : 0, vue: 1, le }
-  }
-}
-
-/**
- * La même fraîcheur en un chiffre, sans rien bâtir : 0 jamais vue, 1 vue,
- * 2 vue ces dernières vingt-quatre heures. Un tirage la lit pour chacune de
- * ses vues.
- */
-const classeDeFraicheur = (le: number | undefined, maintenant: number): 0 | 1 | 2 => (le === undefined ? 0 : maintenant - le < VUE_RECENTE_MS ? 2 : 1)
 
 /**
  * Les questions rangées par ce qu'un joueur en a vu : les jamais vues
@@ -10764,12 +10980,6 @@ export class PreparationDuTirage {
   }
 }
 
-/** `a` passe-t-il avant `b` ? Deux rangs se lisent de gauche à droite. */
-function passeAvant(a: readonly number[], b: readonly number[]): boolean {
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]
-  return false
-}
-
 /**
  * Les seize questions d'une épreuve, tirées dans la catégorie de son sentier
  * selon le mélange de son palier : jamais vues d'abord, puis les sous-thèmes
@@ -10849,134 +11059,6 @@ export function tirerUneEpreuve(
           tirees.push({ question: meilleure, niveau: n })
           break
         }
-      }
-    }
-  }
-  return melanger(tirees)
-}
-
-/**
- * Un ordre au hasard qui se tire à mesure qu'on le lit : le p-ième rang ne
- * se tire qu'au moment où on le demande (Fisher-Yates à l'endroit, ses
- * échanges dans une table). Aussi uniforme que `melanger`, sans recopier ni
- * battre tout un tas pour n'en lire que dix.
- */
-class OrdreParesseux {
-  private readonly echanges = new Map<number, number>()
-  private readonly tires: number[] = []
-
-  constructor(private readonly n: number) {}
-
-  /** Le p-ième indice de l'ordre ; undefined au-delà du tas. */
-  rang(p: number): number | undefined {
-    while (this.tires.length <= p && this.tires.length < this.n) {
-      const i = this.tires.length
-      const j = i + Math.floor(Math.random() * (this.n - i))
-      const aJ = this.echanges.get(j) ?? j
-      this.echanges.set(j, this.echanges.get(i) ?? i)
-      // Le rang i est tiré : on ne le relira plus.
-      this.echanges.delete(i)
-      this.tires.push(aJ)
-    }
-    return this.tires[p]
-  }
-}
-
-/**
- * Les questions d'une escale de l'expédition — une, ou celles d'un
- * gardien —, choisies comme celles d'une épreuve (`tirerUneEpreuve`) : à sa
- * marche, empruntée au voisin si elle est vide (`EMPRUNTS`) ; jamais vues
- * d'abord, une vue ces vingt-quatre heures en dernier ; puis le sous-thème le
- * moins servi du tirage ; puis la jumelle d'une question déjà prise après les
- * autres — celles que l'expédition a déjà posées comprises (`posees`) ; puis
- * la plus anciennement vue. Le tas se lit au hasard, dans un ordre tiré à
- * mesure (`OrdreParesseux`), et la lecture s'arrête à la première qui ne
- * peut être battue — une jamais vue, d'un sous-thème encore à servir, sans
- * jumelle : la même loi que le battage entier, quelques questions lues au
- * lieu de toutes. Une épreuve bat d'avance les deux mille questions de sa
- * catégorie pour en prendre seize ; une escale n'en prend qu'une, et le
- * gardien tirait dans les vingt-cinq mille de la base : 17 ms de
- * processeur à chaque gardien, dix fois plus au dixième de cœur de
- * l'hébergeur (le banc du 17 octobre 2026). Le tas vient en morceaux — les
- * catégories d'un mélange, chacune gardée (`deLaCategorie`) —, lus comme un
- * seul. `garde` écarte ce que la forme de l'escale ne sait pas poser : six
- * choix sans deux leurres, un dévoilement de trois mots.
- */
-export function tirerPourUneEscale(
-  tas: readonly (readonly QuestionDeLaBase[])[],
-  marche: Niveau,
-  combien: number,
-  {
-    sansVraiFaux,
-    garde,
-    vues,
-    mesure,
-    maintenant,
-    posees = [],
-  }: {
-    sansVraiFaux: boolean
-    garde?: (q: QuestionDeLaBase) => boolean
-    /** Ce qu'il a vu, et quand ; ce que l'expédition a posé, à l'instant. */
-    vues: Pick<ReadonlyMap<string, number>, 'get'>
-    mesure: ReadonlyMap<string, MesureDUneQuestion>
-    maintenant: number
-    /** Les questions que l'expédition a déjà posées : leurs jumelles passent après. */
-    posees?: readonly Intitule[]
-  },
-): { question: QuestionDeLaBase; niveau: Niveau }[] {
-  const n = tas.reduce((s, morceau) => s + morceau.length, 0)
-  const question = (k: number): QuestionDeLaBase => {
-    for (const morceau of tas) {
-      if (k < morceau.length) return morceau[k]
-      k -= morceau.length
-    }
-    throw new RangeError(`question ${k} hors du tas`)
-  }
-  const ordre = new OrdreParesseux(n)
-  // La marche de chaque question lue, une fois : une place relit le début de l'ordre.
-  const marches = new Map<number, Niveau>()
-  const marcheDeLa = (k: number, q: QuestionDeLaBase): Niveau => {
-    let m = marches.get(k)
-    if (m === undefined) marches.set(k, (m = niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))))
-    return m
-  }
-  const usage = new Map<string, number>()
-  const prises = new Set<number>()
-  const deja = new DejaPrises()
-  for (const q of posees) deja.prendre(q)
-  const fraicheur = fraicheurDe(vues, maintenant)
-  const rang = (q: QuestionDeLaBase): number[] => {
-    const f = fraicheur(q.id)
-    return [f.recente, f.vue, usage.get(q.meta.sousTheme) ?? 0, deja.jumelle(q) ? 1 : 0, f.le]
-  }
-  const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
-  for (let place = 0; place < combien; place++) {
-    for (const m of EMPRUNTS[marche]) {
-      let meilleure = -1
-      let sonRang: number[] | null = null
-      for (let p = 0; ; p++) {
-        const k = ordre.rang(p)
-        if (k === undefined) break
-        if (prises.has(k)) continue
-        const q = question(k)
-        if (sansVraiFaux && q.reponses.length === 2) continue
-        if (marcheDeLa(k, q) !== m) continue
-        if (garde && !garde(q)) continue
-        const r = rang(q)
-        if (!sonRang || passeAvant(r, sonRang)) {
-          meilleure = k
-          sonRang = r
-          // Jamais vue, d'un sous-thème encore à servir, sans jumelle : rien ne fera mieux.
-          if (r.every(x => x === 0)) break
-        }
-      }
-      if (meilleure >= 0) {
-        const q = question(meilleure)
-        prises.add(meilleure)
-        deja.prendre(q)
-        usage.set(q.meta.sousTheme, (usage.get(q.meta.sousTheme) ?? 0) + 1)
-        tirees.push({ question: q, niveau: m })
-        break
       }
     }
   }

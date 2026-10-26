@@ -42,6 +42,7 @@ const MARQUES: Record<Verdict, { classe: string; icone: 'check' | 'x' | 'clock' 
  */
 export function Corrige({
   verdict,
+  dit = verdict,
   tete,
   points,
   texte,
@@ -54,6 +55,14 @@ export function Corrige({
   children,
 }: {
   verdict: Verdict
+  /**
+   * Le nom de la marque, quand le mot du verdict est déjà celui du jeu : à
+   * l'Éclair, une affirmation vraie dite fausse se marquait « Faux », puis
+   * « Vrai · tu as dit faux » — trois fois les mots du jeu, et l'oreille ne
+   * savait plus qui s'était trompé (la tablée du 25 octobre 2026). Elle s'y
+   * dit « Raté » ; ailleurs, le verdict.
+   */
+  dit?: string
   /** « Question 3 · Histoire », « Question 3 · Facile » : en capitales, à côté de la marque. */
   tete: string
   /** Ce qu'elle a rapporté, au bout de l'en-tête : le quiz du jour seulement. */
@@ -76,7 +85,7 @@ export function Corrige({
   return (
     <li className={'corrige ' + marque.classe}>
       <div className="corrige-tete">
-        <span className="corrige-marque" role="img" aria-label={verdict}>
+        <span className="corrige-marque" role="img" aria-label={dit}>
           {marque.icone ? <Icon name={marque.icone} /> : '–'}
         </span>
         <span className="label">{tete}</span>

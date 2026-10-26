@@ -9,6 +9,12 @@
 // Les Divins n'y ont que leur nom et leur mystère : leurs règles et leurs
 // légendes ne quittent jamais le serveur (invariant 21), et `mots.test.ts`
 // vérifie qu'aucune n'a glissé ici.
+//
+// Les mots du Cabinet de curiosités (« œuvre », « carte-bonus »…) disent leurs
+// chiffres par son barème, jamais recopiés : un barème changé change aussi ce
+// que le glossaire promet.
+
+import { ETOILES_PAR_MANCHE, MANCHES_PAR_PARTIE } from './cabinet/bareme'
 
 export type Mot =
   | 'souvenir'
@@ -34,6 +40,17 @@ export type Mot =
   | 'serie'
   | 'fond'
   | 'ligue'
+  // Les mots du Cabinet de curiosités.
+  | 'oeuvre'
+  | 'salle'
+  | 'gardien'
+  | 'cartel'
+  | 'poussiere'
+  | 'cadreDore'
+  | 'carteBonus'
+  | 'visite'
+  | 'chasse'
+  | 'manche'
 
 export interface Definition {
   /** Le mot tel qu'il s'affiche. */
@@ -66,4 +83,22 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   serie: { terme: 'Série', sens: 'Les jours d’affilée où tu as joué, au quiz du jour ou en soirée. Minuit la casse.' },
   fond: { terme: 'Fond de carte', sens: 'Le décor derrière ta carte, quand on touche ton prénom. Il se gagne, comme un titre.' },
   ligue: { terme: 'Ligue', sens: 'Ta place aux duels, selon ta cote : du bronze aux maîtres, une tous les cent points.' },
+  oeuvre: { terme: 'Œuvre', sens: 'Une peinture de ton musée, gagnée en jouant ou achetée. Une œuvre à toi ne se perd jamais.' },
+  salle: { terme: 'Salle', sens: 'Un mur du Cabinet : une famille de huit œuvres, ou les vingt du Vestibule.' },
+  gardien: { terme: 'Gardien', sens: 'Un légendaire qui veille sur une salle : complète, elle le réveille ; toute dorée, un second.' },
+  // « En jouant pour elle », pas « en la gagnant » : dorée en jouant, ou doublée en visite, une œuvre achetée prend le cartel de
+  // cette partie-là. Ni « en la rejouant » : offerte ou achetée, elle n'avait jamais été jouée (la relecture du 26 octobre 2026).
+  cartel: { terme: 'Cartel', sens: 'La plaque sous une œuvre : ce que tu as appris en jouant pour elle.' },
+  // Pas « chaque partie » : au-delà des premières du jour, une partie libre ne rapporte plus rien (`poussiereDeLaPartie`). Et
+  // « où tu réponds » : quittée avant toute réponse, une visite ne rapporte plus rien depuis le 26 octobre 2026 — « même
+  // ratée » le lui promettait.
+  poussiere: { terme: 'Poussière d’or', sens: 'La monnaie du Cabinet, qui n’en sort jamais : chaque visite ou chasse où tu réponds en rapporte.' },
+  cadreDore: { terme: 'Cadre doré', sens: 'Toutes les manches parfaites sans qu’un pouvoir ait servi, ou de la poussière d’or.' },
+  carteBonus: { terme: 'Carte-bonus', sens: 'Une œuvre ou un gardien que tu emportes en partie pour son pouvoir. Elle ne s’use jamais.' },
+  visite: { terme: 'Visite du jour', sens: 'Les parties proposées chaque jour : chacune peut te faire gagner une œuvre, gardée secrète.' },
+  // « À son jeu », pour la gagner comme pour la dorer, comme sa fiche (« La jouer au Détail pour la dorer ») : « rejouer une œuvre
+  // à dorer » se lisait d'une œuvre offerte ou achetée, jamais jouée, ou gagnée à la visite à un autre jeu (la tablée du
+  // 26 octobre 2026).
+  chasse: { terme: 'Chasse', sens: 'Jouer l’œuvre de ton choix à son jeu : pour la gagner, ou pour la dorer si elle est à toi.' },
+  manche: { terme: 'Manche', sens: `Un tour d’un jeu du Cabinet : ${MANCHES_PAR_PARTIE} par partie, ${ETOILES_PAR_MANCHE} étoiles au plus chacune.` },
 }

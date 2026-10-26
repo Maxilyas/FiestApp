@@ -10,6 +10,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import React from 'react'
 import { partsDuNom } from '../../shared/homonymes'
+import { IVOIRE, VELOURS, contraste, surFond, teinte, themesDuClient } from './teintes'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
 Object.assign(globalThis, { React })
@@ -186,40 +187,8 @@ test('un bouton bascule garde son nom : l’état ne passe que par aria-pressed'
 })
 
 // ── Les jetons des deux thèmes : focus, survol, contrôles natifs ─────────
-
-/** Les variables d'un bloc de thème, telles qu'écrites. */
-function jetons(ouverture: string): Map<string, string> {
-  const debut = CSS.indexOf(ouverture)
-  assert.ok(debut >= 0, `le bloc ${ouverture} existe`)
-  const corps = CSS.slice(debut, CSS.indexOf('\n}', debut))
-  return new Map([...corps.matchAll(/^\s*(--[\w-]+|color-scheme):\s*([^;]+);/gm)].map(m => [m[1], m[2].trim()]))
-}
-// Ses couleurs se posent aussi sur un fond de carte, qui reste nocturne sous
-// tous les thèmes ; ses formes et ses polices, sur la racine seule.
-const VELOURS = new Map([...jetons(':root, .carte-fond {'), ...jetons(':root {')])
-const IVOIRE = new Map([...VELOURS, ...jetons(":root[data-theme='ivoire'] {")])
-
-/** La couleur d'un jeton, `var(--autre)` suivi jusqu'à un #rrggbb. */
-function teinte(theme: Map<string, string>, nom: string): string {
-  let valeur = theme.get(nom)
-  for (let i = 0; valeur && i < 5; i++) {
-    const renvoi = /^var\((--[\w-]+)\)$/.exec(valeur)
-    if (!renvoi) break
-    valeur = theme.get(renvoi[1])
-  }
-  assert.match(valeur ?? '', /^#[0-9a-f]{6}$/i, `${nom} se résout en une couleur`)
-  return valeur!
-}
-
-/** Le contraste WCAG entre deux couleurs. */
-function contraste(a: string, b: string): number {
-  const lum = (hex: string) => {
-    const [r, g, v] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
-    return 0.2126 * r + 0.7152 * g + 0.0722 * v
-  }
-  const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m)
-  return (x + 0.05) / (y + 0.05)
-}
+//
+// Leurs couleurs et leur contraste se lisent par `teintes.ts`, que le Cabinet partage.
 
 test('A2 · un seul anneau de focus, qui se voit sur les deux thèmes', () => {
   // Neuf sélecteurs recopiaient l'anneau, six composants gardaient celui du
@@ -246,6 +215,43 @@ test('S3 · le survol d’un texte reste lisible, en Ivoire aussi', () => {
   }
 })
 
+test('sur l’or pâle, un texte s’écrit au bronze du survol, sous chaque thème — et ce qui l’écrit encore à l’or du texte ne fait que baisser', () => {
+  // Le rendu du Cabinet du 25 octobre 2026 : l'or du texte (`--accent-text`) est fait pour le fond de la page ; sur l'or pâle
+  // (`--accent-soft`) il tombe à 4,09:1 sous le Film noir, 4,26 sous la Forêt rousse, 4,35 sous le Carnet. Le bronze du survol
+  // (`--accent-text-hover`) y tient sous chacun.
+  for (const { cle, jetons } of themesDuClient()) {
+    const c = contraste(teinte(jetons, '--accent-text-hover'), surFond(jetons.get('--accent-soft')!, teinte(jetons, '--bg')))
+    assert.ok(c >= 4.5, `${cle} : le bronze du survol sur l’or pâle tient ${c.toFixed(2)}:1`)
+  }
+  // Ce qui l'écrivait encore à l'or du texte hors du Cabinet, relevé le même jour : chacun se corrige à son écran, regardé (skill
+  // `regarder-le-rendu`), et sort de la liste ; aucune règle n'y entre.
+  const restent = [
+    '.pill-btn.active',
+    '.regie-revele',
+    '.niveau',
+    '.jour-pastille',
+    '.installer-numero',
+    '.corrige.ok .corrige-marque',
+    '.onglet.actif',
+    '.pause-bandeau',
+    '.titre-choix.selected',
+    '.quoi-toutes.active, .quoi-case.active',
+    '.quoi-tuile.active',
+    '.quoi-epoque.active',
+    '.quoi-fil.active',
+    '.parcours-icone',
+    '.epreuve-rejeu',
+    '.exp-pastille-or',
+    '.exp-rarete-talisman',
+    '.exp-rarete-fiole',
+    '.exp-guide-icone',
+  ]
+  const ecrivent = [...CSS.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(?:^|\n)([^{}\n]+?) \{([^}]*)\}/g)]
+    .filter(([, , corps]) => /background(?:-color)?: var\(--accent-soft\)/.test(corps) && /(?:^|;)\s*color: var\(--accent-text\)/.test(corps))
+    .map(([, selecteur]) => selecteur.trim())
+  assert.deepEqual(ecrivent, restent)
+})
+
 test('S2 · les contrôles natifs suivent le thème', () => {
   // Sans `color-scheme`, les listes d'équipe s'ouvraient en blanc sur le Velours.
   assert.equal(VELOURS.get('color-scheme'), 'dark')
@@ -253,15 +259,6 @@ test('S2 · les contrôles natifs suivent le thème', () => {
 })
 
 // ── Les thèmes des profils : chacun sa feuille, les mêmes seuils ───────────
-
-/** Une couleur `rgba(…)` posée sur un fond opaque : la carte telle qu'on la voit. */
-function surFond(couleur: string, fond: string): string {
-  const m = /^rgba?\(([^)]+)\)$/.exec(couleur)
-  if (!m) return couleur
-  const [r, g, b, a = 1] = m[1].split(',').map(Number)
-  const f = [1, 3, 5].map(i => parseInt(fond.slice(i, i + 2), 16))
-  return '#' + [r, g, b].map((c, i) => Math.round(a * c + (1 - a) * f[i]).toString(16).padStart(2, '0')).join('')
-}
 
 test('chaque thème d’un profil se lit comme Velours et Ivoire : texte, accent, focus, alertes, métaux, formes', async () => {
   // Trente habillages que personne ne relit tous à l'écran : les seuils
@@ -615,11 +612,19 @@ test('T12 · le mot de passe s’affiche, sous un bouton au nom fixe', async () 
   const html = await rendu('components/MotDePasse', 'MotDePasse', { id: 'x', value: 'secret', onChange: () => {} })
   assert.match(html, /type="password"/)
   assert.match(html, /aria-label="Afficher le mot de passe" aria-pressed="false" title="Afficher le mot de passe"/)
-  // Les trois champs du téléphone le prennent : la connexion, la création, le profil.
+  // Les champs du téléphone le prennent : la connexion, la création, le profil.
+  // La création passe par `MotDePasseChoisi`, qui le pose avec sa règle — un
+  // champ à part à l'accueil depuis la relecture du lot de la tablée du
+  // 26 octobre 2026, la connexion gardant le sien : l'œil y est aussi.
   const entree = readFileSync(new URL('../../client/src/components/Entree.tsx', import.meta.url), 'utf8')
   const profil = readFileSync(new URL('../../client/src/components/ProfilForm.tsx', import.meta.url), 'utf8')
-  assert.equal([...entree.matchAll(/<MotDePasse\b/g)].length, 2)
-  assert.equal([...profil.matchAll(/<MotDePasse\b/g)].length, 1)
+  assert.equal([...entree.matchAll(/<MotDePasse\b/g)].length, 1, 'la connexion de l’entrée')
+  assert.equal([...entree.matchAll(/<MotDePasseChoisi\b/g)].length, 1, 'la création de l’entrée')
+  assert.equal([...profil.matchAll(/<MotDePasse\b/g)].length, 1, 'la connexion de l’accueil')
+  assert.equal([...profil.matchAll(/<MotDePasseChoisi\b/g)].length, 1, 'la création de l’accueil')
+  const choisi = await rendu('components/MotDePasse', 'MotDePasseChoisi', { id: 'x', valeur: 'secret', refus: '', onChange: () => {}, regle: 'dessous' })
+  assert.match(choisi, /type="password"/)
+  assert.match(choisi, /aria-label="Afficher le mot de passe" aria-pressed="false" title="Afficher le mot de passe"/)
   // Et la récupération par le code de secours : un mot de passe neuf, tapé
   // une fois, sans champ pour le confirmer — là où l'œil sert le plus.
   const secours = readFileSync(new URL('../../client/src/components/Secours.tsx', import.meta.url), 'utf8')
@@ -655,7 +660,7 @@ test('A4 · chaque page d’animateur a son nom d’onglet', async () => {
   const { titreDePage } = (await import(new URL('../../client/src/titres.ts', import.meta.url).href)) as {
     titreDePage: (page: string) => string
   }
-  const pages = ['connexion', 'activer', 'compte', 'edit', 'admin', 'host', 'profil']
+  const pages = ['connexion', 'activer', 'compte', 'edit', 'admin', 'host', 'profil', 'cabinet']
   const titres = pages.map(p => titreDePage(p))
   assert.equal(new Set(titres).size, pages.length, titres.join(' / '))
   for (const t of titres) assert.notEqual(t, 'FiestApp')

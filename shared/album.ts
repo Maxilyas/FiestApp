@@ -18,6 +18,14 @@
 // (le 20 octobre 2026). Les Divins ont leur page, et n'y disent rien d'eux :
 // ni règle, ni lieu, ni progression (invariant 21).
 //
+// Depuis le 25 octobre 2026, le Cabinet de curiosités est un lieu de plus :
+// vingt gardiens s'y réveillent, les trois de saison à leur fête, la luciole à
+// la première salle complète. L'album le tait tant qu'il est fermé en
+// production (`CABINET_EN_PRODUCTION`, le drapeau du code, comme
+// `voiesMontrees`) : il mènerait à une page qui n'y répond pas. Chaque lecture
+// qui en dépend prend le drapeau (`cabinet`), pour lire l'album tel qu'il
+// sera à l'ouverture.
+//
 // Une dérivation pure de ce que la page du profil reçoit déjà : « Ma
 // collection » compte ses avatars par elle (`compteDeLaCollection`), une seule
 // règle pour la ligne et pour le total.
@@ -26,12 +34,28 @@ import { NOM_RARETE, type Rarete } from './badges'
 import { PORTRAITS, brancheDe, deLaBranche, portrait, portraitsOuverts } from './branches'
 import { COLLECTION, COLLECTION_HAUTE } from './avatars'
 import { DIVINS } from './divins'
-import { LEGENDAIRES, estUneVoieDExpedition, legendaire, legendaireDeLExpedition, partiesDe, voiesMontrees, type Legendaire, type SimpleCondition } from './legendaires'
+import {
+  LEGENDAIRES,
+  estUneVoieDExpedition,
+  legendaire,
+  legendaireDeLExpedition,
+  legendaireDuCabinet,
+  partiesDe,
+  voiesMontrees,
+  type Legendaire,
+  type SimpleCondition,
+} from './legendaires'
+// Les salles et leurs mots, pour dire ce qui réveille un gardien : l'album vient à la demande, dans « Ma collection »
+// et la loge — l'accueil, la soirée et la page du profil ne le tirent pas (`album-des-avatars.test.ts` parcourt leurs
+// imports), le Cabinet n'y part pas avec eux.
+import { AUTRES_GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, conditionDuGardien, salle, salleDuGardien } from './cabinet/salles'
+import { OEUVRES_DE_DEPART, oeuvresDeLaSalle } from './cabinet/oeuvres'
+import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 import { NOM_PALIER, clePalier, hautFait, origineDe, regleDuPalier } from './hautsfaits'
 import { saison } from './saisons'
 import { recompensesDe } from './proches'
 import { formatNumber } from './typographie'
-import { COMPAGNONS, JUSTES_DES_FORMES, PRIX_D_UN_COMPAGNON, avecLui, compagnonDe, formeDeCompagnon, formesOuvertes } from './compagnons'
+import { COMPAGNONS, JUSTES_DES_FORMES, PRIX_D_UN_COMPAGNON, avecLui, compagnonDe, formeDeCompagnon, formesOuvertes, type Compagnon } from './compagnons'
 import { CHANCE_ECLAT, CHANCE_ECLAT_DU_DEFI, type PublicProfileDetail } from './profil'
 
 /** Les pages de l'album : les cinq raretés des thèmes, et les Divins à part. */
@@ -57,10 +81,11 @@ export type SorteDAvatar = 'legendaire' | 'divin' | 'portrait' | 'compagnon' | '
  * Où se gagne un avatar : en soirée, au quiz du jour, en campagne — ses
  * séries, ses défis —, sur les sentiers du savoir, en montant de niveau, à sa
  * saison, ou en boutique — un compagnon, qui grandit ensuite dans sa niche
- * (`niche`), et dont l'Éclat ouvre la métamorphose (`eclat`). La pastille de
- * sa case, et l'icône de chacune de ses voies.
+ * (`niche`), et dont l'Éclat ouvre la métamorphose (`eclat`) —, en expédition,
+ * au Cabinet de curiosités. La pastille de sa case, et l'icône de chacune de
+ * ses voies.
  */
-export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'niche' | 'eclat' | 'expedition'
+export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'niche' | 'eclat' | 'expedition' | 'cabinet'
 
 export interface AvatarDeLAlbum {
   /** `lg:phenix`, `dv:seraphin`, `br:cerf`, `cp:loup-jeune`, ou l'emoji de collection lui-même. */
@@ -78,15 +103,52 @@ export interface AvatarDeLAlbum {
  */
 const RARETE_DU_RANG: readonly Rarete[] = ['commune', 'peucommune', 'rare', 'rare', 'epique', 'legendaire']
 
-/** Le lieu d'un haut fait qu'une voie demande — ou d'une récompense de saison, ou d'un légendaire gardé au bout de l'expédition. */
+/**
+ * Le lieu d'un haut fait qu'une voie demande — ou d'une récompense de saison,
+ * d'un légendaire gardé au bout de l'expédition, d'un gardien réveillé au
+ * Cabinet. Oublié ici, `cabinet:phenix` passait pour un haut fait de soirée
+ * inconnu, et sa voie se disait « En soirée : « cabinet:phenix » ».
+ */
 function lieuDuHautFait(cle: string): LieuDAvatar {
   if (saison(cle)) return 'saison'
   if (legendaireDeLExpedition(cle)) return 'expedition'
+  if (legendaireDuCabinet(cle)) return 'cabinet'
   const h = hautFait(cle)
   return (h && origineDe(h)) ?? 'soiree'
 }
 
-const lieuxDuLegendaire = (l: Legendaire): LieuDAvatar[] => [...new Set(voiesMontrees(l).flatMap(partiesDe).map(c => lieuDuHautFait(c.hautFait)))]
+/** Un gardien de saison : le Cabinet range sa condition même (`saison:halloween`) d'une œuvre gagnée en jouant à sa fête. */
+const gardienDeSaison = (l: Legendaire) => GARDIENS_DE_SAISON.includes(l.key)
+
+/**
+ * Les lieux d'un légendaire, voie après voie, sans doublon. Un gardien de
+ * saison n'a pas de voie du Cabinet — c'est sa saison qu'on y range —, mais
+ * le Cabinet ouvert, il s'y gagne aussi : son lieu se dit au bout.
+ */
+export const lieuxDuLegendaire = (l: Legendaire, cabinet: boolean = CABINET_EN_PRODUCTION): LieuDAvatar[] => [
+  ...new Set([...voiesMontrees(l, cabinet).flatMap(partiesDe).map(c => lieuDuHautFait(c.hautFait)), ...(cabinet && gardienDeSaison(l) ? (['cabinet'] as const) : [])]),
+]
+
+/**
+ * L'album dit-il encore la voie de l'Expédition ? Ce qu'en décide
+ * `voiesMontrees` pour les légendaires qu'elle garde, et rien d'autre : la
+ * luciole, qu'elle amène aussi, ne dit jamais une voie qu'ils taisent. Le jour
+ * où son départ ferme et où leur voie se tait, la sienne se tait avec, sans un
+ * drapeau de plus à suivre ici. La galerie des compagnons lit la même chose
+ * (`venuesDeLaLuciole`, `GalerieDesCompagnons.tsx`).
+ */
+const laVoieDeLExpeditionSeDit = (cabinet: boolean): boolean => LEGENDAIRES.some(l => voiesMontrees(l, cabinet).some(estUneVoieDExpedition))
+
+/**
+ * D'où vient la première forme d'un compagnon : la boutique ; la luciole, au
+ * bout d'une expédition — et, le Cabinet ouvert, de la première salle
+ * complète (`cheminDeLaLuciole`, `shared/compagnons.ts`), dite d'abord :
+ * l'Expédition ferme son départ le jour où le Cabinet ouvre en production,
+ * c'est lui qui l'amène désormais. L'expédition se dit ensuite tant que
+ * l'album dit sa voie. Le Cabinet fermé, rien ne change.
+ */
+const lieuxDeSaVenue = (c: Compagnon, cabinet: boolean): LieuDAvatar[] =>
+  c.gagne === 'expedition' && cabinet ? ['cabinet', ...(laVoieDeLExpeditionSeDit(cabinet) ? (['expedition'] as const) : [])] : [c.gagne ?? 'boutique']
 
 const avatar = (cle: string, sorte: SorteDAvatar, rarete: RareteDAvatar, lieux: readonly LieuDAvatar[]): AvatarDeLAlbum => ({ cle, sorte, rarete, lieux })
 
@@ -95,27 +157,40 @@ const avatar = (cle: string, sorte: SorteDAvatar, rarete: RareteDAvatar, lieux: 
  * branche après branche, les compagnons forme après forme — leur
  * métamorphose après leur forme ultime, dont elle s'ouvre —, les emojis de
  * collection, les Divins. Pas les vingt-quatre emojis de l'inscription : ils
- * sont à tout le monde.
+ * sont à tout le monde. Seuls les lieux dépendent du Cabinet.
  */
-export const AVATARS_DE_L_ALBUM: readonly AvatarDeLAlbum[] = [
-  ...LEGENDAIRES.map(l => avatar(l.key, 'legendaire', 'legendaire', lieuxDuLegendaire(l))),
-  ...PORTRAITS.map(p => avatar(p.key, 'portrait', RARETE_DU_RANG[p.rang], ['sentiers'])),
-  ...COMPAGNONS.flatMap(c => {
-    // La boutique, ou l'expédition pour la luciole : là où vient sa première forme.
-    const vient = c.gagne ?? 'boutique'
-    return [
-      ...c.formes.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? [vient] : [vient, 'niche'])),
-      ...(c.lumiere ? [avatar(c.lumiere.key, 'compagnon', c.lumiere.rarete, [vient, 'niche', 'eclat'])] : []),
-    ]
-  }),
-  ...COLLECTION.map(c => avatar(c.emoji, 'emoji', c.niveau < COLLECTION_HAUTE ? 'commune' : 'peucommune', ['niveau'])),
-  ...DIVINS.map(d => avatar(d.key, 'divin', 'divin', [])),
-]
+function lAlbum(cabinet: boolean): readonly AvatarDeLAlbum[] {
+  return [
+    ...LEGENDAIRES.map(l => avatar(l.key, 'legendaire', 'legendaire', lieuxDuLegendaire(l, cabinet))),
+    ...PORTRAITS.map(p => avatar(p.key, 'portrait', RARETE_DU_RANG[p.rang], ['sentiers'])),
+    ...COMPAGNONS.flatMap(c => {
+      const vient = lieuxDeSaVenue(c, cabinet)
+      return [
+        ...c.formes.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? vient : [...vient, 'niche'])),
+        ...(c.lumiere ? [avatar(c.lumiere.key, 'compagnon', c.lumiere.rarete, [...vient, 'niche', 'eclat'])] : []),
+      ]
+    }),
+    ...COLLECTION.map(c => avatar(c.emoji, 'emoji', c.niveau < COLLECTION_HAUTE ? 'commune' : 'peucommune', ['niveau'])),
+    ...DIVINS.map(d => avatar(d.key, 'divin', 'divin', [])),
+  ]
+}
 
-const PAR_CLE = new Map(AVATARS_DE_L_ALBUM.map(a => [a.cle, a]))
+/** L'album sous chaque drapeau, bâti une fois : celui du code tout de suite, l'autre à la première lecture qui le demande. */
+const ALBUMS = new Map<boolean, { liste: readonly AvatarDeLAlbum[]; parCle: ReadonlyMap<string, AvatarDeLAlbum> }>()
+function albumSous(cabinet: boolean) {
+  let album = ALBUMS.get(cabinet)
+  if (!album) {
+    const liste = lAlbum(cabinet)
+    ALBUMS.set(cabinet, (album = { liste, parCle: new Map(liste.map(a => [a.cle, a])) }))
+  }
+  return album
+}
 
-export function avatarDeLAlbum(cle: unknown): AvatarDeLAlbum | undefined {
-  return typeof cle === 'string' ? PAR_CLE.get(cle) : undefined
+export const AVATARS_DE_L_ALBUM: readonly AvatarDeLAlbum[] = albumSous(CABINET_EN_PRODUCTION).liste
+
+/** Un avatar de l'album ; `cabinet` force le drapeau du Cabinet, ce qui ne change que ses lieux. */
+export function avatarDeLAlbum(cle: unknown, cabinet: boolean = CABINET_EN_PRODUCTION): AvatarDeLAlbum | undefined {
+  return typeof cle === 'string' ? albumSous(cabinet).parCle.get(cle) : undefined
 }
 
 const DANS: Record<LieuDAvatar, string> = {
@@ -129,6 +204,7 @@ const DANS: Record<LieuDAvatar, string> = {
   niche: 'dans sa niche',
   eclat: 'par l’Éclat',
   expedition: 'en expédition',
+  cabinet: 'au Cabinet',
 }
 
 /** « a, b et c », « a ou b » : une liste dite, son dernier lien devant le dernier. */
@@ -146,15 +222,15 @@ function dite(elements: readonly string[], mot: string, avant = ''): string {
  * l'expédition : un seul mot pour tous ses lieux disait qu'un seul suffisait) ;
  * un emoji, son niveau ; un légendaire de saison, sa fête ; une forme de
  * compagnon, ses bonnes réponses — sa métamorphose, l'Éclat avec. Rien pour
- * un Divin.
+ * un Divin. `cabinet` force le drapeau du Cabinet, comme `avatarDeLAlbum`.
  */
-export function ouIlSeGagne(a: AvatarDeLAlbum): string {
+export function ouIlSeGagne(a: AvatarDeLAlbum, cabinet: boolean = CABINET_EN_PRODUCTION): string {
   if (a.sorte === 'emoji') return `au niveau ${COLLECTION.find(c => c.emoji === a.cle)!.niveau}`
   const f = formeDeCompagnon(a.cle)
   if (f) {
     const c = compagnonDe(f)
-    // En boutique, ou en expédition pour la luciole.
-    const vient = DANS[c.gagne ?? 'boutique']
+    // En boutique ; la luciole en expédition — ou, le Cabinet ouvert, au Cabinet d'abord : l'un ou l'autre l'amène.
+    const vient = dite(lieuxDeSaVenue(c, cabinet).map(x => DANS[x]), 'ou')
     if (f.metamorphose) return `${vient}, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(c)} et par l’Éclat`
     return f.rang === 0 ? vient : `${vient}, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(c)}`
   }
@@ -163,9 +239,11 @@ export function ouIlSeGagne(a: AvatarDeLAlbum): string {
   if (s) return `pour ${s.nom}`
   if (!l) return dite(a.lieux.map(x => DANS[x]), 'et')
   // Chaque voie, ses lieux liés par « et » ; deux voies au même lieu n'en font qu'une à l'oreille.
-  const voies = [...new Set(voiesMontrees(l).map(v => dite([...new Set(partiesDe(v).map(c => DANS[lieuDuHautFait(c.hautFait)]))], 'et')))]
-  // Une voie de plusieurs lieux se détache des autres par une virgule : « …et en campagne, ou en expédition ».
-  return dite(voies, 'ou', voies.some(v => v.includes(' et ')) ? ',' : '')
+  const voies = [...new Set(voiesMontrees(l, cabinet).map(v => dite([...new Set(partiesDe(v).map(c => DANS[lieuDuHautFait(c.hautFait)]))], 'et')))]
+  // Une voie de plusieurs lieux se détache des autres, chacune par son « ou » : « …et en campagne, ou en expédition,
+  // ou au Cabinet » — « …et en campagne, en expédition, ou au Cabinet », un seul « ou » au bout, rangeait l'expédition
+  // parmi les lieux de la première voie.
+  return voies.some(v => v.includes(' et ')) ? voies.join(', ou ') : dite(voies, 'ou')
 }
 
 /** Ce que l'album lit d'un profil : ce qu'il a. */
@@ -190,11 +268,15 @@ export interface PageDeLAlbum {
   total: number
 }
 
-/** Les six pages de l'album, de la commune aux Divins. */
-export function pagesDeLAlbum(p: ProfilDeLAlbum): PageDeLAlbum[] {
+/**
+ * Les six pages de l'album, de la commune aux Divins. `cabinet` force le
+ * drapeau du Cabinet : les mêmes avatars, aux mêmes places, seuls leurs lieux
+ * changent — la pastille de leur case.
+ */
+export function pagesDeLAlbum(p: ProfilDeLAlbum, cabinet: boolean = CABINET_EN_PRODUCTION): PageDeLAlbum[] {
   const siens = avatarsALui(p)
   return RARETES_D_AVATAR.map(rarete => {
-    const tous = AVATARS_DE_L_ALBUM.filter(a => a.rarete === rarete).map(a => ({ avatar: a, aLui: siens.has(a.cle) }))
+    const tous = albumSous(cabinet).liste.filter(a => a.rarete === rarete).map(a => ({ avatar: a, aLui: siens.has(a.cle) }))
     const aLui = tous.filter(a => a.aLui)
     return { rarete, avatars: [...aLui, ...tous.filter(a => !a.aLui)], acquis: aLui.length, total: tous.length }
   })
@@ -278,12 +360,47 @@ const OU: Record<LieuDAvatar, string> = {
   niche: 'Dans sa niche',
   eclat: 'Par l’Éclat',
   expedition: 'En expédition',
+  cabinet: 'Au Cabinet',
 }
 
 const compte = (acquis: number, requis: number, avant = '') => ({ acquis, requis, dit: `${avant}${formatNumber(acquis)} sur ${formatNumber(requis)}` })
 
-/** Une étape d'un légendaire : un haut fait à décrocher tant de fois, ou un palier de carrière à atteindre. */
-function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, number>, valeurs: ReadonlyMap<string, number>): EtapeDUneVoie {
+/**
+ * Ce que le Cabinet demande pour réveiller un gardien, en mots : sa salle à
+ * compléter — le premier —, ou à dorer — le second —, la série, le musée
+ * entier. Les chiffres viennent du Cabinet (ses salles, ses œuvres) : une
+ * œuvre peinte de plus se compte d'elle-même. La série et le musée entier se
+ * disent dans les mots du Cabinet (`conditionDuGardien`) : une série qui
+ * compterait autre chose ne laisserait pas l'album dire l'ancienne. Null pour
+ * ce qui ne garde rien.
+ */
+function ceQueDemandeLeCabinet(gardien: string): { quoi: string; regle: string } | null {
+  const s = salle(salleDuGardien(gardien))
+  if (s) {
+    const oeuvres = oeuvresDeLaSalle(s.cle)
+    if (GARDIENS_DES_SALLES[s.cle][1] === gardien) return { quoi: `dorer ${s.laSalle}`, regle: `Ses ${oeuvres.length} cadres dorés, chacun en jouant sans faute ou avec la poussière d’or` }
+    // Les œuvres de départ sont au Vestibule, à tout le monde sans rien faire : « gagnées en jouant ou achetées » ne
+    // les disait pas — leur cartel dit « Offerte à ton arrivée ».
+    const offertes = oeuvres.filter(o => OEUVRES_DE_DEPART.includes(o.cle)).length
+    const facons = 'gagnées en jouant ou achetées avec la poussière d’or'
+    return { quoi: `compléter ${s.laSalle}`, regle: offertes ? `Ses ${oeuvres.length} œuvres : ${offertes} offertes à ton arrivée, les autres ${facons}` : `Ses ${oeuvres.length} œuvres, ${facons}` }
+  }
+  const reveil = AUTRES_GARDIENS.find(a => a.legendaire === gardien)?.reveil
+  const regle = conditionDuGardien(gardien)
+  if (reveil && regle && 'serie' in reveil) return { quoi: 'revenir chaque jour', regle }
+  if (reveil && regle && 'tout' in reveil) return { quoi: 'compléter tout le musée', regle }
+  return null
+}
+
+/**
+ * Une étape d'un légendaire : un haut fait à décrocher tant de fois, ou un
+ * palier de carrière à atteindre — ou une voie rangée, qui n'a pas de jauge.
+ * Celle-ci se dit tenue s'il a le légendaire (`tenu`) : une ligne
+ * `expedition:<clé>` ou `cabinet:<clé>` n'est pas un haut fait, les hauts
+ * faits que la page reçoit ne la portent jamais, et l'étape lue d'eux se
+ * disait à faire, le légendaire gardé au bout de l'acte 3 en main.
+ */
+function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, number>, valeurs: ReadonlyMap<string, number>, tenu: boolean): EtapeDUneVoie {
   const lieu = lieuDuHautFait(c.hautFait)
   if (lieu === 'expedition') {
     // Pas de jauge : il garde l'acte d'une expédition, ou non — on le garde au bout, une fois.
@@ -291,9 +408,14 @@ function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, nu
       lieu,
       titre: 'En expédition : le garder au bout de l’acte 3',
       regle: 'Quand il garde un acte, va au bout des trois, puis choisis-le parmi les gardiens vaincus',
-      tenue: (recompenses.get(c.hautFait) ?? 0) > 0,
+      tenue: tenu,
       progres: null,
     }
+  }
+  if (lieu === 'cabinet') {
+    // Pas de jauge non plus : l'album ne reçoit pas le musée — la page du Cabinet dit où en est chaque salle.
+    const demande = ceQueDemandeLeCabinet(legendaireDuCabinet(c.hautFait)!.key)
+    return { lieu, titre: `${OU.cabinet} : ${demande?.quoi ?? 'le réveiller'}`, regle: demande?.regle ?? '', tenue: tenu, progres: null }
   }
   const h = hautFait(c.hautFait)
   const nom = `« ${h?.title ?? c.hautFait} »`
@@ -318,10 +440,11 @@ function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, nu
 /**
  * Comment l'obtenir : ses voies, chacune ses étapes — l'une des voies suffit,
  * toutes les étapes d'une voie sont demandées. Un Divin n'en a aucune : ce qui
- * le fait descendre ne quitte jamais le serveur (invariant 21).
+ * le fait descendre ne quitte jamais le serveur (invariant 21). `cabinet`
+ * force le drapeau du Cabinet, comme `voiesMontrees`.
  */
-export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][] {
-  const a = avatarDeLAlbum(cle)
+export function voiesDeLAvatar(cle: string, p: ProfilDesVoies, cabinet: boolean = CABINET_EN_PRODUCTION): EtapeDUneVoie[][] {
+  const a = avatarDeLAlbum(cle, cabinet)
   if (!a || a.sorte === 'divin') return []
   if (a.sorte === 'emoji') {
     const niveau = COLLECTION.find(c => c.emoji === cle)!.niveau
@@ -354,30 +477,30 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
     ]
   }
   if (a.sorte === 'compagnon') {
-    // Une seule voie : l'acheter — ou, la luciole, la gagner en menant une
-    // expédition au bout —, puis le faire grandir dans sa niche — et, pour
-    // sa métamorphose, l'Éclat sur lui.
+    // L'acheter — ou, la luciole, la gagner au Cabinet en complétant une
+    // salle, ou en menant une expédition au bout : une voie chacune, dans
+    // l'ordre de ses lieux (`lieuxDeSaVenue`) —, puis le faire grandir dans sa
+    // niche — et, pour sa métamorphose, l'Éclat sur lui.
     const f = formeDeCompagnon(cle)!
     const c = compagnonDe(f)
     const sien = (p.compagnons ?? []).find(x => x.compagnon === c.key)
-    const achat: EtapeDUneVoie =
-      c.gagne === 'expedition'
-        ? {
-            // Pas de jauge : une expédition va au bout, ou non — une fois suffit.
-            lieu: 'expedition',
-            titre: 'En expédition : la Première traversée',
-            regle: `Mène une expédition au bout — le troisième gardien vaincu — : ${c.le === 'la' ? 'elle' : 'il'} te rejoint, puis grandit avec toi`,
-            tenue: !!sien,
-            progres: null,
-          }
-        : {
-            lieu: 'boutique',
-            titre: `En boutique : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis`,
-            regle: `${c.nom} s’achète à sa première forme, puis grandit avec toi`,
-            tenue: !!sien,
-            progres: null,
-          }
-    if (f.rang === 0) return [[achat]]
+    const il = c.le === 'la' ? 'elle' : 'il'
+    // Sans jauge, et tenue dès qu'il est à lui, par où qu'il soit venu : une salle est complète ou non, une
+    // expédition va au bout ou non — une fois suffit.
+    const venue = (lieu: LieuDAvatar): EtapeDUneVoie =>
+      lieu === 'cabinet'
+        ? { lieu, titre: `${OU.cabinet} : compléter une salle`, regle: `Complète une salle de ton musée : ${il} te rejoint, puis grandit avec toi`, tenue: !!sien, progres: null }
+        : lieu === 'expedition'
+          ? {
+              lieu,
+              titre: 'En expédition : la Première traversée',
+              regle: `Mène une expédition au bout — le troisième gardien vaincu — : ${il} te rejoint, puis grandit avec toi`,
+              tenue: !!sien,
+              progres: null,
+            }
+          : { lieu: 'boutique', titre: `En boutique : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis`, regle: `${c.nom} s’achète à sa première forme, puis grandit avec toi`, tenue: !!sien, progres: null }
+    const venues = lieuxDeSaVenue(c, cabinet).map(venue)
+    if (f.rang === 0) return venues.map(v => [v])
     const requis = JUSTES_DES_FORMES[f.rang]
     const tenue = !!sien && sien.rang >= f.rang
     const justes = p.boutique?.compagnons?.find(x => x.compagnon === c.key)?.justes ?? 0
@@ -389,7 +512,8 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
       // Une forme atteinte le reste, même si ses bonnes réponses ont redescendu.
       progres: sien ? compte(tenue ? requis : Math.min(justes, requis), requis) : null,
     }
-    if (!f.metamorphose) return [[achat, grandir]]
+    // Chaque voie le fait venir, puis grandir : « ou » entre elles, « et » entre leurs étapes.
+    if (!f.metamorphose) return venues.map(v => [v, grandir])
     // Pas de jauge : un tirage, qui tombe sur ce qu'il porte (`cibleEclat`).
     const eclat: EtapeDUneVoie = {
       lieu: 'eclat',
@@ -398,20 +522,23 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
       tenue: !!sien?.eclat,
       progres: null,
     }
-    return [[achat, grandir, eclat]]
+    return venues.map(v => [v, grandir, eclat])
   }
   const l = legendaire(cle)!
   const s = l.saison && saison(l.saison)
   if (s) {
     // Un légendaire de saison ne se gagne qu'à sa période : sa règle se dit en dates, sans jauge — gardé au bout d'une
-    // expédition partie ces jours-là aussi, qui le met en gardien de l'acte 3, quand sa voie se montre (`voiesMontrees`).
-    const enExpedition = voiesMontrees(l).some(estUneVoieDExpedition)
-    const regle = enExpedition
-      ? `${s.jours} jours de quiz du jour, une soirée ces jours-là, ou le garder au bout d’une expédition partie ces jours-là`
-      : `${s.jours} jours de quiz du jour, ou une soirée ces jours-là`
-    return [[{ lieu: 'saison', titre: `Pour ${s.nom}, ${s.periode}`, regle, tenue: p.legendaires.includes(l.key), progres: null }]]
+    // expédition partie ces jours-là aussi, qui le met en gardien de l'acte 3, quand sa voie se montre (`voiesMontrees`),
+    // et, le Cabinet ouvert, d'une œuvre gagnée en jouant ces jours-là : il y range sa saison même, sans voie à lui.
+    const facons = [
+      `${s.jours} jours de quiz du jour`,
+      'une soirée ces jours-là',
+      ...(cabinet && gardienDeSaison(l) ? ['une œuvre gagnée en jouant au Cabinet ces jours-là'] : []),
+      ...(voiesMontrees(l, cabinet).some(estUneVoieDExpedition) ? ['le garder au bout d’une expédition partie ces jours-là'] : []),
+    ]
+    return [[{ lieu: 'saison', titre: `Pour ${s.nom}, ${s.periode}`, regle: dite(facons, 'ou', ','), tenue: p.legendaires.includes(l.key), progres: null }]]
   }
   const recompenses = recompensesDe(p.hautsFaits)
   const valeurs = new Map(p.hautsFaits.filter(h => h.famille === 'carriere').map(h => [h.key, h.valeur ?? 0]))
-  return voiesMontrees(l).map(v => partiesDe(v).map(c => etapeDuHautFait(c, recompenses, valeurs)))
+  return voiesMontrees(l, cabinet).map(v => partiesDe(v).map(c => etapeDuHautFait(c, recompenses, valeurs, p.legendaires.includes(l.key))))
 }

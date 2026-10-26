@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createQuizServer, type QuizServerOptions } from '../src/server'
-import { calendrierDesExpeditions, calendrierDesSoirees } from '../src/core/saisons'
+import { calendrierDesExpeditions, calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
 import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { Categorie } from '../../shared/categories'
@@ -24,9 +24,13 @@ export type { Socket }
 // épreuve qui compte ce qui tombe à la clôture échouerait dix-neuf jours par
 // an. Le banc ferme le calendrier des soirées ; `saisons.test.ts` le rouvre.
 // Celui des expéditions aussi, qui mettrait le légendaire de la saison au
-// bout de l'acte 3 ; `expedition-saison.test.ts` le rouvre.
+// bout de l'acte 3 ; `expedition-saison.test.ts` le rouvre. Et celui du
+// Cabinet, où la première œuvre gagnée pendant la fête réveillerait la
+// Citrouille — du 25 octobre au 1er novembre 2026, dès son premier jour.
+// `calendrier.test.ts` vérifie que chacun est fermé, ici et au smoke.
 calendrierDesSoirees.periodeDu = () => null
 calendrierDesExpeditions.periodeDu = () => null
+calendrierDuCabinet.periodeDu = () => null
 
 /**
  * Une petite base de campagne, inventée et valide (`lireQuestionDeLaBase`) :
@@ -84,9 +88,12 @@ export interface Banc {
   /**
    * Éteint puis rallume le serveur sur les mêmes bases. `disqueEfface` rejoue
    * ce que fait l'offre gratuite de l'hébergeur à chaque réveil : la base
-   * locale disparaît, seule la permanente (et son miroir) reste.
+   * locale disparaît, seule la permanente (et son miroir) reste. `reglages`
+   * rejoue une mise en ligne qui change un drapeau du code — le serveur d'après
+   * le relit en démarrant, sur les mêmes données — et vaut pour les
+   * redémarrages suivants.
    */
-  redemarrer(opts?: { disqueEfface?: boolean }): Promise<void>
+  redemarrer(opts?: { disqueEfface?: boolean; reglages?: Partial<QuizServerOptions> }): Promise<void>
   /** Éteint le serveur et efface le dossier. À appeler dans un `after()`. */
   close(): Promise<void>
 }
@@ -103,7 +110,11 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
   // Et le préchauffage au premier profil : parti en fond derrière un accueil, il lirait la base et ses mesures au
   // milieu des allers-retours qu'une épreuve compte (`campagne-charge.test.ts` le rouvre).
   // Et le journal des duels relu à chaque lecture : les épreuves écrivent des duels à la main, dans la base, entre deux requêtes.
-  const lancer = () => createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, ...opts })
+  // Et le départ de l'Expédition ouvert, quoi que dise son drapeau (`EXPEDITION_REMPLACEE`) : le jour où le Cabinet prend sa
+  // place, les fichiers qui partent en expédition ne tombent pas ; `cabinet-ouverture.test.ts` le ferme, et le rouvre au drapeau.
+  let reglages = opts
+  const lancer = () =>
+    createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, expeditionRemplacee: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, ...reglages })
   let server = await lancer()
   port = server.port
   const banc: Banc = {
@@ -112,7 +123,8 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
     dir,
     dbPath,
     quizDbUrl,
-    async redemarrer({ disqueEfface = false } = {}) {
+    async redemarrer({ disqueEfface = false, reglages: neufs } = {}) {
+      if (neufs) reglages = { ...reglages, ...neufs }
       await server.close()
       // Le serveur referme ses connexions HTTP inactives, mais le client HTTP
       // de Node garde les siennes en réserve et ne l'apprend qu'au tour

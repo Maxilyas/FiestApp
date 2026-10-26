@@ -251,6 +251,16 @@
   text-shadow: 0 0 1px #fbf5e6, 0 0 3px #fbf5e6, 0 0 8px #fbf5e6, 0 0 16px rgba(251, 245, 230, 0.9);
 }
 
+/* Le Cabinet de curiosités pose ses lignes à même la page, hors des cartes —
+   le compte des chasses, le nom d'une œuvre sous son cadre, la question d'une
+   manche — : sur la page du mois, le halo de vélin ne suffisait plus, « 2
+   chasses aujourd'hui » tombait à 2,08:1 et la question d'un Pari à 1,58:1 (le
+   rendu du 26 octobre 2026). Sa colonne prend le vélin plein, comme le Sommet
+   sa nuit ; les rinceaux restent de chaque côté. */
+:root[data-theme='heures'] .cab-page {
+  background: var(--bg);
+}
+
 /* Les cartes et les réponses : un vélin plus clair, sous un filet d'or et
    la réglure rouge des copistes. */
 :root[data-theme='heures'] .card:where(:not(.carte-fond, .carte-fond *)),

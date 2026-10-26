@@ -332,7 +332,9 @@ test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l
 
 // La maquette 1, choisie le 13 octobre 2026 : un album, une page par rareté.
 test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur, le reste en silhouette — et où le gagner', async () => {
-  const album = (page: string) => rendu('components/AlbumDesAvatars', 'AlbumDesAvatars', { profil: LEA, page, onPage: () => {} })
+  // Le Cabinet fermé, en le disant : ouvert, ses lieux s'ajoutent (`album-des-avatars.test.ts` les éprouve), et le
+  // jour où il ouvre en production, le drapeau du code ne doit pas faire rougir ce que cette page dit sans lui.
+  const album = (page: string) => rendu('components/AlbumDesAvatars', 'AlbumDesAvatars', { profil: LEA, page, onPage: () => {}, cabinet: false })
   const html = await album('legendaire')
   // Six gemmes, une par page — les onglets de l'application : un seul arrêt de Tab, le panneau de la choisie seulement.
   const gemmes = [...html.matchAll(/<button id="gemme-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*aria-label="([^"]+)"/g)].map(m => `${m[1]}${m[2] === 'true' ? '*' : ''} ${m[3]}`)
@@ -454,7 +456,8 @@ test('l’album des trophées a ses pages à son adresse — et les dix lignes d
 
 // La fiche de la maquette : comment l'obtenir, voie par voie, où il en est, et le chemin de l'écran où le gagner.
 test('la fiche d’un avatar à gagner : ses voies — « ou » entre elles, « et » dans une voie —, où il en est, et où aller', async () => {
-  const fiche = (cle: string, profil: object = LEA) => rendu('components/AlbumDesAvatars', 'FicheDeLAvatar', { a: avatarDeLAlbum(cle), aLui: false, porte: false, profil, dessin: null })
+  // Le Cabinet fermé, en le disant, comme l'album plus haut : ouvert, la Chimère a une voie de plus.
+  const fiche = (cle: string, profil: object = LEA) => rendu('components/AlbumDesAvatars', 'FicheDeLAvatar', { a: avatarDeLAlbum(cle, false), aLui: false, porte: false, profil, dessin: null, cabinet: false })
   const etapes = (html: string) => [...html.matchAll(/<span class="album-etape-texte"><b>([^<]+)<\/b>(?:<span class="muted small">([^<]+)<\/span>)?(?:<span class="album-progres">.*?<span>([^<]+)<\/span><\/span>)?<\/span>/g)].map(m => [m[1], m[3] ?? null])
   const licorne = await fiche('lg:licorne', { ...LEA, hautsFaits: [...LEA.hautsFaits, vu('hf:seul-contre-tous', 1)] })
   assert.match(licorne, /<b class="galerie-detail-nom">La Licorne Astrale<\/b><span class="album-detail-rarete"><i aria-hidden="true"><\/i>Légendaire<\/span>/)

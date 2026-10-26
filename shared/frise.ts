@@ -9,9 +9,10 @@
 // qui s'est passé, jamais quand.
 //
 // Ici, ce qui ne dépend que d'elle : ce qu'une ligne doit être, le choix de
-// quatre événements, l'ordre où la page les montre, ce que le téléphone envoie
-// et ce que le serveur juge. Le générateur pose la forme sur la carte
-// (`carteDUnActe`), le serveur tire la frise (`server/src/core/frises.ts`).
+// ses événements — quatre ; sept au Cabinet de curiosités, dont la frise
+// grandit de manche en manche —, l'ordre où la page les montre, ce que le
+// téléphone envoie et ce que le serveur juge. Le générateur pose la forme sur
+// la carte (`carteDUnActe`), le serveur tire la frise (`server/src/core/frises.ts`).
 
 import type { Niveau } from './campagne'
 
@@ -81,7 +82,9 @@ export function refusDuLibelle(brut: unknown): string | null {
  * hasard, puis les autres ; un candidat se garde s'il est à `ecart` ans au
  * moins de chacun de ceux déjà gardés. Trop serrés, l'écart se divise par
  * deux, jamais sous un an : deux événements de la même année ne se rangent
- * pas. Null : ils n'en ont pas quatre d'années différentes.
+ * pas. Null : ils n'en ont pas quatre d'années différentes. Le Cabinet, qui
+ * en veut sept sans jamais descendre sous l'écart, tire par
+ * `choisirLaFriseSansRepli`.
  */
 export function choisirLaFrise(
   candidats: readonly EvenementDeLaFrise[],
@@ -105,6 +108,82 @@ export function choisirLaFrise(
     }
     if (e === 1) return null
   }
+}
+
+/**
+ * `n` événements de ces candidats à `ecart` ans au moins l'un de l'autre,
+ * jamais moins, dans l'ordre du temps : la frise du Cabinet de curiosités,
+ * sept événements qui grandissent de manche en manche, et que sa règle refuse
+ * dès que deux années se serrent (`friseEnVagues`). Gardés un à un dans un
+ * ordre tiré, puis l'écart divisé (`choisirLaFrise`), ils passaient à côté de
+ * la suite qui existait : sur « 1900-1918 », neuf frises sur dix sortaient à
+ * un ou deux ans (la relecture du lot A3, le 25 octobre 2026). Ici, toutes
+ * les suites qui tiennent l'écart se comptent, sur les années triées : celles
+ * qui gardent le plus de jamais vus dans une frise, puis l'une d'elles au
+ * hasard, chacune la même chance — `n` tirages du hasard, une passe par
+ * événement. Null : ces candidats n'en font aucune, et rien ne se resserre.
+ * Le hasard est celui du tireur, au serveur (`Math.random`), jamais une
+ * graine que la page connaît : elle y relirait la frise avant de la ranger.
+ */
+export function choisirLaFriseSansRepli(
+  candidats: readonly EvenementDeLaFrise[],
+  ecart: number,
+  n: number,
+  hasard: () => number,
+  dejaVu: (id: string) => boolean = () => false,
+): EvenementDeLaFrise[] | null {
+  // Deux événements de la même année ne se rangent pas : un an au moins, quoi qu'on demande.
+  const e = Math.max(1, ecart)
+  const tries = [...candidats].sort((a, b) => a.annee - b.annee)
+  const m = tries.length
+  if (!Number.isInteger(n) || n < 1 || m < n) return null
+  const neuf = tries.map(x => (dejaVu(x.id) ? 0 : 1))
+  // Ce qui peut précéder le i-ième, à `e` ans au moins avant lui : les `avant[i]` premiers du tri.
+  const avant: number[] = []
+  for (let i = 0, p = 0; i < m; i++) {
+    while (tries[p].annee <= tries[i].annee - e) p++
+    avant.push(p)
+  }
+  // Pour chaque longueur k + 1 et chaque dernier événement i : le plus de jamais vus d'une suite qui tient (−1, aucune) et le
+  // nombre de suites qui l'atteignent. La suivante lit le meilleur de ce qui précède, et son compte, d'une seule passe.
+  const meilleur: number[][] = [neuf]
+  const facons: number[][] = [neuf.map(() => 1)]
+  for (let k = 1; k < n; k++) {
+    const tete = [-1]
+    const faconsDeTete = [0]
+    for (let j = 0; j < m; j++) {
+      const b = meilleur[k - 1][j]
+      tete.push(Math.max(b, tete[j]))
+      faconsDeTete.push(b > tete[j] ? facons[k - 1][j] : faconsDeTete[j] + (b === tete[j] ? facons[k - 1][j] : 0))
+    }
+    meilleur.push(avant.map((p, i) => (tete[p] < 0 ? -1 : tete[p] + neuf[i])))
+    facons.push(avant.map(p => (tete[p] < 0 ? 0 : faconsDeTete[p])))
+  }
+  // L'une des suites qui atteignent `vise` à la longueur k + 1, finies avant `borne` : chacune pèse son nombre de suites, et
+  // toutes les frises ont la même chance.
+  const tirer = (k: number, borne: number, vise: number): number => {
+    let total = 0
+    for (let j = 0; j < borne; j++) if (meilleur[k][j] === vise) total += facons[k][j]
+    let reste = hasard() * total
+    let pris = -1
+    for (let j = 0; j < borne; j++) {
+      if (meilleur[k][j] !== vise) continue
+      pris = j
+      if ((reste -= facons[k][j]) < 0) break
+    }
+    return pris
+  }
+  const vise = meilleur[n - 1].reduce((a, b) => Math.max(a, b), -1)
+  if (vise < 0) return null
+  // Du dernier au premier : chaque événement tiré, celui d'avant parmi ce qui le précède et garde ce qu'il faut de jamais vus.
+  const frise: EvenementDeLaFrise[] = []
+  let i = tirer(n - 1, m, vise)
+  for (let k = n - 1; k > 0; k--) {
+    frise.push(tries[i])
+    i = tirer(k - 1, avant[i], meilleur[k][i] - neuf[i])
+  }
+  frise.push(tries[i])
+  return frise.reverse()
 }
 
 /**

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { espacesFines } from '../format'
+import { couvrir, horsDeLaBoite, poserUneFenetre, retenirLeFocus } from '../modale'
+import { estLEchoDUnDoigt } from '../toucher'
 
 /**
  * Boîtes de confirmation et de saisie de l'application.
@@ -21,6 +23,16 @@ export interface DialogOptions {
   cancelLabel?: string
   /** Action qui efface quelque chose : le bouton prend la couleur d'alerte. */
   danger?: boolean
+  /**
+   * Le geste sûr est celui qu'on attend, et la confirmation perd quelque
+   * chose : renoncer prend le bouton plein, confirmer le contour rouge du
+   * second geste (`dialog-alternative`), à sa place. La convention des
+   * dialogues qui effacent — renoncer discret, confirmer plein et rouge —
+   * convient quand le geste sûr est rare ; sous « Quitter ? » d'une manche du
+   * Cabinet, c'est lui qu'on touche, et Ophélie, au doigt, touchait le plein
+   * (la tablée du 26 octobre 2026).
+   */
+  prudent?: boolean
   /**
    * Un second geste, à côté de la confirmation : « Clore la soirée » ou
    * « C'était un essai ». Discret, et d'alerte s'il efface.
@@ -61,6 +73,17 @@ function close(value: Reponse | null) {
   pending?.resolve(value)
 }
 
+/**
+ * Ferme le dialogue ouvert comme si l'on renonçait : ce qu'il demandait ne se
+ * demande plus. Le « Quitter ? » d'une manche du Cabinet, quand la réponse
+ * partie d'elle-même à l'échéance vient de la trancher sous lui : laissé
+ * ouvert, il cachait la révélation, et « Continuer » aurait voulu reprendre
+ * une pause qui n'existait plus.
+ */
+export function fermerLeDialogue() {
+  if (current) close(null)
+}
+
 /** Vrai si l'animateur confirme. */
 export function confirmDialog(options: DialogOptions): Promise<boolean> {
   return open(options).then(v => v?.geste === 'confirmer')
@@ -86,6 +109,35 @@ export function choixDialog(
   })
 }
 
+/**
+ * Où Tab mène dans la boîte, ou null quand le navigateur y suffit : du
+ * dernier arrêt au premier, du premier au dernier en arrière — et d'ailleurs
+ * au premier (au dernier en arrière). Le piège ne bouclait que depuis le
+ * premier ou le dernier bouton : le focus tombé sur la page sous le doigt
+ * (« Quitter » à la révélation d'une manche du Cabinet), Tab partait derrière
+ * la fenêtre, et Tab, Tab, Entrée y jouait « Manche suivante » (la tablée du
+ * 25 octobre 2026).
+ */
+export function arretDuTab<T>(arrets: readonly T[], actif: unknown, arriere: boolean): T | null {
+  if (arrets.length === 0) return null
+  const premier = arrets[0]
+  const dernier = arrets[arrets.length - 1]
+  if (!arrets.includes(actif as T)) return arriere ? dernier : premier
+  if (arriere && actif === premier) return dernier
+  if (!arriere && actif === dernier) return premier
+  return null
+}
+
+/**
+ * Les classes des deux boutons de la boîte : renoncer, puis confirmer — dans
+ * cet ordre à l'écran comme au clavier, le focus sur le premier. Pur, pour
+ * que la convention se lise d'un seul endroit.
+ */
+export function boutonsDuDialogue(options: Pick<DialogOptions, 'danger' | 'prudent'>): { renoncer: string; confirmer: string } {
+  if (options.prudent) return { renoncer: 'btn btn-primary', confirmer: 'btn btn-ghost dialog-alternative dialog-a-sa-place' }
+  return { renoncer: 'btn btn-ghost', confirmer: 'btn ' + (options.danger ? 'btn-danger' : 'btn-primary') }
+}
+
 /** À monter une fois par page : c'est lui qui affiche le dialogue en cours. */
 export function DialogHost() {
   const pending = useSyncExternalStore(
@@ -101,14 +153,23 @@ export function DialogHost() {
 
 function DialogBox({ pending }: { pending: Pending }) {
   const { options } = pending
+  const boutons = boutonsDuDialogue(options)
   const [value, setValue] = useState(options.input?.value ?? '')
+  const voile = useRef<HTMLDivElement>(null)
   const box = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     // Le clavier arrive dans la boîte, et il y reste : Tab tourne en rond
     // dedans, Échap ferme, et le bouton qui a ouvert le dialogue reprend le
-    // focus ensuite.
+    // focus ensuite. Le reste de la page devient inerte, comme sous une
+    // feuille ou la carte d'un joueur (`useModale`) : rien ne l'était, et le
+    // lecteur d'écran d'un téléphone, qui ne passe pas par Tab, lisait et
+    // touchait la page derrière la fenêtre.
+    const fenetre = poserUneFenetre()
     const opener = document.activeElement as HTMLElement | null
+    // Le voile, pas la boîte : il reste vivant, et le toucher pour renoncer le ferme encore. Ce que couvre aussi une feuille
+    // ouverte dessous le reste tant que l'une des deux est là (`couvrir`).
+    const decouvrir = couvrir(voile.current ? horsDeLaBoite(voile.current, document.body) : [])
     const focusable = () =>
       [...(box.current?.querySelectorAll<HTMLElement>('input, button') ?? [])].filter(el => !el.hasAttribute('disabled'))
     const first = focusable()[0]
@@ -116,27 +177,25 @@ function DialogBox({ pending }: { pending: Pending }) {
     if (first instanceof HTMLInputElement) first.select()
 
     const onKey = (e: KeyboardEvent) => {
+      // Une fenêtre ouverte sur elle a le clavier.
+      if (!fenetre.dessus()) return
       if (e.key === 'Escape') {
         e.preventDefault()
         close(null)
         return
       }
       if (e.key !== 'Tab') return
-      const items = focusable()
-      if (items.length === 0) return
-      const head = items[0]
-      const tail = items[items.length - 1]
-      if (e.shiftKey && document.activeElement === head) {
-        e.preventDefault()
-        tail.focus()
-      } else if (!e.shiftKey && document.activeElement === tail) {
-        e.preventDefault()
-        head.focus()
-      }
+      const vise = arretDuTab(focusable(), document.activeElement, e.shiftKey)
+      if (!vise) return
+      e.preventDefault()
+      vise.focus()
     }
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
+      fenetre.retirer()
+      // Avant de rendre le focus : un bouton inerte ne le prend pas.
+      decouvrir()
       opener?.focus?.()
     }
   }, [])
@@ -148,7 +207,10 @@ function DialogBox({ pending }: { pending: Pending }) {
   }
 
   return (
-    <div className="dialog-backdrop" onClick={() => close(null)}>
+    // Le voile se touche pour renoncer — mais pas sous l'écho du doigt qui vient d'ouvrir le dialogue (`toucher`) : ouvert au
+    // lever du doigt, il se refermait aussitôt sous le click que le navigateur fait suivre, et le mousedown d'avant lui
+    // emportait son focus (`retenirLeFocus`).
+    <div className="dialog-backdrop" ref={voile} onMouseDown={retenirLeFocus} onClick={e => !estLEchoDUnDoigt(e) && close(null)}>
       <form
         ref={box}
         className="card dialog"
@@ -172,7 +234,7 @@ function DialogBox({ pending }: { pending: Pending }) {
           />
         )}
         <div className="row dialog-actions">
-          <button type="button" className="btn btn-ghost" onClick={() => close(null)}>
+          <button type="button" className={boutons.renoncer} onClick={() => close(null)}>
             {options.cancelLabel ?? 'Annuler'}
           </button>
           {options.alternative && (
@@ -184,7 +246,7 @@ function DialogBox({ pending }: { pending: Pending }) {
               {options.alternative.label}
             </button>
           )}
-          <button type="submit" className={'btn ' + (options.danger ? 'btn-danger' : 'btn-primary')}>
+          <button type="submit" className={boutons.confirmer}>
             {options.confirmLabel ?? 'Confirmer'}
           </button>
         </div>

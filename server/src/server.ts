@@ -16,6 +16,11 @@ import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
 import { SalonStore } from './core/salons'
 import { CampagneStore } from './core/campagne'
+import { REVEIL_DU_CABINET } from './core/cabinet/tables'
+import { CabinetStore } from './core/cabinet/magasin'
+import { calendrierDuCabinet } from './core/saisons'
+import { cabinetOuvert } from '../../shared/cabinet/ouverture'
+import { EXPEDITION_REMPLACEE } from '../../shared/jokers'
 import { Missions } from './core/missions'
 import { Soins } from './core/soins'
 import type { BaseDeLaCampagne } from './core/baseCampagne'
@@ -49,7 +54,7 @@ import { questionAuCentreOuverte, rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
 import { RappelStore } from './core/rappels'
 import { erreurDeRequete, repondreErreur } from './core/http'
-import { ecrireAttente, ecrireLeService, espaceDeLEntree, pageDEntree, prechargerDonnees } from './core/page'
+import { ecrireAttente, ecrireLeService, espaceDeLEntree, fermerLeCabinet, pageDEntree, prechargerDonnees } from './core/page'
 import { parseRoute } from '../../shared/adresses'
 import { donneesDeDepart, type EntreeDeDepart } from '../../shared/depart'
 import { fermeePour, pageDeLAdresse } from '../../shared/maintenance'
@@ -98,7 +103,7 @@ export interface QuizServerOptions {
    * Les rencontres de l'expédition s'ouvrent-elles ici ? Absent : leur
    * drapeau le dit (`rencontresOuvertes`) — partout depuis qu'elles sont le
    * jeu. Un test ou un rendu les ferme pour voir le serveur que donnerait le
-   * drapeau refermé : le départ des jokers, sans L'Explorateur.
+   * drapeau refermé : le départ des jokers.
    */
   rencontres?: boolean
   /**
@@ -107,6 +112,22 @@ export interface QuizServerOptions {
    * le 20 octobre 2026. Un test la ferme pour voir le départ de la version 9.
    */
   questionAuCentre?: boolean
+  /**
+   * Le Cabinet de curiosités répond-il ici ? Absent : son drapeau le dit
+   * (`cabinetOuvert`, `shared/cabinet/ouverture.ts`) — partout hors de la
+   * production. Un test le ferme pour voir le serveur de la production : ni ses
+   * routes, ni L'Explorateur, qui compte ses salles.
+   */
+  cabinet?: boolean
+  /**
+   * L'Expédition a-t-elle laissé place au Cabinet ici — son seul départ
+   * fermé ? Absent : son drapeau le dit (`EXPEDITION_REMPLACEE`,
+   * `shared/jokers.ts`), partout pareil, la production comme la préproduction.
+   * Le banc le pose à faux : les fichiers qui partent en expédition ne
+   * tomberont pas le jour où le drapeau passe à vrai ; les épreuves de la
+   * fermeture le passent à vrai (`cabinet-ouverture.test.ts`).
+   */
+  expeditionRemplacee?: boolean
   /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
   miroir?: Omit<ReglagesMiroir, 'base'>
   /** Le client compilé. Les tests en donnent un de trois lignes : `client/dist` n'existe qu'après le build. */
@@ -475,11 +496,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
   // Les codes des salons : six chiffres pour entrer chez quelqu'un.
   const salons = new SalonStore(opts.quizDbUrl, opts.quizDbToken)
-  // Les rencontres de l'expédition (`rencontresOuvertes`), calculées une fois : ses routes les lisent, et ce que le
-  // codex fait gagner hors de l'expédition — L'Explorateur — ne compte et ne se montre que là où elles s'ouvrent.
+  // Les rencontres de l'expédition (`rencontresOuvertes`), calculées une fois : ses routes les lisent.
   const rencontres = opts.rencontres ?? rencontresOuvertes({ online: !!opts.online, env: opts.appEnv ?? 'production' })
   // La question au centre (la version 10), de même : la préproduction d'abord.
   const questionAuCentre = opts.questionAuCentre ?? questionAuCentreOuverte({ online: !!opts.online, env: opts.appEnv ?? 'production' })
+  // Le départ de l'Expédition, fermé quand le Cabinet prend sa place (`EXPEDITION_REMPLACEE`) : lu une fois, comme les
+  // autres drapeaux, et le même partout — ses autres routes servent toujours, une expédition en route se finit.
+  const expeditionRemplacee = opts.expeditionRemplacee ?? EXPEDITION_REMPLACEE
   // La campagne solo : ses séries, tirées de sa base à elle (`core/baseCampagne.ts`),
   // loin de la réserve du quiz du jour.
   const campagne = new CampagneStore(opts.quizDbUrl, opts.quizDbToken, {
@@ -488,9 +511,18 @@ export async function createQuizServer(opts: QuizServerOptions) {
     empreintesDuJour: () => jour.empreintes(),
     ecrireXp: (profileId, xp, jours) => profiles.ecrireXpDeCampagne(profileId, xp, jours),
     recompenses: profiles,
-    rencontres,
     ...(opts.fraicheurDesDuelsMs !== undefined && { fraicheurDesDuelsMs: opts.fraicheurDesDuelsMs }),
   })
+  // Le Cabinet de curiosités : il ne connaît la campagne que par sa porte, ses tables naissent dans son premier lot
+  // (`REVEIL_DU_CABINET`) — pas d'`init` à lui —, et il lit l'heure de la campagne et le calendrier de ses fêtes.
+  const cabinetEstOuvert = opts.cabinet ?? cabinetOuvert({ online: !!opts.online, env: opts.appEnv ?? 'production' })
+  const cabinet = new CabinetStore(campagne.porte(), profiles, { maintenant: maintenantDuJour, calendrier: calendrierDuCabinet })
+  // L'expédition qui part ou finit, dite à la page du Cabinet (« Ton expédition t'attend ») : en mémoire, un crochet
+  // de sa porte, comme ses paliers — sans lui, la ligne restait jusqu'au réveil suivant.
+  campagne.expeditionChange = (profileId, enRoute) => cabinet.expeditionChange(profileId, enRoute)
+  // Ses salles complètes, que L'Explorateur compte, lues dans le lot des paliers de la campagne — là seulement où il
+  // s'ouvre : fermé, il n'en compte aucune, sans une lecture de plus, et rien ne tombe (`montreParLeServeur`).
+  if (cabinetEstOuvert) campagne.statsEnPlus = cabinet.statsEnPlus
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
@@ -560,7 +592,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     })(),
     partages.init(),
     salons.init(),
-    campagne.init(),
+    // Les tables du Cabinet de curiosités, sa colonne et son secret, dans le premier lot de la campagne : pas un aller-retour de plus au réveil.
+    campagne.init(REVEIL_DU_CABINET),
     gestes.init(),
     sante.init(),
     // Les pannes qu'un serveur d'avant n'a pas vues se rétablir : la veille dira leur retour.
@@ -607,8 +640,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.compagnonsDeCampagne = id => campagne.compagnonsDe(id)
   // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
   profiles.statsDeCampagne = id => campagne.statsDe(id)
-  // L'Explorateur ne se cite que là où les rencontres s'ouvrent, comme il ne s'y gagne que là.
-  profiles.rencontres = rencontres
+  // L'Explorateur ne se cite que là où le Cabinet s'ouvre, comme il ne s'y gagne que là — sauf à ses détenteurs, qui
+  // l'ont gagné au niveau d'explorateur, en production aussi : ils le gardent cité partout.
+  profiles.cabinet = cabinetEstOuvert
   // Sa ligue des duels, sur sa carte.
   profiles.duelsDe = id => campagne.coteDe(id)
   // Sa bordure de ligue, que la salle lit de mémoire à chaque diffusion :
@@ -801,8 +835,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
    * ce qui vit (ses sessions de joueur, les consoles qu'il a ouvertes), puis
    * l'espace qu'il tenait — détaché, jamais supprimé : son salon, ses quiz et
    * les souvenirs des soirées qu'on y a jouées restent, et l'administrateur
-   * le supprime à part s'il le veut —, le quiz du jour, la campagne, et sa
-   * fiche en tout dernier : une écriture qui échoue en route laisse un profil
+   * le supprime à part s'il le veut —, le quiz du jour, le Cabinet de
+   * curiosités, la campagne, et sa fiche en tout dernier : une écriture qui échoue en route laisse un profil
    * sur lequel réessayer, pas des lignes sans maître. Ce que ses soirées ont
    * rapporté aux autres joueurs leur reste.
    */
@@ -814,6 +848,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     if (salon) await auth.linkProfile(salon.id, null)
     await jour.oublierProfil(profileId)
     await rappels.oublierProfil(profileId)
+    // Le Cabinet avant la campagne : ses gestes se trouvent par les séries du profil, que la campagne efface.
+    await cabinet.oublierProfil(profileId)
     await campagne.oublierProfil(profileId)
     // Les pages bientôt disponibles qu'il testait (`core/maintenance.ts`).
     await maintenance.oublierProfil(profileId)
@@ -1213,10 +1249,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // latence en essayant de lancer une expédition », le propriétaire). Réveillé, le serveur ne la lisait que vingt secondes
   // après son démarrage, et le premier départ parti avant attendait sa lecture, ses sujets et ses tirages : une seconde de
   // processeur, une dizaine au dixième de cœur. Une fois la page servie, pour que la requête du réveil passe d'abord.
+  // Le Cabinet de même : son premier départ tire sur toute la base, et ses propres tas avec (`CabinetStore.prechauffer`) —
+  // seulement là où il répond : fermé, sa page est un 404, et rien ne se prépare pour un mode qu'on ne joue pas.
   if (opts.prechauffageAuProfil !== false) {
-    app.get(['/api/joueur/moi', '/api/expedition'], (req, res, next) => {
-      const page = req.path === '/api/expedition' || req.query.accueil !== undefined
-      if (page && readPlayerToken(req.header('cookie'))) res.on('finish', () => campagne.prechauffer())
+    app.get(['/api/joueur/moi', '/api/expedition', ...(cabinetEstOuvert ? ['/api/cabinet'] : [])], (req, res, next) => {
+      const page = req.path === '/api/expedition' || req.path === '/api/cabinet' || req.query.accueil !== undefined
+      const prechauffer = req.path === '/api/cabinet' ? () => cabinet.prechauffer() : () => campagne.prechauffer()
+      if (page && readPlayerToken(req.header('cookie'))) res.on('finish', prechauffer)
       next()
     })
   }
@@ -1237,6 +1276,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
     rencontres,
     questionAuCentre,
+    expeditionRemplacee,
+    cabinet: { magasin: cabinet, ouvert: cabinetEstOuvert },
     qg: {
       db,
       registry,
@@ -1356,6 +1397,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const meta = `<meta name="app-env" content="${opts.appEnv.replace(/[^\w.-]/g, '')}">`
       indexHtml = indexHtml.replace('</head>', `  ${meta}\n  </head>`)
     }
+    if (!cabinetEstOuvert && indexHtml) indexHtml = fermerLeCabinet(indexHtml)
     /**
      * Les codes manqués, par adresse : vingt d'affilée, puis deux par minute.
      * Une tablée qui se trompe d'un chiffre ne s'en aperçoit pas ; un script

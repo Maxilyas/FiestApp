@@ -14,6 +14,7 @@ export type IconName =
   | 'alert'
   | 'arrow-down'
   | 'arrow-left'
+  | 'arrow-right'
   | 'arrow-up'
   | 'award'
   | 'bar-chart'
@@ -31,6 +32,7 @@ export type IconName =
   | 'crown'
   | 'download'
   | 'edit'
+  | 'effacer'
   | 'eye'
   | 'eye-off'
   | 'flag'
@@ -258,6 +260,18 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
   },
   'arrow-down': { paths: <path d="M12 5v14M6 13l6 6 6-6" /> },
   'arrow-left': { paths: <path d="M19 12H5M11 6l-6 6 6 6" /> },
+  // Les quatre pas de l'épingle, au pied de l'Épingle : vers l'est, la flèche d'en face.
+  'arrow-right': { paths: <path d="M5 12h14M13 6l6 6-6 6" /> },
+  // La touche qui efface la dernière lettre, au clavier du Mot mystère : le mot « Effacer » ne tenait pas dans une touche de
+  // 360 px de large, et « ⌫ » n'est dans aucune de nos polices — il venait d'une autre, ou en carré sous Windows 10.
+  effacer: {
+    paths: (
+      <>
+        <path d="M21 5H9l-7 7 7 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z" />
+        <path d="m17 9-5 6M12 9l5 6" />
+      </>
+    ),
+  },
   archive: {
     paths: (
       <>

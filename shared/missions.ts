@@ -130,6 +130,18 @@ export interface JournauxDesJours {
 }
 
 /**
+ * Les modes de campagne dont les missions comptent les parties finies — les
+ * duels et les rencontres, les épreuves, les étapes, le défi
+ * (`activiteDesJours`) : la lecture de la campagne ne lit qu'elles
+ * (`CampagneStore.activiteDepuis`). Elle relisait toutes les parties de deux à
+ * trois semaines, celles du Cabinet comprises, dix par jour, pour les jeter
+ * (la revue de sobriété du 25 octobre 2026). Un mode qui compte de plus
+ * rejoint la liste : `campagne-index.test.ts` la compare à ce que la règle
+ * compte.
+ */
+export const MODES_QUE_LES_MISSIONS_COMPTENT = ['duel', 'rencontre', 'sentier', 'sujet', 'defi'] as const
+
+/**
  * Chaque jour de Paris de ce que disent ses journaux. Une dérivation pure :
  * une règle de mission changée vaut pour tout ce qui a déjà été joué — sauf
  * ce qui est déjà fait, que rien ne reprend.

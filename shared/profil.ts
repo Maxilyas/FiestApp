@@ -30,6 +30,7 @@ import type { DefiDAccueil } from './campagne'
 import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
 import type { VusDeLaLoge } from './piecesDeLaLoge'
 import type { ActiviteDUnJoueur } from './qgActivite'
+import type { CabinetDAccueil } from './cabinet/vues'
 import { formeDeCompagnon, type CleDeCompagnon, type CompagnonPossede } from './compagnons'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
@@ -447,8 +448,9 @@ export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0, 
 /**
  * Ce que la campagne compte pour ses paliers : le record d'une série à trois
  * vies, les questions expertes trouvées et toutes les bonnes réponses —
- * épreuves des sentiers comprises pour ces deux-là —, et ce qui s'est validé
- * en épreuve sur les sentiers (`statsDesSentiers`).
+ * épreuves des sentiers comprises pour ces deux-là —, ce qui s'est validé en
+ * épreuve sur les sentiers (`statsDesSentiers`), et les salles complètes du
+ * Cabinet de curiosités.
  */
 export interface StatsDeCampagne {
   record: number
@@ -463,17 +465,18 @@ export interface StatsDeCampagne {
   /** Les tampons de son passeport : les thèmes pointus de l'expédition trouvés, chacun une fois (`campagne_reponses.sujet`). */
   tampons: number
   /**
-   * Son niveau d'explorateur (le codex) : la renommée de ses expéditions
-   * finies, relue de leurs bilans — 0 sans renommée, plutôt que le niveau 1
-   * qui ne se refuse à personne : « 1 sur 4 » se proposait sinon comme le
-   * trophée le plus proche de qui n'est jamais parti. 0 aussi là où les
-   * rencontres ne s'ouvrent pas : L'Explorateur ne s'y gagne pas.
+   * Les salles complètes de son Cabinet de curiosités — toutes leurs œuvres à
+   * lui, celles de départ comprises —, que L'Explorateur compte. Le Cabinet les
+   * tire de ses œuvres dans le lot même de ces comptes (`statsEnPlus`, la porte
+   * de la campagne) ; 0 là où il est fermé, qui ne le branche pas : rien n'y
+   * tombe. Il comptait jusqu'au 26 octobre 2026 le niveau d'explorateur de
+   * l'Expédition, dont le départ se ferme : ses paliers rangés restent.
    */
-  explorateur: number
+  salles: number
 }
 
 /** Aucune campagne : un profil qui n'y a jamais joué, ou une carrière sans elle. */
-export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0, tampons: 0, explorateur: 0 }
+export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0, tampons: 0, salles: 0 }
 
 /** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
 export interface Carriere {
@@ -1091,6 +1094,13 @@ export type ProfilDAccueil = PublicProfile &
     defi?: DefiDAccueil
     /** Sa ligue, sa cote, sa semaine et les défis de ses amis, pour le bouton des duels ; absent si la base s'est tue. */
     duels?: DuelsDAccueil
+    /**
+     * Son musée, pour le bouton du Cabinet : ses œuvres, et une case de la
+     * visite du jour qui attend. Lu en mémoire seulement : absent tant que ce
+     * serveur n'a pas lu son musée depuis son réveil, et là où le Cabinet est
+     * fermé — l'accueil ne paie pas un aller-retour pour lui.
+     */
+    cabinet?: CabinetDAccueil
     /**
      * Le jour de Paris au serveur (`2026-10-11`) : l'accueil sait s'il a joué
      * aujourd'hui sans le calculer — le premier `Intl` d'une page charge les

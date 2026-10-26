@@ -13,6 +13,53 @@ const ECHO_MS = 800
 type Cible = { disabled?: boolean; getBoundingClientRect(): { left: number; right: number; top: number; bottom: number } }
 
 /**
+ * Ce `click` n'est-il que l'écho d'un doigt déjà pris au lever ? Il tombe sur
+ * ce qui a paru sous le doigt entre-temps : le voile d'un dialogue que le
+ * geste vient d'ouvrir le recevait et le refermait aussitôt — « Quitter »
+ * entre deux manches du Cabinet ne s'ouvrait pas au doigt (`Dialog.tsx`).
+ */
+export const estLEchoDUnDoigt = (e: { timeStamp: number }): boolean => e.timeStamp - dernierDoigt < ECHO_MS
+
+/**
+ * Le doigt dont l'écho n'est pas encore venu (`arreterLEcho`) : un doigt n'en
+ * fait suivre qu'un.
+ */
+let echoAttendu = false
+
+/**
+ * Un geste pris au lever du doigt hors de `toucher` — la carte de France de
+ * l'Épingle, qui lit où il s'est levé — marque la même heure : le `click` qui
+ * le suit, où qu'il tombe, n'en est que l'écho. Avec une heure à elle, la
+ * carte ignorait le sien, mais pas « Éclairer », venu sous le doigt quand le
+ * pied grandissait d'une ligne.
+ */
+export function prendreLeDoigt(e: { timeStamp: number }): void {
+  dernierDoigt = e.timeStamp
+  echoAttendu = true
+}
+
+/**
+ * L'écho arrêté avant tout ce qui l'écouterait, posé à la capture du
+ * document par une page dont les gestes changent l'écran au lever du doigt
+ * (`CabinetApp.tsx`) : ni un lien suivi, ni un bouton au seul `onClick`.
+ * « Revenir au musée », au bas du bilan, faisait paraître le musée sous le
+ * doigt, et l'écho ouvrait la tuile venue sous lui — la salle de l'Érudit au
+ * lieu du musée (le rendu du 25 octobre 2026) ; un lien ne lit pas
+ * `estLEchoDUnDoigt`, et la page en a des dizaines. Seul le premier `click`
+ * qui suit le doigt en est l'écho : un toucher franc sur un lien, juste
+ * après, l'ouvre. Un `click` lancé par le code (`isTrusted` faux) n'est
+ * l'écho de rien.
+ */
+export function arreterLEcho(e: { isTrusted: boolean; timeStamp: number; preventDefault(): void; stopPropagation(): void }): void {
+  if (!e.isTrusted) return
+  const echo = echoAttendu && estLEchoDUnDoigt(e)
+  echoAttendu = false
+  if (!echo) return
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+/**
  * Une réponse prise au lever du doigt, et non au `click` du navigateur.
  *
  * Les invités le disaient : « parfois, ça sélectionne la réponse au lieu de
@@ -36,11 +83,11 @@ export function toucher(agir: () => void) {
       if (cible.disabled) return
       const r = cible.getBoundingClientRect()
       if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return
-      dernierDoigt = e.timeStamp
+      prendreLeDoigt(e)
       agir()
     },
     onClick: (e: MouseEvent<HTMLElement>) => {
-      if (e.timeStamp - dernierDoigt < ECHO_MS) return
+      if (estLEchoDUnDoigt(e)) return
       agir()
     },
     // L'appui long ouvrait le menu du texte (copier, rechercher) par-dessus la question.

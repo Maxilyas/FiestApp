@@ -16,7 +16,7 @@ Une seule fonction, `parseRoute` (`shared/adresses.ts`), lit l'adresse des deux 
 
 ## Les pages sans espace
 
-Treize pages, dont l'adresse ne porte pas d'espace : celui d'une page d'animateur vient de sa session, celui d'une page de joueur de son profil.
+Seize pages, l'accueil compris, dont l'adresse ne porte pas d'espace : celui d'une page d'animateur vient de sa session, celui d'une page de joueur de son profil.
 
 | Adresse | Page | Pour qui | Fichier |
 |---|---|---|---|
@@ -27,6 +27,7 @@ Treize pages, dont l'adresse ne porte pas d'espace : celui d'une page d'animateu
 | `/campagne` | La campagne : les séries, les sentiers, le défi de la semaine, le carnet | profil | `client/src/views/CampagneApp.tsx` |
 | `/duels` | Les duels : la cote, la ligue, les défis entre amis — joués sur l'écran de la campagne | profil | `client/src/views/CampagneApp.tsx`, `client/src/views/Duels.tsx` |
 | `/expedition` | L'Expédition : le départ et ses trois gardiens, la carte de l'acte en cours, ses escales, le légendaire à garder au bout ; en production, « L’expédition arrive bientôt » tant que ses jokers ne sont pas venus — aucun bouton n'y mène encore | profil | `client/src/views/ExpeditionApp.tsx` |
+| `/cabinet` | Le Cabinet de curiosités : le musée — ce qu'il possède, la visite du jour, les neuf salles en portes, les gardiens, les jeux libres, « Comment ça marche ? » ; sans profil, comment se connecter ; là où il n'ouvre pas, la phrase du serveur. Un gros bouton de l'accueil y mène tant que le serveur ne le dit pas fermé (`<meta name="cabinet">`) | profil | `client/src/views/CabinetApp.tsx`, `client/src/views/cabinet/` |
 | `/salon` | « Nouveau salon » : créer et ouvrir son salon depuis son profil (`?quiz=<id>` le prépare avec un quiz) | profil | `client/src/views/SalonApp.tsx` |
 | `/host` | L'écran commun et sa console ; sans session, la connexion et le code de la télé | animateur | `client/src/views/HostApp.tsx` |
 | `/tele` | La télé : sans session, le code qui la branche ; branchée, l'écran de la salle | une télé | `client/src/views/HostApp.tsx` |
@@ -51,6 +52,7 @@ Chaque page sans espace pose le titre de son onglet dès le premier rendu (« Me
 | `/jour#classement`, `#classement-hier`, `#classement-mois`, `#correction` | le classement d'une période, la correction de sa partie |
 | `/campagne#sentiers`, `#sentier-<branche>`, `#defi`, `#carnet` | les sentiers, un sentier, le défi de la semaine — sa page, sans les onglets de la campagne, que la tuile de l'accueil ouvre —, le carnet |
 | `/duels#duel-<code>`, `#defier`, `#defier-<id>` | un duel entre amis, en préparer un, défier quelqu'un |
+| `/cabinet#salle-<salle>`, `#oeuvre-<œuvre>`, `#gardiens`, `#visite`, `#libre`, `#murs` | une salle et son mur (`#salle-rempart`), une œuvre et son cartel — ou son cadre vide, où la chercher (`#oeuvre-bastion`) —, les gardiens, la visite du jour, les jeux libres, tes murs — les lieux épinglés sur la carte de France, les dates rangées sur ta frise, demandés à l'ouverture (`GET /api/cabinet/murs`), où mène « tes murs » dans « Comment ça marche ? » ; une clé inconnue ouvre le musée (`ecranDeLAdresse`, `client/src/views/cabinet/ecrans.ts`) |
 | `/compte#historique` | l'historique de l'espace, dans la page |
 | `/admin#profils`, `#salons`… | une page du QG par sujet |
 | `/<espace>/souvenir#stats` | le souvenir ouvert sur ses chiffres |
@@ -137,7 +139,7 @@ Ce qu'on tape se corrige par `normalizeSlug` : accents retirés, minuscules, tou
 
 | Ce qu'ils protègent | Noms |
 |---|---|
-| des pages sans espace | `host`, `edit`, `compte`, `admin`, `connexion`, `activer`, `profil`, `jour`, `salon`, `tele`, `boutique`, `campagne`, `expedition` |
+| des pages sans espace | `host`, `edit`, `compte`, `admin`, `connexion`, `activer`, `profil`, `jour`, `salon`, `tele`, `boutique`, `campagne`, `expedition`, `cabinet` (réservée avec les routes du Cabinet de curiosités, avant sa page) |
 | les pages publiques, à la racine (leurs adresses d'avant) | `stats`, `souvenir`, `bilan`, `soirees` |
 | les chemins du serveur | `s`, `api`, `media`, `assets`, `fonts`, `healthz`, `socket.io` |
 | les dossiers des images peintes, servis avant la page | `portraits`, `medaillons`, `compagnons`, `ornements`, `decors`, `cartes` |

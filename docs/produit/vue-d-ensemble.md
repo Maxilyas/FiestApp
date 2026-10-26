@@ -8,7 +8,7 @@ FiestApp est un **quiz de soirée**. Un écran commun — une télé, un vidéop
 
 Elle est **auto-hébergée et gratuite** : un serveur Node sur une offre gratuite (Render) et une base libSQL gratuite (Turso) suffisent. Plusieurs animateurs partagent le même serveur ; chacun a **son espace** — ses quiz, ses soirées, son historique — et ne voit rien de ceux des autres.
 
-Entre deux soirées, les joueurs qui ont un **profil** continuent seuls ou entre amis : le quiz du jour, la campagne, les sentiers du savoir, les duels. Un profil garde sa progression d'une soirée à l'autre — niveaux, trophées, avatars peints, collection —, mais ne donne jamais un avantage de jeu.
+Entre deux soirées, les joueurs qui ont un **profil** continuent seuls ou entre amis : le quiz du jour, la campagne, les sentiers du savoir, les duels, l'Expédition — et bientôt le Cabinet de curiosités, qui la remplacera. Un profil garde sa progression d'une soirée à l'autre — niveaux, trophées, avatars peints, collection —, mais ne donne jamais un avantage de jeu face aux autres : seuls les modes qu'on joue seul font servir ce qu'on a gagné.
 
 ## Les modes de jeu
 
@@ -19,6 +19,8 @@ Entre deux soirées, les joueurs qui ont un **profil** continuent seuls ou entre
 | **La campagne** | Des séries à trois vies, sans chronomètre ; un carnet qui fait revenir ce qu'on rate ; un défi chaque semaine | les profils | `/campagne` | [La campagne](la-campagne.md) |
 | **Les sentiers du savoir** | Douze branches, des paliers à valider, des portraits peints à gagner | les profils | `/campagne#sentiers` | [Les sentiers du savoir](les-sentiers-du-savoir.md) |
 | **Les duels** | Une cote, des ligues, des défis à ses amis, et Automate, toujours disponible | les profils | `/duels` | [Les duels](les-duels.md) |
+| **L'Expédition** | Une aventure en trois actes, ses légendaires en jokers ; le Cabinet de curiosités la remplacera | les profils | `/expedition` | [L'Expédition](l-expedition.md) |
+| **Le Cabinet de curiosités** | Un musée à remplir : 84 œuvres peintes à gagner à neuf petits jeux de quelques minutes, des gardiens légendaires à réveiller — en préproduction, fermé en production jusqu'à son ouverture | les profils | `/cabinet` | [Le Cabinet de curiosités](le-cabinet.md) |
 
 Les questions des soirées viennent de la bibliothèque de l'animateur — écrites dans l'éditeur, collées depuis une liste, importées, partagées, ou composées d'un geste par le **quiz tout prêt** dans la base de questions relues de la campagne ([Les quiz](les-quiz.md)).
 
@@ -55,6 +57,8 @@ Le pourquoi technique de chacun : [la vue d'ensemble de l'architecture](../archi
 | `/jour` | Le quiz du jour | les profils |
 | `/campagne` | La campagne : séries, sentiers, défi, « Apprendre » | les profils |
 | `/duels` | Les duels | les profils |
+| `/expedition` | L'Expédition | les profils |
+| `/cabinet` | Le Cabinet de curiosités : le musée, ses salles, la visite du jour, les neuf jeux, tes murs | les profils, là où il est ouvert |
 | `/salon` | Ouvrir son salon | les profils |
 | `/<espace>` | Le téléphone d'un invité : l'entrée, la salle d'attente, le quiz, la fin de soirée | les invités |
 | `/host` · `/tele` | L'écran commun, et la télé qu'on branche par son code | l'animateur |

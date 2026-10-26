@@ -1,0 +1,122 @@
+[
+  {
+    "id": "cabinet-equilibre-1",
+    "titre": "Éclairer à l'Épingle : planter au centre de la zone vaut ★★ quatre fois sur cinq, et trois zones font gagner une commune 91 fois sur 100 sans rien savoir",
+    "gravite": "P2",
+    "nature": "bug",
+    "statut": "confirmé (rejoué)",
+    "ou": "shared/cabinet/bareme.ts:209",
+    "constat": "Le centre de la zone d'Éclairer est décalé du lieu de 40 à 140 km (DECALAGE_DE_LA_ZONE_KM) : il est toujours à moins de 300 km (★), et à moins de 120 km (★★, une pièce juste) quatre fois sur cinq. Avec une carte de force 3, qui donne une zone par manche, un joueur qui ne sait rien et plante au centre du cercle gagne une commune 91 % du temps et une rare 55 %.",
+    "preuve": "epingle-zone.test.ts joue epingleTiree et REGLE_DE_L_EPINGLE (le vrai Éclairer, le vrai jugement) sur les 90 lieux livrés, 20 000 manches. Il sort « ★★★ 1.1 %, ★★ 80.3 %, ★ 18.6 % ; une commune 91.0 %, une rare 55.0 % », et ses deux épreuves échouent. Dans la variante du calibrage, Éclairer 3 fait gagner une commune à l'occasionnel 96,5 % du temps (31,8 % sans carte), au moyen 98,3 % (50,5 %). Le joueur au hasard du calibrage ignore la zone (calibrage-cabinet.ts:876).",
+    "repro": "export/evaluations/cabinet-equilibre/epingle-zone.test.ts",
+    "piste": "DECALAGE_DE_LA_ZONE_KM = [120, 165], le rayon restant à 170 km : le centre ne vaut plus que ★. Éclairer 3 fait alors gagner une commune à l'occasionnel 47 % du temps, au moyen 63,5 %. Le décalage est figé au tirage : aucune version à monter. Le calibrage doit faire planter dans la zone le joueur qui connaît la région."
+  },
+  {
+    "id": "cabinet-equilibre-2",
+    "titre": "Miser : une manche parfaite gagne seule l'œuvre de sa rareté ; au Détail, deviner sans rien savoir fait une épique une fois sur quatre",
+    "gravite": "P2",
+    "nature": "bug",
+    "statut": "confirmé (rejoué)",
+    "ou": "shared/cabinet/bareme.ts:150",
+    "constat": "BONUS_DE_MISE à 2, 3 et 4 : une manche misée parfaite vaut 5, 6 ou 7 étoiles, exactement le seuil de la rareté de la carte, et gagne seule l'œuvre. Au Détail, un titre deviné au premier coup d'œil est parfait une fois sur quatre. Le joueur qui ne sait rien et mise à la force 3 gagne une épique dans 24,8 % des parties, plus que le complétionniste sans carte (23,3 %).",
+    "preuve": "pouvoirs-equilibre.test.ts, épreuves 3 et 4 (le vrai REGLE_DU_DETAIL, 20 000 parties : « une épique dans 24.8 % des parties ») ; elles échouent. Dans la variante, le Détail au hasard avec Miser 3 donne une épique 26,3 % du temps, la Frise au hasard 15,8 % à la meilleure manche.",
+    "repro": "export/evaluations/cabinet-equilibre/pouvoirs-equilibre.test.ts",
+    "piste": "BONUS_DE_MISE = {1: 1, 2: 2, 3: 3} : une manche misée parfaite reste toujours à une étoile du seuil. Au Détail, au hasard, une épique avec Miser 3 tombe à 14,5 % (10,3 % à la meilleure manche). Avec la piste du constat 1, l'occasionnel met 58 jours à tout posséder au lieu de 52, et le fidèle ne bouge pas. Monter la version du départ."
+  },
+  {
+    "id": "cabinet-equilibre-3",
+    "titre": "« Sans carte-bonus », le choix d'office de l'annonce, n'est jamais le bon : Prudence ajoute une étoile dans 63 parties sur 64 et ne coûte jamais rien",
+    "gravite": "P2",
+    "nature": "friction",
+    "statut": "confirmé (rejoué)",
+    "ou": "client/src/views/cabinet/retenu.ts:35",
+    "constat": "Protéger n'agit que sur une manche imparfaite : il ne retire jamais une étoile ni le cadre doré. Prudence, offerte à tous, domine donc « Sans carte-bonus », que l'annonce propose à qui n'a encore rien choisi. Laissé sans carte, l'occasionnel met 94 jours à tout posséder au lieu de 52, le moyen 27,5 au lieu de 18,5 ; au Pari, Prudence fait passer l'occasionnel de 22,5 % à 63,3 % de communes.",
+    "preuve": "pouvoirs-equilibre.test.ts, épreuve 1 (« il coûte dans 0, il ajoute une étoile dans 63 ») ; elle échoue. musee-sans-carte.txt contre musee-base.txt, et cartes-sans-oracle.txt. 63 des 109 parties de la tablée sont parties sans carte (tablee-parties.ts).",
+    "repro": "export/evaluations/cabinet-equilibre/pouvoirs-equilibre.test.ts",
+    "piste": "Sans carte retenue, l'annonce propose d'office une carte offerte (Prudence), puis retient la dernière choisie. Le calibrage mesure les jeux avec les quatre cartes offertes."
+  },
+  {
+    "id": "cabinet-equilibre-4",
+    "titre": "Les gardiens de l'occasionnel arrivent ensemble, le premier au 38ᵉ jour : la visite remplit les neuf salles à la fois",
+    "gravite": "P2",
+    "nature": "friction",
+    "statut": "confirmé (lecture)",
+    "ou": "shared/cabinet/musee.ts:313",
+    "constat": "visiteDuJour tire ses œuvres parmi toutes celles qui manquent, au seul poids de leur rareté : les salles se complètent ensemble. L'occasionnel n'a aucun gardien à la 4ᵉ semaine, dix à la 8ᵉ, le premier au 38,5ᵉ jour ; le moyen au 13,5ᵉ.",
+    "preuve": "La lecture de visiteDuJour, et les simulations de la variante (musee-base.txt). Avec une case par jour vers la salle de prochainGardien (--visite-vers-le-gardien), le premier gardien arrive au 18,5ᵉ jour pour l'occasionnel et au 5,5ᵉ pour le moyen, et tout posséder ne bouge pas (52 et 17,5 jours).",
+    "repro": "cd server && npx tsx ../export/evaluations/cabinet-equilibre/calibrage-variante.ts --seulement musee --sans-oracle --joueurs occasionnel,moyen --visite-vers-le-gardien",
+    "piste": "Chaque jour, une case de la visite vise la salle du prochain gardien quand il lui en manque une ; la page dit déjà cette salle. Avec les constats 1 et 2 : premier gardien au 14ᵉ jour pour l'occasionnel et au 6ᵉ pour le moyen."
+  },
+  {
+    "id": "cabinet-equilibre-5",
+    "titre": "Le calibrage mesure l'équilibre sans les cartes offertes, donne un oracle à Changer aux Indices, et son joueur au hasard ignore les stratégies sans savoir",
+    "gravite": "P3",
+    "nature": "test",
+    "statut": "confirmé (lecture)",
+    "ou": "server/scripts/calibrage-cabinet.ts:891",
+    "constat": "Trois biais :\n- Les parts des neuf jeux, et les cinq retouches du 25 octobre, viennent de parties sans carte, alors que chacun a quatre cartes offertes.\n- Changer aux Indices décide au premier indice sur ce que le joueur ne saurait qu'au cinquième : 78 % de communes contre 37 % sans l'oracle.\n- Une question du Pari se répond en 9 s, une question de série en 14 s.\nLe chiffre « 8 % au-dessus d'une série » en dépend.",
+    "preuve": "calibrage-variante.ts :\n- cartes-oracle.txt contre cartes-sans-oracle.txt (les Indices, colonne Changer 3) ;\n- cartes-pari-garder1.txt : avec Prudence, le Pari passait de 11 % à 63 % de communes, pas de 3,1 % à 24,6 % ;\n- confettis-S1.txt : avec des temps cohérents, le Cabinet passe sous la série pour tous ;\n- sans-oracle-confettis-musee.txt : sans l'oracle, le surplus tombe de 0,19 à 0,08 confetti la minute.",
+    "repro": "export/evaluations/cabinet-equilibre/calibrage-variante.ts",
+    "piste": "Reprendre la section « cartes » de la variante. Faire décider Changer sans oracle, et lui faire payer la lecture. Donner au joueur au hasard le centre de la zone et la mise au premier cadrage. Aligner le temps d'une question du Pari sur celui d'une question de série. Redire les chiffres datés de baremes.md."
+  },
+  {
+    "id": "cabinet-equilibre-6",
+    "titre": "Une partie libre qui payait, finie à zéro étoile, dit « Les cinq parties libres du jour ont payé », et prend l'une des cinq sans rien rapporter",
+    "gravite": "P3",
+    "nature": "bug",
+    "statut": "confirmé (rejoué)",
+    "ou": "server/src/core/cabinet/vue.ts:179",
+    "constat": "bilanDit lit la poussière (b.poussiere > 0), pas depart.payee. La première libre du jour, à zéro étoile, rapporte 0 (pas de plancher en partie libre), consomme une des cinq libres qui paient, et son bilan dit que les cinq ont payé. « Une partie fait toujours avancer » (le-cabinet.md) est faux pour elle.",
+    "preuve": "libre-a-zero.test.ts, sur le banc et par les routes : « bilan : « Les cinq parties libres du jour ont payé… » ; libres qui paient encore : 4 sur 5 » ; l'épreuve échoue. La tablée a vu le message (le retour de Hugo) sans en trouver la cause.",
+    "repro": "export/evaluations/cabinet-equilibre/libre-a-zero.test.ts",
+    "piste": "Faire décider d.payee : si elle ne payait pas, la phrase des cinq ; sinon la poussière, ou « Aucune étoile : pas de poussière d'or cette fois ». Pas de plancher en partie libre : il nourrirait ce que cabinet-triche a trouvé en quittant d'emblée."
+  },
+  {
+    "id": "cabinet-equilibre-7",
+    "titre": "Prudence, offerte, vaut une rare du Rempart : BONUS_DE_PROTECTION donne +1 aux forces 1 et 2",
+    "gravite": "P3",
+    "nature": "tension",
+    "statut": "confirmé (rejoué)",
+    "ou": "shared/cabinet/bareme.ts:143",
+    "constat": "BONUS_DE_PROTECTION = {1: 1, 2: 1, 3: 2} : les six rares qui protègent n'apportent rien de plus que Prudence, offerte à tous. Protéger est le meilleur pouvoir offert dans sept jeux sur neuf pour l'occasionnel.",
+    "preuve": "pouvoirs-equilibre.test.ts, épreuve 2 (« force 1 : +1, force 2 : +1 ») ; elle échoue. Le reste vient de cartes-sans-oracle.txt.",
+    "repro": "export/evaluations/cabinet-equilibre/pouvoirs-equilibre.test.ts",
+    "piste": "À arbitrer : Protéger de force 1 ne relèverait que la première manche ratée (zéro étoile), d'une étoile ; les forces 2 et 3 restent telles. Prudence reste utile à l'Épingle, aux Indices et à la Réplique, et cesse de faire le Pari : 37,5 % de communes au lieu de 63,3 % pour l'occasionnel (colonne p0*). Le pli change : la version du départ monte."
+  },
+  {
+    "id": "cabinet-equilibre-8",
+    "titre": "Le Détail est une loterie : deviner au premier coup d'œil vaut 0,75 étoile par manche, ses rares valent ses communes, et le joueur au hasard y gagne une épique 18 fois sur 100 avec Prudence",
+    "gravite": "P3",
+    "nature": "tension",
+    "statut": "tension",
+    "ou": "shared/cabinet/bareme.ts:241",
+    "constat": "Quatre titres et ★★★ au premier cadrage : un titre deviné au hasard est parfait une fois sur quatre. Le joueur au hasard y gagne une commune 15,9 % du temps, la meilleure part des neuf jeux, et avec Prudence une épique 18,3 % du temps, contre 6 % pour l'occasionnel sans carte. Pour l'occasionnel, rare et commune y sont aussi probables (29 %).",
+    "preuve": "calibrage-du-jour.txt et cartes-sans-oracle.txt. Le retour de Hugo à la tablée : « 25 % de chance ». Le rapport cabinet-triche : les leurres désignent la bonne réponse, 52 % de bonnes réponses sans l'image.",
+    "repro": "export/evaluations/cabinet-equilibre/cartes-sans-oracle.txt",
+    "piste": "TITRES_DU_DETAIL de 4 à 5 : le joueur au hasard gagne une commune 10,4 % du temps au lieu de 15,6 %, une épique avec Miser 3 20 % du temps au lieu de 25 % (calculé). À faire avec la correction des leurres de cabinet-triche. Les cinq titres doivent tenir en 360 × 640."
+  },
+  {
+    "id": "cabinet-equilibre-9",
+    "titre": "Prendre son temps ne change rien dans le modèle, et « +10 s à chaque manche » vaut +10 s à chaque étape au Pari et à la Réplique",
+    "gravite": "P3",
+    "nature": "tension",
+    "statut": "confirmé (lecture)",
+    "ou": "shared/cabinet/pouvoirs.ts:118",
+    "constat": "L'échéance ne prend de court que 0 à 2,9 % des manches : Prendre son temps n'est le meilleur pouvoir dans aucun jeu, et ses parts restent celles de « sans carte » à ±4 points. Par ailleurs, chronoDuDepart ajoute le temps en plus à chaque étape : 20 s par manche au Pari et à la Réplique, à la force 1, plus que la phrase ne le dit.",
+    "preuve": "calibrage-du-jour.txt (colonne retard), cartes-sans-oracle.txt (colonnes temp1 et temp3), partie.ts:127-131.",
+    "repro": "export/evaluations/cabinet-equilibre/cartes-sans-oracle.txt",
+    "piste": "Compter en préproduction les manches qui expirent et la vitesse réelle des joueurs, jeu par jeu, avant de juger ce pouvoir. Dire « +10 s à chaque question »."
+  },
+  {
+    "id": "cabinet-equilibre-10",
+    "titre": "Le cadre doré en jouant est hors d'atteinte au Pari (0,3 à 3,5 %), et l'annonce d'une case « pour dorer » tait le seuil du double",
+    "gravite": "P3",
+    "nature": "friction",
+    "statut": "confirmé (lecture)",
+    "ou": "client/src/views/cabinet/Annonce.tsx:53",
+    "constat": "Dorer au Pari demande trois paris gagnés sur des questions difficiles ou expertes : 3,5 % des parties pour le meilleur joueur, 0,3 % pour l'occasionnel. L'occasionnel dore aussi 0,8 % du temps à l'Éclair, et on dore 1,5 à 7 % du temps aux Indices : « rejouer pour dorer » y dépense une chasse presque pour rien. Une case de la visite « pour dorer » paie un double au seuil de sa rareté, mais l'annonce ne montre aucun seuil.",
+    "preuve": "cartes-sans-oracle.txt, tableau « le cadre doré, joué pour dorer ». Annonce.tsx:53 (seuil null pour un enjeu pourDorer).",
+    "repro": "export/evaluations/cabinet-equilibre/cartes-sans-oracle.txt",
+    "piste": "Au Pari, faire valoir pour le cadre doré trois premières questions justes gardées, ou le dire à l'annonce (« trois paris gagnés »). Pour une case « pour dorer », dire le seuil du double."
+  }
+]

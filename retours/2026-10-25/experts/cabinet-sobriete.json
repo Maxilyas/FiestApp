@@ -1,0 +1,86 @@
+[
+  {
+    "id": "cabinet-sobriete-1",
+    "titre": "La préparation des tas « en fond » fige la boucle d'un bloc par catégorie : douze gels de 49 à 113 ms",
+    "gravite": "P2",
+    "nature": "perf",
+    "statut": "confirmé (rejoué)",
+    "ou": "server/src/core/cabinet/tirages/tas.ts:231",
+    "constat": "`preparerLesTas` rend la main entre deux catégories, mais chaque étape passe d'un seul tenant les 1 776 à 3 263 questions de sa catégorie aux trois cribles du Cabinet, le crible des QCM découpant l'intitulé une fois par réponse (`ecritDans`). À chaque réveil et à chaque liste de jouables neuve (la réserve du jour, un retrait), tout le serveur se fige douze fois — de l'ordre d'une seconde chacune au dixième de cœur —, et le premier départ d'une liste neuve attend tout.",
+    "preuve": "tas-gel.test.ts rouge : « un seul tour de boucle passe 3263 questions aux trois cribles du Cabinet » ; gel de boucle maximal 96 ms (monitorEventLoopDelay, charge 0,8) ; étapes de 49 à 113 ms de processeur, 863 ms pour les quatorze (mesures/processeur-tas.json), dont 66 ms sur 96 pour le crible des QCM de Culture générale (mesures/tas-cribles.json) ; premier départ d'une liste neuve 963 ms de mur contre 5 ms au suivant (mesures/tas-premier-depart.json). La règle campagne.md ne laisse d'un tenant que 20 à 30 ms.",
+    "repro": "export/evaluations/cabinet-sobriete/tas-gel.test.ts",
+    "piste": "Couper chaque catégorie en tranches de QUESTIONS_PAR_TRANCHE, un tour de boucle (`rendreLaMain`) chacune, et relire ce qu'une autre a fait pendant l'attente ; découper l'intitulé une fois par question (même résultat sur les 26 394 questions, 332 ms au lieu de 543 : épreuve « la piste »)."
+  },
+  {
+    "id": "cabinet-sobriete-2",
+    "titre": "Sur l'accueil, la recherche du défi de la semaine parcourt toutes les parties du profil, que le Cabinet multiplie",
+    "gravite": "P2",
+    "nature": "perf",
+    "statut": "confirmé (rejoué)",
+    "ou": "server/src/core/campagne.ts:6178",
+    "constat": "`defiDAccueil` (à chaque accueil), `tentativeDuDefi` (:3586) et `tentativeDuDuel` (:3901) cherchent `profile_id = ? AND mode = … ORDER BY commencee_le LIMIT 1` sans le `+` de `LA_PLUS_RECENTE` : sans statistiques, SQLite prend l'index (profile_id, commencee_le) et lit toutes les parties du profil, tous modes, quand il n'a pas de tentative. Le Cabinet y ajoute dix parties par jour et par régulier : une lecture qui grandit avec toute son histoire, à chaque accueil.",
+    "preuve": "defi-accueil.test.ts rouge : le plan envoyé est `SEARCH campagne_series USING INDEX idx_campagne_series_profil (profile_id=?)`. Sur la base du fidèle (310 parties) : 1 631 pas de SQLite contre 47 pour le neuf ; 77 avec `ORDER BY +commencee_le` (plan par idx_campagne_series_defi) ; tentativeDuDefi et tentativeDuDuel 1 582 pas chacune, celle du défi 28 avec le `+` (lignes-parcourues.py sur mesures/fidele.db).",
+    "repro": "export/evaluations/cabinet-sobriete/defi-accueil.test.ts",
+    "piste": "`ORDER BY +commencee_le LIMIT 1` dans les trois, et étendre campagne-index.test.ts à toute recherche « profil, mode, ORDER BY commencee_le » telle que le serveur l'envoie, avec ou sans finie_le."
+  },
+  {
+    "id": "cabinet-sobriete-3",
+    "titre": "Chaque bilan du Cabinet redemande les missions, qui relisent trois semaines de parties du Cabinet pour n'en compter aucune",
+    "gravite": "P3",
+    "nature": "perf",
+    "statut": "confirmé (rejoué)",
+    "ou": "server/src/core/campagne.ts:3156",
+    "constat": "Le bilan pose `MissionsAccomplies` (client/src/views/cabinet/Bilan.tsx:179), qui lit `GET /api/joueur/missions` ; `activiteDepuis` y rend toutes les parties du profil de quatorze à vingt et un jours, tous modes, et `activiteDesJours` (shared/missions.ts:172) n'en compte que les duels, rencontres, épreuves, étapes et défis. Les parties du Cabinet se lisent, voyagent et se jettent à chaque bilan et à chaque accueil.",
+    "preuve": "missions.test.ts rouge : quinze jours de Cabinet (dix parties par jour), puis un bilan : « les missions relisent 131 parties du Cabinet qu'elles ne comptent pas, à chaque bilan » ; 2 083 pas pour 130 lignes sur la base du fidèle.",
+    "repro": "export/evaluations/cabinet-sobriete/missions.test.ts",
+    "piste": "Ne lire que les modes comptés, sans parcourir les autres lignes : une lecture par mode compté sur l'index des sentiers bornée par la date, ou un index (profile_id, mode, commencee_le) ; un `+mode IN (…)` lirait encore chaque ligne pour l'écarter."
+  },
+  {
+    "id": "cabinet-sobriete-4",
+    "titre": "Une partie finie ne se garde pas : la dernière révélation du Détail, « Mes réponses », un cartel rouvert la relisent chaque fois de la base",
+    "gravite": "P3",
+    "nature": "perf",
+    "statut": "confirmé (rejoué)",
+    "ou": "server/src/core/cabinet/magasin.ts:501",
+    "constat": "`garderLaPartie` ne garde qu'une partie en cours et `ecrireUnGeste` l'oublie à sa fin (:847) ; la révélation de la dernière manche du Détail demande aussitôt le tableau entier, et `cadrage` relit la partie de la base, son départ figé et ses gestes, et rejoue son pli — comme « Mes réponses » et chacun de ses tableaux, et chaque cartel rouvert. Une partie finie ne change plus.",
+    "preuve": "partie-finie.test.ts rouge (2 épreuves) : l'image de la dernière révélation, juste après la fin, 1 aller-retour ; « Mes réponses » d'un Détail et ses trois tableaux, 4 allers-retours (28 lignes) ; le même cartel rouvert, 1 aller-retour.",
+    "repro": "export/evaluations/cabinet-sobriete/partie-finie.test.ts",
+    "piste": "Une seconde table bornée de parties finies (quelques dizaines, la plus anciennement servie s'en va), remplie à la fin et à la relecture, que `partieDe` consulte avant la base."
+  },
+  {
+    "id": "cabinet-sobriete-5",
+    "titre": "La fin d'une partie, un compagnon dans la niche : cinq allers-retours en série, dont une relecture inutile du journal et toutes les soirées",
+    "gravite": "P3",
+    "nature": "perf",
+    "statut": "confirmé (rejoué)",
+    "ou": "server/src/core/campagne.ts:3224",
+    "constat": "Dès la luciole (première salle complète), chaque fin fait grandir le compagnon (`faireGrandir`) : `historiqueOf` relit toutes les soirées du joueur, sans mémoire (server/src/auth/profiles.ts:5134), et `CampagneStore.compagnonsDe` rattrape le journal depuis le numéro courant — une lecture neuve à coup sûr — alors que le lot de la fin et `statsDe` viennent de le relire après les réponses.",
+    "preuve": "fin-compagnon.test.ts rouge : « la fin : 5 allers-retours, le journal relu 3 fois (son lot, les paliers — puis encore pour son compagnon), et 1 relecture de toutes ses soirées » ; sans compagnon, 3 (routes.test.ts, cabinet-charge.test.ts).",
+    "repro": "export/evaluations/cabinet-sobriete/fin-compagnon.test.ts",
+    "piste": "`rattraperLeJournal(this.derniereReponse)` dans `CampagneStore.compagnonsDe`, comme la porte ; l'historique des soirées gardé par profil (oublié à chaque soirée créditée) ou passé à `compagnonsDe` (`soirees`)."
+  },
+  {
+    "id": "cabinet-sobriete-6",
+    "titre": "Le tirage d'un départ grandit avec ce que le joueur a vu ; l'Éclair d'un joueur qui a épuisé une catégorie la parcourt quinze fois",
+    "gravite": "P3",
+    "nature": "perf",
+    "statut": "confirmé (rejoué)",
+    "ou": "server/src/core/cabinet/tirages/eclair.ts:15",
+    "constat": "Chaque départ refait trois Map de toute l'histoire du joueur (magasin.ts:665, `vuesDe`, `vuesDuCabinet`), puis chaque place de `tirerPourUneEscale` parcourt le tas jusqu'à une jamais vue et la suivante repart du début ; l'Éclair tire sa catégorie au hasard avant la fraîcheur, et dans une catégorie épuisée ses quinze places parcourent tout le tas, six catégories fraîches attendant.",
+    "preuve": "tirage-parcours.test.ts rouge : « l'Éclair d'un joueur qui a épuisé six catégories examine 12809 questions par départ, contre 31 pour un joueur neuf » ; processeur : départ 2,3 à 3,6 ms (neuf), 8 à 10 ms à quinze mille vues (dont 4,6 ms de Map), 45 ms pour cet Éclair contre 6,5 (mesures/tirage-histoire.json, processeur-departs.json).",
+    "repro": "export/evaluations/cabinet-sobriete/tirage-parcours.test.ts",
+    "piste": "L'Éclair ordonne ses catégories par ce qu'il leur reste de jamais vu ; les vues dépliées se gardent par profil tant que le journal n'a rien reçu pour lui (ou le tirage passe par une préparation, comme PreparationDuTirage)."
+  },
+  {
+    "id": "cabinet-sobriete-7",
+    "titre": "Le départ figé recopie les questions entières, et les pièces les recopient encore",
+    "gravite": "P3",
+    "nature": "idee",
+    "statut": "confirmé (lecture)",
+    "ou": "server/src/core/cabinet/ecriture.ts:106",
+    "constat": "Une partie finie pèse 2,8 à 9,1 Ko dans campagne_series : le départ figé 1,4 à 6,4 Ko (8,6 Ko à l'Éclair sous « Changer »), et les pièces (`questions`, :186) 1 à 2,5 Ko, la même question une seconde fois. Un million de parties font de l'ordre de 5 Go chez Turso.",
+    "preuve": "taille.test.ts (mesures/taille.json), processeur.test.ts (mesures/processeur-departs.json) ; PieceDuCabinet porte texte, réponses et anecdote (shared/cabinet/pieces.ts).",
+    "repro": "export/evaluations/cabinet-sobriete/taille.test.ts",
+    "piste": "À mesurer avant d'agir : la pièce pourrait ne garder que l'identifiant et l'ordre des réponses quand le départ figé porte la question."
+  }
+]

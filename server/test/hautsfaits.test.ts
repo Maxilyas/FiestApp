@@ -15,7 +15,8 @@ import type { AnswerRow } from '../src/core/answers'
 import type { ScoreEntry } from '../src/core/scores'
 import type { PlayerRec } from '../src/core/party'
 import { estCosmique, hautsFaitsDeSoiree, xpDesHautsFaits } from '../src/core/hautsfaits'
-import { carriereDe, gainVide, releveVide, type ReleveSoiree } from '../../shared/profil'
+import { AUCUNE_CAMPAGNE, carriereDe, gainVide, releveVide, type ReleveSoiree } from '../../shared/profil'
+import { SALLES } from '../../shared/cabinet/salles'
 import { buildProgress } from '../src/core/progress'
 import {
   HAUTS_FAITS_DE_CARRIERE,
@@ -26,13 +27,25 @@ import {
   hautFait,
   palierDe,
   paliersAtteints,
+  paliersDeCampagneAtteints,
   plusBeaux,
   regleDuPalier,
   xpDe,
   XP_PALIER,
   type HautFaitDeCarriere,
 } from '../../shared/hautsfaits'
-import { LEGENDAIRES, cleDeLExpedition, estUneVoieDExpedition, legendairesDebloques, partiesDe, progresVers, voiesDe } from '../../shared/legendaires'
+import {
+  LEGENDAIRES,
+  LEGENDAIRES_DU_CABINET,
+  cleDeLExpedition,
+  cleDuCabinet,
+  estUneVoieDExpedition,
+  estUneVoieDuCabinet,
+  legendairesDebloques,
+  partiesDe,
+  progresVers,
+  voiesDe,
+} from '../../shared/legendaires'
 import { saison } from '../../shared/saisons'
 
 // ── De quoi écrire une soirée ─────────────────────────────────────────────
@@ -353,10 +366,15 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
       continue
     }
     // La voie de l'expédition lit une ligne rangée au bout de l'acte 3, pas un
-    // haut fait du catalogue : `expedition-legendaires.test.ts` la vérifie.
-    for (const voie of voiesDe(l).filter(v => !estUneVoieDExpedition(v))) {
+    // haut fait du catalogue : `expedition-legendaires.test.ts` la vérifie ;
+    // celle du Cabinet, une ligne rangée au réveil d'un gardien
+    // (`cabinet-gardiens.test.ts`). Toute autre, un haut fait qui existe.
+    for (const voie of voiesDe(l).filter(v => !estUneVoieDExpedition(v) && !estUneVoieDuCabinet(v))) {
       for (const c of partiesDe(voie)) assert.ok(cles.has(c.hautFait), `${l.key} se gagne par ${c.hautFait}, qui existe`)
     }
+    // Un gardien du Cabinet qui n'est pas de saison en a une, la sienne, et une seule ; les autres légendaires, aucune.
+    const auCabinet = voiesDe(l).filter(estUneVoieDuCabinet)
+    assert.deepEqual(auCabinet, LEGENDAIRES_DU_CABINET.includes(l.key) ? [{ hautFait: cleDuCabinet(l.key), fois: 1 }] : [], `${l.key} : sa voie du Cabinet`)
   }
   // Les ombres ont leurs légendaires aussi : la malchance assumée a son trophée.
   assert.ok(LEGENDAIRES.some(l => l.ton === 'ombre'))
@@ -403,11 +421,31 @@ test('ses plus beaux hauts faits : les plus rares à décrocher, un palier par h
   assert.ok(PART_DES_JOUEURS['hf:oracle'] > PART_DES_JOUEURS['hf:grand-chelem'])
 })
 
-test('un palier se dit par ce qu’il demande — et La Légende par son niveau, L’Explorateur par le sien', () => {
+test('un palier se dit par ce qu’il demande — et La Légende par son niveau, L’Explorateur par ses salles', () => {
   const carriere = (key: string) => hautFait(key) as HautFaitDeCarriere
   assert.equal(regleDuPalier(carriere('hf:bavard'), 3), '2000 réponses envoyées')
   assert.equal(regleDuPalier(carriere('hf:eclats'), 1), '1 avatar éclaté')
   assert.equal(regleDuPalier(carriere('hf:legende'), 2), 'Niveau 20')
-  // « 7 niveaux d'explorateur » se lisait comme sept niveaux à gagner, quand c'est le niveau 7 qu'on atteint.
-  assert.equal(regleDuPalier(carriere('hf:explorateur'), 2), 'Niveau 7 d’explorateur')
+  // Il disait « Niveau 7 d'explorateur » — un niveau qu'on atteint, pas sept à gagner — tant qu'il comptait le niveau
+  // de l'Expédition. Depuis le 26 octobre 2026, il compte des salles, qui s'additionnent : la règle de toutes les pistes,
+  // au singulier sous deux.
+  assert.equal(regleDuPalier(carriere('hf:explorateur'), 1), '1 salle complète du Cabinet')
+  assert.equal(regleDuPalier(carriere('hf:explorateur'), 2), '3 salles complètes du Cabinet')
+})
+
+test('L’Explorateur compte les salles complètes du Cabinet — une, trois, six —, sous la clé de toujours, là seulement où le serveur le cite', () => {
+  const h = hautFait('hf:explorateur') as HautFaitDeCarriere
+  // Sa clé ne change pas : ses paliers rangés (`hf:explorateur:N`), gagnés au niveau d'explorateur, restent à leurs
+  // détenteurs (invariant 22 — un palier validé ne se perd jamais) ; seule sa mesure change.
+  assert.deepEqual([h.famille, h.deCampagne, h.montreParLeServeur, [...h.paliers]], ['carriere', 'salles', true, [1, 3, 6]])
+  assert.deepEqual([h.mesureUne, h.mesure], ['salle complète du Cabinet', 'salles complètes du Cabinet'])
+  // Sans Cabinet, aucune salle : un profil qui ne l'a jamais ouvert, ou un serveur où il est fermé, n'en tient aucune.
+  assert.equal(AUCUNE_CAMPAGNE.salles, 0)
+  const atteints = (salles: number) => paliersDeCampagneAtteints({ ...AUCUNE_CAMPAGNE, salles }).filter(c => c.startsWith('hf:explorateur'))
+  assert.deepEqual(atteints(0), [])
+  assert.deepEqual(atteints(1), ['hf:explorateur:1'])
+  assert.deepEqual(atteints(5), ['hf:explorateur:1', 'hf:explorateur:2'])
+  assert.deepEqual(atteints(9), ['hf:explorateur:1', 'hf:explorateur:2', 'hf:explorateur:3'])
+  // Les neuf salles du Cabinet suffisent à l'or : le dernier palier se tient sans attendre une œuvre peinte de plus.
+  assert.ok(h.paliers[2] <= SALLES.length)
 })

@@ -1,0 +1,103 @@
+[
+  {
+    "id": "cabinet-equilibre-1",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P2",
+    "gravite": "P2",
+    "repro_rejouee": true,
+    "raison": "epingle-zone.test.ts échoue pour la raison dite (★★ ou mieux dans 81,4 % des manches, une commune dans 91,0 % des parties), par le chemin du serveur : epingleTiree (epingle.ts:136-140), eclairer et montrer, qui envoient le centre (:205, :213), et juger (:194-201). Le calcul suffit : la distance du centre est uniforme entre 40 et 140 km (bareme.ts:209), donc sous 120 km quatre fois sur cinq. Aucune garde : une zone par manche, trois à la force 3 (bareme.ts:137), et la pièce reste juste, car elle lit les étoiles naturelles (bareme.ts:51). Neuf cartes éclairent à la force 3 (4 épiques, 5 gardiens) et neuf œuvres se gagnent à l'Épingle (cartes-en-cause.txt). C'est plus fort qu'annoncé : qui plante au milieu de la terre que couvre la zone fait 93,1 % de communes (zone-contre-expertise.txt).",
+    "pourquoi": "Réel, à portée de tout porteur d'une carte qui éclaire, dès Coup d'œil, qui est offert. Le dommage reste dans son musée, mais chaque ★★ paie aussi un confetti et de l'expérience, à 90 pièces justes par heure au plus (DEPARTS_PAR_HEURE). Le Cabinet est fermé en production. P2 tient.",
+    "correction": "La piste [120, 165] ne tient pas sa promesse (« plafonne à trois étoiles »). Le lieu est toujours à 5-50 km du bord, la couronne se lit, et la mer fait le reste : sans rien savoir, on fait encore 45 à 56 % de communes (le milieu de la terre de la zone, ou un point de terre sur la couronne). Le joueur averti du calibrage, qui plante au centre (calibrage-cabinet.ts:879-880), y ferait moins bien qu'un joueur qui ne sait rien. Avant de choisir, il faut ajouter au calibrage ce joueur sans savoir qui lit la terre et la couronne. Un lieu uniforme dans le disque de rayon 300 donne 15 à 32 % : il n'y a plus de couronne à lire, mais Éclairer est à remesurer pour le joueur qui sait la région. En deçà de 45 %, c'est ce qu'Éclairer donne à l'Épingle qu'il faut revoir. Le décalage est figé dans le plan, sans version. En revanche, RAYON_D_ECLAIRER_KM est relu à chaque relecture (epingle.ts:147-150) : il faut le figer avec le décalage, ou ne faire que l'agrandir."
+  },
+  {
+    "id": "cabinet-equilibre-2",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P2",
+    "gravite": "P2",
+    "repro_rejouee": true,
+    "raison": "pouvoirs-equilibre.test.ts, épreuves 3 et 4 : une manche misée parfaite fait 5, 6 et 7 étoiles, les trois seuils (pouvoirs.ts:226, bareme.ts:58, :150). Au Détail, misé à la force 3 sans rien savoir, on gagne une épique dans 24,8 % des parties. Le geste est celui de la page : avec une carte qui mise, la première manche ne s'ouvre pas d'office (magasin.ts:718), et la page propose la mise avant (Partie.tsx:819-826, partie.ts:443-465). Plus large qu'annoncé : neuf cartes misent à la force 3 (Pactole, Rafle, Berserk, Baroud, le Dragon d'Or, le Renard Lunaire, la Salamandre, le Kraken, le Trou noir), pas cinq. Mesuré (mise-au-detail.txt) : 25,0 % d'épiques contre 1,7 % sans carte. Avec les leurres de cabinet-triche-2 (52 % sans l'image), c'est une partie sur deux.",
+    "pourquoi": "Réel, à portée de neuf cartes, sur quatre épiques. Une stratégie absurde, deviner sans regarder, bat le savoir. Il n'y a pas de confetti en plus (la pièce lit les étoiles naturelles), mais il y a de la poussière. P2 tient.",
+    "correction": "La racine est le 1 sur 4 du Détail (constat 8) et ses leurres (cabinet-triche-2) : trancher avec eux, puis remesurer. La piste {1, 2, 3} rend Miser 1 et 2 inutiles au Détail pour qui ne sait rien (15,9 %, autant que sans carte), alors que Miser est déjà le plus faible ailleurs. Pour ne fermer que la loterie des épiques, {1: 2, 2: 3, 3: 3} suffit : le Détail tombe à 11,1 %, et les forces 1 et 2 ne changent pas. Dans les deux cas, la version du départ monte (le pli relit BONUS_DE_MISE, pouvoirs.ts:226), et baremes.md:692 change dans le même commit."
+  },
+  {
+    "id": "cabinet-equilibre-3",
+    "verdict": "confirmé, gravité revue",
+    "gravite_annoncee": "P2",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "Le mécanisme est vrai : Protéger ne porte que la première manche imparfaite (pouvoirs.ts:208-212, :227) et ne touche jamais une partie parfaite (partie.ts:667). C'est voulu : « Emporter une carte-bonus ne coûte rien » (partie.ts:663-665). Sans carte retenue, l'annonce dit « Sans carte-bonus » (Annonce.tsx:235, retenu.ts:35). L'épreuve 1 échoue (0 partie où il coûte, 63 où il ajoute). Mais la preuve de la tablée est mal lue (cartes-par-profil.txt) : 57 des 65 séries sans carte viennent de six profils de vérification (Vérif, Verifdoigt, Verifa, Verifdiff, Verifnav, Verifregles). Les six personnages ont pris une carte dans 47 parties sur 54 (Lucas, Théo, Hugo et Ophélie à chaque partie), et la carte choisie est retenue (retenu.ts:35-36).",
+    "pourquoi": "Les 94 jours décrivent un joueur qui ne touche jamais « Choisir une carte-bonus » : c'est une borne. Ce qui reste, une première partie moins bonne et un inattentif plus lent, est du confort : P3.",
+    "correction": "Proposer d'office une carte offerte, oui, mais pas Prudence tant que cabinet-triche-5 reste ouvert. Une manche quittée se juge à 0 (partie.ts:439), elle est donc imparfaite, et Prudence la relève (pouvoirs.ts:210) : chaque nouveau joueur jouerait cette faille. Il faut d'abord ne protéger qu'une manche tranchée par une réponse, ou proposer une carte qui n'agit pas seule (Coup d'œil, Échange). Mieux : que la vue du serveur dise la carte proposée, plutôt qu'une constante de la page."
+  },
+  {
+    "id": "cabinet-equilibre-4",
+    "verdict": "confirmé, gravité revue",
+    "gravite_annoncee": "P2",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "La lecture est juste : visiteDuJour tire parmi toutes les manquantes, au seul poids de la rareté (musee.ts:324-331). Mais le musée dit le prochain gardien et sa salle (prochainGardien, musee.ts:213-223), et les chasses peuvent la viser. La variante de l'expert le mesure elle-même (musee-chasse-gardien.txt) : premier gardien au 20,5ᵉ jour pour l'occasionnel (11-25) et au 4,5ᵉ pour le moyen, presque autant que sa piste (18,5 et 5,5). Ce sont des médianes de quatre parcours (31 à 44 jours pour la base). La citation de la tablée (camille-d.md:131) parle du rythme d'ensemble, pas des gardiens.",
+    "pourquoi": "Un rythme à régler, sans dommage ni triche, que le joueur peut déjà raccourcir par ce que la page lui montre : P3.",
+    "correction": "La piste de l'expert reste la meilleure : elle ne coûte rien à « tout posséder » (52 jours, contre 56,5 en chassant vers le gardien) et n'apprend rien de neuf à la page (la case dit déjà rareté et salle, vue.ts:103). Le calibrage devrait aussi faire chasser vers le prochain gardien."
+  },
+  {
+    "id": "cabinet-equilibre-5",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Les quatre biais se lisent : la section 1 est sans carte (calibrage-cabinet.ts:1411) ; Changer aux Indices décide sur !s.reconnu, tiré d'avance (:891) ; le joueur au hasard plante n'importe où (:876-877) ; une question du Pari compte 9 s, une question de série 20 s (:311, :329). Nuance : les parcours du musée choisissent la meilleure carte (meilleure, :1143-1157, :1250, :1266, :1286), et les confettis se mesurent avec le meilleur gardien (:1477). Les 52 jours incluent donc les cartes, et « le calibrage ne les a jamais mesurées » est trop dit. Ce qui manque, c'est le tableau jeu par jeu avec cartes, celui des retouches du 25 octobre.",
+    "pourquoi": "De l'outillage : les décisions d'équilibre se sont prises sur un tableau sans cartes. P3.",
+    "correction": "Celle de l'expert, plus le joueur sans savoir qui lit la terre et la couronne à l'Épingle (constat 1), et la chasse vers le prochain gardien (constat 4)."
+  },
+  {
+    "id": "cabinet-equilibre-6",
+    "verdict": "doublon",
+    "doublon_de": "cabinet-code-2",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "libre-a-zero.test.ts échoue par les routes : bilan « Les cinq parties libres du jour ont payé… », et il reste 4 libres sur 5. C'est réel, au même endroit que cabinet-code-2 : bilanDit décide sur b.poussiere > 0 (vue.ts:179), pas sur d.payee. La seconde moitié du constat (elle prend une des cinq sans rien rapporter) est la règle : les cinq premières commencées paient (musee.ts:486).",
+    "pourquoi": "Le même défaut que cabinet-code-2, une phrase fausse au bilan : P3.",
+    "correction": "Fondre les deux pistes : décider sur d.payee ; si elle ne payait pas, « Les ${LIBRES_QUI_PAIENT} parties libres du jour ont payé… », sans « cinq » en dur ; sinon la poussière, ou « Aucune étoile : pas de poussière d'or cette fois ». Retoucher le-cabinet.md:14. Pas de plancher en partie libre. libre-a-zero.test.ts en fait le test."
+  },
+  {
+    "id": "cabinet-equilibre-7",
+    "verdict": "tension",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "BONUS_DE_PROTECTION = {1: 1, 2: 1, 3: 2} (bareme.ts:143) : exact. Six rares protègent comme Prudence, contre « sa rareté le rend plus fort » (bareme.ts:130-131). L'épreuve 2 ne compare que deux constantes, mais il n'y avait rien de plus à prouver.",
+    "pourquoi": "Un choix de barème, fermé à +3 pour une raison donnée : à arbitrer, pas à corriger d'office.",
+    "correction": "Si on tranche, la force 1 sur une manche ratée seulement touche mancheProtegee et monte la version du départ. La faire dans la même version que la garde de cabinet-triche-5 (une manche tranchée par une réponse) : une seule montée."
+  },
+  {
+    "id": "cabinet-equilibre-8",
+    "verdict": "tension",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": true,
+    "raison": "Les chiffres se recalculent : avec quatre titres, au hasard, une commune dans 15,6 % des parties (15,9 % simulé, mise-au-detail.txt) ; avec cinq titres, 10,4 % ; Miser 3, 20 %. Le constat recoupe cabinet-triche-2 (les leurres), sans le doubler.",
+    "pourquoi": "Un jeu de chance assumé ou non : à arbitrer. C'est aussi la racine des constats 2 et 3 au Détail.",
+    "correction": "Celle de l'expert, avec les leurres de cabinet-triche-2, à trancher avant la mise (constat 2)."
+  },
+  {
+    "id": "cabinet-equilibre-9",
+    "verdict": "tension",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "C'est exact : enPlusMs s'ajoute à chaque étape (partie.ts:118, :131), alors que l'écran dit « à chaque manche » (pouvoirs.ts:118). baremes.md:691 dit déjà « à chaque manche et à chaque étape ».",
+    "pourquoi": "La promesse est en deçà, dans le bon sens. Le modèle ne sait pas juger le pouvoir : à mesurer en préproduction.",
+    "correction": "Celle de l'expert : « à chaque question », et compter les manches expirées en préproduction."
+  },
+  {
+    "id": "cabinet-equilibre-10",
+    "verdict": "confirmé",
+    "gravite_annoncee": "P3",
+    "gravite": "P3",
+    "repro_rejouee": false,
+    "raison": "Dorer exige trois manches à trois étoiles naturelles (partie.ts:667), et au Pari, garder n'en vaut que deux (bareme.ts:286). Une case de la visite « pour dorer » a son seuil (musee.ts:464) et paie un double au seuil (partie.ts:736), mais l'annonce ne le dit pas (Annonce.tsx:53).",
+    "pourquoi": "Une promesse incomplète et un objectif presque hors d'atteinte : du confort, P3.",
+    "correction": "Celle de l'expert."
+  }
+]
