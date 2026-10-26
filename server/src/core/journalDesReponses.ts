@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto'
 import type { InStatement } from '@libsql/client'
+import { deplier, estDuCabinet, idDuTableau } from '../../../shared/cabinet/pieces'
 import { horsDeLaBase } from '../../../shared/horsDeLaBase'
 import { jourDe } from '../../../shared/jour'
 import { CARTES_DU_SECOND_ESSAI } from '../../../shared/rencontres'
 import { apresUnPassage, type SuiviDeRevision } from '../../../shared/revision'
+import { questionsDuTableau } from './details'
 
 // Le journal des réponses de campagne, gardé en mémoire et lu par différence.
 //
@@ -248,6 +250,23 @@ const carnetUn = (carnet: unknown) => carnet === 1 || carnet === true
  * (`mesures`, `premiereReponse`).
  */
 export const reponseNue = (r: Pick<ReponseDuJournal, 'aidee' | 'carnet'>): boolean => !r.aidee && r.carnet === null
+
+const UN_TABLEAU = idDuTableau('')
+
+/**
+ * Les questions de la base qu'une pièce du Cabinet a montrées, et que sa
+ * révélation a dites : les cinq d'une manche de l'Éclair et les nouveaux venus
+ * d'une frise d'un sujet (`deplier`), les questions qui nomment un tableau du
+ * Détail — la fiche des tableaux vit au serveur (`questionsDuTableau`),
+ * `deplier` est pur. Rien d'une question de la base, ni d'un contenu neuf : un
+ * lieu, une fiche, une réplique, une frise à thème.
+ */
+function questionsMontrees(id: string): readonly string[] {
+  if (!estDuCabinet(id)) return []
+  if (id.startsWith(UN_TABLEAU)) return questionsDuTableau(id.slice(UN_TABLEAU.length))
+  const questions = deplier(id)
+  return questions.length === 1 && questions[0] === id ? [] : questions
+}
 
 /** Ses justes et ses réponses, pour une question. */
 export interface Compte {
@@ -557,14 +576,38 @@ export class JournalDesReponses {
     return [...this.fermetures].filter(([, le]) => le > maintenant).map(([code]) => code)
   }
 
-  /** Ce qu'il a vu, et quand pour la dernière fois — « jamais vues d'abord » — ; sa première réponse à chacune, sauf aidée. */
+  /**
+   * Ce qu'il a vu, et quand pour la dernière fois — « jamais vues d'abord », la
+   * fraîcheur de chaque tirage : la série, l'épreuve, le défi, le dé, le duel,
+   * l'expédition, le Cabinet — ; sa première réponse à chacune, sauf aidée.
+   *
+   * Une pièce du Cabinet y compte aussi les questions de la base qu'elle a
+   * montrées, à son heure (`questionsMontrees`). Rangées sous son seul composé,
+   * elles revenaient jamais vues au reste de la campagne : une partie libre de
+   * l'Éclair, illimitée, révélait quinze bonnes réponses que le duel classé
+   * posait ensuite comme neuves (la tablée du 25 octobre 2026, axe 9 ;
+   * l'invariant 8 : rien ne sort du Cabinet). Les vues seulement : sa première
+   * réponse à une question ne vient jamais d'un composé — une manche de
+   * l'Éclair n'est la première réponse d'aucune de ses questions, et la mesure,
+   * le modèle du savoir, les sentiers ne lisent que celles qu'il a données.
+   */
   vuesDe(qui: string): { vues: Map<string, number>; premieres: Map<string, boolean> } {
     const vues = new Map<string, number>()
     const premieres = new Map<string, boolean>()
+    const montrees: { questions: readonly string[]; le: number }[] = []
     for (const [question, p] of this.dossiers.get(qui)?.paires ?? []) {
       vues.set(question, p.le)
+      const questions = questionsMontrees(question)
+      if (questions.length > 0) montrees.push({ questions, le: p.le })
       const juste = premiereReponse(p.premiere)
       if (juste !== null) premieres.set(question, juste === 1)
+    }
+    // Après ses réponses : une question qu'il a aussi répondue, ou qu'une autre pièce a montrée, garde l'heure la plus récente.
+    for (const { questions, le } of montrees) {
+      for (const q of questions) {
+        const avant = vues.get(q)
+        if (avant === undefined || le > avant) vues.set(q, le)
+      }
     }
     return { vues, premieres }
   }

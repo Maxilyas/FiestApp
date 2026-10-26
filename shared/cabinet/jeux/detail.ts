@@ -19,7 +19,7 @@
 // de qui l'appelle — celui du serveur pour le tirage, la graine secrète de la
 // partie pour Éclairer —, et le pli rejoué redonne la même manche.
 
-import { DUREES_DES_JEUX, ETOILES_AU_CADRAGE, TITRES_DU_DETAIL, VOISINS_EN_ANNEES } from '../bareme'
+import { DUREES_DES_JEUX, ETOILES_AU_CADRAGE, TITRES_DU_DETAIL } from '../bareme'
 import { idDuTableau, type PieceDuCabinet } from '../pieces'
 import { effacablesAuPlus } from '../pouvoirs'
 import { GESTE_A_JUGER, auHasard, battre, champsDuGeste, estUnIndex, reponseEnvoyee, rienAEclairer, type RegleQuiTranche } from './outils'
@@ -100,14 +100,29 @@ const CADRAGES = ETOILES_AU_CADRAGE.length
 const etoilesAuCadrage = (cadrage: number) => (ETOILES_AU_CADRAGE[cadrage - 1] ?? 0) as VerdictDUneManche['naturel']
 
 /**
- * La manche tirée d'un tableau que le serveur a choisi : trois autres titres
- * pris au hasard parmi les `VOISINS_EN_ANNEES` tableaux les plus proches en
- * années, puis les quatre battus — l'ordre se fige au départ. Plus large que
- * cinq, l'époque redevenait un indice ; au plus proche seul, les mêmes
- * voisins revenaient toujours ensemble. Jamais le tableau lui-même ni un
- * titre déjà proposé : deux titres pareils feraient deux bonnes réponses.
- * À égalité d'écart, l'identifiant départage — la même graine redonne la même
- * manche, quel que soit l'ordre du fichier. Null : moins de trois voisins.
+ * La manche tirée d'un tableau que le serveur a choisi : quatre titres qui se
+ * suivent dans l'ordre du temps — le sien et trois voisins en années —, la
+ * fenêtre posée au hasard parmi celles qui le contiennent, puis les quatre
+ * battus : l'ordre se fige au départ.
+ *
+ * Une fenêtre, pas ses plus proches : tirés parmi ses cinq plus proches
+ * voisins, les trois leurres faisaient du bon le seul des quatre dont les
+ * voisins contenaient toujours les trois autres — qui savait les années du
+ * catalogue (chaque révélation les dit) trouvait la réponse sans regarder
+ * l'image une fois sur deux, et quatre fois sur dix aux seules années des
+ * quatre titres, le plus au centre (la tablée du 25 octobre 2026, axe 9). Une
+ * fenêtre, chacun des quatre l'aurait tirée de même s'il avait été le bon :
+ * rien ne l'y désigne, sauf aux deux bouts du temps, où moins de fenêtres le
+ * contiennent — 26 % de bonnes réponses au mieux sur cent tableaux, pour 25 %
+ * au hasard. L'époque n'y aide pas plus qu'avant : ses trois voisins de chaque
+ * côté.
+ *
+ * La fraîcheur des leurres se choisit au serveur, dans les tableaux qu'il
+ * donne (`tirerUnDetail`). Jamais le tableau lui-même ni deux fois un titre :
+ * deux titres pareils feraient deux bonnes réponses — de deux tableaux du même
+ * titre, le plus ancien reste, et aucun ne prend celui du bon. À année égale,
+ * l'identifiant départage : la même graine redonne la même manche, quel que
+ * soit l'ordre du fichier. Null : moins de quatre titres à proposer.
  */
 export function detailTire(
   tableau: TableauDuCabinet,
@@ -115,21 +130,27 @@ export function detailTire(
   hasard: () => number,
   o: { anecdote: string | null; categorie: string },
 ): DetailTire | null {
-  const ecart = (x: TableauDuCabinet) => Math.abs(x.annee - tableau.annee)
-  const proches: TableauDuCabinet[] = []
-  for (const x of [...autres].sort((a, b) => ecart(a) - ecart(b) || (a.qid < b.qid ? -1 : a.qid > b.qid ? 1 : 0))) {
-    if (proches.length === VOISINS_EN_ANNEES) break
-    if (x.qid === tableau.qid || x.titre === tableau.titre || proches.some(p => p.titre === x.titre)) continue
-    proches.push(x)
-  }
-  const leurres = TITRES_DU_DETAIL - 1
-  if (proches.length < leurres) return null
-  const proposes = battre([{ x: tableau, bon: true }, ...battre(proches, hasard).slice(0, leurres).map(x => ({ x, bon: false }))], hasard)
+  const dansLeTemps = [tableau, ...autres.filter(x => x.qid !== tableau.qid && x.titre !== tableau.titre)].sort(
+    (a, b) => a.annee - b.annee || (a.qid < b.qid ? -1 : a.qid > b.qid ? 1 : 0),
+  )
+  const titres = new Set<string>()
+  const candidats = dansLeTemps.filter(x => {
+    if (titres.has(x.titre)) return false
+    titres.add(x.titre)
+    return true
+  })
+  if (candidats.length < TITRES_DU_DETAIL) return null
+  const rang = candidats.indexOf(tableau)
+  // Les fenêtres de quatre qui le contiennent : de celle où il est le plus récent à celle où il est le plus ancien.
+  const debuts: number[] = []
+  for (let d = Math.max(0, rang - TITRES_DU_DETAIL + 1); d <= Math.min(rang, candidats.length - TITRES_DU_DETAIL); d++) debuts.push(d)
+  const debut = auHasard(debuts, hasard)
+  const proposes = battre(candidats.slice(debut, debut + TITRES_DU_DETAIL), hasard)
   return {
     jeu: 'detail',
     tableau: { qid: tableau.qid, titre: tableau.titre, peintre: tableau.peintre, annee: tableau.annee },
-    titres: proposes.map(({ x }) => ({ titre: x.titre, peintre: x.peintre })),
-    bonne: proposes.findIndex(p => p.bon),
+    titres: proposes.map(x => ({ titre: x.titre, peintre: x.peintre })),
+    bonne: proposes.indexOf(tableau),
     anecdote: o.anecdote,
     categorie: o.categorie,
   }

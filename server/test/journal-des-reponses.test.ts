@@ -7,7 +7,11 @@
 //
 // Chaque dérivation se compare ici au SQL d'avant, recopié tel qu'il était,
 // sur une base tirée au hasard : tous les modes, des jokers, des formes, des
-// reprises du carnet, des réponses sans série, des instants égaux. Et le
+// reprises du carnet, des réponses sans série, des instants égaux. Ce qu'il a
+// vu s'y compare déplié : une pièce du Cabinet qui a montré des questions de
+// la base — une manche de l'Éclair, un tableau du Détail, une frise d'un
+// sujet — les compte vues à son heure, depuis la tablée du 25 octobre 2026 ;
+// ses premières réponses, elles, restent celles du SQL d'avant. Et le
 // journal se lit par petites tranches, des lectures en double et en retard
 // comprises : une réponse ne compte qu'une fois. Le carnet se compare à la
 // requête que la campagne garde pour un journal qui doute
@@ -30,6 +34,7 @@ import Database from 'better-sqlite3'
 import { createClient, type Client, type InStatement, type TransactionMode } from '@libsql/client'
 import { baseDEssai } from './banc'
 import { CampagneStore } from '../src/core/campagne'
+import { tableauxDuDetail } from '../src/core/details'
 import {
   FENETRE_DES_RECENTES_MS,
   JournalDesReponses,
@@ -119,6 +124,30 @@ const AVANT = {
              GROUP BY s.palier, niveau`,
 }
 
+/**
+ * Ce qu'il a vu, tel que le SQL d'avant le lisait, puis déplié : chaque pièce du Cabinet qui a montré des questions de la
+ * base les compte vues à son heure, la plus récente l'emportant. Une manche de l'Éclair, ses cinq questions ; une frise d'un
+ * sujet, les questions de ses nouveaux venus ; un tableau du Détail, les questions de la base qui le demandent — le
+ * catalogue livré. Un lieu, une fiche, une réplique, une frise à thème n'ont rien de la base. La règle s'écrit ici à part,
+ * sur les identifiants mêmes : le test ne relit pas le code qu'il éprouve. `sortes` apprend celles dont le dépli a changé
+ * quelque chose.
+ */
+function deplieesAvant(lues: ReadonlyMap<string, number>, sortes: Set<string>): Map<string, number> {
+  const depliees = new Map(lues)
+  for (const [id, le] of lues) {
+    const composee = /^cab:(eclair|frise:s):(.+)$/.exec(id)
+    const tableau = /^cab:tableau:(Q\d+)$/.exec(id)
+    const questions = composee ? composee[2].split('+') : tableau ? (tableauxDuDetail().find(t => t.qid === tableau[1])?.questions ?? []) : []
+    for (const q of questions) {
+      if ((depliees.get(q) ?? -Infinity) >= le) continue
+      depliees.set(q, le)
+      // La sorte de pièce dont le dépli a ajouté ou rajeuni une vue : sans aucune, l'égalité ne prouverait rien.
+      sortes.add(composee ? composee[1] : 'tableau')
+    }
+  }
+  return depliees
+}
+
 const objet = (texte: unknown) => (typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {})
 const comptesLus = (texte: unknown) => {
   const lus = new Map<string, { justes: number; total: number }>()
@@ -156,16 +185,18 @@ const DUELS = [
 /**
  * Ce que le Cabinet ne tire pas de la base, chaque sorte sous le nom qu'il lui
  * donne — l'Éclair et la frise d'un sujet portent des questions de la base
- * dans leur identifiant, qui n'en restent pas moins hors du carnet.
+ * dans leur identifiant, qui n'en restent pas moins hors du carnet : les unes
+ * répondues ailleurs aussi (`r1`), les autres jamais (`e4`), que seul le dépli
+ * fait voir. Le tableau, la Joconde : la fiche livrée dit ses questions.
  */
 const DU_CABINET = [
   idDuLieu('orleans-siege'),
   idDeLaFiche('victor-hugo'),
   idDeLaReplique('hotel-du-nord'),
   idDuTableau('Q12418'),
-  idDeLEclair(['r1', 'r2', 'r3', 'r4', 'r5']),
+  idDeLEclair(['r1', 'r2', 'r3', 'e4', 'e5']),
   idDeLaFriseATheme('grands-sieges', 1),
-  idDeLaFriseDeSujet(['r6', 'r7']),
+  idDeLaFriseDeSujet(['r6', 'f7']),
 ]
 
 /** Une question : de la base, le plus souvent ; parfois un rébus, une frise ou une pièce du Cabinet, que le carnet écarte. */
@@ -263,17 +294,21 @@ async function lire(client: Client, journal: JournalDesReponses, limite: number)
   }
 }
 
-async function comparer(client: Client, journal: JournalDesReponses, profils: readonly string[], nom: string) {
+/** Chaque dérivation du journal contre le SQL d'avant : rend les sortes de pièces dont le dépli a ajouté ou rajeuni une vue. */
+async function comparer(client: Client, journal: JournalDesReponses, profils: readonly string[], nom: string): Promise<Set<string>> {
+  const depliees = new Set<string>()
   for (const p of profils) {
-    // Ce qu'il a vu, et sa première réponse à chacune (`lireLesVues`).
+    // Ce qu'il a vu, déplié, et sa première réponse à chacune, telle quelle (`lireLesVues`).
     const vues = objet((await client.execute({ sql: AVANT.vues, args: [p] })).rows[0]?.vues)
+    const lues = new Map<string, number>()
     const attendues = { vues: new Map<string, number>(), premieres: new Map<string, boolean>() }
     for (const [id, valeur] of Object.entries(vues)) {
       if (!Array.isArray(valeur)) continue
-      attendues.vues.set(id, Number(valeur[0]))
+      lues.set(id, Number(valeur[0]))
       if (valeur[1] !== null) attendues.premieres.set(id, Number(valeur[1]) === 1)
     }
-    assert.deepEqual(journal.vuesDe(p), attendues, `${nom} · ${p} : ce qu’il a vu`)
+    attendues.vues = deplieesAvant(lues, depliees)
+    assert.deepEqual(journal.vuesDe(p), attendues, `${nom} · ${p} : ce qu’il a vu, déplié — et ses premières réponses, sans rien des composés`)
     // Ses premières réponses, avec leur instant (`lireLesPremieres`).
     const premieres = new Map<string, { le: number; juste: boolean }>()
     for (const [id, k] of Object.entries(objet((await client.execute({ sql: AVANT.premieres, args: [p] })).rows[0]?.premieres))) {
@@ -343,6 +378,7 @@ async function comparer(client: Client, journal: JournalDesReponses, profils: re
     assert.ok(attendues.length > 0, `${nom} : des épreuves à comparer`)
     assert.deepEqual(journal.reponsesDesEpreuves(depuis, branche).sort(ordre), attendues.sort(ordre), `${nom} : les épreuves des sentiers depuis ${new Date(depuis).toISOString()}, ${branche ?? 'tous'}`)
   }
+  return depliees
 }
 
 /** Le carnet de chacun, au journal et à la requête que la campagne garde quand il doute, à l'heure de la campagne : rend combien de questions il compte en tout. */
@@ -410,7 +446,7 @@ test('le journal dit ce que disaient les lectures d’avant — toute la base lu
     const premieres = await lire(client, journal, 37)
     assert.ok(premieres.length > 5, 'lu en plusieurs tranches')
     const profils = Array.from({ length: 7 }, (_, i) => `p${i}`)
-    await comparer(client, journal, profils, 'la base entière')
+    const depliees = await comparer(client, journal, profils, 'la base entière')
     assert.ok(journal.reponses > 500, `${journal.reponses} réponses lues`)
     const auCarnet = await comparerLesCarnets(campagne, journal, profils, horloge.t, 'la base entière')
     assert.ok(auCarnet > 50, `${auCarnet} questions aux carnets`)
@@ -424,7 +460,9 @@ test('le journal dit ce que disaient les lectures d’avant — toute la base lu
     const toutes = await lire(client, journal, 1000)
     journal.appliquer(toutes[0])
     journal.appliquer(enRetard)
-    await comparer(client, journal, profils, 'après une lecture par différence')
+    for (const sorte of await comparer(client, journal, profils, 'après une lecture par différence')) depliees.add(sorte)
+    // Sans composé déplié, l'égalité ne prouverait rien : l'Éclair, la frise d'un sujet et le tableau de la Joconde.
+    assert.deepEqual([...depliees].sort(), ['eclair', 'frise:s', 'tableau'], 'chaque sorte de pièce qui montre la base a ajouté ou rajeuni une vue')
     await comparerLesCarnets(campagne, journal, profils, horloge.t, 'après une lecture par différence')
 
     // Rien de neuf : la lecture ne rapporte rien, et le journal ne bouge pas.

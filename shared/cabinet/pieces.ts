@@ -86,9 +86,11 @@ export const estUneFriseDeSujet = (id: string) => id.startsWith(FRISE_DE_SUJET)
 /**
  * Les questions de la base qu'une pièce a posées : un composé de l'Éclair ou
  * d'une frise de sujet se déplie en ses questions, tout autre identifiant
- * reste lui-même. Le Cabinet lit ses vues dépliées — une question vue à
- * l'Éclair ne revient pas au Pari avant sept jours ; la série, elle, ne
- * déplie pas : une question récrite par l'Éclair peut y revenir.
+ * reste lui-même. Toute la campagne lit ses vues dépliées
+ * (`JournalDesReponses.vuesDe`, qui déplie aussi un tableau du Détail en les
+ * questions qui le nomment, de la fiche du serveur) : une question vue à
+ * l'Éclair ne revient pas au Pari avant sept jours, ni jamais vue en série ou
+ * en duel — sa révélation avait dit la bonne réponse.
  */
 export function deplier(id: string): string[] {
   if (id.startsWith(ECLAIR)) return id.slice(ECLAIR.length).split('+')

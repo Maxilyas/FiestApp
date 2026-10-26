@@ -61,7 +61,6 @@ import {
   EVENEMENTS_D_UNE_FRISE_A_THEME,
   TITRES_DU_DETAIL,
   VAGUES_DE_LA_FRISE,
-  VOISINS_EN_ANNEES,
 } from '../../shared/cabinet/bareme'
 import { effacablesAuPlus, refusDuPouvoir } from '../../shared/cabinet/pouvoirs'
 import { PREFIXE_DU_CABINET, deplier, idDeLaFriseATheme, idDeLaFriseDeSujet, idDuTableau } from '../../shared/cabinet/pieces'
@@ -95,7 +94,10 @@ const RIEN_A_ECLAIRER = refusDuPouvoir({ pouvoir: 'eclairer', force: 3, jeu: 'de
 // ── Le Détail ─────────────────────────────────────────────────────────────
 
 const CIBLE: TableauDuCabinet = { qid: 'Q100', titre: 'La Cible', peintre: 'Anne Peintre', annee: 1600 }
-/** Les cinq plus proches de 1600 sont à 1, 2, 5, 10 et 12 ans ; les autres, plus loin. */
+/**
+ * Dans l'ordre du temps : 1400, 1580, 1590, 1598, la Cible en 1600, 1601, 1605, 1612, 1650, 1700. Quatre fenêtres de quatre
+ * tableaux consécutifs la contiennent, de 1580-1600 à 1600-1612 : ses trois voisins de chaque côté.
+ */
 const AUTRES: TableauDuCabinet[] = [
   { qid: 'Q1', titre: 'Le Voisin', peintre: 'Bruno', annee: 1601 },
   { qid: 'Q2', titre: 'La Voisine', peintre: 'Carla', annee: 1598 },
@@ -107,7 +109,10 @@ const AUTRES: TableauDuCabinet[] = [
   { qid: 'Q8', titre: 'Les Nymphéas', peintre: 'Hugo', annee: 1700 },
   { qid: 'Q9', titre: 'La Madone', peintre: 'Inès', annee: 1400 },
 ]
-const LES_CINQ = ['Le Voisin', 'La Voisine', 'Le Port', 'La Moisson', 'Le Concert']
+/** Tous les tableaux, dans l'ordre du temps (pas deux à la même année). */
+const DANS_LE_TEMPS = [...AUTRES, CIBLE].sort((a, b) => a.annee - b.annee)
+/** Les six titres que ses fenêtres proposent en leurres : ses trois voisins en années de chaque côté. */
+const LES_SIX = ['La Tempête', 'La Moisson', 'La Voisine', 'Le Voisin', 'Le Port', 'Le Concert']
 
 function unDetail(graine = 'detail', anecdote: string | null = null): DetailTire {
   const t = detailTire(CIBLE, AUTRES, hasardDe(graine), { anecdote, categorie: 'Arts & lettres' })
@@ -178,10 +183,11 @@ test('le Détail : un faux titre, le temps écoulé ou la partie quittée ne val
   }
 })
 
-test('le Détail : trois titres d’époques voisines, tirés parmi les cinq plus proches en années, dans un ordre figé au départ', () => {
+test('le Détail : quatre titres consécutifs dans l’ordre du temps, le bon à une place au hasard parmi eux, dans un ordre figé au départ', () => {
   assert.equal(TITRES_DU_DETAIL, 4)
-  assert.equal(VOISINS_EN_ANNEES, 5)
   const vusEnLeurre = new Set<string>()
+  const fenetres = new Set<number>()
+  const rangsDansLeTemps = new Set<number>()
   const places = new Set<number>()
   for (let i = 0; i < 300; i++) {
     const t = unDetail(`detail:${i}`)
@@ -189,38 +195,42 @@ test('le Détail : trois titres d’époques voisines, tirés parmi les cinq plu
     assert.equal(t.titres.length, TITRES_DU_DETAIL)
     assert.equal(new Set(t.titres.map(x => x.titre)).size, TITRES_DU_DETAIL, 'quatre titres différents')
     assert.deepEqual(t.titres[t.bonne], { titre: CIBLE.titre, peintre: CIBLE.peintre }, 'le bon, avec son peintre')
-    const leurres = t.titres.filter((_, k) => k !== t.bonne)
-    for (const l of leurres) {
-      assert.ok(LES_CINQ.includes(l.titre), `${l.titre} n’est pas parmi les cinq plus proches en années`)
+    // Les quatre se suivent dans le temps : aucun tableau du catalogue ne se glisse entre deux d'entre eux.
+    const rangs = t.titres.map(x => DANS_LE_TEMPS.findIndex(y => y.titre === x.titre)).sort((a, b) => a - b)
+    assert.deepEqual(rangs, [0, 1, 2, 3].map(k => rangs[0] + k), `${t.titres.map(x => x.titre).join(', ')} ne se suivent pas dans le temps`)
+    fenetres.add(rangs[0])
+    rangsDansLeTemps.add(DANS_LE_TEMPS.indexOf(CIBLE) - rangs[0])
+    for (const l of t.titres.filter((_, k) => k !== t.bonne)) {
       vusEnLeurre.add(l.titre)
       assert.equal(l.peintre, AUTRES.find(x => x.titre === l.titre)!.peintre, 'chaque titre avec son peintre')
     }
     places.add(t.bonne)
   }
-  assert.deepEqual([...vusEnLeurre].sort(), [...LES_CINQ].sort(), 'chacun des cinq plus proches finit par être proposé')
-  assert.deepEqual([...places].sort(), [0, 1, 2, 3], 'le bon titre n’a pas de place à lui')
+  assert.deepEqual([...fenetres].sort(), [1, 2, 3, 4], 'chacune des quatre fenêtres qui la contiennent')
+  assert.deepEqual([...rangsDansLeTemps].sort(), [0, 1, 2, 3], 'le bon, le plus ancien des quatre comme le plus récent : sa place dans le temps ne le désigne pas')
+  assert.deepEqual([...vusEnLeurre].sort(), [...LES_SIX].sort(), 'chacun de ses six voisins finit par être proposé')
+  assert.deepEqual([...places].sort(), [0, 1, 2, 3], 'le bon titre n’a pas de place à lui à l’écran')
   // La même graine redonne la même manche : une reprise après un redémarrage redonne les mêmes titres, au même ordre.
   assert.deepEqual(unDetail('reprise'), unDetail('reprise'))
 })
 
-test('le Détail : à écart égal en années, l’identifiant départage — l’ordre du fichier ne change rien à la manche', () => {
-  // Deux à deux à la même distance de 1600 : sans départage, l'ordre où le serveur lit ses tableaux choisirait les
-  // voisins, et une graine rejouée après un fichier réordonné ne redonnerait plus la même manche.
+test('le Détail : à année égale, l’identifiant départage — l’ordre du fichier ne change rien à la manche', () => {
+  // Quatre tableaux de 1601 : sans départage, l'ordre où le serveur lit ses tableaux choisirait lesquels entrent dans les
+  // fenêtres de la Cible, et une graine rejouée après un fichier réordonné ne redonnerait plus la même manche.
   const egaux: TableauDuCabinet[] = [
-    { qid: 'Q31', titre: 'L’Aube', peintre: 'Jean', annee: 1599 },
+    { qid: 'Q31', titre: 'L’Aube', peintre: 'Jean', annee: 1598 },
     { qid: 'Q32', titre: 'Le Midi', peintre: 'Karl', annee: 1601 },
-    { qid: 'Q33', titre: 'Le Soir', peintre: 'Léa', annee: 1598 },
-    { qid: 'Q34', titre: 'La Nuit', peintre: 'Marc', annee: 1602 },
-    { qid: 'Q35', titre: 'Le Printemps', peintre: 'Nina', annee: 1597 },
-    { qid: 'Q36', titre: 'L’Hiver', peintre: 'Omar', annee: 1603 },
+    { qid: 'Q33', titre: 'Le Soir', peintre: 'Léa', annee: 1601 },
+    { qid: 'Q34', titre: 'La Nuit', peintre: 'Marc', annee: 1601 },
+    { qid: 'Q35', titre: 'Le Printemps', peintre: 'Nina', annee: 1601 },
   ]
   const tirer = (autres: readonly TableauDuCabinet[], graine: string) => detailTire(CIBLE, autres, hasardDe(graine), { anecdote: null, categorie: 'Arts & lettres' })
   for (let i = 0; i < 60; i++) {
     const t = tirer(egaux, `egaux:${i}`)
     assert.ok(t)
     assert.deepEqual(tirer([...egaux].reverse(), `egaux:${i}`), t, 'le même tirage, le fichier à rebours')
-    // À trois ans, Q35 passe avant Q36 : L'Hiver n'est jamais parmi les cinq plus proches.
-    assert.ok(!t.titres.some(x => x.titre === 'L’Hiver'), JSON.stringify(t.titres))
+    // L'Aube, la Cible, puis les quatre de 1601 par leur identifiant : Q35, le dernier, n'entre dans aucune de ses deux fenêtres.
+    assert.ok(!t.titres.some(x => x.titre === 'Le Printemps'), JSON.stringify(t.titres))
   }
 })
 
@@ -238,6 +248,51 @@ test('le Détail : pas de manche sans trois voisins, et jamais deux fois le mêm
   const t = detailTire(CIBLE, [...homonymes, { qid: 'Q54', titre: 'Le Quart', peintre: 'Léa', annee: 1640 }], hasardDe('homonymes'), { anecdote: null, categorie: 'Arts & lettres' })
   assert.ok(t)
   assert.deepEqual(t.titres.map(x => x.titre).sort(), ['La Cible', 'Le Double', 'Le Quart', 'Le Tiers'])
+})
+
+test('le Détail : sans regarder le tableau, les années des quatre titres ne désignent pas le bon — une fois sur quatre, comme au hasard', () => {
+  // La tablée du 25 octobre 2026 (axe 9, `cabinet-triche-2`) : les trois leurres se tiraient parmi les cinq plus proches
+  // voisins en années du bon, et le bon était le seul titre dont les voisins contenaient toujours les trois autres. Qui
+  // savait les années du catalogue — chaque révélation les dit, Wikidata aussi — trouvait la réponse sans regarder
+  // l'image une fois sur deux (52 %), et 41 % avec les seules années des quatre titres, le plus au centre. Ici, ces deux
+  // joueurs sans savoir, sur les cent tableaux livrés, chacun le bon de vingt manches.
+  const tous: TableauDuCabinet[] = tableauxDuDetail().map(({ qid, titre, peintre, annee }) => ({ qid, titre, peintre, annee }))
+  assert.ok(tous.length >= 80, `${tous.length} tableaux livrés`)
+  const parTitre = new Map(tous.map(t => [t.titre, t]))
+  // Ses cinq plus proches, comme la règle d'avant les tirait : par écart d'années, puis par identifiant.
+  const cinqPlusProches = new Map(
+    tous.map(t => {
+      const ecart = (x: TableauDuCabinet) => Math.abs(x.annee - t.annee)
+      const proches = tous.filter(x => x !== t).sort((a, b) => ecart(a) - ecart(b) || (a.qid < b.qid ? -1 : a.qid > b.qid ? 1 : 0))
+      return [t.qid, new Set(proches.slice(0, 5).map(x => x.qid))]
+    }),
+  )
+  /** Sa part de bonnes réponses quand il choisit au hasard parmi ceux que sa règle retient, parmi les quatre si elle n'en retient aucun. */
+  const parmi = (retenus: readonly TableauDuCabinet[], quatre: readonly TableauDuCabinet[], bon: TableauDuCabinet) => {
+    const choix = retenus.length > 0 ? retenus : quatre
+    return choix.includes(bon) ? 1 / choix.length : 0
+  }
+  let parSesVoisins = 0
+  let auCentre = 0
+  let manches = 0
+  for (const bon of tous) {
+    for (let i = 0; i < 20; i++) {
+      const t = detailTire(bon, tous, hasardDe(`sans-regarder:${bon.qid}:${i}`), { anecdote: null, categorie: 'Arts & lettres' })
+      assert.ok(t, bon.titre)
+      const quatre = t.titres.map(x => parTitre.get(x.titre)!)
+      // Le titre dont les cinq plus proches voisins contiennent les trois autres.
+      parSesVoisins += parmi(quatre.filter(x => quatre.every(y => y === x || cinqPlusProches.get(x.qid)!.has(y.qid))), quatre, bon)
+      // Le titre le plus au centre des quatre : celui dont l'écart le plus grand aux trois autres est le plus petit.
+      const pire = (x: TableauDuCabinet) => Math.max(...quatre.filter(y => y !== x).map(y => Math.abs(y.annee - x.annee)))
+      const min = Math.min(...quatre.map(pire))
+      auCentre += parmi(quatre.filter(x => pire(x) === min), quatre, bon)
+      manches++
+    }
+  }
+  // Une fois sur quatre au hasard ; un peu plus aux deux bouts du temps, où moins de fenêtres contiennent le bon.
+  for (const [nom, part] of [['par ses voisins', parSesVoisins / manches], ['au centre des quatre', auCentre / manches]] as const) {
+    assert.ok(part > 0.2 && part < 0.3, `le bon trouvé ${nom} sans regarder le tableau : ${(100 * part).toFixed(1)} % des manches`)
+  }
 })
 
 test('le Détail : Éclairer efface un mauvais titre, deux au plus, et le même à chaque relecture', () => {
@@ -269,7 +324,7 @@ test('le Détail : Éclairer efface un mauvais titre, deux au plus, et le même 
     const e1 = REGLE_DU_DETAIL.eclairer(t, REGLE_DU_DETAIL.ouvrir(t), rejoue) as EtatDuDetail
     assert.deepEqual((REGLE_DU_DETAIL.eclairer(t, e1, rejoue) as EtatDuDetail).effaces, e.effaces)
   }
-  assert.equal(efface.size, LES_CINQ.length, 'chaque mauvais titre peut s’effacer')
+  assert.equal(efface.size, LES_SIX.length, 'chaque mauvais titre peut s’effacer')
 })
 
 test('le Détail : un cadrage ne se montre qu’atteint, ou tous une fois la manche tranchée', () => {
@@ -939,13 +994,13 @@ test('le tirage du Détail : un tableau de la fiche, jamais vu d’abord, ni le 
 
   // Le jamais vu d'abord : tous vus sauf deux — au Cabinet, ou par une question de la base qui le demande —, puis le plus
   // anciennement vu, parmi ceux dont le titre n'a pas encore été proposé. Les deux jamais vus aux deux bouts du temps :
-  // voisins en années, le titre de l'un, proposé en leurre à l'autre, l'écarterait de la réponse — par la règle, pas par
-  // le hasard de l'ordre du fichier.
+  // dans une même fenêtre de quatre, le titre de l'un, proposé en leurre à l'autre, l'écarterait de la réponse — par la
+  // règle, pas par le hasard de l'ordre du fichier. Deux jamais vus ne font pas les quatre titres d'une manche : leurs
+  // leurres se prennent parmi tous.
   const parAnnee = [...tableaux].sort((x, y) => x.annee - y.annee)
   const [a, b] = [parAnnee[0], parAnnee[parAnnee.length - 1]]
   const [c, ...autres] = tableaux.filter(t => t !== a && t !== b)
-  const prochesDe = (t: typeof a) => parAnnee.filter(x => x !== t).sort((x, y) => Math.abs(x.annee - t.annee) - Math.abs(y.annee - t.annee)).slice(0, VOISINS_EN_ANNEES)
-  assert.ok(!prochesDe(a).includes(b) && !prochesDe(b).includes(a), 'aucun des deux parmi les voisins de l’autre')
+  assert.ok(parAnnee.length - 1 >= TITRES_DU_DETAIL, 'aucune fenêtre de quatre ne les tient tous deux')
   const vues = new Map<string, number>(autres.map((t, i) => [idDuTableau(t.qid), DIX_HEURES - (i + 2) * UNE_HEURE]))
   vues.set(c.questions[0], DIX_HEURES - UNE_HEURE)
   const vuLe = (qid: string) => (qid === c.qid ? DIX_HEURES - UNE_HEURE : vues.get(idDuTableau(qid)))
@@ -957,6 +1012,29 @@ test('le tirage du Détail : un tableau de la fiche, jamais vu d’abord, ni le 
     const plusAncien = restants.reduce((x, y) => (vuLe(y.qid)! < vuLe(x.qid)! ? y : x))
     assert.equal(r.tableau.qid, plusAncien.qid, 'puis le plus anciennement vu')
   }
+})
+
+test('le tirage du Détail : les leurres d’un tableau jamais vu sont jamais vus, ceux d’un tableau vu sont vus — tant qu’il y en a quatre', () => {
+  // La contre-expertise de la tablée du 25 octobre 2026 (`detail-jamais-vu.ts`) : le bon se tire jamais vu d'abord, et seul
+  // lui s'écrit vu (`cab:tableau:<QID>`) — un leurre qu'une révélation d'avant avait nommé ne pouvait pas être le bon tant
+  // que le catalogue avait des jamais vus. Qui s'en souvenait l'écartait : 78 % de bonnes réponses à la trentième partie,
+  // sans regarder l'image. Ici, dix jamais vus et quatre-vingt-dix vus — au Cabinet, ou par une question de la base qui
+  // le demande —, six tirages par plan : les premiers bons sont jamais vus, puis, leurs titres tous proposés, des vus.
+  const tableaux = tableauxDuDetail()
+  const parTitre = new Map(tableaux.map(t => [t.titre, t]))
+  const vues = new Map<string, number>()
+  tableaux.slice(10).forEach((t, i) => vues.set(i % 9 === 0 ? t.questions[0] : idDuTableau(t.qid), DIX_HEURES - (i + 1) * UNE_HEURE))
+  const vu = (t: (typeof tableaux)[number]) => vues.has(idDuTableau(t.qid)) || t.questions.some(q => vues.has(q))
+  assert.equal(tableaux.filter(t => !vu(t)).length, 10)
+  const statuts = new Set<boolean>()
+  for (let essai = 0; essai < 40; essai++) {
+    for (const t of tirerLePlan('detail', surLaBaseLivree(vues), 3) as DetailTire[]) {
+      const bon = vu(parTitre.get(t.tableau.titre)!)
+      statuts.add(bon)
+      for (const x of t.titres) assert.equal(vu(parTitre.get(x.titre)!), bon, `${x.titre}, ${bon ? 'jamais vu' : 'déjà vu'}, en leurre de ${t.tableau.titre}, ${bon ? 'déjà vu' : 'jamais vu'}`)
+    }
+  }
+  assert.deepEqual([...statuts].sort(), [false, true], 'des bons jamais vus, puis des vus')
 })
 
 test('le tirage de la Frise : trois vagues d’une même frise, à thème ou d’un sujet de la base, en alternance de fraîcheur — jamais de rechange', () => {

@@ -237,9 +237,16 @@ export const LETTRES_DU_MOT_MAX = 7
 
 /** Le Détail : les étoiles au cadrage où il reconnaît le tableau, du premier au tableau entier ; reculer coûte une étoile. */
 export const ETOILES_AU_CADRAGE: readonly number[] = [3, 2, 1, 0]
-/** Le Détail : les titres proposés, le bon et trois d'époques voisines… */
+/** Le Détail : les titres proposés, le bon et trois d'époques voisines — autant de tableaux qui se suivent dans le temps (`detailTire`). */
 export const TITRES_DU_DETAIL = 4
-/** … tirés parmi les tableaux les plus proches en années : deviner à l'époque ne suffit pas. */
+/**
+ * Plus lu depuis le 26 octobre 2026 : les trois leurres se tiraient parmi les
+ * cinq plus proches en années du bon, qui s'y désignait sans qu'on regarde le
+ * tableau (la tablée du 25 octobre 2026) ; ils viennent d'une fenêtre de
+ * `TITRES_DU_DETAIL` tableaux consécutifs. Il part avec sa ligne de
+ * `docs/reference/baremes.md`, l'un ne va pas sans l'autre
+ * (`cabinet-catalogue.test.ts`, `documentation.test.ts`).
+ */
 export const VOISINS_EN_ANNEES = 5
 /** Éclairer au Détail, au Pari et à la Réplique : ce qu'il efface de propositions, au plus, dans une manche ou une étape… */
 export const EFFACES_AU_PLUS = 2
