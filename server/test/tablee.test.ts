@@ -10,7 +10,8 @@
 // « Quitter », le domaine ignoré d'une manche sans catégorie, et un dé qui
 // ignorait la marche de la question. La régie démarre un serveur et un
 // Chromium dès son import : ce qu'elle lit sans navigateur — les arguments
-// d'un geste, la vue que la page reçoit, la marche au plan figé — vit à part
+// d'un geste, la vue que la page reçoit, la marche au plan figé — et le script
+// qui fait attendre une photo, éprouvé ici sur de fausses images, vivent à part
 // (`scripts/tablee/gestes.ts`), et le reste se relit dans les fichiers — un
 // geste se dit à trois endroits (règle `tablee.md`).
 import { test } from 'node:test'
@@ -25,7 +26,9 @@ import { NIVEAUX, type Niveau } from '../../shared/campagne'
 import { TAUX_DU_CALIBRAGE } from '../../shared/sentiers'
 import { AFFIRMATIONS_DE_L_ECLAIR, MANCHES_PAR_PARTIE } from '../../shared/cabinet/bareme'
 import {
+  attenteDesImages,
   DES_PAR_GESTE_MAX,
+  imagesPasPretes,
   lancerLeDe,
   ligneDeLaMarche,
   lireLeDe,
@@ -262,17 +265,63 @@ test('la photo attend ses polices et ses images, trois secondes au plus', () => 
   // que six onglets tournaient, l'image hors de l'écran pas encore décodée — le décodage d'une image qu'on ne voit pas est
   // asynchrone (`Legendaire.tsx`). `rendu-cabinet.ts` l'attendait déjà ; la régie photographiait sans l'attendre.
   const capture = casDe('capture')
-  const attente = capture.indexOf('await attendreSesImages(page)')
-  assert.ok(attente >= 0, '« capture » attend les images de la page')
+  const attente = capture.indexOf('await attendreSesImages(page, entiere)')
+  assert.ok(attente >= 0, '« capture » attend les images de la page — toutes, si la photo la prend entière')
   assert.ok(attente < capture.indexOf('page.screenshot('), 'avant la photo')
+  assert.match(capture, /imagesPasPretes\(/, 'la sortie dit les images encore vides')
+  // L'écran commun porte lui aussi des images peintes (avatars, légendaires décodés à part) : sa photo les attend de même.
+  const tele = casDe('tele')
+  const aLaTele = tele.indexOf('await attendreSesImages(tv.o.page, false)')
+  assert.ok(aLaTele >= 0, '« tele --capture » attend les images de l’écran commun')
+  assert.ok(aLaTele < tele.indexOf('tv.o.page.screenshot('), 'avant sa photo')
+  assert.match(tele, /imagesPasPretes\(/)
   const corps = fonctionDe('attendreSesImages')
   assert.match(corps, /document\.fonts\.ready/, 'les polices d’abord')
-  assert.match(corps, /\.decode\(\)\.catch\(/, 'chaque image décodée — une image qui ne se décode pas ne bloque rien')
-  assert.match(corps, /Promise\.race\(/)
-  assert.match(corps, /ATTENTE_DES_IMAGES_MS/)
+  // Le décodage de chaque image, sa course contre la montre et le cas des paresseuses : `attenteDesImages`, éprouvée plus bas.
+  assert.match(corps, /attenteDesImages\(entiere, ATTENTE_DES_IMAGES_MS\)/)
   assert.match(REGIE, /const ATTENTE_DES_IMAGES_MS = 3000\b/, 'trois secondes au plus, comme les rendus')
-  // Une image paresseuse hors de l'écran ne se charge pas : son decode() aurait fait attendre les trois secondes à chaque photo.
-  assert.match(corps, /loading !== 'lazy'/)
+})
+
+/** Une fausse `<img>` : sa place sous le haut de l'écran, sa façon de se charger, et ce que lui demande la photo. */
+function fausseImage(haut: number, o: { paresseuse?: boolean; jamais?: boolean; cassee?: boolean } = {}) {
+  const image = {
+    loading: o.paresseuse ? 'lazy' : 'auto',
+    decodages: 0,
+    getBoundingClientRect: () => ({ top: haut, bottom: haut + 100, left: 0, right: 100 }),
+    decode(): Promise<void> {
+      image.decodages++
+      // Loin sous l'écran, Chromium ne demande jamais une image paresseuse : son decode() attend pour rien
+      // (mesuré sur Chromium, une image à 9 000 px sous un écran de 640 : jamais demandée, `complete` faux après la photo).
+      if (o.jamais || (image.loading === 'lazy' && haut > 2500)) return new Promise<void>(() => {})
+      return o.cassee ? Promise.reject(new Error('EncodingError')) : new Promise<void>(r => setTimeout(r, 5))
+    },
+  }
+  return image
+}
+/** Ce que dit la page après le script de l'attente : combien d'images la photo montrerait encore vides. */
+function attendreDans(images: ReturnType<typeof fausseImage>[], entiere: boolean, ms = 40): Promise<number> {
+  const page = new Function('document', 'innerHeight', 'innerWidth', `return ${attenteDesImages(entiere, ms)}`)
+  return page({ images }, 640, 360)
+}
+
+test('la photo attend les images qu’elle montre : la page entière, ses paresseuses comprises', async () => {
+  // La photo de la page entière (`capture --entiere`) montre le bas de la page : une image paresseuse loin sous l'écran
+  // n'y était ni demandée ni attendue, et sortait en case vide — le faux bug même que la Citrouille avait fait lire.
+  const ecran = { vue: fausseImage(100), dessous: fausseImage(3000), paresseuse: fausseImage(9000, { paresseuse: true }) }
+  assert.equal(await attendreDans(Object.values(ecran), false), 0, 'l’écran : tout ce qu’il montre est peint')
+  assert.equal(ecran.vue.decodages, 1, 'l’image à l’écran, attendue')
+  assert.equal(ecran.dessous.decodages, 0, 'une image hors de l’écran n’est pas sur sa photo : rien à attendre')
+  assert.equal(ecran.paresseuse.loading, 'lazy', 'la page de l’écran reste telle quelle')
+  const page = { vue: fausseImage(100), paresseuse: fausseImage(9000, { paresseuse: true }) }
+  assert.equal(await attendreDans(Object.values(page), true), 0, 'la page entière : la paresseuse aussi, demandée puis peinte')
+  assert.equal(page.paresseuse.loading, 'eager', 'demandée tout de suite, comme si l’invité avait défilé')
+  assert.equal(page.paresseuse.decodages, 1)
+  // Ce qui reste vide au bout de l'attente, la sortie le compte : ce vide-là vient du banc, pas de l'application.
+  assert.equal(await attendreDans([fausseImage(100, { jamais: true }), fausseImage(200)], false), 1, 'une image pas encore peinte')
+  assert.equal(await attendreDans([fausseImage(100, { cassee: true })], false), 0, 'une image cassée ne retient pas la photo : elle est à l’application')
+  assert.equal(imagesPasPretes(0), '', 'rien à dire')
+  assert.match(imagesPasPretes(1), /^⏳ Une image n’était pas encore peinte : [^\n]*vient du banc[^\n]*refais-la/)
+  assert.match(imagesPasPretes(3), /^⏳ 3 images n’étaient pas encore peintes/)
 })
 
 test('une lettre seule vise la touche de ce nom, jamais un nom qui la contient', () => {
@@ -555,6 +604,11 @@ test('le banc dit la marche par le vrai serveur : la vue reçue, puis le plan fi
     assert.deepEqual(lue, { partie: v.id, maintenant: v.maintenant, tirage: 0, etape: 1, enJeu: true })
     assert.deepEqual(marchesASavoir(plan[lue.tirage!], lue.etape)?.marches, [t.q1.niveau])
     v = ok(await jouer(b, ophelie, v, { quoi: 'repondre', manche: 0, reponse: { pari: { choix: t.q1.bonne } } }), 'la première question')
+    // Au choix, entre « Juste ! » et « Parier » : la marche du pari y dirait s'il vaut la peine. Toujours celle de la première.
+    lue = partieDeLaReponse(v)!
+    assert.equal(lue.etape, 1, 'au choix, toujours la première question')
+    assert.equal(lue.enJeu, true)
+    assert.deepEqual(marchesASavoir(plan[lue.tirage!], lue.etape)?.marches, [t.q1.niveau])
     v = ok(await jouer(b, ophelie, v, { quoi: 'parier', manche: 0 }), 'parier')
     lue = partieDeLaReponse(v)!
     assert.equal(lue.etape, 2, 'la question du pari')
@@ -585,6 +639,9 @@ test('la régie branche la marche : la vue retenue à chaque réponse, la ligne 
   assert.match(fonctionDe('entete'), /await marcheDuDe\(o\)/, 'la ligne en tête de chaque sortie')
   const marche = fonctionDe('marcheDuDe')
   assert.match(marche, /startsWith\('\/cabinet'\)/, 'sur la page du Cabinet seulement')
+  // Pendant une manche seulement : révélée, la partie dirait la marche d'une manche finie ; avant la première, il n'y en a pas.
+  assert.match(marche, /!v\.enJeu\b/, 'une manche en jeu')
+  assert.match(marche, /v\.tirage === null/, 'un contenu au plan')
   assert.match(marche, /marchesASavoir\(/)
   assert.match(marche, /ligneDeLaMarche\(/)
   // Le plan figé, relu comme le serveur le relit : par `lireLeDepart`, à la ligne de la partie.

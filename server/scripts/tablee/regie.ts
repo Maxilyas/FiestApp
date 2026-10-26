@@ -49,6 +49,8 @@ import { sansAccent } from '../../../shared/homonymes'
 import { lireLeDepart } from '../../../shared/cabinet/lecture'
 import type { ContenuTire } from '../../../shared/cabinet/jeux/index'
 import {
+  attenteDesImages,
+  imagesPasPretes,
   lancerLeDe,
   ligneDeLaMarche,
   lireLeDe,
@@ -798,27 +800,19 @@ async function stabiliser(page: Page, maxMs = 2500) {
 const ATTENTE_DES_IMAGES_MS = 3000
 
 /**
- * Avant une photo : les polices, puis le décodage des images, trois secondes
- * au plus. La tablée du 26 octobre 2026 a vu la Citrouille en disque irisé
- * vide au bilan, chez trois personnages : la page entière photographiée sans
- * défiler pendant que six onglets tournaient, l'image hors de l'écran pas
- * encore décodée — ce décodage est asynchrone (`Legendaire.tsx`). Défilée,
- * elle était peinte. Une image paresseuse hors de l'écran ne se charge pas :
- * son `decode()` ferait attendre les trois secondes à chaque photo, pour une
- * image qu'aucune ne montrerait.
+ * Avant une photo : les polices, puis les images qu'elle montrera
+ * (`attenteDesImages` : toutes, paresseuses comprises, pour la page entière),
+ * trois secondes au plus. La tablée du 26 octobre 2026 a vu la Citrouille en
+ * disque irisé vide au bilan, chez trois personnages : la page entière
+ * photographiée sans défiler pendant que six onglets tournaient, l'image hors
+ * de l'écran pas encore décodée — ce décodage est asynchrone
+ * (`Legendaire.tsx`). Défilée, elle était peinte. Rend le nombre d'images
+ * encore vides, que la sortie dit (`imagesPasPretes`) : un vide qui vient du
+ * banc ne se lit plus comme un bug.
  */
-async function attendreSesImages(page: Page) {
+async function attendreSesImages(page: Page, entiere: boolean): Promise<number> {
   await page.evaluate('document.fonts.ready.then(() => true)').catch(() => {})
-  await page
-    .evaluate(
-      `Promise.race([
-        Promise.all([...document.images]
-          .filter(i => i.complete || i.loading !== 'lazy' || (b => b.bottom > 0 && b.top < innerHeight)(i.getBoundingClientRect()))
-          .map(i => i.decode().catch(() => {}))),
-        new Promise(r => setTimeout(r, ${ATTENTE_DES_IMAGES_MS})),
-      ]).then(() => true)`,
-    )
-    .catch(() => {})
+  return page.evaluate(attenteDesImages(entiere, ATTENTE_DES_IMAGES_MS)).catch(() => 0)
 }
 
 /** Ce qu'affiche la page : ses éléments et leurs références, comme les lit un lecteur d'écran. */
@@ -1281,9 +1275,9 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const nom = (args.find(a => !a.startsWith('--')) ?? 'ecran').replace(/[^\w-]+/g, '-').slice(0, 40)
       const fichier = path.join(DOSSIER, 'captures', qui, `${String(++p.captures).padStart(3, '0')}-${nom}.png`)
       mkdirSync(path.dirname(fichier), { recursive: true })
-      await attendreSesImages(page)
+      const pasPretes = imagesPasPretes(await attendreSesImages(page, entiere))
       await page.screenshot({ path: fichier, fullPage: entiere, scale: 'css' })
-      return `${await entete(p, o)}\n📸 ${fichier}\n   (regarde-la avec l'outil Read)`
+      return `${await entete(p, o)}\n📸 ${fichier}\n   (regarde-la avec l'outil Read)${pasPretes ? `\n${pasPretes}` : ''}`
     }
 
     case 'ouvrir': {
@@ -1604,8 +1598,10 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       if (args.includes('--capture')) {
         const fichier = path.join(DOSSIER, 'captures', qui, `${String(++p.captures).padStart(3, '0')}-tele.png`)
         mkdirSync(path.dirname(fichier), { recursive: true })
+        // L'écran commun porte lui aussi des images peintes — les avatars, les légendaires décodés à part : sa photo les attend.
+        const pasPretes = imagesPasPretes(await attendreSesImages(tv.o.page, false))
         await tv.o.page.screenshot({ path: fichier, scale: 'css' })
-        photo = `\n📸 ${fichier}\n   (regarde-la avec l'outil Read)`
+        photo = `\n📸 ${fichier}\n   (regarde-la avec l'outil Read)${pasPretes ? `\n${pasPretes}` : ''}`
       }
       return `${await entete(p, o)}\n📺 Tu lèves les yeux vers l'écran commun :${photo}\n\n${await texteVisible(tv.o.page)}`
     }

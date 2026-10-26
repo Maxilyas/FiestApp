@@ -1,7 +1,8 @@
 // Ce que la régie lit sans navigateur — les arguments d'un geste, la vue d'une
 // partie du Cabinet que la page reçoit, la marche de ce qu'il faut savoir au
-// plan figé : de quoi l'éprouver (`server/test/tablee.test.ts`) — `regie.ts`
-// démarre un serveur et un Chromium dès son import. Chaque geste se dit aussi
+// plan figé — et le script qui fait attendre une photo : de quoi l'éprouver
+// (`server/test/tablee.test.ts`) — `regie.ts` démarre un serveur et un
+// Chromium dès son import. Chaque geste se dit aussi
 // dans l'aide du pilote (`pilote.mjs`) et dans les consignes qui l'emploient
 // (règle `tablee.md`).
 import { randomInt } from 'node:crypto'
@@ -96,6 +97,45 @@ export function pointVise(boite: { width: number; height: number }, v: Visee): {
  * d'un coup, ce qu'aucun téléphone ne fait.
  */
 export const UN_CURSEUR_NE_SE_TAPE_PAS = 'Un curseur ne se tape pas : touche-le où tu veux, --a 30%'
+
+/**
+ * Ce que la page évalue avant une photo (`capture`, `tele --capture`) : le
+ * décodage de chaque image que la photo montrera, `ms` au plus — le décodage
+ * d'une image qu'on ne voit pas est asynchrone, et la Citrouille sortait en
+ * disque vide —, puis combien n'en sont toujours pas peintes. La photo de
+ * l'écran n'attend que ce qui y paraît. Celle de la page entière en montre le
+ * bas : elle passe d'abord les images paresseuses en « eager », sans quoi
+ * Chromium ne demande jamais celles qui sont loin sous l'écran — une case vide
+ * sur la photo, et leur `decode()` attendait les `ms` pour rien (mesuré sur
+ * Chromium, une image à 9 000 px sous un écran de 640). Une image cassée ne
+ * retient pas la photo : ce qu'elle montre est à l'application. Une chaîne,
+ * comme les autres scripts de la régie : l'épreuve l'évalue telle quelle, sur
+ * de fausses images.
+ */
+export function attenteDesImages(entiere: boolean, ms: number): string {
+  return `(async () => {
+    const entiere = ${entiere}
+    const montrees = [...document.images].filter(i => entiere || (b => b.bottom > 0 && b.top < innerHeight && b.right > 0 && b.left < innerWidth)(i.getBoundingClientRect()))
+    if (entiere) for (const i of montrees) if (i.loading === 'lazy') i.loading = 'eager'
+    let pasPretes = montrees.length
+    await Promise.race([
+      Promise.all(montrees.map(i => i.decode().catch(() => {}).then(() => { pasPretes-- }))),
+      new Promise(r => setTimeout(r, ${ms})),
+    ])
+    return pasPretes
+  })()`
+}
+
+/**
+ * La ligne qui suit une photo prise avant certaines de ses images, vide s'il
+ * n'y en a pas : sous six onglets qui tournent, trois secondes ne suffisent
+ * pas toujours, et un vide sur la photo se lisait comme un bug de l'application.
+ */
+export function imagesPasPretes(n: number): string {
+  if (n <= 0) return ''
+  const combien = n === 1 ? 'Une image n’était pas encore peinte' : `${n} images n’étaient pas encore peintes`
+  return `⏳ ${combien} : une case vide sur la photo vient du banc, pas de l’application — refais-la dans un instant.`
+}
 
 /**
  * Les dés lancés d'un geste, au plus : de quoi tirer d'avance toute une partie

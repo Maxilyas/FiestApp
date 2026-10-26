@@ -16,7 +16,7 @@ Pour faire jouer une soirée par des agents, suis la skill `tablee`.
 ## Les fichiers
 
 - `server/scripts/tablee/regie.ts` · `pilote.mjs` — la tablée : un serveur jetable, un Chromium, et les gestes des agents qui y jouent une soirée — ou plusieurs à la fois, un salon par animateur (`chez <animateur>`) — la marche à suivre, les personnages, les experts et leurs consignes dans `.claude/skills/tablee/` (`/tablee`), l'agent des personnages dans `.claude/agents/convive.md`
-- `server/scripts/tablee/gestes.ts` — ce que la régie lit sans navigateur : où toucher (`lireLeToucher`, `pointVise`), le nom que vise une lettre seule (`nomDUnSigneSeul`), le refus d'écrire dans un curseur (`UN_CURSEUR_NE_SE_TAPE_PAS`), le dé (`lireLeDe`, `lancerLeDe` : sa sortie et ce que le journal en garde), la partie du Cabinet que la page reçoit (`partieDeLaReponse`, `retenirLaPartie`) et la marche de ce qu'il faut savoir dans sa manche (`marchesASavoir`, `ligneDeLaMarche`) · `server/test/tablee.test.ts` — eux, leurs branchements dans la régie, la marche lue par le vrai serveur, la chronologie des dés, et chaque geste de la régie dit dans l'aide du pilote et dans les consignes ; les personnages du Cabinet, leurs domaines d'ignorance, et les seuils du dé recalculés du modèle du calibrage — ceux des consignes au joueur « tablée », ceux d'Ophélie à l'occasionnel
+- `server/scripts/tablee/gestes.ts` — ce que la régie lit sans navigateur : où toucher (`lireLeToucher`, `pointVise`), le nom que vise une lettre seule (`nomDUnSigneSeul`), le refus d'écrire dans un curseur (`UN_CURSEUR_NE_SE_TAPE_PAS`), le script qui fait attendre une photo et ce qu'elle dit des images encore vides (`attenteDesImages`, `imagesPasPretes`), le dé (`lireLeDe`, `lancerLeDe` : sa sortie et ce que le journal en garde), la partie du Cabinet que la page reçoit (`partieDeLaReponse`, `retenirLaPartie`) et la marche de ce qu'il faut savoir dans sa manche (`marchesASavoir`, `ligneDeLaMarche`) · `server/test/tablee.test.ts` — eux, leurs branchements dans la régie, la marche lue par le vrai serveur, la chronologie des dés, et chaque geste de la régie dit dans l'aide du pilote et dans les consignes ; les personnages du Cabinet, leurs domaines d'ignorance, et les seuils du dé recalculés du modèle du calibrage — ceux des consignes au joueur « tablée », ceux d'Ophélie à l'occasionnel
 - `server/scripts/tablee/chronologie.mjs` — le journal d'une tablée en une page, les dés de chacun compris ; sans argument, celle que désigne `export/tablee/courante.json` : une seconde régie (`--fiche`) se lit en lui donnant son dossier
 
 ## Les pièges
@@ -60,13 +60,17 @@ Pour faire jouer une soirée par des agents, suis la skill `tablee`.
   tablée du 26 octobre 2026). Une lettre ou un chiffre vise son nom, ou lui
   suivi d'une virgule ; un emoji garde la recherche d'avant — l'avatar 🦊
   s'appelle « Avatar 🦊 ».
-- **Une photo attend ses polices et ses images** (`attendreSesImages`, trois
+- **Une photo attend ses polices et les images qu'elle montre** (`capture`
+  et `tele --capture` : `attendreSesImages`, `attenteDesImages`, trois
   secondes au plus, `ATTENTE_DES_IMAGES_MS`, comme les rendus) : le décodage
   d'une image hors de l'écran est asynchrone, et la page entière
   photographiée sans défiler montrait la Citrouille en disque irisé vide au
-  bilan, chez trois personnages. Une image paresseuse hors de l'écran ne se
-  charge pas : elle ne s'attend pas, sans quoi chaque photo d'une page qui en
-  a (les portes du musée) paierait les trois secondes.
+  bilan, chez trois personnages. La photo de l'écran n'attend que ce qui y
+  paraît ; celle de la page entière (`--entiere`) passe d'abord les images
+  paresseuses en « eager » : loin sous l'écran, Chromium ne les demande
+  jamais — une case vide sur la photo — et leur `decode()` attendait les
+  trois secondes pour rien. Ce qui n'est toujours pas peint, la sortie le
+  compte (`imagesPasPretes`, « vient du banc ») : on refait la photo.
 - **Un agent sait tout** : la tablée du Cabinet a fini 24 parties sur 47 à
   9 sur 9 (le diapason de John Shore, Pelé au premier indice). Chaque fiche
   du Cabinet dit ce que son personnage ignore, dans les mots des catégories
