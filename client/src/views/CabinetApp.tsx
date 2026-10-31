@@ -9,9 +9,10 @@ import { porterNiche } from '../niche'
 import { retenirLeNiveau } from '../niveauVu'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
+import { titreDePage } from '../titres'
 import { arreterLEcho } from '../toucher'
 import type { PageDeLaTraversee } from '../../../shared/cabinet/vues'
-import { effacerLaMarqueAuChargement, partieDansLEntree, poserLEntreeDeLaPartie, quitterVersLeMusee } from './cabinet/ecrans'
+import { partieARouvrir, partieDansLEntree, poserLEntreeDeLaPartie, quitterVersLeMusee } from './cabinet/ecrans'
 import { Partie, ecranDuJeu } from './cabinet/Partie'
 import { retenirLeProfil } from './cabinet/retenu'
 import { ReglesDeLaTraversee, Traversee } from './cabinet/Traversee'
@@ -84,8 +85,6 @@ export function CabinetApp() {
     // Demandée d'emblée, à l'adresse même que la page servie a préchargée (`DEPART.cabinet`), pour tout visiteur.
     const premiere = api.cabinet.traversee()
     premiere.catch(() => {})
-    // Rechargée sur l'entrée d'une épreuve, la page la rouvre d'elle-même : la marque d'avant ne vaut plus rien.
-    effacerLaMarqueAuChargement(window.history)
     let vivant = true
     ;(async () => {
       try {
@@ -102,7 +101,17 @@ export function CabinetApp() {
       } catch {
         // Sans le profil léger, la traversée s'ouvre quand même : le thème attendra.
       }
-      if (vivant) lirePage(premiere)
+      // Rechargée sur l'entrée d'une épreuve, la page décide à sa première page reçue : l'épreuve qui se rouvre garde son entrée,
+      // toujours marquée, que le retour du navigateur consomme comme avant ; sans épreuve, la marque s'efface (`partieARouvrir`).
+      // Effacée d'office au montage, la page en reposait une par-dessus à chaque rechargement, et le deuxième retour tombait dans
+      // une entrée morte.
+      if (vivant)
+        lirePage(
+          premiere.then(p => {
+            partieARouvrir(window.history, p.traversee?.partie ?? null)
+            return p
+          }),
+        )
     })()
     return () => {
       vivant = false
@@ -164,8 +173,9 @@ export function CabinetApp() {
     if (idMontree) rendreLeFocus(document.querySelector('.cab-page'), ['.cab-question', 'h2', 'h1'])
   }, [cleDEcran, etat.e, idMontree])
 
+  // De l'épreuve à la carte, l'onglet reprend le titre de la page, tel que `main.tsx` le pose au chargement : « · FiestApp » compris.
   useEffect(() => {
-    if (!idMontree && etat.e === 'pret') document.title = 'Le Cabinet de curiosités'
+    if (!idMontree && etat.e === 'pret') document.title = titreDePage('cabinet')
   }, [idMontree, etat.e])
 
   /** Une traversée neuve : sa carte et ses trois gardiens. */

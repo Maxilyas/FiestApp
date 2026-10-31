@@ -714,9 +714,11 @@ export const api = {
     devoilement: lireLeDevoilement,
   },
   /**
-   * Le Cabinet de curiosités (`shared/cabinet/vues.ts`) : sa page, préchargée
-   * avec `/cabinet` ; commencer une partie, un geste à son rang, une partie
-   * relue (« Mes réponses ») ; une œuvre et son cartel ; tes murs ; l'achat, la dorure,
+   * Le Cabinet de curiosités (`shared/cabinet/vues.ts`) : sa traversée,
+   * préchargée avec `/cabinet` (`DEPART.cabinet`), un départ, un geste de la
+   * traversée à son rang ; un geste d'une partie à son rang, une partie relue
+   * (« Mes réponses ») — et, du musée d'avant la traversée, que le serveur sert
+   * encore : sa page, une œuvre et son cartel, tes murs, l'achat, la dorure,
    * l'échange d'un jeu de la visite, qui rendent la page du musée d'après.
    * Chaque réponse qui porte `maintenant` remesure l'heure du serveur : ses
    * manches ont de vrais chronos (invariant 6). Un achat ou une dorure portent
