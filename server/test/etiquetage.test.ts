@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { demarrer, ecrire, type Banc } from './banc'
 import { consigneDEtiquetage } from '../src/core/etiquetage'
-import { ceQueDisentLesJoueurs, consigneDuJour } from '../src/core/consigne'
+import { EXEMPLES_MESURES, ceQueDisentLesJoueurs, consigneDuJour, exemplesEtales } from '../src/core/consigne'
 import { ETIQUETTES, SOUS_THEMES, lireEtiquetage } from '../../shared/etiquettes'
 import { CATEGORIES } from '../../shared/categories'
 
@@ -78,14 +78,37 @@ test('ce que rend l’IA se relit au catalogue : une clé inconnue refuse l’en
 
 test('la consigne du quiz du jour dit ce que disent les joueurs — et alerte quand c’est trop facile', () => {
   assert.equal(ceQueDisentLesJoueurs({ facile: 3, moyen: 2, difficile: 1, expert: 0 }), null, 'six questions mesurées ne disent rien')
-  const trop = ceQueDisentLesJoueurs({ facile: 30, moyen: 15, difficile: 4, expert: 1 })!
+  const trop = ceQueDisentLesJoueurs({ facile: 30, moyen: 15, difficile: 4, expert: 1, part: 0.8 })!
   assert.match(trop, /sur les 50 dernières questions posées, mesurées sur leurs réponses : 30 faciles .* 15 moyennes, 5 difficiles/)
-  assert.match(trop, /C’est trop facile/)
-  assert.doesNotMatch(ceQueDisentLesJoueurs({ facile: 12, moyen: 25, difficile: 10, expert: 3 })!, /trop facile/)
+  assert.match(trop, /en moyenne, 80 % des joueurs trouvent la bonne réponse\. La cible : de 60 % à 75 %/)
+  assert.match(trop, /C’est trop facile : écris un peu plus difficile — un peu seulement/)
+  assert.doesNotMatch(trop, /plus difficile que tu ne le crois/, 'pousser fort a fait un lot à 48 % le 11 octobre 2026')
+  assert.match(trop, /corrige d’un pas, jamais d’un bond/)
+  const bon = ceQueDisentLesJoueurs({ facile: 25, moyen: 20, difficile: 5, expert: 0, part: 0.68 })!
+  assert.match(bon, /C’est le bon niveau/)
+  assert.doesNotMatch(bon, /trop facile|trop difficile/)
+  // Sans la part, elle s'estime sur les niveaux.
+  assert.match(ceQueDisentLesJoueurs({ facile: 50, moyen: 0, difficile: 0, expert: 0 })!, /85 % .*trop facile/)
   const consigne = consigneDuJour({ n: 40, aPrivilegier: [], deja: [], mesure: { facile: 30, moyen: 15, difficile: 4, expert: 1 } })
   assert.ok(consigne.indexOf('CE QUE DISENT LES JOUEURS') > consigne.indexOf('CE QUI FAIT UNE BONNE QUESTION'))
   assert.ok(consigne.indexOf('CE QUE DISENT LES JOUEURS') < consigne.indexOf('LE FORMAT'))
   assert.doesNotMatch(consigneDuJour({ n: 40, aPrivilegier: [], deja: [] }), /CE QUE DISENT LES JOUEURS/)
+})
+
+test('la consigne dit aussi quand c’est trop difficile, questions mesurées à l’appui', () => {
+  // Fin octobre 2026 : les questions trouvées à 48 % faisaient des parties
+  // de 850 points, et la consigne ne savait dire que « trop facile ».
+  const questions = Array.from({ length: 20 }, (_, i) => ({ texte: `Question ${i}`, part: i / 20 }))
+  const dur = ceQueDisentLesJoueurs({ facile: 4, moyen: 8, difficile: 4, expert: 4, part: 0.48, questions })!
+  assert.match(dur, /48 % des joueurs/)
+  assert.match(dur, /C’est trop difficile : .*Écris plus facile que tu ne le crois/)
+  assert.doesNotMatch(dur, /trop facile/)
+  // Une échelle de la plus dure à la plus facile, pas les vingt.
+  const montrees = dur.split('\n').filter(l => l.startsWith('- Question'))
+  assert.equal(montrees.length, EXEMPLES_MESURES)
+  assert.equal(montrees[0], '- Question 0 — 0 %')
+  assert.equal(montrees.at(-1), '- Question 19 — 95 %')
+  assert.deepEqual(exemplesEtales(questions.slice(0, 3)).map(q => q.texte), ['Question 0', 'Question 1', 'Question 2'])
 })
 
 // ── Sur un vrai serveur ────────────────────────────────────────────────────

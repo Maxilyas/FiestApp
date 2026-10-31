@@ -16,6 +16,19 @@ paths:
 
 ## Les pièges
 
+- **Le retour des joueurs arrive avec trois semaines de retard** : la
+  réserve a `JOURS_VISES` d'avance, la mesure (`ceQueDisentLesJoueurs`)
+  porte sur des questions écrites bien avant, et le lot qui corrige attend
+  encore derrière quand elle se relit. Elle ne disait que « trop facile »,
+  et fort : le lot du 11 octobre 2026 a été trouvé à 48 % (75 % avant), les
+  parties sont tombées de 1500 à 850 points du 27 au 31 octobre. Elle juge
+  donc la part moyenne face à `PART_VISEE`, dans les deux sens, d'un pas, et
+  montre des questions mesurées pour étalon. Pour mesurer la production :
+  `PROD_LECTURE_URL` / `PROD_LECTURE_TOKEN` (lecture seule), `jour_parties`
+  (points, justes par jour) et `jour_reponses` rapportées aux `reserveId`
+  de `jour_tirages` ; la date d'ajout (`jour_reserve.ajoutee_le`) dit le
+  passage de la routine qui a écrit chaque question.
+
 - **La consigne du quiz du jour ne promet rien que la réserve refuse.**
   Elle décrit le format de « Coller une liste » réduit à ce que
   `raisonDEcarter` accepte, et son exemple se relit dans

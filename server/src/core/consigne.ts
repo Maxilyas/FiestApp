@@ -53,18 +53,36 @@ export function categoriesAPrivilegier(parCategorie: Readonly<Record<string, num
 }
 
 /**
+ * La part de bonnes réponses qu'on vise, question par question, en moyenne
+ * sur la salle. Le 31 octobre 2026 : la production voulait des parties
+ * « entre 1000 et 1600 points la plupart du temps ». Une bonne réponse y
+ * rapporte environ 190 points (le choix et sa rapidité, `games/quiz.ts`) :
+ * de cinq à huit sur dix, deux sur trois en moyenne. Mesuré en production :
+ * les questions trouvées à 76 % donnaient des parties de 1500 points, celles
+ * trouvées à 48 % des parties de 850.
+ */
+export const PART_VISEE = { min: 0.6, max: 0.75 } as const
+
+/**
  * La difficulté, en nombres. « Un quart de faciles, un quart de
  * difficiles » ne tenait pas : cinquante questions écrites par cette
  * consigne puis étiquetées (le 3 octobre 2026) comptaient trente-deux
  * faciles pour quatre difficiles. Les nombres, à l'essai suivant, n'ont
  * guère fait mieux (trente-sept faciles, quatre difficiles) : une IA qui
  * écrit sans retour juge facile ce qu'elle sait. La cible reste dite en
- * nombres, parce qu'elle se teste ; ce qui la fera tenir, c'est la
+ * nombres, parce qu'elle se teste ; ce qui la fait tenir, c'est la
  * difficulté mesurée sur les réponses des joueurs, rendue à la consigne.
+ *
+ * Un quart, une moitié, un quart visait une moitié de bonnes réponses —
+ * mille points, le bas de la cible —, et la moindre dérive vers le
+ * difficile tombait dessous (fin octobre 2026). Près de la moitié de
+ * faciles, un peu plus d'une difficile sur dix : deux bonnes réponses sur
+ * trois (`PART_VISEE`), aux parts que la salle donne à chaque niveau.
  */
 export function repartitionDesDifficultes(n: number): { faciles: number; moyennes: number; difficiles: number } {
-  const quart = Math.round(n / 4)
-  return { faciles: quart, moyennes: n - 2 * quart, difficiles: quart }
+  const faciles = Math.round(n * 0.45)
+  const difficiles = Math.min(n - faciles, Math.round(n * 0.15))
+  return { faciles, moyennes: n - faciles - difficiles, difficiles }
 }
 
 /**
@@ -77,22 +95,76 @@ const AUTRES_CATEGORIES_AU_MOINS = 4
 /** Sous ce nombre de questions mesurées, la consigne ne dit rien de ce que pensent les joueurs. */
 export const MESUREES_POUR_DIRE = 10
 
+/** Une question posée, et la part des joueurs qui l'ont trouvée. */
+export interface QuestionMesuree {
+  texte: string
+  part: number
+}
+
+/**
+ * La difficulté mesurée des dernières questions posées
+ * (`JourStore.difficultesRecentes`) : combien de chaque niveau, la part
+ * moyenne de bonnes réponses et les questions elles-mêmes.
+ */
+export interface MesureDesJoueurs extends Readonly<Record<Niveau, number>> {
+  /** La part moyenne de bonnes réponses, question par question ; à défaut, estimée sur les niveaux. */
+  part?: number
+  questions?: readonly QuestionMesuree[]
+}
+
+/** Ce qu'un niveau donne d'ordinaire, pour estimer une part quand on n'a que les niveaux. */
+const PART_D_UN_NIVEAU: Readonly<Record<Niveau, number>> = { facile: 0.85, moyen: 0.55, difficile: 0.3, expert: 0.1 }
+
+/** Combien de questions mesurées la consigne montre, pour que l'IA se règle sur la salle. */
+export const EXEMPLES_MESURES = 8
+
+/** Des questions étalées de la plus difficile à la plus facile : une échelle, pas un tas au même barreau. */
+export function exemplesEtales(questions: readonly QuestionMesuree[], n = EXEMPLES_MESURES): QuestionMesuree[] {
+  const triees = [...questions].sort((a, b) => a.part - b.part)
+  if (triees.length <= n) return triees
+  return Array.from({ length: n }, (_, i) => triees[Math.round((i * (triees.length - 1)) / (n - 1))])
+}
+
 /**
  * Ce que disent les réponses des joueurs aux dernières questions posées :
  * la difficulté qu'une IA qui écrit sans retour ne sait pas juger — elle
  * trouve facile ce qu'elle sait (`repartitionDesDifficultes`). Rendue à la
- * consigne, avec un avertissement quand les faciles débordent : la cible
- * en veut un quart.
+ * consigne, avec la part de bonnes réponses face à la cible (`PART_VISEE`),
+ * dans les deux sens, et des questions mesurées pour étalon.
+ *
+ * Elle ne disait que « trop facile », sur la seule part des faciles, et
+ * avec force (« Écris plus difficile que tu ne le crois ») : le 11 octobre
+ * 2026, la routine a écrit un lot que les joueurs ont trouvé à 48 %, contre
+ * 75 % avant, et les parties sont tombées de 1500 à 850 points quand il est
+ * sorti, seize jours plus tard. Car la réserve a trois semaines d'avance :
+ * la mesure porte sur des questions écrites bien avant, et le lot corrigé
+ * attend encore derrière quand elle se lit. Un retour qui ne sait que
+ * pousser, et pousse fort, oscille : d'où un pas, jamais un bond.
  */
-export function ceQueDisentLesJoueurs(mesure: Readonly<Record<Niveau, number>>): string | null {
+export function ceQueDisentLesJoueurs(mesure: MesureDesJoueurs): string | null {
   const total = mesure.facile + mesure.moyen + mesure.difficile + mesure.expert
   if (total < MESUREES_POUR_DIRE) return null
   const difficiles = mesure.difficile + mesure.expert
-  const trop = mesure.facile / total > 0.4
-  return (
-    `CE QUE DISENT LES JOUEURS — sur les ${total} dernières questions posées, mesurées sur leurs réponses : ${mesure.facile} faciles (plus de 70 % les trouvent), ${mesure.moyen} moyennes, ${difficiles} difficiles (moins de 40 %).` +
-    (trop ? ' C’est trop facile : ce qui te semble moyen, presque tous le trouvent. Écris plus difficile que tu ne le crois.' : '')
-  )
+  const part = mesure.part ?? (mesure.facile * PART_D_UN_NIVEAU.facile + mesure.moyen * PART_D_UN_NIVEAU.moyen + mesure.difficile * PART_D_UN_NIVEAU.difficile + mesure.expert * PART_D_UN_NIVEAU.expert) / total
+  const pourCent = (p: number) => `${Math.round(p * 100)} %`
+  const verdict =
+    part > PART_VISEE.max
+      ? 'C’est trop facile : écris un peu plus difficile — un peu seulement.'
+      : part < PART_VISEE.min
+        ? 'C’est trop difficile : ce qui te semble facile, une bonne part des joueurs ne le sait pas. Écris plus facile que tu ne le crois — des classiques qu’on est content de savoir.'
+        : 'C’est le bon niveau : garde-le.'
+  const lignes = [
+    `CE QUE DISENT LES JOUEURS — sur les ${total} dernières questions posées, mesurées sur leurs réponses : ${mesure.facile} faciles (plus de 70 % les trouvent), ${mesure.moyen} moyennes, ${difficiles} difficiles (moins de 40 %) ; en moyenne, ${pourCent(part)} des joueurs trouvent la bonne réponse. La cible : de ${pourCent(PART_VISEE.min)} à ${pourCent(PART_VISEE.max)}. ${verdict}`,
+    'Ces questions ont été écrites deux à trois semaines avant d’être posées, et celles qui attendent dans la réserve ont peut-être déjà corrigé le tir : corrige d’un pas, jamais d’un bond.',
+  ]
+  const exemples = exemplesEtales(mesure.questions ?? [])
+  if (exemples.length > 0) {
+    lignes.push(
+      'Pour te régler sur eux, la part qui a trouvé quelques-unes de ces questions :',
+      ...exemples.map(q => `- ${q.texte.replace(/\s+/g, ' ').trim()} — ${pourCent(q.part)}`),
+    )
+  }
+  return lignes.join('\n')
 }
 
 /**
@@ -134,7 +206,7 @@ export function consigneDuJour({
   aPrivilegier: readonly string[]
   deja: readonly string[]
   /** La difficulté mesurée des dernières questions posées (`JourStore.difficultesRecentes`). */
-  mesure?: Readonly<Record<Niveau, number>>
+  mesure?: MesureDesJoueurs
 }): string {
   const difficulte = repartitionDesDifficultes(n)
   const privilegiees = Math.ceil(n / 2)
@@ -149,7 +221,7 @@ export function consigneDuJour({
     '- Une seule bonne réponse, sans discussion possible. Au moindre doute sur un fait, change de question.',
     "- Quatre réponses courtes, de même nature et toutes plausibles. Jamais la réponse dans l'intitulé, jamais de négation (« Lequel n'est pas… »), ni « Aucune de ces réponses ».",
     '- Une anecdote vraie, en une phrase, qui apprend autre chose que la réponse.',
-    `- La difficulté, en nombres : ${difficulte.faciles} faciles, que presque tout le monde trouve (« Quel fleuve traverse Paris ? ») ; ${difficulte.moyennes} moyennes, qu'une personne sur deux trouve (« Quel peintre a peint La Nuit étoilée ? ») ; ${difficulte.difficiles} difficiles, qu'une sur quatre au plus trouve, sans être obscures : en lisant la réponse, on se dit « j'aurais pu le savoir » (« Dans quel pays se trouve le désert d'Atacama ? »). Les faciles viennent toutes seules : écris d'abord les difficiles.`,
+    `- La difficulté, en nombres : ${difficulte.faciles} faciles, que presque tout le monde trouve (« Quel fleuve traverse Paris ? ») ; ${difficulte.moyennes} moyennes, qu'une personne sur deux trouve (« Quel peintre a peint La Nuit étoilée ? ») ; ${difficulte.difficiles} difficiles, qu'une sur quatre au plus trouve, sans être obscures : en lisant la réponse, on se dit « j'aurais pu le savoir » (« Dans quel pays se trouve le désert d'Atacama ? »). Une facile n'est pas une question bête : c'est un classique qu'on est content de savoir, et c'est elle qui fait revenir le lendemain.`,
     '- Des sujets variés, de France et du monde : jamais deux questions sur le même sujet.',
     "- Pas d'emoji.",
     '',
