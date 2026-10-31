@@ -29,14 +29,13 @@ export const EXPEDITION_EN_PRODUCTION = true
 
 /**
  * L'Expédition a-t-elle laissé place au Cabinet de curiosités (sa refonte,
- * `retours/2026-10-24/le-cabinet.md`) ? À vrai, **son seul départ** se ferme,
- * partout — la production comme la préproduction : `POST /api/expedition` se
- * refuse en mots (`DEPART_FERME`, `shared/expedition.ts`), après « Ton
- * expédition t'attend », qui reste le premier mot pour qui en a une en route ;
- * sa page le dit et mène au Cabinet, l'accueil perd son bouton et l'album tait
- * sa voie (`voiesMontrees`). Ses autres routes servent toujours : une
- * expédition en route se finit à ses règles, ou s'abandonne, sans rien
- * reprendre. Le serveur le lit une fois à son démarrage
+ * `retours/2026-10-24/le-cabinet.md`) ? Vrai depuis le 31 octobre 2026, à la
+ * demande du propriétaire : « l'Expédition doit être effacée et plus
+ * accessible, uniquement le Cabinet visible ». Partout — la production comme
+ * la préproduction —, aucune de ses routes n'est montée (`server/src/api.ts`),
+ * `/expedition` mène au Cabinet, l'accueil perd son bouton et l'album tait sa
+ * voie (`voiesMontrees`). Une expédition en route ne se finit pas : ce
+ * qu'elle avait déjà donné (légendaires, luciole, trophées) reste. Le serveur le lit une fois à son démarrage
  * (`QuizServerOptions.expeditionRemplacee`), et le banc le garde ouvert à ses
  * tests (`server/test/banc.ts`) : sans quoi les fichiers qui partent en
  * expédition tomberaient le jour où il passe à vrai — à l'ouverture du
@@ -44,7 +43,7 @@ export const EXPEDITION_EN_PRODUCTION = true
  * pour toujours : à faux, toutes ses routes répondraient 404, et une
  * expédition en route serait bloquée à jamais.
  */
-export const EXPEDITION_REMPLACEE = false
+export const EXPEDITION_REMPLACEE = true
 
 /**
  * La voie de l'Expédition se dit-elle encore — dans l'album (`voiesMontrees`),

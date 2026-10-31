@@ -6,14 +6,13 @@
 // /api/cabinet/partie`), ses achats, ses dorures et son échange — jamais un
 // geste : une partie commencée se finit.
 //
-// Puis la fermeture de l'Expédition, prête (le lot C8) : sous son drapeau
-// (`EXPEDITION_REMPLACEE`, que l'option `expeditionRemplacee` du serveur force
-// au banc), son seul départ se refuse en mots — après « t'attend », qui reste
-// le premier mot pour qui en a une en route —, ses autres routes servent (une
-// expédition en route se finit), sa page le dit (`departFerme`) et mène au
-// Cabinet, l'accueil perd son bouton, l'album tait sa voie. Et ce que la
-// décision du propriétaire du 25 octobre 2026 — pas de migration — a retiré :
-// plus rien ne se rapporte de l'Expédition au Cabinet.
+// Puis l'effacement de l'Expédition (le choix du propriétaire du 31 octobre
+// 2026) : sous son drapeau (`EXPEDITION_REMPLACEE`, que l'option
+// `expeditionRemplacee` du serveur force au banc), aucune de ses routes ne
+// répond — 404 —, `/expedition` mène au Cabinet, la page du Cabinet ne dit plus
+// « Ton expédition t'attend », l'accueil perd son bouton, l'album tait sa voie.
+// Et ce que la décision du propriétaire du 25 octobre 2026 — pas de migration
+// — a retiré : plus rien ne se rapporte de l'Expédition au Cabinet.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -176,12 +175,11 @@ const posterAu = (banc: Banc, cookie: string, chemin: string, corps: unknown = {
 /** Le pas vers une question : le premier étage n'en pose que, et une source relirait le carnet. */
 const versUneQuestion = (v: VueDeLExpedition) => v.permises.find(id => v.carte?.escales.find(e => e.id === id)?.sorte === 'question') ?? v.permises[0]
 
-test('le banc garde le départ de l’Expédition ouvert à ses tests ; sans l’option, le serveur suit le drapeau du code', async () => {
-  // Les vingt-trois fichiers qui partent en expédition ne bougent pas le jour où le drapeau ferme le départ : le banc pose
-  // l'option à faux (`banc.ts`). Sans elle, ce que dit le drapeau — fermé à l'ouverture du Cabinet, partout.
-  // Tant que le drapeau du code est faux, les deux essais répondent pareil, et la garde du banc ne mordrait qu'à
-  // l'ouverture : elle se lit donc aussi dans son lancement — l'option à faux, avant les réglages de l'épreuve, qui
-  // gardent le dernier mot (celles d'ici la ferment, ou la rendent au drapeau).
+test('le banc garde l’Expédition à ses tests ; sans l’option, le serveur suit le drapeau du code', async () => {
+  // Les fichiers qui partent en expédition tournent encore : le banc pose l'option à faux (`banc.ts`). Sans elle, ce que
+  // dit le drapeau — effacée depuis le 31 octobre 2026 (le choix du propriétaire), partout : ses routes répondent 404.
+  // La garde du banc se lit aussi dans son lancement — l'option à faux, avant les réglages de l'épreuve, qui gardent le
+  // dernier mot (celles d'ici l'effacent, ou la rendent au drapeau).
   const lancement = readFileSync(new URL('./banc.ts', import.meta.url), 'utf8').match(/createQuizServer\(\{[^}]*\}\)/)?.[0] ?? ''
   assert.match(lancement, /expeditionRemplacee: false,[^}]*\.\.\.reglages \}\)$/, lancement)
   const essais: [string, Partial<QuizServerOptions>][] = [
@@ -192,91 +190,86 @@ test('le banc garde le départ de l’Expédition ouvert à ses tests ; sans l�
     const banc = await demarrer({ baseDeLaCampagne: baseDuCabinet(), ...reglages })
     try {
       const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
-      const ferme = quoi === 'le drapeau du code' && EXPEDITION_REMPLACEE
+      const effacee = quoi === 'le drapeau du code' && EXPEDITION_REMPLACEE
       const depart = await posterAu(banc, lea, '/api/expedition')
-      assert.equal(depart.status, ferme ? 400 : 200, quoi)
-      if (ferme) assert.equal(depart.corps.error, DEPART_FERME, quoi)
-      assert.equal((await lireDu(banc, lea, '/api/expedition')).corps.departFerme, ferme ? 'cabinet' : undefined, quoi)
+      assert.equal(depart.status, effacee ? 404 : 200, quoi)
+      const page = await lireDu(banc, lea, '/api/expedition')
+      assert.equal(page.status, effacee ? 404 : 200, quoi)
+      assert.equal(page.corps.departFerme, undefined, quoi)
     } finally {
       await banc.close()
     }
   }
 })
 
-test('remplacée, l’Expédition refuse son seul départ en mots — après « t’attend » —, et une expédition en route se finit', async () => {
-  const banc = await demarrer({ baseDeLaCampagne: baseDuCabinet(), horlogeDuJour: () => DIX_HEURES })
+test('effacée, l’Expédition ne répond plus : chacune de ses routes dit 404, et `/expedition` mène au Cabinet', async () => {
+  // Le choix du propriétaire du 31 octobre 2026 : « l'Expédition doit être effacée et plus accessible, uniquement le
+  // Cabinet visible ». Jusque-là, son seul départ se fermait et une expédition en route se finissait par ses autres
+  // routes ; désormais aucune n'est montée — une expédition en route ne se finit pas, ce qu'elle avait donné reste.
+  const dist = mkdtempSync(path.join(tmpdir(), 'quizz-dist-'))
+  writeFileSync(path.join(dist, 'index.html'), PAGE)
+  const banc = await demarrer({ baseDeLaCampagne: baseDuCabinet(), horlogeDuJour: () => DIX_HEURES, clientDist: dist })
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom')
-    // Ouverte : rien ne se dit d'un départ fermé, et Léa part.
-    assert.equal((await lireDu(banc, lea, '/api/expedition')).corps.departFerme, undefined)
+    // Gardée au banc : Léa part, et la page de l'Expédition se sert.
     const partie = await posterAu(banc, lea, '/api/expedition')
     assert.equal(partie.status, 200, partie.corps.error)
     const v: VueDeLExpedition = partie.corps
+    assert.equal((await fetch(`${banc.url}/expedition`, { redirect: 'manual' })).status, 200)
 
-    // La mise en ligne qui ferme le départ : le même disque, et le serveur relit son drapeau en démarrant.
+    // La mise en ligne qui l'efface : le même disque, et le serveur relit son drapeau en démarrant.
     await banc.redemarrer({ reglages: { expeditionRemplacee: true } })
 
-    // Qui en a une en route l'apprend d'abord : elle l'attend. Les autres, que l'Expédition a laissé place au Cabinet.
-    const deLea = await posterAu(banc, lea, '/api/expedition')
-    assert.deepEqual([deLea.status, deLea.corps.error], [400, 'Ton expédition t’attend : reprends-la, ou abandonne-la d’abord'])
-    const deTom = await posterAu(banc, tom, '/api/expedition')
-    assert.deepEqual([deTom.status, deTom.corps.error], [400, DEPART_FERME])
-    assert.match(DEPART_FERME, /Cabinet de curiosités/)
-
-    // La page garde sa forme, et le dit — à qui n'a rien en route comme à qui finit la sienne.
-    const pageDeTom: PageDeLExpedition = (await lireDu(banc, tom, '/api/expedition')).corps
-    assert.equal(pageDeTom.departFerme, 'cabinet')
-    assert.equal(pageDeTom.expedition, null)
-    assert.equal(pageDeTom.prochaine.gardiens.length, 3, 'la page garde sa forme')
-    const pageDeLea: PageDeLExpedition = (await lireDu(banc, lea, '/api/expedition')).corps
-    assert.equal(pageDeLea.departFerme, 'cabinet')
-    assert.equal(pageDeLea.expedition?.id, v.id)
-
-    // Ses autres routes servent : un pas, sa question, la réponse, l'abandon, puis « Mes réponses » par la série.
-    const pas = await posterAu(banc, lea, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers: versUneQuestion(v) } })
-    assert.equal(pas.status, 200, pas.corps.error)
-    const q = pas.corps.expedition.question
-    assert.ok(q, 'le premier étage pose une question')
-    const reponse = await posterAu(banc, lea, `/api/expedition/${v.id}/reponse`, { position: q.index, choix: 0 })
-    assert.equal(reponse.status, 200, reponse.corps.error)
-    const abandon = await posterAu(banc, lea, `/api/expedition/${v.id}/abandon`)
-    assert.equal(abandon.status, 200, abandon.corps.error)
-    assert.equal(abandon.corps.expedition.issue, 'abandonnee')
-    assert.equal((await lireDu(banc, lea, `/api/campagne/serie/${v.id}/correction`)).status, 200)
-
-    // Finie, plus rien ne l'attend : son départ se refuse comme aux autres.
-    const encore = await posterAu(banc, lea, '/api/expedition')
-    assert.deepEqual([encore.status, encore.corps.error], [400, DEPART_FERME])
-    const apres: PageDeLExpedition = (await lireDu(banc, lea, '/api/expedition')).corps
-    assert.deepEqual([apres.expedition, apres.departFerme], [null, 'cabinet'])
+    // Chacune de ses routes, à qui en a une en route comme aux autres : « introuvable », jamais « Connexion requise » —
+    // la porte des animateurs, plus bas, les aurait prises pour les siennes.
+    for (const [quoi, r] of [
+      ['le départ, de Léa', await posterAu(banc, lea, '/api/expedition')],
+      ['le départ, de Tom', await posterAu(banc, tom, '/api/expedition')],
+      ['la page', await lireDu(banc, lea, '/api/expedition')],
+      ['un pas', await posterAu(banc, lea, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers: versUneQuestion(v) } })],
+      ['une réponse', await posterAu(banc, lea, `/api/expedition/${v.id}/reponse`, { position: 0, choix: 0 })],
+      ['l’abandon', await posterAu(banc, lea, `/api/expedition/${v.id}/abandon`)],
+    ] as const) {
+      assert.deepEqual([r.status, r.corps.error], [404, 'Introuvable'], quoi)
+    }
+    // Son adresse, d'un favori ou d'un vieux lien, mène au Cabinet qui l'a remplacée.
+    for (const chemin of ['/expedition', '/expedition/']) {
+      const r = await fetch(`${banc.url}${chemin}`, { redirect: 'manual' })
+      assert.equal(r.status, 302, chemin)
+      assert.equal(r.headers.get('location'), '/cabinet', chemin)
+    }
+    assert.equal((await fetch(`${banc.url}/cabinet`, { redirect: 'manual' })).status, 200, 'le Cabinet se sert')
   } finally {
     await banc.close()
+    rmSync(dist, { recursive: true, force: true })
   }
 })
 
-test('la page du Cabinet suit l’expédition qui part et qui finit : « Ton expédition t’attend » ne mène pas à un départ fermé', async () => {
+test('la page du Cabinet suit l’expédition qui part et qui finit — effacée, elle n’en dit plus rien', async () => {
   // Le musée gardé en mémoire lit l'expédition en route au lot froid, une fois par réveil : sans rien qui le lui dise,
-  // une expédition finie laissait la ligne « Ton expédition t'attend : la finir » jusqu'au redémarrage — et, le départ
-  // fermé, elle menait à `/expedition`, qui renvoie au Cabinet : une boucle. La campagne le lui dit (`expeditionChange`),
-  // en mémoire, sous le verrou du profil, sans un aller-retour.
+  // une expédition finie laissait la ligne « Ton expédition t'attend : la finir » jusqu'au redémarrage. La campagne le
+  // lui dit (`expeditionChange`), en mémoire, sous le verrou du profil, sans un aller-retour. Effacée (le 31 octobre
+  // 2026), l'Expédition n'a plus de route ni de page : la ligne mènerait à `/expedition`, qui renvoie au Cabinet — une
+  // boucle. Elle se tait, l'expédition en route ou non (`ReglagesDuCabinet.expeditionEffacee`).
   const banc = await demarrer({ baseDeLaCampagne: baseDuCabinet(), horlogeDuJour: () => DIX_HEURES })
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
     const page = async () => ((await lireDu(banc, lea, '/api/cabinet')).corps as PageDuCabinet).expedition
     assert.equal(await page(), null, 'rien en route : le musée se garde')
-    // Partie (le départ encore ouvert) : la page chaude le sait aussitôt.
+    // Partie (gardée au banc) : la page chaude le sait aussitôt, et l'oublie quand elle finit.
     const partie = await posterAu(banc, lea, '/api/expedition')
     assert.equal(partie.status, 200, partie.corps.error)
     assert.equal(await page(), 'en-route', 'partie après la page : la mémoire le sait')
-
-    // La mise en ligne qui ferme le départ : relue à froid, elle l'attend toujours.
-    await banc.redemarrer({ reglages: { expeditionRemplacee: true } })
-    assert.equal(await page(), 'en-route')
     assert.equal((await posterAu(banc, lea, `/api/expedition/${partie.corps.id}/abandon`)).status, 200)
     assert.equal(await page(), null, 'finie, la ligne s’éteint — sans attendre le réveil suivant')
-    const expedition: PageDeLExpedition = (await lireDu(banc, lea, '/api/expedition')).corps
-    assert.deepEqual([expedition.expedition, expedition.departFerme], [null, 'cabinet'], 'la page de l’Expédition et celle du Cabinet disent la même chose')
+
+    // Une autre en route, puis la mise en ligne qui efface l'Expédition : relue à froid, la page n'en dit plus rien.
+    assert.equal((await posterAu(banc, lea, '/api/expedition')).status, 200)
+    assert.equal(await page(), 'en-route')
+    await banc.redemarrer({ reglages: { expeditionRemplacee: true } })
+    assert.equal(await page(), null, 'effacée : rien ne mène à une page qui n’existe plus')
+    assert.equal((await lireDu(banc, lea, '/api/expedition')).status, 404)
   } finally {
     await banc.close()
   }

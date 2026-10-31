@@ -119,7 +119,7 @@ test('l’accueil d’un profil n’a pas de carte « J’anime » : chacune de 
   assert.match(profil, /<pret\.PanneauSoirees profil=\{profil\} monEspace=\{espace\?\.slug\} \/>/)
 })
 
-test('l’accueil d’un profil : une soirée en cours d’abord, puis la campagne, le quiz du jour et le défi, les duels, l’expédition, le Cabinet, un salon, rejoindre — en gros boutons, à la même place', async () => {
+test('l’accueil d’un profil : une soirée en cours d’abord, puis la campagne, le quiz du jour et le défi, les duels, le Cabinet, un salon, rejoindre — en gros boutons, à la même place', async () => {
   const accueil = (props: object) =>
     rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
   const toujours = [
@@ -132,10 +132,9 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis la campag
     'Le défi de la semaineLa même série pour tous, jusqu’à dimanche → /campagne#defi',
     // Sous le quiz du jour (le souhait du propriétaire du 11 octobre 2026) : défier un joueur, sorti de la campagne.
     'Les duelsDéfie qui tu veux, ou Automate\u00a0: monte de ligue → /duels',
-    // Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) : sans eux, elle n'avait pas de bouton.
-    'L’ExpéditionTrois gardiens à vaincre, un légendaire au bout → /expedition',
-    // Le Cabinet de curiosités, là où le serveur l'ouvre (`cabinetIci`) — partout hors de la production, et un rendu de
-    // test n'a pas de balise qui le ferme. Il prendra la place de l'Expédition quand elle cédera la sienne.
+    // L'Expédition avait son bouton ici, avec ses jokers (le 17 octobre 2026) ; effacée le 31 octobre 2026, le Cabinet de
+    // curiosités prend sa place, là où le serveur l'ouvre (`cabinetIci`) — partout, et un rendu de test n'a pas de
+    // balise qui le ferme (`cabinet-ouverture.test.ts` éprouve l'accueil sous les deux drapeaux).
     'Le Cabinet de curiositésUn musée à remplir, des œuvres à gagner en jouant → /cabinet',
     'Créer un salonTu lances les quiz : tu joues, ou tu animes → /salon',
     'Rejoindre une soiréeAvec son code, ou le QR de l’hôte [bouton]',
@@ -147,7 +146,8 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis la campag
   assert.deepEqual(gestes(libre), toujours)
   assert.doesNotMatch(libre, /gros-principal/)
   // En deux sections nommées : seul, puis à plusieurs.
-  assert.match(libre, /<span class="label" id="jouer-seul">Seul<\/span>.*La campagne.*Le quiz du jour.*Les duels.*L’Expédition.*Le Cabinet de curiosités.*<span class="label" id="jouer-amis">Entre amis<\/span>.*Créer un salon/)
+  assert.match(libre, /<span class="label" id="jouer-seul">Seul<\/span>.*La campagne.*Le quiz du jour.*Les duels.*Le Cabinet de curiosités.*<span class="label" id="jouer-amis">Entre amis<\/span>.*Créer un salon/)
+  assert.doesNotMatch(libre, /L’Expédition|href="\/expedition"/)
   // Là où le serveur le ferme, pas de bouton : le reste ne bouge pas.
   assert.deepEqual(gestes(await accueil({ cabinet: false })), toujours.filter(g => !g.startsWith('Le Cabinet')))
 

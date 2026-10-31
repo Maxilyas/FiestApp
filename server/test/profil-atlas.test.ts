@@ -98,8 +98,9 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
     assert.equal(epique.filter(x => !x.aLui && x.nom === `${c.formes[2].nom}, épique, à gagner en boutique, puis à 300 bonnes réponses ${c.le === 'la' ? 'avec elle' : 'avec lui'}`).length, 1, c.key)
   }
   assert.ok(epique.some(x => x.nom === 'La tortue-bosquet, épique, à gagner en boutique, puis à 300 bonnes réponses avec elle'))
-  // La luciole ne s'achète pas : elle se gagne en expédition (le 20 octobre 2026).
-  assert.ok(epique.some(x => x.nom === 'La luciole des sentiers, épique, à gagner en expédition, puis à 300 bonnes réponses avec elle'))
+  // La luciole se gagnait en expédition (le 20 octobre 2026) ; l'Expédition effacée, elle s'achète comme les autres depuis
+  // le 31 octobre 2026 — la boucle du dessus la compte déjà, sa phrase se lit ici en entier.
+  assert.ok(epique.some(x => x.nom === 'La luciole des sentiers, épique, à gagner en boutique, puis à 300 bonnes réponses avec elle'))
   // Chaque gemme dit où il en est, en chiffres : la couleur seule ne se lit pas.
   // Les compagnons y ont aussi leur forme, une par page : quatre de plus — et
   // la métamorphose de chacun, légendaire.

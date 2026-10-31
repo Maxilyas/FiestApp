@@ -90,7 +90,7 @@ interface ApiDeps {
   rencontres: boolean
   /** La question au centre de l'expédition (v10) s'offre au départ sur ce serveur (`questionAuCentreOuverte`, calculé de même). */
   questionAuCentre: boolean
-  /** L'Expédition a laissé place au Cabinet : son seul départ fermé (`EXPEDITION_REMPLACEE`, lu de même — le banc le garde ouvert). */
+  /** L'Expédition a laissé place au Cabinet : effacée, aucune de ses routes (`EXPEDITION_REMPLACEE`, lu de même — le banc la garde). */
   expeditionRemplacee: boolean
   /** Le Cabinet de curiosités : son magasin, et s'il répond sur ce serveur (`cabinetOuvert`, calculé une fois au démarrage). */
   cabinet: { magasin: CabinetStore; ouvert: boolean }
@@ -162,9 +162,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // La campagne aussi : seul, avec son profil.
   mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
   // L'expédition, une partie de la campagne d'un autre mode : ouverte en production depuis ses jokers, tant que son drapeau l'ouvre.
-  // Ses rencontres sont le jeu partout depuis le 19 octobre 2026 — calculées une fois (`server.ts`). Le
-  // Cabinet venu, son seul départ se ferme (`remplacee`) : une expédition en route se finit par ses autres routes.
-  mountExpedition(app, {
+  // Ses rencontres sont le jeu partout depuis le 19 octobre 2026 — calculées une fois (`server.ts`).
+  // Remplacée par le Cabinet (`EXPEDITION_REMPLACEE`), l'Expédition n'a plus aucune route : effacée, pas seulement fermée au départ.
+  if (!deps.expeditionRemplacee) mountExpedition(app, {
     campagne: deps.campagne,
     profiles: deps.profiles,
     ouverte: expeditionOuverte({ online: deps.online, env: deps.qg.env }),
@@ -172,6 +172,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
     questionAuCentre: deps.questionAuCentre,
     remplacee: deps.expeditionRemplacee,
   })
+  // Effacée, ses adresses répondent « introuvable » à tous — sans cela, la porte des animateurs, plus bas, les prenait
+  // pour les siennes et répondait « Connexion requise » à un joueur connecté à son profil.
+  else app.use('/api/expedition', (_req, res) => res.status(404).json({ error: 'Introuvable' }))
   // Le Cabinet de curiosités, qu'on joue seul avec son profil : en préproduction d'abord, fermé en production tant que son drapeau le ferme.
   mountCabinet(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, ouvert: deps.cabinet.ouvert })
   // Ses missions du jour et le coffre de la semaine, de même.

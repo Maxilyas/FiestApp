@@ -365,20 +365,21 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   assert.ok(cases.slice(1).every(c => c.classes.includes('album-manque')))
   for (const nom of [
     'La Licorne Astrale, légendaire, à gagner en soirée ou au quiz du jour',
-    'La Chimère, légendaire, à gagner en soirée, au quiz du jour et en campagne, ou en expédition',
+    // L'Expédition effacée le 31 octobre 2026 (le choix du propriétaire) : sa voie se tait.
+    'La Chimère, légendaire, à gagner en soirée, au quiz du jour et en campagne',
     'La Citrouille, légendaire, à gagner pour Halloween',
     'L’Éléphant, légendaire, à gagner en campagne',
     'Le loup des étoiles, légendaire, à gagner en boutique, puis à 500 bonnes réponses avec lui',
     'Le loup-tempête, légendaire, à gagner en boutique, puis à 500 bonnes réponses avec lui et par l’Éclat',
-    // La luciole ne s'achète pas : sa voie part de l'expédition (le 20 octobre 2026).
-    'La luciole-constellation, légendaire, à gagner en expédition, puis à 500 bonnes réponses avec elle',
-    'La luciole-aurore, légendaire, à gagner en expédition, puis à 500 bonnes réponses avec elle et par l’Éclat',
+    // La luciole se gagnait en expédition (le 20 octobre 2026) ; elle s'achète comme les autres depuis le 31 octobre 2026.
+    'La luciole-constellation, légendaire, à gagner en boutique, puis à 500 bonnes réponses avec elle',
+    'La luciole-aurore, légendaire, à gagner en boutique, puis à 500 bonnes réponses avec elle et par l’Éclat',
   ])
     assert.ok(cases.some(c => c.nom === nom), nom)
-  // Une pastille sur chaque case qui reste, et leur légende sous la grille — l'expédition, depuis que la luciole y a sa pastille.
+  // Une pastille sur chaque case qui reste, et leur légende sous la grille — plus d'expédition : la luciole a celle de la boutique.
   assert.equal(html.match(/class="album-lieu"/g)?.length, cases.length - 1)
   const legende = [...html.slice(html.indexOf('album-legende')).matchAll(/<\/svg>([^<]+)<\/span>/g)].map(m => m[1])
-  assert.deepEqual(legende, ['en soirée', 'au quiz du jour', 'à sa saison', 'en campagne', 'sur les sentiers', 'en boutique', 'en expédition'])
+  assert.deepEqual(legende, ['en soirée', 'au quiz du jour', 'à sa saison', 'en campagne', 'sur les sentiers', 'en boutique'])
   // Aucune fiche avant le premier toucher ; rien ne s'y porte.
   assert.doesNotMatch(html, /id="fiche-avatar"|Le porter|aria-pressed/)
 
@@ -469,12 +470,13 @@ test('la fiche d’un avatar à gagner : ses voies — « ou » entre elles, « 
   ])
   assert.equal(licorne.match(/<span class="album-ou">ou<\/span>/g)?.length, 1)
   assert.match(licorne, /<a class="btn btn-small album-aller" href="\/jour">Jouer le quiz du jour<\/a>/)
-  // La Chimère : une voie de trois étapes à la fois — ou l'expédition, l'autre voie.
+  // La Chimère : une voie de trois étapes à la fois — l'expédition, l'autre voie, tue depuis son effacement (le 31 octobre 2026).
   const chimere = await fiche('lg:chimere')
   assert.equal(chimere.match(/<span class="album-et">et<\/span>/g)?.length, 2)
-  assert.equal(chimere.match(/<span class="album-ou">ou<\/span>/g)?.length, 1)
-  // Un légendaire des soirées — qu'on rejoint par leur code, sans écran où aller — a l'expédition, qui en est un.
-  assert.match(await fiche('lg:oracle'), /<a class="btn btn-small album-aller" href="\/expedition">Partir en expédition<\/a>/)
+  assert.equal(chimere.match(/<span class="album-ou">ou<\/span>/g), null)
+  // Un légendaire des soirées — qu'on rejoint par leur code, sans écran où aller — avait l'expédition, qui en était un ;
+  // effacée, le Cabinet fermé, rien où aller (ouvert, sa salle : `album-des-avatars.test.ts`).
+  assert.doesNotMatch(await fiche('lg:oracle'), /album-aller/)
   // Un légendaire de saison non plus : ses dates seules, sans jauge — le quiz du jour ne compte que pendant elles.
   const citrouille = await fiche('lg:citrouille')
   assert.match(citrouille, /Pour Halloween, du 25 octobre au 1er novembre/)

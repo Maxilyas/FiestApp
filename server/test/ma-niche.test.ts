@@ -244,10 +244,10 @@ test('sa fiche, une bulle : lui, le caresser, chez lui — rien à y régler ; s
   assert.match(uneForme, /Elle en prendra trois autres en grandissant/)
 })
 
-test('« Tes compagnons », chez lui : celui qui y vit, les autres à installer d’un toucher, puis ceux à adopter — leur prix, ou l’expédition', async () => {
+test('« Tes compagnons », chez lui : celui qui y vit, les autres à installer d’un toucher, puis ceux à adopter — leur prix', async () => {
   const { DESSINS } = await import(client('components/compagnons-peints.ts'))
-  // Le Cabinet fermé, en le disant : ouvert, la luciole s'y gagne (`album-des-avatars.test.ts`), et le jour où il ouvre
-  // en production, le drapeau du code ne doit pas faire rougir ce que la rangée dit sans lui.
+  // Le Cabinet fermé, en le disant : ouvert ou fermé, la rangée dit la même chose depuis que la luciole s'achète
+  // (le 31 octobre 2026, `album-des-avatars.test.ts`).
   const tes = (siens: object[], niche: object) => rendreChezLui('TesCompagnons', { siens, niche, busy: false, onInstaller: () => {}, onVoir: () => {}, cabinet: false })
   const deux = await tes(
     [
@@ -263,22 +263,24 @@ test('« Tes compagnons », chez lui : celui qui y vit, les autres à installer 
   assert.match(deux, /<span class="chez-ami-nom">Tortue-île<\/span>/)
   assert.ok(deux.includes(DESSINS['cp:loup-louveteau'].perso[0]), 'le loup, sous la forme qu’il montre')
   assert.ok(deux.includes(DESSINS['cp:tortue-jeune'].perso[0]))
-  // Les siens d'abord ; puis le chat, à son prix — sa fiche dans la galerie, où l'on adopte sur place —, et la luciole, qui se gagne.
+  // Les siens d'abord ; puis le chat, à son prix — sa fiche dans la galerie, où l'on adopte sur place —, et la luciole
+  // aussi : elle se gagnait en expédition, elle s'achète depuis le 31 octobre 2026, l'Expédition effacée.
   assert.match(deux, /aria-label="Le Chat des lanternes : 1000 confettis, voir comment l’avoir"/, 'le chat attend qu’on l’adopte')
-  assert.match(deux, /aria-label="La Luciole : se gagne en expédition"/)
+  assert.match(deux, /aria-label="La Luciole : 1000 confettis, voir comment l’avoir"/)
   assert.match(deux, /aria-label="Le Panda roux : 1000 confettis, voir comment l’avoir"/, 'le panda, le dernier venu, attend aussi')
   assert.ok(deux.indexOf('Tortue-île') < deux.indexOf('Chat des lanternes'), 'les siens d’abord')
-  const trois = await tes(
+  const tous = await tes(
     [
       { compagnon: 'loup', rang: 0, justes: 0 },
       { compagnon: 'chat', rang: 0, justes: 0 },
       { compagnon: 'tortue', rang: 0, justes: 0 },
+      { compagnon: 'luciole', rang: 0, justes: 0 },
       { compagnon: 'panda', rang: 0, justes: 0 },
     ],
     { compagnon: 'chat', rang: 0 },
   )
-  assert.doesNotMatch(trois, /confettis, voir comment/, 'tous adoptés : rien à acheter de plus')
-  assert.match(trois, /aria-pressed="true" aria-label="Le Chat des lanternes"/)
+  assert.doesNotMatch(tous, /confettis, voir comment/, 'tous adoptés : rien à acheter de plus')
+  assert.match(tous, /aria-pressed="true" aria-label="Le Chat des lanternes"/)
 })
 
 test('sa fiche dit ses envies du jour sans un reproche, et son cadeau quand il attend ; une caresse sur deux, un tour qu’il sait', async () => {

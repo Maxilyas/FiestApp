@@ -5,6 +5,8 @@
 **Dans cette page** : [En bref](#en-bref) · [Partir](#partir) · [Le plan d'un acte](#le-plan-dun-acte) · [Les escales](#les-escales) · [Les formes](#les-formes) · [Les jokers](#les-jokers) · [Les écus](#les-écus) · [Le passeport](#le-passeport) · [La saison des fêtes](#la-saison-des-fêtes) · [Le gardien](#le-gardien) · [La fin](#la-fin) · [Ce qu'elle paie](#ce-quelle-paie) · [Les rencontres](#les-rencontres) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
 
 > [!NOTE]
+> **Effacée le 31 octobre 2026** (le choix du propriétaire, `EXPEDITION_REMPLACEE`) : le [Cabinet de curiosités](le-cabinet.md) l'a remplacée ; aucune de ses routes ne répond plus, `/expedition` mène au Cabinet, et la luciole s'achète en boutique. Ce qu'elle a donné reste. Cette page dit le mode tel qu'il était.
+>
 > L'Expédition s'est construite en quatre étapes (le brief : `retours/2026-10-17/expedition.md`, validé par le propriétaire le 17 octobre 2026) : le plan et une expédition de bout en bout, les jokers, les formes de question, puis les écus — l'échoppe, l'inconnu, les talismans. **Elle est ouverte en production depuis ses jokers**, et l'accueil d'un profil y mène (« L’Expédition », sous les duels) ; l'accueil d'un invité anonyme ne change pas. Un prototype l'a changée en jeu de cartes, en préproduction d'abord, le 18 octobre 2026 ; depuis le 19, **les rencontres sont le jeu, partout** — « je pense que l'on part sur ça donc ne plus demander ça, c'est vraiment le jeu maintenant » : « [Les rencontres](#les-rencontres) ». Les jokers que cette page décrit d'abord ne vivent plus que dans les expéditions parties avant, et reviendraient si leur drapeau se refermait.
 
 ## En bref
@@ -115,7 +117,7 @@ Le gardien pose ses questions, toutes catégories, jusqu'à ce que tu en aies tr
 ## La fin
 
 - **Le troisième gardien vaincu**, les trois t'attendent : tu en gardes un, et c'est définitif. Le légendaire est à toi comme s'il l'avait été par sa première voie : il paraît dans ta collection, et se porte — et son joker part dans tes équipes suivantes. Les deux autres repartent sur les routes : tu les recroiseras.
-- **La Première traversée** : ta première expédition menée au bout amène aussi **la luciole**, le compagnon de l'Expédition, qui ne s'achète pas — offerte, une fois. Ta niche est vide : elle s'y installe ; un autre y vit : elle attend son tour dans « Tes compagnons », sur la page « Mon compagnon » ([la boutique](la-boutique.md), [le profil](le-profil.md)). Qui avait mené une expédition au bout avant elle l'a reçue au démarrage du 20 octobre 2026.
+- **La Première traversée** : ta première expédition menée au bout amène aussi **la luciole**, le compagnon de l'Expédition — offerte, une fois (elle s'achète en boutique depuis le 31 octobre 2026). Ta niche est vide : elle s'y installe ; un autre y vit : elle attend son tour dans « Tes compagnons », sur la page « Mon compagnon » ([la boutique](la-boutique.md), [le profil](le-profil.md)). Qui avait mené une expédition au bout avant elle l'a reçue au démarrage du 20 octobre 2026.
 - **Puis l'écran des gains**, le même qu'à la fin de chaque mode : le légendaire gardé, la luciole qui te rejoint, « Ce que tu gagnes », « Nouveaux trophées », « À porter » ; « Mes réponses » redonne chaque question, la bonne réponse et l'anecdote.
 - **Perdue ou abandonnée**, le même écran, sans légendaire : l'acte atteint, les gardiens vaincus, et le rappel que tes questions ratées reviendront à ton carnet.
 
