@@ -11,11 +11,10 @@
 // une de plus à sa forme ultime, sa métamorphose de lumière : elle ne remplace
 // rien, on la choisit (`Compagnon.lumiere`, le 19 octobre 2026).
 //
-// La luciole, elle, ne s'achète pas : elle rejoint qui mène une expédition au
-// bout, la Première traversée (`Compagnon.gagne`, le 20 octobre 2026) — ou,
-// depuis le 25 octobre 2026, qui complète une salle du Cabinet de curiosités
-// (`cheminDeLaLuciole`) —, et ne se montre que dans « Ma collection » — ni en
-// boutique, ni au coffre, ni « À la une » (`COMPAGNONS_DE_LA_BOUTIQUE`).
+// La luciole se gagnait au bout d'une expédition (la Première traversée, le 20
+// octobre 2026). L'Expédition effacée, elle s'achète à la boutique comme les
+// autres depuis le 31 octobre 2026 (le choix du propriétaire) — qui l'avait la
+// garde —, et rejoint encore qui complète sa première salle du Cabinet.
 //
 // Il vit dans sa niche, en haut de chaque page du téléphone (le choix du 18
 // octobre 2026, `retours/2026-10-16/compagnon/principe.md`), et c'est celui
@@ -68,9 +67,10 @@ export const NOM_D_UN_COMPAGNON_MAX = 16
 export type CleDeCompagnon = 'loup' | 'chat' | 'tortue' | 'luciole' | 'panda'
 
 /**
- * Où se gagne un compagnon qui ne s'achète pas : la luciole, au bout d'une
- * expédition. D'autres viendront sur le même modèle, un par mode, chacun son
- * exploit (`retours/2026-10-16/compagnon/principe.md`, § 5).
+ * Où se gagne un compagnon qui ne s'achète pas : la luciole l'était, au bout
+ * d'une expédition, jusqu'au 31 octobre 2026 (l'Expédition effacée, elle
+ * s'achète). Aucun aujourd'hui ; d'autres viendront peut-être sur ce modèle, un
+ * par mode, chacun son exploit (`retours/2026-10-16/compagnon/principe.md`, § 5).
  */
 export type LieuDuCompagnon = 'expedition'
 
@@ -122,11 +122,11 @@ export interface Compagnon {
   lumiere?: FormeDeCompagnon
   /**
    * Où il se gagne, s'il ne s'achète pas — absent, il est en boutique. La
-   * luciole rejoint qui mène une expédition au bout (le souhait du
+   * luciole rejoignait qui mène une expédition au bout (le souhait du
    * propriétaire, le 18 octobre 2026 : « que certains hauts faits
    * récompensent de nouveaux compagnons, comme la luciole »), et ne se
-   * montre que dans « Ma collection » (le 20 octobre 2026 : « que dans la
-   * collection, pas boutique »).
+   * montrait que dans « Ma collection » ; l'Expédition effacée, elle est en
+   * boutique depuis le 31 octobre 2026.
    */
   gagne?: LieuDuCompagnon
 }
@@ -197,12 +197,11 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
       ['constellation', 'La luciole-constellation', 'Ses ailes de vitrail : son essaim tourne autour d’elle et sort du cercle.'],
     ],
     ['aurore', 'La luciole-aurore', 'Ailes en voiles d’aurore boréale, lanterne en petit soleil.'],
-    'expedition',
   ],
   // Le panda roux, le dernier venu de la boutique (le 20 octobre 2026) : après la
   // luciole dans le catalogue, pour que rien de ce qui s'y comptait par rang ne bouge,
-  // mais vendu comme les trois premiers (`COMPAGNONS_DE_LA_BOUTIQUE` ne retient que
-  // ceux qui ne se gagnent pas). Sa métamorphose, le panda des cerisiers, a été
+  // vendu comme les autres (`COMPAGNONS_DE_LA_BOUTIQUE` ne retient que ceux qui ne
+  // se gagnent pas — les cinq, la luciole comprise depuis le 31 octobre 2026). Sa métamorphose, le panda des cerisiers, a été
   // choisie par le propriétaire parmi quatre thèmes (neige, nuages, cascade, sakura) :
   // celle des Nuages est peinte, et attend sa règle avec l'ombre des autres.
   [
@@ -221,7 +220,7 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
   ],
 ]
 
-/** Les cinq compagnons : ceux de la boutique, dans l'ordre de ses rayons, la luciole de l'Expédition, puis le panda roux. */
+/** Les cinq compagnons, tous en boutique, dans l'ordre de ses rayons : la luciole, venue de l'Expédition, puis le panda roux. */
 export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, emoji, phrase, formes, lumiere, gagne]) => {
   const c: Compagnon = {
     key,
@@ -244,13 +243,14 @@ export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, em
 })
 
 /**
- * Ceux que la boutique vend : son rayon, l'achat, le coffre et « À la une »
- * ne connaissent qu'eux — un compagnon qui se gagne ailleurs ne s'y montre
- * même pas en silhouette.
+ * Ceux que la boutique vend — les cinq, la luciole comprise depuis le 31
+ * octobre 2026 : son rayon, l'achat, le coffre et « À la une » ne
+ * connaissent qu'eux — un compagnon qui se gagnerait ailleurs ne s'y
+ * montrerait même pas en silhouette.
  */
 export const COMPAGNONS_DE_LA_BOUTIQUE: readonly Compagnon[] = COMPAGNONS.filter(c => !c.gagne)
 
-/** Le compagnon qu'amène la Première traversée : la luciole, à qui mène une expédition au bout — le troisième gardien vaincu. */
+/** Le compagnon qu'offre la première salle complète du Cabinet (et qu'amenait la Première traversée de l'Expédition) : la luciole. */
 export const COMPAGNON_DE_L_EXPEDITION: CleDeCompagnon = 'luciole'
 
 /** Leurs vingt formes, compagnon après compagnon. */
@@ -298,8 +298,8 @@ export const cheminDeLaLuciole = (cabinet: boolean = CABINET_EN_PRODUCTION, remp
 
 /**
  * Le refus fait à qui règle, porte ou installe un compagnon qu'il n'a pas :
- * où l'obtenir. « À la boutique » aurait envoyé chercher la luciole là où
- * elle n'est pas.
+ * où l'obtenir — la boutique, la luciole comprise depuis le 31 octobre 2026 ;
+ * un compagnon qui se gagnerait, son chemin.
  */
 export const pourLAvoir = (c: Compagnon, cabinet: boolean = CABINET_EN_PRODUCTION, remplacee: boolean = EXPEDITION_REMPLACEE): string =>
   c.gagne === 'expedition' ? `${c.nom} se gagne d’abord : ${cheminDeLaLuciole(cabinet, remplacee)}` : `${c.nom} s’achète d’abord, à la boutique`

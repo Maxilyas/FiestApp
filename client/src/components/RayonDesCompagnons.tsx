@@ -349,7 +349,7 @@ export function RayonDesCompagnons({
           )}
         </p>
       )}
-      {/* Ceux qui se vendent : la luciole se gagne en expédition, et ne se montre que dans « Ma collection ». */}
+      {/* Ceux qui se vendent : les cinq, la luciole comprise depuis le 31 octobre 2026 (l'Expédition, qui l'amenait, effacée). */}
       <div className="vitrine-compagnons" ref={piste} onScroll={surLaPiste} aria-label="Les compagnons">
         {COMPAGNONS_DE_LA_BOUTIQUE.map(c => (
           <SceneDuCompagnon

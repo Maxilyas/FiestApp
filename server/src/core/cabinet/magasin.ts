@@ -143,6 +143,11 @@ export interface ReglagesDuCabinet {
    * ne vient d'une graine que la page connaîtrait.
    */
   hasard?: () => number
+  /**
+   * L'Expédition effacée (`EXPEDITION_REMPLACEE`, le 31 octobre 2026) : ses routes ne répondent plus, et
+   * `/expedition` mène ici. « Ton expédition t'attend : la finir » ferait tourner en rond qui en avait une en route.
+   */
+  expeditionEffacee?: boolean
 }
 
 /** Un musée en mémoire : des reflets, des faits d'acquisition, les parties du jour sans leur plan. */
@@ -717,7 +722,7 @@ export class CabinetStore {
       jour: jourDe(t),
       ...lectureDeLaVisite(musee, visite, this.graineDe(profileId)),
       enCours: enCours && !enCours.etat.fin ? { ...enCours, lueA: t } : null,
-      expeditionEnRoute: garde.expeditionEnRoute !== null,
+      expeditionEnRoute: !this.reglages.expeditionEffacee && garde.expeditionEnRoute !== null,
       fete: this.reglages.calendrier.periodeDu(jourDe(t))?.saison ?? null,
       rangees: this.rangeesDe(profileId),
       ...(reveil && { reveil }),

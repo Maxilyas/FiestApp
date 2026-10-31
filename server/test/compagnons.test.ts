@@ -62,27 +62,25 @@ ProfileStore.tirageEclat = () => false
 
 // ── Le catalogue, pur ─────────────────────────────────────────────────────
 
-test('cinq compagnons — quatre en boutique, la luciole en expédition —, quatre formes chacun, la rareté qui monte avec eux', () => {
+test('cinq compagnons, tous en boutique, quatre formes chacun, la rareté qui monte avec eux', () => {
   assert.deepEqual(
     COMPAGNONS.map(c => c.key),
     ['loup', 'chat', 'tortue', 'luciole', 'panda'],
   )
-  // La luciole ne se vend pas (le 20 octobre 2026) : la boutique, le coffre et « À la une » ne lisent que les quatre autres.
+  // La luciole ne se vendait pas (le 20 octobre 2026) : la Première traversée de l'Expédition l'amenait. L'Expédition
+  // effacée, elle s'achète à la boutique comme les autres depuis le 31 octobre 2026 (le choix du propriétaire) : la
+  // boutique, le coffre et « À la une » lisent les cinq. La première salle complète du Cabinet l'offre toujours.
   assert.deepEqual(
     COMPAGNONS_DE_LA_BOUTIQUE.map(c => c.key),
-    ['loup', 'chat', 'tortue', 'panda'],
+    ['loup', 'chat', 'tortue', 'luciole', 'panda'],
   )
-  assert.equal(compagnon('luciole')!.gagne, 'expedition')
-  // Où l'avoir : la boutique, ou ce qui amène la luciole — et, le Cabinet ouvert, sa première salle complète (le
-  // 25 octobre 2026). Fermé en production, il ne s'y dit pas : la phrase d'avant, mot pour mot. Le départ de
-  // l'Expédition ouvert, forcé (`remplacee` à faux : le jour où son drapeau passe à vrai, ces lignes ne bougent pas).
+  assert.equal(compagnon('luciole')!.gagne, undefined)
+  // Où l'avoir : la boutique, pour chacun — la luciole comprise, sous chaque drapeau du Cabinet et de l'Expédition :
+  // un refus qui l'enverrait chercher au bout d'une expédition mènerait à une page qui n'existe plus.
   assert.equal(pourLAvoir(compagnon('loup')!), 'Le Loup s’achète d’abord, à la boutique')
-  assert.equal(pourLAvoir(compagnon('luciole')!, false, false), 'La Luciole se gagne d’abord : mène une expédition au bout')
-  assert.equal(pourLAvoir(compagnon('luciole')!, true, false), 'La Luciole se gagne d’abord : mène une expédition au bout, ou complète une salle du Cabinet')
-  // Son départ fermé (`EXPEDITION_REMPLACEE`), l'expédition s'y tait quand l'album et la galerie la taisent : le refus
-  // enverrait à un départ qui se refuse. Le Cabinet fermé là, elle reste la seule à dire, comme dans la galerie.
-  assert.equal(pourLAvoir(compagnon('luciole')!, true, true), 'La Luciole se gagne d’abord : complète une salle du Cabinet')
-  assert.equal(pourLAvoir(compagnon('luciole')!, false, true), 'La Luciole se gagne d’abord : mène une expédition au bout')
+  for (const cabinet of [false, true]) {
+    for (const remplacee of [false, true]) assert.equal(pourLAvoir(compagnon('luciole')!, cabinet, remplacee), 'La Luciole s’achète d’abord, à la boutique')
+  }
   assert.equal(pourLAvoir(compagnon('luciole')!), pourLAvoir(compagnon('luciole')!, CABINET_EN_PRODUCTION, EXPEDITION_REMPLACEE), 'les drapeaux du code d’office')
   assert.equal(FORMES_DES_COMPAGNONS.length, 20)
   assert.equal(new Set(FORMES_DES_COMPAGNONS.map(f => f.key)).size, 20, 'une clé par forme')
@@ -225,25 +223,27 @@ async function rayon(profil: object): Promise<string> {
   return renderToStaticMarkup(React.createElement(module.RayonDesCompagnons, { profil, busy: false, acheter: async () => null }))
 }
 
-test('la boutique : quatre compagnons, leurs quatre formes et ce qu’elles demandent — le prix, ou où il en est', async () => {
+test('la boutique : cinq compagnons, leurs quatre formes et ce qu’elles demandent — le prix, ou où il en est', async () => {
   const boutique = (solde: number, compagnons?: object[]) => ({ confettis: { gagnes: solde, depenses: 0, solde }, possedes: [], porte: null, jour: '2026-10-13', compagnons })
   const neuf = await rayon({ legendaire: null, boutique: boutique(1200) })
   // Une vitrine : une scène par compagnon (le souhait du propriétaire du 14 octobre 2026 : « les
   // mettre vraiment en avant, super mignon et avoir envie de les acheter »), qu'on caresse.
-  assert.equal(neuf.match(/<article class="compagnon-carte"/g)?.length, 4)
+  // La luciole y entre le 31 octobre 2026 : l'Expédition, qui l'amenait, est effacée (le choix du propriétaire).
+  assert.equal(neuf.match(/<article class="compagnon-carte"/g)?.length, 5)
+  assert.match(neuf, /aria-label="Caresser la luciole"/)
   assert.match(neuf, /<button type="button" class="compagnon-scene" aria-label="Caresser le loup">/)
   assert.match(neuf, /aria-label="Caresser la tortue-île"/)
-  assert.equal(neuf.match(/>L’adopter<\/button>/g)?.length, 4, 'de quoi les adopter tous les quatre')
-  assert.equal(neuf.match(/class="compagnon-prix">🎊 1000</g)?.length, 4)
+  assert.equal(neuf.match(/>L’adopter<\/button>/g)?.length, 5, 'de quoi les adopter tous les cinq — la luciole comprise, depuis le 31 octobre 2026')
+  assert.equal(neuf.match(/class="compagnon-prix">🎊 1000</g)?.length, 5)
   // Chaque forme dit ce qu'elle demande : l'achat, puis 100, 300, 500 — en couleur, à toucher : on voit ce qu'il devient.
-  assert.equal(neuf.match(/<span class="compagnon-seuil" aria-hidden="true">Achat<\/span>/g)?.length, 4)
-  for (const n of ['100', '300', '500']) assert.equal(neuf.match(new RegExp(`<span class="compagnon-seuil" aria-hidden="true">${n}</span>`, 'g'))?.length, 4, n)
-  assert.equal(neuf.match(/<button type="button" class="compagnon-forme"/g)?.length, 16)
+  assert.equal(neuf.match(/<span class="compagnon-seuil" aria-hidden="true">Achat<\/span>/g)?.length, 5)
+  for (const n of ['100', '300', '500']) assert.equal(neuf.match(new RegExp(`<span class="compagnon-seuil" aria-hidden="true">${n}</span>`, 'g'))?.length, 5, n)
+  assert.equal(neuf.match(/<button type="button" class="compagnon-forme"/g)?.length, 20)
   assert.match(neuf, /aria-pressed="true" aria-label="Le louveteau, commune, à l’adoption"/)
   assert.match(neuf, /aria-label="Le loup des étoiles, légendaire, à 500 bonnes réponses"/)
   assert.doesNotMatch(neuf, /pas encore à toi/, 'aucune silhouette : la boutique montre ce qu’il deviendra')
   // Les points sous la vitrine : un par compagnon, le premier montré.
-  assert.equal(neuf.match(/class="vitrine-point"/g)?.length, 4)
+  assert.equal(neuf.match(/class="vitrine-point"/g)?.length, 5)
   assert.match(neuf, /<button type="button" class="vitrine-point" aria-label="Le Loup" aria-current="true">/)
   // Le loup grandi d'une forme, porté ; trop peu de confettis pour les autres.
   const avecLeLoup = await rayon({ legendaire: 'cp:loup-jeune', boutique: boutique(50, [{ compagnon: 'loup', rang: 1, justes: 162 }]) })
@@ -253,10 +253,10 @@ test('la boutique : quatre compagnons, leurs quatre formes et ce qu’elles dema
   // Ses formes atteintes cochées ; la sienne montrée en grand.
   assert.equal(avecLeLoup.match(/class="compagnon-forme compagnon-atteinte"/g)?.length, 2)
   assert.match(avecLeLoup, /aria-pressed="true" aria-label="Le jeune loup, rare, à toi"/)
-  assert.equal(avecLeLoup.match(/>Encore 950 confettis</g)?.length, 3)
+  assert.equal(avecLeLoup.match(/>Encore 950 confettis</g)?.length, 4)
   assert.doesNotMatch(avecLeLoup, />L’adopter</, 'rien à adopter à ce prix-là')
   // Ce qui manque se gagne : les missions du jour le disent, sous chacun.
-  assert.equal(avecLeLoup.match(/<a class="link-inline" href="\/#missions">mes missions<\/a>/g)?.length, 3)
+  assert.equal(avecLeLoup.match(/<a class="link-inline" href="\/#missions">mes missions<\/a>/g)?.length, 4)
   // À sa forme ultime, la jauge vise le palier suivant de sa niche au lieu de s'arrêter (le propriétaire, le
   // 19 octobre 2026) ; elle ne s'arrête qu'à la légende, sa niche ornée de tout.
   assert.match(

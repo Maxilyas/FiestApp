@@ -1,7 +1,6 @@
-// Où le Cabinet de curiosités s'ouvre, et quels jeux y sont livrés. Il se
-// construit lot après lot, en préproduction d'abord : tout reste fermé en
-// production jusqu'à ce que le mode soit entier et ses quatre premiers jeux
-// joués. Rien ne s'y rapporte de l'Expédition : chacun le commence à zéro
+// Où le Cabinet de curiosités s'ouvre, et quels jeux y sont livrés. Construit
+// lot après lot en préproduction, il s'ouvre en production le 31 octobre 2026,
+// à la place de l'Expédition (`EXPEDITION_REMPLACEE`, `shared/jokers.ts`). Rien ne s'y rapporte de l'Expédition : chacun le commence à zéro
 // (« Pas de migration », `docs/architecture/decisions.md`).
 //
 // Une constante du code plutôt qu'une variable d'environnement, comme
@@ -14,8 +13,8 @@
 
 import type { CleDeJeu } from './jeux/regle'
 
-/** Le Cabinet s'ouvre-t-il en production ? Non tant qu'il n'est pas entier ; la préproduction, `npm run dev` et les tests le jouent toujours. */
-export const CABINET_EN_PRODUCTION = false
+/** Le Cabinet s'ouvre-t-il en production ? Oui depuis le 31 octobre 2026 : entier, joué par deux tablées, il remplace l'Expédition. */
+export const CABINET_EN_PRODUCTION = true
 
 /** Le Cabinet répond-il ? Hors de la production toujours ; en production, sous son drapeau. */
 export function cabinetOuvert({ online, env }: { online: boolean; env: string }): boolean {
