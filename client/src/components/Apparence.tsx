@@ -151,9 +151,16 @@ export function MesAvatars(props: PropsDUnePiece) {
   // Un Éclat tombé sur un avatar qui avait déjà éclaté attend ici d'être dépensé : un autre avatar à lui éclate, pour toujours.
   const reserve = profil.eclatsEnReserve ?? 0
   const [choisit, setChoisit] = useState(false)
+  // L'avatar qu'il regarde avant de le faire éclater : d'origine et éclaté, côte à côte (le souhait du
+  // propriétaire du 31 octobre 2026 : « une visualisation des avatars […] pour savoir comment l'éclat va être »).
+  // Une confirmation à l'aveugle demandait de dépenser pour toujours sans avoir rien vu.
+  const [regarde, setRegarde] = useState<AvatarRegarde | null>(null)
   useEffect(() => {
     if (reserve === 0) setChoisit(false)
   }, [reserve])
+  useEffect(() => {
+    if (!choisit) setRegarde(null)
+  }, [choisit])
   return (
     <section className="loge-avatars">
       {reserve > 0 && props.eclater && (
@@ -188,9 +195,84 @@ export function MesAvatars(props: PropsDUnePiece) {
         className="gemmes-loge"
       />
       <div className="loge-page-avatars" role="tabpanel" id="loge-page-avatars" aria-labelledby={`loge-gemme-${page.page}`}>
-        <PageDAvatars {...props} page={page} aEclater={choisit} onEclate={() => setChoisit(false)} />
+        {choisit && regarde && (
+          <ApercuDeLEclat
+            regarde={regarde}
+            eclater={props.eclater}
+            onAutre={() => setRegarde(null)}
+            onEclate={() => setChoisit(false)}
+          />
+        )}
+        <PageDAvatars {...props} page={page} aEclater={choisit} regarde={regarde?.cle ?? null} onRegarder={setRegarde} />
       </div>
     </section>
+  )
+}
+
+/** Un avatar regardé avant l'Éclat : sa clé, son nom, et son dessin d'origine ou éclaté. */
+export interface AvatarRegarde {
+  cle: string
+  nom: string
+  dessin: (eclat: boolean) => ReactNode
+}
+
+/**
+ * L'avatar d'aujourd'hui et sa version éclatée, côte à côte et en grand,
+ * puis « Faire éclater » : la dépense, définitive, se fait à vue.
+ */
+function ApercuDeLEclat({
+  regarde,
+  eclater,
+  onAutre,
+  onEclate,
+}: {
+  regarde: AvatarRegarde
+  eclater?: (cle: string) => Promise<boolean>
+  onAutre: () => void
+  onEclate: () => void
+}) {
+  // Touché au bas de la grille, l'aperçu s'ouvre au-dessus d'elle : la page le ramène sous les yeux.
+  const apercu = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    apercu.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [regarde.cle])
+  const [enRoute, setEnRoute] = useState(false)
+  const faireEclater = async () => {
+    if (enRoute) return
+    setEnRoute(true)
+    try {
+      if (await eclater?.(regarde.cle)) onEclate()
+    } finally {
+      setEnRoute(false)
+    }
+  }
+  return (
+    <div ref={apercu} className="loge-apercu-eclat" role="group" aria-label={`${regarde.nom}, avant et après l’Éclat`}>
+      <div className="loge-apercu-paire">
+        <figure className="loge-apercu-cote">
+          <span className="loge-apercu-avatar">{regarde.dessin(false)}</span>
+          <figcaption className="muted small">Aujourd’hui</figcaption>
+        </figure>
+        <span className="loge-apercu-fleche" aria-hidden="true">
+          →
+        </span>
+        <figure className="loge-apercu-cote">
+          <span className="loge-apercu-avatar">{regarde.dessin(true)}</span>
+          <figcaption className="small">
+            <b>Éclaté</b>
+          </figcaption>
+        </figure>
+      </div>
+      <p className="muted small" role="status">{`${regarde.nom === regarde.cle ? 'Cet avatar' : regarde.nom} change de couleurs, pour toujours : ton Éclat en réserve y passe.`}</p>
+      <div className="loge-apercu-gestes">
+        <button type="button" className="btn btn-primary" aria-disabled={enRoute || undefined} onClick={() => void faireEclater()}>
+          Faire éclater
+        </button>
+        <button type="button" className="btn btn-ghost" onClick={onAutre}>
+          En regarder un autre
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -207,15 +289,16 @@ export function PageDAvatars({
   essayer,
   neufs,
   page,
-  eclater,
   aEclater = false,
-  onEclate,
+  regarde = null,
+  onRegarder,
 }: PropsDUnePiece & {
   page: PageDAvatars
-  /** Il dépense un Éclat en réserve : un toucher choisit l'avatar qui éclate, au lieu de l'essayer. */
+  /** Il dépense un Éclat en réserve : un toucher montre l'avatar éclaté, au lieu de l'essayer. */
   aEclater?: boolean
-  /** L'Éclat est dépensé : la page sort de son choix. */
-  onEclate?: () => void
+  /** L'avatar qu'il regarde éclaté (`ApercuDeLEclat`, tenu par `MesAvatars`). */
+  regarde?: string | null
+  onRegarder?: (r: AvatarRegarde) => void
 }) {
   // Ce que la carte montre — l'avatar essayé, sinon celui qu'il porte — et
   // la version de chaque Éclat qu'elle montrerait.
@@ -232,47 +315,24 @@ export function PageDAvatars({
   })
   // Un Éclat en réserve se dépense sur un avatar à lui qui n'a pas éclaté (qu'il brille ou soit éteint) ; un Divin n'éclate jamais.
   const eclatable = (cle: string) => !divin(cle) && clesQuiBrillent(profil.eclats, cle).length === 0
-  // L'avatar qu'il regarde avant de le faire éclater : d'origine et éclaté, côte à côte (le souhait du
-  // propriétaire du 31 octobre 2026 : « une visualisation des avatars […] pour savoir comment l'éclat va être »).
-  // Une confirmation à l'aveugle demandait de dépenser pour toujours sans avoir rien vu.
-  const [regarde, setRegarde] = useState<{ cle: string; nom: string; dessin: (eclat: boolean) => ReactNode } | null>(null)
-  useEffect(() => {
-    if (!aEclater) setRegarde(null)
-  }, [aEclater])
-  // Touché au bas de la grille, l'aperçu s'ouvre au-dessus d'elle : la page le ramène sous les yeux.
-  const apercu = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (regarde) apercu.current?.scrollIntoView?.({ block: 'nearest' })
-  }, [regarde])
-  const [enRoute, setEnRoute] = useState(false)
-  const faireEclater = async () => {
-    if (!regarde || enRoute) return
-    setEnRoute(true)
-    try {
-      if (await eclater?.(regarde.cle)) {
-        setRegarde(null)
-        onEclate?.()
-      }
-    } finally {
-      setEnRoute(false)
-    }
-  }
   const laCase = (cle: string, etat: EtatDUneCase, label: string, piece: Essai, dessin: (eclat: boolean) => ReactNode, anneau = '', nom = cle) => {
     // Le choix de l'Éclat est un autre mode de la grille : chaque case qui
     // peut éclater se montre déjà éclatée, et la toucher l'ouvre en grand,
     // avant et après ; les autres s'éteignent. Rien ne s'essaie.
     if (aEclater) {
       const peut = eclatable(cle)
+      // Ce que la case est, pas un état qui bascule : elle peut éclater ou non, pour toute la visite.
+      const dit = `${label}, ${peut ? 'montré éclaté' : 'ne peut pas éclater'}`
       return (
         <button
           key={cle}
           type="button"
-          className={'loge-case case-avatar' + anneau + (peut ? ' eclatable' : ' hors-eclat') + (regarde?.cle === cle ? ' selected' : '')}
+          className={'loge-case case-avatar' + anneau + (peut ? ' eclatable' : ' hors-eclat') + (regarde === cle ? ' selected' : '')}
           aria-disabled={peut ? undefined : true}
-          aria-pressed={peut ? regarde?.cle === cle : undefined}
-          aria-label={label + (peut ? ', montré éclaté' : ', ne peut pas éclater')}
+          aria-pressed={peut ? regarde === cle : undefined}
+          aria-label={dit}
           onClick={() => {
-            if (peut) setRegarde({ cle, nom, dessin })
+            if (peut) onRegarder?.({ cle, nom, dessin })
           }}
         >
           {dessin(peut || brille(cle))}
@@ -318,34 +378,6 @@ export function PageDAvatars({
   }
   return (
     <>
-      {aEclater && regarde && (
-        <div ref={apercu} className="loge-apercu-eclat" role="group" aria-label={`${regarde.nom}, avant et après l’Éclat`}>
-          <div className="loge-apercu-paire">
-            <figure className="loge-apercu-cote">
-              <span className="loge-apercu-avatar">{regarde.dessin(false)}</span>
-              <figcaption className="muted small">Aujourd’hui</figcaption>
-            </figure>
-            <span className="loge-apercu-fleche" aria-hidden="true">
-              →
-            </span>
-            <figure className="loge-apercu-cote">
-              <span className="loge-apercu-avatar">{regarde.dessin(true)}</span>
-              <figcaption className="small">
-                <b>Éclaté</b>
-              </figcaption>
-            </figure>
-          </div>
-          <p className="muted small" role="status">{`${regarde.nom === regarde.cle ? 'Cet avatar' : regarde.nom} change de couleurs, pour toujours : ton Éclat en réserve y passe.`}</p>
-          <div className="loge-apercu-gestes">
-            <button type="button" className="btn btn-primary" aria-disabled={enRoute || undefined} onClick={() => void faireEclater()}>
-              Faire éclater
-            </button>
-            <button type="button" className="btn btn-ghost" onClick={() => setRegarde(null)}>
-              En regarder un autre
-            </button>
-          </div>
-        </div>
-      )}
       <div className={'loge-grille grille-unique' + (page.page === 'offert' ? ' loge-grille-emojis' : '')} role="group" aria-label={NOM_DE_LA_PAGE[page.page]}>
         {page.cles.map(uneCase)}
       </div>
