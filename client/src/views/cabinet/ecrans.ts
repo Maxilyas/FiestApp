@@ -47,8 +47,9 @@ export type EcranDuMusee =
   | { e: 'visite' }
   | { e: 'libre' }
   | { e: 'murs' }
+  | { e: 'jouer' }
 
-const SIMPLES = ['musee', 'gardiens', 'visite', 'libre', 'murs'] as const
+const SIMPLES = ['musee', 'gardiens', 'visite', 'libre', 'murs', 'jouer'] as const
 
 /**
  * L'écran d'un fragment. Une clé venue de l'adresse se lit par sa fonction
@@ -208,6 +209,7 @@ const TITRES_DES_ECRANS: Readonly<Record<(typeof SIMPLES)[number], string>> = {
   libre: 'Jouer librement',
   gardiens: 'Les gardiens',
   murs: 'Tes murs',
+  jouer: 'Jouer',
 }
 
 /**

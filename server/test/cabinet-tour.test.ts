@@ -2,7 +2,7 @@
 // d'une vraie page du serveur : l'étage à jouer et ses portes — chacune dit ce
 // qu'elle donne, l'œuvre nommée, son jeu et son seuil —, les cœurs d'une montée
 // en route et ce que l'étage d'avant a fait, la liste des étages qui double le
-// dessin, les liens vers le reste du Cabinet. La 3D ne descend qu'à la demande :
+// dessin, le but en trois images à l'arrivée. La 3D ne descend qu'à la demande :
 // le fichier de la tour ne l'importe qu'en type. Et l'annonce d'une porte, la
 // carte-bonus figée après le premier étage, les adresses des écrans.
 import { after, test } from 'node:test'
@@ -43,7 +43,7 @@ const texte = (html: string) =>
     .replace(/\s+/g, ' ')
 const rien = () => {}
 
-test('la tour à l’arrivée : l’étage à jouer, ses portes et ce qu’elles donnent, les étages en liste, le reste du Cabinet en trois liens', async () => {
+test('la tour à l’arrivée : le but en trois images, l’étage à jouer, ses portes et ce qu’elles donnent, les étages en liste', async () => {
   const b = await bancDuCabinet()
   try {
     const cookie = await inscrireProfil(b.banc.url, 'ema', 'Ema')
@@ -64,8 +64,17 @@ test('la tour à l’arrivée : l’étage à jouer, ses portes et ce qu’elles
     assert.ok(liste, 'la liste des étages se voit sans la 3D')
     assert.equal(liste[1].match(/<li/g)?.length, ETAGES_DE_LA_TOUR)
     assert.ok(!html.includes('<canvas'), 'la 3D ne se dessine qu’au navigateur, à la demande')
-    for (const lien of ['href="#musee"', 'href="#gardiens"']) assert.ok(html.includes(lien), lien)
-    assert.match(t, /Trois manches par porte : ouverte, elle te donne ce qu’elle montre\./)
+    // « On ne sait pas à quoi sert le jeu » (le propriétaire, le 31 octobre 2026) : le but en trois images et trois mots — la
+    // porte, l'œuvre qu'une porte de l'étage garde, peinte, le gardien de sa salle —, et ce qu'il devient, en une ligne.
+    const but = /<div class="cab-tour-but">.*?<\/div>/.exec(html)?.[0] ?? ''
+    assert.match(texte(but), /Ouvre Gagne Réveille Chaque gardien réveillé devient ton avatar légendaire\./)
+    const garde = page.tour.aJouer!.portes.find(p => p.oeuvre)?.oeuvre
+    if (garde) assert.match(but, new RegExp(`<img[^>]*src="/cartes/${garde}-240\\.`))
+    // Le titre sur la nuit, son rond des règles ; ce qu'il possède vit au musée — en surimpression sur la scène, le compte des œuvres
+    // passait sur le nom d'un étage. Le reste du Cabinet est dans la barre (`Barre.tsx`), plus en trois liens au bas de la tour.
+    assert.match(html, /<button type="button" class="cab-tour-aide" aria-label="Comment ça marche \?">/)
+    assert.doesNotMatch(t, /œuvres? sur \d/)
+    assert.doesNotMatch(html, /cab-tour-annexes|cab-tour-compte/)
     assert.doesNotMatch(t, /♥/, 'pas de cœurs avant de monter')
 
     // Une porte fermée : les cœurs, ce que l'étage d'avant a fait, l'étage suivant.
@@ -86,6 +95,8 @@ test('la tour à l’arrivée : l’étage à jouer, ses portes et ce qu’elles
     assert.match(t2, /Étage 1 : la porte est restée fermée, un cœur de moins\./)
     assert.match(t2, new RegExp(`Étage 2 sur ${ETAGES_DE_LA_TOUR}`))
     assert.match(t2, /record : étage 1/)
+    // En pleine montée, le but s'est dit : la place va aux cœurs et à l'étage.
+    assert.doesNotMatch(html2, /cab-tour-but/)
 
     // L'annonce d'une porte : l'étage, ce qu'elle promet, son seuil ; après le premier étage, la carte de la montée, sans choix.
     const { annonceDe } = await import(url('views/cabinet/Annonce.tsx'))

@@ -5,11 +5,11 @@
 // main : elle court avec celle de la machine — les chronos des manches sont
 // les vrais —, et le script l'avance d'un jour pour le lendemain.
 //
-// La page sans profil ; Zoé, qui arrive — son musée et sa bienvenue, les
-// règles, le Vestibule et ses quatre œuvres offertes, un cadre vide, les jeux
-// libres, les gardiens endormis — ; puis Léa, qui a joué — trente-neuf œuvres,
-// le Rempart complet et son Phénix, de la poussière d'or, douze jours de
-// série, son loup dans sa niche — : son musée, une salle complète et ses
+// La page sans profil ; Zoé, qui arrive — la tour et son but, les règles, son
+// musée, « Jouer », le Vestibule et ses quatre œuvres offertes, un cadre vide,
+// les jeux libres, les gardiens endormis — ; puis Léa, qui a joué — trente-neuf
+// œuvres, le Rempart complet et son Phénix, de la poussière d'or, douze jours de
+// série, son loup dans sa niche — : sa tour, son musée, une salle complète et ses
 // cadres dorés, une œuvre et son cartel, une salle à une œuvre près, son cadre
 // vide, les gardiens et une fiche, la visite du jour et la confirmation de
 // « Changer pour … » ; l'annonce et le choix
@@ -31,8 +31,8 @@
 // de la dernière œuvre de l'Érudit, gagnée sans faute — le bilan doré, la
 // Chouette d'Argent qui s'éveille, « Mes réponses » —, l'œuvre et le cartel
 // que la partie lui a laissé ; l'achat de la dernière œuvre du Devin et le
-// Sphinx qui s'éveille ; ses murs ; et, l'horloge avancée d'un jour, le musée
-// du lendemain.
+// Sphinx qui s'éveille ; ses murs ; et, l'horloge avancée d'un jour, « Jouer »
+// le lendemain.
 //
 // À chaque photo, ses images attendues comme la régie de la tablée les attend
 // (`attenteDesImages` : celles de l'écran, ou toutes pour la page entière —
@@ -1120,7 +1120,7 @@ async function revenirAuMusee(page: any) {
     console.error(ligne)
     await photo(page, 'echo-du-retour-au-musee')
   }
-  await ouvrir(page, '', '.cab-portes')
+  await ouvrir(page, '#musee', '.cab-portes')
 }
 
 /** La partie quittée, de la tête : sa confirmation, son bilan, et le retour au musée. */
@@ -1134,7 +1134,7 @@ async function quitter(page: any, nom: string | null) {
 
 /** Une partie restée en plan par une étape en échec : reprise du musée et quittée, pour que la suivante parte. */
 async function sansPartieEnCours(page: any) {
-  await ouvrir(page, '', '.cab-portes')
+  await ouvrir(page, '#musee', '.cab-portes')
   const reprendre = page.locator('.gros-bouton', { hasText: 't’attend' })
   if (!(await reprendre.count())) return
   await toucher(page, reprendre)
@@ -1162,18 +1162,22 @@ try {
     await ctx.close()
   })
 
-  // Zoé arrive : ses quatre œuvres offertes, la bienvenue, les règles.
+  // Zoé arrive : la tour et son but en trois images, les règles à son rond, son musée et ses quatre œuvres offertes, « Jouer ».
   await etape('Zoé', async () => {
     const { ctx, page } = await telephoneDe(zoe)
-    await ouvrir(page, '', '.cab-portes')
-    await photo(page, 'zoe-musee')
-    await photo(page, 'zoe-musee-entier', { pleine: true })
-    await toucher(page, page.locator('.cab-bandeau .btn-primary'))
+    await ouvrir(page, '', '.cab-tour-portes')
+    await photo(page, 'zoe-tour', { attente: 1500 })
+    await toucher(page, page.locator('.cab-tour-aide'))
     await photoDeLaFeuille(page, 'zoe-regles')
     // Les neuf jeux, repliés sous l'essentiel : dépliés au doigt.
     await toucher(page, page.locator('.cab-regles-replie > summary'))
     await photoDeLaFeuille(page, 'zoe-regles-les-neuf-jeux')
     await toucher(page, page.locator('.carte-fermer'))
+    await ouvrir(page, '#musee', '.cab-portes')
+    await photo(page, 'zoe-musee')
+    await photo(page, 'zoe-musee-entier', { pleine: true })
+    await ouvrir(page, '#jouer', '.cab-comment')
+    await photo(page, 'zoe-jouer', { pleine: true })
     await ouvrir(page, '#salle-vestibule', '.cab-mur')
     await photo(page, 'zoe-salle-du-vestibule')
     await photo(page, 'zoe-salle-du-vestibule-entiere', { pleine: true })
@@ -1190,7 +1194,9 @@ try {
   // Léa a joué : les règles lues, son loup dans sa niche.
   const { ctx, page } = await telephoneDe(lea, `try { localStorage.setItem('quizz.cabinet.regles-lues.${idDeLea}', '1') } catch {}`)
   await etape('le musée de Léa', async () => {
-    await ouvrir(page, '', '.cab-portes')
+    await ouvrir(page, '', '.cab-tour-portes')
+    await photo(page, 'lea-tour', { attente: 1500 })
+    await ouvrir(page, '#musee', '.cab-portes')
     await photo(page, 'lea-musee')
     await photo(page, 'lea-musee-entier', { pleine: true })
     await ouvrir(page, '#salle-rempart', '.cab-mur')
@@ -1283,7 +1289,7 @@ try {
       await commencer(page)
       uneUniteLongue(idDeLea)
       await banc.redemarrer()
-      await ouvrir(page, '', '.cab-portes')
+      await ouvrir(page, '#musee', '.cab-portes')
       await toucher(page, page.locator('.gros-bouton', { hasText: 't’attend' }))
       await page.waitForSelector('.cab-curseur')
       await photo(page, 'filet-unite-longue')
@@ -1489,8 +1495,8 @@ try {
   // Le lendemain : l'horloge avancée d'un jour — une visite neuve, la série à garder.
   await etape('le lendemain', async () => {
     horloge.avance += JOUR
-    await ouvrir(page, '', '.cab-portes')
-    await photo(page, 'lea-musee-le-lendemain')
+    await ouvrir(page, '#jouer', '.cab-comment')
+    await photo(page, 'lea-jouer-le-lendemain')
   })
   await ctx.close()
 } finally {

@@ -1929,6 +1929,15 @@ Le prix, que le propriétaire peut trancher autrement : la découverte. Le bon n
 
 *Fichiers : `shared/cabinet/{montee,musee,partie,lecture,vues,bareme}.ts`, `server/src/core/cabinet/{magasin,tables,ecriture,vue}.ts`, `client/src/views/cabinet/{Tour.tsx,TourEn3D.ts,Annonce.tsx,ecrans.ts}`, `client/src/views/CabinetApp.tsx`, `server/test/cabinet-{montee,tour}.test.ts`*
 
+### Le Cabinet en quatre pièces, et moins de texte
+**Contexte** : la tour en ligne, le propriétaire y revient le même jour : le compte des œuvres, posé sur la scène, passait sur le nom d'un étage ; « est-ce qu'on pourrait avoir une barre de menu en bas comme on a à l'accueil ? » ; « je trouve ton musée incompréhensible, pareil pour les gardiens. Et on ne sait pas à quoi sert le jeu. Il y a trop de texte partout » — avec la permission de « déconstruire certaines choses faites en design ».
+
+**Décision** : une barre de quatre pièces au bas de chaque écran du Cabinet, comme celle de l'accueil — la tour, ton musée, les gardiens, « Jouer » (`Barre.tsx`) —, jamais sous une partie. La tour d'un bord à l'autre, son titre sur la nuit et rien d'autre, et à l'arrivée le but en trois images : ouvre une porte, gagne l'œuvre qu'elle garde, réveille le gardien de sa salle, « ton avatar légendaire ». Ton musée ne dit plus que ce qu'il possède — deux chiffres en grand, le prochain gardien, et chaque salle en cimaise, ses peintures et ses cadres vides, dans l'ordre des étages de la tour ; la visite, les jeux libres, tes murs, la série, les chasses et les règles passent sous « Jouer ». Les gardiens se rangent par salle, ses deux côte à côte, ce qui réveille chacun en trois mots ; la phrase entière reste sur sa fiche. La bienvenue s'est tue : le but de la tour la remplace.
+
+**Conséquence** : la page a une adresse de plus (`#jouer`), et la fin d'une partie de la visite ou d'une partie libre ramène toujours au musée, où sa peinture paraît — la visite est à un toucher, sous « Jouer ». Rien ne change au serveur ni aux règles. La caméra de la tour regarde sous le titre (`setViewOffset`), et le nom d'un étage s'y efface : ce qui s'ajoute à la scène va dans le panneau, sous elle.
+
+*Fichiers : `client/src/views/cabinet/{Barre,Jouer,Musee,Gardiens,Tour}.tsx`, `client/src/views/cabinet/{TourEn3D,ecrans}.ts`, `client/src/views/CabinetApp.tsx`, `client/src/styles.css`, `server/test/cabinet-{ecran,tour}.test.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

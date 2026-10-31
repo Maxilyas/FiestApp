@@ -1,25 +1,28 @@
-import { useContext, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Dessin } from '../../components/Avatar'
 import { Icon } from '../../components/Icon'
-import { GrosBouton, PieceTete, Sortie } from '../../components/Pieces'
+import { PieceTete } from '../../components/Pieces'
 import { CARTES_PEINTES } from '../../components/cartes-peintes'
 import { espacesFines, formatNumber } from '../../format'
+import { ORDRE_DE_LA_TOUR } from '../../../../shared/cabinet/montee'
 import { laPartieAttend, poussieresDites } from '../../../../shared/cabinet/musee'
 import { OEUVRES, RARETES } from '../../../../shared/cabinet/oeuvres'
-import { GARDIENS, salleDuGardien } from '../../../../shared/cabinet/salles'
-import { visiteAJouer, type CaseVue, type OeuvreVue, type PageDuCabinet, type SalleVue, type VueDeLaPartie } from '../../../../shared/cabinet/vues'
-import { RetourAuMusee, adresseDe } from './ecrans'
+import { GARDIENS, GARDIENS_DES_SALLES, salleDuGardien } from '../../../../shared/cabinet/salles'
+import type { CaseVue, OeuvreVue, PageDuCabinet, SalleVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
+import { adresseDe } from './ecrans'
 import { TaPartieTAttend } from './PartieQuiAttend'
 
-// Le musée : l'entrée du Cabinet jusqu'au 31 octobre 2026, une page à part
-// depuis, sous la tour (`Tour.tsx`, `#musee`) — « trop d'informations sur
-// l'accueil » (la maquette jouable, `retours/2026-10-24/
-// maquette/`). Ce qu'il possède en une ligne, ce qui l'attend aujourd'hui — la
-// partie en cours d'abord, puis la visite du jour —, le gardien le plus
-// proche, les neuf salles en portes, les gardiens, tes murs, les jeux libres. Pas un
-// paragraphe de règle : « Comment ça marche ? » les dit (règle `cabinet.md`,
-// la leçon de l'Expédition). Ce que la page montre vient de la vue du serveur
-// (`PageDuCabinet`), jamais d'une règle recopiée.
+// Ton musée : ta collection, et rien d'autre — une pièce de la barre
+// (`Barre.tsx`). L'entrée du Cabinet jusqu'au 31 octobre 2026, il disait dix
+// choses à la fois — ce qu'il possède, la bienvenue, la série, la visite du
+// jour, le prochain gardien, les salles, les gardiens, tes murs, les jeux
+// libres, les règles —, et le propriétaire l'a trouvé « incompréhensible » :
+// la tour est l'entrée, « Jouer » a pris la visite, les jeux libres, tes murs
+// et les règles. Il reste ce qu'il possède en une ligne, ce qui l'attend, le
+// prochain gardien, et les neuf salles en murs de tableaux : ses peintures, la
+// plus rare d'abord, et des cadres vides — une peinture qu'il n'a pas ne se
+// montre jamais, il la découvrira en la gagnant. Ce que la page montre vient
+// de la vue du serveur (`PageDuCabinet`), jamais d'une règle recopiée.
 
 /** « 5 œuvres », « 1 gardien » : le nombre ne quitte pas son mot à la ligne. */
 export const compte = (n: number, mot: string, motPluriel = `${mot}s`) => `${formatNumber(n)} ${n > 1 ? motPluriel : mot}`
@@ -32,6 +35,19 @@ export const enDebutDeLigne = (phrase: string) => phrase.replace(/^./, c => c.to
 
 /** Les œuvres qu'il a dans une salle. */
 export const possedeesDe = (s: SalleVue) => s.oeuvres.filter(o => o.possedee).length
+
+/**
+ * Les salles dans l'ordre des étages de la tour (`ORDRE_DE_LA_TOUR`), le Vestibule d'abord : la salle d'un étage est celle du
+ * musée qu'il remplit, au même rang — dans l'ordre de la vue, le Vestibule, l'étage 1, venait en dernier. Une salle que l'ordre
+ * ne connaîtrait pas suit.
+ */
+export const sallesDansLOrdreDeLaTour = (page: Pick<PageDuCabinet, 'salles'>): SalleVue[] => {
+  const rang = (s: SalleVue) => {
+    const k = ORDRE_DE_LA_TOUR.indexOf(s.cle)
+    return k < 0 ? ORDRE_DE_LA_TOUR.length : k
+  }
+  return [...page.salles].sort((a, b) => rang(a) - rang(b))
+}
 
 /**
  * La partie qui attend, dans les mots du serveur (`laPartieAttend`) : tant
@@ -67,30 +83,58 @@ export const laPlusRare = (s: SalleVue): OeuvreVue | undefined =>
   s.oeuvres.reduce<OeuvreVue | undefined>((belle, o) => (o.possedee && (!belle || RARETES.indexOf(o.rarete) > RARETES.indexOf(belle.rarete)) ? o : belle), undefined)
 
 /**
- * La porte d'une salle : en arche, la plus rare de ses œuvres à lui, sinon
- * rien qu'un « ? » : une peinture qu'il n'a pas ne se montre pas, il la
- * découvrira en la gagnant.
+ * Ce que la cimaise d'une salle montre au musée, en une rangée de cinq qui tient en 360 de large : ses peintures, la plus rare
+ * d'abord — à rareté égale, l'ordre du mur —, puis des cadres vides, et ce qui reste en compte (« +5 »), la cinquième place.
  */
-function Porte({ salle }: { salle: SalleVue }) {
+export function tableauxDuMur(s: SalleVue, places = 4): { siennes: OeuvreVue[]; vides: number; reste: number } {
+  const rang = (o: OeuvreVue) => RARETES.indexOf(o.rarete)
+  const siennes = s.oeuvres.filter(o => o.possedee).sort((a, b) => rang(b) - rang(a)).slice(0, places)
+  const vides = Math.min(places - siennes.length, s.oeuvres.length - possedeesDe(s))
+  return { siennes, vides, reste: s.oeuvres.length - siennes.length - vides }
+}
+
+/**
+ * Une salle, en mur de tableaux : son gardien en médaillon — en couleur s'il veille —, son nom, ce qu'il en a, et la rangée de
+ * ses peintures. Une salle dont il n'a rien ne montre que des cadres vides.
+ */
+function Porte({ salle, veille }: { salle: SalleVue; veille: boolean }) {
   const n = possedeesDe(salle)
-  const belle = laPlusRare(salle)
-  const peinture = belle && CARTES_PEINTES[belle.cle]
+  const { siennes, vides, reste } = tableauxDuMur(salle)
   return (
     <a className={'cab-porte' + (salle.complete ? ' cab-complete' : '')} href={adresseDe({ e: 'salle', salle: salle.cle })}>
-      <span className="cab-arche" aria-hidden="true">
-        {peinture ? <img src={peinture[1]} alt="" loading="lazy" decoding="async" /> : <span className="cab-inconnue">?</span>}
+      <span className="cab-porte-haut">
+        <span className="cab-medaillon cab-medaillon-petit" aria-hidden="true">
+          <Dessin cle={GARDIENS_DES_SALLES[salle.cle][0]} verrouille={!veille} />
+        </span>
+        <b className="cab-porte-nom">{salle.nom}</b>
+        <span className="cab-compte">
+          {n} sur {salle.oeuvres.length}
+          {salle.complete && <span className="sr-only">, complète</span>}
+        </span>
       </span>
-      <b className="cab-porte-nom">{salle.nom}</b>
-      <span className="cab-compte">
-        {n} sur {salle.oeuvres.length}
-        {salle.complete && <span className="sr-only">, complète</span>}
+      {/* La cimaise : le mur d'une salle (`.cab-mur`) a déjà ce nom. */}
+      <span className="cab-cimaise" aria-hidden="true">
+        {siennes.map(o => {
+          const peinture = CARTES_PEINTES[o.cle]
+          return (
+            <span key={o.cle} className="cab-toile">
+              {peinture && <img src={peinture[1]} alt="" loading="lazy" decoding="async" />}
+            </span>
+          )
+        })}
+        {Array.from({ length: vides }, (_, k) => (
+          <span key={k} className="cab-toile cab-toile-vide">
+            ?
+          </span>
+        ))}
+        {reste > 0 && <span className="cab-toile cab-toile-reste">{`+${reste}`}</span>}
       </span>
     </a>
   )
 }
 
-/** Une ligne du musée qui se dit une fois, ou tant qu'elle vaut : la bienvenue, ce qui l'attend, sa fête, sa série. */
-function Bandeau({ icone, children, geste }: { icone: ReactNode; children: ReactNode; geste?: ReactNode }) {
+/** Une ligne qui se dit tant qu'elle vaut : sa fête, sa série, l'expédition qui l'attend. */
+export function Bandeau({ icone, children, geste }: { icone: ReactNode; children: ReactNode; geste?: ReactNode }) {
   return (
     <div className="cab-bandeau" role="note">
       <span className="cab-bandeau-icone" aria-hidden="true">
@@ -104,39 +148,26 @@ function Bandeau({ icone, children, geste }: { icone: ReactNode; children: React
   )
 }
 
-export function Musee({
-  page,
-  bienvenue,
-  onRegles,
-  onReprendre,
-  onBienvenueLue,
-}: {
-  page: PageDuCabinet
-  /** Ce que le musée ne dit qu'une fois : la bienvenue, tant que les règles ne sont pas lues. */
-  bienvenue: boolean
-  onRegles: () => void
-  onReprendre: () => void
-  onBienvenueLue: () => void
-}) {
+export function Musee({ page, onReprendre }: { page: PageDuCabinet; onReprendre: () => void }) {
   const oeuvres = page.salles.reduce((n, s) => n + possedeesDe(s), 0)
   const reveilles = page.gardiens.tous.filter(g => g.reveille).length
-  const visite = page.visite.cases
-  // La case en cours n'est pas faite tant qu'elle n'a pas d'issue : « 1 sur 3 faite » laissait croire la partie rechargée perdue.
-  const faites = casesFaites(page)
-  // « À jouer » par la règle de l'accueil : une case d'un jeu pas encore livré n'attend que si l'échange peut la changer.
-  const aJouer = visiteAJouer(page.visite)
   const prochain = page.gardiens.prochain
   const salleDuProchain = prochain && salleDuGardien(prochain.legendaire)
   const enCours = page.enCours
-  const versLaTour = useContext(RetourAuMusee)
+  const veille = (legendaire: string) => page.gardiens.tous.some(g => g.legendaire === legendaire && g.reveille)
   return (
-    <div className="player-shell cab-page">
-      <Sortie vers="La tour" href="/cabinet" onClick={versLaTour} />
+    <div className="player-shell cab-page cab-musee">
       <PieceTete piece="Le Cabinet de curiosités" titre="Ton musée" />
+      {/* Deux chiffres en grand, ce qu'il a : la ligne « 12 œuvres sur 84 · 3 gardiens sur 23 » se lisait comme une règle. */}
       <div className="cab-possede">
-        <p className="cab-ligne">
-          {compte(oeuvres, 'œuvre')} sur {OEUVRES.length} · {compte(reveilles, 'gardien')} sur {GARDIENS.length}
-        </p>
+        <div className="cab-possede-chiffres">
+          <p>
+            <b className="cab-chiffre">{formatNumber(oeuvres)}</b> {oeuvres > 1 ? 'œuvres' : 'œuvre'} sur {OEUVRES.length}
+          </p>
+          <p>
+            <b className="cab-chiffre">{formatNumber(reveilles)}</b> {reveilles > 1 ? 'gardiens' : 'gardien'} sur {GARDIENS.length}
+          </p>
+        </div>
         <span className="cab-jauge" aria-hidden="true">
           <span style={{ width: `${Math.round((100 * oeuvres) / OEUVRES.length)}%` }} />
         </span>
@@ -146,28 +177,9 @@ export function Musee({
         </p>
       </div>
 
-      {bienvenue && (
-        <Bandeau
-          icone={<Icon name="landmark" />}
-          geste={
-            <span className="cab-gestes">
-              <button type="button" className="btn btn-primary" onClick={onRegles}>
-                Comment ça marche ?
-              </button>
-              <button type="button" className="btn" onClick={onBienvenueLue}>
-                C’est parti
-              </button>
-            </span>
-          }
-        >
-          <b>Bienvenue au Cabinet.</b>
-          {/* « De quelques minutes » : le Mot en donne deux par manche, six au plus, et « deux minutes » se lisait comme une promesse
-              (Ophélie, à la tablée du 26 octobre 2026) : 53 parties sur 54 la tenaient, pas toutes. */}
-          <span>{espacesFines('Chaque œuvre peinte se gagne en jouant à de petits jeux de quelques minutes : remplis tes salles, réveille leurs gardiens.')}</span>
-        </Bandeau>
-      )}
-      {/* Une expédition en route se finit à ses règles, sans rien rapporter au Cabinet : tout le monde y commence avec ses quatre
-          œuvres offertes (le choix du propriétaire du 25 octobre 2026). */}
+      {/* Une partie à la fois : celle qui l'attend passe devant tout, dans les mots du refus d'un second départ (`cadreDuDepart`). */}
+      {enCours && <TaPartieTAttend jeu={enCours.jeu} onReprendre={onReprendre} />}
+      {/* Une expédition en route se finit à ses règles, sans rien rapporter au Cabinet (le choix du propriétaire du 25 octobre 2026). */}
       {page.expedition === 'en-route' && (
         <Bandeau icone={<Icon name="flag" />}>
           <a className="cab-lien" href="/expedition">
@@ -175,8 +187,7 @@ export function Musee({
           </a>
         </Bandeau>
       )}
-      {/* La fête ne se dit qu'avec ce qu'elle promet : son gardien réveillé, il ne restait que « Halloween » et une icône — cinq
-          joueurs sur six l'ont relevé (la tablée du 25 octobre 2026). */}
+      {/* La fête ne se dit qu'avec ce qu'elle promet : son gardien réveillé, il ne restait que « Halloween » et une icône. */}
       {page.fete?.gardien && (
         <Bandeau
           icone={
@@ -189,37 +200,6 @@ export function Musee({
           <span>{espacesFines(page.fete.gardien.dit)}</span>
         </Bandeau>
       )}
-      {/* Un seul jour, déjà joué, n'est pas encore une série à garder : la ligne attendait le musée de qui venait d'arriver.
-          « Réponds à une manche » : un jour ne compte qu'à sa première manche répondue (`jourCompte`) — « Joue aujourd'hui » laissait
-          croire qu'une visite commencée puis quittée la gardait. La visite le dit des mêmes mots (`Visite.tsx`). */}
-      {page.serie.jours > 0 && (page.serie.jours > 1 || page.serie.aJouer) && (
-        <Bandeau icone={<b className="cab-chiffre">{page.serie.jours}</b>}>
-          <span>
-            {espacesFines(
-              `${compte(page.serie.jours, 'jour')} de visite d’affilée.${page.serie.aJouer ? ' Réponds à une manche aujourd’hui pour garder ta série.' : ''}`,
-            )}
-          </span>
-        </Bandeau>
-      )}
-
-      {/* Une partie à la fois : celle qui l'attend passe devant tout, dans les mots du refus d'un second départ
-          (`cadreDuDepart`) — « Ta partie au Pari t'attend ». */}
-      {enCours && <TaPartieTAttend jeu={enCours.jeu} onReprendre={onReprendre} />}
-      <GrosBouton
-        principal={!enCours && aJouer}
-        icone={<Icon name="sun" />}
-        titre="La visite du jour"
-        detail={
-          // Faite, la chasse ne se propose que s'il en reste une : sans chasse, elle promettait ce que la salle refusait (Lucas).
-          faites === visite.length
-            ? espacesFines(page.chasses.restent > 0 ? 'Faite : reviens demain, ou pars à la chasse dans une salle' : 'Faite : reviens demain')
-            : // « Petites », sans durée : « de deux minutes » se lisait comme une promesse (la bienvenue le dit plus haut), et « de
-              // quelques minutes » couchait la ligne sur trois en 360, à côté de « À jouer ».
-              espacesFines(`${compte(visite.length, 'petite partie', 'petites parties')} · ${faites} sur ${visite.length} faite${faites > 1 ? 's' : ''}`)
-        }
-        pastille={aJouer ? 'À jouer' : undefined}
-        href={adresseDe({ e: 'visite' })}
-      />
       {prochain && (
         <a className="cab-tuile" href={salleDuProchain ? adresseDe({ e: 'salle', salle: salleDuProchain }) : adresseDe({ e: 'gardiens' })}>
           <span className="cab-medaillon" aria-hidden="true">
@@ -233,36 +213,13 @@ export function Musee({
       )}
 
       <section className="cab-salles" aria-labelledby="cab-les-salles">
-        <div className="cab-entre">
-          <h2 id="cab-les-salles">Les salles</h2>
-          <span className="cab-compte">{espacesFines(`${compte(page.chasses.restent, 'chasse')} aujourd’hui`)}</span>
-        </div>
+        <h2 id="cab-les-salles">Les salles</h2>
         <div className="cab-portes">
-          {page.salles.map(s => (
-            <Porte key={s.cle} salle={s} />
+          {sallesDansLOrdreDeLaTour(page).map(s => (
+            <Porte key={s.cle} salle={s} veille={veille(GARDIENS_DES_SALLES[s.cle][0])} />
           ))}
         </div>
       </section>
-
-      <GrosBouton icone={<Icon name="crown" />} titre="Les gardiens" detail={`${reveilles} sur ${GARDIENS.length} réveillés`} href={adresseDe({ e: 'gardiens' })} />
-      {/* Ce qu'il a appris, à sa place : seules les règles y menaient, d'un lien au milieu d'un paragraphe. Les murs se demandent
-          à l'ouverture de leur écran : le bouton n'en dit pas le compte, que la page du musée n'a pas. */}
-      <GrosBouton
-        icone={<Icon name="repere" />}
-        titre="Tes murs"
-        detail={espacesFines('Les lieux et les dates que tes parties t’ont appris')}
-        href={adresseDe({ e: 'murs' })}
-      />
-      <GrosBouton
-        icone={<Icon name="dice" />}
-        titre="Jouer librement"
-        detail={espacesFines(page.libres.paientEncore > 0 ? 'Autant que tu veux, sans œuvre en jeu' : 'Pour le plaisir, jusqu’à minuit')}
-        href={adresseDe({ e: 'libre' })}
-      />
-      <button type="button" className="btn btn-block cab-comment" onClick={onRegles}>
-        <Icon name="help" />
-        Comment ça marche ?
-      </button>
     </div>
   )
 }
