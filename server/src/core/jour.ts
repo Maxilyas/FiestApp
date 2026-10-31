@@ -44,7 +44,7 @@ import { JOURS_DE_CHRONOS, chronosDescend, raconter } from './divins'
 import { JOURS_POUR_UNE_PAGE, cleDeLaPage, moisDeLaPage } from '../../../shared/calendrier'
 import { GRACE_MS, POINTS_MAX_PAR_QUESTION, bonusDeRapidite, pointsDuChoix, tempsDeLecture } from '../games/quiz'
 import { lireModeles } from './seed'
-import { aEcrirePour, categoriesAPrivilegier, consigneDuJour } from './consigne'
+import { aEcrirePour, categoriesAPrivilegier, consigneDuJour, type MesureDesJoueurs, type QuestionMesuree } from './consigne'
 import {
   MAX_ANECDOTE,
   MAX_ANSWERS,
@@ -646,21 +646,28 @@ export class JourStore {
   }
 
   /** La difficulté mesurée des dernières questions posées, assez jouées pour se mesurer. */
-  async difficultesRecentes(): Promise<Record<Niveau, number>> {
+  async difficultesRecentes(): Promise<MesureDesJoueurs> {
     const [mesures, posees] = await Promise.all([
       this.mesures(),
       this.client.execute({
-        sql: 'SELECT id FROM jour_reserve WHERE posee_le IS NOT NULL ORDER BY posee_le DESC LIMIT ?',
+        sql: "SELECT id, json_extract(question, '$.text') AS texte FROM jour_reserve WHERE posee_le IS NOT NULL ORDER BY posee_le DESC LIMIT ?",
         args: [MESUREES_POUR_LA_CONSIGNE],
       }),
     ])
     const compte: Record<Niveau, number> = { facile: 0, moyen: 0, difficile: 0, expert: 0 }
+    const questions: QuestionMesuree[] = []
     for (const r of posees.rows) {
       const m = mesures.get(String(r.id))
       const n = m && niveauMesure(m.justes, m.total)
-      if (n) compte[n]++
+      if (!n) continue
+      compte[n]++
+      questions.push({ texte: String(r.texte ?? ''), part: m.justes / m.total })
     }
-    return compte
+    // La moyenne des parts, question par question : une question jouée par
+    // trente ne pèse pas plus qu'une jouée par dix — chacune est un dixième
+    // d'une partie.
+    const part = questions.length > 0 ? questions.reduce((s, q) => s + q.part, 0) / questions.length : undefined
+    return { ...compte, part, questions: questions.filter(q => q.texte) }
   }
 
   close() {

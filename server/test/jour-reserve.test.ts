@@ -89,11 +89,16 @@ test('la consigne chiffre la difficulté et la part des autres catégories : une
   for (const n of [1, 2, 3, 10, 30, 42, 50, 100]) {
     const r = repartitionDesDifficultes(n)
     assert.equal(r.faciles + r.moyennes + r.difficiles, n, `${n} questions`)
-    assert.ok(r.moyennes >= 0 && r.faciles === r.difficiles, `${n} questions`)
+    assert.ok(r.moyennes >= 0 && r.difficiles >= 0 && r.faciles >= r.difficiles, `${n} questions`)
   }
-  assert.deepEqual(repartitionDesDifficultes(50), { faciles: 13, moyennes: 24, difficiles: 13 })
+  // Près de la moitié de faciles, une difficile sur sept : deux bonnes
+  // réponses sur trois. Un quart de chaque côté visait mille points, et la
+  // moindre dérive vers le difficile tombait dessous (fin octobre 2026).
+  assert.deepEqual(repartitionDesDifficultes(10), { faciles: 5, moyennes: 3, difficiles: 2 })
+  assert.deepEqual(repartitionDesDifficultes(50), { faciles: 23, moyennes: 19, difficiles: 8 })
   const consigne = consigneDuJour({ n: 50, aPrivilegier: ['Sport', 'Cuisine', 'Musique', 'Nature'], deja: [] })
-  assert.match(consigne, /13 faciles,.* 24 moyennes,.* 13 difficiles,/)
+  assert.match(consigne, /23 faciles,.* 19 moyennes,.* 8 difficiles,/)
+  assert.doesNotMatch(consigne, /écris d'abord les difficiles/, 'la consigne ne pousse plus vers le difficile')
   assert.match(consigne, /\(25 sur 50\) dans celles-ci ; les 25 autres réparties entre au moins 4 autres catégories/)
   assert.doesNotMatch(consigne, /Les autres restent permises/)
   // Sans catégorie à privilégier, pas de rubrique vide.
