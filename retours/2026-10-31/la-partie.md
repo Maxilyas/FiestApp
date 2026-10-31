@@ -24,7 +24,7 @@ la maquette que j'ai toujours rêvée. »
 **Aucune ligne de l'application n'a changé.** Tout vit dans la maquette jouable
 (`maquette/`, publiée en artefact privé).
 
-## Les cinq décisions
+## Les décisions
 
 1. **Une partie dure une vingtaine de minutes, et se reprend où on l'a laissée.**
    Une seule partie en cours à la fois.
@@ -32,8 +32,19 @@ la maquette que j'ai toujours rêvée. »
 3. **Le légendaire se choisit parmi les trois gardiens vaincus** pendant la partie.
 4. **Les dix cartes** : les cinq pouvoirs du Cabinet (Coup d'œil, Échange, Quitte
    ou double, Concentration, Parade) et cinq de plus (Cagnotte, Panacée,
-   Pourboire, Coup de grâce, Second souffle) ; chacune s'améliore une fois.
+   Pourboire, Coup de grâce, Second souffle).
 5. **L'Expédition quitte le dépôt** une fois le nouveau Cabinet en place.
+
+Puis, sur la première maquette (« Je trouve ça top, juste je pense qu'il ne faut
+pas choisir de carte pendant le jeu, uniquement améliorer les cartes que l'on a
+choisi au début ») :
+
+6. **Les trois cartes du départ sont les seules de la partie.** Le coffre, le
+   gardien vaincu et le marchand n'offrent plus de carte : ils en améliorent une,
+   au choix. Chaque carte s'améliore **deux fois** (la carte +, puis ++) : avec une
+   seule amélioration, les trois cartes étaient au plus haut dès l'acte II, et il
+   ne restait plus rien à offrir. Toutes au plus haut, coffres et gardiens donnent
+   40 pièces.
 
 ## Le mode en une phrase
 
@@ -52,27 +63,28 @@ contre l'empilement qui a noyé l'Expédition.
 | Une étape | Un des neuf jeux, sur un thème, en trois manches. Jamais deux fois le même jeu sur une rangée ; les jeux les moins vus de la partie d'abord. |
 | Les thèmes | Les douze catégories de la base pour le Pari, l'Éclair, le Mot mystère et le Filet ; les thèmes écrits à la main pour l'Épingle et la Frise (jamais deux fois dans une partie) ; « Peinture », « Personnages célèbres », « Répliques cultes » pour le Détail, les Indices et la Réplique. |
 | La difficulté | Acte I : questions faciles (difficulté 1 et 2), acte II : moyennes (3), acte III : difficiles (4). Les gardiens, un cran au-dessus. |
-| Les cœurs | 5 au départ (Panacée : 6 ou 7). Une erreur en coûte un, Quitte ou double raté deux. Zéro : la partie s'arrête. Un gardien vaincu les rend tous. |
+| Les cartes | Trois choisies au départ parmi les dix, les seules de la partie. Chacune a trois niveaux : la carte, la carte +, la carte ++. |
+| Les cœurs | 5 au départ (Panacée : 6, 7 ou 8). Une erreur en coûte un, Quitte ou double raté deux. Zéro : la partie s'arrête. Un gardien vaincu les rend tous. |
 | L'or | Chaque bonne manche : 15, 10 ou 5 pièces selon qu'elle est parfaite, bonne ou juste (le barème de chaque jeu, plus bas). Pari gagné : 25. Un gardien vaincu : 30. L'or ne sert que dans la partie. |
-| Le marchand | Avant chaque gardien. Un cœur : 25 · une carte : 60 · une amélioration : 45 (Pourboire : 10 ou 20 de remise, 5 au moins). Il propose trois cartes que tu n'as pas. |
-| Le coffre | Une carte parmi trois que tu n'as pas (sinon une amélioration, sinon 40 pièces). |
-| Les gardiens | 3, 4 puis 5 points de vie (Coup de grâce : un ou deux de moins, 1 au moins). Chaque bonne réponse lui en retire un (deux sous Quitte ou double), chaque erreur te coûte un cœur. Chacun a ses trois jeux, joués à tour de rôle. Vaincu : 30 pièces, les cœurs au complet, une carte parmi trois. |
+| Le marchand | Avant chaque gardien. Un cœur : 25 · une amélioration : 45 (Pourboire : 10, 20 ou 30 de remise, 5 au moins). |
+| Le coffre | Une amélioration offerte, sur la carte de ton choix (toutes au plus haut : 40 pièces). |
+| Les gardiens | 3, 4 puis 5 points de vie (Coup de grâce : un, deux ou trois de moins, 1 au moins). Chaque bonne réponse lui en retire un (deux sous Quitte ou double), chaque erreur te coûte un cœur. Chacun a ses trois jeux, joués à tour de rôle. Vaincu : 30 pièces, les cœurs au complet, une amélioration au choix. |
 | La fin | Au troisième gardien vaincu, le joueur choisit son légendaire parmi les trois : il devient un avatar, comme les gardiens du Cabinet aujourd'hui. |
 
 ### Les dix cartes
 
-| Carte | Sorte | Effet | Améliorée |
-|---|---|---|---|
-| Coup d'œil | à jouer | Une fois par épreuve : un indice sur la manche (deux réponses effacées, une lettre soufflée, une zone entourée, un indice offert…) | deux fois |
-| Échange | à jouer | Une fois par épreuve : une autre manche du même jeu (pas à la Frise) | deux fois |
-| Quitte ou double | à jouer | Une fois par épreuve, mise sur ta réponse : juste, son or doublé (deux coups contre un gardien) ; fausse, deux cœurs | or triplé |
-| Concentration | toujours active | 10 secondes de plus à chaque manche | 20 secondes |
-| Parade | toujours active | La première erreur de chaque épreuve ne coûte pas de cœur | contre les gardiens aussi |
-| Cagnotte | toujours active | 5 pièces de plus à chaque bonne réponse | 10 pièces |
-| Panacée | toujours active | Un cœur de plus au maximum | deux |
-| Pourboire | toujours active | 10 pièces de remise sur chaque achat | 20 pièces |
-| Coup de grâce | toujours active | Chaque gardien commence avec un point de vie en moins | deux de moins |
-| Second souffle | une fois par partie | Au dernier cœur perdu, tu te relèves avec 2 cœurs | avec 4 |
+| Carte | Sorte | Effet | + | ++ |
+|---|---|---|---|---|
+| Coup d'œil | à jouer | Une fois par épreuve : un indice sur la manche (deux réponses effacées, une lettre soufflée, une zone entourée, un indice offert…) | deux fois | trois fois |
+| Échange | à jouer | Une fois par épreuve : une autre manche du même jeu (pas à la Frise) | deux fois | trois fois |
+| Quitte ou double | à jouer | Une fois par épreuve, mise sur ta réponse : juste, son or doublé (deux coups contre un gardien) ; fausse, deux cœurs | or triplé | deux mises par épreuve |
+| Concentration | toujours active | 10 secondes de plus à chaque manche | 20 secondes | 30 secondes |
+| Parade | toujours active | La première erreur de chaque épreuve ne coûte pas de cœur | contre les gardiens aussi | les deux premières erreurs |
+| Cagnotte | toujours active | 5 pièces de plus à chaque bonne réponse | 10 pièces | 15 pièces |
+| Panacée | toujours active | Un cœur de plus au maximum | deux | trois |
+| Pourboire | toujours active | 10 pièces de remise sur chaque achat | 20 pièces | 30 pièces |
+| Coup de grâce | toujours active | Chaque gardien commence avec un point de vie en moins | deux de moins | trois de moins |
+| Second souffle | une fois par partie | Au dernier cœur perdu, tu te relèves avec 2 cœurs | avec 4 | avec tous |
 
 Les peintures sont celles des cartes du même nom (`client/public/cartes/`).
 
@@ -136,8 +148,8 @@ campagne.
 2. **La partie** : la carte de trois actes tirée au départ (pure, dans
    `shared/cabinet/`), la partie relue de son journal comme aujourd'hui (le pli),
    une étape jouée = une partie de trois manches des jeux existants.
-3. **L'or, les cœurs, les cartes** : le barème en or, les dix cartes et leurs
-   améliorations, le coffre, le marchand.
+3. **L'or, les cœurs, les cartes** : le barème en or, les dix cartes, trois au
+   départ et leurs deux améliorations, le coffre, le marchand.
 4. **Les gardiens et le légendaire** : les combats, le choix final, le
    rangement du légendaire (le chemin des gardiens d'aujourd'hui).
 5. **La carte en 3D** : la scène de la maquette (`maquette/scene.js`) dans

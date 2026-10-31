@@ -17,8 +17,14 @@ const $ = s => document.querySelector(s);
 const COEURS_DE_DEPART = 5;
 const PV_DES_GARDIENS = [3, 4, 5];
 const OR_D_UN_GARDIEN = 30;
-const PRIX = { coeur: 25, carte: 60, amelioration: 45 };
-const CLE = 'cabinet-trois-actes-v1';
+const PRIX = { coeur: 25, amelioration: 45 };
+const OR_SANS_AMELIORATION = 40;
+// Les trois cartes du départ sont les seules de la partie (le propriétaire, le 31 octobre 2026 :
+// « ne pas choisir de carte pendant le jeu, uniquement améliorer celles choisies au début »).
+// Chacune s'améliore deux fois, + puis ++ : avec une seule amélioration, trois cartes étaient
+// au plus haut dès l'acte II, et coffres, gardiens et marchand n'avaient plus rien à offrir.
+const NIVEAU_MAX = 3;
+const CLE = 'cabinet-trois-actes-v2';
 
 const ACTES = [
   { court: 'Acte I', nom: 'La Serre aux merveilles', teinte: 152, niveau: 'facile', niveauGardien: 'moyen' },
@@ -36,19 +42,23 @@ const JEUX_DE_LA_BASE = ['pari', 'eclair', 'mot', 'filet'];
 // Ce que le contenu écrit à la main permet sur une partie : un thème ne revient jamais.
 const PLAFOND = { frise: 3, epingle: 4, detail: 3, indices: 3, replique: 3 };
 
-// Les dix cartes-bonus : dix peintures du Cabinet, dix effets qui se disent en une phrase.
+// Les dix cartes-bonus : dix peintures du Cabinet, dix effets qui se disent en une phrase, à
+// chacun de leurs trois niveaux (la carte, la carte +, la carte ++).
+const FOIS = ['', 'Une fois', 'Deux fois', 'Trois fois'];
 const CARTES = {
-  'coup-d-oeil': { nom: 'Coup d’œil', sorte: 'active', dit: n => `${n === 2 ? 'Deux fois' : 'Une fois'} par épreuve : un indice sur la manche en cours.` },
-  echange: { nom: 'Échange', sorte: 'active', dit: n => `${n === 2 ? 'Deux fois' : 'Une fois'} par épreuve : change la manche pour une autre du même jeu.` },
-  'quitte-ou-double': { nom: 'Quitte ou double', sorte: 'active', dit: n => `Une fois par épreuve, mise sur ta réponse : juste, son or est ${n === 2 ? 'triplé' : 'doublé'} ; fausse, elle coûte 2 cœurs.` },
-  concentration: { nom: 'Concentration', sorte: 'passive', dit: n => `${n === 2 ? '20' : '10'} secondes de plus à chaque manche.` },
-  parade: { nom: 'Parade', sorte: 'passive', dit: n => n === 2 ? 'Ta première erreur de chaque épreuve ne coûte pas de cœur, contre les gardiens aussi.' : 'Ta première erreur de chaque épreuve ne coûte pas de cœur (pas contre les gardiens).' },
-  cagnotte: { nom: 'Cagnotte', sorte: 'passive', dit: n => `${n === 2 ? '10' : '5'} pièces de plus à chaque bonne réponse.` },
-  panacee: { nom: 'Panacée', sorte: 'passive', dit: n => `${n === 2 ? 'Deux cœurs' : 'Un cœur'} de plus au maximum.` },
-  pourboire: { nom: 'Pourboire', sorte: 'passive', dit: n => `Le marchand te fait ${n === 2 ? '20' : '10'} pièces de remise sur chaque achat.` },
-  'coup-de-grace': { nom: 'Coup de grâce', sorte: 'passive', dit: n => `Chaque gardien commence avec ${n === 2 ? 'deux points' : 'un point'} de vie en moins.` },
-  'second-souffle': { nom: 'Second souffle', sorte: 'unique', dit: n => `Une fois par partie : à ton dernier cœur perdu, tu te relèves avec ${n === 2 ? '4' : '2'} cœurs.` },
+  'coup-d-oeil': { nom: 'Coup d’œil', sorte: 'active', dit: n => `${FOIS[n]} par épreuve : un indice sur la manche en cours.` },
+  echange: { nom: 'Échange', sorte: 'active', dit: n => `${FOIS[n]} par épreuve : change la manche pour une autre du même jeu.` },
+  'quitte-ou-double': { nom: 'Quitte ou double', sorte: 'active', dit: n => `${n === 3 ? 'Deux fois' : 'Une fois'} par épreuve, mise sur ta réponse : juste, son or est ${n === 1 ? 'doublé' : 'triplé'} ; fausse, elle coûte 2 cœurs.` },
+  concentration: { nom: 'Concentration', sorte: 'passive', dit: n => `${n * 10} secondes de plus à chaque manche.` },
+  parade: { nom: 'Parade', sorte: 'passive', dit: n => n === 3 ? 'Tes deux premières erreurs de chaque épreuve ne coûtent pas de cœur, contre les gardiens aussi.' : n === 2 ? 'Ta première erreur de chaque épreuve ne coûte pas de cœur, contre les gardiens aussi.' : 'Ta première erreur de chaque épreuve ne coûte pas de cœur (pas contre les gardiens).' },
+  cagnotte: { nom: 'Cagnotte', sorte: 'passive', dit: n => `${n * 5} pièces de plus à chaque bonne réponse.` },
+  panacee: { nom: 'Panacée', sorte: 'passive', dit: n => `${['', 'Un cœur', 'Deux cœurs', 'Trois cœurs'][n]} de plus au maximum.` },
+  pourboire: { nom: 'Pourboire', sorte: 'passive', dit: n => `Le marchand te fait ${n * 10} pièces de remise sur chaque achat.` },
+  'coup-de-grace': { nom: 'Coup de grâce', sorte: 'passive', dit: n => `Chaque gardien commence avec ${['', 'un point', 'deux points', 'trois points'][n]} de vie en moins (un au moins).` },
+  'second-souffle': { nom: 'Second souffle', sorte: 'unique', dit: n => `Une fois par partie : à ton dernier cœur perdu, tu te relèves avec ${n === 3 ? 'tous tes cœurs' : n === 2 ? '4 cœurs' : '2 cœurs'}.` },
 };
+const signeDuNiveau = n => (n >= 2 ? ' <span class="plus">' + '+'.repeat(n - 1) + '</span>' : '');
+const nomAuNiveau = (cle, n) => CARTES[cle].nom + (n >= 2 ? ' ' + '+'.repeat(n - 1) : '');
 const ORDRE_DES_CARTES = Object.keys(CARTES);
 const SORTE_DITE = { active: 'À jouer', passive: 'Toujours active', unique: 'Une fois par partie' };
 const imgCarte = cle => `cartes/${cle}.webp`;
@@ -102,7 +112,11 @@ const niveau = cle => (carte(cle) ? carte(cle).niveau : 0);
 const coeursMax = () => COEURS_DE_DEPART + niveau('panacee');
 const atteignables = () => (R && !R.enRoute && R.etape === 'carte' ? noeud(R.position).liens : []);
 const themeDit = t => `${THEMES[t] || EMOJI_DU_THEME[t] || '🗺️'} ${esc(t)}`;
-const remise = () => [0, 10, 20][niveau('pourboire')];
+const remise = () => niveau('pourboire') * 10;
+// Les cartes qu'une amélioration peut encore servir : pas au plus haut, et pas un Second souffle déjà dépensé.
+const ameliorables = () => R.cartes.filter(c => c.niveau < NIVEAU_MAX && !(c.cle === 'second-souffle' && c.utilisee));
+const facteurDeMise = () => (niveau('quitte-ou-double') >= 2 ? 3 : 2);
+const misesParEpreuve = () => (niveau('quitte-ou-double') === 3 ? 2 : 1);
 const prix = p => Math.max(5, p - remise());
 
 // ———————————————————————————————— Une partie neuve ————————————————————————————————
@@ -115,7 +129,7 @@ function nouvellePartie() {
     v: 1, etape: 'titre', acte: 0, coeurs: COEURS_DE_DEPART, or: 0, cartes: [],
     actes: [0, 1, 2].map(a => genererActe(a, usage)), gardiens,
     position: 'a0r0c1', visites: ['a0r0c1'], enRoute: null,
-    marchands: {}, tresors: {}, vus: [], fin: null,
+    tresors: {}, vus: [], fin: null,
     stats: { justes: 0, erreurs: 0, or: 0, epreuves: 0, vaincus: [] },
   };
 }
@@ -203,16 +217,16 @@ function pioche(sorte, o = {}) {
 
 const PIECE = '<i class="piece" aria-hidden="true"></i>';
 const COEUR = '<svg class="coeur" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.2s-7.6-4.7-9.7-9.4C.7 8.2 2.9 4.4 6.6 4.4c2.2 0 3.7 1.2 4.6 2.7.9-1.5 2.4-2.7 4.6-2.7 3.7 0 5.9 3.8 4.3 7.4-2.1 4.7-8.1 9.4-8.1 9.4z"/></svg>';
-const coeursHtml = (n, max) => `<span class="coeurs" role="img" aria-label="${n} ${n > 1 ? 'cœurs' : 'cœur'} sur ${max}">${Array.from({ length: max }, (_, i) => COEUR.replace('class="coeur"', `class="coeur${i < n ? '' : ' vide'}"`)).join('')}</span>`;
+const coeursHtml = (n, max) => `<span class="coeurs${max >= 7 ? ' serres' : ''}" role="img" aria-label="${n} ${n > 1 ? 'cœurs' : 'cœur'} sur ${max}">${Array.from({ length: max }, (_, i) => COEUR.replace('class="coeur"', `class="coeur${i < n ? '' : ' vide'}"`)).join('')}</span>`;
 const orHtml = n => `<span class="bourse" role="img" aria-label="${n} pièces d’or">${PIECE}<b>${n}</b></span>`;
 const pvHtml = (pv, max) => `<span class="pv" role="img" aria-label="${pv} points de vie sur ${max}">${Array.from({ length: max }, (_, i) => `<i class="${i < pv ? 'plein' : ''}"></i>`).join('')}</span>`;
 
 function carteHtml(cle, niv, o = {}) {
   const c = CARTES[cle], el = o.action ? 'button' : 'div';
   const attrs = o.action ? `data-a="${o.action}" data-v="${cle}"${o.pressee != null ? ` aria-pressed="${o.pressee}"` : ''}${o.inerte ? ' aria-disabled="true"' : ''}` : '';
-  return `<${el} class="carte${o.prise ? ' prise' : ''}${niv === 2 ? ' amelioree' : ''}${o.utilisee ? ' utilisee' : ''}" ${attrs}>
+  return `<${el} class="carte${o.prise ? ' prise' : ''}${niv >= 2 ? ' amelioree' : ''}${o.utilisee ? ' utilisee' : ''}" ${attrs}>
     <span class="peinture"><img src="${imgCarte(cle)}" alt="" loading="lazy">${o.prise ? '<span class="coche" aria-hidden="true">✓</span>' : ''}</span>
-    <span class="nom">${c.nom}${niv === 2 ? ' <span class="plus">+</span>' : ''}</span>
+    <span class="nom">${c.nom}${signeDuNiveau(niv)}</span>
     <span class="sorte ${c.sorte}">${o.etiquette || SORTE_DITE[c.sorte]}</span>
     <span class="dit">${c.dit(niv)}</span>${o.bas ? `<span class="bas">${o.bas}</span>` : ''}
   </${el}>`;
@@ -224,8 +238,8 @@ function decrire(n) {
     const j = MODULES[n.jeu];
     return { emoji: j.emoji, titre: j.nom, sous: themeDit(n.theme), quoi: '', detail: j.geste, cta: `Jouer ${j.a}` };
   }
-  if (n.type === 'tresor') return { emoji: '🎁', titre: 'Un coffre', sous: 'Une carte à choisir parmi trois', quoi: 'Trésor', detail: 'Pas de question ici : ouvre-le et choisis une carte.', cta: 'Ouvrir le coffre' };
-  if (n.type === 'marchand') return { emoji: '💰', titre: 'Le marchand', sous: 'Des cœurs, des cartes, des améliorations', quoi: 'Boutique', detail: 'Dépense ton or avant d’affronter le gardien.', cta: 'Entrer chez le marchand' };
+  if (n.type === 'tresor') return { emoji: '🎁', titre: 'Un coffre', sous: 'Une amélioration offerte', quoi: 'Trésor', detail: 'Pas de question ici : ouvre-le et améliore une de tes cartes.', cta: 'Ouvrir le coffre' };
+  if (n.type === 'marchand') return { emoji: '💰', titre: 'Le marchand', sous: 'Des cœurs et des améliorations', quoi: 'Boutique', detail: 'Dépense ton or avant d’affronter le gardien.', cta: 'Entrer chez le marchand' };
   const k = R.gardiens[n.acte], g = LEGENDAIRES[k];
   return { img: imgGardien(k), titre: g.nom, sous: esc(g.devise), quoi: `${pvDuGardien(n.acte)} PV`, detail: 'Chaque bonne réponse lui retire un point de vie. Chaque erreur te coûte un cœur.', cta: `Affronter ${g.nom.replace(/^Le /, 'le ').replace(/^La /, 'la ').replace(/^L’/, 'l’')}` };
 }
@@ -234,8 +248,8 @@ const pvDuGardien = a => Math.max(1, PV_DES_GARDIENS[a] - niveau('coup-de-grace'
 // Ce que la carte 3D écrit sur une île : court, sans balise.
 function etiquetteDe(n) {
   if (n.type === 'epreuve') return { emoji: MODULES[n.jeu].emoji, titre: MODULES[n.jeu].nom, sous: `${THEMES[n.theme] || EMOJI_DU_THEME[n.theme] || ''} ${n.theme}`.trim() };
-  if (n.type === 'tresor') return { titre: 'Un coffre', sous: 'Une carte à choisir' };
-  if (n.type === 'marchand') return { emoji: '💰', titre: 'Le marchand', sous: 'Cœurs et cartes' };
+  if (n.type === 'tresor') return { titre: 'Un coffre', sous: 'Une amélioration' };
+  if (n.type === 'marchand') return { emoji: '💰', titre: 'Le marchand', sous: 'Cœurs et améliorations' };
   if (n.type === 'gardien') { const k = R.gardiens[n.acte]; return { img: imgGardien(k), titre: LEGENDAIRES[k].nom, sous: `Gardien · ${ACTES[n.acte].court}` }; }
   return { titre: ACTES[n.acte].court, sous: ACTES[n.acte].nom };
 }
@@ -299,7 +313,7 @@ function ecranCartes() {
   const n = V.choix.length;
   return `<div class="colonne">
       <header class="tete-ecran"><p class="sur">Avant de partir</p><h2 tabindex="-1">Choisis 3 cartes</h2>
-      <p class="pale">Elles t’accompagnent toute la partie. Les sept autres se gagnent en route : dans les coffres, chez le marchand, auprès des gardiens.</p></header>
+      <p class="pale">Ce seront tes seules cartes de la partie : tu les amélioreras en route, dans les coffres, chez le marchand et après chaque gardien.</p></header>
       <div class="grille-cartes">${ORDRE_DES_CARTES.map(k => carteHtml(k, 1, { action: 'prendre', pressee: V.choix.includes(k), prise: V.choix.includes(k) })).join('')}</div>
     </div>
     <footer class="pied"><button class="cta" data-a="partir" ${n === 3 ? '' : 'aria-disabled="true"'}>${n === 3 ? 'Partir avec ces 3 cartes' : `Choisis encore ${pluriel(3 - n, 'carte', 'cartes')}`}</button></footer>`;
@@ -316,7 +330,7 @@ function teteEpreuve() {
     : `<span class="tete-jeu"><span class="ic" aria-hidden="true">${mod.emoji}</span><b>${mod.nom}</b><small>${themeDit(E.theme)}</small></span>`;
   return `<header class="tete">
       ${haut}
-      <div class="entre">${pips}<span class="ressources">${E.mise && E.phase === 'jouer' ? `<span class="mise">×${niveau('quitte-ou-double') === 2 ? 3 : 2}</span>` : ''}${coeursHtml(R.coeurs, coeursMax())}${orHtml(R.or)}</span></div>
+      <div class="entre">${pips}<span class="ressources">${E.mise && E.phase === 'jouer' ? `<span class="mise">×${facteurDeMise()}</span>` : ''}${coeursHtml(R.coeurs, coeursMax())}${orHtml(R.or)}</span></div>
       ${E.phase === 'jouer' ? '<div class="ligne"><div class="chrono grand" aria-hidden="true"><i></i></div><span class="chrono-txt mini pale" aria-hidden="true"></span></div>' : ''}
     </header>`;
 }
@@ -324,9 +338,9 @@ function teteEpreuve() {
 function annonceEpreuve() {
   const E = V.E, mod = MODULES[E.jeu], a = ACTES[R.acte];
   const notes = [];
-  if (niveau('cagnotte')) notes.push(`Cagnotte : ${niveau('cagnotte') === 2 ? 10 : 5} pièces de plus par bonne réponse.`);
-  if (niveau('parade')) notes.push('Parade : ta première erreur ne coûte pas de cœur.');
-  if (niveau('concentration')) notes.push(`Concentration : ${niveau('concentration') === 2 ? 20 : 10} secondes de plus.`);
+  if (niveau('cagnotte')) notes.push(`Cagnotte : ${niveau('cagnotte') * 5} pièces de plus par bonne réponse.`);
+  if (niveau('parade')) notes.push(niveau('parade') === 3 ? 'Parade : tes deux premières erreurs ne coûtent pas de cœur.' : 'Parade : ta première erreur ne coûte pas de cœur.');
+  if (niveau('concentration')) notes.push(`Concentration : ${niveau('concentration') * 10} secondes de plus.`);
   return `<div class="colonne annonce" style="--teinte:${a.teinte}">
       <p class="sur">${a.court} · ${themeDit(E.theme)}</p>
       <div class="grand-ic" aria-hidden="true">${mod.emoji}</div>
@@ -374,7 +388,7 @@ function libelleSuite() {
 function plateau() {
   const E = V.E, mod = MODULES[E.jeu], c = ctx();
   const boutons = [];
-  const reste = cle => Math.max(0, (cle === 'quitte-ou-double' ? 1 : niveau(cle)) - (E.usages[cle] || 0));
+  const reste = cle => Math.max(0, (cle === 'quitte-ou-double' ? misesParEpreuve() : niveau(cle)) - (E.usages[cle] || 0));
   if (niveau('coup-d-oeil')) {
     const ok = reste('coup-d-oeil') > 0 && mod.peutEclairer(c);
     boutons.push(`<button class="carte-jouee" data-a="jouer-carte" data-v="coup-d-oeil" ${ok ? '' : 'aria-disabled="true"'}><img src="${imgCarte('coup-d-oeil')}" alt=""><span><b>Coup d’œil · ${reste('coup-d-oeil')}</b><small>${mod.eclairerDit}</small></span></button>`);
@@ -384,7 +398,7 @@ function plateau() {
     boutons.push(`<button class="carte-jouee" data-a="jouer-carte" data-v="echange" ${ok ? '' : 'aria-disabled="true"'}><img src="${imgCarte('echange')}" alt=""><span><b>Échange · ${reste('echange')}</b><small>${E.jeu === 'frise' ? 'ne sert pas à la Frise' : 'une autre manche'}</small></span></button>`);
   }
   if (niveau('quitte-ou-double')) {
-    const f = niveau('quitte-ou-double') === 2 ? 3 : 2, ok = reste('quitte-ou-double') > 0 && !E.mise;
+    const f = facteurDeMise(), ok = reste('quitte-ou-double') > 0 && !E.mise;
     boutons.push(`<button class="carte-jouee${E.mise ? ' active' : ''}" data-a="jouer-carte" data-v="quitte-ou-double" aria-pressed="${!!E.mise}" ${ok ? '' : 'aria-disabled="true"'}><img src="${imgCarte('quitte-ou-double')}" alt=""><span><b>${E.mise ? `Misé : ×${f}` : `Quitte ou double · ${reste('quitte-ou-double')}`}</b><small>${E.mise ? 'faux : 2 cœurs' : `or ×${f}, ou 2 cœurs`}</small></span></button>`);
   }
   // À trois, chaque carte n'a plus que son nom : avec sa peinture et son rôle, elle prenait quatre lignes.
@@ -423,29 +437,27 @@ function victoireGardien() {
       <div class="portrait vaincu"><img src="${imgGardien(E.lg, true)}" alt=""></div>
       <h2 tabindex="-1">${g.nom} s’incline !</h2>
       <p class="gain">+${OR_D_UN_GARDIEN} ${PIECE}</p>
-      <p class="pale centre">${R.acte < 2 ? 'Tes cœurs reviennent au complet. Une récompense t’attend avant l’acte suivant.' : 'Les trois gardiens sont vaincus. L’un d’eux va te suivre.'}</p>
+      <p class="pale centre">${R.acte < 2 ? 'Tes cœurs reviennent au complet. Avant l’acte suivant, une de tes cartes s’améliore.' : 'Les trois gardiens sont vaincus. L’un d’eux va te suivre.'}</p>
     </div>
-    <footer class="pied"><button class="cta" data-a="apres-gardien">${R.acte < 2 ? 'Choisir ta récompense' : 'Choisir ton légendaire'}</button></footer>`;
+    <footer class="pied"><button class="cta" data-a="apres-gardien">${R.acte >= 2 ? 'Choisir ton légendaire' : ameliorables().length ? 'Améliorer une carte' : 'Prendre ta récompense'}</button></footer>`;
 }
 
-// Trois offres : des cartes que tu n'as pas, sinon des améliorations, sinon de l'or.
-function offres(n) {
-  const neuves = melanger(ORDRE_DES_CARTES.filter(k => !carte(k))).slice(0, n).map(cle => ({ type: 'carte', cle }));
-  const amelio = melanger(R.cartes.filter(c => c.niveau === 1).map(c => c.cle)).slice(0, n - neuves.length).map(cle => ({ type: 'amelioration', cle }));
-  const l = [...neuves, ...amelio];
-  while (l.length < n) l.push({ type: 'or', n: 40 });
-  return l;
-}
-function offreHtml(o, i, action) {
-  if (o.type === 'or') return `<button class="offre-or" data-a="${action}" data-v="${i}">${PIECE}<b>+${o.n} pièces</b></button>`;
-  return carteHtml(o.cle, o.type === 'amelioration' ? 2 : 1, { action, etiquette: o.type === 'amelioration' ? 'Amélioration' : null }).replace(`data-v="${o.cle}"`, `data-v="${i}"`);
+// Une amélioration à choisir parmi tes cartes, chacune dite à son niveau d'après. Les trois
+// cartes du départ sont les seules de la partie : rien d'autre ne s'offre en route.
+// Toutes au plus haut, la récompense devient de l'or.
+function choixDAmelioration(action) {
+  const l = ameliorables();
+  if (!l.length) return `<button class="offre-or" data-a="${action}" data-v="or">${PIECE}<span><b>+${OR_SANS_AMELIORATION} pièces</b><small>Tes cartes sont toutes au plus haut.</small></span></button>`;
+  return `<div class="grille-cartes trois">${l.map(c => carteHtml(c.cle, c.niveau + 1, { action, etiquette: 'Amélioration' })).join('')}</div>`;
 }
 
 function ecranRecompense() {
-  const a = ACTES[R.acte];
+  const a = ACTES[R.acte], reste = ameliorables().length;
   return `<div class="colonne">
-      <header class="tete-ecran"><p class="sur">${a.court} · La récompense ${deLui(R.gardiens[R.acte])}</p><h2 tabindex="-1">Choisis une carte</h2><p class="pale">Elle te suit jusqu’à la fin de la partie.</p></header>
-      <div class="grille-cartes trois">${R.recompense.map((o, i) => offreHtml(o, i, 'prendre-recompense')).join('')}</div>
+      <header class="tete-ecran"><p class="sur">${a.court} · La récompense ${deLui(R.gardiens[R.acte])}</p>
+        <h2 tabindex="-1">${reste ? 'Améliore une carte' : 'Ta récompense'}</h2>
+        <p class="pale">${reste ? 'Celle que tu veux : elle le reste jusqu’à la fin de la partie.' : 'Tes trois cartes sont au plus haut : le gardien te paie en or.'}</p></header>
+      ${choixDAmelioration('prendre-recompense')}
     </div>`;
 }
 
@@ -454,33 +466,30 @@ function ecranTresor() {
   if (!t.ouvert) return `<div class="colonne tresor" style="--teinte:${ACTES[R.acte].teinte}">
       <p class="sur">${ACTES[R.acte].court} · Un trésor</p><h2 tabindex="-1">Un coffre au bord du chemin</h2>
       <button class="coffre" data-a="ouvrir-coffre" aria-label="Ouvrir le coffre"><img src="decors/coffre-ferme.webp" alt=""></button>
-      <p class="pale centre">Pas de question ici. Ouvre-le : une carte t’attend.</p>
+      <p class="pale centre">Pas de question ici. Ouvre-le : une amélioration t’attend.</p>
     </div>
     <footer class="pied"><button class="cta" data-a="ouvrir-coffre">Ouvrir le coffre</button></footer>`;
   return `<div class="colonne tresor ouvert">
       <img class="coffre-ouvert" src="decors/coffre-ouvert.webp" alt="">
-      <header class="tete-ecran centre"><h2 tabindex="-1">Choisis une carte</h2><p class="pale">Les deux autres restent dans le coffre.</p></header>
-      <div class="grille-cartes trois">${t.offres.map((o, i) => offreHtml(o, i, 'prendre-tresor')).join('')}</div>
+      <header class="tete-ecran centre">${ameliorables().length
+        ? '<h2 tabindex="-1">Améliore une carte</h2><p class="pale">Le coffre en améliore une : celle que tu veux.</p>'
+        : '<h2 tabindex="-1">De l’or</h2><p class="pale">Tes trois cartes sont au plus haut : le coffre est plein de pièces.</p>'}</header>
+      ${choixDAmelioration('prendre-tresor')}
     </div>`;
 }
 
 function ecranMarchand() {
-  const st = R.marchands[R.enRoute], plein = R.coeurs >= coeursMax();
-  const pc = prix(PRIX.coeur), pk = prix(PRIX.carte), pa = prix(PRIX.amelioration);
-  const achat = (action, v, p, possible, raison) => `<button class="achat" data-a="${action}" data-v="${v}" ${possible && R.or >= p ? '' : 'aria-disabled="true"'} aria-label="Acheter pour ${p} pièces${raison ? ' : ' + raison : ''}">${p} ${PIECE}</button>`;
+  const plein = R.coeurs >= coeursMax(), pc = prix(PRIX.coeur), pa = prix(PRIX.amelioration);
+  const achat = (action, v, p, possible) => `<button class="achat" data-a="${action}" data-v="${v}" ${possible && R.or >= p ? '' : 'aria-disabled="true"'} aria-label="Acheter pour ${p} pièces">${p} ${PIECE}</button>`;
   // Le prix vit dans la carte, sous son effet : à côté, il serrait le texte sur six lignes.
-  const etal = st.cartes.map(k => st.achetees.includes(k)
-    ? carteHtml(k, 1, { bas: '<span class="vendu-dit">Achetée</span>', utilisee: true })
-    : carteHtml(k, 1, { bas: achat('acheter-carte', k, pk, true) })).join('');
-  const ameliorables = R.cartes.filter(c => c.niveau === 1);
+  const l = ameliorables();
   return `<div class="colonne marchand">
       <div class="enseigne"><img src="decors/marchand.webp" alt=""><div class="enseigne-texte"><p class="sur">${ACTES[R.acte].court} · Le marchand</p><h2 tabindex="-1">Le marchand</h2><p class="replique-marchand">« Tout s’achète ici, sauf le savoir. Celui-là, tu l’as gagné. »</p></div></div>
       <div class="ressources entre">${coeursHtml(R.coeurs, coeursMax())}${orHtml(R.or)}</div>
       ${remise() ? `<p class="mini pale">Pourboire : ${remise()} pièces de remise sur chaque achat.</p>` : ''}
       <section class="rayon"><h3>Un cœur</h3><div class="article"><span class="ic-coeur">${COEUR}</span><span class="txt">${plein ? 'Tes cœurs sont au complet.' : 'Regagne un cœur perdu.'}</span>${achat('acheter-coeur', '', pc, !plein)}</div></section>
-      <section class="rayon"><h3>Des cartes</h3>${etal ? `<div class="etal">${etal}</div>` : '<p class="pale petit">Tu as déjà toutes les cartes.</p>'}</section>
       <section class="rayon"><h3>Améliorer une carte</h3>
-        ${ameliorables.length ? `<div class="pile serre">${ameliorables.map(c => `<div class="article amelio"><img src="${imgCarte(c.cle)}" alt=""><span class="txt"><b>${CARTES[c.cle].nom} +</b><small>${CARTES[c.cle].dit(2)}</small></span>${achat('ameliorer', c.cle, pa, true)}</div>`).join('')}</div>` : '<p class="pale petit">Toutes tes cartes sont déjà améliorées.</p>'}
+        ${l.length ? `<div class="etal">${l.map(c => carteHtml(c.cle, c.niveau + 1, { etiquette: 'Amélioration', bas: achat('ameliorer', c.cle, pa, true) })).join('')}</div>` : '<p class="pale petit">Tes cartes sont toutes au plus haut.</p>'}
       </section>
     </div>
     <footer class="pied"><button class="cta" data-a="quitter-marchand">Reprendre la route</button></footer>`;
@@ -526,7 +535,8 @@ const REGLES = `<ol class="regles">
     <li><b>Choisis ton chemin.</b> Chaque étape de la carte est un jeu, sur un thème. Les neuf jeux s’y croisent.</li>
     <li><b>Bonne réponse : de l’or.</b> 15, 10 ou 5 pièces selon que la manche est parfaite, bonne ou juste.</li>
     <li><b>Erreur : un cœur en moins.</b> Plus de cœur, la partie s’arrête et tout recommence à l’Acte I.</li>
-    <li><b>Le marchand</b>, avant chaque gardien, vend des cœurs, des cartes et des améliorations.</li>
+    <li><b>Tes trois cartes</b>, choisies au départ, sont les seules de la partie. Elles s’améliorent en route : dans les coffres, chez le marchand, après chaque gardien.</li>
+    <li><b>Le marchand</b>, avant chaque gardien, vend des cœurs et des améliorations.</li>
     <li><b>Au bout de chaque acte, un gardien.</b> Bats les trois : l’un d’eux sera à toi.</li>
   </ol>`;
 
@@ -566,8 +576,8 @@ function rendreTout() {
   $('#ui').classList.toggle('titre', V.ecran === 'titre');
   rendreEcran();
   const f = $('#feuille'); f.hidden = !V.feuille; f.innerHTML = feuille();
-  // Le carton de l'acte ne survit pas à un écran qui s'ouvre par-dessus la carte.
-  if (!surLaCarte()) { clearTimeout(carton.t); $('#carton').hidden = true; }
+  // Le carton de l'acte ne survit pas à un écran ni à une feuille qui s'ouvre par-dessus la carte.
+  if (!surLaCarte() || V.feuille) { clearTimeout(carton.t); $('#carton').hidden = true; }
   syncScene();
 }
 let derniereVue = '';
@@ -601,7 +611,7 @@ function toast(t) {
 
 function ctx() { return { E: V.E, pioche, juger, rendre: rendreEcran, toast, chrono: { relancer: () => lancerChrono(dureeManche()), arreter: arreterChrono } }; }
 const mod = () => MODULES[V.E.jeu];
-const dureeManche = () => MODULES[V.E.jeu].duree + [0, 10, 20][niveau('concentration')];
+const dureeManche = () => MODULES[V.E.jeu].duree + niveau('concentration') * 10;
 
 function ouvrirEpreuve(n) {
   V.E = { type: 'epreuve', noeud: n.id, jeu: n.jeu, theme: n.theme, niveau: ACTES[n.acte].niveau, manche: 0, resultats: [], phase: 'annonce', usages: {}, parade: false };
@@ -658,25 +668,25 @@ function juger(or, verdict) {
   arreterChrono();
   const effets = [];
   let gain = 0, perte = 0, coups = 0;
-  const facteur = niveau('quitte-ou-double') === 2 ? 3 : 2;
+  const facteur = facteurDeMise();
   if (or > 0) {
     gain = or;
-    if (niveau('cagnotte')) { const b = niveau('cagnotte') === 2 ? 10 : 5; gain += b; effets.push(`Cagnotte : +${b}`); }
+    if (niveau('cagnotte')) { const b = niveau('cagnotte') * 5; gain += b; effets.push(`Cagnotte : +${b}`); }
     if (E.mise) { gain *= facteur; effets.push(`Quitte ou double gagné : or ×${facteur}`); }
     if (E.type === 'gardien') { coups = E.mise ? 2 : 1; E.pv = Math.max(0, E.pv - coups); }
     R.stats.justes++;
   } else {
     perte = E.mise ? 2 : 1;
     if (E.mise) effets.push('Quitte ou double perdu : deux cœurs');
-    const par = niveau('parade');
-    if (par && !E.parade && (E.type === 'epreuve' || par === 2)) { E.parade = true; perte = 0; effets.push('Parade : cette erreur ne te coûte rien'); }
+    const par = niveau('parade'), parees = E.parades || 0;
+    if (par && parees < (par === 3 ? 2 : 1) && (E.type === 'epreuve' || par >= 2)) { E.parades = parees + 1; perte = 0; effets.push('Parade : cette erreur ne te coûte rien'); }
     R.coeurs = Math.max(0, R.coeurs - perte);
     R.stats.erreurs++;
   }
   R.or += gain; R.stats.or += gain;
   if (R.coeurs <= 0) {
     const ss = carte('second-souffle');
-    if (ss && !ss.utilisee) { ss.utilisee = true; R.coeurs = Math.min(coeursMax(), ss.niveau === 2 ? 4 : 2); effets.push(`Second souffle : tu te relèves avec ${R.coeurs} cœurs`); }
+    if (ss && !ss.utilisee) { ss.utilisee = true; R.coeurs = Math.min(coeursMax(), [0, 2, 4, coeursMax()][ss.niveau]); effets.push(`Second souffle : tu te relèves avec ${R.coeurs} cœurs`); }
     else E.mort = true;
   }
   E.resultats.push({ gain, perte, coups });
@@ -695,7 +705,7 @@ function suite() {
     // La victoire s'écrit tout de suite, récompense tirée : rechargée, la page ne rejoue pas le gardien.
     E.phase = 'victoire'; R.or += OR_D_UN_GARDIEN; R.stats.or += OR_D_UN_GARDIEN; R.stats.vaincus.push(E.lg);
     R.coeurs = coeursMax(); arriverAuNoeud();
-    if (R.acte < 2) R.recompense = offres(3);
+    if (R.acte < 2) R.recompense = true;
     sauver(); return rendreTout();
   }
   if (E.type === 'epreuve' && E.manche >= 2) { E.phase = 'bilan'; return rendreTout(); }
@@ -722,11 +732,8 @@ function yAller() {
 function ouvrirNoeud(n) {
   if (n.type === 'epreuve') return ouvrirEpreuve(n);
   if (n.type === 'gardien') return ouvrirGardien(n);
-  if (n.type === 'tresor') { if (!R.tresors[n.id]) R.tresors[n.id] = { ouvert: false, offres: offres(3) }; sauver(); V.ecran = 'tresor'; return rendreTout(); }
-  if (n.type === 'marchand') {
-    if (!R.marchands[n.id]) R.marchands[n.id] = { cartes: melanger(ORDRE_DES_CARTES.filter(k => !carte(k))).slice(0, 3), achetees: [] };
-    sauver(); V.ecran = 'marchand'; return rendreTout();
-  }
+  if (n.type === 'tresor') { if (!R.tresors[n.id]) R.tresors[n.id] = { ouvert: false }; sauver(); V.ecran = 'tresor'; return rendreTout(); }
+  if (n.type === 'marchand') { V.ecran = 'marchand'; return rendreTout(); }
 }
 function retourCarte() {
   V.E = null; V.ecran = 'carte';
@@ -734,16 +741,18 @@ function retourCarte() {
   rendreTout();
 }
 
-function prendreCarte(cle) {
+// Une carte monte d'un niveau ; la Panacée rend aussitôt le cœur qu'elle ajoute.
+function ameliorer(cle) {
   const c = carte(cle);
-  if (c) { c.niveau = 2; if (cle === 'panacee') R.coeurs = Math.min(coeursMax(), R.coeurs + 1); return; }
-  R.cartes.push({ cle, niveau: 1 });
+  if (!c || c.niveau >= NIVEAU_MAX) return false;
+  c.niveau++;
   if (cle === 'panacee') R.coeurs = Math.min(coeursMax(), R.coeurs + 1);
+  return true;
 }
-function prendreOffre(o) {
-  if (o.type === 'or') { R.or += o.n; R.stats.or += o.n; toast(`+${o.n} pièces`); return; }
-  prendreCarte(o.cle);
-  toast(o.type === 'amelioration' ? `${CARTES[o.cle].nom} est améliorée` : `${CARTES[o.cle].nom} rejoint tes cartes`);
+// Ce que donnent un coffre et un gardien : l'amélioration choisie, ou l'or quand tout est au plus haut.
+function prendreAmelioration(v) {
+  if (v === 'or' || !ameliorables().length) { R.or += OR_SANS_AMELIORATION; R.stats.or += OR_SANS_AMELIORATION; toast(`+${OR_SANS_AMELIORATION} pièces`); return; }
+  if (ameliorer(v)) toast(`Amélioration : ${nomAuNiveau(v, niveau(v))}`);
 }
 
 function versActeSuivant() {
@@ -821,11 +830,11 @@ function agir(a, v, ev, el) {
     case 'jouer-carte': {
       const E = V.E, c = ctx();
       if (!E || E.phase !== 'jouer') return;
-      const max = v === 'quitte-ou-double' ? 1 : niveau(v);
+      const max = v === 'quitte-ou-double' ? misesParEpreuve() : niveau(v);
       if ((E.usages[v] || 0) >= max) return toast('Cette carte a déjà servi dans cette épreuve.');
       if (v === 'coup-d-oeil') { if (!mod().peutEclairer(c)) return toast('Rien à éclairer pour l’instant.'); E.usages[v] = (E.usages[v] || 0) + 1; mod().eclairer(c); return rendreEcran(); }
       if (v === 'echange') { if (!mod().peutChanger(c)) return toast(mod().refusDeChanger || 'Trop tard pour changer : la manche est entamée.'); E.usages[v] = (E.usages[v] || 0) + 1; toast('Nouvelle manche, nouveau chrono.'); return ouvrirManche(true); }
-      if (v === 'quitte-ou-double') { if (E.mise) return; E.usages[v] = 1; E.mise = true; return rendreEcran(); }
+      if (v === 'quitte-ou-double') { if (E.mise) return; E.usages[v] = (E.usages[v] || 0) + 1; E.mise = true; return rendreEcran(); }
       return;
     }
     case 'suite': return suite();
@@ -833,29 +842,23 @@ function agir(a, v, ev, el) {
     case 'apres-gardien': {
       V.E = null;
       if (R.acte >= 2) { V.ecran = 'legendaire'; return rendreTout(); }
-      if (!R.recompense) { R.recompense = offres(3); sauver(); }
+      R.recompense = true; sauver();
       V.ecran = 'recompense'; return rendreTout();
     }
-    case 'prendre-recompense': { prendreOffre(R.recompense[+v]); return versActeSuivant(); }
+    case 'prendre-recompense': { prendreAmelioration(v); return versActeSuivant(); }
     case 'ouvrir-coffre': { R.tresors[R.enRoute].ouvert = true; sauver(); if (scene) scene.ouvrirCoffre(R.enRoute); return rendreTout(); }
-    case 'prendre-tresor': { prendreOffre(R.tresors[R.enRoute].offres[+v]); arriverAuNoeud(); return retourCarte(); }
+    case 'prendre-tresor': { prendreAmelioration(v); arriverAuNoeud(); return retourCarte(); }
     case 'acheter-coeur': {
       const p = prix(PRIX.coeur);
       if (R.coeurs >= coeursMax()) return toast('Tes cœurs sont déjà au complet.');
       if (R.or < p) return toast(`Il te manque ${p - R.or} pièces.`);
       R.or -= p; R.coeurs++; sauver(); toast('Un cœur de plus'); return rendreTout();
     }
-    case 'acheter-carte': {
-      const p = prix(PRIX.carte), st = R.marchands[R.enRoute];
-      if (R.or < p) return toast(`Il te manque ${p - R.or} pièces.`);
-      if (st.achetees.includes(v) || carte(v)) return;
-      R.or -= p; st.achetees.push(v); prendreCarte(v); sauver(); toast(`${CARTES[v].nom} rejoint tes cartes`); return rendreTout();
-    }
     case 'ameliorer': {
-      const p = prix(PRIX.amelioration), c = carte(v);
-      if (!c || c.niveau === 2) return;
+      const p = prix(PRIX.amelioration);
+      if (!ameliorables().some(c => c.cle === v)) return;
       if (R.or < p) return toast(`Il te manque ${p - R.or} pièces.`);
-      R.or -= p; prendreCarte(v); sauver(); toast(`${CARTES[v].nom} est améliorée`); return rendreTout();
+      R.or -= p; ameliorer(v); sauver(); toast(`Amélioration : ${nomAuNiveau(v, niveau(v))}`); return rendreTout();
     }
     case 'quitter-marchand': { arriverAuNoeud(); return retourCarte(); }
     case 'choisir-legendaire': return finDePartie(true, '', v);
@@ -881,7 +884,7 @@ function outil(v) {
     if (v === 'acte') {
       R.position = `a${R.acte}r5c1`; R.stats.vaincus.push(R.gardiens[R.acte]); sauver();
       if (R.acte >= 2) { V.ecran = 'legendaire'; return rendreTout(); }
-      R.recompense = offres(3); sauver(); V.ecran = 'recompense'; return rendreTout();
+      R.recompense = true; sauver(); V.ecran = 'recompense'; return rendreTout();
     }
     V.ecran = 'carte'; V.selection = atteignables()[0];
     if (scene) scene.sauterA(R.position);
