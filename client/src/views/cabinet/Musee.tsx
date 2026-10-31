@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useContext, type ReactNode } from 'react'
 import { Dessin } from '../../components/Avatar'
 import { Icon } from '../../components/Icon'
 import { GrosBouton, PieceTete, Sortie } from '../../components/Pieces'
@@ -8,10 +8,12 @@ import { laPartieAttend, poussieresDites } from '../../../../shared/cabinet/muse
 import { OEUVRES, RARETES } from '../../../../shared/cabinet/oeuvres'
 import { GARDIENS, salleDuGardien } from '../../../../shared/cabinet/salles'
 import { visiteAJouer, type CaseVue, type OeuvreVue, type PageDuCabinet, type SalleVue, type VueDeLaPartie } from '../../../../shared/cabinet/vues'
-import { adresseDe } from './ecrans'
+import { RetourAuMusee, adresseDe } from './ecrans'
 import { TaPartieTAttend } from './PartieQuiAttend'
 
-// Le musée : l'entrée du Cabinet (la maquette jouable, `retours/2026-10-24/
+// Le musée : l'entrée du Cabinet jusqu'au 31 octobre 2026, une page à part
+// depuis, sous la tour (`Tour.tsx`, `#musee`) — « trop d'informations sur
+// l'accueil » (la maquette jouable, `retours/2026-10-24/
 // maquette/`). Ce qu'il possède en une ligne, ce qui l'attend aujourd'hui — la
 // partie en cours d'abord, puis la visite du jour —, le gardien le plus
 // proche, les neuf salles en portes, les gardiens, tes murs, les jeux libres. Pas un
@@ -126,9 +128,10 @@ export function Musee({
   const prochain = page.gardiens.prochain
   const salleDuProchain = prochain && salleDuGardien(prochain.legendaire)
   const enCours = page.enCours
+  const versLaTour = useContext(RetourAuMusee)
   return (
     <div className="player-shell cab-page">
-      <Sortie />
+      <Sortie vers="La tour" href="/cabinet" onClick={versLaTour} />
       <PieceTete piece="Le Cabinet de curiosités" titre="Ton musée" />
       <div className="cab-possede">
         <p className="cab-ligne">

@@ -37,6 +37,7 @@ import {
 } from './cabinet/ecrans'
 import { Gardiens } from './cabinet/Gardiens'
 import { Musee, enDebutDeLigne } from './cabinet/Musee'
+import { Tour } from './cabinet/Tour'
 import type { LesMurs } from './cabinet/Murs'
 import { Oeuvre, oeuvreDeLaPage } from './cabinet/Oeuvre'
 import { Partie, ecranDuJeu } from './cabinet/Partie'
@@ -349,7 +350,7 @@ export function CabinetApp() {
   // Chaque écran commence en haut, et le focus perdu avec l'écran quitté revient à son titre, sans défiler — dans une partie, la
   // question de sa manche (`.cab-question`), ou la mise (`h2`) : « Commencer » disparu, il tombait sur la page, faute d'un `h1`.
   const precedent = useRef<string | null>(null)
-  const cleDEcran = enPartie ? `partie:${enPartie.e}` : (adresseDe(ecran) || 'musee')
+  const cleDEcran = enPartie ? `partie:${enPartie.e}` : (adresseDe(ecran) || 'tour')
   useEffect(() => {
     if (precedent.current === cleDEcran || etat.e !== 'pret') return
     const premiereFois = precedent.current === null
@@ -395,12 +396,14 @@ export function CabinetApp() {
     )
   }, [aSonCartel, cartels])
 
-  /** « ← Le Cabinet » : le musée, sans recharger la page, et le retour du navigateur ramène où l'on était. */
-  const versLeMusee = useCallback(() => {
-    quitterVersLeMusee(window.history, window.location.hash)
+  /** Un écran du Cabinet, sans recharger la page, et le retour du navigateur ramène où l'on était. */
+  const versLEcran = useCallback((vers: EcranDuMusee) => {
+    quitterVersLeMusee(window.history, window.location.hash, adresseDe(vers))
     setEnPartie(null)
-    setEcranBrut({ e: 'musee' })
+    setEcranBrut(vers)
   }, [])
+  /** « ← Le Cabinet » : la tour, son entrée. */
+  const versLeMusee = useCallback(() => versLEcran({ e: 'tour' }), [versLEcran])
 
   /** Une partie demandée ou reprise, par-dessus l'écran : son entrée d'historique, que le retour du navigateur consomme. */
   const ouvrir = (partie: EnPartie) => {
@@ -497,10 +500,15 @@ export function CabinetApp() {
       setBusy(false)
     }
   }
-  /** Le musée, après une partie ou entre deux manches : la page se relit — la poussière, l'œuvre gagnée, la partie qui l'attend. */
-  const revenirDeLaPartie = () => {
+  /**
+   * Après une partie ou entre deux manches, la page se relit — la poussière, l'œuvre gagnée, la porte ouverte, la partie qui
+   * attend. Une porte de la tour ramène à la tour, son étage suivant ; la visite, une chasse, un jeu libre, au musée d'où ils
+   * partent.
+   */
+  const revenirDeLaPartie = (origine: VueDeLaPartie['origine']) => {
     relire()
-    versLeMusee()
+    if (origine === 'montee') versLeMusee()
+    else versLEcran({ e: 'musee' })
   }
   const choisirLaCarte = (cle: string | null) => {
     if (profil) retenirLaCarte(profil, cle)
@@ -557,7 +565,7 @@ export function CabinetApp() {
         // Une case pour dorer dont l'œuvre a pris son cadre dans la journée : la mise n'a plus de cadre à perdre. La vue ne le dit
         // pas, la page le sait de ses salles — rien ne se dore pendant qu'une partie attend.
         cadreDejaDore={dejaDoree(p, vue.enJeu)}
-        onMusee={revenirDeLaPartie}
+        onMusee={() => revenirDeLaPartie(vue.origine)}
         onRelire={relire}
         // Finie, elle a pu gagner, dorer ou doubler une œuvre — celle d'une chasse partie de son écran, qu'un retour fait reparaître.
         onFinie={oublierLesCartels}
@@ -616,13 +624,16 @@ export function CabinetApp() {
     case 'murs':
       return avecLeToast(<MursALaDemande />)
   }
-  return avecLeToast(
-    <Musee
-      page={p}
-      bienvenue={bienvenue}
-      onRegles={ouvrirLesRegles}
-      onReprendre={reprendre}
-      onBienvenueLue={bienvenueLue}
-    />,
-  )
+  if (ecran.e === 'musee') {
+    return avecLeToast(
+      <Musee
+        page={p}
+        bienvenue={bienvenue}
+        onRegles={ouvrirLesRegles}
+        onReprendre={reprendre}
+        onBienvenueLue={bienvenueLue}
+      />,
+    )
+  }
+  return avecLeToast(<Tour page={p} onPorte={jouer} onReprendre={reprendre} onRegles={ouvrirLesRegles} />)
 }

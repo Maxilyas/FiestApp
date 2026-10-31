@@ -27,6 +27,7 @@
 // toute la base (`DECLENCHEURS_DES_TRANCHES`, règle `campagne.md`).
 import type { InStatement } from '@libsql/client'
 import { CHASSES_PAR_JOUR, LIBRES_QUI_PAIENT } from '../../../../shared/cabinet/bareme'
+import type { RecordDeLaTour } from '../../../../shared/cabinet/montee'
 import type { BilanDUnePartie, DepartDUnePartie, GesteDuCabinet, PieceJugee } from '../../../../shared/cabinet/partie'
 import type { CleDeSaison } from '../../../../shared/saisons'
 import { COLONNES_D_UNE_OEUVRE, champDuDepart, gesteEcrit, partiesDuJour } from './tables'
@@ -61,8 +62,9 @@ export interface DepartAEcrire {
  * précédente :
  *
  * 1. la ligne du profil prend la partie — seulement s'il n'en a pas en cours,
- *    qu'il lui reste une chasse, ou que sa case de la visite n'est pas déjà
- *    commencée aujourd'hui, recomptés par la base même : la mémoire d'un
+ *    qu'il lui reste une chasse, que sa case de la visite n'est pas déjà
+ *    commencée aujourd'hui, ou que l'étage de sa montée n'a pas déjà sa
+ *    partie — deux onglets sur la même porte —, recomptés par la base même : la mémoire d'un
  *    serveur ne sait pas ce que l'autre vient d'écrire. Une case d'une visite
  *    déjà figée en base part au jeu que la base lui garde, ou ne part pas :
  *    l'autre serveur a pu l'échanger, et la mémoire d'ici l'aurait lancée à son
@@ -95,13 +97,14 @@ export function lotDuDepart(d: DepartAEcrire): InStatement[] {
           WHERE cabinet_profils.partie IS NULL
             AND (?6 <> 'chasse' OR (${duJour('chasse', '?1', '?7')}) < ${CHASSES_PAR_JOUR})
             AND (?6 <> 'visite' OR (${duJour('visite', '?1', '?7')} AND ${champDuDepart('visite')} = ?8) = 0)
+            AND (?6 <> 'montee' OR (${duJour('montee', '?1', '?7')} AND ${champDuDepart('montee.n')} = CAST(?10 AS INTEGER) AND ${champDuDepart('montee.etage')} = CAST(?11 AS INTEGER)) = 0)
             AND CASE WHEN ?6 = 'visite' AND json_valid(cabinet_profils.visites) AND json_extract(cabinet_profils.visites, '$[0].jour') = ?3
                      THEN json_extract(cabinet_profils.visites, '$[0].cases[' || CAST(?8 AS INTEGER) || '].jeu') = ?9
                      ELSE 1 END`,
     // Le jeu ne sert qu'à la garde de la case. Un `CASE`, et non un `OR` : le chemin d'une case −1 (une chasse, une
     // libre) ne se lit jamais, et une visite pas encore figée — `NULL` au jour — n'a rien à garder. L'indice se lie en
     // réel (`1.0`), que le chemin d'un tableau refuse : il se coupe en entier.
-    args: [d.profileId, d.serie, d.jour, d.visites, d.t, d.depart.origine, d.minuit, d.depart.visite ?? -1, d.depart.jeu],
+    args: [d.profileId, d.serie, d.jour, d.visites, d.t, d.depart.origine, d.minuit, d.depart.visite ?? -1, d.depart.jeu, d.depart.montee?.n ?? -1, d.depart.montee?.etage ?? -1],
   }
   // La partie libre se dit payée ou non par la base : deux onglets qui partent ensemble ne paient pas six fois.
   const cabinet =
@@ -165,12 +168,14 @@ export function instructionQuiFigeLaVisite(v: VisiteAFiger, garde: { sql: string
 
 // ── Un geste, ses pièces, sa fin ──────────────────────────────────────────
 
-/** Ce qu'une fin écrit de plus : son bilan, la poussière au reflet, et l'œuvre qu'elle fait entrer, dorer ou garder en cartel. */
+/** Ce qu'une fin écrit de plus : son bilan, la poussière au reflet, l'œuvre qu'elle fait entrer, dorer ou garder en cartel, et le record de la tour qu'elle bat. */
 export interface FinAEcrire {
   profileId: string
   bilan: BilanDUnePartie
   /** L'œuvre, telle que la fin la touche ; rien pour une partie qui n'en change aucune. */
   oeuvre: OeuvreAEcrire | null
+  /** La montée telle que cette fin la laisse, quand elle bat le record que la mémoire connaît ; rien sinon. */
+  record?: RecordDeLaTour | null
 }
 
 export interface OeuvreAEcrire {
@@ -290,6 +295,17 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
         args: [bilan.poussiere, g.serie, g.faitLe, profileId, ...garde.args],
       },
     )
+    if (g.fin.record) {
+      // Le record ne redescend jamais : la base garde le plus haut, même si l'autre serveur d'une mise en ligne en a écrit un
+      // meilleur entre-temps. Avant l'œuvre, qui reste la dernière instruction et rend sa ligne.
+      lot.push({
+        sql: `INSERT INTO cabinet_records (profile_id, etage, etoiles, serie_id, bat_le)
+              SELECT ?, ?, ?, ?, ? WHERE ${garde.sql}
+              ON CONFLICT (profile_id) DO UPDATE SET etage = excluded.etage, etoiles = excluded.etoiles, serie_id = excluded.serie_id, bat_le = excluded.bat_le
+              WHERE excluded.etage > cabinet_records.etage OR (excluded.etage = cabinet_records.etage AND excluded.etoiles > cabinet_records.etoiles)`,
+        args: [profileId, g.fin.record.etage, g.fin.record.etoiles, g.serie, g.faitLe, ...garde.args],
+      })
+    }
     if (oeuvre) {
       lot.push({
         sql: `INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le, saison, serie_id, doree_le, dorure, serie_doree)
@@ -462,12 +478,13 @@ export function lotDeLEchange(e: EchangeAEcrire): InStatement[] {
  * Ce que la suppression d'un profil efface du Cabinet, **avant** que la
  * campagne efface ses séries : ses gestes, par la sous-requête de ses parties
  * — la table n'a pas de `profile_id`, comme `expedition_gestes` —, puis ses
- * reflets et ses œuvres.
+ * reflets, ses œuvres et son record de la tour.
  */
 export function lotDeLOubli(profileId: string): InStatement[] {
   return [
     { sql: 'DELETE FROM cabinet_gestes WHERE serie_id IN (SELECT id FROM campagne_series WHERE profile_id = ?)', args: [profileId] },
     { sql: 'DELETE FROM cabinet_profils WHERE profile_id = ?', args: [profileId] },
     { sql: 'DELETE FROM cabinet_oeuvres WHERE profile_id = ?', args: [profileId] },
+    { sql: 'DELETE FROM cabinet_records WHERE profile_id = ?', args: [profileId] },
   ]
 }

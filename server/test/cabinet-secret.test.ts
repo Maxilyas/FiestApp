@@ -602,7 +602,7 @@ test('« Retenter » vise la case : ni la page, ni le bilan, ni la retente ne no
       assert.equal(r.status, 400, `${oeuvre}, ${carte}`)
       refus.add((r.corps as { error: string }).error)
     }
-  assert.deepEqual([...refus], ['Choisis une partie de la visite, une chasse ou un jeu libre'])
+  assert.deepEqual([...refus], ['Choisis une porte de la tour, une partie de la visite, une chasse ou un jeu libre'])
   assert.equal(ok(await laPage(b, lia), 'la page').chasses.restent, 2, 'aucune chasse prise')
   // La retente par la case : partie, son plan garde l'œuvre ; la vue, jamais.
   const retente = ok(await commencer(b, lia, { origine: 'chasse', case: 0, retente: true, carte: null }), 'retenter')

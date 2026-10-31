@@ -6,7 +6,9 @@ import { espacesFines, formatNumber } from '../../format'
 import {
   CASES_DE_LA_VISITE,
   CHASSES_PAR_JOUR,
+  COEURS_D_UNE_MONTEE,
   ECHANGES_PAR_JOUR,
+  ETAGES_DU_COFFRE,
   ETOILES_D_UNE_PARTIE,
   ETOILES_PAR_MANCHE,
   JOURS_DU_SCARABEE,
@@ -18,7 +20,9 @@ import {
   PRIX_D_UNE_DORURE,
   PRIX_D_UNE_OEUVRE,
   SEUILS_DES_RARETES,
+  SEUIL_D_UNE_PORTE,
 } from '../../../../shared/cabinet/bareme'
+import { ETAGES_DE_LA_TOUR } from '../../../../shared/cabinet/montee'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { OEUVRES, RARETES, type Rarete } from '../../../../shared/cabinet/oeuvres'
 import { POUVOIRS } from '../../../../shared/cabinet/pouvoirs'
@@ -97,11 +101,21 @@ export function Regles({ jeux, parties = CASES_DE_LA_VISITE, onMurs }: { jeux: r
           bout — « le genre de texte qui me ferait lâcher une appli » (Ophélie, à la tablée du 25 octobre 2026). Théo et Hugo la
           trouvaient complète : le reste suit, une ligne chacune, et les neuf jeux se replient — chaque annonce redit le sien. */}
       <Section titre="En bref">
+        {/* La tour d'abord : l'entrée du Cabinet depuis le 31 octobre 2026, ce qu'on y gagne dit avant tout le reste. */}
+        <Ligne icone="landmark">{`La tour : ${ETAGES_DE_LA_TOUR} étages, une porte à chacun, ${MANCHES_PAR_PARTIE} manches derrière.`}</Ligne>
+        <Ligne icone="target">Assez d’étoiles, et la porte te donne ce qu’elle montre : une œuvre, un cœur, des étoiles.</Ligne>
         <Ligne icone="sun">{`La visite du jour : ${compte(parties, 'partie')}, une œuvre à gagner chacune.`}</Ligne>
-        <Ligne icone="target">Assez d’étoiles, et l’œuvre entre dans ton musée.</Ligne>
         <Ligne icone="crown">Une salle complète réveille son gardien.</Ligne>
       </Section>
       <Glossaire mots={[...MOTS]} titre="Les mots du Cabinet" />
+      <Section titre="La tour">
+        <Ligne icone="landmark">{`${ETAGES_DE_LA_TOUR} étages, un par salle : le Vestibule d’abord, puis les huit autres.`}</Ligne>
+        <Ligne icone="bag">{`Deux portes par étage, une seule aux étages ${ETAGES_DU_COFFRE.join(', ').replace(/, (\d+)$/, ' et $1')} : le coffre, une œuvre rare ou mieux.`}</Ligne>
+        <Ligne icone="target">{`Une porte s’ouvre au seuil qu’elle affiche : celui de son œuvre, ou ${SEUIL_D_UNE_PORTE} étoiles.`}</Ligne>
+        <Ligne icone="flag">{`${COEURS_D_UNE_MONTEE} cœurs : une porte qui reste fermée en coûte un. La montée s’arrête au dernier, au sommet, ou à minuit.`}</Ligne>
+        <Ligne icone="hanger">Ta carte-bonus se choisit au premier étage, et te suit jusqu’en haut.</Ligne>
+        <Ligne icone="medal">Ton record : l’étage le plus haut que tu aies atteint.</Ligne>
+      </Section>
       <Section titre="Ton musée">
         <Ligne icone="landmark">{`${OEUVRES.length} œuvres peintes, rangées en ${SALLES.length} salles.`}</Ligne>
         <Ligne icone="star">{`Une partie : ${MANCHES_PAR_PARTIE} manches de ${ETOILES_PAR_MANCHE} étoiles, ${ETOILES_D_UNE_PARTIE} en tout.`}</Ligne>

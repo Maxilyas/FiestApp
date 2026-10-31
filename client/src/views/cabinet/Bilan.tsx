@@ -46,7 +46,7 @@ const TITRES: Record<IssueDUnePartie, string> = {
   libre: 'Partie finie',
 }
 
-const D_OU: Record<OrigineDUnePartie, string> = { visite: 'La visite du jour', chasse: 'Une chasse', libre: 'Partie libre' }
+const D_OU: Record<OrigineDUnePartie, string> = { visite: 'La visite du jour', chasse: 'Une chasse', libre: 'Partie libre', montee: 'La tour' }
 
 /** Une manche au bilan : ses étoiles, ce qui les a changées, et comment elle s'est tranchée. */
 function LigneDeLaManche({ m, k }: { m: MancheVue; k: number }) {
@@ -108,6 +108,9 @@ export function aRelireApresLaPartie(g: GainsDuCabinet | undefined): boolean {
   return !!g && (g.xp > 0 || g.confettis > 0 || (g.recompenses?.length ?? 0) > 0 || !!g.compagnon)
 }
 
+/** Où mène le bouton du bilan : une porte de la tour ramène à la tour, son étage suivant ; toute autre partie, au musée. */
+export const retourDeLaPartie = (origine: VueDeLaPartie['origine']): string => (origine === 'montee' ? 'Revenir à la tour' : 'Revenir au musée')
+
 export function BilanDeLaPartie({
   vue,
   ecran,
@@ -134,7 +137,7 @@ export function BilanDeLaPartie({
       <div className="player-shell cab-page">
         <p className="cab-ligne">{espacesFines('Cette partie est finie : ton musée l’a comptée.')}</p>
         <button type="button" className="btn btn-primary btn-big btn-block" {...toucher(onMusee)}>
-          Revenir au musée
+          {retourDeLaPartie(vue.origine)}
         </button>
       </div>
     )
@@ -213,7 +216,7 @@ export function BilanDeLaPartie({
       {/* Au lever du doigt (`toucher`) : le bilan prend la place de « Voir le bilan », et le `click` qui suit ne part pas d'ici. */}
       <div className="fin-actions">
         <button type="button" className="btn btn-primary btn-big btn-block" {...toucher(onMusee)}>
-          Revenir au musée
+          {retourDeLaPartie(vue.origine)}
         </button>
         {/* « Retenter » promis par la page produit et les barèmes n'existait pas : la page ne reçoit pas l'œuvre d'une case manquée
             (invariant 1). Il vise la case (`BilanVu.retenter`, la règle des départs au serveur), et se tait d'un bilan relu sans le jour. */}

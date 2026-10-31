@@ -30,7 +30,8 @@ import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, estUneOeuvre, oeuvre, oeuv
 import { JEUX_PRETS } from './ouverture'
 import { forceDe, pouvoirDe } from './pouvoirs'
 import { AUTRES_GARDIENS, GARDIENS_DES_SALLES, SALLES, pouvoirDuGardien, voieDuGardien, type CleDeSalle } from './salles'
-import type { CarteDuDepart, IssueDUnePartie, Manche, OrigineDUnePartie } from './partie'
+import type { CarteDuDepart, IssueDUnePartie, Manche, MonteeDuDepart, OrigineDUnePartie } from './partie'
+import type { RecordDeLaTour, TourDuJour } from './montee'
 import type { RetenteVue } from './vues'
 import { battre } from './jeux/outils'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from './jeux/regle'
@@ -102,6 +103,10 @@ export interface PartieDuJour {
   cible: string | null
   payee: boolean
   total: number | null
+  /** Le seuil figé au départ : une porte de la tour s'ouvre à lui (`monteeDesParties`). Absent : une partie hors de la tour. */
+  seuil?: number | null
+  /** L'étage de la tour qu'elle joue ; absent hors d'une montée. */
+  montee?: MonteeDuDepart | null
 }
 
 export interface Musee {
@@ -113,6 +118,8 @@ export interface Musee {
   legendaires: ReadonlySet<string>
   /** La partie en cours, et son jeu : une à la fois. */
   enCours: { id: string; jeu: CleDeJeu } | null
+  /** Sa plus haute montée de la tour (`cabinet_records`) ; null : il n'en a fini aucune. */
+  record: RecordDeLaTour | null
 }
 
 /** Un musée, de ce que le lot froid a lu. */
@@ -123,6 +130,7 @@ export function museeDe(o: {
   parties?: readonly PartieDuJour[]
   legendaires?: Iterable<string>
   enCours?: { id: string; jeu: CleDeJeu } | null
+  record?: RecordDeLaTour | null
 }): Musee {
   return {
     profil: o.profil ?? null,
@@ -130,6 +138,7 @@ export function museeDe(o: {
     duJour: { jour: o.jour, parties: [...(o.parties ?? [])] },
     legendaires: new Set(o.legendaires ?? []),
     enCours: o.enCours ?? null,
+    record: o.record ?? null,
   }
 }
 
@@ -340,7 +349,7 @@ function jeuxRecents(graine: string, jour: string, figees: readonly VisiteFigee[
 }
 
 /** Un tirage au poids de la rareté (`POIDS_DES_CIBLES`) : surtout des communes, une maudite ou une épique de temps en temps. */
-function tirerPese(candidates: readonly Oeuvre[], hasard: () => number): Oeuvre {
+export function tirerPese(candidates: readonly Oeuvre[], hasard: () => number): Oeuvre {
   const total = candidates.reduce((n, o) => n + POIDS_DES_CIBLES[o.rarete], 0)
   let x = hasard() * total
   for (const o of candidates) {
@@ -489,6 +498,23 @@ export type DemandeDeDepart =
   | { origine: 'visite'; case: number; carte: string | null }
   | { origine: 'chasse'; oeuvre: string; carte: string | null; jeu?: CleDeJeu }
   | { origine: 'libre'; jeu: string; carte: string | null }
+  | DemandeDeMontee
+
+/**
+ * Une porte de la tour : la montée et l'étage que la page montre, la porte, et ce qu'elle y a vu — son jeu, l'œuvre qu'elle
+ * garde. Le serveur retire les portes de sa graine et refuse celle qui a changé entre-temps (`LA_PORTE_A_CHANGE`) : une œuvre
+ * achetée dans un autre onglet change la porte qui la gardait. La carte-bonus ne compte qu'au premier étage : la montée garde
+ * la sienne jusqu'au bout.
+ */
+export interface DemandeDeMontee {
+  origine: 'montee'
+  n: number
+  etage: number
+  porte: number
+  jeu: string
+  oeuvre: string | null
+  carte: string | null
+}
 
 /**
  * « Retenter cette œuvre au même jeu, pour une chasse », après une partie de
@@ -515,6 +541,8 @@ export interface CadreDuDepart {
   cible: CleDOeuvre | null
   but: 'gagner' | 'dorer' | null
   retente?: true
+  /** L'étage de la tour qu'elle joue. */
+  montee?: MonteeDuDepart
   seuil: number | null
   /** Provisoire en partie libre : la base recompte les libres du jour dans l'insertion même, deux onglets ou deux serveurs. */
   payee: boolean
@@ -558,7 +586,7 @@ export const laPartieAttend = (jeu: CleDeJeu): string => `Ta partie ${JEUX[jeu].
  * travers — et une retente qui nomme son œuvre (`lireLaDemande`). La règle des
  * départs et le serveur la disent d'une seule copie.
  */
-export const DEMANDE_ILLISIBLE = 'Choisis une partie de la visite, une chasse ou un jeu libre'
+export const DEMANDE_ILLISIBLE = 'Choisis une porte de la tour, une partie de la visite, une chasse ou un jeu libre'
 /** « Retenter » d'une case qui n'a pas été manquée aujourd'hui : pas jouée, gagnée, ou d'un jour d'avant. */
 export const RETENTER_SANS_VISITE_MANQUEE = 'Retenter ne sert qu’après une partie de la visite manquée'
 /** « Retenter » d'une case dont l'œuvre est à lui depuis — gagnée en chasse, achetée : plus rien à retenter. */
@@ -593,7 +621,7 @@ function laRetente(m: Musee, visite: VisiteDuJour, k: unknown, jeux: readonly Cl
 }
 
 /** La carte-bonus qu'il emporte : une œuvre qu'il a, les quatre de départ comprises, ou un gardien réveillé — jamais un Divin. */
-function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
+export function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
   if (cle === null) return null
   const aLui = estUneOeuvre(cle) ? possedees(m).has(cle) : pouvoirDuGardien(cle) !== undefined && m.legendaires.has(cle)
   const pouvoir = pouvoirDe(cle)
@@ -601,13 +629,22 @@ function laCarte(m: Musee, cle: string | null): CarteDuDepart | null | string {
   return aLui && pouvoir && force ? { cle, pouvoir, force } : 'Tu n’as pas cette carte-bonus'
 }
 
+/** Une porte demandée pour une montée ou un étage que la tour ne propose plus : minuit, une autre montée, un autre onglet. */
+export const LA_MONTEE_A_CHANGE = 'Ta montée a changé : regarde la tour avant de repartir'
+/** Une porte qui n'est pas de l'étage. */
+export const CHOISIS_UNE_PORTE = 'Choisis une des portes de l’étage'
+/** La porte montrée n'est plus la même : son œuvre achetée ailleurs, un cœur perdu dans un autre onglet. */
+export const LA_PORTE_A_CHANGE = 'Cette porte a changé : regarde-la avant de l’ouvrir'
+
 /**
  * Le cadre d'un départ, ou son refus en mots — une seule règle, que la page
  * lit aussi pour griser. Une partie à la fois ; une case de la visite une fois
  * par jour ; deux chasses, à son jeu — « Retenter », par sa case, au jeu de la
- * visite manquée ; un jeu livré ; une carte-bonus qu'il a.
+ * visite manquée ; une porte de la tour à son étage, telle que la page l'a
+ * vue (`tour`, que le serveur tire de sa graine) ; un jeu livré ; une
+ * carte-bonus qu'il a — celle de toute la montée, après le premier étage.
  */
-export function cadreDuDepart(m: Musee, demande: DemandeLue, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS): CadreDuDepart | string {
+export function cadreDuDepart(m: Musee, demande: DemandeLue, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS, tour: TourDuJour | null = null): CadreDuDepart | string {
   // Ce qui ne se fera jamais se dit avant ce qui attend, comme pour un achat (`refusDeLAchat`) : sous une case dont
   // l'œuvre est à lui, « Plus de chasse » ou « Ta partie t'attend » promettaient une retente pour plus tard — et le
   // bilan relu les gardait tels quels (`retenteDeLaCase`).
@@ -615,6 +652,7 @@ export function cadreDuDepart(m: Musee, demande: DemandeLue, visite: VisiteDuJou
   if (m.enCours) return laPartieAttend(m.enCours.jeu)
   const a = possedees(m)
   let cadre: Omit<CadreDuDepart, 'carte'>
+  let cleDeLaCarte = demande.carte
   switch (demande.origine) {
     case 'visite': {
       const k = demande.case
@@ -650,16 +688,38 @@ export function cadreDuDepart(m: Musee, demande: DemandeLue, visite: VisiteDuJou
       cadre = { jeu: jeu as CleDeJeu, origine: 'libre', cible: null, but: null, seuil: null, payee: libresQuiPaientEncore(m) > 0 }
       break
     }
+    case 'montee': {
+      const etage = tour?.aJouer
+      if (!etage) return DEMANDE_ILLISIBLE
+      if (demande.n !== etage.n || demande.etage !== etage.etage) return LA_MONTEE_A_CHANGE
+      const p = etage.portes.find(x => x.porte === demande.porte)
+      if (!p) return CHOISIS_UNE_PORTE
+      if (p.jeu !== demande.jeu || p.cible !== demande.oeuvre) return LA_PORTE_A_CHANGE
+      if (!jeux.includes(p.jeu)) return JEU_PAS_LIVRE
+      // La carte-bonus se choisit au premier étage ; ensuite, c'est celle que la montée a emportée.
+      if (etage.etage > 1) cleDeLaCarte = tour?.montee?.n === etage.n ? tour.montee.carte : null
+      cadre = {
+        jeu: p.jeu,
+        origine: 'montee',
+        cible: p.cible,
+        but: p.cible === null ? null : a.has(p.cible) ? 'dorer' : 'gagner',
+        montee: { n: etage.n, etage: etage.etage, porte: p.porte, butin: p.butin, carte: cleDeLaCarte },
+        seuil: p.seuil,
+        // La poussière vient de la visite, des chasses et des libres : la tour paie en œuvres.
+        payee: false,
+      }
+      break
+    }
     default:
       return DEMANDE_ILLISIBLE
   }
-  const carte = laCarte(m, demande.carte)
+  const carte = laCarte(m, cleDeLaCarte)
   return typeof carte === 'string' ? carte : { ...cadre, carte }
 }
 
 /** Le refus d'un départ, en mots ; null : il part. */
-export function refusDuDepart(m: Musee, demande: DemandeLue, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS): string | null {
-  const c = cadreDuDepart(m, demande, visite, jeux)
+export function refusDuDepart(m: Musee, demande: DemandeLue, visite: VisiteDuJour, jeux: readonly CleDeJeu[] = JEUX_PRETS, tour: TourDuJour | null = null): string | null {
+  const c = cadreDuDepart(m, demande, visite, jeux, tour)
   return typeof c === 'string' ? c : null
 }
 

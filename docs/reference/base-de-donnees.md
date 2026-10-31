@@ -982,6 +982,16 @@ quota de Turso, le 22 octobre 2026).
 - **Lue par** : `CabinetStore`, une fois par réveil et par profil, dans son lot froid ; la partie en cours par sa clé, dans la garde du lot qui la crée ; dans l'instruction d'un achat ou d'une dorure, sa poussière (le solde) et `partie` (rien ne se dépense pendant qu'une partie attend), par la clé ; dans le lot d'un échange et la garde d'un départ en visite, sa visite du jour (le jour, l'échange pris, le jeu de la case) ; dans l'instruction qui la fige ailleurs, son jour seul, par la clé.
 - **Effacée par** : la suppression du profil (`CabinetStore.oublierProfil`).
 
+### `cabinet_records`
+
+Le record de la tour d'un profil, une ligne : sa plus haute montée — l'étage atteint, ses étoiles pour départager — et la partie qui l'a établi. Une montée se relit de ses parties du jour (`monteeDesParties`, `shared/cabinet/montee.ts`), qui ne disent rien des jours d'avant : seul le record survit au jour.
+
+- **Colonnes clés** : `profile_id` (la clé), `etage` (le dernier étage joué jusqu'au bout, neuf au sommet), `etoiles`, `serie_id` (la partie qui l'a battu), `bat_le`.
+- **Espace** : non.
+- **Écrite par** : `CabinetStore`, sous le seul geste qui finit une partie de la tour, quand la montée qu'elle laisse bat le record que la mémoire connaît (`lotDuGeste`) : la base ne garde que le plus haut — un étage de plus, ou autant d'étages et plus d'étoiles —, même si l'autre serveur d'une mise en ligne en a écrit un meilleur entre-temps. Il ne redescend jamais.
+- **Lue par** : `CabinetStore`, dans son lot froid, par la clé.
+- **Effacée par** : la suppression du profil (`CabinetStore.oublierProfil`).
+
 ### `cabinet_oeuvres`
 
 Les œuvres d'un profil : une ligne par œuvre entrée — 84 au plus —, jamais

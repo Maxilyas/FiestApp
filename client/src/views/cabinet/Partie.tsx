@@ -261,7 +261,16 @@ function ceQuOnEmporte(vue: Pick<VueDeLaPartie, 'origine'>, s: { total: number; 
         ? `avec ${etoiles} et ${poussieresDites(s.poussiere)}`
         : `avec ${etoiles}`
   // Ce que le départ a consommé : la chasse, la case de la visite ; en libre, l'une de celles qui paient, si elle a payé.
-  const consomme = vue.origine === 'chasse' ? ' ; ta chasse est utilisée' : vue.origine === 'visite' ? ' ; cette partie de la visite est faite' : s.poussiere > 0 ? ' : c’est l’une de tes parties libres qui paient' : ''
+  const consomme =
+    vue.origine === 'chasse'
+      ? ' ; ta chasse est utilisée'
+      : vue.origine === 'visite'
+        ? ' ; cette partie de la visite est faite'
+        : vue.origine === 'montee'
+          ? ' ; la porte s’ouvre si elles suffisent, sinon la montée perd un cœur'
+          : s.poussiere > 0
+            ? ' : c’est l’une de tes parties libres qui paient'
+            : ''
   return `Tu repars ${avec}${consomme}.`
 }
 
@@ -278,7 +287,9 @@ export function messageDuQuitter(vue: Pick<VueDeLaPartie, 'origine'> & Partial<P
     ? ceQuOnEmporte(vue, vue.siTuQuittes)
     : vue.origine === 'libre'
       ? 'Elle compte avec ses étoiles.'
-      : `La partie compte avec les étoiles déjà gagnées, et ${vue.origine === 'chasse' ? 'ta chasse est utilisée' : 'cette partie de la visite est faite'}.`
+      : vue.origine === 'montee'
+        ? 'La porte compte les étoiles déjà gagnées : sans assez d’étoiles, elle reste fermée et la montée perd un cœur.'
+        : `La partie compte avec les étoiles déjà gagnées, et ${vue.origine === 'chasse' ? 'ta chasse est utilisée' : 'cette partie de la visite est faite'}.`
   const chrono = o.pauseMs !== undefined && o.pauseMs > 0 ? ` Le chrono t’attend ${secondesAuPlus(o.pauseMs)} au plus, la manche cachée.` : o.refus ? ` ${o.refus}.` : ''
   return { titre: vue.origine === 'libre' ? 'Quitter cette partie ?' : 'Quitter ?', message: compte + chrono }
 }
@@ -1154,7 +1165,7 @@ export function Partie({
         <div className="player-shell cab-page" aria-busy={!bilan || undefined}>
           <p className="cab-ligne">{bilan ? espacesFines('Le bilan ne s’est pas chargé, mais ta partie est bien comptée : ton musée l’a gardée.') : 'Chargement…'}</p>
           <button type="button" className="btn btn-primary btn-big btn-block" {...toucher(onMusee)}>
-            Revenir au musée
+            {vue.origine === 'montee' ? 'Revenir à la tour' : 'Revenir au musée'}
           </button>
         </div>
       )

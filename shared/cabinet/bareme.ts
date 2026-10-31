@@ -148,6 +148,30 @@ export const JOURS_DU_SCARABEE = 30
  */
 export const DEPARTS_PAR_HEURE = 30
 
+// ── La tour ───────────────────────────────────────────────────────────────
+// La montée : neuf étages, un par salle, du Vestibule au Téméraire ; à chaque
+// étage, une porte à choisir et une partie de trois manches derrière elle
+// (`shared/cabinet/montee.ts`). Une porte ouverte donne ce qu'elle montrait ;
+// fermée, elle coûte un cœur. Tout se relit des parties du jour, que leur
+// départ fige ; seul le record s'écrit à part (`cabinet_records`). Le
+// propriétaire a joué la maquette le 31 octobre 2026 : « une seule question par
+// étage, ça ne fait pas beaucoup » — d'où une partie entière derrière chaque
+// porte.
+
+/** Les cœurs d'une montée : une porte qui reste fermée en coûte un, et la montée s'arrête au dernier. */
+export const COEURS_D_UNE_MONTEE = 3
+/** Les étages dont la porte, seule, garde un coffre : une œuvre rare, maudite ou épique de leur salle. */
+export const ETAGES_DU_COFFRE: readonly number[] = [3, 6, 9]
+/**
+ * Les étoiles qu'il faut, sur neuf, pour ouvrir une porte sans œuvre — un cœur, les étoiles doublées : deux manches justes
+ * et un peu plus. Celle d'une œuvre demande le seuil de sa rareté (`SEUILS_DES_RARETES`), le même qu'en chasse.
+ */
+export const SEUIL_D_UNE_PORTE = 5
+/** Ce qu'une porte au cœur rend, une fois ouverte, sans jamais passer les cœurs du départ. */
+export const COEURS_D_UNE_PORTE = 1
+/** Ce que fait aux étoiles de son étage la porte qui les double, une fois ouverte. */
+export const ETOILES_D_UNE_PORTE = 2
+
 // ── Les cartes-bonus ──────────────────────────────────────────────────────
 // Le pouvoir d'une carte-bonus vient de sa famille ; sa rareté le rend plus
 // fort (`shared/cabinet/pouvoirs.ts`). La carte se fige au départ, avec sa

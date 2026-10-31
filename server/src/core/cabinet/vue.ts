@@ -19,6 +19,7 @@ import { themeDuTirage } from './tirages/index'
 import {
   CHANGEMENTS_PAR_PARTIE,
   CHASSES_PAR_JOUR,
+  COEURS_D_UNE_MONTEE,
   ECLAIRAGES_PAR_PARTIE,
   ETOILES_D_UNE_PARTIE,
   ETOILES_PAR_MANCHE,
@@ -86,9 +87,11 @@ import type {
   PageDuCabinet,
   RevelationVue,
   SalleVue,
+  TourVue,
   VisiteVue,
   VueDeLaPartie,
 } from '../../../../shared/cabinet/vues'
+import type { RecordDeLaTour, TourDuJour } from '../../../../shared/cabinet/montee'
 import { visiteAJouer } from '../../../../shared/cabinet/vues'
 import { horsDeLaBase } from '../../../../shared/horsDeLaBase'
 import { jourDe, jourEnToutesLettres } from '../../../../shared/jour'
@@ -112,7 +115,8 @@ const nomDe = (cle: string | undefined): string => oeuvre(cle)?.nom ?? 'L’œuv
  * poussière d'or. Null en partie libre.
  */
 function enJeuDuDepart(d: DepartDUnePartie): EnjeuDUneCase | null {
-  if (d.origine === 'libre') return null
+  // Une porte de la tour sans œuvre — un cœur, les étoiles doublées — n'a rien du musée en jeu, comme une partie libre.
+  if (d.origine === 'libre' || (d.origine === 'montee' && d.cible === null)) return null
   const o = oeuvre(d.cible)
   if (!o) return { poussiere: true }
   return d.but === 'dorer' ? { pourDorer: o.cle } : { rarete: o.rarete, salle: o.salle }
@@ -250,21 +254,29 @@ function bilanDit(d: DepartDUnePartie, b: BilanDUnePartie, jour: CeQueSaitLeJour
   const servi = sansCadreDore(d, b, jour.cadreDejaDore)
   switch (b.issue) {
     case 'gagnee':
-      return `${nom} entre dans ton musée${servi ? ` — sans cadre doré : ${servi}` : ''}`
+      return `${d.origine === 'montee' ? 'La porte s’ouvre : ' : ''}${nom} entre dans ton musée${servi ? ` — sans cadre doré : ${servi}` : ''}`
     case 'gagnee-doree':
-      return `${nom} entre dans ton musée, dans un cadre doré`
+      return `${d.origine === 'montee' ? 'La porte s’ouvre : ' : ''}${nom} entre dans ton musée, dans un cadre doré`
     case 'doree':
       return `${nom} prend son cadre doré`
     case 'double':
       return `${nom} était déjà à toi : sa poussière d’or en plus${servi ? ` — sans cadre doré : ${servi}` : ''}`
     case 'manquee':
+      if (d.origine === 'montee') return `La porte reste fermée : il fallait ${d.seuil} étoiles. ${nom} reste à gagner, et la montée perd un cœur.`
       if (d.but === 'dorer') return servi ? `Pas de dorure cette fois : ${servi}` : 'Pas de dorure cette fois'
       return `Pas assez d’étoiles cette fois. Il en fallait ${d.seuil}. L’œuvre reste à gagner.`
     case 'libre':
+      if (d.origine === 'montee') return porteDite(d, b)
       if (d.origine !== 'libre') return 'Tout ton musée est doré : cette partie rapporte de la poussière d’or'
       if (!d.payee) return `Les ${LIBRES_QUI_PAIENT} parties libres du jour ont payé : celle-ci se joue pour le plaisir`
       return b.poussiere > 0 ? 'Une des parties libres qui paient' : `Aucune étoile cette fois : pas de poussière d’or${libresDites(jour.libresQuiPaientEncore)}`
   }
+}
+
+/** Ce qu'une porte de la tour sans œuvre a fait : ouverte, ce qu'elle donne ; fermée, le cœur qu'elle coûte. */
+function porteDite(d: DepartDUnePartie, b: BilanDUnePartie): string {
+  if (b.total < (d.seuil ?? 0)) return `La porte reste fermée : il fallait ${d.seuil} étoiles, et la montée perd un cœur.`
+  return d.montee?.butin === 'coeur' ? 'La porte s’ouvre : un cœur de plus pour la montée.' : 'La porte s’ouvre : les étoiles de l’étage comptent double.'
 }
 
 /**
@@ -665,10 +677,37 @@ export function pageDuCabinet(l: LectureDuCabinet): PageDuCabinet {
     fete: feteVue(l),
     expedition: l.expeditionEnRoute ? 'en-route' : null,
     jeux: [...l.jeux],
+    tour: tourVue(l.tour, m.record),
     // Champ par champ, comme le reste : ce que la dépense vient de réveiller, et rien d'autre.
     ...(l.reveil && {
       reveil: { gardiens: l.reveil.gardiens.map(g => ({ legendaire: g.legendaire, neuf: g.neuf })), ...(l.reveil.compagnon && { compagnon: l.reveil.compagnon }) },
     }),
+  }
+}
+
+/** La tour, champ par champ : la montée, l'étage à jouer et ses portes, le record — rien de la graine qui les a tirées. */
+function tourVue(t: TourDuJour, record: RecordDeLaTour | null): TourVue {
+  const m = t.montee
+  return {
+    montee: m && {
+      n: m.n,
+      carte: m.carte,
+      coeurs: m.coeurs,
+      etoiles: m.etoiles,
+      hauteur: m.hauteur,
+      enCours: m.enCours,
+      finie: m.finie,
+      sommet: m.sommet,
+      etages: m.etages.map(e => ({ etage: e.etage, jeu: e.jeu, butin: e.butin, oeuvre: e.cible, seuil: e.seuil, total: e.total, ouverte: e.ouverte, etoiles: e.etoiles })),
+    },
+    aJouer: t.aJouer && {
+      n: t.aJouer.n,
+      etage: t.aJouer.etage,
+      coeurs: t.aJouer.coeurs,
+      portes: t.aJouer.portes.map(p => ({ porte: p.porte, jeu: p.jeu, butin: p.butin, oeuvre: p.cible, seuil: p.seuil, coffre: p.coffre })),
+    },
+    record: record && { etage: record.etage, etoiles: record.etoiles },
+    coeurs: COEURS_D_UNE_MONTEE,
   }
 }
 

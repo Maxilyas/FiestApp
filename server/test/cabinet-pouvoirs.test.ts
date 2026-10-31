@@ -665,7 +665,7 @@ test('ce qu’il n’a pas ne part pas : une œuvre, un gardien endormi, un Divi
   for (const carte of ['bastion', 'lg:sphinx', 'dv:helios', 'sagesse', 'renaissance', 'loupe', 'inconnue']) {
     assert.deepEqual(refus(await commencer(b, gardiens, { origine: 'libre', jeu: 'mot', carte })), [400, 'Tu n’as pas cette carte-bonus'], carte)
   }
-  assert.deepEqual(refus(await commencer(b, gardiens, { origine: 'libre', jeu: 'mot', carte: 42 })), [400, 'Choisis une partie de la visite, une chasse ou un jeu libre'])
+  assert.deepEqual(refus(await commencer(b, gardiens, { origine: 'libre', jeu: 'mot', carte: 42 })), [400, 'Choisis une porte de la tour, une partie de la visite, une chasse ou un jeu libre'])
   // Le Divin ne se dit nulle part au Cabinet : ni gardien, ni carte-bonus (invariant 21).
   assert.ok(!JSON.stringify(ok(await laPage(b, gardiens), 'la page')).includes('dv:'), 'la page nomme un Divin')
 
