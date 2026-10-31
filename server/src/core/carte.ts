@@ -1,16 +1,19 @@
 // La carte d'un joueur, du côté de son profil : son niveau, ses médaillons,
-// sa vitrine, ses écussons, ses chiffres. La même en soirée, quand on touche
+// sa vitrine, ses écussons, ses chiffres, son savoir par catégorie et ses
+// sentiers — de ce qu'elle lisait déjà. La même en soirée, quand on touche
 // son nom, et sur sa propre page (« Voir ma carte ») : la carte qu'il compose
 // est celle que la salle verra.
 import type { ProfileRec, ProfileStore } from '../auth/profiles'
 import type { JourStore } from './jour'
 import { PRIX_INDIVIDUELS } from './stats'
 import { vitrineDeLaCarte, type CarteDeJoueur } from '../../../shared/carte'
-import { ecussonsDe, plusBeauxEcussons } from '../../../shared/ecussons'
+import { additionnerCategories, ecussonsDe, plusBeauxEcussons } from '../../../shared/ecussons'
 import { ficheDe } from '../../../shared/profil'
 import { maitresDe } from '../../../shared/sentiers'
 import { bordurePortee } from '../../../shared/duels'
 import { divin } from '../../../shared/divins'
+import { CATEGORIES } from '../../../shared/categories'
+import { BRANCHES, type Paliers } from '../../../shared/branches'
 
 /**
  * La moitié « profil » d'une carte, et la bordure de ligue autour de son
@@ -43,6 +46,18 @@ export async function carteDuProfil(
     palier: e.palier as 1 | 2 | 3,
   }))
   const fiche = ficheDe(carriere, ailleurs)
+  // Son savoir catégorie par catégorie, pour le radar de sa face « Son
+  // savoir » : la même addition que ses écussons et « Ma carrière »
+  // (`additionnerCategories`) — la salle ne lit pas d'autres chiffres que
+  // lui. Seulement les douze catégories, et celles où il a joué.
+  const parCategorie = additionnerCategories(carriere.categories, ailleurs.categories)
+  const savoir = CATEGORIES.flatMap(categorie => {
+    const c = parCategorie[categorie]
+    return c && c.questions > 0 ? [{ categorie, questions: c.questions, justes: c.justes }] : []
+  })
+  // Ses sentiers commencés, pour sa face « Ses sentiers » : les paliers déjà lus pour ses maîtres.
+  const lus: Paliers = paliers
+  const sentiers: Paliers = Object.fromEntries(BRANCHES.flatMap(b => ((lus[b.key] ?? 0) > 0 ? [[b.key, lus[b.key]]] : [])))
   const recompenses = profiles.recompensesOf(profil.id)
   const titre = profiles.titrePorte(profil)
   const fond = profiles.fondPorte(profil, carriere.jour, maitresDe(paliers).length)
@@ -74,6 +89,8 @@ export async function carteDuProfil(
     // Absente tant qu'il n'y a rien gagné : l'absence, pas « 0 ».
     ...(campagne && (campagne.justes > 0 || paliersValides > 0) && { campagne: { record: campagne.record, justes: campagne.justes, paliers: paliersValides } }),
     ...(ecussons.length > 0 && { ecussons }),
+    ...(savoir.length > 0 && { savoir }),
+    ...(Object.keys(sentiers).length > 0 && { sentiers }),
     ...(fond && { fond }),
     ...(compagnon && { compagnon }),
     fiche: {

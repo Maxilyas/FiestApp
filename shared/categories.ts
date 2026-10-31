@@ -27,6 +27,23 @@ export const CATEGORIES = [
 
 export type Categorie = (typeof CATEGORIES)[number]
 
+/**
+ * Le nom d'une catégorie là où la place manque : sous une escale de
+ * l'expédition, dans les douze pastilles du Commandement, autour du radar de
+ * la carte d'un joueur. Les autres tiennent tels quels. Une seule liste :
+ * l'expédition avait la sienne, et le radar l'aurait recopiée.
+ */
+export const NOMS_COURTS: Readonly<Partial<Record<string, string>>> = {
+  'Culture générale': 'Culture G.',
+  'Cinéma & séries': 'Cinéma',
+  'Arts & lettres': 'Arts',
+  'Jeux & pop culture': 'Jeux & pop',
+  'Autour de la fête': 'La fête',
+}
+
+/** Le nom court d'une catégorie, ou son nom quand il tient déjà. */
+export const nomCourt = (categorie: string): string => NOMS_COURTS[categorie] ?? categorie
+
 /** Sans accents ni casse ni ponctuation : « cinéma », « CINEMA » et « Cinéma & séries » se retrouvent. */
 const cle = (s: string) =>
   s

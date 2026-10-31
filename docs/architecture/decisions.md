@@ -737,6 +737,15 @@ Le détail : [le profil](../produit/le-profil.md).
 
 *Fichiers : `client/src/components/CarteJoueur.tsx`, `client/src/styles.css`, `server/scripts/rendu-carte.ts`, `server/test/carte-a-collectionner.test.ts`*
 
+### La carte en quatre faces : son savoir en radar, ses sentiers, et le doigt qui la retourne
+**Contexte** : « J'aimerais ajouter une carte radar pour les joueurs où on peut voir les forces et faiblesses en fonction des catégories. Ça se rajouterait à la carte joueur que l'on pourrait swipe pour avoir plus d'info. Aussi de voir les paliers de la campagne / maître obtenu » (le propriétaire, le 31 octobre 2026). Sur la maquette (`retours/2026-10-31/carte-radar/`) : « Tout le monde voit les faiblesses ».
+
+**Décision** : deux faces de plus après le dos, chacune s'il a de quoi la remplir — son savoir, un radar des douze catégories (sa part de bonnes réponses aux QCM, tous modes de jeu, dès dix QCM ; une forme quand les douze sont connues, des pétales sinon), ses forces et ce qui lui reste à conquérir ; ses sentiers commencés, en anneaux de douze crans autour de leur dernier avatar. Le serveur les pose de ce que la carte lisait déjà (`carteDuProfil` : la carrière et le savoir hors des soirées, les paliers des maîtres) ; la page les dérive par deux règles pures (`radarDuSavoir`, `sentiersDeLaCarte`). La carte se retourne de face en face : « Retourner la carte » montre la suivante, le doigt qui glisse de côté la suivante ou la précédente, avec le retournement aimé du dos ; une vraie carte n'ayant que deux côtés, la face montrée et celle qu'elle quitte se les partagent selon ses demi-tours (`placeDeLaFace`), les autres rangées à leur place. Des gemmes serties au pied du cadre disent où l'on en est. Écartés : faire défiler les faces du dos en carrousel sans le retourner — le retournement était le geste aimé de la carte ; des onglets sur la carte, qui prenaient une ligne qu'aucune face n'avait en 360 × 640 ; la moyenne des autres joueurs sur le radar, de la maquette — un calcul sur tous les profils qui n'existe pas encore, pour une nuance.
+
+**Conséquence** : une face de plus s'ajoute à `facesDeLaCarte` et prend sa place dans la case ; chaque face d'une habituée tient en 360 × 640 (`rendu-carte.ts` le mesure, et y glisse du doigt). Les avatars des sentiers ne se demandent qu'une fois la carte retournée. Ce que la salle lit du savoir d'un joueur est ce que lit sa page.
+
+*Fichiers : `shared/carte.ts`, `server/src/core/carte.ts`, `client/src/components/CarteJoueur.tsx`, `client/src/styles.css`, `server/scripts/rendu-carte.ts`, `server/test/carte-savoir.test.ts`*
+
 ### Un seul album des avatars, rangé par rareté
 **Contexte** : trois lignes — le savoir, les légendaires et les Divins, les emojis de collection — rendaient les gens « confus » : on ne savait ni ce qu'un portrait valait à côté d'un légendaire, ni où chercher le suivant.
 
