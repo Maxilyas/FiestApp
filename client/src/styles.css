@@ -13167,6 +13167,9 @@ body.avec-niche .cab-tv-titre { padding-right: calc(16px + var(--niche-place)); 
    peinture, son nom dit à l'oreille (`aria-label`) — en entier, il passait sous la niche (`rendu-niche.ts`, le 31 octobre 2026).
    Huit cœurs et une bourse de trois chiffres vont encore à la ligne plutôt que dessous. Sur un écran large, la tête s'écarte vers
    les bords, loin de la niche, et le garde. */
+/* Le surtitre centré en haut d'un écran plein — au bilan d'une épreuve, « Le Mot mystère · Autour de la fête » — passait sous elle
+   quand il était long : il se resserre des deux côtés, et reste centré. */
+body.avec-niche .cab-tv-colonne > .cab-tv-sur:first-child { padding-inline: var(--niche-place); }
 @media (max-width: 899px) {
   body.avec-niche .cab-tv-hud-ligne { flex-wrap: wrap; }
   body.avec-niche .cab-tv-hud-cartes { width: 44px; justify-content: center; padding: 0; }
