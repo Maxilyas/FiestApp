@@ -224,9 +224,10 @@ test('la page ne télécharge ni les règles de l’Expédition, ni celles qui j
 
 // ── 2. Les adresses des écrans ────────────────────────────────────────────
 
-test('chaque écran du musée a son adresse, et une adresse inconnue ouvre le musée', async () => {
+test('chaque écran du musée a son adresse, et une adresse inconnue ouvre la tour, l’entrée du Cabinet', async () => {
   const { ecranDeLAdresse, adresseDe } = await import(url('views/cabinet/ecrans.ts'))
   const ecrans = [
+    { e: 'tour' },
     { e: 'musee' },
     { e: 'gardiens' },
     { e: 'visite' },
@@ -240,8 +241,10 @@ test('chaque écran du musée a son adresse, et une adresse inconnue ouvre le mu
   assert.equal(adresseDe({ e: 'oeuvre', oeuvre: 'bastion' }), '#oeuvre-bastion')
   // Une clé venue de l'adresse se lit par sa fonction : le prototype d'un objet n'est ni une salle ni une œuvre.
   for (const h of ['', '#', '#salle-constructor', '#oeuvre-constructor', '#oeuvre-lg:phenix', '#salle-', '#partie', '#murs-x']) {
-    assert.deepEqual(ecranDeLAdresse(h), { e: 'musee' }, h)
+    assert.deepEqual(ecranDeLAdresse(h), { e: 'tour' }, h)
   }
+  // Le musée, l'entrée jusqu'au 31 octobre 2026, a désormais son adresse : la tour l'a pris.
+  assert.equal(adresseDe({ e: 'musee' }), '#musee')
 })
 
 // ── 3. Le musée ───────────────────────────────────────────────────────────
@@ -4361,7 +4364,8 @@ test('rechargée sur l’entrée d’une partie qui attend, la page la rouvre su
 test('le titre de l’onglet suit l’écran : chaque écran du musée, l’annonce, chaque manche d’une partie et son bilan', async () => {
   const { titreDeLEcran, titreDeLAnnonce, titreDeLaPartie, ecranDeLAdresse } = await import(url('views/cabinet/ecrans.ts'))
   // Hugo, au lecteur d'écran, passait d'un onglet à l'autre : tous disaient « Le Cabinet de curiosités · FiestApp ».
-  assert.equal(titreDeLEcran({ e: 'musee' }, page), 'Le Cabinet de curiosités · FiestApp')
+  assert.equal(titreDeLEcran({ e: 'tour' }, page), 'Le Cabinet de curiosités · FiestApp')
+  assert.equal(titreDeLEcran({ e: 'musee' }, page), 'Ton musée · Le Cabinet · FiestApp')
   assert.equal(titreDeLEcran({ e: 'visite' }, page), 'La visite du jour · Le Cabinet · FiestApp')
   assert.equal(titreDeLEcran({ e: 'libre' }, page), 'Jouer librement · Le Cabinet · FiestApp')
   assert.equal(titreDeLEcran({ e: 'gardiens' }, page), 'Les gardiens · Le Cabinet · FiestApp')
@@ -4373,7 +4377,7 @@ test('le titre de l’onglet suit l’écran : chaque écran du musée, l’anno
   assert.doesNotMatch(vide, new RegExp(OEUVRES.find(o => o.cle === 'expose')!.nom))
   assert.match(vide, /^Un cadre vide de la salle de l’Érudit · Le Cabinet · FiestApp$/)
   // Chaque écran de `ecrans.ts` a le sien, distinct.
-  const tous = ['', '#visite', '#libre', '#gardiens', '#murs', ...SALLES.map(s => `#salle-${s.cle}`)].map(h => titreDeLEcran(ecranDeLAdresse(h), page))
+  const tous = ['', '#musee', '#visite', '#libre', '#gardiens', '#murs', ...SALLES.map(s => `#salle-${s.cle}`)].map(h => titreDeLEcran(ecranDeLAdresse(h), page))
   assert.equal(new Set(tous).size, tous.length, tous.join(' | '))
   for (const t of tous) assert.match(t, / · FiestApp$/)
   // L'annonce, puis chaque manche — la mise d'avant comprise —, puis le bilan.
@@ -4472,7 +4476,11 @@ test('« Comment ça marche ? » s’ouvre sur l’essentiel : « En bref », pu
   // une appli ». Théo et Hugo la trouvaient complète : le reste ne bouge pas.
   const html = await rendu('views/cabinet/Regles', 'Regles', { jeux: page.jeux, parties: 3 })
   const t = texte(html)
-  assert.match(t, /^\s*En bref La visite du jour : 3 parties, une œuvre à gagner chacune\. Assez d’étoiles, et l’œuvre entre dans ton musée\. Une salle complète réveille son gardien\./)
+  // La tour d'abord, l'entrée du Cabinet depuis le 31 octobre 2026 : ce qu'on y gagne se dit avant tout le reste.
+  assert.match(
+    t,
+    /^\s*En bref La tour : 9 étages, une porte à chacun, 3 manches derrière\. Assez d’étoiles, et la porte te donne ce qu’elle montre : une œuvre, un cœur, des étoiles\. La visite du jour : 3 parties, une œuvre à gagner chacune\. Une salle complète réveille son gardien\./,
+  )
   const ou = (s: string) => html.indexOf(s)
   assert.ok(ou('En bref') < ou('Les mots du Cabinet') && ou('Les mots du Cabinet') < ou('Ton musée'), 'le lexique juste après « En bref »')
   assert.ok(ou('Les mots du Cabinet') < ou('Les neuf jeux'), 'le lexique avant les neuf jeux')

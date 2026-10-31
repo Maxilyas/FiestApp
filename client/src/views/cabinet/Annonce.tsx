@@ -8,6 +8,9 @@ import { CLES_DES_JEUX, JEUX, type CleDeJeu } from '../../../../shared/cabinet/j
 import type { EnjeuDUneCase } from '../../../../shared/cabinet/musee'
 import { ceQueFaitLaCarte, ditALAnnonce, forceDe, pouvoirDe, sertA, type CleDePouvoir, type Force } from '../../../../shared/cabinet/pouvoirs'
 import type { PageDuCabinet, VueDeLaPartie } from '../../../../shared/cabinet/vues'
+import { salleDeLEtage } from '../../../../shared/cabinet/montee'
+import { oeuvre as oeuvreDe } from '../../../../shared/cabinet/oeuvres'
+import { salle } from '../../../../shared/cabinet/salles'
 import { legendaire } from '../../../../shared/legendaires'
 import { EnEtoiles } from './EnEtoiles'
 import type { PartieDemandee } from './ecrans'
@@ -50,6 +53,13 @@ export interface CeQuElleAnnonce {
    * déjà doré dans la journée (`dorer` faux).
    */
   double?: number
+  /** Une porte de la tour sans œuvre : son seuil l'ouvre, il ne gagne rien du musée — « pour l'ouvrir ». */
+  ouvrir?: true
+  /**
+   * Après le premier étage, la carte-bonus que la montée a emportée, que l'annonce montre sans la laisser changer : le serveur
+   * garde celle de la montée jusqu'au sommet. Absent hors de la tour, et au premier étage, où elle se choisit.
+   */
+  carteDeLaMontee?: string | null
 }
 
 /**
@@ -101,8 +111,33 @@ export function annonceDe(page: PageDuCabinet, demande: PartieDemandee): CeQuEll
       const jeu = CLES_DES_JEUX.find(j => j === demande.jeu)
       return jeu ? { jeu, piece: 'Partie libre', enJeu: null, seuil: null, dorer: false } : null
     }
+    case 'montee':
+      return laPorte(page, demande)
   }
 }
+
+/**
+ * Ce qu'annonce une porte de la tour : l'étage et sa salle, ce que la porte promet — l'œuvre qu'elle garde, nommée, ou ce
+ * qu'elle rend —, et le seuil qui l'ouvre. Null pour une porte que la tour ne montre plus : une autre montée, minuit.
+ */
+function laPorte(page: PageDuCabinet, demande: Extract<PartieDemandee, { origine: 'montee' }>): CeQuElleAnnonce | null {
+  const a = page.tour.aJouer
+  const p = a && a.n === demande.n && a.etage === demande.etage ? a.portes.find(x => x.porte === demande.porte) : undefined
+  if (!a || !p) return null
+  const s = salle(salleDeLEtage(a.etage))
+  const piece = `Étage ${a.etage}${s ? ` · ${s.nom}` : ''}`
+  const montee = a.etage > 1 ? { carteDeLaMontee: page.tour.montee?.n === a.n ? page.tour.montee.carte : null } : {}
+  if (p.oeuvre) {
+    const o = oeuvreDe(p.oeuvre)
+    const enJeu = o ? `La porte garde ${o.nom}, ${RARETES_DITES[o.rarete]} ${salle(o.salle)?.deLaSalle ?? 'du Cabinet'}` : 'La porte garde une œuvre'
+    return { jeu: p.jeu, piece, enJeu, seuil: p.seuil, dorer: false, ...montee }
+  }
+  const enJeu = p.butin === 'coeur' ? 'Ouverte, la porte rend un cœur à ta montée' : 'Ouverte, la porte double les étoiles de l’étage'
+  return { jeu: p.jeu, piece, enJeu, seuil: p.seuil, dorer: false, ouvrir: true, ...montee }
+}
+
+/** Une rareté dite dans une phrase : « une œuvre rare ». */
+const RARETES_DITES = { commun: 'une œuvre commune', rare: 'une œuvre rare', maudit: 'une œuvre maudite', epique: 'une œuvre épique' } as const
 
 /**
  * La partie qui attend est-elle celle qu'on demandait ? « Commencer » dont la
@@ -249,6 +284,7 @@ export function ChoixDeLaCarte({ cartes, jeu, carte, onChoisir }: { cartes: read
  */
 function avantDeCommencer(demande: PartieDemandee, enJeu: EnjeuDUneCase | undefined): string | null {
   if (demande.origine === 'libre') return null
+  if (demande.origine === 'montee') return 'Rien ne compte avant « Commencer » : revenir à la tour ne coûte rien. Ensuite, une porte qui reste fermée coûte un cœur à ta montée.'
   const rien = `Rien ne compte avant « Commencer » : revenir au musée ne coûte pas ${demande.origine === 'chasse' ? 'ta chasse' : 'ta partie de la visite'}.`
   if (demande.origine === 'chasse') return rien
   return `${rien} Ensuite, elle se joue une fois aujourd’hui${enJeu && 'rarete' in enJeu ? ' — manquée, son œuvre se retente au même jeu pour une chasse' : ''}.`
@@ -293,13 +329,16 @@ export function Annonce({
   }
   const j = JEUX[a.jeu]
   const cartes = cartesBonusDe(page)
-  const choisie = cartes.find(c => c.cle === carte) ?? null
+  // Après le premier étage, la carte est celle de la montée : montrée, jamais à choisir.
+  const figee = a.carteDeLaMontee !== undefined
+  const choisie = cartes.find(c => c.cle === (figee ? a.carteDeLaMontee : carte)) ?? null
   // Une partie qui attend — commencée d'un autre onglet, et que la page relue vient d'apprendre — : « Commencer » s'éteint, sa
   // raison dessous à la place de ce qu'il coûterait, comme les départs du musée (`laPartieQuiAttend`).
   const attend = laPartieQuiAttend(page)
   const avant = avantDeCommencer(demande, demande.origine === 'visite' ? page.visite.cases[demande.case]?.enJeu : undefined)
-  // Un cadre doré en jeu : une œuvre à gagner, ou à dorer. Sans œuvre — en libre, pour la poussière d'or —, rien à perdre.
-  const cadre = a.seuil !== null || a.dorer
+  // Un cadre doré en jeu : une œuvre à gagner, ou à dorer. Sans œuvre — en libre, pour la poussière d'or, une porte qui rend un
+  // cœur —, rien à perdre.
+  const cadre = (a.seuil !== null && !a.ouvrir) || a.dorer
   return (
     <div className="player-shell cab-page cab-annonce">
       {retour}
@@ -320,9 +359,9 @@ export function Annonce({
             <b>
               {a.seuil} étoiles sur {ETOILES_D_UNE_PARTIE}
             </b>{' '}
-            pour la gagner.
+            {a.ouvrir ? 'pour l’ouvrir.' : 'pour la gagner.'}
           </p>
-          <p className="cab-ligne">{espacesFines(`${enDebutDeLigne(ceQueDemandeLeCadre(a.jeu))}, sans qu’un pouvoir serve : son cadre doré.`)}</p>
+          {!a.ouvrir && <p className="cab-ligne">{espacesFines(`${enDebutDeLigne(ceQueDemandeLeCadre(a.jeu))}, sans qu’un pouvoir serve : son cadre doré.`)}</p>}
         </>
       )}
       {a.dorer && <p className="cab-ligne cab-seuil">{espacesFines(`Pour la dorer : ${ceQueDemandeLeCadre(a.jeu)}, sans qu’un pouvoir ait servi.`)}</p>}
@@ -338,7 +377,8 @@ export function Annonce({
       <section className="cab-bloc" aria-labelledby="cab-ta-carte">
         <h2 id="cab-ta-carte">Ta carte-bonus</h2>
         {choisie ? <LigneDeCarte carte={choisie} jeu={a.jeu} detail cadre={cadre} /> : <p className="cab-ligne">{espacesFines('Sans carte-bonus : tu joues sans pouvoir.')}</p>}
-        {cartes.length > 0 && (
+        {figee && <p className="cab-raison">{espacesFines('Ta montée garde la carte-bonus choisie au premier étage, jusqu’au sommet.')}</p>}
+        {cartes.length > 0 && !figee && (
           <button type="button" className="btn btn-block" onClick={() => setChoisir(true)}>
             {choisie ? 'Choisir une autre carte-bonus' : 'Choisir une carte-bonus'}
           </button>
@@ -349,7 +389,7 @@ export function Annonce({
         className="btn btn-primary btn-big btn-block"
         aria-disabled={busy || attend !== null || undefined}
         aria-describedby={attend === null ? undefined : idDeLAttente}
-        onClick={() => !busy && attend === null && onCommencer(choisie?.cle ?? null)}
+        onClick={() => !busy && attend === null && onCommencer(figee ? (a.carteDeLaMontee ?? null) : (choisie?.cle ?? null))}
       >
         Commencer
       </button>

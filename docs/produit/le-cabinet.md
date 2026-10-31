@@ -2,13 +2,14 @@
 
 > Un mode pour les profils, qui a remplacé l'Expédition le 31 octobre 2026 : ton Cabinet est un musée à remplir. Les 84 cartes peintes en sont les œuvres, rangées en neuf salles ; on les gagne à neuf petits jeux de quelques minutes ; une salle complète réveille son gardien légendaire ; et chaque œuvre garde sur son cartel ce qu'on a appris en la gagnant. Comment on le joue, ses règles chiffrées, ce que l'Expédition laisse, ce qui vient ensuite, puis comment c'est construit.
 
-**Dans cette page** : [En bref](#en-bref) · [Les salles et les œuvres](#les-salles-et-les-œuvres) · [Une partie](#une-partie) · [Les neuf jeux](#les-neuf-jeux) · [Les cartes-bonus](#les-cartes-bonus) · [Une journée](#une-journée) · [La poussière d'or](#la-poussière-dor) · [Les gardiens](#les-gardiens) · [Ce qu'on apprend](#ce-quon-apprend) · [Les mots du Cabinet](#les-mots-du-cabinet) · [Ce que l'Expédition laisse](#ce-que-lexpédition-laisse) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
+**Dans cette page** : [En bref](#en-bref) · [La tour](#la-tour) · [Les salles et les œuvres](#les-salles-et-les-œuvres) · [Une partie](#une-partie) · [Les neuf jeux](#les-neuf-jeux) · [Les cartes-bonus](#les-cartes-bonus) · [Une journée](#une-journée) · [La poussière d'or](#la-poussière-dor) · [Les gardiens](#les-gardiens) · [Ce qu'on apprend](#ce-quon-apprend) · [Les mots du Cabinet](#les-mots-du-cabinet) · [Ce que l'Expédition laisse](#ce-que-lexpédition-laisse) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
 
 > [!NOTE]
 > **Le Cabinet est en construction.** Le 24 octobre 2026, après trois tours de propositions, le propriétaire : « J'aimerais refaire une refonte complète de l'expédition. L'objectif à la base c'était de faire un mode aventure, de pouvoir explorer et monter pour obtenir des récompenses. Je veux faire pleins de petits modes de jeu qui justement sont rigolo » ; puis « J'aime beaucoup l'idée de deviner / mettre sur une carte où se trouve une anecdote / questions. Pareil pour la timeline », et « Est-ce que l'on pourrait faire le cabinet des curiosités mais garder toutes les cartes que l'on a pu générer pour la collection ? Ça peut être ça les objets du musée à collectionner. » La proposition qui en est née, et sa maquette jouable, ont été jouées et corrigées par des agents sur trois tours — une joueuse occasionnelle, un complétionniste, une grand-mère en 360 × 640 — avant d'être validées le même jour, avec les quatre réponses du propriétaire (« Suit tes recommandations pour les 4 ») : `retours/2026-10-24/le-cabinet.md`. Le mode se construit depuis le 25 octobre 2026, en préproduction d'abord, un jeu après l'autre : les neuf sont livrés, et deux tablées d'agents l'ont joué de bout en bout, le 25 et le 26 octobre 2026 (`retours/2026-10-25/synthese.md`, `retours/2026-10-26/synthese.md`), chacune suivie de ses corrections. **Il s'ouvre en production le 31 octobre 2026** (`CABINET_EN_PRODUCTION`), et l'Expédition est effacée le même jour (`EXPEDITION_REMPLACEE`). Cette page dit le mode tel qu'il est construit.
 
 ## En bref
 
+- **Une tour à monter** : neuf étages, une porte à chacun, trois manches derrière ; ouverte, la porte donne ce qu'elle montre — une œuvre, un cœur, des étoiles —, fermée, elle coûte un cœur. [La tour](#la-tour).
 - **Un musée à remplir.** 84 œuvres — les cartes peintes des rencontres de l'Expédition — en neuf salles : les huit familles, huit œuvres chacune, et le Vestibule, les vingt neutres. Chaque cadre vide dit où chercher (« Elle se trouve au Filet »).
 - **Neuf petits jeux de quelques minutes**, chacun trois manches de trois étoiles : l'Épingle, la Frise, le Mot mystère, le Détail, le Filet, le Pari, l'Éclair, les Indices, la Réplique.
 - **Une visite ou une chasse fait toujours avancer** : une œuvre si les étoiles y sont, de la poussière d'or sinon — et une partie de la visite manquée se retente au même jeu, pour une chasse. Une partie libre paie ses étoiles, les cinq premières du jour. Aucune règle à apprendre avant de jouer.
@@ -17,6 +18,17 @@
 - **Vingt-trois gardiens légendaires** : une salle complète réveille le premier, une salle toute dorée le second ; le Scarabée, le Trou noir et trois gardiens de saison se réveillent ailleurs.
 - **Ce qu'on apprend reste** : le cartel de chaque œuvre, une carte de France où chaque lieu trouvé reste épinglé, une frise de ce qu'on a daté, et le carnet de la campagne.
 - **Gratuit, seul, et sans classement** : ce qu'on y gagne ne sert qu'au Cabinet (l'invariant 8), et l'invité anonyme n'en voit rien — l'accueil d'un profil y mène.
+
+## La tour
+
+L'entrée du Cabinet depuis le 31 octobre 2026. Les retours que le propriétaire a rapportés : trop d'informations sur l'accueil, « on aime bien tous les mini-jeux, mais il manque le monde aventure — garder une progression et monter étage en étage », et « l'essentiel de pourquoi le faire, qu'est-ce qu'on gagne, n'y est pas ». Deux maquettes jouées, puis une en 3D (« super joli visuellement »), ont été validées le même jour : la tour en est la construction.
+
+- **Neuf étages, un par salle** : le Vestibule d'abord, puis les huit salles dans l'ordre du musée, dessinés en îles flottantes au-dessus d'une galaxie, chacune son pavillon, le médaillon de son gardien et ses œuvres en cadres autour — peintes si on les a, un « ? » sinon. On glisse pour parcourir la tour, on touche une île pour la regarder. Sans WebGL, la liste des étages la remplace.
+- **Une porte à choisir à chaque étage, une partie de trois manches derrière** — la même que partout ailleurs au Cabinet. D'ordinaire deux portes : l'une garde une œuvre de la salle qui manque, montrée peinte et nommée — on sait ce qu'on gagne —, à jouer au jeu où elle se trouve et au seuil de sa rareté ; l'autre, un autre jeu, rend un cœur ou double les étoiles de l'étage, à cinq étoiles. Aux étages 3, 6 et 9, une seule : le coffre, une œuvre rare, maudite ou épique. Une salle complète promet une œuvre d'ailleurs.
+- **Trois cœurs** : une porte qui reste fermée en coûte un, et l'on monte quand même. La montée s'arrête au dernier cœur, au sommet, ou à minuit ; la suivante repart du premier étage.
+- **La carte-bonus se choisit au premier étage** et suit la montée jusqu'en haut.
+- **Le record** : l'étage le plus haut atteint, ses étoiles pour départager. Il ne redescend jamais.
+- **Ce qu'elle ne paie pas** : de la poussière d'or. La tour paie en œuvres ; la visite, les chasses et les parties libres gardent leur poussière, et vivent sur la page de ton musée, à côté des salles, des gardiens et de tes murs.
 
 ## Les salles et les œuvres
 

@@ -17,7 +17,8 @@
 // `LibsqlError`.
 import type { InStatement, ResultSet } from '@libsql/client'
 import type { CeQueLeReveilAjoute } from '../porteDeLaCampagne'
-import { lireUnGeste, lireLeDepart } from '../../../../shared/cabinet/lecture'
+import { lireUnGeste, lireLeDepart, lireLaMonteeDuDepart } from '../../../../shared/cabinet/lecture'
+import type { RecordDeLaTour } from '../../../../shared/cabinet/montee'
 import type { DepartDUnePartie, GesteEcrit, IssueDUnePartie, Manche, OrigineDUnePartie } from '../../../../shared/cabinet/partie'
 import { ISSUES } from '../../../../shared/cabinet/partie'
 import { museeDe, sallesCompletes, type CaseFigee, type LigneDOeuvre, type LigneDuProfil, type OrigineDUneOeuvre, type PartieDuJour, type VisiteFigee } from '../../../../shared/cabinet/musee'
@@ -91,6 +92,21 @@ const OEUVRES = `CREATE TABLE IF NOT EXISTS cabinet_oeuvres (
 )`
 
 /**
+ * Le record de la tour d'un profil : sa plus haute montée — l'étage atteint,
+ * ses étoiles pour départager — et la partie qui l'a établi. La montée se relit
+ * des parties du jour (`monteeDesParties`), qui ne disent rien des jours
+ * d'avant : seul le record s'écrit, une ligne par profil, à la fin de la partie
+ * qui le bat (`lotDuGeste`), jamais ailleurs. Il ne redescend jamais.
+ */
+const RECORDS = `CREATE TABLE IF NOT EXISTS cabinet_records (
+  profile_id TEXT PRIMARY KEY,
+  etage      INTEGER NOT NULL,
+  etoiles    INTEGER NOT NULL,
+  serie_id   TEXT NOT NULL,
+  bat_le     INTEGER NOT NULL
+)`
+
+/**
  * La clé du secret du Cabinet dans `campagne_meta` : tiré au premier réveil,
  * relu à chacun. La graine de la visite du jour en dérive
  * (`HMAC-SHA256(secret, profileId)`) — faite du seul profil, la page l'aurait
@@ -99,9 +115,9 @@ const OEUVRES = `CREATE TABLE IF NOT EXISTS cabinet_oeuvres (
  */
 export const SECRET_DU_CABINET = 'secret_du_cabinet'
 
-/** Ce que le Cabinet ajoute au premier lot de la campagne : ses trois tables, la colonne de son départ figé, son secret. */
+/** Ce que le Cabinet ajoute au premier lot de la campagne : ses quatre tables, la colonne de son départ figé, son secret. */
 export const REVEIL_DU_CABINET = {
-  tablesEnPlus: [GESTES, PROFILS, OEUVRES],
+  tablesEnPlus: [GESTES, PROFILS, OEUVRES, RECORDS],
   // Le départ figé d'une partie (`DepartDUnePartie`, JSON versionné) : ses manches et leurs rechanges, réponses comprises.
   // Il ne se relit qu'à la relecture d'une partie, par sa clé ; les lectures du jour n'en tirent que des champs.
   colonnesEnPlus: [['cabinet', 'TEXT']],
@@ -130,7 +146,7 @@ export function gesteEcrit(serie: string, rang: number, uid: string): { sql: str
  * `expedition.md`) ; seul notre code écrit la colonne, mais une ligne abîmée
  * ne doit pas fermer le Cabinet de son joueur.
  */
-export const champDuDepart = (champ: 'origine' | 'visite') => `CASE WHEN json_valid(cabinet) THEN json_extract(cabinet, '$.${champ}') END`
+export const champDuDepart = (champ: 'origine' | 'visite' | 'montee.n' | 'montee.etage') => `CASE WHEN json_valid(cabinet) THEN json_extract(cabinet, '$.${champ}') END`
 
 /**
  * Les parties du Cabinet qu'un profil a commencées depuis minuit, par l'index
@@ -178,9 +194,9 @@ export function lecturesDuMusee(profileId: string, minuit: number, avecLEtagere:
     { sql: 'SELECT poussiere, serie, serie_jour, serie_record, visites, partie FROM cabinet_profils WHERE profile_id = ?', args: [profileId] },
     lectureDesOeuvres(profileId),
     {
-      // Ses champs d'un seul `json_extract` à cinq chemins : un tableau JSON, décodé ici.
+      // Ses champs d'un seul `json_extract` à sept chemins : un tableau JSON, décodé ici — l'étage d'une montée y vient en objet.
       sql: `SELECT id, commencee_le, finie_le, issue,
-                   CASE WHEN json_valid(cabinet) THEN json_extract(cabinet, '$.origine', '$.visite', '$.jeu', '$.cible', '$.payee') END AS champs,
+                   CASE WHEN json_valid(cabinet) THEN json_extract(cabinet, '$.origine', '$.visite', '$.jeu', '$.cible', '$.payee', '$.seuil', '$.montee') END AS champs,
                    CASE WHEN json_valid(bilan) THEN json_extract(bilan, '$.total') END AS total
               FROM campagne_series WHERE ${partiesDuJour()}`,
       args: [profileId, minuit],
@@ -202,6 +218,8 @@ export function lecturesDuMusee(profileId: string, minuit: number, avecLEtagere:
     // tant que l'Expédition se lit : son départ fermé, celles en route finissent encore ; elle partira avec le code de
     // l'Expédition, quand plus aucune ne sera en route depuis trente jours.
     { sql: "SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL LIMIT 1", args: [profileId] },
+    // Le record de la tour, par la clé du profil : une ligne au plus.
+    { sql: 'SELECT etage, etoiles FROM cabinet_records WHERE profile_id = ?', args: [profileId] },
   ]
 }
 
@@ -226,6 +244,7 @@ export interface MuseeLuEnBase {
   /** Les voies de saison rangées sous `#cabinet` (`saison:halloween`). */
   saisonsSousLeCabinet: string[]
   expeditionEnRoute: string | null
+  record: RecordDeLaTour | null
 }
 
 const texte = (x: unknown): string | null => (typeof x === 'string' ? x : null)
@@ -322,8 +341,11 @@ function laPartieDuJour(r: Record<string, unknown>): PartieDuJour | null {
     return null
   }
   if (!Array.isArray(champs) || typeof r.id !== 'string') return null
-  const [origine, visite, jeu, cible, payee] = champs as unknown[]
-  if (origine !== 'visite' && origine !== 'chasse' && origine !== 'libre') return null
+  const [origine, visite, jeu, cible, payee, seuil, montee] = champs as unknown[]
+  if (origine !== 'visite' && origine !== 'chasse' && origine !== 'libre' && origine !== 'montee') return null
+  // Une porte de la tour porte son étage ; une montée illisible fait taire la partie plutôt que fausser la tour.
+  const etage = origine === 'montee' ? lireLaMonteeDuDepart(montee) : null
+  if (origine === 'montee' && !etage) return null
   if (!(CLES_DES_JEUX as readonly unknown[]).includes(jeu)) return null
   const issue = (ISSUES as readonly unknown[]).includes(r.issue) ? (r.issue as IssueDUnePartie) : null
   return {
@@ -338,6 +360,8 @@ function laPartieDuJour(r: Record<string, unknown>): PartieDuJour | null {
     // `json_extract` d'un booléen JSON rend vrai ou faux dans le tableau qu'il compose.
     payee: payee === true || payee === 1,
     total: r.total === null || r.total === undefined ? null : nombre(r.total),
+    seuil: Number.isInteger(seuil) ? (seuil as number) : null,
+    montee: etage,
   }
 }
 
@@ -364,7 +388,7 @@ export function laPartieLue(ligne: Record<string, unknown> | undefined, gestes: 
 export function lireLeMusee(lus: readonly ResultSet[], avecLEtagere: boolean): MuseeLuEnBase {
   const [profils, oeuvres, parties, partie, gestes, ...suite] = lus
   const saisons = avecLEtagere ? suite.shift() : undefined
-  const [expedition] = suite
+  const [expedition, record] = suite
   const profil = laLigneDuProfil(profils.rows[0] as Record<string, unknown> | undefined)
   const enCours = profil?.partie ? laPartieLue(partie.rows[0] as Record<string, unknown> | undefined, gestes.rows as Record<string, unknown>[]) : null
   return {
@@ -375,7 +399,16 @@ export function lireLeMusee(lus: readonly ResultSet[], avecLEtagere: boolean): M
     partieIllisible: profil?.partie && !enCours ? profil.partie : null,
     saisonsSousLeCabinet: (saisons?.rows ?? []).flatMap(r => (VOIES_DE_SAISON.includes(String(r.badge)) ? [String(r.badge)] : [])),
     expeditionEnRoute: texte(expedition?.rows[0]?.id),
+    record: leRecord(record?.rows[0] as Record<string, unknown> | undefined),
   }
+}
+
+/** Le record relu : un étage de la tour et ses étoiles, entiers ; une ligne abîmée se tait. */
+function leRecord(r: Record<string, unknown> | undefined): RecordDeLaTour | null {
+  if (!r) return null
+  const etage = Number(r.etage)
+  const etoiles = Number(r.etoiles)
+  return Number.isInteger(etage) && etage > 0 && Number.isInteger(etoiles) && etoiles >= 0 ? { etage, etoiles } : null
 }
 
 /** Une partie seule, de sa clé, cloisonnée au profil et au mode : celle d'un autre vaut « introuvable » (invariant 3). */

@@ -85,6 +85,7 @@ import {
   type VisiteFigee,
 } from '../../../../shared/cabinet/musee'
 import { JEUX_PRETS } from '../../../../shared/cabinet/ouverture'
+import { batLeRecord, monteeDesParties, recordDeLaMontee, tourDuJour, type RecordDeLaTour, type TourDuJour } from '../../../../shared/cabinet/montee'
 import {
   ILLISIBLE,
   PARTIE_FINIE,
@@ -160,6 +161,8 @@ interface MuseeGarde {
   expeditionEnRoute: string | null
   /** Les saisons rangées sous `#cabinet`, relues à froid puis tenues à jour par la réconciliation (`reconcilier`). */
   sousLeCabinet: Set<string>
+  /** Le record de la tour, relu à froid puis tenu à jour par la fin qui le bat (`retenirLaFin`). */
+  record: RecordDeLaTour | null
 }
 
 /** Une partie en mémoire : son départ figé, ses gestes écrits, le pli qui en dit l'état. */
@@ -218,6 +221,8 @@ export interface LectureDuCabinet {
   rangees: ReadonlySet<string>
   /** Ce que la dépense qui rend la page vient de réveiller, et la partie d'hier que le serveur a close depuis la dernière page ; rien d'autre. */
   reveil?: ReveilDesGardiens
+  /** La tour du jour : la montée en route et l'étage à jouer, ses portes tirées de la graine secrète (`tourDuJour`). */
+  tour: TourDuJour
 }
 
 /** Ce que le bouton de l'accueil lit (`accueilDuCabinet`) : le musée et sa visite, comme la page les lit. */
@@ -354,6 +359,14 @@ export function lireLaDemande(brut: unknown): DemandeLue | null {
     case 'libre': {
       const jeu = cle(b.jeu)
       return jeu ? { origine: 'libre', jeu, carte } : null
+    }
+    case 'montee': {
+      // Ce que la page a vu de la porte — son jeu, son œuvre — revient avec elle : le serveur la retire et refuse celle qui a changé.
+      const jeu = cle(b.jeu)
+      const oeuvre = b.oeuvre === null || b.oeuvre === undefined ? null : cle(b.oeuvre)
+      const entiers = [b.n, b.etage, b.porte].every(x => Number.isInteger(x) && (x as number) >= 0 && (x as number) < 1_000_000)
+      if (!jeu || (b.oeuvre !== null && b.oeuvre !== undefined && oeuvre === null) || !entiers) return null
+      return { origine: 'montee', n: b.n as number, etage: b.etage as number, porte: b.porte as number, jeu, oeuvre, carte }
     }
     default:
       return null
@@ -498,6 +511,7 @@ export class CabinetStore {
       parties: g.duJour.jour === jour ? g.duJour.parties : [],
       legendaires: this.profils.legendairesOf(profileId),
       enCours: g.enCours,
+      record: g.record,
     })
   }
 
@@ -531,6 +545,7 @@ export class CabinetStore {
         enCours: enCours ? { id: enCours.id, jeu: enCours.depart.jeu } : null,
         expeditionEnRoute: lu.expeditionEnRoute,
         sousLeCabinet: new Set(lu.saisonsSousLeCabinet),
+        record: lu.record,
       },
       MUSEES_GARDES,
     )
@@ -614,6 +629,11 @@ export class CabinetStore {
 
   private visiteDe(profileId: string, musee: Musee, t: number): VisiteDuJour {
     return visiteDuJour(musee, { graine: this.graineDe(profileId), jour: jourDe(t), minuit: minuitDe(t), jeux: JEUX_PRETS })
+  }
+
+  /** La tour du jour : ses portes se tirent de la même graine secrète que la visite, jamais de ce que la page connaît. */
+  private tourDe(profileId: string, musee: Musee, t: number): TourDuJour {
+    return tourDuJour(musee, { graine: this.graineDe(profileId), jour: jourDe(t), jeux: JEUX_PRETS })
   }
 
   /**
@@ -715,6 +735,7 @@ export class CabinetStore {
     }
     const musee = this.museeVu(profileId, garde)
     const visite = this.visiteDe(profileId, musee, t)
+    const tour = this.tourDe(profileId, musee, t)
     const reveil = fondreLesReveils(this.aAnnoncer.get(profileId), apres?.reveil)
     this.aAnnoncer.delete(profileId)
     return {
@@ -725,6 +746,7 @@ export class CabinetStore {
       expeditionEnRoute: !this.reglages.expeditionEffacee && garde.expeditionEnRoute !== null,
       fete: this.reglages.calendrier.periodeDu(jourDe(t))?.saison ?? null,
       rangees: this.rangeesDe(profileId),
+      tour,
       ...(reveil && { reveil }),
     }
   }
@@ -787,7 +809,7 @@ export class CabinetStore {
         const g = await this.museeDuJour(profileId, t)
         const musee = this.museeVu(profileId, g)
         const visite = this.visiteDe(profileId, musee, t)
-        const cadre = cadreDuDepart(musee, demande, visite, JEUX_PRETS)
+        const cadre = cadreDuDepart(musee, demande, visite, JEUX_PRETS, demande.origine === 'montee' ? this.tourDe(profileId, musee, t) : null)
         if (typeof cadre === 'string') throw new Error(cadre)
         // Le journal rattrapé : rien à relire si une lecture est partie après la dernière réponse écrite ici.
         const { journal } = await this.porte.lireAvecLeJournal([])
@@ -823,6 +845,7 @@ export class CabinetStore {
           cible: cadre.cible,
           but: cadre.but,
           ...(cadre.retente && { retente: true as const }),
+          ...(cadre.montee && { montee: cadre.montee }),
           seuil: cadre.seuil,
           payee: cadre.payee,
           carte: cadre.carte,
@@ -854,7 +877,8 @@ export class CabinetStore {
           if (essai === 0) continue
           throw new Error(DEPART_CROISE)
         }
-        const payee = depart.origine === 'libre' ? Number(lus[1].rows[0].payee) === 1 : true
+        // La base dit si une libre paie ; les autres gardent ce que leur cadre a décidé — une porte de la tour ne paie jamais.
+        const payee = depart.origine === 'libre' ? Number(lus[1].rows[0].payee) === 1 : depart.payee
         const figee: DepartDUnePartie = { ...depart, payee }
         this.retenirLeDepart(g, figee, serie, t, visite)
         const gestes: GesteEcrit[] = ouverture ? [{ geste: ouverture.geste, faitLe: ouverteLe }] : []
@@ -886,6 +910,8 @@ export class CabinetStore {
       cible: d.cible,
       payee: d.payee,
       total: null,
+      seuil: d.seuil,
+      montee: d.montee ?? null,
     })
     g.enCours = { id: serie, jeu: d.jeu }
   }
@@ -1034,7 +1060,20 @@ export class CabinetStore {
     const cible = p.depart.cible
     const aLui = cible !== null && estUneOeuvre(cible) ? { possedee: possedees(musee).has(cible), doree: dorees(musee).has(cible) } : null
     const bilan = bilanDe(p.depart, apres, aLui)
-    return { aEcrire: { profileId, bilan, oeuvre: this.oeuvreDeLaFin(garde, bilan, p.depart.jour) } }
+    return { aEcrire: { profileId, bilan, oeuvre: this.oeuvreDeLaFin(garde, bilan, p.depart.jour), record: this.recordDeLaFin(garde, p, bilan) } }
+  }
+
+  /**
+   * Le record de la tour que cette fin bat, s'il le bat : la montée de la partie relue de ses parties du jour, celle-ci
+   * finie. Une porte commencée hier et finie aujourd'hui ne voit plus les étages d'hier — le musée gardé ne tient que ceux
+   * du jour — : elle ne bat rien.
+   */
+  private recordDeLaFin(garde: MuseeGarde, p: PartieGardee, bilan: BilanDUnePartie): RecordDeLaTour | null {
+    const montee = p.depart.montee
+    if (!montee || garde.duJour.jour !== p.depart.jour) return null
+    const parties = garde.duJour.parties.map(x => (x.id === p.id ? { ...x, finieLe: x.finieLe ?? 0, total: bilan.total, issue: bilan.issue } : x))
+    const record = recordDeLaMontee(monteeDesParties(parties, montee.n))
+    return batLeRecord(garde.record, record) ? record : null
   }
 
   /** L'œuvre que la fin touche, en une seule instruction : le gain, la dorure, le cartel d'un double. */
@@ -1066,6 +1105,7 @@ export class CabinetStore {
     const duJour = g.duJour.parties.find(x => x.id === p.id)
     if (duJour) Object.assign(duJour, { finieLe: t, issue: fin.bilan.issue, total: fin.bilan.total })
     if (fin.oeuvre) g.oeuvres.set(fin.oeuvre.cle, ecrite ?? ligneApresLaFin(g.oeuvres.get(fin.oeuvre.cle), fin.oeuvre, p.id, t))
+    if (fin.record && batLeRecord(g.record, fin.record)) g.record = fin.record
   }
 
   /**

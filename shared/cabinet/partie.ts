@@ -78,7 +78,7 @@ import { trancheLaManche, type CleDeJeu, type VerdictDUneManche } from './jeux/r
  * choisit par `d.v`. Une durée, la grâce, la pause n'en demandent pas : elles
  * se figent au départ (`ChronoDuDepart`).
  */
-export const VERSIONS_DU_DEPART = [1] as const
+export const VERSIONS_DU_DEPART = [1, 2] as const
 export type VersionDuDepart = (typeof VERSIONS_DU_DEPART)[number]
 /** Celle des parties qui commencent : la dernière de la liste. */
 export const VERSION_DU_DEPART: VersionDuDepart = VERSIONS_DU_DEPART[VERSIONS_DU_DEPART.length - 1]
@@ -96,7 +96,25 @@ export type VersionDuBilan = (typeof VERSIONS_DU_BILAN_DU_CABINET)[number]
 export const VERSION_DU_BILAN_DU_CABINET: VersionDuBilan = VERSIONS_DU_BILAN_DU_CABINET[VERSIONS_DU_BILAN_DU_CABINET.length - 1]
 
 export type Manche = 0 | 1 | 2
-export type OrigineDUnePartie = 'visite' | 'chasse' | 'libre'
+/** D'où part une partie : une case de la visite, une chasse, un jeu libre, ou une porte de la tour (`montee.ts`, depuis la version 2 du départ). */
+export type OrigineDUnePartie = 'visite' | 'chasse' | 'libre' | 'montee'
+
+/** Ce qu'une porte de la tour promet, une fois ouverte : son œuvre — la cible du départ —, un cœur, ou les étoiles de l'étage doublées. */
+export type ButinDUnePorte = 'oeuvre' | 'coeur' | 'etoiles'
+
+/**
+ * L'étage d'une montée qu'une partie joue, figé à son départ : la montée du
+ * jour (la première, la deuxième…), l'étage, la porte choisie et ce qu'elle
+ * promettait, et la carte-bonus que toute la montée emporte. La montée se
+ * relit de ses parties du jour (`monteeDesParties`) : rien d'autre ne l'écrit.
+ */
+export interface MonteeDuDepart {
+  n: number
+  etage: number
+  porte: number
+  butin: ButinDUnePorte
+  carte: string | null
+}
 
 /** La carte-bonus d'une partie, figée au départ avec son pouvoir et sa force : elle ne s'use jamais. */
 export interface CarteDuDepart {
@@ -152,6 +170,8 @@ export interface DepartDUnePartie {
   but: 'gagner' | 'dorer' | null
   /** « Retenter cette œuvre au même jeu », après une visite manquée. */
   retente?: true
+  /** L'étage de la tour que la partie joue : une porte s'ouvre au seuil, comme une œuvre se gagne. */
+  montee?: MonteeDuDepart
   /** Les étoiles qu'il faut, figées : un seuil changé ne vaut que pour les parties qui commencent. */
   seuil: number | null
   /** Une partie libre parmi les cinq du jour qui paient, comptée par la base au départ ; vrai en visite et en chasse. */

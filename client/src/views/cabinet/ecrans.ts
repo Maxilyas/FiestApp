@@ -1,8 +1,11 @@
 // Les écrans du musée et leurs adresses : le fragment de `/cabinet` dit ce
-// qu'on regarde — une salle (`#salle-rempart`), une œuvre (`#oeuvre-bastion`),
-// les gardiens, la visite du jour, les jeux libres, tes murs —, pour que le retour du
-// navigateur ramène d'où l'on vient, qu'un écran se recharge sur lui-même et
-// qu'un lien y mène tout droit. Le musée lui-même n'a pas de fragment.
+// qu'on regarde — ton musée (`#musee`), une salle (`#salle-rempart`), une œuvre
+// (`#oeuvre-bastion`), les gardiens, la visite du jour, les jeux libres, tes
+// murs —, pour que le retour du navigateur ramène d'où l'on vient, qu'un écran
+// se recharge sur lui-même et qu'un lien y mène tout droit. La tour, l'entrée
+// du Cabinet depuis le 31 octobre 2026, n'a pas de fragment : le musée, qui
+// était l'entrée, est devenu une page à part — « trop d'informations sur
+// l'accueil », disaient les retours que le propriétaire a rapportés.
 //
 // Toutes ces adresses lisent la même page (`GET /api/cabinet`, préchargée
 // avec `/cabinet`) : le fragment ne demande rien de plus au serveur, et
@@ -36,6 +39,7 @@ type SansCarte<T> = T extends unknown ? Omit<T, 'carte'> : never
 
 /** Ce que le musée montre — jamais une partie : son écran vient de la partie elle-même, pas de l'adresse. */
 export type EcranDuMusee =
+  | { e: 'tour' }
   | { e: 'musee' }
   | { e: 'salle'; salle: CleDeSalle }
   | { e: 'oeuvre'; oeuvre: CleDOeuvre }
@@ -44,13 +48,13 @@ export type EcranDuMusee =
   | { e: 'libre' }
   | { e: 'murs' }
 
-const SIMPLES = ['gardiens', 'visite', 'libre', 'murs'] as const
+const SIMPLES = ['musee', 'gardiens', 'visite', 'libre', 'murs'] as const
 
 /**
  * L'écran d'un fragment. Une clé venue de l'adresse se lit par sa fonction
  * (`salle()`, `estUneOeuvre`), jamais par une table : `#salle-constructor`
- * aurait trouvé `Object` (règle `cabinet.md`). Un fragment inconnu ouvre le
- * musée — un lien d'avant, une faute de frappe —, jamais une page vide.
+ * aurait trouvé `Object` (règle `cabinet.md`). Un fragment inconnu ouvre la
+ * tour — un lien d'avant, une faute de frappe —, jamais une page vide.
  */
 export function ecranDeLAdresse(hash: string): EcranDuMusee {
   const f = hash.replace(/^#/, '')
@@ -59,13 +63,13 @@ export function ecranDeLAdresse(hash: string): EcranDuMusee {
   if (s && salle(s[1])) return { e: 'salle', salle: s[1] as CleDeSalle }
   const o = /^oeuvre-([a-z-]+)$/.exec(f)
   if (o && estUneOeuvre(o[1])) return { e: 'oeuvre', oeuvre: o[1] }
-  return { e: 'musee' }
+  return { e: 'tour' }
 }
 
-/** Le fragment d'un écran, dièse compris ; le musée n'en a pas. */
+/** Le fragment d'un écran, dièse compris ; la tour n'en a pas. */
 export function adresseDe(ecran: EcranDuMusee): string {
   switch (ecran.e) {
-    case 'musee':
+    case 'tour':
       return ''
     case 'salle':
       return `#salle-${ecran.salle}`
@@ -119,17 +123,19 @@ export function poserLEntreeDeLaPartie(h: Historique) {
 }
 
 /**
- * « ← Le Cabinet » : le musée. Depuis une partie ouverte sur un écran, le
- * musée prend la place de son entrée (le retour ramène à l'écran d'en
- * dessous) ; ouverte du musée même, on recule simplement sur lui — pas de
- * second musée dans l'historique. D'un écran, le musée se pose par-dessus ;
- * du musée, rien.
+ * « ← Le Cabinet » : la tour — ou l'écran `vers` (`#musee`, d'où partent la
+ * visite, les chasses et les jeux libres). Depuis une partie ouverte sur un
+ * autre écran, la destination prend la place de son entrée (le retour ramène à
+ * l'écran d'en dessous) ; ouverte de la destination même, on recule simplement
+ * sur elle — pas de seconde entrée dans l'historique. D'un autre écran, elle se
+ * pose par-dessus ; d'elle-même, rien.
  */
-export function quitterVersLeMusee(h: Historique, hash: string) {
+export function quitterVersLeMusee(h: Historique, hash: string, vers = '') {
+  const ici = hash === '#' ? '' : hash
   if (partieDansLEntree(h.state)) {
-    if (hash) h.replaceState(sansLaMarque(h.state), '', '/cabinet')
+    if (ici !== vers) h.replaceState(sansLaMarque(h.state), '', `/cabinet${vers}`)
     else h.back()
-  } else if (hash) h.pushState(null, '', '/cabinet')
+  } else if (ici !== vers) h.pushState(null, '', `/cabinet${vers}`)
 }
 
 /**
@@ -197,6 +203,7 @@ export function laCaseDeLaRetente(relue: Pick<PageDuCabinet, 'visite'> | null, j
 const DU_CABINET = ' · Le Cabinet · FiestApp'
 
 const TITRES_DES_ECRANS: Readonly<Record<(typeof SIMPLES)[number], string>> = {
+  musee: 'Ton musée',
   visite: 'La visite du jour',
   libre: 'Jouer librement',
   gardiens: 'Les gardiens',
@@ -209,7 +216,7 @@ const TITRES_DES_ECRANS: Readonly<Record<(typeof SIMPLES)[number], string>> = {
  */
 export function titreDeLEcran(ecran: EcranDuMusee, page: Pick<PageDuCabinet, 'salles'> | null): string {
   switch (ecran.e) {
-    case 'musee':
+    case 'tour':
       return titreDePage('cabinet')
     case 'salle':
       return `${salle(ecran.salle)?.nom ?? 'Une salle'}${DU_CABINET}`

@@ -606,7 +606,15 @@ test('un départ se relit variante par variante — la zone de l’Épingle et l
     f(x)
     return lireLeDepart(x)
   }
-  assert.equal(casse(x => (x.v = 2)), null, 'une version que ce code ne joue pas')
+  assert.equal(casse(x => (x.v = 3)), null, 'une version que ce code ne joue pas')
+  // Une porte de la tour n'existe qu'à partir de la version 2, et elle seule porte son étage, entier et bien formé.
+  const etage = { n: 1, etage: 2, porte: 0, butin: 'coeur', carte: null }
+  assert.equal(casse(x => Object.assign(x, { origine: 'montee', montee: etage })), null, 'une montée en version 1')
+  assert.deepEqual(casse(x => Object.assign(x, { v: 2, origine: 'montee', montee: etage }))?.montee, etage)
+  assert.equal(casse(x => Object.assign(x, { v: 2, origine: 'montee' })), null, 'une porte sans son étage')
+  assert.equal(casse(x => Object.assign(x, { v: 2, montee: etage })), null, 'un étage hors de la tour')
+  assert.equal(casse(x => Object.assign(x, { v: 2, origine: 'montee', montee: { ...etage, butin: 'tresor' } })), null)
+  assert.equal(casse(x => Object.assign(x, { v: 2, origine: 'montee', montee: { ...etage, etage: 0 } })), null)
   assert.equal(casse(x => delete x.v), null)
   assert.equal(casse(x => (x.jeu = 'rebus')), null)
   assert.equal(casse(x => (x.tirages[1] = tirageDe('pari', 1))), null, 'un tirage d’un autre jeu')
@@ -667,6 +675,8 @@ const MOT_ECRIT = (id: string) =>
 const DEPARTS_ECRITS: Record<number, string> = {
   1: `{"v":1,"jeu":"mot","origine":"chasse","jour":"2026-10-24","cible":"plume","but":"gagner","seuil":5,"payee":true,"carte":{"cle":"concentration","pouvoir":"temps","force":1},"graine":"8c1d2e7a-3b4f-4c5d-9e6f-0a1b2c3d4e5f","chrono":{"etapesMs":[120000],"enPlusMs":10000,"graceMs":1500,"pauseMs":30000},"tirages":[${MOT_ECRIT('m-a')},${MOT_ECRIT('m-b')},${MOT_ECRIT('m-c')}]}`,
 }
+// La version 2 lit l'étage d'une montée de la tour : une porte à œuvre, la carte de toute la montée.
+DEPARTS_ECRITS[2] = `{"v":2,"jeu":"mot","origine":"montee","jour":"2026-10-31","cible":"plume","but":"gagner","montee":{"n":1,"etage":2,"porte":0,"butin":"oeuvre","carte":"concentration"},"seuil":5,"payee":false,"carte":{"cle":"concentration","pouvoir":"temps","force":1},"graine":"5e0f9b1c-7d2a-4e3b-8c4d-1f2a3b4c5d6e","chrono":{"etapesMs":[120000],"enPlusMs":10000,"graceMs":1500,"pauseMs":30000},"tirages":[${MOT_ECRIT('m-d')},${MOT_ECRIT('m-e')},${MOT_ECRIT('m-f')}]}`
 const BILANS_ECRITS: Record<number, string> = {
   1: '{"v":1,"etoiles":[7,3,0],"naturel":[3,3,0],"aidee":true,"total":9,"quittee":true,"issue":"gagnee","poussiere":18,"oeuvre":"plume","cartel":0}',
 }
@@ -979,7 +989,7 @@ test('commencer : les refus en mots, une seule règle que la page lit pour grise
   assert.equal(refus(museeDe({ jour: JOUR, oeuvres: [ligne('bastion', { doreeLe: MIDI })] }), { origine: 'chasse', oeuvre: 'bastion', carte: null }), 'Cette œuvre est déjà dorée')
   // Une demande qui ne se lit pas — une origine inconnue, un départ relu de travers — se dit dans les mots du serveur, une seule copie.
   assert.equal(refus(m, { origine: 'ailleurs' } as unknown as Parameters<typeof refusDuDepart>[1]), DEMANDE_ILLISIBLE)
-  assert.equal(DEMANDE_ILLISIBLE, 'Choisis une partie de la visite, une chasse ou un jeu libre')
+  assert.equal(DEMANDE_ILLISIBLE, 'Choisis une porte de la tour, une partie de la visite, une chasse ou un jeu libre')
   assert.equal(refus(m, { origine: 'chasse', oeuvre: 'lg:phenix', carte: null }), 'Cette œuvre n’est pas au Cabinet')
   assert.equal(refus(m, { origine: 'libre', jeu: 'rebus', carte: null }), 'Choisis un des neuf jeux')
   assert.equal(refus(m, { origine: 'libre', jeu: 'mot', carte: null }, ['pari']), 'Ce jeu arrive bientôt')

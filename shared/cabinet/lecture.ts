@@ -36,11 +36,13 @@ import {
   VERSIONS_DU_BILAN_DU_CABINET,
   VERSIONS_DU_DEPART,
   type BilanDUnePartie,
+  type ButinDUnePorte,
   type CarteDuDepart,
   type ChronoDuDepart,
   type DepartDUnePartie,
   type GesteDuCabinet,
   type Manche,
+  type MonteeDuDepart,
   type ReponseDUnJeu,
   type VersionDuBilan,
   type VersionDuDepart,
@@ -260,6 +262,16 @@ function laCarte(c: unknown): CarteDuDepart | null | undefined {
   return { cle: c.cle, pouvoir: c.pouvoir, force: c.force as Force }
 }
 
+/**
+ * L'étage d'une montée figé au départ : sa forme seulement — un numéro de montée, un étage, une porte, ce qu'elle promettait,
+ * la carte de la montée —, jamais le nombre d'étages du jour : une tour raccourcie relit encore ses montées d'avant.
+ */
+export function lireLaMonteeDuDepart(x: unknown): MonteeDuDepart | null {
+  if (!objet(x) || !entier(x.n, 1, Number.MAX_SAFE_INTEGER) || !entier(x.etage, 1, 99) || !entier(x.porte, 0, 9)) return null
+  if (!parmi<ButinDUnePorte>(x.butin, ['oeuvre', 'coeur', 'etoiles']) || !(x.carte === null || chaine(x.carte))) return null
+  return { n: x.n, etage: x.etage, porte: x.porte, butin: x.butin, carte: x.carte }
+}
+
 /** Une durée du chrono, en millisecondes entières. */
 const duree = (x: unknown, min: number): x is number => entier(x, min, Number.MAX_SAFE_INTEGER)
 
@@ -286,8 +298,11 @@ export function lireLeDepart(brut: unknown): DepartDUnePartie | null {
   const d = json(brut)
   if (!objet(d)) return null
   const { v, jeu, origine, visite, jour, cible, but, retente, seuil, payee, graine, theme } = d
-  if (!parmi<VersionDuDepart>(v, VERSIONS_DU_DEPART) || !parmi<CleDeJeu>(jeu, CLES_DES_JEUX) || !parmi(origine, ['visite', 'chasse', 'libre'] as const) || !jourValide(jour)) return null
+  if (!parmi<VersionDuDepart>(v, VERSIONS_DU_DEPART) || !parmi<CleDeJeu>(jeu, CLES_DES_JEUX) || !parmi(origine, ['visite', 'chasse', 'libre', 'montee'] as const) || !jourValide(jour)) return null
   if (origine === 'visite' ? !estUneManche(visite) : visite !== undefined) return null
+  // Une porte de la tour n'existe qu'à partir de la version 2 du départ, et elle seule porte son étage.
+  const montee = origine === 'montee' ? (v >= 2 ? lireLaMonteeDuDepart(d.montee) : null) : d.montee === undefined ? undefined : null
+  if (montee === null) return null
   if (!(cible === null || estUneOeuvre(cible)) || !(but === null || parmi(but, ['gagner', 'dorer'] as const)) || !(retente === undefined || retente === true)) return null
   // Le seuil se lit sur les étoiles d'une partie, trois manches de trois : la forme du jeu, pas un barème qui bouge.
   if (!(seuil === null || entier(seuil, 0, ETOILES_D_UNE_PARTIE)) || typeof payee !== 'boolean' || !chaine(graine) || graine === '' || !(theme === undefined || chaine(theme))) return null
@@ -309,6 +324,7 @@ export function lireLeDepart(brut: unknown): DepartDUnePartie | null {
     cible,
     but,
     ...(retente && { retente: true as const }),
+    ...(montee && { montee }),
     seuil,
     payee,
     carte,

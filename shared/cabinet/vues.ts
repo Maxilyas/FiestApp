@@ -52,7 +52,7 @@ import { deplier } from './pieces'
 import type { CleDePouvoir, Force } from './pouvoirs'
 import type { CleDeSalle } from './salles'
 import type { EnjeuDUneCase, OrigineDUneOeuvre } from './musee'
-import type { BilanDUnePartie, FinDUneManche, IssueDUnePartie, Manche, OrigineDUnePartie, PhaseDeLaPartie } from './partie'
+import type { BilanDUnePartie, ButinDUnePorte, FinDUneManche, IssueDUnePartie, Manche, OrigineDUnePartie, PhaseDeLaPartie } from './partie'
 import type { MancheMontree, RevelationDUneManche } from './jeux/index'
 import type { CleDeJeu } from './jeux/regle'
 
@@ -187,6 +187,8 @@ export interface PageDuCabinet {
   expedition: 'en-route' | null
   /** Les jeux livrés : un cadre vide d'un autre jeu dit « bientôt ». */
   jeux: CleDeJeu[]
+  /** La tour : la montée du jour, l'étage à jouer et ses portes, le record. */
+  tour: TourVue
   /**
    * Ce que la dépense qui rend cette page vient de réveiller — l'achat qui
    * complète une salle, ou le Cabinet entier, la dorure qui dore une salle
@@ -198,6 +200,59 @@ export interface PageDuCabinet {
    * personne à qui le dire, la première page qui suit le dit, une fois.
    */
   reveil?: ReveilDesGardiens
+}
+
+/**
+ * La tour telle que la page la montre (`shared/cabinet/montee.ts`) : la montée
+ * du jour la plus récente, l'étage que « Monter » ou « Continuer » ouvre — ses
+ * portes, chacune son jeu, ce qu'elle promet et l'œuvre qu'elle garde, nommée :
+ * la porte dit ce qu'on gagne, le cadre vide du musée continue de la taire —,
+ * et le record. Ce qui juge — le seuil d'une porte, le cœur perdu — vient du
+ * serveur ; la page ne refait aucune règle.
+ */
+export interface TourVue {
+  montee: MonteeVue | null
+  /** Null tant qu'une partie de la montée attend : « Reprendre » la rouvre. */
+  aJouer: { n: number; etage: number; coeurs: number; portes: PorteVue[] } | null
+  record: { etage: number; etoiles: number } | null
+  /** Les cœurs d'une montée neuve (`COEURS_D_UNE_MONTEE`). */
+  coeurs: number
+}
+
+/** Une montée du jour : ses cœurs, ses étoiles, ses étages joués, sa carte-bonus. */
+export interface MonteeVue {
+  n: number
+  carte: string | null
+  coeurs: number
+  etoiles: number
+  hauteur: number
+  enCours: boolean
+  finie: boolean
+  sommet: boolean
+  etages: EtageVu[]
+}
+
+/** Un étage joué : sa porte, et si elle s'est ouverte (null : sa partie se joue). */
+export interface EtageVu {
+  etage: number
+  jeu: CleDeJeu
+  butin: ButinDUnePorte
+  oeuvre: string | null
+  seuil: number
+  total: number | null
+  ouverte: boolean | null
+  etoiles: number
+}
+
+/** Une porte de l'étage à jouer. */
+export interface PorteVue {
+  porte: number
+  jeu: CleDeJeu
+  butin: ButinDUnePorte
+  /** L'œuvre qu'elle garde, nommée — sa peinture se montre. */
+  oeuvre: string | null
+  seuil: number
+  coffre: boolean
 }
 
 /**
