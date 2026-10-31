@@ -1,14 +1,27 @@
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
-import type { CarteDeJoueur } from '../../../shared/carte'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
+import {
+  QCM_POUR_LE_RADAR,
+  radarDuSavoir,
+  sentiersDeLaCarte,
+  type CarteDeJoueur,
+  type RadarDuSavoir,
+  type RayonDuRadar,
+  type SentierDeLaCarte,
+  type SentiersDeLaCarte,
+} from '../../../shared/carte'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { brancheDe, portrait as portraitDe } from '../../../shared/branches'
+import { BRANCHES, brancheDe, nomDansLaPhrase, portrait as portraitDe, type CleDeBranche } from '../../../shared/branches'
+import { nomCourt, type Categorie } from '../../../shared/categories'
+import { NOM_ECUSSON } from '../../../shared/ecussons'
+import { LUEUR, lueur } from './Atlas'
+import { EMBLEME } from './Ecusson'
 import { compagnonDe, formeDansLaNiche, formeDeCompagnon, nomDeLaForme, type CompagnonPossede } from '../../../shared/compagnons'
 import { titreDeLAmitie } from '../../../shared/ornements'
 import { laNiche } from './NicheHost'
 import { NOM_FINITION } from '../../../shared/profil'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
-import { nomDuTitre } from '../../../shared/sentiers'
+import { PALIERS_DU_SENTIER, nomDuTitre, titreDeMaitre } from '../../../shared/sentiers'
 import { NOM_DU_LAURIER, duMois } from '../../../shared/jour'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
@@ -44,10 +57,19 @@ type Profil = NonNullable<CarteDeJoueur['profil']>
  * fait ce soir — son niveau en gemme, son nom et son titre, son avatar en
  * grand dans l'illustration, son compagnon perché au coin, sa soirée, ses
  * plus beaux hauts faits ; au dos, ses chiffres en un seul tableau, ses
- * écussons, sa collection tout au bout. Son fond de carte tapisse les deux
- * faces. Son cadre est celui de sa ligue des duels (`cadreDeLaCarte`), et suit
+ * écussons, sa collection tout au bout. Son fond de carte tapisse chaque
+ * face. Son cadre est celui de sa ligue des duels (`cadreDeLaCarte`), et suit
  * le doigt. Le compagnon y avait sa ligne, sous l'avatar : « ça fait tout
  * descendre ».
+ *
+ * Deux faces de plus, depuis le 31 octobre 2026 (« une carte radar […] que
+ * l'on pourrait swipe pour avoir plus d'info. Aussi de voir les paliers de la
+ * campagne / maître obtenu ») : son savoir en radar, catégorie par catégorie
+ * — ses forces, et ce qui lui reste à conquérir, que tout le monde voit —,
+ * puis ses sentiers. Chacune s'il a de quoi la remplir (`facesDeLaCarte`).
+ * La carte se retourne de face en face : « Retourner la carte » montre la
+ * suivante, le doigt qui glisse de côté la suivante ou la précédente, dans
+ * son sens, et des gemmes serties au pied du cadre disent où l'on en est.
  *
  * Un invité anonyme a la sienne : sa soirée, sans dos ni rien qui dise ce qui
  * lui manque. Un surnom donné par l'animateur ne cache pas le prénom du profil.
@@ -98,7 +120,7 @@ export function CarteJoueur({
   // remplace : il la garde, et la carte ne rapetisse pas sous le doigt —
   // centrée dans l'écran, sa croix aurait sauté.
   const [loupe, setLoupe] = useState<{ hauteur: number; sujet: 'avatar' | 'compagnon' } | null>(null)
-  const [verso, setVerso] = useState(false)
+  const [tour, setTour] = useState<Tour>(TOUR_DE_DEPART)
   const petitAvatar = useRef<HTMLButtonElement>(null)
   const petitCompagnon = useRef<HTMLButtonElement>(null)
   const pivot = useRef<HTMLDivElement>(null)
@@ -158,7 +180,7 @@ export function CarteJoueur({
   const dessins = useDessins()
   const avecDessins = { legendaires: complets(dessins, ['legendaire']), divins: complets(dessins, ['divin']) }
   // Son fond de carte, s'il en porte un : seulement l'un du catalogue. Il
-  // tapisse ses deux faces, dans leur cadre de métal.
+  // tapisse chacune de ses faces, dans leur cadre de métal.
   const fond = fondDeCarte(p?.fond)?.key
   const ligue = carte ? cadreDeLaCarte(carte) : null
   const compagnon = p?.compagnon
@@ -166,6 +188,81 @@ export function CarteJoueur({
   const aUnDos = !!p && !loupe
   const mots = carte && !loupe ? motsDeLaCarte(carte, avecDessins, !!fond) : []
   const titre = nomDuTitre(p?.titre)
+  // Son savoir et ses sentiers : deux faces de plus, chacune s'il a de quoi la remplir.
+  const radar = useMemo(() => radarDuSavoir(p?.savoir, p?.moyennes), [p])
+  const sentiers = useMemo(() => sentiersDeLaCarte(p?.sentiers), [p])
+  const faces = facesDeLaCarte(aUnDos, radar, sentiers)
+  const rang = tour.face < faces.length ? tour.face : 0
+  const montree = faces[rang]
+  const classeDe = (nom: Face) => `carte-face carte-${nom === 'chiffres' ? 'dos' : nom}` + { endroit: '', envers: ' carte-envers', rangee: ' carte-face-rangee' }[placeDeLaFace(nom, faces, tour)]
+  const cachee = (nom: Face) => nom !== montree
+  const gemmes = (nom: Face) => faces.length > 1 && <Gemmes faces={faces} nom={nom} />
+
+  // Retourner la carte d'une face : `pas` dit laquelle — la suivante, la
+  // précédente —, `sens` le demi-tour qu'elle fait pour y venir : celui du
+  // doigt, ou, au bouton, toujours le même.
+  const tourner = (pas: 1 | -1, sens: 1 | -1 = 1) => {
+    if (faces.length > 1) setTour(t => tourDApres(t, faces.length, pas, sens))
+  }
+
+  // Le doigt qui glisse de côté la retourne, dans son sens : vers la gauche,
+  // la face suivante ; vers la droite, la précédente. Tant qu'il glisse, elle
+  // le suit un peu (`--glisse`, posé sur le style comme son inclinaison) —
+  // assez pour qu'on la sente tourner, jamais au point de montrer une face
+  // qu'elle n'a pas encore posée. Le doigt qui monte ou descend fait défiler
+  // la face, et elle le laisse faire. La souris n'a que le bouton : un clic
+  // glissé sur un texte le sélectionnerait.
+  const glisse = useRef<{ id: number; x: number; y: number; tient: boolean } | null>(null)
+  const glisseLe = useRef(0)
+  const poser = (e: PointerEvent<HTMLDivElement>) => {
+    glisse.current = faces.length > 1 && e.isPrimary && e.pointerType !== 'mouse' ? { id: e.pointerId, x: e.clientX, y: e.clientY, tient: false } : null
+  }
+  const suivre = (e: PointerEvent<HTMLDivElement>) => {
+    incliner(e)
+    const g = glisse.current
+    const el = pivot.current
+    if (!g || g.id !== e.pointerId || !el) return
+    const dx = e.clientX - g.x
+    const dy = e.clientY - g.y
+    if (!g.tient) {
+      if (Math.abs(dy) > GLISSE && Math.abs(dy) >= Math.abs(dx)) {
+        glisse.current = null
+        return
+      }
+      if (Math.abs(dx) <= GLISSE) return
+      g.tient = true
+      el.classList.add('carte-tenue')
+    }
+    if (!sansMouvement()) el.style.setProperty('--glisse', `${(Math.max(-1, Math.min(1, dx / el.offsetWidth)) * SUIT_LE_DOIGT).toFixed(2)}deg`)
+  }
+  const lacher = () => {
+    pivot.current?.classList.remove('carte-tenue')
+    pivot.current?.style.removeProperty('--glisse')
+    const g = glisse.current
+    glisse.current = null
+    return g
+  }
+  const lever = (e: PointerEvent<HTMLDivElement>) => {
+    const g = lacher()
+    if (!g?.tient || g.id !== e.pointerId) return
+    // Le clic qui suit un doigt qui a glissé ne touche rien : parti d'une
+    // catégorie du radar, il la choisissait en plus de retourner la carte.
+    glisseLe.current = Date.now()
+    const dx = e.clientX - g.x
+    if (Math.abs(dx) >= ASSEZ_POUR_TOURNER) tourner(dx < 0 ? 1 : -1, dx < 0 ? -1 : 1)
+  }
+  const apresUnGlisse = (e: MouseEvent<HTMLDivElement>) => {
+    if (Date.now() - glisseLe.current > CLIC_APRES_UN_GLISSE_MS) return
+    e.stopPropagation()
+    e.preventDefault()
+  }
+  // Les flèches la retournent aussi, comme le doigt — hors d'un champ, où elles déplacent le curseur.
+  const auClavier = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (loupe || faces.length < 2 || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return
+    if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable="true"]')) return
+    e.preventDefault()
+    tourner(e.key === 'ArrowRight' ? 1 : -1, e.key === 'ArrowRight' ? 1 : -1)
+  }
 
   // Le doigt l'incline et déplace son reflet : posé sur le style, sans rendre
   // la carte à chaque mouvement. Le mouvement réduit la laisse droite.
@@ -202,6 +299,7 @@ export function CarteJoueur({
             e.stopPropagation()
             setLoupe(null)
           }
+          auClavier(e)
         }}
       >
         {/* L'essai de la loge se dit au-dessus de la carte : rien n'y est encore porté. */}
@@ -211,8 +309,19 @@ export function CarteJoueur({
             Aperçu de ta carte
           </p>
         )}
-        <div ref={pivot} className={'carte-pivot' + (verso && aUnDos ? ' carte-retournee' : '')} onPointerMove={incliner} onPointerLeave={redresser}>
-          <section className="carte-face carte-recto" aria-hidden={(verso && aUnDos) || undefined} inert={verso && aUnDos}>
+        {/* Ses faces tiennent la même case ; elle tourne d'un demi-tour par face (`--tourne`), posé seulement quand elle a tourné. */}
+        <div
+          ref={pivot}
+          className="carte-pivot"
+          style={tour.demi ? ({ '--tourne': `${tour.demi * 180}deg` } as CSSProperties) : undefined}
+          onPointerDown={poser}
+          onPointerMove={suivre}
+          onPointerUp={lever}
+          onPointerCancel={lacher}
+          onPointerLeave={redresser}
+          onClickCapture={apresUnGlisse}
+        >
+          <section className={classeDe('recto')} aria-hidden={cachee('recto') || undefined} inert={cachee('recto')}>
             {/* Son fond de carte tapisse le dedans de la face, qui ne bouge pas : le contenu défile par-dessus, dans son cadre. */}
             <div className={'carte-dedans' + (fond ? ` carte-fond fond-${fond}` : '')}>
               <div className="carte-defile">
@@ -336,9 +445,10 @@ export function CarteJoueur({
                 )}
               </div>
             </div>
+            {gemmes('recto')}
           </section>
           {carte && p && aUnDos && (
-            <section className="carte-face carte-dos" aria-hidden={!verso || undefined} inert={!verso}>
+            <section className={classeDe('chiffres')} aria-hidden={cachee('chiffres') || undefined} inert={cachee('chiffres')}>
               {/* Le dos aussi : « et le fond ne peut pas couvrir recto et verso ? » (le propriétaire, le 20 octobre 2026). */}
               <div className={'carte-dedans' + (fond ? ` carte-fond fond-${fond}` : '')}>
                 <div className="carte-defile">
@@ -390,14 +500,46 @@ export function CarteJoueur({
                   {mots.length > 0 && <Glossaire mots={mots} />}
                 </div>
               </div>
+              {gemmes('chiffres')}
+            </section>
+          )}
+          {/* Son savoir, en radar : une face pour lui, dès qu'une catégorie a ses dix QCM. */}
+          {carte && p && aUnDos && radar && (
+            <section className={classeDe('savoir')} aria-hidden={cachee('savoir') || undefined} inert={cachee('savoir')}>
+              <div className={'carte-dedans' + (fond ? ` carte-fond fond-${fond}` : '')}>
+                <div className="carte-defile">
+                  <header className="carte-dos-tete">
+                    <h3>{carte.nom}</h3>
+                    <span className="carte-dos-titre">Son savoir</span>
+                  </header>
+                  <SonSavoir radar={radar} sentiers={sentiers} />
+                </div>
+              </div>
+              {gemmes('savoir')}
+            </section>
+          )}
+          {/* Ses sentiers : ses paliers, ses portraits, ses maîtres — ceux qu'il a commencés. */}
+          {carte && p && aUnDos && sentiers && (
+            <section className={classeDe('sentiers')} aria-hidden={cachee('sentiers') || undefined} inert={cachee('sentiers')}>
+              <div className={'carte-dedans' + (fond ? ` carte-fond fond-${fond}` : '')}>
+                <div className="carte-defile">
+                  <header className="carte-dos-tete">
+                    <h3>{carte.nom}</h3>
+                    <span className="carte-dos-titre">Ses sentiers</span>
+                  </header>
+                  {/* Ses portraits ne viennent qu'une fois la carte retournée : la salle qui ouvre une carte sans la tourner ne les télécharge pas. */}
+                  <SesSentiers sentiers={sentiers} portraits={tour.faits > 0} />
+                </div>
+              </div>
+              {gemmes('sentiers')}
             </section>
           )}
         </div>
         {/* Ses gestes sous elle, hors de ce qui défile : toujours en vue. */}
         <div className="carte-sous">
-          {/* Un nom fixe, l'état par `aria-pressed` : « Revoir sa carte, activé » disait l'état deux fois. */}
+          {/* Un nom fixe : il montre la face suivante, et la face montrée se dit d'elle-même — à l'oreille, dans la ligne qui suit. */}
           {aUnDos && (
-            <button type="button" className="carte-retourner" aria-pressed={verso} onClick={() => setVerso(v => !v)}>
+            <button type="button" className="carte-retourner" onClick={() => tourner(1)}>
               <Icon name="rotate" />
               Retourner la carte
             </button>
@@ -405,6 +547,10 @@ export function CarteJoueur({
           <button type="button" className="carte-croix" aria-label="Fermer" title="Fermer" onClick={onFermer}>
             <Icon name="x" />
           </button>
+          {/* La face où elle s'arrête, dite à qui ne la voit pas tourner — rien avant le premier retournement. */}
+          <span className="sr-only" aria-live="polite">
+            {tour.faits > 0 ? `${NOM_DE_LA_FACE[montree]}, face ${rang + 1} sur ${faces.length}` : ''}
+          </span>
         </div>
         {/* Ses gestes au pied, hors de ce qui défile : « Défier » reste en vue
             sous une carte bien remplie. Montés dès l'ouverture — ils lisent
@@ -428,6 +574,415 @@ const INCLINAISON_MAX = 9
 
 /** Le mouvement réduit : ni inclinaison, ni retournement animé (la feuille de style l'arrête). */
 const sansMouvement = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+// ── Ses faces, et comment elle se retourne ──────────────────────────────────
+
+/** Les faces d'une carte : le recto, ses chiffres (le dos d'avant), son savoir, ses sentiers. */
+export type Face = 'recto' | 'chiffres' | 'savoir' | 'sentiers'
+
+/** Comment chaque face se dit à qui ne la voit pas tourner. */
+const NOM_DE_LA_FACE: Record<Face, string> = { recto: 'Sa carte', chiffres: 'Ses chiffres', savoir: 'Son savoir', sentiers: 'Ses sentiers' }
+
+/**
+ * Les faces de sa carte, dans l'ordre où elle se retourne : le recto, puis,
+ * pour un profil, ses chiffres, son savoir et ses sentiers — chacune s'il a
+ * de quoi la remplir : un radar vide ou douze sentiers à zéro diraient ce qui
+ * lui manque, pas ce qu'il est. Un invité sans profil n'a que son recto.
+ */
+export function facesDeLaCarte(aUnDos: boolean, radar: RadarDuSavoir | null, sentiers: SentiersDeLaCarte | null): Face[] {
+  if (!aUnDos) return ['recto']
+  return ['recto', 'chiffres', ...(radar ? (['savoir'] as const) : []), ...(sentiers ? (['sentiers'] as const) : [])]
+}
+
+/**
+ * Où en est la carte : la face montrée (son rang parmi `facesDeLaCarte`),
+ * celle qu'elle vient de quitter, ses demi-tours — un par face, dans le sens
+ * du doigt — et combien de fois on l'a retournée.
+ */
+export interface Tour {
+  face: number
+  depuis: number
+  demi: number
+  faits: number
+}
+
+export const TOUR_DE_DEPART: Tour = { face: 0, depuis: 0, demi: 0, faits: 0 }
+
+/** Le tour d'après, sur `n` faces : la face `pas` plus loin — la suivante, la précédente, en boucle —, d'un demi-tour dans `sens`. */
+export function tourDApres(t: Tour, n: number, pas: 1 | -1, sens: 1 | -1): Tour {
+  const ici = t.face < n ? t.face : 0
+  return { face: (ici + pas + n) % n, depuis: ici, demi: t.demi + sens, faits: t.faits + 1 }
+}
+
+/**
+ * Où se tient une face. Une vraie carte n'en a que deux : la montrée se pose
+ * du côté que ses demi-tours désignent — l'endroit, ou l'envers —, celle
+ * qu'elle quitte de l'autre, le temps de tourner ; les autres sont rangées —
+ * invisibles, mais à leur place : la carte garde la taille de sa plus grande
+ * face, d'une face à l'autre.
+ */
+export function placeDeLaFace(nom: Face, faces: readonly Face[], tour: Tour): 'endroit' | 'envers' | 'rangee' {
+  const k = faces.indexOf(nom)
+  const montree = tour.face < faces.length ? tour.face : 0
+  const cote = (demi: number) => (((demi % 2) + 2) % 2 === 0 ? 'endroit' : 'envers')
+  if (k === montree) return cote(tour.demi)
+  if (k >= 0 && k === tour.depuis) return cote(tour.demi + 1)
+  return 'rangee'
+}
+
+/** Ce que la carte suit du doigt qui glisse, d'un bord à l'autre, en degrés : jamais le quart de tour qui montrerait son envers. */
+const SUIT_LE_DOIGT = 40
+
+/** Le doigt qui a glissé d'au moins autant, en pixels, la retourne ; moins, elle revient. */
+const ASSEZ_POUR_TOURNER = 44
+
+/** Le clic qui suit un doigt qui a glissé, dans ce délai, ne touche rien. */
+const CLIC_APRES_UN_GLISSE_MS = 400
+
+/**
+ * Les gemmes serties au pied de son cadre, une par face, celle qu'on regarde
+ * allumée : on sait qu'il y en a d'autres, et où l'on en est — sans une ligne
+ * de plus dans la carte. Pour l'œil seulement : la face montrée se dit à
+ * l'oreille sous la carte.
+ */
+function Gemmes({ faces, nom }: { faces: readonly Face[]; nom: Face }) {
+  return (
+    <span className="carte-gemmes" aria-hidden="true">
+      {faces.map(f => (
+        <i key={f} className={f === nom ? 'carte-gemme-allumee' : undefined} />
+      ))}
+    </span>
+  )
+}
+
+// ── Son savoir : le radar ────────────────────────────────────────────────────
+
+/**
+ * Le dessin du radar, dans son repère (`RADAR_L` × `RADAR_H`) : le centre,
+ * le rayon d'une catégorie juste à 100 %, celui de ses étiquettes. Écrit pour
+ * la largeur d'une face au téléphone, 282 pixels : « Géographie » et
+ * « Sciences » y tiennent sans toucher le bord, et la face entière en
+ * 360 × 640 — à 252 de haut, ses forces passaient sous le bord ; à 240, la
+ * ligne de la moyenne des joueurs les y repoussait.
+ */
+const RADAR_L = 300
+const RADAR_H = 228
+const RADAR_CX = 150
+const RADAR_CY = 115
+const RADAR_R = 82
+const RADAR_ETIQUETTES = 103
+
+/** Le point d'un rayon — le i-ième, depuis midi, dans le sens des aiguilles —, à cette part du plein. */
+function point(i: number, part: number, rayon = RADAR_R): [number, number] {
+  const a = (i * 2 * Math.PI) / 12
+  return [RADAR_CX + rayon * part * Math.sin(a), RADAR_CY - rayon * part * Math.cos(a)]
+}
+const xy = ([x, y]: [number, number]) => `${x.toFixed(1)} ${y.toFixed(1)}`
+
+/** Un arc du cercle de ce rayon, autour du i-ième rayon, de `demi` degrés de chaque côté. */
+function arc(i: number, rayon: number, demi: number): string {
+  const [x1, y1] = [RADAR_CX + rayon * Math.sin(((i * 30 - demi) * Math.PI) / 180), RADAR_CY - rayon * Math.cos(((i * 30 - demi) * Math.PI) / 180)]
+  const [x2, y2] = [RADAR_CX + rayon * Math.sin(((i * 30 + demi) * Math.PI) / 180), RADAR_CY - rayon * Math.cos(((i * 30 + demi) * Math.PI) / 180)]
+  return `M${x1.toFixed(1)} ${y1.toFixed(1)}A${rayon} ${rayon} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`
+}
+
+/** Les trames du radar : quatre anneaux, à 25, 50, 75 et 100 %, et les douze axes. */
+const ANNEAUX = [0.25, 0.5, 0.75, 1].map(part => Array.from({ length: 12 }, (_, i) => xy(point(i, part))).join(' '))
+const AXES = Array.from({ length: 12 }, (_, i) => `M${RADAR_CX} ${RADAR_CY}L${xy(point(i, 1))}`).join('')
+
+/**
+ * Ce que le radar dessine de son savoir. Ses douze catégories connues, une
+ * forme : le radar d'une fiche de joueur. Tant qu'il en manque, des pétales,
+ * un par catégorie connue — relier deux rayons par-dessus un inconnu
+ * dessinerait une part qu'il n'a pas —, et l'arc en pointillé de celles qui
+ * restent à découvrir. La moyenne des joueurs, en pointillé à côté : une
+ * forme quand chaque catégorie a la sienne, sinon un arc sur chaque rayon
+ * qui l'a — même règle que la sienne.
+ */
+export function dessinDuRadar(radar: RadarDuSavoir): { forme: string | null; petales: string; aDecouvrir: string; moyenne: string | null; moyennes: string } {
+  const toutes = radar.rayons.every(r => r.moyenne !== null)
+  const moyenne = toutes ? radar.rayons.map((r, i) => xy(point(i, r.moyenne!))).join(' ') : null
+  const moyennes = toutes ? '' : radar.rayons.map((r, i) => (r.moyenne === null ? '' : arc(i, Math.max(1, RADAR_R * r.moyenne), 13))).join('')
+  const complet = radar.rayons.every(r => r.part !== null)
+  if (complet) return { forme: radar.rayons.map((r, i) => xy(point(i, r.part!))).join(' '), petales: '', aDecouvrir: '', moyenne, moyennes }
+  let petales = ''
+  let aDecouvrir = ''
+  radar.rayons.forEach((r, i) => {
+    if (r.part === null) {
+      aDecouvrir += arc(i, RADAR_R, 11)
+      return
+    }
+    const rayon = Math.max(1, RADAR_R * r.part)
+    petales += `M${RADAR_CX} ${RADAR_CY}L${arc(i, rayon, 13).slice(1)}Z`
+  })
+  return { forme: null, petales, aDecouvrir, moyenne, moyennes }
+}
+
+/** La part qu'une catégorie dit à l'oreille, et sous le radar. */
+const ditLaPart = (r: RayonDuRadar) => (r.pourcent === null ? 'à découvrir' : `${r.pourcent} %`)
+
+/**
+ * Son savoir, en radar (le souhait du propriétaire du 31 octobre 2026 : « voir
+ * les forces et faiblesses en fonction des catégories ») : un rayon par
+ * catégorie, sa part de bonnes réponses vers le bord — tous modes de jeu
+ * ensemble, comme ses écussons, dont la couleur pointe au bout de chaque
+ * rayon. Une catégorie touchée se dit dessous — sa part et sur combien de QCM,
+ * son écusson, son sentier —, puis ses forces et ce qui lui reste à
+ * conquérir, que tout le monde voit (le choix du même jour).
+ */
+export function SonSavoir({ radar, sentiers }: { radar: RadarDuSavoir; sentiers: SentiersDeLaCarte | null }) {
+  const [choisie, setChoisie] = useState<Categorie>(radar.forces[0])
+  const dessin = useMemo(() => dessinDuRadar(radar), [radar])
+  const r = radar.rayons.find(x => x.categorie === choisie) ?? radar.rayons[0]
+  const i = radar.rayons.indexOf(r)
+  const parCategorie = (c: Categorie) => radar.rayons.find(x => x.categorie === c)!
+  const puce = (c: Categorie) => {
+    const x = parCategorie(c)
+    return (
+      <button key={c} type="button" className="carte-radar-puce" aria-pressed={c === choisie} onClick={() => setChoisie(c)}>
+        <i className={`carte-radar-pierre palier-${x.ecusson}`} aria-hidden="true" />
+        {nomCourt(c)}
+        <b className="num">{ditLaPart(x)}</b>
+      </button>
+    )
+  }
+  return (
+    <>
+      <div className="carte-radar">
+        <svg className="carte-radar-trame" viewBox={`0 0 ${RADAR_L} ${RADAR_H}`} aria-hidden="true">
+          {dessin.forme ? (
+            ANNEAUX.map((points, k) => <polygon key={k} className={k === 3 ? 'carte-radar-bord' : 'carte-radar-anneau'} points={points} />)
+          ) : (
+            [0.25, 0.5, 0.75, 1].map((part, k) => <circle key={k} className={k === 3 ? 'carte-radar-bord' : 'carte-radar-anneau'} cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R * part} />)
+          )}
+          <path className="carte-radar-axes" d={AXES} />
+          <path className="carte-radar-axe-choisi" d={`M${RADAR_CX} ${RADAR_CY}L${xy(point(i, 1))}`} />
+          {dessin.forme ? <polygon className="carte-radar-forme" points={dessin.forme} /> : <path className="carte-radar-forme" d={dessin.petales} />}
+          {dessin.aDecouvrir && <path className="carte-radar-a-decouvrir" d={dessin.aDecouvrir} />}
+          {/* La moyenne des joueurs, par-dessus sa forme : on voit d'un coup où il passe au-dessus, où en dessous. */}
+          {dessin.moyenne ? <polygon className="carte-radar-moyenne" points={dessin.moyenne} /> : dessin.moyennes && <path className="carte-radar-moyenne" d={dessin.moyennes} />}
+          {radar.rayons.map((x, k) => {
+            if (x.part === null) return null
+            const [cx, cy] = point(k, x.part)
+            return <circle key={x.categorie} className={`carte-radar-pierre palier-${x.ecusson}` + (k === i ? ' carte-radar-pierre-choisie' : '')} cx={cx} cy={cy} r={k === i ? 5.5 : 4} />
+          })}
+        </svg>
+        {radar.rayons.map((x, k) => {
+          const [ex, ey] = point(k, 1, RADAR_ETIQUETTES)
+          return (
+            <button
+              key={x.categorie}
+              type="button"
+              className={'carte-radar-etiquette' + (x.part === null ? ' carte-radar-inconnue' : '')}
+              style={{ left: `${((ex / RADAR_L) * 100).toFixed(2)}%`, top: `${((ey / RADAR_H) * 100).toFixed(2)}%` }}
+              aria-pressed={x.categorie === choisie}
+              aria-label={`${x.categorie}, ${ditLaPart(x)}`}
+              onClick={() => setChoisie(x.categorie)}
+            >
+              {nomCourt(x.categorie)}
+            </button>
+          )
+        })}
+        {/* Sa légende, dans le coin que le radar laisse libre ; la catégorie touchée la dit en toutes lettres. */}
+        {(dessin.moyenne || dessin.moyennes) && (
+          <span className="carte-radar-legende" aria-hidden="true">
+            <i className="carte-radar-trait" />
+            les joueurs
+          </span>
+        )}
+      </div>
+      <CategorieTouchee rayon={r} sentiers={sentiers} />
+      <div className="carte-radar-rangees">
+        <div className="carte-radar-rangee">
+          <span className="label">{radar.forces.length > 1 ? 'Ses forces' : 'Sa force'}</span>
+          {radar.forces.map(puce)}
+        </div>
+        {radar.aConquerir.length > 0 && (
+          <div className="carte-radar-rangee">
+            <span className="label">À conquérir</span>
+            {radar.aConquerir.map(puce)}
+          </div>
+        )}
+        {radar.connus < radar.rayons.length && <p className="carte-radar-note">{`Une catégorie paraît dès ${QCM_POUR_LE_RADAR} QCM.`}</p>}
+      </div>
+    </>
+  )
+}
+
+/**
+ * La catégorie touchée sur le radar : sa part en grand et sur combien de QCM
+ * (« 50 % (1 sur 2 QCM) » : une part dit toujours sur combien), son écusson,
+ * sa jauge à la lueur de sa branche, et où il en est de son sentier — le
+ * pont vers la face suivante.
+ */
+function CategorieTouchee({ rayon: r, sentiers }: { rayon: RayonDuRadar; sentiers: SentiersDeLaCarte | null }) {
+  const s = sentiers?.sentiers.find(x => x.branche.categorie === r.categorie)
+  const cle = BRANCHE_DE_LA_CATEGORIE.get(r.categorie)
+  return (
+    <div className="carte-radar-detail">
+      <div className="carte-radar-part">
+        <span className="carte-radar-pourcent num">
+          {r.pourcent === null ? formatNumber(r.questions) : r.pourcent}
+          <small>{r.pourcent === null ? ' QCM' : ' %'}</small>
+        </span>
+        {r.pourcent !== null && <span className="carte-radar-sur">{`${formatNumber(r.justes)} sur ${formatNumber(r.questions)} QCM`}</span>}
+      </div>
+      <div className="carte-radar-corps">
+        <b className="carte-radar-nom">{r.categorie}</b>
+        {r.pourcent === null ? (
+          <span className="carte-radar-ligne">{`Elle paraît au radar dès ${QCM_POUR_LE_RADAR} QCM.`}</span>
+        ) : (
+          // Sa jauge à la lueur de sa branche — celle de la campagne —, son écusson au bout.
+          <span className="carte-radar-mesure" style={cle ? lueur(LUEUR[cle]) : undefined}>
+            <span className="carte-radar-jauge" aria-hidden="true">
+              <span style={{ width: `${r.pourcent}%` }} />
+              {r.moyennePourcent !== null && <i className="carte-radar-repere" style={{ left: `${r.moyennePourcent}%` }} />}
+            </span>
+            {r.ecusson > 0 && (
+              <span className={`carte-radar-ecusson palier-${r.ecusson}`}>
+                <Icon name="shield" />
+                {NOM_ECUSSON[r.ecusson]}
+              </span>
+            )}
+          </span>
+        )}
+        {r.moyennePourcent !== null && <FaceAuxJoueurs sienne={r.pourcent} moyenne={r.moyennePourcent} />}
+        {s && (
+          <span className="carte-radar-ligne carte-radar-sentier">
+            <Icon name={s.maitre ? 'crown' : 'mountain'} />
+            {s.maitre ? titreDeMaitre(s.branche) : `${s.branche.nom} · palier ${s.paliers} sur ${PALIERS_DU_SENTIER}`}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Sa part face à celle des joueurs (« Ajoute aussi la comparaison avec la
+ * moyenne des joueurs », le propriétaire, le 31 octobre 2026) : la moyenne,
+ * au trait du radar, et l'écart en points — « +23 », « −8 » —, dit en toutes
+ * lettres à l'oreille. Sans part à lui, la moyenne seule.
+ */
+function FaceAuxJoueurs({ sienne, moyenne }: { sienne: number | null; moyenne: number }) {
+  const ecart = sienne === null ? null : sienne - moyenne
+  return (
+    <span className="carte-radar-ligne carte-radar-comparaison">
+      <i className="carte-radar-trait" aria-hidden="true" />
+      {`Les joueurs : ${moyenne} %`}
+      {ecart !== null && (
+        <>
+          <b className="num" aria-hidden="true">
+            {ecart > 0 ? `+${ecart}` : ecart < 0 ? `−${-ecart}` : '='}
+          </b>
+          <span className="sr-only">{ecart > 0 ? `, ${ecart} points au-dessus` : ecart < 0 ? `, ${-ecart} points en dessous` : ', autant'}</span>
+        </>
+      )}
+    </span>
+  )
+}
+
+/** La branche de chaque catégorie, pour sa lueur. */
+const BRANCHE_DE_LA_CATEGORIE = new Map<string, CleDeBranche>(BRANCHES.map(b => [b.categorie, b.key]))
+
+// ── Ses sentiers ────────────────────────────────────────────────────────────
+
+/** Les douze crans de l'anneau d'un sentier, un par palier, depuis midi dans le sens des aiguilles — un jour entre deux. */
+const CRANS_DU_SENTIER = Array.from({ length: PALIERS_DU_SENTIER }, (_, k) => {
+  const [r, pas, jour] = [28, 360 / PALIERS_DU_SENTIER, 4]
+  const a = ((k * pas + jour) * Math.PI) / 180
+  const b = (((k + 1) * pas - jour) * Math.PI) / 180
+  return `M${(32 + r * Math.sin(a)).toFixed(2)} ${(32 - r * Math.cos(a)).toFixed(2)}A${r} ${r} 0 0 1 ${(32 + r * Math.sin(b)).toFixed(2)} ${(32 - r * Math.cos(b)).toFixed(2)}`
+})
+
+/** « Tour du monde », « Forêt » : le nom d'un sentier sous son anneau, là où l'article ne tient pas. */
+const sansArticle = (nom: string) => {
+  const sans = nom.replace(/^(Le |La |Les |L’)/, '')
+  return sans.charAt(0).toUpperCase() + sans.slice(1)
+}
+
+/** Le sentier qu'elle montre d'abord : un maître, sinon le plus avancé. */
+function lePlusAvance(s: SentiersDeLaCarte): SentierDeLaCarte {
+  return [...s.sentiers].sort((a, b) => Number(b.maitre) - Number(a.maitre) || b.paliers - a.paliers)[0]
+}
+
+/** Les cadrans de ses sentiers : ses paliers et ses avatars du savoir sur combien, ses maîtres s'il en a. */
+export function cadransDesSentiers(s: SentiersDeLaCarte): CadranDuDos[] {
+  return [
+    { nom: 'Paliers', valeur: formatNumber(s.paliers), base: `sur ${formatNumber(BRANCHES.length * PALIERS_DU_SENTIER)}` },
+    { nom: 'Avatars', valeur: formatNumber(s.portraits), base: `sur ${formatNumber(BRANCHES.reduce((n, b) => n + b.portraits.length, 0))}` },
+    ...(s.maitres > 0 ? [{ nom: s.maitres > 1 ? 'Maîtres' : 'Maître', valeur: formatNumber(s.maitres), base: `sur ${BRANCHES.length}`, icone: 'maitres' as const }] : []),
+  ]
+}
+
+/** Ce que dit le sentier touché : son nom — ou son titre de maître —, sa catégorie, où il en est, et le prochain avatar. */
+function ditLeSentier(s: SentierDeLaCarte): ReactNode {
+  const ou = s.maitre
+    ? 'les douze paliers, et celui du maître'
+    : s.paliers >= PALIERS_DU_SENTIER
+      ? 'les douze paliers ; reste celui du maître'
+      : `palier ${s.paliers} sur ${PALIERS_DU_SENTIER}${s.prochain ? ` — ${nomDansLaPhrase(s.prochain.nom)} au palier ${s.prochain.palier}` : ''}`
+  return (
+    <>
+      <b>{s.maitre ? titreDeMaitre(s.branche) : s.branche.nom}</b>
+      {` · ${s.branche.categorie} : ${ou}.`}
+    </>
+  )
+}
+
+/**
+ * Ses sentiers du savoir (« voir les paliers de la campagne / maître
+ * obtenu », le 31 octobre 2026) : ceux qu'il a commencés, chacun un anneau
+ * de douze crans à la lueur de sa branche — celle de la campagne — autour du
+ * dernier avatar qu'il y a gagné ; un maître a l'anneau d'or et sa couronne.
+ * Touché, un sentier se dit dessous. Ses avatars ne se dessinent que la carte
+ * retournée (`portraits`) : la salle qui ouvre sa carte sans la tourner ne
+ * télécharge pas douze branches.
+ */
+export function SesSentiers({ sentiers, portraits }: { sentiers: SentiersDeLaCarte; portraits: boolean }) {
+  const [choisi, setChoisi] = useState<CleDeBranche>(() => lePlusAvance(sentiers).branche.key)
+  const s = sentiers.sentiers.find(x => x.branche.key === choisi) ?? sentiers.sentiers[0]
+  return (
+    <>
+      <Cadrans cases={cadransDesSentiers(sentiers)} />
+      <ul className="carte-sentiers-grille" aria-label="Ses sentiers du savoir">
+        {sentiers.sentiers.map(x => (
+          <li key={x.branche.key}>
+            <button
+              type="button"
+              className={'carte-sentier' + (x.maitre ? ' carte-sentier-maitre' : '')}
+              style={lueur(LUEUR[x.branche.key])}
+              aria-pressed={x === s}
+              aria-label={`${x.branche.nom}, ${x.branche.categorie} : ${x.maitre ? 'maître' : `palier ${x.paliers} sur ${PALIERS_DU_SENTIER}`}`}
+              onClick={() => setChoisi(x.branche.key)}
+            >
+              <span className="carte-sentier-anneau" aria-hidden="true">
+                <svg viewBox="0 0 64 64">
+                  <path className="carte-sentier-cran" d={CRANS_DU_SENTIER.slice(x.paliers).join('')} />
+                  <path className="carte-sentier-cran carte-sentier-valide" d={CRANS_DU_SENTIER.slice(0, x.paliers).join('')} />
+                </svg>
+                <span className="carte-sentier-disque">
+                  {portraits && x.portrait ? (
+                    <span className="sentier-portrait">
+                      <Dessin cle={x.portrait.key} />
+                    </span>
+                  ) : (
+                    <Icon name={EMBLEME[x.branche.categorie] ?? 'star'} />
+                  )}
+                </span>
+                <span className="carte-sentier-palier num">{x.maitre ? <Icon name="crown" /> : `${x.paliers}/${PALIERS_DU_SENTIER}`}</span>
+              </span>
+              <span className="carte-sentier-nom">{sansArticle(x.branche.nom)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="carte-sentier-detail" style={lueur(LUEUR[s.branche.key])}>
+        {ditLeSentier(s)}
+      </p>
+    </>
+  )
+}
 
 /**
  * Le cadre d'une carte : celui de sa ligue actuelle aux duels (le choix du
@@ -620,7 +1175,7 @@ export interface CadranDuDos {
   nom: string
   valeur: string
   base?: string
-  icone?: 'prix' | 'jour' | 'duels' | 'campagne'
+  icone?: 'prix' | 'jour' | 'duels' | 'campagne' | 'maitres'
   /** Sa ligue, pour le blason des duels. */
   ligue?: CleDeLigue
 }
@@ -662,6 +1217,7 @@ function Cadrans({ cases }: { cases: CadranDuDos[] }) {
             {c.icone === 'jour' && <Flamme />}
             {c.icone === 'duels' && c.ligue && <BlasonDeLigue ligue={c.ligue} taille={15} decoratif />}
             {c.icone === 'campagne' && <Icon name="target" />}
+            {c.icone === 'maitres' && <Icon name="crown" />}
             {c.valeur}
           </dd>
           {c.base && <dd className="carte-cadran-base">{c.base}</dd>}

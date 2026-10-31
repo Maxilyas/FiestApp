@@ -152,7 +152,8 @@ import { PRIX_D_UN_SABLIER, SABLIERS_MAX, jourAvant, jourDe, moisDuChampion, niv
 import type { Achat, Mouvement, SorteDeVente } from '../../../shared/qgEconomie'
 import type { SoireeDUnProfil } from '../../../shared/qgActivite'
 import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
-import { additionnerCategories, additionnerSavoirs, justesParCategorie, type Savoir } from '../../../shared/ecussons'
+import { additionnerCategories, additionnerSavoirs, justesParCategorie, type ParCategorie, type Savoir } from '../../../shared/ecussons'
+import { moyennesDuSavoir } from '../../../shared/carte'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { sansAccent } from '../../../shared/homonymes'
 import { divinsDebloques, raconter } from '../core/divins'
@@ -543,6 +544,20 @@ const ANNUAIRE_GARDE_MS = 60_000
 /** La rareté de chaque badge (`populationBadges`), relue au plus toutes les dix minutes : elle bouge lentement. */
 const POPULATION_GARDEE_MS = 10 * 60_000
 
+/**
+ * La moyenne des joueurs (`moyennesDuSavoir`), recomptée au plus une fois
+ * par jour : elle bouge lentement, et la compter parcourt toutes les soirées
+ * et tout le quiz du jour de tout le monde. Gardée dans `meta` aussi, pour
+ * qu'un réveil de l'hébergeur — sept par jour — ne la recompte pas.
+ */
+export const MOYENNES_GARDEES_MS = 24 * 3_600_000
+
+/** Une moyenne qui n'a pas pu se compter se retente au plus toutes les dix minutes : une base muette ne se relit pas à chaque carte. */
+const MOYENNES_RETENTEES_MS = 10 * 60_000
+
+/** Sa clé dans `meta`. */
+const CLE_DES_MOYENNES = 'moyennes_du_savoir'
+
 /** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
 const SESSION_MS = 365 * 24 * 3600 * 1000
 const SLIDE_EVERY_MS = 7 * 24 * 3600 * 1000
@@ -929,6 +944,15 @@ export class ProfileStore {
    * comme `campagneDuProfil`.
    */
   savoirDeCampagne?: (profileId: string) => Promise<Savoir>
+
+  /**
+   * Ce que le quiz du jour et la campagne savent de chacun, d'une lecture
+   * (`JourStore.savoirsDeTous`, `CampagneStore.savoirsDeTous`) : la moyenne
+   * des joueurs de la carte (`moyennesDesJoueurs`). Branchés au démarrage
+   * comme `savoirDuJour` ; sans eux, la moyenne ne compte que les soirées.
+   */
+  savoirsDuJourDeTous?: () => Promise<Map<string, Savoir>>
+  savoirsDeCampagneDeTous?: () => Promise<Map<string, Savoir>>
 
   /**
    * Les paliers validés de chacun de ses sentiers (`CampagneStore.paliersDe`),
@@ -3229,6 +3253,91 @@ export class ProfileStore {
       this.savoirDeCampagne?.(profileId).catch(muette('campagne')) ?? rien(),
     ])
     return additionnerSavoirs(jour, campagne)
+  }
+
+  /**
+   * La moyenne des joueurs, catégorie par catégorie, que le radar de la carte
+   * pose à côté du sien (`moyennesDuSavoir` : la part du joueur moyen, au
+   * millième). Gardée un jour (`MOYENNES_GARDEES_MS`), en mémoire et dans
+   * `meta` : la compter parcourt toutes les soirées et tout le quiz du jour de
+   * tout le monde, et chaque réveil de l'hébergeur l'aurait recomptée. Rien
+   * ne l'attend jamais : la carte prend celle qu'il y a — aucune, la toute
+   * première fois —, et une absente ou périmée se recompte en fond.
+   */
+  async moyennesDesJoueurs(): Promise<Readonly<Partial<Record<string, number>>> | null> {
+    this.moyennes ??= this.lireLesMoyennes()
+    const gardees = await this.moyennes
+    if (!gardees || Date.now() - gardees.le >= MOYENNES_GARDEES_MS) this.recompterLesMoyennes()
+    return gardees?.parts ?? null
+  }
+
+  /** La moyenne gardée — lue dans `meta` une fois par démarrage, puis tenue à jour par `recompterLesMoyennes`. */
+  private moyennes: Promise<{ le: number; parts: Readonly<Partial<Record<string, number>>> } | null> | null = null
+  private moyennesEnRoute: Promise<void> | null = null
+  private moyennesTenteesLe = 0
+
+  private async lireLesMoyennes(): Promise<{ le: number; parts: Readonly<Partial<Record<string, number>>> } | null> {
+    try {
+      const r = await this.client.execute({ sql: 'SELECT value FROM meta WHERE key = ?', args: [CLE_DES_MOYENNES] })
+      const lue = r.rows[0] ? (JSON.parse(String(r.rows[0].value)) as { le?: unknown; parts?: unknown }) : null
+      return lue && typeof lue.le === 'number' && lue.parts && typeof lue.parts === 'object' ? { le: lue.le, parts: lue.parts as Record<string, number> } : null
+    } catch (e) {
+      console.error('[profils] la moyenne des joueurs gardée est illisible :', e)
+      return null
+    }
+  }
+
+  /** Recompte la moyenne en fond, une fois à la fois, et la garde ; ratée, elle se retente au plus toutes les dix minutes. */
+  recompterLesMoyennes(): Promise<void> {
+    if (this.moyennesEnRoute) return this.moyennesEnRoute
+    if (Date.now() - this.moyennesTenteesLe < MOYENNES_RETENTEES_MS) return Promise.resolve()
+    this.moyennesTenteesLe = Date.now()
+    this.moyennesEnRoute = this.compterLesMoyennes()
+      .then(async neuves => {
+        this.moyennes = Promise.resolve(neuves)
+        await this.client.execute({
+          sql: 'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+          args: [CLE_DES_MOYENNES, JSON.stringify(neuves)],
+        })
+      })
+      .catch(e => console.error('[profils] la moyenne des joueurs n’a pas pu se compter :', e))
+      .finally(() => {
+        this.moyennesEnRoute = null
+      })
+    return this.moyennesEnRoute
+  }
+
+  /**
+   * La moyenne de tous les profils non suspendus, chacun tous modes de jeu
+   * ensemble — ses soirées qui comptent, son quiz du jour, sa campagne : la
+   * même addition que son radar (`additionnerCategories`).
+   */
+  private async compterLesMoyennes(): Promise<{ le: number; parts: Readonly<Partial<Record<string, number>>> }> {
+    const [actifs, soirees, jour, campagne] = await Promise.all([
+      this.client.execute('SELECT id FROM profiles WHERE disabled_at IS NULL'),
+      this.savoirsDesSoirees(),
+      this.savoirsDuJourDeTous?.() ?? new Map<string, Savoir>(),
+      this.savoirsDeCampagneDeTous?.() ?? new Map<string, Savoir>(),
+    ])
+    const savoirs = actifs.rows.map(r => {
+      const qui = String(r.id)
+      return additionnerCategories(soirees.get(qui) ?? {}, jour.get(qui)?.categories ?? {}, campagne.get(qui)?.categories ?? {})
+    })
+    const parts = Object.fromEntries(Object.entries(moyennesDuSavoir(savoirs)).map(([categorie, m]) => [categorie, Math.round(m!.part * 1000) / 1000]))
+    return { le: Date.now(), parts }
+  }
+
+  /** Le savoir des soirées de chacun, d'une lecture : ses soirées qui comptent, catégorie par catégorie, comme sa carrière (`carriereDe`). */
+  private async savoirsDesSoirees(): Promise<Map<string, ParCategorie>> {
+    const rows = await this.client.execute(`SELECT profile_id, detail FROM profile_xp WHERE ${HORS_LIGNES_A_PART}`)
+    const parProfil = new Map<string, ParCategorie>()
+    for (const r of rows.rows) {
+      const { gain, releve } = decodeDetail(String(r.detail))
+      if (!soireeQuiCompte(gain)) continue
+      const qui = String(r.profile_id)
+      parProfil.set(qui, additionnerCategories(parProfil.get(qui) ?? {}, releve.categories))
+    }
+    return parProfil
   }
 
   /** Les paliers validés de ses sentiers : ce qui ouvre ses portraits et ses titres de maître. Aucun tant que la campagne n'est pas branchée. */

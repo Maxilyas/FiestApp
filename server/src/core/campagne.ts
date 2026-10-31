@@ -3275,6 +3275,16 @@ export class CampagneStore {
     return savoirDesLignes((await this.rattraperLeJournal()).savoirDe(profileId))
   }
 
+  /**
+   * Ce que la campagne sait de chacun (`savoirDe`, pour tous ceux qui y ont
+   * répondu), du journal en mémoire : pas une ligne de plus au quota de
+   * Turso. La moyenne des joueurs de la carte (`ProfileStore.moyennesDuSavoir`).
+   */
+  async savoirsDeTous(): Promise<Map<string, Savoir>> {
+    const journal = await this.rattraperLeJournal()
+    return new Map(journal.joueurs().map(qui => [qui, savoirDesLignes(journal.savoirDe(qui))]))
+  }
+
   // ── Le carnet de révision ───────────────────────────────────────────────
   //
   // Ce qu'il a raté revient le lendemain, puis trois jours après, puis une

@@ -124,6 +124,7 @@ interface IleDessinee {
   cristal: Mesh
   gardien: Sprite
   halo: Sprite
+  nom: Sprite
   nuages: Sprite[]
   cadres: CadreDeLIle[]
   cible: Mesh
@@ -138,7 +139,15 @@ interface Fondu {
   fin?: () => void
 }
 
-export function creerLaTour(conteneur: HTMLElement, etatInitial: EtatDeLaTour, rappels: { surIle?: (i: number) => void; surFocus?: (i: number) => void } = {}): SceneDeLaTour {
+/** Le champ vertical de la caméra, en degrés, sur la hauteur de la toile. */
+const CHAMP = 52
+
+export function creerLaTour(
+  conteneur: HTMLElement,
+  etatInitial: EtatDeLaTour,
+  /** `couvert` : les pixels que la page pose en haut de la scène — le titre de la tour —, que le regard laisse au-dessus de lui. */
+  rappels: { surIle?: (i: number) => void; surFocus?: (i: number) => void; couvert?: () => number } = {},
+): SceneDeLaTour {
   const calme = matchMedia('(prefers-reduced-motion: reduce)').matches
   const police = getComputedStyle(conteneur).fontFamily || 'Georgia, serif'
   const jetables: { dispose(): void }[] = []
@@ -159,7 +168,7 @@ export function creerLaTour(conteneur: HTMLElement, etatInitial: EtatDeLaTour, r
   const scene = new Scene()
   scene.background = new Color(0x07050e)
   scene.fog = new FogExp2(0x0b0718, 0.0085)
-  const camera = new PerspectiveCamera(52, 1, 0.1, 600)
+  const camera = new PerspectiveCamera(CHAMP, 1, 0.1, 600)
   const pmrem = new PMREMGenerator(renderer)
   const environnement = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
   scene.environment = environnement
@@ -541,7 +550,7 @@ export function creerLaTour(conteneur: HTMLElement, etatInitial: EtatDeLaTour, r
       nuages.push(nu)
     }
     scene.add(groupe)
-    const ile: IleDessinee = { groupe, anneau, cristal, gardien, halo, nuages, cadres, cible, donnee: d }
+    const ile: IleDessinee = { groupe, anneau, cristal, gardien, halo, nom, nuages, cadres, cible, donnee: d }
     reveiller(ile, d.eveille, false)
     return ile
   }
@@ -595,12 +604,25 @@ export function creerLaTour(conteneur: HTMLElement, etatInitial: EtatDeLaTour, r
   composer.addPass(new RenderPass(scene, camera))
   composer.addPass(new UnrealBloomPass(new Vector2(256, 256), 0.7, 0.5, 1.05))
   composer.addPass(new OutputPass())
+  // La toile, en largeur sur hauteur : la caméra s'éloigne sur un écran en hauteur. Et ce que le titre en couvre, mesuré une fois
+  // par taille de la scène, pas à chaque image.
+  let largeSurHaut = 1
+  let couvert = 0
   const redimensionner = () => {
     const l = Math.max(1, conteneur.clientWidth)
     const h = Math.max(1, conteneur.clientHeight)
     renderer.setSize(l, h, false)
     composer.setSize(l, h)
-    camera.aspect = l / h
+    largeSurHaut = l / h
+    // Le regard descend au milieu de ce que le titre laisse voir, sans rapetisser l'île : le cadre de la caméra grandit d'autant
+    // vers le bas, son champ avec lui, et la toile n'en montre que le haut. Centré sur la toile, l'étage passait sous le titre et
+    // son rond, son nom compris — comme le compte des œuvres avant eux (le propriétaire, le 31 octobre 2026).
+    couvert = Math.max(0, Math.round(rappels.couvert?.() ?? 0))
+    const c = Math.min(Math.round(h * 0.45), couvert)
+    camera.aspect = l / (h + c)
+    camera.fov = (Math.atan(Math.tan((CHAMP * Math.PI) / 360) * ((h + c) / h)) * 360) / Math.PI
+    if (c > 0) camera.setViewOffset(l, h + c, 0, 0, l, h)
+    else camera.clearViewOffset()
     camera.updateProjectionMatrix()
   }
   const observateur = new ResizeObserver(redimensionner)
@@ -613,10 +635,22 @@ export function creerLaTour(conteneur: HTMLElement, etatInitial: EtatDeLaTour, r
     const c = helice(cam.t)
     const d = dehors(cam.t)
     const tangente = new Vector3(-d.z, 0, d.x)
-    const D = (camera.aspect < 1 ? 23 : 15) * cam.zoom
+    const D = (largeSurHaut < 1 ? 23 : 15) * cam.zoom
     camera.position.copy(c).addScaledVector(d, D).addScaledVector(tangente, -5).add(new Vector3(0, 5 * cam.zoom, 0))
     // Le regard un peu au-dessus du pavillon : l'île entière et son nom dans le cadre, l'étage d'au-dessus en vue.
     camera.lookAt(c.x, c.y + 1.2, c.z)
+  }
+
+  // Le nom d'un étage s'efface sous le titre de la page, au fil de la montée : « Étage 4 · Le Rempart » passait derrière
+  // « ← Accueil », un texte sur un autre. Il s'éteint sur les vingt-quatre pixels d'au-dessous, et revient en descendant.
+  const projete = new Vector3()
+  const effacerSousLeTitre = () => {
+    const h = Math.max(1, conteneur.clientHeight)
+    for (const ile of iles) {
+      ile.nom.getWorldPosition(projete).project(camera)
+      const y = ((1 - projete.y) / 2) * h
+      ile.nom.material.opacity = couvert > 0 ? borne((y - couvert) / 24, 0, 1) : 1
+    }
   }
 
   let precedente = performance.now()
@@ -655,6 +689,7 @@ export function creerLaTour(conteneur: HTMLElement, etatInitial: EtatDeLaTour, r
         fondus.splice(k, 1)
       }
     }
+    effacerSousLeTitre()
     composer.render()
   }
   // Une page cachée ne dessine rien : la batterie d'un téléphone en poche.

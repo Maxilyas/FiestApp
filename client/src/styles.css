@@ -6194,12 +6194,14 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   min-height: 0;
   max-height: min(76vh, 580px);
   max-height: min(76dvh, 580px);
-  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--tourne, 0deg)));
+  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--tourne, 0deg) + var(--glisse, 0deg)));
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.carte-retournee { --tourne: 180deg; }
+/* Le doigt qui glisse la tient : elle le suit sans traîner (`--glisse`), et
+   reprend sa course quand il la lâche — vers la face suivante, ou en arrière. */
+.carte-tenue { transition: none; }
 .carte-face {
   grid-area: 1 / 1;
   position: relative;
@@ -6221,7 +6223,18 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   -webkit-transform: rotateY(0deg) translateZ(1px);
   isolation: isolate;
 }
-.carte-dos { transform: rotateY(180deg) translateZ(1px); -webkit-transform: rotateY(180deg) translateZ(1px); }
+/* Une vraie carte n'a que deux côtés : ses faces y passent tour à tour
+   (`placeDeLaFace`). L'envers porte la face montrée ou quittée qui s'y tient ;
+   les autres sont rangées — invisibles, mais à leur place : la carte garde la
+   taille de sa plus grande face. */
+.carte-envers { transform: rotateY(180deg) translateZ(1px); -webkit-transform: rotateY(180deg) translateZ(1px); }
+.carte-face-rangee { visibility: hidden; }
+/* Les gemmes de ses faces, serties dans le métal du pied du cadre ; celle
+   qu'on regarde s'allume. Dans ses sept pixels : épaissi pour elles, le
+   cadre faisait défiler de cinq pixels le dos d'une habituée en 360 × 640. */
+.carte-gemmes { position: absolute; z-index: 3; left: 0; right: 0; bottom: 1px; display: flex; justify-content: center; gap: 9px; pointer-events: none; }
+.carte-gemmes i { width: 5px; height: 5px; border-radius: 50%; background: rgba(0, 0, 0, 0.5); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3); }
+.carte-gemmes .carte-gemme-allumee { background: radial-gradient(circle at 35% 35%, #ffffff, #fff4c7 50%, #e3b04b); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 6px rgba(255, 244, 199, 0.9); }
 /* Le reflet : la lumière accroche la carte là où le doigt la penche. */
 .carte-face::after {
   content: '';
@@ -6492,7 +6505,13 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 /* Le dos : son nom, ses chiffres en un seul tableau, ses écussons, sa
    collection tout au bout. Serré pour tenir en 360 × 640, ses mots compris :
    le lien des mots garde sa hauteur de doigt. */
-.carte-dos .carte-defile { gap: 5px; padding-bottom: 6px; }
+.carte-dos .carte-defile,
+.carte-savoir .carte-defile,
+.carte-sentiers .carte-defile { gap: 5px; padding-bottom: 6px; }
+/* Le doigt qui monte ou descend fait défiler la face ; celui qui glisse de
+   côté va à la page, qui retourne la carte : sans quoi le navigateur le
+   prenait pour un défilement, et l'annulait. */
+.carte-joueur .carte-defile { touch-action: pan-y pinch-zoom; }
 .carte-dos-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; }
 .carte-dos-tete h3 { margin: 0; font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.05; overflow-wrap: anywhere; }
 .carte-dos-titre { flex: none; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
@@ -6516,6 +6535,123 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 /* Le dernier d'une rangée incomplète la finit ; seul sur la sienne, il se couche — son nom, son chiffre et sa base sur une ligne. */
 .carte-cadrans > .carte-cadran:last-child:nth-child(3n + 1) { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
 .carte-cadrans > .carte-cadran:last-child:nth-child(3n + 2) { grid-column: span 2; }
+
+/* Son savoir, en radar. La trame et la forme dans un SVG à la largeur de la
+   face, ses étiquettes en boutons posés dessus : elles gardent la taille du
+   texte quand le radar rapetisse — dessinées dans le SVG, elles passaient
+   sous les onze pixels du plus petit texte. */
+.carte-radar { position: relative; aspect-ratio: 300 / 228; margin: 0 -4px; }
+/* La moyenne des joueurs, d'un bleu froid à côté de l'or de la sienne : mêlé
+   à l'encre du thème, il s'éclaircit sur les fonds sombres et fonce sous
+   Ivoire — aucun thème n'a de bleu à lui prêter. */
+.carte-radar,
+.carte-radar-detail { --moyenne: color-mix(in srgb, #5ab4f0 72%, var(--ink)); }
+.carte-radar-moyenne { fill: none; stroke: var(--moyenne); stroke-width: 1.6; stroke-dasharray: 4 3; stroke-linejoin: round; }
+.carte-radar-legende { position: absolute; left: 2px; bottom: 0; display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-label); line-height: 1.2; color: var(--muted); pointer-events: none; }
+.carte-radar-trait { flex: none; width: 14px; height: 0; border-top: 2px dashed var(--moyenne); }
+.carte-radar-trame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.carte-radar-anneau { fill: none; stroke: color-mix(in srgb, var(--lueur) 16%, transparent); stroke-width: 1; }
+.carte-radar-bord { fill: color-mix(in srgb, var(--lueur) 5%, transparent); stroke: color-mix(in srgb, var(--lueur) 36%, transparent); stroke-width: 1; }
+.carte-radar-axes { stroke: color-mix(in srgb, var(--lueur) 13%, transparent); stroke-width: 1; }
+.carte-radar-axe-choisi { stroke: var(--lueur); stroke-width: 1.4; stroke-dasharray: 2 3; opacity: 0.85; }
+/* La forme éclot du centre à l'ouverture de la face — la face entre en
+   scène une fois : le mouvement réduit la pose d'un coup. */
+.carte-radar-forme {
+  fill: color-mix(in srgb, var(--lueur) 28%, transparent);
+  stroke: var(--lueur);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--lueur) 45%, transparent));
+  transform-origin: 150px 115px;
+  animation: radar-eclot 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes radar-eclot {
+  from { transform: scale(0.15); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.carte-radar-a-decouvrir { fill: none; stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 2 4; opacity: 0.75; }
+/* Au bout de chaque rayon, la pierre de son écusson : le bronze, l'argent,
+   l'or (leur couleur, `.palier-N`) ; creuse sans écusson. */
+.carte-radar-trame .carte-radar-pierre { fill: currentColor; stroke: var(--bg-raised); stroke-width: 1.6; }
+.carte-radar-trame .carte-radar-pierre.palier-0 { fill: var(--bg-raised); stroke: var(--muted); }
+.carte-radar-trame .carte-radar-pierre-choisie { stroke-width: 2.2; filter: drop-shadow(0 0 4px var(--lueur)); }
+.carte-radar-etiquette {
+  position: absolute;
+  translate: -50% -50%;
+  margin: 0;
+  padding: 5px 3px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-label);
+  font-weight: 600;
+  line-height: 1.1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.carte-radar-etiquette:hover { color: var(--accent-text-hover); }
+.carte-radar-inconnue { color: var(--muted); font-weight: 500; }
+.carte-radar-etiquette[aria-pressed='true'] { color: var(--accent-text); font-weight: 800; }
+/* La catégorie touchée : sa part en grand et sur combien, sa jauge à la
+   lueur de sa branche et son écusson au bout, son sentier. Le cadre reste
+   celui de la carte : teint de la lueur de chaque branche, il passait au
+   rose du grand écran, qui se lisait comme une erreur. */
+.carte-radar-detail { display: flex; align-items: stretch; gap: 10px; padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--lueur) 30%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--lueur) 7%, transparent); }
+.carte-radar-part { flex: none; display: flex; flex-direction: column; justify-content: center; min-width: 68px; padding-right: 10px; border-right: 1px solid color-mix(in srgb, var(--lueur) 26%, transparent); }
+.carte-radar-pourcent { font-family: var(--serif); font-size: 1.95rem; font-weight: 700; line-height: 0.95; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.carte-radar-pourcent small { font-size: 0.55em; font-weight: 600; }
+.carte-radar-sur { margin-top: 3px; font-size: var(--t-label); line-height: 1.25; color: var(--muted); }
+.carte-radar-corps { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+.carte-radar-nom { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; line-height: 1.1; }
+.carte-radar-mesure { display: flex; align-items: center; gap: 8px; }
+.carte-radar-ecusson { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.carte-radar-ecusson .icon { width: 13px; height: 13px; }
+.carte-radar-jauge { position: relative; flex: 1; height: 6px; overflow: hidden; border-radius: 3px; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.carte-radar-jauge > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--lueur); }
+/* La moyenne des joueurs sur sa jauge : un trait, cerné du sol de la carte pour se lire sur le plein comme sur le vide. */
+.carte-radar-repere { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--moyenne); box-shadow: 0 0 0 1px var(--bg-raised); }
+.carte-radar-ligne { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; line-height: 1.25; color: var(--muted); }
+.carte-radar-comparaison b { color: var(--accent-text); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.carte-radar-sentier { color: var(--ink); font-weight: 600; }
+.carte-radar-sentier .icon { flex: none; width: 14px; height: 14px; color: var(--accent-text); }
+/* Ses forces et ce qui lui reste à conquérir, côte à côte comme une fiche : chaque ligne se touche, et le radar la montre. */
+.carte-radar-rangees { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.carte-radar-rangee { flex: 1 1 0; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.carte-radar-rangee .label { margin: 0 0 1px; }
+.carte-radar-puce { display: flex; align-items: center; gap: 6px; min-height: 24px; padding: 0 5px; border: 0; border-radius: var(--radius-xs); background: none; color: var(--ink); font: inherit; font-size: 0.75rem; font-weight: 600; text-align: left; cursor: pointer; }
+.carte-radar-puce b { margin-left: auto; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.carte-radar-puce[aria-pressed='true'] { background: color-mix(in srgb, var(--lueur) 14%, transparent); }
+.carte-radar-puce .carte-radar-pierre { flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.carte-radar-puce .carte-radar-pierre.palier-0 { background: none; box-shadow: inset 0 0 0 1.5px var(--muted); }
+.carte-radar-note { flex: 1 0 100%; margin: 2px 0 0; font-size: var(--t-label); line-height: 1.3; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) {
+  .carte-radar-forme { animation: none; }
+}
+
+/* Ses sentiers : un anneau de douze crans par sentier commencé, à la lueur
+   de sa branche — celle de la campagne —, autour du dernier avatar qu'il y a
+   gagné ; un maître a ses crans d'or et sa couronne sur l'émail noir. */
+.carte-sentiers-grille { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 4px; }
+.carte-sentier { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; padding: 3px 2px 1px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--ink); font: inherit; cursor: pointer; }
+.carte-sentier[aria-pressed='true'] { border-color: color-mix(in srgb, var(--lueur) 55%, transparent); background: color-mix(in srgb, var(--lueur) 10%, transparent); }
+.carte-sentier-anneau { position: relative; display: grid; place-items: center; width: 50px; height: 50px; }
+.carte-sentier-anneau > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.carte-sentier-cran { fill: none; stroke: color-mix(in srgb, var(--ink) 14%, transparent); stroke-width: 4; stroke-linecap: round; }
+.carte-sentier-valide { stroke: var(--lueur); filter: drop-shadow(0 0 2px color-mix(in srgb, var(--lueur) 60%, transparent)); }
+.carte-sentier-maitre .carte-sentier-valide { stroke: var(--or-text); filter: drop-shadow(0 0 4px var(--or-text)); }
+.carte-sentier-disque { display: grid; place-items: center; width: 36px; height: 36px; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--lueur) 30%, var(--bg-raised)), color-mix(in srgb, var(--bg) 80%, #000)); color: var(--lueur); }
+.carte-sentier-disque .icon { width: 17px; height: 17px; }
+.carte-sentier-disque .sentier-portrait { width: 36px; height: 36px; }
+/* Comme dans une liste, ses avatars ne bougent pas : la carte a déjà son sujet. */
+.carte-sentier .pt * { animation: none; }
+.carte-sentier-palier { position: absolute; left: 50%; bottom: -4px; translate: -50% 0; min-width: 30px; padding: 0 5px; border-radius: var(--radius-pill); background: var(--bg-raised); box-shadow: 0 0 0 1px color-mix(in srgb, var(--lueur) 60%, transparent); font-size: var(--t-label); font-weight: 700; line-height: 1.35; text-align: center; white-space: nowrap; }
+/* L'émail noir des maîtres, leur or : une convention, écrite en dur comme leur cadre. */
+.carte-sentier-maitre .carte-sentier-palier { display: grid; place-items: center; min-width: 24px; height: 16px; padding: 0; background: radial-gradient(circle at 35% 30%, #2c2438, #07060a 75%); box-shadow: 0 0 0 1px #b8892f, 0 0 8px rgba(246, 221, 148, 0.5); color: #f6dd94; }
+.carte-sentier-maitre .carte-sentier-palier .icon { width: 12px; height: 12px; }
+.carte-sentier-nom { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-label); font-weight: 600; line-height: 1.3; }
+.carte-sentier-detail { margin: 0; padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--lueur) 32%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--lueur) 8%, transparent); font-size: 0.78rem; line-height: 1.35; }
+.carte-sentier-detail b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
 
 /* La catégorie de la question, au-dessus de son intitulé : une étiquette,
    pas un titre — la question reste ce qu'on lit en premier. */
@@ -10416,9 +10552,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-inconnue { font-family: var(--serif); font-size: 2.25rem; font-weight: 600; line-height: 1; color: var(--accent-text); }
 .cab-toast { font-size: 1.0625rem; }
 
-/* Le musée : ce qu'il possède, une jauge et sa poussière d'or ; les lignes qui se disent une fois ; puis les gestes et les salles. */
-.cab-possede { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
-.cab-possede .cab-ligne { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+/* Le musée : ce qu'il possède — deux chiffres en grand, une jauge et sa poussière d'or —, ce qui l'attend, puis ses salles. */
+.cab-possede { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.cab-possede-chiffres { display: flex; flex-wrap: wrap; gap: 4px 22px; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.cab-possede .cab-chiffre { margin-right: 2px; color: var(--accent-text); font-size: 2.3rem; }
 .cab-jauge { display: block; height: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-strong); box-shadow: inset 0 0 0 1px var(--edge); }
 .cab-jauge > span { display: block; height: 100%; min-width: 8px; border-radius: inherit; background: var(--accent); }
 .cab-poussiere { display: flex; align-items: center; gap: 8px; color: var(--accent-text); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
@@ -10437,17 +10574,24 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-tuile-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cab-salles { display: flex; flex-direction: column; gap: 12px; }
 .cab-entre { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
-/* Les neuf salles en portes, trois par rangée au téléphone : en arche, la plus rare de ses œuvres à lui, sinon un « ? ». Complète,
-   l'arche prend l'or, et son compte le dit à l'oreille. */
-.cab-portes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; }
-.cab-porte { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; color: var(--ink); text-align: center; text-decoration: none; }
-.cab-arche { display: grid; place-items: center; width: 100%; height: 104px; overflow: hidden; border: 3px solid var(--edge-strong); border-radius: 60px 60px 10px 10px; background: var(--surface-strong); }
-.cab-arche img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.cab-porte.cab-complete .cab-arche { border-color: var(--accent); box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.35); }
+/* Les neuf salles, une par rangée : son gardien en médaillon, son nom, son compte, et sa cimaise — ses peintures, la plus rare
+   d'abord, des cadres vides en pointillé, « +5 ». En arches de trois par rangée, une salle ne montrait qu'une peinture ou un
+   « ? » : on n'y voyait pas qu'il s'agit de remplir des murs (« incompréhensible », le 31 octobre 2026). Complète, elle prend
+   l'or, et son compte le dit à l'oreille. */
+.cab-portes { display: flex; flex-direction: column; gap: 10px; }
+.cab-porte { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); text-decoration: none; }
+.cab-porte.cab-complete { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), 0 0 14px rgba(var(--accent-rgb), 0.25); }
 @media (hover: hover) {
-  .cab-porte:hover .cab-arche { border-color: var(--accent); }
+  .cab-porte:hover { border-color: var(--accent); }
 }
-.cab-porte-nom { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.1; text-wrap: balance; }
+.cab-porte-haut { display: flex; align-items: center; gap: 10px; }
+.cab-porte-nom { flex: 1; min-width: 0; font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.1; }
+.cab-porte-haut .cab-compte { flex: none; }
+.cab-cimaise { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.cab-toile { display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; border: 2px solid var(--edge-strong); border-radius: 4px; background: var(--surface-strong); }
+.cab-toile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cab-toile-vide { border-style: dashed; border-color: var(--edge-strong); background: none; color: var(--muted); font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1; }
+.cab-toile-reste { border-color: transparent; background: none; color: var(--muted); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
 .cab-comment { margin-top: 2px; }
 
 /* Une salle : sa devise, ses œuvres au mur — trois par rangée, plus hautes que dans la main de l'Expédition —, ses gardiens. */
@@ -10495,15 +10639,24 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-cartel-ligne { color: #5c4e40; font-variant-numeric: lining-nums tabular-nums; }
 .cab-cartel-jour { display: block; }
 
-/* Les gardiens : deux colonnes de médaillons, endormis en silhouette dorée ; touché, sa fiche en feuille. */
+/* Les gardiens : salle par salle, ses deux médaillons côte à côte — endormis en silhouette dorée, ce qui les réveille en trois
+   mots et où il en est ; réveillés, cerclés d'or —, puis les cinq autres ; touché, sa fiche en feuille. */
+.cab-gardiens-but { color: var(--muted); }
+.cab-gardiens-groupe { display: flex; flex-direction: column; gap: 8px; }
+.cab-page .cab-gardiens-groupe h2 { color: var(--accent-text); font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.15; }
 .cab-gardiens { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
 .cab-gardiens > li { display: flex; }
 .cab-gardien { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 12px 8px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
+.cab-gardien.cab-gardien-eveille { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 @media (hover: hover) {
   .cab-gardien:hover { border-color: var(--edge-strong); }
+  .cab-gardien.cab-gardien-eveille:hover { border-color: var(--accent); }
 }
 .cab-gardien-nom { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; text-wrap: balance; }
 .cab-gardien-detail { color: var(--muted); line-height: 1.3; }
+.cab-gardien-eveille .cab-gardien-detail { color: var(--accent-text); font-weight: 700; }
+.cab-gardien-progres { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0 4px; }
+.cab-gardien-progres .cab-jauge { flex: 1; }
 .cab-feuille { font-size: 1.0625rem; }
 .cab-feuille .carte-corps { gap: 16px; }
 .cab-feuille .glossaire > summary { font-size: 1.0625rem; }
@@ -11027,23 +11180,58 @@ html:has(.cab-partie .cab-titre-revele) { scroll-padding-bottom: var(--cab-pied,
 .cab-oeuvre-gagnee { display: flex; flex-direction: column; gap: 14px; }
 .cab-reponses-manche { display: flex; flex-direction: column; gap: 10px; }
 
-/* La tour (`Tour.tsx`) : l'entrée du Cabinet depuis le 31 octobre 2026 — la scène en 3D, l'étage à jouer et ses portes, trois liens
-   vers le reste. Elle tient en un téléphone : la scène prend la hauteur qui reste, jamais moins que de quoi voir deux îles. La
-   scène est une nuit étoilée sous tous les thèmes — un décor, comme le cartel crème — : ce qui s'y écrit, la liste des étages
-   sans WebGL et la légende d'une île touchée, s'écrit en clair sur son noir, en dur. */
-.cab-tour { display: flex; flex-direction: column; gap: 8px; min-height: 100dvh; }
-.cab-tour-scene { position: relative; flex: 1 0 156px; min-height: 156px; overflow: hidden; border-radius: var(--radius); background: radial-gradient(130% 80% at 50% 100%, #2a1846, #07050e 70%); }
-.cab-tour-compte { position: absolute; bottom: 8px; left: 8px; z-index: 1; max-width: calc(100% - 16px); padding: 2px 10px; border-radius: var(--radius-pill); background: rgba(14, 9, 24, 0.8); color: #f6efe4; font-variant-numeric: lining-nums tabular-nums; pointer-events: none; }
-.cab-tour-scene:not(.cab-tour-en-3d) .cab-tour-compte { position: static; display: inline-block; margin: 8px 8px 0; }
+/* La barre du Cabinet (`Barre.tsx`) : ses quatre pièces sous le pouce, comme la barre du menu de l'accueil (`.menu-barre`), à
+   dix-sept pixels — l'étiquette de l'accueil en a onze. La pièce où l'on est se dit en gras et par un filet, jamais par sa seule
+   couleur. La page s'arrête au-dessus d'elle, et le toast monte. */
+.cab-barre { position: fixed; right: 0; bottom: 0; left: 0; z-index: 40; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 560px; margin: 0 auto; padding: 0 6px max(6px, env(safe-area-inset-bottom)); border-top: 1px solid var(--edge); background: var(--bg-raised); }
+.cab-barre a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px; padding: 8px 2px 4px; color: var(--muted); font-size: 1.0625rem; font-weight: 500; line-height: 1.1; text-decoration: none; white-space: nowrap; }
+.cab-barre a .icon { width: 24px; height: 24px; }
+.cab-barre a[aria-current='page'] { color: var(--accent-text); font-weight: 700; }
+.cab-barre a[aria-current='page']::before { content: ''; position: absolute; top: 0; left: 50%; width: 36px; height: 3px; margin-left: -18px; border-radius: 0 0 3px 3px; background: var(--accent); }
+.cab-avec-barre > .player-shell { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+html:has(.cab-barre) { scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+.cab-avec-barre ~ .cab-toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+
+/* La tour (`Tour.tsx`) : l'entrée du Cabinet depuis le 31 octobre 2026 — la scène en 3D d'un bord à l'autre, son titre sur la
+   nuit, le but en trois images, l'étage à jouer et ses portes. Elle tient en un téléphone, sa barre comprise : la scène prend la
+   hauteur qui reste, jamais moins que de quoi voir deux îles. La scène est une nuit étoilée sous tous les thèmes — un décor,
+   comme le cartel crème — : ce qui s'y écrit, le titre, la liste des étages sans WebGL et la légende d'une île touchée, s'écrit en
+   clair sur son noir, en dur. */
+.cab-tour { display: flex; flex-direction: column; gap: 10px; min-height: 100dvh; }
+.cab-avec-barre > .cab-tour { padding-top: 0; padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+.cab-tour-scene { position: relative; flex: 1 0 176px; min-height: 176px; margin: 0 -20px; overflow: hidden; border-radius: 0 0 24px 24px; background: radial-gradient(130% 80% at 50% 100%, #2a1846, #07050e 70%); }
+.cab-tour-haut { position: absolute; top: 0; right: 0; left: 0; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; padding: max(10px, env(safe-area-inset-top)) 20px 30px; background: linear-gradient(rgba(7, 5, 14, 0.82), rgba(7, 5, 14, 0)); color: #f6efe4; pointer-events: none; }
+.cab-tour-haut > * { pointer-events: auto; }
+.cab-tour-scene:not(.cab-tour-en-3d) .cab-tour-haut { position: static; background: none; padding-bottom: 0; }
+/* « ← Accueil » n'y est plus enfant de la page (`.cab-page > .jour-sortie`) : sa taille et sa marche, ici. */
+.cab-tour-haut .jour-sortie { margin: 0 0 0 -6px; color: #e9dfd0; font-size: 1.0625rem; }
+@media (hover: hover) {
+  .cab-tour-haut .jour-sortie:hover { color: #f7dc9a; }
+}
+.cab-tour-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; align-self: stretch; }
+/* Quatre pixels sous « ← Accueil » : le corps de Cormorant dépasse sa ligne serrée, et le haut du titre passait sous le lien. */
+.cab-tour-haut h1 { margin: 4px 0 0; color: #f7dc9a; font-family: var(--serif); font-size: 2.1rem; font-weight: 600; line-height: 1.05; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7); }
+.cab-tour-aide { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid rgba(247, 220, 154, 0.55); border-radius: 50%; background: rgba(14, 9, 24, 0.55); color: #f7dc9a; cursor: pointer; }
+.cab-tour-aide .icon { width: 22px; height: 22px; }
 .cab-tour-toile { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
-.cab-tour-etages { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 8px 14px 10px; list-style: none; color: #f6efe4; }
+.cab-tour-etages { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 8px 20px 12px; list-style: none; color: #f6efe4; }
 .cab-tour-etages li { display: flex; justify-content: space-between; gap: 8px; }
 .cab-tour-etages .cab-tour-ici { color: #f7dc9a; font-weight: 700; }
 .cab-tour-etat-etage { color: #d3c8e0; }
-.cab-tour-legende { position: absolute; right: 10px; bottom: 10px; left: 10px; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-xs); background: rgba(14, 9, 24, 0.88); color: #f6efe4; }
+.cab-tour-legende { position: absolute; right: 14px; bottom: 14px; left: 14px; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-xs); background: rgba(14, 9, 24, 0.88); color: #f6efe4; }
 .cab-tour-legende .cab-lien { min-height: 36px; color: #f7dc9a; }
-.cab-tour-panneau { display: flex; flex-direction: column; gap: 8px; }
+.cab-tour-panneau { display: flex; flex-direction: column; gap: 10px; }
 .cab-tour-panneau .cab-raison { margin-top: -4px; text-align: left; }
+/* Le but, en trois images reliées : la porte, l'œuvre qu'elle garde, le gardien de sa salle ; et ce qu'il devient, en une ligne. */
+.cab-tour-but { display: flex; flex-direction: column; gap: 6px; }
+.cab-tour-but ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.cab-tour-but li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; font-weight: 700; }
+.cab-tour-but li + li::before { content: ''; position: absolute; top: 23px; left: -5px; width: 10px; height: 10px; border-top: 2px solid var(--muted); border-right: 2px solid var(--muted); rotate: 45deg; }
+.cab-tour-but-image { display: grid; place-items: center; width: 56px; height: 56px; overflow: hidden; border: 2px solid var(--accent); border-radius: 50%; background: var(--surface-strong); color: var(--accent-text); }
+.cab-tour-but-image img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cab-tour-but-image .icon { width: 26px; height: 26px; }
+.cab-tour-but-image.cab-medaillon { font-size: 44px; }
+.cab-tour-but > .cab-ligne { color: var(--muted); text-align: center; text-wrap: balance; }
 .cab-tour-montee { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
 /* Les cœurs d'une montée, rouges sous tous les thèmes : une convention, dite aussi en mots à l'oreille. */
 .cab-coeurs { color: #e0475f; font-size: 1.3rem; letter-spacing: 2px; line-height: 1; }
@@ -11057,8 +11245,6 @@ html:has(.cab-partie .cab-titre-revele) { scroll-padding-bottom: var(--cab-pied,
 .cab-porte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
 .cab-porte-jeu { color: var(--muted); }
 .cab-tour-sous-titre { color: var(--muted); font-family: inherit; font-size: 1.0625rem; font-weight: 400; }
-.cab-tour-annexes { display: flex; flex-wrap: wrap; gap: 8px; }
-.cab-tour-annexes .btn { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; min-width: 88px; padding: 8px 6px; }
 @media (hover: hover) {
   .cab-porte-tour:hover { border-color: var(--accent); }
 }
@@ -12829,6 +13015,8 @@ body.avec-niche .exp-haut-du-depart,
 body.avec-niche .cab-page > .piece-tete,
 body.avec-niche .cab-page .cab-bilan-tete > .piece-tete,
 body.avec-niche .cab-tete-ligne { padding-right: var(--niche-place); }
+/* Le titre de la tour, sur sa nuit d'un bord à l'autre : son rond des règles s'arrête avant la niche. */
+body.avec-niche .cab-tour-haut { padding-right: calc(20px + var(--niche-place)); }
 /* Au Cabinet, le chrono de la tête passe sous la ligne des manches, au bas de la niche : ses secondes s'y cachaient, à chaque manche. */
 body.avec-niche .cab-tete-partie .timer { padding-right: var(--niche-place); }
 /* Au Cabinet, la peinture levée et le cadre vide en grand suivent « ← Le Rempart » : leur coin haut passait sous le bas de la niche. */

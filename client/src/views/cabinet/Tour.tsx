@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { aLaDemande, useALaDemande } from '../../aLaDemande'
-import { PieceTete, Sortie } from '../../components/Pieces'
+import { Dessin } from '../../components/Avatar'
+import { Icon } from '../../components/Icon'
+import { Sortie } from '../../components/Pieces'
 import { CARTES_PEINTES } from '../../components/cartes-peintes'
 import { IMAGES } from '../../components/legendaires-peints'
 import { RARETE_DITE, TEINTE_DE_LA_FAMILLE } from '../../components/OeuvrePeinte'
 import { espacesFines } from '../../format'
 import { ETAGES_DE_LA_TOUR, ORDRE_DE_LA_TOUR, salleDeLEtage } from '../../../../shared/cabinet/montee'
-import { OEUVRES, oeuvre } from '../../../../shared/cabinet/oeuvres'
+import { oeuvre } from '../../../../shared/cabinet/oeuvres'
 import { GARDIENS_DES_SALLES, salle, type CleDeSalle } from '../../../../shared/cabinet/salles'
 import { JEUX } from '../../../../shared/cabinet/jeux/regle'
 import type { PageDuCabinet, PorteVue, TourVue } from '../../../../shared/cabinet/vues'
@@ -21,9 +23,10 @@ import type { EtatDeLaTour, IleDeLaTour, SceneDeLaTour } from './TourEn3D'
 // manches derrière (`shared/cabinet/montee.ts`). Elle répond aux retours que
 // le propriétaire a rapportés : trop d'informations sur l'accueil, pas de
 // progression d'étage en étage, et pas assez dit de ce qu'on gagne. L'écran
-// tient donc en un téléphone : la tour, l'étage à jouer et ses portes — chacune
-// montre ce qu'elle donne, l'œuvre peinte comprise —, et trois liens vers le
-// reste, qui vit sur des pages à part (ton musée, les gardiens, les règles).
+// tient donc en un téléphone, sa barre comprise : la tour d'un bord à l'autre,
+// le but en trois images, l'étage à jouer et ses portes — chacune montre ce
+// qu'elle donne, l'œuvre peinte comprise. Le reste vit sur les autres pièces
+// de la barre (`Barre.tsx`) : ton musée, les gardiens, jouer.
 //
 // La tour se dessine en 3D (`TourEn3D.ts`), chargée à la demande : three.js ne
 // descend qu'ici. Le dessin ne dit rien que la page ne dise en mots — la liste
@@ -122,6 +125,41 @@ function Porte({ p, onOuvrir }: { p: PorteVue; onOuvrir: () => void }) {
   )
 }
 
+/**
+ * Le but du Cabinet, en trois images et trois mots — « on ne sait pas à quoi sert le jeu » (le propriétaire, le 31 octobre
+ * 2026) : ouvre une porte, gagne l'œuvre qu'elle garde, réveille le gardien de sa salle — un avatar légendaire, à porter partout.
+ * L'œuvre est celle qu'une porte de l'étage garde, le gardien celui de sa salle : le but se dit sur ce qu'il va jouer.
+ */
+function LeBut({ porte, gardien }: { porte: PorteVue | undefined; gardien: string }) {
+  const o = oeuvre(porte?.oeuvre)
+  const peinture = o ? CARTES_PEINTES[o.cle] : undefined
+  return (
+    <div className="cab-tour-but">
+      <ol aria-label="Le but">
+        <li>
+          <span className="cab-tour-but-image" aria-hidden="true">
+            <Icon name="chateau" />
+          </span>
+          Ouvre
+        </li>
+        <li>
+          <span className="cab-tour-but-image" aria-hidden="true">
+            {peinture ? <img src={peinture[1]} alt="" decoding="async" /> : <Icon name="image" />}
+          </span>
+          Gagne
+        </li>
+        <li>
+          <span className="cab-tour-but-image cab-medaillon" aria-hidden="true">
+            <Dessin cle={gardien} verrouille />
+          </span>
+          Réveille
+        </li>
+      </ol>
+      <p className="cab-ligne">{espacesFines('Chaque gardien réveillé devient ton avatar légendaire.')}</p>
+    </div>
+  )
+}
+
 /** Ce que l'étage d'avant a fait : la porte ouverte et ce qu'elle a donné, ou le cœur perdu. */
 function dernierEtage(t: TourVue): string | null {
   const e = t.montee?.etages.filter(x => x.ouverte !== null).at(-1)
@@ -142,6 +180,7 @@ export function Tour({ page, onPorte, onReprendre, onRegles }: { page: PageDuCab
   const [troisD] = useState(webglPossible)
   const module = useALaDemande(LA_TOUR_EN_3D, troisD)
   const boite = useRef<HTMLDivElement>(null)
+  const titre = useRef<HTMLHeadingElement>(null)
   const scene = useRef<SceneDeLaTour | null>(null)
   const etat = useMemo(() => etatDeLaTour(page, focus), [page, focus])
   const etatRef = useRef(etat)
@@ -150,7 +189,13 @@ export function Tour({ page, onPorte, onReprendre, onRegles }: { page: PageDuCab
   useEffect(() => {
     if (!module || module === 'perdu' || !boite.current) return
     try {
-      scene.current = module.creerLaTour(boite.current, etatRef.current, { surIle: setRegardee, surFocus: setFocus })
+      // Le titre est posé sur la nuit : la caméra regarde l'étage sous lui, jamais derrière.
+      const couvert = () => {
+        const t = titre.current?.getBoundingClientRect()
+        const s = boite.current?.getBoundingClientRect()
+        return t && s ? t.bottom - s.top : 0
+      }
+      scene.current = module.creerLaTour(boite.current, etatRef.current, { surIle: setRegardee, surFocus: setFocus, couvert })
     } catch {
       // Un contexte WebGL refusé au dernier moment : la liste des étages reste.
       scene.current = null
@@ -164,7 +209,6 @@ export function Tour({ page, onPorte, onReprendre, onRegles }: { page: PageDuCab
     scene.current?.maj(etat)
   }, [etat])
 
-  const oeuvres = page.salles.reduce((n, s) => n + possedeesDe(s), 0)
   const aJouer = t.aJouer
   const salleDeLAJouer = aJouer ? salle(salleDeLEtage(aJouer.etage)) : undefined
   const enCours = page.enCours
@@ -173,16 +217,23 @@ export function Tour({ page, onPorte, onReprendre, onRegles }: { page: PageDuCab
   const gardienVu = vue ? GARDIENS_DES_SALLES[vue][0] : null
   const recit = m && !m.finie ? dernierEtage(t) : null
 
+  const record = t.record ? (t.record.etage >= ETAGES_DE_LA_TOUR ? 'le sommet' : `étage ${t.record.etage}`) : null
   return (
     <div className="player-shell cab-page cab-tour">
-      <Sortie />
-      <PieceTete piece="Le Cabinet de curiosités" titre="La tour" />
-
       <div className={'cab-tour-scene' + (enScene ? ' cab-tour-en-3d' : '')} ref={boite}>
-        {/* Ce qu'il a, en surimpression sur la nuit : une ligne de moins au-dessus des portes. */}
-        <p className="cab-tour-compte">
-          {espacesFines(`${compte(oeuvres, 'œuvre')} sur ${OEUVRES.length}${t.record ? ` · record : ${t.record.etage >= ETAGES_DE_LA_TOUR ? 'le sommet' : `étage ${t.record.etage}`}` : ''}`)}
-        </p>
+        {/* Le titre sur la nuit, la tour d'un bord à l'autre : ce qu'il possède vit au musée — en surimpression sur la scène, il
+            passait sur le nom d'un étage. */}
+        <div className="cab-tour-haut">
+          {/* Les règles, d'un rond au bout de la ligne de sortie : « Comment ça marche ? » vit aussi sous « Jouer », en toutes
+              lettres. À côté du titre, il passait sur le nom de l'étage. */}
+          <div className="cab-tour-ligne">
+            <Sortie />
+            <button type="button" className="cab-tour-aide" aria-label="Comment ça marche ?" onClick={onRegles}>
+              <Icon name="help" />
+            </button>
+          </div>
+          <h1 ref={titre}>La tour</h1>
+        </div>
         {/* Le dessin est décoratif : la liste dit la même tour, et la remplace sans WebGL. */}
         <ol className={'cab-tour-etages' + (enScene ? ' sr-only' : '')} aria-label="Les étages de la tour">
           {[...ORDRE_DE_LA_TOUR].reverse().map((cle, k) => {
@@ -221,16 +272,21 @@ export function Tour({ page, onPorte, onReprendre, onRegles }: { page: PageDuCab
             {m && !m.finie ? (
               <p className="cab-tour-montee">
                 <Coeurs n={aJouer.coeurs} sur={t.coeurs} />
-                <span>{espacesFines(`Étage ${aJouer.etage} sur ${ETAGES_DE_LA_TOUR} · ${m.etoiles} ★`)}</span>
-              </p>
-            ) : m?.finie ? (
-              <p className="cab-ligne cab-tour-fin">
-                {espacesFines(
-                  `Ta dernière montée : ${m.sommet ? 'le sommet' : `étage ${m.hauteur}`}, ${m.etoiles} ★${t.record && t.record.etage === m.hauteur && t.record.etoiles === m.etoiles ? ' — ton record !' : '.'}`,
-                )}
+                <span>{espacesFines(`Étage ${aJouer.etage} sur ${ETAGES_DE_LA_TOUR} · ${m.etoiles} ★${record ? ` · record : ${record}` : ''}`)}</span>
               </p>
             ) : (
-              <p className="cab-ligne">{espacesFines('Trois manches par porte : ouverte, elle te donne ce qu’elle montre.')}</p>
+              <>
+                <LeBut porte={aJouer.portes.find(p => p.oeuvre) ?? aJouer.portes[0]} gardien={GARDIENS_DES_SALLES[salleDeLEtage(aJouer.etage) ?? 'vestibule'][0]} />
+                {m?.finie ? (
+                  <p className="cab-ligne cab-tour-fin">
+                    {espacesFines(
+                      `Ta dernière montée : ${m.sommet ? 'le sommet' : `étage ${m.hauteur}`}, ${m.etoiles} ★${t.record && t.record.etage === m.hauteur && t.record.etoiles === m.etoiles ? ' — ton record !' : '.'}`,
+                    )}
+                  </p>
+                ) : (
+                  record && <p className="cab-ligne cab-tour-fin">{espacesFines(`Ton record : ${record}.`)}</p>
+                )}
+              </>
             )}
             {recit && <p className="cab-raison">{espacesFines(recit)}</p>}
             <h2>
@@ -249,19 +305,6 @@ export function Tour({ page, onPorte, onReprendre, onRegles }: { page: PageDuCab
           </p>
         )}
       </section>
-
-      <nav className="cab-tour-annexes" aria-label="Le reste du Cabinet">
-        {/* Trois mots courts, sur une ligne en 360 de large : le reste du Cabinet vit sur ces pages-là. */}
-        <a className="btn" href={adresseDe({ e: 'musee' })}>
-          Ton musée
-        </a>
-        <a className="btn" href={adresseDe({ e: 'gardiens' })}>
-          Gardiens
-        </a>
-        <button type="button" className="btn" onClick={onRegles}>
-          Règles
-        </button>
-      </nav>
     </div>
   )
 }
