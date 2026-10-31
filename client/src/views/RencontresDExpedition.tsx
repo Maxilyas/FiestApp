@@ -13,7 +13,7 @@ import { iconeDuSujet } from '../iconeDuSujet'
 import { couleurDePiste, pourcentDeChance } from '../../../shared/sentiers'
 import { sujetParCle } from '../../../shared/sujets'
 import { ceQueRapporteUneCuriosite } from '../../../shared/curiosites'
-import { CATEGORIES } from '../../../shared/categories'
+import { CATEGORIES, NOMS_COURTS } from '../../../shared/categories'
 import type { Niveau } from '../../../shared/campagne'
 import {
   MARCHES_DES_ACTES,
@@ -134,14 +134,8 @@ import {
 /** « 62 % » : une chance telle que la page l'écrit, le signe collé par une espace fine insécable. */
 export const pourcents = (chance: number) => `${pourcentDeChance(chance)} %`
 
-/** Le nom d'une catégorie là où la place manque : sous une escale, dans les douze pastilles du Commandement. */
-export const COURT: Readonly<Record<string, string>> = {
-  'Culture générale': 'Culture G.',
-  'Cinéma & séries': 'Cinéma',
-  'Arts & lettres': 'Arts',
-  'Jeux & pop culture': 'Jeux & pop',
-  'Autour de la fête': 'La fête',
-}
+/** Le nom d'une catégorie là où la place manque : sous une escale, dans les douze pastilles du Commandement — la liste que partage le radar de la carte. */
+export const COURT = NOMS_COURTS
 
 // ── Les cartes ──────────────────────────────────────────────────────────────
 

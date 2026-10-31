@@ -6194,12 +6194,14 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   min-height: 0;
   max-height: min(76vh, 580px);
   max-height: min(76dvh, 580px);
-  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--tourne, 0deg)));
+  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--tourne, 0deg) + var(--glisse, 0deg)));
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.carte-retournee { --tourne: 180deg; }
+/* Le doigt qui glisse la tient : elle le suit sans traîner (`--glisse`), et
+   reprend sa course quand il la lâche — vers la face suivante, ou en arrière. */
+.carte-tenue { transition: none; }
 .carte-face {
   grid-area: 1 / 1;
   position: relative;
@@ -6221,7 +6223,18 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   -webkit-transform: rotateY(0deg) translateZ(1px);
   isolation: isolate;
 }
-.carte-dos { transform: rotateY(180deg) translateZ(1px); -webkit-transform: rotateY(180deg) translateZ(1px); }
+/* Une vraie carte n'a que deux côtés : ses faces y passent tour à tour
+   (`placeDeLaFace`). L'envers porte la face montrée ou quittée qui s'y tient ;
+   les autres sont rangées — invisibles, mais à leur place : la carte garde la
+   taille de sa plus grande face. */
+.carte-envers { transform: rotateY(180deg) translateZ(1px); -webkit-transform: rotateY(180deg) translateZ(1px); }
+.carte-face-rangee { visibility: hidden; }
+/* Les gemmes de ses faces, serties dans le métal du pied du cadre ; celle
+   qu'on regarde s'allume. Dans ses sept pixels : épaissi pour elles, le
+   cadre faisait défiler de cinq pixels le dos d'une habituée en 360 × 640. */
+.carte-gemmes { position: absolute; z-index: 3; left: 0; right: 0; bottom: 1px; display: flex; justify-content: center; gap: 9px; pointer-events: none; }
+.carte-gemmes i { width: 5px; height: 5px; border-radius: 50%; background: rgba(0, 0, 0, 0.5); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3); }
+.carte-gemmes .carte-gemme-allumee { background: radial-gradient(circle at 35% 35%, #ffffff, #fff4c7 50%, #e3b04b); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 6px rgba(255, 244, 199, 0.9); }
 /* Le reflet : la lumière accroche la carte là où le doigt la penche. */
 .carte-face::after {
   content: '';
@@ -6492,7 +6505,13 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 /* Le dos : son nom, ses chiffres en un seul tableau, ses écussons, sa
    collection tout au bout. Serré pour tenir en 360 × 640, ses mots compris :
    le lien des mots garde sa hauteur de doigt. */
-.carte-dos .carte-defile { gap: 5px; padding-bottom: 6px; }
+.carte-dos .carte-defile,
+.carte-savoir .carte-defile,
+.carte-sentiers .carte-defile { gap: 5px; padding-bottom: 6px; }
+/* Le doigt qui monte ou descend fait défiler la face ; celui qui glisse de
+   côté va à la page, qui retourne la carte : sans quoi le navigateur le
+   prenait pour un défilement, et l'annulait. */
+.carte-joueur .carte-defile { touch-action: pan-y pinch-zoom; }
 .carte-dos-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; }
 .carte-dos-tete h3 { margin: 0; font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.05; overflow-wrap: anywhere; }
 .carte-dos-titre { flex: none; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
@@ -6516,6 +6535,123 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 /* Le dernier d'une rangée incomplète la finit ; seul sur la sienne, il se couche — son nom, son chiffre et sa base sur une ligne. */
 .carte-cadrans > .carte-cadran:last-child:nth-child(3n + 1) { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
 .carte-cadrans > .carte-cadran:last-child:nth-child(3n + 2) { grid-column: span 2; }
+
+/* Son savoir, en radar. La trame et la forme dans un SVG à la largeur de la
+   face, ses étiquettes en boutons posés dessus : elles gardent la taille du
+   texte quand le radar rapetisse — dessinées dans le SVG, elles passaient
+   sous les onze pixels du plus petit texte. */
+.carte-radar { position: relative; aspect-ratio: 300 / 228; margin: 0 -4px; }
+/* La moyenne des joueurs, d'un bleu froid à côté de l'or de la sienne : mêlé
+   à l'encre du thème, il s'éclaircit sur les fonds sombres et fonce sous
+   Ivoire — aucun thème n'a de bleu à lui prêter. */
+.carte-radar,
+.carte-radar-detail { --moyenne: color-mix(in srgb, #5ab4f0 72%, var(--ink)); }
+.carte-radar-moyenne { fill: none; stroke: var(--moyenne); stroke-width: 1.6; stroke-dasharray: 4 3; stroke-linejoin: round; }
+.carte-radar-legende { position: absolute; left: 2px; bottom: 0; display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-label); line-height: 1.2; color: var(--muted); pointer-events: none; }
+.carte-radar-trait { flex: none; width: 14px; height: 0; border-top: 2px dashed var(--moyenne); }
+.carte-radar-trame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.carte-radar-anneau { fill: none; stroke: color-mix(in srgb, var(--lueur) 16%, transparent); stroke-width: 1; }
+.carte-radar-bord { fill: color-mix(in srgb, var(--lueur) 5%, transparent); stroke: color-mix(in srgb, var(--lueur) 36%, transparent); stroke-width: 1; }
+.carte-radar-axes { stroke: color-mix(in srgb, var(--lueur) 13%, transparent); stroke-width: 1; }
+.carte-radar-axe-choisi { stroke: var(--lueur); stroke-width: 1.4; stroke-dasharray: 2 3; opacity: 0.85; }
+/* La forme éclot du centre à l'ouverture de la face — la face entre en
+   scène une fois : le mouvement réduit la pose d'un coup. */
+.carte-radar-forme {
+  fill: color-mix(in srgb, var(--lueur) 28%, transparent);
+  stroke: var(--lueur);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--lueur) 45%, transparent));
+  transform-origin: 150px 115px;
+  animation: radar-eclot 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes radar-eclot {
+  from { transform: scale(0.15); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.carte-radar-a-decouvrir { fill: none; stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 2 4; opacity: 0.75; }
+/* Au bout de chaque rayon, la pierre de son écusson : le bronze, l'argent,
+   l'or (leur couleur, `.palier-N`) ; creuse sans écusson. */
+.carte-radar-trame .carte-radar-pierre { fill: currentColor; stroke: var(--bg-raised); stroke-width: 1.6; }
+.carte-radar-trame .carte-radar-pierre.palier-0 { fill: var(--bg-raised); stroke: var(--muted); }
+.carte-radar-trame .carte-radar-pierre-choisie { stroke-width: 2.2; filter: drop-shadow(0 0 4px var(--lueur)); }
+.carte-radar-etiquette {
+  position: absolute;
+  translate: -50% -50%;
+  margin: 0;
+  padding: 5px 3px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-label);
+  font-weight: 600;
+  line-height: 1.1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.carte-radar-etiquette:hover { color: var(--accent-text-hover); }
+.carte-radar-inconnue { color: var(--muted); font-weight: 500; }
+.carte-radar-etiquette[aria-pressed='true'] { color: var(--accent-text); font-weight: 800; }
+/* La catégorie touchée : sa part en grand et sur combien, sa jauge à la
+   lueur de sa branche et son écusson au bout, son sentier. Le cadre reste
+   celui de la carte : teint de la lueur de chaque branche, il passait au
+   rose du grand écran, qui se lisait comme une erreur. */
+.carte-radar-detail { display: flex; align-items: stretch; gap: 10px; padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--lueur) 30%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--lueur) 7%, transparent); }
+.carte-radar-part { flex: none; display: flex; flex-direction: column; justify-content: center; min-width: 68px; padding-right: 10px; border-right: 1px solid color-mix(in srgb, var(--lueur) 26%, transparent); }
+.carte-radar-pourcent { font-family: var(--serif); font-size: 1.95rem; font-weight: 700; line-height: 0.95; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.carte-radar-pourcent small { font-size: 0.55em; font-weight: 600; }
+.carte-radar-sur { margin-top: 3px; font-size: var(--t-label); line-height: 1.25; color: var(--muted); }
+.carte-radar-corps { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+.carte-radar-nom { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; line-height: 1.1; }
+.carte-radar-mesure { display: flex; align-items: center; gap: 8px; }
+.carte-radar-ecusson { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.carte-radar-ecusson .icon { width: 13px; height: 13px; }
+.carte-radar-jauge { position: relative; flex: 1; height: 6px; overflow: hidden; border-radius: 3px; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.carte-radar-jauge > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--lueur); }
+/* La moyenne des joueurs sur sa jauge : un trait, cerné du sol de la carte pour se lire sur le plein comme sur le vide. */
+.carte-radar-repere { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--moyenne); box-shadow: 0 0 0 1px var(--bg-raised); }
+.carte-radar-ligne { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; line-height: 1.25; color: var(--muted); }
+.carte-radar-comparaison b { color: var(--accent-text); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.carte-radar-sentier { color: var(--ink); font-weight: 600; }
+.carte-radar-sentier .icon { flex: none; width: 14px; height: 14px; color: var(--accent-text); }
+/* Ses forces et ce qui lui reste à conquérir, côte à côte comme une fiche : chaque ligne se touche, et le radar la montre. */
+.carte-radar-rangees { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.carte-radar-rangee { flex: 1 1 0; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.carte-radar-rangee .label { margin: 0 0 1px; }
+.carte-radar-puce { display: flex; align-items: center; gap: 6px; min-height: 24px; padding: 0 5px; border: 0; border-radius: var(--radius-xs); background: none; color: var(--ink); font: inherit; font-size: 0.75rem; font-weight: 600; text-align: left; cursor: pointer; }
+.carte-radar-puce b { margin-left: auto; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.carte-radar-puce[aria-pressed='true'] { background: color-mix(in srgb, var(--lueur) 14%, transparent); }
+.carte-radar-puce .carte-radar-pierre { flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.carte-radar-puce .carte-radar-pierre.palier-0 { background: none; box-shadow: inset 0 0 0 1.5px var(--muted); }
+.carte-radar-note { flex: 1 0 100%; margin: 2px 0 0; font-size: var(--t-label); line-height: 1.3; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) {
+  .carte-radar-forme { animation: none; }
+}
+
+/* Ses sentiers : un anneau de douze crans par sentier commencé, à la lueur
+   de sa branche — celle de la campagne —, autour du dernier avatar qu'il y a
+   gagné ; un maître a ses crans d'or et sa couronne sur l'émail noir. */
+.carte-sentiers-grille { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 4px; }
+.carte-sentier { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; padding: 3px 2px 1px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--ink); font: inherit; cursor: pointer; }
+.carte-sentier[aria-pressed='true'] { border-color: color-mix(in srgb, var(--lueur) 55%, transparent); background: color-mix(in srgb, var(--lueur) 10%, transparent); }
+.carte-sentier-anneau { position: relative; display: grid; place-items: center; width: 50px; height: 50px; }
+.carte-sentier-anneau > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.carte-sentier-cran { fill: none; stroke: color-mix(in srgb, var(--ink) 14%, transparent); stroke-width: 4; stroke-linecap: round; }
+.carte-sentier-valide { stroke: var(--lueur); filter: drop-shadow(0 0 2px color-mix(in srgb, var(--lueur) 60%, transparent)); }
+.carte-sentier-maitre .carte-sentier-valide { stroke: var(--or-text); filter: drop-shadow(0 0 4px var(--or-text)); }
+.carte-sentier-disque { display: grid; place-items: center; width: 36px; height: 36px; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--lueur) 30%, var(--bg-raised)), color-mix(in srgb, var(--bg) 80%, #000)); color: var(--lueur); }
+.carte-sentier-disque .icon { width: 17px; height: 17px; }
+.carte-sentier-disque .sentier-portrait { width: 36px; height: 36px; }
+/* Comme dans une liste, ses avatars ne bougent pas : la carte a déjà son sujet. */
+.carte-sentier .pt * { animation: none; }
+.carte-sentier-palier { position: absolute; left: 50%; bottom: -4px; translate: -50% 0; min-width: 30px; padding: 0 5px; border-radius: var(--radius-pill); background: var(--bg-raised); box-shadow: 0 0 0 1px color-mix(in srgb, var(--lueur) 60%, transparent); font-size: var(--t-label); font-weight: 700; line-height: 1.35; text-align: center; white-space: nowrap; }
+/* L'émail noir des maîtres, leur or : une convention, écrite en dur comme leur cadre. */
+.carte-sentier-maitre .carte-sentier-palier { display: grid; place-items: center; min-width: 24px; height: 16px; padding: 0; background: radial-gradient(circle at 35% 30%, #2c2438, #07060a 75%); box-shadow: 0 0 0 1px #b8892f, 0 0 8px rgba(246, 221, 148, 0.5); color: #f6dd94; }
+.carte-sentier-maitre .carte-sentier-palier .icon { width: 12px; height: 12px; }
+.carte-sentier-nom { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-label); font-weight: 600; line-height: 1.3; }
+.carte-sentier-detail { margin: 0; padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--lueur) 32%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--lueur) 8%, transparent); font-size: 0.78rem; line-height: 1.35; }
+.carte-sentier-detail b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
 
 /* La catégorie de la question, au-dessus de son intitulé : une étiquette,
    pas un titre — la question reste ce qu'on lit en premier. */

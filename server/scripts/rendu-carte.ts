@@ -6,7 +6,10 @@
 // fonds de carte, recto et dos (la Nuit étoilée, le Théâtre et son lambrequin,
 // la Cité céleste, la Bibliothèque sous Ivoire) ; le cadre de chaque ligue des
 // duels, et sans ligue ; un nom, un titre et un compagnon aussi longs qu'ils
-// peuvent l'être. Chaque photo dit si la carte défile, et de combien.
+// peuvent l'être ; ses faces de plus — son savoir en radar, ses sentiers —,
+// retournée une, deux, trois fois, et le doigt qui la fait glisser de côté
+// (`glisse`, en vrais événements tactiles). Chaque photo dit la face montrée,
+// si elle défile, et de combien.
 //
 // Léa est une habituée : niveau 23, le Phénix porté, « L'Oracle » en titre —
 // et Nox, son loup des étoiles, dont la niche a passé trois paliers. Son
@@ -53,6 +56,45 @@ function badge(cle: string, fois = 1) {
 /** Sa soirée de ce soir, comme la salle l'ouvre en touchant son nom : troisième sur douze. */
 const CE_SOIR = { points: 2450, rang: 3, joueurs: 12, reponses: 14, qcm: 11, justes: 8, estimations: 3, coupDOeil: 0.67 }
 
+/**
+ * Son savoir, catégorie par catégorie — tous modes de jeu ensemble : ses
+ * écussons en sortent (l'or en histoire, l'argent au cinéma et en musique,
+ * ceux de son dos), et ses douze catégories ont leurs dix QCM.
+ */
+const SAVOIR_DE_LEA = [
+  { categorie: 'Culture générale', questions: 100, justes: 70 },
+  { categorie: 'Histoire', questions: 262, justes: 212 },
+  { categorie: 'Géographie', questions: 83, justes: 52 },
+  { categorie: 'Sciences', questions: 69, justes: 38 },
+  { categorie: 'Nature', questions: 92, justes: 66 },
+  { categorie: 'Cinéma & séries', questions: 212, justes: 182 },
+  { categorie: 'Musique', questions: 164, justes: 121 },
+  { categorie: 'Arts & lettres', questions: 50, justes: 24 },
+  { categorie: 'Sport', questions: 29, justes: 9 },
+  { categorie: 'Cuisine', questions: 52, justes: 31 },
+  { categorie: 'Jeux & pop culture', questions: 93, justes: 64 },
+  { categorie: 'Autour de la fête', questions: 67, justes: 44 },
+]
+
+/** La moyenne des joueurs, catégorie par catégorie : le joueur moyen, autour de six sur dix. */
+const MOYENNES = {
+  'Culture générale': 0.61,
+  Histoire: 0.58,
+  Géographie: 0.57,
+  Sciences: 0.54,
+  Nature: 0.6,
+  'Cinéma & séries': 0.63,
+  Musique: 0.59,
+  'Arts & lettres': 0.52,
+  Sport: 0.55,
+  Cuisine: 0.58,
+  'Jeux & pop culture': 0.62,
+  'Autour de la fête': 0.64,
+}
+
+/** Ses douze sentiers commencés : maître du grand écran et des mythologies, le stade à peine entamé. */
+const SENTIERS_DE_LEA = { monde: 8, mythes: 13, oceans: 6, espace: 5, foret: 10, ecran: 13, scene: 11, contes: 4, stade: 1, brigade: 6, arcade: 8, carnaval: 7 }
+
 /** Ce que des mois de soirées lui ont donné, posé sur la carte que rend le serveur — son compagnon, son avatar et son titre restent les siens. */
 function habituee(lue: any, ligue = 'or') {
   return {
@@ -73,6 +115,9 @@ function habituee(lue: any, ligue = 'or') {
         { categorie: 'Cinéma & séries', palier: 2 },
         { categorie: 'Musique', palier: 2 },
       ],
+      savoir: SAVOIR_DE_LEA,
+      moyennes: MOYENNES,
+      sentiers: SENTIERS_DE_LEA,
       prix: { eus: 7, total: lue.profil.prix?.total ?? 14 },
       fiche: { soirees: 23, precision: 0.71, qcm: 412, justes: 293, coupDOeil: 0.64, estimationsComparees: 58, reflexeMoyenMs: 4200, quizGagnes: 9, meilleureSerie: 11 },
     },
@@ -86,8 +131,12 @@ interface Etat {
   theme?: string
   /** Pas de compagnon à attendre. */
   sansCompagnon?: boolean
-  /** Ce qui se touche, une photo chacun : le dos, le compagnon, l'avatar. */
-  gestes?: readonly ('dos' | 'compagnon' | 'avatar')[]
+  /**
+   * Ce qui se touche, une photo chacun : le dos, son savoir, ses sentiers —
+   * retournée une, deux, trois fois —, le compagnon, l'avatar ; et le doigt
+   * qui glisse vers la gauche, deux fois, puis vers la droite (`glisse`).
+   */
+  gestes?: readonly ('dos' | 'savoir' | 'sentiers' | 'compagnon' | 'avatar' | 'glisse')[]
   /** La carte seule, sans la page autour : pour comparer les cadres. */
   seule?: boolean
 }
@@ -95,8 +144,8 @@ interface Etat {
 const avecCeSoir = (c: any) => ({ ...c, ceSoir: CE_SOIR })
 
 const ETATS: readonly Etat[] = [
-  { nom: '1-soiree', carte: lue => avecCeSoir(habituee(lue)), gestes: ['dos', 'compagnon', 'avatar'] },
-  { nom: '2-sa-carte', carte: habituee, gestes: ['dos'] },
+  { nom: '1-soiree', carte: lue => avecCeSoir(habituee(lue)), gestes: ['dos', 'savoir', 'sentiers', 'compagnon', 'avatar', 'glisse'] },
+  { nom: '2-sa-carte', carte: habituee, gestes: ['dos', 'savoir', 'sentiers'] },
   {
     nom: '3-sans-compagnon',
     sansCompagnon: true,
@@ -106,10 +155,11 @@ const ETATS: readonly Etat[] = [
       return avecCeSoir(c)
     },
   },
-  // Une débutante : son emoji, deux soirées, son jeune chat sans nom ni ornement, aucun duel.
+  // Une débutante : son emoji, deux soirées, son jeune chat sans nom ni ornement, aucun duel ;
+  // cinq catégories à leurs dix QCM — son radar en pétales —, deux sentiers commencés.
   {
     nom: '4-debutante',
-    gestes: ['dos'],
+    gestes: ['dos', 'savoir', 'sentiers'],
     carte: lue => ({
       ...lue,
       legendaire: undefined,
@@ -128,6 +178,18 @@ const ETATS: readonly Etat[] = [
         duels: undefined,
         campagne: undefined,
         ecussons: [],
+        savoir: [
+          { categorie: 'Culture générale', questions: 14, justes: 9 },
+          { categorie: 'Histoire', questions: 6, justes: 3 },
+          { categorie: 'Nature', questions: 11, justes: 6 },
+          { categorie: 'Cinéma & séries', questions: 21, justes: 15 },
+          { categorie: 'Musique', questions: 12, justes: 7 },
+          { categorie: 'Sport', questions: 3, justes: 1 },
+          { categorie: 'Jeux & pop culture', questions: 10, justes: 8 },
+        ],
+        // Un petit serveur : la moyenne des joueurs n'a que huit catégories — des arcs, pas une forme.
+        moyennes: Object.fromEntries(Object.entries(MOYENNES).slice(0, 8)),
+        sentiers: { foret: 3, ecran: 1 },
         prix: { eus: 1, total: lue.profil.prix?.total ?? 14 },
         fiche: { soirees: 2, precision: 0.55, qcm: 22, justes: 12, coupDOeil: 0.4, estimationsComparees: 5, reflexeMoyenMs: 6100, quizGagnes: 0, meilleureSerie: 3 },
         compagnon: { compagnon: 'chat', rang: 1 },
@@ -136,7 +198,7 @@ const ETATS: readonly Etat[] = [
   },
   // Un invité sans profil : sa soirée, et rien qui dise ce qui lui manque (invariant 8).
   { nom: '5-anonyme', sansCompagnon: true, carte: () => ({ nom: 'Tom', avatar: '🐼', ceSoir: { ...CE_SOIR, rang: 5, points: 1720, justes: 6, coupDOeil: 0.5 } }) },
-  { nom: '6-ivoire', theme: 'ivoire', carte: lue => avecCeSoir(habituee(lue)), gestes: ['dos'] },
+  { nom: '6-ivoire', theme: 'ivoire', carte: lue => avecCeSoir(habituee(lue)), gestes: ['dos', 'savoir', 'sentiers'] },
   // Son fond tapisse les deux faces : un dessiné, le théâtre et son lambrequin, un peint — le plus clair, la Cité céleste —, et sous Ivoire.
   { nom: '7-fond-nuit', carte: lue => avecCeSoir({ ...habituee(lue), profil: { ...habituee(lue).profil, fond: 'nuit' } }), gestes: ['dos'] },
   { nom: '7-fond-theatre', carte: lue => ({ ...habituee(lue), profil: { ...habituee(lue).profil, fond: 'theatre' } }), gestes: ['dos'] },
@@ -217,10 +279,11 @@ try {
       const face = [...document.querySelectorAll('.carte-joueur .carte-face')].find(f => !f.inert)
       const d = face && face.querySelector('.carte-defile')
       if (!d) return '(pas de face)'
+      const nom = (face.className.match(/carte-(recto|dos|savoir|sentiers)/) || [])[1]
       const boite = document.querySelector('.carte-joueur').getBoundingClientRect()
       const croix = document.querySelector('.carte-croix').getBoundingClientRect()
       const defile = d.scrollHeight > d.clientHeight + 1 ? 'défile de ' + (d.scrollHeight - d.clientHeight) + ' px' : 'tient en entier'
-      return 'face ' + d.clientHeight + ' px, ' + defile + ' · carte ' + Math.round(boite.top) + '→' + Math.round(boite.bottom) + ' · croix ' + (croix.bottom <= innerHeight ? 'en vue' : 'HORS DE L’ÉCRAN') + (document.documentElement.scrollWidth > innerWidth ? ' · DÉBORDE EN LARGEUR' : '')
+      return nom + ' : face ' + d.clientHeight + ' px, ' + defile + ' · carte ' + Math.round(boite.top) + '→' + Math.round(boite.bottom) + ' · croix ' + (croix.bottom <= innerHeight ? 'en vue' : 'HORS DE L’ÉCRAN') + (document.documentElement.scrollWidth > innerWidth ? ' · DÉBORDE EN LARGEUR' : '')
     })()`)
   const photo = async (fichier: string) => {
     const vu = await mesurer()
@@ -231,6 +294,20 @@ try {
       await page.screenshot({ path: path.join(sortie, `${fichier}.png`), clip: { x: Math.max(0, r.x - 8), y: Math.max(0, r.y - 8), width: Math.min(largeur, r.width + 16), height: r.height + 16 } })
     } else await page.screenshot({ path: path.join(sortie, `${fichier}.png`) })
   }
+  // Un doigt qui glisse sur la carte, de côté, en vrais événements tactiles
+  // (`Input.dispatchTouchEvent`) : la page reçoit des pointeurs `touch`, et
+  // le navigateur décide comme au téléphone s'il défile ou s'il les lui laisse.
+  const glisser = async (dx: number) => {
+    const r = await page.locator('.carte-pivot').boundingBox()
+    const cdp = await ctx.newCDPSession(page)
+    const y = r.y + r.height * 0.55
+    const x0 = r.x + r.width / 2 - dx / 2
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y }] })
+    for (let k = 1; k <= 8; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + (dx * k) / 8, y }] })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await cdp.detach()
+    await page.waitForTimeout(250)
+  }
   for (const e of ETATS.filter(e => retenu(e.nom))) {
     etat = e
     if (e.theme) await porter({ theme: e.theme })
@@ -238,8 +315,24 @@ try {
     await photo(e.nom)
     for (const geste of e.gestes ?? []) {
       await ouvrir()
-      await page.click(geste === 'dos' ? '.carte-retourner' : geste === 'compagnon' ? '.carte-compagnon' : '.carte-avatar-bouton')
-      await page.waitForTimeout(geste === 'dos' ? 400 : 900)
+      if (geste === 'glisse') {
+        // Deux fois vers la gauche : ses chiffres, puis son savoir ; une fois vers la droite : ses chiffres.
+        await glisser(-170)
+        await photo(`${e.nom}-glisse-1`)
+        await glisser(-170)
+        await photo(`${e.nom}-glisse-2`)
+        await glisser(170)
+        await photo(`${e.nom}-glisse-retour`)
+        continue
+      }
+      // Le dos, son savoir, ses sentiers : la carte retournée une, deux, trois fois.
+      const retournements = { dos: 1, savoir: 2, sentiers: 3 }[geste as string] ?? 0
+      for (let k = 0; k < retournements; k++) await page.click('.carte-retourner')
+      if (!retournements) await page.click(geste === 'compagnon' ? '.carte-compagnon' : '.carte-avatar-bouton')
+      // Ses avatars des sentiers viennent quand la carte se retourne : on attend leurs images.
+      if (geste === 'sentiers') await page.waitForSelector('.carte-sentiers .pt image', { timeout: 6000 }).catch(() => console.error(`[${e.nom}] pas d’avatar des sentiers`))
+      await page.evaluate('Promise.all([...document.images].map(i => i.decode().catch(() => {})))')
+      await page.waitForTimeout(retournements ? 700 : 900)
       await photo(`${e.nom}-${geste}`)
     }
     if (e.theme) await porter({ theme: null })

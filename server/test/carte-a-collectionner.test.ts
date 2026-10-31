@@ -96,7 +96,7 @@ test('au dos, un seul tableau : ses cadrans, puis ses prix, son quiz du jour, se
   assert.equal(cadransDuDos(habituee()).length, 6, 'rien de plus que ses cadrans')
   // Les pastilles sont parties, et le dos dit ses chiffres, ses écussons, puis sa collection, tout au bout.
   assert.doesNotMatch(CARTE, /carte-pastilles|carte-prix/)
-  const dos = CARTE.slice(CARTE.indexOf('<section className="carte-face carte-dos"'))
+  const dos = CARTE.slice(CARTE.indexOf("<section className={classeDe('chiffres')}"))
   const ordre = ['<Cadrans cases={cadransDuDos(p)} />', 'Ses écussons', 'Sa collection', '<Glossaire mots={mots} />'].map(m => dos.indexOf(m))
   assert.ok(ordre.every((i, k) => i > 0 && (k === 0 || i > ordre[k - 1])), `le dos, dans l’ordre : ${ordre}`)
   // Un cadran seul sur la dernière rangée la prend en entier, couché ; deux se la partagent.
@@ -104,37 +104,52 @@ test('au dos, un seul tableau : ses cadrans, puis ses prix, son quiz du jour, se
   assert.match(regle('.carte-cadrans > .carte-cadran:last-child:nth-child(3n + 2)'), /grid-column:\s*span 2;/)
 })
 
-test('elle se retourne : un dos pour un profil, rien pour l’invité sans profil, et la face cachée se tait', () => {
+test('elle se retourne de face en face : ses chiffres, son savoir, ses sentiers pour un profil, rien pour l’invité sans profil, et les faces cachées se taisent', () => {
+  // Les faces de plus (le 31 octobre 2026) ne sont qu'à un profil, et chacune
+  // s'il a de quoi la remplir : `facesDeLaCarte` (`carte-savoir.test.ts`).
   assert.match(CARTE, /const aUnDos = !!p && !loupe\n/)
-  assert.match(CARTE, /\{carte && p && aUnDos && \(\s*<section className="carte-face carte-dos" aria-hidden=\{!verso \|\| undefined\} inert=\{!verso\}>/)
-  assert.match(CARTE, /<section className="carte-face carte-recto" aria-hidden=\{\(verso && aUnDos\) \|\| undefined\} inert=\{verso && aUnDos\}>/)
+  assert.match(CARTE, /<section className=\{classeDe\('recto'\)\} aria-hidden=\{cachee\('recto'\) \|\| undefined\} inert=\{cachee\('recto'\)\}>/)
+  assert.match(CARTE, /\{carte && p && aUnDos && \(\s*<section className=\{classeDe\('chiffres'\)\} aria-hidden=\{cachee\('chiffres'\) \|\| undefined\} inert=\{cachee\('chiffres'\)\}>/)
+  assert.match(CARTE, /\{carte && p && aUnDos && radar && \(\s*<section className=\{classeDe\('savoir'\)\} aria-hidden=\{cachee\('savoir'\) \|\| undefined\} inert=\{cachee\('savoir'\)\}>/)
+  assert.match(CARTE, /\{carte && p && aUnDos && sentiers && \(\s*<section className=\{classeDe\('sentiers'\)\} aria-hidden=\{cachee\('sentiers'\) \|\| undefined\} inert=\{cachee\('sentiers'\)\}>/)
+  // Toute face autre que la montrée se tait : celle qui vient d'être quittée, qui tourne encore, comme les rangées.
+  assert.match(CARTE, /const cachee = \(nom: Face\) => nom !== montree\n/)
   // L'invité sans profil a ses mots au recto, puisqu'il n'a pas de dos.
   assert.match(CARTE, /\{!p && mots\.length > 0 && <Glossaire mots=\{mots\} \/>\}/)
-  // « Retourner la carte » garde son nom, l'état par `aria-pressed`, et sous la carte, à côté de la croix.
-  assert.match(CARTE, /<button type="button" className="carte-retourner" aria-pressed=\{verso\} onClick=\{\(\) => setVerso\(v => !v\)\}>\s*<Icon name="rotate" \/>\s*Retourner la carte\s*<\/button>/)
+  // « Retourner la carte » garde son nom et montre la face suivante, sous la
+  // carte, à côté de la croix ; la face où elle s'arrête se dit à l'oreille.
+  assert.match(CARTE, /<button type="button" className="carte-retourner" onClick=\{\(\) => tourner\(1\)\}>\s*<Icon name="rotate" \/>\s*Retourner la carte\s*<\/button>/)
   const sous = CARTE.indexOf('<div className="carte-sous">')
   assert.ok(sous > 0 && sous < CARTE.indexOf('className="carte-retourner"') && sous < CARTE.indexOf('className="carte-croix"'))
-  // Les deux faces tiennent la même case, la taille de la plus grande, et se tournent le dos.
+  assert.ok(CARTE.indexOf('aria-live="polite"') > sous, 'la face montrée se dit sous la carte')
+  // Ses faces tiennent la même case, la taille de la plus grande, et se tournent le dos.
   assert.match(regle('.carte-pivot'), /grid-template:\s*minmax\(0, 1fr\) \/ minmax\(0, 1fr\);/)
   assert.match(regle('.carte-face'), /grid-area:\s*1 \/ 1;/)
   assert.match(regle('.carte-face'), /backface-visibility:\s*hidden;/)
   // Le translateZ explicite garde les faces dans le contexte 3D sur Safari iOS
   // (sans lui, le recto restait visible en miroir au lieu du verso).
-  assert.match(regle('.carte-dos'), /transform:\s*rotateY\(180deg\) translateZ\(1px\);/)
+  assert.match(regle('.carte-envers'), /transform:\s*rotateY\(180deg\) translateZ\(1px\);/)
   assert.match(regle('.carte-face'), /transform:\s*rotateY\(0deg\) translateZ\(1px\);/)
-  assert.match(regle('.carte-retournee'), /--tourne:\s*180deg;/)
-  // Le mouvement réduit : ni inclinaison sous le doigt, ni retournement animé.
+  // Un demi-tour par face, dans le sens du doigt — et rien de posé tant qu'elle n'a pas tourné.
+  assert.match(CARTE, /style=\{tour\.demi \? \(\{ '--tourne': `\$\{tour\.demi \* 180\}deg` \} as CSSProperties\) : undefined\}/)
+  assert.match(regle('.carte-pivot'), /rotateY\(calc\(var\(--ry, 0deg\) \+ var\(--tourne, 0deg\) \+ var\(--glisse, 0deg\)\)\)/)
+  // Les faces rangées gardent leur place sans se voir : la carte garde sa taille d'une face à l'autre.
+  assert.match(regle('.carte-face-rangee'), /visibility:\s*hidden;/)
+  // Le doigt qui glisse de côté va à la page, pas au défilement.
+  assert.match(regle('.carte-joueur .carte-defile', /touch-action/), /touch-action:\s*pan-y pinch-zoom;/)
+  // Le mouvement réduit : ni inclinaison sous le doigt, ni retournement animé, ni la carte qui suit le doigt.
   assert.match(CARTE, /if \(!el \|\| sansMouvement\(\)\) return/)
+  assert.match(CARTE, /if \(!sansMouvement\(\)\) el\.style\.setProperty\('--glisse'/)
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{\s*\.carte-pivot \{ transition: none; \}/)
 })
 
-test('son fond de carte tapisse ses deux faces, dans leur cadre de métal, et l’illustration le laisse voir', () => {
+test('son fond de carte tapisse chacune de ses faces, dans leur cadre de métal, et l’illustration le laisse voir', () => {
   // Dans l'illustration seule, on ne le voyait que derrière l'avatar, quand la
   // boutique, la loge et la collection le montrent sur la carte entière (« et
   // le fond ne peut pas couvrir recto et verso ? », le propriétaire, le
-  // 20 octobre 2026).
+  // 20 octobre 2026). Ses faces de plus, son savoir et ses sentiers, aussi.
   const dedans = /<div className=\{'carte-dedans' \+ \(fond \? ` carte-fond fond-\$\{fond\}` : ''\)\}>\s*<div className="carte-defile">/g
-  assert.equal([...CARTE.matchAll(dedans)].length, 2, 'le recto et le dos')
+  assert.equal([...CARTE.matchAll(dedans)].length, 4, 'le recto, ses chiffres, son savoir, ses sentiers')
   assert.match(CARTE, /<div className="carte-illustration">/)
   assert.doesNotMatch(CARTE, /'carte-(joueur|illustration)'[^}]*carte-fond/, 'ni la fenêtre de la carte entière, ni l’illustration seule')
   // Il ne bouge pas : ce qui défile passe par-dessus lui, sans sol à soi ; l'illustration n'y pose qu'un halo autour de l'avatar.

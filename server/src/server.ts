@@ -626,6 +626,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // (`core/repriseDesPortraits.ts`).
   profiles.savoirDuJour = id => jour.savoirDe(id)
   profiles.savoirDeCampagne = id => campagne.savoirDe(id)
+  // Les mêmes, pour tous d'une lecture : la moyenne des joueurs que le radar de la carte pose à côté du sien.
+  profiles.savoirsDuJourDeTous = () => jour.savoirsDeTous()
+  profiles.savoirsDeCampagneDeTous = () => campagne.savoirsDeTous()
   // Les sentiers du savoir ouvrent ses portraits et ses titres de maître ;
   // ses vies achetées en confettis sont chez le profil, qui tient le solde.
   profiles.paliersDesSentiers = id => campagne.paliersDe(id)

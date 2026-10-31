@@ -1812,6 +1812,31 @@ export class JourStore {
   }
 
   /**
+   * Ce que le quiz du jour sait de chacun, d'une lecture : `savoirDe` pour
+   * tous les profils qui y ont joué. La moyenne des joueurs de la carte
+   * (`ProfileStore.moyennesDuSavoir`), qui ne la refait qu'une fois par
+   * jour : elle parcourt toutes les réponses du quiz du jour.
+   */
+  async savoirsDeTous(): Promise<Map<string, Savoir>> {
+    const res = await this.client.execute(
+      `SELECT profile_id, categorie, COUNT(*) AS questions, COUNT(choix) AS repondues, SUM(juste) AS justes
+       FROM (SELECT r.profile_id AS profile_id, json_extract(t.questions, '$[' || r.question || '].categorie') AS categorie, r.choix AS choix, r.juste AS juste
+             FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
+             WHERE NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
+             LIMIT -1)
+       GROUP BY profile_id, categorie`,
+    )
+    const lignes = new Map<string, Record<string, unknown>[]>()
+    for (const r of res.rows) {
+      const qui = String(r.profile_id)
+      const siennes = lignes.get(qui)
+      if (siennes) siennes.push(r)
+      else lignes.set(qui, [r])
+    }
+    return new Map([...lignes].map(([qui, siennes]) => [qui, savoirDesLignes(siennes)]))
+  }
+
+  /**
    * Ses bonnes réponses au quiz du jour données avec chaque compagnon
    * (`loup` → 42) : elles le font grandir (`shared/compagnons.ts`), comme
    * elles paient ses confettis. Une question annulée pour tous ne compte pas.
