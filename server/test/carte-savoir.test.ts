@@ -14,10 +14,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import React from 'react'
-import { ADMIN, demarrer, inscrireProfil, type Banc } from './banc'
+import { ADMIN, demarrer, inscrireProfil, relireJusqua, type Banc } from './banc'
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { CATEGORIES } from '../../shared/categories'
-import { QCM_POUR_LE_RADAR, radarDuSavoir, sentiersDeLaCarte, type SavoirDUneCategorie } from '../../shared/carte'
+import { JOUEURS_POUR_LA_MOYENNE, QCM_POUR_LE_RADAR, moyennesDuSavoir, radarDuSavoir, sentiersDeLaCarte, type SavoirDUneCategorie } from '../../shared/carte'
 import { gainVide, releveVide, totalGain } from '../../shared/profil'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
@@ -144,6 +144,50 @@ test('ses sentiers : ceux qu’il a commencés, leur dernier avatar, le prochain
   )
 })
 
+/** La moyenne des joueurs, telle que le serveur l'envoie : le joueur moyen, autour de six sur dix. */
+const MOYENNES = Object.fromEntries(CATEGORIES.map((c, i) => [c, [0.61, 0.58, 0.57, 0.54, 0.6, 0.63, 0.59, 0.52, 0.55, 0.58, 0.62, 0.64][i]]))
+
+test('la moyenne des joueurs : le joueur moyen, de ceux qui ont leurs dix QCM, dès dix joueurs', () => {
+  assert.equal(JOUEURS_POUR_LA_MOYENNE, 10)
+  const presque = (lu: number | undefined, attendu: number) => assert.ok(lu !== undefined && Math.abs(lu - attendu) < 1e-9, `${lu} pour ${attendu}`)
+  // Dix joueurs en histoire, de 0 à 9 sur 10 : la moyenne de leurs parts, 45 %.
+  const dix = Array.from({ length: 10 }, (_, i) => ({ Histoire: { questions: 10, justes: i } }))
+  const moyennes = moyennesDuSavoir(dix)
+  assert.deepEqual(Object.keys(moyennes), ['Histoire'])
+  presque(moyennes.Histoire?.part, 0.45)
+  assert.equal(moyennes.Histoire?.joueurs, 10)
+  // Le joueur moyen, pas le total de tous : un assidu à 900 sur 1 000 ne pèse
+  // pas cent fois plus — 54 %, quand le total ferait 89 %.
+  const avecUnAssidu = [...dix.slice(1), { Histoire: { questions: 1000, justes: 900 } }]
+  presque(moyennesDuSavoir(avecUnAssidu).Histoire?.part, 0.54)
+  // Sous dix QCM, un joueur ne compte pas ; sous dix joueurs, la catégorie se tait — elle dirait la part de chacun.
+  assert.deepEqual(moyennesDuSavoir([...dix.slice(1), { Histoire: { questions: 9, justes: 9 } }]), {})
+  // Une part ne passe pas 100 %, et une catégorie hors de la liste fixe n'a pas de moyenne.
+  const etranges = Array.from({ length: 10 }, () => ({ Sport: { questions: 10, justes: 14 }, Cinéma: { questions: 40, justes: 30 } }))
+  assert.deepEqual(moyennesDuSavoir(etranges), { Sport: { part: 1, joueurs: 10 } })
+})
+
+test('le radar pose la moyenne des joueurs à côté de sa part, catégorie par catégorie', async () => {
+  const r = radarDuSavoir(SAVOIR_DE_LEA, MOYENNES)!
+  const cinema = r.rayons.find(x => x.categorie === 'Cinéma & séries')!
+  assert.deepEqual([cinema.pourcent, cinema.moyenne, cinema.moyennePourcent], [86, 0.63, 63])
+  // Sans moyenne reçue, ou illisible : rien.
+  assert.ok(radarDuSavoir(SAVOIR_DE_LEA)!.rayons.every(x => x.moyenne === null && x.moyennePourcent === null))
+  assert.deepEqual(
+    radarDuSavoir(SAVOIR_DE_LEA, { Histoire: 1.4, Sport: -0.1, Musique: Number.NaN })!.rayons.map(x => x.moyenne),
+    CATEGORIES.map(() => null),
+  )
+  // Ses douze catégories : une forme ; quelques-unes : un arc sur chacune ; aucune : rien.
+  const { dessinDuRadar } = await import(url('components/CarteJoueur.tsx'))
+  const toutes = dessinDuRadar(r)
+  assert.ok(toutes.moyenne && !toutes.moyennes)
+  const quelques = dessinDuRadar(radarDuSavoir(SAVOIR_DE_LEA, { Histoire: 0.58, Sport: 0.55 }))
+  assert.equal(quelques.moyenne, null)
+  assert.equal(quelques.moyennes.match(/M/g)?.length, 2)
+  const aucune = dessinDuRadar(radarDuSavoir(SAVOIR_DE_LEA))
+  assert.deepEqual([aucune.moyenne, aucune.moyennes], [null, ''])
+})
+
 // ── 2. Les faces, et comment elle se retourne ───────────────────────────────
 
 test('ses faces : le recto seul pour l’invité, puis ses chiffres, son savoir et ses sentiers — chacune s’il a de quoi la remplir', async () => {
@@ -216,6 +260,21 @@ test('son savoir : douze rayons qui se touchent, sa meilleure catégorie dite, s
   assert.match(t, /86 % 182 sur 212 QCM Cinéma &amp; séries Argent Maître du grand écran/)
   // Ses forces et ce qui lui reste à conquérir.
   assert.match(t, /Ses forces Cinéma 86 % Histoire 81 % Musique 74 % À conquérir Sport 31 % Arts 48 %/)
+})
+
+test('son savoir face aux joueurs : leur forme en pointillé, sa légende, leur trait sur sa jauge et l’écart dit', async () => {
+  const avec = await rendu('SonSavoir', { radar: radarDuSavoir(SAVOIR_DE_LEA, MOYENNES), sentiers: sentiersDeLaCarte(SENTIERS_DE_LEA) })
+  assert.match(avec, /<polygon class="carte-radar-moyenne" points="/)
+  assert.match(avec, /<span class="carte-radar-legende" aria-hidden="true"><i class="carte-radar-trait"><\/i>les joueurs<\/span>/)
+  // Sur sa jauge, leur trait ; dessous, leur part et l'écart — en toutes lettres à l'oreille.
+  assert.match(avec, /<i class="carte-radar-repere" style="left:63%"><\/i>/)
+  assert.match(texte(avec), /Les joueurs : 63 % \+23 , 23 points au-dessus/)
+  // Sous leur moyenne, l'écart se dit en dessous.
+  const haute = Object.fromEntries(CATEGORIES.map(c => [c, 0.9]))
+  assert.match(texte(await rendu('SonSavoir', { radar: radarDuSavoir(SAVOIR_DE_LEA, haute), sentiers: null })), /Les joueurs : 90 % −4 , 4 points en dessous/)
+  // Sans moyenne — un petit serveur, ou pas encore comptée —, rien de tout cela.
+  const sans = await rendu('SonSavoir', { radar: radarDuSavoir(SAVOIR_DE_LEA), sentiers: null })
+  assert.doesNotMatch(sans, /carte-radar-moyenne|carte-radar-legende|carte-radar-repere|Les joueurs/)
 })
 
 test('le radar d’une débutante : des pétales pour ce qu’elle connaît, le reste à découvrir', async () => {
@@ -318,6 +377,48 @@ test('le serveur pose son savoir et ses sentiers sur sa carte — les chiffres d
     assert.equal(deTom.status, 200)
     assert.equal('savoir' in deTom.corps.profil, false)
     assert.equal('sentiers' in deTom.corps.profil, false)
+  } finally {
+    await banc.close()
+  }
+})
+
+test('la moyenne des joueurs : tous les modes de chacun, sans les suspendus, comptée en fond puis gardée au réveil', async () => {
+  const banc = await demarrer()
+  try {
+    // Onze profils : dix qui jouent, et un suspendu, parfait partout, qui ne compte pas.
+    const cookies: string[] = []
+    for (let i = 0; i <= 10; i++) cookies.push(await inscrireProfil(banc.url, `joueur${i}`, `Joueur ${i}`, '🦊'))
+    const ids = Array.from({ length: 11 }, (_, i) => profilDe(banc, `joueur${i}`))
+    base(banc, db => {
+      const espace = (db.prepare('SELECT id FROM accounts WHERE slug = ?').get(ADMIN.slug) as { id: string }).id
+      const soiree = db.prepare(`INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
+      const gain = { ...gainVide(), reponses: 50 }
+      ids.forEach((id, i) => {
+        // L'histoire de 10 à 19 sur 20, le sport de 0 à 9 sur 10 ; la musique pour neuf seulement.
+        const categories =
+          i === 10
+            ? { Histoire: { questions: 20, justes: 20 }, Sport: { questions: 10, justes: 10 }, Musique: { questions: 10, justes: 10 } }
+            : { Histoire: { questions: 20, justes: 10 + i }, Sport: { questions: 10, justes: i }, ...(i < 9 && { Musique: { questions: 10, justes: 5 } }) }
+        soiree.run(id, `soiree-${i}`, espace, totalGain(gain), JSON.stringify({ v: VERSION_BAREME, gain, releve: { ...releveVide(), categories } }), Date.now())
+      })
+      // Le premier a aussi joué un quiz du jour : dix questions d'histoire, cinq trouvées — sa part tombe à 15 sur 30.
+      db.prepare(`INSERT INTO jour_tirages (jour, questions, annulees, tire_le) VALUES ('2026-10-01', ?, '[]', 1)`).run(JSON.stringify(Array.from({ length: 10 }, () => ({ categorie: 'Histoire' }))))
+      const reponse = db.prepare(`INSERT INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le) VALUES (?, '2026-10-01', ?, 0, 1000, ?, 100, 1)`)
+      for (let q = 0; q < 10; q++) reponse.run(ids[0], q, q < 5 ? 1 : 0)
+      db.prepare('UPDATE profiles SET disabled_at = 1 WHERE id = ?').run(ids[10])
+    })
+    await banc.redemarrer()
+    const carte = () => lire(banc, cookies[0], `/api/joueur/carte/${ids[1]}`)
+    // Rien ne l'attend : la première carte part sans elle, et la fait compter en fond.
+    const premiere = await carte()
+    assert.equal(premiere.status, 200)
+    const lue = await relireJusqua(carte, l => !!l.corps.profil.moyennes)
+    // L'histoire : 15 sur 30 pour le premier, de 11 à 19 sur 20 pour les autres — 72,5 %.
+    // Le sport : de 0 à 9 sur 10 — 45 %. La musique : neuf joueurs, elle se tait.
+    assert.deepEqual(lue.corps.profil.moyennes, { Histoire: 0.725, Sport: 0.45 })
+    // Gardée dans la base : un réveil la reprend telle quelle, sans la recompter.
+    await banc.redemarrer()
+    assert.deepEqual((await carte()).corps.profil.moyennes, { Histoire: 0.725, Sport: 0.45 })
   } finally {
     await banc.close()
   }

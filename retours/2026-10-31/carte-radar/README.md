@@ -41,9 +41,15 @@ Sous la carte, la maquette remplaçait « Retourner la carte » par quatre point
     des **gemmes serties au pied du cadre**, sans une ligne de plus — dans les
     sept pixels du cadre : épaissi pour elles, il faisait défiler le dos d'une
     habituée en 360 × 640 ;
-  - **sans la moyenne des joueurs** : elle demande un calcul sur tous les
-    profils que le serveur n'a pas, pour une nuance ; le radar se lit seul,
-    d'une catégorie à l'autre ;
+  - la moyenne des joueurs, d'abord laissée de côté — un calcul sur tous les
+    profils que le serveur n'avait pas —, puis demandée : « **Ajoute aussi la
+    comparaison avec la moyenne des joueurs** ». Elle est en pointillé bleu
+    sur le radar, toujours là — sans le bouton « Comparer » de la maquette,
+    une ligne de plus que la face n'avait pas —, sa légende dans le coin du
+    radar, son trait sur la jauge de la catégorie touchée, et l'écart dit
+    (« Les joueurs : 63 % +23 »). C'est le joueur moyen — la moyenne des
+    parts de chacun, à ses dix QCM —, dès dix joueurs, recompté une fois par
+    jour au plus ;
   - **pas de face vide** : son savoir dès une catégorie à dix QCM
     (`QCM_POUR_LE_RADAR`), ses sentiers dès un palier validé, et seulement
     ceux qu'il a commencés — l'absence, pas « 0 sur 12 » ;

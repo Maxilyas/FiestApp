@@ -25,7 +25,7 @@ export async function carteDuProfil(
   jour: Pick<JourStore, 'resumeDe'> | undefined,
   profil: ProfileRec,
 ): Promise<Required<Pick<CarteDeJoueur, 'profil'>> & Pick<CarteDeJoueur, 'bordure'>> {
-  const [vitrine, carriere, resume, ailleurs, paliers, duels, campagne] = await Promise.all([
+  const [vitrine, carriere, resume, ailleurs, paliers, duels, campagne, moyennes] = await Promise.all([
     profiles.badgesOf(profil.id),
     profiles.careerOf(profil.id),
     jour?.resumeDe(profil.id).catch(() => null),
@@ -38,6 +38,8 @@ export async function carteDuProfil(
     profiles.duelsDe?.(profil.id).catch(() => null) ?? null,
     // Sa campagne, de même.
     profiles.statsDeCampagne?.(profil.id).catch(() => null) ?? null,
+    // La moyenne des joueurs, pour son radar : celle qu'il y a, jamais attendue (`moyennesDesJoueurs`).
+    profiles.moyennesDesJoueurs().catch(() => null),
   ])
   // Les paliers validés de tous ses sentiers : chacun compte jusqu'au plus haut qu'il a validé.
   const paliersValides = Object.values(paliers).reduce((n, p) => n + (p ?? 0), 0)
@@ -90,6 +92,7 @@ export async function carteDuProfil(
     ...(campagne && (campagne.justes > 0 || paliersValides > 0) && { campagne: { record: campagne.record, justes: campagne.justes, paliers: paliersValides } }),
     ...(ecussons.length > 0 && { ecussons }),
     ...(savoir.length > 0 && { savoir }),
+    ...(savoir.length > 0 && moyennes && Object.keys(moyennes).length > 0 && { moyennes }),
     ...(Object.keys(sentiers).length > 0 && { sentiers }),
     ...(fond && { fond }),
     ...(compagnon && { compagnon }),

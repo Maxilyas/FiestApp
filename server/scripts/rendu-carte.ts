@@ -76,6 +76,22 @@ const SAVOIR_DE_LEA = [
   { categorie: 'Autour de la fête', questions: 67, justes: 44 },
 ]
 
+/** La moyenne des joueurs, catégorie par catégorie : le joueur moyen, autour de six sur dix. */
+const MOYENNES = {
+  'Culture générale': 0.61,
+  Histoire: 0.58,
+  Géographie: 0.57,
+  Sciences: 0.54,
+  Nature: 0.6,
+  'Cinéma & séries': 0.63,
+  Musique: 0.59,
+  'Arts & lettres': 0.52,
+  Sport: 0.55,
+  Cuisine: 0.58,
+  'Jeux & pop culture': 0.62,
+  'Autour de la fête': 0.64,
+}
+
 /** Ses douze sentiers commencés : maître du grand écran et des mythologies, le stade à peine entamé. */
 const SENTIERS_DE_LEA = { monde: 8, mythes: 13, oceans: 6, espace: 5, foret: 10, ecran: 13, scene: 11, contes: 4, stade: 1, brigade: 6, arcade: 8, carnaval: 7 }
 
@@ -100,6 +116,7 @@ function habituee(lue: any, ligue = 'or') {
         { categorie: 'Musique', palier: 2 },
       ],
       savoir: SAVOIR_DE_LEA,
+      moyennes: MOYENNES,
       sentiers: SENTIERS_DE_LEA,
       prix: { eus: 7, total: lue.profil.prix?.total ?? 14 },
       fiche: { soirees: 23, precision: 0.71, qcm: 412, justes: 293, coupDOeil: 0.64, estimationsComparees: 58, reflexeMoyenMs: 4200, quizGagnes: 9, meilleureSerie: 11 },
@@ -170,6 +187,8 @@ const ETATS: readonly Etat[] = [
           { categorie: 'Sport', questions: 3, justes: 1 },
           { categorie: 'Jeux & pop culture', questions: 10, justes: 8 },
         ],
+        // Un petit serveur : la moyenne des joueurs n'a que huit catégories — des arcs, pas une forme.
+        moyennes: Object.fromEntries(Object.entries(MOYENNES).slice(0, 8)),
         sentiers: { foret: 3, ecran: 1 },
         prix: { eus: 1, total: lue.profil.prix?.total ?? 14 },
         fiche: { soirees: 2, precision: 0.55, qcm: 22, justes: 12, coupDOeil: 0.4, estimationsComparees: 5, reflexeMoyenMs: 6100, quizGagnes: 0, meilleureSerie: 3 },

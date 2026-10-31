@@ -6540,7 +6540,15 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
    face, ses étiquettes en boutons posés dessus : elles gardent la taille du
    texte quand le radar rapetisse — dessinées dans le SVG, elles passaient
    sous les onze pixels du plus petit texte. */
-.carte-radar { position: relative; aspect-ratio: 300 / 240; margin: 0 -4px; }
+.carte-radar { position: relative; aspect-ratio: 300 / 228; margin: 0 -4px; }
+/* La moyenne des joueurs, d'un bleu froid à côté de l'or de la sienne : mêlé
+   à l'encre du thème, il s'éclaircit sur les fonds sombres et fonce sous
+   Ivoire — aucun thème n'a de bleu à lui prêter. */
+.carte-radar,
+.carte-radar-detail { --moyenne: color-mix(in srgb, #5ab4f0 72%, var(--ink)); }
+.carte-radar-moyenne { fill: none; stroke: var(--moyenne); stroke-width: 1.6; stroke-dasharray: 4 3; stroke-linejoin: round; }
+.carte-radar-legende { position: absolute; left: 2px; bottom: 0; display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-label); line-height: 1.2; color: var(--muted); pointer-events: none; }
+.carte-radar-trait { flex: none; width: 14px; height: 0; border-top: 2px dashed var(--moyenne); }
 .carte-radar-trame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .carte-radar-anneau { fill: none; stroke: color-mix(in srgb, var(--lueur) 16%, transparent); stroke-width: 1; }
 .carte-radar-bord { fill: color-mix(in srgb, var(--lueur) 5%, transparent); stroke: color-mix(in srgb, var(--lueur) 36%, transparent); stroke-width: 1; }
@@ -6554,7 +6562,7 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   stroke-width: 2;
   stroke-linejoin: round;
   filter: drop-shadow(0 0 5px color-mix(in srgb, var(--lueur) 45%, transparent));
-  transform-origin: 150px 121px;
+  transform-origin: 150px 115px;
   animation: radar-eclot 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 @keyframes radar-eclot {
@@ -6594,14 +6602,17 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .carte-radar-pourcent { font-family: var(--serif); font-size: 1.95rem; font-weight: 700; line-height: 0.95; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
 .carte-radar-pourcent small { font-size: 0.55em; font-weight: 600; }
 .carte-radar-sur { margin-top: 3px; font-size: var(--t-label); line-height: 1.25; color: var(--muted); }
-.carte-radar-corps { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.carte-radar-corps { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
 .carte-radar-nom { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; line-height: 1.1; }
 .carte-radar-mesure { display: flex; align-items: center; gap: 8px; }
 .carte-radar-ecusson { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .carte-radar-ecusson .icon { width: 13px; height: 13px; }
 .carte-radar-jauge { position: relative; flex: 1; height: 6px; overflow: hidden; border-radius: 3px; background: color-mix(in srgb, var(--ink) 10%, transparent); }
 .carte-radar-jauge > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--lueur); }
-.carte-radar-ligne { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; line-height: 1.3; color: var(--muted); }
+/* La moyenne des joueurs sur sa jauge : un trait, cerné du sol de la carte pour se lire sur le plein comme sur le vide. */
+.carte-radar-repere { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--moyenne); box-shadow: 0 0 0 1px var(--bg-raised); }
+.carte-radar-ligne { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; line-height: 1.25; color: var(--muted); }
+.carte-radar-comparaison b { color: var(--accent-text); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
 .carte-radar-sentier { color: var(--ink); font-weight: 600; }
 .carte-radar-sentier .icon { flex: none; width: 14px; height: 14px; color: var(--accent-text); }
 /* Ses forces et ce qui lui reste à conquérir, côte à côte comme une fiche : chaque ligne se touche, et le radar la montre. */

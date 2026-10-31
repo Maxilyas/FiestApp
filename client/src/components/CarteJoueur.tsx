@@ -189,7 +189,7 @@ export function CarteJoueur({
   const mots = carte && !loupe ? motsDeLaCarte(carte, avecDessins, !!fond) : []
   const titre = nomDuTitre(p?.titre)
   // Son savoir et ses sentiers : deux faces de plus, chacune s'il a de quoi la remplir.
-  const radar = useMemo(() => radarDuSavoir(p?.savoir), [p])
+  const radar = useMemo(() => radarDuSavoir(p?.savoir, p?.moyennes), [p])
   const sentiers = useMemo(() => sentiersDeLaCarte(p?.sentiers), [p])
   const faces = facesDeLaCarte(aUnDos, radar, sentiers)
   const rang = tour.face < faces.length ? tour.face : 0
@@ -662,14 +662,15 @@ function Gemmes({ faces, nom }: { faces: readonly Face[]; nom: Face }) {
  * le rayon d'une catégorie juste à 100 %, celui de ses étiquettes. Écrit pour
  * la largeur d'une face au téléphone, 282 pixels : « Géographie » et
  * « Sciences » y tiennent sans toucher le bord, et la face entière en
- * 360 × 640 — à 252 de haut, ses forces passaient sous le bord.
+ * 360 × 640 — à 252 de haut, ses forces passaient sous le bord ; à 240, la
+ * ligne de la moyenne des joueurs les y repoussait.
  */
 const RADAR_L = 300
-const RADAR_H = 240
+const RADAR_H = 228
 const RADAR_CX = 150
-const RADAR_CY = 121
-const RADAR_R = 86
-const RADAR_ETIQUETTES = 108
+const RADAR_CY = 115
+const RADAR_R = 82
+const RADAR_ETIQUETTES = 103
 
 /** Le point d'un rayon — le i-ième, depuis midi, dans le sens des aiguilles —, à cette part du plein. */
 function point(i: number, part: number, rayon = RADAR_R): [number, number] {
@@ -694,11 +695,16 @@ const AXES = Array.from({ length: 12 }, (_, i) => `M${RADAR_CX} ${RADAR_CY}L${xy
  * forme : le radar d'une fiche de joueur. Tant qu'il en manque, des pétales,
  * un par catégorie connue — relier deux rayons par-dessus un inconnu
  * dessinerait une part qu'il n'a pas —, et l'arc en pointillé de celles qui
- * restent à découvrir.
+ * restent à découvrir. La moyenne des joueurs, en pointillé à côté : une
+ * forme quand chaque catégorie a la sienne, sinon un arc sur chaque rayon
+ * qui l'a — même règle que la sienne.
  */
-export function dessinDuRadar(radar: RadarDuSavoir): { forme: string | null; petales: string; aDecouvrir: string } {
+export function dessinDuRadar(radar: RadarDuSavoir): { forme: string | null; petales: string; aDecouvrir: string; moyenne: string | null; moyennes: string } {
+  const toutes = radar.rayons.every(r => r.moyenne !== null)
+  const moyenne = toutes ? radar.rayons.map((r, i) => xy(point(i, r.moyenne!))).join(' ') : null
+  const moyennes = toutes ? '' : radar.rayons.map((r, i) => (r.moyenne === null ? '' : arc(i, Math.max(1, RADAR_R * r.moyenne), 13))).join('')
   const complet = radar.rayons.every(r => r.part !== null)
-  if (complet) return { forme: radar.rayons.map((r, i) => xy(point(i, r.part!))).join(' '), petales: '', aDecouvrir: '' }
+  if (complet) return { forme: radar.rayons.map((r, i) => xy(point(i, r.part!))).join(' '), petales: '', aDecouvrir: '', moyenne, moyennes }
   let petales = ''
   let aDecouvrir = ''
   radar.rayons.forEach((r, i) => {
@@ -709,7 +715,7 @@ export function dessinDuRadar(radar: RadarDuSavoir): { forme: string | null; pet
     const rayon = Math.max(1, RADAR_R * r.part)
     petales += `M${RADAR_CX} ${RADAR_CY}L${arc(i, rayon, 13).slice(1)}Z`
   })
-  return { forme: null, petales, aDecouvrir }
+  return { forme: null, petales, aDecouvrir, moyenne, moyennes }
 }
 
 /** La part qu'une catégorie dit à l'oreille, et sous le radar. */
@@ -753,6 +759,8 @@ export function SonSavoir({ radar, sentiers }: { radar: RadarDuSavoir; sentiers:
           <path className="carte-radar-axe-choisi" d={`M${RADAR_CX} ${RADAR_CY}L${xy(point(i, 1))}`} />
           {dessin.forme ? <polygon className="carte-radar-forme" points={dessin.forme} /> : <path className="carte-radar-forme" d={dessin.petales} />}
           {dessin.aDecouvrir && <path className="carte-radar-a-decouvrir" d={dessin.aDecouvrir} />}
+          {/* La moyenne des joueurs, par-dessus sa forme : on voit d'un coup où il passe au-dessus, où en dessous. */}
+          {dessin.moyenne ? <polygon className="carte-radar-moyenne" points={dessin.moyenne} /> : dessin.moyennes && <path className="carte-radar-moyenne" d={dessin.moyennes} />}
           {radar.rayons.map((x, k) => {
             if (x.part === null) return null
             const [cx, cy] = point(k, x.part)
@@ -775,6 +783,13 @@ export function SonSavoir({ radar, sentiers }: { radar: RadarDuSavoir; sentiers:
             </button>
           )
         })}
+        {/* Sa légende, dans le coin que le radar laisse libre ; la catégorie touchée la dit en toutes lettres. */}
+        {(dessin.moyenne || dessin.moyennes) && (
+          <span className="carte-radar-legende" aria-hidden="true">
+            <i className="carte-radar-trait" />
+            les joueurs
+          </span>
+        )}
       </div>
       <CategorieTouchee rayon={r} sentiers={sentiers} />
       <div className="carte-radar-rangees">
@@ -821,6 +836,7 @@ function CategorieTouchee({ rayon: r, sentiers }: { rayon: RayonDuRadar; sentier
           <span className="carte-radar-mesure" style={cle ? lueur(LUEUR[cle]) : undefined}>
             <span className="carte-radar-jauge" aria-hidden="true">
               <span style={{ width: `${r.pourcent}%` }} />
+              {r.moyennePourcent !== null && <i className="carte-radar-repere" style={{ left: `${r.moyennePourcent}%` }} />}
             </span>
             {r.ecusson > 0 && (
               <span className={`carte-radar-ecusson palier-${r.ecusson}`}>
@@ -830,6 +846,7 @@ function CategorieTouchee({ rayon: r, sentiers }: { rayon: RayonDuRadar; sentier
             )}
           </span>
         )}
+        {r.moyennePourcent !== null && <FaceAuxJoueurs sienne={r.pourcent} moyenne={r.moyennePourcent} />}
         {s && (
           <span className="carte-radar-ligne carte-radar-sentier">
             <Icon name={s.maitre ? 'crown' : 'mountain'} />
@@ -838,6 +855,30 @@ function CategorieTouchee({ rayon: r, sentiers }: { rayon: RayonDuRadar; sentier
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Sa part face à celle des joueurs (« Ajoute aussi la comparaison avec la
+ * moyenne des joueurs », le propriétaire, le 31 octobre 2026) : la moyenne,
+ * au trait du radar, et l'écart en points — « +23 », « −8 » —, dit en toutes
+ * lettres à l'oreille. Sans part à lui, la moyenne seule.
+ */
+function FaceAuxJoueurs({ sienne, moyenne }: { sienne: number | null; moyenne: number }) {
+  const ecart = sienne === null ? null : sienne - moyenne
+  return (
+    <span className="carte-radar-ligne carte-radar-comparaison">
+      <i className="carte-radar-trait" aria-hidden="true" />
+      {`Les joueurs : ${moyenne} %`}
+      {ecart !== null && (
+        <>
+          <b className="num" aria-hidden="true">
+            {ecart > 0 ? `+${ecart}` : ecart < 0 ? `−${-ecart}` : '='}
+          </b>
+          <span className="sr-only">{ecart > 0 ? `, ${ecart} points au-dessus` : ecart < 0 ? `, ${-ecart} points en dessous` : ', autant'}</span>
+        </>
+      )}
+    </span>
   )
 }
 

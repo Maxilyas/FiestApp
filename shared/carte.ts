@@ -16,7 +16,7 @@ import type { Distinctions, Fiche } from './profil'
 import type { CompagnonPossede } from './compagnons'
 import { VITRINE_MAX, cleRangee, plusBeaux } from './hautsfaits'
 import { CATEGORIES, type Categorie } from './categories'
-import { palierEcusson } from './ecussons'
+import { palierEcusson, type ParCategorie } from './ecussons'
 import { BRANCHES, ouvertsDansLaBranche, prochainDansLaBranche, type Branche, type Paliers, type Portrait } from './branches'
 import { PALIER_DU_MAITRE, PALIERS_DU_SENTIER } from './sentiers'
 
@@ -116,6 +116,14 @@ export interface CarteDeJoueur extends Distinctions {
      */
     savoir?: SavoirDUneCategorie[]
     /**
+     * La moyenne des joueurs, catégorie par catégorie — la part de bonnes
+     * réponses du joueur moyen, de 0 à 1, au millième (`moyennesDuSavoir`) —,
+     * que son radar pose à côté de la sienne. Seulement avec son savoir, et
+     * pour les catégories où assez de joueurs l'ont ; absente d'un serveur
+     * d'avant, ou qui ne l'a pas encore comptée.
+     */
+    moyennes?: Readonly<Partial<Record<string, number>>>
+    /**
      * Les paliers validés de ses sentiers, ceux qu'il a commencés — 13 quand
      * le palier du maître l'est aussi : sa face « Ses sentiers »
      * (`sentiersDeLaCarte`). Absents tant qu'il n'en a validé aucun.
@@ -192,6 +200,10 @@ export interface RayonDuRadar {
   pourcent: number | null
   /** Son écusson — 0 sans —, de ses bonnes réponses : celui que montre la page du profil. */
   ecusson: 0 | 1 | 2 | 3
+  /** La part du joueur moyen dans la catégorie (`moyennesDuSavoir`) ; null sans assez de joueurs, ou sans moyenne reçue. */
+  moyenne: number | null
+  /** La même en pour cent, arrondie ; null avec elle. */
+  moyennePourcent: number | null
 }
 
 export interface RadarDuSavoir {
@@ -226,14 +238,25 @@ function plusSur(a: RayonDuRadar, b: RayonDuRadar): number {
  * Une catégorie hors de la liste fixe (un quiz d'avant les catégories) ne
  * compte pas : le radar n'a pas de rayon pour elle.
  */
-export function radarDuSavoir(savoir: readonly SavoirDUneCategorie[] | undefined): RadarDuSavoir | null {
+export function radarDuSavoir(savoir: readonly SavoirDUneCategorie[] | undefined, moyennes?: Readonly<Partial<Record<string, number>>>): RadarDuSavoir | null {
   const parCategorie = new Map((savoir ?? []).map(s => [s.categorie, s]))
   const rayons = CATEGORIES.map((categorie): RayonDuRadar => {
     const s = parCategorie.get(categorie)
     const questions = entier(s?.questions)
     const justes = entier(s?.justes)
     const part = questions >= QCM_POUR_LE_RADAR ? Math.min(1, justes / questions) : null
-    return { categorie, questions, justes, part, pourcent: part === null ? null : Math.round(part * 100), ecusson: palierEcusson(justes) }
+    const lue = moyennes?.[categorie]
+    const moyenne = typeof lue === 'number' && lue >= 0 && lue <= 1 ? lue : null
+    return {
+      categorie,
+      questions,
+      justes,
+      part,
+      pourcent: part === null ? null : Math.round(part * 100),
+      ecusson: palierEcusson(justes),
+      moyenne,
+      moyennePourcent: moyenne === null ? null : Math.round(moyenne * 100),
+    }
   })
   const connus = rayons.filter(r => r.part !== null).sort(plusSur)
   if (connus.length === 0) return null
@@ -247,6 +270,47 @@ export function radarDuSavoir(savoir: readonly SavoirDUneCategorie[] | undefined
 
 /** Un compte reçu, tel qu'il se lit : un entier positif, zéro pour tout le reste. */
 const entier = (n: unknown): number => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 0)
+
+/**
+ * Les joueurs qu'il faut, chacun à ses `QCM_POUR_LE_RADAR` dans une
+ * catégorie, pour que sa moyenne se dise : en deçà, « la moyenne des
+ * joueurs » serait celle de deux ou trois — et dirait la part de chacun.
+ * Comme la rareté d'un trophée, qui se tait sous dix profils. Un choix de
+ * produit (`docs/reference/baremes.md`).
+ */
+export const JOUEURS_POUR_LA_MOYENNE = 10
+
+/** La moyenne des joueurs dans une catégorie : la moyenne de leurs parts, et combien ils sont. */
+export interface MoyenneDUneCategorie {
+  part: number
+  joueurs: number
+}
+
+/**
+ * La moyenne des joueurs, catégorie par catégorie (le souhait du propriétaire
+ * du 31 octobre 2026 : « Ajoute aussi la comparaison avec la moyenne des
+ * joueurs ») : la moyenne de leurs parts — le joueur moyen, pas le total de
+ * tous, où le plus assidu pèserait pour cent —, parmi ceux qui ont leurs
+ * `QCM_POUR_LE_RADAR` dans la catégorie, comme leur radar ; rien sous
+ * `JOUEURS_POUR_LA_MOYENNE`. Chaque savoir est celui d'un joueur, tous modes
+ * de jeu ensemble : l'addition même de son radar.
+ */
+export function moyennesDuSavoir(savoirs: Iterable<Readonly<ParCategorie>>): Partial<Record<Categorie, MoyenneDUneCategorie>> {
+  const sommes = new Map<Categorie, { parts: number; joueurs: number }>()
+  for (const savoir of savoirs) {
+    for (const categorie of CATEGORIES) {
+      const questions = entier(savoir[categorie]?.questions)
+      if (questions < QCM_POUR_LE_RADAR) continue
+      const s = sommes.get(categorie) ?? { parts: 0, joueurs: 0 }
+      s.parts += Math.min(1, entier(savoir[categorie]?.justes) / questions)
+      s.joueurs++
+      sommes.set(categorie, s)
+    }
+  }
+  return Object.fromEntries(
+    [...sommes].filter(([, s]) => s.joueurs >= JOUEURS_POUR_LA_MOYENNE).map(([categorie, s]) => [categorie, { part: s.parts / s.joueurs, joueurs: s.joueurs }]),
+  )
+}
 
 /** Un sentier de sa carte. */
 export interface SentierDeLaCarte {
