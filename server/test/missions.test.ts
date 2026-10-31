@@ -17,6 +17,7 @@ import {
   lundiDe,
   resteAGagner,
   tirerLesMissions,
+  vueDeLaMission,
   type ContexteDuTirage,
   type Mission,
 } from '../../shared/missions'
@@ -52,9 +53,10 @@ test('le tirage tient compte de ce qu’il a fait : le défi fini, le quiz du jo
   const tirages = (c: Partial<ContexteDuTirage>) => Array.from({ length: 300 }, (_, i) => tirerLesMissions(`p${i}|2026-10-15`, { ...CONTEXTE, ...c }))
   assert.ok(tirages({ defiFini: true }).every(m => m[2].sorte !== 'defi'), 'le défi ne se relève pas deux fois')
   assert.ok(tirages({}).some(m => m[2].sorte === 'defi'))
-  // Le quiz du jour déjà joué : l'habitude ne vise plus des étoiles qu'il a peut-être manquées.
+  // Chaque mission se fait en jouant (le 31 octobre 2026) : l'habitude ne vise plus jamais d'étoiles,
+  // qu'une seule partie ratée rendait impossibles — même pour l'habitué.
   assert.ok(tirages({ quizDuJourJoue: true, joursDuJour: 7 }).every(m => m[0].sorte === 'jour'))
-  assert.ok(tirages({ joursDuJour: 7 }).some(m => m[0].sorte === 'jour-etoiles' && m[0].cible === 2))
+  assert.ok(tirages({ joursDuJour: 7 }).every(m => m[0].sorte === 'jour' && m[0].cible === 1))
   // La découverte d'hier ne revient pas le lendemain.
   assert.ok(tirages({ hier: [{ sorte: 'jour', cible: 1 }, { sorte: 'justes', cible: 10 }, { sorte: 'duel', cible: 1 }] }).every(m => m[2].sorte !== 'duel'))
   // Un carnet à revoir propose la révision, au plus cinq questions.
@@ -90,7 +92,11 @@ test('ce que chaque mission lit de sa journée', () => {
   const a = activites.get(jour)!
   const m = (sorte: Mission['sorte'], cible = 1, categorie?: string): Mission => ({ sorte, cible, ...(categorie && { categorie }) })
   assert.equal(avancement(m('jour'), a), 1)
-  assert.equal(avancement(m('jour-etoiles', 2), a), 2, 'huit sur dix : deux étoiles')
+  assert.equal(avancement(m('jour-etoiles', 2), a), 2, 'une mission d’étoiles d’avant se fait en jouant jusqu’au bout')
+  const ratee = activiteDesJours({ jour: [{ jour, finie: true, justes: 2, questions: 10 }], jourParCategorie: [], series: [], reponses: [], soirees: [] }).get(jour)!
+  assert.equal(avancement(m('jour-etoiles', 2), ratee), 2, 'deux sur dix : elle est faite quand même')
+  assert.equal(avancement(m('jour-etoiles', 1), { ...ratee, quizDuJour: { finie: false, justes: 2, questions: 10 } }), 0, 'pas finie : pas faite')
+  assert.equal(vueDeLaMission(0, m('jour-etoiles', 2), ratee, false).titre, 'Joue le quiz du jour')
   // Le quiz du jour (8), la campagne (5 + 1 révision), une soirée (4).
   assert.equal(avancement(m('justes', 30), a), 18)
   // Le carnet ne dit rien de son savoir : sa bonne réponse en Sport n'y compte pas.
@@ -182,6 +188,7 @@ test('une lecture restée en route ne retient plus les suivantes du profil : ell
       accomplirDesMissions: async () => [],
       joursAuxTrois: async () => [],
       semainesDesCoffres: async () => new Set<string>(),
+      coffresOfferts: async () => [],
       soireesDepuis: async () => [],
     } as unknown as DepsDesMissions['profiles'],
     jour: { activiteDepuis: async () => ({ jour: [], jourParCategorie: [] }), coffresDuMois: async () => [] },

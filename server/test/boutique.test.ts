@@ -148,9 +148,12 @@ test('les objets en icônes : une case par objet, sa fiche au toucher, avec la q
   assert.deepEqual(cases(rayon), [
     { nom: 'Vie', prix: '🎊 25', ouverte: false },
     { nom: 'Sablier', prix: '🎊 50', ouverte: false },
+    // Pour ceux qui n'ont pas de chance (le 31 octobre 2026).
+    { nom: 'Éclat', prix: '🎊 3000', ouverte: false },
   ])
   assert.match(rayon, /class="objet-dessin"><svg class="coeur-de-vie"/, 'la vie a son cœur')
   assert.match(rayon, /class="objet-dessin"><svg class="sablier sablier-plein"/, 'le sablier, le sien')
+  assert.match(rayon, /class="objet-dessin"><svg class="gemme-d-eclat"/, 'l’Éclat, sa gemme')
   assert.doesNotMatch(rayon, /id="fiche-objet"/, 'aucune fiche avant le toucher')
   assert.match(rayon, /class="objet-compte" aria-hidden="true">0\/2</, 'ce qu’on a de sabliers, sur sa case')
   assert.match(rayon, /class="sr-only">Tu en as : 0 sur 2/, 'et en toutes lettres pour le lecteur d’écran')
@@ -160,7 +163,7 @@ test('les objets en icônes : une case par objet, sa fiche au toucher, avec la q
   const sablier = await boutique('#objet-sablier')
   assert.deepEqual(
     cases(sablier).map(c => c.ouverte),
-    [false, true],
+    [false, true, false],
   )
   const fiche = sablier.slice(sablier.indexOf('id="fiche-objet"'))
   assert.match(fiche, /aria-label="Sablier"/)
@@ -180,7 +183,7 @@ test('les objets en icônes : une case par objet, sa fiche au toucher, avec la q
   assert.equal(onglets(vies).find(o => o.nom === 'Objets')?.choisi, true)
   assert.deepEqual(
     cases(vies).map(c => c.ouverte),
-    [true, false],
+    [true, false, false],
   )
   assert.match(vies.slice(vies.indexOf('id="fiche-objet"')), /aria-label="Combien : 1 vie"/)
   lieu.hash = ''

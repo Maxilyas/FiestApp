@@ -11,6 +11,7 @@ import { noterLeGeste } from './core/journalDesGestes'
 import { tronquer } from '../../shared/avatars'
 import { deNom } from '../../shared/typographie'
 import { jourDe } from '../../shared/jour'
+import { NOM_DU_COFFRE, type RangDuCoffre } from '../../shared/coffre'
 import type { FicheDuJoueur, ProfilDAdministration } from '../../shared/profil'
 import { JOURS_DU_QG, minuitsDeParis, modeDeLaSerie } from '../../shared/qg'
 import { activiteDesJoueurs, parModeVide, type ActiviteDUnJoueur, type PartieSeule } from '../../shared/qgActivite'
@@ -184,6 +185,23 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
       const enReserve = await deps.profiles.offrirUnEclat(p.id)
       noterLeGeste(res, { sorte: 'profil', resume: `Éclat offert, en réserve : ${nomme(p)}`, cible: p.id })
       res.json({ ok: true, enReserve })
+    }),
+  )
+
+  // Offrir un coffre (le souhait du propriétaire du 31 octobre 2026) : il
+  // attend sur son accueil comme celui d'une semaine, son rang choisi ici,
+  // et s'ouvre de la même scène (`ProfileStore.offrirUnCoffre`). À soi aussi,
+  // comme un Éclat ; jamais à un profil suspendu, qui ne le verrait pas.
+  app.post(
+    '/api/admin/profils/:id/coffre',
+    wrap(async (req, res) => {
+      const p = await leProfil(req, res)
+      if (!p) return
+      if (p.disabledAt) return res.status(400).json({ error: 'Réactive d’abord ce profil' })
+      const rang = req.body?.rang
+      const cle = await deps.profiles.offrirUnCoffre(p.id, rang, req.body?.mot)
+      noterLeGeste(res, { sorte: 'profil', resume: `${NOM_DU_COFFRE[rang as RangDuCoffre]} offert : ${nomme(p)}`, cible: p.id })
+      res.json({ ok: true, cle })
     }),
   )
 

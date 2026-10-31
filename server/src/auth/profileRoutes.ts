@@ -817,6 +817,24 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   )
 
   /**
+   * Acheter un Éclat (`PRIX_D_UN_ECLAT`, le rayon des objets de la boutique) :
+   * il attend en réserve dans sa loge, pièce « Avatar », qui le dépense sur
+   * l'avatar de son choix (`eclatDeReserve`). Rend la réserve et le solde.
+   */
+  app.post(
+    '/api/joueur/eclat',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const jour = jourDe(deps.maintenant())
+      const enReserve = await profiles.acheterUnEclat(me.id, jour)
+      res.json({ enReserve, confettis: (await profiles.boutiqueDe(me, jour)).confettis })
+    }),
+  )
+
+  /**
    * Changer son mot de passe : il faut prouver qu'on connaît l'actuel — ou
    * donner son code de secours, pour qui l'a oublié.
    *

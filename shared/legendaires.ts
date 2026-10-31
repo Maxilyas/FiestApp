@@ -527,6 +527,13 @@ export const PREFIXE_DE_LA_RESERVE = 'reserve:'
 /** Le nom sous lequel se range un Éclat offert par l'administrateur : ni soirée, ni jour, ni semaine. */
 export const PREFIXE_DES_DONS_D_ECLAT = '#don:'
 
+/**
+ * Le nom sous lequel se range un Éclat acheté en boutique
+ * (`PRIX_D_UN_ECLAT`) : ni soirée, ni jour, ni semaine — rien ne le reprend
+ * en passant, et le QG ne le compte pas parmi les Éclats tirés.
+ */
+export const PREFIXE_DES_ACHATS_D_ECLAT = '#achat:'
+
 export function estEnReserve(cle: string): boolean {
   return cle.startsWith(PREFIXE_DE_LA_RESERVE)
 }

@@ -141,6 +141,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     // son prénom changé en dernier — les phrases d'avant la nomment encore Léa.
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/confettis`, { confettis: 100, mot: 'Merci pour samedi !' }), 'confettis')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/eclat`), 'éclat offert')
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/coffre`, { rang: 'or', mot: 'Pour samedi' }), 'coffre offert')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/secours`), 'code de secours')
     for (let i = 0; i < 5; i++) await ecrire(banc.url, '/api/joueur/connexion', { login: 'lea', password: 'pas-le-bon-1' })
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/connexion`), 'verrou')
@@ -240,6 +241,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Soirée laissée en plan close : Antoine — rien n’avait été joué',
       '100 confettis offerts : Léa (@lea) — « Merci pour samedi ! »',
       'Éclat offert, en réserve : Léa (@lea)',
+      'Le coffre d’or offert : Léa (@lea)',
       'Code de secours neuf tiré : Léa (@lea)',
       'Verrou de connexion levé : Léa (@lea)',
       'Profil suspendu : Léa (@lea)',
@@ -303,10 +305,15 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     )
 
     // La page le lit, du plus récent au plus ancien ; filtré par sorte.
+    // Plus de gestes qu'une page n'en tient : la première page, puis la suite, les rendent tous.
     const journal = (await lire<JournalDuQg>(banc, admin, '/api/admin/gestes')).corps
-    assert.equal(journal.gestes.length, gestes.length)
+    assert.ok(gestes.length > GESTES_PAR_PAGE, `${gestes.length} gestes joués`)
+    assert.equal(journal.gestes.length, GESTES_PAR_PAGE)
     assert.match(journal.gestes[0].resume, /^Question de la campagne corrigée/)
-    assert.equal(journal.suite, null)
+    assert.ok(journal.suite)
+    const suite = (await lire<JournalDuQg>(banc, admin, `/api/admin/gestes?suite=${encodeURIComponent(journal.suite!)}`)).corps
+    assert.equal(journal.gestes.length + suite.gestes.length, gestes.length)
+    assert.equal(suite.suite, null)
     const profils = (await lire<JournalDuQg>(banc, admin, '/api/admin/gestes?sorte=profil')).corps.gestes
     assert.deepEqual(
       profils.map(g => g.resume.replace(/ — [^—]+, palier 1$/, ' — …')),
@@ -317,6 +324,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
         'Épreuve de sentier libérée, sans coûter de vie : Léa (@lea) — …',
         'Verrou de connexion levé : Léa (@lea)',
         'Code de secours neuf tiré : Léa (@lea)',
+        'Le coffre d’or offert : Léa (@lea)',
         'Éclat offert, en réserve : Léa (@lea)',
         '100 confettis offerts : Léa (@lea) — « Merci pour samedi ! »',
         'Profil supprimé : Tom (@tom)',

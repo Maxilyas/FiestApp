@@ -519,6 +519,9 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ fond, porter }),
       }),
+    /** Acheter un Éclat : il attend en réserve dans la loge. La réserve et le solde reviennent. */
+    acheterUnEclat: () =>
+      req<{ enReserve: number; confettis: { gagnes: number; depenses: number; solde: number } }>('/api/joueur/eclat', { method: 'POST', body: '{}' }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour
      * qui l'a oublié. La session seule ne suffit pas — un téléphone se prête
@@ -862,6 +865,8 @@ export const api = {
       }),
     /** Un Éclat offert, en réserve : le joueur le dépense sur l'avatar de son choix. */
     offrirUnEclat: (id: string) => req<{ ok: true; enReserve: number }>(`/api/admin/profils/${encodeURIComponent(id)}/eclat`, { method: 'POST', body: '{}' }),
+    offrirUnCoffre: (id: string, rang: string, mot: string) =>
+      req<{ ok: true; cle: string }>(`/api/admin/profils/${encodeURIComponent(id)}/coffre`, { method: 'POST', body: JSON.stringify({ rang, mot }) }),
     codeDeSecours: (id: string) =>
       req<{ code: string; login: string }>(`/api/admin/profils/${encodeURIComponent(id)}/secours`, { method: 'POST', body: '{}' }),
     renommer: (id: string, nom: string) =>

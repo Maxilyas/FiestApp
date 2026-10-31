@@ -10,7 +10,7 @@ Tirées pour chacun à sa première visite du jour, puis figées jusqu'à minuit
 
 | Famille | Ce qu'elle demande | Où |
 |---|---|---|
-| **Habitude** | Jouer le quiz du jour — ou, pour qui le joue presque chaque jour, y décrocher une ou deux étoiles | le quiz du jour |
+| **Habitude** | Jouer le quiz du jour jusqu'au bout | le quiz du jour |
 | **Savoir** | Trouver 10, 15 ou 20 bonnes réponses, ou 5 dans une catégorie (« Trouve 5 bonnes réponses en Histoire ») | partout : soirées, quiz du jour, campagne — une catégorie, au quiz du jour et en campagne |
 | **Découverte** | Un mode, plutôt un qu'il n'a pas joué ces sept jours : enchaîner 5 ou 7 bonnes réponses dans une série, jouer un duel, tenter une épreuve d'un sentier, réussir une étape d'un parcours, relever le défi de la semaine, revoir des questions de son carnet | la campagne, les duels |
 
@@ -69,6 +69,12 @@ Une rareté où il a déjà tout descend d'un cran, jusqu'aux confettis. Le tira
 | au-delà | le coffre de bois |
 
 Il faut avoir joué au moins une partie ce mois-là, et être deux joueurs au moins au classement (comme pour le titre de champion) ; un profil masqué n'y est pas classé, et une partie à zéro point ne vaut que le coffre de bois. Il attend sur l'accueil dès la première visite du mois suivant — la ligne des missions s'allume d'or — et passe devant ceux de la semaine. Il s'ouvre comme eux, une seule fois, sans date limite. Le premier est celui d'octobre 2026 ; les mois d'avant n'en ont pas.
+
+### Le coffre offert
+
+Le 31 octobre 2026, le propriétaire : « j'aimerais que les missions du jour soient toutes réalisables ». L'habitude demandait parfois, à qui jouait presque chaque jour, une ou deux étoiles au quiz du jour — six ou huit bonnes réponses sur dix. Le quiz du jour ne se joue qu'une fois : une partie ratée rendait la mission impossible, et le tampon du jour avec. Depuis, chaque mission se fait en jouant : l'habitude demande de jouer le quiz du jour jusqu'au bout, et une mission d'étoiles déjà tirée se juge comme elle — partie finie, mission faite. Les jours passés ont été rattrapés une fois, au démarrage qui l'a appris : chaque mission d'étoiles dont la partie était finie est faite, à son jour, et le tampon revient si les deux autres l'étaient — avec leurs confettis et leur expérience. Un coffre de la semaine déjà ouvert garde ce qu'il a donné ; un coffre qui attend compte ses tampons à son ouverture.
+
+En dédommagement, **chaque profil d'alors reçoit un coffre d'or**, une fois, avec un mot qui le dit (`COFFRE_DE_COMPENSATION`) ; un profil né ensuite ne le reçoit pas. L'administrateur peut aussi offrir un coffre à un joueur, depuis sa fiche au QG — le rang au choix, un mot lu à l'ouverture ([administrer](../guides/administrer.md)). Un coffre offert attend sur l'accueil comme celui de la semaine — la ligne des missions s'allume d'or, « Le coffre d'or offert » —, passe devant les autres, et s'ouvre une fois, par la même scène, ses chances celles de son rang.
 
 ### L'ouverture
 

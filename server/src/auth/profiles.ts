@@ -8,6 +8,7 @@ import {
   AUCUN_JOUR,
   AUCUNE_CAMPAGNE,
   CHANCE_ECLAT,
+  PRIX_D_UN_ECLAT,
   carriereDe,
   choixDeFinition,
   clesQuiBrillent,
@@ -85,6 +86,7 @@ import {
   legendaireDuCabinet,
   PREFIXE_DE_LA_RESERVE,
   PREFIXE_DES_DONS_D_ECLAT,
+  PREFIXE_DES_ACHATS_D_ECLAT,
   legendairesDebloques,
   legendairesOuvertsPar,
   sqlHorsDesVoiesRangees,
@@ -93,7 +95,21 @@ import {
 import { divin } from '../../../shared/divins'
 import { lireLesVus, type VusDeLaLoge } from '../../../shared/piecesDeLaLoge'
 import { gainsDesMissions, lireLaMission, RANG_DES_TROIS, type Mission } from '../../../shared/missions'
-import { cleDeLObjet, lireLObjet, moisDuCoffreValide, rangDuCoffre, rangDuCoffreDuMois, type CoffreOuvert, type ObjetDuTresor, type RangDuCoffre } from '../../../shared/coffre'
+import {
+  cleDeLObjet,
+  COFFRE_DE_COMPENSATION,
+  coffreOffertValide,
+  lireLObjet,
+  moisDuCoffreValide,
+  MOT_D_UN_COFFRE_OFFERT_MAX,
+  PREFIXE_D_UN_COFFRE_OFFERT,
+  rangDuCoffre,
+  rangDuCoffreDuMois,
+  rangValide,
+  type CoffreOuvert,
+  type ObjetDuTresor,
+  type RangDuCoffre,
+} from '../../../shared/coffre'
 import { ETOILES_DE_LA_CUEILLETTE, type Envie } from '../../../shared/soins'
 import { nomDeLObjet, phraseDeLObjet, tirerLeCoffre } from '../../../shared/tresor'
 import type { Rarete } from '../../../shared/badges'
@@ -406,6 +422,9 @@ const COURBES_D_AVANT: { drapeau: string; pas: number }[] = [
   // Septembre 2026 : le niveau n demandait 25 × (n − 1)².
   { drapeau: 'courbe_durcie', pas: 25 },
 ]
+
+/** Le drapeau, dans `meta`, qui dit que la compensation du 31 octobre 2026 est offerte (`offrirLaCompensation`). */
+export const DRAPEAU_DE_LA_COMPENSATION = 'coffre_de_compensation_2026_10'
 
 /** Le drapeau, dans `meta`, qui dit que les niches jamais choisies sont figées (`installerLesNiches`). */
 const NICHES_INSTALLEES = 'niches_installees'
@@ -1141,6 +1160,18 @@ export class ProfileStore {
         'CREATE INDEX IF NOT EXISTS idx_profile_sabliers ON profile_sabliers(profile_id)',
         // Les sabliers du mois, au QG : lus par leur date, sans parcourir la table.
         'CREATE INDEX IF NOT EXISTS idx_profile_sabliers_quand ON profile_sabliers(created_at)',
+        // Les Éclats achetés en confettis (`PRIX_D_UN_ECLAT`), un par ligne,
+        // jamais effacée : l'achat ne se reprend pas. L'Éclat lui-même attend
+        // dans `profile_eclats`, en réserve, rangé sous `#achat:` — dépensé, il
+        // éclate comme les autres ; la ligne d'ici garde son prix.
+        `CREATE TABLE IF NOT EXISTS profile_eclats_achetes (
+           id         TEXT PRIMARY KEY,
+           profile_id TEXT NOT NULL,
+           prix       INTEGER NOT NULL,
+           created_at INTEGER NOT NULL
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_profile_eclats_achetes ON profile_eclats_achetes(profile_id)',
+        'CREATE INDEX IF NOT EXISTS idx_profile_eclats_achetes_quand ON profile_eclats_achetes(created_at)',
         // Les compagnons achetés en confettis (`shared/compagnons.ts`), une
         // ligne par compagnon, jamais effacée, avec ce qu'il a coûté — comme
         // un thème. Et le rang de la plus haute forme qu'il a atteinte : ses
@@ -1257,6 +1288,18 @@ export class ProfileStore {
            PRIMARY KEY (profile_id, semaine)
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_coffres_quand ON profile_coffres(ouvert_le)',
+        // Ses coffres offerts (`PREFIXE_D_UN_COFFRE_OFFERT`, `shared/coffre.ts`) :
+        // l'administrateur, ou la compensation du 31 octobre 2026, en pose un,
+        // son rang choisi. Il attend ici ; ouvert, sa clé rejoint
+        // `profile_coffres` comme celle d'une semaine. Jamais effacé.
+        `CREATE TABLE IF NOT EXISTS profile_coffres_offerts (
+           profile_id TEXT NOT NULL,
+           cle        TEXT NOT NULL,
+           rang       TEXT NOT NULL,
+           mot        TEXT,
+           offert_le  INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, cle)
+         )`,
         // Ses soins (`shared/soins.ts`, la maquette validée le 20 octobre
         // 2026) : ses envies du jour comblées, une ligne par envie, par jour
         // et par compagnon, jamais effacée — seul s'écrit ce qui est fait,
@@ -1652,6 +1695,7 @@ export class ProfileStore {
     themes: Map<string, number>
     vies: number
     sabliers: number
+    eclats: number
     compagnons: number
     fonds: Map<string, number>
     dons: { id: string; confettis: number; mot: string | null; le: number }[]
@@ -1660,11 +1704,12 @@ export class ProfileStore {
     coffres: number
     aTous: AnnonceATous[]
   }> {
-    const [themes, vies, sabliers, compagnons, fonds, dons, missions, coffres, aTous] = await this.client.batch(
+    const [themes, vies, sabliers, eclats, compagnons, fonds, dons, missions, coffres, aTous] = await this.client.batch(
       [
         { sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_vies WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_eclats_achetes WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_compagnons WHERE profile_id = ?', args: [profileId] },
         // Chaque fond, pas leur somme : « À la une » ne met en avant que ceux qu'il n'a pas.
         { sql: 'SELECT fond, prix FROM profile_fonds WHERE profile_id = ?', args: [profileId] },
@@ -1696,6 +1741,7 @@ export class ProfileStore {
       themes: new Map(themes.rows.map(r => [String(r.theme), Number(r.prix)])),
       vies: Number(vies.rows[0]?.prix ?? 0),
       sabliers: Number(sabliers.rows[0]?.prix ?? 0),
+      eclats: Number(eclats.rows[0]?.prix ?? 0),
       compagnons: Number(compagnons.rows[0]?.prix ?? 0),
       fonds: new Map(fonds.rows.map(r => [String(r.fond), Number(r.prix)])),
       dons: dons.rows.map(r => ({ id: String(r.id), confettis: Number(r.confettis), mot: r.mot == null ? null : String(r.mot), le: Number(r.created_at) })),
@@ -1764,7 +1810,7 @@ export class ProfileStore {
     const gagnes =
       lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne.confettis + offerts + achats.missions + achats.coffres
     const somme = (prix: Map<string, number>) => [...prix.values()].reduce((n, x) => n + x, 0)
-    const depenses = somme(achats.themes) + achats.vies + achats.sabliers + achats.compagnons + somme(achats.fonds)
+    const depenses = somme(achats.themes) + achats.vies + achats.sabliers + achats.eclats + achats.compagnons + somme(achats.fonds)
     const fondsAchetes = FONDS_EN_BOUTIQUE.filter(f => achats.fonds.has(f.key)).map(f => f.key)
     return {
       boutique: {
@@ -1926,10 +1972,12 @@ export class ProfileStore {
     if (!r || !objet) return null
     // Un coffre du mois garde sa place dans la colonne des tampons : il n'en a pas.
     const duMois = moisDuCoffreValide(String(r.semaine))
+    const offert = coffreOffertValide(String(r.semaine))
     return {
       semaine: String(r.semaine),
-      tampons: duMois ? 0 : Number(r.tampons),
+      tampons: duMois || offert ? 0 : Number(r.tampons),
       ...(duMois && { place: Number(r.tampons) }),
+      ...(offert && { offert: { mot: null } }),
       rang: String(r.rang) as RangDuCoffre,
       rarete: String(r.rarete) as Rarete,
       objet,
@@ -1937,6 +1985,84 @@ export class ProfileStore {
       detail: phraseDeLObjet(objet),
       ouvertLe: Number(r.ouvert_le),
     }
+  }
+
+  /** Ses coffres offerts, ouverts ou non, le plus ancien d'abord : `Missions.duJour` écarte ceux qui sont ouverts. */
+  async coffresOfferts(profileId: string): Promise<{ cle: string; rang: RangDuCoffre; mot: string | null }[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT cle, rang, mot FROM profile_coffres_offerts WHERE profile_id = ? ORDER BY offert_le, cle',
+      args: [profileId],
+    })
+    return res.rows
+      .filter(r => rangValide(r.rang) && coffreOffertValide(r.cle))
+      .map(r => ({ cle: String(r.cle), rang: String(r.rang) as RangDuCoffre, mot: r.mot == null ? null : String(r.mot) }))
+  }
+
+  /**
+   * Offre un coffre à un profil, au nom de l'administrateur : il attend sur
+   * son accueil, comme celui d'une semaine, et s'ouvre de la même scène.
+   * Pour quelqu'un, pas une économie à côté : un rang des quatre, un mot
+   * court. Rend sa clé.
+   */
+  async offrirUnCoffre(id: string, rang: unknown, mot: unknown, quand = Date.now()): Promise<string> {
+    if (!rangValide(rang)) throw new Error('Choisis le coffre : bois, argent, or ou royal')
+    const propre = typeof mot === 'string' ? tronquer(mot.replace(/\s+/g, ' ').trim(), MOT_D_UN_COFFRE_OFFERT_MAX) : ''
+    const cle = `${PREFIXE_D_UN_COFFRE_OFFERT}${randomUUID()}`
+    await this.client.execute({
+      sql: 'INSERT INTO profile_coffres_offerts (profile_id, cle, rang, mot, offert_le) VALUES (?, ?, ?, ?, ?)',
+      args: [id, cle, rang, propre || null, quand],
+    })
+    return cle
+  }
+
+  /**
+   * La compensation du 31 octobre 2026 (`COFFRE_DE_COMPENSATION`) : un coffre
+   * d'or à chaque profil d'aujourd'hui — sans les suspendus, qui ne le
+   * verraient pas —, une fois, avec son drapeau, dans le même lot. Les
+   * profils qui naîtront ensuite ne le reçoivent pas : il parle d'avant eux.
+   */
+  async offrirLaCompensation(quand = Date.now()): Promise<number> {
+    if (await this.drapeau(DRAPEAU_DE_LA_COMPENSATION)) return 0
+    const { cle, rang, mot } = COFFRE_DE_COMPENSATION
+    const [res] = await this.client.batch(
+      [
+        {
+          sql: `INSERT INTO profile_coffres_offerts (profile_id, cle, rang, mot, offert_le)
+                SELECT id, ?, ?, ?, ? FROM profiles WHERE disabled_at IS NULL
+                ON CONFLICT(profile_id, cle) DO NOTHING`,
+          args: [cle, rang, mot, quand],
+        },
+        { sql: 'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING', args: [DRAPEAU_DE_LA_COMPENSATION, String(quand)] },
+      ],
+      'write',
+    )
+    if (res.rowsAffected > 0) console.log(`[missions] ${res.rowsAffected} coffre(s) de compensation offert(s)`)
+    return res.rowsAffected
+  }
+
+  /**
+   * Les jours passés où une mission d'étoiles (`jour-etoiles`, plus tirée
+   * depuis le 31 octobre 2026) attend encore alors que sa partie du quiz du
+   * jour est finie : toutes leurs lignes, par profil, pour que le rattrapage
+   * juge aussi la ligne des trois. Lit `jour_parties`, la table du quiz du
+   * jour, dans la même base : à appeler une fois les deux magasins prêts.
+   */
+  async etoilesARattraper(avant: string): Promise<Map<string, LigneDeMission[]>> {
+    const res = await this.client.execute({
+      sql: `SELECT m.profile_id, m.jour, m.rang, m.mission, m.faite_le FROM profile_missions m
+            WHERE m.jour < ? AND EXISTS (
+              SELECT 1 FROM profile_missions e JOIN jour_parties p ON p.profile_id = e.profile_id AND p.jour = e.jour
+              WHERE e.profile_id = m.profile_id AND e.jour = m.jour AND e.rang < ? AND e.faite_le IS NULL
+                AND json_extract(e.mission, '$.sorte') = 'jour-etoiles' AND p.finie_le IS NOT NULL)
+            ORDER BY m.profile_id, m.jour, m.rang`,
+      args: [avant, RANG_DES_TROIS],
+    })
+    const parProfil = new Map<string, LigneDeMission[]>()
+    for (const r of res.rows) {
+      const id = String(r.profile_id)
+      parProfil.set(id, [...(parProfil.get(id) ?? []), lireLigneDeMission(r)])
+    }
+    return parProfil
   }
 
   /**
@@ -1953,14 +2079,15 @@ export class ProfileStore {
     profileId: string,
     semaine: string,
     tampons: number,
-    { hasard, jour, quand }: { hasard: () => number; jour: string; quand: number },
+    { hasard, jour, quand, rang: offert }: { hasard: () => number; jour: string; quand: number; rang?: RangDuCoffre },
   ): Promise<CoffreOuvert> {
     return this.unAchatALaFois(profileId, async () => {
       const deja = await this.coffreDe(profileId, semaine)
       if (deja) return deja
-      // Un coffre du mois : sa clé est le mois, et `tampons` y est sa place au classement.
+      // Un coffre du mois : sa clé est le mois, et `tampons` y est sa place au
+      // classement. Un coffre offert : son rang vient de qui l'a offert.
       const duMois = moisDuCoffreValide(semaine)
-      const rang = duMois ? rangDuCoffreDuMois(tampons) : rangDuCoffre(tampons)
+      const rang = offert ?? (duMois ? rangDuCoffreDuMois(tampons) : rangDuCoffre(tampons))
       if (!rang) throw new Error('Pas de coffre cette semaine-là : aucun tampon.')
       const rec = await this.require(profileId)
       const achetes = await this.client.execute({ sql: 'SELECT theme FROM profile_achats WHERE profile_id = ?', args: [profileId] })
@@ -2008,6 +2135,7 @@ export class ProfileStore {
         semaine,
         tampons: duMois ? 0 : tampons,
         ...(duMois && { place: tampons }),
+        ...(offert && { offert: { mot: null } }),
         rang,
         rarete,
         objet,
@@ -2643,6 +2771,38 @@ export class ProfileStore {
     })
   }
 
+  /**
+   * Achète un Éclat (`PRIX_D_UN_ECLAT`) : il arrive en réserve, rangé sous
+   * `#achat:` — ni soirée, ni jour, ni semaine ne le reprend — et se dépense
+   * dans la loge sur l'avatar de son choix, comme celui qu'un tirage a fait
+   * tomber sur un avatar déjà éclaté (`depenserUnEclat`). L'achat et l'Éclat
+   * s'écrivent d'un seul lot : payé sans Éclat, ou l'inverse, jamais. Rend
+   * combien en attendent.
+   */
+  acheterUnEclat(id: string, jour: string): Promise<number> {
+    return this.unAchatALaFois(id, async () => {
+      const rec = await this.require(id)
+      const manque = PRIX_D_UN_ECLAT - (await this.boutiqueDe(rec, jour)).confettis.solde
+      if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour un Éclat`)
+      const cle = `${PREFIXE_DE_LA_RESERVE}${randomUUID()}`
+      const quand = Date.now()
+      await this.client.batch(
+        [
+          { sql: 'INSERT INTO profile_eclats_achetes (id, profile_id, prix, created_at) VALUES (?, ?, ?, ?)', args: [randomUUID(), id, PRIX_D_UN_ECLAT, quand] },
+          {
+            sql: 'INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, ?, ?, ?)',
+            args: [id, cle, `${PREFIXE_DES_ACHATS_D_ECLAT}${randomUUID()}`, quand],
+          },
+        ],
+        'write',
+      )
+      let reserve = this.reserves.get(id)
+      if (!reserve) this.reserves.set(id, (reserve = new Set()))
+      reserve.add(cle)
+      return reserve.size
+    })
+  }
+
   /** Toutes les vies qu'il a achetées : la campagne en retire celles qu'il a prises (`viesDe`). */
   async viesAcheteesDe(profileId: string): Promise<number> {
     const res = await this.client.execute({ sql: 'SELECT COALESCE(SUM(nombre), 0) AS n FROM profile_vies WHERE profile_id = ?', args: [profileId] })
@@ -2676,7 +2836,7 @@ export class ProfileStore {
     achats: Achat[]
     eclats: { quand: number; soiree: string }[]
   }> {
-    const [soirees, dons, themes, compagnons, fonds, vies, sabliers, eclats, missions, coffres] = await this.client.batch(
+    const [soirees, dons, themes, compagnons, fonds, vies, sabliers, eclats, missions, coffres, eclatsAchetes] = await this.client.batch(
       [
         // Une soirée se nomme d'abord par son jour (`archiveIdOf`) : lue par son nom, les lignes à part
         // (`#jour`…) n'en sont pas. La veille comprise : un premier quiz fini après minuit crédite le lendemain.
@@ -2688,9 +2848,14 @@ export class ProfileStore {
         { sql: 'SELECT fond, prix, created_at FROM profile_fonds WHERE created_at >= ?', args: [depuis] },
         { sql: 'SELECT nombre, prix, created_at FROM profile_vies WHERE created_at >= ?', args: [depuis] },
         { sql: 'SELECT prix, created_at FROM profile_sabliers WHERE created_at >= ?', args: [depuis] },
-        { sql: 'SELECT soiree_id, created_at FROM profile_eclats WHERE created_at >= ? AND soiree_id NOT LIKE ?', args: [depuis, `${PREFIXE_DES_DONS_D_ECLAT}%`] },
+        // Ni un Éclat offert, ni un Éclat acheté : le QG compte ceux que le hasard a fait tomber.
+        {
+          sql: 'SELECT soiree_id, created_at FROM profile_eclats WHERE created_at >= ? AND soiree_id NOT LIKE ? AND soiree_id NOT LIKE ?',
+          args: [depuis, `${PREFIXE_DES_DONS_D_ECLAT}%`, `${PREFIXE_DES_ACHATS_D_ECLAT}%`],
+        },
         { sql: 'SELECT rang, faite_le FROM profile_missions WHERE faite_le >= ?', args: [depuis] },
         { sql: 'SELECT confettis, ouvert_le FROM profile_coffres WHERE ouvert_le >= ? AND confettis > 0', args: [depuis] },
+        { sql: 'SELECT prix, created_at FROM profile_eclats_achetes WHERE created_at >= ?', args: [depuis] },
       ],
       'read',
     )
@@ -2721,6 +2886,7 @@ export class ProfileStore {
         ...fonds.rows.map(r => achat('fonds', r, 1, String(r.fond))),
         ...vies.rows.map(r => achat('vies', r, Number(r.nombre), null)),
         ...sabliers.rows.map(r => achat('sabliers', r, 1, null)),
+        ...eclatsAchetes.rows.map(r => achat('eclats', r, 1, null)),
       ],
       eclats: eclats.rows.map(r => ({ quand: Number(r.created_at), soiree: String(r.soiree_id) })),
     }
@@ -2750,6 +2916,7 @@ export class ProfileStore {
         'SELECT profile_id, SUM(prix) AS n FROM profile_achats GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_vies GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_sabliers GROUP BY profile_id',
+        'SELECT profile_id, SUM(prix) AS n FROM profile_eclats_achetes GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_compagnons GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_fonds GROUP BY profile_id',
       ],
@@ -3855,8 +4022,9 @@ export class ProfileStore {
         {
           sql: `SELECT created_at FROM profile_achats WHERE created_at >= ?
                 UNION ALL SELECT created_at FROM profile_vies WHERE created_at >= ?
-                UNION ALL SELECT created_at FROM profile_sabliers WHERE created_at >= ?`,
-          args: [depuis, depuis, depuis],
+                UNION ALL SELECT created_at FROM profile_sabliers WHERE created_at >= ?
+                UNION ALL SELECT created_at FROM profile_eclats_achetes WHERE created_at >= ?`,
+          args: [depuis, depuis, depuis, depuis],
         },
         { sql: `SELECT ${COLONNES_D_UNE_SOIREE_DU_QG} FROM profile_xp WHERE created_at >= ? AND ${HORS_LIGNES_A_PART}`, args: [depuis] },
       ],
@@ -5191,6 +5359,7 @@ export class ProfileStore {
           'profile_achats',
           'profile_vies',
           'profile_sabliers',
+          'profile_eclats_achetes',
           'profile_compagnons',
           'profile_fonds',
           'profile_dons',
@@ -5198,6 +5367,7 @@ export class ProfileStore {
           'profile_loge_vus',
           'profile_missions',
           'profile_coffres',
+          'profile_coffres_offerts',
           'profile_envies',
           'profile_cadeaux',
           'profile_cueillettes',

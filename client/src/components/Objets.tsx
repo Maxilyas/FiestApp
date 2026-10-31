@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import { PRIX_D_UN_SABLIER, SABLIERS_MAX } from '../../../shared/jour'
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX } from '../../../shared/sentiers'
+import { PRIX_D_UN_ECLAT } from '../../../shared/profil'
 
-// Les objets qui s'achètent en confettis et servent en jeu — une vie des
-// sentiers, un sablier pour la série du quiz du jour —, et leurs dessins.
+// Les objets qui s'achètent en confettis — une vie des sentiers, un sablier
+// pour la série du quiz du jour, un Éclat pour qui n'a pas de chance —, et
+// leurs dessins.
 // À part de la boutique : la page du quiz du jour montre ses sabliers sans
 // télécharger la boutique entière.
 
@@ -48,7 +50,22 @@ export function PucesDeSabliers({ sabliers }: { sabliers: number }) {
   )
 }
 
-export type CleDObjet = 'vie' | 'sablier'
+/**
+ * Un Éclat dessiné : une gemme taillée, ses facettes aux couleurs de l'Éclat
+ * — celles qu'un avatar éclaté prend —, et deux étincelles.
+ */
+export function GemmeDEclat({ className }: { className?: string }) {
+  return (
+    <svg className={'gemme-d-eclat' + (className ? ` ${className}` : '')} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path className="eclat-facette-a" d="M7 4.5h10l3.5 4.5L12 20.5 3.5 9Z" />
+      <path className="eclat-facette-b" d="M3.5 9h17L12 20.5Z" />
+      <path className="eclat-facette-c" d="M7 4.5 9.5 9 12 4.5 14.5 9 17 4.5" />
+      <path className="eclat-etincelle" d="M20 1.5v3M18.5 3h3M3.5 15.5v3M2 17h3" />
+    </svg>
+  )
+}
+
+export type CleDObjet = 'vie' | 'sablier' | 'eclat'
 
 /** Un objet de la boutique : ce qu'il est, ce qu'il coûte, et combien on peut en prendre d'un coup. */
 export interface Objet {
@@ -90,6 +107,17 @@ export const OBJETS: readonly Objet[] = [
     dessin: () => <Sablier />,
     maximum: SABLIERS_MAX,
     plein: 'Tu as tes deux sabliers : un jour manqué en prendra un, et tu pourras le remplacer.',
+  },
+  {
+    cle: 'eclat',
+    nom: 'Éclat',
+    pour: 'Pour ceux qui n’ont pas de chance',
+    compte: n => `${n} Éclat${n > 1 ? 's' : ''}`,
+    prix: PRIX_D_UN_ECLAT,
+    dit: 'Il attend dans ta loge, et tu choisis l’avatar qui éclate : il change de couleurs, pour toujours. Tu vois chacun éclaté avant de choisir.',
+    dessin: () => <GemmeDEclat />,
+    // Un à la fois : il coûte cher, et se dépense d'abord.
+    maximum: 1,
   },
 ]
 

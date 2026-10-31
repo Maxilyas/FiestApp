@@ -196,11 +196,22 @@ export function finitionValide(raw: unknown, niveau: number): Finition {
  * « s'éclate » — définitivement, et pour cet emoji-là seulement.
  *
  * Les finitions se gagnent au mérite, les avatars légendaires aux hauts
- * faits ; l'Éclat, lui, ne se gagne pas. On ne peut ni l'acheter ni
- * l'accélérer, seulement venir jouer : c'est la seule échelle où le premier
- * et le dernier de la salle sont à égalité.
+ * faits ; l'Éclat, lui, ne se gagne pas. On ne peut pas l'accélérer,
+ * seulement venir jouer — ou l'acheter très cher, depuis le 31 octobre 2026
+ * (`PRIX_D_UN_ECLAT`), en réserve : le tirage reste la seule échelle où le
+ * premier et le dernier de la salle sont à égalité.
  */
 export const CHANCE_ECLAT = 40
+
+/**
+ * Le prix d'un Éclat en boutique (le souhait du propriétaire du 31 octobre
+ * 2026 : « l'achat d'un éclat pour ceux qui n'ont pas de chance ») : un choix
+ * de produit (`docs/reference/baremes.md`). Il arrive en réserve, et se
+ * dépense comme celui qu'un tirage a fait tomber sur un avatar déjà éclaté —
+ * sur l'avatar de son choix, pour toujours. Cher exprès : le tirage reste la
+ * voie de tous les soirs, l'achat celle de qui n'a pas de chance.
+ */
+export const PRIX_D_UN_ECLAT = 3000
 
 /**
  * L'Éclat se tire aussi hors des soirées (le choix du 5 octobre 2026) : au
