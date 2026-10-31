@@ -300,22 +300,23 @@ test('la condition du Scarabée et la série du musée disent qu’un jour ne co
   assert.equal(scarabee.condition, condition)
   const fiche = texte(await rendu('views/cabinet/Gardiens', 'FicheDuGardien', { gardien: scarabee, carte: null, onCarte: rien, onFermer: rien }))
   assert.match(fiche, /Pour le réveiller : \d+ jours d’affilée à répondre à une manche de visite ou de chasse\./)
-  // Le musée : la série se garde en répondant, comme la visite le dit.
-  const musee = texte(
-    await rendu('views/cabinet/Musee', 'Musee', { page: { ...neuve, serie: { jours: 12, aJouer: true, record: 12 } }, bienvenue: false, onRegles: rien, onReprendre: rien, onBienvenueLue: rien }),
+  // « Jouer », où vit la série depuis le 31 octobre 2026 — le musée la disait — : elle se garde en répondant, comme la visite le dit.
+  const jouer = texte(
+    await rendu('views/cabinet/Jouer', 'Jouer', { page: { ...neuve, serie: { jours: 12, aJouer: true, record: 12 } }, onRegles: rien, onReprendre: rien }),
   )
-  assert.match(musee, /12 jours de visite d’affilée\. Réponds à une manche aujourd’hui pour garder ta série\./)
-  assert.doesNotMatch(musee, /Joue aujourd’hui/)
+  assert.match(jouer, /12 jours de visite d’affilée\. Réponds à une manche aujourd’hui pour garder ta série\./)
+  assert.doesNotMatch(jouer, /Joue aujourd’hui/)
 })
 
 // ── La visite ne promet plus deux minutes ─────────────────────────────────
 
-test('le musée ne promet plus des parties de deux minutes : le Mot en donne deux par manche', async () => {
-  const musee = (bienvenue: boolean) => rendu('views/cabinet/Musee', 'Musee', { page: neuve, bienvenue, onRegles: rien, onReprendre: rien, onBienvenueLue: rien })
-  // Ophélie additionnait les chronos, deux minutes à six au Mot : la promesse tenait 53 parties sur 54, pas toutes.
-  for (const html of [await musee(false), await musee(true)]) assert.doesNotMatch(texte(html), /deux minutes/)
-  assert.match(texte(await musee(false)), new RegExp(`${neuve.visite.cases.length} petites parties · 0 sur ${neuve.visite.cases.length} faite`))
-  assert.match(texte(await musee(true)), /de petits jeux de quelques minutes/)
+test('ni le musée ni « Jouer » ne promettent des parties de deux minutes : le Mot en donne deux par manche', async () => {
+  const musee = await rendu('views/cabinet/Musee', 'Musee', { page: neuve, onReprendre: rien })
+  const jouer = await rendu('views/cabinet/Jouer', 'Jouer', { page: neuve, onRegles: rien, onReprendre: rien })
+  // Ophélie additionnait les chronos, deux minutes à six au Mot : la promesse tenait 53 parties sur 54, pas toutes. La bienvenue,
+  // qui disait « de petits jeux de quelques minutes », s'est tue avec le musée d'avant : le but de la tour l'a remplacée.
+  for (const html of [musee, jouer]) assert.doesNotMatch(texte(html), /deux minutes/)
+  assert.match(texte(jouer), new RegExp(`${neuve.visite.cases.length} petites parties · 0 sur ${neuve.visite.cases.length} faite`))
 })
 
 // ── La documentation, des mêmes mots ──────────────────────────────────────

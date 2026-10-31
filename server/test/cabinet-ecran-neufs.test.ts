@@ -290,7 +290,7 @@ test('la carte de France et tes murs viennent à la demande : la page du musée 
     assert.ok(!chemin.has(path.join(client, f)), `${f} ne part pas avec le Cabinet`)
   }
   assert.match(source('views/CabinetApp.tsx'), /const LES_MURS = aLaDemande\(\(\) => import\('\.\/cabinet\/Murs'\)\)/)
-  assert.match(source('views/CabinetApp.tsx'), /case 'murs':\s+return avecLeToast\(<MursALaDemande \/>\)/)
+  assert.match(source('views/CabinetApp.tsx'), /case 'murs':\s+return avecLaBarre\(<MursALaDemande \/>\)/)
   // Le cadre dit à chaque révélation comment sa manche s'est tranchée : quittée au bon mot, la Réplique le dit.
   assert.match(source('views/cabinet/Partie.tsx'), /<ecran\.Revelation corps=\{r\.corps\} partie=\{vue\.id\} tirage=\{r\.tirage\} fin=\{r\.fin\} \/>/)
 })

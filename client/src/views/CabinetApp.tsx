@@ -38,17 +38,20 @@ import {
 import { Gardiens } from './cabinet/Gardiens'
 import { Musee, enDebutDeLigne } from './cabinet/Musee'
 import { Tour } from './cabinet/Tour'
+import { BarreDuCabinet, pieceDe } from './cabinet/Barre'
+import { Jouer } from './cabinet/Jouer'
 import type { LesMurs } from './cabinet/Murs'
 import { Oeuvre, oeuvreDeLaPage } from './cabinet/Oeuvre'
 import { Partie, ecranDuJeu } from './cabinet/Partie'
 import { FeuilleDesRegles } from './cabinet/Regles'
 import { Salle } from './cabinet/Salle'
 import { JouerLibrement, Visite, confirmationDeLEchange, dejaDoree, jeuPropose } from './cabinet/Visite'
-import { carteRetenue, reglesLues, retenirLaCarte, retenirLesRegles } from './cabinet/retenu'
+import { carteRetenue, retenirLaCarte, retenirLesRegles } from './cabinet/retenu'
 
-// La page du Cabinet de curiosités (`/cabinet`) : le musée et ses écrans —
-// une salle, une œuvre et son cartel, les gardiens, la visite du jour, les
-// jeux libres, tes murs —, chacun à son fragment (`cabinet/ecrans.ts`), et ce que la
+// La page du Cabinet de curiosités (`/cabinet`) : la tour, et ses écrans — ton
+// musée, une salle, une œuvre et son cartel, les gardiens, « Jouer », la visite
+// du jour, les jeux libres, tes murs —, chacun à son fragment (`cabinet/ecrans.ts`)
+// et sous la barre de ses quatre pièces (`cabinet/Barre.tsx`), et ce que la
 // page y fait : retenir sa carte-bonus, acheter une œuvre, dorer un cadre,
 // changer un jeu de la visite. Tout ce qu'elle montre vient de la page du
 // serveur (`GET /api/cabinet`, demandée d'emblée — l'adresse préchargée avec
@@ -224,7 +227,6 @@ export function CabinetApp() {
   // Sans lui, rien ne se retient, et ce qui ne se dit qu'une fois se tait : redit à chaque visite, il lasserait.
   const [profil, setProfil] = useState<string | null>(null)
   const [carte, setCarte] = useState<string | null>(null)
-  const [bienvenue, setBienvenue] = useState(false)
   const [cartels, setCartels] = useState<Record<string, EtatDuCartel>>({})
   // Chaque demande de cartel a son numéro : seule celle qu'une place attend encore s'y range (`cartelArrive`).
   const demandesDeCartel = useRef(0)
@@ -280,7 +282,6 @@ export function CabinetApp() {
         if (id) {
           setProfil(id)
           setCarte(carteRetenue(id))
-          setBienvenue(!reglesLues(id))
         }
       } catch {
         // Sans le profil léger, le musée s'ouvre quand même : le thème attendra.
@@ -514,15 +515,13 @@ export function CabinetApp() {
     if (profil) retenirLaCarte(profil, cle)
     setCarte(cle)
   }
-  /** « C'est parti » : la bienvenue ne se redit plus, comme les règles lues. */
-  const bienvenueLue = () => {
+  /** Les règles lues se retiennent au profil (`retenu.ts`) : rien ne les redemande. */
+  const reglesVues = () => {
     if (profil) retenirLesRegles(profil)
-    setBienvenue(false)
   }
   const ouvrirLesRegles = () => {
     setRegles(true)
-    // Lues une fois, la bienvenue n'a plus à les proposer.
-    bienvenueLue()
+    reglesVues()
   }
 
   // Le toast, rendu par la page elle-même, en bas de l'écran (aucune réponse à y cacher) : l'Expédition n'en rendait aucun, et ses
@@ -594,14 +593,23 @@ export function CabinetApp() {
     if (a) return avecLeToast(<AnnonceEnAttente jeu={a.jeu} enJeu={a.enJeu} onRetour={versLeMusee} />)
   }
 
+  // Chaque écran du Cabinet porte sa barre, comme l'accueil : la tour, ton musée, les gardiens, jouer (`Barre.tsx`). Jamais sous
+  // une partie ni son annonce : elle couvrirait le pied collé d'une manche, et partir ailleurs se fait par « Quitter ».
+  const avecLaBarre = (contenu: ReactNode) =>
+    avecLeToast(
+      <div className="cab-avec-barre">
+        {contenu}
+        <BarreDuCabinet ici={pieceDe(ecran)} />
+      </div>,
+    )
   switch (ecran.e) {
     case 'salle': {
       const s = p.salles.find(x => x.cle === ecran.salle)
-      if (s) return avecLeToast(<Salle salle={s} page={p} />)
+      if (s) return avecLaBarre(<Salle salle={s} page={p} />)
       break
     }
     case 'oeuvre':
-      return avecLeToast(
+      return avecLaBarre(
         <Oeuvre
           page={p}
           cle={ecran.oeuvre}
@@ -616,24 +624,17 @@ export function CabinetApp() {
         />,
       )
     case 'gardiens':
-      return avecLeToast(<Gardiens page={p} carte={carte} onCarte={choisirLaCarte} />)
+      return avecLaBarre(<Gardiens page={p} carte={carte} onCarte={choisirLaCarte} />)
     case 'visite':
-      return avecLeToast(<Visite page={p} busy={busy} onJouer={jouer} onEchanger={k => void echanger(k)} onReprendre={reprendre} />)
+      return avecLaBarre(<Visite page={p} busy={busy} onJouer={jouer} onEchanger={k => void echanger(k)} onReprendre={reprendre} />)
     case 'libre':
-      return avecLeToast(<JouerLibrement page={p} onJouer={jouer} onReprendre={reprendre} />)
+      return avecLaBarre(<JouerLibrement page={p} onJouer={jouer} onReprendre={reprendre} />)
     case 'murs':
-      return avecLeToast(<MursALaDemande />)
+      return avecLaBarre(<MursALaDemande />)
+    case 'musee':
+      return avecLaBarre(<Musee page={p} onReprendre={reprendre} />)
+    case 'jouer':
+      return avecLaBarre(<Jouer page={p} onRegles={ouvrirLesRegles} onReprendre={reprendre} />)
   }
-  if (ecran.e === 'musee') {
-    return avecLeToast(
-      <Musee
-        page={p}
-        bienvenue={bienvenue}
-        onRegles={ouvrirLesRegles}
-        onReprendre={reprendre}
-        onBienvenueLue={bienvenueLue}
-      />,
-    )
-  }
-  return avecLeToast(<Tour page={p} onPorte={jouer} onReprendre={reprendre} onRegles={ouvrirLesRegles} />)
+  return avecLaBarre(<Tour page={p} onPorte={jouer} onReprendre={reprendre} onRegles={ouvrirLesRegles} />)
 }

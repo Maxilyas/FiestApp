@@ -68,7 +68,8 @@ import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, RARETES, estUneOeuvre, oeu
 import { JEUX_PRETS } from '../../shared/cabinet/ouverture'
 import { PLUS_DE_PAUSE, bilanDe, etoilesDesManches, type Manche } from '../../shared/cabinet/partie'
 import { POUVOIRS, ceQueFaitLaCarte, forceDite } from '../../shared/cabinet/pouvoirs'
-import { GARDIENS, GARDIENS_DES_SALLES, SALLES } from '../../shared/cabinet/salles'
+import { ORDRE_DE_LA_TOUR } from '../../shared/cabinet/montee'
+import { AUTRES_GARDIENS, GARDIENS, GARDIENS_DES_SALLES, SALLES } from '../../shared/cabinet/salles'
 import { fondreLesReveils, type CaseVue, type Cartel, type PageDuCabinet, type ReveilDesGardiens, type SalleVue, type VueDeLaPartie } from '../../shared/cabinet/vues'
 import { COMPAGNON_DE_L_EXPEDITION, compagnon as leCompagnon } from '../../shared/compagnons'
 import { DEPART, donneesDeDepart } from '../../shared/depart'
@@ -206,7 +207,7 @@ test('la page ne télécharge ni les règles de l’Expédition, ni celles qui j
   // Les dessins de ses gardiens viennent à la demande : `medaillons.test.ts` le garde, avec ceux des autres pages.
   const chemin = importsStatiques(path.join(client, 'views/CabinetApp.tsx'))
   // Le parcours voit bien le chemin : sinon ce test ne garderait rien.
-  for (const f of ['views/cabinet/Musee.tsx', 'views/cabinet/Salle.tsx', 'views/cabinet/Annonce.tsx', 'views/cabinet/Partie.tsx', 'components/OeuvrePeinte.tsx', 'components/Avatar.tsx']) {
+  for (const f of ['views/cabinet/Musee.tsx', 'views/cabinet/Jouer.tsx', 'views/cabinet/Barre.tsx', 'views/cabinet/Salle.tsx', 'views/cabinet/Annonce.tsx', 'views/cabinet/Partie.tsx', 'components/OeuvrePeinte.tsx', 'components/Avatar.tsx']) {
     assert.ok(chemin.has(path.join(client, f)), `${f} est sur le chemin`)
   }
   // Les écrans des jeux et le bilan — l'écran des gains, ses catalogues — viennent à la demande : la page du musée ne les télécharge pas.
@@ -230,6 +231,7 @@ test('chaque écran du musée a son adresse, et une adresse inconnue ouvre la to
     { e: 'tour' },
     { e: 'musee' },
     { e: 'gardiens' },
+    { e: 'jouer' },
     { e: 'visite' },
     { e: 'libre' },
     { e: 'murs' },
@@ -245,84 +247,131 @@ test('chaque écran du musée a son adresse, et une adresse inconnue ouvre la to
   }
   // Le musée, l'entrée jusqu'au 31 octobre 2026, a désormais son adresse : la tour l'a pris.
   assert.equal(adresseDe({ e: 'musee' }), '#musee')
+  assert.equal(adresseDe({ e: 'jouer' }), '#jouer')
+})
+
+test('la barre du Cabinet : quatre pièces sous le pouce, celle où l’on est dite en gras et à l’oreille, chaque écran rangé à la sienne', async () => {
+  // « Est-ce qu'on pourrait avoir une barre de menu en bas comme on a à l'accueil ? » (le propriétaire, le 31 octobre 2026).
+  const { pieceDe } = await import(url('views/cabinet/Barre.tsx'))
+  const html = await rendu('views/cabinet/Barre', 'BarreDuCabinet', { ici: 'gardiens' })
+  const liens = [...html.matchAll(/<a href="([^"]*)"( aria-current="page")?>(.*?)<\/a>/g)].map(m => ({ href: m[1], ici: !!m[2], nom: texte(m[3]).trim() }))
+  assert.deepEqual(liens, [
+    { href: '/cabinet', ici: false, nom: 'La tour' },
+    { href: '#musee', ici: false, nom: 'Musée' },
+    { href: '#gardiens', ici: true, nom: 'Gardiens' },
+    { href: '#jouer', ici: false, nom: 'Jouer' },
+  ])
+  assert.match(html, /^<nav class="cab-barre" aria-label="Le Cabinet">/)
+  // Une salle et une œuvre sont du musée ; la visite, les jeux libres et tes murs, de « Jouer ».
+  const pieces = { tour: 'tour', musee: 'musee', salle: 'musee', oeuvre: 'musee', gardiens: 'gardiens', jouer: 'jouer', visite: 'jouer', libre: 'jouer', murs: 'jouer' }
+  for (const [e, piece] of Object.entries(pieces)) assert.equal(pieceDe({ e, salle: 'rempart', oeuvre: 'bastion' }), piece, e)
+  // Chaque écran du Cabinet la porte, jamais une partie ni son annonce : elle couvrirait le pied collé d'une manche.
+  const app = source('views/CabinetApp.tsx')
+  for (const ecran of ['Salle', 'Oeuvre', 'Gardiens', 'Visite', 'JouerLibrement', 'MursALaDemande', 'Musee', 'Jouer', 'Tour']) {
+    assert.match(app, new RegExp(`avecLaBarre\\(\\s*<${ecran}\\b`), ecran)
+  }
+  for (const ecran of ['Partie', 'Annonce', 'AnnonceEnAttente']) assert.doesNotMatch(app, new RegExp(`avecLaBarre\\(\\s*<${ecran}\\b`), ecran)
+  // La page s'arrête au-dessus d'elle, et le toast monte.
+  const section = sectionDuCabinet()
+  assert.match(section, /\.cab-avec-barre > \.player-shell \{ padding-bottom: calc\(/)
+  assert.match(section, /\.cab-avec-barre ~ \.cab-toast \{ bottom: calc\(/)
 })
 
 // ── 3. Le musée ───────────────────────────────────────────────────────────
 
-const musee = (p: PageDuCabinet, plus: object = {}) =>
-  rendu('views/cabinet/Musee', 'Musee', { page: p, bienvenue: false, onRegles: rien, onReprendre: rien, onBienvenueLue: rien, ...plus })
+const musee = (p: PageDuCabinet, plus: object = {}) => rendu('views/cabinet/Musee', 'Musee', { page: p, onReprendre: rien, ...plus })
+/** « Jouer », la pièce de la barre qui a pris au musée la visite, les jeux libres, tes murs, la série, les chasses et les règles. */
+const aJouerAuCabinet = (p: PageDuCabinet, plus: object = {}) => rendu('views/cabinet/Jouer', 'Jouer', { page: p, onRegles: rien, onReprendre: rien, ...plus })
 
-test('le musée : ce qu’il possède, la visite du jour, les neuf salles, les gardiens, les jeux libres, les règles', async () => {
+test('le musée : ce qu’il possède en deux chiffres, le prochain gardien, et ses neuf salles en cimaises, dans l’ordre de la tour', async () => {
   const html = await musee(page)
   const t = texte(html)
   assert.match(t, /Ton musée/)
-  // Les quatre de départ et Leçon ; les gardiens qu'il a — aucun ici.
-  assert.match(t, new RegExp(`5 œuvres sur ${OEUVRES.length} · 0 gardien sur ${GARDIENS.length}`))
+  // Les quatre de départ et Leçon ; les gardiens qu'il a — aucun ici —, chacun son chiffre en grand.
+  assert.match(t, new RegExp(`5 œuvres sur ${OEUVRES.length} 0 gardien sur ${GARDIENS.length}`))
+  assert.match(html, /<b class="cab-chiffre">5<\/b>/)
   assert.match(html, /class="cab-jauge"/)
   // Le solde de sa poussière d'or, que la chasse et la visite quittée ont rapporté.
   assert.ok(page.poussiere > 0)
   assert.match(t, new RegExp(`${page.poussiere} poussières d’or`))
-  // La visite du jour : une case faite sur celles de la page.
-  assert.match(t, new RegExp(`La visite du jour .*1 sur ${page.visite.cases.length} faite`))
-  assert.match(html, /href="#visite"/)
-  // Les neuf salles, dans l'ordre du Cabinet, chacune son compte et son adresse.
-  const ordre = SALLES.map(s => html.indexOf(`href="#salle-${s.cle}"`))
-  assert.ok(ordre.every(i => i > 0), ordre.join(','))
-  assert.deepEqual(ordre, [...ordre].sort((a, c) => a - c))
+  // Les neuf salles, dans l'ordre des étages de la tour — le Vestibule d'abord —, chacune son compte et son adresse. (Le prochain
+  // gardien mène aussi à sa salle : seules les portes comptent.)
+  assert.deepEqual([...html.matchAll(/<a class="cab-porte[^"]*" href="#salle-([a-z-]+)">/g)].map(m => m[1]), [...ORDRE_DE_LA_TOUR])
+  assert.equal(ORDRE_DE_LA_TOUR[0], 'vestibule')
   assert.match(t, /L’Érudit 1 sur 8/)
   assert.match(t, /Le Vestibule 4 sur 20/)
-  // Une salle sans œuvre à lui ne montre la peinture d'aucune : on la découvre en la gagnant.
-  const rempart = /<a class="cab-porte[^"]*" href="#salle-rempart">.*?<\/a>/.exec(html)?.[0] ?? ''
-  assert.doesNotMatch(rempart, /<img/)
-  assert.match(/<a class="cab-porte[^"]*" href="#salle-erudit">.*?<\/a>/.exec(html)?.[0] ?? '', /<img[^>]*src="\/cartes\/lecon-240\./)
-  // Ce qui reste aujourd'hui, sans un mot de règle : la page n'en dit pas en paragraphes.
-  assert.match(t, new RegExp(`${CHASSES_PAR_JOUR - 1} chasse aujourd’hui`))
-  assert.match(html, /href="#gardiens"/)
-  assert.match(html, /href="#libre"/)
-  // Tes murs ont leur porte au musée : seules les règles y menaient, d'un lien au milieu d'un paragraphe.
-  assert.match(html, /<a class="gros-bouton" href="#murs">.*?Tes murs.*?<\/a>/)
-  assert.match(t, /Comment ça marche/)
+  // Une salle sans œuvre à lui ne montre la peinture d'aucune — des cadres vides : on la découvre en la gagnant.
+  const porte = (cle: string) => new RegExp(`<a class="cab-porte[^"]*" href="#salle-${cle}">.*?</a>`).exec(html)?.[0] ?? ''
+  assert.doesNotMatch(porte('rempart'), /<img/)
+  assert.equal([...porte('rempart').matchAll(/class="cab-toile cab-toile-vide"/g)].length, 4)
+  assert.match(porte('rempart'), /class="cab-toile cab-toile-reste">\+4</)
+  // Sa cimaise : ses peintures d'abord, les cadres vides ensuite, cinq places en tout.
+  const erudit = porte('erudit')
+  assert.match(erudit, /<span class="cab-cimaise" aria-hidden="true"><span class="cab-toile"><img[^>]*src="\/cartes\/lecon-240\./)
+  assert.equal([...erudit.matchAll(/class="cab-toile[ "]/g)].length, 5)
+  // Le Vestibule : ses quatre œuvres offertes, et ce qui reste en compte.
+  assert.equal([...porte('vestibule').matchAll(/<img/g)].length, 4)
+  assert.match(porte('vestibule'), /class="cab-toile cab-toile-reste">\+16</)
   // Le prochain gardien : la salle la plus près d'être complète, et ce qui lui manque.
   assert.ok(page.gardiens.prochain)
   assert.match(t, new RegExp(page.gardiens.prochain.dit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  // Rien d'autre : la visite, les jeux libres, tes murs, les chasses et les règles vivent sous « Jouer », les gardiens sur leur
+  // pièce — à dix choses à la fois, le propriétaire le trouvait « incompréhensible » (le 31 octobre 2026).
+  for (const ailleurs of [/La visite du jour/, /Jouer librement/, /Tes murs/, /chasses? aujourd’hui/, /Comment ça marche/]) assert.doesNotMatch(t, ailleurs)
+  for (const lien of ['#visite', '#libre', '#murs', '#gardiens']) assert.ok(!html.includes(`href="${lien}"`), lien)
   sansJargon(html, 'le musée')
 })
 
-test('le musée dit une fois la bienvenue, la partie qui l’attend, l’expédition en route, sa fête et sa série — et aucune œuvre rapportée', async () => {
-  // Une joueuse qui arrive : la bienvenue, et les règles à un toucher.
-  const bienvenue = texte(await musee(neuf, { bienvenue: true }))
-  assert.match(bienvenue, /Bienvenue au Cabinet/)
-  assert.match(bienvenue, /Comment ça marche/)
+test('« Jouer » : la visite du jour, les jeux libres, tes murs, les chasses du jour et « Comment ça marche ? »', async () => {
+  const html = await aJouerAuCabinet(page)
+  const t = texte(html)
+  assert.match(t, /Jouer/)
+  // La visite du jour : une case faite sur celles de la page.
+  assert.match(t, new RegExp(`La visite du jour .*1 sur ${page.visite.cases.length} faite`))
+  assert.match(html, /href="#visite"/)
+  assert.match(html, /href="#libre"/)
+  // Tes murs ont leur porte : seules les règles y menaient, d'un lien au milieu d'un paragraphe.
+  assert.match(html, /<a class="gros-bouton" href="#murs">.*?Tes murs.*?<\/a>/)
+  // Ce qui reste aujourd'hui, sans un mot de règle : la page n'en dit pas en paragraphes.
+  assert.match(t, new RegExp(`${CHASSES_PAR_JOUR - 1} chasse aujourd’hui`))
+  assert.match(t, /Comment ça marche/)
+  sansJargon(html, 'jouer')
+})
+
+test('le musée dit la partie qui l’attend, l’expédition en route et sa fête ; « Jouer », sa série — et aucune œuvre rapportée', async () => {
+  // La bienvenue s'est tue : la tour dit le but en trois images à l'arrivée (`cabinet-tour.test.ts`).
   assert.doesNotMatch(texte(await musee(neuf)), /Bienvenue au Cabinet/)
+  assert.doesNotMatch(source('views/CabinetApp.tsx'), /bienvenue/i)
   // Tout le monde commence le Cabinet vide, ses quatre œuvres offertes à l'arrivée : l'Expédition n'y rapporte rien (le choix du
   // propriétaire du 25 octobre 2026). Le musée n'a plus d'œuvres rapportées à annoncer, et ne lit plus leur compte — même d'une page
   // d'un serveur d'avant qui le porterait encore.
   const davant = { ...neuf, rapportees: 41 }
-  for (const p of [neuf, davant]) assert.doesNotMatch(texte(await musee(p, { bienvenue: true })), /rapporté|de l’Expédition/)
+  for (const p of [neuf, davant]) assert.doesNotMatch(texte(await musee(p)), /rapporté|de l’Expédition/)
   assert.doesNotMatch(source('views/cabinet/Musee.tsx'), /rapportees/)
   // Le serveur ne le porte plus non plus : un zéro gardé pour une annonce que plus personne ne lit (`PageDuCabinet`, `pageDuCabinet`).
   assert.equal('rapportees' in neuf, false)
   assert.equal('rapportees' in page, false)
-  // Une partie en cours passe devant tout : on la reprend.
+  // Une partie en cours passe devant tout : on la reprend, au musée comme sous « Jouer ».
   const enCours = { ...neuf, enCours: { id: 'p', jeu: 'pari', origine: 'chasse' } as VueDeLaPartie }
   const t = texte(await musee(enCours))
   assert.match(t, new RegExp(`Ta partie ${JEUX.pari.a} t’attend`))
-  assert.ok(t.indexOf('t’attend') < t.indexOf('La visite du jour'))
-  // L'expédition en route, la fête du moment et son gardien, la série à garder.
-  const tout = texte(
-    await musee({
-      ...neuf,
-      expedition: 'en-route',
-      fete: { cle: 'halloween', nom: 'Halloween', gardien: { legendaire: 'lg:citrouille', dit: 'Gagne une œuvre, et la Citrouille se réveillera.' } },
-      serie: { jours: 12, aJouer: true, record: 12 },
-    }),
-  )
+  assert.ok(t.indexOf('t’attend') < t.indexOf('Les salles'))
+  const j = texte(await aJouerAuCabinet(enCours))
+  assert.ok(j.indexOf('t’attend') >= 0 && j.indexOf('t’attend') < j.indexOf('La visite du jour'))
+  // L'expédition en route, la fête du moment et son gardien au musée ; la série à garder, sous « Jouer », avec la visite qui la garde.
+  const toutes = {
+    ...neuf,
+    expedition: 'en-route' as const,
+    fete: { cle: 'halloween' as const, nom: 'Halloween', gardien: { legendaire: 'lg:citrouille', dit: 'Gagne une œuvre, et la Citrouille se réveillera.' } },
+    serie: { jours: 12, aJouer: true, record: 12 },
+  }
+  const tout = texte(await musee(toutes))
   assert.match(tout, /Ton expédition t’attend : la finir/)
   assert.match(tout, /Halloween .*Gagne une œuvre, et la Citrouille se réveillera\./)
-  assert.match(tout, /12 jours de visite d’affilée\. Réponds à une manche aujourd’hui pour garder ta série\./)
+  assert.match(texte(await aJouerAuCabinet(toutes)), /12 jours de visite d’affilée\. Réponds à une manche aujourd’hui pour garder ta série\./)
 })
 
-test('la porte d’une salle montre la plus rare de ses œuvres à lui, quel que soit leur rang au mur', async () => {
+test('la cimaise d’une salle montre la plus rare de ses œuvres à lui d’abord, quel que soit leur rang au mur', async () => {
   // Le Vestibule range ses épiques avant ses maudites : la dernière possédée n'y est pas la plus rare.
   const vestibule = salleDe(neuf, 'vestibule')
   const epique = vestibule.oeuvres.find(o => o.rarete === 'epique' && !o.possedee)!
@@ -332,7 +381,10 @@ test('la porte d’une salle montre la plus rare de ses œuvres à lui, quel que
   const aLui = new Set([epique.cle, maudite.cle])
   const p = { ...neuf, salles: neuf.salles.map(s => (s.cle !== 'vestibule' ? s : { ...s, oeuvres: s.oeuvres.map(o => (aLui.has(o.cle) ? { ...o, possedee: true } : o)) })) }
   const porte = /<a class="cab-porte[^"]*" href="#salle-vestibule">.*?<\/a>/.exec(await musee(p))?.[0] ?? ''
-  assert.match(porte, new RegExp(`<img[^>]*src="/cartes/${epique.cle}-240\\.`))
+  const images = [...porte.matchAll(/<img[^>]*src="\/cartes\/([^"]+)-240\./g)].map(m => m[1])
+  // Les quatre premières places, de la plus rare à la moins rare : l'épique en tête.
+  assert.equal(images[0], epique.cle)
+  assert.equal(images.length, 4)
 })
 
 // ── 4. Une salle ──────────────────────────────────────────────────────────
@@ -494,15 +546,43 @@ test('le cartel : ce que la partie lui a appris, ou ce qui l’a fait entrer', a
 
 // ── 6. Les gardiens ───────────────────────────────────────────────────────
 
-test('les gardiens : les vingt-trois, endormis ou réveillés, ce qui réveille chacun, et jamais un Divin', async () => {
+test('les gardiens : les vingt-trois, salle par salle, ce qui réveille chacun en trois mots, à quoi sert de les réveiller, et jamais un Divin', async () => {
   const html = await rendu('views/cabinet/Gardiens', 'Gardiens', { page, carte: null, onCarte: rien })
   const t = texte(html)
   assert.match(t, new RegExp(`0 sur ${GARDIENS.length} réveillés`))
-  for (const g of GARDIENS) assert.match(t, new RegExp(nom(g).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), g)
+  // À quoi sert de les réveiller : rien ne le disait, et l'écran semblait une liste de règles (le propriétaire, le 31 octobre 2026).
+  assert.match(t, /Réveillé, un gardien devient ton avatar légendaire, à porter partout\./)
+  for (const g of GARDIENS) assert.match(t, new RegExp(echapper(nom(g))), g)
   assert.equal([...html.matchAll(/class="cab-gardien"/g)].length, GARDIENS.length)
   assert.doesNotMatch(html, /dv:|Divin/, 'aucun Divin, pas même nommé')
-  assert.match(t, /La salle du Rempart complète/)
+  // Rangés par salle, dans l'ordre de la tour, ses deux gardiens côte à côte, puis les cinq autres.
+  const groupes = [...html.matchAll(/<section class="cab-gardiens-groupe"[^>]*><h2[^>]*>(.*?)<\/h2>(.*?)<\/section>/g)].map(m => ({ titre: texte(m[1]).trim(), corps: m[2] }))
+  assert.deepEqual(
+    groupes.map(g => g.titre),
+    [...ORDRE_DE_LA_TOUR.map(cle => SALLES.find(s => s.cle === cle)!.nom), 'Les autres'],
+  )
+  for (const [k, cle] of ORDRE_DE_LA_TOUR.entries()) {
+    const [premier, second] = GARDIENS_DES_SALLES[cle]
+    const corps = texte(groupes[k].corps)
+    // Ce qui le réveille en trois mots — la salle est au titre, la phrase entière sur sa fiche —, et où il en est.
+    const n = salleDe(page, cle).oeuvres.filter(o => o.possedee).length
+    const sur = salleDe(page, cle).oeuvres.length
+    assert.match(corps, new RegExp(`${echapper(nom(premier))} Toutes ses œuvres ${n} sur ${sur}`), cle)
+    assert.match(corps, new RegExp(`${echapper(nom(second))} Tous ses cadres dorés`), cle)
+  }
+  const autres = texte(groupes.at(-1)!.corps)
+  assert.equal(AUTRES_GARDIENS.length, 5)
+  assert.match(autres, new RegExp(`${JOURS_DU_SCARABEE} jours d’affilée`))
+  assert.match(autres, new RegExp(`Les ${OEUVRES.length} œuvres`))
+  for (const fete of ['Halloween', 'Noël', 'le Nouvel An']) assert.match(autres, new RegExp(`Pendant ${fete}`))
+  // La phrase de la condition, sur la carte d'un gardien de 150 pixels, prenait cinq lignes : elle ne s'y lit plus.
+  assert.doesNotMatch(t, /La salle du Rempart complète|à répondre à une manche/)
   sansJargon(html, 'les gardiens')
+  // Réveillé : cerclé d'or, son pouvoir sous son nom, et dit à l'oreille.
+  const unReveille = { ...page, gardiens: { ...page.gardiens, tous: page.gardiens.tous.map(g => (g.legendaire === 'lg:phenix' ? { ...g, reveille: true, voie: 'cabinet' as const } : g)) } }
+  const eveille = /<button type="button" class="cab-gardien cab-gardien-eveille">.*?<\/button>/.exec(await rendu('views/cabinet/Gardiens', 'Gardiens', { page: unReveille, carte: null, onCarte: rien }))?.[0] ?? ''
+  assert.match(texte(eveille), new RegExp(`${nom('lg:phenix')} ${POUVOIRS.proteger.nom} , réveillé`))
+  assert.doesNotMatch(eveille, /cab-jauge/)
   // La fiche d'un gardien réveillé : son pouvoir à la force 3, et en faire sa carte-bonus.
   const phenix = page.gardiens.tous.find(g => g.legendaire === 'lg:phenix')!
   const fiche = await rendu('views/cabinet/Gardiens', 'FicheDuGardien', { gardien: { ...phenix, reveille: true, voie: 'cabinet' }, carte: null, onCarte: rien, onFermer: rien })
@@ -945,7 +1025,7 @@ test('le bouton de l’accueil dit son musée — « Ton musée : 27 œuvres sur
   assert.match(source('views/ProfilApp.tsx'), /musee=\{'cabinet' in profil \? profil\.cabinet : undefined\}/)
 })
 
-test('« À jouer » : une seule règle, au musée et sur l’accueil — une case d’un jeu pas livré n’attend que si l’échange peut la changer', async () => {
+test('« À jouer » : une seule règle, sous « Jouer » et sur l’accueil — une case d’un jeu pas livré n’attend que si l’échange peut la changer', async () => {
   // L'accueil du serveur (`accueilDuCabinet`), sur une journée faite à la main : deux cases jouées, la troisième à l'Épingle.
   const jour = '2026-10-25'
   const cases: CaseFigee[] = [
@@ -963,13 +1043,14 @@ test('« À jouer » : une seule règle, au musée et sur l’accueil — une ca
   assert.equal(aJouer({ jeux: sansLEpingle, visite: { ...visite, echange: 0 } }), false, 'l’échange du jour déjà fait : elle ne se joue plus')
   assert.equal(aJouer({ jeux: sansLEpingle, jeuDeLEchange: null }), false, 'aucun autre jeu à lui donner')
   assert.equal(aJouer({ musee: museeDe({ jour, parties: [jouee(0), jouee(1), jouee(2)] }) }), false, 'la visite faite')
-  // Le musée, de même : sa pastille et son bouton en avant ne promettaient qu'une case pas faite, même d'un jeu qui ne se joue pas.
+  // « Jouer » de même — le musée jusqu'au 31 octobre 2026 : sa pastille et son bouton en avant ne promettaient qu'une case pas
+  // faite, même d'un jeu qui ne se joue pas.
   const derniere = (echange: PageDuCabinet['visite']['echange']): PageDuCabinet => ({
     ...page,
     enCours: null,
     visite: { ...page.visite, echange, cases: page.visite.cases.map((c, k, toutes) => (k < toutes.length - 1 ? { ...c, faite: true } : { ...c, faite: false, bientot: true as const })) },
   })
-  const laVisite = async (p: PageDuCabinet) => /<a class="gros-bouton[^"]*" href="#visite">.*?<\/a>/.exec(await musee(p))?.[0] ?? ''
+  const laVisite = async (p: PageDuCabinet) => /<a class="gros-bouton[^"]*" href="#visite">.*?<\/a>/.exec(await aJouerAuCabinet(p))?.[0] ?? ''
   const changeable = await laVisite(derniere({ possible: true, jeu: 'mot' }))
   assert.match(changeable, /^<a class="gros-bouton gros-principal"/)
   assert.match(changeable, /<span class="pastille-attente">À jouer<\/span>/)
@@ -979,7 +1060,7 @@ test('« À jouer » : une seule règle, au musée et sur l’accueil — une ca
   // Elle dit encore où elle en est : deux sur trois, la troisième ne se fera pas aujourd'hui.
   assert.match(texte(perdue), new RegExp(`${page.visite.cases.length - 1} sur ${page.visite.cases.length} faites`))
   // Une seule copie de la règle : `shared/cabinet/vues.ts`, que la page et le serveur importent.
-  assert.match(source('views/cabinet/Musee.tsx'), /const aJouer = visiteAJouer\(page\.visite\)/)
+  assert.match(source('views/cabinet/Jouer.tsx'), /const aJouer = visiteAJouer\(page\.visite\)/)
   assert.match(readFileSync(path.resolve(client, '../../server/src/core/cabinet/vue.ts'), 'utf8'), /aJouer: visiteAJouer\(visiteVue\(l\)\)/)
 })
 
@@ -4290,9 +4371,9 @@ test('une partie qui attend se reprend de partout : sa case « En cours » et un
   assert.equal(jouer.length, 2)
   assert.ok(jouer.every(j => j.eteint && raisonsDe(html).get(j.raison!) === raison))
   assert.equal([...t.matchAll(new RegExp(echapper(raison), 'g'))].length, 1)
-  // Le musée compte de même : la visite n'a rien de fait tant que sa case n'a pas d'issue.
-  assert.match(texte(await musee(attend)), /0 sur 3 faite/)
-  assert.match(texte(await musee({ ...attend, enCours: null, visite: { ...attend.visite, cases: [{ ...cases[0], issue: 'manquee' }, cases[1], cases[2]] } })), /1 sur 3 faite/)
+  // « Jouer » compte de même : la visite n'a rien de fait tant que sa case n'a pas d'issue.
+  assert.match(texte(await aJouerAuCabinet(attend)), /0 sur 3 faite/)
+  assert.match(texte(await aJouerAuCabinet({ ...attend, enCours: null, visite: { ...attend.visite, cases: [{ ...cases[0], issue: 'manquee' }, cases[1], cases[2]] } })), /1 sur 3 faite/)
   // Une chasse ou une libre qui attend : la raison au-dessus de ce qu'elle éteint, et « Reprendre » sous elle — la visite, les
   // jeux libres, une œuvre, l'annonce ; jamais deux.
   const ailleurs = laVisiteDe(
@@ -4453,7 +4534,7 @@ test('trois « Jouer » et trois « Changer » de noms distincts : l’oreille s
 test('le contour d’une porte ne reste plus sous le doigt : chaque survol du Cabinet sous `@media (hover: hover)`', () => {
   // Camille, au doigt : la porte touchée gardait le contour d'or d'une salle complète, et elle l'a lue comme conseillée.
   const section = sectionDuCabinet()
-  assert.match(section, /@media \(hover: hover\) \{\s*\.cab-porte:hover \.cab-arche \{ border-color: var\(--accent\); \}\s*\}/)
+  assert.match(section, /@media \(hover: hover\) \{\s*\.cab-porte:hover \{ border-color: var\(--accent\); \}\s*\}/)
   const horsDesRequetes = section.replace(/@media \(hover: hover\) \{(?:[^{}]*\{[^{}]*\})+\s*\}/g, '')
   assert.doesNotMatch(horsDesRequetes, /:hover/, 'un survol hors de sa requête colle au doigt')
 })
@@ -4465,7 +4546,7 @@ test('le bandeau de la fête ne paraît qu’avec sa phrase, et la visite faite 
   assert.match(texte(await musee({ ...neuf, fete: avecSaPhrase })), /Halloween .*Gagne une œuvre, et la Citrouille se réveillera\./)
   // « Faite : reviens demain, ou pars à la chasse », sans chasse (Lucas).
   const faite = laVisiteDe(page.visite.cases.map(c => ({ ...c, faite: true, issue: 'manquee' as const })))
-  const tuile = async (p: PageDuCabinet) => texte(/<a class="gros-bouton[^"]*" href="#visite">.*?<\/a>/.exec(await musee(p))?.[0] ?? '')
+  const tuile = async (p: PageDuCabinet) => texte(/<a class="gros-bouton[^"]*" href="#visite">.*?<\/a>/.exec(await aJouerAuCabinet(p))?.[0] ?? '')
   assert.doesNotMatch(await tuile({ ...faite, chasses: { ...faite.chasses, restent: 0 } }), /chasse/)
   assert.match(await tuile({ ...faite, chasses: { ...faite.chasses, restent: 0 } }), /Faite : reviens demain/)
   assert.match(await tuile({ ...faite, chasses: { ...faite.chasses, restent: 2 } }), /Faite : reviens demain, ou pars à la chasse/)
