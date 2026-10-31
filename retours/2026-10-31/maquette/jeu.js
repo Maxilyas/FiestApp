@@ -387,7 +387,8 @@ function plateau() {
     const f = niveau('quitte-ou-double') === 2 ? 3 : 2, ok = reste('quitte-ou-double') > 0 && !E.mise;
     boutons.push(`<button class="carte-jouee${E.mise ? ' active' : ''}" data-a="jouer-carte" data-v="quitte-ou-double" aria-pressed="${!!E.mise}" ${ok ? '' : 'aria-disabled="true"'}><img src="${imgCarte('quitte-ou-double')}" alt=""><span><b>${E.mise ? `Misé : ×${f}` : `Quitte ou double · ${reste('quitte-ou-double')}`}</b><small>${E.mise ? 'faux : 2 cœurs' : `or ×${f}, ou 2 cœurs`}</small></span></button>`);
   }
-  return boutons.length ? `<div class="plateau">${boutons.join('')}</div>` : '';
+  // À trois, chaque carte n'a plus que son nom : avec sa peinture et son rôle, elle prenait quatre lignes.
+  return boutons.length ? `<div class="plateau${boutons.length >= 3 ? ' nombreux' : ''}">${boutons.join('')}</div>` : '';
 }
 
 function ecranEpreuve() {

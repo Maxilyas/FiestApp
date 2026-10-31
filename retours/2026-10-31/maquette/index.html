@@ -281,6 +281,9 @@ p, ul, ol, figure { margin: 0; }
 .carte-jouee > span { min-width: 0; }
 .carte-jouee b { display: block; font-size: 0.84rem; }
 .carte-jouee small { display: block; font-size: 0.74rem; color: var(--pale); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plateau.nombreux .carte-jouee { justify-content: center; text-align: center; padding: 6px 6px; min-height: 46px; }
+.plateau.nombreux .carte-jouee img, .plateau.nombreux .carte-jouee small { display: none; }
+.plateau.nombreux .carte-jouee b { font-size: 0.82rem; line-height: 1.2; }
 .carte-jouee[aria-disabled="true"] { opacity: 0.42; border-style: dashed; }
 .carte-jouee.active { background: rgba(226, 189, 110, 0.22); border-color: var(--or-clair); }
 
@@ -354,7 +357,7 @@ input[type=range] { flex: 1; min-width: 0; accent-color: var(--or); height: 34px
 .puce[aria-disabled="true"] { opacity: 0.4; }
 .cartel { background: var(--creme); color: var(--encre-creme); border-radius: 8px; padding: 12px 14px; display: grid; gap: 6px; }
 .cartel .etiquette { color: #7a6a58; }
-.cartel .phrase { font-family: var(--display); font-size: 1.35rem; line-height: 1.15; }
+.cartel .phrase { font-family: var(--display); font-size: 1.22rem; line-height: 1.15; }
 .consigne { font-family: var(--texte); font-weight: 700; min-height: 2.6em; }
 .reserve { display: grid; gap: 6px; }
 .a-placer { padding: 11px 14px; border-radius: 12px; background: var(--creme); color: var(--encre-creme); font-weight: 700; font-size: 0.95rem; border: 3px solid transparent; text-align: left; }
