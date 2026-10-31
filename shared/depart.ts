@@ -43,12 +43,12 @@ export const DEPART = {
   /** L'expédition en route, sinon la prochaine et ses gardiens. */
   expedition: '/api/expedition',
   /**
-   * Le musée, la visite du jour, la partie en cours — sa réponse remesure
-   * l'heure (`avecLHeure`) et se dit préchargée sans `X-Requested-With`. Sa
-   * page (`/cabinet`) la précharge avec elle, quel que soit l'écran que dit
-   * son fragment : tous lisent la même.
+   * La traversée du Cabinet — la dernière, en route ou finie, et la partie de
+   * son épreuve : sa réponse remesure l'heure (`avecLHeure`) et se dit
+   * préchargée sans `X-Requested-With`. Sa page (`/cabinet`) la précharge avec
+   * elle.
    */
-  cabinet: '/api/cabinet',
+  cabinet: '/api/cabinet/traversee',
   /** Les sentiers du savoir — préchargés par la page, pas par le serveur (`donneesDuFragment`). */
   sentiers: '/api/campagne/sentiers',
   /** Le carnet de révision, en tête de l'onglet « Apprendre » — préchargé comme les sentiers. */

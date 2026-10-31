@@ -3,10 +3,9 @@
 // la collection, la boutique et ses compagnons, le quiz du jour — sa page, une
 // question, une révélation —, la campagne et ses onglets, les duels — la
 // carte du verdict d'un duel au dé, un duel classé face cachée, « Duel
-// envoyé » —, l'expédition, le Cabinet de curiosités — le musée, une salle,
-// une œuvre et un cadre vide, la visite, les gardiens, tes murs, les jeux
-// libres, et une partie du Pari : l'annonce, une manche, sa révélation, le
-// bilan —, le salon, et une soirée — la salle d'attente, une
+// envoyé » —, l'expédition, le Cabinet de curiosités — la traversée : son
+// écran-titre, ses gardiens, le choix des cartes, la carte et sa tête, une
+// épreuve et son bilan —, le salon, et une soirée — la salle d'attente, une
 // question, la révélation, le podium. Puis le repli quand la page défile. À
 // chaque page, ce qui passe sous la niche se dit : un texte, un bouton, une
 // image que la page ne lui a pas laissé (« sous la niche »).
@@ -321,45 +320,40 @@ async function solo() {
   await photo(page, '19d-duel-envoye')
   await aller('/expedition', '.expedition')
   await photo(page, '20-expedition', { attente: 1200 })
-  // Le Cabinet de curiosités : chaque écran du musée, puis une partie du Pari jouée au doigt — la tête d'une partie et son chrono
-  // laissent leur coin à la niche (`.cab-tete-partie .timer`), sa révélation et son bilan aussi.
-  for (const [adresse, attendu, nom] of [
-    ['', '.cab-portes', '20a-cabinet-musee'],
-    ['#salle-vestibule', '.cab-mur', '20b-cabinet-salle'],
-    ['#oeuvre-coup-d-oeil', '.cab-oeuvre-levee', '20c-cabinet-oeuvre'],
-    ['#oeuvre-pioche', '.cab-cadre-grand', '20d-cabinet-cadre-vide'],
-    ['#visite', '.cab-cases', '20e-cabinet-visite'],
-    ['#gardiens', '.cab-gardiens', '20f-cabinet-gardiens'],
-    ['#murs', '.cab-murs', '20g-cabinet-murs'],
-    ['#libre', '.cab-jeux', '20h-cabinet-jeux-libres'],
-  ] as const) {
-    await aller(`/cabinet${adresse}`, attendu)
-    await photo(page, nom, { attente: 900 })
-  }
+  // Le Cabinet de curiosités : la traversée — son écran-titre, ses gardiens, le choix des cartes, la carte et sa tête, qui
+  // laissent leur coin à la niche (`body.avec-niche .cab-tv-hud`) —, puis une épreuve entrée au doigt : la tête d'une partie et
+  // son chrono laissent le leur (`.cab-tete-partie .timer`), et son bilan sur la carte, une fois quittée.
   // Au doigt, chaque toucher une demi-seconde après l'écran qu'il vise (`gesteAccepte`) : plus tôt, la page l'ignore.
   const auDoigt = async (cible: any) => {
     await cible.waitFor()
     await patienter(650)
     await cible.tap()
   }
-  await auDoigt(page.locator('.cab-jeu', { hasText: 'Le Pari' }))
-  await page.waitForSelector('.cab-annonce')
-  await photo(page, '20i-cabinet-annonce')
-  await auDoigt(page.locator('.cab-annonce .btn-primary.btn-big'))
+  const bouton = (nom: string | RegExp) => page.getByRole('button', { name: nom }).first()
+  await aller('/cabinet', '.cab-tv-titre')
+  await photo(page, '20a-cabinet-titre', { attente: 900 })
+  await auDoigt(bouton('Commencer une traversée'))
+  await bouton('Choisir mes trois cartes').waitFor()
+  await photo(page, '20b-cabinet-gardiens', { attente: 900 })
+  await auDoigt(bouton('Choisir mes trois cartes'))
+  for (const carte of [/Coup d’œil/, /Parade/, /Cagnotte/]) await auDoigt(bouton(carte))
+  // L'écran défile dans son cadre, pas la page : la niche ne se replie pas pour lui. Les touchers l'ont fait défiler ; ce qui passe
+  // sous la niche se mesure en haut, comme pour une page.
+  await page.evaluate(() => (globalThis as any).document.querySelector('.cab-tv-ecran')?.scrollTo(0, 0))
+  await photo(page, '20c-cabinet-cartes')
+  await auDoigt(bouton(/^Partir/))
+  await page.waitForSelector('.cab-tv-hud')
+  await photo(page, '20d-cabinet-carte', { attente: 2800 })
+  // Trois chemins : le bouton du panneau attend qu'on en choisisse un.
+  await auDoigt(page.locator('.cab-tv-option').first())
+  await auDoigt(page.locator('.cab-tv-panneau .cab-tv-cta'))
+  await auDoigt(bouton(/^Commencer/))
   await page.waitForSelector('.cab-tete-partie .timer')
-  await photo(page, '20j-cabinet-manche')
-  // Une réponse au hasard : fausse, la manche se révèle ; juste, il garde ses deux étoiles plutôt que de parier.
-  await auDoigt(page.locator('.ans-btn').first())
-  await page.waitForSelector('.cab-titre-revele, .cab-choix-du-pari')
-  if (await page.locator('.cab-choix-du-pari').count()) await auDoigt(page.locator('.cab-choix-du-pari .btn:not(.btn-primary)'))
-  await page.waitForSelector('.cab-titre-revele')
-  await photo(page, '20k-cabinet-revelation', { attente: 1200 })
-  await auDoigt(page.locator('.cab-quitter'))
-  await page.waitForSelector('.dialog')
-  await patienter(300)
-  await auDoigt(page.locator('.dialog button[type="submit"]'))
-  await page.waitForSelector('.cab-bilan')
-  await photo(page, '20l-cabinet-bilan', { attente: 1200 })
+  await photo(page, '20e-cabinet-epreuve')
+  await auDoigt(bouton('Quitter'))
+  await auDoigt(bouton('Quitter la partie'))
+  await page.waitForSelector('.cab-tv-bilan')
+  await photo(page, '20f-cabinet-bilan', { attente: 1200 })
   await aller('/salon', '.player-shell')
   await photo(page, '21-salon', { attente: 1500 })
   await ctx.close()

@@ -982,6 +982,26 @@ quota de Turso, le 22 octobre 2026).
 - **Lue par** : `CabinetStore`, une fois par réveil et par profil, dans son lot froid ; la partie en cours par sa clé, dans la garde du lot qui la crée ; dans l'instruction d'un achat ou d'une dorure, sa poussière (le solde) et `partie` (rien ne se dépense pendant qu'une partie attend), par la clé ; dans le lot d'un échange et la garde d'un départ en visite, sa visite du jour (le jour, l'échange pris, le jeu de la case) ; dans l'instruction qui la fige ailleurs, son jour seul, par la clé.
 - **Effacée par** : la suppression du profil (`CabinetStore.oublierProfil`).
 
+### `cabinet_traversees`
+
+Les traversées d'un profil — trois actes, trois gardiens, une partie d'une vingtaine de minutes qui se reprend où on l'a laissée : leur départ figé, et leur fin. Une seule en route par profil.
+
+- **Colonnes clés** : `id` (la clé), `profile_id`, `depart` (JSON versionné, `DepartDeLaTraversee` : la carte des trois actes — chemins, jeux, thèmes, gardiens —, tirée une fois au départ ; ses trois cartes se choisissent ensuite, d'un geste), `commencee_le`, `finie_le` (NULL tant qu'elle est en route), `issue` (`gagnee`, `perdue` ou `abandonnee`), `legendaire` (celui qu'il a choisi au bout). Index `(profile_id, commencee_le)` : la dernière d'un profil, jamais un parcours de la table.
+- **Espace** : non.
+- **Écrite par** : `CabinetStore` — au départ (`lotDeLaTraverseeQuiCommence`), seulement si le profil n'en a aucune en route, recompté par l'instruction même ; à sa fin, sous le seul geste qui la décide (`lotDuGesteDeTraversee` : la dernière manche d'un dernier cœur, « abandonner », le légendaire choisi).
+- **Lue par** : `CabinetStore`, à la première page de la traversée d'un réveil, la dernière du profil avec ses gestes (`lecturesDeLaTraversee`), par l'index.
+- **Effacée par** : la suppression du profil (`CabinetStore.oublierProfil`).
+
+### `cabinet_traversee_gestes`
+
+Les gestes d'une traversée, dans l'ordre, comme ceux d'une partie : son pli les relit (`etatDeLaTraversee`, `shared/cabinet/traversee.ts`) — l'or, les cœurs, les cartes et leur niveau, les gardiens vaincus ne s'écrivent nulle part ailleurs.
+
+- **Colonnes clés** : `traversee_id` et `rang` (la clé), `geste` (JSON : `cartes`, `aller`, `ameliorer`, `acheter`, `legendaire`, `abandonner` — ce que la page envoie —, et ce que le serveur écrit seul : `epreuve`, la partie qu'une étape commence, `conclure`, les étoiles de sa partie finie), `fait_le`, `uid` (tiré pour le lot : chaque autre instruction ne vaut que sous ce geste-là).
+- **Espace** : non (pas de `profile_id`, comme `cabinet_gestes` : la suppression d'un profil les efface par ses traversées).
+- **Écrite par** : `CabinetStore`, chaque geste en première instruction de son lot (`ON CONFLICT DO NOTHING`, seulement sur une traversée en route) ; l'entrée dans une épreuve (`lotDeLEpreuve`) l'écrit seulement si le profil n'a aucune autre partie en cours, puis la partie sous lui.
+- **Lue par** : `CabinetStore`, avec la traversée, par la clé.
+- **Effacée par** : la suppression du profil (`CabinetStore.oublierProfil`).
+
 ### `cabinet_records`
 
 Le record de la tour d'un profil, une ligne : sa plus haute montée — l'étage atteint, ses étoiles pour départager — et la partie qui l'a établi. Une montée se relit de ses parties du jour (`monteeDesParties`, `shared/cabinet/montee.ts`), qui ne disent rien des jours d'avant : seul le record survit au jour.

@@ -1,0 +1,1193 @@
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { aLaDemande, useALaDemande } from '../../aLaDemande'
+import { confirmDialog } from '../../components/Dialog'
+import { Icon } from '../../components/Icon'
+import { Feuille } from '../../components/Pieces'
+import { CARTES_PEINTES } from '../../components/cartes-peintes'
+import { COFFRES_PEINTS } from '../../components/coffres-peints'
+import { IMAGES } from '../../components/legendaires-peints'
+import { espacesFines } from '../../format'
+import { toucher } from '../../toucher'
+import { legendaire } from '../../../../shared/legendaires'
+import { JEUX } from '../../../../shared/cabinet/jeux/regle'
+import {
+  CARTES_D_UNE_TRAVERSEE,
+  COEURS_D_UNE_MISE_PERDUE,
+  MULTIPLICATEUR_DE_LA_MISE,
+  OR_D_UN_GARDIEN,
+  OR_PAR_ETOILE,
+  OR_SANS_AMELIORATION,
+} from '../../../../shared/cabinet/bareme'
+import {
+  ACTES,
+  CARTES,
+  EMOJI_DES_JEUX,
+  NIVEAU_MAX,
+  RANGEE_DU_GARDIEN,
+  SORTES_DITES,
+  acteDe,
+  carteDeLaTraversee,
+  emojiDuTheme,
+  gardienDeLaTraversee,
+  jeuDeLAssaut,
+  nomAuNiveau,
+  orDUneManche,
+  pvDuGardien,
+  type BilanDEpreuve,
+  type CarteEnMain,
+  type CleDeCarte,
+  type EtapeDeLaCarte,
+  type NiveauDeCarte,
+} from '../../../../shared/cabinet/traversee'
+import type { PageDeLaTraversee, VueDeLaTraversee } from '../../../../shared/cabinet/vues'
+import { Bourse, Coeurs, Piece, PointsDeVie } from './Monnaies'
+import type { EtapeDessinee, SceneDeLaTraversee } from './TraverseeEn3D'
+
+// La traversée du Cabinet à l'écran : trois actes, trois gardiens (le
+// propriétaire, le 31 octobre 2026 ; la maquette jouée,
+// `retours/2026-10-31/la-partie.md`). La carte en 3D d'un bord à l'autre —
+// chargée à la demande, décorative —, et par-dessus des panneaux de verre :
+// la tête (les cœurs, l'or, l'acte), le chemin à choisir en bas ; chaque
+// étape s'ouvre en plein écran par-dessus — l'annonce d'une épreuve, le
+// coffre, le marchand, le gardien, le légendaire, la fin. Quatre notions, pas
+// une de plus : les cœurs, l'or, tes cartes, la carte.
+//
+// Rien ne s'y juge : la vue du serveur dit tout (`VueDeLaTraversee`), et chaque
+// geste part à son rang (`onGeste`). La page ne retient que ce qu'elle a déjà
+// montré — un bilan lu, un coffre ouvert, l'acte annoncé — : rechargée, elle
+// le remontre, ce qui ne coûte rien. Une épreuve qui se joue s'ouvre sur son
+// écran de partie (`Partie.tsx`, par `CabinetApp.tsx`), jamais ici.
+
+/** La carte en 3D, à la demande : three.js ne descend qu'avec elle. */
+const LA_CARTE_EN_3D = aLaDemande(() => import('./TraverseeEn3D'))
+
+/** La carte se dessine-t-elle ici ? Sans WebGL, le panneau suffit : la carte est décorative. Écrit ici, pour ne pas tirer three.js. */
+function webglPossible(): boolean {
+  try {
+    const c = document.createElement('canvas')
+    return !!(c.getContext('webgl2') ?? c.getContext('webgl'))
+  } catch {
+    return false
+  }
+}
+
+// ── Une carte ──
+
+const SIGNE: Record<NiveauDeCarte, string> = { 1: '', 2: '+', 3: '++' }
+
+/** Une carte de la traversée : sa peinture, son nom et son niveau, sa sorte, ce qu'elle fait à ce niveau. */
+export function CarteDeLaTraversee({
+  cle,
+  niveau,
+  prise,
+  action,
+  bas,
+  inerte,
+  etiquette,
+}: {
+  cle: CleDeCarte
+  niveau: NiveauDeCarte
+  prise?: boolean
+  action?: () => void
+  bas?: ReactNode
+  inerte?: boolean
+  etiquette?: string
+}) {
+  const c = carteDeLaTraversee(cle)
+  if (!c) return null
+  const contenu = (
+    <>
+      <span className="cab-tv-peinture">
+        <img src={CARTES_PEINTES[cle]?.[1]} alt="" loading="lazy" />
+        {prise && (
+          <span className="cab-tv-coche" aria-hidden="true">
+            ✓
+          </span>
+        )}
+      </span>
+      <span className="cab-tv-nom">
+        {c.nom}
+        {/* Une espace insécable : « + » ne passe jamais seul à la ligne. */}
+        {niveau > 1 && <span className="cab-tv-plus">{` ${SIGNE[niveau]}`}</span>}
+      </span>
+      <span className={`cab-tv-sorte cab-tv-sorte-${c.sorte}`}>{etiquette ?? SORTES_DITES[c.sorte]}</span>
+      <span className="cab-tv-dit">{espacesFines(c.dit(niveau))}</span>
+      {bas && <span className="cab-tv-bas">{bas}</span>}
+    </>
+  )
+  const classe = 'cab-tv-carte' + (prise ? ' cab-tv-prise' : '') + (niveau > 1 ? ' cab-tv-amelioree' : '')
+  if (!action) return <div className={classe}>{contenu}</div>
+  return (
+    <button type="button" className={classe} aria-pressed={prise} aria-disabled={inerte || undefined} {...toucher(() => !inerte && action())}>
+      {contenu}
+    </button>
+  )
+}
+
+// ── Les mots ──
+
+const nomDe = (cle: string) => legendaire(cle)?.nom ?? 'Le gardien'
+/** « au Renard », « à la Chouette d’Argent », « à l’Oracle », « à Janus ». */
+const aLui = (cle: string) =>
+  nomDe(cle)
+    .replace(/^Le /, 'au ')
+    .replace(/^La /, 'à la ')
+    .replace(/^L’/, 'à l’')
+    .replace(/^(?!au |à )/, 'à ')
+/** « le Renard », « la Chouette d’Argent ». */
+const leGardien = (cle: string) => {
+  const nom = nomDe(cle)
+  return /^(Le|La|L’) /.test(nom) || nom.startsWith('L’') ? nom.charAt(0).toLowerCase() + nom.slice(1) : nom
+}
+const imageDuGardien = (cle: string, grande = false) => IMAGES[cle]?.rare[grande ? 0 : 1] ?? IMAGES[cle]?.art[grande ? 0 : 1] ?? ''
+const pluriel = (n: number, un: string, des = `${un}s`) => `${n} ${n > 1 ? des : un}`
+const piecesDites = (n: number) => pluriel(n, 'pièce')
+const coeursDits = (n: number) => pluriel(n, 'cœur')
+
+/** Ce que dit une étape, comme le joueur la voit : son emoji ou son image, son titre, sa ligne. */
+function decrire(t: VueDeLaTraversee, e: EtapeDeLaCarte): { emoji?: string; image?: string; titre: string; sous: string; quoi: string } {
+  if (e.sorte === 'epreuve' && e.jeu) {
+    const theme = e.theme ?? ''
+    return { emoji: EMOJI_DES_JEUX[e.jeu], titre: JEUX[e.jeu].nom, sous: theme ? `${emojiDuTheme(e.jeu, theme)} ${theme}` : JEUX[e.jeu].geste, quoi: 'Épreuve' }
+  }
+  if (e.sorte === 'coffre') return { image: COFFRES_PEINTS.or?.ferme, titre: 'Un coffre', sous: 'Une amélioration offerte', quoi: 'Trésor' }
+  if (e.sorte === 'marchand') return { emoji: '💰', titre: 'Le marchand', sous: 'Des cœurs et des améliorations', quoi: 'Boutique' }
+  if (e.sorte === 'gardien') {
+    const g = t.actes[acteDe(e.id)].gardien
+    return { image: imageDuGardien(g), titre: nomDe(g), sous: gardienDeLaTraversee(g)?.devise ?? '', quoi: 'Gardien' }
+  }
+  return { titre: ACTES[acteDe(e.id)].court, sous: ACTES[acteDe(e.id)].nom, quoi: '' }
+}
+
+/** Ce que la carte 3D écrit sur une île : court, sans balise. */
+function etapesDessinees(t: VueDeLaTraversee): EtapeDessinee[] {
+  return t.actes.flatMap((a, k) =>
+    a.etapes.map(e => {
+      const d = decrire(t, e)
+      const dessinee: EtapeDessinee = {
+        id: e.id,
+        acte: k,
+        rangee: e.rangee,
+        colonne: e.colonne,
+        sorte: e.sorte,
+        titre: d.titre,
+        sous: e.sorte === 'gardien' ? `Gardien · ${ACTES[k].court}` : e.sorte === 'epreuve' ? (e.theme ?? '') : d.sous,
+        suivantes: e.suivantes,
+      }
+      if (d.emoji) dessinee.emoji = d.emoji
+      if (e.sorte === 'gardien') dessinee.image = imageDuGardien(a.gardien)
+      if (e.sorte === 'coffre') {
+        dessinee.image = COFFRES_PEINTS.or?.ferme
+        dessinee.imageOuverte = COFFRES_PEINTS.or?.ouvert
+      }
+      return dessinee
+    }),
+  )
+}
+
+const etapeDe = (t: VueDeLaTraversee, id: string): EtapeDeLaCarte | undefined => t.actes[acteDe(id)]?.etapes.find(e => e.id === id)
+
+// ── La carte en 3D ──
+
+/** La scène, montée une fois, nourrie de la vue ; sans WebGL ou perdue en route, un ciel de nuit en CSS. */
+function CarteEn3D({
+  traversee,
+  mode,
+  selection,
+  coffresOuverts,
+  onToucher,
+  scene,
+}: {
+  traversee: VueDeLaTraversee | null
+  mode: 'titre' | 'carte'
+  selection: string | null
+  coffresOuverts: readonly string[]
+  onToucher: (id: string) => void
+  scene: React.MutableRefObject<SceneDeLaTraversee | null>
+}) {
+  const [troisD] = useState(webglPossible)
+  const module = useALaDemande(LA_CARTE_EN_3D, troisD)
+  const boite = useRef<HTMLDivElement>(null)
+  const toucherRef = useRef(onToucher)
+  toucherRef.current = onToucher
+  const construite = useRef<string | null>(null)
+  useEffect(() => {
+    if (!module || module === 'perdu' || !boite.current) return
+    let s: SceneDeLaTraversee | null = null
+    // Ce que le panneau du bas couvre : la carte vit au-dessus de lui.
+    const couvert = () => {
+      const panneau = boite.current?.parentElement?.querySelector('.cab-tv-panneau')
+      return panneau ? panneau.getBoundingClientRect().height + 12 : 0
+    }
+    try {
+      s = module.creerLaTraversee(boite.current, { toucher: id => toucherRef.current(id), couvert })
+    } catch {
+      // Un contexte WebGL refusé au dernier moment : la page garde son ciel en CSS.
+      return
+    }
+    scene.current = s
+    return () => {
+      s?.detruire()
+      scene.current = null
+      construite.current = null
+    }
+  }, [module, scene])
+  const cle = traversee?.id ?? null
+  useEffect(() => {
+    const s = scene.current
+    if (!s) return
+    if (construite.current !== cle) {
+      s.construire(traversee ? etapesDessinees(traversee) : [], ACTES.map(a => a.teinte))
+      construite.current = cle
+    }
+    if (traversee) {
+      s.maj({
+        mode,
+        acte: traversee.acte,
+        position: traversee.position,
+        visitees: traversee.visitees,
+        atteignables: mode === 'carte' ? traversee.atteignables : [],
+        selection,
+        coffresOuverts,
+      })
+    }
+  }, [module, cle, traversee, mode, selection, coffresOuverts, scene])
+  return <div ref={boite} className="cab-tv-scene" aria-hidden="true" />
+}
+
+// ── La traversée ──
+
+export interface PropsDeLaTraversee {
+  page: PageDeLaTraversee
+  busy: boolean
+  /** Une traversée neuve : sa carte et ses trois gardiens. */
+  onCommencer: () => void
+  /** Un geste, à son rang : la page d'après, ou null (refusé, dit en toast, la page relue). */
+  onGeste: (geste: Record<string, unknown>) => Promise<PageDeLaTraversee | null>
+  onRegles: () => void
+  /** L'épreuve quittée un instant : son écran de partie se rouvre. */
+  onReprendre: () => void
+}
+
+type Feuilles = 'cartes' | 'menu' | null
+
+/**
+ * Ce que la page a déjà montré d'une traversée — un bilan lu, un coffre ouvert —,
+ * le temps de l'onglet (`sessionStorage`, sous try/catch : un stockage refusé ne
+ * casse rien, la page le remontre) : rechargée sur la carte, elle ne redit pas
+ * le bilan d'une épreuve lue il y a dix minutes.
+ */
+const CLE_DES_VUS = (id: string) => `quizz.cabinet.traversee-vue.${id}`
+function lireLesVus(id: string | null): ReadonlySet<string> {
+  if (!id) return new Set()
+  try {
+    const t = sessionStorage.getItem(CLE_DES_VUS(id))
+    const l: unknown = t ? JSON.parse(t) : []
+    return new Set(Array.isArray(l) ? l.filter((x): x is string => typeof x === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+function retenirLesVus(id: string, vus: ReadonlySet<string>) {
+  try {
+    sessionStorage.setItem(CLE_DES_VUS(id), JSON.stringify([...vus].slice(-60)))
+  } catch {
+    // Un stockage refusé : la page remontrera ce qu'elle a déjà montré, rien de plus.
+  }
+}
+
+export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onReprendre }: PropsDeLaTraversee) {
+  const t = page.traversee
+  const sceneRef = useRef<SceneDeLaTraversee | null>(null)
+  const [selection, setSelection] = useState<string | null>(null)
+  // L'étape où la comète vient d'arriver, une épreuve ou son gardien : son annonce attend « Commencer », qui seul y entre.
+  const [arrivee, setArrivee] = useState<string | null>(null)
+  const [vus, setVus] = useState<ReadonlySet<string>>(() => lireLesVus(t?.id ?? null))
+  const [feuille, setFeuille] = useState<Feuilles>(null)
+  const [choixDesCartes, setChoixDesCartes] = useState(false)
+  const [choix, setChoix] = useState<CleDeCarte[]>([])
+  const [enVoyage, setEnVoyage] = useState(false)
+  // L'acte que la page a déjà annoncé : un acte neuf vole vers son archipel et dit son nom, une fois.
+  const [acteAnnonce, setActeAnnonce] = useState<string | null>(null)
+  const [carton, setCarton] = useState<number | null>(null)
+  const id = t?.id ?? null
+  const voir = useCallback(
+    (cle: string) =>
+      setVus(v => {
+        const neufs = new Set(v).add(cle)
+        if (id) retenirLesVus(id, neufs)
+        return neufs
+      }),
+    [id],
+  )
+
+  // Une traversée neuve repart de rien : rien de vu, rien de choisi.
+  useEffect(() => {
+    setSelection(null)
+    setArrivee(null)
+    setChoix([])
+    setChoixDesCartes(false)
+    setVus(lireLesVus(id))
+  }, [id])
+
+  const coffresOuverts = useMemo(() => (t ? t.visitees.filter(v => etapeDe(t, v)?.sorte === 'coffre') : []), [t])
+
+  // L'acte neuf : la comète vole par le pont de lumière, puis son nom paraît.
+  const cleDeLActe = t && t.ou.sorte !== 'cartes' && !t.fin ? `${t.id}:${t.acte}` : null
+  useEffect(() => {
+    if (!cleDeLActe || acteAnnonce === cleDeLActe || !t) return
+    setActeAnnonce(cleDeLActe)
+    setCarton(t.acte)
+    const s = sceneRef.current
+    if (t.acte > 0 && s) {
+      setEnVoyage(true)
+      void s.volerVersLActe(t.acte).finally(() => setEnVoyage(false))
+    }
+    const fin = setTimeout(() => setCarton(null), 2600)
+    return () => clearTimeout(fin)
+  }, [cleDeLActe, acteAnnonce, t])
+
+  const geste = async (g: Record<string, unknown>) => {
+    if (busy) return null
+    return onGeste(g)
+  }
+
+  /** « Y aller » : la comète part ; une épreuve et son gardien s'annoncent à l'arrivée, le coffre et le marchand s'ouvrent. */
+  const yAller = async (etape: string) => {
+    if (!t || busy || enVoyage) return
+    const e = etapeDe(t, etape)
+    if (!e) return
+    setSelection(null)
+    const s = sceneRef.current
+    if (s && etape !== t.position) {
+      setEnVoyage(true)
+      await s.voyager(t.position, etape).catch(() => {})
+      setEnVoyage(false)
+    }
+    if (e.sorte === 'epreuve' || e.sorte === 'gardien') {
+      setArrivee(etape)
+      return
+    }
+    const apres = await geste({ quoi: 'aller', etape })
+    if (!apres) s?.sauterA(t.position)
+  }
+
+  if (!t) {
+    return (
+      <EcranDeTitre
+        page={page}
+        busy={busy}
+        onCommencer={onCommencer}
+        onRegles={onRegles}
+        carte={<CarteEn3D traversee={null} mode="titre" selection={null} coffresOuverts={[]} onToucher={() => {}} scene={sceneRef} />}
+      />
+    )
+  }
+  const scene = (
+    <CarteEn3D
+      traversee={t}
+      mode={t.ou.sorte === 'cartes' || t.fin ? 'titre' : 'carte'}
+      selection={selection}
+      coffresOuverts={coffresOuverts}
+      onToucher={setSelection}
+      scene={sceneRef}
+    />
+  )
+
+  // La fin, puis ce qui n'a pas encore été lu : le bilan de la dernière épreuve d'abord — il dit ce qu'elle a coûté.
+  const bilanALire = t.derniere && !vus.has(`bilan:${t.derniere.partie}`) ? t.derniere : null
+  let plein: ReactNode = null
+  if (bilanALire) plein = <BilanDEpreuve t={t} b={bilanALire} onContinuer={() => voir(`bilan:${bilanALire.partie}`)} />
+  else if (t.fin) plein = <FinDeLaTraversee t={t} possedes={page.possedes} busy={busy} onCommencer={onCommencer} />
+  else if (t.ou.sorte === 'cartes')
+    plein = choixDesCartes ? (
+      <ChoixDesCartes
+        choix={choix}
+        busy={busy}
+        onChoisir={cle => setChoix(c => (c.includes(cle) ? c.filter(x => x !== cle) : c.length < CARTES_D_UNE_TRAVERSEE ? [...c, cle] : c))}
+        onRetour={() => setChoixDesCartes(false)}
+        onPartir={() => void geste({ quoi: 'cartes', cartes: choix })}
+      />
+    ) : null
+  else if (t.ou.sorte === 'legendaire') plein = <ChoixDuLegendaire t={t} possedes={page.possedes} busy={busy} onChoisir={g => void geste({ quoi: 'legendaire', gardien: g })} />
+  else if (t.ameliorations > 0) plein = <Amelioration t={t} busy={busy} onAmeliorer={c => void geste({ quoi: 'ameliorer', carte: c })} />
+  else if ((t.ou.sorte === 'epreuve' || t.ou.sorte === 'gardien') && t.ou.partie !== null) plein = <EpreuveEnAttente t={t} onReprendre={onReprendre} />
+  // L'annonce de l'étape où la comète vient d'arriver passe devant l'étape qu'il quitte — le marchand, un coffre ouvert.
+  else if (arrivee && etapeDe(t, arrivee)) {
+    const e = etapeDe(t, arrivee)!
+    // Y entrer commence sa partie : l'annonce s'efface — elle ne revient pas au retour sur la carte.
+    const entrer = () =>
+      void geste({ quoi: 'aller', etape: arrivee }).then(p => {
+        if (p) setArrivee(null)
+      })
+    plein =
+      e.sorte === 'gardien' ? (
+        <AnnonceDuGardien t={t} etape={arrivee} busy={busy} onAffronter={entrer} onRetour={() => retourALaCarte(arrivee)} />
+      ) : (
+        <AnnonceDeLEpreuve t={t} e={e} busy={busy} onCommencer={entrer} onRetour={() => retourALaCarte(arrivee)} />
+      )
+  } else if (t.ou.sorte === 'coffre' && !vus.has(`coffre:${t.ou.etape}`)) plein = <CoffreOuvert t={t} onContinuer={() => voir(`coffre:${t.ou.sorte === 'coffre' ? t.ou.etape : ''}`)} />
+  else if (t.ou.sorte === 'marchand')
+    plein = (
+      <Marchand
+        t={t}
+        busy={busy}
+        onAcheter={(article, carte) => void geste({ quoi: 'acheter', article, ...(carte && { carte }) })}
+        onPartir={() => void yAller(t.atteignables[0])}
+      />
+    )
+  else if (t.ou.sorte === 'gardien' && t.ou.partie === null) plein = <AnnonceDuGardien t={t} etape={t.ou.etape} busy={busy} onAffronter={() => void geste({ quoi: 'aller', etape: t.ou.sorte === 'gardien' ? t.ou.etape : '' })} />
+
+  /** Renoncer à l'annonce : la comète revient où il était, rien n'est joué. */
+  function retourALaCarte(etape: string) {
+    setArrivee(null)
+    if (t) sceneRef.current?.sauterA(t.position)
+    void etape
+  }
+
+  return (
+    <div className="cab-tv" style={{ ['--cab-tv-teinte' as string]: String(ACTES[t.acte].teinte) }}>
+      {scene}
+      {!plein && t.ou.sorte === 'cartes' && <LesGardiens t={t} possedes={page.possedes} onChoisirLesCartes={() => setChoixDesCartes(true)} />}
+      {!plein && t.ou.sorte !== 'cartes' && (
+        <LaCarte
+          t={t}
+          selection={selection}
+          busy={busy || enVoyage}
+          carton={carton}
+          onSelection={setSelection}
+          onYAller={id => void yAller(id)}
+          onFeuille={setFeuille}
+        />
+      )}
+      {plein && <div className="cab-tv-plein">{plein}</div>}
+      {feuille === 'cartes' && (
+        <Feuille titre="Tes cartes" className="cab-tv-feuille" onFermer={() => setFeuille(null)}>
+          <div className="cab-tv-cartes cab-tv-trois">
+            {t.cartes.map(c => (
+              <CarteDeLaTraversee key={c.cle} cle={c.cle} niveau={c.niveau} etiquette={c.cle === 'second-souffle' && t.souffle ? 'Déjà servie' : undefined} />
+            ))}
+          </div>
+        </Feuille>
+      )}
+      {feuille === 'menu' && (
+        <Feuille titre="La traversée" className="cab-tv-feuille" onFermer={() => setFeuille(null)}>
+          <div className="cab-tv-menu">
+            <button
+              type="button"
+              className="btn btn-block"
+              {...toucher(() => {
+                setFeuille(null)
+                onRegles()
+              })}
+            >
+              Comment ça marche ?
+            </button>
+            <a className="btn btn-block" href="/">
+              Revenir à l’accueil
+            </a>
+            <button
+              type="button"
+              className="btn btn-block cab-tv-danger"
+              {...toucher(async () => {
+                const oui = await confirmDialog({
+                  title: 'Abandonner la traversée ?',
+                  message: 'Elle s’arrête ici : tu repartiras de l’acte I, avec des gardiens neufs.',
+                  confirmLabel: 'Abandonner',
+                  cancelLabel: 'Continuer',
+                  prudent: true,
+                })
+                setFeuille(null)
+                if (oui) await geste({ quoi: 'abandonner' })
+              })}
+            >
+              Abandonner la traversée
+            </button>
+          </div>
+        </Feuille>
+      )}
+    </div>
+  )
+}
+
+// ── L'écran-titre ──
+
+function EcranDeTitre({ page, busy, carte, onCommencer, onRegles }: { page: PageDeLaTraversee; busy: boolean; carte: ReactNode; onCommencer: () => void; onRegles: () => void }) {
+  void page
+  return (
+    <div className="cab-tv">
+      {carte}
+      <div className="cab-tv-ui">
+        <header className="cab-tv-titre">
+          <a className="cab-tv-lien" href="/">
+            ← Accueil
+          </a>
+          <p className="cab-tv-sur">Le Cabinet de curiosités</p>
+          <h1>Trois actes, trois gardiens</h1>
+          <p>{espacesFines('Choisis ton chemin sur la carte, joue, gagne de l’or ; bats les trois gardiens : l’un d’eux sera à toi.')}</p>
+        </header>
+        <div className="cab-tv-vide" />
+        <div className="cab-tv-panneau">
+          <section className="cab-tv-verre">
+            <ul className="cab-tv-quatre">
+              <li>
+                <Coeurs n={1} max={1} />
+                <span>
+                  <b>Les cœurs</b> — une manche ratée en coûte un
+                </span>
+              </li>
+              <li>
+                <Piece />
+                <span>
+                  <b>L’or</b> — chaque étoile en rapporte, le marchand le prend
+                </span>
+              </li>
+              <li>
+                <span aria-hidden="true">🃏</span>
+                <span>
+                  <b>Tes cartes</b> — trois, choisies au départ, à améliorer
+                </span>
+              </li>
+              <li>
+                <span aria-hidden="true">🗺️</span>
+                <span>
+                  <b>La carte</b> — chaque chemin, un jeu et un thème
+                </span>
+              </li>
+            </ul>
+            <button type="button" className="cab-tv-cta" aria-disabled={busy || undefined} {...toucher(() => !busy && onCommencer())}>
+              Commencer une traversée
+            </button>
+            <button type="button" className="cab-tv-lien" {...toucher(onRegles)}>
+              Comment ça marche ?
+            </button>
+          </section>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Les trois gardiens, puis les cartes ──
+
+function LesGardiens({ t, possedes, onChoisirLesCartes }: { t: VueDeLaTraversee; possedes: readonly string[]; onChoisirLesCartes: () => void }) {
+  return (
+    <div className="cab-tv-ui">
+      <header className="cab-tv-titre">
+        <a className="cab-tv-lien" href="/">
+          ← Accueil
+        </a>
+        <p className="cab-tv-sur">Ta traversée</p>
+        <h1>Trois gardiens t’attendent</h1>
+      </header>
+      <div className="cab-tv-vide" />
+      <div className="cab-tv-panneau">
+        <section className="cab-tv-verre">
+          <ul className="cab-tv-trio">
+            {t.actes.map((a, k) => (
+              <li key={a.gardien}>
+                <img src={imageDuGardien(a.gardien)} alt="" />
+                <b>{nomDe(a.gardien)}</b>
+                <small>{possedes.includes(a.gardien) ? 'Déjà à toi' : ACTES[k].court}</small>
+              </li>
+            ))}
+          </ul>
+          <p className="cab-tv-pale">{espacesFines('Bats-les tous les trois : l’un d’eux sera à toi, un avatar légendaire.')}</p>
+          <button type="button" className="cab-tv-cta" {...toucher(onChoisirLesCartes)}>
+            Choisir mes trois cartes
+          </button>
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function ChoixDesCartes({
+  choix,
+  busy,
+  onChoisir,
+  onRetour,
+  onPartir,
+}: {
+  choix: readonly CleDeCarte[]
+  busy: boolean
+  onChoisir: (cle: CleDeCarte) => void
+  onRetour: () => void
+  onPartir: () => void
+}) {
+  const complet = choix.length === CARTES_D_UNE_TRAVERSEE
+  return (
+    <div className="cab-tv-ecran">
+      <div className="cab-tv-colonne">
+        <button type="button" className="cab-tv-lien cab-tv-retour" {...toucher(onRetour)}>
+          ← Tes gardiens
+        </button>
+        <header className="cab-tv-tete-ecran">
+          <p className="cab-tv-sur">Avant de partir</p>
+          <h2 tabIndex={-1}>Choisis trois cartes</h2>
+          <p className="cab-tv-pale">{espacesFines('Ce sont les seules de ta traversée : le coffre, le gardien vaincu et le marchand les améliorent, deux fois chacune.')}</p>
+        </header>
+        <div className="cab-tv-cartes">
+          {CARTES.map(c => (
+            <CarteDeLaTraversee key={c.cle} cle={c.cle} niveau={1} prise={choix.includes(c.cle)} inerte={!choix.includes(c.cle) && complet} action={() => onChoisir(c.cle)} />
+          ))}
+        </div>
+      </div>
+      <div className="cab-tv-pied">
+        <button type="button" className="cab-tv-cta" aria-disabled={!complet || busy || undefined} {...toucher(() => complet && !busy && onPartir())}>
+          {complet ? 'Partir' : `Encore ${CARTES_D_UNE_TRAVERSEE - choix.length} à choisir`}
+          <small>{`${choix.length} sur ${CARTES_D_UNE_TRAVERSEE}`}</small>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── La carte : la tête, et le chemin à choisir ──
+
+function LaCarte({
+  t,
+  selection,
+  busy,
+  carton,
+  onSelection,
+  onYAller,
+  onFeuille,
+}: {
+  t: VueDeLaTraversee
+  selection: string | null
+  busy: boolean
+  carton: number | null
+  onSelection: (id: string) => void
+  onYAller: (id: string) => void
+  onFeuille: (f: Feuilles) => void
+}) {
+  const options = t.atteignables.map(id => etapeDe(t, id)).filter((e): e is EtapeDeLaCarte => !!e)
+  const choisie = selection && t.atteignables.includes(selection) ? selection : options.length === 1 ? options[0].id : null
+  const e = choisie ? etapeDe(t, choisie) : undefined
+  const surLePont = etapeDe(t, t.position)?.rangee === 0 && t.acte > 0 && t.visitees[t.visitees.length - 1] === t.position
+  return (
+    <div className="cab-tv-ui">
+      <header className="cab-tv-hud">
+        <div className="cab-tv-hud-ligne">
+          <span className="cab-tv-acte cab-tv-grand">{`${ACTES[t.acte].court} · ${ACTES[t.acte].nom}`}</span>
+          <button type="button" className="cab-tv-hud-bouton cab-tv-rond" aria-label="Menu" {...toucher(() => onFeuille('menu'))}>
+            <Icon name="more" />
+          </button>
+        </div>
+        <div className="cab-tv-hud-ligne">
+          <Coeurs n={t.coeurs} max={t.coeursMax} />
+          <Bourse or={t.or} />
+          <span className="cab-tv-grand" />
+          <button type="button" className="cab-tv-hud-bouton cab-tv-hud-cartes" aria-label="Tes cartes" {...toucher(() => onFeuille('cartes'))}>
+            <img src={CARTES_PEINTES[t.cartes[0]?.cle]?.[1]} alt="" />
+            <span>Cartes</span>
+          </button>
+        </div>
+      </header>
+      {carton !== null && (
+        <p className="cab-tv-carton" role="status">
+          <span className="cab-tv-sur">{ACTES[carton].court}</span>
+          <b>{ACTES[carton].nom}</b>
+        </p>
+      )}
+      <div className="cab-tv-vide" />
+      <div className="cab-tv-panneau">
+        <section className="cab-tv-verre" aria-labelledby="cab-tv-chemin">
+          <h2 id="cab-tv-chemin">{surLePont ? 'Un nouvel acte commence' : options.length > 1 ? 'Choisis ton chemin' : 'La suite du chemin'}</h2>
+          <div className="cab-tv-options">
+            {options.map(o => {
+              const d = decrire(t, o)
+              return (
+                <button key={o.id} type="button" className={'cab-tv-option' + (o.sorte === 'gardien' ? ' cab-tv-option-gardien' : '')} aria-pressed={choisie === o.id} {...toucher(() => onSelection(o.id))}>
+                  <span className="cab-tv-ic" aria-hidden="true">
+                    {d.image ? <img src={d.image} alt="" /> : d.emoji}
+                  </span>
+                  <span className="cab-tv-txt">
+                    <b>{d.titre}</b>
+                    <small>{espacesFines(d.sous)}</small>
+                  </span>
+                  <span className="cab-tv-quoi">{d.quoi}</span>
+                </button>
+              )
+            })}
+          </div>
+          <button
+            type="button"
+            className="cab-tv-cta"
+            aria-disabled={!e || busy || undefined}
+            {...toucher(() => {
+              if (e && !busy) onYAller(e.id)
+            })}
+          >
+            {e ? (e.sorte === 'epreuve' ? `Jouer ${JEUX[e.jeu ?? 'pari'].a}` : e.sorte === 'coffre' ? 'Ouvrir le coffre' : e.sorte === 'marchand' ? 'Entrer chez le marchand' : `Affronter ${leGardien(t.actes[t.acte].gardien)}`) : 'Choisis une étape'}
+          </button>
+        </section>
+      </div>
+    </div>
+  )
+}
+
+// ── L'annonce d'une épreuve, d'un gardien ──
+
+/** Ce que tes cartes font à cette épreuve, une ligne chacune : celles qui y jouent — pas la Panacée ni le Pourboire, ni ce qui ne vise qu'un gardien. */
+function ceQueFontTesCartes(cartes: readonly CarteEnMain[], gardien: boolean): { nom: string; dit: string }[] {
+  return cartes.flatMap(c => {
+    const carte = carteDeLaTraversee(c.cle)
+    if (!carte) return []
+    if (c.cle === 'parade' && gardien && c.niveau < 2) return []
+    if (c.cle === 'pourboire' || c.cle === 'panacee' || (c.cle === 'coup-de-grace' && !gardien)) return []
+    return [{ nom: nomAuNiveau(carte, c.niveau), dit: carte.dit(c.niveau) }]
+  })
+}
+
+/** Les lignes de tes cartes, sous une annonce : son nom en or, puis ce qu'elle fait. */
+function NotesDesCartes({ cartes }: { cartes: readonly { nom: string; dit: string }[] }) {
+  if (cartes.length === 0) return null
+  return (
+    <ul className="cab-tv-notes">
+      {cartes.map(l => (
+        <li key={l.nom}>
+          <b>{l.nom}</b> {espacesFines(l.dit)}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function AnnonceDeLEpreuve({ t, e, busy, onCommencer, onRetour }: { t: VueDeLaTraversee; e: EtapeDeLaCarte; busy: boolean; onCommencer: () => void; onRetour: () => void }) {
+  const jeu = e.jeu ?? 'pari'
+  const j = JEUX[jeu]
+  const cartes = ceQueFontTesCartes(t.cartes, false)
+  return (
+    <div className="cab-tv-ecran">
+      <div className="cab-tv-colonne cab-tv-annonce">
+        <button type="button" className="cab-tv-lien cab-tv-retour" {...toucher(onRetour)}>
+          ← La carte
+        </button>
+        <span className="cab-tv-grand-ic" aria-hidden="true">
+          {EMOJI_DES_JEUX[jeu]}
+        </span>
+        <p className="cab-tv-sur">{e.theme ? `${emojiDuTheme(jeu, e.theme)} ${e.theme}` : 'Épreuve'}</p>
+        <h2 tabIndex={-1}>{j.nom}</h2>
+        <p className="cab-tv-geste">{espacesFines(j.geste)}</p>
+        <div className="cab-tv-bareme">
+          <div>
+            <span>Une manche parfaite</span>
+            <b>
+              <Piece /> {orDUneManche(3, t.cartes)}
+            </b>
+          </div>
+          <div>
+            <span>Chaque étoile</span>
+            <b>
+              <Piece /> {OR_PAR_ETOILE}
+            </b>
+          </div>
+          <div className="cab-tv-ko">
+            <span>Une manche ratée</span>
+            <b>
+              −1 <Coeurs n={1} max={1} />
+            </b>
+          </div>
+        </div>
+        <p className="cab-tv-pale">{espacesFines(`Trois manches : ${j.bareme}.`)}</p>
+        <NotesDesCartes cartes={cartes} />
+      </div>
+      <div className="cab-tv-pied">
+        <button type="button" className="cab-tv-cta" aria-disabled={busy || undefined} {...toucher(() => !busy && onCommencer())}>
+          Commencer
+          <small>{espacesFines('Le chrono part à la première manche')}</small>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AnnonceDuGardien({ t, etape, busy, onAffronter, onRetour }: { t: VueDeLaTraversee; etape: string; busy: boolean; onAffronter: () => void; onRetour?: () => void }) {
+  const a = acteDe(etape)
+  const g = t.actes[a].gardien
+  const fiche = gardienDeLaTraversee(g)
+  const pv = t.pv ?? { restent: pvDuGardien(a, t.cartes), max: pvDuGardien(a, t.cartes) }
+  const assaut = t.assauts + 1
+  const jeu = jeuDeLAssaut(g, assaut) ?? 'pari'
+  const cartes = ceQueFontTesCartes(t.cartes, true)
+  const mise = t.cartes.find(c => c.cle === 'quitte-ou-double')
+  return (
+    <div className="cab-tv-ecran cab-tv-ecran-gardien">
+      <div className="cab-tv-colonne cab-tv-annonce">
+        {onRetour && (
+          <button type="button" className="cab-tv-lien cab-tv-retour" {...toucher(onRetour)}>
+            ← La carte
+          </button>
+        )}
+        <p className="cab-tv-sur">{`Le gardien de l’${ACTES[a].court.replace('Acte ', 'acte ')}`}</p>
+        <div className="cab-tv-portrait">
+          <img src={imageDuGardien(g, true)} alt="" />
+        </div>
+        <h2 tabIndex={-1}>{nomDe(g)}</h2>
+        {fiche && <p className="cab-tv-devise">{espacesFines(fiche.devise)}</p>}
+        <PointsDeVie pv={pv.restent} max={pv.max} />
+        <div className="cab-tv-regle-gardien">
+          <p>
+            <b>{t.assauts > 0 ? `Assaut ${assaut}` : 'Le combat'}</b>
+            {` · ${EMOJI_DES_JEUX[jeu]} ${JEUX[jeu].nom}`}
+          </p>
+          <p>{espacesFines(`Chaque étoile que tu gagnes lui retire un point de vie${mise ? ` — ${MULTIPLICATEUR_DE_LA_MISE[mise.niveau]} sous une mise` : ''}. Chaque manche ratée te coûte un cœur.`)}</p>
+          <p>{espacesFines(`Vaincu : ${piecesDites(OR_D_UN_GARDIEN)}, tes cœurs au complet${a < 2 ? ', et une amélioration' : ''}.`)}</p>
+        </div>
+        <NotesDesCartes cartes={cartes} />
+      </div>
+      <div className="cab-tv-pied">
+        <div className="cab-tv-ressources">
+          <Coeurs n={t.coeurs} max={t.coeursMax} />
+          <Bourse or={t.or} />
+        </div>
+        <button type="button" className="cab-tv-cta" aria-disabled={busy || undefined} {...toucher(() => !busy && onAffronter())}>
+          {t.assauts > 0 ? 'Assaut suivant' : `Affronter ${leGardien(g)}`}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Une épreuve quittée un instant : elle attend où il l'a laissée, son chrono compris. */
+function EpreuveEnAttente({ t, onReprendre }: { t: VueDeLaTraversee; onReprendre: () => void }) {
+  const ou = t.ou
+  const etape = ou.sorte === 'epreuve' || ou.sorte === 'gardien' ? etapeDe(t, ou.etape) : undefined
+  const jeu = t.partie?.jeu ?? etape?.jeu
+  const gardien = etape?.sorte === 'gardien' ? t.actes[acteDe(etape.id)].gardien : null
+  return (
+    <div className="cab-tv-ecran">
+      <div className="cab-tv-colonne cab-tv-annonce">
+        {gardien ? (
+          <div className="cab-tv-portrait">
+            <img src={imageDuGardien(gardien, true)} alt="" />
+          </div>
+        ) : (
+          jeu && (
+            <span className="cab-tv-grand-ic" aria-hidden="true">
+              {EMOJI_DES_JEUX[jeu]}
+            </span>
+          )
+        )}
+        <p className="cab-tv-sur">{gardien ? `Contre ${leGardien(gardien)}` : 'Ton épreuve'}</p>
+        <h2 tabIndex={-1}>{jeu ? JEUX[jeu].nom : 'Ton épreuve'}</h2>
+        <p className="cab-tv-pale">{espacesFines('Elle t’attend où tu l’as laissée : la manche en cours garde son chrono.')}</p>
+      </div>
+      <div className="cab-tv-pied">
+        <div className="cab-tv-ressources">
+          <Coeurs n={t.coeurs} max={t.coeursMax} />
+          <Bourse or={t.or} />
+        </div>
+        <button type="button" className="cab-tv-cta" {...toucher(onReprendre)}>
+          Reprendre l’épreuve
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** « Comment ça marche ? » : les quatre notions, et ce qui se gagne — une feuille, dite une fois, relue quand on veut. */
+export function ReglesDeLaTraversee({ onFermer }: { onFermer: () => void }) {
+  return (
+    <Feuille titre="Comment ça marche ?" className="cab-tv-feuille" onFermer={onFermer}>
+      <div className="cab-tv-regles">
+        <p>{espacesFines('Trois actes, trois gardiens. Choisis ton chemin sur la carte, joue, gagne de l’or ; bats les trois gardiens : l’un d’eux sera à toi, un avatar légendaire.')}</p>
+        <h3>Les cœurs</h3>
+        <p>{espacesFines(`Une manche ratée en coûte un. Plus de cœur, la traversée s’arrête : tu repars de l’acte I, avec des gardiens neufs.`)}</p>
+        <h3>L’or</h3>
+        <p>{espacesFines(`Chaque étoile gagnée à une manche rapporte ${piecesDites(OR_PAR_ETOILE)}. Le marchand, avant chaque gardien, vend des cœurs et des améliorations.`)}</p>
+        <h3>Tes cartes</h3>
+        <p>{espacesFines(`Trois, choisies au départ parmi dix : les seules de ta traversée. Le coffre, le gardien vaincu et le marchand les améliorent, deux fois chacune.`)}</p>
+        <h3>La carte</h3>
+        <p>{espacesFines('Chaque chemin mène à un jeu, sur un thème. Une épreuve se joue en trois manches. Le gardien, au bout de l’acte, perd un point de vie à chaque étoile que tu gagnes contre lui ; tu l’affrontes jusqu’à sa chute, ou la tienne.')}</p>
+        <p>{espacesFines(`Vaincu, un gardien rend tes cœurs au complet et donne ${piecesDites(OR_D_UN_GARDIEN)}. Ta traversée se reprend où tu l’as laissée.`)}</p>
+      </div>
+    </Feuille>
+  )
+}
+
+// ── Le bilan d'une épreuve ──
+
+function BilanDEpreuve({ t, b, onContinuer }: { t: VueDeLaTraversee; b: BilanDEpreuve; onContinuer: () => void }) {
+  const e = etapeDe(t, b.etape)
+  const gardien = b.gardien ? t.actes[acteDe(b.etape)].gardien : null
+  const titre = b.vaincu && gardien ? `${nomDe(gardien)} est vaincu !` : b.perdue ? 'Ton dernier cœur est tombé' : b.coeurs === 0 && b.manches.every(m => !m.comptee || (m.etoiles ?? 0) > 0) ? 'Sans une égratignure !' : 'Épreuve finie'
+  // Le jeu et son thème, au-dessus du verdict : l'épreuve se reconnaît d'un coup d'œil, même relue après un rechargement.
+  const jeu = gardien ? null : e?.jeu
+  const surtitre = gardien ? `Contre ${leGardien(gardien)}` : jeu ? `${JEUX[jeu].nom}${e?.theme ? ` · ${e.theme}` : ''}` : 'Épreuve'
+  return (
+    <div className={'cab-tv-ecran' + (b.vaincu ? ' cab-tv-victoire' : '')}>
+      <div className="cab-tv-colonne cab-tv-bilan">
+        <p className="cab-tv-sur">{surtitre}</p>
+        {gardien ? (
+          <div className={'cab-tv-portrait' + (b.vaincu ? ' cab-tv-vaincu' : '')}>
+            <img src={imageDuGardien(gardien, true)} alt="" />
+          </div>
+        ) : (
+          e?.jeu && (
+            <span className="cab-tv-grand-ic" aria-hidden="true">
+              {EMOJI_DES_JEUX[e.jeu]}
+            </span>
+          )
+        )}
+        <h2 tabIndex={-1}>{espacesFines(titre)}</h2>
+        {b.pv && <PointsDeVie pv={b.pv.apres} max={b.pv.max} />}
+        <ol className="cab-tv-manches">
+          {b.manches.map((m, k) => (
+            <li key={k} className={!m.comptee ? 'cab-tv-sans' : m.etoiles !== null && m.etoiles > 0 ? 'cab-tv-ok' : 'cab-tv-ko'}>
+              <span className="cab-tv-sur">{`Manche ${k + 1}${m.misee ? ' · misée' : ''}`}</span>
+              <span className="cab-tv-etoiles" aria-label={m.etoiles === null ? 'pas jouée' : `${m.etoiles} ${m.etoiles > 1 ? 'étoiles' : 'étoile'}`}>
+                {m.etoiles === null ? '—' : m.etoiles > 0 ? '★'.repeat(m.etoiles) : '✗'}
+              </span>
+              <span className="cab-tv-gain">
+                {!m.comptee ? 'ne compte pas' : m.or > 0 ? `+${m.or}` : m.paree ? 'parée' : m.coeurs > 0 ? `−${coeursDits(m.coeurs)}` : ''}
+                {m.coups > 0 && <small>{` · ${pluriel(m.coups, 'coup')}`}</small>}
+              </span>
+            </li>
+          ))}
+        </ol>
+        <p className="cab-tv-total">
+          {b.or > 0 && (
+            <span className="cab-tv-saute">
+              <Piece /> {`+${b.or}`}
+            </span>
+          )}
+          {b.coeurs > 0 && <span className="cab-tv-perte">{`−${coeursDits(b.coeurs)}`}</span>}
+        </p>
+        {b.souffle && <p className="cab-tv-pale">{espacesFines('Ton Second souffle t’a relevé.')}</p>}
+        {b.vaincu && (
+          <p className="cab-tv-pale">
+            {espacesFines(
+              `${piecesDites(OR_D_UN_GARDIEN)} du gardien, tes cœurs au complet${b.recompense === 'amelioration' ? ', et une amélioration à choisir' : b.recompense === 'or' ? ` — tes cartes sont au plus haut : ${piecesDites(OR_SANS_AMELIORATION)} de plus` : ''}.`,
+            )}
+          </p>
+        )}
+        {b.gardien && !b.vaincu && !b.perdue && b.pv && (
+          <p className="cab-tv-pale">{espacesFines(`Il tient encore : ${pluriel(b.pv.apres, 'point')} de vie. Un autre assaut l’attend.`)}</p>
+        )}
+        {b.manches.some(m => m.misee && m.comptee && (m.etoiles ?? 0) === 0) && <p className="cab-tv-pale">{espacesFines(`Une mise perdue coûte ${coeursDits(COEURS_D_UNE_MISE_PERDUE)}.`)}</p>}
+      </div>
+      <div className="cab-tv-pied">
+        <div className="cab-tv-ressources">
+          <Coeurs n={t.coeurs} max={t.coeursMax} />
+          <Bourse or={t.or} />
+        </div>
+        <button type="button" className="cab-tv-cta" {...toucher(onContinuer)}>
+          Continuer
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Le coffre, l'amélioration, le marchand ──
+
+function CoffreOuvert({ t, onContinuer }: { t: VueDeLaTraversee; onContinuer: () => void }) {
+  const toutAuPlusHaut = t.cartes.every(c => c.niveau >= NIVEAU_MAX)
+  return (
+    <div className="cab-tv-ecran">
+      <div className="cab-tv-colonne cab-tv-tresor">
+        <img className="cab-tv-coffre" src={COFFRES_PEINTS.or?.ouvert} alt="" />
+        <h2 tabIndex={-1}>{toutAuPlusHaut ? `${piecesDites(OR_SANS_AMELIORATION)} !` : 'Ta carte est plus forte'}</h2>
+        <p className="cab-tv-pale">{espacesFines(toutAuPlusHaut ? 'Tes trois cartes sont déjà au plus haut : le coffre paie en or.' : 'Le coffre est vide maintenant : la route continue.')}</p>
+      </div>
+      <div className="cab-tv-pied">
+        <button type="button" className="cab-tv-cta" {...toucher(onContinuer)}>
+          Continuer
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Amelioration({ t, busy, onAmeliorer }: { t: VueDeLaTraversee; busy: boolean; onAmeliorer: (cle: CleDeCarte) => void }) {
+  const [prise, setPrise] = useState<CleDeCarte | null>(null)
+  const depuisLeCoffre = t.ou.sorte === 'coffre'
+  return (
+    <div className="cab-tv-ecran">
+      <div className="cab-tv-colonne">
+        {depuisLeCoffre && <img className="cab-tv-coffre cab-tv-ouvert" src={COFFRES_PEINTS.or?.ouvert} alt="" />}
+        <header className="cab-tv-tete-ecran">
+          <p className="cab-tv-sur">{depuisLeCoffre ? 'Le coffre' : 'Le gardien vaincu'}</p>
+          <h2 tabIndex={-1}>Une amélioration</h2>
+          <p className="cab-tv-pale">{espacesFines('Choisis la carte qui monte d’un niveau.')}</p>
+        </header>
+        <div className="cab-tv-cartes cab-tv-trois">
+          {t.cartes.map(c => {
+            const peut = t.ameliorables.includes(c.cle)
+            const suivant = Math.min(NIVEAU_MAX, c.niveau + 1) as NiveauDeCarte
+            return (
+              <CarteDeLaTraversee
+                key={c.cle}
+                cle={c.cle}
+                niveau={peut ? suivant : c.niveau}
+                prise={prise === c.cle}
+                inerte={!peut}
+                etiquette={!peut ? (c.niveau >= NIVEAU_MAX ? 'Au plus haut' : 'Déjà servie') : `Niveau ${c.niveau} → ${suivant}`}
+                action={() => setPrise(c.cle)}
+              />
+            )
+          })}
+        </div>
+      </div>
+      <div className="cab-tv-pied">
+        <button type="button" className="cab-tv-cta" aria-disabled={!prise || busy || undefined} {...toucher(() => prise && !busy && onAmeliorer(prise))}>
+          {prise ? `Améliorer ${carteDeLaTraversee(prise)?.nom ?? ''}` : 'Choisis une carte'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Marchand({ t, busy, onAcheter, onPartir }: { t: VueDeLaTraversee; busy: boolean; onAcheter: (article: 'coeur' | 'amelioration', carte?: CleDeCarte) => void; onPartir: () => void }) {
+  const coeurPossible = t.coeurs < t.coeursMax && t.or >= t.prix.coeur
+  const g = t.actes[t.acte].gardien
+  return (
+    <div className="cab-tv-ecran">
+      <div className="cab-tv-colonne">
+        <div className="cab-tv-enseigne carte-fond fond-epices">
+          <div className="cab-tv-enseigne-texte">
+            <p className="cab-tv-sur">Avant le gardien</p>
+            <h2 tabIndex={-1}>Le marchand</h2>
+            <p className="cab-tv-replique">{espacesFines(`« ${nomDe(g)} t’attend juste après. Un cœur de plus, peut-être ? »`)}</p>
+          </div>
+        </div>
+        <div className="cab-tv-ressources">
+          <Coeurs n={t.coeurs} max={t.coeursMax} />
+          <Bourse or={t.or} />
+        </div>
+        <section className="cab-tv-rayon" aria-labelledby="cab-tv-soins">
+          <h3 id="cab-tv-soins">Les soins</h3>
+          <div className="cab-tv-article">
+            <span className="cab-tv-ic-coeur">
+              <Coeurs n={1} max={1} />
+            </span>
+            <span className="cab-tv-txt">
+              <b>Un cœur</b>
+              <small>{t.coeurs >= t.coeursMax ? 'Tes cœurs sont au complet' : `${t.coeurs} sur ${t.coeursMax}`}</small>
+            </span>
+            <button type="button" className="cab-tv-achat" aria-disabled={!coeurPossible || busy || undefined} {...toucher(() => coeurPossible && !busy && onAcheter('coeur'))}>
+              <Piece /> {t.prix.coeur}
+            </button>
+          </div>
+        </section>
+        <section className="cab-tv-rayon" aria-labelledby="cab-tv-ameliorations">
+          <h3 id="cab-tv-ameliorations">Les améliorations</h3>
+          {t.cartes.map(c => {
+            const peut = t.ameliorables.includes(c.cle) && t.or >= t.prix.amelioration
+            const carte = carteDeLaTraversee(c.cle)
+            const suivant = Math.min(NIVEAU_MAX, c.niveau + 1) as NiveauDeCarte
+            return (
+              <div key={c.cle} className="cab-tv-article cab-tv-amelio">
+                <img src={CARTES_PEINTES[c.cle]?.[1]} alt="" />
+                <span className="cab-tv-txt">
+                  <b>{carte ? nomAuNiveau(carte, t.ameliorables.includes(c.cle) ? suivant : c.niveau) : c.cle}</b>
+                  <small>{t.ameliorables.includes(c.cle) && carte ? espacesFines(carte.dit(suivant)) : 'Au plus haut'}</small>
+                </span>
+                <button type="button" className="cab-tv-achat" aria-disabled={!peut || busy || undefined} {...toucher(() => peut && !busy && onAcheter('amelioration', c.cle))}>
+                  <Piece /> {t.prix.amelioration}
+                </button>
+              </div>
+            )
+          })}
+        </section>
+      </div>
+      <div className="cab-tv-pied">
+        <button type="button" className="cab-tv-cta" aria-disabled={busy || undefined} {...toucher(() => !busy && onPartir())}>
+          {`Affronter ${leGardien(g)}`}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Le légendaire, la fin ──
+
+function ChoixDuLegendaire({ t, possedes, busy, onChoisir }: { t: VueDeLaTraversee; possedes: readonly string[]; busy: boolean; onChoisir: (g: string) => void }) {
+  const [pris, setPris] = useState<string | null>(null)
+  return (
+    <div className="cab-tv-ecran cab-tv-victoire">
+      <div className="cab-tv-colonne">
+        <header className="cab-tv-tete-ecran cab-tv-centre">
+          <p className="cab-tv-sur">Les trois actes sont à toi</p>
+          <h2 tabIndex={-1}>Choisis ton légendaire</h2>
+          <p className="cab-tv-pale">{espacesFines('Il devient ton avatar : porte-le partout, dans chaque soirée.')}</p>
+        </header>
+        <div className="cab-tv-legendaires">
+          {t.vaincus.map(g => {
+            const deja = possedes.includes(g)
+            return (
+              <button key={g} type="button" className="cab-tv-legendaire" aria-pressed={pris === g} {...toucher(() => setPris(g))}>
+                <img src={imageDuGardien(g, true)} alt="" />
+                <span className="cab-tv-txt">
+                  <b>{nomDe(g)}</b>
+                  <small>{deja ? 'Déjà à toi' : espacesFines(gardienDeLaTraversee(g)?.devise ?? '')}</small>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <div className="cab-tv-pied">
+        <button type="button" className="cab-tv-cta" aria-disabled={!pris || busy || undefined} {...toucher(() => pris && !busy && onChoisir(pris))}>
+          {pris ? `Choisir ${leGardien(pris)}` : 'Touche un gardien'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function FinDeLaTraversee({ t, possedes, busy, onCommencer }: { t: VueDeLaTraversee; possedes: readonly string[]; busy: boolean; onCommencer: () => void }) {
+  const fin = t.fin
+  if (!fin) return null
+  const gagnee = fin.issue === 'gagnee' && fin.legendaire
+  const stats = (
+    <ul className="cab-tv-stats">
+      <li>
+        <b>{t.epreuves}</b> {t.epreuves > 1 ? 'épreuves' : 'épreuve'}
+      </li>
+      <li>
+        <b>{t.reussies}</b> {t.reussies > 1 ? 'manches réussies' : 'manche réussie'}
+      </li>
+      <li>
+        <b>{t.vaincus.length}</b> {t.vaincus.length > 1 ? 'gardiens vaincus' : 'gardien vaincu'}
+      </li>
+    </ul>
+  )
+  return (
+    <div className={'cab-tv-ecran' + (gagnee ? ' cab-tv-victoire' : '')}>
+      <div className="cab-tv-colonne cab-tv-fin">
+        {gagnee && fin.legendaire ? (
+          <>
+            <p className="cab-tv-sur">Traversée réussie</p>
+            <div className="cab-tv-portrait cab-tv-rayons">
+              <img src={imageDuGardien(fin.legendaire, true)} alt="" />
+            </div>
+            <h2 tabIndex={-1}>{`${nomDe(fin.legendaire)} est à toi`}</h2>
+            <p className="cab-tv-pale">{espacesFines(possedes.includes(fin.legendaire) ? 'Ton avatar légendaire : choisis-le depuis ton profil, il te suit partout.' : 'Il rejoint tes avatars légendaires.')}</p>
+          </>
+        ) : (
+          <>
+            <p className="cab-tv-sur">{fin.issue === 'abandonnee' ? 'Traversée abandonnée' : 'Traversée perdue'}</p>
+            <h2 tabIndex={-1}>{fin.issue === 'abandonnee' ? 'Tu t’arrêtes ici' : 'La traversée s’arrête ici'}</h2>
+            <p className="cab-tv-pale">{espacesFines(`${ACTES[t.acte].court} · ${ACTES[t.acte].nom}. Repars : une carte neuve, des gardiens neufs.`)}</p>
+          </>
+        )}
+        {stats}
+      </div>
+      <div className="cab-tv-pied">
+        <button type="button" className="cab-tv-cta" aria-disabled={busy || undefined} {...toucher(() => !busy && onCommencer())}>
+          Nouvelle traversée
+        </button>
+        <a className="cab-tv-second" href={gagnee ? '/profil' : '/'}>
+          {gagnee ? 'Voir mon profil' : 'Revenir à l’accueil'}
+        </a>
+      </div>
+    </div>
+  )
+}
+
+/** Les rangées de la carte, comptées : la dernière est celle du gardien (`RANGEE_DU_GARDIEN`). */
+export const RANGEES_DE_LA_CARTE = RANGEE_DU_GARDIEN + 1

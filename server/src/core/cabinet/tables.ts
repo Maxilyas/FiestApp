@@ -18,6 +18,7 @@
 import type { InStatement, ResultSet } from '@libsql/client'
 import type { CeQueLeReveilAjoute } from '../porteDeLaCampagne'
 import { lireUnGeste, lireLeDepart, lireLaMonteeDuDepart } from '../../../../shared/cabinet/lecture'
+import { lireLeDepartDeLaTraversee, lireUnGesteDeLaTraversee, type DepartDeLaTraversee, type GesteDeLaTraverseeEcrit } from '../../../../shared/cabinet/traversee'
 import type { RecordDeLaTour } from '../../../../shared/cabinet/montee'
 import type { DepartDUnePartie, GesteEcrit, IssueDUnePartie, Manche, OrigineDUnePartie } from '../../../../shared/cabinet/partie'
 import { ISSUES } from '../../../../shared/cabinet/partie'
@@ -107,6 +108,39 @@ const RECORDS = `CREATE TABLE IF NOT EXISTS cabinet_records (
 )`
 
 /**
+ * Les traversées d'un profil : leur départ figé (`DepartDeLaTraversee`, JSON
+ * versionné — la carte des trois actes, ses cartes, ses gardiens), et leur
+ * fin, écrite dans le lot du geste qui la décide. Une seule en route par
+ * profil, recomptée par la base dans l'instruction qui en commence une. Ce
+ * qu'elle a gagné se lit de ses gestes : rien d'autre ne s'y résume.
+ */
+const TRAVERSEES = `CREATE TABLE IF NOT EXISTS cabinet_traversees (
+  id           TEXT PRIMARY KEY,
+  profile_id   TEXT NOT NULL,
+  depart       TEXT NOT NULL,
+  commencee_le INTEGER NOT NULL,
+  finie_le     INTEGER,
+  issue        TEXT CHECK (issue IN ('gagnee', 'perdue', 'abandonnee')),
+  legendaire   TEXT
+)`
+/** La dernière traversée d'un profil, et celle qui est en route : par son index, jamais un parcours de la table. */
+const TRAVERSEES_DU_PROFIL = 'CREATE INDEX IF NOT EXISTS cabinet_traversees_profil ON cabinet_traversees (profile_id, commencee_le)'
+
+/**
+ * Les gestes d'une traversée, dans l'ordre, comme ceux d'une partie
+ * (`cabinet_gestes`) : son pli les relit (`etatDeLaTraversee`). Le serveur y
+ * écrit aussi les siens — l'épreuve qui commence, ses étoiles conclues.
+ */
+const TRAVERSEE_GESTES = `CREATE TABLE IF NOT EXISTS cabinet_traversee_gestes (
+  traversee_id TEXT NOT NULL,
+  rang         INTEGER NOT NULL,
+  geste        TEXT NOT NULL,
+  fait_le      INTEGER NOT NULL,
+  uid          TEXT NOT NULL,
+  PRIMARY KEY (traversee_id, rang)
+)`
+
+/**
  * La clé du secret du Cabinet dans `campagne_meta` : tiré au premier réveil,
  * relu à chacun. La graine de la visite du jour en dérive
  * (`HMAC-SHA256(secret, profileId)`) — faite du seul profil, la page l'aurait
@@ -115,9 +149,9 @@ const RECORDS = `CREATE TABLE IF NOT EXISTS cabinet_records (
  */
 export const SECRET_DU_CABINET = 'secret_du_cabinet'
 
-/** Ce que le Cabinet ajoute au premier lot de la campagne : ses quatre tables, la colonne de son départ figé, son secret. */
+/** Ce que le Cabinet ajoute au premier lot de la campagne : ses tables, la colonne de son départ figé, son secret. */
 export const REVEIL_DU_CABINET = {
-  tablesEnPlus: [GESTES, PROFILS, OEUVRES, RECORDS],
+  tablesEnPlus: [GESTES, PROFILS, OEUVRES, RECORDS, TRAVERSEES, TRAVERSEES_DU_PROFIL, TRAVERSEE_GESTES],
   // Le départ figé d'une partie (`DepartDUnePartie`, JSON versionné) : ses manches et leurs rechanges, réponses comprises.
   // Il ne se relit qu'à la relecture d'une partie, par sa clé ; les lectures du jour n'en tirent que des champs.
   colonnesEnPlus: [['cabinet', 'TEXT']],
@@ -417,4 +451,47 @@ export function lecturesDeLaPartie(profileId: string, serie: string): InStatemen
     { sql: "SELECT id, cabinet, position, commencee_le, finie_le, bilan FROM campagne_series WHERE id = ? AND profile_id = ? AND mode = 'cabinet'", args: [serie, profileId] },
     { sql: 'SELECT rang, geste, fait_le FROM cabinet_gestes WHERE serie_id = ? ORDER BY rang', args: [serie] },
   ]
+}
+
+// ── La traversée ──────────────────────────────────────────────────────────
+
+/** Une traversée relue de sa ligne et de ses gestes : son départ figé, ses gestes dans l'ordre, sa date. */
+export interface TraverseeLueEnBase {
+  id: string
+  depart: DepartDeLaTraversee
+  gestes: GesteDeLaTraverseeEcrit[]
+  commenceeLe: number
+}
+
+/**
+ * La dernière traversée d'un profil — en route, ou finie — et ses gestes, d'un
+ * lot : par l'index du profil et de la date, jamais un parcours de la table.
+ * La partie que la ligne du profil dit en cours vient avec : une épreuve n'y
+ * commence que si le profil n'en a aucune autre.
+ */
+export function lecturesDeLaTraversee(profileId: string): InStatement[] {
+  const derniere = 'SELECT id FROM cabinet_traversees WHERE profile_id = ?1 ORDER BY commencee_le DESC LIMIT 1'
+  return [
+    { sql: `SELECT id, depart, commencee_le FROM cabinet_traversees WHERE id = (${derniere})`, args: [profileId] },
+    { sql: `SELECT rang, geste, fait_le FROM cabinet_traversee_gestes WHERE traversee_id = (${derniere}) ORDER BY rang`, args: [profileId] },
+  ]
+}
+
+/** La traversée relue ; null : aucune, ou une que ce code ne relit pas — un départ d'une version à venir, un geste troué. */
+export function laTraverseeLue(lus: readonly ResultSet[]): TraverseeLueEnBase | null | 'illisible' {
+  const ligne = lus[0]?.rows[0] as Record<string, unknown> | undefined
+  if (!ligne || typeof ligne.id !== 'string') return null
+  const depart = lireLeDepartDeLaTraversee(ligne.depart)
+  const gestes: GesteDeLaTraverseeEcrit[] = []
+  for (const r of (lus[1]?.rows ?? []) as Record<string, unknown>[]) {
+    const geste = lireUnGesteDeLaTraversee(r.geste, true)
+    if (!geste || nombre(r.rang) !== gestes.length + 1) return 'illisible'
+    gestes.push({ geste, faitLe: nombre(r.fait_le) })
+  }
+  return depart ? { id: ligne.id, depart, gestes, commenceeLe: nombre(ligne.commencee_le) } : 'illisible'
+}
+
+/** La garde de chaque instruction d'un lot de la traversée après la première : son geste est en base, à son rang, avec l'`uid` de ce lot. */
+export function gesteDeTraverseeEcrit(id: string, rang: number, uid: string): { sql: string; args: [string, number, string] } {
+  return { sql: 'EXISTS (SELECT 1 FROM cabinet_traversee_gestes WHERE traversee_id = ? AND rang = ? AND uid = ?)', args: [id, rang, uid] }
 }

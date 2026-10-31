@@ -50,7 +50,10 @@ export function tirerUnEclair(ctx: ContexteDuTirage, posees: Posees): EclairTire
   // Battues comme avant, celles que la partie n'a pas encore jouées d'abord : un joueur neuf — tout est neuf — tire au même
   // hasard qu'avant. Les épuisées, battues aussi, puis la moins épuisée d'abord (un tri stable garde le hasard des égales).
   const lesPlusFraiches = (cs: Categorie[]) => cs.sort((a, b) => reste(b) - reste(a))
+  // La catégorie qu'une épreuve a promise passe d'abord, si elle a de quoi faire cinq affirmations.
+  const visee = ctx.vise?.categorie
   const ordre = [
+    ...(visee && assez.includes(visee) ? [visee] : []),
     ...battre(neuves.filter(c => !jouee(c)), ctx.hasard),
     ...battre(neuves.filter(jouee), ctx.hasard),
     ...lesPlusFraiches(battre(epuisees.filter(c => !jouee(c)), ctx.hasard)),

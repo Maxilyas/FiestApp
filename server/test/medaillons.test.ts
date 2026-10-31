@@ -126,11 +126,11 @@ test('le téléphone de l’invité ne télécharge pas avant l’entrée ce qui
 })
 
 test('le Cabinet de curiosités n’importe les dessins de ses gardiens qu’à la demande', () => {
-  // Ses vingt-trois gardiens se montrent partout — le musée, les salles, leur galerie — par `Dessin` : les médaillons
-  // viennent avec eux, pas avec la page, que l'accueil d'un profil précharge en fond (`ProfilApp.tsx`).
+  // La traversée montre ses gardiens peints — leurs fichiers, par `legendaires-peints.ts` —, jamais par leurs dessins animés,
+  // qui ne partent pas avec la page, que l'accueil d'un profil précharge en fond (`ProfilApp.tsx`). Le musée d'avant les
+  // montrait par `Avatar`, les médaillons sur son chemin.
   const chemin = importsStatiques(path.join(client, 'views/CabinetApp.tsx'))
-  assert.ok(chemin.has(path.join(client, 'components/Avatar.tsx')), 'Avatar est sur le chemin')
-  assert.ok(chemin.has(path.join(client, 'components/medaillons.ts')), 'medaillons est sur le chemin')
+  assert.ok(chemin.has(path.join(client, 'components/legendaires-peints.ts')), 'ses gardiens peints sont sur le chemin')
   for (const dessin of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Lumiere.tsx', 'components/Compagnon.tsx', 'components/compagnons-peints.ts']) {
     assert.ok(!chemin.has(path.join(client, dessin)), `${dessin} ne part pas avec le Cabinet`)
   }

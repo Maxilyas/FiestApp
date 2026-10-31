@@ -483,3 +483,65 @@ export const EVENEMENTS_D_UNE_FRISE_A_THEME = VAGUES_DE_LA_FRISE.reduce((n, vagu
  * 3,4 km (la Rance et le départ de la Route du Rhum).
  */
 export const LIEUX_VOISINS_KM = 2
+
+// ── La traversée : trois actes, trois gardiens ────────────────────────────
+// Le Cabinet en trois actes (le propriétaire, le 31 octobre 2026 ; la maquette
+// jouée, `retours/2026-10-31/la-partie.md`) : une carte à chemins par acte,
+// des épreuves de trois manches, un coffre, un marchand, un gardien. Quatre
+// notions, pas une de plus — les cœurs, l'or, tes cartes, la carte. Ce qui se
+// joue se fige au départ de la traversée (la carte, ses jeux, ses thèmes, ses
+// gardiens) ; l'or et les cœurs se relisent de ses gestes au barème du code :
+// un chiffre changé vaut aussi pour la traversée en cours, qui ne dure qu'une
+// soirée — rien n'en sort que le légendaire choisi au bout, rangé une fois
+// pour toutes (invariant 22).
+
+/** Les actes d'une traversée : un gardien au bout de chacun. */
+export const ACTES_D_UNE_TRAVERSEE = 3
+/** Les rangées d'étapes d'un acte, avant le marchand et le gardien… */
+export const RANGEES_D_UN_ACTE = 3
+/** … les chemins de chaque rangée, qui filent tout droit et se croisent par des diagonales… */
+export const CHEMINS_D_UNE_RANGEE = 3
+/** … et la rangée où l'une des étapes est un coffre (la deuxième). */
+export const RANGEE_DU_COFFRE = 2
+/** Les cartes choisies au départ parmi les dix : les seules de la traversée — on les améliore, on n'en gagne pas d'autre. */
+export const CARTES_D_UNE_TRAVERSEE = 3
+/** Les cœurs au départ, sans la Panacée : une manche ratée en coûte un. */
+export const COEURS_DE_DEPART = 5
+/** L'or de chaque étoile gagnée à une manche : quinze pièces pour une manche parfaite. */
+export const OR_PAR_ETOILE = 5
+/** L'or d'un gardien vaincu, qui rend aussi les cœurs au complet et offre une amélioration. */
+export const OR_D_UN_GARDIEN = 30
+/** L'or d'une amélioration offerte (un coffre, un gardien) quand les trois cartes sont déjà au plus haut. */
+export const OR_SANS_AMELIORATION = 40
+/** Les points de vie des trois gardiens, acte par acte : chaque étoile gagnée contre lui en retire un. */
+export const PV_DES_GARDIENS: readonly [number, number, number] = [6, 8, 10]
+/** Le marchand, avant chaque gardien : un cœur, une amélioration. */
+export const PRIX_DU_MARCHAND: Readonly<Record<'coeur' | 'amelioration', number>> = { coeur: 25, amelioration: 45 }
+/** Un prix ne descend jamais sous tant de pièces, Pourboire compris. */
+export const PRIX_MIN = 5
+/** Les marches des épreuves, acte par acte : la première tire, les suivantes la valent (`tirerDesQuestions`). */
+export const MARCHES_DES_ACTES: readonly (readonly Niveau[])[] = [['facile'], ['moyen'], ['difficile']]
+/** … et celles des gardiens, un cran au-dessus. */
+export const MARCHES_DES_GARDIENS: readonly (readonly Niveau[])[] = [['moyen'], ['difficile'], ['difficile', 'expert']]
+/** Quitte ou double : les mises par épreuve, niveau par niveau… */
+export const MISES_PAR_EPREUVE: Readonly<Record<Force, number>> = { 1: 1, 2: 1, 3: 2 }
+/** … ce qu'une mise gagnée multiplie — l'or de sa manche, et ses coups contre un gardien… */
+export const MULTIPLICATEUR_DE_LA_MISE: Readonly<Record<Force, number>> = { 1: 2, 2: 3, 3: 3 }
+/** … et les cœurs qu'une mise perdue coûte. */
+export const COEURS_D_UNE_MISE_PERDUE = 2
+/** Parade : les manches ratées qui ne coûtent rien, à chaque épreuve… */
+export const ERREURS_PAREES: Readonly<Record<Force, number>> = { 1: 1, 2: 1, 3: 2 }
+/** … et le niveau dès lequel elle pare aussi contre les gardiens. */
+export const PARADE_CONTRE_LES_GARDIENS: Force = 2
+/** Cagnotte : l'or de plus à chaque manche gagnée. */
+export const OR_DE_LA_CAGNOTTE: Readonly<Record<Force, number>> = { 1: 5, 2: 10, 3: 15 }
+/** Panacée : les cœurs de plus au maximum. */
+export const COEURS_DE_LA_PANACEE: Readonly<Record<Force, number>> = { 1: 1, 2: 2, 3: 3 }
+/** Pourboire : la remise sur chaque achat. */
+export const REMISE_DU_POURBOIRE: Readonly<Record<Force, number>> = { 1: 10, 2: 20, 3: 30 }
+/** Coup de grâce : les points de vie que chaque gardien a en moins (un au moins). */
+export const PV_DU_COUP_DE_GRACE: Readonly<Record<Force, number>> = { 1: 2, 2: 3, 3: 4 }
+/** Second souffle : les cœurs qu'on retrouve au dernier perdu, une fois par traversée ; null : tous. */
+export const COEURS_DU_SECOND_SOUFFLE: Readonly<Record<Force, number | null>> = { 1: 2, 2: 4, 3: null }
+/** Ce qu'un jeu peut faire d'épreuves dans une traversée, au plus — le contenu écrit à la main ; les autres n'ont pas de plafond. */
+export const EPREUVES_D_UN_JEU_MAX: Readonly<Partial<Record<CleDeJeu, number>>> = { frise: 3, epingle: 4, detail: 3, indices: 3, replique: 3 }

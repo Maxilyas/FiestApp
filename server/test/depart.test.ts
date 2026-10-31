@@ -86,12 +86,12 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   assert.deepEqual(de('/banc'), ['/s/banc/entree.json'])
   for (const c of ['/host', '/tele', '/compte', '/nulle/part/ici']) assert.deepEqual(de(c), [], c)
   // Le Cabinet de curiosités : son adresse, réservée dès ses routes — un espace « cabinet » n'aurait plus d'adresse —,
-  // ouvre sa page, qui demande son musée à son ouverture, quel que soit le visiteur, et le serveur le précharge avec
-  // elle, son profil léger aussi ; quel que soit l'écran que dit son fragment, tous lisent la même page.
-  assert.equal(DEPART.cabinet, '/api/cabinet')
+  // ouvre sa page, qui demande sa traversée à son ouverture, quel que soit le visiteur, et le serveur la précharge avec
+  // elle, son profil léger aussi ; la page n'a plus d'écran dans le fragment : rien de plus à précharger pour lui.
+  assert.equal(DEPART.cabinet, '/api/cabinet/traversee')
   assert.ok(RESERVED_SLUGS.has('cabinet'))
   assert.deepEqual(parseRoute('/cabinet'), { kind: 'account', page: 'cabinet' })
-  assert.deepEqual(de('/cabinet'), ['/api/cabinet', '/api/joueur/moi?leger'])
+  assert.deepEqual(de('/cabinet'), ['/api/cabinet/traversee', '/api/joueur/moi?leger'])
   assert.deepEqual(donneesDuFragment(parseRoute('/cabinet'), '#salle-rempart'), [])
 
   // Le préchargement ne sert que si l'adresse est la même, lettre pour

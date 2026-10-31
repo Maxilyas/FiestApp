@@ -46,7 +46,7 @@ const TITRES: Record<IssueDUnePartie, string> = {
   libre: 'Partie finie',
 }
 
-const D_OU: Record<OrigineDUnePartie, string> = { visite: 'La visite du jour', chasse: 'Une chasse', libre: 'Partie libre', montee: 'La tour' }
+const D_OU: Record<OrigineDUnePartie, string> = { visite: 'La visite du jour', chasse: 'Une chasse', libre: 'Partie libre', montee: 'La tour', traversee: 'La traversée' }
 
 /** Une manche au bilan : ses étoiles, ce qui les a changées, et comment elle s'est tranchée. */
 function LigneDeLaManche({ m, k }: { m: MancheVue; k: number }) {

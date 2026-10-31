@@ -202,7 +202,7 @@ test('le Cabinet naît dans le premier lot de la campagne : pas un aller-retour 
   // Tout dans le premier lot : ses trois tables, son secret proposé, puis relu.
   const premier = avec.lots[0]
   assert.match(premier[0], /CREATE TABLE IF NOT EXISTS campagne_series/)
-  for (const table of ['cabinet_gestes', 'cabinet_profils', 'cabinet_oeuvres', 'cabinet_records']) {
+  for (const table of ['cabinet_gestes', 'cabinet_profils', 'cabinet_oeuvres', 'cabinet_records', 'cabinet_traversees', 'cabinet_traversee_gestes']) {
     assert.ok(
       premier.some(s => s.includes(`CREATE TABLE IF NOT EXISTS ${table}`)),
       `${table} naît dans le premier lot`,
@@ -214,7 +214,7 @@ test('le Cabinet naît dans le premier lot de la campagne : pas un aller-retour 
   assert.deepEqual(altersDe(avec), [], 'le réveil d’une base qui a tout n’ajoute aucune colonne')
 
   const tables = (nom: string) => lire<{ name: string }>(nom, `SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'cabinet\\_%' ESCAPE '\\' ORDER BY name`).map(t => t.name)
-  assert.deepEqual(tables('reveil-avec.db'), ['cabinet_gestes', 'cabinet_oeuvres', 'cabinet_profils', 'cabinet_records'])
+  assert.deepEqual(tables('reveil-avec.db'), ['cabinet_gestes', 'cabinet_oeuvres', 'cabinet_profils', 'cabinet_records', 'cabinet_traversee_gestes', 'cabinet_traversees'])
   assert.ok(lire<{ name: string }>('reveil-avec.db', 'PRAGMA table_info(campagne_series)').some(c => c.name === 'cabinet'), 'la colonne du départ figé')
   // Rien de lui sans lui : la campagne seule ne connaît pas ses tables.
   assert.deepEqual(tables('reveil-sans.db'), [])

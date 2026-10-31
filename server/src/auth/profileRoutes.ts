@@ -59,8 +59,8 @@ interface ProfileApiDeps {
    */
   campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'defiDAccueil' | 'accueilDesDuels' | 'duProfil' | 'mercisDe'>
   /**
-   * Son musée, pour le bouton du Cabinet sur l'accueil (`CabinetStore.accueil`,
-   * puis `accueilDuCabinet`) : lu en mémoire seulement, sans un aller-retour.
+   * Sa traversée, pour le bouton du Cabinet sur l'accueil (`CabinetStore.accueil`,
+   * puis `accueilDuCabinet`) : lue en mémoire seulement, sans un aller-retour.
    * Absent là où le Cabinet est fermé : le bouton ne s'y montre pas.
    */
   cabinet?: Pick<CabinetStore, 'accueil'>
@@ -223,14 +223,14 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // signalements qui ont servi, ses annonces à tous — dits une fois, son
     // téléphone retient le reste.
     const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now(), mercis, lue?.aTous ?? [])
-    // Et son musée, de la mémoire du Cabinet — un musée qu'il n'a pas encore lu ne dit rien. Ce qui y tomberait n'ôte que lui.
-    // Le magasin rend sa lecture, la vue se bâtit ici, comme la page du Cabinet se bâtit dans sa route.
-    let musee: CabinetDAccueil | null = null
+    // Et sa traversée, de la mémoire du Cabinet — une traversée qu'il n'a pas encore lue ne dit rien. Ce qui y tomberait n'ôte
+    // qu'elle. Le magasin la rend, la vue se bâtit ici, comme la page du Cabinet se bâtit dans sa route.
+    let cabinet: CabinetDAccueil | null = null
     try {
-      const lecture = deps.cabinet?.accueil(rec.id)
-      musee = lecture ? accueilDuCabinet(lecture) : null
+      const traversee = deps.cabinet?.accueil(rec.id)
+      cabinet = traversee ? accueilDuCabinet(traversee) : null
     } catch (e) {
-      console.error('[profil] musée de l’accueil illisible :', e)
+      console.error('[profil] traversée de l’accueil illisible :', e)
     }
     return {
       ...profiles.toPublic(rec),
@@ -240,7 +240,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       ...(campagne && { campagne }),
       ...(defi && { defi }),
       ...(duels && { duels }),
-      ...(musee && { cabinet: musee }),
+      ...(cabinet && { cabinet }),
       ...(annonces.length > 0 && { annonces }),
     }
   }

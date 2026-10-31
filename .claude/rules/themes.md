@@ -77,7 +77,7 @@ paths:
   (`--bg`, `--surface`, `--accent`…), les seuls que compare
   `design.test.ts`, jamais au décor peint. La mesure vit dans
   `server/scripts/a-l-ecran.ts` (`contrasteDeLaPage`, que
-  `rendu-cabinet.ts` partage) et, depuis le 25 octobre 2026, ne lit plus
+  `rendu-niche.ts` partage) et, depuis le 25 octobre 2026, ne lit plus
   que ce que l'œil lit : la photo à la densité de l'écran (écrite à 2, elle
   mesurait un autre coin que la ligne en 1366 × 768), une ligne entière à
   l'écran et visible en entier — ni coupée par le bord (lue sur du vide,
@@ -97,9 +97,10 @@ paths:
   chaque écran du Cabinet pose son étiquette rouge (3,43:1) et son lien de
   retour (4,19:1). Le décor reste de chaque côté de la colonne.
   `cabinet-ecran.test.ts` le relit dans chaque feuille qui cite ses décors
-  (`--decor-…`) et dans celle du Film noir ; `rendu-cabinet.ts`
-  (`THEME=<clé>`) en mesure les `[contraste]` — un décor de plus qui passe
-  sous les lignes du Cabinet y prend son sol.
+  (`--decor-…`) et dans celle du Film noir — un décor de plus qui passe
+  sous les lignes du Cabinet y prend son sol. La traversée, elle, ne prend
+  aucun thème : sa nuit et son or s'écrivent en dur (règle `cabinet.md`),
+  et l'épreuve, sur l'écran de partie, garde ce sol.
 - **Un achat de plus** s'écrit avec son prix, sur une ligne jamais
   modifiée, et touche cinq endroits de `ProfileStore` : sa table, `achatsDe`,
   les dépenses de `boutiqueEtDons`, `unAchatALaFois` et la liste de

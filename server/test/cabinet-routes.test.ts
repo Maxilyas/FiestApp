@@ -283,8 +283,8 @@ test('la visite du jour ne change pas de la journée : l’achat ou la partie d�
   }
   assert.ok(2 * ETOILES_PAR_MANCHE >= SEUILS_DES_RARETES.commun, 'deux manches parfaites passent le seuil d’une commune')
   horloge.t += 24 * 3_600_000
-  // L'accueil lit la visite du jour sans rien clore : celle que la page montrerait avant la clôture.
-  const auMatin = cabinet.accueil('max')!.visite
+  // La visite du jour lue en mémoire, sans rien clore : celle que la page montrerait avant la clôture.
+  const auMatin = cabinet.visiteEnMemoire('max')!.visite
   assert.equal(auMatin.figee, false)
   const page = await cabinet.page('max')
   assert.equal(page.enCours, null, 'la partie d’hier est close')

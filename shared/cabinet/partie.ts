@@ -48,6 +48,7 @@ import {
   GRACE_D_UNE_MANCHE_MS,
   MANCHES_PAR_PARTIE,
   MARCHES_DES_ENJEUX,
+  MISES_PAR_EPREUVE,
   PAUSE_MAX_MS,
   PAUSES_PAR_MANCHE,
   POUSSIERE_DU_DOUBLE,
@@ -78,7 +79,7 @@ import { trancheLaManche, type CleDeJeu, type VerdictDUneManche } from './jeux/r
  * choisit par `d.v`. Une durée, la grâce, la pause n'en demandent pas : elles
  * se figent au départ (`ChronoDuDepart`).
  */
-export const VERSIONS_DU_DEPART = [1, 2] as const
+export const VERSIONS_DU_DEPART = [1, 2, 3] as const
 export type VersionDuDepart = (typeof VERSIONS_DU_DEPART)[number]
 /** Celle des parties qui commencent : la dernière de la liste. */
 export const VERSION_DU_DEPART: VersionDuDepart = VERSIONS_DU_DEPART[VERSIONS_DU_DEPART.length - 1]
@@ -96,8 +97,24 @@ export type VersionDuBilan = (typeof VERSIONS_DU_BILAN_DU_CABINET)[number]
 export const VERSION_DU_BILAN_DU_CABINET: VersionDuBilan = VERSIONS_DU_BILAN_DU_CABINET[VERSIONS_DU_BILAN_DU_CABINET.length - 1]
 
 export type Manche = 0 | 1 | 2
-/** D'où part une partie : une case de la visite, une chasse, un jeu libre, ou une porte de la tour (`montee.ts`, depuis la version 2 du départ). */
-export type OrigineDUnePartie = 'visite' | 'chasse' | 'libre' | 'montee'
+/**
+ * D'où part une partie : une case de la visite, une chasse, un jeu libre, une
+ * porte de la tour (`montee.ts`, depuis la version 2 du départ), ou une épreuve
+ * d'une traversée (`traversee.ts`, depuis la version 3).
+ */
+export type OrigineDUnePartie = 'visite' | 'chasse' | 'libre' | 'montee' | 'traversee'
+
+/**
+ * L'épreuve d'une traversée qu'une partie joue, figée à son départ : la
+ * traversée, l'étape de sa carte, et l'assaut contre son gardien (zéro pour
+ * une épreuve). La traversée se relit de ses gestes, qui nomment ses parties
+ * (`etatDeLaTraversee`) : ceci ne sert qu'à relire une partie seule.
+ */
+export interface EpreuveDuDepart {
+  id: string
+  etape: string
+  assaut: number
+}
 
 /** Ce qu'une porte de la tour promet, une fois ouverte : son œuvre — la cible du départ —, un cœur, ou les étoiles de l'étage doublées. */
 export type ButinDUnePorte = 'oeuvre' | 'coeur' | 'etoiles'
@@ -143,16 +160,39 @@ export interface ChronoDuDepart {
   pauseMs: number
 }
 
-/** Le chrono qu'un départ fige, aux chiffres du jour : le serveur l'écrit avec le plan. */
-export function chronoDuDepart(jeu: CleDeJeu, carte: CarteDuDepart | null): ChronoDuDepart {
+/** Le chrono qu'un départ fige, aux chiffres du jour : le serveur l'écrit avec le plan, sous ses cartes — celle qui prend son temps l'allonge. */
+export function chronoDuDepart(jeu: CleDeJeu, cartes: CarteDuDepart | readonly CarteDuDepart[] | null): ChronoDuDepart {
   const regle = regleDe(jeu)
+  const temps = (Array.isArray(cartes) ? cartes : cartes ? [cartes] : []).find((c: CarteDuDepart) => c.pouvoir === 'temps')
   return {
     etapesMs: Array.from({ length: regle.etapes }, (_, i) => regle.dureeMs(i === 0 ? 1 : 2)),
-    enPlusMs: carte?.pouvoir === 'temps' ? SECONDES_PAR_FORCE * carte.force * 1000 : 0,
+    enPlusMs: temps ? SECONDES_PAR_FORCE * temps.force * 1000 : 0,
     graceMs: GRACE_D_UNE_MANCHE_MS,
     pauseMs: PAUSE_MAX_MS,
   }
 }
+
+/**
+ * Les cartes d'une partie : celles d'une épreuve de traversée (`cartes`, une
+ * par pouvoir au plus), ou la carte-bonus d'une partie du musée. Le pli ne lit
+ * jamais `carte` seule : une épreuve en joue jusqu'à quatre à la fois.
+ */
+export const cartesDuDepart = (d: Pick<DepartDUnePartie, 'carte' | 'cartes'>): readonly CarteDuDepart[] => d.cartes ?? (d.carte ? [d.carte] : [])
+
+/** La carte qui porte ce pouvoir, s'il y en a une. */
+export const carteDuPouvoir = (d: Pick<DepartDUnePartie, 'carte' | 'cartes'>, pouvoir: CleDePouvoir): CarteDuDepart | null =>
+  cartesDuDepart(d).find(c => c.pouvoir === pouvoir) ?? null
+
+/** Une épreuve de traversée : ses étoiles ne passent par aucun pouvoir, la traversée en fait de l'or, des cœurs et des coups (`traversee.ts`). */
+export const estUneEpreuve = (d: Pick<DepartDUnePartie, 'origine'>): boolean => d.origine === 'traversee'
+
+/**
+ * Les mises qu'une partie permet : une au musée ; à une épreuve, celles de sa
+ * carte (`MISES_PAR_EPREUVE` — Quitte ou double au plus haut en a deux).
+ */
+const misesPermises = (d: DepartDUnePartie, force: Force): number => (estUneEpreuve(d) ? MISES_PAR_EPREUVE[force] : 1)
+/** Les mises déjà jouées : chaque manche ouverte le dit. */
+const misesJouees = (e: EtatDeLaPartie): number => e.manches.filter(m => m.misee).length
 
 /** Ce qu'un départ fige : `campagne_series.cabinet`, jamais réécrit, jamais envoyé au téléphone (invariant 1). */
 export interface DepartDUnePartie {
@@ -172,6 +212,15 @@ export interface DepartDUnePartie {
   retente?: true
   /** L'étage de la tour que la partie joue : une porte s'ouvre au seuil, comme une œuvre se gagne. */
   montee?: MonteeDuDepart
+  /** L'épreuve de la traversée que la partie joue (version 3) : ses étoiles deviennent de l'or, des cœurs perdus, des coups au gardien. */
+  traversee?: EpreuveDuDepart
+  /**
+   * Les cartes d'une épreuve (version 3), une par pouvoir au plus, chacune à
+   * la force de son niveau : `carte` y reste nulle. Seules y entrent celles
+   * qu'une manche joue — Coup d'œil, Échange, Quitte ou double, Concentration ;
+   * les autres agissent sur la traversée.
+   */
+  cartes?: readonly CarteDuDepart[]
   /** Les étoiles qu'il faut, figées : un seuil changé ne vaut que pour les parties qui commencent. */
   seuil: number | null
   /** Une partie libre parmi les cinq du jour qui paient, comptée par la base au départ ; vrai en visite et en chasse. */
@@ -203,6 +252,12 @@ export interface DepartDUnePartie {
 export interface EnjeuDuTirage {
   marchesEnPlus: readonly Niveau[]
   friseSerree: boolean
+  /**
+   * Les marches d'une épreuve de traversée, à la place de celles du jeu : la
+   * difficulté de son acte (`MARCHES_DES_ACTES`), un cran au-dessus contre un
+   * gardien. Absentes, chaque jeu tire les siennes.
+   */
+  marches?: readonly Niveau[]
 }
 
 /** Une partie libre, une case pour la poussière : rien de plus que les marches de chaque jeu. */
@@ -221,7 +276,8 @@ export function enjeuDuTirage(c: Pick<DepartDUnePartie, 'cible' | 'but'>): Enjeu
 }
 
 /** Les marches qu'un jeu tire sous cet enjeu : les siennes, puis celles que l'enjeu ajoute — la fraîcheur départage, jamais la marche. */
-export const marchesDeLEnjeu = (marches: readonly Niveau[], enjeu: EnjeuDuTirage): Niveau[] => [...marches, ...enjeu.marchesEnPlus.filter(m => !marches.includes(m))]
+export const marchesDeLEnjeu = (marches: readonly Niveau[], enjeu: EnjeuDuTirage): Niveau[] =>
+  enjeu.marches ? [...enjeu.marches] : [...marches, ...enjeu.marchesEnPlus.filter(m => !marches.includes(m))]
 
 /** L'année du jour de Paris du départ : la borne des pistes d'années du Filet, que le tireur lit — `lireLeDepart` n'y relit que la coupe de la piste. */
 export const anneeDuDepart = (d: Pick<DepartDUnePartie, 'jour'>): number => Number(d.jour.slice(0, 4))
@@ -420,7 +476,7 @@ function avecLEtat(d: DepartDUnePartie, m: MancheDuPli, etat: unknown, t: number
  * emportée n'a pas servi, et la ligne reste nue.
  */
 function marquerLeTemps(d: DepartDUnePartie, m: MancheDuPli, t: number): MancheDuPli {
-  if (d.carte?.pouvoir !== 'temps' || !chronoActif(m)) return m
+  if (!carteDuPouvoir(d, 'temps') || !chronoActif(m)) return m
   const e = derniere(m)
   if (e.tempsEnPlus || t <= e.ouverteLe + e.dureeNormaleMs + pauseCompteeMs(e, t) + e.graceMs) return m
   return { ...m, etapes: [...m.etapes.slice(0, -1), { ...e, tempsEnPlus: true }] }
@@ -547,9 +603,9 @@ function ouvrir(d: DepartDUnePartie, e: EtatDeLaPartie, g: Extract<GesteDuCabine
   if (m && m.verdict === null) return g.miser && g.manche === m.manche ? MISE_AVANT : REPONDS_D_ABORD
   if (g.manche !== e.manches.length) return PAS_LA_SUIVANTE
   if (g.miser) {
-    if (!d.carte) return SANS_CARTE
-    if (d.carte.pouvoir !== 'miser') return PAS_CE_POUVOIR
-    const refus = refusDuPouvoir({ pouvoir: 'miser', force: d.carte.force, jeu: d.jeu, servi: e.misee === null ? 0 : 1 })
+    const carte = carteDuPouvoir(d, 'miser')
+    if (!carte) return cartesDuDepart(d).length === 0 ? SANS_CARTE : PAS_CE_POUVOIR
+    const refus = refusDuPouvoir({ pouvoir: 'miser', force: carte.force, jeu: d.jeu, servi: misesJouees(e), limite: misesPermises(d, carte.force) })
     if (refus) return refus
   }
   const regle = regleDe(d.jeu)
@@ -570,11 +626,11 @@ function ouvrir(d: DepartDUnePartie, e: EtatDeLaPartie, g: Extract<GesteDuCabine
 
 /** Éclairer : la carte qui éclaire, ses usages, et ce que le jeu en fait — tiré de la graine secrète et du rang du geste. */
 function eclairer(d: DepartDUnePartie, e: EtatDeLaPartie, m: MancheDuPli, cible: number | undefined, t: number): EtatDeLaPartie | string {
-  if (!d.carte) return SANS_CARTE
-  if (d.carte.pouvoir !== 'eclairer') return PAS_CE_POUVOIR
+  const carte = carteDuPouvoir(d, 'eclairer')
+  if (!carte) return cartesDuDepart(d).length === 0 ? SANS_CARTE : PAS_CE_POUVOIR
   const regle = regleDe(d.jeu)
   const tiree = tireeDe(d, m)
-  const refus = refusDuPouvoir({ pouvoir: 'eclairer', force: d.carte.force, jeu: d.jeu, servi: e.servis.eclairer, aEclairer: eclairerSertEncore(regle, tiree, m.etat) })
+  const refus = refusDuPouvoir({ pouvoir: 'eclairer', force: carte.force, jeu: d.jeu, servi: e.servis.eclairer, aEclairer: eclairerSertEncore(regle, tiree, m.etat) })
   if (refus) return refus
   const etat = regle.eclairer(tiree, m.etat, hasardDe(`${d.graine}:eclairer:${e.rang}`), cible)
   if (typeof etat === 'string') return etat
@@ -588,9 +644,9 @@ const rechangesDe = (d: DepartDUnePartie, e: EtatDeLaPartie) => Math.max(0, d.ti
 
 /** Changer : la rechange suivante du plan, la même échéance — le chrono continue. */
 function changer(d: DepartDUnePartie, e: EtatDeLaPartie, m: MancheDuPli): EtatDeLaPartie | string {
-  if (!d.carte) return SANS_CARTE
-  if (d.carte.pouvoir !== 'changer') return PAS_CE_POUVOIR
-  const refus = refusDuPouvoir({ pouvoir: 'changer', force: d.carte.force, jeu: d.jeu, servi: e.servis.changer, aJoue: m.aJoue || m.etapes.length > 1, rechanges: rechangesDe(d, e) })
+  const carte = carteDuPouvoir(d, 'changer')
+  if (!carte) return cartesDuDepart(d).length === 0 ? SANS_CARTE : PAS_CE_POUVOIR
+  const refus = refusDuPouvoir({ pouvoir: 'changer', force: carte.force, jeu: d.jeu, servi: e.servis.changer, aJoue: m.aJoue || m.etapes.length > 1, rechanges: rechangesDe(d, e) })
   if (refus) return refus
   const tirage = MANCHES_PAR_PARTIE + e.servis.changer
   const changee: MancheDuPli = { ...m, tirage, remplacees: [...m.remplacees, m.tirage], etat: regleDe(d.jeu).ouvrir(d.tirages[tirage]) }
@@ -712,20 +768,21 @@ export const etapeEnCours = (m: MancheDuPli): EtapeDUneManche => derniere(m)
 export const leChronoCourt = (m: MancheDuPli): boolean => chronoActif(m)
 
 /**
- * Le pouvoir de la carte-bonus, maintenant : se joue-t-il, et sinon pourquoi —
- * la vue le porte, la page grise sans rien recopier. Null sans carte. Protéger
- * et Prendre son temps agissent seuls ; Éclairer et Changer dans une manche
- * qui se joue ; Miser avant la manche qui s'ouvre.
+ * Le pouvoir d'une carte, maintenant — la carte-bonus d'une partie du musée,
+ * ou l'une des cartes d'une épreuve : se joue-t-il, et sinon pourquoi — la vue
+ * le porte, la page grise sans rien recopier. Null sans carte. Protéger et
+ * Prendre son temps agissent seuls ; Éclairer et Changer dans une manche qui
+ * se joue ; Miser avant la manche qui s'ouvre.
  */
-export function pouvoirMaintenant(d: DepartDUnePartie, e: EtatDeLaPartie, t: number): { jouable: boolean; refus?: string } | null {
-  if (!d.carte) return null
-  const { pouvoir, force } = d.carte
+export function pouvoirMaintenant(d: DepartDUnePartie, e: EtatDeLaPartie, t: number, carte: CarteDuDepart | null = d.carte): { jouable: boolean; refus?: string } | null {
+  if (!carte) return null
+  const { pouvoir, force } = carte
   const non = (refus: string) => ({ jouable: false, refus })
   if (e.fin) return non(PARTIE_FINIE)
   const m = courante(e)
   if (pouvoir === 'miser') {
     if (m && m.verdict === null) return non(MISE_AVANT)
-    const refus = refusDuPouvoir({ pouvoir, force, jeu: d.jeu, servi: e.misee === null ? 0 : 1 })
+    const refus = refusDuPouvoir({ pouvoir, force, jeu: d.jeu, servi: misesJouees(e), limite: misesPermises(d, force) })
     return refus ? non(refus) : { jouable: true }
   }
   if (pouvoir === 'proteger' || pouvoir === 'temps') return non(refusDuPouvoir({ pouvoir, force, jeu: d.jeu, servi: 0 }) ?? '')
@@ -774,8 +831,20 @@ const relevable = (m: MancheDuPli | undefined): boolean => m?.verdict != null &&
  */
 const gardee = (m: MancheDuPli | undefined): boolean => m?.verdict != null && auChoix(m.etat)
 
-/** Les trois manches, jugées ou non. */
+/**
+ * Les trois manches, jugées ou non. À une épreuve de traversée, les étoiles
+ * restent les naturelles : ce que la mise y fait — l'or multiplié, deux cœurs
+ * perdus —, la traversée le compte (`consequencesDe`, `traversee.ts`), qui lit
+ * chaque manche misée.
+ */
 export function etoilesDesManches(d: DepartDUnePartie, e: EtatDeLaPartie): EtoilesDUneManche[] {
+  if (estUneEpreuve(d)) {
+    return Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => {
+      const m = e.manches[k]
+      const n = m?.verdict?.naturel ?? null
+      return { naturel: n, etoiles: n, protegee: false, misee: m?.misee === true, fin: m?.fin ?? null }
+    })
+  }
   const naturel = Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => e.manches[k]?.verdict?.naturel ?? null)
   const repondues = Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => relevable(e.manches[k]))
   const gardees = Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => gardee(e.manches[k]))

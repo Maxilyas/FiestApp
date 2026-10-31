@@ -234,6 +234,8 @@ export interface UsageDUnPouvoir {
   rechanges?: number
   /** Éclairer : la règle du jeu a encore quelque chose à souffler dans cette manche. */
   aEclairer?: boolean
+  /** Miser : les mises que la partie permet — une au musée, celles de Quitte ou double à une épreuve (`MISES_PAR_EPREUVE`). */
+  limite?: number
 }
 
 const FOIS = ['', 'une fois', 'deux fois', 'trois fois']
@@ -261,8 +263,10 @@ export function refusDuPouvoir(u: UsageDUnPouvoir): string | null {
       if (u.servi >= CHANGEMENTS_PAR_PARTIE[u.force] || (u.rechanges ?? 0) <= 0) return 'Plus de rechange pour cette partie'
       if (u.aJoue) return 'Change avant de répondre'
       return null
-    case 'miser':
-      return u.servi >= 1 ? 'La mise a déjà servi' : null
+    case 'miser': {
+      const limite = u.limite ?? 1
+      return u.servi >= limite ? (limite > 1 ? `Tes ${limite} mises ont déjà servi` : 'La mise a déjà servi') : null
+    }
     case 'proteger':
     case 'temps':
       return `${POUVOIRS[u.pouvoir].nom} agit tout seul`

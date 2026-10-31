@@ -1,9 +1,9 @@
-// Ce que la page du Cabinet reçoit du serveur : la page du musée, une partie,
-// le cartel d'une œuvre, les murs, le bouton de l'accueil. Des types, que la
-// page lit en `import type` — elle ne juge rien —, et trois fonctions pures :
-// les vues dépliées (`vuesDuCabinet`), que le tirage du serveur lit ; des
-// réveils fondus en un (`fondreLesReveils`) et une visite qui attend encore un
-// geste (`visiteAJouer`), que le serveur et la page lisent tous deux.
+// Ce que la page du Cabinet reçoit du serveur : la traversée, une partie, le
+// bouton de l'accueil — et, du musée d'avant la traversée, que le serveur sert
+// encore, sa page, le cartel d'une œuvre, les murs. Des types, que la page lit
+// en `import type` — elle ne juge rien —, et deux fonctions pures : les vues
+// dépliées (`vuesDuCabinet`), que le tirage du serveur lit ; des réveils fondus
+// en un (`fondreLesReveils`), que le serveur et la page lisent tous deux.
 //
 // La vue du serveur (`core/cabinet/vue.ts`) choisit chaque champ un à un, et
 // délègue le corps d'une manche à `montrer` du jeu, sa révélation à `reveler`
@@ -55,6 +55,7 @@ import type { EnjeuDUneCase, OrigineDUneOeuvre } from './musee'
 import type { BilanDUnePartie, ButinDUnePorte, FinDUneManche, IssueDUnePartie, Manche, OrigineDUnePartie, PhaseDeLaPartie } from './partie'
 import type { MancheMontree, RevelationDUneManche } from './jeux/index'
 import type { CleDeJeu } from './jeux/regle'
+import type { BilanDEpreuve, CleDeCarte, DepartDeLaTraversee, EpreuveEnCours, EtatDeLaTraversee, FinDeLaTraversee } from './traversee'
 
 // ── La page du musée — `GET /api/cabinet` ─────────────────────────────────
 
@@ -145,17 +146,6 @@ export interface VisiteVue {
    */
   echange: { possible: true; jeu: CleDeJeu } | { possible: false; refus?: string }
 }
-
-/**
- * La visite attend-elle encore un geste ? Une case pas faite, d'un jeu livré —
- * ou d'un jeu « bientôt » que l'échange du jour peut encore changer : sa case
- * le propose (« Changer pour … », `Visite.tsx`), et c'est ce qui la rend
- * jouable. La seule règle de « À jouer », au musée (`Musee.tsx`) comme sur
- * l'accueil (`accueilDuCabinet`) : chacun avait la sienne, et le musée
- * promettait une case qui ne se jouait plus, l'accueil taisait celle qu'un
- * échange rendait jouable.
- */
-export const visiteAJouer = (v: Pick<VisiteVue, 'cases' | 'echange'>): boolean => v.cases.some(c => !c.faite && (!c.bientot || v.echange.possible))
 
 /** Ce qu'une fête fait au Cabinet, pendant elle seulement : son nom, et son gardien tant qu'il dort. */
 export interface FeteVue {
@@ -458,6 +448,64 @@ export interface VueDeLaPartie {
    * réponse part d'elle-même, et la révélation suit.
    */
   siTuQuittes?: { total: number; poussiere: number }
+  /**
+   * Les cartes d'une épreuve de traversée, chacune son pouvoir maintenant
+   * (`pouvoirMaintenant`) : jusqu'à quatre à la fois, quand une partie du
+   * musée n'en a qu'une (`carte`, nulle ici).
+   */
+  cartes?: CarteDEpreuveVue[]
+  /** Ce que l'épreuve vaut déjà à sa traversée : les cœurs, l'or, le gardien, et sa fin (`epreuveEnCours`). */
+  traversee?: EpreuveEnCours
+}
+
+/** Une carte d'une épreuve de traversée, et son pouvoir maintenant : la page grise sans rien recopier. */
+export interface CarteDEpreuveVue extends CarteVue {
+  maintenant: { jouable: boolean; refus?: string }
+}
+
+/**
+ * Une traversée telle que la page la reçoit : rien n'y est secret — la carte
+ * des trois actes se voit dès le départ, et chaque épreuve tire ses questions
+ * au serveur en y entrant (invariant 1). Son départ, son état replié, ce qui
+ * s'atteint, les prix du marchand, ce qu'une amélioration sert encore, et la
+ * partie de l'épreuve qui se joue, à reprendre.
+ */
+export interface VueDeLaTraversee {
+  id: string
+  /** Le rang du prochain geste (invariant 12). */
+  rang: number
+  maintenant: number
+  jour: string
+  actes: DepartDeLaTraversee['actes']
+  acte: EtatDeLaTraversee['acte']
+  position: string
+  visitees: readonly string[]
+  ou: EtatDeLaTraversee['ou']
+  cartes: EtatDeLaTraversee['cartes']
+  coeurs: number
+  coeursMax: number
+  or: number
+  pv: EtatDeLaTraversee['pv']
+  assauts: number
+  ameliorations: number
+  souffle: boolean
+  vaincus: readonly string[]
+  epreuves: number
+  reussies: number
+  derniere: BilanDEpreuve | null
+  fin: FinDeLaTraversee | null
+  atteignables: string[]
+  prix: { coeur: number; amelioration: number }
+  ameliorables: CleDeCarte[]
+  partie?: VueDeLaPartie
+}
+
+/** Ce que la page de la traversée lit : la dernière traversée — en route, ou finie —, et les légendaires qu'il a déjà. */
+export interface PageDeLaTraversee {
+  maintenant: number
+  traversee: VueDeLaTraversee | null
+  /** Ses légendaires : un gardien qu'il a déjà se dit « déjà à toi », au départ comme au choix final. */
+  possedes: string[]
 }
 
 // ── Ce qu'on apprend ──────────────────────────────────────────────────────
@@ -501,16 +549,16 @@ export interface MursDuCabinet {
 }
 
 /**
- * Le gros bouton de l'accueil (`ProfilDAccueil.cabinet`) : « Ton musée :
- * 27 œuvres sur 84 », et « À jouer » tant que la visite attend un geste
- * (`visiteAJouer`). Le serveur ne le dit que d'un musée qu'il a en mémoire :
- * l'accueil ne lui paie pas son lot froid — après chaque réveil, le bouton
- * garde sa ligne de toujours jusqu'à la première page du Cabinet.
+ * Le gros bouton de l'accueil (`ProfilDAccueil.cabinet`) : la traversée qu'il
+ * a en route — « Acte 2 sur 3 · 4 cœurs », « En route ». Le serveur ne la dit
+ * que d'une traversée qu'il a en mémoire : l'accueil ne lui paie pas son lot
+ * froid — après chaque réveil, le bouton garde sa ligne de toujours jusqu'à la
+ * première page du Cabinet. Finie, ou jamais partie : rien, la même ligne.
  */
 export interface CabinetDAccueil {
-  oeuvres: number
-  sur: number
-  aJouer: boolean
+  /** L'acte où il en est, de 1 à 3. */
+  acte: number
+  coeurs: number
 }
 
 // ── Les vues dépliées ─────────────────────────────────────────────────────

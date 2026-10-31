@@ -40,6 +40,7 @@ import {
   type CarteDuDepart,
   type ChronoDuDepart,
   type DepartDUnePartie,
+  type EpreuveDuDepart,
   type GesteDuCabinet,
   type Manche,
   type MonteeDuDepart,
@@ -272,6 +273,20 @@ export function lireLaMonteeDuDepart(x: unknown): MonteeDuDepart | null {
   return { n: x.n, etage: x.etage, porte: x.porte, butin: x.butin, carte: x.carte }
 }
 
+/** L'épreuve d'une traversée figée au départ : sa forme seulement — la traversée, l'étape, l'assaut. */
+export function lireLEpreuveDuDepart(x: unknown): EpreuveDuDepart | null {
+  if (!objet(x) || !chaine(x.id) || x.id === '' || x.id.length > 64 || !chaine(x.etape) || !/^a\dr\dc\d$/.test(x.etape) || !entier(x.assaut, 0, 99)) return null
+  return { id: x.id, etape: x.etape, assaut: x.assaut }
+}
+
+/** Les cartes d'une épreuve : quatre au plus, une par pouvoir — le pli prend la première qui porte le sien. */
+function lesCartes(x: unknown): CarteDuDepart[] | null {
+  if (!Array.isArray(x) || x.length > 4) return null
+  const cartes = tous(x.map(c => laCarte(c) ?? null))
+  if (!cartes || new Set(cartes.map(c => c.pouvoir)).size !== cartes.length) return null
+  return cartes
+}
+
 /** Une durée du chrono, en millisecondes entières. */
 const duree = (x: unknown, min: number): x is number => entier(x, min, Number.MAX_SAFE_INTEGER)
 
@@ -298,17 +313,23 @@ export function lireLeDepart(brut: unknown): DepartDUnePartie | null {
   const d = json(brut)
   if (!objet(d)) return null
   const { v, jeu, origine, visite, jour, cible, but, retente, seuil, payee, graine, theme } = d
-  if (!parmi<VersionDuDepart>(v, VERSIONS_DU_DEPART) || !parmi<CleDeJeu>(jeu, CLES_DES_JEUX) || !parmi(origine, ['visite', 'chasse', 'libre', 'montee'] as const) || !jourValide(jour)) return null
+  if (!parmi<VersionDuDepart>(v, VERSIONS_DU_DEPART) || !parmi<CleDeJeu>(jeu, CLES_DES_JEUX) || !parmi(origine, ['visite', 'chasse', 'libre', 'montee', 'traversee'] as const) || !jourValide(jour)) return null
   if (origine === 'visite' ? !estUneManche(visite) : visite !== undefined) return null
   // Une porte de la tour n'existe qu'à partir de la version 2 du départ, et elle seule porte son étage.
   const montee = origine === 'montee' ? (v >= 2 ? lireLaMonteeDuDepart(d.montee) : null) : d.montee === undefined ? undefined : null
   if (montee === null) return null
+  // Une épreuve de traversée n'existe qu'à partir de la version 3, et elle seule porte son étape et ses cartes.
+  const traversee = origine === 'traversee' ? (v >= 3 ? lireLEpreuveDuDepart(d.traversee) : null) : d.traversee === undefined ? undefined : null
+  if (traversee === null) return null
+  const cartes = origine === 'traversee' ? lesCartes(d.cartes) : d.cartes === undefined ? undefined : null
+  if (cartes === null) return null
   if (!(cible === null || estUneOeuvre(cible)) || !(but === null || parmi(but, ['gagner', 'dorer'] as const)) || !(retente === undefined || retente === true)) return null
   // Le seuil se lit sur les étoiles d'une partie, trois manches de trois : la forme du jeu, pas un barème qui bouge.
   if (!(seuil === null || entier(seuil, 0, ETOILES_D_UNE_PARTIE)) || typeof payee !== 'boolean' || !chaine(graine) || graine === '' || !(theme === undefined || chaine(theme))) return null
   const carte = laCarte(d.carte)
-  if (carte === undefined) return null
-  const chrono = leChrono(d.chrono, jeu, carte)
+  // Une épreuve n'a pas de carte-bonus : ses cartes sont à part (`cartes`), et le pli ne lit jamais les deux.
+  if (carte === undefined || (cartes && carte !== null)) return null
+  const chrono = leChrono(d.chrono, jeu, cartes ? (cartes.find(c => c.pouvoir === 'temps') ?? null) : carte)
   if (!chrono || !Array.isArray(d.tirages) || d.tirages.length < MANCHES_PAR_PARTIE) return null
   const annee = Number(jour.slice(0, 4))
   const tirages = tous(d.tirages.map((t: unknown) => leContenu(t, jeu, annee)))
@@ -325,9 +346,11 @@ export function lireLeDepart(brut: unknown): DepartDUnePartie | null {
     but,
     ...(retente && { retente: true as const }),
     ...(montee && { montee }),
+    ...(traversee && { traversee }),
     seuil,
     payee,
     carte,
+    ...(cartes && { cartes }),
     chrono,
     graine,
     ...(theme !== undefined && { theme }),

@@ -1,8 +1,9 @@
 // Les écrans des trois jeux au contenu neuf du Cabinet — l'Épingle, les
-// Indices, la Réplique — et tes murs, rendus en HTML (`renderToStaticMarkup`)
-// sur les vues qu'un vrai serveur rend à des joueurs qui jouent par les routes,
-// les réponses lues dans le plan en base. Un fichier à part de
-// `cabinet-ecran.test.ts`, qui tient le musée et les six premiers jeux — l'unité
+// Indices, la Réplique —, rendus en HTML (`renderToStaticMarkup`) sur les vues
+// qu'un vrai serveur rend à des joueurs qui jouent par les routes, les réponses
+// lues dans le plan en base ; et tes murs, que leur route rend encore — leur
+// écran a quitté la page avec le musée, le 31 octobre 2026. Un fichier à part
+// de `cabinet-ecran.test.ts`, qui tient la page et les six premiers jeux — l'unité
 // accordée du Filet et son échéance sans un geste s'écrivent pourtant ici,
 // après la tablée du 26 octobre 2026 — : chacun sous la minute (règle
 // `tests.md`). Sans navigateur : seul le premier rendu se lit ; les écrans se
@@ -43,7 +44,6 @@ import type { IndicesMontres, IndicesReveles } from '../../shared/cabinet/jeux/i
 import type { RepliqueMontree, RepliqueRevelee } from '../../shared/cabinet/jeux/replique'
 import { CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
 import type { MursDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
-import { anneeDite } from '../../shared/frise'
 import { espacesFines } from '../../shared/typographie'
 
 // Le client compile son JSX pour un `React` global, et `state.ts` lit son adresse à l'import : posés avant tout composant.
@@ -284,13 +284,12 @@ test('les neuf jeux ont leur écran, chacun à la demande — sans le pli ni la 
   assert.doesNotMatch(source('views/cabinet/jeux/Indices.tsx'), /étoile de moins/)
 })
 
-test('la carte de France et tes murs viennent à la demande : la page du musée ne les télécharge pas', () => {
+test('la carte de France vient à la demande : la page du Cabinet ne la télécharge pas', () => {
+  // Avec l'écran de l'Épingle, chargé à la demande (`Partie.tsx`). Tes murs, qui la dessinaient aussi, n'ont plus d'écran.
   const chemin = importsStatiques(path.join(client, 'views/CabinetApp.tsx'))
-  for (const f of ['views/cabinet/Murs.tsx', 'views/cabinet/CarteDeFrance.tsx', 'views/cabinet/contourDeLaFrance.ts']) {
+  for (const f of ['views/cabinet/CarteDeFrance.tsx', 'views/cabinet/contourDeLaFrance.ts']) {
     assert.ok(!chemin.has(path.join(client, f)), `${f} ne part pas avec le Cabinet`)
   }
-  assert.match(source('views/CabinetApp.tsx'), /const LES_MURS = aLaDemande\(\(\) => import\('\.\/cabinet\/Murs'\)\)/)
-  assert.match(source('views/CabinetApp.tsx'), /case 'murs':\s+return avecLaBarre\(<MursALaDemande \/>\)/)
   // Le cadre dit à chaque révélation comment sa manche s'est tranchée : quittée au bon mot, la Réplique le dit.
   assert.match(source('views/cabinet/Partie.tsx'), /<ecran\.Revelation corps=\{r\.corps\} partie=\{vue\.id\} tirage=\{r\.tirage\} fin=\{r\.fin\} \/>/)
 })
@@ -626,14 +625,15 @@ async function avecUnStockage<T>(f: (memoire: Map<string, string>) => Promise<T>
 test('l’Épingle au lecteur d’écran : « Pas à pas » et « Grands pas » retenus au profil d’une manche à l’autre, sans rien d’un autre profil', async () => {
   // À « Manche suivante », « Pas à pas » se refermait, « Grands pas » se relâchait, et Hugo, au lecteur d'écran, les rouvrait à
   // chaque manche, sous un chrono qui courait pendant le récit (la tablée du 26 octobre 2026, Ajaccio en une vingtaine de
-  // pressions). Ils se retiennent au profil, comme la carte-bonus : la page lit ce que retient son profil à son ouverture.
+  // pressions). Ils se retiennent au profil : la page dit le sien à `retenu.ts` dès le profil léger lu — la traversée qui ne le
+  // disait plus laissait « Pas à pas » se refermer à chaque manche.
   const { EPINGLE, basculerLesPas } = await import(url('views/cabinet/jeux/Epingle.tsx'))
   const retenu = await import(url('views/cabinet/retenu.ts'))
-  assert.match(source('views/CabinetApp.tsx'), /setCarte\(carteRetenue\(id\)\)/, 'la page lit ce que retient son profil, dès le profil léger lu')
+  assert.match(source('views/CabinetApp.tsx'), /retenirLeProfil\(moi\.profile\?\.id\)/, 'la page dit son profil, dès le profil léger lu')
   const premiere = vues.epingle.enCours as EpingleMontree
   const suivante = vues.epingleTroisieme.enCours as EpingleMontree
   await avecUnStockage(async memoire => {
-    retenu.carteRetenue('hugo')
+    retenu.retenirLeProfil('hugo')
     let l = EPINGLE.localDe(premiere)
     assert.deepEqual(l, { epingle: null, grands: false, pasAPas: false }, 'rien de retenu : fermés, à petits pas')
     l = basculerLesPas(basculerLesPas(l, 'pasAPas'), 'grands')
@@ -653,9 +653,9 @@ test('l’Épingle au lecteur d’écran : « Pas à pas » et « Grands pas » 
     basculerLesPas(EPINGLE.localDe(suivante), 'pasAPas')
     assert.deepEqual(EPINGLE.localDe(suivante), { epingle: null, grands: false, pasAPas: true })
     // Léa, sur le même téléphone : rien de Hugo.
-    retenu.carteRetenue('lea')
+    retenu.retenirLeProfil('lea')
     assert.deepEqual(EPINGLE.localDe(suivante), { epingle: null, grands: false, pasAPas: false })
-    retenu.carteRetenue('hugo')
+    retenu.retenirLeProfil('hugo')
     assert.deepEqual(EPINGLE.localDe(suivante), { epingle: null, grands: false, pasAPas: true })
   })
   // Sans stockage — des cookies bloqués —, rien ne casse : fermés, et la bascule bascule encore.
@@ -1029,10 +1029,8 @@ test('la révélation de la Réplique : la réplique entière, qui l’a dite et
 
 // ── 6. Tes murs ───────────────────────────────────────────────────────────
 
-test('tes murs ont leur adresse, `api.cabinet.murs` les demande au serveur, et les règles y mènent en fermant leur feuille', async () => {
-  const { ecranDeLAdresse, adresseDe } = await import(url('views/cabinet/ecrans.ts'))
-  assert.equal(adresseDe({ e: 'murs' }), '#murs')
-  assert.deepEqual(ecranDeLAdresse('#murs'), { e: 'murs' })
+test('tes murs, sans écran depuis la traversée, ont encore leur route : `api.cabinet.murs` la demande — les lieux et les dates de Rose, rien pour Zoé', async () => {
+  // Leur écran, son adresse (`#murs`) et le lien des règles qui y menait ont quitté la page avec le musée (le 31 octobre 2026).
   const { api } = await import(url('api.ts'))
   const avant = globalThis.fetch
   const adresses: string[] = []
@@ -1043,77 +1041,14 @@ test('tes murs ont leur adresse, `api.cabinet.murs` les demande au serveur, et l
   try {
     const murs = (await api.cabinet.murs()) as MursDuCabinet
     assert.deepEqual(adresses, ['/api/cabinet/murs'])
+    // Les trois lieux de son Épingle — la manche laissée au temps comprise — et les sept dates de sa Frise.
     assert.equal(murs.lieux.length, 3)
+    assert.equal(murs.dates.length, 7)
   } finally {
     globalThis.fetch = avant
   }
-  const regles = await rendu('views/cabinet/Regles', 'Regles', { jeux: CLES_DES_JEUX })
-  assert.match(regles, /<a class="cab-lien-en-ligne" href="#murs">tes murs<\/a>/)
-  assert.match(source('views/cabinet/Regles.tsx'), /<Regles jeux=\{jeux\} parties=\{parties\} onMurs=\{onFermer\} \/>/)
-})
-
-/** Le dessin de tes murs, tel que la page le charge à la demande. */
-const dessinDesMurs = async () => (await import(url('views/cabinet/Murs.tsx'))).LesMurs
-
-test('tes murs : chaque lieu épinglé sur la carte de France et en mots, ta frise du plus ancien au plus récent', async () => {
-  const murs = ok(await lire<MursDuCabinet>(b, rose, '/api/cabinet/murs'), 'les murs de Rose')
-  assert.equal(murs.lieux.length, 3)
-  assert.equal(murs.dates.length, 7)
-  const html = await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'lus', murs }, dessin: await dessinDesMurs() })
-  const t = texte(html)
-  assert.match(html, /<h1>Tes murs<\/h1>/)
-  assert.match(html, /<svg class="cab-carte-dessin" viewBox="[^"]+" role="img" aria-label="Ta carte de France : 3 lieux épinglés">/)
-  for (const l of murs.lieux) {
-    const ici = await surLeDessin(l)
-    assert.match(html, new RegExp(`<circle class="cab-carte-lieu" cx="${ici.x}" cy="${ici.y}" r="5">`), l.id)
-    assert.match(t, new RegExp(`${lu(l.nom)} ${lu(`${l.commune} (${l.departement}) · ${l.date}`)}`), l.id)
-  }
-  // La frise : chaque date à son année, dans l'ordre que le serveur rend — du plus ancien au plus récent.
-  const annees = [...html.matchAll(/<li class="cab-evenement"><b class="cab-annee">([^<]+)<\/b>/g)].map(x => x[1])
-  assert.deepEqual(annees, murs.dates.map(d => anneeDite(d.annee)))
-  assert.ok(t.indexOf('↑ Plus ancien') < t.indexOf('↓ Plus récent'))
-  assert.match(html, /<ol class="cab-frise" aria-label="Ta frise, du plus ancien au plus récent">/)
-  sansJargon(html, 'tes murs', [...murs.lieux.map(l => l.nom), ...murs.dates.map(d => d.libelle)])
-})
-
-test('des murs vides le disent, la page qui les attend aussi, et une panne a son « Réessayer »', async () => {
-  const vides = ok(await lire<MursDuCabinet>(b, zoe, '/api/cabinet/murs'), 'les murs de Zoé')
-  assert.deepEqual(vides, { lieux: [], dates: [] })
-  const dessin = await dessinDesMurs()
-  const html = await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'lus', murs: vides }, dessin })
-  const t = texte(html)
-  assert.match(t, /Encore vide : une partie de l’Épingle la commencera\./)
-  assert.match(t, /Encore vide : une partie de la Frise la commencera\./)
-  assert.match(html, /aria-label="Ta carte de France : 0 lieu épinglé"/)
-  // En route : les murs que le serveur n'a pas encore dits, ou leur dessin pas encore venu.
-  assert.match(await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'chargement' }, dessin }), /aria-busy="true">Chargement…/)
-  assert.match(await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'lus', murs: vides }, dessin: null }), /aria-busy="true">Chargement…/)
-  const perdu = await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'perdu', motif: 'Pas de réseau' }, dessin, onRelire: rien })
-  assert.match(perdu, /<p class="error">Pas de réseau<\/p>/)
-  assert.match(perdu, />Réessayer<\/button>/)
-  // Le dessin perdu en route — le navigateur garde l'échec d'un `import()` : recharger seul le redemande.
-  assert.match(texte(await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'lus', murs: vides }, dessin: 'perdu' })), /Tes murs ne se sont pas chargés : recharge la page\./)
-})
-
-test('tes murs gardent leur titre quand leur dessin arrive : le focus que la page y a posé ne tombe pas sur la page', async () => {
-  // La page pose le focus au titre de l'écran qui s'ouvre (`rendreLeFocus`), le dessin encore en route ; s'il remplaçait l'écran
-  // d'attente à son arrivée, React démontait le titre, et le lecteur d'écran perdait sa place. Le cadre est le même élément, d'un
-  // bout à l'autre : seul ce qu'il y a sous le titre change.
-  const app = source('views/CabinetApp.tsx')
-  const corps = /\nfunction MursALaDemande\(\) \{\n([^]*?)\n\}\n/.exec(app)?.[1] ?? ''
-  assert.ok(corps, 'MursALaDemande')
-  assert.equal([...corps.matchAll(/\breturn\s*(?:<|\(\s*<)/g)].length, 1, 'un seul rendu, quoi qu’il soit venu')
-  assert.match(corps, /return <EcranDesMurs etat=\{etat\} dessin=\{dessin\} onRelire=\{lire\} \/>/)
-  // Ce qui précède ce qui change — la sortie, le titre — s'écrit pareil avant et après.
-  const vides = { lieux: [], dates: [] }
-  const avant = await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'chargement' }, dessin: null })
-  const apres = await rendu('views/CabinetApp', 'EcranDesMurs', { etat: { etat: 'lus', murs: vides }, dessin: await dessinDesMurs() })
-  const tete = (html: string) => html.slice(0, html.indexOf('</h1>'))
-  assert.ok(tete(avant).includes('Tes murs'))
-  assert.equal(tete(avant), tete(apres))
-  // Les murs se demandent avec leur dessin, pas après lui : l'un n'attend pas l'autre.
-  assert.match(corps, /useALaDemande\(LES_MURS\)/)
-  assert.match(corps, /api\.cabinet\.murs\(\)/)
+  // Zoé n'a rien joué : ses murs sont vides.
+  assert.deepEqual(ok(await lire<MursDuCabinet>(b, zoe, '/api/cabinet/murs'), 'les murs de Zoé'), { lieux: [], dates: [] })
 })
 
 // ── 6 bis. Le Filet : son unité accordée, et rien de lancé sans un geste ──
@@ -1178,7 +1113,7 @@ test('le Filet accorde son unité sous deux — « 1 jour », « 1,5 jour », «
 
 /**
  * Le plan d'une partie du Filet récrit en base, derrière le dos du serveur : une piste en jours, d'un à onze par demi-jour, la
- * réponse à un jour — comme `rendu-cabinet.ts` y écrit ses chromosomes. Le hasard du tirage ne donne pas une unité à accorder à
+ * réponse à un jour — comme le rendu du musée d'avant la traversée y écrivait ses chromosomes. Le hasard du tirage ne donne pas une unité à accorder à
  * chaque fois ; le serveur ne le voit qu'après `redemarrer()` (règle `tests.md`).
  */
 function unFiletEnJours(serie: string) {

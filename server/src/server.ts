@@ -1260,9 +1260,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Le Cabinet de même : son premier départ tire sur toute la base, et ses propres tas avec (`CabinetStore.prechauffer`) —
   // seulement là où il répond : fermé, sa page est un 404, et rien ne se prépare pour un mode qu'on ne joue pas.
   if (opts.prechauffageAuProfil !== false) {
-    app.get(['/api/joueur/moi', '/api/expedition', ...(cabinetEstOuvert ? ['/api/cabinet'] : [])], (req, res, next) => {
-      const page = req.path === '/api/expedition' || req.path === '/api/cabinet' || req.query.accueil !== undefined
-      const prechauffer = req.path === '/api/cabinet' ? () => cabinet.prechauffer() : () => campagne.prechauffer()
+    // La traversée est désormais la page du Cabinet (`DEPART.cabinet`) : son préchauffage suit sa page, la page du musée aussi.
+    const pagesDuCabinet = ['/api/cabinet', '/api/cabinet/traversee']
+    app.get(['/api/joueur/moi', '/api/expedition', ...(cabinetEstOuvert ? pagesDuCabinet : [])], (req, res, next) => {
+      const duCabinet = pagesDuCabinet.includes(req.path)
+      const page = req.path === '/api/expedition' || duCabinet || req.query.accueil !== undefined
+      const prechauffer = duCabinet ? () => cabinet.prechauffer() : () => campagne.prechauffer()
       if (page && readPlayerToken(req.header('cookie'))) res.on('finish', prechauffer)
       next()
     })

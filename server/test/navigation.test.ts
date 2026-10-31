@@ -134,8 +134,9 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis la campag
     'Les duelsDéfie qui tu veux, ou Automate\u00a0: monte de ligue → /duels',
     // L'Expédition avait son bouton ici, avec ses jokers (le 17 octobre 2026) ; effacée le 31 octobre 2026, le Cabinet de
     // curiosités prend sa place, là où le serveur l'ouvre (`cabinetIci`) — partout, et un rendu de test n'a pas de
-    // balise qui le ferme (`cabinet-ouverture.test.ts` éprouve l'accueil sous les deux drapeaux).
-    'Le Cabinet de curiositésUn musée à remplir, des œuvres à gagner en jouant → /cabinet',
+    // balise qui le ferme (`cabinet-ouverture.test.ts` éprouve l'accueil sous les deux drapeaux). Sans traversée en route
+    // que le serveur ait en mémoire, il dit ce qu'on y fait.
+    'Le Cabinet de curiositésTrois actes, trois gardiens, un légendaire au bout → /cabinet',
     'Créer un salonTu lances les quiz : tu joues, ou tu animes → /salon',
     'Rejoindre une soiréeAvec son code, ou le QR de l’hôte [bouton]',
   ]
