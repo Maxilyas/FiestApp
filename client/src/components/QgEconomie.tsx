@@ -36,6 +36,7 @@ const MOTS_DES_ACHATS: Record<DepenseDeConfettis, [string, string]> = {
   fonds: ['fond de carte', 'fonds de carte'],
   vies: ['achat de vies', 'achats de vies'],
   sabliers: ['sablier', 'sabliers'],
+  eclats: ['Éclat', 'Éclats'],
 }
 
 /** Les quatre chiffres d'aujourd'hui : gagnés, dépensés, les achats, ce qui circule. */
@@ -225,7 +226,7 @@ export function MeilleuresVentes({ page }: { page: PageDeLEconomie | null }) {
           </table>
         </div>
       )}
-      <p className="muted small">Les vies et les sabliers se comptent dans « Où ils partent ».</p>
+      <p className="muted small">Les vies, les sabliers et les Éclats se comptent dans « Où ils partent ».</p>
     </section>
   )
 }

@@ -364,7 +364,13 @@ export function SceneDuCoffre({
     <div className={`coffre-scene coffre-${acte}` + (rarete ? ` coffre-tire-${rarete}` : '')} style={style}>
       <div ref={boite} className="coffre-boite" role="dialog" aria-modal="true" aria-labelledby={titre} tabIndex={-1}>
         <header className="coffre-tete">
-          {attente.place ? (
+          {attente.offert ? (
+            <>
+              <span className="label">Un coffre offert</span>
+              <h2 id={titre}>{NOM_DU_COFFRE[attente.rang]}</h2>
+              {attente.offert.mot && <span className="coffre-place coffre-mot">{attente.offert.mot}</span>}
+            </>
+          ) : attente.place ? (
             <>
               <span className="label">{`Ton classement ${duMois(attente.semaine)}`}</span>
               <h2 id={titre}>{NOM_DU_COFFRE[attente.rang]}</h2>

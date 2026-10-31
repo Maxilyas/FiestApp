@@ -105,8 +105,9 @@ test('les confettis jour par jour, les étoiles et les ligues datées, la circul
     fonds: { objets: 1, confettis: PRIX_D_UN_FOND },
     vies: { objets: 5, confettis: 5 * PRIX_D_UNE_VIE },
     sabliers: { objets: 0, confettis: 0 },
+    eclats: { objets: 0, confettis: 0 },
   })
-  assert.deepEqual(f.aujourdhui.achatsParSorte, { themes: 1, compagnons: 0, fonds: 0, vies: 1, sabliers: 0 })
+  assert.deepEqual(f.aujourdhui.achatsParSorte, { themes: 1, compagnons: 0, fonds: 0, vies: 1, sabliers: 0, eclats: 0 })
   assert.deepEqual([f.aujourdhui.achats.aujourdhui, f.aujourdhui.gagnes.aujourdhui, f.aujourdhui.depenses.aujourdhui], [2, 12, 475])
 
   // Les étoiles d'un palier : la meilleure note paie, une meilleure ne paie que la différence, à l'épreuve qui l'atteint.
@@ -314,6 +315,7 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
       fonds: { objets: 1, confettis: PRIX_D_UN_FOND },
       vies: { objets: 2, confettis: 2 * PRIX_D_UNE_VIE },
       sabliers: { objets: 1, confettis: 50 },
+      eclats: { objets: 0, confettis: 0 },
     })
     const gagnes = Object.values(page.sources).reduce((n, x) => n + x, 0)
     assert.equal(
@@ -323,7 +325,7 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
     assert.equal(page.jours.at(-1)!.jour, jourDe(maintenant))
     assert.equal(page.aujourdhui.gagnes.aujourdhui, 3 + 4 + 240 + 90 + (lundiQuiPaie(passee) >= minuit ? ligues : 0))
     assert.equal(page.aujourdhui.depenses.aujourdhui, PRIX_DES_THEMES.commune + 50)
-    assert.deepEqual(page.aujourdhui.achatsParSorte, { themes: 1, compagnons: 0, fonds: 0, vies: 0, sabliers: 1 })
+    assert.deepEqual(page.aujourdhui.achatsParSorte, { themes: 1, compagnons: 0, fonds: 0, vies: 0, sabliers: 1, eclats: 0 })
 
     // La circulation : la somme des soldes que la fiche de chaque profil donne, au confetti près.
     const ids = base(banc, db => (db.prepare('SELECT id FROM profiles').all() as { id: string }[]).map(r => r.id))

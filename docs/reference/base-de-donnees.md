@@ -311,6 +311,16 @@ Les sabliers qui protègent la série du quiz du jour, une ligne par sablier.
 - **Lue par** : `ProfileStore` ; `JourStore` (la série, le QG) ; l'économie du QG.
 - **Effacée par** : la suppression du profil.
 
+### `profile_eclats_achetes`
+
+Les Éclats achetés en boutique (`PRIX_D_UN_ECLAT`), une ligne par achat : l'Éclat lui-même attend dans `profile_eclats`, en réserve, rangé sous `#achat:`.
+
+- **Colonnes clés** : `id`, `profile_id` (indexée), `prix`, `created_at` (indexée : l'économie du QG).
+- **Espace** : non.
+- **Écrite par** : `ProfileStore.acheterUnEclat` (`POST /api/joueur/eclat`), dans le même lot que la ligne de réserve, jamais modifiée.
+- **Lue par** : `ProfileStore` (le solde, `achatsDe`, `partsDesSoldes`) ; l'économie du QG (`economieDepuis`) et l'activité (`activiteDepuis`).
+- **Effacée par** : la suppression du profil.
+
 ### `profile_compagnons`
 
 Les compagnons achetés — ou offerts à prix nul : tirés d'un coffre, ou la luciole, que la Première traversée amène, ou la première salle complète du Cabinet (`core/cabinet/gardiens.ts`) —, la plus haute forme que chacun a atteinte, les paliers de sa niche, et ce qu'il en a réglé depuis sa niche.
@@ -372,6 +382,16 @@ le tirage, fait une fois, et ce qu'il a donné.
 - **Espace** : non.
 - **Écrite par** : `ProfileStore.ouvrirUnCoffre` (`POST /api/joueur/coffre`), jamais modifiée — un thème ou un compagnon tiré s'écrit aussi dans `profile_achats` ou `profile_compagnons`, à prix nul.
 - **Lue par** : `ProfileStore` — avec le profil (`byIds` : les fonds et les gerbes du trésor qu'il porte, `tresorsOf`), le solde (ses confettis), un coffre rouvert (`coffreDe`) ; la page de l'économie du QG.
+- **Effacée par** : la suppression du profil.
+
+### `profile_coffres_offerts`
+
+Les coffres offerts (`PREFIXE_D_UN_COFFRE_OFFERT`, `shared/coffre.ts`) : par l'administrateur, depuis la fiche d'un joueur, ou la compensation du 31 octobre 2026 (`COFFRE_DE_COMPENSATION`), à chaque profil d'alors. Il attend ici ; ouvert, sa clé rejoint `profile_coffres`.
+
+- **Colonnes clés** : `profile_id` et `cle` (la clé, `offert-…`), `rang` (`bois`, `argent`, `or`, `royal`), `mot` (facultatif, 140 caractères au plus), `offert_le`.
+- **Espace** : non.
+- **Écrite par** : `ProfileStore.offrirUnCoffre` (`POST /api/admin/profils/:id/coffre`) ; `ProfileStore.offrirLaCompensation`, une fois, au démarrage (drapeau `coffre_de_compensation_2026_10`). Jamais modifiée.
+- **Lue par** : `Missions.duJour` (les coffres qui attendent, `coffresOfferts`) ; `Missions.ouvrirLeCoffre` (son rang).
 - **Effacée par** : la suppression du profil.
 
 ### `profile_envies`

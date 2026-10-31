@@ -388,6 +388,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 ### Les missions du jour et le coffre de la semaine
 
 - `server/test/missions.test.ts` — trois missions par jour, ce qui est fait retenu une fois, le coffre du lundi.
+- `server/test/missions-compensation.test.ts` — les missions d’étoiles d’avant rattrapées d’une partie finie, leur tampon, le coffre de compensation une fois, le coffre que l’administrateur offre, l’Éclat acheté puis dépensé.
 - `server/test/missions-page.test.ts` — ce que la page sait de ses missions : une lecture partagée, le refus d'un invité.
 - `server/test/missions-charge.test.ts` — ce que la ligne de l'accueil attend de Turso.
 - `server/test/coffre-du-mois.test.ts` — le coffre du mois : la place au classement du quiz du jour fait son rang, et il s'ouvre une fois, comme celui de la semaine.

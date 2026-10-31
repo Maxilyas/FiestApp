@@ -127,8 +127,39 @@ export function moisDuCoffreValide(mois: unknown): boolean {
 }
 
 /**
+ * Un coffre offert (le souhait du propriétaire du 31 octobre 2026 : « une
+ * compensation à tous les joueurs en offrant un coffre », puis « donner un
+ * coffre spécifique à une personne dans le QG ») : ni tampon ni place, son
+ * rang est choisi par qui l'offre. Sa clé commence par `offert-` — un lundi
+ * est celle d'une semaine, un mois celle du classement — et vit dans
+ * `profile_coffres_offerts` jusqu'à son ouverture.
+ */
+export const PREFIXE_D_UN_COFFRE_OFFERT = 'offert-'
+
+/** La clé d'un coffre offert, bien écrite : « offert-compensation-missions », « offert-<uuid> ». */
+export function coffreOffertValide(cle: unknown): boolean {
+  return typeof cle === 'string' && /^offert-[a-z0-9-]{1,64}$/.test(cle)
+}
+
+/** Un rang de coffre, tel qu'il arrive d'un formulaire. */
+export function rangValide(rang: unknown): rang is RangDuCoffre {
+  return typeof rang === 'string' && (RANGS_DU_COFFRE as readonly string[]).includes(rang)
+}
+
+/** Le mot qui accompagne un coffre offert, au plus. */
+export const MOT_D_UN_COFFRE_OFFERT_MAX = 140
+
+/** Le coffre offert à tous le 31 octobre 2026 : des missions demandaient des étoiles qu'une partie ratée ne rendait plus. */
+export const COFFRE_DE_COMPENSATION = {
+  cle: `${PREFIXE_D_UN_COFFRE_OFFERT}compensation-missions`,
+  rang: 'or' as RangDuCoffre,
+  mot: 'Certaines missions demandaient des étoiles impossibles à rattraper : pardon. Elles se font toutes en jouant maintenant, et ce coffre est pour toi.',
+}
+
+/**
  * Un coffre qui attend son ouverture : celui d'une semaine passée (ses
- * tampons, combien, et son rang) ou, avec `place`, celui d'un mois clos.
+ * tampons, combien, et son rang), avec `place`, celui d'un mois clos, ou,
+ * avec `offert`, celui qu'on lui a offert.
  */
 export interface CoffreEnAttente {
   /**
@@ -141,6 +172,8 @@ export interface CoffreEnAttente {
   rang: RangDuCoffre
   /** Sa place au classement du mois du quiz du jour — présente seulement pour un coffre du mois. */
   place?: number
+  /** Un coffre offert (`PREFIXE_D_UN_COFFRE_OFFERT`), et le mot de qui l'offre. */
+  offert?: { mot: string | null }
 }
 
 /** Un coffre ouvert : ce qu'il a donné, tel que la scène de l'ouverture le dit. */

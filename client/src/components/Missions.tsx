@@ -75,7 +75,7 @@ export function LigneDesMissions({ missions, onOuvrir }: { missions: MissionsDuJ
   const titre = coffre ? 'Ton coffre t’attend !' : 'Missions du jour'
   // Une ligne chacun, en 360 de large : le titre et ses anneaux, puis ce qui reste — sur trois colonnes, tout passait à la ligne.
   const detail = coffre
-    ? `${NOM_DU_COFFRE[coffre.rang]} ${coffre.place ? `du classement ${duMois(coffre.semaine)}` : 'de ta semaine'}`
+    ? `${NOM_DU_COFFRE[coffre.rang]} ${coffre.offert ? 'offert' : coffre.place ? `du classement ${duMois(coffre.semaine)}` : 'de ta semaine'}`
     : missions.trois
       ? 'Les trois sont faites : à demain'
       : `🎊 ${reste.confettis} et ${reste.xp} XP à gagner aujourd’hui`
@@ -193,7 +193,9 @@ function CoffreQuiAttend({ coffre, onOuvrir }: { coffre: CoffreEnAttente; onOuvr
         <b>{`${NOM_DU_COFFRE[coffre.rang]} t’attend`}</b>
         <span>
           {espacesFines(
-            coffre.place
+            coffre.offert
+              ? (coffre.offert.mot ?? 'Un cadeau, pour toi')
+              : coffre.place
               ? `${coffre.place === 1 ? '1re' : `${coffre.place}e`} place au classement ${duMois(coffre.semaine)}`
               : `${coffre.tampons} tampon${coffre.tampons > 1 ? 's' : ''}, la semaine du ${jourEnToutesLettres(coffre.semaine, true)}`,
           )}

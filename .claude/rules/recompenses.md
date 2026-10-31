@@ -53,7 +53,13 @@ paths:
   `eclatDeReserve`, `depenserUnEclat`) prend la mémoire avant la base, d'un
   seul tenant, et remplace la clé par l'avatar : la ligne garde sa soirée, un
   essai effacé la reprend. Définitive, donc jamais un essai de la loge ; ni
-  Divin, ni avatar qu'il n'a pas (`eclat-reserve.test.ts`). Un champ qui lit
+  Divin, ni avatar qu'il n'a pas (`eclat-reserve.test.ts`). Elle se choisit
+  à vue : « Choisir un avatar » montre chaque case déjà éclatée, et la
+  toucher ouvre l'avatar d'aujourd'hui et sa version éclatée côte à côte,
+  avant « Faire éclater » (`PageDAvatars`, `Apparence.tsx` ; le souhait du
+  propriétaire du 31 octobre 2026). Un Éclat s'achète aussi, cher
+  (`PRIX_D_UN_ECLAT`, `acheterUnEclat`), en réserve sous `#achat:`, que
+  l'économie du QG écarte des Éclats tirés comme `#don:`. Un champ qui lit
   `profile_eclats` ligne à ligne doit écarter `estEnReserve`.
 - **Une voie rangée n'est pas un trophée, et se filtre par une seule liste**
   (`PREFIXES_DES_VOIES_RANGEES` — `saison:`, `expedition:`, `cabinet:` —,

@@ -504,6 +504,7 @@ export function RayonDesObjets({ profil, ouvert, onSolde }: { profil: PublicProf
   const [choisi, setChoisi] = useState<CleDObjet | null>(ouvert ?? null)
   const [vies, setVies] = useState<VieDesSentiers | null>(null)
   const [sabliers, setSabliers] = useState(profil.jour?.sabliers ?? 0)
+  const [eclats, setEclats] = useState(profil.eclatsEnReserve ?? 0)
   useEffect(() => {
     let vivant = true
     api.campagne.sentiers
@@ -524,6 +525,7 @@ export function RayonDesObjets({ profil, ouvert, onSolde }: { profil: PublicProf
   const possede = (o: Objet): { court: string | null; long: string } | null => {
     if (o.cle === 'vie')
       return vies ? { court: vies.reserve > 0 ? String(vies.reserve) : null, long: `${vies.jour} aujourd’hui · ${vies.reserve} en réserve` } : null
+    if (o.cle === 'eclat') return { court: eclats > 0 ? String(eclats) : null, long: `${eclats} en réserve, dans ta loge` }
     return { court: `${sabliers}/${SABLIERS_MAX}`, long: `${sabliers} sur ${SABLIERS_MAX} · ta série : ${profil.jour?.serie ?? 0} jour${(profil.jour?.serie ?? 0) > 1 ? 's' : ''}` }
   }
   const objet = OBJETS.find(o => o.cle === choisi)
@@ -571,6 +573,10 @@ export function RayonDesObjets({ profil, ouvert, onSolde }: { profil: PublicProf
               const e = await api.campagne.sentiers.acheterVies(nombre)
               setVies(e.vies)
               if (e.confettis !== undefined) onSolde(e.confettis)
+            } else if (objet.cle === 'eclat') {
+              const r = await api.joueur.acheterUnEclat()
+              setEclats(r.enReserve)
+              onSolde(r.confettis.solde)
             } else {
               const r = await api.jour.sablier(nombre)
               setSabliers(r.sabliers)
@@ -640,7 +646,7 @@ function FicheDObjet({
         </p>
       ) : (
         <>
-          <div className="fiche-objet-quantite">
+          <div className="fiche-objet-quantite" hidden={maximum === 1 || undefined}>
             <span className="vies-pas" role="group" aria-label={`Combien : ${objet.compte(n)}`}>
               <button type="button" className="vies-pas-btn" aria-label="Un de moins" disabled={n <= 1} onClick={() => setNombre(Math.max(1, n - 1))}>
                 −
@@ -669,6 +675,13 @@ function FicheDObjet({
               {`${achete > 1 ? `${achete} vies ajoutées` : 'Une vie ajoutée'} à ta réserve. `}
               <a className="link-inline" href="/campagne#sentiers">
                 Les sentiers
+              </a>
+            </>
+          ) : objet.cle === 'eclat' ? (
+            <>
+              {'Ton Éclat t’attend en réserve. '}
+              <a className="link-inline" href="/profil#avatar">
+                Le dépenser dans ma loge
               </a>
             </>
           ) : (

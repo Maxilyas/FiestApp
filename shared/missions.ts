@@ -20,7 +20,7 @@
 
 import { CATEGORIES } from './categories'
 import type { CoffreEnAttente } from './coffre'
-import { ETOILES_DE_LA_MEDAILLE, jourAvant, jourDe, medailleDe } from './jour'
+import { jourAvant, jourDe } from './jour'
 
 /** Trois par jour : une habitude, un savoir, une découverte. */
 export const MISSIONS_PAR_JOUR = 3
@@ -199,11 +199,13 @@ export function avancement(m: Mission, a: ActiviteDuJour): number {
     switch (m.sorte) {
       case 'jour':
         return a.quizDuJour?.finie ? 1 : 0
-      case 'jour-etoiles': {
-        const q = a.quizDuJour
-        const medaille = q ? medailleDe(q.justes, q.questions) : null
-        return medaille ? ETOILES_DE_LA_MEDAILLE[medaille] : 0
-      }
+      // Ses étoiles ne se demandent plus (le 31 octobre 2026, le propriétaire :
+      // « huit bonnes réponses au quiz du jour, ce qui est parfois pas
+      // possible ») : une seule partie par jour, et une question difficile
+      // fermait le tampon pour de bon. Tirée avant, elle se juge comme
+      // l'habitude — jouée jusqu'au bout, elle est faite.
+      case 'jour-etoiles':
+        return a.quizDuJour?.finie ? m.cible : 0
       case 'justes':
         return a.justes
       case 'categorie':
@@ -282,9 +284,14 @@ function auPoids<T>(choix: readonly (readonly [T, number])[], x: number): T {
  */
 export function tirerLesMissions(graine: string, c: ContexteDuTirage): Mission[] {
   const x = hasardDe(graine)
-  // L'habitude : le quiz du jour, ou ses étoiles pour qui le joue presque chaque jour — pas s'il l'a déjà joué.
-  const habitude: Mission =
-    !c.quizDuJourJoue && c.joursDuJour >= 3 && x() < 0.4 ? { sorte: 'jour-etoiles', cible: c.joursDuJour >= 5 ? 2 : 1 } : { sorte: 'jour', cible: 1 }
+  // L'habitude : le quiz du jour, jusqu'au bout. Ses étoiles ne se tirent
+  // plus : chaque mission doit pouvoir se faire en jouant, et le quiz du jour
+  // ne se joue qu'une fois — une partie ratée fermait le tampon du jour (le
+  // 31 octobre 2026). Le tirage d'avant passait ici un nombre :
+  // il le passe encore, et le savoir et la découverte d'un même jour restent
+  // ceux qu'ils auraient été.
+  if (!c.quizDuJourJoue && c.joursDuJour >= 3) x()
+  const habitude: Mission = { sorte: 'jour', cible: 1 }
   // Le savoir : des bonnes réponses où il veut, ou dans une catégorie.
   const savoir: Mission =
     x() < 0.55
@@ -318,8 +325,9 @@ export function titreDeLaMission(m: Mission): string {
   switch (m.sorte) {
     case 'jour':
       return 'Joue le quiz du jour'
+    // Une mission d'étoiles tirée avant le 31 octobre 2026 se lit comme l'habitude : c'est ainsi qu'elle se juge.
     case 'jour-etoiles':
-      return m.cible > 1 ? `Décroche ${m.cible === 2 ? 'deux' : m.cible} étoiles au quiz du jour` : 'Décroche une étoile au quiz du jour'
+      return 'Joue le quiz du jour'
     case 'justes':
       return `Trouve ${m.cible} bonnes réponses`
     case 'categorie':
@@ -343,9 +351,8 @@ export function titreDeLaMission(m: Mission): string {
 export function aideDeLaMission(m: Mission): string {
   switch (m.sorte) {
     case 'jour':
-      return 'Ses dix questions, jusqu’au bout.'
     case 'jour-etoiles':
-      return m.cible > 1 ? 'Deux étoiles : huit bonnes réponses sur dix.' : 'Une étoile : six bonnes réponses sur dix.'
+      return 'Ses dix questions, jusqu’au bout.'
     case 'justes':
       return 'Où tu veux : en soirée, au quiz du jour, en campagne, en duel.'
     case 'categorie':
@@ -405,6 +412,8 @@ export interface MissionVue {
 
 /** La vue d'une mission, au vu de sa journée. */
 export function vueDeLaMission(rang: number, m: Mission, a: ActiviteDuJour, faite: boolean): MissionVue {
+  // Des étoiles tirées avant le 31 octobre 2026 : une partie à jouer, « 0/2 » ne dirait plus rien.
+  if (m.sorte === 'jour-etoiles') m = { sorte: 'jour', cible: 1 }
   return {
     rang,
     sorte: m.sorte,

@@ -35,6 +35,7 @@ Ton solde se lit au bout de ta ligne d'expérience (« 🎊 820 »), sur l'accue
 | Un fond des savoirs | 250 (`PRIX_D_UN_FOND`) | rayon « Fonds » | une fois chacun |
 | Une vie des sentiers | 25 (`PRIX_D_UNE_VIE`) | rayon « Objets », ou « Plus de vies » sur les sentiers | de 1 à 10 par achat (`VIES_PAR_ACHAT_MAX`), dans une réserve qui ne périme pas |
 | Un sablier | 50 (`PRIX_D_UN_SABLIER`) | rayon « Objets » ; le quiz du jour y mène | un ou deux à la fois, deux au plus en réserve (`SABLIERS_MAX`) |
+| Un Éclat | 3 000 (`PRIX_D_UN_ECLAT`) | rayon « Objets » | un à la fois ; il attend en réserve dans la loge, qui le dépense sur l'avatar choisi |
 
 Le serveur compte chaque achat contre ton solde relu à l'instant, **un seul à la fois par profil** — deux onglets ou un double toucher liraient le même solde —, et la page affiche le solde qu'il rend, jamais une soustraction faite dans le téléphone. Un refus se dit en clair, là où tu as touché : « Il te manque 150 confettis pour le thème Cahier d'écolier », « Le thème Halloween revient en boutique du 25 octobre au 1er novembre ». Les gerbes, les cinq thèmes qui se gagnent et les fonds qui se gagnent ou sortent du coffre ne s'achètent pas ; rien ne se rembourse, ne se revend ni ne se donne entre joueurs.
 
@@ -48,7 +49,7 @@ flowchart LR
   J["Quiz du jour"] --> G
   C["Campagne : bonnes réponses,<br/>étoiles, ligues"] --> G
   D["Dons de l'administrateur"] --> G
-  A["Thèmes, compagnons, fonds,<br/>vies, sabliers"] --> P["Dépensés"]
+  A["Thèmes, compagnons, fonds,<br/>vies, sabliers, Éclats"] --> P["Dépensés"]
   G --> R["Solde = gagnés − dépensés"]
   P --> R
 ```
@@ -71,7 +72,7 @@ La boutique (`/boutique`) est dans la barre du menu, entre « Profil » et « Co
 
 **Le rayon « Fonds »** vend les douze fonds des savoirs, deux par rangée : chacun est ta carte telle que la salle la verrait — ton avatar et ton prénom posés sur le fond, le savoir qu'il habille en pastille —, son nom et son prix, ou « Porté », « À toi ». Toucher une carte ouvre sa fiche (`/boutique#fond-jazz`) : ta carte en grand, « Il coûte 250 confettis : il t'en restera 170. » et « L'acheter · 🎊 250 », avec le même choix qu'un thème — trop cher, « encore 80 » et ce que tes missions du jour rapportent ; à toi, « L'essayer sur ma carte » ouvre la loge, l'essai en place. Au pied du rayon, « 1 sur 12 à toi : le porter » mène à la loge. Les fonds du trésor n'y paraissent pas : seul le coffre de la semaine les donne, et « Ma collection » le dit ([les fonds de carte](#les-fonds-de-carte)).
 
-**Le rayon « Objets »** a une case par objet, avec son prix et ce que tu en as — « 0/2 » pour les sabliers, ta réserve pour les vies. Sa fiche (`/boutique#objet-vie`, `/boutique#objet-sablier`) dit ce qu'il fait, puis la quantité (− et +), le total, « Acheter » ou « Il te manque 30 confettis ». La vie sert après celles du jour ([les sentiers du savoir](les-sentiers-du-savoir.md)) ; le sablier garde ta série un jour manqué ([le quiz du jour](le-quiz-du-jour.md)).
+**Le rayon « Objets »** a une case par objet, avec son prix et ce que tu en as — « 0/2 » pour les sabliers, ta réserve pour les vies. Sa fiche (`/boutique#objet-vie`, `/boutique#objet-sablier`) dit ce qu'il fait, puis la quantité (− et +), le total, « Acheter » ou « Il te manque 30 confettis ». La vie sert après celles du jour ([les sentiers du savoir](les-sentiers-du-savoir.md)) ; le sablier garde ta série un jour manqué ([le quiz du jour](le-quiz-du-jour.md)). L'Éclat (`/boutique#objet-eclat`, depuis le 31 octobre 2026 : « pour ceux qui n'ont pas de chance », le propriétaire) s'achète un à un, 3 000 confettis : il attend en réserve, et la loge, pièce « Avatar », le dépense — « Choisir un avatar » montre chacun des tiens déjà éclaté, et le toucher l'ouvre en grand, aujourd'hui et éclaté côte à côte, avant « Faire éclater » : c'est pour toujours. Cher exprès : le tirage de chaque soirée et de chaque partie du jour reste la voie de tous.
 
 ## Essayer et porter
 
@@ -238,7 +239,7 @@ Les jetons du CSS, les couches d'un décor et ce que les tests en gardent : [les
 
 - **Les catalogues sont purs** : `shared/themes.ts` — les thèmes, leurs prix et leurs saisons, ceux qui se gagnent, les confettis d'une soirée (`THEMES`, `PRIX_DES_THEMES`, `enBoutique`, `themeGagne`, `confettisDeSoiree`) —, `shared/fonds.ts`, `shared/gerbes.ts`, `shared/compagnons.ts` ; les albums des fonds et des gerbes dans « Ma collection », `shared/style.ts`.
 - **Chaque thème a sa feuille** dans `client/src/themes/` — Velours et Ivoire vivent dans `client/src/styles.css` —, chargée seulement quand on le porte ou l'essaie, avec ses polices (`client/public/fonts/themes/`). Ses aperçus (`client/src/themes/apercus/`) sont l'application photographiée par `server/scripts/apercus-themes.ts`, jamais une maquette. Le thème d'un profil se pose par `client/src/themeJoueur.ts`, celui de l'écran commun par `client/src/theme.ts`.
-- **Les achats vivent dans la base permanente**, une ligne par achat avec le prix payé, que rien ne modifie — sauf la forme atteinte d'un compagnon, qui ne fait que monter : `profile_achats`, `profile_compagnons`, `profile_fonds`, `profile_vies`, `profile_sabliers`, et les dons dans `profile_dons`. La base locale jetable n'en sait rien.
+- **Les achats vivent dans la base permanente**, une ligne par achat avec le prix payé, que rien ne modifie — sauf la forme atteinte d'un compagnon, qui ne fait que monter : `profile_achats`, `profile_compagnons`, `profile_fonds`, `profile_vies`, `profile_sabliers`, `profile_eclats_achetes`, et les dons dans `profile_dons`. La base locale jetable n'en sait rien.
 - **Le solde se dérive** : `ProfileStore.boutiqueEtDons` (`server/src/auth/profiles.ts`) lit d'un seul aller-retour tes achats et tes dons, et en même temps tes soirées, ton quiz du jour (`JourStore.justesDe`) et ta campagne (`CampagneStore.duProfil` : bonnes réponses, étoiles, ligues — et, de la même lecture, tes paliers et ta cote, que ta page partage). Chaque achat passe par `unAchatALaFois` ; les routes sont dans [la référence](../reference/api-http.md).
 
 Les deux bases et les journaux d'où se relisent les gains : [les données](../architecture/donnees.md).

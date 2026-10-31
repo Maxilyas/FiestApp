@@ -33,7 +33,7 @@ export const NOM_DE_LA_SOURCE: Record<SourceDeConfettis, string> = {
 }
 
 /** Où ils partent : tout ce que la boutique vend. */
-export const DEPENSES_DE_CONFETTIS = ['themes', 'compagnons', 'fonds', 'vies', 'sabliers'] as const
+export const DEPENSES_DE_CONFETTIS = ['themes', 'compagnons', 'fonds', 'vies', 'sabliers', 'eclats'] as const
 export type DepenseDeConfettis = (typeof DEPENSES_DE_CONFETTIS)[number]
 
 export const NOM_DE_LA_DEPENSE: Record<DepenseDeConfettis, string> = {
@@ -42,6 +42,7 @@ export const NOM_DE_LA_DEPENSE: Record<DepenseDeConfettis, string> = {
   fonds: 'Fonds de carte',
   vies: 'Vies',
   sabliers: 'Sabliers',
+  eclats: 'Éclats',
 }
 
 /** Des confettis qui bougent à un instant : une heure de bonnes réponses, une partie, une soirée, un don. */

@@ -12,6 +12,7 @@ import { LIGUES } from '../../../shared/duels'
 import { MODES_DU_QG, NOM_DU_MODE, heureEcrite, quandEcrit, type GesteDuQg } from '../../../shared/qg'
 import { totalDesModes, type ActiviteDUnJoueur } from '../../../shared/qgActivite'
 import { CONFETTIS_PAR_DON_MAX, MOT_D_UN_DON_MAX, type FicheDuJoueur, type ProfilDAdministration } from '../../../shared/profil'
+import { MOT_D_UN_COFFRE_OFFERT_MAX, NOM_DU_COFFRE, RANGS_DU_COFFRE, type RangDuCoffre } from '../../../shared/coffre'
 
 /** « 1 joué », « 0 gagné », « 3 joués » : zéro s'écrit au singulier. */
 const pluriel = (n: number, mot: string) => `${formatNumber(n)} ${mot}${n > 1 ? 's' : ''}`
@@ -62,6 +63,8 @@ export function FicheDuJoueurAuQg({
   const [error, setError] = useState('')
   const [occupe, setOccupe] = useState(false)
   const [don, setDon] = useState<{ confettis: number; mot: string } | null>(null)
+  // Un coffre à offrir : son rang, et un mot que la scène de l'ouverture dit.
+  const [coffre, setCoffre] = useState<{ rang: RangDuCoffre; mot: string } | null>(null)
   // Le code de secours tiré : montré ici une seule fois, jamais relu.
   const [code, setCode] = useState<{ code: string; login: string } | null>(null)
 
@@ -124,6 +127,16 @@ export function FicheDuJoueurAuQg({
     if (ok) await geste(async () => void (await api.admin.offrirUnEclat(f.id)), f.toi ? 'Éclat en réserve dans ta loge' : `Éclat offert à ${f.nom}`)
   }
 
+  const offrirLeCoffre = () =>
+    coffre &&
+    geste(
+      async () => {
+        await api.admin.offrirUnCoffre(f.id, coffre.rang, coffre.mot)
+        setCoffre(null)
+      },
+      f.toi ? `${NOM_DU_COFFRE[coffre.rang]} t’attend sur ton accueil` : `${NOM_DU_COFFRE[coffre.rang]} offert à ${f.nom}`,
+    )
+
   const reconnecter = async () => {
     const ok = await confirmDialog({
       title: 'Lui tirer un code de secours neuf ?',
@@ -169,6 +182,11 @@ export function FicheDuJoueurAuQg({
     !f.suspendu && (
       <Geste key="eclat" icone="star" occupe={occupe} onClick={() => void offrirUnEclat()}>
         {f.toi ? 'T’offrir un Éclat' : 'Offrir un Éclat'}
+      </Geste>
+    ),
+    !f.suspendu && !coffre && (
+      <Geste key="coffre" icone="coffre" onClick={() => setCoffre({ rang: 'or', mot: '' })}>
+        {f.toi ? 'T’offrir un coffre' : 'Offrir un coffre'}
       </Geste>
     ),
     !f.suspendu && (
@@ -331,6 +349,41 @@ export function FicheDuJoueurAuQg({
                   {f.toi ? 'T’offrir' : 'Offrir'} {nConfettis(Math.min(CONFETTIS_PAR_DON_MAX, Math.max(1, don.confettis)))}
                 </button>
                 <button type="button" className="salon-geste" onClick={() => setDon(null)}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+          {coffre && (
+            <div className="qg-fiche-don">
+              <span className="label" id="coffre-rang">
+                Quel coffre ?
+              </span>
+              <div className="admin-gestes" role="group" aria-labelledby="coffre-rang">
+                {RANGS_DU_COFFRE.map(r => (
+                  <button key={r} type="button" className="salon-geste" aria-pressed={coffre.rang === r} onClick={() => setCoffre(c => c && { ...c, rang: r })}>
+                    {NOM_DU_COFFRE[r]}
+                  </button>
+                ))}
+              </div>
+              <label className="label" htmlFor="coffre-mot">
+                Un mot, lu à son ouverture
+              </label>
+              <input
+                id="coffre-mot"
+                className="input"
+                value={coffre.mot}
+                maxLength={MOT_D_UN_COFFRE_OFFERT_MAX}
+                placeholder={f.toi ? undefined : 'Pour ta victoire au quiz de Noël !'}
+                onChange={e => setCoffre(c => c && { ...c, mot: e.target.value })}
+              />
+              <p className="muted small">Il attend sur son accueil, comme celui de la semaine, et s’ouvre une fois : ce qu’il donne ne se reprend pas.</p>
+              <div className="admin-gestes">
+                <button type="button" className="salon-geste admin-geste-oui" aria-disabled={occupe || undefined} onClick={() => void offrirLeCoffre()}>
+                  <Icon name="coffre" />
+                  {f.toi ? 'T’offrir' : 'Offrir'} {NOM_DU_COFFRE[coffre.rang].toLowerCase()}
+                </button>
+                <button type="button" className="salon-geste" onClick={() => setCoffre(null)}>
                   Annuler
                 </button>
               </div>

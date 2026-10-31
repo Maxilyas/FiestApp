@@ -4,7 +4,7 @@ import type { JourStore } from './jour'
 import { jourAvant, jourDe, minutesAvantMinuit } from '../../../shared/jour'
 import { minuitDe } from '../../../shared/qg'
 import { releve } from './pouls'
-import { moisDuCoffreValide, rangDuCoffre, rangDuCoffreDuMois, semaineValide, type CoffreEnAttente, type CoffreOuvert } from '../../../shared/coffre'
+import { coffreOffertValide, moisDuCoffreValide, rangDuCoffre, rangDuCoffreDuMois, semaineValide, type CoffreEnAttente, type CoffreOuvert, type RangDuCoffre } from '../../../shared/coffre'
 import { moisDe } from '../../../shared/jour'
 import {
   activiteDesJours,
@@ -32,7 +32,15 @@ import {
 export interface DepsDesMissions {
   profiles: Pick<
     ProfileStore,
-    'lignesDesMissions' | 'tirerLesMissions' | 'accomplirDesMissions' | 'joursAuxTrois' | 'semainesDesCoffres' | 'coffreDe' | 'ouvrirUnCoffre' | 'soireesDepuis'
+    | 'lignesDesMissions'
+    | 'tirerLesMissions'
+    | 'accomplirDesMissions'
+    | 'joursAuxTrois'
+    | 'semainesDesCoffres'
+    | 'coffreDe'
+    | 'ouvrirUnCoffre'
+    | 'soireesDepuis'
+    | 'coffresOfferts'
   >
   jour: Pick<JourStore, 'activiteDepuis' | 'coffresDuMois'>
   campagne: Pick<CampagneStore, 'activiteDepuis' | 'aRevoirDe'>
@@ -140,6 +148,41 @@ export function coffresDuMoisEnAttente(classes: readonly { mois: string; place: 
     .map(c => ({ semaine: c.mois, tampons: 0, rang: rangDuCoffreDuMois(c.place), place: c.place }))
 }
 
+/** Les coffres offerts qui attendent (`ProfileStore.coffresOfferts`) : ceux qui ne sont pas encore ouverts, dans l'ordre où ils sont arrivés. */
+export function coffresOffertsEnAttente(offerts: readonly { cle: string; rang: RangDuCoffre; mot: string | null }[], ouverts: ReadonlySet<string>): CoffreEnAttente[] {
+  return offerts.filter(o => !ouverts.has(o.cle)).map(o => ({ semaine: o.cle, tampons: 0, rang: o.rang, offert: { mot: o.mot } }))
+}
+
+/** Le drapeau, dans `meta`, qui dit que les missions d'étoiles des jours passés sont rattrapées (`rattraperLesEtoiles`). */
+export const DRAPEAU_DES_ETOILES = 'missions_etoiles_rattrapees'
+
+/**
+ * Le rattrapage du 31 octobre 2026 : une mission d'étoiles d'un jour passé,
+ * dont la partie du quiz du jour est finie, se juge comme l'habitude
+ * (`avancement`) — elle est faite, au dernier instant de son jour, et la
+ * ligne des trois avec si les deux autres l'étaient : le tampon revient,
+ * son expérience et ses confettis aussi (`accomplirDesMissions`). Les deux
+ * dernières semaines se jugent d'elles-mêmes à la prochaine lecture ; celles
+ * d'avant, ici, une fois. Un coffre déjà ouvert garde ce qu'il a donné ;
+ * celui qui attend compte ses tampons à son ouverture.
+ */
+export async function rattraperLesEtoiles(
+  profiles: Pick<ProfileStore, 'drapeau' | 'poserDrapeau' | 'etoilesARattraper' | 'accomplirDesMissions'>,
+  maintenant: number,
+): Promise<number> {
+  if (await profiles.drapeau(DRAPEAU_DES_ETOILES)) return 0
+  const aujourdhui = jourDe(maintenant)
+  let rattrapees = 0
+  for (const [profileId, lignes] of await profiles.etoilesARattraper(aujourdhui)) {
+    // Seule la partie finie compte : le reste de leur journée ne se relit pas ici, et ce qui n'est pas fait le reste.
+    const activites = new Map([...new Set(lignes.map(l => l.jour))].map(j => [j, { ...AUCUNE_ACTIVITE, quizDuJour: { finie: true, justes: 0, questions: 0 } }]))
+    rattrapees += (await profiles.accomplirDesMissions(profileId, faitesARetenir(lignes, activites, aujourdhui, maintenant))).length
+  }
+  await profiles.poserDrapeau(DRAPEAU_DES_ETOILES)
+  if (rattrapees > 0) console.log(`[missions] ${rattrapees} mission(s) d'étoiles et tampon(s) rattrapé(s)`)
+  return rattrapees
+}
+
 export class Missions {
   /** Une lecture à la fois par profil : deux onglets qui tirent et retiennent ensemble ne se croisent pas. */
   private enCours = new Map<string, Promise<unknown>>()
@@ -206,7 +249,7 @@ export class Missions {
       const depuis = jourAvant(lundi, 7)
       const debut = minuitDuJour(depuis)
       const carnet = this.tireesLe.get(profileId) === aujourdhui ? null : this.aRevoirDe(profileId)
-      const [lignes, duJour, deCampagne, soirees, auxTrois, ouverts, deMois] = await Promise.all([
+      const [lignes, duJour, deCampagne, soirees, auxTrois, ouverts, deMois, offerts] = await Promise.all([
         profiles.lignesDesMissions(profileId, depuis),
         jour.activiteDepuis(profileId, depuis),
         campagne.activiteDepuis(profileId, debut),
@@ -214,6 +257,7 @@ export class Missions {
         profiles.joursAuxTrois(profileId, lundi),
         profiles.semainesDesCoffres(profileId),
         jour.coffresDuMois(profileId),
+        profiles.coffresOfferts(profileId),
       ])
       const activites = activiteDesJours({ ...duJour, ...deCampagne, soirees })
       let siennes = lignes
@@ -241,8 +285,8 @@ export class Missions {
         trois: estFaite(aujourdhui, RANG_DES_TROIS),
         nouvelles: retenues.filter(r => r.jour === aujourdhui).map(r => r.rang),
         semaine: { lundi, tampons: joursDeLaSemaine(lundi).map(j => estFaite(j, RANG_DES_TROIS)) },
-        // Celui du mois d'abord : il vient de loin, et vaut plus qu'un lundi.
-        coffres: [...coffresDuMoisEnAttente(deMois, ouverts), ...coffresEnAttente(joursAuxTrois, ouverts)],
+        // Un coffre offert d'abord, puis celui du mois : il vient de loin, et vaut plus qu'un lundi.
+        coffres: [...coffresOffertsEnAttente(offerts, ouverts), ...coffresDuMoisEnAttente(deMois, ouverts), ...coffresEnAttente(joursAuxTrois, ouverts)],
         minutesAvantMinuit: minutesAvantMinuit(maintenant),
       }
     })
@@ -283,7 +327,8 @@ export class Missions {
    * finie, une semaine sans tampon.
    */
   ouvrirLeCoffre(profileId: string, brut: unknown): Promise<CoffreOuvert> {
-    if (typeof brut !== 'string' || !(moisDuCoffreValide(brut) || semaineValide(brut))) return Promise.reject(new Error('Ce coffre n’existe pas : recharge la page.'))
+    if (typeof brut !== 'string' || !(moisDuCoffreValide(brut) || semaineValide(brut) || coffreOffertValide(brut)))
+      return Promise.reject(new Error('Ce coffre n’existe pas : recharge la page.'))
     const semaine: string = brut
     const duMois = moisDuCoffreValide(semaine)
     return this.unALaFois(profileId, async etape => {
@@ -291,6 +336,14 @@ export class Missions {
       const maintenant = this.deps.maintenant()
       const aujourdhui = jourDe(maintenant)
       etape('le coffre')
+      if (coffreOffertValide(semaine)) {
+        // Un coffre offert : son rang est celui qu'on lui a choisi.
+        const deja = await profiles.coffreDe(profileId, semaine)
+        if (deja) return deja
+        const offert = (await profiles.coffresOfferts(profileId)).find(o => o.cle === semaine)
+        if (!offert) throw new Error('Ce coffre n’existe pas : recharge la page.')
+        return profiles.ouvrirUnCoffre(profileId, semaine, 0, { hasard: this.deps.hasard ?? Math.random, jour: aujourdhui, quand: maintenant, rang: offert.rang })
+      }
       if (duMois) {
         // Le coffre d'un mois clos : sa place, figée à la clôture, fait son rang.
         const deja = await profiles.coffreDe(profileId, semaine)

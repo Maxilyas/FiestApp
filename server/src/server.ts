@@ -21,7 +21,7 @@ import { CabinetStore } from './core/cabinet/magasin'
 import { calendrierDuCabinet } from './core/saisons'
 import { cabinetOuvert } from '../../shared/cabinet/ouverture'
 import { EXPEDITION_REMPLACEE } from '../../shared/jokers'
-import { Missions } from './core/missions'
+import { Missions, rattraperLesEtoiles } from './core/missions'
 import { Soins } from './core/soins'
 import type { BaseDeLaCampagne } from './core/baseCampagne'
 import { Budget } from './core/budget'
@@ -685,6 +685,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
         `${recalcul.lignes} lignes revalorisées, ${recalcul.profils} profils, en ${Date.now() - debutDuRecalcul} ms`,
     )
   }
+  // Les missions d'étoiles des jours passés, faites d'une partie finie (le 31
+  // octobre 2026), puis le coffre de compensation à chacun : une fois chacun,
+  // après le recalcul — la ligne `#missions` qu'ils réécrivent n'y repasse pas.
+  await rattraperLesEtoiles(profiles, maintenantDuJour())
+  await profiles.offrirLaCompensation(maintenantDuJour())
   // Les avatars du savoir se gagnent sur les sentiers : chacun garde ce qu'il
   // avait, en paliers — une fois, après le recalcul, qui a relu les soirées
   // dont il compte les bonnes réponses.
