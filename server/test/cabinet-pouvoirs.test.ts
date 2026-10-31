@@ -12,10 +12,10 @@
 // d'Éclairer nomme l'étape — au Pari et à la Réplique, la question —, une
 // manche ratée ne gagne qu'une étoile, une manche gardée au Pari ne se relève
 // pas — il n'y relève qu'une ratée, à toute force —, et ce que la page en dit
-// est ce que le pli fait. Ce que la carte dit à l'annonce, rendue (en
-// dernières épreuves du fichier) : les secondes de Prendre son temps, jeu par
-// jeu, la manche gardée au seul Pari, et rien de ce qu'ôterait une carte qui
-// ne sert pas à ce jeu.
+// est ce que le pli fait. Ce que la carte dit d'un jeu, en dernières épreuves
+// du fichier : une seule règle dit si elle y sert (`sertA`), et la phrase de
+// l'annonce est celle de partout, moins ce qui ne vaut qu'à un jeu — l'annonce
+// qui les rendait a quitté la page avec le musée, le 31 octobre 2026.
 //
 // Et ce qu'on emporte : une carte qu'il a — une œuvre, ou un gardien réveillé,
 // à la force 3 —, figée au départ avec son pouvoir et sa force ; jamais une
@@ -713,69 +713,23 @@ test('la colonne `joker` des pièces du Cabinet ne porte que le pouvoir qui a ai
   )
 })
 
-// ── Ce que la carte dit à l'annonce ───────────────────────────────────────
+// ── Ce que la carte dit d'un jeu ──────────────────────────────────────────
 
-/**
- * L'annonce rendue, telle que la page la montre : le client compile son JSX pour un `React` global, et `state.ts` lit son
- * adresse à l'import — posés avant le composant, aux deux dernières épreuves du fichier : les routes d'avant n'en ont rien vu.
- */
-let annonceLancee: Promise<(demande: Record<string, unknown>, carte: string) => string> | null = null
-const lAnnonce = () =>
-  (annonceLancee ??= (async () => {
-    const React = (await import('react')).default
-    Object.assign(globalThis, { React, window: { location: { pathname: '/cabinet', search: '', hash: '', origin: 'http://banc' }, addEventListener: () => {} } })
-    const { Annonce } = await import(new URL('../../client/src/views/cabinet/Annonce.tsx', import.meta.url).href)
-    const { renderToStaticMarkup } = await import('react-dom/server')
-    const theo = await inscrireProfil(b.banc.url, 'theo', 'Théo')
-    const page = ok(await laPage(b, theo), 'la page')
-    const texte = (html: string) =>
-      html
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&#x27;|&#39;/g, '’')
-        .replace(/[\u00a0\u202f\u2060]/g, ' ')
-        .replace(/\s+/g, ' ')
-    const rien = () => {}
-    return (demande: Record<string, unknown>, carte: string) =>
-      texte(renderToStaticMarkup(React.createElement(Annonce, { page, demande, carte, busy: false, onCarte: rien, onCommencer: rien, onRetour: rien })))
-  })())
-
-test('une carte-bonus qui ne sert pas à ce jeu ne dit pas ce qu’elle ôterait : à la Frise, Changer se tait sur le cadre doré', async () => {
+test('une carte-bonus qui ne sert pas à ce jeu le dit, d’une seule règle : à la Frise, Changer ne sert pas', () => {
   // L'annonce d'une chasse à la Frise, Échange emporté — la carte de Changer de tout nouveau joueur — disait « Changer ne sert
   // pas à la Frise », puis ce que fait Changer et « T'en servir ôte le cadre doré » (la relecture du 26 octobre 2026) : une
-  // seule règle, `sertA`, que la ligne de la carte et l'annonce lisent toutes deux.
+  // seule règle, `sertA`, que la ligne de la carte lit — l'annonce, qui la lisait aussi, a quitté la page avec le musée.
   for (const jeu of Object.keys(JEUX) as CleDeJeu[]) {
     assert.equal(sertA('changer', jeu), JEUX[jeu].changeable, jeu)
     for (const p of ['eclairer', 'proteger', 'temps', 'miser'] as const) assert.equal(sertA(p, jeu), true, `${p}, ${jeu}`)
   }
   assert.equal(ceQueFaitLaCarte('changer', 1, 'frise'), `${POUVOIRS.changer.nom} ne sert pas à la Frise`)
-  const annonce = await lAnnonce()
-  const aLaFrise = OEUVRES.find(o => JEU_DE_L_OEUVRE[o.cle] === 'frise' && !OEUVRES_DE_DEPART.includes(o.cle))!
-  const t = annonce({ origine: 'chasse', oeuvre: aLaFrise.cle }, 'echange')
-  assert.match(t, /Changer ne sert pas à la Frise/)
-  assert.match(t, /cadre doré/, 'une œuvre à gagner : l’annonce parle du cadre doré')
-  assert.doesNotMatch(t, /T’en servir ôte le cadre doré/, t)
-  assert.ok(!t.includes(POUVOIRS.changer.dit.replace(/'/g, '’')), 'ni ce que Changer ferait, à un jeu où il ne sert pas')
-  // Au jeu où il sert, rien ne change : ce qu'il fait, et ce qu'il ôterait.
-  const ailleurs = OEUVRES.find(o => JEU_DE_L_OEUVRE[o.cle] === 'eclair' && !OEUVRES_DE_DEPART.includes(o.cle))!
-  assert.match(annonce({ origine: 'chasse', oeuvre: ailleurs.cle }, 'echange'), /T’en servir ôte le cadre doré/)
 })
 
-test('l’annonce dit ce que la carte fait à ce jeu, rien de ce qui ne vaut qu’à un autre : la manche gardée au seul Pari', async () => {
+test('la phrase de l’annonce est celle de partout, moins ce qui ne vaut qu’à un autre jeu : la manche gardée au seul Pari', () => {
   // « Au Pari, une manche gardée ne compte pas » se lisait sous Prudence à l'annonce de chacun des neuf jeux, et « à chacune de
-  // ses deux questions au Pari et à la Réplique » sous Concentration à l'Éclair (la relecture du 26 octobre 2026) : les règles
-  // et la fiche d'une œuvre les disent, qui ne savent pas à quel jeu on joue ; l'annonce, au seul jeu où elles valent.
-  const annonce = await lAnnonce()
-  const fois = (t: string, mot: string) => t.split(mot).length - 1
-  for (const jeu of Object.keys(JEUX) as CleDeJeu[]) {
-    const protege = annonce({ origine: 'libre', jeu }, 'prudence')
-    assert.ok(protege.includes(ditALAnnonce('proteger')), `${jeu} : ${protege}`)
-    assert.ok(protege.includes(ceQueFaitLaCarte('proteger', 1, jeu)), `${jeu} : ${protege}`)
-    // Au Pari, une fois — la ligne de sa force —, ailleurs jamais.
-    assert.equal(fois(protege, 'gardée'), jeu === 'pari' ? 1 : 0, `${jeu} : ${protege}`)
-    const temps = annonce({ origine: 'libre', jeu }, 'concentration')
-    assert.ok(temps.includes(ditALAnnonce('temps')), `${jeu} : ${temps}`)
-    assert.doesNotMatch(temps, /au Pari et à la Réplique/, jeu)
-  }
+  // ses deux questions au Pari et à la Réplique » sous Concentration à l'Éclair (la relecture du 26 octobre 2026). Ce que la carte
+  // fait à chaque jeu s'éprouve plus haut, jeu par jeu (`ceQueFaitLaCarte`) ; l'annonce rendue a quitté la page avec le musée.
   // La phrase de l'annonce est celle de partout, moins ce qui ne vaut qu'à un jeu : rien d'autre ne s'y invente.
   assert.equal(ditALAnnonce('proteger'), 'Ta première manche imparfaite où tu as répondu gagne des étoiles.')
   assert.ok(POUVOIRS.proteger.dit.startsWith(ditALAnnonce('proteger').replace(/\.$/, '')))

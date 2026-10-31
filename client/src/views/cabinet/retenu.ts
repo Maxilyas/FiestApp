@@ -1,35 +1,34 @@
-// Ce que le téléphone retient du Cabinet, et rien de plus : la carte-bonus
-// choisie la dernière fois, les règles déjà lues, les pas de l'Épingle. Des
-// commodités : une chasse, des étoiles, un achat sont au serveur, et rien d'une
-// partie ne vit ici (la maquette tenait tout en `localStorage`, et un
-// rechargement la rejouait). Chaque accès sous try/catch : des cookies bloqués
-// donnaient une page noire (CLAUDE.md) — sans stockage, la page se joue pareil,
-// elle oublie seulement.
+// Ce que le téléphone retient du Cabinet, et rien de plus : les pas de
+// l'Épingle. Une commodité : une traversée, ses épreuves, son or sont au
+// serveur, et rien d'une partie ne vit ici (la maquette tenait tout en
+// `localStorage`, et un rechargement la rejouait). Chaque accès sous
+// try/catch : des cookies bloqués donnaient une page noire (CLAUDE.md) — sans
+// stockage, la page se joue pareil, elle oublie seulement.
 //
-// Chaque clé porte le profil, comme les annonces de l'accueil
+// La clé porte le profil, comme les annonces de l'accueil
 // (`quizz.annonces.vues.<profil>`) : sur un téléphone partagé, Hugo héritait
-// de la carte-bonus de Léa et de ses règles lues.
+// des réglages de Léa. La carte-bonus retenue et les règles lues du musée
+// d'avant la traversée (`quizz.cabinet.carte`, `quizz.cabinet.regles-lues`)
+// sont parties avec lui, le 31 octobre 2026.
 
-const CARTE = 'quizz.cabinet.carte'
-const REGLES_LUES = 'quizz.cabinet.regles-lues'
 const PAS_A_PAS = 'quizz.cabinet.pas-a-pas'
 
 /**
  * Le profil de la page : celui dont elle lit ce qu'il retient, dès le profil
- * léger lu (`carteRetenue`, `reglesLues`, `CabinetApp.tsx`). L'écran d'un jeu ne
- * le reçoit pas — il n'a que sa manche (`JeuALEcran.localDe`), et aucune vue ne
+ * léger lu (`retenirLeProfil`, `CabinetApp.tsx`). L'écran d'un jeu ne le
+ * reçoit pas — il n'a que sa manche (`JeuALEcran.localDe`), et aucune vue ne
  * porte le profil — : les pas de l'Épingle se relisent sous lui. Sans profil
  * lu, ils ne se retiennent pas, et rien ne se relit d'un autre. Retenu en
  * mémoire du module, il ne survit pas à la page : changer de profil passe par
  * l'accueil (`/?next=/cabinet`), qui recharge `/cabinet` et la mémoire avec —
- * le profil d'avant ne s'y relit jamais.
+ * le profil d'avant ne s'y relit jamais. La page qui ne le disait plus, à la
+ * traversée, laissait « Pas à pas » se refermer à chaque manche.
  */
 let profilDeLaPage: string | null = null
 
-/** La clé d'une commodité, au profil — qui devient celui de la page. */
-function cleDe(base: string, profil: string): string {
-  profilDeLaPage = profil
-  return `${base}.${profil}`
+/** Le profil de la page, lu avec le profil léger ; sans lui, rien ne se retient. */
+export function retenirLeProfil(profil: string | null | undefined) {
+  profilDeLaPage = profil ?? null
 }
 
 function lire(cle: string): string | null {
@@ -48,14 +47,6 @@ function ecrire(cle: string, valeur: string | null) {
     // Sans stockage, rien ne se retient : la prochaine fois, on choisira de nouveau.
   }
 }
-
-/** La carte-bonus retenue : la page la propose d'abord à l'annonce, et le serveur refuse celle qu'il n'a plus. */
-export const carteRetenue = (profil: string): string | null => lire(cleDe(CARTE, profil))
-export const retenirLaCarte = (profil: string, cle: string | null) => ecrire(cleDe(CARTE, profil), cle)
-
-/** Les règles lues : le musée ne souhaite plus la bienvenue. */
-export const reglesLues = (profil: string): boolean => lire(cleDe(REGLES_LUES, profil)) !== null
-export const retenirLesRegles = (profil: string) => ecrire(cleDe(REGLES_LUES, profil), '1')
 
 /** Les pas de l'Épingle : « Pas à pas » ouvert, « Grands pas » pressé. */
 export interface PasRetenus {

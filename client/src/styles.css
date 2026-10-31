@@ -10543,12 +10543,9 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-pastille { display: inline-flex; align-items: center; min-height: 28px; margin-left: 8px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--accent-text); font-weight: 700; line-height: 1; vertical-align: middle; white-space: nowrap; }
 .cab-gestes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .cab-lien { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent-text); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
-/* Un lien au fil d'une phrase — « tes murs », dans les règles — garde la hauteur de sa ligne : à 44 pixels, il l'écartait des autres. */
-.cab-lien-en-ligne { color: var(--accent-text); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .cab-bloc { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
 .cab-medaillon { flex: none; display: inline-grid; place-items: center; font-size: 52px; line-height: 0; }
 .cab-medaillon-petit { font-size: 36px; }
-.cab-medaillon-grand { font-size: 132px; }
 .cab-inconnue { font-family: var(--serif); font-size: 2.25rem; font-weight: 600; line-height: 1; color: var(--accent-text); }
 .cab-toast { font-size: 1.0625rem; }
 
@@ -10573,7 +10570,6 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 }
 .cab-tuile-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cab-salles { display: flex; flex-direction: column; gap: 12px; }
-.cab-entre { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
 /* Les neuf salles, une par rangée : son gardien en médaillon, son nom, son compte, et sa cimaise — ses peintures, la plus rare
    d'abord, des cadres vides en pointillé, « +5 ». En arches de trois par rangée, une salle ne montrait qu'une peinture ou un
    « ? » : on n'y voyait pas qu'il s'agit de remplir des murs (« incompréhensible », le 31 octobre 2026). Complète, elle prend
@@ -10592,7 +10588,6 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-toile img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .cab-toile-vide { border-style: dashed; border-color: var(--edge-strong); background: none; color: var(--muted); font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1; }
 .cab-toile-reste { border-color: transparent; background: none; color: var(--muted); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
-.cab-comment { margin-top: 2px; }
 
 /* Une salle : sa devise, ses œuvres au mur — trois par rangée, plus hautes que dans la main de l'Expédition —, ses gardiens. */
 .cab-devise { color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-style: italic; font-weight: 600; line-height: 1.2; }
@@ -10616,9 +10611,7 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-gardien-ligne { display: flex; align-items: center; gap: 12px; }
 .cab-gardien-ligne b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
 
-/* Une œuvre : en grand, son cartel dessous ; ou son cadre vide, en grand, et où la chercher. */
-.cab-cadre-grand { align-self: center; width: min(252px, 100%); height: 180px; }
-.cab-cadre-grand .cab-inconnue { font-size: 4rem; }
+/* Une œuvre gagnée, au bilan : en grand, son cartel dessous. */
 .cab-oeuvre-levee { display: flex; justify-content: center; }
 /* Son ombre portée (`.exp-vc-levee`, 12 px plus bas, 32 de flou) passait sous « Œuvre commune · Le Rempart » : l'or du texte y
    tombait à 4:1 sous l'Ivoire (le rendu du 25 octobre 2026). La ligne descend là où l'ombre s'est presque éteinte. */
@@ -10626,8 +10619,6 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-oeuvre-levee .exp-vc-art { height: 176px; }
 /* Sa rareté se dit déjà sur la ligne du titre, à dix-sept pixels : la pastille de la carte, en capitales de onze, s'efface ici. */
 .cab-oeuvre-levee .exp-vc-rarete-dite { display: none; }
-.cab-dore { display: flex; align-items: center; gap: 8px; color: var(--accent-text); font-weight: 700; }
-.cab-dore .icon { width: 20px; height: 20px; }
 /* Le cartel, comme au musée : une plaque crème, l'encre brune. Écrit en dur, sous tous les thèmes — une convention, pas une couleur
    du décor (règle `css.md`) —, l'encre à plus de six contre un sur sa crème. Sa place se garde pendant qu'il arrive. */
 .cab-cartel { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border: 1px solid rgba(42, 32, 27, 0.14); border-radius: 6px; background: #efe6d3; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); color: #2a201b; }
@@ -10639,28 +10630,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-cartel-ligne { color: #5c4e40; font-variant-numeric: lining-nums tabular-nums; }
 .cab-cartel-jour { display: block; }
 
-/* Les gardiens : salle par salle, ses deux médaillons côte à côte — endormis en silhouette dorée, ce qui les réveille en trois
-   mots et où il en est ; réveillés, cerclés d'or —, puis les cinq autres ; touché, sa fiche en feuille. */
-.cab-gardiens-but { color: var(--muted); }
-.cab-gardiens-groupe { display: flex; flex-direction: column; gap: 8px; }
-.cab-page .cab-gardiens-groupe h2 { color: var(--accent-text); font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.15; }
-.cab-gardiens { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
-.cab-gardiens > li { display: flex; }
-.cab-gardien { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 12px 8px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
-.cab-gardien.cab-gardien-eveille { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-@media (hover: hover) {
-  .cab-gardien:hover { border-color: var(--edge-strong); }
-  .cab-gardien.cab-gardien-eveille:hover { border-color: var(--accent); }
-}
-.cab-gardien-nom { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; text-wrap: balance; }
-.cab-gardien-detail { color: var(--muted); line-height: 1.3; }
-.cab-gardien-eveille .cab-gardien-detail { color: var(--accent-text); font-weight: 700; }
-.cab-gardien-progres { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0 4px; }
-.cab-gardien-progres .cab-jauge { flex: 1; }
+/* Une feuille du Cabinet : son texte à dix-sept pixels, comme la page. */
 .cab-feuille { font-size: 1.0625rem; }
 .cab-feuille .carte-corps { gap: 16px; }
 .cab-feuille .glossaire > summary { font-size: 1.0625rem; }
-.cab-fiche-gardien { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
 
 /* La visite du jour : une case par partie — sa vignette, son jeu, ce qu'elle met en jeu sans le nommer, « Jouer ». */
 .cab-cases { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
@@ -10685,40 +10658,6 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 }
 .cab-jeu[aria-disabled='true'] { border-style: dashed; background: none; cursor: default; }
 .cab-jeu .cab-pastille { margin: 4px 0 0; }
-
-/* Les règles : une ligne chacune, son icône devant. */
-.cab-regles-section { display: flex; flex-direction: column; gap: 10px; }
-.cab-regles-section h3 { margin: 0; font-size: 1.4rem; }
-.cab-regles { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.cab-regles li { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 10px; line-height: 1.4; }
-.cab-regles li > .icon { width: 20px; height: 20px; margin-top: 2px; color: var(--accent-text); }
-.cab-bareme { display: block; margin-top: 4px; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
-/* Les neuf jeux se replient comme le lexique, sous un titre de section : chaque annonce redit le sien, et dépliés d'office, ils
-   faisaient de la feuille trente-trois lignes à lire avant la poussière d'or. */
-.cab-feuille .cab-regles-replie > summary { color: var(--ink); font-family: var(--serif); font-size: 1.4rem; font-weight: 600; }
-.cab-feuille .cab-regles-replie > summary .icon { width: 20px; height: 20px; color: var(--accent-text); }
-.cab-regles-replie[open] > summary .repli-chevron { transform: rotate(180deg); }
-.cab-regles-replie > .cab-regles { margin-top: 6px; }
-
-/* L'annonce d'une partie (`Annonce.tsx`) : ce qu'elle met en jeu, le jeu et son barème, le seuil, la carte-bonus emportée — sa
-   peinture ou son médaillon, ce qu'elle fait à ce jeu — et, dans sa feuille, les autres, chacune un bouton à `aria-pressed`. */
-.cab-enjeu { color: var(--accent-text); font-weight: 700; }
-.cab-bareme-annonce { font-variant-numeric: lining-nums tabular-nums; }
-.cab-seuil b { font-variant-numeric: lining-nums tabular-nums; }
-.cab-carte { display: flex; align-items: center; gap: 12px; min-width: 0; text-align: left; }
-.cab-carte-vignette { flex: none; display: grid; place-items: center; width: 64px; }
-.cab-carte-vignette .exp-vc { height: 84px; }
-.cab-carte-vignette .exp-vc-art { height: 60px; }
-.cab-carte-vignette.cab-sans-carte { height: 84px; border: 2px dashed var(--edge-strong); border-radius: 10px; color: var(--muted); font-family: var(--serif); font-size: 2rem; }
-.cab-carte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.cab-carte-texte .cab-raison { margin-top: 2px; text-align: left; }
-.cab-carte-nom { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.15; }
-.cab-cartes { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.cab-choix-carte { display: block; width: 100%; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-@media (hover: hover) {
-  .cab-choix-carte:hover { border-color: var(--edge-strong); }
-}
-.cab-choix-carte[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--accent-soft); }
 
 /* Une partie (`Partie.tsx`) : la tête collée — les trois manches, les étoiles sur neuf, « Quitter », le chrono —, la manche, le
    pied collé — la carte-bonus et son geste, la suite. Tête et pied posent `--bg` sous eux : les thèmes repeignent `.card` d'un
@@ -11123,11 +11062,6 @@ html:has(.cab-partie[data-arret='carte'] .cab-carte-jouable) { scroll-snap-type:
 .cab-repondu-juste .icon { color: var(--accent-text); }
 .cab-repondu-faux .icon { color: var(--alert); }
 .cab-quittee { color: var(--alert); font-weight: 700; }
-/* Tes murs (`Murs.tsx`) : tes lieux sur la carte de France et leur liste, ta frise du plus ancien au plus récent. */
-.cab-tes-murs { display: flex; flex-direction: column; gap: 10px; }
-.cab-lieux { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.cab-lieux li { display: flex; flex-direction: column; }
-.cab-lieux b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.2; }
 
 /* La mise, avant une manche ; le voile de la pause, plein — la manche ne se lit pas au travers, sous aucun thème. */
 .cab-mise h2 { font-size: 1.6rem; }
@@ -11180,74 +11114,283 @@ html:has(.cab-partie .cab-titre-revele) { scroll-padding-bottom: var(--cab-pied,
 .cab-oeuvre-gagnee { display: flex; flex-direction: column; gap: 14px; }
 .cab-reponses-manche { display: flex; flex-direction: column; gap: 10px; }
 
-/* La barre du Cabinet (`Barre.tsx`) : ses quatre pièces sous le pouce, comme la barre du menu de l'accueil (`.menu-barre`), à
-   dix-sept pixels — l'étiquette de l'accueil en a onze. La pièce où l'on est se dit en gras et par un filet, jamais par sa seule
-   couleur. La page s'arrête au-dessus d'elle, et le toast monte. */
-.cab-barre { position: fixed; right: 0; bottom: 0; left: 0; z-index: 40; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 560px; margin: 0 auto; padding: 0 6px max(6px, env(safe-area-inset-bottom)); border-top: 1px solid var(--edge); background: var(--bg-raised); }
-.cab-barre a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px; padding: 8px 2px 4px; color: var(--muted); font-size: 1.0625rem; font-weight: 500; line-height: 1.1; text-decoration: none; white-space: nowrap; }
-.cab-barre a .icon { width: 24px; height: 24px; }
-.cab-barre a[aria-current='page'] { color: var(--accent-text); font-weight: 700; }
-.cab-barre a[aria-current='page']::before { content: ''; position: absolute; top: 0; left: 50%; width: 36px; height: 3px; margin-left: -18px; border-radius: 0 0 3px 3px; background: var(--accent); }
-.cab-avec-barre > .player-shell { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
-html:has(.cab-barre) { scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
-.cab-avec-barre ~ .cab-toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+/* La traversée (`Traversee.tsx`, `TraverseeEn3D.ts`) : la maquette jouée le 31 octobre 2026 (`retours/2026-10-31/maquette/`).
+   Une nuit étoilée où flottent les îles des trois actes, la carte 3D d'un bord à l'autre ; par-dessus, des panneaux de verre — la
+   tête en haut, le chemin à choisir en bas — et chaque étape en plein écran. La nuit et l'or sont une convention de la
+   traversée, comme le cartel crème : la carte est une nuit sous tous les thèmes, et ce qui se pose dessus s'y accorde, écrit en
+   dur. Chaque acte y pose sa teinte (`--cab-tv-teinte`). Les épreuves gardent l'écran de partie du thème porté (`Partie.tsx`). */
+.cab-tv {
+  --cab-tv-nuit: #07050e;
+  --cab-tv-verre: rgba(20, 14, 32, 0.78);
+  --cab-tv-encre: #f6efe4;
+  --cab-tv-pale: #c9bdd6;
+  --cab-tv-trait: rgba(247, 220, 154, 0.26);
+  --cab-tv-or: #e2bd6e;
+  --cab-tv-or-clair: #f7dc9a;
+  --cab-tv-or-sombre: #a87b33;
+  --cab-tv-juste: #7ee2a8;
+  --cab-tv-faux: #ff9aa0;
+  --cab-tv-coeur: #ff5d73;
+  --cab-tv-teinte: 152;
+  --cab-tv-acte: hsl(var(--cab-tv-teinte) 72% 74%);
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  color: var(--cab-tv-encre);
+  background: radial-gradient(120% 80% at 50% 100%, #24163c, var(--cab-tv-nuit) 70%);
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+.cab-tv h1,
+.cab-tv h2,
+.cab-tv h3 { margin: 0; font-family: var(--font-display, Georgia, serif); font-weight: 400; line-height: 1.1; text-wrap: balance; color: var(--cab-tv-encre); font-variant-numeric: lining-nums; }
+.cab-tv p,
+.cab-tv ul,
+.cab-tv ol { margin: 0; }
+.cab-tv [tabindex='-1']:focus { outline: none; }
+.cab-tv-scene { position: absolute; inset: 0; touch-action: none; }
+.cab-tv-scene canvas { display: block; width: 100%; height: 100%; }
+/* L'ombre sous la tête court sur toute la largeur : posée sur la colonne, elle dessinait une boîte sur grand écran. */
+.cab-tv-scene::after { content: ''; position: absolute; inset: 0 0 auto; height: calc(118px + env(safe-area-inset-top, 0px)); background: linear-gradient(180deg, rgba(7, 5, 14, 0.9) 45%, transparent); pointer-events: none; }
+.cab-tv-ui { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); pointer-events: none; max-width: 560px; margin: 0 auto; }
+.cab-tv-ui > * { pointer-events: auto; }
+.cab-tv-ui > .cab-tv-vide { pointer-events: none; }
+.cab-tv-sur { font-size: 1.0625rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cab-tv-acte); }
+.cab-tv-pale { color: var(--cab-tv-pale); }
+.cab-tv-centre { text-align: center; }
+.cab-tv-grand { flex: 1; min-width: 0; }
+/* À sa largeur, dans une grille comme dans une colonne flex : étiré, « ← La carte » passait sous la niche par sa boîte. */
+.cab-tv-lien { justify-self: start; align-self: flex-start; min-height: 44px; padding: 0; border: 0; background: none; color: var(--cab-tv-or-clair); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(247, 220, 154, 0.45); cursor: pointer; }
 
-/* La tour (`Tour.tsx`) : l'entrée du Cabinet depuis le 31 octobre 2026 — la scène en 3D d'un bord à l'autre, son titre sur la
-   nuit, le but en trois images, l'étage à jouer et ses portes. Elle tient en un téléphone, sa barre comprise : la scène prend la
-   hauteur qui reste, jamais moins que de quoi voir deux îles. La scène est une nuit étoilée sous tous les thèmes — un décor,
-   comme le cartel crème — : ce qui s'y écrit, le titre, la liste des étages sans WebGL et la légende d'une île touchée, s'écrit en
-   clair sur son noir, en dur. */
-.cab-tour { display: flex; flex-direction: column; gap: 10px; min-height: 100dvh; }
-.cab-avec-barre > .cab-tour { padding-top: 0; padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
-.cab-tour-scene { position: relative; flex: 1 0 176px; min-height: 176px; margin: 0 -20px; overflow: hidden; border-radius: 0 0 24px 24px; background: radial-gradient(130% 80% at 50% 100%, #2a1846, #07050e 70%); }
-.cab-tour-haut { position: absolute; top: 0; right: 0; left: 0; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; padding: max(10px, env(safe-area-inset-top)) 20px 30px; background: linear-gradient(rgba(7, 5, 14, 0.82), rgba(7, 5, 14, 0)); color: #f6efe4; pointer-events: none; }
-.cab-tour-haut > * { pointer-events: auto; }
-.cab-tour-scene:not(.cab-tour-en-3d) .cab-tour-haut { position: static; background: none; padding-bottom: 0; }
-/* « ← Accueil » n'y est plus enfant de la page (`.cab-page > .jour-sortie`) : sa taille et sa marche, ici. */
-.cab-tour-haut .jour-sortie { margin: 0 0 0 -6px; color: #e9dfd0; font-size: 1.0625rem; }
-@media (hover: hover) {
-  .cab-tour-haut .jour-sortie:hover { color: #f7dc9a; }
+/* Les monnaies : la pièce, les cœurs, les points de vie d'un gardien. */
+.cab-tv-piece { display: inline-block; position: relative; width: 1em; height: 1em; border-radius: 50%; vertical-align: -0.16em; background: radial-gradient(circle at 34% 30%, #fff6cf, #f2c75c 42%, #c18d34 74%, #8a5f1c); box-shadow: inset 0 0 0 0.09em rgba(110, 72, 20, 0.85), 0 0 0.45em rgba(242, 199, 92, 0.35); }
+.cab-tv-piece::after { content: ''; position: absolute; inset: 0.24em; border-radius: 50%; border: 0.06em solid rgba(110, 72, 20, 0.55); }
+.cab-tv-coeurs { display: inline-flex; align-items: center; gap: 2px; }
+/* Les couleurs des monnaies s'écrivent en dur : elles se posent aussi sur l'écran d'une épreuve, hors de la nuit de la carte. */
+.cab-tv-coeur { flex: none; width: 21px; height: 21px; fill: #ff5d73; filter: drop-shadow(0 1px 4px rgba(255, 70, 100, 0.45)); }
+.cab-tv-coeur.cab-tv-vide { fill: none; stroke: rgba(255, 140, 160, 0.6); stroke-width: 1.8; filter: none; }
+/* Sept ou huit cœurs (la Panacée améliorée) se serrent : la tête doit tenir en 360 de large. */
+.cab-tv-serres .cab-tv-coeur { width: 16px; height: 16px; }
+.cab-tv-bourse { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 7px; border-radius: 999px; background: rgba(226, 189, 110, 0.14); border: 1px solid rgba(226, 189, 110, 0.45); font-weight: 800; font-variant-numeric: lining-nums tabular-nums; }
+.cab-tv-bourse b { color: #f7dc9a; }
+.cab-tv-pv { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.cab-tv-pv i { width: 22px; height: 10px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 140, 140, 0.35); }
+.cab-tv-pv i.cab-tv-pv-plein { background: linear-gradient(180deg, #ff9c8a, #e0473f); border-color: #ffb3a8; box-shadow: 0 0 8px rgba(255, 90, 80, 0.5); }
+.cab-tv-ressources { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+
+/* La tête de la carte, le titre, le carton d'un acte. */
+.cab-tv-hud,
+.cab-tv-titre { position: relative; display: grid; gap: 6px; padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 18px max(16px, env(safe-area-inset-left, 0px)); text-shadow: 0 2px 4px #000, 0 3px 18px rgba(0, 0, 0, 0.9); }
+.cab-tv-titre h1 { font-size: 2.3rem; line-height: 1.02; }
+.cab-tv-titre p:not(.cab-tv-sur) { max-width: 30em; color: #e6dcef; }
+.cab-tv-hud-ligne { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cab-tv-acte { font-family: var(--font-display, Georgia, serif); font-size: 1.125rem; color: hsl(var(--cab-tv-teinte) 70% 82%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cab-tv-hud-bouton { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 12px 4px 5px; border-radius: 999px; background: var(--cab-tv-verre); border: 1px solid var(--cab-tv-trait); color: var(--cab-tv-encre); font: inherit; font-weight: 800; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); cursor: pointer; }
+.cab-tv-hud-bouton.cab-tv-rond { width: 44px; justify-content: center; padding: 0; }
+.cab-tv-hud-bouton img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(247, 220, 154, 0.6); }
+/* Sur un écran large, la tête s'écarte vers ses bords : tenue dans la colonne, ses cœurs et « Cartes » passaient sur les îles du
+   premier rang, au milieu de la carte (le rendu du 31 octobre 2026, en 1366 × 768). La caméra n'a pas à reculer pour elle. */
+@media (min-width: 900px) {
+  .cab-tv-hud { width: min(100vw, 1280px); justify-self: center; }
 }
-.cab-tour-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; align-self: stretch; }
-/* Quatre pixels sous « ← Accueil » : le corps de Cormorant dépasse sa ligne serrée, et le haut du titre passait sous le lien. */
-.cab-tour-haut h1 { margin: 4px 0 0; color: #f7dc9a; font-family: var(--serif); font-size: 2.1rem; font-weight: 600; line-height: 1.05; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7); }
-.cab-tour-aide { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid rgba(247, 220, 154, 0.55); border-radius: 50%; background: rgba(14, 9, 24, 0.55); color: #f7dc9a; cursor: pointer; }
-.cab-tour-aide .icon { width: 22px; height: 22px; }
-.cab-tour-toile { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
-.cab-tour-etages { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 8px 20px 12px; list-style: none; color: #f6efe4; }
-.cab-tour-etages li { display: flex; justify-content: space-between; gap: 8px; }
-.cab-tour-etages .cab-tour-ici { color: #f7dc9a; font-weight: 700; }
-.cab-tour-etat-etage { color: #d3c8e0; }
-.cab-tour-legende { position: absolute; right: 14px; bottom: 14px; left: 14px; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-xs); background: rgba(14, 9, 24, 0.88); color: #f6efe4; }
-.cab-tour-legende .cab-lien { min-height: 36px; color: #f7dc9a; }
-.cab-tour-panneau { display: flex; flex-direction: column; gap: 10px; }
-.cab-tour-panneau .cab-raison { margin-top: -4px; text-align: left; }
-/* Le but, en trois images reliées : la porte, l'œuvre qu'elle garde, le gardien de sa salle ; et ce qu'il devient, en une ligne. */
-.cab-tour-but { display: flex; flex-direction: column; gap: 6px; }
-.cab-tour-but ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
-.cab-tour-but li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; font-weight: 700; }
-.cab-tour-but li + li::before { content: ''; position: absolute; top: 23px; left: -5px; width: 10px; height: 10px; border-top: 2px solid var(--muted); border-right: 2px solid var(--muted); rotate: 45deg; }
-.cab-tour-but-image { display: grid; place-items: center; width: 56px; height: 56px; overflow: hidden; border: 2px solid var(--accent); border-radius: 50%; background: var(--surface-strong); color: var(--accent-text); }
-.cab-tour-but-image img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.cab-tour-but-image .icon { width: 26px; height: 26px; }
-.cab-tour-but-image.cab-medaillon { font-size: 44px; }
-.cab-tour-but > .cab-ligne { color: var(--muted); text-align: center; text-wrap: balance; }
-.cab-tour-montee { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
-/* Les cœurs d'une montée, rouges sous tous les thèmes : une convention, dite aussi en mots à l'oreille. */
-.cab-coeurs { color: #e0475f; font-size: 1.3rem; letter-spacing: 2px; line-height: 1; }
-.cab-coeur-perdu { color: var(--muted); }
-.cab-tour-fin { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
-.cab-tour-portes { display: flex; flex-direction: column; gap: 8px; }
-.cab-porte-tour { display: flex; align-items: center; gap: 12px; width: 100%; padding: 6px 10px 6px 6px; border: 2px solid var(--edge-strong); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.cab-porte-image { flex: none; display: grid; place-items: center; width: 80px; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius-xs); background: var(--surface-strong); }
-.cab-porte-image img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.cab-porte-symbole { color: var(--accent-text); font-size: 1.6rem; font-weight: 700; font-variant-numeric: lining-nums; }
-.cab-porte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
-.cab-porte-jeu { color: var(--muted); }
-.cab-tour-sous-titre { color: var(--muted); font-family: inherit; font-size: 1.0625rem; font-weight: 400; }
+.cab-tv-carton { position: absolute; left: 0; right: 0; top: 32%; width: min(90%, 420px); margin: 0 auto; display: grid; gap: 4px; justify-items: center; text-align: center; pointer-events: none; animation: cab-tv-carton 2.6s ease both; }
+.cab-tv-carton b { font-family: var(--font-display, Georgia, serif); font-weight: 400; font-size: 2.1rem; line-height: 1.1; color: var(--cab-tv-encre); text-shadow: 0 2px 6px #000, 0 0 30px hsl(var(--cab-tv-teinte) 80% 50% / 0.7); }
+
+/* Le panneau de verre du bas : le chemin à choisir. */
+.cab-tv-panneau { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 0 max(12px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+.cab-tv-verre { display: grid; gap: 10px; padding: 14px; border-radius: 22px; background: var(--cab-tv-verre); border: 1px solid var(--cab-tv-trait); -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3); box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.07); animation: cab-tv-monte 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.cab-tv-verre h2 { font-size: 1.4rem; }
+.cab-tv-quatre { list-style: none; padding: 0; display: grid; gap: 8px; }
+.cab-tv-quatre li { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 10px; color: var(--cab-tv-pale); line-height: 1.3; }
+.cab-tv-quatre b { color: var(--cab-tv-encre); }
+.cab-tv-quatre .cab-tv-piece,
+.cab-tv-quatre span[aria-hidden] { justify-self: center; text-align: center; }
+.cab-tv-trio { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cab-tv-trio li { display: grid; justify-items: center; gap: 4px; text-align: center; }
+.cab-tv-trio img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid var(--cab-tv-or); box-shadow: 0 0 18px rgba(247, 220, 154, 0.35); }
+.cab-tv-trio b { font-family: var(--font-display, Georgia, serif); font-weight: 400; line-height: 1.1; }
+.cab-tv-trio small { font-size: 1.0625rem; color: var(--cab-tv-acte); }
+.cab-tv-options { display: grid; gap: 8px; }
+.cab-tv-option { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 60px; padding: 7px 12px 7px 7px; border-radius: 16px; background: rgba(7, 5, 14, 0.55); border: 1px solid rgba(247, 220, 154, 0.22); color: var(--cab-tv-encre); font: inherit; text-align: left; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.cab-tv-option .cab-tv-ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 1.55rem; background: hsl(var(--cab-tv-teinte) 45% 22% / 0.8); }
+.cab-tv-option .cab-tv-ic img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--cab-tv-or); }
+.cab-tv-txt { display: grid; min-width: 0; }
+.cab-tv-option .cab-tv-txt b { font-family: var(--font-display, Georgia, serif); font-weight: 400; font-size: 1.15rem; line-height: 1.15; }
+.cab-tv-option .cab-tv-txt small { font-size: 1.0625rem; color: var(--cab-tv-pale); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cab-tv-quoi { font-size: 1.0625rem; font-weight: 800; color: var(--cab-tv-pale); }
+.cab-tv-option[aria-pressed='true'] { border-color: var(--cab-tv-or-clair); background: rgba(226, 189, 110, 0.16); box-shadow: 0 0 0 1px var(--cab-tv-or-clair), 0 0 22px -6px rgba(247, 220, 154, 0.6); }
+.cab-tv-option-gardien .cab-tv-txt small { white-space: normal; }
+
+/* Les boutons : l'appel d'or, le second, l'achat. */
+.cab-tv-cta { width: 100%; min-height: 58px; padding: 6px 14px; border: 0; border-radius: 18px; display: grid; align-content: center; justify-items: center; background: linear-gradient(180deg, #ffe7ad, var(--cab-tv-or) 60%, var(--cab-tv-or-sombre)); color: #1d1206; font: inherit; font-size: 1.125rem; font-weight: 800; line-height: 1.2; box-shadow: 0 10px 30px -8px rgba(247, 200, 110, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.6); cursor: pointer; }
+.cab-tv-cta small { font-size: 1.0625rem; font-weight: 700; opacity: 0.8; }
+.cab-tv-cta[aria-disabled='true'] { background: rgba(255, 255, 255, 0.1); color: var(--cab-tv-pale); box-shadow: none; }
+.cab-tv-second { display: grid; place-items: center; width: 100%; min-height: 50px; padding: 6px 12px; border-radius: 16px; background: rgba(7, 5, 14, 0.55); border: 1px solid rgba(247, 220, 154, 0.35); color: var(--cab-tv-encre); font-weight: 700; text-decoration: none; }
+.cab-tv-achat { min-width: 88px; min-height: 46px; padding: 0 12px; border: 0; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(180deg, #ffe7ad, var(--cab-tv-or) 60%, var(--cab-tv-or-sombre)); color: #1d1206; font: inherit; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; cursor: pointer; }
+.cab-tv-achat[aria-disabled='true'] { background: rgba(255, 255, 255, 0.1); color: var(--cab-tv-pale); }
 @media (hover: hover) {
-  .cab-porte-tour:hover { border-color: var(--accent); }
+  .cab-tv-cta:not([aria-disabled='true']):hover { filter: brightness(1.06); }
+  .cab-tv-option:hover,
+  .cab-tv-second:hover { border-color: rgba(247, 220, 154, 0.6); }
 }
+
+/* Les écrans pleins : une étape s'ouvre par-dessus la carte, sa colonne défile, son appel reste sous le pouce. */
+.cab-tv-plein { position: absolute; inset: 0; z-index: 2; }
+.cab-tv-ecran { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; background: radial-gradient(130% 70% at 50% 0%, hsl(var(--cab-tv-teinte) 40% 14% / 0.94), rgba(7, 5, 14, 0.96) 70%); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.cab-tv-colonne { width: 100%; max-width: 560px; margin: 0 auto; flex: 1 0 auto; display: flex; flex-direction: column; gap: 14px; padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 20px max(16px, env(safe-area-inset-left, 0px)); }
+/* Une seule colonne qui ne s'élargit jamais à son contenu : trois cartes côte à côte débordaient de l'écran. */
+.cab-tv-pied { position: sticky; bottom: 0; z-index: 4; width: 100%; max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: #07050e; }
+/* Le pied est plein, et son fondu commence au-dessus de lui : à 22 % de sa hauteur, la rangée des cœurs et de l'or se posait sur
+   un fondu à moitié transparent, et le texte qui défilait se lisait au travers (l'annonce d'un gardien, le rendu du 31 octobre
+   2026) ; à 0,96, l'or clair des notes se devinait encore sous elle. Sa nuit est celle du bas de l'écran, au niveau près. */
+.cab-tv-pied::before { content: ''; position: absolute; right: 0; bottom: 100%; left: 0; height: 28px; background: linear-gradient(180deg, transparent, #07050e); pointer-events: none; }
+.cab-tv-retour { margin-bottom: -6px; }
+.cab-tv-tete-ecran { display: grid; gap: 6px; }
+.cab-tv-tete-ecran h2 { font-size: 1.75rem; }
+
+/* L'annonce d'une épreuve et d'un gardien. */
+.cab-tv-annonce { align-items: stretch; text-align: center; }
+.cab-tv-annonce .cab-tv-retour { align-self: flex-start; }
+.cab-tv-grand-ic { font-size: 4.2rem; line-height: 1; margin-top: 6px; filter: drop-shadow(0 6px 22px hsl(var(--cab-tv-teinte) 80% 60% / 0.5)); }
+.cab-tv-annonce h2,
+.cab-tv-bilan h2,
+.cab-tv-fin h2 { font-size: 2.1rem; }
+.cab-tv-geste { font-size: 1.125rem; }
+.cab-tv-bareme { display: grid; gap: 6px; padding: 12px; border-radius: 16px; text-align: left; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(247, 220, 154, 0.16); }
+.cab-tv-bareme div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cab-tv-bareme b { display: inline-flex; align-items: center; gap: 4px; color: var(--cab-tv-or-clair); white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.cab-tv-bareme .cab-tv-ko b { color: #ffb0b6; }
+.cab-tv-notes { list-style: none; padding: 0; display: grid; gap: 4px; color: var(--cab-tv-or-clair); text-align: left; }
+.cab-tv-portrait { width: min(52vw, 200px); aspect-ratio: 1; margin: 6px auto 0; padding: 6px; border-radius: 50%; background: conic-gradient(from 0deg, #fff1c4, var(--cab-tv-or), #7a5520, var(--cab-tv-or), #fff1c4); box-shadow: 0 0 60px -6px hsl(var(--cab-tv-teinte) 80% 60% / 0.65), 0 20px 50px rgba(0, 0, 0, 0.7); }
+.cab-tv-portrait img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.cab-tv-devise { font-style: italic; color: var(--cab-tv-pale); font-size: 1.0625rem; }
+.cab-tv-regle-gardien { display: grid; gap: 4px; padding: 12px; border-radius: 16px; text-align: left; background: rgba(255, 93, 115, 0.08); border: 1px solid rgba(255, 138, 144, 0.3); }
+.cab-tv-ecran-gardien .cab-tv-pv i { width: 30px; height: 12px; }
+
+/* Le bilan d'une épreuve : un gain saute, une erreur tremble, un gardien vaincu s'éteint. */
+.cab-tv-bilan { align-items: stretch; justify-content: center; text-align: center; }
+.cab-tv-manches { list-style: none; padding: 0; display: grid; gap: 8px; text-align: left; }
+.cab-tv-manches li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(247, 220, 154, 0.14); }
+.cab-tv-manches li.cab-tv-ok { background: rgba(126, 226, 168, 0.1); border-color: rgba(126, 226, 168, 0.4); }
+.cab-tv-manches li.cab-tv-ko { background: rgba(255, 138, 144, 0.1); border-color: rgba(255, 138, 144, 0.4); animation: cab-tv-tremble 0.4s ease-in-out; }
+.cab-tv-manches li.cab-tv-sans { opacity: 0.55; }
+.cab-tv-manches .cab-tv-sur { color: var(--cab-tv-pale); letter-spacing: 0.04em; }
+.cab-tv-etoiles { color: var(--cab-tv-or-clair); letter-spacing: 0.08em; }
+.cab-tv-gain { font-weight: 800; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.cab-tv-gain small { font-size: 1.0625rem; font-weight: 700; color: #ffc9b8; }
+.cab-tv-ok .cab-tv-gain { color: var(--cab-tv-or-clair); }
+.cab-tv-ko .cab-tv-gain { color: #ffb0b6; }
+.cab-tv-total { display: flex; justify-content: center; gap: 16px; font-size: 1.6rem; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; }
+.cab-tv-saute { display: inline-flex; align-items: center; gap: 6px; color: var(--cab-tv-or-clair); animation: cab-tv-saute 0.55s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.cab-tv-perte { color: #ffb0b6; }
+.cab-tv-vaincu img { filter: grayscale(0.75) brightness(0.65); transition: filter 1.2s ease; }
+
+/* Les cartes : une peinture, son nom et son niveau, sa sorte, ce qu'elle fait. */
+.cab-tv-cartes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cab-tv-carte { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 0 0 10px; overflow: hidden; border-radius: 14px; background: rgba(7, 5, 14, 0.6); border: 2px solid rgba(247, 220, 154, 0.25); color: var(--cab-tv-encre); font: inherit; text-align: left; }
+button.cab-tv-carte { cursor: pointer; }
+.cab-tv-peinture { position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; background: #000; }
+.cab-tv-peinture img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cab-tv-nom { padding: 2px 10px 0; font-family: var(--font-display, Georgia, serif); font-size: 1.125rem; line-height: 1.15; }
+.cab-tv-plus { color: var(--cab-tv-or-clair); font-family: inherit; font-weight: 800; }
+.cab-tv-sorte { align-self: flex-start; justify-self: start; margin: 0 10px; padding: 1px 8px; border-radius: 999px; font-size: 1.0625rem; font-weight: 800; background: rgba(120, 178, 255, 0.16); color: #b9d5ff; }
+.cab-tv-sorte-toujours { background: rgba(126, 226, 168, 0.14); color: #bff0d3; }
+.cab-tv-sorte-une-fois { background: rgba(255, 138, 144, 0.16); color: #ffc9cd; }
+.cab-tv-dit { padding: 0 10px; font-size: 1.0625rem; line-height: 1.3; color: var(--cab-tv-pale); }
+.cab-tv-bas { padding: 2px 10px 0; display: flex; justify-content: flex-end; }
+.cab-tv-carte.cab-tv-prise { border-color: var(--cab-tv-or-clair); box-shadow: 0 0 0 1px var(--cab-tv-or-clair), 0 0 26px -6px rgba(247, 220, 154, 0.7); }
+.cab-tv-carte.cab-tv-amelioree { border-color: rgba(247, 220, 154, 0.7); }
+.cab-tv-carte[aria-disabled='true'] { opacity: 0.55; }
+.cab-tv-coche { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--cab-tv-or-clair); color: #1d1206; font-weight: 800; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
+/* Trois cartes sur une colonne — la feuille, l'amélioration : la peinture à gauche, le texte à droite. */
+.cab-tv-cartes.cab-tv-trois { grid-template-columns: minmax(0, 1fr); }
+.cab-tv-trois .cab-tv-carte { display: grid; grid-template-columns: 112px minmax(0, 1fr); grid-template-rows: auto auto 1fr; column-gap: 12px; row-gap: 4px; padding: 0 10px 0 0; }
+.cab-tv-trois .cab-tv-peinture { grid-row: 1 / -1; height: 100%; min-height: 104px; aspect-ratio: auto; }
+.cab-tv-trois .cab-tv-nom,
+.cab-tv-trois .cab-tv-sorte,
+.cab-tv-trois .cab-tv-dit { margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; }
+.cab-tv-trois .cab-tv-nom { padding-top: 8px; }
+.cab-tv-trois .cab-tv-dit { padding-bottom: 10px; }
+
+/* Le coffre, le marchand. */
+.cab-tv-tresor { align-items: center; text-align: center; }
+.cab-tv-coffre { width: min(70vw, 260px); align-self: center; filter: drop-shadow(0 18px 40px rgba(247, 200, 110, 0.45)); animation: cab-tv-respire 2.4s ease-in-out infinite; }
+.cab-tv-coffre.cab-tv-ouvert { width: min(46vw, 170px); }
+.cab-tv-enseigne { min-height: 172px; display: grid; align-items: end; border-radius: 20px; border: 1px solid rgba(247, 220, 154, 0.3); }
+.cab-tv-enseigne-texte { position: relative; display: grid; gap: 4px; padding: 46px 14px 14px; background: linear-gradient(180deg, transparent, rgba(12, 7, 4, 0.92) 45%); }
+.cab-tv-enseigne h2 { font-size: 1.8rem; }
+.cab-tv-replique { font-style: italic; color: #f0dcc0; }
+.cab-tv-rayon { display: grid; gap: 8px; }
+.cab-tv-rayon h3 { font-size: 1.25rem; color: var(--cab-tv-or-clair); }
+.cab-tv-article { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(247, 220, 154, 0.16); }
+.cab-tv-article .cab-tv-txt small { font-size: 1.0625rem; line-height: 1.3; color: var(--cab-tv-pale); }
+.cab-tv-amelio img { width: 64px; height: 48px; border-radius: 6px; object-fit: cover; }
+.cab-tv-ic-coeur .cab-tv-coeur { width: 30px; height: 30px; }
+
+/* Le légendaire, la fin. */
+.cab-tv-victoire { background: radial-gradient(120% 70% at 50% 10%, rgba(247, 220, 154, 0.18), rgba(7, 5, 14, 0.96) 65%); }
+.cab-tv-legendaires { display: grid; gap: 10px; }
+.cab-tv-legendaire { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 92px; padding: 8px 12px 8px 8px; border-radius: 18px; background: rgba(7, 5, 14, 0.6); border: 2px solid rgba(247, 220, 154, 0.25); color: var(--cab-tv-encre); font: inherit; text-align: left; cursor: pointer; }
+.cab-tv-legendaire img { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; border: 2px solid var(--cab-tv-or); }
+.cab-tv-legendaire b { font-family: var(--font-display, Georgia, serif); font-weight: 400; font-size: 1.3rem; }
+.cab-tv-legendaire small { font-size: 1.0625rem; color: var(--cab-tv-pale); }
+.cab-tv-legendaire[aria-pressed='true'] { border-color: var(--cab-tv-or-clair); background: rgba(226, 189, 110, 0.16); box-shadow: 0 0 0 1px var(--cab-tv-or-clair), 0 0 30px -6px rgba(247, 220, 154, 0.7); }
+.cab-tv-fin { align-items: stretch; text-align: center; }
+.cab-tv-rayons { position: relative; }
+.cab-tv-rayons::before { content: ''; position: absolute; inset: -30%; z-index: -1; border-radius: 50%; background: repeating-conic-gradient(from 0deg, rgba(247, 220, 154, 0.22) 0 8deg, transparent 8deg 22deg); animation: cab-tv-tourne 24s linear infinite; -webkit-mask: radial-gradient(closest-side, #000 55%, transparent); mask: radial-gradient(closest-side, #000 55%, transparent); }
+.cab-tv-stats { list-style: none; padding: 0; display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 16px; color: var(--cab-tv-pale); }
+.cab-tv-stats b { color: var(--cab-tv-or-clair); font-size: 1.3rem; font-variant-numeric: lining-nums tabular-nums; }
+.cab-tv-menu { display: grid; gap: 10px; }
+.cab-tv-danger { color: #ffb0b6; }
+/* Les feuilles de la traversée — tes cartes, le menu, « Comment ça marche ? » — sont de la même nuit que la carte : leur fond, leur
+   encre et leurs bords se reprennent ici, sans quoi l'encre claire de la carte s'écrivait sur le fond pâle d'un thème clair. */
+.cab-tv-feuille {
+  --bg: #120c1f;
+  --bg-raised: #1b1430;
+  --ink: #f6efe4;
+  --muted: #c9bdd6;
+  --edge: rgba(247, 220, 154, 0.18);
+  --edge-strong: rgba(247, 220, 154, 0.32);
+  --accent-text: #f7dc9a;
+  color: #f6efe4;
+  background: #120c1f;
+}
+.cab-tv-feuille .btn { color: #f6efe4; background: rgba(255, 255, 255, 0.06); border-color: rgba(247, 220, 154, 0.3); }
+.cab-tv-regles { display: grid; gap: 8px; line-height: 1.45; }
+.cab-tv-regles h3 { margin: 6px 0 0; font-family: var(--font-display, Georgia, serif); font-weight: 400; font-size: 1.25rem; color: #f7dc9a; }
+.cab-tv-regles p { margin: 0; }
+
+/* Une épreuve de la traversée, sur l'écran de partie : ses cœurs, son or et son gardien en tête, ses cartes côte à côte. */
+.cab-tete-traversee { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 6px; }
+.cab-tete-traversee .cab-tv-coeur { width: 19px; height: 19px; }
+.cab-tete-traversee .cab-tv-serres .cab-tv-coeur { width: 15px; height: 15px; }
+.cab-tete-traversee .cab-tv-bourse { color: var(--ink); background: color-mix(in srgb, #e2bd6e 16%, transparent); }
+.cab-tete-traversee .cab-tv-bourse b { color: var(--accent-text); }
+.cab-tete-traversee .cab-tv-pv { margin-left: auto; }
+.cab-cartes-en-jeu { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: start; }
+.cab-cartes-en-jeu .cab-carte-ligne { grid-column: 1 / -1; }
+.cab-carte-en-jeu { display: grid; gap: 4px; min-width: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .cab-tv-verre,
+  .cab-tv-carton,
+  .cab-tv-coffre,
+  .cab-tv-saute,
+  .cab-tv-manches li.cab-tv-ko,
+  .cab-tv-rayons::before { animation: none; }
+}
+
+/* ── Les animations de la traversée ──────────────────────────────────────
+   Hors de la section du Cabinet : ses pas (`0%`, `from`, `to`) ne sont pas des
+   règles, et `cabinet-ecran.test.ts` relit la section sélecteur par sélecteur.
+   Celles qui les posent, et leur arrêt sous moins de mouvement, y restent. */
+@keyframes cab-tv-carton { 0% { opacity: 0; transform: translateY(12px); } 15%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes cab-tv-monte { from { opacity: 0; transform: translateY(14px); } }
+@keyframes cab-tv-saute { from { transform: scale(0.4); opacity: 0; } }
+@keyframes cab-tv-tremble { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+@keyframes cab-tv-respire { 50% { transform: translateY(-6px) scale(1.02); } }
+@keyframes cab-tv-tourne { to { rotate: 1turn; } }
 
 /* ── L'atlas ─────────────────────────────────────────────────────────────
    Un rail d'orbes — l'anneau de chaque collection se remplit à chaque pièce
@@ -13015,13 +13158,22 @@ body.avec-niche .exp-haut-du-depart,
 body.avec-niche .cab-page > .piece-tete,
 body.avec-niche .cab-page .cab-bilan-tete > .piece-tete,
 body.avec-niche .cab-tete-ligne { padding-right: var(--niche-place); }
-/* Le titre de la tour, sur sa nuit d'un bord à l'autre : son rond des règles s'arrête avant la niche. */
-body.avec-niche .cab-tour-haut { padding-right: calc(20px + var(--niche-place)); }
 /* Au Cabinet, le chrono de la tête passe sous la ligne des manches, au bas de la niche : ses secondes s'y cachaient, à chaque manche. */
 body.avec-niche .cab-tete-partie .timer { padding-right: var(--niche-place); }
-/* Au Cabinet, la peinture levée et le cadre vide en grand suivent « ← Le Rempart » : leur coin haut passait sous le bas de la niche. */
-body.avec-niche .cab-page > .cab-oeuvre-levee,
-body.avec-niche .cab-page > .cab-cadre-grand { margin-top: 10px; }
+/* La traversée : sa tête et son titre s'arrêtent avant la niche, posée sur la nuit de la carte. */
+body.avec-niche .cab-tv-hud,
+body.avec-niche .cab-tv-titre { padding-right: calc(16px + var(--niche-place)); }
+/* Le coin pris, la rangée des cœurs, de l'or et de « Cartes » ne tient plus en 360 de large : « Cartes » n'y garde que sa
+   peinture, son nom dit à l'oreille (`aria-label`) — en entier, il passait sous la niche (`rendu-niche.ts`, le 31 octobre 2026).
+   Huit cœurs et une bourse de trois chiffres vont encore à la ligne plutôt que dessous. Sur un écran large, la tête s'écarte vers
+   les bords, loin de la niche, et le garde. */
+@media (max-width: 899px) {
+  body.avec-niche .cab-tv-hud-ligne { flex-wrap: wrap; }
+  body.avec-niche .cab-tv-hud-cartes { width: 44px; justify-content: center; padding: 0; }
+  body.avec-niche .cab-tv-hud-cartes > span { display: none; }
+}
+/* Au Cabinet, la peinture levée suit la tête : son coin haut passait sous le bas de la niche. */
+body.avec-niche .cab-page > .cab-oeuvre-levee { margin-top: 10px; }
 /* Sur une tablette ou un portable, la colonne d'une question s'élargit (760 pixels, « La tablette n'est pas un téléphone
    étiré ») : la niche et sa fiche suivent son coin, sous la même condition. Au coin de la colonne de 560, la niche se posait au
    milieu de la tête d'une partie du Cabinet, sur « Quitter », et cent pixels dans la page du quiz du jour (le rendu du

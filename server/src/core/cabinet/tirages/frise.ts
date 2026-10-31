@@ -136,6 +136,15 @@ function deSujetLaPlusFraiche(ctx: ContexteDuTirage): Candidate | null {
  * null sans aucune frise à poser.
  */
 export function tirerUneFrise(ctx: ContexteDuTirage): FriseTiree[] | null {
+  // La frise qu'une épreuve de traversée a promise sur sa carte — son thème —, d'abord.
+  const promise = ctx.vise?.theme ? contenuDuCabinet().frises.find(f => f.theme === ctx.vise?.theme) : undefined
+  if (promise) {
+    const vagues = friseEnVagues(
+      { sorte: 'theme', cle: promise.id, theme: promise.theme, evenements: promise.evenements.map(e => ({ libelle: e.libelle, annee: e.annee })), savais: promise.savais, categorie: promise.categorie },
+      ctx.hasard,
+    )
+    if (vagues) return vagues
+  }
   const aTheme = aThemeLaMoinsVue(ctx)
   const deSujet = deSujetLaPlusFraiche(ctx)
   const auHasard = () => (ctx.hasard() < 0.5 ? [aTheme, deSujet] : [deSujet, aTheme])

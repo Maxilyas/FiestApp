@@ -53,6 +53,14 @@ export interface ContexteDuTirage {
    * plus choisie à une affirmation fausse, plutôt qu'un leurre au hasard.
    */
   leurres: ReadonlyMap<string, ReadonlyMap<string, number>>
+  /**
+   * Ce qu'une épreuve de traversée a promis sur sa carte : une catégorie de la
+   * base (« Histoire »), ou le thème d'une frise ou d'un lieu (« Rome »). Le
+   * tireur la cherche d'abord ; sans rien qui tienne ses règles, il tire
+   * ailleurs, comme toujours — une épreuve qui ne partirait pas serait pire
+   * qu'un thème voisin.
+   */
+  vise?: { categorie: Categorie | null; theme: string | null }
 }
 
 /** Les marches d'un jeu sous l'enjeu de la partie : les siennes, et ce que l'œuvre visée y ajoute. */
@@ -122,6 +130,10 @@ export function uneQuestionDesCategories(
   marches: readonly Niveau[],
   garde?: (q: QuestionDeLaBase) => boolean,
 ): { question: QuestionDeLaBase; niveau: Niveau } | null {
+  // La catégorie qu'une épreuve a promise passe d'abord, même jouée à la manche d'avant : c'est le thème de toute l'épreuve.
+  const visee = ctx.vise?.categorie
+  const promise = visee ? (tirerDesQuestions(ctx, posees, [tasDe(visee)], marches, 1, garde)[0] ?? null) : null
+  if (promise) return promise
   const neuves = CATEGORIES.filter(c => !posees.categories.includes(c))
   return tirerDesQuestions(ctx, posees, neuves.map(tasDe), marches, 1, garde)[0] ?? tirerDesQuestions(ctx, posees, CATEGORIES.map(tasDe), marches, 1, garde)[0] ?? null
 }

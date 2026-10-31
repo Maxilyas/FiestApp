@@ -796,7 +796,7 @@ async function stabiliser(page: Page, maxMs = 2500) {
   }
 }
 
-/** Ce qu'une photo attend au plus que ses images se décodent : celui des rendus (`rendu-cabinet.ts`). */
+/** Ce qu'une photo attend au plus que ses images se décodent : celui des rendus (`rendu-niche.ts`). */
 const ATTENTE_DES_IMAGES_MS = 3000
 
 /**

@@ -62,6 +62,9 @@ export function tirerUneEpingle(ctx: ContexteDuTirage, rechanges: number): Eping
     const r = rangDuTheme(ctx, t)
     if (!sonRang || passeAvant(r, sonRang)) [theme, sonRang] = [t, r]
   }
+  // Le thème qu'une épreuve de traversée a promis sur sa carte passe devant le moins vu, s'il a ses trois lieux.
+  const promis = ctx.vise?.theme ? themesDe(lieux).find(t => t[0].theme === ctx.vise?.theme && t.length >= MANCHES_PAR_PARTIE) : undefined
+  if (promis) theme = promis
   if (!theme) return null
   const nom = theme[0].theme
   const posees = new Set<string>()

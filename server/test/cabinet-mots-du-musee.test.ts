@@ -1,14 +1,14 @@
-// Ce que disent l'œuvre, les règles, la salle, l'Éclair, le musée et le bilan
-// (la tablée du 26 octobre 2026, le lot « les-mots-du-musee ») : chaque phrase
-// que la tablée a lue de travers, rendue en HTML (`renderToStaticMarkup`) sur
-// ce qu'un vrai serveur rend à des joueurs qui jouent par les routes — les
-// réponses lues dans le plan en base. Une œuvre gagnée à la visite à un autre
-// jeu que le sien ne se dit plus « à rejouer » ; deux cadres vides ne portent
-// plus le même nom à l'oreille ; le carnet de l'Éclair se nomme ; le Scarabée
-// et la série disent qu'un jour se gagne en répondant ; la visite ne promet
-// plus deux minutes ; l'œuvre gagnée a son titre au bilan. Sans navigateur :
-// seul le premier rendu se lit ; les écrans se regardent au téléphone par
-// `server/scripts/rendu-cabinet.ts` (skill `regarder-le-rendu`).
+// Ce que disent la salle, le cartel, l'Éclair, le musée et le bilan (la tablée
+// du 26 octobre 2026, le lot « les-mots-du-musee ») : chaque phrase que la
+// tablée a lue de travers, rendue en HTML (`renderToStaticMarkup`) sur ce qu'un
+// vrai serveur rend à des joueurs qui jouent par les routes — les réponses
+// lues dans le plan en base. Deux cadres vides ne portent plus le même nom à
+// l'oreille ; une œuvre doublée ne se dit pas « rejouée » ; le carnet de
+// l'Éclair se nomme ; le Scarabée dit qu'un jour se gagne en répondant ; le
+// musée ne promet plus deux minutes ; l'œuvre gagnée à un autre jeu que le
+// sien a son titre au bilan. La fiche d'une œuvre, les règles, les gardiens et
+// « Jouer » ont quitté la page avec le musée, le 31 octobre 2026 : leurs
+// phrases sont parties avec eux. Sans navigateur : seul le premier rendu se lit.
 import { readFileSync } from 'node:fs'
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -136,8 +136,8 @@ let gagnee: GagneeAUnAutreJeu
  * on lit le départ en base, et une case qui met en jeu une œuvre de son propre
  * jeu, ou une épique — sept étoiles, qu'on n'atteint pas sans le cadre doré —,
  * se quitte, au profil suivant s'il le faut. Deux manches sans faute, puis
- * « Quitter » : six étoiles, l'œuvre gagnée, sans cadre doré — dorée, sa fiche
- * n'aurait plus rien à jouer.
+ * « Quitter » : six étoiles, l'œuvre gagnée, sans cadre doré — dorée, son
+ * cartel et son bilan diraient une autre issue.
  */
 async function uneOeuvreGagneeAUnAutreJeu(): Promise<GagneeAUnAutreJeu> {
   for (let i = 0; i < 6; i++) {
@@ -168,14 +168,12 @@ before(async () => {
 after(() => b?.banc.close())
 after(fermerLesMagasins)
 
-const lOeuvre = (page: PageDuCabinet, cle: string, cartel: object) =>
-  rendu('views/cabinet/Oeuvre', 'Oeuvre', { page, cle, cartel, carte: null, busy: false, onCarte: rien, onAcheter: rien, onDorer: rien, onJouer: rien })
+// ── L'œuvre gagnée à la visite : son cartel ───────────────────────────────
 
-// ── L'œuvre gagnée à la visite : son jeu, et pourquoi ─────────────────────
-
-test('une œuvre gagnée à la visite à un autre jeu que le sien : « La jouer » à son jeu, et la fiche dit que la visite l’avait mise en jeu ailleurs', async () => {
+test('une œuvre gagnée à la visite à un autre jeu que le sien : son cartel dit la partie de la visite, à son jeu à elle ; celui d’une offerte ne dit pas « Rejoue-la »', async () => {
+  // Sa fiche, qui disait « La jouer » à son jeu et pourquoi la visite l'avait mise en jeu ailleurs, a quitté la page avec le musée
+  // (le 31 octobre 2026) ; ce que le serveur en dit reste.
   const { cookie, cle, jeuDeLaVisite, fin } = gagnee
-  const sonJeu = JEUX[JEU_DE_L_OEUVRE[cle]]
   assert.notEqual(JEU_DE_L_OEUVRE[cle], jeuDeLaVisite, 'gagnée à un autre jeu que le sien')
   assert.equal(fin.bilan?.issue, 'gagnee', 'gagnée, sans cadre doré')
   const page = ok(await laPage(b, cookie), 'la page')
@@ -184,29 +182,12 @@ test('une œuvre gagnée à la visite à un autre jeu que le sien : « La jouer 
   // Son cartel, tel que le serveur le rend : la partie de la visite, à son jeu à elle.
   const cartel = ok(await lire<Cartel>(b, cookie, `/api/cabinet/oeuvre/${cle}`), 'le cartel')
   assert.equal(cartel.partie?.jeu, jeuDeLaVisite)
-  const t = texte(await lOeuvre(page, cle, { etat: 'lu', cartel }))
-  assert.match(t, phrase(`Gagnée ${JEUX[jeuDeLaVisite].a}`))
-  // « La rejouer » était faux huit fois sur neuf : elle n'a jamais été jouée à ce jeu-là. « Rejoue-la » non plus (`/rejou/`).
-  assert.doesNotMatch(t, /rejou/i)
-  assert.match(t, phrase(`La jouer ${sonJeu.a} pour la dorer · une chasse`))
-  // Pourquoi un autre jeu que celui du cartel : chaque œuvre a le sien, et la visite l'avait mise en jeu ailleurs.
-  assert.match(t, phrase(`Chaque œuvre a son jeu : la sienne se joue ${sonJeu.a}. La visite l’avait mise en jeu ${JEUX[jeuDeLaVisite].a}.`))
-  // Gagnée à son propre jeu — en chasse —, rien à expliquer : la fiche ne dit que « La jouer ».
-  const aSonJeu = texte(await lOeuvre(page, cle, { etat: 'lu', cartel: { ...cartel, partie: { ...cartel.partie!, jeu: JEU_DE_L_OEUVRE[cle] } } }))
-  assert.match(aSonJeu, phrase(`La jouer ${sonJeu.a} pour la dorer`))
-  assert.doesNotMatch(aSonJeu, /Chaque œuvre a son jeu|La visite l’avait/)
-  // Le cartel en chemin : rien ne se devine avant lui.
-  assert.doesNotMatch(texte(await lOeuvre(page, cle, { etat: 'chargement' })), /Chaque œuvre a son jeu|La visite l’avait/)
-  // Une œuvre offerte à l'arrivée, sans partie à raconter : son jeu, sans rien de la visite. Son cartel, la phrase du serveur,
-  // ne dit pas non plus « Rejoue-la » d'une œuvre qu'on n'a jamais jouée : il tombait juste au-dessus de « La jouer » (la
-  // relecture du lot) — `/rejouer/` le laissait passer.
+  // Une œuvre offerte à l'arrivée, sans partie à raconter : son cartel, la phrase du serveur, ne dit pas « Rejoue-la » d'une œuvre
+  // qu'on n'a jamais jouée — il tombait juste au-dessus de « La jouer » (la relecture du lot).
   const offerte = page.salles.flatMap(s => s.oeuvres).find(x => x.possedee && !x.doree && x.cle !== cle)!
   const sonCartel = ok(await lire<Cartel>(b, cookie, `/api/cabinet/oeuvre/${offerte.cle}`), 'le cartel d’une offerte')
   assert.equal(sonCartel.partie, undefined)
   assert.equal(sonCartel.dit, 'Offerte à ton arrivée. Joue-la à son jeu pour dorer son cadre : elle gardera ici ce que tu auras appris.')
-  const tOfferte = texte(await lOeuvre(page, offerte.cle, { etat: 'lu', cartel: sonCartel }))
-  assert.match(tOfferte, phrase(`La jouer ${JEUX[offerte.jeu].a} pour la dorer`))
-  assert.doesNotMatch(tOfferte, /rejou|La visite l’avait/i)
 })
 
 test('une œuvre doublée à la visite se dit « Jouée » sur son cartel et au bilan, jamais « Rejouée » : offerte, elle n’avait jamais été jouée', async () => {
@@ -228,19 +209,6 @@ test('une œuvre doublée à la visite se dit « Jouée » sur son cartel et au 
   assert.match(t, /^Ce que tu as appris en la jouant /)
   assert.match(t, phrase(`Jouée ${JEUX.pari.a} · 7 sur 9`))
   assert.doesNotMatch(t, /rejou/i)
-})
-
-test('la feuille des règles dit que chaque œuvre a son jeu, celui de son cadre vide, et que la visite met les siennes en jeu aux jeux du jour ; nulle part qu’une œuvre se « rejoue »', async () => {
-  const t = texte(await rendu('views/cabinet/Regles', 'Regles', { jeux: neuve.jeux }))
-  assert.match(t, /Chaque œuvre a son jeu, celui que son cadre vide affiche : on l’y cherche, on l’y dore ; la visite, elle, met ses œuvres en jeu aux jeux du jour\./)
-  // « Où se jouent sa chasse et sa dorure » contredisait la ligne d'au-dessus : une case manquée se retente au jeu de la case,
-  // pour une chasse, et une case de la visite dore aussi, au jeu du jour (la relecture du lot).
-  assert.doesNotMatch(t, /où se jouent sa chasse/)
-  // Le glossaire de la même feuille : une œuvre offerte, jamais jouée, ne se « rejoue » pas, et son cartel ne vient pas d'une
-  // partie « rejouée ». Seule une partie quittée « ne se rejoue pas » — celle-là, on l'a jouée.
-  assert.match(t, /Chasse Jouer l’œuvre de ton choix à son jeu : pour la gagner, ou pour la dorer si elle est à toi\./)
-  assert.match(t, /Cartel La plaque sous une œuvre : ce que tu as appris en jouant pour elle\./)
-  assert.doesNotMatch(t.replace('Quitter une partie la compte avec ses étoiles : elle ne se rejoue pas.', ''), /rejou/i)
 })
 
 // ── Les cadres vides, à l'oreille ─────────────────────────────────────────
@@ -287,36 +255,27 @@ test('la révélation de l’Éclair nomme le carnet de révision de la campagne
   assert.match(t, /Ces affirmations ne vont pas au carnet de révision de la campagne\./)
 })
 
-// ── La série et le Scarabée : un jour se gagne en répondant ───────────────
+// ── Le Scarabée : un jour se gagne en répondant ───────────────────────────
 
-test('la condition du Scarabée et la série du musée disent qu’un jour ne compte qu’à une manche répondue', async () => {
+test('la condition du Scarabée dit qu’un jour ne compte qu’à une manche répondue', () => {
   // La reproduction de la relecture (`serveur-textes-de-l-ancienne-regle.test.ts`, épreuve 1) : « 30 jours de visite ou de chasse
-  // d'affilée » se lisait « commencer une visite chaque jour ».
+  // d'affilée » se lisait « commencer une visite chaque jour ». La fiche du gardien et « Jouer », qui la disaient avec la série, ont
+  // quitté la page avec le musée (le 31 octobre 2026) ; la visite dit encore la série (`cabinet-ecran.test.ts`).
   const condition = conditionDuGardien('lg:scarabee')!
   assert.match(condition, /répond/, condition)
   assert.match(condition, new RegExp(`^${JOURS_DU_SCARABEE} jours`))
-  // Telle que le serveur l'envoie à la fiche du gardien endormi.
+  // Telle que le serveur l'envoie avec le gardien endormi.
   const scarabee = neuve.gardiens.tous.find(g => g.legendaire === 'lg:scarabee')!
   assert.equal(scarabee.condition, condition)
-  const fiche = texte(await rendu('views/cabinet/Gardiens', 'FicheDuGardien', { gardien: scarabee, carte: null, onCarte: rien, onFermer: rien }))
-  assert.match(fiche, /Pour le réveiller : \d+ jours d’affilée à répondre à une manche de visite ou de chasse\./)
-  // « Jouer », où vit la série depuis le 31 octobre 2026 — le musée la disait — : elle se garde en répondant, comme la visite le dit.
-  const jouer = texte(
-    await rendu('views/cabinet/Jouer', 'Jouer', { page: { ...neuve, serie: { jours: 12, aJouer: true, record: 12 } }, onRegles: rien, onReprendre: rien }),
-  )
-  assert.match(jouer, /12 jours de visite d’affilée\. Réponds à une manche aujourd’hui pour garder ta série\./)
-  assert.doesNotMatch(jouer, /Joue aujourd’hui/)
 })
 
-// ── La visite ne promet plus deux minutes ─────────────────────────────────
+// ── Le musée ne promet plus deux minutes ──────────────────────────────────
 
-test('ni le musée ni « Jouer » ne promettent des parties de deux minutes : le Mot en donne deux par manche', async () => {
+test('le musée ne promet pas des parties de deux minutes : le Mot en donne deux par manche', async () => {
   const musee = await rendu('views/cabinet/Musee', 'Musee', { page: neuve, onReprendre: rien })
-  const jouer = await rendu('views/cabinet/Jouer', 'Jouer', { page: neuve, onRegles: rien, onReprendre: rien })
   // Ophélie additionnait les chronos, deux minutes à six au Mot : la promesse tenait 53 parties sur 54, pas toutes. La bienvenue,
-  // qui disait « de petits jeux de quelques minutes », s'est tue avec le musée d'avant : le but de la tour l'a remplacée.
-  for (const html of [musee, jouer]) assert.doesNotMatch(texte(html), /deux minutes/)
-  assert.match(texte(jouer), new RegExp(`${neuve.visite.cases.length} petites parties · 0 sur ${neuve.visite.cases.length} faite`))
+  // qui disait « de petits jeux de quelques minutes », s'est tue avec le musée d'avant.
+  assert.doesNotMatch(texte(musee), /deux minutes/)
 })
 
 // ── La documentation, des mêmes mots ──────────────────────────────────────
@@ -325,11 +284,12 @@ const doc = (fichier: string) => readFileSync(new URL(`../../${fichier}`, import
 
 test('la documentation dit les mots de l’écran : de petits jeux de quelques minutes, et une œuvre qui se joue à son jeu pour la dorer, jamais « rejouée »', () => {
   // La relecture du lot : la page ne promettait plus deux minutes, le produit et le sommaire si ; elle ne disait plus « la
-  // rejouer », le produit et la référence si — d'une œuvre offerte ou achetée, jamais jouée.
+  // rejouer », le produit et la référence si — d'une œuvre offerte ou achetée, jamais jouée. Depuis le 31 octobre 2026, le produit
+  // dit la traversée, qui se relit « sans rejouer ses vingt parties » : comme au barème, ce qui se dit faux, c'est l'œuvre
+  // « rejouée » — et ses petits jeux de quelques minutes, c'était le musée qu'il décrivait.
   const produit = doc('docs/produit/le-cabinet.md')
   assert.doesNotMatch(produit, /jeux de deux minutes/i)
-  assert.doesNotMatch(produit, /rejou/i)
-  assert.match(produit, /petits jeux de quelques minutes/)
+  assert.doesNotMatch(produit, /œuvres? rejouées?|rejouer (une|l’|l')œuvre|la rejouer/i)
   const sommaire = doc('docs/README.md').split('\n').find(l => l.includes('produit/le-cabinet.md'))!
   assert.doesNotMatch(sommaire, /deux minutes/, sommaire)
   const reference = doc('docs/reference/glossaire.md').split('\n')
@@ -360,7 +320,7 @@ test('la documentation dit les mots de l’écran : de petits jeux de quelques m
 
 // ── L'œuvre gagnée, au bilan ──────────────────────────────────────────────
 
-test('au bilan, l’œuvre gagnée a son titre à son nom ; sa peinture levée se tait, son bandeau la nomme ; un cadre vide ne montre rien', async () => {
+test('au bilan, l’œuvre gagnée a son titre à son nom ; sa peinture levée se tait, son bandeau la nomme', async () => {
   const { cle, fin } = gagnee
   const o = oeuvreDe(cle)!
   const html = await rendu('views/cabinet/Bilan', 'BilanDeLaPartie', { vue: fin, ecran: null, onMusee: rien })
@@ -375,15 +335,8 @@ test('au bilan, l’œuvre gagnée a son titre à son nom ; sa peinture levée s
   // Sa peinture levée : son bandeau dit déjà son nom, juste dessous — un texte de remplacement le ferait dire deux fois.
   assert.match(dedans, /<img class="exp-vc-peinture"[^>]* alt=""/)
   assert.equal(texte(/<b class="exp-vc-nom">(.*?)<\/b>/.exec(dedans)?.[1] ?? ''), texte(o.nom))
-  // De même sur sa fiche : son nom en titre, juste sous la peinture.
-  const page = ok(await laPage(b, gagnee.cookie), 'la page')
-  const fiche = await lOeuvre(page, cle, { etat: 'chargement' })
-  assert.match(fiche, /<img class="exp-vc-peinture"[^>]* alt=""/)
-  // Un cadre vide : ni peinture ni nom, à l'œil comme à l'oreille (invariant 1).
-  const vide = page.salles.flatMap(s => s.oeuvres).find(x => !x.possedee)!
-  const cadre = await lOeuvre(page, vide.cle, { etat: 'chargement' })
-  assert.doesNotMatch(cadre, /<img/)
-  assert.ok(!texte(cadre).includes(texte(oeuvreDe(vide.cle)!.nom)), 'le cadre vide ne nomme pas son œuvre')
+  // Sa fiche, et celle d'un cadre vide, ont quitté la page avec le musée (le 31 octobre 2026) : les cadres vides d'une salle, plus
+  // haut, ne nomment toujours pas leur œuvre (invariant 1).
   // Gagnée à six étoiles, sous le seuil d'une épique : la visite n'a mis en jeu qu'une commune, une rare ou une maudite.
   assert.ok(fin.bilan!.total >= SEUILS_DES_RARETES[o.rarete])
 })

@@ -10,13 +10,11 @@
 // et rien n'amenait la page à la carte (la tablée du 26).
 //
 // Et la rangée des manches de la tête : « Quitter » y garde son mot tant
-// qu'il tient (`poserLeMotDeQuitter`), et le rendu juge `[tête]` par la même
-// règle (`surLaMemeRangee`), qu'il envoie dans la page.
+// qu'il tient (`poserLeMotDeQuitter`, `surLaMemeRangee`).
 //
-// Une seule copie de ce qui la borne : la partie, le Mot et le rendu
-// (`server/scripts/rendu-cabinet.ts`) la lisaient chacun à sa façon. Sans
-// rien du DOM dans ses types : le rendu l'importe sous Node, et une épreuve
-// la pose sur un faux élément.
+// Une seule copie de ce qui la borne : la partie, le Mot et le rendu du musée
+// d'avant la traversée la lisaient chacun à sa façon. Sans rien du DOM dans
+// ses types : une épreuve la pose sur un faux élément, sous Node.
 
 /** La tête collée d'une partie : ses manches, ses étoiles, « Quitter », le chrono. */
 export const TETE_COLLEE = '.cab-tete-partie'

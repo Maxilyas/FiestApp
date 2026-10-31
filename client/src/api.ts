@@ -21,7 +21,7 @@ import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
 import type { ApresUnGeste, ArticleDeLEchoppe, GesteAvecSesCartes, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
 import type { CleDeFiole } from '../../shared/rencontres'
 // Des types seulement : la page du Cabinet ne télécharge ni le pli ni les règles des jeux, elle lit la vue du serveur.
-import type { Cartel, MursDuCabinet, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
+import type { Cartel, MursDuCabinet, PageDeLaTraversee, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import type { DemandeLue } from '../../shared/cabinet/musee'
 import type { GesteDuCabinet } from '../../shared/cabinet/partie'
 import type { CleDeJeu } from '../../shared/cabinet/jeux/regle'
@@ -250,6 +250,33 @@ async function gesteDuCabinet(id: string, rang: number, geste: GesteDuCabinet): 
     }
   })
   return passe === undefined ? { partie } : { partie, passe }
+}
+
+export interface ApresUnGesteDeTraversee {
+  page: PageDeLaTraversee
+  /** « Ce geste est passé : ta traversée a continué sans lui », « Cette traversée est finie » : rien n'a été joué. */
+  passe?: string
+}
+
+/**
+ * Un geste de la traversée, au rang qu'il croit suivre (invariant 12) : passé,
+ * le serveur répond 409 avec la page d'à présent, que la page reprend — comme
+ * un geste d'une partie (`gesteDuCabinet`). Aller vers une épreuve y entre : la
+ * page d'après porte sa partie, et son chrono — l'heure se mesure autour.
+ */
+async function gesteDeTraversee(id: string, rang: number, geste: Record<string, unknown>): Promise<ApresUnGesteDeTraversee> {
+  let passe: string | undefined
+  const page = await avecLHeure(async () => {
+    try {
+      return await req<PageDeLaTraversee>(`/api/cabinet/traversee/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify({ rang, geste }) })
+    } catch (e) {
+      const aPresent = e instanceof ApiError && e.statut === 409 ? (e.corps as { page?: PageDeLaTraversee } | undefined)?.page : undefined
+      if (!aPresent) throw e
+      passe = (e as ApiError).message
+      return aPresent
+    }
+  })
+  return passe === undefined ? { page } : { page, passe }
 }
 
 /**
@@ -700,7 +727,7 @@ export const api = {
    * position de la pièce.
    */
   cabinet: {
-    page: () => avecLHeure(() => req<PageDuCabinet>(DEPART.cabinet), DEPART.cabinet),
+    page: () => avecLHeure(() => req<PageDuCabinet>('/api/cabinet')),
     /** Ce que le serveur lit (`DemandeLue`) : une case, une chasse, un jeu libre, et « Retenter » par sa case — jamais l'œuvre. */
     commencer: (demande: DemandeLue) => avecLHeure(() => req<VueDeLaPartie>('/api/cabinet/partie', { method: 'POST', body: JSON.stringify(demande) })),
     geste: gesteDuCabinet,
@@ -719,6 +746,12 @@ export const api = {
       avecLHeure(() => req<PageDuCabinet>('/api/cabinet/visite/echange', { method: 'POST', body: JSON.stringify({ case: k, jeu, jour }) })),
     /** Tes murs : les lieux épinglés et les dates rangées — rien n'y court, ils ne portent pas l'heure. */
     murs: () => req<MursDuCabinet>('/api/cabinet/murs'),
+    /** La traversée : la dernière, en route ou finie, et la partie de son épreuve à reprendre — son chrono porte l'heure. */
+    traversee: () => avecLHeure(() => req<PageDeLaTraversee>(DEPART.cabinet), DEPART.cabinet),
+    /** Une traversée qui commence : sa carte et ses trois gardiens — ses cartes se choisissent ensuite, d'un geste. */
+    partir: () => avecLHeure(() => req<PageDeLaTraversee>('/api/cabinet/traversee', { method: 'POST', body: '{}' })),
+    /** Un geste de la traversée, à son rang : ses cartes, aller, améliorer, acheter, choisir son légendaire, abandonner. */
+    enRoute: gesteDeTraversee,
   },
   /** Les duels classés (`shared/duels.ts`) : sa cote, sa ligue, sa semaine, le classement — leur page, `/duels`. */
   duels: {

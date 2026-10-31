@@ -156,6 +156,37 @@ campagne.
    `TourEn3D.ts`, chargée à la demande, et sa liste qui la double sans WebGL.
 6. **L'Expédition s'en va** du dépôt.
 
+## Ce qui a été construit (le 31 octobre 2026)
+
+« Passe au code » — « tu as des libertés, je veux que le Cabinet soit le plus
+joli possible ». Construit le même soir, en quatre lots ; ce qui s'écarte du
+plan :
+
+- **Rien ne s'efface.** Le ménage retire du Cabinet ses écrans — le musée, la
+  tour, la barre, la visite, les règles, les murs —, pas son serveur : ses
+  routes répondent encore, ses tables et l'étagère restent. Effacer le musée
+  du dépôt est un lot à part, comme l'Expédition (`docs/produit/le-cabinet.md`,
+  « Ce que le musée laisse »).
+- **Une étape est une partie ordinaire du Cabinet**, sous une origine de plus
+  (`traversee`, la version 3 du départ) : le pli, le chrono, les tireurs et la
+  révélation n'apprennent rien. La traversée lit les étoiles naturelles que le
+  serveur écrit à son journal à la fin de chaque épreuve (`conclure`), et en
+  tire l'or, les cœurs et les coups au gardien (`shared/cabinet/traversee.ts`).
+- **La carte en 3D a son propre module** (`client/src/views/cabinet/TraverseeEn3D.ts`),
+  décorative : tout se choisit dans le panneau dessous, et sans WebGL un ciel
+  de nuit en CSS la remplace. Elle cadre ce que le panneau laisse voir.
+- **Ce que la maquette ne tranchait pas**, tranché pour construire, à
+  confirmer : un gardien déjà possédé reste à battre, mais ceux qu'il n'a pas
+  passent devant au départ ; une manche réussie paie comme une réponse de
+  campagne (confetti, expérience, compagnon, missions), par la porte de la
+  campagne ; le Cabinet demande toujours un profil — l'invité anonyme y
+  apprend comment entrer.
+- **Les chiffres sont ceux de la maquette** (`shared/cabinet/bareme.ts`, une
+  ligne chacun dans `docs/reference/baremes.md`) : à mesurer sur de vraies
+  traversées avant tout calibrage.
+- **Regarder** : `server/scripts/rendu-traversee.ts` la photographie d'un bout à
+  l'autre, au téléphone et au portable.
+
 ## La maquette
 
 `maquette/` : une page, ses scripts, et les images prises dans le dépôt par

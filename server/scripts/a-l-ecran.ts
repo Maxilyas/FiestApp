@@ -2,9 +2,8 @@
 // élargit la page, un texte que son cadre coupe, ce qui passe sous la niche du
 // compagnon, et le contraste de chaque texte sur ce qui est vraiment peint
 // derrière lui. Pas un script : les scripts de rendu qui les disent le
-// partagent (`rendu-cabinet.ts`, `rendu-niche.ts`, `rendu-themes.ts`) — une
-// mesure retouchée l'est pour chacun, et aucun n'en garde une copie qui
-// vieillirait seule.
+// partagent (`rendu-niche.ts`, `rendu-themes.ts`) — une mesure retouchée
+// l'est pour chacun, et aucun n'en garde une copie qui vieillirait seule.
 //
 // Les mesures partent dans la page en texte, jamais en fonction : `tsx`
 // glisserait dans une fonction des `__name` que la page ne connaît pas. Un

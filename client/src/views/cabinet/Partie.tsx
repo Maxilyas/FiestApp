@@ -25,11 +25,13 @@ import { poussieresDites } from '../../../../shared/cabinet/musee'
 import { POUVOIRS, refusDuPouvoir, type CleDePouvoir } from '../../../../shared/cabinet/pouvoirs'
 import type { MancheMontree, RevelationDUneManche } from '../../../../shared/cabinet/jeux/index'
 import type { FinDUneManche, GesteDuCabinet, Manche, ReponseDUnJeu } from '../../../../shared/cabinet/partie'
-import type { RevelationVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
+import type { CarteVue, RevelationVue, VueDeLaPartie } from '../../../../shared/cabinet/vues'
+import { carteDeLaTraversee } from '../../../../shared/cabinet/traversee'
 import { CE_QUI_BORNE_LA_BANDE, poserLaBande, poserLeMotDeQuitter, type OuvertureDeLaBande } from './bande'
 import type { BilanDeLaPartie } from './Bilan'
 import { etoilesDites } from './EnEtoiles'
 import { titreDeLaPartie } from './ecrans'
+import { Bourse, Coeurs, PointsDeVie } from './Monnaies'
 
 // Une partie du Cabinet à l'écran (§ 2.2-2.7 de la conception) : le cadre
 // d'une manche — la tête collée (les trois manches, les étoiles sur neuf,
@@ -282,8 +284,22 @@ function ceQuOnEmporte(vue: Pick<VueDeLaPartie, 'origine'>, s: { total: number; 
  * (`PLUS_DE_PAUSE`, ses pauses épuisées ou son temps passé), la phrase du
  * serveur : la confirmation s'ouvre quand même, et le chrono continue.
  */
-export function messageDuQuitter(vue: Pick<VueDeLaPartie, 'origine'> & Partial<Pick<VueDeLaPartie, 'siTuQuittes'>>, o: { pauseMs?: number; refus?: string } = {}): { titre: string; message: string } {
-  const compte = vue.siTuQuittes
+export function messageDuQuitter(
+  vue: Pick<VueDeLaPartie, 'origine'> & Partial<Pick<VueDeLaPartie, 'siTuQuittes' | 'traversee'>>,
+  o: { pauseMs?: number; refus?: string } = {},
+): { titre: string; message: string } {
+  // Une épreuve : les manches qui restent comptent ratées — quitter ne fuit pas ses cœurs, et la vue dit combien.
+  const epreuve = vue.origine === 'traversee' ? (vue.traversee?.siTuQuittes ?? null) : undefined
+  const compte =
+    epreuve !== undefined
+      ? !epreuve
+        ? 'Les manches qui restent comptent ratées.'
+        : epreuve.perdue
+          ? 'Les manches qui restent comptent ratées : ton dernier cœur tomberait, et la traversée avec lui.'
+          : epreuve.coeurs > 0
+            ? `Les manches qui restent comptent ratées : tu perdrais ${epreuve.coeurs} ${epreuve.coeurs > 1 ? 'cœurs' : 'cœur'}.`
+            : 'Tes manches jugées gardent leur or.'
+      : vue.siTuQuittes
     ? ceQuOnEmporte(vue, vue.siTuQuittes)
     : vue.origine === 'libre'
       ? 'Elle compte avec ses étoiles.'
@@ -291,7 +307,7 @@ export function messageDuQuitter(vue: Pick<VueDeLaPartie, 'origine'> & Partial<P
         ? 'La porte compte les étoiles déjà gagnées : sans assez d’étoiles, elle reste fermée et la montée perd un cœur.'
         : `La partie compte avec les étoiles déjà gagnées, et ${vue.origine === 'chasse' ? 'ta chasse est utilisée' : 'cette partie de la visite est faite'}.`
   const chrono = o.pauseMs !== undefined && o.pauseMs > 0 ? ` Le chrono t’attend ${secondesAuPlus(o.pauseMs)} au plus, la manche cachée.` : o.refus ? ` ${o.refus}.` : ''
-  return { titre: vue.origine === 'libre' ? 'Quitter cette partie ?' : 'Quitter ?', message: compte + chrono }
+  return { titre: vue.origine === 'libre' ? 'Quitter cette partie ?' : vue.origine === 'traversee' ? 'Quitter l’épreuve ?' : 'Quitter ?', message: compte + chrono }
 }
 
 /** Ce qui reste de pause, en secondes entières vers le haut : arrondies, 300 ms se lisaient « 0 secondes », et une seule « 1 secondes ». */
@@ -466,8 +482,17 @@ function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono
   const seuil = seuilDeLaTete(vue)
   const rangee = useRef<HTMLDivElement>(null)
   useLeMotDeQuitter(rangee)
+  const tv = vue.traversee
   return (
     <header className="cab-tete-partie">
+      {/* Une épreuve de traversée dit ce qu'elle vaut déjà : les cœurs et l'or qu'il lui reste, le gardien et ses points de vie. */}
+      {tv && (
+        <div className="cab-tete-traversee">
+          <Coeurs n={tv.coeurs} max={tv.coeursMax} />
+          <Bourse or={tv.or} />
+          {tv.gardien && <PointsDeVie pv={tv.gardien.pv} max={tv.gardien.pvMax} />}
+        </div>
+      )}
       <div className="cab-tete-ligne" ref={rangee}>
         <span className="cab-points" role="img" aria-label={`Manche ${vue.manche + 1} sur ${MANCHES_PAR_PARTIE}`}>
           {vue.manches.map((m, k) => (
@@ -482,13 +507,15 @@ function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono
         {/* Le seuil, rappelé sous le total quand une œuvre est en jeu : l'annonce le disait, la tête plus — Camille n'a su ni s'il
             fallait parier, ni que l'œuvre était perdue (la tablée du 25 octobre 2026). Sur sa ligne : à côté, il passait la tête à
             la ligne en 360 de large, la niche posée. */}
-        <span className="cab-total" role="img" aria-label={seuil === null ? etoilesSurNeuf(vue.total) : `${etoilesSurNeuf(vue.total)}, ${seuil}`}>
-          <span className="cab-total-ligne">
-            <b>{vue.total}</b>
-            {` / ${ETOILES_D_UNE_PARTIE} ★`}
+        {!tv && (
+          <span className="cab-total" role="img" aria-label={seuil === null ? etoilesSurNeuf(vue.total) : `${etoilesSurNeuf(vue.total)}, ${seuil}`}>
+            <span className="cab-total-ligne">
+              <b>{vue.total}</b>
+              {` / ${ETOILES_D_UNE_PARTIE} ★`}
+            </span>
+            {seuil !== null && <span className="cab-seuil-tete">{seuil}</span>}
           </span>
-          {seuil !== null && <span className="cab-seuil-tete">{seuil}</span>}
-        </span>
+        )}
         {vue.phase !== 'finie' && (
           <button type="button" className="btn cab-quitter" aria-label="Quitter" {...toucher(onQuitter)}>
             <Icon name="x" />
@@ -537,6 +564,8 @@ function useLeMotDeQuitter(rangee: RefObject<HTMLDivElement | null>) {
  */
 function CarteDeLaManche({
   vue,
+  carte: c,
+  maintenant,
   ecran,
   local,
   busy,
@@ -545,6 +574,10 @@ function CarteDeLaManche({
   onGeste,
 }: {
   vue: VueDeLaPartie
+  /** La carte-bonus d'une partie du musée, ou l'une des cartes d'une épreuve. */
+  carte: CarteVue
+  /** Son pouvoir, maintenant (`VueDeLaPartie.pouvoir`, `CarteDEpreuveVue.maintenant`). */
+  maintenant: { jouable: boolean; refus?: string } | undefined
   ecran: EcranEfface
   local: unknown
   busy: boolean
@@ -553,15 +586,16 @@ function CarteDeLaManche({
   onGeste: (g: GesteDuCabinet) => void
 }) {
   const enPlus = useDansLeTempsEnPlus(chrono)
-  const c = vue.carte
-  if (!c || !vue.enCours) return null
+  if (!vue.enCours) return null
   const icone = <Icon name={ICONE_DU_POUVOIR[c.pouvoir]} />
+  // Une épreuve dit le nom de la carte qu'il a choisie — Coup d'œil, Échange —, le musée celui du pouvoir.
+  const nom = vue.origine === 'traversee' ? (carteDeLaTraversee(c.cle)?.nom ?? POUVOIRS[c.pouvoir].nom) : POUVOIRS[c.pouvoir].nom
   if (c.pouvoir !== 'eclairer' && c.pouvoir !== 'changer') {
     const dit = c.pouvoir === 'temps' && enPlus && viseLeCadreDore(vue, cadreDejaDore) ? TEMPS_EN_PLUS_DIT : c.dit
     return (
       <p className="cab-carte-ligne">
         {icone}
-        <span aria-live={c.pouvoir === 'temps' ? 'polite' : undefined}>{espacesFines(dit)}</span>
+        <span aria-live={c.pouvoir === 'temps' ? 'polite' : undefined}>{espacesFines(vue.origine === 'traversee' ? `${nom} : ${dit}` : dit)}</span>
       </p>
     )
   }
@@ -569,19 +603,31 @@ function CarteDeLaManche({
   // Ce que le serveur ne sait pas encore : une réponse de l'Éclair donnée sur place. La seule règle des refus le dit, sur ce que la
   // page tient (`refusDuPouvoir` : « Change avant de répondre ») — elle ne s'écrit pas une seconde fois ici.
   const surPlace = c.pouvoir === 'changer' && ecran.aJoueSurPlace?.(m, local) ? refusDuPouvoir({ pouvoir: 'changer', force: c.force, jeu: vue.jeu, servi: 0, aJoue: true, rechanges: 1 }) : null
-  const refus = vue.pouvoir?.jouable ? surPlace : (vue.pouvoir?.refus ?? null)
+  const refus = maintenant?.jouable ? surPlace : (maintenant?.refus ?? null)
   const cible = ecran.cibleDEclairer?.(m, local)
   const geste: GesteDuCabinet = c.pouvoir === 'eclairer' ? { quoi: 'eclairer', manche: vue.manche, ...(cible !== undefined && { affirmation: cible }) } : { quoi: 'changer', manche: vue.manche }
-  return (
+  const contenu = (
     <>
       <button type="button" className="btn btn-block cab-pouvoir" aria-disabled={refus !== null || busy || undefined} {...toucher(() => refus === null && !busy && onGeste(geste))}>
         {icone}
-        {POUVOIRS[c.pouvoir].nom}
+        {nom}
         <span className="cab-reste">{` · encore ${c.reste}`}</span>
       </button>
       {refus && <p className="cab-raison">{espacesFines(refus)}</p>}
     </>
   )
+  // Une carte d'épreuve garde sa raison sous elle, dans sa case : deux cartes côte à côte ne se mêlent pas leurs refus.
+  return vue.origine === 'traversee' ? <div className="cab-carte-en-jeu">{contenu}</div> : contenu
+}
+
+/**
+ * Les cartes qui jouent dans une manche : la carte-bonus d'une partie du musée,
+ * ou celles d'une épreuve de traversée — jusqu'à quatre, Quitte ou double à part
+ * (la mise se décide avant la manche). Chacune son pouvoir, maintenant.
+ */
+function cartesEnJeu(vue: VueDeLaPartie): { carte: CarteVue; maintenant: { jouable: boolean; refus?: string } | undefined }[] {
+  if (vue.cartes) return vue.cartes.filter(c => c.pouvoir !== 'miser').map(c => ({ carte: c, maintenant: c.maintenant }))
+  return vue.carte ? [{ carte: vue.carte, maintenant: vue.pouvoir }] : []
 }
 
 /**
@@ -614,12 +660,19 @@ export function MiserOuPas({
   busy: boolean
   onMiser: (oui: boolean) => void
 }) {
+  // Une épreuve mise avec Quitte ou double : sa phrase dit ce que la mise y fait — l'or multiplié, deux cœurs —, pas les étoiles du musée.
+  const quitteOuDouble = vue.cartes?.find(c => c.pouvoir === 'miser')
   return (
     <section className="cab-bloc cab-mise" aria-labelledby="cab-miser">
       <span className="cab-surtitre">{`Manche ${manche + 1} sur ${MANCHES_PAR_PARTIE}`}</span>
-      <h2 id="cab-miser">Miser sur cette manche ?</h2>
-      <p className="cab-ligne">{espacesFines(POUVOIRS.miser.dit)}</p>
+      <h2 id="cab-miser">{quitteOuDouble ? 'Quitte ou double ?' : 'Miser sur cette manche ?'}</h2>
+      {quitteOuDouble ? (
+        <p className="cab-ligne">{espacesFines(quitteOuDouble.dit)}</p>
+      ) : (
+        <p className="cab-ligne">{espacesFines(POUVOIRS.miser.dit)}</p>
+      )}
       {vue.carte && <p className="cab-ligne cab-dit">{espacesFines(vue.carte.dit)}</p>}
+      {quitteOuDouble && <p className="cab-ligne cab-dit">{`Encore ${quitteOuDouble.reste} ${quitteOuDouble.reste > 1 ? 'mises' : 'mise'} dans cette épreuve`}</p>}
       {viseLeCadreDore(vue, cadreDejaDore) && <p className="cab-ligne">{espacesFines('Tu vises le cadre doré : miser le perdrait.')}</p>}
       <div className="cab-gestes">
         <button type="button" className="btn btn-primary" aria-disabled={busy || undefined} {...toucher(() => !busy && onMiser(true))}>
@@ -758,6 +811,21 @@ function useBandeDeLaManche(page: RefObject<HTMLDivElement | null>, cle: string 
   }, [page, cle, forme])
 }
 
+/**
+ * Ce que dit le bouton sous une révélation : la manche suivante, le bilan — ou,
+ * à une épreuve de traversée, son butin sur la carte ; et quand l'épreuve n'a
+ * plus rien à jouer — le gardien à terre, le dernier cœur tombé —, ce qui
+ * vient de se passer (`EpreuveEnCours.fin`).
+ */
+export function libelleDeLaSuite(vue: Pick<VueDeLaPartie, 'phase' | 'origine' | 'traversee'>): string {
+  if (vue.origine === 'traversee') {
+    if (vue.traversee?.fin === 'vaincu') return 'Le gardien tombe !'
+    if (vue.traversee?.fin === 'perdue') return 'Ton dernier cœur est tombé'
+    if (vue.phase === 'finie') return 'Voir ton butin'
+  }
+  return vue.phase === 'finie' ? 'Voir le bilan' : 'Manche suivante'
+}
+
 export interface PropsDeLEcran {
   vue: VueDeLaPartie
   /** L'écran du jeu : en chemin (null), ou perdu — le navigateur garde l'échec d'un `import()`. */
@@ -823,7 +891,7 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
     corps = <RevelationDeLaManche vue={vue} revelation={r} ecran={ecran} onSignaler={p.onSignaler} />
     pied = (
       <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={p.busy || undefined} {...toucher(() => !p.busy && p.onSuivante())}>
-        {vue.phase === 'finie' ? 'Voir le bilan' : 'Manche suivante'}
+        {libelleDeLaSuite(vue)}
       </button>
     )
   } else if (vue.phase === 'pause') {
@@ -847,8 +915,13 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
     }
     corps = <ecran.Manche {...manche} />
     // La carte-bonus reste sous le pouce tant qu'elle peut servir ; sans carte, pas de pied, qui collait un bandeau vide au bas de l'écran.
-    const carte = vue.carte ? <CarteDeLaManche vue={vue} ecran={ecran} local={p.local} busy={p.busy} chrono={p.chrono} cadreDejaDore={p.cadreDejaDore} onGeste={p.onGeste} /> : null
-    const sert = !!vue.pouvoir?.jouable
+    // Les cartes d'une épreuve se rangent côte à côte, sous le pouce tant que l'une d'elles sert.
+    const enJeu = cartesEnJeu(vue)
+    const lesCartes = enJeu.map(({ carte: c, maintenant }) => (
+      <CarteDeLaManche key={c.cle} vue={vue} carte={c} maintenant={maintenant} ecran={ecran} local={p.local} busy={p.busy} chrono={p.chrono} cadreDejaDore={p.cadreDejaDore} onGeste={p.onGeste} />
+    ))
+    const carte = enJeu.length === 0 ? null : vue.cartes ? <div className="cab-cartes-en-jeu">{lesCartes}</div> : lesCartes
+    const sert = enJeu.some(c => c.maintenant?.jouable)
     if (ecran.Pied) {
       // Le pied du jeu reste collé, la carte-bonus qui sert encore au-dessus de lui ; une qui ne sert plus se pose sous la manche.
       pied = (
@@ -1122,9 +1195,19 @@ export function Partie({
 
   const suivante = () => {
     if (!garde()) return
+    if (vue.origine === 'traversee') {
+      // Une épreuve finie rend son butin sur la carte ; une qui n'a plus rien à jouer — le gardien à terre, le dernier cœur — se
+      // clôt d'abord (« Quitter » : les manches à venir ne comptent plus), puis la carte la conclut.
+      if (vue.phase === 'finie') return onMusee()
+      if (vue.traversee?.fin) {
+        void jouer({ quoi: 'quitter' }).then(() => onMusee())
+        return
+      }
+    }
     if (vue.phase === 'finie') return setBilanOuvert(true)
     const k = (vue.manche + 1) as Manche
-    if (vue.carte?.pouvoir === 'miser' && vue.pouvoir?.jouable) return setMiser(k)
+    const mise = vue.cartes ? vue.cartes.find(c => c.pouvoir === 'miser')?.maintenant : vue.carte?.pouvoir === 'miser' ? vue.pouvoir : undefined
+    if (mise?.jouable) return setMiser(k)
     void jouer({ quoi: 'ouvrir', manche: k })
   }
 
@@ -1151,8 +1234,14 @@ export function Partie({
     }
   }
 
-  // Le bilan : la dernière manche révélée d'abord (« Voir le bilan ») ; quittée ou close, tout de suite.
-  const montrerLeBilan = vue.phase === 'finie' && (bilanOuvert || !vue.revelation || !!vue.bilan?.quittee || !!vue.bilan?.lendemain)
+  // Le bilan : la dernière manche révélée d'abord (« Voir le bilan ») ; quittée ou close, tout de suite. Une épreuve n'en a pas : son
+  // butin se dit sur la carte, qui la conclut.
+  const epreuve = vue.origine === 'traversee'
+  const montrerLeBilan = !epreuve && vue.phase === 'finie' && (bilanOuvert || !vue.revelation || !!vue.bilan?.quittee || !!vue.bilan?.lendemain)
+  const finieSansRevelation = epreuve && vue.phase === 'finie' && (!vue.revelation || !!vue.bilan?.quittee)
+  useEffect(() => {
+    if (finieSansRevelation) onMusee()
+  }, [finieSansRevelation, onMusee])
   // Le titre de l'onglet suit la manche, puis le bilan (`titreDeLaPartie`) : d'un onglet à l'autre, le lecteur d'écran ne disait
   // que « Le Cabinet de curiosités ». La page reprend le sien en revenant au musée (`CabinetApp.tsx`).
   useEffect(() => {

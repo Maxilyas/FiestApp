@@ -31,7 +31,7 @@
 // cartel d'une partie et « Mes réponses » d'une
 // partie finie un, par leur clé ; tes murs aucun, un si le journal a du retard
 // — les dates des frises des sujets et de l'Expédition comprises, lues de la
-// base jouable en mémoire ; et l'accueil, qui dit le musée de la mémoire
+// base jouable en mémoire ; et l'accueil, qui dit la traversée de la mémoire
 // seule : pas un aller-retour de plus.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -52,19 +52,21 @@ import {
   jouerUnEclair,
   jouerUneEpingle,
   laPage,
+  lire,
   magasinDEssai,
   ok,
   ouvrir,
   pariDe,
   piecesALaMain,
+  poster,
   questionDUneFrise,
   unPariParfait,
   type MagasinDEssai,
 } from './cabinet-banc'
-import { OEUVRES, OEUVRES_DE_DEPART } from '../../shared/cabinet/oeuvres'
+import { OEUVRES } from '../../shared/cabinet/oeuvres'
 import type { ProfilDAccueil } from '../../shared/profil'
 import type { PariTire } from '../../shared/cabinet/jeux/pari'
-import type { MursDuCabinet } from '../../shared/cabinet/vues'
+import type { MursDuCabinet, PageDeLaTraversee, VueDeLaTraversee } from '../../shared/cabinet/vues'
 import { ETOILES_DU_PARI, POUSSIERE_MIN, POUSSIERE_PAR_ETOILE } from '../../shared/cabinet/bareme'
 import { prixDe } from '../../shared/cabinet/musee'
 import { idDeLaFriseDeSujet } from '../../shared/cabinet/pieces'
@@ -931,11 +933,14 @@ test('par les routes : tes murs, aucun aller-retour quand le journal est frais, 
   }
 })
 
-test('par les routes : l’accueil dit son musée sans un aller-retour de plus — lu en mémoire, ou rien', async () => {
+test('par les routes : l’accueil dit sa traversée sans un aller-retour de plus — lue en mémoire, ou rien', async () => {
   const b = await bancDuCabinet({ fraicheurDesDuelsMs: 3_600_000 })
+  const traversee = (cookie: string) => lire<PageDeLaTraversee>(b, cookie, '/api/cabinet/traversee')
+  const geste = (cookie: string, t: Pick<VueDeLaTraversee, 'id' | 'rang'>, g: Record<string, unknown>) =>
+    poster<PageDeLaTraversee>(b, cookie, `/api/cabinet/traversee/${t.id}/geste`, { rang: t.rang, geste: g })
   try {
     const chaud = await inscrireProfil(b.banc.url, 'chaud', 'Chaud')
-    ok(await laPage(b, chaud), 'la page du premier')
+    ok(await traversee(chaud), 'la page du premier')
     const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
     const accueil = () =>
       fetch(`${b.banc.url}/api/joueur/moi?accueil`, { headers: { Cookie: lea } }).then(async r => {
@@ -945,31 +950,27 @@ test('par les routes : l’accueil dit son musée sans un aller-retour de plus �
     // La nuit close, son profil en mémoire : l'accueil d'un serveur réveillé depuis un moment.
     await accueil()
     const avant = await mesurer(accueil)
-    // Son musée, le serveur ne l'a pas encore lu : l'accueil n'en dit rien, et ne le lit pas pour lui — la plupart des profils
-    // qui ouvrent l'accueil n'ouvrent pas le Cabinet, et chacun aurait payé son lot froid à chaque réveil (le quota de Turso).
+    // Sa traversée, le serveur ne l'a pas encore lue : l'accueil n'en dit rien, et ne la lit pas pour lui — la plupart des
+    // profils qui ouvrent l'accueil n'ouvrent pas le Cabinet, et chacun aurait payé son lot froid à chaque réveil (le quota de Turso).
     assert.equal(avant.resultat.cabinet, undefined)
-    ok(await laPage(b, lea), 'sa page')
-    const apres = await mesurer(accueil)
-    assert.deepEqual(apres.resultat.cabinet, { oeuvres: OEUVRES_DE_DEPART.length, sur: OEUVRES.length, aJouer: true })
-    assert.equal(apres.appels, avant.appels, 'le musée en mémoire : pas un aller-retour de plus')
-    // Sa visite faite, case par case — quittée, elle compte : la case se consomme au départ. La pastille s'éteint à la dernière.
-    const cases = ok(await laPage(b, lea), 'sa page').visite.cases.length
-    for (let k = 0; k < cases; k++) {
-      ok(await jouer(b, lea, ok(await commencer(b, lea, { origine: 'visite', case: k, carte: null }), `la case ${k + 1}`), { quoi: 'quitter' }), 'quitter')
-      assert.equal((await accueil()).cabinet?.aJouer, k < cases - 1, `après la case ${k + 1}`)
-    }
-    // Une œuvre gagnée en chasse : le compte la prend aussitôt, de la mémoire que la fin a tenue à jour.
-    const gagnee = await unPariParfait(b, lea, ok(await commencer(b, lea, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'la chasse'))
-    assert.equal(gagnee.bilan?.issue, 'gagnee-doree')
+    // Lue, mais jamais partie : rien à dire non plus.
+    ok(await traversee(lea), 'sa page')
+    assert.equal((await accueil()).cabinet, undefined)
+    // Partie, ses cartes choisies : son acte et ses cœurs, de la mémoire seule.
+    const neuve = ok(await poster<PageDeLaTraversee>(b, lea, '/api/cabinet/traversee', {}), 'le départ').traversee!
+    const partie = ok(await geste(lea, neuve, { quoi: 'cartes', cartes: ['coup-d-oeil', 'cagnotte', 'panacee'] }), 'les cartes').traversee!
     await accueil()
-    const ensuite = await mesurer(accueil)
-    assert.deepEqual(ensuite.resultat.cabinet, { oeuvres: OEUVRES_DE_DEPART.length + 1, sur: OEUVRES.length, aJouer: false })
-    assert.equal(ensuite.appels, avant.appels)
-    // Le serveur redémarré n'a plus son musée : l'accueil se tait de nouveau, jusqu'à la prochaine page du Cabinet.
+    const apres = await mesurer(accueil)
+    assert.deepEqual(apres.resultat.cabinet, { acte: 1, coeurs: partie.coeurs })
+    assert.equal(apres.appels, avant.appels, 'la traversée en mémoire : pas un aller-retour de plus')
+    // Le serveur redémarré ne l'a plus : l'accueil se tait de nouveau, jusqu'à la prochaine page du Cabinet.
     await b.banc.redemarrer()
     assert.equal((await accueil()).cabinet, undefined)
-    ok(await laPage(b, lea), 'sa page après le réveil')
-    assert.deepEqual((await accueil()).cabinet, { oeuvres: OEUVRES_DE_DEPART.length + 1, sur: OEUVRES.length, aJouer: false })
+    const relue = ok(await traversee(lea), 'sa page après le réveil').traversee!
+    assert.deepEqual((await accueil()).cabinet, { acte: 1, coeurs: partie.coeurs })
+    // Abandonnée : plus de voyage à dire.
+    ok(await geste(lea, relue, { quoi: 'abandonner' }), 'abandonner')
+    assert.equal((await accueil()).cabinet, undefined)
   } finally {
     await b.banc.close()
   }

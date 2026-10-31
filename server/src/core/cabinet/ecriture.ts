@@ -30,7 +30,8 @@ import { CHASSES_PAR_JOUR, LIBRES_QUI_PAIENT } from '../../../../shared/cabinet/
 import type { RecordDeLaTour } from '../../../../shared/cabinet/montee'
 import type { BilanDUnePartie, DepartDUnePartie, GesteDuCabinet, PieceJugee } from '../../../../shared/cabinet/partie'
 import type { CleDeSaison } from '../../../../shared/saisons'
-import { COLONNES_D_UNE_OEUVRE, champDuDepart, gesteEcrit, partiesDuJour } from './tables'
+import type { DepartDeLaTraversee, FinDeLaTraversee, GesteDeLaTraversee } from '../../../../shared/cabinet/traversee'
+import { COLONNES_D_UNE_OEUVRE, champDuDepart, gesteDeTraverseeEcrit, gesteEcrit, partiesDuJour } from './tables'
 
 // ── Le départ ─────────────────────────────────────────────────────────────
 
@@ -478,7 +479,8 @@ export function lotDeLEchange(e: EchangeAEcrire): InStatement[] {
  * Ce que la suppression d'un profil efface du Cabinet, **avant** que la
  * campagne efface ses séries : ses gestes, par la sous-requête de ses parties
  * — la table n'a pas de `profile_id`, comme `expedition_gestes` —, puis ses
- * reflets, ses œuvres et son record de la tour.
+ * reflets, ses œuvres, son record de la tour, et ses traversées avec leurs
+ * gestes (par la sous-requête de ses traversées, de même).
  */
 export function lotDeLOubli(profileId: string): InStatement[] {
   return [
@@ -486,5 +488,114 @@ export function lotDeLOubli(profileId: string): InStatement[] {
     { sql: 'DELETE FROM cabinet_profils WHERE profile_id = ?', args: [profileId] },
     { sql: 'DELETE FROM cabinet_oeuvres WHERE profile_id = ?', args: [profileId] },
     { sql: 'DELETE FROM cabinet_records WHERE profile_id = ?', args: [profileId] },
+    { sql: 'DELETE FROM cabinet_traversee_gestes WHERE traversee_id IN (SELECT id FROM cabinet_traversees WHERE profile_id = ?)', args: [profileId] },
+    { sql: 'DELETE FROM cabinet_traversees WHERE profile_id = ?', args: [profileId] },
   ]
+}
+
+// ── La traversée ──────────────────────────────────────────────────────────
+
+/** Une traversée en route : la sienne, pas finie — les gestes d'une traversée finie ne s'écrivent plus. */
+const EN_ROUTE = 'EXISTS (SELECT 1 FROM cabinet_traversees WHERE id = ? AND finie_le IS NULL)'
+
+/**
+ * Une traversée qui commence : sa ligne, seulement si le profil n'en a aucune
+ * en route — deux onglets, deux serveurs d'une mise en ligne n'en ouvrent
+ * qu'une, recomptée par la base. Rendu : `rowsAffected` dit si elle est née.
+ */
+export function lotDeLaTraverseeQuiCommence(o: { id: string; profileId: string; depart: DepartDeLaTraversee; t: number }): InStatement[] {
+  return [
+    {
+      sql: `INSERT INTO cabinet_traversees (id, profile_id, depart, commencee_le)
+            SELECT ?1, ?2, ?3, ?4 WHERE NOT EXISTS (SELECT 1 FROM cabinet_traversees WHERE profile_id = ?2 AND finie_le IS NULL)`,
+      args: [o.id, o.profileId, JSON.stringify(o.depart), o.t],
+    },
+  ]
+}
+
+/** Un geste de la traversée à écrire : son rang, l'`uid` tiré pour ce lot, et la fin qu'il décide. */
+export interface GesteDeTraverseeAEcrire {
+  id: string
+  rang: number
+  geste: GesteDeLaTraversee
+  faitLe: number
+  uid: string
+  fin?: FinDeLaTraversee | null
+}
+
+/** Le geste en première instruction, seulement sur une traversée en route ; à son rang, une fois (`ON CONFLICT DO NOTHING`). */
+function insertionDuGeste(g: GesteDeTraverseeAEcrire, garde?: { sql: string; args: readonly (string | number)[] }): InStatement {
+  return {
+    sql: `INSERT INTO cabinet_traversee_gestes (traversee_id, rang, geste, fait_le, uid)
+          SELECT ?, ?, ?, ?, ? WHERE ${EN_ROUTE}${garde ? ` AND ${garde.sql}` : ''}
+          ON CONFLICT (traversee_id, rang) DO NOTHING`,
+    args: [g.id, g.rang, JSON.stringify(g.geste), g.faitLe, g.uid, g.id, ...(garde?.args ?? [])],
+  }
+}
+
+/** La fin, sous le geste qui la décide : son heure, son issue, le légendaire choisi. */
+function instructionDeLaFin(g: GesteDeTraverseeAEcrire): InStatement[] {
+  if (!g.fin) return []
+  const ecrit = gesteDeTraverseeEcrit(g.id, g.rang, g.uid)
+  return [
+    {
+      sql: `UPDATE cabinet_traversees SET finie_le = ?, issue = ?, legendaire = ? WHERE id = ? AND finie_le IS NULL AND ${ecrit.sql}`,
+      args: [g.fin.le, g.fin.issue, g.fin.legendaire ?? null, g.id, ...ecrit.args],
+    },
+  ]
+}
+
+/**
+ * Un geste de la traversée — aller au coffre, chez le marchand, améliorer,
+ * acheter, choisir son légendaire, abandonner, conclure une épreuve —, et sa
+ * fin s'il la décide, sous lui. Rendu : `rowsAffected` de la première dit si
+ * le geste s'est écrit.
+ */
+export function lotDuGesteDeTraversee(g: GesteDeTraverseeAEcrire): InStatement[] {
+  return [insertionDuGeste(g), ...instructionDeLaFin(g)]
+}
+
+/** Une épreuve qui commence : le geste qui y entre, et la partie qu'elle joue, comme un départ (`DepartAEcrire`). */
+export interface EpreuveAEcrire extends Omit<DepartAEcrire, 'jour' | 'minuit' | 'visites'> {
+  geste: GesteDeTraverseeAEcrire
+}
+
+/**
+ * L'entrée dans une épreuve — ou dans un assaut contre un gardien —, d'un seul
+ * aller-retour, chaque instruction sous la précédente :
+ *
+ * 1. le geste de la traversée, seulement si elle est en route et que le
+ *    profil n'a aucune partie en cours (la règle des départs : une à la fois) ;
+ * 2. la ligne du profil prend la partie — elle naît s'il n'en avait pas ;
+ * 3. la partie, seulement si la ligne la nomme ;
+ * 4. l'ouverture de la première manche, seulement si la partie est née.
+ *
+ * Rendu : le geste écrit (`rowsAffected` de la première), la partie née (de la
+ * troisième). La partie ne compte à aucun droit du jour : ni visite, ni chasse,
+ * ni libre qui paie (son départ le dit, `origine: 'traversee'`).
+ */
+export function lotDeLEpreuve(e: EpreuveAEcrire): InStatement[] {
+  const libre = { sql: 'NOT EXISTS (SELECT 1 FROM cabinet_profils WHERE profile_id = ? AND partie IS NOT NULL)', args: [e.profileId] }
+  const ecrit = gesteDeTraverseeEcrit(e.geste.id, e.geste.rang, e.geste.uid)
+  const lot: InStatement[] = [
+    insertionDuGeste(e.geste, libre),
+    {
+      sql: `INSERT INTO cabinet_profils (profile_id, partie, cree_le, maj_le)
+            SELECT ?, ?, ?, ? WHERE ${ecrit.sql}
+            ON CONFLICT (profile_id) DO UPDATE SET partie = excluded.partie, maj_le = excluded.maj_le WHERE cabinet_profils.partie IS NULL`,
+      args: [e.profileId, e.serie, e.t, e.t, ...ecrit.args],
+    },
+    {
+      sql: `INSERT INTO campagne_series (id, profile_id, mode, commencee_le, questions, position, vies, justes, cabinet)
+            SELECT ?, ?, 'cabinet', ?, '[]', 0, 0, 0, ? WHERE (SELECT partie FROM cabinet_profils WHERE profile_id = ?) = ? AND ${ecrit.sql}`,
+      args: [e.serie, e.profileId, e.t, JSON.stringify(e.depart), e.profileId, e.serie, ...ecrit.args],
+    },
+  ]
+  if (e.ouverture) {
+    lot.push({
+      sql: 'INSERT INTO cabinet_gestes (serie_id, rang, geste, fait_le, uid) SELECT ?, 1, ?, ?, ? WHERE EXISTS (SELECT 1 FROM campagne_series WHERE id = ?)',
+      args: [e.serie, JSON.stringify(e.ouverture.geste), e.ouverteLe, e.ouverture.uid, e.serie],
+    })
+  }
+  return lot
 }

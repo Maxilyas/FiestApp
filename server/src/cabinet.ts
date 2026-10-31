@@ -2,8 +2,8 @@ import express, { type Express, type Request, type Response } from 'express'
 import type { ProfileStore } from './auth/profiles'
 import { readPlayerToken } from './auth/http'
 import { repondreErreur, wrap } from './core/http'
-import { PARTIE_INTROUVABLE, TABLEAU_INTROUVABLE, type CabinetStore } from './core/cabinet/magasin'
-import { cartelDe, mursDe, pageDuCabinet, vueDeLaPartie } from './core/cabinet/vue'
+import { PARTIE_INTROUVABLE, TABLEAU_INTROUVABLE, TRAVERSEE_INTROUVABLE, type CabinetStore } from './core/cabinet/magasin'
+import { cartelDe, mursDe, pageDeLaTraversee, pageDuCabinet, vueDeLaPartie } from './core/cabinet/vue'
 
 /**
  * Un indice d'une adresse, écrit comme la page l'écrit (`adresseDUnCadrage`) :
@@ -156,6 +156,46 @@ export function mountCabinet(app: Express, deps: CabinetDeps) {
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
       if (profil) res.json(pageDuCabinet(await deps.cabinet.echanger(profil.id, req.body?.case, req.body?.jeu, req.body?.jour)))
+    }),
+  )
+
+  // La traversée : la dernière — en route, ou finie —, son épreuve finie conclue d'abord, la partie de celle qui se joue
+  // à reprendre, et ses légendaires. Rien n'y est secret : la carte des trois actes se voit d'avance.
+  // Préchargée avec la page (`DEPART.cabinet`), elle le dit (`prechargee`) : son heure se mesure sur le préchargement.
+  app.get(
+    '/api/cabinet/traversee',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const page = pageDeLaTraversee(await deps.cabinet.traversee(profil.id))
+      res.json(req.header('x-requested-with') ? page : { ...page, prechargee: true })
+    }),
+  )
+
+  // Une traversée qui commence — sa carte et ses trois gardiens, ses cartes à choisir ensuite : une seule en route, recomptée
+  // par la base.
+  app.post(
+    '/api/cabinet/traversee',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(pageDeLaTraversee(await deps.cabinet.commencerUneTraversee(profil.id)))
+    }),
+  )
+
+  // Un geste de la traversée, avec le rang qu'il croit suivre (invariant 12) — aller, améliorer, acheter, choisir son
+  // légendaire, abandonner : passé, il rend la page d'à présent avec son refus ; une traversée qui n'est pas la sienne est
+  // introuvable (invariant 3). Aller vers une épreuve ou un gardien y entre : la page d'après porte sa partie.
+  app.post(
+    '/api/cabinet/traversee/:id/geste',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const issue = await deps.cabinet.gesteDeTraversee(profil.id, String(req.params.id), req.body?.rang, req.body?.geste)
+      if ('introuvable' in issue) res.status(404).json({ error: TRAVERSEE_INTROUVABLE })
+      else if ('passe' in issue) res.status(409).json({ error: issue.pourquoi, page: pageDeLaTraversee(issue.passe) })
+      else res.json(pageDeLaTraversee(issue.lecture))
     }),
   )
 

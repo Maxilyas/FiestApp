@@ -40,22 +40,61 @@ import {
   instructionDeLaDorure,
   instructionQuiFigeLaVisite,
   lotDeLEchange,
+  lotDeLEpreuve,
   lotDeLOubli,
+  lotDeLaTraverseeQuiCommence,
   lotDuDepart,
   lotDuGeste,
+  lotDuGesteDeTraversee,
   type FinAEcrire,
   type OeuvreAEcrire,
   type VisiteAFiger,
 } from './ecriture'
 import { reconcilier, type EtagereDuCabinet } from './gardiens'
-import { GARDIENS_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
+import { GARDIENS_DU_CABINET, RANGEMENT_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
+import {
+  ETAPE_INCONNUE,
+  ILLISIBLE_EN_ROUTE,
+  TRAVERSEE_FINIE,
+  VERSION_DE_LA_TRAVERSEE,
+  cartesDeLEpreuve,
+  choisirLesGardiens,
+  epreuveEnCours,
+  etapeDe,
+  etatDeLaTraversee,
+  etatDuDepart,
+  jouerUnGesteDeLaTraversee,
+  lireUnGesteDeLaTraversee,
+  partieEnCours,
+  refusDAller,
+  tracerLaCarte,
+  viseeDeLEtape,
+  type DepartDeLaTraversee,
+  type EpreuveEnCours,
+  type EtapeDeLaCarte,
+  type EtatDeLaTraversee,
+  type GesteDeLaTraversee,
+  type GesteDeLaTraverseeEcrit,
+} from '../../../../shared/cabinet/traversee'
 import { fondreLesReveils, vuesDuCabinet, type ReveilDesGardiens } from '../../../../shared/cabinet/vues'
-import { laLigneDOeuvre, lectureDesOeuvres, lecturesDeLaPartie, lecturesDuMusee, laPartieLue, lireLeMusee, sallesLues, type PartieLueEnBase } from './tables'
+import {
+  laLigneDOeuvre,
+  laTraverseeLue,
+  lectureDesOeuvres,
+  lecturesDeLaPartie,
+  lecturesDeLaTraversee,
+  lecturesDuMusee,
+  laPartieLue,
+  lireLeMusee,
+  sallesLues,
+  type PartieLueEnBase,
+  type TraverseeLueEnBase,
+} from './tables'
 import { fichierDuCadrage } from '../details'
 import { contenuDuCabinet } from './contenu'
 import { preparerLesTas } from './tirages/tas'
 import { themeDuPlan, tirerLePlan } from './tirages/index'
-import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE } from '../../../../shared/cabinet/bareme'
+import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
 import { lireLeBilan, lireUnGeste } from '../../../../shared/cabinet/lecture'
 import {
   AUCUN_AUTRE_JEU,
@@ -94,6 +133,8 @@ import {
   chronoDuDepart,
   enjeuDuTirage,
   estDUnJourDAvant,
+  estUneEpreuve,
+  etoilesDesManches,
   jouerUnGeste,
   laPartieARepondu,
   pliDeLaPartie,
@@ -113,6 +154,13 @@ import { refusDuCadrage, type DetailTire, type EtatDuDetail } from '../../../../
 import { jourAvant, jourDe } from '../../../../shared/jour'
 import { minuitDe } from '../../../../shared/qg'
 import type { Saison } from '../../../../shared/saisons'
+
+/**
+ * Une partie d'un jour d'avant que la page du jour clôt (`clore`) — jamais une
+ * épreuve de traversée : la traversée se reprend où on l'a laissée, la manche
+ * expirée se juge au geste suivant, et l'épreuve continue.
+ */
+const aClore = (d: DepartDUnePartie, jour: string): boolean => !estUneEpreuve(d) && estDUnJourDAvant(d, jour)
 
 /** Les musées gardés en mémoire, au plus : le plus anciennement servi s'en va. Un réglage de la mémoire, pas un barème. */
 export const MUSEES_GARDES = 500
@@ -195,6 +243,8 @@ export interface PartieLue extends PartieGardee {
    * en mémoire n'en dit rien, et le bilan s'en passe.
    */
   aujourdhui?: LectureDuJour
+  /** Une épreuve de traversée : ce qu'elle vaut déjà à la traversée (`epreuveEnCours`) — tant que la traversée y joue. */
+  traversee?: EpreuveEnCours
 }
 
 /** Le musée du jour et sa visite, comme la page les lit : ce que le bilan d'une partie d'aujourd'hui en dit (`PartieLue.aujourdhui`). */
@@ -225,16 +275,16 @@ export interface LectureDuCabinet {
   tour: TourDuJour
 }
 
-/** Ce que le bouton de l'accueil lit (`accueilDuCabinet`) : le musée et sa visite, comme la page les lit. */
-export type LectureDeLAccueil = Pick<LectureDuCabinet, 'musee' | 'visite' | 'jeuDeLEchange' | 'jeux'>
+/** Le musée et sa visite, comme la page les lit (`visiteVue`). */
+export type LectureDeLaVisite = Pick<LectureDuCabinet, 'musee' | 'visite' | 'jeuDeLEchange' | 'jeux'>
 
 /**
- * Le musée et sa visite comme la page, l'accueil et l'échange les lisent : le jeu que l'échange donnerait s'y tire de la graine
+ * Le musée et sa visite comme la page et l'échange les lisent : le jeu que l'échange donnerait s'y tire de la graine
  * secrète de la visite (`jeuDeLEchange`), qui ne sort pas de cette lecture — la vue n'en garde que le jeu (`visiteVue`). Une
  * seule copie, que le calibrage lit aussi (`calibrage-cabinet.ts`) : ses joueurs choisissent leur échange sur la visite que la
  * page reçoit, jamais sur la règle.
  */
-export function lectureDeLaVisite(musee: Musee, visite: VisiteDuJour, graine: string, jeux: readonly CleDeJeu[] = JEUX_PRETS): LectureDeLAccueil {
+export function lectureDeLaVisite(musee: Musee, visite: VisiteDuJour, graine: string, jeux: readonly CleDeJeu[] = JEUX_PRETS): LectureDeLaVisite {
   return { musee, visite, jeuDeLEchange: jeuDeLEchange(musee, visite, { graine, jeux }), jeux }
 }
 
@@ -245,6 +295,38 @@ export type IssueDuGeste =
   | { introuvable: true }
   /** Un rang qui n'est plus le suivant — un double toucher, un autre onglet, une réponse perdue puis rejouée —, ou une partie finie : la vue d'à présent, que la page reprend. */
   | { passe: PartieLue; pourquoi: string }
+
+/** Une traversée en mémoire : son départ figé, ses gestes écrits, le pli qui en dit l'état. */
+export interface TraverseeGardee {
+  id: string
+  profileId: string
+  depart: DepartDeLaTraversee
+  gestes: GesteDeLaTraverseeEcrit[]
+  etat: EtatDeLaTraversee
+  commenceeLe: number
+}
+
+/** Ce que la page de la traversée lit (`vueDeLaTraversee`) : la dernière, la partie de son épreuve, ses légendaires. */
+export interface LectureDeLaTraversee {
+  maintenant: number
+  traversee: TraverseeGardee | null
+  /** L'épreuve qui se joue : sa partie, à reprendre, et ce qu'elle vaut déjà à la traversée. */
+  partie: PartieLue | null
+  possedes: readonly string[]
+}
+
+/** Un geste de la traversée reçu : la traversée d'après, ou ce qui le refuse sans rien écrire. */
+export type IssueDeTraversee =
+  | { lecture: LectureDeLaTraversee }
+  /** Celle d'un autre profil, ou qui n'est plus la sienne (invariant 3). */
+  | { introuvable: true }
+  /** Un rang qui n'est plus le suivant, ou une traversée finie : la vue d'à présent, que la page reprend. */
+  | { passe: LectureDeLaTraversee; pourquoi: string }
+
+export const TRAVERSEE_INTROUVABLE = 'Cette traversée est introuvable : recharge la page'
+export const TRAVERSEE_EN_ROUTE = 'Une traversée est déjà en route : reprends-la'
+export const GESTE_PASSE_EN_ROUTE = 'Ce geste est passé : ta traversée a continué sans lui'
+export const RIEN_A_TIRER_EN_ROUTE = 'Cette épreuve n’a pas de quoi jouer : choisis un autre chemin'
 
 export const PARTIE_INTROUVABLE = 'Cette partie est introuvable'
 export const GESTE_PASSE = 'Ce geste est passé : ta partie a continué sans lui'
@@ -427,6 +509,8 @@ function peutSeServir(d: DepartDUnePartie, tirage: number, cadrage: number): boo
 export class CabinetStore {
   private readonly musees = new Map<string, MuseeGarde>()
   private readonly parties = new Map<string, PartieGardee>()
+  /** La dernière traversée de chaque profil, en route ou finie ; null : lue, il n'en a aucune. */
+  private readonly traversees = new Map<string, TraverseeGardee | null>()
   /** Trente départs, puis un toutes les deux minutes (`DEPARTS_PAR_HEURE`) : toutes les parties s'écrivent, libres comprises. */
   private readonly departs = new Budget(DEPARTS_PAR_HEURE, DEPARTS_PAR_HEURE / 60)
   private readonly maintenant: () => number
@@ -678,17 +762,30 @@ export class CabinetStore {
   // ── L'accueil ─────────────────────────────────────────────────────────
 
   /**
-   * Le gros bouton de l'accueil d'un profil (`ProfilDAccueil.cabinet`) : ses
-   * œuvres, et une case de la visite du jour qui attend — de la mémoire seule,
-   * sans verrou ni aller-retour. Un musée que ce serveur n'a pas lu depuis son
-   * réveil n'en dit rien (null), et le bouton garde sa ligne de toujours : la
-   * plupart des profils qui ouvrent l'accueil n'ouvrent pas le Cabinet, et
-   * chacun aurait payé son lot froid à chaque réveil, au quota de Turso
-   * (`cabinet-charge.test.ts`). L'accueil ne garde pas non plus le musée en
-   * vie : il ne le fait pas passer au bout de la mémoire. Le magasin rend la
-   * lecture, la route bâtit la vue (`accueilDuCabinet`), comme pour la page.
+   * Le gros bouton de l'accueil d'un profil (`ProfilDAccueil.cabinet`) : la
+   * traversée qu'il a en route — de la mémoire seule, sans verrou ni
+   * aller-retour. Une traversée que ce serveur n'a pas lue depuis son réveil
+   * n'en dit rien (null), et le bouton garde sa ligne de toujours : la plupart
+   * des profils qui ouvrent l'accueil n'ouvrent pas le Cabinet, et chacun
+   * aurait payé son lot froid à chaque réveil, au quota de Turso
+   * (`cabinet-charge.test.ts`). L'accueil ne la garde pas non plus en vie : il
+   * ne la fait pas passer au bout de la mémoire. Finie, rien : le bouton n'a
+   * plus de voyage à dire. Le magasin rend la traversée, la route bâtit la vue
+   * (`accueilDuCabinet`), comme pour la page.
    */
-  accueil(profileId: string): LectureDeLAccueil | null {
+  accueil(profileId: string): TraverseeGardee | null {
+    const tr = this.traversees.get(profileId)
+    return tr && !tr.etat.fin ? tr : null
+  }
+
+  /**
+   * La visite du jour, de la mémoire seule — sans verrou, sans rien clore : ce
+   * que la page montrerait avant de clore une partie d'hier. Le bouton de
+   * l'accueil la lisait avant la traversée ; `cabinet-routes.test.ts` la
+   * compare à celle d'après la clôture, qui ne doit pas la changer. Un musée
+   * pas encore lu : null.
+   */
+  visiteEnMemoire(profileId: string): LectureDeLaVisite | null {
     const g = this.musees.get(profileId)
     if (!g) return null
     const t = this.maintenant()
@@ -728,7 +825,7 @@ export class CabinetStore {
       garde = await this.musee(profileId, t)
       enCours = null
     }
-    if (enCours && !enCours.etat.fin && estDUnJourDAvant(enCours.depart, jourDe(t))) {
+    if (enCours && !enCours.etat.fin && aClore(enCours.depart, jourDe(t))) {
       await this.clore(profileId, enCours, t)
       garde = await this.musee(profileId, t)
       enCours = null
@@ -775,7 +872,7 @@ export class CabinetStore {
     const garde = await this.musee(profileId, t)
     if (!garde.enCours) return garde
     const p = await this.partieDe(profileId, garde.enCours.id)
-    if (p && !p.etat.fin && estDUnJourDAvant(p.depart, jourDe(t))) await this.clore(profileId, p, t)
+    if (p && !p.etat.fin && aClore(p.depart, jourDe(t))) await this.clore(profileId, p, t)
     return this.musee(profileId, t)
   }
 
@@ -935,6 +1032,14 @@ export class CabinetStore {
    * ordinaire) ne relit rien : c'est la page qui est en retard.
    */
   async geste(profileId: string, serie: string, rang: unknown, brut: unknown): Promise<IssueDuGeste> {
+    const issue = await this.gesteSeul(profileId, serie, rang, brut)
+    // Une épreuve de traversée dit ce qu'elle vaut déjà : les cœurs, l'or, le gardien — la traversée en mémoire, que sa page a lue.
+    if ('partie' in issue) return { partie: this.avecLEpreuve(profileId, issue.partie) }
+    if ('passe' in issue) return { ...issue, passe: this.avecLEpreuve(profileId, issue.passe) }
+    return issue
+  }
+
+  private async gesteSeul(profileId: string, serie: string, rang: unknown, brut: unknown): Promise<IssueDuGeste> {
     const recueLe = this.maintenant()
     return this.porte.avecVerrou(profileId, async () => {
       for (let essai = 0; ; essai++) {
@@ -979,8 +1084,11 @@ export class CabinetStore {
     const fin = garde ? this.laFin(profileId, garde, p, apres) : null
     // Sa première manche répondue d'une visite ou d'une chasse compte le jour de son départ à la série — jamais le départ
     // seul : quittée d'emblée, ou laissée à l'échéance sans une réponse, une partie ne tient pas la série (le 26 octobre 2026).
+    // Une épreuve de traversée ne tient pas la série du musée : elle a ses cœurs et son or.
     const jourCompte =
-      p.depart.origine !== 'libre' && !laPartieARepondu(p.etat) && laPartieARepondu(apres) ? { profileId, jour: p.depart.jour, veille: jourAvant(p.depart.jour) } : null
+      p.depart.origine !== 'libre' && !estUneEpreuve(p.depart) && !laPartieARepondu(p.etat) && laPartieARepondu(apres)
+        ? { profileId, jour: p.depart.jour, veille: jourAvant(p.depart.jour) }
+        : null
     // La fin d'une partie d'un jour d'avant — close au matin par la page, ou jouée par-delà minuit — fige la visite du jour
     // d'abord : son départ a figé celle de son jour à elle, et l'œuvre qu'elle fait entrer, minuit ne l'avait pas.
     const gel = fin && garde && jourDe(t) !== p.depart.jour ? this.visiteAFiger(profileId, garde, t) : null
@@ -1345,7 +1453,7 @@ export class CabinetStore {
   partie(profileId: string, serie: string): Promise<PartieLue | null> {
     return this.porte.avecVerrou(profileId, async () => {
       const p = await this.partieDe(profileId, serie)
-      return p && this.lue(p, this.maintenant())
+      return p && this.avecLEpreuve(profileId, this.lue(p, this.maintenant()))
     })
   }
 
@@ -1427,6 +1535,325 @@ export class CabinetStore {
     if (garde) garde.expeditionEnRoute = enRoute
   }
 
+  // ── La traversée ──────────────────────────────────────────────────────
+
+  /**
+   * Sa dernière traversée — en route, ou finie —, de la mémoire, sinon d'un
+   * lot de deux lectures par l'index du profil. Une traversée que ce code ne
+   * relit pas (un départ d'une version à venir, pendant une mise en ligne) se
+   * dit au journal et ne se montre pas : la base, elle, refuse d'en commencer
+   * une autre tant qu'elle est en route.
+   */
+  private async traverseeDe(profileId: string): Promise<TraverseeGardee | null> {
+    if (this.traversees.has(profileId)) {
+      const gardee = this.traversees.get(profileId) ?? null
+      this.garder(this.traversees, profileId, gardee, MUSEES_GARDES)
+      return gardee
+    }
+    const lue = laTraverseeLue(await this.porte.client.batch(lecturesDeLaTraversee(profileId), 'read'))
+    if (lue === 'illisible') console.error(`[cabinet] la traversée de ${profileId} ne se relit pas`)
+    const gardee = lue && lue !== 'illisible' ? this.garderLaTraversee(profileId, lue) : null
+    return this.garder(this.traversees, profileId, gardee, MUSEES_GARDES)
+  }
+
+  private garderLaTraversee(profileId: string, lue: TraverseeLueEnBase): TraverseeGardee {
+    const etat = etatDeLaTraversee(lue.depart, lue.gestes)
+    if (etat.ignores > 0) console.warn(`[cabinet] traversée ${lue.id} : ${etat.ignores} geste(s) écrit(s) que la relecture refuse`)
+    return { id: lue.id, profileId, depart: lue.depart, gestes: lue.gestes, etat, commenceeLe: lue.commenceeLe }
+  }
+
+  /**
+   * Un geste de la traversée joué au pli à `t`, puis écrit d'un lot gardé, sa
+   * fin sous lui ; le légendaire choisi se range ensuite. Rien d'écrit — le rang
+   * pris par l'autre serveur d'une mise en ligne, un autre onglet —, la mémoire
+   * s'oublie (`devance`) : la base fait foi, et l'appelant relit.
+   */
+  private async ecrireUnGesteDeTraversee(
+    profileId: string,
+    tr: TraverseeGardee,
+    geste: GesteDeLaTraversee,
+    t: number,
+  ): Promise<{ traversee: TraverseeGardee } | { refus: string } | { devance: true }> {
+    const apres = jouerUnGesteDeLaTraversee(tr.depart, tr.etat, geste, t)
+    if (typeof apres === 'string') return { refus: apres }
+    const fin = apres.fin && !tr.etat.fin ? apres.fin : null
+    let lus: ResultSet[]
+    try {
+      lus = await this.porte.client.batch(lotDuGesteDeTraversee({ id: tr.id, rang: tr.etat.rang, geste, faitLe: t, uid: randomUUID(), fin }), 'write')
+    } catch (e) {
+      this.traversees.delete(profileId)
+      throw e
+    }
+    if (lus[0].rowsAffected !== 1) {
+      this.traversees.delete(profileId)
+      return { devance: true }
+    }
+    const suite: TraverseeGardee = { ...tr, gestes: [...tr.gestes, { geste, faitLe: t }], etat: apres }
+    this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
+    if (fin?.legendaire) await this.rangerLeLegendaire(profileId, fin.legendaire, t)
+    return { traversee: suite }
+  }
+
+  /**
+   * Le légendaire choisi au bout des trois actes, rangé sur son étagère sous
+   * `#cabinet` — la voie de son gardien, idempotente par sa clé (invariant 22) :
+   * il devient un avatar comme un gardien réveillé au musée. Un rangement raté
+   * ne fait pas tomber la traversée gagnée : il se dit au journal, et la page
+   * suivante le refait (`rattraperLeLegendaire`).
+   */
+  private async rangerLeLegendaire(profileId: string, legendaire: string, t: number) {
+    const voie = voieDuGardien(legendaire)
+    if (!voie || !this.profils.ranger) return
+    try {
+      await this.profils.ranger(profileId, RANGEMENT_DU_CABINET, [voie], t)
+    } catch (e) {
+      console.error(`[cabinet] le légendaire ${legendaire} de ${profileId} ne se range pas`, e)
+    }
+  }
+
+  /** Une traversée gagnée dont le légendaire manque à l'étagère en mémoire : il se range de nouveau, une fois par page. */
+  private async rattraperLeLegendaire(profileId: string, tr: TraverseeGardee | null, t: number) {
+    const legendaire = tr?.etat.fin?.legendaire
+    const voie = legendaire ? voieDuGardien(legendaire) : null
+    if (!legendaire || !voie || !this.profils.recompensesOf || this.profils.recompensesOf(profileId).has(voie)) return
+    await this.rangerLeLegendaire(profileId, legendaire, t)
+  }
+
+  /**
+   * La traversée à jour : l'épreuve dont la partie est finie se conclut — ses
+   * étoiles s'écrivent au journal de la traversée (`conclure`), un fait de la
+   * partie finie, que la traversée relira sans rejouer ses vingt parties. La
+   * partie de l'épreuve qui se joue encore vient avec. Une partie introuvable —
+   * un bogue, jamais une règle — se conclut sans étoiles, et le journal le dit :
+   * la traversée ne reste pas bloquée derrière elle.
+   */
+  private async aJour(profileId: string, t: number): Promise<{ traversee: TraverseeGardee | null; partie: PartieGardee | null }> {
+    for (let essai = 0; ; essai++) {
+      const tr = await this.traverseeDe(profileId)
+      const id = tr ? partieEnCours(tr.etat) : null
+      if (!tr || !id) return { traversee: tr, partie: null }
+      const p = await this.partieDe(profileId, id)
+      if (p && !p.etat.fin) return { traversee: tr, partie: p }
+      if (!p) console.error(`[cabinet] l’épreuve ${id} de la traversée ${tr.id} ne se relit pas : elle se conclut sans étoiles`)
+      const manches = p
+        ? etoilesDesManches(p.depart, p.etat).map(m => ({ etoiles: m.naturel, misee: m.misee }))
+        : Array.from({ length: MANCHES_PAR_PARTIE }, () => ({ etoiles: null, misee: false }))
+      const issue = await this.ecrireUnGesteDeTraversee(profileId, tr, { quoi: 'conclure', partie: id, manches }, t)
+      if ('traversee' in issue) return { traversee: issue.traversee, partie: null }
+      if ('refus' in issue) {
+        console.error(`[cabinet] l’épreuve ${id} de la traversée ${tr.id} ne se conclut pas : ${issue.refus}`)
+        return { traversee: tr, partie: null }
+      }
+      if (essai > 0) throw new Error(GESTE_CROISE)
+    }
+  }
+
+  /** Une partie d'épreuve telle que la route la montre : ce qu'elle vaut déjà à sa traversée, si la traversée y joue encore. */
+  private avecLEpreuve(profileId: string, lue: PartieLue): PartieLue {
+    if (lue.depart.origine !== 'traversee') return lue
+    const tr = this.traversees.get(profileId)
+    if (!tr) return lue
+    const manches = etoilesDesManches(lue.depart, lue.etat).map(m => ({ etoiles: m.naturel, misee: m.misee }))
+    const traversee = epreuveEnCours(tr.depart, tr.etat, lue.id, manches, lue.etat.fin !== null)
+    return traversee ? { ...lue, traversee } : lue
+  }
+
+  private lectureDeLaTraversee(profileId: string, tr: TraverseeGardee | null, partie: PartieGardee | null, t: number): LectureDeLaTraversee {
+    return { maintenant: t, traversee: tr, partie: partie ? this.avecLEpreuve(profileId, this.lue(partie, t)) : null, possedes: this.profils.legendairesOf(profileId) }
+  }
+
+  /**
+   * La page de la traversée : la dernière — en route, ou finie —, à jour (son
+   * épreuve finie conclue), et la partie de l'épreuve qui se joue, à reprendre.
+   * Un légendaire gagné qui manque à l'étagère s'y range de nouveau.
+   */
+  async traversee(profileId: string): Promise<LectureDeLaTraversee> {
+    return this.porte.avecVerrou(profileId, async () => {
+      const t = this.maintenant()
+      const { traversee, partie } = await this.aJour(profileId, t)
+      await this.rattraperLeLegendaire(profileId, traversee, t)
+      return this.lectureDeLaTraversee(profileId, traversee, partie, t)
+    })
+  }
+
+  /**
+   * Une traversée qui commence : ses gardiens — ceux qu'il n'a pas d'abord —,
+   * sa carte de trois actes tirée au hasard du serveur et figée, un lot. Ses
+   * trois cartes se choisissent ensuite, devant ses gardiens (le geste
+   * `cartes`). Une seule en route : la base le recompte.
+   */
+  async commencerUneTraversee(profileId: string): Promise<LectureDeLaTraversee> {
+    const recueLe = this.maintenant()
+    if (!this.departs.take(profileId)) throw new Error(TROP_DE_DEPARTS)
+    return this.porte.avecVerrou(profileId, async () => {
+      for (let essai = 0; ; essai++) {
+        const t = recueLe
+        const { traversee } = await this.aJour(profileId, t)
+        if (traversee && !traversee.etat.fin) throw new Error(TRAVERSEE_EN_ROUTE)
+        const jour = jourDe(t)
+        const halloween = this.reglages.calendrier.periodeDu(jour)?.saison.key === 'halloween'
+        const gardiens = choisirLesGardiens(this.hasard, new Set(this.profils.legendairesOf(profileId)), halloween)
+        const contenu = contenuDuCabinet()
+        const themes = { epingle: [...new Set(contenu.lieux.map(l => l.theme))], frise: [...new Set(contenu.frises.map(f => f.theme))] }
+        const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour, actes: tracerLaCarte(this.hasard, gardiens, themes, JEUX_PRETS) }
+        const id = randomUUID()
+        let lus: ResultSet[]
+        try {
+          lus = await this.porte.client.batch(lotDeLaTraverseeQuiCommence({ id, profileId, depart, t }), 'write')
+        } catch (e) {
+          this.traversees.delete(profileId)
+          throw e
+        }
+        if (lus[0].rowsAffected !== 1) {
+          // Une autre traversée est née en même temps — un autre onglet, l'autre serveur : relue, elle se dit.
+          this.traversees.delete(profileId)
+          if (essai === 0) continue
+          throw new Error(TRAVERSEE_EN_ROUTE)
+        }
+        const tr: TraverseeGardee = { id, profileId, depart, gestes: [], etat: etatDuDepart(depart), commenceeLe: t }
+        this.garder(this.traversees, profileId, tr, MUSEES_GARDES)
+        return this.lectureDeLaTraversee(profileId, tr, null, this.maintenant())
+      }
+    })
+  }
+
+  /**
+   * Un geste de la traversée, avec le rang qu'il croit suivre (invariant 12) :
+   * la traversée cloisonnée au profil, à jour, le geste relu, la seule règle
+   * des refus (le pli), puis un lot gardé. Aller vers une épreuve ou un gardien
+   * y entre : sa partie commence dans le même lot (`entrerDansLEpreuve`).
+   */
+  async gesteDeTraversee(profileId: string, id: string, rang: unknown, brut: unknown): Promise<IssueDeTraversee> {
+    const recueLe = this.maintenant()
+    return this.porte.avecVerrou(profileId, async () => {
+      for (let essai = 0; ; essai++) {
+        const t = recueLe
+        const enMemoire = this.traversees.has(profileId)
+        const { traversee: tr, partie } = await this.aJour(profileId, t)
+        if (!tr || tr.id !== id) return { introuvable: true }
+        const lecture = () => this.lectureDeLaTraversee(profileId, tr, partie, this.maintenant())
+        if (tr.etat.fin) return { passe: lecture(), pourquoi: TRAVERSEE_FINIE }
+        if (rang !== tr.etat.rang && enMemoire && essai === 0 && typeof rang === 'number' && rang > tr.etat.rang) {
+          this.traversees.delete(profileId)
+          continue
+        }
+        if (rang !== tr.etat.rang) return { passe: lecture(), pourquoi: GESTE_PASSE_EN_ROUTE }
+        const geste = lireUnGesteDeLaTraversee(brut)
+        if (!geste) throw new Error(ILLISIBLE_EN_ROUTE)
+        const etape = geste.quoi === 'aller' ? etapeDe(tr.depart, geste.etape) : null
+        if (etape && (etape.sorte === 'epreuve' || etape.sorte === 'gardien')) {
+          const refus = refusDAller(tr.depart, tr.etat, etape.id)
+          if (refus) throw new Error(refus)
+          const entree = await this.entrerDansLEpreuve(profileId, tr, etape, t)
+          if (entree) return { lecture: entree }
+        } else {
+          const issue = await this.ecrireUnGesteDeTraversee(profileId, tr, geste, t)
+          if ('refus' in issue) throw new Error(issue.refus)
+          if ('traversee' in issue) return { lecture: this.lectureDeLaTraversee(profileId, issue.traversee, null, this.maintenant()) }
+        }
+        if (essai > 0) throw new Error(GESTE_CROISE)
+      }
+    })
+  }
+
+  /**
+   * L'entrée dans une épreuve — ou un assaut contre son gardien — : sa partie
+   * tirée comme un départ (le plan entier, réponses comprises), au jeu, aux
+   * marches et au thème que la carte a promis, avec les cartes qu'une manche
+   * joue ; puis un seul lot, le geste de la traversée en tête. Une partie qui
+   * attendait encore — une partie du musée d'avant la traversée, sans écran
+   * pour la finir — se quitte d'abord : une à la fois. Rien d'écrit : la
+   * mémoire s'oublie, et l'appelant relit (null).
+   */
+  private async entrerDansLEpreuve(profileId: string, tr: TraverseeGardee, etape: EtapeDeLaCarte, t: number): Promise<LectureDeLaTraversee | null> {
+    const assaut = etape.sorte === 'gardien' ? tr.etat.assauts + 1 : 0
+    const visee = viseeDeLEtape(tr.depart, etape, assaut)
+    if (!visee) throw new Error(ETAPE_INCONNUE)
+    const garde = await this.museeDuJour(profileId, t)
+    const autre = garde.enCours ? await this.partieDe(profileId, garde.enCours.id) : null
+    if (autre && !autre.etat.fin) {
+      const quittee = await this.ecrireUnGeste(profileId, autre, { quoi: 'quitter' }, autre.etat.rang, t)
+      if ('refus' in quittee) throw new Error(quittee.refus)
+      if ('devance' in quittee) return null
+    }
+    const { journal } = await this.porte.lireAvecLeJournal([])
+    const [jouables, mesures] = await Promise.all([this.porte.jouables(), this.porte.mesures()])
+    await this.tasDe(jouables)
+    const cartes = cartesDeLEpreuve(tr.etat.cartes)
+    const echange = cartes.find(c => c.pouvoir === 'changer')
+    const rechanges = echange && JEUX[visee.jeu].changeable ? CHANGEMENTS_PAR_PARTIE[echange.force] : 0
+    const tirages = tirerLePlan(
+      visee.jeu,
+      {
+        porte: this.porte,
+        jouables,
+        mesures,
+        vues: vuesDuCabinet(journal.vuesDe(profileId).vues),
+        maintenant: t,
+        hasard: this.hasard,
+        enjeu: { marchesEnPlus: [], friseSerree: false, marches: visee.marches },
+        leurres: journal.leurresChoisis(),
+        vise: { categorie: visee.categorie, theme: visee.theme },
+      },
+      rechanges,
+    )
+    if (!tirages) throw new Error(RIEN_A_TIRER_EN_ROUTE)
+    const theme = themeDuPlan(tirages)
+    const serie = randomUUID()
+    const depart: DepartDUnePartie = {
+      v: VERSION_DU_DEPART,
+      jeu: visee.jeu,
+      origine: 'traversee',
+      jour: jourDe(t),
+      cible: null,
+      but: null,
+      traversee: { id: tr.id, etape: etape.id, assaut },
+      seuil: null,
+      payee: false,
+      carte: null,
+      cartes,
+      chrono: chronoDuDepart(visee.jeu, cartes),
+      // La graine du hasard d'Éclairer : un secret du serveur, comme toute partie (`cabinet-secret.test.ts`).
+      graine: randomUUID(),
+      ...(theme !== undefined && { theme }),
+      tirages,
+    }
+    const geste: GesteDeLaTraversee = { quoi: 'epreuve', etape: etape.id, partie: serie }
+    const apres = jouerUnGesteDeLaTraversee(tr.depart, tr.etat, geste, t)
+    if (typeof apres === 'string') throw new Error(apres)
+    // Sous Quitte ou double, la mise se décide avant de voir la première manche : la page l'ouvre elle-même.
+    const ouverture = cartes.some(c => c.pouvoir === 'miser') ? null : { geste: { quoi: 'ouvrir', manche: 0 } as GesteDuCabinet, uid: randomUUID() }
+    const ouverteLe = this.maintenant()
+    let lus: ResultSet[]
+    try {
+      lus = await this.porte.client.batch(
+        lotDeLEpreuve({ profileId, serie, depart, t, ouverteLe, ouverture, geste: { id: tr.id, rang: tr.etat.rang, geste, faitLe: t, uid: randomUUID() } }),
+        'write',
+      )
+    } catch (e) {
+      this.oublier(profileId)
+      this.traversees.delete(profileId)
+      throw e
+    }
+    if (lus[0].rowsAffected !== 1 || lus[2].rowsAffected !== 1) {
+      this.oublier(profileId)
+      this.traversees.delete(profileId)
+      return null
+    }
+    // Le musée gardé apprend la partie qui attend — sans la compter à aucun droit du jour : ni visite, ni chasse, ni libre.
+    const g = this.musees.get(profileId)
+    if (g) {
+      g.profil = { ...(g.profil ?? PROFIL_NEUF), partie: serie }
+      g.enCours = { id: serie, jeu: depart.jeu }
+    }
+    const gestes: GesteEcrit[] = ouverture ? [{ geste: ouverture.geste, faitLe: ouverteLe }] : []
+    const partie: PartieGardee = { id: serie, profileId, depart, gestes, etat: pliDeLaPartie(depart, gestes), bilan: null }
+    this.garder(this.parties, serie, partie, PARTIES_GARDEES)
+    const suite: TraverseeGardee = { ...tr, gestes: [...tr.gestes, { geste, faitLe: t }], etat: apres }
+    this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
+    return this.lectureDeLaTraversee(profileId, suite, partie, this.maintenant())
+  }
+
   /**
    * Un profil supprimé : ses gestes, ses reflets et ses œuvres, **avant** que
    * la campagne efface ses séries — les gestes se trouvent par elles
@@ -1441,8 +1868,10 @@ export class CabinetStore {
   oublierProfil(profileId: string): Promise<void> {
     return this.porte.avecVerrou(profileId, async () => {
       this.oublier(profileId)
+      this.traversees.delete(profileId)
       await this.porte.client.batch(lotDeLOubli(profileId), 'write')
       this.oublier(profileId)
+      this.traversees.delete(profileId)
       // Ses gardiens à refaire ou à dire partent avec lui : gardés, ils ne servaient plus personne.
       this.aReveiller.delete(profileId)
       this.aAnnoncer.delete(profileId)

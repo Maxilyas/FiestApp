@@ -14,9 +14,12 @@
 // Node) lisent ce que ces routes rendent. Le pli, la visite et les refus en
 // mots ont leurs épreuves pures (`cabinet-regles.test.ts`) ; les allers-retours
 // de chaque route, `cabinet-charge.test.ts` ; le plan de chaque instruction,
-// `cabinet-index.test.ts`. Ce que la page en montre — le cartel, l'œuvre
-// pendant une partie — se rend ici aussi, sur ce que ces routes rendent : les
-// écrans écrits à la main ont leurs épreuves (`cabinet-ecran.test.ts`).
+// `cabinet-index.test.ts`. Ce que la page en montre — le cartel, la visite et
+// les jeux libres pendant une partie — se rend ici aussi, sur ce que ces routes
+// rendent : les écrans écrits à la main ont leurs épreuves
+// (`cabinet-ecran.test.ts`). La fiche d'une œuvre, qui disait d'avance le refus
+// d'un achat, d'une dorure ou d'une chasse, a quitté la page avec le musée (le
+// 31 octobre 2026) : ses refus, le serveur les dit toujours.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import path from 'node:path'
@@ -84,9 +87,7 @@ const texteDe = (html: string) =>
     .replace(/&amp;/g, '&')
     .replace(/[  ⁠]/g, ' ')
     .replace(/\s+/g, ' ')
-/** Une œuvre, à l'écran, sur une page du serveur ; et ses boutons — leur texte, en sourdine ou non. */
-const lOeuvreDe = (page: PageDuCabinet, cle: string) =>
-  ecranDeLaPage('views/cabinet/Oeuvre', 'Oeuvre', { page, cle, cartel: { etat: 'chargement' }, carte: null, busy: false, onCarte: () => {}, onAcheter: () => {}, onDorer: () => {}, onJouer: () => {} })
+/** Les boutons d'un écran rendu : leur texte, ceux qui sont en sourdine. */
 const enSourdine = (html: string) => [...html.matchAll(/<button ([^>]*)>(.*?)<\/button>/g)].filter(([, a]) => /aria-disabled="true"/.test(a)).map(([, , t]) => texteDe(t).trim())
 
 let b: BancDuCabinet
@@ -320,23 +321,10 @@ test('pendant une partie, rien ne s’achète ni ne se dore — ni l’œuvre qu
   // Ce qui ne se ferait jamais garde son refus à lui.
   assert.deepEqual(refus(await acheter(paul.cookie, 'prudence', prixDAchat('prudence'))), [400, { error: 'Elle est déjà à toi' }])
   assert.deepEqual(refus(await dorer(paul.cookie, communeA, prixDeDorure(communeA))), [400, { error: 'Elle n’est pas encore à toi : gagne-la ou achète-la d’abord' }])
-  // La page le dit d'avance, dans les mots du refus : sur la page que le serveur rend pendant la chasse, une œuvre qui manque
-  // n'offre ni sa chasse ni son achat, une œuvre à lui ni sa dorure ni de la jouer — en sourdine, la raison dite dessous.
+  // La page que le serveur rend pendant la chasse le dit, dans les mots du refus : la partie qui attend.
   const pendant = ok(await laPage(b, paul.cookie), 'la page pendant la chasse')
   assert.equal(pendant.enCours?.id, chasse.id)
   assert.equal(laPartieAttend(pendant.enCours!.jeu), attend)
-  const manque = await lOeuvreDe(pendant, communeA)
-  assert.deepEqual(
-    enSourdine(manque).map(t => ['Partir à sa recherche', 'L’acheter'].find(d => t.startsWith(d))),
-    ['Partir à sa recherche', 'L’acheter'],
-  )
-  assert.equal([...texteDe(manque).matchAll(new RegExp(attend, 'g'))].length, 1)
-  const aLui = await lOeuvreDe(pendant, 'prudence')
-  assert.deepEqual(
-    enSourdine(aLui).map(t => ['Dorer son cadre', 'La jouer'].find(d => t.startsWith(d))),
-    ['Dorer son cadre', 'La jouer'],
-  )
-  assert.match(texteDe(aLui), new RegExp(attend))
   // Ni un autre départ : la visite et les jeux libres mettent les leurs en sourdine, la raison dite une fois — celle du refus que
   // le serveur rend au départ demandé quand même.
   const jouerPendant = await ecranDeLaPage('views/cabinet/Visite', 'Visite', { page: pendant, busy: false, onJouer: () => {}, onEchanger: () => {} })
@@ -352,15 +340,7 @@ test('pendant une partie, rien ne s’achète ni ne se dore — ni l’œuvre qu
   assert.deepEqual([fin.bilan?.issue, fin.bilan?.oeuvre], ['gagnee-doree', 'lecon'], 'la Leçon entre en jouant, sans rien payer')
   const apres = ok(await laPage(b, paul.cookie), 'la page')
   assert.equal(apres.poussiere, 2000 + fin.bilan!.poussiere)
-  // La partie finie, l'achat et la dorure répondent, sans raison.
-  for (const [cle, geste] of [
-    [communeA, 'L’acheter'],
-    ['prudence', 'Dorer son cadre'],
-  ] as const) {
-    const html = await lOeuvreDe(apres, cle)
-    assert.ok(!enSourdine(html).some(t => t.startsWith(geste)), geste)
-    assert.doesNotMatch(texteDe(html), new RegExp(attend))
-  }
+  // La partie finie, la visite répond, sans raison.
   const jouerApres = await ecranDeLaPage('views/cabinet/Visite', 'Visite', { page: apres, busy: false, onJouer: () => {}, onEchanger: () => {} })
   assert.ok(!enSourdine(jouerApres).includes('Jouer'), 'la visite répond')
   assert.doesNotMatch(texteDe(jouerApres), new RegExp(attend))
@@ -707,7 +687,7 @@ test('gagnée avec son cartel, puis dorée en jouant : l’œuvre garde le premi
   assert.equal(cartelsQuiTiennent(relus, apres, ok(await laPage(b, cookie), 'la page relue')), relus)
 })
 
-test('plus de chasse : la page dit le refus que le serveur rend, dans son ordre', async () => {
+test('plus de chasse : le serveur dit son refus, dans son ordre', async () => {
   const { cookie } = await avecDeLaPoussiere('ugo', 0)
   for (let n = 0; n < 2; n++) ok(await jouer(b, cookie, ok(await commencer(b, cookie, { origine: 'chasse', oeuvre: 'lecon', carte: null }), 'une chasse'), { quoi: 'quitter' }), 'quitter')
   const page = ok(await laPage(b, cookie), 'la page sans chasse')
@@ -720,10 +700,7 @@ test('plus de chasse : la page dit le refus que le serveur rend, dans son ordre'
   assert.equal(depart.status, 400)
   const { error } = depart.corps as unknown as { error: string }
   assert.equal(error, PLUS_DE_CHASSE)
-  const html = await lOeuvreDe(page, 'coup-d-oeil')
-  const raison = /<button [^>]*aria-describedby="([^"]+)"[^>]*>La jouer/.exec(html)?.[1]
-  assert.ok(raison, 'la jouer, en sourdine, désigne sa raison')
-  assert.equal(texteDe(new RegExp(`<p id="${raison}" class="cab-raison">(.*?)</p>`).exec(html)![1]).trim(), texteDe(error).trim())
+  // La fiche de l'œuvre, qui le disait d'avance sous « La jouer », a quitté la page avec le musée (le 31 octobre 2026).
 })
 
 test('le cartel d’une œuvre gagnée sans rien à raconter dit le jour où elle est entrée, pas celui de sa partie', () => {

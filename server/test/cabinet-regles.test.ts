@@ -606,7 +606,13 @@ test('un départ se relit variante par variante — la zone de l’Épingle et l
     f(x)
     return lireLeDepart(x)
   }
-  assert.equal(casse(x => (x.v = 3)), null, 'une version que ce code ne joue pas')
+  assert.equal(casse(x => (x.v = 4)), null, 'une version que ce code ne joue pas')
+  // Une épreuve de traversée n'existe qu'à partir de la version 3, avec son étape et ses cartes, sans carte-bonus.
+  const epreuve = { id: 't', etape: 'a0r1c0', assaut: 0 }
+  assert.equal(casse(x => Object.assign(x, { origine: 'traversee', traversee: epreuve, cartes: [] })), null, 'une épreuve en version 1')
+  assert.equal(casse(x => Object.assign(x, { v: 3, origine: 'traversee', cartes: [] })), null, 'une épreuve sans son étape')
+  assert.equal(casse(x => Object.assign(x, { v: 3, traversee: epreuve })), null, 'une étape hors d’une traversée')
+  assert.deepEqual(casse(x => Object.assign(x, { v: 3, origine: 'traversee', traversee: epreuve, cartes: [] }))?.traversee, epreuve)
   // Une porte de la tour n'existe qu'à partir de la version 2, et elle seule porte son étage, entier et bien formé.
   const etage = { n: 1, etage: 2, porte: 0, butin: 'coeur', carte: null }
   assert.equal(casse(x => Object.assign(x, { origine: 'montee', montee: etage })), null, 'une montée en version 1')
@@ -677,6 +683,8 @@ const DEPARTS_ECRITS: Record<number, string> = {
 }
 // La version 2 lit l'étage d'une montée de la tour : une porte à œuvre, la carte de toute la montée.
 DEPARTS_ECRITS[2] = `{"v":2,"jeu":"mot","origine":"montee","jour":"2026-10-31","cible":"plume","but":"gagner","montee":{"n":1,"etage":2,"porte":0,"butin":"oeuvre","carte":"concentration"},"seuil":5,"payee":false,"carte":{"cle":"concentration","pouvoir":"temps","force":1},"graine":"5e0f9b1c-7d2a-4e3b-8c4d-1f2a3b4c5d6e","chrono":{"etapesMs":[120000],"enPlusMs":10000,"graceMs":1500,"pauseMs":30000},"tirages":[${MOT_ECRIT('m-d')},${MOT_ECRIT('m-e')},${MOT_ECRIT('m-f')}]}`
+// La version 3 lit l'épreuve d'une traversée : son étape et son assaut, ses cartes — une par pouvoir —, sans carte-bonus.
+DEPARTS_ECRITS[3] = `{"v":3,"jeu":"mot","origine":"traversee","jour":"2026-10-31","cible":null,"but":null,"traversee":{"id":"7a2b9c1d-0e3f-4a5b-8c6d-2e1f0a9b8c7d","etape":"a0r1c2","assaut":0},"seuil":null,"payee":false,"carte":null,"cartes":[{"cle":"concentration","pouvoir":"temps","force":1},{"cle":"quitte-ou-double","pouvoir":"miser","force":3}],"graine":"3b9e2f7c-1a4d-4c8e-9f0b-6d5e4c3b2a19","chrono":{"etapesMs":[120000],"enPlusMs":10000,"graceMs":1500,"pauseMs":30000},"tirages":[${MOT_ECRIT('m-g')},${MOT_ECRIT('m-h')},${MOT_ECRIT('m-i')}]}`
 const BILANS_ECRITS: Record<number, string> = {
   1: '{"v":1,"etoiles":[7,3,0],"naturel":[3,3,0],"aidee":true,"total":9,"quittee":true,"issue":"gagnee","poussiere":18,"oeuvre":"plume","cartel":0}',
 }

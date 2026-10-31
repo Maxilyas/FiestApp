@@ -193,16 +193,15 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; 
 }
 
 /**
- * Le bouton du Cabinet : son musée — « Ton musée : 27 œuvres sur 84 » —, et
- * « À jouer » tant qu'une case de la visite du jour attend. Le serveur ne le
- * dit que d'un musée qu'il a en mémoire (`ProfilDAccueil.cabinet`) : sinon, la
- * ligne de toujours, plutôt qu'un aller-retour de plus à chaque accueil.
+ * Le bouton du Cabinet : sa traversée en route — « Acte 2 sur 3 · 4 cœurs »,
+ * « En route ». Le serveur ne la dit que d'une traversée qu'il a en mémoire
+ * (`ProfilDAccueil.cabinet`) : sinon, la ligne de toujours, ce qu'on y fait,
+ * plutôt qu'un aller-retour de plus à chaque accueil.
  */
-export function boutonDuCabinet(m: CabinetDAccueil | undefined): { detail: string; pastille?: string } {
-  if (!m) return { detail: 'Un musée à remplir, des œuvres à gagner en jouant' }
-  // « 27 œuvres sur 84 » d'un bloc : la ligne passe après « Ton musée : » — coupée ailleurs, « sur 84 » restait seul sur la
-  // sienne en 360, à côté de « À jouer » (le rendu du 25 octobre 2026).
-  return { detail: espacesFines(`Ton musée : ${m.oeuvres} œuvre${m.oeuvres > 1 ? 's' : ''} sur ${m.sur}`), ...(m.aJouer && { pastille: 'À jouer' }) }
+export function boutonDuCabinet(c: CabinetDAccueil | undefined): { detail: string; pastille?: string } {
+  if (!c) return { detail: 'Trois actes, trois gardiens, un légendaire au bout' }
+  // « sur 3 » et « 4 cœurs » d'un bloc chacun : coupée ailleurs, la ligne laissait un chiffre seul en 360, à côté de la pastille.
+  return { detail: `Acte ${c.acte} sur 3 · ${c.coeurs} ${c.coeurs > 1 ? 'cœurs' : 'cœur'}`, pastille: 'En route' }
 }
 
 /** Rien de fermé, rien d'essayé avant tout le monde. */
@@ -235,7 +234,7 @@ export function AccueilJouer({
   campagne,
   defi,
   duels,
-  musee,
+  traversee,
   etats = RIEN_DE_FERME,
   cabinet = cabinetIci(),
   remplacee = EXPEDITION_REMPLACEE,
@@ -253,8 +252,8 @@ export function AccueilJouer({
   defi?: DefiDAccueil
   /** Ses duels : sa ligue, sa cote, sa semaine — et qui le défie. */
   duels?: DuelsDAccueil
-  /** Son musée du Cabinet : ses œuvres, et une case de la visite du jour qui attend — dit d'un musée que le serveur a en mémoire. */
-  musee?: CabinetDAccueil
+  /** Sa traversée du Cabinet, en route : son acte et ses cœurs — dite d'une traversée que le serveur a en mémoire. */
+  traversee?: CabinetDAccueil
   /** Ce que dit le bouton de chaque page fermée, pour lui (`boutonsDesPages`, `client/src/maintenance.ts`). */
   etats?: Partial<Record<PageEnMaintenance, BoutonDeLaPage>>
   /** Le Cabinet de curiosités répond-il sur ce serveur ? Le serveur le dit dans la page (`cabinetIci`) ; fermé, pas de bouton. */
@@ -283,7 +282,7 @@ export function AccueilJouer({
   const laCampagne = boutonDeLaCampagne(campagne)
   const leDefi = boutonDuDefi(defi)
   const lesDuels = boutonDesDuels(duels)
-  const leCabinet = boutonDuCabinet(musee)
+  const leCabinet = boutonDuCabinet(traversee)
   return (
     <div className="accueil-gestes">
       {/* Il joue déjà quelque part : on y revient d'un toucher, avant tout. */}

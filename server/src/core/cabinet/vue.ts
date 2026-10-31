@@ -14,7 +14,7 @@
 // vue (invariant 14) : « Mes réponses » révèle chaque manche d'une partie
 // finie comme la partie l'a révélée, et le cartel d'une œuvre relit la manche
 // que son bilan garde comme le bilan l'a dite.
-import type { CartelLu, LectureDeLAccueil, LectureDesMurs, LectureDuCabinet, PartieGardee, PartieLue } from './magasin'
+import type { CartelLu, LectureDeLaTraversee, LectureDeLaVisite, LectureDesMurs, LectureDuCabinet, PartieGardee, PartieLue, TraverseeGardee } from './magasin'
 import { themeDuTirage } from './tirages/index'
 import {
   CHANGEMENTS_PAR_PARTIE,
@@ -25,6 +25,7 @@ import {
   ETOILES_PAR_MANCHE,
   LIBRES_QUI_PAIENT,
   MANCHES_PAR_PARTIE,
+  MISES_PAR_EPREUVE,
   SEUILS_DES_RARETES,
   VAGUES_DE_LA_FRISE,
 } from '../../../../shared/cabinet/bareme'
@@ -52,9 +53,10 @@ import {
   type Musee,
   type OrigineDUneOeuvre,
 } from '../../../../shared/cabinet/musee'
-import { JEU_DE_L_OEUVRE, OEUVRES, OEUVRES_DE_DEPART, estUneOeuvre, oeuvre, oeuvresDeLaSalle, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
+import { JEU_DE_L_OEUVRE, OEUVRES_DE_DEPART, estUneOeuvre, oeuvre, oeuvresDeLaSalle, type CleDOeuvre } from '../../../../shared/cabinet/oeuvres'
 import {
   bilanDe,
+  estUneEpreuve,
   etapeEnCours,
   etoilesDesManches,
   jouerUnGeste,
@@ -65,10 +67,12 @@ import {
   pouvoirMaintenant,
   resultatDe,
   type BilanDUnePartie,
+  type CarteDuDepart,
   type DepartDUnePartie,
   type EtatDeLaPartie,
   type MancheDuPli,
 } from '../../../../shared/cabinet/partie'
+import { ameliorables, atteignables, carteDeLaTraversee, coeursMax, prixAuMarchand } from '../../../../shared/cabinet/traversee'
 import { POUVOIRS, ceQueFaitLaCarte } from '../../../../shared/cabinet/pouvoirs'
 import { AUTRES_GARDIENS, GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, SALLES, conditionDuGardien, pouvoirDuGardien, salle, voieDuGardien } from '../../../../shared/cabinet/salles'
 import type {
@@ -76,6 +80,7 @@ import type {
   CabinetDAccueil,
   Cartel,
   CartelDuBilan,
+  CarteDEpreuveVue,
   CarteVue,
   CaseVue,
   FeteVue,
@@ -84,15 +89,16 @@ import type {
   MancheVue,
   MursDuCabinet,
   OeuvreVue,
+  PageDeLaTraversee,
   PageDuCabinet,
   RevelationVue,
   SalleVue,
   TourVue,
   VisiteVue,
   VueDeLaPartie,
+  VueDeLaTraversee,
 } from '../../../../shared/cabinet/vues'
 import type { RecordDeLaTour, TourDuJour } from '../../../../shared/cabinet/montee'
-import { visiteAJouer } from '../../../../shared/cabinet/vues'
 import { horsDeLaBase } from '../../../../shared/horsDeLaBase'
 import { jourDe, jourEnToutesLettres } from '../../../../shared/jour'
 import { legendaire } from '../../../../shared/legendaires'
@@ -122,22 +128,39 @@ function enJeuDuDepart(d: DepartDUnePartie): EnjeuDUneCase | null {
   return d.but === 'dorer' ? { pourDorer: o.cle } : { rarete: o.rarete, salle: o.salle }
 }
 
-/** La carte-bonus emportée, et ce qu'il en reste : les usages d'Éclairer, de Changer — borné aux rechanges du plan —, de la mise. */
-function carteDe(d: DepartDUnePartie, e: EtatDeLaPartie): CarteVue | null {
-  if (!d.carte) return null
-  const { cle, pouvoir, force } = d.carte
+/**
+ * Une carte, et ce qu'il en reste : les usages d'Éclairer, de Changer — borné
+ * aux rechanges du plan —, de la mise (une au musée, celles de Quitte ou
+ * double à une épreuve). Sa phrase : celle du pouvoir au musée, celle de la
+ * carte de la traversée à une épreuve — le même nom que sur la carte choisie.
+ */
+function carteVue(d: DepartDUnePartie, e: EtatDeLaPartie, carte: CarteDuDepart): CarteVue {
+  const { cle, pouvoir, force } = carte
   const rechanges = Math.max(0, d.tirages.length - MANCHES_PAR_PARTIE - e.servis.changer)
+  const misees = e.manches.filter(m => m.misee).length
   const reste =
     pouvoir === 'eclairer'
       ? Math.max(0, ECLAIRAGES_PAR_PARTIE[force] - e.servis.eclairer)
       : pouvoir === 'changer'
         ? Math.min(rechanges, Math.max(0, CHANGEMENTS_PAR_PARTIE[force] - e.servis.changer))
         : pouvoir === 'miser'
-          ? e.misee === null
-            ? 1
-            : 0
+          ? estUneEpreuve(d)
+            ? Math.max(0, MISES_PAR_EPREUVE[force] - misees)
+            : e.misee === null
+              ? 1
+              : 0
           : 0
-  return { cle, pouvoir, force, reste, dit: ceQueFaitLaCarte(pouvoir, force, d.jeu) }
+  const deLaTraversee = estUneEpreuve(d) ? carteDeLaTraversee(cle) : null
+  return { cle, pouvoir, force, reste, dit: deLaTraversee ? deLaTraversee.dit(force) : ceQueFaitLaCarte(pouvoir, force, d.jeu) }
+}
+
+/** La carte-bonus emportée d'une partie du musée. */
+const carteDe = (d: DepartDUnePartie, e: EtatDeLaPartie): CarteVue | null => (d.carte ? carteVue(d, e, d.carte) : null)
+
+/** Les cartes d'une épreuve, chacune son pouvoir maintenant : la page les pose côte à côte, grisées par la vue. */
+function cartesDEpreuve(d: DepartDUnePartie, e: EtatDeLaPartie, t: number): CarteDEpreuveVue[] | undefined {
+  if (!estUneEpreuve(d) || !d.cartes) return undefined
+  return d.cartes.map(c => ({ ...carteVue(d, e, c), maintenant: pouvoirMaintenant(d, e, t, c) ?? { jouable: false } }))
 }
 
 /**
@@ -405,6 +428,7 @@ export function vueDeLaPartie(p: PartieLue): VueDeLaPartie {
   const chrono = chronoDe(m, t)
   const bilan = e.fin ? bilanVu(p) : undefined
   const siTuQuittes = siTuQuittesDe(d, e, t)
+  const cartes = cartesDEpreuve(d, e, t)
   return {
     id: p.id,
     maintenant: t,
@@ -426,6 +450,58 @@ export function vueDeLaPartie(p: PartieLue): VueDeLaPartie {
     ...(revelation && { revelation }),
     ...(bilan && { bilan }),
     ...(siTuQuittes && { siTuQuittes }),
+    ...(cartes && { cartes }),
+    ...(p.traversee && { traversee: p.traversee }),
+  }
+}
+
+// ── La traversée ──────────────────────────────────────────────────────────
+
+/**
+ * Une traversée telle que la page la reçoit : rien n'y est secret — la carte
+ * se voit d'avance, chaque épreuve tire ses questions au serveur en y entrant.
+ * Le départ, l'état replié, ce qui s'atteint, les prix du marchand, ce qu'une
+ * amélioration sert encore, et la partie de l'épreuve qui se joue, par la
+ * même vue que toute partie (invariant 1).
+ */
+export function vueDeLaTraversee(tr: TraverseeGardee, partie: PartieLue | null, maintenant: number): VueDeLaTraversee {
+  const { depart: d, etat: e } = tr
+  return {
+    id: tr.id,
+    rang: e.rang,
+    maintenant,
+    jour: d.jour,
+    actes: d.actes,
+    acte: e.acte,
+    position: e.position,
+    visitees: e.visitees,
+    ou: e.ou,
+    cartes: e.cartes,
+    coeurs: e.coeurs,
+    coeursMax: coeursMax(e.cartes),
+    or: e.or,
+    pv: e.pv,
+    assauts: e.assauts,
+    ameliorations: e.ameliorations,
+    souffle: e.souffle,
+    vaincus: e.vaincus,
+    epreuves: e.epreuves,
+    reussies: e.reussies,
+    derniere: e.derniere,
+    fin: e.fin,
+    atteignables: atteignables(d, e),
+    prix: { coeur: prixAuMarchand('coeur', e.cartes), amelioration: prixAuMarchand('amelioration', e.cartes) },
+    ameliorables: ameliorables(e).map(c => c.cle),
+    ...(partie && { partie: vueDeLaPartie(partie) }),
+  }
+}
+
+/** La page de la traversée : la dernière, et ses légendaires. */
+export function pageDeLaTraversee(l: LectureDeLaTraversee): PageDeLaTraversee {
+  return {
+    maintenant: l.maintenant,
+    traversee: l.traversee ? vueDeLaTraversee(l.traversee, l.partie, l.maintenant) : null,
+    possedes: [...l.possedes],
   }
 }
 
@@ -612,11 +688,10 @@ function sallesDe(m: Musee, jeux: readonly string[], sait: CeQueSaitLeCabinet): 
 /**
  * La visite du jour, case par case : son jeu, son enjeu — jamais l'œuvre visée d'une case pas gagnée —, et ce qu'elle a donné ;
  * le seuil que son départ figera (pour dorer, celui de son double), et, manquée, « Retenter » par sa case : la page les lit
- * ici, sans relire le barème ni la règle des départs. La page la lit, et le bouton de l'accueil aussi (`accueilDuCabinet`) : la
- * même visite, la même règle de « À jouer ». Le calibrage aussi (`calibrage-cabinet.ts`) : ses joueurs choisissent leur échange
- * sur elle, comme la page, jamais sur la règle des échanges.
+ * ici, sans relire le barème ni la règle des départs. Le calibrage la lit aussi (`calibrage-cabinet.ts`) : ses joueurs
+ * choisissent leur échange sur elle, comme la page, jamais sur la règle des échanges.
  */
-export function visiteVue(l: LectureDeLAccueil): PageDuCabinet['visite'] {
+export function visiteVue(l: LectureDeLaVisite): PageDuCabinet['visite'] {
   const m = l.musee
   const cases = l.visite.cases.map((c, k): CaseVue => {
     const jouee = m.duJour.parties.find(p => p.origine === 'visite' && p.visite === k)
@@ -712,12 +787,9 @@ function tourVue(t: TourDuJour, record: RecordDeLaTour | null): TourVue {
 }
 
 /**
- * Le gros bouton de l'accueil : ses œuvres sur toutes, et si la visite du jour
- * attend un geste — sa vue même, que la page reçoit, lue par la règle du musée
- * (`visiteAJouer`) : une case d'un jeu « bientôt » n'attend que si l'échange
- * du jour peut encore la changer. Rien de la visite au-delà : ni son jeu, ni
- * l'œuvre qu'elle vise.
+ * Le gros bouton de l'accueil : l'acte où en est sa traversée, et ses cœurs —
+ * rien de sa carte, ni de son or, ni du gardien qui l'attend : la page les dit.
  */
-export function accueilDuCabinet(l: LectureDeLAccueil): CabinetDAccueil {
-  return { oeuvres: possedees(l.musee).size, sur: OEUVRES.length, aJouer: visiteAJouer(visiteVue(l)) }
+export function accueilDuCabinet(tr: TraverseeGardee): CabinetDAccueil {
+  return { acte: tr.etat.acte + 1, coeurs: tr.etat.coeurs }
 }
