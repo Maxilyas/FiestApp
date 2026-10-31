@@ -24,21 +24,20 @@ import { CABINET_EN_PRODUCTION } from '../../../shared/cabinet/ouverture'
 
 // « Tous les voir » (la maquette validée le 20 octobre 2026 : « cliquer sur
 // adopter et que ça me montre tous les compagnons que je peux avoir mais pas
-// que ça me redirige vers la boutique ») : les quatre, chacun sa scène et ce
-// qu'il faut pour l'avoir — la luciole comprise, « Expédition » (« c'est
-// particulier les compagnons donc pas que dans collections », le
-// propriétaire). Sa fiche montre ses formes et comment l'avoir, et l'on
-// adopte sur place, comme à la boutique : l'installer dans sa niche, ou
-// l'adopter seulement.
+// que ça me redirige vers la boutique ») : les cinq, chacun sa scène et ce
+// qu'il faut pour l'avoir (« c'est particulier les compagnons donc pas que
+// dans collections », le propriétaire). Sa fiche montre ses formes et comment
+// l'avoir, et l'on adopte sur place, comme à la boutique : l'installer dans sa
+// niche, ou l'adopter seulement.
 //
-// Le Cabinet de curiosités ouvert en production, la luciole s'y gagne d'abord,
-// à la première salle complète — « Cabinet » : l'Expédition ferme son départ
-// le même jour, et n'y mènerait plus personne de neuf. Fermé, il se tait, comme
-// dans l'album (`voiesDeLAvatar`, le drapeau du code : la préproduction, qui le
-// sert, le tait aussi d'ici l'ouverture). `cabinet` force le drapeau.
+// La luciole s'y montrait « Expédition », puis « Cabinet » ; l'Expédition
+// effacée, elle s'achète comme les autres depuis le 31 octobre 2026. Ce qui
+// suit ne sert qu'à un compagnon qui se gagnerait (`Compagnon.gagne`) : aucun
+// aujourd'hui. `cabinet` force le drapeau du Cabinet.
 
 /**
- * D'où vient la luciole, qui ne s'achète pas (`Compagnon.gagne`) : la grille,
+ * D'où vient un compagnon qui ne s'achète pas (`Compagnon.gagne` — la luciole
+ * jusqu'au 31 octobre 2026, aucun depuis) : la grille,
  * sa fiche et « Tes compagnons » (`MonCompagnon.tsx`) le disent de même. Le
  * Cabinet ouvert, sa première salle complète d'abord ; l'expédition tant que
  * l'album dit sa voie — ce que `voiesMontrees` en décide pour les légendaires

@@ -606,9 +606,12 @@ test('à l’accueil, une page bientôt disponible s’éteint pour qui attend, 
   const { MaintenanceApp } = await import(new URL('../../client/src/views/MaintenanceApp.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   const campagne = { vies: 11, avance: null }
+  // Le bouton de l'Expédition sert d'exemple à une page qui se ferme : effacée le 31 octobre 2026 (`EXPEDITION_REMPLACEE`),
+  // l'accueil ne la montre plus — on la lui rend (`remplacee: false`) pour éprouver la règle de toute page bientôt
+  // disponible, que le Cabinet et les autres modes suivent.
   const accueil = (etats: Record<string, string>) =>
     renderToStaticMarkup(
-      React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, campagne, defi: { joueurs: 12 }, jour: { serie: 0, jours: [] }, etats }),
+      React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, campagne, defi: { joueurs: 12 }, jour: { serie: 0, jours: [] }, etats, remplacee: false }),
     )
   const bouton = (html: string, titre: string) => html.split('<a ').find(x => x.includes(`<b>${titre}</b>`))!
 

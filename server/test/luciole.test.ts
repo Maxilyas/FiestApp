@@ -1,14 +1,16 @@
-// La luciole (le 20 octobre 2026) : le compagnon de l'Expédition, qui ne
-// s'achète pas — la Première traversée la donne, une expédition menée au
-// bout, une fois. Ni la boutique, ni le coffre, ni « À la une » ne la
-// montrent : « que dans la collection, pas boutique » (le propriétaire) —
-// l'album la dit, `album-des-avatars.test.ts`. Comme un compagnon du coffre,
-// elle s'écrit à prix nul et s'installe dans une niche vide, jamais à la
-// place de celui qui y vit ; qui avait déjà mené une expédition au bout la
-// reçoit au démarrage. Sa métamorphose, la luciole-aurore (peinte le même
-// jour), s'ouvre comme celle des autres : sa forme ultime et l'Éclat. Depuis
-// le 25 octobre 2026, la première salle complète du Cabinet de curiosités
-// l'amène aussi (`cabinet-gardiens.test.ts`).
+// La luciole (le 20 octobre 2026) : le compagnon de l'Expédition, que la
+// Première traversée donnait — une expédition menée au bout, une fois. Elle
+// ne se vendait pas : « que dans la collection, pas boutique » (le
+// propriétaire). Depuis le 25 octobre 2026, la première salle complète du
+// Cabinet de curiosités l'amène aussi (`cabinet-gardiens.test.ts`). Le 31
+// octobre 2026, l'Expédition effacée (le choix du propriétaire), elle
+// s'achète à la boutique comme les autres compagnons : la boutique, le coffre
+// et « À la une » la proposent ; qui l'a la garde, et le Cabinet l'offre
+// toujours. Offerte, comme un compagnon du coffre, elle s'écrit à prix nul et
+// s'installe dans une niche vide, jamais à la place de celui qui y vit ; qui
+// avait déjà mené une expédition au bout la reçoit au démarrage (le banc
+// garde l'Expédition à ses tests). Sa métamorphose, la luciole-aurore,
+// s'ouvre comme celle des autres : sa forme ultime et l'Éclat.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -17,7 +19,7 @@ import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '.
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { GARDIEN, type VueDeLExpedition } from '../../shared/expedition'
-import { COMPAGNONS_DE_LA_BOUTIQUE, COMPAGNON_DE_L_EXPEDITION, cheminDeLaLuciole } from '../../shared/compagnons'
+import { COMPAGNONS_DE_LA_BOUTIQUE, COMPAGNON_DE_L_EXPEDITION, cheminDeLaLuciole, compagnon, pourLAvoir } from '../../shared/compagnons'
 import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
 import { aLaUne } from '../../shared/aLaUne'
 import { tirerLeCoffre } from '../../shared/tresor'
@@ -119,18 +121,22 @@ async function garder(banc: Banc, cookie: string, v: VueDeLExpedition) {
   return r.corps
 }
 
-test('la luciole ne se vend pas : ni le coffre, ni « À la une » ne la proposent', () => {
+test('la luciole se vend, comme les autres : la boutique, le coffre et « À la une » la proposent', () => {
+  // Elle ne se vendait pas tant que l'Expédition l'amenait ; effacée le 31 octobre 2026, la luciole n'aurait plus
+  // qu'une salle complète du Cabinet pour venir — le propriétaire l'a mise en boutique.
   assert.equal(COMPAGNON_DE_L_EXPEDITION, 'luciole')
-  assert.ok(!COMPAGNONS_DE_LA_BOUTIQUE.some(c => c.key === 'luciole'))
-  // « À la une », jour après jour : un compagnon de la boutique qu'il n'a pas, jamais elle — et rien quand il a les trois.
+  assert.ok(COMPAGNONS_DE_LA_BOUTIQUE.some(c => c.key === 'luciole'))
+  // « À la une », jour après jour : un compagnon de la boutique qu'il n'a pas, elle aussi — et rien quand il les a tous.
+  let aLaUneUnJour = false
   for (let j = 1; j <= 28; j++) {
     const jour = `2026-11-${String(j).padStart(2, '0')}`
     const une = aLaUne({ possedes: [], jour, compagnons: [], fondsAchetes: [] })
-    assert.ok(!une.some(u => u.sorte === 'compagnon' && u.cle === 'luciole'), jour)
+    if (une.some(u => u.sorte === 'compagnon' && u.cle === 'luciole')) aLaUneUnJour = true
     const toutes = aLaUne({ possedes: [], jour, compagnons: COMPAGNONS_DE_LA_BOUTIQUE.map(c => ({ compagnon: c.key, rang: 0, justes: 0 })), fondsAchetes: [] })
-    assert.ok(!toutes.some(u => u.sorte === 'compagnon'), `${jour} : les trois adoptés, plus de compagnon à la une`)
+    assert.ok(!toutes.some(u => u.sorte === 'compagnon'), `${jour} : tous adoptés, plus de compagnon à la une`)
   }
-  // Le coffre royal, tout tiré à chaque rareté : il ne lui manque qu'elle — jamais elle, des confettis au bout.
+  assert.ok(aLaUneUnJour, 'elle passe à la une un jour du mois')
+  // Le coffre royal, tout tiré à chaque rareté : il ne lui manque qu'elle — le coffre la donne, comme le loup.
   const tirages = (manque: string) =>
     Array.from({ length: 100 }, (_, i) => {
       let premier = true
@@ -138,34 +144,35 @@ test('la luciole ne se vend pas : ni le coffre, ni « À la une » ne la propose
       const possede = (o: ObjetDuTresor) => !(o.sorte === 'compagnon' && o.cle === manque)
       return tirerLeCoffre('royal', { possede, hasard, jour: '2026-11-02' }).objet
     })
-  assert.ok(!tirages('luciole').some(o => o.sorte === 'compagnon'), 'la luciole n’est pas au trésor')
-  // Le témoin : le loup qui lui manque, le coffre le donne à sa rareté légendaire.
+  assert.ok(tirages('luciole').some(o => o.sorte === 'compagnon' && o.cle === 'luciole'), 'la luciole est au trésor')
   assert.ok(tirages('loup').some(o => o.sorte === 'compagnon' && o.cle === 'loup'))
 })
 
-test('sa voie neuve : la première salle complète du Cabinet l’amène aussi — dite quand le Cabinet s’ouvre en production', () => {
-  // L'Expédition laisse sa place au Cabinet : sans lui, la luciole ne rejoindrait plus personne de neuf. Le Cabinet
-  // l'offre à la réconciliation qui trouve une salle complète (`cabinet-gardiens.test.ts`) ; ses mots la disent quand
-  // il s'ouvre — fermé en production, ils enverraient chercher une page qui n'y répond pas.
-  assert.equal(cheminDeLaLuciole(false), 'mène une expédition au bout')
-  assert.equal(cheminDeLaLuciole(true), 'mène une expédition au bout, ou complète une salle du Cabinet')
+test('sa venue au Cabinet reste : la première salle complète l’offre, et chaque refus l’envoie à la boutique', () => {
+  // L'Expédition effacée (le 31 octobre 2026), le chemin du Cabinet est le seul qui se dise encore — le Cabinet ouvert ;
+  // mais la luciole s'achète, et ce que les refus disent est la boutique, comme pour les autres.
+  assert.equal(cheminDeLaLuciole(true, true), 'complète une salle du Cabinet')
   assert.equal(cheminDeLaLuciole(), cheminDeLaLuciole(CABINET_EN_PRODUCTION))
+  assert.equal(pourLAvoir(compagnon('luciole')!), 'La Luciole s’achète d’abord, à la boutique')
 })
 
 test('la Première traversée : une expédition menée au bout amène la luciole dans sa niche vide, à prix nul, une fois', async () => {
   const banc = await demarrer({ baseDeLaCampagne: BASE })
   try {
+    // Elle s'achète, depuis le 31 octobre 2026, à son prix : 1000 confettis, comme les autres.
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom')
+    confettis(banc, idDe(banc, 'tom'), 3000)
+    const achat = await poster(banc, tom, '/api/joueur/compagnons', { compagnon: 'luciole' })
+    assert.equal(achat.status, 200, achat.corps.error)
+    assert.equal(enBase(banc, db => (db.prepare(`SELECT prix FROM profile_compagnons WHERE profile_id = ? AND compagnon = 'luciole'`).get(idDe(banc, 'tom')) as { prix: number }).prix), 1000)
+
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
     const id = idDe(banc, 'lea')
-    // Elle ne s'achète pas, ne s'installe pas avant d'être à lui, ne se règle pas : chaque refus dit où la gagner.
-    confettis(banc, id, 3000)
-    const achat = await poster(banc, lea, '/api/joueur/compagnons', { compagnon: 'luciole' })
-    assert.equal(achat.status, 400)
-    assert.equal(achat.corps.error, 'La Luciole ne s’achète pas : elle rejoint qui mène une expédition au bout')
+    // Elle ne s'installe pas avant d'être à lui, ne se règle pas : chaque refus dit où l'avoir — la boutique.
     const niche = await ecrire(banc.url, '/api/joueur/moi', { niche: 'luciole' }, lea, 'PUT').then(reponse)
-    assert.equal(niche.corps.error, 'La Luciole se gagne d’abord : mène une expédition au bout')
+    assert.equal(niche.corps.error, 'La Luciole s’achète d’abord, à la boutique')
     const nom = await ecrire(banc.url, '/api/joueur/compagnons/luciole', { nom: 'Lumi' }, lea, 'PUT').then(reponse)
-    assert.equal(nom.corps.error, 'La Luciole se gagne d’abord : mène une expédition au bout')
+    assert.equal(nom.corps.error, 'La Luciole s’achète d’abord, à la boutique')
     const avant = await moi(banc, lea)
     assert.equal(avant.niche, undefined, 'sans compagnon, pas de niche')
 

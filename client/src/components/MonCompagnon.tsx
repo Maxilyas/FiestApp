@@ -984,9 +984,8 @@ export function MonCompagnon({
  * « Tes compagnons », sur sa page : les siens d'abord, chacun sous la forme
  * qu'il montre — celui de la niche pressé, les autres à installer d'un
  * toucher : c'est celui de la niche qui grandit —, puis ceux qu'il n'a pas,
- * leur prix ou là où la luciole se gagne — l'expédition, ou le Cabinet ouvert,
- * comme la galerie (`venuesDeLaLuciole`) : la rangée disait « Expédition » quand
- * la fiche qu'elle ouvre disait « Cabinet » —, qui ouvrent leur fiche dans la
+ * leur prix — la luciole aussi depuis le 31 octobre 2026 ; un compagnon qui se
+ * gagnerait, son lieu, comme la galerie (`venuesDeLaLuciole`) —, qui ouvrent leur fiche dans la
  * galerie, où l'on adopte sur place. Un nom fixe : celui de la niche se dit par
  * `aria-pressed`, jamais par son libellé (`design.test.ts`). `cabinet` force le
  * drapeau du Cabinet, comme la galerie.

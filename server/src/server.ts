@@ -120,12 +120,12 @@ export interface QuizServerOptions {
    */
   cabinet?: boolean
   /**
-   * L'Expédition a-t-elle laissé place au Cabinet ici — son seul départ
-   * fermé ? Absent : son drapeau le dit (`EXPEDITION_REMPLACEE`,
-   * `shared/jokers.ts`), partout pareil, la production comme la préproduction.
-   * Le banc le pose à faux : les fichiers qui partent en expédition ne
-   * tomberont pas le jour où le drapeau passe à vrai ; les épreuves de la
-   * fermeture le passent à vrai (`cabinet-ouverture.test.ts`).
+   * L'Expédition a-t-elle laissé place au Cabinet ici — effacée : aucune de
+   * ses routes, `/expedition` mène au Cabinet ? Absent : son drapeau le dit
+   * (`EXPEDITION_REMPLACEE`, `shared/jokers.ts`, vrai depuis le 31 octobre
+   * 2026), partout pareil, la production comme la préproduction. Le banc le
+   * pose à faux : les fichiers qui partent en expédition tournent encore ; les
+   * épreuves de l'effacement le passent à vrai (`cabinet-ouverture.test.ts`).
    */
   expeditionRemplacee?: boolean
   /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
@@ -500,8 +500,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const rencontres = opts.rencontres ?? rencontresOuvertes({ online: !!opts.online, env: opts.appEnv ?? 'production' })
   // La question au centre (la version 10), de même : la préproduction d'abord.
   const questionAuCentre = opts.questionAuCentre ?? questionAuCentreOuverte({ online: !!opts.online, env: opts.appEnv ?? 'production' })
-  // Le départ de l'Expédition, fermé quand le Cabinet prend sa place (`EXPEDITION_REMPLACEE`) : lu une fois, comme les
-  // autres drapeaux, et le même partout — ses autres routes servent toujours, une expédition en route se finit.
+  // L'Expédition, effacée quand le Cabinet prend sa place (`EXPEDITION_REMPLACEE`, vrai depuis le 31 octobre 2026) : lu
+  // une fois, comme les autres drapeaux, et le même partout — aucune de ses routes, `/expedition` mène au Cabinet.
   const expeditionRemplacee = opts.expeditionRemplacee ?? EXPEDITION_REMPLACEE
   // La campagne solo : ses séries, tirées de sa base à elle (`core/baseCampagne.ts`),
   // loin de la réserve du quiz du jour.
@@ -516,7 +516,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Le Cabinet de curiosités : il ne connaît la campagne que par sa porte, ses tables naissent dans son premier lot
   // (`REVEIL_DU_CABINET`) — pas d'`init` à lui —, et il lit l'heure de la campagne et le calendrier de ses fêtes.
   const cabinetEstOuvert = opts.cabinet ?? cabinetOuvert({ online: !!opts.online, env: opts.appEnv ?? 'production' })
-  const cabinet = new CabinetStore(campagne.porte(), profiles, { maintenant: maintenantDuJour, calendrier: calendrierDuCabinet })
+  const cabinet = new CabinetStore(campagne.porte(), profiles, { maintenant: maintenantDuJour, calendrier: calendrierDuCabinet, expeditionEffacee: expeditionRemplacee })
   // L'expédition qui part ou finit, dite à la page du Cabinet (« Ton expédition t'attend ») : en mémoire, un crochet
   // de sa porte, comme ses paliers — sans lui, la ligne restait jusqu'au réveil suivant.
   campagne.expeditionChange = (profileId, enRoute) => cabinet.expeditionChange(profileId, enRoute)
@@ -1490,6 +1490,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     app.get(/\.(?:ico|png|jpe?g|gif|svg|webp|js|mjs|css|map|json|webmanifest|txt|xml|woff2?)$/i, (_req, res) =>
       res.status(404).type('text').send('Introuvable'),
     )
+    // L'Expédition effacée (`EXPEDITION_REMPLACEE`) : son adresse, d'un favori ou d'un vieux lien, mène au Cabinet qui l'a remplacée.
+    if (expeditionRemplacee) app.get(/^\/expedition\/?$/, (_req, res) => res.redirect(302, '/cabinet'))
     app.get('*', (req, res, next) => servirPage(req.path, req, res, next))
   }
 

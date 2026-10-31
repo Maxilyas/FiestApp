@@ -12586,7 +12586,7 @@ a.chez-pastille.or:hover { color: #1a1412; }
 .decorer-legende li { display: flex; align-items: baseline; gap: 9px; font-size: 0.8rem; line-height: 1.35; }
 .decorer-legende li > i { flex: none; width: 8px; height: 8px; margin-top: 2px; border-radius: 2px; background: var(--gemme); transform: rotate(45deg); }
 
-/* ── « Tous les voir » : les quatre compagnons et comment les avoir, sans passer par la boutique ── */
+/* ── « Tous les voir » : les cinq compagnons et comment les avoir, sans passer par la boutique ── */
 .galerie-solde { display: inline-flex; flex: none; align-items: center; height: 32px; margin-left: auto; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--or-text); font-size: 0.875rem; font-weight: 700; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .galerie-sous { display: flex; align-items: center; gap: 10px; margin: -4px 0 0; }
 .galerie-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }

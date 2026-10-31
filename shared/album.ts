@@ -13,14 +13,15 @@
 // légendaires des hauts faits. Les compagnons de la boutique de même, forme
 // par forme : celle qu'on achète est commune, la forme ultime légendaire — et
 // la métamorphose que l'Éclat lui ouvre, une forme de plus, aussi. La
-// luciole aussi, qui ne s'achète pas : sa première forme se gagne en
-// expédition, et l'album est le seul endroit où on la voit avant de l'avoir
-// (le 20 octobre 2026). Les Divins ont leur page, et n'y disent rien d'eux :
+// luciole aussi, qui se gagnait en expédition (le 20 octobre 2026) : elle
+// s'achète comme les autres depuis le 31 octobre 2026, l'Expédition effacée.
+// Les Divins ont leur page, et n'y disent rien d'eux :
 // ni règle, ni lieu, ni progression (invariant 21).
 //
 // Depuis le 25 octobre 2026, le Cabinet de curiosités est un lieu de plus :
-// vingt gardiens s'y réveillent, les trois de saison à leur fête, la luciole à
-// la première salle complète. L'album le tait tant qu'il est fermé en
+// vingt gardiens s'y réveillent, les trois de saison à leur fête — la luciole
+// y vient en cadeau à la première salle complète, sans que l'album en fasse une
+// voie : elle s'achète. L'album le tait tant qu'il est fermé en
 // production (`CABINET_EN_PRODUCTION`, le drapeau du code, comme
 // `voiesMontrees`) : il mènerait à une page qui n'y répond pas. Chaque lecture
 // qui en dépend prend le drapeau (`cabinet`), pour lire l'album tel qu'il
@@ -140,12 +141,11 @@ export const lieuxDuLegendaire = (l: Legendaire, cabinet: boolean = CABINET_EN_P
 const laVoieDeLExpeditionSeDit = (cabinet: boolean): boolean => LEGENDAIRES.some(l => voiesMontrees(l, cabinet).some(estUneVoieDExpedition))
 
 /**
- * D'où vient la première forme d'un compagnon : la boutique ; la luciole, au
- * bout d'une expédition — et, le Cabinet ouvert, de la première salle
- * complète (`cheminDeLaLuciole`, `shared/compagnons.ts`), dite d'abord :
- * l'Expédition ferme son départ le jour où le Cabinet ouvre en production,
- * c'est lui qui l'amène désormais. L'expédition se dit ensuite tant que
- * l'album dit sa voie. Le Cabinet fermé, rien ne change.
+ * D'où vient la première forme d'un compagnon : la boutique — la luciole
+ * comprise depuis le 31 octobre 2026, l'Expédition qui l'amenait effacée. Un
+ * compagnon qui ne s'achèterait pas (`Compagnon.gagne`) dirait son lieu — et,
+ * le Cabinet ouvert, le Cabinet d'abord, l'expédition tant que l'album dit sa
+ * voie (`cheminDeLaLuciole`, `shared/compagnons.ts`).
  */
 const lieuxDeSaVenue = (c: Compagnon, cabinet: boolean): LieuDAvatar[] =>
   c.gagne === 'expedition' && cabinet ? ['cabinet', ...(laVoieDeLExpeditionSeDit(cabinet) ? (['expedition'] as const) : [])] : [c.gagne ?? 'boutique']
@@ -229,7 +229,7 @@ export function ouIlSeGagne(a: AvatarDeLAlbum, cabinet: boolean = CABINET_EN_PRO
   const f = formeDeCompagnon(a.cle)
   if (f) {
     const c = compagnonDe(f)
-    // En boutique ; la luciole en expédition — ou, le Cabinet ouvert, au Cabinet d'abord : l'un ou l'autre l'amène.
+    // En boutique, la luciole comprise (le 31 octobre 2026) ; un compagnon qui se gagnerait dirait son lieu.
     const vient = dite(lieuxDeSaVenue(c, cabinet).map(x => DANS[x]), 'ou')
     if (f.metamorphose) return `${vient}, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(c)} et par l’Éclat`
     return f.rang === 0 ? vient : `${vient}, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(c)}`
@@ -477,10 +477,9 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies, cabinet: boolean 
     ]
   }
   if (a.sorte === 'compagnon') {
-    // L'acheter — ou, la luciole, la gagner au Cabinet en complétant une
-    // salle, ou en menant une expédition au bout : une voie chacune, dans
-    // l'ordre de ses lieux (`lieuxDeSaVenue`) —, puis le faire grandir dans sa
-    // niche — et, pour sa métamorphose, l'Éclat sur lui.
+    // L'acheter — la luciole aussi, depuis le 31 octobre 2026 ; un compagnon
+    // qui se gagnerait, une voie par lieu (`lieuxDeSaVenue`) —, puis le faire
+    // grandir dans sa niche — et, pour sa métamorphose, l'Éclat sur lui.
     const f = formeDeCompagnon(cle)!
     const c = compagnonDe(f)
     const sien = (p.compagnons ?? []).find(x => x.compagnon === c.key)

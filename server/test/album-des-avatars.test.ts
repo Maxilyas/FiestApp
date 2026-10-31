@@ -100,58 +100,56 @@ test('la rareté dit ce qu’un avatar demande : plus haut sur le sentier, plus 
 
 test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle part', () => {
   const lieux = Object.fromEntries(LEGENDAIRES.map(l => [l.key.slice(3), avatarDeLAlbum(l.key, FERME)!.lieux.join(' ')]))
-  // L'expédition ouverte (l'étape 2), sa voie se montre : chacun de ceux qui ont leur joker s'y gagne aussi — ceux de
-  // saison, partie à leur saison (le 18 octobre 2026).
+  // L'Expédition effacée (le 31 octobre 2026, le choix du propriétaire), l'album tait sa voie (`voiesMontrees`) : elle
+  // mènerait à une page qui n'existe plus. Un légendaire gardé là-bas reste à qui l'a (`cabinet-ouverture.test.ts`).
   assert.deepEqual(lieux, {
-    phenix: 'soiree jour expedition',
-    dragon: 'soiree jour expedition',
-    oracle: 'soiree expedition',
-    chouette: 'soiree jour expedition',
-    tigre: 'soiree jour expedition',
+    phenix: 'soiree jour',
+    dragon: 'soiree jour',
+    oracle: 'soiree',
+    chouette: 'soiree jour',
+    tigre: 'soiree jour',
     licorne: 'soiree jour',
-    lion: 'soiree jour expedition',
-    renard: 'soiree jour expedition',
-    comete: 'soiree expedition',
-    kraken: 'soiree jour expedition',
-    fantome: 'soiree jour expedition',
-    'trou-noir': 'soiree expedition',
-    sphinx: 'jour expedition',
-    citrouille: 'saison expedition',
-    sapin: 'saison expedition',
-    bouquet: 'saison expedition',
+    lion: 'soiree jour',
+    renard: 'soiree jour',
+    comete: 'soiree',
+    kraken: 'soiree jour',
+    fantome: 'soiree jour',
+    'trou-noir': 'soiree',
+    sphinx: 'jour',
+    citrouille: 'saison',
+    sapin: 'saison',
+    bouquet: 'saison',
     aigle: 'jour',
-    ouroboros: 'jour expedition',
-    scarabee: 'jour expedition',
-    coq: 'jour expedition',
-    'chauve-souris': 'jour expedition',
-    salamandre: 'campagne expedition',
+    ouroboros: 'jour',
+    scarabee: 'jour',
+    coq: 'jour',
+    'chauve-souris': 'jour',
+    salamandre: 'campagne',
     elephant: 'campagne',
-    serpent: 'campagne expedition',
-    // Les trois mondes à la fois — ou l'expédition.
-    chimere: 'soiree jour campagne expedition',
-    janus: 'soiree jour expedition',
+    serpent: 'campagne',
+    // Les trois mondes à la fois.
+    chimere: 'soiree jour campagne',
+    janus: 'soiree jour',
   })
   for (const p of PORTRAITS) assert.deepEqual(avatarDeLAlbum(p.key, FERME)!.lieux, ['sentiers'], p.key)
   for (const c of COLLECTION) assert.deepEqual(avatarDeLAlbum(c.emoji, FERME)!.lieux, ['niveau'], c.emoji)
   for (const d of DIVINS) assert.deepEqual(avatarDeLAlbum(d.key, FERME)!.lieux, [], d.key)
-  // Un compagnon s'achète — la luciole se gagne en expédition — ; ses formes suivantes, dans sa niche ; sa métamorphose, par l'Éclat.
+  // Un compagnon s'achète — la luciole aussi, depuis le 31 octobre 2026 — ; ses formes suivantes, dans sa niche ; sa métamorphose, par l'Éclat.
   for (const f of FORMES_DES_COMPAGNONS) {
-    const vient = f.compagnon === 'luciole' ? 'expedition' : 'boutique'
-    assert.deepEqual(avatarDeLAlbum(f.key, FERME)!.lieux, f.rang === 0 ? [vient] : [vient, 'niche'], f.key)
+    assert.deepEqual(avatarDeLAlbum(f.key, FERME)!.lieux, f.rang === 0 ? ['boutique'] : ['boutique', 'niche'], f.key)
   }
   for (const f of METAMORPHOSES) {
-    assert.deepEqual(avatarDeLAlbum(f.key, FERME)!.lieux, [f.compagnon === 'luciole' ? 'expedition' : 'boutique', 'niche', 'eclat'], f.key)
+    assert.deepEqual(avatarDeLAlbum(f.key, FERME)!.lieux, ['boutique', 'niche', 'eclat'], f.key)
   }
   // D'une phrase, à l'oreille : ses voies sont l'une ou l'autre, les étapes d'une voie toutes à la fois.
   const dit = (cle: string) => ouIlSeGagne(avatarDeLAlbum(cle, FERME)!, FERME)
   assert.equal(dit('lg:licorne'), 'en soirée ou au quiz du jour')
-  // Voie par voie : un seul mot pour tous ses lieux, « en soirée, au quiz du jour, en campagne ou en expédition »,
-  // disait qu'un seul suffisait à la Chimère.
-  assert.equal(dit('lg:chimere'), 'en soirée, au quiz du jour et en campagne, ou en expédition')
-  assert.equal(dit('lg:janus'), 'en soirée et au quiz du jour, ou en expédition')
-  assert.equal(dit('lg:phenix'), 'en soirée, au quiz du jour ou en expédition')
-  assert.equal(dit('lg:sphinx'), 'au quiz du jour ou en expédition')
-  assert.equal(dit('lg:aigle'), 'au quiz du jour', 'sans joker, pas de voie de l’expédition')
+  // Une voie de plusieurs lieux : un seul mot pour tous, « en soirée, au quiz du jour et en campagne ».
+  assert.equal(dit('lg:chimere'), 'en soirée, au quiz du jour et en campagne')
+  assert.equal(dit('lg:janus'), 'en soirée et au quiz du jour')
+  assert.equal(dit('lg:phenix'), 'en soirée ou au quiz du jour')
+  assert.equal(dit('lg:sphinx'), 'au quiz du jour')
+  assert.equal(dit('lg:aigle'), 'au quiz du jour')
   assert.equal(dit('lg:bouquet'), 'pour le Nouvel An')
   assert.equal(dit('br:lynx'), 'sur les sentiers')
   assert.equal(dit('🐳'), 'au niveau 12')
@@ -161,10 +159,10 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
   // Chacun à son genre : « en le portant » se lisait de travers sous la tortue.
   assert.equal(dit('cp:tortue-ile'), 'en boutique, puis à 500 bonnes réponses avec elle')
   assert.equal(dit('cp:tortue-fleurs'), 'en boutique, puis à 500 bonnes réponses avec elle et par l’Éclat')
-  // La luciole ne s'achète pas : sa première forme se gagne en expédition, la Première traversée (le 20 octobre 2026).
-  assert.equal(dit('cp:luciole-ver'), 'en expédition')
-  assert.equal(dit('cp:luciole-constellation'), 'en expédition, puis à 500 bonnes réponses avec elle')
-  assert.equal(dit('cp:luciole-aurore'), 'en expédition, puis à 500 bonnes réponses avec elle et par l’Éclat')
+  // La luciole se gagnait en expédition (la Première traversée, le 20 octobre 2026) ; elle s'achète désormais.
+  assert.equal(dit('cp:luciole-ver'), 'en boutique')
+  assert.equal(dit('cp:luciole-constellation'), 'en boutique, puis à 500 bonnes réponses avec elle')
+  assert.equal(dit('cp:luciole-aurore'), 'en boutique, puis à 500 bonnes réponses avec elle et par l’Éclat')
 })
 
 test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun dans l’ordre du catalogue — le compte de la collection est le sien', () => {
@@ -230,17 +228,9 @@ test('les compagnons dans l’album : chaque forme à sa page, achetées en bout
   assert.deepEqual(voiesDeLAvatar('cp:tortue-bebe', LEA, FERME), [
     [{ lieu: 'boutique', titre: 'En boutique : 1000 confettis', regle: 'La Tortue-île s’achète à sa première forme, puis grandit avec toi', tenue: false, progres: null }],
   ])
-  // La luciole ne s'achète pas : la Première traversée l'amène, une expédition menée au bout, sans jauge (le 20 octobre 2026).
+  // La luciole s'achète comme eux depuis le 31 octobre 2026 : l'Expédition, dont la Première traversée l'amenait, est effacée.
   assert.deepEqual(voiesDeLAvatar('cp:luciole-ver', LEA, FERME), [
-    [
-      {
-        lieu: 'expedition',
-        titre: 'En expédition : la Première traversée',
-        regle: 'Mène une expédition au bout — le troisième gardien vaincu — : elle te rejoint, puis grandit avec toi',
-        tenue: false,
-        progres: null,
-      },
-    ],
+    [{ lieu: 'boutique', titre: 'En boutique : 1000 confettis', regle: 'La Luciole s’achète à sa première forme, puis grandit avec toi', tenue: false, progres: null }],
   ])
   assert.equal(voiesDeLAvatar('cp:luciole-jeune', { ...LEA, compagnons: [{ compagnon: 'luciole', rang: 0 }] }, FERME)[0][0].tenue, true, 'à lui : sa première étape est tenue')
   const [[achat, adulte]] = voiesDeLAvatar('cp:loup-adulte', AVEC_LE_LOUP, FERME)
@@ -282,11 +272,11 @@ test('les compagnons dans l’album : chaque forme à sa page, achetées en bout
   assert.deepEqual(compteDeLAlbum(LUCIOLE), { acquis: 14, total: 141 })
   assert.deepEqual(compteDeLAlbum({ ...LEA, compagnons: [{ compagnon: 'luciole' as const, rang: 3 }] }), { acquis: 13, total: 141 })
   assert.ok(pagesDeLAlbum(ULTIME)[4].avatars.some(a => a.aLui && a.avatar.cle === 'cp:loup-tempete'))
-  // Sa voie part de l'expédition, comme ses formes : la Première traversée, sa forme ultime, puis l'Éclat.
+  // Sa voie part de la boutique, comme ses formes : l'achat, sa forme ultime, puis l'Éclat.
   assert.deepEqual(
     voiesDeLAvatar('cp:luciole-aurore', LEA, FERME)[0].map(e => [e.lieu, e.titre]),
     [
-      ['expedition', 'En expédition : la Première traversée'],
+      ['boutique', 'En boutique : 1000 confettis'],
       ['niche', 'Dans sa niche : 500 bonnes réponses'],
       ['eclat', 'Par l’Éclat : en portant l’une de ses formes'],
     ],
@@ -355,13 +345,13 @@ test('comment l’obtenir : ses voies — l’une suffit —, chacune ses étape
   assert.deepEqual(voiesDeLAvatar('lg:phenix', LEA, FERME)[0], [
     { lieu: 'soiree', titre: 'En soirée : « Le Phénix »', regle: 'Gagner un quiz après avoir fini dans la moitié basse du précédent', tenue: true, progres: null },
   ])
-  // Un légendaire de saison : ses dates, sans jauge — gardé au bout d'une expédition partie ces jours-là aussi, qui le met en gardien.
+  // Un légendaire de saison : ses dates, sans jauge — l'expédition partie ces jours-là ne se dit plus, effacée le 31 octobre 2026.
   assert.deepEqual(voiesDeLAvatar('lg:citrouille', LEA, FERME), [
     [
       {
         lieu: 'saison',
         titre: 'Pour Halloween, du 25 octobre au 1er novembre',
-        regle: '3 jours de quiz du jour, une soirée ces jours-là, ou le garder au bout d’une expédition partie ces jours-là',
+        regle: '3 jours de quiz du jour, ou une soirée ces jours-là',
         tenue: false,
         progres: null,
       },
@@ -395,8 +385,9 @@ test('comment l’obtenir : ses voies — l’une suffit —, chacune ses étape
 
 test('une voie rangée se dit tenue s’il a le légendaire : les hauts faits que la page reçoit ne la portent jamais', () => {
   // Le Kraken gardé au bout de l'acte 3 : une ligne `expedition:kraken`, qu'aucun haut fait ne dit. Lue des hauts faits,
-  // l'étape se disait à faire, le légendaire en main.
-  const kraken = (legendaires: string[]) => voiesDeLAvatar('lg:kraken', { ...LEA, legendaires }, FERME).flat().find(e => e.lieu === 'expedition')!
+  // l'étape se disait à faire, le légendaire en main. L'Expédition effacée (le 31 octobre 2026), sa voie se tait ; celle
+  // du Cabinet est rangée de même (`cabinet:kraken`), et se lit à la même règle, le Cabinet ouvert.
+  const kraken = (legendaires: string[]) => voiesDeLAvatar('lg:kraken', { ...LEA, legendaires }, true).flat().find(e => e.lieu === 'cabinet')!
   assert.equal(kraken(['lg:phenix', 'lg:kraken']).tenue, true)
   assert.equal(kraken(['lg:phenix']).tenue, false)
   // Une voie qui se compte, elle, se lit toujours de ses hauts faits : le Kraken à lui n'en fait pas trois lanternes rouges.
@@ -524,48 +515,42 @@ test('comment l’obtenir au Cabinet : la salle à compléter ou à dorer, la s�
   }
 })
 
-test('la luciole, le Cabinet ouvert : sa première salle complète l’amène, dite d’abord — l’une ou l’autre voie, puis sa niche', () => {
-  // Le Cabinet d'abord : l'Expédition ferme son départ le jour où il ouvre en production ; tant que l'album dit sa voie
-  // aux légendaires qu'elle garde, il la dit aussi à la luciole.
-  const premiere = voiesDeLAvatar('cp:luciole-ver', LEA, true)
-  assert.deepEqual(premiere, [
-    [{ lieu: 'cabinet', titre: 'Au Cabinet : compléter une salle', regle: 'Complète une salle de ton musée : elle te rejoint, puis grandit avec toi', tenue: false, progres: null }],
-    ...(EXPEDITION_DITE ? [voiesDeLAvatar('cp:luciole-ver', LEA, false)[0]] : []),
+test('la luciole, le Cabinet ouvert ou fermé : en boutique, comme les autres — sa voie, ses lieux, sa phrase', () => {
+  // La première salle complète du Cabinet l'amenait d'abord, quand l'Expédition fermait son départ (le 25 octobre 2026) ;
+  // depuis le 31 octobre 2026, l'Expédition effacée, elle s'achète à la boutique (le choix du propriétaire). Le Cabinet
+  // l'offre toujours à sa première salle complète (`cabinet-gardiens.test.ts`), comme un coffre peut l'offrir : un
+  // cadeau, pas une voie que l'album promet.
+  for (const cle of ['cp:luciole-ver', 'cp:luciole-constellation', 'cp:luciole-aurore']) {
+    assert.deepEqual(voiesDeLAvatar(cle, LEA, true), voiesDeLAvatar(cle, LEA, false), cle)
+    assert.deepEqual(avatarDeLAlbum(cle, true)!.lieux, avatarDeLAlbum(cle, false)!.lieux, cle)
+  }
+  assert.deepEqual(voiesDeLAvatar('cp:luciole-ver', LEA, true), [
+    [{ lieu: 'boutique', titre: 'En boutique : 1000 confettis', regle: 'La Luciole s’achète à sa première forme, puis grandit avec toi', tenue: false, progres: null }],
   ])
-  // Ses formes suivantes : chaque voie la fait venir, puis grandir — « ou » entre les voies, « et » entre leurs étapes.
+  // Ses formes suivantes : l'acheter, puis grandir — et l'Éclat pour sa métamorphose.
   assert.deepEqual(
     voiesDeLAvatar('cp:luciole-aurore', LEA, true).map(v => v.map(e => e.lieu)),
-    [
-      ['cabinet', 'niche', 'eclat'],
-      ...EN_EXPEDITION.map(x => [x, 'niche', 'eclat']),
-    ],
+    [['boutique', 'niche', 'eclat']],
   )
   const sienne = { ...LEA, compagnons: [{ compagnon: 'luciole' as const, rang: 0 }] }
   assert.ok(voiesDeLAvatar('cp:luciole-ver', sienne, true).every(v => v[0].tenue), 'à lui : sa venue est tenue, par où qu’elle soit venue')
-  for (const f of FORMES_DES_COMPAGNONS.filter(f => f.compagnon === 'luciole')) {
-    assert.deepEqual(avatarDeLAlbum(f.key, true)!.lieux, f.rang === 0 ? ['cabinet', ...EN_EXPEDITION] : ['cabinet', ...EN_EXPEDITION, 'niche'], f.key)
-  }
-  assert.deepEqual(avatarDeLAlbum('cp:luciole-aurore', true)!.lieux, ['cabinet', ...EN_EXPEDITION, 'niche', 'eclat'])
   const dit = (cle: string) => ouIlSeGagne(avatarDeLAlbum(cle, true)!, true)
-  const vient = EXPEDITION_DITE ? 'au Cabinet ou en expédition' : 'au Cabinet'
-  assert.equal(dit('cp:luciole-ver'), vient)
-  assert.equal(dit('cp:luciole-constellation'), `${vient}, puis à 500 bonnes réponses avec elle`)
-  assert.equal(dit('cp:luciole-aurore'), `${vient}, puis à 500 bonnes réponses avec elle et par l’Éclat`)
-  // Ceux de la boutique ne changent pas.
+  assert.equal(dit('cp:luciole-ver'), 'en boutique')
+  assert.equal(dit('cp:luciole-constellation'), 'en boutique, puis à 500 bonnes réponses avec elle')
+  assert.equal(dit('cp:luciole-aurore'), 'en boutique, puis à 500 bonnes réponses avec elle et par l’Éclat')
   assert.equal(dit('cp:loup-louveteau'), 'en boutique')
-  assert.deepEqual(voiesDeLAvatar('cp:tortue-bebe', LEA, true), voiesDeLAvatar('cp:tortue-bebe', LEA, false))
 })
 
-test('la luciole ne dit jamais une voie de l’Expédition que l’album tait aux légendaires qu’elle garde', () => {
-  // Sous chaque drapeau du Cabinet : la luciole dit l'expédition exactement quand les gardiens de l'acte 3 la disent.
-  // Écrite en dur, sa voie restait dite le jour où leur départ ferme (`voiesMontrees`), et un joueur neuf suivait un
-  // chemin que le serveur refuse. Le Cabinet fermé, l'expédition reste sa seule venue, comme avant lui.
+test('l’Expédition effacée, l’album n’en dit plus rien : ni lieu, ni voie, sous aucun drapeau du Cabinet', () => {
+  // Le jour où son départ fermait, la voie de l'Expédition se taisait aux légendaires qu'elle garde (`voiesMontrees`) et
+  // à la luciole avec. Effacée le 31 octobre 2026, elle mènerait à une page qui n'existe plus : aucun avatar ne la dit,
+  // et un légendaire gardé là-bas reste à qui l'a (`cabinet-ouverture.test.ts`).
+  assert.equal(EXPEDITION_DITE, false)
   for (const cabinet of [true, false]) {
-    const dite = LEGENDAIRES.some(l => voiesMontrees(l, cabinet).some(estUneVoieDExpedition))
-    for (const f of [...FORMES_DES_COMPAGNONS, ...METAMORPHOSES].filter(f => f.compagnon === 'luciole')) {
-      const lieux = avatarDeLAlbum(f.key, cabinet)!.lieux
-      assert.equal(lieux.includes('expedition'), dite || !cabinet, `${f.key}, Cabinet ${cabinet ? 'ouvert' : 'fermé'}`)
-      assert.equal(voiesDeLAvatar(f.key, LEA, cabinet).some(v => v[0].lieu === 'expedition'), dite || !cabinet, f.key)
+    for (const a of AVATARS_DE_L_ALBUM) {
+      assert.ok(!avatarDeLAlbum(a.cle, cabinet)!.lieux.includes('expedition'), `${a.cle}, Cabinet ${cabinet ? 'ouvert' : 'fermé'}`)
+      assert.doesNotMatch(ouIlSeGagne(avatarDeLAlbum(a.cle, cabinet)!, cabinet), /expédition/, a.cle)
+      assert.ok(!voiesDeLAvatar(a.cle, LEA, cabinet).flat().some(e => e.lieu === 'expedition' || /expédition/i.test(e.titre + e.regle)), a.cle)
     }
   }
 })
@@ -591,9 +576,10 @@ test('la fiche de l’album, le Cabinet ouvert : son étape sous l’arche du Ca
   assert.ok(ouroboros.includes(`<span class="album-etape-icone" aria-hidden="true">${arche}</span><span class="album-etape-texte"><b>Au Cabinet : dorer la salle du Rempart</b>`), 'l’étape du Cabinet, sous son arche')
   assert.match(ouroboros, /<span class="album-ou">ou<\/span><div class="album-voie">(?:(?!album-ou).)*Au Cabinet/, 'une voie de plus, après un « ou »')
   assert.doesNotMatch(await ficheDeLAlbum('lg:ouroboros', false), /Cabinet/)
-  // La luciole : le Cabinet d'abord, et son chemin.
-  assert.match(await ficheDeLAlbum('cp:luciole-ver', true), /<a class="btn btn-small album-aller" href="\/cabinet">Aller au Cabinet<\/a>/)
-  assert.match(await ficheDeLAlbum('cp:luciole-ver', false), /<a class="btn btn-small album-aller" href="\/expedition">Partir en expédition<\/a>/)
+  // La luciole : la boutique, sous les deux drapeaux — elle s'achète depuis le 31 octobre 2026, l'Expédition effacée.
+  for (const cabinet of [true, false]) {
+    assert.match(await ficheDeLAlbum('cp:luciole-ver', cabinet), /<a class="btn btn-small album-aller" href="\/boutique#compagnon-luciole">Aller à la boutique<\/a>/)
+  }
   // Un gardien mène à la première voie qui reste et qui a un écran : l'expédition tant que l'album la dit — sa voie
   // passe devant celle du Cabinet —, puis la salle qu'il garde, qui dit ce qui lui manque.
   const oracle = await ficheDeLAlbum('lg:oracle', true)
@@ -601,17 +587,20 @@ test('la fiche de l’album, le Cabinet ouvert : son étape sous l’arche du Ca
   else assert.match(oracle, /<a class="btn btn-small album-aller" href="\/cabinet#salle-devin">Aller au Cabinet<\/a>/)
 })
 
-test('l’album, le Cabinet ouvert : la pastille de la luciole sous son arche, sa légende, ce que sa case dit — fermé, rien de lui', async () => {
+test('l’album, le Cabinet ouvert : la luciole sous la pastille de la boutique, l’arche à ses gardiens seuls — fermé, rien de lui', async () => {
+  // Jusqu'au 31 octobre 2026, la luciole prenait l'arche du Cabinet, qui l'amenait d'abord ; elle s'achète désormais, et
+  // sa case dit la boutique comme celle du louveteau (le choix du propriétaire, l'Expédition effacée).
   const album = (cabinet: boolean, page: string) => rendu('AlbumDesAvatars', 'AlbumDesAvatars', { profil: { ...LEA, eclats: [] }, page, onPage: () => {}, cabinet })
   const arche = await rendu('Icon', 'Icon', { name: 'landmark' })
+  const sac = await rendu('Icon', 'Icon', { name: 'bag' })
   const ouverte = await album(true, 'commune')
-  const vient = EXPEDITION_DITE ? 'au Cabinet ou en expédition' : 'au Cabinet'
-  assert.match(ouverte, new RegExp(`aria-label="La petite luciole, commune, à gagner ${vient}"><span class="album-medaillon" aria-hidden="true">(?:(?!</button>).)*<span class="album-lieu" aria-hidden="true">${arche}</span>`))
-  const legende = (html: string) => [...html.slice(html.indexOf('album-legende')).matchAll(/<\/svg>([^<]+)<\/span>/g)].map(m => m[1])
-  assert.ok(legende(ouverte).includes('au Cabinet'), 'la légende de ses pastilles dit le Cabinet')
-  // Sa page légendaire : la pastille d'un gardien reste son premier lieu ; seule la luciole prend l'arche.
+  const caseDeLaLuciole = ouverte.slice(ouverte.indexOf('aria-label="La petite luciole'), ouverte.indexOf('</button>', ouverte.indexOf('aria-label="La petite luciole')))
+  assert.ok(caseDeLaLuciole.startsWith('aria-label="La petite luciole, commune, à gagner en boutique"'), caseDeLaLuciole.slice(0, 80))
+  assert.ok(caseDeLaLuciole.includes(`<span class="album-lieu" aria-hidden="true">${sac}</span>`), 'la pastille de la boutique')
+  assert.ok(!ouverte.includes(arche), 'aucune case commune ne se gagne au Cabinet')
+  // Sa page légendaire : la pastille d'un gardien reste son premier lieu ; plus aucune case ne prend l'arche.
   const legendaire = await album(true, 'legendaire')
-  assert.equal(legendaire.match(new RegExp(`<span class="album-lieu" aria-hidden="true">${arche}</span>`, 'g'))?.length, 2, 'la luciole-constellation et la luciole-aurore')
+  assert.ok(!legendaire.includes(`<span class="album-lieu" aria-hidden="true">${arche}</span>`), 'ni la luciole-constellation, ni la luciole-aurore')
   assert.match(legendaire, /aria-label="Le Phénix, légendaire, porté"/)
   const ouroboros = ouIlSeGagne(avatarDeLAlbum('lg:ouroboros', true)!, true)
   assert.ok(ouroboros.endsWith(' ou au Cabinet'), ouroboros)
@@ -622,7 +611,7 @@ test('l’album, le Cabinet ouvert : la pastille de la luciole sous son arche, s
     assert.doesNotMatch(fermee, /Cabinet/, page)
     assert.ok(!fermee.includes(arche), page)
   }
-  assert.match(await album(false, 'commune'), /aria-label="La petite luciole, commune, à gagner en expédition"/)
+  assert.match(await album(false, 'commune'), /aria-label="La petite luciole, commune, à gagner en boutique"/)
 })
 
 /** La galerie des compagnons (« Tous les voir ») : la grille, ou la fiche d'un compagnon. */
@@ -640,53 +629,35 @@ const galerie = (cabinet: boolean | undefined, ouverteSur: string | null = null)
     cabinet,
   })
 
-test('la galerie des compagnons : la luciole se gagne au Cabinet, le Cabinet ouvert — fermé, rien ne change', async () => {
-  // La grille : sa pastille dit où elle se gagne, et sa case à l'oreille.
+test('la galerie des compagnons : la luciole à son prix, comme les autres — le Cabinet ouvert ou fermé', async () => {
+  // Elle se gagnait au bout d'une expédition, puis au Cabinet d'abord ; depuis le 31 octobre 2026, l'Expédition
+  // effacée, elle s'adopte sur place comme les autres (le choix du propriétaire).
   const fermee = await galerie(false)
-  assert.match(fermee, /aria-label="La Luciole : se gagne en expédition"/)
-  assert.match(fermee, /<span class="galerie-condition en-expedition">Expédition<\/span>/)
-  assert.doesNotMatch(fermee, /Cabinet/)
+  assert.match(fermee, /aria-label="La Luciole : 1000 confettis"/)
+  assert.doesNotMatch(fermee, /Cabinet|xpédition/)
   const ouverte = await galerie(true)
-  // L'album et elle disent la même chose : le Cabinet, et l'expédition tant que l'album dit sa voie.
-  const vient = ouIlSeGagne(avatarDeLAlbum('cp:luciole-ver', true)!, true)
-  assert.equal(vient, EXPEDITION_DITE ? 'au Cabinet ou en expédition' : 'au Cabinet')
-  assert.ok(ouverte.includes(`aria-label="La Luciole : se gagne ${vient}"`), 'sa case, comme dans l’album')
-  assert.match(ouverte, /<span class="galerie-condition en-expedition"><svg[^>]*>[\s\S]*?<\/svg>Cabinet<\/span>/)
-  // Sa fiche : comment l'avoir, le Cabinet d'abord, puis l'expédition ; et le chemin du Cabinet.
-  const ficheFermee = await galerie(false, 'luciole')
-  assert.match(ficheFermee, /<b>Mène une expédition au bout<\/b>/)
-  assert.match(ficheFermee, /<a class="btn galerie-cta" href="\/expedition">Partir en expédition<\/a>/)
-  assert.doesNotMatch(ficheFermee, /Cabinet/)
+  assert.equal(ouverte, fermee, 'le Cabinet n’y change rien')
+  // Sa fiche : rien d'un chemin vers une expédition ni vers le Cabinet ; elle se fait comme celle du loup.
   const fiche = await galerie(true, 'luciole')
-  // Les espaces fines de `espacesFines` devant les deux-points.
-  assert.match(fiche, /<b>Complète une salle du Cabinet<\/b><span class="muted small">Ta première salle complète\s: elle te rejoint\. Elle ne s’achète pas\.<\/span>/)
-  assert.equal(fiche.includes('<b>Ou mène une expédition au bout</b>'), EXPEDITION_DITE, 'l’expédition, tant que l’album la dit')
-  if (EXPEDITION_DITE) assert.ok(fiche.indexOf('Complète une salle du Cabinet') < fiche.indexOf('Ou mène une expédition au bout'), 'le Cabinet d’abord')
-  assert.match(fiche, /<a class="btn galerie-cta" href="\/cabinet">Aller au Cabinet<\/a>/)
-  assert.doesNotMatch(fiche, /href="\/expedition"/, 'un seul chemin : celui du Cabinet')
-  // Sous sa première forme, ce qui l'amène — le mot de sa pastille.
-  assert.match(fiche, /<span class="galerie-forme-seuil" aria-hidden="true">Cabinet<\/span>/)
-  assert.match(ficheFermee, /<span class="galerie-forme-seuil" aria-hidden="true">Expédition<\/span>/)
+  assert.doesNotMatch(fiche, /Cabinet|xpédition|href="\/expedition"/)
+  assert.equal(fiche, await galerie(false, 'luciole'))
+  assert.match(fiche, /<span class="galerie-forme-seuil" aria-hidden="true">Adoption<\/span>/)
   // D'office, le drapeau du code.
   assert.equal(await galerie(undefined), CABINET_EN_PRODUCTION ? ouverte : fermee)
-  // Ceux de la boutique ne changent pas.
   assert.equal(await galerie(true, 'loup'), await galerie(false, 'loup'))
 })
 
-test('« Tes compagnons », d’où l’on ouvre la galerie, dit la luciole comme elle : « Cabinet », le Cabinet ouvert', async () => {
-  // La rangée disait « Expédition » quand la fiche qu'elle ouvre disait « Cabinet ».
+test('« Tes compagnons », d’où l’on ouvre la galerie, dit la luciole comme elle : son prix', async () => {
+  // La rangée disait « Expédition », puis « Cabinet » ; la luciole s'achète depuis le 31 octobre 2026.
   const tes = (cabinet: boolean | undefined) =>
     rendu('MonCompagnon', 'TesCompagnons', { siens: [{ compagnon: 'loup', rang: 0, justes: 0 }], niche: { compagnon: 'loup', rang: 0 }, busy: false, onInstaller: () => {}, onVoir: () => {}, cabinet })
   const fermee = await tes(false)
-  assert.match(fermee, /aria-label="La Luciole : se gagne en expédition"/)
-  assert.match(fermee, /<span class="chez-ami-cond en-expedition">Expédition<\/span>/)
-  assert.doesNotMatch(fermee, /Cabinet/)
   const ouverte = await tes(true)
-  assert.ok(ouverte.includes(`aria-label="La Luciole : se gagne ${ouIlSeGagne(avatarDeLAlbum('cp:luciole-ver', true)!, true)}"`), 'comme l’album et la galerie')
-  // Le mot seul, comme « Expédition » : dans sa case de cinquante-trois pixels, l'arche de la galerie touchait le « C ».
-  assert.match(ouverte, /<span class="chez-ami-cond en-expedition">Cabinet<\/span>/)
-  // Ceux de la boutique, leur prix, sous les deux drapeaux.
-  for (const html of [fermee, ouverte]) assert.match(html, /aria-label="Le Chat des lanternes : 1000 confettis, voir comment l’avoir"/)
+  for (const html of [fermee, ouverte]) {
+    assert.match(html, /aria-label="La Luciole : 1000 confettis, voir comment l’avoir"/)
+    assert.match(html, /aria-label="Le Chat des lanternes : 1000 confettis, voir comment l’avoir"/)
+    assert.doesNotMatch(html, /Cabinet|xpédition/)
+  }
   assert.equal(await tes(undefined), CABINET_EN_PRODUCTION ? ouverte : fermee, 'd’office, le drapeau du code')
 })
 

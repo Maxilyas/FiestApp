@@ -17,7 +17,7 @@ import {
   voiesDe,
   voiesMontrees,
 } from '../../shared/legendaires'
-import { EXPEDITION_EN_PRODUCTION, JOKERS_DES_LEGENDAIRES, LEGENDAIRES_A_JOKER, jokerDuLegendaire } from '../../shared/jokers'
+import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE, JOKERS_DES_LEGENDAIRES, LEGENDAIRES_A_JOKER, jokerDuLegendaire } from '../../shared/jokers'
 import { avatarDeLAlbum, ouIlSeGagne } from '../../shared/album'
 import { DIVINS } from '../../shared/divins'
 
@@ -64,16 +64,21 @@ test('la ligne de l’expédition ouvre le légendaire, et l’annonce une fois'
   assert.ok(!legendairesDebloques(new Map([['expedition:licorne', 1]])).includes('lg:licorne'))
 })
 
-test('ses jokers venus, l’expédition s’ouvre en production : sa voie se montre, et l’album dit où la gagner', () => {
-  // L'étape 1 la gardait fermée : sans jokers, le joueur moyen n'arrivait au bout que cinq fois sur cent.
+test('ses jokers venus, l’expédition s’ouvrait en production : effacée, sa voie se tait — rangée, elle donne toujours', () => {
+  // L'étape 1 la gardait fermée : sans jokers, le joueur moyen n'arrivait au bout que cinq fois sur cent. L'étape 2 l'a
+  // ouverte avec ses jokers ; le 31 octobre 2026, le Cabinet l'a remplacée, et le propriétaire l'a effacée : l'album ne
+  // dit plus sa voie (elle mènerait à une page qui n'existe plus), qui ouvre toujours son légendaire à qui l'a gardé.
   assert.equal(EXPEDITION_EN_PRODUCTION, true, 'l’étape 2 : elle s’ouvre avec ses jokers')
+  assert.equal(EXPEDITION_REMPLACEE, true, 'le 31 octobre 2026 : effacée')
   const avecLaVoie = LEGENDAIRES.filter(l => LEGENDAIRES_A_JOKER.includes(l.key))
   assert.equal(avecLaVoie.length, 23, 'vingt-trois légendaires ont la voie — le Bouquet, la Citrouille et le Sapin à leur saison')
   for (const l of LEGENDAIRES) {
-    assert.equal(voiesMontrees(l).some(estUneVoieDExpedition), avecLaVoie.includes(l), l.key)
+    // Son départ ouvert (`remplacee` à faux), la voie se montrerait ; effacée, elle se tait.
+    assert.equal(voiesMontrees(l, false, false).some(estUneVoieDExpedition), avecLaVoie.includes(l), l.key)
+    assert.equal(voiesMontrees(l).some(estUneVoieDExpedition), false, l.key)
     const a = avatarDeLAlbum(l.key)!
-    assert.equal(a.lieux.includes('expedition'), avecLaVoie.includes(l), l.key)
-    // Un légendaire de saison se dit par sa fête — « pour Halloween » — : l'expédition est dans sa règle, en dates.
-    if (!l.saison) assert.equal(ouIlSeGagne(a).includes('expédition'), avecLaVoie.includes(l), l.key)
+    assert.equal(a.lieux.includes('expedition'), false, l.key)
+    assert.equal(ouIlSeGagne(a).includes('expédition'), false, l.key)
+    if (avecLaVoie.includes(l) && !l.saison) assert.ok(legendairesDebloques(new Map([[cleDeLExpedition(l.key), 1]])).includes(l.key), l.key)
   }
 })
