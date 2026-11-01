@@ -238,6 +238,8 @@ export const SUJETS: readonly Sujet[] = [
   { cle: 'polar', nom: 'Le polar et les détectives', famille: 'theme', description: 'Sherlock, Poirot, Maigret et leurs enquêtes', etiquettes: ['polar'] },
   { cle: 'mysteres', nom: 'Mystères et trésors', famille: 'theme', description: 'Énigmes jamais résolues, trésors perdus et vols célèbres', etiquettes: ['mysteres', 'tresors'] },
   { cle: 'marques', nom: 'Les marques', famille: 'theme', description: 'Leurs logos, leurs slogans et leurs fondateurs', etiquettes: ['marques'] },
+  // Le 1er novembre 2026 : la Seconde Guerre mondiale, l'histoire et ce qu'elle a laissé dans les films, les livres et les chansons — l'époque « 1939 à 1949 » la date, ce thème la raconte.
+  { cle: 'seconde-guerre-mondiale', nom: 'La Seconde Guerre mondiale', famille: 'theme', description: 'De 1939 à 1945 : les batailles, la Résistance, la Libération', etiquettes: ['seconde-guerre-mondiale'] },
   // La langue française (le souhait du propriétaire du 17 octobre 2026 :
   // « tout ce qui est lié à la langue française, orthographe, grammaire,
   // étymologie, morphologie ») : un sous-thème neuf, qui a repris à langue
@@ -342,6 +344,9 @@ export const SUJETS: readonly Sujet[] = [
   { cle: 'disney', nom: 'Disney et Pixar', famille: 'univers', description: 'Des princesses aux jouets de Toy Story, les films et les parcs', etiquettes: ['disney'] },
   { cle: 'harry-potter', nom: 'Harry Potter', famille: 'univers', description: 'Poudlard, les sorciers, les livres et les films', etiquettes: ['harry-potter'] },
   { cle: 'james-bond', nom: 'James Bond', famille: 'univers', description: '007, ses films, ses acteurs, ses chansons et ses méchants', etiquettes: ['james-bond'] },
+  // Le 1er novembre 2026, à la suite de Stargate : deux séries de fans, leurs deux cents questions écrites pour elles.
+  { cle: 'kaamelott', nom: 'Kaamelott', famille: 'univers', description: 'Arthur, la Table ronde et le Graal, de la série aux films', etiquettes: ['kaamelott'] },
+  { cle: 'lost', nom: 'Lost', famille: 'univers', description: 'L’île, les rescapés du vol Oceanic 815 et ses mystères', etiquettes: ['lost'] },
   { cle: 'marvel', nom: 'Marvel', famille: 'univers', description: 'Les Avengers, Spider-Man et les X-Men, en BD et au cinéma', etiquettes: ['marvel'] },
   { cle: 'seigneur-des-anneaux', nom: 'Le Seigneur des anneaux', famille: 'univers', description: 'La Terre du Milieu, de Tolkien à Peter Jackson', etiquettes: ['seigneur-des-anneaux'] },
   { cle: 'star-wars', nom: 'Star Wars', famille: 'univers', description: 'Les Jedi, l’Empire et la Force, au cinéma et au-delà', etiquettes: ['star-wars'] },

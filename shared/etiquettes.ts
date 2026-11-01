@@ -72,6 +72,8 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "polar", nom: "Le polar et les détectives", definition: "le roman policier et ses enquêteurs, de livre, de film ou de série (Sherlock Holmes, Poirot, Maigret, Columbo), leurs auteurs et leurs énigmes. Pas les vraies affaires criminelles (mysteres), ni les espions" },
       { cle: "marques", nom: "Les marques", definition: "une marque ou une entreprise célèbre est au cœur de la question — son logo, son slogan, son fondateur, l'origine de son nom, ses produits phares —, ou une marque est la réponse. Pas un club de sport ni un média, ni une marque qui n'est qu'un décor" },
       { cle: "dinosaures", nom: "Les dinosaures", definition: "un dinosaure ou une espèce disparue (le mammouth, le dodo) est au cœur d'une question rangée hors du sous-thème disparus (un film, un nom, une expression)" },
+      // Le 1er novembre 2026, à la demande du propriétaire : posée sur la base question par question, comme les autres.
+      { cle: "seconde-guerre-mondiale", nom: "La Seconde Guerre mondiale", definition: "la guerre de 1939-1945 est au cœur de la question — ses batailles, ses chefs, la Résistance et la collaboration, l'Occupation et la vie quotidienne, la Shoah, la Libération —, ou ce qu'elle a laissé : un film, un livre, une chanson, un lieu de mémoire qui la racontent. Pas une question où elle n'est qu'une date (« né en 1942 »), ni l'après-guerre" },
     ],
   },
   {
@@ -160,6 +162,9 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       // Le 1er novembre 2026, à la demande du propriétaire : une saga de fans,
       // écrite d'un bloc — la base n'en posait rien. La mythologie égyptienne
       // n'en est pas : Râ et Anubis restent aux mythes, sauf en Goa'uld.
+      // Le même jour : deux séries de fans, leurs questions écrites pour elles.
+      { cle: "kaamelott", nom: "Kaamelott", definition: "la série d'Alexandre Astier (2005-2009) et ses films (2021 et suivants) : ses personnages, ses répliques, ses acteurs, la quête du Graal telle qu'elle la raconte. Pas la légende arthurienne hors de la série" },
+      { cle: "lost", nom: "Lost", definition: "la série « Lost : Les Disparus » (2004-2010) : ses personnages, l'île, ses mystères, ses acteurs et ceux qui l'ont faite. Pas un autre « lost » (Lost in Translation, Lost River)" },
       { cle: "stargate", nom: "Stargate", definition: "le film de 1994, les séries SG-1, Atlantis et Universe, leurs téléfilms, leurs personnages, leurs races et leurs planètes, ceux qui les jouent et les font. Pas les dieux égyptiens ni l'Atlantide des mythes, hors de la saga" },
     ],
   },

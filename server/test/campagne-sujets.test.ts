@@ -348,11 +348,17 @@ test('dans la base livrée, aucun sujet ne double une rubrique, et deux sujets n
   }
   // Un thème n'en contient pas la moitié d'un autre : l'astronomie était toute dans la Terre et l'espace. Hors époques,
   // qui se lisent à la date, et hors portées — la France tient la moitié de la langue française, et c'est juste.
+  // Un univers, lui, peut vivre dans un thème plus large, comme un zoom sur lui (le choix du propriétaire du
+  // 1er novembre 2026) : Lost tient aux quatre cinquièmes dans le petit écran, et c'est juste — une série de fans
+  // est une série. L'inverse reste interdit : un thème ne tient pas à moitié dans un univers, ni deux univers l'un
+  // dans l'autre.
   const transverses = SUJETS.filter(s => s.famille !== 'epoque' && !s.portee)
   for (let i = 0; i < transverses.length; i++) {
     for (let j = i + 1; j < transverses.length; j++) {
       const a = membres.get(transverses[i].cle)!
       const b = membres.get(transverses[j].cle)!
+      const [petit, grand] = a.size <= b.size ? [transverses[i], transverses[j]] : [transverses[j], transverses[i]]
+      if (petit.famille === 'univers' && grand.famille === 'theme') continue
       const part = communes(a, b) / Math.min(a.size, b.size)
       assert.ok(part < 0.5, `${transverses[i].cle} et ${transverses[j].cle} se recoupent à ${Math.round(part * 100)} %`)
     }
