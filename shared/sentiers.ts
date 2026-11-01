@@ -61,6 +61,13 @@ export interface RegleDuPalier {
   sansVraiFaux: boolean
   /** Chaque sous-thème de la catégorie a sa question : le football seul ne fait pas le stade. */
   touteLaCategorie: boolean
+  /**
+   * Les questions qui s'apprennent par cœur — une année, le réalisateur d'un
+   * film (`seSaitParCoeur`) — qu'elle pose au plus quand la marche a d'aussi
+   * fraîches autres questions (`PAR_COEUR_PAR_EPREUVE`, `PAR_COEUR_DES`).
+   * Absent : autant que le tirage en prend — les parcours de thème.
+   */
+  parCoeurMax?: number
 }
 
 /**
@@ -104,6 +111,22 @@ export const SANS_VRAI_FAUX_DES = 5
 /** À partir de ce palier, toute la catégorie ; avant, les chapitres et leur thème (`shared/chapitres.ts`). */
 export const TOUTE_LA_CATEGORIE_DES = 9
 
+/**
+ * Ce qu'une épreuve pose au plus de questions qui s'apprennent par cœur — une
+ * année, le réalisateur d'un film (`seSaitParCoeur`) —, à partir de
+ * `PAR_COEUR_DES` ; avant, aucune. Le retour d'un joueur du 1er novembre
+ * 2026 : « ce qui rendait le sentier difficile c'est surtout le nom de
+ * réalisateur inconnu, ou bien de film qui date de trop longtemps. Pareil
+ * pour les dates ». Une épreuve du cinéma en posait jusqu'à six, deux
+ * questions sur cinq au septième palier, et seules deux sur douze s'y
+ * validaient. Le plafond cède quand la marche n'a plus d'autres questions
+ * aussi fraîches (`tirerUneEpreuve`) : le chapitre du cinéma du monde en est
+ * aux trois quarts. Un choix de produit.
+ */
+export const PAR_COEUR_PAR_EPREUVE = 2
+/** Les quatre premiers paliers s'apprennent sans dates ni réalisateurs : on y vient pour découvrir le sentier. */
+export const PAR_COEUR_DES = 5
+
 export const PALIERS: readonly RegleDuPalier[] = [
   ...MELANGES.map((melange, i) => {
     const n = i + 1
@@ -115,9 +138,19 @@ export const PALIERS: readonly RegleDuPalier[] = [
       maitre: false,
       sansVraiFaux: n >= SANS_VRAI_FAUX_DES,
       touteLaCategorie: n >= TOUTE_LA_CATEGORIE_DES,
+      parCoeurMax: n >= PAR_COEUR_DES ? PAR_COEUR_PAR_EPREUVE : 0,
     }
   }),
-  { n: PALIER_DU_MAITRE, melange: { expert: QUESTIONS_PAR_EPREUVE }, seuil: SEUIL_DU_MAITRE, avatar: null, maitre: true, sansVraiFaux: true, touteLaCategorie: true },
+  {
+    n: PALIER_DU_MAITRE,
+    melange: { expert: QUESTIONS_PAR_EPREUVE },
+    seuil: SEUIL_DU_MAITRE,
+    avatar: null,
+    maitre: true,
+    sansVraiFaux: true,
+    touteLaCategorie: true,
+    parCoeurMax: PAR_COEUR_PAR_EPREUVE,
+  },
 ]
 
 /**

@@ -18,7 +18,7 @@ import { AFFIRMATIONS_DE_L_ECLAIR, MARCHES_DE_L_ECLAIR } from '../../../../../sh
 import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
 import { affirmationDe, type AffirmationTiree, type EclairTire } from '../../../../../shared/cabinet/jeux/eclair'
 import { battre } from '../../../../../shared/cabinet/jeux/outils'
-import { commeLaPartieLaGarde, marchesDuTirage, tirerDesQuestions } from './communs'
+import { marchesDuTirage, telleQuElleEstEcrite, tirerDesQuestions } from './communs'
 import type { ContexteDuTirage, Posees } from './communs'
 import { qcmDeLaCategorie, qcmDeLEclair } from './tas'
 
@@ -65,8 +65,8 @@ export function tirerUnEclair(ctx: ContexteDuTirage, posees: Posees): EclairTire
   for (const categorie of ordre) {
     const tirees = tirerDesQuestions(ctx, posees, [qcmDeLaCategorie(ctx.porte, ctx.jouables, categorie)], marches, AFFIRMATIONS_DE_L_ECLAIR)
     if (tirees.length < AFFIRMATIONS_DE_L_ECLAIR) continue
-    // Le leurre que la campagne choisit le plus, plutôt qu'un au hasard (`affirmationDe`).
-    const affirmations = tirees.map(t => affirmationDe(commeLaPartieLaGarde(t), ctx.hasard, ctx.leurres.get(t.question.id)))
+    // Le leurre que la campagne choisit le plus, plutôt qu'un au hasard (`affirmationDe`) : parmi ses réponses écrites.
+    const affirmations = tirees.map(t => affirmationDe(telleQuElleEstEcrite(t), ctx.hasard, ctx.leurres.get(t.question.id)))
     if (affirmations.some(a => a === null)) continue
     const toutes = affirmations as AffirmationTiree[]
     for (const a of toutes) posees.prendre(a.question)

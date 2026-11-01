@@ -21,6 +21,7 @@
 
 import type { QuestionDeLaBase } from './baseCampagne'
 import { DejaPrises, type Intitule } from './jumelles'
+import { reponsesAuRangTire } from './rangDeLaBonne'
 import { niveauDeQuestion, type MesureDUneQuestion, type Niveau } from '../../../shared/campagne'
 
 /** Un battage au hasard du serveur (Fisher-Yates), sur une copie. Le tirage d'une série le suit carte pour carte (`PreparationDuTirage`). */
@@ -55,15 +56,20 @@ export interface QuestionDeLaPartie {
 /**
  * Une question de la base, telle que la série la garde : ses réponses
  * mélangées pour cette série-ci — on ne retient pas une place —, sauf
- * « Vrai » et « Faux », qui restent dans cet ordre.
+ * « Vrai » et « Faux », qui restent dans cet ordre. Des années, des nombres,
+ * des jours : le rang de la bonne parmi ses voisines se tire, et ses leurres
+ * avec (`reponsesAuRangTire`) — écrite, elle était au milieu 97 fois sur cent.
+ * `telleQuEcrite` garde ses réponses écrites : l'Éclair du Cabinet n'en
+ * montre qu'une, et y cherche la mauvaise que la campagne choisit le plus.
  */
-export function versQuestionDeSerie(q: QuestionDeLaBase, niveau: Niveau): QuestionDeLaPartie {
-  const ordre = q.reponses.length === 2 ? [0, 1] : melanger(q.reponses.map((_, i) => i))
+export function versQuestionDeSerie(q: QuestionDeLaBase, niveau: Niveau, { telleQuEcrite = false }: { telleQuEcrite?: boolean } = {}): QuestionDeLaPartie {
+  const { reponses, bonne } = (!telleQuEcrite && reponsesAuRangTire(q)) || q
+  const ordre = reponses.length === 2 ? [0, 1] : melanger(reponses.map((_, i) => i))
   return {
     id: q.id,
     texte: q.texte,
-    reponses: ordre.map(i => q.reponses[i]),
-    bonne: ordre.indexOf(q.bonne),
+    reponses: ordre.map(i => reponses[i]),
+    bonne: ordre.indexOf(bonne),
     categorie: q.meta.categorie,
     anecdote: q.anecdote,
     niveau,

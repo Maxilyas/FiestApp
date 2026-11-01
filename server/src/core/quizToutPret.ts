@@ -17,6 +17,7 @@ import type { QuestionDeLaBase } from './baseCampagne'
 import { cibleDeLEstimation, lireLEstimation } from './estimation'
 import { empreinteDe } from './jour'
 import { DejaPrises } from './jumelles'
+import { reponsesAuRangTire } from './rangDeLaBonne'
 
 /**
  * Un quiz tout prêt, tiré de la base de la campagne (`shared/quizToutPret.ts`
@@ -122,7 +123,7 @@ const ANNEE_SEULE = /^-?\d{1,4}$/
  * du GIEC — le titre, en tête de chaque question à l'écran commun, soufflait
  * la réponse (l'expert du quiz tout prêt, le 11 octobre 2026).
  */
-export function souffleeParLEpoque(q: QuestionDeLaBase, [debut, fin]: readonly [number, number]): boolean {
+export function souffleeParLEpoque(q: Pick<QuestionDeLaBase, 'reponses' | 'bonne'>, [debut, fin]: readonly [number, number]): boolean {
   const annees = q.reponses.map(r => (ANNEE_SEULE.test(r.trim()) ? Number(r.trim()) : null))
   if (annees.some(a => a === null)) return false
   const dedans = (a: number | null) => a !== null && a >= debut && a <= fin
@@ -266,14 +267,22 @@ function versLEstimation(q: QuestionDeLaBase, cible: { target: number; unit: str
   }
 }
 
-/** Une question de la base, telle qu'un quiz la garde : un QCM ordinaire, sa catégorie, son anecdote à la révélation. */
-function versLeQuiz(q: QuestionDeLaBase): QuizQuestionDef {
+/**
+ * Une question de la base, telle qu'un quiz la garde : un QCM ordinaire, sa
+ * catégorie, son anecdote à la révélation. Des années, des nombres, des
+ * jours : le rang de la bonne se tire, ses leurres avec (`reponsesAuRangTire`)
+ * — sauf si ce tirage laissait la bonne seule dans l'époque du titre, ce que
+ * la question écrite ne faisait pas (`souffleeParLEpoque`).
+ */
+function versLeQuiz(q: QuestionDeLaBase, aleatoire: Aleatoire, epoque?: readonly [number, number]): QuizQuestionDef {
+  const tirees = reponsesAuRangTire(q, aleatoire)
+  const { reponses, bonne } = tirees && !(epoque && souffleeParLEpoque(tirees, epoque)) ? tirees : q
   return {
     id: idDansLeQuiz(q.id),
     kind: 'choice',
     text: q.texte,
-    answers: [...q.reponses],
-    correct: q.bonne,
+    answers: [...reponses],
+    correct: bonne,
     target: null,
     unit: '',
     duration: DEFAULT_DURATION,
@@ -404,7 +413,7 @@ export function composerUnQuiz(
     if (e < estimations.length && (i >= places[e] || c >= qcm.length)) {
       const q = estimations[e++]
       quiz.push(versLEstimation(q, cibles.get(q.id)!))
-    } else quiz.push(versLeQuiz(qcm[c++]))
+    } else quiz.push(versLeQuiz(qcm[c++], aleatoire, epoque))
   }
   return quiz
 }
@@ -480,7 +489,9 @@ export function uneAutreQuestion(
   }
   if (!meilleure) return null
   const cible = estimation ? cibleDeLEstimation(meilleure.q) : null
-  return cible ? versLEstimation(meilleure.q, cible) : versLeQuiz(meilleure.q)
+  // L'époque de la remplacée, s'il y en a une : la voisine la partage d'abord, et son titre ne doit pas souffler l'année tirée.
+  const epoque = sesSujets.map(s => sujetParCle(s)?.annees).find(a => a !== undefined)
+  return cible ? versLEstimation(meilleure.q, cible) : versLeQuiz(meilleure.q, aleatoire, epoque)
 }
 
 /**

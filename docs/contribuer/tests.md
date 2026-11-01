@@ -448,6 +448,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/campagne-sujets.test.ts` — une série sur un sujet qui traverse les catégories.
 - `server/test/campagne-variete.test.ts` — catégories et sous-thèmes à tour de rôle.
 - `server/test/campagne-familles.test.ts` — une question part de la part que trouve sa famille : sa catégorie et sa difficulté, ou, pour une année, un nombre, un vrai ou faux, sa forme.
+- `server/test/rang-de-la-bonne.test.ts` — une bonne réponse qui se range (année, nombre, jour) se tire à son rang, ses leurres pris parmi les siens : la répartition et la plus proche de la moyenne relues sur la base livrée, le quiz tout prêt et l'époque de son titre, le signalement qui n'y voit pas une version d'avant, la consigne qui demande des leurres de part et d'autre.
 - `server/test/bareme-du-solo.test.ts` — le barème du solo et son recompte au démarrage.
 - `server/test/tirage-sans-redite.test.ts` — pas deux jumelles dans une épreuve ou un duel.
 - `server/test/tirage-a-la-piece.test.ts` — le tirage à la pièce, sorti de `core/campagne.ts` (`core/tirageALaPiece.ts`) : comparé au code d'avant, gardé dans le test, au même hasard — l'escale, le battage d'une question, la moins vue, la frise de quatre ; puis ce qu'il apprend pour le Cabinet : la fenêtre de sept jours, deux marches qui se valent, cinq QCM d'un coup pour l'Éclair ; et la frise de sept, jamais sous l'écart (`choisirLaFriseSansRepli`) — sur des tas serrés, contre toutes les suites possibles.
@@ -470,6 +471,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 
 - `server/test/sentiers.test.ts` — les paliers, le seuil, les portraits, les vies.
 - `server/test/sentiers-chapitres.test.ts` — les huit premiers paliers deux par deux, un thème chacun.
+- `server/test/sentiers-par-coeur.test.ts` — ce qui s'apprend par cœur (une année, le réalisateur d'un film) : aucune question avant le cinquième palier, deux au plus ensuite, sans redite ni sortie du chapitre ; une personne mesurée dans sa famille ; le sentier du cinéma de la base livrée.
 - `server/test/sentiers-panorama.test.ts` — le haut des sentiers en un seul bloc.
 - `server/test/sentiers-reprise.test.ts` — les portraits d'avant les sentiers, repris en paliers.
 - `server/test/sentiers-sujets.test.ts` — les sentiers à thème, sans vies.

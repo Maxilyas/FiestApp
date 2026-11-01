@@ -168,29 +168,88 @@ export const DIFFICULTES_EN_FAMILLE: readonly number[] = [1, 2, 3]
  * dure. Une année ne se devine pas — quatre dates voisines, et rien pour
  * écarter les leurres —, un autre nombre non plus, et un vrai ou faux se joue
  * à pile ou face. Mesuré sur les 3 le 15 octobre 2026 : 33 % pour une année,
- * 51 % pour un nombre, 56 % pour des mots.
+ * 51 % pour un nombre, 56 % pour des mots. Une personne non plus : un nom
+ * qu'on connaît ou pas, qui ne se déduit de rien — le 1er novembre 2026, sur
+ * les 3, 51 % pour une personne, 62 % pour les autres mots.
  */
-export type FormeDeReponse = 'annee' | 'nombre' | 'vrai-faux' | 'mots'
+export type FormeDeReponse = 'annee' | 'nombre' | 'vrai-faux' | 'personne' | 'mots'
 
 /** Une année, de 1000 à 2099 : au-delà, ou avec une unité (« 1920 pixels »), c'est un nombre. */
 const ANNEE = /^(1\d{3}|20\d{2})$/
 
-export function formeDeReponse(q: { reponses: readonly string[]; bonne: number; valeur?: { unite: string } | null }): FormeDeReponse {
+/** Ce qu'une question dit d'elle-même : ses entités (`MetadonneesDeQuestion.entites`), une personne s'y reconnaît. */
+type EntitesDeLaQuestion = readonly { nom: string; type: string }[]
+
+/**
+ * La bonne réponse est-elle une personne de la question — une de ses
+ * entités, de type personne, au même nom ? « Qui a réalisé… », « Quel
+ * écrivain… ». Un personnage n'en est pas une : Dark Vador se devine du film.
+ */
+export function reponseEstUnePersonne(q: { reponses: readonly string[]; bonne: number; entites?: EntitesDeLaQuestion }): boolean {
+  const juste = sansAccent(q.reponses[q.bonne] ?? '')
+  return !!juste && (q.entites ?? []).some(e => e.type === 'personne' && sansAccent(e.nom) === juste)
+}
+
+/**
+ * Sans ses entités, une personne se lit en mots : seuls les lecteurs qui
+ * mesurent une question (`mesuresEnFamille`, au magasin de la campagne) les
+ * donnent ; une année et un nombre se lisent pareil partout.
+ */
+export function formeDeReponse(q: { reponses: readonly string[]; bonne: number; valeur?: { unite: string } | null; entites?: EntitesDeLaQuestion }): FormeDeReponse {
   if (q.reponses.length === 2) return 'vrai-faux'
   const bonne = (q.reponses[q.bonne] ?? '').trim()
   if (ANNEE.test(bonne) && !q.valeur?.unite) return 'annee'
-  return q.valeur || /\d/.test(bonne) ? 'nombre' : 'mots'
+  if (q.valeur || /\d/.test(bonne)) return 'nombre'
+  return reponseEstUnePersonne(q) ? 'personne' : 'mots'
+}
+
+/** Celui qui a fait un film : « Qui a réalisé… », « Quelle réalisatrice… », « Quel cinéaste… » — pas « réaliste ». */
+const REALISATEUR = /\b(realis(e|ee|es|ees|er|ait|ant|ateur|atrice|ation)|cineaste)\b/
+/** Celui qui a créé une série. */
+const CREATEUR = /\b(cree|creee|createur|creatrice)\b/
+const SERIE = /\bseries?\b/
+/** Hors du cinéma, ce qui dit qu'on parle d'un film : « Quel peintre a réalisé La Joconde ? » n'en parle pas. */
+const UN_FILM = /\b(films?|series?|court metrage|long metrage|dessin anime|documentaire|clip)\b/
+
+/**
+ * Ce qui s'apprend par cœur et ne se devine pas : une année, ou celui qui a
+ * réalisé un film, créé une série. Le retour d'un joueur, le 1er novembre
+ * 2026 : « ce qui rendait le sentier difficile c'est surtout le nom de
+ * réalisateur inconnu, ou bien de film qui date de trop longtemps. Pareil
+ * pour les dates […] c'est à chaque fois un peu au pif ». Mesuré en
+ * production ce jour-là, sur les 3 : 46 % pour un réalisateur, 43 % pour une
+ * année, 58 % pour l'ensemble ; au septième palier du sentier du cinéma, deux
+ * questions sur cinq en étaient, trouvées à 31 %, et deux épreuves sur douze
+ * validées. Une épreuve n'en pose qu'à mesure (`RegleDuPalier.parCoeurMax`).
+ * Les auteurs d'un roman se trouvent aussi peu, mais ils font la moitié du
+ * sentier des lettres : ils n'en sont pas.
+ */
+export function seSaitParCoeur(q: {
+  texte: string
+  reponses: readonly string[]
+  bonne: number
+  valeur?: { unite: string } | null
+  categorie: string
+  entites?: EntitesDeLaQuestion
+}): boolean {
+  if (formeDeReponse(q) === 'annee') return true
+  if (!reponseEstUnePersonne(q)) return false
+  const texte = sansAccent(q.texte)
+  if (!REALISATEUR.test(texte) && !(CREATEUR.test(texte) && SERIE.test(texte))) return false
+  return q.categorie === 'Cinéma & séries' || UN_FILM.test(texte)
 }
 
 /**
  * La famille d'une question : sa catégorie et sa difficulté estimée, ou, pour
  * une année, un nombre ou un vrai ou faux, sa forme et sa difficulté, toutes
- * catégories ensemble — chaque catégorie n'en a que quelques dizaines. Null
- * hors de `DIFFICULTES_EN_FAMILLE`.
+ * catégories ensemble — chaque catégorie n'en a que quelques dizaines. Une
+ * personne a la sienne dans sa catégorie — des centaines chacune, et un
+ * sportif ne se sait pas comme un cinéaste. Null hors de
+ * `DIFFICULTES_EN_FAMILLE`.
  */
 export function familleDeQuestion(q: { categorie: string; difficulte: number; forme: FormeDeReponse }): string | null {
   if (!DIFFICULTES_EN_FAMILLE.includes(q.difficulte)) return null
-  return `${q.forme === 'mots' ? q.categorie : '*'}|${q.forme}|${q.difficulte}`
+  return `${q.forme === 'mots' || q.forme === 'personne' ? q.categorie : '*'}|${q.forme}|${q.difficulte}`
 }
 
 /**

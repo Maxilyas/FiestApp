@@ -23,6 +23,18 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
 
 ## Les pièges
 
+- **Les leurres d'une réponse qui se range l'entourent** (le 1er novembre
+  2026) : une année, un nombre, un jour — le tirage choisit le rang de la
+  bonne et ses trois leurres parmi `meta.leurres` (`reponsesAuRangTire`,
+  règle `campagne.md`). Écrits tous du même côté, la bonne ne peut pas être
+  la plus petite, ou la plus grande, et sa place la trahit encore : la
+  consigne demande trois leurres plus petits et trois plus grands quand la
+  grandeur le permet, et la bonne pas d'office au milieu des quatre (la
+  base l'y avait 97 fois sur cent pour les années) ; `verifier` avertit
+  (`rangsPossibles`). Les questions d'avant ne se réécrivent pas : le tirage
+  fait avec ce qu'elles ont, et la répartition se mesure sur la base livrée
+  (`rang-de-la-bonne.test.ts`). Un leurre ajouté plus tard à une question
+  qui se range se montre aussi en jeu — il doit être faux à coup sûr.
 - **Une question de la base de la campagne garde son identifiant** : ses
   réponses, ses signalements et son retrait s'y rattachent. Une coquille se
   corrige dans son fichier, l'identifiant ne bouge pas ; une correction de

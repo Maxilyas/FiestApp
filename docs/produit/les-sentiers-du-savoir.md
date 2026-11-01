@@ -151,6 +151,7 @@ Seize questions par épreuve (`QUESTIONS_PAR_EPREUVE`), dix pour valider (`SEUIL
 Ce sont les mélanges du code. L'administrateur peut régler celui d'un palier depuis le QG (`/admin#campagne`), pour les douze sentiers ensemble : seize questions, jamais d'experte, le seuil intouché, et rien au maître. La difficulté affichée suit alors le mélange réglé (voir [administrer](../guides/administrer.md#la-campagne-et-les-sentiers)).
 
 - **Aucune experte avant le maître** : moins d'un joueur sur cinq en trouve une, et un portrait qui en dépendrait se gagnerait à l'usure. **Pas de vrai ou faux** dès le cinquième palier : une chance sur deux au hasard.
+- **Peu de questions par cœur** : une année, le réalisateur d'un film, le créateur d'une série ne se devinent pas — on les sait ou on répond au hasard. Aucune aux quatre premiers paliers, deux au plus ensuite et au maître (`PAR_COEUR_DES`, `PAR_COEUR_PAR_EPREUVE`), tant que la marche a d'autres questions aussi fraîches. Le retour d'un joueur, le 1er novembre 2026 : « ce qui rendait le sentier difficile c'est surtout le nom de réalisateur inconnu […] pareil pour les dates ». Au septième palier du cinéma, deux questions sur cinq en étaient, trouvées à 31 %, et seules deux épreuves sur douze s'y validaient.
 - La **difficulté affichée** est la marche moyenne des seize questions (`difficulteDuMelange`) ; le niveau d'une question est celui de toute la campagne (voir [la campagne](la-campagne.md)).
 - **Les étoiles** d'une épreuve validée : une au seuil, deux à treize bonnes réponses, trois sans faute ; seule la meilleure note de chaque palier compte.
 
@@ -196,7 +197,7 @@ Les seize questions se tirent au départ, dans la catégorie du sentier (sans le
 1. Une question **vue ces dernières vingt-quatre heures** ne revient qu'en dernier recours (`VUE_RECENTE_MS`) : on ne revoit pas le soir même ce qu'on vient de rater.
 2. **Paliers 1 à 8** : le thème du chapitre passe devant le reste de la catégorie, même par une question déjà vue.
 3. **Paliers 9 à 13** : chaque sous-thème passe d'abord, même par une question déjà vue.
-4. Ensuite, les questions **jamais vues** d'abord, et **pas deux jumelles** quand la marche en a d'aussi fraîches : la même forme d'intitulé (« Qui a réalisé le film… ») ou deux réponses proposées en commun (`server/src/core/jumelles.ts`).
+4. Ensuite, les questions **jamais vues** d'abord, puis, au-delà de ce que le palier en pose, **pas de question par cœur** de plus (`parCoeurMax`), et **pas deux jumelles** quand la marche en a d'aussi fraîches : la même forme d'intitulé (« Qui a réalisé le film… ») ou deux réponses proposées en commun (`server/src/core/jumelles.ts`). Le plafond ne fait jamais reposer une question déjà vue, ni sortir du thème d'un chapitre : celui du cinéma du monde, aux trois quarts de réalisateurs, les reprend une fois ses autres questions vues.
 5. Une marche à court de jamais vues **reste sa marche** et reprend ses déjà vues, la plus anciennement vue d'abord : emprunter changerait la difficulté du palier. Elle n'emprunte que vide, d'abord à la marche plus dure.
 
 Les seize sont ensuite mélangées, et les réponses de chacune (sauf « Vrai » et « Faux »). Les parcours de thème suivent la même règle sur leur sujet.
