@@ -1,6 +1,7 @@
 // La traversée du Cabinet photographiée écran par écran, au doigt, sur un
 // serveur jetable (skill `regarder-le-rendu`) : l'écran-titre, les trois
-// gardiens, le choix des cartes, la carte d'un acte et son chemin, l'annonce
+// gardiens, le choix des cartes, la carte d'un acte et son chemin, une étape
+// lointaine touchée sur la carte (ce qu'elle est, par où y aller), l'annonce
 // d'une épreuve, l'épreuve elle-même (sa tête : les cœurs, l'or), son bilan, le
 // coffre et son amélioration, le marchand, le gardien, le choix du légendaire
 // et la fin. Le client se construit d'abord (`npm run build -w client`).
@@ -19,7 +20,17 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import { demarrer, inscrireProfil } from '../test/banc'
 import { DIX_HEURES } from '../test/cabinet-banc'
-import { atteignables, etapeDe, etatDeLaTraversee, lireLeDepartDeLaTraversee, type GesteDeLaTraversee } from '../../shared/cabinet/traversee'
+import {
+  VERSION_DE_LA_TRAVERSEE,
+  atteignables,
+  etapeDe,
+  etatDeLaTraversee,
+  lireLeDepartDeLaTraversee,
+  offrables,
+  tracerLaCarte,
+  type DepartDeLaTraversee,
+  type GesteDeLaTraversee,
+} from '../../shared/cabinet/traversee'
 
 const [largeur, hauteur] = (process.env.ECRAN ?? '360x640').split('x').map(Number)
 const telephone = largeur < 700
@@ -112,7 +123,7 @@ function avancerALaMain(jusqua: (sorte: string, e: ReturnType<typeof etatDeLaTra
       e = etat()
     }
     for (let garde = 0; garde < 200 && !jusqua(e.ou.sorte, e) && !e.fin; garde++) {
-      if (e.ameliorations > 0) gestes.push({ quoi: 'ameliorer', carte: e.cartes.find(c => c.niveau < 3)!.cle })
+      if (e.ameliorations > 0) gestes.push({ quoi: 'ameliorer', carte: offrables(depart, e)[0].cle })
       else {
         const ids = e.ou.sorte === 'gardien' && e.ou.partie === null ? [e.ou.etape] : atteignables(depart, e)
         const suivante = etapeDe(depart, ids.find(id => etapeDe(depart, id)?.sorte === 'epreuve') ?? ids[0])!
@@ -175,6 +186,36 @@ await etape('carte', async () => {
   await page.waitForTimeout(2600)
   await photo('acte-1-carte')
 })
+await etape('regard', async () => {
+  // Une étape lointaine touchée sur la carte. La caméra ne montre d'office que le rang d'à côté : la carte glisse d'abord vers
+  // le bas, comme au doigt, pour montrer plus loin ; puis le doigt balaie la bande entre la tête et le panneau, du plus loin au
+  // plus près et au milieu seulement — les îles y tiennent —, jusqu'à ce que le panneau en dise une. La carte est décorative :
+  // rien ne dit où ses îles tombent à l'écran.
+  const haut = (await page.locator('.cab-tv-hud').boundingBox())!
+  const bas = (await page.locator('.cab-tv-panneau').boundingBox())!
+  // Le geste part du milieu de la bande : plus haut, il tombait dans le bas de la tête, qui n'est pas la carte.
+  const milieu = (haut.y + haut.height + bas.y) / 2
+  await page.mouse.move(largeur / 2, milieu)
+  await page.mouse.down()
+  for (let k = 1; k <= 14; k++) await page.mouse.move(largeur / 2, milieu + k * 20)
+  await page.mouse.up()
+  await page.waitForTimeout(1500)
+  await photo('carte-plus-loin')
+  let vue = false
+  const pasX = Math.max(20, Math.round(largeur / 30))
+  for (let y = haut.y + haut.height + 6; y < bas.y - 6 && !vue; y += 16) {
+    for (let x = Math.round(largeur * 0.15); x < largeur * 0.85 && !vue; x += pasX) {
+      await page.touchscreen.tap(x, y)
+      const dit: string | null = await page.evaluate(() => (globalThis as any).document.querySelector('.cab-tv-regard small')?.textContent ?? null)
+      vue = !!dit && !/Derrière|Déjà/.test(dit)
+    }
+  }
+  if (!vue) throw new Error('aucune étape lointaine sous le doigt')
+  await page.waitForTimeout(500)
+  await photo('regard-lointain')
+  await page.getByRole('button', { name: 'Ne plus regarder cette étape' }).click()
+  await page.waitForTimeout(400)
+})
 await etape('annonce', async () => {
   await page.locator('.cab-tv-option').first().click()
   await page.waitForTimeout(700)
@@ -184,6 +225,12 @@ await etape('annonce', async () => {
   await photo('annonce-epreuve')
 })
 await etape('epreuve', async () => {
+  // Un Quiz s'ouvre sur l'un de ses thèmes au choix : le premier, s'il en propose.
+  const unTheme = page.locator('.cab-tv-themes .cab-tv-option')
+  if (await unTheme.count()) {
+    await unTheme.first().click()
+    await page.waitForTimeout(500)
+  }
   await toucher(/^Commencer/)
   await page.waitForTimeout(1500)
   await photo('epreuve-premiere-manche')
@@ -237,6 +284,64 @@ await etape('legendaire', async () => {
   await page.locator('.cab-tv-pied .cab-tv-cta').click()
   await page.waitForTimeout(1500)
   await photo('legendaire-gagne')
+})
+
+await etape('quiz', async () => {
+  // Une traversée neuve, écrite à la main, dont la première étape est un Quiz à trois thèmes au choix, l'un un sujet de la base —
+  // la carte tire ses jeux au hasard, et le Quiz n'en est qu'un sur dix : son annonce, le thème choisi, une question, la
+  // suivante, sa révélation.
+  const db = new Database(fichier)
+  try {
+    const { profile_id: profil } = db.prepare('SELECT profile_id FROM cabinet_traversees ORDER BY commencee_le DESC LIMIT 1').get() as { profile_id: string }
+    const actes = tracerLaCarte(Math.random, ['lg:renard', 'lg:sphinx', 'lg:dragon'], { epingle: ['Rome'], frise: ['Rome'] })
+    const quiz = { jeu: 'quiz' as const, choix: [{ theme: 'Histoire' }, { theme: 'Les animaux', sujet: 'animaux', emoji: '🧩' }, { theme: 'Le football', sujet: 'sport/football', emoji: '⚽' }] }
+    // L'étape faite Quiz perd le thème de son jeu d'avant : ses thèmes au choix font le sien.
+    const enQuiz = ({ theme: _t, sujet: _s, emoji: _e, ...e }: (typeof actes)[0]['etapes'][number]) => ({ ...e, sorte: 'epreuve' as const, ...quiz })
+    const depart: DepartDeLaTraversee = {
+      v: VERSION_DE_LA_TRAVERSEE,
+      jour: '2026-10-24',
+      actes: [{ ...actes[0], etapes: actes[0].etapes.map(e => (e.id === 'a0r1c0' ? enQuiz(e) : e)) }, actes[1], actes[2]],
+    }
+    const id = `rendu-du-quiz-${Date.now()}`
+    db.prepare('INSERT INTO cabinet_traversees (id, profile_id, depart, commencee_le) VALUES (?, ?, ?, ?)').run(id, profil, JSON.stringify(depart), maintenant())
+    db.prepare('INSERT INTO cabinet_traversee_gestes (traversee_id, rang, geste, fait_le, uid) VALUES (?, 1, ?, ?, ?)').run(id, JSON.stringify({ quoi: 'cartes', cartes: ['cagnotte', 'parade', 'panacee'] }), maintenant(), 'rendu-0')
+  } finally {
+    db.close()
+  }
+  await rouvrir()
+  await page.locator('.cab-tv-option', { hasText: 'Le Quiz' }).first().click()
+  await page.waitForTimeout(700)
+  await photo('quiz-choisi')
+  await page.locator('.cab-tv-panneau .cab-tv-cta').click()
+  await page.waitForTimeout(2200)
+  await photo('quiz-annonce')
+  await page.locator('.cab-tv-themes .cab-tv-option', { hasText: 'Les animaux' }).click()
+  await page.waitForTimeout(600)
+  await photo('quiz-theme-choisi')
+  await page.evaluate(() => (globalThis as any).document.querySelector('.cab-tv-ecran')?.scrollTo(0, 99999))
+  await photo('quiz-theme-choisi-bas')
+  await toucher(/^Commencer/)
+  await page.waitForTimeout(1500)
+  await photo('quiz-question-1')
+  await page.locator('.ans-btn').first().click()
+  await page.waitForTimeout(900)
+  await photo('quiz-question-2')
+  for (let k = 0; k < 3; k++) {
+    await page.locator('.ans-btn').nth(k).click()
+    await page.waitForTimeout(900)
+    await photo(`quiz-apres-la-reponse-${k + 2}`)
+  }
+  await page.waitForTimeout(1500)
+  await photo('quiz-revelation')
+  await page.evaluate(() => (globalThis as any).scrollTo(0, 99999))
+  await photo('quiz-revelation-bas')
+})
+await etape('gardien-de-l-acte-ii', async () => {
+  // Le gardien de l'acte II, après un premier assaut : quinze points de vie depuis la version 2, une jauge et ses chiffres.
+  avancerALaMain((sorte, e) => sorte === 'gardien' && e.acte === 1)
+  await rouvrir()
+  await passerLesBilans('bilan-avant-le-gardien-ii')
+  await photo('gardien-de-l-acte-ii')
 })
 
 console.log(echecs.length ? `\n${echecs.length} étape(s) en échec :\n${echecs.join('\n')}` : `\nToutes les étapes passent — ${n} photos dans ${sortie}`)

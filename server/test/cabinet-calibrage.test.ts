@@ -23,6 +23,7 @@ import path from 'node:path'
 import * as BAREME from '../../shared/cabinet/bareme'
 import { JEUX, CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
 import { POUVOIRS } from '../../shared/cabinet/pouvoirs'
+import { CARTES } from '../../shared/cabinet/traversee'
 import { lireNombre } from '../../shared/nombres'
 import { type Lancement, SCRIPT, SERVEUR, SOURCE, auHasard, calibrer, cases, jeuxQuiVisent, ligneDuJeu, lignesDesConfettis, partAvecLaCarte, sansCommentaires } from './calibrage-du-cabinet'
 import { importsStatiques } from './chemin-des-imports'
@@ -270,4 +271,28 @@ test('le calibrage joue les règles du code, sans en recopier une', () => {
   assert.deepEqual(tires, [{ nom: 'EVENEMENTS_D_UNE_FRISE_A_THEME', de: 'VAGUES_DE_LA_FRISE' }], 'les constantes que bareme.ts tire d’un tableau')
   const gardes = SOURCE.slice(SOURCE.indexOf('const DERIVEES'))
   for (const { de } of tires) assert.ok(gardes.includes(`'${de}',`), `${de} : un essai changerait le tableau sans ce que bareme.ts en tire`)
+})
+
+test('la traversée d’un bout à l’autre : le hasard n’en gagne presque aucune, le moyen bien moins que la tablée, et la carte ++ se mérite', async () => {
+  // Des traversées entières, au pli de la traversée et à celui de chaque épreuve : une règle qui rendrait la traversée
+  // facile à nouveau — le moyen en gagnait quatre sur cinq, ses cartes au plus haut dès le deuxième gardien, le retour du
+  // propriétaire du 1er novembre 2026 — se verrait ici avant l'écran. Les chiffres datés : `baremes.md`.
+  const { code, sortie, erreurs } = await calibrer(['--sections', 'traversee', '--traversees', '120', '--joueurs', 'hasard,moyen,tablée'])
+  assert.equal(code, 0, erreurs)
+  const lignes = sortie.split('\n')
+  const bloc = (joueur: string) => {
+    const k = lignes.findIndex(l => l.trim().startsWith(`${joueur} — gagnées`))
+    assert.ok(k >= 0, `pas de ligne pour ${joueur} :\n${sortie}`)
+    return { gagnees: lireNombre(/gagnées ([\d,]+) %/.exec(lignes[k])![1])!, auGardien: lignes[k + 1] }
+  }
+  const [hasard, moyen, tablee] = ['hasard', 'moyen', 'tablée'].map(bloc)
+  assert.ok(hasard.gagnees <= 5, `au hasard, ${hasard.gagnees} % de traversées gagnées`)
+  assert.ok(hasard.gagnees < moyen.gagnees && moyen.gagnees < tablee.gagnees, `${hasard.gagnees} < ${moyen.gagnees} < ${tablee.gagnees}`)
+  assert.ok(moyen.gagnees <= 60, `le moyen gagne ${moyen.gagnees} % de ses traversées`)
+  // Ses trois cartes au plus haut en arrivant au deuxième gardien : presque jamais, la carte ++ ne s'offrant plus.
+  const toutes = /toutes : ([\d,]+) % · ([\d,]+) % · /.exec(moyen.auGardien)
+  assert.ok(toutes, moyen.auGardien)
+  assert.ok(lireNombre(toutes[2])! <= 10, `le moyen arrive au deuxième gardien ses trois cartes au plus haut ${toutes[2]} fois sur cent`)
+  // Ce que chaque carte apporte : une ligne chacune.
+  for (const c of CARTES) assert.ok(lignes.some(l => l.trim().startsWith(c.nom)), `${c.nom} : pas de ligne`)
 })

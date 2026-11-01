@@ -622,8 +622,22 @@ test('une épreuve ouverte par-dessus la carte a son entrée d’historique : le
   assert.ok(!partieDansLEntree(r.h.state))
   assert.deepEqual(r.h.state, { fiestappGarde: true })
   assert.equal(r.url(), '/cabinet')
-  // La page suit l'entrée : un retour qui la quitte masque l'épreuve.
-  assert.match(source('views/CabinetApp.tsx'), /if \(id && !partieDansLEntree\(window\.history\.state\)\) \{\s*setMasquee\(id\)/)
+  // La page suit l'entrée : un retour qui la quitte masque l'épreuve — sauf celle qui vient de finir.
+  const page_ = source('views/CabinetApp.tsx')
+  assert.match(page_, /if \(id && id !== conclueRef\.current && !partieDansLEntree\(window\.history\.state\)\) \{\s*setMasquee\(id\)/)
+  // Une épreuve finie ne se masque jamais : elle reste à l'écran jusqu'à la page qui la conclut. Masquée tout de suite, la page
+  // qu'on tenait la disait en cours, et la carte proposait « Reprendre l'épreuve » d'une épreuve gagnée (le retour du propriétaire,
+  // le 1er novembre 2026). La partie le dit par `onEpreuveFinie`, à ses trois fins : la dernière manche, le gardien à terre ou le
+  // dernier cœur (après « quitter »), une épreuve finie sans révélation.
+  const apres = /const apresLEpreuve = useCallback\(\(\) => \{([^]*?)\}, \[relire\]\)/.exec(page_)?.[1] ?? ''
+  assert.ok(apres, 'la page a sa fin d’épreuve')
+  assert.doesNotMatch(apres, /setMasquee/)
+  assert.match(page_, /onEpreuveFinie=\{apresLEpreuve\}/)
+  assert.match(page_, /partie\.id !== masquee \|\| partie\.id === conclue/)
+  const partie = source('views/cabinet/Partie.tsx')
+  assert.match(partie, /if \(vue\.phase === 'finie'\) return finDeLEpreuve\(\)/)
+  assert.match(partie, /jouer\(\{ quoi: 'quitter' \}\)\.then\(finDeLEpreuve\)/)
+  assert.match(partie, /if \(finieSansRevelation\) finDeLEpreuve\(\)/)
 })
 
 test('ce que le téléphone retient du Cabinet, il le retient profil par profil — et sans stockage, rien ne casse', async () => {
@@ -1668,6 +1682,34 @@ test('le retour du navigateur pendant une manche : sa garde se pose par-dessus l
   assert.match(source('views/PlayerApp.tsx'), /useGardeRetour\([^,)]*\)/)
 })
 
+test('une épreuve qui s’ouvre sur sa première manche : son entrée d’abord, sa garde par-dessus — la manche finie, la garde levée retombe sur l’épreuve', async () => {
+  // Le retour du propriétaire, le 1er novembre 2026 : « lorsque l'on réussit le défi, ça nous fait toujours reprendre l'épreuve ».
+  // Une épreuve de la traversée s'ouvre sur sa première manche, déjà en jeu : la garde de `Partie` — un enfant, dont l'effet passe
+  // avant celui de son parent — se posait avant l'entrée de l'épreuve, qui se posait par-dessus elle.
+  const { poserLEntreeDeLaPartie, partieDansLEntree } = await import(url('views/cabinet/ecrans.ts'))
+  const { garder, marqueDeLaGarde } = await import(url('retour.ts'))
+  const tour = () => new Promise(r => setTimeout(r, 0))
+  const question = () => new Promise<'parti' | 'reste'>(() => {})
+  /** La manche jouée puis tranchée, l'épreuve et sa garde posées dans cet ordre : où retombe la page une fois la garde levée ? */
+  const apresLaManche = async (entreeDAbord: boolean) => {
+    const n = historique('/cabinet')
+    const ecoute = new EventTarget()
+    if (entreeDAbord) poserLEntreeDeLaPartie(n.h)
+    const lever = garder(n.h, ecoute, marqueDeLaGarde(true), question)
+    if (!entreeDAbord) poserLEntreeDeLaPartie(n.h)
+    lever()
+    await tour()
+    return n.h.state
+  }
+  // L'ordre d'avant : la garde levée recule sur sa propre entrée, sans la marque de l'épreuve — la page la masquait.
+  assert.ok(!partieDansLEntree(await apresLaManche(false)), 'la garde d’abord : l’épreuve se perdait')
+  // L'entrée de l'épreuve d'abord : la garde levée retombe sur elle, et l'épreuve reste ouverte, sa révélation à l'écran.
+  assert.ok(partieDansLEntree(await apresLaManche(true)))
+  // La page la pose d'un effet de mise en page, qui passe avant tous les effets de ses enfants.
+  assert.match(source('views/CabinetApp.tsx'), /useLayoutEffect\(\(\) => \{\s*if \(idMontree\) poserLEntreeDeLaPartie\(window\.history\)/)
+  assert.match(source('retour.ts'), /useEffect\(\(\) => \{\s*if \(!actif\) return\s*return garder\(/, 'la garde, d’un effet ordinaire')
+})
+
 test('la garde du retour : un jeton par montage, la question posée une fois, « reste » la repose, « parti » non — et levée, plus rien', async () => {
   const { garder, marqueDeLaGarde, porteLaGarde } = await import(url('retour.ts'))
   const tour = () => new Promise(r => setTimeout(r, 0))
@@ -1852,7 +1894,8 @@ test('une partie dont la réponse s’est perdue en route ne repart pas : la pag
   ok(await jouer(b, yann, attend, { quoi: 'quitter' }), 'quitter')
   // Fermée par le retour en pleine manche, l'épreuve continue sans cet écran : la page se relit, et « Reprendre » la rouvre telle
   // qu'elle est devenue.
-  assert.match(source('views/CabinetApp.tsx'), /if \(id && !partieDansLEntree\(window\.history\.state\)\) \{\s*setMasquee\(id\)\s*relire\(\)/)
+  // Une épreuve finie, elle, se conclut sans se masquer (`conclueRef`, le 1er novembre 2026).
+  assert.match(source('views/CabinetApp.tsx'), /if \(id && id !== conclueRef\.current && !partieDansLEntree\(window\.history\.state\)\) \{\s*setMasquee\(id\)\s*relire\(\)/)
 })
 
 test('une partie dit son heure au serveur : l’échéance lue à serverNow, la réponse « auto » à l’échéance, chaque geste à son rang, la demi-seconde de garde', () => {

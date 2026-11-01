@@ -242,15 +242,18 @@ test('chaque œuvre se trouve à un jeu fixe, et la table est gelée', () => {
     eclair: ['expose', 'voyance', 'contre-attaque', 'foulee', 'simplifier', 'doubler-la-mise', 'baroud', 'evidence', 'panacee', 'tout-ou-rien'],
     indices: ['encyclopedie', 'astrolabe', 'cuirasse', 'acceleration', 'volte-face', 'pourboire', 'insinuation', 'maitrise', 'initiale'],
     replique: ['genie', 'vision', 'second-souffle', 'rythme', 'prisme', 'cagnotte', 'rumeur', 'fougue', 'sursis'],
+    // Le Quiz est venu le 1er novembre 2026, le musée endormi : aucune œuvre ne s'y trouve, et aucune n'a bougé pour lui.
+    quiz: [],
   }
   const lue: Record<string, string[]> = {}
   for (const o of OEUVRES) (lue[JEU_DE_L_OEUVRE[o.cle]] ??= []).push(o.cle)
   for (const j of CLES_DES_JEUX) assert.deepEqual([...(lue[j] ?? [])].sort(), [...GELEE[j]].sort(), `les œuvres ${JEUX[j].a}`)
   assert.deepEqual(Object.keys(JEU_DE_L_OEUVRE).sort(), OEUVRES.map(o => o.cle).sort())
-  // Équilibrée : dans chaque famille, huit jeux différents ; chaque jeu, neuf ou dix œuvres, des communes aux épiques.
+  // Équilibrée : dans chaque famille, huit jeux différents ; chaque jeu du musée, neuf ou dix œuvres, des communes aux épiques.
   for (const f of FAMILLES) assert.equal(new Set(oeuvresDeLaSalle(f).map(o => JEU_DE_L_OEUVRE[o.cle])).size, 8, f)
-  assert.deepEqual(compter(CLES_DES_JEUX.map(j => String(GELEE[j].length))), { 9: 6, 10: 3 })
-  for (const j of CLES_DES_JEUX) {
+  const duMusee = CLES_DES_JEUX.filter(j => j !== 'quiz')
+  assert.deepEqual(compter(duMusee.map(j => String(GELEE[j].length))), { 9: 6, 10: 3 })
+  for (const j of duMusee) {
     const raretes = new Set(GELEE[j].map(c => oeuvre(c)!.rarete))
     for (const r of ['commun', 'rare', 'epique'] as const) assert.ok(raretes.has(r), `${JEUX[j].nom} : au moins une ${r}`)
   }
@@ -424,8 +427,8 @@ test('le Cabinet s’ouvre hors de la production, et en production sous son drap
   for (const j of JEUX_PRETS) assert.ok(CLES_DES_JEUX.includes(j), j)
 })
 
-test('neuf jeux, chacun ses mots, son chrono et son barème dit', () => {
-  assert.deepEqual([...CLES_DES_JEUX].sort(), ['detail', 'eclair', 'epingle', 'filet', 'frise', 'indices', 'mot', 'pari', 'replique'])
+test('dix jeux, chacun ses mots, son chrono et son barème dit', () => {
+  assert.deepEqual([...CLES_DES_JEUX].sort(), ['detail', 'eclair', 'epingle', 'filet', 'frise', 'indices', 'mot', 'pari', 'quiz', 'replique'])
   assert.deepEqual(Object.keys(JEUX).sort(), [...CLES_DES_JEUX].sort())
   assert.deepEqual(Object.keys(B.DUREES_DES_JEUX).sort(), [...CLES_DES_JEUX].sort())
   for (const j of CLES_DES_JEUX) {
@@ -452,6 +455,9 @@ test('neuf jeux, chacun ses mots, son chrono et son barème dit', () => {
   // L'Éclair à 55 s : à 45, l'échéance prenait l'occasionnel de court à une manche sur neuf (le calibrage du 25 octobre 2026).
   assert.equal(B.DUREES_DES_JEUX.eclair, 55)
   assert.equal(JEUX.eclair.geste, '5 affirmations en 55 secondes : vraies ou fausses ?')
+  // Le Quiz dit le chrono de sa manche entière, comme l'Éclair — et ses quatre questions, au barème.
+  assert.equal(JEUX.quiz.bareme, '4 justes ★★★ · 3 ★★ · 2 ★')
+  assert.equal(JEUX.quiz.geste, '4 questions sur le thème, quatre réponses chacune, en 80 secondes.')
   // Le Mot dit son chrono comme l'Éclair : « Trois parties de deux minutes », à la bienvenue, quand une seule manche du Mot
   // en dure deux (la tablée du 26 octobre 2026) — sa durée lue au barème, dite en minutes rondes.
   assert.equal(B.DUREES_DES_JEUX.mot, 120)

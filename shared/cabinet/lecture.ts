@@ -59,6 +59,7 @@ import type { EvenementTire, FriseTiree } from './jeux/frise'
 import type { IndicesTires } from './jeux/indices'
 import type { MotTire } from './jeux/mot'
 import type { PariTire } from './jeux/pari'
+import type { QuizTire } from './jeux/quiz'
 import type { RepliqueTiree } from './jeux/replique'
 
 // ── Les briques ───────────────────────────────────────────────────────────
@@ -122,6 +123,13 @@ function lEclair(x: Brut): EclairTire | null {
     }),
   )
   return affirmations ? { jeu: 'eclair', affirmations } : null
+}
+
+/** Le Quiz : ses questions, au moins une, et le thème qu'il a trouvé — à sa forme, jamais au nombre de questions du jour. */
+function leQuiz(x: Brut): QuizTire | null {
+  if (!Array.isArray(x.questions) || x.questions.length === 0 || x.questions.length > ELEMENTS_D_UNE_REPONSE_MAX || !chaineOuNull(x.theme)) return null
+  const questions = tous(x.questions.map(laQuestion))
+  return questions ? { jeu: 'quiz', theme: x.theme, questions } : null
 }
 
 function leMot(x: Brut): MotTire | null {
@@ -252,6 +260,8 @@ function leContenu(x: unknown, jeu: CleDeJeu, annee: number): ContenuTire | null
       return lesIndices(x)
     case 'replique':
       return laReplique(x)
+    case 'quiz':
+      return leQuiz(x)
   }
 }
 
@@ -395,6 +405,10 @@ function laReponse(r: unknown): ReponseDUnJeu | null | undefined {
       return fini(x.lat) && fini(x.lon) ? { epingle: { lat: x.lat, lon: x.lon } } : undefined
     case 'replique':
       return unIndex(x.qui) ? { replique: { qui: x.qui } } : undefined
+    case 'quiz':
+      return Array.isArray(x.choix) && x.choix.length <= ELEMENTS_D_UNE_REPONSE_MAX && x.choix.every(c => c === null || unIndex(c))
+        ? { quiz: { choix: [...(x.choix as (number | null)[])] } }
+        : undefined
     default:
       return undefined
   }

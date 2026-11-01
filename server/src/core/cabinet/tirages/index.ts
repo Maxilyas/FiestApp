@@ -26,6 +26,7 @@ import { tirerUneFrise } from './frise'
 import { tirerUneFiche } from './indices'
 import { tirerUnMot } from './mot'
 import { tirerUnPari } from './pari'
+import { tirerUnQuiz } from './quiz'
 import { tirerUneReplique } from './replique'
 
 export { FENETRE_DU_CABINET_MS, Posees, type CeQueLesTireursLisent, type ContexteDuTirage } from './communs'
@@ -74,6 +75,7 @@ export const TIREURS: Readonly<Partial<Record<CleDeJeu, Tireur>>> = {
   epingle: { plan: tirerUneEpingle },
   indices: { manche: tirerUneFiche },
   replique: { manche: tirerUneReplique },
+  quiz: { manche: tirerUnQuiz },
 }
 
 /**
@@ -109,13 +111,14 @@ export function tirerLePlan(jeu: CleDeJeu, ctx: ContexteDuTirage, rechanges: num
 
 /**
  * Le thème d'un contenu tiré : celui de sa frise — « L'aviation », « Les
- * années 80 » —, celui de son lieu à l'Épingle — « Les grands sièges ». Les
- * autres jeux n'en ont pas. Le cartel d'une œuvre dit celui de la manche qu'il
- * garde (`cartelDe`) : à l'Épingle, une rechange de Changer vient d'un autre
- * thème que les trois manches.
+ * années 80 » —, celui de son lieu à l'Épingle — « Les grands sièges » —,
+ * celui d'une manche du Quiz — « Les animaux », « Histoire ». Les autres jeux
+ * n'en ont pas. Le cartel d'une œuvre dit celui de la manche qu'il garde
+ * (`cartelDe`) : à l'Épingle, une rechange de Changer vient d'un autre thème
+ * que les trois manches.
  */
 export function themeDuTirage(t: ContenuTire | undefined): string | undefined {
-  return t?.jeu === 'frise' ? t.theme : t?.jeu === 'epingle' ? t.lieu.theme : undefined
+  return t?.jeu === 'frise' ? t.theme : t?.jeu === 'epingle' ? t.lieu.theme : t?.jeu === 'quiz' ? (t.theme ?? undefined) : undefined
 }
 
 /**

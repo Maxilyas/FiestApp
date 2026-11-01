@@ -7,8 +7,10 @@
 // Chargée à la demande (`Traversee.tsx`, `aLaDemande`) : three.js ne descend
 // qu'avec la carte, jamais avec le reste de l'application. Elle ne décide de
 // rien : elle dessine ce que la vue du serveur dit (`maj`), et ne rend qu'un
-// geste, l'étape touchée (`toucher`). Décorative (`aria-hidden`) : le panneau
-// de la page dit tout en mots, et sans WebGL la page se passe d'elle.
+// geste, l'étape touchée (`toucher`) — atteignable, la page la choisit ; plus
+// loin, elle la regarde (`regard`) : son nom paraît, et les chemins qui y
+// mènent s'allument. Décorative (`aria-hidden`) : le panneau de la page dit
+// tout en mots, et sans WebGL la page se passe d'elle.
 
 import {
   ACESFilmicToneMapping,
@@ -81,6 +83,12 @@ export interface EtatDeLaCarte {
   visitees: readonly string[]
   atteignables: readonly string[]
   selection: string | null
+  /**
+   * L'étape lointaine qu'il regarde : son nom paraît et les chemins d'ici qui y mènent s'allument, la caméra où elle était — il
+   * l'a touchée là où il la voyait. On ne choisissait que les étapes d'à côté, sans savoir ce que chacune ouvrait plus loin (le
+   * retour du propriétaire, le 1er novembre 2026).
+   */
+  regard: string | null
   coffresOuverts: readonly string[]
 }
 
@@ -151,7 +159,8 @@ interface Chemin {
 export function creerLaTraversee(
   conteneur: HTMLElement,
   rappels: {
-    toucher: (id: string) => void
+    /** L'île touchée ; null : le doigt n'a touché que le ciel. */
+    toucher: (id: string | null) => void
     /** Les pixels que le panneau couvre au bas de la scène : le regard vit au-dessus de lui. */
     couvert?: () => number
   },
@@ -450,7 +459,7 @@ export function creerLaTraversee(
     duMonde.push(x)
     return x
   }
-  let etat: EtatDeLaCarte = { mode: 'titre', acte: 0, position: 'a0r0c1', visitees: [], atteignables: [], selection: null, coffresOuverts: [] }
+  let etat: EtatDeLaCarte = { mode: 'titre', acte: 0, position: 'a0r0c1', visitees: [], atteignables: [], selection: null, regard: null, coffresOuverts: [] }
 
   const comete = new Group()
   {
@@ -608,26 +617,59 @@ export function creerLaTraversee(
     comete.position.copy(p).add(new Vector3(0, 0.9, 0))
   }
 
+  /**
+   * Les îles d'où, partant d'ici, un chemin mène à l'étape regardée — elle comprise : la route qui s'allume. La règle de
+   * `cheminsVers` (`shared/cabinet/traversee.ts`), refaite ici sur les îles dessinées : la carte ne tire pas le module de la
+   * traversée pour une décoration. Null : rien n'est regardé, ou aucun chemin d'ici n'y mène.
+   */
+  function routeVersLeRegard(neuf: EtatDeLaCarte): Set<string> | null {
+    const cible = neuf.mode === 'carte' ? neuf.regard : null
+    if (!cible || !iles.has(cible)) return null
+    const mene = new Map<string, boolean>()
+    const yMene = (id: string): boolean => {
+      if (id === cible) return true
+      const su = mene.get(id)
+      if (su !== undefined) return su
+      mene.set(id, false)
+      const oui = (iles.get(id)?.e.suivantes ?? []).some(yMene)
+      mene.set(id, oui)
+      return oui
+    }
+    const route = new Set<string>()
+    const pile = [neuf.position]
+    while (pile.length > 0) {
+      const id = pile.pop()!
+      if (route.has(id) || !yMene(id)) continue
+      route.add(id)
+      pile.push(...(iles.get(id)?.e.suivantes ?? []))
+    }
+    return route.size > 0 ? route : null
+  }
+
   function maj(neuf: EtatDeLaCarte) {
     etat = neuf
     const visitees = new Set(neuf.visitees)
     const rangIci = rangeeDe(neuf.position)
     const ouverts = neuf.mode === 'carte' ? neuf.atteignables : []
+    const regard = neuf.mode === 'carte' ? neuf.regard : null
+    const route = routeVersLeRegard(neuf)
     for (const [id, x] of iles) {
       const a = acteDe(id)
       const atteignable = ouverts.includes(id)
+      const regardee = regard === id
       const futur = a > neuf.acte
       const passe = a < neuf.acte || (a === neuf.acte && rangeeDe(id) <= rangIci && id !== neuf.position && !visitees.has(id))
       const vu = visitees.has(id) && id !== neuf.position
       x.atteignable = atteignable
-      x.choisie = neuf.selection === id
-      x.medaille.material.opacity = passe ? 0.28 : futur ? 0.55 : 1
+      x.choisie = neuf.selection === id || regardee
+      // Regardée, une île d'un acte à venir sort de sa brume : on la voit telle qu'on la jouera.
+      x.medaille.material.opacity = regardee && !passe ? 1 : passe ? 0.28 : futur ? 0.55 : 1
       x.medaille.material.color.setScalar(vu ? 0.5 : passe ? 0.6 : 1)
       if (x.e.sorte === 'coffre' && x.e.imageOuverte && neuf.coffresOuverts.includes(id)) x.medaille.material.map = texImage(x.e.imageOuverte)
-      x.halo.visible = atteignable || (x.e.sorte === 'gardien' && !futur && neuf.mode === 'carte') || (neuf.mode === 'titre' && x.e.sorte === 'gardien')
+      x.halo.visible = atteignable || regardee || (x.e.sorte === 'gardien' && !futur && neuf.mode === 'carte') || (neuf.mode === 'titre' && x.e.sorte === 'gardien')
       x.etiquette.visible =
         neuf.mode === 'carte'
-          ? atteignable || (x.e.sorte === 'gardien' && a === neuf.acte) || (x.e.sorte === 'depart' && id === neuf.position)
+          ? atteignable || regardee || (x.e.sorte === 'gardien' && a === neuf.acte) || (x.e.sorte === 'depart' && id === neuf.position)
           : x.e.sorte === 'gardien'
       x.etiquette.material.opacity = x.choisie ? 1 : 0.94
     }
@@ -638,9 +680,11 @@ export function creerLaTraversee(
       const ouvert = ch.de === neuf.position && ouverts.includes(ch.vers)
       const futur = acteDe(ch.de) > neuf.acte || (ch.pont && acteDe(ch.de) >= neuf.acte)
       const choisi = ouvert && ch.vers === neuf.selection
-      ch.mat.color.copy(parcouru ? new Color(2.4, 1.75, 0.8) : ouvert ? new Color(1.2, 1.0, 0.7) : futur ? new Color(0.2, 0.17, 0.32) : new Color(0.28, 0.22, 0.42))
-      ch.mat.opacity = parcouru || ouvert ? 1 : futur ? 0.5 : 0.75
-      ch.tirets.visible = ouvert && (!neuf.selection || choisi)
+      // La route vers l'étape regardée s'allume d'un bout à l'autre, ses tirets en marche : on suit de l'œil par où passer.
+      const surLaRoute = !!route && !ch.pont && route.has(ch.de) && route.has(ch.vers)
+      ch.mat.color.copy(parcouru ? new Color(2.4, 1.75, 0.8) : ouvert || surLaRoute ? new Color(1.2, 1.0, 0.7) : futur ? new Color(0.2, 0.17, 0.32) : new Color(0.28, 0.22, 0.42))
+      ch.mat.opacity = parcouru || ouvert || surLaRoute ? 1 : futur ? 0.5 : 0.75
+      ch.tirets.visible = surLaRoute || (ouvert && (choisi || (!neuf.selection && !route)))
       for (const e of ch.etoiles) e.visible = parcouru
     }
     const ici = iles.get(neuf.position)
@@ -837,12 +881,17 @@ export function creerLaTraversee(
       const rect = el.getBoundingClientRect()
       souris.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1)
       rayon.setFromCamera(souris, camera)
-      const cibles = [...iles.values()].filter(x => x.atteignable).map(x => x.cible)
-      const touche = rayon.intersectObjects(cibles)[0]
-      if (touche) {
-        cam.decalage = 0
-        rappels.toucher(touche.object.userData.id as string)
-      }
+      // Une étape atteignable d'abord : la sphère d'une île du rang d'avant, plus près de l'œil, couvre le bas de celles
+      // d'après, et le doigt qui visait le Pari aurait regardé l'île déjà laissée derrière. Puis toutes les autres, sauf la
+      // sienne : toucher la comète, ou le ciel, range le regard.
+      const toutes = [...iles.values()]
+      const touche =
+        rayon.intersectObjects(toutes.filter(x => x.atteignable).map(x => x.cible))[0] ??
+        rayon.intersectObjects(toutes.filter(x => !x.atteignable && x.e.id !== etat.position).map(x => x.cible))[0]
+      const id = touche ? (touche.object.userData.id as string) : null
+      // Une étape où il peut aller ramène la caméra sur la comète ; une étape regardée la laisse où il l'avait menée.
+      if (id && iles.get(id)?.atteignable) cam.decalage = 0
+      rappels.toucher(id)
     }
     geste = null
   }

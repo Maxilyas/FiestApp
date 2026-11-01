@@ -472,6 +472,8 @@ export interface CarteDEpreuveVue extends CarteVue {
  */
 export interface VueDeLaTraversee {
   id: string
+  /** Sa version : la page en lit le barème (`baremeDe`) — les points de vie d'un gardien, l'or d'une étoile, ce qu'offre un coffre. */
+  v: DepartDeLaTraversee['v']
   /** Le rang du prochain geste (invariant 12). */
   rang: number
   maintenant: number
@@ -495,8 +497,10 @@ export interface VueDeLaTraversee {
   derniere: BilanDEpreuve | null
   fin: FinDeLaTraversee | null
   atteignables: string[]
-  prix: { coeur: number; amelioration: number }
-  ameliorables: CleDeCarte[]
+  /** Le marchand : un cœur, et l'amélioration de chaque carte qui monte encore, à son prix — vers la carte ++, bien plus chère. */
+  prix: { coeur: number; cartes: Partial<Record<CleDeCarte, number>> }
+  /** Les cartes qu'une amélioration offerte — le coffre, le gardien vaincu — peut prendre : la carte ++ ne s'offre pas. */
+  offrables: CleDeCarte[]
   partie?: VueDeLaPartie
 }
 

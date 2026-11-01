@@ -19,6 +19,7 @@
 // (`choix`, `composee`), que le journal garde aussi — une partie finie se
 // révèle par le même chemin que la manche en cours (invariant 14).
 
+import type { Niveau } from '../../campagne'
 import type { PieceDuCabinet } from '../pieces'
 import { refusDuPouvoir } from '../pouvoirs'
 import type { CleDeJeu, RegleDuJeu, VerdictDUneManche } from './regle'
@@ -48,6 +49,20 @@ export const SANS_REPONSE = '.'
 export function naturelDe(etoiles: number): VerdictDUneManche['naturel'] {
   return Math.max(0, Math.min(3, Math.round(etoiles))) as VerdictDUneManche['naturel']
 }
+
+/**
+ * Les étoiles d'une manche aux justes qu'elle compte : au moins tant pour ★★★,
+ * ★★, ★ (`JUSTES_DE_L_ECLAIR`, `JUSTES_DU_QUIZ`) ; en deçà, zéro. L'Éclair et
+ * le Quiz jugent ainsi leurs questions : une seule copie de la règle.
+ */
+export function etoilesAuxJustes(justes: number, seuils: readonly [number, number, number]): VerdictDUneManche['naturel'] {
+  const palier = seuils.findIndex(n => justes >= n)
+  return palier < 0 ? 0 : naturelDe(3 - palier)
+}
+
+const RANG_DE_LA_MARCHE: Readonly<Record<Niveau, number>> = { facile: 0, moyen: 1, difficile: 2, expert: 3 }
+/** La marche la plus haute de questions tirées ensemble : celle que garde la seule pièce de leur manche (l'Éclair, le Quiz). */
+export const marcheLaPlusHaute = (niveaux: readonly Niveau[]): Niveau => niveaux.reduce((a, b) => (RANG_DE_LA_MARCHE[b] > RANG_DE_LA_MARCHE[a] ? b : a), 'facile')
 
 /**
  * La colonne `choix` d'une pièce qui n'est pas un QCM : 0 juste, −1 fausse,

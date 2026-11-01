@@ -82,7 +82,7 @@
 //
 //   npx tsx scripts/calibrage-cabinet.ts [--parcours 4] [--jours 365] [--parties 1000] [--mesures 100]
 //     [--joueurs moyen,bon] [--jeux pari,detail] [--pouvoirs miser,changer] [--graine cabinet] [--sans-musee]
-//     [--sections jeux,oeuvres,cartes,epingle,confettis,musee]
+//     [--sections jeux,oeuvres,cartes,epingle,confettis,musee,traversee] [--traversees 600]
 //     [--essai ERREURS_DE_LA_FRISE=0/1/2] [--essai SEUILS_DES_RARETES=commun:6/rare:7]
 //     [--essai MARCHES_DU_PARI=pari:moyen+difficile] [--essai MARCHES_DES_ENJEUX=epique:/dorer:]
 //
@@ -91,6 +91,21 @@
 // les jeux des sections qui les mesurent un à un — les confettis et le musée
 // choisissent toujours parmi les neuf —, `--pouvoirs` ceux de la section des
 // cartes.
+//
+// La traversée se mesure à part, demandée (`--sections traversee`, et
+// `--traversees N` par joueur, 600 d'office) : des traversées entières, chacune
+// ses gardiens et sa carte tirés comme au serveur, chaque geste passé au vrai
+// pli de la traversée, chaque épreuve jouée manche par manche par les joueurs
+// d'ici, avec ses cartes à leur niveau ; chaque trio des dix cartes autant de
+// fois. Elle dit si la traversée est trop facile — les victoires, l'acte où
+// l'on perd, les cœurs en arrivant à chaque gardien —, si l'on arrive trop
+// vite aux cartes toutes au plus haut, et ce que chaque carte apporte (le
+// retour du propriétaire, le 1er novembre 2026). Elle se joue à la version du
+// jour (`VERSION_DE_LA_TRAVERSEE`) ; ses essais passent par `--essai` comme
+// les autres — les gardiens de la version 1 (`PV_DES_GARDIENS=6/8/10`), sa
+// carte ++ à 45 pièces (`PRIX_DU_MARCHAND=auPlusHaut:45`) —, et ses nombres
+// (`COEURS_DE_DEPART`, `OR_PAR_ETOILE`, `NIVEAU_OFFERT`) dans le fichier, le
+// temps de la mesure.
 import type { Niveau } from '../../shared/campagne'
 import type { Lieu, Fiche, Replique, FriseATheme } from '../../shared/cabinet/contenu'
 import type { ContenuTire } from '../../shared/cabinet/jeux/index'
@@ -105,6 +120,8 @@ import type { FriseMontree, FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { DecalageDeLaZone, EpingleMontree, EpingleTiree } from '../../shared/cabinet/jeux/epingle'
 import type { IndicesMontres, IndicesTires } from '../../shared/cabinet/jeux/indices'
 import type { RepliqueMontreeAQui, RepliqueMontreeAuMot, RepliqueTiree } from '../../shared/cabinet/jeux/replique'
+import type { QuizMontre, QuizTire } from '../../shared/cabinet/jeux/quiz'
+import type { CarteEnMain, CleDeCarte, DepartDeLaTraversee, EtapeDeLaCarte, EtatDeLaTraversee, GesteDeLaTraversee, MancheConclue } from '../../shared/cabinet/traversee'
 import type { Point } from '../../shared/cabinet/france'
 import type { CleDePouvoir, Force } from '../../shared/cabinet/pouvoirs'
 import type { CleDOeuvre } from '../../shared/cabinet/oeuvres'
@@ -150,11 +167,14 @@ const GRAINE = valeursDe('graine').at(-1) ?? 'cabinet'
  * confettis à la minute, le musée. Toutes d'office ; `--sans-musee`, toutes
  * sauf la dernière, la plus longue.
  */
-const SECTIONS = ['jeux', 'oeuvres', 'cartes', 'epingle', 'confettis', 'musee'] as const
+const SECTIONS = ['jeux', 'oeuvres', 'cartes', 'epingle', 'confettis', 'musee', 'traversee'] as const
 const sectionsDemandees = liste('sections')
 for (const s of sectionsDemandees ?? []) if (!(SECTIONS as readonly string[]).includes(s)) arreter(`--sections : « ${s} » n'en est pas une (${SECTIONS.join(', ')})`)
 const SANS_MUSEE = ARGS.includes('--sans-musee')
-const enSection = (s: (typeof SECTIONS)[number]) => (sectionsDemandees ? sectionsDemandees.includes(s) : !(SANS_MUSEE && s === 'musee'))
+/** La traversée ne se joue que demandée : d'office, les mesures du musée qui dort gardent leur durée et leurs chiffres. */
+const enSection = (s: (typeof SECTIONS)[number]) => (sectionsDemandees ? sectionsDemandees.includes(s) : s !== 'traversee' && !(SANS_MUSEE && s === 'musee'))
+/** Les traversées de chaque joueur (`--sections traversee`) : chaque trio des dix cartes autant de fois, à quelques-unes près. */
+const TRAVERSEES = entier('traversees', 600)
 
 // ── Un barème à l'essai, avant que les règles ne se chargent ──────────────
 
@@ -261,10 +281,16 @@ const { JUSTES_DOUBLEES_PAR_JOUR, QUESTIONS_PAR_SERIE, VIES, ordreDeSerie, xpDuJ
 const { contenuDuCabinet } = await import('../src/core/cabinet/contenu')
 const { Budget } = await import('../src/core/budget')
 const { tronquer } = await import('../../shared/avatars')
+// La traversée et ses règles, chargées après l'essai comme les autres : un barème de la traversée s'y essaie aussi.
+const T = await import('../../shared/cabinet/traversee')
+const { JEUX_PRETS } = await import('../../shared/cabinet/ouverture')
 
 const {
+  ACTES_D_UNE_TRAVERSEE,
+  CARTES_D_UNE_TRAVERSEE,
   CASES_DE_LA_VISITE,
   CHANGEMENTS_PAR_PARTIE,
+  COEURS_D_UNE_MISE_PERDUE,
   CHASSES_PAR_JOUR,
   DECALAGE_DE_LA_ZONE_KM,
   DEPARTS_PAR_HEURE,
@@ -285,6 +311,7 @@ const {
   MARCHES_DU_FILET,
   MARCHES_DU_MOT,
   MARCHES_DU_PARI,
+  MARCHES_DU_QUIZ,
   PRIX_D_UNE_DORURE,
   PRIX_D_UNE_OEUVRE,
   RAYON_D_ECLAIRER_KM,
@@ -446,6 +473,8 @@ const SECONDES_D_UNE_REVELATION = 6
  */
 const SECONDES = {
   pariQuestion: SECONDES_PAR_QUESTION_DE_SERIE - SECONDES_D_UNE_REVELATION,
+  // Une question du Quiz se lit et se répond comme celle du Pari : un QCM de la base, l'anecdote à la révélation.
+  quizQuestion: SECONDES_PAR_QUESTION_DE_SERIE - SECONDES_D_UNE_REVELATION,
   pariChoix: 2,
   eclairAffirmation: 5,
   motEssai: 12,
@@ -615,6 +644,8 @@ function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number, enjeu
       return distincts(FICHES, n, r).map((fiche): IndicesTires => ({ jeu, fiche }))
     case 'replique':
       return distincts(REPLIQUES, n, r).map(x => repliqueTiree(x, r))
+    case 'quiz':
+      return Array.from({ length: n }, (): QuizTire => ({ jeu, theme: null, questions: Array.from({ length: BAREME.QUESTIONS_DU_QUIZ }, () => question(uneMarche(aLEnjeu(MARCHES_DU_QUIZ), r), r)) }))
   }
 }
 
@@ -1029,10 +1060,19 @@ class Partie {
     return this.geste({ quoi: 'repondre', manche: m, reponse }, secondes, gardee ? () => reponse : undefined)
   }
 
-  /** Un pouvoir se joue-t-il maintenant ? La règle du pli, jamais une recopie (`pouvoirMaintenant`). */
+  /**
+   * La carte qui porte ce pouvoir : la carte-bonus d'une partie du musée, ou
+   * l'une des cartes d'une épreuve de la traversée (`DepartDUnePartie.cartes`,
+   * une par pouvoir).
+   */
+  carteDuPouvoir(pouvoir: CleDePouvoir): CarteDuDepart | null {
+    return this.d.cartes?.find(c => c.pouvoir === pouvoir) ?? (this.d.carte?.pouvoir === pouvoir ? this.d.carte : null)
+  }
+  /** Un pouvoir se joue-t-il maintenant ? La règle du pli, jamais une recopie (`pouvoirMaintenant`), pour la carte qui le porte. */
   peut(pouvoir: CleDePouvoir): boolean {
-    if (this.d.carte?.pouvoir !== pouvoir || this.objectif.dorer) return false
-    return P.pouvoirMaintenant(this.d, this.e, Math.round(this.t))?.jouable === true
+    const carte = this.carteDuPouvoir(pouvoir)
+    if (!carte || this.objectif.dorer) return false
+    return P.pouvoirMaintenant(this.d, this.e, Math.round(this.t), carte)?.jouable === true
   }
   eclairer(m: Manche, affirmation?: number) {
     this.geste({ quoi: 'eclairer', manche: m, ...(affirmation !== undefined && { affirmation }) }, SECONDES.pouvoir)
@@ -1139,6 +1179,26 @@ function mancheDeLEclair(p: Partie, m: Manche): void {
   p.geste({ quoi: 'repondre', manche: m, reponse: { eclair: { reponses } } }, SECONDES.eclairAffirmation * reponses.length, echeance => {
     const dites = Math.max(0, Math.min(reponses.length, Math.floor((echeance - p.manche.etapes[0].ouverteLe) / parAffirmation)))
     return { eclair: { reponses: reponses.map((x, i) => (i < dites ? x : null)) } }
+  })
+}
+
+/**
+ * Le Quiz : chaque question, il la sait ou la devine parmi celles qui restent ; il change à la troisième qu'il ignore,
+ * comme à l'Éclair — la lecture de celles d'avant se paie —, et éclaire celles qu'il ignore.
+ */
+function mancheDuQuiz(p: Partie, m: Manche): void {
+  const t = p.tiree<QuizTire>()
+  const s = p.savoir(p.manche.tirage, () => t.questions.map(q => p.oui(sait(p.j, q.niveau))))
+  const troisieme = s.map((x, i) => (x ? -1 : i)).filter(i => i >= 0)[2]
+  if (troisieme !== undefined && p.changer(m, true, SECONDES.quizQuestion * (troisieme + 1))) return mancheDuQuiz(p, m)
+  for (let i = 0; i < s.length; i++) if (!s[i] && p.peut('eclairer')) p.eclairer(m, i)
+  const effacees = p.vue<QuizMontre>().effacees
+  const choix = t.questions.map((q, i) => (s[i] ? q.bonne : auHasard(q.reponses.map((_, k) => k).filter(k => !(effacees[i] ?? []).includes(k)), p.r)))
+  const parQuestion = SECONDES.quizQuestion * p.j.vitesse * 1000
+  // À l'échéance, la page envoie celles qu'il a eu le temps de dire.
+  p.geste({ quoi: 'repondre', manche: m, reponse: { quiz: { choix } } }, SECONDES.quizQuestion * choix.length, echeance => {
+    const dites = Math.max(0, Math.min(choix.length, Math.floor((echeance - p.manche.etapes[0].ouverteLe) / parQuestion)))
+    return { quiz: { choix: choix.map((x, i) => (i < dites ? x : null)) } }
   })
 }
 
@@ -1403,6 +1463,7 @@ const MANCHES: { readonly [J in CleDeJeu]: { jouer: (p: Partie, m: Manche) => vo
   epingle: { jouer: mancheDeLEpingle, viseLeSeuil: false },
   indices: { jouer: mancheDesIndices, viseLeSeuil: false },
   replique: { jouer: mancheDeLaReplique, viseLeSeuil: false },
+  quiz: { jouer: mancheDuQuiz, viseLeSeuil: false },
 }
 
 /** Une partie jouée : son état final, ce qu'elle a duré, ses pièces justes. */
@@ -1878,6 +1939,248 @@ function seance(minutes: number, partie: Debit, serieParMinute: number): number 
   return confettis
 }
 
+// ── La traversée, d'un bout à l'autre ─────────────────────────────────────
+
+/**
+ * Ce qu'une traversée jouée laisse : son issue, l'acte où elle s'arrête, et de
+ * quoi dire si elle est trop facile — les cœurs en arrivant à chaque gardien,
+ * les cartes déjà au plus haut, d'où viennent les améliorations, l'or.
+ */
+interface TraverseeJouee {
+  cartes: readonly CleDeCarte[]
+  gagnee: boolean
+  /** L'acte où elle s'est arrêtée (0 à 2) ; 3 : les trois gardiens vaincus. */
+  acte: number
+  /** Ses cœurs en arrivant au gardien de chaque acte atteint, et ce qu'il pouvait en avoir au plus. */
+  coeursAuGardien: { coeurs: number; max: number }[]
+  /** Ses cartes au plus haut en arrivant au gardien de chaque acte atteint ; puis à la fin. */
+  auPlusHaut: number[]
+  aLaFin: number
+  ameliorations: { coffre: number; gardien: number; marchand: number }
+  /** Les améliorations offertes devenues de l'or : ses trois cartes étaient déjà au plus haut. */
+  enOr: number
+  coeursAchetes: number
+  /** Les assauts contre le gardien de chaque acte atteint. */
+  assauts: number[]
+  /** À chaque acte, aux épreuves puis contre le gardien : les manches qui ont compté, les ratées, les cœurs perdus (la Parade et les mises comprises). */
+  manches: Record<'epreuves' | 'gardien', number[]>
+  ratees: Record<'epreuves' | 'gardien', number[]>
+  perdus: Record<'epreuves' | 'gardien', number[]>
+  orGagne: number
+  orALaFin: number
+  /** Le Second souffle l'a relevé. */
+  souffle: boolean
+  /** Ses épreuves jouées, assauts compris, et leurs minutes — l'annonce et les révélations comprises, la carte non. */
+  parties: number
+  minutes: number
+}
+
+/**
+ * La carte qu'il améliore : la moins haute de celles qui montent encore — chez le marchand, ou de celles qu'une
+ * amélioration offerte prend (`offrables`) —, au hasard entre égales : il monte ses trois cartes.
+ */
+function laMoinsHaute(possibles: readonly CarteEnMain[], r: Hasard): CleDeCarte {
+  const bas = Math.min(...possibles.map(c => c.niveau))
+  return auHasard(
+    possibles.filter(c => c.niveau === bas),
+    r,
+  ).cle
+}
+
+/**
+ * Mise-t-il la manche qui s'ouvre ? Tant que Quitte ou double le permet, à
+ * quatre cœurs et plus — ceux que l'épreuve a déjà coûtés décomptés, la Parade
+ * à part —, s'il sait au moins ce que sait le joueur moyen.
+ */
+function ilMise(j: Joueur, e: EtatDeLaTraversee, p: Partie, m: Manche): boolean {
+  if (j.theta === null || j.theta < 0) return false
+  const perdus = P.etoilesDesManches(p.d, p.e)
+    .slice(0, m)
+    .reduce((n, x) => n + (x.naturel === 0 ? (x.misee ? COEURS_D_UNE_MISE_PERDUE : 1) : 0), 0)
+  return e.coeurs - perdus >= 4 && p.peut('miser')
+}
+
+/** Les départs d'épreuve relus comme le serveur les relirait, par jeu : une épreuve qu'il refuserait ferait mentir la mesure. */
+const RELUS_DES_EPREUVES = new Map<CleDeJeu, number>()
+
+/**
+ * Une épreuve de la traversée — ou un assaut contre son gardien —, comme le
+ * serveur la commence (`entrerDansLEpreuve`) : son jeu et ses marches que la
+ * carte a promis, ses cartes à leur niveau, ses rechanges sous l'Échange ;
+ * jouée manche par manche par le joueur, et rendue en étoiles naturelles, comme
+ * le serveur la conclut (`conclure`).
+ */
+function jouerLEpreuve(j: Joueur, e: EtatDeLaTraversee, traversee: DepartDeLaTraversee, etape: EtapeDeLaCarte, racine: string): { manches: MancheConclue[]; minutes: number } {
+  const assaut = etape.sorte === 'gardien' ? e.assauts + 1 : 0
+  const visee = T.viseeDeLEtape(traversee, etape, assaut)
+  if (!visee) throw new Error(`traversée : ${etape.id} ne se joue pas`)
+  const cartes = T.cartesDeLEpreuve(e.cartes)
+  const echange = cartes.find(c => c.pouvoir === 'changer')
+  const rechanges = echange && JEUX[visee.jeu].changeable ? CHANGEMENTS_PAR_PARTIE[echange.force] : 0
+  const enjeu: EnjeuDuTirage = { marchesEnPlus: [], friseSerree: false, marches: visee.marches }
+  const d: DepartDUnePartie = {
+    v: P.VERSION_DU_DEPART,
+    jeu: visee.jeu,
+    origine: 'traversee',
+    jour: JOUR_MESURE,
+    cible: null,
+    but: null,
+    traversee: { id: `t${racine.length}${racine.slice(-50)}`, etape: etape.id, assaut },
+    seuil: null,
+    payee: false,
+    carte: null,
+    cartes,
+    chrono: P.chronoDuDepart(visee.jeu, cartes),
+    graine: `${racine}:graine`,
+    tirages: tirer(visee.jeu, MANCHES_PAR_PARTIE + rechanges, hasardDe(`${racine}:depart`), P.anneeDuDepart({ jour: JOUR_MESURE }), enjeu),
+  }
+  ENJEUX_DES_DEPARTS.set(d, enjeu)
+  const relus = RELUS_DES_EPREUVES.get(d.jeu) ?? 0
+  if (relus < RELUS_PAR_JEU) {
+    if (!lireLeDepart(JSON.stringify(d))) arreter(`Le calibrage a tiré une épreuve ${d.jeu} que le serveur ne relirait pas : ${tronquer(JSON.stringify(d), 300)}…`)
+    RELUS_DES_EPREUVES.set(d.jeu, relus + 1)
+  }
+  const p = new Partie(d, j, hasardDe(`${racine}:jeu`), T_MESURE + SECONDES.annonce * 1000, LIBRE, null)
+  for (let m = 0 as Manche; m < MANCHES_PAR_PARTIE; m = (m + 1) as Manche) {
+    const miser = ilMise(j, e, p, m)
+    p.geste({ quoi: 'ouvrir', manche: m, ...(miser && { miser: true as const }) }, 0)
+    MANCHES[d.jeu].jouer(p, m)
+    if (!P.mancheEnCours(p.e)?.verdict) throw new Error(`${d.jeu} : la manche ${m} de l'épreuve ne s'est pas tranchée`)
+    p.t += SECONDES.revelation * 1000
+  }
+  return { manches: P.etoilesDesManches(d, p.e).map(x => ({ etoiles: x.naturel, misee: x.misee })), minutes: (p.t - T_MESURE) / 60_000 }
+}
+
+/** Les thèmes que le contenu livré offre à la carte : les lieux de l'Épingle, les frises à thème. */
+const THEMES_DU_CONTENU = { epingle: [...new Set(LIEUX.map(l => l.theme))], frise: [...new Set(FRISES.map(f => f.theme))] }
+
+/**
+ * Une traversée entière, par les règles du code : ses gardiens et sa carte
+ * tirés comme au serveur (`choisirLesGardiens`, `tracerLaCarte`), chaque geste
+ * passé au vrai pli de la traversée (`jouerUnGesteDeLaTraversee`), chaque
+ * épreuve jouée par le joueur (`jouerLEpreuve`). Ses choix, ceux que les règles
+ * ne font pas : le chemin du coffre, qu'il voit de loin — une amélioration sans
+ * risque —, sinon une épreuve au hasard ; sa carte la moins haute à chaque
+ * amélioration ; chez le marchand, un cœur s'il lui en manque deux, puis des
+ * améliorations tant que l'or le permet, puis des cœurs ; Quitte ou double à
+ * quatre cœurs et plus (`ilMise`). Un joueur raisonnable, pas un stratège : ce
+ * qu'on mesure est ce que la traversée laisse à qui la joue sans calcul.
+ */
+function jouerUneTraversee(j: Joueur, cartes: readonly CleDeCarte[], racine: string): TraverseeJouee {
+  const x: TraverseeJouee = {
+    cartes,
+    gagnee: false,
+    acte: 0,
+    coeursAuGardien: [],
+    auPlusHaut: [],
+    aLaFin: 0,
+    ameliorations: { coffre: 0, gardien: 0, marchand: 0 },
+    enOr: 0,
+    coeursAchetes: 0,
+    assauts: [0, 0, 0],
+    manches: { epreuves: [0, 0, 0], gardien: [0, 0, 0] },
+    ratees: { epreuves: [0, 0, 0], gardien: [0, 0, 0] },
+    perdus: { epreuves: [0, 0, 0], gardien: [0, 0, 0] },
+    orGagne: 0,
+    orALaFin: 0,
+    souffle: false,
+    parties: 0,
+    minutes: 0,
+  }
+  const r = hasardDe(`${racine}:choix`)
+  const gardiens = T.choisirLesGardiens(hasardDe(`${racine}:gardiens`), new Set(), false)
+  const depart: DepartDeLaTraversee = { v: T.VERSION_DE_LA_TRAVERSEE, jour: JOUR_MESURE, actes: T.tracerLaCarte(hasardDe(`${racine}:carte`), gardiens, THEMES_DU_CONTENU, JEUX_PRETS) }
+  let e = T.etatDuDepart(depart)
+  let t = T_MESURE
+  const jouer = (g: GesteDeLaTraversee) => {
+    t += 60_000
+    const apres = T.jouerUnGesteDeLaTraversee(depart, e, g, t)
+    if (typeof apres === 'string') throw new Error(`traversée : ${JSON.stringify(g)} refusé — ${apres}`)
+    if (apres.or > e.or) x.orGagne += apres.or - e.or
+    e = apres
+  }
+  const auPlusHaut = () => e.cartes.filter(c => c.niveau === T.NIVEAU_MAX).length
+  jouer({ quoi: 'cartes', cartes })
+  // D'où vient l'amélioration qui attend son choix : le coffre ou le gardien qui vient de l'offrir.
+  let offerte: 'coffre' | 'gardien' = 'coffre'
+  let n = 0
+  for (let garde = 0; !e.fin && garde < 500; garde++) {
+    if (e.ameliorations > 0) {
+      x.ameliorations[offerte]++
+      jouer({ quoi: 'ameliorer', carte: laMoinsHaute(T.offrables(depart, e), r) })
+      continue
+    }
+    if (e.ou.sorte === 'legendaire') {
+      jouer({ quoi: 'legendaire', gardien: e.vaincus[0] })
+      break
+    }
+    if (e.ou.sorte === 'marchand') {
+      for (let achat = 0; achat < 20; achat++) {
+        const max = T.coeursMax(depart, e.cartes)
+        const coeur = T.prixAuMarchand(depart, 'coeur', e.cartes)
+        const carte = T.ameliorables(e).length > 0 ? laMoinsHaute(T.ameliorables(e), r) : null
+        if (e.coeurs <= max - 2 && e.or >= coeur) {
+          jouer({ quoi: 'acheter', article: 'coeur' })
+          x.coeursAchetes++
+        } else if (carte && e.or >= T.prixAuMarchand(depart, 'amelioration', e.cartes, carte)) {
+          jouer({ quoi: 'acheter', article: 'amelioration', carte })
+          x.ameliorations.marchand++
+        } else if (e.coeurs < max && e.or >= coeur) {
+          jouer({ quoi: 'acheter', article: 'coeur' })
+          x.coeursAchetes++
+        } else break
+      }
+    }
+    const ids = e.ou.sorte === 'gardien' && e.ou.partie === null ? [e.ou.etape] : T.atteignables(depart, e)
+    if (ids.length === 0) throw new Error(`traversée : rien d'atteignable — ${JSON.stringify(e.ou)}`)
+    const etapes = ids.map(id => T.etapeDe(depart, id)!)
+    // Le coffre de l'acte se voit de loin sur la carte (`cheminsVers`) : tant qu'il ne l'a pas ouvert, il prend un chemin qui y mène.
+    const coffre = depart.actes[e.acte].etapes.find(s => s.sorte === 'coffre')
+    const versLeCoffre = coffre && !e.visitees.includes(coffre.id) ? T.cheminsVers(depart, ids, coffre.id) : []
+    const etape = auHasard(versLeCoffre.length > 0 ? etapes.filter(s => versLeCoffre.includes(s.id)) : etapes, r)
+    if (etape.sorte === 'coffre' || etape.sorte === 'marchand') {
+      jouer({ quoi: 'aller', etape: etape.id })
+      if (e.ou.sorte === 'coffre') {
+        offerte = 'coffre'
+        if (e.ou.recompense === 'or') x.enOr++
+      }
+      continue
+    }
+    if (etape.sorte === 'gardien' && e.assauts === 0 && x.coeursAuGardien.length === e.acte) {
+      x.coeursAuGardien.push({ coeurs: e.coeurs, max: T.coeursMax(depart, e.cartes) })
+      x.auPlusHaut.push(auPlusHaut())
+    }
+    if (etape.sorte === 'gardien') x.assauts[e.acte]++
+    const acte = e.acte
+    const { manches, minutes } = jouerLEpreuve(j, e, depart, etape, `${racine}:${++n}`)
+    x.parties++
+    x.minutes += minutes
+    jouer({ quoi: 'epreuve', etape: etape.id, partie: `p${n}` })
+    jouer({ quoi: 'conclure', partie: `p${n}`, manches })
+    const b = e.derniere!
+    const ici = b.gardien ? 'gardien' : 'epreuves'
+    for (const m of b.manches.filter(m => m.comptee)) {
+      x.manches[ici][acte]++
+      if ((m.etoiles ?? 0) === 0) x.ratees[ici][acte]++
+    }
+    x.perdus[ici][acte] += b.coeurs
+    if (e.derniere?.souffle) x.souffle = true
+    if (e.derniere?.vaincu) {
+      offerte = 'gardien'
+      if (e.derniere.recompense === 'or') x.enOr++
+    }
+  }
+  if (!e.fin) throw new Error(`traversée : pas finie après 500 gestes — ${JSON.stringify(e.ou)}`)
+  x.gagnee = e.fin.issue === 'gagnee'
+  x.acte = x.gagnee ? ACTES_D_UNE_TRAVERSEE : e.acte
+  x.aLaFin = auPlusHaut()
+  x.orALaFin = e.or
+  return x
+}
+
+/** Les cent vingt trios des dix cartes : une mesure les joue chacun autant de fois, chaque carte dans autant de traversées. */
+const TRIOS: readonly (readonly CleDeCarte[])[] = T.CLES_DES_CARTES.flatMap((a, i) => T.CLES_DES_CARTES.flatMap((b, k) => (k <= i ? [] : T.CLES_DES_CARTES.slice(k + 1).map(c => [a, b, c]))))
+
 // ── L'affichage ───────────────────────────────────────────────────────────
 
 const enPourcent = (x: number) => `${formatNumber(Math.round(x * 1000) / 10)} %`
@@ -2205,6 +2508,74 @@ if (enSection('musee')) {
     console.log(`    le premier gardien réveillé en jouant : ${jours(parcours.map(x => x.gardiens.find(g => g > 0) ?? null))}`)
   }
   console.log(`  Les ${GARDIENS_DE_SAISON.length} gardiens de saison ne jouent pas : les parcours commencent en février, et leurs fêtes n'y comptent pas (${GARDIENS_DE_SAISON.map(conditionDuGardien).join(' ; ')}).`)
+  console.log('')
+}
+
+// 6. La traversée, d'un bout à l'autre : trop facile ? Ses cartes au plus haut trop tôt ? Ce que chacune apporte.
+if (enSection('traversee')) {
+  console.log(
+    `La traversée, d'un bout à l'autre — ${formatNumber(TRAVERSEES)} traversées par joueur, chaque trio des ${T.CLES_DES_CARTES.length} cartes autant de fois, ses gardiens et sa carte tirés comme au serveur, chaque épreuve jouée manche par manche, ses cartes à leur niveau`,
+  )
+  console.log(
+    `  ses choix : le chemin du coffre, sinon une épreuve au hasard ; à chaque amélioration, sa carte la moins haute ; chez le marchand, un cœur s'il lui en manque deux, des améliorations tant que l'or le permet, puis des cœurs ; Quitte ou double à quatre cœurs et plus, s'il sait au moins ce que sait le joueur moyen — la cible de l'Expédition : une traversée sur trois au joueur moyen, huit sur dix au fort`,
+  )
+  const ACTES_DITS = ['I', 'II', 'III'] as const
+  const moyenne = (xs: readonly number[]) => (xs.length === 0 ? NaN : xs.reduce((a, b) => a + b, 0) / xs.length)
+  const ouTiret = (x: number, f: (x: number) => string) => (Number.isNaN(x) ? '—' : f(x))
+  const parCarte = new Map<string, { toutes: number; avec: ReadonlyMap<CleDeCarte, number> }>()
+  for (const j of SAVOIRS) {
+    const xs = Array.from({ length: TRAVERSEES }, (_, i) => jouerUneTraversee(j, TRIOS[i % TRIOS.length], `${GRAINE}:traversee:${cleDuSavoir(j)}:${i}`))
+    const part = (f: (x: TraverseeJouee) => boolean, sur: readonly TraverseeJouee[] = xs) => (sur.length === 0 ? NaN : sur.filter(f).length / sur.length)
+    const gagnees = part(x => x.gagnee)
+    const gagnantes = xs.filter(x => x.gagnee)
+    const duree = (ys: readonly TraverseeJouee[]) =>
+      ys.length === 0 ? '—' : `${arrondi(moyenne(ys.map(x => x.parties)))} épreuves, ${arrondi(mediane(ys.map(x => x.minutes)), 0)} min`
+    console.log(
+      `  ${j.nom} — gagnées ${enPourcent(gagnees)} · perdues à l'acte ${ACTES_DITS.map((a, k) => `${a} ${enPourcent(part(x => !x.gagnee && x.acte === k))}`).join(', ')} · gagnée : ${duree(gagnantes)} (médiane, la carte à part) ; toutes : ${duree(xs)}`,
+    )
+    // Au gardien de chaque acte, parmi les traversées qui l'atteignent.
+    const auGardien = ACTES_DITS.map((_, k) => xs.filter(x => x.coeursAuGardien.length > k))
+    const parActe = (f: (x: TraverseeJouee, k: number) => number, dit: (x: number) => string) => auGardien.map((ys, k) => ouTiret(moyenne(ys.map(x => f(x, k))), dit)).join(' · ')
+    console.log(
+      `    au gardien, acte ${ACTES_DITS.join(' · ')} : ${parActe(
+        (x, k) => x.coeursAuGardien[k].coeurs,
+        c => arrondi(c),
+      )} cœurs, sur ${parActe((x, k) => x.coeursAuGardien[k].max, c => arrondi(c))} ; ${parActe((x, k) => x.assauts[k], a => arrondi(a))} assauts ; ${parActe(
+        (x, k) => x.auPlusHaut[k],
+        c => arrondi(c),
+      )} cartes au plus haut sur ${CARTES_D_UNE_TRAVERSEE} (toutes : ${auGardien.map((ys, k) => ouTiret(part(x => x.auPlusHaut[k] === CARTES_D_UNE_TRAVERSEE, ys), enPourcent)).join(' · ')})`,
+    )
+    // Où les cœurs se perdent : la part des manches ratées, et les cœurs perdus, parmi les traversées qui y arrivent.
+    const pression = (ou: 'epreuves' | 'gardien') =>
+      ACTES_DITS.map((_, k) => {
+        const ys = ou === 'epreuves' ? xs.filter(x => x.acte >= k) : auGardien[k]
+        const n = ys.reduce((s, x) => s + x.manches[ou][k], 0)
+        return n === 0 ? '—' : `${enPourcent(ys.reduce((s, x) => s + x.ratees[ou][k], 0) / n)} (${arrondi(moyenne(ys.map(x => x.perdus[ou][k])))} c.)`
+      }).join(' · ')
+    console.log(`    manches ratées, et cœurs perdus, acte ${ACTES_DITS.join(' · ')} : aux épreuves ${pression('epreuves')} ; contre le gardien ${pression('gardien')}`)
+    const am = (k: keyof TraverseeJouee['ameliorations']) => arrondi(moyenne(xs.map(x => x.ameliorations[k])))
+    const avecLeSouffle = xs.filter(x => x.cartes.includes('second-souffle'))
+    console.log(
+      `    améliorations : ${am('coffre')} au coffre, ${am('gardien')} au gardien, ${am('marchand')} chez le marchand, ${arrondi(moyenne(xs.map(x => x.enOr)))} offertes devenues de l'or ; à la fin, ${arrondi(moyenne(xs.map(x => x.aLaFin)))} cartes au plus haut ; ${arrondi(
+        moyenne(xs.map(x => x.coeursAchetes)),
+      )} cœurs achetés ; ${arrondi(moyenne(xs.map(x => x.orGagne)), 0)} pièces gagnées, ${arrondi(moyenne(xs.map(x => x.orALaFin)), 0)} jamais dépensées ; le Second souffle a relevé ${ouTiret(part(x => x.souffle, avecLeSouffle), enPourcent)} de celles qui l'emportent`,
+    )
+    parCarte.set(j.nom, { toutes: gagnees, avec: new Map(T.CLES_DES_CARTES.map(c => [c, part(x => x.gagnee, xs.filter(x => x.cartes.includes(c)))])) })
+  }
+  // Ce que chaque carte apporte : les victoires des traversées qui l'emportent, et l'écart à toutes, en points.
+  const noms = [...parCarte.keys()]
+  const largeurs = [18, ...noms.map(n => Math.max(12, n.length))]
+  console.log('  chaque carte : les traversées gagnées qui l’emportent, en pour cent, et l’écart à toutes, en points')
+  console.log('  ' + colonnes(['carte', ...noms], largeurs))
+  for (const c of T.CLES_DES_CARTES) {
+    const cases = noms.map(n => {
+      const x = parCarte.get(n)!
+      const avec = x.avec.get(c)!
+      const ecart = Math.round((avec - x.toutes) * 100)
+      return `${formatNumber(Math.round(avec * 100))} (${ecart > 0 ? '+' : ecart < 0 ? '−' : '±'}${formatNumber(Math.abs(ecart))})`
+    })
+    console.log('  ' + colonnes([T.carteDeLaTraversee(c)!.nom, ...cases], largeurs))
+  }
   console.log('')
 }
 console.log(`Fini en ${arrondi((performance.now() - debut) / 1000)} s.`)

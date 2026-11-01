@@ -55,12 +55,13 @@ export interface ContexteDuTirage {
   leurres: ReadonlyMap<string, ReadonlyMap<string, number>>
   /**
    * Ce qu'une épreuve de traversée a promis sur sa carte : une catégorie de la
-   * base (« Histoire »), ou le thème d'une frise ou d'un lieu (« Rome »). Le
+   * base (« Histoire »), le thème d'une frise ou d'un lieu (« Rome »), ou au
+   * Quiz un sujet ou une rubrique de la base (`animaux`, `sport/football`). Le
    * tireur la cherche d'abord ; sans rien qui tienne ses règles, il tire
    * ailleurs, comme toujours — une épreuve qui ne partirait pas serait pire
    * qu'un thème voisin.
    */
-  vise?: { categorie: Categorie | null; theme: string | null }
+  vise?: { categorie: Categorie | null; theme: string | null; sujet?: string | null }
 }
 
 /** Les marches d'un jeu sous l'enjeu de la partie : les siennes, et ce que l'œuvre visée y ajoute. */

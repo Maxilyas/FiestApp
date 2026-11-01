@@ -1,13 +1,15 @@
-// Le moule des neuf jeux du Cabinet : ce que chacun dit de lui à l'annonce
+// Le moule des dix jeux du Cabinet : ce que chacun dit de lui à l'annonce
 // (`JEUX`), et la forme que prend sa règle (`RegleDuJeu`). Chaque jeu vit dans
 // son module pur, à côté de celui-ci ; un registre les rassemble, typé par
-// `CleDeJeu` : un jeu de plus qui oublie une pièce ne compile pas.
+// `CleDeJeu` : un jeu de plus qui oublie une pièce ne compile pas. Le dixième,
+// le Quiz, est venu le 1er novembre 2026 : des questions classiques, sur tous
+// les thèmes de la base — le musée qui dort n'a aucune œuvre à lui.
 //
 // Ici, pas une règle de jugement : les noms, les gestes, les barèmes dits, ce
 // qu'Éclairer fait à chaque jeu. La page les lit pour l'annonce sans tirer les
 // jeux eux-mêmes — elle n'en importe que ce qui ne juge pas (invariant 1). Les
-// neuf barèmes dits se composent des chiffres de `bareme.ts`, aucun n'est
-// écrit en dur : un barème changé change aussi ce que l'annonce promet.
+// barèmes dits se composent des chiffres de `bareme.ts`, aucun n'est écrit en
+// dur : un barème changé change aussi ce que l'annonce promet.
 
 import type { PieceDuCabinet } from '../pieces'
 import {
@@ -23,15 +25,17 @@ import {
   ETOILES_DU_PARI,
   INDICES_DES_ETOILES,
   JUSTES_DE_L_ECLAIR,
+  JUSTES_DU_QUIZ,
   KM_DE_L_EPINGLE,
+  QUESTIONS_DU_QUIZ,
   RAYON_D_ECLAIRER_KM,
 } from '../bareme'
 
-/** Les neuf jeux. Une clé ne change jamais : elle est la forme des réponses au journal, et le jeu de chaque œuvre. */
-export type CleDeJeu = 'epingle' | 'frise' | 'mot' | 'detail' | 'filet' | 'pari' | 'eclair' | 'indices' | 'replique'
+/** Les dix jeux. Une clé ne change jamais : elle est la forme des réponses au journal, et le jeu de chaque œuvre. */
+export type CleDeJeu = 'epingle' | 'frise' | 'mot' | 'detail' | 'filet' | 'pari' | 'eclair' | 'indices' | 'replique' | 'quiz'
 
 /** Leur ordre, partout où la page les range. */
-export const CLES_DES_JEUX: readonly CleDeJeu[] = ['epingle', 'frise', 'mot', 'detail', 'filet', 'pari', 'eclair', 'indices', 'replique']
+export const CLES_DES_JEUX: readonly CleDeJeu[] = ['epingle', 'frise', 'mot', 'detail', 'filet', 'pari', 'eclair', 'indices', 'replique', 'quiz']
 
 /** Ce qu'un jeu dit de lui, sans rien juger. */
 export interface DescriptionDUnJeu {
@@ -250,6 +254,17 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     eclairer: 'efface une mauvaise proposition',
     changeable: true,
     etapes: 2,
+  },
+  quiz: {
+    cle: 'quiz',
+    nom: 'Le Quiz',
+    a: 'au Quiz',
+    // Le chrono de la manche entière, comme l'Éclair : « une minute par question » aurait promis quatre fois trop.
+    geste: `${QUESTIONS_DU_QUIZ} questions sur le thème, quatre réponses chacune, en ${dureeDite(DUREES_DES_JEUX.quiz)}.`,
+    bareme: JUSTES_DU_QUIZ.map((n, i) => `${i === 0 ? `${n} justes` : n} ${etoiles(3 - i)}`).join(' · '),
+    eclairer: 'efface une mauvaise réponse de la question en cours',
+    changeable: true,
+    etapes: 1,
   },
 }
 

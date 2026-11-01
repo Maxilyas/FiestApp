@@ -135,7 +135,10 @@ test('chaque jeu du contenu neuf tient sept jours sans redite, au rythme d’une
   // Une moyenne, pas un plafond : chaque œuvre se chasse à son jeu, et une case
   // de la visite et deux chasses au même jeu en font trois dans la journée,
   // les libres à part — c'est le pire qu'on tient, plus bas.
-  const partiesParJour = Math.ceil((CASES_DE_LA_VISITE + CHASSES_PAR_JOUR + LIBRES_QUI_PAIENT) / CLES_DES_JEUX.length)
+  // Les neuf jeux du musée : le Quiz, venu après (le 1er novembre 2026), puise dans la base ; compté, il ferait baisser la part
+  // de chacun — la borne des neuf reste la plus sévère.
+  const jeuxDuMusee = CLES_DES_JEUX.filter(j => j !== 'quiz')
+  const partiesParJour = Math.ceil((CASES_DE_LA_VISITE + CHASSES_PAR_JOUR + LIBRES_QUI_PAIENT) / jeuxDuMusee.length)
   assert.equal(partiesParJour, 2)
   const contenu = contenuDuCabinet()
   const tient: [CleDeJeu, number, number][] = [

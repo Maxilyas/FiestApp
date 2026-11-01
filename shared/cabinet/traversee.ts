@@ -10,7 +10,7 @@
 // garde-fou contre l'empilement qui a noyé l'Expédition puis le musée.
 //
 // Une étape de la carte est une partie ordinaire du Cabinet, trois manches
-// d'un des neuf jeux (`partie.ts`, l'origine `traversee`) : le pli, le chrono,
+// d'un des dix jeux (`partie.ts`, l'origine `traversee`) : le pli, le chrono,
 // les tireurs et la révélation n'apprennent rien. La traversée ne fait que
 // lire ses étoiles — chaque étoile vaut de l'or, chaque manche ratée coûte un
 // cœur, chaque étoile frappe le gardien — et ce que ses cartes y changent.
@@ -46,6 +46,7 @@ import {
   OR_PAR_ETOILE,
   OR_SANS_AMELIORATION,
   PARADE_CONTRE_LES_GARDIENS,
+  NIVEAU_OFFERT,
   PRIX_DU_MARCHAND,
   PRIX_MIN,
   PV_DES_GARDIENS,
@@ -54,11 +55,13 @@ import {
   RANGEE_DU_COFFRE,
   REMISE_DU_POURBOIRE,
   SECONDES_PAR_FORCE,
+  THEMES_AU_CHOIX_DU_QUIZ,
 } from './bareme'
 import type { Niveau } from '../campagne'
 import { CATEGORIES, type Categorie } from '../categories'
 import { jourValide } from '../jour'
-import { battre } from './jeux/outils'
+import type { Sujet } from '../sujets'
+import { auHasard, battre } from './jeux/outils'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from './jeux/regle'
 import type { CarteDuDepart } from './partie'
 import type { CleDePouvoir, Force } from './pouvoirs'
@@ -90,8 +93,11 @@ export interface CarteDeLaTraversee {
   sorte: SorteDeCarte
   /** Le pouvoir qu'elle joue dans une manche (`partie.ts`) ; null : elle agit sur la traversée — l'or, les cœurs, le gardien. */
   pouvoir: CleDePouvoir | null
-  /** Ce qu'elle fait à ce niveau, en une phrase : le choix du départ, l'amélioration, la partie la disent. */
-  dit: (niveau: NiveauDeCarte) => string
+  /**
+   * Ce qu'elle fait à ce niveau, en une phrase : le choix du départ, l'amélioration, la partie la disent — au barème de
+   * la version de la traversée (la Parade de la 1 n'est pas celle de la 2), celle du jour d'office.
+   */
+  dit: (niveau: NiveauDeCarte, v?: VersionDeLaTraversee) => string
 }
 
 const FOIS = ['', 'Une fois', 'Deux fois', 'Trois fois'] as const
@@ -132,8 +138,11 @@ export const CARTES: readonly CarteDeLaTraversee[] = [
     nom: 'Parade',
     sorte: 'toujours',
     pouvoir: null,
-    dit: n =>
-      `${ERREURS_PAREES[n] > 1 ? `Tes ${ERREURS_PAREES[n]} premières manches ratées` : 'Ta première manche ratée'} de chaque épreuve ${ERREURS_PAREES[n] > 1 ? 'ne coûtent' : 'ne coûte'} pas de cœur${n >= PARADE_CONTRE_LES_GARDIENS ? ', contre les gardiens aussi' : ' (pas contre les gardiens)'}.`,
+    dit: (n, v = VERSION_DE_LA_TRAVERSEE) => {
+      const { parees, contreLesGardiens } = baremeDe({ v }).parade
+      const k = parees[n]
+      return `${k > 1 ? `Tes ${k} premières manches ratées` : 'Ta première manche ratée'} de chaque épreuve ${k > 1 ? 'ne coûtent' : 'ne coûte'} pas de cœur${n >= contreLesGardiens ? ', contre les gardiens aussi' : ' (pas contre les gardiens)'}.`
+    },
   },
   { cle: 'cagnotte', nom: 'Cagnotte', sorte: 'toujours', pouvoir: null, dit: n => `${OR_DE_LA_CAGNOTTE[n]} pièces de plus à chaque manche réussie.` },
   { cle: 'panacee', nom: 'Panacée', sorte: 'toujours', pouvoir: null, dit: n => `${unOuDes(COEURS_DE_LA_PANACEE[n], 'cœur', 'cœurs')} de plus au maximum.` },
@@ -181,12 +190,14 @@ export interface GardienDeLaTraversee {
 export const GARDIENS_DE_LA_TRAVERSEE: readonly GardienDeLaTraversee[] = [
   { cle: 'lg:renard', devise: 'Il ment avec aplomb. Démêle le vrai du faux.', jeux: ['eclair', 'pari', 'replique'] },
   { cle: 'lg:coq', devise: 'Premier levé, premier à répondre.', jeux: ['eclair', 'filet', 'pari'] },
-  { cle: 'lg:chouette', devise: 'Elle a tout lu, et elle s’en souvient.', jeux: ['mot', 'indices', 'pari'] },
+  // Le Quiz, venu le 1er novembre 2026, chez trois gardiens qui posent des questions : la Chouette, le Sphinx, le Kraken. Un
+  // assaut lit ses jeux à son heure : une traversée en route y passe à l'assaut d'après.
+  { cle: 'lg:chouette', devise: 'Elle a tout lu, et elle s’en souvient.', jeux: ['mot', 'indices', 'quiz'] },
   { cle: 'lg:tigre', devise: 'Il frappe vite. Ne traîne pas.', jeux: ['eclair', 'pari', 'filet'] },
   { cle: 'lg:chauve-souris', devise: 'Elle voit dans le noir ce que tu cherches.', jeux: ['detail', 'mot', 'eclair'] },
   { cle: 'lg:scarabee', devise: 'Il garde les lieux anciens.', jeux: ['epingle', 'detail', 'indices'] },
   { cle: 'lg:citrouille', devise: 'Ce soir, c’est sa fête.', jeux: ['mot', 'eclair', 'replique'] },
-  { cle: 'lg:sphinx', devise: 'Il ne laisse passer que ceux qui savent.', jeux: ['indices', 'mot', 'replique'] },
+  { cle: 'lg:sphinx', devise: 'Il ne laisse passer que ceux qui savent.', jeux: ['quiz', 'indices', 'mot'] },
   { cle: 'lg:janus', devise: 'Deux visages : l’un dit vrai, l’autre ment.', jeux: ['eclair', 'replique', 'indices'] },
   { cle: 'lg:phenix', devise: 'Il renaît de ses cendres. Toi, de tes erreurs.', jeux: ['pari', 'filet', 'detail'] },
   { cle: 'lg:fantome', devise: 'Il hante les tableaux et les vieux films.', jeux: ['detail', 'replique', 'indices'] },
@@ -195,7 +206,7 @@ export const GARDIENS_DE_LA_TRAVERSEE: readonly GardienDeLaTraversee[] = [
   { cle: 'lg:oracle', devise: 'Il connaît les dates avant qu’elles arrivent.', jeux: ['filet', 'eclair', 'indices'] },
   { cle: 'lg:serpent', devise: 'Il glisse un mot faux dans chaque phrase.', jeux: ['mot', 'eclair', 'pari'] },
   { cle: 'lg:dragon', devise: 'Il garde son or. Prends-le-lui.', jeux: ['pari', 'filet', 'epingle'] },
-  { cle: 'lg:kraken', devise: 'Il remonte des abysses avec ses questions.', jeux: ['epingle', 'filet', 'pari'] },
+  { cle: 'lg:kraken', devise: 'Il remonte des abysses avec ses questions.', jeux: ['epingle', 'filet', 'quiz'] },
   { cle: 'lg:chimere', devise: 'Trois têtes, trois jeux, aucune pitié.', jeux: ['detail', 'mot', 'epingle'] },
   { cle: 'lg:ouroboros', devise: 'Tout revient. Surtout les erreurs.', jeux: ['filet', 'eclair', 'replique'] },
   { cle: 'lg:trou-noir', devise: 'Rien ne lui échappe, pas même la lumière.', jeux: ['filet', 'detail', 'mot'] },
@@ -257,6 +268,7 @@ export const EMOJI_DES_JEUX: Readonly<Record<CleDeJeu, string>> = {
   epingle: '📍',
   indices: '🕵️',
   replique: '🎬',
+  quiz: '❓',
 }
 
 const EMOJI_DES_CATEGORIES: Readonly<Record<Categorie, string>> = {
@@ -274,12 +286,36 @@ const EMOJI_DES_CATEGORIES: Readonly<Record<Categorie, string>> = {
   'Autour de la fête': '🎉',
 }
 
-/** L'emoji d'un thème : sa catégorie, sinon celui de son jeu — une frise, un lieu, un tableau. */
-export function emojiDuTheme(jeu: CleDeJeu, theme: string): string {
+/**
+ * L'emoji d'un thème : sa catégorie ; celui que la carte a gardé pour un sujet
+ * du Quiz (`EtapeDeLaCarte.emoji`) ; sinon celui de son jeu — une frise, un
+ * lieu, un tableau.
+ */
+export function emojiDuTheme(jeu: CleDeJeu, theme: string, emoji?: string): string {
   const categorie = CATEGORIES.find(c => c === theme)
   if (categorie) return EMOJI_DES_CATEGORIES[categorie]
-  return jeu === 'indices' ? '👤' : jeu === 'replique' ? '💬' : jeu === 'detail' ? '🎨' : jeu === 'frise' ? '📜' : '🗺️'
+  if (emoji) return emoji
+  return jeu === 'indices' ? '👤' : jeu === 'replique' ? '💬' : jeu === 'detail' ? '🎨' : jeu === 'frise' ? '📜' : jeu === 'quiz' ? '❓' : '🗺️'
 }
+
+/** L'emoji d'une famille de sujets, sur la carte du Quiz : une fête, un thème, un univers, un pays, une époque, un fil rouge. */
+const EMOJI_DES_FAMILLES: Readonly<Partial<Record<Sujet['famille'], string>>> = {
+  fete: '🎉',
+  theme: '🧩',
+  univers: '🌌',
+  pays: '🧭',
+  epoque: '🕰️',
+  fil: '🧵',
+}
+
+/**
+ * L'emoji d'un sujet de la base que le Quiz promet : celui de sa famille, et
+ * celui de sa catégorie pour une rubrique — « 🍳 Techniques et vocabulaire » se
+ * lit en cuisine. Le serveur le pose sur la carte (`ThemeDuQuiz.emoji`) : la
+ * page n'importe pas les sujets pour un emoji.
+ */
+export const emojiDUnSujet = (s: Pick<Sujet, 'famille' | 'categorie'>): string =>
+  (s.famille === 'rubrique' && s.categorie ? EMOJI_DES_CATEGORIES[s.categorie] : EMOJI_DES_FAMILLES[s.famille]) ?? EMOJI_DES_JEUX.quiz
 
 /** La catégorie que vise une étape, si son thème en est une : le tireur la cherche d'abord. */
 export const categorieDuTheme = (theme: string | undefined): Categorie | null => CATEGORIES.find(c => c === theme) ?? null
@@ -301,7 +337,33 @@ export interface EtapeDeLaCarte {
   sorte: SorteDEtape
   jeu?: CleDeJeu
   theme?: string
+  /** Au Quiz, le sujet ou la rubrique de la base que le thème nomme (`animaux`, `sport/football`) : le tirage le vise. */
+  sujet?: string
+  /** … et son emoji, que le serveur a choisi (`emojiDUnSujet`). */
+  emoji?: string
+  /**
+   * Au Quiz, les thèmes au choix (`THEMES_AU_CHOIX_DU_QUIZ`) : il en choisit un en y entrant, et l'étape n'a alors ni
+   * thème, ni sujet, ni emoji à elle (`themeDeLEtape`). Une carte tracée avant le 1er novembre 2026 n'en a pas.
+   */
+  choix?: readonly ThemeAuChoix[]
   suivantes: readonly string[]
+}
+
+/** Un thème qu'une épreuve du Quiz propose au choix : son nom, et au besoin le sujet de la base qu'il nomme et son emoji. */
+export interface ThemeAuChoix {
+  theme: string
+  sujet?: string
+  emoji?: string
+}
+
+/**
+ * Le thème d'une étape : le sien, ou celui qu'il a choisi parmi ses thèmes au choix — le premier tant qu'il n'a rien
+ * choisi, la carte d'un rendu ou d'un test écrite à la main. Null : un jeu sans thème.
+ */
+export function themeDeLEtape(e: Pick<EtapeDeLaCarte, 'theme' | 'sujet' | 'emoji' | 'choix'>, choisi?: number): ThemeAuChoix | null {
+  if (e.choix && e.choix.length > 0) return e.choix[choisi ?? 0] ?? e.choix[0]
+  if (e.theme === undefined) return null
+  return { theme: e.theme, ...(e.sujet !== undefined && { sujet: e.sujet }), ...(e.emoji !== undefined && { emoji: e.emoji }) }
 }
 
 export interface ActeDeLaCarte {
@@ -317,10 +379,24 @@ export const departDeLActe = (acte: number) => idDEtape(acte, 0, MILIEU)
 /** L'acte d'une étape, lu dans son identifiant. */
 export const acteDe = (etape: string): Acte => Math.min(ACTES_D_UNE_TRAVERSEE - 1, Math.max(0, Number(etape[1]) || 0)) as Acte
 
-/** Ce que le contenu écrit à la main offre de thèmes : le serveur les lit au départ (`contenuDuCabinet`). */
+/** Un thème que le Quiz peut promettre, au-delà des catégories : un sujet ou une rubrique de la base, assez fourni. */
+export interface ThemeDuQuiz {
+  cle: string
+  nom: string
+  famille: Sujet['famille']
+  emoji: string
+}
+
+/**
+ * Ce que le contenu écrit à la main offre de thèmes : le serveur les lit au
+ * départ (`contenuDuCabinet`) ; et les sujets et les rubriques de la base où
+ * le Quiz a de quoi jouer (`themesDuQuiz`) — sans eux, il ne promet que des
+ * catégories.
+ */
 export interface ThemesDuContenu {
   epingle: readonly string[]
   frise: readonly string[]
+  quiz?: readonly ThemeDuQuiz[]
 }
 
 /** Ce qu'une traversée a déjà placé : les jeux les moins vus d'abord, et un thème du contenu jamais deux fois. */
@@ -341,24 +417,78 @@ function jeuxDUneRangee(n: number, usage: Usage, jeux: readonly CleDeJeu[], hasa
   return battre(pris, hasard)
 }
 
-/** Le thème d'une épreuve : celui de son jeu, un thème du contenu encore libre, ou une catégorie que ses voisines n'ont pas. */
-function themeDUneEpreuve(jeu: CleDeJeu, usage: Usage, voisins: readonly (string | undefined)[], contenu: ThemesDuContenu, hasard: () => number): string | undefined {
+/** Ce qu'une épreuve promet : son thème en mots, et au Quiz le sujet de la base qu'il nomme et son emoji — ou ses thèmes au choix. */
+type ThemeDUneEpreuve = Pick<EtapeDeLaCarte, 'theme' | 'sujet' | 'emoji' | 'choix'>
+
+/**
+ * Un thème du Quiz : une famille d'abord — les catégories, puis chaque famille
+ * de sujets que le serveur a trouvée assez fournie (les thèmes, les époques,
+ * les pays, les univers, les fêtes, les fils rouges, les rubriques) —, puis
+ * l'un des siens, au hasard. Tirés d'un seul tas, les quelque cent rubriques
+ * auraient fait presque toutes les épreuves ; famille par famille, la carte
+ * varie (« pour donner de la diversité », le propriétaire, le 1er novembre
+ * 2026). Jamais deux fois le même dans une traversée, ni la catégorie d'une
+ * voisine ; une famille déjà proposée à la même étape (`prises`) passe après
+ * les autres.
+ */
+function themeDuQuiz(
+  usage: Usage,
+  voisins: readonly (string | undefined)[],
+  contenu: ThemesDuContenu,
+  hasard: () => number,
+  prises: Set<string>,
+): ThemeAuChoix {
+  const libre = (cle: string) => !usage.contenus.has(`quiz:${cle}`)
+  const familles = new Map<string, ThemeDuQuiz[]>()
+  for (const s of (contenu.quiz ?? []).filter(s => libre(s.cle))) familles.set(s.famille, [...(familles.get(s.famille) ?? []), s])
+  const categories = CATEGORIES.filter(c => !voisins.includes(c) && libre(c))
+  const toutes = [...(categories.length > 0 ? ['categorie'] : []), ...familles.keys()]
+  const neuves = toutes.filter(f => !prises.has(f))
+  const famille = auHasard(neuves.length > 0 ? neuves : toutes, hasard)
+  const siens = famille === undefined ? undefined : familles.get(famille)
+  if (!siens) {
+    prises.add('categorie')
+    const c = auHasard(categories.length > 0 ? categories : CATEGORIES.filter(x => !voisins.includes(x)), hasard)
+    usage.contenus.add(`quiz:${c}`)
+    return { theme: c }
+  }
+  prises.add(famille!)
+  const s = auHasard(siens, hasard)
+  usage.contenus.add(`quiz:${s.cle}`)
+  return { theme: s.nom, sujet: s.cle, emoji: s.emoji }
+}
+
+/**
+ * Les thèmes au choix d'une épreuve du Quiz (`THEMES_AU_CHOIX_DU_QUIZ`), chacun
+ * d'une autre famille tant qu'il en reste : un choix entre trois rubriques du
+ * football n'en serait pas un. Choisir son thème, c'est choisir ce qu'on sait.
+ */
+function choixDuQuiz(usage: Usage, voisins: readonly (string | undefined)[], contenu: ThemesDuContenu, hasard: () => number): ThemeAuChoix[] {
+  const prises = new Set<string>()
+  const choix: ThemeAuChoix[] = []
+  for (let k = 0; k < THEMES_AU_CHOIX_DU_QUIZ; k++) choix.push(themeDuQuiz(usage, [...voisins, ...choix.map(c => c.theme)], contenu, hasard, prises))
+  return choix
+}
+
+/** Le thème d'une épreuve : celui de son jeu, un thème du contenu encore libre, celui du Quiz, ou une catégorie que ses voisines n'ont pas. */
+function themeDUneEpreuve(jeu: CleDeJeu, usage: Usage, voisins: readonly (string | undefined)[], contenu: ThemesDuContenu, hasard: () => number): ThemeDUneEpreuve {
   const fixe = THEMES_FIXES[jeu]
-  if (fixe) return fixe
+  if (fixe) return { theme: fixe }
   if (jeu === 'epingle' || jeu === 'frise') {
     const tous = contenu[jeu]
-    if (tous.length === 0) return undefined
+    if (tous.length === 0) return {}
     const libres = tous.filter(t => !usage.contenus.has(t))
     const t = battre(libres.length > 0 ? libres : tous, hasard)[0]
     usage.contenus.add(t)
-    return t
+    return { theme: t }
   }
-  if (!JEUX_DE_LA_BASE.includes(jeu)) return undefined
+  if (jeu === 'quiz') return { choix: choixDuQuiz(usage, voisins, contenu, hasard) }
+  if (!JEUX_DE_LA_BASE.includes(jeu)) return {}
   const compte = (c: string) => usage.categories.get(c) ?? 0
   const libres = CATEGORIES.filter(c => !voisins.includes(c))
   const c = battre(libres, hasard).sort((a, b) => compte(a) - compte(b))[0]
   usage.categories.set(c, compte(c) + 1)
-  return c
+  return { theme: c }
 }
 
 /**
@@ -400,9 +530,21 @@ function tracerUnActe(acte: number, gardien: string, usage: Usage, contenu: Them
         continue
       }
       const jeu = sesJeux[k]
-      const theme = themeDUneEpreuve(jeu, usage, themes, contenu, hasard)
-      themes.push(theme)
-      etapes.push({ id, rangee: r, colonne: c, sorte: 'epreuve', jeu, ...(theme !== undefined && { theme }), suivantes: suivantes.get(id) ?? [] })
+      const { theme, sujet, emoji, choix } = themeDUneEpreuve(jeu, usage, themes, contenu, hasard)
+      // Ses voisines évitent sa catégorie — chacune de ses catégories au choix, au Quiz.
+      themes.push(theme, ...(choix ?? []).map(x => x.theme))
+      etapes.push({
+        id,
+        rangee: r,
+        colonne: c,
+        sorte: 'epreuve',
+        jeu,
+        ...(theme !== undefined && { theme }),
+        ...(sujet !== undefined && { sujet }),
+        ...(emoji !== undefined && { emoji }),
+        ...(choix && { choix }),
+        suivantes: suivantes.get(id) ?? [],
+      })
     }
   }
   etapes.push({ id: marchand, rangee: RANGEE_DU_MARCHAND, colonne: MILIEU, sorte: 'marchand', suivantes: [auGardien] })
@@ -423,10 +565,57 @@ export function tracerLaCarte(
 
 // ── Le départ ─────────────────────────────────────────────────────────────
 
-/** Les versions de départ que ce code relit, écrites en dur (la leçon de l'Expédition, `partie.ts`). */
-export const VERSIONS_DE_LA_TRAVERSEE = [1] as const
+/**
+ * Les versions de départ que ce code relit, écrites en dur (la leçon de
+ * l'Expédition, `partie.ts`). La 2, le 1er novembre 2026 : le barème de
+ * l'équilibre (`bareme.ts`, la traversée) — relue à ses chiffres, une
+ * traversée de la 1 en route aurait pu se perdre après coup, un cœur de moins
+ * au départ, ou voir un achat d'hier refusé.
+ */
+export const VERSIONS_DE_LA_TRAVERSEE = [1, 2] as const
 export type VersionDeLaTraversee = (typeof VERSIONS_DE_LA_TRAVERSEE)[number]
 export const VERSION_DE_LA_TRAVERSEE: VersionDeLaTraversee = VERSIONS_DE_LA_TRAVERSEE[VERSIONS_DE_LA_TRAVERSEE.length - 1]
+
+/** Ce qu'une version de la traversée lit de son barème — ce que la 2 a changé ; le reste est le même pour toutes. */
+export interface BaremeDeLaTraversee {
+  coeursDeDepart: number
+  orParEtoile: number
+  pvDesGardiens: readonly [number, number, number]
+  prix: Readonly<Record<'coeur' | 'amelioration' | 'auPlusHaut', number>>
+  /** Ce qu'une amélioration offerte (le coffre, le gardien vaincu) donne au plus. */
+  niveauOffert: NiveauDeCarte
+  /** La Parade : les manches ratées parées à chaque épreuve, niveau par niveau, et le niveau dès lequel elle pare contre les gardiens. */
+  parade: { parees: Readonly<Record<Force, number>>; contreLesGardiens: Force }
+}
+
+/**
+ * Le barème de chaque version : la 1 écrite en dur, telle qu'elle s'est jouée
+ * du 31 octobre au 1er novembre 2026 — trop facile, ses cartes au plus haut
+ * dès le deuxième gardien, la Parade souveraine ; la 2 lit `bareme.ts`. Une
+ * version ne quitte jamais cette table : sans elle, ses traversées ne se
+ * reliraient plus.
+ */
+const BAREMES_DES_VERSIONS: Readonly<Record<VersionDeLaTraversee, BaremeDeLaTraversee>> = {
+  1: {
+    coeursDeDepart: 5,
+    orParEtoile: 5,
+    pvDesGardiens: [6, 8, 10],
+    prix: { coeur: 25, amelioration: 45, auPlusHaut: 45 },
+    niveauOffert: 3,
+    parade: { parees: { 1: 1, 2: 1, 3: 2 }, contreLesGardiens: 2 },
+  },
+  2: {
+    coeursDeDepart: COEURS_DE_DEPART,
+    orParEtoile: OR_PAR_ETOILE,
+    pvDesGardiens: PV_DES_GARDIENS,
+    prix: PRIX_DU_MARCHAND,
+    niveauOffert: NIVEAU_OFFERT,
+    parade: { parees: ERREURS_PAREES, contreLesGardiens: PARADE_CONTRE_LES_GARDIENS },
+  },
+}
+
+/** Le barème que lit une traversée, celui de sa version : son départ, sa vue — la page en compose ses phrases. */
+export const baremeDe = (d: Pick<DepartDeLaTraversee, 'v'>): BaremeDeLaTraversee => BAREMES_DES_VERSIONS[d.v]
 
 /**
  * Ce qu'une traversée fige à son départ (`cabinet_traversees.depart`) : la
@@ -471,8 +660,10 @@ export interface MancheConclue {
 export type GesteDeLaTraversee =
   /** Ses trois cartes, telles que la page les nomme : le pli les relit, et refuse en mots ce qui n'en fait pas trois (`lireLesCartesChoisies`). */
   | { quoi: 'cartes'; cartes: readonly string[] }
-  | { quoi: 'aller'; etape: string }
-  | { quoi: 'epreuve'; etape: string; partie: string }
+  /** Vers une épreuve du Quiz, le thème choisi parmi ses thèmes au choix (son rang dans `EtapeDeLaCarte.choix`). */
+  | { quoi: 'aller'; etape: string; theme?: number }
+  /** … que le serveur écrit avec la partie qu'il commence : la traversée relit le thème qui s'est joué. */
+  | { quoi: 'epreuve'; etape: string; partie: string; theme?: number }
   | { quoi: 'conclure'; partie: string; manches: readonly MancheConclue[] }
   | { quoi: 'ameliorer'; carte: CleDeCarte }
   | { quoi: 'acheter'; article: 'coeur' }
@@ -496,8 +687,13 @@ export interface CarteEnMain {
 export type OuEnEst =
   | { sorte: 'cartes' }
   | { sorte: 'carte' }
-  | { sorte: 'epreuve'; etape: string; partie: string }
-  | { sorte: 'coffre'; etape: string }
+  /** `theme` : le thème choisi d'une épreuve du Quiz, son rang parmi ses thèmes au choix. */
+  | { sorte: 'epreuve'; etape: string; partie: string; theme?: number }
+  /**
+   * Le coffre ouvert, et ce qu'il a donné : une amélioration, ou de l'or quand aucune carte ne la prenait plus.
+   * L'écran le lit ici — déduit de ses cartes, une carte montée au plus haut par le coffre même le disait payé en or.
+   */
+  | { sorte: 'coffre'; etape: string; recompense: 'amelioration' | 'or' }
   | { sorte: 'marchand'; etape: string }
   | { sorte: 'gardien'; etape: string; partie: string | null }
   | { sorte: 'legendaire' }
@@ -518,6 +714,8 @@ export interface ManchePayee extends MancheConclue {
 export interface BilanDEpreuve {
   etape: string
   partie: string
+  /** Le thème qui s'est joué, quand il s'est choisi (le Quiz) : l'étape n'en a pas à elle. */
+  theme?: string
   gardien: boolean
   manches: readonly ManchePayee[]
   /** L'or gagné, celui du gardien vaincu compris. */
@@ -576,16 +774,27 @@ export interface EtatDeLaTraversee {
 export const niveauDe = (cartes: readonly CarteEnMain[], cle: CleDeCarte): NiveauDeCarte | 0 => cartes.find(c => c.cle === cle)?.niveau ?? 0
 const sous = <T>(table: Readonly<Record<Force, T>>, n: NiveauDeCarte | 0, sinon: T): T => (n === 0 ? sinon : table[n])
 
-export const coeursMax = (cartes: readonly CarteEnMain[]): number => COEURS_DE_DEPART + sous(COEURS_DE_LA_PANACEE, niveauDe(cartes, 'panacee'), 0)
-export const pvDuGardien = (acte: Acte, cartes: readonly CarteEnMain[]): number =>
-  Math.max(1, PV_DES_GARDIENS[acte] - sous(PV_DU_COUP_DE_GRACE, niveauDe(cartes, 'coup-de-grace'), 0))
-export type Article = 'coeur' | 'amelioration'
-export const prixAuMarchand = (article: Article, cartes: readonly CarteEnMain[]): number =>
-  Math.max(PRIX_MIN, PRIX_DU_MARCHAND[article] - sous(REMISE_DU_POURBOIRE, niveauDe(cartes, 'pourboire'), 0))
+/** Ce qui dit sous quelles règles se lit une traversée : sa version, que portent son départ et sa vue. */
+type SaVersion = Pick<DepartDeLaTraversee, 'v'>
 
-/** Les cartes qu'une amélioration sert encore : pas au plus haut, et pas un Second souffle déjà dépensé. */
+export const coeursMax = (d: SaVersion, cartes: readonly CarteEnMain[]): number => baremeDe(d).coeursDeDepart + sous(COEURS_DE_LA_PANACEE, niveauDe(cartes, 'panacee'), 0)
+export const pvDuGardien = (d: SaVersion, acte: Acte, cartes: readonly CarteEnMain[]): number =>
+  Math.max(1, baremeDe(d).pvDesGardiens[acte] - sous(PV_DU_COUP_DE_GRACE, niveauDe(cartes, 'coup-de-grace'), 0))
+export type Article = 'coeur' | 'amelioration'
+/** Un article du marchand, Pourboire compris : un cœur, ou l'amélioration de cette carte — vers la carte +, ou vers la carte ++. */
+export function prixAuMarchand(d: SaVersion, article: Article, cartes: readonly CarteEnMain[], cle?: CleDeCarte): number {
+  const prix = baremeDe(d).prix
+  const brut = article === 'coeur' ? prix.coeur : cle && niveauDe(cartes, cle) + 1 >= NIVEAU_MAX ? prix.auPlusHaut : prix.amelioration
+  return Math.max(PRIX_MIN, brut - sous(REMISE_DU_POURBOIRE, niveauDe(cartes, 'pourboire'), 0))
+}
+
+/** Les cartes qu'une amélioration sert encore : pas au plus haut, et pas un Second souffle déjà dépensé — le marchand les vend. */
 export const ameliorables = (e: Pick<EtatDeLaTraversee, 'cartes' | 'souffle'>): CarteEnMain[] =>
   e.cartes.filter(c => c.niveau < NIVEAU_MAX && !(c.cle === 'second-souffle' && e.souffle))
+
+/** Celles qu'une amélioration offerte — le coffre, le gardien vaincu — peut prendre : sous le niveau qu'elle donne au plus (`NIVEAU_OFFERT`). */
+export const offrables = (d: SaVersion, e: Pick<EtatDeLaTraversee, 'cartes' | 'souffle'>): CarteEnMain[] =>
+  ameliorables(e).filter(c => c.niveau < baremeDe(d).niveauOffert)
 
 /** Les cartes qu'une épreuve emporte dans ses manches : celles qui ont un pouvoir, à la force de leur niveau. */
 export const cartesDeLEpreuve = (cartes: readonly CarteEnMain[]): CarteDuDepart[] =>
@@ -602,27 +811,44 @@ export const jeuDeLAssaut = (gardien: string, assaut: number): CleDeJeu | null =
   return g ? g.jeux[(Math.max(1, assaut) - 1) % g.jeux.length] : null
 }
 
-/** Ce qu'une étape demande au tirage : son jeu, ses marches, ce que son thème vise. */
+/** Ce qu'une étape demande au tirage : son jeu, ses marches, ce que son thème vise — au Quiz, un sujet de la base aussi. */
 export interface ViseeDUneEtape {
   jeu: CleDeJeu
   marches: readonly Niveau[]
   categorie: Categorie | null
   theme: string | null
+  sujet: string | null
 }
 
-/** La visée d'une épreuve, ou du prochain assaut de son gardien ; null : une étape qui ne se joue pas. */
-export function viseeDeLEtape(d: DepartDeLaTraversee, etape: EtapeDeLaCarte, assaut: number): ViseeDUneEtape | null {
+/**
+ * La visée d'une épreuve, ou du prochain assaut de son gardien ; null : une étape qui ne se joue pas. `choisi` : le
+ * thème choisi parmi ses thèmes au choix (le Quiz).
+ */
+export function viseeDeLEtape(d: DepartDeLaTraversee, etape: EtapeDeLaCarte, assaut: number, choisi?: number): ViseeDUneEtape | null {
   const acte = acteDe(etape.id)
   if (etape.sorte === 'gardien') {
     const jeu = jeuDeLAssaut(d.actes[acte].gardien, assaut)
-    return jeu ? { jeu, marches: MARCHES_DES_GARDIENS[acte], categorie: null, theme: null } : null
+    return jeu ? { jeu, marches: MARCHES_DES_GARDIENS[acte], categorie: null, theme: null, sujet: null } : null
   }
   if (etape.sorte !== 'epreuve' || !etape.jeu) return null
-  return { jeu: etape.jeu, marches: MARCHES_DES_ACTES[acte], categorie: categorieDuTheme(etape.theme), theme: THEMES_FIXES[etape.jeu] ? null : (etape.theme ?? null) }
+  const t = themeDeLEtape(etape, choisi)
+  return {
+    jeu: etape.jeu,
+    marches: MARCHES_DES_ACTES[acte],
+    categorie: categorieDuTheme(t?.theme),
+    theme: THEMES_FIXES[etape.jeu] ? null : (t?.theme ?? null),
+    sujet: t?.sujet ?? null,
+  }
+}
+
+/** Pourquoi il ne peut pas entrer dans cette épreuve avec ce thème ; null : il peut. Un thème au choix se choisit, et parmi les siens. */
+export function refusDuTheme(etape: Pick<EtapeDeLaCarte, 'choix'>, theme: number | undefined): string | null {
+  if (!etape.choix || etape.choix.length === 0) return null
+  return theme !== undefined && Number.isInteger(theme) && theme >= 0 && theme < etape.choix.length ? null : CHOISIS_TON_THEME
 }
 
 /** L'état au départ : devant ses trois gardiens, ses cartes à choisir, les cœurs au complet. */
-export function etatDuDepart(_d: DepartDeLaTraversee): EtatDeLaTraversee {
+export function etatDuDepart(d: DepartDeLaTraversee): EtatDeLaTraversee {
   return {
     rang: 1,
     acte: 0,
@@ -630,7 +856,7 @@ export function etatDuDepart(_d: DepartDeLaTraversee): EtatDeLaTraversee {
     visitees: [departDeLActe(0)],
     ou: { sorte: 'cartes' },
     cartes: [],
-    coeurs: COEURS_DE_DEPART,
+    coeurs: baremeDe(d).coeursDeDepart,
     or: 0,
     pv: null,
     assauts: 0,
@@ -657,10 +883,13 @@ export const EPREUVE_EN_COURS = 'Finis d’abord ton épreuve'
 export const LE_GARDIEN_T_ATTEND = 'Le gardien t’attend'
 export const CHOISIS_TON_LEGENDAIRE = 'Choisis ton légendaire'
 export const ETAPE_A_JOUER = 'Cette étape se joue : recharge la page'
+export const CHOISIS_TON_THEME = 'Choisis d’abord ton thème'
 export const PAS_CETTE_PARTIE = 'Cette partie n’est pas celle de ton épreuve : recharge la page'
 export const RIEN_A_AMELIORER = 'Aucune amélioration ne t’attend'
 export const PAS_TA_CARTE = 'Tu n’as pas cette carte'
 export const CARTE_AU_PLUS_HAUT = 'Cette carte est déjà au plus haut'
+/** Une espace insécable devant le signe : il partait seul à la ligne (`nomAuNiveau`). */
+export const PLUS_HAUT_CHEZ_LE_MARCHAND = 'La carte ++ s’achète chez le marchand'
 export const SOUFFLE_DEPENSE = 'Ton Second souffle a déjà servi'
 export const PAS_CHEZ_LE_MARCHAND = 'Le marchand n’est pas là'
 export const COEURS_AU_COMPLET = 'Tes cœurs sont au complet'
@@ -678,14 +907,17 @@ function refusDAmeliorer(e: EtatDeLaTraversee, cle: CleDeCarte): string | null {
 }
 
 /** Une carte d'un niveau de plus : la Panacée donne aussitôt le cœur qu'elle ajoute au maximum. */
-function ameliorer(e: EtatDeLaTraversee, cle: CleDeCarte): EtatDeLaTraversee {
+function ameliorer(d: SaVersion, e: EtatDeLaTraversee, cle: CleDeCarte): EtatDeLaTraversee {
   const cartes = e.cartes.map(c => (c.cle === cle ? { ...c, niveau: Math.min(NIVEAU_MAX, c.niveau + 1) as NiveauDeCarte } : c))
-  return { ...e, cartes, coeurs: e.coeurs + coeursMax(cartes) - coeursMax(e.cartes) }
+  return { ...e, cartes, coeurs: e.coeurs + coeursMax(d, cartes) - coeursMax(d, e.cartes) }
 }
 
-/** Une amélioration offerte (un coffre, un gardien) : à choisir, ou de l'or quand plus rien ne s'améliore. */
-function offrirUneAmelioration(e: EtatDeLaTraversee): { etat: EtatDeLaTraversee; recompense: 'amelioration' | 'or' } {
-  if (ameliorables(e).length > 0) return { etat: { ...e, ameliorations: e.ameliorations + 1 }, recompense: 'amelioration' }
+/**
+ * Une amélioration offerte (un coffre, un gardien) : à choisir parmi les cartes qui la prennent (`offrables`), ou de
+ * l'or quand aucune ne la prend plus — toutes à la carte + depuis la version 2, la carte ++ chez le marchand seulement.
+ */
+function offrirUneAmelioration(d: SaVersion, e: EtatDeLaTraversee): { etat: EtatDeLaTraversee; recompense: 'amelioration' | 'or' } {
+  if (offrables(d, e).length > 0) return { etat: { ...e, ameliorations: e.ameliorations + 1 }, recompense: 'amelioration' }
   return { etat: { ...e, or: e.or + OR_SANS_AMELIORATION }, recompense: 'or' }
 }
 
@@ -722,6 +954,33 @@ export function atteignables(d: DepartDeLaTraversee, e: EtatDeLaTraversee): stri
   return [...(etapeDe(d, e.position)?.suivantes ?? [])]
 }
 
+/**
+ * Celles des étapes `depuis` d'où un chemin mène jusqu'à `cible`, dans son
+ * acte : la page le dit sous une étape lointaine touchée sur la carte (« Par le
+ * Pari ou le coffre »), pour choisir son chemin d'après ce qui l'attend plus
+ * loin — sans quoi seules les étapes d'à côté se lisaient (le retour du
+ * propriétaire, le 1er novembre 2026). Vide : aucune n'y mène, ou la cible est
+ * d'un autre acte — le pont part du gardien, pas des chemins d'un acte.
+ */
+export function cheminsVers(d: Pick<DepartDeLaTraversee, 'actes'>, depuis: readonly string[], cible: string): string[] {
+  const acte = d.actes[acteDe(cible)]
+  if (!acte) return []
+  const parId = new Map(acte.etapes.map(x => [x.id, x]))
+  if (!parId.has(cible)) return []
+  const mene = new Map<string, boolean>()
+  const yMene = (id: string): boolean => {
+    if (id === cible) return true
+    const su = mene.get(id)
+    if (su !== undefined) return su
+    // Posé faux d'abord : un chemin qui reviendrait sur lui-même — la carte n'en trace pas — ne tournerait pas sans fin.
+    mene.set(id, false)
+    const oui = (parId.get(id)?.suivantes ?? []).some(yMene)
+    mene.set(id, oui)
+    return oui
+  }
+  return depuis.filter(id => parId.has(id) && yMene(id))
+}
+
 // ── Une épreuve conclue ───────────────────────────────────────────────────
 
 /**
@@ -747,14 +1006,17 @@ export function consequencesDe(
   const gardien = etape?.sorte === 'gardien'
   const n = (cle: CleDeCarte) => niveauDe(e.cartes, cle)
   const parade = n('parade')
-  const paresMax = parade !== 0 && (!gardien || parade >= PARADE_CONTRE_LES_GARDIENS) ? ERREURS_PAREES[parade] : 0
+  // La Parade de sa version : une traversée de la 1 garde la sienne, qui parait aussi chaque assaut dès la Parade +.
+  const regleDeLaParade = baremeDe(d).parade
+  const paresMax = parade !== 0 && (!gardien || parade >= regleDeLaParade.contreLesGardiens) ? regleDeLaParade.parees[parade] : 0
   const qod = n('quitte-ou-double')
   const mult = qod === 0 ? 1 : MULTIPLICATEUR_DE_LA_MISE[qod]
   const cagnotte = sous(OR_DE_LA_CAGNOTTE, n('cagnotte'), 0)
   const souffleN = n('second-souffle')
-  const max = coeursMax(e.cartes)
+  const max = coeursMax(d, e.cartes)
+  const orParEtoile = baremeDe(d).orParEtoile
   let { coeurs, or, souffle } = e
-  let pv = gardien ? (e.pv?.restent ?? pvDuGardien(acteDe(o.etape), e.cartes)) : null
+  let pv = gardien ? (e.pv?.restent ?? pvDuGardien(d, acteDe(o.etape), e.cartes)) : null
   const pvAvant = pv
   let parees = 0
   let vaincu = false
@@ -771,7 +1033,7 @@ export function consequencesDe(
     }
     const x = m.misee ? mult : 1
     if (m.etoiles !== null && m.etoiles >= 1) {
-      const gain = (m.etoiles * OR_PAR_ETOILE + cagnotte) * x
+      const gain = (m.etoiles * orParEtoile + cagnotte) * x
       or += gain
       reussies++
       let coups = 0
@@ -807,14 +1069,17 @@ export function consequencesDe(
   if (vaincu && !perdue) {
     etat = { ...etat, or: etat.or + OR_D_UN_GARDIEN, coeurs: max }
     if (e.acte < ACTES_D_UNE_TRAVERSEE - 1) {
-      const offerte = offrirUneAmelioration(etat)
+      const offerte = offrirUneAmelioration(d, etat)
       etat = offerte.etat
       recompense = offerte.recompense
     }
   }
+  // Le thème qui s'est joué, s'il s'est choisi : le bilan le dit, l'étape n'en ayant pas à elle.
+  const choisi = etape?.choix && e.ou.sorte === 'epreuve' && e.ou.etape === o.etape ? themeDeLEtape(etape, e.ou.theme) : null
   const bilan: BilanDEpreuve = {
     etape: o.etape,
     partie: o.partie,
+    ...(choisi && { theme: choisi.theme }),
     gardien,
     manches,
     or: etat.or - e.or,
@@ -845,7 +1110,7 @@ export function jouerUnGesteDeLaTraversee(d: DepartDeLaTraversee, avant: EtatDeL
     const lues = lireLesCartesChoisies(g.cartes)
     if (typeof lues === 'string') return lues
     const cartes = lues.map(cle => ({ cle, niveau: 1 as NiveauDeCarte }))
-    return suite({ ...e, cartes, coeurs: coeursMax(cartes), ou: { sorte: 'carte' } })
+    return suite({ ...e, cartes, coeurs: coeursMax(d, cartes), ou: { sorte: 'carte' } })
   }
   if (e.ou.sorte === 'cartes' && g.quoi !== 'abandonner') return CHOISIS_D_ABORD
   switch (g.quoi) {
@@ -860,15 +1125,20 @@ export function jouerUnGesteDeLaTraversee(d: DepartDeLaTraversee, avant: EtatDeL
       if (seJoue !== (g.quoi === 'epreuve')) return ETAPE_A_JOUER
       if (g.quoi === 'aller') {
         if (etape.sorte === 'coffre') {
-          const { etat } = offrirUneAmelioration({ ...e, position: etape.id, visitees, ou: { sorte: 'coffre', etape: etape.id } })
-          return suite(etat)
+          const { etat, recompense } = offrirUneAmelioration(d, { ...e, position: etape.id, visitees })
+          return suite({ ...etat, ou: { sorte: 'coffre', etape: etape.id, recompense } })
         }
         if (etape.sorte === 'marchand') return suite({ ...e, position: etape.id, visitees, ou: { sorte: 'marchand', etape: etape.id } })
         return ETAPE_A_JOUER
       }
-      if (etape.sorte === 'epreuve') return suite({ ...e, position: etape.id, visitees, ou: { sorte: 'epreuve', etape: etape.id, partie: g.partie } })
+      if (etape.sorte === 'epreuve') {
+        // Le thème choisi d'un Quiz, tel que le serveur l'a écrit ; absent, le premier — une carte écrite à la main.
+        const theme = etape.choix && g.theme !== undefined ? g.theme : undefined
+        if (theme !== undefined && refusDuTheme(etape, theme)) return CHOISIS_TON_THEME
+        return suite({ ...e, position: etape.id, visitees, ou: { sorte: 'epreuve', etape: etape.id, partie: g.partie, ...(theme !== undefined && { theme }) } })
+      }
       // Le gardien : le premier assaut engage le combat à ses points de vie du moment — Coup de grâce compris.
-      const pv = e.pv ?? { restent: pvDuGardien(e.acte, e.cartes), max: pvDuGardien(e.acte, e.cartes) }
+      const pv = e.pv ?? { restent: pvDuGardien(d, e.acte, e.cartes), max: pvDuGardien(d, e.acte, e.cartes) }
       return suite({ ...e, position: etape.id, visitees, pv, assauts: e.assauts + 1, ou: { sorte: 'gardien', etape: etape.id, partie: g.partie } })
     }
     case 'conclure': {
@@ -890,20 +1160,23 @@ export function jouerUnGesteDeLaTraversee(d: DepartDeLaTraversee, avant: EtatDeL
       if (e.ameliorations <= 0) return RIEN_A_AMELIORER
       const refus = refusDAmeliorer(e, g.carte)
       if (refus) return refus
-      return suite({ ...ameliorer(e, g.carte), ameliorations: e.ameliorations - 1 })
+      // Offerte, elle ne mène pas au plus haut niveau (`NIVEAU_OFFERT`) : la carte ++ se paie chez le marchand.
+      if (niveauDe(e.cartes, g.carte) >= baremeDe(d).niveauOffert) return PLUS_HAUT_CHEZ_LE_MARCHAND
+      return suite({ ...ameliorer(d, e, g.carte), ameliorations: e.ameliorations - 1 })
     }
     case 'acheter': {
       if (e.ou.sorte !== 'marchand') return PAS_CHEZ_LE_MARCHAND
-      const prix = prixAuMarchand(g.article, e.cartes)
       if (g.article === 'coeur') {
-        if (e.coeurs >= coeursMax(e.cartes)) return COEURS_AU_COMPLET
+        if (e.coeurs >= coeursMax(d, e.cartes)) return COEURS_AU_COMPLET
+        const prix = prixAuMarchand(d, 'coeur', e.cartes)
         if (e.or < prix) return PAS_ASSEZ_D_OR
         return suite({ ...e, or: e.or - prix, coeurs: e.coeurs + 1 })
       }
       const refus = refusDAmeliorer(e, g.carte)
       if (refus) return refus
+      const prix = prixAuMarchand(d, 'amelioration', e.cartes, g.carte)
       if (e.or < prix) return PAS_ASSEZ_D_OR
-      return suite({ ...ameliorer(e, g.carte), or: e.or - prix })
+      return suite({ ...ameliorer(d, e, g.carte), or: e.or - prix })
     }
     case 'legendaire': {
       if (e.ou.sorte !== 'legendaire') return e.ou.sorte === 'epreuve' || e.ou.sorte === 'gardien' ? EPREUVE_EN_COURS : TRAVERSEE_FINIE
@@ -961,11 +1234,12 @@ export function epreuveEnCours(d: DepartDeLaTraversee, e: EtatDeLaTraversee, par
   if ((ou.sorte !== 'epreuve' && ou.sorte !== 'gardien') || ou.partie !== partie) return null
   const vu = consequencesDe(d, e, { etape: ou.etape, partie, manches, enCours: !finie })
   const quitte = finie ? vu : consequencesDe(d, e, { etape: ou.etape, partie, manches, enCours: false })
-  const theme = etapeDe(d, ou.etape)?.theme
+  const etape = etapeDe(d, ou.etape)
+  const theme = etape ? themeDeLEtape(etape, ou.sorte === 'epreuve' ? ou.theme : undefined)?.theme : undefined
   const fin = vu.bilan.vaincu ? 'vaincu' : vu.bilan.perdue ? 'perdue' : undefined
   return {
     coeurs: vu.etat.coeurs,
-    coeursMax: coeursMax(vu.etat.cartes),
+    coeursMax: coeursMax(d, vu.etat.cartes),
     or: vu.etat.or,
     ...(ou.sorte === 'gardien' && vu.bilan.pv && { gardien: { cle: d.actes[e.acte].gardien, pv: vu.bilan.pv.apres, pvMax: vu.bilan.pv.max, assaut: e.assauts } }),
     manches: vu.bilan.manches,
@@ -999,7 +1273,11 @@ function lEtape(x: unknown): EtapeDeLaCarte | null {
   if (!chaine(x.sorte) || !['depart', 'epreuve', 'coffre', 'marchand', 'gardien'].includes(x.sorte)) return null
   if (!Array.isArray(x.suivantes) || !x.suivantes.every(s => chaine(s) && ID_D_ETAPE.test(s))) return null
   if (!(x.jeu === undefined || unJeu(x.jeu)) || !(x.theme === undefined || chaine(x.theme))) return null
+  // Le sujet du Quiz et son emoji : leur forme seulement — un sujet retiré de la base depuis se tire encore, d'un autre thème.
+  if (!(x.sujet === undefined || unId(x.sujet)) || !(x.emoji === undefined || (chaine(x.emoji) && x.emoji.length <= 16))) return null
   if (x.sorte === 'epreuve' && x.jeu === undefined) return null
+  const choix = x.choix === undefined ? undefined : lesThemesAuChoix(x.choix)
+  if (choix === null) return null
   return {
     id: x.id,
     rangee: x.rangee,
@@ -1007,9 +1285,26 @@ function lEtape(x: unknown): EtapeDeLaCarte | null {
     sorte: x.sorte as SorteDEtape,
     ...(x.jeu !== undefined && { jeu: x.jeu as CleDeJeu }),
     ...(x.theme !== undefined && { theme: x.theme as string }),
+    ...(x.sujet !== undefined && { sujet: x.sujet as string }),
+    ...(x.emoji !== undefined && { emoji: x.emoji as string }),
+    ...(choix && { choix }),
     suivantes: [...(x.suivantes as string[])],
   }
 }
+
+/** Les thèmes au choix d'une étape, relus à leur forme — un thème, et au besoin un sujet et un emoji ; null : illisibles. */
+function lesThemesAuChoix(x: unknown): ThemeAuChoix[] | null {
+  if (!Array.isArray(x) || x.length === 0 || x.length > 9) return null
+  const lus = x.map((t): ThemeAuChoix | null =>
+    objet(t) && chaine(t.theme) && t.theme.length > 0 && t.theme.length <= 120 && (t.sujet === undefined || unId(t.sujet)) && (t.emoji === undefined || (chaine(t.emoji) && t.emoji.length <= 16))
+      ? { theme: t.theme, ...(t.sujet !== undefined && { sujet: t.sujet as string }), ...(t.emoji !== undefined && { emoji: t.emoji as string }) }
+      : null,
+  )
+  return lus.every(t => t !== null) ? (lus as ThemeAuChoix[]) : null
+}
+
+/** Le rang d'un thème au choix, tel qu'un geste le porte : absent, ou un entier — le pli dit s'il est parmi ceux de l'étape. */
+const unThemeChoisi = (x: unknown): { theme?: number } | null => (x === undefined ? {} : entier(x, 0, 9) ? { theme: x } : null)
 
 /**
  * Le départ figé d'une traversée, relu champ par champ ; null : illisible, ou
@@ -1050,8 +1345,10 @@ export function lireUnGesteDeLaTraversee(brut: unknown, duServeur = false): Gest
       return Array.isArray(g.cartes) && g.cartes.length <= CARTES.length && g.cartes.every(c => chaine(c) && c.length <= 32)
         ? { quoi: 'cartes', cartes: [...(g.cartes as string[])] }
         : null
-    case 'aller':
-      return chaine(g.etape) && ID_D_ETAPE.test(g.etape) ? { quoi: 'aller', etape: g.etape } : null
+    case 'aller': {
+      const theme = unThemeChoisi(g.theme)
+      return chaine(g.etape) && ID_D_ETAPE.test(g.etape) && theme ? { quoi: 'aller', etape: g.etape, ...theme } : null
+    }
     case 'ameliorer': {
       const c = carteDeLaTraversee(g.carte)
       return c ? { quoi: 'ameliorer', carte: c.cle } : null
@@ -1065,8 +1362,10 @@ export function lireUnGesteDeLaTraversee(brut: unknown, duServeur = false): Gest
       return gardienDeLaTraversee(g.gardien) ? { quoi: 'legendaire', gardien: g.gardien as string } : null
     case 'abandonner':
       return { quoi: 'abandonner' }
-    case 'epreuve':
-      return duServeur && chaine(g.etape) && ID_D_ETAPE.test(g.etape) && unId(g.partie) ? { quoi: 'epreuve', etape: g.etape, partie: g.partie } : null
+    case 'epreuve': {
+      const theme = unThemeChoisi(g.theme)
+      return duServeur && chaine(g.etape) && ID_D_ETAPE.test(g.etape) && unId(g.partie) && theme ? { quoi: 'epreuve', etape: g.etape, partie: g.partie, ...theme } : null
+    }
     case 'conclure': {
       const manches = duServeur && unId(g.partie) ? lesManches(g.manches) : null
       return manches ? { quoi: 'conclure', partie: g.partie as string, manches } : null
@@ -1076,7 +1375,8 @@ export function lireUnGesteDeLaTraversee(brut: unknown, duServeur = false): Gest
 }
 
 /** Ce que l'or d'une manche réussie vaudrait, sans mise : la page le dit à l'annonce d'une épreuve. */
-export const orDUneManche = (etoiles: number, cartes: readonly CarteEnMain[]): number => etoiles * OR_PAR_ETOILE + sous(OR_DE_LA_CAGNOTTE, niveauDe(cartes, 'cagnotte'), 0)
+export const orDUneManche = (d: SaVersion, etoiles: number, cartes: readonly CarteEnMain[]): number =>
+  etoiles * baremeDe(d).orParEtoile + sous(OR_DE_LA_CAGNOTTE, niveauDe(cartes, 'cagnotte'), 0)
 
 /** Le nom d'un jeu, pour l'annonce d'une étape : « Le Pari ». */
 export const nomDuJeu = (jeu: CleDeJeu): string => JEUX[jeu].nom
