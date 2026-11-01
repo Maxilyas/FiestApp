@@ -228,9 +228,9 @@ Les pistes de la clôture ne comptent que des soirées closes qui comptent — p
 
 ## Les avatars légendaires
 
-![Le Phénix, l'un des trente et un avatars légendaires peints](../vitrine/peintures/phenix.webp)
+![Le Phénix, l'un des trente-deux avatars légendaires peints](../vitrine/peintures/phenix.webp)
 
-Trente et un avatars peints, qui prennent la place de ton emoji partout où l'on te voit. Un légendaire s'ouvre dès que **l'une de ses voies** est tenue ; « × 8 », c'est le haut fait gagné à huit soirées, jours ou parties différents. Ils ne s'achètent pas, rien ne les accélère, et ceux des soirées se méritent sur la durée : une vingtaine de quiz, au premier de la bande, pour la plupart (mesuré par `server/scripts/calibrage.ts`).
+Trente-deux avatars peints, qui prennent la place de ton emoji partout où l'on te voit. Un légendaire s'ouvre dès que **l'une de ses voies** est tenue ; « × 8 », c'est le haut fait gagné à huit soirées, jours ou parties différents. Ils ne s'achètent pas, rien ne les accélère, et ceux des soirées se méritent sur la durée : une vingtaine de quiz, au premier de la bande, pour la plupart (mesuré par `server/scripts/calibrage.ts`).
 
 | Légendaire | Une voie | Une autre voie |
 |---|---|---|

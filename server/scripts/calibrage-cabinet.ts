@@ -121,7 +121,17 @@ import type { DecalageDeLaZone, EpingleMontree, EpingleTiree } from '../../share
 import type { IndicesMontres, IndicesTires } from '../../shared/cabinet/jeux/indices'
 import type { RepliqueMontreeAQui, RepliqueMontreeAuMot, RepliqueTiree } from '../../shared/cabinet/jeux/replique'
 import type { QuizMontre, QuizTire } from '../../shared/cabinet/jeux/quiz'
-import type { CarteEnMain, CleDeCarte, DepartDeLaTraversee, EtapeDeLaCarte, EtatDeLaTraversee, GesteDeLaTraversee, MancheConclue } from '../../shared/cabinet/traversee'
+import type {
+  AidesDUneEpreuve,
+  CarteEnMain,
+  CleDeCarte,
+  DepartDeLaTraversee,
+  EtapeDeLaCarte,
+  EtatDeLaTraversee,
+  GesteDeLaTraversee,
+  GesteDeLaTraverseeEcrit,
+  MancheConclue,
+} from '../../shared/cabinet/traversee'
 import type { Point } from '../../shared/cabinet/france'
 import type { CleDePouvoir, Force } from '../../shared/cabinet/pouvoirs'
 import type { CleDOeuvre } from '../../shared/cabinet/oeuvres'
@@ -283,6 +293,9 @@ const { Budget } = await import('../src/core/budget')
 const { tronquer } = await import('../../shared/avatars')
 // La traversée et ses règles, chargées après l'essai comme les autres : un barème de la traversée s'y essaie aussi.
 const T = await import('../../shared/cabinet/traversee')
+// Les défis de tes cartes et les épreuves de maître, relus sur chaque traversée jouée : leurs seuils s'y essaient aussi.
+const D = await import('../../shared/cabinet/defis')
+const S = await import('../../shared/cabinet/sceaux')
 const { JEUX_PRETS } = await import('../../shared/cabinet/ouverture')
 
 const {
@@ -1973,6 +1986,9 @@ interface TraverseeJouee {
   /** Ses épreuves jouées, assauts compris, et leurs minutes — l'annonce et les révélations comprises, la carte non. */
   parties: number
   minutes: number
+  /** Son départ et ses gestes, tels que le serveur les écrirait : les défis de ses cartes s'y relisent (`defisDeLaTraversee`). */
+  depart: DepartDeLaTraversee
+  gestes: GesteDeLaTraverseeEcrit[]
 }
 
 /**
@@ -2010,7 +2026,7 @@ const RELUS_DES_EPREUVES = new Map<CleDeJeu, number>()
  * jouée manche par manche par le joueur, et rendue en étoiles naturelles, comme
  * le serveur la conclut (`conclure`).
  */
-function jouerLEpreuve(j: Joueur, e: EtatDeLaTraversee, traversee: DepartDeLaTraversee, etape: EtapeDeLaCarte, racine: string): { manches: MancheConclue[]; minutes: number } {
+function jouerLEpreuve(j: Joueur, e: EtatDeLaTraversee, traversee: DepartDeLaTraversee, etape: EtapeDeLaCarte, racine: string): { manches: MancheConclue[]; aides: AidesDUneEpreuve; minutes: number } {
   const assaut = etape.sorte === 'gardien' ? e.assauts + 1 : 0
   const visee = T.viseeDeLEtape(traversee, etape, assaut)
   if (!visee) throw new Error(`traversée : ${etape.id} ne se joue pas`)
@@ -2048,7 +2064,8 @@ function jouerLEpreuve(j: Joueur, e: EtatDeLaTraversee, traversee: DepartDeLaTra
     if (!P.mancheEnCours(p.e)?.verdict) throw new Error(`${d.jeu} : la manche ${m} de l'épreuve ne s'est pas tranchée`)
     p.t += SECONDES.revelation * 1000
   }
-  return { manches: P.etoilesDesManches(d, p.e).map(x => ({ etoiles: x.naturel, misee: x.misee })), minutes: (p.t - T_MESURE) / 60_000 }
+  // Ce qui a servi, comme le serveur l'écrit au geste qui conclut l'épreuve : les défis de ses cartes le lisent.
+  return { manches: P.etoilesDesManches(d, p.e).map(x => ({ etoiles: x.naturel, misee: x.misee })), aides: P.aidesDeLaPartie(p.e), minutes: (p.t - T_MESURE) / 60_000 }
 }
 
 /** Les thèmes que le contenu livré offre à la carte : les lieux de l'Épingle, les frises à thème. */
@@ -2086,10 +2103,13 @@ function jouerUneTraversee(j: Joueur, cartes: readonly CleDeCarte[], racine: str
     souffle: false,
     parties: 0,
     minutes: 0,
+    depart: { v: T.VERSION_DE_LA_TRAVERSEE, jour: JOUR_MESURE, actes: [] },
+    gestes: [],
   }
   const r = hasardDe(`${racine}:choix`)
   const gardiens = T.choisirLesGardiens(hasardDe(`${racine}:gardiens`), new Set(), false)
   const depart: DepartDeLaTraversee = { v: T.VERSION_DE_LA_TRAVERSEE, jour: JOUR_MESURE, actes: T.tracerLaCarte(hasardDe(`${racine}:carte`), gardiens, THEMES_DU_CONTENU, JEUX_PRETS) }
+  x.depart = depart
   let e = T.etatDuDepart(depart)
   let t = T_MESURE
   const jouer = (g: GesteDeLaTraversee) => {
@@ -2097,6 +2117,7 @@ function jouerUneTraversee(j: Joueur, cartes: readonly CleDeCarte[], racine: str
     const apres = T.jouerUnGesteDeLaTraversee(depart, e, g, t)
     if (typeof apres === 'string') throw new Error(`traversée : ${JSON.stringify(g)} refusé — ${apres}`)
     if (apres.or > e.or) x.orGagne += apres.or - e.or
+    x.gestes.push({ geste: g, faitLe: t })
     e = apres
   }
   const auPlusHaut = () => e.cartes.filter(c => c.niveau === T.NIVEAU_MAX).length
@@ -2152,11 +2173,11 @@ function jouerUneTraversee(j: Joueur, cartes: readonly CleDeCarte[], racine: str
     }
     if (etape.sorte === 'gardien') x.assauts[e.acte]++
     const acte = e.acte
-    const { manches, minutes } = jouerLEpreuve(j, e, depart, etape, `${racine}:${++n}`)
+    const { manches, aides, minutes } = jouerLEpreuve(j, e, depart, etape, `${racine}:${++n}`)
     x.parties++
     x.minutes += minutes
     jouer({ quoi: 'epreuve', etape: etape.id, partie: `p${n}` })
-    jouer({ quoi: 'conclure', partie: `p${n}`, manches })
+    jouer({ quoi: 'conclure', partie: `p${n}`, manches, aides })
     const b = e.derniere!
     const ici = b.gardien ? 'gardien' : 'epreuves'
     for (const m of b.manches.filter(m => m.comptee)) {
@@ -2561,6 +2582,29 @@ if (enSection('traversee')) {
       )} cœurs achetés ; ${arrondi(moyenne(xs.map(x => x.orGagne)), 0)} pièces gagnées, ${arrondi(moyenne(xs.map(x => x.orALaFin)), 0)} jamais dépensées ; le Second souffle a relevé ${ouTiret(part(x => x.souffle, avecLeSouffle), enPourcent)} de celles qui l'emportent`,
     )
     parCarte.set(j.nom, { toutes: gagnees, avec: new Map(T.CLES_DES_CARTES.map(c => [c, part(x => x.gagnee, xs.filter(x => x.cartes.includes(c)))])) })
+    // Les défis de ses cartes : la part des traversées qui tiennent chaque rang, parmi celles qui ont la carte — un rang
+    // se tient une fois pour toutes, un sur dix se gagne donc en une dizaine de traversées avec elle. Ce joueur ne se
+    // passe d'aucune carte : il éclaire et change dès qu'il doute, achète dès qu'il peut — l'Œil nu, l'Obstiné et
+    // l'Avare s'y lisent au plus bas.
+    const relus = xs.map(x => ({ x, cles: new Set(D.defisDeLaTraversee(x.depart, x.gestes).cles) }))
+    const lesRangs = (c: CleDeCarte) => {
+      const avec = relus.filter(y => y.x.cartes.includes(c))
+      return S.RANGS.map(k => (avec.length === 0 ? '—' : enPourcent(avec.filter(y => y.cles.has(S.cleDuRang(c, k))).length / avec.length))).join(' · ')
+    }
+    console.log(`    défis de ses cartes (Bronze · Argent · Or, parmi les traversées qui ont la carte) : ${T.CLES_DES_CARTES.map(c => `${S.NOMS_DES_DEFIS[c]} ${lesRangs(c)}`).join(' ; ')}`)
+    // Les épreuves de maître : parmi les traversées qui ont vaincu ce gardien, celles qui l'ont vaincu en maître.
+    const maitres = T.GARDIENS_DES_ACTES.map(
+      (cercle, k) =>
+        `acte ${ACTES_DITS[k]} — ` +
+        cercle
+          .map(g => {
+            const vaincu = relus.filter(y => y.x.depart.actes[k]?.gardien === g && y.x.acte > k)
+            const nom = g.replace(/^lg:/, '')
+            return vaincu.length < 20 ? `${nom} —` : `${nom} ${enPourcent(vaincu.filter(y => y.cles.has(S.cleDeLaMaitrise(g))).length / vaincu.length)}`
+          })
+          .join(', '),
+    )
+    console.log(`    épreuves de maître (parmi les traversées qui l'ont vaincu) : ${maitres.join(' ; ')}`)
   }
   // Ce que chaque carte apporte : les victoires des traversées qui l'emportent, et l'écart à toutes, en points.
   const noms = [...parCarte.keys()]

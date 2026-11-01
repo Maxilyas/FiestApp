@@ -50,7 +50,9 @@ import {
   type OeuvreAEcrire,
   type VisiteAFiger,
 } from './ecriture'
-import { reconcilier, type EtagereDuCabinet } from './gardiens'
+import { clesARanger, reconcilier, type EtagereDuCabinet } from './gardiens'
+import { VERSION_DES_DEFIS, defisDeLaTraversee } from '../../../../shared/cabinet/defis'
+import { defisTenus, type DefisTenus } from '../../../../shared/cabinet/sceaux'
 import { GARDIENS_DU_CABINET, RANGEMENT_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
 import {
   ETAPE_INCONNUE,
@@ -74,17 +76,22 @@ import {
   type EpreuveEnCours,
   type EtapeDeLaCarte,
   type EtatDeLaTraversee,
+  type AidesDUneEpreuve,
   type GesteDeLaTraversee,
   type GesteDeLaTraverseeEcrit,
   type ThemeDuQuiz,
 } from '../../../../shared/cabinet/traversee'
 import { fondreLesReveils, vuesDuCabinet, type ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 import {
+  LECTURES_DE_TOUTES_LES_TRAVERSEES,
   laLigneDOeuvre,
   laTraverseeLue,
   lectureDesOeuvres,
   lecturesDeLaPartie,
   lecturesDeLaTraversee,
+  lecturesDesParties,
+  lesPartiesLues,
+  lesTraverseesLues,
   lecturesDuMusee,
   laPartieLue,
   lireLeMusee,
@@ -131,6 +138,7 @@ import {
   ILLISIBLE,
   PARTIE_FINIE,
   VERSION_DU_DEPART,
+  aidesDeLaPartie,
   bilanDe,
   chronoDuDepart,
   enjeuDuTirage,
@@ -168,6 +176,10 @@ const aClore = (d: DepartDUnePartie, jour: string): boolean => !estUneEpreuve(d)
 export const MUSEES_GARDES = 500
 /** Les parties en cours gardées en mémoire, au plus, de même. */
 export const PARTIES_GARDEES = 200
+/** Les parties qu'une lecture de la relecture des défis demande à la fois : une liste d'arguments a ses bornes. */
+const PARTIES_PAR_LECTURE = 100
+/** La clé de `campagne_meta` qui dit jusqu'à quelle version les défis des traversées passées ont été relus. */
+export const RELECTURE_DES_DEFIS = 'relecture_des_defis'
 
 /**
  * Ce que le Cabinet lit des profils : les légendaires qu'il a, par quelque voie
@@ -315,6 +327,8 @@ export interface LectureDeLaTraversee {
   /** L'épreuve qui se joue : sa partie, à reprendre, et ce qu'elle vaut déjà à la traversée. */
   partie: PartieLue | null
   possedes: readonly string[]
+  /** Ce qu'il tient des défis de ses cartes, lu de l'étagère en mémoire (`defisTenus`) : le rang de chaque carte, ses gardiens maîtrisés. */
+  defis: DefisTenus
 }
 
 /** Un geste de la traversée reçu : la traversée d'après, ou ce qui le refuse sans rien écrire. */
@@ -1593,6 +1607,8 @@ export class CabinetStore {
     const suite: TraverseeGardee = { ...tr, gestes: [...tr.gestes, { geste, faitLe: t }], etat: apres }
     this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
     if (fin?.legendaire) await this.rangerLeLegendaire(profileId, fin.legendaire, t)
+    // Seule une épreuve conclue fait tomber un défi ou une épreuve de maître (`defisDeLaTraversee`) : ils se rangent aussitôt.
+    if (geste.quoi === 'conclure') await this.rangerLesDefis(profileId, suite, t)
     return { traversee: suite }
   }
 
@@ -1619,6 +1635,65 @@ export class CabinetStore {
     const voie = legendaire ? voieDuGardien(legendaire) : null
     if (!legendaire || !voie || !this.profils.recompensesOf || this.profils.recompensesOf(profileId).has(voie)) return
     await this.rangerLeLegendaire(profileId, legendaire, t)
+  }
+
+  /**
+   * Ce qu'une traversée a atteint et que l'étagère en mémoire n'a pas encore (`clesARanger`) : les rangs des défis
+   * de ses cartes, chaque gardien vaincu en maître et son légendaire, le légendaire du Cabinet aux dix Or — d'un
+   * seul lot, sous `#cabinet`, idempotent par la clé (invariant 22). Appelé après chaque épreuve conclue, et à
+   * chaque page de la traversée : un rangement raté ne fait tomber ni l'épreuve ni la page, il se dit au journal et
+   * la page suivante le refait. Rien ne se range quand rien ne manque — chaque `ranger` neuf recompte l'étagère.
+   */
+  private async rangerLesDefis(profileId: string, tr: TraverseeGardee | null, t: number): Promise<void> {
+    if (!this.profils.ranger || !this.profils.recompensesOf) return
+    // Sans traversée, l'étagère seule : le Djinn dû à dix Or déjà rangés, dont le rangement aurait manqué.
+    const manquantes = clesARanger(tr ? defisDeLaTraversee(tr.depart, tr.gestes).cles : [], this.profils.recompensesOf(profileId))
+    if (manquantes.length === 0) return
+    try {
+      await this.profils.ranger(profileId, RANGEMENT_DU_CABINET, manquantes, t)
+    } catch (e) {
+      console.error(`[cabinet] les défis ${tr ? `de la traversée ${tr.id}` : `de ${profileId}`} ne se rangent pas`, e)
+    }
+  }
+
+  /**
+   * Les défis des traversées d'avant, une fois par version (`VERSION_DES_DEFIS`, `campagne_meta.relecture_des_defis`)
+   * — au démarrage, comme les autres relectures : chaque traversée relue au pli, et ce qu'elle avait atteint rangé
+   * sous `#cabinet` (`clesARanger`), les légendaires des gardiens vaincus en maître compris. Ses épreuves conclues
+   * avant que le serveur écrive ce qui y a servi (`AidesDUneEpreuve`, le 1er novembre 2026) le reprennent de leurs
+   * parties, relues au pli — en mémoire seulement : le journal d'une traversée ne se réécrit pas. Une relecture ne
+   * fait qu'ajouter (invariant 22), un profil sous son verrou. Rend ce qu'elle a relu, ou null quand c'est déjà fait.
+   */
+  async relireLesDefis(): Promise<{ traversees: number; profils: number } | null> {
+    if (!this.profils.ranger) return null
+    const fait = await this.porte.client.execute({ sql: 'SELECT valeur FROM campagne_meta WHERE cle = ?', args: [RELECTURE_DES_DEFIS] })
+    if (Number(fait.rows[0]?.valeur ?? 0) >= VERSION_DES_DEFIS) return null
+    const traversees = lesTraverseesLues(await this.porte.client.batch(LECTURES_DE_TOUTES_LES_TRAVERSEES, 'read'))
+    // Les épreuves conclues sans ce qui y a servi : leurs parties, relues par paquets — une liste d'arguments a ses bornes.
+    const sansAides = [...new Set(traversees.flatMap(tr => tr.gestes.flatMap(({ geste: g }) => (g.quoi === 'conclure' && !g.aides ? [g.partie] : []))))]
+    const aides = new Map<string, AidesDUneEpreuve>()
+    for (let k = 0; k < sansAides.length; k += PARTIES_PAR_LECTURE) {
+      const parties = lesPartiesLues(await this.porte.client.batch(lecturesDesParties(sansAides.slice(k, k + PARTIES_PAR_LECTURE)), 'read'))
+      for (const [id, p] of parties) aides.set(id, aidesDeLaPartie(pliDeLaPartie(p.depart, p.gestes)))
+    }
+    const parProfil = new Map<string, string[]>()
+    for (const tr of traversees) {
+      const gestes = tr.gestes.map(x => (x.geste.quoi === 'conclure' && !x.geste.aides && aides.has(x.geste.partie) ? { ...x, geste: { ...x.geste, aides: aides.get(x.geste.partie)! } } : x))
+      const { cles } = defisDeLaTraversee(tr.depart, gestes)
+      if (cles.length > 0) parProfil.set(tr.profileId, [...(parProfil.get(tr.profileId) ?? []), ...cles])
+    }
+    const t = this.maintenant()
+    for (const [profileId, cles] of parProfil) {
+      await this.porte.avecVerrou(profileId, async () => {
+        const manquantes = clesARanger([...new Set(cles)], this.profils.recompensesOf?.(profileId) ?? new Map())
+        if (manquantes.length > 0) await this.profils.ranger!(profileId, RANGEMENT_DU_CABINET, manquantes, t)
+      })
+    }
+    await this.porte.client.execute({
+      sql: 'INSERT INTO campagne_meta (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur',
+      args: [RELECTURE_DES_DEFIS, String(VERSION_DES_DEFIS)],
+    })
+    return { traversees: traversees.length, profils: parProfil.size }
   }
 
   /**
@@ -1653,7 +1728,9 @@ export class CabinetStore {
       const manches = p
         ? etoilesDesManches(p.depart, p.etat).map(m => ({ etoiles: m.naturel, misee: m.misee }))
         : Array.from({ length: MANCHES_PAR_PARTIE }, () => ({ etoiles: null, misee: false }))
-      const issue = await this.ecrireUnGesteDeTraversee(profileId, tr, { quoi: 'conclure', partie: id, manches }, t)
+      // Ce qui a servi dans la partie, que les défis de tes cartes lisent (`aidesDeLaPartie`) ; introuvable, rien ne le dit.
+      const geste: GesteDeLaTraversee = { quoi: 'conclure', partie: id, manches, ...(p && { aides: aidesDeLaPartie(p.etat) }) }
+      const issue = await this.ecrireUnGesteDeTraversee(profileId, tr, geste, t)
       if ('traversee' in issue) return { traversee: issue.traversee, partie: null }
       if ('refus' in issue) {
         console.error(`[cabinet] l’épreuve ${id} de la traversée ${tr.id} ne se conclut pas : ${issue.refus}`)
@@ -1680,7 +1757,13 @@ export class CabinetStore {
   }
 
   private lectureDeLaTraversee(profileId: string, tr: TraverseeGardee | null, partie: PartieGardee | null, t: number): LectureDeLaTraversee {
-    return { maintenant: t, traversee: tr, partie: partie ? this.avecLEpreuve(profileId, this.lue(partie, t)) : null, possedes: this.profils.legendairesOf(profileId) }
+    return {
+      maintenant: t,
+      traversee: tr,
+      partie: partie ? this.avecLEpreuve(profileId, this.lue(partie, t)) : null,
+      possedes: this.profils.legendairesOf(profileId),
+      defis: defisTenus(this.profils.recompensesOf?.(profileId).keys() ?? []),
+    }
   }
 
   /**
@@ -1693,6 +1776,9 @@ export class CabinetStore {
       const t = this.maintenant()
       const { traversee, partie } = await this.aJour(profileId, t)
       await this.rattraperLeLegendaire(profileId, traversee, t)
+      // Ce que sa traversée a atteint et qu'un rangement raté a laissé : la page le refait, en mémoire d'abord — rien ne
+      // manque, rien ne part.
+      await this.rangerLesDefis(profileId, traversee, t)
       return this.lectureDeLaTraversee(profileId, traversee, partie, t)
     })
   }

@@ -584,6 +584,13 @@ export const COEURS_D_UNE_MISE_PERDUE = 2
 export const ERREURS_PAREES: Readonly<Record<Force, number>> = { 1: 1, 2: 2, 3: 2 }
 /** … et le niveau dès lequel elle pare aussi contre les gardiens : la Parade ++, que le marchand seul vend (la Parade + à la version 1). */
 export const PARADE_CONTRE_LES_GARDIENS: Force = 3
+/**
+ * … et les manches qu'elle pare sur tout un acte, au plus, gardien compris — depuis la version 3 de la traversée. Sans
+ * plafond, elle repartait à chaque épreuve, et restait la carte la plus forte du calibrage : 49 traversées sur cent au
+ * joueur moyen qui l'emportait, 17 points de plus que toutes (« J'aimerais que sur parade il y ait un maximum de
+ * parade sur l'ensemble d'un acte car sinon c'est trop fort », le propriétaire, le 1er novembre 2026).
+ */
+export const PARADES_PAR_ACTE: Readonly<Record<Force, number>> = { 1: 2, 2: 3, 3: 4 }
 /** Cagnotte : l'or de plus à chaque manche gagnée. */
 export const OR_DE_LA_CAGNOTTE: Readonly<Record<Force, number>> = { 1: 5, 2: 10, 3: 15 }
 /** Panacée : les cœurs de plus au maximum. */
@@ -601,3 +608,44 @@ export const COEURS_DU_SECOND_SOUFFLE: Readonly<Record<Force, number | null>> = 
 export const THEMES_AU_CHOIX_DU_QUIZ = 3
 /** Ce qu'un jeu peut faire d'épreuves dans une traversée, au plus — le contenu écrit à la main ; les autres n'ont pas de plafond. */
 export const EPREUVES_D_UN_JEU_MAX: Readonly<Partial<Record<CleDeJeu, number>>> = { frise: 3, epingle: 4, detail: 3, indices: 3, replique: 3 }
+
+// ── Les défis de tes cartes ───────────────────────────────────────────────
+// Le 1er novembre 2026 : « comme c'est dur d'équilibrer les cartes, est-ce que
+// l'on pourrait pas avoir des choses à gagner en fonction des cartes que l'on a
+// sur nous » — la proposition validée le même jour (`retours/2026-11-01/
+// defis-des-cartes.md`). Chaque carte porte un défi en trois rangs, qui ne
+// compte que si elle est dans ta main ; chaque gardien, son épreuve de maître
+// (`shared/cabinet/defis.ts`). Ils se lisent du journal de la traversée, et ce
+// qu'ils rapportent se range une fois pour toutes : un seuil relevé ne reprend
+// aucun rang (invariant 22), il ne vaut que pour les traversées à venir — et
+// pour la relecture des traversées passées, qui ne fait qu'ajouter.
+
+/**
+ * Les actes finis — leur gardien vaincu — que demande chaque rang d'un défi « sans » : un au Bronze, deux à
+ * l'Argent, les trois à l'Or, c'est-à-dire la traversée gagnée. Le Coup d'œil, l'Échange, la Concentration, la
+ * Parade, la Panacée et le Pourboire les comptent, chacun ce qu'il ne doit pas voir servir ; le Coup de grâce,
+ * les gardiens tombés au premier assaut.
+ */
+export const ACTES_DES_RANGS: readonly [number, number, number] = [1, 2, 3]
+/**
+ * Le Trésorier (la Cagnotte) : l'or en poche à la chute d'un gardien, au Bronze et à l'Argent ; à celle du dernier, à
+ * l'Or. Le joueur moyen qui l'emporte les tient une traversée sur deux, une sur cinq, une sur trente-cinq.
+ */
+export const OR_DU_TRESORIER: readonly [number, number, number] = [150, 300, 500]
+/**
+ * Le Flambeur (Quitte ou double) : les mises gagnées d'une traversée, au Bronze ; d'affilée, à l'Argent et à l'Or. Au
+ * calibrage du 1er novembre 2026, le joueur moyen qui l'emporte les tient une traversée sur deux, une sur cinq, une
+ * sur seize — trois mises gagnées, puis cinq d'affilée, en tombaient trois sur quatre et une sur trois.
+ */
+export const MISES_DU_FLAMBEUR: { gagnees: number; daffilee: readonly [number, number] } = { gagnees: 5, daffilee: [6, 8] }
+/** Ce que rapporte chaque rang d'un défi, la première fois : des confettis au Bronze et à l'Argent ; l'Or, un titre à porter. */
+export const CONFETTIS_D_UN_RANG: readonly [number, number, number] = [25, 75, 0]
+/** Les défis tenus à l'Argent — leurs rangs d'Argent, une carte chacun — qu'il faut pour la gerbe du Cabinet. */
+export const ARGENTS_POUR_LA_GERBE = 5
+/** Les défis tenus à l'Or qu'il faut pour le légendaire du Cabinet : les dix. */
+export const ORS_POUR_LE_LEGENDAIRE = 10
+/**
+ * L'or en poche qu'une épreuve de maître demande à la chute de son gardien, acte par acte (le Scarabée, la
+ * Salamandre, le Dragon) : au calibrage, une traversée du joueur moyen sur sept, cinq et neuf qui l'a vaincu.
+ */
+export const OR_D_UNE_MAITRISE: readonly [number, number, number] = [120, 250, 350]

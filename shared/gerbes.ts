@@ -19,6 +19,8 @@
 // avant elles ouvre la sienne d'un coup : ce qui est gagné reste gagné.
 
 import type { Rarete } from './badges'
+import { ARGENTS_POUR_LA_GERBE } from './cabinet/bareme'
+import { defisAuMoins, defisTenus } from './cabinet/sceaux'
 import type { CleDeSaison } from './saisons'
 
 /** La clé d'une gerbe, gardée dans son profil (`profiles.gerbe`). */
@@ -47,6 +49,7 @@ export type CleDeGerbe =
   | 'notes'
   | 'vacances'
   | 'ecole'
+  | 'cartes'
 
 /**
  * Ce qui ouvre une gerbe : un profil, tout simplement ; un haut fait gagné
@@ -60,6 +63,8 @@ export type CeQuiOuvreUneGerbe =
   | { palier: string; au: 1 | 2 | 3 }
   | { tresor: Rarete }
   | { fete: CleDeSaison }
+  /** Les défis du Cabinet tenus à l'Argent au moins, leurs cartes différentes (`shared/cabinet/sceaux.ts`). */
+  | { defis: number }
 
 /**
  * L'allure d'une gerbe : combien de particules, de quelle taille, en combien
@@ -243,6 +248,16 @@ export const GERBES: readonly Gerbe[] = [
     allure: { nombre: 15, taille: [0.9, 1.4], duree: [1.3, 2] },
   },
   {
+    // Le 1er novembre 2026 : les défis de tes cartes, au Cabinet de curiosités — des cartes qui volent, aux couleurs du jeu.
+    key: 'cartes',
+    nom: 'Les cartes',
+    regle: `${ARGENTS_POUR_LA_GERBE} défis du Cabinet tenus à l’Argent`,
+    par: { defis: ARGENTS_POUR_LA_GERBE },
+    particules: ['🃏', '♠️', '♥️', '♦️', '♣️'],
+    mouvement: 'jaillit',
+    allure: { nombre: 21, taille: [0.8, 1.45], duree: [1.35, 2.15] },
+  },
+  {
     key: 'citrouilles',
     nom: 'Les citrouilles',
     regle: 'Halloween, au quiz du jour ou en soirée',
@@ -350,6 +365,8 @@ export function gerbeOuverte(g: Gerbe, recompenses: ReadonlyMap<string, number>,
   // Sa fête gagnée, d'où qu'elle vienne — le quiz du jour, une soirée, le Cabinet : la clé même de son légendaire.
   if ('fete' in par) return (recompenses.get(`saison:${par.fete}`) ?? 0) > 0
   if ('hautFait' in par) return (recompenses.get(par.hautFait) ?? 0) >= par.fois
+  // Ses défis du Cabinet, comptés de leurs clés rangées : une carte par défi, l'Or valant l'Argent.
+  if ('defis' in par) return defisAuMoins(defisTenus(recompenses.keys()), 2) >= par.defis
   // Un palier plus haut vaut le sien : la soirée qui avait fait tomber le
   // bronze, retirée, laisse l'argent — et la gerbe avec.
   return ([1, 2, 3] as const).some(p => p >= par.au && (recompenses.get(`${par.palier}:${p}`) ?? 0) > 0)

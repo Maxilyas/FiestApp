@@ -30,7 +30,7 @@ import { formatNumber } from './typographie'
 export type PartieDuStyle = 'fonds' | 'gerbes' | 'finitions' | 'bordures'
 
 /** Où il se gagne — ou s'achète : l'icône de son étape, et l'écran où aller. */
-export type LieuDuStyle = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'duels' | 'niveau' | 'profil' | 'coffre' | 'boutique' | 'fete'
+export type LieuDuStyle = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'duels' | 'niveau' | 'profil' | 'coffre' | 'boutique' | 'fete' | 'cabinet'
 
 /** Ce qu'il faut pour l'avoir : une étape, comme celles des avatars de l'album. */
 export interface EtapeDuStyle {
@@ -74,6 +74,7 @@ const OU: Record<LieuDuStyle, string> = {
   coffre: 'Au coffre de la semaine',
   boutique: 'En boutique',
   fete: 'À sa fête',
+  cabinet: 'Au Cabinet',
 }
 
 /**
@@ -169,6 +170,8 @@ function etapeDeLaGerbe(p: ProfilDuStyle, g: Gerbe): Pick<ObjetDuStyle, 'etape' 
     const s = saison(par.fete)!
     return { etape: { lieu: 'fete', titre: `Pour ${s.nom}, ${s.periode}`, regle: `${s.jours} jours de quiz du jour, ou une soirée ces jours-là`, progres: null }, court: s.court }
   }
+  // Les défis de tes cartes, au Cabinet : sans jauge — la page du style ne reçoit pas ses défis, la traversée les dit.
+  if ('defis' in par) return { etape: { lieu: 'cabinet', titre: 'Au Cabinet : les défis de tes cartes', regle: g.regle, progres: null }, court: `${par.defis} Argent` }
   if ('palier' in par) {
     const h = hautFait(par.palier)
     if (h?.famille === 'carriere') return { etape: etapeDeLaPiste(p, h, h.paliers[par.au - 1], regleDuPalier(h, par.au)), court: titreDePalier(h, par.au) }

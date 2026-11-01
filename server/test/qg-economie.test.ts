@@ -4,6 +4,8 @@
 // ligne, datées à l'épreuve et au lundi qui paient —, ceux qui circulent,
 // relus une fois par jour et égaux aux soldes des profils, les meilleures
 // ventes, les Éclats et les légendaires portés.
+import { cleDuRang } from '../../shared/cabinet/sceaux'
+import { CONFETTIS_D_UN_RANG } from '../../shared/cabinet/bareme'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -96,7 +98,7 @@ test('les confettis jour par jour, les étoiles et les ligues datées, la circul
   assert.deepEqual(f.jours.at(-2), { jour: jourDe(hier + 12 * H), gagnes: 38, depenses: 50 + PRIX_D_UN_FOND })
   assert.deepEqual(
     f.sources,
-    { campagne: 20, jour: 0, soirees: 0, ligues: 30, etoiles: 0, missions: 0, coffres: 0, dons: 0 },
+    { campagne: 20, jour: 0, soirees: 0, ligues: 30, etoiles: 0, defis: 0, missions: 0, coffres: 0, dons: 0 },
     'un don d’avant les trente jours n’en est pas',
   )
   assert.deepEqual(f.depenses, {
@@ -297,6 +299,10 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
       db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, 'hf:phenix', 'une-soiree', 'banc', '🔥', 'Phénix', ?)`).run(deLea, avantHier)
       db.prepare(`UPDATE profiles SET legendaire = 'lg:phenix' WHERE id = ?`).run(deLea)
       db.prepare(`UPDATE profiles SET legendaire = 'lg:dragon' WHERE id = ?`).run(deTom)
+      // Le Bronze et l'Argent du Trésorier, rangés sous le Cabinet hier : les confettis des défis (`confettisDesDefis`).
+      const rang = db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#cabinet', '', '🃏', 'Le Trésorier', ?)`)
+      rang.run(deTom, cleDuRang('cagnotte', 1), hier)
+      rang.run(deTom, cleDuRang('cagnotte', 2), hier)
     })
     // Relus de la base : ce qu'un serveur en marche gardait en mémoire de Léa et de Tom.
     await banc.redemarrer()
@@ -308,7 +314,17 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
     ).semaines.get(passee)
     const ligues = recompenseDeLaSemaine(semaineDeTom)
     assert.ok(ligues > 0)
-    assert.deepEqual(page.sources, { campagne: 5 + 3 + 36, jour: 11, soirees: 7, ligues, etoiles: 10, missions: 60, coffres: 90, dons: 240 })
+    assert.deepEqual(page.sources, {
+      campagne: 5 + 3 + 36,
+      jour: 11,
+      soirees: 7,
+      ligues,
+      etoiles: 10,
+      defis: CONFETTIS_D_UN_RANG[0] + CONFETTIS_D_UN_RANG[1],
+      missions: 60,
+      coffres: 90,
+      dons: 240,
+    })
     assert.deepEqual(page.depenses, {
       themes: { objets: 1, confettis: PRIX_DES_THEMES.commune },
       compagnons: { objets: 1, confettis: PRIX_D_UN_COMPAGNON },

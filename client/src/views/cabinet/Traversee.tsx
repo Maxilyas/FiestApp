@@ -10,7 +10,7 @@ import { espacesFines } from '../../format'
 import { toucher } from '../../toucher'
 import { legendaire } from '../../../../shared/legendaires'
 import { JEUX } from '../../../../shared/cabinet/jeux/regle'
-import { CARTES_D_UNE_TRAVERSEE, COEURS_D_UNE_MISE_PERDUE, MULTIPLICATEUR_DE_LA_MISE, OR_D_UN_GARDIEN, OR_SANS_AMELIORATION } from '../../../../shared/cabinet/bareme'
+import { CARTES_D_UNE_TRAVERSEE, COEURS_D_UNE_MISE_PERDUE, CONFETTIS_D_UN_RANG, MULTIPLICATEUR_DE_LA_MISE, OR_D_UN_GARDIEN, OR_SANS_AMELIORATION } from '../../../../shared/cabinet/bareme'
 import {
   ACTES,
   CARTES,
@@ -37,6 +37,8 @@ import {
   type ThemeAuChoix,
 } from '../../../../shared/cabinet/traversee'
 import type { PageDeLaTraversee, VueDeLaTraversee } from '../../../../shared/cabinet/vues'
+import { defiDeLaCarte, maitriseDite } from '../../../../shared/cabinet/defis'
+import { NOMS_DES_DEFIS, RANGS, RANGS_DITS, defisTenus, gardienDeLaMaitrise, rangDeLaCle, type DefisTenus, type RangDUnDefi } from '../../../../shared/cabinet/sceaux'
 import { Bourse, Coeurs, Piece, PointsDeVie } from './Monnaies'
 import type { EtapeDessinee, SceneDeLaTraversee } from './TraverseeEn3D'
 
@@ -82,6 +84,8 @@ export function CarteDeLaTraversee({
   inerte,
   etiquette,
   v,
+  dos,
+  doree,
 }: {
   cle: CleDeCarte
   niveau: NiveauDeCarte
@@ -92,6 +96,10 @@ export function CarteDeLaTraversee({
   etiquette?: string
   /** La version de la traversée, dont la carte dit les chiffres : la Parade de la 1 n'est pas celle de la 2. */
   v?: VueDeLaTraversee['v']
+  /** Le défi écrit au dos de la carte (`DosDeLaCarte`). */
+  dos?: ReactNode
+  /** Son défi tenu à l'Argent au moins : la carte a son dos doré. */
+  doree?: boolean
 }) {
   const c = carteDeLaTraversee(cle)
   if (!c) return null
@@ -112,15 +120,74 @@ export function CarteDeLaTraversee({
       </span>
       <span className={`cab-tv-sorte cab-tv-sorte-${c.sorte}`}>{etiquette ?? SORTES_DITES[c.sorte]}</span>
       <span className="cab-tv-dit">{espacesFines(c.dit(niveau, v))}</span>
+      {dos}
       {bas && <span className="cab-tv-bas">{bas}</span>}
     </>
   )
-  const classe = 'cab-tv-carte' + (prise ? ' cab-tv-prise' : '') + (niveau > 1 ? ' cab-tv-amelioree' : '')
+  const classe = 'cab-tv-carte' + (prise ? ' cab-tv-prise' : '') + (niveau > 1 ? ' cab-tv-amelioree' : '') + (doree ? ' cab-tv-doree' : '')
   if (!action) return <div className={classe}>{contenu}</div>
   return (
     <button type="button" className={classe} aria-pressed={prise} aria-disabled={inerte || undefined} {...toucher(() => !inerte && action())}>
       {contenu}
     </button>
+  )
+}
+
+// ── Les défis de tes cartes ──
+
+/** Aucun défi tenu : une page d'avant, ou un rendu qui n'en dit rien. */
+const AUCUN_DEFI: DefisTenus = defisTenus([])
+
+/**
+ * Le défi écrit au dos d'une carte (le 1er novembre 2026, `retours/2026-11-01/defis-des-cartes.md`) : son nom, ses trois
+ * rangs — tenus en couleur —, et ce que demande le prochain. Il ne compte que si la carte est dans ta main.
+ */
+function DosDeLaCarte({ cle, rang }: { cle: CleDeCarte; rang: 0 | RangDUnDefi }) {
+  const x = defiDeLaCarte(cle)
+  if (!x) return null
+  const suivant = rang < 3 ? ((rang + 1) as RangDUnDefi) : null
+  return (
+    <span className="cab-tv-defi">
+      <span className="cab-tv-defi-tete">
+        <span className="cab-tv-sceaux" role="img" aria-label={RANGS.map(k => `${RANGS_DITS[k]} ${k <= rang ? 'tenu' : 'à gagner'}`).join(', ')}>
+          {RANGS.map(k => (
+            <span key={k} className={`cab-tv-sceau cab-tv-sceau-${k}${k <= rang ? ' cab-tv-sceau-tenu' : ''}`} />
+          ))}
+        </span>
+        <b>{x.nom}</b>
+      </span>
+      <span className="cab-tv-defi-rang">{suivant ? espacesFines(`${RANGS_DITS[suivant]} : ${enMinuscule(x.rangs[suivant - 1])}`) : 'Les trois rangs sont à toi'}</span>
+    </span>
+  )
+}
+
+/** Une phrase de rang après les deux-points : sa première lettre en minuscule — « Bronze : un acte fini… ». */
+const enMinuscule = (phrase: string) => phrase.charAt(0).toLowerCase() + phrase.slice(1)
+
+/** Ce qu'une clé tombée dit, une ligne : le plus haut rang de chaque carte, chaque gardien vaincu en maître. */
+function sceauxDits(cles: readonly string[]): string[] {
+  const t = defisTenus(cles)
+  const rangs = (Object.keys(NOMS_DES_DEFIS) as CleDeCarte[]).flatMap(c => (cles.some(k => rangDeLaCle(k)?.carte === c) && t.rangs[c] > 0 ? [`${NOMS_DES_DEFIS[c]} · ${RANGS_DITS[t.rangs[c] as RangDUnDefi]}`] : []))
+  const maitres = cles.flatMap(k => {
+    const g = gardienDeLaMaitrise(k)
+    return g ? [`${nomDe(g)} vaincu en maître : il est à toi`] : []
+  })
+  return [...rangs, ...maitres]
+}
+
+/** Les sceaux tombés, sous un bilan ou à la fin : ce que ses cartes ont tenu, ses gardiens vaincus en maître. */
+function SceauxTombes({ cles, titre }: { cles: readonly string[]; titre: string }) {
+  const dits = sceauxDits(cles)
+  if (dits.length === 0) return null
+  return (
+    <section className="cab-tv-tombes" aria-label={titre}>
+      <p className="cab-tv-sur">{titre}</p>
+      <ul className="cab-tv-notes">
+        {dits.map(d => (
+          <li key={d}>{espacesFines(d)}</li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -358,6 +425,8 @@ function retenirLesVus(id: string, vus: ReadonlySet<string>) {
 
 export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onReprendre }: PropsDeLaTraversee) {
   const t = page.traversee
+  // Ce qu'il tient des défis de ses cartes, toutes traversées confondues : le dos de chaque carte le dit.
+  const defis = page.defis ?? AUCUN_DEFI
   const sceneRef = useRef<SceneDeLaTraversee | null>(null)
   const [selection, setSelection] = useState<string | null>(null)
   // L'étape lointaine touchée sur la carte : le panneau dit ce qu'elle est et par où y aller ; elle ne se choisit pas.
@@ -475,6 +544,7 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
     plein = choixDesCartes ? (
       <ChoixDesCartes
         v={t.v}
+        defis={defis}
         choix={choix}
         busy={busy}
         onChoisir={cle => setChoix(c => (c.includes(cle) ? c.filter(x => x !== cle) : c.length < CARTES_D_UNE_TRAVERSEE ? [...c, cle] : c))}
@@ -495,7 +565,7 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
       })
     plein =
       e.sorte === 'gardien' ? (
-        <AnnonceDuGardien t={t} etape={arrivee} busy={busy} onAffronter={() => entrer()} onRetour={() => retourALaCarte(arrivee)} />
+        <AnnonceDuGardien t={t} etape={arrivee} maitrises={defis.maitrises} busy={busy} onAffronter={() => entrer()} onRetour={() => retourALaCarte(arrivee)} />
       ) : (
         <AnnonceDeLEpreuve t={t} e={e} busy={busy} onCommencer={entrer} onRetour={() => retourALaCarte(arrivee)} />
       )
@@ -509,7 +579,8 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
         onPartir={() => void yAller(t.atteignables[0])}
       />
     )
-  else if (t.ou.sorte === 'gardien' && t.ou.partie === null) plein = <AnnonceDuGardien t={t} etape={t.ou.etape} busy={busy} onAffronter={() => void geste({ quoi: 'aller', etape: t.ou.sorte === 'gardien' ? t.ou.etape : '' })} />
+  else if (t.ou.sorte === 'gardien' && t.ou.partie === null)
+    plein = <AnnonceDuGardien t={t} etape={t.ou.etape} maitrises={defis.maitrises} busy={busy} onAffronter={() => void geste({ quoi: 'aller', etape: t.ou.sorte === 'gardien' ? t.ou.etape : '' })} />
 
   /** Renoncer à l'annonce : la comète revient où il était, rien n'est joué. */
   function retourALaCarte(etape: string) {
@@ -521,7 +592,7 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
   return (
     <div className="cab-tv" style={{ ['--cab-tv-teinte' as string]: String(ACTES[t.acte].teinte) }}>
       {scene}
-      {!plein && t.ou.sorte === 'cartes' && <LesGardiens t={t} possedes={page.possedes} onChoisirLesCartes={() => setChoixDesCartes(true)} />}
+      {!plein && t.ou.sorte === 'cartes' && <LesGardiens t={t} possedes={page.possedes} maitrises={defis.maitrises} onChoisirLesCartes={() => setChoixDesCartes(true)} />}
       {!plein && t.ou.sorte !== 'cartes' && (
         <LaCarte
           t={t}
@@ -540,7 +611,15 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
         <Feuille titre="Tes cartes" className="cab-tv-feuille" onFermer={() => setFeuille(null)}>
           <div className="cab-tv-cartes cab-tv-trois">
             {t.cartes.map(c => (
-              <CarteDeLaTraversee key={c.cle} cle={c.cle} niveau={c.niveau} v={t.v} etiquette={c.cle === 'second-souffle' && t.souffle ? 'Déjà servie' : undefined} />
+              <CarteDeLaTraversee
+                key={c.cle}
+                cle={c.cle}
+                niveau={c.niveau}
+                v={t.v}
+                etiquette={c.cle === 'second-souffle' && t.souffle ? 'Déjà servie' : c.cle === 'parade' && t.parades ? sousLaParade(t.parades) : undefined}
+                dos={<DosDeLaCarte cle={c.cle} rang={defis.rangs[c.cle]} />}
+                doree={defis.rangs[c.cle] >= 2}
+              />
             ))}
           </div>
         </Feuille>
@@ -640,7 +719,7 @@ function EcranDeTitre({ page, busy, carte, onCommencer, onRegles }: { page: Page
 
 // ── Les trois gardiens, puis les cartes ──
 
-function LesGardiens({ t, possedes, onChoisirLesCartes }: { t: VueDeLaTraversee; possedes: readonly string[]; onChoisirLesCartes: () => void }) {
+function LesGardiens({ t, possedes, maitrises, onChoisirLesCartes }: { t: VueDeLaTraversee; possedes: readonly string[]; maitrises: readonly string[]; onChoisirLesCartes: () => void }) {
   return (
     <div className="cab-tv-ui">
       <header className="cab-tv-titre">
@@ -661,6 +740,14 @@ function LesGardiens({ t, possedes, onChoisirLesCartes }: { t: VueDeLaTraversee;
             ))}
           </ul>
           <p className="cab-tv-pale">{espacesFines('Bats-les tous les trois : l’un d’eux sera à toi, un avatar légendaire.')}</p>
+          {/* Leurs épreuves de maître, dites avant le choix des cartes : certaines s'y préparent — une mise, le Second souffle. */}
+          <ul className="cab-tv-notes cab-tv-maitrises" aria-label="Leurs épreuves de maître">
+            {t.actes.map(a => (
+              <li key={a.gardien}>
+                <b>{nomDe(a.gardien)}</b> {espacesFines(maitrises.includes(a.gardien) ? 'déjà vaincu en maître' : `${(maitriseDite(a.gardien) ?? '').replace(/^Le vaincre/, 'à vaincre')} : il est à toi aussitôt`)}
+              </li>
+            ))}
+          </ul>
           <button type="button" className="cab-tv-cta" {...toucher(onChoisirLesCartes)}>
             Choisir mes trois cartes
           </button>
@@ -672,6 +759,7 @@ function LesGardiens({ t, possedes, onChoisirLesCartes }: { t: VueDeLaTraversee;
 
 function ChoixDesCartes({
   v,
+  defis,
   choix,
   busy,
   onChoisir,
@@ -679,6 +767,7 @@ function ChoixDesCartes({
   onPartir,
 }: {
   v: VueDeLaTraversee['v']
+  defis: DefisTenus
   choix: readonly CleDeCarte[]
   busy: boolean
   onChoisir: (cle: CleDeCarte) => void
@@ -693,11 +782,21 @@ function ChoixDesCartes({
         <header className="cab-tv-tete-ecran">
           <p className="cab-tv-sur">Avant de partir</p>
           <h2 tabIndex={-1}>Choisis trois cartes</h2>
-          <p className="cab-tv-pale">{espacesFines(`Ce sont les seules de ta traversée : ${quiAmeliore(v)}.`)}</p>
+          <p className="cab-tv-pale">{espacesFines(`Ce sont les seules de ta traversée : ${quiAmeliore(v)}. Au dos de chacune, un défi : il ne compte que si elle est dans ta main.`)}</p>
         </header>
         <div className="cab-tv-cartes">
           {CARTES.map(c => (
-            <CarteDeLaTraversee key={c.cle} cle={c.cle} niveau={1} v={v} prise={choix.includes(c.cle)} inerte={!choix.includes(c.cle) && complet} action={() => onChoisir(c.cle)} />
+            <CarteDeLaTraversee
+              key={c.cle}
+              cle={c.cle}
+              niveau={1}
+              v={v}
+              prise={choix.includes(c.cle)}
+              inerte={!choix.includes(c.cle) && complet}
+              action={() => onChoisir(c.cle)}
+              dos={<DosDeLaCarte cle={c.cle} rang={defis.rangs[c.cle]} />}
+              doree={defis.rangs[c.cle] >= 2}
+            />
           ))}
         </div>
       </div>
@@ -847,16 +946,25 @@ function RegardSurLaCarte({ t, e, onRanger }: { t: VueDeLaTraversee; e: EtapeDeL
 // ── L'annonce d'une épreuve, d'un gardien ──
 
 /**
+ * Ce qui reste à la Parade dans l'acte (`VueDeLaTraversee.parades`, depuis la version 3) : sous sa carte, comme
+ * « Déjà servie » sous le Second souffle, et à l'annonce d'une épreuve — son plafond se compte d'une épreuve à
+ * l'autre, et une manche ratée qui coûte un cœur sous la Parade ne se comprendrait pas sans lui.
+ */
+const sousLaParade = (p: { restent: number }) => (p.restent === 0 ? 'Plus aucune dans l’acte' : `Encore ${p.restent} dans l’acte`)
+const resteDeLaParade = (p: { restent: number }) => (p.restent === 0 ? 'Il ne t’en reste plus dans cet acte.' : `Il t’en reste ${p.restent} dans cet acte.`)
+
+/**
  * Ce que tes cartes font à cette épreuve, une ligne chacune : celles qui y jouent — pas la Panacée ni le Pourboire, ni
  * ce qui ne vise qu'un gardien, ni la Parade contre un gardien sous le niveau où elle le pare (celui de sa version).
  */
-function ceQueFontTesCartes(t: Pick<VueDeLaTraversee, 'cartes' | 'v'>, gardien: boolean): { nom: string; dit: string }[] {
+function ceQueFontTesCartes(t: Pick<VueDeLaTraversee, 'cartes' | 'v' | 'parades'>, gardien: boolean): { nom: string; dit: string }[] {
   return t.cartes.flatMap(c => {
     const carte = carteDeLaTraversee(c.cle)
     if (!carte) return []
     if (c.cle === 'parade' && gardien && c.niveau < baremeDe(t).parade.contreLesGardiens) return []
     if (c.cle === 'pourboire' || c.cle === 'panacee' || (c.cle === 'coup-de-grace' && !gardien)) return []
-    return [{ nom: nomAuNiveau(carte, c.niveau), dit: carte.dit(c.niveau, t.v) }]
+    const dit = carte.dit(c.niveau, t.v)
+    return [{ nom: nomAuNiveau(carte, c.niveau), dit: c.cle === 'parade' && t.parades ? `${dit} ${resteDeLaParade(t.parades)}` : dit }]
   })
 }
 
@@ -965,7 +1073,21 @@ function AnnonceDeLEpreuve({
   )
 }
 
-function AnnonceDuGardien({ t, etape, busy, onAffronter, onRetour }: { t: VueDeLaTraversee; etape: string; busy: boolean; onAffronter: () => void; onRetour?: () => void }) {
+function AnnonceDuGardien({
+  t,
+  etape,
+  maitrises,
+  busy,
+  onAffronter,
+  onRetour,
+}: {
+  t: VueDeLaTraversee
+  etape: string
+  maitrises: readonly string[]
+  busy: boolean
+  onAffronter: () => void
+  onRetour?: () => void
+}) {
   const a = acteDe(etape)
   const g = t.actes[a].gardien
   const fiche = gardienDeLaTraversee(g)
@@ -985,6 +1107,11 @@ function AnnonceDuGardien({ t, etape, busy, onAffronter, onRetour }: { t: VueDeL
         <h2 tabIndex={-1}>{nomDe(g)}</h2>
         {fiche && <p className="cab-tv-devise">{espacesFines(fiche.devise)}</p>}
         <PointsDeVie pv={pv.restent} max={pv.max} />
+        {maitriseDite(g) && (
+          <p className="cab-tv-maitrise">
+            <b>Épreuve de maître</b> {espacesFines(maitrises.includes(g) ? `· déjà réussie — ${maitriseDite(g)}` : `· ${maitriseDite(g)} : il est à toi aussitôt, quoi qu’il arrive ensuite.`)}
+          </p>
+        )}
         <div className="cab-tv-regle-gardien">
           <p>
             <b>{t.assauts > 0 ? `Assaut ${assaut}` : 'Le combat'}</b>
@@ -1065,6 +1192,12 @@ export function ReglesDeLaTraversee({ v = VERSION_DE_LA_TRAVERSEE, onFermer }: {
         <h3>La carte</h3>
         <p>{espacesFines('Chaque chemin mène à un jeu, sur un thème — au Quiz, tu choisis le tien parmi trois. Une épreuve se joue en trois manches. Le gardien, au bout de l’acte, perd un point de vie à chaque étoile que tu gagnes contre lui ; tu l’affrontes jusqu’à sa chute, ou la tienne.')}</p>
         <p>{espacesFines(`Vaincu, un gardien rend tes cœurs au complet et donne ${piecesDites(OR_D_UN_GARDIEN)}. Ta traversée se reprend où tu l’as laissée.`)}</p>
+        <h3>Les défis de tes cartes</h3>
+        <p>
+          {espacesFines(
+            `Au dos de chaque carte, un défi en trois rangs — Bronze, Argent, Or —, qui ne compte que si elle est dans ta main : souvent, l’avoir et s’en passer. Un rang tenu est à toi pour toujours, même si la traversée tombe ensuite : ${CONFETTIS_D_UN_RANG[0]} confettis au Bronze, ${CONFETTIS_D_UN_RANG[1]} à l’Argent et le dos de la carte doré, un titre à l’Or. Chaque gardien a aussi son épreuve de maître : vaincu ainsi, il est à toi aussitôt.`,
+          )}
+        </p>
       </div>
     </Feuille>
   )
@@ -1132,6 +1265,8 @@ function BilanDEpreuve({ t, b, onContinuer }: { t: VueDeLaTraversee; b: BilanDEp
           <p className="cab-tv-pale">{espacesFines(`Il tient encore : ${pluriel(b.pv.apres, 'point')} de vie. Un autre assaut l’attend.`)}</p>
         )}
         {b.manches.some(m => m.misee && m.comptee && (m.etoiles ?? 0) === 0) && <p className="cab-tv-pale">{espacesFines(`Une mise perdue coûte ${coeursDits(COEURS_D_UNE_MISE_PERDUE)}.`)}</p>}
+        {/* Ce que cette épreuve a fait tomber des défis de tes cartes : un défi tombe à la chute d'un gardien, une mise gagnée. */}
+        <SceauxTombes cles={t.derniere?.partie === b.partie ? (t.sceaux?.derniers ?? []) : []} titre="Tes défis" />
       </div>
       <div className="cab-tv-pied">
         <div className="cab-tv-ressources">
@@ -1357,6 +1492,8 @@ function FinDeLaTraversee({ t, possedes, busy, onCommencer }: { t: VueDeLaTraver
           </>
         )}
         {stats}
+        {/* Ce qu'elle a tenu reste à lui, gagnée ou non : un défi d'acte tenu ne se reprend pas. */}
+        <SceauxTombes cles={t.sceaux?.atteints ?? []} titre="Tenu pendant cette traversée" />
       </div>
       <div className="cab-tv-pied">
         <button type="button" className="cab-tv-cta" aria-disabled={busy || undefined} {...toucher(() => !busy && onCommencer())}>

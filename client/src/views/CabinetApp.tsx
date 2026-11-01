@@ -12,7 +12,7 @@ import { porterTheme } from '../themeJoueur'
 import { titreDePage } from '../titres'
 import { arreterLEcho } from '../toucher'
 import type { PageDeLaTraversee } from '../../../shared/cabinet/vues'
-import { partieARouvrir, partieDansLEntree, poserLEntreeDeLaPartie, quitterVersLeMusee } from './cabinet/ecrans'
+import { partieARouvrir, partieDansLEntree, poserLEntreeDeLaPartie, quitterLEpreuveFinie, quitterVersLeMusee } from './cabinet/ecrans'
 import { Partie, ecranDuJeu } from './cabinet/Partie'
 import { retenirLeProfil } from './cabinet/retenu'
 import { ReglesDeLaTraversee, Traversee } from './cabinet/Traversee'
@@ -241,9 +241,12 @@ export function CabinetApp() {
    */
   const apresLEpreuve = useCallback(() => {
     const id = montreeRef.current
-    conclueRef.current = id
-    setConclue(id)
-    quitterVersLeMusee(window.history, window.location.hash, '')
+    // Une fois par épreuve (`quitterLEpreuveFinie`) : annoncée deux fois, elle reculait deux fois, et sortait du Cabinet. Le second
+    // appel relit seulement — une relecture perdue se retente ainsi au toucher suivant.
+    if (quitterLEpreuveFinie(window.history, window.location.hash, id, conclueRef.current)) {
+      conclueRef.current = id
+      setConclue(id)
+    }
     relire()
   }, [relire])
 

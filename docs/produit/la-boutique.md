@@ -1,6 +1,6 @@
 # La boutique
 
-> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, vingt-cinq fonds de carte, vingt-quatre gerbes, cinq compagnons — et l'identité visuelle de FiestApp.
+> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, vingt-cinq fonds de carte, vingt-cinq gerbes, cinq compagnons — et l'identité visuelle de FiestApp.
 
 **Dans cette page** : [gagner des confettis](#gagner-des-confettis) · [les dépenser](#les-dépenser) · [un solde qui se relit](#un-solde-qui-se-relit) · [la boutique et ses rayons](#la-boutique-et-ses-rayons) · [essayer et porter](#essayer-et-porter) · [les thèmes](#les-thèmes) · [les fonds de carte](#les-fonds-de-carte) · [les gerbes](#les-gerbes) · [les compagnons](#les-compagnons) · [l'identité visuelle](#lidentité-visuelle) · [comment c'est construit](#comment-cest-construit)
 
@@ -17,6 +17,7 @@ Ton solde se lit au bout de ta ligne d'expérience (« 🎊 820 »), sur l'accue
 | La campagne | chaque bonne réponse, dans tous ses modes : séries, épreuves des sentiers, parcours de thème, révisions du carnet, défi de la semaine, duels | un confetti chacune |
 | Les étoiles des sentiers | la meilleure note de chaque palier des douze sentiers (pas celles des parcours de thème) | deux étoiles 10, trois étoiles 25 (`CONFETTIS_DES_ETOILES`) ; une meilleure note paie la différence |
 | Les ligues des duels | chaque semaine close où tu as joué trois duels (`DUELS_POUR_LA_RECOMPENSE`) paie ta meilleure ligue de la semaine | bronze 10, argent 20, or 30, platine 40, diamant 50, maîtres 60 (`LIGUES`) ; la semaine en cours paie le lundi |
+| Les défis de tes cartes | au Cabinet de curiosités, chaque rang d'un défi la première fois qu'il tombe ([le Cabinet](le-cabinet.md#les-défis-de-tes-cartes)) | Bronze 25, Argent 75 (`CONFETTIS_D_UN_RANG`) ; l'Or fait porter un titre |
 | L'administrateur | un don, depuis ta fiche au QG, avec un mot s'il le veut ; ou une annonce à tous — après une panne, pour une fête —, un don par profil | de 1 à 500 (`CONFETTIS_PAR_DON_MAX`), annoncé une fois sur ton accueil ; de 0 à 500 sous une annonce, à chacun des profils d'alors |
 | Les missions du jour | chaque mission faite, et les trois le même jour ([les missions](les-missions.md)) | 15 chacune, 15 de plus pour les trois — 60 au plus par jour |
 | Le coffre de la semaine | sa rareté commune, ou quand tu as déjà tout le reste | 60, 90, 120 ou 150 selon le coffre (`CONFETTIS_DU_COFFRE`) |
@@ -194,6 +195,7 @@ Sans choix, ce sont les confettis ; « Aucune », dans la loge, les éteint. Neu
 | Les colombes | le Funambule, en campagne | 🕊️ | monte |
 | Les flammes | trente jours de série (L'Infatigable · Argent) | 🔥 | monte |
 | Les trophées | le défi de la semaine, gagné | 🏆 🥇 | jaillit |
+| Les cartes | cinq défis du Cabinet tenus à l'Argent ([le Cabinet](le-cabinet.md#les-défis-de-tes-cartes)) | 🃏 ♠️ ♥️ ♦️ ♣️ | jaillit |
 | Les fusées | le Nouvel An, au quiz du jour ou en soirée | 🎆 🎇 ✨ | monte |
 | Les roses | la Saint-Valentin, au quiz du jour ou en soirée | 🌹 💌 💕 | tombe |
 | Le printemps | Pâques, au quiz du jour ou en soirée | 🐣 🌷 🥚 🐰 | jaillit |

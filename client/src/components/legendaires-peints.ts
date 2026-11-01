@@ -1,4 +1,4 @@
-// Les trente et un légendaires, peints : leurs fichiers, dans `client/public/medaillons`.
+// Les trente-deux légendaires, peints : leurs fichiers, dans `client/public/medaillons`.
 //
 // Écrit par `server/scripts/anime/legendaires.ts --livrer` : on ne le retouche
 // pas à la main, on relance la chaîne. Chaque fichier est nommé par son
@@ -203,5 +203,11 @@ export const IMAGES: Record<string, ImagesDeLegendaire> = {
     rare: ['/medaillons/janus-rare-512.4a2c63cc5d.webp', '/medaillons/janus-rare-256.c07d8ecea7.webp'],
     perso: '/medaillons/janus-perso-256.e1a0dd05bd.webp',
     rarePerso: ['/medaillons/janus-rare-perso-512.b27cadd4ad.webp', '/medaillons/janus-rare-perso-256.03a8536e17.webp'],
+  },
+  'lg:djinn': {
+    art: ['/medaillons/djinn-art-512.b0ff66cbb6.webp', '/medaillons/djinn-art-256.d87b77929e.webp'],
+    rare: ['/medaillons/djinn-rare-512.2e9926712b.webp', '/medaillons/djinn-rare-256.b1d1a6c43f.webp'],
+    perso: '/medaillons/djinn-perso-256.8feb2f604f.webp',
+    rarePerso: ['/medaillons/djinn-rare-perso-512.bf9d1266c0.webp', '/medaillons/djinn-rare-perso-256.02d0329d0b.webp'],
   },
 }

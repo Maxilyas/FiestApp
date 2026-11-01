@@ -56,6 +56,7 @@ import type { BilanDUnePartie, ButinDUnePorte, FinDUneManche, IssueDUnePartie, M
 import type { MancheMontree, RevelationDUneManche } from './jeux/index'
 import type { CleDeJeu } from './jeux/regle'
 import type { BilanDEpreuve, CleDeCarte, DepartDeLaTraversee, EpreuveEnCours, EtatDeLaTraversee, FinDeLaTraversee } from './traversee'
+import type { DefisTenus } from './sceaux'
 
 // ── La page du musée — `GET /api/cabinet` ─────────────────────────────────
 
@@ -501,6 +502,13 @@ export interface VueDeLaTraversee {
   prix: { coeur: number; cartes: Partial<Record<CleDeCarte, number>> }
   /** Les cartes qu'une amélioration offerte — le coffre, le gardien vaincu — peut prendre : la carte ++ ne s'offre pas. */
   offrables: CleDeCarte[]
+  /** Ce que la Parade peut encore parer dans cet acte (`paradesDeLActe`) ; null sans Parade, ou sans plafond (jusqu'à la version 2). */
+  parades: { restent: number; max: number } | null
+  /**
+   * Ce que cette traversée a fait tomber des défis de ses cartes et des épreuves de maître (`defisDeLaTraversee`,
+   * `shared/cabinet/defis.ts`) : toutes ses clés, et celles de sa dernière épreuve conclue — son bilan les dit.
+   */
+  sceaux: { atteints: string[]; derniers: string[] }
   partie?: VueDeLaPartie
 }
 
@@ -510,6 +518,8 @@ export interface PageDeLaTraversee {
   traversee: VueDeLaTraversee | null
   /** Ses légendaires : un gardien qu'il a déjà se dit « déjà à toi », au départ comme au choix final. */
   possedes: string[]
+  /** Ce qu'il tient des défis de ses cartes, toutes traversées confondues — le rang de chaque carte, les gardiens vaincus en maître. */
+  defis: DefisTenus
 }
 
 // ── Ce qu'on apprend ──────────────────────────────────────────────────────

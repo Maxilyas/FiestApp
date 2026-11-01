@@ -1987,6 +1987,15 @@ Le prix, que le propriétaire peut trancher autrement : la découverte. Le bon n
 
 *Fichiers : `shared/cabinet/{bareme,traversee,vues}.ts`, `server/src/core/cabinet/vue.ts`, `client/src/views/cabinet/{Traversee.tsx,Monnaies.tsx}`, `client/src/views/CabinetApp.tsx`, `client/src/styles.css`, `server/scripts/calibrage-cabinet.ts`, `server/test/cabinet-traversee.test.ts`, `server/test/cabinet-traversee-routes.test.ts`*
 
+### La traversée, version 3 : la Parade plafonnée par acte
+**Contexte** : le soir du 1er novembre 2026, le propriétaire : « J'aimerais que sur parade il y ait un maximum de parade sur l'ensemble d'un acte car sinon c'est trop fort ». À la version 2, la Parade repartait à chaque épreuve : plus on jouait d'épreuves, plus elle parait, et le moyen qui l'emportait gagnait encore 49 traversées sur cent, 17 points de plus que toutes — la plus forte des dix.
+
+**Décision** : sur tout un acte, gardien compris, elle pare au plus 2, 3 ou 4 manches selon son niveau (`PARADES_PAR_ACTE`), en plus de ses 1, 2, 2 par épreuve ; le compte repart à zéro à l'acte suivant (`EtatDeLaTraversee.pareesDeLActe`). Mesurés : 1, 2, 3 la rendait inutile (±0 chez le moyen), 2, 4, 5 laissait +7, 2, 3, 4 laisse +4 — un niveau, une manche de plus. Ce qui lui reste se dit sous sa carte (« Encore 2 dans l'acte ») et à l'annonce d'une épreuve (`VueDeLaTraversee.parades`, `paradesDeLActe`) : sans lui, une manche ratée qui coûte un cœur sous la Parade ne se comprendrait pas. C'est une version neuve, la 3 : relue au plafond, une traversée de la 2 en route aurait perdu après coup les cœurs que sa Parade lui avait gardés — la 2 garde ses chiffres, écrits en dur.
+
+**Conséquence** : la traversée durcit pour qui l'emporte — le moyen en gagne une sur quatre (32 sur cent à la version 2, 25 à la 3), l'occasionnel 6 (11), le fort 84 (85). La Panacée (+13) et le Second souffle (+11) deviennent les plus fortes. Rendre au moyen une traversée sur trois se mesure : des gardiens à 11 et 17 points de vie aux actes II et III (33 sur cent), au prix d'une Panacée et d'un Second souffle encore plus hauts (+15, +13) — à décider par le propriétaire.
+
+*Fichiers : `shared/cabinet/{bareme,traversee,vues}.ts`, `server/src/core/cabinet/vue.ts`, `client/src/views/cabinet/Traversee.tsx`, `server/test/cabinet-traversee.test.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

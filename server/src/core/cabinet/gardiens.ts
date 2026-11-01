@@ -30,7 +30,9 @@
 // (`cabinet-chronos.test.ts`).
 import { COMPAGNON_DE_L_EXPEDITION, type CleDeCompagnon } from '../../../../shared/compagnons'
 import { gardiensDus, sallesCompletes, type GardienDu, type Musee } from '../../../../shared/cabinet/musee'
-import { GARDIENS_DE_SAISON, RANGEMENT_DU_CABINET } from '../../../../shared/cabinet/salles'
+import { GARDIENS_DE_SAISON, RANGEMENT_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
+import { defisTenus, gardienDeLaMaitrise, legendaireDesDefis } from '../../../../shared/cabinet/sceaux'
+import { LEGENDAIRE_DES_DEFIS, cleDuCabinet } from '../../../../shared/legendaires'
 import type { ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 
 /**
@@ -47,6 +49,26 @@ export interface EtagereDuCabinet {
   legendairesOuverts(profileId: string, tombes: readonly string[]): string[]
   /** Offre un compagnon qui ne s'achète pas ; vrai s'il est neuf. */
   offrirUnCompagnon(profileId: string, cle: CleDeCompagnon, quand: number): Promise<boolean>
+}
+
+/**
+ * Ce qu'il faut ranger pour ce qu'une traversée a atteint (`defisDeLaTraversee`), sur une étagère qui tient déjà
+ * `rangees` : chaque clé atteinte qui manque — un rang d'un défi, un gardien vaincu en maître —, la voie du
+ * légendaire de chaque gardien vaincu en maître (`voieDuGardien` : `cabinet:dragon`, `saison:halloween` pour la
+ * Citrouille), et celle du légendaire du Cabinet quand les dix défis sont tenus à l'Or, rangés ou atteints à
+ * l'instant. Ce que l'étagère a déjà, d'où qu'il vienne, ne se range pas deux fois : un légendaire déjà à lui
+ * par une autre voie n'a pas besoin de celle-ci.
+ */
+export function clesARanger(atteintes: readonly string[], rangees: ReadonlyMap<string, number>): string[] {
+  const aRanger = new Set(atteintes)
+  for (const cle of atteintes) {
+    const gardien = gardienDeLaMaitrise(cle)
+    const voie = gardien ? voieDuGardien(gardien) : null
+    if (voie) aRanger.add(voie)
+  }
+  const tenues = [...[...rangees].filter(([, n]) => n > 0).map(([c]) => c), ...atteintes]
+  if (legendaireDesDefis(defisTenus(tenues))) aRanger.add(cleDuCabinet(LEGENDAIRE_DES_DEFIS))
+  return [...aRanger].filter(c => (rangees.get(c) ?? 0) <= 0)
 }
 
 /** Ce qu'une réconciliation a fait : ce qu'elle annonce — rien de neuf, null —, et si un pas a échoué, à refaire. */

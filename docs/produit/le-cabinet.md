@@ -2,7 +2,7 @@
 
 > Un mode pour les profils, qui a remplacé l'Expédition le 31 octobre 2026 : depuis le même soir, **une traversée en trois actes**. On choisit trois cartes parmi dix, on avance sur une carte en 3D d'épreuve en épreuve — dix petits jeux, sur des thèmes différents —, on gagne de l'or, on garde ses cœurs, on bat trois gardiens, et l'un d'eux devient son avatar légendaire. Comment on la joue, ses règles chiffrées, ce que le musée d'avant laisse, ce qui vient ensuite, puis comment c'est construit.
 
-**Dans cette page** : [En bref](#en-bref) · [La traversée](#la-traversée) · [Les dix cartes](#les-dix-cartes) · [Une épreuve](#une-épreuve) · [Les dix jeux](#les-dix-jeux) · [Les gardiens](#les-gardiens) · [Ce qu'on y gagne](#ce-quon-y-gagne) · [Les mots du Cabinet](#les-mots-du-cabinet) · [Ce que le musée laisse](#ce-que-le-musée-laisse) · [Ce que l'Expédition laisse](#ce-que-lexpédition-laisse) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
+**Dans cette page** : [En bref](#en-bref) · [La traversée](#la-traversée) · [Les dix cartes](#les-dix-cartes) · [Une épreuve](#une-épreuve) · [Les dix jeux](#les-dix-jeux) · [Les gardiens](#les-gardiens) · [Ce qu'on y gagne](#ce-quon-y-gagne) · [Les défis de tes cartes](#les-défis-de-tes-cartes) · [Les mots du Cabinet](#les-mots-du-cabinet) · [Ce que le musée laisse](#ce-que-le-musée-laisse) · [Ce que l'Expédition laisse](#ce-que-lexpédition-laisse) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
 
 > [!NOTE]
 > **Le Cabinet s'est cherché.** Le 24 octobre 2026, le propriétaire voulait refaire l'Expédition en « pleins de petits modes de jeu qui justement sont rigolos » : le Cabinet est né en musée à remplir — les 84 cartes peintes en œuvres, rangées en neuf salles, des gardiens légendaires à réveiller (`retours/2026-10-24/le-cabinet.md`) —, construit en préproduction du 25 au 30 octobre, joué par deux tablées d'agents (`retours/2026-10-25/synthese.md`, `retours/2026-10-26/synthese.md`), **ouvert en production le 31 octobre 2026** (`CABINET_EN_PRODUCTION`), l'Expédition effacée le même jour (`EXPEDITION_REMPLACEE`). Le même jour encore, une tour pour y entrer, puis une barre de quatre pièces. Et le soir : « ça fait plusieurs semaines que l'on est sur le Cabinet des curiosités / Expédition et que ça ne me convient pas » — « il faut que l'on revienne à quelque chose de très simple ». Un état des lieux, une maquette jouable validée (« Je trouve ça top »), et une seule correction : « il ne faut pas choisir de carte pendant le jeu, uniquement améliorer les cartes que l'on a choisies au début » (`retours/2026-10-31/la-partie.md`). Cette page dit le mode tel qu'il est construit depuis.
@@ -39,7 +39,7 @@ Trois à jouer d'un geste dans une manche, cinq toujours actives, une qui ne ser
 | **Échange** | à jouer : une autre manche du même jeu, avant de répondre (Changer) — jamais à la Frise | 1 · 2 · 3 fois par épreuve |
 | **Quitte ou double** | à jouer : mise sur une manche avant de la voir ; réussie, son or double ou triple ; ratée, elle coûte deux cœurs (Miser) | une fois ×2 · une fois ×3 · deux fois ×3 |
 | **Concentration** | toujours : du temps en plus à chaque manche (Prendre son temps) | +10 · +20 · +30 s |
-| **Parade** | toujours : les premières manches ratées de chaque épreuve ne coûtent pas de cœur — contre les gardiens, à la Parade ++ seulement (dès la Parade + jusqu'au 1er novembre 2026, quand elle écrasait les neuf autres) | 1 · 2 · 2 manches |
+| **Parade** | toujours : les premières manches ratées de chaque épreuve ne coûtent pas de cœur — contre les gardiens, à la Parade ++ seulement (dès la Parade + jusqu'au 1er novembre 2026, quand elle écrasait les neuf autres) ; sur tout un acte, gardien compris, elle en pare au plus 2, 3 ou 4 (depuis le soir du 1er novembre 2026), et ce qui lui reste se lit sous sa carte et à l'annonce de chaque épreuve | 1 · 2 · 2 manches par épreuve, 2 · 3 · 4 par acte |
 | **Cagnotte** | toujours : de l'or en plus à chaque manche réussie | +5 · +10 · +15 pièces |
 | **Panacée** | toujours : des cœurs de plus au maximum | +1 · +2 · +3 |
 | **Pourboire** | toujours : une remise chez le marchand, sur chaque achat | −10 · −20 · −30 pièces |
@@ -86,6 +86,32 @@ Un gardien qu'on a déjà reste un gardien à battre — la traversée se joue p
 - **Le légendaire**, au bout des trois actes : la seule chose qui sort du Cabinet, comme un gardien réveillé au musée.
 - **Chaque manche réussie est une bonne réponse de la campagne** — deux étoiles au moins, ou la bonne réponse au Pari : un confetti, l'expérience d'une bonne réponse, un pas pour le compagnon, les missions du jour. Comme partout en solo.
 - **L'or ne sert que dans la traversée** : au marchand. Il n'en sort jamais, ne s'achète pas, et une traversée perdue le perd avec elle.
+- **Les défis de tes cartes et les épreuves de maître** ([plus bas](#les-défis-de-tes-cartes)) : des confettis, un dos de carte doré, des titres, une gerbe, et des légendaires — le gardien vaincu en maître, le Djinn aux dix défis tenus à l'Or.
+
+## Les défis de tes cartes
+
+Le 1er novembre 2026 : « comme c'est dur d'équilibrer les cartes, est-ce que l'on pourrait pas avoir des choses à gagner en fonction des cartes que l'on a sur nous ». La proposition validée le même jour (`retours/2026-11-01/defis-des-cartes.md`) : **chaque carte porte un défi au dos, qui ne compte que si elle est dans ta main**. Une carte un peu faible devient intéressante pour ce qu'elle fait gagner, sans qu'on retouche ce qu'elle fait en jeu ; beaucoup demandent de l'avoir et de s'en passer. Rien de neuf dans la traversée — une cinquième notion n'y entre pas : le défi est écrit au dos de la carte, au choix des trois cartes et dans « Tes cartes ».
+
+**Trois rangs, Bronze, Argent, Or**, de plus en plus durs. Un rang tenu est à toi pour toujours, même si la traversée tombe ensuite ; tenir un rang donne ceux d'en dessous. Le bilan de l'épreuve qui le fait tomber le dit, la fin de la traversée aussi.
+
+| Carte | Le défi | Bronze | Argent | Or |
+|---|---|---|---|---|
+| Coup d'œil | **L'Œil nu** | un acte fini sans un Coup d'œil | deux actes | la traversée gagnée sans un Coup d'œil |
+| Échange | **L'Obstiné** | un acte fini sans un Échange | deux actes | la traversée gagnée sans un Échange |
+| Quitte ou double | **Le Flambeur** | cinq mises gagnées dans une traversée | six d'affilée | huit d'affilée |
+| Concentration | **Le Sang-Froid** | un acte fini sans puiser dans le temps en plus | deux actes | la traversée gagnée ainsi |
+| Parade | **Sans filet** | un acte fini sans qu'une Parade serve | deux actes | la traversée gagnée ainsi |
+| Cagnotte | **Le Trésorier** | 150 pièces en poche à la chute d'un gardien | 300 | 500 à la chute du dernier |
+| Panacée | **L'Increvable** | un acte fini sans perdre un cœur | deux actes | la traversée gagnée ainsi |
+| Pourboire | **L'Avare** | un acte fini sans rien acheter | deux actes | la traversée gagnée sans rien acheter |
+| Coup de grâce | **L'Exécuteur** | un gardien abattu dès la deuxième manche de ton premier assaut | un gardien de l'acte II ou III vaincu au premier assaut | celui de l'acte III au premier assaut |
+| Second souffle | **Le Revenant** | ton Second souffle sert, et tu finis l'acte | la traversée gagnée après lui | il sert avant l'acte III, et la traversée est gagnée |
+
+**Ce qu'ils rapportent**, une fois chacun : **25 confettis au Bronze, 75 à l'Argent** — et le dos de la carte doré au choix des cartes —, et à l'**Or, un titre** à porter sur ta carte, le nom du défi (« Le Trésorier »). Cinq défis tenus à l'Argent ouvrent **la gerbe des cartes** (🃏 ♠️ ♥️ ♦️ ♣️) ; les dix tenus à l'Or, **le Djinn**, un légendaire qui ne se gagne que là.
+
+**Les épreuves de maître** : chaque gardien a la sienne, dans l'esprit de sa devise, dite dès l'écran de ses trois gardiens — avant de choisir ses cartes : certaines s'y préparent — et dans son annonce. **Vaincu ainsi, il est à toi aussitôt**, quoi qu'il arrive ensuite, comme le légendaire choisi au bout : le Renard et la Chouette sans perdre une étoile contre eux, le Coq et le Tigre dès la deuxième manche de ton premier assaut, le Scarabée avec 120 pièces en poche, la Salamandre avec 250, le Dragon avec 350, la Citrouille et Janus d'un coup porté sur une mise, le Sphinx, l'Oracle et la Chimère sans rater une manche contre eux, la Chauve-souris, le Phénix et l'Ouroboros dans l'assaut même où tu perds un cœur, le Fantôme, le Serpent et le Trou noir sans perdre un cœur contre eux, le Kraken après que ton Second souffle t'a relevé contre lui, le Lion et la Comète au premier assaut.
+
+Tout se lit du journal de la traversée, rien ne s'écrit à côté : une épreuve conclue porte maintenant ce qui y a servi (un Coup d'œil, un Échange, le temps en plus), et ce qu'une traversée atteint se range sur ton profil, une fois pour toutes (l'invariant 22). **Les traversées jouées avant les défis se sont relues une fois**, au démarrage qui les a apportés : ce qu'elles avaient déjà tenu t'a été offert d'emblée — ce qui avait servi dans leurs épreuves repris de leurs parties. Les chiffres, et ce que le calibrage en dit : [les barèmes](../reference/baremes.md#les-défis-de-tes-cartes-et-les-épreuves-de-maître).
 
 ## Les mots du Cabinet
 
@@ -120,7 +146,7 @@ Le bouton dit la traversée en route — « Acte 2 sur 3 · 4 cœurs », « En r
 
 ## Ce qui vient ensuite
 
-- **Relire la traversée sur de vraies parties** : ses chiffres sont ceux du calibrage du 1er novembre 2026 (« Les cartes sont aussi très fortes », le propriétaire) — le moyen y gagne une traversée sur trois, le fort huit sur dix ([les barèmes](../reference/baremes.md#le-calibrage-du-cabinet)) —, sur un modèle de joueur que de vraies traversées corrigeront. **La Parade**, qui écrasait les autres cartes (le moyen qui l'emportait gagnait 77 traversées sur cent), ne pare plus les gardiens qu'à la Parade ++ (« Tu peux toucher la parade si tu le souhaites pour affaiblir un peu la carte », le propriétaire) : elle reste la meilleure défense, 20 points au-dessus de la moyenne chez le joueur moyen, la Panacée et le Second souffle à 10 ([les décisions](../architecture/decisions.md), « La traversée, version 2 »).
+- **Relire la traversée sur de vraies parties** : ses chiffres sont ceux du calibrage du 1er novembre 2026 (« Les cartes sont aussi très fortes », le propriétaire) — le moyen y gagne une traversée sur trois, le fort huit sur dix ([les barèmes](../reference/baremes.md#le-calibrage-du-cabinet)) —, sur un modèle de joueur que de vraies traversées corrigeront. **La Parade**, qui écrasait les autres cartes (le moyen qui l'emportait gagnait 77 traversées sur cent), ne pare plus les gardiens qu'à la Parade ++ (« Tu peux toucher la parade si tu le souhaites pour affaiblir un peu la carte », le propriétaire) : elle restait la meilleure défense, 20 points au-dessus de la moyenne chez le joueur moyen, la Panacée et le Second souffle à 10 ([les décisions](../architecture/decisions.md), « La traversée, version 2 »). Plafonnée par acte le soir même (« un maximum de parade sur l'ensemble d'un acte car sinon c'est trop fort », le propriétaire), elle n'en fait plus que 4, et le moyen gagne une traversée sur quatre ; des gardiens un peu moins solides lui rendraient la troisième (« La traversée, version 3 »).
 - **Effacer le musée** — son code, ses routes, ses tables —, s'il ne revient pas.
 - **Après la V1** : l'Épingle du monde ; le dévoilement, le rébus et les curiosités en jeux ; un dictionnaire pour le Mot mystère ; le signalement du contenu neuf ; une page du QG pour le Cabinet.
 
@@ -135,7 +161,8 @@ Le bouton dit la traversée en route — « Acte 2 sur 3 · 4 cœurs », « En r
 | Les améliorations | offertes (le coffre, le gardien vaincu) jusqu'à la carte + ; la carte ++ chez le marchand seulement |
 | Le marchand | un cœur 25, vers la carte + 45, vers la carte ++ 150, jamais moins de 5 |
 | Les gardiens | 6, 13, 20 points de vie ; assauts de 3 manches |
-| La Parade | 1, 2, 2 manches ratées parées par épreuve ; contre les gardiens à la Parade ++ |
+| La Parade | 1, 2, 2 manches ratées parées par épreuve ; contre les gardiens à la Parade ++ ; au plus 2, 3, 4 par acte, gardien compris |
+| Une traversée de la version 2, commencée avant la 3 | sa Parade sans plafond sur l'acte, jusqu'au bout |
 | Une traversée de la version 1, commencée avant la 2 | ses chiffres d'alors, jusqu'au bout : 5 cœurs, 5 pièces l'étoile, des gardiens à 6, 8, 10, la carte ++ offerte et à 45, la Parade à 1, 1, 2 et contre les gardiens dès la Parade + |
 | La difficulté | acte I facile, II moyen, III difficile ; un cran au-dessus contre les gardiens |
 | Une épreuve | 3 manches de 3 étoiles, une manche réussie à 2 étoiles naturelles |

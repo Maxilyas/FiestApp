@@ -72,7 +72,8 @@ import {
   type EtatDeLaPartie,
   type MancheDuPli,
 } from '../../../../shared/cabinet/partie'
-import { ameliorables, atteignables, carteDeLaTraversee, coeursMax, offrables, prixAuMarchand } from '../../../../shared/cabinet/traversee'
+import { ameliorables, atteignables, carteDeLaTraversee, coeursMax, offrables, paradesDeLActe, prixAuMarchand } from '../../../../shared/cabinet/traversee'
+import { defisDeLaTraversee } from '../../../../shared/cabinet/defis'
 import { POUVOIRS, ceQueFaitLaCarte } from '../../../../shared/cabinet/pouvoirs'
 import { AUTRES_GARDIENS, GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, SALLES, conditionDuGardien, pouvoirDuGardien, salle, voieDuGardien } from '../../../../shared/cabinet/salles'
 import type {
@@ -466,6 +467,8 @@ export function vueDeLaPartie(p: PartieLue): VueDeLaPartie {
  */
 export function vueDeLaTraversee(tr: TraverseeGardee, partie: PartieLue | null, maintenant: number): VueDeLaTraversee {
   const { depart: d, etat: e } = tr
+  // Ce que ses épreuves ont fait tomber des défis : relu de son journal à chaque vue, comme son état — une cinquantaine de gestes.
+  const defis = defisDeLaTraversee(d, tr.gestes)
   return {
     id: tr.id,
     v: d.v,
@@ -493,6 +496,8 @@ export function vueDeLaTraversee(tr: TraverseeGardee, partie: PartieLue | null, 
     atteignables: atteignables(d, e),
     prix: { coeur: prixAuMarchand(d, 'coeur', e.cartes), cartes: Object.fromEntries(ameliorables(e).map(c => [c.cle, prixAuMarchand(d, 'amelioration', e.cartes, c.cle)])) },
     offrables: offrables(d, e).map(c => c.cle),
+    parades: paradesDeLActe(d, e),
+    sceaux: { atteints: defis.cles, derniers: [...((e.derniere && defis.parPartie.get(e.derniere.partie)) ?? [])] },
     ...(partie && { partie: vueDeLaPartie(partie) }),
   }
 }
@@ -503,6 +508,7 @@ export function pageDeLaTraversee(l: LectureDeLaTraversee): PageDeLaTraversee {
     maintenant: l.maintenant,
     traversee: l.traversee ? vueDeLaTraversee(l.traversee, l.partie, l.maintenant) : null,
     possedes: [...l.possedes],
+    defis: l.defis,
   }
 }
 
